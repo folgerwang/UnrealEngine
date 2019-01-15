@@ -98,7 +98,6 @@ FVorbisAudioInfo::FVorbisAudioInfo( void )
 	, SrcBufferDataSize(0)
 	, BufferOffset(0)
 	, CurrentBufferChunkOffset(0)
-	, bPerformingOperation(false)
 	, StreamingSoundWave(NULL)
 	, CurrentStreamingChunkData(nullptr)
 	, CurrentStreamingChunkIndex(INDEX_NONE)
@@ -111,9 +110,6 @@ FVorbisAudioInfo::FVorbisAudioInfo( void )
 
 FVorbisAudioInfo::~FVorbisAudioInfo( void )
 {
-	// Make sure we're not deleting ourselves while performing an operation
-	ensure(!bPerformingOperation);
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 	check(VFWrapper != nullptr);
 	delete VFWrapper;
@@ -269,6 +265,11 @@ static int OggCloseStreaming( void *datasource )
 
 bool FVorbisAudioInfo::GetCompressedInfoCommon(void* Callbacks, FSoundQualityInfo* QualityInfo)
 {
+	if (!bDllLoaded)
+	{
+		return false;
+	}
+
 	// Set up the read from memory variables
 	int Result = ov_open_callbacks(this, &VFWrapper->vf, NULL, 0, (*(ov_callbacks*)Callbacks));
 	if (Result < 0)
@@ -312,15 +313,12 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 		return false;
 	}
 
-	bPerformingOperation = true;
-
 	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
 
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	if (!VFWrapper)
 	{
-		bPerformingOperation = false;
 		return false;
 	}
 
@@ -337,8 +335,6 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 
 	bool result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
 
-	bPerformingOperation = false;
-
 	return( result );
 }
 
@@ -352,8 +348,6 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 	{
 		return;
 	}
-
-	bPerformingOperation = true;
 
 	uint32		TotalBytesRead, BytesToRead;
 
@@ -376,15 +370,12 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 		{
 			// indicates an error - fill remainder of buffer with zero
 			FMemory::Memzero(Destination, BytesToRead - TotalBytesRead);
-			bPerformingOperation = false;
 			return;
 		}
 
 		TotalBytesRead += BytesRead;
 		Destination += BytesRead;
 	}
-
-	bPerformingOperation = false;
 }
 
 
@@ -405,8 +396,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 	{
 		return true;
 	}
-
-	bPerformingOperation = true;
 
 	bool		bLooped;
 	uint32		TotalBytesRead;
@@ -442,7 +431,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 				{
 					// indicates an error - fill remainder of buffer with zero
 					FMemory::Memzero(Destination, BufferSize - TotalBytesRead);
-					bPerformingOperation = false;
 					return true;
 				}
 			}
@@ -458,7 +446,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 		{
 			// indicates an error - fill remainder of buffer with zero
 			FMemory::Memzero(Destination, BufferSize - TotalBytesRead);
-			bPerformingOperation = false;
 			return false;
 		}
 
@@ -466,7 +453,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 		Destination += BytesRead;
 	}
 
-	bPerformingOperation = false;
 	return( bLooped );
 }
 
@@ -477,14 +463,10 @@ void FVorbisAudioInfo::SeekToTime( const float SeekTime )
 		return;
 	}
 
-	bPerformingOperation = true;
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	const float TargetTime = FMath::Min(SeekTime, (float)ov_time_total(&VFWrapper->vf, -1));
 	ov_time_seek( &VFWrapper->vf, TargetTime );
-
-	bPerformingOperation = false;
 }
 
 void FVorbisAudioInfo::EnableHalfRate( bool HalfRate )
@@ -494,26 +476,19 @@ void FVorbisAudioInfo::EnableHalfRate( bool HalfRate )
 		return;
 	}
 
-	bPerformingOperation = true;
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	ov_halfrate(&VFWrapper->vf, int32(HalfRate));
-
-	bPerformingOperation = false;
 }
 
 bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo)
 {
-	bPerformingOperation = true;
-
 	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
 
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	if (!VFWrapper)
 	{
-		bPerformingOperation = false;
 		return false;
 	}
 
@@ -529,17 +504,14 @@ bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQuali
 	Callbacks.seek_func = NULL;	// Force streaming
 	Callbacks.tell_func = NULL;	// Force streaming
 
-	bool result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
+	bool Result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
 
-	bPerformingOperation = false;
-
-	return( result );
+	return( Result );
 }
 
 bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping, uint32 BufferSize)
 {
 	check( VFWrapper != NULL );
-	bPerformingOperation = true;
 
 #if PLATFORM_ANDROID
 	// Something on android spams threads, so we will only mark the GT and AT
@@ -569,17 +541,25 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 			// We've reached the end
 			bLooped = true;
 
+			// Clean up decoder state:
+			BufferOffset = 0;
+			ov_clear(&VFWrapper->vf);
+			FMemory::Memzero(&VFWrapper->vf, sizeof(OggVorbis_File));
+
 			// If we're looping, then we need to make sure we wrap the stream chunks back to 0
 			if (bLooping)
 			{
 				NextStreamingChunkIndex = 0;
 			}
+			else
+			{
+				// Need to clear out the remainder of the buffer
+				FMemory::Memzero(InDestination, BufferSize);
+				BytesActuallyRead = BufferSize;
+				break;
+			}
 
-			BufferOffset = 0;
-
-			// Since we can't tell a streaming file to go back to the start of the stream (there is no seek) we have to close and reopen it which is a bummer
-			ov_clear(&VFWrapper->vf);
-			FMemory::Memzero( &VFWrapper->vf, sizeof( OggVorbis_File ) );
+			// Since we can't tell a streaming file to go back to the start of the stream (there is no seek) we have to close and reopen it.
 			ov_callbacks Callbacks;
 			Callbacks.read_func = OggReadStreaming;
 			Callbacks.close_func = OggCloseStreaming;
@@ -592,12 +572,6 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 				break;
 			}
 
-			if( !bLooping )
-			{
-				// Need to clear out the remainder of the buffer
-				FMemory::Memzero(InDestination, BufferSize);
-				break;
-			}
 			// else we start over to get the samples from the start of the compressed audio data
 			continue;
 		}
@@ -605,8 +579,6 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 		InDestination += BytesActuallyRead;
 		BufferSize -= BytesActuallyRead;
 	}
-
-	bPerformingOperation = false;
 
 	return( bLooped );
 }

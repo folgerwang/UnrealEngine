@@ -881,6 +881,11 @@ public:
 	virtual void CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY ) { }
 
 	/**
+	 * Called from slate when input is finished for this frame, and we should process any queued mouse moves.
+	 */
+	virtual void ProcessAccumulatedPointerInput(FViewport* InViewport) {};
+
+	/**
 	 * Retrieves the cursor that should be displayed by the OS
 	 *
 	 * @param	Viewport	the viewport that contains the cursor

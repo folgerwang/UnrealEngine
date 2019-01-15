@@ -257,17 +257,25 @@ class FExponentialHeightFogSceneInfo
 {
 public:
 
+	struct FExponentialHeightFogSceneData
+	{
+		float Height;
+		float Density;
+		float HeightFalloff;
+	};
+
+	/** Number of supported individual fog settings on this ExponentialHeightFog */
+	static constexpr int NumFogs = 2;
+
 	/** The fog component the scene info is for. */
 	const UExponentialHeightFogComponent* Component;
-	float FogHeight;
-	float FogDensity;
-	float FogHeightFalloff;
+	FExponentialHeightFogSceneData FogData[NumFogs];
 	float FogMaxOpacity;
-	float StartDistance;
+	float StartDistance; 
 	float FogCutoffDistance;
 	float LightTerminatorAngle;
 	FLinearColor FogColor;
-	float DirectionalInscatteringExponent;
+	float DirectionalInscatteringExponent; 
 	float DirectionalInscatteringStartDistance;
 	FLinearColor DirectionalInscatteringColor;
 	UTextureCube* InscatteringColorCubemap;

@@ -3,7 +3,7 @@
 /*=============================================================================
 	OpenGLShaders.cpp: OpenGL shader RHI implementation.
 =============================================================================*/
- 
+
 #include "OpenGLShaders.h"
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
@@ -2198,7 +2198,12 @@ class FGLProgramCacheLRU
 	{
 		SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderLRUEvictTime);
 		LinkedProgram->LRUInfo.LRUNode = FSetElementId();
-		LinkedProgram->LRUInfo.EvictBucket = -1;
+
+		if (LinkedProgram->LRUInfo.EvictBucket >= 0)
+		{
+			// remove it from the delayed eviction container since we're evicting now.
+			FDelayedEvictionContainer::Get().Remove(LinkedProgram);
+		}
 
 		DEC_DWORD_STAT(STAT_OpenGLShaderLRUProgramCount);
 
@@ -2974,6 +2979,10 @@ static void VerifyUniformBufferLayouts(GLuint Program)
 				glGetActiveUniformBlockiv(Program, BlockIndex, GL_UNIFORM_BLOCK_REFERENCED_BY_TESS_CONTROL_SHADER, &ReferencedByHS);
 				glGetActiveUniformBlockiv(Program, BlockIndex, GL_UNIFORM_BLOCK_REFERENCED_BY_TESS_EVALUATION_SHADER, &ReferencedByDS);
 #endif
+			}
+			
+			if (RHISupportsComputeShaders(GMaxRHIShaderPlatform))
+			{
 #ifdef GL_UNIFORM_BLOCK_REFERENCED_BY_COMPUTE_SHADER 
 				glGetActiveUniformBlockiv(Program, BlockIndex, GL_UNIFORM_BLOCK_REFERENCED_BY_COMPUTE_SHADER, &ReferencedByCS);
 #endif
@@ -3185,7 +3194,7 @@ FComputeShaderRHIRef FOpenGLDynamicRHI::RHICreateComputeShader(FRHIShaderLibrary
 
 FComputeShaderRHIRef FOpenGLDynamicRHI::RHICreateComputeShader(const TArray<uint8>& Code)
 {
-	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
+	check(RHISupportsComputeShaders(GMaxRHIShaderPlatform));
 	
 	FOpenGLComputeShader* ComputeShader = CompileOpenGLShader<FOpenGLComputeShader>(Code, FSHAHash());
 	const ANSICHAR* GlslCode = NULL;

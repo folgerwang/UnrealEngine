@@ -46,7 +46,7 @@ static FAutoConsoleVariableRef CVarVulkanExtensionFramePacer(
 
 static int32 GPrintVulkanVsyncDebug = 0;
 
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+#if !(UE_BUILD_SHIPPING)
 static FAutoConsoleVariableRef CVarVulkanDebugVsync(
 	TEXT("r.Vulkan.DebugVsync"),
 	GPrintVulkanVsyncDebug,
@@ -104,7 +104,6 @@ VkResult SimulateErrors(VkResult Result)
 
 #endif
 
-extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
 extern TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue;
 static TSet<EPixelFormat> GPixelFormatNotSupportedWarning;
 
@@ -121,10 +120,6 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	, LockToVsync(InLockToVsync)
 {
 	check(FVulkanPlatform::SupportsStandardSwapchain());
-
-#if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
-	FMemory::Memzero(HistoricalPresentData);
-#endif
 
 	// let the platform create the surface
 	FVulkanPlatform::CreateSurface(WindowHandle, Instance, &Surface);
@@ -394,10 +389,10 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	SwapChainInfo.imageColorSpace = CurrFormat.colorSpace;
 	SwapChainInfo.imageExtent.width = SizeX;
 	SwapChainInfo.imageExtent.height = SizeY;
-	SwapChainInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	//if (GCVarDelayAcquireBackBuffer->GetInt() != 0) Android does not use DelayAcquireBackBuffer, still has to have VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+	SwapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (GVulkanDelayAcquireImage == EDelayAcquireImageType::DelayAcquire)
 	{
-		SwapChainInfo.imageUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		SwapChainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 	SwapChainInfo.preTransform = PreTransform;
 	SwapChainInfo.imageArrayLayers = 1;
@@ -452,14 +447,9 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	}
 
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
-	VkRefreshCycleDurationGOOGLE RefreshCycleData;
 	if (Device.GetOptionalExtensions().HasGoogleDisplayTiming)
 	{
-		VkResult Result = VulkanDynamicAPI::vkGetRefreshCycleDurationGOOGLE(Device.GetInstanceHandle(), SwapChain, &RefreshCycleData);
-		checkf(Result == VK_SUCCESS, TEXT("%i"), Result);
-		RefreshRateNanoSec = RefreshCycleData.refreshDuration;
-
-		//little hacky but disable this one by default if extension is available and enabled.  eventually may want to do this per device
+		GDTimingFramePacer = MakeUnique<FGDTimingFramePacer>(Device, SwapChain);
 		if (GVulkanExtensionFramePacer)
 		{
 			GVulkanCPURenderThreadFramePacer = 0;
@@ -583,6 +573,176 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 	return CurrentImageIndex;
 }
 
+#if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
+FGDTimingFramePacer::FGDTimingFramePacer(FVulkanDevice& InDevice, VkSwapchainKHR InSwapChain)
+	: Device(InDevice)
+	, SwapChain(InSwapChain)
+{
+	VkRefreshCycleDurationGOOGLE RefreshCycleDuration;
+	VkResult Result = VulkanDynamicAPI::vkGetRefreshCycleDurationGOOGLE(Device.GetInstanceHandle(), SwapChain, &RefreshCycleDuration);
+	checkf(Result == VK_SUCCESS, TEXT("vkGetRefreshCycleDurationGOOGLE failed: %i"), Result);
+
+	RefreshDuration = RefreshCycleDuration.refreshDuration;
+	ensure(RefreshDuration > 0);
+	if (RefreshDuration == 0)
+	{
+		RefreshDuration = 16666667;
+	}
+	HalfRefreshDuration = (RefreshDuration / 2);
+
+	FMemory::Memzero(CpuPresentTimeHistory);
+	FMemory::Memzero(PresentTime); 
+
+	ZeroVulkanStruct(PresentTimesInfo, VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE);
+	PresentTimesInfo.swapchainCount = 1;
+	PresentTimesInfo.pTimes = &PresentTime;
+}
+
+static uint64 TimeNanoseconds()
+{
+#if PLATFORM_ANDROID
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec*1000000000ull + ts.tv_nsec;
+#else
+	return (uint64)(FPlatformTime::Seconds()*1000000000.0);
+#endif
+}
+
+void FGDTimingFramePacer::ScheduleNextFrame(uint32 InPresentID, int32 InSyncInterval)
+{
+	UpdateSyncDuration(InSyncInterval);
+	if (SyncDuration == 0)
+	{
+		return;
+	}
+
+	PollPastFrameInfo();
+	if (!LastKnownFrameInfo.bValid)
+	{
+		LastScheduledPresentTime = 0;
+		return;
+	}
+
+	const uint64 CpuPresentTime = TimeNanoseconds();
+	const int32 HistorySize = ARRAY_COUNT(CpuPresentTimeHistory);
+	const int32 HistoryIndex = InPresentID % HistorySize;
+	CpuPresentTimeHistory[HistoryIndex] = CpuPresentTime;
+	
+	uint64 CpuTargetPresentTime = CalculateNearestPresentTime(CpuPresentTime);
+	uint64 GpuTargetPresentTime = CalculateNearestVsTime(LastKnownFrameInfo.ActualPresentTime, PredictLastScheduledFramePresentTime(InPresentID) + SyncDuration);
+	
+	uint64 TargetPresentTime = FMath::Max(CpuTargetPresentTime, GpuTargetPresentTime);
+	LastScheduledPresentTime = TargetPresentTime;
+
+	PresentTime.presentID = InPresentID;
+	PresentTime.desiredPresentTime = (TargetPresentTime - HalfRefreshDuration);
+
+	if (GPrintVulkanVsyncDebug != 0)
+	{
+		double cpuP = CpuTargetPresentTime/1000000000.0;
+		double gpuP = GpuTargetPresentTime/1000000000.0;
+		double desP = PresentTime.desiredPresentTime/1000000000.0;
+		double lastP = LastKnownFrameInfo.ActualPresentTime/1000000000.0;
+		double cpuDelta = CpuToGpuPresentDelta/1000000000.0;
+		double cpuNow = CpuPresentTime/1000000000.0;
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" -- ID: %u, desired %.3f, pred-gpu %.3f, pred-cpu %.3f, last: %.3f, cpu-gpu-delta: %.3f, now-cpu %.3f"), PresentTime.presentID, desP, gpuP, cpuP, lastP, cpuDelta, cpuNow);
+	}
+}
+
+void FGDTimingFramePacer::UpdateSyncDuration(int32 InSyncInterval)
+{
+	if (SyncInterval == InSyncInterval)
+	{
+		return;
+	}
+	SyncInterval = InSyncInterval;
+
+	// reset cached history on sync interval changes
+	FMemory::Memzero(CpuPresentTimeHistory);
+	LastKnownFrameInfo.bValid = false;
+	LastScheduledPresentTime = 0;
+	
+	SyncDuration = ((1000000000llu * FMath::Clamp(SyncInterval, 0, 3) + 30) / 60);
+	if (SyncDuration > 0)
+	{
+		SyncDuration = (FMath::Max((SyncDuration + HalfRefreshDuration) / RefreshDuration, 1llu) * RefreshDuration);
+	}
+}
+
+uint64 FGDTimingFramePacer::PredictLastScheduledFramePresentTime(uint32 CurrentPresentID) const
+{
+	const uint32 PredictFrameCount = (CurrentPresentID - LastKnownFrameInfo.PresentID - 1);
+	return FMath::Max(LastScheduledPresentTime, LastKnownFrameInfo.ActualPresentTime + (SyncDuration * PredictFrameCount));
+}
+
+uint64 FGDTimingFramePacer::CalculateNearestPresentTime(uint64 CpuPresentTime) const
+{
+	const uint64 NearestGpuPresentTime = CpuPresentTime + CpuToGpuPresentDelta;
+	return CalculateNearestVsTime(LastKnownFrameInfo.ActualPresentTime, NearestGpuPresentTime - HalfRefreshDuration);
+}
+
+uint64 FGDTimingFramePacer::CalculateNearestVsTime(uint64 ActualPresentTime, uint64 TargetTime) const
+{
+	if (TargetTime > ActualPresentTime)
+	{
+		return (ActualPresentTime + ((TargetTime - ActualPresentTime) + HalfRefreshDuration) / RefreshDuration * RefreshDuration);
+	}
+	return ActualPresentTime;
+}
+
+void FGDTimingFramePacer::PollPastFrameInfo()
+{
+	for (;;)
+	{
+		// MUST call once with nullptr to get the count, or the API won't return any results at all.
+		uint32 Count = 0;
+		VkResult Result = VulkanDynamicAPI::vkGetPastPresentationTimingGOOGLE(Device.GetInstanceHandle(), SwapChain, &Count, nullptr);
+		checkf(Result == VK_SUCCESS, TEXT("vkGetPastPresentationTimingGOOGLE failed: %i"), Result);
+
+		if (Count == 0)
+		{
+			break;
+		}
+		
+		Count = 1;
+		VkPastPresentationTimingGOOGLE PastPresentationTiming;
+		Result = VulkanDynamicAPI::vkGetPastPresentationTimingGOOGLE(Device.GetInstanceHandle(), SwapChain, &Count, &PastPresentationTiming);
+		checkf(Result == VK_SUCCESS || Result == VK_INCOMPLETE, TEXT("vkGetPastPresentationTimingGOOGLE failed: %i"), Result);
+
+		LastKnownFrameInfo.PresentID = PastPresentationTiming.presentID;
+		LastKnownFrameInfo.ActualPresentTime = PastPresentationTiming.actualPresentTime;
+		LastKnownFrameInfo.bValid = true;
+
+		UpdateCpuToGpuPresentDelta(PastPresentationTiming);
+	}
+}
+
+void FGDTimingFramePacer::UpdateCpuToGpuPresentDelta(const VkPastPresentationTimingGOOGLE& PastPresentationTiming)
+{
+	const int32 HistorySize = ARRAY_COUNT(CpuPresentTimeHistory);
+	if ((PresentTime.presentID - PastPresentationTiming.presentID) >= HistorySize)
+	{
+		return;
+	}
+		
+	const int32 HistoryIndex = PastPresentationTiming.presentID % HistorySize;
+	const uint64 PastCpuPresentTime = CpuPresentTimeHistory[HistoryIndex];
+	if (PastCpuPresentTime == 0)
+	{
+		CpuToGpuPresentDelta = SyncDuration;
+		return;
+	}
+
+	// "presentMargin" may be negative despite being unsigned
+	const uint64 Delta = PastPresentationTiming.earliestPresentTime - (PastCpuPresentTime + (int64_t&)PastPresentationTiming.presentMargin);
+	const uint64 FilterParam = (CpuToGpuPresentDelta == 0) ? 0 : 10; // greater -> smoother
+	CpuToGpuPresentDelta = (CpuToGpuPresentDelta * FilterParam + Delta) / (FilterParam + 1);
+	// filter out bad frames, in general delta should be 2-4 sync durations
+	CpuToGpuPresentDelta = FMath::Min(CpuToGpuPresentDelta, SyncDuration*4);
+}
+#endif //VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
+
 void FVulkanSwapChain::RenderThreadPacing()
 {
 	check(IsInRenderingThread());
@@ -667,207 +827,31 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	FVulkanPlatform::EnablePresentInfoExtensions(Info);
 
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
-	// These are referenced by VkPresentInfoKHR, so they need to be at the same level in the stack
-	VkPresentTimeGOOGLE PresentControl;
-	VkPresentTimesInfoGOOGLE PresentControlInfo;
-	if (Device.GetOptionalExtensions().HasGoogleDisplayTiming)
+	if (GVulkanExtensionFramePacer && Device.GetOptionalExtensions().HasGoogleDisplayTiming)
 	{
-		if (GVulkanExtensionFramePacer)
-		{
-			if (SyncInterval != PreviousSyncInterval)
-			{
-				PreviousEmittedPresentTime = 0;
-				FMemory::Memzero(HistoricalPresentData);
-				PreviousSyncInterval = SyncInterval;
-			}
-
-			const uint64 TargetFlipRate = FMath::Clamp(SyncInterval, 0, 3);
-			int64 SyncIntervalNanos = (30 + 1000000000l * int64(SyncInterval)) / 60;
-			int32 UnderDriverInterval = int32(SyncIntervalNanos / RefreshRateNanoSec);
-			int32 OverDriverInterval = UnderDriverInterval + 1;
-			int64 UnderNanos = int64(UnderDriverInterval) * RefreshRateNanoSec;
-			int64 OverNanos = int64(OverDriverInterval) * RefreshRateNanoSec;
-			const uint64 TargetInterval = (FMath::Abs(SyncIntervalNanos - UnderNanos) < FMath::Abs(SyncIntervalNanos - OverNanos)) ? UnderNanos : OverNanos;
-			//UE_LOG(LogVulkanRHI, Log, TEXT("syncinterval: %i, targetflipL %i, synintervalns: %llu, UnderDriverInterval: %i, OverInterval: %i, UnderNanos: %llu, Overnanos: %llu, TargetInterval: %llu"), SyncInterval, TargetFlipRate, SyncIntervalNanos, UnderDriverInterval, OverDriverInterval, UnderNanos, OverNanos, TargetInterval);
-			//const uint64 TargetInterval = TargetFlipRate * RefreshRateNanoSec;
-
-			VkPastPresentationTimingGOOGLE PastFrameTimingData[MaxHistoricalPresentData];
-
-			//MUST call once with nullptr to get the count, or the API won't return any results at all.
-			uint32 TotalRead = 0;
-			VkResult Result = VulkanDynamicAPI::vkGetPastPresentationTimingGOOGLE(Device.GetInstanceHandle(), SwapChain, &TotalRead, nullptr);
-			checkf(Result == VK_SUCCESS, TEXT("vkGetPastPresentationTimingGOOGLE failed: %i"), Result);
-			TotalRead = FMath::Min(TotalRead, (uint32)MaxHistoricalPresentData);
-
-			if (TotalRead > 0)
-			{
-				Result = VK_INCOMPLETE;
-				while (Result == VK_INCOMPLETE)
-				{
-					//this tells vkGetPastPresentationTimingGOOGLE the maximum to fill, and it gets modified with the actual count written
-					Result = VulkanDynamicAPI::vkGetPastPresentationTimingGOOGLE(Device.GetInstanceHandle(), SwapChain, &TotalRead, PastFrameTimingData);
-					for (int32 i = 0; i < TotalRead; ++i)
-					{
-						FPresentData& PresentData = HistoricalPresentData[NextHistoricalData];
-						PresentData.PresentID = PastFrameTimingData[i].presentID;
-						PresentData.ActualPresentTime = PastFrameTimingData[i].actualPresentTime;
-						PresentData.DesiredPresentTime = PastFrameTimingData[i].desiredPresentTime;
-						NextHistoricalData = (NextHistoricalData + 1) % MaxHistoricalPresentData;
-					}
-				}
-			}
-			checkf(Result == VK_SUCCESS, TEXT("vkGetPastPresentationTimingGOOGLE failed: %i"), Result);
-
-			const int32 LastKnownFrameIndex = (NextHistoricalData - 1) < 0 ? (MaxHistoricalPresentData - 1) : (NextHistoricalData - 1);
-			if (TotalRead > 0 && GPrintVulkanVsyncDebug)
-			{
-				const int32 PrevLastKnownFrameIndex = (NextHistoricalData - 2) < 0 ? (MaxHistoricalPresentData - FMath::Abs(NextHistoricalData - 2)) : (NextHistoricalData - 2);
-				uint64 PrevTime = HistoricalPresentData[PrevLastKnownFrameIndex].ActualPresentTime;
-
-				const VkPastPresentationTimingGOOGLE& MostRecentKnownPresentedFrame = PastFrameTimingData[TotalRead - 1];
-				uint64 LastKnownPresentedTime = MostRecentKnownPresentedFrame.actualPresentTime;
-				uint64 LastKnownPresentedID = MostRecentKnownPresentedFrame.presentID;
-
-				uint64 PresentDiff = LastKnownPresentedTime - PrevTime;
-
-				uint64 ActualDesiredDiffNS = MostRecentKnownPresentedFrame.actualPresentTime - MostRecentKnownPresentedFrame.desiredPresentTime;
-				float ActualDesiredDiffMS = (double)ActualDesiredDiffNS / 1000000.0;
-				float ActualPresentDiffMS = (double)PresentDiff / 1000000.0;
-
-				UE_LOG(LogVulkanRHI, Log, TEXT("lastKnownPresent ID: %llu, previousKnownPresent ID: %llu, actual: %llu, desired: %llu, earliest: %llu, margin: %llu, currentTargetInterval: %llu, actualDesiredDiff: %f, diffsincePrev: %f "), LastKnownPresentedID, HistoricalPresentData[PrevLastKnownFrameIndex].PresentID, LastKnownPresentedTime, MostRecentKnownPresentedFrame.desiredPresentTime, MostRecentKnownPresentedFrame.earliestPresentTime, MostRecentKnownPresentedFrame.presentMargin, TargetInterval, ActualDesiredDiffMS, ActualPresentDiffMS);
-			}
-
-			PresentControl.presentID = PresentID;
-			PresentControl.desiredPresentTime = 0;
-
-			const FPresentData& LastKnownFrameData = HistoricalPresentData[LastKnownFrameIndex];
-			const uint64 LastKnownPresentedID = LastKnownFrameData.PresentID;
-
-			if (LastKnownPresentedID > 0 && LastKnownFrameData.ActualPresentTime > 0)
-			{
-				const uint32 FrameDifferential = PresentID - LastKnownPresentedID;
-				uint64 Epsilon = 4000000; //1ms
-
-				//present time for this frame assuming that all known and unknown historical frames completed on time.  Note that we have a non-zero value for 'FrameDifferential' because
-				//we only have present data for frames older than 4-5 vsyncs.  Thus our immediate preceding frames might go overbudget and we don't know that yet.
-				const uint64 IdealPresentTime = LastKnownFrameData.ActualPresentTime + ((uint64)FrameDifferential * TargetInterval) - Epsilon;
-				uint64 FinalPresentTime = IdealPresentTime;
-
-				//We need to account for the fact that every frame we get new data about old historical frames.  Those frames calculated ideal present times with incomplete data.
-				//As we get data about slow frames, we must account for it now so that we don't end up with huge 'catchup' stalls.
-				//Consider 3 frames, and a single frame delay in getting present data.  Also consider a simplified model where the refresh rate is 5, and the interval is 2.
-				// Frame N:
-				//	Knows that Frame N - 2 completed at time 50.  Does not know when N - 1 completes.  Assumes it wll complete on time and thus tells the driver
-				//	to present NO EARLIER than time 70.  it is allowed to complete at any time thereafter.
-				//
-				// Frame N+1:
-				//	This frame now knows that N-1 ACTUALLY completed at time 100.  Since frame N completes 'no earlier than time 70' this means it will present on frame 105 if it is an in-budget frame.
-				//	Note that this means the delta between N-1 and N is FASTER than our desired syncinterval of 2.
-				//	Frame N+1 could now naively calculate a present time of 120 (2 frames later, sync interval 2).  However, this is '3' intervals after Frame N can be expected to complete if it is in-budget.
-				//	The problem of extra intervals gets progressively worse with larger refresh rates, and larger amounts of unknown frame latency.
-				//	In a realistic setting of 4-5 latency, with 30hhz framerate on a 16hz refreshrate you can easily get 30-100ms of 'stall' frames where the naively calculated present time is long after the previously presented frame.
-				//	(remember that Frame N completes early, and N+1 Late).
-				//
-				// We cannot fix frames already in flight with our updated data, so we must account for them assuming they will be in-budget.  For the example, we want N+1 to complete at time 115.  A correct 2 intervals rather than 3.
-
-				//start at the end of the history ring
-				int32 PrevHistoricalIndex = (NextHistoricalData + 0) % MaxHistoricalPresentData;
-				int32 HistoricalIndex = (NextHistoricalData + 1) % MaxHistoricalPresentData;
-				int32 ExtraHistoricalVsyncs = 0;
-
-				//give it 1ms of fudge.  Often even frames that hit vsync don't report EXACT interval times.
-				const uint32 ComparisonInterval = TargetInterval + 1000000;
-				for (int32 i = 0; i < MaxHistoricalPresentData - 1; ++i)
-				{
-					const FPresentData& PrevFrameData = HistoricalPresentData[PrevHistoricalIndex];
-					const FPresentData& FrameData = HistoricalPresentData[HistoricalIndex];
-					if (FrameData.ActualPresentTime > 0 && PrevFrameData.ActualPresentTime > 0)
-					{
-						const uint64 ActualFrameDelta = FrameData.ActualPresentTime - PrevFrameData.ActualPresentTime;
-						const uint64 ActualFrameLateness = FrameData.ActualPresentTime - FrameData.DesiredPresentTime;
-
-						//if we detect a historical frame that was presented too long after the previous frame,
-						//OR we detect a historical frame that was presented too long after it's desired frame
-						//we need to make adjustments for 'fat' frames.
-						if (ActualFrameDelta > ComparisonInterval/* || ActualFrameLateness > RefreshRateNanoSec*/)
-						{
-							//basically, a fat frame will cover the desired present time of some number of frames who did not know about its fatness.  These will complete immediately on the next vblank if they are in budget
-							//so we need to rollback our naive calculation above that every frame would be on the screen for the desired interval.  Some number will be on screen for much less time depending on how fat is the frame, and how latent is the data.
-							const int32 ThisLocalIntervals = (((ActualFrameDelta - TargetInterval) + 1000000) / RefreshRateNanoSec);// +(ActualFrameLateness / RefreshRateNanoSec);
-							ExtraHistoricalVsyncs += ThisLocalIntervals;
-
-							if (GPrintVulkanVsyncDebug)
-							{
-								UE_LOG(LogVulkanRHI, Log, TEXT("Delta: %llu, Interval: %llu, PresID: %i, PrevId: %i, HisInd: %i, PrevHisInd: %i, NextHisData: %i, Vsyncs: %i"), ActualFrameDelta, ComparisonInterval, FrameData.PresentID, PrevFrameData.PresentID, HistoricalIndex, PrevHistoricalIndex, NextHistoricalData, ThisLocalIntervals);
-							}
-						}
-					}
-					PrevHistoricalIndex = (PrevHistoricalIndex + 1) % MaxHistoricalPresentData;
-					HistoricalIndex = (HistoricalIndex + 1) % MaxHistoricalPresentData;
-				}
-
-				//Next present should be at least one interval more than the previous known.
-				ExtraHistoricalVsyncs = FMath::Clamp(FMath::Min((int32)FrameDifferential - 1, ExtraHistoricalVsyncs), 0, (int32)FrameDifferential - 1);
-				FinalPresentTime -= ExtraHistoricalVsyncs * RefreshRateNanoSec;
-
-				//regardless of any other calculations we should emit at MAXIMUM a time only 1 interval from the one we calculated for the previous frame.
-				//this helps account for differences when we lose data about a fat frame in the rolling history.  Also should be no earlier than our last known frame, helps correct issues
-				//with hitches and syncinterval changes.
-				if (PreviousEmittedPresentTime > LastKnownFrameData.ActualPresentTime)
-				{
-					FinalPresentTime = FMath::Clamp(FinalPresentTime, LastKnownFrameData.ActualPresentTime, PreviousEmittedPresentTime + TargetInterval);
-				}
-
-				//setting desiredPresentTime indicates this frame must be shown NO SOONER than the given time.
-				//PresentIDs are monotonically increasing.  Thus if we know:
-				// * WHEN a past frame was actually presented (LastKnownPresentedTime)
-				// * How many frames in the future we are now (FrameDifferential)
-				// * What our target sync interval is (RHIGetSyncInterval)
-				// We can figure out when we want to present without actually calling into the clock interface
-				PresentControl.desiredPresentTime = FinalPresentTime;
-
-				if (GPrintVulkanVsyncDebug)
-				{
-					uint64 DeltaNS = IdealPresentTime - FinalPresentTime;
-					float DeltaMS = (double)DeltaNS / 1000000.0;
-					UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, Naive: %llu, Fixed: %llu, Delta: %f"), PresentID, IdealPresentTime, FinalPresentTime, DeltaMS);
-				}
-
-				PreviousEmittedPresentTime = FinalPresentTime;
-			}
-
-			ZeroVulkanStruct(PresentControlInfo, VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE);
-			PresentControlInfo.swapchainCount = 1;
-			PresentControlInfo.pTimes = &PresentControl;
-
-			Info.pNext = &PresentControlInfo;
-		}
-		else
-		{
-			PreviousEmittedPresentTime = 0;
-			FMemory::Memzero(HistoricalPresentData);
-		}
-		//UE_LOG(LogVulkanRHI, Display, TEXT("Preset ID: %i, Time: 0x%x, Chain: %i"), PresentControl.presentID, PresentControl.desiredPresentTime, PresentControlInfo.swapchainCount);
+		check(GDTimingFramePacer);
+		GDTimingFramePacer->ScheduleNextFrame(PresentID, SyncInterval);
+		Info.pNext = GDTimingFramePacer->GetPresentTimesInfo();
 	}
 #endif
 
 	//very naive CPU side frame pacer.
 	if (GVulkanCPURHIFramePacer && SyncInterval > 0)
 	{
-		static double PreviousFrameCPUTime = 0;
-		double NowCPUTime = FPlatformTime::Seconds();
+		const double NowCPUTime = (FPlatformTime::Seconds() - GStartTime);
+		static double NextPresentTargetTime = NowCPUTime;
 
-		double DeltaCPUPresentTimeMS = (NowCPUTime - PreviousFrameCPUTime) * 1000.0;
-		double TargetIntervalWithEpsilonMS = (double)SyncInterval * (1.0 / 60.0) * 1000.0;
+		const double TimeToSleep = (NextPresentTargetTime - NowCPUTime);
+		const double TargetIntervalWithEpsilon = (double)SyncInterval * (1.0 / 60.0);
 
-		if (DeltaCPUPresentTimeMS < (TargetIntervalWithEpsilonMS))
+		if (TimeToSleep > 0.0)
 		{
 			uint32 IdleStart = FPlatformTime::Cycles();
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForEmulatedSyncInterval);
-			FPlatformProcess::SleepNoStats((TargetIntervalWithEpsilonMS - DeltaCPUPresentTimeMS) * 0.001f);
+			FPlatformProcess::SleepNoStats(static_cast<float>(TimeToSleep));
 			if (GPrintVulkanVsyncDebug)
 			{
-				UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU delta: %f, TargetWEps: %f, sleepTime: %f "), PresentID, DeltaCPUPresentTimeMS, TargetIntervalWithEpsilonMS, TargetIntervalWithEpsilonMS - DeltaCPUPresentTimeMS);
+				UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU TimeToSleep: %f, TargetWEps: %f"), TimeToSleep * 1000.0, TargetIntervalWithEpsilon * 1000.0);
 			}
 
 			uint32 ThisCycles = FPlatformTime::Cycles() - IdleStart;
@@ -885,16 +869,27 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 		{
 			if (GPrintVulkanVsyncDebug)
 			{
-				UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU delta: %f"), PresentID, DeltaCPUPresentTimeMS);
+				UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU TimeToSleep: %f"), PresentID, TimeToSleep * 1000.0);
 			}
 		}
-		PreviousFrameCPUTime = NowCPUTime;
+		NextPresentTargetTime = FMath::Max(NextPresentTargetTime + TargetIntervalWithEpsilon, NowCPUTime);
 	}
 	PresentID++;
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VulkanQueuePresent);
+		uint32 IdleStart = FPlatformTime::Cycles();
 		VkResult PresentResult = VulkanRHI::vkQueuePresentKHR(PresentQueue->GetHandle(), &Info);
+		uint32 ThisCycles = FPlatformTime::Cycles() - IdleStart;
+		if (IsInRHIThread())
+		{
+			GWorkingRHIThreadStallTime += ThisCycles;
+		}
+		else if (IsInActualRenderingThread())
+		{
+			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUPresent] += ThisCycles;
+			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
+		}
 
 #if !UE_BUILD_SHIPPING
 		PresentResult = SimulateErrors(PresentResult);

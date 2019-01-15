@@ -548,7 +548,6 @@ FVector2D SWidget::GetDesiredSize() const
 	}
 }
 
-#if SLATE_PARENT_POINTERS
 
 void SWidget::AssignParentWidget(TSharedPtr<SWidget> InParent)
 {
@@ -587,7 +586,6 @@ bool SWidget::ConditionallyDetatchParentWidget(SWidget* InExpectedParent)
 	return false;
 }
 
-#endif
 
 void SWidget::LayoutChanged(EInvalidateWidget InvalidateReason)
 {
@@ -595,13 +593,11 @@ void SWidget::LayoutChanged(EInvalidateWidget InvalidateReason)
 	{
 		bNeedsDesiredSize = true;
 
-#if SLATE_PARENT_POINTERS
 		TSharedPtr<SWidget> ParentWidget = ParentWidgetPtr.Pin();
 		if (ParentWidget.IsValid())
 		{
 			ParentWidget->ChildLayoutChanged(InvalidateReason);
 		}
-#endif
 	}
 }
 

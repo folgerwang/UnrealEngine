@@ -991,8 +991,8 @@ private:
 	/** A copy of the actor's group membership for handling per-view group hiding */
 	uint64 HiddenEditorViews;
 
-	/** Whether this should only draw in VR Editing mode*/
-	uint32 DrawInVREditMode : 1;
+	/** Whether this should only draw in any editing mode*/
+	uint32 DrawInAnyEditMode : 1;
 #endif
 
 	/** Used for precomputed visibility */

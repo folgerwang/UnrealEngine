@@ -432,7 +432,7 @@ bool FNDISkeletalMesh_InstanceData::Init(UNiagaraDataInterfaceSkeletalMesh* Inte
 			LODIndex = FMath::Clamp(Interface->WholeMeshLOD, 0, Mesh->GetLODNum() - 1);
 		}
 
-		if (!Mesh->GetLODInfo(LODIndex)->bAllowCPUAccess)
+		if (!Mesh->GetLODInfo(LODIndex)->bAllowCPUAccess && (GIsEditor || Interface->bUseTriangleSampling || Interface->bUseVertexSampling))
 		{
 			UE_LOG(LogNiagara, Warning, TEXT("Skeletal Mesh Data Interface is trying to spawn from a whole mesh that does not allow CPU Access.\nInterface: %s\nMesh: %s\nLOD: %d"),
 				*Interface->GetFullName(),
@@ -512,10 +512,10 @@ bool FNDISkeletalMesh_InstanceData::Init(UNiagaraDataInterfaceSkeletalMesh* Inte
 	bool bNeedDataImmediately = true;
 		
 	//Grab a handle to the skinning data if we have a component to skin.
-	ENDISkeletalMesh_SkinningMode SkinningMode = Interface->SkinningMode;
+	ENDISkeletalMesh_SkinningMode SkinningMode = (GIsEditor || Interface->bUseTriangleSampling || Interface->bUseVertexSampling) ? Interface->SkinningMode : ENDISkeletalMesh_SkinningMode::None;
 	FSkeletalMeshSkinningDataUsage Usage(
 		LODIndex,
-		SkinningMode == ENDISkeletalMesh_SkinningMode::SkinOnTheFly || SkinningMode == ENDISkeletalMesh_SkinningMode::PreSkin,
+		SkinningMode == ENDISkeletalMesh_SkinningMode::SkinOnTheFly || SkinningMode == ENDISkeletalMesh_SkinningMode::PreSkin || Interface->bUseSkeletonSampling,
 		SkinningMode == ENDISkeletalMesh_SkinningMode::PreSkin,
 		bNeedDataImmediately);
 
@@ -732,6 +732,9 @@ UNiagaraDataInterfaceSkeletalMesh::UNiagaraDataInterfaceSkeletalMesh(FObjectInit
 	, Source(nullptr)
 	, SkinningMode(ENDISkeletalMesh_SkinningMode::SkinOnTheFly)
 	, WholeMeshLOD(INDEX_NONE)
+	, bUseTriangleSampling(true)
+	, bUseVertexSampling(true)
+	, bUseSkeletonSampling(true)
 	, ChangeId(0)
 {
 
@@ -755,6 +758,15 @@ void UNiagaraDataInterfaceSkeletalMesh::PostInitProperties()
 void UNiagaraDataInterfaceSkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// If the change comes from an interaction (and not just a generic change) reset the usage flags.
+	// todo : this and the usage binding need to be done in the a precompilation parsing (or whever the script is compiled).
+	if (PropertyChangedEvent.Property)
+	{
+		bUseTriangleSampling = false;
+		bUseVertexSampling = false;
+		bUseSkeletonSampling = false;
+	}
 	ChangeId++;
 }
 
@@ -783,6 +795,13 @@ void UNiagaraDataInterfaceSkeletalMesh::GetVMExternalFunction(const FVMExternalF
 
 	if (OutFunc.IsBound())
 	{
+#if WITH_EDITOR
+		if (!bUseTriangleSampling)
+		{
+			bUseTriangleSampling = true;
+			MarkPackageDirty();
+		}
+#endif // WITH_EDITOR
 		return;
 	}
 
@@ -790,10 +809,28 @@ void UNiagaraDataInterfaceSkeletalMesh::GetVMExternalFunction(const FVMExternalF
 
 	if (OutFunc.IsBound())
 	{
+#if WITH_EDITOR
+		if (!bUseVertexSampling)
+		{
+			bUseVertexSampling = true;
+			MarkPackageDirty();
+		}
+#endif // WITH_EDITOR
 		return;
 	}
 
 	BindSkeletonSamplingFunction(BindingInfo, InstData, OutFunc);
+
+#if WITH_EDITOR
+	if (OutFunc.IsBound())
+	{
+		if (!bUseSkeletonSampling)
+		{
+			bUseSkeletonSampling = true;
+			MarkPackageDirty();
+		}
+	}
+#endif // WITH_EDITOR
 }
 
 
@@ -812,6 +849,9 @@ bool UNiagaraDataInterfaceSkeletalMesh::CopyToInternal(UNiagaraDataInterface* De
 	OtherTyped->WholeMeshLOD = WholeMeshLOD;
 	OtherTyped->SpecificBones = SpecificBones;
 	OtherTyped->SpecificSockets = SpecificSockets;
+	OtherTyped->bUseTriangleSampling = bUseTriangleSampling;
+	OtherTyped->bUseVertexSampling = bUseVertexSampling;
+	OtherTyped->bUseSkeletonSampling = bUseSkeletonSampling;
 	return true;
 }
 
@@ -866,7 +906,7 @@ TArray<FNiagaraDataInterfaceError> UNiagaraDataInterfaceSkeletalMesh::GetErrors(
 	bool bHasNoMeshAssignedError = false;
 	
 	// Collect Errors
-	if (DefaultMesh != nullptr)
+	if (DefaultMesh != nullptr && (GIsEditor || bUseTriangleSampling || bUseVertexSampling))
 	{
 		for (auto info : DefaultMesh->GetLODInfoArray())
 		{

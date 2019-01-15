@@ -65,6 +65,8 @@ public:
 
 	FRepChangelistState* GetRepChangelistState() const { return RepChangelistState.Get(); }
 
+	void CountBytes(FArchive& Ar) const;
+
 private:
 	UNetDriver*							Driver;
 	TSharedPtr< FRepLayout >			RepLayout;
@@ -157,6 +159,8 @@ public:
 		FRPCPendingLocalCall(const FFieldNetCache* InRPCField, const FReplicationFlags& InRepFlags, FNetBitReader& InReader, const TSet<FNetworkGUID>& InUnmappedGuids)
 			: RPCFieldIndex(InRPCField->FieldNetIndex), RepFlags(InRepFlags), Buffer(InReader.GetBuffer()), NumBits(InReader.GetNumBits()), UnmappedGuids(InUnmappedGuids)
 		{}
+
+		void CountBytes(FArchive& Ar) const;
 	};
 
 	TArray< FRPCPendingLocalCall >					PendingLocalRPCs;			// Information on RPCs that have been received but not yet executed
@@ -205,8 +209,9 @@ public:
 
 	void UpdateUnmappedObjects( bool & bOutHasMoreUnmapped );
 
+	FORCEINLINE TWeakObjectPtr<UObject>	GetWeakObjectPtr() const { return WeakObjectPtr; }
 	FORCEINLINE UObject *	GetObject() const { return ObjectPtr; }
-	FORCEINLINE void		SetObject( UObject* NewObj ) { ObjectPtr = NewObj; }
+	FORCEINLINE void		SetObject( UObject* NewObj ) { ObjectPtr = NewObj; WeakObjectPtr = NewObj; }
 
 	FORCEINLINE void PreNetReceive()		
 	{ 
@@ -234,6 +239,9 @@ public:
 		FNetFieldExportGroup*	NetFieldExportGroup,
 		FNetBitWriter&			Bunch,
 		FNetBitWriter&			Payload ) const;
+
+private:
+	TWeakObjectPtr<UObject> WeakObjectPtr;
 };
 
 class FScopedActorRoleSwap : public FNoncopyable

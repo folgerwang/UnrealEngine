@@ -188,6 +188,11 @@ public:
 
 	float GetTotalDataSize() const;
 
+	/** Gets the size of the compressed tile cache, this is slow */
+#if !UE_BUILD_SHIPPING
+	int32 GetCompressedTileCacheSize();
+#endif
+
 	/** Called on world origin changes */
 	void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift);
 

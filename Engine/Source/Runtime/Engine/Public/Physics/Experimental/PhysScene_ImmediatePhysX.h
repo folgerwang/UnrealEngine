@@ -467,6 +467,12 @@ public:
 	/** Adds to queue of skelmesh we want to remove from collision disable table */
 	ENGINE_API void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID);
 
+	/** Add this SkeletalMeshComponent to the list needing kinematic bodies updated before simulating physics */
+	void MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning);
+
+	/** Remove this SkeletalMeshComponent from set needing kinematic update before simulating physics*/
+	void ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp);
+
 	/** Pending constraint break events */
 	void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType);
 	/** Pending wake/sleep events */

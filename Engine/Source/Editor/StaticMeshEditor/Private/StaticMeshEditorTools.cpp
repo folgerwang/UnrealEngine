@@ -40,6 +40,10 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "EditorDirectories.h"
 #include "EditorFramework/AssetImportData.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
+
 
 const uint32 MaxHullCount = 64;
 const uint32 MinHullCount = 2;
@@ -1014,7 +1018,7 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 
 FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InCurrentLODIndex, bool InCanReduceMyself)
 	: ParentLODSettings( InParentLODSettings )
-	, CurrentLODIndex( InCurrentLODIndex )
+	, CurrentLODIndex(InCurrentLODIndex)
 	, bCanReduceMyself(InCanReduceMyself)
 {
 
@@ -1326,7 +1330,7 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 	//Base LOD
 	{
 		int32 MaxBaseReduceIndex = bCanReduceMyself ? CurrentLODIndex : CurrentLODIndex - 1;
-		ChildrenBuilder.AddCustomRow( LOCTEXT("ReductionBaseLOD", "Base LOD") )
+		ChildrenBuilder.AddCustomRow(LOCTEXT("ReductionBaseLOD", "Base LOD"))
 			.NameContent()
 			.HAlign(HAlign_Left)
 			[
@@ -3221,7 +3225,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex, StaticMesh->IsMeshDescriptionValid(LODIndex)));
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout(AsShared(), LODIndex, StaticMesh->IsMeshDescriptionValid(LODIndex)));
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())
@@ -3261,7 +3265,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
-			bool bHasBeenSimplified = !StaticMesh->IsMeshDescriptionValid(LODIndex) || StaticMesh->IsReductionActive(LODIndex);
+			bool bHasBeenSimplified = StaticMesh->GetMeshDescription(LODIndex) == nullptr || StaticMesh->IsReductionActive(LODIndex);
 			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );
@@ -3749,17 +3753,48 @@ void FLevelOfDetailSettingsLayout::OnImportLOD(TSharedPtr<FString> NewValue, ESe
 		UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 		check(StaticMesh);
 
+		if (StaticMesh->LODGroup != NAME_None && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			// Cache derived data for the running platform.
+			ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
+			ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
+			check(RunningPlatform);
+			const FStaticMeshLODSettings& LODSettings = RunningPlatform->GetStaticMeshLODSettings();
+			const FStaticMeshLODGroup& LODGroup = LODSettings.GetLODGroup(StaticMesh->LODGroup);
+			if (LODIndex < LODGroup.GetDefaultNumLODs())
+			{
+				//Ask the user to change the LODGroup to None, if the user cancel do not re-import the LOD
+				//We can have a LODGroup with custom LOD only if custom LOD are after the generated LODGroup LODs
+				EAppReturnType::Type ReturnResult = FMessageDialog::Open(EAppMsgType::OkCancel, EAppReturnType::Ok, FText::Format(LOCTEXT("LODImport_LODGroupVersusCustomLODConflict",
+					"This static mesh uses the LOD group \"{0}\" which generates the LOD {1}. To import a custom LOD at index {1}, the LODGroup must be cleared to \"None\"."), FText::FromName(StaticMesh->LODGroup), FText::AsNumber(LODIndex)));
+				if (ReturnResult == EAppReturnType::Cancel)
+				{
+					StaticMeshEditor.RefreshTool();
+					return;
+				}
+				//Clear the LODGroup
+				StaticMesh->SetLODGroup(NAME_None, false);
+				//Make sure the importdata point on LOD Group None
+				UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(StaticMesh->AssetImportData);
+				if (ImportData != nullptr)
+				{
+					ImportData->StaticMeshLODGroup = NAME_None;
+				}
+			}
+		}
+
 		//Are we a new imported LOD, we want to set some value for new imported LOD.
 		//This boolean prevent changing the value when the LOD is reimport
 		bool bImportCustomLOD = (LODIndex >= StaticMesh->SourceModels.Num());
-		
-		bool bResult = FbxMeshUtils::ImportMeshLODDialog(StaticMesh,LODIndex);
+
+		bool bResult = FbxMeshUtils::ImportMeshLODDialog(StaticMesh, LODIndex);
 
 		if (bImportCustomLOD && bResult && StaticMesh->SourceModels.IsValidIndex(LODIndex))
 		{
 			//Custom LOD should reduce base on them self when they get imported.
 			StaticMesh->SourceModels[LODIndex].ReductionSettings.BaseLODModel = LODIndex;
 		}
+		
 		StaticMesh->PostEditChange();
 		StaticMeshEditor.RefreshTool();
 	}

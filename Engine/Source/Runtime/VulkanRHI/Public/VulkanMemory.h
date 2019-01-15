@@ -16,11 +16,14 @@
 class FVulkanQueue;
 class FVulkanCmdBuffer;
 
-inline bool DelayAcquireBackBuffer()
+enum class EDelayAcquireImageType
 {
-	extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
-	return GCVarDelayAcquireBackBuffer->GetInt() != 0;
-}
+	None,			// acquire next image on frame start
+	DelayAcquire,	// acquire next image just before presenting, rendering is done to intermediate image which is copied to real backbuffer
+	PreAcquire,		// acquire next image immediately after presenting current
+};
+
+extern EDelayAcquireImageType GVulkanDelayAcquireImage;
 
 namespace VulkanRHI
 {
@@ -1521,7 +1524,7 @@ namespace VulkanRHI
 		{
 			VkImageMemoryBarrier& Barrier = ImageBarriers[BarrierIndex];
 
-			if (FVulkanPlatform::RequiresPresentLayoutFix() && !DelayAcquireBackBuffer())
+			if (FVulkanPlatform::RequiresPresentLayoutFix() && GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
 			{
 				VkPipelineStageFlags NewSourceStage = GetImageBarrierFlags(Source, Barrier.srcAccessMask, Barrier.oldLayout);;
 				VkPipelineStageFlags NewDestStage = GetImageBarrierFlags(Dest, Barrier.dstAccessMask, Barrier.newLayout);

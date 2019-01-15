@@ -147,6 +147,7 @@ REGISTER_NAME(289,GamePort)
 REGISTER_NAME(290,BeaconPort)
 REGISTER_NAME(291,MeshPort)
 REGISTER_NAME(292,MeshNetDriver)
+REGISTER_NAME(293,LiveStreamVoice)
 
 // Texture settings.
 REGISTER_NAME(300,Linear)

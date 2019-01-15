@@ -1041,6 +1041,7 @@ public:
 
 	/** Parameters for exponential height fog. */
 	FVector4 ExponentialFogParameters;
+	FVector4 ExponentialFogParameters2;
 	FVector ExponentialFogColor;
 	float FogMaxOpacity;
 	FVector4 ExponentialFogParameters3;
@@ -1805,7 +1806,9 @@ protected:
 	/** Will update the view custom data. */
 	void PostInitViewCustomData();
 
-	void SetupMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
+	/** Whether GPU particle collisions simulation is allowed. */
+	bool IsGPUParticleCollisionEnabled(const FViewInfo& View);
+	void SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FMeshDrawCommandsPerPassPerView& VisibleCommandsPerView);
 
 	void UpdateOpaqueBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 	void UpdateTranslucentBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);

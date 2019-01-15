@@ -754,7 +754,10 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
 				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
 
-				BranchModification.OtherUserCheckedOut += OtherOpenRecordValue;
+				int32 AtIndex = OtherOpenRecordValue.Find(TEXT("@"));
+				FString OtherOpenUser = AtIndex == INDEX_NONE ? FString(TEXT("")) : OtherOpenRecordValue.Left(AtIndex);
+				BranchModification.OtherUserCheckedOut += OtherOpenUser + TEXT(" @ ") + BranchModification.BranchName;
+
 				if (OpenIdx < OtherOpenNum - 1)
 				{
 					BranchModification.OtherUserCheckedOut += TEXT(", ");
@@ -792,6 +795,15 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		FPerforceSourceControlState& State = OutStates.Last();
 		State.DepotFilename = DepotFileName;
 
+		FString Branch;
+		FString BranchFile;
+		if (DepotFileName.Split(ContentRoot, &Branch, &BranchFile))
+		{
+			// Sanitize
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			BranchFile.RemoveFromStart(FString(TEXT("/")));
+		}
+
 		State.State = EPerforceState::ReadOnly;
 		if (Action.Len() > 0 && Action == TEXT("add"))
 		{
@@ -821,7 +833,10 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
 				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
 
-				State.OtherUserCheckedOut += OtherOpenRecordValue;
+				int32 AtIndex = OtherOpenRecordValue.Find(TEXT("@"));
+				FString OtherOpenUser = AtIndex == INDEX_NONE ? FString(TEXT("")) : OtherOpenRecordValue.Left(AtIndex);
+				State.OtherUserCheckedOut += OtherOpenUser + TEXT(" @ ") + Branch;
+
 				if(OpenIdx < OtherOpenNum - 1)
 				{
 					State.OtherUserCheckedOut += TEXT(", ");
@@ -838,11 +853,6 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		{
 			State.State = EPerforceState::NotInDepot;
 		}
-
-		// If checked out or modified in another branch, setup state
-		FString BranchFile;
-		FileName.Replace(TEXT("\\"), TEXT("/")).Split(ContentRoot, nullptr, &BranchFile);
-		BranchFile.RemoveFromStart(TEXT("/"));
 
 		State.HeadBranch = TEXT("*CurrentBranch");
 		State.HeadAction = HeadAction;

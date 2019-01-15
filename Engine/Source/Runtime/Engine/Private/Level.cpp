@@ -1473,6 +1473,14 @@ void ULevel::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		ReleaseRenderingResources();
 		InitializeRenderingResources();
 	}
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 } 
 
 #endif // WITH_EDITOR
@@ -1744,6 +1752,22 @@ void ULevel::InitializeNetworkActors()
 			Actor->bActorSeamlessTraveled = false;
 		}
 	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
+	bAlreadyInitializedNetworkActors = true;
+}
+
+void ULevel::ClearActorsSeamlessTraveledFlag()
+{
+	for (AActor* Actor : Actors)
+	{
+		if (Actor)
+		{
+			Actor->bActorSeamlessTraveled = false;
+		}
+	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
 }
 
 void ULevel::InitializeRenderingResources()

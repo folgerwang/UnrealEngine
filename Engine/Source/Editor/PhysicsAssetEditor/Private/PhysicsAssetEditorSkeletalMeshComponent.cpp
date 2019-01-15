@@ -104,6 +104,10 @@ void UPhysicsAssetEditorSkeletalMeshComponent::RenderAssetTools(const FSceneView
 	// Draw bodies
 	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
+		if (!ensure(PhysicsAsset->SkeletalBodySetups[i]))
+		{
+			continue;
+		}
 		int32 BoneIndex = GetBoneIndex(PhysicsAsset->SkeletalBodySetups[i]->BoneName);
 
 		// If we found a bone for it, draw the collision.

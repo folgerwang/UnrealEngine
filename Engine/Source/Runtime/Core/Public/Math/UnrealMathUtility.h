@@ -104,11 +104,24 @@ struct FMath : public FPlatformMath
 		return A > 0 ? Min(TruncToInt(FRand() * A), A - 1) : 0;
 	}
 
+	static FORCEINLINE int64 RandHelper64(int64 A)
+	{
+		// Note that on some platforms RAND_MAX is a large number so we cannot do ((rand()/(RAND_MAX+1)) * A)
+		// or else we may include the upper bound results, which should be excluded.
+		return A > 0 ? Min<int64>(TruncToInt(FRand() * A), A - 1) : 0;
+	}
+
 	/** Helper function for rand implementations. Returns a random number >= Min and <= Max */
 	static FORCEINLINE int32 RandRange(int32 Min, int32 Max)
 	{
 		const int32 Range = (Max - Min) + 1;
 		return Min + RandHelper(Range);
+	}
+
+	static FORCEINLINE int64 RandRange(int64 Min, int64 Max)
+	{
+		const int64 Range = (Max - Min) + 1;
+		return Min + RandHelper64(Range);
 	}
 
 	/** Util to generate a random number in a range. Overloaded to distinguish from int32 version, where passing a float is typically a mistake. */

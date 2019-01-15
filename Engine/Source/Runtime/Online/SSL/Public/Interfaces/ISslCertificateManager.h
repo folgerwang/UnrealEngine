@@ -31,6 +31,11 @@ public:
 	virtual void ClearAllPinnedPublicKeys() = 0;
 
 	/**
+	 * Check if keys have been pinned yet
+	 */
+	virtual bool HasPinnedPublicKeys() const = 0;
+
+	/**
 	 * Check if the domain is currently pinned
 	 */
 	virtual bool IsDomainPinned(const FString& Domain) = 0;

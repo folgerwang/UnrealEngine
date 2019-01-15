@@ -1362,22 +1362,13 @@ void UStaticMesh::GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNam
 bool UStaticMesh::IsReductionActive(int32 LODIndex) const
 {
 	FMeshReductionSettings ReductionSettings = GetReductionSettings(LODIndex);
-	
-	// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
 	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
-	FString VersionString = ReductionModule->GetVersionString();
-	TArray<FString> SplitVersionString;
-	VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
-	bool bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
-
-	const bool bVertTermination = (bUseQuadricSimplier) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles) && (ReductionSettings.PercentVertices < 1.0f);
-	const bool bTriTermination = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices && (ReductionSettings.PercentTriangles < 1.0f);
-
-	return bTriTermination || bVertTermination || (ReductionSettings.MaxDeviation > 0.0f);
+	return ReductionModule->IsReductionActive(ReductionSettings);
 }
 
 FMeshReductionSettings UStaticMesh::GetReductionSettings(int32 LODIndex) const
 {
+	check(SourceModels.IsValidIndex(LODIndex));
 	//Retrieve the reduction settings, make sure we use the LODGroup if the Group is valid
 	ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
 	ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
@@ -1387,6 +1378,7 @@ FMeshReductionSettings UStaticMesh::GetReductionSettings(int32 LODIndex) const
 	const FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
 	return SMLODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
 }
+
 
 void UStaticMesh::PostDuplicate(bool bDuplicateForPIE)
 {
@@ -2260,6 +2252,14 @@ void UStaticMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	
 	UpdateUVChannelData(true);
 
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	OnMeshChanged.Broadcast();
@@ -2285,6 +2285,7 @@ void UStaticMesh::SetLODGroup(FName NewGroup, bool bRebuildImmediately)
 	{
 		Modify();
 	}
+	bool bResetSectionInfoMap = (LODGroup != NewGroup);
 	LODGroup = NewGroup;
 	if (NewGroup != NAME_None)
 	{
@@ -2296,11 +2297,29 @@ void UStaticMesh::SetLODGroup(FName NewGroup, bool bRebuildImmediately)
 		int32 DefaultLODCount = GroupSettings.GetDefaultNumLODs();
 
 		SetNumSourceModels(DefaultLODCount);
-
-		// Set reduction settings to the defaults.
+		
 		for (int32 LODIndex = 0; LODIndex < DefaultLODCount; ++LODIndex)
 		{
+			// Set reduction settings to the defaults.
 			SourceModels[LODIndex].ReductionSettings = GroupSettings.GetDefaultSettings(LODIndex);
+			
+			//Reset the section info map
+			if (bResetSectionInfoMap)
+			{
+				for (int32 SectionIndex = 0; SectionIndex < SectionInfoMap.GetSectionNumber(LODIndex); ++SectionIndex)
+				{
+					FMeshSectionInfo Info;
+					Info.MaterialIndex = SectionIndex;
+					SectionInfoMap.Set(LODIndex, SectionIndex, Info);
+				}
+			}
+			//Clear the raw data if we change the LOD Group and we do not reduce ourself, this will force the user to do a import LOD which will manage the section info map properly
+			if (!SourceModels[LODIndex].IsRawMeshEmpty() && SourceModels[LODIndex].ReductionSettings.BaseLODModel != LODIndex)
+			{
+				FRawMesh EmptyRawMesh;
+				SourceModels[LODIndex].SaveRawMesh(EmptyRawMesh);
+				SourceModels[LODIndex].SourceImportFilename = FString();
+			}
 		}
 		LightMapResolution = GroupSettings.GetDefaultLightMapResolution();
 
@@ -2390,7 +2409,7 @@ void UStaticMesh::SetNumSourceModels(const int32 Num)
 void UStaticMesh::RemoveSourceModel(const int32 Index)
 {
 	check(SourceModels.IsValidIndex(Index));
-	
+
 	//Remove the SectionInfoMap of the LOD we remove
 	{
 		int32 SectionCount = SectionInfoMap.GetSectionNumber(Index);
@@ -2426,11 +2445,10 @@ void UStaticMesh::RemoveSourceModel(const int32 Index)
 			}
 		}
 	}
-	
+
 	//Remove the LOD
 	SourceModels.RemoveAt(Index);
 }
-
 
 #endif // WITH_EDITOR
 

@@ -41,6 +41,9 @@
 #include "MobileSeparateTranslucencyPass.h"
 #include "MobileDistortionPass.h"
 #include "VisualizeTexturePresent.h"
+#include "RendererModule.h"
+#include "EngineModule.h"
+
 #include "VisualizeTexture.h"
 
 uint32 GetShadowQuality();
@@ -65,6 +68,13 @@ static TAutoConsoleVariable<int32> CVarMobileMoveSubmissionHintAfterTranslucency
 	TEXT("0: Submission hint occurs after occlusion query.\n")
 	TEXT("1: Submission hint occurs after translucency. (Default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarMobileDisableGPUParticleCollision(
+	TEXT("r.Mobile.DisableGPUParticleCollision"),
+	1,
+	TEXT("0: Allow GPU particle collision simulation if supported (Default).\n")
+	TEXT("1: Disable GPU particle collision simulation"),
+	ECVF_RenderThreadSafe);
 
 DECLARE_CYCLE_STAT(TEXT("SceneStart"), STAT_CLMM_SceneStart, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("SceneEnd"), STAT_CLMM_SceneEnd, STATGROUP_CommandListMarkers);
@@ -432,7 +442,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	}
 
 	// Notify the FX system that opaque primitives have been rendered.
-	if (Scene->FXSystem && !Views[0].bIsPlanarReflection && ViewFamily.EngineShowFlags.Particles)
+	if (Scene->FXSystem && IsGPUParticleCollisionEnabled(Views[0]))
 	{
 		FMobileSceneTextureUniformParameters MobileSceneTextureParameters;
 		SetupMobileSceneTextureUniformParameters(SceneContext, FeatureLevel, true, MobileSceneTextureParameters);
@@ -441,6 +451,9 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		// This is switching to another RT!
 		Scene->FXSystem->PostRenderOpaque(RHICmdList, View.ViewUniformBuffer, &FMobileSceneTextureUniformParameters::StaticStructMetadata, MobileSceneTextureUniformBuffer.GetReference());
 	}
+
+	IRendererModule& RendererModule = GetRendererModule();
+	RendererModule.DispatchPostOpaqueCompute(RHICmdList, View.ViewUniformBuffer);
 
 	if (!View.bIsPlanarReflection)
 	{
@@ -732,7 +745,7 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 						// The results of this draw are irrelevant.
 						TShaderMapRef<FScreenVS> ScreenVertexShader(View.ShaderMap);
 						TShaderMapRef<FScreenPS> PixelShader(View.ShaderMap);
-
+					
 						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
 						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
@@ -905,6 +918,16 @@ void FMobileSceneRenderer::CopyMobileMultiViewSceneColor(FRHICommandListImmediat
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
 	}
+
 	}
 	RHICmdList.EndRenderPass();
+}
+
+bool FMobileSceneRenderer::IsGPUParticleCollisionEnabled(const FViewInfo& View)
+{
+	if (!View.bIsPlanarReflection && ViewFamily.EngineShowFlags.Particles)
+	{
+		return CVarMobileDisableGPUParticleCollision.GetValueOnRenderThread() == 0;
+	}
+	return false;
 }

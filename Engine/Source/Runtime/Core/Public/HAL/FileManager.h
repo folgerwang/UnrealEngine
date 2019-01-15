@@ -18,7 +18,8 @@ enum EFileWrite
 	FILEWRITE_NoReplaceExisting = 0x02,
 	FILEWRITE_EvenIfReadOnly    = 0x04,
 	FILEWRITE_Append			= 0x08,
-	FILEWRITE_AllowRead			= 0x10
+	FILEWRITE_AllowRead			= 0x10,
+	FILEWRITE_Silent			= 0x20
 };
 
 

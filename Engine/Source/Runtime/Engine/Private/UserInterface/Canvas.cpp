@@ -404,15 +404,11 @@ bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmedia
 			Canvas->IsHitTesting(),
 			Gamma
 			);
-
-		if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
-		{
-			// delete data since we're done rendering it
-			delete Data;
-		}
 	}
 	if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
 	{
+		// delete data since we're done rendering it
+		delete Data;
 		Data = NULL;
 	}
 	return bDirty;

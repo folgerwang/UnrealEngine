@@ -7,7 +7,7 @@
 #include "Containers/Ticker.h"
 #include "Interfaces/OnlinePartyInterface.h"
 
-/** Util exclusively for use by TPartyDataReplicator to circumvent circular include header issues */
+/** Util exclusively for use by TPartyDataReplicator to circumvent circular include header issues (we can't include SocialParty.h or PartyMember.h here) */
 class FPartyDataReplicatorHelper
 {
 	template <typename> friend class TPartyDataReplicator;
@@ -55,19 +55,23 @@ public:
 PACKAGE_SCOPE:
 	void ProcessReceivedData(const FOnlinePartyData& IncomingPartyData, bool bCompareToPrevious = true)
 	{
-		if (FVariantDataConverter::VariantMapToUStruct(IncomingPartyData.GetKeyValAttrs(), RepDataType, RepDataPtr, 0, CPF_Transient | CPF_RepSkip))
+		// If the rep data can be edited locally, disregard any replication updates (they're the same at best or out of date at worst)
+		if (!static_cast<FOnlinePartyRepDataBase*>(RepDataPtr)->CanEditData())
 		{
-			static_cast<FOnlinePartyRepDataBase*>(RepDataPtr)->PostReplication();
-
-			if (bCompareToPrevious)
+			if (FVariantDataConverter::VariantMapToUStruct(IncomingPartyData.GetKeyValAttrs(), RepDataType, RepDataPtr, 0, CPF_Transient | CPF_RepSkip))
 			{
-				static_cast<FOnlinePartyRepDataBase*>(RepDataPtr)->CompareAgainst(*RepDataCopy);
+				static_cast<FOnlinePartyRepDataBase*>(RepDataPtr)->PostReplication();
+
+				if (bCompareToPrevious)
+				{
+					static_cast<FOnlinePartyRepDataBase*>(RepDataPtr)->CompareAgainst(*RepDataCopy);
+				}
+				ensure(RepDataType->GetCppStructOps()->Copy(RepDataCopy, RepDataPtr, 1));
 			}
-			ensure(RepDataType->GetCppStructOps()->Copy(RepDataCopy, RepDataPtr, 1));
-		}
-		else
-		{
-			UE_LOG(LogParty, Error, TEXT("Failed to serialize received party data!"));
+			else
+			{
+				UE_LOG(LogParty, Error, TEXT("Failed to serialize received party data!"));
+			}
 		}
 	}
 
@@ -109,6 +113,9 @@ private:
 		if (FVariantDataConverter::UStructToVariantMap(RepDataType, RepDataPtr, OnlinePartyData.GetKeyValAttrs(), 0, CPF_Transient | CPF_RepSkip))
 		{
 			FPartyDataReplicatorHelper::ReplicateDataToMembers(*RepDataPtr, *RepDataType, OnlinePartyData);
+			
+			// Make sure the local copy lines up with whatever has been sent most recently
+			ensure(RepDataType->GetCppStructOps()->Copy(RepDataCopy, RepDataPtr, 1));
 		}
 		return false;
 	}

@@ -49,6 +49,16 @@ namespace BuildPatchServices
 			});
 		}
 
+		virtual TArray<FGuid> SelectFromNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const override
+		{
+			return NextReferences.FilterByPredicate([&Count, &SelectPredicate](const FGuid& Element)
+			{
+				bool bSelected = (Count > 0) && SelectPredicate(Element);
+				--Count;
+				return bSelected;
+			});
+		}
+
 		virtual bool PopReference(const FGuid& ChunkId)
 		{
 			if (NextReferences.Num() && NextReferences[0] == ChunkId)

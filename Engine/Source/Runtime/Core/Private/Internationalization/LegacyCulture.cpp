@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/LegacyCulture.h"
+#include "Containers/ArrayBuilder.h"
 #include "Misc/ScopeLock.h"
 
 #if !UE_ENABLE_ICU
@@ -190,16 +191,38 @@ ETextPluralForm GetDefaultPluralForm(T Val, const ETextPluralType PluralType)
 
 }
 
-ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType) const
 {
 	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
 	return GetDefaultPluralForm(Val, PluralType);
 }
 
-ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FLegacyCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType) const
 {
 	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
 	return GetDefaultPluralForm((int64)Val, PluralType);
+}
+
+const TArray<ETextPluralForm>& FCulture::FLegacyCultureImplementation::GetValidPluralForms(const ETextPluralType PluralType) const
+{
+	if (PluralType == ETextPluralType::Cardinal)
+	{
+		static const TArray<ETextPluralForm> PluralForms = TArrayBuilder<ETextPluralForm>()
+			.Add(ETextPluralForm::One)
+			.Add(ETextPluralForm::Other);
+		return PluralForms;
+	}
+	else
+	{
+		check(PluralType == ETextPluralType::Ordinal);
+
+		static const TArray<ETextPluralForm> PluralForms = TArrayBuilder<ETextPluralForm>()
+			.Add(ETextPluralForm::One)
+			.Add(ETextPluralForm::Two)
+			.Add(ETextPluralForm::Few)
+			.Add(ETextPluralForm::Other);
+		return PluralForms;
+	}
 }
 
 #endif

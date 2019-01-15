@@ -929,7 +929,6 @@ void UWidgetComponent::RegisterWindow()
 			FSlateApplication::Get().RegisterVirtualWindow(SlateWindow.ToSharedRef());
 		}
 
-#if SLATE_PARENT_POINTERS
 		if (Widget && !Widget->IsDesignTime())
 		{
 			if (UWorld* LocalWorld = GetWorld())
@@ -944,7 +943,6 @@ void UWidgetComponent::RegisterWindow()
 				}
 			}
 		}
-#endif
 	}
 }
 

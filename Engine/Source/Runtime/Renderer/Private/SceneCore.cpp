@@ -413,11 +413,6 @@ FStaticMesh::~FStaticMesh()
 /** Initialization constructor. */
 FExponentialHeightFogSceneInfo::FExponentialHeightFogSceneInfo(const UExponentialHeightFogComponent* InComponent):
 	Component(InComponent),
-	FogHeight(InComponent->GetComponentLocation().Z),
-	// Scale the densities back down to their real scale
-	// Artists edit the densities scaled up so they aren't entering in minuscule floating point numbers
-	FogDensity(InComponent->FogDensity / 1000.0f),
-	FogHeightFalloff(InComponent->FogHeightFalloff / 1000.0f),
 	FogMaxOpacity(InComponent->FogMaxOpacity),
 	StartDistance(InComponent->StartDistance),
 	FogCutoffDistance(InComponent->FogCutoffDistance),
@@ -426,6 +421,16 @@ FExponentialHeightFogSceneInfo::FExponentialHeightFogSceneInfo(const UExponentia
 	DirectionalInscatteringStartDistance(InComponent->DirectionalInscatteringStartDistance),
 	DirectionalInscatteringColor(InComponent->DirectionalInscatteringColor)
 {
+	FogData[0].Height = InComponent->GetComponentLocation().Z;
+	FogData[1].Height = InComponent->GetComponentLocation().Z + InComponent->SecondFogData.FogHeightOffset;
+
+	// Scale the densities back down to their real scale
+	// Artists edit the densities scaled up so they aren't entering in minuscule floating point numbers
+	FogData[0].Density = InComponent->FogDensity / 1000.0f;	
+	FogData[0].HeightFalloff = InComponent->FogHeightFalloff / 1000.0f;
+	FogData[1].Density = InComponent->SecondFogData.FogDensity / 1000.0f;
+	FogData[1].HeightFalloff = InComponent->SecondFogData.FogHeightFalloff / 1000.0f;
+
 	FogColor = InComponent->InscatteringColorCubemap ? InComponent->InscatteringTextureTint : InComponent->FogInscatteringColor;
 	InscatteringColorCubemap = InComponent->InscatteringColorCubemap;
 	InscatteringColorCubemapAngle = InComponent->InscatteringColorCubemapAngle * (PI / 180.f);

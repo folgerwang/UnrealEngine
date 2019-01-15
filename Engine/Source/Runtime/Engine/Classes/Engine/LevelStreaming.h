@@ -139,6 +139,10 @@ private:
 	UPROPERTY(transient, Category = LevelStreaming, BlueprintSetter = SetLevelLODIndex)
 	int32 LevelLODIndex;
 
+	/** The relative priority of considering the streaming level. Changing the priority will not interrupt the currently considered level, but will affect the next time a level is being selected for evaluation. */
+	UPROPERTY(EditAnywhere, Category=LevelStreaming, BlueprintSetter = SetPriority)
+	int32 StreamingPriority;
+
 	/** What the current streamed state of the streaming level is */
 	ECurrentState CurrentState;
 
@@ -278,6 +282,13 @@ public:
 	/** Sets the world composition level LOD index and marks the streaming level as requiring consideration. */
 	UFUNCTION(BlueprintSetter)
 	void SetLevelLODIndex(int32 LODIndex);
+
+	/** Sets the relative priority of considering the streaming level. Changing the priority will not interrupt the currently considered level, but will affect the next time a level is being selected for evaluation. */
+ 	int32 GetPriority() const { return StreamingPriority; }
+
+	/** Sets the relative priority of considering the streaming level. Changing the priority will not interrupt the currently considered level, but will affect the next time a level is being selected for evaluation. */
+	UFUNCTION(BlueprintSetter)
+	void SetPriority(int32 NewPriority);
 
 	/** Returns whether the streaming level is in the loading state. */
 	bool HasLoadRequestPending() const { return GetCurrentState() == ECurrentState::Loading; }

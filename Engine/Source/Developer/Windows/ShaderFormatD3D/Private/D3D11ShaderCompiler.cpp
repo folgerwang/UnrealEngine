@@ -174,7 +174,8 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 	{
 		checkSlow(Target.Frequency == SF_Vertex ||
 			Target.Frequency == SF_Pixel ||
-			Target.Frequency == SF_Geometry);
+			Target.Frequency == SF_Geometry || 
+			Target.Frequency == SF_Compute);
 
 		//set defines and profiles for the appropriate shader paths
 		switch(Target.Frequency)
@@ -185,6 +186,8 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("vs_5_0");
 		case SF_Geometry:
 			return TEXT("gs_5_0");
+		case SF_Compute:
+			return TEXT("cs_5_0");
 		}
 	}
 

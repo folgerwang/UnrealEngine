@@ -230,9 +230,9 @@ struct FTargetDeviceServiceTerminateLaunchedProcess
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** Holds the variant identifier of the target device to use. */
-		UPROPERTY(EditAnywhere, Category = "Message")
-		FName Variant;
+	/** Holds the variant identifier of the target device to use. */
+	UPROPERTY(EditAnywhere, Category = "Message")
+	FName Variant;
 
 	/**
 	* Holds the identifier of the application to launch.
@@ -243,7 +243,7 @@ struct FTargetDeviceServiceTerminateLaunchedProcess
 	* services as result of successful deployment transactions.
 	*/
 	UPROPERTY(EditAnywhere, Category = "Message")
-		FString AppID;
+	FString AppID;
 
 	/** Default constructor. */
 	FTargetDeviceServiceTerminateLaunchedProcess() { }

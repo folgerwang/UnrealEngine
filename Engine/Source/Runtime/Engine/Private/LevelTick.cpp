@@ -820,29 +820,42 @@ struct FMarkComponentEndOfFrameUpdateState
 	friend class UWorld;
 
 private:
-	FORCEINLINE static void Set(UActorComponent* Component, const EComponentMarkedForEndOfFrameUpdateState::Type UpdateState)
+	FORCEINLINE static void Set(UActorComponent* Component, int32 ArrayIndex, const EComponentMarkedForEndOfFrameUpdateState::Type UpdateState)
 	{
 		checkSlow(UpdateState < 4); // Only 2 bits are allocated to store this value
 		Component->MarkedForEndOfFrameUpdateState = UpdateState;
+		Component->MarkedForEndOfFrameUpdateArrayIndex = ArrayIndex;
+	}
+
+	FORCEINLINE static int32 GetArrayIndex(UActorComponent* Component)
+	{
+		return Component->MarkedForEndOfFrameUpdateArrayIndex;
 	}
 };
 
+#if WITH_EDITOR
 void UWorld::UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const
 {
-	TWeakObjectPtr<UActorComponent> WeakComponent(Component);
-	if (ComponentsThatNeedEndOfFrameUpdate.Contains(WeakComponent))
+	int32 MarkedIndex = ComponentsThatNeedEndOfFrameUpdate.IndexOfByKey(Component);
+
+	if (MarkedIndex != INDEX_NONE)
 	{
-		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
-	}
-	else if (ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Contains(WeakComponent))
-	{
-		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+		FMarkComponentEndOfFrameUpdateState::Set(Component, MarkedIndex, EComponentMarkedForEndOfFrameUpdateState::Marked);
 	}
 	else
 	{
-		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+		int32 MarkedForGameThreadIndex = ComponentsThatNeedEndOfFrameUpdate_OnGameThread.IndexOfByKey(Component);
+		if(MarkedForGameThreadIndex != INDEX_NONE)
+		{
+			FMarkComponentEndOfFrameUpdateState::Set(Component, MarkedForGameThreadIndex, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+		}
+		else
+		{
+			FMarkComponentEndOfFrameUpdateState::Set(Component, INDEX_NONE, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+		}
 	}
 }
+#endif
 
 void UWorld::ClearActorComponentEndOfFrameUpdate(UActorComponent* Component)
 {
@@ -852,15 +865,19 @@ void UWorld::ClearActorComponentEndOfFrameUpdate(UActorComponent* Component)
 
 	if (CurrentState == EComponentMarkedForEndOfFrameUpdateState::Marked)
 	{
-		TWeakObjectPtr<UActorComponent> WeakComponent(Component);
-		verify(ComponentsThatNeedEndOfFrameUpdate.Remove(WeakComponent) == 1);
+		const int32 ArrayIndex = FMarkComponentEndOfFrameUpdateState::GetArrayIndex(Component);
+		check(ComponentsThatNeedEndOfFrameUpdate.IsValidIndex(ArrayIndex));
+		check(ComponentsThatNeedEndOfFrameUpdate[ArrayIndex] == Component);
+		ComponentsThatNeedEndOfFrameUpdate[ArrayIndex] = nullptr;
 	}
 	else if (CurrentState == EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread)
 	{
-		TWeakObjectPtr<UActorComponent> WeakComponent(Component);
-		verify(ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Remove(WeakComponent) == 1);
+		const int32 ArrayIndex = FMarkComponentEndOfFrameUpdateState::GetArrayIndex(Component);
+		check(ComponentsThatNeedEndOfFrameUpdate_OnGameThread.IsValidIndex(ArrayIndex));
+		check(ComponentsThatNeedEndOfFrameUpdate_OnGameThread[ArrayIndex] == Component);
+		ComponentsThatNeedEndOfFrameUpdate_OnGameThread[ArrayIndex] = nullptr;
 	}
-	FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+	FMarkComponentEndOfFrameUpdateState::Set(Component, INDEX_NONE, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
 }
 
 void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Component, bool bForceGameThread)
@@ -868,12 +885,14 @@ void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Compon
 	check(!bPostTickComponentUpdate); // can't call this while we are doing the updates
 
 	uint32 CurrentState = Component->GetMarkedForEndOfFrameUpdateState();
-	TWeakObjectPtr<UActorComponent> WeakComponent(Component);
 
 	// force game thread can be turned on later, but we are not concerned about that, those are only cvars and constants; if those are changed during a frame, they won't fully kick in till next frame.
 	if (CurrentState == EComponentMarkedForEndOfFrameUpdateState::Marked && bForceGameThread)
 	{
-		verify(ComponentsThatNeedEndOfFrameUpdate.Remove(WeakComponent) == 1);
+		const int32 ArrayIndex = FMarkComponentEndOfFrameUpdateState::GetArrayIndex(Component);
+		check(ComponentsThatNeedEndOfFrameUpdate.IsValidIndex(ArrayIndex));
+		check(ComponentsThatNeedEndOfFrameUpdate[ArrayIndex] == Component);
+		ComponentsThatNeedEndOfFrameUpdate[ArrayIndex] = nullptr;
 		CurrentState = EComponentMarkedForEndOfFrameUpdateState::Unmarked;
 	}
 	// it is totally ok if it is currently marked for the gamethread but now they are not forcing game thread. It will run on the game thread this frame.
@@ -889,13 +908,13 @@ void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Compon
 
 		if (bForceGameThread)
 		{
-			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(WeakComponent);
-			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+			FMarkComponentEndOfFrameUpdateState::Set(Component, ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Num(), EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(Component);
 		}
 		else
 		{
-			ComponentsThatNeedEndOfFrameUpdate.Add(WeakComponent);
-			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
+			FMarkComponentEndOfFrameUpdateState::Set(Component, ComponentsThatNeedEndOfFrameUpdate.Num(), EComponentMarkedForEndOfFrameUpdateState::Marked);
+			ComponentsThatNeedEndOfFrameUpdate.Add(Component);
 		}
 	}
 }
@@ -975,21 +994,17 @@ void UWorld::SendAllEndOfFrameUpdates()
 	// update all dirty components. 
 	FGuardValue_Bitfield(bPostTickComponentUpdate, true); 
 
-	static TArray<TWeakObjectPtr<UActorComponent>> LocalComponentsThatNeedEndOfFrameUpdate; 
+	static TArray<UActorComponent*> LocalComponentsThatNeedEndOfFrameUpdate; 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate_Gather);
 		check(IsInGameThread() && !LocalComponentsThatNeedEndOfFrameUpdate.Num());
-		LocalComponentsThatNeedEndOfFrameUpdate.Reserve(ComponentsThatNeedEndOfFrameUpdate.Num());
-		for (TWeakObjectPtr<UActorComponent> Elem : ComponentsThatNeedEndOfFrameUpdate)
-		{
-			LocalComponentsThatNeedEndOfFrameUpdate.Add(Elem);
-		}
+		LocalComponentsThatNeedEndOfFrameUpdate.Append(ComponentsThatNeedEndOfFrameUpdate);
 	}
 
 	auto ParallelWork = 
 		[](int32 Index) 
 		{
-			UActorComponent* NextComponent = LocalComponentsThatNeedEndOfFrameUpdate[Index].Get(/*bEvenIfPendingKill*/true);
+			UActorComponent* NextComponent = LocalComponentsThatNeedEndOfFrameUpdate[Index];
 			if (NextComponent)
 			{
 				if (NextComponent->IsRegistered() && !NextComponent->IsTemplate() && !NextComponent->IsPendingKill())
@@ -998,17 +1013,16 @@ void UWorld::SendAllEndOfFrameUpdates()
 					FScopeCycleCounterUObject AdditionalScope(STATS ? NextComponent->AdditionalStatObject() : nullptr);
 					NextComponent->DoDeferredRenderUpdates_Concurrent();
 				}
-				check(NextComponent->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::Marked);
-				FMarkComponentEndOfFrameUpdateState::Set(NextComponent, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+				check(NextComponent->IsPendingKill() || NextComponent->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::Marked);
+				FMarkComponentEndOfFrameUpdateState::Set(NextComponent, INDEX_NONE, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
 			}
 		};
 	auto GTWork = 
 		[this]()
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate_ForcedGameThread);
-			for (TWeakObjectPtr<UActorComponent> Elem : ComponentsThatNeedEndOfFrameUpdate_OnGameThread)
+			for (UActorComponent* Component : ComponentsThatNeedEndOfFrameUpdate_OnGameThread)
 			{
-				UActorComponent* Component = Elem.Get(/*bEvenIfPendingKill*/true);
 				if (Component)
 				{
 					if (Component->IsRegistered() && !Component->IsTemplate() && !Component->IsPendingKill())
@@ -1017,8 +1031,9 @@ void UWorld::SendAllEndOfFrameUpdates()
 						FScopeCycleCounterUObject AdditionalScope(STATS ? Component->AdditionalStatObject() : nullptr);
 						Component->DoDeferredRenderUpdates_Concurrent();
 					}
-					check(Component->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
-					FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+
+					check(Component->IsPendingKill() || Component->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+					FMarkComponentEndOfFrameUpdateState::Set(Component, INDEX_NONE, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
 				}
 			}
 			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Reset();
@@ -1196,7 +1211,7 @@ extern bool GCollisionAnalyzerIsRecording;
 #endif // ENABLE_COLLISION_ANALYZER
 
 
-#if CSV_PROFILER
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
 static TAutoConsoleVariable<int32> CVarRecordTickCountsToCSV(
 	TEXT("csv.RecordTickCounts"),
 	1,
@@ -1209,8 +1224,16 @@ static TAutoConsoleVariable<int32> CVarDetailedTickContextForCSV(
 
 static TAutoConsoleVariable<int32> CVarRecordActorCountsToCSV(
 	TEXT("csv.RecordActorCounts"),
-	0,
+	1,
 	TEXT("Record actor counts by class when performing CSV capture"));
+
+static TAutoConsoleVariable<int32> CVarRecordActorCountsToCSVThreshold(
+	TEXT("csv.RecordActorCountsThreshold"),
+	5,
+	TEXT("Number of instances of an native Actor class required before recording to CSV stat"));
+
+extern TMap<FName, int32> CSVActorClassNameToCountMap;
+extern int32 CSVActorTotalCount;
 
 /** Add additional stats to CSV profile for tick and actor counts */
 static void RecordWorldCountsToCSV(UWorld* World)
@@ -1234,22 +1257,27 @@ static void RecordWorldCountsToCSV(UWorld* World)
 			}
 		}
 
-		if (CVarRecordActorCountsToCSV.GetValueOnGameThread())
+		if (CVarRecordActorCountsToCSV.GetValueOnAnyThread())
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_RecordActorCountsToCSV);
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RecordActorCountsToCSV);
 
-			for (TActorIterator<AActor> It(World); It; ++It)
-			{
-				const AActor* Actor = *It;
-				const FString StatString = FString::Printf(TEXT("%s%s/%s"), CSV_STAT_NAME_PREFIX, *GetParentNativeClass(Actor->GetClass())->GetName(), *Actor->GetClass()->GetName());
+			const int32 Threshold = CVarRecordActorCountsToCSVThreshold.GetValueOnAnyThread();
 
-				FCsvProfiler::Get()->RecordCustomStat(FName(*StatString), CSV_CATEGORY_INDEX(ActorCount), 1, ECsvCustomStatOp::Accumulate);
+			for (auto It = CSVActorClassNameToCountMap.CreateConstIterator(); It; ++It)
+			{
+				if (It->Value > Threshold)
+				{
+					FCsvProfiler::Get()->RecordCustomStat(It->Key, CSV_CATEGORY_INDEX(ActorCount), It->Value, ECsvCustomStatOp::Set);
+				}
 			}
+
+			static FName TotalActorCountStatName(TEXT("TotalActorCount"));
+			FCsvProfiler::Get()->RecordCustomStat(TotalActorCountStatName, CSV_CATEGORY_INDEX(ActorCount), CSVActorTotalCount, ECsvCustomStatOp::Set);
 		}
 	}
 }
-#endif // CSV_PROFILER
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
 
 DECLARE_CYCLE_STAT(TEXT("TG_PrePhysics"), STAT_TG_PrePhysics, STATGROUP_TickGroups);
 DECLARE_CYCLE_STAT(TEXT("TG_StartPhysics"), STAT_TG_StartPhysics, STATGROUP_TickGroups);
@@ -1689,11 +1717,13 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
     // Tick all net drivers
 	{
 		SCOPE_CYCLE_COUNTER(STAT_NetBroadcastTickTime);
+		LLM_SCOPE(ELLMTag::Networking);
 		BroadcastTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 	
      // PostTick all net drivers
 	{
+		LLM_SCOPE(ELLMTag::Networking);
 		BroadcastPostTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 
@@ -1736,9 +1766,9 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	GDetailedPathFindingStats.DumpStats();
 #endif
 
-#if !UE_BUILD_SHIPPING && CSV_PROFILER
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
 	RecordWorldCountsToCSV(this);
-#endif // CSV_PROFILER
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

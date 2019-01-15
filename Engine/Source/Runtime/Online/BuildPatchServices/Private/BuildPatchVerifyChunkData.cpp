@@ -60,6 +60,11 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 		{
 			ManifestFiles.Add(File);
 		}
+		// Register delta files as if they are manifests.
+		else if (File.EndsWith(TEXT(".delta")))
+		{
+			ManifestFiles.Add(File);
+		}
 	}
 
 	// Systems.
@@ -85,7 +90,10 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 			{
 				// Ensure we can get GUID from readable chunks.
 				FScopeLockedChunkData ScopeLockedChunkData(ChunkDataAccess.Get());
-				Result.Get<2>() = ScopeLockedChunkData.GetHeader()->Guid;
+				if (ChunkId != ScopeLockedChunkData.GetHeader()->Guid)
+				{
+					Result.Get<1>() = false;
+				}
 			}
 			return Result;
 		};
@@ -202,29 +210,29 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 				TSet<FGuid> ReferencedMissingData = ReferencedData.Difference(BadChunkData).Difference(GoodChunkData);
 				if (ReferencedBadData.Num() > 0)
 				{
-					UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Bad data referenced by manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+					UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Bad data referenced by %s file: %s"), ManifestCount, ManifestNum, *FPaths::GetExtension(ManifestFile.Get<1>()), *ManifestFile.Get<1>());
 					bManifestOk = false;
 				}
 				if (ReferencedMissingData.Num() > 0)
 				{
-					UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Missing data referenced by manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+					UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Missing data referenced by %s file: %s"), ManifestCount, ManifestNum, *FPaths::GetExtension(ManifestFile.Get<1>()), *ManifestFile.Get<1>());
 					bManifestOk = false;
 				}
 			}
 			else
 			{
-				UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Skipping legacy file based manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+				UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Skipping legacy file based %s file: %s"), ManifestCount, ManifestNum, *FPaths::GetExtension(ManifestFile.Get<1>()), *ManifestFile.Get<1>());
 			}
 		}
 		else
 		{
-			UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Corrupt manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+			UE_LOG(LogVerifyChunkData, Error, TEXT("[%d/%d]: Corrupt %s file: %s"), ManifestCount, ManifestNum, *FPaths::GetExtension(ManifestFile.Get<1>()), *ManifestFile.Get<1>());
 			bManifestOk = false;
 		}
 
 		if (bManifestOk)
 		{
-			UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Manifest file good: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+			UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: %s file good: %s"), ManifestCount, ManifestNum, *FPaths::GetExtension(ManifestFile.Get<1>()), *ManifestFile.Get<1>());
 		}
 		else
 		{

@@ -2960,19 +2960,13 @@ bool FLightmassProcessor::BeginRun()
 	// Set up optional dependencies.  These might not exist in Launcher distributions, for example.
 	const TCHAR* OptionalDependencyPaths32[] =
 	{
-		TEXT("../Win32/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("../Win32/UnrealLightmass.pdb")
 	};
 	const int32 OptionalDependencyPaths32Count = ARRAY_COUNT(OptionalDependencyPaths32);
 
 	const TCHAR* OptionalDependencyPaths64[] =
 	{
-		TEXT("../Win64/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("../Win64/UnrealLightmass.pdb")
 	};
 	const int32 OptionalDependencyPaths64Count = ARRAY_COUNT(OptionalDependencyPaths64);
 

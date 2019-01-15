@@ -3,6 +3,7 @@
 #include "SocialToolkit.h"
 #include "SocialManager.h"
 #include "SocialQuery.h"
+#include "SocialSettings.h"
 #include "User/SocialUser.h"
 #include "User/SocialUserList.h"
 #include "Chat/SocialChatManager.h"
@@ -33,6 +34,14 @@ class FSocialQuery_MapExternalIds : public TSocialQuery<FString, const FUniqueNe
 public:
 	static FName GetQueryId() { return TEXT("MapExternalIds"); }
 
+	virtual void AddUserId(const FString& UserIdStr, const FOnQueryComplete& QueryCompleteHandler) override
+	{
+		// Prepend the environment prefix (if there is one) to the true ID we're after before actually adding the ID
+		const FString MappableIdStr = USocialSettings::GetUniqueIdEnvironmentPrefix(SubsystemType) + UserIdStr;
+
+		TSocialQuery<FString, const FUniqueNetIdRepl&>::AddUserId(MappableIdStr, QueryCompleteHandler);
+	}
+
 	virtual void ExecuteQuery() override
 	{
 		FUniqueNetIdRepl LocalUserPrimaryId = Toolkit.IsValid() ? Toolkit->GetLocalUserNetId(ESocialSubsystem::Primary) : FUniqueNetIdRepl();
@@ -46,13 +55,13 @@ public:
 			{
 				bHasExecuted = true;
 				
-				TArray<FString> UserIds;
-				CompletionCallbacksByUserId.GenerateKeyArray(UserIds);
-				UE_LOG(LogParty, Log, TEXT("FSocialQuery_MapExternalIds executing for [%d] users on subsystem [%s]"), UserIds.Num(), ToString(SubsystemType));
+				TArray<FString> ExternalUserIds;
+				CompletionCallbacksByUserId.GenerateKeyArray(ExternalUserIds);
+				UE_LOG(LogParty, Log, TEXT("FSocialQuery_MapExternalIds executing for [%d] users on subsystem [%s]"), ExternalUserIds.Num(), ToString(SubsystemType));
 
 				const FString AuthType = IdentityInterface->GetAuthType().ToLower();
 				FExternalIdQueryOptions QueryOptions(AuthType, false);
-				PrimaryUserInterface->QueryExternalIdMappings(*LocalUserPrimaryId, QueryOptions, UserIds, IOnlineUser::FOnQueryExternalIdMappingsComplete::CreateSP(this, &FSocialQuery_MapExternalIds::HandleQueryExternalIdMappingsComplete));
+				PrimaryUserInterface->QueryExternalIdMappings(*LocalUserPrimaryId, QueryOptions, ExternalUserIds, IOnlineUser::FOnQueryExternalIdMappingsComplete::CreateSP(this, &FSocialQuery_MapExternalIds::HandleQueryExternalIdMappingsComplete));
 			}
 		}
 		else
@@ -172,24 +181,23 @@ int32 USocialToolkit::GetLocalUserNum() const
 	return GetOwningLocalPlayer().GetControllerId();
 }
 
-EOnlinePresenceState::Type USocialToolkit::GetLocalUserOnlineState()
+const FOnlineUserPresence* USocialToolkit::GetPresenceInfo(ESocialSubsystem SubsystemType) const
 {
-	if (IOnlineSubsystem* PrimaryOss = GetSocialOss(ESocialSubsystem::Primary))
+	if (IOnlineSubsystem* Oss = GetSocialOss(SubsystemType))
 	{
-		IOnlinePresencePtr PresenceInterface = PrimaryOss->GetPresenceInterface();
-		FUniqueNetIdRepl LocalUserId = GetLocalUserNetId(ESocialSubsystem::Primary);
+		IOnlinePresencePtr PresenceInterface = Oss->GetPresenceInterface();
+		FUniqueNetIdRepl LocalUserId = GetLocalUserNetId(SubsystemType);
 		if (PresenceInterface.IsValid() && LocalUserId.IsValid())
 		{
 			TSharedPtr<FOnlineUserPresence> CurrentPresence;
 			PresenceInterface->GetCachedPresence(*LocalUserId, CurrentPresence);
-
 			if (CurrentPresence.IsValid())
 			{
-				return CurrentPresence->Status.State;
+				return CurrentPresence.Get();
 			}
 		}
 	}
-	return EOnlinePresenceState::Offline;
+	return nullptr;
 }
 
 void USocialToolkit::SetLocalUserOnlineState(EOnlinePresenceState::Type OnlineState)
@@ -324,8 +332,8 @@ void USocialToolkit::QueueUserDependentActionInternal(const FUniqueNetIdRepl& Su
 
 void USocialToolkit::HandleControllerIdChanged(int32 NewId, int32 OldId)
 {
-	const IOnlineIdentityPtr IdentityInterface = Online::GetIdentityInterface(GetWorld());
-	if (ensure(IdentityInterface.IsValid()))
+	IOnlineSubsystem* PrimaryOss = GetSocialOss(ESocialSubsystem::Primary);
+	if (const IOnlineIdentityPtr IdentityInterface = PrimaryOss ? PrimaryOss->GetIdentityInterface() : nullptr)
 	{
 		IdentityInterface->ClearOnLoginCompleteDelegates(OldId, this);
 		IdentityInterface->ClearOnLoginStatusChangedDelegates(OldId, this);
@@ -388,9 +396,14 @@ void USocialToolkit::NotifySubsystemIdEstablished(USocialUser& SocialUser, ESoci
 	}
 }
 
-bool USocialToolkit::TrySendFriendInvite(const USocialUser& SocialUser, ESocialSubsystem SubsystemType) const
+bool USocialToolkit::TrySendFriendInvite(USocialUser& SocialUser, ESocialSubsystem SubsystemType) const
 {
-	if (!SocialUser.IsFriend(SubsystemType))
+	if (SocialUser.GetFriendInviteStatus(SubsystemType) == EInviteStatus::PendingOutbound)
+	{
+		OnFriendInviteSent().Broadcast(SocialUser, SubsystemType);
+		return true;
+	}
+	else if (!SocialUser.IsFriend(SubsystemType))
 	{
 		IOnlineFriendsPtr FriendsInterface = Online::GetFriendsInterface(GetWorld(), USocialManager::GetSocialOssName(SubsystemType));
 		const FUniqueNetIdRepl SubsystemId = SocialUser.GetUserId(SubsystemType);
@@ -399,7 +412,7 @@ bool USocialToolkit::TrySendFriendInvite(const USocialUser& SocialUser, ESocialS
 
 		if (FriendsInterface && SubsystemId.IsValid() && !bIsFriendshipRestricted)
 		{
-			return FriendsInterface->SendInvite(GetLocalUserNum(), *SubsystemId, FriendListToQuery, FOnSendInviteComplete::CreateUObject(this, &USocialToolkit::HandleFriendInviteSent, SubsystemType));
+			return FriendsInterface->SendInvite(GetLocalUserNum(), *SubsystemId, FriendListToQuery, FOnSendInviteComplete::CreateUObject(this, &USocialToolkit::HandleFriendInviteSent, SubsystemType, SocialUser.GetDisplayName()));
 		}
 	}
 	return false;
@@ -417,42 +430,36 @@ void USocialToolkit::OnOwnerLoggedIn()
 
 	// Establish the owning player's ID on each subsystem and bind to events for general social goings-on
 	const int32 LocalUserNum = GetLocalUserNum();
-	for (ESocialSubsystem Subsystem : USocialManager::GetDefaultSubsystems())
+	for (ESocialSubsystem SubsystemType : USocialManager::GetDefaultSubsystems())
 	{
-		if (IOnlineSubsystem* OSS = GetSocialOss(Subsystem))
+		FUniqueNetIdRepl LocalUserNetId = LocalUser->GetUserId(SubsystemType);
+		if (LocalUserNetId.IsValid())
 		{
-			IOnlineIdentityPtr IdentityInterface = OSS->GetIdentityInterface();
-			FUniqueNetIdRepl LocalUserNetId = IdentityInterface.IsValid() ? IdentityInterface->GetUniquePlayerId(LocalUserNum) : nullptr;
-			if (LocalUserNetId.IsValid())
+			IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
+			check(OSS);
+			if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
 			{
-				OwnerIdsBySubsystem.FindOrAdd(Subsystem) = LocalUserNetId;
+				FriendsInterface->AddOnFriendRemovedDelegate_Handle(FOnFriendRemovedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendRemoved, SubsystemType));
+				FriendsInterface->AddOnDeleteFriendCompleteDelegate_Handle(LocalUserNum, FOnDeleteFriendCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleDeleteFriendComplete, SubsystemType));
 
-				if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
-				{
-					FriendsInterface->AddOnFriendRemovedDelegate_Handle(FOnFriendRemovedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendRemoved, Subsystem));
-					FriendsInterface->AddOnDeleteFriendCompleteDelegate_Handle(LocalUserNum, FOnDeleteFriendCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleDeleteFriendComplete, Subsystem));
+				FriendsInterface->AddOnInviteReceivedDelegate_Handle(FOnInviteReceivedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteReceived, SubsystemType));
+				FriendsInterface->AddOnInviteAcceptedDelegate_Handle(FOnInviteAcceptedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteAccepted, SubsystemType));
+				FriendsInterface->AddOnInviteRejectedDelegate_Handle(FOnInviteRejectedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteRejected, SubsystemType));
 
-					FriendsInterface->AddOnInviteReceivedDelegate_Handle(FOnInviteReceivedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteReceived, Subsystem));
-					FriendsInterface->AddOnInviteAcceptedDelegate_Handle(FOnInviteAcceptedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteAccepted, Subsystem));
-					FriendsInterface->AddOnInviteRejectedDelegate_Handle(FOnInviteRejectedDelegate::CreateUObject(this, &USocialToolkit::HandleFriendInviteRejected, Subsystem));
+				FriendsInterface->AddOnBlockedPlayerCompleteDelegate_Handle(LocalUserNum, FOnBlockedPlayerCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleBlockPlayerComplete, SubsystemType));
+				FriendsInterface->AddOnUnblockedPlayerCompleteDelegate_Handle(LocalUserNum, FOnUnblockedPlayerCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleUnblockPlayerComplete, SubsystemType));
 
-					FriendsInterface->AddOnBlockedPlayerCompleteDelegate_Handle(LocalUserNum, FOnBlockedPlayerCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleBlockPlayerComplete, Subsystem));
-					FriendsInterface->AddOnUnblockedPlayerCompleteDelegate_Handle(LocalUserNum, FOnUnblockedPlayerCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleUnblockPlayerComplete, Subsystem));
+				FriendsInterface->AddOnRecentPlayersAddedDelegate_Handle(FOnRecentPlayersAddedDelegate::CreateUObject(this, &USocialToolkit::HandleRecentPlayersAdded, SubsystemType));
+			}
 
-					FriendsInterface->AddOnRecentPlayersAddedDelegate_Handle(FOnRecentPlayersAddedDelegate::CreateUObject(this, &USocialToolkit::HandleRecentPlayersAdded, Subsystem));
-				}
+			if (IOnlinePartyPtr PartyInterface = OSS->GetPartyInterface())
+			{
+				PartyInterface->AddOnPartyInviteReceivedDelegate_Handle(FOnPartyInviteReceivedDelegate::CreateUObject(this, &USocialToolkit::HandlePartyInviteReceived));
+			}
 
-				IOnlinePartyPtr PartyInterface = OSS->GetPartyInterface();
-				if (PartyInterface.IsValid())
-				{
-					PartyInterface->AddOnPartyInviteReceivedDelegate_Handle(FOnPartyInviteReceivedDelegate::CreateUObject(this, &USocialToolkit::HandlePartyInviteReceived));
-				}
-
-				IOnlinePresencePtr PresenceInterface = OSS->GetPresenceInterface();
-				if (PresenceInterface.IsValid())
-				{
-					PresenceInterface->AddOnPresenceReceivedDelegate_Handle(FOnPresenceReceivedDelegate::CreateUObject(this, &USocialToolkit::HandlePresenceReceived, Subsystem));
-				}
+			if (IOnlinePresencePtr PresenceInterface = OSS->GetPresenceInterface())
+			{
+				PresenceInterface->AddOnPresenceReceivedDelegate_Handle(FOnPresenceReceivedDelegate::CreateUObject(this, &USocialToolkit::HandlePresenceReceived, SubsystemType));
 			}
 		}
 	}
@@ -477,13 +484,10 @@ void USocialToolkit::OnOwnerLoggedOut()
 	UE_LOG(LogParty, Log, TEXT("LocalPlayer [%d] has logged out - wiping user roster from SocialToolkit."), GetLocalUserNum());
 
 	const int32 LocalUserNum = GetLocalUserNum();
-	for (const auto& SubsystemIdPair : OwnerIdsBySubsystem)
+	for (ESocialSubsystem SubsystemType : USocialManager::GetDefaultSubsystems())
 	{
-		if (IOnlineSubsystem* OSS = GetSocialOss(SubsystemIdPair.Key))
+		if (IOnlineSubsystem* OSS = GetSocialOss(SubsystemType))
 		{
-			IOnlineIdentityPtr IdentityInterface = OSS->GetIdentityInterface();
-			check(IdentityInterface);
-
 			IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface();
 			if (FriendsInterface.IsValid())
 			{
@@ -522,7 +526,6 @@ void USocialToolkit::OnOwnerLoggedOut()
 	}
 
 	UsersBySubsystemIds.Reset();
-	OwnerIdsBySubsystem.Reset();
 	AllUsers.Reset();
 
 	// Remake a fresh uninitialized local user
@@ -533,36 +536,42 @@ void USocialToolkit::OnOwnerLoggedOut()
 
 void USocialToolkit::QueryFriendsLists()
 {
-	for (const TPair<ESocialSubsystem, FUniqueNetIdRepl>& SubsystemOwnerIdPair : OwnerIdsBySubsystem)
+	for (ESocialSubsystem SubsystemType : USocialManager::GetDefaultSubsystems())
 	{
-		const ESocialSubsystem SubsystemType = SubsystemOwnerIdPair.Key;
-		IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
-		check(OSS);
-
-		if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
+		const FUniqueNetIdRepl LocalUserNetId = LocalUser->GetUserId(SubsystemType);
+		if (LocalUserNetId.IsValid())
 		{
-			FriendsInterface->ReadFriendsList(GetLocalUserNum(), FriendListToQuery, FOnReadFriendsListComplete::CreateUObject(this, &USocialToolkit::HandleReadFriendsListComplete, SubsystemType));
+			IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
+			check(OSS);
+
+			if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
+			{
+				FriendsInterface->ReadFriendsList(GetLocalUserNum(), FriendListToQuery, FOnReadFriendsListComplete::CreateUObject(this, &USocialToolkit::HandleReadFriendsListComplete, SubsystemType));
+			}
 		}
 	}
 }
 
 void USocialToolkit::QueryBlockedPlayers()
 {
-	for (const TPair<ESocialSubsystem, FUniqueNetIdRepl>& SubsystemOwnerIdPair : OwnerIdsBySubsystem)
+	for (ESocialSubsystem SubsystemType : USocialManager::GetDefaultSubsystems())
 	{
-		const ESocialSubsystem SubsystemType = SubsystemOwnerIdPair.Key;
-		IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
-		check(OSS);
-
-		if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
+		const FUniqueNetIdRepl LocalUserSubsystemId = LocalUser->GetUserId(SubsystemType);
+		if (LocalUserSubsystemId.IsValid())
 		{
-			//@todo DanH Social: There is an inconsistency in OSS interfaces - some just return false for unimplemented features while others return false and trigger the callback
-			//		Seems like they should return false if the feature isn't implemented and trigger the callback for failure if it is implemented and couldn't start
-			//		As it is now, there are two ways to know if the call didn't succeed and zero ways to know if it ever could
-			FriendsInterface->AddOnQueryBlockedPlayersCompleteDelegate_Handle(FOnQueryBlockedPlayersCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleQueryBlockedPlayersComplete, SubsystemType));
-			if (!FriendsInterface->QueryBlockedPlayers(*SubsystemOwnerIdPair.Value))
+			IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
+			check(OSS);
+
+			if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
 			{
-				FriendsInterface->ClearOnQueryBlockedPlayersCompleteDelegates(this);
+				//@todo DanH Social: There is an inconsistency in OSS interfaces - some just return false for unimplemented features while others return false and trigger the callback
+				//		Seems like they should return false if the feature isn't implemented and trigger the callback for failure if it is implemented and couldn't start
+				//		As it is now, there are two ways to know if the call didn't succeed and zero ways to know if it ever could
+				FriendsInterface->AddOnQueryBlockedPlayersCompleteDelegate_Handle(FOnQueryBlockedPlayersCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleQueryBlockedPlayersComplete, SubsystemType));
+				if (!FriendsInterface->QueryBlockedPlayers(*LocalUserSubsystemId))
+				{
+					FriendsInterface->ClearOnQueryBlockedPlayersCompleteDelegates(this);
+				}
 			}
 		}
 	}
@@ -570,18 +579,21 @@ void USocialToolkit::QueryBlockedPlayers()
 
 void USocialToolkit::QueryRecentPlayers()
 {
-	for (const TPair<ESocialSubsystem, FUniqueNetIdRepl>& SubsystemOwnerIdPair : OwnerIdsBySubsystem)
+	for (ESocialSubsystem SubsystemType : USocialManager::GetDefaultSubsystems())
 	{
-		const ESocialSubsystem SubsystemType = SubsystemOwnerIdPair.Key;
-		IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
-		check(OSS);
-
-		if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
+		const FUniqueNetIdRepl LocalUserSubsystemId = LocalUser->GetUserId(SubsystemType);
+		if (LocalUserSubsystemId.IsValid())
 		{
-			FriendsInterface->AddOnQueryRecentPlayersCompleteDelegate_Handle(FOnQueryRecentPlayersCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleQueryRecentPlayersComplete, SubsystemType));
-			if (RecentPlayerNamespaceToQuery.IsEmpty() || !FriendsInterface->QueryRecentPlayers(*SubsystemOwnerIdPair.Value, RecentPlayerNamespaceToQuery))
+			IOnlineSubsystem* OSS = GetSocialOss(SubsystemType);
+			check(OSS);
+
+			if (IOnlineFriendsPtr FriendsInterface = OSS->GetFriendsInterface())
 			{
-				FriendsInterface->ClearOnQueryRecentPlayersCompleteDelegates(this);
+				FriendsInterface->AddOnQueryRecentPlayersCompleteDelegate_Handle(FOnQueryRecentPlayersCompleteDelegate::CreateUObject(this, &USocialToolkit::HandleQueryRecentPlayersComplete, SubsystemType));
+				if (RecentPlayerNamespaceToQuery.IsEmpty() || !FriendsInterface->QueryRecentPlayers(*LocalUserSubsystemId, RecentPlayerNamespaceToQuery))
+				{
+					FriendsInterface->ClearOnQueryRecentPlayersCompleteDelegates(this);
+				}
 			}
 		}
 	}
@@ -593,8 +605,14 @@ void USocialToolkit::HandlePlayerLoginStatusChanged(int32 LocalUserNum, ELoginSt
 	{
 		if (NewStatus == ELoginStatus::LoggedIn)
 		{
+			if (!ensure(AllUsers.Num() == 0))
+			{
+				// Nobody told us we logged out! Handle it now just so we're fresh, but not good!
+				OnOwnerLoggedOut();
+			}
+
 			AllUsers.Add(LocalUser);
-			LocalUser->Initialize(NewId.AsShared());
+			LocalUser->InitLocalUser();
 
 			if (IsOwnerLoggedIn())
 			{
@@ -711,21 +729,56 @@ void USocialToolkit::HandlePresenceReceived(const FUniqueNetId& UserId, const TS
 	{
 		UpdatedUser->NotifyPresenceChanged(SubsystemType);
 	}
+	else if (SubsystemType == ESocialSubsystem::Platform)
+	{
+		FString ErrorString = TEXT("Platform presence received, but existing SocialUser could not be found.\n");
+		ErrorString += TEXT("Incoming UserId is ") + UserId.ToString() + TEXT(", as a UniqueIdRepl it's ") + FUniqueNetIdRepl(UserId).ToString();
+
+		ErrorString += TEXT("Outputting all cached platform IDs and the corresponding user: \n") + UserId.ToString();
+		for (auto IdUserPair : UsersBySubsystemIds)
+		{
+			if (IdUserPair.Key.GetType() != MCP_SUBSYSTEM)
+			{
+				ErrorString += FString::Printf(TEXT("\tUserId [%s]: SocialUser [%s]\n"), *IdUserPair.Key.ToString(), *IdUserPair.Value->ToDebugString());
+				if (IdUserPair.Key == FUniqueNetIdRepl(UserId) || !ensure(*IdUserPair.Key != UserId))
+				{
+					ErrorString += TEXT("\t\tAnd look at that, this one DOES actually match. The map has lied to us!!\n");
+				}
+			}
+		}
+
+		UE_LOG(LogParty, Error, TEXT("%s"), *ErrorString);
+	}
 }
 
 void USocialToolkit::HandleQueryPrimaryUserIdMappingComplete(bool bWasSuccessful, const FUniqueNetId& RequestingUserId, const FString& DisplayName, const FUniqueNetId& IdentifiedUserId, const FString& Error)
 {
-	if (IdentifiedUserId.IsValid() && RequestingUserId != IdentifiedUserId)
+	if (!IdentifiedUserId.IsValid())
 	{
-		QueueUserDependentActionInternal(IdentifiedUserId, ESocialSubsystem::Primary,
-			[this] (USocialUser& SocialUser)
-			{
-				TrySendFriendInvite(SocialUser, ESocialSubsystem::Primary);
-			});
+		NotifyFriendInviteFailed(IdentifiedUserId, DisplayName, ESendFriendInviteFailureReason::NotFound);
+	}
+	else if (RequestingUserId == IdentifiedUserId)
+	{
+		NotifyFriendInviteFailed(IdentifiedUserId, DisplayName, ESendFriendInviteFailureReason::AddingSelfFail);
 	}
 	else
 	{
-		NotifyFriendInviteFailed(IdentifiedUserId, Error);
+		QueueUserDependentActionInternal(IdentifiedUserId, ESocialSubsystem::Primary,
+			[this, DisplayName] (USocialUser& SocialUser)
+			{
+				if (SocialUser.IsBlocked())
+				{
+					NotifyFriendInviteFailed(*SocialUser.GetUserId(ESocialSubsystem::Primary), DisplayName, ESendFriendInviteFailureReason::AddingBlockedFail);
+				}
+				else if (SocialUser.IsFriend(ESocialSubsystem::Primary))
+				{
+					NotifyFriendInviteFailed(*SocialUser.GetUserId(ESocialSubsystem::Primary), DisplayName, ESendFriendInviteFailureReason::AlreadyFriends);
+				}
+				else
+				{
+					TrySendFriendInvite(SocialUser, ESocialSubsystem::Primary);
+				}
+			});
 	}
 }
 
@@ -782,7 +835,7 @@ void USocialToolkit::HandleFriendInviteRejected(const FUniqueNetId& LocalUserId,
 	}
 }
 
-void USocialToolkit::HandleFriendInviteSent(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& InvitedUserId, const FString& ListName, const FString& ErrorStr, ESocialSubsystem SubsystemType)
+void USocialToolkit::HandleFriendInviteSent(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& InvitedUserId, const FString& ListName, const FString& ErrorStr, ESocialSubsystem SubsystemType, FString DisplayName)
 {
 	if (bWasSuccessful)
 	{
@@ -799,6 +852,10 @@ void USocialToolkit::HandleFriendInviteSent(int32 LocalUserNum, bool bWasSuccess
 					}
 				}
 			});
+	}
+	else
+	{
+		NotifyFriendInviteFailed(InvitedUserId, ErrorStr, ESendFriendInviteFailureReason::UnknownError, false);
 	}
 }
 

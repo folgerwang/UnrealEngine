@@ -68,6 +68,16 @@ namespace ImportCompareHelper
 		}
 	};
 
+	enum class ECompareResult : int32
+	{
+		SCR_None = 0x00000000,
+		SCR_SkeletonMissingBone = 0x00000001,
+		SCR_SkeletonAddedBone = 0x00000002,
+		SCR_SkeletonBadRoot = 0x00000004,
+	};
+
+	ENUM_CLASS_FLAGS(ECompareResult);
+
 	struct FSkeletonCompareData
 	{
 		FSkeletonTreeNode CurrentAssetRoot;
@@ -76,10 +86,10 @@ namespace ImportCompareHelper
 		{
 			CurrentAssetRoot.Empty();
 			ResultAssetRoot.Empty();
-			bHasConflict = false;
+			CompareResult = ECompareResult::SCR_None;
 		}
-		bool HasConflict() { return bHasConflict; }
-		bool bHasConflict;
+		ECompareResult GetCompareResult() { return CompareResult; }
+		ECompareResult CompareResult;
 	};
 
 }

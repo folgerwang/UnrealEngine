@@ -36,6 +36,30 @@ static TAutoConsoleVariable<int32> GCVarRobustBufferAccess(
 	ECVF_ReadOnly
 );
 
+EDelayAcquireImageType GVulkanDelayAcquireImage = EDelayAcquireImageType::DelayAcquire;
+
+TAutoConsoleVariable<int32> CVarDelayAcquireBackBuffer(
+	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
+	1,
+	TEXT("Whether to delay acquiring the back buffer \n")
+	TEXT(" 0: acquire next image on frame start \n")
+	TEXT(" 1: acquire next image just before presenting, rendering is done to intermediate image which is then copied to real backbuffer (default) \n")
+	TEXT(" 2: acquire next image immediately after presenting current"),
+	ECVF_ReadOnly
+);
+
+static EDelayAcquireImageType DelayAcquireBackBuffer()
+{
+	int32 DelayType = CVarDelayAcquireBackBuffer.GetValueOnAnyThread();
+	switch (DelayType)
+	{
+	case 1:
+		return EDelayAcquireImageType::DelayAcquire;
+	case 2:
+		return EDelayAcquireImageType::PreAcquire;
+	}
+	return EDelayAcquireImageType::None;
+}
 
 static void EnableDrawMarkers()
 {
@@ -381,6 +405,8 @@ void FVulkanDevice::CreateDevice()
 #if VULKAN_ENABLE_DUMP_LAYER
 	EnableDrawMarkers();
 #endif
+	
+	GVulkanDelayAcquireImage = DelayAcquireBackBuffer();
 }
 
 void FVulkanDevice::SetupFormats()

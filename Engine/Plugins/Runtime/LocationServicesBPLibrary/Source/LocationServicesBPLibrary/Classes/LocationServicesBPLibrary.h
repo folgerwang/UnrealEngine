@@ -123,7 +123,7 @@ public:
 	* @return - true if the mobile device can support the Accuracy, false if it will use a different accuracy
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Services|Mobile|Location")
-		static bool IsLocationAccuracyAvailable(ELocationAccuracy Accuracy);
+	static bool IsLocationAccuracyAvailable(ELocationAccuracy Accuracy);
 	
 	/*
 	* Set and clear the Location Services implementation object. Used by the module at startup and shutdown, not intended

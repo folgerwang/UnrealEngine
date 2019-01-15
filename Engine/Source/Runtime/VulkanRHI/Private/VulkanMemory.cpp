@@ -2072,7 +2072,7 @@ namespace VulkanRHI
 		VkPipelineStageFlags DestStages = (VkPipelineStageFlags)0;
 		SetImageBarrierInfo(Source, Dest, ImageBarrier, SourceStages, DestStages);
 
-		if (!DelayAcquireBackBuffer())
+		if (GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
 		{
 			// special handling for VK_IMAGE_LAYOUT_PRESENT_SRC_KHR (otherwise Mali devices flicker)
 			if (Source == EImageLayoutBarrier::Present)

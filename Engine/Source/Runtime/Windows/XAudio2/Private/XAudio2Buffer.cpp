@@ -329,7 +329,7 @@ bool FXAudio2SoundBuffer::ReadCompressedInfo(USoundWave* SoundWave)
 	return DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, nullptr);
 }
 
-bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
+bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping )
 {
 	if (!DecompressionState)
 	{
@@ -337,14 +337,14 @@ bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping 
 		return false;
 	}
 	
-	const uint32 kPCMBufferSize = MONO_PCM_BUFFER_SIZE * NumChannels;
+	int32 NumBytesToDecode = NumFramesToDecode * sizeof(int16) * NumChannels;
 	if (SoundFormat == SoundFormat_Streaming)
 	{
-		return DecompressionState->StreamCompressedData( Destination, bLooping, kPCMBufferSize );
+		return DecompressionState->StreamCompressedData(Destination, bLooping, NumBytesToDecode);
 	}
 	else
 	{
-		return( DecompressionState->ReadCompressedData( Destination, bLooping, kPCMBufferSize ) );
+		return DecompressionState->ReadCompressedData(Destination, bLooping, NumBytesToDecode);
 	}
 }
 

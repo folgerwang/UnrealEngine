@@ -19,6 +19,7 @@
 #pragma mark - Private C++ Statics -
 uint64 FMetalCommandQueue::Features = 0;
 extern mtlpp::VertexFormat GMetalFColorVertexFormat;
+extern bool GMetalManagedUniformBuffers;
 
 #pragma mark - Public C++ Boilerplate -
 
@@ -137,6 +138,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			Features |= EMetalFeaturesLinearTextures;
 			// InjectCurves() does not work with this
 			//Features |= EMetalFeaturesEfficientBufferBlits;
+            Features |= EMetalFeaturesBufferSubAllocation;
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			
 			if(Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v2) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily2_v3) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily1_v3))
@@ -292,6 +294,8 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 	{
 		Features |= EMetalFeaturesAbsoluteTimeQueries;
 	}
+	
+	GMetalManagedUniformBuffers = FParse::Param(FCommandLine::Get(),TEXT("metalmanagedubs"));
 #endif
 	
 #if !UE_BUILD_SHIPPING

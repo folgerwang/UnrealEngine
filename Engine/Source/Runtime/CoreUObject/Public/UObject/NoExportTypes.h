@@ -1048,7 +1048,7 @@ USTRUCT(noexport, BlueprintType)
 struct FPrimaryAssetType
 {
 	/** The Type of this object, by default it's base class's name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetType)
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetType)
 	FName Name;
 };
 
@@ -1057,11 +1057,11 @@ USTRUCT(noexport, BlueprintType)
 struct FPrimaryAssetId
 {
 	/** The Type of this object, by default it's base class's name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetId)
 	FPrimaryAssetType PrimaryAssetType;
 
 	/** The Name of this object, by default it's short name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetId)
 	FName PrimaryAssetName;
 };
 
@@ -1223,6 +1223,13 @@ struct FPolyglotTextData
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	TMap<FString, FString> LocalizedStrings;
+
+	/**
+	 * True if this polyglot data is a minimal patch, and that missing translations should be
+	 * ignored (falling back to any LocRes data) rather than falling back to the native string.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	bool bIsMinimalPatch;
 
 	/**
 	 * Transient cached text instance from registering this polyglot data with the text localization manager.

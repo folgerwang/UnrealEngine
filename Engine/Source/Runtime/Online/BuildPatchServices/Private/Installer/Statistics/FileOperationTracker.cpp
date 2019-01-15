@@ -4,6 +4,7 @@
 #include "Templates/Tuple.h"
 #include "Containers/Union.h"
 #include "Containers/Queue.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Core/AsyncHelpers.h"
 #include "Common/StatsCollector.h"
 #include "BuildPatchManifest.h"
@@ -13,21 +14,23 @@ DEFINE_LOG_CATEGORY(LogFileOperationTracker);
 
 namespace BuildPatchServices
 {
+	typedef TTuple<TArray<FFileOperation>, TArray<FFileOperation>> FOperationInitialiser;
 	typedef TTuple<FGuid, EFileOperationState> FDataState;
 	typedef TTuple<FString, EFileOperationState> FFileState;
 	typedef TTuple<FString, FByteRange, EFileOperationState> FFileByteRangeState;
-	typedef TUnion<FDataState, FFileState, FFileByteRangeState> FUpdateMessage;
+	typedef TUnion<FOperationInitialiser, FDataState, FFileState, FFileByteRangeState> FUpdateMessage;
 
 	class FFileOperationTracker
 		: public IFileOperationTracker
 	{
 	public:
-		FFileOperationTracker(FTicker& Ticker, FBuildPatchAppManifest* Manifest);
+		FFileOperationTracker(FTicker& Ticker);
 		~FFileOperationTracker();
 
 	public:
 		// IFileOperationTracker interface begin.
 		virtual const TArray<FFileOperation>& GetStates() const override;
+		virtual void OnManifestSelection(const FBuildPatchAppManifest& Manifest) override;
 		virtual void OnDataStateUpdate(const FGuid& DataId, EFileOperationState State) override;
 		virtual void OnDataStateUpdate(const TSet<FGuid>& DataIds, EFileOperationState State) override;
 		virtual void OnDataStateUpdate(const TArray<FGuid>& DataIds, EFileOperationState State) override;
@@ -37,60 +40,32 @@ namespace BuildPatchServices
 		virtual void OnFileByteRangeStateUpdate(const FString& Filename, FByteRange ByteRange, EFileOperationState State) override;
 		// IFileOperationTracker interface end.
 
-		void ProcessMessage(const FDataState& Message);
-		void ProcessMessage(const FFileState& Message);
-		void ProcessMessage(const FFileByteRangeState& Message);
-
 	private:
 		bool Tick(float Delta);
+		void ProcessMessage(FOperationInitialiser& Message);
+		void ProcessMessage(FDataState& Message);
+		void ProcessMessage(FFileState& Message);
+		void ProcessMessage(FFileByteRangeState& Message);
+
+	private:
+		static FOperationInitialiser BuildOperationInitialiser(const FBuildPatchAppManifest& Manifest);
 
 	private:
 		FTicker& Ticker;
-		FBuildPatchAppManifest* Manifest;
 		FDelegateHandle TickerHandle;
 		TArray<FFileOperation> FileOperationStates;
 		TArray<FFileOperation> DummyOperationStates;
 		TMap<FGuid, TArray<FFileOperation*>> FileOperationStatesDataIdLookup;
 		TMap<FString, TArray<FFileOperation*>> FileOperationStatesFilenameLookup;
 		TQueue<FUpdateMessage, EQueueMode::Mpsc> UpdateMessages;
+		const FBuildPatchAppManifest* LastUsedManifest;
 	};
 
-	FFileOperationTracker::FFileOperationTracker(FTicker& InTicker, FBuildPatchAppManifest* InManifest)
+	FFileOperationTracker::FFileOperationTracker(FTicker& InTicker)
 		: Ticker(InTicker)
-		, Manifest(InManifest)
+		, LastUsedManifest(nullptr)
 	{
 		check(IsInGameThread());
-
-		// Get the list of files in the build.
-		TArray<FString> Filenames;
-		Manifest->GetFileList(Filenames);
-
-		// Initialise all file operations to Unknown.], use dummy operations for empty files.
-		for (const FString& Filename : Filenames)
-		{
-			const FFileManifest* FileManifest = Manifest->GetFileManifest(Filename);
-			uint64 FileOffset = 0;
-			for (const FChunkPart& FileChunkPart : FileManifest->ChunkParts)
-			{
-				FileOperationStates.Emplace(Filename, FileChunkPart.Guid, FileOffset, FileChunkPart.Size, EFileOperationState::Unknown);
-				FileOffset += FileChunkPart.Size;
-			}
-			if (FileManifest->ChunkParts.Num() == 0)
-			{
-				DummyOperationStates.Emplace(Filename, FGuid(), 0, 0, EFileOperationState::Unknown);
-			}
-		}
-
-		// Create lookups to data for faster finding.
-		for (FFileOperation& FileOperationState : FileOperationStates)
-		{
-			FileOperationStatesDataIdLookup.FindOrAdd(FileOperationState.DataId).Add(&FileOperationState);
-			FileOperationStatesFilenameLookup.FindOrAdd(FileOperationState.Filename).Add(&FileOperationState);
-		}
-		for (FFileOperation& DummyOperationState : DummyOperationStates)
-		{
-			FileOperationStatesFilenameLookup.FindOrAdd(DummyOperationState.Filename).Add(&DummyOperationState);
-		}
 
 		// Need ticker to process incoming updates.
 		TickerHandle = Ticker.AddTicker(FTickerDelegate::CreateRaw(this, &FFileOperationTracker::Tick));
@@ -107,6 +82,15 @@ namespace BuildPatchServices
 	{
 		check(IsInGameThread());
 		return FileOperationStates;
+	}
+
+	void FFileOperationTracker::OnManifestSelection(const FBuildPatchAppManifest& Manifest)
+	{
+		if (LastUsedManifest != &Manifest)
+		{
+			LastUsedManifest = &Manifest;
+			UpdateMessages.Enqueue(FUpdateMessage(BuildOperationInitialiser(Manifest)));
+		}
 	}
 
 	void FFileOperationTracker::OnDataStateUpdate(const FGuid& DataId, EFileOperationState State)
@@ -164,7 +148,11 @@ namespace BuildPatchServices
 		FUpdateMessage UpdateMessage;
 		while (FStatsCollector::GetCycles() < TimeLimitCycles && UpdateMessages.Dequeue(UpdateMessage))
 		{
-			if (UpdateMessage.HasSubtype<FDataState>())
+			if (UpdateMessage.HasSubtype<FOperationInitialiser>())
+			{
+				ProcessMessage(UpdateMessage.GetSubtype<FOperationInitialiser>());
+			}
+			else if (UpdateMessage.HasSubtype<FDataState>())
 			{
 				ProcessMessage(UpdateMessage.GetSubtype<FDataState>());
 			}
@@ -180,46 +168,99 @@ namespace BuildPatchServices
 		return true;
 	}
 
-	void FFileOperationTracker::ProcessMessage(const FDataState& Message)
+	void FFileOperationTracker::ProcessMessage(FOperationInitialiser& Message)
 	{
-		for (FFileOperation* FileOp : FileOperationStatesDataIdLookup[Message.Get<0>()])
+		FileOperationStates = MoveTemp(Message.Get<0>());
+		DummyOperationStates = MoveTemp(Message.Get<1>());
+		FileOperationStatesDataIdLookup.Reset();
+		FileOperationStatesFilenameLookup.Reset();
+		for (FFileOperation& FileOperationState : FileOperationStates)
 		{
-			if (FileOp->CurrentState <= EFileOperationState::DataInMemoryStore)
+			FileOperationStatesDataIdLookup.FindOrAdd(FileOperationState.DataId).Add(&FileOperationState);
+			FileOperationStatesFilenameLookup.FindOrAdd(FileOperationState.Filename).Add(&FileOperationState);
+		}
+		for (FFileOperation& DummyOperationState : DummyOperationStates)
+		{
+			FileOperationStatesFilenameLookup.FindOrAdd(DummyOperationState.Filename).Add(&DummyOperationState);
+		}
+	}
+
+	void FFileOperationTracker::ProcessMessage(FDataState& Message)
+	{
+		if (FileOperationStatesDataIdLookup.Contains(Message.Get<0>()))
+		{
+			for (FFileOperation* FileOp : FileOperationStatesDataIdLookup[Message.Get<0>()])
+			{
+				if (FileOp->CurrentState <= EFileOperationState::DataInMemoryStore)
+				{
+					FileOp->CurrentState = Message.Get<1>();
+				}
+			}
+		}
+	}
+
+	void FFileOperationTracker::ProcessMessage(FFileState& Message)
+	{
+		if (FileOperationStatesFilenameLookup.Contains(Message.Get<0>()))
+		{
+			for (FFileOperation* FileOp : FileOperationStatesFilenameLookup[Message.Get<0>()])
 			{
 				FileOp->CurrentState = Message.Get<1>();
 			}
 		}
 	}
 
-	void FFileOperationTracker::ProcessMessage(const FFileState& Message)
+	void FFileOperationTracker::ProcessMessage(FFileByteRangeState& Message)
 	{
-		for (FFileOperation* FileOp : FileOperationStatesFilenameLookup[Message.Get<0>()])
+		if (FileOperationStatesFilenameLookup.Contains(Message.Get<0>()))
 		{
-			FileOp->CurrentState = Message.Get<1>();
-		}
-	}
-
-	void FFileOperationTracker::ProcessMessage(const FFileByteRangeState& Message)
-	{
-		const uint64 FileByteStart = Message.Get<1>().Get<0>();
-		const uint64 FileByteEnd = Message.Get<1>().Get<1>();
-		for (FFileOperation* FileOp : FileOperationStatesFilenameLookup[Message.Get<0>()])
-		{
-			const uint64 FileByteFirst = FileOp->Offest;
-			const uint64 FileByteLast = FileByteFirst + FileOp->Size;
-			if (FileByteFirst < FileByteEnd && FileByteLast > FileByteStart)
+			const uint64 FileByteStart = Message.Get<1>().Get<0>();
+			const uint64 FileByteEnd = Message.Get<1>().Get<1>();
+			for (FFileOperation* FileOp : FileOperationStatesFilenameLookup[Message.Get<0>()])
 			{
-				FileOp->CurrentState = Message.Get<2>();
-			}
-			if (FileByteFirst >= FileByteEnd)
-			{
-				break;
+				const uint64 FileByteFirst = FileOp->Offest;
+				const uint64 FileByteLast = FileByteFirst + FileOp->Size;
+				if (FileByteFirst < FileByteEnd && FileByteLast > FileByteStart)
+				{
+					FileOp->CurrentState = Message.Get<2>();
+				}
+				if (FileByteFirst >= FileByteEnd)
+				{
+					break;
+				}
 			}
 		}
 	}
 
-	IFileOperationTracker* FFileOperationTrackerFactory::Create(FTicker& Ticker, FBuildPatchAppManifest* Manifest)
+	FOperationInitialiser FFileOperationTracker::BuildOperationInitialiser(const FBuildPatchAppManifest& Manifest)
 	{
-		return new FFileOperationTracker(Ticker, Manifest);
+		FOperationInitialiser Result;
+		TArray<FFileOperation>& FileOperationStates = Result.Get<0>();
+		TArray<FFileOperation>& DummyOperationStates = Result.Get<1>();
+		// Get the list of files in the build.
+		TArray<FString> Filenames;
+		Manifest.GetFileList(Filenames);
+
+		// Initialise all file operations to Unknown, use dummy operations for empty files.
+		for (const FString& Filename : Filenames)
+		{
+			const FFileManifest* FileManifest = Manifest.GetFileManifest(Filename);
+			uint64 FileOffset = 0;
+			for (const FChunkPart& FileChunkPart : FileManifest->ChunkParts)
+			{
+				FileOperationStates.Emplace(Filename, FileChunkPart.Guid, FileOffset, FileChunkPart.Size, EFileOperationState::Unknown);
+				FileOffset += FileChunkPart.Size;
+			}
+			if (FileManifest->ChunkParts.Num() == 0)
+			{
+				DummyOperationStates.Emplace(Filename, FGuid(), 0, 0, EFileOperationState::Unknown);
+			}
+		}
+		return Result;
+	}
+
+	IFileOperationTracker* FFileOperationTrackerFactory::Create(FTicker& Ticker)
+	{
+		return new FFileOperationTracker(Ticker);
 	}
 }

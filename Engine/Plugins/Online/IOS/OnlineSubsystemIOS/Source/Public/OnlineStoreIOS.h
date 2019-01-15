@@ -117,6 +117,8 @@ private:
 
 	void AddOffer(const FOnlineStoreOfferIOS& NewOffer);
 
+    bool OffersNotAllowedInLocale(const FString& Locale);
+    
 private:
 
 	/** delegate fired when a product request completes */

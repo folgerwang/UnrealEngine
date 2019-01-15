@@ -487,7 +487,9 @@ void StatelessConnectHandlerComponent::SendRestartHandshakeRequest(const FString
 		AckPacket.WriteBit(bRestartHandshake);
 
 #if !UE_BUILD_SHIPPING
-		UE_LOG(LogHandshake, Log, TEXT("SendRestartHandshakeRequest."));
+		FDDoSDetection* DDoS = Handler->GetDDoS();
+
+		UE_CLOG((DDoS == nullptr || !DDoS->CheckLogRestrictions()), LogHandshake, Log, TEXT("SendRestartHandshakeRequest."));
 #endif
 
 		CapHandshakePacket(AckPacket);

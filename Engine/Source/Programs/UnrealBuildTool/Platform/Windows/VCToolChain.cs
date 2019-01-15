@@ -189,6 +189,12 @@ namespace UnrealBuildTool
 			// Compile into an .obj file, and skip linking.
 			Arguments.Add("/c");
 
+			// Put symbols into different sections so the linker can remove them.
+			if(Target.WindowsPlatform.bOptimizeGlobalData)
+			{
+				Arguments.Add("/Gw");
+			}
+
 			// Separate functions for linker.
 			Arguments.Add("/Gy");
 
@@ -1255,6 +1261,12 @@ namespace UnrealBuildTool
 				{
 					Arguments.Add(String.Format("/NODEFAULTLIB:\"{0}\"", ExcludedLibrary));
 				}
+			}
+
+			// Enable function level hot-patching
+			if(!bBuildImportLibraryOnly && Target.WindowsPlatform.bCreateHotpatchableImage)
+			{
+				Arguments.Add("/FUNCTIONPADMIN");
 			}
 
 			// For targets that are cross-referenced, we don't want to write a LIB file during the link step as that

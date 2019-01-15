@@ -210,46 +210,22 @@ public:
 	inline bool ContainsRenderTarget(FRHITexture* Texture) const
 	{
 		ensure(Texture);
-		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
-		{
-			if (RTInfo.ColorRenderTarget[Index].Texture == Texture)
-			{
-				return true;
-			}
-		}
-
-		if (RTInfo.DepthStencilRenderTarget.Texture == Texture)
-		{
-			return true;
-		}
-
-		return false;
+		FVulkanTextureBase* Base = (FVulkanTextureBase*)Texture->GetTextureBaseRHI();
+		return ContainsRenderTarget(Base->Surface.Image);
 	}
 
 	inline bool ContainsRenderTarget(VkImage Image) const
 	{
 		ensure(Image != VK_NULL_HANDLE);
-		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
+		for (uint32 Index = 0; Index < NumColorAttachments; ++Index)
 		{
-			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
-			if (RHITexture)
+			if (ColorRenderTargetImages[Index] == Image)
 			{
-				FVulkanTextureBase* Base = (FVulkanTextureBase*)RHITexture->GetTextureBaseRHI();
-				if (Image == Base->Surface.Image)
-				{
-					return true;
-				}
+				return true;
 			}
 		}
 
-		if (RTInfo.DepthStencilRenderTarget.Texture)
-		{
-			FVulkanTextureBase* Depth = (FVulkanTextureBase*)RTInfo.DepthStencilRenderTarget.Texture->GetTextureBaseRHI();
-			check(Depth);
-			return Depth->Surface.Image == Image;
-		}
-
-		return false;
+		return (DepthStencilRenderTargetImage == Image);
 	}
 
 	inline uint32 GetWidth() const
@@ -266,12 +242,11 @@ private:
 	VkFramebuffer Framebuffer;
 	VkExtent2D Extents;
 
-	// We do not adjust RTInfo, since it used for hashing and is what the UE provides,
-	// it's up to VulkanRHI to handle this correctly.
-	const FRHISetRenderTargetsInfo RTInfo;
-	uint32 NumColorAttachments;
+	// Unadjusted number of color render targets as in FRHISetRenderTargetsInfo 
+	uint32 NumColorRenderTargets;
 
 	// Save image off for comparison, in case it gets aliased.
+	uint32 NumColorAttachments;
 	VkImage ColorRenderTargetImages[MaxSimultaneousRenderTargets];
 	VkImage DepthStencilRenderTargetImage;
 

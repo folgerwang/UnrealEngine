@@ -608,6 +608,14 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyStateChanged), const FUni
 PARTY_DECLARE_DELEGATETYPE(OnPartyStateChanged);
 
 /**
+* Notification when a player has been approved for JIP
+* @param LocalUserId - id associated with this notification
+* @param PartyId - id associated with the party
+*/
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyJIP), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, bool /*Success*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyJIP);
+
+/**
  * Notification when player promotion is locked out.
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
@@ -720,6 +728,17 @@ DECLARE_MULTICAST_DELEGATE_FiveParams(F_PREFIX(OnPartyJoinRequestReceived), cons
 PARTY_DECLARE_DELEGATETYPE(OnPartyJoinRequestReceived);
 
 /**
+* Notification when a new reservation request is received
+* @param LocalUserId - id associated with this notification
+* @param PartyId - id associated with the party
+* @param SenderId - id of member that sent the request
+* @param Platform - platform of member that sent the request
+* @param PartyData - data provided by the sender for the leader to use to determine joinability
+*/
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyJIPRequestReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyJIPRequestReceived);
+
+/**
  * Notification when a player wants to know if the party is in a joinable state
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
@@ -795,6 +814,17 @@ public:
 	virtual bool JoinParty(const FUniqueNetId& LocalUserId, const IOnlinePartyJoinInfo& OnlinePartyJoinInfo, const FOnJoinPartyComplete& Delegate = FOnJoinPartyComplete()) = 0;
 
 	/**
+	* Join an existing game session from within a party
+	*
+	* @param LocalUserId - user making the request
+	* @param OnlinePartyJoinInfo - join information containing data such as party id, leader id
+	* @param Delegate - called on completion
+	*
+	* @return true if task was started
+	*/
+	virtual bool JIPFromWithinParty(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& PartyLeaderId) = 0;
+
+	/**
 	 * Query a party to check it's current joinability
 	 * Intended to be used before a call to LeaveParty (to leave your existing party, which would then be followed by JoinParty)
 	 * Note that the party's joinability can change from moment to moment so a successful response for this does not guarantee a successful JoinParty
@@ -842,6 +872,19 @@ public:
 	* @return true if task was started
 	*/
 	virtual bool ApproveJoinRequest(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& RecipientId, bool bIsApproved, int32 DeniedResultCode = 0) = 0;
+
+	/**
+	* Approve a request to join the JIP match a party is in.
+	*
+	* @param LocalUserId - user making the request
+	* @param PartyId - id of an existing party
+	* @param RecipientId - id of the user being invited
+	* @param bIsApproved - whether the join request was approved or not
+	* @param DeniedResultCode - used when bIsApproved is false - client defined value to return when leader denies approval
+	*
+	* @return true if task was started
+	*/
+	virtual bool ApproveJIPRequest(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& RecipientId, bool bIsApproved, int32 DeniedResultCode = 0) = 0;
 
 	/**
 	 * Respond to a query joinability request.  This reflects the current party's joinability state and can change from moment to moment, and therefore does not guarantee a successful join.
@@ -1215,6 +1258,13 @@ public:
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyStateChanged, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, EPartyState /*State*/);
 
 	/**
+	* notification of when a player had been approved to Join In Progress
+	* @param LocalUserId - id associated with this notification
+	* @param PartyId - id associated with the party
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyJIP, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, bool /*Success*/);
+
+	/**
 	 * Notification when player promotion is locked out.
 	 *
 	 * @param PartyId - id associated with the party
@@ -1314,6 +1364,17 @@ public:
 	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
 	 */
 	DEFINE_ONLINE_DELEGATE_FIVE_PARAM(OnPartyJoinRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
+
+	/**
+	* Notification when a new reservation request is received
+	* Subscriber is expected to call ApproveJoinRequest
+	* @param LocalUserId - id associated with this notification
+	* @param PartyId - id associated with the party
+	* @param SenderId - id of member that sent the request
+	* @param Platform - platform of member that sent the request
+	* @param PartyData - data provided by the sender for the leader to use to determine joinability
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyJIPRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
 
 	/**
 	 * Notification when a player wants to know if the party is in a joinable state

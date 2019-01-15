@@ -260,7 +260,7 @@ struct FBlueprintEditorPromotionSettings
 
 	/** The mesh to set on the blueprint after the delay **/
 	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
-		FFilePath SecondMeshPath;
+	FFilePath SecondMeshPath;
 
 	/** Default particle asset to use for tests*/
 	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))

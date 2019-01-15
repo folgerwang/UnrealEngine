@@ -536,7 +536,7 @@ namespace UnrealBuildTool
 					if(GeneratedCPPCompileEnvironment.PrecompiledHeaderFile == null && Rules.PrivatePCHHeaderFile != null && Rules.PCHUsage != ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 					{
 						GeneratedCPPCompileEnvironment = new CppCompileEnvironment(GeneratedCPPCompileEnvironment);
-						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(FileItem.GetExistingItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)));
+						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)));
 					}
 
 					// Compile all the generated files

@@ -47,12 +47,9 @@ void ReportInteractiveEnsure(const TCHAR* InMessage)
 
 #if PLATFORM_DESKTOP
 	GLog->PanicFlushThreadedLogs();
-	// GErrorMessage here is very unfortunate but it's used internally by the crash context code.
-	FCString::Strcpy(GErrorMessage, ARRAY_COUNT(GErrorMessage), InMessage);
 	// Skip macros and FDebug, we always want this to fire
 	const int32 NumStackFramesToIgnore = 1;
-	NewReportEnsure(InMessage, NumStackFramesToIgnore);
-	GErrorMessage[0] = '\0';
+	ReportEnsure(InMessage, NumStackFramesToIgnore);
 #endif
 
 	GEnsureShowsCRC = false;

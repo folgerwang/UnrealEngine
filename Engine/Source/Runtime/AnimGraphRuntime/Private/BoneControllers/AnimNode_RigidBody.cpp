@@ -13,7 +13,6 @@
 
 #include "Logging/MessageLog.h"
 
-
 using namespace ImmediatePhysics;
 
 //#pragma optimize("", off)
@@ -49,6 +48,7 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 	bEnableWorldGeometry = false;
 	bTransferBoneVelocities = false;
 	bFreezeIncomingPoseOnStart = false;
+	bClampLinearTranslationLimitToRefPose = false;
 
 	PreviousTransform = CurrentTransform = FTransform::Identity;
 	PreviousComponentLinearVelocity = FVector::ZeroVector;	
@@ -56,6 +56,7 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 	ComponentLinearAccScale = FVector::ZeroVector;
 	ComponentLinearVelScale = FVector::ZeroVector;
 	ComponentAppliedLinearAccClamp = FVector(10000,10000,10000);
+	bForceDisableCollisionBetweenConstraintBodies = false;
 }
 
 FAnimNode_RigidBody::~FAnimNode_RigidBody()
@@ -447,7 +448,49 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 			const int32 BodyIndex = OutputData.BodyIndex;
 			if (BodyAnimData[BodyIndex].bIsSimulated)
 			{
-				const FTransform BodyTM = Bodies[BodyIndex]->GetWorldTransform();
+				FTransform BodyTM = Bodies[BodyIndex]->GetWorldTransform();
+
+				// if we clamp translation, we only do this when all linear translation are locked
+				// 
+				if (bClampLinearTranslationLimitToRefPose
+					&&BodyAnimData[BodyIndex].LinearXMotion == ELinearConstraintMotion::LCM_Locked
+					&& BodyAnimData[BodyIndex].LinearYMotion == ELinearConstraintMotion::LCM_Locked
+					&& BodyAnimData[BodyIndex].LinearZMotion == ELinearConstraintMotion::LCM_Locked)
+				{
+					// grab local space of length from ref pose 
+					// we have linear limit value - see if that works
+					// calculate current local space from parent
+					// find parent transform
+					const int32 ParentBodyIndex = OutputData.ParentBodyIndex;
+					FTransform ParentTransform = FTransform::Identity;
+					if (ParentBodyIndex != INDEX_NONE)
+					{
+						ParentTransform = Bodies[ParentBodyIndex]->GetWorldTransform();
+					}
+
+					// get local transform
+					FTransform LocalTransform = BodyTM.GetRelativeTransform(ParentTransform);
+					const float CurrentLength = LocalTransform.GetTranslation().Size();
+
+					// this is inconsistent with constraint. The actual linear limit is set by constraint
+					if (!FMath::IsNearlyEqual(CurrentLength, BodyAnimData[BodyIndex].RefPoseLength, KINDA_SMALL_NUMBER))
+					{
+						float RefPoseLength = BodyAnimData[BodyIndex].RefPoseLength;
+						if (CurrentLength > RefPoseLength)
+						{
+							float Scale = (CurrentLength > KINDA_SMALL_NUMBER) ? RefPoseLength / CurrentLength : 0.f;
+							// we don't use 1.f here because 1.f can create pops based on float issue. 
+							// so we only activate clamping when less than 90%
+							if (Scale < 0.9f)
+							{
+								LocalTransform.ScaleTranslation(Scale);
+								BodyTM = LocalTransform * ParentTransform;
+								Bodies[BodyIndex]->SetWorldTransform(BodyTM);
+							}
+						}
+					}
+				}
+
 				FTransform ComponentSpaceTM;
 
 				switch(SimulationSpace)
@@ -677,7 +720,29 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
                         ensure(false);
 #else
 						PhysicsSimulation->CreateJoint(ConstraintRef.ConstraintData, Body1Handle, Body2Handle);
-						UsePhysicsAsset->DisableCollision(Body1Handle->GetActorIndex(), Body2Handle->GetActorIndex());
+						if (bForceDisableCollisionBetweenConstraintBodies)
+						{
+							int32 BodyIndex1 = UsePhysicsAsset->FindBodyIndex(CI->ConstraintBone1);
+							int32 BodyIndex2 = UsePhysicsAsset->FindBodyIndex(CI->ConstraintBone2);
+							if (BodyIndex1 != INDEX_NONE && BodyIndex2 != INDEX_NONE)
+							{
+								UsePhysicsAsset->DisableCollision(BodyIndex1, BodyIndex2);
+							}
+						}
+
+						int32 BodyIndex;
+						if (Bodies.Find(Body1Handle, BodyIndex))
+						{
+							BodyAnimData[BodyIndex].LinearXMotion = CI->GetLinearXMotion();
+							BodyAnimData[BodyIndex].LinearYMotion = CI->GetLinearYMotion();
+							BodyAnimData[BodyIndex].LinearZMotion = CI->GetLinearZMotion();
+							BodyAnimData[BodyIndex].LinearLimit = CI->GetLinearLimit();
+
+							//set limit to ref pose 
+							FTransform Body1Transform = Body1Handle->GetWorldTransform();
+							FTransform Body2Transform = Body2Handle->GetWorldTransform();
+							BodyAnimData[BodyIndex].RefPoseLength = Body1Transform.GetRelativeTransform(Body2Transform).GetLocation().Size();
+						}
 #endif
 					}
 				}

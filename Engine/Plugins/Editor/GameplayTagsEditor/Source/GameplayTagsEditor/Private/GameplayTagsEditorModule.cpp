@@ -81,13 +81,11 @@ public:
 		GameplayTagPackageName = FGameplayTag::StaticStruct()->GetOutermost()->GetFName();
 		GameplayTagStructName = FGameplayTag::StaticStruct()->GetFName();
 
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-		AssetRegistryModule.Get().OnEditSearchableName(GameplayTagPackageName, GameplayTagStructName).BindRaw(this, &FGameplayTagsEditorModule::OnEditGameplayTag);
-
 		// Hook into notifications for object re-imports so that the gameplay tag tree can be reconstructed if the table changes
 		if (GIsEditor)
 		{
 			FEditorDelegates::OnAssetPostImport.AddRaw(this, &FGameplayTagsEditorModule::OnObjectReimported);
+			FEditorDelegates::OnEditAssetIdentifiers.AddRaw(this, &FGameplayTagsEditorModule::OnEditGameplayTag);
 			IGameplayTagsModule::OnTagSettingsChanged.AddRaw(this, &FGameplayTagsEditorModule::OnEditorSettingsChanged);
 			UPackage::PackageSavedEvent.AddRaw(this, &FGameplayTagsEditorModule::OnPackageSaved);
 		}
@@ -116,14 +114,9 @@ public:
 		}
 
 		FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+		FEditorDelegates::OnEditAssetIdentifiers.RemoveAll(this);
 		IGameplayTagsModule::OnTagSettingsChanged.RemoveAll(this);
 		UPackage::PackageSavedEvent.RemoveAll(this);
-
-		FAssetRegistryModule* AssetRegistryModule = FModuleManager::FModuleManager::GetModulePtr<FAssetRegistryModule>("AssetRegistry");
-		if (AssetRegistryModule)
-		{
-			AssetRegistryModule->Get().OnEditSearchableName(GameplayTagPackageName, GameplayTagStructName).Unbind();
-		}
 	}
 
 	void OnEditorSettingsChanged()
@@ -166,15 +159,21 @@ public:
 		}
 	}
 
-	bool OnEditGameplayTag(const FAssetIdentifier& AssetId)
+	void OnEditGameplayTag(TArray<FAssetIdentifier> AssetIdentifierList)
 	{
-		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+		// If any of these are gameplay tags, open up tag viewer
+		for (FAssetIdentifier Identifier : AssetIdentifierList)
 		{
-			// TODO: Select tag maybe?
-			SettingsModule->ShowViewer("Project", "Project", "GameplayTags");
+			if (Identifier.IsValue() && Identifier.PackageName == GameplayTagPackageName && Identifier.ObjectName == GameplayTagStructName)
+			{
+				if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+				{
+					// TODO: Select tag maybe?
+					SettingsModule->ShowViewer("Project", "Project", "GameplayTags");
+				}
+				return;
+			}
 		}
-
-		return true;
 	}
 
 	void ShowNotification(const FText& TextToDisplay, float TimeToDisplay)

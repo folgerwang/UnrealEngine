@@ -148,6 +148,16 @@ public:
 	virtual bool IsCompute() const = 0;
 
 	FGraphEventRef CompletionEvent;
+	
+	void WaitCompletion()
+	{
+		if(CompletionEvent.IsValid() && !CompletionEvent->IsComplete())
+		{
+			UE_LOG(LogRHI, Log, TEXT("FTaskGraphInterface Waiting on FPipelineState completionEvent"));
+			FTaskGraphInterface::Get().WaitUntilTaskCompletes( CompletionEvent );
+			CompletionEvent = nullptr;
+		}
+	}
 
 	inline void AddUse()
 	{
@@ -497,6 +507,35 @@ public:
 		}
 		return Discarded;
 	}
+	
+	void WaitTasksComplete()
+	{
+		FScopeLock S(&AllThreadsLock);
+		
+		for ( FPipelineStateCacheType* PipelineStateCache : AllThreadsPipelineStateCache )
+		{
+			WaitTasksComplete(PipelineStateCache);
+		}
+		
+		WaitTasksComplete(BackfillMap);
+		WaitTasksComplete(CurrentMap);
+	}
+
+private:
+
+	void WaitTasksComplete(FPipelineStateCacheType* PipelineStateCache)
+	{
+		FScopeLock S(&AllThreadsLock);
+		for (auto PipelineStateCacheIterator = PipelineStateCache->CreateIterator(); PipelineStateCacheIterator; ++PipelineStateCacheIterator)
+		{
+			FGraphicsPipelineState* pGPipelineState = PipelineStateCacheIterator->Value;
+			if(pGPipelineState != nullptr)
+			{
+				pGPipelineState->WaitCompletion();
+			}
+		}
+	}
+	
 private:
 	uint32 TLSSlot;
 	FPipelineStateCacheType *CurrentMap;
@@ -799,9 +838,7 @@ static bool IsAsyncCompilationAllowed(FRHICommandList& RHICmdList)
 }
 
 FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FRHICommandList& RHICmdList, FRHIComputeShader* ComputeShader)
-{
-	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
-	
+{	
 	bool DoAsyncCompile = IsAsyncCompilationAllowed(RHICmdList);
 
 	FComputePipelineState* OutCachedState = nullptr;
@@ -946,8 +983,17 @@ FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* 
 FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& OriginalInitializer, EApplyRendertargetOption ApplyFlags)
 {
 	LLM_SCOPE(ELLMTag::PSO);
-	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
 
+	// Workaround until we have a better way for storing shaders in PSO cache 
+	{
+		FGraphicsPipelineStateInitializer& HashableInitializer = const_cast<FGraphicsPipelineStateInitializer&>(OriginalInitializer);
+		HashableInitializer.VertexShaderHash = HashableInitializer.BoundShaderState.VertexShaderRHI ? HashableInitializer.BoundShaderState.VertexShaderRHI->GetHash() : FSHAHash();
+		HashableInitializer.HullShaderHash = HashableInitializer.BoundShaderState.HullShaderRHI ? HashableInitializer.BoundShaderState.HullShaderRHI->GetHash() : FSHAHash();
+		HashableInitializer.DomainShaderHash = HashableInitializer.BoundShaderState.DomainShaderRHI ? HashableInitializer.BoundShaderState.DomainShaderRHI->GetHash() : FSHAHash();
+		HashableInitializer.PixelShaderHash = HashableInitializer.BoundShaderState.PixelShaderRHI ? HashableInitializer.BoundShaderState.PixelShaderRHI->GetHash() : FSHAHash();
+		HashableInitializer.GeometryShaderHash = HashableInitializer.BoundShaderState.GeometryShaderRHI ? HashableInitializer.BoundShaderState.GeometryShaderRHI->GetHash() : FSHAHash();
+	}
+	
 	FGraphicsPipelineStateInitializer NewInitializer;
 	const FGraphicsPipelineStateInitializer* Initializer = &OriginalInitializer;
 
@@ -1138,6 +1184,7 @@ void DumpPipelineCacheStats()
 
 void PipelineStateCache::Shutdown()
 {
+	GGraphicsPipelineCache.WaitTasksComplete();
 #if RHI_RAYTRACING
 	GRayTracingPipelineCache.Shutdown();
 #endif
@@ -1145,8 +1192,13 @@ void PipelineStateCache::Shutdown()
 	// call discard twice to clear both the backing and main caches
 	for (int i = 0; i < 2; i++)
 	{
-		GComputePipelineCache.Discard([](FComputePipelineState* CacheItem) {
-			delete CacheItem;
+		GComputePipelineCache.Discard([](FComputePipelineState* CacheItem)
+		{
+			if(CacheItem != nullptr)
+			{
+				CacheItem->WaitCompletion();
+				delete CacheItem;
+			}
 		});
 		
 		GGraphicsPipelineCache.DiscardAndSwap();

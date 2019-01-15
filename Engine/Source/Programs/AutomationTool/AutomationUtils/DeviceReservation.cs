@@ -237,6 +237,8 @@ namespace AutomationTool.DeviceReservation
 				catch (WebException WebEx)
 				{
 
+					Console.WriteLine(String.Format("WebException on reservation request: {0} : {1}", WebEx.Message, WebEx.Status));
+
 					if (RetryCount == RetryMax)
 					{
 						Console.WriteLine("Device reservation unsuccessful");
@@ -318,6 +320,7 @@ namespace AutomationTool.DeviceReservation
 			{
 				Uri BaseUri = new Uri(InBaseUri);
 				Utils.InvokeAPI(BaseUri.AppendPath("api/v1/deviceerror/" + DeviceName), "PUT");
+				Console.WriteLine("Reported device problem: {0} : {1}", DeviceName, Error);
 			}
 			catch (Exception Ex)
 			{

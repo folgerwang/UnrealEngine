@@ -82,22 +82,22 @@ public:
 	// difficult to upgrade users who were taking advantage of the Many-To-1, blueprint having
 	// many animations binding to the same delegate.
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta=(DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta=(BlueprintInternalUseOnly = "TRUE"))
 	void BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta = (DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
 	void UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta = (DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
 	void UnbindAllFromAnimationStarted(UUserWidget* Widget);
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta = (DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
 	void BindToAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta = (DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
 	void UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
 
-	UFUNCTION(BlueprintCallable, Category = Animation, meta = (DefaultToSelf = "Widget"))
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
 	void UnbindAllFromAnimationFinished(UUserWidget* Widget);
 
 public:

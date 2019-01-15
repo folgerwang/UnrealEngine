@@ -148,6 +148,11 @@ static TAutoConsoleVariable<int32> CVarDisableDynamicShadows(
 	0,
 	TEXT("0: Dynamic shadows from grass follow the grass type bCastDynamicShadow flag; 1: Dynamic shadows are disabled for all grass"));
 
+static TAutoConsoleVariable<int32> CVarIgnoreExcludeBoxes(
+	TEXT("grass.IgnoreExcludeBoxes"),
+	0,
+	TEXT("For debugging. Ignores any exclusion boxes."));
+
 DECLARE_CYCLE_STAT(TEXT("Grass Async Build Time"), STAT_FoliageGrassAsyncBuildTime, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass Start Comp"), STAT_FoliageGrassStartComp, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass End Comp"), STAT_FoliageGrassEndComp, STATGROUP_Foliage);
@@ -1513,9 +1518,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FBox MeshBox;
 	int32 DesiredInstancesPerLeaf;
 
-	double RasterTime;
 	double BuildTime;
-	double InstanceTime;
 	int32 TotalInstances;
 	uint32 HaltonBaseIndex;
 
@@ -1528,12 +1531,14 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FVector2D LightMapComponentScale;
 	bool RequireCPUAccess;
 
+	TArray<FBox> ExcludedBoxes;
+
 	// output
 	FStaticMeshInstanceData InstanceBuffer;
 	TArray<FClusterNode> ClusterTree;
 	int32 OutOcclusionLayerNum;
 
-	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex)
+	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex, TArray<FBox>& InExcludedBoxes)
 		: FGrassBuilderBase(Landscape, Component, GrassVariety, FeatureLevel, SqrtSubsections, SubX, SubY, GrassType->bEnableDensityScaling)
 		, GrassData(Component, GrassType)
 		, Scaling(GrassVariety.Scaling)
@@ -1549,9 +1554,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, MeshBox(GrassVariety.GrassMesh->GetBounds().GetBox())
 		, DesiredInstancesPerLeaf(HierarchicalInstancedStaticMeshComponent->DesiredInstancesPerLeaf())
 
-		, RasterTime(0)
 		, BuildTime(0)
-		, InstanceTime(0)
 		, TotalInstances(0)
 		, HaltonBaseIndex(InHaltonBaseIndex)
 
@@ -1569,6 +1572,15 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, ClusterTree()
 		, OutOcclusionLayerNum(0)
 	{
+		if (InExcludedBoxes.Num())
+		{
+			FMatrix BoxXForm = HierarchicalInstancedStaticMeshComponent->GetComponentToWorld().ToMatrixWithScale().Inverse() * XForm.Inverse();
+			for (const FBox& Box : InExcludedBoxes)
+			{
+				ExcludedBoxes.Add(Box.TransformBy(BoxXForm));
+			}
+		}
+
 		bHaveValidData = bHaveValidData && GrassData.IsValid();
 
 		InstanceBuffer.SetAllowCPUAccess(RequireCPUAccess);
@@ -1676,11 +1688,23 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		return Result;
 	}
 
+	bool IsExcluded(const FVector& LocationWithHeight)
+	{
+		for (const FBox& Box : ExcludedBoxes)
+		{
+			if (Box.IsInside(LocationWithHeight))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void Build()
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FoliageGrassAsyncBuildTime);
 		check(bHaveValidData);
-		RasterTime -= FPlatformTime::Seconds();
+		double StartTime = FPlatformTime::Seconds();
 
 		float Div = 1.0f / float(SqrtMaxInstances);
 		TArray<FMatrix> InstanceTransforms;
@@ -1706,7 +1730,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 				FVector Location(Origin.X + HaltonX * Extent.X, Origin.Y + HaltonY * Extent.Y, 0.0f);
 				FVector LocationWithHeight;
 				float Weight = GetLayerWeightAtLocationLocal(Location, &LocationWithHeight);
-				bool bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction();
+				bool bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction() && !IsExcluded(LocationWithHeight);
 				if (bKeep)
 				{
 					const FVector Scale = RandomScale ? GetRandomScale() : FVector(1);
@@ -1790,7 +1814,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 
 						FInstanceLocal& Instance = Instances[InstanceIndex];
 						float Weight = GetLayerWeightAtLocationLocal(Location, &Instance.Pos);
-						Instance.bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction();
+						Instance.bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction() && !IsExcluded(Instance.Pos);
 						if (Instance.bKeep)
 						{
 							NumKept++;
@@ -1883,6 +1907,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 				}
 			}
 		}
+		BuildTime = FPlatformTime::Seconds() - StartTime;
 	}
 	FORCEINLINE_DEBUGGABLE float GetLayerWeightAtLocationLocal(const FVector& InLocation, FVector* OutLocation, bool bWeight = true)
 	{
@@ -2040,6 +2065,30 @@ TArray<ULandscapeGrassType*> ALandscapeProxy::GetGrassTypes() const
 	return GrassTypes;
 }
 
+static uint32 GGrassExclusionChangeTag = 1;
+static uint32 GFrameNumberLastStaleCheck = 0;
+static TMap<FWeakObjectPtr, FBox> GGrassExclusionBoxes;
+
+void ALandscapeProxy::AddExclusionBox(FWeakObjectPtr Owner, const FBox& BoxToRemove)
+{
+	GGrassExclusionBoxes.Add(Owner, BoxToRemove);
+	GGrassExclusionChangeTag++;
+}
+void ALandscapeProxy::RemoveExclusionBox(FWeakObjectPtr Owner)
+{
+	GGrassExclusionBoxes.Remove(Owner);
+	GGrassExclusionChangeTag++;
+}
+void ALandscapeProxy::RemoveAllExclusionBoxes()
+{
+	if (GGrassExclusionBoxes.Num())
+	{
+		GGrassExclusionBoxes.Empty();
+		GGrassExclusionChangeTag++;
+	}
+}
+
+
 #if WITH_EDITOR
 int32 ALandscapeProxy::TotalComponentsNeedingGrassMapRender = 0;
 int32 ALandscapeProxy::TotalTexturesToStreamForVisibleGrassMapRender = 0;
@@ -2049,6 +2098,18 @@ int32 ALandscapeProxy::TotalComponentsNeedingTextureBaking = 0;
 void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSync)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GrassUpdate);
+	if (GFrameNumberLastStaleCheck != GFrameNumber && CVarIgnoreExcludeBoxes.GetValueOnAnyThread() == 0)
+	{
+		GFrameNumberLastStaleCheck = GFrameNumber;
+		for (auto Iter = GGrassExclusionBoxes.CreateIterator(); Iter; ++Iter)
+		{
+			if (!Iter->Key.IsValid())
+			{
+				Iter.RemoveCurrent();
+				GGrassExclusionChangeTag++;
+			}
+		}
+	}
 
 	if (CVarGrassEnable.GetValueOnAnyThread() > 0)
 	{
@@ -2080,10 +2141,11 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				{
 					if (Component != nullptr)
 					{
+						UTexture2D* Heightmap = Component->GetHeightmap();
 						// check textures currently needing force streaming
-						if (Component->HeightmapTexture->bForceMiplevelsToBeResident)
+						if (Heightmap->bForceMiplevelsToBeResident)
 						{
-							CurrentForcedStreamedTextures.Add(Component->HeightmapTexture);
+							CurrentForcedStreamedTextures.Add(Heightmap);
 						}
 						for (auto WeightmapTexture : Component->WeightmapTextures)
 						{
@@ -2137,6 +2199,23 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				{
 					MinDistanceToComp = FMath::Min<float>(MinDistanceToComp, WorldBounds.ComputeSquaredDistanceFromBoxToPoint(Pos));
 				}
+				if (Component->ChangeTag != GGrassExclusionChangeTag)
+				{
+					Component->ActiveExcludedBoxes.Empty();
+					if (GGrassExclusionBoxes.Num() && CVarIgnoreExcludeBoxes.GetValueOnAnyThread() == 0)
+					{
+						FBox WorldBox = WorldBounds.GetBox();
+
+						for (const TPair<FWeakObjectPtr, FBox>& Pair : GGrassExclusionBoxes)
+						{
+							if (Pair.Value.Intersect(WorldBox))
+							{
+								Component->ActiveExcludedBoxes.AddUnique(Pair.Value);
+							}
+						}
+					}
+					Component->ChangeTag = GGrassExclusionChangeTag;
+				}
 
 				MinDistanceToComp = FMath::Sqrt(MinDistanceToComp);
 
@@ -2186,7 +2265,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 									{
 										float MinDistanceToSubComp = MinDistanceToComp;
 
-										if (bCullSubsections && SqrtSubsections > 1)
+										FBox WorldSubBox;
+
+										if ((bCullSubsections && SqrtSubsections > 1) || Component->ActiveExcludedBoxes.Num())
 										{
 											FVector BoxMin;
 											BoxMin.X = LocalBox.Min.X + LocalExtentDiv.X * float(SubX);
@@ -2199,14 +2280,17 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 											BoxMax.Z = LocalBox.Max.Z;
 
 											FBox LocalSubBox(BoxMin, BoxMax);
-											FBox WorldSubBox = LocalSubBox.TransformBy(Component->GetComponentTransform());
+											WorldSubBox = LocalSubBox.TransformBy(Component->GetComponentTransform());
 
-											MinDistanceToSubComp = Cameras.Num() ? MAX_flt : 0.0f;
-											for (auto& Pos : Cameras)
+											if (bCullSubsections && SqrtSubsections > 1)
 											{
-												MinDistanceToSubComp = FMath::Min<float>(MinDistanceToSubComp, ComputeSquaredDistanceFromBoxToPoint(WorldSubBox.Min, WorldSubBox.Max, Pos));
+												MinDistanceToSubComp = Cameras.Num() ? MAX_flt : 0.0f;
+												for (auto& Pos : Cameras)
+												{
+													MinDistanceToSubComp = FMath::Min<float>(MinDistanceToSubComp, ComputeSquaredDistanceFromBoxToPoint(WorldSubBox.Min, WorldSubBox.Max, Pos));
+												}
+												MinDistanceToSubComp = FMath::Sqrt(MinDistanceToSubComp);
 											}
-											MinDistanceToSubComp = FMath::Sqrt(MinDistanceToSubComp);
 										}
 
 										if (bUseHalton)
@@ -2229,22 +2313,59 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										NewComp.Key.NumVarieties = GrassType->GrassVarieties.Num();
 										NewComp.Key.VarietyIndex = GrassVarietyIndex;
 
+										bool bRebuildForBoxes = false;
+
 										{
 											FCachedLandscapeFoliage::FGrassComp* Existing = FoliageCache.CachedGrassComps.Find(NewComp.Key);
+											if (Existing && !Existing->PreviousFoliage.IsValid() && Existing->ExclusionChangeTag != GGrassExclusionChangeTag && !Existing->PendingRemovalRebuild && !Existing->Pending)
+											{
+												for (const FBox& Box : Component->ActiveExcludedBoxes)
+												{
+													if (Box.Intersect(WorldSubBox))
+													{
+														NewComp.ExcludedBoxes.Add(Box);
+													}
+												}
+												if (NewComp.ExcludedBoxes != Existing->ExcludedBoxes)
+												{
+													bRebuildForBoxes = true;
+													NewComp.PreviousFoliage = Existing->Foliage;
+													Existing->PendingRemovalRebuild = true;
+												}
+												else
+												{
+													Existing->ExclusionChangeTag = GGrassExclusionChangeTag;
+												}
+											}
+
 											if (Existing || MinDistanceToSubComp > MustHaveDistance)
 											{
 												if (Existing)
 												{
 													Existing->Touch();
 												}
-												continue;
+												if (!bRebuildForBoxes)
+												{
+													continue;
+												}
 											}
 										}
 
-										if (!bForceSync && (NumCompsCreated || AsyncFoliageTasks.Num() >= MaxTasks))
+										if (!bRebuildForBoxes && !bForceSync && (NumCompsCreated || AsyncFoliageTasks.Num() >= MaxTasks))
 										{
-											continue; // one per frame, but we still want to touch the existing ones
+											continue; // one per frame, but we still want to touch the existing ones and we must do the rebuilds because we changed the tag
 										}
+										if (!bRebuildForBoxes)
+										{
+											for (const FBox& Box : Component->ActiveExcludedBoxes)
+											{
+												if (Box.Intersect(WorldSubBox))
+												{
+													NewComp.ExcludedBoxes.Add(Box);
+												}
+											}
+										}
+										NewComp.ExclusionChangeTag = GGrassExclusionChangeTag;
 
 #if WITH_EDITOR
 										// render grass data if we don't have any
@@ -2258,7 +2379,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 											else if (!Component->AreTexturesStreamedForGrassMapRender())
 											{
 												// we're ready to generate but our textures need streaming in
-												DesiredForceStreamedTextures.Add(Component->HeightmapTexture);
+												DesiredForceStreamedTextures.Add(Component->GetHeightmap());
 												for (auto WeightmapTexture : Component->WeightmapTextures)
 												{
 													DesiredForceStreamedTextures.Add(WeightmapTexture);
@@ -2369,7 +2490,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 												check(HaltonBaseIndex > (uint32)MaxInstancesSub);
 												HaltonIndexForSub = HaltonBaseIndex - (uint32)MaxInstancesSub;
 											}
-											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, FeatureLevel, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub);
+											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, FeatureLevel, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub, NewComp.ExcludedBoxes);
 										}
 
 										if (Builder->bHaveValidData)
@@ -2431,7 +2552,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 							{
 								// Force stream in other heightmaps but only if we're not waiting for the textures 
 								// near the camera to stream in
-								DesiredForceStreamedTextures.Add(Component->HeightmapTexture);
+								DesiredForceStreamedTextures.Add(Component->GetHeightmap());
 								for (auto WeightmapTexture : Component->WeightmapTextures)
 								{
 									DesiredForceStreamedTextures.Add(WeightmapTexture);
@@ -2480,25 +2601,33 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 		{
 			const FCachedLandscapeFoliage::FGrassComp& GrassItem = *Iter;
 			UHierarchicalInstancedStaticMeshComponent *Used = GrassItem.Foliage.Get();
+			UHierarchicalInstancedStaticMeshComponent *UsedPrev = GrassItem.PreviousFoliage.Get();
 			bool bOld =
 				!GrassItem.Pending &&
 				(
-				!GrassItem.Key.BasedOn.Get() ||
-				!GrassItem.Key.GrassType.Get() ||
-				!Used ||
+					!GrassItem.Key.BasedOn.Get() ||
+					!GrassItem.Key.GrassType.Get() ||
+					!Used ||
 				(GrassItem.LastUsedFrameNumber < OldestToKeepFrame && GrassItem.LastUsedTime < OldestToKeepTime)
 				);
 			if (bOld)
 			{
 				Iter.RemoveCurrent();
 			}
-			else if (Used)
+			else if (Used || UsedPrev)
 			{
 				if (!StillUsed.Num())
 				{
 					StillUsed.Reserve(FoliageCache.CachedGrassComps.Num());
 				}
-				StillUsed.Add(Used);
+				if (Used)
+				{
+					StillUsed.Add(Used);
+				}
+				if (UsedPrev)
+				{
+					StillUsed.Add(UsedPrev);
+				}
 			}
 		}
 	}
@@ -2516,9 +2645,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 					SCOPE_CYCLE_COUNTER(STAT_FoliageGrassDestoryComp);
 					if (HComponent)
 					{
-					HComponent->ClearInstances();
-					HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
-					HComponent->DestroyComponent();
+						HComponent->ClearInstances();
+						HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
+						HComponent->DestroyComponent();
 					}
 					FoliageComponents.RemoveAtSwap(Index--);
 				}
@@ -2545,9 +2674,11 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				FAsyncGrassTask& Inner = Task->GetTask();
 				AsyncFoliageTasks.RemoveAtSwap(Index--);
 				UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent = Inner.Foliage.Get();
+				int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
+				//UE_LOG(LogCore, Display, TEXT("%d instances in %4.0fms     %6.0f instances / sec"), NumBuiltRenderInstances, 1000.0f * float(Inner.Builder->BuildTime), float(NumBuiltRenderInstances) / float(Inner.Builder->BuildTime));
+
 				if (HierarchicalInstancedStaticMeshComponent && StillUsed.Contains(HierarchicalInstancedStaticMeshComponent))
 				{
-					int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
 					if (NumBuiltRenderInstances > 0)
 					{
 						QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_AcceptPrebuiltTree);
@@ -2573,6 +2704,20 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				if (Existing)
 				{
 					Existing->Pending = false;
+					if (Existing->PreviousFoliage.IsValid())
+					{
+						SCOPE_CYCLE_COUNTER(STAT_FoliageGrassDestoryComp);
+						UHierarchicalInstancedStaticMeshComponent* HComponent = Existing->PreviousFoliage.Get();
+						if (HComponent)
+						{
+							HComponent->ClearInstances();
+							HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
+							HComponent->DestroyComponent();
+						}
+						FoliageComponents.RemoveSwap(HComponent);
+						Existing->PreviousFoliage = nullptr;
+					}
+
 					Existing->Touch();
 				}
 				delete Task;
@@ -2618,6 +2763,23 @@ static void FlushGrassPIE(const TArray<FString>& Args)
 	}
 }
 
+static void DumpExclusionBoxes(const TArray<FString>& Args)
+{
+	for (const TPair<FWeakObjectPtr, FBox>& Pair : GGrassExclusionBoxes)
+	{
+		UObject* Owner = Pair.Key.Get();
+		UE_LOG(LogCore, Warning, TEXT("%f %f %f   %f %f %f   %s"),
+			Pair.Value.Min.X,
+			Pair.Value.Min.Y,
+			Pair.Value.Min.Z,
+			Pair.Value.Max.X,
+			Pair.Value.Max.Y,
+			Pair.Value.Max.Z,
+			Owner ? *Owner->GetFullName() : TEXT("[stale]")
+		);
+	}
+}
+
 static FAutoConsoleCommand FlushGrassCmd(
 	TEXT("grass.FlushCache"),
 	TEXT("Flush the grass cache, debugging."),
@@ -2630,6 +2792,11 @@ static FAutoConsoleCommand FlushGrassCmdPIE(
 	FConsoleCommandWithArgsDelegate::CreateStatic(&FlushGrassPIE)
 	);
 
+static FAutoConsoleCommand DumpExclusionBoxesCmd(
+	TEXT("grass.DumpExclusionBoxes"),
+	TEXT("Print the exclusion boxes, debugging."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&DumpExclusionBoxes)
+);
 
 
 #undef LOCTEXT_NAMESPACE

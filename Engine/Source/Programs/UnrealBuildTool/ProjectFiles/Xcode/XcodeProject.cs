@@ -417,7 +417,7 @@ namespace UnrealBuildTool
 		private void AppendLegacyTargetSection(StringBuilder Content, string TargetName, string TargetGuid, string TargetBuildConfigGuid, FileReference UProjectPath, bool bHasEditorConfiguration)
 		{
 			string UE4Dir = ConvertPath(Path.GetFullPath(Directory.GetCurrentDirectory() + "../../.."));
-			string BuildToolPath = UE4Dir + "/Engine/Build/BatchFiles/Mac/Build.sh";
+			string BuildToolPath = UE4Dir + "/Engine/Build/BatchFiles/Mac/XcodeBuild.sh";
 
 			Content.Append("/* Begin PBXLegacyTarget section */" + ProjectFileGenerator.NewLine);
 

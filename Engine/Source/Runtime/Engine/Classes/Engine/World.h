@@ -2,10 +2,6 @@
 
 #pragma once
 
-/*=============================================================================
-	World.h: UWorld definition.
-=============================================================================*/
-
 #include "CoreMinimal.h"
 #include "HAL/ThreadSafeCounter.h"
 #include "UObject/ObjectMacros.h"
@@ -25,6 +21,7 @@
 #include "Engine/GameInstance.h"
 #include "Physics/PhysicsInterfaceDeclares.h"
 #include "Particles/WorldPSCPool.h"
+#include "Containers/SortedMap.h"
 
 #include "World.generated.h"
 
@@ -375,6 +372,8 @@ struct FStartPhysicsTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -407,6 +406,8 @@ struct FEndPhysicsTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -417,7 +418,6 @@ struct TStructOpsTypeTraits<FEndPhysicsTickFunction> : public TStructOpsTypeTrai
 		WithCopy = false
 	};
 };
-
 
 /* Struct of optional parameters passed to SpawnActor function(s). */
 PRAGMA_DISABLE_DEPRECATION_WARNINGS // Required for auto-generated functions referencing bNoCollisionFail
@@ -687,6 +687,87 @@ private:
 	int32 SavedTickingCollectionIndex;
 };
 
+USTRUCT()
+struct FLevelStreamingWrapper
+{
+	GENERATED_BODY()
+
+	FLevelStreamingWrapper()
+		: StreamingLevel(nullptr)
+	{}
+
+	FLevelStreamingWrapper(ULevelStreaming* InStreamingLevel)
+		: StreamingLevel(InStreamingLevel)
+	{}
+
+	ULevelStreaming*& Get() { return StreamingLevel; }
+	ULevelStreaming* Get() const { return StreamingLevel; }
+
+
+	bool operator<(const FLevelStreamingWrapper& Other) const;
+	bool operator==(const FLevelStreamingWrapper& Other) const { return StreamingLevel == Other.StreamingLevel; }
+
+private:
+	UPROPERTY()
+	ULevelStreaming* StreamingLevel;
+};
+
+USTRUCT()
+struct FStreamingLevelsToConsider
+{
+	GENERATED_BODY()
+
+	FStreamingLevelsToConsider()
+		: bStreamingLevelsBeingConsidered(false)
+	{}
+
+	/** Priority sorted array of streaming levels actively being considered. */
+	UPROPERTY()
+	TArray<FLevelStreamingWrapper> StreamingLevels;
+
+private:
+
+	enum class EProcessReason
+	{
+		Add,
+		Reevaluate
+	};
+
+	/** Streaming levels that had their priority changed or were added to the container while consideration was underway. */
+	TSortedMap<FLevelStreamingWrapper, EProcessReason> LevelsToProcess;
+
+	/** Whether the streaming levels are under active consideration or not */
+	bool bStreamingLevelsBeingConsidered;
+
+	/** 
+	 * Add an element to the container. 
+	 * If bGuaranteedRemoved is true, Contains check to avoid duplicates will not be used. This should only be used immediately after calling Remove.
+	*/
+	void Add_Internal(ULevelStreaming* StreamingLevel, bool bGuaranteedNotInContainer);
+
+public:
+
+	void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
+	void BeginConsideration();
+	void EndConsideration();
+
+	/** Add an element to the container if not already in the container. */
+	void Add(ULevelStreaming* StreamingLevel) { Add_Internal(StreamingLevel, false); }
+
+	/* Remove an element from the container. */
+	bool Remove(ULevelStreaming* StreamingLevel);
+
+	/* Returns if an element is in the container. */
+	bool Contains(ULevelStreaming* StreamingLevel) const;
+
+	/* Resets the container to an empty state without freeing array memory. */
+	void Reset();
+
+	/* Instructs the container that state changed such that the position in the priority sorted array the level may no longer be correct. */
+	void Reevaluate(ULevelStreaming* StreamingLevel);
+};
+
 /** 
  * The World is the top level object representing a map or a sandbox in which Actors and Components will exist and be rendered.  
  *
@@ -766,7 +847,7 @@ private:
 
 	/** This is the list of streaming levels that are actively being considered for what their state should be. It will be a subset of StreamingLevels */
 	UPROPERTY(Transient, DuplicateTransient)
-	TSet<ULevelStreaming*> StreamingLevelsToConsider;
+	FStreamingLevelsToConsider StreamingLevelsToConsider;
 
 public:
 
@@ -819,6 +900,9 @@ public:
 
 	/** Inform the world that a streaming level has had a potentially state changing modification made to it so that it needs to be in the StreamingLevelsToConsider list. */
 	void UpdateStreamingLevelShouldBeConsidered(ULevelStreaming* StreamingLevelToConsider);
+
+	/** Inform the world that the streaming level has had its priority change and may need to be resorted if under consideration. */
+	void UpdateStreamingLevelPriority(ULevelStreaming* StreamingLevel);
 
 	/** Examine all streaming levels and determine which ones should be considered. */
 	void PopulateStreamingLevelsToConsider();
@@ -1145,11 +1229,13 @@ private:
 	/** Physics scene for this world. */
 	FPhysScene*									PhysicsScene;
 
-	/** Set of components that need updates at the end of the frame */
-	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
+	/** Array of components that need updates at the end of the frame */
+	UPROPERTY(Transient)
+	TArray<UActorComponent*> ComponentsThatNeedEndOfFrameUpdate;
 
-	/** Set of components that need recreates at the end of the frame */
-	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
+	/** Array of components that need game thread updates at the end of the frame */
+	UPROPERTY(Transient)
+	TArray<UActorComponent*> ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
 
 	/** The state of async tracing - abstracted into its own object for easier reference */
 	FWorldAsyncTraceState AsyncTraceState;
@@ -2501,12 +2587,14 @@ public:
 	*/
 	void ClearActorComponentEndOfFrameUpdate(UActorComponent* Component);
 
+#if WITH_EDITOR
 	/**
 	 * Updates an ActorComponent's cached state of whether it has been marked for end of frame update based on the current
 	 * state of the World's NeedsEndOfFrameUpdate arrays
 	 * @param Component - Component to update the cached state of
 	 */
 	void UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const;
+#endif
 
 	/** 
 	 * Used to indicate a UMaterialParameterCollectionInstance needs a deferred update 
@@ -2901,6 +2989,10 @@ public:
 
 	/** Copies GameState properties from the GameMode. */
 	void CopyGameState(AGameModeBase* FromGameMode, AGameStateBase* FromGameState);
+
+	DECLARE_EVENT_OneParam(UWorld, FOnGameStateSetEvent, AGameStateBase*);
+	/** Called whenever the gamestate is set on the world. */
+	FOnGameStateSetEvent GameStateSetEvent;
 
 
 	/** Spawns a Brush Actor in the World */

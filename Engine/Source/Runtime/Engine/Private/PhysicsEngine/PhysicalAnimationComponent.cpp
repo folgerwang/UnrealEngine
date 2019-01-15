@@ -263,6 +263,9 @@ void UPhysicalAnimationComponent::UpdateTargetActors(ETeleportType TeleportType)
 	if (PhysAsset && SkeletalMeshComponent->SkeletalMesh)
 	{
 		const FReferenceSkeleton& RefSkeleton = SkeletalMeshComponent->SkeletalMesh->RefSkeleton;
+
+		// Note we use GetEditableComponentSpaceTransforms because we need to update target actors in the midst of the 
+		// various anim ticks, before buffers are flipped (which happens in the skel mesh component's post-physics tick)
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 
 #if WITH_PHYSX
@@ -327,6 +330,8 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 		
 		RuntimeInstanceData.AddZeroed(NumData - NumInstances);
 
+		// Note we use GetEditableComponentSpaceTransforms because we need to update target actors in the midst of the 
+		// various anim ticks, before buffers are flipped (which happens in the skel mesh component's post-physics tick)
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 		const FReferenceSkeleton& RefSkeleton = SkeletalMeshComponent->SkeletalMesh->RefSkeleton;
 

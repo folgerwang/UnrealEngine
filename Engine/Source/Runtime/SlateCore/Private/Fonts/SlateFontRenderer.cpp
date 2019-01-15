@@ -141,6 +141,28 @@ void FSlateFontRenderer::GetUnderlineMetrics(const FSlateFontInfo& InFontInfo, c
 	}
 }
 
+void FSlateFontRenderer::GetStrikeMetrics(const FSlateFontInfo& InFontInfo, const float InScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness) const
+{
+#if WITH_FREETYPE
+	const FFontData& FontData = CompositeFontCache->GetDefaultFontData(InFontInfo);
+	FT_Face FontFace = GetFontFace(FontData);
+
+	if (FontFace && FT_IS_SCALABLE(FontFace))
+	{
+		FreeTypeUtils::ApplySizeAndScale(FontFace, InFontInfo.Size, InScale);
+
+		// Place the strike 2/5th down the text by height (the code below does 3/5th as it counts from the bottom, not the top)
+		OutStrikeLinePos = static_cast<int16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(FT_MulFix(FT_DivFix(FontFace->height, 5), 3), FontFace->size->metrics.y_scale)) * InScale);
+		OutStrikeLineThickness = static_cast<int16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(FontFace->underline_thickness, FontFace->size->metrics.y_scale)) * InScale);
+	}
+	else
+#endif // WITH_FREETYPE
+	{
+		OutStrikeLinePos = 0;
+		OutStrikeLineThickness = 0;
+	}
+}
+
 bool FSlateFontRenderer::HasKerning(const FFontData& InFontData) const
 {
 #if WITH_FREETYPE

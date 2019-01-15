@@ -175,6 +175,9 @@ public:
 	DECLARE_EVENT_OneParam(USocialParty, FOnInviteSent, const USocialUser&);
 	FOnInviteSent& OnInviteSent() const { return OnInviteSentEvent; }
 
+	DECLARE_EVENT_TwoParams(USocialParty, FOnPartyJIPApproved, const FOnlinePartyId&, bool /* Success*/);
+	FOnPartyJIPApproved& OnPartyJIPApproved() const { return OnPartyJIPApprovedEvent; }
+
 	const FPartyPrivacySettings& GetPrivacySettings() const;
 
 PARTY_SCOPE:
@@ -217,6 +220,9 @@ protected:
 	/** Determines the joinability of this party for a specific user requesting to join */
 	virtual FPartyJoinApproval EvaluateJoinRequest(const FUniqueNetId& PlayerId, const FUserPlatform& Platform, const FOnlinePartyData& JoinData, bool bFromJoinRequest) const;
 
+	/** Determines the joinability of the game a party is in for JoinInProgress */
+	virtual FPartyJoinApproval EvaluateJIPRequest(const FUniqueNetId& PlayerId) const;
+
 	/** Determines the reason why, if at all, this party is currently flat-out unjoinable  */
 	virtual FPartyJoinDenialReason DetermineCurrentJoinability() const;
 
@@ -232,6 +238,8 @@ protected:
 	 */
 	void ConnectToReservationBeacon();
 	void CleanupReservationBeacon();
+	APartyBeaconClient* CreateReservationBeaconClient();
+
 	APartyBeaconClient* GetReservationBeaconClient() const { return ReservationBeaconClient; }
 
 	/** Child classes MUST call EstablishRepDataInstance() on this using their member rep data struct instance */
@@ -265,10 +273,12 @@ private:	// Handlers
 	void HandlePartyDataReceived(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const TSharedRef<FOnlinePartyData>& PartyData);
 	void HandleJoinabilityQueryReceived(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData);
 	void HandlePartyJoinRequestReceived(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData);
+	void HandlePartyJIPRequestReceived(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& SenderId);
 	void HandlePartyLeft(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId);
 	void HandlePartyMemberExited(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& MemberId, EMemberExitedReason ExitReason);
 	void HandlePartyMemberDataReceived(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& MemberId, const TSharedRef<FOnlinePartyData>& PartyMemberData);
 	void HandlePartyMemberJoined(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& MemberId);
+	void HandlePartyMemberJIP(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, bool Success);
 	void HandlePartyMemberPromoted(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& NewLeaderId);
 	void HandlePartyPromotionLockoutChanged(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, bool bArePromotionsLocked);
 
@@ -301,6 +311,7 @@ private:
 		FUniqueNetIdRepl RecipientId;
 		FUniqueNetIdRepl SenderId;
 		FUserPlatform Platform;
+		bool bIsJIPApproval;
 		TSharedPtr<const FOnlinePartyData> JoinData;
 	};
 	TQueue<FPendingMemberApproval> PendingApprovals;
@@ -336,4 +347,5 @@ private:
 	mutable FOnPartyStateChanged OnPartyStateChangedEvent;
 	mutable FOnPartyFunctionalityDegradedChanged OnPartyFunctionalityDegradedChangedEvent;
 	mutable FOnInviteSent OnInviteSentEvent;
+	mutable FOnPartyJIPApproved OnPartyJIPApprovedEvent;
 };

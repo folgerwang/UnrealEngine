@@ -98,7 +98,18 @@ bool IMeshPainter::Paint(FViewport* Viewport, const FVector& InCameraOrigin, con
 	
 	const float PaintStrength = Viewport->IsPenActive() ? Viewport->GetTabletPressure() : 1.f;
 	// Handle internal painting functionality
-	return PaintInternal(InCameraOrigin, InRayOrigin, InRayDirection, PaintAction, PaintStrength);
+	TPair<FVector, FVector> Ray(InRayOrigin, InRayDirection);
+	return PaintInternal(InCameraOrigin, MakeArrayView(&Ray, 1), PaintAction, PaintStrength);
+}
+
+bool IMeshPainter::Paint(FViewport* Viewport, const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays)
+{
+	// Determine paint action according to whether or not shift is held down
+	const EMeshPaintAction PaintAction = (Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift)) ? EMeshPaintAction::Erase : EMeshPaintAction::Paint;
+
+	const float PaintStrength = Viewport->IsPenActive() ? Viewport->GetTabletPressure() : 1.f;
+	// Handle internal painting functionality
+	return PaintInternal(InCameraOrigin, Rays, PaintAction, PaintStrength);
 }
 
 bool IMeshPainter::PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, UVREditorInteractor* VRInteractor)
@@ -115,7 +126,8 @@ bool IMeshPainter::PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, c
 		PaintAction = bIsModifierPressed ? EMeshPaintAction::Erase : EMeshPaintAction::Paint;
 
 		// Handle internal painting functionality
-		bPaintApplied = PaintInternal(InCameraOrigin, InRayOrigin, InRayDirection, PaintAction, StrengthScale);
+		TPair<FVector, FVector> Ray(InRayOrigin, InRayDirection);
+		bPaintApplied = PaintInternal(InCameraOrigin, MakeArrayView(&Ray, 1), PaintAction, StrengthScale);
 
 		if (bPaintApplied)
 		{

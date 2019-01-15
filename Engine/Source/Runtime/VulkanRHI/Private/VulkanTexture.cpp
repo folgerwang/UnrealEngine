@@ -11,6 +11,17 @@
 #include "Containers/ResourceArray.h"
 #include "VulkanLLM.h"
 
+
+int32 GVulkanSubmitOnTextureUnlock = 1;
+static FAutoConsoleVariableRef CVarVulkanSubmitOnTextureUnlock(
+	TEXT("r.Vulkan.SubmitOnTextureUnlock"),
+	GVulkanSubmitOnTextureUnlock,
+	TEXT("Whether to submit upload cmd buffer on each texture unlock.\n")
+	TEXT(" 0: Do not submit\n")
+	TEXT(" 1: Submit (default)"),
+	ECVF_Default
+);
+
 static FCriticalSection GTextureMapLock;
 
 struct FTextureLock
@@ -136,7 +147,10 @@ inline void FVulkanSurface::InternalLockWrite(FVulkanCommandListContext& Context
 
 	Surface->Device->GetStagingManager().ReleaseBuffer(CmdBuffer, StagingBuffer);
 
-	Context.GetCommandBufferManager()->SubmitUploadCmdBuffer();
+	if (GVulkanSubmitOnTextureUnlock != 0)
+	{
+		Context.GetCommandBufferManager()->SubmitUploadCmdBuffer();
+	}
 }
 
 struct FRHICommandLockWriteTexture final : public FRHICommand<FRHICommandLockWriteTexture>

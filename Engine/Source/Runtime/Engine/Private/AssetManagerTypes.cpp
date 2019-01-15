@@ -4,26 +4,36 @@
 #include "Engine/AssetManager.h"
 #include "Engine/AssetManagerSettings.h"
 
-bool FPrimaryAssetTypeInfo::FillRuntimeData()
+void FPrimaryAssetTypeInfo::FillRuntimeData(bool& bIsValid, bool& bBaseClassWasLoaded)
 {
+	bBaseClassWasLoaded = false;
+	bIsValid = false;
+
 	if (PrimaryAssetType == NAME_None)
 	{
 		// Invalid type
-		return false;
+		return;
 	}
 
 	if (!ensureMsgf(!AssetBaseClass.IsNull(), TEXT("Primary Asset Type %s must have a class set!"), *PrimaryAssetType.ToString()))
 	{
-		return false;
+		return;
 	}
 
 	// Hot reload may have messed up asset pointer
 	AssetBaseClass.ResetWeakPtr();
-	AssetBaseClassLoaded = AssetBaseClass.LoadSynchronous();
+	AssetBaseClassLoaded = AssetBaseClass.Get();
+
+	if (!AssetBaseClassLoaded)
+	{
+		bBaseClassWasLoaded = true;
+		AssetBaseClassLoaded = AssetBaseClass.LoadSynchronous();
+	}
 
 	if (!ensureMsgf(AssetBaseClassLoaded, TEXT("Failed to load class %s for Primary Asset Type %s!"), *AssetBaseClass.ToString(), *PrimaryAssetType.ToString()))
 	{
-		return false;
+		bBaseClassWasLoaded = false;
+		return;
 	}
 
 	for (const FSoftObjectPath& AssetRef : SpecificAssets)
@@ -45,12 +55,11 @@ bool FPrimaryAssetTypeInfo::FillRuntimeData()
 	if (AssetScanPaths.Num() == 0)
 	{
 		// No scan locations picked out
-		return false;
+		return;
 	}
 
-	
-
-	return true;
+	// Valid data
+	bIsValid = true;
 }
 
 bool FPrimaryAssetRules::IsDefault() const

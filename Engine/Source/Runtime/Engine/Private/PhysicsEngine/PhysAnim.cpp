@@ -105,7 +105,7 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Animation);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
 		SCOPED_NAMED_EVENT(FParallelBlendPhysicsCompletionTask_DoTask, FColor::Yellow);
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
 
@@ -319,7 +319,7 @@ bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
 {
 	for (const FBodyInstance* Body : Bodies)
 	{
-		if (Body->PhysicsBlendWeight > 0.f)
+		if (Body && Body->PhysicsBlendWeight > 0.f)
 		{
 			return true;
 		}
@@ -449,7 +449,7 @@ void USkeletalMeshComponent::CompleteParallelBlendPhysics()
 	ParallelBlendPhysicsCompletionTask.SafeRelease();
 }
 
-void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning)
+void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateRBBones);
 
@@ -497,6 +497,13 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 		return;
 	}
 #endif
+
+	// If we are only using bodies for physics, don't need to move them right away, can defer until simulation (unless told not to)
+	if (DeferralAllowed == EAllowKinematicDeferral::AllowDeferral && (bDeferKinematicBoneUpdate || BodyInstance.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly))
+	{
+		PhysScene->MarkForPreSimKinematicUpdate(this, Teleport, bNeedsSkinning);
+		return;
+	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// If desired, draw the skeleton at the point where we pass it to the physics.
@@ -547,6 +554,10 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 				for(int32 i = 0; i < NumBodies; i++)
 				{
 					FBodyInstance* BodyInst = Bodies[i];
+					if (!ensure(BodyInst))
+					{
+						continue;
+					}
 					FPhysicsActorHandle& ActorHandle = BodyInst->ActorHandle;
 					const bool bIsRigidBody = FPhysicsInterface::IsRigidBody(ActorHandle);
 

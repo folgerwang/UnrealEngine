@@ -77,8 +77,8 @@ public:
 
     void CleanUpResources();
 
-    static void EnableEarlyRendering(bool bEnabled);
-    static bool ShouldEarlyScreenRender();
+    static void EnableRendering(bool bEnabled);
+    static bool ShouldRender();
     static bool ArePreLoadScreensEnabled();
 
     //Creates a tick on the Render Thread that we run every
@@ -137,8 +137,8 @@ protected:
     /** Critical section to allow the slate loading thread and the render thread to safely utilize the synchronization mechanism for ticking Slate. */
     FCriticalSection SyncMechanismCriticalSection;
 
-    static FCriticalSection EarlyRenderingEnabledCriticalSection;
-    static bool bEarlyRenderingEnabled;
+    static FCriticalSection RenderingEnabledCriticalSection;
+    static bool bRenderingEnabled;
 
     double LastRenderTickTime;
 

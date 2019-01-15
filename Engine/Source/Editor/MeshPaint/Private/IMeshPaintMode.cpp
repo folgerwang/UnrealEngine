@@ -182,13 +182,13 @@ void IMeshPaintEdMode::Exit()
 	FEdMode::Exit();
 }
 
-bool IMeshPaintEdMode::CapturedMouseMove( FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 InMouseX, int32 InMouseY )
+bool IMeshPaintEdMode::ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves)
 {
 	// We only care about perspective viewpo1rts
 	bool bPaintApplied = false;
 	if( InViewportClient->IsPerspective() )
 	{
-		if( MeshPainter->IsPainting() )
+		if( MeshPainter->IsPainting() && CapturedMouseMoves.Num() > 0 )
 		{
 			// Compute a world space ray from the screen space mouse coordinates
 			FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( 
@@ -197,9 +197,18 @@ bool IMeshPaintEdMode::CapturedMouseMove( FEditorViewportClient* InViewportClien
 				InViewportClient->EngineShowFlags)
 				.SetRealtimeUpdate( InViewportClient->IsRealtime() ));
 			FSceneView* View = InViewportClient->CalcSceneView( &ViewFamily );
-			FViewportCursorLocation MouseViewportRay( View, (FEditorViewportClient*)InViewport->GetClient(), InMouseX, InMouseY );
+
+			TArray<TPair<FVector, FVector>> Rays;
+			Rays.Reserve(CapturedMouseMoves.Num());
+
+			FEditorViewportClient* Client = (FEditorViewportClient*)InViewport->GetClient();
+			for (int32 i = 0; i < CapturedMouseMoves.Num(); ++i)
+			{
+				FViewportCursorLocation MouseViewportRay(View, Client, CapturedMouseMoves[i].X, CapturedMouseMoves[i].Y);
+				Rays.Emplace(TPair<FVector, FVector>(MouseViewportRay.GetOrigin(), MouseViewportRay.GetDirection()));
+			}
 			 					
-			bPaintApplied = MeshPainter->Paint(InViewport, View->ViewMatrices.GetViewOrigin(), MouseViewportRay.GetOrigin(), MouseViewportRay.GetDirection());
+			bPaintApplied = MeshPainter->Paint(InViewport, View->ViewMatrices.GetViewOrigin(), Rays);
 		}
 	}
 

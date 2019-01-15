@@ -166,7 +166,7 @@ class FScopedGPUStatEvent;
 #endif
 
 // GPU stats
-#if ( STATS || CSV_PROFILER ) && !PLATFORM_HTML5
+#if ( STATS || CSV_PROFILER ) && !PLATFORM_HTML5 && (!UE_BUILD_SHIPPING)
 #define HAS_GPU_STATS 1
 #else
 #define HAS_GPU_STATS 0

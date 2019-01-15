@@ -17,6 +17,7 @@ namespace BuildPatchServices
 		uint64 GetSize() const;
 		const FBlockEntry* GetNext() const;
 		const FBlockEntry* GetPrevious() const;
+		FBlockRange AsRange() const { return FBlockRange::FromFirstAndSize(Offset, Size); }
 
 	private:
 		void InsertBefore(FBlockEntry* NewEntry, FBlockEntry** Head);

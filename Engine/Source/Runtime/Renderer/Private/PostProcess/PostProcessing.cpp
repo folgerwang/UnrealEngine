@@ -2623,40 +2623,43 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* S
 
 		bool* DoScreenPercentageInTonemapperPtr = nullptr;
 		FRenderingCompositePass* TonemapperPass = nullptr;
-		if (bUseTonemapperFilm)
+		if (bAllowFullPostProcess)
 		{
-			//@todo Ronin Set to EAutoExposureMethod::AEM_Basic for PC vk crash.
-			FRCPassPostProcessTonemap* PostProcessTonemap = AddTonemapper(Context, BloomOutput, nullptr, EAutoExposureMethod::AEM_Histogram, false, false);
-			// remember the tonemapper pass so we can check if it's last
-			TonemapperPass = PostProcessTonemap;
-
-			PostProcessTonemap->bDoScreenPercentageInTonemapper = false;
-			DoScreenPercentageInTonemapperPtr = &PostProcessTonemap->bDoScreenPercentageInTonemapper;			
-		}
-		else if (bAllowFullPostProcess)
-		{
-			// Must run to blit to back buffer even if post processing is off.
-			FRCPassPostProcessTonemapES2* PostProcessTonemap = (FRCPassPostProcessTonemapES2*)Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTonemapES2(Context.View, bViewRectSource, bSRGBAwareTarget));
-			// remember the tonemapper pass so we can check if it's last
-			TonemapperPass = PostProcessTonemap;
-
-			PostProcessTonemap->SetInput(ePId_Input0, Context.FinalOutput);
-			if (!BloomOutput.IsValid())
+			if (bUseTonemapperFilm)
 			{
-				FRenderingCompositePass* NoBloom = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackAlphaOneDummy));
-				FRenderingCompositeOutputRef NoBloomRef(NoBloom);
-				PostProcessTonemap->SetInput(ePId_Input1, NoBloomRef);
+				//@todo Ronin Set to EAutoExposureMethod::AEM_Basic for PC vk crash.
+				FRCPassPostProcessTonemap* PostProcessTonemap = AddTonemapper(Context, BloomOutput, nullptr, EAutoExposureMethod::AEM_Histogram, false, false);
+				// remember the tonemapper pass so we can check if it's last
+				TonemapperPass = PostProcessTonemap;
+
+				PostProcessTonemap->bDoScreenPercentageInTonemapper = false;
+				DoScreenPercentageInTonemapperPtr = &PostProcessTonemap->bDoScreenPercentageInTonemapper;			
 			}
 			else
 			{
-				PostProcessTonemap->SetInput(ePId_Input1, BloomOutput);
+				// Must run to blit to back buffer even if post processing is off.
+				FRCPassPostProcessTonemapES2* PostProcessTonemap = (FRCPassPostProcessTonemapES2*)Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTonemapES2(Context.View, bViewRectSource, bSRGBAwareTarget));
+				// remember the tonemapper pass so we can check if it's last
+				TonemapperPass = PostProcessTonemap;
+
+				PostProcessTonemap->SetInput(ePId_Input0, Context.FinalOutput);
+				if (!BloomOutput.IsValid())
+				{
+					FRenderingCompositePass* NoBloom = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackAlphaOneDummy));
+					FRenderingCompositeOutputRef NoBloomRef(NoBloom);
+					PostProcessTonemap->SetInput(ePId_Input1, NoBloomRef);
+				}
+				else
+				{
+					PostProcessTonemap->SetInput(ePId_Input1, BloomOutput);
+				}
+				PostProcessTonemap->SetInput(ePId_Input2, DofOutput);
+
+				Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessTonemap);
+
+				PostProcessTonemap->bDoScreenPercentageInTonemapper = false;
+				DoScreenPercentageInTonemapperPtr = &PostProcessTonemap->bDoScreenPercentageInTonemapper;
 			}
-			PostProcessTonemap->SetInput(ePId_Input2, DofOutput);
-
-			Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessTonemap);
-
-			PostProcessTonemap->bDoScreenPercentageInTonemapper = false;
-			DoScreenPercentageInTonemapperPtr = &PostProcessTonemap->bDoScreenPercentageInTonemapper;
 		}
 
 		// if Context.FinalOutput was the clipped result of sunmask stage then this stage also restores Context.FinalOutput back original target size.

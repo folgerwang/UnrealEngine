@@ -3,6 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using AutomationTool;
 using UnrealBuildTool;
 using System.Text.RegularExpressions;
@@ -18,17 +20,25 @@ namespace Gauntlet
 
 		public bool WasKilled { get; protected set; }
 
-		public string StdOut { get { return ProcessResult.Output; } }
+		public string StdOut { get { return string.IsNullOrEmpty(ProcessLogFile) ? ProcessResult.Output : ProcessLogOutput; } }
 
 		public int ExitCode { get { return ProcessResult.ExitCode; } }
 
 		public string CommandLine { get; private set; }
 
-		public LocalAppProcess(IProcessResult InProcess, string InCommandLine)
+		public LocalAppProcess(IProcessResult InProcess, string InCommandLine, string InProcessLogFile = null)
 		{
 			this.CommandLine = InCommandLine;
 			this.ProcessResult = InProcess;
+			this.ProcessLogFile = InProcessLogFile;
+
+			// start reader thread if logging to a file
+			if (!string.IsNullOrEmpty(InProcessLogFile))
+			{
+				new System.Threading.Thread(LogFileReaderThread).Start();
+			}
 		}
+
 		public int WaitForExit()
 		{
 			if (!HasExited)
@@ -48,18 +58,57 @@ namespace Gauntlet
 			}
 		}
 
+		/// <summary>
+		/// Reader thread when logging to file
+		/// </summary>
+		void LogFileReaderThread()
+		{
+			// Wait for the processes log file to be created
+			while (!File.Exists(ProcessLogFile) && !HasExited)
+			{
+				Thread.Sleep(2000);
+			}
+
+			Thread.Sleep(1000);
+
+			using (FileStream ProcessLog = File.Open(ProcessLogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			{
+				StreamReader LogReader = new StreamReader(ProcessLog);
+
+				// Read until the process has exited
+				do
+				{
+					Thread.Sleep(250);
+
+					while (!LogReader.EndOfStream)
+					{
+						string Output = LogReader.ReadToEnd();
+
+						if (Output != null)
+						{
+							ProcessLogOutput += Output;
+						}
+					}
+				}
+				while (!HasExited);
+			}
+		}
+
+
 		public abstract string ArtifactPath { get; }
 
 		public abstract ITargetDevice Device { get; }
-		
+
+		string ProcessLogFile;
+		string ProcessLogOutput = "";		
 	}
 
 	class WindowsAppInstance : LocalAppProcess
 	{
 		protected WindowsAppInstall Install;
 
-		public WindowsAppInstance(WindowsAppInstall InInstall, IProcessResult InProcess)
-			: base(InProcess, InInstall.CommandArguments)
+		public WindowsAppInstance(WindowsAppInstall InInstall, IProcessResult InProcess, string ProcessLogFile = null)
+			: base(InProcess, InInstall.CommandArguments, ProcessLogFile)
 		{
 			Install = InInstall;
 		}
@@ -94,15 +143,18 @@ namespace Gauntlet
 
 		public string ArtifactPath;
 
+		public string ProjectName;
+
 		public TargetDeviceWindows WinDevice { get; private set; }
 
 		public ITargetDevice Device { get { return WinDevice; } }
 
 		public CommandUtils.ERunOptions RunOptions { get; set; }
 
-		public WindowsAppInstall(string InName, TargetDeviceWindows InDevice)
+		public WindowsAppInstall(string InName, string InProjectName, TargetDeviceWindows InDevice)
 		{
 			Name = InName;
+			ProjectName = InProjectName;
 			WinDevice = InDevice;
 			CommandArguments = "";
 			this.RunOptions = CommandUtils.ERunOptions.NoWaitForExit;
@@ -208,6 +260,7 @@ namespace Gauntlet
 			}
 
 			IProcessResult Result = null;
+			string ProcessLogFile = null;
 
 			lock (Globals.MainLock)
 			{
@@ -217,9 +270,49 @@ namespace Gauntlet
 				Environment.CurrentDirectory = NewWorkingDir;
 
 				Log.Info("Launching {0} on {1}", App.Name, ToString());
-				Log.Verbose("\t{0}", WinApp.CommandArguments);
 
-				Result = CommandUtils.Run(WinApp.ExecutablePath, WinApp.CommandArguments, Options: WinApp.RunOptions);
+				string CmdLine = WinApp.CommandArguments;
+
+				// Look in app parameters if abslog is specified, if so use it
+				Regex CLRegex = new Regex(@"(--?[a-zA-Z]+)[:\s=]?([A-Z]:(?:\\[\w\s-]+)+\\?(?=\s-)|\""[^\""]*\""|[^-][^\s]*)?");
+				foreach (Match M in CLRegex.Matches(CmdLine))
+				{
+					if (M.Groups.Count == 3 && M.Groups[1].Value == "-abslog")
+					{
+						ProcessLogFile = M.Groups[2].Value;
+					}
+				}
+
+				// explicitly set log file when not already defined
+				if (string.IsNullOrEmpty(ProcessLogFile))
+				{
+					string LogFolder = string.Format(@"{0}\Logs", WinApp.ArtifactPath);
+
+					if (!Directory.Exists(LogFolder))
+					{
+						Directory.CreateDirectory(LogFolder);
+					}
+
+					ProcessLogFile = string.Format("{0}\\{1}.log", LogFolder, WinApp.ProjectName);
+					CmdLine = string.Format("{0} -abslog=\"{1}\"", CmdLine, ProcessLogFile);
+				}
+
+				// cleanup any existing log file
+				try
+				{
+					if (File.Exists(ProcessLogFile))
+					{
+						File.Delete(ProcessLogFile);
+					}
+				}
+				catch (Exception Ex)
+				{
+					throw new AutomationException("Unable to delete existing log file {0} {1}", ProcessLogFile, Ex.Message);
+				}
+
+				Log.Verbose("\t{0}", CmdLine);
+
+				Result = CommandUtils.Run(WinApp.ExecutablePath, CmdLine, Options: WinApp.RunOptions | (ProcessLogFile != null ? CommandUtils.ERunOptions.NoStdOutRedirect : 0 ));
 
 				if (Result.HasExited && Result.ExitCode != 0)
 				{
@@ -229,7 +322,7 @@ namespace Gauntlet
 				Environment.CurrentDirectory = OldWD;
 			}
 
-			return new WindowsAppInstance(WinApp, Result);
+			return new WindowsAppInstance(WinApp, Result, ProcessLogFile);
 		}
 
 		protected IAppInstall InstallStagedBuild(UnrealAppConfig AppConfig, StagedBuild InBuild)
@@ -254,14 +347,12 @@ namespace Gauntlet
 					Log.Info("Skipping install of {0} (-skipdeploy)", BuildPath);
 				}
 
-				// write a token, used to detect and old gauntlet-installedbuilds periodically
-				string TokenPath = Path.Combine(DestPath, "gauntlet.token");
-				File.WriteAllText(TokenPath, "Created by Gauntlet");
+				Utils.SystemHelpers.MarkDirectoryForCleanup(DestPath);
 
 				BuildPath = DestPath;
 			}
 
-			WindowsAppInstall WinApp = new WindowsAppInstall(AppConfig.Name, this);
+			WindowsAppInstall WinApp = new WindowsAppInstall(AppConfig.Name, AppConfig.ProjectName, this);
 			WinApp.RunOptions = RunOptions;
 
 			// Set commandline replace any InstallPath arguments with the path we use
@@ -271,6 +362,8 @@ namespace Gauntlet
 			{
 				WinApp.CommandArguments += string.Format(" -userdir={0}", UserDir);
 				WinApp.ArtifactPath = Path.Combine(UserDir, @"Saved");
+
+				Utils.SystemHelpers.MarkDirectoryForCleanup(UserDir);
 			}
 			else
 			{
@@ -376,7 +469,7 @@ namespace Gauntlet
 				throw new AutomationException("Invalid build type!");
 			}
 
-			WindowsAppInstall WinApp = new WindowsAppInstall(AppConfig.Name, this);
+			WindowsAppInstall WinApp = new WindowsAppInstall(AppConfig.Name, AppConfig.ProjectName, this);
 
 			WinApp.WorkingDirectory = Path.GetDirectoryName(EditorBuild.ExecutablePath);
 			WinApp.RunOptions = RunOptions;

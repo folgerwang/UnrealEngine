@@ -127,7 +127,7 @@ void FAudioDeviceManager::ToggleAudioMixer()
 			const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
 			const int32 QualityLevel = GEngine->GetGameUserSettings()->GetAudioQualityLevel(); // -V595
 			const int32 QualityLevelMaxChannels = AudioSettings->GetQualityLevelSettings(QualityLevel).MaxChannels; //-V595
-	
+
 			// We could have multiple audio devices, so loop through them and patch them up best we can to
 			// get parity. E.g. we need to pass the handle from the odl to the new, set whether or not its active
 			// and try and get the mix-states to be the same.
@@ -163,7 +163,7 @@ void FAudioDeviceManager::ToggleAudioMixer()
 							SoundMixPair.Value.FadeOutStartTime -= AudioClock;
 						}
 					}
-					
+
 					// Tear it down and delete the old audio device. This does a bunch of cleanup.
 					AudioDevice->Teardown();
 					delete AudioDevice;
@@ -192,7 +192,7 @@ void FAudioDeviceManager::ToggleAudioMixer()
 					{
 						AudioDevice->SetDeviceMuted(true);
 					}
-					
+
 					// Fade in the new audio device (used only in audio mixer to prevent pops on startup/shutdown)
 					AudioDevice->FadeIn();
 
@@ -203,13 +203,13 @@ void FAudioDeviceManager::ToggleAudioMixer()
 
 			// We now must free any resources that have been cached with the old audio engine
 			// This will result in re-caching of sound waves, but we're forced to do this because FSoundBuffer pointers
-			// are cached and each AudioDevice backend has a derived implementation of this so once we 
+			// are cached and each AudioDevice backend has a derived implementation of this so once we
 			// switch to a new audio engine the FSoundBuffer pointers are totally invalid.
 			for (TObjectIterator<USoundWave> SoundWaveIt; SoundWaveIt; ++SoundWaveIt)
 			{
 				USoundWave* SoundWave = *SoundWaveIt;
 				FreeResource(SoundWave);
-				
+
 				// Flag that the sound wave needs to do a full decompress again
 				SoundWave->DecompressionType = DTYPE_Setup;
 			}
@@ -292,7 +292,7 @@ bool FAudioDeviceManager::LoadDefaultAudioDeviceModule()
 			bUsingAudioMixer = false;
 		}
 	}
-	
+
 	if (!AudioDeviceModule && AudioDeviceModuleName.Len() > 0)
 	{
 		AudioDeviceModule = FModuleManager::LoadModulePtr<IAudioDeviceModule>(*AudioDeviceModuleName);
@@ -460,9 +460,9 @@ bool FAudioDeviceManager::ShutdownAudioDevice(uint32 Handle)
 			SetActiveDevice(MainDeviceHandle);
 		}
 
-		// If this is the main device handle and there's more than one reference to the main device, 
+		// If this is the main device handle and there's more than one reference to the main device,
 		// don't shut it down until it's the very last handle to get shut down
-		// this is because it's possible for some PIE sessions to be using the main audio device as a fallback to 
+		// this is because it's possible for some PIE sessions to be using the main audio device as a fallback to
 		// preserve CPU performance on low-performance machines
 		if (NumWorldsUsingMainAudioDevice > 0 && MainDeviceHandle == Handle)
 		{
@@ -860,7 +860,7 @@ void FAudioDeviceManager::TogglePlayAllDeviceAudio()
 
 		return;
 	}
-	
+
 	bPlayAllDeviceAudio = !bPlayAllDeviceAudio;
 }
 
@@ -925,7 +925,6 @@ void FAudioDeviceManager::SetDebugSoloSoundClass(const TCHAR* SoundClassName)
 	}
 
 	DebugNames.DebugSoloSoundClass = SoundClassName;
-
 }
 
 const FString& FAudioDeviceManager::GetDebugSoloSoundClass() const
@@ -1005,3 +1004,71 @@ bool FAudioDeviceManager::GetAudioDebugSound(FString& OutDebugSound)
 	return false;
 }
 
+float FAudioDeviceManager::GetDynamicSoundVolume(ESoundType SoundType, const FName& SoundName) const
+{
+	TTuple<ESoundType, FName> SoundKey(SoundType, SoundName);
+	if (const float* Volume = DynamicSoundVolumes.Find(SoundKey))
+	{
+		return FMath::Max(0.0f, *Volume);
+	}
+
+	return 1.0f;
+}
+
+void FAudioDeviceManager::ResetAllDynamicSoundVolumes()
+{
+	if (!IsInAudioThread())
+	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.ResetAllDynamicSoundVolumes"), STAT_ResetAllDynamicSoundVolumes, STATGROUP_AudioThreadCommands);
+
+		FAudioDeviceManager* AudioDeviceManager = this;
+		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager]()
+		{
+			AudioDeviceManager->ResetAllDynamicSoundVolumes();
+
+		}, GET_STATID(STAT_ResetAllDynamicSoundVolumes));
+		return;
+	}
+
+	DynamicSoundVolumes.Reset();
+	DynamicSoundVolumes.Shrink();
+}
+
+void FAudioDeviceManager::ResetDynamicSoundVolume(ESoundType SoundType, const FName& SoundName)
+{
+	if (!IsInAudioThread())
+	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.ResetSoundCueTrimVolume"), STAT_ResetSoundCueTrimVolume, STATGROUP_AudioThreadCommands);
+
+		FAudioDeviceManager* AudioDeviceManager = this;
+		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, SoundType, SoundName]()
+		{
+			AudioDeviceManager->ResetDynamicSoundVolume(SoundType, SoundName);
+
+		}, GET_STATID(STAT_ResetSoundCueTrimVolume));
+		return;
+	}
+
+	TTuple<ESoundType, FName> Key(SoundType, SoundName);
+	DynamicSoundVolumes.Remove(Key);
+}
+
+void FAudioDeviceManager::SetDynamicSoundVolume(ESoundType SoundType, const FName& SoundName, float Volume)
+{
+	if (!IsInAudioThread())
+	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetDynamicSoundVolume"), STAT_SetDynamicSoundVolume, STATGROUP_AudioThreadCommands);
+
+		FAudioDeviceManager* AudioDeviceManager = this;
+		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, SoundType, SoundName, Volume]()
+		{
+			AudioDeviceManager->SetDynamicSoundVolume(SoundType, SoundName, Volume);
+
+		}, GET_STATID(STAT_SetDynamicSoundVolume));
+		return;
+	}
+
+	FMath::Clamp(Volume, 0.0f, MAX_VOLUME);
+	TTuple<ESoundType, FName> Key(SoundType, SoundName);
+	DynamicSoundVolumes.FindOrAdd(Key) = Volume;
+}

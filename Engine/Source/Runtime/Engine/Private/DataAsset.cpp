@@ -24,11 +24,10 @@ void UDataAsset::Serialize(FStructuredArchive::FRecord Record)
 
 void UPrimaryDataAsset::UpdateAssetBundleData()
 {
-	AssetBundleData.Reset();
-
 	// By default parse the metadata
 	if (UAssetManager::IsValid())
 	{
+		AssetBundleData.Reset();
 		UAssetManager::Get().InitializeAssetBundlesFromMetadata(this, AssetBundleData);
 	}
 }

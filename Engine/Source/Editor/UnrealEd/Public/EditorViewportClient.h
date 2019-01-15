@@ -474,6 +474,7 @@ public:
 	virtual void MouseLeave( FViewport* Viewport ) override;
 	virtual EMouseCursor::Type GetCursor(FViewport* Viewport,int32 X,int32 Y) override;
 	virtual void CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY ) override;
+	virtual void ProcessAccumulatedPointerInput(FViewport* InViewport) override;
 	virtual bool IsOrtho() const override;
 	virtual void LostFocus(FViewport* Viewport) override;
 	virtual FStatUnitData* GetStatUnitData() const override;
@@ -1650,6 +1651,8 @@ private:
 	 */
 	FSceneView* DragStartView;
 	FSceneViewFamily *DragStartViewFamily;
+
+	TArray<FIntPoint> CapturedMouseMoves;
 };
 
 

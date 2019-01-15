@@ -17,7 +17,7 @@
 
 #define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro)
 
-#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro) \
 
 #define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro) \
     EnumMacro(PFN_vkCmdWriteBufferMarkerAMD, vkCmdWriteBufferMarkerAMD) \

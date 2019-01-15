@@ -52,7 +52,7 @@ TSharedPtr<class SGraphPin> FBlueprintGraphPanelPinFactory::CreatePin(class UEdG
 					{
 						TArray<TSharedPtr<FName>> RowNames;
 						/** Extract all the row names from the RowMap */
-						for (TMap<FName, FRichCurve*>::TConstIterator Iterator(CurveTable->RowMap); Iterator; ++Iterator)
+						for (TMap<FName, FRealCurve*>::TConstIterator Iterator(CurveTable->GetRowMap()); Iterator; ++Iterator)
 						{
 							/** Create a simple array of the row names */
 							TSharedPtr<FName> RowNameItem = MakeShareable(new FName(Iterator.Key()));

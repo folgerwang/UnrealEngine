@@ -3303,7 +3303,7 @@ FMaterialResourceProxyReader::FMaterialResourceProxyReader(
 	uint32 NameMapOffset,
 	ERHIFeatureLevel::Type FeatureLevel,
 	EMaterialQualityLevel::Type QualityLevel) :
-	FArchiveProxy(*IFileManager::Get().CreateFileReader(Filename)),
+	FArchiveProxy(*IFileManager::Get().CreateFileReader(Filename, FILEREAD_NoFail)),
 	OffsetToEnd(-1),
 	bReleaseInnerArchive(true)
 {

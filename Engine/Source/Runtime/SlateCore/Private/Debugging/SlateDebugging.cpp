@@ -3,6 +3,8 @@
 #include "Debugging/SlateDebugging.h"
 #include "SlateGlobals.h"
 
+#define LOCTEXT_NAMESPACE "SlateDebugger"
+
 FSlateDebuggingInputEventArgs::FSlateDebuggingInputEventArgs(ESlateDebuggingInputEvent InInputEventType, const FReply& InReply, const TSharedPtr<SWidget>& InHandlerWidget, const FString& InAdditionalContent)
 	: InputEventType(InInputEventType)
 	, Reply(InReply)
@@ -39,6 +41,20 @@ FSlateDebuggingNavigationEventArgs::FSlateDebuggingNavigationEventArgs(
 {
 }
 
+FSlateDebuggingWarningEventArgs::FSlateDebuggingWarningEventArgs(
+	const FText& InWarning,
+	const TSharedPtr<SWidget>& InOptionalContextWidget)
+	: Warning(InWarning)
+	, OptionalContextWidget(InOptionalContextWidget)
+{
+}
+
+FSlateDebuggingMouseCaptureEventArgs::FSlateDebuggingMouseCaptureEventArgs(
+	const TSharedPtr<SWidget>& InCapturingWidget)
+	: CapturingWidget(InCapturingWidget)
+{
+}
+
 #if WITH_SLATE_DEBUGGING
 
 FSlateDebugging::FBeginWindow FSlateDebugging::BeginWindow;
@@ -51,13 +67,22 @@ FSlateDebugging::FEndWidgetPaint FSlateDebugging::EndWidgetPaint;
 
 FSlateDebugging::FDrawElement FSlateDebugging::ElementAdded;
 
+FSlateDebugging::FWidgetWarningEvent FSlateDebugging::Warning;
+
 FSlateDebugging::FWidgetInputEvent FSlateDebugging::InputEvent;
 
 FSlateDebugging::FWidgetFocusEvent FSlateDebugging::FocusEvent;
 
 FSlateDebugging::FWidgetNavigationEvent FSlateDebugging::NavigationEvent;
 
+FSlateDebugging::FWidgetMouseCaptureEvent FSlateDebugging::MouseCaptureEvent;
+
 FSlateDebugging::FUICommandRun FSlateDebugging::CommandRun;
+
+void FSlateDebugging::BroadcastWarning(const FText& WarningText, const TSharedPtr<SWidget>& OptionalContextWidget)
+{
+	Warning.Broadcast(FSlateDebuggingWarningEventArgs(WarningText, OptionalContextWidget));
+}
 
 void FSlateDebugging::BroadcastInputEvent(ESlateDebuggingInputEvent InputEventType, const FReply& InReply)
 {
@@ -108,4 +133,14 @@ void FSlateDebugging::AttemptNavigation(const FNavigationEvent& InNavigationEven
 	NavigationEvent.Broadcast(FSlateDebuggingNavigationEventArgs(InNavigationEvent, InNavigationReply, InNavigationSource, InDestinationWidget));
 }
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FWidgetMouseCaptureEvent, const FSlateDebuggingMouseCaptureEventArgs& /*EventArgs*/);
+static FWidgetMouseCaptureEvent MouseCaptureEvent;
+
+void FSlateDebugging::MouseCapture(const TSharedPtr<SWidget>& InCapturingWidget)
+{
+	MouseCaptureEvent.Broadcast(FSlateDebuggingMouseCaptureEventArgs(InCapturingWidget));
+}
+
 #endif
+
+#undef LOCTEXT_NAMESPACE

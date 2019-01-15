@@ -70,11 +70,11 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("SearchPath is a required parameter"));
 			return false;
 		}
-		FPaths::NormalizeDirectoryName(SearchPath);
+		NormalizeUriPath(SearchPath);
 
 		// Get optional parameters.
 		PARSE_SWITCH(OutputFile);
-		FPaths::NormalizeFilename(OutputFile);
+		NormalizeUriFile(OutputFile);
 
 		return true;
 #undef PARSE_SWITCH

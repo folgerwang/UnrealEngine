@@ -224,6 +224,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "HAL/FileManagerGeneric.h"
 
 #include "Particles/ParticleSystemManager.h"
+#include "Components/SkinnedMeshComponent.h"
 
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
@@ -256,6 +257,10 @@ void FEngineModule::StartupModule()
 	ResumeTextureStreamingRenderTasks = &ResumeTextureStreamingRenderTasksInternal;
 
 	FParticleSystemWorldManager::OnStartup();
+
+#if WITH_EDITOR
+	USkinnedMeshComponent::BindWorldDelegates();
+#endif
 }
 
 void FEngineModule::ShutdownModule()
@@ -615,7 +620,13 @@ void HDRSettingChangedSinkCallback()
 	if(bIsHDREnabled != GRHIIsHDREnabled)
 	{
 		// We'll naively fall back to 1000 if DisplayNits is 0
-		uint32 DisplayNitLevel = GEngine->GetGameUserSettings()->GetCurrentHDRDisplayNits();
+		uint32 DisplayNitLevel = 0;
+		
+		if (GEngine && GEngine->GetGameUserSettings())
+		{
+			DisplayNitLevel = GEngine->GetGameUserSettings()->GetCurrentHDRDisplayNits();
+		}
+
 		if(DisplayNitLevel == 0)
 		{
 			DisplayNitLevel = 1000;
@@ -1577,6 +1588,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 		FModuleManager::Get().LoadModuleChecked("StreamingPauseRendering");
 		FModuleManager::Get().LoadModuleChecked("MovieScene");
 		FModuleManager::Get().LoadModuleChecked("MovieSceneTracks");
+		FModuleManager::Get().LoadModule("LevelSequence");
 	}
 
 	// Finish asset manager loading
@@ -6996,6 +7008,9 @@ bool UEngine::HandleObjCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 			ForgottenObjects.Empty();
 			return true;
 		}
+
+		FSlowHeartBeatScope SuspendHeartBeat;
+		FDisableHitchDetectorScope SuspendGameThreadHitch;
 
 		FString CmdLineOut = FString::Printf(TEXT("Obj List: %s"), Cmd);
 		Ar.Log( *CmdLineOut );
@@ -15033,7 +15048,7 @@ static void PakFileTest(const TArray<FString>& Args)
 							CurrentOffset = SpanOffsets[Index];
 							int64 Span = SpanSizes[Index];
 
-							PrecacheReqs.Add(IORequestHandle->ReadRequest(CurrentOffset, Span, AIOP_Precache));
+							PrecacheReqs.Add(IORequestHandle->ReadRequest(CurrentOffset, Span, AIOP_FLAG_PRECACHE | AIOP_MIN));
 						}
 					}
 					while (SpanOffsets.Num())
@@ -15051,7 +15066,7 @@ static void PakFileTest(const TArray<FString>& Args)
 						};
 
 						bool bUserMem = !!RNG.RandRange(0, 1);
-						EAsyncIOPriority Pri = EAsyncIOPriority(RNG.RandRange(AIOP_Low, AIOP_CriticalPath));
+						EAsyncIOPriorityAndFlags Pri = (EAsyncIOPriorityAndFlags)RNG.RandRange((int32)AIOP_Low, (int32)AIOP_CriticalPath);
 						IAsyncReadRequest* ReadReq = IORequestHandle->ReadRequest(CurrentOffset, Span, Pri, &AsyncFileCallBack, bUserMem ? Memory + CurrentOffset : nullptr);
 
 						bool bCancel = RNG.RandRange(0, 5) == 0;

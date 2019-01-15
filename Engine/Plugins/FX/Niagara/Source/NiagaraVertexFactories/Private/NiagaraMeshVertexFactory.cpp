@@ -219,7 +219,7 @@ FShaderResourceViewRHIParamRef FNiagaraMeshVertexFactory::GetPreviousTransformBu
 
 bool FNiagaraMeshVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return (!IsMobilePlatform(Platform) && Platform != SP_OPENGL_SM4 && (Material->IsUsedWithNiagaraMeshParticles() || Material->IsSpecialEngineMaterial()));
+	return (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) || IsFeatureLevelSupported(Platform, ERHIFeatureLevel::ES3_1)) && (Material->IsUsedWithNiagaraMeshParticles() || Material->IsSpecialEngineMaterial());
 }
 
 void FNiagaraMeshVertexFactory::SetData(const FStaticMeshDataType& InData)

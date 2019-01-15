@@ -448,6 +448,7 @@ bool FNiagaraShaderScript::BeginCompileShaderMap(
 	{
 		INiagaraShaderModule NiagaraShaderModule = FModuleManager::GetModuleChecked<INiagaraShaderModule>(TEXT("NiagaraShader"));
 		NiagaraShaderModule.ProcessShaderCompilationQueue();
+		OutShaderMap = NewShaderMap;
 	}
 	else
 	{

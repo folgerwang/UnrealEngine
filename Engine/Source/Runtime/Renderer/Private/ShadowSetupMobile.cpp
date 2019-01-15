@@ -90,7 +90,10 @@ static bool EnableStaticMeshCSMVisibilityState(bool bMovableLight, const FPrimit
 			}
 		}
 	}
-	return bFoundReceiver;
+	return 
+		bFoundReceiver || 
+		// Dynamic primitives do not have static meshes
+		PrimitiveSceneInfo->StaticMeshes.Num() == 0;
 }
 
 template<typename TReceiverFunc>
@@ -357,33 +360,47 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 	}
 }
 
+// generate a single FProjectedShadowInfo to encompass LightSceneInfo.
+// Used to determine whether a mesh is within shadow range only.
+bool BuildSingleCascadeShadowInfo(FViewInfo &View, TArray<FVisibleLightInfo, SceneRenderingAllocator>& VisibleLightInfos, FLightSceneInfo* LightSceneInfo, FProjectedShadowInfo& OUTSingleCascadeInfo)
+{
+	bool bSuccess = false;
+	
+	int32 ViewMaxCascades = View.MaxShadowCascades;
+	View.MaxShadowCascades = 1;
+	
+	FWholeSceneProjectedShadowInitializer WholeSceneInitializer;
+	if (LightSceneInfo->Proxy->GetViewDependentWholeSceneProjectedShadowInitializer(View, 0, LightSceneInfo->IsPrecomputedLightingValid(), WholeSceneInitializer))
+	{
+		// Create the projected shadow info.
+		FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
+		if (VisibleLightInfo.AllProjectedShadows.Num())
+		{
+			// Use a pre-existing cascade tile for resolution.
+			FIntPoint ShadowBufferResolution;
+			ShadowBufferResolution.X = VisibleLightInfo.AllProjectedShadows[0]->ResolutionX;
+			ShadowBufferResolution.Y = VisibleLightInfo.AllProjectedShadows[0]->ResolutionY;
+			uint32 ShadowBorder = VisibleLightInfo.AllProjectedShadows[0]->BorderSize;
+			OUTSingleCascadeInfo.SetupWholeSceneProjection(
+				LightSceneInfo,
+				&View,
+				WholeSceneInitializer,
+				ShadowBufferResolution.X ,
+				ShadowBufferResolution.Y,
+				ShadowBorder,
+				false	// no RSM
+			);
+			bSuccess = true;
+		}
+	}
+	View.MaxShadowCascades = ViewMaxCascades;
+	return bSuccess;
+}
+
 // Build visibility lists of CSM receivers and non-csm receivers.
 void FMobileSceneRenderer::BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_BuildCSMVisibilityState);
-
-	FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
-	
-	// Determine largest split, find shadow frustum to perform culling tests.
-	int LargestSplitIndex = INDEX_NONE;
-	FProjectedShadowInfo* ProjectedShadowInfo = nullptr;
-	for (auto& ProjectedShadowInfoIt : VisibleLightInfo.AllProjectedShadows)
-	{
-		if(ProjectedShadowInfoIt->IsWholeSceneDirectionalShadow() )
-		{
-			FProjectedShadowInfo* WholeSceneShadow = ProjectedShadowInfoIt;
-			if (ProjectedShadowInfoIt->CascadeSettings.ShadowSplitIndex > LargestSplitIndex)
-			{
-				LargestSplitIndex = ProjectedShadowInfoIt->CascadeSettings.ShadowSplitIndex;
-				ProjectedShadowInfo = ProjectedShadowInfoIt;
-			}
-		}
-	}
-
-	if (ProjectedShadowInfo == nullptr)
-	{
-		return;
-	}
 
 	const uint32 CSMCullingMethod = CVarsCsmShaderCullingMethod.GetValueOnRenderThread() & 0xF;
 	const bool bSphereTest = (CVarsCsmShaderCullingMethod.GetValueOnRenderThread() & 0x10) != 0;
@@ -398,6 +415,33 @@ void FMobileSceneRenderer::BuildCSMVisibilityState(FLightSceneInfo* LightSceneIn
 		{
 			bool bStaticCSMReceiversFound = false;
 			FViewInfo& View = Views[ViewIndex];
+
+			FProjectedShadowInfo SingleCascadeInfo;
+			if (BuildSingleCascadeShadowInfo(View, VisibleLightInfos, LightSceneInfo, SingleCascadeInfo) == false)
+			{
+				continue;
+			}
+
+			FProjectedShadowInfo* ProjectedShadowInfo = &SingleCascadeInfo;
+
+			if (ViewFamily.EngineShowFlags.ShadowFrustums)
+			{
+				FViewElementPDI ShadowFrustumPDI(&View, NULL);
+				
+				const FMatrix ViewMatrix = View.ViewMatrices.GetViewMatrix();
+				const FMatrix ProjectionMatrix = View.ViewMatrices.GetProjectionMatrix();
+				const FVector4 ViewOrigin = View.ViewMatrices.GetViewOrigin();
+
+				float AspectRatio = ProjectionMatrix.M[1][1] / ProjectionMatrix.M[0][0];
+				float ActualFOV = (ViewOrigin.W > 0.0f) ? FMath::Atan(1.0f / ProjectionMatrix.M[0][0]) : PI / 4.0f;
+
+				float Near = ProjectedShadowInfo->CascadeSettings.SplitNear;
+				float Mid = ProjectedShadowInfo->CascadeSettings.FadePlaneOffset;
+				float Far = ProjectedShadowInfo->CascadeSettings.SplitFar;
+
+				DrawFrustumWireframe(&ShadowFrustumPDI, (ViewMatrix * FPerspectiveMatrix(ActualFOV, AspectRatio, 1.0f, Near, Far)).Inverse(), FColor::Emerald, 0);
+				DrawFrustumWireframe(&ShadowFrustumPDI, ProjectedShadowInfo->SubjectAndReceiverMatrix.Inverse() * FTranslationMatrix(-ProjectedShadowInfo->PreShadowTranslation), FColor::Cyan, 0);
+			}
 
 			FViewInfo* ShadowSubjectView = ProjectedShadowInfo->DependentView ? ProjectedShadowInfo->DependentView : &View;
 			FVisibleLightViewInfo& VisibleLightViewInfo = ShadowSubjectView->VisibleLightInfos[LightSceneInfo->Id];

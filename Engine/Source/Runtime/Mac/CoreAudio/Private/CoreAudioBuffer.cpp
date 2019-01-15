@@ -115,14 +115,7 @@ void FCoreAudioSoundBuffer::InitAudioStreamBasicDescription( UInt32 FormatID, US
 	}
 }
 
-/**
- * Decompresses a chunk of compressed audio to the destination memory
- *
- * @param Destination		Memory to decompress to
- * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
- * @return					Whether the sound looped or not
- */
-bool FCoreAudioSoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
+bool FCoreAudioSoundBuffer::ReadCompressedData(uint8* Destination, int32 NumFramesToDecode, bool bLooping)
 {
 	const uint32 kPCMBufferSize = MONO_PCM_BUFFER_SIZE * NumChannels;
 	if (SoundFormat == SoundFormat_Streaming)

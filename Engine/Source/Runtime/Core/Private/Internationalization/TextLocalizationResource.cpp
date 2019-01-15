@@ -4,8 +4,12 @@
 #include "Internationalization/TextLocalizationResourceVersion.h"
 #include "Internationalization/Culture.h"
 #include "HAL/FileManager.h"
+#include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Misc/Optional.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CommandLine.h"
+#include "Serialization/MemoryReader.h"
 #include "Templates/UniquePtr.h"
 #include "Internationalization/Internationalization.h"
 
@@ -14,12 +18,27 @@ DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationResource, Log, All);
 const FGuid FTextLocalizationResourceVersion::LocMetaMagic = FGuid(0xA14CEE4F, 0x83554868, 0xBD464C6C, 0x7C50DA70);
 const FGuid FTextLocalizationResourceVersion::LocResMagic = FGuid(0x7574140E, 0xFC034A67, 0x9D90154A, 0x1B7F37C3);
 
+/** LocMeta files are tiny so we pre-load those by default */
+#define PRELOAD_LOCMETA_FILES (1)
+
+/** LocRes files can be quite large, so we won't pre-load those by default */
+#define PRELOAD_LOCRES_FILES (0)
+
 bool FTextLocalizationMetaDataResource::LoadFromFile(const FString& FilePath)
 {
-	TUniquePtr<FArchive> Reader(IFileManager::Get().CreateFileReader(*FilePath));
+	TUniquePtr<FArchive> Reader;
+#if PRELOAD_LOCMETA_FILES
+	TArray<uint8> FileBytes;
+	if (FFileHelper::LoadFileToArray(FileBytes, *FilePath))
+	{
+		Reader = MakeUnique<FMemoryReader>(FileBytes);
+	}
+#else
+	Reader = TUniquePtr<FArchive>(IFileManager::Get().CreateFileReader(*FilePath));
+#endif
 	if (!Reader)
 	{
-		UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocMeta '%s' could not be opened for reading!"), *FilePath);
+		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocMeta '%s' could not be opened for reading!"), *FilePath);
 		return false;
 	}
 
@@ -64,7 +83,7 @@ bool FTextLocalizationMetaDataResource::SaveToFile(const FString& FilePath)
 	TUniquePtr<FArchive> Writer(IFileManager::Get().CreateFileWriter(*FilePath));
 	if (!Writer)
 	{
-		UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocMeta '%s' could not be opened for writing!"), *FilePath);
+		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocMeta '%s' could not be opened for writing!"), *FilePath);
 		return false;
 	}
 
@@ -94,54 +113,89 @@ bool FTextLocalizationMetaDataResource::SaveToArchive(FArchive& Archive, const F
 }
 
 
-void FTextLocalizationResource::AddEntry(const FString& InNamespace, const FString& InKey, const FString& InSourceString, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID)
+struct FTextLocalizationResourceString
 {
-	AddEntry(InNamespace, InKey, HashString(InSourceString), InLocalizedString, InLocResID);
+	FString String;
+	int32 RefCount;
+
+	friend FArchive& operator<<(FArchive& Ar, FTextLocalizationResourceString& A)
+	{
+		Ar << A.String;
+		Ar << A.RefCount;
+		return Ar;
+	}
+};
+
+void FTextLocalizationResource::AddEntry(const FTextKey& InNamespace, const FTextKey& InKey, const FString& InSourceString, const FString& InLocalizedString, const int32 InPriority, const FTextKey& InLocResID)
+{
+	AddEntry(InNamespace, InKey, HashString(InSourceString), InLocalizedString, InPriority, InLocResID);
 }
 
-void FTextLocalizationResource::AddEntry(const FString& InNamespace, const FString& InKey, const uint32 InSourceStringHash, const FString& InLocalizedString, const FTextLocalizationResourceId& InLocResID)
+void FTextLocalizationResource::AddEntry(const FTextKey& InNamespace, const FTextKey& InKey, const uint32 InSourceStringHash, const FString& InLocalizedString, const int32 InPriority, const FTextKey& InLocResID)
 {
-	FKeysTable& KeyTable = Namespaces.FindOrAdd(InNamespace);
-	FEntryArray& EntryArray = KeyTable.FindOrAdd(InKey);
-
-	FEntry& NewEntry = EntryArray.AddDefaulted_GetRef();
+	FEntry NewEntry;
 	NewEntry.LocResID = InLocResID;
 	NewEntry.SourceStringHash = InSourceStringHash;
 	NewEntry.LocalizedString = InLocalizedString;
+	NewEntry.Priority = InPriority;
+
+	if (FEntry* ExistingEntry = Entries.Find(FTextId(InNamespace, InKey)))
+	{
+		if (ShouldReplaceEntry(InNamespace, InKey, *ExistingEntry, NewEntry))
+		{
+			*ExistingEntry = MoveTemp(NewEntry);
+		}
+	}
+	else
+	{
+		Entries.Emplace(FTextId(InNamespace, InKey), MoveTemp(NewEntry));
+	}
 }
 
 bool FTextLocalizationResource::IsEmpty() const
 {
-	return Namespaces.Num() == 0;
+	return Entries.Num() == 0;
 }
 
-void FTextLocalizationResource::LoadFromDirectory(const FString& DirectoryPath)
+void FTextLocalizationResource::LoadFromDirectory(const FString& DirectoryPath, const int32 Priority)
 {
 	// Find resources in the specified folder.
 	TArray<FString> ResourceFileNames;
-	IFileManager::Get().FindFiles(ResourceFileNames, *(DirectoryPath / TEXT("*.locres")), true, false);
+	if (IFileManager::Get().DirectoryExists(*DirectoryPath))
+	{
+		IFileManager::Get().FindFiles(ResourceFileNames, *(DirectoryPath / TEXT("*.locres")), true, false);
+	}
 
 	for (const FString& ResourceFileName : ResourceFileNames)
 	{
-		LoadFromFile(FPaths::ConvertRelativePathToFull(DirectoryPath / ResourceFileName));
+		LoadFromFile(FPaths::ConvertRelativePathToFull(DirectoryPath / ResourceFileName), Priority);
 	}
 }
 
-bool FTextLocalizationResource::LoadFromFile(const FString& FilePath)
+bool FTextLocalizationResource::LoadFromFile(const FString& FilePath, const int32 Priority)
 {
-	TUniquePtr<FArchive> Reader(IFileManager::Get().CreateFileReader(*FilePath));
+	TUniquePtr<FArchive> Reader;
+#if PRELOAD_LOCRES_FILES
+	TArray<uint8> FileBytes;
+	if (FFileHelper::LoadFileToArray(FileBytes, *FilePath))
+	{
+		Reader = MakeUnique<FMemoryReader>(FileBytes);
+	}
+#else
+	Reader = TUniquePtr<FArchive>(IFileManager::Get().CreateFileReader(*FilePath));
+#endif
 	if (!Reader)
 	{
-		UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' could not be opened for reading!"), *FilePath);
+		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocRes '%s' could not be opened for reading!"), *FilePath);
 		return false;
 	}
 
-	bool Success = LoadFromArchive(*Reader, FTextLocalizationResourceId(FilePath));
+	bool Success = LoadFromArchive(*Reader, FTextKey(FilePath), Priority);
 	Success &= Reader->Close();
 	return Success;
 }
 
-bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
+bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextKey& LocResID, const int32 Priority)
 {
 	// Read magic number
 	FGuid MagicNumber;
@@ -160,19 +214,18 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLo
 	{
 		// Legacy LocRes files lack the magic number, assume that's what we're dealing with, and seek back to the start of the file
 		Archive.Seek(0);
-		//UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocResID.GetString());
-		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), *LocResID.GetString());
+		UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' failed the magic number check! Assuming this is a legacy resource (please re-generate your localization resources!)"), LocResID.GetChars());
 	}
 
 	// Is this LocRes file too new to load?
 	if (VersionNumber > FTextLocalizationResourceVersion::ELocResVersion::Latest)
 	{
-		UE_LOG(LogTextLocalizationResource, Error, TEXT("LocRes '%s' is too new to be loaded (File Version: %d, Loader Version: %d)"), *LocResID.GetString(), (int32)VersionNumber, (int32)FTextLocalizationResourceVersion::ELocResVersion::Latest);
+		UE_LOG(LogTextLocalizationResource, Error, TEXT("LocRes '%s' is too new to be loaded (File Version: %d, Loader Version: %d)"), LocResID.GetChars(), (int32)VersionNumber, (int32)FTextLocalizationResourceVersion::ELocResVersion::Latest);
 		return false;
 	}
 
 	// Read the localized string array
-	TArray<FString> LocalizedStringArray;
+	TArray<FTextLocalizationResourceString> LocalizedStringArray;
 	if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Compact)
 	{
 		int64 LocalizedStringArrayOffset = INDEX_NONE;
@@ -180,11 +233,37 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLo
 
 		if (LocalizedStringArrayOffset != INDEX_NONE)
 		{
-			const int64 CurrentFileOffset = Archive.Tell();
-			Archive.Seek(LocalizedStringArrayOffset);
-			Archive << LocalizedStringArray;
-			Archive.Seek(CurrentFileOffset);
+			if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Optimized)
+			{
+				const int64 CurrentFileOffset = Archive.Tell();
+				Archive.Seek(LocalizedStringArrayOffset);
+				Archive << LocalizedStringArray;
+				Archive.Seek(CurrentFileOffset);
+			}
+			else
+			{
+				TArray<FString> TmpLocalizedStringArray;
+
+				const int64 CurrentFileOffset = Archive.Tell();
+				Archive.Seek(LocalizedStringArrayOffset);
+				Archive << TmpLocalizedStringArray;
+				Archive.Seek(CurrentFileOffset);
+
+				LocalizedStringArray.Reserve(TmpLocalizedStringArray.Num());
+				for (FString& LocalizedString : TmpLocalizedStringArray)
+				{
+					LocalizedStringArray.Emplace(FTextLocalizationResourceString{ MoveTemp(LocalizedString), INDEX_NONE });
+				}
+			}
 		}
+	}
+
+	// Read entries count
+	if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Optimized)
+	{
+		uint32 EntriesCount;
+		Archive << EntriesCount;
+		Entries.Reserve(Entries.Num() + EntriesCount);
 	}
 
 	// Read namespace count
@@ -194,27 +273,37 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLo
 	for (uint32 i = 0; i < NamespaceCount; ++i)
 	{
 		// Read namespace
-		FString Namespace;
-		Archive << Namespace;
+		FTextKey Namespace;
+		if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Optimized)
+		{
+			Archive << Namespace;
+		}
+		else
+		{
+			Namespace.SerializeAsString(Archive);
+		}
 
 		// Read key count
 		uint32 KeyCount;
 		Archive << KeyCount;
 
-		FKeysTable& KeyTable = Namespaces.FindOrAdd(Namespace);
-
 		for (uint32 j = 0; j < KeyCount; ++j)
 		{
 			// Read key
-			FString Key;
-			Archive << Key;
+			FTextKey Key;
+			if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Optimized)
+			{
+				Archive << Key;
+			}
+			else
+			{
+				Key.SerializeAsString(Archive);
+			}
 
-			FEntryArray& EntryArray = KeyTable.FindOrAdd(Key);
-
-			FEntry& NewEntry = EntryArray.AddDefaulted_GetRef();
+			FEntry NewEntry;
 			NewEntry.LocResID = LocResID;
+			NewEntry.Priority = Priority;
 
-			// Read string entry.
 			Archive << NewEntry.SourceStringHash;
 
 			if (VersionNumber >= FTextLocalizationResourceVersion::ELocResVersion::Compact)
@@ -224,16 +313,43 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLo
 
 				if (LocalizedStringArray.IsValidIndex(LocalizedStringIndex))
 				{
-					NewEntry.LocalizedString = LocalizedStringArray[LocalizedStringIndex];
+					// Steal the string if possible
+					FTextLocalizationResourceString& LocalizedString = LocalizedStringArray[LocalizedStringIndex];
+					checkSlow(LocalizedString.RefCount != 0);
+					if (LocalizedString.RefCount == 1)
+					{
+						NewEntry.LocalizedString = MoveTemp(LocalizedString.String);
+						--LocalizedString.RefCount;
+					}
+					else
+					{
+						NewEntry.LocalizedString = LocalizedString.String;
+						if (LocalizedString.RefCount != INDEX_NONE)
+						{
+							--LocalizedString.RefCount;
+						}
+					}
 				}
 				else
 				{
-					UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' has an invalid localized string index for namespace '%s' and key '%s'. This entry will have no translation."), *LocResID.GetString(), *Namespace, *Key);
+					UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' has an invalid localized string index for namespace '%s' and key '%s'. This entry will have no translation."), LocResID.GetChars(), Namespace.GetChars(), Key.GetChars());
 				}
 			}
 			else
 			{
 				Archive << NewEntry.LocalizedString;
+			}
+
+			if (FEntry* ExistingEntry = Entries.Find(FTextId(Namespace, Key)))
+			{
+				if (ShouldReplaceEntry(Namespace, Key, *ExistingEntry, NewEntry))
+				{
+					*ExistingEntry = MoveTemp(NewEntry);
+				}
+			}
+			else
+			{
+				Entries.Emplace(FTextId(Namespace, Key), MoveTemp(NewEntry));
 			}
 		}
 	}
@@ -246,16 +362,16 @@ bool FTextLocalizationResource::SaveToFile(const FString& FilePath)
 	TUniquePtr<FArchive> Writer(IFileManager::Get().CreateFileWriter(*FilePath));
 	if (!Writer)
 	{
-		UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s' could not be opened for writing!"), *FilePath);
+		UE_LOG(LogTextLocalizationResource, Log, TEXT("LocRes '%s' could not be opened for writing!"), *FilePath);
 		return false;
 	}
 
-	bool bSaved = SaveToArchive(*Writer, FTextLocalizationResourceId(FilePath));
+	bool bSaved = SaveToArchive(*Writer, FTextKey(FilePath));
 	bSaved &= Writer->Close();
 	return bSaved;
 }
 
-bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
+bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextKey& LocResID)
 {
 	// Write the header
 	{
@@ -274,89 +390,72 @@ bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextLoca
 	}
 
 	// Arrays tracking localized strings, with a map for efficient look-up of array indices from strings
-	TArray<FString> LocalizedStringArray;
+	TArray<FTextLocalizationResourceString> LocalizedStringArray;
 	TMap<FString, int32, FDefaultSetAllocator, FLocKeyMapFuncs<int32>> LocalizedStringMap;
 
 	auto GetLocalizedStringIndex = [&LocalizedStringArray, &LocalizedStringMap](const FString& InString) -> int32
 	{
 		if (const int32* FoundIndex = LocalizedStringMap.Find(InString))
 		{
+			++LocalizedStringArray[*FoundIndex].RefCount;
 			return *FoundIndex;
 		}
 
 		const int32 NewIndex = LocalizedStringArray.Num();
-		LocalizedStringArray.Add(InString);
-		LocalizedStringMap.Add(InString, NewIndex);
+		LocalizedStringArray.Emplace(FTextLocalizationResourceString{ InString, 1 });
+		LocalizedStringMap.Emplace(InString, NewIndex);
 		return NewIndex;
 	};
+
+	// Rebuild the entries map into a namespace -> keys -> entry map
+	typedef TMap<FTextKey, const FEntry*> FKeysTable;
+	typedef TMap<FTextKey, FKeysTable> FNamespacesTable;
+	FNamespacesTable Namespaces;
+	for (const auto& EntryPair : Entries)
+	{
+		FKeysTable& KeysTable = Namespaces.FindOrAdd(EntryPair.Key.GetNamespace());
+		KeysTable.Emplace(EntryPair.Key.GetKey(), &EntryPair.Value);
+	}
+
+	// Write entries count
+	uint32 EntriesCount = Entries.Num();
+	Archive << EntriesCount;
 
 	// Write namespace count
 	uint32 NamespaceCount = Namespaces.Num();
 	Archive << NamespaceCount;
 
 	// Iterate through namespaces
-	for (auto& NamespaceEntryPair : Namespaces)
+	for (const auto& NamespaceEntryPair : Namespaces)
 	{
-		/*const*/ FString& Namespace = NamespaceEntryPair.Key;
-		/*const*/ FKeysTable& KeysTable = NamespaceEntryPair.Value;
+		const FTextKey Namespace = NamespaceEntryPair.Key;
+		const FKeysTable& KeysTable = NamespaceEntryPair.Value;
 
 		// Write namespace.
-		Archive << Namespace;
+		FTextKey NamespaceTmp = Namespace;
+		Archive << NamespaceTmp;
 
-		// Write a placeholder key count, we'll fill this in once we know how many keys were actually written
-		uint32 KeyCount = 0;
-		const int64 KeyCountOffset = Archive.Tell();
+		// Write keys count
+		uint32 KeyCount = KeysTable.Num();
 		Archive << KeyCount;
 
 		// Iterate through keys and values
-		for (auto& KeyEntryPair : KeysTable)
+		for (const auto& KeyEntryPair : KeysTable)
 		{
-			/*const*/ FString& Key = KeyEntryPair.Key;
-			/*const*/ FEntryArray& EntryArray = KeyEntryPair.Value;
-
-			// Skip this key if there are no entries.
-			if (EntryArray.Num() == 0)
-			{
-				UE_LOG(LogTextLocalizationResource, Warning, TEXT("LocRes '%s': Archives contained no entries for key (%s)"), *LocResID.GetString(), *Key);
-				continue;
-			}
-
-			// Find first valid entry.
-			/*const*/ FEntry* Value = nullptr;
-			for (auto& PotentialValue : EntryArray)
-			{
-				if (!PotentialValue.LocalizedString.IsEmpty())
-				{
-					Value = &PotentialValue;
-					break;
-				}
-			}
-
-			// Skip this key if there is no valid entry.
-			if (!Value)
-			{
-				UE_LOG(LogTextLocalizationResource, Verbose, TEXT("LocRes '%s': Archives contained only blank entries for key (%s)"), *LocResID.GetString(), *Key);
-				continue;
-			}
-
-			++KeyCount;
+			const FTextKey Key = KeyEntryPair.Key;
+			const FEntry* Value = KeyEntryPair.Value;
+			check(Value);
 
 			// Write key.
-			Archive << Key;
+			FTextKey KeyTmp = Key;
+			Archive << KeyTmp;
 
 			// Write string entry.
-			Archive << Value->SourceStringHash;
+			uint32 SourceStringHash = Value->SourceStringHash;
+			Archive << SourceStringHash;
 
 			int32 LocalizedStringIndex = GetLocalizedStringIndex(Value->LocalizedString);
 			Archive << LocalizedStringIndex;
-		}
-
-		// Re-write the key value now
-		{
-			const int64 CurrentFileOffset = Archive.Tell();
-			Archive.Seek(KeyCountOffset);
-			Archive << KeyCount;
-			Archive.Seek(CurrentFileOffset);
 		}
 	}
 
@@ -372,46 +471,50 @@ bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextLoca
 	return true;
 }
 
-void FTextLocalizationResource::DetectAndLogConflicts() const
+bool FTextLocalizationResource::ShouldReplaceEntry(const FTextKey& Namespace, const FTextKey& Key, const FEntry& CurrentEntry, const FEntry& NewEntry)
 {
-	for (const auto& NamespaceEntry : Namespaces)
+	// Note: For priority, smaller numbers are higher priority than bigger numbers
+
+	// Higher priority entries always replace lower priority ones
+	if (NewEntry.Priority < CurrentEntry.Priority)
 	{
-		const FString& NamespaceName = NamespaceEntry.Key;
-		const FKeysTable& KeyTable = NamespaceEntry.Value;
-		for (const auto& KeyEntry : KeyTable)
-		{
-			const FString& KeyName = KeyEntry.Key;
-			const FEntryArray& EntryArray = KeyEntry.Value;
-
-			bool bWasConflictDetected = false;
-			if (EntryArray.Num() > 1)
-			{
-				const FEntry& PrimaryEntry = EntryArray[0];
-				for (int32 OtherEntryIndex = 1; OtherEntryIndex < EntryArray.Num() && !bWasConflictDetected; ++OtherEntryIndex)
-				{
-					const FEntry& OtherEntry = EntryArray[OtherEntryIndex];
-					bWasConflictDetected = PrimaryEntry.SourceStringHash != OtherEntry.SourceStringHash || !PrimaryEntry.LocalizedString.Equals(OtherEntry.LocalizedString, ESearchCase::CaseSensitive);
-				}
-			}
-
-			if (bWasConflictDetected)
-			{
-				FString CollidingEntryListString;
-				for (const FEntry& Entry : EntryArray)
-				{
-					if (!CollidingEntryListString.IsEmpty())
-					{
-						CollidingEntryListString += TEXT('\n');
-					}
-
-					CollidingEntryListString += FString::Printf(TEXT("    Localization Resource: (%s) Source String Hash: (0x%08x) Localized String: (%s)"), *(Entry.LocResID.GetString()), Entry.SourceStringHash, *(Entry.LocalizedString));
-				}
-
-				UE_LOG(LogTextLocalizationResource, Warning, TEXT("Loaded localization resources contain conflicting entries for (Namespace:%s, Key:%s):\n%s"), *NamespaceName, *KeyName, *CollidingEntryListString);
-			}
-		}
+		return true;
 	}
+
+	// Lower priority entries never replace higher priority ones
+	if (NewEntry.Priority > CurrentEntry.Priority)
+	{
+		return false;
+	}
+
+#if !NO_LOGGING && !UE_BUILD_SHIPPING
+	// Equal priority entries won't replace, but may log a conflict
+	static const bool bLogConflict = FParse::Param(FCommandLine::Get(), TEXT("LogLocalizationConflicts")) || !GIsBuildMachine;
+	if (bLogConflict)
+	{
+		const bool bDidConflict = CurrentEntry.SourceStringHash != NewEntry.SourceStringHash || !CurrentEntry.LocalizedString.Equals(NewEntry.LocalizedString, ESearchCase::CaseSensitive);
+		UE_CLOG(bDidConflict, LogTextLocalizationResource, Warning,
+			TEXT("Localization resource contains conflicting entries for (Namespace: %s, Key: %s). First: \"%s\" (0x%08x, %s). Second: \"%s\" (0x%08x, %s)."),
+			Namespace.GetChars(), Key.GetChars(),
+			*CurrentEntry.LocalizedString, CurrentEntry.SourceStringHash, CurrentEntry.LocResID.GetChars(),
+			*NewEntry.LocalizedString, NewEntry.SourceStringHash, NewEntry.LocResID.GetChars()
+		);
+	}
+#endif
+
+	return false;
 }
+
+
+namespace TextLocalizationResourceUtil
+{
+	static TOptional<FString> NativeProjectCultureName;
+	static TOptional<FString> NativeEngineCultureName;
+#if WITH_EDITOR
+	static TOptional<FString> NativeEditorCultureName;
+#endif
+}
+
 
 
 FString TextLocalizationResourceUtil::GetNativeCultureName(const TArray<FString>& InLocalizationPaths)
@@ -419,19 +522,17 @@ FString TextLocalizationResourceUtil::GetNativeCultureName(const TArray<FString>
 	// Use the native culture of any of the targets on the given paths (it is assumed that all targets for a particular product have the same native culture)
 	for (const FString& LocalizationPath : InLocalizationPaths)
 	{
-		TArray<FString> LocMetaFilenames;
-		IFileManager::Get().FindFiles(LocMetaFilenames, *(LocalizationPath / TEXT("*.locmeta")), true, false);
-
-		// There should only be zero or one LocMeta file
-		check(LocMetaFilenames.Num() <= 1);
-
-		if (LocMetaFilenames.Num() == 1)
+		if (!IFileManager::Get().DirectoryExists(*LocalizationPath))
 		{
-			FTextLocalizationMetaDataResource LocMetaResource;
-			if (LocMetaResource.LoadFromFile(LocalizationPath / LocMetaFilenames[0]))
-			{
-				return LocMetaResource.NativeCulture;
-			}
+			continue;
+		}
+
+		const FString LocMetaFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locmeta");
+
+		FTextLocalizationMetaDataResource LocMetaResource;
+		if (LocMetaResource.LoadFromFile(LocalizationPath / LocMetaFilename))
+		{
+			return LocMetaResource.NativeCulture;
 		}
 	}
 
@@ -461,7 +562,6 @@ FString TextLocalizationResourceUtil::GetNativeCultureName(const ELocalizedTextS
 
 FString TextLocalizationResourceUtil::GetNativeProjectCultureName(const bool bSkipCache)
 {
-	static TOptional<FString> NativeProjectCultureName;
 	if (!NativeProjectCultureName.IsSet() || bSkipCache)
 	{
 		NativeProjectCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetGameLocalizationPaths());
@@ -469,9 +569,13 @@ FString TextLocalizationResourceUtil::GetNativeProjectCultureName(const bool bSk
 	return NativeProjectCultureName.GetValue();
 }
 
+void TextLocalizationResourceUtil::ClearNativeProjectCultureName()
+{
+	NativeProjectCultureName.Reset();
+}
+
 FString TextLocalizationResourceUtil::GetNativeEngineCultureName(const bool bSkipCache)
 {
-	static TOptional<FString> NativeEngineCultureName;
 	if (!NativeEngineCultureName.IsSet() || bSkipCache)
 	{
 		NativeEngineCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetEngineLocalizationPaths());
@@ -479,15 +583,24 @@ FString TextLocalizationResourceUtil::GetNativeEngineCultureName(const bool bSki
 	return NativeEngineCultureName.GetValue();
 }
 
+void TextLocalizationResourceUtil::ClearNativeEngineCultureName()
+{
+	NativeEngineCultureName.Reset();
+}
+
 #if WITH_EDITOR
 FString TextLocalizationResourceUtil::GetNativeEditorCultureName(const bool bSkipCache)
 {
-	static TOptional<FString> NativeEditorCultureName;
 	if (!NativeEditorCultureName.IsSet() || bSkipCache)
 	{
 		NativeEditorCultureName = TextLocalizationResourceUtil::GetNativeCultureName(FPaths::GetEditorLocalizationPaths());
 	}
 	return NativeEditorCultureName.GetValue();
+}
+
+void TextLocalizationResourceUtil::ClearNativeEditorCultureName()
+{
+	NativeEditorCultureName.Reset();
 }
 #endif	// WITH_EDITOR
 
@@ -535,3 +648,6 @@ TArray<FString> TextLocalizationResourceUtil::GetLocalizedCultureNames(const TAr
 
 	return CultureNames;
 }
+
+#undef PRELOAD_LOCMETA_FILES
+#undef PRELOAD_LOCRES_FILES

@@ -5142,11 +5142,19 @@ void FEditorViewportClient::CapturedMouseMove( FViewport* InViewport, int32 InMo
 	UpdateRequiredCursorVisibility();
 	ApplyRequiredCursorVisibility();
 
+	CapturedMouseMoves.Add(FIntPoint(InMouseX, InMouseY));
+
 	// Let the current editor mode know about the mouse movement.
 	if (ModeTools->CapturedMouseMove(this, InViewport, InMouseX, InMouseY))
 	{
 		return;
 	}
+}
+
+void FEditorViewportClient::ProcessAccumulatedPointerInput(FViewport* InViewport)
+{
+	ModeTools->ProcessCapturedMouseMoves(this, InViewport, CapturedMouseMoves);
+	CapturedMouseMoves.Reset();
 }
 
 void FEditorViewportClient::OpenScreenshot( FString SourceFilePath )

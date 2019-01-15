@@ -372,8 +372,17 @@ public:
 	 */
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
-		if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && PointerDraggingSliderIndex == MouseEvent.GetPointerIndex() && this->HasMouseCapture() )
+		if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && PointerDraggingSliderIndex == MouseEvent.GetPointerIndex() )
 		{
+			if(!this->HasMouseCapture())
+			{
+				// Lost Capture - ensure reset
+				bDragging = false;
+				PointerDraggingSliderIndex = INDEX_NONE;
+				
+				return FReply::Unhandled();
+			}
+		
 			if( bDragging )
 			{
 				NumericType CurrentDelta = Delta.Get();
@@ -403,10 +412,8 @@ public:
 
 			return Reply;
 		}
-		else
-		{
-			return FReply::Unhandled();
-		}
+		
+		return FReply::Unhandled();
 	}
 
 	void ApplySliderMaxValueChanged(float SliderDeltaToAdd, bool UpdateOnlyIfHigher)
@@ -472,8 +479,17 @@ public:
 	 */
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
-		if ( PointerDraggingSliderIndex == MouseEvent.GetPointerIndex() && this->HasMouseCapture() )
+		if ( PointerDraggingSliderIndex == MouseEvent.GetPointerIndex() )
 		{
+			if(!this->HasMouseCapture())
+			{
+				// Lost the mouse capture - ensure reset
+				bDragging = false;
+				PointerDraggingSliderIndex = INDEX_NONE;
+				
+				return FReply::Unhandled();
+			}
+			
 			if (!bDragging)
 			{
 				DistanceDragged += FMath::Abs(MouseEvent.GetCursorDelta().X);

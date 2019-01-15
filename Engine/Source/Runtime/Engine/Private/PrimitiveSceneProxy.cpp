@@ -125,7 +125,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 // by default we are always drawn
 ,	HiddenEditorViews(0)
-,	DrawInVREditMode(0)
+,	DrawInAnyEditMode(0)
 #endif
 ,	VisibilityId(InComponent->VisibilityId)
 ,	MaxDrawDistance(InComponent->CachedMaxDrawDistance > 0 ? InComponent->CachedMaxDrawDistance : FLT_MAX)
@@ -174,7 +174,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 		// cache the actor's group membership
 		HiddenEditorViews = InComponent->GetHiddenEditorViews();
-		DrawInVREditMode = InComponent->GetOwner()->IsEditorOnly();
+		DrawInAnyEditMode = InComponent->GetOwner()->IsEditorOnly();
 #endif
 	}
 	
@@ -589,7 +589,7 @@ bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 	// Don't draw editor specific actors during game mode
 	if (View->Family->EngineShowFlags.Game)
 	{
-		if (DrawInVREditMode)
+		if (DrawInAnyEditMode)
 		{
 			return false;
 		}

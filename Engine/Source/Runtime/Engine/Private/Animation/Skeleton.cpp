@@ -1347,8 +1347,7 @@ SmartName::UID_Type USkeleton::GetUIDByName(const FName& ContainerName, const FN
 // @todo: @fixme: this has to be fixed when we have GUID
 void USkeleton::VerifySmartName(const FName& ContainerName, FSmartName& InOutSmartName)
 {
-	VerifySmartNameInternal(ContainerName, InOutSmartName);
-	if (ContainerName == USkeleton::AnimCurveMappingName)
+	if (VerifySmartNameInternal(ContainerName, InOutSmartName) && ContainerName == USkeleton::AnimCurveMappingName)
 	{
 		IncreaseAnimCurveUidVersion();
 	}

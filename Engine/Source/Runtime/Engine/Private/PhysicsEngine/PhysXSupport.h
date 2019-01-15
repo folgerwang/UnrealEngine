@@ -81,6 +81,8 @@ extern ENGINE_API PxFoundation*			GPhysXFoundation;
 /** Pointer to PhysX debugger */
 extern PxPvd*					GPhysXVisualDebugger;
 
+extern int32 GPhysXHackCurrentLoopCounter;
+
 extern ENGINE_API TAutoConsoleVariable<float> CVarToleranceScaleLength;
 
 extern ENGINE_API TAutoConsoleVariable<float> CVarToleranceScaleSpeed;
