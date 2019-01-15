@@ -89,6 +89,7 @@ void IMovieSceneKeyProxy::OnProxyValueChanged(TMovieSceneChannelHandle<ChannelTy
 			ChannelData.MoveKey(KeyIndex, InOutTime);
 			InSection->ExpandToFrame(InOutTime);
 		}
+		Channel->PostEditChange();
 	}
 }
 
