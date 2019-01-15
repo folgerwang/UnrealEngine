@@ -1611,7 +1611,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 	// If we loaded this material with inline shaders, use what was loaded (GameThreadShaderMap) instead of looking in the DDC
 	if (bContainsInlineShaders)
 	{
-		FMaterialShaderMap* ExistingShaderMap = nullptr;
+		TRefCountPtr<FMaterialShaderMap> ExistingShaderMap = nullptr;
 		
 		if (GameThreadShaderMap)
 		{
