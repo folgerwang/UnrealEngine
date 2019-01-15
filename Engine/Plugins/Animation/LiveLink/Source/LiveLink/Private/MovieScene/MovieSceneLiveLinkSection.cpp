@@ -154,6 +154,13 @@ void UMovieSceneLiveLinkSection::Serialize(FArchive& Ar)
 	}
 }
 
+void UMovieSceneLiveLinkSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateChannelProxy();
+}
+
 void UMovieSceneLiveLinkSection::SetMask(const TArray<bool>& InChannelMask)
 {
 	ChannelMask = InChannelMask;

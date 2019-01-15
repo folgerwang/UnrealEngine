@@ -31,7 +31,7 @@ public:
 public:
 
 	//~ UObject interface
-
+	virtual void PostEditImport() override;
 	virtual void PostLoad() override;
 
 protected:
