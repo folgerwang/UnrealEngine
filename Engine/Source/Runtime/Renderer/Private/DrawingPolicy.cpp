@@ -13,15 +13,6 @@
 #include "SceneCore.h"
 #include "ScenePrivate.h"
 
-int32 GEmitMeshDrawEvent = 0;
-static FAutoConsoleVariableRef CVarEmitMeshDrawEvent(
-	TEXT("r.EmitMeshDrawEvents"),
-	GEmitMeshDrawEvent,
-	TEXT("Emits a GPU event around each drawing policy draw call.  /n")
-	TEXT("Useful for seeing stats about each draw call, however it greatly distorts total time and time per draw call."),
-	ECVF_RenderThreadSafe
-	);
-
 FMeshDrawingPolicy::FMeshDrawingPolicy(
 	const FVertexFactory* InVertexFactory,
 	const FMaterialRenderProxy* InMaterialRenderProxy,
@@ -116,8 +107,6 @@ void FMeshDrawingPolicy::SetPrimitiveIdStream(
 void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView& View, const FMeshBatch& Mesh, int32 BatchElementIndex, const bool bIsInstancedStereo) const
 {
 	DEFINE_LOG_CATEGORY_STATIC(LogFMeshDrawingPolicyDrawMesh, Warning, All);
-	INC_DWORD_STAT(STAT_MeshDrawCalls);
-	SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, MeshEvent, GEmitMeshDrawEvent != 0, TEXT("Mesh Draw"));
 
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 
