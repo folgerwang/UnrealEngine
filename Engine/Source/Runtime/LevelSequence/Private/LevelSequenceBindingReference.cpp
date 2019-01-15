@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/LevelStreamingDynamic.h"
 
 FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject, UObject* InContext)
 {
@@ -41,11 +42,19 @@ FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject
 	}
 }
 
-UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext) const
+UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext, FName StreamedLevelAssetPath) const
 {
-	if (ExternalObjectPath.IsNull())
+	if (InContext->IsA<AActor>())
 	{
-		return FindObject<UObject>(InContext, *ObjectPath, false);
+		if (ExternalObjectPath.IsNull())
+		{
+			return FindObject<UObject>(InContext, *ObjectPath, false);
+		}
+	}
+	else if (InContext->IsA<ULevel>() && StreamedLevelAssetPath != NAME_None && ExternalObjectPath.GetAssetPathName() == StreamedLevelAssetPath)
+	{
+		// ExternalObjectPath.GetSubPathString() specifies the path from the package (so includes PersistentLevel.) so we must do a FindObject from its outer
+		return FindObject<UObject>(InContext->GetOuter(), *ExternalObjectPath.GetSubPathString());
 	}
 	else
 	{
@@ -56,7 +65,7 @@ UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext) const
 		// properly resolve. This fixes Possessable bindings losing their references the first time you save a map.
 		TempPath.PreSavePath();
 
-#if WITH_EDITORONLY_DATA
+	#if WITH_EDITORONLY_DATA
 		int32 ContextPlayInEditorID = InContext ? InContext->GetOutermost()->PIEInstanceID : INDEX_NONE;
 
 		if (ContextPlayInEditorID != INDEX_NONE)
@@ -69,10 +78,12 @@ UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext) const
 		{
 			TempPath.FixupForPIE();
 		}
-#endif
+	#endif
 
 		return TempPath.ResolveObject();
 	}
+
+	return nullptr;
 }
 
 void FLevelSequenceBindingReference::PostSerialize(const FArchive& Ar)
@@ -221,7 +232,7 @@ void FLevelSequenceBindingReferences::RemoveObjects(const FGuid& ObjectId, const
 
 	for (int32 ReferenceIndex = 0; ReferenceIndex < ReferenceArray->References.Num(); )
 	{
-		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext);
+		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext, NAME_None);
 
 		if (InObjects.Contains(ResolvedObject))
 		{
@@ -244,7 +255,7 @@ void FLevelSequenceBindingReferences::RemoveInvalidObjects(const FGuid& ObjectId
 
 	for (int32 ReferenceIndex = 0; ReferenceIndex < ReferenceArray->References.Num(); )
 	{
-		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext);
+		UObject* ResolvedObject = ReferenceArray->References[ReferenceIndex].Resolve(InContext, NAME_None);
 
 		if (!ResolvedObject || ResolvedObject->IsPendingKill())
 		{
@@ -257,33 +268,28 @@ void FLevelSequenceBindingReferences::RemoveInvalidObjects(const FGuid& ObjectId
 	}
 }
 
-void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObject* InContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
+void FLevelSequenceBindingReferences::ResolveBinding(const FGuid& ObjectId, UObject* InContext, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
-	const FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId);
-	if (!ReferenceArray)
+	if (const FLevelSequenceBindingReferenceArray* ReferenceArray = BindingIdToReferences.Find(ObjectId))
+	{
+		for (const FLevelSequenceBindingReference& Reference : ReferenceArray->References)
+		{
+			UObject* ResolvedObject = Reference.Resolve(InContext, StreamedLevelAssetPath);
+			if (ResolvedObject && ResolvedObject->GetWorld())
+			{
+				OutObjects.Add(ResolvedObject);
+			}
+		}
+	}
+	else if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(InContext))
 	{
 		// If the object ID exists in the AnimSequenceInstances set, then this binding relates to an anim instance on a skeletal mesh component
-		USkeletalMeshComponent* SkeletalMesh = Cast<USkeletalMeshComponent>(InContext);
-		if (SkeletalMesh && AnimSequenceInstances.Contains(ObjectId) && SkeletalMesh->GetAnimInstance())
+		if (SkeletalMeshComponent && AnimSequenceInstances.Contains(ObjectId) && SkeletalMeshComponent->GetAnimInstance())
 		{
-			OutObjects.Add(SkeletalMesh->GetAnimInstance());
-		}
-
-		return;
-	}
-
-	for (const FLevelSequenceBindingReference& Reference : ReferenceArray->References)
-	{
-		UObject* ResolvedObject = Reference.Resolve(InContext);
-
-		// if the resolved object does not have a valid world (e.g. world is being torn down), dont resolve
-		if (ResolvedObject && ResolvedObject->GetWorld())
-		{
-			OutObjects.Add(ResolvedObject);
+			OutObjects.Add(SkeletalMeshComponent->GetAnimInstance());
 		}
 	}
 }
-
 
 void FLevelSequenceBindingReferences::RemoveInvalidBindings(const TSet<FGuid>& ValidBindingIDs)
 {
