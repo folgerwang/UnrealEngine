@@ -778,7 +778,8 @@ private:
 		const FScene* Scene,
 		EMeshPass::Type PassType,
 		FMeshCommandOneFrameArray& VisibleMeshCommands,
-		TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests);
+		TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests,
+		int32& NumMeshCommandBuildRequestElements);
 
 	/** Will return if we should draw the static mesh for the shadow, and will perform lazy init of primitive if it wasn't visible */
 	bool ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool bInCustomDataRelevance, FPrimitiveSceneInfo* InPrimitiveSceneInfo);

@@ -806,7 +806,8 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 	const FScene* Scene,
 	EMeshPass::Type PassType,
 	FMeshCommandOneFrameArray& VisibleMeshCommands,
-	TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests)
+	TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests,
+	int32& NumMeshCommandBuildRequestElements)
 {
 	if (UseMeshDrawCommandPipeline())
 	{
@@ -838,6 +839,7 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 		}
 		else
 		{
+			NumMeshCommandBuildRequestElements += StaticMeshRelevance.NumElements;
 			MeshCommandBuildRequests.Add(&StaticMesh);
 		}
 	}
@@ -933,7 +935,8 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 								InPrimitiveSceneInfo->Scene,
 								EMeshPass::CSMShadowDepth,
 								ShadowDepthPassVisibleCommands,
-								SubjectMeshCommandBuildRequests);
+								SubjectMeshCommandBuildRequests,
+								NumSubjectMeshCommandBuildRequestElements);
 						}
 						else
 						{
