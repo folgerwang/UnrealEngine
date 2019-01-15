@@ -2450,15 +2450,6 @@ public:
 	/** Draw list used for rendering whole scene reflective shadow maps.  */
 	TStaticMeshDrawList<FShadowDepthDrawingPolicy<true> > WholeSceneReflectiveShadowMapDrawList;
 
-	/** Mobile base pass draw lists */
-	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy> MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy> MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
-
-
-	/** Maps a light-map type to the appropriate base pass draw list. */
-	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
-	TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
-
 	/**
 	 * The following arrays are densely packed primitive data needed by various
 	 * rendering passes. PrimitiveSceneInfo->PackedIndex maintains the index

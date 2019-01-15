@@ -185,7 +185,7 @@ void MobileBasePass::GetShaders(
 	}
 }
 
-bool MobileBasePass::UseSkyReflectionCapture(const FScene* RenderScene)
+static bool UseSkyReflectionCapture(const FScene* RenderScene)
 {
 	return RenderScene
 		&& RenderScene->ReflectionSceneData.RegisteredReflectionCapturePositions.Num() == 0
@@ -193,7 +193,7 @@ bool MobileBasePass::UseSkyReflectionCapture(const FScene* RenderScene)
 		&& RenderScene->SkyLight->ProcessedTexture->TextureRHI;
 }
 
-void MobileBasePass::GetSkyTextureParams(const FScene* Scene, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT, float& OutSkyMaxMipIndex)
+static void GetSkyTextureParams(const FScene* Scene, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT, float& OutSkyMaxMipIndex)
 {
 	if (Scene && Scene->SkyLight && Scene->SkyLight->ProcessedTexture->TextureRHI)
 	{
@@ -470,7 +470,8 @@ void TMobileBasePassPSPolicyParamType<FUniformLightMapPolicy>::GetShaderBindings
 		FVector4 CapturePositions[MaxNumReflections] = { FVector4(0, 0, 0, 0), FVector4(0, 0, 0, 0), FVector4(0, 0, 0, 0) };
 		FVector4 ReflectionParams(1.0f, 1.0f, 1.0f, 0.0f);
 		
-		if (MobileBasePass::UseSkyReflectionCapture(Scene))
+		// If no reflection captures are available then attempt to use sky light's texture.
+		if (UseSkyReflectionCapture(Scene))
 		{
 			// if > 0 this will disable shader's RGBM decoding and enable sky light tinting of this envmap.
 			// ReflectionParams.X == inv average brightness
@@ -478,7 +479,7 @@ void TMobileBasePassPSPolicyParamType<FUniformLightMapPolicy>::GetShaderBindings
 			if (FeatureLevel > ERHIFeatureLevel::ES2) // not-supported on ES2 at the moment
 			{
 				float AverageBrightness = 1.0f;
-				MobileBasePass::GetSkyTextureParams(Scene, AverageBrightness, ReflectionCubemapTextures[0], ReflectionParams.W);
+				GetSkyTextureParams(Scene, AverageBrightness, ReflectionCubemapTextures[0], ReflectionParams.W);
 				ReflectionParams.X = 1.0f / AverageBrightness;
 			}
 		}

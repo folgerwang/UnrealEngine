@@ -640,42 +640,14 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 			DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
 			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
 
-			if (bDeferredBasePass)
-			{
-				RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-			}
-			else
-			{
-				if (UseMeshDrawCommandPipeline())
-				{
-					RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-				}
-				else
-				{
-					RenderEditorPrimitivesWithDrawPolicies<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
-				}
-			}
+			RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
 
 			// Draw editor primitives.
 			{
 				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorPrimitives %dx%d msaa=%d"),
 					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
 
-				if (bDeferredBasePass)
-				{
-					RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-				}
-				else
-				{
-					if (UseMeshDrawCommandPipeline())
-					{
-						RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-					}
-					else
-					{
-						RenderEditorPrimitivesWithDrawPolicies<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
-					}
-				}
+				RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
 			}
 
 			// Draw foreground editor primitives.
@@ -683,22 +655,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorForegroundPrimitives %dx%d msaa=%d"),
 					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
 
-				if (bDeferredBasePass)
-				{
-					RenderForegroundEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-				}
-				else
-				{
-					if (UseMeshDrawCommandPipeline())
-					{
-						RenderForegroundEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
-					}
-					else
-					{
-						RenderForegroundEditorPrimitivesWithDrawPolicies<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
-					}
-
-				}
+				RenderForegroundEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
 			}
 		}
 		Context.RHICmdList.EndRenderPass();

@@ -54,23 +54,6 @@
 	Globals
 -----------------------------------------------------------------------------*/
 
-// TEMP: remove after new path is tested on mobile
-static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipelineMobileCooked(
-	TEXT("r.MeshDrawCommandPipelineMobileCooked"),
-	1,
-	TEXT("  0: only old path\n")
-	TEXT("  1: cache both \n")
-	TEXT("  2: only new path\n"),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe);
-
-int32 MeshDrawCommandPipelineMobileCooked()
-{
-#if PLATFORM_ANDROID || PLATFORM_IOS
-	return CVarMeshDrawCommandPipelineMobileCooked.GetValueOnAnyThread();
-#endif
-	return 1;
-}
-
 static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipeline(
 	TEXT("r.MeshDrawCommandPipeline"),
 	1,
@@ -79,7 +62,7 @@ static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipeline(
 
 bool UseMeshDrawCommandPipeline()
 {
-	return CVarMeshDrawCommandPipeline.GetValueOnRenderThread() > 0 && MeshDrawCommandPipelineMobileCooked() > 0;
+	return CVarMeshDrawCommandPipeline.GetValueOnRenderThread() > 0;
 }
 
 static TAutoConsoleVariable<int32> CVarCachedMeshDrawCommands(

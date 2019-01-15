@@ -2805,15 +2805,6 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 	TArray<FPrimitiveSceneInfo*> PrimitivesToUpdate;
 	auto SceneFeatureLevel = GetFeatureLevel();
 
-	if (GetShadingPath() == EShadingPath::Mobile)
-	{
-		for (int32 DrawType = 0; DrawType < EBasePass_MAX; DrawType++)
-		{
-			MobileBasePassUniformLightMapPolicyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-		}
-	}
-
 	PositionOnlyDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	DepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 	MaskedDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
@@ -3034,10 +3025,6 @@ void FScene::DumpStaticMeshDrawListStats() const
 	DUMP_DRAW_LIST(PositionOnlyDepthDrawList);
 	DUMP_DRAW_LIST(DepthDrawList);
 	DUMP_DRAW_LIST(MaskedDepthDrawList);
-	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Default]);
-	DUMP_DRAW_LIST(MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Masked]);
 	DUMP_DRAW_LIST(WholeSceneShadowDepthDrawList);
 #undef DUMP_DRAW_LIST
 }
@@ -3197,8 +3184,6 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 	StaticMeshDrawListApplyWorldOffset(DepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(MaskedDepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(WholeSceneShadowDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(MobileBasePassUniformLightMapPolicyDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(MobileBasePassUniformLightMapPolicyDrawListWithCSM, InOffset);
 
 	VelocityData.ApplyOffset(InOffset);
 }
@@ -3482,16 +3467,6 @@ void FRendererModule::UpdateStaticDrawListsForMaterials(const TArray<const FMate
 FSceneViewStateInterface* FRendererModule::AllocateViewState()
 {
 	return new FSceneViewState();
-}
-
-TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& FScene::GetMobileBasePassDrawList(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawList[DrawType];
-}
-
-TStaticMeshDrawList<FMobileBasePassUniformDrawingPolicy>& FScene::GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType];
 }
 
 //////////////////////////////////////////////////////////////////////////

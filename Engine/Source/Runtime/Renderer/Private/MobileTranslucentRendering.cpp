@@ -111,212 +111,6 @@ void FMobileSceneRenderer::CopySceneAlpha(FRHICommandListImmediate& RHICmdList, 
 	SceneContext.FinishRenderingSceneAlphaCopy(RHICmdList);
 }
 
-
-
-
-
-
-
-/** The parameters used to draw a translucent mesh. */
-class FDrawMobileTranslucentMeshAction
-{
-public:
-	const FViewInfo& View;
-	FDrawingPolicyRenderState DrawRenderState;
-	FHitProxyId HitProxyId;
-
-	/** Initialization constructor. */
-	FDrawMobileTranslucentMeshAction(
-		FRHICommandList& InRHICmdList,
-		const FViewInfo& InView,
-		float InDitheredLODTransitionAlpha,
-		FDepthStencilStateRHIParamRef InDepthStencilState,
-		const FDrawingPolicyRenderState& InDrawRenderState,
-		FHitProxyId InHitProxyId
-		):
-		View(InView),
-		DrawRenderState(InDrawRenderState),
-		HitProxyId(InHitProxyId)
-	{
-		DrawRenderState.SetDitheredLODTransitionAlpha(InDitheredLODTransitionAlpha);
-		if (InDepthStencilState)
-		{
-			DrawRenderState.SetDepthStencilState(InDepthStencilState);
-		}
-	}
-	
-	inline bool ShouldPackAmbientSH() const
-	{
-		// So shader code can read a single constant to get the ambient term
-		return true;
-	}
-
-	static bool CanReceiveCSM(const FLightSceneInfo* LightSceneInfo, const FPrimitiveSceneProxy* PrimitiveSceneProxy) { return false; }
-
-	const FScene* GetScene() const
-	{ 
-		return ((FScene*)View.Family->Scene);
-	}
-
-	/** Draws the translucent mesh with a specific light-map type, and fog volume type */
-	void Process(
-		FRHICommandList& RHICmdList, 
-		const FMobileProcessBasePassMeshParameters& Parameters,
-		const ELightMapPolicyType& LightMapPolicy,
-		const FUniformLightMapPolicy::ElementDataType& LightMapElementData
-		)
-	{
-		const bool bIsLitMaterial = Parameters.ShadingModel != MSM_Unlit;
-		const FScene* Scene = Parameters.PrimitiveSceneProxy ? Parameters.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->Scene : NULL;
-
-		FMobileBasePassUniformDrawingPolicy DrawingPolicy(
-			Parameters.Mesh.VertexFactory,
-			Parameters.Mesh.MaterialRenderProxy,
-			Parameters.Material,
-			LightMapPolicy,
-			Parameters.NumMovablePointLights,
-			Parameters.BlendMode,
-			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylightInBasePass(Parameters.BlendMode),
-			ComputeMeshOverrideSettings(Parameters.Mesh),
-			View.GetFeatureLevel()
-			);
-
-		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), Parameters.Mesh.MaterialRenderProxy);
-		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, FMobileBasePassUniformDrawingPolicy::ContextDataType());
-
-		for (int32 BatchElementIndex = 0; BatchElementIndex<Parameters.Mesh.Elements.Num(); BatchElementIndex++)
-		{
-			TDrawEvent<FRHICommandList> MeshEvent;
-			BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::MobileTranslucent));
-
-			DrawingPolicy.SetMeshRenderState(
-				RHICmdList, 
-				View,
-				Parameters.PrimitiveSceneProxy,
-				Parameters.Mesh,
-				BatchElementIndex,
-				DrawRenderState,
-				FMobileBasePassUniformDrawingPolicy::ElementDataType(LightMapElementData),
-				FMobileBasePassUniformDrawingPolicy::ContextDataType()
-				);
-			DrawingPolicy.DrawMesh(RHICmdList, View, Parameters.Mesh, BatchElementIndex);
-		}
-	}
-};
-
-/**
- * Render a dynamic mesh using a translucent draw policy
- * @return true if the mesh rendered
- */
-bool FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(
-	FRHICommandList& RHICmdList, 
-	const FViewInfo& View,
-	ContextType DrawingContext,
-	const FMeshBatch& Mesh,
-	bool bPreFog,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	FHitProxyId HitProxyId
-	)
-{
-	bool bDirty = false;
-
-	// Determine the mesh's material and blend mode.
-	const auto FeatureLevel = View.GetFeatureLevel();
-	const auto ShaderPlatform = View.GetShaderPlatform();
-	const FMaterial* Material = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
-	const EBlendMode BlendMode = Material->GetBlendMode();
-
-	// Only render translucent materials.
-	if (IsTranslucentBlendMode(BlendMode))
-	{
-		FDepthStencilStateRHIParamRef DepthStencilState = nullptr;
-		if (DrawingContext.TranslucencyPass != ETranslucencyPass::TPT_TranslucencyAfterDOF && Material->ShouldDisableDepthTest())
-		{
-			DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		}
-		bool bAllowFog = true;
-
-		FDrawMobileTranslucentMeshAction Action(
-				RHICmdList,
-				View,
-				Mesh.DitheredLODTransitionAlpha,
-				DepthStencilState,
-				DrawRenderState,
-				HitProxyId
-				);
-		
-		FMobileProcessBasePassMeshParameters Parameters(
-				Mesh,
-				*Material,
-				PrimitiveSceneProxy,
-				bAllowFog,
-				FeatureLevel, 
-				false // ISR disabled for mobile
-				);
-		
-		const FScene* Scene = (FScene*)View.Family->Scene;
-		const FLightSceneInfo* MobileDirectionalLight = MobileBasePass::GetDirectionalLightInfo(Scene, PrimitiveSceneProxy);
-		bool bCanReceiveCSM = Action.CanReceiveCSM(MobileDirectionalLight, PrimitiveSceneProxy);
-		EMaterialShadingModel ShadingModel = Material->GetShadingModel();
-		ELightMapPolicyType LightmapPolicyType = MobileBasePass::SelectMeshLightmapPolicy(Scene, Mesh, PrimitiveSceneProxy, MobileDirectionalLight, ShadingModel, bCanReceiveCSM, FeatureLevel);
-
-		Action.Process(RHICmdList, Parameters, LightmapPolicyType, Mesh.LCI);
-		bDirty = true;
-	}
-	return bDirty;
-}
-
-template <class TDrawingPolicyFactory>
-void FTranslucentPrimSet::DrawPrimitivesForMobile(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState,
-	typename TDrawingPolicyFactory::ContextType& DrawingContext) const
-{
-	FInt32Range PassRange = SortedPrimsNum.GetPassRange(DrawingContext.TranslucencyPass);
-
-	// Draw sorted scene prims
-	for (int32 PrimIdx = PassRange.GetLowerBoundValue(); PrimIdx < PassRange.GetUpperBoundValue(); PrimIdx++)
-	{
-		FPrimitiveSceneInfo* PrimitiveSceneInfo = SortedPrims[PrimIdx].PrimitiveSceneInfo;
-		int32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
-		const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
-
-		checkSlow(ViewRelevance.HasTranslucency());
-
-		if (ViewRelevance.bDrawRelevance)
-		{
-			// range in View.DynamicMeshElements[]
-			FInt32Range range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
-
-			for (int32 MeshBatchIndex = range.GetLowerBoundValue(); MeshBatchIndex < range.GetUpperBoundValue(); MeshBatchIndex++)
-			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-				checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
-
-				const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-				TDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, DrawingContext, MeshBatch, false, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-			}
-
-			// Render static scene prim
-			if (ViewRelevance.bStaticRelevance)
-			{
-				// Render static meshes from static scene prim
-				for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-				{
-					FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-					if (View.StaticMeshVisibilityMap[StaticMesh.Id]
-						// Only render static mesh elements using translucent materials
-						&& StaticMesh.IsTranslucent(View.GetFeatureLevel()))
-					{
-						TDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, DrawingContext, StaticMesh, false, DrawRenderState, PrimitiveSceneInfo->Proxy, StaticMesh.BatchHitProxyId);
-					}
-				}
-			}
-		}
-	}
-}
-
 void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews, bool bRenderToSceneColor)
 {
 	ETranslucencyPass::Type TranslucencyPass = 
@@ -362,7 +156,7 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 			const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
 			RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
 
-			if (UseMeshDrawCommandPipeline() && !View.Family->UseDebugViewPS())
+			if (!View.Family->UseDebugViewPS())
 			{
 				if (Scene->UniformBuffers.UpdateViewUniformBuffer(View))
 				{
@@ -372,26 +166,6 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 		
 				const EMeshPass::Type MeshPass = TranslucencyPassToMeshPass(TranslucencyPass);
 				View.ParallelMeshDrawCommandPasses[MeshPass].DispatchDraw(nullptr, RHICmdList);
-			}
-			else
-			{
-				TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-				CreateMobileBasePassUniformBuffer(RHICmdList, View, true, BasePassUniformBuffer);
-				FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
-								
-				// Enable depth test, disable depth writes.
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
-
-				// Draw only translucent prims that don't read from scene color
-				FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(TranslucencyPass);
-				View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
-			
-				View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::Translucent, SDPG_World);
-				View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::Translucent, SDPG_Foreground);
-
-				// Editor and debug rendering
-				DrawViewElements<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext, SDPG_World, false);
-				DrawViewElements<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext, SDPG_Foreground, false);
 			}
 
 			// #todo-renderpasses clean this up. Ending the renderpass is correct here but do we want to look nicer and call FinishRenderingSceneColor, etc?
@@ -513,207 +287,6 @@ public:
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FOpacityOnlyPS, TEXT("/Engine/Private/MobileOpacityShaders.usf"), TEXT("MainPS"), SF_Pixel);
 IMPLEMENT_SHADERPIPELINE_TYPE_VSPS(MobileOpacityPipeline, FOpacityOnlyVS, FOpacityOnlyPS, true);
 
-class FMobileOpacityDrawingPolicy : public FMeshDrawingPolicy
-{
-public:
-
-	struct ContextDataType : public FMeshDrawingPolicy::ContextDataType
-	{
-	};
-
-	FMobileOpacityDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& InMaterialResource,
-		ERHIFeatureLevel::Type InFeatureLevel,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
-	) :
-		FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings)
-	{
-		const EMaterialTessellationMode TessellationMode = InMaterialResource.GetTessellationMode();
-		static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
-		bool bUseShaderPipelines = CVar && CVar->GetValueOnAnyThread() != 0;
-
-		ShaderPipeline = bUseShaderPipelines ? InMaterialResource.GetShaderPipeline(&MobileOpacityPipeline, InVertexFactory->GetType()) : nullptr;
-
-		if (ShaderPipeline)
-		{
-			VertexShader = ShaderPipeline->GetShader<FOpacityOnlyVS >();
-			PixelShader = ShaderPipeline->GetShader<FOpacityOnlyPS>();
-		}
-		else
-		{
-			VertexShader = InMaterialResource.GetShader<FOpacityOnlyVS >(VertexFactory->GetType());
-			PixelShader = InMaterialResource.GetShader<FOpacityOnlyPS>(InVertexFactory->GetType());
-		}
-		BaseVertexShader = VertexShader;
-	}
-
-	// FMeshDrawingPolicy interface.
-	FDrawingPolicyMatchResult Matches(const FMobileOpacityDrawingPolicy& Other, bool bForReals = false) const
-	{
-		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-		DRAWING_POLICY_MATCH_END
-	}
-
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const FMobileOpacityDrawingPolicy::ContextDataType PolicyContext) const
-	{
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, DrawRenderState);
-
-		// Set the shared mesh resources.
-		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-	}
-
-	/**
-	* Create bound shader state using the vertex decl from the mesh draw policy
-	* as well as the shaders needed to draw the mesh
-	* @return new bound shader state object
-	*/
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const
-	{
-		return FBoundShaderStateInput(
-			FMeshDrawingPolicy::GetVertexDeclaration(),
-			VertexShader->GetVertexShader(),
-			nullptr,
-			nullptr,
-			PixelShader->GetPixelShader(),
-			NULL);
-	}
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData,
-		const ContextDataType PolicyContext
-	) const
-	{
-		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-		PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-	}
-
-	friend int32 CompareDrawingPolicy(const FMobileOpacityDrawingPolicy& A, const FMobileOpacityDrawingPolicy& B);
-
-private:
-
-	FShaderPipeline* ShaderPipeline;
-	FOpacityOnlyVS* VertexShader;
-	FOpacityOnlyPS* PixelShader;
-};
-
-int32 CompareDrawingPolicy(const FMobileOpacityDrawingPolicy& A, const FMobileOpacityDrawingPolicy& B)
-{
-	COMPAREDRAWINGPOLICYMEMBERS(VertexShader);
-	COMPAREDRAWINGPOLICYMEMBERS(PixelShader);
-	COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
-	COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-	return 0;
-}
-
-class FMobileOpacityDrawingPolicyFactory
-{
-public:
-
-	struct ContextType
-	{
-		ETranslucencyPass::Type TranslucencyPass;
-
-		ContextType(ETranslucencyPass::Type InTranslucencyPass)
-		: TranslucencyPass(InTranslucencyPass)
-		{}
-	};
-
-	static bool DrawDynamicMesh(
-		FRHICommandList& RHICmdList,
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-	)
-	{
-		return DrawMesh(
-			RHICmdList,
-			View,
-			DrawingContext,
-			Mesh,
-			Mesh.Elements.Num() == 1 ? 1ull : (1ull << Mesh.Elements.Num()) - 1ull,	// 1 bit set for each mesh element
-			DrawRenderState,
-			bPreFog,
-			PrimitiveSceneProxy,
-			HitProxyId
-		);
-	}
-
-private:
-	/**
-	* Render a dynamic or static mesh using the opacity draw policy
-	* @return true if the mesh rendered
-	*/
-	static bool DrawMesh(
-		FRHICommandList& RHICmdList,
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		const uint64& BatchElementMask,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		bool bPreFog,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-	)
-	{
-		bool bDirty = false;
-
-		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
-		const FMaterial* Material = MaterialRenderProxy->GetMaterial(View.GetFeatureLevel());
-		const EBlendMode BlendMode = Material->GetBlendMode();
-
-		bool bDraw = IsTranslucentBlendMode(BlendMode);
-		if (bDraw)
-		{
-			FMeshDrawingPolicyOverrideSettings OverrideSettings = ComputeMeshOverrideSettings(Mesh);
-			OverrideSettings.MeshOverrideFlags |= Material->IsTwoSided() ? EDrawingPolicyOverrideFlags::TwoSided : EDrawingPolicyOverrideFlags::None;
-			FMobileOpacityDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View.GetFeatureLevel(), OverrideSettings);
-
-			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), Mesh.MaterialRenderProxy);
-			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FMobileOpacityDrawingPolicy::ContextDataType());
-
-			int32 BatchElementIndex = 0;
-			uint64 Mask = BatchElementMask;
-			do
-			{
-				if (Mask & 1)
-				{
-					const bool bIsInstancedMesh = Mesh.Elements[BatchElementIndex].bIsInstancedMesh;
-					TDrawEvent<FRHICommandList> MeshEvent;
-					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::MobileTranslucentOpacity));
-
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FMeshDrawingPolicy::ElementDataType(), FMobileOpacityDrawingPolicy::ContextDataType());
-					DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex);
-				}
-				Mask >>= 1;
-				BatchElementIndex++;
-			} while (Mask);
-
-			bDirty = true;
-		}		
-
-		return bDirty;
-	}
-};
-
 bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
 	// Function MUST be self-contained wrt RenderPasses
@@ -726,58 +299,37 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 	{
 		const bool bGammaSpace = !IsMobileHDR();
 		const bool bLinearHDR64 = !bGammaSpace && !IsMobileHDR32bpp();
-
-		{
-			if (!bGammaSpace)
-			{
-				SceneContext.BeginRenderingTranslucency(RHICmdList, View, *this);
-			}
-			else
-			{
-				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorExistingDepth);
-				// Mobile multi-view is not side by side stereo
-				const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
-				RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
-			}
-
-			if (UseMeshDrawCommandPipeline())
-			{
-				if (Scene->UniformBuffers.UpdateViewUniformBuffer(View))
-				{
-					UpdateTranslucentBasePassUniformBuffer(RHICmdList, View);
-					UpdateDirectionalLightUniformBuffers(RHICmdList, View);
-				}
 		
-				View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].DispatchDraw(nullptr, RHICmdList);
+		if (!bGammaSpace)
+		{
+			SceneContext.BeginRenderingTranslucency(RHICmdList, View, *this);
+		}
+		else
+		{
+			SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorExistingDepth);
+			// Mobile multi-view is not side by side stereo
+			const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
+			RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
+		}
+
+		if (Scene->UniformBuffers.UpdateViewUniformBuffer(View))
+		{
+			UpdateTranslucentBasePassUniformBuffer(RHICmdList, View);
+			UpdateDirectionalLightUniformBuffers(RHICmdList, View);
+		}
+		
+		View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].DispatchDraw(nullptr, RHICmdList);
 				
-				bDirty |= View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].HasAnyDraw();
-			}
-			else
-			{
-				FMobileBasePassUniformParameters PassParameters;
-				SetupMobileBasePassUniformParameters(RHICmdList, View, true, PassParameters);
-				TUniformBufferRef<FMobileBasePassUniformParameters> PassUniformBuffer = TUniformBufferRef<FMobileBasePassUniformParameters>::CreateUniformBufferImmediate(PassParameters, UniformBuffer_SingleFrame);
+		bDirty |= View.ParallelMeshDrawCommandPasses[EMeshPass::MobileInverseOpacity].HasAnyDraw();
 
-				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-				// Enable depth test, disable depth writes.
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
-				DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_DestColor, BF_Zero, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
-
-				{
-					SCOPED_DRAW_EVENT(RHICmdList, InverseOpacity);
-					bDirty |= RenderInverseOpacityDynamic(RHICmdList, View, DrawRenderState);
-				}
-			}
-
-			if (!bGammaSpace)
-			{
-				RHICmdList.EndRenderPass();
-				SceneContext.FinishRenderingTranslucency(RHICmdList);
-			}
-			else
-			{
-				SceneContext.FinishRenderingSceneColor(RHICmdList);
-			}
+		if (!bGammaSpace)
+		{
+			RHICmdList.EndRenderPass();
+			SceneContext.FinishRenderingTranslucency(RHICmdList);
+		}
+		else
+		{
+			SceneContext.FinishRenderingSceneColor(RHICmdList);
 		}
 	}
 	else
@@ -787,28 +339,6 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 	return bDirty;
-}
-
-bool FMobileSceneRenderer::RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
-{
-	if (ViewFamily.AllowTranslucencyAfterDOF())
-	{
-		{
-			FMobileOpacityDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_StandardTranslucency);
-			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileOpacityDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
-		}
-		{
-			FMobileOpacityDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_TranslucencyAfterDOF);
-			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileOpacityDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
-		}
-	}
-	else
-	{
-		FMobileOpacityDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_AllTranslucency);
-		View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileOpacityDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
-	}
-
-	return View.TranslucentPrimSet.NumPrims() > 0;
 }
 
 class FMobileInverseOpacityMeshProcessor : public FMeshPassProcessor

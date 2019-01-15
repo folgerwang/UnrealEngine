@@ -10,14 +10,7 @@ MobileSeparateTranslucencyPass.cpp - Mobile specific separate translucency pass
 
 bool IsMobileSeparateTranslucencyActive(const FViewInfo& View)
 {
-	if (UseMeshDrawCommandPipeline())
-	{
-		return View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].HasAnyDraw();
-	}
-	else
-	{
-		return View.TranslucentPrimSet.SortedPrimsNum.Num(ETranslucencyPass::TPT_TranslucencyAfterDOF) > 0;
-	}
+	return View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].HasAnyDraw();
 }
 
 void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Context)
@@ -37,25 +30,7 @@ void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Con
 	{
 		// Set the view family's render target/viewport.
 		Context.SetViewportAndCallRHI(View.ViewRect);
-
-		if (UseMeshDrawCommandPipeline())
-		{
-			View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].DispatchDraw(nullptr, Context.RHICmdList);
-		}
-		else
-		{
-			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-			CreateMobileBasePassUniformBuffer(Context.RHICmdList, View, true, BasePassUniformBuffer);
-
-			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
-
-			// Enable depth test, disable depth writes.
-			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
-
-			// Draw translucent prims
-			FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_TranslucencyAfterDOF);
-			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(Context.RHICmdList, View, DrawRenderState, DrawingContext);
-		}
+		View.ParallelMeshDrawCommandPasses[EMeshPass::TranslucencyAfterDOF].DispatchDraw(nullptr, Context.RHICmdList);
 	}
 	Context.RHICmdList.EndRenderPass();
 }

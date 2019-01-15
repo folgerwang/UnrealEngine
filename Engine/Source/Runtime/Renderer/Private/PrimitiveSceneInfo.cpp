@@ -164,15 +164,6 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 {
 	check(StaticMeshCommandInfos.Num() == 0);
 
-	// TEMP: optionally allow to switch off mesh command caching for cooked mobile
-	extern int32 MeshDrawCommandPipelineMobileCooked();
-	const int32 CacheMeshCommandsVal = MeshDrawCommandPipelineMobileCooked();
-	if (CacheMeshCommandsVal <= 0)
-	{
-		return;
-	}
-
-
 	int32 MeshWithCachedCommandsNum = 0;
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 	{

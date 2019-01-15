@@ -214,11 +214,6 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	// Now that the indirect lighting cache is updated, we can update the uniform buffers.
 	UpdatePrimitiveIndirectLightingCacheBuffers();
 
-	if (!UseMeshDrawCommandPipeline())
-	{
-		PostInitViewCustomData();
-	}
-	
 	OnStartRender(RHICmdList);
 }
 

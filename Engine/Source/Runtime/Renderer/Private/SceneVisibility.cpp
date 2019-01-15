@@ -2065,7 +2065,7 @@ struct FRelevancePacket
 			if (PrimitiveSceneInfo->NeedsReflectionCaptureUpdate())
 			{
 				// mobile should not have any outstanding reflection capture update requests at this point
-				ensure(!(Scene->GetShadingPath() == EShadingPath::Mobile && UseMeshDrawCommandPipeline()));
+				ensure(Scene->GetShadingPath() != EShadingPath::Mobile);
 		
 				PrimitiveSceneInfo->CacheReflectionCaptures();
 			}
@@ -3239,7 +3239,7 @@ void UpdateReflectionSceneData(FScene* Scene)
 		if (Scene->ReflectionSceneData.bRegisteredReflectionCapturesHasChanged)
 		{
 			// Mobile needs to re-cache all mesh commands when scene capture data has changed
-			const bool bNeedsStaticMeshUpdate = Scene->GetShadingPath() == EShadingPath::Mobile && UseMeshDrawCommandPipeline();
+			const bool bNeedsStaticMeshUpdate = Scene->GetShadingPath() == EShadingPath::Mobile;
 			
 			// Mark all primitives as needing an update
 			// Note: Only visible primitives will actually update their reflection proxy

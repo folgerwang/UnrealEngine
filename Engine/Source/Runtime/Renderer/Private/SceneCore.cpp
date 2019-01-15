@@ -356,32 +356,14 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 {
 	const auto FeatureLevel = Scene->GetFeatureLevel();
 	
-	// TEMP: optionally allow to switch off mesh command caching for cooked mobile
-	extern int32 MeshDrawCommandPipelineMobileCooked();
-	const int32 CacheMeshCommandsVal = MeshDrawCommandPipelineMobileCooked();
-
 	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass() || !ShouldIncludeDomainInMeshPass(MaterialRenderProxy->GetMaterial(FeatureLevel)->GetMaterialDomain()))
 	{
 		return;
 	}
 
-	if (CastShadow && CacheMeshCommandsVal < 2)
+	if (CastShadow)
 	{
 		FShadowDepthDrawingPolicyFactory::AddStaticMesh(Scene, this);
-	}
-
-	if (IsTranslucent(FeatureLevel))
-	{
-		return;
-	}
-
-	if (Scene->GetShadingPath() == EShadingPath::Mobile && CacheMeshCommandsVal < 2)
-	{
-		if (bUseForMaterial)
-		{
-			// Add the static mesh to the DPG's base pass draw list.
-			FMobileBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-		}
 	}
 }
 

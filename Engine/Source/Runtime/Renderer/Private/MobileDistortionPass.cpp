@@ -17,9 +17,7 @@ bool IsMobileDistortionActive(const FViewInfo& View)
 
 	// Distortion on mobile requires SceneDepth information in SceneColor.A channel
 	const EMobileHDRMode HDRMode = GetMobileHDRMode();
-
-	const bool bVisiblePrims = UseMeshDrawCommandPipeline() ?
-		View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].HasAnyDraw() : View.DistortionPrimSet.NumPrims() > 0;
+	const bool bVisiblePrims = View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].HasAnyDraw();
 
 	return
 		HDRMode == EMobileHDRMode::EnabledFloat16 &&
@@ -43,32 +41,14 @@ void FRCDistortionAccumulatePassES2::Process(FRenderingCompositePassContext& Con
 
 		Context.SetViewportAndCallRHI(View.ViewRect);
 
-		if (UseMeshDrawCommandPipeline())
-		{
-			if (Scene->UniformBuffers.UpdateViewUniformBuffer(View))
-			{
-				FMobileDistortionPassUniformParameters Parameters;
-				SetupMobileDistortionPassUniformBuffer(Context.RHICmdList, View, Parameters);
-				Scene->UniformBuffers.MobileDistortionPassUniformBuffer.UpdateUniformBufferImmediate(Parameters);
-			}
-
-			View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].DispatchDraw(nullptr, Context.RHICmdList);
-		}
-		else
+		if (Scene->UniformBuffers.UpdateViewUniformBuffer(View))
 		{
 			FMobileDistortionPassUniformParameters Parameters;
 			SetupMobileDistortionPassUniformBuffer(Context.RHICmdList, View, Parameters);
-			TUniformBufferRef<FMobileDistortionPassUniformParameters> PassUniformBuffer = TUniformBufferRef<FMobileDistortionPassUniformParameters>::CreateUniformBufferImmediate(Parameters, UniformBuffer_SingleFrame);
-
-			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-			// We don't have depth, render all pixels, pixel shader will sample SceneDepth from SceneColor.A and discard if occluded
-			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-			// additive blending of offsets
-			DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
-
-			// draw only distortion meshes to accumulate their offsets
-			View.DistortionPrimSet.DrawAccumulatedOffsets(Context.RHICmdList, View, DrawRenderState, false);
+			Scene->UniformBuffers.MobileDistortionPassUniformBuffer.UpdateUniformBufferImmediate(Parameters);
 		}
+
+		View.ParallelMeshDrawCommandPasses[EMeshPass::Distortion].DispatchDraw(nullptr, Context.RHICmdList);
 	}
 	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());

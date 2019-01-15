@@ -98,6 +98,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 		View.ViewRect = View.UnscaledViewRect;
 		
 		const auto FeatureLevel = View.GetFeatureLevel();
+		const EShadingPath ShadingPath = FSceneInterface::GetShadingPath(FeatureLevel);
 
 		Mesh.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
 		FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
@@ -130,7 +131,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 		View.InitRHIResources();
 		DrawRenderState.SetViewUniformBuffer(View.ViewUniformBuffer);
 
-		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+		if (ShadingPath == EShadingPath::Mobile)
 		{
 			View.MobileDirectionalLightUniformBuffers[0] = TUniformBufferRef<FMobileDirectionalLightShaderParameters>::CreateUniformBufferImmediate(FMobileDirectionalLightShaderParameters(), UniformBuffer_SingleFrame);
 		}
@@ -149,8 +150,9 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			// make sure we are doing opaque drawing
 			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
-
-			if (FeatureLevel >= ERHIFeatureLevel::SM4)
+			
+			// is this path used on mobile?
+			if (ShadingPath == EShadingPath::Deferred)
 			{
 				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				FDebugViewModePassPassUniformParameters PassParameters;
@@ -172,7 +174,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 		}
 		else if (IsTranslucentBlendMode(MaterialBlendMode))
 		{
-			if (FeatureLevel >= ERHIFeatureLevel::SM4)
+			if (ShadingPath == EShadingPath::Deferred)
 			{
 				// Crash fix - reflection capture shader parameter is bound but we have no buffer during Build Texture Streaming
 				if(!View.ReflectionCaptureUniformBuffer.IsValid())
@@ -183,29 +185,28 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 				TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
 				CreateTranslucentBasePassUniformBuffer(RHICmdList, View, nullptr, ESceneTextureSetupMode::None, BasePassUniformBuffer, 0);
 				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-
-				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
-					{
-						FBasePassMeshProcessor PassMeshProcessor(
-							nullptr,
-							View.GetFeatureLevel(),
-							&View,
-							DrawRenderState,
-							DynamicMeshPassContext,
-							ETranslucencyPass::TPT_AllTranslucency);
-
-						const uint64 DefaultBatchElementMask = ~0ull;
-						PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
-					});
 			}
-			else
+			else // Mobile
 			{
 				TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-				CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+				CreateMobileBasePassUniformBuffer(RHICmdList, View, true, BasePassUniformBuffer);
 				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(ETranslucencyPass::TPT_AllTranslucency), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
+			
+			DrawDynamicMeshPass(View, RHICmdList,
+				[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+				{
+					FBasePassMeshProcessor PassMeshProcessor(
+						nullptr,
+						View.GetFeatureLevel(),
+						&View,
+						DrawRenderState,
+						DynamicMeshPassContext,
+						ETranslucencyPass::TPT_AllTranslucency);
+
+					const uint64 DefaultBatchElementMask = ~0ull;
+					PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+				});
 		}
 		// handle opaque materials
 		else
@@ -236,33 +237,32 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 			}
 			else
 			{
-				if (FeatureLevel >= ERHIFeatureLevel::SM4)
+				if (ShadingPath == EShadingPath::Deferred)
 				{
 					TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
 					CreateOpaqueBasePassUniformBuffer(RHICmdList, View, nullptr, BasePassUniformBuffer);
 					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-
-					DrawDynamicMeshPass(View, RHICmdList,
-						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
-						{
-							FBasePassMeshProcessor PassMeshProcessor(
-								nullptr,
-								View.GetFeatureLevel(),
-								&View,
-								DrawRenderState,
-								DynamicMeshPassContext);
-
-							const uint64 DefaultBatchElementMask = ~0ull;
-							PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
-						});
 				}
-				else
+				else // Mobile
 				{
 					TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
 					CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
 					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
 				}
+
+				DrawDynamicMeshPass(View, RHICmdList,
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+					{
+						FBasePassMeshProcessor PassMeshProcessor(
+							nullptr,
+							View.GetFeatureLevel(),
+							&View,
+							DrawRenderState,
+							DynamicMeshPassContext);
+
+						const uint64 DefaultBatchElementMask = ~0ull;
+						PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+					});
 			}
 		}
 
