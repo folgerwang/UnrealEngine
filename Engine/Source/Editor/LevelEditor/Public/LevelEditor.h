@@ -6,7 +6,6 @@
 #include "HAL/IConsoleManager.h"
 #include "Modules/ModuleInterface.h"
 #include "Framework/Docking/TabManager.h"
-#include "Toolkits/AssetEditorManager.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/Docking/LayoutService.h"

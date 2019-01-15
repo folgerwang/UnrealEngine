@@ -1445,8 +1445,6 @@ enum class EJoinPartyCompletionResult
 	RequesteeNotMember,
 	/** The player you send the join request to is not the leader of the specified party */
 	RequesteeNotLeader,
-	/** The player you send the join request to is unavailable */
-	RequesteeUnavailable,
 	/** A response was not received from the party leader in a timely manner, the join attempt is considered failed */
 	NoResponse,
 	/** You were logged out while attempting to join the party */
@@ -1814,10 +1812,6 @@ inline const TCHAR* ToString(const EJoinPartyCompletionResult Value)
 	case EJoinPartyCompletionResult::MessagingFailure:
 	{
 		return TEXT("MessagingFailure");
-	}
-	case EJoinPartyCompletionResult::RequesteeUnavailable:
-	{
-		return TEXT("RequesteeUnavailable");
 	}
 	case EJoinPartyCompletionResult::GameSpecificReason:
 	{

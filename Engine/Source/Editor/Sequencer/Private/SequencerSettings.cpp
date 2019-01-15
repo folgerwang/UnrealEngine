@@ -42,7 +42,6 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bShowCombinedKeyframes = true;
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
-	bAllowPossessionOfPIEViewports = false;
 	bActivateRealtimeViewports = true;
 	bEvaluateSubSequencesInIsolation = false;
 	bRerunConstructionScripts = true;
@@ -524,20 +523,6 @@ void USequencerSettings::SetShowChannelColors(bool InbShowChannelColors)
 	if (bShowChannelColors != InbShowChannelColors)
 	{
 		bShowChannelColors = InbShowChannelColors;
-		SaveConfig();
-	}
-}
-
-bool USequencerSettings::ShouldAllowPossessionOfPIEViewports() const
-{
-	return bAllowPossessionOfPIEViewports;
-}
-
-void USequencerSettings::SetAllowPossessionOfPIEViewports(bool bInAllowPossessionOfPIEViewports)
-{
-	if (bInAllowPossessionOfPIEViewports != bAllowPossessionOfPIEViewports)
-	{
-		bAllowPossessionOfPIEViewports = bInAllowPossessionOfPIEViewports;
 		SaveConfig();
 	}
 }

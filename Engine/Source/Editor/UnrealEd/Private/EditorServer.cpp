@@ -1221,8 +1221,10 @@ void UEditorEngine::HandleTransactorUndo(const FTransactionContext& TransactionC
 void UEditorEngine::HandleObjectTransacted(UObject* InObject, const FTransactionObjectEvent& InTransactionObjectEvent)
 {
 	check(CurrentUndoRedoContext.OuterOperationId.IsValid() && CurrentUndoRedoContext.OperationDepth > 0);
-	check(InTransactionObjectEvent.GetEventType() == ETransactionObjectEventType::UndoRedo);
-	CurrentUndoRedoContext.TransactionObjects.Add(TPair<UObject*, FTransactionObjectEvent>{ InObject, InTransactionObjectEvent });
+	if (InTransactionObjectEvent.GetEventType() == ETransactionObjectEventType::UndoRedo)
+	{
+		CurrentUndoRedoContext.TransactionObjects.Add(TPair<UObject*, FTransactionObjectEvent>{ InObject, InTransactionObjectEvent });
+	}
 }
 
 bool UEditorEngine::AreEditorAnalyticsEnabled() const 
@@ -4959,10 +4961,8 @@ void UEditorEngine::MoveActorInFrontOfCamera( AActor& InActor, const FVector& In
 
 void UEditorEngine::SnapViewTo(const FActorOrComponent& Object)
 {
-	for(int32 ViewportIndex = 0; ViewportIndex < LevelViewportClients.Num(); ++ViewportIndex)
+	for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = LevelViewportClients[ViewportIndex];
-
 		if ( ViewportClient->IsPerspective()  )
 		{
 			ViewportClient->SetViewLocation( Object.GetWorldLocation() );
@@ -4974,10 +4974,8 @@ void UEditorEngine::SnapViewTo(const FActorOrComponent& Object)
 
 void UEditorEngine::RemovePerspectiveViewRotation(bool Roll, bool Pitch, bool Yaw)
 {
-	for(int32 ViewportIndex = 0; ViewportIndex < LevelViewportClients.Num(); ++ViewportIndex)
+	for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = LevelViewportClients[ViewportIndex];
-
 		if (ViewportClient->IsPerspective() && !ViewportClient->GetActiveActorLock().IsValid())
 		{
 			FVector RotEuler = ViewportClient->GetViewRotation().Euler();
@@ -6189,9 +6187,9 @@ bool UEditorEngine::HandleJumpToCommand( const TCHAR* Str, FOutputDevice& Ar )
 	FVector Loc;
 	if( GetFVECTOR( Str, Loc ) )
 	{
-		for( int32 i=0; i<LevelViewportClients.Num(); i++ )
+		for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 		{
-			LevelViewportClients[i]->SetViewLocation( Loc );
+			ViewportClient->SetViewLocation( Loc );
 		}
 	}
 	return true;
@@ -6210,9 +6208,9 @@ bool UEditorEngine::HandleBugItGoCommand( const TCHAR* Str, FOutputDevice& Ar )
 	Stream = GetFVECTORSpaceDelimited( Stream, Loc );
 	if( Stream != NULL )
 	{
-		for( int32 i=0; i<LevelViewportClients.Num(); i++ )
+		for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 		{
-			LevelViewportClients[i]->SetViewLocation( Loc );
+			ViewportClient->SetViewLocation( Loc );
 		}
 	}
 
@@ -6231,9 +6229,9 @@ bool UEditorEngine::HandleBugItGoCommand( const TCHAR* Str, FOutputDevice& Ar )
 	Stream = GetFROTATORSpaceDelimited( Stream, Rot, 1.0f );
 	if( Stream != NULL )
 	{
-		for( int32 i=0; i<LevelViewportClients.Num(); i++ )
+		for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 		{
-			LevelViewportClients[i]->SetViewRotation( Rot );
+			ViewportClient->SetViewRotation( Rot );
 		}
 	}
 
@@ -6860,9 +6858,8 @@ void UEditorEngine::MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActi
 				if (GCurrentLevelEditingViewportClient->IsOrtho() && GetDefault<ULevelEditorViewportSettings>()->bUseLinkedOrthographicViewports)
 				{
 					// Search through all viewports
-					for (auto ViewportIt = LevelViewportClients.CreateConstIterator(); ViewportIt; ++ViewportIt)
+					for(FLevelEditorViewportClient* LinkedViewportClient : GetLevelViewportClients())
 					{
-						FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
 						// Only update other orthographic viewports
 						if (LinkedViewportClient && LinkedViewportClient != GCurrentLevelEditingViewportClient && LinkedViewportClient->IsOrtho())
 						{
@@ -6876,9 +6873,8 @@ void UEditorEngine::MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActi
 		else
 		{
 			// Update all viewports.
-			for (auto ViewportIt = LevelViewportClients.CreateConstIterator(); ViewportIt; ++ViewportIt)
+			for(FLevelEditorViewportClient* LinkedViewportClient : GetLevelViewportClients())
 			{
-				FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
 				//Dont move camera attach to an actor
 				if (!LinkedViewportClient->IsAnyActorLocked())
 					LinkedViewportClient->FocusViewportOnBox(BoundingBox);

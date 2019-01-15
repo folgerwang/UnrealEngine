@@ -274,6 +274,12 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 
 	float3 V = -CameraVector;
 	float3 N = GBuffer.WorldNormal;
+	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT && CLEAR_COAT_BOTTOM_NORMAL)
+	{
+		const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+		N = OctahedronToUnitVector(oct1);			
+	}
+	
 	float3 L = LightData.Direction;	// Already normalized
 	float3 ToLight = L;
 	

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DisplayClusterNodeCtrlBase.h"
+#include "Cluster/Controller/DisplayClusterNodeCtrlBase.h"
 
 class FDisplayClusterMessage;
 
@@ -39,12 +39,19 @@ public:
 	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) override;
 	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)  override;
 	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& data) override;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterSwapSyncProtocol
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	virtual void WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime) override;
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IPDisplayClusterClusterEventsProtocol
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event) override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////

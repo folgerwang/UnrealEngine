@@ -315,6 +315,15 @@ public:
 		PreAnimatedState.RestorePreAnimatedState(*this, EntityKey);
 	}
 
+	/**
+	 * Discard any tokens that relate to entity animation (ie sections or tracks) without restoring the values.
+	 * Any global pre-animated state tokens (that reset the animation when saving a map, for instance) will remain.
+	 */
+	void DiscardEntityTokens()
+	{
+		PreAnimatedState.DiscardEntityTokens();
+	}
+
 public:
 
 	/** Evaluation state that stores global state to do with the playback operation */

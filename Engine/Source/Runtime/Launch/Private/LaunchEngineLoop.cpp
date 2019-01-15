@@ -105,7 +105,6 @@
 #if WITH_ENGINE && !UE_BUILD_SHIPPING
 	#include "IAutomationControllerModule.h"
 #endif // WITH_ENGINE && !UE_BUILD_SHIPPING
-	#include "Database.h"
 	#include "DerivedDataCacheInterface.h"
 	#include "ShaderCompiler.h"
 	#include "DistanceFieldAtlas.h"
@@ -2006,9 +2005,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 
 	FString Commandline = FCommandLine::Get();
-	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
+	bool bEnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
 
-	if (EnableShaderCompile && !FPlatformProperties::RequiresCookedData())
+	if (bEnableShaderCompile && !FPlatformProperties::RequiresCookedData())
 	{
 		check(!GShaderCompilingManager);
 		GShaderCompilingManager = new FShaderCompilingManager();
@@ -2027,6 +2026,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	{
+		if (bEnableShaderCompile)
 		{
 			SCOPED_BOOT_TIMING("InitializeShaderTypes");
 			// Initialize shader types before loading any shaders
@@ -2038,7 +2038,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		// Load the global shaders.
 		// if (!IsRunningCommandlet())
 		// hack: don't load global shaders if we are cooking we will load the shaders for the correct platform later
-		if (EnableShaderCompile &&
+		if (bEnableShaderCompile &&
 				!IsRunningDedicatedServer() &&
 				Commandline.Contains(TEXT("cookcommandlet")) == false &&
 				Commandline.Contains(TEXT("run=cook")) == false )

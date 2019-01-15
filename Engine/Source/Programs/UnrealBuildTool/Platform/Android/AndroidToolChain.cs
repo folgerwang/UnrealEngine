@@ -1186,7 +1186,7 @@ namespace UnrealBuildTool
 
 		static private bool bHasPrintedApiLevel = false;
 		static private bool bHasHandledLaunchModule = false;
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions)
 		{
 			if (Arches.Count == 0)
 			{
@@ -1298,20 +1298,15 @@ namespace UnrealBuildTool
 						PCHArguments += string.Format(" -include \"{0}\"", BasePCHName);
 					}
 
-					foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
-					{
-						PCHArguments += string.Format(" -include \"{0}\"", ForceIncludeFile.Location);
-					}
-
 					// Add include paths to the argument list (filtered by architecture)
-					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.SystemIncludePaths)
 					{
 						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{
 							Arguments += string.Format(" -I\"{0}\"", IncludePath);
 						}
 					}
-					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.UserIncludePaths)
 					{
 						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{
@@ -1321,7 +1316,7 @@ namespace UnrealBuildTool
 
 					foreach (FileItem SourceFile in InputFiles)
 					{
-						Action CompileAction = ActionGraph.Add(ActionType.Compile);
+						Action CompileAction = new Action(ActionType.Compile);
 						CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 						string FileArguments = "";
@@ -1361,8 +1356,13 @@ namespace UnrealBuildTool
 							FileArguments += PCHArguments;
 						}
 
+						foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+						{
+							FileArguments += string.Format(" -include \"{0}\"", ForceIncludeFile.Location);
+						}
+
 						// Add the C++ source file and its included files to the prerequisite item list.
-						AddPrerequisiteSourceFile(CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
+						CompileAction.PrerequisiteItems.Add(SourceFile);
 
 						if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create && !bIsPlainCFile)
 						{
@@ -1415,6 +1415,15 @@ namespace UnrealBuildTool
 						// Add the source file path to the command-line.
 						FileArguments += string.Format(" \"{0}\"", SourceFile.AbsolutePath);
 
+						// Generate the included header dependency list
+						if(CompileEnvironment.bGenerateDependenciesFile)
+						{
+							FileItem DependencyListFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, InlineArchName(Path.GetFileName(SourceFile.AbsolutePath) + ".d", Arch, GPUArchitecture, true)));
+							FileArguments += string.Format(" -MD -MF\"{0}\"", DependencyListFile.AbsolutePath.Replace('\\', '/'));
+							CompileAction.DependencyListFile = DependencyListFile;
+							CompileAction.ProducedItems.Add(DependencyListFile);
+						}
+
 						// Build a full argument list
 						string AllArguments = Arguments + FileArguments + CompileEnvironment.AdditionalArguments;
 
@@ -1424,7 +1433,7 @@ namespace UnrealBuildTool
 							AllArguments = AllArguments.Replace("-fvisibility=hidden -fvisibility-inlines-hidden", "");
 						}
 
-						AllArguments = ActionThread.ExpandEnvironmentVariables(AllArguments);
+						AllArguments = Utils.ExpandVariables(AllArguments);
 						AllArguments = AllArguments.Replace("\\", "/");
 
 						// Remove shadow warning for this file if requested
@@ -1442,24 +1451,23 @@ namespace UnrealBuildTool
 						FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, new List<string> { AllArguments });
 						string ResponseArgument = string.Format("@\"{0}\"", ResponseFileName);
 
-						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 						if(bExecuteCompilerThroughShell)
 						{
-							if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+							CompileAction.CommandPath = BuildHostPlatform.Current.Shell;
+							if (BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 							{
-								CompileAction.CommandPath = "cmd.exe";
-								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", Utils.MakePathSafeToUseWithCommandLine(ClangPath), ResponseArgument);
 							}
 							else
 							{
-								CompileAction.CommandPath = "/bin/sh";
-								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", ClangPath, ResponseArgument);
-								CompileAction.CommandDescription = "Compile";
+								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", Utils.MakePathSafeToUseWithCommandLine(ClangPath), ResponseArgument);
 							}
+							CompileAction.CommandDescription = "Compile";
 						}
 						else
 						{
-							CompileAction.CommandPath = ClangPath;
+							CompileAction.CommandPath = new FileReference(ClangPath);
 							CompileAction.CommandArguments = ResponseArgument;
 						}
 						CompileAction.PrerequisiteItems.Add(ResponseFileItem);
@@ -1472,6 +1480,8 @@ namespace UnrealBuildTool
 						CompileAction.bCanExecuteRemotely =
 							CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
 							CompileEnvironment.bAllowRemotelyCompiledPCHs;
+
+						Actions.Add(CompileAction);
 					}
 				}
 			}
@@ -1479,7 +1489,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			return null;
 		}
@@ -1509,7 +1519,7 @@ namespace UnrealBuildTool
 			return Pathname;
 		}
 
-		public override FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public override FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
 			List<FileItem> Outputs = new List<FileItem>();
 
@@ -1536,28 +1546,28 @@ namespace UnrealBuildTool
 					}
 
 					// Create an action that invokes the linker.
-					Action LinkAction = ActionGraph.Add(ActionType.Link);
-					LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+					Action LinkAction = new Action(ActionType.Link);
+					LinkAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory;
 
 					if (LinkEnvironment.bIsBuildingLibrary)
 					{
 						switch (Arch)
 						{
-							case "-armv7": LinkAction.CommandPath = ArPathArm; break;
-							case "-arm64": LinkAction.CommandPath = ArPathArm64; break;
-							case "-x86": LinkAction.CommandPath = ArPathx86; ; break;
-							case "-x64": LinkAction.CommandPath = ArPathx64; ; break;
-							default: LinkAction.CommandPath = ArPathArm; ; break;
+							case "-armv7": LinkAction.CommandPath = new FileReference(ArPathArm); break;
+							case "-arm64": LinkAction.CommandPath = new FileReference(ArPathArm64); break;
+							case "-x86": LinkAction.CommandPath = new FileReference(ArPathx86); ; break;
+							case "-x64": LinkAction.CommandPath = new FileReference(ArPathx64); ; break;
+							default: LinkAction.CommandPath = new FileReference(ArPathArm); ; break;
 						}
 					}
 					else
 					{
-						LinkAction.CommandPath = ClangPath;
+						LinkAction.CommandPath = new FileReference(ClangPath);
 					}
 
-					string LinkerPath = LinkAction.WorkingDirectory;
+					DirectoryReference LinkerPath = LinkAction.WorkingDirectory;
 
-					LinkAction.WorkingDirectory = LinkEnvironment.IntermediateDirectory.FullName;
+					LinkAction.WorkingDirectory = LinkEnvironment.IntermediateDirectory;
 
 					// Get link arguments.
 					LinkAction.CommandArguments = LinkEnvironment.bIsBuildingLibrary ? GetArArguments(LinkEnvironment) : GetLinkArguments(LinkEnvironment, Arch);
@@ -1612,13 +1622,13 @@ namespace UnrealBuildTool
 						foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 						{
 							// LinkerPaths could be relative or absolute
-							string AbsoluteLibraryPath = ActionThread.ExpandEnvironmentVariables(LibraryPath.FullName);
+							string AbsoluteLibraryPath = Utils.ExpandVariables(LibraryPath.FullName);
 							if (IsDirectoryForArch(AbsoluteLibraryPath, Arch))
 							{
 								// environment variables aren't expanded when using the $( style
 								if (Path.IsPathRooted(AbsoluteLibraryPath) == false)
 								{
-									AbsoluteLibraryPath = Path.Combine(LinkerPath, AbsoluteLibraryPath);
+									AbsoluteLibraryPath = Path.Combine(LinkerPath.FullName, AbsoluteLibraryPath);
 								}
 								LinkResponseArguments += string.Format(" -L\"{0}\"", Utils.CollapseRelativeDirectories(AbsoluteLibraryPath));
 							}
@@ -1677,18 +1687,18 @@ namespace UnrealBuildTool
 
 					if(bExecuteCompilerThroughShell)
 					{
-						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						if (BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 						{
 							LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
-							LinkAction.CommandPath = "cmd.exe";
 						}
 						else
 						{
 							LinkAction.CommandArguments = String.Format("-c \'{0} {1}\'", LinkAction.CommandPath, LinkAction.CommandArguments);
-							LinkAction.CommandPath = "/bin/sh";
-							LinkAction.CommandDescription = "Link";
 						}
+						LinkAction.CommandPath = BuildHostPlatform.Current.Shell;
+						LinkAction.CommandDescription = "Link";
 					}
+					Actions.Add(LinkAction);
 
 					// Windows can run into an issue with too long of a commandline when clang tries to call ld to link.
 					// To work around this we call clang to just get the command it would execute and generate a

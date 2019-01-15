@@ -914,7 +914,7 @@ FCustomPropertyTypeLayoutMap FDetailCategoryImpl::GetCustomPropertyTypeLayoutMap
 {
 	if (DetailLayoutBuilder.IsValid())
 	{
-		return DetailLayoutBuilder.Pin()->GetPropertyGenerationUtilities().GetInstancedPropertyTypeLayoutMap();
+		return DetailLayoutBuilder.Pin()->GetInstancedPropertyTypeLayoutMap();
 	}
 
 	return FCustomPropertyTypeLayoutMap();

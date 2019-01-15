@@ -221,8 +221,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			}
 		}
 
-		Actor->RefreshBurnIn();
-
 		// Make sure we're not playing yet, and have a fully up to date player based on the above settings (in case AutoPlay was called from BeginPlay)
 		if( Actor->SequencePlayer != nullptr )
 		{
@@ -238,6 +236,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			FFrameNumber StartTime, EndTime;
 			SetupShot(StartTime, EndTime);
 		}
+		Actor->RefreshBurnIn();
 	}
 	else
 	{
@@ -397,6 +396,17 @@ bool UAutomatedLevelSequenceCapture::SetupShot(FFrameNumber& StartTime, FFrameNu
 		return false;
 	}
 
+	// Only render shots that are active
+	for (; ShotIndex < CinematicShotTrack->GetAllSections().Num(); )
+	{
+		if (CachedShotStates[ShotIndex].bActive)
+		{
+			break;
+		}
+
+		++ShotIndex;
+	}
+
 	// Disable all shots unless it's the current one being rendered
 	for (int32 SectionIndex = 0; SectionIndex < CinematicShotTrack->GetAllSections().Num(); ++SectionIndex)
 	{
@@ -407,7 +417,13 @@ bool UAutomatedLevelSequenceCapture::SetupShot(FFrameNumber& StartTime, FFrameNu
 
 		if (SectionIndex == ShotIndex)
 		{
-			TRange<FFrameNumber> TotalRange = TRange<FFrameNumber>::Intersection(ShotSection->GetRange(), CachedPlaybackRange);
+			// We intersect with the CachedPlaybackRange instead of copying the playback range from the shot to handle the case where
+			// the playback range intersected the middle of the shot before we started manipulating ranges. We manually expand the master
+			// Movie Sequence's playback range by the number of handle frames to allow handle frames to work as expected on first/last shot.
+			FFrameNumber HandleFramesResolutionSpace = ConvertFrameTime(Settings.HandleFrames, Settings.FrameRate, MovieScene->GetTickResolution()).FloorToFrame();
+			TRange<FFrameNumber> ExtendedCachedPlaybackRange = MovieScene::ExpandRange(CachedPlaybackRange, HandleFramesResolutionSpace);
+
+			TRange<FFrameNumber> TotalRange = TRange<FFrameNumber>::Intersection(ShotSection->GetRange(), ExtendedCachedPlaybackRange);
 
 			StartTime = TotalRange.IsEmpty() ? FFrameNumber(0) : MovieScene::DiscreteInclusiveLower(TotalRange);
 			EndTime   = TotalRange.IsEmpty() ? FFrameNumber(0) : MovieScene::DiscreteExclusiveUpper(TotalRange);
@@ -577,6 +593,11 @@ void UAutomatedLevelSequenceCapture::OnTick(float DeltaSeconds)
 			Actor->SequencePlayer->JumpToFrame(StartTimePlayRateSpace.Value);
 			Actor->SequencePlayer->Play();
 
+			// We need to re-register to the binding when we start each shot. When a shot reaches the last frame it unregisters the binding so that
+			// any subsequent seeking doesn't accidentally render extra frames. SetupShot doesn't get called until after the first time we finish
+			// rendering a shot so this doesn't register the delegate twice on the first go.
+			OnPlayerUpdatedBinding = Actor->SequencePlayer->OnSequenceUpdated().AddUObject(this, &UAutomatedLevelSequenceCapture::SequenceUpdated);
+
 			CaptureState = ELevelSequenceCaptureState::FinishedWarmUp;
 			UpdateFrameState();
 		}
@@ -702,14 +723,24 @@ void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePl
 					}
 				}
 
-				CaptureThisFrame( (CurrentTime - PreviousTime) / Settings.FrameRate);
-
-				// This bit of logic helps ensure we don't capture an extra frame by waiting until the next tick. 
 				bool bOnLastFrame = (CurrentTime.FrameNumber >= Actor->SequencePlayer->GetStartTime().Time.FrameNumber + Actor->SequencePlayer->GetFrameDuration() - 1);
 				bool bLastShot = NumShots == 0 ? true : ShotIndex == NumShots - 1;
-				if ((bOnLastFrame && bLastShot && IsAudioPassIfNeeded()) || bFinalizeWhenReady)
+				
+				CaptureThisFrame( (CurrentTime - PreviousTime) / Settings.FrameRate);
+
+				// Our callback can be called multiple times for a given frame due to how Level Sequences evaluate.
+				// For example, frame 161 is evaluated and an image is written. This isn't considered the end of the sequence
+				// as technically the Level Sequence can be evaluated up to 161.9999994, so on the next Update loop it tries to
+				// evaluate frame 162 (due to our fixed timestep controller). This then puts it over the limit so it forces a 
+				// reevaluation of 161 before calling Stop/Pause. This then invokes this callback a second time for frame 161
+				// and we end up with two instances of 161! To solve this, when we reach the last frame of each shot we stop listening
+				// to updates. If there's a new shot it will re-register the delegate once it is set up.
+				if (bOnLastFrame)
 				{
-					FinalizeWhenReady();
+					if (bLastShot && IsAudioPassIfNeeded())
+					{
+						FinalizeWhenReady();
+					}
 					Actor->SequencePlayer->OnSequenceUpdated().Remove(OnPlayerUpdatedBinding);
 				}
 			}

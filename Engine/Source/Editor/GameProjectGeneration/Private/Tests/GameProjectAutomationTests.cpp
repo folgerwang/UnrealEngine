@@ -295,9 +295,8 @@ bool FBuildPromotionNewProjectMapTest::RunTest(const FString& Parameters)
 
 	//Add some bsp and a player start
 	GEditor->Exec(CurrentWorld, TEXT("BRUSH Scale 1 1 1"));
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if (!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation(FVector(176, 2625, 2075));

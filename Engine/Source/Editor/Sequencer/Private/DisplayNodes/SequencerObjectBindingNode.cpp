@@ -420,11 +420,6 @@ bool FSequencerObjectBindingNode::CanRenameNode() const
 
 TSharedRef<SWidget> FSequencerObjectBindingNode::GetCustomOutlinerContent()
 {
-	if (GetSequencer().IsReadOnly())
-	{
-		return SNullWidget::NullWidget;
-	}
-	
 	// Create a container edit box
 	TSharedRef<SHorizontalBox> BoxPanel = SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -436,11 +431,11 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::GetCustomOutlinerContent()
 	TAttribute<bool> HoverState = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
 
 	BoxPanel->AddSlot()
-	.AutoWidth()
-	.VAlign(VAlign_Center)
-	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("TrackText", "Track"), FOnGetContent::CreateSP(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent), HoverState)
-	];
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			FSequencerUtilities::MakeAddButton(LOCTEXT("TrackText", "Track"), FOnGetContent::CreateSP(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent), HoverState, GetSequencer().AsShared())
+		];
 
 	const UClass* ObjectClass = GetClassForObjectBinding();
 	GetSequencer().BuildObjectBindingEditButtons(BoxPanel, ObjectBinding, ObjectClass);

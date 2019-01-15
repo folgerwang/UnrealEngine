@@ -12,6 +12,7 @@
 #include "UObject/Object.h"
 #include "UObject/ScriptMacros.h"
 #include "Misc/Guid.h"
+#include "Engine/LatentActionManager.h"
 #include "MediaPlayerOptions.h"
 
 #include "MediaPlayer.generated.h"
@@ -568,6 +569,19 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool OpenSourceWithOptions(UMediaSource* MediaSource, const FMediaPlayerOptions& Options);
+
+	/**
+	 * Open the specified media source with options using a latent action.
+	 *
+	 * A result of true indicates that the player opened the media source successfully.
+	 *
+	 * @param MediaSource The media source to open.
+	 * @param Options The media player options to apply.
+	 * @param bSuccess  Player opened the media.
+	 * @see Close, OpenFile, OpenPlaylist, OpenPlaylistIndex, OpenUrl, Reopen
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer", meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject"))
+	void OpenSourceLatent(const UObject* WorldContextObject, struct FLatentActionInfo LatentInfo, UMediaSource* MediaSource, const FMediaPlayerOptions& Options, bool& bSuccess);
 
 	/**
 	 * Opens the specified media URL.

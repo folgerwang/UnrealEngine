@@ -23,6 +23,7 @@ public:
 	/**
 	 * Check whether an object can be recorded by this section recorder. If so then the actor recorder
 	 * will call CreateSectionRecorder() to acquire a new instance to use in recording.
+	 * 
 	 * @param	InObjectToRecord	The object to check
 	 * @return true if the object can be recorded by this recorder
 	 */

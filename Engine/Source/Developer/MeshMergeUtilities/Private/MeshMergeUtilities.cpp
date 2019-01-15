@@ -1457,9 +1457,10 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 				MaxRemapID = FMath::Max(MaxRemapID, RemapID);
 			}
 
+			int32 PolygonGroupRemapCount = FMath::Max(MaxRemapID, RemapPolygonGroup.Num());
 			TSparseArray<int32> PolygonGroupRemap;
-			PolygonGroupRemap.Reserve(MaxRemapID);
-			for (int32 RemapID = 0; RemapID < MaxRemapID; ++RemapID)
+			PolygonGroupRemap.Reserve(PolygonGroupRemapCount);
+			for (int32 Index = 0; Index < PolygonGroupRemapCount; ++Index)
 			{
 				PolygonGroupRemap.AddUninitialized();
 			}

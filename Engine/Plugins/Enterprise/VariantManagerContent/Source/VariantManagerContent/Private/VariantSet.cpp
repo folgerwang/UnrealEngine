@@ -5,13 +5,16 @@
 #include "LevelVariantSets.h"
 #include "Variant.h"
 #include "CoreMinimal.h"
+#include "VariantManagerObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "VariantManagerVariantSet"
 
 
-UVariantSet::UVariantSet(const FObjectInitializer& Init)
+UVariantSet::UVariantSet(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	DisplayText = FText::FromString(TEXT("VariantSet"));
+	DisplayText = FText::FromString(TEXT("Variant Set"));
+	bExpanded = true;
 }
 
 ULevelVariantSets* UVariantSet::GetParent()
@@ -19,8 +22,33 @@ ULevelVariantSets* UVariantSet::GetParent()
 	return Cast<ULevelVariantSets>(GetOuter());
 }
 
+void UVariantSet::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FVariantManagerObjectVersion::GUID);
+	int32 CustomVersion = Ar.CustomVer(FVariantManagerObjectVersion::GUID);
+
+	if (CustomVersion >= FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	{
+		Ar << DisplayText;
+	}
+}
+
+bool UVariantSet::IsExpanded()
+{
+	return bExpanded;
+}
+
+void UVariantSet::SetExpanded(bool bInExpanded)
+{
+	bExpanded = bInExpanded;
+}
+
 void UVariantSet::SetDisplayText(const FText& NewDisplayText)
 {
+	Modify();
+
 	DisplayText = NewDisplayText;
 }
 
@@ -38,6 +66,14 @@ FString UVariantSet::GetUniqueVariantName(const FString& InPrefix)
 	}
 
 	FString VarName = FString(InPrefix);
+
+	// Remove potentially existing suffix numbers
+	FString LastChar = VarName.Right(1);
+	while (LastChar.IsNumeric())
+	{
+		VarName = VarName.LeftChop(1);
+		LastChar = VarName.Right(1);
+	}
 
 	// Add a numbered suffix
 	if (UniqueNames.Contains(VarName))
@@ -63,6 +99,12 @@ void UVariantSet::AddVariants(const TArray<UVariant*>& NewVariants, int32 Index)
 		Index = Variants.Num();
 	}
 
+	TSet<FString> OldNames;
+	for (UVariant* Var : Variants)
+	{
+		OldNames.Add(Var->GetDisplayText().ToString());
+	}
+
 	// Inserting first ensures we preserve the target order
 	Variants.Insert(NewVariants, Index);
 
@@ -72,13 +114,11 @@ void UVariantSet::AddVariants(const TArray<UVariant*>& NewVariants, int32 Index)
 	{
 		UVariantSet* OldParent = NewVariant->GetParent();
 
-		// We can't just RemoveBinding since that might remove the wrong item in case
-		// we're moving bindings around within this Variant
+		// We can't just RemoveBinding since that might remove the wrong item
 		if (OldParent)
 		{
 			if (OldParent != this)
 			{
-				// Don't call RemoveVariants here so that we get the entire thing in a single transaction
 				if (!ParentsModified.Contains(OldParent))
 				{
 					OldParent->Modify();
@@ -93,7 +133,14 @@ void UVariantSet::AddVariants(const TArray<UVariant*>& NewVariants, int32 Index)
 		}
 
 		NewVariant->Modify();
-		NewVariant->Rename(nullptr, this);  // We'll only actually rename them at the end of this function
+		NewVariant->Rename(nullptr, this, REN_DontCreateRedirectors);  // Change parents
+
+		// Update name if we're from a different parent but our names collide
+		FString IncomingName = NewVariant->GetDisplayText().ToString();
+		if (OldParent != this && OldNames.Contains(IncomingName))
+		{
+			NewVariant->SetDisplayText(FText::FromString(GetUniqueVariantName(IncomingName)));
+		}
 	}
 
 	// If it's a move operation, we'll have to manually clear the old pointers from the array
@@ -127,14 +174,11 @@ void UVariantSet::AddVariants(const TArray<UVariant*>& NewVariants, int32 Index)
 			}
 		}
 	}
+}
 
-	// Go over new added variants and get them unique display names if they don't have them yet
-	// Can only do this now that we know for sure we deleted the old versions, if we're moving
-	for (UVariant* NewVar : NewVariants)
-	{
-		// Don't transact to keep all of this in a single transaction
-		NewVar->SetDisplayText(FText::FromString(GetUniqueVariantName(NewVar->GetDisplayText().ToString())));
-	}
+int32 UVariantSet::GetVariantIndex(UVariant* Var)
+{
+	return Variants.Find(Var);
 }
 
 const TArray<UVariant*>& UVariantSet::GetVariants() const
@@ -164,6 +208,20 @@ UVariant* UVariantSet::GetVariant(int32 VariantIndex)
 		return Variants[VariantIndex];
 	}
 
+	return nullptr;
+}
+
+UVariant* UVariantSet::GetVariantByName(FString VariantName)
+{
+	UVariant** VarPtr = Variants.FindByPredicate([VariantName](const UVariant* Var)
+	{
+		return Var->GetDisplayText().ToString() == VariantName;
+	});
+
+	if (VarPtr)
+	{
+		return *VarPtr;
+	}
 	return nullptr;
 }
 

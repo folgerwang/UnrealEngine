@@ -23,6 +23,7 @@
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "UObject/StrongObjectPtr.h"
+#include "UObject/ObjectRedirector.h"
 #include "Misc/SlowTask.h"
 #include "Misc/PackageName.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -1122,9 +1123,10 @@ PyObject* FindOrLoadObjectImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InK
 	PyObject* PyOuterObj = nullptr;
 	PyObject* PyNameObj = nullptr;
 	PyObject* PyTypeObj = nullptr;
+	PyObject* PyFollowRedirectorsObj = nullptr;
 
-	static const char *ArgsKwdList[] = { "outer", "name", "type", nullptr };
-	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("OO|O:%s"), InFuncName)), (char**)ArgsKwdList, &PyOuterObj, &PyNameObj, &PyTypeObj))
+	static const char *ArgsKwdList[] = { "outer", "name", "type", "follow_redirectors", nullptr };
+	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("OO|OO:%s"), InFuncName)), (char**)ArgsKwdList, &PyOuterObj, &PyNameObj, &PyTypeObj, &PyFollowRedirectorsObj))
 	{
 		return nullptr;
 	}
@@ -1143,14 +1145,42 @@ PyObject* FindOrLoadObjectImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InK
 		return nullptr;
 	}
 
-	UClass* ObjectType = UObject::StaticClass();
+	UClass* ObjectType = nullptr;
 	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
 		return nullptr;
 	}
+	if (!ObjectType)
+	{
+		ObjectType = UObject::StaticClass();
+	}
 
-	return PyConversion::Pythonize(InFunc(ObjectType, ObjectOuter, *ObjectName));
+	bool bFollowRedirectors = true;
+	if (PyFollowRedirectorsObj && !PyConversion::Nativize(PyFollowRedirectorsObj, bFollowRedirectors))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'follow_redirectors' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyFollowRedirectorsObj)));
+		return nullptr;
+	}
+
+	UObject* PotentialObject = InFunc(UObject::StaticClass(), ObjectOuter, *ObjectName);
+
+	// Follow any redirectors
+	if (bFollowRedirectors)
+	{
+		while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(PotentialObject))
+		{
+			PotentialObject = Redirector->DestinationObject;
+		}
+	}
+
+	// Make sure the object is of the correct type
+	if (PotentialObject && !PotentialObject->IsA(ObjectType))
+	{
+		PotentialObject = nullptr;
+	}
+
+	return PyConversion::Pythonize(PotentialObject);
 }
 
 PyObject* FindObject(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
@@ -1171,19 +1201,53 @@ PyObject* LoadObject(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 
 PyObject* LoadClass(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds)
 {
-	return FindOrLoadObjectImpl(InSelf, InArgs, InKwds, TEXT("load_class"), [](UClass* ObjectType, UObject* ObjectOuter, const TCHAR* ObjectName)
+	PyObject* PyOuterObj = nullptr;
+	PyObject* PyNameObj = nullptr;
+	PyObject* PyTypeObj = nullptr;
+
+	static const char *ArgsKwdList[] = { "outer", "name", "type", nullptr };
+	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, "OO|O:load_class", (char**)ArgsKwdList, &PyOuterObj, &PyNameObj, &PyTypeObj))
 	{
-		return ::StaticLoadClass(ObjectType, ObjectOuter, ObjectName);
-	});
+		return nullptr;
+	}
+
+	UObject* ObjectOuter = nullptr;
+	if (!PyConversion::Nativize(PyOuterObj, ObjectOuter))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("load_class"), *FString::Printf(TEXT("Failed to convert 'outer' (%s) to 'Object'"), *PyUtil::GetFriendlyTypename(PyOuterObj)));
+		return nullptr;
+	}
+
+	FString ObjectName;
+	if (!PyConversion::Nativize(PyNameObj, ObjectName))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("load_class"), *FString::Printf(TEXT("Failed to convert 'name' (%s) to 'String'"), *PyUtil::GetFriendlyTypename(PyNameObj)));
+		return nullptr;
+	}
+
+	UClass* ObjectType = nullptr;
+	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("load_class"), *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
+		return nullptr;
+	}
+	if (!ObjectType)
+	{
+		ObjectType = UObject::StaticClass();
+	}
+
+	UClass* PotentialClass = ::StaticLoadClass(ObjectType, ObjectOuter, *ObjectName);
+	return PyConversion::PythonizeClass(PotentialClass);
 }
 
 PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKwds, const TCHAR* InFuncName, const TFunctionRef<UObject*(UClass*, UObject*, const TCHAR*)>& InFunc)
 {
 	PyObject* PyNameObj = nullptr;
 	PyObject* PyTypeObj = nullptr;
+	PyObject* PyFollowRedirectorsObj = nullptr;
 
-	static const char *ArgsKwdList[] = { "name", "type", nullptr };
-	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("O|O:%s"), InFuncName)), (char**)ArgsKwdList, &PyNameObj, &PyTypeObj))
+	static const char *ArgsKwdList[] = { "name", "type", "follow_redirectors", nullptr };
+	if (!PyArg_ParseTupleAndKeywords(InArgs, InKwds, TCHAR_TO_UTF8(*FString::Printf(TEXT("O|OO:%s"), InFuncName)), (char**)ArgsKwdList, &PyNameObj, &PyTypeObj, &PyFollowRedirectorsObj))
 	{
 		return nullptr;
 	}
@@ -1206,12 +1270,28 @@ PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKw
 		ObjectType = UObject::StaticClass();
 	}
 
+	bool bFollowRedirectors = true;
+	if (PyFollowRedirectorsObj && !PyConversion::Nativize(PyFollowRedirectorsObj, bFollowRedirectors))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'follow_redirectors' (%s) to 'bool'"), *PyUtil::GetFriendlyTypename(PyFollowRedirectorsObj)));
+		return nullptr;
+	}
+
 	UObject* PotentialAsset = InFunc(UObject::StaticClass(), nullptr, *ObjectName);
 	
 	// If we found a package, try and get the primary asset from it
 	if (UPackage* FoundPackage = Cast<UPackage>(PotentialAsset))
 	{
 		PotentialAsset = InFunc(UObject::StaticClass(), FoundPackage, *FPackageName::GetShortName(FoundPackage));
+	}
+
+	// Follow any redirectors
+	if (bFollowRedirectors)
+	{
+		while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(PotentialAsset))
+		{
+			PotentialAsset = Redirector->DestinationObject;
+		}
 	}
 
 	// Make sure the object is an asset of the correct type
@@ -1543,11 +1623,11 @@ PyMethodDef PyCoreMethods[] = {
 	{ "log_flush", PyCFunctionCast(&LogFlush), METH_NOARGS, "x.log_flush() -> None -- flush the log to disk" },
 	{ "reload", PyCFunctionCast(&Reload), METH_VARARGS, "x.reload(str) -> None -- reload the given Unreal Python module" },
 	{ "load_module", PyCFunctionCast(&LoadModule), METH_VARARGS, "x.load_module(str) -> None -- load the given Unreal module and generate any Python code for its reflected types" },
-	{ "find_object", PyCFunctionCast(&FindObject), METH_VARARGS | METH_KEYWORDS, "x.find_object(outer, name, type=Object) -> Object -- find an already loaded Unreal object with the given outer and name, optionally validating its type" },
-	{ "load_object", PyCFunctionCast(&LoadObject), METH_VARARGS | METH_KEYWORDS, "x.load_object(outer, name, type=Object) -> Object -- load an Unreal object with the given outer and name, optionally validating its type" },
+	{ "find_object", PyCFunctionCast(&FindObject), METH_VARARGS | METH_KEYWORDS, "x.find_object(outer, name, type=Object, follow_redirectors=True) -> Object -- find an already loaded Unreal object with the given outer and name, optionally validating its type" },
+	{ "load_object", PyCFunctionCast(&LoadObject), METH_VARARGS | METH_KEYWORDS, "x.load_object(outer, name, type=Object, follow_redirectors=True) -> Object -- load an Unreal object with the given outer and name, optionally validating its type" },
 	{ "load_class", PyCFunctionCast(&LoadClass), METH_VARARGS | METH_KEYWORDS, "x.load_class(outer, name, type=Object) -> Class -- load an Unreal class with the given outer and name, optionally validating its base type" },
-	{ "find_asset", PyCFunctionCast(&FindAsset), METH_VARARGS | METH_KEYWORDS, "x.find_asset(name, type=Object) -> Object -- find an already loaded Unreal asset with the given name, optionally validating its type" },
-	{ "load_asset", PyCFunctionCast(&LoadAsset), METH_VARARGS | METH_KEYWORDS, "x.load_asset(name, type=Object) -> Object -- load an Unreal asset with the given name, optionally validating its type" },
+	{ "find_asset", PyCFunctionCast(&FindAsset), METH_VARARGS | METH_KEYWORDS, "x.find_asset(name, type=Object, follow_redirectors=True) -> Object -- find an already loaded Unreal asset with the given name, optionally validating its type" },
+	{ "load_asset", PyCFunctionCast(&LoadAsset), METH_VARARGS | METH_KEYWORDS, "x.load_asset(name, type=Object, follow_redirectors=True) -> Object -- load an Unreal asset with the given name, optionally validating its type" },
 	{ "find_package", PyCFunctionCast(&FindPackage), METH_VARARGS, "x.find_package(name) -> Package -- find an already loaded Unreal package with the given name" },
 	{ "load_package", PyCFunctionCast(&LoadPackage), METH_VARARGS, "x.load_package(name) -> Package -- load an Unreal package with the given name" },
 	{ "get_default_object", PyCFunctionCast(&GetDefaultObject), METH_VARARGS, "x.get_default_object(type) -> Object -- get the Unreal class default object (CDO) of the given type" },

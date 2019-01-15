@@ -22,7 +22,6 @@ public class SkeletalMeshEditor : ModuleRules
 				"SlateCore",
                 "EditorStyle",
                 "UnrealEd",
-                
                 "SkeletonEditor",
                 "Kismet",
                 "KismetWidgets",
@@ -34,7 +33,8 @@ public class SkeletalMeshEditor : ModuleRules
                 "RHI",
                 "ClothingSystemRuntime",
                 "ClothingSystemEditorInterface",
-				"ClothingSystemRuntimeInterface"
+				"ClothingSystemRuntimeInterface",
+				"AnimGraph"
             }
 		);
 

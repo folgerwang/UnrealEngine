@@ -3744,7 +3744,6 @@ protected:
 	{
 		ESceneTextureId SceneTextureId = (ESceneTextureId)InSceneTextureId;
 
-		const bool bIsPostProcessInput = SceneTextureId >= PPI_PostProcessInput0 && SceneTextureId <= PPI_PostProcessInput6;
 		const bool bSupportedOnMobile = SceneTextureId == PPI_PostProcessInput0 ||
 										SceneTextureId == PPI_CustomDepth ||
 										SceneTextureId == PPI_SceneDepth ||
@@ -3884,6 +3883,7 @@ protected:
 		{
 			bNeedsSceneTexturePostProcessInputs = bNeedsSceneTexturePostProcessInputs
 				|| ((SceneTextureId >= PPI_PostProcessInput0 && SceneTextureId <= PPI_PostProcessInput6)
+				|| SceneTextureId == PPI_Velocity
 				|| SceneTextureId == PPI_SceneColor);
 
 		}
@@ -3907,13 +3907,27 @@ protected:
 			|| SceneTextureId == PPI_ShadingModelColor
 			|| SceneTextureId == PPI_ShadingModelID
 			|| SceneTextureId == PPI_StoredBaseColor
-			|| SceneTextureId == PPI_StoredSpecular;
+			|| SceneTextureId == PPI_StoredSpecular
+			|| SceneTextureId == PPI_Velocity;
+
 
 		MaterialCompilationOutput.bNeedsGBuffer = MaterialCompilationOutput.bNeedsGBuffer || bNeedsGBuffer;
 
 		if (bNeedsGBuffer && IsForwardShadingEnabled(Platform))
 		{
 			Errorf(TEXT("GBuffer scene textures not available with forward shading."));
+		}
+
+		if (SceneTextureId == PPI_Velocity)
+		{
+			if (Material->GetMaterialDomain() == MD_PostProcess)
+			{
+				MaterialCompilationOutput.bUsesVelocitySceneTexture = true;
+			}
+			else
+			{
+				Errorf(TEXT("Velocity scene textures are only available in post process materials."));
+			}
 		}
 
 		// not yet tracked:

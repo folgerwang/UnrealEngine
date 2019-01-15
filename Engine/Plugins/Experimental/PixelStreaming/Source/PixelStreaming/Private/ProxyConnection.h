@@ -4,6 +4,7 @@
 
 #include "HAL/ThreadSafeBool.h"
 #include "Misc/ScopeLock.h"
+#include "Templates/SharedPointer.h"
 
 #include "Utils.h"
 
@@ -38,7 +39,7 @@ private:
 
 private:
 	FStreamer& Streamer;
-	FPixelStreamingInputDevice& InputDevice;
+	TSharedPtr<FPixelStreamingInputDevice> InputDevice;
 
 	// socket obj and its ptr is modified only from the internal thread but is used from an external thread
 	// to send data. This lock protects sending to the socket to avoid concurrent modification. 
@@ -50,7 +51,21 @@ private:
 	FSocket* Listener;
 
 	// handlers for different type of messages received from network
-	TArray<TFunction<bool()>> ReceiveHandlers;
+	struct FReceiveHandler
+	{
+		bool bRequiresInputDevice;   // Whether the InputDevice needs to be available to call the function
+		TFunction<bool()> Function;   // The function which handles the message
+		FReceiveHandler() :
+			bRequiresInputDevice(false)
+		{
+		}
+		FReceiveHandler(bool InRequiresInputDevice, TFunction<bool()> InFunction) :
+			bRequiresInputDevice(InRequiresInputDevice),
+			Function(InFunction)
+		{
+		}
+	};
+	TArray<FReceiveHandler> ReceiveHandlers;
 
 	FThreadSafeBool ExitRequested;
 	// should be the last thing declared, otherwise the thread func can access other members that are not

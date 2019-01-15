@@ -1084,6 +1084,11 @@ public:
 	uint32 bTranslucentSurfaceLighting : 1;
 	/** Whether the view has any materials that read from scene depth. */
 	uint32 bUsesSceneDepth : 1;
+
+
+	/** Whether fog should only be computed on rendered opaque pixels or not. */
+	uint32 bFogOnlyOnRenderedOpaque : 1;
+
 	/** 
 	 * true if the scene has at least one decal. Used to disable stencil operations in the mobile base pass when the scene has no decals.
 	 * TODO: Right now decal visibility is computed right before rendering them. Ideally it should be done in InitViews and this flag should be replaced with list of visible decals  
@@ -1316,7 +1321,12 @@ public:
 
 	/** Custom Data Memstack functions.	*/
 	FORCEINLINE FMemStackBase& GetCustomDataGlobalMemStack() { return PrimitiveCustomDataMemStack[0]; }
-	FORCEINLINE FMemStackBase& AllocateCustomDataMemStack() { return *new(PrimitiveCustomDataMemStack) FMemStackBase(0); }
+	FORCEINLINE FMemStackBase& AllocateCustomDataMemStack() 
+	{ 
+		// Don't reallocate since we keep references in FRelevancePacket.
+		check(PrimitiveCustomDataMemStack.GetSlack() > 0); 
+		return *new(PrimitiveCustomDataMemStack) FMemStackBase(0);
+	}
 
 private:
 	// Cache of TEXTUREGROUP_World to create view's samplers on render thread.

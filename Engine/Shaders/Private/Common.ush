@@ -176,7 +176,7 @@ MaterialFloat4 TextureExternalSample(TextureExternal Tex, SamplerState Sampler, 
 	return Tex.Sample(Sampler, UV);
 #endif
 }
-MaterialFloat4 TextureExternalSampleLevel(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat Mip)
+MaterialFloat4 TextureExternalSampleLevel(TextureExternal Tex, SamplerState Sampler, float2 UV, MaterialFloat Mip)
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
 }

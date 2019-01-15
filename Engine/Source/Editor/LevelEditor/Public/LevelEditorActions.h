@@ -349,6 +349,12 @@ public:
 	/** Invert the current selection */
 	TSharedPtr< FUICommandInfo > InvertSelection;
 
+	/** Selects all direct children of the current selection */
+	TSharedPtr< FUICommandInfo > SelectImmediateChildren;
+
+	/** Selects all descendants of the current selection */
+	TSharedPtr< FUICommandInfo > SelectAllDescendants;
+
 	/** Selects all actors of the same class as the current selection */
 	TSharedPtr< FUICommandInfo > SelectAllActorsOfSameClass;
 
@@ -579,6 +585,8 @@ public:
 
 	TSharedPtr< FUICommandInfo > FeatureLevelPreview[ERHIFeatureLevel::Num];
 	
+	TSharedPtr< FUICommandInfo > ToggleFeatureLevelPreview;
+
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_DefaultES2;
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_AndroidGLES2;
 
@@ -797,6 +805,10 @@ public:
 	static void AttachToSocketSelection(FName SocketName, AActor* ParentActorPtr);
 	static void SetMaterialQualityLevel( EMaterialQualityLevel::Type NewQualityLevel );
 	static bool IsMaterialQualityLevelChecked( EMaterialQualityLevel::Type TestQualityLevel );
+	static void ToggleFeatureLevelPreview();
+	static bool IsFeatureLevelPreviewEnabled();
+	static bool IsFeatureLevelPreviewActive();
+	static bool IsFeatureLevelPreviewDropdownEnabled();
 	static void SetPreviewPlatform(FName MaterialQualityPlatform,ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static bool IsPreviewPlatformChecked(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static void SetFeatureLevelPreview(ERHIFeatureLevel::Type InFeatureLevel);

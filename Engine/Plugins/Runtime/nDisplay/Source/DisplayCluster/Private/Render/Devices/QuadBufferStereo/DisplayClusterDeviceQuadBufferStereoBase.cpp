@@ -1,14 +1,15 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterDeviceQuadBufferStereoBase.h"
+#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoBase.h"
 
+#include "Misc/DisplayClusterLog.h"
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
 #include <utility>
 
 
 FDisplayClusterDeviceQuadBufferStereoBase::FDisplayClusterDeviceQuadBufferStereoBase() :
-	FDisplayClusterDeviceBase()
+	FDisplayClusterDeviceStereoBase()
 {
 }
 
@@ -18,7 +19,8 @@ FDisplayClusterDeviceQuadBufferStereoBase::~FDisplayClusterDeviceQuadBufferStere
 
 bool FDisplayClusterDeviceQuadBufferStereoBase::NeedReAllocateViewportRenderTarget(const class FViewport& Viewport)
 {
-	//UE_LOG(LogDisplayClusterRender, Log, TEXT("FDisplayClusterDeviceMonoscopic::NeedReAllocateViewportRenderTarget"));
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterRender);
+
 	check(IsInGameThread());
 
 	const FIntPoint rtSize = Viewport.GetRenderTargetTextureSizeXY();
@@ -29,13 +31,16 @@ bool FDisplayClusterDeviceQuadBufferStereoBase::NeedReAllocateViewportRenderTarg
 	CalculateRenderTargetSize(Viewport, newSizeX, newSizeY);
 
 	// Render target need to be re-allocated if its current size is invalid
+	bool Result = false;
 	if (newSizeX != rtSize.X || newSizeY != rtSize.Y)
 	{
-		return true;
+		Result = true;;
 	}
 
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("Is reallocate viewport render target needed: %d"), Result ? 1 : 0);
+
 	// No need to re-allocate
-	return false;
+	return Result;
 }
 
 void FDisplayClusterDeviceQuadBufferStereoBase::CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
@@ -45,49 +50,28 @@ void FDisplayClusterDeviceQuadBufferStereoBase::CalculateRenderTargetSize(const 
 	InOutSizeX = Viewport.GetSizeXY().X * 2;
 	InOutSizeY = Viewport.GetSizeXY().Y;
 
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("Render target size: [%d x %d]"), InOutSizeX, InOutSizeY);
+
 	check(InOutSizeX > 0 && InOutSizeY > 0);
 }
 
-
-bool FDisplayClusterDeviceQuadBufferStereoBase::ShouldUseSeparateRenderTarget() const
+void FDisplayClusterDeviceQuadBufferStereoBase::AdjustViewRect(enum EStereoscopicPass StereoPassType, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const
 {
-	return true;
-}
+	const EStereoscopicPass DecodedPass = DecodeStereoscopicPass(StereoPassType);
+	const int CurrentViewportIndex = DecodeViewportIndex(StereoPassType);
 
-void FDisplayClusterDeviceQuadBufferStereoBase::AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const
-{
-	const uint32 screentWidth = SizeX;
-	FDisplayClusterDeviceBase::AdjustViewRect(StereoPass, X, Y, SizeX, SizeY);
+	FDisplayClusterViewportArea ViewportArea = RenderViewports[CurrentViewportIndex].GetViewportArea();
 
-	if (StereoPass == EStereoscopicPass::eSSP_RIGHT_EYE)
+	X = ViewportArea.GetLocation().X;
+	SizeX = ViewportArea.GetSize().X;
+
+	Y = ViewportArea.GetLocation().Y;
+	SizeY = ViewportArea.GetSize().Y;
+
+	if (DecodedPass == EStereoscopicPass::eSSP_RIGHT_EYE)
 	{
-		X += screentWidth;
-	}
-}
-
-/*
-//////////////////////////////////////////////////////////////////////////////////////////////
-// IDisplayClusterStereoDevice
-//////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterDeviceQuadBufferStereoBase::SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy)
-{
-	FScopeLock lock(&InternalsSyncScope);
-	UE_LOG(LogDisplayClusterRender, Log, TEXT("Swap sync policy: %d"), (int)policy);
-
-	switch (policy)
-	{
-		// Policies below are supported by all child implementations
-	case EDisplayClusterSwapSyncPolicy::SoftSwapSync:
-	case EDisplayClusterSwapSyncPolicy::NvSwapSync:
-	{
-		SwapSyncPolicy = policy;
-		break;
+		X += ViewportSize.X;
 	}
 
-	default:
-		// Forward the policy type to the upper level
-		FDisplayClusterDeviceBase::SetSwapSyncPolicy(policy);
-		break;
-	}
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("Adjusted view rect: ViewportIdx=%d, StereoPass=%d, [%d,%d - %d,%d]"), CurrentViewportIndex, int(DecodedPass), X, SizeX, Y, SizeY);
 }
-*/

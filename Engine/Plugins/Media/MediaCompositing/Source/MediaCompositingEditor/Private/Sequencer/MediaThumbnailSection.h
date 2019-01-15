@@ -56,6 +56,13 @@ public:
 	virtual int32 OnPaintSection(FSequencerSectionPainter& InPainter) const override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const FGeometry& ClippedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
+	// ISequencerSection interface
+
+	virtual void BeginResizeSection() override;
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
+	virtual void BeginSlipSection() override;
+	virtual void SlipSection(FFrameNumber SlipTime) override;
+
 public:
 
 	//~ ICustomThumbnailClient interface
@@ -104,4 +111,10 @@ private:
 
 	/** The sequencer object that owns this section. */
 	TWeakPtr<ISequencer> SequencerPtr;
+
+	/** Cached start offset value valid only during resize */
+	FFrameNumber InitialStartOffsetDuringResize;
+
+	/** Cached start time valid only during resize */
+	FFrameNumber InitialStartTimeDuringResize;
 };

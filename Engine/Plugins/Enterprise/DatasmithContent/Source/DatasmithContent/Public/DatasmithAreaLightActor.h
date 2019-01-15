@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/Scene.h"
 #include "GameFramework/Actor.h"
 
 #include "DatasmithAreaLightActor.generated.h"
@@ -13,7 +14,16 @@ enum class EDatasmithAreaLightActorShape : uint8
 	Rectangle,
 	Disc,
 	Sphere,
-	Cylinder
+	Cylinder,
+	None
+};
+
+UENUM(BlueprintType)
+enum class EDatasmithAreaLightActorType : uint8
+{
+	Point,
+	Spot,
+	Rect,
 };
 
 UCLASS(BlueprintType, Blueprintable, MinimalAPI)
@@ -22,16 +32,48 @@ class ADatasmithAreaLightActor : public AActor
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	EDatasmithAreaLightActorType LightType;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
 	EDatasmithAreaLightActorShape LightShape;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta = (EditCondition = "LightShape != EDatasmithAreaLightActorShape::None"))
 	FVector2D Dimensions;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	float Intensity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	ELightUnits IntensityUnits;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
 	FLinearColor Color;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
-	float Intensity;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	float Temperature;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	class UTextureLightProfile* IESTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta=(DisplayName = "Use IES Intensity"))
+	bool bUseIESBrightness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta=(DisplayName = "IES Intensity Scale"))
+	float IESBrightnessScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	FRotator Rotation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	float SourceRadius;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light")
+	float SourceLength;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta=(UIMin = "8.0", UIMax = "16384.0", SliderExponent = "5.0"))
+	float AttenuationRadius;
+
+public:
+	ADatasmithAreaLightActor();
 };

@@ -634,6 +634,13 @@ public:
 	/** The feature level we should use when loading or creating a new world */
 	ERHIFeatureLevel::Type DefaultWorldFeatureLevel;
 
+	/** The feature level we should use when loading or creating a new world */
+	ERHIFeatureLevel::Type PreviewFeatureLevel;
+
+	/** A delegate that is called when the preview feature level changes. Primarily used to switch a viewport's feature level. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPreviewFeatureLevelChanged, ERHIFeatureLevel::Type);
+	FPreviewFeatureLevelChanged PreviewFeatureLevelChanged;
+
 	/** Whether or not the editor is currently compiling */
 	bool bIsCompiling;
 
@@ -666,10 +673,37 @@ public:
 	TSharedPtr< class ILayers >				Layers;
 
 	/** List of all viewport clients */
-	TArray<class FEditorViewportClient*>	AllViewportClients;
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() { return AllViewportClients; }
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() const { return AllViewportClients; }
+
+	/** Called when the viewport clients list changed */
+	DECLARE_EVENT(UEditorEngine, FViewportClientListChangedEvent);
+	FViewportClientListChangedEvent& OnViewportClientListChanged() { return ViewportClientListChangedEvent; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddViewportClients(FEditorViewportClient* ViewportClient);
+
+	/** Remove a viewport client */
+	void RemoveViewportClients(FEditorViewportClient* ViewportClient);
 
 	/** List of level editor viewport clients for level specific actions */
-	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() { return LevelViewportClients; }
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() const { return LevelViewportClients; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Remove a level editor viewport client */
+	void RemoveLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Called when the level editor viewport clients list changed */
+	FViewportClientListChangedEvent& OnLevelViewportClientListChanged() { return LevelViewportClientListChangedEvent; }
 
 	/** Annotation to track which PIE/SIE (PlayWorld) UObjects have counterparts in the EditorWorld **/
 	class FUObjectAnnotationSparseBool ObjectsThatExistInEditorWorld;
@@ -2787,6 +2821,18 @@ private:
 	};
 	FTransactionDeltaContext CurrentUndoRedoContext;
 
+	/** List of all viewport clients */
+	TArray<class FEditorViewportClient*> AllViewportClients;
+
+	/** List of level editor viewport clients for level specific actions */
+	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+
+	/** Delegate broadcast when the viewport client list changed */
+	FViewportClientListChangedEvent ViewportClientListChangedEvent;
+
+	/** Delegate broadcast when the level editor viewport client list changed */
+	FViewportClientListChangedEvent LevelViewportClientListChangedEvent;
+
 	/** Delegate broadcast just before a blueprint is compiled */
 	FBlueprintPreCompileEvent BlueprintPreCompileEvent;
 
@@ -2951,9 +2997,6 @@ protected:
 	// Handle requests from slate application to open assets.
 	bool HandleOpenAsset(UObject* Asset);
 
-	// Handles a package being reloaded.
-	void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
-
 public:
 	UE_DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
 	static bool IsUsingWorldAssets() { return true; }
@@ -2993,7 +3036,19 @@ public:
 	void OnSceneMaterialsModified();
 
 	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
-	void SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings = true);
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings = true);
+
+	/** Toggle the feature level preview */
+	void ToggleFeatureLevelPreview();
+
+	/** Return whether the feature level preview is able to be enabled */
+	bool IsFeatureLevelPreviewEnabled() const;
+
+	/** Return whether the feature level preview is currently active */
+	bool IsFeatureLevelPreviewActive() const;
+
+	/** Return the delegate that is called when the preview feature level changes */
+	FPreviewFeatureLevelChanged& OnPreviewFeatureLevelChanged() { return PreviewFeatureLevelChanged; }
 
 protected:
 	/** Call this function to change the feature level of the editor and PIE worlds */

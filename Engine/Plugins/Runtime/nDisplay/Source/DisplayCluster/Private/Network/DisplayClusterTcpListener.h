@@ -20,13 +20,13 @@ public:
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, TOnConnectionAcceptedDelegate, FSocket*, const FIPv4Endpoint&)
 
 public:
-	FDisplayClusterTcpListener(const FString& name);
+	FDisplayClusterTcpListener(const FString& InName);
 	~FDisplayClusterTcpListener();
 
 public:
 
-	bool StartListening(const FString& addr, const int32 port);
-	bool StartListening(const FIPv4Endpoint& ep);
+	bool StartListening(const FString& InAddr, const int32 InPort);
+	bool StartListening(const FIPv4Endpoint& InEP);
 	void StopListening();
 
 	bool IsActive() const;
@@ -43,10 +43,6 @@ protected:
 	virtual void Stop() override;
 	virtual void Exit() override;
 
-private:
-	// Creates server socket
-	FSocket* CreateSocket(const FString& name, const FString& addr, const int32 port, const int32 bufSize = DisplayClusterConstants::net::SocketBufferSize);
-	
 private:
 	// Socket name
 	FString Name;

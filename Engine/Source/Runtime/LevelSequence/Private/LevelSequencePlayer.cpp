@@ -21,7 +21,7 @@
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "LevelSequenceActor.h"
 #include "Modules/ModuleManager.h"
-
+#include "LevelUtils.h"
 
 /* ULevelSequencePlayer structors
  *****************************************************************************/
@@ -72,11 +72,48 @@ ULevelSequencePlayer* ULevelSequencePlayer::CreateLevelSequencePlayer(UObject* W
 /* ULevelSequencePlayer implementation
  *****************************************************************************/
 
-void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* InWorld, const FMovieSceneSequencePlaybackSettings& Settings)
+void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, ULevel* InLevel, const FMovieSceneSequencePlaybackSettings& Settings)
 {
-	World = InWorld;
+	// Never use the level to resolve bindings unless we're playing back within a streamed or instanced level
+	StreamedLevelAssetPath = NAME_None;
+
+	World = InLevel->OwningWorld;
+	Level = InLevel;
+
+	// Construct the path to the level asset that the streamed level relates to
+	ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel(InLevel);
+	if (LevelStreaming)
+	{
+		// StreamedLevelPackage is a package name of the form /Game/Folder/MapName, not a full asset path
+		FString StreamedLevelPackage = (LevelStreaming->PackageNameToLoad == NAME_None ? LevelStreaming->GetWorldAssetPackageFName() : LevelStreaming->PackageNameToLoad).ToString();
+
+		int32 SlashPos = 0;
+		if (StreamedLevelPackage.FindLastChar('/', SlashPos) && SlashPos < StreamedLevelPackage.Len()-1)
+		{
+			// Construct the asset path by appending .MapName to the end for efficient comparison with FSoftObjectPath::GetAssetPathName
+			const TCHAR* Pair[] = { *StreamedLevelPackage, &StreamedLevelPackage[SlashPos+1] };
+			StreamedLevelAssetPath = *FString::Join(Pair, TEXT("."));
+		}
+	}
+
 	SpawnRegister = MakeShareable(new FLevelSequenceSpawnRegister);
 	UMovieSceneSequencePlayer::Initialize(InLevelSequence, Settings);
+}
+
+void ULevelSequencePlayer::ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& InSequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
+{
+	bool bAllowDefault = PlaybackClient ? PlaybackClient->RetrieveBindingOverrides(InBindingId, SequenceID, OutObjects) : true;
+
+	if (bAllowDefault)
+	{
+		if (StreamedLevelAssetPath != NAME_None && ResolutionContext && ResolutionContext->IsA<UWorld>())
+		{
+			ResolutionContext = Level.Get();
+		}
+
+		// Passing through the streamed level asset path ensures that bindings within instance sub levels resolve correctly
+		CastChecked<ULevelSequence>(&InSequence)->LocateBoundObjects(InBindingId, ResolutionContext, StreamedLevelAssetPath, OutObjects);
+	}
 }
 
 bool ULevelSequencePlayer::CanPlay() const
@@ -336,6 +373,7 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 	OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(CurrentPlayTime, PlayPosition.GetInputRate());
 	OutSnapshot.CameraComponent = CachedCameraComponent.IsValid() ? CachedCameraComponent.Get() : nullptr;
 	OutSnapshot.ShotID = MovieSceneSequenceID::Invalid;
+	OutSnapshot.ActiveShot = nullptr;
 
 	UMovieSceneCinematicShotTrack* ShotTrack = Sequence->GetMovieScene()->FindMasterTrack<UMovieSceneCinematicShotTrack>();
 	if (ShotTrack)
@@ -389,6 +427,7 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 			OutSnapshot.CurrentShotName = ActiveShot->GetShotDisplayName();
 			OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(InnerDisplayTime, InnerFrameRate);
 			OutSnapshot.ShotID = ActiveShot->GetSequenceID();
+			OutSnapshot.ActiveShot = Cast<ULevelSequence>(ActiveShot->GetSequence());
 
 #if WITH_EDITORONLY_DATA
 			FFrameNumber  InnerFrameNumber = InnerFrameRate.AsFrameNumber(InnerFrameRate.AsSeconds(InnerDisplayTime));

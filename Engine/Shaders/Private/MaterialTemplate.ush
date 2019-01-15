@@ -1426,6 +1426,33 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 
 #include "/Engine/Private/DeferredShadingCommon.ush"		// GetGBufferData()
 
+
+#if POST_PROCESS_MATERIAL
+/** Samples the screen-space velocity for the specified UV coordinates. */
+float2 PostProcessVelocityLookup(float Depth, float2 UV)
+{
+#if GBUFFER_HAS_VELOCITY
+	float2 Velocity = Texture2DSampleLevel(SceneTexturesStruct.GBufferVelocityTexture, SceneTexturesStruct.GBufferVelocityTextureSampler, UV, 0).xy;
+#else
+	float2 Velocity = Texture2DSample(PostprocessInput4, PostprocessInput4Sampler, UV).xy;
+#endif
+
+	if( Velocity.x > 0.0 )
+	{
+		Velocity = DecodeVelocityFromTexture(Velocity);
+	}
+	else
+	{
+		float4 ThisClip = float4( UV, Depth, 1 );
+		float4 PrevClip = mul( ThisClip, View.ClipToPrevClip );
+		float2 PrevScreen = PrevClip.xy / PrevClip.w;
+		Velocity = UV - PrevScreen;
+	}
+
+	return Velocity;
+}
+#endif
+
 /** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
 float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 {
@@ -1496,6 +1523,10 @@ float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 		case 26: return float4(ScreenSpaceData.GBuffer.StoredBaseColor, 0);
 		// PPI_StoredSpecular
 		case 27: return float4(ScreenSpaceData.GBuffer.StoredSpecular.rrr, 0);
+#if POST_PROCESS_MATERIAL
+		// PPI_Velocity
+		case 28: return float4(PostProcessVelocityLookup(ScreenSpaceData.GBuffer.Depth, UV), 0, 0);
+#endif
 		default:
 			return float4(0, 0, 0, 0);
 	}

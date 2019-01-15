@@ -835,6 +835,9 @@ void FControlRigEditor::SetJointTransform(const FName& InJoint, const FTransform
 
 	// I don't think I have to mark dirty here. 
 	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
+
+	// I don't think I have to mark dirty here. 
+	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
 	{
 		EditorSkelComp->RebuildDebugDrawSkeleton();
 	}

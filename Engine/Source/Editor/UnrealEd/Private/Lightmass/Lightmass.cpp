@@ -2523,11 +2523,11 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	InputData.MappingSizeX = GCurrentSelectedLightmapSample.MappingSizeX;
 	InputData.MappingSizeY = GCurrentSelectedLightmapSample.MappingSizeY;
 	FVector4 ViewPosition(0, 0, 0, 0);
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ViewIndex++)
+	for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		if (GEditor->LevelViewportClients[ViewIndex]->IsPerspective())
+		if (LevelVC->IsPerspective())
 		{
-			ViewPosition = GEditor->LevelViewportClients[ViewIndex]->GetViewLocation();
+			ViewPosition = LevelVC->GetViewLocation();
 		}
 	}
 	InputData.CameraPosition = ViewPosition;

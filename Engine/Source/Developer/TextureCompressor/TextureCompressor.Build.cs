@@ -16,7 +16,7 @@ public class TextureCompressor : ModuleRules
 			}
 			);
 
-		if (Target.bCompileLeanAndMeanUE == false)
+		if (Target.bBuildDeveloperTools)
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTextureTools");
 		}

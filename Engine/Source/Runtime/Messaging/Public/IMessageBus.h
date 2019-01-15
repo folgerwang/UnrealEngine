@@ -14,8 +14,10 @@ class IMessageReceiver;
 class IMessageSender;
 class IMessageSubscription;
 class IMessageTracer;
+class IBusListener;
 class UScriptStruct;
 
+enum class EMessageBusNotification : uint8;
 enum class EMessageScope : uint8;
 enum class EMessageFlags : uint32;
 
@@ -229,6 +231,18 @@ public:
 	 * @see Subscribe
 	 */
 	virtual void Unsubscribe(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& MessageType) = 0;
+
+	/**
+	 * Add a listener to the bus notifications
+	 * @param Listener The listener to as to the registration notifications
+	 */
+	virtual void AddNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener) = 0;
+
+	/**
+	 * Remove a listener to the bus notifications
+	 * @param Listener The listener to remove from the registration notifications
+	 */
+	virtual void RemoveNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener) = 0;
 
 public:
 

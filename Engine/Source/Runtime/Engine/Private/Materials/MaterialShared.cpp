@@ -462,6 +462,7 @@ void FMaterialCompilationOutput::Serialize(FArchive& Ar)
 	Ar << bUsesGlobalDistanceField;
 	Ar << bUsesPixelDepthOffset;
 	Ar << bUsesSceneDepthLookup;
+	Ar << bUsesVelocitySceneTexture;
 	Ar << bUsesDistanceCullFade;
 }
 

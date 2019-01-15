@@ -1,8 +1,12 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DatasmithScene.h"
+#include "DatasmithAssetImportData.h"
 
+#include "Engine/Blueprint.h"
+#include "Engine/World.h"
 #include "EngineUtils.h"
+#include "LevelSequence.h"
 #include "UObject/EnterpriseObjectVersion.h"
 
 #if WITH_EDITORONLY_DATA
@@ -14,6 +18,58 @@ enum
 };
 
 #endif // #if WITH_EDITORONLY_DATA
+
+UDatasmithScene::UDatasmithScene()
+{
+#if WITH_EDITORONLY_DATA
+	DataPrepRecipeBP = nullptr;
+#endif
+#if WITH_EDITOR
+	bPreWorldRenameCallbackRegistered = false;
+#endif
+}
+
+UDatasmithScene::~UDatasmithScene()
+{
+#if WITH_EDITOR
+	if (bPreWorldRenameCallbackRegistered)
+	{
+		FWorldDelegates::OnPreWorldRename.RemoveAll(this);
+	}
+#endif
+}
+
+void UDatasmithScene::RegisterPreWorldRenameCallback()
+{
+#if WITH_EDITOR
+	if (!bPreWorldRenameCallbackRegistered)
+	{
+		bPreWorldRenameCallbackRegistered = true;
+		FWorldDelegates::OnPreWorldRename.AddUObject(this, &UDatasmithScene::OnPreWorldRename);
+	}
+#endif
+}
+
+#if WITH_EDITOR
+void UDatasmithScene::OnPreWorldRename(UWorld* World, const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags, bool& bShouldFailRename)
+{
+	FString WorldPath = World->GetOutermost()->GetPathName();
+
+	// Level sequences might need to have their bindings fixed if they were bound in a previously unnamed, unsaved world
+	// So dirty the level sequences if the world was saved (renamed from Untitled to something else) for the first time
+	if (WorldPath.StartsWith(TEXT("/Temp/Untitled")))
+	{
+		for (const TPair< FName, TSoftObjectPtr< ULevelSequence > >& NameLevelSequencePair : LevelSequences)
+		{
+			const TSoftObjectPtr< ULevelSequence >& LevelSequence = NameLevelSequencePair.Value;
+			if (LevelSequence.IsValid())
+			{
+				LevelSequence->MarkPackageDirty();
+			}
+		}
+	}
+}
+#endif
 
 void UDatasmithScene::Serialize( FArchive& Archive )
 {
@@ -40,6 +96,30 @@ void UDatasmithScene::Serialize( FArchive& Archive )
 	if ( bIsEditorDataIncluded && BulkDataVersion >= DATASMITHSCENEBULKDATA_VER_INITIAL )
 	{
 		DatasmithSceneBulkData.Serialize( Archive, this );
+	}
+
+	if (Archive.IsLoading() && Archive.CustomVer(FEnterpriseObjectVersion::GUID) < FEnterpriseObjectVersion::HasUDatasmithDataPrepRecipe)
+	{
+		check(AssetImportData);
+		check(AssetImportData->StaticClass()->IsChildOf(UDatasmithSceneImportData::StaticClass()));
+
+		UDatasmithSceneImportData* SceneImportData = Cast<UDatasmithSceneImportData>(AssetImportData);
+
+		FDatasmithSceneInput SceneInput;
+
+		SceneInput.GUID = FGuid::NewGuid();
+
+		SceneInput.Options = NewObject<UDatasmithImportOptions>(this);
+
+		SceneInput.Options->FilePath = SceneImportData->GetFirstFilename();
+		SceneInput.Options->BaseOptions = SceneImportData->BaseOptions;
+
+		if (AssetImportData->IsA(UDatasmithCADImportSceneData::StaticClass()))
+		{
+			SceneInput.Options->TessellationOptions = Cast<UDatasmithCADImportSceneData>(AssetImportData)->TessellationOptions;
+		}
+
+		Imports.Add(MoveTemp(SceneInput));
 	}
 #endif // #if WITH_EDITORONLY_DATA
 }

@@ -15,6 +15,7 @@ struct MEDIAIOEDITOR_API FMediaIOPermutationsSelectorBuilder
 	static const FName NAME_Standard;
 	static const FName NAME_FrameRate;
 
+	static const FName NAME_InputType;
 	static const FName NAME_OutputType;
 	static const FName NAME_KeyPortSource;
 	static const FName NAME_OutputReference;
@@ -34,6 +35,11 @@ struct MEDIAIOEDITOR_API FMediaIOPermutationsSelectorBuilder
 	static bool Less(FName ColumnName, const FMediaIOConfiguration& Left, const FMediaIOConfiguration& Right);
 	static FText GetLabel(FName ColumnName, const FMediaIOConfiguration& Item);
 	static FText GetTooltip(FName ColumnName, const FMediaIOConfiguration& Item);
+
+	static bool IdenticalProperty(FName ColumnName, const FMediaIOInputConfiguration& Left, const FMediaIOInputConfiguration& Right);
+	static bool Less(FName ColumnName, const FMediaIOInputConfiguration& Left, const FMediaIOInputConfiguration& Right);
+	static FText GetLabel(FName ColumnName, const FMediaIOInputConfiguration& Item);
+	static FText GetTooltip(FName ColumnName, const FMediaIOInputConfiguration& Item);
 
 	static bool IdenticalProperty(FName ColumnName, const FMediaIOOutputConfiguration& Left, const FMediaIOOutputConfiguration& Right);
 	static bool Less(FName ColumnName, const FMediaIOOutputConfiguration& Left, const FMediaIOOutputConfiguration& Right);

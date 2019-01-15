@@ -20,6 +20,11 @@ void UDatasmithStaticMeshComponentTemplate::Apply( UObject* Destination, bool bF
 	{
 		StaticMeshComponent->SetStaticMesh( StaticMesh );
 	}
+
+	if ( !PreviousStaticMeshTemplate )
+	{
+		StaticMeshComponent->OverrideMaterials.Empty( OverrideMaterials.Num() );
+	}
 	
 	for ( int32 MaterialIndex = 0; MaterialIndex < OverrideMaterials.Num(); ++MaterialIndex )
 	{
@@ -46,6 +51,8 @@ void UDatasmithStaticMeshComponentTemplate::Apply( UObject* Destination, bool bF
 			}
 		}
 	}
+
+	StaticMeshComponent->MarkRenderStateDirty();
 
 	FDatasmithObjectTemplateUtils::SetObjectTemplate( Destination, this );
 #endif // #if WITH_EDITORONLY_DATA

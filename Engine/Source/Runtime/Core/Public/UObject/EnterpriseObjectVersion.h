@@ -24,6 +24,12 @@ struct CORE_API FEnterpriseObjectVersion
 		// Live Live timecode synchronization updates
 		LiveLinkTimeSynchronization,
 
+		// Deprecate MediaMode and MediaPort for from MediaConfiguration
+		AjaMediaConfiguration,
+
+		// Addition of pointer to UDatasmithDataPrepRecipe 
+		HasUDatasmithDataPrepRecipe,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

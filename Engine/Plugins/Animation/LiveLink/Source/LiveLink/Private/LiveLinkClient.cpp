@@ -109,6 +109,15 @@ void FLiveLinkSubject::AddFrame(const FLiveLinkFrameData& FrameData, FGuid Frame
 			Frame.ExtendCurveData(IntegrationData.NumNewCurves);
 		}
 	}
+	//save frame to any registered watcher
+	if (RecentAddedFramesMap.Num() > 0)
+	{
+		for (TPair<FGuid, FLiveLinkSavedRecentFrames>& Item : RecentAddedFramesMap)
+		{
+			FLiveLinkSavedRecentFrames& OutFrames = Item.Value;
+			OutFrames.Frames.Add(NewFrame);
+		}
+	}
 }
 
 int32 FLiveLinkSubject::AddFrame_Default(const FLiveLinkWorldTime& WorldTime, bool bSaveFrame)
@@ -151,6 +160,13 @@ int32 FLiveLinkSubject::AddFrame_Default(const FLiveLinkWorldTime& WorldTime, bo
 
 int32 FLiveLinkSubject::AddFrame_Interpolated(const FLiveLinkWorldTime& WorldTime, bool bSaveFrame)
 {
+	if (!bSaveFrame && (LastReadFrame > MIN_FRAMES_TO_REMOVE))
+	{
+		check(Frames.Num() > LastReadFrame);
+		Frames.RemoveAt(0, LastReadFrame - 1, false);
+		LastReadFrame = 1;
+	}
+
 	return AddFrame_Default(WorldTime, bSaveFrame);
 }
 
@@ -208,6 +224,7 @@ int32 FLiveLinkSubject::AddFrame_TimeSynchronized(const FFrameTime& FrameTime, b
 
 	return FindFrameIndex_TimeSynchronized</*bForInsert=*/true, bWithRollover>(FrameTime);
 }
+
 
 void FLiveLinkSubject::CopyFrameData(const FLiveLinkFrame& InFrame, FLiveLinkSubjectFrame& OutFrame)
 {
@@ -267,14 +284,31 @@ void FLiveLinkSubject::GetFrameAtSceneTime(const FQualifiedFrameTime& InSceneTim
 
 		if (TimeSyncData.IsSet())
 		{
+			/**
+			 * Get the actual frame of data at the specified time.
+			 * Note, unlike GetTimeSyncData which subtracts the offset from the Saved Frames' Timecodes,
+			 * we're adding the offset to the Incoming Timecode Value.
+			 *
+			 * The reason for this can be thought of as a simple translation between two spaces: Real Space and Source Space.
+			 * InSceneTime (and generally timecode the engine is using) is considered Real Space.
+			 * The timecode reported with our frames is considered Source Space.
+			 * `Source Space = Real Space + Offset`, and therefore `Real Space = Source Space - Offset`.
+			 *
+			 * We could just apply the offset on the frame's when they are Pushed to Live Link, but in general
+			 * we don't want to modify source data. Further, the Frame Offset is not available until synchronization
+			 * is started now, but it may change to be more dynamic in the future, and we don't want to have to
+			 * "restripe" the offsets in that case.
+			 */
 			const FFrameTime FrameTime = InSceneTime.ConvertTo(CachedSettings.TimeSynchronizationSettings->FrameRate);
 			if (TimeSyncData->RolloverModulus.IsSet())
 			{
-				GetFrameAtSceneTime_TimeSynchronized</*bWithRollover=*/true>(FrameTime, OutFrame);
+				const FFrameTime UseFrameTime = UTimeSynchronizationSource::AddOffsetWithRolloverModulus(FrameTime, TimeSyncData->Offset, TimeSyncData->RolloverModulus.GetValue());
+				GetFrameAtSceneTime_TimeSynchronized</*bWithRollover=*/true>(UseFrameTime, OutFrame);
 			}
 			else
 			{
-				GetFrameAtSceneTime_TimeSynchronized</*bWithRollover=*/false>(FrameTime, OutFrame);
+				const FFrameTime UseFrameTime = FrameTime + TimeSyncData->Offset;
+				GetFrameAtSceneTime_TimeSynchronized</*bWithRollover=*/false>(UseFrameTime, OutFrame);
 			}
 		}
 		else
@@ -689,6 +723,11 @@ void FLiveLinkClient::AddVirtualSubjectSource()
 
 void FLiveLinkClient::RemoveSourceInternal(int32 SourceIdx)
 {
+	FGuid Guid = SourceGuids[SourceIdx];
+	for (TPair<FName, TSet<FGuid>>& WhiteListSources : SourceWhiteList)
+	{
+		WhiteListSources.Value.Remove(Guid);
+	}
 	Sources.RemoveAtSwap(SourceIdx, 1, false);
 	SourceGuids.RemoveAtSwap(SourceIdx, 1, false);
 	SourceSettings.RemoveAtSwap(SourceIdx, 1, false);
@@ -720,6 +759,7 @@ void FLiveLinkClient::RemoveSource(TSharedPtr<ILiveLinkSource> InSource)
 
 void FLiveLinkClient::RemoveAllSources()
 {
+	SourceWhiteList.Reset();
 	LastValidationCheck = 0.0; //Force validation check next frame
 	SourcesToRemove = Sources;
 	Sources.Reset();
@@ -777,7 +817,26 @@ void FLiveLinkClient::PushSubjectData(FGuid SourceGuid, FName SubjectName, const
 
 	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
 	{
-		Subject->AddFrame(FrameData, SourceGuid, bSaveFrames);
+		//fast path first
+		if (SourceWhiteList.Num() <= 0) 
+		{
+			Subject->AddFrame(FrameData, SourceGuid, bSaveFrames);
+		}
+		else
+		{
+			TSet<FGuid>* WhiteListGuids = SourceWhiteList.Find(SubjectName);
+			if (WhiteListGuids && WhiteListGuids->Num() > 0)
+			{
+				if (WhiteListGuids->Find(SourceGuid))
+				{
+					Subject->AddFrame(FrameData, SourceGuid, bSaveFrames);
+				}
+			}
+			else
+			{
+				Subject->AddFrame(FrameData, SourceGuid, bSaveFrames);
+			}
+		}
 	}
 }
 
@@ -839,7 +898,7 @@ const FLiveLinkSubjectFrame* FLiveLinkClient::GetSubjectDataAtSceneTime(FName Su
 	return OutFrame;
 }
 
-const TArray<FLiveLinkFrame>*	FLiveLinkClient::GetSubjectRawFrames(FName SubjectName)
+const TArray<FLiveLinkFrame>* FLiveLinkClient::GetSubjectRawFrames(FName SubjectName)
 {
 	FLiveLinkSubject* Subject;
 	FScopeLock Lock(&SubjectDataAccessCriticalSection);
@@ -851,6 +910,83 @@ const TArray<FLiveLinkFrame>*	FLiveLinkClient::GetSubjectRawFrames(FName Subject
 		Frames = &Subject->Frames;
 	}
 	return Frames;
+}
+
+FGuid FLiveLinkClient::StartRecordingLiveLink(const FName& SubjectName)
+{
+	FGuid Guid = FGuid::NewGuid();
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	
+	if ( FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName) )
+	{
+		Subject->AddLiveLinkFrameAddedWatcher(Guid);
+	}
+
+	return Guid;
+}
+
+
+FGuid FLiveLinkClient::StartRecordingLiveLink(const TArray<FName>& SubjectNames)
+{
+	FGuid Guid = FGuid::NewGuid();
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	
+	for (FName SubjectName: SubjectNames)
+	{
+		FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName);
+		if (Subject)
+		{
+			Subject->AddLiveLinkFrameAddedWatcher(Guid);
+		}
+	}
+	return Guid;
+}
+
+void FLiveLinkClient::StopRecordingLiveLinkData(const FGuid &InGuid, const FName& SubjectName)
+{
+	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
+	{
+		Subject->RemoveLiveLinkFrameAddedWatcher(InGuid);
+	}
+}
+
+
+void FLiveLinkClient::StopRecordingLiveLinkData(const FGuid &InGuid, const TArray<FName>& SubjectNames)
+{
+	for (FName SubjectName : SubjectNames)
+	{
+		FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName);
+		if (Subject)
+		{
+			Subject->RemoveLiveLinkFrameAddedWatcher(InGuid);
+		}
+	}
+}
+
+void FLiveLinkClient::GetAndFreeLastRecordedFrames(const FGuid& InHandlerGuid, FName SubjectName, TArray<FLiveLinkFrame> &OutFrames)
+{
+	FLiveLinkSubject* Subject;
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+	Subject = LiveSubjectData.Find(SubjectName);
+	if (Subject != nullptr)
+	{
+		Subject->GetAndClearFramesForWatcher(InHandlerGuid, OutFrames);
+	}
+
+}
+
+bool FLiveLinkClient::IsSubjectTimeSynchronized(FName SubjectName)
+{
+	FLiveLinkSubject* Subject;
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+	Subject = LiveSubjectData.Find(SubjectName);
+	if (Subject != nullptr)
+	{
+		return (Subject->IsTimeSynchronized());
+	}
+	return false;
 }
 
 TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
@@ -896,8 +1032,42 @@ FLiveLinkSubjectTimeSyncData FLiveLinkSubject::GetTimeSyncData()
 
 	if (SyncData.bIsValid)
 	{
-		SyncData.NewestSampleTime = Frames.Last().MetaData.SceneTime.Time;
-		SyncData.OldestSampleTime = Frames[0].MetaData.SceneTime.Time;
+		if (TimeSyncData.IsSet())
+		{
+			/**
+			* It's possible that the Timecode received by the Subject / Source doesn't align perfectly with other Timecode
+			* Sources. This is because there is inherent delays between the initial transmission of a timecode signal
+			* and its receipt on any given source machine. This can further be exacerbated if the source doesn't associate
+			* timecode with a frame of data until after it's finished processing it.
+			* To make things align properly in that case, users specify an additional FrameOffset for Subjects.
+			*
+			* For example, a Subject may report that it is at timecode X, whereas the raw source data that was processed
+			* to generate that frame may correspond to timecode X-O (where O = offset).
+			*
+			* To compensate for that, we will just report our frame data shifted over by the offset here, and then adjust
+			* the desired timecode in GetFrameAtSceneTime.
+			*/
+			const int32 FrameOffset = TimeSyncData->Offset;
+
+			if (!TimeSyncData->RolloverModulus.IsSet())
+			{
+				SyncData.NewestSampleTime = Frames.Last().MetaData.SceneTime.Time - FrameOffset;
+				SyncData.OldestSampleTime = Frames[0].MetaData.SceneTime.Time - FrameOffset;
+			}
+			else
+			{
+				const FFrameTime& RolloverModulus = TimeSyncData->RolloverModulus.GetValue();
+				SyncData.NewestSampleTime = UTimeSynchronizationSource::AddOffsetWithRolloverModulus(Frames.Last().MetaData.SceneTime.Time, -FrameOffset, RolloverModulus);
+				SyncData.OldestSampleTime = UTimeSynchronizationSource::AddOffsetWithRolloverModulus(Frames[0].MetaData.SceneTime.Time, -FrameOffset, RolloverModulus);
+			}
+		}
+		else
+		{
+			SyncData.NewestSampleTime = Frames.Last().MetaData.SceneTime.Time;
+			SyncData.OldestSampleTime = Frames[0].MetaData.SceneTime.Time;
+		}
+		
+
 		SyncData.SkeletonGuid = RefSkeletonGuid;
 	}
 
@@ -952,12 +1122,16 @@ int32 FLiveLinkClient::GetSourceIndexForGUID(FGuid InEntryGuid) const
 
 TSharedPtr<ILiveLinkSource> FLiveLinkClient::GetSourceForGUID(FGuid InEntryGuid) const
 {
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
 	int32 Idx = GetSourceIndexForGUID(InEntryGuid);
 	return Idx != INDEX_NONE ? Sources[Idx] : nullptr;
 }
 
 FText FLiveLinkClient::GetSourceTypeForEntry(FGuid InEntryGuid) const
 {
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
 	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
 	if (Source.IsValid())
 	{
@@ -968,6 +1142,8 @@ FText FLiveLinkClient::GetSourceTypeForEntry(FGuid InEntryGuid) const
 
 FText FLiveLinkClient::GetMachineNameForEntry(FGuid InEntryGuid) const
 {
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
 	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
 	if (Source.IsValid())
 	{
@@ -978,6 +1154,8 @@ FText FLiveLinkClient::GetMachineNameForEntry(FGuid InEntryGuid) const
 
 bool FLiveLinkClient::ShowSourceInUI(FGuid InEntryGuid) const
 {
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
 	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
 	if (Source.IsValid())
 	{
@@ -993,6 +1171,8 @@ bool FLiveLinkClient::IsVirtualSubject(const FLiveLinkSubjectKey& Subject) const
 
 FText FLiveLinkClient::GetEntryStatusForEntry(FGuid InEntryGuid) const
 {
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
 	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
 	if (Source.IsValid())
 	{
@@ -1093,7 +1273,7 @@ void FLiveLinkClient::OnStopSynchronization(FName SubjectName)
 
 void FLiveLinkSubject::OnStartSynchronization(const FTimeSynchronizationOpenData& OpenData, const int32 FrameOffset)
 {
-	if (ensure(CachedSettings.SourceMode == ELiveLinkSourceMode::TimeSynchronized))
+	if (CachedSettings.SourceMode == ELiveLinkSourceMode::TimeSynchronized)
 	{
 		ensure(!TimeSyncData.IsSet());
 		TimeSyncData = FLiveLinkTimeSynchronizationData();
@@ -1117,21 +1297,86 @@ void FLiveLinkSubject::OnStartSynchronization(const FTimeSynchronizationOpenData
 
 void FLiveLinkSubject::OnSynchronizationEstablished(const struct FTimeSynchronizationStartData& StartData)
 {
-	if (ensure(CachedSettings.SourceMode == ELiveLinkSourceMode::TimeSynchronized))
+	if (CachedSettings.SourceMode == ELiveLinkSourceMode::TimeSynchronized)
 	{
-		TimeSyncData->SyncStartTime = StartData.StartFrame;
-		TimeSyncData->bHasEstablishedSync = true;
+		if (TimeSyncData.IsSet())
+		{
+			TimeSyncData->SyncStartTime = StartData.StartFrame;
+			TimeSyncData->bHasEstablishedSync = true;
 
-		// Prevent buffers from being deleted if new data is pushed before we build snapshots.
-		LastReadTime = 0.f;
-		LastReadFrame = 0.f;
+			// Prevent buffers from being deleted if new data is pushed before we build snapshots.
+			LastReadTime = 0.f;
+			LastReadFrame = 0.f;
+		}
+		else
+		{
+			UE_LOG(LogLiveLink, Warning, TEXT("OnSynchronizationEstablished called with invalid TimeSyncData. Subject may have switched modes or been recreated. %s"), *Name.ToString());
+		}
+	}
+	else
+	{
+		TimeSyncData.Reset();
 	}
 }
 
 void FLiveLinkSubject::OnStopSynchronization()
 {
-	if (ensure(CachedSettings.SourceMode == ELiveLinkSourceMode::TimeSynchronized))
+	TimeSyncData.Reset();
+}
+
+
+void FLiveLinkSubject::AddLiveLinkFrameAddedWatcher(const FGuid& InGuid)
+{
+	FLiveLinkSavedRecentFrames RecentFrames;
+	RecentFrames.Guid = InGuid;
+	RecentAddedFramesMap.Add(InGuid, RecentFrames);
+}
+
+void FLiveLinkSubject::RemoveLiveLinkFrameAddedWatcher(const FGuid& InGuid)
+{
+	RecentAddedFramesMap.Remove(InGuid);
+}
+
+void FLiveLinkSubject::GetAndClearFramesForWatcher(const FGuid& InGuid, TArray<FLiveLinkFrame>& OutFrames)
+{
+	FLiveLinkSavedRecentFrames* RecentFrames = RecentAddedFramesMap.Find(InGuid);
+	if (RecentFrames)
 	{
-		TimeSyncData.Reset();
+		OutFrames = RecentFrames->Frames;
+		RecentFrames->Frames.Reset();
 	}
+	else  //make sure frames are cleared
+	{
+		OutFrames.Reset();
+	}	
+}
+
+void FLiveLinkClient::AddSourceToSubjectWhiteList(FName SubjectName, FGuid SourceGuid)
+{
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	TSet<FGuid>& WhiteListGuids = SourceWhiteList.FindOrAdd(SubjectName);
+	if (!WhiteListGuids.Find(SourceGuid))
+	{
+		WhiteListGuids.Add(SourceGuid);
+	}
+}
+
+void FLiveLinkClient::RemoveSourceFromSubjectWhiteList(FName SubjectName, FGuid SourceGuid)
+{
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	TSet<FGuid>* WhiteListGuids = SourceWhiteList.Find(SubjectName);
+	if (WhiteListGuids)
+	{
+		WhiteListGuids->Remove(SourceGuid);
+		if (WhiteListGuids->Num() <= 0)
+		{
+			SourceWhiteList.Remove(SubjectName);
+		}
+	}
+}
+
+void FLiveLinkClient::ClearSourceWhiteLists()
+{
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	SourceWhiteList.Reset();
 }

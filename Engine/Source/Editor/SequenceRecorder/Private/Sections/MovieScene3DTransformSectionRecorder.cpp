@@ -274,7 +274,7 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection(float CurrentTime)
 	if (BufferedTransforms.Times.Num())
 	{
 		FirstTransform.SetTranslation(FVector(BufferedTransforms.LocationX[0], BufferedTransforms.LocationY[0], BufferedTransforms.LocationZ[0]));
-		FirstTransform.SetRotation(FQuat(FRotator(BufferedTransforms.RotationX[0], BufferedTransforms.RotationY[0], BufferedTransforms.RotationZ[0])));
+		FirstTransform.SetRotation(FQuat(FRotator(BufferedTransforms.RotationY[0], BufferedTransforms.RotationZ[0], BufferedTransforms.RotationX[0])));
 		FirstTransform.SetScale3D(FVector(BufferedTransforms.ScaleX[0], BufferedTransforms.ScaleY[0], BufferedTransforms.ScaleZ[0]));
 	}
 
@@ -290,7 +290,14 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection(float CurrentTime)
 
 		for (FMovieSceneFloatChannel* Channel : FloatChannels)
 		{
-			MovieScene::Optimize(Channel, Params);
+			Channel->Optimize(Params);
+		}
+	}
+	else
+	{
+		for (FMovieSceneFloatChannel* Channel : FloatChannels)
+		{
+			Channel->AutoSetTangents();
 		}
 	}
 

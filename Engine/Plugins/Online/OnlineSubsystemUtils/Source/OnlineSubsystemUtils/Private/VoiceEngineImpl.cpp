@@ -507,10 +507,7 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& Remote
 	// Generate a streaming wave audio component for voice playback
 	if (QueuedData.VoipSynthComponent == nullptr || QueuedData.VoipSynthComponent->IsPendingKill())
 	{
-		if (SerializeHelper == nullptr)
-		{
-			SerializeHelper = new FVoiceSerializeHelper(this);
-		}
+		CreateSerializeHelper();
 
 		QueuedData.VoipSynthComponent = CreateVoiceSynthComponent(UVOIPStatics::GetVoiceSampleRate());
 		if (QueuedData.VoipSynthComponent)
@@ -762,4 +759,10 @@ int32 FVoiceEngineImpl::GetMaxVoiceRemainderSize()
 	return MAX_VOICE_REMAINDER_SIZE;
 }
 
-
+void FVoiceEngineImpl::CreateSerializeHelper()
+{
+	if (SerializeHelper == nullptr)
+	{
+		SerializeHelper = new FVoiceSerializeHelper(this);
+	}
+}

@@ -188,8 +188,8 @@ public:
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const = 0;
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const = 0;
 
-	/** @return If the currently focused sequence is active in the sequence hierarchy. */
-	virtual bool GetFocusedSequenceIsActive() const = 0;
+	/** Attempt to locate the sub section that relates to the specified sequence ID. */
+	virtual UMovieSceneSubSection* FindSubSection(FMovieSceneSequenceID SequenceID) const = 0;
 
 	TArrayView<TWeakObjectPtr<>> FindObjectsInCurrentSequence(const FGuid& InObjectBinding)
 	{
@@ -325,6 +325,9 @@ public:
 	/** Forcefully reevaluate the sequence */
 	virtual void ForceEvaluate() = 0;
 
+	/** Reset the timing manager to the clock source specified by the root movie scene */
+	virtual void ResetTimeController() = 0;
+
 	/** @return The current view range */
 	virtual FAnimatedRange GetViewRange() const
 	{
@@ -414,9 +417,10 @@ public:
 	 * 
 	 * @param Object The object to get a handle for.
 	 * @param bCreateHandleIfMissing Create a handle if it doesn't exist.
+	 * @param CreatedFolderName - The name of the folder to place the created objects in (if bCreateHandleIfMissing is true).
 	 * @return The handle to the object.
 	 */
-	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true) = 0;
+	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true, const FName& CreatedFolderName = NAME_None) = 0;
 
 	/**
 	 * @return Returns the object change listener for sequencer instance
@@ -522,6 +526,9 @@ public:
 
 	/** Getter for sequencer settings */
 	virtual USequencerSettings* GetSequencerSettings() = 0;
+
+	/** Setter for sequencer settings */
+	virtual void SetSequencerSettings(USequencerSettings*) = 0;
 
 	/** Attempt to find a spawned object in the currently focused movie scene, or the template object for the specified binding ID, if possible */
 	virtual UObject* FindSpawnedObjectOrTemplate(const FGuid& BindingId) = 0;

@@ -44,7 +44,8 @@ void UNavArea::PostInitProperties()
 
 void UNavArea::RegisterArea()
 {
-	if (HasAnyFlags(RF_ClassDefaultObject)
+	if (HasAnyFlags(RF_ClassDefaultObject) && 
+		!HasAnyFlags(RF_NeedInitialization)  // Don't register BP Area that has still not finished loaded their properties, it was also try again to register later via UNavArea::PostLoad()
 #if WITH_HOT_RELOAD
 		&& !GIsHotReload
 #endif // WITH_HOT_RELOAD

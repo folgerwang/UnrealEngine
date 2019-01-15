@@ -40,6 +40,7 @@
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
 #include "RendererModule.h"
+#include "SceneViewExtension.h"
 
 const TCHAR* GShaderSourceModeDefineName[] =
 {
@@ -711,8 +712,35 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponent2D* CaptureCompone
 			CaptureComponent->PostProcessBlendWeight,
 			CaptureComponent->GetViewOwner());
 
+		SceneRenderer->Views[0].bFogOnlyOnRenderedOpaque = CaptureComponent->bConsiderUnrenderedOpaquePixelAsFullyTranslucent;
+
 		SceneRenderer->ViewFamily.SceneCaptureSource = CaptureComponent->CaptureSource;
 		SceneRenderer->ViewFamily.SceneCaptureCompositeMode = CaptureComponent->CompositeMode;
+
+		// Process Scene View extensions for the capture component
+		{
+			for (int32 Index = 0; Index < CaptureComponent->SceneViewExtensions.Num(); ++Index)
+			{
+				TSharedPtr<ISceneViewExtension, ESPMode::ThreadSafe> Extension = CaptureComponent->SceneViewExtensions[Index].Pin();
+				if (Extension.IsValid())
+				{
+					if (Extension->IsActiveThisFrame(nullptr))
+					{
+						SceneRenderer->ViewFamily.ViewExtensions.Add(Extension.ToSharedRef());
+					}
+				}
+				else
+				{
+					CaptureComponent->SceneViewExtensions.RemoveAt(Index, 1, false);
+					--Index;
+				}
+			}
+
+			for (const TSharedRef<ISceneViewExtension, ESPMode::ThreadSafe>& Extension : SceneRenderer->ViewFamily.ViewExtensions)
+			{
+				Extension->SetupViewFamily(SceneRenderer->ViewFamily);
+			}
+		}
 
 		{
 			FPlane ClipPlane = FPlane(CaptureComponent->ClipPlaneBase, CaptureComponent->ClipPlaneNormal.GetSafeNormal());
@@ -726,6 +754,11 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponent2D* CaptureCompone
 					View.GlobalClippingPlane = ClipPlane;
 					// Jitter can't be removed completely due to the clipping plane
 					View.bAllowTemporalJitter = false;
+				}
+
+				for (const TSharedRef<ISceneViewExtension, ESPMode::ThreadSafe>& Extension : SceneRenderer->ViewFamily.ViewExtensions)
+				{
+					Extension->SetupView(SceneRenderer->ViewFamily, View);
 				}
 			}
 		}

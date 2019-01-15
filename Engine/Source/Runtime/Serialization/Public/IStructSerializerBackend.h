@@ -3,6 +3,36 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
+
+/**
+ * Flags controlling the behavior of struct serializer backends.
+ */
+enum class EStructSerializerBackendFlags
+{
+	/**
+	 * No special behavior.
+	 */
+	None = 0,
+
+	/**
+	 * Write text in its complex exported format (eg, NSLOCTEXT(...)) rather than as a simple string.
+	 * @note This is required to correctly support localization
+	 */
+	WriteTextAsComplexString = 1<<0,
+
+	/**
+	 * Legacy settings for backwards compatibility with code compiled prior to 4.22.
+	 */
+	Legacy = None,
+
+	/**
+	 * Default settings for code compiled for 4.22 onwards.
+	 */
+	Default = WriteTextAsComplexString,
+};
+ENUM_CLASS_FLAGS(EStructSerializerBackendFlags);
+
 
 /**
  * Structure for the write state stack.

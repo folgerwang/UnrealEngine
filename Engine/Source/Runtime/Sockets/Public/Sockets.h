@@ -237,6 +237,18 @@ public:
 	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) = 0;
 
 	/**
+	 * Joins this socket to the specified multicast group on the specified interface.
+	 *
+	 * The multicast group address must be in the range 224.0.0.0 to 239.255.255.255.
+	 *
+	 * @param GroupAddress The IP address of the multicast group.
+	 * @param InterfaceAddress The address representing the interface.
+	 * @return true on success, false otherwise.
+	 * @see LeaveMulticastGroup, SetMulticastLoopback, SetMulticastTtl
+	 */
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) = 0;
+
+	/**
 	 * Removes this UDP client from the specified multicast group.
 	 *
 	 * @param The multicast group address to leave.
@@ -244,6 +256,16 @@ public:
 	 * @see JoinMulticastGroup, SetMulticastLoopback, SetMulticastTtl
 	 */
 	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) = 0;
+
+	/**
+	 * Removes this UDP client from the specified multicast group on the specified interface.
+	 *
+	 * @param GroupAddress The multicast group address to leave.
+	 * @param InterfaceAddress The address representing the interface.
+	 * @return true on success, false otherwise.
+	 * @see JoinMulticastGroup, SetMulticastLoopback, SetMulticastTtl
+	 */
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) = 0;
 
 	/**
 	 * Enables or disables multicast loopback on the socket (UDP only).
@@ -270,6 +292,17 @@ public:
 	 * @see LeaveMulticastGroup, JoinMulticastGroup, SetMulticastLoopback
 	 */
 	virtual bool SetMulticastTtl(uint8 TimeToLive) = 0;
+
+	/**
+	 * Sets the interface used to send outgoing multicast datagrams.
+	 *
+	 * Multicast traffic is sent using the default interface, this allows 
+	 * to explicitly set the interface used to send outgoing multicast datagrams.
+	 *
+	 * @param InterfaceAddress The interface address.
+	 * @return true if the call succeeded, false otherwise.
+	 */
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) = 0;
 
 	/**
 	 * Sets whether a socket can be bound to an address in use.

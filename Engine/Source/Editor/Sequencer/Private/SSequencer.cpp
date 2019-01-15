@@ -2,6 +2,8 @@
 
 #include "SSequencer.h"
 #include "Engine/Blueprint.h"
+#include "MovieSceneSequence.h"
+#include "Sections/MovieSceneSubSection.h"
 #include "MovieScene.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
 #include "Widgets/Text/STextBlock.h"
@@ -107,28 +109,34 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 	USequencerSettings* SequencerSettings = Settings;
 
 	// Get the desired display format from the user's settings each time.
-	auto GetDisplayFormatDelegate = FOnGetDisplayFormat::CreateLambda([SequencerSettings]() ->EFrameNumberDisplayFormats {
-		if (SequencerSettings)
+	TAttribute<EFrameNumberDisplayFormats> GetDisplayFormatAttr = MakeAttributeLambda(
+		[SequencerSettings]
 		{
-			return SequencerSettings->GetTimeDisplayFormat();
+			if (SequencerSettings)
+			{
+				return SequencerSettings->GetTimeDisplayFormat();
+			}
+			return EFrameNumberDisplayFormats::Frames;
 		}
-		return EFrameNumberDisplayFormats::Frames;
-	});
+	);
 
 	// Get the number of zero pad frames from the user's settings as well.
-	auto GetZeroPadFramesDelegate = FOnGetZeroPad::CreateLambda([SequencerSettings]() -> uint8 {
-		if (SequencerSettings)
+	TAttribute<uint8> GetZeroPadFramesAttr = MakeAttributeLambda(
+		[SequencerSettings]()->uint8
 		{
-			return SequencerSettings->GetZeroPadFrames();
+			if (SequencerSettings)
+			{
+				return SequencerSettings->GetZeroPadFrames();
+			}
+			return 0;
 		}
-		return 0;
-	});
+	);
 
-	auto GetTickResolutionDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedTickResolution);
-	auto GetDisplayRateDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedDisplayRate);
+	TAttribute<FFrameRate> GetTickResolutionAttr = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedTickResolution);
+	TAttribute<FFrameRate> GetDisplayRateAttr    = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedDisplayRate);
 
 	// Create our numeric type interface so we can pass it to the time slider below.
-	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatDelegate, GetZeroPadFramesDelegate, GetTickResolutionDelegate, GetDisplayRateDelegate));
+	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatAttr, GetZeroPadFramesAttr, GetTickResolutionAttr, GetDisplayRateAttr));
 
 	FTimeSliderArgs TimeSliderArgs;
 	{
@@ -155,6 +163,7 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 		TimeSliderArgs.OnScrubPositionChanged = InArgs._OnScrubPositionChanged;
 		TimeSliderArgs.PlaybackStatus = InArgs._PlaybackStatus;
 		TimeSliderArgs.SubSequenceRange = InArgs._SubSequenceRange;
+		TimeSliderArgs.VerticalFrames = InArgs._VerticalFrames;
 		TimeSliderArgs.MarkedFrames = InArgs._MarkedFrames;
 		TimeSliderArgs.OnMarkedFrameChanged = InArgs._OnMarkedFrameChanged;
 		TimeSliderArgs.OnClearAllMarkedFrames = InArgs._OnClearAllMarkedFrames;
@@ -1635,20 +1644,11 @@ void SSequencer::UpdateBreadcrumbs()
 
 	if( BreadcrumbTrail->PeekCrumb().BreadcrumbType == FSequencerBreadcrumb::MovieSceneType && BreadcrumbTrail->PeekCrumb().SequenceID != FocusedID )
 	{
-		FText CrumbName;
-		if(Sequencer->GetFocusedSequenceIsActive())
-		{
-			CrumbName = Sequencer->GetFocusedMovieSceneSequence()->GetDisplayName();
-		}
-		else
-		{
-			CrumbName = FText::Format(LOCTEXT("InactiveSequenceBreadcrumbFormat", "{0} [{1}]"),
-				Sequencer->GetFocusedMovieSceneSequence()->GetDisplayName(),
-				LOCTEXT("InactiveSequenceBreadcrumb", "Inactive"));
-		}
-			
+		TWeakObjectPtr<UMovieSceneSubSection> SubSection = Sequencer->FindSubSection(FocusedID);
+		TAttribute<FText> CrumbNameAttribute = MakeAttributeSP(this, &SSequencer::GetBreadcrumbTextForSection, SubSection);
+
 		// The current breadcrumb is not a moviescene so we need to make a new breadcrumb in order return to the parent moviescene later
-		BreadcrumbTrail->PushCrumb( CrumbName, FSequencerBreadcrumb( FocusedID ) );
+		BreadcrumbTrail->PushCrumb( CrumbNameAttribute, FSequencerBreadcrumb( FocusedID ) );
 	}
 }
 
@@ -1656,7 +1656,9 @@ void SSequencer::UpdateBreadcrumbs()
 void SSequencer::ResetBreadcrumbs()
 {
 	BreadcrumbTrail->ClearCrumbs();
-	BreadcrumbTrail->PushCrumb(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequencer::GetRootAnimationName)), FSequencerBreadcrumb(MovieSceneSequenceID::Root));
+
+	TAttribute<FText> CrumbNameAttribute = MakeAttributeSP(this, &SSequencer::GetBreadcrumbTextForSequence, MakeWeakObjectPtr(SequencerPtr.Pin()->GetRootMovieSceneSequence()), true);
+	BreadcrumbTrail->PushCrumb(CrumbNameAttribute, FSequencerBreadcrumb(MovieSceneSequenceID::Root));
 }
 
 void SSequencer::PopBreadcrumb()
@@ -2017,9 +2019,8 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 			TSet<TSharedRef<FSequencerDisplayNode>> RootNodes( Sequencer->GetNodeTree()->GetRootNodes() );
 
 			TSet<TWeakObjectPtr<AActor> > LockedActors;
-			for ( int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i )
+			for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 			{
-				FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
 				if ( LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown )
 				{
 					TWeakObjectPtr<AActor> ActorLock = LevelVC->GetActiveActorLock();
@@ -2127,6 +2128,29 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 				Sequencer->SetLocalTime( StepToTime.GetValue() );
 			}
 		}
+	}
+}
+
+
+FText SSequencer::GetBreadcrumbTextForSection(TWeakObjectPtr<UMovieSceneSubSection> SubSection) const
+{
+	UMovieSceneSubSection* SubSectionPtr = SubSection.Get();
+	return SubSectionPtr ? GetBreadcrumbTextForSequence(SubSectionPtr->GetSequence(), SubSectionPtr->IsActive()) : FText();
+}
+
+
+FText SSequencer::GetBreadcrumbTextForSequence(TWeakObjectPtr<UMovieSceneSequence> Sequence, bool bIsActive) const
+{
+	UMovieSceneSequence* SequencePtr = Sequence.Get();
+	if (bIsActive)
+	{
+		return SequencePtr->GetDisplayName();
+	}
+	else
+	{
+		return FText::Format(LOCTEXT("InactiveSequenceBreadcrumbFormat", "{0} [{1}]"),
+			SequencePtr->GetDisplayName(),
+			LOCTEXT("InactiveSequenceBreadcrumb", "Inactive"));
 	}
 }
 
@@ -2444,13 +2468,27 @@ void SSequencer::OnSetSequenceReadOnly(ECheckBoxState CheckBoxState)
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	
+	bool bReadOnly = CheckBoxState == ECheckBoxState::Checked;
+
 	if (Sequencer->GetFocusedMovieSceneSequence())
 	{
 		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 		const FScopedTransaction Transaction(CheckBoxState == ECheckBoxState::Checked ? LOCTEXT("LockMovieScene", "Lock Movie Scene") : LOCTEXT("UnlockMovieScene", "Unlock Movie Scene") );
 
 		MovieScene->Modify();
-		MovieScene->SetReadOnly(CheckBoxState == ECheckBoxState::Checked);
+		MovieScene->SetReadOnly(bReadOnly);
+
+		TArray<UMovieScene*> DescendantMovieScenes;
+		MovieSceneHelpers::GetDescendantMovieScenes(Sequencer->GetFocusedMovieSceneSequence(), DescendantMovieScenes);
+
+		for (UMovieScene* DescendantMovieScene : DescendantMovieScenes)
+		{
+			if (DescendantMovieScene && bReadOnly != DescendantMovieScene->IsReadOnly())
+			{
+				DescendantMovieScene->Modify();
+				DescendantMovieScene->SetReadOnly(bReadOnly);
+			}
+		}
 
 		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::Unknown);
 	}

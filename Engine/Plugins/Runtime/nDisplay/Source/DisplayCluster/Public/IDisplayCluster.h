@@ -8,19 +8,20 @@
 #include "DisplayClusterOperationMode.h"
 
 
-struct IDisplayClusterRenderManager;
-struct IDisplayClusterClusterManager;
-struct IDisplayClusterInputManager;
-struct IDisplayClusterConfigManager;
-struct IDisplayClusterGameManager;
+class IDisplayClusterRenderManager;
+class IDisplayClusterClusterManager;
+class IDisplayClusterInputManager;
+class IDisplayClusterConfigManager;
+class IDisplayClusterGameManager;
 
 
 /**
  * Public module interface
  */
-struct IDisplayCluster
+class IDisplayCluster
 	: public IModuleInterface
 {
+public:
 	static constexpr auto ModuleName = "DisplayCluster";
 
 	virtual ~IDisplayCluster() = 0

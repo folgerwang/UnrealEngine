@@ -34,20 +34,25 @@ namespace UnrealBuildTool
 		Intel,
 
 		/// <summary>
-		/// Visual Studio 2013 (Visual C++ 12.0)
+		/// Visual Studio 2015 (Visual C++ 14.0)
 		/// </summary>
-		[Obsolete("UE4 does not support building Visual Studio 2013 targets from the 4.16 release onwards.")]
-		VisualStudio2013,
+		VisualStudio2015_DEPRECATED,
 
 		/// <summary>
 		/// Visual Studio 2015 (Visual C++ 14.0)
 		/// </summary>
-		VisualStudio2015,
+		[Obsolete("UE4 does not support building Visual Studio 2015 targets from the 4.22 release onwards.")]
+		VisualStudio2015 = VisualStudio2015_DEPRECATED,
 
 		/// <summary>
 		/// Visual Studio 2017 (Visual C++ 15.0)
 		/// </summary>
 		VisualStudio2017,
+
+		/// <summary>
+		/// Visual Studio 2019 (Visual C++ 16.0)
+		/// </summary>
+		VisualStudio2019,
 	}
 
 	/// <summary>
@@ -83,6 +88,7 @@ namespace UnrealBuildTool
 		[XmlConfigFile(Category = "WindowsPlatform")]
 		[CommandLine("-2015", Value = "VisualStudio2015")]
 		[CommandLine("-2017", Value = "VisualStudio2017")]
+		[CommandLine("-2019", Value = "VisualStudio2019")]
 		public WindowsCompiler Compiler = WindowsCompiler.Default;
 
 		/// <summary>
@@ -123,7 +129,7 @@ namespace UnrealBuildTool
 		public string CopyrightNotice;
 
 		/// <summary>
-		/// The project's name.
+		/// The product name.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Game, "/Script/EngineSettings.GeneralProjectSettings", "ProjectName")]
 		public string ProductName;
@@ -159,7 +165,7 @@ namespace UnrealBuildTool
 		/// Microsoft provides legacy_stdio_definitions library to enable building with VS2015 until they fix everything up.
 		public bool bNeedsLegacyStdioDefinitionsLib
 		{
-			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.Clang; }
+			get { return Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019 || Compiler == WindowsCompiler.Clang; }
 		}
 
 		/// <summary>
@@ -236,8 +242,9 @@ namespace UnrealBuildTool
 			{
 				case WindowsCompiler.Clang:
 				case WindowsCompiler.Intel:
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 				case WindowsCompiler.VisualStudio2017:
+				case WindowsCompiler.VisualStudio2019:
 					return "2015"; // VS2017 is backwards compatible with VS2015 compiler
 
 				default:
@@ -404,7 +411,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
 		/// </summary>
-		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("6.0.0");
+		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("7.1.0");
 
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
@@ -414,7 +421,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default Windows SDK version to be used, if installed.
 		/// </summary>
-		static readonly VersionNumber DefaultVersion = VersionNumber.Parse("10.0.16299.0");
+		static readonly VersionNumber DefaultWindowsSdkVersion = VersionNumber.Parse("10.0.16299.0");
 
 		/// <summary>
 		/// Cache of Visual Studio installation directories
@@ -486,11 +493,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override void ValidateTarget(TargetRules Target)
 		{
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 
@@ -575,17 +579,33 @@ namespace UnrealBuildTool
 		internal static WindowsCompiler GetDefaultCompiler(FileReference ProjectFile)
 		{
 			// If there's no specific compiler set, try to pick the matching compiler for the selected IDE
+			if(ProjectFileGeneratorSettings.Format != null)
+			{
+				foreach(ProjectFileFormat Format in ProjectFileGeneratorSettings.ParseFormatList(ProjectFileGeneratorSettings.Format))
+				{
+					if (Format == ProjectFileFormat.VisualStudio2019)
+					{
+						return WindowsCompiler.VisualStudio2019;
+					}
+					else if (Format == ProjectFileFormat.VisualStudio2017)
+					{
+						return WindowsCompiler.VisualStudio2017;
+					}
+				} 
+			}
+
+			// Also check the default format for the Visual Studio project generator
 			object ProjectFormatObject;
 			if (XmlConfig.TryGetValue(typeof(VCProjectFileGenerator), "Version", out ProjectFormatObject))
 			{
 				VCProjectFileFormat ProjectFormat = (VCProjectFileFormat)ProjectFormatObject;
-				if (ProjectFormat == VCProjectFileFormat.VisualStudio2017)
+				if (ProjectFormat == VCProjectFileFormat.VisualStudio2019)
+				{
+					return WindowsCompiler.VisualStudio2019;
+				}
+				else if (ProjectFormat == VCProjectFileFormat.VisualStudio2017)
 				{
 					return WindowsCompiler.VisualStudio2017;
-				}
-				else if (ProjectFormat == VCProjectFileFormat.VisualStudio2015)
-				{
-					return WindowsCompiler.VisualStudio2015;
 				}
 			}
 
@@ -593,14 +613,14 @@ namespace UnrealBuildTool
 			ProjectFileFormat PreferredAccessor;
 			if(ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredAccessor))
 			{
-				if(PreferredAccessor == ProjectFileFormat.VisualStudio2017)
+				if(PreferredAccessor == ProjectFileFormat.VisualStudio2019)
+			    {
+				    return WindowsCompiler.VisualStudio2019;
+			    }
+				else if(PreferredAccessor == ProjectFileFormat.VisualStudio2017)
 			    {
 				    return WindowsCompiler.VisualStudio2017;
 			    }
-				else if(PreferredAccessor == ProjectFileFormat.VisualStudio2015)
-				{
-					return WindowsCompiler.VisualStudio2015;
-				}
 			}
 
 			// Second, default based on what's installed, test for 2015 first
@@ -608,9 +628,9 @@ namespace UnrealBuildTool
 			{
 				return WindowsCompiler.VisualStudio2017;
 			}
-			if (HasCompiler(WindowsCompiler.VisualStudio2015))
+			if (HasCompiler(WindowsCompiler.VisualStudio2019))
 			{
-				return WindowsCompiler.VisualStudio2015;
+				return WindowsCompiler.VisualStudio2019;
 			}
 
 			// If we do have a Visual Studio installation, but we're missing just the C++ parts, warn about that.
@@ -619,17 +639,17 @@ namespace UnrealBuildTool
 			{
 				Log.TraceWarning("Visual Studio 2017 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2017 toolset\" component is selected in the Visual Studio 2017 installation options.");
 			}
-			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2015, out VSInstallDir))
+			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2019, out VSInstallDir))
 			{
-				Log.TraceWarning("Visual Studio 2015 is installed, but is missing the C++ toolchain. Please verify that \"Common Tools for Visual C++ 2015\" are selected from the Visual Studio 2015 installation options.");
+				Log.TraceWarning("Visual Studio 2019 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2019 toolset\" component is selected in the Visual Studio 2019 installation options.");
 			}
 			else
 			{
 				Log.TraceWarning("No Visual C++ installation was found. Please download and install Visual Studio 2015 with C++ components.");
 			}
 
-			// Finally, default to VS2015 anyway
-			return WindowsCompiler.VisualStudio2015;
+			// Finally, default to VS2017 anyway
+			return WindowsCompiler.VisualStudio2017;
 		}
 
 		/// <summary>
@@ -641,10 +661,12 @@ namespace UnrealBuildTool
 		{
 			switch (Compiler)
 			{
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 					return "Visual Studio 2015";
 				case WindowsCompiler.VisualStudio2017:
 					return "Visual Studio 2017";
+				case WindowsCompiler.VisualStudio2019:
+					return "Visual Studio 2019";
 				default:
 					return Compiler.ToString();
 			}
@@ -692,7 +714,7 @@ namespace UnrealBuildTool
 				InstallDirs = new List<DirectoryReference>();
 			    if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
 			    {
-				    if(Compiler == WindowsCompiler.VisualStudio2015)
+				    if(Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED)
 				    {
 					    // VS2015 just installs one toolchain; use that.
 					    DirectoryReference InstallDir;
@@ -701,29 +723,44 @@ namespace UnrealBuildTool
 						    InstallDirs.Add(InstallDir);
 					    }
 				    }
-				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    else if(Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019)
 				    {
-					    // Enumerate all the installed Visual Studio instances using the interop SDK. There may be several installed side by side on a single machine (preview, community, enterprise, etc...).
 						List<DirectoryReference> PreReleaseInstallDirs = new List<DirectoryReference>();
-					    try
-					    {
-						    SetupConfiguration Setup = new SetupConfiguration();
-						    IEnumSetupInstances Enumerator = Setup.EnumAllInstances(); 
-    
-						    ISetupInstance[] Instances = new ISetupInstance[1];
-						    for(;;)
-						    { 
-							    int NumFetched; 
-							    Enumerator.Next(1, Instances, out NumFetched);
-    
-							    if(NumFetched == 0)
-							    {
-								    break;
-							    }
-    
-							    ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
-							    if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
-							    {
+						try
+						{
+							SetupConfiguration Setup = new SetupConfiguration();
+							IEnumSetupInstances Enumerator = Setup.EnumAllInstances();
+
+							ISetupInstance[] Instances = new ISetupInstance[1];
+							for(;;)
+							{
+								int NumFetched;
+								Enumerator.Next(1, Instances, out NumFetched);
+
+								if(NumFetched == 0)
+								{
+									break;
+								}
+
+								ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
+								if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
+								{
+									string VersionString = Instance.GetInstallationVersion();
+
+									VersionNumber Version;
+									if (VersionNumber.TryParse(VersionString, out Version))
+									{
+										VersionNumber Version2019 = new VersionNumber(16);
+										if(Compiler == WindowsCompiler.VisualStudio2019 && Version < Version2019)
+										{
+											continue;
+										}
+										else if(Compiler == WindowsCompiler.VisualStudio2017 && Version >= Version2019)
+										{
+											continue;
+										}
+									}
+
 									ISetupInstanceCatalog Catalog = (ISetupInstanceCatalog)Instance as ISetupInstanceCatalog;
 									if (Catalog != null && Catalog.IsPrerelease())
 									{
@@ -733,15 +770,15 @@ namespace UnrealBuildTool
 									{
 										InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
 									}
-							    }
-						    }
-					    }
-					    catch
-					    {
-					    }
+								}
+							}
+						}
+						catch
+						{
+						}
 						InstallDirs.AddRange(PreReleaseInstallDirs);
-				    }
-				    else
+					}
+					else
 				    {
 					    throw new BuildException("Unsupported compiler version ({0})", Compiler);
 				    }
@@ -749,7 +786,7 @@ namespace UnrealBuildTool
 				CachedVSInstallDirs.Add(Compiler, InstallDirs);
 			}
 			return InstallDirs;
-		}	 
+		}
 
 		/// <summary>
 		/// Determines the directory containing the MSVC toolchain
@@ -812,7 +849,7 @@ namespace UnrealBuildTool
 							}
 						}
 					}
-				    else if(Compiler == WindowsCompiler.VisualStudio2015)
+				    else if(Compiler == WindowsCompiler.VisualStudio2015_DEPRECATED)
 				    {
 					    // VS2015 just installs one toolchain; use that.
 					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
@@ -825,7 +862,7 @@ namespace UnrealBuildTool
 							}
 					    }
 				    }
-				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    else if(Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019)
 				    {
 						// Enumerate all the manually installed toolchains
 						List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
@@ -837,7 +874,7 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
 								    {
 									    ToolChainVersionToDir[Version] = ToolChainDir;
 								    }
@@ -849,13 +886,13 @@ namespace UnrealBuildTool
 						DirectoryReference PlatformDir;
 						if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
 						{
-							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", "VS2017");
+							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", (Compiler == WindowsCompiler.VisualStudio2019)? "VS2019" : "VS2017");
 							if(DirectoryReference.Exists(ToolChainBaseDir))
 							{
 								foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 								{
 									VersionNumber Version;
-									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
 									{
 										ToolChainVersionToDir[Version] = ToolChainDir;
 									}
@@ -898,7 +935,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ToolChainDir">Directory to check</param>
 		/// <returns>True if the given directory is valid</returns>
-		static bool IsValidToolChainDir2017(DirectoryReference ToolChainDir)
+		static bool IsValidToolChainDir2017or2019(DirectoryReference ToolChainDir)
 		{
 			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
 		}
@@ -1267,9 +1304,9 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				if(CachedWindowsSdkDirs.ContainsKey(DefaultVersion))
+				if(CachedWindowsSdkDirs.ContainsKey(DefaultWindowsSdkVersion))
 				{
-					WindowsSdkVersion = DefaultVersion;
+					WindowsSdkVersion = DefaultWindowsSdkVersion;
 				}
 				else if(CachedWindowsSdkDirs.Count > 0)
 				{
@@ -1328,18 +1365,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override bool CanUseSNDBS()
 		{
-			// Check that SN-DBS is available
-			string SCERootPath = Environment.GetEnvironmentVariable("SCE_ROOT_DIR");
-			if (!String.IsNullOrEmpty(SCERootPath))
-			{
-				string SNDBSPath = Path.Combine(SCERootPath, "common", "sn-dbs", "bin", "dbsbuild.exe");
-				bool bIsSNDBSAvailable = File.Exists(SNDBSPath);
-				return bIsSNDBSAvailable;
-			}
-			else
-			{
-				return false;
-			}
+			return true;
 		}
 
 		/// <summary>
@@ -1398,11 +1424,6 @@ namespace UnrealBuildTool
 			return new string [] {};
 		}
 
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
-		}
-
 		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
 			if (Platform == UnrealTargetPlatform.Win32)
@@ -1452,20 +1473,19 @@ namespace UnrealBuildTool
 			}
 
 			// Otherwise use the default
-			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "Resources", "Default.ico");
 		}
 
 		/// <summary>
 		/// Configures the resource compile environment for the given target
 		/// </summary>
 		/// <param name="ResourceCompileEnvironment">The compile environment</param>
-		/// <param name="IntermediateDirectory">The output directory for compiled files</param>
 		/// <param name="Target">The target being built</param>
-		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, DirectoryReference IntermediateDirectory, ReadOnlyTargetRules Target)
+		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, ReadOnlyTargetRules Target)
 		{
 			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
 			FileReference IconFile;
-			if(Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			if(Target.ProjectFile != null && !ResourceCompileEnvironment.bUseSharedBuildEnvironment)
 			{
 				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
 			}
@@ -1474,8 +1494,32 @@ namespace UnrealBuildTool
 				IconFile = WindowsPlatform.GetApplicationIcon(null);
 			}
 
-			// Setup the compile environment, setting the icon to use via a macro. This is used in PCLaunch.rc2.
+			// Setup the compile environment, setting the icon to use via a macro. This is used in Default.rc2.
 			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
+
+			// Apply the target settings for the resources
+			if(!ResourceCompileEnvironment.bUseSharedBuildEnvironment)
+			{
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
+				}
+
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
+				}
+
+				if (!String.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
+				}
+
+				if (Target.ProjectFile != null)
+				{
+					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
+				}
+			}
 		}
 
 		/// <summary>
@@ -1667,29 +1711,6 @@ namespace UnrealBuildTool
 				LinkEnvironment.AdditionalArguments += " /ignore:4078";
 			}
 
-			if (Target.Type != TargetType.Editor)
-			{
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
-				}
-
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
-				}
-
-				if (!string.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
-				}
-
-				if (Target.ProjectFile != null)
-				{
-					CompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
-				}
-			}
-
 			// Set up default stack size
 			LinkEnvironment.DefaultStackSize = Target.WindowsPlatform.DefaultStackSize;
 			LinkEnvironment.DefaultStackSizeCommit = Target.WindowsPlatform.DefaultStackSizeCommit;
@@ -1807,8 +1828,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
 		}
 	}
@@ -1823,7 +1844,7 @@ namespace UnrealBuildTool
 
 	class WindowsPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Win64; }
 		}
@@ -1831,10 +1852,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			WindowsPlatformSDK SDK = new WindowsPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Register this build platform for both Win64 and Win32
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win64.ToString());

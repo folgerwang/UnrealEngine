@@ -1961,15 +1961,7 @@ void UEditorEngine::PlayUsingLauncher()
 			break;
 		default:
 			// same as the running editor
-			FString ExeName = FUnrealEdMisc::Get().GetExecutableForCommandlets();
-			if (ExeName.Contains(TEXT("Debug")))
-			{
-				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Debug);
-			}
-			else
-			{
-				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Development);
-			}
+			LauncherProfile->SetBuildConfiguration(FApp::GetBuildConfiguration());
 			break;
 		}
 
@@ -2952,8 +2944,8 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 	GameInstanceParams.bSimulateInEditor = bInSimulateInEditor;
 	GameInstanceParams.bStartInSpectatorMode = bStartInSpectatorMode;
 	GameInstanceParams.bRunAsDedicated = bRunAsDedicated;
-	GameInstanceParams.WorldFeatureLevel = DefaultWorldFeatureLevel;
-	
+	GameInstanceParams.WorldFeatureLevel = PreviewFeatureLevel;
+
 	const FGameInstancePIEResult InitializeResult = GameInstance->InitializeForPlayInEditor(InPIEInstance, GameInstanceParams);
 	if (!InitializeResult.IsSuccess())
 	{

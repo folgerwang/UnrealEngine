@@ -8,7 +8,7 @@
 #include "ActorRecordingSettings.generated.h"
 
 USTRUCT()
-struct FActorRecordingSettings
+struct SEQUENCERECORDER_API FActorRecordingSettings
 {
 	GENERATED_BODY()
 

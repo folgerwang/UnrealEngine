@@ -2,14 +2,17 @@
 
 #include "WmfMediaStreamSink.h"
 
-
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
+#include "MediaSampleQueueDepths.h"
 #include "Misc/ScopeLock.h"
-
+#include "RenderingThread.h"
+#include "timeapi.h"
+#include "WmfMediaHardwareVideoDecodingTextureSample.h"
 #include "WmfMediaSink.h"
 #include "WmfMediaUtils.h"
-
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <d3d11.h>
 
 /* FWmfMediaStreamSink static functions
  *****************************************************************************/
@@ -19,7 +22,7 @@ bool FWmfMediaStreamSink::Create(const GUID& MajorType, TComPtr<FWmfMediaStreamS
 	TComPtr<FWmfMediaStreamSink> StreamSink = new FWmfMediaStreamSink(MajorType, 1);
 	TComPtr<FWmfMediaSink> MediaSink = new FWmfMediaSink();
 
-	if (!MediaSink->Initialize(*StreamSink))
+	if (!MediaSink->Initialize(StreamSink))
 	{
 		return false;
 	}
@@ -34,10 +37,16 @@ bool FWmfMediaStreamSink::Create(const GUID& MajorType, TComPtr<FWmfMediaStreamS
  *****************************************************************************/
 
 FWmfMediaStreamSink::FWmfMediaStreamSink(const GUID& InMajorType, DWORD InStreamId)
-	: Prerolling(false)
+	: Owner(nullptr)
+	, Prerolling(false)
 	, RefCount(0)
 	, StreamId(InStreamId)
 	, StreamType(InMajorType)
+	, ClockRate(1.0f)
+	, WaitTimer(nullptr)
+	, VideoSamplePool(nullptr)
+	, VideoSampleQueue(nullptr)
+	, bShowSubTypeErrorMessage(true)
 {
 	UE_LOG(LogWmfMedia, Verbose, TEXT("StreamSink %p: Created with stream type %s"), this, *WmfMedia::MajorTypeToString(StreamType));
 }
@@ -137,15 +146,24 @@ HRESULT FWmfMediaStreamSink::Preroll()
 
 	Prerolling = true;
 
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Preroll Request Sample"), this);
+
 	return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
 }
 
 
 HRESULT FWmfMediaStreamSink::Restart()
 {
-	FScopeLock Lock(&CriticalSection);
+	HRESULT Result = QueueEvent(MEStreamSinkStarted, GUID_NULL, S_OK, NULL);
 
-	return QueueEvent(MEStreamSinkStarted, GUID_NULL, S_OK, NULL);
+	if (FAILED(Result))
+	{
+		return Result;
+	}
+
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Restart Request Sample"), this);
+
+	return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
 }
 
 
@@ -158,6 +176,10 @@ void FWmfMediaStreamSink::Shutdown()
 		EventQueue->Shutdown();
 		EventQueue.Reset();
 	}
+
+	CurrentMediaType.Reset();
+
+	CloseTimer();
 }
 
 
@@ -165,12 +187,28 @@ HRESULT FWmfMediaStreamSink::Start()
 {
 	FScopeLock Lock(&CriticalSection);
 
+	// Set a high the timer resolution (ie, short timer period).
+	timeBeginPeriod(1);
+
+	// create the waitable timer
+	WaitTimer = CreateWaitableTimer(NULL, FALSE, NULL);
+	if (WaitTimer == nullptr)
+	{
+		HRESULT Result = HRESULT_FROM_WIN32(GetLastError());
+		if (FAILED(Result))
+		{
+			return Result;
+		}
+	}
+
 	HRESULT Result = QueueEvent(MEStreamSinkStarted, GUID_NULL, S_OK, NULL);
 
 	if (FAILED(Result))
 	{
 		return Result;
 	}
+
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Start Request Sample"), this);
 
 	return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
 }
@@ -182,9 +220,22 @@ HRESULT FWmfMediaStreamSink::Stop()
 
 	FScopeLock Lock(&CriticalSection);
 
+	// Restore the timer resolution.
+	timeEndPeriod(1);
+
+	CloseTimer();
+
 	return QueueEvent(MEStreamSinkStopped, GUID_NULL, S_OK, NULL);
 }
 
+void FWmfMediaStreamSink::CloseTimer()
+{
+	if (WaitTimer != nullptr)
+	{
+		CloseHandle(WaitTimer);
+		WaitTimer = nullptr;
+	}
+}
 
 /* IMFGetService interface
  *****************************************************************************/
@@ -419,8 +470,9 @@ STDMETHODIMP FWmfMediaStreamSink::IsMediaTypeSupported(IMFMediaType* pMediaType,
 		return MF_E_INVALIDMEDIATYPE;
 	}
 
-	// compare media type
-	const DWORD CompareFlags = MF_MEDIATYPE_EQUAL_MAJOR_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_DATA;
+	// compare media 
+	const DWORD CompareFlagsData = MF_MEDIATYPE_EQUAL_MAJOR_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_DATA;
+	const DWORD CompareFlagsUserData = MF_MEDIATYPE_EQUAL_MAJOR_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_TYPES | MF_MEDIATYPE_EQUAL_FORMAT_USER_DATA;
 
 	for (const TComPtr<IMFMediaType>& MediaType : WmfMedia::GetSupportedMediaTypes(StreamType))
 	{
@@ -432,7 +484,7 @@ STDMETHODIMP FWmfMediaStreamSink::IsMediaTypeSupported(IMFMediaType* pMediaType,
 		DWORD OutFlags = 0;
 		const HRESULT Result = MediaType->IsEqual(pMediaType, &OutFlags);
 
-		if (SUCCEEDED(Result) && ((OutFlags & CompareFlags) == CompareFlags))
+		if (SUCCEEDED(Result) && (((OutFlags & CompareFlagsData) == CompareFlagsData) || ((OutFlags & CompareFlagsUserData) == CompareFlagsUserData)))
 		{
 			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Media type is supported"), this, *WmfMedia::MajorTypeToString(MajorType));
 			return S_OK;
@@ -603,7 +655,9 @@ STDMETHODIMP FWmfMediaStreamSink::PlaceMarker(MFSTREAMSINK_MARKER_TYPE eMarkerTy
 
 STDMETHODIMP FWmfMediaStreamSink::ProcessSample(__RPC__in_opt IMFSample* pSample)
 {
-	if (pSample == NULL)
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Process Sample"), this);
+
+	if (pSample == nullptr)
 	{
 		return E_POINTER;
 	}
@@ -633,19 +687,18 @@ STDMETHODIMP FWmfMediaStreamSink::ProcessSample(__RPC__in_opt IMFSample* pSample
 		}
 	}
 
-	SampleQueue.Enqueue({ MFSTREAMSINK_MARKER_DEFAULT, NULL, CurrentMediaType, pSample, Time });
-
 	// finish pre-rolling
 	if (Prerolling)
 	{
 		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Preroll complete"), this);
 		Prerolling = false;
 
+		ScheduleWaitForNextSample(pSample);
 		return QueueEvent(MEStreamSinkPrerolled, GUID_NULL, S_OK, NULL);
 	}
 
-	// request another sample
-	return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
+	ScheduleWaitForNextSample(pSample);
+	return S_OK;
 }
 
 
@@ -693,5 +746,274 @@ STDMETHODIMP_(ULONG) FWmfMediaStreamSink::Release()
 	return CurrentRefCount;
 }
 
+void FWmfMediaStreamSink::CopyTextureAndEnqueueSample(IMFSample* pSample)
+{
+	if (VideoSampleQueue->Num() >= FMediaPlayerQueueDepths::MaxVideoSinkDepth)
+	{
+		return;
+	}
+
+	DWORD cBuffers = 0;
+	IMFMediaBuffer* pBuffer = nullptr;
+	IMFDXGIBuffer* pDXGIBuffer = nullptr;
+	UINT dwViewIndex = 0;
+	ID3D11Texture2D* pTexture2D = nullptr;
+
+	HRESULT Result = pSample->GetBufferCount(&cBuffers);
+	if (FAILED(Result))
+	{
+		return;
+	}
+	if (1 == cBuffers)
+	{
+		Result = pSample->GetBufferByIndex(0, &pBuffer);
+		if (FAILED(Result))
+		{
+			return;
+		}
+	}
+	Result = pBuffer->QueryInterface(__uuidof(IMFDXGIBuffer), (LPVOID*)&pDXGIBuffer);
+	if (FAILED(Result))
+	{
+		return;
+	}
+
+	Result = pDXGIBuffer->GetResource(__uuidof(ID3D11Texture2D), (LPVOID*)&pTexture2D);
+	if (FAILED(Result))
+	{
+		return;
+	}
+
+	Result = pDXGIBuffer->GetSubresourceIndex(&dwViewIndex);
+	if (FAILED(Result))
+	{
+		return;
+	}
+
+	UINT32 DimX;
+	UINT32 DimY;
+	MFGetAttributeSize(CurrentMediaType, MF_MT_FRAME_SIZE, &DimX, &DimY);
+
+	LONGLONG SampleTime = 0;
+	LONGLONG SampleDuration = 0;
+
+	pSample->GetSampleTime(&SampleTime);
+	pSample->GetSampleDuration(&SampleDuration);
+
+	GUID Guid;
+	if (SUCCEEDED(CurrentMediaType->GetGUID(MF_MT_SUBTYPE, &Guid)))
+	{
+		check(Guid == MFVideoFormat_NV12)
+		{
+			const TSharedRef<FWmfMediaHardwareVideoDecodingTextureSample, ESPMode::ThreadSafe> TextureSample = VideoSamplePool->AcquireShared();
+
+			check(TextureSample->GetMediaTextureSampleConverter()!=nullptr);
+
+			ID3D11Texture2D* SharedTexture = TextureSample->InitializeSourceTexture(
+				Owner->GetDevice(),
+				FTimespan::FromMicroseconds(SampleTime / 10),
+				FTimespan::FromMicroseconds(SampleDuration / 10),
+				FIntPoint(DimX, DimY),
+				PF_NV12,
+				EMediaTextureSampleFormat::CharNV12);
+
+
+			D3D11_BOX SrcBox;
+			SrcBox.left = 0;
+			SrcBox.top = 0;
+			SrcBox.front = 0;
+			SrcBox.right = DimX;
+			SrcBox.bottom = DimY;
+			SrcBox.back = 1;
+
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopySubresourceRegion() ViewIndex:%d"), dwViewIndex);
+
+			Owner->GetImmediateContext()->CopySubresourceRegion(
+				SharedTexture,
+				0,
+				0,
+				0,
+				0,
+				pTexture2D,
+				dwViewIndex,
+				&SrcBox);
+
+			// Make sure texture is updated before giving access to the sample in the rendering thread.
+			Owner->GetImmediateContext()->Flush();
+
+			VideoSampleQueue->Enqueue(TextureSample);
+		}
+	}
+	else
+	{
+		if (bShowSubTypeErrorMessage)
+		{
+			UE_LOG(LogWmfMedia, Log, TEXT("StreamSink %p: Unable to query MF_MT_SUBTYPE GUID of current media type"), this);
+			bShowSubTypeErrorMessage = false;
+		}
+	}
+
+	if (pTexture2D)
+	{
+		pTexture2D->Release();
+	}
+	if (pDXGIBuffer)
+	{
+		pDXGIBuffer->Release();
+	}
+	if (pBuffer)
+	{
+		pBuffer->Release();
+	}
+}
+
+STDMETHODIMP FWmfMediaStreamSink::Invoke(IMFAsyncResult* pAsyncResult)
+{
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Invoke"), this);
+	FScopeLock Lock(&CriticalSection);
+
+	if (NextSample.IsValid())
+	{
+		ScheduleWaitForNextSample(NextSample);
+		return S_OK;
+	}
+	else
+	{
+		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Invoke Request Sample"), this);
+		return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
+	}
+}
+
+STDMETHODIMP FWmfMediaStreamSink::GetParameters(DWORD* pdwFlags, DWORD* pdwQueue)
+{
+	return E_NOTIMPL;
+}
+
+void FWmfMediaStreamSink::SetPresentationClock(IMFPresentationClock* InPresentationClock)
+{
+	FScopeLock Lock(&CriticalSection);
+	PresentationClock = InPresentationClock;
+}
+
+void FWmfMediaStreamSink::SetClockRate(float InClockRate)
+{
+	ClockRate = InClockRate;
+}
+
+void FWmfMediaStreamSink::SetMediaSamplePoolAndQueue(
+	FWmfMediaHardwareVideoDecodingTextureSamplePool* InVideoSamplePool,
+	TMediaSampleQueue<IMediaTextureSample>* InVideoSampleQueue)
+{
+	FScopeLock Lock(&CriticalSection);
+	VideoSamplePool = InVideoSamplePool;
+	VideoSampleQueue = InVideoSampleQueue;
+}
+
+void FWmfMediaStreamSink::ScheduleWaitForNextSample(IMFSample* pSample)
+{
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("ScheduleWaitForNextSample Start"));
+
+	LONGLONG SampleTime = 0;
+	LONGLONG PresentationTime = 0;
+	MFTIME   SystemTime = 0;
+
+	HRESULT Result = pSample->GetSampleTime(&SampleTime);
+
+	if (FAILED(Result))
+	{
+		return;
+	}
+
+	if (PresentationClock == nullptr)
+	{
+		return;
+	}
+
+	Result = PresentationClock->GetCorrelatedTime(0, &PresentationTime, &SystemTime);
+
+	LONGLONG DeltaTime = SampleTime - PresentationTime;
+
+	if (ClockRate < 0)
+	{
+		// Support reverse play
+		DeltaTime = -DeltaTime;
+	}
+
+	// Get frame duration
+	LONGLONG Duration = 0;
+	pSample->GetSampleDuration(&Duration);
+	
+	// scale by playing speed
+	if (ClockRate != 0.0f)
+	{
+		Duration /= FMath::Abs(ClockRate);
+	}
+
+	// threshold is between 2 samples
+	Duration = Duration / 2;
+
+	if (DeltaTime < Duration)
+	{
+		if (WaitTimer != nullptr)
+		{
+			// Too slow or on time, show frame
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopyTextureAndEnqueueSample Start"));
+			CopyTextureAndEnqueueSample(pSample);
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopyTextureAndEnqueueSample End"));
+			NextSample = nullptr;
+
+			FTimespan SampleTimeSpan = FTimespan::FromMicroseconds(SampleTime / 10);
+			FTimespan PresentationTimeSpan = FTimespan::FromMicroseconds(PresentationTime / 10);
+			FTimespan DeltaTimespan = FTimespan::FromMicroseconds(DeltaTime / 10);
+
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("Sample Time:%s Presentation Time:%s Delta:%s"),
+				*SampleTimeSpan.ToString(TEXT("%h:%m:%s.%t")),
+				*PresentationTimeSpan.ToString(TEXT("%h:%m:%s.%t")),
+				*DeltaTimespan.ToString(TEXT("%h:%m:%s.%t")));
+		}
+	}
+	else
+	{
+		// Too fast, wait a little
+		NextSample = pSample;
+	}
+
+	if (WaitTimer != nullptr)
+	{
+		// Re-schedule 
+		const LONGLONG OneMilliSeconds = 10000;
+		LARGE_INTEGER llDueTime;
+		llDueTime.QuadPart = -4 * OneMilliSeconds;
+		if (SetWaitableTimer(WaitTimer, &llDueTime, 0, NULL, NULL, FALSE) == 0)
+		{
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("SetWaitableTimer Error"));
+			return;
+		}
+
+		TComPtr<IMFAsyncResult> pAsyncResult;
+		Result = MFCreateAsyncResult(nullptr, this, nullptr, &pAsyncResult);
+		if (SUCCEEDED(Result))
+		{
+			MFPutWaitingWorkItem(WaitTimer, 0, pAsyncResult, nullptr);
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("MFPutWaitingWorkItem"));
+		}
+		else
+		{
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("MFPutWaitingWorkItem Error"));
+			return;
+		}
+	}
+	else
+	{
+		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("WaitTimer == 0"));
+	}
+
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("ScheduleWaitForNextSample End"));
+
+	return;
+}
+
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif
+

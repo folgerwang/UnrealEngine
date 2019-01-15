@@ -18,6 +18,18 @@ namespace UnrealBuildTool
 	public class IOSTargetRules
 	{
 		/// <summary>
+		/// Whether to strip iOS symbols or not (implied by bGeneratedSYMFile).
+		/// </summary>
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		public bool bStripSymbols = false;
+
+		/// <summary>
+		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
+		/// </summary>
+		[CommandLine("-CreateStub", Value = "true")]
+		public bool bCreateStubIPA = false;
+
+		/// <summary>
 		/// Don't generate crashlytics data
 		/// </summary>
 		[CommandLine("-skipcrashlytics")]
@@ -68,6 +80,16 @@ namespace UnrealBuildTool
 #if !__MonoCS__
 #pragma warning disable CS1591
 #endif
+		public bool bStripSymbols
+		{
+			get { return Inner.bStripSymbols; }
+		}
+			
+		public bool bCreateStubIPA
+		{
+			get { return Inner.bCreateStubIPA; }
+		}
+
 		public bool bSkipCrashlytics
 		{
 			get { return Inner.bSkipCrashlytics; }
@@ -620,13 +642,8 @@ namespace UnrealBuildTool
 				Target.bCompilePhysX = false;
 			}
 
-			Target.bBuildEditor = false;
-			Target.bBuildDeveloperTools = false;
 			Target.bCompileAPEX = false;
             Target.bCompileNvCloth = false;
-            Target.bCompileSimplygon = false;
-            Target.bCompileSimplygonSSF = false;
-			Target.bBuildDeveloperTools = false;
 
 			Target.bDeployAfterCompile = true;
 		}
@@ -754,16 +771,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override void PreBuildSync()
-		{
-			IOSToolChain.PreBuildSync();
-		}
-
-		public override void PostBuildSync(UEBuildTarget Target)
-		{
-			IOSToolChain.PostBuildSync(Target);
-		}
-
 		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
 		{
 			string IconDir = Path.Combine(ProjectDirectoryName.FullName, "Build", "IOS", "Resources", "Graphics");
@@ -823,11 +830,6 @@ namespace UnrealBuildTool
 		{
 			// check for custom icons
 			return HasCustomIcons(ProjectDirectoryName);
-		}
-
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return true; // for iOS can only run cooked. this is mostly for testing console code paths.
 		}
 
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
@@ -911,7 +913,6 @@ namespace UnrealBuildTool
 
 			CompileEnvironment.Definitions.Add("WITH_TTS=0");
 			CompileEnvironment.Definitions.Add("WITH_SPEECH_RECOGNITION=0");
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
@@ -989,16 +990,16 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			IOSProjectSettings ProjectSettings = ReadProjectSettings(Target.ProjectFile);
-			return new IOSToolChain(Target.ProjectFile, ProjectSettings);
+			return new IOSToolChain(Target, ProjectSettings);
 		}
 
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployIOS().PrepTargetForDeployment(Target);
+			new UEDeployIOS().PrepTargetForDeployment(Receipt);
 		}
 	}
 
@@ -1060,7 +1061,7 @@ namespace UnrealBuildTool
 
 	class IOSPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.IOS; }
 		}
@@ -1068,10 +1069,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			IOSPlatformSDK SDK = new IOSPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Register this build platform for IOS
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.IOS.ToString());

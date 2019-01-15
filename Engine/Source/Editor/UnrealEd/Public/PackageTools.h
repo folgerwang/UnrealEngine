@@ -12,6 +12,9 @@
 
 class ULevel;
 
+class FPackageReloadedEvent;
+enum class EPackageReloadPhase : uint8;
+
 UCLASS(Abstract)
 class UNREALED_API UPackageTools : public UObject
 {
@@ -177,6 +180,8 @@ public:
 
 private:
 	static void RestoreStandaloneOnReachableObjects();
+
+	static void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
 
 	static UPackage* PackageBeingUnloaded;
 	static TMap<UObject*, UObject*> ObjectsThatHadFlagsCleared;

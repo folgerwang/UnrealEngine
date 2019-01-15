@@ -229,8 +229,9 @@ namespace UnrealBuildTool
 		/// Writes the master project file (e.g. Visual Studio Solution file)
 		/// </summary>
 		/// <param name="UBTProject">The UnrealBuildTool project</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>True if successful</returns>
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return true;
 		}
@@ -396,7 +397,7 @@ namespace UnrealBuildTool
 					string Definition = PreProcessorDefinition.Replace("TEXT(\"", "").Replace("\")", "").Replace("()=", "=");
 					string AlternateDefinition = Definition.Contains("=0") ? Definition.Replace("=0", "=1") : Definition.Replace("=1", "=0");
 
-					if (Definition.Equals("WITH_EDITORONLY_DATA=0") || Definition.Equals("WITH_DATABASE_SUPPORT=1"))
+					if (Definition.Equals("WITH_EDITORONLY_DATA=0"))
 					{
 						Definition = AlternateDefinition;
 					}
@@ -780,7 +781,7 @@ namespace UnrealBuildTool
 
 		#region ProjectFileGenerator implementation
 
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64)
 			{

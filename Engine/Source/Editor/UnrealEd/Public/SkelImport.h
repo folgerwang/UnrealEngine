@@ -53,6 +53,15 @@ struct ExistingSkelMeshData
 	USkeletalMeshLODSettings*				ExistingLODSettings;
 	TSubclassOf<UAnimInstance>				ExistingPostProcessAnimBlueprint;
 
+	//////////////////////////////////////////////////////////////////////////
+	//Reimport LOD specific data
+
+	//When the specific LOD is reduce, we want to apply the same reduction after the re-import of the LODs
+	bool bIsReimportLODReduced;
+	FSkeletalMeshOptimizationSettings		ExistingReimportLODReductionSettings;
+	
+	//////////////////////////////////////////////////////////////////////////
+
 	bool									bExistingUseFullPrecisionUVs;
 	bool									bExistingUseHighPrecisionTangentBasis;
 

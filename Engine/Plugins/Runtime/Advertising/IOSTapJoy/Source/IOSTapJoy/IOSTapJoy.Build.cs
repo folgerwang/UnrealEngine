@@ -46,7 +46,7 @@ namespace UnrealBuildTool.Rules
 
 			// Add the TapJoy framework
 			PublicAdditionalFrameworks.Add( 
-				new UEBuildFramework( 
+				new Framework( 
 					"TapJoy",														// Framework name
 					"../../ThirdPartyFrameworks/Tapjoy.embeddedframework.zip",		// Zip name
 					"Resources/TapjoyResources.bundle"								// Resources we need copied and staged

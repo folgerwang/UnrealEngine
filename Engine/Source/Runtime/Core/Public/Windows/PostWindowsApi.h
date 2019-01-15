@@ -33,6 +33,8 @@ THIRD_PARTY_INCLUDES_END
 #undef GetProp
 #undef SetProp
 #undef GetFileAttributes
+#undef ReportEvent
+#undef GetClassName
 #undef GetClassInfo
 #undef IMediaEventSink
 

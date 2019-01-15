@@ -214,6 +214,37 @@ public:
         }
 	}
 
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+#if MANAGE_FILE_HANDLES_IOS
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		if (bFullFlush)
+		{
+			// iOS needs fcntl with F_FULLFSYNC to guarantee a full flush,
+			// but still fallback to fsync if fcntl fails
+			if (fcntl(FileHandle, F_FULLFSYNC) == 0)
+			{
+				return true;
+			}
+		}
+		return fsync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+#if MANAGE_FILE_HANDLES_IOS
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return ftruncate(FileHandle, NewSize) == 0;
+	}
+
 	virtual int64 Size( ) override
 	{
 #if MANAGE_FILE_HANDLES_IOS

@@ -235,12 +235,7 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 		GLog->PanicFlushThreadedLogs();
 
 		// Skip macros and FDebug, we always want this to fire
-		TArray<FProgramCounterSymbolInfo> Stack;
-		for (int32 Idx = 0; Idx < NumStackFrames; Idx++)
-		{
-			FPlatformStackWalk::ProgramCounterToSymbolInfo(StackFrames[Idx], Stack.AddDefaulted_GetRef());
-		}
-		ReportHang(*ErrorMessage, Stack, ThreadThatHung);
+		ReportHang(*ErrorMessage, StackFrames, NumStackFrames, ThreadThatHung);
 #endif // PLATFORM_DESKTOP
 
 #endif // UE_ASSERT_ON_HANG == 0
@@ -376,13 +371,15 @@ uint32 FThreadHeartBeat::CheckHeartBeat(double& OutHangDuration)
 {
 	// Editor and debug builds run too slow to measure them correctly
 #if USE_HANG_DETECTION
-	static bool bDisabled = FParse::Param(FCommandLine::Get(), TEXT("nothreadtimeout"));
+	static bool bForceEnabled = FParse::Param(FCommandLine::Get(), TEXT("debughangdetection"));
+	static bool bDisabled = !bForceEnabled && FParse::Param(FCommandLine::Get(), TEXT("nothreadtimeout"));
 
 	bool CheckBeats = (ConfigHangDuration > 0.0 || ConfigPresentDuration > 0.0)
 		&& bReadyToCheckHeartbeat
 		&& !GIsRequestingExit
-		&& !FPlatformMisc::IsDebuggerPresent()
-		&& !bDisabled;
+		&& (bForceEnabled || !FPlatformMisc::IsDebuggerPresent())
+		&& !bDisabled
+		&& !GlobalSuspendCount.GetValue();
 
 	if (CheckBeats)
 	{
@@ -429,33 +426,50 @@ void FThreadHeartBeat::KillHeartBeat()
 #endif
 }
 
-void FThreadHeartBeat::SuspendHeartBeat()
+void FThreadHeartBeat::SuspendHeartBeat(bool bAllThreads)
 {
-#if USE_HANG_DETECTION
-	uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+#if USE_HANG_DETECTION	
 	FScopeLock HeartBeatLock(&HeartBeatCritical);
-	FHeartBeatInfo* HeartBeatInfo = ThreadHeartBeat.Find(ThreadId);
-	if (HeartBeatInfo)
+	if (bAllThreads)
 	{
-		HeartBeatInfo->SuspendedCount++;
+		GlobalSuspendCount.Increment();
+	}
+	else
+	{
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		FHeartBeatInfo* HeartBeatInfo = ThreadHeartBeat.Find(ThreadId);
+		if (HeartBeatInfo)
+		{
+			HeartBeatInfo->Suspend();
+		}
 	}
 
 	// Suspend the frame-present based detection at the same time.
 	PresentHeartBeat.SuspendedCount++;
 #endif
 }
-void FThreadHeartBeat::ResumeHeartBeat()
+void FThreadHeartBeat::ResumeHeartBeat(bool bAllThreads)
 {
-#if USE_HANG_DETECTION
-	uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
-	FScopeLock HeartBeatLock(&HeartBeatCritical);
-	FHeartBeatInfo* HeartBeatInfo = ThreadHeartBeat.Find(ThreadId);
-	if (HeartBeatInfo)
+#if USE_HANG_DETECTION	
+	FScopeLock HeartBeatLock(&HeartBeatCritical);	
+	const double CurrentTime = Clock.Seconds();
+	if (bAllThreads)
 	{
-		check(HeartBeatInfo->SuspendedCount > 0);
-		if (--HeartBeatInfo->SuspendedCount == 0)
+		if (GlobalSuspendCount.Decrement() == 0)
 		{
-			HeartBeatInfo->LastHeartBeatTime = Clock.Seconds();
+			for (TPair<uint32, FHeartBeatInfo>& HeartBeatEntry : ThreadHeartBeat)
+			{
+				HeartBeatEntry.Value.LastHeartBeatTime = CurrentTime;
+			}
+		}
+	}
+	else
+	{
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		FHeartBeatInfo* HeartBeatInfo = ThreadHeartBeat.Find(ThreadId);
+		if (HeartBeatInfo)
+		{
+			HeartBeatInfo->Resume(CurrentTime);
 		}
 	}
 

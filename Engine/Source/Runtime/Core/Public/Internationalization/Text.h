@@ -21,14 +21,13 @@
 #include "Templates/IsConstructible.h"
 #include "Templates/AndOrNot.h"
 
-class FFormatArgumentValue;
-class FTextFormatData;
-
 class FText;
 class FTextHistory;
 class FTextFormatData;
+class FFormatArgumentValue;
 class FHistoricTextFormatData;
 class FHistoricTextNumericData;
+class FTextFormatPatternDefinition;
 class ITextGenerator;
 
 //DECLARE_CYCLE_STAT_EXTERN( TEXT("Format Text"), STAT_TextFormat, STATGROUP_Text, );
@@ -83,6 +82,9 @@ enum class ETextGender : uint8
 	Neuter,
 	// Add new enum types at the end only! They are serialized by index.
 };
+CORE_API bool LexTryParseString(ETextGender& OutValue, const TCHAR* Buffer);
+CORE_API void LexFromString(ETextGender& OutValue, const TCHAR* Buffer);
+CORE_API const TCHAR* LexToString(ETextGender InValue);
 
 namespace EDateTimeStyle
 {
@@ -96,6 +98,9 @@ namespace EDateTimeStyle
 		// Add new enum types at the end only! They are serialized by index.
 	};
 }
+CORE_API bool LexTryParseString(EDateTimeStyle::Type& OutValue, const TCHAR* Buffer);
+CORE_API void LexFromString(EDateTimeStyle::Type& OutValue, const TCHAR* Buffer);
+CORE_API const TCHAR* LexToString(EDateTimeStyle::Type InValue);
 
 /** Redeclared in KismetTextLibrary for meta-data extraction purposes, be sure to update there as well */
 namespace EFormatArgumentType
@@ -114,6 +119,11 @@ namespace EFormatArgumentType
 
 typedef TMap<FString, FFormatArgumentValue, FDefaultSetAllocator, FLocKeyMapFuncs<FFormatArgumentValue>> FFormatNamedArguments;
 typedef TArray<FFormatArgumentValue> FFormatOrderedArguments;
+
+typedef TSharedRef<FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionRef;
+typedef TSharedPtr<FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionPtr;
+typedef TSharedRef<const FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionConstRef;
+typedef TSharedPtr<const FTextFormatPatternDefinition, ESPMode::ThreadSafe> FTextFormatPatternDefinitionConstPtr;
 
 /** Redeclared in KismetTextLibrary for meta-data extraction purposes, be sure to update there as well */
 enum ERoundingMode
@@ -136,6 +146,9 @@ enum ERoundingMode
 
 	// Add new enum types at the end only! They are serialized by index.
 };
+CORE_API bool LexTryParseString(ERoundingMode& OutValue, const TCHAR* Buffer);
+CORE_API void LexFromString(ERoundingMode& OutValue, const TCHAR* Buffer);
+CORE_API const TCHAR* LexToString(ERoundingMode InValue);
 
 enum EMemoryUnitStandard
 {
@@ -239,11 +252,24 @@ public:
 	FTextFormat(const FText& InText);
 
 	/**
+	 * Construct an instance from an FText and custom format pattern definition.
+	 * The text will be immediately compiled.
+	 */
+	FTextFormat(const FText& InText, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
+
+	/**
 	 * Construct an instance from an FString.
 	 * The string will be immediately compiled.
 	 */
 	static FTextFormat FromString(const FString& InString);
 	static FTextFormat FromString(FString&& InString);
+
+	/**
+	 * Construct an instance from an FString and custom format pattern definition.
+	 * The string will be immediately compiled.
+	 */
+	static FTextFormat FromString(const FString& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
+	static FTextFormat FromString(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
 
 	/**
 	 * Test to see whether this instance contains valid compiled data.
@@ -268,6 +294,11 @@ public:
 	EExpressionType GetExpressionType() const;
 
 	/**
+	 * Get the format pattern definition being used.
+	 */
+	FTextFormatPatternDefinitionConstRef GetPatternDefinition() const;
+
+	/**
 	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
 	 * @return true if the pattern is valid, or false if not (false may also fill in OutValidationErrors).
 	 */
@@ -283,7 +314,7 @@ private:
 	 * Construct an instance from an FString.
 	 * The string will be immediately compiled.
 	 */
-	FTextFormat(FString&& InString);
+	FTextFormat(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef);
 
 	/** Cached compiled expression data */
 	TSharedRef<FTextFormatData, ESPMode::ThreadSafe> TextFormatData;
@@ -310,11 +341,11 @@ public:
 public:
 
 	FText();
-	FText( const FText& Source );
-	FText(FText&& Source);
+	FText(const FText&) = default;
+	FText(FText&&) = default;
 
-	FText& operator=(const FText& Source);
-	FText& operator=(FText&& Source);
+	FText& operator=(const FText&) = default;
+	FText& operator=(FText&&) = default;
 
 	/**
 	 * Generate an FText that represents the passed number in the current culture
@@ -673,6 +704,7 @@ public:
 	friend class FTextFormatData;
 	friend class FTextSnapshot;
 	friend class FTextInspector;
+	friend class FTextStringHelper;
 	friend class FStringTableRegistry;
 	friend class FArchive;
 	friend class FArchiveFromStructuredArchive;
@@ -755,6 +787,10 @@ public:
 	FString ToFormattedString(const bool bInRebuildText, const bool bInRebuildAsSource) const;
 	void ToFormattedString(const bool bInRebuildText, const bool bInRebuildAsSource, FString& OutResult) const;
 
+	FString ToExportedString() const;
+	void ToExportedString(FString& OutResult) const;
+	const TCHAR* FromExportedString(const TCHAR* InBuffer);
+
 	FORCEINLINE EFormatArgumentType::Type GetType() const
 	{
 		return Type;
@@ -827,6 +863,8 @@ struct CORE_API FFormatArgumentData
 	}
 
 	void ResetValue();
+
+	FFormatArgumentValue ToArgumentValue() const;
 
 	friend void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentData& Value);
 
@@ -1002,16 +1040,17 @@ public:
 	/**
 	 * Attempt to extract an FText instance from the given stream of text.
 	 *
-	 * @param Buffer			The buffer of text to read from.
+	 * @param Buffer			The buffer of text to read from (null terminated).
 	 * @param OutValue			The text value to fill with the read text.
 	 * @param TextNamespace		An optional namespace to use when parsing texts that use LOCTEXT (default is an empty namespace).
 	 * @param PackageNamespace	The package namespace of the containing object (if loading for a property - see TextNamespaceUtil::GetPackageNamespace).
-	 * @param OutNumCharsRead	An optional output parameter to fill with the number of characters we read from the given buffer.
 	 * @param bRequiresQuotes	True if the read text literal must be surrounded by quotes (eg, when loading from a delimited list).
-	 * @param InLoadingPolicy	Controls how we should load any referenced string table assets.
 	 *
-	 * @return True if we read a valid FText instance into OutValue, false otherwise
+	 * @return The updated buffer after we parsed this text, or nullptr on failure
 	 */
+	static const TCHAR* ReadFromBuffer(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, const bool bRequiresQuotes = false);
+	
+	UE_DEPRECATED(4.22, "FTextStringHelper::ReadFromString is deprecated. Use FTextStringHelper::ReadFromBuffer instead.")
 	static bool ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, int32* OutNumCharsRead = nullptr, const bool bRequiresQuotes = false, const EStringTableLoadingPolicy InLoadingPolicy = EStringTableLoadingPolicy::FindOrFullyLoad);
 
 	/**
@@ -1020,9 +1059,10 @@ public:
 	 * @param Buffer			The buffer of text to write to.
 	 * @param Value				The text value to write into the buffer.
 	 * @param bRequiresQuotes	True if the written text literal must be surrounded by quotes (eg, when saving as a delimited list)
-	 *
-	 * @return True if we wrote a valid FText instance into Buffer, false otherwise
 	 */
+	static void WriteToBuffer(FString& Buffer, const FText& Value, const bool bRequiresQuotes = false);
+	
+	UE_DEPRECATED(4.22, "FTextStringHelper::WriteToString is deprecated. Use FTextStringHelper::WriteToBuffer instead.")
 	static bool WriteToString(FString& Buffer, const FText& Value, const bool bRequiresQuotes = false);
 
 	/**
@@ -1033,14 +1073,7 @@ public:
 	static bool IsComplexText(const TCHAR* Buffer);
 
 private:
-	static bool ReadFromString_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, int32* OutNumCharsRead, const EStringTableLoadingPolicy InLoadingPolicy);
-
-#define LOC_DEFINE_REGION
-	static const FString InvTextMarker;
-	static const FString NsLocTextMarker;
-	static const FString LocTextMarker;
-	static const FString LocTableMarker;
-#undef LOC_DEFINE_REGION
+	static const TCHAR* ReadFromBuffer_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace);
 };
 
 class CORE_API FTextBuilder

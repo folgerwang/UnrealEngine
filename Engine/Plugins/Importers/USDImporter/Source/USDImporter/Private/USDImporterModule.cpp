@@ -6,8 +6,6 @@
 #include "UObject/GCObject.h"
 #include "USDImporter.h"
 #include "ISettingsModule.h"
-#include "PropertyEditorModule.h"
-#include "USDLevelInfoDetails.h"
 #include "Modules/ModuleManager.h"
 #include "USDImporterProjectSettings.h"
 
@@ -21,7 +19,7 @@ public:
 	{
 
 		// Ensure base usd plugins are found and loaded
-		FString BasePluginPath = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir() + FString(TEXT("Editor/USDImporter")));
+		FString BasePluginPath = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir() + FString(TEXT("Importers/USDImporter")));
 
 #if PLATFORM_WINDOWS
 		BasePluginPath /= TEXT("Resources/UsdResources/Windows/plugins");
@@ -46,21 +44,10 @@ public:
 		UnrealUSDWrapper::Initialize(PluginPaths);
 
 		USDImporter = NewObject<UUSDImporter>();
-
-		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.RegisterCustomClassLayout(TEXT("USDLevelInfo"), FOnGetDetailCustomizationInstance::CreateStatic(&FUSDLevelInfoDetails::MakeInstance));
-		PropertyModule.NotifyCustomizationModuleChanged();
 	}
 
 	virtual void ShutdownModule() override
 	{
-		FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
-		if (PropertyEditorModule)
-		{
-			PropertyEditorModule->UnregisterCustomClassLayout(TEXT("USDLevelInfo"));
-			PropertyEditorModule->NotifyCustomizationModuleChanged();
-		}
-
 		USDImporter = nullptr;
 	}
 

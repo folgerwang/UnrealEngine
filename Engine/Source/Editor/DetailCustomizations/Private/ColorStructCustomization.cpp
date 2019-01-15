@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "ColorStructCustomization.h"
+#include "Customizations/ColorStructCustomization.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Text/STextBlock.h"
 #include "EngineGlobals.h"

@@ -82,8 +82,11 @@ struct FLevelSequencePlayerSnapshot
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	UCameraComponent* CameraComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
 	FLevelSequenceSnapshotSettings Settings;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
+	ULevelSequence* ActiveShot;
 
 	UPROPERTY()
 	FMovieSceneSequenceID ShotID;
@@ -108,10 +111,10 @@ public:
 	 * Initialize the player.
 	 *
 	 * @param InLevelSequence The level sequence to play.
-	 * @param InWorld The world that the animation is played in.
+	 * @param InLevel The level that the animation is played in.
 	 * @param Settings The desired playback settings
 	 */
-	void Initialize(ULevelSequence* InLevelSequence, UWorld* InWorld, const FMovieSceneSequencePlaybackSettings& Settings);
+	void Initialize(ULevelSequence* InLevelSequence, ULevel* InLevel, const FMovieSceneSequencePlaybackSettings& Settings);
 
 public:
 
@@ -151,6 +154,7 @@ protected:
 	// IMovieScenePlayer interface
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override;
 	virtual void NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneSequenceIDRef InSequenceID, TArrayView<TWeakObjectPtr<>> Objects) override;
+	virtual void ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& InSequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
 
 	//~ UMovieSceneSequencePlayer interface
 	virtual bool CanPlay() const override;
@@ -176,6 +180,12 @@ private:
 
 	/** The world this player will spawn actors in, if needed */
 	TWeakObjectPtr<UWorld> World;
+
+	/** The world this player will spawn actors in, if needed */
+	TWeakObjectPtr<ULevel> Level;
+
+	/** The full asset path (/Game/Folder/MapName.MapName) of the streaming level this player resides within. Bindings to actors with the same FSoftObjectPath::GetAssetPathName are resolved within the cached level, rather than globally.. */
+	FName StreamedLevelAssetPath;
 
 	/** The last view target to reset to when updating camera cuts to null */
 	TWeakObjectPtr<AActor> LastViewTarget;

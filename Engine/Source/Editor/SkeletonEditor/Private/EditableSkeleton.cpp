@@ -297,7 +297,9 @@ void FEditableSkeleton::RenameSmartname(const FName InContainerName, SmartName::
 						if (UAnimSequence* Seq = Cast<UAnimSequence>(SequenceBase))
 						{
 							SequencesToRecompress.Add(Seq);
-							Seq->CompressedCurveData.Empty();
+
+							Seq->CompressedCurveByteStream.Empty();
+							Seq->CurveCompressionCodec = nullptr;
 						}
 					}
 				}

@@ -85,9 +85,9 @@ namespace FViewportTestHelper
 	{
 		// Switch the view port to perspective.
 		FLevelEditorViewportClient* ViewportClient;
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+		for (int32 i = 0; i < GEditor->GetLevelViewportClients().Num(); i++)
 		{
-			ViewportClient = GEditor->LevelViewportClients[i];
+			ViewportClient = GEditor->GetLevelViewportClients()[i];
 			if (ViewportClient->IsOrtho()) continue;
 			
 			OutViewportClientNumber = i;
@@ -117,7 +117,7 @@ bool FViewportShowflagsToggleOnTest::RunTest( const FString& Parameters )
 	int32 FlagIndex = FCString::Atoi( *Parameters );
 	int32 ViewportClientNumber = 0;
 	bool OrigianlShowFlagState = FViewportTestHelper::GetPerspectiveOriginalFlagstate( FlagIndex, ViewportClientNumber );
-	FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ViewportClientNumber];
+	FLevelEditorViewportClient* ViewportClient = GEditor->GetLevelViewportClients()[ViewportClientNumber];
 
 	// TEST //
 	// Set the show flag to be enabled.
@@ -152,7 +152,7 @@ bool FViewportShowflagsToggleOffTest::RunTest(const FString& Parameters)
 	int32 FlagIndex = FCString::Atoi(*Parameters);
 	int32 ViewportClientNumber = 0;
 	bool OrigianlShowFlagState = FViewportTestHelper::GetPerspectiveOriginalFlagstate(FlagIndex, ViewportClientNumber);
-	FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ViewportClientNumber];
+	FLevelEditorViewportClient* ViewportClient = GEditor->GetLevelViewportClients()[ViewportClientNumber];
 
 	// TEST //
 	// Set the show flag to be disabled.

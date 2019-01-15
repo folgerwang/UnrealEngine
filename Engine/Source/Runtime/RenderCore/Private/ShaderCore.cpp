@@ -56,6 +56,9 @@ void UpdateShaderDevelopmentMode()
 DEFINE_STAT(STAT_ShaderCompiling_NiagaraShaders);
 DEFINE_STAT(STAT_ShaderCompiling_NumTotalNiagaraShaders);
 
+DEFINE_STAT(STAT_ShaderCompiling_OpenColorIOShaders);
+DEFINE_STAT(STAT_ShaderCompiling_NumTotalOpenColorIOShaders);
+
 DEFINE_STAT(STAT_ShaderCompiling_MaterialShaders);
 DEFINE_STAT(STAT_ShaderCompiling_GlobalShaders);
 DEFINE_STAT(STAT_ShaderCompiling_RHI);

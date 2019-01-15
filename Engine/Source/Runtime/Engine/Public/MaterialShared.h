@@ -413,6 +413,7 @@ public:
 		bUsesGlobalDistanceField(false),
 		bUsesPixelDepthOffset(false),
 		bUsesSceneDepthLookup(false),
+		bUsesVelocitySceneTexture(false)
 		bUsesDistanceCullFade(false)
 	{}
 
@@ -457,6 +458,8 @@ public:
 	/** true if the material uses the SceneDepth lookup */
 	bool bUsesSceneDepthLookup;
 
+	/** true if the material uses the Velocity SceneTexture lookup */
+	bool bUsesVelocitySceneTexture;
 	/** true if the material uses distance cull fade */
 	bool bUsesDistanceCullFade;
 };
@@ -870,6 +873,7 @@ public:
 	bool ModifiesMeshPosition() const { return MaterialCompilationOutput.bModifiesMeshPosition; }
 	bool UsesPixelDepthOffset() const { return MaterialCompilationOutput.bUsesPixelDepthOffset; }
 	bool UsesSceneDepthLookup() const { return MaterialCompilationOutput.bUsesSceneDepthLookup; }
+	bool UsesVelocitySceneTexture() const { return MaterialCompilationOutput.bUsesVelocitySceneTexture; }
 	bool UsesDistanceCullFade() const { return MaterialCompilationOutput.bUsesDistanceCullFade; }
 	uint32 GetNumUsedUVScalars() const { return MaterialCompilationOutput.NumUsedUVScalars; }
 	uint32 GetNumUsedCustomInterpolatorScalars() const { return MaterialCompilationOutput.NumUsedCustomInterpolatorScalars; }

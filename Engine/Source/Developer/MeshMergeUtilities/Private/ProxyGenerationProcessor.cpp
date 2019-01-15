@@ -217,11 +217,15 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 				VertexInstanceColors[VertexInstanceID] = FVector4(1.0f, 1.0f, 1.0f);
 			}
 		}
-		//Commit the FMeshDescription to the staticmesh
-		int32 LodIndex = StaticMesh->GetNumLODs() - 1;
-		FMeshDescription* OriginalMeshDescription = StaticMesh->GetMeshDescription(LodIndex);
-		*OriginalMeshDescription = Data->RawMesh;
-		StaticMesh->CommitMeshDescription(LodIndex);
+
+		//Commit the FMeshDescription to the source model we just created
+		int32 SourceModelIndex = StaticMesh->SourceModels.Num() - 1;
+		FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(SourceModelIndex);
+		if (ensure(MeshDescription))
+		{
+			*MeshDescription = Data->RawMesh;
+			StaticMesh->CommitMeshDescription(SourceModelIndex);
+		}
 	};
 
 	if (bContainsImposters)

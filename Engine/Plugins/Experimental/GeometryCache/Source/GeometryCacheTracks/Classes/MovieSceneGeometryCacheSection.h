@@ -29,11 +29,11 @@ struct FMovieSceneGeometryCacheParams
 
 	/** The offset into the beginning of the animation clip */
 	UPROPERTY(EditAnywhere, Category="GeometryCache")
-	float StartOffset;
+	FFrameNumber StartFrameOffset;
 	
 	/** The offset into the end of the animation clip */
 	UPROPERTY(EditAnywhere, Category="GeometryCache")
-	float EndOffset;
+	FFrameNumber EndFrameOffset;
 	
 	/** The playback rate of the animation clip */
 	UPROPERTY(EditAnywhere, Category="GeometryCache")
@@ -43,6 +43,11 @@ struct FMovieSceneGeometryCacheParams
 	UPROPERTY(EditAnywhere, Category="Animation")
 	uint32 bReverse:1;
 
+	UPROPERTY()
+	float StartOffset_DEPRECATED;
+	
+	UPROPERTY()
+	float EndOffset_DEPRECATED;
 };
 
 /**
@@ -72,6 +77,7 @@ protected:
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
 	/** ~UObject interface */
+	virtual void PostLoad() override;
 	virtual void Serialize(FArchive& Ar) override;
 
 private:

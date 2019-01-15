@@ -61,6 +61,12 @@ float3 SkyLightDiffuse(FScreenSpaceData ScreenSpaceData, float4 UVAndScreenPos, 
 	float SkyVisibility = 1;
 	float DotProductFactor = 1;
 	float3 SkyLightingNormal = GBuffer.WorldNormal;
+	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT && CLEAR_COAT_BOTTOM_NORMAL)
+	{
+		const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+		SkyLightingNormal = OctahedronToUnitVector(oct1);			
+	}
+	
 	float3 DiffuseIrradiance = 0;
 
 #if APPLY_SKY_SHADOWING
@@ -274,9 +280,8 @@ float3 ReflectionEnvironment(FScreenSpaceData ScreenSpaceData, float4 UVAndScree
 		Color.rgb *= GBuffer.SpecularColor * AB.x + AB.y * saturate( 50 * GBuffer.SpecularColor.g ) * (1 - ClearCoat);
 		
 		// F_Schlick
-		float F0 = 0.04;
-		float Fc = Pow5( 1 - NoV );
-		float F = Fc + (1 - Fc) * F0;
+		float F = EnvBRDF( 0.04, ClearCoatRoughness, NoV ).x;
+		
 		F *= ClearCoat;
 			
 		float LayerAttenuation = (1 - F);		

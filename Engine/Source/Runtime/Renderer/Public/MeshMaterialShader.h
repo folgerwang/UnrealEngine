@@ -46,10 +46,15 @@ public:
 		return true;
 	}
 
+	// Clang treats FORCEINLINE as adivsory, and will not inline it on debug builds. Since Engine does not depend on the Renderer module, it fails to link against it.
+#if PLATFORM_WINDOWS && defined(__clang__)
+	void ValidateAfterBind();
+#else
 	FORCEINLINE void ValidateAfterBind()
 	{
 		checkfSlow(PassUniformBuffer.IsInitialized(), TEXT("FMeshMaterialShader must bind a pass uniform buffer, even if it is just FSceneTexturesUniformParameters: %s"), GetType()->GetName());
 	}
+#endif
 
 	template< typename ShaderRHIParamRef >
 	void SetPassUniformBuffer(

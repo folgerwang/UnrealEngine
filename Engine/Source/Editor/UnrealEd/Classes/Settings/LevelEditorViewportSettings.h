@@ -298,6 +298,10 @@ class UNREALED_API ULevelEditorViewportSettings
 	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Level Editor Joystick Controls" ) )
 	bool bLevelEditorJoystickControls;
 
+	/** If enabled, scale the perspective camera speed based on the distance between the camera and its look-at position */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Use distance-scaled camera speed"), AdvancedDisplay)
+	bool bUseDistanceScaledCameraSpeed;
+
 public:
 
 	/** If enabled will use power of 2 grid settings (e.g, 1,2,4,8,16,...,1024) instead of decimal grid sizes */

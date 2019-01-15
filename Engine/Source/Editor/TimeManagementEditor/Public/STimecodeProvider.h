@@ -72,9 +72,8 @@ private:
 
 	const UTimecodeProvider* GetTimecodeProvider() const;
 	FSlateColor HandleIconColorAndOpacity() const;
-	const FSlateBrush* HandleIconImage() const;
-	EVisibility HandleImageVisibility() const;
-	EVisibility HandleThrobberVisibility() const;
+	FText HandleStateText() const;
+
 
 private:
 	TAttribute<TWeakObjectPtr<UTimecodeProvider>> OverrideTimecodeProvider;

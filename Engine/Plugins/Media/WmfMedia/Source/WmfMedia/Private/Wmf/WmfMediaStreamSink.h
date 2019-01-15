@@ -10,9 +10,17 @@
 #include "Containers/Queue.h"
 #include "Delegates/Delegate.h"
 #include "HAL/CriticalSection.h"
+#include "MediaSampleQueue.h"
 #include "Misc/Timespan.h"
+#include "RHI.h"
+#include "Templates/RefCounting.h"
 
+class FRHITexture2D;
+
+class FWmfMediaHardwareVideoDecodingTextureSamplePool;
 class FWmfMediaSink;
+
+struct ID3D11Texture2D;
 
 
 /**
@@ -35,6 +43,7 @@ class FWmfMediaStreamSink
 	: public IMFGetService
 	, public IMFMediaTypeHandler
 	, public IMFStreamSink
+	, public IMFAsyncCallback
 {
 public:
 
@@ -173,16 +182,63 @@ public:
 
 public:
 
+	//~ IMFAsyncCallback interface
+	STDMETHODIMP Invoke(IMFAsyncResult* pAsyncResult);
+	STDMETHODIMP GetParameters(DWORD* pdwFlags, DWORD* pdwQueue);
+
+public:
+
 	//~ IUnknown interface
 
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP QueryInterface(REFIID RefID, void** Object);
 	STDMETHODIMP_(ULONG) Release();
 
+	/**
+	 * Set current presentation 
+	 *
+	 * @param InPresentationClock Presentation clock to use
+	 */
+	void SetPresentationClock(IMFPresentationClock* InPresentationClock);
+
+	/**
+	 * Set current clock rate
+	 *
+	 * @param InClockRate Clock Rate
+	 */
+	void SetClockRate(float InClockRate);
+
+	/**
+	 * Set media sample pool and queue
+	 *
+	 * @param InVideoSamplePool sample pool to get sample from
+	 * @param InVideoSampleQueue Sample queue to fill
+	 */
+	void SetMediaSamplePoolAndQueue(FWmfMediaHardwareVideoDecodingTextureSamplePool* InVideoSamplePool, TMediaSampleQueue<IMediaTextureSample>* InVideoSampleQueue);
+
 private:
 
 	/** Hidden destructor (this class is reference counted). */
 	virtual ~FWmfMediaStreamSink();
+
+	/**
+	 * Copy decoder texture to shared texture and enqueue the sample
+	 *
+	 * @param pSample Sample from decoder
+	 */
+	void CopyTextureAndEnqueueSample(IMFSample* pSample);
+
+	/**
+	 * Check whether sample is ready to display otherwise re-schedule
+	 *
+	 * @param pSample Sample from decoder
+	 */
+	void ScheduleWaitForNextSample(IMFSample* pSample);
+
+	/**
+	 * Close Timer
+	 */
+	void CloseTimer();
 
 private:
 
@@ -210,7 +266,26 @@ private:
 	/** The sink's major media type. */
 	const GUID StreamType;
 
-private:
+	/** Presentation clock which dictate when to present a sample. */
+	TComPtr<IMFPresentationClock> PresentationClock;
+
+	/** ClockRate to support reverse playback */
+	float ClockRate;
+
+	/** Timer on which we wait for the next sample */
+	HANDLE WaitTimer;
+
+	/** Video sample pool from which to get next free sample */
+	FWmfMediaHardwareVideoDecodingTextureSamplePool* VideoSamplePool;
+
+	/** Video sample queue which is filled with current sample*/
+	TMediaSampleQueue<IMediaTextureSample>* VideoSampleQueue;
+
+	/** Next Sample to display when decoder is faster then presentation clock */
+	TComPtr<IMFSample> NextSample;
+
+	/** Make sure we don't spam output with MF_MT_SUBTYPE error message */
+	bool bShowSubTypeErrorMessage;
 
 	/** Structure for queued media samples & markers. */
 	struct FQueuedSample

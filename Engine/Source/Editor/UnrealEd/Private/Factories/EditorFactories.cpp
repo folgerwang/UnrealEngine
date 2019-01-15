@@ -642,7 +642,18 @@ UMaterialParameterCollectionFactoryNew::UMaterialParameterCollectionFactoryNew(c
 
 UObject* UMaterialParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return NewObject<UObject>(InParent, Class, Name, Flags);
+	UMaterialParameterCollection* MaterialParameterCollection = NewObject<UMaterialParameterCollection>(InParent, Class, Name, Flags);
+	
+	if (MaterialParameterCollection)
+	{
+		for (TObjectIterator<UWorld> It; It; ++It)
+		{
+			UWorld* CurrentWorld = *It;
+			CurrentWorld->AddParameterCollectionInstance(MaterialParameterCollection, true);
+		}
+	}
+
+	return MaterialParameterCollection;
 }
 
 /*------------------------------------------------------------------------------
@@ -5356,7 +5367,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
 	//Prevent any UI for automation, unattended and commandlet
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet() || GIsRunningUnattendedScript;
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
@@ -5654,7 +5665,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj, i
 
 	bool bSuccess = false;
 	//Prevent any UI for automation, unattended and commandlet
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet() || GIsRunningUnattendedScript;
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)

@@ -564,6 +564,13 @@ void UCableComponent::PerformSubstep(float InSubstepTime, const FVector& Gravity
 	}
 }
 
+void UCableComponent::SetAttachEndToComponent(TWeakObjectPtr<class USceneComponent> Component, FName SocketName)
+{
+	AttachEndTo.OtherActor = Component->GetOwner();
+	AttachEndTo.OverrideComponent = Component;
+	AttachEndToSocketName = SocketName;
+}
+
 void UCableComponent::SetAttachEndTo(AActor* Actor, FName ComponentProperty, FName SocketName)
 {
 	AttachEndTo.OtherActor = Actor;

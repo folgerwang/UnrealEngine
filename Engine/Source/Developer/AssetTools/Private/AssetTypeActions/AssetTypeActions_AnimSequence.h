@@ -38,6 +38,9 @@ private:
 	/** Handler for when Create Pose Asset is selected */
 	void ExecuteNewPoseAsset(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const;
 
+	/** Handler for when Add Animation Modifier is selected */
+	void ExecuteAddNewAnimationModifier(TArray<TWeakObjectPtr<UAnimSequence>> Objects);
+
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimComposites */
 	bool ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 

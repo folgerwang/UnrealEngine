@@ -1,0 +1,33 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.2",
+	"FriendlyName": "Concert - Main",
+	"Description": "Allow collaborative multi-users sessions in the Editor",
+	"Category": "Networking",
+	"CreatedBy": "Epic Games, Inc.",
+	"CreatedByURL": "http://epicgames.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": false,
+	"CanContainContent": false,
+	"Hidden": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"SupportedPrograms": [ "UnrealMultiUserServer" ],
+	"Modules": [
+		{
+			"Name": "Concert",
+			"Type": "Developer",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPrograms": [ "UnrealMultiUserServer" ]
+		},
+		{
+			"Name": "ConcertTransport",
+			"Type": "Developer",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPrograms": [ "UnrealMultiUserServer" ]
+		}
+	]
+}

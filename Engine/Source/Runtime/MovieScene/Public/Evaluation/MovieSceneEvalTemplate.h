@@ -36,7 +36,6 @@ public:
 	FMovieSceneEvalTemplate()
 	{
 		CompletionMode = EMovieSceneCompletionMode::KeepState;
-		SourceSection = nullptr;
 	}
 
 	/**
@@ -149,7 +148,7 @@ public:
 	 */
 	void SetSourceSection(const UMovieSceneSection* InSourceSection)
 	{
-		SourceSection = InSourceSection;
+		SourceSectionPtr = InSourceSection;
 	}
 
 	/**
@@ -159,7 +158,7 @@ public:
 	 */
 	const UMovieSceneSection* GetSourceSection() const
 	{
-		return SourceSection;
+		return SourceSectionPtr.Get();
 	}
 
 protected:
@@ -183,7 +182,7 @@ protected:
 
 	/** The section from which this template originates */
 	UPROPERTY()
-	const UMovieSceneSection* SourceSection;
+	TWeakObjectPtr<const UMovieSceneSection> SourceSectionPtr;
 };
 
 /**

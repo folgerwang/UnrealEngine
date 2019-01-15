@@ -64,7 +64,9 @@ void* FMallocTBB::Malloc( SIZE_T Size, uint32 Alignment )
 	}
 	else
 	{
-		NewPtr = scalable_malloc( Size );
+		// Fulfill the promise of DEFAULT_ALIGNMENT, which aligns 16-byte or larger structures to 16 bytes,
+		// while TBB aligns to 8 by default.
+		NewPtr = scalable_aligned_malloc( Size, Size >= 16 ? (uint32)16 : (uint32)8);
 	}
 #endif
 

@@ -6,6 +6,7 @@
 #include "MovieSceneEvent.generated.h"
 
 class UEdGraph;
+class UBlueprint;
 class UK2Node_FunctionEntry;
 class UMovieSceneEventSectionBase;
 
@@ -99,9 +100,21 @@ public:
 
 private:
 
-	/** Weak pointer to the function entry within the blueprint graph for this event. Stored as an editor-only UObject so UHT can parse it when building for non-editor. */
+	/** Serialized soft pointer to the blueprint that contains the function graph endpoint for this event. Stored as a soft path so that renames of the blueprint don't break this event binding. */
 	UPROPERTY()
-	TWeakObjectPtr<UObject> FunctionEntry;
+	TSoftObjectPtr<UBlueprint> SoftBlueprintPath;
+
+	/** The UEdGraph::GraphGuid property that relates to the function entry to call. */
+	UPROPERTY()
+	FGuid GraphGuid;
+
+	/** Non-serialized weak pointer to the function entry within the blueprint graph for this event. Stored as an editor-only UObject so UHT can parse it when building for non-editor. */
+	UPROPERTY(transient)
+	mutable TWeakObjectPtr<UObject> CachedFunctionEntry;
+
+	/** Deprecated weak pointer to the function entry to call - no longer serialized but cached on load. */
+	UPROPERTY()
+	TWeakObjectPtr<UObject> FunctionEntry_DEPRECATED;
 
 #endif // WITH_EDITORONLY_DATA
 };

@@ -9,6 +9,7 @@
 #include "Internationalization/Text.h"
 #include "Internationalization/Culture.h"
 #include "Internationalization/FastDecimalFormat.h"
+#include "Internationalization/StringTableRegistry.h"
 #include "Internationalization/Internationalization.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
@@ -69,10 +70,10 @@ bool FTextTest::RunTest (const FString& Parameters)
 	FInternationalization::FCultureStateSnapshot OriginalCultureState;
 	I18N.BackupCultureState(OriginalCultureState);
 
-	FText ArgText0 = FText::FromString(TEXT("Arg0"));
-	FText ArgText1 = FText::FromString(TEXT("Arg1"));
-	FText ArgText2 = FText::FromString(TEXT("Arg2"));
-	FText ArgText3 = FText::FromString(TEXT("Arg3"));
+	FText ArgText0 = INVTEXT("Arg0");
+	FText ArgText1 = INVTEXT("Arg1");
+	FText ArgText2 = INVTEXT("Arg2");
+	FText ArgText3 = INVTEXT("Arg3");
 
 #define TEST( Desc, A, B ) if( !A.EqualTo(B) ) AddError(FString::Printf(TEXT("%s - A=%s B=%s"),*Desc,*A.ToString(),*B.ToString()))
 	
@@ -160,10 +161,10 @@ bool FTextTest::RunTest (const FString& Parameters)
 
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add( TEXT("Age"), FText::FromString( TEXT("23") ) );
-		Arguments.Add( TEXT("Height"), FText::FromString( TEXT("68") ) );
-		Arguments.Add( TEXT("Gender"), FText::FromString( TEXT("male") ) );
-		Arguments.Add( TEXT("Name"), FText::FromString( TEXT("Saul") ) );
+		Arguments.Add( TEXT("Age"), INVTEXT("23") );
+		Arguments.Add( TEXT("Height"), INVTEXT("68") );
+		Arguments.Add( TEXT("Gender"), INVTEXT("male") );
+		Arguments.Add( TEXT("Name"), INVTEXT("Saul") );
 
 		// Not using all the arguments is okay.
 		TestText = INVTEXT("My name is {Name}.");
@@ -200,10 +201,10 @@ bool FTextTest::RunTest (const FString& Parameters)
 
 	{
 		FFormatNamedArguments ArgumentList;
-		ArgumentList.Emplace(TEXT("Age"), FText::FromString(TEXT("23")));
-		ArgumentList.Emplace(TEXT("Height"), FText::FromString(TEXT("68")));
-		ArgumentList.Emplace(TEXT("Gender"), FText::FromString(TEXT("male")));
-		ArgumentList.Emplace(TEXT("Name"), FText::FromString(TEXT("Saul")));
+		ArgumentList.Emplace(TEXT("Age"), INVTEXT("23"));
+		ArgumentList.Emplace(TEXT("Height"), INVTEXT("68"));
+		ArgumentList.Emplace(TEXT("Gender"), INVTEXT("male"));
+		ArgumentList.Emplace(TEXT("Name"), INVTEXT("Saul"));
 
 		// Not using all the arguments is okay.
 		TestText = INVTEXT("My name is {Name}.");
@@ -276,8 +277,9 @@ bool FTextTest::RunTest (const FString& Parameters)
 
 #undef TEST
 
-#undef INVTEXT
-
+#if UE_ENABLE_ICU
+	if (I18N.SetCurrentCulture("en-US"))
+	{
 #define TEST(NumBytes, UnitStandard, ExpectedString) \
 	if (!FText::FromString(TEXT(ExpectedString)).EqualTo(FText::AsMemory(NumBytes, &NumberFormattingOptions, nullptr, UnitStandard))) \
 	{ \
@@ -324,9 +326,6 @@ bool FTextTest::RunTest (const FString& Parameters)
 	}
 #undef TEST
 
-#if UE_ENABLE_ICU
-	if (I18N.SetCurrentCulture("en-US"))
-	{
 #define TEST( A, B, ComparisonLevel ) if( !(FText::FromString(A)).EqualTo(FText::FromString(B), (ComparisonLevel)) ) AddError(FString::Printf(TEXT("Testing comparison of equivalent characters with comparison level (%s). - A=%s B=%s"),TEXT(#ComparisonLevel),(A),(B)))
 
 		// Basic sanity checks
@@ -360,10 +359,10 @@ bool FTextTest::RunTest (const FString& Parameters)
 	if (I18N.SetCurrentCulture("fr"))
 	{
 		TArray<FText> CorrectlySortedValues;
-		CorrectlySortedValues.Add( FText::FromString( TEXT("cote") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("cot\u00e9") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("c\u00f4te") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("c\u00f4t\u00e9") ) );
+		CorrectlySortedValues.Add( INVTEXT("cote") );
+		CorrectlySortedValues.Add( INVTEXT("cot\u00e9") );
+		CorrectlySortedValues.Add( INVTEXT("c\u00f4te") );
+		CorrectlySortedValues.Add( INVTEXT("c\u00f4t\u00e9") );
 
 		{
 			// Make unsorted.
@@ -403,10 +402,10 @@ bool FTextTest::RunTest (const FString& Parameters)
 	if (I18N.SetCurrentCulture("fr-CA"))
 	{
 		TArray<FText> CorrectlySortedValues;
-		CorrectlySortedValues.Add( FText::FromString( TEXT("cote") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("côte") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("coté") ) );
-		CorrectlySortedValues.Add( FText::FromString( TEXT("côté") ) );
+		CorrectlySortedValues.Add( INVTEXT("cote") );
+		CorrectlySortedValues.Add( INVTEXT("côte") );
+		CorrectlySortedValues.Add( INVTEXT("coté") );
+		CorrectlySortedValues.Add( INVTEXT("côté") );
 
 		{
 			// Make unsorted.
@@ -737,9 +736,12 @@ bool FTextRoundingTest::RunTest (const FString& Parameters)
 
 	static_assert(ARRAY_COUNT(InputValues) == ARRAY_COUNT(OutputValues), "The size of InputValues does not match OutputValues");
 
-	// This test needs to be run using an English culture
 	FInternationalization& I18N = FInternationalization::Get();
-	const FString OriginalCulture = I18N.GetCurrentCulture()->GetName();
+
+	FInternationalization::FCultureStateSnapshot OriginalCultureState;
+	I18N.BackupCultureState(OriginalCultureState);
+	
+	// This test needs to be run using an English culture
 	I18N.SetCurrentCulture(TEXT("en"));
 
 	// Test to make sure that the decimal formatter is rounding fractional numbers correctly (to 3 decimal places)
@@ -790,7 +792,7 @@ bool FTextRoundingTest::RunTest (const FString& Parameters)
 	}
 
 	// Restore original culture
-	I18N.SetCurrentCulture(OriginalCulture);
+	I18N.RestoreCultureState(OriginalCultureState);
 
 	return true;
 }
@@ -800,9 +802,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPaddingTest, "System.Core.Misc.TextPadding
 
 bool FTextPaddingTest::RunTest (const FString& Parameters)
 {
-	// This test needs to be run using an English culture
 	FInternationalization& I18N = FInternationalization::Get();
-	const FString OriginalCulture = I18N.GetCurrentCulture()->GetName();
+
+	FInternationalization::FCultureStateSnapshot OriginalCultureState;
+	I18N.BackupCultureState(OriginalCultureState);
+
+	// This test needs to be run using an English culture
 	I18N.SetCurrentCulture(TEXT("en"));
 
 	// Test to make sure that the decimal formatter is padding integral numbers correctly
@@ -888,18 +893,18 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 	}
 
 	// Restore original culture
-	I18N.SetCurrentCulture(OriginalCulture);
+	I18N.RestoreCultureState(OriginalCultureState);
 
 	return true;
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextParsingTest, "System.Core.Misc.TextParsing", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextNumericParsingTest, "System.Core.Misc.TextNumericParsing", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-struct FTextParsingTestUtil
+struct FTextNumericParsingTestUtil
 {
 	template <typename T>
-	static void DoSingleTest(FTextParsingTest* InTest, const TCHAR* InStr, const int32 InStrLen, const FDecimalNumberFormattingRules& InFormattingRules, const T InExpectedValue, const bool bExpectedToParse, const TCHAR* InDescription)
+	static void DoSingleTest(FTextNumericParsingTest* InTest, const TCHAR* InStr, const int32 InStrLen, const FDecimalNumberFormattingRules& InFormattingRules, const T InExpectedValue, const bool bExpectedToParse, const TCHAR* InDescription)
 	{
 		T Value;
 		const bool bDidParse = FastDecimalFormat::StringToNumber(InStr, InStrLen, InFormattingRules, FNumberParsingOptions::DefaultWithGrouping(), Value);
@@ -918,13 +923,13 @@ struct FTextParsingTestUtil
 	}
 
 	template <typename T>
-	static void DoSingleTest(FTextParsingTest* InTest, const TCHAR* InStr, const FDecimalNumberFormattingRules& InFormattingRules, const T InExpectedValue, const bool bExpectedToParse, const TCHAR* InDescription)
+	static void DoSingleTest(FTextNumericParsingTest* InTest, const TCHAR* InStr, const FDecimalNumberFormattingRules& InFormattingRules, const T InExpectedValue, const bool bExpectedToParse, const TCHAR* InDescription)
 	{
 		DoSingleTest(InTest, InStr, FCString::Strlen(InStr), InFormattingRules, InExpectedValue, bExpectedToParse, InDescription);
 	}
 };
 
-bool FTextParsingTest::RunTest(const FString& Parameters)
+bool FTextNumericParsingTest::RunTest(const FString& Parameters)
 {
 	FInternationalization& I18N = FInternationalization::Get();
 
@@ -947,26 +952,26 @@ bool FTextParsingTest::RunTest(const FString& Parameters)
 			const FString NegativeASCIIString = FString::Printf(TEXT("-123%c456"), FormattingRules.DecimalSeparatorCharacter);
 			const FString GroupSeparatedString = FString::Printf(TEXT("1%c234"), FormattingRules.GroupingSeparatorCharacter);
 
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *UnsignedString, FormattingRules, 123, true, *BuildDescription(*UnsignedString, TEXT("int32")));
-			FTextParsingTestUtil::DoSingleTest<uint32>(this, *UnsignedString, FormattingRules, 123, true, *BuildDescription(*UnsignedString, TEXT("uint32")));
-			FTextParsingTestUtil::DoSingleTest<float>(this, *UnsignedString, FormattingRules, 123.456f, true, *BuildDescription(*UnsignedString, TEXT("float")));
-			FTextParsingTestUtil::DoSingleTest<double>(this, *UnsignedString, FormattingRules, 123.456, true, *BuildDescription(*UnsignedString, TEXT("double")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *UnsignedString, FormattingRules, 123, true, *BuildDescription(*UnsignedString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, *UnsignedString, FormattingRules, 123, true, *BuildDescription(*UnsignedString, TEXT("uint32")));
+			FTextNumericParsingTestUtil::DoSingleTest<float>(this, *UnsignedString, FormattingRules, 123.456f, true, *BuildDescription(*UnsignedString, TEXT("float")));
+			FTextNumericParsingTestUtil::DoSingleTest<double>(this, *UnsignedString, FormattingRules, 123.456, true, *BuildDescription(*UnsignedString, TEXT("double")));
 
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *PositiveString, FormattingRules, 123, true, *BuildDescription(*PositiveString, TEXT("int32")));
-			FTextParsingTestUtil::DoSingleTest<uint32>(this, *PositiveString, FormattingRules, 123, true, *BuildDescription(*PositiveString, TEXT("uint32")));
-			FTextParsingTestUtil::DoSingleTest<float>(this, *PositiveString, FormattingRules, 123.456f, true, *BuildDescription(*PositiveString, TEXT("float")));
-			FTextParsingTestUtil::DoSingleTest<double>(this, *PositiveString, FormattingRules, 123.456, true, *BuildDescription(*PositiveString, TEXT("double")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *PositiveString, FormattingRules, 123, true, *BuildDescription(*PositiveString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, *PositiveString, FormattingRules, 123, true, *BuildDescription(*PositiveString, TEXT("uint32")));
+			FTextNumericParsingTestUtil::DoSingleTest<float>(this, *PositiveString, FormattingRules, 123.456f, true, *BuildDescription(*PositiveString, TEXT("float")));
+			FTextNumericParsingTestUtil::DoSingleTest<double>(this, *PositiveString, FormattingRules, 123.456, true, *BuildDescription(*PositiveString, TEXT("double")));
 
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *NegativeString, FormattingRules, -123, true, *BuildDescription(*NegativeString, TEXT("int32")));
-			FTextParsingTestUtil::DoSingleTest<uint32>(this, *NegativeString, FormattingRules, -123, true, *BuildDescription(*NegativeString, TEXT("uint32")));
-			FTextParsingTestUtil::DoSingleTest<float>(this, *NegativeString, FormattingRules, -123.456f, true, *BuildDescription(*NegativeString, TEXT("float")));
-			FTextParsingTestUtil::DoSingleTest<double>(this, *NegativeString, FormattingRules, -123.456, true, *BuildDescription(*NegativeString, TEXT("double")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *NegativeString, FormattingRules, -123, true, *BuildDescription(*NegativeString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, *NegativeString, FormattingRules, -123, true, *BuildDescription(*NegativeString, TEXT("uint32")));
+			FTextNumericParsingTestUtil::DoSingleTest<float>(this, *NegativeString, FormattingRules, -123.456f, true, *BuildDescription(*NegativeString, TEXT("float")));
+			FTextNumericParsingTestUtil::DoSingleTest<double>(this, *NegativeString, FormattingRules, -123.456, true, *BuildDescription(*NegativeString, TEXT("double")));
 
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *PositiveASCIIString, FormattingRules, 123, true, *BuildDescription(*PositiveASCIIString, TEXT("int32")));
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *NegativeASCIIString, FormattingRules, -123, true, *BuildDescription(*NegativeASCIIString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *PositiveASCIIString, FormattingRules, 123, true, *BuildDescription(*PositiveASCIIString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *NegativeASCIIString, FormattingRules, -123, true, *BuildDescription(*NegativeASCIIString, TEXT("int32")));
 
-			FTextParsingTestUtil::DoSingleTest<int32>(this, *GroupSeparatedString, FormattingRules, 1234, true, *BuildDescription(*GroupSeparatedString, TEXT("int32")));
-			FTextParsingTestUtil::DoSingleTest<uint32>(this, *GroupSeparatedString, FormattingRules, 1234, true, *BuildDescription(*GroupSeparatedString, TEXT("uint32")));
+			FTextNumericParsingTestUtil::DoSingleTest<int32>(this, *GroupSeparatedString, FormattingRules, 1234, true, *BuildDescription(*GroupSeparatedString, TEXT("int32")));
+			FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, *GroupSeparatedString, FormattingRules, 1234, true, *BuildDescription(*GroupSeparatedString, TEXT("uint32")));
 		}
 	};
 	
@@ -977,12 +982,123 @@ bool FTextParsingTest::RunTest(const FString& Parameters)
 	{
 		const FDecimalNumberFormattingRules& AgnosticFormattingRules = FastDecimalFormat::GetCultureAgnosticFormattingRules();
 
-		FTextParsingTestUtil::DoSingleTest<int32>(this, TEXT("10a"), AgnosticFormattingRules, 0, false, TEXT("Parsing '10a' as 'int32'"));
-		FTextParsingTestUtil::DoSingleTest<uint32>(this, TEXT("10a"), AgnosticFormattingRules, 0, false, TEXT("Parsing '10a' as 'uint32'"));
+		FTextNumericParsingTestUtil::DoSingleTest<int32>(this, TEXT("10a"), AgnosticFormattingRules, 0, false, TEXT("Parsing '10a' as 'int32'"));
+		FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, TEXT("10a"), AgnosticFormattingRules, 0, false, TEXT("Parsing '10a' as 'uint32'"));
 
-		FTextParsingTestUtil::DoSingleTest<int32>(this, TEXT("10a"), 2, AgnosticFormattingRules, 10, true, TEXT("Parsing '10a' (len 2) as 'int32'"));
-		FTextParsingTestUtil::DoSingleTest<uint32>(this, TEXT("10a"), 2, AgnosticFormattingRules, 10, true, TEXT("Parsing '10a' (len 2) as 'uint32'"));
+		FTextNumericParsingTestUtil::DoSingleTest<int32>(this, TEXT("10a"), 2, AgnosticFormattingRules, 10, true, TEXT("Parsing '10a' (len 2) as 'int32'"));
+		FTextNumericParsingTestUtil::DoSingleTest<uint32>(this, TEXT("10a"), 2, AgnosticFormattingRules, 10, true, TEXT("Parsing '10a' (len 2) as 'uint32'"));
 	}
+
+	return true;
+}
+
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextStringificationTest, "System.Core.Misc.TextStringification", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+bool FTextStringificationTest::RunTest(const FString& Parameters)
+{
+	FInternationalization& I18N = FInternationalization::Get();
+
+	FInternationalization::FCultureStateSnapshot OriginalCultureState;
+	I18N.BackupCultureState(OriginalCultureState);
+
+	// This test needs to be run using the English (US) culture to ensure the time formatting has a valid timezone to work with
+	I18N.SetCurrentCulture(TEXT("en-US"));
+
+	auto DoSingleTest = [this](const FText& InExpectedText, const FString& InExpectedString, const FString& InCppString, const bool bImportCppString)
+	{
+		// Validate that the text produces the string we expect
+		FString ActualString;
+		FTextStringHelper::WriteToBuffer(ActualString, InExpectedText);
+		if (!ActualString.Equals(InExpectedString, ESearchCase::CaseSensitive))
+		{
+			AddError(FString::Printf(TEXT("Text export failure (from text): Text '%s' was expected to export as '%s', but produced '%s'."), *InExpectedText.ToString(), *InExpectedString, *ActualString));
+		}
+
+		// Validate that the string produces the text we expect
+		FText ActualText;
+		if (!FTextStringHelper::ReadFromBuffer(*InExpectedString, ActualText))
+		{
+			AddError(FString::Printf(TEXT("Text import failure (from string): String '%s' failed to import."), *InExpectedString));
+		}
+		if (!InExpectedText.ToString().Equals(ActualText.ToString(), ESearchCase::CaseSensitive))
+		{
+			AddError(FString::Printf(TEXT("Text import failure (from string): String '%s' was expected to import as '%s', but produced '%s'."), *InExpectedString, *InExpectedText.ToString(), *ActualText.ToString()));
+		}
+
+		// Validate that the C++ string produces the text we expect
+		if (bImportCppString)
+		{
+			FText ActualCppText;
+			if (!FTextStringHelper::ReadFromBuffer(*InCppString, ActualCppText))
+			{
+				AddError(FString::Printf(TEXT("Text import failure (from C++): String '%s' failed to import."), *InCppString));
+			}
+			if (!InExpectedText.ToString().Equals(ActualCppText.ToString(), ESearchCase::CaseSensitive))
+			{
+				AddError(FString::Printf(TEXT("Text import failure (from C++): String '%s' was expected to import as '%s', but produced '%s'."), *InCppString, *InExpectedText.ToString(), *ActualCppText.ToString()));
+			}
+		}
+	};
+
+#define TEST(Text, Str) DoSingleTest(Text, TEXT(Str), TEXT(#Text), true)
+#define TEST_EX(Text, Str, ImportCpp) DoSingleTest(Text, TEXT(Str), TEXT(#Text), ImportCpp)
+
+	// Add the test string table, but only if it isn't already!
+	if (!FStringTableRegistry::Get().FindStringTable("Core.Tests.TextFormatTest"))
+	{
+		LOCTABLE_NEW("Core.Tests.TextFormatTest", "Core.Tests.TextFormatTest");
+		LOCTABLE_SETSTRING("Core.Tests.TextFormatTest", "TextStringificationTest_Lorem", "Lorem");
+	}
+
+	TEST(NSLOCTEXT("Core.Tests.TextFormatTest", "TextStringificationTest_Lorem", "Lorem"), "NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Lorem\", \"Lorem\")");
+	TEST(LOCTEXT("TextStringificationTest_Lorem", "Lorem"), "NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Lorem\", \"Lorem\")");
+	TEST(LOCTABLE("Core.Tests.TextFormatTest", "TextStringificationTest_Lorem"), "LOCTABLE(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Lorem\")");
+	TEST(INVTEXT("DummyText"), "INVTEXT(\"DummyText\")");
+	if (GIsEditor)
+	{
+		TEST_EX(FText::FromString(TEXT("DummyString")), "DummyString", false);
+	}
+	else
+	{
+		TEST_EX(FText::FromString(TEXT("DummyString")), "INVTEXT(\"DummyString\")", false);
+	}
+
+	TEST(LOCGEN_NUMBER(10, ""), "LOCGEN_NUMBER(10, \"\")");
+	TEST(LOCGEN_NUMBER_GROUPED(12.5f, ""), "LOCGEN_NUMBER_GROUPED(12.500000f, \"\")");
+	TEST(LOCGEN_NUMBER_UNGROUPED(12.5f, ""), "LOCGEN_NUMBER_UNGROUPED(12.500000f, \"\")");
+	TEST(LOCGEN_NUMBER_CUSTOM(+10, SetAlwaysSign(true).SetRoundingMode(ERoundingMode::ToZero).SetMinimumFractionalDigits(2), ""), "LOCGEN_NUMBER_CUSTOM(10, SetAlwaysSign(true).SetRoundingMode(ERoundingMode::ToZero).SetMinimumFractionalDigits(2), \"\")");
+	TEST(LOCGEN_NUMBER(-10, "en"), "LOCGEN_NUMBER(-10, \"en\")");
+
+	TEST(LOCGEN_PERCENT(0.1f, ""), "LOCGEN_PERCENT(0.100000f, \"\")");
+	TEST(LOCGEN_PERCENT_GROUPED(0.1f, ""), "LOCGEN_PERCENT_GROUPED(0.100000f, \"\")");
+	TEST(LOCGEN_PERCENT_UNGROUPED(0.1f, ""), "LOCGEN_PERCENT_UNGROUPED(0.100000f, \"\")");
+	TEST(LOCGEN_PERCENT_CUSTOM(0.1f, SetAlwaysSign(true).SetRoundingMode(ERoundingMode::ToZero).SetMinimumFractionalDigits(2), ""), "LOCGEN_PERCENT_CUSTOM(0.100000f, SetAlwaysSign(true).SetRoundingMode(ERoundingMode::ToZero).SetMinimumFractionalDigits(2), \"\")");
+	TEST(LOCGEN_PERCENT(0.1, "en"), "LOCGEN_PERCENT(0.100000, \"en\")");
+
+	TEST(LOCGEN_CURRENCY(125, "USD", ""), "LOCGEN_CURRENCY(125, \"USD\", \"\")");
+	TEST_EX(FText::AsCurrency(1.25f, TEXT("USD"), nullptr, FInternationalization::Get().GetCulture(TEXT("en"))), "LOCGEN_CURRENCY(125, \"USD\", \"en\")", false);
+
+	TEST(LOCGEN_DATE_UTC(1526342400, EDateTimeStyle::Short, "", "en-GB"), "LOCGEN_DATE_UTC(1526342400, EDateTimeStyle::Short, \"\", \"en-GB\")");
+	TEST(LOCGEN_DATE_LOCAL(1526342400, EDateTimeStyle::Medium, ""), "LOCGEN_DATE_LOCAL(1526342400, EDateTimeStyle::Medium, \"\")");
+
+	TEST(LOCGEN_TIME_UTC(1526342400, EDateTimeStyle::Long, "", "en-GB"), "LOCGEN_TIME_UTC(1526342400, EDateTimeStyle::Long, \"\", \"en-GB\")");
+	TEST(LOCGEN_TIME_LOCAL(1526342400, EDateTimeStyle::Full, ""), "LOCGEN_TIME_LOCAL(1526342400, EDateTimeStyle::Full, \"\")");
+
+	TEST(LOCGEN_DATETIME_UTC(1526342400, EDateTimeStyle::Short, EDateTimeStyle::Medium, "", "en-GB"), "LOCGEN_DATETIME_UTC(1526342400, EDateTimeStyle::Short, EDateTimeStyle::Medium, \"\", \"en-GB\")");
+	TEST(LOCGEN_DATETIME_LOCAL(1526342400, EDateTimeStyle::Long, EDateTimeStyle::Full, ""), "LOCGEN_DATETIME_LOCAL(1526342400, EDateTimeStyle::Long, EDateTimeStyle::Full, \"\")");
+
+	TEST(LOCGEN_TOUPPER(LOCTEXT("TextStringificationTest_Lorem", "Lorem")), "LOCGEN_TOUPPER(NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Lorem\", \"Lorem\"))");
+	TEST(LOCGEN_TOLOWER(LOCTEXT("TextStringificationTest_Lorem", "Lorem")), "LOCGEN_TOLOWER(NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Lorem\", \"Lorem\"))");
+
+	TEST(LOCGEN_FORMAT_ORDERED(LOCTEXT("TextStringificationTest_FmtO", "{0} weighs {1}kg"), LOCTEXT("TextStringificationTest_Bear", "Bear"), 227), "LOCGEN_FORMAT_ORDERED(NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_FmtO\", \"{0} weighs {1}kg\"), NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Bear\", \"Bear\"), 227)");
+	TEST(LOCGEN_FORMAT_NAMED(LOCTEXT("TextStringificationTest_FmtN", "{Animal} weighs {Weight}kg"), TEXT("Animal"), LOCTEXT("TextStringificationTest_Bear", "Bear"), TEXT("Weight"), 227), "LOCGEN_FORMAT_NAMED(NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_FmtN\", \"{Animal} weighs {Weight}kg\"), \"Animal\", NSLOCTEXT(\"Core.Tests.TextFormatTest\", \"TextStringificationTest_Bear\", \"Bear\"), \"Weight\", 227)");
+
+#undef TEST
+#undef TEST_EX
+
+	// Restore original culture
+	I18N.RestoreCultureState(OriginalCultureState);
 
 	return true;
 }
@@ -1000,8 +1116,16 @@ bool FTextFormatArgModifierTest::RunTest(const FString& Parameters)
 		}
 	};
 
+	FInternationalization& I18N = FInternationalization::Get();
+
+	FInternationalization::FCultureStateSnapshot OriginalCultureState;
+	I18N.BackupCultureState(OriginalCultureState);
+
+	// This test needs to be run using an English culture
+	I18N.SetCurrentCulture(TEXT("en"));
+
 	{
-		const FTextFormat CardinalFormatText = FText::FromString(TEXT("There {NumCats}|plural(one=is,other=are) {NumCats} {NumCats}|plural(one=cat,other=cats)"));
+		const FTextFormat CardinalFormatText = INVTEXT("There {NumCats}|plural(one=is,other=are) {NumCats} {NumCats}|plural(one=cat,other=cats)");
 		EnsureValidResult(FText::FormatNamed(CardinalFormatText, TEXT("NumCats"), 0).ToString(), TEXT("There are 0 cats"), TEXT("CardinalResult0"), CardinalFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(CardinalFormatText, TEXT("NumCats"), 1).ToString(), TEXT("There is 1 cat"), TEXT("CardinalResult1"), CardinalFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(CardinalFormatText, TEXT("NumCats"), 2).ToString(), TEXT("There are 2 cats"), TEXT("CardinalResult2"), CardinalFormatText.GetSourceText().ToString());
@@ -1010,7 +1134,7 @@ bool FTextFormatArgModifierTest::RunTest(const FString& Parameters)
 	}
 
 	{
-		const FTextFormat OrdinalFormatText = FText::FromString(TEXT("You came {Place}{Place}|ordinal(one=st,two=nd,few=rd,other=th)!"));
+		const FTextFormat OrdinalFormatText = INVTEXT("You came {Place}{Place}|ordinal(one=st,two=nd,few=rd,other=th)!");
 		EnsureValidResult(FText::FormatNamed(OrdinalFormatText, TEXT("Place"), 0).ToString(), TEXT("You came 0th!"), TEXT("OrdinalResult0"), OrdinalFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(OrdinalFormatText, TEXT("Place"), 1).ToString(), TEXT("You came 1st!"), TEXT("OrdinalResult1"), OrdinalFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(OrdinalFormatText, TEXT("Place"), 2).ToString(), TEXT("You came 2nd!"), TEXT("OrdinalResult2"), OrdinalFormatText.GetSourceText().ToString());
@@ -1019,85 +1143,88 @@ bool FTextFormatArgModifierTest::RunTest(const FString& Parameters)
 	}
 
 	{
-		const FTextFormat GenderFormatText = FText::FromString(TEXT("{Gender}|gender(Le,La) {Gender}|gender(guerrier,guerrière) est {Gender}|gender(fort,forte)"));
+		const FTextFormat GenderFormatText = INVTEXT("{Gender}|gender(Le,La) {Gender}|gender(guerrier,guerrière) est {Gender}|gender(fort,forte)");
 		EnsureValidResult(FText::FormatNamed(GenderFormatText, TEXT("Gender"), ETextGender::Masculine).ToString(), TEXT("Le guerrier est fort"), TEXT("GenderResultM"), GenderFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(GenderFormatText, TEXT("Gender"), ETextGender::Feminine).ToString(), TEXT("La guerrière est forte"), TEXT("GenderResultF"), GenderFormatText.GetSourceText().ToString());
 	}
 
 	{
-		const FTextFormat GenderFormatText = FText::FromString(TEXT("{Gender}|gender(Le guerrier est fort,La guerrière est forte)"));
+		const FTextFormat GenderFormatText = INVTEXT("{Gender}|gender(Le guerrier est fort,La guerrière est forte)");
 		EnsureValidResult(FText::FormatNamed(GenderFormatText, TEXT("Gender"), ETextGender::Masculine).ToString(), TEXT("Le guerrier est fort"), TEXT("GenderResultM"), GenderFormatText.GetSourceText().ToString());
 		EnsureValidResult(FText::FormatNamed(GenderFormatText, TEXT("Gender"), ETextGender::Feminine).ToString(), TEXT("La guerrière est forte"), TEXT("GenderResultF"), GenderFormatText.GetSourceText().ToString());
 	}
 
 	{
-		const FText Consonant = FText::FromString(TEXT("\uC0AC\uB78C")/* 사람 */);
-		const FText ConsonantRieul = FText::FromString(TEXT("\uC11C\uC6B8")/* 서울 */);
-		const FText Vowel = FText::FromString(TEXT("\uC0AC\uC790")/* 사자 */);
+		const FText Consonant = INVTEXT("\uC0AC\uB78C");/* 사람 */
+		const FText ConsonantRieul = INVTEXT("\uC11C\uC6B8");/* 서울 */
+		const FText Vowel = INVTEXT("\uC0AC\uC790");/* 사자 */
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC740,\uB294)"));/* 은/는 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC740,\uB294)");/* 은/는 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC740"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC740"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uB294"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC774,\uAC00)"));/* 이/가 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC774,\uAC00)");/* 이/가 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC774"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC774"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uAC00"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC744,\uB97C)"));/* 을/를 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC744,\uB97C)");/* 을/를 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC744"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC744"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uB97C"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uACFC,\uC640)"));/* 과/와 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uACFC,\uC640)");/* 과/와 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uACFC"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uACFC"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uC640"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC544,\uC57C)"));/* 아/야 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC544,\uC57C)");/* 아/야 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC544"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC544"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uC57C"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC774\uC5B4,\uC5EC)"));/* 이어/여 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC774\uC5B4,\uC5EC)");/* 이어/여 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC774\uC5B4"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC774\uC5B4"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uC5EC"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC774\uC5D0,\uC608)"));/* 이에/예 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC774\uC5D0,\uC608)");/* 이에/예 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC774\uC5D0"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC774\uC5D0"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uC608"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC774\uC5C8,​\uC600)"));/* 이었/​였 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC774\uC5C8,​\uC600)");/* 이었/​였 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC774\uC5C8"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uC774\uC5C8"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790​\uC600"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 
 		{
-			const FTextFormat HppFormatText = FText::FromString(TEXT("{Arg}|hpp(\uC73C\uB85C,\uB85C)"));/* 으로/로 */
+			const FTextFormat HppFormatText = INVTEXT("{Arg}|hpp(\uC73C\uB85C,\uB85C)");/* 으로/로 */
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Consonant).ToString(), TEXT("\uC0AC\uB78C\uC73C\uB85C"), TEXT("HppResultConsonant"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), ConsonantRieul).ToString(), TEXT("\uC11C\uC6B8\uB85C"), TEXT("HppResultConsonantRieul"), HppFormatText.GetSourceText().ToString());
 			EnsureValidResult(FText::FormatNamed(HppFormatText, TEXT("Arg"), Vowel).ToString(), TEXT("\uC0AC\uC790\uB85C"), TEXT("HppResultVowel"), HppFormatText.GetSourceText().ToString());
 		}
 	}
+
+	// Restore original culture
+	I18N.RestoreCultureState(OriginalCultureState);
 
 	return true;
 }

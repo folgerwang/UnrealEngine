@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DisplayClusterInputDeviceTraits.h"
+#include "Input/Devices/DisplayClusterInputDeviceTraits.h"
 #include "IDisplayClusterStringSerializable.h"
 
 #include "Config/DisplayClusterConfigTypes.h"
@@ -11,9 +11,10 @@
 /**
  * Interface for input devices
  */
-struct IDisplayClusterInputDevice
+class IDisplayClusterInputDevice
 	: public IDisplayClusterStringSerializable
 {
+public:
 	virtual ~IDisplayClusterInputDevice() = 0
 	{ }
 

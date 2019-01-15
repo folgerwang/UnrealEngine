@@ -278,34 +278,12 @@ void SLevelViewport::ConstructViewportOverlayContent()
 					.ShadowOffset(FVector2D(1, 1))
 				]
 		]
+		// add feature level widget
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(2.0f, 1.0f, 2.0f, 1.0f)
 		[
-			SNew(SHorizontalBox)
-			.Visibility(this, &SLevelViewport::GetCurrentFeatureLevelPreviewTextVisibility)
-			// Current level label
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2.0f, 1.0f, 2.0f, 1.0f)
-			[
-				SNew(STextBlock)
-				.Text(this, &SLevelViewport::GetCurrentFeatureLevelPreviewText, true)
-				.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
-				.ShadowOffset(FVector2D(1, 1))
-			]
-
-			// Current level
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(4.0f, 1.0f, 2.0f, 1.0f)
-				[
-					SNew(STextBlock)
-					.Text(this, &SLevelViewport::GetCurrentFeatureLevelPreviewText, false)
-					.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
-					.ColorAndOpacity(FLinearColor(0.4f, 1.0f, 1.0f))
-					.ShadowOffset(FVector2D(1, 1))
-				]
+			BuildFeatureLevelWidget()
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -943,6 +921,21 @@ void SLevelViewport::Tick( const FGeometry& AllottedGeometry, const double InCur
 	extern CORE_API void CheckForRegisteredStatGroups();
 	CheckForRegisteredStatGroups();
 #endif
+
+	if (bNeedToUpdatePreviews)
+	{
+		const bool bPreviewInDesktopViewport = !IVREditorModule::Get().IsVREditorModeActive();
+		if (GetDefault<ULevelEditorViewportSettings>()->bPreviewSelectedCameras && GCurrentLevelEditingViewportClient == LevelViewportClient.Get())
+		{
+			PreviewSelectedCameraActors(bPreviewInDesktopViewport);
+		}
+		else
+		{
+			// We're no longer the active viewport client, so remove any existing previewed actors
+			PreviewActors(TArray<AActor*>(), bPreviewInDesktopViewport);
+		}
+		bNeedToUpdatePreviews = false;
+	}
 }
 
 
@@ -1044,6 +1037,8 @@ void SLevelViewport::OnMapChanged( UWorld* World, EMapChangeType MapChangeType )
 			LevelViewportClient->ResetViewForNewMap();
 		}
 		World->EditorViews[LevelViewportClient->ViewportType].CamUpdated = false;
+
+		World->ChangeFeatureLevel(GWorld->FeatureLevel);
 
 		RedrawViewport(true);
 	}
@@ -1690,11 +1685,11 @@ void SLevelViewport::OnCreateCameraActor()
 	// Find the perspective viewport we were using
 	FViewport* pViewPort = GEditor->GetActiveViewport();
 	FLevelEditorViewportClient* ViewportClient = NULL;
-	for( int32 iView = 0; iView < GEditor->LevelViewportClients.Num(); iView++ )
+	for( FLevelEditorViewportClient* LevelViewport : GEditor->GetLevelViewportClients())
 	{		
-		if( GEditor->LevelViewportClients[ iView ]->IsPerspective() && GEditor->LevelViewportClients[ iView ]->Viewport == pViewPort )
+		if( LevelViewport->IsPerspective() && LevelViewport->Viewport == pViewPort )
 		{
-			ViewportClient = GEditor->LevelViewportClients[ iView ];
+			ViewportClient = LevelViewport;
 			break;
 		}
 	}
@@ -2424,11 +2419,12 @@ void SLevelViewport::RedrawViewport( bool bInvalidateHitProxies )
 		LevelViewportClient->Viewport->Invalidate();
 		
 		// Also update preview viewports
-		for( auto ActorPreviewIt = ActorPreviews.CreateConstIterator(); ActorPreviewIt; ++ActorPreviewIt )
+		for (const FViewportActorPreview& CurActorPreview : ActorPreviews)
 		{
-			auto& CurActorPreview = *ActorPreviewIt;
-
-			CurActorPreview.LevelViewportClient->Viewport->Invalidate();
+			if (CurActorPreview.LevelViewportClient.IsValid())
+			{
+				CurActorPreview.LevelViewportClient->Viewport->Invalidate();
+			}			
 		}
 	}
 	else
@@ -2437,11 +2433,12 @@ void SLevelViewport::RedrawViewport( bool bInvalidateHitProxies )
 		LevelViewportClient->Viewport->InvalidateDisplay();
 
 		// Also update preview viewports
-		for( auto ActorPreviewIt = ActorPreviews.CreateConstIterator(); ActorPreviewIt; ++ActorPreviewIt )
+		for (const FViewportActorPreview& CurActorPreview : ActorPreviews)
 		{
-			auto& CurActorPreview = *ActorPreviewIt;
-
-			CurActorPreview.LevelViewportClient->Viewport->InvalidateDisplay();
+			if (CurActorPreview.LevelViewportClient.IsValid())
+			{
+				CurActorPreview.LevelViewportClient->Viewport->InvalidateDisplay();
+			}			
 		}
 	}
 }
@@ -2539,23 +2536,8 @@ void SLevelViewport::OnActorSelectionChanged(const TArray<UObject*>& NewSelectio
 		LevelViewportClient->EngineShowFlags.SetSelectionOutline(GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
 	}
 
-
-	// Check to see if we have any actors that we should preview.  Only do this if we're the active level viewport client.
-	// NOTE: We don't actively monitor which viewport is "current" and remove views, etc.  This ends up OK though because
-	//       the camera PIP views will feel "sticky" in the viewport that was active when you last selected objects
-	//       to preview!
-	const bool bPreviewInDesktopViewport = !IVREditorModule::Get().IsVREditorModeActive();
-	if (GetDefault<ULevelEditorViewportSettings>()->bPreviewSelectedCameras && GCurrentLevelEditingViewportClient == LevelViewportClient.Get())
-	{
-		PreviewSelectedCameraActors(bPreviewInDesktopViewport);
-	}
-	else
-	{
-		// We're no longer the active viewport client, so remove any existing previewed actors
-		PreviewActors(TArray<AActor*>(), bPreviewInDesktopViewport);
-	}
+	bNeedToUpdatePreviews = true;
 }
-
 
 
 void SLevelViewport::PreviewSelectedCameraActors(const bool bPreviewInDesktopViewport)
@@ -2570,13 +2552,13 @@ void SLevelViewport::PreviewSelectedCameraActors(const bool bPreviewInDesktopVie
 		{
 			// If this viewport is already locked to the specified camera, then we don't need to do anything
 		}
-		else if (CanGetCameraInformationFromActor(SelectedActor) && !FLevelEditorViewportClient::IsDroppingPreviewActor())
+		else if (!FLevelEditorViewportClient::IsDroppingPreviewActor() && CanGetCameraInformationFromActor(SelectedActor))
 		{
 			ActorsToPreview.Add(SelectedActor);
 		}
 	}
 
-	PreviewActors( ActorsToPreview, bPreviewInDesktopViewport);
+	PreviewActors(ActorsToPreview, bPreviewInDesktopViewport);
 }
 
 
@@ -2589,7 +2571,8 @@ public:
 
 	SLATE_BEGIN_ARGS( SActorPreview )
 		: _ViewportWidth( 240 ),
-		  _ViewportHeight( 180 ) {}
+		  _ViewportHeight( 180 ),
+		  _IsInteractive( false ) {}
 
 		/** Width of the viewport */
 		SLATE_ARGUMENT( int32, ViewportWidth )
@@ -2603,6 +2586,12 @@ public:
 		/** Parent Viewport this preview is part of.*/
 		SLATE_ARGUMENT( TWeakPtr<SLevelViewport>, ParentViewport )
 
+		/** Parent Viewport this preview is part of.*/
+		SLATE_ARGUMENT(bool, IsInteractive)
+
+		/** Optional */
+		SLATE_DEFAULT_SLOT( FArguments, Content )
+
 	SLATE_END_ARGS()
 
 	/** Called by Slate to construct this widget */
@@ -2610,9 +2599,9 @@ public:
 
 
 	/** @return	Returns this actor preview's viewport widget */
-	const TSharedRef< SViewport > GetViewportWidget() const
+	const TSharedPtr< SViewport > GetViewportWidget() const
 	{
-		return ViewportWidget.ToSharedRef();
+		return ViewportWidget;
 	}
 
 
@@ -2695,6 +2684,26 @@ void SActorPreview::Construct( const FArguments& InArgs )
 	// widgets that are added to the viewport overlay.
 	this->SetVisibility(EVisibility::SelfHitTestInvisible);
 
+	TSharedPtr<SViewport> PreviewViewport;
+	auto GetPreviewContent = [&PreviewViewport](const FArguments& InOpArgs)->TSharedRef<SWidget>
+	{
+		if (InOpArgs._Content.Widget == SNullWidget::NullWidget)
+		{
+			return SAssignNew(PreviewViewport, SViewport)
+				.RenderDirectlyToWindow(false)
+				.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
+				.EnableGammaCorrection(false) // Scene rendering handles gamma correction
+				.EnableBlending(true);
+		}
+		else
+		{
+			return InOpArgs._Content.Widget;
+		}
+	};
+
+	// We usually don't want actor preview viewports to be interactive at all, but some custom actor previews may want to override this
+	EVisibility BorderVisibility = (InArgs._IsInteractive ? EVisibility::SelfHitTestInvisible : EVisibility::HitTestInvisible);
+
 	this->ChildSlot
 	[
 		SNew(SBorder)
@@ -2711,8 +2720,7 @@ void SActorPreview::Construct( const FArguments& InArgs )
 			+SOverlay::Slot()
 			[
 				SNew( SBorder )
-					// We never want the user to be able to interact with this viewport.  Clicks should go right though it!
-					.Visibility( EVisibility::HitTestInvisible )
+					.Visibility(BorderVisibility)
 
 					.Padding( 16.0f )
 					.BorderImage( FEditorStyle::GetBrush( "UniformShadow_Tint" ) )
@@ -2728,11 +2736,7 @@ void SActorPreview::Construct( const FArguments& InArgs )
 								SNew( SOverlay )
 									+SOverlay::Slot()
 									[
-										SAssignNew( ViewportWidget, SViewport )
-											.RenderDirectlyToWindow( false )
-											.IsEnabled( FSlateApplication::Get().GetNormalExecutionAttribute() )
-											.EnableGammaCorrection( false )		// Scene rendering handles gamma correction
-											.EnableBlending( true )
+										GetPreviewContent(InArgs)
 									]
 									
 									+SOverlay::Slot()
@@ -2786,6 +2790,8 @@ void SActorPreview::Construct( const FArguments& InArgs )
 			]
 		]
 	];
+
+	ViewportWidget = PreviewViewport;
 
 	// Setup animation curve for fading in and out.  Note that we add a bit of lead-in time on the fade-in
 	// to avoid hysteresis as the user moves the mouse over the view
@@ -2979,7 +2985,7 @@ FText SActorPreview::OnFilmbackText() const
 {
 	if (PreviewActorPtr.IsValid())
 	{
-		USceneComponent* ViewComponent = FLevelEditorViewportClient::FindViewComponentForActor(PreviewActorPtr.Get());
+		UActorComponent* ViewComponent = FLevelEditorViewportClient::FindViewComponentForActor(PreviewActorPtr.Get());
 		UCameraComponent* CameraComponent = Cast<UCameraComponent>(ViewComponent);
 		if (CameraComponent)
 		{
@@ -3036,10 +3042,20 @@ float SActorPreview::OnReadTextWidth() const
 	return OnReadWidth().Get() - (PreviewTextPadding*2.0f);
 }
 
-void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, const bool bPreviewInDesktopViewport /*= true*/)
+void SLevelViewport::PreviewActors( const TArray< AActor* >& InActorsToPreview, const bool bPreviewInDesktopViewport /*= true*/)
 {
+	TArray< AActor* > ActorsToPreview(InActorsToPreview);
+
 	TArray< AActor* > NewActorsToPreview;
 	TArray< AActor* > ActorsToStopPreviewing;
+	for (TWeakObjectPtr<AActor> Actor : AlwaysPreviewActors)
+	{
+		AActor *CurActor = Actor.Get();
+		if (CurActor != nullptr)
+		{
+			ActorsToPreview.AddUnique(CurActor);
+		}
+	}
 
 	// Look for actors that we no longer want to preview
 	for( auto ActorPreviewIt = ActorPreviews.CreateConstIterator(); ActorPreviewIt; ++ActorPreviewIt )
@@ -3100,7 +3116,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 		if ( ExistingActor == NULL )
 		{
 			// decrement index so we don't miss next preview after deleting
-			RemoveActorPreview( PreviewIndex-- , bPreviewInDesktopViewport);
+			RemoveActorPreview( PreviewIndex-- , nullptr, bPreviewInDesktopViewport);
 		}
 		else
 		{
@@ -3113,7 +3129,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 					{
 						// Remove this preview!
 						// decrement index so we don't miss next preview after deleting
-						RemoveActorPreview( PreviewIndex-- , bPreviewInDesktopViewport);
+						RemoveActorPreview( PreviewIndex-- , CurActor, bPreviewInDesktopViewport);
 						break;
 					}
 				}
@@ -3124,12 +3140,20 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 	// Create previews for any actors that we need to
 	if( NewActorsToPreview.Num() > 0 )
 	{
-		for( auto ActorIt = NewActorsToPreview.CreateConstIterator(); ActorIt; ++ActorIt )
+		for (AActor* CurActor : NewActorsToPreview)
 		{
-			auto CurActor = *ActorIt;
-
-			TSharedPtr< FLevelEditorViewportClient > ActorPreviewLevelViewportClient = MakeShareable( new FLevelEditorViewportClient(SharedThis(this)) );
+			TSharedPtr<SWidget> CustomPreviewContent;
+			if (UActorComponent* PreviewComp = FLevelEditorViewportClient::FindViewComponentForActor(CurActor))
 			{
+				CustomPreviewContent = PreviewComp->GetCustomEditorPreviewWidget();
+			}
+			const bool bNeedsLevelViewport = !CustomPreviewContent.IsValid();
+
+			TSharedPtr<FLevelEditorViewportClient> ActorPreviewLevelViewportClient;
+			if (bNeedsLevelViewport)
+			{ 
+				ActorPreviewLevelViewportClient = MakeShareable(new FLevelEditorViewportClient(SharedThis(this)));
+
 				// NOTE: We don't bother setting ViewLocation, ViewRotation, etc, here.  This is because we'll call
 				//       PushControllingActorDataToViewportClient() below which will do this!
 
@@ -3140,7 +3164,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 				ActorPreviewLevelViewportClient->ViewportType = LVT_Perspective;
 				ActorPreviewLevelViewportClient->bSetListenerPosition = false;	// Preview viewports never be a listener
 
-				// Never draw the axes indicator in these small viewports
+																				// Never draw the axes indicator in these small viewports
 				ActorPreviewLevelViewportClient->bDrawAxes = false;
 
 				// Default to "game" show flags for camera previews
@@ -3148,9 +3172,9 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 				ActorPreviewLevelViewportClient->EngineShowFlags = FEngineShowFlags(ESFIM_Game);
 				ActorPreviewLevelViewportClient->EngineShowFlags.SetSelection(true);
 				ActorPreviewLevelViewportClient->LastEngineShowFlags = FEngineShowFlags(ESFIM_Editor);
-				
+
 				// We don't use view modes for preview viewports
-				ActorPreviewLevelViewportClient->SetViewMode( VMI_Unknown );
+				ActorPreviewLevelViewportClient->SetViewMode(VMI_Unknown);
 
 				// User should never be able to interact with this viewport
 				ActorPreviewLevelViewportClient->bDisableInput = true;
@@ -3160,12 +3184,12 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 
 				// Our preview viewport is always visible if our owning SLevelViewport is visible, so we hook up
 				// to the same IsVisible method
-				ActorPreviewLevelViewportClient->VisibilityDelegate.BindSP( this, &SLevelViewport::IsVisible );
+				ActorPreviewLevelViewportClient->VisibilityDelegate.BindSP(this, &SLevelViewport::IsVisible);
 
 				// Push actor transform to view.  From here on out, this will happen automatically in FLevelEditorViewportClient::Tick.
 				// The reason we allow the viewport client to update this is to avoid off-by-one-frame issues when dragging actors around.
-				ActorPreviewLevelViewportClient->SetActorLock( CurActor );
-				ActorPreviewLevelViewportClient->UpdateViewForLockedActor();	
+				ActorPreviewLevelViewportClient->SetActorLock(CurActor);
+				ActorPreviewLevelViewportClient->UpdateViewForLockedActor();
 
 				// Preview the play world if the current actor is in the play world
 				if (CurActor->GetWorld()->IsGameWorld())
@@ -3174,16 +3198,38 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 				}
 			}
 
-			TSharedPtr< SActorPreview > ActorPreviewWidget = SNew(SActorPreview)
-				.PreviewActor(CurActor)
-				.ParentViewport(SharedThis(this));
-
-			auto ActorPreviewViewportWidget = ActorPreviewWidget->GetViewportWidget();
-
-			TSharedPtr< FSceneViewport > ActorPreviewSceneViewport = MakeShareable( new FSceneViewport( ActorPreviewLevelViewportClient.Get(), ActorPreviewViewportWidget) );
+			TSharedPtr< SActorPreview > ActorPreviewWidget;
+			if (CustomPreviewContent.IsValid())
 			{
-				ActorPreviewLevelViewportClient->Viewport = ActorPreviewSceneViewport.Get();
-				ActorPreviewViewportWidget->SetViewportInterface( ActorPreviewSceneViewport.ToSharedRef() );
+				SAssignNew(ActorPreviewWidget, SActorPreview)
+					.PreviewActor(CurActor)
+					.ParentViewport(SharedThis(this))
+					.IsInteractive(true)
+					.Content()
+					[
+						CustomPreviewContent.ToSharedRef()
+					];
+			}
+			else
+			{
+				SAssignNew(ActorPreviewWidget, SActorPreview)
+					.PreviewActor(CurActor)
+					.ParentViewport(SharedThis(this));
+			}
+
+			TSharedPtr<FSceneViewport> ActorPreviewSceneViewport;
+			if (bNeedsLevelViewport)
+			{
+				TSharedPtr<SViewport> ActorPreviewViewportWidget = ActorPreviewWidget->GetViewportWidget();
+
+				ActorPreviewSceneViewport = MakeShareable( new FSceneViewport( ActorPreviewLevelViewportClient.Get(), ActorPreviewViewportWidget) );
+				{
+					ActorPreviewLevelViewportClient->Viewport = ActorPreviewSceneViewport.Get();
+					if (ensure(ActorPreviewViewportWidget.IsValid()))
+					{
+						ActorPreviewViewportWidget->SetViewportInterface(ActorPreviewSceneViewport.ToSharedRef());
+					}
+				}
 			}
 
 			FViewportActorPreview& NewActorPreview = *new( ActorPreviews ) FViewportActorPreview;
@@ -3198,7 +3244,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 			IVREditorModule& VREditorModule = IVREditorModule::Get();
 			if (!bPreviewInDesktopViewport)
 			{
-				VREditorModule.UpdateActorPreview( NewActorPreview.PreviewWidget.ToSharedRef(), ActorPreviews.Num()-1);
+				VREditorModule.UpdateActorPreview( NewActorPreview.PreviewWidget.ToSharedRef(), ActorPreviews.Num()-1, CurActor);
 			}
 			else
 			{
@@ -3214,6 +3260,25 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 		// This will also be repeated every time the SLevelViewport is ticked, just to make sure that
 		// feature such as "real-time" mode stay in sync.
 		UpdateActorPreviewViewports();
+	}
+}
+
+bool SLevelViewport::IsActorAlwaysPreview(TWeakObjectPtr<AActor> Actor) const
+{
+	return AlwaysPreviewActors.Contains(Actor);
+}
+
+void SLevelViewport::SetActorAlwaysPreview(TWeakObjectPtr<AActor> PreviewActor, bool bAlwaysPreview)
+{
+	if (!IsActorAlwaysPreview(PreviewActor) && bAlwaysPreview)
+	{
+		AlwaysPreviewActors.Add(PreviewActor);
+		bNeedToUpdatePreviews = true;
+	}
+	else if (IsActorAlwaysPreview(PreviewActor) && !bAlwaysPreview)
+	{
+		AlwaysPreviewActors.Remove(PreviewActor);
+		bNeedToUpdatePreviews = true;
 	}
 }
 
@@ -3272,15 +3337,16 @@ void SLevelViewport::UpdateActorPreviewViewports()
 	}
 
 	// Look for actors that we no longer want to preview
-	for( auto ActorPreviewIt = ActorPreviews.CreateConstIterator(); ActorPreviewIt; ++ActorPreviewIt )
+	for(const FViewportActorPreview& CurActorPreview : ActorPreviews)
 	{
-		auto& CurActorPreview = *ActorPreviewIt;
-
-		CurActorPreview.LevelViewportClient->SetRealtime( LevelViewportClient->IsRealtime() );
-		CurActorPreview.LevelViewportClient->bDrawBaseInfo = LevelViewportClient->bDrawBaseInfo;
-		CurActorPreview.LevelViewportClient->bDrawVertices = LevelViewportClient->bDrawVertices;
-		CurActorPreview.LevelViewportClient->EngineShowFlags.SetSelectionOutline(LevelViewportClient->EngineShowFlags.SelectionOutline);
-		CurActorPreview.LevelViewportClient->EngineShowFlags.SetCompositeEditorPrimitives(LevelViewportClient->EngineShowFlags.CompositeEditorPrimitives);
+		if (CurActorPreview.LevelViewportClient.IsValid())
+		{
+			CurActorPreview.LevelViewportClient->SetRealtime(LevelViewportClient->IsRealtime());
+			CurActorPreview.LevelViewportClient->bDrawBaseInfo = LevelViewportClient->bDrawBaseInfo;
+			CurActorPreview.LevelViewportClient->bDrawVertices = LevelViewportClient->bDrawVertices;
+			CurActorPreview.LevelViewportClient->EngineShowFlags.SetSelectionOutline(LevelViewportClient->EngineShowFlags.SelectionOutline);
+			CurActorPreview.LevelViewportClient->EngineShowFlags.SetCompositeEditorPrimitives(LevelViewportClient->EngineShowFlags.CompositeEditorPrimitives);
+		}
 	}
 }
 
@@ -3322,38 +3388,6 @@ FText SLevelViewport::GetCurrentScreenPercentageText(bool bDrawOnlyLabel) const
 	}
 
 	return FText::FromString(FString::Printf(TEXT("%3d%%"), int32(GetLevelViewportClient().GetPreviewScreenPercentage())));
-}
-
-FText SLevelViewport::GetCurrentFeatureLevelPreviewText( bool bDrawOnlyLabel ) const
-{
-	FText LabelName;
-	FText FeatureLevelText;
-
-	if (bDrawOnlyLabel)
-	{
-		LabelName = LOCTEXT("FeatureLevelLabel", "Feature Level:");
-	}
-	else
-	{
-		auto* World = GetWorld();
-		if (World != nullptr)
-		{
-			const auto FeatureLevel = World->FeatureLevel;
-			if (FeatureLevel != GMaxRHIFeatureLevel)
-			{
-				FName FeatureLevelName;
-				GetFeatureLevelName(FeatureLevel, FeatureLevelName);
-				FeatureLevelText = FText::Format(LOCTEXT("FeatureLevel", "{0}"), FText::FromName(FeatureLevelName));
-			}
-		}
-	}
-	
-	if (bDrawOnlyLabel)
-	{
-		return LabelName;
-	}
-
-	return FeatureLevelText;
 }
 
 FText SLevelViewport::GetCurrentLevelText( bool bDrawOnlyLabel ) const
@@ -3406,18 +3440,6 @@ EVisibility SLevelViewport::GetCurrentLevelTextVisibility() const
 		ContentVisibility = EVisibility::SelfHitTestInvisible;
 	}
 	return (&GetLevelViewportClient() == GCurrentLevelEditingViewportClient) ? ContentVisibility : EVisibility::Collapsed;
-}
-
-EVisibility SLevelViewport::GetCurrentFeatureLevelPreviewTextVisibility() const
-{
-	if (GetWorld())
-	{
-		return (GetWorld()->FeatureLevel != GMaxRHIFeatureLevel) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
-	}
-	else
-	{
-		return EVisibility::Collapsed;
-	}
 }
 
 EVisibility SLevelViewport::GetCurrentScreenPercentageVisibility() const
@@ -3944,12 +3966,12 @@ UWorld* SLevelViewport::GetWorld() const
 	return ParentLevelEditor.IsValid() ? ParentLevelEditor.Pin()->GetWorld() : NULL;
 }
 
-void SLevelViewport::RemoveActorPreview( int32 PreviewIndex, const bool bRemoveFromDesktopViewport /*=true */ )
+void SLevelViewport::RemoveActorPreview( int32 PreviewIndex, AActor* Actor, const bool bRemoveFromDesktopViewport /*=true */ )
 {
 	IVREditorModule& VREditorModule = IVREditorModule::Get();
 	if (!bRemoveFromDesktopViewport)
 	{
-		VREditorModule.UpdateActorPreview(SNullWidget::NullWidget, PreviewIndex);
+		VREditorModule.UpdateActorPreview(SNullWidget::NullWidget, PreviewIndex, Actor);
 	}
 	else
 	{
@@ -4016,7 +4038,7 @@ bool SLevelViewport::GetCameraInformationFromActor(AActor* Actor, FMinimalViewIn
 	//@TODO: CAMERA: Support richer camera interactions in SIE; this may shake out naturally if everything uses camera components though
 
 	bool bFoundCamInfo = false;
-	if (USceneComponent* ViewComponent = FLevelEditorViewportClient::FindViewComponentForActor(Actor))
+	if (UActorComponent* ViewComponent = FLevelEditorViewportClient::FindViewComponentForActor(Actor))
 	{
 		bFoundCamInfo = ViewComponent->GetEditorPreviewInfo(/*DeltaTime =*/0.0f, out_CameraInfo);
 		ensure(bFoundCamInfo);

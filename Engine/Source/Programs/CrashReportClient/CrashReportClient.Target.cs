@@ -22,17 +22,12 @@ public class CrashReportClientTarget : TargetRules
 
         bOutputPubliclyDistributable = true;
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// CrashReportClient doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
 		bUseLoggingInShipping = true;
-
-		bIncludeADO = false;
 
 		// CrashReportClient.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.

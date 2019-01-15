@@ -691,6 +691,9 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 	case DXGI_FORMAT_R8_SINT:
 		BytesPerPixel = 1;
 		break;
+	case DXGI_FORMAT_R32G32B32A32_UINT:
+		BytesPerPixel = 16;
+		break;
 	}
 
 	// format not supported yet

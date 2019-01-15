@@ -835,6 +835,7 @@ void FViewInfo::Init()
 	bUsesLightingChannels = false;
 	bTranslucentSurfaceLighting = false;
 	bUsesSceneDepth = false;
+	bFogOnlyOnRenderedOpaque = false;
 
 	ExponentialFogParameters = FVector4(0,1,1,0);
 	ExponentialFogParameters2 = FVector4(0, 1, 0, 0);

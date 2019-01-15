@@ -199,6 +199,9 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GPixelFormats[PF_R16G16B16A16_UNORM].PlatformFormat = DXGI_FORMAT_R16G16B16A16_UNORM;
 	GPixelFormats[PF_R16G16B16A16_SNORM].PlatformFormat = DXGI_FORMAT_R16G16B16A16_SNORM;
 
+	GPixelFormats[PF_NV12].PlatformFormat = DXGI_FORMAT_NV12;
+	GPixelFormats[PF_NV12].Supported = true;
+
 	if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
 	{
 		GSupportsSeparateRenderTargetBlendState = true;

@@ -348,6 +348,14 @@ protected:
 	void ProcessUnknownSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo, uint8 SegmentType);
 
 	/**
+	 * Deliver a reassembled message
+	 *
+	 * @param ReassembledMessage The message to deliver.
+	 * @param NodeInfo Details of the node that sent the message.
+	 */
+	void DeliverMessage(const TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe>& ReassembledMessage, FNodeInfo& NodeInfo);
+
+	/**
 	 * Removes the specified node from the list of known remote endpoints.
 	 *
 	 * @param NodeId The identifier of the node to remove.

@@ -25,12 +25,14 @@ class MOVIESCENETRACKS_API UMovieSceneCinematicShotSection
 public:
 
 	/** @return The shot display name */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	FString GetShotDisplayName() const
 	{
 		return ShotDisplayName;
 	}
 
 	/** Set the shot display name */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetShotDisplayName(const FString& InShotDisplayName)
 	{
 		if (TryModify())

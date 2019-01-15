@@ -1144,6 +1144,16 @@ public:
 	{
 		return Reader.FileSize();
 	}
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		// pak files are read only, so don't need to support flushing
+		return false;
+	}
+	virtual bool Truncate(int64 NewSize) override
+	{
+		// pak files are read only, so don't need to support truncation
+		return false;
+	}
 	///~ End IFileHandle Interface
 };
 
@@ -1290,18 +1300,24 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	bool IsNonPakFilenameAllowed(const FString& InFilename);
 
 	/**
-	* Registers a new AES key with the given guid. Triggers the mounting of any pak files that we encountered that use that key
-	*
-	* @param InEncryptionKeyGuid	Guid for this encryption key
-	* @param InKey					Encryption key
-	*/
+	 * Registers a new AES key with the given guid. Triggers the mounting of any pak files that we encountered that use that key
+	 *
+	 * @param InEncryptionKeyGuid	Guid for this encryption key
+	 * @param InKey					Encryption key
+	 */
 	void RegisterEncryptionKey(const FGuid& InEncryptionKeyGuid, const FAES::FAESKey& InKey);
 
 public:
 
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
+
 	/**
-	* Get the unique name for the pak platform file layer
-	*/
+	 * Get the unique name for the pak platform file layer
+	 */
 	static const TCHAR* GetTypeName()
 	{
 		return TEXT("PakFile");
