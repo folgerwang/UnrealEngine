@@ -43,11 +43,9 @@ static TAutoConsoleVariable<int32> CVarReflectionTemporalAccumulation(
 	TEXT(""),
 	ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolution(
-	TEXT("r.Reflection.Denoise.HistoryConvolution"), 0, // TODO: enable by default
-	TEXT("Mode to use for history convolution.\n")
-	TEXT(" 0: disabled;\n")
-	TEXT(" 1: Spatial convolution (default)."),
+static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolutionSampleCount(
+	TEXT("r.Reflection.Denoise.HistoryConvolutionSampleCount"), 1,
+	TEXT("Number of samples to use for history post filter (default = 1)."),
 	ECVF_RenderThreadSafe);
 
 
@@ -474,8 +472,8 @@ static void DenoiseShadowPenumbra(
 	if (View.ViewState && CVarShadowHaveTAA.GetValueOnRenderThread())
 	{
 		// Generate rejection signal history.
-		FRDGTextureRef HistoryRejectionSignal0;
-		FRDGTextureRef HistoryRejectionSignal1;
+		FRDGTextureRef HistoryRejectionSignal0 = nullptr;
+		FRDGTextureRef HistoryRejectionSignal1 = nullptr;
 		if (CVarHistoryRejection.GetValueOnRenderThread() == 1)
 		{
 			FRDGTextureDesc Desc = SignalProcessingDesc;
@@ -663,8 +661,8 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 	
 	// Spatial reconstruction with multiple important sampling to be more precise in the history rejection.
 	{
-		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction"));
-		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction"));
+		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction0"));
+		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsReconstruction1"));
 
 		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
 		PassParameters->MaxSampleCount = FMath::Clamp(CVarReflectionReconstructionSampleCount.GetValueOnRenderThread(), 1, kStackowiakMaxSampleCountPerSet);
@@ -683,7 +681,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction Samples=%i)", PassParameters->MaxSampleCount),
+			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction MaxSamples=%i)", PassParameters->MaxSampleCount),
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
@@ -693,7 +691,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 	}
 
 	// Temporal pass.
-	if (CVarReflectionTemporalAccumulation.GetValueOnRenderThread())
+	if (View.ViewState && CVarReflectionTemporalAccumulation.GetValueOnRenderThread())
 	{
 		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
 		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
@@ -737,12 +735,14 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 	}
 	
 	// Spatial filter, to converge history faster.
-	if (CVarReflectionHistoryConvolution.GetValueOnRenderThread())
+	int32 MaxPostFilterSampleCount = CVarReflectionHistoryConvolutionSampleCount.GetValueOnRenderThread();
+	if (MaxPostFilterSampleCount > 1)
 	{
 		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory0"));
 		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReflectionsHistory1"));
 
 		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
+		PassParameters->MaxSampleCount = FMath::Clamp(MaxPostFilterSampleCount, 1, kStackowiakMaxSampleCountPerSet);
 		PassParameters->CommonParameters = CommonParameters;
 		PassParameters->SignalInput0 = SignalHistory0;
 		PassParameters->SignalInput1 = SignalHistory1;
@@ -752,11 +752,13 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
 		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PostFiltering);
+		
+		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDDebugReflectionPostfilter")));
 
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation(PostFiltering)"),
+			RDG_EVENT_NAME("SSD SpatialAccumulation(PostFiltering MaxSamples=%i)", MaxPostFilterSampleCount),
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
@@ -780,6 +782,13 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 			GraphBuilder.QueueTextureExtraction(SignalHistory0, &NewHistory.RT[0]);
 			GraphBuilder.QueueTextureExtraction(SignalHistory1, &NewHistory.RT[1]);
 		}
+	}
+	else
+	{
+		// The SignalHistory1 is always generated for temporal history, but will endup useless if there is no view state,
+		// in witch case we do not extract any textures. Don't support a shader permutation that does not produce it, because
+		// it is already a not ideal case for the denoiser.
+		//GraphBuilder.FlagUsedOnceTexture(SignalHistory1);
 	}
 
 	IScreenSpaceDenoiser::FReflectionOutputs Outputs;

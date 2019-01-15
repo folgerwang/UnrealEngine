@@ -15,6 +15,11 @@
 	#define SAMPLE_SET_5X5_WAVELET 2
 	#define SAMPLE_SET_STACKOWIAK_4_SETS 3
 
+/** Policy to use to change the size of kernel. */
+	#define SAMPLE_COUNT_POLICY_DISABLED 0
+	#define SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED 1
+	#define SAMPLE_COUNT_POLICY_ACCUMULATION_BASED 2
+
 
 //------------------------------------------------------- CONFIGS
 
@@ -41,8 +46,8 @@
 
 		// Use stackowiak sample set to keep noise in the signal to avoid flicker in history rejection,
 		// and adapt number of samples based on the sample.
-		#define CONFIG_SAMPLE_SET SAMPLE_SET_STACKOWIAK_4_SETS
-		#define CONFIG_SAMPLE_COUNT_POLICY 1
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED
 
 		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
 		#define CONFIG_SPECULAR_MIS 1
@@ -51,7 +56,10 @@
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
-		#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3
+		//#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		//#define CONFIG_SAMPLE_SUBSET        1
+		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_ACCUMULATION_BASED
 
 		// Post filtering can only be done using tokoyashi because have more than one sample at a time.
 		#define CONFIG_TOKOYASHI_BILATERAL 1
@@ -80,9 +88,14 @@
 	#define CONFIG_WEIGHT_KERNEL_CENTER 0
 #endif
 
-/** Config sample set. */
+/** Changes the logic controling the number of sample to do. */
 #ifndef CONFIG_SAMPLE_COUNT_POLICY
-	#define CONFIG_SAMPLE_COUNT_POLICY 0
+	#define CONFIG_SAMPLE_COUNT_POLICY SAMPLE_COUNT_POLICY_DISABLED
+#endif
+
+/** Selects a subset of sample of a given CONFIG_SAMPLE_SET */
+#ifndef CONFIG_SAMPLE_SUBSET
+	#define CONFIG_SAMPLE_SUBSET 0
 #endif
 
 
@@ -97,7 +110,7 @@ static const float kWaveletFilterWeights5x5[] = { 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16
 
 
 // [ Stackowiak 2015, "Stochastic Screen-Space Reflections" ]
-static const float2 kStackowiakSamples[56 * 4] =
+static const float2 kStackowiakSampleSet0[56 * 4] =
 {
 	float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
 	float2(-1.5, +0.5), float2(-1.5, -0.5), float2(-0.5, +1.5), float2(+1.5, -0.5),
@@ -157,6 +170,66 @@ static const float2 kStackowiakSamples[56 * 4] =
 	float2(+7.5, +2.5), float2(-7.5, +3.5), float2(+4.5, -6.5), float2(+7.5, -4.5),
 };
 
+static const float2 kStackowiakSampleSet1[56 * 4] =
+{
+    float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
+    float2(+0.5, -1.5), float2(+1.5, -1.5), float2(-1.5, -0.5), float2(+1.5, +1.5),
+    float2(-0.5, -2.5), float2(-1.5, -1.5), float2(+0.5, +1.5), float2(-1.5, +0.5),
+    float2(+1.5, -0.5), float2(-0.5, +1.5), float2(-2.5, +0.5), float2(+0.5, +2.5),
+    float2(-2.5, -1.5), float2(+2.5, +0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
+    float2(-1.5, +1.5), float2(+2.5, -2.5), float2(-3.5, -0.5), float2(-1.5, +2.5),
+    float2(-2.5, +1.5), float2(-2.5, -0.5), float2(-1.5, -2.5), float2(+2.5, -1.5),
+    float2(-3.5, +0.5), float2(-0.5, -3.5), float2(-1.5, +3.5), float2(+0.5, -2.5),
+    float2(+1.5, +2.5), float2(-0.5, +2.5), float2(+0.5, +3.5), float2(+3.5, +0.5),
+    float2(+2.5, +1.5), float2(-2.5, -2.5), float2(+2.5, -0.5), float2(+3.5, -1.5),
+    float2(-0.5, +3.5), float2(+3.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +2.5),
+    float2(+3.5, -0.5), float2(+0.5, -4.5), float2(-2.5, +3.5), float2(+0.5, -3.5),
+    float2(-1.5, -4.5), float2(+1.5, +3.5), float2(+1.5, -2.5), float2(-3.5, +1.5),
+    float2(+2.5, -3.5), float2(-2.5, -3.5), float2(+2.5, +2.5), float2(+1.5, +4.5),
+    float2(-4.5, -2.5), float2(-2.5, +2.5), float2(-4.5, +1.5), float2(+4.5, +1.5),
+    float2(-2.5, -4.5), float2(+3.5, -3.5), float2(-1.5, -3.5), float2(-3.5, -1.5),
+    float2(+1.5, -4.5), float2(+4.5, -2.5), float2(+1.5, -3.5), float2(-1.5, +4.5),
+    float2(-4.5, +2.5), float2(-4.5, -0.5), float2(+2.5, +4.5), float2(-4.5, +0.5),
+    float2(-3.5, -4.5), float2(+0.5, +4.5), float2(+3.5, -2.5), float2(-3.5, -2.5),
+    float2(-3.5, +3.5), float2(+3.5, +3.5), float2(+4.5, +0.5), float2(+0.5, +5.5),
+    float2(-0.5, +4.5), float2(+4.5, -3.5), float2(-1.5, +5.5), float2(-0.5, -4.5),
+    float2(+2.5, +3.5), float2(+4.5, +2.5), float2(-2.5, +5.5), float2(+2.5, -4.5),
+    float2(+4.5, -0.5), float2(+5.5, -0.5), float2(-4.5, +4.5), float2(+5.5, -1.5),
+    float2(-5.5, -1.5), float2(-4.5, -1.5), float2(+3.5, +4.5), float2(-3.5, -3.5),
+    float2(-5.5, +0.5), float2(+1.5, -5.5), float2(-5.5, -2.5), float2(-3.5, +4.5),
+    float2(+0.5, -5.5), float2(-2.5, -5.5), float2(+2.5, +5.5), float2(+4.5, +4.5),
+    float2(+4.5, -1.5), float2(-2.5, +4.5), float2(+4.5, +3.5), float2(+0.5, +6.5),
+    float2(-0.5, -6.5), float2(+5.5, +2.5), float2(-0.5, -5.5), float2(-5.5, -0.5),
+    float2(-6.5, -1.5), float2(-0.5, +5.5), float2(-0.5, +6.5), float2(+6.5, -0.5),
+    float2(+1.5, +5.5), float2(+1.5, -6.5), float2(+5.5, +0.5), float2(-5.5, +2.5),
+    float2(+5.5, +1.5), float2(-5.5, +1.5), float2(-6.5, -0.5), float2(-1.5, -5.5),
+    float2(-5.5, -4.5), float2(-4.5, +3.5), float2(-6.5, +1.5), float2(+2.5, -5.5),
+    float2(+3.5, -5.5), float2(-5.5, -3.5), float2(+1.5, +6.5), float2(+6.5, +2.5),
+    float2(+4.5, -4.5), float2(+3.5, -6.5), float2(-4.5, -4.5), float2(-4.5, -3.5),
+    float2(-6.5, +2.5), float2(+3.5, +5.5), float2(+3.5, -4.5), float2(+5.5, -3.5),
+    float2(-5.5, +4.5), float2(+6.5, -3.5), float2(-6.5, -2.5), float2(+5.5, +4.5),
+    float2(-1.5, +6.5), float2(-0.5, -7.5), float2(-6.5, +3.5), float2(-5.5, +3.5),
+    float2(-6.5, -4.5), float2(+7.5, -1.5), float2(-3.5, -5.5), float2(+3.5, +6.5),
+    float2(+5.5, +3.5), float2(+7.5, +0.5), float2(+5.5, -2.5), float2(-6.5, +0.5),
+    float2(-7.5, +1.5), float2(-3.5, -6.5), float2(+6.5, +0.5), float2(+7.5, +1.5),
+    float2(-2.5, -7.5), float2(-3.5, +5.5), float2(-7.5, -0.5), float2(-3.5, +6.5),
+    float2(-2.5, +6.5), float2(+4.5, -6.5), float2(-5.5, +5.5), float2(+4.5, -5.5),
+    float2(+6.5, -2.5), float2(+6.5, +3.5), float2(-1.5, -6.5), float2(-1.5, +7.5),
+    float2(+6.5, +1.5), float2(-5.5, -5.5), float2(+0.5, -6.5), float2(+7.5, +3.5),
+    float2(+2.5, +6.5), float2(-4.5, +5.5), float2(-6.5, -3.5), float2(-4.5, -5.5),
+    float2(-6.5, -5.5), float2(+5.5, -6.5), float2(-2.5, -6.5), float2(+5.5, -5.5),
+    float2(+4.5, +5.5), float2(-7.5, +0.5), float2(+6.5, -1.5), float2(+0.5, -7.5),
+    float2(+7.5, -0.5), float2(-3.5, -7.5), float2(+2.5, -6.5), float2(-3.5, +7.5),
+    float2(-4.5, -7.5), float2(-0.5, +7.5), float2(-6.5, +5.5), float2(+7.5, -3.5),
+    float2(-4.5, +6.5), float2(+1.5, +7.5), float2(+5.5, -4.5), float2(+7.5, +4.5),
+    float2(+0.5, +7.5), float2(+4.5, +6.5), float2(-4.5, +7.5), float2(-7.5, -1.5),
+    float2(+3.5, -7.5), float2(+7.5, -4.5), float2(+3.5, +7.5), float2(-1.5, -7.5),
+    float2(+6.5, -4.5), float2(-7.5, -3.5), float2(+6.5, +4.5), float2(+2.5, -7.5),
+    float2(+7.5, -2.5), float2(-7.5, +2.5), float2(+1.5, -7.5), float2(-5.5, +6.5),
+    float2(+5.5, +5.5), float2(-2.5, +7.5), float2(+7.5, +2.5), float2(-7.5, -2.5),
+    float2(+2.5, +7.5), float2(-6.5, +4.5), float2(+5.5, +6.5), float2(-4.5, -6.5),
+};
+
 static const uint kStackowiakSampleSetCount = 4;
 static const uint kStackowiakSampleCountPerSet = 56;
 
@@ -212,9 +285,44 @@ void MainCS(
 	}
 	#endif
 
+	/** Find out the number of samples that should be done.
+	 */
+	float RequestedSampleCount = 1024;
+	
+	#if CONFIG_SAMPLE_SET == SAMPLE_SET_NONE
+		RequestedSampleCount = 1;
+	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_DISABLED
+		// NOP
+	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED
+	{
+		float RefBluringRadius = ComputeBluringRadiusOfNormalizedSample(RefSample, RefSceneMetadata) * View.ViewSizeAndInvSize.x;
+		RequestedSampleCount = PI * RefBluringRadius * RefBluringRadius;
+		
+		// DebugOutput[DispatchThreadId] = float4(RefBluringRadius, RequestedSampleCount, 0, 0);
+	}
+	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_ACCUMULATION_BASED
+	{
+		// TOOD: use ComputeBluringRadiusOfNormalizedSample instead.
+		float RefBluringRadius = ComputeInfinityBluringRadius(RefSceneMetadata) * View.ViewSizeAndInvSize.x;
+		float IdealSampleCount = PI * RefBluringRadius * RefBluringRadius;
+
+		const float MaxSampleCount = 1024; // TODO.
+
+		IdealSampleCount = min(IdealSampleCount, MaxSampleCount);
+
+		RequestedSampleCount = IdealSampleCount / clamp(RefSample.AccumulatedSampleCount, 1, MaxSampleCount);
+		
+		DebugOutput[DispatchThreadId] = float4(IdealSampleCount, RequestedSampleCount, 0, 0);
+	}
+	#else
+		#error Unknown policy to control the number of samples.
+	#endif
+
+	/** Iterate over the samples of the kernel.
+	 */
 	float2 KernelCenterBufferUV = SceneBufferUV;
 
-	#if SAMPLE_SET_NONE
+	#if CONFIG_SAMPLE_SET == SAMPLE_SET_NONE
 		if (0)
 
 	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
@@ -227,25 +335,12 @@ void MainCS(
 		KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
 		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 
-		uint SampleCount = kStackowiakSampleCountPerSet;
-		#if CONFIG_SAMPLE_COUNT_POLICY == 1
-		{
-			float RefBluringRadius = ComputeBluringRadiusOfNormalizedSample(RefSample, RefSceneMetadata) * View.ViewSizeAndInvSize.x;
-			float TargetedSampleCount = PI * RefBluringRadius * RefBluringRadius * rcp(kStackowiakSampleSetCount);
-
-			const float MaximumRadius = 8;
-			const float MaximumSampleCount = kStackowiakSampleCountPerSet;
-
-			SampleCount = TargetedSampleCount;
-			
-			// DebugOutput[DispatchThreadId] = float4(RefBluringRadius, SampleCount, 0, 0);
-		}
-		#endif // CONFIG_SAMPLE_COUNT_POLICY == 1
+		uint SampleCount = clamp(RequestedSampleCount * rcp(kStackowiakSampleSetCount), 1, MaxSampleCount);
 
 		// Id of the pixel in the quad.
 		uint QuadSampleId = (DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1);
 
-		LOOP for (uint SampleId = 1; SampleId < clamp(SampleCount, 1, MaxSampleCount); SampleId++)
+		LOOP for (uint SampleId = 1; SampleId < SampleCount; SampleId++)
 
 	#else
 		#error Unknown sample set
@@ -258,7 +353,13 @@ void MainCS(
 			PixelOffset = float2(x, y);
 			
 		#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
-			PixelOffset = kStackowiakSamples[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+			#if CONFIG_SAMPLE_SUBSET == 0
+				PixelOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+			#elif CONFIG_SAMPLE_SUBSET == 1
+				PixelOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+			#else
+				#error Unknown sample subset.
+			#endif
 
 		#elif CONFIG_SAMPLE_SET != SAMPLE_SET_NONE
 			#error Unknown sample set

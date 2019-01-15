@@ -38,7 +38,7 @@
 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	// Input and output layout.
-	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT
+	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
 	#define CONFIG_HISTORY_REJECTION 2
@@ -141,6 +141,11 @@ RWTexture2D<float4>	DebugOutput;
 
 
 //------------------------------------------------------- FUNCTIONS
+
+float Luma_To_LumaLog(float x)
+{
+	return max(x > 0 ? log2(x) : -100, -100);
+}
 
 FSSFSignalSample TransformSignalForPreRejection(FSSFSignalSample Sample)
 {
@@ -552,7 +557,7 @@ void TemporallyAccumulate(
 	
 	FSSFSignalSample HistorySample = PreviousFrame;
 
-	const bool bPostRejectionBlending = !bBruteForce; // || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS;
+	const bool bPostRejectionBlending = !bBruteForce || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS;
 
 	if (!bPostRejectionBlending)
 	{
@@ -811,8 +816,53 @@ void TemporallyAccumulate(
 			NeighborMin = Add(NeighborMoment1, Mul(StdDev, -StdDevMultiplier));
 			NeighborMax = Add(NeighborMoment1, Mul(StdDev,  StdDevMultiplier));
 
-			float RejectedSampleCount = 0;
-			HistorySample = Mul(TransformSignalForPostRejection(Clamp(TransformSignalForPreRejection(NormalizeToOneSample(HistorySample)), NeighborMin, NeighborMax)), HistorySample.AccumulatedSampleCount - RejectedSampleCount);
+			if (0)
+			{
+				FSSFSignalSample QuantizationErrorMin = Mul(NeighborMoment1, 1 - SafeRcp(HistorySample.AccumulatedSampleCount));
+				FSSFSignalSample QuantizationErrorMax = Mul(NeighborMoment1, 1 + SafeRcp(HistorySample.AccumulatedSampleCount));
+
+				NeighborMin = Min(NeighborMin, QuantizationErrorMin);
+				NeighborMax = Max(NeighborMax, QuantizationErrorMax);
+			}
+
+			FSSFSignalSample NormalizedHistorySample = NormalizeToOneSample(HistorySample);
+			FSSFSignalSample TransformedHistorySample = TransformSignalForPreRejection(NormalizedHistorySample);
+
+			FSSFSignalSample ClampedTransformedHistorySample = Clamp(TransformedHistorySample, NeighborMin, NeighborMax);
+
+			FSSFSignalSample RejectedDiff = Abs(Subtract(ClampedTransformedHistorySample, TransformedHistorySample));
+
+			float RejectionFactor = 0.0;
+			#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
+			{
+				RejectionFactor = abs(
+					Luma_To_LumaLog(ClampedTransformedHistorySample.SceneColor.x) -
+					Luma_To_LumaLog(TransformedHistorySample.SceneColor.x));
+				
+				RejectionFactor = max(RejectionFactor, 1 * max(RejectedDiff.SceneColor.y, RejectedDiff.SceneColor.z));
+				RejectionFactor = max(RejectionFactor, 1 * RejectedDiff.SceneColor.a);
+			}
+			#else
+				#error Unsupported signal rejection.
+			#endif
+			
+			DebugOutput[DispatchThreadId] = float4(
+				RejectionFactor,
+				0,
+				0,
+				0);
+
+			float FinalHistoryWeight = HistorySample.AccumulatedSampleCount * saturate(1 - RejectionFactor);
+
+			if (!bPostRejectionBlending)
+			{
+				FinalHistoryWeight = max(FinalHistoryWeight, CurrentFrame.AccumulatedSampleCount);
+			}
+
+			FSSFSignalSample ClampedHistorySample = TransformSignalForPostRejection(ClampedTransformedHistorySample);
+			FSSFSignalSample FinalHistorySample = Mul(ClampedHistorySample, FinalHistoryWeight);
+
+			HistorySample = FinalHistorySample;
 		}
 		#else // CONFIG_HISTORY_REJECTION == 1
 		{

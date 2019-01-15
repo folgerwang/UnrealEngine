@@ -87,7 +87,7 @@ float ComputeInfinityBluringRadius(FSSFSampleSceneInfos SceneMetadata)
 		RoughnessLobeAngle = GetConeAngle(RoughnessLobe);
 	}
 	#else
-	// Compute the roughness. Looks way to broken compared to roughness lobe.
+	// Compute the roughness. Looks way too broken compared to spherical gaussian code path.
 	{
 		RoughnessLobeAngle = ComputeAngleFromRoughness(SceneMetadata.Roughness);
 	}	
