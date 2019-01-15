@@ -92,7 +92,7 @@ private:
 	FNetworkProfilerHeader					CurrentHeader;
 
 	/** Last known address																			*/
-	TSharedPtr<FInternetAddr>				LastAddress;
+	TSharedPtr<const FInternetAddr>			LastAddress;
 
 	/** All the data required for writing sent bunches to the profiler stream						*/
 	struct FSendBunchInfo
