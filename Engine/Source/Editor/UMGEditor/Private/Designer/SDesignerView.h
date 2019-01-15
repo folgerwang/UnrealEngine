@@ -182,6 +182,7 @@ private:
 
 	FText GetCurrentResolutionText() const;
 	FText GetCurrentDPIScaleText() const;
+	FSlateColor GetCurrentDPIScaleColor() const;
 	FText GetCurrentScaleFactorText() const;
 	FText GetCurrentSafeZoneText() const;
 	FSlateColor GetResolutionTextColorAndOpacity() const;
