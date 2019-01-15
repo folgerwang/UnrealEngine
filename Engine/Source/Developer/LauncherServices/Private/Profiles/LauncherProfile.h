@@ -1746,7 +1746,7 @@ public:
 			}
 		}
 
-		if (LAUNCHERSERVICES_SHAREABLEPROJECTPATHS)
+		if (Version >= LAUNCHERSERVICES_SHAREABLEPROJECTPATHS)
 		{
 			FullProjectPath = FPaths::ConvertRelativePathToFull(FPaths::RootDir(), ShareableProjectPath);
 		}
