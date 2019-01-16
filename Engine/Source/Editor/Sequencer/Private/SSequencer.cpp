@@ -75,6 +75,7 @@
 #include "LevelSequence.h"
 #include "SequencerLog.h"
 #include "MovieSceneCopyableBinding.h"
+#include "MovieSceneCopyableTrack.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -2381,7 +2382,7 @@ bool SSequencer::CanPaste()
 	// Attempts to deserialize the text into object bindings/tracks that Sequencer understands.
 	if (Sequencer->CanPaste(TextToImport))
 	{
-		TArray<UMovieSceneTrack*> ImportedTracks;
+		TArray<UMovieSceneCopyableTrack*> ImportedTracks;
 		TArray<UMovieSceneSection*> ImportedSections;
 		TArray<UMovieSceneCopyableBinding*> ImportedObjects;
 		Sequencer->ImportTracksFromText(TextToImport, ImportedTracks);

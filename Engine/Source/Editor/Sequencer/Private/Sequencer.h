@@ -61,12 +61,14 @@ class UMovieSceneSequence;
 class UMovieSceneSubSection;
 class USequencerSettings;
 class UMovieSceneCopyableBinding;
+class UMovieSceneCopyableTrack;
 struct FMovieSceneTimeController;
 struct FMovieScenePossessable;
 struct FSequencerTemplateStore;
 struct FTransformData;
 struct ISequencerHotspot;
 struct FKeyAttributes;
+struct FNotificationInfo;
 
 enum class EMapChangeType : uint8;
 
@@ -480,11 +482,11 @@ public:
 	/** Called when a user executes the paste track menu item */
 	bool CanPaste(const FString& TextToImport);
 	void DoPaste();
-	bool PasteTracks(const FString& TextToImport);
-	bool PasteSections(const FString& TextToImport);
-	bool PasteObjectBindings(const FString& TextToImport);
-	
-	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneTrack*>& ImportedTracks);
+	bool PasteTracks(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+	bool PasteSections(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+	bool PasteObjectBindings(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+
+	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableTrack*>& ImportedTracks);
 	void ImportSectionsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneSection*>& ImportedSections);
 	void ImportObjectBindingsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
 
