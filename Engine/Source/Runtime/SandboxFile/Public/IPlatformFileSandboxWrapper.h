@@ -58,6 +58,14 @@ public:
 	{
 		return FileHandle->Size();
 	}
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		return FileHandle->Flush(bFullFlush);
+	}
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		return FileHandle->Truncate(NewSize);
+	}
 };
 
 class SANDBOXFILE_API FSandboxPlatformFile : public IPlatformFile
@@ -179,6 +187,12 @@ public:
 	virtual ~FSandboxPlatformFile()
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
 
 	/**
 	 *	Set whether the sandbox is enabled or not
@@ -635,9 +649,9 @@ public:
 		}
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(Priority);
 	}
 
 };

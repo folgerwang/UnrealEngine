@@ -31,6 +31,8 @@
 #define SETTING_NEEDS FName(TEXT("NEEDS"))
 /** Second key for "needs" because can't set same value with two criteria (value is int32) */
 #define SETTING_NEEDSSORT FName(TEXT("NEEDSSORT"))
+/** Setting describing the session key (value is FString) */
+#define SETTING_SESSIONKEY FName(TEXT("SESSIONKEY"))
 
 /** 8 user defined integer params to be used when filtering searches for sessions */
 #define SETTING_CUSTOMSEARCHINT1 FName(TEXT("CUSTOMSEARCHINT1"))

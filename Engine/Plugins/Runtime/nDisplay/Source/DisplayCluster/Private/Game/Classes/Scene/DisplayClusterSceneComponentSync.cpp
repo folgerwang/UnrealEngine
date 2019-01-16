@@ -2,7 +2,6 @@
 
 #include "DisplayClusterSceneComponentSync.h"
 
-#include "IPDisplayCluster.h"
 #include "Cluster/IPDisplayClusterClusterManager.h"
 #include "Game/IPDisplayClusterGameManager.h"
 #include "Misc/DisplayClusterLog.h"

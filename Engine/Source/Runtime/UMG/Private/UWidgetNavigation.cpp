@@ -21,6 +21,18 @@ void FWidgetNavigationData::Resolve(UUserWidget* InInstance, UWidgetTree* Widget
 	}
 }
 
+#if WITH_EDITOR
+
+void FWidgetNavigationData::TryToRenameBinding(FName OldName, FName NewName)
+{
+	if (WidgetToFocus == OldName)
+	{
+		WidgetToFocus = NewName;
+	}
+}
+
+#endif
+
 /////////////////////////////////////////////////////
 // UWidgetNavigation
 
@@ -76,6 +88,16 @@ EUINavigationRule UWidgetNavigation::GetNavigationRule(EUINavigation Nav)
 		break;
 	}
 	return EUINavigationRule::Escape;
+}
+
+void UWidgetNavigation::TryToRenameBinding(FName OldName, FName NewName)
+{
+	Up.TryToRenameBinding(OldName, NewName);
+	Down.TryToRenameBinding(OldName, NewName);
+	Left.TryToRenameBinding(OldName, NewName);
+	Right.TryToRenameBinding(OldName, NewName);
+	Next.TryToRenameBinding(OldName, NewName);
+	Previous.TryToRenameBinding(OldName, NewName);
 }
 
 #endif

@@ -52,6 +52,7 @@ public:
 
 	void Enable();
 	void Disable();
+	void Reset();
 
 	TSharedPtr<FVisualTreeSnapshot> GetVisualTreeForWindow(SWindow* InWindow);
 	

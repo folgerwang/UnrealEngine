@@ -2704,10 +2704,11 @@ void UBehaviorTreeComponent::EndFrame()
 		const double FrameSearchTimeMilliSecsDouble = FrameSearchTime * 1000.;
 		const double AvFrameSearchTimeMilliSecsDouble = (NumSearchTimeCalls > 0) ? FrameSearchTimeMilliSecsDouble / static_cast<double>(NumSearchTimeCalls) : 0.;
 		const float FrameSearchTimeMilliSecsFloat = static_cast<float>(FrameSearchTimeMilliSecsDouble);
+		const float NumSearchTimeCallsFloat = static_cast<float>(NumSearchTimeCalls);
 		const float AvFrameSearchTimeMilliSecsFloat = static_cast<float>(AvFrameSearchTimeMilliSecsDouble);
 
 		FPlatformMisc::CustomNamedStat("BehaviorTreeSearchTimeFrameMs", FrameSearchTimeMilliSecsFloat, "BehaviorTree", "MilliSecs");
-		FPlatformMisc::CustomNamedStat("BehaviorTreeSearchCallsFrame", NumSearchTimeCalls, "BehaviorTree", "Count");
+		FPlatformMisc::CustomNamedStat("BehaviorTreeSearchCallsFrame", NumSearchTimeCallsFloat, "BehaviorTree", "Count");
 		FPlatformMisc::CustomNamedStat("BehaviorTreeSearchTimeFrameAvMs", AvFrameSearchTimeMilliSecsFloat, "BehaviorTree", "MilliSecs");
 
 		FrameSearchTime = 0.;

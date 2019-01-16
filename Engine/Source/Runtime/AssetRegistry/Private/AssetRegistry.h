@@ -56,6 +56,7 @@ public:
 	virtual void RunAssetsThroughFilter (TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const override;
 	virtual void UseFilterToExcludeAssets(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const override;
 	virtual void ExpandRecursiveFilter(const FARFilter& InFilter, FARFilter& ExpandedFilter) const override;
+	virtual void SetTemporaryCachingMode(bool bEnable) override;
 	virtual EAssetAvailability::Type GetAssetAvailability(const FAssetData& AssetData) const override;	
 	virtual float GetAssetAvailabilityProgress(const FAssetData& AssetData, EAssetAvailabilityProgressReportingType::Type ReportType) const override;
 	virtual bool GetAssetAvailabilityProgressTypeSupported(EAssetAvailabilityProgressReportingType::Type ReportType) const override;
@@ -100,6 +101,9 @@ public:
 	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FAssetRenamedEvent, FAssetRenamedEvent);
 	virtual FAssetRenamedEvent& OnAssetRenamed() override { return AssetRenamedEvent; }
 
+	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FAssetUpdatedEvent, FAssetUpdatedEvent );
+	virtual FAssetUpdatedEvent& OnAssetUpdated() override { return AssetUpdatedEvent; }
+
 	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FInMemoryAssetCreatedEvent, FInMemoryAssetCreatedEvent );
 	virtual FInMemoryAssetCreatedEvent& OnInMemoryAssetCreated() override { return InMemoryAssetCreatedEvent; }
 
@@ -111,9 +115,6 @@ public:
 
 	DECLARE_DERIVED_EVENT( UAssetRegistryImpl, IAssetRegistry::FFileLoadProgressUpdatedEvent, FFileLoadProgressUpdatedEvent );
 	virtual FFileLoadProgressUpdatedEvent& OnFileLoadProgressUpdated() override { return FileLoadProgressUpdatedEvent; }
-
-	virtual IAssetRegistry::FAssetEditSearchableNameDelegate& OnEditSearchableName(FName PackageName, FName ObjectName) override;
-	virtual bool EditSearchableName(const FAssetIdentifier& SearchableName) override;
 
 	virtual bool IsLoadingAssets() const override;
 
@@ -226,6 +227,15 @@ private:
 	/** Finds all class names of classes capable of generating new UClasses */
 	void CollectCodeGeneratorClasses();
 
+	/** Updates TempCachedInheritanceMap from native classes */
+	void UpdateTemporaryCaches() const;
+
+	/** Deletes any temporary cached data as needed */
+	void ClearTemporaryCaches() const;
+
+	/** This will always read the ini, public version may return cache */
+	void InitializeSerializationOptionsFromIni(FAssetRegistrySerializationOptions& Options, const FString& PlatformIniName) const;
+
 	bool ResolveRedirect(const FString& InPackageName, FString& OutPackageName);
 
 	/** Internal helper which processes a given state and adds its contents to the current registry */
@@ -242,8 +252,17 @@ private:
 	/** The set of empty package names (packages which contain no assets but have not yet been saved) */
 	TSet<FName> CachedEmptyPackages;
 
-	/** The map of classes to their parents, and a map of parents to their classes */
-	TMap<FName, FName> CachedInheritanceMap;
+	/** The map of classes to their parents, only full for offline blueprints */
+	TMap<FName, FName> CachedBPInheritanceMap;
+
+	/** A temporary fully cached list including native classes */
+	TMap<FName, FName> TempCachedInheritanceMap;
+
+	/** A reverse map of TempCachedInheritanceMap, only kept during temp caching */
+	TMap<FName, TSet<FName>> TempReverseInheritanceMap;
+
+	/** If true, search caching is enabled */
+	bool bTempCachingEnabled;
 
 	/** If true, will cache AssetData loaded from in memory assets back into the disk cache */
 	bool bUpdateDiskCacheAfterLoad;
@@ -278,6 +297,9 @@ private:
 	/** The delegate to execute when an asset is renamed in the registry */
 	FAssetRenamedEvent AssetRenamedEvent;
 
+	/** The delegate to execute when an asset is updated in the registry */
+	FAssetUpdatedEvent AssetUpdatedEvent;
+
 	/** The delegate to execute when an in-memory asset was just created */
 	FInMemoryAssetCreatedEvent InMemoryAssetCreatedEvent;
 
@@ -289,9 +311,6 @@ private:
 
 	/** The delegate to execute while loading files to update progress */
 	FFileLoadProgressUpdatedEvent FileLoadProgressUpdatedEvent;
-
-	/** Delegates to call when editing searchable name */
-	TMap<FAssetIdentifier, FAssetEditSearchableNameDelegate> EditSearchableNameDelegates;
 
 	/** The start time of the full asset search */
 	double FullSearchStartTime;

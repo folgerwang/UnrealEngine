@@ -29,7 +29,7 @@ namespace Audio
 	template <class SampleType = DefaultUSoundWaveSampleType>
 	class TSampleBuffer
 	{
-	public:
+	private:
 		// raw PCM data buffer
 		TArray<SampleType> RawPCMData;
 		// The number of samples in the buffer
@@ -44,6 +44,9 @@ namespace Audio
 		float SampleDuration;
 
 	public:
+		// Ensure that we can trivially copy construct private members between templated TSampleBuffers:
+		template <class> friend class TSampleBuffer;
+
 		FORCEINLINE TSampleBuffer()
 			: NumSamples(0)
 			, NumFrames(0)
@@ -70,7 +73,7 @@ namespace Audio
 			*this =  TSampleBuffer(InData.GetData(), InData.Num(), InNumChannels, InSampleRate);
 		}
 
-		FORCEINLINE TSampleBuffer(float* InBufferPtr, int32 InNumSamples, int32 InNumChannels, int32 InSampleRate)
+		FORCEINLINE TSampleBuffer(const float* InBufferPtr, int32 InNumSamples, int32 InNumChannels, int32 InSampleRate)
 		{
 			NumSamples = InNumSamples;
 			NumFrames = NumSamples / InNumChannels;
@@ -91,6 +94,39 @@ namespace Audio
 				for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
 				{
 					RawPCMData[SampleIndex] = (int16)(InBufferPtr[SampleIndex] * 32767.0f);
+				}
+			}
+			else
+			{
+				// for any other types, we don't know how to explicitly convert, so we fall back to casts:
+				for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
+				{
+					RawPCMData[SampleIndex] = (SampleType)(InBufferPtr[SampleIndex]);
+				}
+			}
+		}
+
+		FORCEINLINE TSampleBuffer(const int16* InBufferPtr, int32 InNumSamples, int32 InNumChannels, int32 InSampleRate)
+		{
+			NumSamples = InNumSamples;
+			NumFrames = NumSamples / InNumChannels;
+			NumChannels = InNumChannels;
+			SampleRate = InSampleRate;
+			SampleDuration = ((float)NumFrames) / SampleRate;
+
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
+
+			if (TIsSame<SampleType, int16>::Value)
+			{
+				FMemory::Memcpy(RawPCMData.GetData(), InBufferPtr, NumSamples * sizeof(int16));
+			}
+			else if (TIsSame<SampleType, float>::Value)
+			{
+				// Convert from int to float:
+				for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
+				{
+					RawPCMData[SampleIndex] = ((float)InBufferPtr[SampleIndex]) / 32767.0f;
 				}
 			}
 			else
@@ -174,6 +210,16 @@ namespace Audio
 			return RawPCMData.GetData();
 		}
 
+		FORCEINLINE TArrayView<SampleType> GetArrayView()
+		{
+			return MakeArrayView(RawPCMData);
+		}
+
+		FORCEINLINE TArrayView<const SampleType> GetArrayView() const
+		{
+			return MakeArrayView(RawPCMData);
+		}
+
 		// Gets the number of samples of the sound wave
 		FORCEINLINE int32 GetNumSamples() const
 		{
@@ -196,6 +242,11 @@ namespace Audio
 		FORCEINLINE int32 GetSampleRate() const
 		{
 			return SampleRate;
+		}
+
+		FORCEINLINE float GetSampleDuration() const
+		{
+			return SampleDuration;
 		}
 
 		void MixBufferToChannels(int32 InNumChannels)
@@ -269,6 +320,29 @@ namespace Audio
 					RawPCMData[SampleIndex] = FMath::Clamp<SampleType>(RawPCMData[SampleIndex], ClampMin, Ceiling);
 				}
 			}
+		}
+
+		/**
+		 * Appends zeroes to the end of this buffer.
+		 * If called with no arguments or NumFramesToAppend = 0, this will ZeroPad
+		 */
+		void ZeroPad(int32 NumFramesToAppend = 0)
+		{
+			if (!NumFramesToAppend)
+			{
+				NumFramesToAppend = FMath::RoundUpToPowerOfTwo(NumFrames) - NumFrames;
+			}
+
+			RawPCMData.AddZeroed(NumFramesToAppend * NumChannels);
+			NumFrames += NumFramesToAppend;
+			NumSamples = NumFrames * NumChannels;
+		}
+
+		void SetNumFrames(int32 InNumFrames)
+		{
+			RawPCMData.SetNum(InNumFrames * NumChannels);
+			NumFrames = RawPCMData.Num() / NumChannels;
+			NumSamples = RawPCMData.Num();
 		}
 	};
 

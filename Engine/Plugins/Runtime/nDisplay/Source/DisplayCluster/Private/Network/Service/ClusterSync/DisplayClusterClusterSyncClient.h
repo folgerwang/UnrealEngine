@@ -16,7 +16,7 @@ class FDisplayClusterClusterSyncClient
 {
 public:
 	FDisplayClusterClusterSyncClient();
-	FDisplayClusterClusterSyncClient(const FString& name);
+	FDisplayClusterClusterSyncClient(const FString& InName);
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,9 +26,10 @@ public:
 	virtual void WaitForFrameStart() override;
 	virtual void WaitForFrameEnd() override;
 	virtual void WaitForTickEnd() override;
-	virtual void GetDeltaTime(float& deltaTime) override;
-	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) override;
-	virtual void GetSyncData(FDisplayClusterMessage::DataType& data) override;
-	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
+	virtual void GetDeltaTime(float& DeltaTime) override;
+	virtual void GetTimecode(FTimecode& Timecode, FFrameRate& FrameRate) override;
+	virtual void GetSyncData(FDisplayClusterMessage::DataType& Data) override;
+	virtual void GetInputData(FDisplayClusterMessage::DataType& Data) override;
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& Data) override;
 };
 

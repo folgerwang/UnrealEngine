@@ -11,12 +11,13 @@
 #import <AVFoundation/AVFoundation.h>
 
 class FAvfMediaTracks;
-class FMediaSamples;
+class FAvfMediaSamples;
 class IMediaEventSink;
 
 @class AVPlayer;
 @class AVPlayerItem;
 @class FAVPlayerDelegate;
+@class FAVMediaAssetResourceLoaderDelegate;
 
 
 /**
@@ -99,7 +100,14 @@ private:
 
 	/** Callback for when the application is moved from the active to inactive state */
 	void HandleApplicationDeactivate();
-
+	
+	/** Clears the Time Sync flag*/
+	void ClearTimeSync();
+	
+	/** Returns the consumed buffer type sync Points */
+	FTimespan GetAudioTimeSync() const;
+	FTimespan GetVideoTimeSync() const;
+	
 	/** The current playback rate. */
 	float CurrentRate;
 
@@ -121,6 +129,9 @@ private:
 	/** Cocoa helper object we can use to keep track of ns property changes in our media items */
 	FAVPlayerDelegate* MediaHelper;
 	
+	/** Cocoa Media helper object for Pak file loading */
+	FAVMediaAssetResourceLoaderDelegate* MediaResourceLoader;
+	
 	/** The AVFoundation media player */
 	AVPlayer* MediaPlayer;
 
@@ -134,7 +145,7 @@ private:
 	TQueue<TFunction<void()>> PlayerTasks;
 
 	/** The media sample queue. */
-	FMediaSamples* Samples;
+	FAvfMediaSamples* Samples;
 
 	/** Should the video loop to the beginning at completion */
     bool ShouldLoop;
@@ -144,6 +155,12 @@ private:
 	
 	/** Playback primed and ready when set */
 	bool bPrerolled;
+	
+	/** Media Player is currently seeking */
+	bool bSeeking;
+	
+	/** Set false until the first audio (or video if none) sample has been consumed after seeking or prerolling or, on non Engine mixer platforms first tick after seek */
+	bool bTimeSynced;
 
 	/** Mutex to ensure thread-safe access */
 	FCriticalSection CriticalSection;

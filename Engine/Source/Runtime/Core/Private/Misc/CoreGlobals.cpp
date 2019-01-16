@@ -50,9 +50,6 @@ TCHAR GErrorHist[16384]	= TEXT("");
 /** For building exception description text dump in guard/unguard mechanism. */
 TCHAR GErrorExceptionDescription[4096] = TEXT( "" );
 
-/** The error message, can be assertion message, ensure message or message from the fatal error. */
-TCHAR GErrorMessage[4096] = TEXT( "" );
-
 
 CORE_API const FText GYes	= LOCTEXT("Yes",	"Yes");
 CORE_API const FText GNo	= LOCTEXT("No",		"No");

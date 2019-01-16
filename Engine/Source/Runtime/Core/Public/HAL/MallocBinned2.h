@@ -671,7 +671,7 @@ public:
 	}
 
 	virtual bool ValidateHeap() override;
-	virtual void Trim() override;
+	virtual void Trim(bool bTrimThreadCaches) override;
 	virtual void SetupTLSCachesOnCurrentThread() override;
 	virtual void ClearAndDisableTLSCachesOnCurrentThread() override;
 	virtual const TCHAR* GetDescriptiveName() override;

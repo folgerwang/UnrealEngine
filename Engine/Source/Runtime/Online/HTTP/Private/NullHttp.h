@@ -27,6 +27,8 @@ public:
 	virtual void SetURL(const FString& InURL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
 	virtual void SetContentAsString(const FString& ContentString) override;
+    virtual bool SetContentAsStreamedFile(const FString& Filename) override;
+	virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override;
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;

@@ -739,10 +739,10 @@ namespace UnrealBuildTool
 		public virtual bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
 		{
 			string[] BoolKeys = new string[] {
-				"bCompileApex", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
-				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree",
+				"bCompileApex", "bCompileICU",
+				"bCompileLeanAndMeanUE", "bCompileRecast", "bCompileSpeedTree",
 				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType",
-				"bCompileForSize", "bCompileCEF3"
+				"bCompileForSize", "bCompileCEF3", "bCompileCustomSQLitePlatform"
 			};
 
 			return DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/BuildSettings.BuildSettings",

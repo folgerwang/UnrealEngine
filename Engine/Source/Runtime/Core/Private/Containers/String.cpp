@@ -428,6 +428,21 @@ void FString::PathAppend(const TCHAR* Str, int32 StrLength)
 	}
 }
 
+void FString::ReplaceCharInlineCaseSensitive(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	for (TCHAR& Character : Data)
+	{
+		Character = Character == SearchChar ? ReplacementChar : Character;
+	}
+}
+
+void FString::ReplaceCharInlineIgnoreCase(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	TCHAR OtherCaseSearchChar = TChar<TCHAR>::IsUpper(SearchChar) ? TChar<TCHAR>::ToLower(SearchChar) : TChar<TCHAR>::ToUpper(SearchChar);
+	ReplaceCharInlineCaseSensitive(OtherCaseSearchChar, ReplacementChar);
+	ReplaceCharInlineCaseSensitive(SearchChar, ReplacementChar);
+}
+
 FString FString::Trim()
 {
 	int32 Pos = 0;
@@ -1395,13 +1410,13 @@ FArchive& operator<<( FArchive& Ar, FString& A )
 			SaveNum = -SaveNum;
 		}
 
-		auto MaxSerializeSize = Ar.GetMaxSerializeSize();
+		int32 MaxSerializeSize = Ar.GetMaxSerializeSize();
 		// Protect against network packets allocating too much memory
 		if ((MaxSerializeSize > 0) && (SaveNum > MaxSerializeSize))
 		{
 			Ar.ArIsError         = 1;
 			Ar.ArIsCriticalError = 1;
-			UE_LOG(LogCore, Error, TEXT("String is too large"));
+			UE_LOG(LogCore, Error, TEXT("String is too large (Size: %i, Max: %i)"), SaveNum, MaxSerializeSize);
 			return Ar;
 		}
 

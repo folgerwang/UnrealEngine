@@ -22,7 +22,7 @@ struct FTickContext;
 //
 //	EInputEvent
 //
-UENUM(meta=(ScriptName="InputEventType"))
+UENUM( BlueprintType, meta=(ScriptName="InputEventType"))
 enum EInputEvent
 {
 	IE_Pressed              =0,
@@ -743,7 +743,7 @@ namespace EDemoPlayFailure
 		switch (FailureType)
 		{
 		case Generic:
-			return TEXT("Gneric");
+			return TEXT("Generic");
 		case DemoNotFound:
 			return TEXT("DemoNotFound");
 		case Corrupt:

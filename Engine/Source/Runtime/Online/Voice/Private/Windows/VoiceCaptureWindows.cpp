@@ -668,6 +668,7 @@ bool FVoiceCaptureWindows::Tick(float DeltaTime)
 
 void FVoiceCaptureWindows::DumpState() const
 {
+#if !NO_LOGGING
 	if (CV)
 	{
 		extern FString PrintMSGUID(LPGUID Guid);
@@ -704,6 +705,7 @@ void FVoiceCaptureWindows::DumpState() const
 	{
 		UE_LOG(LogVoiceCapture, Display, TEXT("No capture device to dump state"));
 	}
+#endif // !NO_LOGGING
 }
 
 #include "Windows/HideWindowsPlatformTypes.h"

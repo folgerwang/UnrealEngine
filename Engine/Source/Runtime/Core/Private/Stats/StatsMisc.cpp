@@ -15,8 +15,16 @@ void FLightweightStatScope::ReportHitch()
 	if (StatString)
 	{
 		float Delta = float(FGameThreadHitchHeartBeat::Get().GetCurrentTime() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
-		FString ThreadString(FPlatformTLS::GetCurrentThreadId() == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+
+		bool isGT = FPlatformTLS::GetCurrentThreadId() == GGameThreadId;
+		FString ThreadString(isGT ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
 		FString StackString = StatString; // possibly convert from ANSICHAR
+
+		if (!isGT && (StackString == TEXT("STAT_EventWait") || StackString == TEXT("STAT_FQueuedThread_Run_WaitForWork")))
+		{
+			return;
+		}
+
 		UE_LOG(LogCore, Error, TEXT("Leaving stat scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, *StackString);
 	}
 }

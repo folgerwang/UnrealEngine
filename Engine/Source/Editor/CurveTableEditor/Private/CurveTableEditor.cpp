@@ -409,19 +409,12 @@ void FCurveTableEditor::CacheCurveTableForEditing()
 	RowNameColumnWidth = 10.0f;
 
 	const UCurveTable* Table = GetCurveTable();
-	if (!Table || Table->RowMap.Num() == 0)
+	if (!Table || Table->GetRowMap().Num() == 0)
 	{
 		AvailableColumns.Empty();
 		AvailableRows.Empty();
 		return;
 	}
-
-	TArray<FName> Names;
-	TArray<FRichCurve*> Curves;
-		
-	// get the row names and curves they represent
-	Table->RowMap.GenerateKeyArray(Names);
-	Table->RowMap.GenerateValueArray(Curves);
 
 	TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 	const FTextBlockStyle& CellTextStyle = FEditorStyle::GetWidgetStyle<FTextBlockStyle>("DataTableEditor.CellText");
@@ -429,11 +422,12 @@ void FCurveTableEditor::CacheCurveTableForEditing()
 
 	// Find unique column titles
 	TArray<float> UniqueColumns;
-	for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); ++CurvesIdx)
+	for (const TPair<FName, FRealCurve*> CurveRow : Table->GetRowMap())
 	{
-		for (auto CurveIt(Curves[CurvesIdx]->GetKeyIterator()); CurveIt; ++CurveIt)
+		FRealCurve* Curve = CurveRow.Value;
+		for (auto CurveIt(Curve->GetKeyHandleIterator()); CurveIt; ++CurveIt)
 		{
-			UniqueColumns.AddUnique(CurveIt->Time);
+			UniqueColumns.AddUnique(Curve->GetKeyTime(*CurveIt));
 		}
 	}
 
@@ -453,10 +447,11 @@ void FCurveTableEditor::CacheCurveTableForEditing()
 	}
 
 	// Each curve is a row entry
-	AvailableRows.Reset(Curves.Num());
-	for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); ++CurvesIdx)
+	AvailableRows.Reset(Table->GetRowMap().Num());
+	for (const TPair<FName, FRealCurve*> CurveRow : Table->GetRowMap())
 	{
-		const FName& CurveName = Names[CurvesIdx];
+		const FName& CurveName = CurveRow.Key;
+		FRealCurve* Curve = CurveRow.Value;
 
 		FCurveTableEditorRowListViewDataPtr CachedRowData = MakeShareable(new FCurveTableEditorRowListViewData());
 		CachedRowData->RowId = CurveName;
@@ -469,21 +464,22 @@ void FCurveTableEditor::CacheCurveTableForEditing()
 		RowNameColumnWidth = FMath::Max(RowNameColumnWidth, RowNameWidth);
 
 		CachedRowData->CellData.AddDefaulted(AvailableColumns.Num());
-		{
-			for (auto It(Curves[CurvesIdx]->GetKeyIterator()); It; ++It)
-		{
-			int32 ColumnIndex = 0;
-				if (UniqueColumns.Find(It->Time, ColumnIndex))
-			{
-					FCurveTableEditorColumnHeaderDataPtr CachedColumnData = AvailableColumns[ColumnIndex];
 
-				const FText CellText = FText::AsNumber(It->Value);
-					CachedRowData->CellData[ColumnIndex] = CellText;
+		for (auto It(Curve->GetKeyHandleIterator()); It; ++It)
+		{
+			const FKeyHandle& KeyHandle = *It;
+			int32 ColumnIndex = 0;
+			const TPair<float, float> TimeValuePair = Curve->GetKeyTimeValuePair(KeyHandle);
+			if (UniqueColumns.Find(TimeValuePair.Key, ColumnIndex))
+			{
+				FCurveTableEditorColumnHeaderDataPtr CachedColumnData = AvailableColumns[ColumnIndex];
+
+				const FText CellText = FText::AsNumber(TimeValuePair.Value);
+				CachedRowData->CellData[ColumnIndex] = CellText;
 
 				const float CellWidth = FontMeasure->Measure(CellText, CellTextStyle.Font).X + CellPadding;
 				CachedColumnData->DesiredColumnWidth = FMath::Max(CachedColumnData->DesiredColumnWidth, CellWidth);
 			}
-		}
 		}
 
 		AvailableRows.Add(CachedRowData);

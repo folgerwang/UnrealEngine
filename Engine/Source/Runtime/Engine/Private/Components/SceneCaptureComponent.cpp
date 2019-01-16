@@ -259,7 +259,7 @@ void USceneCaptureComponent::RemoveShowOnlyActorComponents(AActor* InActor)
 	}
 }
 
-void USceneCaptureComponent::ClearShowOnlyComponents(UPrimitiveComponent* InComponent)
+void USceneCaptureComponent::ClearShowOnlyComponents()
 {
 	ShowOnlyComponents.Reset();
 }
@@ -435,6 +435,7 @@ USceneCaptureComponent2D::USceneCaptureComponent2D(const FObjectInitializer& Obj
 	CustomProjectionMatrix.SetIdentity();
 	ClipPlaneNormal = FVector(0, 0, 1);
 	bCameraCutThisFrame = false;
+	bConsiderUnrenderedOpaquePixelAsFullyTranslucent = false;
 	
 	// Legacy initialization.
 	{

@@ -136,6 +136,79 @@ private:
 	const FCompareRowByColumnAscending< UPropertyType > Comparer;
 };
 
+struct FCompareRowByColumnUsingExportTextLexicographic : public FCompareRowByColumnBase
+{
+public:
+	FCompareRowByColumnUsingExportTextLexicographic( const TSharedRef< IPropertyTableColumn >& InColumn, const UProperty* InUProperty, bool InAscendingOrder )
+		: Property( InUProperty )
+		, Column( InColumn )
+		, bAscending( InAscendingOrder )
+	{
+
+	}
+
+	int32 Compare( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
+	{
+		const TSharedRef< IPropertyTableCell > LhsCell = Column->GetCell( Lhs );
+		const TSharedRef< IPropertyTableCell > RhsCell = Column->GetCell( Rhs );
+
+		const TSharedPtr< FPropertyNode > LhsPropertyNode = LhsCell->GetNode();
+		if ( !LhsPropertyNode.IsValid() )
+		{
+			return 1;
+		}
+
+		const TSharedPtr< FPropertyNode > RhsPropertyNode = RhsCell->GetNode();
+		if ( !RhsPropertyNode.IsValid() )
+		{
+			return -1;
+		}
+
+		const TSharedPtr< IPropertyHandle > LhsPropertyHandle = PropertyEditorHelpers::GetPropertyHandle( LhsPropertyNode.ToSharedRef(), NULL, NULL );
+		if ( !LhsPropertyHandle.IsValid() )
+		{
+			return 1;
+		}
+
+		const TSharedPtr< IPropertyHandle > RhsPropertyHandle = PropertyEditorHelpers::GetPropertyHandle( RhsPropertyNode.ToSharedRef(), NULL, NULL );
+		if ( !RhsPropertyHandle.IsValid() )
+		{
+			return -1;
+		}
+
+		return ComparePropertyValue( LhsPropertyHandle, RhsPropertyHandle );
+	}
+
+private:
+
+	int32 ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+	{
+		FString LhsValue; 
+		LhsPropertyHandle->GetValueAsDisplayString( LhsValue );
+
+		FString RhsValue; 
+		RhsPropertyHandle->GetValueAsDisplayString( RhsValue );
+
+		if (LhsValue < RhsValue)
+		{
+			return bAscending ? -1 : 1;
+		}
+		else if (LhsValue > RhsValue)
+		{
+			return bAscending ? 1: -1;
+		}
+
+		return 0;
+	}
+
+private:
+
+	const UProperty* Property;
+	TSharedRef< IPropertyTableColumn > Column;
+	bool bAscending;
+};
+
+
 
 template<>
 FORCEINLINE int32 FCompareRowByColumnAscending<UEnumProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
@@ -508,21 +581,7 @@ bool FPropertyTableColumn::CanSortBy() const
 		Property = Path->GetLeafMostProperty().Property.Get();
 	}
 
-	if ( Property != NULL )
-	{
-		return Property->IsA( UByteProperty::StaticClass() )  ||
-			Property->IsA( UIntProperty::StaticClass() )   ||
-			Property->IsA( UBoolProperty::StaticClass() )  ||
-			Property->IsA( UEnumProperty::StaticClass() )  ||
-			Property->IsA( UFloatProperty::StaticClass() ) ||
-			Property->IsA( UNameProperty::StaticClass() )  ||
-			Property->IsA( UStrProperty::StaticClass() )   ||
-			IsSupportedStructProperty( Property )		   ||
-			( Property->IsA( UObjectPropertyBase::StaticClass() ) && !Property->HasAnyPropertyFlags(CPF_InstancedReference) );
-			//Property->IsA( UTextProperty::StaticClass() );
-	}
-
-	return false;
+	return ( Property != nullptr );
 }
 
 TSharedPtr<FCompareRowByColumnBase> FPropertyTableColumn::GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode)
@@ -618,7 +677,7 @@ TSharedPtr<FCompareRowByColumnBase> FPropertyTableColumn::GetPropertySorter(UPro
 			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UStrProperty>(SharedThis(this), StrProperty));
 		}
 	}
-	else if (Property->IsA(UObjectPropertyBase::StaticClass()))
+	else if (Property->IsA(UObjectPropertyBase::StaticClass()) && !Property->HasAnyPropertyFlags(CPF_InstancedReference))
 	{
 		UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(Property);
 
@@ -657,8 +716,7 @@ TSharedPtr<FCompareRowByColumnBase> FPropertyTableColumn::GetPropertySorter(UPro
 	//}
 	else
 	{
-		check(false && "Cannot Sort Rows by this Column!");
-		return nullptr;
+		return MakeShareable<FCompareRowByColumnUsingExportTextLexicographic>(new FCompareRowByColumnUsingExportTextLexicographic(SharedThis(this), Property, (SortMode == EColumnSortMode::Ascending)));
 	}
 }
 

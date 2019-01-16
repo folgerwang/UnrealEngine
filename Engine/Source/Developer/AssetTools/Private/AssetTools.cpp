@@ -38,6 +38,7 @@
 #include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
 #include "AssetTypeActions/AssetTypeActions_AnimBlueprint.h"
 #include "AssetTypeActions/AssetTypeActions_AnimComposite.h"
+#include "AssetTypeActions/AssetTypeActions_AnimCurveCompressionSettings.h"
 #include "AssetTypeActions/AssetTypeActions_AnimMontage.h"
 #include "AssetTypeActions/AssetTypeActions_AnimSequence.h"
 #include "AssetTypeActions/AssetTypeActions_BlendSpace.h"
@@ -162,6 +163,7 @@ UAssetToolsImpl::UAssetToolsImpl(const FObjectInitializer& ObjectInitializer)
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimationAsset));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimBlueprint));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimComposite));
+	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimCurveCompressionSettings));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimMontage));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AnimSequence));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_AimOffset));
@@ -991,6 +993,11 @@ void UAssetToolsImpl::FindSoftReferencesToObject(FSoftObjectPath TargetObject, T
 	AssetRenameManager->FindSoftReferencesToObject(TargetObject, ReferencingObjects);
 }
 
+void UAssetToolsImpl::RenameReferencingSoftObjectPaths(const TArray<UPackage *> PackagesToCheck, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap) const
+{
+	AssetRenameManager->RenameReferencingSoftObjectPaths(PackagesToCheck, AssetRedirectorMap);
+}
+
 TArray<UObject*> UAssetToolsImpl::ImportAssets(const FString& DestinationPath)
 {
 	return ImportAssetsWithDialog(DestinationPath);
@@ -1600,6 +1607,8 @@ void UAssetToolsImpl::OnNewCreateRecord(UClass* AssetType, bool bDuplicated)
 
 TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Files, const FString& RootDestinationPath, TArray<TPair<FString, FString>> *FilesAndDestinationsPtr, const FAssetImportParams& Params) const
 {
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, GIsRunningUnattendedScript || Params.bAutomated);
+
 	UFactory* SpecifiedFactory = Params.SpecifiedFactory;
 	const bool bForceOverrideExisting = Params.bForceOverrideExisting;
 	const bool bSyncToBrowser = Params.bSyncToBrowser;

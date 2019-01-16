@@ -803,6 +803,16 @@ public:
 	void GetUnderlineMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutUnderlinePos, int16& OutUnderlineThickness ) const;
 
 	/**
+	 * Get the strike metrics for the specified font.
+	 *
+	 * @param InFontInfo			A descriptor of the font to get character size for
+	 * @param FontScale				The scale to apply to the font
+	 * @param OutStrikeLinePos		The offset from the baseline to the center of the strike bar
+	 * @param OutStrikeLineThickness The thickness of the strike bar
+	 */
+	void GetStrikeMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness ) const;
+
+	/**
 	 * Calculates the kerning amount for a pair of characters
 	 *
 	 * @param InFontData	The font that used to draw the string with the first and second characters

@@ -1,5 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
+#include "GammaCorrectionCommon.ush"
+
 /*=============================================================================
 	ColorUtils.hlsl: Some utility functions for dealing with colors.
 =============================================================================*/
@@ -15,4 +19,37 @@ void ReplicateChannel(inout float4 BaseColor, half4 InComponentReplicate, half4 
 	}
 #endif
 	BaseColor.a = dot(BaseColor,InComponentReplicateAlpha);
+}
+
+
+float3 YuvToRgb(float3 YUV, float4x4 ColorTransform, uint SrgbToLinear)
+{
+	float3x3 Coeff = float3x3(
+		ColorTransform[0].xyz,
+		ColorTransform[1].xyz,
+		ColorTransform[2].xyz
+	);
+
+	YUV -= float3(0.0625, 0.5, 0.5);
+	float3 sRGB = mul(Coeff, YUV);
+
+	return (SrgbToLinear == 1) ? sRGBToLinear(sRGB) : sRGB;
+}
+
+float3 RgbToYuv(float3 RGB, float4x4 ColorTransform, uint InLinearToSrgb)
+{
+	float3 TempRGB = RGB;
+	
+	if (InLinearToSrgb == 1)
+	{
+		TempRGB = LinearToSrgb(RGB);
+	}
+
+	float3 YUV = mul(ColorTransform, float4(TempRGB, 1.0f)).xyz;
+
+	return float3(
+		clamp(YUV.x, 0.0f, 1.0f),
+		clamp(YUV.y, 0.0f, 1.0f),
+		clamp(YUV.z, 0.0f, 1.0f)
+		);
 }

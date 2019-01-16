@@ -39,6 +39,13 @@ public:
 		Destination->MemberName = MemberName; \
 	}
 
+// Specialized version of DATASMITHOBJECTTEMPLATE_CONDITIONALSET to handle SoftObjectPtr to Ptr assignment
+#define DATASMITHOBJECTTEMPLATE_CONDITIONALSETSOFTOBJECTPTR(MemberName, Destination, PreviousTemplate) \
+	if ( !PreviousTemplate || Destination->MemberName == PreviousTemplate->MemberName.Get() ) \
+	{ \
+		Destination->MemberName = MemberName.Get(); \
+	}
+
 struct DATASMITHCONTENT_API FDatasmithObjectTemplateUtils
 {
 	static bool HasObjectTemplates( UObject* Outer );

@@ -589,6 +589,8 @@ struct ENGINE_API FBlendedHeapCurve : public FBaseBlendedCurve<FDefaultAllocator
 	{
 		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
 		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
+		NumValidCurveCount = CurveToMoveFrom.NumValidCurveCount;
+		CurveToMoveFrom.NumValidCurveCount = 0;
 		Elements = MoveTemp(CurveToMoveFrom.Elements);
 		bInitialized = true;
 		CurveToMoveFrom.bInitialized = false;

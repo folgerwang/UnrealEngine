@@ -135,6 +135,7 @@ class UMaterialGraphSchema : public UEdGraphSchema
 	UNREALED_API static const FName PSC_Green;
 	UNREALED_API static const FName PSC_Blue;
 	UNREALED_API static const FName PSC_Alpha;
+	UNREALED_API static const FName PSC_RGBA;
 
 	// Color of certain pins/connections
 	UNREALED_API static const FLinearColor ActivePinColor;

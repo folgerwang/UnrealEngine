@@ -56,6 +56,14 @@ class UMaterialInstanceConstant : public UMaterialInstance
 	ENGINE_API void SetParentEditorOnly(class UMaterialInterface* NewParent);
 
 	/**
+	* Copies the uniform parameters (scalar, vector and texture) from a material or instance hierarchy.
+	* This will typically be faster than parsing all expressions but still slow as it must walk the full
+	* material hierarchy as each parameter may be overridden at any level in the chain.
+	* Note: This will not copy font parameters
+	*/
+	ENGINE_API void CopyMaterialUniformParametersEditorOnly(UMaterialInterface* Source, bool bIncludeStaticParams = true);
+
+	/**
 	 * Set the value parameters. These functions may be called only in the Editor!
 	 *   WARNING: You MUST call PostEditChange afterwards to propagate changes to other materials in the chain!
 	 * @param ParameterName - The parameter's name.

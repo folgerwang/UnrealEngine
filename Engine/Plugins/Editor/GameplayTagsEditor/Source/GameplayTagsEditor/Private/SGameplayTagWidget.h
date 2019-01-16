@@ -204,6 +204,11 @@ private:
 	ECheckBoxState IsTagChecked(TSharedPtr<FGameplayTagNode> Node) const;
 
 	/**
+	 * @return true if the exact Tag provided is included in any of the tag containers the widget is editing.
+	 */
+	bool IsExactTagInCollection(TSharedPtr<FGameplayTagNode> Node) const;
+
+	/**
 	 * Called via delegate when the status of the allow non-restricted children check box in a row changes
 	 *
 	 * @param NewCheckState	New check box state
@@ -331,6 +336,12 @@ private:
 
 	/** Attempts to delete the specified tag */
 	void OnDeleteTag(TSharedPtr<FGameplayTagNode> InTagNode);
+
+	/** Attempts to add the exact specified tag*/
+	void OnAddTag(TSharedPtr<FGameplayTagNode> InTagNode);
+
+	/** Attempts to remove the specified tag, but not the children */
+	void OnRemoveTag(TSharedPtr<FGameplayTagNode> InTagNode);
 
 	/** Searches for all references for the selected tag */
 	void OnSearchForReferences(TSharedPtr<FGameplayTagNode> InTagNode);

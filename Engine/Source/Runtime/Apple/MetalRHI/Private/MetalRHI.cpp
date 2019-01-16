@@ -605,6 +605,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GMetalBufferFormats[PF_PLATFORM_HDR_0		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
 	GMetalBufferFormats[PF_PLATFORM_HDR_1		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
 	GMetalBufferFormats[PF_PLATFORM_HDR_2		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_NV12					] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
 		
 	// Initialize the platform pixel format map.
 	GPixelFormats[PF_Unknown			].PlatformFormat	= (uint32)mtlpp::PixelFormat::Invalid;
@@ -774,6 +775,9 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 
 	GPixelFormats[PF_R16G16B16A16_UNORM ].PlatformFormat	= (uint32)mtlpp::PixelFormat::RGBA16Unorm;
 	GPixelFormats[PF_R16G16B16A16_SNORM ].PlatformFormat	= (uint32)mtlpp::PixelFormat::RGBA16Snorm;
+
+	GPixelFormats[PF_NV12				].PlatformFormat	= (uint32)mtlpp::PixelFormat::Invalid;
+	GPixelFormats[PF_NV12				].Supported			= false;
 
 #if METAL_DEBUG_OPTIONS
 	for (uint32 i = 0; i < PF_MAX; i++)
@@ -1134,10 +1138,10 @@ bool FMetalDynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 void FMetalDynamicRHI::RHIFlushResources()
 {
 	@autoreleasepool {
-		((FMetalDeviceContext*)ImmediateContext.Context)->DrainHeap();
 		((FMetalDeviceContext*)ImmediateContext.Context)->FlushFreeList(false);
 		ImmediateContext.Context->SubmitCommandBufferAndWait();
 		((FMetalDeviceContext*)ImmediateContext.Context)->ClearFreeList();
+        ((FMetalDeviceContext*)ImmediateContext.Context)->DrainHeap();
 		ImmediateContext.Context->GetCurrentState().Reset();
 	}
 }

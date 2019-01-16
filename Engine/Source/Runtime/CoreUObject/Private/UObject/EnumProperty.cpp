@@ -7,7 +7,6 @@
 #include "Templates/ChooseClass.h"
 #include "Templates/IsSigned.h"
 #include "Algo/Find.h"
-#include "UObject/LinkerLoad.h"
 
 namespace UE4EnumProperty_Private
 {
@@ -288,7 +287,7 @@ const TCHAR* UEnumProperty::ImportText_Internal(const TCHAR* InBuffer, void* Dat
 					SerializedObject = LoadContext->SerializedObject;
 				}
 			}
-			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject), *Enum->GetName(), *Temp);
+			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject ? SerializedObject : FUObjectThreadContext::Get().ConstructedObject), *Enum->GetName(), *Temp);
 			return nullptr;
 		}
 	}

@@ -76,6 +76,8 @@ struct FProfiledFileStatsOp : public FProfiledFileStatsBase
 		Iterate,
 		IterateStat,
 		GetStatData,
+		Flush,
+		Truncate,
 
 		Count
 	};
@@ -210,6 +212,20 @@ public:
 		Stat->Duration += FPlatformTime::Seconds() * 1000.0 - Stat->LastOpTime;
 		return Result;
 	}
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		FProfiledFileStatsOp* Stat( FileStats->CreateOpStat( FProfiledFileStatsOp::EOpType::Flush ) );
+		bool bResult = FileHandle->Flush(bFullFlush);
+		Stat->Duration += FPlatformTime::Seconds() * 1000.0 - Stat->LastOpTime;
+		return bResult;
+	}
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		FProfiledFileStatsOp* Stat( FileStats->CreateOpStat( FProfiledFileStatsOp::EOpType::Truncate ) );
+		bool bResult = FileHandle->Truncate(NewSize);
+		Stat->Duration += FPlatformTime::Seconds() * 1000.0 - Stat->LastOpTime;
+		return bResult;
+	}
 };
 
 class CORE_API FProfiledPlatformFile : public IPlatformFile
@@ -295,6 +311,13 @@ public:
 	TProfiledPlatformFile()
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
+
 	static const TCHAR* GetTypeName()
 	{
 		return nullptr;
@@ -491,9 +514,9 @@ public:
 	{
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(Priority);
 	}
 
 	//static void CreateProfileVisualizer
@@ -551,6 +574,14 @@ public:
 	{
 		return FileHandle->Size();
 	}
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		return FileHandle->Flush(bFullFlush);
+	}
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		return FileHandle->Truncate(NewSize);
+	}
 };
 
 class CORE_API FPlatformFileReadStats : public IPlatformFile
@@ -577,6 +608,12 @@ public:
 	virtual ~FPlatformFileReadStats()
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
 
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{

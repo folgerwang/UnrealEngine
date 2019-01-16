@@ -153,11 +153,6 @@ namespace Audio
 		return false;
 	}
 
-	bool FMixerBuffer::ReadCompressedData(uint8* Destination, bool bLooping)
-	{
-		return ReadCompressedData(Destination, MONO_PCM_BUFFER_SAMPLES, bLooping);
-	}
-
 	bool FMixerBuffer::ReadCompressedData(uint8* Destination, int32 InNumFrames, bool bLooping)
 	{
 		if (!DecompressionState)

@@ -33,6 +33,7 @@
 #include "Widgets/SToolTip.h"
 #include "PropertyCustomizationHelpers.h"
 #include "Toolkits/AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "LevelEditor.h"
 #include "GraphEditorModule.h"
 #include "AssetData.h"
@@ -60,6 +61,7 @@
 #include "Misc/MessageDialog.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Misc/HotReloadInterface.h"
+#include "Misc/ScopedSlowTask.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetManagerEditor"
@@ -297,6 +299,7 @@ public:
 	void DumpAssetDependencies(const TArray<FString>& Args);
 
 	virtual void OpenAssetAuditUI(TArray<FAssetData> SelectedAssets) override;
+	virtual void OpenAssetAuditUI(TArray<FAssetIdentifier> SelectedIdentifiers) override;
 	virtual void OpenAssetAuditUI(TArray<FName> SelectedPackages) override;
 	virtual void OpenReferenceViewerUI(TArray<FAssetIdentifier> SelectedIdentifiers) override;
 	virtual void OpenReferenceViewerUI(TArray<FName> SelectedPackages) override;
@@ -352,8 +355,6 @@ private:
 	FDelegateHandle ReferenceViewerDelegateHandle;
 	FDelegateHandle AssetEditorExtenderDelegateHandle;
 	FDelegateHandle LevelEditorExtenderDelegateHandle;
-	FDelegateHandle HotReloadDelegateHandle;
-	FDelegateHandle MarkPackageDirtyDelegateHandle;
 
 	TWeakPtr<SDockTab> AssetAuditTab;
 	TWeakPtr<SDockTab> ReferenceViewerTab;
@@ -379,6 +380,7 @@ private:
 	TSharedRef<FExtender> OnExtendLevelEditor(const TSharedRef<FUICommandList> CommandList, const TArray<AActor*> SelectedActors);
 	void OnHotReload(bool bWasTriggeredAutomatically);
 	void OnMarkPackageDirty(UPackage* Pkg, bool bWasDirty);
+	void OnEditAssetIdentifiers(TArray<FAssetIdentifier> AssetIdentifiers);
 
 	TSharedRef<SDockTab> SpawnAssetAuditTab(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnReferenceViewerTab(const FSpawnTabArgs& Args);
@@ -499,9 +501,15 @@ void FAssetManagerEditorModule::StartupModule()
 
 		// Register for hot reload and package dirty to invalidate data
 		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
-		HotReloadDelegateHandle = HotReloadSupport.OnHotReload().AddRaw(this, &FAssetManagerEditorModule::OnHotReload);
+		HotReloadSupport.OnHotReload().AddRaw(this, &FAssetManagerEditorModule::OnHotReload);
 
-		MarkPackageDirtyDelegateHandle = UPackage::PackageMarkedDirtyEvent.AddRaw(this, &FAssetManagerEditorModule::OnMarkPackageDirty);
+		UPackage::PackageMarkedDirtyEvent.AddRaw(this, &FAssetManagerEditorModule::OnMarkPackageDirty);
+
+		// Register view callbacks
+		FEditorDelegates::OnOpenReferenceViewer.AddRaw(this, &FAssetManagerEditorModule::OpenReferenceViewerUI);
+		FEditorDelegates::OnOpenSizeMap.AddRaw(this, &FAssetManagerEditorModule::OpenSizeMapUI);
+		FEditorDelegates::OnOpenAssetAudit.AddRaw(this, &FAssetManagerEditorModule::OpenAssetAuditUI);
+		FEditorDelegates::OnEditAssetIdentifiers.AddRaw(this, &FAssetManagerEditorModule::OnEditAssetIdentifiers);
 	}
 }
 
@@ -584,10 +592,14 @@ void FAssetManagerEditorModule::ShutdownModule()
 		if (FModuleManager::Get().IsModuleLoaded("HotReload"))
 		{
 			IHotReloadInterface& HotReloadSupport = FModuleManager::GetModuleChecked<IHotReloadInterface>("HotReload");
-			HotReloadSupport.OnHotReload().Remove(HotReloadDelegateHandle);
+			HotReloadSupport.OnHotReload().RemoveAll(this);
 		}
 
-		UPackage::PackageMarkedDirtyEvent.Remove(MarkPackageDirtyDelegateHandle);
+		UPackage::PackageMarkedDirtyEvent.RemoveAll(this);
+		FEditorDelegates::OnOpenReferenceViewer.RemoveAll(this);
+		FEditorDelegates::OnOpenSizeMap.RemoveAll(this);
+		FEditorDelegates::OnOpenAssetAudit.RemoveAll(this);
+		FEditorDelegates::OnEditAssetIdentifiers.RemoveAll(this);
 	}
 }
 
@@ -637,6 +649,16 @@ void FAssetManagerEditorModule::OpenAssetAuditUI(TArray<FAssetData> SelectedAsse
 	if (AssetAuditUI.IsValid())
 	{
 		AssetAuditUI.Pin()->AddAssetsToList(SelectedAssets, false);
+	}
+}
+
+void FAssetManagerEditorModule::OpenAssetAuditUI(TArray<FAssetIdentifier> SelectedIdentifiers)
+{
+	FGlobalTabmanager::Get()->InvokeTab(AssetAuditTabName);
+
+	if (AssetAuditUI.IsValid())
+	{
+		AssetAuditUI.Pin()->AddAssetsToList(SelectedIdentifiers, false);
 	}
 }
 
@@ -912,6 +934,36 @@ void FAssetManagerEditorModule::OnMarkPackageDirty(UPackage* Pkg, bool bWasDirty
 		if (AssetId.IsValid())
 		{
 			AssetManager->InvalidatePrimaryAssetDirectory();
+		}
+	}
+}
+
+void FAssetManagerEditorModule::OnEditAssetIdentifiers(TArray<FAssetIdentifier> AssetIdentifiers)
+{
+	// Handle default package behavior
+	TArray<FAssetData> AssetsToLoad;
+	for (FAssetIdentifier AssetIdentifier : AssetIdentifiers)
+	{
+		if (AssetIdentifier.IsPackage())
+		{
+			TArray<FAssetData> Assets;
+			AssetRegistry->GetAssetsByPackageName(AssetIdentifier.PackageName, AssetsToLoad);
+		}
+	}
+
+	if (AssetsToLoad.Num() > 0)
+	{
+		FScopedSlowTask SlowTask(0, LOCTEXT("LoadingSelectedObject", "Editing assets..."));
+		SlowTask.MakeDialogDelayed(.1f);
+		FAssetEditorManager& EditorManager = FAssetEditorManager::Get();
+
+		for (const FAssetData& AssetData : AssetsToLoad)
+		{
+			UObject* EditObject = AssetData.GetAsset();
+			if (EditObject)
+			{
+				EditorManager.OpenEditorForAsset(EditObject);
+			}
 		}
 	}
 }

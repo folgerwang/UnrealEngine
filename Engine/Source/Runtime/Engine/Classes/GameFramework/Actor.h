@@ -187,6 +187,13 @@ public:
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
 
+	/** 
+	 * If true, this actor's component's bounds will be included in the level's
+	 * bounding box unless the Actor's class has overriden IsLevelBoundsRelevant 
+	 */
+	UPROPERTY(EditAnywhere, Category=Collision, AdvancedDisplay)
+	uint8 bRelevantForLevelBounds:1;
+
 	/**
 	 * If true, this actor will only be destroyed during scrubbing if the replay is set to a time before the actor existed.
 	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
@@ -1139,7 +1146,7 @@ public:
 	 * @param RelativeTransform				The relative transform between the new component and its attach parent (automatic only)
 	 * @param ComponentTemplateContext		Optional UBlueprintGeneratedClass reference to use to find the template in. If null (or not a BPGC), component is sought in this Actor's class
 	 */
-	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true", DefaultToSelf="ComponentTemplateContext", InternalUseParam="ComponentTemplateContext"))
+	UFUNCTION(BlueprintCallable, meta=(ScriptNoExport, BlueprintInternalUseOnly = "true", DefaultToSelf="ComponentTemplateContext", InternalUseParam="ComponentTemplateContext"))
 	class UActorComponent* AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext);
 
 	/** DEPRECATED - Use Component::DestroyComponent */
@@ -1693,7 +1700,7 @@ public:
 	/** 
 	 * Indicates whether this actor should participate in level bounds calculations
 	 */
-	virtual bool IsLevelBoundsRelevant() const { return true; }
+	virtual bool IsLevelBoundsRelevant() const { return bRelevantForLevelBounds; }
 
 	/** Set LOD Parent Primitive*/
 	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);

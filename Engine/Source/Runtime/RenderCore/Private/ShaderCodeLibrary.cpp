@@ -10,6 +10,7 @@ ShaderCodeLibrary.cpp: Bound shader state cache implementation.
 #include "Misc/Paths.h"
 #include "Math/UnitConversion.h"
 #include "HAL/FileManagerGeneric.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/ScopeRWLock.h"
 #include "Async/AsyncFileHandle.h"
@@ -1402,6 +1403,8 @@ public:
 
 	void OpenLibrary(FString const& Name, FString const& Directory)
 	{
+		LLM_SCOPE(ELLMTag::Shaders);
+
 		if (ShaderPlatform < SP_NumPlatforms)
 		{
 			if (OpenShaderCode(Directory, ShaderPlatform, Name))

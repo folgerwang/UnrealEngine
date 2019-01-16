@@ -86,10 +86,13 @@ public:
 	virtual USocialChatChannel* CreateChatChannel(FSocialChatChannelConfig& InConfig);
 
 	DECLARE_EVENT_OneParam(USocialChatManager, FOnChatChannelFocusRequested, USocialChatChannel&);
+	DECLARE_EVENT_OneParam(USocialChatManager, FOnChatChannelDisplayRequested, USocialChatChannel&);
 	FOnChatChannelFocusRequested& OnChannelFocusRequested() const { return OnChannelFocusRequestedEvent; }
+	FOnChatChannelDisplayRequested& OnChannelDisplayRequested() const { return OnChannelDisplayRequestedEvent; }
 
 	virtual void FocusChatChannel(USocialUser& InChannelUser);
 	virtual void FocusChatChannel(USocialChatChannel& InChannel);
+	virtual void DisplayChatChannel(USocialChatChannel& InChannel);
 
 	virtual TSubclassOf<USocialChatRoom> GetClassForChatRoom(ESocialChannelType Type) const;
 	virtual TSubclassOf<USocialChatChannel> GetClassForPrivateMessage() const { return USocialPrivateMessageChannel::StaticClass(); }
@@ -143,4 +146,5 @@ private:
 	mutable FOnChatChannelCreated OnChannelCreatedEvent;
 	mutable FOnChatChannelLeft OnChannelLeftEvent;
 	mutable FOnChatChannelFocusRequested OnChannelFocusRequestedEvent;
+	mutable FOnChatChannelDisplayRequested OnChannelDisplayRequestedEvent;
 };

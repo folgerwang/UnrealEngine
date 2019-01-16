@@ -1126,7 +1126,6 @@ FReply SClothAssetSelector::AddNewMask()
 
 			NewMask.MaskName = TEXT("New Mask");
 			NewMask.CurrentTarget = MaskTarget_PhysMesh::None;
-			NewMask.MaxValue = 0.0f;
 			NewMask.Values.AddZeroed(NumRequiredValues);
 
 			OnRefresh();

@@ -812,8 +812,12 @@ namespace AutomationTool
                 LogWithVerbosity(SpewVerbosity,"Running: " + App + " " + (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine));
             }
 
-			string PrevIndent = Tools.DotNETCommon.Log.Indent;
-			Tools.DotNETCommon.Log.Indent += "  ";
+			string PrevIndent = null;
+			if(Options.HasFlag(ERunOptions.AllowSpew))
+			{
+				PrevIndent = Tools.DotNETCommon.Log.Indent;
+				Tools.DotNETCommon.Log.Indent += "  ";
+			}
 
 			IProcessResult Result = ProcessManager.CreateProcess(App, Options.HasFlag(ERunOptions.AllowSpew), !Options.HasFlag(ERunOptions.NoStdOutCapture), Env, SpewVerbosity: SpewVerbosity, SpewFilterCallback: SpewFilterCallback);
 			try
@@ -862,7 +866,10 @@ namespace AutomationTool
 			}
 			finally
 			{
-				Tools.DotNETCommon.Log.Indent = PrevIndent;
+				if(PrevIndent != null)
+				{
+					Tools.DotNETCommon.Log.Indent = PrevIndent;
+				}
 			}
 
 			if (!Options.HasFlag(ERunOptions.NoWaitForExit))

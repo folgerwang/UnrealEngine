@@ -54,11 +54,13 @@ struct CORE_API FWindowsPlatformMisc
 	static bool IsDebuggerPresent();
 #endif
 
-#if !UE_BUILD_SHIPPING
+#if STATS || ENABLE_STATNAMEDEVENTS
 	static void BeginNamedEventFrame();
 	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
 	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 	static void EndNamedEvent();
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit);
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit);
 #endif
 
 	FORCEINLINE static void MemoryBarrier() { _mm_sfence(); }

@@ -16,6 +16,7 @@
 #include "Internationalization/TextTransformer.h"
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/FastDecimalFormat.h"
+#include "Internationalization/TextGeneratorRegistry.h"
 
 #include "Serialization/ArchiveFromStructuredArchive.h"
 
@@ -217,7 +218,7 @@ const FNumberParsingOptions& FNumberParsingOptions::DefaultNoGrouping()
 }
 
 FText::FText()
-	: TextData(GetEmpty().TextData)
+	: TextData(FText::GetEmpty().TextData)
 	, Flags(0)
 {
 }
@@ -225,7 +226,7 @@ FText::FText()
 FText::FText( EInitToEmptyString )
 	: TextData(new TLocalizedTextData<FTextHistory_Base>(MakeShared<FString, ESPMode::ThreadSafe>()))
 	, Flags(0)
-	{
+{
 }
 
 #if PLATFORM_WINDOWS && defined(__clang__)
@@ -235,11 +236,6 @@ CORE_API const FText& FText::GetEmpty() // @todo clang: Workaround for missing s
 	return StaticEmptyText;
 }
 #endif
-
-FText::FText(FText&&) = default;
-FText::FText(const FText&) = default;
-FText& FText::operator=(FText&&) = default;
-FText& FText::operator=(const FText&) = default;
 
 FText::FText( TSharedRef<ITextData, ESPMode::ThreadSafe> InTextData )
 	: TextData(MoveTemp(InTextData))
@@ -267,7 +263,7 @@ FText::FText( FString&& InSourceString, FTextDisplayStringRef InDisplayString )
 	TextData->SetTextHistory(FTextHistory_Base(MoveTemp(InSourceString)));
 }
 
-FText::FText( FString&& InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags )
+FText::FText( FString&& InSourceString, const FTextKey& InNamespace, const FTextKey& InKey, uint32 InFlags )
 	: TextData(new TLocalizedTextData<FTextHistory_Base>(FTextLocalizationManager::Get().GetDisplayString(InNamespace, InKey, &InSourceString)))
 	, Flags(InFlags)
 {
@@ -472,6 +468,33 @@ FText FText::FormatNamedImpl(FTextFormat&& Fmt, FFormatNamedArguments&& InArgume
 FText FText::FormatOrderedImpl(FTextFormat&& Fmt, FFormatOrderedArguments&& InArguments)
 {
 	return FTextFormatter::Format(MoveTemp(Fmt), MoveTemp(InArguments), false, false);
+}
+
+FText FText::FromTextGenerator(const TSharedRef<ITextGenerator>& TextGenerator)
+{
+	FString ResultString = TextGenerator->BuildLocalizedDisplayString();
+
+	FText Result = FText(MakeShared<TGeneratedTextData<FTextHistory_TextGenerator>, ESPMode::ThreadSafe>(MoveTemp(ResultString), FTextHistory_TextGenerator(TextGenerator)));
+	if (!GIsEditor)
+	{
+		Result.Flags |= ETextFlag::Transient;
+	}
+	return Result;
+}
+
+FText::FCreateTextGeneratorDelegate FText::FindRegisteredTextGenerator( FName TypeID )
+{
+	return FTextGeneratorRegistry::Get().FindRegisteredTextGenerator(TypeID);
+}
+
+void FText::RegisterTextGenerator( FName TypeID, FCreateTextGeneratorDelegate FactoryFunction )
+{
+	FTextGeneratorRegistry::Get().RegisterTextGenerator(TypeID, MoveTemp(FactoryFunction));
+}
+
+void FText::UnregisterTextGenerator( FName TypeID )
+{
+	FTextGeneratorRegistry::Get().UnregisterTextGenerator(TypeID);
 }
 
 /**
@@ -725,7 +748,7 @@ FString FText::GetInvariantTimeZone()
 	return TEXT("Etc/Unknown");
 }
 
-bool FText::FindText( const FString& Namespace, const FString& Key, FText& OutText, const FString* const SourceString )
+bool FText::FindText(const FTextKey& Namespace, const FTextKey& Key, FText& OutText, const FString* const SourceString)
 {
 	FTextDisplayStringPtr FoundString = FTextLocalizationManager::Get().FindDisplayString( Namespace, Key, SourceString );
 
@@ -828,14 +851,14 @@ void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
 
 			if (!bSerializeHistory)
 			{
-				int8 HistoryType = INDEX_NONE;
+				int8 HistoryType = (int8)ETextHistoryType::None;
 				Record << NAMED_FIELD(HistoryType);
 			}
 		}
 		else if (UnderlyingArchive.IsLoading())
 		{
 			// The type is serialized during the serialization of the history, during deserialization we need to deserialize it and create the correct history
-			int8 HistoryType = INDEX_NONE;
+			int8 HistoryType = (int8)ETextHistoryType::None;
 			Record << NAMED_FIELD(HistoryType);
 
 			// Create the history class based on the serialized type
@@ -896,10 +919,14 @@ void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
 					Value.TextData = MakeShared<TLocalizedTextData<FTextHistory_Transform>, ESPMode::ThreadSafe>();
 					break;
 				}
-
 			case ETextHistoryType::StringTableEntry:
 				{
 					Value.TextData = MakeShared<TIndirectTextData<FTextHistory_StringTableEntry>, ESPMode::ThreadSafe>();
+					break;
+				}
+			case ETextHistoryType::TextGenerator:
+				{
+					Value.TextData = MakeShared<TLocalizedTextData<FTextHistory_TextGenerator>, ESPMode::ThreadSafe>();
 					break;
 				}
 			default:
@@ -940,7 +967,7 @@ void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
 }
 
 #if WITH_EDITOR
-FText FText::ChangeKey( const FString& Namespace, const FString& Key, const FText& Text )
+FText FText::ChangeKey( const FTextKey& Namespace, const FTextKey& Key, const FText& Text )
 {
 	return FText(FString(*Text.TextData->GetTextHistory().GetSourceString()), Namespace, Key, 0);
 }
@@ -958,7 +985,7 @@ FText FText::FromName( const FName& Val)
 
 FText FText::FromString( const FString& String )
 {
-	FText NewText = FText( FString(String) );
+	FText NewText = String.IsEmpty() ? FText::GetEmpty() : FText( FString(String) );
 
 	if (!GIsEditor)
 	{
@@ -971,7 +998,7 @@ FText FText::FromString( const FString& String )
 
 FText FText::FromString( FString&& String )
 {
-	FText NewText = FText( MoveTemp(String) );
+	FText NewText = String.IsEmpty() ? FText::GetEmpty() : FText( MoveTemp(String) );
 
 	if (!GIsEditor)
 	{
@@ -984,7 +1011,7 @@ FText FText::FromString( FString&& String )
 
 FText FText::AsCultureInvariant( const FString& String )
 {
-	FText NewText = FText( FString(String) );
+	FText NewText = String.IsEmpty() ? FText::GetEmpty() : FText( FString(String) );
 	NewText.Flags |= ETextFlag::CultureInvariant;
 
 	return NewText;
@@ -992,7 +1019,7 @@ FText FText::AsCultureInvariant( const FString& String )
 
 FText FText::AsCultureInvariant( FString&& String )
 {
-	FText NewText = FText( MoveTemp(String) );
+	FText NewText = String.IsEmpty() ? FText() : FText( MoveTemp(String) );
 	NewText.Flags |= ETextFlag::CultureInvariant;
 
 	return NewText;
@@ -1202,6 +1229,82 @@ void FFormatArgumentValue::ToFormattedString(const bool bInRebuildText, const bo
 	}
 }
 
+FString FFormatArgumentValue::ToExportedString() const
+{
+	FString Result;
+	ToExportedString(Result);
+	return Result;
+}
+
+void FFormatArgumentValue::ToExportedString(FString& OutResult) const
+{
+	switch (Type)
+	{
+	case EFormatArgumentType::Int:
+		OutResult += LexToString(IntValue);
+		break;
+	case EFormatArgumentType::UInt:
+		OutResult += LexToString(UIntValue);
+		OutResult += TEXT('u');
+		break;
+	case EFormatArgumentType::Float:
+		OutResult += LexToString(FloatValue);
+		OutResult += TEXT('f');
+		break;
+	case EFormatArgumentType::Double:
+		OutResult += LexToString(DoubleValue);
+		break;
+	case EFormatArgumentType::Text:
+		FTextStringHelper::WriteToBuffer(OutResult, GetTextValue(), true);
+		break;
+	case EFormatArgumentType::Gender:
+		TextStringificationUtil::WriteScopedEnumToBuffer(OutResult, TEXT("ETextGender::"), GetGenderValue());
+		break;
+	default:
+		break;
+	}
+}
+
+const TCHAR* FFormatArgumentValue::FromExportedString(const TCHAR* Buffer)
+{
+	// Is this a text gender?
+	{
+		static const FString TextGenderMarker = TEXT("ETextGender::");
+
+		ETextGender LocalGender = ETextGender::Masculine;
+		const TCHAR* Result = TextStringificationUtil::ReadScopedEnumFromBuffer(Buffer, TextGenderMarker, LocalGender);
+		if (Result)
+		{
+			// Apply the result to us
+			Type = EFormatArgumentType::Gender;
+			UIntValue = (uint64)LocalGender;
+
+			return Result;
+		}
+	}
+
+	// Is this a number?
+	{
+		const TCHAR* Result = TextStringificationUtil::ReadNumberFromBuffer(Buffer, *this);
+		if (Result)
+		{
+			return Result;
+		}
+	}
+
+	// Fallback to processing as text
+	{
+		FText LocalText;
+		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(FTextStringHelper::ReadFromBuffer, LocalText, nullptr, nullptr, true);
+
+		// Apply the result to us
+		Type = EFormatArgumentType::Text;
+		TextValue = MoveTemp(LocalText);
+
+		return Buffer;
+	}
+}
+
 void FFormatArgumentData::ResetValue()
 {
 	ArgumentValueType = EFormatArgumentType::Text;
@@ -1209,6 +1312,24 @@ void FFormatArgumentData::ResetValue()
 	ArgumentValueInt = 0;
 	ArgumentValueFloat = 0.0f;
 	ArgumentValueGender = ETextGender::Masculine;
+}
+
+FFormatArgumentValue FFormatArgumentData::ToArgumentValue() const
+{
+	switch (ArgumentValueType)
+	{
+	case EFormatArgumentType::Int:
+		return FFormatArgumentValue(ArgumentValueInt);
+	case EFormatArgumentType::Float:
+		return FFormatArgumentValue(ArgumentValueFloat);
+	case EFormatArgumentType::Text:
+		return FFormatArgumentValue(ArgumentValue);
+	case EFormatArgumentType::Gender:
+		return FFormatArgumentValue(ArgumentValueGender);
+	default:
+		break;
+	}
+	return FFormatArgumentValue();
 }
 
 void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentData& Value)
@@ -1372,262 +1493,114 @@ bool TextBiDi::IsControlCharacter(const TCHAR InChar)
 		|| InChar == TEXT('\u2069'); // POP DIRECTIONAL ISOLATE
 }
 
-#define LOC_DEFINE_REGION
-const FString FTextStringHelper::InvTextMarker = TEXT("INVTEXT");
-const FString FTextStringHelper::NsLocTextMarker = TEXT("NSLOCTEXT");
-const FString FTextStringHelper::LocTextMarker = TEXT("LOCTEXT");
-const FString FTextStringHelper::LocTableMarker = TEXT("LOCTABLE");
-#undef LOC_DEFINE_REGION
-
-bool FTextStringHelper::ReadFromString_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, int32* OutNumCharsRead, const EStringTableLoadingPolicy InLoadingPolicy)
+const TCHAR* FTextStringHelper::ReadFromBuffer_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace)
 {
+	// Culture invariant text?
+	if (TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::InvTextMarker))
+	{
 #define LOC_DEFINE_REGION
-	const TCHAR* const Start = Buffer;
-
-	auto ExtractQuotedString = [&](FString& OutStr) -> const TCHAR*
-	{
-		int32 CharsRead = 0;
-		if (!FParse::QuotedString(Buffer, OutStr, &CharsRead))
-		{
-			return nullptr;
-		}
-
-		Buffer += CharsRead;
-		return Buffer;
-	};
-
-	auto WalkToCharacter = [&](const TCHAR InChar) -> const TCHAR*
-	{
-		while (*Buffer && *Buffer != InChar && *Buffer != TCHAR('\n') && *Buffer != TCHAR('\r'))
-		{
-			++Buffer;
-		}
-
-		if (*Buffer != InChar)
-		{
-			return nullptr;
-		}
-
-		return Buffer;
-	};
-
-	#define EXTRACT_QUOTED_STRING(S)		\
-		Buffer = ExtractQuotedString(S);	\
-		if (!Buffer)						\
-		{									\
-			return false;					\
-		}
-
-	#define WALK_TO_CHARACTER(C)			\
-		Buffer = WalkToCharacter(TCHAR(C));	\
-		if (!Buffer)						\
-		{									\
-			return false;					\
-		}
-
-	if (FCString::Strncmp(Buffer, *LocTableMarker, LocTableMarker.Len()) == 0)
-	{
-		// Parsing something of the form: LOCTABLE("...", "...")
-		Buffer += LocTableMarker.Len();
-
-		// Walk to the opening bracket
-		WALK_TO_CHARACTER('(');
-
-		// Walk to the opening quote, and then parse out the quoted table ID
-		FString TableIdString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(TableIdString);
-
-		// Walk to the opening quote, and then parse out the quoted key
-		FString KeyString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(KeyString);
-
-		// Walk to the closing bracket, and then move past it to indicate that the value was successfully imported
-		WALK_TO_CHARACTER(')');
-		++Buffer;
-
-		OutValue = FText::FromStringTable(FName(*TableIdString), KeyString, InLoadingPolicy);
-
-		if (OutNumCharsRead)
-		{
-			*OutNumCharsRead = (Buffer - Start);
-		}
-
-		return true;
-	}
-	else if (FCString::Strncmp(Buffer, *InvTextMarker, InvTextMarker.Len()) == 0)
-	{
 		// Parsing something of the form: INVTEXT("...")
-		Buffer += InvTextMarker.Len();
+		TEXT_STRINGIFICATION_SKIP_MARKER_LEN(TextStringificationUtil::InvTextMarker);
 
-		// Walk to the opening bracket
-		WALK_TO_CHARACTER('(');
+		// Skip whitespace before the opening bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR('(');
 
-		// Walk to the opening quote, and then parse out the quoted string
+		// Skip whitespace before the value, and then read out the quoted string
 		FString InvariantString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(InvariantString);
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
+		TEXT_STRINGIFICATION_READ_QUOTED_STRING(InvariantString);
 
-		// Walk to the closing bracket, and then move past it to indicate that the value was successfully imported
-		WALK_TO_CHARACTER(')');
-		++Buffer;
+		// Skip whitespace before the closing bracket, and then step over it
+		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
 
 		OutValue = FText::AsCultureInvariant(MoveTemp(InvariantString));
 
-		if (OutNumCharsRead)
-		{
-			*OutNumCharsRead = (Buffer - Start);
-		}
-
-		return true;
-	}
-	else if (FCString::Strncmp(Buffer, *NsLocTextMarker, NsLocTextMarker.Len()) == 0)
-	{
-		// Parsing something of the form: NSLOCTEXT("...", "...", "...")
-		Buffer += NsLocTextMarker.Len();
-
-		// Walk to the opening bracket
-		WALK_TO_CHARACTER('(');
-
-		// Walk to the opening quote, and then parse out the quoted namespace
-		FString NamespaceString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(NamespaceString);
-
-		// Walk to the opening quote, and then parse out the quoted key
-		FString KeyString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(KeyString);
-
-		// Walk to the opening quote, and then parse out the quoted source string
-		FString SourceString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(SourceString);
-
-		// Walk to the closing bracket, and then move past it to indicate that the value was successfully imported
-		WALK_TO_CHARACTER(')');
-		++Buffer;
-
-		if (KeyString.IsEmpty())
-		{
-			OutValue = FText::AsCultureInvariant(MoveTemp(SourceString));
-		}
-		else
-		{
-#if USE_STABLE_LOCALIZATION_KEYS
-			if (GIsEditor && PackageNamespace && *PackageNamespace)
-			{
-				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
-				if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
-				{
-					// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
-					// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
-					NamespaceString = FullNamespace;
-					KeyString = FGuid::NewGuid().ToString();
-				}
-			}
-#endif // USE_STABLE_LOCALIZATION_KEYS
-			if (!GIsEditor)
-			{
-				// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
-				NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
-			}
-			OutValue = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *NamespaceString, *KeyString);
-		}
-
-		if (OutNumCharsRead)
-		{
-			*OutNumCharsRead = (Buffer - Start);
-		}
-
-		return true;
-	}
-	else if (FCString::Strncmp(Buffer, *LocTextMarker, LocTextMarker.Len()) == 0)
-	{
-		// Parsing something of the form: LOCTEXT("...", "...")
-		// This only exists as people sometimes do this in config files. We assume an empty namespace should be used
-		Buffer += LocTextMarker.Len();
-
-		// Walk to the opening bracket
-		WALK_TO_CHARACTER('(');
-
-		// Walk to the opening quote, and then parse out the quoted key
-		FString KeyString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(KeyString);
-
-		// Walk to the opening quote, and then parse out the quoted source string
-		FString SourceString;
-		WALK_TO_CHARACTER('"');
-		EXTRACT_QUOTED_STRING(SourceString);
-
-		// Walk to the closing bracket, and then move past it to indicate that the value was successfully imported
-		WALK_TO_CHARACTER(')');
-		++Buffer;
-
-		if (KeyString.IsEmpty())
-		{
-			OutValue = FText::AsCultureInvariant(MoveTemp(SourceString));
-		}
-		else
-		{
-			FString NamespaceString = (TextNamespace) ? TextNamespace : FString();
-#if USE_STABLE_LOCALIZATION_KEYS
-			if (GIsEditor && PackageNamespace && *PackageNamespace)
-			{
-				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
-				if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
-				{
-					// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
-					// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
-					NamespaceString = FullNamespace;
-					KeyString = FGuid::NewGuid().ToString();
-				}
-			}
-#endif // USE_STABLE_LOCALIZATION_KEYS
-			if (!GIsEditor)
-			{
-				// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
-				NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
-			}
-			OutValue = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *NamespaceString, *KeyString);
-		}
-
-		if (OutNumCharsRead)
-		{
-			*OutNumCharsRead = (Buffer - Start);
-		}
-
-		return true;
-	}
-
-	#undef EXTRACT_QUOTED_STRING
-	#undef WALK_TO_CHARACTER
+		return Buffer;
 #undef LOC_DEFINE_REGION
+	}
 
-	return false;
+	// Is this text that should be parsed via its text history?
+	{
+		auto CreateTextHistory = [&](FText& InOutTmpText) -> bool
+		{
+			#define CONDITIONAL_CREATE_TEXT_HISTORY(DataClass, HistoryClass)							\
+				if (HistoryClass::StaticShouldReadFromBuffer(Buffer))									\
+				{																						\
+					InOutTmpText.TextData = MakeShared<DataClass<HistoryClass>, ESPMode::ThreadSafe>();	\
+					return true;																		\
+				}
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_Base);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_NamedFormat);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_OrderedFormat);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_ArgumentDataFormat);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsNumber);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsPercent);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsCurrency);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsDateTime);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsDate);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_AsTime);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TLocalizedTextData, FTextHistory_Transform);
+			CONDITIONAL_CREATE_TEXT_HISTORY(TIndirectTextData,  FTextHistory_StringTableEntry);
+			#undef CONDITIONAL_CREATE_TEXT_HISTORY
+			return false;
+		};
+
+		FText TmpText;
+		if (CreateTextHistory(TmpText))
+		{
+			FTextHistory& MutableTextHistory = TmpText.TextData->GetMutableTextHistory();
+			
+			// Read the string into the text history, potentially updating the mutable display string (if supported)
+			if (TmpText.TextData->OwnsLocalizedString())
+			{
+				TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(MutableTextHistory.ReadFromBuffer, TextNamespace, PackageNamespace, TmpText.TextData->GetMutableLocalizedString());
+			}
+			else
+			{
+				FTextDisplayStringPtr DummyDisplayString;
+				TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(MutableTextHistory.ReadFromBuffer, TextNamespace, PackageNamespace, DummyDisplayString);
+			}
+			
+			// Rebuild the text if we parsed its history correctly
+			TmpText.Rebuild();
+				
+			// Move out temporary into the result
+			OutValue = MoveTemp(TmpText);
+
+			return Buffer;
+		}
+	}
+
+	return nullptr;
 }
 
-bool FTextStringHelper::ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, int32* OutNumCharsRead, const bool bRequiresQuotes, const EStringTableLoadingPolicy InLoadingPolicy)
+const TCHAR* FTextStringHelper::ReadFromBuffer(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, const bool bRequiresQuotes)
 {
-	const TCHAR* const Start = Buffer;
+	check(Buffer);
+
+	// Empty buffer?
+	if (*Buffer == 0)
+	{
+		if (bRequiresQuotes)
+		{
+			return nullptr;
+		}
+
+		OutValue = FText::GetEmpty();
+		return Buffer;
+	}
 
 	// First, try and parse the text as a complex text export
 	{
-		int32 SubNumCharsRead = 0;
-		if (FTextStringHelper::ReadFromString_ComplexText(Buffer, OutValue, TextNamespace, PackageNamespace, &SubNumCharsRead, InLoadingPolicy))
+		const TCHAR* Result = ReadFromBuffer_ComplexText(Buffer, OutValue, TextNamespace, PackageNamespace);
+		if (Result)
 		{
-			Buffer += SubNumCharsRead;
-			if (OutNumCharsRead)
-			{
-				*OutNumCharsRead = (Buffer - Start);
-			}
-			return true;
+			Buffer = Result;
+			return Buffer;
 		}
 	}
 
-	// This isn't special text, so just parse it from a string
+	// Quoted string?
 	if (bRequiresQuotes)
 	{
 		// Parse out the quoted source string
@@ -1638,109 +1611,193 @@ bool FTextStringHelper::ReadFromString(const TCHAR* Buffer, FText& OutValue, con
 		{
 			OutValue = FText::FromString(MoveTemp(LiteralString));
 			Buffer += SubNumCharsRead;
-			if (OutNumCharsRead)
-			{
-				*OutNumCharsRead = (Buffer - Start);
-			}
-			return true;
+			return Buffer;
 		}
 
-		return false;
+		return nullptr;
 	}
-	else
+
+	// Raw string
 	{
 		FString LiteralString = Buffer;
-
-		// In order to indicate that the value was successfully imported, advance the buffer past the last character that was imported
-		Buffer += LiteralString.Len();
-
+		Buffer += LiteralString.Len(); // Advance the buffer by the length of the string to indicate success for things like ImportText
 		OutValue = FText::FromString(MoveTemp(LiteralString));
+		return Buffer;
+	}
+}
 
+bool FTextStringHelper::ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, int32* OutNumCharsRead, const bool bRequiresQuotes, const EStringTableLoadingPolicy InLoadingPolicy)
+{
+	const TCHAR* const Start = Buffer;
+	Buffer = ReadFromBuffer(Buffer, OutValue, TextNamespace, PackageNamespace, bRequiresQuotes);
+	if (Buffer)
+	{
 		if (OutNumCharsRead)
 		{
 			*OutNumCharsRead = (Buffer - Start);
 		}
 		return true;
 	}
-
 	return false;
 }
 
-bool FTextStringHelper::WriteToString(FString& Buffer, const FText& Value, const bool bRequiresQuotes)
+void FTextStringHelper::WriteToBuffer(FString& Buffer, const FText& Value, const bool bRequiresQuotes)
 {
-#define LOC_DEFINE_REGION
+	const FTextHistory& TextHistory = Value.TextData->GetTextHistory();
 	const FString& StringValue = FTextInspector::GetDisplayString(Value);
 
-	if (Value.IsFromStringTable())
+	// Culture invariant text?
+	if (Value.IsCultureInvariant())
 	{
-		FName TableId;
-		FString Key;
-		FStringTableRegistry::Get().FindTableIdAndKey(Value, TableId, Key);
-
-		// Produces LOCTABLE("...", "...")
-		Buffer += TEXT("LOCTABLE(\"");
-		Buffer += TableId.ToString().ReplaceCharWithEscapedChar();
-		Buffer += TEXT("\", \"");
-		Buffer += Key.ReplaceCharWithEscapedChar();
-		Buffer += TEXT("\")");
-	}
-	else if (Value.IsCultureInvariant())
-	{
+#define LOC_DEFINE_REGION
 		// Produces INVTEXT("...")
 		Buffer += TEXT("INVTEXT(\"");
 		Buffer += StringValue.ReplaceCharWithEscapedChar();
 		Buffer += TEXT("\")");
+#undef LOC_DEFINE_REGION
+	}
+	// Is this text that should be written via its text history?
+	else if (TextHistory.WriteToBuffer(Buffer, Value.TextData->GetLocalizedString()))
+	{
+	}
+	// This isn't special text, so write as a raw string (potentially quoted)
+	else if (bRequiresQuotes)
+	{
+		Buffer += TEXT("\"");
+		Buffer += StringValue.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\"");
 	}
 	else
 	{
-		bool bIsLocalized = false;
-		FString Namespace;
-		FString Key;
-		const FString* SourceString = FTextInspector::GetSourceString(Value);
-
-		if (SourceString && Value.ShouldGatherForLocalization())
-		{
-			bIsLocalized = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(FTextInspector::GetSharedDisplayString(Value), Namespace, Key);
-		}
-
-		if (bIsLocalized)
-		{
-			// Produces NSLOCTEXT("...", "...", "...")
-			Buffer += TEXT("NSLOCTEXT(\"");
-			Buffer += Namespace.ReplaceCharWithEscapedChar();
-			Buffer += TEXT("\", \"");
-			Buffer += Key.ReplaceCharWithEscapedChar();
-			Buffer += TEXT("\", \"");
-			Buffer += SourceString->ReplaceCharWithEscapedChar();
-			Buffer += TEXT("\")");
-		}
-		else
-		{
-			if (bRequiresQuotes)
-			{
-				Buffer += TEXT("\"");
-				Buffer += StringValue.ReplaceCharWithEscapedChar();
-				Buffer += TEXT("\"");
-			}
-			else
-			{
-				Buffer += StringValue;
-			}
-		}
+		Buffer += StringValue;
 	}
-#undef LOC_DEFINE_REGION
+}
 
+bool FTextStringHelper::WriteToString(FString& Buffer, const FText& Value, const bool bRequiresQuotes)
+{
+	WriteToBuffer(Buffer, Value, bRequiresQuotes);
 	return true;
 }
 
 bool FTextStringHelper::IsComplexText(const TCHAR* Buffer)
 {
 #define LOC_DEFINE_REGION
-	return FCString::Strncmp(Buffer, *InvTextMarker, InvTextMarker.Len()) == 0 
-		|| FCString::Strncmp(Buffer, *NsLocTextMarker, NsLocTextMarker.Len()) == 0 
-		|| FCString::Strncmp(Buffer, *LocTextMarker, LocTextMarker.Len()) == 0 
-		|| FCString::Strncmp(Buffer, *LocTableMarker, LocTableMarker.Len()) == 0;
+	return TEXT_STRINGIFICATION_PEEK_MARKER(TextStringificationUtil::InvTextMarker)
+		|| FTextHistory_Base::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_NamedFormat::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_OrderedFormat::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_ArgumentDataFormat::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsNumber::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsPercent::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsCurrency::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsDateTime::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsDate::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_AsTime::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_Transform::StaticShouldReadFromBuffer(Buffer)
+		|| FTextHistory_StringTableEntry::StaticShouldReadFromBuffer(Buffer);
 #undef LOC_DEFINE_REGION
+}
+
+bool LexTryParseString(ETextGender& OutValue, const TCHAR* Buffer)
+{
+#define ENUM_CASE_FROM_STRING(Enum) if (FCString::Stricmp(Buffer, TEXT(#Enum)) == 0) { OutValue = ETextGender::Enum; return true; }
+	ENUM_CASE_FROM_STRING(Masculine);
+	ENUM_CASE_FROM_STRING(Feminine);
+	ENUM_CASE_FROM_STRING(Neuter);
+#undef ENUM_CASE_FROM_STRING
+	return false;
+}
+
+void LexFromString(ETextGender& OutValue, const TCHAR* Buffer)
+{
+	OutValue = ETextGender::Masculine;
+	LexTryParseString(OutValue, Buffer);
+}
+
+const TCHAR* LexToString(ETextGender InValue)
+{
+	switch (InValue)
+	{
+#define ENUM_CASE_TO_STRING(Enum) case ETextGender::Enum: return TEXT(#Enum)
+		ENUM_CASE_TO_STRING(Masculine);
+		ENUM_CASE_TO_STRING(Feminine);
+		ENUM_CASE_TO_STRING(Neuter);
+#undef ENUM_CASE_TO_STRING
+	default:
+		return TEXT("<Unknown ETextGender>");
+	}
+}
+
+bool LexTryParseString(EDateTimeStyle::Type& OutValue, const TCHAR* Buffer)
+{
+#define ENUM_CASE_FROM_STRING(Enum) if (FCString::Stricmp(Buffer, TEXT(#Enum)) == 0) { OutValue = EDateTimeStyle::Enum; return true; }
+	ENUM_CASE_FROM_STRING(Default);
+	ENUM_CASE_FROM_STRING(Short);
+	ENUM_CASE_FROM_STRING(Medium);
+	ENUM_CASE_FROM_STRING(Long);
+	ENUM_CASE_FROM_STRING(Full);
+#undef ENUM_CASE_FROM_STRING
+	return false;
+}
+
+void LexFromString(EDateTimeStyle::Type& OutValue, const TCHAR* Buffer)
+{
+	OutValue = EDateTimeStyle::Default;
+	LexTryParseString(OutValue, Buffer);
+}
+
+const TCHAR* LexToString(EDateTimeStyle::Type InValue)
+{
+	switch (InValue)
+	{
+#define ENUM_CASE_TO_STRING(Enum) case EDateTimeStyle::Enum: return TEXT(#Enum)
+		ENUM_CASE_TO_STRING(Default);
+		ENUM_CASE_TO_STRING(Short);
+		ENUM_CASE_TO_STRING(Medium);
+		ENUM_CASE_TO_STRING(Long);
+		ENUM_CASE_TO_STRING(Full);
+#undef ENUM_CASE_TO_STRING
+	default:
+		return TEXT("<Unknown EDateTimeStyle>");
+	}
+}
+
+bool LexTryParseString(ERoundingMode& OutValue, const TCHAR* Buffer)
+{
+#define ENUM_CASE_FROM_STRING(Enum) if (FCString::Stricmp(Buffer, TEXT(#Enum)) == 0) { OutValue = ERoundingMode::Enum; return true; }
+	ENUM_CASE_FROM_STRING(HalfToEven);
+	ENUM_CASE_FROM_STRING(HalfFromZero);
+	ENUM_CASE_FROM_STRING(HalfToZero);
+	ENUM_CASE_FROM_STRING(FromZero);
+	ENUM_CASE_FROM_STRING(ToZero);
+	ENUM_CASE_FROM_STRING(ToNegativeInfinity);
+	ENUM_CASE_FROM_STRING(ToPositiveInfinity);
+#undef ENUM_CASE_FROM_STRING
+	return false;
+}
+
+void LexFromString(ERoundingMode& OutValue, const TCHAR* Buffer)
+{
+	OutValue = ERoundingMode::HalfToEven;
+	LexTryParseString(OutValue, Buffer);
+}
+
+const TCHAR* LexToString(ERoundingMode InValue)
+{
+	switch (InValue)
+	{
+#define ENUM_CASE_TO_STRING(Enum) case ERoundingMode::Enum: return TEXT(#Enum)
+	ENUM_CASE_TO_STRING(HalfToEven);
+	ENUM_CASE_TO_STRING(HalfFromZero);
+	ENUM_CASE_TO_STRING(HalfToZero);
+	ENUM_CASE_TO_STRING(FromZero);
+	ENUM_CASE_TO_STRING(ToZero);
+	ENUM_CASE_TO_STRING(ToNegativeInfinity);
+	ENUM_CASE_TO_STRING(ToPositiveInfinity);
+#undef ENUM_CASE_TO_STRING
+	default:
+		return TEXT("<Unknown ERoundingMode>");
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

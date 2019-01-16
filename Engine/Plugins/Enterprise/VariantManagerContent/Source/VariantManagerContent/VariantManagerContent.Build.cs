@@ -15,6 +15,19 @@ namespace UnrealBuildTool.Rules
 					"Engine"
 				}
 			);
+
+			// For managing direct function entry nodes for FunctionCallers
+			// Necessary when in the editor as the functions may get recompiled/renamed/deleted
+			// and tracking them just by name would not work
+			if (Target.bBuildWithEditorOnlyData)
+			{
+				PublicDependencyModuleNames.AddRange(
+					new string[] {
+						"UnrealEd",
+						"BlueprintGraph"
+					}
+				);
+			}
 		}
 	}
 }

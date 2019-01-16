@@ -4,14 +4,24 @@
 
 #include "CoreTypes.h"
 #include "CoreFwd.h"
+#include "Templates/Atomic.h"
+
+#ifndef USE_ATOMIC_PLATFORM_FILE
+	#define USE_ATOMIC_PLATFORM_FILE (WITH_EDITOR)
+#endif
 
 /**
 * Platform File chain manager.
 **/
 class CORE_API FPlatformFileManager
 {
+#if USE_ATOMIC_PLATFORM_FILE
+	/** Currently used platform file. */
+	TAtomic<class IPlatformFile*> TopmostPlatformFile;
+#else
 	/** Currently used platform file. */
 	class IPlatformFile* TopmostPlatformFile;
+#endif
 
 public:
 
@@ -54,7 +64,7 @@ public:
 	void TickActivePlatformFile();
 
 	/**
-	* Permorms additional initialization when the new async IO is enabled.
+	* Performs additional initialization when the new async IO is enabled.
 	*/
 	void InitializeNewAsyncIO();
 

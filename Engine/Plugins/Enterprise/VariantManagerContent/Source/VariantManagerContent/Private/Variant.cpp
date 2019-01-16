@@ -7,11 +7,12 @@
 #include "VariantObjectBinding.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "VariantManagerObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "Variant"
 
-
-UVariant::UVariant(const FObjectInitializer& Init)
+UVariant::UVariant(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	DisplayText = FText::FromString(TEXT("Variant"));
 }
@@ -21,8 +22,23 @@ UVariantSet* UVariant::GetParent()
 	return Cast<UVariantSet>(GetOuter());
 }
 
+void UVariant::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FVariantManagerObjectVersion::GUID);
+	int32 CustomVersion = Ar.CustomVer(FVariantManagerObjectVersion::GUID);
+
+	if (CustomVersion >= FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	{
+		Ar << DisplayText;
+	}
+}
+
 void UVariant::SetDisplayText(const FText& NewDisplayText)
 {
+	Modify();
+
 	DisplayText = NewDisplayText;
 }
 
@@ -49,13 +65,10 @@ void UVariant::AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, in
 	{
 		UVariant* OldParent = NewBinding->GetParent();
 
-		// We can't just RemoveBinding since that might remove the wrong item in case
-		// we're moving bindings around within this Variant
 		if (OldParent)
 		{
 			if (OldParent != this)
 			{
-				// Don't call RemoveBinding here so that we get the entire thing in a single transaction
 				if (!ParentsModified.Contains(OldParent))
 				{
 					OldParent->Modify();
@@ -70,7 +83,7 @@ void UVariant::AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, in
 		}
 
 		NewBinding->Modify();
-		NewBinding->Rename(nullptr, this);
+		NewBinding->Rename(nullptr, this, REN_DontCreateRedirectors);
 	}
 
 	// If it's a move operation, we'll have to manually clear the old pointers from the array
@@ -85,7 +98,7 @@ void UVariant::AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, in
 		NewBindingPaths.Add(NewBinding->GetObjectPath());
 	}
 
-	// Sweep back from insertion point nulling old bindings with the same GUID
+	// Sweep back from insertion point nulling old bindings with the same path
 	for (int32 SweepIndex = Index-1; SweepIndex >= 0; SweepIndex--)
 	{
 		if (NewBindingPaths.Contains(ObjectBindings[SweepIndex]->GetObjectPath()))
@@ -93,7 +106,7 @@ void UVariant::AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, in
 			ObjectBindings[SweepIndex] = nullptr;
 		}
 	}
-	// Sweep forward from the end of the inserted segment nulling old bindings with the same GUID
+	// Sweep forward from the end of the inserted segment nulling old bindings with the same path
 	for (int32 SweepIndex = Index + NewBindings.Num(); SweepIndex < ObjectBindings.Num(); SweepIndex++)
 	{
 		if (NewBindingPaths.Contains(ObjectBindings[SweepIndex]->GetObjectPath()))
@@ -112,7 +125,12 @@ void UVariant::AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, in
 	}
 }
 
-const TArray<UVariantObjectBinding*>& UVariant::GetBindings()
+int32 UVariant::GetBindingIndex(UVariantObjectBinding* Binding)
+{
+	return ObjectBindings.Find(Binding);
+}
+
+const TArray<UVariantObjectBinding*>& UVariant::GetBindings() const
 {
 	return ObjectBindings;
 }
@@ -147,6 +165,22 @@ AActor* UVariant::GetActor(int32 ActorIndex)
 	return nullptr;
 }
 
+UVariantObjectBinding* UVariant::GetBindingByName(const FString& ActorName)
+{
+	UVariantObjectBinding** FoundBindingPtr = ObjectBindings.FindByPredicate([&ActorName](const UVariantObjectBinding* Binding)
+	{
+		UObject* ThisActor = Binding->GetObject();
+		return ThisActor && ThisActor->GetName() == ActorName;
+	});
+
+	if (FoundBindingPtr)
+	{
+		return *FoundBindingPtr;
+	}
+
+	return nullptr;
+}
+
 void UVariant::SwitchOn()
 {
 	for (UVariantObjectBinding* Binding : ObjectBindings)
@@ -155,6 +189,8 @@ void UVariant::SwitchOn()
 		{
 			PropCapture->ApplyDataToResolvedObject();
 		}
+
+		Binding->ExecuteAllTargetFunctions();
 	}
 }
 

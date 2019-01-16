@@ -1607,6 +1607,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 			{
 				Reporter->GeneratePackageReport(Linker, *OutputOverride);
 			}
+#if !NO_LOGGING
 			if (bDumpProperties)
 			{
 				check(Reader);
@@ -1635,6 +1636,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 				}
 				Out.Logf(ELogVerbosity::Display, TEXT("Total number of Serialize calls: %lld"), TotalSerializeCalls);
 			}
+#endif // !NO_LOGGING
 		}
 		CollectGarbage(RF_NoFlags);
 	}

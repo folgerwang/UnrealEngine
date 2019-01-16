@@ -167,6 +167,11 @@ EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& 
 	return EConvertFromTypeResult::UseSerializeItem;
 }
 
+UObject* USoftObjectProperty::LoadObjectPropertyValue(const void* PropertyValueAddress) const
+{
+	return GetPropertyValue(PropertyValueAddress).LoadSynchronous();
+}
+
 UObject* USoftObjectProperty::GetObjectPropertyValue(const void* PropertyValueAddress) const
 {
 	return GetPropertyValue(PropertyValueAddress).Get();

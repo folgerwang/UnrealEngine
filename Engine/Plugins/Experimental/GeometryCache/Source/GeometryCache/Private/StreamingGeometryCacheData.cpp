@@ -229,7 +229,7 @@ void FStreamingGeometryCacheData::UpdateStreamingStatus()
 				FResidentChunk &ResidentChunk = AddResidentChunk(NeededIndex, Chunk);
 
 				// Todo find something more smart...
-				EAsyncIOPriority AsyncIOPriority = AIOP_BelowNormal;
+				EAsyncIOPriorityAndFlags AsyncIOPriority = AIOP_BelowNormal;
 
 				// Kick of a load
 				if (!IORequestHandle)

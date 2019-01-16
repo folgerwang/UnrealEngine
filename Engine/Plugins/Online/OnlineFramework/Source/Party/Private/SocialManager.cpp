@@ -2,6 +2,7 @@
 
 #include "SocialManager.h"
 #include "SocialToolkit.h"
+#include "SocialSettings.h"
 
 #include "Interactions/CoreInteractions.h"
 #include "Interactions/PartyInteractions.h"
@@ -65,10 +66,6 @@ FString USocialManager::FJoinPartyAttempt::ToDebugString() const
 		*PlatformSessionId);
 }
 
-//////////////////////////////////////////////////////////////////////////
-// FJoinPartyAttempt
-//////////////////////////////////////////////////////////////////////////
-
 const FName USocialManager::FJoinPartyAttempt::Step_FindPlatformSession = TEXT("FindPlatformSession");
 const FName USocialManager::FJoinPartyAttempt::Step_QueryJoinability = TEXT("QueryJoinability");
 const FName USocialManager::FJoinPartyAttempt::Step_LeaveCurrentParty = TEXT("LeaveCurrentParty");
@@ -80,7 +77,7 @@ const FName USocialManager::FJoinPartyAttempt::Step_DeferredPartyCreation = TEXT
 //////////////////////////////////////////////////////////////////////////
 
 TArray<ESocialSubsystem> USocialManager::DefaultSubsystems;
-TArray<ISocialInteractionHandleRef> USocialManager::RegisteredInteractions;
+TArray<FSocialInteractionHandle> USocialManager::RegisteredInteractions;
 TMap<TWeakObjectPtr<UGameInstance>, TWeakObjectPtr<USocialManager>> USocialManager::AllManagersByGameInstance;
 
 /*static*/bool USocialManager::IsSocialSubsystemEnabled(ESocialSubsystem SubsystemType)
@@ -345,7 +342,7 @@ void USocialManager::CreateParty(const FOnlinePartyTypeId& PartyTypeId, const FP
 
 void USocialManager::CreatePersistentParty(const FOnCreatePartyAttemptComplete& OnCreatePartyComplete)
 {
-	UE_LOG(LogParty, VeryVerbose, TEXT("Attempting to create new persistent party"));
+	UE_LOG(LogParty, Log, TEXT("Attempting to create new persistent party"));
 
 	// The persistent party starts off closed by default, and will update its config as desired after initializing
 	FPartyConfiguration InitialPersistentPartyConfig;
@@ -354,36 +351,32 @@ void USocialManager::CreatePersistentParty(const FOnCreatePartyAttemptComplete& 
 	InitialPersistentPartyConfig.bShouldRemoveOnDisconnection = true;
 	InitialPersistentPartyConfig.PresencePermissions = PartySystemPermissions::EPermissionType::Noone;
 	InitialPersistentPartyConfig.InvitePermissions = PartySystemPermissions::EPermissionType::Noone;
-	InitialPersistentPartyConfig.MaxMembers = GetDefaultPartyMaxSize();
+	InitialPersistentPartyConfig.MaxMembers = USocialSettings::GetDefaultMaxPartySize();
 
 	CreateParty(IOnlinePartySystem::GetPrimaryPartyTypeId(), InitialPersistentPartyConfig, OnCreatePartyComplete);
-}
-
-void USocialManager::RegisterSubclassInteraction(ISocialInteractionHandleRef NewInteraction)
-{
-	RegisteredInteractions.Add(NewInteraction);
 }
 
 void USocialManager::RegisterSocialInteractions()
 {
 	// Register Party Interactions
-	RegisteredInteractions.Add(FSocialInteraction_JoinParty::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_InviteToParty::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_AcceptPartyInvite::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_RejectPartyInvite::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_PromoteToPartyLeader::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_KickPartyMember::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_LeaveParty::GetHandle());
+	RegisterInteraction<FSocialInteraction_JoinParty>();
+	RegisterInteraction<FSocialInteraction_InviteToParty>();
+	RegisterInteraction<FSocialInteraction_AcceptPartyInvite>();
+	RegisterInteraction<FSocialInteraction_RejectPartyInvite>();
+	RegisterInteraction<FSocialInteraction_PromoteToPartyLeader>();
+	RegisterInteraction<FSocialInteraction_KickPartyMember>();
+	RegisterInteraction<FSocialInteraction_LeaveParty>();
 
 	// Register Core interactions
-	RegisteredInteractions.Add(FSocialInteraction_AddFriend::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_AcceptFriendInvite::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_RejectFriendInvite::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_PrivateMessage::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_RemoveFriend::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_Block::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_Unblock::GetHandle());
-	RegisteredInteractions.Add(FSocialInteraction_ShowPlatformProfile::GetHandle());
+	RegisterInteraction<FSocialInteraction_AddFriend>();
+	RegisterInteraction<FSocialInteraction_AddPlatformFriend>();
+	RegisterInteraction<FSocialInteraction_AcceptFriendInvite>();
+	RegisterInteraction<FSocialInteraction_RejectFriendInvite>();
+	RegisterInteraction<FSocialInteraction_PrivateMessage>();
+	RegisterInteraction<FSocialInteraction_RemoveFriend>();
+	RegisterInteraction<FSocialInteraction_Block>();
+	RegisterInteraction<FSocialInteraction_Unblock>();
+	RegisterInteraction<FSocialInteraction_ShowPlatformProfile>();
 }
 
 FJoinPartyResult USocialManager::ValidateJoinAttempt(const FOnlinePartyTypeId& PartyTypeId) const
@@ -425,6 +418,10 @@ FJoinPartyResult USocialManager::ValidateJoinTarget(const USocialUser& UserToJoi
 	{
 		return FPartyJoinDenialReason(EPartyJoinDenialReason::NotLoggedIn);
 	}
+	else if (UserToJoin.GetOnlineStatus() == EOnlinePresenceState::Away)
+	{
+		return FPartyJoinDenialReason(EPartyJoinDenialReason::TargetUserAway);
+	}
 	else if (UserToJoin.GetPartyMember(PartyTypeId))
 	{
 		return EJoinPartyCompletionResult::AlreadyInParty;
@@ -445,7 +442,7 @@ FJoinPartyResult USocialManager::ValidateJoinTarget(const USocialUser& UserToJoi
 			else if (!JoinInfo->IsAcceptingMembers())
 			{
 				FPartyJoinDenialReason DenialReason = JoinInfo->GetNotAcceptingReason();
-				if (DenialReason.GetReason() != EPartyJoinDenialReason::PartyPrivate || !UserToJoin.HasSentPartyInvite())
+				if (DenialReason.GetReason() != EPartyJoinDenialReason::PartyPrivate || !UserToJoin.HasSentPartyInvite(PartyTypeId))
 				{
 					return DenialReason;
 				}
@@ -464,7 +461,7 @@ FJoinPartyResult USocialManager::ValidateJoinTarget(const USocialUser& UserToJoi
 				{
 					return FPartyJoinDenialReason(EPartyJoinDenialReason::TargetUserPlayingDifferentGame);
 				}
-				else if (!UserToJoin.HasSentPartyInvite())
+				else if (!UserToJoin.HasSentPartyInvite(PartyTypeId))
 				{
 					if (!PlatformPresence->bIsJoinable)
 					{
@@ -710,6 +707,9 @@ USocialParty* USocialManager::EstablishNewParty(const FUniqueNetId& LocalUserId,
 		NewParty->OnPartyLeaveBegin().AddUObject(this, &USocialManager::HandlePartyLeaveBegin, NewParty);
 		NewParty->OnPartyLeft().AddUObject(this, &USocialManager::HandlePartyLeft, NewParty);
 
+		// This must be done before InitializeParty(), as initialization can complete synchronously.
+		JoinedPartiesByTypeId.Add(PartyTypeId, NewParty);
+
 		NewParty->InitializeParty(OssParty.ToSharedRef());
 
 		if (NewParty->IsPersistentParty())
@@ -718,7 +718,6 @@ USocialParty* USocialManager::EstablishNewParty(const FUniqueNetId& LocalUserId,
 			HandlePersistentPartyStateChanged(NewParty->GetOssPartyState(), NewParty);
 		}
 
-		JoinedPartiesByTypeId.Add(PartyTypeId, NewParty);
 		return NewParty;
 	}
 
@@ -984,16 +983,30 @@ void USocialManager::HandlePartyLeft(EMemberExitedReason Reason, USocialParty* L
 		JoinedPartiesByTypeId.Remove(PartyTypeId);
 	}
 
-	OnPartyLeftInternal(*LeftParty);
+	OnPartyLeftInternal(*LeftParty, Reason);
 	LeftParty->MarkPendingKill();
 
 	if (FJoinPartyAttempt* JoinAttempt = JoinAttemptsByTypeId.Find(PartyTypeId))
 	{
-		// We're in the process of joining another party of the same type
 		JoinAttempt->ActionTimeTracker.CompleteStep(FJoinPartyAttempt::Step_LeaveCurrentParty);
-		JoinPartyInternal(*JoinAttempt);
+
+		// We're in the process of joining another party of the same type - do we know where we're heading yet?
+		if (JoinAttempt->JoinInfo.IsValid() || JoinAttempt->RejoinInfo.IsValid())
+		{
+			// Join the new party immediately and early out
+			JoinPartyInternal(*JoinAttempt);
+			return;
+		}
+		else
+		{
+			// An attempt to join a party of this type has been initiated, but something/someone decided to leave the party before the attempt was ready to do so
+			// It's not worth accounting for the potential limbo that this could put us into, so just abort the join attempt and let the explicit leave action win
+			UE_LOG(LogParty, Verbose, TEXT("Finished leaving party [%s] before the current join attempt established join info. Cancelling join attempt."), *LeftParty->ToDebugString());
+			FinishJoinPartyAttempt(*JoinAttempt, FJoinPartyResult(EPartyJoinDenialReason::JoinAttemptAborted));
+		}
 	}
-	else if (LeftParty->IsPersistentParty() && GetFirstLocalUserToolkit()->IsOwnerLoggedIn())
+
+	if (LeftParty->IsPersistentParty() && GetFirstLocalUserToolkit()->IsOwnerLoggedIn())
 	{
 		UE_LOG(LogParty, Verbose, TEXT("Finished leaving persistent party without a join/rejoin target. Creating a new persistent party now."));
 

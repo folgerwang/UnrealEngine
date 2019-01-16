@@ -111,6 +111,11 @@ FText FLiveWidgetReflectorNode::GetWidgetType() const
 	return FWidgetReflectorNodeUtils::GetWidgetType(Widget.Pin());
 }
 
+FText FLiveWidgetReflectorNode::GetWidgetTypeAndShortName() const
+{
+	return FWidgetReflectorNodeUtils::GetWidgetTypeAndShortName(Widget.Pin());
+}
+
 FText FLiveWidgetReflectorNode::GetWidgetVisibilityText() const
 {
 	return FWidgetReflectorNodeUtils::GetWidgetVisibilityText(Widget.Pin());
@@ -191,6 +196,7 @@ FSnapshotWidgetReflectorNode::FSnapshotWidgetReflectorNode()
 FSnapshotWidgetReflectorNode::FSnapshotWidgetReflectorNode(const FArrangedWidget& InArrangedWidget)
 	: FWidgetReflectorNodeBase(InArrangedWidget)
 	, CachedWidgetType(FWidgetReflectorNodeUtils::GetWidgetType(InArrangedWidget.Widget))
+	, CachedWidgetTypeAndShortName(FWidgetReflectorNodeUtils::GetWidgetTypeAndShortName(InArrangedWidget.Widget))
 	, CachedWidgetVisibilityText(FWidgetReflectorNodeUtils::GetWidgetVisibilityText(InArrangedWidget.Widget))
 	, bCachedWidgetFocusable(FWidgetReflectorNodeUtils::GetWidgetFocusable(InArrangedWidget.Widget))
 	, CachedWidgetClippingText(FWidgetReflectorNodeUtils::GetWidgetClippingText(InArrangedWidget.Widget))
@@ -218,6 +224,11 @@ TSharedPtr<SWidget> FSnapshotWidgetReflectorNode::GetLiveWidget() const
 FText FSnapshotWidgetReflectorNode::GetWidgetType() const
 {
 	return CachedWidgetType;
+}
+
+FText FSnapshotWidgetReflectorNode::GetWidgetTypeAndShortName() const
+{
+	return CachedWidgetTypeAndShortName;
 }
 
 FText FSnapshotWidgetReflectorNode::GetWidgetVisibilityText() const
@@ -584,6 +595,28 @@ void FWidgetReflectorNodeUtils::FindLiveWidgetPath(const TArray<TSharedRef<FWidg
 FText FWidgetReflectorNodeUtils::GetWidgetType(const TSharedPtr<SWidget>& InWidget)
 {
 	return (InWidget.IsValid()) ? FText::FromString(InWidget->GetTypeAsString()) : FText::GetEmpty();
+}
+
+FText FWidgetReflectorNodeUtils::GetWidgetTypeAndShortName(const TSharedPtr<SWidget>& InWidget)
+{
+	if (InWidget.IsValid())
+	{
+		FText WidgetType = GetWidgetType(InWidget);
+
+		// UMG widgets have meta-data to help track them
+		TSharedPtr<FReflectionMetaData> MetaData = InWidget->GetMetaData<FReflectionMetaData>();
+		if (MetaData.IsValid())
+		{
+			if (MetaData->Name != NAME_None)
+			{
+				return FText::Format(LOCTEXT("WidgetTypeAndName", "{0} ({1})"), WidgetType, FText::FromName(MetaData->Name));
+			}
+		}
+
+		return WidgetType;
+	}
+
+	return FText::GetEmpty();
 }
 
 FText FWidgetReflectorNodeUtils::GetWidgetVisibilityText(const TSharedPtr<SWidget>& InWidget)

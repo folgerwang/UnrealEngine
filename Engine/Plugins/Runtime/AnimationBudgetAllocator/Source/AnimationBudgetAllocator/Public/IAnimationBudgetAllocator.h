@@ -46,6 +46,9 @@ public:
 	/** Set the specified component to tick or not. If the budgeter is disabled then this calls Component->SetComponentTickEnabled(bShouldTick). */
 	virtual void SetComponentTickEnabled(USkeletalMeshComponentBudgeted* Component, bool bShouldTick) = 0;
 
+	/** Get whether the specified component is set to tick or not */
+	virtual bool IsComponentTickEnabled(USkeletalMeshComponentBudgeted* Component) const = 0;
+
 	/** Inform that we reduced work for a component */
 	virtual void SetIsRunningReducedWork(USkeletalMeshComponentBudgeted* Component, bool bInReducedWork) = 0;
 

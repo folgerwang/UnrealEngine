@@ -13,18 +13,18 @@ LANDSCAPE_API FLandscapeComponentDataInterface::FLandscapeComponentDataInterface
 	MipLevel(InMipLevel)
 {
 	// Offset and stride for this component's data in heightmap texture
-	HeightmapStride = Component->HeightmapTexture->Source.GetSizeX() >> MipLevel;
-	HeightmapComponentOffsetX = FMath::RoundToInt((float)(Component->HeightmapTexture->Source.GetSizeX() >> MipLevel) * Component->HeightmapScaleBias.Z);
-	HeightmapComponentOffsetY = FMath::RoundToInt((float)(Component->HeightmapTexture->Source.GetSizeY() >> MipLevel) * Component->HeightmapScaleBias.W);
+	HeightmapStride = Component->GetHeightmap(true)->Source.GetSizeX() >> MipLevel;
+	HeightmapComponentOffsetX = FMath::RoundToInt((float)(Component->GetHeightmap(true)->Source.GetSizeX() >> MipLevel) * Component->HeightmapScaleBias.Z);
+	HeightmapComponentOffsetY = FMath::RoundToInt((float)(Component->GetHeightmap(true)->Source.GetSizeY() >> MipLevel) * Component->HeightmapScaleBias.W);
 	HeightmapSubsectionOffset = (Component->SubsectionSizeQuads + 1) >> MipLevel;
 
 	ComponentSizeVerts = (Component->ComponentSizeQuads + 1) >> MipLevel;
 	SubsectionSizeVerts = (Component->SubsectionSizeQuads + 1) >> MipLevel;
 	ComponentNumSubsections = Component->NumSubsections;
 
-	if (MipLevel < Component->HeightmapTexture->Source.GetNumMips())
+	if (MipLevel < Component->GetHeightmap(true)->Source.GetNumMips())
 	{
-		HeightMipData = (FColor*)DataInterface.LockMip(Component->HeightmapTexture, MipLevel);
+		HeightMipData = (FColor*)DataInterface.LockMip(Component->GetHeightmap(true), MipLevel);
 		if (Component->XYOffsetmapTexture)
 		{
 			XYOffsetMipData = (FColor*)DataInterface.LockMip(Component->XYOffsetmapTexture, MipLevel);
@@ -36,7 +36,7 @@ LANDSCAPE_API FLandscapeComponentDataInterface::~FLandscapeComponentDataInterfac
 {
 	if (HeightMipData)
 	{
-		DataInterface.UnlockMip(Component->HeightmapTexture, MipLevel);
+		DataInterface.UnlockMip(Component->GetHeightmap(true), MipLevel);
 		if (Component->XYOffsetmapTexture)
 		{
 			DataInterface.UnlockMip(Component->XYOffsetmapTexture, MipLevel);

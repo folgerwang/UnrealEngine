@@ -56,4 +56,9 @@ namespace FDisplayClusterClusterSyncMsg
 	{
 		constexpr static auto name = "GetInputData";
 	}
+
+	namespace GetEventsData
+	{
+		constexpr static auto name = "GetEventsData";
+	}
 };

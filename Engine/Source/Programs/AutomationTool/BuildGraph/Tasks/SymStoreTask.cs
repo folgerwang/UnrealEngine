@@ -40,7 +40,13 @@ namespace AutomationTool
         /// </summary>
         [TaskParameter]
         public string Product;
-    }
+
+		/// <summary>
+		/// BuildVersion associated with these symbols. Used for cleanup in AgeStore by matching this version against a directory name in a build share
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public string BuildVersion;
+	}
 
     /// <summary>
     /// Task which strips symbols from a set of files
@@ -80,7 +86,7 @@ namespace AutomationTool
 			Platform TargetPlatform = Platform.GetPlatform(Parameters.Platform);
 			CommandUtils.OptionallyTakeLock(TargetPlatform.SymbolServerRequiresLock, StoreDir, TimeSpan.FromMinutes(60), () =>
 			{
-				if (!TargetPlatform.PublishSymbols(StoreDir, Files, Parameters.Product))
+				if (!TargetPlatform.PublishSymbols(StoreDir, Files, Parameters.Product, Parameters.BuildVersion))
 				{
 					throw new AutomationException("Failure publishing symbol files.");
 				}

@@ -12,6 +12,7 @@
 #include "WebSocketsLog.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Stats/Stats.h"
 #include "HttpModule.h"
@@ -336,6 +337,8 @@ int FLwsWebSocketsManager::CallbackWrapper(lws* Connection, lws_callback_reasons
 
 void FLwsWebSocketsManager::Tick()
 {
+	LLM_SCOPE(ELLMTag::Networking);
+
 	{
 		FLwsWebSocket* SocketToStart;
 		while (SocketsToStart.Dequeue(SocketToStart))

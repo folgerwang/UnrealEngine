@@ -2092,6 +2092,12 @@ struct FTestTickFunction : public FTickFunction
 	{
 		return FString(TEXT("test"));
 	}
+
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override
+	{
+		return FName(TEXT("test"));
+	}
 };
 
 template<>

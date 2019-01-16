@@ -147,7 +147,7 @@ USkeleton* AcquireSkeletonFromObjectGuid(const FGuid& Guid, TSharedPtr<ISequence
 FSkeletalAnimationSection::FSkeletalAnimationSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer> InSequencer)
 	: Section(*CastChecked<UMovieSceneSkeletalAnimationSection>(&InSection))
 	, Sequencer(InSequencer)
-	, InitialStartOffsetDuringResize(0.f)
+	, InitialStartOffsetDuringResize(0)
 	, InitialStartTimeDuringResize(0)
 { }
 
@@ -189,11 +189,12 @@ int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Paint
 		return LayerId;
 	}
 
+	FFrameRate TickResolution = TimeToPixelConverter.GetTickResolution();
+
 	// Add lines where the animation starts and ends/loops
 	float AnimPlayRate = FMath::IsNearlyZero(Section.Params.PlayRate) ? 1.0f : Section.Params.PlayRate;
-	float SeqLength = (Section.Params.GetSequenceLength() - (Section.Params.StartOffset + Section.Params.EndOffset)) / AnimPlayRate;
+	float SeqLength = Section.Params.GetSequenceLength() - (TickResolution.AsSeconds(Section.Params.StartFrameOffset + Section.Params.EndFrameOffset) / AnimPlayRate);
 
-	FFrameRate TickResolution = TimeToPixelConverter.GetTickResolution();
 	if (!FMath::IsNearlyZero(SeqLength, KINDA_SMALL_NUMBER) && SeqLength > 0)
 	{
 		float MaxOffset  = Section.GetRange().Size<FFrameTime>() / TickResolution;
@@ -274,7 +275,7 @@ int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Paint
 
 void FSkeletalAnimationSection::BeginResizeSection()
 {
-	InitialStartOffsetDuringResize = Section.Params.StartOffset;
+	InitialStartOffsetDuringResize = Section.Params.StartFrameOffset;
 	InitialStartTimeDuringResize   = Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0;
 }
 
@@ -284,19 +285,19 @@ void FSkeletalAnimationSection::ResizeSection(ESequencerSectionResizeMode Resize
 	if (ResizeMode == SSRM_LeadingEdge)
 	{
 		FFrameRate FrameRate   = Section.GetTypedOuter<UMovieScene>()->GetTickResolution();
-		float      StartOffset = (ResizeTime - InitialStartTimeDuringResize) / FrameRate * Section.Params.PlayRate;
+		FFrameNumber StartOffset = FrameRate.AsFrameNumber((ResizeTime - InitialStartTimeDuringResize) / FrameRate * Section.Params.PlayRate);
 
 		StartOffset += InitialStartOffsetDuringResize;
 
 		// Ensure start offset is not less than 0 and adjust ResizeTime
 		if (StartOffset < 0)
 		{
-			ResizeTime = ResizeTime - ((StartOffset * Section.Params.PlayRate) * FrameRate).RoundToFrame();
+			ResizeTime = ResizeTime - StartOffset;
 
-			StartOffset = 0.f;
+			StartOffset = FFrameNumber(0);
 		}
 
-		Section.Params.StartOffset = StartOffset;
+		Section.Params.StartFrameOffset = StartOffset;
 	}
 
 	ISequencerSection::ResizeSection(ResizeMode, ResizeTime);
@@ -307,18 +308,22 @@ void FSkeletalAnimationSection::BeginSlipSection()
 	BeginResizeSection();
 }
 
-void FSkeletalAnimationSection::SlipSection(double SlipTime)
+void FSkeletalAnimationSection::SlipSection(FFrameNumber SlipTime)
 {
-	float StartOffset = (SlipTime - InitialStartTimeDuringResize / Section.GetTypedOuter<UMovieScene>()->GetTickResolution()) * Section.Params.PlayRate;
+	FFrameRate FrameRate = Section.GetTypedOuter<UMovieScene>()->GetTickResolution();
+	FFrameNumber StartOffset = FrameRate.AsFrameNumber((SlipTime - InitialStartTimeDuringResize) / FrameRate * Section.Params.PlayRate);
+
 	StartOffset += InitialStartOffsetDuringResize;
 
-	// Ensure start offset is not less than 0
+	// Ensure start offset is not less than 0 and adjust ResizeTime
 	if (StartOffset < 0)
 	{
-		StartOffset = 0.f;
+		SlipTime = SlipTime - StartOffset;
+
+		StartOffset = FFrameNumber(0);
 	}
 
-	Section.Params.StartOffset = StartOffset;
+	Section.Params.StartFrameOffset = StartOffset;
 
 	ISequencerSection::SlipSection(SlipTime);
 }
@@ -678,7 +683,7 @@ TSharedPtr<SWidget> FSkeletalAnimationTrackEditor::BuildOutlinerEditWidget(const
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
-			FSequencerUtilities::MakeAddButton(LOCTEXT("AnimationText", "Animation"), FOnGetContent::CreateSP(this, &FSkeletalAnimationTrackEditor::BuildAnimationSubMenu, ObjectBinding, Skeleton, Track), Params.NodeIsHovered)
+			FSequencerUtilities::MakeAddButton(LOCTEXT("AnimationText", "Animation"), FOnGetContent::CreateSP(this, &FSkeletalAnimationTrackEditor::BuildAnimationSubMenu, ObjectBinding, Skeleton, Track), Params.NodeIsHovered, GetSequencer())
 		];
 	}
 

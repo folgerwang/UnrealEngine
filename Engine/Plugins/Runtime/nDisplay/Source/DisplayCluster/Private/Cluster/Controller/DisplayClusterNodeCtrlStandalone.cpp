@@ -1,9 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterNodeCtrlStandalone.h"
-
-#include "Network/DisplayClusterMessage.h"
-#include "Render/IDisplayClusterStereoDevice.h"
+#include "Cluster/Controller/DisplayClusterNodeCtrlStandalone.h"
 
 
 FDisplayClusterNodeCtrlStandalone::FDisplayClusterNodeCtrlStandalone(const FString& ctrlName, const FString& nodeName) :
@@ -60,11 +57,24 @@ void FDisplayClusterNodeCtrlStandalone::GetInputData(FDisplayClusterMessage::Dat
 	// Nothing special to do here in standalone mode
 }
 
+void FDisplayClusterNodeCtrlStandalone::GetEventsData(FDisplayClusterMessage::DataType& data)
+{
+	// Nothing special to do here in standalone mode
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IPDisplayClusterSwapSyncProtocol
 //////////////////////////////////////////////////////////////////////////////////////////////
 void FDisplayClusterNodeCtrlStandalone::WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime)
+{
+	// Nothing special to do here in standalone mode
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// IPDisplayClusterClusterEventsProtocol
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterNodeCtrlStandalone::EmitClusterEvent(const FDisplayClusterClusterEvent& Event)
 {
 	// Nothing special to do here in standalone mode
 }

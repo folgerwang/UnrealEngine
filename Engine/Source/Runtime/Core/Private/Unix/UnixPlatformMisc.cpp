@@ -194,6 +194,11 @@ void FUnixPlatformMisc::PlatformInit()
 	UnixPlatform_UpdateCacheLineSize();
 	UE_LOG(LogInit, Log, TEXT(" - Cache line size: %Zu"), GCacheLineSize);
 	UE_LOG(LogInit, Log, TEXT(" - Memory allocator used: %s"), GMalloc->GetDescriptiveName());
+	UE_LOG(LogInit, Log, TEXT(" - This binary is optimized with LTO: %s, PGO: %s, instrumented for PGO data collection: %s"),
+		PLATFORM_COMPILER_OPTIMIZATION_LTCG ? TEXT("yes") : TEXT("no"),
+		PLATFORM_COMPILER_OPTIMIZATION_PG ? TEXT("yes") : TEXT("no"),
+		PLATFORM_COMPILER_OPTIMIZATION_PG_PROFILING ? TEXT("yes") : TEXT("no")
+		);
 
 	FPlatformTime::PrintCalibrationLog();
 
@@ -935,7 +940,7 @@ void FUnixPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TC
 
 void FUnixPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
 {
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Text)), Value, TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Graph)), TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Unit)));
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
 }
 #endif
 

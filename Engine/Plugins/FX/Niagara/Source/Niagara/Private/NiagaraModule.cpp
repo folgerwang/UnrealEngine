@@ -139,14 +139,17 @@ void INiagaraModule::StartupModule()
 	FWorldDelegates::OnWorldCleanup.AddRaw(this, &INiagaraModule::OnWorldCleanup);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &INiagaraModule::OnPreWorldFinishDestroy);
 
-	FWorldDelegates::OnWorldPostActorTick.AddRaw(this, &INiagaraModule::TickWorld);
 #if WITH_EDITOR	
-	// This is done so that the editor classes are available to load in the cooker on editor builds even though it doesn't load the editor directly.
-	// UMG does something similar for similar reasons.
-	// @TODO We should remove this once Niagara is fully a plug-in.
-	FModuleManager::Get().LoadModule(TEXT("NiagaraEditor"));
+	if (!GIsEditor)
+	{
+		// Loading uncooked data in a game environment, we still need to get some functionality from the NiagaraEditor module.
+		// This includes the ability to compile scripts and load WITH_EDITOR_ONLY data.
+		// Note that when loading with the Editor, the NiagaraEditor module is loaded based on the plugin description.
+		FModuleManager::Get().LoadModule(TEXT("NiagaraEditor"));
+	}
 #endif
 
+	FWorldDelegates::OnWorldPostActorTick.AddRaw(this, &INiagaraModule::TickWorld);
 	CVarDetailLevel.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateRaw(this, &INiagaraModule::OnChangeDetailLevel));
 	OnChangeDetailLevel(CVarDetailLevel.AsVariable());
 

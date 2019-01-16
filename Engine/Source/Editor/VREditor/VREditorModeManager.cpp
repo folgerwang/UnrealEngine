@@ -211,6 +211,11 @@ void FVREditorModeManager::StartVREditorMode( const bool bForceWithoutHMD )
 		CurrentVREditorMode->SetActuallyUsingVR( !bForceWithoutHMD );
 
 		CurrentVREditorMode->Enter();
+
+		if (CurrentVREditorMode->IsActuallyUsingVR())
+		{
+			OnVREditingModeEnterHandle.Broadcast();
+		}
 	}
 }
 
@@ -241,7 +246,13 @@ void FVREditorModeManager::CloseVREditor( const bool bShouldDisableStereo )
 			WorldInteraction->UseLegacyInteractions();
 		}
 
+		if (CurrentVREditorMode->IsActuallyUsingVR())
+		{
+			OnVREditingModeExitHandle.Broadcast();
+		}
+
 		CurrentVREditorMode = nullptr;
+
 	}
 }
 

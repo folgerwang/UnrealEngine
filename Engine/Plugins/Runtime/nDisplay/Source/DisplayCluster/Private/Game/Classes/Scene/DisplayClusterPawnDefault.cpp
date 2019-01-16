@@ -15,8 +15,6 @@
 #include "Misc/DisplayClusterLog.h"
 #include "GameFramework/WorldSettings.h"
 
-#include "IPDisplayCluster.h"
-
 
 ADisplayClusterPawnDefault::ADisplayClusterPawnDefault(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

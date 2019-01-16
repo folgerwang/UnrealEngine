@@ -244,7 +244,7 @@ FMalloc* FApplePlatformMemory::BaseAllocator()
 			// 1 << FMath::CeilLogTwo(MemoryConstants.TotalPhysical) should really be FMath::RoundUpToPowerOfTwo,
 			// but that overflows to 0 when MemoryConstants.TotalPhysical is close to 4GB, since CeilLogTwo returns 32
 			// this then causes the MemoryLimit to be 0 and crashing the app
-			uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo(Stats.free_count * GetConstants().PageSize), 0x100000000);
+			uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo((Stats.free_count + Stats.inactive_count) * GetConstants().PageSize), 0x100000000);
 			
 			// [RCL] 2017-03-06 FIXME: perhaps BinnedPageSize should be used here, but leaving this change to the Mac platform owner.
 			return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), MemoryLimit);
@@ -263,7 +263,7 @@ FPlatformMemoryStats FApplePlatformMemory::GetStats()
 	vm_statistics Stats;
 	mach_msg_type_number_t StatsSize = sizeof(Stats);
 	host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&Stats, &StatsSize);
-	uint64_t FreeMem = Stats.free_count * MemoryConstants.PageSize;
+	uint64_t FreeMem = (Stats.free_count + Stats.inactive_count) * MemoryConstants.PageSize;
 	MemoryStats.AvailablePhysical = FreeMem;
 	
 	// Just get memory information for the process and report the working set instead

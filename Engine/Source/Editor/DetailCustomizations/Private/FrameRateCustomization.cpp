@@ -57,7 +57,10 @@ FFrameRate FFrameRateCustomization::GetFirstFrameRate() const
 
 	for (const void* RawPtr : RawData)
 	{
-		return *reinterpret_cast<const FFrameRate*>(RawPtr);
+		if (RawPtr)
+		{
+			return *reinterpret_cast<const FFrameRate*>(RawPtr);
+		}
 	}
 
 	return FFrameRate();
@@ -85,15 +88,25 @@ bool FFrameRateCustomization::HasMultipleValues() const
 	TOptional<FFrameRate> CompareAgainst;
 	for (const void* RawPtr : RawData)
 	{
-		FFrameRate ThisRate = *reinterpret_cast<const FFrameRate*>(RawPtr);
-
-		if (!CompareAgainst.IsSet())
+		if (RawPtr == nullptr)
 		{
-			CompareAgainst = ThisRate;
+			if (CompareAgainst.IsSet())
+			{
+				return false;
+			}
 		}
-		else if (ThisRate != CompareAgainst.GetValue())
+		else
 		{
-			return true;
+			FFrameRate ThisRate = *reinterpret_cast<const FFrameRate*>(RawPtr);
+
+			if (!CompareAgainst.IsSet())
+			{
+				CompareAgainst = ThisRate;
+			}
+			else if (ThisRate != CompareAgainst.GetValue())
+			{
+				return true;
+			}
 		}
 	}
 

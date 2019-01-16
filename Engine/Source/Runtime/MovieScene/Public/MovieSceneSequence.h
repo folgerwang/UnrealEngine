@@ -18,7 +18,7 @@ struct FMovieSceneObjectCache;
 /**
  * Abstract base class for movie scene animations (C++ version).
  */
-UCLASS(MinimalAPI, Config = Engine)
+UCLASS(MinimalAPI, Config = Engine, BlueprintType)
 class UMovieSceneSequence
 	: public UMovieSceneSignedObject
 {

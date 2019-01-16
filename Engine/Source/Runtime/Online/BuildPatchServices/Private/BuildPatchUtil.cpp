@@ -1,16 +1,16 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	BuildPatchUtil.cpp: Implements miscellaneous utility functions.
-=============================================================================*/
-
 #include "BuildPatchUtil.h"
+
+#include "Misc/Base64.h"
 #include "Misc/Paths.h"
 #include "Misc/OutputDeviceRedirector.h"
-#include "BuildPatchServicesModule.h"
+
 #include "Data/ChunkData.h"
-#include "BuildPatchHash.h"
+#include "Data/ManifestData.h"
 #include "Common/FileSystem.h"
+#include "BuildPatchHash.h"
+#include "BuildPatchServicesModule.h"
 
 using namespace BuildPatchServices;
 
@@ -151,6 +151,57 @@ bool FBuildPatchUtils::GetGUIDFromFilename( const FString& DataFilename, FGuid& 
 		return FGuid::Parse(GuidString, DataGUID);
 	}
 	return false;
+}
+
+FString FBuildPatchUtils::GenerateNewBuildId()
+{
+	FGuid NewGuid = FGuid::NewGuid();
+	// Minimise string length using base 64 string encode.
+	FString BuildId = FBase64::Encode((const uint8*)&NewGuid, sizeof(FGuid));
+	// Make URI safe.
+	BuildId.ReplaceInline(TEXT("+"), TEXT("-"), ESearchCase::CaseSensitive);
+	BuildId.ReplaceInline(TEXT("/"), TEXT("_"), ESearchCase::CaseSensitive);
+	// Trim = characters.
+	BuildId.ReplaceInline(TEXT("="), TEXT(""), ESearchCase::CaseSensitive);
+	return BuildId;
+}
+
+FString FBuildPatchUtils::GetBackwardsCompatibleBuildId(const FManifestMeta& ManifestMeta)
+{
+	// Use an SHA to generate a fixed length unique identifier referring to some of the meta values.
+	FSHA1 Sha;
+	FSHAHash Hash;
+	Sha.Update((const uint8*)&ManifestMeta.AppID, sizeof(ManifestMeta.AppID));
+	// For platform agnostic result, we must use UTF8. TCHAR can be 16b, or 32b etc.
+	FTCHARToUTF8 UTF8AppName(*ManifestMeta.AppName);
+	FTCHARToUTF8 UTF8BuildVersion(*ManifestMeta.BuildVersion);
+	FTCHARToUTF8 UTF8LaunchExe(*ManifestMeta.LaunchExe);
+	FTCHARToUTF8 UTF8LaunchCommand(*ManifestMeta.LaunchCommand);
+	Sha.Update((const uint8*)UTF8AppName.Get(), sizeof(ANSICHAR) * UTF8AppName.Length());
+	Sha.Update((const uint8*)UTF8BuildVersion.Get(), sizeof(ANSICHAR) * UTF8BuildVersion.Length());
+	Sha.Update((const uint8*)UTF8LaunchExe.Get(), sizeof(ANSICHAR) * UTF8LaunchExe.Length());
+	Sha.Update((const uint8*)UTF8LaunchCommand.Get(), sizeof(ANSICHAR) * UTF8LaunchCommand.Length());
+	Sha.Final();
+	Sha.GetHash(Hash.Hash);
+
+	// Minimise string length using base 64 string encode.
+	FString BuildId = FBase64::Encode(Hash.Hash, FSHA1::DigestSize);
+	// Make URI safe.
+	BuildId.ReplaceInline(TEXT("+"), TEXT("-"), ESearchCase::CaseSensitive);
+	BuildId.ReplaceInline(TEXT("/"), TEXT("_"), ESearchCase::CaseSensitive);
+	// Trim = characters.
+	BuildId.ReplaceInline(TEXT("="), TEXT(""), ESearchCase::CaseSensitive);
+	return BuildId;
+}
+
+FString FBuildPatchUtils::GetChunkDeltaDirectory(const FBuildPatchAppManifest& DestinationManifest)
+{
+	return TEXT("Deltas") / DestinationManifest.GetBuildId();
+}
+
+FString FBuildPatchUtils::GetChunkDeltaFilename(const FBuildPatchAppManifest& SourceManifest, const FBuildPatchAppManifest& DestinationManifest)
+{
+	return GetChunkDeltaDirectory(DestinationManifest) / SourceManifest.GetBuildId() + TEXT(".delta");
 }
 
 uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHash& Hash1, const FSHAHash& Hash2)

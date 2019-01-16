@@ -2023,7 +2023,7 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 	{
 		bool bRespectLocks = IsRespectingLocks();
 
-		if (!CandidateUWidget->GetVisibilityInDesigner().IsVisible())
+		if (!CandidateUWidget->IsVisibleInDesigner())
 		{
 			bIncludeInHitTestGrid = false;
 		}

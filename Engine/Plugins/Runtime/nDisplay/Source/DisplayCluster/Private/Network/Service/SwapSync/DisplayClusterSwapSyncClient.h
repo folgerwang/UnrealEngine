@@ -15,12 +15,12 @@ class FDisplayClusterSwapSyncClient
 {
 public:
 	FDisplayClusterSwapSyncClient();
-	FDisplayClusterSwapSyncClient(const FString& name);
+	FDisplayClusterSwapSyncClient(const FString& InName);
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterSwapSyncProtocol
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime) override;
+	virtual void WaitForSwapSync(double* ThreadWaitTime, double* BarrierWaitTime) override;
 };
 

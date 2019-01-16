@@ -1271,7 +1271,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 	float StartWorldTime;
 
 	// Not sure if this should replicate or not. If replicated, we may have trouble where IsInhibited doesn't appear to change when we do tag checks (because it was previously inhibited, but replication made it inhibited).
-	UPROPERTY()
+	UPROPERTY(NotReplicated)
 	bool bIsInhibited;
 
 	/** When replicated down, we cue the GC events until the entire list of active gameplay effects has been received */
@@ -1716,6 +1716,8 @@ private:
 	{
 		return OwnerIsNetAuthority;
 	}
+
+	void InternalExecutePeriodicGameplayEffect(FActiveGameplayEffect& ActiveEffect);
 
 	/** Called internally to actually remove a GameplayEffect or to reduce its StackCount. Returns true if we resized our internal GameplayEffect array. */
 	bool InternalRemoveActiveGameplayEffect(int32 Idx, int32 StacksToRemove, bool bPrematureRemoval);

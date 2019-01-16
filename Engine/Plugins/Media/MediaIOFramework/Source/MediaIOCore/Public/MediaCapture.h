@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 
+#include "MediaOutput.h"
 #include "Misc/Timecode.h"
 #include "PixelFormat.h"
 #include "RHI.h"
@@ -15,7 +16,6 @@
 #include "MediaCapture.generated.h"
 
 class FSceneViewport;
-class UMediaOutput;
 class UTextureRenderTarget2D;
 
 /**
@@ -47,6 +47,45 @@ class FMediaCaptureUserData
 {};
 
 /**
+ * Type of cropping 
+ */
+UENUM()
+enum class EMediaCaptureCroppingType : uint8
+{
+	/** Do not crop the captured image. */
+	None,
+	/** Keep the center of the captured image. */
+	Center,
+	/** Keep the top left corner of the captured image. */
+	TopLeft,
+	/** Use the StartCapturePoint and the size of the MediaOutput to keep of the captured image. */
+	Custom,
+};
+
+/**
+ * Base class of additional data that can be stored for each requested capture.
+ */
+USTRUCT(BlueprintType)
+struct MEDIAIOCORE_API FMediaCaptureOptions
+{
+	GENERATED_BODY()
+
+	FMediaCaptureOptions();
+
+public:
+	/** Crop the captured SceneViewport or TextureRenderTarget2D to the desired size. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="MediaCapture")
+	EMediaCaptureCroppingType Crop;
+
+	/**
+	 * Crop the captured SceneViewport or TextureRenderTarget2D to the desired size.
+	 * @note Only valid when Crop is set to Custom.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MediaCapture")
+	FIntPoint CustomCapturePoint;
+};
+
+/**
  * Abstract base class for media capture.
  *
  * MediaCapture capture the texture of the Render target or the SceneViewport and sends it to an external media device.
@@ -66,7 +105,7 @@ public:
 	 * @note make sure the size of the SceneViewport doesn't change during capture.
 	 * @return True if the capture was successfully started
 	 */
-	bool CaptureSceneViewport(TSharedPtr<FSceneViewport>& SceneViewport);
+	bool CaptureSceneViewport(TSharedPtr<FSceneViewport>& SceneViewport, FMediaCaptureOptions CaptureOptions);
 
 	/**
 	 * Stop the current capture if there is one.
@@ -77,7 +116,7 @@ public:
 	 * @return True if the capture was successfully started
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Media|Output")
-	bool CaptureActiveSceneViewport();
+	bool CaptureActiveSceneViewport(FMediaCaptureOptions CaptureOptions);
 
 	/**
 	 * Stop the actual capture if there is one.
@@ -86,7 +125,7 @@ public:
 	 * @return True if the capture was successfully started
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Media|Output")
-	bool CaptureTextureRenderTarget2D(UTextureRenderTarget2D* RenderTarget);
+	bool CaptureTextureRenderTarget2D(UTextureRenderTarget2D* RenderTarget, FMediaCaptureOptions CaptureOptions);
 
 	/**
 	 * Update the current capture with a SceneViewport.
@@ -161,6 +200,7 @@ protected:
 protected:
 	UTextureRenderTarget2D* GetTextureRenderTarget() { return CapturingRenderTarget; }
 	TSharedPtr<FSceneViewport> GetCapturingSceneViewport() { return CapturingSceneViewport.Pin(); }
+	EMediaCaptureConversionOperation GetConversionOperation() const { return ConversionOperation; }
 
 protected:
 	UPROPERTY(Transient)
@@ -171,6 +211,9 @@ protected:
 private:
 	void InitializeResolveTarget(int32 InNumberOfBuffers);
 	void OnEndFrame_GameThread();
+	void CacheMediaOutput();
+	FIntPoint GetOutputSize(const FIntPoint & InSize, const EMediaCaptureConversionOperation & InConversionOperation) const;
+	EPixelFormat GetOutputPixelFormat(const EPixelFormat & InPixelFormat, const EMediaCaptureConversionOperation & InConversionOperation) const;
 
 private:
 	struct FCaptureFrame
@@ -194,6 +237,11 @@ private:
 
 	FIntPoint DesiredSize;
 	EPixelFormat DesiredPixelFormat;
+	FIntPoint DesiredOutputSize;
+	EPixelFormat DesiredOutputPixelFormat;
+	FMediaCaptureOptions DesiredCaptureOptions;
+	EMediaCaptureConversionOperation ConversionOperation;
+	FString MediaOutputName;
 
 	bool bResolvedTargetInitialized;
 	bool bWaitingForResolveCommandExecution;

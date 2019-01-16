@@ -307,7 +307,7 @@ FReply FSequencerEditTool_Movement::OnMouseButtonUp(SWidget& OwnerWidget, const 
 
 	SequencerHelpers::PerformDefaultSelection(Sequencer, MouseEvent);
 
-	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && !Sequencer.IsReadOnly())
 	{
 		TSharedPtr<SWidget> MenuContent = SequencerHelpers::SummonContextMenu( Sequencer, MyGeometry, MouseEvent );
 		if (MenuContent.IsValid())

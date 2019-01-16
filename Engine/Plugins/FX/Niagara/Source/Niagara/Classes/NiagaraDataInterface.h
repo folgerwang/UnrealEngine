@@ -268,7 +268,7 @@ public:
 	
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Transient, Category = "Curve")
-		bool ShowInCurveEditor;
+	bool ShowInCurveEditor;
 #endif
 
 	enum

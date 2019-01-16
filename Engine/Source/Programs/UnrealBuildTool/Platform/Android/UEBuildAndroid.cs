@@ -105,9 +105,7 @@ namespace UnrealBuildTool
 			Target.bCompileNvCloth = false;
 
 			Target.bBuildEditor = false;
-			Target.bBuildDeveloperTools = false;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
+			Target.bBuildDeveloperTools = false;			
 
 			Target.bCompileRecast = true;
 		}
@@ -362,7 +360,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
@@ -414,7 +411,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 

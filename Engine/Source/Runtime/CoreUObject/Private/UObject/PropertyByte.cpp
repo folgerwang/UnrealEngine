@@ -8,7 +8,6 @@
 #include "UObject/UObjectThreadContext.h"
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Algo/Find.h"
-#include "UObject/LinkerLoad.h"
 
 /*-----------------------------------------------------------------------------
 	UByteProperty.
@@ -384,7 +383,7 @@ const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Da
 					SerializedObject = LoadContext->SerializedObject;
 				}
 			}
-			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject), *Enum->GetName(), *Temp);
+			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject ? SerializedObject : FUObjectThreadContext::Get().ConstructedObject), *Enum->GetName(), *Temp);
 			return nullptr;
 		}
 	}

@@ -15,6 +15,15 @@
 
 class UCameraShake;
 
+USTRUCT()
+struct FPooledCameraShakes
+{
+	GENERATED_USTRUCT_BODY()
+		
+	UPROPERTY()
+	TArray<class UCameraShake*> PooledShakes;
+};
+
 //~=============================================================================
 /**
  * A UCameraModifier_CameraShake is a camera modifier that can apply a UCameraShake to 
@@ -29,6 +38,12 @@ public:
 	/** List of active CameraShake instances */
 	UPROPERTY()
 	TArray<class UCameraShake*> ActiveShakes;
+
+	UPROPERTY()
+	TMap<TSubclassOf<class UCameraShake>, FPooledCameraShakes> ExpiredPooledShakesMap;
+
+	void SaveShakeInExpiredPool(class UCameraShake* ShakeInst);
+	UCameraShake* ReclaimShakeFromExpiredPool(TSubclassOf<class UCameraShake> CameraShakeClass);
 
 	/** 
 	 * Adds a new active screen shake to be applied. 

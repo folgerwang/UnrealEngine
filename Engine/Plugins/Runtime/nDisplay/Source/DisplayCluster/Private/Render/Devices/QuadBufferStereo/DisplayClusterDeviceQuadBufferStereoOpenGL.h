@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DisplayClusterDeviceQuadBufferStereoBase.h"
+#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoBase.h"
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
 
@@ -16,7 +16,6 @@ public:
 	virtual ~FDisplayClusterDeviceQuadBufferStereoOpenGL();
 
 protected:
-	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy);
 	virtual bool Present(int32& InOutSyncInterval) override;
 	void SwapBuffers(FOpenGLViewport* pOglViewport, int32& InOutSyncInterval);
 

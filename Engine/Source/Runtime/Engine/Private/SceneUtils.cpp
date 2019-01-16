@@ -621,11 +621,12 @@ inline bool AreGPUStatsEnabled()
 		return false;
 	}
 
-	// If stats are off, we only enable GPU stats if the CSV profiler is enabled
-#if !STATS 
-#if !CSV_PROFILER
+#if STATS 
+	return true;
+#elif !CSV_PROFILER
 	return false;
-#endif
+#else
+
 	// If we only have CSV stats, only capture if CSV GPU stats are enabled, and we're capturing
 	if (!CVarGPUCsvStatsEnabled.GetValueOnRenderThread())
 	{
@@ -635,8 +636,9 @@ inline bool AreGPUStatsEnabled()
 	{
 		return false;
 	}
-#endif
+
 	return true;
+#endif
 }
 
 void FRealtimeGPUProfiler::EndFrame(FRHICommandListImmediate& RHICmdList)

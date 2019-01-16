@@ -292,10 +292,10 @@ FSLESSoundBuffer* FSLESSoundBuffer::Init(  FSLESAudioDevice* AudioDevice ,USound
  * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
  * @return					Whether the sound looped or not
  */
-bool FSLESSoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
+bool FSLESSoundBuffer::ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping )
 {
-	ensure( DecompressionState);
-
+	ensure(DecompressionState);
+	
 	if(Format == SoundFormat_Streaming)
 	{
 		return(DecompressionState->StreamCompressedData(Destination, bLooping, DecompressionState->GetStreamBufferSize() * NumChannels));

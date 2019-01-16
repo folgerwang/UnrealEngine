@@ -24,7 +24,6 @@ class FMovieSceneClipboard;
 class FSequencerTimeSliderController;
 class FVirtualTrackArea;
 class ISequencerEditTool;
-class SSequencerGotoBox;
 class SSequencerLabelBrowser;
 class SSequencerTrackArea;
 class SSequencerTrackOutliner;
@@ -109,8 +108,11 @@ public:
 		/** The selection range */
 		SLATE_ATTRIBUTE( TRange<FFrameNumber>, SelectionRange)
 
+		/** The Vertical Frames */
+		SLATE_ATTRIBUTE(TSet<FFrameNumber>, VerticalFrames)
+
 		/** The Marked Frames */
-		SLATE_ATTRIBUTE( TSet<FFrameNumber>, MarkedFrames )
+		SLATE_ATTRIBUTE(TArray<FMovieSceneMarkedFrame>, MarkedFrames)
 
 		/** The current sub sequence range */
 		SLATE_ATTRIBUTE( TOptional<TRange<FFrameNumber>>, SubSequenceRange)
@@ -408,6 +410,9 @@ private:
 	/** Gets the root movie scene name */
 	FText GetRootAnimationName() const;
 
+	FText GetBreadcrumbTextForSection(TWeakObjectPtr<UMovieSceneSubSection> SubSection) const;
+	FText GetBreadcrumbTextForSequence(TWeakObjectPtr<UMovieSceneSequence> Sequence, bool bIsActive) const;
+
 	/** Gets whether or not the breadcrumb trail should be visible. */
 	EVisibility GetBreadcrumbTrailVisibility() const;
 
@@ -463,10 +468,6 @@ public:
 	/** This adds the specified path to the selection set to be restored the next time the tree view is refreshed. */
 	void AddAdditionalPathToSelectionSet(const FString& Path) { AdditionalSelectionsToAdd.Add(Path); }
 private:
-
-	/** Goto box widget. */
-	TSharedPtr<SSequencerGotoBox> GotoBox;
-
 	/** Transform box widget. */
 	TSharedPtr<SSequencerTransformBox> TransformBox;
 

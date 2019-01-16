@@ -689,7 +689,11 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(bool bSuppressB
 								if(FuncIt->HasAnyFunctionFlags(EFunctionFlags::FUNC_BlueprintCallable))
 								{
 									UFunction* NewFunction = BP->SkeletonGeneratedClass->FindFunctionByName((*FuncIt)->GetFName());
-									if(NewFunction == nullptr || !NewFunction->IsSignatureCompatibleWith(*FuncIt))
+									if(	NewFunction == nullptr || 
+										!NewFunction->IsSignatureCompatibleWith(*FuncIt) || 
+										// If a function changes its net flags, callers may now need to do a full EX_FinalFunction/EX_VirtualFunction 
+										// instead of a EX_LocalFinalFunction/EX_LocalVirtualFunction:
+										NewFunction->HasAnyFunctionFlags(FUNC_NetFuncFlags) != FuncIt->HasAnyFunctionFlags(FUNC_NetFuncFlags))
 									{
 										BlueprintsWithSignatureChanges.Add(BP);
 										break;

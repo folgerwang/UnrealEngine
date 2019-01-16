@@ -5,6 +5,7 @@
 #include "Sections/MovieScenePrimitiveMaterialSection.h"
 #include "UObject/StrongObjectPtr.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/PrimitiveComponent.h"
 
 struct FSetMaterialToken : IMovieScenePreAnimatedToken
@@ -43,25 +44,31 @@ struct FSetMaterialTokenProducer : IMovieScenePreAnimatedTokenProducer
 struct FPrimitiveMaterialExecToken : IMovieSceneExecutionToken
 {
 	int32 MaterialIndex;
-	TSoftObjectPtr<> Value;
+	UMaterialInterface* NewMaterial;
 
-	FPrimitiveMaterialExecToken(int32 InMaterialIndex, TSoftObjectPtr<>&& InValue)
+	FPrimitiveMaterialExecToken(int32 InMaterialIndex, UMaterialInterface* InNewMaterial)
 		: MaterialIndex(InMaterialIndex)
-		, Value(MoveTemp(InValue))
+		, NewMaterial(InNewMaterial)
 	{}
 
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		UMaterialInterface* NewMaterial = Cast<UMaterialInterface>(Value.LoadSynchronous());
-
 		for (TWeakObjectPtr<> WeakObject : Player.FindBoundObjects(Operand))
 		{
 			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(WeakObject.Get());
 			if (PrimitiveComponent && MaterialIndex >= 0 && MaterialIndex < PrimitiveComponent->GetNumMaterials())
 			{
-				UMaterialInterface* ExistingMaterial = PrimitiveComponent->GetMaterial(MaterialIndex);
-				Player.SavePreAnimatedState(*PrimitiveComponent, TMovieSceneAnimTypeID<FPrimitiveMaterialExecToken>(), FSetMaterialTokenProducer(MaterialIndex, ExistingMaterial));
+				UMaterialInterface*        ExistingMaterial = PrimitiveComponent->GetMaterial(MaterialIndex);
+				UMaterialInstanceDynamic*  MaterialInstance = Cast<UMaterialInstanceDynamic>(ExistingMaterial);
 
+				if (MaterialInstance && MaterialInstance->Parent && MaterialInstance->Parent == NewMaterial)
+				{
+					// Do not re-assign materials when a dynamic instance is already assigned with the same parent (since that's basically the same material, just with animated parameters)
+					// This is required for supporting material switchers alongside parameter tracks
+					continue;
+				}
+				
+				Player.SavePreAnimatedState(*PrimitiveComponent, TMovieSceneAnimTypeID<FPrimitiveMaterialExecToken>(), FSetMaterialTokenProducer(MaterialIndex, ExistingMaterial));
 				if (NewMaterial != ExistingMaterial)
 				{
 					PrimitiveComponent->SetMaterial(MaterialIndex, NewMaterial);
@@ -79,9 +86,13 @@ FMovieScenePrimitiveMaterialTemplate::FMovieScenePrimitiveMaterialTemplate(const
 
 void FMovieScenePrimitiveMaterialTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	TSoftObjectPtr<> Ptr;
+	UObject* Ptr = nullptr;
 	if (MaterialChannel.Evaluate(Context.GetTime(), Ptr))
 	{
-		ExecutionTokens.Add(FPrimitiveMaterialExecToken(MaterialIndex, MoveTemp(Ptr)));
+		// If the channel has been successfully evaluated, only assign the object if it's null, or a valid material interface
+		if (Ptr == nullptr || Ptr->IsA<UMaterialInterface>())
+		{
+			ExecutionTokens.Add(FPrimitiveMaterialExecToken(MaterialIndex, Cast<UMaterialInterface>(Ptr)));
+		}
 	}
 }

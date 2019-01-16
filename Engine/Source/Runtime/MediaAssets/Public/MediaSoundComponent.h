@@ -12,6 +12,8 @@
 #include "Templates/SharedPointer.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
+#include "DSP/SpectrumAnalyzer.h"
+#include "DSP/BufferVectorOperations.h"
 
 #include "MediaSoundComponent.generated.h"
 
@@ -37,6 +39,56 @@ enum class EMediaSoundChannels
 
 	/** Surround sound (7.1 channels; for UI). */
 	Surround
+};
+
+UENUM(BlueprintType)
+enum class EMediaSoundComponentFFTSize : uint8
+{
+	Min_64,
+	Small_256,
+	Medium_512,
+	Large_1024,
+};
+
+USTRUCT(BlueprintType)
+struct FMediaSoundComponentSpectralData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The frequency hz of the spectrum value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData")
+	float FrequencyHz;
+
+	// The magnitude of the spectrum at this frequency
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData")
+	float Magnitude;
+};
+
+class FMediaSoundComponentSpectrumAnalysisTask : public FNonAbandonableTask
+{
+	friend class FAutoDeleteAsyncTask<FMediaSoundComponentSpectrumAnalysisTask>;
+
+	FMediaSoundComponentSpectrumAnalysisTask(Audio::FSpectrumAnalyzer* InAnalyzer, FThreadSafeCounter* InTaskCounter)
+		: Analyzer(InAnalyzer)
+		, TaskCounter(InTaskCounter)
+	{
+		TaskCounter->Increment();
+	}
+
+	void DoWork()
+	{
+		while (Analyzer->PerformAnalysisIfPossible());
+
+		TaskCounter->Decrement();
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FTimeSynthSpectrumAnalysisTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
+
+	Audio::FSpectrumAnalyzer* Analyzer;
+	FThreadSafeCounter* TaskCounter;
 };
 
 
@@ -118,6 +170,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaSoundComponent")
 	void SetMediaPlayer(UMediaPlayer* NewMediaPlayer);
+
+	/** Turns on spectral analysis of the audio generated in the media sound component. */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaSoundComponent")
+	void SetEnableSpectralAnalysis(bool bInSpectralAnalysisEnabled);
+	
+	/** Sets the settings to use for spectral analysis. */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaSoundComponent")
+	void SetSpectralAnalysisSettings(TArray<float> InFrequenciesToAnalyze, EMediaSoundComponentFFTSize InFFTSize = EMediaSoundComponentFFTSize::Medium_512);
+
+	/** Retrieves the spectral data if spectral analysis is enabled. */
+	UFUNCTION(BlueprintCallable, Category = "TimeSynth")
+	TArray<FMediaSoundComponentSpectralData> GetSpectralData();
 
 public:
 
@@ -229,6 +293,23 @@ private:
 
 	/* Time of last sample played. */
 	TAtomic<FTimespan> LastPlaySampleTime;
+
+	/** Which frequencies to analyze. */
+	TArray<float> FrequenciesToAnalyze;
+
+	/** The FFT bin-size to use for FFT analysis. Smaller sizes make it more reactive but less acurrate in the frequency space. */
+	EMediaSoundComponentFFTSize FFTSize;
+
+	/** Spectrum analyzer used for anlayzing audio in media. */
+	Audio::FSpectrumAnalyzer SpectrumAnalyzer;
+	Audio::SpectrumAnalyzerSettings::FSettings SpectrumAnalyzerSettings;
+	FThreadSafeCounter SpectrumAnalysisCounter;
+
+	/** Scratch buffer to mix in source audio to from decoder */
+	Audio::AlignedFloatBuffer AudioScratchBuffer;
+
+	/** Whether or not spectral analysis is enabled. */
+	bool bSpectralAnalysisEnabled;
 
 private:
 

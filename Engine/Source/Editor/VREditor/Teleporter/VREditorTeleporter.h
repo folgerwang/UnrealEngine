@@ -15,7 +15,7 @@ class UVREditorMode;
 /**
  * VR Editor teleport manager and the visual representation of the teleport
  */
-UCLASS()
+UCLASS( Blueprintable, BlueprintType )
 class AVREditorTeleporter: public AActor
 {
 	GENERATED_BODY()
@@ -26,16 +26,42 @@ public:
 	AVREditorTeleporter();
 
 	/** Initializes the teleporter */
-	void Init(class UVREditorMode* InMode);
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "Teleporter" )
+	void Init( class UVREditorMode* InMode );
 
 	/** Shuts down the teleporter */
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "Teleporter" )
 	void Shutdown();
 
 	/** Whether we are currently aiming to teleport. */
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
 	bool IsAiming() const;
 
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
 	bool IsTeleporting() const;
 
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	class UVREditorMode* GetVRMode() const;
+
+	/** Start teleporting, does a ray trace with the hand passed and calculates the locations for lerp movement in Teleport */
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "Teleporter" )
+	void StartTeleport();
+
+	/** Called when teleport is done for cleanup */
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "Teleporter" )
+	void TeleportDone();
+
+	/** Hide or show the teleporter visuals */
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	void SetVisibility( const bool bVisible );
+
+	/** Sets the color for the teleporter visuals */
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	void SetColor( const FLinearColor& Color );
+
+	/** Get slide delta to push/pull or scale the teleporter */
+	UFUNCTION( BlueprintNativeEvent, Category = "Teleporter" )
+	float GetSlideDelta( UVREditorInteractor* Interactor, const bool Axis );
 
 private:
 
@@ -47,8 +73,23 @@ private:
 	}
 	//~ End AActor interface
 
-	/** Start teleporting, does a ray trace with the hand passed and calculates the locations for lerp movement in Teleport */
-	void StartTeleport(class UViewportInteractor* Interactor);
+	/** Functions we call to handle teleporting in navigation mode */
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	void StartAiming( class UViewportInteractor* Interactor );
+
+	/** Cancel teleport aiming mode without doing the teleport */
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	void StopAiming();
+
+	/** Do and finalize teleport.  	*/
+	UFUNCTION( BlueprintCallable, Category = "Teleporter" )
+	void DoTeleport();
+
+	/** Get the actor we're currently trying to teleport with.
+	* Valid during aiming and teleporting.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Teleporter")
+	UViewportInteractor* GetInteractorTryingTeleport() const;
 
 	/** Called when the user presses a button on their motion controller device */
 	void OnPreviewInputAction(class FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor,
@@ -61,13 +102,7 @@ private:
 	void UpdateTeleportAim(const float DeltaTime);
 
 	/** Helper function to push and pull the teleporter along the laser */
-	FVector UpdatePushPullTeleporter(class UVREditorMotionControllerInteractor* VREditorInteractor, const FVector& LaserPointerStart, const FVector& LaserPointerEnd, const bool bEnablePushPull = true);
-
-	/** Hide or show the teleporter visuals */
-	void SetVisibility(const bool bVisible);
-
-	/** Sets the color for the teleporter visuals */
-	void SetColor(const FLinearColor& Color);
+	FVector UpdatePushPullTeleporter(class UVREditorInteractor* VREditorInteractor, const FVector& LaserPointerStart, const FVector& LaserPointerEnd, const bool bEnablePushPull = true);
 
 	/** Figures out the new transforms for all the visuals based on the new location and the transforms of the HMD and motioncontrollers */
 	void UpdateVisuals(const FVector& NewLocation);
@@ -80,9 +115,6 @@ private:
 	/** Calculated the scale for animation */
 	float CalculateAnimatedScaleFactor() const;
 
-	/** Get slide delta to push/pull or scale the teleporter */
-	float GetSlideDelta(UVREditorMotionControllerInteractor* Interactor, const bool Axis);
-	
 	/** The owning VR mode */
 	UPROPERTY()
 	UVREditorMode* VRMode;
@@ -121,7 +153,7 @@ private:
 	/** Visuals for teleport right motion controller */
 	UPROPERTY()
 	UStaticMeshComponent* RightMotionControllerMeshComponent;
-	
+
 	/** Dynamic material for teleport visuals */
 	UPROPERTY()
 	UMaterialInstanceDynamic* TeleportMID;
@@ -138,7 +170,7 @@ private:
 
 	/** The current length of the laser where the teleport should be at */
 	float DragRayLength;
-	
+
 	/** The current drag velocity to push or pull the teleport along the laser */
 	float DragRayLengthVelocity;
 

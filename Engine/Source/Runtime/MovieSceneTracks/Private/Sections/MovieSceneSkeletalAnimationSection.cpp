@@ -14,13 +14,14 @@
 namespace
 {
 	FName DefaultSlotName( "DefaultSlot" );
+	float SkeletalDeprecatedMagicNumber = TNumericLimits<float>::Lowest();
 }
 
 FMovieSceneSkeletalAnimationParams::FMovieSceneSkeletalAnimationParams()
 {
 	Animation = nullptr;
-	StartOffset = 0.f;
-	EndOffset = 0.f;
+	StartOffset_DEPRECATED = SkeletalDeprecatedMagicNumber;
+	EndOffset_DEPRECATED = SkeletalDeprecatedMagicNumber;
 	PlayRate = 1.f;
 	bReverse = false;
 	SlotName = DefaultSlotName;
@@ -62,7 +63,7 @@ UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const 
 
 TOptional<FFrameTime> UMovieSceneSkeletalAnimationSection::GetOffsetTime() const
 {
-	return TOptional<FFrameTime>(Params.StartOffset * GetTypedOuter<UMovieScene>()->GetTickResolution());
+	return TOptional<FFrameTime>(Params.StartFrameOffset);
 }
 
 void UMovieSceneSkeletalAnimationSection::Serialize(FArchive& Ar)
@@ -85,12 +86,12 @@ void UMovieSceneSkeletalAnimationSection::PostLoad()
 
 	if (StartOffset_DEPRECATED != 0.f)
 	{
-		Params.StartOffset = StartOffset_DEPRECATED;
+		Params.StartOffset_DEPRECATED = StartOffset_DEPRECATED;
 	}
 
 	if (EndOffset_DEPRECATED != 0.f)
 	{
-		Params.EndOffset = EndOffset_DEPRECATED;
+		Params.EndOffset_DEPRECATED = EndOffset_DEPRECATED;
 	}
 
 	if (PlayRate_DEPRECATED != 1.f)
@@ -106,6 +107,22 @@ void UMovieSceneSkeletalAnimationSection::PostLoad()
 	if (SlotName_DEPRECATED != DefaultSlotName)
 	{
 		Params.SlotName = SlotName_DEPRECATED;
+	}
+
+	FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+	if (Params.StartOffset_DEPRECATED != SkeletalDeprecatedMagicNumber)
+	{
+		Params.StartFrameOffset = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Params.StartOffset_DEPRECATED).Value;
+
+		Params.StartOffset_DEPRECATED = SkeletalDeprecatedMagicNumber;
+	}
+
+	if (Params.EndOffset_DEPRECATED != SkeletalDeprecatedMagicNumber)
+	{
+		Params.EndFrameOffset = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Params.EndOffset_DEPRECATED).Value;
+
+		Params.EndOffset_DEPRECATED = SkeletalDeprecatedMagicNumber;
 	}
 
 	// if version is less than this
@@ -149,14 +166,14 @@ FMovieSceneEvalTemplatePtr UMovieSceneSkeletalAnimationSection::GenerateTemplate
 	return FMovieSceneSkeletalAnimationSectionTemplate(*this);
 }
 
-float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneSkeletalAnimationParams& Params, FFrameNumber StartFrame)
+FFrameNumber GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneSkeletalAnimationParams& Params, FFrameNumber StartFrame, FFrameRate FrameRate)
 {
 	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
 	float AnimPosition = (TrimTime.Time - StartFrame) / TrimTime.Rate * AnimPlayRate;
-	float SeqLength = Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset);
+	float SeqLength = Params.GetSequenceLength() - FrameRate.AsSeconds(Params.StartFrameOffset + Params.EndFrameOffset) / AnimPlayRate;
 
-	float NewOffset = FMath::Fmod(AnimPosition, SeqLength);
-	NewOffset += Params.StartOffset;
+	FFrameNumber NewOffset = FrameRate.AsFrameNumber(FMath::Fmod(AnimPosition, SeqLength));
+	NewOffset += Params.StartFrameOffset;
 
 	return NewOffset;
 }
@@ -180,7 +197,9 @@ void UMovieSceneSkeletalAnimationSection::TrimSection(FQualifiedFrameTime TrimTi
 	{
 		if (bTrimLeft)
 		{
-			Params.StartOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, Params, GetInclusiveStartFrame()) : 0;
+			FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+			Params.StartFrameOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, Params, GetInclusiveStartFrame(), FrameRate) : 0;
 		}
 
 		Super::TrimSection(TrimTime, bTrimLeft);
@@ -189,13 +208,15 @@ void UMovieSceneSkeletalAnimationSection::TrimSection(FQualifiedFrameTime TrimTi
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(FQualifiedFrameTime SplitTime)
 {
-	const float NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, Params, GetInclusiveStartFrame()) : 0;
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	const FFrameNumber NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, Params, GetInclusiveStartFrame(), FrameRate) : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
 	{
 		UMovieSceneSkeletalAnimationSection* NewSkeletalSection = Cast<UMovieSceneSkeletalAnimationSection>(NewSection);
-		NewSkeletalSection->Params.StartOffset = NewOffset;
+		NewSkeletalSection->Params.StartFrameOffset = NewOffset;
 	}
 	return NewSection;
 }
@@ -210,7 +231,7 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<FFrameNumber>& Out
 	const FFrameNumber EndFrame   = GetExclusiveEndFrame() - 1; // -1 because we don't need to add the end frame twice
 
 	const float AnimPlayRate     = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
-	const float SeqLengthSeconds = (Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset)) / AnimPlayRate;
+	const float SeqLengthSeconds = Params.GetSequenceLength() - FrameRate.AsSeconds(Params.StartFrameOffset + Params.EndFrameOffset) / AnimPlayRate;
 
 	FFrameTime SequenceFrameLength = SeqLengthSeconds * FrameRate;
 	if (SequenceFrameLength.FrameNumber > 1)

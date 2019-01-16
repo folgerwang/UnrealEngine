@@ -200,10 +200,10 @@ public:
 	 */
 	virtual void StripAssetRegistryKeyForObject(FName ObjectPath, FName Key) = 0;
 
-	/** Returns true if the specified ClassName's ancestors could be found. If so, OutAncestorClassNames is a list of all its ancestors */
+	/** Returns true if the specified ClassName's ancestors could be found. If so, OutAncestorClassNames is a list of all its ancestors. This can be slow if temporary caching mode is not on */
 	virtual bool GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const = 0;
 
-	/** Returns the names of all classes derived by the supplied class names, excluding any classes matching the excluded class names. */
+	/** Returns the names of all classes derived by the supplied class names, excluding any classes matching the excluded class names. This can be slow if temporary caching mode is not on */
 	virtual void GetDerivedClassNames(const TArray<FName>& ClassNames, const TSet<FName>& ExcludedClassNames, TSet<FName>& OutDerivedClassNames) const = 0;
 
 	/** Gets a list of all paths that are currently cached */
@@ -224,6 +224,9 @@ public:
 
 	/** Modifies passed in filter to make it safe for use on FAssetRegistryState. This expands recursive paths and classes */
 	virtual void ExpandRecursiveFilter(const FARFilter& InFilter, FARFilter& ExpandedFilter) const = 0;
+
+	/** Enables or disable temporary search caching, when this is enabled scanning/searching is faster because we assume no objects are loaded between scans. Disabling frees any caches created */
+	virtual void SetTemporaryCachingMode(bool bEnable) = 0;
 
 	/**
 	 * Gets the current availability of an asset, primarily for streaming install purposes.
@@ -311,6 +314,10 @@ public:
 	DECLARE_EVENT_TwoParams( IAssetRegistry, FAssetRenamedEvent, const FAssetData&, const FString& );
 	virtual FAssetRenamedEvent& OnAssetRenamed() = 0;
 
+	/** Event for when assets are updated in the registry */
+	DECLARE_EVENT_OneParam(IAssetRegistry, FAssetUpdatedEvent, const FAssetData&);
+	virtual FAssetUpdatedEvent& OnAssetUpdated() = 0;
+
 	/** Event for when in-memory assets are created */
 	DECLARE_EVENT_OneParam( IAssetRegistry, FInMemoryAssetCreatedEvent, UObject* );
 	virtual FInMemoryAssetCreatedEvent& OnInMemoryAssetCreated() = 0;
@@ -343,13 +350,6 @@ public:
 	/** Event to update the progress of the background file load */
 	DECLARE_EVENT_OneParam( IAssetRegistry, FFileLoadProgressUpdatedEvent, const FFileLoadProgressUpdateData& /*ProgressUpdateData*/ );
 	virtual FFileLoadProgressUpdatedEvent& OnFileLoadProgressUpdated() = 0;
-
-	/** Register callback for when someone tries to edit a searchable name */
-	DECLARE_DELEGATE_RetVal_OneParam(bool, FAssetEditSearchableNameDelegate, const FAssetIdentifier&);
-	virtual FAssetEditSearchableNameDelegate& OnEditSearchableName(FName PackageName, FName ObjectName) = 0;
-
-	/** Tries to edit a searchablename, returns true if any of the callbacks handled it */
-	virtual bool EditSearchableName(const FAssetIdentifier& SearchableName) = 0;
 
 	/** Returns true if the asset registry is currently loading files and does not yet know about all assets */
 	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")

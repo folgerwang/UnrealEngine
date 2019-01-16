@@ -62,12 +62,12 @@ class FAutoDeleteAsyncTask
 	TTask Task;
 
 	/* Generic start function, not called directly
-		* @param bForceSynchronous if true, this job will be started synchronously, now, on this thread
-	**/
-	void Start(bool bForceSynchronous)
+	 * @param bForceSynchronous if true, this job will be started synchronously, now, on this thread
+	 **/
+	void Start(bool bForceSynchronous, FQueuedThreadPool* InQueuedPool)
 	{
 		FPlatformMisc::MemoryBarrier();
-		FQueuedThreadPool* QueuedPool = GThreadPool;
+		FQueuedThreadPool* QueuedPool = InQueuedPool;
 		if (bForceSynchronous)
 		{
 			QueuedPool = 0;
@@ -84,8 +84,8 @@ class FAutoDeleteAsyncTask
 	}
 
 	/**
-	* Tells the user job to do the work, sometimes called synchronously, sometimes from the thread pool. Calls the event tracker.
-	**/
+	 * Tells the user job to do the work, sometimes called synchronously, sometimes from the thread pool. Calls the event tracker.
+	 **/
 	void DoWork()
 	{
 		FScopeCycleCounter Scope(Task.GetStatId(), true);
@@ -131,17 +131,16 @@ public:
 	**/
 	void StartSynchronousTask()
 	{
-		Start(true);
+		Start(true, GThreadPool);
 	}
 
 	/** 
 	* Run this task on the lo priority thread pool. It is not safe to use this object after this call.
 	**/
-	void StartBackgroundTask()
+	void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 	{
-		Start(false);
+		Start(false, InQueuedPool);
 	}
-
 };
 
 

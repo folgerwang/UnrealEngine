@@ -57,8 +57,12 @@ FFrameTime UMediaPlayerTimeSynchronizationSource::GetOldestSampleTime() const
 				TRangeSet<FTimespan> SampleTimes;
 				if (Cache.QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
-					const FTimespan MinBound = SampleTimes.GetMinBoundValue();
-					UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
+					TRangeBound<FTimespan> MinRangeBound = SampleTimes.GetMinBound();
+					if (MinRangeBound.IsClosed())
+					{
+						const FTimespan MinBound = MinRangeBound.GetValue();
+						UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
+					}
 				}
 			}
 		}
@@ -92,8 +96,13 @@ FFrameTime UMediaPlayerTimeSynchronizationSource::GetNewestSampleTime() const
 				TRangeSet<FTimespan> SampleTimes;
 				if (Cache.QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
-					const FTimespan MaxBound = SampleTimes.GetMaxBoundValue();
-					UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MaxBound, UseTimespan.GetValue()) : MaxBound;
+					//Fetch the maximun sample time from all ranges queried from the player's cache
+					TRangeBound<FTimespan> MaxRangeBound = SampleTimes.GetMaxBound();
+					if (MaxRangeBound.IsClosed())
+					{
+						const FTimespan MaxBound = MaxRangeBound.GetValue();
+						UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MaxBound, UseTimespan.GetValue()) : MaxBound;
+					}
 				}
 			}
 		}

@@ -26,7 +26,7 @@ public:
 	FVulkanViewport(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevice, void* InWindowHandle, uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat);
 	~FVulkanViewport();
 
-	FVulkanTexture2D* GetBackBuffer(FRHICommandList& RHICmdList);
+	FTexture2DRHIRef GetBackBuffer(FRHICommandList& RHICmdList);
 
 	void WaitForFrameEventCompletion();
 
@@ -62,6 +62,9 @@ protected:
 	VkImage BackBufferImages[NUM_BUFFERS];
 	VulkanRHI::FSemaphore* RenderingDoneSemaphores[NUM_BUFFERS];
 	FVulkanTextureView TextureViews[NUM_BUFFERS];
+	
+	TRefCountPtr<FVulkanBackBuffer> BackBuffers[NUM_BUFFERS];
+	TRefCountPtr<FVulkanBackBufferReference> RenderingBackBufferReference;
 
 	// 'Dummy' back buffer
 	TRefCountPtr<FVulkanBackBuffer> RenderingBackBuffer;
@@ -76,6 +79,7 @@ protected:
 	bool bIsFullscreen;
 	EPixelFormat PixelFormat;
 	int32 AcquiredImageIndex;
+	int32 PreAcquiredImageIndex;
 	FVulkanSwapChain* SwapChain;
 	void* WindowHandle;
 	uint32 PresentCount;
@@ -91,7 +95,10 @@ protected:
 	uint64 LastFrameFenceCounter = 0;
 
 	void CreateSwapchain();
-	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBuffer* NewBackBuffer);
+	void PreAcquireSwapchainImage();
+	void GetNextImageIndex();
+	void AcquireImageIndex();
+	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBufferReference* NewBackBuffer);
 
 	void RecreateSwapchain(void* NewNativeWindow, bool bForce = false);
 	void RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat);

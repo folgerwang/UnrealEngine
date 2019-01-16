@@ -52,6 +52,8 @@ Landscape.cpp: Terrain rendering
 
 #if WITH_EDITOR
 #include "MaterialUtilities.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Editor.h"
 #endif
 #include "LandscapeVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
@@ -72,6 +74,11 @@ DEFINE_STAT(STAT_LandscapeTessellatedComponents);
 DEFINE_STAT(STAT_LandscapeComponentUsingSubSectionDrawCalls);
 DEFINE_STAT(STAT_LandscapeDrawCalls);
 DEFINE_STAT(STAT_LandscapeTriangles);
+
+DEFINE_STAT(STAT_LandscapeRegenerateProceduralHeightmaps);
+DEFINE_STAT(STAT_LandscapeRegenerateProceduralHeightmaps_RenderThread);
+DEFINE_STAT(STAT_LandscapeResolveProceduralHeightmap);
+DEFINE_STAT(STAT_LandscapeRegenerateProceduralHeightmapsDrawCalls);
 
 DEFINE_STAT(STAT_LandscapeVertexMem);
 DEFINE_STAT(STAT_LandscapeOccluderMem);
@@ -124,6 +131,7 @@ FAutoConsoleCommand CmdPrintNumLandscapeShadows(
 ULandscapeComponent::ULandscapeComponent(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 , GrassData(MakeShareable(new FLandscapeComponentGrassData()))
+, ChangeTag(0)
 {
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	SetGenerateOverlapEvents(false);
@@ -889,6 +897,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	bGenerateOverlapEvents = false;
 #if WITH_EDITORONLY_DATA
 	MaxPaintedLayersPerComponent = 0;
+	HasProceduralContent = false;
 #endif
 
 #if WITH_EDITOR
@@ -931,6 +940,8 @@ ALandscape::ALandscape(const FObjectInitializer& ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
 	bLockLocation = false;
+	PreviousExperimentalLandscapeProcedural = false;
+	ProceduralContentUpdateFlags = 0;
 #endif // WITH_EDITORONLY_DATA
 }
 
@@ -1018,6 +1029,11 @@ void ULandscapeComponent::GetGeneratedTexturesAndMaterialInstances(TArray<UObjec
 	if (HeightmapTexture)
 	{
 		OutTexturesAndMaterials.Add(HeightmapTexture);
+	}
+
+	if (CurrentEditingHeightmapTexture != nullptr)
+	{
+		OutTexturesAndMaterials.Add(CurrentEditingHeightmapTexture);
 	}
 
 	for (auto* Tex : WeightmapTextures)
@@ -1269,6 +1285,36 @@ void ULandscapeComponent::OnUnregister()
 	}
 }
 
+UTexture2D* ULandscapeComponent::GetHeightmap(bool InReturnCurrentEditingHeightmap) const
+{
+#if WITH_EDITORONLY_DATA
+	if (InReturnCurrentEditingHeightmap && GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		if (CurrentEditingHeightmapTexture != nullptr)
+		{
+			return CurrentEditingHeightmapTexture;
+		}
+	}
+#endif
+
+	return HeightmapTexture;
+}
+
+#if WITH_EDITOR
+void ULandscapeComponent::SetCurrentEditingHeightmap(UTexture2D* InNewHeightmap)
+{
+#if WITH_EDITORONLY_DATA
+	CurrentEditingHeightmapTexture = InNewHeightmap;
+#endif
+}
+#endif
+
+void ULandscapeComponent::SetHeightmap(UTexture2D* NewHeightmap)
+{
+	check(NewHeightmap != nullptr);
+	HeightmapTexture = NewHeightmap;
+}
+
 void ALandscapeProxy::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
@@ -1388,10 +1434,29 @@ void ALandscape::PostLoad()
 				break;
 			}
 		}
+
+		if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			FEditorDelegates::PreSaveWorld.AddUObject(this, &ALandscape::OnPreSaveWorld);
+			FEditorDelegates::PostSaveWorld.AddUObject(this, &ALandscape::OnPostSaveWorld);
+		}
 #endif
-}
+	}
 
 	Super::PostLoad();
+}
+
+void ALandscape::BeginDestroy()
+{
+#if WITH_EDITOR
+	if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		FEditorDelegates::PreSaveWorld.RemoveAll(this);
+		FEditorDelegates::PostSaveWorld.RemoveAll(this);
+	}
+#endif
+
+	Super::BeginDestroy();
 }
 
 #if WITH_EDITOR
@@ -1423,6 +1488,11 @@ void ALandscapeProxy::PreSave(const class ITargetPlatform* TargetPlatform)
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
 		bHasLandscapeGrass = LandscapeComponents.ContainsByPredicate([](ULandscapeComponent* Component) { return Component->MaterialHasGrass(); });
+	}
+
+	if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		HasProceduralContent = true;
 	}
 #endif
 }
@@ -1810,6 +1880,15 @@ void ALandscapeProxy::PostLoad()
 	FOnFeatureLevelChanged::FDelegate FeatureLevelChangedDelegate = FOnFeatureLevelChanged::FDelegate::CreateUObject(this, &ALandscapeProxy::OnFeatureLevelChanged);
 	FeatureLevelChangedDelegateHandle = GetWorld()->AddOnFeatureLevelChangedHandler(FeatureLevelChangedDelegate);
 
+	if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		ALandscape* Landscape = GetLandscapeActor();
+
+		if (Landscape != nullptr)
+		{
+			Landscape->RequestProceduralContentUpdate(EProceduralContentUpdateFlag::All_Setup);
+		}
+	}
 #endif
 }
 
@@ -2672,6 +2751,56 @@ bool ALandscapeProxy::ShouldTickIfViewportsOnly() const
 	return true;
 }
 
+void ALandscape::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
+{
+	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
+
+#if WITH_EDITOR
+	UWorld* World = GetWorld();
+	if (GIsEditor && World && !World->IsPlayInEditor())
+	{
+		if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			if (PreviousExperimentalLandscapeProcedural != GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				PreviousExperimentalLandscapeProcedural = GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape;
+
+				RequestProceduralContentUpdate(EProceduralContentUpdateFlag::All_Setup);
+			}
+
+			RegenerateProceduralContent();
+		}
+		else
+		{
+			if (PreviousExperimentalLandscapeProcedural != GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				PreviousExperimentalLandscapeProcedural = GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape;
+
+				for (auto& ItPair : RenderDataPerHeightmap)
+				{
+					FRenderDataPerHeightmap& HeightmapRenderData = ItPair.Value;
+
+					if (HeightmapRenderData.HeightmapsCPUReadBack != nullptr)
+					{
+						BeginReleaseResource(HeightmapRenderData.HeightmapsCPUReadBack);
+					}
+				}
+
+				FlushRenderingCommands();
+
+				for (auto& ItPair : RenderDataPerHeightmap)
+				{
+					FRenderDataPerHeightmap& HeightmapRenderData = ItPair.Value;
+
+					delete HeightmapRenderData.HeightmapsCPUReadBack;
+					HeightmapRenderData.HeightmapsCPUReadBack = nullptr;
+				}
+			}
+		}
+	}
+#endif
+}
+
 void ALandscapeProxy::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Landscape);
@@ -2863,7 +2992,7 @@ void ALandscapeProxy::UpdateBakedTextures()
 			continue;
 		}
 
-		FBakedTextureSourceInfo& Info = ComponentsByHeightmap.FindOrAdd(Component->HeightmapTexture);
+		FBakedTextureSourceInfo& Info = ComponentsByHeightmap.FindOrAdd(Component->GetHeightmap());
 		Info.Components.Add(Component);
 		Component->SerializeStateHashes(*Info.ComponentStateAr);
 	}

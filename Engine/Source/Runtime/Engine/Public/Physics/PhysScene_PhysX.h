@@ -145,6 +145,12 @@ public:
 	/** Adds to queue of skelmesh we want to remove from collision disable table */
 	ENGINE_API void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID);
 
+	/** Add this SkeletalMeshComponent to the list needing kinematic bodies updated before simulating physics */
+	void MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning);
+
+	/** Remove this SkeletalMeshComponent from set needing kinematic update before simulating physics*/
+	void ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp);
+
 	/** Pending constraint break events */
 	void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance);
 	/** Pending wake/sleep events */
@@ -353,6 +359,9 @@ private:
 	/** Called when all subscenes of a given scene are complete, calls  ProcessPhysScene*/
 	void SceneCompletionTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
 	
+	/** Process kinematic updates on any deferred skeletal meshes */
+	void UpdateKinematicsOnDeferredSkelMeshes();
+
 	/** Task created from TickPhysScene so we can substep without blocking */
 	bool SubstepSimulation(FGraphEventRef& InOutCompletionEvent);
 
@@ -393,6 +402,18 @@ private:
 #if WITH_PHYSX
 	TMap<FBodyInstance*, ESleepEvent> PendingSleepEvents;
 #endif
+
+	/** Information about how to perform kinematic update before physics */
+	struct FDeferredKinematicUpdateInfo
+	{
+		/** Whether to teleport physics bodies or not */
+		ETeleportType	TeleportType;
+		/** Whether to update skinning info */
+		bool			bNeedsSkinning;
+	};
+
+	/** Map of SkeletalMeshComponents that need their bone transforms sent to the physics engine before simulation. */
+	TArray<TPair<USkeletalMeshComponent*, FDeferredKinematicUpdateInfo>>	DeferredKinematicUpdateSkelMeshes;
 
 	FDelegateHandle PreGarbageCollectDelegateHandle;
 

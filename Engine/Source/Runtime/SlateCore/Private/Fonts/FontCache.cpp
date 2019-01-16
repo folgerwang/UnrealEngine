@@ -1051,6 +1051,11 @@ void FSlateFontCache::GetUnderlineMetrics( const FSlateFontInfo& InFontInfo, con
 	FontRenderer->GetUnderlineMetrics(InFontInfo, FontScale, OutUnderlinePos, OutUnderlineThickness);
 }
 
+void FSlateFontCache::GetStrikeMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness ) const
+{
+	FontRenderer->GetStrikeMetrics(InFontInfo, FontScale, OutStrikeLinePos, OutStrikeLineThickness);
+}
+
 int8 FSlateFontCache::GetKerning( const FFontData& InFontData, const int32 InSize, TCHAR First, TCHAR Second, float Scale ) const
 {
 	return FontRenderer->GetKerning(InFontData, InSize, First, Second, Scale);

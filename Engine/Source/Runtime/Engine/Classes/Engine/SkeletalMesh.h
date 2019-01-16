@@ -522,6 +522,13 @@ public:
 	{
 		return false;
 	}
+
+	/* Return true if the reduction settings are setup to reduce a LOD*/
+	bool IsReductionActive(int32 LODIndex) const;
+
+	/* Get a copy of the reduction settings for a specified LOD index. */
+	struct FSkeletalMeshOptimizationSettings GetReductionSettings(int32 LODIndex) const;
+
 #endif
 
 	/** List of materials applied to this mesh. */
@@ -536,6 +543,22 @@ private:
 	/** Struct containing information for each LOD level, such as materials to use, and when use the LOD. */
 	UPROPERTY(EditAnywhere, EditFixedSize, Category=LevelOfDetail)
 	TArray<struct FSkeletalMeshLODInfo> LODInfo;
+
+#if !WITH_EDITOR
+	/** Acceleration struct used for faster socket lookups */
+	struct FSocketInfo
+	{
+		FSocketInfo(const USkeletalMesh* InSkeletalMesh, USkeletalMeshSocket* InSocket, int32 InSocketIndex);
+
+		FTransform SocketLocalTransform;
+		USkeletalMeshSocket* Socket;
+		int32 SocketIndex;
+		int32 SocketBoneIndex;
+	};
+
+	/** Map used for faster lookups of sockets/indices */
+	TMap<FName, FSocketInfo> SocketMap;
+#endif
 
 public:
 	/** Minimum LOD to render. Can be overridden per component as well as set here for all mesh instances here */
@@ -579,7 +602,7 @@ public:
 	/** Uses skinned data for collision data. Per poly collision cannot be used for simulation, in most cases you are better off using the physics asset */
 	UPROPERTY(EditAnywhere, Category = Physics)
 	uint8 bEnablePerPolyCollision : 1;
-
+	
 #if WITH_EDITORONLY_DATA
 	/** The guid to compute the ddc key, it must be dirty when we change the vertex color. */
 	UPROPERTY()
@@ -885,6 +908,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	USkeletalMeshSocket* FindSocketAndIndex(FName InSocketName, int32& OutIndex) const;
 
+	/**
+	*	Find a socket object and asscociated info in this SkeletalMesh by name.
+	*	Entering NAME_None will return NULL. If there are multiple sockets with the same name, will return the first one.
+	*	Also returns the index for the socket allowing for future fast access via GetSocketByIndex()
+	*	Also rteturns the socket loca transform and the bone index (if any)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	USkeletalMeshSocket* FindSocketInfo(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex, int32& OutIndex) const;
+
 	/** Returns the number of sockets available. Both on this mesh and it's skeleton. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	int32 NumSockets() const;
@@ -892,6 +924,14 @@ public:
 	/** Returns a socket by index. Max index is NumSockets(). The meshes sockets are accessed first, then the skeletons.  */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	USkeletalMeshSocket* GetSocketByIndex(int32 Index) const;
+
+#if !WITH_EDITOR
+private:
+	/** Called internally to rebuild an invalid socket map */
+	void RebuildSocketMap();
+
+public:
+#endif
 
 	// @todo document
 	FMatrix GetRefPoseMatrix( int32 BoneIndex ) const;

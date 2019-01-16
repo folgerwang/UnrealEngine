@@ -56,6 +56,7 @@ void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& Out
 
 		OutParameters.ExponentialFogParameters = View.ExponentialFogParameters;
 		OutParameters.ExponentialFogColorParameter = FVector4(View.ExponentialFogColor, 1.0f - View.FogMaxOpacity);
+		OutParameters.ExponentialFogParameters2 = View.ExponentialFogParameters2;
 		OutParameters.ExponentialFogParameters3 = View.ExponentialFogParameters3;
 		OutParameters.SinCosInscatteringColorCubemapRotation = View.SinCosInscatteringColorCubemapRotation;
 		OutParameters.FogInscatteringTextureParameters = View.FogInscatteringTextureParameters;
@@ -180,6 +181,7 @@ public:
 	{
 		OcclusionTexture.Bind(Initializer.ParameterMap, TEXT("OcclusionTexture"));
 		OcclusionSampler.Bind(Initializer.ParameterMap, TEXT("OcclusionSampler"));
+		bOnlyOnRenderedOpaque.Bind(Initializer.ParameterMap, TEXT("bOnlyOnRenderedOpaque"));
 		SceneTextureParameters.Bind(Initializer);
 	}
 
@@ -203,6 +205,9 @@ public:
 			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
 			TextureRHI
 			);
+
+		float bOnlyOnRenderedOpaqueValue = View.bFogOnlyOnRenderedOpaque ? 1.0f : 0.0f;
+		SetShaderValue(RHICmdList, GetPixelShader(), bOnlyOnRenderedOpaque, bOnlyOnRenderedOpaqueValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -211,6 +216,7 @@ public:
 		Ar << SceneTextureParameters;
 		Ar << OcclusionTexture;
 		Ar << OcclusionSampler;
+		Ar << bOnlyOnRenderedOpaque;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -218,6 +224,7 @@ private:
 	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter OcclusionTexture;
 	FShaderResourceParameter OcclusionSampler;
+	FShaderParameter bOnlyOnRenderedOpaque;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>,TExponentialHeightFogPS<EHeightFogFeature::HeightFog>,TEXT("/Engine/Private/HeightFogPixelShader.usf"), TEXT("ExponentialPixelMain"),SF_Pixel)
@@ -277,16 +284,23 @@ void FSceneRenderer::InitFogConstants()
 			{
 				const FExponentialHeightFogSceneInfo& FogInfo = Scene->ExponentialFogs[0];
 				const float CosTerminatorAngle = FMath::Clamp(FMath::Cos(FogInfo.LightTerminatorAngle * PI / 180.0f), -1.0f + DELTA, 1.0f - DELTA);
-				const float CollapsedFogParameterPower = FMath::Clamp(
-						-FogInfo.FogHeightFalloff * (View.ViewMatrices.GetViewOrigin().Z - FogInfo.FogHeight),
+				float CollapsedFogParameter[2];
+				for (int i = 0; i < FExponentialHeightFogSceneInfo::NumFogs; i++)
+				{
+					const float CollapsedFogParameterPower = FMath::Clamp(
+						-FogInfo.FogData[i].HeightFalloff * (View.ViewMatrices.GetViewOrigin().Z - FogInfo.FogData[i].Height),
 						-126.f + 1.f, // min and max exponent values for IEEE floating points (http://en.wikipedia.org/wiki/IEEE_floating_point)
 						+127.f - 1.f
-						);
-				const float CollapsedFogParameter = FogInfo.FogDensity * FMath::Pow(2.0f, CollapsedFogParameterPower);
-				View.ExponentialFogParameters = FVector4(CollapsedFogParameter, FogInfo.FogHeightFalloff, CosTerminatorAngle, FogInfo.StartDistance);
+					);
+
+					CollapsedFogParameter[i] = FogInfo.FogData[i].Density * FMath::Pow(2.0f, CollapsedFogParameterPower);
+
+				}
+				View.ExponentialFogParameters = FVector4(CollapsedFogParameter[0], FogInfo.FogData[0].HeightFalloff, CosTerminatorAngle, FogInfo.StartDistance);
+				View.ExponentialFogParameters2 = FVector4(CollapsedFogParameter[1], FogInfo.FogData[1].HeightFalloff, FogInfo.FogData[1].Density, FogInfo.FogData[1].Height);
 				View.ExponentialFogColor = FVector(FogInfo.FogColor.R, FogInfo.FogColor.G, FogInfo.FogColor.B);
 				View.FogMaxOpacity = FogInfo.FogMaxOpacity;
-				View.ExponentialFogParameters3 = FVector4(FogInfo.FogDensity, FogInfo.FogHeight, FogInfo.InscatteringColorCubemap ? 1.0f : 0.0f, FogInfo.FogCutoffDistance);
+				View.ExponentialFogParameters3 = FVector4(FogInfo.FogData[0].Density, FogInfo.FogData[0].Height, FogInfo.InscatteringColorCubemap ? 1.0f : 0.0f, FogInfo.FogCutoffDistance);
 				View.SinCosInscatteringColorCubemapRotation = FVector2D(FMath::Sin(FogInfo.InscatteringColorCubemapAngle), FMath::Cos(FogInfo.InscatteringColorCubemapAngle));
 				View.FogInscatteringColorCubemap = FogInfo.InscatteringColorCubemap;
 				const float InvRange = 1.0f / FMath::Max(FogInfo.FullyDirectionalInscatteringColorDistance - FogInfo.NonDirectionalInscatteringColorDistance, .00001f);

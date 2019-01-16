@@ -53,12 +53,14 @@ enum class EPipelineCacheFileFormatVersions : uint32
 	SortedVertexDesc = 11,
 	TOCMagicGuard = 12,
 	PSOUsageMask = 13,
-	PSOBindCount = 14
+	PSOBindCount = 14,
+	EOFMarker = 15,
 };
 
 const uint64 FPipelineCacheFileFormatMagic = 0x5049504543414348; // PIPECACH
 const uint64 FPipelineCacheTOCFileFormatMagic = 0x544F435354415254; // TOCSTART
-const uint32 FPipelineCacheFileFormatCurrentVersion = (uint32)EPipelineCacheFileFormatVersions::PSOBindCount;
+const uint64 FPipelineCacheEOFFileFormatMagic = 0x454F462D4D41524B; // EOF-MARK
+const uint32 FPipelineCacheFileFormatCurrentVersion = (uint32)EPipelineCacheFileFormatVersions::EOFMarker;
 
 /**
   * PipelineFileCache API access
@@ -1040,11 +1042,27 @@ struct FPipelineCacheFileFormatTOC
 	
 	friend FArchive& operator<<(FArchive& Ar, FPipelineCacheFileFormatTOC& Info)
 	{
+		// TOC is assumed to be at the end of the file
+		// If this changes then the EOF read check and write need to moved out of here
+		
 		if(Ar.IsLoading())
 		{
-			uint64 Magic = 0;
-			Ar << Magic;
-			if(FPipelineCacheTOCFileFormatMagic != Magic)
+			uint64 TOCMagic = 0;
+			Ar << TOCMagic;
+			if(FPipelineCacheTOCFileFormatMagic != TOCMagic)
+			{
+				Ar.SetError();
+				return Ar;
+			}
+			
+			uint64 EOFMagic = 0;
+			const int64 FileSize = Ar.TotalSize();
+			const int64 FilePosition = Ar.Tell();
+			Ar.Seek(FileSize - sizeof(FPipelineCacheEOFFileFormatMagic));
+			Ar << EOFMagic;
+			Ar.Seek(FilePosition);
+
+			if(FPipelineCacheEOFFileFormatMagic != EOFMagic)
 			{
 				Ar.SetError();
 				return Ar;
@@ -1052,12 +1070,18 @@ struct FPipelineCacheFileFormatTOC
 		}
 		else
 		{
-			uint64 Magic = FPipelineCacheTOCFileFormatMagic;
-			Ar << Magic;
+			uint64 TOCMagic = FPipelineCacheTOCFileFormatMagic;
+			Ar << TOCMagic;
 		}
 		
 		Ar << Info.SortedOrder;
 		Ar << Info.MetaData;
+		
+		if(Ar.IsSaving())
+		{
+			uint64 EOFMagic = FPipelineCacheEOFFileFormatMagic;
+			Ar << EOFMagic;
+		}
 		
 		return Ar;
 	}
@@ -1228,8 +1252,9 @@ public:
             {
 				for (auto const& Entry : UserTOC.MetaData)
 				{
+					// We want this entry that references the game version not the one from the Game TOC as that doesn't have ongoing UsageMasks bind counts etc...
 					auto* MetaPtr = TOC.MetaData.Find(Entry.Key);
-					if (Entry.Value.FileGuid == UserFileGuid && (!MetaPtr || (MetaPtr->FileGuid != UserFileGuid && MetaPtr->FileGuid != GameFileGuid)))
+					if ((Entry.Value.FileGuid == UserFileGuid || Entry.Value.FileGuid == GameFileGuid) && (!MetaPtr || (MetaPtr->FileGuid != UserFileGuid && MetaPtr->FileGuid != GameFileGuid)))
 					{
 						TOC.MetaData.Add(Entry.Key, Entry.Value);
 					}
@@ -1237,6 +1262,7 @@ public:
 
 				for (auto const& Entry : GameTOC.MetaData)
                 {
+                	// If its there - don't overwrite - we'll lose mutable user cache meta data unless an old entry
 					auto* MetaPtr = TOC.MetaData.Find(Entry.Key);
                     if (!MetaPtr || (MetaPtr->FileGuid != UserFileGuid && MetaPtr->FileGuid != GameFileGuid))
                     {
@@ -1628,19 +1654,26 @@ public:
                                 {
                                     if (!PSOs.Contains(It->Key))
                                     {
-                                        FPipelineCacheFileFormatPSO PSO;
                                         check(It->Value.FileSize > 0);
                                         if (It->Value.FileGuid == UserFileGuid)
                                         {
 											check(It->Value.FileOffset < (uint32)UserFileBytes.Num());
 											UserFileBytesReader.Seek(It->Value.FileOffset);
+											
+											FPipelineCacheFileFormatPSO PSO;
 											UserFileBytesReader << PSO;
+											
+											PSOs.Add(It->Key, PSO);
                                         }
                                         else if (It->Value.FileGuid == GameFileGuid)
                                         {
 											check(It->Value.FileOffset < (uint32)GameFileBytes.Num());
 											GameFileBytesReader.Seek(It->Value.FileOffset);
+											
+											FPipelineCacheFileFormatPSO PSO;
 											GameFileBytesReader << PSO;
+											
+											PSOs.Add(It->Key, PSO);
                                         }
 										else
 										{
@@ -1649,8 +1682,6 @@ public:
 											RemovedEntries++;
 											It.RemoveCurrent();
 										}
-
-										PSOs.Add(It->Key, PSO);
                                     }
                                 }
                                 else
@@ -2567,7 +2598,7 @@ struct FPipelineCacheFileData
 				{
 					for (auto& Entry : Data.TOC.MetaData)
 					{
-                        if (Entry.Value.FileGuid == Data.Header.Guid)
+                        if (Entry.Value.FileGuid == Data.Header.Guid && Entry.Value.FileSize > sizeof(FPipelineCacheFileFormatPSO::DescriptorType))
                         {
                             FPipelineCacheFileFormatPSO PSO;
                             FileAReader->Seek(Entry.Value.FileOffset);

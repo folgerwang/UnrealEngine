@@ -1798,7 +1798,7 @@ void UObject::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::EstimatedTotal)
 	{
 		// Include this object's serialize size, and recursively call on direct subobjects
-		FArchiveCountMem MemoryCount(this);
+		FArchiveCountMem MemoryCount(this, true);
 		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(MemoryCount.GetMax());
 
 		TArray<UObject*> SubObjects;
@@ -1806,7 +1806,12 @@ void UObject::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 
 		for (UObject* SubObject : SubObjects)
 		{
-			SubObject->GetResourceSizeEx(CumulativeResourceSize);
+#if WITH_EDITOR
+			if (!SubObject->IsEditorOnly() && (SubObject->NeedsLoadForClient() || SubObject->NeedsLoadForServer()))
+#endif // WITH_EDITOR
+			{
+				SubObject->GetResourceSizeEx(CumulativeResourceSize);
+			}
 		}
 	}
 }

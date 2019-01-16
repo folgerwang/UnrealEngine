@@ -76,7 +76,8 @@ extern "C"
 		// !!JM todo: pass msg & error to a crash context? Must be copied?
 		if (GHTML5CrashHandler)
 		{
-			FGenericCrashContext Ctx;
+			FString Message = FString::Printf(TEXT("Fatal error: %s"), ANSI_TO_TCHAR(msg));
+			FGenericCrashContext Ctx(ECrashContextType::Crash, *Message);
 			GHTML5CrashHandler(Ctx);
 		}
 	}

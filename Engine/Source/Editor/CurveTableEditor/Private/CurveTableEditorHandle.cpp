@@ -2,7 +2,7 @@
 
 #include "CurveTableEditorHandle.h"
 
-FRichCurve* FCurveTableEditorHandle::GetCurve() const
+FRealCurve* FCurveTableEditorHandle::GetCurve() const
 {
 	if (CurveTable != nullptr && RowName != NAME_None)
 	{
@@ -15,7 +15,7 @@ TArray<FRichCurveEditInfoConst> FCurveTableEditorHandle::GetCurves() const
 {
 	TArray<FRichCurveEditInfoConst> Curves;
 
-	const FRichCurve* Curve = GetCurve();
+	const FRealCurve* Curve = GetCurve();
 	if (Curve)
 	{
 		Curves.Add(FRichCurveEditInfoConst(Curve, RowName));
@@ -28,7 +28,7 @@ TArray<FRichCurveEditInfo> FCurveTableEditorHandle::GetCurves()
 {
 	TArray<FRichCurveEditInfo> Curves;
 
-	FRichCurve* Curve = GetCurve();
+	FRealCurve* Curve = GetCurve();
 	if (Curve)
 	{
 		Curves.Add(FRichCurveEditInfo(Curve, RowName));

@@ -28,12 +28,12 @@ struct FMovieSceneSkeletalAnimationParams
 
 	/** The offset into the beginning of the animation clip */
 	UPROPERTY(EditAnywhere, Category="Animation")
-	float StartOffset;
-	
+	FFrameNumber StartFrameOffset;
+
 	/** The offset into the end of the animation clip */
 	UPROPERTY(EditAnywhere, Category="Animation")
-	float EndOffset;
-	
+	FFrameNumber EndFrameOffset;
+
 	/** The playback rate of the animation clip */
 	UPROPERTY(EditAnywhere, Category="Animation")
 	float PlayRate;
@@ -54,6 +54,11 @@ struct FMovieSceneSkeletalAnimationParams
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	bool bSkipAnimNotifiers;
 
+	UPROPERTY()
+	float StartOffset_DEPRECATED;
+
+	UPROPERTY()
+	float EndOffset_DEPRECATED;
 };
 
 /**

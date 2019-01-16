@@ -51,6 +51,15 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	for (UClass* CommonClass : InArgs._Options.ExtraPickerCommonClasses)
+	{
+		TSharedPtr<FClassPickerDefaults> PickerDefault = MakeShareable(new FClassPickerDefaults());
+		PickerDefault->AssetClass = InArgs._AssetType->GetPathName();
+		PickerDefault->ClassName  = CommonClass->GetPathName();
+
+		AssetDefaultClasses.Add(PickerDefault);
+	}
+
 	const bool bHasDefaultClasses = AssetDefaultClasses.Num() > 0;
 
 	bool bExpandDefaultClassPicker = true;

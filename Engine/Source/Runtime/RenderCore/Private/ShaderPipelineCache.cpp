@@ -378,7 +378,23 @@ void FShaderPipelineCache::Shutdown(void)
 void FShaderPipelineCache::PauseBatching()
 {
 	if (ShaderPipelineCache)
-		ShaderPipelineCache->bPaused = true;
+    {
+        ShaderPipelineCache->PausedCount++;
+        UE_LOG(LogRHI, Display, TEXT("ShaderPipelineCache: Paused Batching. %d"), ShaderPipelineCache->PausedCount);
+        if (ShaderPipelineCache->PausedCount > 0)
+        {
+            ShaderPipelineCache->bPaused = true;
+        }
+    }
+}
+
+bool FShaderPipelineCache::IsBatchingPaused()
+{
+    if (ShaderPipelineCache)
+    {
+        return ShaderPipelineCache->bPaused;
+    }
+    return true;
 }
 
 void FShaderPipelineCache::SetBatchMode(BatchMode Mode)
@@ -407,7 +423,16 @@ void FShaderPipelineCache::SetBatchMode(BatchMode Mode)
 void FShaderPipelineCache::ResumeBatching()
 {
 	if (ShaderPipelineCache)
-		ShaderPipelineCache->bPaused = false;
+    {
+        ShaderPipelineCache->PausedCount--;
+        UE_LOG(LogRHI, Display, TEXT("ShaderPipelineCache: Resumed Batching. %d"), ShaderPipelineCache->PausedCount);
+        if (ShaderPipelineCache->PausedCount <= 0)
+        {
+            UE_LOG(LogRHI, Display, TEXT("ShaderPipelineCache: Batching Resumed."));
+            ShaderPipelineCache->PausedCount = 0;
+            ShaderPipelineCache->bPaused = false;
+        }
+    }
 }
 
 uint32 FShaderPipelineCache::NumPrecompilesRemaining()
@@ -1016,6 +1041,7 @@ FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
 , bPaused(false)
 , bOpened(false)
 , bReady(false)
+, PausedCount(0)
 , TotalActiveTasks(0)
 , TotalWaitingTasks(0)
 , TotalCompleteTasks(0)

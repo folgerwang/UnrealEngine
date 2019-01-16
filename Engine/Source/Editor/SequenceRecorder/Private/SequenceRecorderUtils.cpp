@@ -59,7 +59,7 @@ bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponen
 
 		FAnimRecorderInstance AnimRecorder;
 		FAnimationRecordingSettings Setting;
-		AnimRecorder.Init(PreviewComponent, NewAsset, Setting);
+		AnimRecorder.Init(PreviewComponent, NewAsset,nullptr, Setting);
 		float Length = SingleNodeInstance->GetLength();
 		const float DefaultSampleRate = (Setting.SampleRate > 0.f) ? Setting.SampleRate : DEFAULT_SAMPLERATE;
 		const float Interval = 1.f / DefaultSampleRate;

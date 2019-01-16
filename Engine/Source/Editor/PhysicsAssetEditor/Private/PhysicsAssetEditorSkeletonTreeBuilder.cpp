@@ -99,6 +99,10 @@ void FPhysicsAssetEditorSkeletonTreeBuilder::AddBodies(FSkeletonTreeBuilderOutpu
 				bool bHasBodySetup = false;
 				for (int32 BodySetupIndex = 0; BodySetupIndex < PhysicsAsset->SkeletalBodySetups.Num(); ++BodySetupIndex)
 				{
+					if (!ensure(PhysicsAsset->SkeletalBodySetups[BodySetupIndex]))
+					{
+						continue;
+					}
 					if (BoneName == PhysicsAsset->SkeletalBodySetups[BodySetupIndex]->BoneName)
 					{
 						USkeletalBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIndex];

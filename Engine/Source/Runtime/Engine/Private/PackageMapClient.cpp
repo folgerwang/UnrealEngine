@@ -25,6 +25,7 @@
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
 #include "Components/ChildActorComponent.h"
+#include "Serialization/ArchiveCountMem.h"
 
 #if WITH_EDITOR
 #include "UObject/ObjectRedirector.h"
@@ -285,7 +286,10 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 	{
 		if ( GuidCache.IsValid() )
 		{
-			GuidCache->ImportedNetGuids.Add( NetGUID );
+			if (ensureMsgf(NetGUID.IsValid(), TEXT("Channel tried to add an invalid GUID to the import list: %s"), *Channel->Describe()))
+			{
+				GuidCache->ImportedNetGuids.Add( NetGUID );
+			}
 		}
 	}
 
@@ -319,7 +323,10 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 		// Do not mark guid as imported until we know we aren't deleting it
 		if ( GuidCache.IsValid() )
 		{
-			GuidCache->ImportedNetGuids.Add( NetGUID );
+			if (ensureMsgf(NetGUID.IsValid(), TEXT("Channel tried to add an invalid GUID to the import list: %s"), *Channel->Describe()))
+			{
+				GuidCache->ImportedNetGuids.Add(NetGUID);
+			}
 		}
 	}
 
@@ -465,9 +472,12 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 				uint8* Recent = RepData && RepData->RepState.IsValid() && RepData->RepState->StaticBuffer.Num() ? RepData->RepState->StaticBuffer.GetData() : NULL;
 				if ( Recent )
 				{
-					((AActor*)Recent)->ReplicatedMovement.Location = LocalLocation;
-					((AActor*)Recent)->ReplicatedMovement.Rotation = Rotation;
-					((AActor*)Recent)->ReplicatedMovement.LinearVelocity = Velocity;
+					FRepMovement* RepMovement = RepData->RepLayout->GetShadowStateValue<FRepMovement>(Recent, GET_MEMBER_NAME_CHECKED(AActor, ReplicatedMovement));
+					check(RepMovement);
+
+					RepMovement->Location = LocalLocation;
+					RepMovement->Rotation = Rotation;
+					RepMovement->LinearVelocity = Velocity;
 				}
 			}
 		}
@@ -848,7 +858,10 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 
 	if ( GuidCache->IsExportingNetGUIDBunch )
 	{
-		GuidCache->ImportedNetGuids.Add( NetGUID );
+		if (ensureMsgf(NetGUID.IsValid(), TEXT("InternalLoadObject tried to add an invalid GUID to the import list, Object: %s"), *GetFullNameSafe(Object)))
+		{
+			GuidCache->ImportedNetGuids.Add( NetGUID );
+		}
 	}
 
 	if ( ExportFlags.bHasPath )
@@ -1961,6 +1974,47 @@ void UPackageMapClient::SetHasQueuedBunches(const FNetworkGUID& NetGUID, bool bH
 	}
 }
 
+void UPackageMapClient::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		// TODO: We don't currently track:
+		//		Working Bunches.
+
+		NetGUIDExportCountMap.CountBytes(Ar);
+		ExportGUIDArchives.CountBytes(Ar);
+
+		for (const TArray<uint8>& Archive : ExportGUIDArchives)
+		{
+			Archive.CountBytes(Ar);
+		}
+
+		CurrentExportNetGUIDs.CountBytes(Ar);
+		CurrentQueuedBunchNetGUIDs.CountBytes(Ar);
+		PendingAckGUIDs.CountBytes(Ar);
+
+		// Don't use the override here, as that's not technically owned by us.
+		AckState.CountBytes(Ar);
+
+		ExportBunches.CountBytes(Ar);
+		for (FOutBunch const * const ExportBunch : ExportBunches)
+		{
+			if (ExportBunch)
+			{
+				ExportBunch->CountMemory(Ar);
+			}
+		}
+
+		MustBeMappedGuidsInLastBunch.CountBytes(Ar);
+		NetFieldExports.CountBytes(Ar);
+
+		// Don't count the GUID Cache here. Instead, we'll let the UNetDriver count it as
+		// that's the class that constructs it.
+	}
+}
+
 //----------------------------------------------------------------------------------------
 //	FNetGUIDCache
 //----------------------------------------------------------------------------------------
@@ -3045,6 +3099,113 @@ void FNetGUIDCache::ResetCacheForDemo()
 	NetFieldExportGroupMap.Reset();
 	NetFieldExportGroupIndexToGroup.Reset();
 	NetFieldExportGroupPathToIndex.Reset();
+}
+
+void FNetGUIDCache::CountBytes(FArchive& Ar) const
+{
+#define WITH_SCOPED_COUNT_LOG 1
+
+
+#if WITH_SCOPED_COUNT_LOG
+	const bool bIsCountMemArchive = FString(TEXT("FArchiveCountMem")).Equals(Ar.GetArchiveName());
+	auto GetMaxBytes = [bIsCountMemArchive](FArchive& InAr) -> uint64
+	{
+		return bIsCountMemArchive ? ((FArchiveCountMem&)InAr).GetMax() : 0;
+	};
+
+	uint64 BeforeAction = 0;
+	uint64 AfterAction = GetMaxBytes(Ar);
+
+#define SCOPED_COUNT_LOG(SCOPE_NAME, WORK) \
+	{ \
+		BeforeAction = AfterAction; \
+		WORK; \
+		AfterAction = GetMaxBytes(Ar); \
+		UE_LOG(LogNet, Log, TEXT("FNetGUIDCache::Serialize: " SCOPE_NAME " is %d bytes"), AfterAction - BeforeAction); \
+	}
+
+#else
+	
+#define SCOPED_COUNT_LOG(SCOPE_NAME, WORK) WORK;
+
+#endif // WITH_SCOPED_COUNT_LOG
+
+	SCOPED_COUNT_LOG("ObjectLookup", ObjectLookup.CountBytes(Ar));
+	SCOPED_COUNT_LOG("NetGUIDLookup", NetGUIDLookup.CountBytes(Ar));
+	SCOPED_COUNT_LOG("ImportedNetGuids", ImportedNetGuids.CountBytes(Ar));
+	
+	
+	SCOPED_COUNT_LOG("PendingOuterNetGuids",
+		PendingOuterNetGuids.CountBytes(Ar);
+
+		for (const auto& PendingOuterNetGuidPar : PendingOuterNetGuids)
+		{
+			PendingOuterNetGuidPar.Value.CountBytes(Ar);
+		}
+	);
+
+	SCOPED_COUNT_LOG("PendingAsyncPackages", PendingAsyncPackages.CountBytes(Ar));
+	SCOPED_COUNT_LOG("NetFieldExportGroupMap",
+		NetFieldExportGroupMap.CountBytes(Ar);
+
+		for (const auto& NetfieldExportGroupPair : NetFieldExportGroupMap)
+		{
+			Ar << const_cast<FString&>(NetfieldExportGroupPair.Key);
+			if (FNetFieldExportGroup const * const NetfieldExportGroup = NetfieldExportGroupPair.Value.Get())
+			{
+				Ar.CountBytes(sizeof(FNetFieldExportGroup), sizeof(FNetFieldExportGroup));
+				NetfieldExportGroup->CountBytes(Ar);
+			}
+		}
+	);
+
+	SCOPED_COUNT_LOG("NetFieldExportGroupPathToIndex",
+		NetFieldExportGroupPathToIndex.CountBytes(Ar);
+
+		for (const auto& NetFieldExportGroupPathToIndexPair : NetFieldExportGroupPathToIndex)
+		{
+			Ar << const_cast<FString&>(NetFieldExportGroupPathToIndexPair.Key);
+		}
+	);
+
+	SCOPED_COUNT_LOG("NetFieldExportGroupIndexToGroup", NetFieldExportGroupIndexToGroup.CountBytes(Ar));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+	SCOPED_COUNT_LOG("History",
+		History.CountBytes(Ar);
+		for (const auto& HistoryPairs : History)
+		{
+			Ar << const_cast<FString&>(HistoryPairs.Value);
+		}
+	);
+#endif
+
+#undef WITH_SCOPED_COUNT_LOG
+#undef SCOPED_COUNT_LOG
+}
+
+void FNetFieldExport::CountBytes(FArchive& Ar) const
+{
+	Ar << const_cast<FString&>(Name);
+	Ar << const_cast<FString&>(Type);
+}
+
+void FNetFieldExportGroup::CountBytes(FArchive& Ar) const
+{
+	Ar << const_cast<FString&>(PathName);
+	NetFieldExports.CountBytes(Ar);
+	for (const FNetFieldExport& NetFieldExport : NetFieldExports)
+	{
+		NetFieldExport.CountBytes(Ar);
+	}
+}
+
+void FPackageMapAckState::CountBytes(FArchive& Ar) const
+{
+	NetGUIDAckStatus.CountBytes(Ar);
+	NetFieldExportGroupPathAcked.CountBytes(Ar);
+	NetFieldExportAcked.CountBytes(Ar);
 }
 
 //------------------------------------------------------

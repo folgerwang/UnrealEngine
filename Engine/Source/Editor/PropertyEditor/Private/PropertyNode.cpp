@@ -1707,17 +1707,8 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 				}
 				else if ( GetArrayIndex() == INDEX_NONE && InProperty->ArrayDim > 1 )
 				{
-					for ( int32 Idx = 0; !bDiffersFromDefaultForObject && Idx < InProperty->ArrayDim; Idx++ )
-					{
-						uint8* DefaultAddress = ValueTracker.GetPropertyDefaultAddress() + Idx * InProperty->ElementSize;
-						FString DefaultItem;
-						InProperty->ExportTextItem( DefaultItem, DefaultAddress, DefaultAddress, InObject, PortFlags, NULL );
-						if ( DefaultValue.Len() > 0 && DefaultItem.Len() > 0 )
-						{
-							DefaultValue += TEXT( ", " );
-						}
-						DefaultValue += DefaultItem;
-					}
+					UArrayProperty::ExportTextInnerItem(DefaultValue, InProperty, ValueTracker.GetPropertyDefaultAddress(), InProperty->ArrayDim,
+														ValueTracker.GetPropertyDefaultAddress(), InProperty->ArrayDim, nullptr, PortFlags);
 				}
 				else
 				{

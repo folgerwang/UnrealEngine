@@ -240,11 +240,11 @@ bool FSLESSoundSource::ReadMorePCMData(const int32 BufferIndex, EDataReadMode Da
 	{
 		if (DataReadMode == EDataReadMode::Synchronous)
 		{
-			return SLESBuffer->ReadCompressedData(AudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never);
+			return SLESBuffer->ReadCompressedData(AudioBuffers[BufferIndex].AudioData, MONO_PCM_BUFFER_SAMPLES, WaveInstance->LoopingMode != LOOP_Never);
 		}
 		else
 		{
-			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(SLESBuffer, AudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(SLESBuffer, AudioBuffers[BufferIndex].AudioData, WaveInstance->WaveData->NumPrecacheFrames, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
 			RealtimeAsyncTask->StartBackgroundTask();
 			return false;
 		}

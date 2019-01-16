@@ -5,8 +5,8 @@
 #include "Misc/Variant.h"
 #include "BuildPatchManifest.h"
 #include "Core/BlockStructure.h"
+#include "Core/FileSpan.h"
 #include "Generation/FileAttributesParser.h"
-#include "Generation/BuildStreamer.h"
 
 namespace BuildPatchServices
 {

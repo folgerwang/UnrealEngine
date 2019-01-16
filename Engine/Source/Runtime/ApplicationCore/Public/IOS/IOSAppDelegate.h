@@ -157,6 +157,7 @@ UITextFieldDelegate>
 -(int)GetBatteryLevel;
 -(bool)IsRunningOnBattery;
 -(NSProcessInfoThermalState)GetThermalState;
+-(void)CheckForZoomAccessibility;
 
 /** TRUE if the device is playing background music and we want to allow that */
 @property (assign) bool bUsingBackgroundMusic;

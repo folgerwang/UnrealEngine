@@ -233,15 +233,6 @@ namespace UnrealBuildTool
 				Result += " -fno-exceptions";
 			}
 
-			if (CompileEnvironment.bEnableObjCExceptions)
-			{
-				Result += " -fobjc-exceptions";
-			}
-			else
-			{
-				Result += " -fno-objc-exceptions";
-			}
-
 			string SanitizerMode = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
 			if(SanitizerMode != null && SanitizerMode == "YES")
 			{
@@ -412,6 +403,23 @@ namespace UnrealBuildTool
 			else
 			{
 				Result = " -fno-rtti";
+			}
+
+			return Result;
+		}
+
+		// Conditionally enable (default disabled) Objective-C exceptions
+		static string GetObjCExceptionsFlag(CppCompileEnvironment CompileEnvironment)
+		{
+			string Result = "";
+
+			if (CompileEnvironment.bEnableObjCExceptions)
+			{
+				Result += " -fobjc-exceptions";
+			}
+			else
+			{
+				Result += " -fno-objc-exceptions";
 			}
 
 			return Result;
@@ -623,6 +631,7 @@ namespace UnrealBuildTool
 					// Compile the file as a C++ PCH.
 					FileArguments += GetCompileArguments_PCH();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else if (Extension == ".C")
 				{
@@ -634,17 +643,20 @@ namespace UnrealBuildTool
 					// Compile the file as Objective-C++ code.
 					FileArguments += GetCompileArguments_MM();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else if (Extension == ".M")
 				{
-					// Compile the file as Objective-C++ code.
+					// Compile the file as Objective-C code.
 					FileArguments += GetCompileArguments_M();
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 				}
 				else
 				{
 					// Compile the file as C++ code.
 					FileArguments += GetCompileArguments_CPP();
 					FileArguments += GetRTTIFlag(CompileEnvironment);
+					FileArguments += GetObjCExceptionsFlag(CompileEnvironment);
 
 					// only use PCH for .cpp files
 					FilePCHArguments = PCHArguments;
@@ -1411,7 +1423,7 @@ namespace UnrealBuildTool
 		private static void GenerateCrashlyticsData(string ExecutableDirectory, string ExecutableName, string ProjectDir, string ProjectName)
         {
 			Log.TraceInformation("Generating and uploading Crashlytics Data");
-            string FabricPath = UnrealBuildTool.EngineDirectory + "/Intermediate/UnzippedFrameworks/ThirdPartyFrameworks/Fabric.embeddedframework";
+            string FabricPath = UnrealBuildTool.EngineDirectory + "/Intermediate/ThirdPartyFrameworks/Fabric.embeddedframework";
             if (Directory.Exists(FabricPath) && Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
             {
 				string PlistFile = ProjectDir + "/Intermediate/IOS/" + ProjectName + "-Info.plist";

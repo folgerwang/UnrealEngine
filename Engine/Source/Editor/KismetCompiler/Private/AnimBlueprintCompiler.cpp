@@ -2037,7 +2037,10 @@ void FAnimBlueprintCompilerContext::SpawnNewClass(const FString& NewClassName)
 
 void FAnimBlueprintCompilerContext::OnPostCDOCompiled()
 {
-	FExposedValueHandler::Initialize( NewAnimBlueprintClass->EvaluateGraphExposedInputs, NewAnimBlueprintClass->ClassDefaultObject );
+	for (UAnimBlueprintGeneratedClass* ClassWithInputHandlers = NewAnimBlueprintClass; ClassWithInputHandlers != nullptr; ClassWithInputHandlers = Cast<UAnimBlueprintGeneratedClass>(ClassWithInputHandlers->GetSuperClass()))
+	{
+		FExposedValueHandler::Initialize(ClassWithInputHandlers->EvaluateGraphExposedInputs, NewAnimBlueprintClass->ClassDefaultObject);
+	}
 }
 
 void FAnimBlueprintCompilerContext::OnNewClassSet(UBlueprintGeneratedClass* ClassToUse)

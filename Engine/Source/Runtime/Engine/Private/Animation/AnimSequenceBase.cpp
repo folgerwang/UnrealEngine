@@ -12,6 +12,7 @@
 #include "UObject/FortniteMainBranchObjectVersion.h"
 
 DEFINE_LOG_CATEGORY(LogAnimMarkerSync);
+CSV_DECLARE_CATEGORY_EXTERN(Animation);
 
 #define LOCTEXT_NAMESPACE "AnimSequenceBase"
 /////////////////////////////////////////////////////
@@ -720,7 +721,19 @@ void UAnimSequenceBase::RefreshParentAssetData()
 /** Add curve data to Instance at the time of CurrentTime **/
 void UAnimSequenceBase::EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData) const
 {
+	CSV_SCOPED_TIMING_STAT(Animation, EvaluateCurveData);
 	RawCurveData.EvaluateCurveData(OutCurve, CurrentTime);
+}
+
+float UAnimSequenceBase::EvaluateCurveData(SmartName::UID_Type CurveUID, float CurrentTime, bool bForceUseRawData) const
+{
+	const FFloatCurve* Curve = (const FFloatCurve*)RawCurveData.GetCurveData(CurveUID, ERawCurveTrackTypes::RCT_Float);
+	return Curve != nullptr ? Curve->Evaluate(CurrentTime) : 0.0f;
+}
+
+bool UAnimSequenceBase::HasCurveData(SmartName::UID_Type CurveUID, bool bForceUseRawData) const
+{
+	return RawCurveData.GetCurveData(CurveUID) != nullptr;
 }
 
 void UAnimSequenceBase::Serialize(FArchive& Ar)

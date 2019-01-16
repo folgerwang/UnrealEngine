@@ -677,13 +677,14 @@ enum ETextureCreateFlags
 	TexCreate_DepthStencilTargetable= 1<<2,
 	// Texture can be used as a shader resource.
 	TexCreate_ShaderResource		= 1<<3,
-
 	// Texture is encoded in sRGB gamma space
 	TexCreate_SRGB					= 1<<4,
 	// Texture data is writable by the CPU
 	TexCreate_CPUWritable			= 1<<5,
 	// Texture will be created with an un-tiled format
 	TexCreate_NoTiling				= 1<<6,
+	// Texture will be used for video decode on Switch
+	TexCreate_VideoDecode			= 1<<7,
 	// Texture that may be updated every frame
 	TexCreate_Dynamic				= 1<<8,
 	// Texture will be used as a render pass attachment that will be read from
@@ -696,6 +697,8 @@ enum ETextureCreateFlags
 	TexCreate_GenerateMipCapable	= 1<<12,
 	// The texture can be partially allocated in fastvram
 	TexCreate_FastVRAMPartialAlloc  = 1<<13,
+	// Do not create associated shader resource view, only applicable to D3D11 and D3D12
+	TexCreate_DisableSRVCreation = 1 << 14,
 	// UnorderedAccessView (DX11 only)
 	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 	// See: GCNPerformanceTweets.pdf Tip 37

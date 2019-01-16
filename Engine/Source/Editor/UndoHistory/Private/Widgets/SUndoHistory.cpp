@@ -7,10 +7,15 @@
 #include "Widgets/Input/SButton.h"
 #include "EditorStyleSet.h"
 #include "Editor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/SUndoHistoryTableRow.h"
+#include "Widgets/Input/SComboButton.h"
 #include "Editor/TransBuffer.h"
-
+#include "Classes/UndoHistorySettings.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Widgets/SUndoHistoryDetails.h"
 
 #define LOCTEXT_NAMESPACE "SUndoHistory"
 
@@ -30,53 +35,163 @@ void SUndoHistory::Construct( const FArguments& InArgs )
 		+ SVerticalBox::Slot()
 			.FillHeight(1.0f)
 			[
-				SNew(SBorder)
-					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-					.Padding(FMargin(0.0f, 4.0f))
-					[
-						SAssignNew(UndoListView, SListView<TSharedPtr<FTransactionInfo> >)
-							.ItemHeight(24.0f)
-							.ListItemsSource(&UndoList)
-							.SelectionMode(ESelectionMode::Single)
-							.OnGenerateRow(this, &SUndoHistory::HandleUndoListGenerateRow)
-							.OnSelectionChanged(this, &SUndoHistory::HandleUndoListSelectionChanged)
-							.HeaderRow
-							(
-								SNew(SHeaderRow)
-									.Visibility(EVisibility::Collapsed)
+				SAssignNew(Splitter, SSplitter)
+					.Orientation(EOrientation::Orient_Vertical)
 
-								+ SHeaderRow::Column("Title")
-							)
-					]
+					+ SSplitter::Slot()
+						[
+							SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.Padding(FMargin(2.0f))
+								.AutoHeight()
+								[
+									SNew(SHorizontalBox)
+
+									+SHorizontalBox::Slot()
+										.AutoWidth()
+										.Padding( 0.0f, 0.0f, 4.0f, 0.0f )
+										[
+											SNew( SImage )
+												.Image( FEditorStyle::GetBrush( "LevelEditor.Tabs.Details" ) )
+										]
+
+									+SHorizontalBox::Slot()
+										.HAlign(HAlign_Left)
+										[
+											SNew(STextBlock)
+												.TextStyle( FEditorStyle::Get(), "Docking.TabFont" )
+												.Text(LOCTEXT("TransactionHistoryLabel", "Transactions"))
+										]
+								]
+							
+								+ SVerticalBox::Slot()
+								[
+									SNew(SBorder)
+										.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+										.Padding(FMargin(4.0f, 1.0f))
+										[
+											SAssignNew(UndoListView, SListView<TSharedPtr<FTransactionInfo> >)
+												.ItemHeight(24.0f)
+												.ListItemsSource(&UndoList)
+												.SelectionMode(ESelectionMode::Single)
+												.OnGenerateRow(this, &SUndoHistory::HandleUndoListGenerateRow)
+												.OnMouseButtonDoubleClick(this, &SUndoHistory::HandleUndoListJumpToTransaction)
+												.OnSelectionChanged(this, &SUndoHistory::HandleUndoListSelectionChanged)
+												.HeaderRow
+												(
+													SNew(SHeaderRow)
+														.Visibility(EVisibility::Collapsed)
+
+													+ SHeaderRow::Column("Title")
+														.FillWidth(80.0f)
+
+													+ SHeaderRow::Column("JumpToButton")
+														.FixedWidth(30.0f)
+												)
+										]
+								]
+
+						]
+
+					+ SSplitter::Slot()
+						.Value(0.4f)
+						[
+							SNew(SVerticalBox)
+							.Visibility(this, &SUndoHistory::HandleUndoHistoryDetailsVisibility)
+							+SVerticalBox::Slot()
+							.Padding(FMargin(2.0f))
+							.AutoHeight()
+							[
+								SNew(SHorizontalBox)
+
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									.Padding( 0.0f, 0.0f, 4.0f, 0.0f )
+									[
+										SNew(SImage)
+											.Image(FEditorStyle::GetBrush( "LevelEditor.Tabs.Details" ))
+									]
+
+								+ SHorizontalBox::Slot()
+									.Padding(FMargin(4.0f, 0.0f))
+									[
+										SNew(STextBlock)
+											.TextStyle(FEditorStyle::Get(), "Docking.TabFont")
+											.Text(LOCTEXT("TransactionDetailsLabel", "Transaction Details"))
+									]
+							]
+							
+							+SVerticalBox::Slot()
+							[
+								SAssignNew(UndoDetailsView, SUndoHistoryDetails)
+							]
+						]
 			]
 
 		+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+			.Padding(0.0f, 2.0f, 0.0f, 0.0f)
 			[
 				SNew(SHorizontalBox)
 
 				+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
+					.AutoWidth()
+					.Padding(2.0f, 0.0f, 0.0f, 0.0f)
 					.VAlign(VAlign_Center)
 					[
-						// undo size
 						SNew(STextBlock)
-							.Text(this, &SUndoHistory::HandleUndoSizeTextBlockText)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.ToolTipText(LOCTEXT("UndoBufferFullToolTip", "The undo buffer has reached its maximum capacity, transactions will be deleted from the top."))
+							.Text(FText::FromString(FString(TEXT("\xf071 "))) /*fa-exclamation-triangle*/)
+							.ColorAndOpacity(FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("FlatButton.Danger").Normal.TintColor)
+							.Visibility(this, &SUndoHistory::HandleUndoWarningVisibility)
 					]
 
 				+ SHorizontalBox::Slot()
 					.AutoWidth()
-					.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+					.VAlign(VAlign_Center)
 					[
-						// discard history button
-						SNew(SButton)
-							.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-							.OnClicked(this, &SUndoHistory::HandleDiscardHistoryButtonClicked)
+						// Undo size
+						SNew(STextBlock)
+							.Text(this, &SUndoHistory::HandleUndoSizeTextBlockText)
+					]
+
+				+ SHorizontalBox::Slot() 
+					.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+					.AutoWidth()
+					.HAlign(HAlign_Left)
+					[
+						// Discard history button
+						SAssignNew(DiscardButton, SButton)
+							.ForegroundColor(FSlateColor::UseForeground())
+							.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
+ 							.OnClicked(this, &SUndoHistory::HandleDiscardHistoryButtonClicked)
 							.ToolTipText(LOCTEXT("DiscardHistoryButtonToolTip", "Discard the Undo History."))
 							[
 								SNew(SImage)
 									.Image(FEditorStyle::Get().GetBrush("TrashCan_Small"))
+							]
+					]
+
+				+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					[
+						SNew(SComboButton)
+							.ContentPadding(0)
+							.ForegroundColor(FSlateColor::UseForeground())
+							.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
+							.OnGetMenuContent(this, &SUndoHistory::GetViewButtonContent)
+							.ButtonContent()
+							[
+								SNew(SHorizontalBox)
+
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(SImage).Image(FEditorStyle::GetBrush("GenericViewButton"))
+									]
 							]
 					]
 			]
@@ -88,6 +203,7 @@ void SUndoHistory::Construct( const FArguments& InArgs )
 	{
 		UTransBuffer* TransBuffer = CastChecked<UTransBuffer>(GEditor->Trans);
 		TransBuffer->OnUndoBufferChanged().AddRaw(this, &SUndoHistory::OnUndoBufferChanged);
+		TransBuffer->OnTransactionStateChanged().AddRaw(this, &SUndoHistory::OnTransactionStateChanged);
 	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -98,6 +214,7 @@ SUndoHistory::~SUndoHistory()
 	{
 		UTransBuffer* TransBuffer = CastChecked<UTransBuffer>(GEditor->Trans);
 		TransBuffer->OnUndoBufferChanged().RemoveAll(this);
+		TransBuffer->OnTransactionStateChanged().RemoveAll(this);
 	}
 }
 
@@ -108,7 +225,16 @@ void SUndoHistory::OnUndoBufferChanged()
 	SelectLastTransaction();
 }
 
-void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+
+void SUndoHistory::OnTransactionStateChanged(const FTransactionContext& TransactionContext, ETransactionStateEventType TransactionState)
+{
+	if (TransactionState == ETransactionStateEventType::TransactionFinalized)
+	{
+		SelectLastTransaction();
+	}
+}
+
+void SUndoHistory::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	// reload the transaction list if necessary
 	if (GEditor == nullptr || GEditor->Trans == nullptr)
@@ -132,7 +258,7 @@ void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurre
 /* SUndoHistory implementation
  *****************************************************************************/
 
-void SUndoHistory::ReloadUndoList( )
+void SUndoHistory::ReloadUndoList()
 {
 	UndoList.Empty();
 
@@ -156,7 +282,13 @@ void SUndoHistory::SelectLastTransaction()
 		LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - 1;
 		if (UndoList.IsValidIndex(LastActiveTransactionIndex))
 		{
-			UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
+			const TSharedPtr<FTransactionInfo>& TransactionInfo = UndoList[LastActiveTransactionIndex];
+
+			if (TransactionInfo.IsValid() && TransactionInfo->Transaction)
+			{
+				UndoListView->SetSelection(TransactionInfo);
+				UndoDetailsView->SetSelectedTransaction(TransactionInfo->Transaction->GenerateDiff());
+			}
 		}
 	}
 }
@@ -165,28 +297,47 @@ void SUndoHistory::SelectLastTransaction()
 /* SUndoHistory callbacks
  *****************************************************************************/
 
-FReply SUndoHistory::HandleDiscardHistoryButtonClicked( )
+FReply SUndoHistory::HandleDiscardHistoryButtonClicked()
 {
 	if ((GEditor != nullptr) && (GEditor->Trans != nullptr))
 	{
 		GEditor->Trans->Reset(LOCTEXT("DiscardHistoryReason", "Discard undo history."));
 		ReloadUndoList();
+		UndoDetailsView->Reset();
 	}
 
 	return FReply::Handled();
 }
 
 
-TSharedRef<ITableRow> SUndoHistory::HandleUndoListGenerateRow( TSharedPtr<FTransactionInfo> TransactionInfo, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SUndoHistory::HandleUndoListGenerateRow(TSharedPtr<FTransactionInfo> TransactionInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SUndoHistoryTableRow, OwnerTable)
+		.OnGotoTransactionClicked(this, &SUndoHistory::HandleGoToTransaction)
 		.IsApplied(this, &SUndoHistory::HandleUndoListRowIsApplied, TransactionInfo->QueueIndex)
 		.QueueIndex(TransactionInfo->QueueIndex)
 		.Transaction(TransactionInfo->Transaction);
 }
 
+void SUndoHistory::HandleGoToTransaction(const FGuid& TargetTransactionId)
+{
+	TSharedPtr<FTransactionInfo>* Transaction = UndoList.FindByPredicate([TargetTransactionId](TSharedPtr<FTransactionInfo> TransactionInfo)
+	{
+		if (TransactionInfo->Transaction == nullptr)
+		{
+			return false;
+		}
 
-bool SUndoHistory::HandleUndoListRowIsApplied( int32 QueueIndex ) const
+		return TransactionInfo->Transaction->GetId() == TargetTransactionId;
+	});
+
+	if (Transaction != nullptr)
+	{
+		HandleUndoListJumpToTransaction(*Transaction);
+	}
+}
+
+bool SUndoHistory::HandleUndoListRowIsApplied(int32 QueueIndex) const
 {
 	if ((GEditor == nullptr) || (GEditor->Trans == nullptr))
 	{
@@ -197,22 +348,60 @@ bool SUndoHistory::HandleUndoListRowIsApplied( int32 QueueIndex ) const
 }
 
 
-void SUndoHistory::HandleUndoListSelectionChanged( TSharedPtr<FTransactionInfo> InItem, ESelectInfo::Type SelectInfo )
+void SUndoHistory::HandleUndoListSelectionChanged(TSharedPtr<FTransactionInfo> InItem, ESelectInfo::Type SelectInfo)
 {
-	if (!InItem.IsValid() || (SelectInfo == ESelectInfo::Direct) || (GEditor == nullptr) || (GEditor->Trans == nullptr))
+	if (!InItem.IsValid() || (GEditor == nullptr) || (GEditor->Trans == nullptr))
+	{
+		return;
+	}
+
+	if (InItem->Transaction)
+	{
+		UndoDetailsView->SetSelectedTransaction(InItem->Transaction->GenerateDiff());
+	}
+
+	if (SelectInfo == ESelectInfo::OnMouseClick || SelectInfo == ESelectInfo::Direct)
+	{
+		// Use Private_SetItemSelection to avoid creating an OnSelectionChanged broadcast
+		UndoListView->Private_SetItemSelection(InItem, true, false);
+		UndoListView->RequestScrollIntoView(InItem);
+	}
+
+
+}
+
+void SUndoHistory::HandleUndoListJumpToTransaction(TSharedPtr<FTransactionInfo> InItem)
+{
+	if (!InItem.IsValid() || (GEditor == nullptr) || (GEditor->Trans == nullptr))
 	{
 		return;
 	}
 
 	LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - GEditor->Trans->GetUndoCount() - 1;
 
+	const int32 RemainingUndoRedo = FMath::Abs(InItem->QueueIndex - LastActiveTransactionIndex);
+
+ 	FScopedSlowTask SlowTask(RemainingUndoRedo, LOCTEXT("ReplayingTransactions", "Replaying Transactions..."));
+ 	SlowTask.MakeDialogDelayed(0.5f);
+
+	const auto ProgressLambda = [&SlowTask](const int32 InTransactionIndex)
+	{
+		const FTransaction* Transaction = GEditor->Trans->GetTransaction(InTransactionIndex);
+
+		if (Transaction)
+		{
+			SlowTask.EnterProgressFrame(1.0f, FText::Format(LOCTEXT("ReplayingTransactionFmt", "Replaying {0}"), Transaction->GetTitle()));
+		}
+	};
+
 	while (InItem->QueueIndex > LastActiveTransactionIndex)
 	{
 		if (!GEditor->Trans->Redo())
-		{
+		{	
 			break;
 		}
 
+		ProgressLambda(LastActiveTransactionIndex);
 		++LastActiveTransactionIndex;
 	}
 
@@ -223,12 +412,21 @@ void SUndoHistory::HandleUndoListSelectionChanged( TSharedPtr<FTransactionInfo> 
 			break;
 		}
 
+		ProgressLambda(LastActiveTransactionIndex);
 		--LastActiveTransactionIndex;
 	}
+
+	UndoListView->RequestScrollIntoView(InItem);
+	UndoListView->SetSelection(InItem);
 }
 
 
-FText SUndoHistory::HandleUndoSizeTextBlockText( ) const
+EVisibility SUndoHistory::HandleUndoHistoryDetailsVisibility() const
+{
+	return IsShowingTransactionDetails() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+FText SUndoHistory::HandleUndoSizeTextBlockText() const
 {
 	if ((GEditor == nullptr) || (GEditor->Trans == nullptr))
 	{
@@ -238,5 +436,54 @@ FText SUndoHistory::HandleUndoSizeTextBlockText( ) const
 	return FText::Format(LOCTEXT("TransactionCountF", "{0} Transactions ({1})"), FText::AsNumber(UndoList.Num()), FText::AsMemory(GEditor->Trans->GetUndoSize()));
 }
 
+EVisibility SUndoHistory::HandleUndoWarningVisibility() const
+{
+	if ((GEditor == nullptr) || (GEditor->Trans == nullptr))
+	{
+		return EVisibility::Collapsed;
+	}
+
+	UTransBuffer* TransBuffer = CastChecked<UTransBuffer>(GEditor->Trans);
+
+	return TransBuffer->GetUndoSize() > TransBuffer->MaxMemory ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+TSharedRef<SWidget> SUndoHistory::GetViewButtonContent() const
+{
+	FMenuBuilder MenuBuilder(true, NULL);
+
+	MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowHeading", "Show"));
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ToggleShowTransactionDetails", "Show transactions details."),
+			LOCTEXT("ToggleShowTransactionDetailsToolTip", "When enabled, display additional information about transactions."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SUndoHistory::ToggleShowTransactionDetails),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP(this, &SUndoHistory::IsShowingTransactionDetails)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
+
+/** FILTERS */
+void SUndoHistory::ToggleShowTransactionDetails()
+{
+	const bool bEnableFlag = !IsShowingTransactionDetails();
+
+	UUndoHistorySettings* Settings = GetMutableDefault<UUndoHistorySettings>();
+	Settings->bShowTransactionDetails = bEnableFlag;
+}
+
+bool SUndoHistory::IsShowingTransactionDetails() const
+{
+	return GetDefault<UUndoHistorySettings>()->bShowTransactionDetails;
+}
 
 #undef LOCTEXT_NAMESPACE

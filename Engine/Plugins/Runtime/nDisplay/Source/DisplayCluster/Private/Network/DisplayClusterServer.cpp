@@ -1,18 +1,18 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterServer.h"
+#include "Network/DisplayClusterServer.h"
 
 #include "Misc/DisplayClusterLog.h"
 #include "Misc/ScopeLock.h"
 
 
-FDisplayClusterServer::FDisplayClusterServer(const FString& name, const FString& addr, const int32 port) :
-	Name(name),
-	Address(addr),
-	Port(port),
-	Listener(name + FString("_listener"))
+FDisplayClusterServer::FDisplayClusterServer(const FString& InName, const FString& InAddr, const int32 InPort) :
+	Name(InName),
+	Address(InAddr),
+	Port(InPort),
+	Listener(InName + FString("_listener"))
 {
-	check(port > 0 && port < 0xffff);
+	check(InPort > 0 && InPort < 0xffff);
 	
 	// Bind connection handler method
 	Listener.OnConnectionAccepted().BindRaw(this, &FDisplayClusterServer::ConnectionHandler);
@@ -22,6 +22,12 @@ FDisplayClusterServer::~FDisplayClusterServer()
 {
 	// Call from child .dtor
 	Shutdown();
+
+	// Now we can safely free all memory from our sessions. Need to be refactored in future.
+	for (auto* Session : Sessions)
+	{
+		delete Session;
+	}
 }
 
 bool FDisplayClusterServer::Start()
@@ -70,22 +76,25 @@ bool FDisplayClusterServer::IsRunning()
 	return bIsRunning;
 }
 
-bool FDisplayClusterServer::ConnectionHandler(FSocket* pSock, const FIPv4Endpoint& ep)
+bool FDisplayClusterServer::ConnectionHandler(FSocket* InSock, const FIPv4Endpoint& InEP)
 {
 	FScopeLock lock(&InternalsSyncScope);
-	check(pSock);
+	check(InSock);
 
-	if (IsRunning() && IsConnectionAllowed(pSock, ep))
+	if (IsRunning() && IsConnectionAllowed(InSock, InEP))
 	{
-		pSock->SetLinger(false, 0);
-		pSock->SetNonBlocking(false);
+		InSock->SetLinger(false, 0);
+		InSock->SetNonBlocking(false);
 
 		int32 newSize = static_cast<int32>(DisplayClusterConstants::net::SocketBufferSize);
 		int32 setSize;
-		pSock->SetReceiveBufferSize(newSize, setSize);
-		pSock->SetSendBufferSize(newSize, setSize);
+		InSock->SetReceiveBufferSize(newSize, setSize);
+		InSock->SetSendBufferSize(newSize, setSize);
 
-		Sessions.Add(TUniquePtr<FDisplayClusterSession>(new FDisplayClusterSession(pSock, this, GetName() + FString("_session_") + ep.ToString())));
+		FDisplayClusterSessionBase* Session = CreateSession(InSock, InEP);
+		Session->StartSession();
+		Sessions.Add(Session);
+
 		return true;
 	}
 
@@ -95,12 +104,14 @@ bool FDisplayClusterServer::ConnectionHandler(FSocket* pSock, const FIPv4Endpoin
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterSessionListener
 //////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterServer::NotifySessionOpen(FDisplayClusterSession* pSession)
+void FDisplayClusterServer::NotifySessionOpen(FDisplayClusterSessionBase* InSession)
 {
 }
 
-void FDisplayClusterServer::NotifySessionClose(FDisplayClusterSession* pSession)
+void FDisplayClusterServer::NotifySessionClose(FDisplayClusterSessionBase* InSession)
 {
+	// We come here from a Session object so we can't delete it right now. The delete operation should
+	// be performed later when the Session completely finished. This should be refactored in future.
+	// For now we just hold all 'dead' session objects in the Sessions array and free memory when
+	// this server is shutting down (look at the destructor).
 }
-
-

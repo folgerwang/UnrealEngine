@@ -55,6 +55,7 @@ private:
 
 	enum class EAllowDefaultCultureFallback : uint8 { No, Yes, };
 	FCulturePtr FindOrMakeCulture(const FString& Name, const EAllowDefaultCultureFallback AllowDefaultFallback);
+	FCulturePtr FindOrMakeCanonizedCulture(const FString& Name, const EAllowDefaultCultureFallback AllowDefaultFallback);
 
 	void InitializeTimeZone();
 	void InitializeInvariantGregorianCalendar();
@@ -81,7 +82,8 @@ private:
 private:
 	FInternationalization* const I18N;
 
-	TArray< void* > DLLHandles;
+	TArray<void*> DLLHandles;
+	FString ICUDataDirectory;
 
 	TArray<FICUCultureData> AllAvailableCultures;
 	TMap<FString, int32> AllAvailableCulturesMap;
@@ -100,8 +102,8 @@ private:
 	TUniquePtr<icu::GregorianCalendar> InvariantGregorianCalendar;
 	FCriticalSection InvariantGregorianCalendarCS;
 
-	static UBool OpenDataFile(const void* context, void** fileContext, void** contents, const char* path);
-	static void CloseDataFile(const void* context, void* const fileContext, void* const contents);
+	static UBool OpenDataFile(const void* InContext, void** OutFileContext, void** OutContents, const char* InPath);
+	static void CloseDataFile(const void* InContext, void* const InFileContext, void* const InContents);
 
 	// Tidy class for storing the count of references for an ICU data file and the file's data itself.
 	struct FICUCachedFileData

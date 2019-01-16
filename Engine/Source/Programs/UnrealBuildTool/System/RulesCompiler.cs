@@ -279,11 +279,22 @@ namespace UnrealBuildTool
 		/// <returns>New rules assembly. Returns null if the enterprise directory is unavailable.</returns>
 		public static RulesAssembly CreateEnterpriseRulesAssembly(bool bUsePrecompiled, bool bSkipCompile)
 		{
-			if (EnterpriseRulesAssembly == null && DirectoryReference.Exists(UnrealBuildTool.EnterpriseDirectory))
+			if (EnterpriseRulesAssembly == null)
 			{
-				IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnterprisePlugins(UnrealBuildTool.EnterpriseDirectory);
-				EnterpriseRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEnterpriseInstalled() || bUsePrecompiled, bSkipCompile, CreateEngineRulesAssembly(bUsePrecompiled, bSkipCompile));
+				if (DirectoryReference.Exists(UnrealBuildTool.EnterpriseDirectory))
+				{
+					IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnterprisePlugins(UnrealBuildTool.EnterpriseDirectory);
+					EnterpriseRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEnterpriseInstalled() || bUsePrecompiled, bSkipCompile, CreateEngineRulesAssembly(bUsePrecompiled, bSkipCompile));
+				}
+				else
+				{
+					Log.TraceWarning("Trying to build an enterprise target but the enterprise directory is missing. Falling back on engine components only.");
+
+					// If we're asked for the enterprise rules assembly but the enterprise directory is missing, fallback on the engine rules assembly
+					return CreateEngineRulesAssembly(bUsePrecompiled, bSkipCompile);
+				}
 			}
+
 			return EnterpriseRulesAssembly;
 		}
 

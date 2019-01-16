@@ -18,7 +18,12 @@
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/BodySetup.h"
 
+int32 GPhysXHackLoopCounter = -1;
+FAutoConsoleVariableRef CVarHackLoopCounter(TEXT("p.TriMeshBufferOverflowCounter"), GPhysXHackLoopCounter, TEXT("Loop logging counter - set to -1 to disable logging"), ECVF_Default);
+
+
 PxFoundation*			GPhysXFoundation = NULL;
+int32					GPhysXHackCurrentLoopCounter = 0;
 PxPvd*					GPhysXVisualDebugger = NULL;
 PxPhysics*				GPhysXSDK = NULL;
 FPhysXAllocator*		GPhysXAllocator = NULL;
@@ -52,16 +57,6 @@ PxTransform UMatrix2PTransform(const FMatrix& UTM)
 {
 	PxQuat PQuat = U2PQuat(UTM.ToQuat());
 	PxVec3 PPos = U2PVector(UTM.GetOrigin());
-
-	PxTransform Result(PPos, PQuat);
-
-	return Result;
-}
-
-PxTransform U2PTransform(const FTransform& UTransform)
-{
-	PxQuat PQuat = U2PQuat(UTransform.GetRotation());
-	PxVec3 PPos = U2PVector(UTransform.GetLocation());
 
 	PxTransform Result(PPos, PQuat);
 
@@ -920,6 +915,9 @@ FString ErrorCodeToString(PxErrorCode::Enum e)
 	case PxErrorCode::ePERF_WARNING:
 		CodeString = TEXT("ePERF_WARNING");
 		break;
+	case PxErrorCode::eLOGGING_INFO:
+		CodeString = TEXT("eLOGGING_INFO");
+		break;
 	default:
 		CodeString = TEXT("UNKONWN");		
 	}
@@ -937,6 +935,18 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 		return;
 	}
 
+	if (e == PxErrorCode::eLOGGING_INFO)
+	{
+		if (GPhysXHackLoopCounter == -1)
+		{
+			return;
+		}
+		GPhysXHackCurrentLoopCounter++;
+		if (GPhysXHackCurrentLoopCounter <= GPhysXHackLoopCounter)
+		{
+			return;
+		}
+	}
 
 	if (e == PxErrorCode::eINTERNAL_ERROR)
 	{
@@ -962,7 +972,6 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 			e = PxErrorCode::eDEBUG_WARNING;
 		}
 	}
-
 	// Make string to print out, include physx file/line
 	FString ErrorString = FString::Printf(TEXT("PHYSX: (%s %d) %s : %s"), ANSI_TO_TCHAR(file), line, *ErrorCodeToString(e), ANSI_TO_TCHAR(message));
 
@@ -976,7 +985,7 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 		UE_LOG(LogPhysics, Error, TEXT("%s"), *ErrorString);
 		//ensureMsgf(false, TEXT("%s"), *ErrorString);
 	}
-	else if (e == PxErrorCode::ePERF_WARNING || e == PxErrorCode::eINTERNAL_ERROR)
+	else if (e == PxErrorCode::ePERF_WARNING || e == PxErrorCode::eINTERNAL_ERROR || e == PxErrorCode::eLOGGING_INFO)
 	{
 		UE_LOG(LogPhysics, Warning, TEXT("%s"), *ErrorString);
 	}

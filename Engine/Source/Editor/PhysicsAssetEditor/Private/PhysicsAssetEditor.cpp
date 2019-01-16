@@ -1380,7 +1380,8 @@ void FPhysicsAssetEditor::AddNewPrimitive(EAggCollisionShape::Type InPrimitiveTy
 			int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(BoneProxy->BoneName);
 			if (BoneIndex != INDEX_NONE)
 			{
-				int32 NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(SharedData->PhysicsAsset, BoneProxy->BoneName);
+				const FPhysAssetCreateParams& NewBodyData = GetDefault<UPhysicsAssetGenerationSettings>()->CreateParams;
+				int32 NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(SharedData->PhysicsAsset, BoneProxy->BoneName, NewBodyData);
 				NewSelection.AddUnique(FPhysicsAssetEditorSharedData::FSelection(NewBodyIndex, EAggCollisionShape::Unknown, 0));
 			}
 		}
@@ -2767,6 +2768,7 @@ void FPhysicsAssetEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPre
 
 	// Create the preview component
 	SharedData->EditorSkelComp = NewObject<UPhysicsAssetEditorSkeletalMeshComponent>(Actor);
+	SharedData->EditorSkelComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	SharedData->EditorSkelComp->SharedData = SharedData.Get();
 	SharedData->EditorSkelComp->SetSkeletalMesh(SharedData->PhysicsAsset->GetPreviewMesh());
 	SharedData->EditorSkelComp->SetPhysicsAsset(SharedData->PhysicsAsset, true);

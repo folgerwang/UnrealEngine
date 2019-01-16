@@ -75,6 +75,10 @@ public:
 
 	void SetHighlightedRow(FName Name);
 
+	FText GetFilterText() const;
+
+	FSlateColor GetRowTextColor(FName RowName) const;
+
 protected:
 
 	void RefreshCachedDataTable(const FName InCachedSelection = NAME_None, const bool bUpdateEvenIfValid = false);
@@ -82,12 +86,9 @@ protected:
 	void UpdateVisibleRows(const FName InCachedSelection = NAME_None, const bool bUpdateEvenIfValid = false);
 
 	void RestoreCachedSelection(const FName InCachedSelection, const bool bUpdateEvenIfValid = false);
-
-	FText GetFilterText() const;
-
+	
 	void OnFilterTextChanged(const FText& InFilterText);
 
-	FSlateColor GetRowTextColor(FName RowName) const;
 	FText GetCellText(FDataTableEditorRowListViewDataPtr InRowDataPointer, int32 ColumnIndex) const;
 	FText GetCellToolTipText(FDataTableEditorRowListViewDataPtr InRowDataPointer, int32 ColumnIndex) const;
 

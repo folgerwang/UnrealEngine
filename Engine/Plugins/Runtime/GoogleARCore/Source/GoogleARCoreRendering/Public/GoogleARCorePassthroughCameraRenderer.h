@@ -28,7 +28,7 @@ class GOOGLEARCORERENDERING_API UGoogleARCoreCameraOverlayMaterialLoader : publi
 public:
 	/** A pointer to the camera overlay material that will be used to render the passthrough camera texture as background. */
 	UPROPERTY()
-		UMaterialInterface* DefaultCameraOverlayMaterial;
+	UMaterialInterface* DefaultCameraOverlayMaterial;
 
 	UGoogleARCoreCameraOverlayMaterialLoader()
 	{

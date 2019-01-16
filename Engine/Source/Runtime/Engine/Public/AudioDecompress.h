@@ -240,7 +240,7 @@ protected:
 	uint32 TrueSampleCount;
 	/** How many samples we've currently read in the source file. */
 	uint32 CurrentSampleCount;
-	/** Number of channels (left/right) in th esource file. */
+	/** Number of channels (left/right) in the source file. */
 	uint8 NumChannels;
 	/** The maximum number of samples per decode frame. */
 	uint32 MaxFrameSizeSamples;
@@ -260,6 +260,8 @@ protected:
 	int32 CurrentChunkIndex;
 	/** Whether or not to print the chunk fail message. */
 	bool bPrintChunkFailMessage;
+	/** Number of bytes of padding used, overridden in some implementations. Defaults to 0. */
+	uint32 SrcBufferPadding;
 };
 
 
@@ -269,9 +271,9 @@ protected:
 class FAsyncAudioDecompressWorker : public FNonAbandonableTask
 {
 protected:
-	class USoundWave*		Wave;
-
-	ICompressedAudioInfo*	AudioInfo;
+	USoundWave* Wave;
+	ICompressedAudioInfo* AudioInfo;
+	int32 NumPrecacheFrames;
 
 public:
 	/**
@@ -279,7 +281,7 @@ public:
 	 *
 	 * @param	InWave		Wave data to decompress
 	 */
-	ENGINE_API FAsyncAudioDecompressWorker(USoundWave* InWave);
+	ENGINE_API FAsyncAudioDecompressWorker(USoundWave* InWave, int32 InNumPrecacheFrames);
 
 	/**
 	 * Performs the async audio decompression
@@ -313,6 +315,7 @@ protected:
 	T* AudioBuffer;
 	USoundWave* WaveData;
 	uint8* AudioData;
+	int32 NumPrecacheFrames;
 	int32 MaxSamples;
 	int32 BytesWritten;
 	ERealtimeAudioTaskType TaskType;
@@ -325,6 +328,7 @@ public:
 		: AudioBuffer(InAudioBuffer)
 		, WaveData(InWaveData)
 		, AudioData(nullptr)
+		, NumPrecacheFrames(0)
 		, MaxSamples(0)
 		, BytesWritten(0)
 		, TaskType(ERealtimeAudioTaskType::CompressedInfo)
@@ -336,9 +340,10 @@ public:
 		check(WaveData);
 	}
 
-	FAsyncRealtimeAudioTaskWorker(T* InAudioBuffer, uint8* InAudioData, bool bInLoopingMode, bool bInSkipFirstBuffer)
+	FAsyncRealtimeAudioTaskWorker(T* InAudioBuffer, uint8* InAudioData, int32 InNumPrecacheFrames, bool bInLoopingMode, bool bInSkipFirstBuffer)
 		: AudioBuffer(InAudioBuffer)
 		, AudioData(InAudioData)
+		, NumPrecacheFrames(InNumPrecacheFrames)
 		, TaskType(ERealtimeAudioTaskType::Decompress)
 		, bSkipFirstBuffer(bInSkipFirstBuffer)
 		, bLoopingMode(bInLoopingMode)
@@ -351,6 +356,7 @@ public:
 	FAsyncRealtimeAudioTaskWorker(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
 		: WaveData(InWaveData)
 		, AudioData(InAudioData)
+		, NumPrecacheFrames(0)
 		, MaxSamples(InMaxSamples)
 		, BytesWritten(0)
 		, TaskType(ERealtimeAudioTaskType::Procedural)
@@ -374,18 +380,18 @@ public:
 			{
 #if PLATFORM_ANDROID
 				// Only skip one buffer on Android
-				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+				AudioBuffer->ReadCompressedData((uint8*)AudioData, NumPrecacheFrames, bLoopingMode );
 #else
 				// If we're using cached data we need to skip the first two reads from the data
-				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
-				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+				AudioBuffer->ReadCompressedData((uint8*)AudioData, NumPrecacheFrames, bLoopingMode);
+				AudioBuffer->ReadCompressedData((uint8*)AudioData, NumPrecacheFrames, bLoopingMode);
 #endif
 			}
-			bLooped = AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+			bLooped = AudioBuffer->ReadCompressedData((uint8*)AudioData, MONO_PCM_BUFFER_SAMPLES, bLoopingMode);
 			break;
 
 		case ERealtimeAudioTaskType::Procedural:
-			BytesWritten = WaveData->GeneratePCMData( (uint8*)AudioData, MaxSamples );
+			BytesWritten = WaveData->GeneratePCMData((uint8*)AudioData, MaxSamples);
 			break;
 
 		default:
@@ -434,9 +440,9 @@ public:
 		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InWaveData);
 	}
 
-	FAsyncRealtimeAudioTaskProxy(T* InAudioBuffer, uint8* InAudioData, bool bInLoopingMode, bool bInSkipFirstBuffer)
+	FAsyncRealtimeAudioTaskProxy(T* InAudioBuffer, uint8* InAudioData, int32 InNumFramesToDecode, bool bInLoopingMode, bool bInSkipFirstBuffer)
 	{
-		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InAudioData, bInLoopingMode, bInSkipFirstBuffer);
+		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InAudioData, InNumFramesToDecode, bInLoopingMode, bInSkipFirstBuffer);
 	}
 	FAsyncRealtimeAudioTaskProxy(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
 	{

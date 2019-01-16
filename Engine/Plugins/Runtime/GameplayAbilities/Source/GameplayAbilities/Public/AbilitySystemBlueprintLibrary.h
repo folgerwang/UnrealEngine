@@ -122,9 +122,13 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	UFUNCTION(BlueprintPure, Category = "Spec")
 	static FGameplayEffectSpecHandle CloneSpecHandle(AActor* InNewInstigator, AActor* InEffectCauser, FGameplayEffectSpecHandle GameplayEffectSpecHandle_Clone);
 
-	/** Returns all actors targeted */
+	/** Returns all actors targeted, for a given index */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static TArray<AActor*> GetActorsFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
+
+	/** Returns all actors targeted */
+	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
+	static TArray<AActor*> GetAllActorsFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData);
 
 	/** Returns true if the given TargetData has the actor passed in targeted */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")

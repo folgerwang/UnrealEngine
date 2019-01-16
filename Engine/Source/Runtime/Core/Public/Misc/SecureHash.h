@@ -63,24 +63,35 @@ public:
 	/**
 	 * Helper to perform the very common case of hashing an ASCII string into a hex representation.
 	 * 
-	 * @param String	the string the hash
+	 * @param String	hex representation of the hash (32 lower-case hex digits)
 	 **/
 	static FString HashAnsiString(const TCHAR* String)
+	{
+		return HashBytes((unsigned char*)TCHAR_TO_ANSI(String), FCString::Strlen(String));
+	}
+
+	/**
+	 * Helper to perform the very common case of hashing an in-memory array of bytes into a hex representation
+	 *
+	 * @param String	hex representation of the hash (32 lower-case hex digits)
+	 **/
+	static FString HashBytes(const uint8* input, int32 inputLen)
 	{
 		uint8 Digest[16];
 
 		FMD5 Md5Gen;
 
-		Md5Gen.Update((unsigned char*)TCHAR_TO_ANSI( String ), FCString::Strlen( String ) );
-		Md5Gen.Final( Digest );
+		Md5Gen.Update(input, inputLen);
+		Md5Gen.Final(Digest);
 
 		FString MD5;
-		for( int32 i=0; i<16; i++ )
+		for (int32 i = 0; i < 16; i++)
 		{
 			MD5 += FString::Printf(TEXT("%02x"), Digest[i]);
 		}
 		return MD5;
 	}
+
 private:
 	struct FContext
 	{

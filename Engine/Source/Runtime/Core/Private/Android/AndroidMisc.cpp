@@ -880,7 +880,7 @@ void PlatformCrashHandler(int32 Signal, siginfo* Info, void* Context)
 	// Restore system handlers so Android could catch this signal after we are done with crashreport
 	RestorePreviousSignalHandlers();
 
-	FAndroidCrashContext CrashContext;
+	FAndroidCrashContext CrashContext(ECrashContextType::Crash, TEXT("Caught signal"));
 	CrashContext.InitFromSignal(Signal, Info, Context);
 
 	if (GCrashHandlerPointer)

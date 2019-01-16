@@ -63,7 +63,7 @@ public:
 	 * @param OutSegment Will hold the segment number.
 	 * @return true if a segment was returned, false if there are no more pending segments.
 	 */
-	bool GetNextPendingSegment(TArray<uint8>& OutData, uint16& OutSegment) const;
+	bool GetNextPendingSegment(TArray<uint8>& OutData, uint32& OutSegment) const;
 
 	/**
 	 * Gets the pending segment at.
@@ -72,7 +72,7 @@ public:
 	 * @param OutData Will hold the segment data.
 	 * @return true if a segment was returned, false if that segment is no longer pending or the segment number is invalid.
 	 */
-	bool GetPendingSegment(uint16 InSegment, TArray<uint8>& OutData) const;
+	bool GetPendingSegment(uint32 InSegment, TArray<uint8>& OutData) const;
 
 
 	/**
@@ -89,7 +89,7 @@ public:
 	 *
 	 * @return Number of pending segments.
 	 */
-	uint16 GetPendingSegmentsCount() const
+	uint32 GetPendingSegmentsCount() const
 	{
 		return PendingSegmentsCount;
 	}
@@ -99,7 +99,7 @@ public:
 	 *
 	 * @return Segment count.
 	 */
-	uint16 GetSegmentCount() const
+	uint32 GetSegmentCount() const
 	{
 		return PendingSegments.Num();
 	}
@@ -145,7 +145,7 @@ public:
 	*
 	* @param Segments The acknowledged segments.
 	*/
-	void MarkAsAcknowledged(const TArray<uint16>& Segments);
+	void MarkAsAcknowledged(const TArray<uint32>& Segments);
 
 	/**
 	 * Marks the entire message for retransmission.
@@ -187,7 +187,7 @@ private:
 	TBitArray<> PendingSegments;
 
 	/** Holds the number of segments that haven't been sent yet. */
-	uint16 PendingSegmentsCount;
+	uint32 PendingSegmentsCount;
 
 	/** Holds the segment size. */
 	uint16 SegmentSize;

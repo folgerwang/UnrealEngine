@@ -9,6 +9,7 @@
 #include "Math/Vector4.h"
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "Misc/RemoteConfigIni.h"
@@ -1419,7 +1420,7 @@ bool FConfigFile::GetText( const TCHAR* Section, const TCHAR* Key, FText& Value 
 	{
 		return false;
 	}
-	return FTextStringHelper::ReadFromString( *PairString->GetValue(), Value, Section );
+	return FTextStringHelper::ReadFromBuffer( *PairString->GetValue(), Value, Section ) != nullptr;
 }
 
 bool FConfigFile::GetInt(const TCHAR* Section, const TCHAR* Key, int& Value) const
@@ -1514,7 +1515,7 @@ void FConfigFile::SetText( const TCHAR* Section, const TCHAR* Key, const FText& 
 	FConfigSection* Sec = FindOrAddSection( Section );
 
 	FString StrValue;
-	FTextStringHelper::WriteToString(StrValue, Value);
+	FTextStringHelper::WriteToBuffer(StrValue, Value);
 
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( ConfigValue == nullptr )
@@ -1990,7 +1991,7 @@ bool FConfigCacheIni::GetText( const TCHAR* Section, const TCHAR* Key, FText& Va
 	{
 		return false;
 	}
-	return FTextStringHelper::ReadFromString( *ConfigValue->GetValue(), Value, Section );
+	return FTextStringHelper::ReadFromBuffer( *ConfigValue->GetValue(), Value, Section ) != nullptr;
 }
 
 bool FConfigCacheIni::GetSection( const TCHAR* Section, TArray<FString>& Result, const FString& Filename )
@@ -2083,7 +2084,7 @@ void FConfigCacheIni::SetText( const TCHAR* Section, const TCHAR* Key, const FTe
 	FConfigSection* Sec = File->FindOrAddSection( Section );
 
 	FString StrValue;
-	FTextStringHelper::WriteToString(StrValue, Value);
+	FTextStringHelper::WriteToBuffer(StrValue, Value);
 
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( !ConfigValue )
@@ -3343,6 +3344,8 @@ bool FConfigCacheIni::LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* Ini
 
 bool FConfigCacheIni::LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bIsBaseIniName, const TCHAR* Platform, bool bForceReload, bool bWriteDestIni, bool bAllowGeneratedIniWhenCooked, const TCHAR* GeneratedConfigDir)
 {
+	LLM_SCOPE(ELLMTag::ConfigSystem);
+
 	// if bIsBaseIniName is false, that means the .ini is a ready-to-go .ini file, and just needs to be loaded into the FConfigFile
 	if (!bIsBaseIniName)
 	{

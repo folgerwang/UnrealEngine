@@ -494,7 +494,7 @@ int32 UEnum::GetIndexByNameString(const FString& InSearchString, EGetByNameFlags
 				SerializedObject = LoadContext->SerializedObject;
 			}
 		}
-		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject), *GetName(), *InSearchString);
+		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject ? SerializedObject : FUObjectThreadContext::Get().ConstructedObject), *GetName(), *InSearchString);
 	}
 
 	return INDEX_NONE;

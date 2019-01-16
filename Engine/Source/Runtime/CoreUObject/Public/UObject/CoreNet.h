@@ -98,6 +98,8 @@ public:
 	const FClassNetCache* GetSuper() const { return Super; }
 	const TArray< FFieldNetCache >& GetFields() const { return Fields; }
 
+	void CountBytes(FArchive& Ar) const;
+
 private:
 	int32								FieldsBase;
 	const FClassNetCache*				Super;
@@ -127,6 +129,8 @@ public:
 
 	bool				bDebugChecksum;
 	int					DebugChecksumIndent;
+
+	void CountBytes(FArchive& Ar) const;
 
 private:
 	TMap< TWeakObjectPtr< const UClass >, FClassNetCache* > ClassFieldIndices;
@@ -176,6 +180,8 @@ class COREUOBJECT_API UPackageMap : public UObject
 	virtual FNetworkGUID	GetNetGUIDFromObject( const UObject* InObject) const { return FNetworkGUID(); }
 	virtual bool			IsGUIDBroken( const FNetworkGUID& NetGUID, const bool bMustBeRegistered ) const { return false; }
 
+	virtual void Serialize(FArchive& Ar) override;
+
 protected:
 
 	bool					bSuppressLogs;
@@ -207,9 +213,11 @@ struct FPacketIdRange
 /** Information for tracking retirement and retransmission of a property. */
 struct FPropertyRetirement
 {
+#if !UE_BUILD_SHIPPING
 	static const uint32 ExpectedSanityTag = 0xDF41C9A3;
 
 	uint32			SanityTag;
+#endif
 
 	FPropertyRetirement * Next;
 
@@ -221,10 +229,12 @@ struct FPropertyRetirement
 	uint32			CustomDelta		: 1;	// True if this property uses custom delta compression
 	uint32			Config			: 1;
 
-	FPropertyRetirement()
-		:	SanityTag( ExpectedSanityTag )
-		,	Next( NULL )
-		,	DynamicState ( NULL )
+	FPropertyRetirement() :
+#if !UE_BUILD_SHIPPING
+			SanityTag( ExpectedSanityTag ),
+#endif
+			Next( nullptr )
+		,	DynamicState ( nullptr )
 		,   Reliable( 0 )
 		,   CustomDelta( 0 )
 		,	Config( 0 )
@@ -339,6 +349,12 @@ public:
 
 	virtual bool IsStateEqual(INetDeltaBaseState* Otherstate) = 0;
 
+	/**
+	 * Used when tracking memory to gather the total size of a given instance.
+	 * This should include the dynamically allocated data, as well as the classes size.
+	 */
+	virtual void CountBytes(FArchive& Ar) const {}
+
 private:
 };
 
@@ -362,6 +378,12 @@ public:
 	virtual void SetExternalData( const uint8* Src, const int32 NumBits ) = 0;
 
 	virtual bool IsReplay() const = 0;
+
+	/**
+	* Used when tracking memory to gather the total size of a given instance.
+	* This should include the dynamically allocated data, as well as the classes size.
+	*/
+	virtual void CountBytes(FArchive& Ar) const {};
 };
 
 

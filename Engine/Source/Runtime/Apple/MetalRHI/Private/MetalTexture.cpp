@@ -78,7 +78,7 @@ static bool IsRenderTarget(uint32 Flags)
 static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
 {
 	NSUInteger Usage = mtlpp::TextureUsage::Unknown;
-	if(Flags & (TexCreate_ShaderResource|TexCreate_ResolveTargetable))
+    if(Flags & (TexCreate_ShaderResource|TexCreate_ResolveTargetable|TexCreate_DepthStencilTargetable))
 	{
 		Usage |= mtlpp::TextureUsage::ShaderRead;
 		Usage |= mtlpp::TextureUsage::PixelFormatView;

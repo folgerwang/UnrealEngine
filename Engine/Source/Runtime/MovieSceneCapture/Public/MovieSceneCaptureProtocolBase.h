@@ -74,7 +74,7 @@ public:
 	 * Check whether we can capture a frame from this protocol
 	 */
 	UFUNCTION(BlueprintCallable, Category=Capture)
-	bool IsCapturing() const { return State == EMovieSceneCaptureProtocolState::Capturing || bFrameRequested; }
+	bool IsCapturing() const { return State == EMovieSceneCaptureProtocolState::Capturing || bFrameRequested[GFrameCounter%2] == true; }
 
 	/**
 	 * Setup this capture protocol
@@ -271,9 +271,8 @@ private:
 	UPROPERTY(transient)
 	EMovieSceneCaptureProtocolState State;
 
-	/** True if the current frame is to be captured - persists until the next frame's PreTick */
-	UPROPERTY(transient)
-	bool bFrameRequested;
+	/** Double buffer of values tracking whether we are capturing changes based on GFrameCounter */
+	bool bFrameRequested[2];
 };
 
 /**

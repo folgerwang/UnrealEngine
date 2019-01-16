@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolHelpers.h"
+#include "MovieSceneToolsModule.h"
 #include "MovieScene.h"
 #include "Layout/Margin.h"
 #include "Misc/Paths.h"
@@ -362,6 +363,11 @@ void MovieSceneToolHelpers::GatherTakes(const UMovieSceneSection* Section, TArra
 		return;
 	}
 
+	if (FMovieSceneToolsModule::Get().GatherTakes(Section, TakeNumbers, CurrentTakeNumber))
+	{
+		return;
+	}
+
 	FAssetData ShotData(SubSection->GetSequence()->GetOuter());
 
 	FString ShotPackagePath = ShotData.PackagePath.ToString();
@@ -411,6 +417,11 @@ void MovieSceneToolHelpers::GatherTakes(const UMovieSceneSection* Section, TArra
 UObject* MovieSceneToolHelpers::GetTake(const UMovieSceneSection* Section, uint32 TakeNumber)
 {
 	const UMovieSceneSubSection* SubSection = Cast<const UMovieSceneSubSection>(Section);
+
+	if (UObject* TakeObject = FMovieSceneToolsModule::Get().GetTake(Section, TakeNumber))
+	{
+		return TakeObject;
+	}
 
 	FAssetData ShotData(SubSection->GetSequence()->GetOuter());
 
@@ -923,9 +934,9 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 				for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 				{
-					FRichCurveKey &Key = Source.GetKey(SourceIt.Key());
+					FRichCurveKey &Key = Source.GetKey(*SourceIt);
 					float ArriveTangent = Key.ArriveTangent;
-					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(*SourceIt);
 					if (Source.IsKeyHandleValid(PrevKeyHandle))
 					{
 						FRichCurveKey &PrevKey = Source.GetKey(PrevKeyHandle);
@@ -933,7 +944,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 					}
 					float LeaveTangent = Key.LeaveTangent;
-					FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+					FKeyHandle NextKeyHandle = Source.GetNextKey(*SourceIt);
 					if (Source.IsKeyHandleValid(NextKeyHandle))
 					{
 						FRichCurveKey &NextKey = Source.GetKey(NextKeyHandle);
@@ -954,6 +965,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 					FKeyDataOptimizationParams Params;
 					Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
 					Params.DisplayRate = FrameRate;
+					Params.bAutoSetInterpolation = true; //we use this to perform the AutoSetTangents after the keys are reduced.
 					Channel->Optimize(Params);
 				}
 
@@ -976,9 +988,9 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 	ChannelData.Reset();
 	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 	{
-		const FRichCurveKey Key = Source.GetKey(SourceIt.Key());
+		const FRichCurveKey Key = Source.GetKey(*SourceIt);
 		float ArriveTangent = Key.ArriveTangent;
-		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(*SourceIt);
 		if (Source.IsKeyHandleValid(PrevKeyHandle))
 		{
 			const FRichCurveKey PrevKey = Source.GetKey(PrevKeyHandle);
@@ -986,7 +998,7 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 
 		}
 		float LeaveTangent = Key.LeaveTangent;
-		FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+		FKeyHandle NextKeyHandle = Source.GetNextKey(*SourceIt);
 		if (Source.IsKeyHandleValid(NextKeyHandle))
 		{
 			const FRichCurveKey NextKey = Source.GetKey(NextKeyHandle);

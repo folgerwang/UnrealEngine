@@ -188,6 +188,16 @@ namespace UnrealBuildTool
 		public bool bBuildLargeAddressAwareBinary = true;
 
 		/// <summary>
+		/// Create an image that can be hot patched (/FUNCTIONPADMIN)
+		/// </summary>
+		public bool bCreateHotPatchableImage = false;
+
+		/// <summary>
+		/// Whether to put global symbols in their own sections (/Gw), allowing the linker to discard any that are unused.
+		/// </summary>
+		public bool bOptimizeGlobalData = true;
+
+		/// <summary>
 		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
 		/// </summary>
 		internal VCEnvironment Environment;
@@ -348,6 +358,16 @@ namespace UnrealBuildTool
 			get { return Inner.bBuildLargeAddressAwareBinary; }
 		}
 
+		public bool bCreateHotpatchableImage
+		{
+			get { return Inner.bCreateHotPatchableImage; }
+		}
+
+		public bool bOptimizeGlobalData
+		{
+			get { return Inner.bOptimizeGlobalData; }
+		}
+
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
@@ -448,15 +468,26 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Reset a target's settings to the default
+		/// </summary>
+		/// <param name="Target"></param>
+		public override void ResetTarget(TargetRules Target)
+		{
+			base.ResetTarget(Target);
+
+			if(Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				Target.WindowsPlatform.bCreateHotPatchableImage = true;
+			}
+		}
+
+		/// <summary>
 		/// Validate a target's settings
 		/// </summary>
 		public override void ValidateTarget(TargetRules Target)
 		{
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 

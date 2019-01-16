@@ -964,6 +964,12 @@ bool UTexture2D::ShouldMipLevelsBeForcedResident() const
 	{
 		return true;
 	}
+
+	if (GIsEditor && (LODGroup == TEXTUREGROUP_Terrain_Heightmap || LODGroup == TEXTUREGROUP_Terrain_Weightmap))
+	{
+		return true;
+	}
+
 	return false;
 }
 

@@ -5,6 +5,7 @@
 #include "Editor.h"
 #include "Editor/EditorEngine.h"
 #include "Components/PrimitiveComponent.h"
+#include "LevelEditorViewport.h"
 
 
 void FActorViewportTransformable::ApplyTransform( const FTransform& NewTransform, const bool bSweep )
@@ -101,6 +102,25 @@ bool FActorViewportTransformable::IsPhysicallySimulated() const
 	}
 
 	return bIsPhysicallySimulated;
+}
+
+
+bool FActorViewportTransformable::ShouldBeCarried() const
+{
+	// Only cameras should be carried, for now
+	bool bShouldBeCarried = false;
+
+	AActor* Actor = ActorWeakPtr.Get();
+	if (Actor != nullptr)
+	{
+		if (UActorComponent* ActorComponent = FLevelEditorViewportClient::FindViewComponentForActor(Actor))
+		{
+			FMinimalViewInfo MinimalViewInfo;
+			bShouldBeCarried = ActorComponent->GetEditorPreviewInfo(/*DeltaTime =*/0.0f, MinimalViewInfo);
+		}
+	}
+
+	return bShouldBeCarried;
 }
 
 

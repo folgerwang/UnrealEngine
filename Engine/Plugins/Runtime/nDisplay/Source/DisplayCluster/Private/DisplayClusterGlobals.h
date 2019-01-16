@@ -2,7 +2,7 @@
 
 #pragma once
 
-struct IPDisplayCluster;
+#include "IPDisplayCluster.h"
 
 
 // Internal global DisplayCluster module interface

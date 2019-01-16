@@ -131,14 +131,14 @@ class FGenericReadRequest : public FGenericBaseRequest
 	FGenericAsyncReadFileHandle* Owner;
 	int64 Offset;
 	int64 BytesToRead;
-	EAsyncIOPriority Priority;
+	EAsyncIOPriorityAndFlags PriorityAndFlags;
 public:
-	FGenericReadRequest(FGenericAsyncReadFileHandle* InOwner, IPlatformFile* InLowerLevel, const TCHAR* InFilename, FAsyncFileCallBack* CompleteCallback, uint8* UserSuppliedMemory, int64 InOffset, int64 InBytesToRead, EAsyncIOPriority InPriority)
+	FGenericReadRequest(FGenericAsyncReadFileHandle* InOwner, IPlatformFile* InLowerLevel, const TCHAR* InFilename, FAsyncFileCallBack* CompleteCallback, uint8* UserSuppliedMemory, int64 InOffset, int64 InBytesToRead, EAsyncIOPriorityAndFlags InPriorityAndFlags)
 		: FGenericBaseRequest(InLowerLevel, InFilename, CompleteCallback, false, UserSuppliedMemory)
 		, Owner(InOwner)
 		, Offset(InOffset)
 		, BytesToRead(InBytesToRead)
-		, Priority(InPriority)
+		, PriorityAndFlags(InPriorityAndFlags)
 	{
 		check(Offset >= 0 && BytesToRead > 0);
 		if (CheckForPrecache()) 
@@ -258,10 +258,10 @@ public:
 	{
 		return new FGenericSizeRequest(LowerLevel, *Filename, CompleteCallback);
 	}
-	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) override
 	{
-		FGenericReadRequest* Result = new FGenericReadRequest(this, LowerLevel, *Filename, CompleteCallback, UserSuppliedMemory, Offset, BytesToRead, Priority);
-		if (Priority == AIOP_Precache) // only precache requests are tracked for possible reuse
+		FGenericReadRequest* Result = new FGenericReadRequest(this, LowerLevel, *Filename, CompleteCallback, UserSuppliedMemory, Offset, BytesToRead, PriorityAndFlags);
+		if (PriorityAndFlags & AIOP_FLAG_PRECACHE) // only precache requests are tracked for possible reuse
 		{
 			FScopeLock Lock(&LiveRequestsCritical);
 			LiveRequests.Add(Result);
@@ -365,7 +365,7 @@ FGenericReadRequest::~FGenericReadRequest()
 		}
 		Memory = nullptr;
 	}
-	if (Priority == AIOP_Precache) // only precache requests are tracked for possible reuse
+	if (PriorityAndFlags & AIOP_FLAG_PRECACHE) // only precache requests are tracked for possible reuse
 	{
 		Owner->RemoveRequest(this);
 	}
@@ -421,7 +421,7 @@ void FGenericReadRequest::PerformRequest()
 
 bool FGenericReadRequest::CheckForPrecache()
 {
-	if (Priority > AIOP_Precache)  // only requests at higher than precache priority check for existing blocks to copy from 
+	if ( ( PriorityAndFlags & AIOP_FLAG_PRECACHE ) == 0 )  // only non-precache requests check for existing blocks to copy from 
 	{
 		check(!Memory || bUserSuppliedMemory);
 		uint8* Result = Owner->GetPrecachedBlock(Memory, Offset, BytesToRead);
@@ -482,6 +482,46 @@ FDateTime IPlatformFile::GetTimeStampLocal(const TCHAR* Filename)
 	return FileTimeStamp;
 }
 
+class FDirectoryVisitorFuncWrapper : public IPlatformFile::FDirectoryVisitor
+{
+public:
+	IPlatformFile::FDirectoryVisitorFunc VisitorFunc;
+	FDirectoryVisitorFuncWrapper(IPlatformFile::FDirectoryVisitorFunc InVisitorFunc)
+		: VisitorFunc(InVisitorFunc)
+	{
+	}
+	virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
+	{
+		return VisitorFunc(FilenameOrDirectory, bIsDirectory);
+	}
+};
+
+class FDirectoryStatVisitorFuncWrapper : public IPlatformFile::FDirectoryStatVisitor
+{
+public:
+	IPlatformFile::FDirectoryStatVisitorFunc VisitorFunc;
+	FDirectoryStatVisitorFuncWrapper(IPlatformFile::FDirectoryStatVisitorFunc InVisitorFunc)
+		: VisitorFunc(InVisitorFunc)
+	{
+	}
+	virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+	{
+		return VisitorFunc(FilenameOrDirectory, StatData);
+	}
+};
+
+bool IPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitorFunc Visitor)
+{
+	FDirectoryVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectory(Directory, VisitorFuncWrapper);
+}
+
+bool IPlatformFile::IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor)
+{
+	FDirectoryStatVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryStat(Directory, VisitorFuncWrapper);
+}
+
 bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitor& Visitor)
 {
 	class FRecurse : public FDirectoryVisitor
@@ -532,6 +572,18 @@ bool IPlatformFile::IterateDirectoryStatRecursively(const TCHAR* Directory, FDir
 	};
 	FStatRecurse Recurse(*this, Visitor);
 	return IterateDirectoryStat(Directory, Recurse);
+}
+
+bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitorFunc Visitor)
+{
+	FDirectoryVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryRecursively(Directory, VisitorFuncWrapper);
+}
+
+bool IPlatformFile::IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitorFunc Visitor)
+{
+	FDirectoryStatVisitorFuncWrapper VisitorFuncWrapper(Visitor);
+	return IterateDirectoryStatRecursively(Directory, VisitorFuncWrapper);
 }
 
 class FFindFilesVisitor : public IPlatformFile::FDirectoryVisitor

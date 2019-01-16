@@ -425,21 +425,21 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 
 		TMap<int32, FGuid> GuidCache;
 		TEncryptedAssetSet EncryptedAssetSet;
-		TSet<FName> ReleasedAssets;
+		TSet<FGuid> ReleasedAssets;
 		AssetManager.GetEncryptedAssetSet(EncryptedAssetSet, ReleasedAssets);
 
 		for (TEncryptedAssetSet::ElementType EncryptedAssetSetElement : EncryptedAssetSet)
 		{
 			FName SetName = EncryptedAssetSetElement.Key;
-			TSet<FPrimaryAssetId>& EncryptedPrimaryAssets = EncryptedAssetSetElement.Value;
+			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value;
 
-			for (FPrimaryAssetId EncryptedPrimaryAsset : EncryptedPrimaryAssets)
+			for (FName EncryptedRootPackageName : EncryptedRootAssets)
 			{
-				FAssetData PrimaryAssetData;
-				if (AssetManager.GetPrimaryAssetData(EncryptedPrimaryAsset, PrimaryAssetData))
+				const TArray<const FAssetData*>& PackageAssets = TargetState.GetAssetsByPackageName(EncryptedRootPackageName);
+
+				for (const FAssetData* PackageAsset : PackageAssets)
 				{
-					FName EncryptedPrimaryAssetPackageName = PrimaryAssetData.PackageName;
-					FAssetData* AssetData = const_cast<FAssetData*>(TargetState.GetAssetByObjectPath(PrimaryAssetData.ObjectPath));
+					FAssetData* AssetData = const_cast<FAssetData*>(PackageAsset);
 
 					if (AssetData)
 					{
@@ -803,11 +803,11 @@ void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPack
 
 }
 
-void FAssetRegistryGenerator::PreSave()
+void FAssetRegistryGenerator::PreSave(const TSet<FName>& InCookedPackages)
 {
 	if (bUseAssetManager)
 	{
-		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform);
+		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform, InCookedPackages);
 	}
 }
 

@@ -6,6 +6,8 @@
 #include "Delegates/Delegate.h"
 #include "Input/Reply.h"
 
+#include "SlateDebugging.generated.h"
+
 #ifndef WITH_SLATE_DEBUGGING
 	#define WITH_SLATE_DEBUGGING !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #endif
@@ -21,6 +23,7 @@ class FWeakWidgetPath;
 class FWidgetPath;
 class FNavigationReply;
 
+UENUM()
 enum class ESlateDebuggingInputEvent : uint8
 {
 	MouseMove,
@@ -42,7 +45,15 @@ enum class ESlateDebuggingInputEvent : uint8
 	KeyUp,
 	KeyChar,
 	AnalogInput,
-	TouchGesture
+	TouchGesture,
+	COUNT
+};
+
+UENUM()
+enum class ESlateDebuggingStateChangeEvent : uint8
+{
+	MouseCaptureGained,
+	MouseCaptureLost,
 };
 
 struct SLATECORE_API FSlateDebuggingInputEventArgs
@@ -56,6 +67,7 @@ public:
 	const FString& AdditionalContent;
 };
 
+UENUM()
 enum class ESlateDebuggingFocusEvent : uint8
 {
 	FocusChanging,
@@ -99,6 +111,29 @@ public:
 	const TSharedPtr<SWidget>& DestinationWidget;
 };
 
+struct SLATECORE_API FSlateDebuggingWarningEventArgs
+{
+public:
+	FSlateDebuggingWarningEventArgs(
+		const FText& InWarning,
+		const TSharedPtr<SWidget>& InOptionalContextWidget
+	);
+
+	const FText& Warning;
+	const TSharedPtr<SWidget>& OptionalContextWidget;
+};
+
+struct SLATECORE_API FSlateDebuggingMouseCaptureEventArgs
+{
+public:
+	FSlateDebuggingMouseCaptureEventArgs(
+		const TSharedPtr<SWidget>& InCapturingWidget
+	);
+
+	const TSharedPtr<SWidget>& CapturingWidget;
+};
+
+
 #if WITH_SLATE_DEBUGGING
 
 /**
@@ -132,6 +167,12 @@ public:
 
 public:
 	/**  */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FWidgetWarningEvent, const FSlateDebuggingWarningEventArgs& /*EventArgs*/);
+	static FWidgetWarningEvent Warning;
+	static void BroadcastWarning(const FText& WarningText, const TSharedPtr<SWidget>& OptionalContextWidget);
+
+public:
+	/**  */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FWidgetInputEvent, const FSlateDebuggingInputEventArgs& /*EventArgs*/);
 	static FWidgetInputEvent InputEvent;
 
@@ -155,6 +196,13 @@ public:
 	static FWidgetNavigationEvent NavigationEvent;
 
 	static void AttemptNavigation(const FNavigationEvent& InNavigationEvent, const FNavigationReply& InNavigationReply, const FWidgetPath& InNavigationSource, const TSharedPtr<SWidget>& InDestinationWidget);
+
+public:
+	/**  */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FWidgetMouseCaptureEvent, const FSlateDebuggingMouseCaptureEventArgs& /*EventArgs*/);
+	static FWidgetMouseCaptureEvent MouseCaptureEvent;
+
+	static void MouseCapture(const TSharedPtr<SWidget>& InCapturingWidget);
 
 public:
 	/**  */

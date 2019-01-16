@@ -31,13 +31,6 @@ int32 WINAPI WinMain( HINSTANCE hInInstance, HINSTANCE hPrevInstance, char* lpCm
 	}
 #endif
 
-#if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
-	if (FParse::Param(CmdLine, TEXT("useautoreporter")))
-#endif
-	{
-		GUseCrashReportClient = false;
-	}
-
 	int32 ErrorLevel = 0;
 
 #if UE_BUILD_DEBUG

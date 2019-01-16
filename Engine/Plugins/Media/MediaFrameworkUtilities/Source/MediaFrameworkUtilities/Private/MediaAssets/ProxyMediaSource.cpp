@@ -78,6 +78,12 @@ UMediaSource* UProxyMediaSource::GetLeafMediaSource() const
 }
 
 
+bool UProxyMediaSource::IsProxyValid() const
+{
+	return GetLeafMediaSource() != nullptr;
+}
+
+
 void UProxyMediaSource::SetDynamicMediaSource(UMediaSource* InProxy)
 {
 	DynamicProxy = (Proxy == InProxy) ? nullptr : InProxy;

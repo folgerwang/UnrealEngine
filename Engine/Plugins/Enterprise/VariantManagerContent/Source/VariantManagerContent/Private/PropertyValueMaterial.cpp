@@ -10,24 +10,47 @@
 #define LOCTEXT_NAMESPACE "PropertyValueMaterial"
 
 
-UPropertyValueMaterial::UPropertyValueMaterial(const FObjectInitializer& Init)
-	: Super(Init)
+UPropertyValueMaterial::UPropertyValueMaterial(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 
-bool UPropertyValueMaterial::Resolve()
+UMaterialInterface* UPropertyValueMaterial::GetMaterial()
 {
-	UObject* Object = nullptr;
-	UVariantObjectBinding* Parent = GetParent();
-	if (Parent)
+	if (!HasRecordedData())
 	{
-		Object = Parent->GetObject();
+		return nullptr;
+	}
+
+	return *(UMaterialInterface**)ValueBytes.GetData();
+}
+
+void UPropertyValueMaterial::SetMaterial(UMaterialInterface* Mat)
+{
+	if (Mat && Mat->IsValidLowLevel())
+	{
+		SetRecordedData((uint8*)&Mat, GetValueSizeInBytes());
+	}
+}
+
+bool UPropertyValueMaterial::Resolve(UObject* Object)
+{
+	if (Object == nullptr)
+	{
+		UVariantObjectBinding* Parent = GetParent();
+		if (Parent)
+		{
+			Object = Parent->GetObject();
+		}
 	}
 
 	if (Object == nullptr)
 	{
 		return false;
 	}
+
+	TArray<FString> SegmentedFullPath;
+	FullDisplayString.ParseIntoArray(SegmentedFullPath, PATH_DELIMITER);
 
 	// Remove the last couple of links in the chain because they might not resolve
 	// These will be UArrayProperty OverrideMaterials and its Inner
@@ -36,7 +59,7 @@ bool UPropertyValueMaterial::Resolve()
 	int32 OverrideInnerIndex = PropertyIndices.Pop();
 	int32 OverrideOuterIndex = PropertyIndices.Pop();
 
-	if (!ResolvePropertiesRecursive(Object->GetClass(), Object, 0))
+	if (!ResolvePropertiesRecursive(Object->GetClass(), Object, 0, SegmentedFullPath))
 	{
 		UE_LOG(LogVariantContent, Error, TEXT("Failed to resolve UPropertyValueMaterial '%s' on UObject '%s'"), *GetFullDisplayString(), *Object->GetName());
 		return false;
@@ -46,6 +69,14 @@ bool UPropertyValueMaterial::Resolve()
 	Properties.Add(OverrideInner);
 	PropertyIndices.Add(OverrideOuterIndex);
 	PropertyIndices.Add(OverrideInnerIndex);
+
+	FString StringAfter = SegmentedFullPath[0];
+	for (int32 Index = 1; Index < SegmentedFullPath.Num(); Index++)
+	{
+		StringAfter += PATH_DELIMITER + SegmentedFullPath[Index];
+	}
+
+	FullDisplayString = StringAfter;
 
 	if (PropertyValuePtr == nullptr)
 	{
@@ -125,6 +156,7 @@ void UPropertyValueMaterial::ApplyDataToResolvedObject()
 	ContainerObject->SetFlags(RF_Transactional);
 	ContainerObject->Modify();
 
+	// Go through GetRecordedData to resolve our path if we need to
 	UMaterialInterface* Mat = *((UMaterialInterface**)GetRecordedData().GetData());
 
 	int32 NumIndices = PropertyIndices.Num();

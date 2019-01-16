@@ -103,6 +103,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MaterialEditing")
 	static void RecompileMaterial(UMaterial* Material);
 
+	/**
+	 *	Layouts the expressions in a grid pattern
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MaterialEditing")
+	static void LayoutMaterialExpressions(UMaterial* Material);
+
 	//////// MATERIAL FUNCTION EDITING
 
 	/** Returns number of material expressions in the supplied material */
@@ -134,6 +140,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MaterialEditing", meta = (HidePin = "PreviewMaterial"))
 	static void UpdateMaterialFunction(UMaterialFunctionInterface* MaterialFunction, UMaterial* PreviewMaterial = nullptr);
 
+	/**
+	 *	Layouts the expressions in a grid pattern
+	 */
+	UFUNCTION(BlueprintCallable, Category = "MaterialEditing")
+	static void LayoutMaterialFunctionExpressions(UMaterialFunction* MaterialFunction);
 
 	//////// MATERIAL INSTANCE CONSTANT EDITING
 

@@ -92,6 +92,7 @@ private:
 
 	void ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 Height, EWindowMode::Type WindowMode);
 	void UpdateFullScreenState(bool bToggleFullScreen);
+	void WaitForFullScreenTransition();
 
 private:
 

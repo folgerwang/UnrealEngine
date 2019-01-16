@@ -6,6 +6,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "GameFramework/OnlineReplStructs.h"
 #include "Templates/SubclassOf.h"
+#include "Interactions/SocialInteractionHandle.h"
 
 #include "SocialTypes.generated.h"
 
@@ -63,6 +64,17 @@ enum class ECrossplayPreference : uint8
 	OptedIn,
 	OptedOut,
 	OptedOutRestricted
+};
+
+UENUM()
+enum class ESendFriendInviteFailureReason : uint8
+{
+	NotFound,
+	AlreadyFriends,
+	InvitePending,
+	AddingSelfFail,
+	AddingBlockedFail,
+	UnknownError
 };
 
 /** Thin wrapper to infuse a raw platform string with some meaning */
@@ -142,7 +154,6 @@ using Type##PtrConst = TSharedPtr<const Type>;	\
 using Type##Ref = TSharedRef<Type>;	\
 using Type##RefConst = TSharedRef<const Type>	
 
-DECLARE_SHARED_PTR_ALIASES(ISocialInteractionHandle);
 DECLARE_SHARED_PTR_ALIASES(ISocialUserList);
 DECLARE_SHARED_PTR_ALIASES(FSocialChatMessage);
 

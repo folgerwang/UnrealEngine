@@ -43,11 +43,11 @@ enum class EViewportWorldInteractionType : uint8
 	Legacy = 1
 };
 
-UCLASS()
+UCLASS(BlueprintType, Transient)
 class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UEditorWorldExtension
 {
 	GENERATED_BODY()
-	
+
 public:
 
 	UViewportWorldInteraction();
@@ -58,11 +58,13 @@ public:
 
 	/** Initialize colors */
 	void InitColors();
-	
+
 	/** Adds interactor to the worldinteraction */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	void AddInteractor( UViewportInteractor* Interactor );
 
 	/** Removes interactor from the worldinteraction and removes the interactor from its paired interactor if any */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	void RemoveInteractor( UViewportInteractor* Interactor );
 
 	/** Creates an interactor for the mouse cursor.  If one already exists, this will add a reference to it.  Remember to
@@ -129,16 +131,17 @@ public:
 
 	/** When using VR, this sets the viewport client that's been "possessed" by the head mounted display.  Only valid when VR is enabled. */
 	void SetDefaultOptionalViewportClient( const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient );
-	
+
 	/** Pairs to interactors by setting	the other interactor for each interactor */
 	void PairInteractors( UViewportInteractor* FirstInteractor, UViewportInteractor* SecondInteractor );
-	
+
 	/**
 	 * Adds an actor to the list of actors to never allow an interactor to hit in the scene.  No selection.  No hover.
 	 * There's no need to remove actors from this list.  They'll expire from it automatically when destroyed.
 	 *
 	 * @param	ActorToExcludeFromHitTests	The actor that should be forever excluded from hit tests
 	 */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	void AddActorToExcludeFromHitTests( AActor* ActorToExcludeFromHitTests );
 
 	/** @return	Returns the list of actors that should never be included in interctor hit tests (hovering or selection) */
@@ -146,7 +149,6 @@ public:
 	{
 		return ActorsToExcludeFromHitTest;
 	}
-
 
 	//
 	// Input
@@ -163,21 +165,33 @@ public:
 
 	/** Gets the world space transform of the calibrated VR room origin.  When using a seated VR device, this will feel like the
 	camera's world transform (before any HMD positional or rotation adjustments are applied.) */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	FTransform GetRoomTransform() const;
-	
+
 	/** Gets the transform of the viewport / user's HMD in room space */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	FTransform GetRoomSpaceHeadTransform() const;
-	
+
 	/** Gets the transform of the viewport / user's HMD in world space */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	FTransform GetHeadTransform() const;
+
+	/** Sets a new transform for the room so that the HMD is aligned to the new transform.
+		The Head is kept level to the ground and only rotated on the yaw */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
+	void SetHeadTransform( const FTransform& NewHeadTransform );
 
 	/** Returns true if we actually are using VR and have a valid head location, meaning a call to GetHeadTransform() is valid */
 	bool HaveHeadTransform() const;
 
 	/** Sets a new transform for the room, in world space.  This is basically setting the editor's camera transform for the viewport */
 	void SetRoomTransform( const FTransform& NewRoomTransform );
-	
+
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
+	void SetRoomTransformForNextFrame(const FTransform& NewRoomTransform);
+
 	/** Gets the world scale factor, which can be multiplied by a scale vector to convert to room space */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	float GetWorldScaleFactor() const;
 
 	/** Gets the currently used viewport */
@@ -209,7 +223,7 @@ public:
 
 	/** Deselects all the current selected objects */
 	void Deselect();
-	
+
 	/** Called to finish a drag action with the specified interactor */
 	void StopDragging( class UViewportInteractor* Interactor );
 
@@ -218,7 +232,7 @@ public:
 
 	DECLARE_EVENT_OneParam( UViewportWorldInteraction, FOnWorldScaleChanged, const float /* NewWorldToMetersScale */);
 	virtual FOnWorldScaleChanged& OnWorldScaleChanged() { return OnWorldScaleChangedEvent; };
-	
+
 	/** Sets which transform gizmo coordinate space is used */
 	void SetTransformGizmoCoordinateSpace( const ECoordSystem NewCoordSystem );
 
@@ -246,6 +260,7 @@ public:
 	bool IsInteractableComponent( const UActorComponent* Component ) const;
 
 	/** Gets the transform gizmo actor, or returns null if we currently don't have one */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	class ABaseTransformGizmo* GetTransformGizmoActor();
 
 	/** Sets whether the transform gizmo should be visible at all */
@@ -271,6 +286,7 @@ public:
 	void SetLastDragGizmoStartTransform( const FTransform NewLastDragGizmoStartTransform );
 
 	/** Gets all the interactors */
+	UFUNCTION(BlueprintCallable, Category = "ViewportWorldInteraction")
 	const TArray<UViewportInteractor*>& GetInteractors() const;
 
 	/** Given a world space velocity vector, applies inertial damping to it to slow it down */
@@ -286,11 +302,11 @@ public:
 	void SetTransformGizmoClass( const TSubclassOf<ABaseTransformGizmo>& NewTransformGizmoClass );
 
 	/** Sets the currently dragged interactavle */
-	void SetDraggedInteractable( IViewportInteractableInterface* InDraggedInteractable, UViewportInteractor* Interactor );	
+	void SetDraggedInteractable( IViewportInteractableInterface* InDraggedInteractable, UViewportInteractor* Interactor );
 
 	/** Check if there is another interactor hovering over the component */
 	bool IsOtherInteractorHoveringOverComponent( UViewportInteractor* Interactor, UActorComponent* Component ) const;
-	
+
 	/** Switch which transform gizmo coordinate space we're using. */
 	void CycleTransformGizmoCoordinateSpace();
 
@@ -299,7 +315,7 @@ public:
 
 	/** Gets the tracking transactions */
 	FTrackingTransaction& GetTrackingTransaction();
-	
+
 	/** Sets whether we should allow input events from the input preprocessor or not */
 	void SetUseInputPreprocessor( bool bInUseInputPreprocessor );
 
@@ -310,7 +326,7 @@ public:
 	}
 
 	/** The ability to move and scale the world */
-	void AllowWorldMovement(bool bAllow);
+	void AllowWorldMovement( bool bAllow );
 
 	/** For other systems to check if the Viewport World Interaction system is currently aligning transformables to actors*/
 	bool AreAligningToActors();
@@ -372,7 +388,7 @@ private:
 
 	/** Updates the interaction */
 	void InteractionTick( const float DeltaTime );
-	
+
 	/** Called by the world interaction system when one of our components is dragged by the user.  If null is
 	    passed in then we'll treat it as dragging the whole object (rather than a specific axis/handle) */
 	void UpdateDragging(
@@ -467,7 +483,7 @@ private:
 	/** Location the transformable should snap to if aligning to other transformables*/
 	FVector FindTransformGizmoAlignPoint(const FTransform& GizmoStartTransform, const FTransform& DesiredGizmoTransform, const bool bShouldConstrainMovement, FVector ConstraintAxes);
 	void DrawBoxBrackets(const FBox InActor, const FTransform LocalToWorld, const FLinearColor BracketColor);
-	
+
 	/** Calculate a new room transform location according to the world to meters scale */
 	void CompensateRoomTransformForWorldScale(FTransform& InOutRoomTransform, const float InNewWorldToMetersScale, const FVector& InRoomPivotLocation);
 
@@ -565,6 +581,11 @@ private:
 		frame rate dependent feedback loop will occur */
 	TOptional<TTuple<FTransform,uint32>> RoomTransformToSetOnFrame;
 
+	/** Storage for Low speed damping value for when we're dragging ourself around the world */
+	float LowSpeedInertiaDamping;
+
+	/** Storage for High speed damping value for when we're dragging ourself around the world */
+	float HighSpeedInertiaDamping;
 
 	//
 	// Hover state
@@ -619,6 +640,9 @@ private:
 	/** The current gizmo type */ //@todo ViewportInteraction: Currently this is only used for universal gizmo.
 	TOptional<EGizmoHandleTypes> GizmoType;
 
+	/** When carrying, the last position of the interactor that was carrying.  Used for smoothing motion. */
+	TOptional<FTransform> LastCarryingTransform;
+
 	//
 	// Snap grid
 	//
@@ -640,8 +664,8 @@ private:
 	//
 
 	/** The current dragged interactable */
-	class IViewportInteractableInterface* DraggedInteractable;		
-	
+	class IViewportInteractableInterface* DraggedInteractable;
+
 	//
 	// Events
 	//
@@ -669,7 +693,7 @@ private:
 
 	/** Event that is fired when an interactor stopped dragging */
 	FOnStopDragging OnStopDraggingEvent;
-	
+
 	/** Event for when the current set of transformables has finally stop moving (after a drag, and all inertial effects or snapping interpolation has completed */
 	FOnFinishedMovingTransformables OnFinishedMovingTransformablesEvent;
 
@@ -678,7 +702,6 @@ private:
 
 	/** Event to tick after the worldinteraction has ticked */
 	FOnViewportWorldInteractionTick OnPostWorldInteractionTickEvent;
-
 
 	//
 	// Interactors
@@ -698,7 +721,7 @@ private:
 	//
 	// VR
 	//
-	
+
 	/** If this world interaction is in VR */
 	bool bIsInVR;
 

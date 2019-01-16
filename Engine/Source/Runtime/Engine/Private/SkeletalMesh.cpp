@@ -60,6 +60,9 @@
 #include "ApexClothingUtils.h"
 #endif
 
+#include "IMeshReductionManagerModule.h"
+#include "SkeletalMeshReductionSettings.h"
+
 #endif // #if WITH_EDITOR
 
 #include "Interfaces/ITargetPlatform.h"
@@ -291,7 +294,7 @@ USkeletalMesh::USkeletalMesh(const FObjectInitializer& ObjectInitializer)
 	ImportedModel = MakeShareable(new FSkeletalMeshModel());
 	VertexColorGuid = FGuid();
 #endif
-
+	
 	MinLod.Default = 0;
 }
 
@@ -371,6 +374,25 @@ void USkeletalMesh::ValidateBoundsExtension()
 	NegativeBoundsExtension.Y = FMath::Clamp(NegativeBoundsExtension.Y, -HalfExtent.Y, MAX_flt);
 	NegativeBoundsExtension.Z = FMath::Clamp(NegativeBoundsExtension.Z, -HalfExtent.Z, MAX_flt);
 }
+
+#if WITH_EDITOR
+/* Return true if the reduction settings are setup to reduce a LOD*/
+bool USkeletalMesh::IsReductionActive(int32 LODIndex) const
+{
+	FSkeletalMeshOptimizationSettings ReductionSettings = GetReductionSettings(LODIndex);
+	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+	return ReductionModule->IsReductionActive(ReductionSettings);
+}
+
+/* Get a copy of the reduction settings for a specified LOD index. */
+FSkeletalMeshOptimizationSettings USkeletalMesh::GetReductionSettings(int32 LODIndex) const
+{
+	check(IsValidLODIndex(LODIndex));
+	const FSkeletalMeshLODInfo& CurrentLODInfo = *(GetLODInfo(LODIndex));
+	return CurrentLODInfo.ReductionSettings;
+}
+
+#endif
 
 void USkeletalMesh::AddClothingAsset(UClothingAssetBase* InNewAsset)
 {
@@ -881,6 +903,14 @@ void USkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	UpdateGenerateUpToData();
 
 	OnMeshChanged.Broadcast();
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -1674,6 +1704,10 @@ void USkeletalMesh::PostLoad()
 
 	UpdateGenerateUpToData();
 #endif
+
+#if !WITH_EDITOR
+	RebuildSocketMap();
+#endif // !WITH_EDITOR
 }
 
 #if WITH_EDITORONLY_DATA
@@ -1752,6 +1786,9 @@ void USkeletalMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 	if (AssetImportData)
 	{
 		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+#if WITH_EDITOR
+		AssetImportData->AppendAssetRegistryTags(OutTags);
+#endif
 	}
 #endif
 	
@@ -1929,6 +1966,17 @@ USkeletalMeshSocket* USkeletalMesh::FindSocket(FName InSocketName) const
 	return FindSocketAndIndex(InSocketName, DummyIdx);
 }
 
+#if !WITH_EDITOR
+
+USkeletalMesh::FSocketInfo::FSocketInfo(const USkeletalMesh* InSkeletalMesh, USkeletalMeshSocket* InSocket, int32 InSocketIndex)
+	: SocketLocalTransform(InSocket->GetSocketLocalTransform())
+	, Socket(InSocket)
+	, SocketIndex(InSocketIndex)
+	, SocketBoneIndex(InSkeletalMesh->RefSkeleton.FindBoneIndex(InSocket->BoneName))
+{}
+
+#endif
+
 USkeletalMeshSocket* USkeletalMesh::FindSocketAndIndex(FName InSocketName, int32& OutIndex) const
 {
 	OutIndex = INDEX_NONE;
@@ -1936,6 +1984,18 @@ USkeletalMeshSocket* USkeletalMesh::FindSocketAndIndex(FName InSocketName, int32
 	{
 		return nullptr;
 	}
+
+#if !WITH_EDITOR
+	check(!HasAnyFlags(RF_NeedPostLoad));
+
+	const FSocketInfo* FoundSocketInfo = SocketMap.Find(InSocketName);
+	if (FoundSocketInfo)
+	{
+		OutIndex = FoundSocketInfo->SocketIndex;
+		return FoundSocketInfo->Socket;
+	}
+	return nullptr;
+#endif
 
 	for (int32 i = 0; i < Sockets.Num(); i++)
 	{
@@ -1961,6 +2021,59 @@ USkeletalMeshSocket* USkeletalMesh::FindSocketAndIndex(FName InSocketName, int32
 	return nullptr;
 }
 
+USkeletalMeshSocket* USkeletalMesh::FindSocketInfo(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex, int32& OutIndex) const
+{
+	OutIndex = INDEX_NONE;
+	OutTransform = FTransform::Identity;
+	OutBoneIndex = INDEX_NONE;
+
+	if (InSocketName == NAME_None)
+	{
+		return nullptr;
+	}
+
+#if !WITH_EDITOR
+	check(!HasAnyFlags(RF_NeedPostLoad));
+
+	const FSocketInfo* FoundSocketInfo = SocketMap.Find(InSocketName);
+	if (FoundSocketInfo)
+	{
+		OutTransform = FoundSocketInfo->SocketLocalTransform;
+		OutIndex = FoundSocketInfo->SocketIndex;
+		OutBoneIndex = FoundSocketInfo->SocketBoneIndex;
+		return FoundSocketInfo->Socket;
+	}
+	return nullptr;
+#endif
+
+	for (int32 i = 0; i < Sockets.Num(); i++)
+	{
+		USkeletalMeshSocket* Socket = Sockets[i];
+		if (Socket && Socket->SocketName == InSocketName)
+		{
+			OutIndex = i;
+			OutTransform = Socket->GetSocketLocalTransform();
+			OutBoneIndex = RefSkeleton.FindBoneIndex(Socket->BoneName);
+			return Socket;
+		}
+	}
+
+	// If the socket isn't on the mesh, try to find it on the skeleton
+	if (Skeleton)
+	{
+		USkeletalMeshSocket* SkeletonSocket = Skeleton->FindSocketAndIndex(InSocketName, OutIndex);
+		if (SkeletonSocket != nullptr)
+		{
+			OutIndex += Sockets.Num();
+			OutTransform = SkeletonSocket->GetSocketLocalTransform();
+			OutBoneIndex = RefSkeleton.FindBoneIndex(SkeletonSocket->BoneName);
+		}
+		return SkeletonSocket;
+	}
+
+	return nullptr;
+}
+
 int32 USkeletalMesh::NumSockets() const
 {
 	return Sockets.Num() + (Skeleton ? Skeleton->Sockets.Num() : 0);
@@ -1968,20 +2081,51 @@ int32 USkeletalMesh::NumSockets() const
 
 USkeletalMeshSocket* USkeletalMesh::GetSocketByIndex(int32 Index) const
 {
-	if (Index < Sockets.Num())
+	const int32 NumMeshSockets = Sockets.Num();
+	if (Index < NumMeshSockets)
 	{
 		return Sockets[Index];
 	}
 
-	if (Skeleton && Index < Skeleton->Sockets.Num())
+	if (Skeleton && (Index - NumMeshSockets) < Skeleton->Sockets.Num())
 	{
-		return Skeleton->Sockets[Index];
+		return Skeleton->Sockets[Index - NumMeshSockets];
 	}
 
 	return nullptr;
 }
 
+#if !WITH_EDITOR
 
+void USkeletalMesh::RebuildSocketMap()
+{
+	check(IsInGameThread());
+
+	SocketMap.Reset();
+	SocketMap.Reserve(Sockets.Num() + (Skeleton ? Skeleton->Sockets.Num() : 0));
+
+	int32 SocketIndex;
+	for (SocketIndex = 0; SocketIndex < Sockets.Num(); ++SocketIndex)
+	{
+		USkeletalMeshSocket* Socket = Sockets[SocketIndex];
+		SocketMap.Add(Socket->SocketName, FSocketInfo(this, Socket, SocketIndex));
+	}
+
+	// If the socket isn't on the mesh, try to find it on the skeleton
+	if (Skeleton)
+	{
+		for (SocketIndex = 0; SocketIndex < Skeleton->Sockets.Num(); ++SocketIndex)
+		{
+			USkeletalMeshSocket* Socket = Skeleton->Sockets[SocketIndex];
+			if (!SocketMap.Contains(Socket->SocketName))
+			{
+				SocketMap.Add(Socket->SocketName, FSocketInfo(this, Socket, SocketIndex));
+			}
+		}
+	}
+}
+
+#endif
 
 /**
  * This will return detail info about this specific object. (e.g. AudioComponent will return the name of the cue,
@@ -2951,6 +3095,7 @@ void USkeletalMesh::GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeIte
 #endif // 
 
 	// @todo: for now we support raw bones, no virtual bone
+	// arggg this is for retarget manager, not for control rig 
 	ensureMsgf(RefSkeleton.GetRawBoneNum() == RefSkeleton.GetNum(), TEXT("We don't support virtual bone for retargeting yet"));
 	check(ComponentSpaceRefPose.Num() == RefSkeleton.GetRawBoneNum());
 
@@ -3257,9 +3402,18 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 			// if this is a clothing section, then enabled and will be drawn but the corresponding original section should be disabled
 			bool bClothSection = Section.HasClothingData();
 
-			if(!Material || !Material->CheckMaterialUsage_Concurrent(MATUSAGE_SkeletalMesh) ||
-			  (bClothSection && !Material->CheckMaterialUsage_Concurrent(MATUSAGE_Clothing)))
+			bool bValidUsage = Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_SkeletalMesh);
+			if (bClothSection)
 			{
+				bValidUsage &= Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_Clothing);
+			}
+
+			if(!Material || !bValidUsage)
+			{
+				UE_CLOG(Material && !bValidUsage, LogSkeletalMesh, Error,
+					TEXT("Material with missing usage flag was applied to skeletal mesh %s"),
+					*Component->SkeletalMesh->GetPathName());
+
 				Material = UMaterial::GetDefaultMaterial(MD_Surface);
 				MaterialRelevance |= Material->GetRelevance(FeatureLevel);
 			}
