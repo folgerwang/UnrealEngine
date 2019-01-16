@@ -283,8 +283,6 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 		return;
 	}
 
-	MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
-
 	FVertexFactoryType* VertexFactoryType = MeshBatch.VertexFactory->GetType();
 
 	const EMaterialTessellationMode MaterialTessellationMode = Material->GetTessellationMode();
