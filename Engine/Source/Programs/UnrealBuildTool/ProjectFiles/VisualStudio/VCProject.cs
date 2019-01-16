@@ -1384,7 +1384,7 @@ namespace UnrealBuildTool
 					BuildArguments.AppendFormat("{0} {1} {2}", TargetName, UBTPlatformName, UBTConfigurationName);
 					if (IsForeignProject)
 					{
-						BuildArguments.AppendFormat(" -Project=\"{0}\"", UProjectPath);
+						BuildArguments.AppendFormat(" -Project={0}", UProjectPath);
 					}
 
 					if (bUsePrecompiled)
