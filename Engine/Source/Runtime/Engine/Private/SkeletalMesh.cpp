@@ -380,7 +380,7 @@ void USkeletalMesh::ValidateBoundsExtension()
 bool USkeletalMesh::IsReductionActive(int32 LODIndex) const
 {
 	FSkeletalMeshOptimizationSettings ReductionSettings = GetReductionSettings(LODIndex);
-	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+	IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetSkeletalMeshReductionInterface();
 	return ReductionModule->IsReductionActive(ReductionSettings);
 }
 
