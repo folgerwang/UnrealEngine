@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -112,7 +112,7 @@ namespace UnrealGameSync
 		NewWorkspaceSettings Settings;
 		string DefaultRootPath;
 
-		private NewWorkspaceWindow(string ServerAndPort, string UserName, string DefaultStream, PerforceInfoRecord Info, List<PerforceClientRecord> Clients, TextWriter Log)
+		private NewWorkspaceWindow(string ServerAndPort, string UserName, string ForceStream, string DefaultStream, PerforceInfoRecord Info, List<PerforceClientRecord> Clients, TextWriter Log)
 		{
 			InitializeComponent();
 
@@ -159,17 +159,28 @@ namespace UnrealGameSync
 				}
 			}
 
-			StreamTextBox.Text = DefaultStream ?? "";
+			if(ForceStream != null)
+			{
+				StreamTextBox.Text = ForceStream;
+				StreamTextBox.Enabled = false;
+			}
+			else
+			{
+				StreamTextBox.Text = DefaultStream ?? "";
+				StreamTextBox.Enabled = true;
+			}
 			StreamTextBox.SelectionStart = StreamTextBox.Text.Length;
 			StreamTextBox.SelectionLength = 0;
 			StreamTextBox.Focus();
+
+			StreamBrowseBtn.Enabled = (ForceStream == null);
 
 			UpdateOkButton();
 			UpdateNameCueBanner();
 			UpdateRootDirCueBanner();
 		}
 
-		public static bool ShowModal(IWin32Window Owner, string ServerAndPort, string UserName, string CurrentWorkspaceName, TextWriter Log, out string WorkspaceName)
+		public static bool ShowModal(IWin32Window Owner, string ServerAndPort, string UserName, string ForceStreamName, string CurrentWorkspaceName, TextWriter Log, out string WorkspaceName)
 		{
 			FindWorkspaceSettingsTask FindSettings = new FindWorkspaceSettingsTask(CurrentWorkspaceName);
 
@@ -180,9 +191,12 @@ namespace UnrealGameSync
 				{
 					MessageBox.Show(ErrorMessage);
 				}
+
+				WorkspaceName = null;
+				return false;
 			}
 
-			NewWorkspaceWindow Window = new NewWorkspaceWindow(ServerAndPort, UserName, FindSettings.CurrentStream, FindSettings.Info, FindSettings.Clients, Log);
+			NewWorkspaceWindow Window = new NewWorkspaceWindow(ServerAndPort, UserName, ForceStreamName, FindSettings.CurrentStream, FindSettings.Info, FindSettings.Clients, Log);
 			if(Window.ShowDialog(Owner) == DialogResult.OK)
 			{
 				WorkspaceName = Window.Settings.Name;

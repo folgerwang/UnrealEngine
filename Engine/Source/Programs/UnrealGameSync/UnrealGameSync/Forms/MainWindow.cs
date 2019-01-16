@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading;
+using System.Reflection;
+using System.Text;
+using System.Diagnostics;
 
 namespace UnrealGameSync
 {
@@ -53,10 +56,12 @@ namespace UnrealGameSync
 
 		private const int WM_SETREDRAW = 11; 
 
+		UpdateMonitor UpdateMonitor;
 		SynchronizationContext MainThreadSynchronizationContext;
 
 		string ApiUrl;
 		string DataFolder;
+		string CacheFolder;
 		LineBasedTextWriter Log;
 		UserSettings Settings;
 		int TabMenu_TabIdx = -1;
@@ -70,20 +75,33 @@ namespace UnrealGameSync
 		System.Threading.Timer ScheduleSettledTimer;
 
 		string OriginalExecutableFileName;
+		bool bUnstable;
 
 		IMainWindowTabPanel CurrentTabPanel;
 
-		public MainWindow(string InApiUrl, string InDataFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, List<DetectProjectSettingsResult> StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
+		AutomationServer AutomationServer;
+		TextWriter AutomationLog;
+
+		bool bAllowCreatingHandle;
+
+		public MainWindow(UpdateMonitor InUpdateMonitor, string InApiUrl, string InDataFolder, string InCacheFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, bool bInUnstable, DetectProjectSettingsResult[] StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
 
+			UpdateMonitor = InUpdateMonitor;
 			MainThreadSynchronizationContext = SynchronizationContext.Current;
 			ApiUrl = InApiUrl;
 			DataFolder = InDataFolder;
+			CacheFolder = InCacheFolder;
 			bRestoreStateOnLoad = bInRestoreStateOnLoad;
 			OriginalExecutableFileName = InOriginalExecutableFileName;
+			bUnstable = bInUnstable;
 			Log = InLog;
 			Settings = InSettings;
+
+			// While creating tab controls during startup, we need to prevent layout calls resulting in the window handle being created too early. Disable layout calls here.
+			SuspendLayout();
+			TabPanel.SuspendLayout();
 
 			TabControl.OnTabChanged += TabControl_OnTabChanged;
 			TabControl.OnNewTabClick += TabControl_OnNewTabClick;
@@ -124,11 +142,187 @@ namespace UnrealGameSync
 			}
 
 			StartScheduleTimer();
+
+			if(bUnstable)
+			{
+				Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);
+			}
+
+			AutomationLog = new TimestampLogWriter(new BoundedLogWriter(Path.Combine(DataFolder, "Automation.log")));
+			AutomationServer = new AutomationServer(Request => { MainThreadSynchronizationContext.Post(Obj => PostAutomationRequest(Request), null); }, AutomationLog);
+
+			// Allow creating controls from now on
+			TabPanel.ResumeLayout(false);
+			ResumeLayout(false);
+
+			bAllowCreatingHandle = true;
+		}
+
+		void PostAutomationRequest(AutomationRequest Request)
+		{
+			try
+			{
+				if(!CanFocus)
+				{
+					Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Busy));
+				}
+				else if(Request.Input.Type == AutomationRequestType.SyncProject)
+				{
+					AutomationRequestOutput Output = StartAutomatedSync(Request, true);
+					if(Output != null)
+					{
+						Request.SetOutput(Output);
+					}
+				}
+				else if(Request.Input.Type == AutomationRequestType.FindProject)
+				{
+					AutomationRequestOutput Output = FindProject(Request);
+					Request.SetOutput(Output);
+				}
+				else if(Request.Input.Type == AutomationRequestType.OpenProject)
+				{
+					AutomationRequestOutput Output = StartAutomatedSync(Request, false);
+					if(Output != null)
+					{
+						Request.SetOutput(Output);
+					}
+				}
+				else
+				{
+					Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Invalid));
+				}
+			}
+			catch(Exception Ex)
+			{
+				Log.WriteLine("Exception running automation request: {0}", Ex);
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Invalid));
+			}
+		}
+
+		AutomationRequestOutput StartAutomatedSync(AutomationRequest Request, bool bForceSync)
+		{
+			ShowAndActivate();
+
+			BinaryReader Reader = new BinaryReader(new MemoryStream(Request.Input.Data));
+			string StreamName = Reader.ReadString();
+			string ProjectPath = Reader.ReadString();
+
+			AutomatedSyncWindow.WorkspaceInfo WorkspaceInfo;
+			if(!AutomatedSyncWindow.ShowModal(this, StreamName, ProjectPath, out WorkspaceInfo, Log))
+			{
+				return new AutomationRequestOutput(AutomationRequestResult.Canceled);
+			}
+
+			if(WorkspaceInfo.bRequiresStreamSwitch)
+			{
+				// Close any tab containing this window
+				for(int ExistingTabIdx = 0; ExistingTabIdx < TabControl.GetTabCount(); ExistingTabIdx++)
+				{
+					WorkspaceControl ExistingWorkspace = TabControl.GetTabData(ExistingTabIdx) as WorkspaceControl;
+					if(ExistingWorkspace != null && ExistingWorkspace.ClientName.Equals(WorkspaceInfo.WorkspaceName))
+					{
+						TabControl.RemoveTab(ExistingTabIdx);
+						break;
+					}
+				}
+
+				// Switch the stream
+				PerforceConnection Perforce = new PerforceConnection(WorkspaceInfo.UserName, WorkspaceInfo.WorkspaceName, WorkspaceInfo.ServerAndPort);
+				if(!Perforce.SwitchStream(StreamName, Log))
+				{
+					Log.WriteLine("Unable to switch stream");
+					return new AutomationRequestOutput(AutomationRequestResult.Error);
+				}
+			}
+
+			UserSelectedProjectSettings SelectedProject = new UserSelectedProjectSettings(WorkspaceInfo.ServerAndPort, WorkspaceInfo.UserName, UserSelectedProjectType.Client, String.Format("//{0}{1}", WorkspaceInfo.WorkspaceName, ProjectPath), null);
+
+			int TabIdx = TryOpenProject(SelectedProject, -1, OpenProjectOptions.None);
+			if(TabIdx == -1)
+			{
+				Log.WriteLine("Unable to open project");
+				return new AutomationRequestOutput(AutomationRequestResult.Error);
+			}
+
+			WorkspaceControl Workspace = TabControl.GetTabData(TabIdx) as WorkspaceControl;
+			if(Workspace == null)
+			{
+				Log.WriteLine("Workspace was unable to open");
+				return new AutomationRequestOutput(AutomationRequestResult.Error);
+			}
+
+			if(!bForceSync && Workspace.CanLaunchEditor())
+			{
+				return new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(Workspace.SelectedFileName));
+			}
+
+			Workspace.AddStartupCallback((Control, bCancel) => StartAutomatedSyncAfterStartup(Control, bCancel, Request));
+			return null;
+		}
+
+		private void StartAutomatedSyncAfterStartup(WorkspaceControl Workspace, bool bCancel, AutomationRequest Request)
+		{
+			if(bCancel)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Canceled));
+			}
+			else
+			{
+				Workspace.SyncLatestChange(Result => CompleteAutomatedSync(Result, Workspace.SelectedFileName, Request));
+			}
+		}
+
+		void CompleteAutomatedSync(WorkspaceUpdateResult Result, string SelectedFileName, AutomationRequest Request)
+		{
+			if(Result == WorkspaceUpdateResult.Success)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(SelectedFileName)));
+			}
+			else if(Result == WorkspaceUpdateResult.Canceled)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Canceled));
+			}
+			else
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Error));
+			}
+		}
+
+		AutomationRequestOutput FindProject(AutomationRequest Request)
+		{
+			BinaryReader Reader = new BinaryReader(new MemoryStream(Request.Input.Data));
+			string StreamName = Reader.ReadString();
+			string ProjectPath = Reader.ReadString();
+
+			for(int ExistingTabIdx = 0; ExistingTabIdx < TabControl.GetTabCount(); ExistingTabIdx++)
+			{
+				WorkspaceControl ExistingWorkspace = TabControl.GetTabData(ExistingTabIdx) as WorkspaceControl;
+				if(ExistingWorkspace != null && String.Compare(ExistingWorkspace.StreamName, StreamName, StringComparison.OrdinalIgnoreCase) == 0 && ExistingWorkspace.SelectedProject != null)
+				{
+					string ClientPath = ExistingWorkspace.SelectedProject.ClientPath;
+					if(ClientPath != null && ClientPath.StartsWith("//"))
+					{
+						int SlashIdx = ClientPath.IndexOf('/', 2);
+						if(SlashIdx != -1)
+						{
+							string ExistingProjectPath = ClientPath.Substring(SlashIdx);
+							if(String.Compare(ExistingProjectPath, ProjectPath, StringComparison.OrdinalIgnoreCase) == 0)
+							{
+								return new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(ExistingWorkspace.SelectedFileName));
+							}
+						}
+					}
+				}
+			}
+
+			return new AutomationRequestOutput(AutomationRequestResult.NotFound);
 		}
 
 		protected override void OnHandleCreated(EventArgs e)
 		{
 			base.OnHandleCreated(e);
+
+			Debug.Assert(bAllowCreatingHandle, "Window handle should not be created before constructor has run.");
 		}
 
 		void TabControl_OnButtonClick(int ButtonIdx, Point Location, MouseButtons Buttons)
@@ -222,6 +416,18 @@ namespace UnrealGameSync
 
 			StopScheduleTimer();
 
+			if(AutomationServer != null)
+			{
+				AutomationServer.Dispose();
+				AutomationServer = null;
+			}
+
+			if(AutomationLog != null)
+			{
+				AutomationLog.Close();
+				AutomationLog = null;
+			}
+
 			base.Dispose(disposing);
 		}
 
@@ -231,9 +437,6 @@ namespace UnrealGameSync
 			{
 				Hide();
 				EventArgs.Cancel = true;
-
-				Settings.bWindowVisible = Visible;
-				Settings.Save();
 			}
 			else
 			{
@@ -248,10 +451,20 @@ namespace UnrealGameSync
 				}
 
 				StopScheduleTimer();
-
-				Settings.bWindowVisible = Visible;
-				Settings.Save();
 			}
+
+			Settings.bWindowVisible = Visible;
+			Settings.WindowState = WindowState;
+			if(WindowState == FormWindowState.Normal)
+			{
+				Settings.WindowBounds = new Rectangle(Location, Size);
+			}
+			else
+			{
+				Settings.WindowBounds = RestoreBounds;
+			}
+
+			Settings.Save();
 		}
 
 		private void SetupDefaultControl()
@@ -278,8 +491,7 @@ namespace UnrealGameSync
 			ErrorPanel.BorderStyle = BorderStyle.FixedSingle;
 			ErrorPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
 			ErrorPanel.Location = new Point(0, 0);
-			ErrorPanel.Size = new Size(TabPanel.Width, TabPanel.Height);
-			ErrorPanel.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+			ErrorPanel.Dock = DockStyle.Fill;
 			ErrorPanel.Hide();
 
 			string SummaryText = String.Format("Unable to open '{0}'.", Project.ToString());
@@ -606,7 +818,7 @@ namespace UnrealGameSync
 		public void OpenNewProject()
 		{
 			DetectProjectSettingsTask DetectedProjectSettings;
-			if(OpenProjectWindow.ShowModal(this, null, out DetectedProjectSettings, Settings, DataFolder, Log))
+			if(OpenProjectWindow.ShowModal(this, null, out DetectedProjectSettings, Settings, DataFolder, CacheFolder, Log))
 			{
 				int NewTabIdx = TryOpenProject(DetectedProjectSettings, -1, OpenProjectOptions.None);
 				if(NewTabIdx != -1)
@@ -658,7 +870,7 @@ namespace UnrealGameSync
 		public void EditSelectedProject(int TabIdx, UserSelectedProjectSettings SelectedProject)
 		{
 			DetectProjectSettingsTask DetectedProjectSettings;
-			if(OpenProjectWindow.ShowModal(this, SelectedProject, out DetectedProjectSettings, Settings, DataFolder, Log))
+			if(OpenProjectWindow.ShowModal(this, SelectedProject, out DetectedProjectSettings, Settings, DataFolder, CacheFolder, Log))
 			{
 				int NewTabIdx = TryOpenProject(DetectedProjectSettings, TabIdx, OpenProjectOptions.None);
 				if(NewTabIdx != -1)
@@ -676,7 +888,7 @@ namespace UnrealGameSync
 		int TryOpenProject(UserSelectedProjectSettings Project, int ReplaceTabIdx, OpenProjectOptions Options = OpenProjectOptions.None)
 		{
 			Log.WriteLine("Detecting settings for {0}", Project);
-			using(DetectProjectSettingsTask DetectProjectSettings = new DetectProjectSettingsTask(Project, DataFolder, new PrefixedTextWriter("  ", Log)))
+			using(DetectProjectSettingsTask DetectProjectSettings = new DetectProjectSettingsTask(Project, DataFolder, CacheFolder, new PrefixedTextWriter("  ", Log)))
 			{
 				string ErrorMessage;
 
@@ -753,11 +965,9 @@ namespace UnrealGameSync
 			}
 
 			// Now that we have the project settings, we can construct the tab
-			WorkspaceControl NewWorkspace = new WorkspaceControl(this, ApiUrl, OriginalExecutableFileName, ProjectSettings, Log, Settings);
+			WorkspaceControl NewWorkspace = new WorkspaceControl(this, ApiUrl, OriginalExecutableFileName, bUnstable, ProjectSettings, Log, Settings);
 			NewWorkspace.Parent = TabPanel;
-			NewWorkspace.Location = new Point(0, 0);
-			NewWorkspace.Size = new Size(TabPanel.Width, TabPanel.Height);
-			NewWorkspace.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+			NewWorkspace.Dock = DockStyle.Fill;
 			NewWorkspace.Hide();
 
 			// Add the tab
@@ -944,6 +1154,25 @@ namespace UnrealGameSync
 					Taskbar.SetState(Handle, State);
 				}
 			}
+		}
+
+		public void ModifyApplicationSettings()
+		{
+			bool? bRelaunchUnstable = ApplicationSettingsWindow.ShowModal(this, bUnstable, OriginalExecutableFileName, Settings, Log);
+			if(bRelaunchUnstable.HasValue)
+			{
+				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated, bRelaunchUnstable);
+			}
+		}
+
+		private void MainWindow_Load(object sender, EventArgs e)
+		{
+			if(Settings.WindowBounds != null)
+			{
+				Location = Settings.WindowBounds.Value.Location;
+				Size = Settings.WindowBounds.Value.Size;
+			}
+			WindowState = Settings.WindowState;
 		}
 	}
 }

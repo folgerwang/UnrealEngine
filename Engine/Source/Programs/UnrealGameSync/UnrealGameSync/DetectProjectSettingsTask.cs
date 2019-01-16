@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -23,17 +23,18 @@ namespace UnrealGameSync
 		public string NewSelectedClientFileName;
 		public string StreamName;
 		public Image ProjectLogo;
-		public TimeSpan ServerTimeZone;
 		public string DataFolder;
+		public string CacheFolder;
 		public bool bIsEnterpriseProject;
 		public ConfigFile LatestProjectConfigFile;
 		public List<KeyValuePair<string, DateTime>> LocalConfigFiles;
 		TextWriter Log;
 
-		public DetectProjectSettingsTask(UserSelectedProjectSettings SelectedProject, string InDataFolder, TextWriter InLog)
+		public DetectProjectSettingsTask(UserSelectedProjectSettings SelectedProject, string InDataFolder, string InCacheFolder, TextWriter InLog)
 		{
 			this.SelectedProject = SelectedProject;
 			DataFolder = InDataFolder;
+			CacheFolder = InCacheFolder;
 			Log = InLog;
 		}
 
@@ -86,19 +87,8 @@ namespace UnrealGameSync
 
 		public bool Run(PerforceConnection Perforce, TextWriter Log, out string ErrorMessage)
 		{
-			// Get the perforce server settings
-			PerforceInfoRecord PerforceInfo;
-			if(!Perforce.Info(out PerforceInfo, Log))
-			{
-				ErrorMessage = String.Format("Couldn't get Perforce server info");
-				return false;
-			}
-
-			// Configure the time zone
-			ServerTimeZone = PerforceInfo.ServerTimeZone;
-
-			// If we're using the legacy path of specifying a file, figure out the workspace name now
-			if(SelectedProject.Type == UserSelectedProjectType.Client)
+			// Use the cached client path to the file if it's available; it's much quicker than trying to find the correct workspace.
+			if(!String.IsNullOrEmpty(SelectedProject.ClientPath))
 			{
 				// Get the client path
 				NewSelectedClientFileName = SelectedProject.ClientPath;
@@ -114,15 +104,30 @@ namespace UnrealGameSync
 				// Create the client
 				PerforceClient = new PerforceConnection(Perforce.UserName, ClientName, Perforce.ServerAndPort);
 
-				// Figure out the path on the client
-				if(!PerforceClient.ConvertToLocalPath(NewSelectedClientFileName, out NewSelectedFileName, Log))
+				// Figure out the path on the client. Use the cached location if it's valid.
+				if(SelectedProject.LocalPath != null && File.Exists(SelectedProject.LocalPath))
 				{
-					ErrorMessage = String.Format("Couldn't get client path for {0}", NewSelectedFileName);
-					return false;
+					NewSelectedFileName = SelectedProject.LocalPath;
+				}
+				else
+				{
+					if(!PerforceClient.ConvertToLocalPath(NewSelectedClientFileName, out NewSelectedFileName, Log))
+					{
+						ErrorMessage = String.Format("Couldn't get client path for {0}", NewSelectedFileName);
+						return false;
+					}
 				}
 			}
-			else if(SelectedProject.Type == UserSelectedProjectType.Local)
+			else
 			{
+				// Get the perforce server settings
+				PerforceInfoRecord PerforceInfo;
+				if(!Perforce.Info(out PerforceInfo, Log))
+				{
+					ErrorMessage = String.Format("Couldn't get Perforce server info");
+					return false;
+				}
+
 				// Use the path as the selected filename
 				NewSelectedFileName = SelectedProject.LocalPath;
 
@@ -133,67 +138,40 @@ namespace UnrealGameSync
 					return false;
 				}
 
-				// Find all the clients on this machine
-				Log.WriteLine("Enumerating clients on local machine...");
+				// Find all the clients for this user
+				Log.WriteLine("Enumerating clients for {0}...", PerforceInfo.UserName);
+
 				List<PerforceClientRecord> Clients;
-				if(!Perforce.FindClients(out Clients, Log))
+				if(!Perforce.FindClients(PerforceInfo.UserName, out Clients, Log))
 				{
 					ErrorMessage = String.Format("Couldn't find any clients for this host.");
 					return false;
 				}
 
-				// Find any clients which are valid. If this is not exactly one, we should fail.
-				List<PerforceConnection> CandidateClients = new List<PerforceConnection>();
-				foreach(PerforceClientRecord Client in Clients)
+				List<PerforceConnection> CandidateClients = FilterClients(Clients, Perforce.ServerAndPort, PerforceInfo.HostName, PerforceInfo.UserName);
+				if(CandidateClients.Count == 0)
 				{
-					// Make sure the client is well formed
-					if(!String.IsNullOrEmpty(Client.Name) && (!String.IsNullOrEmpty(Client.Host) || !String.IsNullOrEmpty(Client.Owner)) && !String.IsNullOrEmpty(Client.Root))
+					// Search through all workspaces. We may find a suitable workspace which is for any user.
+					Log.WriteLine("Enumerating shared clients...");
+					if(!Perforce.FindClients("", out Clients, Log))
 					{
-						// Require either a username or host name match
-						if((String.IsNullOrEmpty(Client.Host) || String.Compare(Client.Host, PerforceInfo.HostName, StringComparison.InvariantCultureIgnoreCase) == 0) && (String.IsNullOrEmpty(Client.Owner) || String.Compare(Client.Owner, PerforceInfo.UserName, StringComparison.InvariantCultureIgnoreCase) == 0))
-						{
-							if(!Utility.SafeIsFileUnderDirectory(NewSelectedFileName, Client.Root))
-							{
-								Log.WriteLine("Rejecting {0} due to root mismatch ({1})", Client.Name, Client.Root);
-								continue;
-							}
+						ErrorMessage = "Failed to enumerate clients.";
+						return false;
+					}
 
-							PerforceConnection CandidateClient = new PerforceConnection(PerforceInfo.UserName, Client.Name, Perforce.ServerAndPort);
+					// Filter this list of clients
+					CandidateClients = FilterClients(Clients, Perforce.ServerAndPort, PerforceInfo.HostName, PerforceInfo.UserName);
 
-							bool bFileExists;
-							if(!CandidateClient.FileExists(NewSelectedFileName, out bFileExists, Log) || !bFileExists)
-							{
-								Log.WriteLine("Rejecting {0} due to file not existing in workspace", Client.Name);
-								continue;
-							}
-
-							List<PerforceFileRecord> Records;
-							if(!CandidateClient.Stat(NewSelectedFileName, out Records, Log))
-							{
-								Log.WriteLine("Rejecting {0} due to {1} not in depot", Client.Name, NewSelectedFileName);
-								continue;
-							}
-
-							Records.RemoveAll(x => !x.IsMapped);
-							if(Records.Count == 0)
-							{
-								Log.WriteLine("Rejecting {0} due to {1} matching records", Client.Name, Records.Count);
-								continue;
-							}
-
-							Log.WriteLine("Found valid client {0}", Client.Name);
-							CandidateClients.Add(CandidateClient);
-						}
+					// If we still couldn't find any, fail.
+					if(CandidateClients.Count == 0)
+					{
+						ErrorMessage = String.Format("Couldn't find any Perforce workspace containing {0}. Check your connection settings.", NewSelectedFileName);
+						return false;
 					}
 				}
 
 				// Check there's only one client
-				if(CandidateClients.Count == 0)
-				{
-					ErrorMessage = String.Format("Couldn't find any Perforce workspace containing {0}. Check your connection settings.", NewSelectedFileName);
-					return false;
-				}
-				else if(CandidateClients.Count > 1)
+				if(CandidateClients.Count > 1)
 				{
 					ErrorMessage = String.Format("Found multiple workspaces containing {0}:\n\n{1}\n\nCannot determine which to use.", Path.GetFileName(NewSelectedFileName), String.Join("\n", CandidateClients.Select(x => x.ClientName)));
 					return false;
@@ -209,10 +187,6 @@ namespace UnrealGameSync
 					return false;
 				}
 			}
-			else
-			{
-				throw new InvalidDataException("Invalid selected project type");
-			}
 
 			// Normalize the filename
 			NewSelectedFileName = Path.GetFullPath(NewSelectedFileName).Replace('/', Path.DirectorySeparatorChar);
@@ -224,7 +198,12 @@ namespace UnrealGameSync
 			SelectedProject = new UserSelectedProjectSettings(Perforce.ServerAndPort, Perforce.UserName, SelectedProject.Type, NewSelectedClientFileName, NewSelectedFileName);
 
 			// Figure out where the engine is in relation to it
-			for(int EndIdx = NewSelectedClientFileName.Length - 1;;EndIdx--)
+			int EndIdx = NewSelectedClientFileName.Length - 1;
+			if(EndIdx != -1 && NewSelectedClientFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
+			{
+				EndIdx = NewSelectedClientFileName.LastIndexOf('/') - 1;
+			}
+			for(;;EndIdx--)
 			{
 				if(EndIdx < 2)
 				{
@@ -233,24 +212,22 @@ namespace UnrealGameSync
 				}
 				if(NewSelectedClientFileName[EndIdx] == '/')
 				{
-					bool bFileExists;
-					if(PerforceClient.FileExists(NewSelectedClientFileName.Substring(0, EndIdx) + "/Engine/Build/Build.version", out bFileExists, Log) && bFileExists)
+					List<PerforceFileRecord> FileRecords;
+					if(PerforceClient.Stat(NewSelectedClientFileName.Substring(0, EndIdx) + "/Engine/Build/Build.version", out FileRecords, Log) && FileRecords.Count > 0)
 					{
+						if(FileRecords[0].ClientPath == null)
+						{
+							ErrorMessage = String.Format("Missing client path for {0}", FileRecords[0].DepotPath);
+							return false;
+						}
+
 						BranchClientPath = NewSelectedClientFileName.Substring(0, EndIdx);
+						BranchDirectoryName = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(FileRecords[0].ClientPath), "..", ".."));
 						break;
 					}
 				}
 			}
 			Log.WriteLine("Found branch root at {0}", BranchClientPath);
-
-			// Get the local branch root
-			string BuildVersionPath;
-			if(!PerforceClient.ConvertToLocalPath(BranchClientPath + "/Engine/Build/Build.version", out BuildVersionPath, Log))
-			{
-				ErrorMessage = String.Format("Couldn't get local path for Engine/Build/Build.version");
-				return false;
-			}
-			BranchDirectoryName = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(BuildVersionPath), "..", ".."));
 
 			// Find the editor target for this project
 			if(NewSelectedFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
@@ -258,13 +235,9 @@ namespace UnrealGameSync
 				List<PerforceFileRecord> Files;
 				if(PerforceClient.FindFiles(PerforceUtils.GetClientOrDepotDirectoryName(NewSelectedClientFileName) + "/Source/*Editor.Target.cs", out Files, Log) && Files.Count >= 1)
 				{
-					PerforceFileRecord File = Files.FirstOrDefault(x => x.Action == null || !x.Action.Contains("delete"));
-					if(File != null)
-					{
-						string DepotPath = File.DepotPath;
-						NewProjectEditorTarget = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(DepotPath.Substring(DepotPath.LastIndexOf('/') + 1)));
-						Log.WriteLine("Using {0} as editor target name (from {1})", NewProjectEditorTarget, Files[0]);
-					}
+					string DepotPath = Files[0].DepotPath;
+					NewProjectEditorTarget = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(DepotPath.Substring(DepotPath.LastIndexOf('/') + 1)));
+					Log.WriteLine("Using {0} as editor target name (from {1})", NewProjectEditorTarget, Files[0]);
 				}
 				if (NewProjectEditorTarget == null)
 				{
@@ -319,21 +292,82 @@ namespace UnrealGameSync
 				}
 			}
 
-			// Figure out if it's an enterprise project
-			List<string> ProjectLines;
-			if(NewSelectedClientFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase) && PerforceClient.Print(NewSelectedClientFileName, out ProjectLines, Log))
+			// Figure out if it's an enterprise project. Use the synced version if we have it.
+			if(NewSelectedClientFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
 			{
-				string Text = String.Join("\n", ProjectLines);
+				string Text;
+				if(File.Exists(NewSelectedFileName))
+				{
+					Text = File.ReadAllText(NewSelectedFileName);
+				}
+				else
+				{
+					List<string> ProjectLines;
+					if(PerforceClient.Print(NewSelectedClientFileName, out ProjectLines, Log))
+					{
+						ErrorMessage = String.Format("Unable to get contents of {0}", NewSelectedClientFileName);
+						return false;
+					}
+					Text = String.Join("\n", ProjectLines);
+				}
 				bIsEnterpriseProject = Utility.IsEnterpriseProjectFromText(Text);
 			}
 
 			// Read the initial config file
 			LocalConfigFiles = new List<KeyValuePair<string, DateTime>>();
-			LatestProjectConfigFile = PerforceMonitor.ReadProjectConfigFile(PerforceClient, BranchClientPath, NewSelectedClientFileName, LocalConfigFiles, Log);
+			LatestProjectConfigFile = PerforceMonitor.ReadProjectConfigFile(PerforceClient, BranchClientPath, NewSelectedClientFileName, CacheFolder, LocalConfigFiles, Log);
 
 			// Succeed!
 			ErrorMessage = null;
 			return true;
+		}
+
+		List<PerforceConnection> FilterClients(List<PerforceClientRecord> Clients, string ServerAndPort, string HostName, string UserName)
+		{
+			List<PerforceConnection> CandidateClients = new List<PerforceConnection>();
+			foreach(PerforceClientRecord Client in Clients)
+			{
+				// Make sure the client is well formed
+				if(!String.IsNullOrEmpty(Client.Name) && (!String.IsNullOrEmpty(Client.Host) || !String.IsNullOrEmpty(Client.Owner)) && !String.IsNullOrEmpty(Client.Root))
+				{
+					// Require either a username or host name match
+					if((String.IsNullOrEmpty(Client.Host) || String.Compare(Client.Host, HostName, StringComparison.InvariantCultureIgnoreCase) == 0) && (String.IsNullOrEmpty(Client.Owner) || String.Compare(Client.Owner, UserName, StringComparison.InvariantCultureIgnoreCase) == 0))
+					{
+						if(!Utility.SafeIsFileUnderDirectory(NewSelectedFileName, Client.Root))
+						{
+							Log.WriteLine("Rejecting {0} due to root mismatch ({1})", Client.Name, Client.Root);
+							continue;
+						}
+
+						PerforceConnection CandidateClient = new PerforceConnection(UserName, Client.Name, ServerAndPort);
+
+						bool bFileExists;
+						if(!CandidateClient.FileExists(NewSelectedFileName, out bFileExists, Log) || !bFileExists)
+						{
+							Log.WriteLine("Rejecting {0} due to file not existing in workspace", Client.Name);
+							continue;
+						}
+
+						List<PerforceFileRecord> Records;
+						if(!CandidateClient.Stat(NewSelectedFileName, out Records, Log))
+						{
+							Log.WriteLine("Rejecting {0} due to {1} not in depot", Client.Name, NewSelectedFileName);
+							continue;
+						}
+
+						Records.RemoveAll(x => !x.IsMapped);
+						if(Records.Count == 0)
+						{
+							Log.WriteLine("Rejecting {0} due to {1} matching records", Client.Name, Records.Count);
+							continue;
+						}
+
+						Log.WriteLine("Found valid client {0}", Client.Name);
+						CandidateClients.Add(CandidateClient);
+					}
+				}
+			}
+			return CandidateClients;
 		}
 
 		bool TryGetStreamPrefix(PerforceConnection Perforce, string StreamName, TextWriter Log, out string StreamPrefix)
@@ -382,12 +416,12 @@ namespace UnrealGameSync
 
 	class DetectMultipleProjectSettingsTask : IModalTask, IDisposable
 	{
-		public List<DetectProjectSettingsTask> Tasks;
-		public List<DetectProjectSettingsResult> Results;
+		public DetectProjectSettingsTask[] Tasks;
+		public DetectProjectSettingsResult[] Results;
 
 		public DetectMultipleProjectSettingsTask(IEnumerable<DetectProjectSettingsTask> Tasks)
 		{
-			this.Tasks = new List<DetectProjectSettingsTask>(Tasks);
+			this.Tasks = Tasks.ToArray();
 		}
 
 		public void Dispose()
@@ -398,7 +432,7 @@ namespace UnrealGameSync
 				{
 					Task.Dispose();
 				}
-				foreach(DetectProjectSettingsResult Result in Results)
+				foreach(DetectProjectSettingsResult Result in Results.Where(x => x != null))
 				{
 					Result.Dispose();
 				}
@@ -408,17 +442,19 @@ namespace UnrealGameSync
 
 		public bool Run(out string ErrorMessage)
 		{
-			Results = new List<DetectProjectSettingsResult>();
-			for(int Idx = 0; Idx < Tasks.Count; Idx++)
-			{
-				string TaskErrorMessage;
-				bool bTaskSucceeded = Tasks[Idx].Run(out TaskErrorMessage);
-				Results.Add(new DetectProjectSettingsResult(Tasks[Idx], bTaskSucceeded, TaskErrorMessage));
-				Tasks[Idx] = null;
-			}
+			Results = new DetectProjectSettingsResult[Tasks.Length];
+			Parallel.For(0, Tasks.Length, new ParallelOptions(){ MaxDegreeOfParallelism = 4 }, Idx => RunTask(Idx));
 
 			ErrorMessage = null;
 			return true;
+		}
+
+		void RunTask(int Idx)
+		{
+			string TaskErrorMessage;
+			bool bTaskSucceeded = Tasks[Idx].Run(out TaskErrorMessage);
+			Results[Idx] = new DetectProjectSettingsResult(Tasks[Idx], bTaskSucceeded, TaskErrorMessage);
+			Tasks[Idx] = null;
 		}
 	}
 }
