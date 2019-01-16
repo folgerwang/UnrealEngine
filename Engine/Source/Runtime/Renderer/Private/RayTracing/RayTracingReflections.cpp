@@ -44,6 +44,13 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxRayDistance(
 	TEXT("Sets the maximum ray distance for ray traced reflection rays (default = 1.0e27)")
 );
 
+static float GRayTracingReflectionsMaxRoughness = 1.0;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxRoughness(
+	TEXT("r.RayTracing.Reflections.MaxRoughness"),
+	GRayTracingReflectionsMaxRoughness,
+	TEXT("Surfaces with roughness larger than this value will not receive ray traced reflections (default = 1)")
+);
+
 static const int32 GReflectionLightCountMaximum = 64;
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionsLightData, )
@@ -126,6 +133,7 @@ class FRayTracingReflectionsRG : public FGlobalShader
 		SHADER_PARAMETER(int32, ShouldDoReflectedShadows)
 		SHADER_PARAMETER(int32, ShouldDoEmissiveAndIndirectLighting)
 		SHADER_PARAMETER(float, ReflectionMaxRayDistance)
+		SHADER_PARAMETER(float, ReflectionMaxRoughness)
 
 		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
 
@@ -210,6 +218,7 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 	PassParameters->ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
 	PassParameters->ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;
 	PassParameters->ReflectionMaxRayDistance = GRayTracingReflectionsMaxRayDistance;
+	PassParameters->ReflectionMaxRoughness = GRayTracingReflectionsMaxRoughness;
 	PassParameters->LTCMatTexture = GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture;
 	PassParameters->LTCMatSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	PassParameters->LTCAmpTexture = GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture;
