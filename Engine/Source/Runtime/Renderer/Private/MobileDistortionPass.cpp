@@ -9,6 +9,7 @@ MobileDistortionPass.cpp - Mobile specific rendering of primtives with refractio
 #include "DynamicPrimitiveDrawing.h"
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"
+#include "PipelineStateCache.h"
 
 bool IsMobileDistortionActive(const FViewInfo& View)
 {

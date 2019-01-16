@@ -48,57 +48,6 @@ IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeVS,TEXT("/Engine/Private/DebugView
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeHS,TEXT("/Engine/Private/DebugViewModeVertexShader.usf"),TEXT("MainHull"),SF_Hull);	
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDebugViewModeDS,TEXT("/Engine/Private/DebugViewModeVertexShader.usf"),TEXT("MainDomain"),SF_Domain);
 
-#if 0 // todo : implement FMissingShaderPS
-/**
-* Pixel shader that renders texture streamer wanted mips accuracy.
-*/
-class FMissingShaderPS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FMissingShaderPS,Global);
-
-public:
-
-	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters) { return AllowDebugViewVSDSHS(Parameters.Platform); }
-
-	FMissingShaderPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):	FGlobalShader(Initializer) {}
-	FMissingShaderPS() {}
-
-	virtual bool Serialize(FArchive& Ar) override { return FGlobalShader::Serialize(Ar); }
-
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("UNDEFINED_VALUE"), UndefinedStreamingAccuracyIntensity);
-	}
-
-	virtual void SetParameters(
-		FRHICommandList& RHICmdList, 
-		int32 NumVSInstructions, 
-		int32 NumPSInstructions, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override {}
-
-	virtual void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* Proxy,
-		int32 VisualizeLODIndex,
-		const FMeshBatchElement& BatchElement, 
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override{}
-
-	virtual void SetMesh(FRHICommandList& RHICmdList, const FSceneView& View) override {}
-
-	virtual FShader* GetShader() override { return static_cast<FShader*>(this); }
-};
-
-IMPLEMENT_SHADER_TYPE(,FMissingShaderPS,TEXT("/Engine/Private/MissingShaderPixelShader.usf"),TEXT("Main"),SF_Pixel);
-
-#endif // todo : implement FMissingShaderPS
-
 ENGINE_API bool GetDebugViewMaterial(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial);
 
 void FDeferredShadingSceneRenderer::DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT)

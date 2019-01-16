@@ -1013,7 +1013,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		GetVirtualTextureSystem()->Update(RHICmdList, FeatureLevel);
 	}
 
-	TGuardValue<bool> LockDrawLists(GDrawListsLocked, true);
 #if !UE_BUILD_SHIPPING
 	if (CVarStallInitViews.GetValueOnRenderThread() > 0.0f)
 	{
@@ -1184,11 +1183,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			{
 				InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, UpdateViewCustomDataEvents);
 				PrepareDistanceFieldScene(RHICmdList, false);
-
-				if (!UseMeshDrawCommandPipeline())
-				{
-					PostInitViewCustomData(UpdateViewCustomDataEvents);
-				}
 
 				GEngine->GetPreRenderDelegate().Broadcast();
 

@@ -15,7 +15,6 @@
 #include "Shader.h"
 #include "UnrealEngine.h"
 #include "MeshMaterialShaderType.h"
-#include "DrawingPolicy.h"
 #include "MeshMaterialShader.h"
 #include "ShaderBaseClasses.h"
 #include "SceneRendering.h"
@@ -85,21 +84,6 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::VertexParametersType::Serialize(Ar);
 		return bShaderHasOutdatedParameters;
-	}
-
-	void SetParameters(		
-		FRHICommandList& RHICmdList, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView& View, 
-		const FDrawingPolicyRenderState& DrawRenderState
-		)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	void GetShaderBindings(
@@ -221,29 +205,6 @@ public:
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FLightmapDensityPassUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 	TLightMapDensityPS() {}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FPrimitiveSceneProxy* PrimitiveSceneProxy,const FMeshBatchElement& BatchElement,const FSceneView& View,const FDrawingPolicyRenderState& DrawRenderState,FVector& InBuiltLightingAndSelectedFlags,FVector2D& InLightMapResolutionScale, bool bTextureMapped)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
-
-		SetShaderValue(RHICmdList, GetPixelShader(),BuiltLightingAndSelectedFlags,InBuiltLightingAndSelectedFlags,0);
-		SetShaderValue(RHICmdList, GetPixelShader(),LightMapResolutionScale,InLightMapResolutionScale,0);
-		if (LightMapDensityDisplayOptions.IsBound())
-		{
-			FVector4 OptionsParameter(
-				GEngine->bRenderLightMapDensityGrayscale ? GEngine->RenderLightMapDensityGrayscaleScale : 0.0f,
-				GEngine->bRenderLightMapDensityGrayscale ? 0.0f : GEngine->RenderLightMapDensityColorScale,
-				(bTextureMapped == true) ? 1.0f : 0.0f,
-				(bTextureMapped == false) ? 1.0f : 0.0f
-				);
-			SetShaderValue(RHICmdList, GetPixelShader(),LightMapDensityDisplayOptions,OptionsParameter,0);
-		}
-	}
 
 	void GetShaderBindings(
 		const FScene* Scene,

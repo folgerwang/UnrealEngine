@@ -263,32 +263,6 @@ private:
 
 IMPLEMENT_SHADER_TYPE(, FCopySceneColorPS, TEXT("/Engine/Private/TranslucentLightingShaders.usf"), TEXT("CopySceneColorMain"), SF_Pixel);
 
-// @todo MeshCommandPipeline - remove when UseMeshDrawCommandPipeline (and draw policies) will be removed.
-float CalculateTranslucentSortKey(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FSceneView& View)
-{
-	float SortKey = 0.0f;
-	if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByDistance)
-	{
-		//sort based on distance to the view position, view rotation is not a factor
-		SortKey = (PrimitiveSceneInfo->Proxy->GetBounds().Origin - View.ViewMatrices.GetViewOrigin()).Size();
-		// UE4_TODO: also account for DPG in the sort key.
-	}
-	else if (View.TranslucentSortPolicy == ETranslucentSortPolicy::SortAlongAxis)
-	{
-		// Sort based on enforced orthogonal distance
-		const FVector CameraToObject = PrimitiveSceneInfo->Proxy->GetBounds().Origin - View.ViewMatrices.GetViewOrigin();
-		SortKey = FVector::DotProduct(CameraToObject, View.TranslucentSortAxis);
-	}
-	else
-	{
-		// Sort based on projected Z distance
-		check(View.TranslucentSortPolicy == ETranslucentSortPolicy::SortByProjectedZ);
-		SortKey = View.ViewMatrices.GetViewMatrix().TransformPosition(PrimitiveSceneInfo->Proxy->GetBounds().Origin).Z;
-	}
-
-	return SortKey;
-}
-
 FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive)
 {
 	uint16 SortKeyPriority = 0;
@@ -299,7 +273,7 @@ FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSc
 		SortKeyPriority = (uint16)((int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN);
 	}
 
-	UTranslucentMeshSortKey TranslucentMeshSortKey;
+	FTranslucentMeshSortKey TranslucentMeshSortKey;
 	TranslucentMeshSortKey.Fields.MeshIdInPrimitive = MeshIdInPrimitive;
 	TranslucentMeshSortKey.Fields.Priority = SortKeyPriority;
 	TranslucentMeshSortKey.Fields.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
@@ -310,44 +284,37 @@ FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSc
 	return SortKey;
 }
 
-void FTranslucentPrimSet::AppendScenePrimitives(FTranslucentSortedPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass)
+void FTranslucentPrimSet::AppendScenePrimitives(FTranslucentPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass)
 {
-	SortedPrims.Append(Elements, Num);
-	SortedPrimsNum.Append(TranslucentPrimitiveCountPerPass);
+	Prims.Append(Elements, Num);
+	PrimsNum.Append(TranslucentPrimitiveCountPerPass);
 }
 
 void FTranslucentPrimSet::PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, const FPrimitiveViewRelevance& ViewRelevance,
-	FTranslucentPrimSet::FTranslucentSortedPrim *InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount)
+	FTranslucentPrimSet::FTranslucentPrim *InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount)
 {
-	const float SortKey = CalculateTranslucentSortKey(PrimitiveSceneInfo, ViewInfo);
 	const auto FeatureLevel = ViewInfo.GetFeatureLevel();
 
 	if (ViewInfo.Family->AllowTranslucencyAfterDOF())
 	{
 		if (ViewRelevance.bNormalTranslucencyRelevance)
 		{
-			new(&InArrayStart[InOutArrayNum++]) FTranslucentSortedPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_StandardTranslucency, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority(), SortKey);
+			new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_StandardTranslucency);
 			OutCount.Add(ETranslucencyPass::TPT_StandardTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
 		}
 
 		if (ViewRelevance.bSeparateTranslucencyRelevance)
 		{
-			new(&InArrayStart[InOutArrayNum++]) FTranslucentSortedPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_TranslucencyAfterDOF, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority(), SortKey);
+			new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_TranslucencyAfterDOF);
 			OutCount.Add(ETranslucencyPass::TPT_TranslucencyAfterDOF, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
 		}
 	}
 	else // Otherwise, everything is rendered in a single bucket. This is not related to whether DOF is currently enabled or not.
 	{
 		// When using all translucency, Standard and AfterDOF are sorted together instead of being rendered like 2 buckets.
-		new(&InArrayStart[InOutArrayNum++]) FTranslucentSortedPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_AllTranslucency, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority(), SortKey);
+		new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_AllTranslucency);
 		OutCount.Add(ETranslucencyPass::TPT_AllTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
 	}
-}
-
-void FTranslucentPrimSet::SortPrimitives()
-{
-	// sort prims based on the specified criteria (usually depth)
-	SortedPrims.Sort(FCompareFTranslucentSortedPrim());
 }
 
 extern int32 GLightShaftRenderAfterDOF;
@@ -379,7 +346,7 @@ bool FSceneRenderer::ShouldRenderTranslucency(ETranslucencyPass::Type Translucen
 
 	for (const FViewInfo& View : Views)
 	{
-		if (View.TranslucentPrimSet.SortedPrimsNum.Num(TranslucencyPass) > 0)
+		if (View.TranslucentPrimSet.PrimsNum.Num(TranslucencyPass) > 0)
 		{
 			return true;
 		}
@@ -588,7 +555,7 @@ void FDeferredShadingSceneRenderer::ConditionalResolveSceneColorForTranslucentMa
 		bool bNeedsResolve = false;
 		for (int32 TranslucencyPass = 0; TranslucencyPass < ETranslucencyPass::TPT_MAX && !bNeedsResolve; ++TranslucencyPass)
 		{
-			bNeedsResolve |= View.TranslucentPrimSet.SortedPrimsNum.UseSceneColorCopy((ETranslucencyPass::Type)TranslucencyPass);
+			bNeedsResolve |= View.TranslucentPrimSet.PrimsNum.UseSceneColorCopy((ETranslucencyPass::Type)TranslucencyPass);
 		}
 
 		if (bNeedsResolve)
@@ -981,7 +948,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 		FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 		// If downsampling we need to render in the separate buffer. Otherwise we also need to render offscreen to apply TPT_TranslucencyAfterDOF
-		if (RenderInSeparateTranslucency(SceneContext, TranslucencyPass, View.TranslucentPrimSet.SortedPrimsNum.DisableOffscreenRendering(TranslucencyPass)))
+		if (RenderInSeparateTranslucency(SceneContext, TranslucencyPass, View.TranslucentPrimSet.PrimsNum.DisableOffscreenRendering(TranslucencyPass)))
 		{
 			checkSlow(RHICmdList.IsOutsideRenderPass());
 

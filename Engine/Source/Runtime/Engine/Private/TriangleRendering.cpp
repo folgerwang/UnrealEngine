@@ -17,7 +17,7 @@
 #include "RendererInterface.h"
 #include "SceneUtils.h"
 #include "EngineModule.h"
-#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 /** 
 * Vertex buffer

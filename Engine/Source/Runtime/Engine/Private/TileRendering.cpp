@@ -17,7 +17,7 @@
 #include "RendererInterface.h"
 #include "SceneUtils.h"
 #include "EngineModule.h"
-#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 #define NUM_MATERIAL_TILE_VERTS	6
 

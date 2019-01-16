@@ -19,11 +19,10 @@
 #include "EngineFontServices.h"
 #include "Internationalization/BreakIterator.h"
 #include "Misc/CoreDelegates.h"
-#include "DrawingPolicy.h"
 #include "OneColorShader.h"
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
-
+#include "MeshPassProcessor.h"
 #include "StereoRendering.h"
 #include "Debug/ReporterGraph.h"
 #include "Fonts/FontMeasure.h"

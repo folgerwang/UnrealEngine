@@ -35,6 +35,7 @@
 #include "Engine/LODActor.h"
 #include "GPUScene.h"
 #include "TranslucentRendering.h"
+#include "Async/ParallelFor.h"
 
 /*------------------------------------------------------------------------------
 	Globals
@@ -215,14 +216,6 @@ static TAutoConsoleVariable<int32> CVarParallelInitViews(
 	TEXT("Toggles parallel init views. 0 = off; 1 = on"),
 	ECVF_RenderThreadSafe
 	);          
-
-static TAutoConsoleVariable<int32> CVarParallelPostInitViewCustomData(
-	TEXT("r.ParallelViewsCustomDataUpdate"),
-	1,
-	TEXT("Toggles parallel views custom data update. 0 = off; 1 = on"),
-	ECVF_RenderThreadSafe
-);
-
 
 float GLightMaxDrawDistanceScale = 1.0f;
 static FAutoConsoleVariableRef CVarLightMaxDrawDistanceScale(
@@ -1665,13 +1658,9 @@ namespace EMarkMaskBits
 {
 	enum Type
 	{
-		StaticMeshShadowDepthMapMask = 0x1,
 		StaticMeshVisibilityMapMask = 0x2,
-		StaticMeshVelocityMapMask = 0x4,
-		StaticMeshOccluderMapMask = 0x8,
 		StaticMeshFadeOutDitheredLODMapMask = 0x10,
 		StaticMeshFadeInDitheredLODMapMask = 0x20,
-		StaticMeshEditorSelectedMask = 0x40,
 	};
 }
 
@@ -1682,7 +1671,6 @@ struct FDrawCommandRelevancePacket
 {
 	FDrawCommandRelevancePacket()
 	{
-		bUseMeshDrawCommandPipeline = UseMeshDrawCommandPipeline();
 		bUseCachedMeshDrawCommands = UseCachedMeshDrawCommands();
 
 		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
@@ -1694,7 +1682,6 @@ struct FDrawCommandRelevancePacket
 	FPassDrawCommandArray VisibleCachedDrawCommands[EMeshPass::Num];
 	FPassDrawCommandBuildRequestArray DynamicBuildRequests[EMeshPass::Num];
 	int32 NumDynamicBuildRequestElements[EMeshPass::Num];
-	bool bUseMeshDrawCommandPipeline;
 	bool bUseCachedMeshDrawCommands;
 
 	void AddCommandsForMesh(
@@ -1706,40 +1693,37 @@ struct FDrawCommandRelevancePacket
 		bool bCanCache, 
 		EMeshPass::Type PassType)
 	{
-		if (bUseMeshDrawCommandPipeline)
+		const EShadingPath ShadingPath = Scene->GetShadingPath();
+		const bool bUseCachedMeshCommand = bUseCachedMeshDrawCommands
+			&& !!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
+			&& StaticMeshRelevance.bSupportsCachingMeshDrawCommands
+			&& bCanCache;
+
+		if (bUseCachedMeshCommand)
 		{
-			const EShadingPath ShadingPath = Scene->GetShadingPath();
-			const bool bUseCachedMeshCommand = bUseCachedMeshDrawCommands
-				&& !!(FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands)
-				&& StaticMeshRelevance.bSupportsCachingMeshDrawCommands
-				&& bCanCache;
-
-			if (bUseCachedMeshCommand)
+			const int32 StaticMeshCommandInfoIndex = StaticMeshRelevance.GetStaticMeshCommandInfoIndex(PassType);
+			if (StaticMeshCommandInfoIndex >= 0)
 			{
-				const int32 StaticMeshCommandInfoIndex = StaticMeshRelevance.GetStaticMeshCommandInfoIndex(PassType);
-				if (StaticMeshCommandInfoIndex >= 0)
-				{
-					const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = InPrimitiveSceneInfo->StaticMeshCommandInfos[StaticMeshCommandInfoIndex];
-					const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
+				const FCachedMeshDrawCommandInfo& CachedMeshDrawCommand = InPrimitiveSceneInfo->StaticMeshCommandInfos[StaticMeshCommandInfoIndex];
+				const FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
 
-					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
+				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
-					NewVisibleMeshDrawCommand.Setup(
-						&SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex],
-						PrimitiveIndex,
-						CachedMeshDrawCommand.StateBucketId,
-						CachedMeshDrawCommand.MeshFillMode,
-						CachedMeshDrawCommand.MeshCullMode,
-						CachedMeshDrawCommand.SortKey);
+				NewVisibleMeshDrawCommand.Setup(
+					&SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex],
+					PrimitiveIndex,
+					CachedMeshDrawCommand.StateBucketId,
+					CachedMeshDrawCommand.MeshFillMode,
+					CachedMeshDrawCommand.MeshCullMode,
+					CachedMeshDrawCommand.SortKey);
 
-					VisibleCachedDrawCommands[(uint32)PassType].AddElement(NewVisibleMeshDrawCommand);
-				}
+				VisibleCachedDrawCommands[(uint32)PassType].AddElement(NewVisibleMeshDrawCommand);
 			}
-			else
-			{
-				NumDynamicBuildRequestElements[PassType] += StaticMeshRelevance.NumElements;
-				DynamicBuildRequests[PassType].AddElement(&StaticMesh);
-			}
+		}
+		else
+		{
+			NumDynamicBuildRequestElements[PassType] += StaticMeshRelevance.NumElements;
+			DynamicBuildRequests[PassType].AddElement(&StaticMesh);
 		}
 	}
 };
@@ -1765,12 +1749,12 @@ struct FRelevancePacket
 	FRelevancePrimSet<int32> TranslucentSelfShadowPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleDynamicPrimitives;
 	FMeshPassMask VisibleDynamicMeshesPassMask;
-	FRelevancePrimSet<FTranslucentPrimSet::FTranslucentSortedPrim, ETranslucencyPass::TPT_MAX> TranslucencyPrims;
+	FRelevancePrimSet<FTranslucentPrimSet::FTranslucentPrim, ETranslucencyPass::TPT_MAX> TranslucencyPrims;
 	// belongs to TranslucencyPrims
 	FTranslucenyPrimCount TranslucencyPrimCount;
-	FRelevancePrimSet<FPrimitiveSceneProxy*> DistortionPrimSet;
 	FRelevancePrimSet<FMeshDecalPrimSet::KeyType> MeshDecalPrimSet;
-	FRelevancePrimSet<FPrimitiveSceneProxy*> CustomDepthSet;
+	bool bHasDistortionPrimitives;
+	bool bHasCustomDepthPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> LazyUpdatePrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> DirtyIndirectLightingCacheBufferPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleEditorPrimitives;
@@ -1845,6 +1829,8 @@ struct FRelevancePacket
 		, OutHasDynamicMeshElementsMasks(InOutHasDynamicMeshElementsMasks)
 		, OutHasDynamicEditorMeshElementsMasks(InOutHasDynamicEditorMeshElementsMasks)
 		, MarkMasks(InMarkMasks)
+		, bHasDistortionPrimitives(false)
+		, bHasCustomDepthPrimitives(false)
 		, PrimitiveCustomDataMemStack(InPrimitiveCustomDataMemStack)
 		, OutHasViewCustomDataMasks(InOutHasViewCustomDataMasks)
 		, CombinedShadingModelMask(0)
@@ -2024,8 +2010,7 @@ struct FRelevancePacket
 
 				if (ViewRelevance.bDistortionRelevance)
 				{
-					// Add to set of dynamic distortion primitives
-					DistortionPrimSet.AddPrim(PrimitiveSceneInfo->Proxy);
+					bHasDistortionPrimitives = true;
 				}
 			}
 
@@ -2042,8 +2027,7 @@ struct FRelevancePacket
 
 			if (ViewRelevance.bRenderCustomDepth)
 			{
-				// Add to set of dynamic distortion primitives
-				CustomDepthSet.AddPrim(PrimitiveSceneInfo->Proxy);
+				bHasCustomDepthPrimitives = true;
 			}
 
 			extern bool GUseTranslucencyShadowDepths;
@@ -2201,8 +2185,6 @@ struct FRelevancePacket
 
 					if (ViewRelevance.bShadowRelevance && bDrawShadowDepth && StaticMeshRelevance.CastShadow)
 					{
-						// Mark static mesh as visible in shadows.
-						MarkMask |= EMarkMaskBits::StaticMeshShadowDepthMapMask;
 						bNeedsBatchVisibility = true;
 					}
 
@@ -2211,7 +2193,6 @@ struct FRelevancePacket
 						if (StaticMeshRelevance.bUseForDepthPass && bDrawDepthOnly)
 						{
 							DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, PrimitiveSceneInfo, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::DepthPass);
-							MarkMask |= EMarkMaskBits::StaticMeshOccluderMapMask;
 						}
 
 						// Mark static mesh as visible for rendering
@@ -2260,7 +2241,6 @@ struct FRelevancePacket
 								&& FVelocityRendering::PrimitiveHasVelocityForView(View, Bounds.BoxSphereBounds, PrimitiveSceneInfo))
 							{
 								DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, PrimitiveSceneInfo, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::Velocity);
-								MarkMask |= EMarkMaskBits::StaticMeshVelocityMapMask;
 							}
 
 							++NumVisibleStaticMeshElements;
@@ -2308,8 +2288,6 @@ struct FRelevancePacket
 					if(ViewRelevance.bDrawRelevance && ViewRelevance.bEditorStaticSelectionRelevance)
 					{
 						DrawCommandPacket.AddCommandsForMesh(PrimitiveIndex, PrimitiveSceneInfo, StaticMeshRelevance, StaticMesh, Scene, bCanCache, EMeshPass::EditorSelection);
-
-						MarkMask |= EMarkMaskBits::StaticMeshEditorSelectedMask;
 					}
 #endif
 					if (MarkMask)
@@ -2348,9 +2326,9 @@ struct FRelevancePacket
 		VisibleDynamicPrimitives.AppendTo(WriteView.VisibleDynamicPrimitives);
 		VisibleDynamicMeshesPassMask.AppendTo(WriteView.VisibleDynamicMeshesPassMask);
 		WriteView.TranslucentPrimSet.AppendScenePrimitives(TranslucencyPrims.Prims, TranslucencyPrims.NumPrims, TranslucencyPrimCount);
-		DistortionPrimSet.AppendTo(WriteView.DistortionPrimSet);
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);
-		CustomDepthSet.AppendTo(WriteView.CustomDepthSet);
+		WriteView.bHasDistortionPrimitives |= bHasDistortionPrimitives;
+		WriteView.bHasCustomDepthPrimitives |= bHasCustomDepthPrimitives;
 		DirtyIndirectLightingCacheBufferPrimitives.AppendTo(WriteView.DirtyIndirectLightingCacheBufferPrimitives);
 		VolumetricPrimSet.AppendTo(WriteView.VolumetricPrimSet);
 
@@ -2410,7 +2388,6 @@ static void ComputeAndMarkRelevanceForViewParallel(
 	const FMarkRelevantStaticMeshesForViewData ViewData(View);
 
 	int32 NumMesh = View.StaticMeshVisibilityMap.Num();
-	check(View.StaticMeshShadowDepthMap.Num() == NumMesh && View.StaticMeshVelocityMap.Num() == NumMesh && View.StaticMeshOccluderMap.Num() == NumMesh);
 	uint8* RESTRICT MarkMasks = (uint8*)FMemStack::Get().Alloc(NumMesh + 31 , 8); // some padding to simplify the high speed transpose
 	FMemory::Memzero(MarkMasks, NumMesh + 31);
 
@@ -2508,33 +2485,20 @@ static void ComputeAndMarkRelevanceForViewParallel(
 	}
 
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ComputeAndMarkRelevanceForViewParallel_TransposeMeshBits);
-	check(View.StaticMeshVelocityMap.Num() == NumMesh && 
-		View.StaticMeshShadowDepthMap.Num() == NumMesh && 
-		View.StaticMeshVisibilityMap.Num() == NumMesh && 
-		View.StaticMeshOccluderMap.Num() == NumMesh &&
+	check(View.StaticMeshVisibilityMap.Num() == NumMesh && 
 		View.StaticMeshFadeOutDitheredLODMap.Num() == NumMesh && 
 		View.StaticMeshFadeInDitheredLODMap.Num() == NumMesh
 		);
 	uint32* RESTRICT StaticMeshVisibilityMap_Words = View.StaticMeshVisibilityMap.GetData();
-	uint32* RESTRICT StaticMeshVelocityMap_Words = View.StaticMeshVelocityMap.GetData();
-	uint32* RESTRICT StaticMeshShadowDepthMap_Words = View.StaticMeshShadowDepthMap.GetData();
-	uint32* RESTRICT StaticMeshOccluderMap_Words = View.StaticMeshOccluderMap.GetData();
 	uint32* RESTRICT StaticMeshFadeOutDitheredLODMap_Words = View.StaticMeshFadeOutDitheredLODMap.GetData();
 	uint32* RESTRICT StaticMeshFadeInDitheredLODMap_Words = View.StaticMeshFadeInDitheredLODMap.GetData();
-#if WITH_EDITOR
-	uint32* RESTRICT StaticMeshEditorSelectionMap_Words = View.StaticMeshEditorSelectionMap.GetData();
-#endif
 	const uint64* RESTRICT MarkMasks64 = (const uint64* RESTRICT)MarkMasks;
 	const uint8* RESTRICT MarkMasks8 = MarkMasks;
 	for (int32 BaseIndex = 0; BaseIndex < NumMesh; BaseIndex += 32)
 	{
 		uint32 StaticMeshVisibilityMap_Word = 0;
-		uint32 StaticMeshVelocityMap_Word = 0;
-		uint32 StaticMeshShadowDepthMap_Word = 0;
-		uint32 StaticMeshOccluderMap_Word = 0;
 		uint32 StaticMeshFadeOutDitheredLODMap_Word = 0;
 		uint32 StaticMeshFadeInDitheredLODMap_Word = 0;
-		uint32 StaticMeshEditorSelectionMap_Word = 0;
 		uint32 Mask = 1;
 		bool bAny = false;
 		for (int32 QWordIndex = 0; QWordIndex < 4; QWordIndex++)
@@ -2545,14 +2509,8 @@ static void ComputeAndMarkRelevanceForViewParallel(
 				{
 					uint8 MaskMask = *MarkMasks8;
 					StaticMeshVisibilityMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshVisibilityMapMask) ? Mask : 0;
-					StaticMeshVelocityMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshVelocityMapMask) ? Mask : 0;
-					StaticMeshShadowDepthMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshShadowDepthMapMask) ? Mask : 0;
-					StaticMeshOccluderMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshOccluderMapMask) ? Mask : 0;
 					StaticMeshFadeOutDitheredLODMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshFadeOutDitheredLODMapMask) ? Mask : 0;
 					StaticMeshFadeInDitheredLODMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshFadeInDitheredLODMapMask) ? Mask : 0;
-#if WITH_EDITOR
-					StaticMeshEditorSelectionMap_Word |= (MaskMask & EMarkMaskBits::StaticMeshEditorSelectedMask) ? Mask : 0;
-#endif
 				}
 				bAny = true;
 			}
@@ -2564,26 +2522,14 @@ static void ComputeAndMarkRelevanceForViewParallel(
 		}
 		if (bAny)
 		{
-			checkSlow(!*StaticMeshVisibilityMap_Words && !*StaticMeshVelocityMap_Words && !*StaticMeshShadowDepthMap_Words && !*StaticMeshOccluderMap_Words && !*StaticMeshFadeOutDitheredLODMap_Words && !*StaticMeshFadeInDitheredLODMap_Words);
+			checkSlow(!*StaticMeshVisibilityMap_Words && !*StaticMeshFadeOutDitheredLODMap_Words && !*StaticMeshFadeInDitheredLODMap_Words);
 			*StaticMeshVisibilityMap_Words = StaticMeshVisibilityMap_Word;
-			*StaticMeshVelocityMap_Words = StaticMeshVelocityMap_Word;
-			*StaticMeshShadowDepthMap_Words = StaticMeshShadowDepthMap_Word;
-			*StaticMeshOccluderMap_Words = StaticMeshOccluderMap_Word;
 			*StaticMeshFadeOutDitheredLODMap_Words = StaticMeshFadeOutDitheredLODMap_Word;
 			*StaticMeshFadeInDitheredLODMap_Words = StaticMeshFadeInDitheredLODMap_Word;
-#if WITH_EDITOR
-			*StaticMeshEditorSelectionMap_Words = StaticMeshEditorSelectionMap_Word;
-#endif
 		}
 		StaticMeshVisibilityMap_Words++;
-		StaticMeshVelocityMap_Words++;
-		StaticMeshShadowDepthMap_Words++;
-		StaticMeshOccluderMap_Words++;
 		StaticMeshFadeOutDitheredLODMap_Words++;
 		StaticMeshFadeInDitheredLODMap_Words++;
-#if WITH_EDITOR
-		StaticMeshEditorSelectionMap_Words++;
-#endif
 	}
 }
 
@@ -3309,13 +3255,9 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		View.PrimitiveFadeUniformBuffers.AddZeroed(Scene->Primitives.Num());
 		View.PrimitiveFadeUniformBufferMap.Init(false, Scene->Primitives.Num());
 		View.StaticMeshVisibilityMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
-		View.StaticMeshOccluderMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
 		View.StaticMeshFadeOutDitheredLODMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
 		View.StaticMeshFadeInDitheredLODMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
-		View.StaticMeshVelocityMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
-		View.StaticMeshShadowDepthMap.Init(false,Scene->StaticMeshes.GetMaxIndex());
 		View.StaticMeshBatchVisibility.AddZeroed(Scene->StaticMeshBatchVisibility.GetMaxIndex());
-		View.UpdatedPrimitivesWithCustomData.Init(false, Scene->Primitives.Num());
 		View.PrimitivesLODMask.Init(FLODMask(), Scene->Primitives.Num());
 
 		View.PrimitivesCustomData.Init(nullptr, Scene->Primitives.Num());
@@ -3328,10 +3270,6 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		View.AllocateCustomDataMemStack();
 
 		View.VisibleLightInfos.Empty(Scene->Lights.GetMaxIndex());
-
-#if WITH_EDITOR
-		View.StaticMeshEditorSelectionMap.Init(false, Scene->StaticMeshes.GetMaxIndex());
-#endif
 
 		// The dirty list allocation must take into account the max possible size because when GILCUpdatePrimTaskEnabled is true,
 		// the indirect lighting cache will be update on by threaded job, which can not do reallocs on the buffer (since it uses the SceneRenderingAllocator).
@@ -3599,15 +3537,12 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 	// Gather FMeshBatches from scene proxies
 	GatherDynamicMeshElements(Views, Scene, ViewFamily, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks, MeshCollector);
 
-	if (UseMeshDrawCommandPipeline())
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-		{
-			FViewInfo& View = Views[ViewIndex];
-			FViewCommands& ViewCommands = ViewCommandsPerView[ViewIndex];
+		FViewInfo& View = Views[ViewIndex];
+		FViewCommands& ViewCommands = ViewCommandsPerView[ViewIndex];
 
-			SetupMeshPass(View, BasePassDepthStencilAccess, ViewCommands);
-		}
+		SetupMeshPass(View, BasePassDepthStencilAccess, ViewCommands);
 	}
 
 	INC_DWORD_STAT_BY(STAT_ProcessedPrimitives,NumProcessedPrimitives);
@@ -3625,7 +3560,6 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 		{		
 			FViewInfo& View = Views[ViewIndex];
 
-			View.TranslucentPrimSet.SortPrimitives();
 			View.MeshDecalPrimSet.SortPrimitives();
 
 			if (View.State)
@@ -3905,11 +3839,6 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 		InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, UpdateViewCustomDataEvents);
 	}
 
-	if (!UseMeshDrawCommandPipeline())
-	{
-		PostInitViewCustomData(UpdateViewCustomDataEvents);
-	}
-
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_InitViews_InitRHIResources);
 		// initialize per-view uniform buffer.
@@ -3951,105 +3880,6 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	}
 
 	return bDoInitViewAftersPrepass;
-}
-
-class FPostInitViewCustomDataTask
-{
-private:
-	FViewInfo* ViewInfo;
-	const int32 PrimitiveStartIndex;
-	const int32 PrimitiveCount;
-
-public:
-	FPostInitViewCustomDataTask(FViewInfo* InViewInfo, int32 InPrimitiveStartIndex, int32 InPrimitiveCount)
-		: ViewInfo(InViewInfo)
-		, PrimitiveStartIndex(InPrimitiveStartIndex)
-		, PrimitiveCount(InPrimitiveCount)
-	{}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FPostInitViewCustomDataTask, STATGROUP_TaskGraphTasks);
-	}
-
-	ENamedThreads::Type GetDesiredThread()
-	{
-		return ENamedThreads::AnyHiPriThreadHiPriTask;
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		for (int32 i = PrimitiveStartIndex; i < PrimitiveStartIndex + PrimitiveCount; ++i)
-		{
-			if (ViewInfo->PrimitivesWithCustomData.IsValidIndex(i))
-			{
-				check(ViewInfo->UpdatedPrimitivesWithCustomData.IsValidIndex(i));
-
-				if (!ViewInfo->UpdatedPrimitivesWithCustomData[i])
-				{
-					const FPrimitiveSceneInfo* PrimitiveSceneInfo = ViewInfo->PrimitivesWithCustomData[i];
-					check(PrimitiveSceneInfo != nullptr);
-
-					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(*ViewInfo, ViewInfo->GetCustomData(PrimitiveSceneInfo->GetIndex()));
-					ViewInfo->UpdatedPrimitivesWithCustomData[i] = true;
-				}
-			}
-		}
-	}
-};
-
-void FDeferredShadingSceneRenderer::PostInitViewCustomData(FGraphEventArray& OutUpdateEvents)
-{
-	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelPostInitViewCustomData.GetValueOnRenderThread() > 0)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData_AsyncTask);
-
-		const int32 MaxPrimitiveUpdateTaskCount = 10;
-		const int32 MinPrimitiveCountByTask = 100;
-		
-		for (FViewInfo& ViewInfo : Views)
-		{
-			if (ViewInfo.PrimitivesWithCustomData.Num() > 0)
-			{
-				const int32 BatchSize = FMath::Max(FMath::Max(FMath::RoundToInt((float)ViewInfo.PrimitivesWithCustomData.Num() / (float)MaxPrimitiveUpdateTaskCount), 1), MinPrimitiveCountByTask);
-
-				int32 UpdateCountLeft = ViewInfo.PrimitivesWithCustomData.Num();
-				int32 StartIndex = 0;
-				int32 CurrentBatchSize = BatchSize;
-
-				while (UpdateCountLeft > 0)
-				{
-					if (UpdateCountLeft - CurrentBatchSize < 0)
-					{
-						CurrentBatchSize = UpdateCountLeft;
-					}
-
-					OutUpdateEvents.Add(TGraphTask<FPostInitViewCustomDataTask>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&ViewInfo, StartIndex, CurrentBatchSize));
-
-					StartIndex += CurrentBatchSize;
-					UpdateCountLeft -= CurrentBatchSize;
-				}
-			}
-		}
-	}
-	else
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData);
-
-		for (FViewInfo& ViewInfo : Views)
-		{
-			for (const FPrimitiveSceneInfo* PrimitiveSceneInfo : ViewInfo.PrimitivesWithCustomData)
-			{
-				if (!ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()])
-				{
-					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
-					ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()] = true;
-				}
-			}
-		}
-	}
 }
 
 void FDeferredShadingSceneRenderer::SetupSceneReflectionCaptureBuffer(FRHICommandListImmediate& RHICmdList)

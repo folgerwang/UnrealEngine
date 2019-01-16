@@ -8,7 +8,6 @@
 
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
-#include "DrawingPolicy.h"
 #include "MeshPassProcessor.h"
 
 class FPrimitiveSceneProxy;

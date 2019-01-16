@@ -129,11 +129,6 @@ public:
 	*/
 	virtual void Serialize(FArchive& Ar) override;
 
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override;
-
 	virtual void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
 		const FSceneView* InView,

@@ -179,25 +179,6 @@ class FVoxelizeVolumeVS : public FMeshMaterialShader
 
 public:
 	
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState,int32 VoxelizationPassIndexValue)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
-		if (!RHISupportsGeometryShaders(View.GetShaderPlatform()))
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), VoxelizationPassIndex, VoxelizationPassIndexValue);
-		}
-	}
-
 	virtual bool Serialize(FArchive& Ar)
 	{		
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
@@ -205,18 +186,16 @@ public:
 		return bShaderHasOutdatedParameters;
 	}
 
-	const FShaderParameter& GetVoxelizationPassIndexParameter() const { return VoxelizationPassIndex; }
-
 	void GetShaderBindings(
-						   const FScene* Scene,
-						   ERHIFeatureLevel::Type FeatureLevel,
-						   const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-						   const FMaterialRenderProxy& MaterialRenderProxy,
-						   const FMaterial& Material,
-						   const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-						   FUniformBufferRHIParamRef PassUniformBufferValue,
-						   const FVoxelizeVolumeShaderElementData& ShaderElementData,
-						   FMeshDrawSingleShaderBindings& ShaderBindings) const
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+		FUniformBufferRHIParamRef PassUniformBufferValue,
+		const FVoxelizeVolumeShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const
 	{
 		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
 		if (!RHISupportsGeometryShaders(Scene->GetShaderPlatform()))
@@ -303,22 +282,6 @@ protected:
 
 public:
 	
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState,int32 VoxelizationPassIndexValue)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
-		SetShaderValue(RHICmdList, GetGeometryShader(), VoxelizationPassIndex, VoxelizationPassIndexValue);
-	}
-
 	virtual bool Serialize(FArchive& Ar)
 	{		
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
@@ -402,23 +365,6 @@ protected:
 		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) 
 			&& DoesPlatformSupportVolumetricFogVoxelization(Platform)
 			&& Material->GetMaterialDomain() == MD_Volume;
-	}
-
-public:
-	
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FViewInfo& View, 
-		const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 };
 

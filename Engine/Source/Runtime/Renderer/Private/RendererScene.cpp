@@ -33,7 +33,6 @@
 #include "SceneCore.h"
 #include "PrimitiveSceneInfo.h"
 #include "LightSceneInfo.h"
-#include "StaticMeshDrawList.h"
 #include "LightMapRendering.h"
 #include "AtmosphereRendering.h"
 #include "BasePassRendering.h"
@@ -75,8 +74,6 @@ TGlobalResource< FGlobalDistanceCullFadeUniformBuffer > GDistanceCullFadedInUnif
 
 /** Global primitive uniform buffer resource containing dither faded in */
 TGlobalResource< FGlobalDitherUniformBuffer > GDitherFadedInUniformBuffer;
-
-SIZE_T FStaticMeshDrawListBase::TotalBytesUsed = 0;
 
 static FThreadSafeCounter FSceneViewState_UniqueID;
 
@@ -2797,40 +2794,6 @@ void FScene::UpdateStaticDrawLists()
 		});
 }
 
-void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmediate& RHICmdList, const TArray<const FMaterial*>& Materials)
-{
-	SCOPE_CYCLE_COUNTER(STAT_Scene_UpdateStaticDrawListsForMaterials_RT);
-
-	// Warning: if any static draw lists are missed here, there will be a crash when trying to render with shaders that have been deleted!
-	TArray<FPrimitiveSceneInfo*> PrimitivesToUpdate;
-	auto SceneFeatureLevel = GetFeatureLevel();
-
-	PositionOnlyDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	DepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	MaskedDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	WholeSceneShadowDepthDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-	WholeSceneReflectiveShadowMapDrawList.GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-
-	for (int32 PrimitiveIndex = 0; PrimitiveIndex < PrimitivesToUpdate.Num(); PrimitiveIndex++)
-	{
-		FPrimitiveSceneInfo* Primitive = PrimitivesToUpdate[PrimitiveIndex];
-
-		Primitive->RemoveStaticMeshes();
-		Primitive->AddStaticMeshes(RHICmdList);
-	}
-}
-
-void FScene::UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials)
-{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FUpdateDrawListsForMaterials,
-		FScene*,Scene,this,
-		TArray<const FMaterial*>,Materials,Materials,
-	{
-		Scene->UpdateStaticDrawListsForMaterials_RenderThread(RHICmdList, Materials);
-	});
-}
-
 /**
  * @return		true if hit proxies should be rendered in this scene.
  */
@@ -2963,95 +2926,6 @@ void FScene::DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const
 }
 
 /**
- * Logs the provided draw list stats.
- */
-static void LogDrawListStats(FDrawListStats Stats, const TCHAR* DrawListName)
-{
-	if (Stats.NumDrawingPolicies == 0 || Stats.NumMeshes == 0)
-	{
-		UE_LOG(LogRenderer,Log,TEXT("%s: empty"), DrawListName);
-	}
-	else
-	{
-		FString MatchFailedReasons;
-		for (auto& It : Stats.SingleMeshPolicyMatchFailedReasons)
-		{
-			TArray<FStringFormatArg> Args;
-			Args.Emplace(It.Value);
-			Args.Emplace(*It.Key);
-
-			MatchFailedReasons.Append(FString::Format(TEXT("      - {0} ({1})\n"), Args));
-		}
-
-		FString VertexFactoryFreq;
-		for (auto& It : Stats.SingleMeshPolicyVertexFactoryFrequency)
-		{
-			TArray<FStringFormatArg> Args;
-			auto KeyStr = It.Key.ToString();
-
-			Args.Emplace(It.Value);
-			Args.Emplace(*KeyStr);
-
-			VertexFactoryFreq.Append(FString::Format(TEXT("      - {0} ({1})\n"), Args));
-		}
-
-		UE_LOG(LogRenderer,Log,
-			TEXT("%s: %d policies %d meshes\n")
-			TEXT("  - %d median meshes/policy\n")
-			TEXT("  - %f mean meshes/policy\n")
-			TEXT("  - %d max meshes/policy\n")
-			TEXT("  - %d policies with one mesh\n")
-			TEXT("    One mesh policy closest match failure reason:\n%s\n")
-			TEXT("    One mesh policy vertex factory frequencies:\n%s"),
-			DrawListName,
-			Stats.NumDrawingPolicies,
-			Stats.NumMeshes,
-			Stats.MedianMeshesPerDrawingPolicy,
-			(float)Stats.NumMeshes / (float)Stats.NumDrawingPolicies,
-			Stats.MaxMeshesPerDrawingPolicy,
-			Stats.NumSingleMeshDrawingPolicies,
-			*MatchFailedReasons,
-			*VertexFactoryFreq
-			);
-	}
-}
-
-void FScene::DumpStaticMeshDrawListStats() const
-{
-	UE_LOG(LogRenderer,Log,TEXT("Static mesh draw lists for %s:"),
-		World ? *World->GetFullName() : TEXT("[no world]")
-		);
-#define DUMP_DRAW_LIST(Name) LogDrawListStats(Name.GetStats(), TEXT(#Name))
-	DUMP_DRAW_LIST(PositionOnlyDepthDrawList);
-	DUMP_DRAW_LIST(DepthDrawList);
-	DUMP_DRAW_LIST(MaskedDepthDrawList);
-	DUMP_DRAW_LIST(WholeSceneShadowDepthDrawList);
-#undef DUMP_DRAW_LIST
-}
-
-/**
- * Dumps stats for all scenes to the log.
- */
-static void DumpDrawListStats()
-{
-	for (TObjectIterator<UWorld> It; It; ++It)
-	{
-		UWorld* World = *It;
-		if (World && World->Scene)
-		{
-			World->Scene->DumpStaticMeshDrawListStats();
-		}
-	}
-}
-
-static FAutoConsoleCommand GDumpDrawListStatsCmd(
-	TEXT("r.DumpDrawListStats"),
-	TEXT("Dumps static mesh draw list statistics for all scenes associated with ")
-	TEXT("world objects."),
-	FConsoleCommandDelegate::CreateStatic(&DumpDrawListStats)
-	);
-
-/**
  * Exports the scene.
  *
  * @param	Ar		The Archive used for exporting.
@@ -3071,23 +2945,6 @@ void FScene::ApplyWorldOffset(FVector InOffset)
 	{
 		Scene->ApplyWorldOffset_RenderThread(InOffset);
 	});
-}
-
-// StaticMeshDrawList elements shifting
-template<typename T>
-static void StaticMeshDrawListApplyWorldOffset(T& InList, FVector InOffset)
-{
-	InList.ApplyWorldOffset(InOffset);
-}
-
-// StaticMeshDrawList elements shifting: specialization for an arrays
-template<typename T, int32 N>
-static void StaticMeshDrawListApplyWorldOffset(T(&InList)[N], FVector InOffset)
-{
-	for (int32 i = 0; i < N; i++)
-	{
-		InList[i].ApplyWorldOffset(InOffset);
-	}
 }
 
 void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
@@ -3182,12 +3039,6 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 		}
 	}
 	
-	// StaticMeshDrawLists
-	StaticMeshDrawListApplyWorldOffset(PositionOnlyDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(DepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(MaskedDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(WholeSceneShadowDepthDrawList, InOffset);
-
 	VelocityData.ApplyOffset(InOffset);
 }
 
@@ -3458,11 +3309,6 @@ void UpdateStaticMeshesForMaterials(const TArray<const FMaterial*>& MaterialReso
 
 void FRendererModule::UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials)
 {
-	for (TSet<FSceneInterface*>::TConstIterator SceneIt(AllocatedScenes); SceneIt; ++SceneIt)
-	{
-		(*SceneIt)->UpdateStaticDrawListsForMaterials(Materials);
-	}
-
 	// Update static meshes for a given set of materials in order to recache cached mesh draw commands.
 	UpdateStaticMeshesForMaterials(Materials);
 }

@@ -1983,8 +1983,6 @@ public:
 		};
 		uint16						Flags;
 	};
-
-	friend class FMeshDrawingPolicy;
 };
 
 #if RHI_RAYTRACING

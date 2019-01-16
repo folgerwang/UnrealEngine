@@ -14,7 +14,6 @@
 #include "Components/ReflectionCaptureComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SceneCaptureComponentCube.h"
-#include "StaticMeshDrawList.h"
 #include "DeferredShadingRenderer.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "RenderTargetTemp.h"
@@ -54,17 +53,6 @@
 /*-----------------------------------------------------------------------------
 	Globals
 -----------------------------------------------------------------------------*/
-
-static TAutoConsoleVariable<int32> CVarMeshDrawCommandPipeline(
-	TEXT("r.MeshDrawCommandPipeline"),
-	1,
-	TEXT("Whether to use the Mesh Draw Command pipeline, which replaces Drawing Polices and StaticMeshDrawLists.  The Mesh Draw Command pipeline supports Cached Mesh Draw Commands and Dynamic Instancing."),
-	ECVF_RenderThreadSafe);
-
-bool UseMeshDrawCommandPipeline()
-{
-	return CVarMeshDrawCommandPipeline.GetValueOnRenderThread() > 0;
-}
 
 static TAutoConsoleVariable<int32> CVarCachedMeshDrawCommands(
 	TEXT("r.MeshDrawCommands.UseCachedCommands"),
@@ -619,7 +607,6 @@ FParallelCommandListSet::FParallelCommandListSet(
 	bSpewBalance = !!CVarRHICmdSpewParallelListBalance.GetValueOnRenderThread();
 	int32 IntBalance = CVarRHICmdBalanceParallelLists.GetValueOnRenderThread();
 	bBalanceCommands = !!IntBalance;
-	bBalanceCommandsWithLastFrame = IntBalance > 1;
 	CommandLists.Reserve(Width * 8);
 	Events.Reserve(Width * 8);
 	NumDrawsIfKnown.Reserve(Width * 8);
@@ -868,7 +855,8 @@ void FViewInfo::Init()
 
 	ViewState = (FSceneViewState*)State;
 	bIsSnapshot = false;
-
+	bHasCustomDepthPrimitives = false;
+	bHasDistortionPrimitives = false;
 	bAllowStencilDither = false;
 
 	ForwardLightingResources = nullptr;
@@ -1551,9 +1539,6 @@ FViewInfo* FViewInfo::CreateSnapshot() const
 	FRWBufferStructured NullOneFramePrimitiveShaderDataBuffer;
 	FMemory::Memcpy(Result->OneFramePrimitiveShaderDataBuffer, NullOneFramePrimitiveShaderDataBuffer);
 
-	FReadBuffer NullReadBuffer;
-	FMemory::Memcpy(Result->OneFramePrimitiveIdBufferEmulation, NullReadBuffer);
-
 	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> NullParallelMeshDrawCommandPasses;
 	FMemory::Memcpy(Result->ParallelMeshDrawCommandPasses, NullParallelMeshDrawCommandPasses);
 
@@ -1583,7 +1568,6 @@ void FViewInfo::DestroyAllSnapshots()
 		Snapshot->CachedViewUniformShaderParameters.Reset();
 		Snapshot->DynamicPrimitiveShaderData.Empty();
 		Snapshot->OneFramePrimitiveShaderDataBuffer.Release();
-		Snapshot->OneFramePrimitiveIdBufferEmulation.Release();
 		FreeViewInfoSnapshots.Add(Snapshot);
 	}
 	ViewInfoSnapshots.Reset();
@@ -2747,7 +2731,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 		for(int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 		{
 			const FViewInfo& View = Views[ViewIndex];
-			if(View.CustomDepthSet.NumPrims())
+			if (View.bHasCustomDepthPrimitives)
 			{
 				bPrimitives = true;
 				break;
@@ -2832,26 +2816,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 
 				Scene->UniformBuffers.CustomDepthViewUniformBuffer.UpdateUniformBufferImmediate(CustomDepthViewUniformBufferParameters);
 	
-				if (UseMeshDrawCommandPipeline())
-				{
-					View.ParallelMeshDrawCommandPasses[EMeshPass::CustomDepth].DispatchDraw(nullptr, RHICmdList);
-				}
-				else
-				{
-					FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-
-					DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
-					DrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.CustomDepthViewUniformBuffer);
-
-					const bool bWriteCustomStencilValues = SceneContext.IsCustomDepthPassWritingStencil();
-
-					if (!bWriteCustomStencilValues)
-					{
-						DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
-					}
-
-					View.CustomDepthSet.DrawPrims(RHICmdList, View, DrawRenderState, bWriteCustomStencilValues);
-				}
+				View.ParallelMeshDrawCommandPasses[EMeshPass::CustomDepth].DispatchDraw(nullptr, RHICmdList);
 			}
 		}
 
@@ -3138,7 +3103,6 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_RenderViewFamily_RenderThread_MemStats);
 
 			// Update scene memory stats that couldn't be tracked continuously
-			SET_MEMORY_STAT(STAT_StaticDrawListMemory, FStaticMeshDrawListBase::TotalBytesUsed);
 			SET_MEMORY_STAT(STAT_RenderingSceneMemory, SceneRenderer->Scene->GetSizeBytes());
 
 			SIZE_T ViewStateMemory = 0;

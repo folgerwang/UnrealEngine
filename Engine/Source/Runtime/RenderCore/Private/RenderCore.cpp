@@ -71,8 +71,6 @@ DEFINE_STAT(STAT_PresentTime);
 
 DEFINE_STAT(STAT_SceneLights);
 DEFINE_STAT(STAT_MeshDrawCalls);
-DEFINE_STAT(STAT_DynamicPathMeshDrawCalls);
-DEFINE_STAT(STAT_StaticDrawListMeshDrawCalls);
 
 DEFINE_STAT(STAT_SceneDecals);
 DEFINE_STAT(STAT_Decals);
@@ -83,7 +81,6 @@ DEFINE_STAT(STAT_DecalsDrawTime);
 // Not to track all of the allocations, and not to track resource memory (index buffers, vertex buffers, etc).
 
 
-DEFINE_STAT(STAT_StaticDrawListMemory);
 DEFINE_STAT(STAT_PrimitiveInfoMemory);
 DEFINE_STAT(STAT_RenderingSceneMemory);
 DEFINE_STAT(STAT_ViewStateMemory);
@@ -140,9 +137,6 @@ DEFINE_STAT(STAT_BindRayTracingPipeline);
 // Shadow setup is tracked in the InitViews group
 
 DEFINE_STAT(STAT_RenderWholeSceneShadowProjectionsTime);
-DEFINE_STAT(STAT_WholeSceneDynamicShadowDepthsTime);
-DEFINE_STAT(STAT_WholeSceneStaticShadowDepthsTime);
-DEFINE_STAT(STAT_WholeSceneStaticDrawListShadowDepthsTime);
 DEFINE_STAT(STAT_RenderWholeSceneShadowDepthsTime);
 DEFINE_STAT(STAT_RenderPerObjectShadowProjectionsTime);
 DEFINE_STAT(STAT_RenderPerObjectShadowDepthsTime);
@@ -194,7 +188,6 @@ DEFINE_STAT(STAT_UpdateLPVs);
 DEFINE_STAT(STAT_ReflectiveShadowMaps);
 DEFINE_STAT(STAT_ReflectiveShadowMapDrawTime);
 DEFINE_STAT(STAT_NumReflectiveShadowMapLights);
-DEFINE_STAT(STAT_RenderWholeSceneReflectiveShadowMapsTime);
 
 DEFINE_STAT(STAT_ShadowmapAtlasMemory);
 DEFINE_STAT(STAT_CachedShadowmapMemory);

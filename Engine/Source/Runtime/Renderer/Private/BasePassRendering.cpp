@@ -5,7 +5,6 @@
 =============================================================================*/
 
 #include "BasePassRendering.h"
-#include "StaticMeshDrawList.h"
 #include "DeferredShadingRenderer.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "ScenePrivate.h"
@@ -344,50 +343,6 @@ FExclusiveDepthStencil::Type GetDefaultBasePassDepthStencilAccess(EShadingPath S
 	{
 		return FExclusiveDepthStencil::DepthRead_StencilWrite;
 	}
-}
-
-void FBasePassDrawingPolicy::ApplyDitheredLODTransitionState(FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& ViewInfo, const FStaticMesh& Mesh, const bool InAllowStencilDither)
-{
-	FDepthStencilStateRHIParamRef DepthStencilState = nullptr;
-	DrawRenderState.SetDitheredLODTransitionAlpha(0.0f);
-
-	if (Mesh.bDitheredLODTransition)
-	{
-		if (ViewInfo.StaticMeshFadeOutDitheredLODMap[Mesh.Id])
-		{
-			if (InAllowStencilDither)
-			{
-				DepthStencilState = TStaticDepthStencilState<
-					false, CF_Equal,
-					true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-					0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)
-				>::GetRHI();
-			}
-			else
-			{
-				DrawRenderState.SetDitheredLODTransitionAlpha(ViewInfo.GetTemporalLODTransition());
-			}
-		}
-		else if (ViewInfo.StaticMeshFadeInDitheredLODMap[Mesh.Id])
-		{
-			if (InAllowStencilDither)
-			{
-				DepthStencilState = TStaticDepthStencilState<
-					false, CF_Equal,
-					true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-					0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)
-				>::GetRHI();
-			}
-			else
-			{
-				DrawRenderState.SetDitheredLODTransitionAlpha(ViewInfo.GetTemporalLODTransition() - 1.0f);
-			}
-		}
-	}
-
-	SetDepthStencilStateForBasePass(DrawRenderState, ViewInfo.FeatureLevel, Mesh, Mesh.PrimitiveSceneInfo->Proxy, bEnableReceiveDecalOutput, ViewInfo.Family->UseDebugViewPS(), DepthStencilState);
 }
 
 /**
@@ -808,6 +763,8 @@ void FDeferredShadingSceneRenderer::RenderBasePassViewParallel(FViewInfo& View, 
 		this,
 		BasePassDepthStencilAccess,
 		InDrawRenderState);
+
+	// enqueue RHIThread command that blocks on prereq, lock / unlock vertex buffer upload
 
 	View.ParallelMeshDrawCommandPasses[EMeshPass::BasePass].DispatchDraw(&ParallelSet, ParentCmdList);
 }

@@ -16,14 +16,13 @@
 
 bool UseNearestDepthNeighborUpsampleForSeparateTranslucency(const FSceneRenderTargets& SceneContext);
 
-extern float CalculateTranslucentSortKey(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FSceneView& View);
 extern FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive);
 EMeshPass::Type TranslucencyPassToMeshPass(ETranslucencyPass::Type TranslucencyPass);
 
 /**
 * Translucent mesh sort key format.
 */
-union UTranslucentMeshSortKey
+union FTranslucentMeshSortKey
 {
 	uint64 PackedData;
 
@@ -33,37 +32,4 @@ union UTranslucentMeshSortKey
 		uint64 Distance				: 32; // Order by distance.
 		uint64 Priority				: 16; // First order by priority.
 	} Fields;
-};
-
-/**
-* Translucent draw policy factory.
-* Creates the policies needed for rendering a mesh based on its material
-*/
-class FMobileTranslucencyDrawingPolicyFactory
-{
-public:
-	enum { bAllowSimpleElements = true };
-	struct ContextType 
-	{
-		ETranslucencyPass::Type TranslucencyPass;
-
-		ContextType(ETranslucencyPass::Type InTranslucencyPass)
-		: TranslucencyPass(InTranslucencyPass)
-		{}
-	};
-
-	/**
-	* Render a dynamic mesh using a translucent draw policy 
-	* @return true if the mesh rendered
-	*/
-	static bool DrawDynamicMesh(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-		);
 };

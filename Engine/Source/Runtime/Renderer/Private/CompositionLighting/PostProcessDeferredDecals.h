@@ -13,7 +13,6 @@
 #include "PostProcess/SceneRenderTargets.h"
 #include "PostProcess/RenderingCompositionGraph.h"
 #include "DecalRenderingCommon.h"
-#include "DrawingPolicy.h"
 
 // ePId_Input0: SceneColor (not needed for DBuffer decals)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 

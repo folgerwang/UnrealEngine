@@ -2110,16 +2110,12 @@ FMaterialRenderProxy::FMaterialRenderProxy()
 	: SubsurfaceProfileRT(0)
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	, DeletedFlag(0)
-	, bIsStaticDrawListReferenced(0)
 #endif
 {
 }
 
 FMaterialRenderProxy::~FMaterialRenderProxy()
 {
-	// Removed for now to work around UE-31636. Re-enable when the underlying bug is fixed!
-	//check(!IsReferencedInDrawList());
-
 	if(IsInitialized())
 	{
 		check(IsInRenderingThread());

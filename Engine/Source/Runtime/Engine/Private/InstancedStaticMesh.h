@@ -329,8 +329,6 @@ class FInstancedStaticMeshVertexFactoryShaderParameters : public FLocalVertexFac
 		InstanceOffset.Bind(ParameterMap, TEXT("InstanceOffset"));
 	}
 
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* VertexShader,const class FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const override;
-
 	virtual void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
 		const FSceneView* View,

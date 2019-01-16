@@ -1731,29 +1731,6 @@ public:
 	void SetSubsurfaceProfileRT(const USubsurfaceProfile* Ptr) { SubsurfaceProfileRT = Ptr; }
 	const USubsurfaceProfile* GetSubsurfaceProfileRT() const { return SubsurfaceProfileRT; }
 
-	void SetReferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		bIsStaticDrawListReferenced = 1;
-#endif
-	}
-
-	void SetUnreferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		bIsStaticDrawListReferenced = 0;
-#endif
-	}
-
-	bool IsReferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		return bIsStaticDrawListReferenced != 0;
-#else
-		return false;
-#endif
-	}
-
 	ENGINE_API static void UpdateDeferredCachedUniformExpressions();
 
 	static inline bool HasDeferredUniformExpressionCacheRequests() 
@@ -1769,7 +1746,6 @@ private:
 	/** For tracking down a bug accessing a deleted proxy. */
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	mutable int32 DeletedFlag : 1;
-	mutable int32 bIsStaticDrawListReferenced : 1;
 #endif
 
 	/** 

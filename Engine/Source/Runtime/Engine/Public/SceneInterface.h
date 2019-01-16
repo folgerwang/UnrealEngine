@@ -189,9 +189,6 @@ public:
 	/** Updates all static draw lists. */
 	virtual void UpdateStaticDrawLists() {}
 
-	/** Updates static draw lists for the given set of materials. */
-	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) {}
-
 	/** 
 	 * Adds a new exponential height fog component to the scene
 	 * 
@@ -330,11 +327,6 @@ public:
 	virtual class FFXSystemInterface* GetFXSystem() = 0;
 
 	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const { }
-
-	/**
-	 * Dumps static mesh draw list stats to the log.
-	 */
-	virtual void DumpStaticMeshDrawListStats() const {}
 
 	/** Updates the scene's list of parameter collection id's and their uniform buffers. */
 	virtual void UpdateParameterCollections(const TArray<class FMaterialParameterCollectionInstanceResource*>& InParameterCollections) {}

@@ -8,7 +8,6 @@
 #include "RenderResource.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
-#include "DrawingPolicy.h"
 
 class FPrimitiveSceneProxy;
 

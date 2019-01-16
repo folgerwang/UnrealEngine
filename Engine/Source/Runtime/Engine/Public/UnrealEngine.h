@@ -16,7 +16,7 @@ class FViewportClient;
 class UFont;
 class ULocalPlayer;
 
-extern ENGINE_API int32 GShowMaterialDrawEventTypes;
+extern ENGINE_API int32 GShowMaterialDrawEvents;
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 //

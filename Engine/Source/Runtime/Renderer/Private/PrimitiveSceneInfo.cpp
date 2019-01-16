@@ -305,16 +305,12 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 			Mesh.BatchVisibilityId = Scene->StaticMeshBatchVisibility.AddUninitialized().Index;
 			Scene->StaticMeshBatchVisibility[Mesh.BatchVisibilityId] = true;
 		}
-
-		if (bAddToStaticDrawLists)
-		{
-			// By this point, the index buffer render resource must be initialized
-			// Add the static mesh to the appropriate draw lists.
-			Mesh.AddToDrawLists(RHICmdList, Scene);
-		}
 	}
 
-	CacheMeshDrawCommands(RHICmdList);
+	if (bAddToStaticDrawLists)
+	{
+		CacheMeshDrawCommands(RHICmdList);
+	}
 
 #if RHI_RAYTRACING
 	if (IsRayTracingEnabled())
@@ -604,16 +600,6 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 		else
 		{
 			Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
-		}
-	}
-
-	// Remove the primitive's static meshes from the draw lists they're currently in, and re-add them to the appropriate draw lists.
-	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
-	{
-		StaticMeshes[MeshIndex].RemoveFromDrawLists();
-		if (bReAddToDrawLists)
-		{
-			StaticMeshes[MeshIndex].AddToDrawLists(RHICmdList, Scene);
 		}
 	}
 

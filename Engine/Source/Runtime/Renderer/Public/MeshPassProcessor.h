@@ -338,6 +338,7 @@ public:
 	uint32 NumInstances;
 	uint32 BaseVertexIndex;
 	uint32 NumVertices;
+	FVertexBufferRHIParamRef IndirectArgsBuffer;
 	uint8 RayTracedSegmentIndex;
 
 	int8 PrimitiveIdStreamIndex;
@@ -364,7 +365,8 @@ public:
 			&& NumPrimitives == Rhs.NumPrimitives
 			&& NumInstances == Rhs.NumInstances
 			&& BaseVertexIndex == Rhs.BaseVertexIndex
-			&& NumVertices == Rhs.NumVertices;
+			&& NumVertices == Rhs.NumVertices
+			&& IndirectArgsBuffer == Rhs.IndirectArgsBuffer;
 	}
 
 	/** Sets shaders on the mesh draw command and allocates room for the shader bindings. */
@@ -717,10 +719,127 @@ public:
 #endif // RHI_RAYTRACING
 };
 
-class FDefaultSubPolicyEx
+struct FDrawingPolicyRenderState
 {
+	FDrawingPolicyRenderState(const FSceneView& SceneView, FUniformBufferRHIParamRef InPassUniformBuffer = nullptr) : 
+		  BlendState(nullptr)
+		, DepthStencilState(nullptr)
+		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
+		, ViewUniformBuffer(SceneView.ViewUniformBuffer)
+		, PassUniformBuffer(InPassUniformBuffer)
+		, StencilRef(0)
+	{
+	}
+
+	FDrawingPolicyRenderState(const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer, FUniformBufferRHIParamRef InPassUniformBuffer) : 
+		  BlendState(nullptr)
+		, DepthStencilState(nullptr)
+		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
+		, ViewUniformBuffer(InViewUniformBuffer)
+		, PassUniformBuffer(InPassUniformBuffer)
+		, StencilRef(0)
+	{
+	}
+
+	FDrawingPolicyRenderState() :
+		BlendState(nullptr)
+		, DepthStencilState(nullptr)
+		, ViewUniformBuffer()
+		, PassUniformBuffer(nullptr)
+		, StencilRef(0)
+	{
+	}
+
+	FORCEINLINE_DEBUGGABLE FDrawingPolicyRenderState(const FDrawingPolicyRenderState& DrawRenderState) :
+		  BlendState(DrawRenderState.BlendState)
+		, DepthStencilState(DrawRenderState.DepthStencilState)
+		, DepthStencilAccess(DrawRenderState.DepthStencilAccess)
+		, ViewUniformBuffer(DrawRenderState.ViewUniformBuffer)
+		, PassUniformBuffer(DrawRenderState.PassUniformBuffer)
+		, StencilRef(DrawRenderState.StencilRef)
+	{
+	}
+
+	~FDrawingPolicyRenderState()
+	{
+	}
+
 public:
-	void GetPixelShaderBindings(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshMaterialShader* ShaderParameters, FMeshDrawSingleShaderBindings& Bindings) const {}
+	FORCEINLINE_DEBUGGABLE void SetBlendState(FBlendStateRHIParamRef InBlendState)
+	{
+		BlendState = InBlendState;
+	}
+
+	FORCEINLINE_DEBUGGABLE const FBlendStateRHIParamRef GetBlendState() const
+	{
+		return BlendState;
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetDepthStencilState(FDepthStencilStateRHIParamRef InDepthStencilState)
+	{
+		DepthStencilState = InDepthStencilState;
+		StencilRef = 0;
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetStencilRef(uint32 InStencilRef)
+		{
+		StencilRef = InStencilRef;
+	}
+
+	FORCEINLINE_DEBUGGABLE const FDepthStencilStateRHIParamRef GetDepthStencilState() const
+	{
+		return DepthStencilState;
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetDepthStencilAccess(FExclusiveDepthStencil::Type InDepthStencilAccess)
+	{
+		DepthStencilAccess = InDepthStencilAccess;
+	}
+
+	FORCEINLINE_DEBUGGABLE FExclusiveDepthStencil::Type GetDepthStencilAccess() const
+	{
+		return DepthStencilAccess;
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetViewUniformBuffer(const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer)
+	{
+		ViewUniformBuffer = InViewUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE const TUniformBufferRef<FViewUniformShaderParameters>& GetViewUniformBuffer() const
+	{
+		return ViewUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE void SetPassUniformBuffer(FUniformBufferRHIParamRef InPassUniformBuffer)
+	{
+		PassUniformBuffer = InPassUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE FUniformBufferRHIParamRef GetPassUniformBuffer() const
+	{
+		return PassUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE uint32 GetStencilRef() const
+	{
+		return StencilRef;
+	}
+
+	FORCEINLINE_DEBUGGABLE void ApplyToPSO(FGraphicsPipelineStateInitializer& GraphicsPSOInit) const
+	{
+		GraphicsPSOInit.BlendState = BlendState;
+		GraphicsPSOInit.DepthStencilState = DepthStencilState;
+	}
+
+private:
+	FBlendStateRHIParamRef			BlendState;
+	FDepthStencilStateRHIParamRef	DepthStencilState;
+	FExclusiveDepthStencil::Type	DepthStencilAccess;
+
+	TUniformBufferRef<FViewUniformShaderParameters>	ViewUniformBuffer;
+	FUniformBufferRHIParamRef		PassUniformBuffer;
+	uint32							StencilRef;
 };
 
 /** 

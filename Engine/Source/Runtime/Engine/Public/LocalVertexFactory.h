@@ -166,7 +166,6 @@ class FLocalVertexFactoryShaderParametersBase : public FVertexFactoryShaderParam
 public:
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override;
 	virtual void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
 		const FSceneView* View,
@@ -187,7 +186,7 @@ public:
 	// SpeedTree LOD parameter
 	FShaderParameter LODParameter;
 
-	// True if LODParameter is bound, which puts us on the slow path in SetMesh
+	// True if LODParameter is bound, which puts us on the slow path in GetElementShaderBindings
 	bool bAnySpeedTreeParamIsBound;
 };
 

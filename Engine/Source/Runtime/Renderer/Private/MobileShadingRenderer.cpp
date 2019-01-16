@@ -228,19 +228,6 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	OnStartRender(RHICmdList);
 }
 
-void FMobileSceneRenderer::PostInitViewCustomData()
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateViewCustomData);
-
-	for (FViewInfo& ViewInfo : Views)
-	{
-		for (const FPrimitiveSceneInfo* PrimitiveSceneInfo : ViewInfo.PrimitivesWithCustomData)
-		{
-			PrimitiveSceneInfo->Proxy->PostInitViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
-		}
-	}
-}
-
 /** 
 * Renders the view family. 
 */

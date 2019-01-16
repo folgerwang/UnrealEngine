@@ -10,7 +10,6 @@
 #include "RHI.h"
 #include "HitProxies.h"
 #include "RendererInterface.h"
-#include "DrawingPolicy.h"
 #include "DepthRendering.h"
 
 class FPrimitiveSceneInfo;

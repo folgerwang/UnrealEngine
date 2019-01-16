@@ -188,10 +188,6 @@ struct FMeshBatch
 	/** Whether the mesh batch should apply dithered LOD. */
 	uint32 bDitheredLODTransition : 1;
 
-	//@todo MeshCommandPipeline remove it together with mesh draw policies.
-	/** If bDitheredLODTransition and this is a dynamic mesh element, then this is the alpha for dither fade (static draw lists need to derive this later as it is changes every frame) */
-	float DitheredLODTransitionAlpha;
-
 	// can be NULL
 	const FLightCacheInterface* LCI;
 
@@ -281,7 +277,6 @@ struct FMeshBatch
 	,	bSelectable(true)
 	,	bRequiresPerElementVisibility(false)
 	,	bDitheredLODTransition(false)
-	,   DitheredLODTransitionAlpha(0.0f)
 	,	LCI(NULL)
 	,	VertexFactory(NULL)
 	,	MaterialRenderProxy(NULL)

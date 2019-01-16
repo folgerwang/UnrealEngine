@@ -171,21 +171,9 @@ public:
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
 
-	void SetInstanceParameters(FRHICommandList& RHICmdList, uint32 InInstanceOffset, uint32 InInstanceCount) const
-	{
-		//@todo MeshCommandPipeline - remove when switching fully to the mesh draw command pipeline.  These are now handled by the vertex factories.
-		static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("foliage.InstanceRuns"));
-		if (CVar->GetValueOnAnyThread() != 0)
-		{
-			bool const bZeroInstanceOffset = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform);
-			SetShaderValue(RHICmdList, GetVertexShader(), InstanceOffset, bZeroInstanceOffset ? 0 : InInstanceOffset);
-		}
-	}
-
 protected:
 
 	FSceneTextureShaderParameters SceneTextureParameters;
-	FShaderParameter InstanceOffset;
 
 private:
 
@@ -214,6 +202,6 @@ private:
 	static FAutoConsoleVariableRef CVarAllowCachedUniformExpressions;
 
 #if !(UE_BUILD_TEST || UE_BUILD_SHIPPING || !WITH_EDITOR)
-	void VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& Material, const FUniformExpressionCache* UniformExpressionCache);
+	void VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& Material, const FUniformExpressionCache* UniformExpressionCache) const;
 #endif
 };

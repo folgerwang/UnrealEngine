@@ -95,7 +95,7 @@ void UpdateTranslucentMeshSortKeys(
 		}
 
 		// Patch distance inside translucent mesh sort key.
-		UTranslucentMeshSortKey TranslucentMeshSortKey;
+		FTranslucentMeshSortKey TranslucentMeshSortKey;
 		TranslucentMeshSortKey.PackedData = VisibleCommand.SortKey.PackedData;
 		TranslucentMeshSortKey.Fields.Distance = (uint32)~BitInvertIfNegativeFloat(*((uint32*)&Distance));
 		VisibleCommand.SortKey.PackedData = TranslucentMeshSortKey.PackedData;		
@@ -514,7 +514,7 @@ void ApplyViewOverridesToMeshDrawCommands(
 				const FMeshDrawCommand& MeshCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
 				NewMeshCommand = MeshCommand;
 
-				const ERasterizerCullMode LocalCullMode = bRenderSceneTwoSided ? CM_None : bReverseCulling ? FMeshDrawingPolicy::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
+				const ERasterizerCullMode LocalCullMode = bRenderSceneTwoSided ? CM_None : bReverseCulling ? FMeshPassProcessor::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
 				NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
 
 				if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)

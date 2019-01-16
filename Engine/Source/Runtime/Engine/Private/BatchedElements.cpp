@@ -5,8 +5,8 @@
 #include "Misc/App.h"
 #include "Shader.h"
 #include "SimpleElementShaders.h"
-#include "DrawingPolicy.h"
 #include "PipelineStateCache.h"
+#include "MeshPassProcessor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBatchedElements, Log, All);
 

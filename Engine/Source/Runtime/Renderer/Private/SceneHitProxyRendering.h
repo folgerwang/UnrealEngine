@@ -9,7 +9,6 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 #include "HitProxies.h"
-#include "DrawingPolicy.h"
 #include "MeshPassProcessor.h"
 
 class FPrimitiveSceneProxy;

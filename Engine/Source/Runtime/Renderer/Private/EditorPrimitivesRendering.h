@@ -4,7 +4,6 @@
 	EditorPrimitivesRendering
 =============================================================================*/
 #include "MeshPassProcessor.h"
-#include "DrawingPolicy.h"
 
 class FEditorPrimitivesBasePassMeshProcessor : public FMeshPassProcessor
 {

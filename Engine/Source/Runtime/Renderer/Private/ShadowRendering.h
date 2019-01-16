@@ -21,7 +21,6 @@
 #include "SceneManagement.h"
 #include "ScenePrivateBase.h"
 #include "SceneCore.h"
-#include "DrawingPolicy.h"
 #include "GlobalShader.h"
 #include "SystemTextures.h"
 #include "PostProcess/SceneRenderTargets.h"
@@ -37,167 +36,12 @@ class FPrimitiveSceneProxy;
 class FProjectedShadowInfo;
 class FScene;
 class FSceneRenderer;
-class FShadowStaticMeshElement;
 class FViewInfo;
 
 /** Renders a cone with a spherical cap, used for rendering spot lights in deferred passes. */
 extern void DrawStencilingCone(const FMatrix& ConeToWorld, float ConeAngle, float SphereRadius, const FVector& PreViewTranslation);
 
 template <bool bRenderingReflectiveShadowMaps> class TShadowDepthBasePS;
-class FShadowStaticMeshElement;
-
-/**
- * The shadow depth drawing policy's context data.
- */
-struct FShadowDepthDrawingPolicyContext : FMeshDrawingPolicy::ContextDataType
-{
-	/** CAUTION, this is assumed to be a POD type. We allocate the on the scene allocator and NEVER CALL A DESTRUCTOR.
-		If you want to add non-pod data, not a huge problem, we just need to track and destruct them at the end of the scene.
-	**/
-	/** The projected shadow info for which we are rendering shadow depths. */
-	const FProjectedShadowInfo* ShadowInfo;
-
-	/** Initialization constructor. */
-	explicit FShadowDepthDrawingPolicyContext(const FProjectedShadowInfo* InShadowInfo)
-		: ShadowInfo(InShadowInfo)
-	{}
-};
-
-/**
- * Outputs no color, but can be used to write the mesh's depth values to the depth buffer.
- */
-template <bool bRenderingReflectiveShadowMaps>
-class FShadowDepthDrawingPolicy : public FMeshDrawingPolicy
-{
-public:
-	typedef FShadowDepthDrawingPolicyContext ContextDataType;
-
-	FShadowDepthDrawingPolicy(
-		const FMaterial* InMaterialResource,
-		bool bInDirectionalLight,
-		bool bInOnePassPointLightShadow,
-		bool bInPreShadow,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		ERHIFeatureLevel::Type InFeatureLevel,
-		const FVertexFactory* InVertexFactory = 0,
-		const FMaterialRenderProxy* InMaterialRenderProxy = 0,
-		bool bReverseCulling = false
-		);
-
-	void UpdateElementState(FShadowStaticMeshElement& State, ERHIFeatureLevel::Type FeatureLevel);
-
-	FShadowDepthDrawingPolicy& operator = (const FShadowDepthDrawingPolicy& Other)
-	{ 
-		VertexShader = Other.VertexShader;
-		GeometryShader = Other.GeometryShader;
-		HullShader = Other.HullShader;
-		DomainShader = Other.DomainShader;
-		PixelShader = Other.PixelShader;
-		bDirectionalLight = Other.bDirectionalLight;
-		bReverseCulling = Other.bReverseCulling;
-		bOnePassPointLightShadow = Other.bOnePassPointLightShadow;
-		bUsePositionOnlyVS = Other.bUsePositionOnlyVS;
-		bPreShadow = Other.bPreShadow;
-		FeatureLevel = Other.FeatureLevel;
-		(FMeshDrawingPolicy&)*this = (const FMeshDrawingPolicy&)Other;
-		return *this; 
-	}
-
-	//~ Begin FMeshDrawingPolicy Interface.
-	FDrawingPolicyMatchResult Matches(const FShadowDepthDrawingPolicy& Other, bool bForReals = false) const
-	{
-		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-			DRAWING_POLICY_MATCH(GeometryShader == Other.GeometryShader) &&
-			DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
-			DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
-			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader) &&
-			DRAWING_POLICY_MATCH(bDirectionalLight == Other.bDirectionalLight) &&
-			DRAWING_POLICY_MATCH(bReverseCulling == Other.bReverseCulling) &&
-			DRAWING_POLICY_MATCH(bOnePassPointLightShadow == Other.bOnePassPointLightShadow) &&
-			DRAWING_POLICY_MATCH(bUsePositionOnlyVS == Other.bUsePositionOnlyVS) &&
-			DRAWING_POLICY_MATCH(bPreShadow == Other.bPreShadow) &&
-			DRAWING_POLICY_MATCH(FeatureLevel == Other.FeatureLevel);
-		DRAWING_POLICY_MATCH_END
-	}
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const;
-
-	/** 
-	 * Create bound shader state using the vertex decl from the mesh draw policy
-	 * as well as the shaders needed to draw the mesh
-	 * @return new bound shader state object
-	 */
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const;
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData,
-		const ContextDataType PolicyContext
-		) const;
-
-	template<bool T2>
-	friend int32 CompareDrawingPolicy(const FShadowDepthDrawingPolicy<T2>& A,const FShadowDepthDrawingPolicy<T2>& B);
-
-	bool IsReversingCulling() const
-	{
-		return bReverseCulling;
-	}
-	
-private:
-
-	class FShadowDepthVS* VertexShader;
-	class FOnePassPointShadowDepthGS* GeometryShader;
-	TShadowDepthBasePS<bRenderingReflectiveShadowMaps>* PixelShader;
-	class FBaseHS* HullShader;
-	class FBaseDS* DomainShader;
-	ERHIFeatureLevel::Type FeatureLevel;
-
-public:
-
-	uint32 bDirectionalLight:1;
-	uint32 bReverseCulling:1;
-	uint32 bOnePassPointLightShadow:1;
-	uint32 bUsePositionOnlyVS:1;
-	uint32 bPreShadow:1;
-};
-
-/**
- * A drawing policy factory for the shadow depth drawing policy.
- */
-class FShadowDepthDrawingPolicyFactory
-{
-public:
-
-	enum { bAllowSimpleElements = false };
-
-	struct ContextType
-	{
-		const FProjectedShadowInfo* ShadowInfo;
-
-		ContextType(const FProjectedShadowInfo* InShadowInfo) :
-			ShadowInfo(InShadowInfo)
-		{}
-	};
-
-	static void AddStaticMesh(FScene* Scene,FStaticMesh* StaticMesh);
-
-	static bool DrawDynamicMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		ContextType Context,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-		);
-};
 
 /** 
  * Overrides a material used for shadow depth rendering with the default material when appropriate.
@@ -210,49 +54,6 @@ void OverrideWithDefaultMaterialForShadowDepth(
 	bool bReflectiveShadowmap,
 	ERHIFeatureLevel::Type InFeatureLevel
 	);
-
-/** A single static mesh element for shadow depth rendering. */
-class FShadowStaticMeshElement
-{
-public:
-
-	FShadowStaticMeshElement()
-		: RenderProxy(0)
-		, MaterialResource(0)
-		, Mesh(0)
-		, bIsTwoSided(false)
-	{
-	}
-
-	FShadowStaticMeshElement(const FMaterialRenderProxy* InRenderProxy, const FMaterial* InMaterialResource, const FStaticMesh* InMesh, bool bInIsTwoSided) :
-		RenderProxy(InRenderProxy),
-		MaterialResource(InMaterialResource),
-		Mesh(InMesh),
-		bIsTwoSided(bInIsTwoSided)
-	{}
-
-	bool DoesDeltaRequireADrawSharedCall(const FShadowStaticMeshElement& rhs) const
-	{
-		checkSlow(rhs.RenderProxy);
-		checkSlow(rhs.Mesh);
-
-		// Note: this->RenderProxy or this->Mesh can be 0
-		// but in this case rhs.RenderProxy should not be 0
-		// so it will early out and there will be no crash on Mesh->VertexFactory
-		checkSlow(!RenderProxy || rhs.RenderProxy);
-
-		return RenderProxy != rhs.RenderProxy
-			|| bIsTwoSided != rhs.bIsTwoSided
-			|| Mesh->VertexFactory != rhs.Mesh->VertexFactory
-			|| Mesh->ReverseCulling != rhs.Mesh->ReverseCulling;
-	}
-
-	/** Store the FMaterialRenderProxy pointer since it may be different from the one that FStaticMesh stores. */
-	const FMaterialRenderProxy* RenderProxy;
-	const FMaterial* MaterialResource;
-	const FStaticMesh* Mesh;
-	bool bIsTwoSided;
-};
 
 enum EShadowDepthRenderMode
 {
@@ -518,9 +319,6 @@ public:
 	/** Whether turn on back-lighting transmission. */
 	uint32 bTransmission : 1;
 
-	TBitArray<SceneRenderingBitArrayAllocator> StaticMeshWholeSceneShadowDepthMap;
-	TArray<uint64,SceneRenderingAllocator> StaticMeshWholeSceneShadowBatchVisibility;
-
 	/** View projection matrices for each cubemap face, used by one pass point light shadows. */
 	TArray<FMatrix> OnePassShadowViewProjectionMatrices;
 
@@ -684,9 +482,6 @@ public:
 		return bWholeSceneShadow && ( LightSceneInfo->Proxy->GetLightType() == LightType_Point || LightSceneInfo->Proxy->GetLightType() == LightType_Rect );
 	}
 
-	/** Sorts StaticSubjectMeshElements based on state so that rendering the static elements will set as little state as possible. */
-	void SortSubjectMeshElements();
-
 	// 0 if Setup...() wasn't called yet
 	const FLightSceneInfo& GetLightSceneInfo() const { return *LightSceneInfo; }
 	const FLightSceneInfoCompact& GetLightSceneInfoCompact() const { return LightSceneInfoCompact; }
@@ -721,9 +516,6 @@ private:
 	PrimitiveArrayType ReceiverPrimitives;
 	/** Subject primitives with translucent relevance. */
 	PrimitiveArrayType SubjectTranslucentPrimitives;
-
-	/** Static shadow casting elements. */
-	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> StaticSubjectMeshElements;
 
 	/** Dynamic mesh elements for subject primitives. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectMeshElements;
@@ -784,15 +576,7 @@ private:
 	/** Will return if we should draw the static mesh for the shadow, and will perform lazy init of primitive if it wasn't visible */
 	bool ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool bInCustomDataRelevance, FPrimitiveSceneInfo* InPrimitiveSceneInfo);
 
-	/**
-	* Renders the dynamic shadow subject depth, to a particular hacked view
-	*/
-	friend class FRenderDepthDynamicThreadTask;
-	void RenderDepthDynamic(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, const FDrawingPolicyRenderState& DrawRenderState);
-
 	void GetShadowTypeNameForDrawEvent(FString& TypeName) const;
-
-	template <bool bReflectiveShadowmap> friend void DrawShadowMeshElements(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const FProjectedShadowInfo& ShadowInfo);
 
 	/** Updates object buffers needed by ray traced distance field shadows. */
 	int32 UpdateShadowCastingObjectBuffers() const;
@@ -821,7 +605,6 @@ private:
 	template <bool bRenderingReflectiveShadowMaps> friend class TShadowDepthBasePS;
 	friend class FShadowVolumeBoundProjectionVS;
 	friend class FShadowProjectionPS;
-	friend class FShadowDepthDrawingPolicyFactory;
 };
 
 /**

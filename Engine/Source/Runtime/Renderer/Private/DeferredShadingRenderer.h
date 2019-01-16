@@ -55,16 +55,10 @@ public:
 	void UpdateLPVs(FRHICommandListImmediate& RHICmdList);
 
 	/**
-	 * Renders the dynamic scene's prepass for a particular view
-	 * @return true if anything was rendered
-	 */
-	bool RenderPrePassViewDynamic(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
-
-	/**
 	 * Renders the scene's prepass for a particular view
 	 * @return true if anything was rendered
 	 */
-	bool RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
+	void RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
 	/**
 	 * Renders the scene's prepass for a particular view in parallel
@@ -162,7 +156,7 @@ private:
 	*/
 	bool PreRenderPrePass(FRHICommandListImmediate& RHICmdList);
 
-	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, FDepthDrawingPolicyFactory::ContextType Context);
+	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, EDepthDrawingMode DepthDrawingMode, bool bRespectUseAsOccluderFlag);
 
 	/**
 	 * Renders the scene's prepass and occlusion queries.
@@ -378,9 +372,6 @@ private:
 
 	void SetupVolumetricFog();
 
-	/** Will update the view specific custom data. */
-	void PostInitViewCustomData(FGraphEventArray& OutUpdateEvents);
-
 	void RenderLocalLightsForVolumetricFog(
 		FRDGBuilder& GraphBuilder,
 		FViewInfo& View,
@@ -507,8 +498,6 @@ private:
 	bool DispatchRayTracingWorldUpdates(FRHICommandListImmediate& RHICmdList);
 	FRHIRayTracingPipelineState* BindRayTracingPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader, FRayTracingShaderRHIParamRef MissShader, FRayTracingShaderRHIParamRef DefaultChsShader);
 #endif // RHI_RAYTRACING
-
-	friend class FTranslucentPrimSet;
 };
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );

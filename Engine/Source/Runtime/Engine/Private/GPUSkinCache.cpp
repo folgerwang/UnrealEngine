@@ -1010,9 +1010,7 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 	INC_DWORD_STAT(STAT_GPUSkinCache_NumSectionsProcessed);
 
 	const uint32 NumVertices = BatchElement.GetNumVertices();
-	uint32 StreamStrides[MaxVertexElementCount];
 	//#todo-gpuskin Check that stream 0 is the position stream
-	const uint32 StreamStrideCount = VertexFactory->GetStreamStrides(StreamStrides);
 	const uint32 InputStreamStart = BatchElement.BaseVertexIndex;
 
 	FSkeletalMeshRenderData& SkelMeshRenderData = Skin->GetSkeletalMeshRenderData();

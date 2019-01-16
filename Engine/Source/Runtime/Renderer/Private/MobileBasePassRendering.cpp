@@ -6,7 +6,6 @@
 
 #include "MobileBasePassRendering.h"
 #include "DynamicPrimitiveDrawing.h"
-#include "StaticMeshDrawList.h"
 #include "ScenePrivate.h"
 #include "ShaderPlatformQualitySettings.h"
 #include "MaterialShaderQualitySettings.h"

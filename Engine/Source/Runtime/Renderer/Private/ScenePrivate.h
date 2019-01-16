@@ -34,7 +34,6 @@
 #include "ShadowRendering.h"
 #include "TextureLayout.h"
 #include "SceneRendering.h"
-#include "StaticMeshDrawList.h"
 #include "LightMapRendering.h"
 #include "VelocityRendering.h"
 #include "BasePassRendering.h"
@@ -2437,19 +2436,6 @@ public:
 
 	FCachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
 
-	/** position-only opaque depth draw list */
-	TStaticMeshDrawList<FPositionOnlyDepthDrawingPolicy> PositionOnlyDepthDrawList;
-	/** opaque depth draw list */
-	TStaticMeshDrawList<FDepthDrawingPolicy> DepthDrawList;
-	/** masked depth draw list */
-	TStaticMeshDrawList<FDepthDrawingPolicy> MaskedDepthDrawList;
-
-	/** Draw list used for rendering whole scene shadow depths. */
-	TStaticMeshDrawList<FShadowDepthDrawingPolicy<false> > WholeSceneShadowDepthDrawList;
-
-	/** Draw list used for rendering whole scene reflective shadow maps.  */
-	TStaticMeshDrawList<FShadowDepthDrawingPolicy<true> > WholeSceneReflectiveShadowMapDrawList;
-
 	/**
 	 * The following arrays are densely packed primitive data needed by various
 	 * rendering passes. PrimitiveSceneInfo->PackedIndex maintains the index
@@ -2704,7 +2690,6 @@ public:
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override;
 	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const override;
 	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const override;
-	virtual void DumpStaticMeshDrawListStats() const override;
 	virtual void UpdateParameterCollections(const TArray<FMaterialParameterCollectionInstanceResource*>& InParameterCollections) override;
 
 	/** Determines whether the scene has atmospheric fog and sun light. */
@@ -2726,9 +2711,6 @@ public:
 
 	/** Updates all static draw lists. */
 	virtual void UpdateStaticDrawLists() override;
-
-	/** Updates static draw lists for the given set of materials. */
-	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) override;
 
 	virtual void Release() override;
 	virtual UWorld* GetWorld() const override { return World; }
@@ -2939,9 +2921,6 @@ private:
 
 	/** Updates all static draw lists. */
 	void UpdateStaticDrawLists_RenderThread(FRHICommandListImmediate& RHICmdList);
-
-	/** Updates static draw lists for the given materials. */
-	void UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmediate& RHICmdList, const TArray<const FMaterial*>& Materials);
 
 	/**
 	 * Shifts scene data by provided delta

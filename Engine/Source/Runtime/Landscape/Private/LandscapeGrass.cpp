@@ -32,7 +32,6 @@
 #include "LandscapeVersion.h"
 #include "MaterialShaderType.h"
 #include "MeshMaterialShaderType.h"
-#include "DrawingPolicy.h"
 #include "MeshMaterialShader.h"
 #include "Materials/Material.h"
 #include "LandscapeGrassType.h"
@@ -242,18 +241,6 @@ public:
 		return ShouldCacheLandscapeGrassShaders(Platform, Material, VertexFactoryType);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView& View, const FDrawingPolicyRenderState& DrawRenderState, const FVector2D& RenderOffset)
-	{
-		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View.FeatureLevel);
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, DrawRenderState.GetViewUniformBuffer(), nullptr);
-		SetShaderValue(RHICmdList, GetVertexShader(), RenderOffsetParameter, RenderOffset);
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-	}
-
 	void GetShaderBindings(
 		const FScene* Scene,
 		ERHIFeatureLevel::Type FeatureLevel,
@@ -300,21 +287,6 @@ public:
 
 	FLandscapeGrassWeightPS()
 	{}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState, int32 OutputPass)
-	{
-		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View->FeatureLevel);
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), nullptr);
-		if (OutputPassParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetPixelShader(), OutputPassParameter, OutputPass);
-		}
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-	}
 
 	void GetShaderBindings(
 		const FScene* Scene,

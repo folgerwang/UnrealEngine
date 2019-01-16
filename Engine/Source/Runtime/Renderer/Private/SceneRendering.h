@@ -25,7 +25,6 @@
 #include "GlobalShader.h"
 #include "PrimitiveViewRelevance.h"
 #include "DistortionRendering.h"
-#include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
 #include "Templates/UniquePtr.h"
@@ -300,89 +299,50 @@ public:
 class FTranslucentPrimSet
 {
 public:
-	/** contains a scene prim and its sort key */
-	struct FTranslucentSortedPrim
+	/** contains a scene prim */
+	struct FTranslucentPrim
 	{
 		/** Default constructor. */
-		FTranslucentSortedPrim() {}
+		FTranslucentPrim() {}
 
-		// @param InPass (first we sort by this)
-		// @param InSortPriority SHRT_MIN .. SHRT_MAX (then we sort by this)
-		// @param InSortKey from UPrimitiveComponent::TranslucencySortPriority e.g. SortByDistance/SortAlongAxis (then by this)
-		FTranslucentSortedPrim(FPrimitiveSceneInfo* InPrimitiveSceneInfo, ETranslucencyPass::Type InPass, int16 InSortPriority, float InSortKey)
+		// @param InPass
+		FTranslucentPrim(FPrimitiveSceneInfo* InPrimitiveSceneInfo, ETranslucencyPass::Type InPass)
 			:	PrimitiveSceneInfo(InPrimitiveSceneInfo)
-			,	SortKey(InSortKey)
-		{
-			SetSortOrder(InPass, InSortPriority);
-		}
+			,	Pass(InPass)
+		{}
 
-		void SetSortOrder(ETranslucencyPass::Type InPass, int16 InSortPriority)
-		{
-			uint32 UpperShort = (uint32)InPass;
-			// 0 .. 0xffff
-			int32 SortPriorityWithoutSign = (int32)InSortPriority - (int32)SHRT_MIN;
-			uint32 LowerShort = SortPriorityWithoutSign;
-
-			check(LowerShort <= 0xffff);
-
-			// top 8 bits are currently unused
-			SortOrder = (UpperShort << 16) | LowerShort;
-		}
-
-		//
 		FPrimitiveSceneInfo* PrimitiveSceneInfo;
-		// single 32bit sort order containing Pass and SortPriority (first we sort by this)
-		uint32 SortOrder;
-		// from UPrimitiveComponent::TranslucencySortPriority (then by this)
-		float SortKey;
+		ETranslucencyPass::Type Pass;
 	};
 
 	/**
 	* Insert a primitive to the translucency rendering list[s]
 	*/
-	
 	static void PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, const FPrimitiveViewRelevance& ViewRelevance,
-		FTranslucentSortedPrim* InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount);
-
-	/**
-	* Sort any primitives that were added to the set back-to-front
-	*/
-	void SortPrimitives();
+		FTranslucentPrim* InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount);
 
 	/** 
 	* @return number of prims to render
 	*/
 	int32 NumPrims() const
 	{
-		return SortedPrims.Num();
+		return Prims.Num();
 	}
 
 	/**
 	* Adds primitives originally created with PlaceScenePrimitive
 	*/
-	void AppendScenePrimitives(FTranslucentSortedPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass);
+	void AppendScenePrimitives(FTranslucentPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass);
 
-	// belongs to SortedPrims
-	FTranslucenyPrimCount SortedPrimsNum;
+	FTranslucenyPrimCount PrimsNum;
 
 private:
 
-	/** sortkey compare class */
-	struct FCompareFTranslucentSortedPrim
-	{
-		FORCEINLINE bool operator()( const FTranslucentSortedPrim& A, const FTranslucentSortedPrim& B ) const
-		{
-			// If priorities are equal sort normally from back to front
-			// otherwise lower sort priorities should render first
-			return ( A.SortOrder == B.SortOrder ) ? ( B.SortKey < A.SortKey ) : ( A.SortOrder < B.SortOrder );
-		}
-	};
-
 	/** list of translucent primitives, sorted after calling Sort() */
-	TArray<FTranslucentSortedPrim,SceneRenderingAllocator> SortedPrims;
+	TArray<FTranslucentPrim,SceneRenderingAllocator> Prims;
 };
 
-template <> struct TIsPODType<FTranslucentPrimSet::FTranslucentSortedPrim> { enum { Value = true }; };
+template <> struct TIsPODType<FTranslucentPrimSet::FTranslucentPrim> { enum { Value = true }; };
 
 /** A batched occlusion primitive. */
 struct FOcclusionPrimitive
@@ -509,7 +469,6 @@ public:
 	bool bBalanceCommands;
 	// see r.RHICmdSpewParallelListBalance
 	bool bSpewBalance;
-	bool bBalanceCommandsWithLastFrame;
 public:
 	TArray<FRHICommandList*,SceneRenderingAllocator> CommandLists;
 	TArray<FGraphEventRef,SceneRenderingAllocator> Events;
@@ -924,31 +883,17 @@ public:
 	/** A map from static mesh ID to a boolean visibility value. */
 	FSceneBitArray StaticMeshVisibilityMap;
 
-	/** A map from static mesh ID to a boolean occluder value. */
-	FSceneBitArray StaticMeshOccluderMap;
-
-	/** A map from static mesh ID to a boolean velocity visibility value. */
-	FSceneBitArray StaticMeshVelocityMap;
-
-	/** A map from static mesh ID to a boolean shadow depth visibility value. */
-	FSceneBitArray StaticMeshShadowDepthMap;
-
 	/** A map from static mesh ID to a boolean dithered LOD fade out value. */
 	FSceneBitArray StaticMeshFadeOutDitheredLODMap;
 
 	/** A map from static mesh ID to a boolean dithered LOD fade in value. */
 	FSceneBitArray StaticMeshFadeInDitheredLODMap;
 
-#if WITH_EDITOR
-	/** A map from static mesh ID to editor selection visibility (whether or not it is selected AND should be drawn).  */
-	FSceneBitArray StaticMeshEditorSelectionMap;
-#endif
-
 	/** Will only contain relevant primitives for view and/or shadow */
 	TArray<FLODMask, SceneRenderingAllocator> PrimitivesLODMask;
 
 	/** An array of batch element visibility masks, valid only for meshes
-	 set visible in either StaticMeshVisibilityMap or StaticMeshShadowDepthMap. */
+	 set visible in StaticMeshVisibilityMap. */
 	TArray<uint64,SceneRenderingAllocator> StaticMeshBatchVisibility;
 
 	/** The dynamic primitives visible in this view. */
@@ -975,14 +920,11 @@ public:
 	/** Set of translucent prims for this view */
 	FTranslucentPrimSet TranslucentPrimSet;
 
-	/** Set of distortion prims for this view */
-	FDistortionPrimSet DistortionPrimSet;
-	
 	/** Set of mesh decal prims for this view */
 	FMeshDecalPrimSet MeshDecalPrimSet;
 	
-	/** Set of CustomDepth prims for this view */
-	FCustomDepthPrimSet CustomDepthSet;
+	bool bHasDistortionPrimitives;
+	bool bHasCustomDepthPrimitives;
 
 	/** Primitives with a volumetric material. */
 	FVolumetricPrimSet VolumetricPrimSet;
@@ -1024,7 +966,6 @@ public:
 	TArray<FPrimitiveUniformShaderParameters> DynamicPrimitiveShaderData;
 
 	FRWBufferStructured OneFramePrimitiveShaderDataBuffer;
-	FReadBuffer OneFramePrimitiveIdBufferEmulation;
 
 	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> ParallelMeshDrawCommandPasses;
 	
@@ -1036,7 +977,6 @@ public:
 
 	// Primitive CustomData
 	TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator> PrimitivesWithCustomData;	// Size == Amount of Primitive With Custom Data
-	FSceneBitArray UpdatedPrimitivesWithCustomData;
 	TArray<FMemStackBase, SceneRenderingAllocator> PrimitiveCustomDataMemStack; // Size == 1 global stack + 1 per visibility thread (if multithread)
 
 	/** Parameters for exponential height fog. */
@@ -1813,9 +1753,6 @@ protected:
 	/** Copy scene color from the mobile multi-view render target array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
-	/** Will update the view custom data. */
-	void PostInitViewCustomData();
-
 	/** Whether GPU particle collisions simulation is allowed. */
 	bool IsGPUParticleCollisionEnabled(const FViewInfo& View);
 	void SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
@@ -1949,7 +1886,6 @@ private:
 
 extern FFastVramConfig GFastVRamConfig;
 
-RENDERER_API extern bool UseMeshDrawCommandPipeline();
 extern bool UseCachedMeshDrawCommands();
 extern bool IsDynamicInstancingEnabled();
 

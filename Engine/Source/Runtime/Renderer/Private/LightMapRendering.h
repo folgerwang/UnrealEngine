@@ -11,7 +11,6 @@
 #include "RenderResource.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
-#include "DrawingPolicy.h"
 #include "ShadowRendering.h"
 #include "LightMap.h"
 
@@ -243,12 +242,6 @@ public:
 	{
 		return true;
 	}
-
-	friend int32 CompareDrawingPolicy(const FSelfShadowedTranslucencyPolicy&,const FSelfShadowedTranslucencyPolicy&)
-	{
-		return 0;
-	}
-
 };
 
 /**
@@ -761,19 +754,6 @@ public:
 
 	FUniformLightMapPolicy(ELightMapPolicyType InIndirectPolicy) : IndirectPolicy(InIndirectPolicy) {}
 
-	void SetMesh(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FLightCacheInterface* LCI
-		) const;
-
 	static void GetVertexShaderBindings(
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const ElementDataType& ShaderElementData,
@@ -798,12 +778,6 @@ public:
 	friend bool operator==(const FUniformLightMapPolicy A,const FUniformLightMapPolicy B)
 	{
 		return A.IndirectPolicy == B.IndirectPolicy;
-	}
-
-	friend int32 CompareDrawingPolicy(const FUniformLightMapPolicy& A,const FUniformLightMapPolicy& B)
-	{
-		COMPAREDRAWINGPOLICYMEMBERS(IndirectPolicy);
-		return  0;
 	}
 
 	ELightMapPolicyType GetIndirectPolicy() const { return IndirectPolicy; }

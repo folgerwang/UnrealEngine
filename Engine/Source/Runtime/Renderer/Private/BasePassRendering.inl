@@ -20,13 +20,6 @@ struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
 
 template<typename LightMapPolicyType>
-inline void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-{
-	FVertexShaderRHIParamRef VertexShaderRHI = GetVertexShader();
-	FMeshMaterialShader::SetMesh(RHICmdList, VertexShaderRHI, VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-}
-
-template<typename LightMapPolicyType>
 void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::GetShaderBindings(
 	const FScene* Scene,
 	ERHIFeatureLevel::Type FeatureLevel,
@@ -72,21 +65,6 @@ void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::GetElementShaderB
 	FVertexInputStreamArray& VertexStreams) const
 {
 	FMeshMaterialShader::GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, bShaderRequiresPositionOnlyStream, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, ShaderBindings, VertexStreams);
-}
-
-template<typename LightMapPolicyType>
-void TBasePassVertexShaderPolicyParamType<LightMapPolicyType>::SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
-{
-	if (InstancedEyeIndexParameter.IsBound())
-	{
-		SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, EyeIndex);
-	}
-}
-
-template<typename LightMapPolicyType>
-void TBasePassPixelShaderPolicyParamType<LightMapPolicyType>::SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode)
-{
-	FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
 }
 
 template<typename LightMapPolicyType>

@@ -347,23 +347,6 @@ void UploadDynamicPrimitiveShaderDataForView(FRHICommandList& RHICmdList, FScene
 		View.CachedViewUniformShaderParameters->LightmapSceneData = Scene.GPUScene.LightmapDataBuffer.SRV;
 		View.CachedViewUniformShaderParameters->PrimitiveSceneData = ViewPrimitiveShaderDataBuffer.SRV;
 		View.ViewUniformBuffer.UpdateUniformBufferImmediate(*View.CachedViewUniformShaderParameters);
-
-		if (!UseMeshDrawCommandPipeline())
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_PrimitiveIdBufferEmulation);
-
-			//@todo MeshCommandPipeline - remove PrimitiveIdBufferEmulation once drawing policies are gone
-			View.OneFramePrimitiveIdBufferEmulation.Release();
-			View.OneFramePrimitiveIdBufferEmulation.Initialize(sizeof(uint32), NumPrimitiveEntries, PF_R32_UINT);
-			uint32* LockedPrimitiveIds = (uint32*)RHILockVertexBuffer(View.OneFramePrimitiveIdBufferEmulation.Buffer, 0, View.OneFramePrimitiveIdBufferEmulation.NumBytes, RLM_WriteOnly);
-
-			for (int32 i = 0; i < NumPrimitiveEntries; i++)
-			{
-				LockedPrimitiveIds[i] = i;
-			}
-
-			RHIUnlockVertexBuffer(View.OneFramePrimitiveIdBufferEmulation.Buffer);
-		}
 	}
 }
 

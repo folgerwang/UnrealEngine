@@ -17,7 +17,6 @@ RequiredTextureResolutionRendering.h: Declarations used for the viewmode.
 * Pixel shader that renders texcoord scales.
 * The shader is only compiled with the local vertex factory to prevent multiple compilation.
 * Nothing from the factory is actually used, but the shader must still derive from FMeshMaterialShader.
-* This is required to call FMeshMaterialShader::SetMesh and bind primitive related data.
 */
 class FRequiredTextureResolutionPS : public FDebugViewModePS
 {

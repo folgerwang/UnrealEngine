@@ -281,7 +281,7 @@ ENGINE_API UEngine*	GEngine = NULL;
 */
 ENGINE_API bool GShowDebugSelectedLightmap = false;
 
-int32 GShowMaterialDrawEventTypes = 0;
+int32 GShowMaterialDrawEvents = 0;
 
 #if WANTS_DRAW_MESH_EVENTS
 /**
@@ -289,29 +289,8 @@ int32 GShowMaterialDrawEventTypes = 0;
 */
 static FAutoConsoleVariableRef CVARShowMaterialDrawEvents(
 	TEXT("r.ShowMaterialDrawEvents"),
-	GShowMaterialDrawEventTypes,
-	TEXT("Uses a flags array to enable a draw event around specific material draw types if supported by the platform.\n")
-	TEXT("Set to -1 to enable everything. \n")
-	TEXT("Otherwise sum up these flags:   \n")
-	TEXT("None						0	  \n")
-	TEXT("CompositionLighting		1	  \n")
-	TEXT("BasePass					2	  \n")
-	TEXT("DepthPositionOnly			4	  \n")
-	TEXT("Depth						8	  \n")
-	TEXT("DistortionDynamic			16	  \n")
-	TEXT("DistortionStatic			32	  \n")
-	TEXT("MobileBasePass			64	  \n")
-	TEXT("MobileTranslucent			128	  \n")
-	TEXT("MobileTranslucentOpacity	256	  \n")
-	TEXT("ShadowDepth				512	  \n")
-	TEXT("ShadowDepthRsm			1024  \n")
-	TEXT("ShadowDepthStatic			2048  \n")
-	TEXT("StaticDraw				4096  \n")
-	TEXT("StaticDrawStereo			8192  \n")
-	TEXT("TranslucentLighting		16384 \n")
-	TEXT("Translucent				32768 \n")
-	TEXT("Velocity					65536 \n")
-	TEXT("FogVoxelization			131072\n"),
+	GShowMaterialDrawEvents,
+	TEXT("Whether to emit a draw event around every mesh draw call with information about the assets used.  Introduces severe CPU and GPU overhead when enabled, but useful for debugging."),
 	ECVF_Default
 );
 #endif

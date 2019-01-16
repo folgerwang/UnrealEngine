@@ -83,8 +83,6 @@ FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitia
 	}
 
 	SceneTextureParameters.Bind(Initializer);
-
-	InstanceOffset.Bind(Initializer.ParameterMap, TEXT("InstanceOffset"));
 }
 
 FUniformBufferRHIParamRef FMaterialShader::GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const
@@ -105,7 +103,7 @@ FUniformBufferRHIParamRef FMaterialShader::GetParameterCollectionBuffer(const FG
 }
 
 #if !(UE_BUILD_TEST || UE_BUILD_SHIPPING || !WITH_EDITOR)
-void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& Material, const FUniformExpressionCache* UniformExpressionCache)
+void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& Material, const FUniformExpressionCache* UniformExpressionCache) const
 {
 	// Validate that the shader is being used for a material that matches the uniform expression set the shader was compiled for.
 	const FUniformExpressionSet& MaterialUniformExpressionSet = Material.GetRenderingThreadShaderMap()->GetUniformExpressionSet();
@@ -379,6 +377,11 @@ void FMaterialShader::GetShaderBindings(
 
 	const FUniformExpressionCache& UniformExpressionCache = MaterialRenderProxy.UniformExpressionCache[FeatureLevel];
 	check(UniformExpressionCache.bUpToDate && UniformExpressionCache.UniformBuffer);
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING || !WITH_EDITOR)
+	VerifyExpressionAndShaderMaps(&MaterialRenderProxy, Material, &UniformExpressionCache);
+#endif
+
 	ShaderBindings.Add(MaterialUniformBuffer, UniformExpressionCache.UniformBuffer);
 
 	{
@@ -496,8 +499,6 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 	Ar << PageTable;
 	Ar << PageTableSampler;
 
-	Ar << InstanceOffset;
-
 	return bShaderHasOutdatedParameters;
 }
 
@@ -510,63 +511,6 @@ uint32 FMaterialShader::GetAllocatedSize() const
 #endif
 	;
 }
-
-
-template< typename ShaderRHIParamRef >
-void FMeshMaterialShader::SetMesh(
-	FRHICommandList& RHICmdList,
-	const ShaderRHIParamRef ShaderRHI,
-	const FVertexFactory* VertexFactory,
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* Proxy,
-	const FMeshBatchElement& BatchElement,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	uint32 DataFlags )
-{
-	// Set the mesh for the vertex factory
-	VertexFactoryParameters.SetMesh(RHICmdList, this,VertexFactory,View,BatchElement, DataFlags);
-		
-	if (BatchElement.PrimitiveUniformBuffer)
-	{
-		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(),BatchElement.PrimitiveUniformBuffer);
-	}
-	else if (BatchElement.PrimitiveUniformBufferResource)
-	{
-		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(),*BatchElement.PrimitiveUniformBufferResource);
-	}
-
-	TShaderUniformBufferParameter<FDistanceCullFadeUniformShaderParameters> LODParameter = GetUniformBufferParameter<FDistanceCullFadeUniformShaderParameters>();
-	if( LODParameter.IsBound() )
-	{
-		SetUniformBufferParameter(RHICmdList, ShaderRHI,LODParameter,GetPrimitiveFadeUniformBufferParameter(View, Proxy));
-	}
-
-	TShaderUniformBufferParameter<FDitherUniformShaderParameters> DitherParameter = GetUniformBufferParameter<FDitherUniformShaderParameters>();
-	if (DitherParameter.IsBound())
-	{
-		// Dither is currently disabled in mesh draw policy rendering path.
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, DitherParameter, GDitherFadedInUniformBuffer.GetUniformBufferRHI());
-	}
-}
-
-#define IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( ShaderRHIParamRef ) \
-	template RENDERER_API void FMeshMaterialShader::SetMesh< ShaderRHIParamRef >( \
-		FRHICommandList& RHICmdList,					 \
-		const ShaderRHIParamRef ShaderRHI,				 \
-		const FVertexFactory* VertexFactory,			 \
-		const FSceneView& View,							 \
-		const FPrimitiveSceneProxy* Proxy,				 \
-		const FMeshBatchElement& BatchElement,			 \
-		const FDrawingPolicyRenderState& DrawRenderState,\
-		uint32 DataFlags								 \
-	);
-
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FVertexShaderRHIParamRef );
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FHullShaderRHIParamRef );
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FDomainShaderRHIParamRef );
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FGeometryShaderRHIParamRef );
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FPixelShaderRHIParamRef );
-IMPLEMENT_MESH_MATERIAL_SHADER_SetMesh( FComputeShaderRHIParamRef );
 
 void FMeshMaterialShader::GetShaderBindings(
 	const FScene* Scene,
@@ -601,7 +545,6 @@ void FMeshMaterialShader::GetElementShaderBindings(
 {
 	checkSlow(ShaderBindings.Frequency == GetType()->GetFrequency());
 
-	//@todo MeshCommandPipeline - remove from FMaterialShader
 	VertexFactoryParameters.GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, this, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
 		
 	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && VertexFactory->GetPrimitiveIdStreamIndex(bShaderRequiresPositionOnlyStream) >= 0)
@@ -635,25 +578,4 @@ uint32 FMeshMaterialShader::GetAllocatedSize() const
 {
 	return FMaterialShader::GetAllocatedSize()
 		+ VertexFactoryParameters.GetAllocatedSize();
-}
-
-//@todo MeshCommandPipeline Remove it together with draw policies.
-FUniformBufferRHIParamRef FMeshMaterialShader::GetPrimitiveFadeUniformBufferParameter(const FSceneView& View, const FPrimitiveSceneProxy* Proxy)
-{
-	FUniformBufferRHIParamRef FadeUniformBuffer = NULL;
-	if( Proxy != NULL )
-	{
-		const FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy->GetPrimitiveSceneInfo();
-		int32 PrimitiveIndex = PrimitiveSceneInfo->GetIndex();
-
-		// This cast should always be safe. Check it :)
-		checkSlow(View.bIsViewInfo);
-		const FViewInfo& ViewInfo = (const FViewInfo&)View;
-		FadeUniformBuffer = ViewInfo.PrimitiveFadeUniformBuffers[PrimitiveIndex];
-	}
-	if (FadeUniformBuffer == NULL)
-	{
-		FadeUniformBuffer = GDistanceCullFadedInUniformBuffer.GetUniformBufferRHI();
-	}
-	return FadeUniformBuffer;
 }

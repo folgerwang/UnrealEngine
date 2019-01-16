@@ -525,49 +525,6 @@ public:
 		Ar << PreviousBoneMatrices;
 	}
 
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override
-	{
-		FRHIVertexShader* ShaderRHI = Shader->GetVertexShader();
-
-		if(ShaderRHI)
-		{
-			const FGPUBaseSkinVertexFactory::FShaderDataType& ShaderData = ((const FGPUBaseSkinVertexFactory*)VertexFactory)->GetShaderData();
-	
-			const auto FeatureLevel = View.GetFeatureLevel();
-
-			bool bLocalPerBoneMotionBlur = false;
-
-			if (SupportsBonesBufferSRV(FeatureLevel))
-			{
-				if(BoneMatrices.IsBound())
-				{
-					FShaderResourceViewRHIParamRef CurrentData = ShaderData.GetBoneBufferForReading(false).VertexBufferSRV;
-
-					RHICmdList.SetShaderResourceViewParameter(ShaderRHI, BoneMatrices.GetBaseIndex(), CurrentData);
-				}
-				if(PreviousBoneMatrices.IsBound())
-				{
-					// todo: Maybe a check for PreviousData!=CurrentData would save some performance (when objects don't have velocty yet) but removing the bool also might save performance
-					bLocalPerBoneMotionBlur = true;
-
-					FShaderResourceViewRHIParamRef PreviousData = ShaderData.GetBoneBufferForReading(true).VertexBufferSRV;
-
-					RHICmdList.SetShaderResourceViewParameter(ShaderRHI, PreviousBoneMatrices.GetBaseIndex(), PreviousData);
-				}
-			}
-			else
-			{
-				SetUniformBufferParameter(RHICmdList, ShaderRHI, Shader->GetUniformBufferParameter<FBoneMatricesUniformShaderParameters>(), ShaderData.GetUniformBuffer());
-			}
-
-
-			SetShaderValue(RHICmdList, ShaderRHI, PerBoneMotionBlur, (uint32)(bLocalPerBoneMotionBlur ? 1 : 0));
-		}
-	}
-
 	virtual void GetElementShaderBindings(
 		const FSceneInterface* Scene,
 		const FSceneView* View,
@@ -651,18 +608,7 @@ public:
 		FLocalVertexFactoryShaderParametersBase::Serialize(Ar);
 		Ar << GPUSkinCachePreviousPositionBuffer;
 	}
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override
-	{
-		FLocalVertexFactoryShaderParametersBase::SetMesh(RHICmdList, Shader, VertexFactory, View, BatchElement, DataFlags);
-		check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
-		FGPUSkinBatchElementUserData* BatchUserData = (FGPUSkinBatchElementUserData*)BatchElement.VertexFactoryUserData;
-		check(BatchUserData);
-		FGPUSkinCache::SetVertexStreams(BatchUserData->Entry, BatchUserData->Section, RHICmdList, Shader, (FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousPositionBuffer);
-	}
-
+	
 	virtual void GetElementShaderBindings(
 		const FSceneInterface* Scene,
 		const FSceneView* View,
@@ -890,75 +836,6 @@ public:
 		Ar << ClothBlendWeightParameter;
 		Ar << GPUSkinApexClothParameter;
 		Ar << GPUSkinApexClothStartIndexOffsetParameter;
-	}
-
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override
-	{
-		FRHIVertexShader* VertexShader = Shader->GetVertexShader();
-		if (VertexShader)
-		{
-			// Call regular GPU skinning shader parameters
-			FGPUSkinVertexFactoryShaderParameters::SetMesh(RHICmdList, Shader, VertexFactory, View, BatchElement, DataFlags);
-			const auto* GPUSkinVertexFactory = (const FGPUBaseSkinVertexFactory*)VertexFactory;
-			// A little hacky; problem is we can't upcast from FGPUBaseSkinVertexFactory to FGPUBaseSkinAPEXClothVertexFactory as they are unrelated; a nice solution would be
-			// to use virtual inheritance, but that requires RTTI and complicates things further...
-			const FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType& ClothShaderData = GPUSkinVertexFactory->UsesExtraBoneInfluences()
-				? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothShaderData()
-				: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothShaderData();
-
-			SetUniformBufferParameter(RHICmdList, VertexShader, Shader->GetUniformBufferParameter<FAPEXClothUniformShaderParameters>(),ClothShaderData.GetClothUniformBuffer());
-
-			uint32 FrameNumber = View.Family->FrameNumber;
-
-			// we tell the shader where to pickup the data
-			if(ClothSimulVertsPositionsNormalsParameter.IsBound())
-			{
-				RHICmdList.SetShaderResourceViewParameter(VertexShader, ClothSimulVertsPositionsNormalsParameter.GetBaseIndex(),
-														  ClothShaderData.GetClothBufferForReading(false, FrameNumber).VertexBufferSRV);
-			}
-			if(PreviousClothSimulVertsPositionsNormalsParameter.IsBound())
-			{
-				RHICmdList.SetShaderResourceViewParameter(VertexShader, PreviousClothSimulVertsPositionsNormalsParameter.GetBaseIndex(),
-														  ClothShaderData.GetClothBufferForReading(true, FrameNumber).VertexBufferSRV);
-			}
-			
-			SetShaderValue(
-				RHICmdList,
-				VertexShader,
-				ClothLocalToWorldParameter,
-				ClothShaderData.GetClothLocalToWorldForReading(false, FrameNumber)
-				);
-
-			SetShaderValue(
-				RHICmdList,
-				VertexShader,
-				PreviousClothLocalToWorldParameter,
-				ClothShaderData.GetClothLocalToWorldForReading(true, FrameNumber)
-				);
-
-			SetShaderValue(
-				RHICmdList,
-				VertexShader,
-				ClothBlendWeightParameter,
-				ClothShaderData.ClothBlendWeight
-				);
-
-			if (GPUSkinApexClothParameter.IsBound())
-			{
-				RHICmdList.SetShaderResourceViewParameter(
-					VertexShader,
-					GPUSkinApexClothParameter.GetBaseIndex(),
-					GPUSkinVertexFactory->UsesExtraBoneInfluences()
-					? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothBuffer()
-					: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothBuffer());
-				int32 ClothIndexOffset =
-					GPUSkinVertexFactory->UsesExtraBoneInfluences()
-					? ((const TGPUSkinAPEXClothVertexFactory<true>*)GPUSkinVertexFactory)->GetClothIndexOffset(BatchElement.MinVertexIndex)
-					: ((const TGPUSkinAPEXClothVertexFactory<false>*)GPUSkinVertexFactory)->GetClothIndexOffset(BatchElement.MinVertexIndex);
-				FIntVector4 GPUSkinApexClothStartIndexOffset(BatchElement.MinVertexIndex, ClothIndexOffset, 0, 0);
-				SetShaderValue(RHICmdList, VertexShader, GPUSkinApexClothStartIndexOffsetParameter, GPUSkinApexClothStartIndexOffset);
-			}
-		}
 	}
 	
 	virtual void GetElementShaderBindings(

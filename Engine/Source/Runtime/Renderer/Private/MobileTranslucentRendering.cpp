@@ -15,7 +15,6 @@
 #include "PostProcess/SceneRenderTargets.h"
 #include "GlobalShader.h"
 #include "SceneRenderTargetParameters.h"
-#include "DrawingPolicy.h"
 #include "SceneRendering.h"
 #include "LightMapRendering.h"
 #include "MaterialShaderType.h"
@@ -220,22 +219,6 @@ public:
 		const bool result = FMeshMaterialShader::Serialize(Ar);
 		return result;
 	}
-
-	void SetParameters(
-		FRHICommandList& RHICmdList,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FMaterial& MaterialResource,
-		const FSceneView& View, 
-		const FDrawingPolicyRenderState& DrawRenderState)
-	{
-
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-	}
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FOpacityOnlyVS, TEXT("/Engine/Private/MobileOpacityShaders.usf"), TEXT("MainVS"), SF_Vertex);
@@ -266,16 +249,6 @@ public:
 	}
 
 	FOpacityOnlyPS() {}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
-	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{

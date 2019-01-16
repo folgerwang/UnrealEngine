@@ -46,38 +46,6 @@ public:
 		Ar << MotionBlurPositionScale;
 	}
 
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* GenericVertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override
-	{
-		// Ensure the vertex factory matches this parameter object and cast relevant objects
-		check(GenericVertexFactory->GetType() == &FGeometryCacheVertexVertexFactory::StaticType);
-		const FGeometryCacheVertexVertexFactory* GCVertexFactory = static_cast<const FGeometryCacheVertexVertexFactory*>(GenericVertexFactory);
-
-
-		FVertexShaderRHIParamRef VS = Shader->GetVertexShader();
-
-		FGeometryCacheVertexFactoryUserData* BatchData = (FGeometryCacheVertexFactoryUserData*)BatchElement.VertexFactoryUserData;
-
-		// Check the passed in vertex buffers make sense
-		checkf(BatchData->PositionBuffer->IsInitialized(), TEXT("Batch position Vertex buffer was not initialized! Name %s"), *BatchData->PositionBuffer->GetFriendlyName());
-		checkf(BatchData->MotionBlurDataBuffer->IsInitialized(), TEXT("Batch motion blur data buffer was not initialized! Name %s"), *BatchData->MotionBlurDataBuffer->GetFriendlyName());
-
-
-		RHICmdList.SetStreamSource(GCVertexFactory->PositionStreamIndex, BatchData->PositionBuffer->VertexBufferRHI, 0);
-		RHICmdList.SetStreamSource(GCVertexFactory->MotionBlurDataStreamIndex, BatchData->MotionBlurDataBuffer->VertexBufferRHI, 0);
-
-		if (VS)
-		{
-			SetShaderValue(RHICmdList, VS, MeshOrigin, BatchData->MeshOrigin);
-			SetShaderValue(RHICmdList, VS, MeshExtension, BatchData->MeshExtension);
-			SetShaderValue(RHICmdList, VS, MotionBlurDataOrigin, BatchData->MotionBlurDataOrigin);
-			SetShaderValue(RHICmdList, VS, MotionBlurDataExtension, BatchData->MotionBlurDataExtension);
-			SetShaderValue(RHICmdList, VS, MotionBlurPositionScale, BatchData->MotionBlurPositionScale);
-		}
-	}
-
 	virtual void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
 		const FSceneView* View,

@@ -12,6 +12,7 @@
 #include "ScenePrivate.h"
 #include "SceneInterface.h"
 #include "MeshPassProcessor.inl"
+#include "PipelineStateCache.h"
 
 TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::GlobalTable;
 FCriticalSection GlobalTableCriticalSection;
@@ -619,6 +620,7 @@ void FMeshDrawCommand::SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch,
 	NumInstances = BatchElement.NumInstances * InstanceFactor;
 	BaseVertexIndex = BatchElement.BaseVertexIndex;
 	NumVertices = BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1;
+	IndirectArgsBuffer = BatchElement.IndirectArgsBuffer;
 
 	int32 SegmentIndex = MeshBatch.SegmentIndex + BatchElementIndex;
 	RayTracedSegmentIndex = (SegmentIndex < UINT8_MAX) ? uint8(MeshBatch.SegmentIndex + BatchElementIndex) : UINT8_MAX;
@@ -729,7 +731,7 @@ void FMeshDrawCommand::SubmitDraw(
 #if WANTS_DRAW_MESH_EVENTS
 	TDrawEvent<FRHICommandList> MeshEvent;
 
-	if (GShowMaterialDrawEventTypes)
+	if (GShowMaterialDrawEvents)
 	{
 		if (MeshDrawCommand.NumInstances > 1)
 		{
@@ -782,15 +784,26 @@ void FMeshDrawCommand::SubmitDraw(
 
 	if (MeshDrawCommand.IndexBuffer)
 	{
-		RHICmdList.DrawIndexedPrimitive(
-			MeshDrawCommand.IndexBuffer,
-			MeshDrawCommand.BaseVertexIndex,
-			0,
-			MeshDrawCommand.NumVertices,
-			MeshDrawCommand.FirstIndex,
-			MeshDrawCommand.NumPrimitives,
-			MeshDrawCommand.NumInstances
-		);
+		if (MeshDrawCommand.IndirectArgsBuffer)
+		{
+			RHICmdList.DrawIndexedPrimitiveIndirect(
+				MeshDrawCommand.IndexBuffer, 
+				MeshDrawCommand.IndirectArgsBuffer, 
+				0
+				);
+		}
+		else
+		{
+			RHICmdList.DrawIndexedPrimitive(
+				MeshDrawCommand.IndexBuffer,
+				MeshDrawCommand.BaseVertexIndex,
+				0,
+				MeshDrawCommand.NumVertices,
+				MeshDrawCommand.FirstIndex,
+				MeshDrawCommand.NumPrimitives,
+				MeshDrawCommand.NumInstances
+			);
+		}
 	}
 	else
 	{
@@ -800,6 +813,7 @@ void FMeshDrawCommand::SubmitDraw(
 			MeshDrawCommand.NumInstances
 		);
 	}
+
 }
 
 void SubmitMeshDrawCommands(
@@ -822,10 +836,10 @@ void SubmitMeshDrawCommandsRange(
 	FRHICommandList& RHICmdList)
 {
 	FMeshDrawCommandStateCache StateCache;
+	INC_DWORD_STAT_BY(STAT_MeshDrawCalls, NumMeshDrawCommands);
 
 	for (int32 DrawCommandIndex = StartIndex; DrawCommandIndex < StartIndex + NumMeshDrawCommands; DrawCommandIndex++)
 	{
-		INC_DWORD_STAT(STAT_MeshDrawCalls);
 		SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, MeshEvent, GEmitMeshDrawEvent != 0, TEXT("Mesh Draw"));
 
 		const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
@@ -868,6 +882,34 @@ FMeshPassProcessor::FMeshPassProcessor(const FScene* InScene, ERHIFeatureLevel::
 	static_assert(sizeof(FMeshPassMask::Data) * 8 >= EMeshPass::Num, "FMeshPassMask::Data is too small to fit all mesh passes.");
 }
 
+enum class EDrawingPolicyOverrideFlags
+{
+	None = 0,
+	TwoSided = 1 << 0,
+	DitheredLODTransition = 1 << 1,
+	Wireframe = 1 << 2,
+	ReverseCullMode = 1 << 3,
+};
+ENUM_CLASS_FLAGS(EDrawingPolicyOverrideFlags);
+
+struct FMeshDrawingPolicyOverrideSettings
+{
+	EDrawingPolicyOverrideFlags	MeshOverrideFlags = EDrawingPolicyOverrideFlags::None;
+	EPrimitiveType				MeshPrimitiveType = PT_TriangleList;
+};
+
+FORCEINLINE_DEBUGGABLE FMeshDrawingPolicyOverrideSettings ComputeMeshOverrideSettings(const FMeshBatch& Mesh)
+{
+	FMeshDrawingPolicyOverrideSettings OverrideSettings;
+	OverrideSettings.MeshPrimitiveType = (EPrimitiveType)Mesh.Type;
+
+	OverrideSettings.MeshOverrideFlags |= Mesh.bDisableBackfaceCulling ? EDrawingPolicyOverrideFlags::TwoSided : EDrawingPolicyOverrideFlags::None;
+	OverrideSettings.MeshOverrideFlags |= Mesh.bDitheredLODTransition ? EDrawingPolicyOverrideFlags::DitheredLODTransition : EDrawingPolicyOverrideFlags::None;
+	OverrideSettings.MeshOverrideFlags |= Mesh.bWireframe ? EDrawingPolicyOverrideFlags::Wireframe : EDrawingPolicyOverrideFlags::None;
+	OverrideSettings.MeshOverrideFlags |= Mesh.ReverseCulling ? EDrawingPolicyOverrideFlags::ReverseCullMode : EDrawingPolicyOverrideFlags::None;
+	return OverrideSettings;
+}
+
 ERasterizerFillMode FMeshPassProcessor::ComputeMeshFillMode(const FMeshBatch& Mesh, const FMaterial& InMaterialResource) const
 {
 	const FMeshDrawingPolicyOverrideSettings InOverrideSettings = ComputeMeshOverrideSettings(Mesh);
@@ -891,7 +933,7 @@ ERasterizerCullMode FMeshPassProcessor::ComputeMeshCullMode(const FMeshBatch& Me
 void FMeshPassProcessor::SetDrawCommandEvent(const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMaterial& RESTRICT MaterialResource, FMeshDrawCommand& MeshDrawCommand) const
 {
 #if WANTS_DRAW_MESH_EVENTS
-	if (GShowMaterialDrawEventTypes)
+	if (GShowMaterialDrawEvents)
 	{
 		if (PrimitiveSceneProxy)
 		{

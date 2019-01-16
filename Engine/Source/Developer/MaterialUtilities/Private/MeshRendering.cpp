@@ -26,9 +26,8 @@
 #include "CanvasItem.h"
 #include "CanvasTypes.h"
 #include "LocalVertexFactory.h"
-#include "DrawingPolicy.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
-
+#include "MeshPassProcessor.h"
 #include "RendererInterface.h"
 #include "EngineModule.h"
 #include "LightMapHelpers.h"

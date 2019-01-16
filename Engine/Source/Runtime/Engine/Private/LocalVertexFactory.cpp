@@ -92,57 +92,6 @@ TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUnifo
 
 const int32 DefaultBaseVertexIndex = 0;
 
-void FLocalVertexFactoryShaderParametersBase::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
-{
-	const auto* LocalVertexFactory = static_cast<const FLocalVertexFactory*>(VertexFactory);
-	
-	FVertexShaderRHIParamRef VS = Shader->GetVertexShader();
-	if (LocalVertexFactory->SupportsManualVertexFetch(View.GetFeatureLevel()))
-	{
-		FUniformBufferRHIParamRef VertexFactoryUniformBuffer = static_cast<FUniformBufferRHIParamRef>(BatchElement.VertexFactoryUserData);
-
-		if (!VertexFactoryUniformBuffer)
-		{
-			// No batch element override
-			VertexFactoryUniformBuffer = LocalVertexFactory->GetUniformBuffer();
-			// Vertex Offset used by manual vertex fetch must match what we are going to pass to the draw call.  LocalVF default uniform buffer uses VertexOffset of 0.
-			check(BatchElement.BaseVertexIndex == DefaultBaseVertexIndex);
-		}
-
-		SetUniformBufferParameter(RHICmdList, VS, Shader->GetUniformBufferParameter<FLocalVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
-	}
-
-	if (BatchElement.bUserDataIsColorVertexBuffer)
-	{
-		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
-		check(OverrideColorVertexBuffer);
-
-		if (!LocalVertexFactory->SupportsManualVertexFetch(View.GetFeatureLevel()))
-		{
-			LocalVertexFactory->SetColorOverrideStream(RHICmdList, OverrideColorVertexBuffer);
-		}	
-	}
-
-	if (bAnySpeedTreeParamIsBound && View.Family != NULL && View.Family->Scene != NULL)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FLocalVertexFactoryShaderParameters_SetMesh_SpeedTree);
-		FUniformBufferRHIParamRef SpeedTreeUniformBuffer = View.Family->Scene->GetSpeedTreeUniformBuffer(VertexFactory);
-		if (SpeedTreeUniformBuffer == NULL)
-		{
-			SpeedTreeUniformBuffer = GSpeedTreeWindNullUniformBuffer.GetUniformBufferRHI();
-		}
-		check(SpeedTreeUniformBuffer != NULL);
-
-		SetUniformBufferParameter(RHICmdList, VS, Shader->GetUniformBufferParameter<FSpeedTreeUniformParameters>(), SpeedTreeUniformBuffer);
-
-		if (LODParameter.IsBound())
-		{
-			FVector LODData(BatchElement.MinScreenSize, BatchElement.MaxScreenSize, BatchElement.MaxScreenSize - BatchElement.MinScreenSize);
-			SetShaderValue(RHICmdList, VS, LODParameter, LODData);
-		}
-	}
-}
-
 void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
 	const FSceneInterface* Scene,
 	const FSceneView* View,

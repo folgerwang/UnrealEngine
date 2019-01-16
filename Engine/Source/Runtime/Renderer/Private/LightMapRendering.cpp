@@ -104,39 +104,6 @@ void FSelfShadowedVolumetricLightmapPolicy::GetPixelShaderBindings(
 	FSelfShadowedTranslucencyPolicy::GetPixelShaderBindings(PrimitiveSceneProxy, ShaderElementData.SelfShadowTranslucencyUniformBuffer, PixelShaderParameters, ShaderBindings);
 }
 
-void FUniformLightMapPolicy::SetMesh(
-	FRHICommandList& RHICmdList,
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	const VertexParametersType* VertexShaderParameters,
-	const PixelParametersType* PixelShaderParameters,
-	FShader* VertexShader,
-	FShader* PixelShader,
-	const FVertexFactory* VertexFactory,
-	const FMaterialRenderProxy* MaterialRenderProxy,
-	const FLightCacheInterface* LCI
-	) const
-{
-	FUniformBufferRHIParamRef PrecomputedLightingBuffer = nullptr;
-	FUniformBufferRHIParamRef LightmapResourceClusterBuffer = nullptr;
-	FUniformBufferRHIParamRef IndirectLightingCacheBuffer = nullptr;
-
-	SetupLCIUniformBuffers(PrimitiveSceneProxy, LCI, PrecomputedLightingBuffer, LightmapResourceClusterBuffer, IndirectLightingCacheBuffer);
-
-	if (VertexShaderParameters)
-	{
-		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
-		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
-		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), VertexShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
-	}
-	if (PixelShaderParameters)
-	{
-		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->PrecomputedLightingBufferParameter, PrecomputedLightingBuffer);
-		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->IndirectLightingCacheParameter, IndirectLightingCacheBuffer);
-		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->LightmapResourceCluster, LightmapResourceClusterBuffer);
-	}
-}
-
 void FUniformLightMapPolicy::GetVertexShaderBindings(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 	const ElementDataType& ShaderElementData,

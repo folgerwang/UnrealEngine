@@ -339,63 +339,6 @@ int32 FStaticMeshRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPa
 	FStaticMesh
 -----------------------------------------------------------------------------*/
 
-void FStaticMesh::LinkDrawList(FStaticMesh::FDrawListElementLink* Link)
-{
-	check(IsInRenderingThread());
-	check(!DrawListLinks.Contains(Link));
-	DrawListLinks.Add(Link);
-}
-
-void FStaticMesh::UnlinkDrawList(FStaticMesh::FDrawListElementLink* Link)
-{
-	check(IsInRenderingThread());
-	verify(DrawListLinks.RemoveSingleSwap(Link) == 1);
-}
-
-void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene)
-{
-	const auto FeatureLevel = Scene->GetFeatureLevel();
-	
-	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass() || !ShouldIncludeDomainInMeshPass(MaterialRenderProxy->GetMaterial(FeatureLevel)->GetMaterialDomain()))
-	{
-		return;
-	}
-
-	if (CastShadow)
-	{
-		FShadowDepthDrawingPolicyFactory::AddStaticMesh(Scene, this);
-	}
-}
-
-void FStaticMesh::RemoveFromDrawLists(bool bMeshIsBeingDestroyed)
-{
-	if (bMeshIsBeingDestroyed)
-	{
-		// This is cheaper than calling RemoveFromDrawLists, since it 
-		// doesn't unlink meshes which are about to be destroyed
-		for (int32 i = 0; i < DrawListLinks.Num(); i++)
-		{
-			DrawListLinks[i]->Remove(false);
-		}
-	}
-	else
-	{
-		// Remove the mesh from all draw lists.
-		while(DrawListLinks.Num())
-		{
-			TRefCountPtr<FStaticMesh::FDrawListElementLink> Link = DrawListLinks[0];
-			const int32 OriginalNumLinks = DrawListLinks.Num();
-			// This will call UnlinkDrawList.
-			Link->Remove(true);
-			check(DrawListLinks.Num() == OriginalNumLinks - 1);
-			if(DrawListLinks.Num())
-			{
-				check(DrawListLinks[0] != Link);
-			}
-		}
-	}
-}
-
 FStaticMesh::~FStaticMesh()
 {
 	FScene* Scene = PrimitiveSceneInfo->Scene;
@@ -406,8 +349,6 @@ FStaticMesh::~FStaticMesh()
 	{
 		Scene->StaticMeshBatchVisibility.RemoveAt(BatchVisibilityId);
 	}
-
-	RemoveFromDrawLists(true);
 }
 
 /** Initialization constructor. */

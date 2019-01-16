@@ -29,7 +29,6 @@
 #include "MaterialShaderType.h"
 #include "MaterialShader.h"
 #include "MeshMaterialShaderType.h"
-#include "DrawingPolicy.h"
 #include "MeshMaterialShader.h"
 #include "ShadowRendering.h"
 #include "SceneRendering.h"
@@ -266,7 +265,7 @@ public:
 		Ar << ShadowParameters;
 		return bShaderHasOutdatedParameters;
 	}
-
+	/*
 	void SetParameters(
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
@@ -283,7 +282,7 @@ public:
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
-
+	*/
 private:
 	FShadowDepthShaderParameters ShadowParameters;
 };
@@ -339,7 +338,7 @@ public:
 	}
 
 	FTranslucencyShadowDepthPS() {}
-
+	/*
 	void SetParameters(
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
@@ -368,7 +367,7 @@ public:
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
-
+	*/
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
@@ -404,6 +403,9 @@ public:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(template<>,TTranslucencyShadowDepthPS<TranslucencyShadowDepth_PerspectiveCorrect>,TEXT("/Engine/Private/TranslucentShadowDepthShaders.usf"),TEXT("MainOpacityPS"),SF_Pixel);
 IMPLEMENT_MATERIAL_SHADER_TYPE(template<>,TTranslucencyShadowDepthPS<TranslucencyShadowDepth_Standard>,TEXT("/Engine/Private/TranslucentShadowDepthShaders.usf"),TEXT("MainOpacityPS"),SF_Pixel);
+
+//@todo MeshCommandPipeline
+#if 0
 
 /**
  * Drawing policy used to create Fourier opacity maps
@@ -585,6 +587,8 @@ public:
 	}
 };
 
+#endif
+
 void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList, FSceneRenderer* SceneRenderer)
 {
 	check(RHICmdList.IsInsideRenderPass());
@@ -638,6 +642,8 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One,
 			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
 
+//@todo MeshCommandPipeline
+#if 0
 		FTranslucencyShadowDepthDrawingPolicyFactory::ContextType DrawingContext(this,bDirectionalLight);
 
 		for (int32 MeshBatchIndex = 0; MeshBatchIndex < DynamicSubjectTranslucentMeshElements.Num(); MeshBatchIndex++)
@@ -675,6 +681,7 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 				}
 			}
 		}
+#endif
 	}
 }
 

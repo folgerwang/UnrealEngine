@@ -872,8 +872,7 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 					{
 						bUseUnifiedMeshForShadow = bAllSectionsCastShadow;
 
-						// Depth pass is only used for deferred renderer. The other conditions are meant to match the logic in FStaticMesh::AddToDrawLists.
-						// Could not link to "GEarlyZPassMovable" so moveable are ignored.
+						// Depth pass is only used for deferred renderer. The other conditions are meant to match the logic in FDepthPassMeshProcessor::AddMeshBatch.
 						bUseUnifiedMeshForDepth = ShouldUseAsOccluder() && GetScene().GetShadingPath() == EShadingPath::Deferred && !IsMovable();
 
 						if (bUseUnifiedMeshForShadow || bUseUnifiedMeshForDepth)
@@ -1148,14 +1147,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	#endif
 										if (MeshElement.bDitheredLODTransition && LODMask.IsDithered())
 										{
-											if (LODIndex == LODMask.DitheredLODIndices[0])
-											{
-												MeshElement.DitheredLODTransitionAlpha = View->GetTemporalLODTransition();
-											}
-											else
-											{
-												MeshElement.DitheredLODTransitionAlpha = View->GetTemporalLODTransition() - 1.0f;
-											}
+
 										}
 										else
 										{

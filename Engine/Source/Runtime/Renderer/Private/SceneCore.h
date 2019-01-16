@@ -10,13 +10,11 @@
 #include "Templates/RefCounting.h"
 #include "HitProxies.h"
 #include "MeshBatch.h"
-#include "DrawingPolicy.h"
 #include "MeshPassProcessor.h"
 
 class FLightSceneInfo;
 class FPrimitiveSceneInfo;
 class FScene;
-class FStaticMeshDrawListBase;
 class UExponentialHeightFogComponent;
 
 /**
@@ -129,17 +127,6 @@ class FStaticMesh : public FMeshBatch
 {
 public:
 
-	/**
-	 * An interface to a draw list's reference to this static mesh.
-	 * used to remove the static mesh from the draw list without knowing the draw list type.
-	 */
-	class FDrawListElementLink : public FRefCountedObject
-	{
-	public:
-		virtual bool IsInDrawList(const class FStaticMeshDrawListBase* DrawList) const = 0;
-		virtual void Remove(const bool bUnlinkMesh) = 0;
-	};
-
 	/** The render info for the primitive which created this mesh. */
 	FPrimitiveSceneInfo* PrimitiveSceneInfo;
 
@@ -165,22 +152,7 @@ public:
 
 	~FStaticMesh();
 
-	/** Adds a link from the mesh to its entry in a draw list. */
-	void LinkDrawList(FDrawListElementLink* Link);
-
-	/** Removes a link from the mesh to its entry in a draw list. */
-	void UnlinkDrawList(FDrawListElementLink* Link);
-
-	/** Adds the static mesh to the appropriate draw lists in a scene. */
-	void AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene);
-
-	/** Removes the static mesh from all draw lists. */
-	void RemoveFromDrawLists(bool bMeshIsBeingDestroyed = false);
-
 private:
-	/** Links to the draw lists this mesh is an element of. */
-	TArray<TRefCountPtr<FDrawListElementLink> > DrawListLinks;
-
 	/** Private copy constructor. */
 	FStaticMesh(const FStaticMesh& InStaticMesh):
 		FMeshBatch(InStaticMesh),

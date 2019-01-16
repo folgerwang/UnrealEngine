@@ -149,20 +149,19 @@ public:
 	virtual ~FVertexFactoryShaderParameters() {}
 	virtual void Bind(const class FShaderParameterMap& ParameterMap) = 0;
 	virtual void Serialize(FArchive& Ar) = 0;
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* VertexShader,const class FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const = 0;
-	
+
 	/** 
 	 * Gets the vertex factory's shader bindings and vertex streams.
 	 * View can be null when caching mesh draw commands (only for supported vertex factories)
 	 */
 	virtual void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
-		const FSceneView* View,
+		const class FSceneView* View,
 		const class FMeshMaterialShader* Shader,
 		bool bShaderRequiresPositionOnlyStream,
 		ERHIFeatureLevel::Type FeatureLevel,
-		const FVertexFactory* VertexFactory,
-		const FMeshBatchElement& BatchElement,
+		const class FVertexFactory* VertexFactory,
+		const struct FMeshBatchElement& BatchElement,
 		class FMeshDrawSingleShaderBindings& ShaderBindings,
 		FVertexInputStreamArray& VertexStreams) const = 0;
 
@@ -464,31 +463,11 @@ public:
 
 	virtual FVertexFactoryType* GetType() const { return NULL; }
 
-	/**
-	 * Activates the vertex factory.
-	 */
-	void SetStreams(ERHIFeatureLevel::Type InFeatureLevel, FRHICommandList& RHICmdList) const;
-
 	void GetStreams(ERHIFeatureLevel::Type InFeatureLevel, FVertexInputStreamArray& OutVertexStreams) const;
-
-	/**
-	 * Call SetStreamSource on instance streams to offset the read pointer
-	 */
-	void OffsetInstanceStreams(FRHICommandList& RHICmdList, uint32 FirstVertex) const;
 
 	void OffsetInstanceStreams(uint32 InstanceOffset, bool bOperateOnPositionOnly, FVertexInputStreamArray& VertexStreams) const;
 
-	/**
-	* Sets the position stream as the current stream source.
-	*/
-	void SetPositionStream(FRHICommandList& RHICmdList) const;
-
 	void GetPositionOnlyStream(FVertexInputStreamArray& OutVertexStreams) const;
-
-	/**
-	* Call SetStreamSource on instance streams to offset the read pointer
-	 */
-	void OffsetPositionInstanceStreams(FRHICommandList& RHICmdList, uint32 FirstVertex) const;
 
 	/**
 	* Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
@@ -524,17 +503,6 @@ public:
 	virtual bool SupportsNullPixelShader() const { return true; }
 
 	virtual bool RendersPrimitivesAsCameraFacingSprites() const { return false; }
-
-	/**
-	* Fill in array of strides from this factory's vertex streams without shadow/light maps
-	* @param OutStreamStrides - output array of # MaxVertexElementCount stream strides to fill
-	*/
-	int32 GetStreamStrides(uint32 *OutStreamStrides, bool bPadWithZeroes=true) const;
-	/**
-	* Fill in array of strides from this factory's position only vertex streams
-	* @param OutStreamStrides - output array of # MaxVertexElementCount stream strides to fill
-	*/
-	void GetPositionStreamStride(uint32 *OutStreamStrides) const;
 
 	/**
 	 * Get a bitmask representing the visibility of each FMeshBatch element.
@@ -647,22 +615,14 @@ public:
 		delete Parameters;
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const
-	{
-		if(Parameters)
-		{
-			Parameters->SetMesh(RHICmdList, Shader,VertexFactory,View,BatchElement,DataFlags);
-		}
-	}
-
 	void GetElementShaderBindings(
 		const class FSceneInterface* Scene,
 		const FSceneView* View,
-		const FMeshMaterialShader* Shader,
+		const class FMeshMaterialShader* Shader,
 		bool bShaderRequiresPositionOnlyStream,
 		ERHIFeatureLevel::Type FeatureLevel,
 		const FVertexFactory* VertexFactory,
-		const FMeshBatchElement& BatchElement,
+		const struct FMeshBatchElement& BatchElement,
 		FMeshDrawSingleShaderBindings& ShaderBindings,
 		FVertexInputStreamArray& VertexStreams
 		) const

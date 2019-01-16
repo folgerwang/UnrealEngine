@@ -79,8 +79,6 @@ protected:
 
 	FDebugViewModeVS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer) : FMeshMaterialShader(Initializer)
 	{
-		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
-		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
@@ -91,26 +89,6 @@ public:
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
 		return AllowDebugViewVSDSHS(Platform) && Material->GetFriendlyName().Contains(TEXT("DebugViewMode"));
-	}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FMaterial& Material,const FSceneView& View,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,Material,View,DrawRenderState.GetViewUniformBuffer(),DrawRenderState.GetPassUniformBuffer());
-
-		if (IsInstancedStereoParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), IsInstancedStereoParameter, false);
-		}
-
-		if (InstancedEyeIndexParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, 0);
-		}
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	void GetShaderBindings(
@@ -125,8 +103,6 @@ public:
 		FMeshDrawSingleShaderBindings& ShaderBindings) const
 	{
 		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, ViewUniformBuffer, PassUniformBufferValue, ShaderElementData, ShaderBindings);
-		ShaderBindings.Add(IsInstancedStereoParameter, false);
-		ShaderBindings.Add(InstancedEyeIndexParameter, 0);
 	}
 
 	static void SetCommonDefinitions(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
@@ -149,19 +125,6 @@ public:
 		SetCommonDefinitions(Platform, Material, OutEnvironment);
 		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 	}
-
-	virtual bool Serialize(FArchive& Ar)
-	{
-		const bool Result = FMeshMaterialShader::Serialize(Ar);
-		Ar << IsInstancedStereoParameter;
-		Ar << InstancedEyeIndexParameter;
-		return Result;
-	}
-
-private:
-
-	FShaderParameter IsInstancedStereoParameter;
-	FShaderParameter InstancedEyeIndexParameter;
 };
 
 /**
@@ -269,41 +232,6 @@ public:
 		FName ViewModeParamName,
 		FMeshDrawSingleShaderBindings& ShaderBindings
 	) const = 0;
-};
-
-/**
- * Interface for debug viewmode pixel shaders. Devired classes can be of global shader or material shaders.
- */ 
-class IDebugViewModePSInterface
-{
-public:
-
-	virtual ~IDebugViewModePSInterface() {}
-
-	virtual void SetParameters(
-		FRHICommandList& RHICmdList, 
-		int32 NumVSInstructions, 
-		int32 NumPSInstructions, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const FDrawingPolicyRenderState& DrawRenderState
-		) = 0;
-
-	virtual void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* Proxy,
-		int32 VisualizeLODIndex,
-		const FMeshBatchElement& BatchElement, 
-		const FDrawingPolicyRenderState& DrawRenderState
-		) = 0;
-
-	// Used for custom rendering like decals.
-	virtual void SetMesh(FRHICommandList& RHICmdList, const FSceneView& View) = 0;
-
-	virtual FShader* GetShader() = 0;
 };
 
 class FDebugViewModeMeshProcessor : public FMeshPassProcessor

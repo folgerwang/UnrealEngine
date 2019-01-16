@@ -16,8 +16,6 @@
 #include "Engine/ShadowMapTexture2D.h"
 #include "UnrealEngine.h"
 
-ENGINE_API bool GDrawListsLocked = false;
-
 static TAutoConsoleVariable<float> CVarLODTemporalLag(
 	TEXT("lod.TemporalLag"),
 	0.5f,

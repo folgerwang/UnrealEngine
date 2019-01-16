@@ -15,7 +15,6 @@
 #include "RHIStaticStates.h"
 #include "SceneManagement.h"
 #include "Materials/Material.h"
-#include "DrawingPolicy.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "LightMapRendering.h"
 #include "VelocityRendering.h"
@@ -188,8 +187,6 @@ protected:
 		LightMapPolicyType::VertexParametersType::Bind(Initializer.ParameterMap);
 		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
 		ReflectionCaptureBuffer.Bind(Initializer.ParameterMap, TEXT("ReflectionCapture"));
-		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
-		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
 	}
 
 public:
@@ -205,39 +202,8 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::VertexParametersType::Serialize(Ar);
 		Ar << ReflectionCaptureBuffer;
-		Ar << InstancedEyeIndexParameter;
-		Ar << IsInstancedStereoParameter;
 		return bShaderHasOutdatedParameters;
 	}
-
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FVertexFactory* VertexFactory,
-		const FMaterial& InMaterialResource,
-		const FViewInfo& View,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		bool bIsInstancedStereo
-		)
-	{
-		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
-
-		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, InMaterialResource, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View.ReflectionCaptureUniformBuffer);
-
-		if (IsInstancedStereoParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, ShaderRHI, IsInstancedStereoParameter, bIsInstancedStereo);
-		}
-
-		if (InstancedEyeIndexParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, ShaderRHI, InstancedEyeIndexParameter, 0);
-		}
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState);
 
 	void GetShaderBindings(
 		const FScene* Scene,
@@ -263,13 +229,7 @@ public:
 		FMeshDrawSingleShaderBindings& ShaderBindings,
 		FVertexInputStreamArray& VertexStreams) const;
 
-	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex);
-	
 	FShaderUniformBufferParameter ReflectionCaptureBuffer;
-
-private:
-	FShaderParameter InstancedEyeIndexParameter;
-	FShaderParameter IsInstancedStereoParameter;
 };
 
 
@@ -467,23 +427,6 @@ public:
 	}
 	TBasePassPixelShaderPolicyParamType() {}
 
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FMaterialRenderProxy* MaterialRenderProxy, 
-		const FMaterial& MaterialResource, 
-		const FViewInfo* View, 
-		const FDrawingPolicyRenderState& DrawRenderState,
-		EBlendMode BlendMode)
-	{
-		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-
-		FMeshMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ReflectionCaptureBuffer, View->ReflectionCaptureUniformBuffer);
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode);
-
 	void GetShaderBindings(
 		const FScene* Scene,
 		ERHIFeatureLevel::Type FeatureLevel,
@@ -652,25 +595,6 @@ void GetBasePassShaders<FUniformLightMapPolicy>(
 	TBasePassPixelShaderPolicyParamType<FUniformLightMapPolicy>*& PixelShader
 	);
 	
-class FBasePassDrawingPolicy : public FMeshDrawingPolicy
-{
-public:
-	FBasePassDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy, 
-		const FMaterial& InMaterialResource, 
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		bool bInEnableReceiveDecalOutput) : FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings), bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
-	{}
-
-	void ApplyDitheredLODTransitionState(FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& ViewInfo, const FStaticMesh& Mesh, const bool InAllowStencilDither);
-
-protected:
-
-	/** Whether or not outputing the receive decal boolean */
-	uint32 bEnableReceiveDecalOutput : 1;
-};
-
 class FBasePassMeshProcessor : public FMeshPassProcessor
 {
 public:

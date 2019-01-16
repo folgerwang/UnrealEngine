@@ -7,8 +7,8 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "MeshAttributeArray.h"
-#include "DrawingPolicy.h"
 #include "DynamicMeshBuilder.h"
+#include "MeshPassProcessor.h"
 
 #define SHOW_WIREFRAME_MESH 0
 

@@ -15,7 +15,6 @@
 #include "RHIStaticStates.h"
 #include "SceneManagement.h"
 #include "PrimitiveSceneInfo.h"
-#include "DrawingPolicy.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "LightMapRendering.h"
 #include "MeshMaterialShaderType.h"
