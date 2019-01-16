@@ -58,7 +58,7 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "SpatializationSettings|Distance attenuation", meta = (ClampMin = "0.0", ClampMax = "1000000.0", UIMin = "0.0", UIMax = "1000000.0"))
 	float MinDistance;
 
-	// Maxium distance to apply the chosen attenuation method ((default = 50000.0 cm)
+	// Maximum distance to apply the chosen attenuation method ((default = 50000.0 cm)
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "SpatializationSettings|Distance attenuation", meta = (ClampMin = "0.0", ClampMax = "1000000.0", UIMin = "0.0", UIMax = "1000000.0"))
 	float MaxDistance;
 

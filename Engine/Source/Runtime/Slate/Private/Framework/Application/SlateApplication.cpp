@@ -6609,7 +6609,7 @@ bool FSlateApplication::OnTouchStarted( const TSharedPtr< FGenericWindow >& Plat
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// Only log when the touch starts, we don't want to spam the logs.
-		UE_LOG(LogSlate, Warning, TEXT("Maxium Touch Index Exceeded, %d, the maxium index allowed is %d"), TouchIndex, (((int32)ETouchIndex::CursorPointerIndex) - 1));
+		UE_LOG(LogSlate, Warning, TEXT("Maximum Touch Index Exceeded, %d, the maximum index allowed is %d"), TouchIndex, (((int32)ETouchIndex::CursorPointerIndex) - 1));
 #endif
 		return false;
 	}
