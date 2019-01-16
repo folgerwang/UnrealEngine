@@ -16,7 +16,7 @@ class FSlateWindowElementList;
 /**
  * Implements a widget that displays an image with a desired width and height.
  */
-class SLATE_API SImage
+class SLATECORE_API SImage
 	: public SLeafWidget
 {
 public:
