@@ -89,9 +89,6 @@
     <Compile Include="..\UnrealGameSync\Forms\PasswordWindow.Designer.cs">
       <Link>UnrealGameSync\PasswordWindow.Designer.cs</Link>
     </Compile>
-    <Compile Include="..\UnrealGameSync\DeploymentSettings.cs">
-      <Link>Shared\DeploymentSettings.cs</Link>
-    </Compile>
     <Compile Include="..\UnrealGameSync\ModalTask.cs">
       <Link>Shared\ModalTask.cs</Link>
     </Compile>
@@ -154,11 +151,9 @@
   </ItemGroup>
   <ItemGroup />
   <Choose>
-    <When Condition="Exists('..\UnrealGameSync\NotForLicensees\DeploymentSettingsInternal.cs')">
+    <When Condition="Exists('NotForLicensees\ProgramSettings.cs')">
       <ItemGroup>
-        <Compile Include="..\UnrealGameSync\NotForLicensees\DeploymentSettingsInternal.cs">
-			<Link>Shared\NotForLicensees\DeploymentSettingsInternal.cs</Link>
-		</Compile>
+        <Compile Include="NotForLicensees\ProgramSettings.cs" />
       </ItemGroup>
     </When>
   </Choose>
