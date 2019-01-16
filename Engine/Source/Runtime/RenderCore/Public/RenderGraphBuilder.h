@@ -215,6 +215,7 @@ public:
 		#endif
 		FRDGTexture* OutTexture = AllocateForRHILifeTime<FRDGTexture>(Name, ExternalPooledTexture->GetDesc());
 		OutTexture->PooledRenderTarget = ExternalPooledTexture;
+		OutTexture->CachedRHI.Texture = ExternalPooledTexture->GetRenderTargetItem().ShaderResourceTexture;
 		AllocatedTextures.Add(OutTexture, ExternalPooledTexture);
 		#if RENDER_GRAPH_DEBUGGING
 		{
@@ -395,6 +396,23 @@ public:
 		DeferredInternalTextureQueries.Emplace(Query);
 	}
 
+	/** Flag a texture that is only produced by only 1 pass, but never used or extracted, to avoid generating a warning at runtime. */
+	FORCEINLINE_DEBUGGABLE void RemoveUnusedTextureWarning(FRDGTextureRef Texture)
+	{
+		check(Texture);
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			checkf(!bHasExecuted,
+				TEXT("Flaging texture %s with FlagUnusedTexture() needs to happen before the builder's execution."),
+				Texture->Name);
+			
+			// Increment the number of time the texture has been accessed to avoid warning on produced but never used resources that were produced
+			// only to be extracted for the graph.
+			Texture->DebugPassAccessCount += 1;
+		}
+		#endif
+	}
+
 	/** 
 	 * Executes the queued passes, managing setting of render targets (RHI RenderPasses), resource transitions and queued texture extraction.
 	 */
@@ -470,9 +488,7 @@ private:
 	}
 
 	void AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bComputePass);
-	void AllocateRHITextureSRVIfNeeded(const FRDGTextureSRV* SRV, bool bComputePass);
 	void AllocateRHITextureUAVIfNeeded(const FRDGTextureUAV* UAV, bool bComputePass);
-	void AllocateRHIBufferIfNeeded(const FRDGBuffer* Texture, bool bComputePass);
 	void AllocateRHIBufferSRVIfNeeded(const FRDGBufferSRV* SRV, bool bComputePass);
 	void AllocateRHIBufferUAVIfNeeded(const FRDGBufferUAV* UAV, bool bComputePass);
 

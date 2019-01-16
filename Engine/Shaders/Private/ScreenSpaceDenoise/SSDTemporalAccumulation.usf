@@ -846,11 +846,11 @@ void TemporallyAccumulate(
 				#error Unsupported signal rejection.
 			#endif
 			
-			DebugOutput[DispatchThreadId] = float4(
-				RejectionFactor,
-				0,
-				0,
-				0);
+			//DebugOutput[DispatchThreadId] = float4(
+			//	RejectionFactor,
+			//	0,
+			//	0,
+			//	0);
 
 			float FinalHistoryWeight = HistorySample.AccumulatedSampleCount * saturate(1 - RejectionFactor);
 

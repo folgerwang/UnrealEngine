@@ -788,7 +788,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		// The SignalHistory1 is always generated for temporal history, but will endup useless if there is no view state,
 		// in witch case we do not extract any textures. Don't support a shader permutation that does not produce it, because
 		// it is already a not ideal case for the denoiser.
-		//GraphBuilder.FlagUsedOnceTexture(SignalHistory1);
+		GraphBuilder.RemoveUnusedTextureWarning(SignalHistory1);
 	}
 
 	IScreenSpaceDenoiser::FReflectionOutputs Outputs;

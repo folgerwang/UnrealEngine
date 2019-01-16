@@ -10,6 +10,7 @@
 /** Whether render graph debugging is compiled. */
 #define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING)
 
+struct FRenderGraphPass;
 
 class FRDGResource;
 class FRDGTexture;
@@ -75,6 +76,12 @@ private:
 #if RENDER_GRAPH_DEBUGGING
 	/** Boolean to track at wiring time if a resource has ever been produced by a pass, to error out early if accessing a resource that has not been produced. */
 	mutable bool bHasEverBeenProduced = false;
+
+	/** Pointer towards the pass that is the first to produce it, for even more convenient error message. */
+	mutable const FRenderGraphPass* DebugFirstProducer = nullptr;
+
+	/** Count the number of times it has been used by a pass. */
+	mutable int32 DebugPassAccessCount = 0;
 #endif
 
 	friend class FRDGBuilder;
