@@ -112,6 +112,12 @@ void FAssetTypeActions_NiagaraEmitter::ExecuteNewNiagaraSystem(TArray<TWeakObjec
 				FNiagaraSystemViewModel SystemViewModel = FNiagaraSystemViewModel(*System, SystemOptions);
 				SystemViewModel.GetSystemScriptViewModel()->RebuildEmitterNodes();
 
+				// Ensure the new System is compiled
+				if (!Emitter->AreAllScriptAndSourcesSynchronized())
+				{
+					System->RequestCompile(true);
+				}
+
 				ObjectsToSync.Add(NewAsset);
 			}
 		}

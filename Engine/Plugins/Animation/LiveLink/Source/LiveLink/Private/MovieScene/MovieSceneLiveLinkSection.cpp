@@ -154,19 +154,19 @@ void UMovieSceneLiveLinkSection::Serialize(FArchive& Ar)
 	}
 }
 
+void UMovieSceneLiveLinkSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateChannelProxy();
+}
+
 void UMovieSceneLiveLinkSection::SetMask(const TArray<bool>& InChannelMask)
 {
 	ChannelMask = InChannelMask;
 	UpdateChannelProxy();
 	//MattH todo set priorities or whatever based upon mask
 
-}
-
-void UMovieSceneLiveLinkSection::PostEditImport()
-{
-	Super::PostEditImport();
-
-	UpdateChannelProxy();
 }
 
 #undef LOCTEXT_NAMESPACE // MovieSceneNiagaraEmitterTimedSection

@@ -63,7 +63,9 @@ public:
 #endif
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
+	void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
 #if WITH_EDITOR
+
 
 public:
 

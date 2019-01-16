@@ -1790,11 +1790,22 @@ int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName
 	// We use "WindowsNoEditor" below as it's the longest platform name, so will also prove that any shorter platform names will validate correctly
 	const FString AbsoluteRootPath = FPaths::ConvertRelativePathToFull(FPaths::RootDir());
 	const FString AbsoluteGamePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
-	const FString AbsoluteCookPath = AbsoluteGamePath / TEXT("Saved") / TEXT("Cooked") / TEXT("WindowsNoEditor") / GameName;
+	const FString AbsoluteEnginePath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir());
+	const FString AbsoluteEngineCookPath = AbsoluteGamePath / TEXT("Saved") / TEXT("Cooked") / TEXT("WindowsNoEditor") / TEXT("Engine");
+	const FString AbsoluteGameCookPath = AbsoluteGamePath / TEXT("Saved") / TEXT("Cooked") / TEXT("WindowsNoEditor") / GameName;
+
+	EPluginLoadedFrom PluginLoadedFrom;
+	const bool bIsPluginAsset = ContentBrowserUtils::IsPluginFolder(PackageName, &PluginLoadedFrom);
+	const bool bIsEngineAsset = ContentBrowserUtils::IsEngineFolder(PackageName) || (bIsPluginAsset && PluginLoadedFrom == EPluginLoadedFrom::Engine);
+	const bool bIsProjectAsset = !bIsEngineAsset;
 
 	int32 AbsoluteCookPathToAssetLength = 0;
 
 	FString RelativePathToAsset;
+
+	const FString AbsolutePath = bIsEngineAsset ? AbsoluteEnginePath : AbsoluteGamePath;
+
+	const FString& AbsoluteCookPath = bIsEngineAsset ? AbsoluteEngineCookPath : AbsoluteGameCookPath;
 
 	if(FPackageName::TryConvertLongPackageNameToFilename(PackageName, RelativePathToAsset, FPackageName::GetAssetPackageExtension()))
 	{
@@ -1802,7 +1813,8 @@ int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName
 
 		FString AssetPathWithinCookDir = AbsolutePathToAsset;
 		FPaths::RemoveDuplicateSlashes(AssetPathWithinCookDir);
-		AssetPathWithinCookDir.RemoveFromStart(AbsoluteGamePath, ESearchCase::CaseSensitive);
+		AssetPathWithinCookDir.RemoveFromStart(AbsolutePath, ESearchCase::CaseSensitive);
+
 
 		if (IsInternalBuild)
 		{
@@ -1815,11 +1827,16 @@ int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName
 			}
 			else
 			{
-				CookDirWithoutBasePath.RemoveFromStart(AbsoluteGamePath, ESearchCase::CaseSensitive);
+				CookDirWithoutBasePath.RemoveFromStart(AbsoluteCookPath, ESearchCase::CaseSensitive);
 			}
-
+			
 			FString AbsoluteBuildMachineCookPathToAsset = FString(TEXT("D:/BuildFarm/buildmachine_++depot+UE4-Releases+4.10")) / CookDirWithoutBasePath / AssetPathWithinCookDir;
-			AbsoluteBuildMachineCookPathToAsset.ReplaceInline(*GameName, *GameNamePadded, ESearchCase::CaseSensitive);
+
+			// only add game name padding if it is not an engine asset, otherwise it is considered portable already
+			if(!bIsEngineAsset)
+			{
+				AbsoluteBuildMachineCookPathToAsset.ReplaceInline(*GameName, *GameNamePadded, ESearchCase::CaseSensitive);
+			}
 
 			AbsoluteCookPathToAssetLength = AbsoluteBuildMachineCookPathToAsset.Len();
 		}
@@ -1827,7 +1844,12 @@ int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName
 		{
 			// Test that the package can be cooked based on the current project path
 			FString AbsoluteCookPathToAsset = AbsoluteCookPath / AssetPathWithinCookDir;
-			AbsoluteCookPathToAsset.ReplaceInline(*GameName, *GameNamePadded, ESearchCase::CaseSensitive);
+
+			// only add game name padding if it is not an engine asset, otherwise it is considered portable already
+			if (!bIsEngineAsset)
+			{
+				AbsoluteCookPathToAsset.ReplaceInline(*GameName, *GameNamePadded, ESearchCase::CaseSensitive);
+			}
 
 			AbsoluteCookPathToAssetLength = AbsoluteCookPathToAsset.Len();
 		}

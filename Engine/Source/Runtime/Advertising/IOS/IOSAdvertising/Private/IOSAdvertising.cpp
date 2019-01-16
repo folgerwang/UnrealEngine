@@ -6,13 +6,13 @@
 #include "IOS/IOSAsyncTask.h"
 #include "IOS/IOSAppDelegate.h"
 
-#import <iAd/ADBannerView.h>
-
 DEFINE_LOG_CATEGORY_STATIC( LogAdvertising, Display, All );
 
 IMPLEMENT_MODULE( FIOSAdvertisingProvider, IOSAdvertising );
 
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
+#import <iAd/ADBannerView.h>
+
 @interface IOSAdvertising : UIResponder <ADBannerViewDelegate>
 	/** iAd banner view, if open */
 	@property(retain) ADBannerView* BannerView;

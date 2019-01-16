@@ -54,6 +54,7 @@ protected:
 		UIPerParticleEvent1,
 		UIPerParticleEvent2,
 		UIPerParticleEvent3,
+		UIPerParticleGPU,
 		UISystemUpdate,
 		UIMax
 	};

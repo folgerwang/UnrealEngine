@@ -573,7 +573,7 @@ FORCENOINLINE void ReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesTo
 	// Stop checking heartbeat for this thread (and stop the gamethread hitch detector if we're the game thread).
 	// Ensure can take a lot of time (when stackwalking), so we don't want hitches/hangs firing.
 	// These are no-ops on threads that didn't already have a heartbeat etc.
-	FSlowHeartBeatScope SuspendHeartBeat;
+	FSlowHeartBeatScope SuspendHeartBeat(true);
 	FDisableHitchDetectorScope SuspendGameThreadHitch;
 
 	bReentranceGuard = true;

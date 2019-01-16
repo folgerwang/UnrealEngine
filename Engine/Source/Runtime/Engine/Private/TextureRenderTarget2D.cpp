@@ -450,6 +450,11 @@ void FTextureRenderTarget2DResource::InitDynamicRHI()
 			TexCreateFlags |= TexCreate_GenerateMipCapable;
 		}
 
+		if (Owner->bCanCreateUAV)
+		{
+			TexCreateFlags |= TexCreate_UAV;
+		}
+
 		RHICreateTargetableShaderResource2D(
 			Owner->SizeX, 
 			Owner->SizeY, 

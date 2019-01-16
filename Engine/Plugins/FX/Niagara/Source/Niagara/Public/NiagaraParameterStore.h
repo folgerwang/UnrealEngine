@@ -119,7 +119,7 @@ public:
 	FNiagaraParameterStore(const FNiagaraParameterStore& Other);
 	FNiagaraParameterStore& operator=(const FNiagaraParameterStore& Other);
 
-	~FNiagaraParameterStore();
+	virtual ~FNiagaraParameterStore();
 	
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -152,33 +152,33 @@ public:
 	/** Unbinds this store from all stores it's being driven by. */
 	void UnbindFromSourceStores();
 	
-	bool VerifyBinding(const FNiagaraParameterStore* InDestStore)const;
+	bool VerifyBinding(const FNiagaraParameterStore* InDestStore) const;
 
-	void CheckForNaNs()const;
+	void CheckForNaNs() const;
 
 	/**
 	Adds the passed parameter to this store.
 	Does nothing if this parameter is already present.
 	Returns true if we added a new parameter.
 	*/
-	bool AddParameter(const FNiagaraVariable& Param, bool bInitialize=true, bool bTriggerRebind = true);
+	virtual bool AddParameter(const FNiagaraVariable& Param, bool bInitialize=true, bool bTriggerRebind = true);
 
 	/** Removes the passed parameter if it exists in the store. */
-	bool RemoveParameter(const FNiagaraVariable& Param);
+	virtual bool RemoveParameter(const FNiagaraVariable& Param);
 
 	/** Renames the passed parameter. */
 	void RenameParameter(const FNiagaraVariable& Param, FName NewName);
 
 	/** Removes all parameters from this store and releases any data. */
-	void Empty(bool bClearBindings = true);
+	virtual void Empty(bool bClearBindings = true);
 
 	/** Removes all parameters from this store but does't change memory allocations. */
-	void Reset(bool bClearBindings = true);
+	virtual void Reset(bool bClearBindings = true);
 
 	FORCEINLINE TArray<FNiagaraParameterStore*>& GetSourceParameterStores() { return SourceStores; }
-	FORCEINLINE const TMap<FNiagaraVariable, int32>& GetParameterOffests()const { return ParameterOffsets; }
+	FORCEINLINE const TMap<FNiagaraVariable, int32>& GetParameterOffsets()const { return ParameterOffsets; }
 	/** Get the list of FNiagaraVariables referenced by this store. Note that the values will be stale and are not to be trusted directly. Get the Values using the offset specified by IndexOf or GetParameterValue.*/
-	FORCEINLINE void GetParameters(TArray<FNiagaraVariable>& OutParametres) const { return ParameterOffsets.GenerateKeyArray(OutParametres); }
+	FORCEINLINE void GetParameters(TArray<FNiagaraVariable>& OutParameters) const { return ParameterOffsets.GenerateKeyArray(OutParameters); }
 	FORCEINLINE int32 GetNumParameters() const { return ParameterOffsets.Num(); }
 
 	FORCEINLINE const TArray<UNiagaraDataInterface*>& GetDataInterfaces()const { return DataInterfaces; }
@@ -187,10 +187,10 @@ public:
 	FORCEINLINE void SetParameterDataArray(const TArray<uint8>& InParameterDataArray);
 
 	// Called to initially set up the parameter store to *exactly* match the input store (other than any bindings and the internal name of it).
-	void InitFromSource(const FNiagaraParameterStore* SrcStore, bool bNotifyAsDirty);
+	virtual void InitFromSource(const FNiagaraParameterStore* SrcStore, bool bNotifyAsDirty);
 
 	/** Gets the index of the passed parameter. If it is a data interface, this is an offset into the data interface table, otherwise a byte offset into he parameter data buffer. */
-	int32 IndexOf(const FNiagaraVariable& Parameter)const
+	virtual int32 IndexOf(const FNiagaraVariable& Parameter) const
 	{
 		const int32* Off = ParameterOffsets.Find(Parameter);
 		if ( Off )
@@ -263,7 +263,7 @@ public:
 	/** Returns the associated FNiagaraVariable for the passed data interface if it exists in the store. Null if not.*/
 	const FNiagaraVariable* FindVariable(UNiagaraDataInterface* Interface)const;
 
-	FORCEINLINE_DEBUGGABLE const int32* FindParameterOffset(const FNiagaraVariable& Parameter) const
+	FORCEINLINE_DEBUGGABLE virtual const int32* FindParameterOffset(const FNiagaraVariable& Parameter) const
 	{
 		return ParameterOffsets.Find(Parameter);
 	}
@@ -468,7 +468,7 @@ FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::BindParameters(FNiaga
 {
 	InterfaceBindings.Reset();
 	ParameterBindings.Reset();
-	for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffests())
+	for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffsets())
 	{
 		const FNiagaraVariable& Parameter = ParamOffsetPair.Key;
 		int32 DestOffset = ParamOffsetPair.Value;
@@ -505,7 +505,7 @@ FORCEINLINE_DEBUGGABLE bool FNiagaraParameterStoreBinding::VerifyBinding(const F
 	bool bBindingValid = true;
 #if WITH_EDITORONLY_DATA
 	TArray<FName, TInlineAllocator<32>> MissingParameterNames;
-	for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffests())
+	for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffsets())
 	{
 		const FNiagaraVariable& Parameter = ParamOffsetPair.Key;
 		int32 DestOffset = ParamOffsetPair.Value;
@@ -578,7 +578,7 @@ FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::Dump(const FNiagaraPa
 		ensure(Binding.DestOffset != -1);
 		FNiagaraVariable Param;
 		bool bFound = false;
-		for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffests())
+		for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffsets())
 		{
 			if (ParamOffsetPair.Value == Binding.DestOffset && !ParamOffsetPair.Key.IsDataInterface())
 			{
@@ -610,7 +610,7 @@ FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::Dump(const FNiagaraPa
 		ensure(Binding.DestOffset != -1);
 		FNiagaraVariable Param;
 		bool bFound = false;
-		for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffests())
+		for (const TPair<FNiagaraVariable, int32>& ParamOffsetPair : DestStore->GetParameterOffsets())
 		{
 			if (ParamOffsetPair.Value == Binding.DestOffset && ParamOffsetPair.Key.IsDataInterface())
 			{

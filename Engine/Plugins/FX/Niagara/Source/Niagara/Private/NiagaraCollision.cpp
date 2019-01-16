@@ -181,13 +181,6 @@ void FNiagaraCollisionBatch::GenerateEventsFromResults(FNiagaraEmitterInstance *
 	}
 }
 
-
-
-
-
-
-
-
 int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Direction, float CollisionSize, float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraCollision);
@@ -229,6 +222,72 @@ int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Direc
 	return Ret;
 }
 
+int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector StartPos, FVector EndPos, ECollisionChannel TraceChannel)
+{
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraCollision);
+	if (!CollisionWorld)
+	{
+		return INDEX_NONE;
+	}
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(NiagaraAsync));
+	QueryParams.OwnerTag = "Niagara";
+	QueryParams.bFindInitialOverlaps = false;
+	QueryParams.bReturnFaceIndex = false;
+	QueryParams.bReturnPhysicalMaterial = true;
+	QueryParams.bTraceComplex = false;
+	QueryParams.bIgnoreTouches = true;
+	FTraceHandle Handle = CollisionWorld->AsyncLineTraceByChannel(EAsyncTraceType::Single, StartPos, EndPos, TraceChannel, QueryParams, FCollisionResponseParams::DefaultResponseParam, nullptr, TraceID);
+	FNiagaraCollisionTrace Trace;
+	Trace.CollisionTraceHandle = Handle;
+	Trace.SourceParticleIndex = TraceID;
+
+	int32 TraceIdx = CollisionTraces[GetWriteBufferIdx()].Add(Trace);
+	IdToTraceIdx[GetWriteBufferIdx()].Add(TraceID) = TraceIdx;
+
+	int32 Ret = TraceID;
+	TraceID++;
+	return Ret;
+}
+
+bool FNiagaraDICollisionQueryBatch::PerformQuery(FVector StartPos, FVector EndPos, FNiagaraDICollsionQueryResult &Result, ECollisionChannel TraceChannel)
+{
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraCollision);
+	if (!CollisionWorld)
+	{
+		return false;
+	}
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(NiagaraSync));
+	QueryParams.OwnerTag = "Niagara";
+	QueryParams.bFindInitialOverlaps = false;
+	QueryParams.bReturnFaceIndex = false;
+	QueryParams.bReturnPhysicalMaterial = true;
+	QueryParams.bTraceComplex = false;
+	QueryParams.bIgnoreTouches = true;
+	FHitResult TraceResult;
+	bool ValidHit = CollisionWorld->LineTraceSingleByChannel(TraceResult, StartPos, EndPos, TraceChannel, QueryParams);
+	if (ValidHit)
+	{
+		Result.IsInsideMesh = TraceResult.bStartPenetrating;
+		Result.CollisionPos = TraceResult.ImpactPoint;
+		Result.CollisionNormal = TraceResult.ImpactNormal;
+		if (TraceResult.PhysMaterial.IsValid())
+		{
+			Result.PhysicalMaterialIdx = TraceResult.PhysMaterial->GetUniqueID();
+			Result.Friction = TraceResult.PhysMaterial->Friction;
+			Result.Restitution = TraceResult.PhysMaterial->Restitution;
+		}
+		else
+		{
+			Result.PhysicalMaterialIdx = -1;
+			Result.Friction = 0.0f;
+			Result.Restitution = 0.0f;
+		}
+	}
+
+	return ValidHit;
+}
 
 bool FNiagaraDICollisionQueryBatch::GetQueryResult(uint32 InTraceID, FNiagaraDICollsionQueryResult &Result)
 {
@@ -262,7 +321,7 @@ bool FNiagaraDICollisionQueryBatch::GetQueryResult(uint32 InTraceID, FNiagaraDIC
 		{
 			// grab the first hit that blocks
 			FHitResult *Hit = FHitResult::GetFirstBlockingHit(CurData.OutHits);
-			if (Hit && Hit->IsValidBlockingHit())
+			if (Hit && Hit->bBlockingHit)
 			{
 				/*
 				FNiagaraCollisionEventPayload Event;
@@ -280,6 +339,7 @@ bool FNiagaraDICollisionQueryBatch::GetQueryResult(uint32 InTraceID, FNiagaraDIC
 
 				Payloads.Add(Event);
 				*/
+				Result.IsInsideMesh = Hit->bStartPenetrating;
 				Result.CollisionPos = Hit->ImpactPoint;// -NormVel*(CurTrace.CollisionSize / 2);
 				Result.CollisionNormal = Hit->ImpactNormal;
 				Result.TraceID = InTraceID;

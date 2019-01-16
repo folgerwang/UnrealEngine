@@ -186,6 +186,9 @@ public:
 	virtual void RemoveRedundantKeys(float Tolerance) final override;
 	virtual void RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime) final override;
 
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FSimpleCurve(*this); }
+
 protected:
 	virtual int32 GetKeyIndex(float KeyTime, float KeyTimeTolerance) const override final;
 
