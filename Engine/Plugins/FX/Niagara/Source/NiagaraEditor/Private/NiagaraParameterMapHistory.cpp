@@ -673,8 +673,12 @@ UNiagaraParameterCollection* FNiagaraParameterMapHistory::IsParameterCollectionP
 
 bool FNiagaraParameterMapHistory::ShouldIgnoreVariableDefault(const FNiagaraVariable& Var)const
 {
-	//For now just skip default for ID but maybe other cases/reasons?
-	return Var == FNiagaraVariable(FNiagaraTypeDefinition::GetIDDef(), TEXT("Particles.ID"));
+	// NOTE(mv): Used for variables that are explicitly assigned to (on spawn) and should not be default initialized
+	//           These are explicitly written to in NiagaraHlslTranslator::DefineMain
+	bool bShouldBeIgnored = false;
+	bShouldBeIgnored |= (Var == FNiagaraVariable(FNiagaraTypeDefinition::GetIDDef(), TEXT("Particles.ID")));
+	bShouldBeIgnored |= (Var == FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Particles.UniqueID")));
+	return bShouldBeIgnored;
 }
 
 FNiagaraParameterMapHistoryBuilder::FNiagaraParameterMapHistoryBuilder()
@@ -1050,7 +1054,7 @@ bool FNiagaraParameterMapHistoryBuilder::IsInEncounteredEmitterNamespace(FNiagar
 /**
 * Use the current alias map to resolve any aliases in this input variable name.
 */
-FNiagaraVariable FNiagaraParameterMapHistoryBuilder::ResolveAliases(const FNiagaraVariable& InVar)
+FNiagaraVariable FNiagaraParameterMapHistoryBuilder::ResolveAliases(const FNiagaraVariable& InVar) const
 {
 	return FNiagaraParameterMapHistory::ResolveAliases(InVar, AliasMap, TEXT("."));
 }
@@ -1341,7 +1345,8 @@ int32 FNiagaraParameterMapHistoryBuilder::HandleExternalVariableRead(int32 Param
 		}
 		else
 		{
-			UE_LOG(LogNiagaraEditor, Log, TEXT("Could not resolve variable: %s"), *Name.ToString());
+			// This is overly spammy and doesn't provide useful info. Disabling for now.
+			//UE_LOG(LogNiagaraEditor, Log, TEXT("Could not resolve variable: %s"), *Name.ToString());
 		}
 		
 	}

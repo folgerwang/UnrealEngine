@@ -54,7 +54,7 @@ public:
 	void Cleanup();
 
 	/** Initializes this System instance to simulate the supplied System. */
-	void Init(UNiagaraSystem* InSystem, bool bInForceSolo=false);
+	void Init(bool bInForceSolo=false);
 
 	void Activate(EResetMode InResetMode = EResetMode::ResetAll);
 	void Deactivate(bool bImmediate = false);
@@ -173,7 +173,7 @@ public:
 	Manually advances this system's simulation by the specified number of ticks and tick delta. 
 	To be advanced in this way a system must be in solo mode or moved into solo mode which will add additional overhead.
 	*/
-	void AdvanceSimulation(int32 TickCount, float TickDeltaSeconds);
+	void AdvanceSimulation(int32 TickCountToSimulate, float TickDeltaSeconds);
 
 #if WITH_EDITORONLY_DATA
 	/** Request that this simulation capture a frame. Cannot capture if disabled or already completed.*/
@@ -192,12 +192,14 @@ public:
 	bool ShouldCaptureThisFrame() const;
 
 	/** Only call from within the script execution states. Value is nullptr if not capturing a frame.*/
-	FNiagaraScriptDebuggerInfo* GetActiveCaptureWrite(const FName& InHandleName, ENiagaraScriptUsage InUsage, const FGuid& InUsageId);
+	TSharedPtr<struct FNiagaraScriptDebuggerInfo, ESPMode::ThreadSafe> GetActiveCaptureWrite(const FName& InHandleName, ENiagaraScriptUsage InUsage, const FGuid& InUsageId);
 
 #endif
 
 	/** Dumps all of this systems info to the log. */
 	void Dump()const;
+
+	bool GetPerInstanceDataAndOffsets(void*& OutData, uint32& OutDataSize, TMap<TWeakObjectPtr<UNiagaraDataInterface>, int32>*& OutOffsets);
 
 private:
 
@@ -228,6 +230,9 @@ private:
 
 	/** The age of the System instance. */
 	float Age;
+
+	/** The tick count of the System instance. */
+	int32 TickCount;
 
 	TMap<FNiagaraDataSetID, FNiagaraDataSet> ExternalEvents;
 
@@ -267,6 +272,8 @@ private:
 	FNiagaraParameterDirectBinding<FVector> OwnerYAxisParam;
 	FNiagaraParameterDirectBinding<FVector> OwnerZAxisParam;
 
+	FNiagaraParameterDirectBinding<FQuat> OwnerRotationParam;
+
 	FNiagaraParameterDirectBinding<FMatrix> OwnerTransformParam;
 	FNiagaraParameterDirectBinding<FMatrix> OwnerInverseParam;
 	FNiagaraParameterDirectBinding<FMatrix> OwnerTransposeParam;
@@ -279,6 +286,7 @@ private:
 	FNiagaraParameterDirectBinding<float> OwnerEngineTimeParam;
 	FNiagaraParameterDirectBinding<float> OwnerEngineRealtimeParam;
 	FNiagaraParameterDirectBinding<float> SystemAgeParam;
+	FNiagaraParameterDirectBinding<int32> SystemTickCountParam;
 
 	FNiagaraParameterDirectBinding<float> OwnerMinDistanceToCameraParam;
 	FNiagaraParameterDirectBinding<int32> SystemNumEmittersParam;
@@ -289,6 +297,7 @@ private:
 	FNiagaraParameterDirectBinding<int32> OwnerExecutionStateParam;
 
 	TArray<FNiagaraParameterDirectBinding<int32>> ParameterNumParticleBindings;
+	TArray<FNiagaraParameterDirectBinding<int32>> ParameterTotalSpawnedParticlesBindings;
 
 	/** Indicates whether this instance must update itself rather than being batched up as most instances are. */
 	uint32 bSolo : 1;

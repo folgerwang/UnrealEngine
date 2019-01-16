@@ -392,6 +392,31 @@ void FNiagaraCompileRequestData::FinishPrecompile(UNiagaraScriptSource* ScriptSo
 			}
 		}
 
+		// Generate CDO's for data interfaces that are passed in to function or dynamic input scripts compiled standalone as we do not have a history
+		if (InUsage == ENiagaraScriptUsage::Function || InUsage == ENiagaraScriptUsage::DynamicInput)
+		{
+			for (const auto ReferencedGraph : ClonedGraphs)
+			{
+				TArray<UNiagaraNodeInput*> InputNodes;
+				TArray<FNiagaraVariable*> InputVariables;
+				ReferencedGraph->FindInputNodes(InputNodes);
+				for (const auto InputNode : InputNodes)
+				{
+					InputVariables.Add(&InputNode->Input);
+				}
+
+				for (const auto InputVariable : InputVariables)
+				{
+					if (InputVariable->IsDataInterface())
+					{
+						UClass* Class = const_cast<UClass*>(InputVariable->GetType().GetClass());
+						UObject* Obj = DuplicateObject(Class->GetDefaultObject(true), GetTransientPackage());
+						CDOs.Add(Class, Obj);
+					}
+				}
+			}
+		}
+
 	}
 }
 

@@ -20,7 +20,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Function", meta = (MultiLine = true))
 	FString CustomHlsl;
 
-	UPROPERTY(EditAnywhere, Category = "Function")
+	UPROPERTY()
 	ENiagaraScriptUsage ScriptUsage;
 
 	virtual TSharedPtr<SGraphNode> CreateVisualWidget() override;

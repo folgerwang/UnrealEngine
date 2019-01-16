@@ -59,10 +59,10 @@ protected:
 	UPROPERTY()
 	FString AssignmentDefaultValue_DEPRECATED;
 
-	UPROPERTY(EditAnywhere, Category = Assignment)
+	UPROPERTY()
 	TArray<FNiagaraVariable> AssignmentTargets;
 
-	UPROPERTY(EditAnywhere, Category = Assignment)
+	UPROPERTY()
 	TArray<FString> AssignmentDefaultValues;
 
 	UPROPERTY()

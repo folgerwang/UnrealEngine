@@ -66,9 +66,8 @@ struct FNiagaraEventGeneratorProperties
 
 	}
 
-	FNiagaraEventGeneratorProperties(FNiagaraDataSetProperties &Props, FName InEventGenerator, FName InSourceEmitter)
+	FNiagaraEventGeneratorProperties(FNiagaraDataSetProperties &Props, FName InEventGenerator)
 		: ID(Props.ID.Name)
-		, SourceEmitter(InSourceEmitter)
 		, SetProps(Props)		
 	{
 
@@ -78,8 +77,8 @@ struct FNiagaraEventGeneratorProperties
 	UPROPERTY(EditAnywhere, Category = "Event Receiver")
 	int32 MaxEventsPerFrame; //TODO - More complex allocation so that we can grow dynamically if more space is needed ?
 
+	UPROPERTY()
 	FName ID;
-	FName SourceEmitter;
 
 	UPROPERTY()
 	FNiagaraDataSetProperties SetProps;
@@ -196,8 +195,17 @@ public:
 	virtual void PostLoad() override;
 	//End UObject Interface
 
+	/** Toggles whether or not the particles within this emitter are relative to the emitter origin or in global space. */ 
 	UPROPERTY(EditAnywhere, Category = "Emitter")
 	bool bLocalSpace;
+
+	/** Toggles whether to globally make the random number generator be deterministic or non-deterministic. Any random calculation that is set to the emitter defaults will inherit this value. It is still possible to tweak individual random to be deterministic or not. In this case deterministic means that it will return the same results for the same configuration of the emitter as long as delta time is not variable. Any changes to the emitter's individual scripts will adjust the results. */
+	UPROPERTY(EditAnywhere, Category = "Emitter")
+	bool bDeterminism;
+
+	/** An emitter-based seed for the deterministic random number generator. */
+	UPROPERTY(EditAnywhere, Category = "Emitter", meta = (EditCondition = "bDeterminism"))
+	int32 RandomSeed;
 
 	//UPROPERTY(EditAnywhere, Category = "Emitter")
 	//float StartTime;
@@ -255,6 +263,14 @@ public:
 	/** Do particles in this emitter require a persistent ID? */
 	UPROPERTY(EditAnywhere, Category = "Emitter")
 	uint32 bRequiresPersistentIDs : 1;
+
+	/** Limits the delta time per tick to prevent simulation spikes due to frame lags. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Emitter", meta = (EditCondition = "bLimitDeltaTime"))
+	float MaxDeltaTimePerTick;
+
+	/** Whether to limit the max tick delta time or not. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Emitter", meta = (InlineEditConditionToggle))
+	uint32 bLimitDeltaTime : 1;
 
 	void NIAGARA_API GetScripts(TArray<UNiagaraScript*>& OutScripts, bool bCompilableOnly = true);
 
@@ -332,6 +348,9 @@ public:
 
 	void NIAGARA_API RemoveEventHandlerByUsageId(FGuid EventHandlerUsageId);
 
+	/* Gets whether or not the supplied event generator id matches an event generator which is shared between the particle spawn and update scrips. */
+	bool IsEventGeneratorShared(FName EventGeneratorId) const;
+
 protected:
 	virtual void BeginDestroy() override;
 
@@ -367,6 +386,9 @@ private:
 
 	UPROPERTY()
 	UNiagaraScript* GPUComputeScript;
+
+	UPROPERTY()
+	TArray<FName> SharedEventGeneratorIds;
 
 #if WITH_EDITOR
 	FOnPropertiesChanged OnPropertiesChangedDelegate;
