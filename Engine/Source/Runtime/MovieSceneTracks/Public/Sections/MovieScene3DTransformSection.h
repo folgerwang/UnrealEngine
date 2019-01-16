@@ -275,6 +275,7 @@ public:
 protected:
 
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostEditImport() override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
