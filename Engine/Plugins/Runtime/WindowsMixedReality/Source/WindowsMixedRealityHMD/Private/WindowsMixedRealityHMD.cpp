@@ -9,6 +9,7 @@
 #include "Engine/Engine.h"
 #include "Interfaces/IPluginManager.h"
 #include "IWindowsMixedRealityHMDPlugin.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 #if WITH_EDITOR
 #include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
