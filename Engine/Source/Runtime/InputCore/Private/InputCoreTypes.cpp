@@ -1102,6 +1102,11 @@ void FKey::PostSerialize(const FArchive& Ar)
 	ResetKey();
 }
 
+void FKey::PostScriptConstruct()
+{
+	KeyDetails.Reset();
+}
+
 void FKey::ResetKey()
 {
 	KeyDetails.Reset();

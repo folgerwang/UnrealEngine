@@ -204,7 +204,7 @@ struct FUnloadedAssetData
 		, AssetFriendlyName(FText::FromString(FName::NameToDisplayString(InAsset.AssetName.ToString(), false)))
 		, PossibleObjectReferenceTypes(InPossibleObjectReferenceTypes)
 	{
-		InAsset.GetTagValue("Tooltip", Tooltip);
+		InAsset.GetTagValue(FBlueprintMetadata::MD_Tooltip, Tooltip);
 		if (Tooltip.IsEmpty())
 		{
 			Tooltip = FText::FromString(InAsset.ObjectPath.ToString());
@@ -1451,11 +1451,24 @@ void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, cons
 						FText PinName = Pin->GetDisplayName();
 						FText NodeName = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
 
+						FText EntryTitle;
+						FText EntryTooltip;
+						if (PinName.IsEmpty())
+						{
+							EntryTitle = FText::Format(LOCTEXT("StraightenDescription_SinglePin_NoDisplayName", "Straighten Connection to {0}"), NodeName);
+							EntryTooltip = FText::Format(LOCTEXT("StraightenDescription_SinglePin_NoDisplayName_Tip", "Straighten the connection between this pin, and {0}"), NodeName);
+						}
+						else
+						{
+							EntryTitle = FText::Format(LOCTEXT("StraightenDescription_SinglePin", "Straighten Connection to {0} ({1})"), NodeName, PinName);
+							EntryTooltip = FText::Format(LOCTEXT("StraightenDescription_SinglePin_Node_Tip", "Straighten the connection between this pin, and {0} ({1})"), NodeName, PinName);
+						}
+
 						MenuBuilder->AddMenuEntry(
 							FGraphEditorCommands::Get().StraightenConnections,
 							NAME_None,
-							FText::Format(LOCTEXT("StraightenDescription_SinglePin", "Straighten Connection to {0} ({1})"), NodeName, PinName),
-							FText::Format(LOCTEXT("StraightenDescription_SinglePin_Node_Tip", "Straighten the connection between this pin, and {0} ({1})"), NodeName, PinName),
+							EntryTitle,
+							EntryTooltip,
 							FSlateIcon(NAME_None, NAME_None, NAME_None)
 						);
 					}
@@ -1964,14 +1977,15 @@ void UEdGraphSchema_K2::GetBreakLinkToSubMenuActions( class FMenuBuilder& MenuBu
 		UEdGraphPin* Pin = *Links;
 		FText Title = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
 		FString TitleString = Title.ToString();
-		if ( Pin->PinName != TEXT("") )
+		const FText PinDisplayName = Pin->GetDisplayName();
+		if (!PinDisplayName.IsEmpty())
 		{
-			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *Pin->GetDisplayName().ToString());
+			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *PinDisplayName.ToString());
 
 			// Add name of connection if possible
 			FFormatNamedArguments Args;
 			Args.Add( TEXT("NodeTitle"), Title );
-			Args.Add( TEXT("PinName"), Pin->GetDisplayName() );
+			Args.Add( TEXT("PinName"), PinDisplayName );
 			Title = FText::Format( LOCTEXT("BreakDescPin", "{NodeTitle} ({PinName})"), Args );
 		}
 
@@ -1984,11 +1998,11 @@ void UEdGraphSchema_K2::GetBreakLinkToSubMenuActions( class FMenuBuilder& MenuBu
 
 		if ( Count == 0 )
 		{
-			Description = FText::Format( LOCTEXT("BreakDesc", "Break link to {NodeTitle}"), Args );
+			Description = FText::Format( LOCTEXT("BreakDesc", "Break Link to {NodeTitle}"), Args );
 		}
 		else
 		{
-			Description = FText::Format( LOCTEXT("BreakDescMulti", "Break link to {NodeTitle} ({NumberOfNodes})"), Args );
+			Description = FText::Format( LOCTEXT("BreakDescMulti", "Break Link to {NodeTitle} ({NumberOfNodes})"), Args );
 		}
 		++Count;
 
@@ -2007,14 +2021,15 @@ void UEdGraphSchema_K2::GetJumpToConnectionSubMenuActions( class FMenuBuilder& M
 	{
 		FText Title = PinLink->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
 		FString TitleString = Title.ToString();
-		if ( PinLink->PinName != TEXT("") )
+		const FText PinDisplayName = PinLink->GetDisplayName();
+		if (!PinDisplayName.IsEmpty())
 		{
-			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *PinLink->GetDisplayName().ToString());
+			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *PinDisplayName.ToString());
 
 			// Add name of connection if possible
 			FFormatNamedArguments Args;
 			Args.Add( TEXT("NodeTitle"), Title );
-			Args.Add( TEXT("PinName"), PinLink->GetDisplayName() );
+			Args.Add( TEXT("PinName"), PinDisplayName );
 			Title = FText::Format( LOCTEXT("JumpToDescPin", "{NodeTitle} ({PinName})"), Args );
 		}
 
@@ -2076,15 +2091,43 @@ void UEdGraphSchema_K2::GetStraightenConnectionToSubMenuActions( class FMenuBuil
 		NAME_None, LOCTEXT("StraightenAllConnections", "All Connected Pins"),
 		TAttribute<FText>(), FSlateIcon(NAME_None, NAME_None, NAME_None) );
 
-	for (auto& Pair : NodeToPins)
+	for (const TPair<UEdGraphNode*, TArray<UEdGraphPin*>>& Pair : NodeToPins)
 	{
-		FText NodeName = Pair.Key->GetNodeTitle(ENodeTitleType::ListView);
 		for (UEdGraphPin* Pin : Pair.Value)
 		{
-			FText PinName = Pin->GetDisplayName();
+			FText Title = Pair.Key->GetNodeTitle(ENodeTitleType::ListView);
+			FString TitleString = Title.ToString();
+			const FText PinDisplayName = Pin->GetDisplayName();
+			if (!PinDisplayName.IsEmpty())
+			{
+				TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *PinDisplayName.ToString());
+
+				// Add name of connection if possible
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("NodeTitle"), Title);
+				Args.Add(TEXT("PinName"), PinDisplayName);
+				Title = FText::Format(LOCTEXT("StraightenToDescPin", "{NodeTitle} ({PinName})"), Args);
+			}
+			uint32 &Count = LinkTitleCount.FindOrAdd(TitleString);
+
+			FText Description;
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("NodeTitle"), Title);
+			Args.Add(TEXT("NumberOfNodes"), Count);
+
+			if (Count == 0)
+			{
+				Description = FText::Format(LOCTEXT("StraightenDesc", "Straighten connection to {NodeTitle}"), Args);
+			}
+			else
+			{
+				Description = FText::Format(LOCTEXT("StraightendDescMulti", "Straighten connection to {NodeTitle} ({NumberOfNodes})"), Args);
+			}
+			++Count;
+
 			MenuBuilder.AddMenuEntry(
-				FText::Format(LOCTEXT("StraightenDescription_Node", "{0} ({1})"), NodeName, Pin->GetDisplayName()),
-				FText::Format(LOCTEXT("StraightenDescription_Node_Tip", "Straighten the connection between this pin, and {0} ({1})"), NodeName, Pin->GetDisplayName()),
+				Description,
+				Description,
 				FSlateIcon(),
 				FExecuteAction::CreateLambda([=]{
 				if (const FUIAction* UIAction = MenuCommandList->GetActionForCommand(FGraphEditorCommands::Get().StraightenConnections))
@@ -2561,6 +2604,15 @@ bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, 
 		else if (InputPin->PinType.PinCategory == PC_String)
 		{
 			UFunction* Function = UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, GetDisplayName));
+			TargetFunction = Function->GetFName();
+			FunctionOwner = Function->GetOwnerClass();
+		}
+	}
+	else if (OutputPin->PinType.PinCategory == PC_Class)
+	{
+		if (InputPin->PinType.PinCategory == PC_String)
+		{
+			UFunction* Function = UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, GetClassDisplayName));
 			TargetFunction = Function->GetFName();
 			FunctionOwner = Function->GetOwnerClass();
 		}
@@ -5658,6 +5710,39 @@ bool UEdGraphSchema_K2::FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, con
 
 struct FBackwardCompatibilityConversionHelper
 {
+	// Re-add orphaned pins to deal with any links that were lost during converstion
+	static bool RestoreOrphanLinks(UEdGraphPin* OldPin, UEdGraphPin* NewPin, UK2Node* NewNode, const TArray<UEdGraphPin*>& OldLinks)
+	{
+		// See if there are any links that didn't get copied, including to orphan pins or if the newpin is null
+		TArray<UEdGraphPin*> OrphanedLinks;
+
+		for (UEdGraphPin* OldLink : OldLinks)
+		{
+			if (!NewPin || !NewPin->LinkedTo.Contains(OldLink))
+			{
+				OrphanedLinks.Add(OldLink);
+			}
+		}
+
+		if (OrphanedLinks.Num() > 0)
+		{
+			// Add an orphan pin so warning/connections are not silently lost
+			UEdGraphPin* OrphanPin = NewNode->CreatePin(OldPin->Direction, OldPin->PinType, OldPin->PinName);
+
+			OrphanPin->bOrphanedPin = true;
+			OrphanPin->bNotConnectable = true;
+
+			for (UEdGraphPin* OldLink : OrphanedLinks)
+			{
+				OrphanPin->MakeLinkTo(OldLink);
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
 	static bool ConvertNode(
 		UK2Node* OldNode,
 		const FString& BlueprintPinName,
@@ -5758,7 +5843,7 @@ struct FBackwardCompatibilityConversionHelper
 				UEdGraphPin* ExecPin = OldNode->GetExecPin();
 				UEdGraphPin* ExecCastPin = CastNode->GetExecPin();
 				check(ExecCastPin);
-				if (!ExecPin || !Schema.MovePinLinks(*ExecPin, *ExecCastPin).CanSafeConnect())
+				if (!ExecPin || !Schema.MovePinLinks(*ExecPin, *ExecCastPin, false, true).CanSafeConnect())
 				{
 					UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 						Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
@@ -5788,7 +5873,7 @@ struct FBackwardCompatibilityConversionHelper
 
 				UEdGraphPin* CastSourcePin = CastNode->GetCastSourcePin();
 				check(CastSourcePin);
-				if (!Schema.MovePinLinks(*OldBlueprintPin, *CastSourcePin).CanSafeConnect())
+				if (!Schema.MovePinLinks(*OldBlueprintPin, *CastSourcePin, false, true).CanSafeConnect())
 				{
 					UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 						Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
@@ -5818,13 +5903,17 @@ struct FBackwardCompatibilityConversionHelper
 					UEdGraphPin* OldPin = OldNode->FindPin(Pin->PinName);
 					if (OldPin)
 					{
+						TArray<UEdGraphPin*> OldLinks = OldPin->LinkedTo;
 						OldPins.Add(OldPin);
-						if (!Schema.MovePinLinks(*OldPin, *Pin).CanSafeConnect())
+
+						if (!Schema.MovePinLinks(*OldPin, *Pin, false, true).CanSafeConnect())
 						{
 							UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot connect' in blueprint: %s, pin: %s"),
 								Blueprint ? *Blueprint->GetName() : TEXT("Unknown"),
 								*Pin->PinName.ToString());
 						}
+
+						FBackwardCompatibilityConversionHelper::RestoreOrphanLinks(OldPin, Pin, NewNode, OldLinks);
 					}
 					else
 					{
@@ -5997,13 +6086,14 @@ bool UEdGraphSchema_K2::ReplaceOldNodeWithNew(UK2Node* OldNode, UK2Node* NewNode
 		{
 			UEdGraphPin* OldPin = OldNode->Pins[PinIdx];
 			UEdGraphPin* NewPin = NewPinArray[PinIdx];
+			TArray<UEdGraphPin*> OldLinks = OldPin->LinkedTo;
 
 			// could be null, meaning they didn't want to map this OldPin to anything
 			if (NewPin == nullptr)
 			{
 				continue;
 			}
-			else if (!Schema->MovePinLinks(*OldPin, *NewPin).CanSafeConnect())
+			else if (!Schema->MovePinLinks(*OldPin, *NewPin, false, true).CanSafeConnect())
 			{
 				UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot safely move pin %s to %s' in blueprint: %s"),
 					*OldPin->PinName.ToString(),
@@ -6015,6 +6105,8 @@ bool UEdGraphSchema_K2::ReplaceOldNodeWithNew(UK2Node* OldNode, UK2Node* NewNode
 				// for wildcard pins, which may have to react to being connected with
 				NewNode->NotifyPinConnectionListChanged(NewPin);
 			}
+
+			FBackwardCompatibilityConversionHelper::RestoreOrphanLinks(OldPin, NewPin, NewNode, OldLinks);
 		}
 
 		NewNode->NodeComment = OldNode->NodeComment;

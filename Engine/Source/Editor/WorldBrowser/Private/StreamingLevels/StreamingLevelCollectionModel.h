@@ -106,6 +106,9 @@ private:
 	/** Checks if the passed in streaming method is the current streaming method */
 	bool IsStreamingMethodChecked(UClass* InClass) const;
 
+	/** @return	whether the selected levels are allowed to be removed from the world */
+	bool AreAllSelectedLevelsRemovable() const;
+
 	/** Changes the streaming method for the selected levels. */
 	void SetStreamingLevelsClass_Executed(UClass* InClass);
 

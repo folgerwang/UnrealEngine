@@ -39,6 +39,31 @@ struct FForceFeedbackChannelDetails
 	}
 };
 
+/** This structure is used to pass arguments to ClientPlayForceFeedback() client RPC function */
+USTRUCT()
+struct FForceFeedbackParameters
+{
+	GENERATED_BODY()
+
+		FForceFeedbackParameters()
+		: bLooping(false)
+		, bIgnoreTimeDilation(false)
+		, bPlayWhilePaused(false)
+	{}
+
+	UPROPERTY()
+	FName Tag;
+
+	UPROPERTY()
+	bool bLooping;
+
+	UPROPERTY()
+	bool bIgnoreTimeDilation;
+
+	UPROPERTY()
+	bool bPlayWhilePaused;
+};
+
 USTRUCT()
 struct ENGINE_API FActiveForceFeedbackEffect
 {
@@ -47,25 +72,18 @@ struct ENGINE_API FActiveForceFeedbackEffect
 	UPROPERTY()
 	class UForceFeedbackEffect* ForceFeedbackEffect;
 
-	FName Tag;
-	uint32 bLooping:1;
-	uint32 bIgnoreTimeDilation:1;
+	FForceFeedbackParameters Parameters;
 	float PlayTime;
 
 	FActiveForceFeedbackEffect()
 		: ForceFeedbackEffect(nullptr)
-		, Tag(NAME_None)
-		, bLooping(false)
-		, bIgnoreTimeDilation(false)
 		, PlayTime(0.f)
 	{
 	}
 
-	FActiveForceFeedbackEffect(UForceFeedbackEffect* InEffect, const bool bInLooping, const bool bInIgnoreTimeDilation, const FName InTag)
+	FActiveForceFeedbackEffect(UForceFeedbackEffect* InEffect, FForceFeedbackParameters InParameters)
 		: ForceFeedbackEffect(InEffect)
-		, Tag(InTag)
-		, bLooping(bInLooping)
-		, bIgnoreTimeDilation(bInIgnoreTimeDilation)
+		, Parameters(InParameters)
 		, PlayTime(0.f)
 	{
 	}
