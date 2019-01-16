@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -10,14 +10,31 @@ using System.Threading.Tasks;
 
 namespace UnrealGameSync
 {
+	enum UpdateType
+	{
+		Background,
+		UserInitiated,
+	}
+
 	class UpdateMonitor : IDisposable
 	{
-		PerforceConnection Perforce;
 		string WatchPath;
 		Thread WorkerThread;
 		ManualResetEvent QuitEvent;
 
-		public event Action OnUpdateAvailable;
+		public event Action<UpdateType> OnUpdateAvailable;
+
+		public PerforceConnection Perforce
+		{
+			get;
+			private set;
+		}
+
+		public bool? RelaunchUnstable
+		{
+			get;
+			private set;
+		}
 
 		public UpdateMonitor(PerforceConnection InPerforce, string InWatchPath)
 		{
@@ -68,17 +85,18 @@ namespace UnrealGameSync
 				List<PerforceChangeSummary> Changes;
 				if(Perforce.FindChanges(WatchPath, 1, out Changes, Log) && Changes.Count > 0)
 				{
-					TriggerUpdate();
+					TriggerUpdate(UpdateType.Background, null);
 				}
 			}
 		}
 
-		public void TriggerUpdate()
+		public void TriggerUpdate(UpdateType UpdateType, bool? RelaunchUnstable)
 		{
+			this.RelaunchUnstable = RelaunchUnstable;
 			IsUpdateAvailable = true;
 			if(OnUpdateAvailable != null)
 			{
-				OnUpdateAvailable();
+				OnUpdateAvailable(UpdateType);
 			}
 		}
 	}

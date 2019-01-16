@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -21,6 +21,7 @@ namespace UnrealGameSync
 		UpdateMonitor UpdateMonitor;
 		string ApiUrl;
 		string DataFolder;
+		string CacheFolder;
 		bool bRestoreState;
 		string UpdateSpawn;
 		bool bUnstable;
@@ -40,6 +41,7 @@ namespace UnrealGameSync
 		ToolStripSeparator NotifyMenu_ExitSeparator;
 		ToolStripMenuItem NotifyMenu_Exit;
 
+		List<BufferedTextWriter> StartupLogs = new List<BufferedTextWriter>();
 		DetectMultipleProjectSettingsTask DetectStartupProjectSettingsTask;
 		ModalTaskWindow DetectStartupProjectSettingsWindow;
 		MainWindow MainWindowInstance;
@@ -49,9 +51,14 @@ namespace UnrealGameSync
 			this.UpdateMonitor = UpdateMonitor;
 			this.ApiUrl = ApiUrl;
 			this.DataFolder = DataFolder;
+			this.CacheFolder = Path.Combine(DataFolder, "Cache");
 			this.bRestoreState = bRestoreState;
 			this.UpdateSpawn = UpdateSpawn;
 			this.bUnstable = bUnstable;
+
+			// Create the directories
+			Directory.CreateDirectory(DataFolder);
+			Directory.CreateDirectory(CacheFolder);
 
 			// Make sure a synchronization context is set. We spawn a bunch of threads (eg. UpdateMonitor) at startup, and need to make sure we can post messages 
 			// back to the main thread at any time.
@@ -147,8 +154,11 @@ namespace UnrealGameSync
 			List<DetectProjectSettingsTask> Tasks = new List<DetectProjectSettingsTask>();
 			foreach(UserSelectedProjectSettings OpenProject in Settings.OpenProjects)
 			{
-				Log.WriteLine("Detecting settings for {0}", OpenProject);
-				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, new PrefixedTextWriter("  ", Log)));
+				BufferedTextWriter StartupLog = new BufferedTextWriter();
+				StartupLog.WriteLine("Detecting settings for {0}", OpenProject);
+				StartupLogs.Add(StartupLog);
+
+				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, CacheFolder, new TimestampLogWriter(new PrefixedTextWriter("  ", StartupLog))));
 			}
 
 			// Detect settings for the project we want to open
@@ -177,12 +187,23 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsWindow.Close();
 			DetectStartupProjectSettingsWindow = null;
 
-			// Create the main window
-			MainWindowInstance = new MainWindow(ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, DetectStartupProjectSettingsTask.Results, Log, Settings);
-			if(bUnstable)
+			// Copy all the logs to the main log
+			foreach(BufferedTextWriter StartupLog in StartupLogs)
 			{
-				MainWindowInstance.Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);
+				foreach(string Line in StartupLog.Lines)
+				{
+					Log.WriteLine("{0}", Line);
+				}
 			}
+
+			// Clear out the cache folder
+			Utility.ClearPrintCache(CacheFolder);
+
+			// Get a list of all the valid projects to open
+			DetectProjectSettingsResult[] StartupProjects = DetectStartupProjectSettingsTask.Results.Where(x => x != null).ToArray();
+
+			// Create the main window
+			MainWindowInstance = new MainWindow(UpdateMonitor, ApiUrl, DataFolder, CacheFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, StartupProjects, Log, Settings);
 			if(bVisible)
 			{
 				MainWindowInstance.Show();
@@ -205,12 +226,7 @@ namespace UnrealGameSync
 
 		private void OnActivationListenerCallback()
 		{
-			// Check if we're trying to reopen with the unstable version; if so, trigger an update to trigger a restart with the new executable
-			if(!bUnstable && (Control.ModifierKeys & Keys.Shift) != 0)
-			{
-				UpdateMonitor.TriggerUpdate();
-			}
-			else if(MainWindowInstance != null)
+			if(MainWindowInstance != null)
 			{
 				MainWindowInstance.ShowAndActivate();
 			}
@@ -221,18 +237,21 @@ namespace UnrealGameSync
 			MainThreadSynchronizationContext.Post((o) => OnActivationListenerCallback(), null);
 		}
 
-		private void OnUpdateAvailable()
+		private void OnUpdateAvailable(UpdateType Type)
 		{
-			if(MainWindowInstance != null && !bIsClosing && MainWindowInstance.CanPerformUpdate())
+			if(MainWindowInstance != null && !bIsClosing)
 			{
-				bIsClosing = true;
-				MainWindowInstance.ForceClose();
+				if(Type == UpdateType.UserInitiated || MainWindowInstance.CanPerformUpdate())
+				{
+					bIsClosing = true;
+					MainWindowInstance.ForceClose();
+				}
 			}
 		}
 
-		private void OnUpdateAvailableCallback()
+		private void OnUpdateAvailableCallback(UpdateType Type)
 		{ 
-			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(), null);
+			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(Type), null);
 		}
 
 		protected override void Dispose(bool bDisposing)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using Microsoft.Win32;
 using System;
@@ -15,14 +15,8 @@ using UnrealGameSync;
 
 namespace UnrealGameSyncLauncher
 {
-	static partial class Program
+	static class Program
 	{
-		/// <summary>
-		/// Specifies the depot path to sync down the stable version of UGS from, without a trailing slash (eg. //depot/UnrealGameSync/bin). This is a site-specific setting. 
-		/// The UnrealGameSync executable should be located at Release/UnrealGameSync.exe under this path, with any dependent DLLs.
-		/// </summary>
-		static readonly string DefaultDepotPath;
-
 		[STAThread]
 		static int Main(string[] Args)
 		{
@@ -70,8 +64,8 @@ namespace UnrealGameSyncLauncher
 				// Read the settings
 				string ServerAndPort = null;
 				string UserName = null;
-				string DepotPath = DefaultDepotPath;
-				ReadSettings(ref ServerAndPort, ref UserName, ref DepotPath);
+				string DepotPath = DeploymentSettings.DefaultDepotPath;
+				Utility.ReadGlobalPerforceSettings(ref ServerAndPort, ref UserName, ref DepotPath);
 
 				// If the shift key is held down, immediately show the settings window
 				if((Control.ModifierKeys & Keys.Shift) != 0)
@@ -102,62 +96,6 @@ namespace UnrealGameSyncLauncher
 				}
 			}
 			return 1;
-		}
-
-		public static void ReadSettings(ref string ServerAndPort, ref string UserName, ref string DepotPath)
-		{
-			using (RegistryKey Key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Epic Games\\UnrealGameSync", false))
-			{
-				if(Key != null)
-				{
-					ServerAndPort = Key.GetValue("ServerAndPort", ServerAndPort) as string;
-					UserName = Key.GetValue("UserName", UserName) as string;
-					DepotPath = Key.GetValue("DepotPath", DepotPath) as string;
-				}
-			}
-		}
-
-		public static void SaveSettings(string ServerAndPort, string UserName, string DepotPath)
-		{
-			try
-			{
-				using (RegistryKey Key = Registry.CurrentUser.CreateSubKey("SOFTWARE\\Epic Games\\UnrealGameSync"))
-				{
-					// Delete this legacy setting
-					try { Key.DeleteValue("Server"); } catch(Exception) { }
-
-					if(String.IsNullOrEmpty(ServerAndPort))
-					{
-						try { Key.DeleteValue("ServerAndPort"); } catch(Exception) { }
-					}
-					else
-					{
-						Key.SetValue("ServerAndPort", ServerAndPort);
-					}
-
-					if(String.IsNullOrEmpty(UserName))
-					{
-						try { Key.DeleteValue("UserName"); } catch(Exception) { }
-					}
-					else
-					{
-						Key.SetValue("UserName", UserName);
-					}
-
-					if(String.IsNullOrEmpty(DepotPath) || (DefaultDepotPath != null && String.Equals(DepotPath, DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
-					{
-						try { Key.DeleteValue("DepotPath"); } catch(Exception) { }
-					}
-					else
-					{
-						Key.SetValue("DepotPath", DepotPath);
-					}
-				}
-			}
-			catch(Exception Ex)
-			{
-				MessageBox.Show("Unable to save settings.\n\n" + Ex.ToString());
-			}
 		}
 
 		public static bool SyncAndRun(PerforceConnection Perforce, string BaseDepotPath, bool bUnstable, string[] Args, Mutex InstanceMutex, TextWriter LogWriter)

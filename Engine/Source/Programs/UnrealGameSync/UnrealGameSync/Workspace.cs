@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -30,6 +30,7 @@ namespace UnrealGameSync
 		ContentOnly = 0x400,
 		UpdateFilter = 0x800,
 		SyncAllProjects = 0x1000,
+		IncludeAllProjectsInSolution = 0x2000,
 	}
 
 	enum WorkspaceUpdateResult
@@ -814,18 +815,21 @@ namespace UnrealGameSync
 				{
 					Progress.Set("Generating project files...", 0.0f);
 
-					string ProjectFileArgument = "";
-					if(SelectedLocalFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase) && (Context.Options & WorkspaceUpdateOptions.SyncAllProjects) == 0)
+					StringBuilder CommandLine = new StringBuilder();
+					CommandLine.AppendFormat("/C \"\"{0}\"", Path.Combine(LocalRootPath, "GenerateProjectFiles.bat"));
+					if((Context.Options & WorkspaceUpdateOptions.SyncAllProjects) == 0 && (Context.Options & WorkspaceUpdateOptions.IncludeAllProjectsInSolution) == 0)
 					{
-						ProjectFileArgument = String.Format("\"{0}\" ", SelectedLocalFileName);
+						if(SelectedLocalFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
+						{
+							CommandLine.AppendFormat(" \"{0}\"", SelectedLocalFileName);
+						}
 					}
-
-					string CommandLine = String.Format("/C \"\"{0}\" {1}-progress\"", Path.Combine(LocalRootPath, "GenerateProjectFiles.bat"), ProjectFileArgument);
+					CommandLine.Append(" -progress\"");
 
 					Log.WriteLine("Generating project files...");
 					Log.WriteLine("gpf> Running {0} {1}", CmdExe, CommandLine);
 
-					int GenerateProjectFilesResult = Utility.ExecuteProcess(CmdExe, null, CommandLine, null, new ProgressTextWriter(Progress, new PrefixedTextWriter("gpf> ", Log)));
+					int GenerateProjectFilesResult = Utility.ExecuteProcess(CmdExe, null, CommandLine.ToString(), null, new ProgressTextWriter(Progress, new PrefixedTextWriter("gpf> ", Log)));
 					if(GenerateProjectFilesResult != 0)
 					{
 						StatusMessage = String.Format("Failed to generate project files (exit code {0}).", GenerateProjectFilesResult);

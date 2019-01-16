@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -199,6 +199,7 @@ namespace UnrealGameSync
 		public int Revision;
 		public bool IsMapped;
 		public bool Unmap;
+		public string Digest;
 
 		public PerforceFileRecord(Dictionary<string, string> Tags)
 		{
@@ -245,6 +246,8 @@ namespace UnrealGameSync
 			{
 				int.TryParse(RevisionString, out Revision);
 			}
+
+			Tags.TryGetValue("digest", out Digest);
 		}
 	}
 
@@ -468,6 +471,7 @@ namespace UnrealGameSync
 			IgnoreFilesNotInClientViewError = 0x80,
 			IgnoreEnterPassword = 0x100,
 			IgnoreFilesNotOnClientError = 0x200,
+			IgnoreProtectedNamespaceError = 0x400,
 		}
 
 		delegate bool HandleRecordDelegate(Dictionary<string, string> Tags);
@@ -506,7 +510,7 @@ namespace UnrealGameSync
 				bIsLoggedIn = true;
 				return true;
 			}
-			else if(Lines[0].Channel == PerforceOutputChannel.Error && Lines[0].Text.Contains("P4PASSWD"))
+			else if(Lines[0].Channel == PerforceOutputChannel.Error && (Lines[0].Text.Contains("P4PASSWD") || Lines[0].Text.Contains("has expired")))
 			{
 				bIsLoggedIn = false;
 				return true;
@@ -599,13 +603,13 @@ namespace UnrealGameSync
 
 		public bool FindClients(string ForUserName, out List<PerforceClientRecord> Clients, TextWriter Log)
 		{
-			return RunCommand(String.Format("clients -u{0}", ForUserName), out Clients, CommandOptions.NoClient, Log);
+			return RunCommand(String.Format("clients -u \"{0}\"", ForUserName), out Clients, CommandOptions.NoClient, Log);
 		}
 
 		public bool FindClients(string ForUserName, out List<string> ClientNames, TextWriter Log)
 		{
 			List<string> Lines;
-			if(!RunCommand(String.Format("clients -u{0}", ForUserName), out Lines, CommandOptions.None, Log))
+			if(!RunCommand(String.Format("clients -u \"{0}\"", ForUserName), out Lines, CommandOptions.None, Log))
 			{
 				ClientNames = null;
 				return false;
@@ -685,9 +689,14 @@ namespace UnrealGameSync
 
 		public bool FindFiles(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			bool bResult = RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.None, Log);
+			if(bResult)
+			{
+                 FileRecords.RemoveAll(x => x.Action != null && x.Action.Contains("delete"));
+			}
+			return bResult;
 		}
-		
+
 		public bool Print(string DepotPath, out List<string> Lines, TextWriter Log)
 		{
 			string TempFileName = Path.GetTempFileName();
@@ -731,9 +740,9 @@ namespace UnrealGameSync
 		public bool FileExists(string Filter, out bool bExists, TextWriter Log)
 		{
 			List<PerforceFileRecord> FileRecords;
-			if(RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreNoSuchFilesError | CommandOptions.IgnoreFilesNotInClientViewError, Log))
+			if(RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreNoSuchFilesError | CommandOptions.IgnoreFilesNotInClientViewError | CommandOptions.IgnoreProtectedNamespaceError, Log))
 			{
-				bExists = (FileRecords.Count > 0);
+				bExists = (FileRecords.Exists(x => x.Action == null || !x.Action.Contains("delete")));
 				return true;
 			}
 			else
@@ -1077,7 +1086,21 @@ namespace UnrealGameSync
 
 		public bool Stat(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError, Log);
+			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError | CommandOptions.IgnoreProtectedNamespaceError, Log);
+		}
+
+		public bool Stat(string Options, List<string> Files, out List<PerforceFileRecord> FileRecords, TextWriter Log)
+		{
+			StringBuilder Arguments = new StringBuilder("fstat");
+			if(!String.IsNullOrEmpty(Options))
+			{
+				Arguments.AppendFormat(" {0}", Options);
+			}
+			foreach(string File in Files)
+			{
+				Arguments.AppendFormat(" \"{0}\"", File);
+			}
+			return RunCommand(Arguments.ToString(), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError | CommandOptions.IgnoreProtectedNamespaceError, Log);
 		}
 
 		public bool Sync(string Filter, TextWriter Log)
@@ -1439,6 +1462,10 @@ namespace UnrealGameSync
 				return true;
 			}
 			else if(Options.HasFlag(CommandOptions.IgnoreFilesNotOpenedOnThisClientError) && Text.StartsWith("error: ") && Text.EndsWith(" - file(s) not opened on this client."))
+			{
+				return true;
+			}
+			else if(Options.HasFlag(CommandOptions.IgnoreProtectedNamespaceError) && Text.StartsWith("error: ") && Text.EndsWith(" - protected namespace - access denied."))
 			{
 				return true;
 			}

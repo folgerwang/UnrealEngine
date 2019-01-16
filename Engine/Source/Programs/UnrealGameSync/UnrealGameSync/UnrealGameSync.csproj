@@ -112,6 +112,7 @@
   <ItemGroup>
     <Compile Include="ActivationListener.cs" />
     <Compile Include="ArchiveManifest.cs" />
+    <Compile Include="AutomationServer.cs" />
     <Compile Include="BuildStep.cs" />
     <Compile Include="ChildProcess.cs" />
     <Compile Include="Controls\CustomListViewControl.cs">
@@ -149,6 +150,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="DeleteFilesTask.cs" />
+    <Compile Include="DeploymentSettings.cs" />
     <Compile Include="DetectProjectSettingsTask.cs" />
     <Compile Include="FileFilter.cs" />
     <Compile Include="FindFoldersToCleanTask.cs" />
@@ -157,6 +159,12 @@
     </Compile>
     <Compile Include="Forms\ArgumentsWindow.Designer.cs">
       <DependentUpon>ArgumentsWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\AutomatedSyncWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\AutomatedSyncWindow.Designer.cs">
+      <DependentUpon>AutomatedSyncWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\CleanWorkspaceWindow.cs">
       <SubType>Form</SubType>
@@ -205,6 +213,12 @@
     </Compile>
     <Compile Include="Forms\PasswordWindow.Designer.cs">
       <DependentUpon>PasswordWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\ApplicationSettingsWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ApplicationSettingsWindow.Designer.cs">
+      <DependentUpon>ApplicationSettingsWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\PerforceSyncSettingsWindow.cs">
       <SubType>Form</SubType>
@@ -317,6 +331,7 @@
       <DependentUpon>SyncFilter.cs</DependentUpon>
     </Compile>
     <Compile Include="ModalTask.cs" />
+    <Compile Include="NotForLicensees\DeploymentSettingsInternal.cs" />
     <Compile Include="PerforceModalTask.cs" />
     <Compile Include="PerforceMonitor.cs" />
     <Compile Include="ProgramApplicationContext.cs" />
@@ -345,6 +360,9 @@
     <EmbeddedResource Include="Forms\ArgumentsWindow.resx">
       <DependentUpon>ArgumentsWindow.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\AutomatedSyncWindow.resx">
+      <DependentUpon>AutomatedSyncWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\CleanWorkspaceWindow.resx">
       <DependentUpon>CleanWorkspaceWindow.cs</DependentUpon>
     </EmbeddedResource>
@@ -368,6 +386,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\PasswordWindow.resx">
       <DependentUpon>PasswordWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ApplicationSettingsWindow.resx">
+      <DependentUpon>ApplicationSettingsWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\PerforceSyncSettingsWindow.resx">
       <DependentUpon>PerforceSyncSettingsWindow.cs</DependentUpon>
@@ -441,11 +462,7 @@
     <None Include="Resources\App.config" />
   </ItemGroup>
   <Choose>
-    <When Condition="Exists('NotForLicensees\ProgramSettings.cs')">
-      <ItemGroup>
-        <Compile Include="NotForLicensees\ProgramSettings.cs" />
-      </ItemGroup>
-    </When>
+    <When Condition="Exists('NotForLicensees\ProgramSettings.cs')" />
   </Choose>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons.png" />
