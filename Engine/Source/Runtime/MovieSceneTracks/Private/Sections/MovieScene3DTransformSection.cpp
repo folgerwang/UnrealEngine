@@ -305,6 +305,13 @@ void UMovieScene3DTransformSection::Serialize(FArchive& Ar)
 	}
 }
 
+void UMovieScene3DTransformSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateChannelProxy();
+}
+
 FMovieSceneTransformMask UMovieScene3DTransformSection::GetMask() const
 {
 	return TransformMask;

@@ -9,6 +9,7 @@
 #include "AssetBundleData.h"
 #include "AssetRegistryModule.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "ContentEncryptionConfig.h"
 #include "AssetManager.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
@@ -20,9 +21,6 @@ struct FPrimaryAssetRulesCustomOverride;
 
 /** Delegate called when acquiring resources/chunks for assets, parameter will be true if all resources were acquired, false if any failed */
 DECLARE_DELEGATE_OneParam(FAssetManagerAcquireResourceDelegate, bool);
-
-/** Type that maps a named group to a set of primary assets */
-typedef TMap <FName, TSet<FName>> TEncryptedAssetSet;
 
 /** 
  * A singleton UObject that is responsible for loading and unloading PrimaryAssets, and maintaining game-specific asset references
@@ -489,8 +487,7 @@ public:
 	/**
 	  * Gathers information about which assets the game wishes to encrypt into named groups
 	  */
-	virtual void GetEncryptedAssetSet(TEncryptedAssetSet& OutEncryptedAssets, TSet<FGuid>& OutReleasedAssets) {}
-
+	virtual void GetContentEncryptionConfig(FContentEncryptionConfig& OutContentEncryptionConfig) {}
 #endif
 
 protected:

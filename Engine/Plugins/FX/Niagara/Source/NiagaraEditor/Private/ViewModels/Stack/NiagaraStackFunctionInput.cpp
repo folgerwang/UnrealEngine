@@ -50,6 +50,7 @@ UNiagaraStackFunctionInput::UNiagaraStackFunctionInput()
 	, bUpdatingLocalValueDirectly(false)
 	, bShowEditConditionInline(false)
 	, bIsInlineEditConditionToggle(false)
+	, bIsDynamicInputScriptReassignmentPending(false)
 {
 }
 
@@ -309,21 +310,71 @@ void UNiagaraStackFunctionInput::RefreshChildrenInternal(const TArray<UNiagaraSt
 
 	if (InputValues.Mode == EValueMode::Dynamic && InputValues.DynamicNode.IsValid())
 	{
-		UNiagaraStackFunctionInputCollection* DynamicInputEntry = FindCurrentChildOfTypeByPredicate<UNiagaraStackFunctionInputCollection>(CurrentChildren,
-			[=](UNiagaraStackFunctionInputCollection* CurrentFunctionInputEntry) 
-		{ 
-			return CurrentFunctionInputEntry->GetInputFunctionCallNode() == InputValues.DynamicNode.Get() &&
-				CurrentFunctionInputEntry->GetModuleNode() == OwningModuleNode.Get(); 
-		});
+		if (InputValues.DynamicNode->FunctionScript != nullptr)
+		{
+			UNiagaraStackFunctionInputCollection* DynamicInputEntry = FindCurrentChildOfTypeByPredicate<UNiagaraStackFunctionInputCollection>(CurrentChildren,
+				[=](UNiagaraStackFunctionInputCollection* CurrentFunctionInputEntry)
+			{
+				return CurrentFunctionInputEntry->GetInputFunctionCallNode() == InputValues.DynamicNode.Get() &&
+					CurrentFunctionInputEntry->GetModuleNode() == OwningModuleNode.Get();
+			});
 
-		if (DynamicInputEntry == nullptr)
-		{ 
-			DynamicInputEntry = NewObject<UNiagaraStackFunctionInputCollection>(this);
-			DynamicInputEntry->Initialize(CreateDefaultChildRequiredData(), *OwningModuleNode, *InputValues.DynamicNode.Get(), GetOwnerStackItemEditorDataKey());
-			DynamicInputEntry->SetShouldShowInStack(false);
+			if (DynamicInputEntry == nullptr)
+			{
+				DynamicInputEntry = NewObject<UNiagaraStackFunctionInputCollection>(this);
+				DynamicInputEntry->Initialize(CreateDefaultChildRequiredData(), *OwningModuleNode, *InputValues.DynamicNode.Get(), GetOwnerStackItemEditorDataKey());
+				DynamicInputEntry->SetShouldShowInStack(false);
+			}
+			if (InputValues.DynamicNode->FunctionScript != nullptr && InputValues.DynamicNode->FunctionScript->bDeprecated)
+			{
+				FText LongMessage = InputValues.DynamicNode->FunctionScript->DeprecationRecommendation != nullptr ?
+					FText::Format(LOCTEXT("ModuleScriptDeprecationLong", "The script asset for the assigned module {0} has been deprecated. Suggested replacement: {1}"), FText::FromString(InputValues.DynamicNode->GetName()), FText::FromString(InputValues.DynamicNode->FunctionScript->DeprecationRecommendation->GetPathName())) :
+					FText::Format(LOCTEXT("ModuleScriptDeprecationUnknownLong", "The script asset for the assigned module {0} has been deprecated."), FText::FromString(InputValues.DynamicNode->GetName()));
+
+				int32 AddIdx = NewIssues.Add(FStackIssue(
+					EStackIssueSeverity::Warning,
+					LOCTEXT("ModuleScriptDeprecationShort", "Deprecated module"),
+					LongMessage,
+					GetStackEditorDataKey(),
+					false,
+					{
+						FStackIssueFix(
+							LOCTEXT("SelectNewDynamicInputScriptFix", "Select a new dynamic input script"),
+							FStackIssueFixDelegate::CreateLambda([this]() { this->bIsDynamicInputScriptReassignmentPending = true; })),
+						FStackIssueFix(
+							LOCTEXT("ResetFix", "Reset this input to it's default value"),
+							FStackIssueFixDelegate::CreateLambda([this]() { this->Reset(); }))
+					}));
+
+				if (InputValues.DynamicNode->FunctionScript->DeprecationRecommendation != nullptr)
+				{
+					NewIssues[AddIdx].InsertFix(0,
+						FStackIssueFix(
+							LOCTEXT("SelectNewModuleScriptFixUseRecommended", "Use recommended replacement"),
+							FStackIssueFixDelegate::CreateLambda([this]() { ReassignDynamicInputScript(InputValues.DynamicNode->FunctionScript->DeprecationRecommendation); })));
+				}
+			}
+
+
+			NewChildren.Add(DynamicInputEntry);
 		}
-
-		NewChildren.Add(DynamicInputEntry);
+		else
+		{
+			NewIssues.Add(FStackIssue(
+				EStackIssueSeverity::Error,
+				LOCTEXT("DynamicInputScriptMissingShort", "Missing dynamic input script"),
+				FText::Format(LOCTEXT("DynamicInputScriptMissingLong", "The script asset for the assigned dynamic input {0} is missing."), FText::FromString(InputValues.DynamicNode->GetFunctionName())),
+				GetStackEditorDataKey(),
+				false,
+				{
+					FStackIssueFix(
+						LOCTEXT("SelectNewDynamicInputScriptFix", "Select a new dynamic input script"),
+						FStackIssueFixDelegate::CreateLambda([this]() { this->bIsDynamicInputScriptReassignmentPending = true; })),
+					FStackIssueFix(
+						LOCTEXT("ResetFix", "Reset this input to it's default value"),
+						FStackIssueFixDelegate::CreateLambda([this]() { this->Reset(); }))
+				}));
+		}
 	}
 
 	if (InputValues.Mode == EValueMode::Data && InputValues.DataObjects.GetValueObject() != nullptr)
@@ -747,6 +798,26 @@ void UNiagaraStackFunctionInput::GetAvailableParameterHandles(TArray<FNiagaraPar
 							AvailableParameterHandles.AddUnique(FNiagaraParameterHandle::CreateInitialParameterHandle(AvailableParameterHandleForThisOutput));
 						}
 					}
+				}
+			}
+		}
+	}
+
+	//Parameter Collections
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetData> CollectionAssets;
+	AssetRegistryModule.Get().GetAssetsByClass(UNiagaraParameterCollection::StaticClass()->GetFName(), CollectionAssets);
+
+	for (FAssetData& CollectionAsset : CollectionAssets)
+	{
+		UNiagaraParameterCollection* Collection = CastChecked<UNiagaraParameterCollection>(CollectionAsset.GetAsset());
+		if (Collection)
+		{
+			for (const FNiagaraVariable& CollectionParam : Collection->GetParameters())
+			{
+				if (CollectionParam.GetType() == InputType)
+				{
+					AvailableParameterHandles.AddUnique(FNiagaraParameterHandle(CollectionParam.GetName()));
 				}
 			}
 		}
@@ -1285,6 +1356,8 @@ void UNiagaraStackFunctionInput::RenameInput(FName NewName)
 {
 	if (OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1 && InputParameterHandle.GetName() != NewName)
 	{
+		FScopedTransaction ScopedTransaction(LOCTEXT("RenameInput", "Rename this function's input."));
+
 		FInputValues OldInputValues = InputValues;
 		UEdGraphPin* OriginalOverridePin = GetOverridePin();
 
@@ -1301,10 +1374,17 @@ void UNiagaraStackFunctionInput::RenameInput(FName NewName)
 		check(FoundIdx != INDEX_NONE);
 		FNiagaraParameterHandle TargetHandle(OwningAssignmentNode->GetAssignmentTargetName(FoundIdx));
 
+		OwningAssignmentNode->Modify();
+		if (OwningAssignmentNode->FunctionScript != nullptr)
+		{
+			OwningAssignmentNode->FunctionScript->Modify();
+			OwningAssignmentNode->FunctionScript->GetSource()->Modify();
+		}
 		if (OwningAssignmentNode->SetAssignmentTargetName(FoundIdx, NewName))
 		{
 			OwningAssignmentNode->RefreshFromExternalChanges();
 		}
+
 		InputParameterHandle = FNiagaraParameterHandle(InputParameterHandle.GetNamespace(), NewName);
 		InputParameterHandlePath.Empty(1);
 		InputParameterHandlePath.Add(InputParameterHandle);
@@ -1318,6 +1398,7 @@ void UNiagaraStackFunctionInput::RenameInput(FName NewName)
 
 			for (TWeakObjectPtr<UNiagaraScript> Script : AffectedScripts)
 			{
+				Script->Modify();
 				Script->RapidIterationParameters.RenameParameter(OldRapidIterationParameter, *RapidIterationParameter.GetName().ToString());
 			}
 
@@ -1436,6 +1517,42 @@ bool UNiagaraStackFunctionInput::GetVisibleConditionEnabled() const
 bool UNiagaraStackFunctionInput::GetIsInlineEditConditionToggle() const
 {
 	return bIsInlineEditConditionToggle;
+}
+
+bool UNiagaraStackFunctionInput::GetIsDynamicInputScriptReassignmentPending() const
+{
+	return bIsDynamicInputScriptReassignmentPending;
+}
+
+void UNiagaraStackFunctionInput::SetIsDynamicInputScriptReassignmentPending(bool bIsPending)
+{
+	bIsDynamicInputScriptReassignmentPending = bIsPending;
+}
+
+void UNiagaraStackFunctionInput::ReassignDynamicInputScript(UNiagaraScript* DynamicInputScript)
+{
+	if (ensureMsgf(InputValues.Mode == EValueMode::Dynamic && InputValues.DynamicNode != nullptr && InputValues.DynamicNode->GetClass() == UNiagaraNodeFunctionCall::StaticClass(),
+		TEXT("Can not reassign the dynamic input script when tne input doesn't have a valid dynamic input.")))
+	{
+		FScopedTransaction ScopedTransaction(LOCTEXT("ReassignDynamicInputTransaction", "Reassign dynamic input script"));
+		InputValues.DynamicNode->Modify();
+		InputValues.DynamicNode->FunctionScript = DynamicInputScript;
+		InputValues.DynamicNode->MarkNodeRequiresSynchronization(TEXT("Dynamic input script reassigned."), true);
+		RefreshChildren();
+	}
+}
+
+bool UNiagaraStackFunctionInput::GetShouldPassFilterForVisibleCondition() const
+{
+	return GetHasVisibleCondition() == false || GetVisibleConditionEnabled();
+}
+
+void UNiagaraStackFunctionInput::GetSearchItems(TArray<FStackSearchItem>& SearchItems) const
+{
+	if (GetShouldPassFilterForVisibleCondition() && GetIsInlineEditConditionToggle() == false)
+	{
+		SearchItems.Add({ FName("DisplayName"), GetDisplayName() });
+	}
 }
 
 void UNiagaraStackFunctionInput::OnGraphChanged(const struct FEdGraphEditAction& InAction)

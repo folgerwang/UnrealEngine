@@ -127,6 +127,7 @@ protected:
 
 	//~ UMovieSceneSection interface
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostEditImport() override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
 
 	MOVIESCENETRACKS_API void RecreateChannelProxy();

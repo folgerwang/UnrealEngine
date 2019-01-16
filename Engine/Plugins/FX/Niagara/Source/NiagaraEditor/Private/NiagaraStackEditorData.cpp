@@ -27,6 +27,20 @@ void UNiagaraStackEditorData::SetStackEntryIsExpanded(const FString& StackEntryK
 	}
 }
 
+bool UNiagaraStackEditorData::GetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearchDefault) const
+{
+	const bool* bWasExpandedPreSearchPtr = StackEntryKeyToPreSearchExpandedMap.Find(StackEntryKey);
+	return bWasExpandedPreSearchPtr != nullptr ? *bWasExpandedPreSearchPtr : bWasExpandedPreSearchDefault;
+}
+
+void UNiagaraStackEditorData::SetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearch)
+{
+	if (ensureMsgf(StackEntryKey.IsEmpty() == false, TEXT("Can not set the pre-search expanded state with an empty key")))
+	{
+		StackEntryKeyToPreSearchExpandedMap.FindOrAdd(StackEntryKey) = bWasExpandedPreSearch;
+	}
+}
+
 bool UNiagaraStackEditorData::GetStackItemShowAdvanced(const FString& StackEntryKey, bool bShowAdvancedDefault) const
 {
 	const bool* bShowAdvancedPtr = StackItemKeyToShowAdvancedMap.Find(StackEntryKey);
@@ -59,6 +73,16 @@ bool UNiagaraStackEditorData::GetShowOutputs() const
 void UNiagaraStackEditorData::SetShowOutputs(bool bInShowOutputs)
 {
 	bShowOutputs = bInShowOutputs;
+}
+
+bool UNiagaraStackEditorData::GetShowLinkedInputs() const
+{
+	return bShowLinkedInputs;
+}
+
+void UNiagaraStackEditorData::SetShowLinkedInputs(bool bInShowLinkedInputs)
+{
+	bShowLinkedInputs = bInShowLinkedInputs;
 }
 
 double UNiagaraStackEditorData::GetLastScrollPosition() const

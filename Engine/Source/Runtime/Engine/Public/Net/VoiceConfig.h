@@ -37,21 +37,10 @@ namespace MicSilenceDetectionConfig
 	static const Audio::EPeakMode::Type LevelDetectionMode = Audio::EPeakMode::Type::Peak;
 	static const bool IsAnalog = false;
 
-	static const int32 PacketBufferSlack = 6;
+	static const int32 PacketBufferSlack = 20;
 }
 
 class USoundAttenuation;
-
-template <typename EnumType>
-static FORCEINLINE EnumType GetEnumValueFromString(const FString& EnumName, const FString& String)
-{
-	UEnum* Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
-	if (!Enum)
-	{
-		return EnumType(0);
-	}
-	return (EnumType)Enum->GetValueByName(FName(*String));
-}
 
 USTRUCT(BlueprintType)
 struct FVoiceSettings

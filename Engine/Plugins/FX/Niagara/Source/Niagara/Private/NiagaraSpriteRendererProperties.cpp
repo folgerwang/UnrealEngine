@@ -145,9 +145,9 @@ void UNiagaraSpriteRendererProperties::FixMaterial(UMaterial* InMaterial)
 	InMaterial->ForceRecompileForRendering();
 }
 
-#undef LOCTEXT_NAMESPACE
-
 #endif // WITH_EDITORONLY_DATA
+
+#undef LOCTEXT_NAMESPACE
 
 
 

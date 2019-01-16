@@ -10,6 +10,7 @@
 #include "NiagaraEmitterInstance.h"
 #include "NiagaraEmitterHandle.h"
 #include "NiagaraParameterCollection.h"
+#include "NiagaraUserRedirectionParameterStore.h"
 #include "NiagaraSystem.generated.h"
 
 #if WITH_EDITORONLY_DATA
@@ -124,9 +125,8 @@ public:
 	}
 
 	/** From the last compile, what are the variables that were exported out of the system for external use?*/
-	const FNiagaraParameterStore& GetExposedParameters() const {	return ExposedParameters; }
-	FNiagaraParameterStore& GetExposedParameters()  { return ExposedParameters; }
-
+	const FNiagaraUserRedirectionParameterStore& GetExposedParameters() const {	return ExposedParameters; }
+	FNiagaraUserRedirectionParameterStore& GetExposedParameters()  { return ExposedParameters; }
 
 	/** Gets the System script which is used to populate the System parameters and parameter bindings. */
 	UNiagaraScript* GetSystemSpawnScript();
@@ -136,9 +136,6 @@ public:
 
 	/** Are there any pending compile requests?*/
 	bool HasOutstandingCompilationRequests() const;
-
-	/** Returns whether this system has to be run in solo or not. */
-	bool IsSolo()const;
 
 	FORCEINLINE bool NeedsWarmup()const { return WarmupTickCount > 0 && WarmupTickDelta > SMALL_NUMBER; }
 	FORCEINLINE float GetWarmupTime()const { return WarmupTime; }
@@ -231,13 +228,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Debug")
 	bool bDumpDebugEmitterInfo;
 
+	bool HasSystemScriptDIsWithPerInstanceData() const;
+
+	const TArray<FName>& GetUserDINamesReadInSystemScripts() const;
+
 private:
 #if WITH_EDITORONLY_DATA
 	INiagaraModule::FMergeEmitterResults MergeChangesForEmitterHandle(FNiagaraEmitterHandle& EmitterHandle);
 	bool QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotApply = false);
 #endif
 
-	void DetermineIfSolo();
+	void UpdatePostCompileDIInfo();
 protected:
 
 	/** Handles to the emitter this System will simulate. */
@@ -270,7 +271,7 @@ protected:
 
 	/** Variables exposed to the outside work for tweaking*/
 	UPROPERTY()
-	FNiagaraParameterStore ExposedParameters;
+	FNiagaraUserRedirectionParameterStore ExposedParameters;
 
 #if WITH_EDITORONLY_DATA	
 
@@ -299,9 +300,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = Warmup)
 	float WarmupTickDelta;
 
+	void InitEmitterSpawnAttributes();
 
 	UPROPERTY()
-	uint32 bSolo : 1;
+	bool bHasSystemScriptDIsWithPerInstanceData;
 
-	void InitEmitterSpawnAttributes();
+	UPROPERTY()
+	TArray<FName> UserDINamesReadInSystemScripts;
 };

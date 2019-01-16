@@ -22,7 +22,7 @@ template<typename KeyType, typename ValueType, typename SetAllocator, typename K
 class FTextFormatArgumentModifier_PluralForm : public ITextFormatArgumentModifier
 {
 public:
-	static TSharedPtr<ITextFormatArgumentModifier> Create(const ETextPluralType InPluralType, const FTextFormatString& InArgsString);
+	static TSharedPtr<ITextFormatArgumentModifier> Create(const ETextPluralType InPluralType, const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef);
 
 	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 
@@ -49,7 +49,7 @@ private:
 class FTextFormatArgumentModifier_GenderForm : public ITextFormatArgumentModifier
 {
 public:
-	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString);
+	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef);
 
 	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 

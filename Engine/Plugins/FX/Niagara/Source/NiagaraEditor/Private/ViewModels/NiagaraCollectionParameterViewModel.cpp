@@ -33,7 +33,7 @@ FName FNiagaraCollectionParameterViewModel::GetName() const
 
 FText FNiagaraCollectionParameterViewModel::GetTypeDisplayName() const
 {
-	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), Parameter.GetType().GetStruct()->GetDisplayNameText());
+	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), Parameter.GetType().GetNameText());
 }
 
 void FNiagaraCollectionParameterViewModel::NameTextComitted(const FText& Name, ETextCommit::Type CommitInfo)

@@ -63,7 +63,7 @@ bool UNiagaraNodeCustomHlsl::GetTokens(TArray<FString>& OutTokens) const
 		return false;
 	}
 	
-	FString InputVars = TEXT(";/*+-)(?:, \t\n");
+	FString InputVars = TEXT(";/*+-)(?:, []\t\n");
 	int32 LastValidIdx = INDEX_NONE;
 	bool bComment = false;
 	int32 TargetLength = HlslData.Len();
@@ -158,7 +158,7 @@ void UNiagaraNodeCustomHlsl::InitAsCustomHlslDynamicInput(const FNiagaraTypeDefi
 	Modify();
 	ReallocatePins();
 	RequestNewTypedPin(EGPD_Input, FNiagaraTypeDefinition::GetParameterMapDef(), FName("Map"));
-	RequestNewTypedPin(EGPD_Output, OutputType, FName("Output"));
+	RequestNewTypedPin(EGPD_Output, OutputType, FName("CustomHLSLOutput"));
 	ScriptUsage = ENiagaraScriptUsage::DynamicInput;
 }
 

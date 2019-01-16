@@ -35,10 +35,11 @@ struct FLevelSequenceBindingReference
 	/**
 	 * Resolve this reference within the specified context
 	 *
-	 * @param InContext		The context to resolve the binding within. Either a UWorld or an AActor where this binding relates to an actor component
+	 * @param InContext		The context to resolve the binding within. Either a UWorld, ULevel (when playing in an instanced level) or an AActor where this binding relates to an actor component
+	 * @oaram StreamedLevelAssetPath    The path to the streamed level asset that contains the level sequence actor playing back the sequence. 'None' for any non-instance-level setups.
 	 * @return The object (usually an Actor or an ActorComponent).
 	 */
-	LEVELSEQUENCE_API UObject* Resolve(UObject* InContext) const;
+	LEVELSEQUENCE_API UObject* Resolve(UObject* InContext, FName StreamedLevelAssetPath) const;
 
 	/** Handles ExternalObjectPath fixup */
 	void PostSerialize(const FArchive& Ar);
@@ -131,11 +132,12 @@ struct FLevelSequenceBindingReferences
 	/**
 	 * Resolve a binding for the specified ID using a given context
 	 *
-	 * @param ObjectId		The ID to associate the object with
-	 * @param InContext		A context in which InObject resides
-	 * @param OutObjects	Array to populate with resolved object bindings
+	 * @param ObjectId					The ID to associate the object with
+	 * @param InContext					A context in which InObject resides
+	 * @oaram StreamedLevelAssetPath    The path to the streamed level asset that contains the level sequence actor playing back the sequence. 'None' for any non-instance-level setups.
+	 * @param OutObjects				Array to populate with resolved object bindings
 	 */
-	void ResolveBinding(const FGuid& ObjectId, UObject* InContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
+	void ResolveBinding(const FGuid& ObjectId, UObject* InContext, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
 
 	/**
 	 * Const accessor for the currently bound anim instance IDs

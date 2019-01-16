@@ -73,6 +73,13 @@ void UMovieSceneBoolSection::ReconstructChannelProxy()
 #endif
 }
 
+void UMovieSceneBoolSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	ReconstructChannelProxy();
+}
+
 void UMovieSceneBoolSection::PostLoad()
 {
 	if (!BoolCurve.GetDefault().IsSet() && DefaultValue_DEPRECATED)

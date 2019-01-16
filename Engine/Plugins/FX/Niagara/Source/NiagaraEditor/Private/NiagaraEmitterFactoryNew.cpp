@@ -196,6 +196,7 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 
 		FNiagaraStackGraphUtilities::RelayoutGraph(*Source->NodeGraph);
 		NewEmitter->bInterpolatedSpawning = true;
+		NewEmitter->bDeterminism = false; // NOTE: Default to non-determinism
 		NewEmitter->SpawnScriptProps.Script->SetUsage(ENiagaraScriptUsage::ParticleSpawnScriptInterpolated);
 	}
 	

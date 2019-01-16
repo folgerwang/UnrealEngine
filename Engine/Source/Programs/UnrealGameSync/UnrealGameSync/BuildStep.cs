@@ -104,6 +104,21 @@ namespace UnrealGameSync
 			}
 		}
 
+		public bool IsValid()
+		{
+			switch(Type)
+			{
+				case BuildStepType.Compile:
+					return Target != null && Platform != null && Configuration != null;
+				case BuildStepType.Cook:
+					return FileName != null;
+				case BuildStepType.Other:
+					return FileName != null;
+				default:
+					return false;
+			}
+		}
+
 		public static void MergeBuildStepObjects(Dictionary<Guid, ConfigObject> BuildStepObjects, IEnumerable<ConfigObject> ModifyObjects)
 		{
 			foreach(ConfigObject ModifyObject in ModifyObjects)

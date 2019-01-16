@@ -288,6 +288,11 @@ bool ULevelSequence::CanPossessObject(UObject& Object, UObject* InPlaybackContex
 
 void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
+	LocateBoundObjects(ObjectId, Context, NAME_None, OutObjects);
+}
+
+void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
+{
 	// Handle legacy object references
 	UObject* Object = Context ? ObjectReferences.ResolveBinding(ObjectId, Context) : nullptr;
 	if (Object)
@@ -295,7 +300,7 @@ void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context,
 		OutObjects.Add(Object);
 	}
 
-	BindingReferences.ResolveBinding(ObjectId, Context, OutObjects);
+	BindingReferences.ResolveBinding(ObjectId, Context, StreamedLevelAssetPath, OutObjects);
 }
 
 void ULevelSequence::GatherExpiredObjects(const FMovieSceneObjectCache& InObjectCache, TArray<FGuid>& OutInvalidIDs) const

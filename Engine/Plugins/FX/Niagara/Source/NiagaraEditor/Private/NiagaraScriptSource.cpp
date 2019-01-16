@@ -185,6 +185,13 @@ void InitializeNewRapidIterationParametersForNode(const UEdGraphSchema_Niagara* 
 		for (const UEdGraphPin* FunctionInputPin : FunctionInputPins)
 		{
 			FNiagaraTypeDefinition InputType = Schema->PinToTypeDefinition(FunctionInputPin);
+			if (InputType.IsValid() == false)
+			{
+				UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid input type found while attempting initialize new rapid iteration parameters. Function Node: %s %s Input Name: %s"),
+					*FunctionCallNode->GetPathName(), *FunctionCallNode->GetFunctionName(), *FunctionInputPin->GetName());
+				continue;
+			}
+
 			if (FNiagaraStackGraphUtilities::IsRapidIterationType(InputType))
 			{
 				FNiagaraParameterHandle AliasedFunctionInputHandle = FNiagaraParameterHandle::CreateAliasedModuleParameterHandle(FNiagaraParameterHandle(FunctionInputPin->PinName), FunctionCallNode);

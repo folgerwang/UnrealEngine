@@ -162,6 +162,8 @@ public:
 	//~UObject interface
 	virtual void PostLoad()override;
 	//~UObject interface
+
+	FName GetNamespace()const { return Namespace; }
 protected:
 	
 	void MakeNamespaceNameUnique();

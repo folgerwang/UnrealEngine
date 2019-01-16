@@ -643,13 +643,6 @@ void UNiagaraStackScriptItemGroup::OnScriptGraphChanged(const struct FEdGraphEdi
 
 void UNiagaraStackScriptItemGroup::AddParameterModuleToStack(const UNiagaraStackModuleSpacer* InModuleSpacer, const FNiagaraVariable &InVariable)
 {
-	TArray<FNiagaraVariable> Vars;
-	Vars.Add(InVariable);
-	TArray<FString> DefaultVals;
-	DefaultVals.Add(FNiagaraConstants::GetAttributeDefaultValue(InVariable));
-
-	UNiagaraNodeOutput* OutputNode = GetScriptOutputNode();
-
 	int32 TargetIndex = INDEX_NONE;
 	UNiagaraStackModuleItem** TargetModuleItemPtr = StackSpacerToModuleItemMap.Find(FObjectKey(InModuleSpacer));
 	if (*TargetModuleItemPtr != nullptr)
@@ -658,8 +651,8 @@ void UNiagaraStackScriptItemGroup::AddParameterModuleToStack(const UNiagaraStack
 		TargetIndex = TargetModuleItem->GetModuleIndex();
 	}
 
-	FNiagaraStackGraphUtilities::AddParameterModuleToStack(Vars, *OutputNode, TargetIndex, DefaultVals);
-	RefreshChildren();
+	TSharedRef<FScriptGroupAddAction> AddAction = FScriptGroupAddAction::CreateExistingParameterModuleAction(InVariable);
+	AddUtilities->ExecuteAddAction(AddAction, TargetIndex);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -67,28 +67,24 @@ namespace UnrealGameSync
 				}
 			}
 
+			// If the server setting is still null, user the default
+			if(ServerAndPort == null)
+			{
+				ServerAndPort = PerforceConnection.DefaultServerAndPort;
+			}
+
 			// Update the server and username from the reported server info if it's not set
-			if(ServerAndPort == null || UserName == null)
+			if(UserName == null)
 			{
 				PerforceConnection Perforce = new PerforceConnection(UserName, null, ServerAndPort);
 
 				PerforceInfoRecord PerforceInfo;
-				if(!Perforce.Info(out PerforceInfo, Log))
+				if(!Perforce.Info(out PerforceInfo, Log) || String.IsNullOrEmpty(PerforceInfo.UserName))
 				{
 					return false;
 				}
-				if(ServerAndPort == null && !String.IsNullOrEmpty(PerforceInfo.ServerAddress))
-				{
-					ServerAndPort = PerforceInfo.ServerAddress;
-				}
-				if(UserName == null && !String.IsNullOrEmpty(PerforceInfo.UserName))
-				{
-					UserName = PerforceInfo.UserName;
-				}
-				if(ServerAndPort == null || UserName == null)
-				{
-					return false;
-				}
+
+				UserName = PerforceInfo.UserName;
 			}
 
 			// Otherwise succeed

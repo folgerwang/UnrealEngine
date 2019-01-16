@@ -273,7 +273,7 @@ void FNiagaraUtilities::CollectScriptDataInterfaceParameters(const UObject& Owne
 
 bool FNiagaraScriptDataInterfaceCompileInfo::CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const
 {
-	check(IsInGameThread());
+	// Note that this can be called on non-game threads. We ensure that the data interface CDO object is already in existence at application init time.
 	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
 	if (Obj)
 	{
@@ -283,28 +283,13 @@ bool FNiagaraScriptDataInterfaceCompileInfo::CanExecuteOnTarget(ENiagaraSimTarge
 	return false;
 }
 
-bool FNiagaraScriptDataInterfaceCompileInfo::IsSystemSolo() const
-{
-	check(IsInGameThread());
-	if (Name.ToString().StartsWith("User."))
-	{
-		return true;
-	}
-
-	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
-	if (Obj && Obj->PerInstanceDataSize() > 0)
-	{
-		return true;
-	}
-	return false;
-}
-
 UNiagaraDataInterface* FNiagaraScriptDataInterfaceCompileInfo::GetDefaultDataInterface() const
 {
-	check(IsInGameThread());
-	UNiagaraDataInterface* Obj = CastChecked<UNiagaraDataInterface>(const_cast<UClass*>(Type.GetClass())->GetDefaultObject(true));
+	// Note that this can be called on non-game threads. We ensure that the data interface CDO object is already in existence at application init time, so we don't allow this to be auto-created.
+	UNiagaraDataInterface* Obj = CastChecked<UNiagaraDataInterface>(const_cast<UClass*>(Type.GetClass())->GetDefaultObject(false));
 	return Obj;
 }
+
 #if WITH_EDITORONLY_DATA
 void FNiagaraUtilities::PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap)
 {
@@ -350,7 +335,7 @@ void FNiagaraUtilities::PrepareRapidIterationParameters(const TArray<UNiagaraScr
 		}
 		else
 		{
-			const TMap<FNiagaraVariable, int32>& SourceParameterOffsets = Script->RapidIterationParameters.GetParameterOffests();
+			const TMap<FNiagaraVariable, int32>& SourceParameterOffsets = Script->RapidIterationParameters.GetParameterOffsets();
 			for (auto ParameterOffsetIt = SourceParameterOffsets.CreateConstIterator(); ParameterOffsetIt; ++ParameterOffsetIt)
 			{
 				const FNiagaraVariable& SourceParameter = ParameterOffsetIt.Key();
