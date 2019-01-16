@@ -64,7 +64,7 @@ FString UPlayer::ConsoleCommand(const FString& Cmd, bool bWriteToLog)
 
 	if (!bWriteToLog)
 	{
-		return StrOut;
+		return MoveTemp(StrOut);
 	}
 
 	return TEXT("");

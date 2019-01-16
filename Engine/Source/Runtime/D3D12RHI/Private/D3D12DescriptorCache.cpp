@@ -953,7 +953,11 @@ bool FD3D12OnlineHeap::CanReserveSlots(uint32 NumSlots)
 	}
 	if (NumSlots > HeapSize)
 	{
+#if !defined(_HAS_EXCEPTIONS) || _HAS_EXCEPTIONS == 1
 		throw E_OUTOFMEMORY;
+#else
+		UE_LOG(LogD3D12RHI, Fatal, TEXT("Unable to reserve slot"));
+#endif
 	}
 	uint32 FirstRequestedSlot = NextSlotIndex;
 	uint32 SlotAfterReservation = NextSlotIndex + NumSlots;
@@ -995,8 +999,11 @@ uint32 FD3D12OnlineHeap::ReserveSlots(uint32 NumSlotsRequested)
 	// Sanity checks
 	if (NumSlotsRequested > HeapSize)
 	{
+#if !defined(_HAS_EXCEPTIONS) || _HAS_EXCEPTIONS == 1
 		throw E_OUTOFMEMORY;
+#else
 		return HeapExhaustedValue;
+#endif
 	}
 
 	// CanReserveSlots should have been called first

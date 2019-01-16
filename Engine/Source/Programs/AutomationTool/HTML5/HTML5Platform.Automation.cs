@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Net.Http;
@@ -98,7 +98,7 @@ public class HTML5Platform : Platform
 		else
 		{
 			// we need to operate in the root
-			string PythonPath = HTML5SDKInfo.Python();
+			string PythonPath = HTML5SDKInfo.Python().FullName;
 			string EmPackagerPath = HTML5SDKInfo.EmscriptenPackager();
 
 			using (new ScopedEnvVar("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN))

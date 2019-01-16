@@ -92,7 +92,7 @@ public:
 			// amortize UBT cost by calling it once for all platforms, rather than once per platform.
 			if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess"))==false)
 			{
-				FString UBTParams(TEXT("-autosdkonly"));
+				FString UBTParams(TEXT("-SetupPlatforms"));
 				int32 UBTReturnCode = -1;
 				FString UBTOutput;
 				if (!FDesktopPlatformModule::Get()->InvokeUnrealBuildToolSync(UBTParams, *GLog, true, UBTReturnCode, UBTOutput))
@@ -933,18 +933,18 @@ RETRY_SETUPANDVALIDATE:
 		{
 			CmdExe = TEXT("/bin/sh");
 			FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
-			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -Mode=ValidatePlatforms");
 		}
 		else if (PLATFORM_WINDOWS)
 		{
 			CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe"));
-			CommandLine = TEXT("-validateplatform");
+			CommandLine = TEXT("-Mode=ValidatePlatforms");
 		}
 		else if (PLATFORM_LINUX)
 		{
 			CmdExe = TEXT("/bin/bash");	// bash and not sh because of pushd
 			FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Linux/RunMono.sh"));
-			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -Mode=ValidatePlatforms");
 		}
 		else
 		{

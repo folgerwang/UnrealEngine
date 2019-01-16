@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Modules/ModuleManager.h"
 #include "IScriptGeneratorPluginInterface.h"
 
 

@@ -165,10 +165,10 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_ANDROID_OPENGL=0");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
-			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
+			DirectoryReference MLSDKDir = new DirectoryReference(Environment.GetEnvironmentVariable("MLSDK"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
 
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lib/lumin"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/lib"));
@@ -255,10 +255,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployLumin(Target.ProjectFile).PrepTargetForDeployment(Target);
+			new UEDeployLumin(Receipt.ProjectFile).PrepTargetForDeployment(Receipt);
 		}
 
 		public override void ValidateTarget(TargetRules Target)
@@ -393,15 +393,15 @@ namespace UnrealBuildTool
 
 	class LuminPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Lumin; }
 		}
 
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			LuminPlatformSDK SDK = new LuminPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{

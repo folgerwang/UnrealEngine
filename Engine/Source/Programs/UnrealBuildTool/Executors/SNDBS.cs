@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -113,12 +113,12 @@ namespace UnrealBuildTool
 							// Determine whether there are any prerequisites of the action that are outdated.
 							bool bHasOutdatedPrerequisites = false;
 							bool bHasFailedPrerequisites = false;
-							foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+							foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 							{
-								if (PrerequisiteItem.ProducingAction != null && InLocalActions.Contains(PrerequisiteItem.ProducingAction))
+								if (InLocalActions.Contains(PrerequisiteAction))
 								{
 									ActionThread PrerequisiteProcess = null;
-									bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+									bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 									if (bFoundPrerequisiteProcess == true)
 									{
 										if (PrerequisiteProcess == null)
@@ -190,12 +190,12 @@ namespace UnrealBuildTool
 					// Determine whether there are any prerequisites of the action that are outdated.
 					bool bHasOutdatedPrerequisites = false;
 					bool bHasFailedPrerequisites = false;
-					foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+					foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 					{
-						if (PrerequisiteItem.ProducingAction != null && InActions.Contains(PrerequisiteItem.ProducingAction))
+						if (InActions.Contains(PrerequisiteAction))
 						{
 							ActionThread PrerequisiteProcess = null;
-							bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+							bool bFoundPrerequisiteProcess = InActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 							if (bFoundPrerequisiteProcess == true)
 							{
 								if (PrerequisiteProcess == null)
@@ -236,7 +236,7 @@ namespace UnrealBuildTool
 						{
 							// Add to script for execution by SN-DBS
 							string NewCommandArguments = "\"" + Action.CommandPath + "\"" + " " + Action.CommandArguments;
-							ScriptFile.WriteLine(ActionThread.ExpandEnvironmentVariables(NewCommandArguments));
+							ScriptFile.WriteLine(NewCommandArguments);
 							InActionThreadDictionary.Add(Action, DummyActionThread);
 							Action.StartTime = Action.EndTime = DateTimeOffset.Now;
 							Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, InActions.Count, Action.CommandDescription, Action.StatusDescription);
@@ -409,7 +409,7 @@ namespace UnrealBuildTool
 						"^{0}^{1:0.00}^{2}^{3}^{4}",
 						Action.ActionType.ToString(),
 						ThreadSeconds,
-						Path.GetFileName(Action.CommandPath),
+						Action.CommandPath.GetFileName(),
 						Action.StatusDescription,
 						Action.bIsUsingPCH);
 
@@ -420,7 +420,7 @@ namespace UnrealBuildTool
 				Log.TraceInformation("-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 				// Log total CPU seconds and numbers of processors involved in tasks.
-				Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+				Log.WriteLineIf(bLogDetailedActionStats,
 					LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 			}
 			return SNDBSResult;

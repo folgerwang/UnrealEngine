@@ -2401,7 +2401,7 @@ namespace UnrealBuildTool
 			return GlobalContext.StringVariables["Output"];
 		}
 
-		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration, BuildVersion Version)
+		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration)
 		{
 			GlobalContext.BoolVariables["Distribution"] = bDistribution;
 			GlobalContext.StringVariables["Configuration"] = Configuration;
@@ -2410,6 +2410,7 @@ namespace UnrealBuildTool
 			GlobalContext.StringVariables["BuildDir"] = BuildDirectory.Replace("\\", "/");
 			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory.Replace("\\", "/");
 
+			ReadOnlyBuildVersion Version = ReadOnlyBuildVersion.Current;
 			GlobalContext.IntVariables["EngineMajorVersion"] = Version.MajorVersion;
 			GlobalContext.IntVariables["EngineMinorVersion"] = Version.MinorVersion;
 			GlobalContext.IntVariables["EnginePatchVersion"] = Version.PatchVersion;

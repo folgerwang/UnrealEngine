@@ -326,10 +326,16 @@ namespace UnrealBuildTool
 			if (!PluginFileCache.TryGetValue(ParentDirectory, out FileNames))
 			{
 				FileNames = new List<FileReference>();
-				if (DirectoryReference.Exists(ParentDirectory))
+
+				DirectoryItem ParentDirectoryItem = DirectoryItem.GetItemByDirectoryReference(ParentDirectory);
+				if (ParentDirectoryItem.Exists)
 				{
-					EnumeratePluginsInternal(ParentDirectory, FileNames);
+					using(ThreadPoolWorkQueue Queue = new ThreadPoolWorkQueue())
+					{
+						EnumeratePluginsInternal(ParentDirectoryItem, FileNames, Queue);
+					}
 				}
+
 				PluginFileCache.Add(ParentDirectory, FileNames);
 			}
 			return FileNames;
@@ -340,22 +346,30 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ParentDirectory">Parent directory to look in. Plugins will be found in any *subfolders* of this directory.</param>
 		/// <param name="FileNames">List of filenames. Will have all the discovered .uplugin files appended to it.</param>
-		static void EnumeratePluginsInternal(DirectoryReference ParentDirectory, List<FileReference> FileNames)
+		/// <param name="Queue">Queue for tasks to be executed</param>
+		static void EnumeratePluginsInternal(DirectoryItem ParentDirectory, List<FileReference> FileNames, ThreadPoolWorkQueue Queue)
 		{
-			foreach (DirectoryReference ChildDirectory in DirectoryReference.EnumerateDirectories(ParentDirectory))
+			foreach (DirectoryItem ChildDirectory in ParentDirectory.EnumerateDirectories())
 			{
-				int InitialFileNamesCount = FileNames.Count;
-				foreach (FileReference PluginFile in DirectoryReference.EnumerateFiles(ChildDirectory, "*.uplugin"))
+				bool bSearchSubDirectories = true;
+				foreach (FileItem PluginFile in ChildDirectory.EnumerateFiles())
 				{
-					FileNames.Add(PluginFile);
+					if(PluginFile.HasExtension(".uplugin"))
+					{
+						lock(FileNames)
+						{
+							FileNames.Add(PluginFile.Location);
+						}
+						bSearchSubDirectories = false;
+					}
 				}
-				if (FileNames.Count == InitialFileNamesCount)
+
+				if (bSearchSubDirectories)
 				{
-					EnumeratePluginsInternal(ChildDirectory, FileNames);
+					Queue.Enqueue(() => EnumeratePluginsInternal(ChildDirectory, FileNames, Queue));
 				}
 			}
 		}
-
 
 		/// <summary>
 		/// Determine if a plugin is enabled for a given project

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -15,6 +15,11 @@ namespace Tools.DotNETCommon
 	public class ThreadPoolWorkQueue : IDisposable
 	{
 		/// <summary>
+		/// Object used for controlling access to NumOutstandingJobs and updating EmptyEvent
+		/// </summary>
+		object LockObject = new object();
+
+		/// <summary>
 		/// Number of jobs remaining in the queue. This is updated in an atomic way.
 		/// </summary>
 		int NumOutstandingJobs;
@@ -23,6 +28,11 @@ namespace Tools.DotNETCommon
 		/// Event which indicates whether the queue is empty.
 		/// </summary>
 		ManualResetEvent EmptyEvent = new ManualResetEvent(true);
+
+		/// <summary>
+		/// Exceptions which occurred while executing tasks
+		/// </summary>
+		List<Exception> Exceptions = new List<Exception>();
 
 		/// <summary>
 		/// Default constructor
@@ -59,11 +69,20 @@ namespace Tools.DotNETCommon
 		/// <param name="ActionToExecute">The action to add</param>
 		public void Enqueue(Action ActionToExecute)
 		{
-			if(Interlocked.Increment(ref NumOutstandingJobs) == 1)
+			lock(LockObject)
 			{
-				EmptyEvent.Reset();
+				if(NumOutstandingJobs == 0)
+				{
+					EmptyEvent.Reset();
+				}
+				NumOutstandingJobs++;
 			}
+
+#if SINGLE_THREAD
+			Execute(ActionToExecute);
+#else
 			ThreadPool.QueueUserWorkItem(Execute, ActionToExecute);
+#endif
 		}
 
 		/// <summary>
@@ -72,10 +91,28 @@ namespace Tools.DotNETCommon
 		/// <param name="ActionToExecute">The action to execute</param>
 		void Execute(object ActionToExecute)
 		{
-			((Action)ActionToExecute)();
-			if(Interlocked.Decrement(ref NumOutstandingJobs) == 0)
+			try
 			{
-				EmptyEvent.Set();
+				((Action)ActionToExecute)();
+			}
+			catch(Exception Ex)
+			{
+				lock(LockObject)
+				{
+					Exceptions.Add(Ex);
+				}
+				throw;
+			}
+			finally
+			{
+				lock(LockObject)
+				{
+					NumOutstandingJobs--;
+					if(NumOutstandingJobs == 0)
+					{
+						EmptyEvent.Set();
+					}
+				}
 			}
 		}
 
@@ -85,6 +122,7 @@ namespace Tools.DotNETCommon
 		public void Wait()
 		{
 			EmptyEvent.WaitOne();
+			RethrowExceptions();
 		}
 
 		/// <summary>
@@ -94,7 +132,26 @@ namespace Tools.DotNETCommon
 		/// <returns>True if the queue completed, false if the timeout elapsed</returns>
 		public bool Wait(int MillisecondsTimeout)
 		{
-			return EmptyEvent.WaitOne(MillisecondsTimeout);
+			bool bResult = EmptyEvent.WaitOne(MillisecondsTimeout);
+			if(bResult)
+			{
+				RethrowExceptions();
+			}
+			return bResult;
+		}
+
+		/// <summary>
+		/// Checks for any exceptions which ocurred in queued tasks, and re-throws them on the current thread
+		/// </summary>
+		public void RethrowExceptions()
+		{
+			lock(LockObject)
+			{
+				if(Exceptions.Count > 0)
+				{
+					throw new AggregateException(Exceptions.ToArray());
+				}
+			}
 		}
 	}
 }

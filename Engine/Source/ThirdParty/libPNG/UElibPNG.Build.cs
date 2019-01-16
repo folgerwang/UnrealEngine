@@ -35,12 +35,10 @@ public class UElibPNG : ModuleRules
 			if (Target.Architecture == "-simulator")
 			{
 				PublicLibraryPaths.Add(libPNGPath + "/lib/ios/Simulator");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "libPNG/libPNG-1.5.2/lib/ios/Simulator/libpng152.a");
 			}
 			else
 			{
 				PublicLibraryPaths.Add(libPNGPath + "/lib/ios/Device");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "libPNG/libPNG-1.5.2/lib/ios/Device/libpng152.a");
 			}
 
 			PublicAdditionalLibraries.Add("png152");
@@ -50,12 +48,10 @@ public class UElibPNG : ModuleRules
 			if (Target.Architecture == "-simulator")
 			{
 				PublicLibraryPaths.Add(libPNGPath + "/lib/TVOS/Simulator");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "libPNG/libPNG-1.5.2/lib/TVOS/Simulator/libpng152.a");
 			}
 			else
 			{
 				PublicLibraryPaths.Add(libPNGPath + "/lib/TVOS/Device");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "libPNG/libPNG-1.5.2/lib/TVOS/Device/libpng152.a");
 			}
 
 			PublicAdditionalLibraries.Add("png152");

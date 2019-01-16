@@ -50,13 +50,7 @@ public:
 	static bool SupportsASTCTextureFormats() { return true; }
 	static bool SupportsQuerySurfaceProperties() { return false; }
 
-	static void SetupFeatureLevels()
-	{
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_VULKAN_ES3_1_LUMIN;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_VULKAN_ES3_1_LUMIN;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_NumPlatforms;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = PLATFORM_LUMINGL4 ? SP_VULKAN_SM5_LUMIN : SP_NumPlatforms;
-	}
+	static void SetupFeatureLevels();
 
 	static bool SupportsStandardSwapchain() { return false; }
 	static EPixelFormat GetPixelFormatForNonDefaultSwapchain() { return PF_R8G8B8A8; }

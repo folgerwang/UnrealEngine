@@ -19,7 +19,7 @@ struct NoParamMsg
 	TArray<uint8> AsData()
 	{
 		FBufferArchive MemAr;
-		return MemAr;
+		return MoveTemp(MemAr);
 	}
 };
 
@@ -47,7 +47,7 @@ struct TwoParamMsg
 	{
 		FBufferArchive MemAr;
 		MemAr << Param1 << Param2;
-		return MemAr;
+		return MoveTemp(MemAr);
 	}
 };
 
@@ -79,7 +79,7 @@ struct ThreeParamMsg
 	{
 		FBufferArchive MemAr;
 		MemAr << Param1 << Param2 << Param3;
-		return MemAr;
+		return MoveTemp(MemAr);
 	}
 };
 
@@ -115,7 +115,7 @@ struct FourParamMsg
 	{
 		FBufferArchive MemAr;
 		MemAr << Param1 << Param2 << Param3 << Param4;
-		return MemAr;
+		return MoveTemp(MemAr);
 	}
 };
 
@@ -155,6 +155,6 @@ struct FiveParamMsg
 	{
 		FBufferArchive MemAr;
 		MemAr << Param1 << Param2 << Param3 << Param4 << Param5;
-		return MemAr;
+		return MoveTemp(MemAr);
 	}
 };

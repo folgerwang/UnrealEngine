@@ -8,6 +8,7 @@
 #include "Interfaces/IProjectManager.h"
 #include "Features/IModularFeatures.h"
 #include "Templates/UniquePtr.h"
+#include "Misc/ConfigCacheIni.h"
 #include "ProjectDescriptor.h"
 
 DEFINE_LOG_CATEGORY(LogScriptGenerator);

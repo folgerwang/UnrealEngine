@@ -896,6 +896,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bShouldBuildTextureStreaming = bShouldBuildTextureStreamingForAll || Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
 	bIgnoreChangelist = Switches.Contains(TEXT("IgnoreChangelist"));
+	/** whether we should only save packages with changelist zero */
+	bOnlyUnversioned = Switches.Contains(TEXT("OnlyUnversioned"));
 	/** only process packages containing materials */
 	bOnlyMaterials = Switches.Contains(TEXT("onlymaterials"));
 
@@ -1202,6 +1204,12 @@ void UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 			*PackageLinker->GetArchiveName(),
 			PackageLinker->Summary.SavedByEngineVersion.GetChangelist(), 
 			FEngineVersion::Current().GetChangelist());
+		bSavePackage = false;
+	}
+
+	// Check if the changelist number is zero
+	if (bOnlyUnversioned && PackageLinker->Summary.SavedByEngineVersion.GetChangelist() != 0)
+	{
 		bSavePackage = false;
 	}
 
