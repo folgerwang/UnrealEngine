@@ -280,12 +280,6 @@ public:
 
 #endif // WITH_EDITORONLY_DATA
 
-	/**
-	 * The array of the subtitles for each language. Generated at cook time.
-	 */
-	UPROPERTY()
-	TArray<struct FLocalizedSubtitle> LocalizedSubtitles;
-
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FString SourceFilePath_DEPRECATED;
