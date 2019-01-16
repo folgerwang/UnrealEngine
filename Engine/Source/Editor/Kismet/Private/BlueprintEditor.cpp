@@ -136,6 +136,8 @@
 #include "BlueprintEditorModes.h"
 #include "BlueprintEditorSettings.h"
 #include "K2Node_SwitchString.h"
+#include "AnimGraphNode_StateMachineBase.h"
+#include "AnimationStateMachineGraph.h"
 
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
@@ -5312,6 +5314,14 @@ void FBlueprintEditor::DeleteSelectedNodes()
 					if (NodeGraph)
 					{
 						CloseDocumentTab(NodeGraph);
+					}
+				}
+				else
+				{
+					const UAnimGraphNode_StateMachineBase* SMNode = Cast<UAnimGraphNode_StateMachineBase>(Node);
+					if (SMNode)
+					{
+						CloseDocumentTab(SMNode->EditorStateMachineGraph);
 					}
 				}
 
