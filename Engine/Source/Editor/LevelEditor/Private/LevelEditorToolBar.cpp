@@ -1353,7 +1353,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 					}
 					case ERHIFeatureLevel::SM4:
 					{
-						return FSlateIcon(FEditorStyle::GetStyleSetName(), GEditor->IsFeatureLevelPreviewActive() ? "LevelEditor.PreviewMode.SM4.Enabled" : "LevelEditor.PreviewMode.SM4.Enabled");
+						return FSlateIcon(FEditorStyle::GetStyleSetName(), GEditor->IsFeatureLevelPreviewActive() ? "LevelEditor.PreviewMode.SM4.Enabled" : "LevelEditor.PreviewMode.SM4.Disabled");
 					}
 					case ERHIFeatureLevel::ES2:
 					{
