@@ -1071,9 +1071,12 @@ void UNiagaraScript::CacheResourceShadersForRendering(bool bRegenerateId, bool b
 			//if (ScriptResourcesByFeatureLevel[FeatureLevel])
 			{
 				EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[CacheFeatureLevel];
-				ResourceToCache = ScriptResourcesByFeatureLevel[CacheFeatureLevel];
-				CacheShadersForResources(ShaderPlatform, &ScriptResource, true);
-				ScriptResourcesByFeatureLevel[CacheFeatureLevel] = &ScriptResource;
+				if (IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) || IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::ES3_1))
+				{
+					ResourceToCache = ScriptResourcesByFeatureLevel[CacheFeatureLevel];
+					CacheShadersForResources(ShaderPlatform, &ScriptResource, true);
+					ScriptResourcesByFeatureLevel[CacheFeatureLevel] = &ScriptResource;
+				}
 			}
 		}
 	}
