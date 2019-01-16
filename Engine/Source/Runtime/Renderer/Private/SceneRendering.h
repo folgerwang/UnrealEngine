@@ -457,7 +457,7 @@ class FParallelCommandListSet
 public:
 	const FViewInfo& View;
 	const FSceneRenderer* SceneRenderer;
-	FDrawingPolicyRenderState DrawRenderState;
+	FMeshPassProcessorRenderState DrawRenderState;
 	FRHICommandListImmediate& ParentCmdList;
 	const FRHIGPUMask GPUMask; // Copy of the Parent GPUMask at creation (since it could change).
 	FSceneRenderTargets* Snapshot;
@@ -489,7 +489,7 @@ public:
 		FRHICommandListImmediate& InParentCmdList, 
 		bool bInParallelExecute, 
 		bool bInCreateSceneContext, 
-		const FDrawingPolicyRenderState& InDrawRenderState);
+		const FMeshPassProcessorRenderState& InDrawRenderState);
 
 	virtual ~FParallelCommandListSet();
 	int32 NumParallelCommandLists() const
@@ -1721,7 +1721,7 @@ protected:
 	/** Renders the opaque base pass for mobile. */
 	void RenderMobileBasePass(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
 
-	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
+	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState);
 
 	/** Render modulated shadow projections in to the scene, loops over any unrendered shadows until all are processed.*/
 	void RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);

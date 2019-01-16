@@ -109,7 +109,7 @@ public:
 
 	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 
-	FDrawingPolicyRenderState PassDrawRenderState;
+	FMeshPassProcessorRenderState PassDrawRenderState;
 
 private:
 
@@ -372,7 +372,7 @@ public:
 	void SetStateForView(FRHICommandList& RHICmdList) const;
 
 	/** Set state for depth rendering */
-	void SetStateForDepth(FDrawingPolicyRenderState& DrawRenderState) const;
+	void SetStateForDepth(FMeshPassProcessorRenderState& DrawRenderState) const;
 
 	void ClearDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, int32 NumColorTextures, FTextureRHIParamRef* ColorTextures, FTextureRHIParamRef DepthTexture, bool bPerformClear);
 
@@ -545,7 +545,7 @@ private:
 	 */
 	float ShaderDepthBias;
 
-	void CopyCachedShadowMap(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View);
+	void CopyCachedShadowMap(FRHICommandList& RHICmdList, const FMeshPassProcessorRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View);
 
 	/**
 	* Renders the shadow subject depth, to a particular hacked view

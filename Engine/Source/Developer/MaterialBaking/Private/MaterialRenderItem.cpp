@@ -19,7 +19,7 @@ FMeshMaterialRenderItem::FMeshMaterialRenderItem(const FMaterialData* InMaterial
 	LCI = new FMeshRenderInfo(InMeshSettings->LightMap, nullptr, nullptr, InMeshSettings->LightmapResourceCluster);
 }
 
-bool FMeshMaterialRenderItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+bool FMeshMaterialRenderItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 {
 	return false;
 }
@@ -68,7 +68,7 @@ bool FMeshMaterialRenderItem::Render_GameThread(const FCanvas* Canvas, FRenderTh
 		RenderScope.EnqueueRenderCommand(
 			[Parameters](FRHICommandListImmediate& RHICmdList)
 		{
-			FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+			FMeshPassProcessorRenderState DrawRenderState(*Parameters.View);
 
 			// disable depth test & writes
 			DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA>::GetRHI());
@@ -101,7 +101,7 @@ void FMeshMaterialRenderItem::GenerateRenderData()
 	}
 }
 
-void FMeshMaterialRenderItem::QueueMaterial(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View)
+void FMeshMaterialRenderItem::QueueMaterial(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FSceneView* View)
 {
 	FDynamicMeshBuilder DynamicMeshBuilder(View->GetFeatureLevel(), MAX_STATIC_TEXCOORDS, MeshSettings->LightMapIndex);
 	DynamicMeshBuilder.AddVertices(Vertices);

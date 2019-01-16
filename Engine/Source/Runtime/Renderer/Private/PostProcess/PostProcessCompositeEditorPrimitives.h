@@ -7,7 +7,7 @@
 #include "PostProcess/RenderingCompositionGraph.h"
 
 class FViewInfo;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 #if WITH_EDITOR
 

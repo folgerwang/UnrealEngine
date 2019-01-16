@@ -363,7 +363,7 @@ class FTranslucencyPassParallelCommandListSet : public FParallelCommandListSet
 	bool bRenderInSeparateTranslucency;
 
 public:
-	FTranslucencyPassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, const FDrawingPolicyRenderState& InDrawRenderState, ETranslucencyPass::Type InTranslucencyPass, bool InRenderInSeparateTranslucency)
+	FTranslucencyPassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, const FMeshPassProcessorRenderState& InDrawRenderState, ETranslucencyPass::Type InTranslucencyPass, bool InRenderInSeparateTranslucency)
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Translucency), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, TranslucencyPass(InTranslucencyPass)
 		, bRenderInSeparateTranslucency(InRenderInSeparateTranslucency)
@@ -409,7 +409,7 @@ static TAutoConsoleVariable<int32> CVarParallelTranslucency(
 	ECVF_RenderThreadSafe
 );
 
-void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass, FTranslucencyPassParallelCommandListSet* ParallelCommandListSet)
+void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass, FTranslucencyPassParallelCommandListSet* ParallelCommandListSet)
 {
 	SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
@@ -492,14 +492,14 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 	}
 }
 
-void FDeferredShadingSceneRenderer::RenderViewTranslucency(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass)
+void FDeferredShadingSceneRenderer::RenderViewTranslucency(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass)
 {
 	check(RHICmdList.IsInsideRenderPass());
 
 	RenderViewTranslucencyInner(RHICmdList, View, DrawRenderState, TranslucencyPass, nullptr);
 }
 
-void FDeferredShadingSceneRenderer::RenderViewTranslucencyParallel(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass)
+void FDeferredShadingSceneRenderer::RenderViewTranslucencyParallel(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass)
 {
 	check(RHICmdList.IsOutsideRenderPass());
 
@@ -945,7 +945,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 
 		TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
 		CreateTranslucentBasePassUniformBuffer(RHICmdList, View, SceneColorCopy, ESceneTextureSetupMode::All, BasePassUniformBuffer, ViewIndex);
-		FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
+		FMeshPassProcessorRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 		// If downsampling we need to render in the separate buffer. Otherwise we also need to render offscreen to apply TPT_TranslucencyAfterDOF
 		if (RenderInSeparateTranslucency(SceneContext, TranslucencyPass, View.TranslucentPrimSet.PrimsNum.DisableOffscreenRendering(TranslucencyPass)))

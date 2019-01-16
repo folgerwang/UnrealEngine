@@ -32,7 +32,7 @@ private:
 		float MobileColorValue,
 		bool bUsesMobileColorValue);
 
-	FDrawingPolicyRenderState PassDrawRenderState;
+	FMeshPassProcessorRenderState PassDrawRenderState;
 };
 
 FCustomDepthPassMeshProcessor::FCustomDepthPassMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)

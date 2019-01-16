@@ -591,7 +591,7 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 	bool bMobileModulatedProjections, 
 	bool bCameraInsideShadowFrustum) const
 {
-	FDrawingPolicyRenderState DrawRenderState(*View);
+	FMeshPassProcessorRenderState DrawRenderState(*View);
 
 	// Depth test wo/ writes, no color writing.
 	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());

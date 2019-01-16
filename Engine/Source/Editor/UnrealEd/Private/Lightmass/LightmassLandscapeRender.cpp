@@ -134,7 +134,7 @@ void RenderLandscapeMaterialForLightmass(const FLandscapeStaticLightingMesh* Lan
 
 					FSceneView View(ViewInitOptions);
 
-					FDrawingPolicyRenderState DrawRenderState(View);
+					FMeshPassProcessorRenderState DrawRenderState(View);
 
 					// disable depth test & writes
 					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());

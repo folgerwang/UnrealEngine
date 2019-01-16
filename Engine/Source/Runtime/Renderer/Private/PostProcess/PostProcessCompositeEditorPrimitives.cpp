@@ -300,7 +300,7 @@ static void SetPopulateSceneDepthForEditorPrimitivesShaderTempl(const FRendering
 	PixelShader->SetParameters(Context);
 }
 
-static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
+static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	// Always depth test against other editor primitives
 	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<
@@ -351,7 +351,7 @@ static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const F
 	View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false, 1.0f);
 }
 
-static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
+static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -570,7 +570,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 				BasePassUniformBuffer = MobileBasePassUniformBuffer;
 			}
 
-			FDrawingPolicyRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
 			DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
 			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
 

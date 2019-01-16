@@ -170,7 +170,7 @@ void GetDepthPassShaders(
 IMPLEMENT_GetDepthPassShaders( true );
 IMPLEMENT_GetDepthPassShaders( false );
 
-void SetDepthPassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 StaticMeshId, FDrawingPolicyRenderState& DrawRenderState)
+void SetDepthPassDitheredLODTransitionState(const FSceneView* SceneView, const FMeshBatch& RESTRICT Mesh, int32 StaticMeshId, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	if (SceneView && StaticMeshId >= 0 && Mesh.bDitheredLODTransition)
 	{
@@ -251,7 +251,7 @@ static void RenderHiddenAreaMaskView(FRHICommandList& RHICmdList, FGraphicsPipel
 	}
 }
 
-void FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
+void FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState)
 {
 	SetupPrePassView(RHICmdList, View, this);
 
@@ -263,7 +263,7 @@ DECLARE_CYCLE_STAT(TEXT("Prepass"), STAT_CLP_Prepass, STATGROUP_ParallelCommandL
 class FPrePassParallelCommandListSet : public FParallelCommandListSet
 {
 public:
-	FPrePassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, const FDrawingPolicyRenderState& InDrawRenderState)
+	FPrePassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext, const FMeshPassProcessorRenderState& InDrawRenderState)
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Prepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 	{
 		// Do not copy-paste. this is a very unusual FParallelCommandListSet because it is a prepass and we want to do some work after starting some tasks
@@ -283,7 +283,7 @@ public:
 	}
 };
 
-bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FDrawingPolicyRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre)
+bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FMeshPassProcessorRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre)
 {
 	bool bDepthWasCleared = false;
 
@@ -417,7 +417,7 @@ bool FDeferredShadingSceneRenderer::PreRenderPrePass(FRHICommandListImmediate& R
 	return bDepthWasCleared;
 }
 
-void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, EDepthDrawingMode DepthDrawingMode, bool bRespectUseAsOccluderFlag) 
+void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, EDepthDrawingMode DepthDrawingMode, bool bRespectUseAsOccluderFlag) 
 {
 	SetupPrePassView(RHICmdList, View, this, true);
 
@@ -480,7 +480,7 @@ void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandLis
 	}
 }
 
-void SetupDepthPassState(FDrawingPolicyRenderState& DrawRenderState)
+void SetupDepthPassState(FMeshPassProcessorRenderState& DrawRenderState)
 {
 	// Disable color writes, enable depth tests and writes.
 	DrawRenderState.SetBlendState(TStaticBlendState<CW_NONE>::GetRHI());
@@ -560,7 +560,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer;
 			CreateDepthPassUniformBuffer(RHICmdList, View, PassUniformBuffer);
 
-			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
 			if (View.ShouldRenderView())
 			{
@@ -711,7 +711,7 @@ void FDepthPassMeshProcessor::Process(
 		false
 		);
 
-	FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
+	FMeshPassProcessorRenderState DrawRenderState(PassDrawRenderState);
 
 	SetDepthPassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, StaticMeshId, DrawRenderState);
 
@@ -813,7 +813,7 @@ void FDepthPassMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
 
 FDepthPassMeshProcessor::FDepthPassMeshProcessor(const FScene* Scene,
 	const FSceneView* InViewIfDynamicMeshCommand,
-	const FDrawingPolicyRenderState& InPassDrawRenderState,
+	const FMeshPassProcessorRenderState& InPassDrawRenderState,
 	const bool InbRespectUseAsOccluderFlag,
 	const EDepthDrawingMode InEarlyZPassMode,
 	const bool InbEarlyZPassMovable,
@@ -836,7 +836,7 @@ FMeshPassProcessor* CreateDepthPassProcessor(const FScene* Scene, const FSceneVi
 	bool bEarlyZPassMovable;
 	GetEarlyZPassMode(Scene->GetShaderPlatform(), EarlyZPassMode, bEarlyZPassMovable);
 
-	FDrawingPolicyRenderState DepthPassState;
+	FMeshPassProcessorRenderState DepthPassState;
 	SetupDepthPassState(DepthPassState);
 	return new(FMemStack::Get()) FDepthPassMeshProcessor(Scene, InViewIfDynamicMeshCommand, DepthPassState, true, EarlyZPassMode, bEarlyZPassMovable, InDrawListContext);
 }

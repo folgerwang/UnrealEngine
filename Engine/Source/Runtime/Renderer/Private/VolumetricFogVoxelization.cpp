@@ -425,7 +425,7 @@ private:
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode);
 
-	FDrawingPolicyRenderState PassDrawRenderState;
+	FMeshPassProcessorRenderState PassDrawRenderState;
 };
 
 FVoxelizeVolumeMeshProcessor::FVoxelizeVolumeMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
@@ -618,7 +618,7 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 			Scene->UniformBuffers.VoxelizeVolumeViewUniformBuffer.UpdateUniformBufferImmediate(ViewVoxelizeParameters);
 			Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer.UpdateUniformBufferImmediate(VoxelizeVolumePassParameters);
 
-			FDrawingPolicyRenderState DrawRenderState(View, Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(View, Scene->UniformBuffers.VoxelizeVolumePassUniformBuffer);
 			DrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.VoxelizeVolumeViewUniformBuffer);
 
 			DrawDynamicMeshPass(View, RHICmdList,

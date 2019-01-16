@@ -139,7 +139,7 @@ private:
 		ERasterizerFillMode MeshFillMod1e,
 		ERasterizerCullMode MeshCullMode);
 
-	FDrawingPolicyRenderState PassDrawRenderState;
+	FMeshPassProcessorRenderState PassDrawRenderState;
 };
 
 FConvertToUniformMeshProcessor::FConvertToUniformMeshProcessor(const FScene* Scene, const FViewInfo* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)

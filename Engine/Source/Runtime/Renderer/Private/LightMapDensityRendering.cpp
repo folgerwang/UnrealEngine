@@ -78,7 +78,7 @@ bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmed
 			SetupLightmapDensityPassUniformBuffer(RHICmdList, View, LightmapDensityPassParameters);
 			Scene->UniformBuffers.LightmapDensityPassUniformBuffer.UpdateUniformBufferImmediate(LightmapDensityPassParameters);
 
-			FDrawingPolicyRenderState DrawRenderState(View, Scene->UniformBuffers.LightmapDensityPassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(View, Scene->UniformBuffers.LightmapDensityPassUniformBuffer);
 
 			// Opaque blending, depth tests and writes.
 			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());

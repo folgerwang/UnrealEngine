@@ -479,7 +479,7 @@ static void DrawDistortionMergePass(FRHICommandListImmediate& RHICmdList, FScene
 		EDRF_UseTriangleOptimization);
 }
 
-bool SubmitDistortionMeshDrawCommands(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
+bool SubmitDistortionMeshDrawCommands(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FDistortionPrimSet_DrawAccumulatedOffsets);
 
@@ -569,7 +569,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 					SetupDistortionPassUniformBuffer(RHICmdList, View, DistortionPassParameters);
 					Scene->UniformBuffers.DistortionPassUniformBuffer.UpdateUniformBufferImmediate(DistortionPassParameters);
 
-					FDrawingPolicyRenderState DrawRenderState(View, Scene->UniformBuffers.DistortionPassUniformBuffer);
+					FMeshPassProcessorRenderState DrawRenderState(View, Scene->UniformBuffers.DistortionPassUniformBuffer);
 
 					// test against depth and write stencil mask
 					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<
@@ -772,7 +772,7 @@ void FDistortionMeshProcessor::Process(
 		ShaderElementData);
 }
 
-FDistortionMeshProcessor::FDistortionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FDrawingPolicyRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
+FDistortionMeshProcessor::FDistortionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDrawRenderState(InPassDrawRenderState)
 {
@@ -780,7 +780,7 @@ FDistortionMeshProcessor::FDistortionMeshProcessor(const FScene* Scene, const FS
 
 FMeshPassProcessor* CreateDistortionPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState DistortionPassState;
+	FMeshPassProcessorRenderState DistortionPassState;
 	DistortionPassState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
 	DistortionPassState.SetPassUniformBuffer(Scene->UniformBuffers.DistortionPassUniformBuffer);
 	
@@ -801,7 +801,7 @@ FMeshPassProcessor* CreateDistortionPassProcessor(const FScene* Scene, const FSc
 
 FMeshPassProcessor* CreateMobileDistortionPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState DistortionPassState;
+	FMeshPassProcessorRenderState DistortionPassState;
 	DistortionPassState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
 	DistortionPassState.SetPassUniformBuffer(Scene->UniformBuffers.MobileDistortionPassUniformBuffer);
 

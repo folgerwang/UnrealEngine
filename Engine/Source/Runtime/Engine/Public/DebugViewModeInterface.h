@@ -17,7 +17,7 @@ DebugViewModeInterface.h: Contains definitions for rendering debug viewmodes.
 class FDebugViewModePS;
 class FMaterial;
 class FVertexFactoryType;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 class ENGINE_API FDebugViewModeInterface
 {

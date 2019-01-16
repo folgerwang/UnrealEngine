@@ -10,7 +10,7 @@
 #include "MobileBasePassRendering.h"
 #include "MeshPassProcessor.inl"
 
-FEditorPrimitivesBasePassMeshProcessor::FEditorPrimitivesBasePassMeshProcessor(const FScene* Scene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, const FDrawingPolicyRenderState& InDrawRenderState, bool bInTranslucentBasePass, FMeshPassDrawListContext* InDrawListContext) 
+FEditorPrimitivesBasePassMeshProcessor::FEditorPrimitivesBasePassMeshProcessor(const FScene* Scene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InDrawRenderState, bool bInTranslucentBasePass, FMeshPassDrawListContext* InDrawListContext) 
 	: FMeshPassProcessor(Scene, InFeatureLevel, InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDrawRenderState(InDrawRenderState)
 	, bTranslucentBasePass(bInTranslucentBasePass)
@@ -73,11 +73,11 @@ void FEditorPrimitivesBasePassMeshProcessor::ProcessDeferredShadingPath(const FM
 		BasePassShaders.PixelShader
 		);
 
-	FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
+	FMeshPassProcessorRenderState DrawRenderState(PassDrawRenderState);
 
 	if (bTranslucentBasePass)
 	{
-		extern void SetTranslucentRenderState(FDrawingPolicyRenderState& DrawRenderState, const FMaterial& Material);
+		extern void SetTranslucentRenderState(FMeshPassProcessorRenderState& DrawRenderState, const FMaterial& Material);
 		SetTranslucentRenderState(DrawRenderState, Material);
 	}
 
@@ -127,7 +127,7 @@ void FEditorPrimitivesBasePassMeshProcessor::ProcessMobileShadingPath(const FMes
 		BasePassShaders.VertexShader, 
 		BasePassShaders.PixelShader);
 	
-	FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
+	FMeshPassProcessorRenderState DrawRenderState(PassDrawRenderState);
 
 	if (bTranslucentBasePass)
 	{

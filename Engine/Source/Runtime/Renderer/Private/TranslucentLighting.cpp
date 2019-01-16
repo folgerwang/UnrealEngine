@@ -271,14 +271,14 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FSceneView& View,
 		const FProjectedShadowInfo* ShadowInfo, 
-		const FDrawingPolicyRenderState& DrawRenderState
+		const FMeshPassProcessorRenderState& DrawRenderState
 		)
 	{
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 		ShadowParameters.SetVertexShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshPassProcessorRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -344,7 +344,7 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FSceneView& View,
 		const FProjectedShadowInfo* ShadowInfo, 
-		const FDrawingPolicyRenderState& DrawRenderState
+		const FMeshPassProcessorRenderState& DrawRenderState
 		)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
@@ -363,7 +363,7 @@ public:
 		SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, GetUniformBufferParameter<FTranslucentSelfShadowUniformParameters>(), TranslucentSelfShadowUniformParameters);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshPassProcessorRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -447,7 +447,7 @@ public:
 		BaseVertexShader = VertexShader;
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const
+	void SetSharedState(FRHICommandList& RHICmdList, const FMeshPassProcessorRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const
 	{
 		// Set the shared mesh resources.
 		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
@@ -478,7 +478,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
+		const FMeshPassProcessorRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -516,7 +516,7 @@ public:
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
 		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
+		const FMeshPassProcessorRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		)
@@ -535,7 +535,7 @@ public:
 			{
 				FTranslucencyShadowDepthDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), ComputeMeshOverrideSettings(Mesh), DrawingContext.bDirectionalLight);
 
-				FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
+				FMeshPassProcessorRenderState DrawRenderStateLocal(DrawRenderState);
 				DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
 				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
 				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
@@ -565,7 +565,7 @@ public:
 		ContextType DrawingContext,
 		const FStaticMeshBatch& StaticMesh,
 		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
+		const FMeshPassProcessorRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		)
@@ -604,7 +604,7 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	SetupSceneTextureUniformParameters(SceneContext, ShadowDepthView->FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 	TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
 
-	FDrawingPolicyRenderState DrawRenderState(*ShadowDepthView, PassUniformBuffer);
+	FMeshPassProcessorRenderState DrawRenderState(*ShadowDepthView, PassUniformBuffer);
 	{
 #if WANTS_DRAW_MESH_EVENTS
 		FString EventName;

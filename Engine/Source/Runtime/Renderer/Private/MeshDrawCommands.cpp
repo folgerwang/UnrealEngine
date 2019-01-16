@@ -519,7 +519,7 @@ void ApplyViewOverridesToMeshDrawCommands(
 
 				if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)
 				{
-					FDrawingPolicyRenderState PassDrawRenderState;
+					FMeshPassProcessorRenderState PassDrawRenderState;
 					SetupBasePassState(BasePassDepthStencilAccess, false, PassDrawRenderState);
 					NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
 				}

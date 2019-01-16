@@ -270,7 +270,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 		SceneRenderer->Scene->UniformBuffers.HitProxyPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
 
-		FDrawingPolicyRenderState DrawRenderState(View, SceneRenderer->Scene->UniformBuffers.HitProxyPassUniformBuffer);
+		FMeshPassProcessorRenderState DrawRenderState(View, SceneRenderer->Scene->UniformBuffers.HitProxyPassUniformBuffer);
 
 		// Set the device viewport for the view.
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
@@ -477,7 +477,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("HitProxies"));
 		{
 			FSceneView SceneView = FBatchedElements::CreateProxySceneView(PixelToView, FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y));
-			FDrawingPolicyRenderState DrawRenderState(SceneView);
+			FMeshPassProcessorRenderState DrawRenderState(SceneView);
 
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -671,7 +671,7 @@ void FHitProxyMeshProcessor::Process(
 		ShaderElementData);
 }
 
-FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbAllowTranslucentPrimitivesInHitProxy, const FDrawingPolicyRenderState& InRenderState, FMeshPassDrawListContext* InDrawListContext)
+FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbAllowTranslucentPrimitivesInHitProxy, const FMeshPassProcessorRenderState& InRenderState, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 	, PassDrawRenderState(InRenderState)
 	, bAllowTranslucentPrimitivesInHitProxy(InbAllowTranslucentPrimitivesInHitProxy)
@@ -680,7 +680,7 @@ FHitProxyMeshProcessor::FHitProxyMeshProcessor(const FScene* Scene, const FScene
 
 FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
+	FMeshPassProcessorRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 	return new(FMemStack::Get()) FHitProxyMeshProcessor(Scene, InViewIfDynamicMeshCommand, true, PassDrawRenderState, InDrawListContext);
@@ -688,7 +688,7 @@ FMeshPassProcessor* CreateHitProxyPassProcessor(const FScene* Scene, const FScen
 
 FMeshPassProcessor* CreateHitProxyOpaqueOnlyPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
+	FMeshPassProcessorRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.HitProxyPassUniformBuffer);
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 	return new(FMemStack::Get()) FHitProxyMeshProcessor(Scene, InViewIfDynamicMeshCommand, false, PassDrawRenderState, InDrawListContext);

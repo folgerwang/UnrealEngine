@@ -771,7 +771,7 @@ void FProjectedShadowInfo::SetStateForView(FRHICommandList& RHICmdList) const
 	);
 }
 
-void SetStateForShadowDepth(bool bReflectiveShadowmap, bool bOnePassPointLightShadow, FDrawingPolicyRenderState& DrawRenderState)
+void SetStateForShadowDepth(bool bReflectiveShadowmap, bool bOnePassPointLightShadow, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	if (bReflectiveShadowmap && !bOnePassPointLightShadow)
 	{
@@ -826,7 +826,7 @@ public:
 		FRHICommandListImmediate& InParentCmdList,
 		bool bInParallelExecute,
 		bool bInCreateSceneContext,
-		const FDrawingPolicyRenderState& InDrawRenderState,
+		const FMeshPassProcessorRenderState& InDrawRenderState,
 		FProjectedShadowInfo& InProjectedShadowInfo,
 		FBeginShadowRenderPassFunction InBeginShadowRenderPass)
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Shadow), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
@@ -947,7 +947,7 @@ public:
 
 IMPLEMENT_SHADER_TYPE(, FCopyShadowMaps2DPS, TEXT("/Engine/Private/CopyShadowMaps.usf"), TEXT("Copy2DDepthPS"), SF_Pixel);
 
-void FProjectedShadowInfo::CopyCachedShadowMap(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View)
+void FProjectedShadowInfo::CopyCachedShadowMap(FRHICommandList& RHICmdList, const FMeshPassProcessorRenderState& DrawRenderState, FSceneRenderer* SceneRenderer, const FViewInfo& View)
 {
 	check(CacheMode == SDCM_MovablePrimitivesOnly);
 	const FCachedShadowMapData& CachedShadowMapData = SceneRenderer->Scene->CachedShadowMaps.FindChecked(GetLightSceneInfo().Id);
@@ -1099,7 +1099,7 @@ void FProjectedShadowInfo::RenderDepthInner(FRHICommandListImmediate& RHICmdList
 		PassUniformBuffer = SceneRenderer->Scene->UniformBuffers.MobileCSMShadowDepthPassUniformBuffer;
 	}
 
-	FDrawingPolicyRenderState DrawRenderState(*ShadowDepthView, PassUniformBuffer);
+	FMeshPassProcessorRenderState DrawRenderState(*ShadowDepthView, PassUniformBuffer);
 	SetStateForShadowDepth(bReflectiveShadowmap, bOnePassPointLightShadow, DrawRenderState);
 	SetStateForView(RHICmdList);
 
@@ -1847,7 +1847,7 @@ FShadowDepthPassMeshProcessor::FShadowDepthPassMeshProcessor(
 	FShadowDepthType InShadowDepthType,
 	FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
-	, PassDrawRenderState(FDrawingPolicyRenderState(InViewUniformBuffer, InPassUniformBuffer))
+	, PassDrawRenderState(FMeshPassProcessorRenderState(InViewUniformBuffer, InPassUniformBuffer))
 	, ShadowDepthType(InShadowDepthType)
 {
 	SetStateForShadowDepth(ShadowDepthType.bReflectiveShadowmap, ShadowDepthType.bOnePassPointLightShadow, PassDrawRenderState);

@@ -787,7 +787,7 @@ public:
 	* @param RHICmdList - command list to use
 	* @return true if anything rendered
 	*/
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) = 0;
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas) = 0;
 	
 	/**
 	* Renders the canvas item
@@ -866,7 +866,7 @@ public:
 	* @param RHICmdList - command list to use
 	* @return true if anything rendered
 	*/
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) override;
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas) override;
 	
 	/**
 	* Renders the canvas item.
@@ -994,7 +994,7 @@ public:
 	* @param RHICmdList - command list to use
 	* @return true if anything rendered
 	*/
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) override;
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas) override;
 
 	/**
 	* Renders the canvas item.
@@ -1150,7 +1150,7 @@ public:
 	* @param RHICmdList - command list to use
 	* @return true if anything rendered
 	*/
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) override;
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas) override;
 
 	/**
 	* Renders the canvas item.

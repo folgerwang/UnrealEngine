@@ -12,7 +12,7 @@ class FSceneView;
 class FRHICommandListImmediate;
 struct FMaterialData;
 struct FMeshData;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 class FMeshMaterialRenderItem : public FCanvasBaseRenderItem
 {
@@ -20,7 +20,7 @@ public:
 	FMeshMaterialRenderItem(const FMaterialData* InMaterialSettings, const FMeshData* InMeshSettings, EMaterialProperty InMaterialProperty);
 
 	/** Begin FCanvasBaseRenderItem overrides */
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas) final;
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas) final;
 	virtual bool Render_GameThread(const FCanvas* Canvas, FRenderThreadScope& RenderScope) final;
 	/** End FCanvasBaseRenderItem overrides */
 
@@ -28,7 +28,7 @@ public:
 	void GenerateRenderData();
 protected:
 	/** Enqueues the current material to be rendered */
-	void QueueMaterial(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View);
+	void QueueMaterial(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FSceneView* View);
 	
 	/** Helper functions to populate render data using either mesh data or a simple quad */
 	void PopulateWithQuadData();

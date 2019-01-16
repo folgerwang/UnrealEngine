@@ -276,7 +276,7 @@ void FCanvasTriangleRendererItem::InitTriangleBuffers(FLocalVertexFactory* Verte
 	});
 };
 
-bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 {
 	float CurrentRealTime = 0.f;
 	float CurrentWorldTime = 0.f;
@@ -407,7 +407,7 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas, FRend
 	RenderScope.EnqueueRenderCommand(
 		[Parameters](FRHICommandListImmediate& RHICmdList)	
 	{
-		FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+		FMeshPassProcessorRenderState DrawRenderState(*Parameters.View);
 
 		// disable depth test & writes
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());

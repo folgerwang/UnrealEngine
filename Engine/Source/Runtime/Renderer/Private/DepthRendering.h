@@ -205,7 +205,7 @@ public:
 
 	FDepthPassMeshProcessor(const FScene* Scene, 
 		const FSceneView* InViewIfDynamicMeshCommand, 
-		const FDrawingPolicyRenderState& InPassDrawRenderState, 
+		const FMeshPassProcessorRenderState& InPassDrawRenderState, 
 		const bool InbRespectUseAsOccluderFlag,
 		const EDepthDrawingMode InEarlyZPassMode,
 		const bool InbEarlyZPassMovable,
@@ -226,11 +226,11 @@ private:
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode);
 
-	FDrawingPolicyRenderState PassDrawRenderState;
+	FMeshPassProcessorRenderState PassDrawRenderState;
 
 	const bool bRespectUseAsOccluderFlag;
 	const EDepthDrawingMode EarlyZPassMode;
 	const bool bEarlyZPassMovable;
 };
 
-extern void SetupDepthPassState(FDrawingPolicyRenderState& DrawRenderState);
+extern void SetupDepthPassState(FMeshPassProcessorRenderState& DrawRenderState);

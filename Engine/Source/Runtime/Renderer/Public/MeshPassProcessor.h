@@ -680,48 +680,12 @@ enum class EMeshPassFeatures
 };
 ENUM_CLASS_FLAGS(EMeshPassFeatures);
 
-class FDefaultSubPolicy
+/**
+ * A set of render state overrides passed into a Mesh Pass Processor, so it can be configured from the outside.
+ */
+struct FMeshPassProcessorRenderState
 {
-public:
-	struct ElementDataType {};
-
-	void GetShaderBindings(
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		ElementDataType ElementData,
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		int32 VisualizeElementIndex,
-#endif
-		const FMeshMaterialShader* VertexShaderParameters,
-		const FMeshMaterialShader* PixelShaderParameters,
-		FMeshDrawSingleShaderBindings& VertexBindings,
-		FMeshDrawSingleShaderBindings& PixelBindings
-	) const
-	{}
-
-	void GetGeometryShaderBindings(
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		ElementDataType ElementData,
-		const FMeshMaterialShader* GeometryShaderParameters,
-		FMeshDrawSingleShaderBindings& GeometryBindings
-	) const
-	{
-	}
-
-#if RHI_RAYTRACING
-	void GetRayHitGroupShaderBindings(
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		ElementDataType ElementData,
-		const FMeshMaterialShader* RayHitGroupShaderParameters,
-		FMeshDrawSingleShaderBindings& RayHitGroupBindings
-	) const
-	{
-	}
-#endif // RHI_RAYTRACING
-};
-
-struct FDrawingPolicyRenderState
-{
-	FDrawingPolicyRenderState(const FSceneView& SceneView, FUniformBufferRHIParamRef InPassUniformBuffer = nullptr) : 
+	FMeshPassProcessorRenderState(const FSceneView& SceneView, FUniformBufferRHIParamRef InPassUniformBuffer = nullptr) : 
 		  BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
@@ -731,7 +695,7 @@ struct FDrawingPolicyRenderState
 	{
 	}
 
-	FDrawingPolicyRenderState(const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer, FUniformBufferRHIParamRef InPassUniformBuffer) : 
+	FMeshPassProcessorRenderState(const TUniformBufferRef<FViewUniformShaderParameters>& InViewUniformBuffer, FUniformBufferRHIParamRef InPassUniformBuffer) : 
 		  BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
@@ -741,7 +705,7 @@ struct FDrawingPolicyRenderState
 	{
 	}
 
-	FDrawingPolicyRenderState() :
+	FMeshPassProcessorRenderState() :
 		BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, ViewUniformBuffer()
@@ -750,7 +714,7 @@ struct FDrawingPolicyRenderState
 	{
 	}
 
-	FORCEINLINE_DEBUGGABLE FDrawingPolicyRenderState(const FDrawingPolicyRenderState& DrawRenderState) :
+	FORCEINLINE_DEBUGGABLE FMeshPassProcessorRenderState(const FMeshPassProcessorRenderState& DrawRenderState) :
 		  BlendState(DrawRenderState.BlendState)
 		, DepthStencilState(DrawRenderState.DepthStencilState)
 		, DepthStencilAccess(DrawRenderState.DepthStencilAccess)
@@ -760,7 +724,7 @@ struct FDrawingPolicyRenderState
 	{
 	}
 
-	~FDrawingPolicyRenderState()
+	~FMeshPassProcessorRenderState()
 	{
 	}
 
@@ -882,7 +846,7 @@ public:
 		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
 		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
 		const FMaterial& RESTRICT MaterialResource,
-		const FDrawingPolicyRenderState& RESTRICT DrawRenderState,
+		const FMeshPassProcessorRenderState& RESTRICT DrawRenderState,
 		PassShadersType PassShaders,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
@@ -898,7 +862,7 @@ public:
 		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
 		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
 		const FMaterial& RESTRICT MaterialResource,
-		const FDrawingPolicyRenderState& RESTRICT DrawRenderState,
+		const FMeshPassProcessorRenderState& RESTRICT DrawRenderState,
 		PassShadersType PassShaders,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,

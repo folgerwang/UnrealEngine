@@ -261,7 +261,7 @@ static void BeginVelocityRendering(FRHICommandList& RHICmdList, TRefCountPtr<IPo
 	}
 }
 
-static void SetVelocitiesState(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRender, FDrawingPolicyRenderState& DrawRenderState, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
+static void SetVelocitiesState(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRender, FMeshPassProcessorRenderState& DrawRenderState, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
 	const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
 	const FIntPoint VelocityBufferSize = BufferSize;		// full resolution so we can reuse the existing full res z buffer
@@ -316,7 +316,7 @@ public:
 		FRHICommandListImmediate& InParentCmdList,
 		bool bInParallelExecute,
 		bool bInCreateSceneContext,
-		const FDrawingPolicyRenderState& InDrawRenderState,
+		const FMeshPassProcessorRenderState& InDrawRenderState,
 		TRefCountPtr<IPooledRenderTarget>& InVelocityRT)
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Velocity), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, VelocityRT(InVelocityRT)
@@ -363,7 +363,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
 
-			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
 			FVelocityPassParallelCommandListSet ParallelCommandListSet(View,
 				this,
@@ -391,7 +391,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
 
-		FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+		FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
 		if (View.ShouldRenderView())
 		{
@@ -704,7 +704,7 @@ void FVelocityMeshProcessor::Process(
 		ShaderElementData);
 }
 
-FVelocityMeshProcessor::FVelocityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FDrawingPolicyRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
+FVelocityMeshProcessor::FVelocityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	PassDrawRenderState = InPassDrawRenderState;
@@ -714,7 +714,7 @@ FVelocityMeshProcessor::FVelocityMeshProcessor(const FScene* Scene, const FScene
 
 FMeshPassProcessor* CreateVelocityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState VelocityPassState;
+	FMeshPassProcessorRenderState VelocityPassState;
 	VelocityPassState.SetBlendState(TStaticBlendState<CW_RGBA>::GetRHI());
 	VelocityPassState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 

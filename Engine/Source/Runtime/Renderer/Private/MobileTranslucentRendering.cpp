@@ -317,10 +317,10 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 class FMobileInverseOpacityMeshProcessor : public FMeshPassProcessor
 {
 public:
-	const FDrawingPolicyRenderState PassDrawRenderState;
+	const FMeshPassProcessorRenderState PassDrawRenderState;
 
 public:
-	FMobileInverseOpacityMeshProcessor(const FScene* InScene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, const FDrawingPolicyRenderState& InDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
+	FMobileInverseOpacityMeshProcessor(const FScene* InScene, ERHIFeatureLevel::Type InFeatureLevel, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
 		: FMeshPassProcessor(InScene, InFeatureLevel, InViewIfDynamicMeshCommand, InDrawListContext)
 		, PassDrawRenderState(InDrawRenderState)
 	{
@@ -360,7 +360,7 @@ private:
 		InverseOpacityShaders.VertexShader = Material.GetShader<FOpacityOnlyVS>(VertexFactory->GetType());
 		InverseOpacityShaders.PixelShader = Material.GetShader<FOpacityOnlyPS>(VertexFactory->GetType());
 
-		FDrawingPolicyRenderState DrawRenderState(PassDrawRenderState);
+		FMeshPassProcessorRenderState DrawRenderState(PassDrawRenderState);
 		MobileBasePass::SetTranslucentRenderState(DrawRenderState, Material);
 
 		ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, Material);
@@ -391,7 +391,7 @@ private:
 // This pass is registered only when we render to scene capture, see UpdateSceneCaptureContentMobile_RenderThread()
 FMeshPassProcessor* CreateMobileInverseOpacityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FDrawingPolicyRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.MobileTranslucentBasePassUniformBuffer);
+	FMeshPassProcessorRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.MobileTranslucentBasePassUniformBuffer);
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 	PassDrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_DestColor, BF_Zero, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
 

@@ -16,7 +16,7 @@
 class FPrimitiveSceneProxy;
 struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 template<typename TBufferStruct> class TUniformBufferRef;
 

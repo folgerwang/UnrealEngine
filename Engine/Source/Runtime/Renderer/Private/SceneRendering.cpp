@@ -590,7 +590,7 @@ FParallelCommandListSet::FParallelCommandListSet(
 	FRHICommandListImmediate& InParentCmdList, 
 	bool bInParallelExecute, 
 	bool bInCreateSceneContext,
-	const FDrawingPolicyRenderState& InDrawRenderState)
+	const FMeshPassProcessorRenderState& InDrawRenderState)
 	: View(InView)
 	, SceneRenderer(InSceneRenderer)
 	, DrawRenderState(InDrawRenderState)
