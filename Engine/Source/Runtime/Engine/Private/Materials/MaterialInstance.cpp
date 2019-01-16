@@ -3515,7 +3515,7 @@ void UMaterialInstance::ClearParameterValuesInternal(const bool bAllParameters)
 }
 
 #if WITH_EDITOR
-void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialInstanceBasePropertyOverrides& NewBasePropertyOverrides, const bool bForceStaticPermutationUpdate /*= false*/)
+void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialInstanceBasePropertyOverrides& NewBasePropertyOverrides, const bool bForceStaticPermutationUpdate /*= false*/, FMaterialUpdateContext* MaterialUpdateContext)
 {
 	FStaticParameterSet CompareParameters = NewParameters;
 
@@ -3538,20 +3538,28 @@ void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewPa
 
 	if (bHasStaticPermutationResource != bWantsStaticPermutationResource || bParamsHaveChanged || (bBasePropertyOverridesHaveChanged && bWantsStaticPermutationResource) || bForceStaticPermutationUpdate)
 	{
-		// This will flush the rendering thread which is necessary before changing bHasStaticPermutationResource, since the RT is reading from that directly
-		// The update context will also make sure any dependent MI's with static parameters get recompiled
-		FMaterialUpdateContext MaterialUpdateContext;
-		MaterialUpdateContext.AddMaterialInstance(this);
 		bHasStaticPermutationResource = bWantsStaticPermutationResource;
 		StaticParameters = CompareParameters;
 
 		CacheResourceShadersForRendering();
+
+		if (MaterialUpdateContext != nullptr)
+		{
+			MaterialUpdateContext->AddMaterialInstance(this);
+		}
+		else
+		{
+			// This will flush the rendering thread which is necessary before changing bHasStaticPermutationResource, since the RT is reading from that directly
+			// The update context will also make sure any dependent MI's with static parameters get recompiled
+			FMaterialUpdateContext LocalMaterialUpdateContext;
+			LocalMaterialUpdateContext.AddMaterialInstance(this);
+		}
 	}
 }
 
-void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewParameters)
+void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialUpdateContext* MaterialUpdateContext)
 {
-	UpdateStaticPermutation(NewParameters, BasePropertyOverrides);
+	UpdateStaticPermutation(NewParameters, BasePropertyOverrides, false, MaterialUpdateContext);
 }
 
 void UMaterialInstance::UpdateStaticPermutation()

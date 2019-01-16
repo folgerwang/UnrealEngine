@@ -208,7 +208,7 @@ FString ULandscapeComponent::GetLayerAllocationKey(const TArray<FWeightmapLayerA
 	return Result;
 }
 
-UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile /*= false*/) const
+UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(FMaterialUpdateContext* InMaterialUpdateContext, const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile /*= false*/) const
 {
 	check(GIsEditor);
 
@@ -272,7 +272,7 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TAr
 					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid(), !Allocation.LayerInfo->bNoWeightBlend));
 				}
 			}
-			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters);
+			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters, InMaterialUpdateContext);
 
 			CombinationMaterialInstance->PostEditChange();
 		}
@@ -331,7 +331,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 		const int8 MaterialLOD = It.Value();
 
 		// Find or set a matching MIC in the Landscape's map.
-		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, MaterialLOD, false);
+		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(&Context, WeightmapLayerAllocations, MaterialLOD, false);
 
 		if (CombinationMaterialInstance != nullptr)
 		{
@@ -412,7 +412,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 		{
 			const int8 MaterialLOD = It.Value();
 
-			MobileCombinationMaterialInstances[MobileMaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			MobileCombinationMaterialInstances[MobileMaterialIndex] = GetCombinationMaterial(&Context, MobileWeightmapLayerAllocations, MaterialLOD, true);
 			++MobileMaterialIndex;
 		}
 	}
@@ -5353,7 +5353,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 			const int8 MaterialLOD = It.Value();
 
 			// Find or set a matching MIC in the Landscape's map.
-			MobileCombinationMaterialInstances[MaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			MobileCombinationMaterialInstances[MaterialIndex] = GetCombinationMaterial(nullptr, MobileWeightmapLayerAllocations, MaterialLOD, true);
 			check(MobileCombinationMaterialInstances[MaterialIndex] != nullptr);
 
 			UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
