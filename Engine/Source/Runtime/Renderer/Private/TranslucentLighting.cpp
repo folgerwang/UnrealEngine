@@ -563,7 +563,7 @@ public:
 		FRHICommandList& RHICmdList, 
 		const FViewInfo& View,
 		ContextType DrawingContext,
-		const FStaticMesh& StaticMesh,
+		const FStaticMeshBatch& StaticMesh,
 		bool bPreFog,
 		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,

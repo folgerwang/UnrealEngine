@@ -215,10 +215,10 @@ public:
 	TArray<class FCachedMeshDrawCommandInfo> StaticMeshCommandInfos;
 
 	/** The primitive's static mesh relevances. Must be in sync with StaticMeshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
-	TArray<class FStaticMeshRelevance> StaticMeshRelevances;
+	TArray<class FStaticMeshBatchRelevance> StaticMeshRelevances;
 
 	/** The primitive's static meshes. */
-	TArray<class FStaticMesh> StaticMeshes;
+	TArray<class FStaticMeshBatch> StaticMeshes;
 
 	/** The identifier for the primitive in Scene->PrimitiveOctree. */
 	FOctreeElementId OctreeId;

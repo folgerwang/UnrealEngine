@@ -403,7 +403,7 @@ void DrawDecalMeshCommands(FRenderingCompositePassContext& Context, EDecalRender
 					// Render static meshes from static scene prim
 					for (int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++)
 					{
-						const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+						const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
 
 						// Only render static mesh elements using decal materials
 						if (View.StaticMeshVisibilityMap[StaticMesh.Id] && StaticMesh.IsDecal(View.FeatureLevel))

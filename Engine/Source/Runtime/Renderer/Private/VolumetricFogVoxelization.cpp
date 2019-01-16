@@ -659,7 +659,7 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 						{
 							for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
 							{
-								const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+								const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
 
 								if (View.StaticMeshVisibilityMap[StaticMesh.Id])
 								{

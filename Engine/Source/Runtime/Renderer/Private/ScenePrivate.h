@@ -2552,9 +2552,9 @@ public:
 	FTextureLayout PreshadowCacheLayout;
 
 	/** The static meshes in the scene. */
-	TSparseArray<FStaticMesh*> StaticMeshes;
+	TSparseArray<FStaticMeshBatch*> StaticMeshes;
 
-	/** This sparse array is used just to track free indices for FStaticMesh::BatchVisibilityId. */
+	/** This sparse array is used just to track free indices for FStaticMeshBatch::BatchVisibilityId. */
 	TSparseArray<bool> StaticMeshBatchVisibility;
 
 	/** The exponential fog components in the scene. */

@@ -13,7 +13,7 @@
 
 class FPrimitiveSceneProxy;
 class FScene;
-class FStaticMesh;
+class FStaticMeshBatch;
 
 #if WITH_EDITOR
 

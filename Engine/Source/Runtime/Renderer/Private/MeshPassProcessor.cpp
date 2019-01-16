@@ -988,7 +988,7 @@ FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(FCachedMeshDrawCo
 
 FMeshDrawCommand& FCachedPassMeshDrawListContext::AddCommand(const FMeshDrawCommand& Initializer)
 {
-	// Only one FMeshDrawCommand supported per FStaticMesh in a pass
+	// Only one FMeshDrawCommand supported per FStaticMeshBatch in a pass
 	check(CommandInfo.CommandIndex == -1);
 	CommandInfo.CommandIndex = DrawList.MeshDrawCommands.Add(Initializer);
 	return DrawList.MeshDrawCommands[CommandInfo.CommandIndex];

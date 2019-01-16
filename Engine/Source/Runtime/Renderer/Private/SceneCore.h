@@ -123,7 +123,7 @@ private:
  * A mesh which is defined by a primitive at scene segment construction time and never changed.
  * Lights are attached and detached as the segment containing the mesh is added or removed from a scene.
  */
-class FStaticMesh : public FMeshBatch
+class FStaticMeshBatch : public FMeshBatch
 {
 public:
 
@@ -137,7 +137,7 @@ public:
 	int32 BatchVisibilityId;
 
 	// Constructor/destructor.
-	FStaticMesh(
+	FStaticMeshBatch(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 		const FMeshBatch& InMesh,
 		FHitProxyId InHitProxyId
@@ -150,11 +150,11 @@ public:
 		BatchHitProxyId = InHitProxyId;
 	}
 
-	~FStaticMesh();
+	~FStaticMeshBatch();
 
 private:
 	/** Private copy constructor. */
-	FStaticMesh(const FStaticMesh& InStaticMesh):
+	FStaticMeshBatch(const FStaticMeshBatch& InStaticMesh):
 		FMeshBatch(InStaticMesh),
 		PrimitiveSceneInfo(InStaticMesh.PrimitiveSceneInfo),
 		Id(InStaticMesh.Id),
@@ -163,12 +163,12 @@ private:
 };
 
 /**
- * FStaticMesh data which is InitViews specific. Stored separately for cache efficiency.
+ * FStaticMeshBatch data which is InitViews specific. Stored separately for cache efficiency.
  */
-class FStaticMeshRelevance
+class FStaticMeshBatchRelevance
 {
 public:
-	FStaticMeshRelevance(const FStaticMesh& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
+	FStaticMeshBatchRelevance(const FStaticMeshBatch& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
 		: Id(StaticMesh.Id)
 		, ScreenSize(InScreenSize)
 		, CommandInfosBase(0)

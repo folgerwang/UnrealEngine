@@ -1665,7 +1665,7 @@ namespace EMarkMaskBits
 }
 
 typedef TChunkedArray<FVisibleMeshDrawCommand> FPassDrawCommandArray;
-typedef TChunkedArray<const FStaticMesh*> FPassDrawCommandBuildRequestArray;
+typedef TChunkedArray<const FStaticMeshBatch*> FPassDrawCommandBuildRequestArray;
 
 struct FDrawCommandRelevancePacket
 {
@@ -1687,8 +1687,8 @@ struct FDrawCommandRelevancePacket
 	void AddCommandsForMesh(
 		int32 PrimitiveIndex, 
 		const FPrimitiveSceneInfo* InPrimitiveSceneInfo,
-		const FStaticMeshRelevance& RESTRICT StaticMeshRelevance, 
-		const FStaticMesh& RESTRICT StaticMesh, 
+		const FStaticMeshBatchRelevance& RESTRICT StaticMeshRelevance, 
+		const FStaticMeshBatch& RESTRICT StaticMesh, 
 		const FScene* RESTRICT Scene, 
 		bool bCanCache, 
 		EMeshPass::Type PassType)
@@ -2133,8 +2133,8 @@ struct FRelevancePacket
 			const int32 NumStaticMeshes = PrimitiveSceneInfo->StaticMeshRelevances.Num();
 			for(int32 MeshIndex = 0;MeshIndex < NumStaticMeshes;MeshIndex++)
 			{
-				const FStaticMeshRelevance& StaticMeshRelevance = PrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
-				const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[MeshIndex];
+				const FStaticMeshBatchRelevance& StaticMeshRelevance = PrimitiveSceneInfo->StaticMeshRelevances[MeshIndex];
+				const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[MeshIndex];
 
 				if (LODToRender.ContainsLOD(StaticMeshRelevance.LODIndex))
 				{
@@ -4102,7 +4102,7 @@ void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 			}
 
 			FHLODSceneNodeVisibilityState& NodeVisibility = VisibilityStates.FindOrAdd(SceneInfo->PrimitiveComponentId);
-			const TArray<FStaticMeshRelevance>& NodeMeshRelevances = SceneInfo->StaticMeshRelevances;
+			const TArray<FStaticMeshBatchRelevance>& NodeMeshRelevances = SceneInfo->StaticMeshRelevances;
 
 			// Ignore already updated nodes, or those that we can't work with
 			if (NodeVisibility.UpdateCount == UpdateCount || !NodeMeshRelevances.IsValidIndex(0))

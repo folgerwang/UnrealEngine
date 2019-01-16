@@ -538,7 +538,7 @@ int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVecto
 	return MinLOD;
 }
 
-FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale, bool bDitheredLODTransition)
+FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshBatchRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale, bool bDitheredLODTransition)
 {
 	FLODMask LODToRender;
 	const FSceneView& LODView = GetLODView(View);
@@ -553,7 +553,7 @@ FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMes
 		int32 MinLOD = 127, MaxLOD = 0;
 		for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 		{
-			const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
+			const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 			if (Mesh.ScreenSize > 0.0f)
 			{
 				MinLOD = FMath::Min(MinLOD, (int32)Mesh.LODIndex);
@@ -574,7 +574,7 @@ FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMes
 
 				for (int32 MeshIndex = NumMeshes - 1; MeshIndex >= 0; --MeshIndex)
 				{
-					const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
+					const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 					if (Mesh.ScreenSize > 0.0f)
 					{
 						float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
@@ -604,7 +604,7 @@ FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshRelevance>& StaticMes
 
 			for (int32 MeshIndex = NumMeshes - 1; MeshIndex >= 0; --MeshIndex)
 			{
-				const FStaticMeshRelevance& Mesh = StaticMeshRelevances[MeshIndex];
+				const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 
 				float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 

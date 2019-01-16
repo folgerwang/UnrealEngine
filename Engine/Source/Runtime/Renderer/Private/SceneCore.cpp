@@ -315,7 +315,7 @@ void FLightPrimitiveInteraction::FlushCachedShadowMapData()
 	}
 }
 
-int32 FStaticMeshRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const
+int32 FStaticMeshBatchRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const
 {
 	int32 CommandInfoIndex = CommandInfosBase;
 
@@ -336,10 +336,10 @@ int32 FStaticMeshRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPa
 }
 
 /*-----------------------------------------------------------------------------
-	FStaticMesh
+	FStaticMeshBatch
 -----------------------------------------------------------------------------*/
 
-FStaticMesh::~FStaticMesh()
+FStaticMeshBatch::~FStaticMeshBatch()
 {
 	FScene* Scene = PrimitiveSceneInfo->Scene;
 	// Remove this static mesh from the scene's list.

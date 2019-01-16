@@ -834,7 +834,7 @@ public:
 
 	TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> MeshCommands;
 	TStaticArray<int32, EMeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
-	TStaticArray<TArray<const FStaticMesh*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
+	TStaticArray<TArray<const FStaticMeshBatch*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
 };
 
 typedef TArray<FViewCommands, TInlineAllocator<4>> FViewVisibleCommandsPerView;

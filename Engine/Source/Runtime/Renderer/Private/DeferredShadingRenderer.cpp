@@ -693,7 +693,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							else
 							{
 								const FPrimitiveSceneInfo* PrimitiveInfo = Scene->Primitives[PrimitiveIndex];
-								const FStaticMesh& StaticMesh = PrimitiveInfo->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+								const FStaticMeshBatch& StaticMesh = PrimitiveInfo->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
 
 								uint64 BatchVisibility = 1;
 								if (StaticMesh.bRequiresPerElementVisibility)

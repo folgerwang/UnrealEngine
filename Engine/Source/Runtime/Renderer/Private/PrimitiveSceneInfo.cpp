@@ -56,7 +56,7 @@ public:
 			FPrimitiveSceneProxy* PrimitiveSceneProxy = PrimitiveSceneInfo->Proxy;
 			PrimitiveSceneProxy->VerifyUsedMaterial(Mesh.MaterialRenderProxy);
 
-			FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
+			FStaticMeshBatch* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMeshBatch(
 				PrimitiveSceneInfo,
 				Mesh,
 				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
@@ -66,7 +66,7 @@ public:
 
 			const bool bSupportsCachingMeshDrawCommands = SupportsCachingMeshDrawCommands(StaticMesh->VertexFactory, PrimitiveSceneProxy);
 
-			FStaticMeshRelevance* StaticMeshRelevance = new(PrimitiveSceneInfo->StaticMeshRelevances) FStaticMeshRelevance(
+			FStaticMeshBatchRelevance* StaticMeshRelevance = new(PrimitiveSceneInfo->StaticMeshRelevances) FStaticMeshBatchRelevance(
 				*StaticMesh, 
 				ScreenSize, 
 				bSupportsCachingMeshDrawCommands
@@ -167,7 +167,7 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 	int32 MeshWithCachedCommandsNum = 0;
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 	{
-		const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+		const FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
 		if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy))
 		{
 			++MeshWithCachedCommandsNum;
@@ -190,8 +190,8 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 
 		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 		{
-			FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
-			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+			FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+			FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
 
 			check(MeshRelevance.CommandInfosMask.IsEmpty());
 			MeshRelevance.CommandInfosBase = StaticMeshCommandInfos.Num();
@@ -268,7 +268,7 @@ void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 	{
-		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+		FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 
 		MeshRelevance.CommandInfosBase = 0;
 		MeshRelevance.CommandInfosMask.Reset();
@@ -290,8 +290,8 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 	for(int32 MeshIndex = 0;MeshIndex < StaticMeshes.Num();MeshIndex++)
 	{
-		FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
-		FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+		FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+		FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
 
 		// Add the static mesh to the scene's static mesh list.
 		FSparseArrayAllocationInfo SceneArrayAllocation = Scene->StaticMeshes.AddUninitialized();
@@ -319,7 +319,7 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 		{
-			FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+			FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
 			MaxLOD = MaxLOD < Mesh.LODIndex ? Mesh.LODIndex : MaxLOD;
 		}
 
@@ -330,8 +330,8 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 			for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 			{
-				FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
-				FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+				FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+				FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
 
 				if (Proxy->ScreenSizes[MeshRelevance.LODIndex] != 0.0f)
 				{
@@ -887,7 +887,7 @@ void FPrimitiveSceneInfo::GetStaticMeshesLODRange(int8& OutMinLOD, int8& OutMaxL
 
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 	{
-		const FStaticMeshRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
+		const FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 		OutMinLOD = FMath::Min(OutMinLOD, MeshRelevance.LODIndex);
 		OutMaxLOD = FMath::Max(OutMaxLOD, MeshRelevance.LODIndex);
 	}

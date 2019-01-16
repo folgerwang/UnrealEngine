@@ -15,7 +15,7 @@
 class FPrimitiveSceneInfo;
 class FPrimitiveSceneProxy;
 class FScene;
-class FStaticMesh;
+class FStaticMeshBatch;
 class FViewInfo;
 
 /** Get the cvar clamped state */

@@ -524,7 +524,7 @@ private:
 	/** Dynamic mesh elements for translucent subject primitives. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectTranslucentMeshElements;
 
-	TArray<const FStaticMesh*, SceneRenderingAllocator> SubjectMeshCommandBuildRequests;
+	TArray<const FStaticMeshBatch*, SceneRenderingAllocator> SubjectMeshCommandBuildRequests;
 
 	/** Number of elements of DynamicSubjectMeshElements meshes. */
 	int32 NumDynamicSubjectMeshElements;
@@ -565,12 +565,12 @@ private:
 	void AddCachedMeshDrawCommandsForPass(
 		int32 PrimitiveIndex,
 		const FPrimitiveSceneInfo* InPrimitiveSceneInfo,
-		const FStaticMeshRelevance& RESTRICT StaticMeshRelevance,
-		const FStaticMesh& StaticMesh,
+		const FStaticMeshBatchRelevance& RESTRICT StaticMeshRelevance,
+		const FStaticMeshBatch& StaticMesh,
 		const FScene* Scene,
 		EMeshPass::Type PassType,
 		FMeshCommandOneFrameArray& VisibleMeshCommands,
-		TArray<const FStaticMesh*, SceneRenderingAllocator>& MeshCommandBuildRequests,
+		TArray<const FStaticMeshBatch*, SceneRenderingAllocator>& MeshCommandBuildRequests,
 		int32& NumMeshCommandBuildRequestElements);
 
 	/** Will return if we should draw the static mesh for the shadow, and will perform lazy init of primitive if it wasn't visible */

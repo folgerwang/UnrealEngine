@@ -14,7 +14,7 @@
 
 class FPrimitiveSceneProxy;
 class FScene;
-class FStaticMesh;
+class FStaticMeshBatch;
 class FViewInfo;
 
 enum EDepthDrawingMode

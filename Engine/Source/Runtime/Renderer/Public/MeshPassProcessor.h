@@ -612,7 +612,7 @@ public:
 class FCachedPassMeshDrawList
 {
 public:
-	/** Indices held by FStaticMesh::CachedMeshDrawCommands must be stable */
+	/** Indices held by FStaticMeshBatch::CachedMeshDrawCommands must be stable */
 	TSparseArray<FMeshDrawCommand> MeshDrawCommands;
 };
 
