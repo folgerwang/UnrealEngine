@@ -1441,6 +1441,12 @@ void FPersonaMeshDetails::RegenerateOneLOD(int32 LODIndex)
 			FLODUtilities::RestoreSkeletalMeshLODImportedData(SkelMesh, LODIndex, true);
 			return;
 		}
+		else if (!CurrentLODInfo.bHasBeenSimplified
+			&& !SkelMesh->IsReductionActive(LODIndex))
+		{
+			//Nothing to reduce
+			return;
+		}
 
 		FSkeletalMeshUpdateContext UpdateContext;
 		UpdateContext.SkeletalMesh = SkelMesh;
