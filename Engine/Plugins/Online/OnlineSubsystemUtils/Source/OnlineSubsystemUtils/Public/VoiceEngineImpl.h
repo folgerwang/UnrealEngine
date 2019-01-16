@@ -298,6 +298,7 @@ protected:
 	TArray<uint8>&             GetDecompressedVoiceBuffer() { return DecompressedVoiceBuffer; }
 	FLocalVoiceData*           GetLocalPlayerVoiceData()    { return PlayerVoiceData; }
 	int32                      GetMaxVoiceRemainderSize();
+	void					   CreateSerializeHelper();
 };
 
 typedef TSharedPtr<FVoiceEngineImpl, ESPMode::ThreadSafe> FVoiceEngineImplPtr;
