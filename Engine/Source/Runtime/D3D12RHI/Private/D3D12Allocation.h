@@ -667,6 +667,7 @@ private:
 		FD3D12Device* Parent,
 		FRHIGPUMask VisibileNodeMask,
 		ID3D12Heap* NewHeap,
+		uint64 HeapSize,
 		FD3D12SegList* Owner,
 		uint32 Idx) :
 		FD3D12Heap(Parent, VisibileNodeMask),
@@ -675,6 +676,7 @@ private:
 		FirstFreeOffset(0)
 	{
 		this->SetHeap(NewHeap);
+		BeginTrackingResidency(HeapSize);
 	}
 
 	virtual ~FD3D12SegHeap() = default;
