@@ -8,6 +8,7 @@
 #include "UObject/UObjectThreadContext.h"
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Algo/Find.h"
+#include "UObject/LinkerLoad.h"
 
 /*-----------------------------------------------------------------------------
 	UByteProperty.

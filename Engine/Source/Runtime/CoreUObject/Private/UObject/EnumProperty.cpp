@@ -7,6 +7,7 @@
 #include "Templates/ChooseClass.h"
 #include "Templates/IsSigned.h"
 #include "Algo/Find.h"
+#include "UObject/LinkerLoad.h"
 
 namespace UE4EnumProperty_Private
 {
