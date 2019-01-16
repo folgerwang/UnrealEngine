@@ -350,7 +350,7 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 				if (!LocalVariable.DefaultValue.IsEmpty() && (LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftObject || LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftClass))
 				{
 					FSoftObjectPath TempRef(LocalVariable.DefaultValue);
-					TempRef.PostLoadPath();
+					TempRef.PostLoadPath(&Ar);
 					TempRef.PreSavePath();
 					LocalVariable.DefaultValue = TempRef.ToString();
 				}

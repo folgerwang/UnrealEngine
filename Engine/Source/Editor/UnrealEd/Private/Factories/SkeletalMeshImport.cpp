@@ -867,8 +867,6 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					}
 					FSkeletalMeshLODModel& LODModel = MeshData->ExistingLODModels[Index];
 					FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
-					FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(LODModel);
-					SkeletalMeshImportedModel->LODModels.Add(NewLODModel);
 
 					FSkeletalMeshLODModel* NewLODModel = nullptr;
 					if (RealIndex >= SkeletalMesh->GetLODNum())
