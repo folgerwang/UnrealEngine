@@ -20,7 +20,10 @@ static int32 GRenderGraphEmitWarnings = 1;
 static FAutoConsoleVariableRef CVarEmitWarnings(
 	TEXT("r.RDG.EmitWarnings"),
 	GRenderGraphEmitWarnings,
-	TEXT("Allow to output warnings for inefficiencies found during wiring and execution of the passes."),
+	TEXT("Allow to output warnings for inefficiencies found during wiring and execution of the passes.\n")
+	TEXT(" 0: disabled;\n")
+	TEXT(" 1: emit warning once (default);\n")
+	TEXT(" 2: emit warning everytime issue is detected."),
 	ECVF_RenderThreadSafe);
 
 #else
@@ -44,9 +47,14 @@ void InitRenderGraph()
 static void EmitRenderGraphWarning(const FString& WarningMessage)
 {
 	check(GRenderGraphEmitWarnings);
-	
+
 	static TSet<FString> GAlreadyEmittedWarnings;
-	if (!GAlreadyEmittedWarnings.Contains(WarningMessage))
+
+	if (GRenderGraphEmitWarnings == 2)
+	{
+		UE_LOG(LogRendererCore, Warning, TEXT("%s"), *WarningMessage);
+	}
+	else if (!GAlreadyEmittedWarnings.Contains(WarningMessage))
 	{
 		GAlreadyEmittedWarnings.Add(WarningMessage);
 		UE_LOG(LogRendererCore, Warning, TEXT("%s"), *WarningMessage);
