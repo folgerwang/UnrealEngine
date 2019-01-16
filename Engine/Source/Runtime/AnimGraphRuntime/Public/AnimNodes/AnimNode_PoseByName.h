@@ -21,9 +21,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinHiddenByDefault))
 	float PoseWeight;
 
+private:
+	/** Cached current pose name used for invalidation */
+	FName CurrentPoseName;
+
 public:	
 	FAnimNode_PoseByName()
 		: PoseWeight(1.f)
+		, CurrentPoseName(NAME_None)
 	{
 	}
 
