@@ -42,17 +42,6 @@ namespace MicSilenceDetectionConfig
 
 class USoundAttenuation;
 
-template <typename EnumType>
-static FORCEINLINE EnumType GetEnumValueFromString(const FString& String)
-{
-	UEnum* Enum = StaticEnum<EnumType>();
-	if (!Enum)
-	{
-		return EnumType(0);
-	}
-	return (EnumType)Enum->GetValueByName(FName(*String));
-}
-
 USTRUCT(BlueprintType)
 struct FVoiceSettings
 {
