@@ -86,7 +86,7 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Object);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Object);
 
 	GLTFImporterImpl::ShowLogMessages(Context.GetLogMessages());
 
