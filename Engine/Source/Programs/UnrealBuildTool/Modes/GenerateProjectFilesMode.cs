@@ -164,7 +164,8 @@ namespace UnrealBuildTool
 			}
 
 			// Check there are no superfluous command line arguments
-			Arguments.CheckAllArgumentsUsed();
+			// TODO (still pass raw arguments below)
+			// Arguments.CheckAllArgumentsUsed();
 
 			// Now generate project files
 			ProjectFileGenerator.bGenerateProjectFiles = true;
