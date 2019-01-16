@@ -403,7 +403,7 @@ private:
 
 		Count,
 	};
-	FD3D12DefaultBufferPool* DefaultBufferPools[EBufferPool::Count];
+	FD3D12DefaultBufferPool* DefaultBufferPools[(uint32)EBufferPool::Count];
 
 	inline EBufferPool GetBufferPool(D3D12_RESOURCE_FLAGS Flags) const
 	{

@@ -99,13 +99,13 @@ public:
 		, GPUIndex(GPUMask.ToIndex())
 	{}
 
-	FORCEINLINE const uint32 GetGPUIndex() const
+	FORCEINLINE uint32 GetGPUIndex() const
 	{
 		return GPUIndex;
 	}
 
 private:
-	const uint32 GPUIndex;
+	uint32 GPUIndex;
 };
 
 class FD3D12MultiNodeGPUObject : public FD3D12GPUObject
