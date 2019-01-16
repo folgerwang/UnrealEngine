@@ -1837,7 +1837,12 @@ void FMetalStateCache::CommitTessellationResources(FMetalCommandEncoder* Raster,
     }
     
     SetResourcesFromTables(GraphicsPSO->HullShader, CrossCompiler::SHADER_STAGE_HULL);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).CommitPackedGlobals(this, Compute, SF_Hull, GraphicsPSO->HullShader->Bindings);
+	
+	// @todo Can't put global uniforms in Hull shaders - the high-level no longer
+	// replicates the bindings to both vertex & hull shaders, so we have conflicts and the
+	// hull shader versions are almost always 0-filled which causes chaos.
+	// We need to split the shaders out into two distinct stages to match D3D
+    // GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).CommitPackedGlobals(this, Compute, SF_Hull, GraphicsPSO->HullShader->Bindings);
 	
 	SetResourcesFromTables(GraphicsPSO->DomainShader, CrossCompiler::SHADER_STAGE_DOMAIN);
    	GetShaderParameters(CrossCompiler::SHADER_STAGE_DOMAIN).CommitPackedGlobals(this, Raster, SF_Domain, GraphicsPSO->DomainShader->Bindings);
