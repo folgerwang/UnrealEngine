@@ -248,7 +248,16 @@ namespace UnrealBuildTool
 					SDKLevelInt = GetApiLevelInt(SDKLevel);
 					if (SDKLevelInt < MinimumSDKLevel)
 					{
-						throw new BuildException("Can't make an APK without SDK API 'android-" + MinimumSDKLevel.ToString() + "' minimum installed");
+						if (bGradleEnabled)
+						{
+							SDKLevelInt = MinimumSDKLevel;
+							SDKLevel = "android-" + MinimumSDKLevel.ToString();
+							Log.TraceInformation("Gradle will attempt to download SDK API level {0}", SDKLevelInt);
+						}
+						else
+						{
+							throw new BuildException("Can't make an APK without SDK API 'android-" + MinimumSDKLevel.ToString() + "' minimum installed");
+						}
 					}
 				}
 
