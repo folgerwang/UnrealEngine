@@ -33,6 +33,8 @@ public:
 	FNiagaraScriptExecutionParameterStore(const FNiagaraParameterStore& Other);
 	FNiagaraScriptExecutionParameterStore& operator=(const FNiagaraParameterStore& Other);
 
+	virtual ~FNiagaraScriptExecutionParameterStore() = default;
+
 	//TODO: These function can probably go away entirely when we replace the FNiagaraParameters and DataInterface info in the script with an FNiagaraParameterStore.
 	//Special care with prev params and internal params will have to be taken there.
 	/** Call this init function if you are using a Niagara parameter store within a UNiagaraScript.*/
@@ -42,7 +44,7 @@ public:
 	void AddScriptParams(UNiagaraScript* Script, ENiagaraSimTarget SimTarget, bool bTriggerRebind);
 	void CopyCurrToPrev();
 
-	bool AddParameter(const FNiagaraVariable& Param, bool bInitInterfaces = true, bool bTriggerRebind = true)
+	virtual bool AddParameter(const FNiagaraVariable& Param, bool bInitInterfaces = true, bool bTriggerRebind = true) override
 	{
 		if (FNiagaraParameterStore::AddParameter(Param, bInitInterfaces, bTriggerRebind))
 		{
@@ -52,7 +54,7 @@ public:
 		return false;
 	}
 
-	bool RemoveParameter(FNiagaraVariable& Param)
+	virtual bool RemoveParameter(const FNiagaraVariable& Param) override
 	{
 		check(0);//Not allowed to remove parameters from an execution store as it will adjust the table layout mess up the 
 		return false;
@@ -63,7 +65,7 @@ public:
 		check(0);//Can't rename parameters for an execution store.
 	}
 
-	void Empty(bool bClearBindings=true)
+	virtual void Empty(bool bClearBindings=true) override
 	{
 		FNiagaraParameterStore::Empty(bClearBindings);
 		PaddingInfo.Empty();

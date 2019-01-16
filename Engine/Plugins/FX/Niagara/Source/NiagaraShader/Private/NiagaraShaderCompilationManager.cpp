@@ -13,7 +13,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogNiagaraShaderCompiler, All, All);
 
-static int32 GShowNiagaraShaderWarnings = 1;
+static int32 GShowNiagaraShaderWarnings = 0;
 static FAutoConsoleVariableRef CVarShowNiagaraShaderWarnings(
 	TEXT("niagara.ShowShaderCompilerWarnings"),
 	GShowNiagaraShaderWarnings,
@@ -104,6 +104,12 @@ void FNiagaraShaderCompilationManager::RunCompileJobs()
 					UE_LOG(LogNiagaraShaderCompiler, Fatal, TEXT("Can't compile shaders for format %s, couldn't load compiler dll"), *Format.ToString());
 				}
 				CA_ASSUME(Compiler != NULL);
+				
+				// Fast math breaks The ExecGrid layout script because floor(x/y) returns a bad value if x == y. Yay.
+				if(IsMetalPlatform((EShaderPlatform)CurrentJob.Input.Target.Platform))
+				{
+					CurrentJob.Input.Environment.CompilerFlags.Add(CFLAG_NoFastMath);
+				}
 
 				UE_LOG(LogNiagaraShaderCompiler, Log, TEXT("Compile Job processing... %s"), *CurrentJob.Input.DebugGroupName);
 

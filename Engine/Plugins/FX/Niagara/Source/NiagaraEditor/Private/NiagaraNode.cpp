@@ -421,6 +421,102 @@ UEdGraphPin* UNiagaraNode::GetPinByPersistentGuid(const FGuid& InPersistentGuid)
 	return nullptr;
 }
 
+void UNiagaraNode::NumericResolutionByPins(const UEdGraphSchema_Niagara* Schema, TArray<UEdGraphPin*>& InputPins, TArray<UEdGraphPin*>& OutputPins, 
+	bool bFixInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache)
+{
+	TArray<FNiagaraTypeDefinition> InputTypes;
+	TArray<FNiagaraTypeDefinition> OutputTypes;
+
+	TArray<FNiagaraTypeDefinition> NonNumericInputs;
+	for (UEdGraphPin* InputPin : InputPins)
+	{
+		FNiagaraTypeDefinition InputPinType = Schema->PinToTypeDefinition(InputPin);
+		if (InputPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryType)
+		{
+
+			// If the input pin is the generic numeric type set it to the type of the linked output pin which should have been processed already.
+			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef() && InputPin->LinkedTo.Num() == 1)
+			{
+				UEdGraphPin* InputPinLinkedPin = UNiagaraNode::TraceOutputPin(InputPin->LinkedTo[0]);
+				FNiagaraTypeDefinition InputPinLinkedPinType = Schema->PinToTypeDefinition(InputPinLinkedPin);
+				if (InputPinLinkedPinType.IsValid())
+				{
+					if (InputPinLinkedPinType == FNiagaraTypeDefinition::GetGenericNumericDef() && PinCache)
+					{
+						FNiagaraTypeDefinition* FoundDef = PinCache->Find(TPair<FGuid, UEdGraphNode*>(InputPinLinkedPin->PinId, InputPinLinkedPin->GetOwningNode()));
+						if (FoundDef && FoundDef->IsValid())
+						{
+							InputPinLinkedPinType = *FoundDef;
+						}
+					}
+
+					// Only update the input pin type if the linked pin type is valid.
+					FEdGraphPinType PinType = Schema->TypeDefinitionToPinType(InputPinLinkedPinType);
+					if (bFixInline)
+					{
+						InputPin->PinType = PinType;
+					}
+					InputPinType = InputPinLinkedPinType;
+				}
+			}
+
+			if (InputPinType != FNiagaraTypeDefinition::GetGenericNumericDef())
+			{
+				NonNumericInputs.Add(InputPinType);
+			}
+		}
+		InputTypes.Add(InputPinType);
+	}
+
+	// Fix up numeric outputs based on the inputs.
+	for (UEdGraphPin* OutputPin : OutputPins)
+	{
+		FNiagaraTypeDefinition OutputPinType = Schema->PinToTypeDefinition(OutputPin);
+		if (NonNumericInputs.Num() > 0 && GetNumericOutputTypeSelectionMode() != ENiagaraNumericOutputTypeSelectionMode::None)
+		{
+			FNiagaraTypeDefinition OutputNumericType = FNiagaraTypeDefinition::GetNumericOutputType(NonNumericInputs, GetNumericOutputTypeSelectionMode());
+			if (OutputNumericType != FNiagaraTypeDefinition::GetGenericNumericDef())
+			{
+				if (OutputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
+				{
+					FEdGraphPinType PinType = Schema->TypeDefinitionToPinType(OutputNumericType);
+					if (bFixInline)
+					{
+						OutputPin->PinType = PinType;
+					}
+					OutputPinType = OutputNumericType;
+				}
+			}
+		}
+		OutputTypes.Add(OutputPinType);
+	}
+
+
+	if (PinCache)
+	{
+		int32 j;
+		for (j = 0; j < InputPins.Num(); j++)
+		{
+			PinCache->Add(TPair<FGuid, UEdGraphNode*>(InputPins[j]->PinId, InputPins[j]->GetOwningNode()), InputTypes[j]);
+		}
+		for (j = 0; j < OutputPins.Num(); j++)
+		{
+			PinCache->Add(TPair<FGuid, UEdGraphNode*>(OutputPins[j]->PinId, OutputPins[j]->GetOwningNode()), OutputTypes[j]);
+		}
+	}
+}
+
+
+void UNiagaraNode::ResolveNumerics(const UEdGraphSchema_Niagara* Schema, bool bSetInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache)
+{
+	// Fix up numeric input pins and keep track of numeric types to decide the output type.
+	TArray<UEdGraphPin*> InputPins;
+	GetInputPins(InputPins);
+	TArray<UEdGraphPin*> OutputPins;
+	GetOutputPins(OutputPins);
+	NumericResolutionByPins(Schema, InputPins, OutputPins, bSetInline, PinCache);
+}
+
 ENiagaraNumericOutputTypeSelectionMode UNiagaraNode::GetNumericOutputTypeSelectionMode() const
 {
 	return ENiagaraNumericOutputTypeSelectionMode::None;

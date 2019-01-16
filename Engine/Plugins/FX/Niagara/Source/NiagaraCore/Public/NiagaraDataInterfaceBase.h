@@ -21,7 +21,9 @@ struct FNiagaraDataInterfaceParametersCS
 	virtual ~FNiagaraDataInterfaceParametersCS() {}
 	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) {}
 	virtual void Serialize(FArchive& Ar) { }
-	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const {}
+	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface, void* PerInstanceData) const {}
+	virtual void Unset(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface, void* PerInstanceData) const {}
+
 };
 
 //////////////////////////////////////////////////////////////////////////

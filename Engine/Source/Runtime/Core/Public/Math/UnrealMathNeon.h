@@ -1423,7 +1423,7 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 * @param Vec	Vector to store
 * @param Ptr	Memory pointer
 */
-#define VectorIntStore( Vec, Ptr )			vst1q_s32( (VectorRegisterInt*)(Ptr), Vec )
+#define VectorIntStore( Vec, Ptr )			vst1q_s32( (int32*)(Ptr), Vec )
 
 /**
 * Loads 4 int32s from unaligned memory.

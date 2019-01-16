@@ -105,7 +105,7 @@ struct FNiagaraDICollsionQueryResult
 	int32 PhysicalMaterialIdx;
 	float Friction;
 	float Restitution;
-
+	bool IsInsideMesh;
 };
 
 class FNiagaraDICollisionQueryBatch
@@ -157,6 +157,8 @@ public:
 	}
 
 	int32 SubmitQuery(FVector Position, FVector Direction, float CollisionSize, float DeltaSeconds);
+	int32 SubmitQuery(FVector StartPos, FVector EndPos, ECollisionChannel TraceChannel);
+	bool PerformQuery(FVector StartPos, FVector EndPos, FNiagaraDICollsionQueryResult &Result, ECollisionChannel TraceChannel);
 	bool GetQueryResult(uint32 TraceID, FNiagaraDICollsionQueryResult &Result);
 
 private:

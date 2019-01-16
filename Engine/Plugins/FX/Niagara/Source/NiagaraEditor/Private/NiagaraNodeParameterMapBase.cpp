@@ -91,7 +91,8 @@ TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMa
 
 bool UNiagaraNodeParameterMapBase::AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType)
 {
-	return InType != FNiagaraTypeDefinition::GetGenericNumericDef();
+	return InType != FNiagaraTypeDefinition::GetGenericNumericDef() &&
+		InType != FNiagaraTypeDefinition::GetParameterMapDef();
 }
 
 FText UNiagaraNodeParameterMapBase::GetPinDescriptionText(UEdGraphPin* Pin) const

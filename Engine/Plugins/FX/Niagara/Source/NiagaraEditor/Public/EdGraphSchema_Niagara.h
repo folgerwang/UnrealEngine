@@ -85,6 +85,7 @@ class NIAGARAEDITOR_API UEdGraphSchema_Niagara : public UEdGraphSchema
 	void PromoteSinglePinToParameter(UEdGraphPin* SourcePin);
 	static bool CanPromoteSinglePinToParameter(const UEdGraphPin* SourcePin);
 	void ToggleNodeEnabledState(class UNiagaraNode* InNode) const;
+	void RefreshNode(UNiagaraNode* InNode) const;
 
 	/** 
 	  * Creates a niagara variable using the name, type, and default value stored on an ed graph pin.
@@ -136,6 +137,6 @@ public:
 	virtual void DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params) override;
 
 private:
-	UEdGraph* Graph;
+	class UNiagaraGraph* Graph;
 };
 

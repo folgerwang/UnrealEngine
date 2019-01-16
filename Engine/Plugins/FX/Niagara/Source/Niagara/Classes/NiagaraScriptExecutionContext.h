@@ -96,7 +96,18 @@ struct FNiagaraComputeExecutionContext
 		, GPUDataReadback(nullptr)
 		, AccumulatedSpawnRate(0)
 		, NumIndicesPerInstance(0)
+		, PerInstanceData(nullptr)
+		, PerInstanceDataSize(0)
+		, PerInstanceDataInterfaceOffsets(nullptr)
 		, PendingExecutionQueueMask(0)
+#if WITH_EDITORONLY_DATA
+		, GPUDebugDataReadbackFloat(nullptr)
+		, GPUDebugDataReadbackInt(nullptr)
+		, GPUDebugDataReadbackCounts(nullptr)
+		, GPUDebugDataCurrBufferIdx(0xFFFFFFFF)
+		, GPUDebugDataFloatSize(0)
+		, GPUDebugDataIntSize(0)
+#endif	  
 	{
 	}
 
@@ -106,7 +117,26 @@ struct FNiagaraComputeExecutionContext
 		if (GPUDataReadback)
 		{
 			delete GPUDataReadback;
+			GPUDataReadback = nullptr;
 		}
+
+#if WITH_EDITORONLY_DATA
+		if (GPUDebugDataReadbackFloat)
+		{
+			delete GPUDebugDataReadbackFloat;
+			GPUDebugDataReadbackFloat = nullptr;
+		}
+		if (GPUDebugDataReadbackInt)
+		{
+			delete GPUDebugDataReadbackInt;
+			GPUDebugDataReadbackInt = nullptr;
+		}
+		if (GPUDebugDataReadbackCounts)
+		{
+			delete GPUDebugDataReadbackCounts;
+			GPUDebugDataReadbackCounts = nullptr;
+		}
+#endif
 	}
 
 	void Reset()
@@ -120,9 +150,10 @@ struct FNiagaraComputeExecutionContext
 		);
 	}
 
-	void InitParams(UNiagaraScript* InGPUComputeScript, UNiagaraScript* InSpawnScript, UNiagaraScript *InUpdateScript, ENiagaraSimTarget SimTarget)
+	void InitParams(UNiagaraScript* InGPUComputeScript, UNiagaraScript* InSpawnScript, UNiagaraScript *InUpdateScript, ENiagaraSimTarget InSimTarget, const FString& InDebugSimName)
 	{
-		CombinedParamStore.InitFromOwningContext(InGPUComputeScript, SimTarget, true);
+		DebugSimName = InDebugSimName;
+		CombinedParamStore.InitFromOwningContext(InGPUComputeScript, InSimTarget, true);
 
 		GPUScript = InGPUComputeScript;
 		SpawnScript = InSpawnScript;
@@ -189,13 +220,31 @@ private:
 		if (GPUDataReadback)
 		{
 			delete GPUDataReadback;
+			GPUDataReadback = nullptr;
 		}
-		GPUDataReadback = nullptr;
+
+#if WITH_EDITORONLY_DATA
+		if (GPUDebugDataReadbackFloat)
+		{
+			delete GPUDebugDataReadbackFloat;
+			GPUDebugDataReadbackFloat = nullptr;
+		}
+		if (GPUDebugDataReadbackInt)
+		{
+			delete GPUDebugDataReadbackInt;
+			GPUDebugDataReadbackInt = nullptr;
+		}
+		if (GPUDebugDataReadbackCounts)
+		{
+			delete GPUDebugDataReadbackCounts;
+			GPUDebugDataReadbackCounts = nullptr;
+		}
+#endif
 	}
 
 public:
 	const TArray<FNiagaraEventScriptProperties> &GetEventHandlers() const { return EventHandlerScriptProps; }
-
+	FString DebugSimName;
 	class FNiagaraDataSet *MainDataSet;
 	TArray<FNiagaraDataSet*>UpdateEventWriteDataSets;
 	TArray<FNiagaraEventScriptProperties> EventHandlerScriptProps;
@@ -222,6 +271,21 @@ public:
 	uint32 AccumulatedSpawnRate;
 	uint32 NumIndicesPerInstance;	// how many vtx indices per instance the renderer is going to have for its draw call
 
+	void* PerInstanceData; // Data stored on parent system instance
+	uint32 PerInstanceDataSize; // Size of data stored on parent system instance in bytes
+	TMap<TWeakObjectPtr<UNiagaraDataInterface>, int32>* PerInstanceDataInterfaceOffsets;
+
 	/** Ensures we only enqueue each context once per queue before they're dispatched. See SIMULATION_QUEUE_COUNT */
 	uint32 PendingExecutionQueueMask;
+
+
+#if WITH_EDITORONLY_DATA
+	mutable FRHIGPUMemoryReadback *GPUDebugDataReadbackFloat;
+	mutable FRHIGPUMemoryReadback *GPUDebugDataReadbackInt;
+	mutable FRHIGPUMemoryReadback *GPUDebugDataReadbackCounts;
+	mutable int32 GPUDebugDataCurrBufferIdx;
+	mutable uint32 GPUDebugDataFloatSize;
+	mutable uint32 GPUDebugDataIntSize;
+	mutable TSharedPtr<struct FNiagaraScriptDebuggerInfo, ESPMode::ThreadSafe> DebugInfo;
+#endif
 };

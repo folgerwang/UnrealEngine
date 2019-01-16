@@ -15,7 +15,7 @@ class SNiagaraGraphPinAdd;
 DECLARE_DELEGATE_OneParam(FOnAddParameter, const FNiagaraVariable&);
 
 /** A base node for niagara nodes with pins which can be dynamically added and removed by the user. */
-UCLASS()
+UCLASS(Abstract)
 class UNiagaraNodeWithDynamicPins : public UNiagaraNode
 {
 public:

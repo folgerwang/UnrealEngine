@@ -11,10 +11,10 @@ class UNiagaraNodeUsageSelector: public UNiagaraNodeWithDynamicPins
 	GENERATED_UCLASS_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category=If)
+	UPROPERTY()
 	TArray<FNiagaraVariable> OutputVars;
 	
-	UPROPERTY(EditAnywhere, Category=If)
+	UPROPERTY()
 	TArray<FGuid> OutputVarGuids;
 	
 	//~ Begin UObject Interface
@@ -40,6 +40,8 @@ public:
 	FGuid AddOutput(FNiagaraTypeDefinition Type, const FName& Name);
 	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* LocallyOwnedOutputPin, ENiagaraScriptUsage MasterUsage) const override; 
 
+	virtual void AppendFunctionAliasForContext(const FNiagaraGraphFunctionAliasContext& InFunctionAliasContext, FString& InOutFunctionAlias) override;
+
 protected:
 	//~ Begin EdGraphNode Interface
 	virtual void OnPinRemoved(UEdGraphPin* PinToRemove) override;
@@ -53,4 +55,6 @@ protected:
 	virtual bool CanMovePin(const UEdGraphPin* Pin) const override { return false; }
 	virtual bool AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType) override;
 	//~ End UNiagaraNodeWithDynamicPins Interface
+
+	virtual void InsertInputPinsFor(const FNiagaraVariable& Var);
 };

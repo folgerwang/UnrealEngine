@@ -114,6 +114,10 @@ DECLARE_CYCLE_STAT(TEXT("ParticleComponent CreateRenderState Concurrent GT"), ST
 DECLARE_CYCLE_STAT(TEXT("PSys Comp Marshall Time GT"), STAT_UParticleSystemComponent_Marshall, STATGROUP_Particles);
 
 CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+DEFINE_STAT(STAT_ParticlesOverview_GT);
+DEFINE_STAT(STAT_ParticlesOverview_GT_CNC);
+DEFINE_STAT(STAT_ParticlesOverview_RT);
+DEFINE_STAT(STAT_ParticlesOverview_RT_CNC);
 
 #include "InGamePerformanceTracker.h"
 
@@ -3839,6 +3843,7 @@ void UParticleSystemComponent::OnUnregister()
 void UParticleSystemComponent::CreateRenderState_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateRenderState_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	check( GetWorld() );
@@ -3873,6 +3878,7 @@ void UParticleSystemComponent::CreateRenderState_Concurrent()
 void UParticleSystemComponent::SendRenderTransform_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_SendRenderTransform_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	if (bIsActive)
@@ -3890,6 +3896,7 @@ void UParticleSystemComponent::SendRenderTransform_Concurrent()
 void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_SendRenderDynamicData_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	Super::SendRenderDynamicData_Concurrent();
@@ -3924,6 +3931,7 @@ void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 void UParticleSystemComponent::DestroyRenderState_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_DestroyRenderState_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	check( GetWorld() );
@@ -4927,6 +4935,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Effects);
 	LLM_SCOPE(ELLMTag::Particles);
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if (Template == nullptr || Template->Emitters.Num() == 0)
 	{
@@ -5214,6 +5223,8 @@ void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 
 	SCOPE_CYCLE_COUNTER(STAT_ParticleComputeTickTime);
 	FScopeCycleCounterUObject AdditionalScope(AdditionalStatObject(), GET_STATID(STAT_ParticleComputeTickTime));
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
+
 	// Tick Subemitters.
 	int32 EmitterIndex;
 	NumSignificantEmitters = 0;
@@ -5287,6 +5298,7 @@ void UParticleSystemComponent::FinalizeTickComponent()
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, IsInGameThread() ? EInGamePerfTrackerThreads::GameThread : EInGamePerfTrackerThreads::OtherThread, bIsManagingSignificance);
 
 	SCOPE_CYCLE_COUNTER(STAT_ParticleFinalizeTickTime);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if(bAsyncDataCopyIsValid)
 	{
@@ -5786,6 +5798,7 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 {
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Effects);
 	SCOPE_CYCLE_COUNTER(STAT_ParticleActivateTime);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 	ForceAsyncWorkCompletion(STALL);
 
 	if (IsTemplate() == true || !IsRegistered() || 	!FApp::CanEverRender())
@@ -6033,6 +6046,7 @@ void UParticleSystemComponent::DeactivateSystem()
 {
 	UWorld* World = GetWorld();
 	FInGameScopedCycleCounter InGameCycleCounter(World, EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if (IsTemplate() == true)
 	{
