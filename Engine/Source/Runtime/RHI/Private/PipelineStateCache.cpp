@@ -557,66 +557,9 @@ private:
 
 };
 
-class FGraphicsPipelineStateKey
-{
-public:
-	explicit FGraphicsPipelineStateKey(const FGraphicsPipelineStateInitializer& InInitializer)
-	{
-		FMemory::Memcpy(Initializer, InInitializer);
-		
-		if (InInitializer.BoundShaderState.VertexShaderRHI)
-		{
-			VertexShaderHash = InInitializer.BoundShaderState.VertexShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.PixelShaderRHI)
-		{
-			PixelShaderHash = InInitializer.BoundShaderState.PixelShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.GeometryShaderRHI)
-		{
-			GeometryShaderHash = InInitializer.BoundShaderState.GeometryShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.HullShaderRHI)
-		{
-			HullShaderHash = InInitializer.BoundShaderState.HullShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.DomainShaderRHI)
-		{
-			DomainShaderHash = InInitializer.BoundShaderState.DomainShaderRHI->GetHash();
-		}
-	}
-	
-	bool operator==(const FGraphicsPipelineStateKey& rhs) const
-	{
-		if (Initializer == rhs.Initializer && 
-			VertexShaderHash == rhs.VertexShaderHash &&
-			PixelShaderHash == rhs.PixelShaderHash &&
-			GeometryShaderHash == rhs.GeometryShaderHash &&
-			HullShaderHash == rhs.HullShaderHash &&
-			DomainShaderHash == rhs.DomainShaderHash)
-		{
-			return true;
-		}
-
-		return false;
-	}
-
-	FGraphicsPipelineStateInitializer Initializer;
-	FSHAHash VertexShaderHash;
-	FSHAHash PixelShaderHash;
-	FSHAHash GeometryShaderHash;
-	FSHAHash HullShaderHash;
-	FSHAHash DomainShaderHash;
-};
-
-static inline uint32 GetTypeHash(const FGraphicsPipelineStateKey& PipelineStateKey)
-{
-	return GetTypeHash(PipelineStateKey.Initializer);
-}
-
 // Typed caches for compute and graphics
 typedef TDiscardableKeyValueCache< FRHIComputeShader*, FComputePipelineState*> FComputePipelineCache;
-typedef TSharedPipelineStateCache<FGraphicsPipelineStateKey, FGraphicsPipelineState*> FGraphicsPipelineCache;
+typedef TSharedPipelineStateCache<FGraphicsPipelineStateInitializer, FGraphicsPipelineState*> FGraphicsPipelineCache;
 
 // These are the actual caches for both pipelines
 FComputePipelineCache GComputePipelineCache;
@@ -940,7 +883,6 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 FRHIRayTracingPipelineState* PipelineStateCache::GetAndOrCreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer)
 {
 	LLM_SCOPE(ELLMTag::PSO);
-	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
 
 	check(IsInRenderingThread() || IsInParallelRenderingThread());
 
@@ -1052,8 +994,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 
 	FGraphicsPipelineState* OutCachedState = nullptr;
 
-	FGraphicsPipelineStateKey PipelineStateKey(*Initializer);
-	bool bWasFound = GGraphicsPipelineCache.Find(PipelineStateKey, OutCachedState);
+	bool bWasFound = GGraphicsPipelineCache.Find(*Initializer, OutCachedState);
 
 	if (bWasFound == false)
 	{
@@ -1079,7 +1020,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 		}
 
 		// GGraphicsPipelineCache.Add(*Initializer, OutCachedState, LockFlags);
-		GGraphicsPipelineCache.Add(PipelineStateKey, OutCachedState);
+		GGraphicsPipelineCache.Add(*Initializer, OutCachedState);
 	}
 	else
 	{

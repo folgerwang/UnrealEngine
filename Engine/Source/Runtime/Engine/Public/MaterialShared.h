@@ -413,7 +413,7 @@ public:
 		bUsesGlobalDistanceField(false),
 		bUsesPixelDepthOffset(false),
 		bUsesSceneDepthLookup(false),
-		bUsesVelocitySceneTexture(false)
+		bUsesVelocitySceneTexture(false),
 		bUsesDistanceCullFade(false)
 	{}
 

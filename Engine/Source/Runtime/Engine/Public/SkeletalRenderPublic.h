@@ -192,8 +192,6 @@ public:
 	FORCEINLINE FSkeletalMeshRenderData& GetSkeletalMeshRenderData() const { return *SkeletalMeshRenderData; }
 
 #if RHI_RAYTRACING
-	bool bRequireRecreatingRayTracingGeometry;
-
 	/** Retrieve ray tracing geometry from the underlying mesh object */
 	virtual const FRayTracingGeometry* GetRayTracingGeometry() const { return nullptr; }
 #endif // RHI_RAYTRACING
@@ -232,6 +230,10 @@ public:
 
 	/** This is set to true when we have sent our Mesh data to the rendering thread at least once as it needs to have have a datastructure created there for each MeshObject **/
 	bool bHasBeenUpdatedAtLeastOnce;
+
+#if RHI_RAYTRACING
+	bool bRequireRecreatingRayTracingGeometry;
+#endif
 
 #if WITH_EDITORONLY_DATA
 	/** Index of the section to preview... If set to -1, all section will be rendered */

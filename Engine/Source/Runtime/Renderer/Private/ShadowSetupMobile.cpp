@@ -426,7 +426,7 @@ void FMobileSceneRenderer::BuildCSMVisibilityState(FLightSceneInfo* LightSceneIn
 
 			if (ViewFamily.EngineShowFlags.ShadowFrustums)
 			{
-				FViewElementPDI ShadowFrustumPDI(&View, NULL);
+				FViewElementPDI ShadowFrustumPDI(&View, nullptr, nullptr);
 				
 				const FMatrix ViewMatrix = View.ViewMatrices.GetViewMatrix();
 				const FMatrix ProjectionMatrix = View.ViewMatrices.GetProjectionMatrix();

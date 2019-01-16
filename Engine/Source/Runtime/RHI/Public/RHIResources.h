@@ -1736,12 +1736,7 @@ public:
 			BoundShaderState.PixelShaderRHI != rhs.BoundShaderState.PixelShaderRHI ||
 			BoundShaderState.GeometryShaderRHI != rhs.BoundShaderState.GeometryShaderRHI ||
 			BoundShaderState.DomainShaderRHI != rhs.BoundShaderState.DomainShaderRHI ||
-			BoundShaderState.HullShaderRHI != rhs.BoundShaderState.HullShaderRHI ||
-			VertexShaderHash != rhs.VertexShaderHash ||
-			PixelShaderHash != rhs.PixelShaderHash ||
-			GeometryShaderHash != rhs.GeometryShaderHash ||
-			HullShaderHash != rhs.HullShaderHash ||
-			DomainShaderHash != rhs.DomainShaderHash ||
+			BoundShaderState.HullShaderRHI != rhs.BoundShaderState.HullShaderRHI ||			
 			BlendState != rhs.BlendState || 
 			RasterizerState != rhs.RasterizerState || 
 			DepthStencilState != rhs.DepthStencilState ||
@@ -1916,6 +1911,11 @@ public:
 	bool operator==(const FGraphicsPipelineStateInitializer& rhs) const
 	{
 		if (!FGraphicsMinimalPipelineStateInitializer::operator ==(rhs) ||
+			VertexShaderHash != rhs.VertexShaderHash ||
+			PixelShaderHash != rhs.PixelShaderHash ||
+			GeometryShaderHash != rhs.GeometryShaderHash ||
+			HullShaderHash != rhs.HullShaderHash ||
+			DomainShaderHash != rhs.DomainShaderHash ||
 			RenderTargetsEnabled != rhs.RenderTargetsEnabled ||
 			RenderTargetFormats != rhs.RenderTargetFormats || 
 			RenderTargetFlags != rhs.RenderTargetFlags || 
@@ -1953,15 +1953,6 @@ public:
 		return RenderTargetsEnabled;
 	}
 
-	// TODO: [PSO API] - As we migrate reuse existing API objects, but eventually we can move to the direct initializers. 
-	// When we do that work, move this to RHI.h as its more appropriate there, but here for now since dependent typdefs are here.
-	FBoundShaderStateInput			BoundShaderState;
-	FBlendStateRHIParamRef			BlendState;
-	FRasterizerStateRHIParamRef		RasterizerState;
-	FDepthStencilStateRHIParamRef	DepthStencilState;
-	FImmutableSamplerState			ImmutableSamplerState;
-	bool							bDepthBounds = false;
-	EPrimitiveType					PrimitiveType;
 	FSHAHash						VertexShaderHash;
 	FSHAHash						PixelShaderHash;
 	FSHAHash						GeometryShaderHash;
