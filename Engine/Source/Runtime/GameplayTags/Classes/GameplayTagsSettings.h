@@ -126,16 +126,21 @@ class GAMEPLAYTAGS_API UGameplayTagsSettings : public UGameplayTagsList
 	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
 	bool ImportTagsFromConfig;
 
-	/** If true, will give load warnings when reading invalid tags off disk */
+	/** If true, will give load warnings when reading in saved tag references that are not in the dictionary */
 	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
 	bool WarnOnInvalidTags;
-
-	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
-	TArray<FGameplayTagCategoryRemap>	CategoryRemapping;
 
 	/** If true, will replicate gameplay tags by index instead of name. For this to work, tags must be identical on client and server */
 	UPROPERTY(config, EditAnywhere, Category = "Advanced Replication")
 	bool FastReplication;
+
+	/** These characters cannot be used in gameplay tags, in addition to special ones like newline*/
+	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
+	FString InvalidTagCharacters;
+
+	/** Category remapping. This allows base engine tag category meta data to remap to multiple project-specific categories. */
+	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
+	TArray<FGameplayTagCategoryRemap> CategoryRemapping;
 
 	/** List of data tables to load tags from */
 	UPROPERTY(config, EditAnywhere, Category = GameplayTags, meta = (AllowedClasses = "DataTable"))
@@ -165,6 +170,7 @@ class GAMEPLAYTAGS_API UGameplayTagsSettings : public UGameplayTagsList
 	UPROPERTY(EditAnywhere, AdvancedDisplay, transient, Category = "Advanced Gameplay Tags")
 	FString RestrictedTagList;
 #endif
+
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

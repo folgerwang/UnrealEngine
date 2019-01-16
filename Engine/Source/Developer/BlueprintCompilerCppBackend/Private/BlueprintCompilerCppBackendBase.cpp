@@ -323,11 +323,11 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromClass(UClass* SourceCl
 	auto CleanCppClassName = FEmitHelper::GetBaseFilename(SourceClass, NativizationOptions);
 	auto CppClassName = FEmitHelper::GetCppName(SourceClass);
 	
-	FGatherConvertedClassDependencies Dependencies(SourceClass, NativizationOptions);
-	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies.RequiredModuleNames);
-	FEmitterLocalContext EmitterContext(Dependencies, NativizationOptions);
+	TSharedPtr<FGatherConvertedClassDependencies> Dependencies = FGatherConvertedClassDependencies::Get(SourceClass, NativizationOptions);
+	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies->RequiredModuleNames);
+	FEmitterLocalContext EmitterContext(Dependencies.ToSharedRef().Get(), NativizationOptions);
 
-	UClass* OriginalSourceClass = Dependencies.FindOriginalClass(SourceClass);
+	UClass* OriginalSourceClass = Dependencies->FindOriginalClass(SourceClass);
 	ensure(OriginalSourceClass != SourceClass);
 
 	FNativizationSummaryHelper::RegisterClass(OriginalSourceClass);
@@ -427,9 +427,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromClass(UClass* SourceCl
 		{
 			UBlueprintGeneratedClass* BPGC = CastChecked<UBlueprintGeneratedClass>(EmitterContext.GetCurrentlyGeneratedClass());
 			UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
-			ParentDependencies = TSharedPtr<FGatherConvertedClassDependencies>( ParentBPGC 
-				? new FGatherConvertedClassDependencies(ParentBPGC, NativizationOptions) 
-				: nullptr);
+			ParentDependencies = FGatherConvertedClassDependencies::Get(ParentBPGC, NativizationOptions);
 
 			EmitterContext.Header.AddLine(FString::Printf(TEXT("%s(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());"), *CppClassName));
 			EmitterContext.Header.AddLine(TEXT("virtual void PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph) override;"));
@@ -1041,9 +1039,9 @@ void FBlueprintCompilerCppBackendBase::GenerateCodeFromEnum(UUserDefinedEnum* So
 void FBlueprintCompilerCppBackendBase::GenerateCodeFromStruct(UUserDefinedStruct* SourceStruct, const FCompilerNativizationOptions& NativizationOptions, FString& OutHeaderCode, FString& OutCPPCode)
 {
 	check(SourceStruct);
-	FGatherConvertedClassDependencies Dependencies(SourceStruct, NativizationOptions);
-	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies.RequiredModuleNames);
-	FEmitterLocalContext EmitterContext(Dependencies, NativizationOptions);
+	TSharedPtr<FGatherConvertedClassDependencies> Dependencies = FGatherConvertedClassDependencies::Get(SourceStruct, NativizationOptions);
+	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies->RequiredModuleNames);
+	FEmitterLocalContext EmitterContext(Dependencies.ToSharedRef().Get(), NativizationOptions);
 	// use GetBaseFilename() so that we can coordinate #includes and filenames
 	EmitFileBeginning(FEmitHelper::GetBaseFilename(SourceStruct, NativizationOptions), EmitterContext, true, true);
 	{
@@ -1088,9 +1086,9 @@ void FBlueprintCompilerCppBackendBase::GenerateCodeFromStruct(UUserDefinedStruct
 
 FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* SourceClass, const FCompilerNativizationOptions& NativizationOptions)
 {
-	FGatherConvertedClassDependencies Dependencies(SourceClass, NativizationOptions);
-	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies.RequiredModuleNames);
-	FEmitterLocalContext EmitterContext(Dependencies, NativizationOptions);
+	TSharedPtr<FGatherConvertedClassDependencies> Dependencies = FGatherConvertedClassDependencies::Get(SourceClass, NativizationOptions);
+	FNativizationSummaryHelper::RegisterRequiredModules(NativizationOptions.PlatformName, Dependencies->RequiredModuleNames);
+	FEmitterLocalContext EmitterContext(Dependencies.ToSharedRef().Get(), NativizationOptions);
 
 	UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(SourceClass);
 
@@ -1140,7 +1138,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* Source
 					break;
 				}
 				UBlueprintGeneratedClass* SuperBPGC = Cast<UBlueprintGeneratedClass>(SuperClassToUse);
-				if (SuperBPGC && Dependencies.WillClassBeConverted(SuperBPGC))
+				if (SuperBPGC && Dependencies->WillClassBeConverted(SuperBPGC))
 				{
 					break;
 				}
@@ -1156,7 +1154,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* Source
 		}
 
 		UBlueprintGeneratedClass* SuperBPGC = Cast<UBlueprintGeneratedClass>(SuperClassToUse);
-		if (SuperBPGC && !Dependencies.WillClassBeConverted(SuperBPGC))
+		if (SuperBPGC && !Dependencies->WillClassBeConverted(SuperBPGC))
 		{
 			ParentStruct = FString::Printf(TEXT("FUnconvertedWrapper__%s"), *FEmitHelper::GetCppName(SuperBPGC));
 			EmitterContext.MarkUnconvertedClassAsNecessary(SuperBPGC);

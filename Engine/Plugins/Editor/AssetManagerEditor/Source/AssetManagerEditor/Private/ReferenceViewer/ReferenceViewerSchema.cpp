@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "ReferenceViewerSchema.h"
+#include "ReferenceViewer/ReferenceViewerSchema.h"
 #include "Textures/SlateIcon.h"
 #include "Misc/Attribute.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -106,13 +106,13 @@ void UReferenceViewerSchema::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraph
 	// Don't allow breaking any links
 }
 
-FPinConnectionResponse UReferenceViewerSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsItermediateMove) const
+FPinConnectionResponse UReferenceViewerSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove, bool bNotifyLinkedNodes) const
 {
 	// Don't allow moving any links
 	return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, FString());
 }
 
-FPinConnectionResponse UReferenceViewerSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UEdGraphPin& CopyToPin, bool bIsItermediateCopy) const
+FPinConnectionResponse UReferenceViewerSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UEdGraphPin& CopyToPin, bool bIsIntermediateCopy) const
 {
 	// Don't allow copying any links
 	return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, FString());

@@ -26,6 +26,22 @@ FString FComponentClassComboEntry::GetClassName() const
 	return ComponentClass != nullptr ? ComponentClass->GetDisplayNameText().ToString() : ComponentName;
 }
 
+void FComponentClassComboEntry::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	UClass* RawClass = ComponentClass;
+	Collector.AddReferencedObject(RawClass);
+	if(RawClass && RawClass->IsChildOf(UActorComponent::StaticClass()))
+	{
+		ComponentClass = RawClass;
+	}
+	else
+	{
+		ComponentClass = nullptr;
+	}
+
+	Collector.AddReferencedObject(IconClass);
+}
+
 void SComponentClassCombo::Construct(const FArguments& InArgs)
 {
 	PrevSelectedIndex = INDEX_NONE;

@@ -38,16 +38,6 @@ public:
 	static void InvalidatePropertyExport(UProperty* PropertyToInvalidate);
 
 	/**
-	 * Finds any class with the specified class name, and consigns it to oblivion, along with the specified class to consign.
-	 * This should ensure that the specified name is free for use
-	 *
-	 * @param ClassToConsign	Class to consign to oblivion no matter what
-	 * @param ClassName			Name that we want to ensure isn't used
-	 * @param Blueprint			The blueprint that is in charge of these classes, used for scoping
-	 */
-	static void EnsureFreeNameForNewClass(UClass* ClassToConsign, FString& ClassName, UBlueprint* Blueprint);
-
-	/**
 	 * Tests to see if a pin is schema compatible with a property.
 	 *
 	 * @param	SourcePin		If non-null, source object.
@@ -124,6 +114,9 @@ public:
 	 * Blueprint's bytecode is recompiled.
 	 */
 	static bool IsMissingMemberPotentiallyLoading(const UBlueprint* SelfBlueprint, const UStruct* MemberOwner);
+
+	/** @return true if the graph in question contains only an entry node or only an entry node and a call to its parent if the graph is an override */
+	static bool IsIntermediateFunctionGraphTrivial(FName FunctionName, const UEdGraph* FunctionGraph);
 };
 
 //////////////////////////////////////////////////////////////////////////

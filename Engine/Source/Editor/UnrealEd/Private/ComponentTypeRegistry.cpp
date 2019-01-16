@@ -28,6 +28,7 @@
 
 struct FComponentTypeRegistryData
 	: public FTickableEditorObject
+	, public FGCObject
 {
 	FComponentTypeRegistryData();
 
@@ -40,7 +41,10 @@ struct FComponentTypeRegistryData
 	virtual void Tick(float) override;
 	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FTypeDatabaseUpdater, STATGROUP_Tickables); }
-
+	
+	/** Implementation of FGCObject */
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	
 	// Request a refresh of the components list next frame
 	void Invalidate()
 	{
@@ -424,6 +428,19 @@ void FComponentTypeRegistryData::Tick(float)
 	if (bRequiresRefresh)
 	{
 		ForceRefreshComponentList();
+	}
+}
+
+void FComponentTypeRegistryData::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	for(FComponentClassComboEntryPtr& ComboEntry : ComponentClassList)
+	{
+		ComboEntry->AddReferencedObjects(Collector);
+	}
+
+	for(FComponentTypeEntry& TypeEntry : ComponentTypeList)
+	{
+		Collector.AddReferencedObject(TypeEntry.ComponentClass);
 	}
 }
 

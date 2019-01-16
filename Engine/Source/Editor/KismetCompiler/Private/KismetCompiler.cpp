@@ -277,7 +277,8 @@ void FKismetCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	for( auto SubObjIt = ClassSubObjects.CreateIterator(); SubObjIt; ++SubObjIt )
 	{
 		UObject* CurrSubObj = *SubObjIt;
-		CurrSubObj->Rename(*CurrSubObj->GetName(), TransientClass, RenFlags);
+		FName NewSubobjectName = MakeUniqueObjectName(TransientClass, CurrSubObj->GetClass(), CurrSubObj->GetFName());
+		CurrSubObj->Rename(*NewSubobjectName.ToString(), TransientClass, RenFlags);
 		if( UProperty* Prop = Cast<UProperty>(CurrSubObj) )
 		{
 			FKismetCompilerUtilities::InvalidatePropertyExport(Prop);
@@ -2256,8 +2257,9 @@ void FKismetCompilerContext::SetDefaultInputValueMetaData(UFunction* Function, c
 	for (const TSharedPtr<FUserPinInfo>& InputDataPtr : InputData)
 	{
 		if ( InputDataPtr.IsValid() &&
+			!InputDataPtr->PinName.IsNone() &&
+			(InputDataPtr->PinName != UEdGraphSchema_K2::PN_Self) &&
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) && 
-			(InputDataPtr->PinName != UEdGraphSchema_K2::PN_Self) && 
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Object) &&
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Class) &&
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Interface) )
@@ -3650,6 +3652,15 @@ void FKismetCompilerContext::ProcessOneFunctionGraph(UEdGraph* SourceGraph, bool
 
 	ExpansionStep(FunctionGraph, false);
 
+	// Cull the entire construction script graph if after node culling it's trivial, this reduces event spam on object construction:
+	if (SourceGraph->GetFName() == Schema->FN_UserConstructionScript )
+	{
+		if(FKismetCompilerUtilities::IsIntermediateFunctionGraphTrivial(Schema->FN_UserConstructionScript, FunctionGraph))
+		{
+			return;
+		}
+	}
+
 	// If a function in the graph cannot be overridden/placed as event make sure that it is not.
 	VerifyValidOverrideFunction(FunctionGraph);
 
@@ -4160,15 +4171,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 		// Copy over the CDO properties if we're not already regenerating on load.  In that case, the copy will be done after compile on load is complete
 		FBlueprintEditorUtils::PropagateParentBlueprintDefaults(NewClass);
 
-		if (Blueprint->HasAnyFlags(RF_BeingRegenerated))
-		{
-			if (CompileOptions.CompileType == EKismetCompileType::Full)
-			{
-				check(Blueprint->PRIVATE_InnermostPreviousCDO == NULL);
-				Blueprint->PRIVATE_InnermostPreviousCDO = OldCDO;
-			}
-		}
-
 		if(bPropagateValuesToCDO)
 		{
 			if( !Blueprint->HasAnyFlags(RF_BeingRegenerated) )
@@ -4199,17 +4201,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 					// Don't perform generated class validation since we didn't do any value propagation.
 					bSkipGeneratedClassValidation = true;
 				}
-
-				// >>> Backwards Compatibility: Propagate data from the skel CDO to the gen CDO if we haven't already done so for this blueprint
-				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() && CompileOptions.CompileType != EKismetCompileType::Cpp )
-				{
-					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-					CopyDetails.bAggressiveDefaultSubobjectReplacement = false;
-					CopyDetails.bDoDelta = false;
-					UEditorEngine::CopyPropertiesForUnrelatedObjects(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), NewCDO, CopyDetails);
-					Blueprint->SetLegacyGeneratedClassIsAuthoritative();
-				}
-				// <<< End Backwards Compatibility
 			}
 
 			PropagateValuesToCDO(NewCDO, OldCDO);

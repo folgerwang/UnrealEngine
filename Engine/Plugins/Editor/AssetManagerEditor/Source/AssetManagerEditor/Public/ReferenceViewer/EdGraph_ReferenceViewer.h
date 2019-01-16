@@ -14,7 +14,7 @@ class UEdGraphNode_Reference;
 class SReferenceViewer;
 
 UCLASS()
-class UEdGraph_ReferenceViewer : public UEdGraph
+class ASSETMANAGEREDITOR_API UEdGraph_ReferenceViewer : public UEdGraph
 {
 	GENERATED_UCLASS_BODY()
 
@@ -23,11 +23,20 @@ public:
 	virtual void BeginDestroy() override;
 	// End UObject implementation
 
+	/** Set reference viewer to focus on these assets */
 	void SetGraphRoot(const TArray<FAssetIdentifier>& GraphRootIdentifiers, const FIntPoint& GraphRootOrigin = FIntPoint(ForceInitToZero));
+
+	/** Returns list of currently focused assets */
 	const TArray<FAssetIdentifier>& GetCurrentGraphRootIdentifiers() const;
-	class UEdGraphNode_Reference* RebuildGraph();
-	void SetReferenceViewer(TSharedPtr<SReferenceViewer> InViewer);
+
+	/** If you're extending the reference viewer via GetAllGraphEditorContextMenuExtender you can use this to get the list of selected assets to use in your menu extender */
 	bool GetSelectedAssetsForMenuExtender(const class UEdGraphNode* Node, TArray<FAssetIdentifier>& SelectedAssets) const;
+
+	/** Accessor for the thumbnail pool in this graph */
+	const TSharedPtr<class FAssetThumbnailPool>& GetAssetThumbnailPool() const;
+
+	/** Force the graph to rebuild */
+	class UEdGraphNode_Reference* RebuildGraph();
 
 	bool IsSearchDepthLimited() const;
 	bool IsSearchBreadthLimited() const;
@@ -57,10 +66,8 @@ public:
 	bool GetEnableCollectionFilter() const;
 	void SetEnableCollectionFilter(bool bEnabled);
 
-	/** Accessor for the thumbnail pool in this graph */
-	const TSharedPtr<class FAssetThumbnailPool>& GetAssetThumbnailPool() const;
-
 private:
+	void SetReferenceViewer(TSharedPtr<SReferenceViewer> InViewer);
 	UEdGraphNode_Reference* ConstructNodes(const TArray<FAssetIdentifier>& GraphRootIdentifiers, const FIntPoint& GraphRootOrigin);
 	int32 RecursivelyGatherSizes(bool bReferencers, const TArray<FAssetIdentifier>& Identifiers, const TSet<FName>& AllowedPackageNames, int32 CurrentDepth, TSet<FAssetIdentifier>& VisitedNames, TMap<FAssetIdentifier, int32>& OutNodeSizes) const;
 	void GatherAssetData(const TSet<FName>& AllPackageNames, TMap<FName, FAssetData>& OutPackageToAssetDataMap) const;
@@ -102,4 +109,6 @@ private:
 	bool bIsShowManagementReferences;
 	bool bIsShowSearchableNames;
 	bool bIsShowNativePackages;
+
+	friend SReferenceViewer;
 };
