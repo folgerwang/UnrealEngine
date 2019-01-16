@@ -1,4 +1,4 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -325,12 +325,15 @@ namespace UnrealGameSync
 			Dialog.Filter = "Project files (*.uproject)|*.uproject|Project directory lists (*.uprojectdirs)|*.uprojectdirs|All supported files (*.uproject;*.uprojectdirs)|*.uproject;*.uprojectdirs|All files (*.*)|*.*" ;
 			Dialog.FilterIndex = Settings.FilterIndex;
 			
-			try
+			if(!String.IsNullOrEmpty(LocalFileTextBox.Text))
 			{
-				Dialog.InitialDirectory = Path.GetDirectoryName(LocalFileTextBox.Text);
-			}
-			catch
-			{
+				try
+				{
+					Dialog.InitialDirectory = Path.GetDirectoryName(LocalFileTextBox.Text);
+				}
+				catch
+				{
+				}
 			}
 
 			if(Dialog.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
