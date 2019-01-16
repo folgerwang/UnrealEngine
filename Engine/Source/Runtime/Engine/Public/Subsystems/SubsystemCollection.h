@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Templates/Casts.h"
 #include "Templates/SubclassOf.h"
 #include "UObject/GCObject.h"
 
