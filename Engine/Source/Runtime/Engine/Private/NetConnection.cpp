@@ -491,8 +491,6 @@ void UNetConnection::Serialize( FArchive& Ar )
 		OutReliable.CountBytes(Ar);
 		InReliable.CountBytes(Ar);
 		PendingOutRec.CountBytes(Ar);
-		QueuedAcks.CountBytes(Ar);
-		ResendAcks.CountBytes(Ar);
 		ActorChannels.CountBytes(Ar);
 		DestroyedStartupOrDormantActorGUIDs.CountBytes(Ar);
 		KeepProcessingActorChannelBunchesMap.CountBytes(Ar);
