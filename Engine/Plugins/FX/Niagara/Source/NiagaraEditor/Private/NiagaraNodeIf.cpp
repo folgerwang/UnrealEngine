@@ -74,7 +74,9 @@ void UNiagaraNodeIf::PostLoad()
 
 bool UNiagaraNodeIf::AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType)
 {
-	return Super::AllowNiagaraTypeForAddPin(InType) && InType != FNiagaraTypeDefinition::GetParameterMapDef();
+	// Explicitly allow Numeric types, and explicitly disallow ParameterMap types
+	
+	return (Super::AllowNiagaraTypeForAddPin(InType) || InType == FNiagaraTypeDefinition::GetGenericNumericDef()) && InType != FNiagaraTypeDefinition::GetParameterMapDef();
 }
 
 void UNiagaraNodeIf::AllocateDefaultPins()
@@ -137,7 +139,29 @@ void UNiagaraNodeIf::Compile(class FHlslNiagaraTranslator* Translator, TArray<in
 
 		PathB.Add(Translator->CompilePin(Pins[PinIdx++]));
 	}
-	Translator->If(OutputVars, Condition, PathA, PathB, Outputs);
+	Translator->If(this, OutputVars, Condition, PathA, PathB, Outputs);
+}
+
+ENiagaraNumericOutputTypeSelectionMode UNiagaraNodeIf::GetNumericOutputTypeSelectionMode() const
+{
+	return ENiagaraNumericOutputTypeSelectionMode::Largest;
+}
+
+
+void UNiagaraNodeIf::ResolveNumerics(const UEdGraphSchema_Niagara* Schema, bool bSetInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache)
+{
+	int32 VarStartIdx = 1;
+	for (int32 i = 0; i < OutputVars.Num(); ++i)
+	{
+		// Fix up numeric input pins and keep track of numeric types to decide the output type.
+		TArray<UEdGraphPin*> InputPins;
+		TArray<UEdGraphPin*> OutputPins;
+		
+		InputPins.Add(Pins[i + VarStartIdx]);
+		InputPins.Add(Pins[i + VarStartIdx + OutputVars.Num()]);
+		OutputPins.Add(Pins[i + VarStartIdx + 2 * OutputVars.Num()]);
+		NumericResolutionByPins(Schema, InputPins, OutputPins,  bSetInline, PinCache);
+	}
 }
 
 bool UNiagaraNodeIf::RefreshFromExternalChanges()

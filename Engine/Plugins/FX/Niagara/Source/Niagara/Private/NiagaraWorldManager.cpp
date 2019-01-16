@@ -12,6 +12,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "NiagaraDataInterfaceSkeletalMesh.h"
 #include "EngineModule.h"
+#include "NiagaraStats.h"
+
+DECLARE_CYCLE_STAT(TEXT("Niagara Manager Tick [GT]"), STAT_NiagaraWorldManTick, STATGROUP_Niagara);
 
 TGlobalResource<FNiagaraViewDataMgr> GNiagaraViewDataManager;
 
@@ -27,8 +30,11 @@ FNiagaraViewDataMgr::FNiagaraViewDataMgr()
 void FNiagaraViewDataMgr::Init()
 {
 	IRendererModule& RendererModule = GetRendererModule();
+
 	GNiagaraViewDataManager.PostOpaqueDelegate.BindRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::PostOpaqueRender);
 	RendererModule.RegisterPostOpaqueRenderDelegate(GNiagaraViewDataManager.PostOpaqueDelegate);
+
+	RendererModule.OnPreSceneRender().AddRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::OnPreSceneRenderCalled);
 }
 
 void FNiagaraViewDataMgr::Shutdown()
@@ -149,7 +155,7 @@ TSharedRef<FNiagaraSystemSimulation, ESPMode::ThreadSafe> FNiagaraWorldManager::
 	
 	TSharedRef<FNiagaraSystemSimulation, ESPMode::ThreadSafe> Sim = MakeShared<FNiagaraSystemSimulation, ESPMode::ThreadSafe>();
 	SystemSimulations.Add(System, Sim);
-	Sim->Init(System, World);
+	Sim->Init(System, World, false);
 	return Sim;
 }
 
@@ -199,6 +205,9 @@ Going off this idea tbh
 		}
 	}
 */
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraWorldManTick);
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraOverview_GT);
+
 	SkeletalMeshGeneratedData.TickGeneratedData(DeltaSeconds);
 
 	//Tick our collections to push any changes to bound stores.

@@ -265,6 +265,12 @@ void SNiagaraSpreadsheetView::Construct(const FArguments& InArgs, TSharedRef<FNi
 			CaptureData[i].bOutputColumnsAreAttributes = false;
 			CaptureData[i].bInputColumnsAreAttributes = false;
 			break;
+		case UIPerParticleGPU:
+			CaptureData[i].TargetUsage = ENiagaraScriptUsage::ParticleGPUComputeScript;
+			CaptureData[i].ColumnName = LOCTEXT("PerParticleGPU", "Particle GPU");
+			CaptureData[i].bOutputColumnsAreAttributes = true;
+			CaptureData[i].bInputColumnsAreAttributes = false;
+			break;
 		default:
 			CaptureData[i].TargetUsage = ENiagaraScriptUsage::Function;
 			CaptureData[i].ColumnName = LOCTEXT("PerParticleUnknown", "Particle Unknown");
@@ -563,6 +569,11 @@ void SNiagaraSpreadsheetView::Construct(const FArguments& InArgs, TSharedRef<FNi
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					[
+						CaptureData[UIPerParticleGPU].CheckBox.ToSharedRef()
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
 						CaptureData[UISystemUpdate].CheckBox.ToSharedRef()
 					]
 				]
@@ -587,6 +598,10 @@ void SNiagaraSpreadsheetView::Construct(const FArguments& InArgs, TSharedRef<FNi
 		+ SVerticalBox::Slot()
 		[
 			CaptureData[UIPerParticleEvent2].Container.ToSharedRef()
+		]
+		+ SVerticalBox::Slot()
+		[
+			CaptureData[UIPerParticleGPU].Container.ToSharedRef()
 		]
 		+ SVerticalBox::Slot()
 		[
@@ -943,7 +958,7 @@ FReply SNiagaraSpreadsheetView::OnCSVOutputPressed()
 					{
 						uint32 CompBufferOffset = FieldInfo->FloatStartOffset;
 						float* Src = CaptureData[(int32)TabState].DataSet.PrevData().GetInstancePtrFloat(CompBufferOffset, RowIndex);
-						CSVOutput += FString::Printf(TEXT("%3.3f"), Src[0]);
+						CSVOutput += FString::Printf(TEXT("%3.9f"), Src[0]);
 					}
 					else
 					{
@@ -1421,6 +1436,10 @@ FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 					break;
 				case UISystemUpdate:
 					CaptureData[i].TargetUsage = ENiagaraScriptUsage::SystemUpdateScript;
+					CaptureData[i].TargetUsageId = FGuid();
+					break;
+				case UIPerParticleGPU:
+					CaptureData[i].TargetUsage = ENiagaraScriptUsage::ParticleGPUComputeScript;
 					CaptureData[i].TargetUsageId = FGuid();
 					break;
 				default:

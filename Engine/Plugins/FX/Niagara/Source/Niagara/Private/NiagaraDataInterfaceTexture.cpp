@@ -373,7 +373,7 @@ struct FNiagaraDataInterfaceParametersCS_Texture : public FNiagaraDataInterfaceP
 		}
 	}
 
-	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const override
+	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface, void* PerInstanceData) const override
 	{
 		check(IsInRenderingThread());
 
@@ -388,20 +388,33 @@ struct FNiagaraDataInterfaceParametersCS_Texture : public FNiagaraDataInterfaceP
 			SetShaderValue(RHICmdList, ComputeShaderRHI, Dimensions, TexDims);
 			return;
 		}
+
 		FTextureRHIParamRef TextureRHI = Texture->TextureReference.TextureReferenceRHI->GetReferencedTexture();
-		SetTextureParameter(
-			RHICmdList,
-			ComputeShaderRHI,
-			TextureParam,
-			SamplerParam,
-			Texture->Resource->SamplerStateRHI,
-			TextureRHI
-		);
-		TexDims[0] = TextureDI->Texture->GetSurfaceWidth();
-		TexDims[1] = TextureDI->Texture->GetSurfaceHeight();
+		if (TextureRHI != nullptr)
+		{
+			SetTextureParameter(
+				RHICmdList,
+				ComputeShaderRHI,
+				TextureParam,
+				SamplerParam,
+				Texture->Resource->SamplerStateRHI,
+				TextureRHI
+			);
+			TexDims[0] = TextureDI->Texture->GetSurfaceWidth();
+			TexDims[1] = TextureDI->Texture->GetSurfaceHeight();
+
+		}
+		else
+		{
+			TexDims[0] = 0.0f;
+			TexDims[1] = 0.0f;
+			SetShaderValue(RHICmdList, ComputeShaderRHI, Dimensions, TexDims);
+			return;
+		}
+
 		SetShaderValue(RHICmdList, ComputeShaderRHI, Dimensions, TexDims);
 	}
-
+	
 
 private:
 

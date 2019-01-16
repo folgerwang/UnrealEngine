@@ -851,32 +851,27 @@ void FMetalGPUFence::WriteInternal(mtlpp::CommandBuffer& CmdBuffer)
 void FMetalRHICommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 Offset, uint32 NumBytes)
 {
 	@autoreleasepool {
-	
 		check(StagingBuffer);
-
-		FMetalStagingBuffer* StageBuffer = ResourceCast(StagingBuffer);
-		FMetalVertexBuffer* VertexBuffer = ResourceCast(StageBuffer->GetBackingBuffer());
-		switch (VertexBuffer->Buffer.GetStorageMode())
+		
+		FMetalStagingBuffer* MetalStagingBuffer = ResourceCast(StagingBuffer);
+		FMetalVertexBuffer* BackingBuffer = ResourceCast(MetalStagingBuffer->GetBackingBuffer());
+		FMetalBuffer& ReadbackBuffer = MetalStagingBuffer->ReadbackStagingBuffer;
+		
+		// Need a shadow buffer for this read. If it hasn't been allocated in our FStagingBuffer or if
+		// it's not big enough to hold our readback we need to allocate.
+		if(!ReadbackBuffer || ReadbackBuffer.GetLength() < NumBytes)
 		{
-	#if PLATFORM_MAC
-			case mtlpp::StorageMode::Managed:
+			if(ReadbackBuffer)
 			{
-				GetMetalDeviceContext().SynchroniseResource(VertexBuffer->Buffer);
-				break;
+				SafeReleaseMetalBuffer(ReadbackBuffer);
 			}
-	#endif
-			case mtlpp::StorageMode::Private:
-			{
-				VertexBuffer->Alloc(VertexBuffer->Buffer.GetLength(), RLM_ReadOnly);
-				GetMetalDeviceContext().CopyFromBufferToBuffer(VertexBuffer->Buffer, Offset, VertexBuffer->CPUBuffer, Offset, NumBytes);
-				break;
-			}
-			default:
-			{
-				break;
-			}
+			FMetalPooledBufferArgs ArgsCPU(GetMetalDeviceContext().GetDevice(), NumBytes, mtlpp::StorageMode::Shared);
+			ReadbackBuffer = GetMetalDeviceContext().CreatePooledBuffer(ArgsCPU);
 		}
-
+		
+		// Inline copy from the actual buffer to the shadow
+		GetMetalDeviceContext().CopyFromBufferToBuffer(BackingBuffer->Buffer, Offset, ReadbackBuffer, 0, NumBytes);
+		
 		if (InFence)
 		{
 			FMetalGPUFence* Fence = ResourceCast(InFence);

@@ -149,13 +149,12 @@ Buffer<int> SortedIndices;
 uint SortedIndicesOffset;
 
 Buffer<float> SegmentDistances;
+Buffer<uint> MultiRibbonIndices;
 Buffer<float> PackedPerRibbonDataByIndex;
 
 struct FVertexFactoryInput
 {
 	uint VertexId					: SV_VertexID;
-
-	uint RibbonIndex				: ATTRIBUTE0;
 
 	// Optional instance ID for vertex layered rendering
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
@@ -502,13 +501,10 @@ void GetTangents(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermed
 	float cosa = cos(Intermediates.Twist);
 	Facing = Facing * cosa + cross(Facing, NormDir) * sin(Intermediates.Twist) + NormDir * dot(NormDir, Facing) * (1-cosa);
 
-	if( abs(dot(NormDir, Facing)) < 0.999f)
+	RightDir = SafeNormalize(cross(NormDir, Facing));
+	if(!any(RightDir))
 	{
-		RightDir = SafeNormalize(cross(NormDir, Facing));
-	}
-	else
-	{
-		RightDir = SafeNormalize(cross(NormDir, float3(0.0f, 0.0f, -1.0f)));
+		RightDir = SafeNormalize(cross(NormDir, float3(0.0f, 0.0f, 1.0f)));
 	}
 
 	Right = RightDir;
@@ -553,7 +549,9 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float2 UV1Offset;
 	uint NumSegments;
 	uint StartVertexId;
-	UnpackPerRibbonDataByIndex(Input.RibbonIndex, UV0Scale, UV0Offset, UV1Scale, UV1Offset, NumSegments,  StartVertexId);
+
+	uint RibbonIndex = MultiRibbonIndices[Input.VertexId / 2];
+	UnpackPerRibbonDataByIndex(RibbonIndex, UV0Scale, UV0Offset, UV1Scale, UV1Offset, NumSegments,  StartVertexId);
 	
 	uint StartParticleId = GetParticleIdByVertexId(StartVertexId);
 

@@ -89,7 +89,10 @@ void FNiagaraEditorUtilities::InitializeParameterInputNode(UNiagaraNodeInput& In
 	if (Type.GetScriptStruct() != nullptr)
 	{
 		ResetVariableToDefaultValue(InputNode.Input);
-		InputNode.SetDataInterface(nullptr);
+		if (InputNode.GetDataInterface() != nullptr)
+		{
+			InputNode.SetDataInterface(nullptr);
+		}
 	}
 	else
 	{
@@ -608,56 +611,7 @@ void TraverseGraphFromOutputDepthFirst(const UEdGraphSchema_Niagara* Schema, UNi
 
 void FixUpNumericPinsVisitor(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)
 {
-	// Fix up numeric input pins and keep track of numeric types to decide the output type.
-	TArray<FNiagaraTypeDefinition> InputTypes;
-	TArray<UEdGraphPin*> InputPins;
-	Node->GetInputPins(InputPins);
-	for (UEdGraphPin* InputPin : InputPins)
-	{
-		if (InputPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryType)
-		{
-			FNiagaraTypeDefinition InputPinType = Schema->PinToTypeDefinition(InputPin);
-
-			// If the input pin is the generic numeric type set it to the type of the linked output pin which should have been processed already.
-			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef() && InputPin->LinkedTo.Num() == 1)
-			{
-				UEdGraphPin* InputPinLinkedPin = UNiagaraNode::TraceOutputPin(InputPin->LinkedTo[0]);
-				FNiagaraTypeDefinition InputPinLinkedPinType = Schema->PinToTypeDefinition(InputPinLinkedPin);
-				if (InputPinLinkedPinType.IsValid())
-				{
-					// Only update the input pin type if the linked pin type is valid.
-					InputPin->PinType = Schema->TypeDefinitionToPinType(InputPinLinkedPinType);
-					InputPinType = InputPinLinkedPinType;
-				}
-			}
-
-			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
-			{
-				UE_LOG(LogNiagaraEditor, Error, TEXT("Unable to deduce type for numeric input pin. Node: %s Pin: %s"), *Node->GetName(), *InputPin->GetName());
-			}
-
-			InputTypes.Add(InputPinType);
-		}
-	}
-
-	// Fix up numeric outputs based on the inputs.
-	if (InputTypes.Num() > 0 && Node->GetNumericOutputTypeSelectionMode() != ENiagaraNumericOutputTypeSelectionMode::None)
-	{
-		FNiagaraTypeDefinition OutputNumericType = FNiagaraTypeDefinition::GetNumericOutputType(InputTypes, Node->GetNumericOutputTypeSelectionMode());
-		if (OutputNumericType != FNiagaraTypeDefinition::GetGenericNumericDef())
-		{
-			TArray<UEdGraphPin*> OutputPins;
-			Node->GetOutputPins(OutputPins);
-			for (UEdGraphPin* OutputPin : OutputPins)
-			{
-				FNiagaraTypeDefinition OutputPinType = Schema->PinToTypeDefinition(OutputPin);
-				if (OutputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
-				{
-					OutputPin->PinType = Schema->TypeDefinitionToPinType(OutputNumericType);
-				}
-			}
-		}
-	}
+	Node->ResolveNumerics(Schema, true, nullptr);
 }
 
 void FNiagaraEditorUtilities::FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)

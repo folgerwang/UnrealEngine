@@ -304,7 +304,7 @@ protected:
 
 	/**
 	Map of Pins to compiled code chunks. Allows easy reuse of previously compiled pins.
-	A stack so that we can track pin reuse within function calls but not have cached pins cross talk with subsequent calls to the same funciton.
+	A stack so that we can track pin reuse within function calls but not have cached pins cross talk with subsequent calls to the same function.
 	*/
 	TArray<TMap<UEdGraphPin*, int32>> PinToCodeChunks;
 
@@ -446,7 +446,7 @@ public:
 	virtual void FunctionCall(UNiagaraNodeFunctionCall* FunctionNode, TArray<int32>& Inputs, TArray<int32>& Outputs);
 
 	virtual void Convert(class UNiagaraNodeConvert* Convert, TArray <int32>& Inputs, TArray<int32>& Outputs);
-	virtual void If(TArray<FNiagaraVariable>& Vars, int32 Condition, TArray<int32>& PathA, TArray<int32>& PathB, TArray<int32>& Outputs);
+	virtual void If(class UNiagaraNodeIf* IfNode, TArray<FNiagaraVariable>& Vars, int32 Condition, TArray<int32>& PathA, TArray<int32>& PathB, TArray<int32>& Outputs);
 
 	virtual void Error(FText ErrorText, const UNiagaraNode* Node, const UEdGraphPin* Pin);
 	virtual void Warning(FText WarningText, const UNiagaraNode* Node, const UEdGraphPin* Pin);
@@ -457,11 +457,15 @@ public:
 	virtual ENiagaraScriptUsage GetTargetUsage() const;
 	FGuid GetTargetUsageId() const;
 	virtual ENiagaraScriptUsage GetCurrentUsage() const;
+	virtual ENiagaraSimTarget GetSimulationTarget() const
+	{
+		return CompilationTarget;
+	}
 
 	static bool IsBuiltInHlslType(FNiagaraTypeDefinition Type);
 	static FString GetStructHlslTypeName(FNiagaraTypeDefinition Type);
 	static FString GetPropertyHlslTypeName(const UProperty* Property);
-	static FString BuildHLSLStructDecl(FNiagaraTypeDefinition Type);
+	static FString BuildHLSLStructDecl(FNiagaraTypeDefinition Type, FText& OutErrorMessage);
 	static FString GetHlslDefaultForType(FNiagaraTypeDefinition Type);
 	static bool IsHlslBuiltinVector(FNiagaraTypeDefinition Type);
 	static TArray<FName> ConditionPropertyPath(const FNiagaraTypeDefinition& Type, const TArray<FName>& InPath);
@@ -523,6 +527,8 @@ private:
 	// Register an attribute in its namespaced form
 	bool ParameterMapRegisterUniformAttributeVariable(const FNiagaraVariable& InVariable, UNiagaraNode* InNode, int32 InParamMapHistoryIdx, int32& Output);
 
+    // Checks that the Partices.ID parameter is only used if persistent IDs are active
+    void ValidateParticleIDUsage();
 	bool ValidateTypePins(UNiagaraNode* NodeToValidate);
 	void GenerateFunctionSignature(ENiagaraScriptUsage ScriptUsage, FString InName, const FString& InFullName, UNiagaraGraph* FuncGraph, TArray<int32>& Inputs, 
 		bool bHadNumericInputs, bool bHasParameterMapParameters, FNiagaraFunctionSignature& OutSig)const;
@@ -536,7 +542,7 @@ private:
 	bool RequiresInterpolation() const;
 
 	/** If OutVar can be replaced by a literal constant, it's data is initialized with the correct value and we return true. Returns false otherwise. */
-	bool GetLiteralConstantVariable(FNiagaraVariable& OutVar);
+	bool GetLiteralConstantVariable(FNiagaraVariable& OutVar) const;
 
 	/** Map of symbol names to count of times it's been used. Used for generating unique symbol names. */
 	TMap<FName, uint32> SymbolCounts;

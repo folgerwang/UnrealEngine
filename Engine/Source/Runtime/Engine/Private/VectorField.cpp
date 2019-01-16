@@ -244,19 +244,19 @@ public:
 			FVectorFieldStaticResource*, Resource, this,
 			FUpdateParams, UpdateParams, UpdateParams,
 		{
-			// Free any existing volume data on the resource.
-			FMemory::Free(Resource->VolumeData);
-			
-			// Update settings on this resource.
-			Resource->SizeX = UpdateParams.SizeX;
-			Resource->SizeY = UpdateParams.SizeY;
-			Resource->SizeZ = UpdateParams.SizeZ;
-			Resource->Intensity = UpdateParams.Intensity;
-			Resource->LocalBounds = UpdateParams.Bounds;
-			Resource->VolumeData = UpdateParams.VolumeData;
+				// Free any existing volume data on the resource.
+				FMemory::Free(Resource->VolumeData);
 
-			// Update RHI resources.
-			Resource->UpdateRHI();
+				// Update settings on this resource.
+				Resource->SizeX = UpdateParams.SizeX;
+				Resource->SizeY = UpdateParams.SizeY;
+				Resource->SizeZ = UpdateParams.SizeZ;
+				Resource->Intensity = UpdateParams.Intensity;
+				Resource->LocalBounds = UpdateParams.Bounds;
+				Resource->VolumeData = UpdateParams.VolumeData;
+
+				// Update RHI resources.
+				Resource->UpdateRHI();
 		});
 	}
 
@@ -268,6 +268,7 @@ private:
 
 UVectorFieldStatic::UVectorFieldStatic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bAllowCPUAccess(false)
 {
 }
 
@@ -280,18 +281,100 @@ void UVectorFieldStatic::InitInstance(FVectorFieldInstance* Instance, bool bPrev
 void UVectorFieldStatic::InitResource()
 {
 	check(Resource == NULL);
-	Resource = new FVectorFieldStaticResource( this );
-	BeginInitResource( Resource );
+
+	// Loads and copies the bulk data into CPUData if bAllowCPUAccess is set, otherwise clear CPUData. 
+	UpdateCPUData();
+
+	Resource = new FVectorFieldStaticResource(this);
+	BeginInitResource(Resource);
 }
 
 
 void UVectorFieldStatic::UpdateResource()
 {
 	check(Resource != NULL);
+
+	// Loads and copies the bulk data into CPUData if bAllowCPUAccess is set, otherwise clears CPUData. 
+	UpdateCPUData();
+
 	FVectorFieldStaticResource* StaticResource = (FVectorFieldStaticResource*)Resource;
 	StaticResource->UpdateResource(this);
 }
 
+#if WITH_EDITOR
+ENGINE_API void UVectorFieldStatic::SetCPUAccessEnabled()
+{
+	bAllowCPUAccess = true;
+	UpdateCPUData();
+}
+#endif // WITH_EDITOR
+
+void UVectorFieldStatic::UpdateCPUData()
+{
+	if (bAllowCPUAccess)
+	{
+		// Grab a copy of the bulk vector data. 
+		// If the data is already loaded it makes a copy and discards the old content,
+		// otherwise it simply loads the data directly from file into the pointer after allocating.
+		FFloat16Color *Ptr = nullptr;
+		SourceData.GetCopy((void**)&Ptr, /* bDiscardInternalCopy */ true);
+
+		// Make sure the data is actually valid. 
+		if (!ensure(Ptr))
+		{
+			UE_LOG(LogVectorField, Error, TEXT("Vector field data is not loaded."));
+			return;
+		}
+
+		// Make sure the size actually match what we expect
+		if (!ensure(SourceData.GetBulkDataSize() == (SizeX*SizeY*SizeZ) * sizeof(FFloat16Color)))
+		{
+			UE_LOG(LogVectorField, Error, TEXT("Vector field bulk data size is different than expected. Expected %d bytes, got %d."), SizeX*SizeY*SizeZ, SourceData.GetBulkDataSize());
+			FMemory::Free(Ptr);
+			return;
+		}
+
+		// GetCopy should free/unload the data.
+		if (SourceData.IsBulkDataLoaded())
+		{
+			// NOTE(mv): This assertion will fail in the case where the bulk data is still available even though the bDiscardInternalCopy
+			//           flag is toggled when FUntypedBulkData::CanLoadFromDisk() also fail. This happens when the user tries to allow 
+			//           CPU access to a newly imported file that isn't reloaded. We still have our valid data, so we just issue a 
+			//           warning and move on. See FUntypedBulkData::GetCopy() for more details. 
+			UE_LOG(LogVectorField, Warning, TEXT("SourceData.GetCopy() is supposed to unload the data after copying, but it is still loaded."));
+		}
+
+		// Convert from 16-bit to 32-bit floats.
+			// Use vec4s instead of vec3s because of alignment, which in principle would be better for 
+			// cache and automatic or manual vectorization, even if the memory usage is 33% larger. 
+			// Need to profile to to make sure.
+		CPUData.SetNumUninitialized(SizeX*SizeY*SizeZ);
+		for (size_t i = 0; i < (size_t)(SizeX*SizeY*SizeZ); i++)
+		{
+			CPUData[i] = FVector4(float(Ptr[i].R), float(Ptr[i].G), float(Ptr[i].B), 0.0f);
+		}
+
+		FMemory::Free(Ptr);
+	}
+	else
+	{
+		// If there's no need to access the CPU data just empty the array.
+		CPUData.Empty();
+	}
+}
+
+FRHITexture* UVectorFieldStatic::GetVolumeTextureRef()
+{
+	if (Resource)
+	{
+		return Resource->VolumeTextureRHI;
+	}
+	else
+	{	
+		// Fallback to a global 1x1x1 black texture when no vector field is loaded or unavailable
+		return GBlackVolumeTexture->TextureRHI;
+	}
+}
 
 void UVectorFieldStatic::ReleaseResource()
 {

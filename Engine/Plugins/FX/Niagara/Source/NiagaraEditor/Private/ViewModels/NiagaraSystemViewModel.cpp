@@ -983,7 +983,9 @@ void FNiagaraSystemViewModel::ReInitializeSystemInstances()
 {
 	if (Sequencer.IsValid() && Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 	{
+		Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
 		Sequencer->SetGlobalTime(0);
+		Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Playing);
 	}
 
 	for (TObjectIterator<UNiagaraComponent> ComponentIt; ComponentIt; ++ComponentIt)

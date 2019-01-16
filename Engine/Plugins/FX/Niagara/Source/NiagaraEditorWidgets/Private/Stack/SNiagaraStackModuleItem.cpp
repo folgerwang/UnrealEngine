@@ -23,6 +23,8 @@
 #include "Toolkits/AssetEditorManager.h"
 #include "SDropTarget.h"
 #include "SNiagaraStackErrorButton.h"
+#include "NiagaraEditorUtilities.h"
+#include "SGraphActionMenu.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraStackModuleItem"
 
@@ -180,6 +182,15 @@ FReply SNiagaraStackModuleItem::OnMouseButtonDoubleClick(const FGeometry& InMyGe
 	return FReply::Unhandled();
 }
 
+void SNiagaraStackModuleItem::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (ModuleItem->GetIsModuleScriptReassignmentPending())
+	{
+		ModuleItem->SetIsModuleScriptReassignmentPending(false);
+		ShowReassignModuleScriptMenu();
+	}
+}
+
 ECheckBoxState SNiagaraStackModuleItem::GetCheckState() const
 {
 	return ModuleItem->GetIsEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -273,7 +284,8 @@ void SNiagaraStackModuleItem::ShowInsertModuleMenu(int32 InsertIndex)
 {
 	TSharedRef<SWidget> MenuContent = SNew(SNiagaraStackItemGroupAddMenu, ModuleItem->GetGroupAddUtilities(), InsertIndex);
 	FGeometry ThisGeometry = GetCachedGeometry();
-	FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(ThisGeometry.GetLayoutBoundingRect(), MenuContent->GetDesiredSize());
+	bool bAutoAdjustForDpiScale = false; // Don't adjust for dpi scale because the push menu command is expecting an unscaled position.
+	FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(ThisGeometry.GetLayoutBoundingRect(), MenuContent->GetDesiredSize(), bAutoAdjustForDpiScale);
 	FSlateApplication::Get().PushMenu(AsShared(), FWidgetPath(), MenuContent, MenuPosition, FPopupTransitionEffect::ContextMenu);
 }
 
@@ -313,6 +325,88 @@ EVisibility SNiagaraStackModuleItem::GetStackIssuesWarningVisibility() const
 FText SNiagaraStackModuleItem::GetErrorButtonTooltipText() const
 {
 	return FText::Format(LOCTEXT("ModuleIssuesTooltip", "This module has {0} issues, click to expand."), ModuleItem->GetRecursiveStackIssuesCount());
+}
+
+void ReassignModuleScript(UNiagaraStackModuleItem* ModuleItem, FAssetData NewModuleScriptAsset)
+{
+	UNiagaraScript* NewModuleScript = Cast<UNiagaraScript>(NewModuleScriptAsset.GetAsset());
+	if (NewModuleScript != nullptr)
+	{
+		ModuleItem->ReassignModuleScript(NewModuleScript);
+	}
+}
+
+void OnActionSelected(const TArray<TSharedPtr<FEdGraphSchemaAction>>& SelectedActions, ESelectInfo::Type InSelectionType)
+{
+	if (SelectedActions.Num() == 1 && (InSelectionType == ESelectInfo::OnKeyPress || InSelectionType == ESelectInfo::OnMouseClick))
+	{
+		TSharedPtr<FNiagaraMenuAction> Action = StaticCastSharedPtr<FNiagaraMenuAction>(SelectedActions[0]);
+		if (Action.IsValid())
+		{
+			FSlateApplication::Get().DismissAllMenus();
+			Action->ExecuteAction();
+		}
+	}
+}
+
+void CollectModuleActions(FGraphActionListBuilderBase& ModuleActions, UNiagaraStackModuleItem* ModuleItem)
+{
+	TArray<FAssetData> ModuleAssets;
+	FNiagaraStackGraphUtilities::GetScriptAssetsByUsage(ENiagaraScriptUsage::Module, ModuleItem->GetOutputNode()->GetUsage(), ModuleAssets);
+	for (const FAssetData& ModuleAsset : ModuleAssets)
+	{
+		FText Category;
+		ModuleAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Category), Category);
+		if (Category.IsEmptyOrWhitespace())
+		{
+			Category = LOCTEXT("ModuleNotCategorized", "Uncategorized Modules");
+		}
+
+		uint32 bDeprecatedModule;
+		ModuleAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, bDeprecated), bDeprecatedModule);
+
+		if (bDeprecatedModule)
+		{
+			continue;
+		}
+
+		FString DisplayNameString = FName::NameToDisplayString(ModuleAsset.AssetName.ToString(), false);
+		FText DisplayName = FText::FromString(DisplayNameString);
+
+		FText AssetDescription;
+		ModuleAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDescription);
+		FText Description = FNiagaraEditorUtilities::FormatScriptAssetDescription(AssetDescription, ModuleAsset.ObjectPath);
+
+		FText Keywords;
+		ModuleAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Keywords), Keywords);
+
+		TSharedPtr<FNiagaraMenuAction> ModuleAction(new FNiagaraMenuAction(Category, DisplayName, Description, 0, Keywords,
+			FNiagaraMenuAction::FOnExecuteStackAction::CreateStatic(&ReassignModuleScript, ModuleItem, ModuleAsset)));
+		ModuleActions.AddAction(ModuleAction);
+	}
+}
+
+void SNiagaraStackModuleItem::ShowReassignModuleScriptMenu()
+{
+	TSharedRef<SBorder> MenuWidget = SNew(SBorder)
+		.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+		.Padding(5)
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			.HeightOverride(400)
+			[
+				SNew(SGraphActionMenu)
+				.OnActionSelected_Static(OnActionSelected)
+				.OnCollectAllActions_Static(CollectModuleActions, ModuleItem)
+				.ShowFilterTextBox(true)
+			]
+		];
+
+	FGeometry ThisGeometry = GetCachedGeometry();
+	bool bAutoAdjustForDpiScale = false; // Don't adjust for dpi scale because the push menu command is expecting an unscaled position.
+	FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(ThisGeometry.GetLayoutBoundingRect(), MenuWidget->GetDesiredSize(), bAutoAdjustForDpiScale);
+	FSlateApplication::Get().PushMenu(AsShared(), FWidgetPath(), MenuWidget, MenuPosition, FPopupTransitionEffect::ContextMenu);
 }
 
 #undef LOCTEXT_NAMESPACE

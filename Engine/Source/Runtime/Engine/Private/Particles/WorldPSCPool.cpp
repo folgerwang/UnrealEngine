@@ -87,10 +87,13 @@ UParticleSystemComponent* FPSCPool::Acquire(UWorld* World, UParticleSystem* Temp
 		check(RetElem.PSC->Template == Template);
 		check(!RetElem.PSC->IsPendingKill());
 
-		// Rename the PSC to move it into the current PersistentLevel - it may have been spawned in one
-		// level but is now needed in another level.
-		// Use the REN_ForceNoResetLoaders flag to prevent the rename from potentially calling FlushAsyncLoading.
-		RetElem.PSC->Rename(nullptr, World, REN_ForceNoResetLoaders);
+		if (RetElem.PSC->GetWorld() != World)
+		{
+			// Rename the PSC to move it into the current PersistentLevel - it may have been spawned in one
+			// level but is now needed in another level.
+			// Use the REN_ForceNoResetLoaders flag to prevent the rename from potentially calling FlushAsyncLoading.
+			RetElem.PSC->Rename(nullptr, World, REN_ForceNoResetLoaders);
+		}
 	}
 	else
 	{

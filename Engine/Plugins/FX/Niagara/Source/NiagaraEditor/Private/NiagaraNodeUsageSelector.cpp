@@ -32,10 +32,37 @@ bool UNiagaraNodeUsageSelector::AllowNiagaraTypeForAddPin(const FNiagaraTypeDefi
 	return Super::AllowNiagaraTypeForAddPin(InType) && InType != FNiagaraTypeDefinition::GetParameterMapDef();
 }
 
+void UNiagaraNodeUsageSelector::InsertInputPinsFor(const FNiagaraVariable& Var)
+{
+	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+	UEnum* ENiagaraScriptGroupEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptGroup"), true);
+	int64 GroupCount = (int64)ENiagaraScriptGroup::Max;
+
+	TArray<UEdGraphPin*> OldPins(Pins);
+	Pins.Reset(Pins.Num() + GroupCount);
+
+	// Create the inputs for each path.
+	for (int64 i = 0; i < GroupCount; i++)
+	{
+		// Add the previous input pins
+		for (int32 k = 0; k < OutputVars.Num() - 1; k++)
+		{
+			Pins.Add(OldPins[k]);
+		}
+		OldPins.RemoveAt(0, OutputVars.Num() - 1);
+
+		// Add the new input pin
+		const FString PathSuffix = ENiagaraScriptGroupEnum ? (FString::Printf(TEXT(" if %s"), *ENiagaraScriptGroupEnum->GetNameStringByValue((int64)i))) : TEXT("Error Unknown!");
+		CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Var.GetType()), *(Var.GetName().ToString() + PathSuffix));
+	}
+
+	// Move the rest of the old pins over
+	Pins.Append(OldPins);
+}
+
 void UNiagaraNodeUsageSelector::AllocateDefaultPins()
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-
 	UEnum* ENiagaraScriptGroupEnum = StaticEnum<ENiagaraScriptGroup>();
 
 	//Create the inputs for each path.
@@ -137,6 +164,33 @@ UEdGraphPin* UNiagaraNodeUsageSelector::GetPassThroughPin(const UEdGraphPin* Loc
 	return nullptr;
 }
 
+void UNiagaraNodeUsageSelector::AppendFunctionAliasForContext(const FNiagaraGraphFunctionAliasContext& InFunctionAliasContext, FString& InOutFunctionAlias)
+{
+	FString UsageString;
+	switch (InFunctionAliasContext.CompileUsage)
+	{
+	case ENiagaraScriptUsage::SystemSpawnScript:
+	case ENiagaraScriptUsage::SystemUpdateScript:
+		UsageString = "System";
+		break;
+	case ENiagaraScriptUsage::EmitterSpawnScript:
+	case ENiagaraScriptUsage::EmitterUpdateScript:
+		UsageString = "Emitter";
+		break;
+	case ENiagaraScriptUsage::ParticleSpawnScript:
+	case ENiagaraScriptUsage::ParticleUpdateScript:
+	case ENiagaraScriptUsage::ParticleEventScript:
+	case ENiagaraScriptUsage::ParticleGPUComputeScript:
+		UsageString = "Particle";
+		break;
+	}
+
+	if (UsageString.IsEmpty() == false)
+	{
+		InOutFunctionAlias += "_" + UsageString;
+	}
+}
+
 void UNiagaraNodeUsageSelector::BuildParameterMapHistory(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive)
 {
 	const UEdGraphSchema_Niagara* Schema = CastChecked<UEdGraphSchema_Niagara>(GetSchema());
@@ -208,14 +262,17 @@ void UNiagaraNodeUsageSelector::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 	{
 		OutputNames.Add(Output.GetName());
 	}
-	FName OutputName = FNiagaraUtilities::GetUniqueName(*OutputType.GetNameText().ToString(), OutputNames);
-
+	FName OutputName = FNiagaraUtilities::GetUniqueName(*NewPin->GetName(), OutputNames);
+	NewPin->PinName = OutputName;
 	FGuid Guid = AddOutput(OutputType, OutputName);
 
 	// Update the pin's data too so that it's connection is maintained after reallocating.
 	NewPin->PersistentGuid = Guid;
 
-	ReallocatePins();
+	// We cannot just reallocate the pins here, because that invalidates all pins of this node (including
+	// the NewPin parameter). If the calling method tries to access the provided new pin afterwards, it
+	// runs into a nullptr error (e.g. when called by drag and drop).
+	InsertInputPinsFor(OutputVars.Last());
 }
 
 void UNiagaraNodeUsageSelector::OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName)

@@ -231,41 +231,49 @@ FNiagaraDynamicDataBase *NiagaraRendererLights::GenerateVertexData(const FNiagar
 	FNiagaraDataSetIterator<FVector> PosItr(Data, Properties->PositionBinding.DataSetVariable);
 	FNiagaraDataSetIterator<FLinearColor> ColItr(Data, Properties->ColorBinding.DataSetVariable);
 	FNiagaraDataSetIterator<float> RadiusItr(Data, Properties->RadiusBinding.DataSetVariable);
+	FNiagaraDataSetIterator<float> ExponentItr(Data, Properties->LightExponentBinding.DataSetVariable);
+	FNiagaraDataSetIterator<float> ScatteringItr(Data, Properties->VolumetricScatteringBinding.DataSetVariable);
+	FNiagaraDataSetIterator<int32> EnabledItr(Data, Properties->LightRenderingEnabledBinding.DataSetVariable);
 
 	FNiagaraDynamicDataLights *DynamicData = new FNiagaraDynamicDataLights;
+	const FMatrix& LocalToWorldMatrix = Proxy->GetLocalToWorld();
 	FVector DefaultColor = FVector(Properties->ColorBinding.DefaultValueIfNonExistent.GetValue<FLinearColor>());
-	FVector DefaultPos = FVector4(Proxy->GetLocalToWorld().GetOrigin());
+	FVector DefaultPos = FVector4(LocalToWorldMatrix.GetOrigin());
 	float DefaultRadius = Properties->RadiusBinding.DefaultValueIfNonExistent.GetValue<float>();
+	float DefaultScattering = Properties->VolumetricScatteringBinding.DefaultValueIfNonExistent.GetValue<float>();
 
 	DynamicData->LightArray.Empty();
 
 	for (uint32 ParticleIndex = 0; ParticleIndex < Data.GetNumInstances(); ParticleIndex++)
 	{
-		SimpleLightData LightData;
-		LightData.LightEntry.Radius = (RadiusItr.IsValid() ? (*RadiusItr) :  DefaultRadius) * Properties->RadiusScale;	//LightPayload->RadiusScale * (Size.X + Size.Y) / 2.0f;
-		LightData.LightEntry.Color = (ColItr.IsValid() ? FVector((*ColItr)) : DefaultColor) + Properties->ColorAdd;				//FVector(Particle.Color) * Particle.Color.A * LightPayload->ColorScale;
-		LightData.LightEntry.Exponent = 1.0;
-		LightData.LightEntry.bAffectTranslucency = true;
-		LightData.PerViewEntry.Position = PosItr.IsValid() ? (*PosItr) : DefaultPos;
+		bool ShouldRenderParticleLight = !Properties->bOverrideRenderingEnabled || (EnabledItr.IsValid() ? (*EnabledItr) : true);
+		float LightRadius = (RadiusItr.IsValid() ? (*RadiusItr) : DefaultRadius) * Properties->RadiusScale;
+		if (ShouldRenderParticleLight && LightRadius > 0)
+		{
+			SimpleLightData LightData;
+			LightData.LightEntry.Radius = LightRadius;
+			LightData.LightEntry.Color = (ColItr.IsValid() ? FVector((*ColItr)) : DefaultColor) + Properties->ColorAdd;
+			LightData.LightEntry.Exponent = Properties->bUseInverseSquaredFalloff ? 0 : (ExponentItr.IsValid() ? (*ExponentItr) : 1);
+			LightData.LightEntry.bAffectTranslucency = Properties->bAffectsTranslucency;
+			LightData.LightEntry.VolumetricScatteringIntensity = ScatteringItr.IsValid() ? (*ScatteringItr) : DefaultScattering;
+			LightData.PerViewEntry.Position = PosItr.IsValid() ? (*PosItr) : DefaultPos;
+			if (bLocalSpace)
+			{
+				LightData.PerViewEntry.Position = LocalToWorldMatrix.TransformPosition(LightData.PerViewEntry.Position);
+			}
 
-		DynamicData->LightArray.Add(LightData);
+			DynamicData->LightArray.Add(LightData);
+		}
 
 		PosItr.Advance();
 		ColItr.Advance();
 		RadiusItr.Advance();
-	}
-
-	if (bLocalSpace)
-	{
-		FMatrix Mat = Proxy->GetLocalToWorld();
-		for (uint32 ParticleIndex = 0; ParticleIndex < Data.GetNumInstances(); ParticleIndex++)
-		{
-			DynamicData->LightArray[ParticleIndex].PerViewEntry.Position = Mat.TransformPosition(DynamicData->LightArray[ParticleIndex].PerViewEntry.Position);
-		}
+		ExponentItr.Advance();
+		ScatteringItr.Advance();
+		EnabledItr.Advance();
 	}
 
 	CPUTimeMS = VertexDataTimer.GetElapsedMilliseconds();
-
 	return DynamicData;
 }
 
