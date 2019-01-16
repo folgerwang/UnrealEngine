@@ -433,12 +433,22 @@ public:
 		OpenAckedCalled(false),
 		AwakeFromDormancy(false),
 		LastChangelistIndex(0),
-		LastCompareIndex(0)
+		LastCompareIndex(0),
+		InactiveChangelist({0})
 	{}
 
 	~FRepState();
 
 	void CountBytes(FArchive& Ar) const;
+	
+	/**
+	 * Builds a new ConditionMap given the input RepFlags.
+	 * This can be used to determine whether or not a given property should be
+	 * considered enabled / disabled based on ELifetimeCondition.
+	 *
+	 * TODO: This doesn't have to be part of FRepState.
+	 */
+	static TStaticBitArray<COND_Max> BuildConditionMap(const FReplicationFlags& InFlags);
 
 	/** Latest state of all property data. Used on Clients, or on Servers if Shadow State is disabled. */
 	FRepStateStaticBuffer StaticBuffer;
@@ -503,6 +513,7 @@ public:
 	 * A map tracking which replication conditions are currently active.
 	 * @see ELifetimeCondition.
 	 */
+	UE_DEPRECATED(4.22, "Please use InactiveParents to determine whether or not a given ParentCommand is active.")
 	TStaticBitArray<COND_Max> ConditionMap;
 
 	// Cache off the RemoteRole and Role per connection to avoid issues with
@@ -510,6 +521,17 @@ public:
 
 	ENetRole SavedRemoteRole = ROLE_MAX;
 	ENetRole SavedRole = ROLE_MAX;
+
+	/**
+	 * Properties which are inactive through conditions have their changes stored here, so they can be 
+	 * applied if/when the property becomes active.
+	 *
+	 * This should always be a valid changelist, even if no properties are inactive.
+	 */
+	TArray<uint16> InactiveChangelist;
+
+	/** Cached set of inactive parent commands. */
+	TBitArray<> InactiveParents;
 };
 
 /** Various types of Properties supported for Replication. */
@@ -1057,6 +1079,9 @@ public:
 	/**
 	 * Writes all changed property values from the input owner data to the given buffer.
 	 * This is used primarily by ReplicateProperties.
+	 *
+	 * Note, the changelist is expected to have any conditional properties whose conditions
+	 * aren't met filtered out already. See FRepState::ConditionMap and FRepLayout::FilterChangeList
 	 *
 	 * @param RepState			RepState for the object.
 	 * @param ChangedTracker	Used to indicate
@@ -1618,7 +1643,27 @@ private:
 		FRepHandleIterator&		RepHandleIterator,
 		const uint8* RESTRICT	SourceData,
 		TArray<uint16>&			OutChanged) const;
-		
+
+	/**
+	 * Splits a given Changelist into an Inactive Change List and an Active Change List.
+	 * 
+	 * @param Changelist				The Changelist to filter.
+	 * @param InactiveParentHandles		The set of ParentCmd Indices that are not active.
+	 * @param OutInactiveProperties		The properties found to be inactive.
+	 * @param OutActiveProperties		The properties found to be active.
+	 */
+	void FilterChangeList( 
+		const TArray<uint16>&	Changelist,
+		const TBitArray<>&		InactiveParentHandles,
+		TArray<uint16>&			OutInactiveProperties,
+		TArray<uint16>&			OutActiveProperties) const;
+
+	/** Same as FilterChangeList, but only populates an Active Change List. */
+	void FilterChangeListToActive(
+		const TArray<uint16>&	Changelist,
+		const TBitArray<>&		InactiveParentHandles,
+		TArray<uint16>&			OutActiveProperties) const;
+
 	void BuildChangeList_r(
 		const TArray<FHandleToCmdIndex>&	HandleToCmdIndex,
 		const int32							CmdStart,
