@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -50,6 +50,16 @@ namespace UnrealGameSync
 	{
 		protected override void FlushLine(string Line)
 		{
+		}
+	}
+
+	class BufferedTextWriter : LineBasedTextWriter
+	{
+		public List<string> Lines = new List<string>();
+
+		protected override void FlushLine(string Line)
+		{
+			Lines.Add(Line);
 		}
 	}
 
