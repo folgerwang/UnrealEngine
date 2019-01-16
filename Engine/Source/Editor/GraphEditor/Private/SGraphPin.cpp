@@ -706,7 +706,8 @@ void SGraphPin::OnDragLeave( const FDragDropEvent& DragDropEvent )
 
 FReply SGraphPin::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	return FReply::Unhandled();
+	// This is considered handled as the functionality is done OnDragEnter/OnDragLeave
+	return FReply::Handled();
 }
 
 bool SGraphPin::TryHandlePinConnection(SGraphPin& OtherSPin)
