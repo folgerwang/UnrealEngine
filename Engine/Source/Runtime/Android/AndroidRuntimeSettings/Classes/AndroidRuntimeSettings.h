@@ -245,6 +245,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Maximum supported aspect ratio."))
 	float MaxAspectRatio;
 
+	// Enables use of the display cutout area on Android 9+
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Use display cutout region?"))
+	bool bUseDisplayCutout;
+
 	// Level of verbosity to use during packaging with Ant
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging")
 	TEnumAsByte<EAndroidAntVerbosity::Type> AntVerbosity;
