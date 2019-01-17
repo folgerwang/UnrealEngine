@@ -1613,7 +1613,7 @@ bool UActorComponent::IsNameStableForNetworking() const
 	 *	-They were explicitly set to bNetAddressable (blueprint components created by SCS)
 	 */
 
-	return bNetAddressable || (Super::IsNameStableForNetworking() && (CreationMethod != EComponentCreationMethod::UserConstructionScript));
+	return bNetAddressable || Super::IsNameStableForNetworking();
 }
 
 bool UActorComponent::IsSupportedForNetworking() const
