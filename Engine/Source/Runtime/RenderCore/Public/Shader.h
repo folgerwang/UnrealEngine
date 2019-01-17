@@ -180,8 +180,17 @@ public:
 class FShaderParameterInfo
 {
 public:
-	uint8 BaseIndex;
-	uint8 Size;
+	uint16 BaseIndex;
+	uint16 Size;
+
+	FShaderParameterInfo() {}
+
+	FShaderParameterInfo(uint16 InBaseIndex, uint16 InSize)
+	{
+		BaseIndex = InBaseIndex;
+		Size = InSize;
+		checkf(BaseIndex == InBaseIndex && Size == InSize, TEXT("Tweak FShaderParameterInfo type sizes"));
+	}
 
 	friend FArchive& operator<<(FArchive& Ar,FShaderParameterInfo& Info)
 	{
@@ -200,9 +209,18 @@ public:
 class FShaderLooseParameterBufferInfo
 {
 public:
-	uint8 BufferIndex;
+	uint16 BufferIndex;
 	uint16 BufferSize;
 	TArray<FShaderParameterInfo> Parameters;
+
+	FShaderLooseParameterBufferInfo() {}
+
+	FShaderLooseParameterBufferInfo(uint16 InBufferIndex, uint16 InBufferSize)
+	{
+		BufferIndex = InBufferIndex;
+		BufferSize = InBufferSize;
+		checkf(BufferIndex == InBufferIndex, TEXT("Tweak FShaderLooseParameterBufferInfo type sizes"));
+	}
 
 	friend FArchive& operator<<(FArchive& Ar,FShaderLooseParameterBufferInfo& Info)
 	{

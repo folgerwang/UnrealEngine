@@ -527,9 +527,7 @@ void FShaderResource::BuildParameterMapInfo(const TMap<FString, FParameterAlloca
 
 						if (LooseParameterBufferInfo.BufferIndex == ParamValue.BufferIndex)
 						{
-							FShaderParameterInfo ParameterInfo;
-							ParameterInfo.BaseIndex = ParamValue.BaseIndex;
-							ParameterInfo.Size = ParamValue.Size;
+							FShaderParameterInfo ParameterInfo(ParamValue.BaseIndex, ParamValue.Size);
 							LooseParameterBufferInfo.Parameters.Add(ParameterInfo);
 							LooseParameterBufferInfo.BufferSize += ParamValue.Size;
 							bAddedToExistingBuffer = true;
@@ -538,13 +536,9 @@ void FShaderResource::BuildParameterMapInfo(const TMap<FString, FParameterAlloca
 
 					if (!bAddedToExistingBuffer)
 					{
-						FShaderLooseParameterBufferInfo NewParameterBufferInfo;
-						NewParameterBufferInfo.BufferIndex = ParamValue.BufferIndex;
-						NewParameterBufferInfo.BufferSize = ParamValue.Size;
+						FShaderLooseParameterBufferInfo NewParameterBufferInfo(ParamValue.BufferIndex, ParamValue.Size);
 
-						FShaderParameterInfo ParameterInfo;
-						ParameterInfo.BaseIndex = ParamValue.BaseIndex;
-						ParameterInfo.Size = ParamValue.Size;
+						FShaderParameterInfo ParameterInfo(ParamValue.BaseIndex, ParamValue.Size);
 						NewParameterBufferInfo.Parameters.Add(ParameterInfo);
 
 						ParameterMapInfo.LooseParameterBuffers.Add(NewParameterBufferInfo);
@@ -589,9 +583,8 @@ void FShaderResource::BuildParameterMapInfo(const TMap<FString, FParameterAlloca
 
 				if (ParamValue.Type == CurrentParameterType)
 				{
-					FShaderParameterInfo ParameterInfo;
-					ParameterInfo.BaseIndex = CurrentParameterType == EShaderParameterType::UniformBuffer ? ParamValue.BufferIndex : ParamValue.BaseIndex;
-					ParameterInfo.Size = ParamValue.Size;
+					const uint16 BaseIndex = CurrentParameterType == EShaderParameterType::UniformBuffer ? ParamValue.BufferIndex : ParamValue.BaseIndex;
+					FShaderParameterInfo ParameterInfo(BaseIndex, ParamValue.Size);
 					ParameterInfoArray->Add(ParameterInfo);
 				}
 			}
