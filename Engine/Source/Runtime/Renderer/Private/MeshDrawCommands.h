@@ -168,3 +168,9 @@ private:
 	void DumpInstancingStats() const;
 	void WaitForMeshPassSetupTask() const;
 };
+
+extern void SortAndMergeDynamicPassMeshDrawCommands(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
+	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
+	FVertexBufferRHIParamRef& OutPrimitiveIdVertexBuffer);

@@ -765,7 +765,10 @@ private:
 	FMeshDrawCommandPassSetupTaskContext& Context;
 };
 
-void SortPassMeshDrawCommands(
+/*
+ * Used by various dynamic passes to sort/merge mesh draw commands immediately on a rendering thread.
+ */
+void SortAndMergeDynamicPassMeshDrawCommands(
 	ERHIFeatureLevel::Type FeatureLevel,
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
