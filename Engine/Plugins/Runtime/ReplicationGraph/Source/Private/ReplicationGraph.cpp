@@ -1898,9 +1898,13 @@ void UNetReplicationGraphConnection::InitForConnection(UNetConnection* InConnect
 	InConnection->SetReplicationConnectionDriver(this);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	DebugActor = GetWorld()->SpawnActor<AReplicationGraphDebugActor>();
-	DebugActor->ConnectionManager = this;
-	DebugActor->ReplicationGraph = Cast<UReplicationGraph>(GetOuter());
+	UReplicationGraph* Graph = Cast<UReplicationGraph>(GetOuter());
+	DebugActor = Graph->CreateDebugActor();
+	if (DebugActor)
+	{
+		DebugActor->ConnectionManager = this;
+		DebugActor->ReplicationGraph = Graph;
+	}
 #endif
 
 #if 0
