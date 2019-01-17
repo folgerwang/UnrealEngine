@@ -15,7 +15,7 @@ class COREUOBJECT_API FRedirectCollector
 {
 private:
 	
-	/** Helper struct for string asset reference tracking */
+	/** Helper struct for soft object path tracking */
 	struct FPackagePropertyPair
 	{
 		FPackagePropertyPair() : bReferencedByEditorOnlyProperty(false) {}
@@ -129,7 +129,7 @@ private:
 	/** A map of assets referenced by soft object paths, with the key being the asset being referenced and the value equal to the package with the reference */
 	TMultiMap<FName, FPackagePropertyPair> SoftObjectPathMap;
 
-	/** When saving, apply this remapping to all string asset references */
+	/** When saving, apply this remapping to all soft object paths */
 	TMap<FName, FName> AssetPathRedirectionMap;
 
 	/** For SoftObjectPackageMap map */

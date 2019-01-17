@@ -105,7 +105,7 @@ void FRedirectCollector::ResolveAllSoftObjectPaths(FName FilterPackage)
 
 			if (ToLoad.Len() > 0 )
 			{
-				UE_LOG(LogRedirectors, Verbose, TEXT("String Asset Reference '%s'"), *ToLoad);
+				UE_LOG(LogRedirectors, Verbose, TEXT("Resolving Soft Object Path '%s'"), *ToLoad);
 				UE_CLOG(RefFilenameAndProperty.GetProperty().ToString().Len(), LogRedirectors, Verbose, TEXT("    Referenced by '%s'"), *RefFilenameAndProperty.GetProperty().ToString());
 
 				int32 DotIndex = ToLoad.Find(TEXT("."));
@@ -131,7 +131,7 @@ void FRedirectCollector::ResolveAllSoftObjectPaths(FName FilterPackage)
 				else
 				{
 					const FString Referencer = RefFilenameAndProperty.GetProperty().ToString().Len() ? RefFilenameAndProperty.GetProperty().ToString() : TEXT("Unknown");
-					UE_LOG(LogRedirectors, Warning, TEXT("String Asset Reference '%s' was not found! (Referencer '%s')"), *ToLoad, *Referencer);
+					UE_LOG(LogRedirectors, Warning, TEXT("Soft Object Path '%s' was not found when resolving paths! (Referencer '%s')"), *ToLoad, *Referencer);
 				}
 			}
 		}

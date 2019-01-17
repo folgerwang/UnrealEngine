@@ -2093,12 +2093,6 @@ private:
 
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 
-static TAutoConsoleVariable<int32> CVarStripSubLevelClasses(
-	TEXT("level.StripSubLevelClasses"),
-	0,
-	TEXT("0 - The classes specified in Game Maps Settings in sublevels will not be stripped in game worlds. ")
-	TEXT("1 - The classes specified in Game Maps Settings found in sublevels will be marked pending kill when the level is added to a game world. "));
-
 void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool bConsiderTimeLimit )
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime);
@@ -2127,61 +2121,6 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 		
 		// Mark level as being the one in process of being made visible.
 		CurrentLevelPendingVisibility = Level;
-
-		if (bIsGameWorld && CVarStripSubLevelClasses.GetValueOnGameThread() != 0)
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_StripSubLevelClasses);
-
-			const TArray<FSubLevelStrippingInfo>& ClassPathsToStrip = GetDefault<UGameMapsSettings>()->SubLevelClassesToStrip;
-			if (ClassPathsToStrip.Num() > 0)
-			{
-				TArray<UClass*> ExactClassesToStrip;
-				TArray<UClass*> IsChildOfClassesToStrip; // not reserving as this is expected to be the infrequent usage
-				ExactClassesToStrip.Reserve(ClassPathsToStrip.Num());
-				for (const FSubLevelStrippingInfo& StrippingInfo : ClassPathsToStrip)
-				{
-					if (UClass* ClassToStrip = StrippingInfo.ClassToStrip.ResolveClass())
-					{
-						if (StrippingInfo.StripMode == ESubLevelStripMode::ExactClass)
-						{
-							ExactClassesToStrip.Add(ClassToStrip);
-						}
-						else //if (StrippingInfo.StripMode == ESubLevelStripMode::IsChildOf)
-						{
-							IsChildOfClassesToStrip.Add(ClassToStrip);
-						}
-					}
-				}
-				if (ExactClassesToStrip.Num() > 0 || IsChildOfClassesToStrip.Num() > 0)
-				{
-					for (AActor*& Actor : Level->Actors)
-					{
-						if (Actor)
-						{
-							if (ExactClassesToStrip.Contains(Actor->GetClass()))
-							{
-								UE_LOG(LogStreaming, Verbose, TEXT("Stripped sub level actor '%s'"), *Actor->GetFullName());
-								Actor->MarkPendingKill(); // We do not need to go through DestroyActor lifecycle as these objects haven't been initialized yet
-								Actor = nullptr;
-							}
-							else
-							{
-								for (UClass* StripClass : IsChildOfClassesToStrip)
-								{
-									if (Actor->GetClass()->IsChildOf(StripClass))
-									{
-										UE_LOG(LogStreaming, Verbose, TEXT("Stripped sub level actor '%s'"), *Actor->GetFullName());
-										Actor->MarkPendingKill(); // We do not need to go through DestroyActor lifecycle as these objects haven't been initialized yet
-										Actor = nullptr;
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
 
 		// Add to the UWorld's array of levels, which causes it to be rendered et al.
 		Levels.AddUnique( Level );
@@ -2441,7 +2380,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 		UE_LOG(LogStreaming, Display, TEXT("Initialize              : %6.2f ms"), RouteActorInitializeTime * 1000 );
 		UE_LOG(LogStreaming, Display, TEXT("Cross Level Refs        : %6.2f ms"), CrossLevelRefsTime * 1000 );
 		UE_LOG(LogStreaming, Display, TEXT("Sort Actor List         : %6.2f ms"), SortActorListTime * 1000 );
-		UE_LOG(LogStreaming, Display, TEXT("Perform Last Step       : %6.2f ms"), SortActorListTime * 1000 );
+		UE_LOG(LogStreaming, Display, TEXT("Perform Last Step       : %6.2f ms"), PerformLastStepTime * 1000 );
 	}
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 }
@@ -2456,7 +2395,9 @@ void UWorld::RemoveFromWorld( ULevel* Level, bool bAllowIncrementalRemoval )
 	check(!Level->IsPendingKill());
 	check(!Level->IsUnreachable());
 
-	if ( CurrentLevelPendingVisibility == nullptr && Level->bIsVisible )
+	// To be removed from the world a world must be visible and not pending being made visible (this may be redundent, but for safety)
+	// If the level may be removed incrementally then there must also be no level pending visibility
+	if ( ((CurrentLevelPendingVisibility == nullptr) || (!bAllowIncrementalRemoval && (CurrentLevelPendingVisibility != Level))) && Level->bIsVisible )
 	{
 		// Keep track of timing.
 		double StartTime = FPlatformTime::Seconds();	

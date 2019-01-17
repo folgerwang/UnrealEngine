@@ -153,7 +153,7 @@ void UNiagaraScriptSource::PostLoadFromEmitter(UNiagaraEmitter& OwningEmitter)
 
 bool UNiagaraScriptSource::AddModuleIfMissing(FString ModulePath, ENiagaraScriptUsage Usage, bool& bOutFoundModule)
 {
-	FStringAssetReference SystemUpdateScriptRef(ModulePath);
+	FSoftObjectPath SystemUpdateScriptRef(ModulePath);
 	FAssetData ModuleScriptAsset;
 	ModuleScriptAsset.ObjectPath = SystemUpdateScriptRef.GetAssetPathName();
 	bOutFoundModule = false;

@@ -1,8 +1,8 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "EdGraph_ReferenceViewer.h"
+#include "ReferenceViewer/EdGraph_ReferenceViewer.h"
+#include "ReferenceViewer/EdGraphNode_Reference.h"
 #include "EdGraph/EdGraphPin.h"
-#include "EdGraphNode_Reference.h"
 #include "ARFilter.h"
 #include "AssetRegistryModule.h"
 #include "AssetThumbnail.h"

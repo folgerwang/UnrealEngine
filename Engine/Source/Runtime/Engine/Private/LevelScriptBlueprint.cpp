@@ -50,12 +50,11 @@ FString ULevelScriptBlueprint::GetFriendlyName() const
 	return UBlueprint::GetFriendlyName();
 }
 
-FString ULevelScriptBlueprint::CreateLevelScriptNameFromLevel (const ULevel* Level)
+FString ULevelScriptBlueprint::CreateLevelScriptNameFromLevel(const ULevel* Level)
 {
-	// Since all maps are named "PersistentLevel," check to see if this level is the actual OwningWorld->PersistentLevel, or name it based on the map package.
-	check(Level && Level->OwningWorld);
+	// Since all maps are named "PersistentLevel" the level script name is based on the LevelPackage
+	check(Level);
 	UObject* LevelPackage = Level->GetOutermost();
-
 	return FPackageName::GetShortName(LevelPackage->GetFName().GetPlainNameString());
 
 }

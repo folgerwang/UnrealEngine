@@ -1719,7 +1719,7 @@ protected:
 	bool RetrievePoseFromBindPose(const TArray<FbxNode*>& NodeArray, FbxArray<FbxPose*> & PoseArray) const;
 
 	/** Import the user-defined properties on the node as FBX metadata on the object */
-	void ImportNodeCustomProperties(UObject* Object, FbxNode* Node);
+	void ImportNodeCustomProperties(UObject* Object, FbxNode* Node, bool bPrefixTagWithNodeName = false);
 
 public:
 	/** Import and set up animation related data from mesh **/
