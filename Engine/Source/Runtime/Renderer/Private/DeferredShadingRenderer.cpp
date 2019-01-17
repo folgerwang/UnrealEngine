@@ -638,9 +638,9 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 
 				//#dxr_todo The Raytracing codepath does not support Showflags since data moved to the SceneInfo. 
 				//Touching the SceneProxy to determine this would simply cost too much
-				if (SceneInfo->bShouldRenderInMainPass)
+				if (SceneInfo->bShouldRenderInMainPass && SceneInfo->bDrawInGame)
 				{
-					if (SceneInfo->bIsRayTracingStaticRelevant)
+					if (SceneInfo->bIsRayTracingStaticRelevant && View.Family->EngineShowFlags.StaticMeshes)
 					{
 						static const auto ICVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindConsoleVariable(TEXT("r.StaticMeshLODDistanceScale"));
 						float LODScale = ICVarStaticMeshLODDistanceScale->GetFloat() * View.LODDistanceFactor;
@@ -721,7 +721,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 						ensure(DrawCmdIndexCopy != DrawCmdIndex);
 						View.RayTracingGeometryInstances.Add(FRayTracingGeometryInstance{ RayTracingGeometryInstance, Scene->PrimitiveTransforms[PrimitiveIndex], (uint32)PrimitiveIndex });
 					}
-					else
+					else if (View.Family->EngineShowFlags.SkeletalMeshes)
 					{
 						RayTracedMeshElementsMask |= 1 << ViewIndex;
 					}

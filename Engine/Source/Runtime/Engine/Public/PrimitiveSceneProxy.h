@@ -695,6 +695,9 @@ public:
 	 */	
 	ENGINE_API virtual void PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData) const { }
 
+	/** Tell us if this proxy is drawn in game.*/
+	ENGINE_API virtual bool IsDrawnInGame() const { return DrawInGame; }
+
 	/** Tell us if we should rely on the default LOD computing rules or not.*/
 	ENGINE_API virtual bool IsUsingCustomLODRules() const { return false; }
 	

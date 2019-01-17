@@ -283,6 +283,7 @@ public:
 	bool bIsUsingCustomWholeSceneShadowLODRules : 1;
 
 #if RHI_RAYTRACING
+	bool bDrawInGame : 1;
 	bool bShouldRenderInMainPass : 1;
 	bool bIsVisibleInReflectionCaptures : 1;
 	bool bIsRayTracingRelevant : 1;
