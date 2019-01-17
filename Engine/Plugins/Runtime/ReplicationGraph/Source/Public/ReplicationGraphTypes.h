@@ -648,6 +648,8 @@ struct FGlobalActorReplicationInfoMap
 
 	int32 Num() const { return ActorMap.Num(); }
 
+	FORCEINLINE void ResetActorMap() { ActorMap.Reset(); }
+
 private:
 
 	TMap<FActorRepListType, TUniquePtr<FGlobalActorReplicationInfo>> ActorMap;

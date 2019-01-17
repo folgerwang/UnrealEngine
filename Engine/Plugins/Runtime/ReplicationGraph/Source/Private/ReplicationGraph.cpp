@@ -413,6 +413,7 @@ void UReplicationGraph::InitializeActorsInWorld(UWorld* InWorld)
 void UReplicationGraph::InitializeForWorld(UWorld* World)
 {
 	ActiveNetworkActors.Reset();
+	GlobalActorReplicationInfoMap.ResetActorMap();
 
 	for (UReplicationGraphNode* Manager : GlobalGraphNodes)
 	{
