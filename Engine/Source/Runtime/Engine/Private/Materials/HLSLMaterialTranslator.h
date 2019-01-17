@@ -4083,6 +4083,11 @@ protected:
 		return Material->GetReferencedTextures().Find(TextureValue);
 	}
 
+	virtual UTexture* GetReferencedTexture(int32 Index)
+	{
+		return Material->GetReferencedTextures()[Index];
+	}
+
 	virtual int32 StaticBool(bool bValue) override
 	{
 		return AddInlinedCodeChunk(MCT_StaticBool,(bValue ? TEXT("true") : TEXT("false")));

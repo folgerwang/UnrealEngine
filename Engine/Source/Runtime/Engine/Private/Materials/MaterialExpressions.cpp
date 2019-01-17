@@ -207,6 +207,7 @@
 #include "Materials/MaterialExpressionAtmosphericLightColor.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
 #include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
+#include "Materials/MaterialUniformExpressions.h"
 #include "EditorSupportDelegates.h"
 #include "MaterialCompiler.h"
 #if WITH_EDITOR
@@ -1637,47 +1638,42 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 			TextureCodeIndex = Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
 		}
 
+		if (TextureCodeIndex == INDEX_NONE)
+		{
+			// Can't continue without a texture to sample
+			return INDEX_NONE;
+		}
+
 		UTexture* EffectiveTexture = Texture;
 		EMaterialSamplerType EffectiveSamplerType = SamplerType;
 		TOptional<FName> EffectiveParameterName;
 		if (InputExpression)
 		{
-			UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(InputExpression);
-			if (FunctionInput)
-			{	
-				UMaterialExpressionFunctionInput* NestedFunctionInput = FunctionInput;
-
-				// Walk the input chain to find the last node in the chain
-				while (true)
+			// If 'InputExpression' is connected, we use need to find the texture object that was passed in
+			// In this case, the texture/sampler assigned on this expression node are not used
+			FMaterialUniformExpression* TextureUniformBase = Compiler->GetParameterUniformExpression(TextureCodeIndex);
+			if (FMaterialUniformExpressionTexture* TextureUniform = TextureUniformBase->GetTextureUniformExpression())
+			{
+				TextureReferenceIndex = TextureUniform->GetTextureIndex();
+				EffectiveTexture = Compiler->GetReferencedTexture(TextureReferenceIndex);
+				// Here we assume that the effective sampler type is correct for the given texture,
+				// with the expectation that the expression that generated this texture should have already triggered an error if the sampler type didn't match
+				EffectiveSamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(EffectiveTexture);
+				if (FMaterialUniformExpressionTextureParameter* TextureParameterUniform = TextureUniform->GetTextureParameterUniformExpression())
 				{
-					UMaterialExpression* PreviewExpression = NestedFunctionInput->GetEffectivePreviewExpression();
-					if (PreviewExpression && PreviewExpression->IsA(UMaterialExpressionFunctionInput::StaticClass()))
-					{
-						NestedFunctionInput = CastChecked<UMaterialExpressionFunctionInput>(PreviewExpression);
-					}
-					else
-					{
-						break;
-					}
+					EffectiveParameterName = TextureParameterUniform->GetParameterName();
 				}
-				InputExpression = NestedFunctionInput->GetEffectivePreviewExpression();
 			}
-
-			UMaterialExpressionTextureObject* TextureObjectExpression = Cast<UMaterialExpressionTextureObject>(InputExpression);
-			UMaterialExpressionTextureObjectParameter* TextureObjectParameter = Cast<UMaterialExpressionTextureObjectParameter>(InputExpression);
-			if (TextureObjectExpression)
+			else if (FMaterialUniformExpressionExternalTexture* ExternalTextureUniform = TextureUniformBase->GetExternalTextureUniformExpression())
 			{
-				EffectiveTexture = TextureObjectExpression->Texture;
-				EffectiveSamplerType = TextureObjectExpression->SamplerType;
+				TextureReferenceIndex = ExternalTextureUniform->GetSourceTextureIndex();
+				EffectiveTexture = Compiler->GetReferencedTexture(TextureReferenceIndex);
+				EffectiveSamplerType = SAMPLERTYPE_External;
+				if (FMaterialUniformExpressionExternalTextureParameter* ExternalTextureParameterUniform = ExternalTextureUniform->GetExternalTextureParameterUniformExpression())
+				{
+					EffectiveParameterName = ExternalTextureParameterUniform->GetParameterName();
+				}
 			}
-			else if (TextureObjectParameter)
-			{
-				EffectiveTexture = TextureObjectParameter->Texture;
-				EffectiveSamplerType = TextureObjectParameter->SamplerType;
-				EffectiveParameterName = TextureObjectParameter->ParameterName;
-			}
-
-			TextureReferenceIndex = Compiler->GetTextureReferenceIndex(EffectiveTexture);
 		}
 
 		if (EffectiveTexture && VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureSample")), EffectiveTexture, EffectiveSamplerType))
@@ -2016,6 +2012,11 @@ int32 UMaterialExpressionTextureObjectParameter::Compile(class FMaterialCompiler
 		return CompilerError(Compiler, GetRequirements());
 	}
 
+	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObjectParameter")), Texture, SamplerType))
+	{
+		return INDEX_NONE;
+	}
+
 	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTextureParameter(ParameterName, Texture) : Compiler->TextureParameter(ParameterName, Texture);
 }
 
@@ -2092,6 +2093,12 @@ int32 UMaterialExpressionTextureObject::Compile(class FMaterialCompiler* Compile
 	{
 		return CompilerError(Compiler, TEXT("Requires valid texture"));
 	}
+
+	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObject")), Texture, SamplerType))
+	{
+		return INDEX_NONE;
+	}
+
 	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTexture(Texture) : Compiler->Texture(Texture);
 }
 

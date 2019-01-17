@@ -300,6 +300,8 @@ public:
 	{}
 
 	// FMaterialUniformExpression interface.
+	virtual class FMaterialUniformExpressionTextureParameter* GetTextureParameterUniformExpression() override { return this; }
+
 	virtual void Serialize(FArchive& Ar)
 	{
 		Ar << ParameterInfo;
@@ -416,6 +418,12 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override;
 	virtual bool GetExternalTexture(const FMaterialRenderContext& Context, FTextureRHIRef& OutTextureRHI, FSamplerStateRHIRef& OutSamplerStateRHI) const override;
+	virtual FMaterialUniformExpressionExternalTextureParameter* GetExternalTextureParameterUniformExpression() override { return this; }
+
+	FName GetParameterName() const
+	{
+		return ParameterName;
+	}
 
 private:
 	FName ParameterName;

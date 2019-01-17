@@ -274,6 +274,7 @@ public:
 	/** Accesses the texture used for rendering this uniform expression. */
 	virtual void GetGameThreadTextureValue(const class UMaterialInterface* MaterialInterface,const FMaterial& Material,UTexture*& OutValue,bool bAllowOverride=true) const;
 	virtual class FMaterialUniformExpressionTexture* GetTextureUniformExpression() { return this; }
+	virtual class FMaterialUniformExpressionTextureParameter* GetTextureParameterUniformExpression() { return nullptr; }
 	void SetTransientOverrideTextureValue( UTexture* InOverrideTexture );
 
 	virtual bool IsConstant() const
@@ -308,6 +309,8 @@ public:
 	virtual bool IsConstant() const override { return false; }
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override;
 
+	int32 GetSourceTextureIndex() const { return SourceTextureIndex; }
+
 protected:
 
 	/** Resolve the guid that relates to texture information inside FExternalTexture */
@@ -332,6 +335,7 @@ public:
 
 	// FMaterialUniformExpression interface.
 	virtual FMaterialUniformExpressionExternalTexture* GetExternalTextureUniformExpression() override { return this; }
+	virtual class FMaterialUniformExpressionExternalTextureParameter* GetExternalTextureParameterUniformExpression() { return nullptr; }
 
 	// Lookup the external texture if it is set
 	virtual bool GetExternalTexture(const FMaterialRenderContext& Context, FTextureRHIRef& OutTextureRHI, FSamplerStateRHIRef& OutSamplerStateRHI) const;
