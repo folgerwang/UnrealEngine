@@ -1378,6 +1378,18 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 			}
 		);
 
+		if (!SourceBinding)
+		{
+			WidgetAnimation->BindPossessableObject(ObjectId, *PreviewWidget, GetAnimationPlaybackContext());
+
+			SourceBinding = WidgetAnimation->AnimationBindings.FindByPredicate(
+				[&](FWidgetAnimationBinding& In)
+			{
+				return In.AnimationGuid == ObjectId;
+			}
+			);
+		}
+
 		check(SourceBinding);
 
 		// Set binding names used for lookup
