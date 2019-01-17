@@ -299,9 +299,13 @@ bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& V
 
 		if (bDoPrePre)
 		{
-			AfterTasksAreStarted();
 			bDepthWasCleared = PreRenderPrePass(ParentCmdList);
 		}
+	}
+
+	if (bDoPrePre)
+	{
+		AfterTasksAreStarted();
 	}
 
 	return bDepthWasCleared;
