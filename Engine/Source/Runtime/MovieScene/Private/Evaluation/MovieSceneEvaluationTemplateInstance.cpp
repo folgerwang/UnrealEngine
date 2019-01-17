@@ -542,7 +542,7 @@ void FMovieSceneRootEvaluationTemplateInstance::CallSetupTearDown(const FMovieSc
 			{
 				Track->OnBeginEvaluation(PersistentDataProxy, Player);
 			}
-			else
+			else if (Track->HasChildTemplate(Key.SectionIndex))
 			{
 				PersistentDataProxy.SetSectionKey(Key);
 				Track->GetChildTemplate(Key.SectionIndex).OnBeginEvaluation(PersistentDataProxy, Player);
