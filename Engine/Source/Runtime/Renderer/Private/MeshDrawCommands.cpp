@@ -1027,7 +1027,8 @@ struct FRHICommandUpdatePrimitiveIdBuffer : public FRHICommand<FRHICommandUpdate
 
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(Prereqs, IsRunningRHIInSeparateThread() ? ENamedThreads::RHIThread : ENamedThreads::ActualRenderingThread);
+		// Need to wait on GetRenderThread_Local, as mesh pass setup task can wait on rendering thread inside InitResourceFromPossiblyParallelRendering().
+		FTaskGraphInterface::Get().WaitUntilTasksComplete(Prereqs, IsRunningRHIInSeparateThread() ? ENamedThreads::RHIThread : ENamedThreads::GetRenderThread_Local());
 
 		// Upload vertex buffer data.
 		void* RESTRICT Data = (void* RESTRICT)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, VertexBufferDataSize, RLM_WriteOnly);
