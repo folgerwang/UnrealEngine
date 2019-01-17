@@ -96,6 +96,12 @@ public:
 	 */
 	virtual IDetailCategoryBuilder& EditCategory(FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default) = 0;
 
+	/**
+	 * Gets the current set of existing category names. This includes both categories derived from properties and categories added via EditCategory.
+	 * @param	OutCategoryNames	 The array of category names
+	 */
+	virtual void GetCategoryNames(TArray<FName>& OutCategoryNames) const = 0;
+
 	/** 
 	 * Adds the property to its given category automatically. Useful in detail customizations which want to preserve categories.
 	 * @param InPropertyHandle			The handle to the property that you want to add to its own category.
