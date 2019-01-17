@@ -703,7 +703,7 @@ private:
 
 	// Spectum analyzer to allow BP delegates to visualize music
 	Audio::FSpectrumAnalyzer SpectrumAnalyzer;
-	Audio::SpectrumAnalyzerSettings::FSettings SpectrumAnalyzerSettings;
+	Audio::FSpectrumAnalyzerSettings SpectrumAnalyzerSettings;
 	FThreadSafeCounter SpectrumAnalysisCounter;
 
 	// Array of spectrum data, maps to FrequenciesToAnalyze UProperty

@@ -64,34 +64,6 @@ struct FMediaSoundComponentSpectralData
 	float Magnitude;
 };
 
-class FMediaSoundComponentSpectrumAnalysisTask : public FNonAbandonableTask
-{
-	friend class FAutoDeleteAsyncTask<FMediaSoundComponentSpectrumAnalysisTask>;
-
-	FMediaSoundComponentSpectrumAnalysisTask(Audio::FSpectrumAnalyzer* InAnalyzer, FThreadSafeCounter* InTaskCounter)
-		: Analyzer(InAnalyzer)
-		, TaskCounter(InTaskCounter)
-	{
-		TaskCounter->Increment();
-	}
-
-	void DoWork()
-	{
-		while (Analyzer->PerformAnalysisIfPossible());
-
-		TaskCounter->Decrement();
-	}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FTimeSynthSpectrumAnalysisTask, STATGROUP_ThreadPoolAsyncTasks);
-	}
-
-	Audio::FSpectrumAnalyzer* Analyzer;
-	FThreadSafeCounter* TaskCounter;
-};
-
-
 /**
  * Implements a sound component for playing a media player's audio output.
  */
@@ -302,8 +274,7 @@ private:
 
 	/** Spectrum analyzer used for anlayzing audio in media. */
 	Audio::FSpectrumAnalyzer SpectrumAnalyzer;
-	Audio::SpectrumAnalyzerSettings::FSettings SpectrumAnalyzerSettings;
-	FThreadSafeCounter SpectrumAnalysisCounter;
+	Audio::FSpectrumAnalyzerSettings SpectrumAnalyzerSettings;
 
 	/** Scratch buffer to mix in source audio to from decoder */
 	Audio::AlignedFloatBuffer AudioScratchBuffer;

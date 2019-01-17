@@ -553,6 +553,29 @@ namespace Audio
 			return ((int32)CurrentSlack) - NumSamples;
 		}
 
+		// When called, seeks the read or write cursor to only retain either the NumSamples latest data
+		// (if bRetainOldestSamples is false) or the NumSamples oldest data (if bRetainOldestSamples is true)
+		// in the buffer. Cannot be used to increase the capacity of this buffer.
+		void SetNum(uint32 NumSamples, bool bRetainOldestSamples = false)
+		{
+			check(NumSamples < Capacity);
+
+			if (bRetainOldestSamples)
+			{
+				WriteCounter.Set((ReadCounter.GetValue() + NumSamples) % Capacity);
+			}
+			else
+			{
+				int64 ReadCounterNum = ((int32)WriteCounter.GetValue()) - ((int32) NumSamples);
+				if (ReadCounterNum < 0)
+				{
+					ReadCounterNum = Capacity + ReadCounterNum;
+				}
+
+				ReadCounter.Set(ReadCounterNum);
+			}
+		}
+
 		// Get number of samples that can be popped off of the buffer.
 		uint32 Num()
 		{
