@@ -42,7 +42,7 @@ namespace
 	{
 		FStringOutputDevice Output;
 		DescribeFTimerDataSafely(Output, Data);
-		return Output;
+		return MoveTemp(Output);
 	}
 }
 
