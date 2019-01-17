@@ -14,9 +14,9 @@
 #include "Engine/PackageMapClient.h"
 #include "Net/RepLayout.h"
 #include "Engine/ActorChannel.h"
-#include "Engine/DemoNetDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "Engine/Engine.h"
+#include "Engine/NetConnection.h"
 
 DECLARE_CYCLE_STAT(TEXT("Custom Delta Property Rep Time"), STAT_NetReplicateCustomDeltaPropTime, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("ReceiveRPC"), STAT_NetReceiveRPC, STATGROUP_Game);
