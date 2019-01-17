@@ -136,7 +136,7 @@ class ENGINE_API UMaterialExpression : public UObject
 
 #if WITH_EDITORONLY_DATA
 	/** A description that level designers can add (shows in the material editor UI). */
-	UPROPERTY(EditAnywhere, Category=MaterialExpression, meta=(MultiLine=true))
+	UPROPERTY(EditAnywhere, Category=MaterialExpression, meta=(MultiLine=true, DisplayAfter = "SortPriority"))
 	FString Desc;
 
 	/** Set to true by RecursiveUpdateRealtimePreview() if the expression's preview needs to be updated in realtime in the material editor. */
