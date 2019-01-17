@@ -264,25 +264,30 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 
 void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 {
+	const bool bCanUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, GMaxRHIFeatureLevel);
+	
 	for (int32 CommandIndex = 0; CommandIndex < StaticMeshCommandInfos.Num(); ++CommandIndex)
 	{
 		const FCachedMeshDrawCommandInfo& CachedCommand = StaticMeshCommandInfos[CommandIndex];
 		if (CachedCommand.CommandIndex != -1)
 		{
 			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[CachedCommand.MeshPass];
-
-			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
-			checkSlow(StateBucketId.IsValidId());
-			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
-			if (CachedCommand.StateBucketId != -1)
+			
+			if (bCanUseGPUScene)
 			{
-				if (StateBucket.Num == 1)
+				const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
+				checkSlow(StateBucketId.IsValidId());
+				FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
+				if (CachedCommand.StateBucketId != -1)
 				{
-					Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
-				}
-				else
-				{
-					StateBucket.Num--;
+					if (StateBucket.Num == 1)
+					{
+						Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
+					}
+					else
+					{
+						StateBucket.Num--;
+					}
 				}
 			}
 

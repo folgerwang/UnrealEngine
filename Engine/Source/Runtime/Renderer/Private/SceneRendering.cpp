@@ -73,7 +73,8 @@ static TAutoConsoleVariable<int32> CVarMeshDrawCommandsDynamicInstancing(
 
 bool IsDynamicInstancingEnabled()
 {
-	return CVarMeshDrawCommandsDynamicInstancing.GetValueOnRenderThread() > 0;
+	return CVarMeshDrawCommandsDynamicInstancing.GetValueOnRenderThread() > 0
+		&& UseGPUScene(GMaxRHIShaderPlatform, GMaxRHIFeatureLevel); // always disabled on platforms that do not support auto-instacing
 }
 
 int32 GDumpInstancingStats = 0;

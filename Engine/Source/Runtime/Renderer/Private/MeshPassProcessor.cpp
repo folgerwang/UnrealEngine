@@ -1010,8 +1010,9 @@ void FCachedPassMeshDrawListContext::FinalizeCommand(
 	MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, InstanceFactor, bDoSetupPsoStateForRasterization);
 
 	check(CommandInfo.CommandIndex != -1);
+	const bool bCanUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, GMaxRHIFeatureLevel);
 
-	//if (bDoSetupPsoStateForRasterization)
+	if (bCanUseGPUScene /* && bDoSetupPsoStateForRasterization*/)
 	{
 		FSetElementId SetId = Scene.CachedMeshDrawCommandStateBuckets.FindId(MeshDrawCommand);
 
