@@ -55,7 +55,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Links)
 	FPoseLink B;
 
-	UPROPERTY(EditAnywhere, Category = Blend)
+	UPROPERTY(EditAnywhere, Category = Blend, meta = (DisplayAfter = "AlphaScaleBias"))
 	TArray<FBlendBoneByChannelEntry> BoneDefinitions;
 
 private:
@@ -64,7 +64,7 @@ private:
 	TArray<FBlendBoneByChannelEntry> ValidBoneEntries;
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault, DisplayAfter = "B"))
 	float Alpha;
 
 private:
