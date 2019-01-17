@@ -565,7 +565,7 @@ private:
 	void UpdateEnvelopeFollower();
 	void ShutdownPlayingClips();
 
-	Audio::SpectrumAnalyzerSettings::EFFTSize GetFFTSize(ETimeSynthFFTSize InSize) const;
+	Audio::FSpectrumAnalyzerSettings::EFFTSize GetFFTSize(ETimeSynthFFTSize InSize) const;
 
 	// Defines type for a volume group ID
 	typedef uint32 VolumeGroupUniqueId;

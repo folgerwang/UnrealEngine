@@ -140,7 +140,7 @@ void UTimeSynthComponent::SetEnvelopeFollowerEnabled(bool bInIsEnabled)
 	});
 }
 
-Audio::SpectrumAnalyzerSettings::EFFTSize UTimeSynthComponent::GetFFTSize(ETimeSynthFFTSize InSize) const
+Audio::FSpectrumAnalyzerSettings::EFFTSize UTimeSynthComponent::GetFFTSize(ETimeSynthFFTSize InSize) const
 {
 	switch (InSize)
 	{
