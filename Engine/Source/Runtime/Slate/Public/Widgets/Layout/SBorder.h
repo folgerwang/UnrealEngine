@@ -40,6 +40,7 @@ public:
 		, _BorderBackgroundColor( FLinearColor::White )
 		, _ForegroundColor( FSlateColor::UseForeground() )
 		, _ShowEffectWhenDisabled( true )
+		, _FlipForRightToLeftFlowDirection(false)
 		{}
 
 		SLATE_DEFAULT_SLOT( FArguments, Content )
@@ -67,6 +68,9 @@ public:
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
 		/** Whether or not to show the disabled effect when this border is disabled */
 		SLATE_ATTRIBUTE( bool, ShowEffectWhenDisabled )
+
+		/** Flips the background image if the localization's flow direction is RightToLeft */
+		SLATE_ARGUMENT(bool, FlipForRightToLeftFlowDirection)
 	SLATE_END_ARGS()
 
 	/**
@@ -136,4 +140,7 @@ protected:
 	TAttribute<FVector2D> DesiredSizeScale;
 	/** Whether or not to show the disabled effect when this border is disabled */
 	TAttribute<bool> ShowDisabledEffect;
+
+	/** Flips the image if the localization's flow direction is RightToLeft */
+	bool bFlipForRightToLeftFlowDirection;
  };

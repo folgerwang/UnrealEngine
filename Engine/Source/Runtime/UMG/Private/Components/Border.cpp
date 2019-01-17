@@ -43,7 +43,8 @@ void UBorder::ReleaseSlateResources(bool bReleaseChildren)
 
 TSharedRef<SWidget> UBorder::RebuildWidget()
 {
-	MyBorder = SNew(SBorder);
+	MyBorder = SNew(SBorder)
+		.FlipForRightToLeftFlowDirection(bFlipForRightToLeftFlowDirection);
 	
 	if ( GetChildrenCount() > 0 )
 	{

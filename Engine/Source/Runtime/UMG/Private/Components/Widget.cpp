@@ -1121,6 +1121,8 @@ void UWidget::SynchronizeProperties()
 	SafeWidget->SetClipping(Clipping);
 #endif
 
+	SafeWidget->SetFlowDirectionPreference(FlowDirectionPreference);
+
 	SafeWidget->ForceVolatile(bIsVolatile);
 
 	SafeWidget->SetRenderOpacity(RenderOpacity);

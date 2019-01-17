@@ -44,7 +44,9 @@ void UImage::ReleaseSlateResources(bool bReleaseChildren)
 
 TSharedRef<SWidget> UImage::RebuildWidget()
 {
-	MyImage = SNew(SImage);
+	MyImage = SNew(SImage)
+			.FlipForRightToLeftFlowDirection(bFlipForRightToLeftFlowDirection);
+
 	return MyImage.ToSharedRef();
 }
 
