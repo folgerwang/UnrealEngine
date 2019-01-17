@@ -12,6 +12,7 @@
 #include "DeferredShadingRenderer.h"
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 class FBuildVarianceMipTreeCS : public FGlobalShader
 {

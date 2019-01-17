@@ -10,6 +10,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PathTracingUniformBuffers.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 ////static TAutoConsoleVariable<int32> CVarRayTracingPrimaryDebugMaxBounces(
 ////	TEXT("r.RayTracing.PrimaryDebug.MaxBounces"),

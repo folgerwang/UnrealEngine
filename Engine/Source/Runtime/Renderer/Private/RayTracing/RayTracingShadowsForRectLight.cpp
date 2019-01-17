@@ -16,6 +16,8 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "RectLightSceneProxy.h"
 
+#include "RHI/Public/PipelineStateCache.h"
+
 static int32 GRayTracingRectLight = 1;
 static FAutoConsoleVariableRef CVarRayTracingRectLight(
 	TEXT("r.RayTracing.RectLight"),

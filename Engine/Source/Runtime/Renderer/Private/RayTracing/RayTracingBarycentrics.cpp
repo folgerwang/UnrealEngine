@@ -8,6 +8,7 @@
 #include "GlobalShader.h"
 #include "SceneRenderTargets.h"
 #include "RenderGraphBuilder.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 class FRayTracingBarycentricsRGS : public FGlobalShader
 {

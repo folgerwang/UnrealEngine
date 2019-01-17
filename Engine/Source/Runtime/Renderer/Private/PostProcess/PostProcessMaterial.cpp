@@ -13,6 +13,7 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "SceneRendering.h"
 #include "ClearQuad.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 enum class EPostProcessMaterialTarget
 {

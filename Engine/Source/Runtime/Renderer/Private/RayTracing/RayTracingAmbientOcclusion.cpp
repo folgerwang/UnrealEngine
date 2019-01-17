@@ -11,6 +11,7 @@
 #include "RenderTargetPool.h"
 #include "RHIResources.h"
 #include "UniformBuffer.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"

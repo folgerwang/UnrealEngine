@@ -11,6 +11,7 @@
 #include "LightRendering.h"
 #include "SceneFilterRendering.h"
 #include "PostProcessing.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 float GVolumetricFogLightFunctionSupersampleScale = 2.0f;
 FAutoConsoleVariableRef CVarVolumetricFogLightFunctionSupersampleScale(
