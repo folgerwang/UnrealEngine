@@ -371,6 +371,10 @@ public:
 	UPROPERTY(Instanced, EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	class UWidgetNavigation* Navigation;
 
+	/** Allows you to set a new flow direction */
+	UPROPERTY(EditAnywhere, Category = "Localization")
+	EFlowDirectionPreference FlowDirectionPreference;
+
 #if WITH_EDITORONLY_DATA
 
 	/** Stores a reference to the asset responsible for this widgets construction. */

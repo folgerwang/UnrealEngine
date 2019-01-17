@@ -14,6 +14,7 @@
 #include "Layout/ArrangedWidget.h"
 #include "Layout/LayoutGeometry.h"
 #include "Layout/Margin.h"
+#include "Layout/FlowDirection.h"
 #include "Rendering/SlateLayoutTransform.h"
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
@@ -282,14 +283,13 @@ public:
 		const FName& InTag,
 		const bool InForceVolatile,
 		const EWidgetClipping InClipping,
+		const EFlowDirectionPreference InFlowPreference,
 		const TArray<TSharedRef<ISlateMetaData>>& InMetaData);
 
 	void SWidgetConstruct(const TAttribute<FText>& InToolTipText,
 		const TSharedPtr<IToolTip>& InToolTip,
 		const TAttribute< TOptional<EMouseCursor::Type> >& InCursor,
 		const TAttribute<bool>& InEnabledState,
-
-
 		const TAttribute<EVisibility>& InVisibility,
 		const float InRenderOpacity,
 		const TAttribute<TOptional<FSlateRenderTransform>>& InTransform,
@@ -297,6 +297,7 @@ public:
 		const FName& InTag,
 		const bool InForceVolatile,
 		const EWidgetClipping InClipping,
+		const EFlowDirectionPreference InFlowPreference,
 		const TArray<TSharedRef<ISlateMetaData>>& InMetaData);
 
 	//
@@ -1068,6 +1069,25 @@ public:
 		return RenderTransform.Get();
 	}
 
+	FORCEINLINE TOptional<FSlateRenderTransform> GetRenderTransformWithRespectToFlowDirection() const
+	{
+		if (LIKELY(GSlateFlowDirection == EFlowDirection::LeftToRight))
+		{
+			return RenderTransform.Get();
+		}
+		else
+		{
+			// If we're going right to left, flip the X translation on render transforms.
+			TOptional<FSlateRenderTransform> Transform = RenderTransform.Get();
+			if (Transform.IsSet())
+			{
+				FVector2D Translation = Transform.GetValue().GetTranslation();
+				Transform.GetValue().SetTranslation(FVector2D(-Translation.X, Translation.Y));
+			}
+			return Transform;
+		}
+	}
+
 	/** @param InTransform the render transform to set for the widget (transforms from widget's local space). TOptional<> to allow code to skip expensive overhead if there is no render transform applied. */
 	FORCEINLINE void SetRenderTransform(TAttribute<TOptional<FSlateRenderTransform>> InTransform)
 	{
@@ -1079,7 +1099,7 @@ public:
 	}
 
 	/** @return the pivot point of the render transform. */
-	FORCEINLINE const FVector2D& GetRenderTransformPivot() const
+	FORCEINLINE FVector2D GetRenderTransformPivot() const
 	{
 		return RenderTransformPivot.Get();
 	}
@@ -1131,6 +1151,22 @@ public:
 	{
 		return CullingBoundsExtension;
 	}
+
+	/**
+	 * Sets how content should flow in this panel, based on the current culture.  By default all panels inherit 
+	 * the state of the widget above.  If they set a new flow direction it will be inherited down the tree.
+	 */
+	void SetFlowDirectionPreference(EFlowDirectionPreference InFlowDirectionPreference)
+	{
+		if (FlowDirectionPreference != InFlowDirectionPreference)
+		{
+			FlowDirectionPreference = InFlowDirectionPreference;
+			Invalidate(EInvalidateWidget::Paint);
+		}
+	}
+
+	/** Gets the desired flow direction for the layout. */
+	EFlowDirectionPreference GetFlowDirectionPreference() const { return FlowDirectionPreference; }
 
 	/**
 	 * Set the tool tip that should appear when this widget is hovered.
@@ -1479,6 +1515,26 @@ protected:
 	 */
 	EWidgetClipping Clipping;
 
+protected:
+	/** Establishes a new flow direction potentially, if this widget has a particular preference for it and all its children. */
+	EFlowDirection ComputeFlowDirection() const
+	{
+		switch (FlowDirectionPreference)
+		{
+		case EFlowDirectionPreference::Culture:
+			return FLayoutLocalization::GetLocalizedLayoutDirection();
+		case EFlowDirectionPreference::LeftToRight:
+			return EFlowDirection::LeftToRight;
+		case EFlowDirectionPreference::RightToLeft:
+			return EFlowDirection::RightToLeft;
+		}
+
+		return GSlateFlowDirection;
+	}
+
+private:
+	/** Flow direction preference */
+	EFlowDirectionPreference FlowDirectionPreference;
 
 private:
 	EWidgetUpdateFlags UpdateFlags;
@@ -1573,9 +1629,10 @@ FORCEINLINE_DEBUGGABLE FArrangedWidget FGeometry::MakeChild(const TSharedRef<SWi
 {
 	// If there is no render transform set, use the simpler MakeChild call that doesn't bother concatenating the render transforms.
 	// This saves a significant amount of overhead since every widget does this, and most children don't have a render transform.
-	if ( ChildWidget->GetRenderTransform().IsSet() )
+	TOptional<FSlateRenderTransform> RenderTransform = ChildWidget->GetRenderTransformWithRespectToFlowDirection();
+	if (RenderTransform.IsSet() )
 	{
-		return FArrangedWidget(ChildWidget, MakeChild(InLocalSize, LayoutTransform, ChildWidget->GetRenderTransform().GetValue(), ChildWidget->GetRenderTransformPivot()));
+		return FArrangedWidget(ChildWidget, MakeChild(InLocalSize, LayoutTransform, RenderTransform.GetValue(), ChildWidget->GetRenderTransformPivot()));
 	}
 	else
 	{
