@@ -5429,7 +5429,7 @@ bool UNetDriver::ShouldCallRemoteFunction(UObject* Object, UFunction* Function, 
 
 bool UNetDriver::ShouldClientDestroyActor(AActor* Actor) const
 {
-	return true;
+	return (Actor && !Actor->IsA(ALevelScriptActor::StaticClass()));
 }
 
 FAutoConsoleCommandWithWorld	DumpRelevantActorsCommand(
