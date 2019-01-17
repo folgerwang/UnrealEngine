@@ -41,6 +41,12 @@ RaytracingAccelerationStructure TLAS;
 RWTexture2D<float4> ColorOutput;
 RWTexture2D<float> RayHitDistanceOutput;
 
+float GetRoughnessFade(float Roughness, float MaxRoughness)
+{
+	float RoughnessMaskScale = -2.0 / MaxRoughness;
+	return saturate(Roughness * RoughnessMaskScale + 2.0);
+}
+
 uint CalcLinearIndex(uint2 PixelCoord)
 {
 	return PixelCoord.y * View.BufferSizeAndInvSize.x + PixelCoord.x;
@@ -333,7 +339,9 @@ void RayTracingReflectionsRGS()
 	float ReflectedWeight = 0.0;
 	float HitDistance = -2.0;
 
-	if (Roughness < ReflectionMaxRoughness)
+	const float RoughnessFade = GetRoughnessFade(Roughness, ReflectionMaxRoughness);
+
+	if (RoughnessFade > 0)
 	{
 		for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
 		{
@@ -409,6 +417,8 @@ void RayTracingReflectionsRGS()
 	{
 		ReflectedColor *= rcp(ReflectedWeight);
 	}
+
+	ReflectedColor *= RoughnessFade;
 
 	ColorOutput[PixelCoord] = float4(ReflectedColor);
 	RayHitDistanceOutput[PixelCoord] = HitDistance;
