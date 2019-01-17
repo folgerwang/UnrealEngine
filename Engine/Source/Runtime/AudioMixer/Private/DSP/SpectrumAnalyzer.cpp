@@ -8,6 +8,7 @@ namespace Audio
 	FSpectrumAnalyzer::FSpectrumAnalyzer()
 		: CurrentSettings(SpectrumAnalyzerSettings::FSettings())
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(false)
 		, SampleRate(0.0f)
 		, Window(CurrentSettings.WindowType, (int32)CurrentSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -19,6 +20,7 @@ namespace Audio
 	FSpectrumAnalyzer::FSpectrumAnalyzer(const SpectrumAnalyzerSettings::FSettings& InSettings, float InSampleRate)
 		: CurrentSettings(InSettings)
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(true)
 		, SampleRate(InSampleRate)
 		, Window(InSettings.WindowType, (int32)InSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -31,6 +33,7 @@ namespace Audio
 	FSpectrumAnalyzer::FSpectrumAnalyzer(float InSampleRate)
 		: CurrentSettings(SpectrumAnalyzerSettings::FSettings())
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(true)
 		, SampleRate(InSampleRate)
 		, Window(CurrentSettings.WindowType, (int32)CurrentSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -54,6 +57,8 @@ namespace Audio
 		InputQueue.SetCapacity(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096));
 		FrequencyBuffer.Reset(CurrentSettings);
 		ResetSettings();
+
+		bIsInitialized = true;
 	}
 
 	void FSpectrumAnalyzer::ResetSettings()
@@ -158,6 +163,11 @@ namespace Audio
 
 	float FSpectrumAnalyzer::GetMagnitudeForFrequency(float InFrequency)
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}
+
 		const FSpectrumAnalyzerFrequencyVector* OutVector;
 		bool bShouldUnlockBuffer = true;
 
@@ -195,6 +205,11 @@ namespace Audio
 
 	float FSpectrumAnalyzer::GetPhaseForFrequency(float InFrequency)
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}
+
 		const FSpectrumAnalyzerFrequencyVector* OutVector;
 		bool bShouldUnlockBuffer = true;
 
@@ -232,6 +247,11 @@ namespace Audio
 
 	void FSpectrumAnalyzer::LockOutputBuffer()
 	{
+		if (!bIsInitialized)
+		{
+			return;
+		}
+
 		if (LockedFrequencyVector != nullptr)
 		{
 			FrequencyBuffer.UnlockBuffer();
@@ -242,6 +262,11 @@ namespace Audio
 
 	void FSpectrumAnalyzer::UnlockOutputBuffer()
 	{
+		if (!bIsInitialized)
+		{
+			return;
+		}
+
 		if (LockedFrequencyVector != nullptr)
 		{
 			FrequencyBuffer.UnlockBuffer();
@@ -262,6 +287,11 @@ namespace Audio
 
 	bool FSpectrumAnalyzer::PerformAnalysisIfPossible()
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}
+
 		// If settings were updated, perform resizing and parameter updates here:
 		if (bSettingsWereUpdated)
 		{
@@ -305,6 +335,11 @@ namespace Audio
 		{
 			return false;
 		}
+	}
+
+	bool FSpectrumAnalyzer::IsInitialized()
+	{
+		return bIsInitialized;
 	}
 
 	static const int32 SpectrumAnalyzerBufferSize = 3;
