@@ -13,6 +13,32 @@ struct FMeshBatchAndRelevance;
 class FStaticMeshBatch;
 class FParallelCommandListSet;
 
+/**
+ * Global vertex buffer pool used for GPUScene primitive id arrays.
+ */
+class FPrimitiveIdVertexBufferPool
+{
+public:
+	FPrimitiveIdVertexBufferPool();
+	~FPrimitiveIdVertexBufferPool();
+
+	FVertexBufferRHIParamRef Allocate(int32 BufferSize);
+	void DiscardAll();
+
+private:
+	struct FPrimitiveIdVertexBufferPoolEntry
+	{
+		int32 BufferSize;
+		uint32 LastDiscardId;
+		FVertexBufferRHIRef BufferRHI;
+	};
+
+	uint32 DiscardId;
+	TArray<FPrimitiveIdVertexBufferPoolEntry> Entries;
+};
+
+extern FPrimitiveIdVertexBufferPool GPrimitiveIdVertexBufferPool;
+
 /**	
  * Parallel mesh draw command pass setup task context.
  */
@@ -64,8 +90,9 @@ public:
 	TArray<const FStaticMeshBatch*, SceneRenderingAllocator> MobileBasePassCSMDynamicMeshCommandBuildRequests;
 	FDynamicMeshDrawCommandStorage MeshDrawCommandStorage;
 
-	// Preallocated resources.
-	FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBuffer;
+	// Resources preallocated on rendering thread with SceneRenderingAllocator.
+	void* PrimitiveIdBufferData;
+	int32 PrimitiveIdBufferDataSize;
 	FMeshCommandOneFrameArray TempVisibleMeshDrawCommands;
 
 	// For UpdateTranslucentMeshSortKeys.
@@ -129,6 +156,7 @@ public:
 
 
 private:
+	FVertexBufferRHIParamRef PrimitiveIdVertexBufferRHI;
 	FMeshDrawCommandPassSetupTaskContext TaskContext;
 	FGraphEventArray TaskEventRefs;
 	FString PassNameForStats;

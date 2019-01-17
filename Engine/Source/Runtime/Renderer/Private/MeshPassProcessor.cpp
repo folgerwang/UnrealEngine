@@ -859,18 +859,13 @@ void DrawDynamicMeshPassPrivate(
 {
 	if (VisibleMeshDrawCommands.Num() > 0)
 	{
-		FGlobalDynamicVertexBuffer DynamicVertexBuffer;
-		FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBufferAllocation;
+		FVertexBufferRHIParamRef PrimitiveIdVertexBuffer = nullptr;
 
-		SortPassMeshDrawCommands(View.GetFeatureLevel(), VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, DynamicVertexBuffer, PrimitiveIdBufferAllocation);
+		SortPassMeshDrawCommands(View.GetFeatureLevel(), VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, PrimitiveIdVertexBuffer);
 
-		DynamicVertexBuffer.Commit();
-
-		FVertexBufferRHIParamRef PrimitiveIdsBuffer = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel()) ? PrimitiveIdBufferAllocation.VertexBuffer->VertexBufferRHI : nullptr;
-		const int32 BasePrimitiveIdsOffset = PrimitiveIdBufferAllocation.VertexOffset;
 		const bool bDynamicInstancing = IsDynamicInstancingEnabled() && UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
 
-		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, 0, VisibleMeshDrawCommands.Num(), RHICmdList);
+		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdVertexBuffer, 0, bDynamicInstancing, 0, VisibleMeshDrawCommands.Num(), RHICmdList);
 	}
 }
 

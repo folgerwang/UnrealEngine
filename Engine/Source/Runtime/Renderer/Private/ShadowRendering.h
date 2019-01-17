@@ -189,7 +189,7 @@ class FShadowMeshDrawCommandPass
 {
 public:
 	FMeshCommandOneFrameArray VisibleMeshDrawCommands;
-	FGlobalDynamicVertexBuffer::FAllocation PrimitiveIdBuffer;
+	FVertexBufferRHIParamRef PrimitiveIdVertexBuffer;
 };
 
 /**
