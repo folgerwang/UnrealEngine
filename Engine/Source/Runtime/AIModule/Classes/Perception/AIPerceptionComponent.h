@@ -165,7 +165,10 @@ class AIMODULE_API UAIPerceptionComponent : public UActorComponent
 	
 	static const int32 InitialStimuliToProcessArraySize;
 
-	typedef TMap<AActor*, FActorPerceptionInfo> TActorPerceptionContainer;
+	/** The uint64 is the address of the Actor. As we are using the address raw as a key to the TMap there's potential the actor it 
+	 *  points to will be GCed in future (we aren't tagging PerceptualData UPROPERTY intentionally for optimization purposes).
+	 */
+	typedef TMap<uint64, FActorPerceptionInfo> TActorPerceptionContainer;
 	typedef TActorPerceptionContainer FActorPerceptionContainer;
 
 protected:
@@ -188,6 +191,11 @@ protected:
 private:
 	FPerceptionListenerID PerceptionListenerId;
 
+	/**@TODO there is a rare but possible issue here. Actors could be set to Endplay() and GCed between calls to RemoveDeadData, 
+	 * infact EndPlay and GC can occur in same frame. Either we need to take the hit and make PerceptualData a UPROPERTY or we need to come up
+	 * with a different indexing scheme. Currently we could add an new Actor (at the same address as a GCed one), if we then add a new 
+	 * PerceptualData record we could end up merging the new results with the GCed Actor's record instead of making a fresh one.
+	 */
 	FActorPerceptionContainer PerceptualData;
 		
 protected:	
@@ -231,7 +239,7 @@ public:
 	FORCEINLINE FPerceptionListenerID GetListenerId() const { return PerceptionListenerId; }
 
 	FVector GetActorLocation(const AActor& Actor) const;
-	FORCEINLINE const FActorPerceptionInfo* GetActorInfo(const AActor& Actor) const { return PerceptualData.Find(&Actor); }
+	FORCEINLINE const FActorPerceptionInfo* GetActorInfo(const AActor& Actor) const { return PerceptualData.Find(reinterpret_cast<uint64>(&Actor)); }
 	FORCEINLINE FActorPerceptionContainer::TIterator GetPerceptualDataIterator() { return FActorPerceptionContainer::TIterator(PerceptualData); }
 	FORCEINLINE FActorPerceptionContainer::TConstIterator GetPerceptualDataConstIterator() const { return FActorPerceptionContainer::TConstIterator(PerceptualData); }
 
