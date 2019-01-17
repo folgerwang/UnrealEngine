@@ -1361,6 +1361,74 @@ namespace Audio
 	}
 
 
+	void FMixerDevice::StartSpectrumAnalysis(USoundSubmix* InSubmix, const Audio::FSpectrumAnalyzerSettings& InSettings)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->StartSpectrumAnalysis(InSettings);
+		}
+		else
+		{
+			FMixerSubmixWeakPtr MasterSubmix = GetMasterSubmix();
+			FMixerSubmixPtr MasterSubmixPtr = MasterSubmix.Pin();
+			check(MasterSubmixPtr.IsValid());
+
+			MasterSubmixPtr->StartSpectrumAnalysis(InSettings);
+		}
+	}
+
+	void FMixerDevice::StopSpectrumAnalysis(USoundSubmix* InSubmix)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->StopSpectrumAnalysis();
+		}
+		else
+		{
+			FMixerSubmixWeakPtr MasterSubmix = GetMasterSubmix();
+			FMixerSubmixPtr MasterSubmixPtr = MasterSubmix.Pin();
+			check(MasterSubmixPtr.IsValid());
+
+			MasterSubmixPtr->StopSpectrumAnalysis();
+		}
+	}
+
+	void FMixerDevice::GetMagnitudesForFrequencies(USoundSubmix* InSubmix, const TArray<float>& InFrequencies, TArray<float>& OutMagnitudes)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->GetMagnitudeForFrequencies(InFrequencies, OutMagnitudes);
+		}
+		else
+		{
+			FMixerSubmixWeakPtr MasterSubmix = GetMasterSubmix();
+			FMixerSubmixPtr MasterSubmixPtr = MasterSubmix.Pin();
+			check(MasterSubmixPtr.IsValid());
+
+			MasterSubmixPtr->GetMagnitudeForFrequencies(InFrequencies, OutMagnitudes);
+		}
+	}
+
+	void FMixerDevice::GetPhasesForFrequencies(USoundSubmix* InSubmix, const TArray<float>& InFrequencies, TArray<float>& OutPhases)
+	{
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->GetPhaseForFrequencies(InFrequencies, OutPhases);
+		}
+		else
+		{
+			FMixerSubmixWeakPtr MasterSubmix = GetMasterSubmix();
+			FMixerSubmixPtr MasterSubmixPtr = MasterSubmix.Pin();
+			check(MasterSubmixPtr.IsValid());
+
+			MasterSubmixPtr->GetPhaseForFrequencies(InFrequencies, OutPhases);
+		}
+	}
+
 	void FMixerDevice::RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix)
 	{
 		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
