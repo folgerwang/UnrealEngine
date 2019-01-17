@@ -1482,44 +1482,7 @@ void UMaterialEditorInstanceConstant::SetSourceInstance(UMaterialInstanceConstan
 	Parent = SourceInstance->Parent;
 	PhysMaterial = SourceInstance->PhysMaterial;
 
-	BasePropertyOverrides = SourceInstance->BasePropertyOverrides;
-	// Copy the overrides (if not yet overridden), so they match their true values in the UI
-	if (!BasePropertyOverrides.bOverride_OpacityMaskClipValue)
-	{
-		BasePropertyOverrides.OpacityMaskClipValue = SourceInstance->GetOpacityMaskClipValue();
-	}
-	if (!BasePropertyOverrides.bOverride_BlendMode)
-	{
-		BasePropertyOverrides.BlendMode = SourceInstance->GetBlendMode();
-	}
-	if (!BasePropertyOverrides.bOverride_ShadingModel)
-	{
-		BasePropertyOverrides.ShadingModel = SourceInstance->GetShadingModel();
-	}
-	if (!BasePropertyOverrides.bOverride_TwoSided)
-	{
-		BasePropertyOverrides.TwoSided = SourceInstance->IsTwoSided();
-	}
-	if (!BasePropertyOverrides.DitheredLODTransition)
-	{
-		BasePropertyOverrides.DitheredLODTransition = SourceInstance->IsDitheredLODTransition();
-	}
-
-	// Copy the Lightmass settings...
-	LightmassSettings.CastShadowAsMasked.bOverride = SourceInstance->GetOverrideCastShadowAsMasked();
-	LightmassSettings.CastShadowAsMasked.ParameterValue = SourceInstance->GetCastShadowAsMasked();
-	LightmassSettings.EmissiveBoost.bOverride = SourceInstance->GetOverrideEmissiveBoost();
-	LightmassSettings.EmissiveBoost.ParameterValue = SourceInstance->GetEmissiveBoost();
-	LightmassSettings.DiffuseBoost.bOverride = SourceInstance->GetOverrideDiffuseBoost();
-	LightmassSettings.DiffuseBoost.ParameterValue = SourceInstance->GetDiffuseBoost();
-	LightmassSettings.ExportResolutionScale.bOverride = SourceInstance->GetOverrideExportResolutionScale();
-	LightmassSettings.ExportResolutionScale.ParameterValue = SourceInstance->GetExportResolutionScale();
-
-	//Copy refraction settings
-	SourceInstance->GetRefractionSettings(RefractionDepthBias);
-
-	bOverrideSubsurfaceProfile = SourceInstance->bOverrideSubsurfaceProfile;
-	SubsurfaceProfile = SourceInstance->SubsurfaceProfile;
+	CopyBasePropertiesFromParent();
 
 	RegenerateArrays();
 
@@ -1544,6 +1507,49 @@ void UMaterialEditorInstanceConstant::UpdateSourceInstanceParent()
 	}
 
 	SourceInstance->SetParentEditorOnly( Parent );
+}
+
+
+void UMaterialEditorInstanceConstant::CopyBasePropertiesFromParent()
+{
+	BasePropertyOverrides = SourceInstance->BasePropertyOverrides;
+	// Copy the overrides (if not yet overridden), so they match their true values in the UI
+	if (!BasePropertyOverrides.bOverride_OpacityMaskClipValue)
+	{
+		BasePropertyOverrides.OpacityMaskClipValue = SourceInstance->GetOpacityMaskClipValue();
+	}
+	if (!BasePropertyOverrides.bOverride_BlendMode)
+	{
+		BasePropertyOverrides.BlendMode = SourceInstance->GetBlendMode();
+	}
+	if (!BasePropertyOverrides.bOverride_ShadingModel)
+	{
+		BasePropertyOverrides.ShadingModel = SourceInstance->GetShadingModel();
+	}
+	if (!BasePropertyOverrides.bOverride_TwoSided)
+	{
+		BasePropertyOverrides.TwoSided = SourceInstance->IsTwoSided();
+	}
+	if (!BasePropertyOverrides.DitheredLODTransition)
+	{
+		BasePropertyOverrides.DitheredLODTransition = SourceInstance->IsDitheredLODTransition();
+	}
+
+	// Copy the Lightmass settings...
+	// The lightmass functions (GetCastShadowAsMasked, etc.) check if the value is overridden and returns the current value if so, otherwise returns the parent value
+	// So we don't need to wrap these in the same "if not overriding" as above
+	LightmassSettings.CastShadowAsMasked.ParameterValue = SourceInstance->GetCastShadowAsMasked();
+	LightmassSettings.EmissiveBoost.ParameterValue = SourceInstance->GetEmissiveBoost();
+	LightmassSettings.DiffuseBoost.ParameterValue = SourceInstance->GetDiffuseBoost();
+	LightmassSettings.ExportResolutionScale.ParameterValue = SourceInstance->GetExportResolutionScale();
+
+	//Copy refraction settings
+	SourceInstance->GetRefractionSettings(RefractionDepthBias);
+
+	if (!bOverrideSubsurfaceProfile)
+	{
+		SubsurfaceProfile = SourceInstance->SubsurfaceProfile;
+	}
 }
 
 #if WITH_EDITOR
