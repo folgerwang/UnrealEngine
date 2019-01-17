@@ -177,6 +177,7 @@ public:
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 	virtual bool IsInteractable() const override;
+	virtual bool ComputeVolatility() const override;
 	// SWidget
 
 protected:
