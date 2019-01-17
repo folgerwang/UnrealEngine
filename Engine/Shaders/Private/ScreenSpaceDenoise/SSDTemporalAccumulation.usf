@@ -607,7 +607,7 @@ void TemporallyAccumulate(
 		float NeighborMaxPenumbra = 0.0;
 
 		const bool bUseCurrentSampleForCenter = bPostRejectionBlending;
-		if (bUseCurrentSampleForCenter)
+		if (bUseCurrentSampleForCenter && CurrentFrame.AccumulatedSampleCount > 0)
 		{
 			NeighborMinPenumbra = GetSamplePenumbraSafe(CurrentFrame);
 			NeighborMaxPenumbra = GetSamplePenumbraSafe(CurrentFrame);
@@ -640,7 +640,7 @@ void TemporallyAccumulate(
 				}
 			}
 
-			FSSFSignalSample NormalizedNeighborSample = CreateSignalSample();
+			FSSFSignalSample NeighborSample = CreateSignalSample();
 			float NeighborPenumbra = -1;
 			float NeighborUncertainty = 1.0;
 
@@ -689,7 +689,7 @@ void TemporallyAccumulate(
 						float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
 
 						// Sample the neighor for history rejection.
-						FSSFSignalSample Neighbor = SampleInputSignal(
+						NeighborSample = SampleInputSignal(
 							bUsesHistoryRejectionSignal ? HistoryRejectionSignal0 : SignalInput0,
 							bUsesHistoryRejectionSignal ? HistoryRejectionSignal1 : SignalInput1,
 							GlobalPointClampedSampler,
@@ -705,19 +705,12 @@ void TemporallyAccumulate(
 							CurrentSceneMetadata,
 							NeighborSceneMetadata);
 
-						NormalizedNeighborSample = NormalizeToOneSample(Neighbor);
-
-						if (BilateralWeight > 0 && Neighbor.AccumulatedSampleCount > 0)
+						if (BilateralWeight > 0 && NeighborSample.AccumulatedSampleCount > 0)
 						{
-							NeighborPenumbra = GetSamplePenumbra(Neighbor);
+							NeighborPenumbra = GetSamplePenumbra(NeighborSample);
 							NeighborUncertainty = bUsesHistoryRejectionSignal
 								? 0.0
-								: Neighbor.UncertainRayCount / (Neighbor.AccumulatedSampleCount + Neighbor.UncertainRayCount);
-
-							if (CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS)
-							{
-								NeighborUncertainty = 1 - NormalizedNeighborSample.SceneColor.a;
-							}
+								: NeighborSample.UncertainRayCount / (NeighborSample.AccumulatedSampleCount + NeighborSample.UncertainRayCount);
 						}
 					} // if (bUseSample)
 				}
@@ -729,7 +722,7 @@ void TemporallyAccumulate(
 				float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
 
 				// Sample the neighor for history rejection.
-				FSSFSignalSample Neighbor = SampleInputSignal(
+				NeighborSample = SampleInputSignal(
 					bUsesHistoryRejectionSignal ? HistoryRejectionSignal0 : SignalInput0,
 					bUsesHistoryRejectionSignal ? HistoryRejectionSignal1 : SignalInput1,
 					GlobalPointClampedSampler,
@@ -744,32 +737,37 @@ void TemporallyAccumulate(
 					CurrentSceneMetadata,
 					NeighborSceneMetadata);
 
-				if (BilateralWeight > 0 && Neighbor.AccumulatedSampleCount > 0)
+				if (BilateralWeight > 0 && NeighborSample.AccumulatedSampleCount > 0)
 				{
-					NeighborPenumbra = GetSamplePenumbra(Neighbor);
+					NeighborPenumbra = GetSamplePenumbra(NeighborSample);
 					NeighborUncertainty = bUsesHistoryRejectionSignal
 						? 0.0
-						: Neighbor.UncertainRayCount / (Neighbor.AccumulatedSampleCount + Neighbor.UncertainRayCount);
+						: NeighborSample.UncertainRayCount / (NeighborSample.AccumulatedSampleCount + NeighborSample.UncertainRayCount);
 				}
-
-				NormalizedNeighborSample = NormalizeToOneSample(Neighbor);
 			}
 			#endif // !CONFIG_INPUT_TILE_CLASSIFICATION
-
+			
+			FSSFSignalSample NormalizedNeighborSample = NormalizeToOneSample(NeighborSample);
 			NormalizedNeighborSample = TransformSignalForPreRejection(NormalizedNeighborSample);
+			
+			#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+				bool bUseNeighborSample = NeighborUncertainty < 1.0;
+			#else
+				bool bUseNeighborSample = NeighborSample.AccumulatedSampleCount > 0.0;
+			#endif
 
-			if (CONFIG_CERTAINTY_BASED_REJECTION && NeighborUncertainty < 1.0)
+			if (CONFIG_CERTAINTY_BASED_REJECTION && bUseNeighborSample)
 			{
 				NeighborMinPenumbra = min(NeighborMinPenumbra, NeighborPenumbra + NeighborUncertainty);
 				NeighborMaxPenumbra = max(NeighborMaxPenumbra, NeighborPenumbra - NeighborUncertainty);
 			}
-			else if (NeighborUncertainty < 1.0)
+			else if (bUseNeighborSample)
 			{
 				NeighborMinPenumbra = min(NeighborMinPenumbra, NeighborPenumbra);
 				NeighborMaxPenumbra = max(NeighborMaxPenumbra, NeighborPenumbra);
 			}
 
-			if (NeighborUncertainty < 1.0)
+			if (bUseNeighborSample)
 			{
 				NeighborMin = Min(NeighborMin, NormalizedNeighborSample);
 				NeighborMax = Max(NeighborMax, NormalizedNeighborSample);
@@ -780,7 +778,7 @@ void TemporallyAccumulate(
 				NeighborMoment1 = Add(NeighborMoment1, Mul(NormalizedNeighborSample, Weight));
 				NeighborMoment2 = Add(NeighborMoment2, Mul(Power(NormalizedNeighborSample, 2.0), Weight));
 			}
-		}
+		} // for (neighbors)
 
 		NeighborMoment1 = Mul(NeighborMoment1, rcp(NeighborMomentWeight));
 		NeighborMoment2 = Mul(NeighborMoment2, rcp(NeighborMomentWeight));
@@ -825,44 +823,51 @@ void TemporallyAccumulate(
 				NeighborMax = Max(NeighborMax, QuantizationErrorMax);
 			}
 
+			// Transform the history so that it in correct component spaces, and normalized as the clamping box.
 			FSSFSignalSample NormalizedHistorySample = NormalizeToOneSample(HistorySample);
 			FSSFSignalSample TransformedHistorySample = TransformSignalForPreRejection(NormalizedHistorySample);
 
+			// Clamp the history.
 			FSSFSignalSample ClampedTransformedHistorySample = Clamp(TransformedHistorySample, NeighborMin, NeighborMax);
 
-			FSSFSignalSample RejectedDiff = Abs(Subtract(ClampedTransformedHistorySample, TransformedHistorySample));
-
-			float RejectionFactor = 0.0;
-			#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
-			{
-				RejectionFactor = abs(
-					Luma_To_LumaLog(ClampedTransformedHistorySample.SceneColor.x) -
-					Luma_To_LumaLog(TransformedHistorySample.SceneColor.x));
-				
-				RejectionFactor = max(RejectionFactor, 1 * max(RejectedDiff.SceneColor.y, RejectedDiff.SceneColor.z));
-				RejectionFactor = max(RejectionFactor, 1 * RejectedDiff.SceneColor.a);
-			}
-			#else
-				#error Unsupported signal rejection.
-			#endif
-			
-			//DebugOutput[DispatchThreadId] = float4(
-			//	RejectionFactor,
-			//	0,
-			//	0,
-			//	0);
-
-			float FinalHistoryWeight = HistorySample.AccumulatedSampleCount * saturate(1 - RejectionFactor);
-
-			if (!bPostRejectionBlending)
-			{
-				FinalHistoryWeight = max(FinalHistoryWeight, CurrentFrame.AccumulatedSampleCount);
-			}
-
+			// Transform the history back to linear component spaces.
 			FSSFSignalSample ClampedHistorySample = TransformSignalForPostRejection(ClampedTransformedHistorySample);
-			FSSFSignalSample FinalHistorySample = Mul(ClampedHistorySample, FinalHistoryWeight);
 
-			HistorySample = FinalHistorySample;
+			// Reweight the anti ghosted history.
+			{
+				FSSFSignalSample RejectedDiff = Abs(Subtract(ClampedTransformedHistorySample, TransformedHistorySample));
+
+				// Compute how much this history get changed.
+				float RejectionFactor = 0.0;
+				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
+				{
+					RejectionFactor = abs(
+						Luma_To_LumaLog(ClampedTransformedHistorySample.SceneColor.x) -
+						Luma_To_LumaLog(TransformedHistorySample.SceneColor.x));
+				
+					RejectionFactor = max(RejectionFactor, 1 * max(RejectedDiff.SceneColor.y, RejectedDiff.SceneColor.z));
+					RejectionFactor = max(RejectionFactor, 1 * RejectedDiff.SceneColor.a);
+				}
+				#else
+					#error Unsupported signal rejection.
+				#endif
+			
+				// Compute an initial history weight as if we had removed sample.
+				float FinalHistoryWeight = HistorySample.AccumulatedSampleCount * saturate(1 - RejectionFactor);
+
+				// When doing the accumulation before rejection, need to make sure the input weight get through.
+				if (!bPostRejectionBlending)
+				{
+					FinalHistoryWeight = max(FinalHistoryWeight, CurrentFrame.AccumulatedSampleCount);
+				}
+
+				// When doing upscaling, may have an invalid input sample.
+				FinalHistoryWeight = max(FinalHistoryWeight, NeighborMoment1.AccumulatedSampleCount * 0.1);
+			
+				// Apply the history weight.
+				HistorySample = Mul(ClampedHistorySample, FinalHistoryWeight);
+				HistorySample.AccumulatedSampleCount = FinalHistoryWeight;
+			}
 		}
 		#else // CONFIG_HISTORY_REJECTION == 1
 		{

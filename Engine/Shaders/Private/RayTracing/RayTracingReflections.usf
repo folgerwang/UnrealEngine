@@ -33,6 +33,8 @@ uint SamplesPerPixel;
 uint ShouldDoDirectLighting;
 uint ShouldDoReflectedShadows;
 uint ShouldDoEmissiveAndIndirectLighting;
+uint UpscaleFactor;
+
 float ReflectionMaxRayDistance;
 float ReflectionMaxRoughness;
 
@@ -45,11 +47,6 @@ float GetRoughnessFade(float Roughness, float MaxRoughness)
 {
 	float RoughnessMaskScale = -2.0 / MaxRoughness;
 	return saturate(Roughness * RoughnessMaskScale + 2.0);
-}
-
-uint CalcLinearIndex(uint2 PixelCoord)
-{
-	return PixelCoord.y * View.BufferSizeAndInvSize.x + PixelCoord.x;
 }
 
 // #dxr-todo: move to RayTracingCommon.ush
@@ -303,14 +300,27 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 	return Payload;
 }
 
+uint2 GetPixelCoord(uint2 DispatchThreadId)
+{
+	uint UpscaleFactorPow2 = UpscaleFactor * UpscaleFactor;
+
+	// TODO: find a way to not interfer with TAA's jittering.
+	uint SubPixelId = View.StateFrameIndex & (UpscaleFactorPow2 - 1);
+
+	return DispatchThreadId * UpscaleFactor + uint2(SubPixelId & (UpscaleFactor - 1), SubPixelId / UpscaleFactor);
+}
+
 
 [shader("raygeneration")]
 void RayTracingReflectionsRGS()
 {
-	uint2 PixelCoord = DispatchRaysIndex().xy;
+	uint2 DispatchThreadId = DispatchRaysIndex().xy;
 
+	uint2 PixelCoord = GetPixelCoord(DispatchThreadId);
+	
+	uint LinearIndex = PixelCoord.y * View.BufferSizeAndInvSize.x + PixelCoord.x; // TODO: PixelCoord or DispatchThreadId
+	
 	RandomSequence RandSequence;
-	uint LinearIndex = CalcLinearIndex(PixelCoord);
 	RandomSequence_Initialize(RandSequence, LinearIndex, View.FrameNumber);
 
 	float2 InvBufferSize = View.BufferSizeAndInvSize.zw;
@@ -358,7 +368,7 @@ void RayTracingReflectionsRGS()
 
 				if (LocalSamplesPerPixel == 1)
 				{
-					uint2 SobolFrame = ComputePixelUniqueSobolRandSample(PixelCoord);
+					uint2 SobolFrame = ComputePixelUniqueSobolRandSample(DispatchThreadId);
 					RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
 				}
 
@@ -420,8 +430,8 @@ void RayTracingReflectionsRGS()
 
 	ReflectedColor *= RoughnessFade;
 
-	ColorOutput[PixelCoord] = float4(ReflectedColor);
-	RayHitDistanceOutput[PixelCoord] = HitDistance;
+	ColorOutput[DispatchThreadId] = float4(ReflectedColor);
+	RayHitDistanceOutput[DispatchThreadId] = HitDistance;
 }
 
 

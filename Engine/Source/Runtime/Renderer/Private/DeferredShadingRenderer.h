@@ -436,7 +436,8 @@ private:
 		const FViewInfo& View,
 		FRDGTextureRef* OutColorTexture,
 		FRDGTextureRef* OutRayHitDistanceTexture,
-		int32 SamplePerPixel);
+		int32 SamplePerPixel,
+		float ResolutionFraction);
 
 #if RHI_RAYTRACING
 	bool ShouldRenderRayTracingAmbientOcclusion() const;

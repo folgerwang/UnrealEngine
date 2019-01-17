@@ -17,8 +17,9 @@
 
 /** Policy to use to change the size of kernel. */
 	#define SAMPLE_COUNT_POLICY_DISABLED 0
-	#define SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED 1
-	#define SAMPLE_COUNT_POLICY_ACCUMULATION_BASED 2
+	#define SAMPLE_COUNT_POLICY_METADATA_BASED 1
+	#define SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED 2
+	#define SAMPLE_COUNT_POLICY_ACCUMULATION_BASED 3
 
 
 //------------------------------------------------------- CONFIGS
@@ -51,6 +52,9 @@
 
 		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
 		#define CONFIG_SPECULAR_MIS 1
+
+		#define CONFIG_UPSCALE              DIM_UPSCALE
+		//#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_DISABLED
 
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
@@ -96,6 +100,11 @@
 /** Selects a subset of sample of a given CONFIG_SAMPLE_SET */
 #ifndef CONFIG_SAMPLE_SUBSET
 	#define CONFIG_SAMPLE_SUBSET 0
+#endif
+
+/** Whether the ray tracing input may needs to be upscale to the view's resolution. */
+#ifndef CONFIG_UPSCALE
+	#define CONFIG_UPSCALE 0
 #endif
 
 
@@ -237,6 +246,7 @@ static const uint kStackowiakSampleCountPerSet = 56;
 //------------------------------------------------------- PARAMETERS
 
 uint MaxSampleCount;
+uint UpscaleFactor;
 
 Texture2D SignalInput0;
 Texture2D SignalInput1;
@@ -248,6 +258,17 @@ RWTexture2D<float4>	DebugOutput;
 
 
 //------------------------------------------------------- FUNCTIONS
+
+// TODO: duplicated with reflection code.
+uint2 GetPixelCoord(uint2 DispatchThreadId)
+{
+	uint UpscaleFactorPow2 = UpscaleFactor * UpscaleFactor;
+
+	// TODO: find a way to not interfer with TAA's jittering.
+	uint SubPixelId = View.StateFrameIndex & (UpscaleFactorPow2 - 1);
+
+	return DispatchThreadId * UpscaleFactor + uint2(SubPixelId & (UpscaleFactor - 1), SubPixelId / UpscaleFactor);
+}
 
 
 //------------------------------------------------------- ENTRY POINTS
@@ -270,12 +291,19 @@ void MainCS(
 	float2 ScreenPosition = ViewportUVToScreenPos(BufferUVToViewportUV(SceneBufferUV));
 	FSSFSampleSceneInfos RefSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
 
-	FSSFSignalSample RefSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
+	// Sample the reference sample.
+	#if !CONFIG_UPSCALE || 1 // TODO: this sample ends up being sampled twice when upscaling.
+		FSSFSignalSample RefSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
+	#endif
 
-	// Read reference data.
-	float AccumulatorWeight = 1; //GetMultiImportanceSamplingWeight(RefSceneMetadata, RefSceneMetadata, RefSample, DispatchThreadId);
-	FSSFSignalSample Accumulator = Mul(RefSample, AccumulatorWeight);
+	// Setup the spatial accumulator.
+	FSSFSignalSample Accumulator = CreateSignalSampleFromScalarValue(0.0);
+	#if !CONFIG_UPSCALE
+		float AccumulatorWeight = 1; //GetMultiImportanceSamplingWeight(RefSceneMetadata, RefSceneMetadata, RefSample, DispatchThreadId);
 	
+		Accumulator = Mul(RefSample, AccumulatorWeight);
+	#endif
+
 	float CurrentWorldBluringRadius = ComputePixelWorldRadius(RefSceneMetadata);
 
 	float BilateralWeightAdjustement = 1;
@@ -284,26 +312,34 @@ void MainCS(
 		BilateralWeightAdjustement = rcp(ComputeBilateralWeight(100, RefSceneMetadata, RefSceneMetadata));
 	}
 	#endif
+	
+	/** factor by witch should be spread out. */
+	float KernelSpreadFactor = 1;
+	#if CONFIG_UPSCALE
+		KernelSpreadFactor = UpscaleFactor;
+	#endif
 
-	/** Find out the number of samples that should be done.
-	 */
+	/** Find out the number of samples that should be done. */
 	float RequestedSampleCount = 1024;
 	
 	#if CONFIG_SAMPLE_SET == SAMPLE_SET_NONE
 		RequestedSampleCount = 1;
 	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_DISABLED
 		// NOP
+	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_METADATA_BASED
+	{
+		float RefBluringRadius = ComputeInfinityBluringRadius(RefSceneMetadata) * View.ViewSizeAndInvSize.x * rcp(KernelSpreadFactor);
+		RequestedSampleCount = PI * RefBluringRadius * RefBluringRadius;
+	}
 	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED
 	{
-		float RefBluringRadius = ComputeBluringRadiusOfNormalizedSample(RefSample, RefSceneMetadata) * View.ViewSizeAndInvSize.x;
+		float RefBluringRadius = ComputeBluringRadiusOfNormalizedSample(RefSample, RefSceneMetadata) * View.ViewSizeAndInvSize.x * rcp(KernelSpreadFactor);
 		RequestedSampleCount = PI * RefBluringRadius * RefBluringRadius;
-		
-		// DebugOutput[DispatchThreadId] = float4(RefBluringRadius, RequestedSampleCount, 0, 0);
 	}
 	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_ACCUMULATION_BASED
 	{
 		// TOOD: use ComputeBluringRadiusOfNormalizedSample instead.
-		float RefBluringRadius = ComputeInfinityBluringRadius(RefSceneMetadata) * View.ViewSizeAndInvSize.x;
+		float RefBluringRadius = ComputeInfinityBluringRadius(RefSceneMetadata) * View.ViewSizeAndInvSize.x * rcp(KernelSpreadFactor);
 		float IdealSampleCount = PI * RefBluringRadius * RefBluringRadius;
 
 		const float MaxSampleCount = 1024; // TODO.
@@ -318,29 +354,54 @@ void MainCS(
 		#error Unknown policy to control the number of samples.
 	#endif
 
+
 	/** Iterate over the samples of the kernel.
 	 */
 	float2 KernelCenterBufferUV = SceneBufferUV;
 
 	#if CONFIG_SAMPLE_SET == SAMPLE_SET_NONE
+		#if CONFIG_UPSCALE
+			#error Unsupported
+		#endif
 		if (0)
 
 	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
+		#if CONFIG_UPSCALE
+			#error Unsupported
+		#endif
 		const int KernelRadius = CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 ? 1 : 2;
 		
 		UNROLL for (int x = -KernelRadius; x <= KernelRadius; x++)
 		UNROLL for (int y = -KernelRadius; y <= KernelRadius; y++)
 
 	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
-		KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+		#if CONFIG_UPSCALE
+			// TODO: could be optimised, but currently reusing same peace of code as reflection for maintainability.
+			uint2 RayDispatchThreadId = (DispatchThreadId - UpscaleFactor / 2) / UpscaleFactor;
+			uint2 ClosestRayPixelCoord = GetPixelCoord(RayDispatchThreadId);
+			
+			uint RaySubPixelId = View.StateFrameIndex & (UpscaleFactor * UpscaleFactor - 1);
+
+			KernelCenterBufferUV = ((ClosestRayPixelCoord + (0.5 * KernelSpreadFactor + 0.5)) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+			
+			// Id of the pixel in the quad.
+			uint QuadSampleSubsetId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1)) ^ 0x3;
+
+			bool bTakeFirstRay = RaySubPixelId == ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
+
+		#else // !CONFIG_UPSCALE
+			// Put the kernel center at the center of the quad. Half pixel shift is done in the sample offsets.
+			KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+
+			// Id of the pixel in the quad. This is to match hard coded first samples of the sample set.
+			uint QuadSampleSubsetId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
+		#endif
+
 		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 
 		uint SampleCount = clamp(RequestedSampleCount * rcp(kStackowiakSampleSetCount), 1, MaxSampleCount);
 
-		// Id of the pixel in the quad.
-		uint QuadSampleId = (DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1);
-
-		LOOP for (uint SampleId = 1; SampleId < SampleCount; SampleId++)
+		LOOP for (uint SampleId = (CONFIG_UPSCALE ? 0 : 1); SampleId < SampleCount; SampleId++)
 
 	#else
 		#error Unknown sample set
@@ -349,14 +410,14 @@ void MainCS(
 		float2 PixelOffset = 0;
 
 		#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-			if (x == 0 && y == 0) continue;
+			if (x == 0 && y == 0 && !CONFIG_UPSCALE) continue;
 			PixelOffset = float2(x, y);
 			
 		#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
 			#if CONFIG_SAMPLE_SUBSET == 0
-				PixelOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+				PixelOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + QuadSampleSubsetId];
 			#elif CONFIG_SAMPLE_SUBSET == 1
-				PixelOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + QuadSampleId];
+				PixelOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + QuadSampleSubsetId];
 			#else
 				#error Unknown sample subset.
 			#endif
@@ -366,7 +427,7 @@ void MainCS(
 		#endif
 
 		// Compute sample coordinates
-		float2 NeighborBufferUV = KernelCenterBufferUV + PixelOffset * View.BufferSizeAndInvSize.zw;
+		float2 NeighborBufferUV = KernelCenterBufferUV + (PixelOffset * KernelSpreadFactor) * View.BufferSizeAndInvSize.zw;
 		if (1)
 		{
 			if (1 && any(NeighborBufferUV != clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
@@ -410,6 +471,15 @@ void MainCS(
 		// Compute the final weight of that sample.
 		float FinalWeight = BilateralWeight * MISWeight * KernelWeight;// * (NeighborSample > 0.0 ? 1 : 0);
 		
+		#if CONFIG_UPSCALE && CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
+		{
+			if (SampleId == 0 && bTakeFirstRay)
+			{
+				FinalWeight = 1;
+			}
+		}
+		#endif
+
 		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
 	}
 

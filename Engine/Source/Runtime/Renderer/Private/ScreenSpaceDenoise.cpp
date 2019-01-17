@@ -34,17 +34,17 @@ static TAutoConsoleVariable<int32> CVarDoDebugPass(
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarReflectionReconstructionSampleCount(
-	TEXT("r.Reflection.Denoise.ReconstructionSamples"), 16,
+	TEXT("r.Reflections.Denoiser.ReconstructionSamples"), 16,
 	TEXT("Maximum number of samples for the reconstruction pass (default = 16)."),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarReflectionTemporalAccumulation(
-	TEXT("r.Reflection.Denoise.TemporalAccumulation"), 1,
+	TEXT("r.Reflections.Denoiser.TemporalAccumulation"), 1,
 	TEXT(""),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarReflectionHistoryConvolutionSampleCount(
-	TEXT("r.Reflection.Denoise.HistoryConvolutionSampleCount"), 1,
+	TEXT("r.Reflections.Denoiser.HistoryConvolutionSampleCount"), 1,
 	TEXT("Number of samples to use for history post filter (default = 1)."),
 	ECVF_RenderThreadSafe);
 
@@ -202,8 +202,9 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 	};
 
 	class FStageDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_STAGE", EStage);
+	class FUpscaleDim : SHADER_PERMUTATION_BOOL("DIM_UPSCALE");
 
-	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FStageDim>;
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FStageDim, FUpscaleDim>;
 	
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
@@ -216,11 +217,19 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 			return false;
 		}
 
+		// Only reconstruction have upscale capability for now.
+		if (PermutationVector.Get<FUpscaleDim>() && 
+			PermutationVector.Get<FStageDim>() != EStage::ReConstruction)
+		{
+			return false;
+		}
+
 		return FScreenSpaceDenoisingShader::ShouldCompilePermutation(Parameters);
 	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(uint32, MaxSampleCount)
+		SHADER_PARAMETER(int32, UpscaleFactor)
 
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
 
@@ -630,17 +639,23 @@ static void DenoiseShadowPenumbra(
 } // DenoiseShadowPenumbra()
 
 
-IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
+IScreenSpaceDenoiser::FReflectionsOutputs DenoiseReflections(
 	FRDGBuilder& GraphBuilder,
 	const FViewInfo& View,
 	const FSceneViewFamilyBlackboard& SceneBlackboard,
-	const IScreenSpaceDenoiser::FReflectionInputs& ReflectionInputs)
+	const IScreenSpaceDenoiser::FReflectionsInputs& ReflectionInputs,
+	const IScreenSpaceDenoiser::FReflectionsRayTracingConfig RayTracingConfig)
 {
+	ensure(RayTracingConfig.ResolutionFraction == 1.0f || RayTracingConfig.ResolutionFraction == 0.5f);
+
 	const FIntPoint DenoiseResolution = View.ViewRect.Size();
+	
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
 
 	// Descriptor to allocate internal denoising buffer.
-	FRDGTextureDesc SignalProcessingDesc = ReflectionInputs.Color->Desc;
+	FRDGTextureDesc SignalProcessingDesc = SceneContext.GetSceneColor()->GetDesc();
 	SignalProcessingDesc.Format = PF_FloatRGBA;
+	SignalProcessingDesc.Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
 	SignalProcessingDesc.NumMips = 1;
 
 	// Setup common shader parameters.
@@ -666,6 +681,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 
 		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
 		PassParameters->MaxSampleCount = FMath::Clamp(CVarReflectionReconstructionSampleCount.GetValueOnRenderThread(), 1, kStackowiakMaxSampleCountPerSet);
+		PassParameters->UpscaleFactor = int32(1.0f / RayTracingConfig.ResolutionFraction);
 		PassParameters->CommonParameters = CommonParameters;
 		PassParameters->SignalInput0 = ReflectionInputs.Color;
 		PassParameters->SignalInput1 = ReflectionInputs.RayHitDistance;
@@ -677,11 +693,13 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Reflections);
 		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::ReConstruction);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FUpscaleDim>(PassParameters->UpscaleFactor != 1);
 
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction MaxSamples=%i)", PassParameters->MaxSampleCount),
+			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction MaxSamples=%i Upscale=%i)",
+				PassParameters->MaxSampleCount, int32(PermutationVector.Get<FSSDSpatialAccumulationCS::FUpscaleDim>())),
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
@@ -791,7 +809,7 @@ IScreenSpaceDenoiser::FReflectionOutputs DenoiseReflections(
 		GraphBuilder.RemoveUnusedTextureWarning(SignalHistory1);
 	}
 
-	IScreenSpaceDenoiser::FReflectionOutputs Outputs;
+	IScreenSpaceDenoiser::FReflectionsOutputs Outputs;
 	Outputs.Color = SignalHistory0; // TODO.
 	return Outputs;
 } // DenoiseReflections()
@@ -858,13 +876,14 @@ public:
 		return Outputs;
 	}
 
-	FReflectionOutputs DenoiseReflections(
+	FReflectionsOutputs DenoiseReflections(
 		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
-		const FReflectionInputs& ReflectionInputs) const override
+		const FReflectionsInputs& ReflectionInputs,
+		const FReflectionsRayTracingConfig RayTracingConfig) const override
 	{
-		return ::DenoiseReflections(GraphBuilder, View, SceneBlackboard, ReflectionInputs);
+		return ::DenoiseReflections(GraphBuilder, View, SceneBlackboard, ReflectionInputs, RayTracingConfig);
 	}
 
 }; // class FDefaultScreenSpaceDenoiser

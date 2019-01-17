@@ -102,22 +102,28 @@ static TAutoConsoleVariable<float> CVarSkySpecularOcclusionStrength(
 	ECVF_RenderThreadSafe);
 
 static int32 GRayTracingReflections = 1;
-static FAutoConsoleVariableRef CVarRayTracingReflectionss(
-	TEXT("r.RayTracing.Reflections"),
+static FAutoConsoleVariableRef CVarReflectionsMethod(
+	TEXT("r.Reflections.Method"),
 	GRayTracingReflections,
 	TEXT("0: use traditional rasterized SSR\n")
 	TEXT("1: use ray traced reflections (default when ray tracing is enabled)\n")
 );
 
+static TAutoConsoleVariable<float> CVarReflectionScreenPercentage(
+	TEXT("r.Reflections.RayTracing.ScreenPercentage"),
+	100.0f,
+	TEXT("Try to guess"),
+	ECVF_RenderThreadSafe);
+
 static int32 GRayTracingReflectionsSamplesPerPixel = 1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
-	TEXT("r.RayTracing.Reflections.SamplesPerPixel"),
+	TEXT("r.Reflections.RayTracing.SamplesPerPixel"),
 	GRayTracingReflectionsSamplesPerPixel,
 	TEXT("Sets the samples-per-pixel for reflections (default = 1)")
 );
 
 static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
-	TEXT("r.Reflection.Denoiser"),
+	TEXT("r.Reflections.Denoiser"),
 	2,
 	TEXT("Choose the denoising algorithm.\n")
 	TEXT(" 0: Disabled;\n")
@@ -745,13 +751,27 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			SetupSceneViewFamilyBlackboard(GraphBuilder, &SceneBlackboard);
 
 
+			IScreenSpaceDenoiser::FReflectionsRayTracingConfig RayTracingConfig;
+			RayTracingConfig.ResolutionFraction = FMath::Clamp(CVarReflectionScreenPercentage.GetValueOnRenderThread() / 100.0f, 0.25f, 1.0f);
+
+			int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread();
+			const bool bDenoise = DenoiserMode != 0 && GRayTracingReflectionsSamplesPerPixel == 1;
+
+			if (!bDenoise)
+			{
+				RayTracingConfig.ResolutionFraction = 1.0f;
+			}
+
 			// Ray trace the reflection.
-			IScreenSpaceDenoiser::FReflectionInputs DenoiserInputs;
-			RayTraceReflections(GraphBuilder, View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance, GRayTracingReflectionsSamplesPerPixel);
+			IScreenSpaceDenoiser::FReflectionsInputs DenoiserInputs;
+			RayTraceReflections(
+				GraphBuilder,
+				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance,
+				GRayTracingReflectionsSamplesPerPixel, RayTracingConfig.ResolutionFraction);
 
 
 			// Denoise the reflections.
-			if (int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread() && GRayTracingReflectionsSamplesPerPixel == 1)
+			if (bDenoise)
 			{
 				const IScreenSpaceDenoiser* DefaultDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
 				const IScreenSpaceDenoiser* DenoiserToUse = DenoiserMode == 1 ? DefaultDenoiser : GScreenSpaceDenoiser;
@@ -762,11 +782,12 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 					DenoiserToUse->GetDebugName(),
 					View.ViewRect.Width(), View.ViewRect.Height());
 
-				IScreenSpaceDenoiser::FReflectionOutputs DenoiserOutputs = DenoiserToUse->DenoiseReflections(
+				IScreenSpaceDenoiser::FReflectionsOutputs DenoiserOutputs = DenoiserToUse->DenoiseReflections(
 					GraphBuilder,
 					View,
 					SceneBlackboard,
-					DenoiserInputs);
+					DenoiserInputs,
+					RayTracingConfig);
 
 				GraphBuilder.QueueTextureExtraction(DenoiserOutputs.Color, &ReflectionsColor);
 			}
