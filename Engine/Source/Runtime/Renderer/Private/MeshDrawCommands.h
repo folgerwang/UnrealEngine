@@ -37,6 +37,7 @@ public:
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
 		, MaxInstances(1)
+		, MaxInstanceFactor(1)
 	{
 	}
 
@@ -79,6 +80,9 @@ public:
 	int32 VisibleMeshDrawCommandsNum;
 	int32 NewPassVisibleMeshDrawCommandsNum;
 	int32 MaxInstances;
+
+	// Assertion check
+	uint32 MaxInstanceFactor;
 };
 
 /**

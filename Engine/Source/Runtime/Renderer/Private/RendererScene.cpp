@@ -723,6 +723,9 @@ void FPersistentUniformBuffers::Initialize()
 	FViewUniformShaderParameters ViewUniformBufferParameters;
 	ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
+	FInstancedViewUniformShaderParameters InstancedViewUniformBufferParameters;
+	InstancedViewUniformBuffer = TUniformBufferRef<FInstancedViewUniformShaderParameters>::CreateUniformBufferImmediate(InstancedViewUniformBufferParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
+
 	FSceneTexturesUniformParameters DepthPassParameters;
 	DepthPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(DepthPassParameters, UniformBuffer_MultiFrame, EUniformBufferValidation::None);
 
@@ -803,6 +806,16 @@ bool FPersistentUniformBuffers::UpdateViewUniformBuffer(const FViewInfo& View)
 	if (CachedView != &View)
 	{
 		ViewUniformBuffer.UpdateUniformBufferImmediate(*View.CachedViewUniformShaderParameters);
+
+		if (View.IsInstancedStereoPass() && View.Family->Views.Num() > 0)
+		{
+			// When drawing the left eye in a stereo scene, copy the right eye view values into the instanced view uniform buffer.
+			const EStereoscopicPass StereoPassIndex = (View.StereoPass != eSSP_FULL) ? eSSP_RIGHT_EYE : eSSP_FULL;
+
+			const FViewInfo& InstancedView = static_cast<const FViewInfo&>(View.Family->GetStereoEyeView(StereoPassIndex));
+			InstancedViewUniformBuffer.UpdateUniformBufferImmediate(reinterpret_cast<FInstancedViewUniformShaderParameters&>(*InstancedView.CachedViewUniformShaderParameters));
+		}
+
 		CachedView = &View;
 		return true;
 	}
@@ -865,6 +878,10 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 
 	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
 	StaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnAnyThread();
+
+	// Query instanced stereo and multi-view state
+	static const auto InstancedStereoCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
+	bStaticDrawInstancedStereo = RHISupportsInstancedStereo(GShaderPlatformForFeatureLevel[InFeatureLevel]) && GEngine->IsStereoscopic3D() && InstancedStereoCvar->GetValueOnAnyThread();
 
 	if (World->FXSystem)
 	{
@@ -2840,17 +2857,21 @@ void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 {
 	static auto* EarlyZPassCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPass"));
 	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
+	static auto* InstancedStereoCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
 
 	bool bMobileHDR = IsMobileHDR();
 	bool bMobileHDR32bpp = IsMobileHDR32bpp();
 	int32 DesiredStaticDrawListsEarlyZPassMode = EarlyZPassCvar->GetValueOnRenderThread();
 	int32 DesiredStaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnRenderThread();
+	bool bDesiredStaticDrawInstancedStereo = RHISupportsInstancedStereo(GShaderPlatformForFeatureLevel[FeatureLevel]) &&
+		GEngine->IsStereoscopic3D() && InstancedStereoCvar->GetValueOnAnyThread();
 
 	if (bScenesPrimitivesNeedStaticMeshElementUpdate
 		|| bStaticDrawListsMobileHDR != bMobileHDR
 		|| bStaticDrawListsMobileHDR32bpp != bMobileHDR32bpp
 		|| StaticDrawShaderPipelines != DesiredStaticDrawShaderPipelines
-		|| StaticDrawListsEarlyZPassMode != DesiredStaticDrawListsEarlyZPassMode)
+		|| StaticDrawListsEarlyZPassMode != DesiredStaticDrawListsEarlyZPassMode
+		|| bStaticDrawInstancedStereo != bDesiredStaticDrawInstancedStereo)
 	{
 		// Mark all primitives as needing an update
 		// Note: Only visible primitives will actually update their static mesh elements
@@ -2864,6 +2885,7 @@ void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 		bStaticDrawListsMobileHDR32bpp = bMobileHDR32bpp;
 		StaticDrawListsEarlyZPassMode = DesiredStaticDrawListsEarlyZPassMode;
 		StaticDrawShaderPipelines = DesiredStaticDrawShaderPipelines;
+		bStaticDrawInstancedStereo = bDesiredStaticDrawInstancedStereo;
 	}
 }
 

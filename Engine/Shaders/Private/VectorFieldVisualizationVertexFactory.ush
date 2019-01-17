@@ -32,7 +32,7 @@ struct FVertexFactoryInterpolantsVSToPS
 	float2 DummyTexCoord : TEXCOORD0;
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : EYE_INDEX;
 #endif
 };
 
@@ -153,7 +153,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 	Interpolants.DummyTexCoord = float2(0,0);
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -184,13 +184,6 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 	TangentToLocal[2] = float3(0,0,1);
 	return TangentToLocal;
 }
-
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return 0;
-}
-#endif
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
 {

@@ -728,7 +728,7 @@ void FPixelShaderInOut_MainPS(
 	inout FPixelShaderOut Out)
 {
 #if INSTANCED_STEREO
-	ResolvedView = ResolveView(GetEyeIndex(Interpolants.PackedEyeIndex));
+	ResolvedView = ResolveView(Interpolants.EyeIndex);
 #else
 	ResolvedView = ResolveView();
 #endif
@@ -1004,7 +1004,7 @@ void FPixelShaderInOut_MainPS(
 			uint GridIndex = 0;
 
 			#if INSTANCED_STEREO
-				const uint EyeIndex = GetEyeIndex(Interpolants.PackedEyeIndex);
+				const uint EyeIndex = Interpolants.EyeIndex;
 			#else
 				const uint EyeIndex = 0;
 			#endif

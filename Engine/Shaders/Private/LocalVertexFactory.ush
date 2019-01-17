@@ -15,12 +15,6 @@
 #include "/Engine/Generated/UniformBuffers/PrecomputedLightingBuffer.ush"
 
 #if USE_INSTANCING
-
-	// Instanced stereo sets the eye index explicitly for instanced geometry
-	#if INSTANCED_STEREO
-		uint InstancedEyeIndex;
-	#endif
-
 	#ifndef USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED
 		#error "USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED should have been defined"
 	#endif
@@ -272,11 +266,12 @@ float4x4 GetInstanceTransform(FVertexFactoryIntermediates Intermediates)
 float4x4 GetInstanceTransform(FPositionOnlyVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED && MANUAL_VERTEX_FETCH
+	uint InstanceId = GetInstanceId(Input.InstanceId);
 	return float4x4(
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 0].xyz, 0.0f),
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 1].xyz, 0.0f),
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 2].xyz, 0.0f),
-		float4(VertexFetch_InstanceOriginBuffer[(Input.InstanceId + InstanceOffset)].xyz, 1.0f));
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 0].xyz, 0.0f),
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 1].xyz, 0.0f),
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 2].xyz, 0.0f),
+		float4(VertexFetch_InstanceOriginBuffer[(InstanceId + InstanceOffset)].xyz, 1.0f));
 	#elif !USE_INSTANCING_EMULATED
 	return float4x4(
 		float4(Input.InstanceTransform1.xyz, 0.0f),
@@ -679,11 +674,12 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 #endif
 
 #if USE_INSTANCING && !USE_INSTANCING_EMULATED && MANUAL_VERTEX_FETCH
-	Intermediates.InstanceTransform1 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 0];
-	Intermediates.InstanceTransform2 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 1];
-	Intermediates.InstanceTransform3 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 2];
-	Intermediates.InstanceOrigin = VertexFetch_InstanceOriginBuffer[(Input.InstanceId + InstanceOffset)];
-	Intermediates.InstanceLightmapAndShadowMapUVBias = VertexFetch_InstanceLightmapBuffer[(Input.InstanceId + InstanceOffset)];
+	uint InstanceId = GetInstanceId(Input.InstanceId);
+	Intermediates.InstanceTransform1 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 0];
+	Intermediates.InstanceTransform2 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 1];
+	Intermediates.InstanceTransform3 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 2];
+	Intermediates.InstanceOrigin = VertexFetch_InstanceOriginBuffer[(InstanceId + InstanceOffset)];
+	Intermediates.InstanceLightmapAndShadowMapUVBias = VertexFetch_InstanceLightmapBuffer[(InstanceId + InstanceOffset)];
 #elif USE_INSTANCING && !USE_INSTANCING_EMULATED
 	Intermediates.InstanceTransform1 = Input.InstanceTransform1;
 	Intermediates.InstanceTransform2 = Input.InstanceTransform2;
@@ -831,7 +827,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	SetPrimitiveId(Interpolants, Intermediates.PrimitiveId);
@@ -1016,17 +1012,6 @@ float4 VertexFactoryGetInstanceHitProxyId(FVertexFactoryInput Input, FVertexFact
 	return float4(R/255.0, G/255.0, B/255.0, 0);
 }
 #endif	// USE_INSTANCING
-
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	#if USE_INSTANCING
-		return InstancedEyeIndex;
-	#else
-		return InstanceId & 1;
-	#endif
-}
-#endif
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
 {

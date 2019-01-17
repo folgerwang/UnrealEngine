@@ -18,7 +18,7 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	ResolvedView = ResolveView(GetEyeIndex(DebugInputs.PackedEyeIndex));
+	ResolvedView = ResolveView(DebugInputs.EyeIndex);
 #else
 	ResolvedView = ResolveView();
 #endif

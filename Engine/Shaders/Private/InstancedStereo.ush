@@ -14,25 +14,6 @@
 // see GenerateInstancedStereoCode()
 #include "/Engine/Generated/GeneratedInstancedStereo.ush"
 
-// Packing the eye index and instanced stereo flag into a single uint to save an interpolator
-uint PackEyeIndex(uint EyeIndex, bool bIsInstancedStereo)
-{
-	uint Result = 0;
-	Result |= (uint)bIsInstancedStereo << 31;
-	Result |= EyeIndex;
-	return Result;
-}
-
-uint GetEyeIndex(uint PackedIndex)
-{
-	return PackedIndex & 0x1;
-}
-
-bool IsInstancedStereo(uint PackedIndex)
-{
-	return (PackedIndex >> 1) > 0;
-}
-
 static ViewState ResolvedView;
 
 ViewState ResolveView()
@@ -43,7 +24,6 @@ ViewState ResolveView()
 #if INSTANCED_STEREO
 static const float EyeOffsetScale[2] = { -1.0, 1.0 };
 static const float4 EyeClipEdge[2] = { float4(-1.0, 0.0, 0.0, 1.0), float4(1.0, 0.0, 0.0, 1.0) };
-bool bIsInstancedStereo;
 #endif
 
 // Generated for Metal in GeneratedInstancedStereo.usf
@@ -60,3 +40,30 @@ ViewState ResolveView(uint ViewIndex)
 	}
 }
 #endif
+
+bool IsInstancedStereo()
+{
+#if INSTANCED_STEREO
+	return InstancedView_StereoPassIndex > 0;
+#else
+	return false;
+#endif
+}
+
+uint GetEyeIndex(uint InstanceId)
+{
+#if INSTANCED_STEREO
+	return IsInstancedStereo() ? InstanceId & 1 : 0;
+#else
+	return 0;
+#endif
+}
+
+uint GetInstanceId(uint InstanceId)
+{
+#if INSTANCED_STEREO
+	return IsInstancedStereo() ? InstanceId / 2 : InstanceId;
+#else
+	return InstanceId;
+#endif
+}

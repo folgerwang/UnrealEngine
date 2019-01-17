@@ -608,7 +608,7 @@ void FMeshDrawCommand::SetRayTracingShaders(const FMeshProcessorShaders& Shaders
 }
 #endif // RHI_RAYTRACING
 
-void FMeshDrawCommand::SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 InstanceFactor, bool bDoSetupPsoStateForRasterization)
+void FMeshDrawCommand::SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 BatchInstanceFactor, bool bDoSetupPsoStateForRasterization)
 {
 	const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
 
@@ -617,7 +617,8 @@ void FMeshDrawCommand::SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch,
 	IndexBuffer = BatchElement.IndexBuffer ? BatchElement.IndexBuffer->IndexBufferRHI : nullptr;
 	FirstIndex = BatchElement.FirstIndex;
 	NumPrimitives = BatchElement.NumPrimitives;
-	NumInstances = BatchElement.NumInstances * InstanceFactor;
+	NumInstances = BatchElement.NumInstances;
+	InstanceFactor = BatchInstanceFactor;
 	BaseVertexIndex = BatchElement.BaseVertexIndex;
 	NumVertices = BatchElement.MaxVertexIndex - BatchElement.MinVertexIndex + 1;
 	IndirectArgsBuffer = BatchElement.IndirectArgsBuffer;
@@ -733,7 +734,8 @@ void FMeshDrawCommand::SubmitDraw(
 
 	if (GShowMaterialDrawEvents)
 	{
-		if (MeshDrawCommand.NumInstances > 1)
+		const uint32 Instances = MeshDrawCommand.NumInstances * MeshDrawCommand.InstanceFactor;
+		if (Instances > 1)
 		{
 			BEGIN_DRAW_EVENTF(
 				RHICmdList,
@@ -741,7 +743,7 @@ void FMeshDrawCommand::SubmitDraw(
 				MeshEvent,
 				TEXT("%s %u instances"),
 				*MeshDrawCommand.DrawEventName,
-				MeshDrawCommand.NumInstances);
+				Instances);
 		}
 		else
 		{
@@ -801,7 +803,7 @@ void FMeshDrawCommand::SubmitDraw(
 				MeshDrawCommand.NumVertices,
 				MeshDrawCommand.FirstIndex,
 				MeshDrawCommand.NumPrimitives,
-				MeshDrawCommand.NumInstances
+				MeshDrawCommand.NumInstances * MeshDrawCommand.InstanceFactor
 			);
 		}
 	}
@@ -810,7 +812,7 @@ void FMeshDrawCommand::SubmitDraw(
 		RHICmdList.DrawPrimitive(
 			MeshDrawCommand.BaseVertexIndex + MeshDrawCommand.FirstIndex,
 			MeshDrawCommand.NumPrimitives,
-			MeshDrawCommand.NumInstances
+			MeshDrawCommand.NumInstances * MeshDrawCommand.InstanceFactor
 		);
 	}
 
@@ -986,7 +988,7 @@ FCachedPassMeshDrawListContext::FCachedPassMeshDrawListContext(FCachedMeshDrawCo
 
 FMeshDrawCommand& FCachedPassMeshDrawListContext::AddCommand(const FMeshDrawCommand& Initializer)
 {
-	// Only one FMeshDrawCommand supported per FStaticMeshBatch in a pass
+	// Only one FMeshDrawCommand supported per FStaticMesh in a pass
 	check(CommandInfo.CommandIndex == -1);
 	CommandInfo.CommandIndex = DrawList.MeshDrawCommands.Add(Initializer);
 	return DrawList.MeshDrawCommands[CommandInfo.CommandIndex];

@@ -114,7 +114,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -783,7 +783,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -900,14 +900,3 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 		return TangentToWorld;
 	}
 #endif // #if USING_TESSELLATION
-
-#if INSTANCED_STEREO
-
-// Instanced stereo sets the eye index explicitly for instanced geometry
-uint InstancedEyeIndex;
-
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstancedEyeIndex & bIsInstancedStereo;
-}
-#endif

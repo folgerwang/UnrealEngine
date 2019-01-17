@@ -236,7 +236,8 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 	FMeshCommandOneFrameArray& TempVisibleMeshDrawCommands,
 	int32& MaxInstances,
 	int32& VisibleMeshDrawCommandsNum,
-	int32& NewPassVisibleMeshDrawCommandsNum
+	int32& NewPassVisibleMeshDrawCommandsNum,
+	uint32 MaxInstanceFactor = 1
 	)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildMeshDrawCommandPrimitiveIdBuffer);
@@ -245,6 +246,7 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 	const FVisibleMeshDrawCommand* RESTRICT PassVisibleMeshDrawCommands = VisibleMeshDrawCommands.GetData();
 	const int32 NumDrawCommands = VisibleMeshDrawCommands.Num();
 
+	uint32 PrimitiveIdIndex = 0;
 	int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdBuffer.Buffer;
 
 	if (IsDynamicInstancingEnabled())
@@ -270,7 +272,7 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 				else
 				{
 					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
-					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = PrimitiveIdIndex;
 					TempVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
 				}
 			}
@@ -298,7 +300,7 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 						VisibleMeshDrawCommand.MeshCullMode,
 						VisibleMeshDrawCommand.SortKey);
 
-					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = PrimitiveIdIndex;
 					TempVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
 
 					CurrentDynamicallyInstancedMeshCommandNumInstances = &NewCommand.NumInstances;
@@ -307,13 +309,19 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 				{
 					CurrentDynamicallyInstancedMeshCommandNumInstances = nullptr;
 					FVisibleMeshDrawCommand NewVisibleMeshDrawCommand = VisibleMeshDrawCommand;
-					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = DrawCommandIndex;
+					NewVisibleMeshDrawCommand.PrimitiveIdBufferOffset = PrimitiveIdIndex;
 					TempVisibleMeshDrawCommands.Emplace(MoveTemp(NewVisibleMeshDrawCommand));
 				}
 			}
 
-			//@todo - refactor into memcpy
-			PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			//@todo - refactor into instance step rate in the RHI
+			uint32 InstanceFactor = VisibleMeshDrawCommand.MeshDrawCommand->InstanceFactor;
+			InstanceFactor = ensure(InstanceFactor <= MaxInstanceFactor) ? InstanceFactor : MaxInstanceFactor;
+			for (uint32 InstanceFactorIndex = 0; InstanceFactorIndex < InstanceFactor; InstanceFactorIndex++, PrimitiveIdIndex++)
+			{
+				//@todo - refactor into memcpy
+				PrimitiveIds[PrimitiveIdIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			}
 		}
 
 		// Setup instancing stats for logging.
@@ -331,7 +339,12 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 		for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
 		{
 			const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
-			PrimitiveIds[DrawCommandIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			uint32 InstanceFactor = VisibleMeshDrawCommand.MeshDrawCommand->InstanceFactor;
+			InstanceFactor = ensure(InstanceFactor <= MaxInstanceFactor) ? InstanceFactor : MaxInstanceFactor;
+			for (uint32 InstanceFactorIndex = 0; InstanceFactorIndex < InstanceFactor; InstanceFactorIndex++, PrimitiveIdIndex++)
+			{
+				PrimitiveIds[PrimitiveIdIndex] = VisibleMeshDrawCommand.DrawPrimitiveId;
+			}
 		}
 	}
 }
@@ -708,11 +721,14 @@ void SortPassMeshDrawCommands(
 		int32 MaxInstances = 1;
 		int32 VisibleMeshDrawCommandsNum = 0;
 		int32 NewPassVisibleMeshDrawCommandsNum = 0;
+		uint32 MaxInstanceFactor = 1;
 
 		// Preallocate context memory and resources.
 		if (bUseGPUScene)
 		{
-			PrimitiveIdBuffer = DynamicVertexBuffer.Allocate(NumDrawCommands * sizeof(int32));
+			//@todo - make the instance factor a pass parameter instead of a draw command parameter
+			MaxInstanceFactor = VisibleMeshDrawCommands[0].MeshDrawCommand->InstanceFactor;
+			PrimitiveIdBuffer = DynamicVertexBuffer.Allocate(NumDrawCommands * MaxInstanceFactor * sizeof(int32));
 
 			if (IsDynamicInstancingEnabled())
 			{
@@ -731,7 +747,8 @@ void SortPassMeshDrawCommands(
 				NewPassVisibleMeshDrawCommands,
 				MaxInstances,
 				VisibleMeshDrawCommandsNum,
-				NewPassVisibleMeshDrawCommandsNum
+				NewPassVisibleMeshDrawCommandsNum,
+				MaxInstanceFactor
 			);
 		}
 	}
@@ -784,6 +801,9 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.ViewMatrix = View.ViewMatrices.GetViewMatrix();
 	TaskContext.PrimitiveBounds = &Scene->PrimitiveBounds;
 
+	//@todo - make the instance factor a pass parameter instead of a draw command parameter
+	TaskContext.MaxInstanceFactor = InOutMeshDrawCommands[0].MeshDrawCommand->InstanceFactor;
+
 	switch (PassType)
 	{
 		case EMeshPass::TranslucencyStandard: TaskContext.TranslucencyPass = ETranslucencyPass::TPT_StandardTranslucency; break;
@@ -807,7 +827,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	// Preallocate resources on rendering thread based on MaxNumDraws.
 	if (TaskContext.bDynamicInstancing)
 	{
-		TaskContext.PrimitiveIdBuffer = FGlobalDynamicVertexBuffer::Get().Allocate(MaxNumDraws * sizeof(int32));
+		TaskContext.PrimitiveIdBuffer = FGlobalDynamicVertexBuffer::Get().Allocate(MaxNumDraws * TaskContext.MaxInstanceFactor * sizeof(int32));
 	}
 	TaskContext.MeshDrawCommands.Reserve(MaxNumDraws);
 	TaskContext.TempVisibleMeshDrawCommands.Reserve(MaxNumDraws);

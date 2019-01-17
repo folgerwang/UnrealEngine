@@ -518,16 +518,16 @@ void FMeshMaterialShader::GetShaderBindings(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 	const FMaterialRenderProxy& MaterialRenderProxy,
 	const FMaterial& Material,
-	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-	FUniformBufferRHIParamRef PassUniformBufferValue,
+	const FMeshPassProcessorRenderState& DrawRenderState,
 	const FMeshMaterialShaderElementData& ShaderElementData,
 	FMeshDrawSingleShaderBindings& ShaderBindings) const
 {
 	FMaterialShader::GetShaderBindings(Scene, FeatureLevel, MaterialRenderProxy, Material, ShaderBindings);
-	ShaderBindings.Add(PassUniformBuffer, PassUniformBufferValue);
-	ShaderBindings.Add(GetUniformBufferParameter<FViewUniformShaderParameters>(), ViewUniformBuffer);
+	ShaderBindings.Add(PassUniformBuffer, DrawRenderState.GetPassUniformBuffer());
+	ShaderBindings.Add(GetUniformBufferParameter<FViewUniformShaderParameters>(), DrawRenderState.GetViewUniformBuffer());
 	ShaderBindings.Add(GetUniformBufferParameter<FDistanceCullFadeUniformShaderParameters>(), ShaderElementData.FadeUniformBuffer);
 	ShaderBindings.Add(GetUniformBufferParameter<FDitherUniformShaderParameters>(), ShaderElementData.DitherUniformBuffer);
+	ShaderBindings.Add(GetUniformBufferParameter<FInstancedViewUniformShaderParameters>(), DrawRenderState.GetInstancedViewUniformBuffer());
 }
 
 void FMeshMaterialShader::GetElementShaderBindings(

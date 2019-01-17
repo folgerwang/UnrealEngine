@@ -114,7 +114,7 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
+	const uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 	#if !MULTI_VIEW
 		OutClipDistance = 0.0;
@@ -152,7 +152,7 @@ void Main(
 
 	#if INSTANCED_STEREO && !MULTI_VIEW
 	BRANCH 
-	if (bIsInstancedStereo)  
+	if (IsInstancedStereo())  
 	{
 		// Clip at the center of the screen
 		OutClipDistance = dot(Output.Position, EyeClipEdge[EyeIndex]);
@@ -194,9 +194,9 @@ void Main(
 
 	#if INSTANCED_STEREO
 		#if USING_TESSELLATION	
-			Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+			Output.FactoryInterpolants.InterpolantsVSToPS.EyeIndex = EyeIndex;
 		#else
-			Output.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+			Output.EyeIndex = EyeIndex;
 		#endif
 	#endif
 

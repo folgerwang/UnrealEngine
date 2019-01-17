@@ -3540,8 +3540,12 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		FViewInfo& View = Views[ViewIndex];
-		FViewCommands& ViewCommands = ViewCommandsPerView[ViewIndex];
+		if (!View.ShouldRenderView())
+		{
+			continue;
+		}
 
+		FViewCommands& ViewCommands = ViewCommandsPerView[ViewIndex];
 		SetupMeshPass(View, BasePassDepthStencilAccess, ViewCommands);
 	}
 

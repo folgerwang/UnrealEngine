@@ -123,11 +123,8 @@ RHI_API bool RHIGetPreviewFeatureLevel(ERHIFeatureLevel::Type& PreviewFeatureLev
 
 inline bool RHISupportsInstancedStereo(const EShaderPlatform Platform)
 {
-	//@todo MeshCommandPipeline - add vr.InstancedStereo render path.
-	return false;
-
 	// Only D3D SM5, PS4 and Metal SM5 supports Instanced Stereo
-	//return (Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4 || Platform == EShaderPlatform::SP_METAL_SM5 || Platform == EShaderPlatform::SP_METAL_SM5_NOTESS);
+	return (Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4 || Platform == EShaderPlatform::SP_METAL_SM5 || Platform == EShaderPlatform::SP_METAL_SM5_NOTESS);
 }
 
 inline bool RHISupportsMultiView(const EShaderPlatform Platform)

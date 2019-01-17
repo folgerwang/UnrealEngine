@@ -718,6 +718,9 @@ void FDepthPassMeshProcessor::Process(
 	FDepthOnlyShaderElementData ShaderElementData(0.0f);
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
+	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : Scene->bStaticDrawInstancedStereo;
+	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -728,7 +731,7 @@ void FDepthPassMeshProcessor::Process(
 		DepthPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
+		InstanceFactor,
 		FMeshDrawCommandSortKey::Default,
 		bPositionOnly ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 		ShaderElementData);
@@ -825,6 +828,7 @@ FDepthPassMeshProcessor::FDepthPassMeshProcessor(const FScene* Scene,
 {
 	PassDrawRenderState = InPassDrawRenderState;
 	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
+	PassDrawRenderState.SetInstancedViewUniformBuffer(Scene->UniformBuffers.InstancedViewUniformBuffer);
 	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.DepthPassUniformBuffer);
 }
 

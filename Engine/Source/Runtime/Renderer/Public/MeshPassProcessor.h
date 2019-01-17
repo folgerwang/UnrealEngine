@@ -350,6 +350,7 @@ public:
 	uint32 FirstIndex;
 	uint32 NumPrimitives;
 	uint32 NumInstances;
+	uint32 InstanceFactor;
 	uint32 BaseVertexIndex;
 	uint32 NumVertices;
 	FVertexBufferRHIParamRef IndirectArgsBuffer;
@@ -378,6 +379,7 @@ public:
 			&& FirstIndex == Rhs.FirstIndex
 			&& NumPrimitives == Rhs.NumPrimitives
 			&& NumInstances == Rhs.NumInstances
+			&& InstanceFactor == Rhs.InstanceFactor
 			&& BaseVertexIndex == Rhs.BaseVertexIndex
 			&& NumVertices == Rhs.NumVertices
 			&& IndirectArgsBuffer == Rhs.IndirectArgsBuffer;
@@ -399,7 +401,7 @@ public:
 	}
 
 	/** Called when the mesh draw command is complete. */
-	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 InstanceFactor, bool bDoSetupPsoStateForRasterization);
+	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 BatchInstanceFactor, bool bDoSetupPsoStateForRasterization);
 
 	void Finalize(bool bDoSetupPsoStateForRasterization)
 	{
@@ -708,6 +710,7 @@ struct FMeshPassProcessorRenderState
 		, DepthStencilState(nullptr)
 		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
 		, ViewUniformBuffer(SceneView.ViewUniformBuffer)
+		, InstancedViewUniformBuffer()
 		, PassUniformBuffer(InPassUniformBuffer)
 		, StencilRef(0)
 	{
@@ -718,6 +721,7 @@ struct FMeshPassProcessorRenderState
 		, DepthStencilState(nullptr)
 		, DepthStencilAccess(FExclusiveDepthStencil::DepthRead_StencilRead)
 		, ViewUniformBuffer(InViewUniformBuffer)
+		, InstancedViewUniformBuffer()
 		, PassUniformBuffer(InPassUniformBuffer)
 		, StencilRef(0)
 	{
@@ -727,6 +731,7 @@ struct FMeshPassProcessorRenderState
 		BlendState(nullptr)
 		, DepthStencilState(nullptr)
 		, ViewUniformBuffer()
+		, InstancedViewUniformBuffer()
 		, PassUniformBuffer(nullptr)
 		, StencilRef(0)
 	{
@@ -737,6 +742,7 @@ struct FMeshPassProcessorRenderState
 		, DepthStencilState(DrawRenderState.DepthStencilState)
 		, DepthStencilAccess(DrawRenderState.DepthStencilAccess)
 		, ViewUniformBuffer(DrawRenderState.ViewUniformBuffer)
+		, InstancedViewUniformBuffer(DrawRenderState.InstancedViewUniformBuffer)
 		, PassUniformBuffer(DrawRenderState.PassUniformBuffer)
 		, StencilRef(DrawRenderState.StencilRef)
 	{
@@ -793,6 +799,16 @@ public:
 		return ViewUniformBuffer;
 	}
 
+	FORCEINLINE_DEBUGGABLE void SetInstancedViewUniformBuffer(const TUniformBufferRef<FInstancedViewUniformShaderParameters>& InViewUniformBuffer)
+	{
+		InstancedViewUniformBuffer = InViewUniformBuffer;
+	}
+
+	FORCEINLINE_DEBUGGABLE const TUniformBufferRef<FInstancedViewUniformShaderParameters>& GetInstancedViewUniformBuffer() const
+	{
+		return InstancedViewUniformBuffer.IsValid() ? InstancedViewUniformBuffer : reinterpret_cast<const TUniformBufferRef<FInstancedViewUniformShaderParameters>&>(ViewUniformBuffer);
+	}
+
 	FORCEINLINE_DEBUGGABLE void SetPassUniformBuffer(FUniformBufferRHIParamRef InPassUniformBuffer)
 	{
 		PassUniformBuffer = InPassUniformBuffer;
@@ -820,6 +836,7 @@ private:
 	FExclusiveDepthStencil::Type	DepthStencilAccess;
 
 	TUniformBufferRef<FViewUniformShaderParameters>	ViewUniformBuffer;
+	TUniformBufferRef<FInstancedViewUniformShaderParameters> InstancedViewUniformBuffer;
 	FUniformBufferRHIParamRef		PassUniformBuffer;
 	uint32							StencilRef;
 };
