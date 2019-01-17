@@ -17,7 +17,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override string RuntimeVersion
 		{
-			get { return "9.0"; }
+			get { return "10.0"; }
 		}
 
 		/// <summary>
