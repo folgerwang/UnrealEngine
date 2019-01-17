@@ -139,7 +139,7 @@ public:
 		const FMeshBatchElement& BatchElement,
 		class FMeshDrawSingleShaderBindings& ShaderBindings,
 		FVertexInputStreamArray& VertexStreams
-	) const override final;
+	) const override;
 
 	virtual uint32 GetSize() const override
 	{
