@@ -802,8 +802,17 @@ public:
 	// FlushType: Flush Immediate (seems wrong)
 	virtual void RHIReadSurfaceData(FTextureRHIParamRef Texture, FIntRect Rect, TArray<FColor>& OutData, FReadSurfaceDataFlags InFlags) = 0;
 
-	// FlushType: Flush Immediate (seems wrong)
-	virtual void RHIReadSurfaceData(FTextureRHIParamRef Texture, FIntRect Rect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags) {}
+	// Default fallback; will not work for non-8-bit surfaces and it's extremely slow.
+	virtual void RHIReadSurfaceData(FTextureRHIParamRef Texture, FIntRect Rect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+	{
+		TArray<FColor> TempData;
+		RHIReadSurfaceData(Texture, Rect, TempData, InFlags);
+		OutData.SetNumUninitialized(TempData.Num());
+		for (int32 Index = 0; Index < TempData.Num(); ++Index)
+		{
+			OutData[Index] = TempData[Index].ReinterpretAsLinear();
+		}
+	}
 
 	/** Watch out for OutData to be 0 (can happen on DXGI_ERROR_DEVICE_REMOVED), don't call RHIUnmapStagingSurface in that case. */
 	// FlushType: Flush Immediate (seems wrong)
