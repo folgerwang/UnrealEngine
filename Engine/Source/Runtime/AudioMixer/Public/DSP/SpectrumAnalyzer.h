@@ -115,8 +115,10 @@ namespace Audio
 	class AUDIOMIXER_API FSpectrumAnalyzer
 	{
 	public:
-		// Default constructor needs to call Init before using
+		// If an instance is created using the default constructor, Init() must be called before it is used.
 		FSpectrumAnalyzer();
+
+		// If an instance is created using either of these constructors, Init() is not neccessary.
 		FSpectrumAnalyzer(float InSampleRate);
 		FSpectrumAnalyzer(const SpectrumAnalyzerSettings::FSettings& InSettings, float InSampleRate);
 
@@ -150,6 +152,10 @@ namespace Audio
 		// Thread safe call to perform actual FFT. Returns true if it performed the FFT, false otherwise.
 		bool PerformAnalysisIfPossible();
 
+		// Returns false if this instance of FSpectrumAnalyzer was constructed with the default constructor 
+		// and Init() has not been called yet.
+		bool IsInitialized();
+
 	private:
 
 		// Called on analysis thread.
@@ -161,6 +167,8 @@ namespace Audio
 		// Cached current settings. Only actually used in ResetSettings().
 		SpectrumAnalyzerSettings::FSettings CurrentSettings;
 		volatile bool bSettingsWereUpdated;
+
+		volatile bool bIsInitialized;
 
 		float SampleRate;
 
