@@ -409,10 +409,6 @@ public:
 #if RHI_RAYTRACING
 	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
 	virtual bool IsRayTracingRelevant() const override { return true; }
-	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
-	{
-		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.Particles && IsShown(View);
-	}
 #endif
 
 private:

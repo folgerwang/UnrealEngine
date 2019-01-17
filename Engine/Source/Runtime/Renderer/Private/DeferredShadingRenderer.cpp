@@ -620,10 +620,9 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 				BroadIndex++;
 			}
 
-			FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
-			checkSlow(Scene->TypeOffsetTable[BroadIndex].PrimitiveSceneProxyType == SceneProxy->GetTypeHash());
+			FPrimitiveSceneInfo* SceneInfo = Scene->Primitives[PrimitiveIndex];
 
-			if (!SceneProxy->IsRayTracingRelevant())
+			if (!SceneInfo->bIsRayTracingRelevant)
 			{
 				//skip over unsupported SceneProxies (warning don't make IsRayTracingRelevant data dependent other than the vtable)
 				PrimitiveIndex = Scene->TypeOffsetTable[BroadIndex].Offset - 1;
@@ -639,14 +638,16 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 					continue;
 				}
 
-				if (View.bIsReflectionCapture && !SceneProxy->IsVisibleInReflectionCaptures())
+				if (View.bIsReflectionCapture && !SceneInfo->bIsVisibleInReflectionCaptures)
 				{
 					continue;
 				}
 
-				if (SceneProxy->IsRayTracingDrawRelevant(&View))
+				//#dxr_todo The Raytracing codepath does not support Showflags since data moved to the SceneInfo. 
+				//Touching the SceneProxy to determine this would simply cost too much
+				if (SceneInfo->bShouldRenderInMainPass)
 				{
-					if (SceneProxy->IsRayTracingStaticRelevant())
+					if (SceneInfo->bIsRayTracingStaticRelevant)
 					{
 						static const auto ICVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindConsoleVariable(TEXT("r.StaticMeshLODDistanceScale"));
 						float LODScale = ICVarStaticMeshLODDistanceScale->GetFloat() * View.LODDistanceFactor;
@@ -656,22 +657,23 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 						FLODMask LODToRender;
 						float MeshScreenSizeSquared = 0;
 						int32 ForcedLODLevel = GetCVarForceLOD();
-						if (SceneProxy->IsUsingCustomLODRules())
+						if (SceneInfo->bIsUsingCustomLODRules)
 						{
+							FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
 							LODToRender = SceneProxy->GetCustomLOD(View, View.LODDistanceFactor, ForcedLODLevel, MeshScreenSizeSquared);
 						}
 						else
 						{
-							LODToRender = ComputeFastLODForMeshes(SceneProxy->ScreenSizes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ForcedLODLevel, MeshScreenSizeSquared, LODScale, false);
+							LODToRender = ComputeLODForMeshes(SceneInfo->StaticMeshRelevances, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ForcedLODLevel, MeshScreenSizeSquared, LODScale, false);
 						}
 
-						FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneProxy->GetRayTracingGeometryInstance(LODToRender.GetRayTracedLOD());
+						FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneInfo->GetStaticRayTracingGeometryInstance(LODToRender.GetRayTracedLOD());
 						if (!RayTracingGeometryInstance.IsValid())
 						{
 							continue;
 						}
 
-						const auto& StaticMeshMdcIndices = SceneProxy->RayTracingLodIndexToMeshDrawCommandIndicies[LODToRender.GetRayTracedLOD()];
+						const auto& StaticMeshMdcIndices = SceneInfo->RayTracingLodIndexToMeshDrawCommandIndicies[LODToRender.GetRayTracedLOD()];
 						for (int StaticMeshIndex = 0; StaticMeshIndex < StaticMeshMdcIndices.Num(); StaticMeshIndex++)
 						{
 							const int32 CommandIndex = StaticMeshMdcIndices[StaticMeshIndex].CommandIndex;
@@ -692,8 +694,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 							}
 							else
 							{
-								const FPrimitiveSceneInfo* PrimitiveInfo = Scene->Primitives[PrimitiveIndex];
-								const FStaticMeshBatch& StaticMesh = PrimitiveInfo->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
+								const FStaticMeshBatch& StaticMesh = SceneInfo->StaticMeshes[StaticMeshMdcIndices[StaticMeshIndex].StaticMeshIndex];
 
 								uint64 BatchVisibility = 1;
 								if (StaticMesh.bRequiresPerElementVisibility)
@@ -707,6 +708,8 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 									View.RaytraycingVisibleMeshDrawCommands
 								);
 								FRayTracingMeshProcessor RayTracingMeshProcessor(Scene, View.GetFeatureLevel(), &View, &DynamicPassMeshDrawListContext);
+
+								FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
 								RayTracingMeshProcessor.AddMeshBatch(StaticMesh, BatchVisibility, SceneProxy);
 							}
 						}
@@ -735,9 +738,10 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 			if (RayTracedMeshElementsMask != 0)
 			{
 				{
-					FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneProxy->GetRayTracingGeometryInstance(0);
+					FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
+					FRayTracingGeometryRHIRef RayTracingGeometryInstance = SceneProxy->GetDynamicRayTracingGeometryInstance();
 					if (RayTracingGeometryInstance.IsValid())
-					{
+					{					
 						RayTracingCollector.SetPrimitive(SceneProxy, FHitProxyId());
 						SceneProxy->GetDynamicMeshElements(ViewFamily.Views, ViewFamily, RayTracedMeshElementsMask, RayTracingCollector);
 
@@ -782,6 +786,7 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 				}
 
 				{
+					FPrimitiveSceneProxy* SceneProxy = Scene->PrimitiveSceneProxies[PrimitiveIndex];
 					TArray<FRayTracingGeometryInstanceCollection> InstanceCollections;
 					SceneProxy->GetRayTracingGeometryInstances(InstanceCollections);
 					if (InstanceCollections.Num() > 0)

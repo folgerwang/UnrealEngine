@@ -3967,7 +3967,7 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 }
 
 #if RHI_RAYTRACING
-FRayTracingGeometryRHIRef FSkeletalMeshSceneProxy::GetRayTracingGeometryInstance(int LodLevel) const
+FRayTracingGeometryRHIRef FSkeletalMeshSceneProxy::GetDynamicRayTracingGeometryInstance() const
 {
 	if (MeshObject->GetRayTracingGeometry())
 	{

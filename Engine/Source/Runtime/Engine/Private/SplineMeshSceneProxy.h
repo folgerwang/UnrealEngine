@@ -172,9 +172,7 @@ public:
 
 #if RHI_RAYTRACING
 	virtual bool IsRayTracingRelevant() const override final { return false; }
-	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override final { return false; }
 	virtual bool IsRayTracingStaticRelevant() const override final { return false; }
-	FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const override;
 #endif // RHI_RAYTRACING
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override

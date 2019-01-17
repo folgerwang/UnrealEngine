@@ -102,11 +102,3 @@ bool FSplineMeshSceneProxy::GetWireframeMeshElement(int32 LODIndex, int32 BatchI
 	}
 	return false;
 }
-
-#if RHI_RAYTRACING
-FRayTracingGeometryRHIRef FSplineMeshSceneProxy::GetRayTracingGeometryInstance(int LodLevel) const
-{
-	// #dxr_todo: return actual geometry when FSplineMeshVertexFactory is supported
-	return nullptr;
-}
-#endif // RHI_RAYTRACING

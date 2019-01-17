@@ -225,17 +225,12 @@ public:
 
 #if RHI_RAYTRACING
 	virtual bool IsRayTracingRelevant() const override final { return true; }
-	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
-	{
-		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.SkeletalMeshes && IsShown(View);
-	}
 
 	virtual bool IsRayTracingStaticRelevant() const override
 	{
 		return bRenderStatic;
 	}
-
-	FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const override;
+	FRayTracingGeometryRHIRef GetDynamicRayTracingGeometryInstance() const final override;
 #endif // RHI_RAYTRACING
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;

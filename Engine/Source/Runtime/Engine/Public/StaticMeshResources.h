@@ -603,18 +603,11 @@ public:
 
 #if RHI_RAYTRACING
 	virtual bool IsRayTracingRelevant() const override { return true; }
-	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const override
-	{
-		return ShouldRenderInMainPass() && View->Family->EngineShowFlags.StaticMeshes && IsShown(View);
-	}
-
 	virtual bool IsRayTracingStaticRelevant() const override 
 	{ 
 		const bool bAllowStaticLighting = FReadOnlyCVARCache::Get().bAllowStaticLighting;
 		return IsStaticPathAvailable() && !HasViewDependentDPG() && !(bAllowStaticLighting && HasStaticLighting() && !HasValidSettingsForStaticLighting());
 	}
-
-	FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const override;
 #endif // RHI_RAYTRACING
 
 	virtual void GetLCIs(FLCIArray& LCIs) override;
@@ -699,9 +692,6 @@ protected:
 	FStaticMeshOccluderData* OccluderData;
 
 	TIndirectArray<FLODInfo> LODs;
-#if RHI_RAYTRACING
-	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
-#endif
 
 	const FDistanceFieldVolumeData* DistanceFieldData;	
 

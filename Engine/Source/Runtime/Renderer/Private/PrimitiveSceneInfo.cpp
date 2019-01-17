@@ -113,6 +113,12 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	NumMobileMovablePointLights(0),
 	bIsUsingCustomLODRules(Proxy->IsUsingCustomLODRules()),
 	bIsUsingCustomWholeSceneShadowLODRules(Proxy->IsUsingCustomWholeSceneShadowLODRules()),
+#if RHI_RAYTRACING
+	bShouldRenderInMainPass(InComponent->SceneProxy->ShouldRenderInMainPass()),
+	bIsVisibleInReflectionCaptures(InComponent->SceneProxy->IsVisibleInReflectionCaptures()),
+	bIsRayTracingRelevant(InComponent->SceneProxy->IsRayTracingRelevant()),
+	bIsRayTracingStaticRelevant(InComponent->SceneProxy->IsRayTracingStaticRelevant()),
+#endif
 	PackedIndex(INDEX_NONE),
 	ComponentForDebuggingOnly(InComponent),
 	bNeedsStaticMeshUpdate(false),
@@ -151,6 +157,10 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	}
 
 	FMemory::Memzero(CachedReflectionCaptureProxies);
+
+#if RHI_RAYTRACING
+	RayTracingGeometries = InComponent->SceneProxy->MoveRayTracingGeometries();
+#endif
 }
 
 FPrimitiveSceneInfo::~FPrimitiveSceneInfo()
@@ -159,6 +169,20 @@ FPrimitiveSceneInfo::~FPrimitiveSceneInfo()
 
 	RemoveCachedMeshDrawCommands();
 }
+
+#if RHI_RAYTRACING
+FRayTracingGeometryRHIRef FPrimitiveSceneInfo::GetStaticRayTracingGeometryInstance(int LodLevel)
+{
+	if (RayTracingGeometries.Num() > LodLevel)
+	{
+		return RayTracingGeometries[LodLevel];
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+#endif
 
 void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmdList)
 {
@@ -325,23 +349,12 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 
 		if (StaticMeshes.Num() > 0)
 		{
-			Proxy->ScreenSizes.AddDefaulted(MaxLOD + 1);
-			Proxy->RayTracingLodIndexToMeshDrawCommandIndicies.AddDefaulted(MaxLOD + 1);
+			RayTracingLodIndexToMeshDrawCommandIndicies.AddDefaulted(MaxLOD + 1);
 
 			for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 			{
 				FStaticMeshBatchRelevance& MeshRelevance = StaticMeshRelevances[MeshIndex];
 				FStaticMeshBatch& Mesh = StaticMeshes[MeshIndex];
-
-				if (Proxy->ScreenSizes[MeshRelevance.LODIndex] != 0.0f)
-				{
-					check(Proxy->ScreenSizes[MeshRelevance.LODIndex] == MeshRelevance.ScreenSize);
-				}
-				else
-				{
-					check(MeshRelevance.ScreenSize != 0.0f);
-					Proxy->ScreenSizes[MeshRelevance.LODIndex] = MeshRelevance.ScreenSize;
-				}
 
 				if (Mesh.Elements.Num() > 0)
 				{
@@ -350,11 +363,11 @@ void FPrimitiveSceneInfo::AddStaticMeshes(FRHICommandListImmediate& RHICmdList, 
 					if (SupportsCachingMeshDrawCommands(Mesh.VertexFactory, Proxy) && RayTracingStaticMeshCommandInfoIndex != -1)
 					{
 						const int32 CommandIndex = StaticMeshCommandInfos[RayTracingStaticMeshCommandInfoIndex].CommandIndex;
-						Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, CommandIndex });
+						RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, CommandIndex });
 					}
 					else
 					{
-						Proxy->RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, -1 });
+						RayTracingLodIndexToMeshDrawCommandIndicies[Mesh.LODIndex].Add({ MeshIndex, -1 });
 					}
 				}
 			}

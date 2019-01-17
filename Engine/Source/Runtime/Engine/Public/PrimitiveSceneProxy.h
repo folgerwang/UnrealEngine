@@ -189,11 +189,14 @@ public:
 
 #if RHI_RAYTRACING
 	virtual bool IsRayTracingRelevant() const { return false; }
-	virtual bool IsRayTracingDrawRelevant(const FSceneView* View) const { return false; }
 	virtual bool IsRayTracingStaticRelevant() const { return false; }
-	/** Gathers static ray tracing instances from this proxy. */
-	ENGINE_API virtual FRayTracingGeometryRHIRef GetRayTracingGeometryInstance(int LodLevel) const { return nullptr; }
+	/** Gathers dynamic ray tracing instances from this proxy. */
+	ENGINE_API virtual FRayTracingGeometryRHIRef GetDynamicRayTracingGeometryInstance() const { return nullptr; }
 	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) {}
+	TArray<FRayTracingGeometryRHIRef>&& MoveRayTracingGeometries()
+	{
+		return static_cast<TArray<FRayTracingGeometryRHIRef>&&>(RayTracingGeometries);
+	}
 #endif // RHI_RAYTRACING
 
 	/** Collects occluder geometry for software occlusion culling */
@@ -729,6 +732,10 @@ protected:
 		OwnerName = InOwnerName;
 	}
 
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
+#endif
+
 private:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FLinearColor WireframeColor;
@@ -1023,17 +1030,6 @@ private:
 	TArray<UMaterialInterface*> UsedMaterialsForVerification;
 #endif
 
-public:
-#if RHI_RAYTRACING
-	TArray<float> ScreenSizes;
-	struct FStaticMeshOrCommandIndex
-	{
-		int32 StaticMeshIndex;
-		int32 CommandIndex;
-	};
-	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
-#endif
-private:
 	/**
 	 * Updates the primitive proxy's cached transforms, and calls OnUpdateTransform to notify it of the change.
 	 * Called in the thread that owns the proxy; game or rendering.

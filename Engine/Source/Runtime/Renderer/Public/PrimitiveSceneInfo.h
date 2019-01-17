@@ -282,6 +282,20 @@ public:
 	/** This indicate that we should call the GetCustomWholeSceneShadowLOD function on the proxy instead of the generic implementation. */
 	bool bIsUsingCustomWholeSceneShadowLODRules : 1;
 
+#if RHI_RAYTRACING
+	bool bShouldRenderInMainPass : 1;
+	bool bIsVisibleInReflectionCaptures : 1;
+	bool bIsRayTracingRelevant : 1;
+	bool bIsRayTracingStaticRelevant : 1;
+
+	struct FStaticMeshOrCommandIndex
+	{
+		int32 StaticMeshIndex;
+		int32 CommandIndex;
+	};
+	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
+#endif
+
 	/** Initialization constructor. */
 	FPrimitiveSceneInfo(UPrimitiveComponent* InPrimitive,FScene* InScene);
 
@@ -421,6 +435,10 @@ public:
 	/** Cache per-primitive reflection captures used for mobile/forward rendering */
 	void CacheReflectionCaptures();
 
+#if RHI_RAYTRACING
+	RENDERER_API FRayTracingGeometryRHIRef GetStaticRayTracingGeometryInstance(int LodLevel);
+#endif
+
 private:
 
 	/** Let FScene have direct access to the Id. */
@@ -465,6 +483,10 @@ private:
 
 	/** Removes cached mesh draw commands for all meshes. */
 	void RemoveCachedMeshDrawCommands();
+
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
+#endif
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

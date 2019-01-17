@@ -1306,13 +1306,6 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 #endif // STATICMESH_ENABLE_DEBUG_RENDERING
 }
 
-#if RHI_RAYTRACING
-FRayTracingGeometryRHIRef FStaticMeshSceneProxy::GetRayTracingGeometryInstance(int LodLevel) const
-{
-	return RayTracingGeometries[LodLevel];
-}
-#endif // RHI_RAYTRACING
-
 void FStaticMeshSceneProxy::GetLCIs(FLCIArray& LCIs)
 {
 	for (int32 LODIndex = 0; LODIndex < LODs.Num(); ++LODIndex)
