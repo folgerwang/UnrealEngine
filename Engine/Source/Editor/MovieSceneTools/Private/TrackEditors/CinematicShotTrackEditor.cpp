@@ -658,9 +658,10 @@ FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(FFrameNumber KeyTim
 	{
 		UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
 		
+		const FFrameRate TickResolution = InMovieSceneSequence->GetMovieScene()->GetTickResolution();
 		const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 			MovieScene::DiscreteSize(InMovieSceneSequence->GetMovieScene()->GetPlaybackRange()),
-			InMovieSceneSequence->GetMovieScene()->GetTickResolution());
+			TickResolution);
 
 		const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
@@ -671,6 +672,13 @@ FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(FFrameNumber KeyTim
 		GetSequencer()->EmptySelection();
 		GetSequencer()->SelectSection(NewSection);
 		GetSequencer()->ThrobSectionSelection();
+
+		if (TickResolution != OuterFrameRate)
+		{
+			FNotificationInfo Info(FText::Format(LOCTEXT("TickResolutionMismatch", "The parent sequence has a different tick resolution {0} than the newly added sequence {1}"), OuterFrameRate.ToPrettyText(), TickResolution.ToPrettyText()));
+			Info.bUseLargeFont = false;
+			FSlateNotificationManager::Get().AddNotification(Info);
+		}
 
 		return KeyPropertyResult;
 	}
@@ -811,9 +819,10 @@ FKeyPropertyResult FCinematicShotTrackEditor::HandleSequenceAdded(FFrameNumber K
 
 	auto CinematicShotTrack = FindOrCreateCinematicShotTrack();
 
+	const FFrameRate TickResolution = Sequence->GetMovieScene()->GetTickResolution();
 	const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 		MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange()),
-		Sequence->GetMovieScene()->GetTickResolution());
+		TickResolution);
 
 	const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
@@ -824,6 +833,13 @@ FKeyPropertyResult FCinematicShotTrackEditor::HandleSequenceAdded(FFrameNumber K
 	GetSequencer()->EmptySelection();
 	GetSequencer()->SelectSection(NewSection);
 	GetSequencer()->ThrobSectionSelection();
+
+	if (TickResolution != OuterFrameRate)
+	{
+		FNotificationInfo Info(FText::Format(LOCTEXT("TickResolutionMismatch", "The parent sequence has a different tick resolution {0} than the newly added sequence {1}"), OuterFrameRate.ToPrettyText(), TickResolution.ToPrettyText()));
+		Info.bUseLargeFont = false;
+		FSlateNotificationManager::Get().AddNotification(Info);
+	}
 
 	return KeyPropertyResult;
 }
