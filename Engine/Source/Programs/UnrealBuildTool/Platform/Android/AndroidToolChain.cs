@@ -143,18 +143,12 @@ namespace UnrealBuildTool
 
 			if (InAdditionalArches != null)
 			{
-				foreach (string Arch in InAdditionalArches)
-				{
-					AdditionalArches.AddRange(Arch.Split('+'));
-				}
+				AdditionalArches.AddRange(InAdditionalArches);
 			}
 
 			if (InAdditionalGPUArches != null)
 			{
-				foreach (string GPU in InAdditionalGPUArches)
-				{
-					AdditionalGPUArches.AddRange(GPU.Split('+'));
-				}
+				AdditionalGPUArches.AddRange(InAdditionalGPUArches);
 			}
 
 			// by default tools chains don't parse arguments, but we want to be able to check the -architectures flag defined above. This is
