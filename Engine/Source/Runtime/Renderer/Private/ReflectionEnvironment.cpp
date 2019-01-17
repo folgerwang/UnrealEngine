@@ -792,6 +792,12 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			}
 			else
 			{
+				// The performance of ray tracing does not allow to run without a denoiser in real time.
+				// Multiple rays per pixel is unsupported by the denoiser that will most likely more bound by to
+				// many rays than exporting the hit distance buffer. Therefore no permutation of the ray generation
+				// shader has been judged required to be supported.
+				GraphBuilder.RemoveUnusedTextureWarning(DenoiserInputs.RayHitDistance);
+
 				GraphBuilder.QueueTextureExtraction(DenoiserInputs.Color, &ReflectionsColor);
 			}
 
