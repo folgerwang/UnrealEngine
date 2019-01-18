@@ -7,6 +7,7 @@
 #include "Layout/Visibility.h"
 #include "Layout/SlateRect.h"
 #include "Layout/ArrangedChildren.h"
+#include "Layout/FlowDirection.h"
 
 struct AlignmentArrangeResult
 {

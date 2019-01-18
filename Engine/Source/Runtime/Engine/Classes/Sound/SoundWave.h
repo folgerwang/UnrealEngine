@@ -129,6 +129,108 @@ struct FStreamedAudioPlatformData
 
 };
 
+// Struct used to retrieve the spectral magnitude of an audio signal at a given frequency to BP
+USTRUCT(BlueprintType)
+struct FSoundWaveSpectralData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The frequency hz of the spectrum value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Foo")
+	float FrequencyHz;
+
+	// The magnitude of the spectrum at this frequency
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Bar")
+	float Magnitude;
+
+	// The normalized magnitude of the spectrum at this frequency
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Bar")
+	float NormalizedMagnitude;
+
+	FSoundWaveSpectralData()
+		: FrequencyHz(0.0f)
+		, Magnitude(0.0f)
+		, NormalizedMagnitude(0.0f)
+	{}
+};
+
+// Sort predicate for sorting spectral data by frequency (lowest first)
+struct FCompareSpectralDataByFrequencyHz
+{
+	FORCEINLINE bool operator()(const FSoundWaveSpectralData& A, const FSoundWaveSpectralData& B) const
+	{
+		return A.FrequencyHz < B.FrequencyHz;
+	}
+};
+
+
+// Struct used to store spectral data with time-stamps
+USTRUCT()
+struct FSoundWaveSpectralDataEntry
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The magnitude of the spectrum at this frequency
+	UPROPERTY()
+	float Magnitude;
+
+	// The normalized magnitude of the spectrum at this frequency
+	UPROPERTY()
+	float NormalizedMagnitude;
+};
+
+
+// Struct used to store spectral data with time-stamps
+USTRUCT()
+struct FSoundWaveSpectralTimeData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The spectral data at the given time. The array indices correspond to the frequencies set to analyze.
+	UPROPERTY()
+	TArray<FSoundWaveSpectralDataEntry> Data;
+
+	// The timestamp associated with this spectral data
+	UPROPERTY()
+	float TimeSec;
+
+	FSoundWaveSpectralTimeData()
+		: TimeSec(0.0f)
+	{}
+};
+
+// Struct used to store time-stamped envelope data
+USTRUCT()
+struct FSoundWaveEnvelopeTimeData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The normalized linear amplitude of the audio
+	UPROPERTY()
+	float Amplitude;
+
+	// The timestamp of the audio
+	UPROPERTY()
+	float TimeSec;
+
+	FSoundWaveEnvelopeTimeData()
+		: Amplitude(0.0f)
+		, TimeSec(0.0f)
+	{}
+};
+
+// The FFT size (in audio frames) to use for baked FFT analysis
+UENUM(BlueprintType)
+enum class ESoundWaveFFTSize : uint8
+{
+	VerySmall_64,
+	Small_256,
+	Medium_512,
+	Large_1024,
+	VeryLarge_2048,
+};
+
+
 UCLASS(hidecategories=Object, editinlinenew, BlueprintType)
 class ENGINE_API USoundWave : public USoundBase
 {
@@ -196,9 +298,59 @@ class ENGINE_API USoundWave : public USoundBase
 	uint8 bIsAmbisonics : 1;
 
 	/** Whether this SoundWave was decompressed from OGG. */
-	uint8 bDecompressedFromOgg:1;
+	uint8 bDecompressedFromOgg : 1;
+
+#if WITH_EDITORONLY_DATA
+	/** Whether or not to enable cook-time baked FFT analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT")
+	uint8 bEnableBakedFFTAnalysis : 1;
+
+	/** Whether or not to enable cook-time amplitude envelope analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope")
+	uint8 bEnableAmplitudeEnvelopeAnalysis : 1;
+
+	/** The FFT window size to use for fft analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableBakedFFTAnalysis"))
+	ESoundWaveFFTSize FFTSize;
+
+	/** How many audio frames analyze at a time. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "512", UIMin = "512"))
+	int32 FFTAnalysisFrameSize;
+
+	/** How many audio frames to average a new envelope value. Larger values use less memory for audio envelope data but will result in lower envelope accuracy. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "512", UIMin = "512"))
+	int32 EnvelopeFollowerFrameSize;
+
+	/** How quickly the envelope analyzer responds to increasing amplitudes. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerAttackTime;
+
+	/** How quickly the envelope analyzer responds to decreasing amplitudes. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerReleaseTime;
+#endif
+
+	/** The frequencies (in hz) to analyze when doing baked FFT analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableBakedFFTAnalysis"))
+	TArray<float> FrequenciesToAnalyze;
+
+	/** The cooked spectral time data. */
+	UPROPERTY()
+	TArray<FSoundWaveSpectralTimeData> CookedSpectralTimeData;
+
+	/** The cooked cooked envelope data. */
+	UPROPERTY()
+	TArray<FSoundWaveEnvelopeTimeData> CookedEnvelopeTimeData;
+
+	/** Helper function to get interpolated cooked FFT data for a given time value. */
+	bool GetInterpolatedCookedFFTDataForTime(float InTime, uint32& InOutLastIndex, TArray<FSoundWaveSpectralData>& OutData, bool bLoop);
+	bool GetInterpolatedCookedEnvelopeDataForTime(float InTime, uint32& InOutLastIndex, float& OutAmplitude, bool bLoop);
 
 private:
+
+	/** Helper functions to search analysis data. Takes starting index to start query. Returns which data index the result was found at. Returns INDEX_NONE if not found. */
+	uint32 GetInterpolatedCookedFFTDataForTimeInternal(float InTime, uint32 StartingIndex, TArray<FSoundWaveSpectralData>& OutData, bool bLoop);
+	uint32 GetInterpolatedCookedEnvelopeDataForTimeInternal(float InTime, uint32 StartingIndex, float& OutAmplitude, bool bLoop);
 
 #if !WITH_EDITOR
 	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
@@ -387,6 +539,7 @@ public:
 	virtual float GetDuration() override;
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
+	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
 	//~ End USoundBase Interface.
 
 	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer and when bProcedural is true.
@@ -485,8 +638,18 @@ public:
 
 	virtual bool HasCompressedData(FName Format, ITargetPlatform* TargetPlatform = GetRunningPlatform()) const;
 
+#if WITH_EDITOR
+	/** Utility which returns imported PCM data and the parsed header for the file. Returns true if there was data, false if there wasn't. */
+	bool GetImportedSoundWaveData(TArray<uint8>& OutRawPCMData, uint32& OutSampleRate, uint16& OutNumChannels);
+#endif
+
 private:
 	FName GetPlatformSpecificFormat(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
+
+#if WITH_EDITOR
+	void BakeFFTAnalysis();
+	void BakeEnvelopeAnalysis();
+#endif
 
 public:
 	virtual void BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
@@ -626,6 +789,7 @@ public:
 	{
 		return (ESoundWavePrecacheState)PrecacheState.GetValue();
 	}
+
 };
 
 

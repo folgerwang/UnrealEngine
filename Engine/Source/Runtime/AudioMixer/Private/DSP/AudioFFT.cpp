@@ -21,7 +21,7 @@ namespace Audio
 	{
 		const int32 N = bIsPeriodic ? NumFrames : NumFrames - 1;
 		const float PhaseDelta = 2.0f * PI / N;
-		float Phase = 0;
+		float Phase = 0.0f;
 
 		for (int32 FrameIndex = 0; FrameIndex < NumFrames; FrameIndex++)
 		{
@@ -102,59 +102,6 @@ namespace Audio
 			return WindowLength;
 			break;
 		}
-	}
-
-	FWindow::FWindow(EWindowType InType, int32 InNumFrames, int32 InNumChannels, bool bIsPeriodic)
-		: WindowType(InType)
-		, NumSamples(InNumFrames * InNumChannels)
-	{
-		checkf(NumSamples % 4 == 0, TEXT("For performance reasons, this window's length should be a multiple of 4."));
-		Generate(InNumFrames, InNumChannels, bIsPeriodic);
-	}
-
-	FWindow::~FWindow()
-	{
-
-	}
-
-	void FWindow::Generate(int32 NumFrames, int32 NumChannels, bool bIsPeriodic)
-	{
-		if (WindowType == EWindowType::None)
-		{
-			return;
-		}
-
-		WindowBuffer.Reset();
-		WindowBuffer.AddZeroed(NumSamples);
-
-		switch (WindowType)
-		{
-			case EWindowType::Hann:
-			{
-				GenerateHannWindow(WindowBuffer.GetData(), NumFrames, NumChannels, bIsPeriodic);
-				break;
-			}
-			case EWindowType::Blackman:
-			{
-				GenerateBlackmanWindow(WindowBuffer.GetData(), NumFrames, NumChannels, bIsPeriodic);
-				break;
-			}
-			default:
-			{
-				break;
-			}
-		}
-	}
-
-	void FWindow::ApplyToBuffer(float* InBuffer)
-	{
-		if (WindowType == EWindowType::None)
-		{
-			return;
-		}
-
-		check(IsAligned<float*>(InBuffer, 4));
-		MultiplyBuffersInPlace(WindowBuffer.GetData(), InBuffer, NumSamples);
 	}
 
 	namespace FFTIntrinsics

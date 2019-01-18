@@ -140,23 +140,23 @@ void UTimeSynthComponent::SetEnvelopeFollowerEnabled(bool bInIsEnabled)
 	});
 }
 
-Audio::SpectrumAnalyzerSettings::EFFTSize UTimeSynthComponent::GetFFTSize(ETimeSynthFFTSize InSize) const
+Audio::FSpectrumAnalyzerSettings::EFFTSize UTimeSynthComponent::GetFFTSize(ETimeSynthFFTSize InSize) const
 {
 	switch (InSize)
 	{
-		case ETimeSynthFFTSize::Min_64: return Audio::SpectrumAnalyzerSettings::EFFTSize::Min_64;
-		case ETimeSynthFFTSize::Small_256: return Audio::SpectrumAnalyzerSettings::EFFTSize::Small_256;
-		case ETimeSynthFFTSize::Medium_512: return Audio::SpectrumAnalyzerSettings::EFFTSize::Medium_512;
-		case ETimeSynthFFTSize::Large_1024: return Audio::SpectrumAnalyzerSettings::EFFTSize::Large_1024;
+		case ETimeSynthFFTSize::Min_64: return Audio::FSpectrumAnalyzerSettings::EFFTSize::Min_64;
+		case ETimeSynthFFTSize::Small_256: return Audio::FSpectrumAnalyzerSettings::EFFTSize::Small_256;
+		case ETimeSynthFFTSize::Medium_512: return Audio::FSpectrumAnalyzerSettings::EFFTSize::Medium_512;
+		case ETimeSynthFFTSize::Large_1024: return Audio::FSpectrumAnalyzerSettings::EFFTSize::Large_1024;
 		break;
 	}
 	// return default
-	return Audio::SpectrumAnalyzerSettings::EFFTSize::Medium_512;
+	return Audio::FSpectrumAnalyzerSettings::EFFTSize::Medium_512;
 }
 
 void UTimeSynthComponent::SetFFTSize(ETimeSynthFFTSize InFFTSize)
 {
-	Audio::SpectrumAnalyzerSettings::EFFTSize NewFFTSize = GetFFTSize(InFFTSize);
+	Audio::FSpectrumAnalyzerSettings::EFFTSize NewFFTSize = GetFFTSize(InFFTSize);
 
 	SynthCommand([this, NewFFTSize]
 	{

@@ -83,7 +83,7 @@ void FNiagaraSystemTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBu
 	if (System != nullptr)
 	{
 		TArray<FNiagaraVariable> ParameterVariables;
-		System->GetExposedParameters().GetParameters(ParameterVariables);
+		System->GetExposedParameters().GetUserParameters(ParameterVariables);
 
 		TSet<FNiagaraVariable> AnimatedParameters;
 		GetAnimatedParameters(*GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene(), ObjectBinding, AnimatedParameters);

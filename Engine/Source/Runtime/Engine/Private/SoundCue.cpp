@@ -487,6 +487,24 @@ float USoundCue::GetSubtitlePriority() const
 	return SubtitlePriority;
 }
 
+bool USoundCue::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves)
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	bool bHasAnalysisData = false;
+	for (USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
+		{
+			bHasAnalysisData = true;
+		}
+	}
+	return bHasAnalysisData;
+}
+
 #if WITH_EDITOR
 UEdGraph* USoundCue::GetGraph()
 { 

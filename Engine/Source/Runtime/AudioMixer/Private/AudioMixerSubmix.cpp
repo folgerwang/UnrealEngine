@@ -360,6 +360,29 @@ namespace Audio
 		}
 	}
 
+	void FMixerSubmix::MixBufferDownToMono(const AlignedFloatBuffer& InBuffer, int32 NumInputChannels, AlignedFloatBuffer& OutBuffer)
+	{
+		check(NumInputChannels > 0);
+
+		int32 NumFrames = InBuffer.Num() / NumInputChannels;
+		OutBuffer.Reset();
+		OutBuffer.AddZeroed(NumFrames);
+
+		const float* InData = InBuffer.GetData();
+		float* OutData = OutBuffer.GetData();
+
+		const float GainFactor = 1.0f / FMath::Sqrt((float) NumInputChannels);
+
+		for (int32 FrameIndex = 0; FrameIndex < NumFrames; FrameIndex++)
+		{
+			for (int32 ChannelIndex = 0; ChannelIndex < NumInputChannels; ChannelIndex++)
+			{
+				const int32 InputIndex = FrameIndex * NumInputChannels + ChannelIndex;
+				OutData[FrameIndex] += InData[InputIndex] * GainFactor;
+			}
+		}
+	}
+
 	void FMixerSubmix::SetUpAmbisonicsEncoder()
 	{
 		check(AmbisonicsMixer.IsValid());
@@ -665,6 +688,15 @@ namespace Audio
 			}
 		}
 
+		// If spectrum analysis is enabled for this submix, downmix the resulting audio
+		// and push it to the spectrum analyzer.
+		if (SpectrumAnalyzer.IsValid())
+		{
+			MixBufferDownToMono(InputBuffer, NumChannels, MonoMixBuffer);
+			SpectrumAnalyzer->PushAudio(MonoMixBuffer.GetData(), MonoMixBuffer.Num());
+			SpectrumAnalyzer->PerformAnalysisIfPossible(true, true);
+		}
+
 		// If the channel types match, just do a copy
 		if (ChannelFormat != ParentChannelType || SubmixAmbisonicsDecoderID != INDEX_NONE)
 		{
@@ -842,6 +874,56 @@ namespace Audio
 	void FMixerSubmix::AddEnvelopeFollowerDelegate(const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP)
 	{
 		OnSubmixEnvelope.AddUnique(OnSubmixEnvelopeBP);
+	}
+
+	void FMixerSubmix::StartSpectrumAnalysis(const FSpectrumAnalyzerSettings& InSettings)
+	{
+		SpectrumAnalyzer.Reset(new FSpectrumAnalyzer(InSettings, MixerDevice->GetSampleRate()));
+	}
+
+	void FMixerSubmix::StopSpectrumAnalysis()
+	{
+		SpectrumAnalyzer.Reset();
+	}
+
+	void FMixerSubmix::GetMagnitudeForFrequencies(const TArray<float>& InFrequencies, TArray<float>& OutMagnitudes)
+	{
+		if (SpectrumAnalyzer.IsValid())
+		{
+			OutMagnitudes.Reset();
+			OutMagnitudes.AddUninitialized(InFrequencies.Num());
+
+			SpectrumAnalyzer->LockOutputBuffer();
+			for (int32 Index = 0; Index < InFrequencies.Num(); Index++)
+			{
+				OutMagnitudes[Index] = SpectrumAnalyzer->GetMagnitudeForFrequency(InFrequencies[Index]);
+			}
+			SpectrumAnalyzer->UnlockOutputBuffer();
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Call StartSpectrumAnalysis before calling GetMagnitudeForFrequencies."));
+		}
+	}
+
+	void FMixerSubmix::GetPhaseForFrequencies(const TArray<float>& InFrequencies, TArray<float>& OutPhases)
+	{
+		if (SpectrumAnalyzer.IsValid())
+		{
+			OutPhases.Reset();
+			OutPhases.AddUninitialized(InFrequencies.Num());
+
+			SpectrumAnalyzer->LockOutputBuffer();
+			for (int32 Index = 0; Index < InFrequencies.Num(); Index++)
+			{
+				OutPhases[Index] = SpectrumAnalyzer->GetPhaseForFrequency(InFrequencies[Index]);
+			}
+			SpectrumAnalyzer->UnlockOutputBuffer();
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Call StartSpectrumAnalysis before calling GetMagnitudeForFrequencies."));
+		}
 	}
 
 	void FMixerSubmix::BroadcastEnvelope()
