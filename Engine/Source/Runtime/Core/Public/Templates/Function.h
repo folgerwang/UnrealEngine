@@ -147,6 +147,12 @@ namespace UE4Function_Private
 			this->~IFunction_OwnedObject_OnHeap();
 			FMemory::Free(This);
 		}
+
+		~IFunction_OwnedObject_OnHeap() override
+		{
+			// It is not necessary to define this destructor but MSVC will
+			// erroneously issue warning C5046 without it.
+		}
 	};
 
 	/**
@@ -161,6 +167,12 @@ namespace UE4Function_Private
 		virtual void Destroy() override
 		{
 			this->~IFunction_OwnedObject_Inline();
+		}
+
+		~IFunction_OwnedObject_Inline() override
+		{
+			// It is not necessary to define this destructor but MSVC will
+			// erroneously issue warning C5046 without it.
 		}
 	};
 
