@@ -39,7 +39,7 @@ private:
 	EVisibility GetVisibiltyIfCurrentReductionMethodIsNot(SkeletalMeshOptimizationType ReductionType) const;
 
 	// Used by the native tool UI.
-	EVisibility HideIfCurrentCriterionIs(SkeletalMeshTerminationCriterion TerminationCriterion) const;
+	EVisibility ShowIfCurrentCriterionIs(TArray<SkeletalMeshTerminationCriterion> TerminationCriterionArray) const;
 
 	/** Detect usage of thirdparty vs native tool */
 	bool UseNativeLODTool() const;
