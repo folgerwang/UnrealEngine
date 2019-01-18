@@ -1095,6 +1095,9 @@ private:
 
 	/** Keep old behavior where we send a packet with only acks even if we have no other outgoing data if we got incoming data */
 	uint32 HasDirtyAcks;
+	
+	/** True if we've hit the actor channel limit and logged a warning about it */
+	bool bHasWarnedAboutChannelLimit;
 };
 
 
