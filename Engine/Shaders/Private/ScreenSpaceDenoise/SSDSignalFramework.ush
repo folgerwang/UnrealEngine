@@ -9,8 +9,8 @@
 	#define CONFIG_TOKOYASHI_BILATERAL 0
 #endif
 
-#ifndef CONFIG_SPECULAR_MIS
-	#define CONFIG_SPECULAR_MIS 0
+#ifndef CONFIG_SPECULAR_RATIO_ESTIMATOR
+	#define CONFIG_SPECULAR_RATIO_ESTIMATOR 0
 #endif
 
 
@@ -366,12 +366,12 @@ float GetSamplePenumbra(FSSFSignalSample Sample)
 }
 
 /** Get the weight for multi importance sampling. */
-float GetMultiImportanceSamplingWeight(
+float GetRatioEstimatorWeight(
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos SampleSceneMetadata,
 	FSSFSignalSample Sample,
 	uint2 SamplePixelCoord)
-#if CONFIG_SPECULAR_MIS
+#if CONFIG_SPECULAR_RATIO_ESTIMATOR
 // [ Stackowiak 2018, "Stochastic all the things: Raytracing in hybrid real-time rendering" ]
 {
 	// If invalid ray or geometric miss, just.
@@ -404,8 +404,8 @@ float GetMultiImportanceSamplingWeight(
 
 	return D / OriginalRayPDF;
 }
-#else // !CONFIG_SPECULAR_MIS
+#else // !CONFIG_SPECULAR_RATIO_ESTIMATOR
 {
 	return 1.0;
 }
-#endif // CONFIG_SPECULAR_MIS
+#endif // CONFIG_SPECULAR_RATIO_ESTIMATOR

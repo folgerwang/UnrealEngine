@@ -51,7 +51,7 @@
 		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED
 
 		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
-		#define CONFIG_SPECULAR_MIS 1
+		#define CONFIG_SPECULAR_RATIO_ESTIMATOR 1
 
 		#define CONFIG_UPSCALE              DIM_UPSCALE
 		//#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_DISABLED
@@ -454,7 +454,7 @@ void MainCS(
 
 		// Multiple importance sampling weights.
 		uint2 NeighborPixelCoord = floor(NeighborBufferUV * View.BufferSizeAndInvSize.xy);
-		float MISWeight = GetMultiImportanceSamplingWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample, NeighborPixelCoord);
+		float RatioEstimatorWeight = GetRatioEstimatorWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample, NeighborPixelCoord);
 
 		// Compute the weight of the sample in the kernel.
 		#if CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
@@ -469,7 +469,7 @@ void MainCS(
 		#endif
 
 		// Compute the final weight of that sample.
-		float FinalWeight = BilateralWeight * MISWeight * KernelWeight;// * (NeighborSample > 0.0 ? 1 : 0);
+		float FinalWeight = BilateralWeight * RatioEstimatorWeight * KernelWeight;// * (NeighborSample > 0.0 ? 1 : 0);
 		
 		#if CONFIG_UPSCALE && CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
 		{
