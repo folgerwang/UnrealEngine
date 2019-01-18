@@ -497,7 +497,7 @@ bool USoundCue::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoun
 	for (USoundNodeWavePlayer* Player : WavePlayers)
 	{
 		USoundWave* SoundWave = Player->GetSoundWave();
-		if (SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
+		if (SoundWave && SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
 		{
 			bHasAnalysisData = true;
 		}
