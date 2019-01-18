@@ -762,7 +762,9 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 			}
 
 			//Create the vertex instances
-			FVertexInstanceID VertexInstanceIDs[3];
+			TArray<FVertexInstanceID> VertexInstanceIDs;
+			VertexInstanceIDs.SetNum(3);
+
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				if (VertexID[CornerIndex] == FVertexID::Invalid)
@@ -778,32 +780,13 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 
 			// Create a polygon with the 3 vertex instances
 			
-			TArray<FMeshDescription::FContourPoint> Contours;
-			for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
+			TArray<FEdgeID> NewEdgeIDs;
+			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, VertexInstanceIDs, &NewEdgeIDs);
+			for (const FEdgeID NewEdgeID : NewEdgeIDs)
 			{
-				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-				//Find the matching edge ID
-				uint32 CornerIndices[2];
-				CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
-				CornerIndices[1] = (TriangleEdgeNumber + 1) % 3;
-
-				FVertexID EdgeVertexIDs[2];
-				EdgeVertexIDs[0] = VertexID[CornerIndices[0]];
-				EdgeVertexIDs[1] = VertexID[CornerIndices[1]];
-
-				FEdgeID MatchEdgeId = MeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-				if (MatchEdgeId == FEdgeID::Invalid)
-				{
-					MatchEdgeId = MeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-				}
-				ContourPoint.EdgeID = MatchEdgeId;
-				ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
 				//All edge are hard for BSP
-				EdgeHardnesses[MatchEdgeId] = true;
+				EdgeHardnesses[NewEdgeID] = true;
 			}
-			// Insert a polygon into the mesh
-			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, Contours);
 			int32 NewTriangleIndex = MeshDescription.GetPolygonTriangles(NewPolygonID).AddDefaulted();
 			FMeshTriangle& NewTriangle = MeshDescription.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)

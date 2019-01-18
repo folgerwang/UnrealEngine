@@ -229,6 +229,76 @@ void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 }
 
 
+void FMeshDescription::CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
+{
+	FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
+
+	Polygon.PerimeterContour.VertexInstanceIDs.Reset( Perimeter.Num() );
+	for( const FContourPoint ContourPoint : Perimeter )
+	{
+		const FVertexInstanceID VertexInstanceID = ContourPoint.VertexInstanceID;
+		const FEdgeID EdgeID = ContourPoint.EdgeID;
+
+		Polygon.PerimeterContour.VertexInstanceIDs.Add( VertexInstanceID );
+		check( !VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Contains( PolygonID ) );
+		VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Add( PolygonID );
+
+		check( !EdgeArray[ EdgeID ].ConnectedPolygons.Contains( PolygonID ) );
+		EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+	}
+
+	Polygon.PolygonGroupID = PolygonGroupID;
+	PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+
+	PolygonAttributesSet.Insert( PolygonID );
+}
+
+
+void FMeshDescription::CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* OutEdgeIDs )
+{
+	if( OutEdgeIDs )
+	{
+		OutEdgeIDs->Empty();
+	}
+
+	FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
+	const int32 NumVertices = VertexInstanceIDs.Num();
+	Polygon.PerimeterContour.VertexInstanceIDs.Reset( NumVertices );
+
+	for( int32 Index = 0; Index < NumVertices; ++Index )
+	{
+		const FVertexInstanceID VertexInstanceID = VertexInstanceIDs[ Index ];
+		const FVertexInstanceID NextVertexInstanceID = VertexInstanceIDs[ ( Index + 1 == NumVertices ) ? 0 : Index + 1 ];
+
+		Polygon.PerimeterContour.VertexInstanceIDs.Add( VertexInstanceID );
+		check( !VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Contains( PolygonID ) );
+		VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Add( PolygonID );
+
+		const FVertexID VertexID0 = GetVertexInstanceVertex( VertexInstanceID );
+		const FVertexID VertexID1 = GetVertexInstanceVertex( NextVertexInstanceID );
+
+		FEdgeID EdgeID = GetVertexPairEdge( VertexID0, VertexID1 );
+		if( EdgeID == FEdgeID::Invalid )
+		{
+			EdgeID = CreateEdge( VertexID0, VertexID1 );
+			if( OutEdgeIDs )
+			{
+				OutEdgeIDs->Add( EdgeID );
+			}
+		}
+
+		check( !EdgeArray[ EdgeID ].ConnectedPolygons.Contains( PolygonID ) );
+		EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+	}
+
+	Polygon.PolygonGroupID = PolygonGroupID;
+	PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+
+	PolygonAttributesSet.Insert( PolygonID );
+}
+
+
+
 void FMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
 {
 	VertexAttributesSet.Remap( Remappings.NewVertexIndexLookup );

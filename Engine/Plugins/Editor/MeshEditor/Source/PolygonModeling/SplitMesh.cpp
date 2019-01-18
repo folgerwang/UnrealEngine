@@ -220,58 +220,34 @@ void USplitMeshCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMode)
 		Mesh->GetMeshDescription()->VertexAttributes().SetAttribute<FVector>(NewVert, MeshAttribute::Vertex::Position, 0, Center);
 		FVertexInstanceID NewVertInstance = Mesh->GetMeshDescription()->CreateVertexInstance(NewVert);
 
-		TMap<FVertexID, FEdgeID> VertToEdgeIdMap;
 		FPolygonGroupID GroupId = Mesh->GetMeshDescription()->CreatePolygonGroup();
 		for(const FEdgeID EdgeId : BoundaryIds)
 		{
-			FEdgeID Edge0, Edge1;
-
 			FVertexID Vertex0 = Mesh->GetMeshDescription()->GetEdgeVertex(EdgeId, 0);
-			TArray<FVertexInstanceID> VertexInstances0 = Mesh->GetMeshDescription()->GetVertexVertexInstances(Vertex0);
+			const TArray<FVertexInstanceID>& VertexInstances0 = Mesh->GetMeshDescription()->GetVertexVertexInstances(Vertex0);
 			check(VertexInstances0.Num() > 0);
-			if(VertToEdgeIdMap.Contains(Vertex0))
-			{
-				Edge0 = VertToEdgeIdMap[Vertex0];
-			}
-			else
-			{
-				Edge0 = Mesh->GetMeshDescription()->CreateEdge(Vertex0, NewVert);
-				VertToEdgeIdMap.Add(Vertex0, Edge0);
-			}
 
 			FVertexID Vertex1 = Mesh->GetMeshDescription()->GetEdgeVertex(EdgeId, 1);
-			TArray<FVertexInstanceID> VertexInstances1 = Mesh->GetMeshDescription()->GetVertexVertexInstances(Vertex1);
+			const TArray<FVertexInstanceID>& VertexInstances1 = Mesh->GetMeshDescription()->GetVertexVertexInstances(Vertex1);
 			check(VertexInstances1.Num() > 0);
-			if(VertToEdgeIdMap.Contains(Vertex1))
-			{
-				Edge1 = VertToEdgeIdMap[Vertex1];
-			}
-			else
-			{
-				Edge1 = Mesh->GetMeshDescription()->CreateEdge(Vertex1, NewVert);
-				VertToEdgeIdMap.Add(Vertex1, Edge1);
-			}
-			TArray<FMeshDescription::FContourPoint> Edges;
-			Edges.SetNum(3);
+
+			TArray<FVertexInstanceID> PolygonVertexInstances;
+			PolygonVertexInstances.SetNum(3);
 			if(FVector::DotProduct(TransformedPlaneNormal, FVector::CrossProduct(VertexPositions[Vertex1] - VertexPositions[Vertex0], Center - VertexPositions[Vertex1])) < 0)
 			{
-				Edges[0].VertexInstanceID = VertexInstances0[0];
-				Edges[0].EdgeID = EdgeId;
-				Edges[1].VertexInstanceID = VertexInstances1[0];
-				Edges[1].EdgeID = Edge1;
-				Edges[2].VertexInstanceID = NewVertInstance;
-				Edges[2].EdgeID = Edge0;
+				PolygonVertexInstances[0] = VertexInstances0[0];
+				PolygonVertexInstances[1] = VertexInstances1[0];
+				PolygonVertexInstances[2] = NewVertInstance;
 			}
 			else
 			{
-				Edges[0].VertexInstanceID = VertexInstances1[0];
-				Edges[0].EdgeID = EdgeId;
-				Edges[1].VertexInstanceID = VertexInstances0[0];
-				Edges[1].EdgeID = Edge0;
-				Edges[2].VertexInstanceID = NewVertInstance;
-				Edges[2].EdgeID = Edge1;
+				PolygonVertexInstances[0] = VertexInstances1[0];
+				PolygonVertexInstances[1] = VertexInstances0[0];
+				PolygonVertexInstances[2] = NewVertInstance;
 			}
-			const auto NewPolygonID = Mesh->GetMeshDescription()->CreatePolygon(GroupId, Edges);
+			TArray<FEdgeID> NewEdgeIDs;
+			const auto NewPolygonID = Mesh->GetMeshDescription()->CreatePolygon(GroupId, PolygonVertexInstances, &NewEdgeIDs);
+			check(NewEdgeIDs.Num() == 0);
 			NewPolygonIds.Add(NewPolygonID);
 		}
 
@@ -281,9 +257,9 @@ void USplitMeshCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMode)
 		NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 		UPackage* NewPackage = CreatePackage(nullptr, *NewPackageName);
 		UStaticMesh* NewStaticMesh = NewObject<UStaticMesh>(NewPackage, *NewMeshName, RF_Public);
-		FMeshDescription* NewMeshDescription = NewStaticMesh->GetMeshDescription(0);
-		check(NewMeshDescription);
 		new (NewStaticMesh->SourceModels) FStaticMeshSourceModel();
+		FMeshDescription* NewMeshDescription = NewStaticMesh->CreateMeshDescription(0);
+		check(NewMeshDescription);
 
 		// @todo (mlentine): Need to make sure all numbers are the same
 		{
@@ -338,19 +314,8 @@ void USplitMeshCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMode)
 				CopyAllAttributes(NewMeshDescription->PolygonGroupAttributes(), Mesh->GetMeshDescription()->PolygonGroupAttributes(), PolygonGroupId);
 				PolygonGroupSet.Add(PolygonGroupId);
 			}
-			TArray<FMeshDescription::FContourPoint> ContourPoints;
-			check(EdgeIds.Num() == VertexInstanceIds.Num());
-			
-			const int32 NumEdges = EdgeIds.Num();
-			for(int32 EdgeIdIndex = 0; EdgeIdIndex < NumEdges; ++EdgeIdIndex)
-			{
-				FMeshDescription::FContourPoint ContourPoint;
-				ContourPoint.VertexInstanceID = /*VertexInstanceIDs[j]*/ NewVertexInstanceIds[EdgeIdIndex];
-				ContourPoint.EdgeID = EdgeIds[EdgeIdIndex];
-				check(EdgeIds[EdgeIdIndex] == Mesh->GetMeshDescription()->GetVertexPairEdge(Mesh->GetMeshDescription()->GetVertexInstanceVertex(VertexInstanceIds[EdgeIdIndex]), Mesh->GetMeshDescription()->GetVertexInstanceVertex(VertexInstanceIds[(EdgeIdIndex + 1) % EdgeIds.Num()])));
-				ContourPoints.Add(ContourPoint);
-			}
-			NewMeshDescription->CreatePolygonWithID(PolygonId, PolygonGroupId, ContourPoints);
+
+			NewMeshDescription->CreatePolygonWithID(PolygonId, PolygonGroupId, NewVertexInstanceIds);
 			CopyAllAttributes(NewMeshDescription->PolygonAttributes(), Mesh->GetMeshDescription()->PolygonAttributes(), PolygonId);
 		}
 

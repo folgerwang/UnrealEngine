@@ -2982,32 +2982,20 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FMeshDescription& OutRa
 							auto AddTriangle = [&OutRawMesh, &EdgeHardnesses, &EdgeCreaseSharpnesses, &PolygonGroupID, &VertexIDs, &VertexInstanceIDs](int32 BaseIndex)
 							{
 								//Create a polygon from this triangle
-								TArray<FMeshDescription::FContourPoint> Contours;
+								TArray<FVertexInstanceID> PerimeterVertexInstances;
+								PerimeterVertexInstances.SetNum(3);
 								for (int32 Corner = 0; Corner < 3; ++Corner)
 								{
-									int32 ContourPointIndex = Contours.AddDefaulted();
-									FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-									//Find the matching edge ID
-									uint32 CornerIndices[2];
-									CornerIndices[0] = BaseIndex + ((Corner + 0) % 3);
-									CornerIndices[1] = BaseIndex + ((Corner + 1) % 3);
-
-									FVertexID EdgeVertexIDs[2];
-									EdgeVertexIDs[0] = VertexIDs[CornerIndices[0]];
-									EdgeVertexIDs[1] = VertexIDs[CornerIndices[1]];
-
-									FEdgeID MatchEdgeId = OutRawMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-									if (MatchEdgeId == FEdgeID::Invalid)
-									{
-										MatchEdgeId = OutRawMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-										EdgeHardnesses[MatchEdgeId] = false;
-										EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-									}
-									ContourPoint.EdgeID = MatchEdgeId;
-									ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+									PerimeterVertexInstances[Corner] = VertexInstanceIDs[BaseIndex + Corner];
 								}
 								// Insert a polygon into the mesh
-								const FPolygonID NewPolygonID = OutRawMesh.CreatePolygon(PolygonGroupID, Contours);
+								TArray<FEdgeID> NewEdgeIDs;
+								const FPolygonID NewPolygonID = OutRawMesh.CreatePolygon(PolygonGroupID, PerimeterVertexInstances, &NewEdgeIDs);
+								for (const FEdgeID NewEdgeID : NewEdgeIDs)
+								{
+									EdgeHardnesses[NewEdgeID] = false;
+									EdgeCreaseSharpnesses[NewEdgeID] = 0.0f;
+								}
 								//Triangulate the polygon
 								FMeshPolygon& Polygon = OutRawMesh.GetPolygon(NewPolygonID);
 								OutRawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);

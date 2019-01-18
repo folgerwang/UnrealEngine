@@ -1781,7 +1781,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 							//Create all vertex instance
 							for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 							{
-								FVertexInstanceID CornerVertexInstanceIDs[3];
+								TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+								CornerVertexInstanceIDs.SetNum(3);
 								FVertexID CornerVertexIDs[3];
 								for (int32 Corner = 0; Corner < 3; ++Corner)
 								{
@@ -1792,33 +1793,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 									CornerVertexIDs[Corner] = MeshDescription->GetVertexInstanceVertex(CornerVertexInstanceIDs[Corner]);
 								}
 
-								TArray<FMeshDescription::FContourPoint> Contours;
-								for (int32 Corner = 0; Corner < 3; ++Corner)
-								{
-									int32 ContourPointIndex = Contours.AddDefaulted();
-									FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-									//Find the matching edge ID
-									uint32 CornerIndices[2];
-									CornerIndices[0] = (Corner + 0) % 3;
-									CornerIndices[1] = (Corner + 1) % 3;
-
-									FVertexID EdgeVertexIDs[2];
-									EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-									EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-									FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-									if (MatchEdgeId == FEdgeID::Invalid)
-									{
-										MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-										//All edge are smooth
-										EdgeHardnesses[MatchEdgeId] = false;
-										EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-									}
-									ContourPoint.EdgeID = MatchEdgeId;
-									ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-								}
 								// Insert a polygon into the mesh
-								const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+								const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 								//Triangulate the polygon
 								FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 								MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -1936,7 +1912,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						int32 NumTriangles = NumIndices / 3;
 						for (int32 TriangleIndex = 0; TriangleIndex < NumTriangles; ++TriangleIndex)
 						{
-							FVertexInstanceID CornerVertexInstanceIDs[3];
+							TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+							CornerVertexInstanceIDs.SetNum(3);
 							FVertexID CornerVertexIDs[3];
 							for (int32 Corner = 0; Corner < 3; ++Corner)
 							{
@@ -1965,33 +1942,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 								CornerVertexIDs[Corner] = VertexID;
 							}
 
-							TArray<FMeshDescription::FContourPoint> Contours;
-							for (int32 Corner = 0; Corner < 3; ++Corner)
-							{
-								int32 ContourPointIndex = Contours.AddDefaulted();
-								FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-								//Find the matching edge ID
-								uint32 CornerIndices[2];
-								CornerIndices[0] = (Corner + 0) % 3;
-								CornerIndices[1] = (Corner + 1) % 3;
-
-								FVertexID EdgeVertexIDs[2];
-								EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-								EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-								FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-								if (MatchEdgeId == FEdgeID::Invalid)
-								{
-									MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-									//All edge are smooth
-									EdgeHardnesses[MatchEdgeId] = false;
-									EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-								}
-								ContourPoint.EdgeID = MatchEdgeId;
-								ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-							}
 							// Insert a polygon into the mesh
-							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 							//Triangulate the polygon
 							FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 							MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -2275,7 +2227,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 				int32 TriangleCount = DrawCall.m_uiIndexCount / 3;
 				for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 				{
-					FVertexInstanceID CornerVertexInstanceIDs[3];
+					TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+					CornerVertexInstanceIDs.SetNum(3);
 					FVertexID CornerVertexIDs[3];
 					for (int32 Corner = 0; Corner < 3; ++Corner)
 					{
@@ -2373,33 +2326,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 						CornerVertexIDs[Corner] = VertexID;
 					}
 
-					TArray<FMeshDescription::FContourPoint> Contours;
-					for (int32 Corner = 0; Corner < 3; ++Corner)
-					{
-						int32 ContourPointIndex = Contours.AddDefaulted();
-						FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-						//Find the matching edge ID
-						uint32 CornerIndices[2];
-						CornerIndices[0] = (Corner + 0) % 3;
-						CornerIndices[1] = (Corner + 1) % 3;
-
-						FVertexID EdgeVertexIDs[2];
-						EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-						EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-						FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-						if (MatchEdgeId == FEdgeID::Invalid)
-						{
-							MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-							//All edge are smooth
-							EdgeHardnesses[MatchEdgeId] = false;
-							EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-						}
-						ContourPoint.EdgeID = MatchEdgeId;
-						ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-					}
 					// Insert a polygon into the mesh
-					const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+					const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 					//Triangulate the polygon
 					FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 					MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);

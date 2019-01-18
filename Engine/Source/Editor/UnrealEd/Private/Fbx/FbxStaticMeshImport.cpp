@@ -834,13 +834,10 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		}
 
 		// Create polygon edges
-		TArray<FMeshDescription::FContourPoint> Contours;
 		{
 			// Add the edges of this polygon
 			for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
 			{
-				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
 				//Find the matching edge ID
 				uint32 CornerIndices[2];
 				CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
@@ -855,8 +852,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				{
 					MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 				}
-				ContourPoint.EdgeID = MatchEdgeId;
-				ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
+
 				//RawMesh do not have edges, so by ordering the edge with the triangle construction we can ensure back and forth conversion with RawMesh
 				//When raw mesh will be completly remove we can create the edges right after the vertex creation.
 				int32 EdgeIndex = INDEX_NONE;
@@ -896,7 +892,9 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		}
 		FPolygonGroupID PolygonGroupID = PolygonGroupMapping[RealMaterialIndex];
 		// Insert a polygon into the mesh
-		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, Contours);
+		TArray<FEdgeID> NewEdgeIDs;
+		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, CornerInstanceIDs, &NewEdgeIDs);
+		check(NewEdgeIDs.Num() == 0);
 		//Triangulate the polygon
 		FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 		MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);

@@ -528,7 +528,8 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 			PolygonGroups.Add(PolygonGroupID);
 			MaterialIndexToPolygonGroup.Add(MaterialIndex, PolygonGroupID);
 		}
-		FVertexInstanceID TriangleVertexInstanceIDs[3];
+		TArray<FVertexInstanceID> TriangleVertexInstanceIDs;
+		TriangleVertexInstanceIDs.SetNum(3);
 		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
 			int32 VerticeIndex = VerticeIndexBase + Corner;
@@ -550,31 +551,7 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 			}
 		}
 
-		//Create the polygon edges
-		TArray<FMeshDescription::FContourPoint> Contours;
-		for (uint32 Corner = 0; Corner < 3; ++Corner)
-		{
-			int32 ContourPointIndex = Contours.AddDefaulted();
-			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-			//Find the matching edge ID
-			int32 CornerIndices[2];
-			CornerIndices[0] = (Corner + 0) % 3;
-			CornerIndices[1] = (Corner + 1) % 3;
-
-			FVertexID EdgeVertexIDs[2];
-			EdgeVertexIDs[0] = DestinationMeshDescription.GetVertexInstanceVertex(FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[0]]));
-			EdgeVertexIDs[1] = DestinationMeshDescription.GetVertexInstanceVertex(FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[1]]));
-
-			FEdgeID MatchEdgeId = DestinationMeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-			if (MatchEdgeId == FEdgeID::Invalid)
-			{
-				MatchEdgeId = DestinationMeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-			}
-			ContourPoint.EdgeID = MatchEdgeId;
-			ContourPoint.VertexInstanceID = FVertexInstanceID(TriangleVertexInstanceIDs[CornerIndices[0]]);
-		}
-
-		const FPolygonID NewPolygonID = DestinationMeshDescription.CreatePolygon(PolygonGroupID, Contours);
+		const FPolygonID NewPolygonID = DestinationMeshDescription.CreatePolygon(PolygonGroupID, TriangleVertexInstanceIDs);
 		int32 NewTriangleIndex = DestinationMeshDescription.GetPolygonTriangles(NewPolygonID).AddDefaulted();
 		FMeshTriangle& NewTriangle = DestinationMeshDescription.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 		for (int32 Corner = 0; Corner < 3; ++Corner)
@@ -761,34 +738,14 @@ void FMeshDescriptionOperations::AppendMeshDescription(const FMeshDescription& S
 		FPolygonGroupID TargetPolygonGroupID = RemapPolygonGroup[SourcePolygon.PolygonGroupID];
 
 		int32 PolygonVertexCount = SourcePolygon.PerimeterContour.VertexInstanceIDs.Num();
-		//Create a contour
-		TArray<FMeshDescription::FContourPoint> Contours;
-		// Add the edges of this polygon
-		for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
+		TArray<FVertexInstanceID> VertexInstanceIDs;
+		VertexInstanceIDs.Reserve(PolygonVertexCount);
+		for (const FVertexInstanceID VertexInstanceID : SourcePolygon.PerimeterContour.VertexInstanceIDs)
 		{
-			int32 ContourPointIndex = Contours.AddDefaulted();
-			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-			//Find the matching edge ID
-			uint32 CornerIndices[2];
-			CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
-			CornerIndices[1] = (PolygonEdgeNumber + 1) % PolygonVertexCount;
-
-			FVertexID SourceVertexIDs[2];
-			SourceVertexIDs[0] = SourceMesh.GetVertexInstanceVertex(SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[0]]);
-			SourceVertexIDs[1] = SourceMesh.GetVertexInstanceVertex(SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[1]]);
-
-			FEdgeID SourceEdgeID = SourceMesh.GetVertexPairEdge(SourceVertexIDs[0], SourceVertexIDs[1]);
-			check(SourceEdgeID != FEdgeID::Invalid)
-			FEdgeID TargetEdgeID = SourceEdgeIDRemap[SourceEdgeID];
-			ContourPoint.EdgeID = TargetEdgeID;
-			ContourPoint.VertexInstanceID = SourceVertexInstanceIDRemap[SourcePolygon.PerimeterContour.VertexInstanceIDs[CornerIndices[0]]];
-
-			TargetEdgeCreaseSharpnesses[TargetEdgeID] = SourceEdgeCreaseSharpnesses[SourceEdgeID];
-			TargetEdgeHardnesses[TargetEdgeID] = SourceEdgeHardnesses[SourceEdgeID];
+			VertexInstanceIDs.Add(SourceVertexInstanceIDRemap[VertexInstanceID]);
 		}
-
 		// Insert a polygon into the mesh
-		const FPolygonID TargetPolygonID = TargetMesh.CreatePolygon(TargetPolygonGroupID, Contours);
+		const FPolygonID TargetPolygonID = TargetMesh.CreatePolygon(TargetPolygonGroupID, VertexInstanceIDs);
 		//Triangulate the polygon
 		FMeshPolygon& Polygon = TargetMesh.GetPolygon(TargetPolygonID);
 		TargetMesh.ComputePolygonTriangulation(TargetPolygonID, Polygon.Triangles);

@@ -508,36 +508,12 @@ public:
 	};
 
 private:
-	void CreatePolygonContour_Internal( const FPolygonID PolygonID, const TArray<FContourPoint>& ContourPoints, FMeshPolygonContour& Contour )
-	{
-		Contour.VertexInstanceIDs.Reset( ContourPoints.Num() );
-		for( const FContourPoint ContourPoint : ContourPoints )
-		{
-			const FVertexInstanceID VertexInstanceID = ContourPoint.VertexInstanceID;
-			const FEdgeID EdgeID = ContourPoint.EdgeID;
-
-			Contour.VertexInstanceIDs.Add( VertexInstanceID );
-			check( !VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Contains( PolygonID ) );
-			VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Add( PolygonID );
-
-			check( !EdgeArray[ EdgeID ].ConnectedPolygons.Contains( PolygonID ) );
-			EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
-		}
-	}
-
-	void CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
-	{
-		FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
-		CreatePolygonContour_Internal( PolygonID, Perimeter, Polygon.PerimeterContour );
-
-		Polygon.PolygonGroupID = PolygonGroupID;
-		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
-
-		PolygonAttributesSet.Insert( PolygonID );
-	}
+	void CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter );
+	void CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* OutEdgeIDs );
 
 public:
 	/** Adds a new polygon to the mesh and returns its ID */
+	UE_DEPRECATED(4.22, "Please use a different CreatePolygon() overload.")
 	FPolygonID CreatePolygon( const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
 	{
 		const FPolygonID PolygonID = PolygonArray.Add();
@@ -545,11 +521,25 @@ public:
 		return PolygonID;
 	}
 
+	FPolygonID CreatePolygon( const FPolygonGroupID PolygonGroupID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* OutEdgeIDs = nullptr )
+	{
+		const FPolygonID PolygonID = PolygonArray.Add();
+		CreatePolygon_Internal( PolygonID, PolygonGroupID, VertexInstanceIDs, OutEdgeIDs );
+		return PolygonID;
+	}
+
 	/** Adds a new polygon to the mesh with the given ID */
+	UE_DEPRECATED(4.22, "Please use a different CreatePolygonWithID() overload.")
 	void CreatePolygonWithID( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
 	{
 		PolygonArray.Insert( PolygonID );
 		CreatePolygon_Internal( PolygonID, PolygonGroupID, Perimeter );
+	}
+
+	void CreatePolygonWithID( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* OutEdgeIDs = nullptr )
+	{
+		PolygonArray.Insert( PolygonID );
+		CreatePolygon_Internal( PolygonID, PolygonGroupID, VertexInstanceIDs, OutEdgeIDs );
 	}
 
 private:

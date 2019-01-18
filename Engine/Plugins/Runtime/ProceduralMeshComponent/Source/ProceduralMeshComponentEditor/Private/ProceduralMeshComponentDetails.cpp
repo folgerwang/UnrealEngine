@@ -211,7 +211,9 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				for (int32 TriIdx = 0; TriIdx < NumTri; TriIdx++)
 				{
 					FVertexID VertexIndexes[3];
-					FVertexInstanceID VertexInstanceIDs[3];
+					TArray<FVertexInstanceID> VertexInstanceIDs;
+					VertexInstanceIDs.SetNum(3);
+
 					for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 					{
 						const int32 IndiceIndex = (TriIdx * 3) + CornerIndex;
@@ -220,32 +222,8 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 						VertexInstanceIDs[CornerIndex] = IndiceIndexToVertexInstanceID[IndiceIndex];
 					}
 
-					TArray<FMeshDescription::FContourPoint> Contours;
-					for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-					{
-						int32 ContourPointIndex = Contours.AddDefaulted();
-						FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-						//Find the matching edge ID
-						uint32 CornerIndices[2];
-						CornerIndices[0] = (CornerIndex + 0) % 3;
-						CornerIndices[1] = (CornerIndex + 1) % 3;
-
-						FVertexID EdgeVertexIDs[2];
-						EdgeVertexIDs[0] = VertexIndexes[CornerIndices[0]];
-						EdgeVertexIDs[1] = VertexIndexes[CornerIndices[1]];
-
-						FEdgeID MatchEdgeId = MeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-						if (MatchEdgeId == FEdgeID::Invalid)
-						{
-							MatchEdgeId = MeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-							EdgeHardnesses[MatchEdgeId] = false;
-							EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-						}
-						ContourPoint.EdgeID = MatchEdgeId;
-						ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
-					}
 					// Insert a polygon into the mesh
-					const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(PolygonGroupID, Contours);
+					const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(PolygonGroupID, VertexInstanceIDs);
 					//Triangulate the polygon
 					FMeshPolygon& Polygon = MeshDescription.GetPolygon(NewPolygonID);
 					MeshDescription.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);

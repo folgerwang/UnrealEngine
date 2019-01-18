@@ -273,12 +273,11 @@ template <typename ElementIDType>
 static void CopyAllAttributes( TAttributesSet<ElementIDType>& DestAttributesSet, const TAttributesSet<ElementIDType>& SrcAttributesSet, const ElementIDType ElementID )
 {
 	SrcAttributesSet.ForEachAttributeIndicesArray(
-		[ &DestAttributesSet, ElementID ]( const FName AttributeName, const auto& AttributeIndicesArray )
+		[ &DestAttributesSet, ElementID ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+			for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 			{
-				using AttributeType = decltype( AttributeIndicesArray.GetDefaultValue() );
-				DestAttributesSet.template SetAttribute<AttributeType>( ElementID, AttributeName, Index, AttributeIndicesArray.GetArrayForIndex( Index )[ ElementID ] );
+				DestAttributesSet.SetAttribute( ElementID, AttributeName, Index, AttributeArrayRef.Get( ElementID, Index ) );
 			}
 		}
 	);
@@ -3985,83 +3984,16 @@ FVertexInstanceID UEditableMesh::CreateVertexInstanceForContourVertex( const FVe
 }
 
 
-void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutNewEdgeIDs, TArray<FMeshDescription::FContourPoint>& OutContourPoints )
+void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FVertexInstanceID>& OutVertexInstanceIDs )
 {
 	// All polygons must have at least three vertices
 	const int32 NumContourVertices = Contour.Num();
 	check( NumContourVertices >= 3 );
 
-	OutExistingEdgeIDs.Reset( NumContourVertices );
-	OutNewEdgeIDs.Reset( NumContourVertices );
-	OutContourPoints.SetNumUninitialized( NumContourVertices );
-
-	static TArray<FEdgeToCreate> EdgesToCreate;
-	EdgesToCreate.Reset();
+	OutVertexInstanceIDs.SetNumUninitialized( NumContourVertices );
 
 	static TArray<FVertexInstanceToCreate> VertexInstancesToCreate;
 	VertexInstancesToCreate.Reset();
-
-	// Get edges or decide to create them
-	for( int32 VertexNumber = 0; VertexNumber < NumContourVertices; ++VertexNumber )
-	{
-		const int32 NextVertexNumber = ( VertexNumber + 1 ) % NumContourVertices;
-
-		// Get vertex ID for the ends of the edge.
-		FVertexID VertexID0 = Contour[ VertexNumber ].VertexID;
-		FVertexID VertexID1 = Contour[ NextVertexNumber ].VertexID;
-
-		// If valid vertex IDs weren't supplied, we'll deduce it from the vertex instance IDs instead (which must be valid instead).
-		if( VertexID0 == FVertexID::Invalid )
-		{
-			const FVertexInstanceID VertexInstanceID0 = Contour[ VertexNumber ].VertexInstanceID;
-			check( VertexInstanceID0 != FVertexInstanceID::Invalid );
-			VertexID0 = GetVertexInstanceVertex( VertexInstanceID0 );
-		}
-
-		if( VertexID1 == FVertexID::Invalid )
-		{
-			const FVertexInstanceID VertexInstanceID1 = Contour[ NextVertexNumber ].VertexInstanceID;
-			check( VertexInstanceID1 != FVertexInstanceID::Invalid );
-			VertexID1 = GetVertexInstanceVertex( VertexInstanceID1 );
-		}
-
-		FEdgeID EdgeID = GetMeshDescription()->GetVertexPairEdge( VertexID0, VertexID1 );
-
-		// Copy the edge ID to the output.
-		// If it is invalid, it will be patched later when new edges are created.
-		OutContourPoints[ VertexNumber ].EdgeID = EdgeID;
-
-		if( EdgeID == FEdgeID::Invalid )
-		{
-			// Create the new edge. Don't specify any attributes now.
-			EdgesToCreate.Emplace();
-			FEdgeToCreate& EdgeToCreate = EdgesToCreate.Last();
-			EdgeToCreate.VertexID0 = VertexID0;
-			EdgeToCreate.VertexID1 = VertexID1;
-		}
-		else
-		{
-			OutExistingEdgeIDs.Add( EdgeID );
-		}
-	}
-
-	// Create missing edges
-	if( EdgesToCreate.Num() > 0 )
-	{
-		CreateEdges( EdgesToCreate, OutNewEdgeIDs );
-
-		// Fill in missing edge indices
-		int32 NewEdgeIndex = 0;
-
-		for( FMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
-		{
-			if( ContourPoint.EdgeID == FEdgeID::Invalid )
-			{
-				ContourPoint.EdgeID = OutNewEdgeIDs[ NewEdgeIndex ];
-				NewEdgeIndex++;
-			}
-		}
-	}
 
 	// Assign vertex instances to the polygon
 	for( int32 VertexNumber = 0; VertexNumber < NumContourVertices; ++VertexNumber )
@@ -4069,7 +4001,7 @@ void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Co
 		// Copy the supplied vertex instance ID into the output.
 		// If it is valid, there is nothing more to be done.
 		// If it is not valid, copy the invalid ID. They will be replaced by the IDs of the new vertex instances in a later pass.
-		OutContourPoints[ VertexNumber ].VertexInstanceID = Contour[ VertexNumber ].VertexInstanceID;
+		OutVertexInstanceIDs[ VertexNumber ] = Contour[ VertexNumber ].VertexInstanceID;
 
 		if( Contour[ VertexNumber ].VertexInstanceID != FVertexInstanceID::Invalid )
 		{
@@ -4108,11 +4040,11 @@ void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Co
 		// Fill in missing vertex instance indices
 		int32 NewVertexInstanceIndex = 0;
 
-		for( FMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
+		for( FVertexInstanceID& VertexInstanceID : OutVertexInstanceIDs )
 		{
-			if( ContourPoint.VertexInstanceID == FEdgeID::Invalid )
+			if( VertexInstanceID == FVertexInstanceID::Invalid )
 			{
-				ContourPoint.VertexInstanceID = NewVertexInstanceIDs[ NewVertexInstanceIndex ];
+				VertexInstanceID = NewVertexInstanceIDs[ NewVertexInstanceIndex ];
 				NewVertexInstanceIndex++;
 			}
 		}
@@ -4132,54 +4064,59 @@ void UEditableMesh::CreatePolygons( const TArray<FPolygonToCreate>& PolygonsToCr
 		static TArray<FAttributesForEdge> AttributesForEdges;
 		AttributesForEdges.Reset();
 
-		static TArray<FEdgeID> ExistingEdgeIDs;
-		ExistingEdgeIDs.Reset();
-
 		GetMeshDescription()->ReserveNewPolygons( PolygonsToCreate.Num() );
 		for( const FPolygonToCreate& PolygonToCreate : PolygonsToCreate )
 		{
-			static TArray<FMeshDescription::FContourPoint> PerimeterContourPoints;
+			static TArray<FVertexInstanceID> PerimeterVertexInstances;
 			static TArray<FEdgeID> NewEdgeIDsForContour;
-			static TArray<FEdgeID> ExistingEdgeIDsForContour;
 
-			CreatePolygonContour( PolygonToCreate.PerimeterVertices, ExistingEdgeIDsForContour, NewEdgeIDsForContour, PerimeterContourPoints );
-			ExistingEdgeIDs.Append( ExistingEdgeIDsForContour );
-			OutNewEdgeIDs.Append( NewEdgeIDsForContour );
+			CreatePolygonContour( PolygonToCreate.PerimeterVertices, PerimeterVertexInstances );
 
 			FPolygonID PolygonID = PolygonToCreate.OriginalPolygonID;
 			if( PolygonID != FPolygonID::Invalid )
 			{
-				GetMeshDescription()->CreatePolygonWithID( PolygonID, PolygonToCreate.PolygonGroupID, PerimeterContourPoints );
+				GetMeshDescription()->CreatePolygonWithID( PolygonID, PolygonToCreate.PolygonGroupID, PerimeterVertexInstances, &NewEdgeIDsForContour );
 			}
 			else
 			{
-				PolygonID = GetMeshDescription()->CreatePolygon( PolygonToCreate.PolygonGroupID, PerimeterContourPoints );
+				PolygonID = GetMeshDescription()->CreatePolygon( PolygonToCreate.PolygonGroupID, PerimeterVertexInstances, &NewEdgeIDsForContour );
 			}
 
 			OutNewPolygonIDs.Add( PolygonID );
+			OutNewEdgeIDs.Append( NewEdgeIDsForContour );
 
 			// Set edge hardness for polygon edges according to PolygonToCreate mode
-			AttributesForEdges.Reserve( AttributesForEdges.Num() + OutNewEdgeIDs.Num() + ExistingEdgeIDs.Num() );
+			const int32 ExistingEdgeCount = PerimeterVertexInstances.Num() - NewEdgeIDsForContour.Num();
+			AttributesForEdges.Reserve( AttributesForEdges.Num() + ExistingEdgeCount );
 
+			// Set directly hardness of any edges which were automatically created by the polygon.
+			// This needn't be done transactionally as we explicitly add the undo action later on.
 			const bool bHardEdge = ( PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::AllEdgesHard || PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::NewEdgesHard );
 			for( const FEdgeID EdgeID : OutNewEdgeIDs )
 			{
-				AttributesForEdges.Emplace();
-				FAttributesForEdge& AttributesForEdge = AttributesForEdges.Last();
-				AttributesForEdge.EdgeID = EdgeID;
-				AttributesForEdge.EdgeAttributes.Attributes.Emplace( MeshAttribute::Edge::IsHard, 0, FMeshElementAttributeValue( bHardEdge ) );
+				GetMeshDescription()->EdgeAttributes().SetAttribute( EdgeID, MeshAttribute::Edge::IsHard, 0, bHardEdge );
 			}
 
 			// If we are setting all edges' hardnesses (not just new ones), set existing edges' attributes here.
 			// This will also split any vertex instances which have just been included in a polygon if necessary.
-			if( PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::AllEdgesHard || PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::AllEdgesSoft )
+			if( ExistingEdgeCount > 0 &&
+				( PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::AllEdgesHard || PolygonToCreate.PolygonEdgeHardness == EPolygonEdgeHardness::AllEdgesSoft ) )
 			{
-				for( const FEdgeID EdgeID : ExistingEdgeIDs )
+				FVertexInstanceID LastVertexInstanceID = PerimeterVertexInstances.Last();
+				for( const FVertexInstanceID VertexInstanceID : PerimeterVertexInstances )
 				{
-					AttributesForEdges.Emplace();
-					FAttributesForEdge& AttributesForEdge = AttributesForEdges.Last();
-					AttributesForEdge.EdgeID = EdgeID;
-					AttributesForEdge.EdgeAttributes.Attributes.Emplace( MeshAttribute::Edge::IsHard, 0, FMeshElementAttributeValue( bHardEdge ) );
+					const FVertexID VertexID0 = GetMeshDescription()->GetVertexInstanceVertex( VertexInstanceID );
+					const FVertexID VertexID1 = GetMeshDescription()->GetVertexInstanceVertex( LastVertexInstanceID );
+					const FEdgeID EdgeID = GetMeshDescription()->GetVertexPairEdge( VertexID0, VertexID1 );
+					check( EdgeID != FEdgeID::Invalid );
+					if( !NewEdgeIDsForContour.Contains( EdgeID ) )
+					{
+						AttributesForEdges.Emplace();
+						FAttributesForEdge& AttributesForEdge = AttributesForEdges.Last();
+						AttributesForEdge.EdgeID = EdgeID;
+						AttributesForEdge.EdgeAttributes.Attributes.Emplace( MeshAttribute::Edge::IsHard, 0, FMeshElementAttributeValue( bHardEdge ) );
+					}
+					LastVertexInstanceID = VertexInstanceID;
 				}
 			}
 		}
@@ -4203,6 +4140,20 @@ void UEditableMesh::CreatePolygons( const TArray<FPolygonToCreate>& PolygonsToCr
 
 	// Generate triangles for the new polygon
 	PolygonsPendingTriangulation.Append( OutNewPolygonIDs );
+
+	// If any new edges were automatically created when creating the polygons, add an action to the undo stack to delete them here
+	if( OutNewEdgeIDs.Num() > 0 )
+	{
+		FDeleteEdgesChangeInput RevertInput;
+		RevertInput.bDeleteOrphanedVertices = false;
+		RevertInput.EdgeIDsToDelete.Reserve( OutNewEdgeIDs.Num() );
+		for( int32 EdgeNumber = OutNewEdgeIDs.Num() - 1; EdgeNumber >= 0; --EdgeNumber )
+		{
+			RevertInput.EdgeIDsToDelete.Add( OutNewEdgeIDs[ EdgeNumber ] );
+		}
+
+		AddUndo( MakeUnique<FDeleteEdgesChange>( MoveTemp( RevertInput ) ) );
+	}
 
 	// NOTE: We iterate backwards, to delete polygons in the opposite order that we added them
 	{
