@@ -115,7 +115,7 @@ static void HandlePipelineCreationFailure(const FGraphicsPipelineStateInitialize
 	for(int32 i = 0; i < Init.RenderTargetFormats.Num(); ++i)
 	{
 		//#todo-mattc GetPixelFormatString is not available in scw. Need to move it so we can print more info here.
-		UE_LOG(LogRHI, Error, TEXT("0x%x"), Init.RenderTargetFormats[i]);
+		UE_LOG(LogRHI, Error, TEXT("0x%x"), (uint32)Init.RenderTargetFormats[i]);
 	}
 	
 	UE_LOG(LogRHI, Error, TEXT("Depth Stencil Format:"));
