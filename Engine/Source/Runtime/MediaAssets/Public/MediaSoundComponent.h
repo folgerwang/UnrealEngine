@@ -14,6 +14,8 @@
 #include "UObject/ScriptMacros.h"
 #include "DSP/SpectrumAnalyzer.h"
 #include "DSP/BufferVectorOperations.h"
+#include "DSP/EnvelopeFollower.h"
+
 
 #include "MediaSoundComponent.generated.h"
 
@@ -155,6 +157,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "TimeSynth")
 	TArray<FMediaSoundComponentSpectralData> GetSpectralData();
 
+	/** Turns on amplitude envelope following the audio in the media sound component. */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaSoundComponent")
+	void SetEnableEnvelopeFollowing(bool bInEnvelopeFollowing);
+
+	/** Sets the envelope attack and release times (in ms). */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaSoundComponent")
+	void SetEnvelopeFollowingsettings(int32 AttackTimeMsec, int32 ReleaseTimeMsec);
+
+	/** Retrieves the current amplitude envelope. */
+	UFUNCTION(BlueprintCallable, Category = "TimeSynth")
+	float GetEnvelopeValue() const;
+
 public:
 
 	void UpdatePlayer();
@@ -257,11 +271,6 @@ private:
 	/** Handle SampleQueue running dry. Ensure audio resumes playback at correct position. */
 	int32 FrameSyncOffset;
 
-	/**
-	 * Sync forward after input audio buffer runs dry due to a hitch or decoder not being able to keep up
-	 * Without this audio will resume playing exactly where it last left off (far behind current player time)
-	 */
-	bool bSyncAudioAfterDropouts;
 
 	/* Time of last sample played. */
 	TAtomic<FTimespan> LastPlaySampleTime;
@@ -276,11 +285,29 @@ private:
 	Audio::FSpectrumAnalyzer SpectrumAnalyzer;
 	Audio::FSpectrumAnalyzerSettings SpectrumAnalyzerSettings;
 
+	Audio::FEnvelopeFollower EnvelopeFollower;
+	int32 EnvelopeFollowerAttackTime;
+	int32 EnvelopeFollowerReleaseTime;
+	float CurrentEnvelopeValue;
+	FCriticalSection EnvelopeFollowerCriticalSection;
+
 	/** Scratch buffer to mix in source audio to from decoder */
 	Audio::AlignedFloatBuffer AudioScratchBuffer;
 
+	/**
+	 * Sync forward after input audio buffer runs dry due to a hitch or decoder not being able to keep up
+	 * Without this audio will resume playing exactly where it last left off (far behind current player time)
+	 */
+	bool bSyncAudioAfterDropouts;
+
 	/** Whether or not spectral analysis is enabled. */
 	bool bSpectralAnalysisEnabled;
+
+	/** Whether or not envelope following is enabled. */
+	bool bEnvelopeFollowingEnabled;
+
+	/** Whether or not envelope follower settings changed. */
+	bool bEnvelopeFollowerSettingsChanged;
 
 private:
 
