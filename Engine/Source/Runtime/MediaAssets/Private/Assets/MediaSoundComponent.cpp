@@ -53,7 +53,12 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
 	, FrameSyncOffset(0)
+	, EnvelopeFollowerAttackTime(10)
+	, EnvelopeFollowerReleaseTime(100)
+	, CurrentEnvelopeValue(0.0f)
 	, bSyncAudioAfterDropouts(false)
+	, bSpectralAnalysisEnabled(false)
+	, bEnvelopeFollowingEnabled(false)
 	, LastPlaySampleTime(FTimespan::MinValue())
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -415,32 +420,57 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 		LastPlaySampleTime = OutTime;
 
-		if (bSpectralAnalysisEnabled)
+
+		if (bSpectralAnalysisEnabled || bEnvelopeFollowingEnabled)
 		{
-			// If we have stereo audio, sum to mono before sending to analyzer
+			float* BufferToUseForAnalysis = nullptr;
+			int32 NumFrames = NumSamples;
+			
 			if (NumChannels == 2)
 			{
-				int32 NumFrames = NumSamples / 2;
+				NumFrames = NumSamples / 2;
 
 				// Use the scratch buffer to sum the audio to mono
 				AudioScratchBuffer.Reset();
 				AudioScratchBuffer.AddUninitialized(NumFrames);
-				float* AudioScratchBufferPtr = AudioScratchBuffer.GetData();
+				BufferToUseForAnalysis = AudioScratchBuffer.GetData();
 				int32 SampleIndex = 0;
 				for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex, SampleIndex += NumChannels)
 				{
-					AudioScratchBufferPtr[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
+					BufferToUseForAnalysis[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
 				}
-
-				SpectrumAnalyzer.PushAudio(AudioScratchBufferPtr, NumFrames);
 			}
 			else
 			{
-				SpectrumAnalyzer.PushAudio(OutAudio, NumSamples);
+				BufferToUseForAnalysis = OutAudio;
 			}
 
-			// Launch an analysis task with this audio
-			SpectrumAnalyzer.PerformAnalysisIfPossible(true, true);
+			if (bSpectralAnalysisEnabled)
+			{
+				SpectrumAnalyzer.PushAudio(BufferToUseForAnalysis, NumFrames);
+				SpectrumAnalyzer.PerformAnalysisIfPossible(true, true);
+			}
+
+			{
+				FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+				if (bEnvelopeFollowingEnabled)
+				{
+					if (bEnvelopeFollowerSettingsChanged)
+					{
+						EnvelopeFollower.SetAttackTime((float)EnvelopeFollowerAttackTime);
+						EnvelopeFollower.SetReleaseTime((float)EnvelopeFollowerReleaseTime);
+
+						bEnvelopeFollowerSettingsChanged = false;
+					}
+
+					for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+					{
+						EnvelopeFollower.ProcessAudio(BufferToUseForAnalysis[FrameIndex]);
+					}
+
+					CurrentEnvelopeValue = EnvelopeFollower.GetCurrentValue();
+				}
+			}
 		}
 
 		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSync, FMath::Abs((Time - OutTime).GetTotalMilliseconds()));
@@ -517,6 +547,26 @@ TArray<FMediaSoundComponentSpectralData> UMediaSoundComponent::GetSpectralData()
 	}
 	// Empty array if spectrum analysis is not implemented
 	return TArray<FMediaSoundComponentSpectralData>();
+}
+
+void UMediaSoundComponent::SetEnableEnvelopeFollowing(bool bInEnvelopeFollowing)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	bEnvelopeFollowingEnabled = bInEnvelopeFollowing;
+	CurrentEnvelopeValue = 0.0f;
+}
+
+void UMediaSoundComponent::SetEnvelopeFollowingsettings(int32 AttackTimeMsec, int32 ReleaseTimeMsec)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	EnvelopeFollowerAttackTime = AttackTimeMsec;
+	EnvelopeFollowerReleaseTime = ReleaseTimeMsec;
+	bEnvelopeFollowerSettingsChanged = true;
+}
+
+float UMediaSoundComponent::GetEnvelopeValue() const
+{
+	return CurrentEnvelopeValue;
 }
 
 /* UMediaSoundComponent implementation
