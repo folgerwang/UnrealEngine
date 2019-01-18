@@ -15,5 +15,5 @@ void CompositeSkyLightPS(
 )
 {
 	float4 SkyLight = SkyLightTexture.Sample(SkyLightTextureSampler, UV);
-	OutColor = float4(SkyLight.rgb, 1.0);
+	OutColor = SkyLight;
 }

@@ -120,7 +120,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingSkyLight(
 	PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(RayDistanceTexture));
 	PassParameters->SamplesPerPixel = GRayTracingSkyLightSamplesPerPixel;
 	PassParameters->SamplingStopLevel = GRayTracingSkyLightSamplingStopLevel;
-	PassParameters->SkyLightColor = FVector(1.0);
+	PassParameters->SkyLightColor = Scene->SkyLight->LightColor
 	//PassParameters->SkyLightTexture = Scene->SkyLight->ProcessedTexture->TextureRHI;
 	//PassParameters->SkyLightTextureSampler = Scene->SkyLight->ProcessedTexture->SamplerStateRHI;
 	PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
@@ -192,6 +192,8 @@ public:
 		TLASParameter.Bind(Initializer.ParameterMap, TEXT("TLAS"));
 		SceneTexturesParameter.Bind(Initializer.ParameterMap, TEXT("SceneTexturesStruct"));
 		SkyLightParameter.Bind(Initializer.ParameterMap, TEXT("SkyLight"));
+		TransmissionProfilesTextureParameter.Bind(Initializer.ParameterMap, TEXT("SSProfilesTexture"));
+		TransmissionProfilesLinearSamplerParameter.Bind(Initializer.ParameterMap, TEXT("TransmissionProfilesLinearSampler"));
 
 		OcclusionMaskUAVParameter.Bind(Initializer.ParameterMap, TEXT("RWOcclusionMaskUAV"));
 		RayDistanceUAVParameter.Bind(Initializer.ParameterMap, TEXT("RWRayDistanceUAV"));
@@ -204,6 +206,8 @@ public:
 		Ar << TLASParameter;
 		Ar << SceneTexturesParameter;
 		Ar << SkyLightParameter;
+		Ar << TransmissionProfilesTextureParameter;
+		Ar << TransmissionProfilesLinearSamplerParameter;
 		Ar << OcclusionMaskUAVParameter;
 		Ar << RayDistanceUAVParameter;
 		return bShaderHasOutdatedParameters;
@@ -233,6 +237,22 @@ public:
 		GlobalResources.Set(OcclusionMaskUAVParameter, OcclusionMaskUAV);
 		GlobalResources.Set(RayDistanceUAVParameter, RayDistanceUAV);
 
+		if (TransmissionProfilesTextureParameter.IsBound())
+		{
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT((FRHICommandListImmediate&)RHICmdList);
+
+			if (!PooledRT)
+			{
+				// no subsurface profile was used yet
+				PooledRT = GSystemTextures.BlackDummy;
+			}
+			const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+
+			GlobalResources.SetTexture(TransmissionProfilesTextureParameter.GetBaseIndex(), Item.ShaderResourceTexture);
+			GlobalResources.SetSampler(TransmissionProfilesLinearSamplerParameter.GetBaseIndex(), TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+		}
+
 		RHICmdList.RayTraceDispatch(Pipeline, GlobalResources, Width, Height);
 	}
 
@@ -242,6 +262,10 @@ private:
 	FShaderUniformBufferParameter ViewParameter;
 	FShaderUniformBufferParameter SceneTexturesParameter;
 	FShaderUniformBufferParameter SkyLightParameter;
+
+	// SSS Profile
+	FShaderResourceParameter TransmissionProfilesTextureParameter;
+	FShaderResourceParameter TransmissionProfilesLinearSamplerParameter;
 
 	// Output
 	FShaderResourceParameter OcclusionMaskUAVParameter;
@@ -973,7 +997,7 @@ void FDeferredShadingSceneRenderer::CompositeRayTracingSkyLight(
 	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
+	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI();
 	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;

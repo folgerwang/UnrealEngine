@@ -704,7 +704,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
-		&& !Scene->SkyLight->bHasStaticLighting;
+		&& !Scene->SkyLight->bHasStaticLighting
+		&& !ShouldRenderRayTracingDynamicSkyLight(Scene, ViewFamily);
 
 	bool bDynamicSkyLight = ShouldRenderDeferredDynamicSkyLight(Scene, ViewFamily);
 	bool bApplySkyShadowing = false;
