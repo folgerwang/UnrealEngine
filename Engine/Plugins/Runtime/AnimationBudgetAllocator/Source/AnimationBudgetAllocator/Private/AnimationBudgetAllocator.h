@@ -94,7 +94,7 @@ public:
 	uint8 SkippedTicks;
 
 	/** Counter used to prevent state changes from happening too often */
-	uint8 StateChangeThrottle;
+	int8 StateChangeThrottle;
 
 	/** Whether we ever tick */
 	uint8 bTickEnabled : 1;
