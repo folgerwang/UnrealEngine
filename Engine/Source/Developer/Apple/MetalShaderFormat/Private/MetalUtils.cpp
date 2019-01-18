@@ -1826,8 +1826,6 @@ static ir_dereference_variable* GenerateShaderOutput(
 	return TempVariableDeref;
 }
 
-#define USE_DS_ATTRIBUTES 0 // @todo Unicorn: consider using this as it would be more elegant, but currently isn't complete.
-
 void FMetalCodeBackend::build_iab_fields(_mesa_glsl_parse_state* ParseState, char const* n, struct glsl_type const* t, TArray<struct glsl_struct_field>& Fields, unsigned& FieldIndex, unsigned& BufferIndex, bool top, FBuffers const& Buffers)
 {
 	switch(t->base_type)
@@ -2110,11 +2108,8 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 	ir_variable* DSStageIn = nullptr;
 	TIRVarList DSInputArguments;
 
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 	TIRVarSet DSPatchVariables;
 	ir_variable* DSPatch = nullptr;
-#endif // USE_DS_ATTRIBUTES
 
 	ir_variable* internalPatchIDVar = nullptr;
 
@@ -2163,14 +2158,9 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 					break;
 
 				case ir_var_in:
-#if USE_VS_HS_ATTRIBUTES
 					{
 						// do nothing here MovePackedUniformsToMain will move all these input arguments to the function signature
 					}
-#else // USE_VS_HS_ATTRIBUTES
-					// there should be no input attributes
-					check(0);
-#endif // USE_VS_HS_ATTRIBUTES
 					break;
 				}
 			}
@@ -2459,10 +2449,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 	{
 		// Vertex Fetch to Vertex connector
 		TArray<glsl_struct_field> DSStageInMembers;
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 		TArray<glsl_struct_field> DSPatchMembers;
-#endif // USE_DS_ATTRIBUTES
 
 		// Vertex Output connector. Gather position semantic & other outputs into a struct
 		TArray<glsl_struct_field> DSOutMembers;
@@ -2491,8 +2478,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 					break;
 
 				case ir_var_in:
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 					if(Variable->type->is_patch())
 					{
 						glsl_struct_field Member;
@@ -2507,7 +2492,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						DSPatchVariables.insert(Variable);
 					}
 					else
-#endif // USE_DS_ATTRIBUTES
 					if (!ProcessStageInVariables(ParseState, bIsDesktop, Frequency, Variable, DSStageInMembers, DSStageInVariables, nullptr, DSInputArguments))
 					{
 						return;
@@ -2516,38 +2500,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 			}
 		}
-
-#if USE_DS_ATTRIBUTES
-#error add attribute(0..N) semantics...
-		if (DSStageInMembers.Num())
-		{
-			check(Frequency == HSF_DomainShader);
-
-			//@todo-rco: Make me nice...
-			for (auto& Member : DSStageInMembers)
-			{
-				InputVars.push_tail(new(ParseState)extern_var(new(ParseState)ir_variable(Member.type, ralloc_strdup(ParseState, Member.name), ir_var_in)));
-			}
-
-			DSStageInMembers.Sort(
-				[](glsl_struct_field const& A, glsl_struct_field const& B)
-				{
-					return GetAttributeIndex(A.semantic) < GetAttributeIndex(B.semantic);
-				});
-
-			auto* Type = glsl_type::get_record_instance(&DSStageInMembers[0], (unsigned int)DSStageInMembers.Num(), "FDSStageIn");
-			DSStageIn = new(ParseState)ir_variable(Type, "__DSStageIn", ir_var_in);
-			// Hack: This way we tell we need to convert types from half to float
-			((glsl_type*)Type)->HlslName = "__STAGE_IN__";
-			ParseState->symbols->add_variable(DSStageIn);
-
-			if (!ParseState->AddUserStruct(Type))
-			{
-				YYLTYPE loc = {0};
-				_mesa_glsl_error(&loc, ParseState, "struct '%s' previously defined", Type->name);
-			}
-		}
-#else // USE_DS_ATTRIBUTES
 
 		// track attribute#s
 		int onAttribute = 0;
@@ -2736,7 +2688,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 			}
 		}
-#endif // USE_DS_ATTRIBUTES
 
 		if (DSOutMembers.Num())
 		{
@@ -2804,49 +2755,9 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 				else if(bIsTessellationVSHS)
 				{
-#if USE_VS_HS_ATTRIBUTES
 					// see above...
 					// do nothing here MovePackedUniformsToMain will move all these output arguments to the function signature
-#else // USE_VS_HS_ATTRIBUTES
-					// there should be no input attributes
-					check(0);
-#endif // USE_VS_HS_ATTRIBUTES
 				}
-#if USE_DS_ATTRIBUTES
-				else if (DSStageInVariables.find(Variable) != DSStageInVariables.end())
-				{
-					//if(Variable->type->is_outputpatch()) // not exactly what I want...
-					//{
-					//	break; // skip for the outputpatch
-					//}
-					ir_dereference* DeRefMember = new(ParseState)ir_dereference_record(DSStageIn, Variable->name);
-					if(DeRefMember->type->is_outputpatch())
-					{
-						const unsigned ElementCount = DeRefMember->type->patch_length;
-						check(Variable->type->is_outputpatch());
-						check(ElementCount == Variable->type->patch_length);
-						for (unsigned i = 0; i < ElementCount; ++i)
-						{
-							ir_dereference_array* ArrayVariable = new(ParseState)ir_dereference_array(
-								new(ParseState) ir_dereference_variable(Variable),
-								new(ParseState) ir_constant((unsigned)i)
-								);
-							ir_dereference_array* ArrayDerefMember = new(ParseState)ir_dereference_array(
-								DeRefMember->clone(ParseState, NULL),
-								new(ParseState) ir_constant((unsigned)i)
-								);
-							auto* Assign = new(ParseState)ir_assignment(ArrayVariable, ArrayDerefMember);
-							PreCallInstructions.push_tail(Assign);
-						}
-					}
-					else
-					{
-						auto* Assign = new(ParseState)ir_assignment(new(ParseState)ir_dereference_variable(Variable), DeRefMember);
-						PreCallInstructions.push_tail(Assign);
-					}
-					VarsToMoveToBody.push_back(Variable);
-				}
-#else // USE_DS_ATTRIBUTES
 				else if (DSStageInVariables.find(Variable) != DSStageInVariables.end())
 				{
 					// TOOD could merge the code above down here...
@@ -2855,7 +2766,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				{
 					// TOOD could merge the code above down here...
 				}
-#endif // USE_DS_ATTRIBUTES
 				else
 				{
 					FSemanticQualifier Qualifier;

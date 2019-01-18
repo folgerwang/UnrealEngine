@@ -4,8 +4,6 @@
 
 #include "CoreMinimal.h"
 
-#define USE_VS_HS_ATTRIBUTES 1
-
 #include "hlslcc.h"
 THIRD_PARTY_INCLUDES_START
 	#include "ir.h"
