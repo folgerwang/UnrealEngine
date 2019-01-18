@@ -888,6 +888,9 @@ void TemporallyAccumulate(
 		HistorySample = Add(Mul(HistorySample, PreviousFrameMultiplier), CurrentFrame);
 	}
 
+	// Romoves NaN and negative numbers
+	// HistorySample = Minus(Min(Minus(HistorySample), CreateSignalSampleFromScalarValue(0.0)));
+
 	if (all(DispatchThreadId < uint2(View.ViewSizeAndInvSize.xy)))
 	{
 		OutputSignal(SignalHistoryOutput0, SignalHistoryOutput1, CONFIG_SIGNAL_HISTORY_LAYOUT, DispatchThreadId, HistorySample);

@@ -132,7 +132,7 @@ float3 GenerateReflectedRayDirection(
 	out float3 RayDirection,
 	out float PDF)
 {
-	if (Roughness < 0.05 ) //ReflectionSmoothClamp)
+	if (Roughness < 0.001 ) //ReflectionSmoothClamp)
 	{
 		RayDirection = reflect(IncidentDirection, WorldNormal);
 		PDF = 1.0;
@@ -400,9 +400,27 @@ float GetRatioEstimatorWeight(
 	float3 H = normalize(L + V);
 
 	float NoH = abs(dot(N, H));
-	float D = D_GGX(a2, NoH);
 
-	return D / OriginalRayPDF;
+	#if 1
+	{
+		const float MaximumWeight = 10;
+
+		float d = saturate(clamp( NoH * a2 - NoH, -NoH, 0) * NoH + 1);
+	
+		if (d == 0)
+		{
+			return MaximumWeight;
+		}
+
+		return clamp(a2 / (PI * d * d * OriginalRayPDF), 0, MaximumWeight);
+	}
+	#else
+	{
+		float D = D_GGX(a2, NoH);
+	
+		return clamp(D / OriginalRayPDF, 0, 10);
+	}
+	#endif
 }
 #else // !CONFIG_SPECULAR_RATIO_ESTIMATOR
 {

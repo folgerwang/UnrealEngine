@@ -67,7 +67,7 @@ float3 GenerateReflectedRayDirection(
 )
 {
 	float3 RayDirection;
-	if (Roughness < 0.05 ) //ReflectionSmoothClamp)
+	if (Roughness < 0.001 ) //ReflectionSmoothClamp)
 	{
 		RayDirection = reflect(IncidentDirection, WorldNormal);
 	}
