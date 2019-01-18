@@ -4,6 +4,7 @@
 	RayCounterComputeShader.usf: Ray counter for the reference path tracing
 ===============================================================================================*/
 
+#include "../Common.ush"
 
 Texture2D<uint> RayCountPerPixel;
 uint2 ViewSize;
