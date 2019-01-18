@@ -245,6 +245,14 @@ void FD3D12QueryHeap::Destroy()
 		pResultData = nullptr;
 	}
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (D3DX12Residency::IsInitialized(QueryHeapResidencyHandle))
+	{
+		D3DX12Residency::EndTrackingObject(GetParentDevice()->GetResidencyManager(), QueryHeapResidencyHandle);
+		QueryHeapResidencyHandle = {};
+	}
+#endif
+
 	QueryHeap = nullptr;
 	ResultBuffer = nullptr;
 }
@@ -353,6 +361,7 @@ void FD3D12QueryHeap::EndQueryBatchAndResolveQueryData(FD3D12CommandContext& Cmd
 		QueryHeap, QueryType, CurrentQueryBatch.StartElement, CurrentQueryBatch.ElementCount,
 		ResultBuffer->GetResource(), GetResultBufferOffsetForElement(CurrentQueryBatch.StartElement));
 
+	CmdContext.CommandListHandle.UpdateResidency(&QueryHeapResidencyHandle);
 	CmdContext.CommandListHandle.UpdateResidency(ResultBuffer);
 
 	// For each render query used in this batch, update the command list
@@ -374,7 +383,7 @@ uint32 FD3D12QueryHeap::BeginQuery(FD3D12CommandContext& CmdContext)
 	CmdContext.otherWorkCounter++;
 	CmdContext.CommandListHandle->BeginQuery(QueryHeap, QueryType, Element);
 
-	CmdContext.CommandListHandle.UpdateResidency(ResultBuffer);
+	CmdContext.CommandListHandle.UpdateResidency(&QueryHeapResidencyHandle);
 
 	return Element;
 }
@@ -386,7 +395,7 @@ void FD3D12QueryHeap::EndQuery(FD3D12CommandContext& CmdContext, uint32 InElemen
 	CmdContext.otherWorkCounter++;
 	CmdContext.CommandListHandle->EndQuery(QueryHeap, QueryType, InElement);
 
-	CmdContext.CommandListHandle.UpdateResidency(ResultBuffer);
+	CmdContext.CommandListHandle.UpdateResidency(&QueryHeapResidencyHandle);
 
 	// Track which render queries are used in this batch.
 	if (InRenderQuery)
@@ -400,6 +409,11 @@ void FD3D12QueryHeap::CreateQueryHeap()
 	// Create the upload heap
 	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(QueryHeap.GetInitReference())));
 	SetName(QueryHeap, L"Query Heap");
+
+#if ENABLE_RESIDENCY_MANAGEMENT
+	D3DX12Residency::Initialize(QueryHeapResidencyHandle, QueryHeap.GetReference(), ResultSize * QueryHeapDesc.Count);
+	D3DX12Residency::BeginTrackingObject(GetParentDevice()->GetResidencyManager(), QueryHeapResidencyHandle);
+#endif
 }
 
 void FD3D12QueryHeap::CreateResultBuffer()
@@ -505,6 +519,11 @@ void FD3D12BufferedGPUTiming::InitDynamicRHI()
 			VERIFYD3D12RESULT(D3DDevice->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(NewHeap->Heap.GetInitReference())));
 			SetName(NewHeap->Heap, L"FD3D12BufferedGPUTiming: Timestamp Query Heap");
 
+		#if ENABLE_RESIDENCY_MANAGEMENT
+			D3DX12Residency::Initialize(NewHeap->ResidencyHandle, NewHeap->Heap.GetReference(), 8 * QueryHeapDesc.Count);
+			D3DX12Residency::BeginTrackingObject(Adapter->GetDevice(0)->GetResidencyManager(), NewHeap->ResidencyHandle);
+		#endif
+
 			return NewHeap;
 		});
 
@@ -523,6 +542,13 @@ void FD3D12BufferedGPUTiming::InitDynamicRHI()
  */
 void FD3D12BufferedGPUTiming::ReleaseDynamicRHI()
 {
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (D3DX12Residency::IsInitialized(TimestampQueryHeap->ResidencyHandle))
+	{
+		D3DX12Residency::EndTrackingObject(GetParentAdapter()->GetDevice(0)->GetResidencyManager(), TimestampQueryHeap->ResidencyHandle);
+	}
+#endif
+
 	delete(TimestampQueryHeap);
 	TimestampQueryHeap = nullptr;
 	TimestampQueryHeapBuffer = nullptr;
@@ -568,7 +594,7 @@ void FD3D12BufferedGPUTiming::StartTiming()
 
 		QueryHeap* CurrentQH = CmdContext.RetrieveObject<QueryHeap>(TimestampQueryHeap);
 		CmdContext.CommandListHandle->EndQuery(CurrentQH->Heap, D3D12_QUERY_TYPE_TIMESTAMP, QueryStartIndex);
-		CmdContext.CommandListHandle.UpdateResidency(TimestampQueryHeapBuffer.GetReference());
+		CmdContext.CommandListHandle.UpdateResidency(&CurrentQH->ResidencyHandle);
 
 		TimestampListHandles[QueryStartIndex] = CmdContext.CommandListHandle;
 		bIsTiming = true;
@@ -598,6 +624,7 @@ void FD3D12BufferedGPUTiming::EndTiming()
 
 		CmdContext.CommandListHandle->EndQuery(CurrentQH->Heap, D3D12_QUERY_TYPE_TIMESTAMP, QueryEndIndex);
 		CmdContext.CommandListHandle->ResolveQueryData(CurrentQH->Heap, D3D12_QUERY_TYPE_TIMESTAMP, QueryStartIndex, 2, TimestampQueryHeapBuffer->GetResource(), 8 * QueryStartIndex);
+		CmdContext.CommandListHandle.UpdateResidency(&CurrentQH->ResidencyHandle);
 		CmdContext.CommandListHandle.UpdateResidency(TimestampQueryHeapBuffer.GetReference());
 
 		TimestampListHandles[QueryEndIndex] = CmdContext.CommandListHandle;
