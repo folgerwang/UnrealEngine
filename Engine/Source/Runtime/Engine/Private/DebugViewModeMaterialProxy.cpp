@@ -154,6 +154,11 @@ void FDebugViewModeMaterialProxy::ValidateAllShaders(TSet<UMaterialInterface*>& 
 					DebugMaterial->MarkAsInvalid();
 					Materials.Remove(const_cast<UMaterialInterface*>(DebugMaterial->GetMaterialInterface()));
 				}
+				else
+				{
+					MaterialsToUpdate.Add(DebugMaterial);
+				}
+				
 			}
 		}
 	}
