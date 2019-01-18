@@ -748,7 +748,7 @@ public:
 	virtual void SetStateOnCommandList(FRHICommandList& CmdList) override
 	{
 		FParallelCommandListSet::SetStateOnCommandList(CmdList);
-		FSceneRenderTargets::Get(CmdList).BeginRenderingGBuffer(CmdList, ERenderTargetLoadAction::ELoad, ERenderTargetLoadAction::ELoad, BasePassDepthStencilAccess, SceneRenderer->ViewFamily.EngineShowFlags.ShaderComplexity);
+		FSceneRenderTargets::Get(CmdList).BeginRenderingGBuffer(CmdList, ERenderTargetLoadAction::ELoad, ERenderTargetLoadAction::ELoad, BasePassDepthStencilAccess, SceneRenderer->ViewFamily.EngineShowFlags.ShaderComplexity, false, FLinearColor(0, 0, 0, 1), SceneRenderer->ViewFamily.EngineShowFlags.Wireframe);
 		SetupBasePassView(CmdList, View, SceneRenderer);
 	}
 };
