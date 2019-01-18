@@ -106,7 +106,7 @@ inline uint32 FIOSDeviceOutputReaderRunnable::Run(void)
 
 				for (int32 i = 0; i < OutputLines.Num(); ++i)
 				{
-					//if (OutputLines[i].Contains(TEXT("[UE4]"), ESearchCase::CaseSensitive))
+					if (OutputLines[i].Contains(TEXT("[UE4]"), ESearchCase::CaseSensitive))
 					{
 						Output->Serialize(*OutputLines[i], ELogVerbosity::Log, NAME_None);
 					}
