@@ -150,7 +150,7 @@ private:
 class FMeshBuildSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshBuildSettingsLayout>
 {
 public:
-	FMeshBuildSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings );
+	FMeshBuildSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InLODIndex );
 	virtual ~FMeshBuildSettingsLayout();
 
 	const FMeshBuildSettings& GetSettings() const { return BuildSettings; }
@@ -210,6 +210,7 @@ private:
 private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
 	FMeshBuildSettings BuildSettings;
+	int32 LODIndex;
 };
 
 class FMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshReductionSettingsLayout>
@@ -498,6 +499,8 @@ public:
 
 	/** Apply current LOD settings to the mesh. */
 	void ApplyChanges();
+
+	bool PreviewLODRequiresAdjacencyInformation(int32 LODIndex);
 
 private:
 

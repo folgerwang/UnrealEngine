@@ -80,6 +80,8 @@ struct CORE_API FFbxErrors
 
 	static FName StaticMesh_AllTrianglesDegenerate;
 
+	static FName StaticMesh_AdjacencyOptionForced;
+
 	/** SkeletalMesh **/
 	static FName SkeletalMesh_DifferentRoots;
 

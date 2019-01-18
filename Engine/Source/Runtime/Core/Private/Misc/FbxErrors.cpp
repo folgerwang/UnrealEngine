@@ -68,6 +68,8 @@ FName FFbxErrors::StaticMesh_BuildError(TEXT("StaticMesh_BuildError"));
 
 FName FFbxErrors::StaticMesh_AllTrianglesDegenerate(TEXT("StaticMesh_AllTrianglesDegenerate"));
 
+FName FFbxErrors::StaticMesh_AdjacencyOptionForced(TEXT("StaticMesh_AdjacencyOptionForced"));
+
 /** SkeletalMesh **/
 FName FFbxErrors::SkeletalMesh_DifferentRoots(TEXT("SkeletalMesh_DifferentRoot"));
 
