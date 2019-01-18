@@ -397,8 +397,35 @@ namespace DeploymentServer
 
 		public void TunnelToDevice(string inDeviceID, String Command)
 		{
-			MobileDeviceInstance targetDevice = null;
+			MobileDeviceInstance TargetDevice = null;
 			
+			PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
+			{
+				if (inDeviceID == Device.DeviceId)
+				{
+					TargetDevice = Device;
+				}
+				return true;
+			});
+			IntPtr TCPService = new IntPtr();
+			if (TargetDevice != null)
+			{
+				TargetDevice.StartTCPRelayService(ref TCPService);
+
+				int SentDat = TargetDevice.TunnelData(Command, TCPService);
+
+				TargetDevice.StopSyslogService();
+			}
+			else
+			{
+				ReportIF.Error("Could not find device " + inDeviceID);
+			}
+		}
+
+		public MobileDeviceInstance StartTCPTunnel(string inDeviceID, ref IntPtr TCPService, short Port = 8888)
+		{
+			MobileDeviceInstance targetDevice = null;
+
 			PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
 			{
 				if (inDeviceID == Device.DeviceId)
@@ -407,19 +434,19 @@ namespace DeploymentServer
 				}
 				return true;
 			});
-
 			if (targetDevice != null)
 			{
-				targetDevice.StartTCPRelayService();
-
-				int SentDat = targetDevice.TunnelData(Command);
-
-				targetDevice.StopSyslogService();
+				if (targetDevice.StartTCPRelayService(ref TCPService))
+				{
+					return targetDevice;
+				}
+				ReportIF.Error("Could not start TCP relay to " + inDeviceID);
 			}
 			else
 			{
 				ReportIF.Error("Could not find device " + inDeviceID);
 			}
+			return null;
 		}
 
 		/// <summary>
@@ -432,8 +459,8 @@ namespace DeploymentServer
                 return false;
             }
 
-            // Transfer to all connected devices
-            return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
+			// Transfer to all connected devices
+			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
             {
                 // Transfer the file to the device
                 string DeviceName = Device.DeviceName;

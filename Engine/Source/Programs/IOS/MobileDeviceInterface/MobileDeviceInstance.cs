@@ -187,7 +187,6 @@ namespace Manzana
         internal TypedPtr<AFCCommConnection> AFCCommsHandle;
         internal IntPtr hService;
         internal IntPtr hSyslogService;
-		internal IntPtr hSysTCPService = new IntPtr();
 		internal IntPtr hInstallService;
         public bool connected;
         private string current_directory;
@@ -1388,7 +1387,7 @@ namespace Manzana
 			return true;
 		}
 
-		public bool StartTCPRelayService()
+		public bool StartTCPRelayService(ref IntPtr TCPService, short Port = 8888)
 		{
 			Console.WriteLine("Connecting");
 			if (MobileDevice.DeviceImpl.Connect(iPhoneHandle) != 0)
@@ -1397,12 +1396,10 @@ namespace Manzana
 				return false;
 			}
 
-			Thread.Sleep(1000);
-			short IPhonePort = 8888;
+			Thread.Sleep(100);
 			int ConnectionID = MobileDevice.DeviceImpl.GetConnectionID(iPhoneHandle);
-			short NetPort = IPAddress.HostToNetworkOrder(IPhonePort);
-			//Console.WriteLine("USBMuxConnectByPort connecting to " + connectionID.ToString() + " port " + iPhonePort.ToString() + " htons " + NetPort.ToString());
-			int R = MobileDevice.DeviceImpl.USBMuxConnectByPort(ConnectionID, NetPort, ref hSysTCPService);
+			short NetPort = IPAddress.HostToNetworkOrder(Port);
+			int R = MobileDevice.DeviceImpl.USBMuxConnectByPort(ConnectionID, NetPort, ref TCPService);
 			if (R != 0)
 			{
 				Console.WriteLine("Connect: Couldn't usb mux by port " + R.ToString());
@@ -1423,22 +1420,47 @@ namespace Manzana
 			MobileDevice.DeviceImpl.Disconnect(iPhoneHandle);
 		}
 
-		public int TunnelData(String Buffer)
+		public int TunnelData(String Buffer, IntPtr TCPService)
 		{
 			int Ret = 0;
 			try
 			{
 				int BufLength = Buffer.Length;
 				IntPtr intPtr_aux = Marshal.StringToHGlobalAnsi(Buffer);
-				//Console.WriteLine("sending data over tcp, len: " + BufLength.ToString());
-				Ret = MobileDevice.DeviceImpl.SocketSend(hSysTCPService, intPtr_aux, BufLength);
-				//Console.WriteLine("send returned: " + Ret.ToString());
+				Ret = MobileDevice.DeviceImpl.SocketSend(TCPService, intPtr_aux, BufLength);
 			}
 			catch (Exception e)
 			{
 				Console.WriteLine("Exception: {0}", e);
 			}
 			return Ret;
+		}
+
+		public int TunnelBuffer(Byte[] Buffer, int Length, IntPtr TCPService)
+		{
+			int Ret = 0;
+			try
+			{
+				IntPtr intPtr_aux = Marshal.UnsafeAddrOfPinnedArrayElement(Buffer, 0);
+				Ret = MobileDevice.DeviceImpl.SocketSend(TCPService, intPtr_aux, Length);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("Exception: {0}", e);
+			}
+			return Ret;
+		}
+
+		public void CloseTunnel(IntPtr TCPService)
+		{
+			try
+			{
+				MobileDevice.DeviceImpl.SocketClose(TCPService);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("Exception: {0}", e);
+			}
 		}
 
 		#region Private Methods

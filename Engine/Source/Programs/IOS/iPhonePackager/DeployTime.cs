@@ -245,20 +245,13 @@ namespace iPhonePackager
 		{
 			if (DeployTimeInstance == null)
 			{
-				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
-				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID");
-				if (DeployTimeInstance == null)
+				if (DeploymentServerProcess == null)
 				{
-					if (DeploymentServerProcess == null)
-					{
-						DeploymentServerProcess = CreateDeploymentServerProcess();
-					}
+					DeploymentServerProcess = CreateDeploymentServerProcess();
 				}
-
 				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
-				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID");
+					typeof(DeploymentInterface),
+					@"ipc://iPhonePackager/DeploymentServer_PID" + Process.GetCurrentProcess().Id.ToString());
 			}
 
 			if (DeployTimeInstance == null)
@@ -282,12 +275,13 @@ namespace iPhonePackager
 			{
 				NewProcess.StartInfo.WorkingDirectory.TrimEnd('/');
 				NewProcess.StartInfo.FileName = "../../../Build/BatchFiles/Mac/RunMono.sh";
-				NewProcess.StartInfo.Arguments = "\"" + NewProcess.StartInfo.WorkingDirectory + "/DeploymentServerLauncher.exe\"";
+				NewProcess.StartInfo.Arguments = "\"" + NewProcess.StartInfo.WorkingDirectory + "/DeploymentServer.exe\" -iphonepackager " + Process.GetCurrentProcess().Id.ToString();
 			}
 			else
 			{
 				NewProcess.StartInfo.WorkingDirectory.TrimEnd('\\');
-				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServerLauncher.exe";
+				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServer.exe";
+				NewProcess.StartInfo.Arguments = "-iphonepackager " + Process.GetCurrentProcess().Id.ToString();
 			}
 			NewProcess.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 			NewProcess.StartInfo.UseShellExecute = true;
@@ -295,7 +289,7 @@ namespace iPhonePackager
 			try
 			{
 				NewProcess.Start();
-				System.Threading.Thread.Sleep(500);
+				System.Threading.Thread.Sleep(1000);
 			}
 			catch (System.Exception ex)
 			{
