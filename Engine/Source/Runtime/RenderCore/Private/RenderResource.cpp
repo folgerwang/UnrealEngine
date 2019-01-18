@@ -97,13 +97,14 @@ void FRenderResource::UpdateRHI()
 
 void FRenderResource::InitResourceFromPossiblyParallelRendering()
 {
+	check(IsInParallelRenderingThread());
+
 	if (IsInRenderingThread())
 	{
 		InitResource();
 	}
 	else
 	{
-		check(IsInParallelRenderingThread());
 		class FInitResourceRenderThreadTask
 		{
 			FRenderResource& Resource;

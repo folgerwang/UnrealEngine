@@ -478,7 +478,7 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 				}
 			}
 		},
-		!FApp::ShouldUseThreadingForPerformance() || (UseCustomCulling && !View.CustomVisibilityQuery->IsThreadsafe()) || CVarParallelInitViews.GetValueOnRenderThread() == 0
+		!FApp::ShouldUseThreadingForPerformance() || (UseCustomCulling && !View.CustomVisibilityQuery->IsThreadsafe()) || CVarParallelInitViews.GetValueOnRenderThread() == 0 || !IsInActualRenderingThread()
 	);
 
 	return NumCulledPrimitives.GetValue();
@@ -2396,7 +2396,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 	TArray<FRelevancePacket*,SceneRenderingAllocator> Packets;
 	Packets.Reserve(EstimateOfNumPackets);
 
-	bool WillExecuteInParallel = FApp::ShouldUseThreadingForPerformance() && CVarParallelInitViews.GetValueOnRenderThread() > 0;
+	bool WillExecuteInParallel = FApp::ShouldUseThreadingForPerformance() && CVarParallelInitViews.GetValueOnRenderThread() > 0 && IsInActualRenderingThread();
 
 	{
 		FSceneSetBitIterator BitIt(View.PrimitiveVisibilityMap);
