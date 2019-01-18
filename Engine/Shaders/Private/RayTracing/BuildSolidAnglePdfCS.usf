@@ -4,6 +4,7 @@
 BuildMipTreeCS.usf: Build MipTree PDF structure
 ===============================================================================================*/
 
+#include "../Common.ush"
 #include "SkyLightMipTreeCommon.ush"
 
 uint MipLevel;
