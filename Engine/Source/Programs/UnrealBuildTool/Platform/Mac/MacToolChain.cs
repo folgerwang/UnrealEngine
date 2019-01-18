@@ -801,25 +801,7 @@ namespace UnrealBuildTool
 				{
 					foreach (string Library in EngineAndGameLibraries)
 					{
-						string LibraryPath = Library;
-						if (!File.Exists(Library))
-						{
-							string LibraryDir = Path.GetDirectoryName(Library);
-							string LibraryName = Path.GetFileName(Library);
-							string AppBundleName = "UE4Editor";
-							if (LibraryName.Contains("UE4Editor-Mac-"))
-							{
-								string[] Parts = LibraryName.Split('-');
-								AppBundleName += "-" + Parts[1] + "-" + Parts[2];
-							}
-							AppBundleName += ".app";
-							LibraryPath = LibraryDir + "/" + AppBundleName + "/Contents/MacOS/" + LibraryName;
-							if (!File.Exists(LibraryPath))
-							{
-								LibraryPath = Library;
-							}
-						}
-						LinkCommand += " \"" + LibraryPath + "\"";
+						LinkCommand += " \"" + Library + "\"";
 					}
 				}
 				else
