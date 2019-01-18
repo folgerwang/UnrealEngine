@@ -9,7 +9,7 @@ MeshDrawCommandSetup.cpp: Mesh draw command setup.
 #include "ScenePrivate.h"
 #include "TranslucentRendering.h"
 
-FPrimitiveIdVertexBufferPool GPrimitiveIdVertexBufferPool;
+TGlobalResource<FPrimitiveIdVertexBufferPool> GPrimitiveIdVertexBufferPool;
 
 static TAutoConsoleVariable<int32> CVarMeshDrawCommandsParallelPassSetup(
 	TEXT("r.MeshDrawCommands.ParallelPassSetup"),
@@ -24,7 +24,7 @@ FPrimitiveIdVertexBufferPool::FPrimitiveIdVertexBufferPool()
 
 FPrimitiveIdVertexBufferPool::~FPrimitiveIdVertexBufferPool()
 {
-	Entries.Empty();
+	check(!Entries.Num());
 }
 
 FVertexBufferRHIParamRef FPrimitiveIdVertexBufferPool::Allocate(int32 BufferSize)
@@ -69,6 +69,12 @@ void FPrimitiveIdVertexBufferPool::DiscardAll()
 		}
 	}
 }
+
+void FPrimitiveIdVertexBufferPool::ReleaseDynamicRHI()
+{
+	Entries.Empty();
+}
+
 
 struct FCompareFMeshDrawCommands
 {

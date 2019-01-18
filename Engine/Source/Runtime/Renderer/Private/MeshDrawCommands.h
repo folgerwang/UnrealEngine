@@ -16,7 +16,7 @@ class FParallelCommandListSet;
 /**
  * Global vertex buffer pool used for GPUScene primitive id arrays.
  */
-class FPrimitiveIdVertexBufferPool
+class FPrimitiveIdVertexBufferPool : public FRenderResource
 {
 public:
 	FPrimitiveIdVertexBufferPool();
@@ -24,6 +24,8 @@ public:
 
 	FVertexBufferRHIParamRef Allocate(int32 BufferSize);
 	void DiscardAll();
+
+	virtual void ReleaseDynamicRHI() override;
 
 private:
 	struct FPrimitiveIdVertexBufferPoolEntry
@@ -37,7 +39,7 @@ private:
 	TArray<FPrimitiveIdVertexBufferPoolEntry> Entries;
 };
 
-extern FPrimitiveIdVertexBufferPool GPrimitiveIdVertexBufferPool;
+extern TGlobalResource<FPrimitiveIdVertexBufferPool> GPrimitiveIdVertexBufferPool;
 
 /**	
  * Parallel mesh draw command pass setup task context.
