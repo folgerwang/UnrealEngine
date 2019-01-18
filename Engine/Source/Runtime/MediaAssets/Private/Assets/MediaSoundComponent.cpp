@@ -53,13 +53,13 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
 	, FrameSyncOffset(0)
+	, LastPlaySampleTime(FTimespan::MinValue())
 	, EnvelopeFollowerAttackTime(10)
 	, EnvelopeFollowerReleaseTime(100)
 	, CurrentEnvelopeValue(0.0f)
 	, bSyncAudioAfterDropouts(false)
 	, bSpectralAnalysisEnabled(false)
 	, bEnvelopeFollowingEnabled(false)
-	, LastPlaySampleTime(FTimespan::MinValue())
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
