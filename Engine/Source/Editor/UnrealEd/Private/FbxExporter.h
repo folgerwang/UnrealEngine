@@ -31,7 +31,8 @@ class UMaterialInterface;
 class UModel;
 class UMovieScene;
 class UMovieScene3DTransformTrack;
-class UMovieSceneFloatTrack;
+class UMovieScenePropertyTrack;
+class UMovieSceneTrack;
 class USkeletalMesh;
 class USkeletalMeshComponent;
 class USplineMeshComponent;
@@ -120,11 +121,18 @@ public:
 	virtual bool ExportMatinee(class AMatineeActor* InMatineeActor);
 
 	/**
-	* Exports the given level sequence information into a FBX document.
-	*
-	* @return	true, if successful
-	*/
-	bool ExportLevelSequence( UMovieScene* MovieScene, const TArray<FGuid>& InBindings, IMovieScenePlayer* MovieScenePlayer, FMovieSceneSequenceIDRef SequenceID );
+	 * Exports the given level sequence information into a FBX document.
+	 *
+	 * @return	true, if successful
+	 */
+	bool ExportLevelSequence(UMovieScene* MovieScene, const TArray<FGuid>& InBindings, IMovieScenePlayer* MovieScenePlayer, FMovieSceneSequenceIDRef SequenceID);
+
+	/**
+	 * Exports the given level sequence track information into a FBX document.
+	 *
+	 * @return	true, if successful
+	 */
+	bool ExportLevelSequenceTracks(UMovieScene* MovieScene, IMovieScenePlayer* MovieScenePlayer, FbxNode* FbxActor, AActor* Actor, const TArray<UMovieSceneTrack*>& Tracks);
 
 	/**
 	 * Exports all the animation sequences part of a single Group in a Matinee sequence
@@ -356,12 +364,12 @@ private:
 	/**
 	 * Adds an Fbx Mesh to the FBX scene based on the data in the given FSkeletalMeshLODModel
 	 */
-	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName);
+	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName, int32 LODIndex);
 
 	/**
 	 * Adds Fbx Clusters necessary to skin a skeletal mesh to the bones in the BoneNodes list
 	 */
-	void BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes);
+	void BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes, int32 LODIndex);
 
 	/**
 	 * Add a bind pose to the scene based on the FbxMesh and skinning settings of the given node
@@ -414,12 +422,12 @@ private:
 	/**
 	 * Exports a level sequence 3D transform track into the FBX animation stack.
 	 */
-	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange );
+	void ExportLevelSequence3DTransformTrack( FbxNode* FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange );
 
 	/** 
-	 * Exports a level sequence float track into the FBX animation stack. 
+	 * Exports a level sequence property track into the FBX animation stack. 
 	 */
-	void ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieSceneFloatTrack& FloatTrack );
+	void ExportLevelSequencePropertyTrack( FbxNode* FbxActor, UMovieScenePropertyTrack& PropertyTrack );
 
 	/** Defines value export modes for the EportRichCurveToFbxCurve method. */
 	enum class ERichCurveValueMode
@@ -438,6 +446,9 @@ private:
 	 * @return FbxNode* the FBX node created from the UE4 actor
 	 */
 	FbxNode* FindActor(AActor* Actor);
+
+	/** Create fbx node with the given name */
+	FbxNode* CreateNode(const FString& NodeName);
 
 	/**
 	 * Find bone array of FbxNOdes of the given skeletalmeshcomponent  

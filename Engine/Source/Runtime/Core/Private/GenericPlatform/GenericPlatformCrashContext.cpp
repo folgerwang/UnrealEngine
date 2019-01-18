@@ -255,8 +255,10 @@ void FGenericCrashContext::UpdateLocalizedStrings()
 #endif
 }
 
-FGenericCrashContext::FGenericCrashContext()
-	: bIsEnsure(false)
+FGenericCrashContext::FGenericCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+	: Type(InType)
+	, ErrorMessage(InErrorMessage)
+	, NumMinidumpFramesToIgnore(0)
 {
 	CommonBuffer.Reserve( 32768 );
 	CrashContextIndex = StaticCrashContextIndex++;
@@ -278,9 +280,9 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "IsInternalBuild" ), NCachedCrashContextProperties::bIsInternalBuild );
 	AddCrashProperty( TEXT( "IsPerforceBuild" ), NCachedCrashContextProperties::bIsPerforceBuild );
 	AddCrashProperty( TEXT( "IsSourceDistribution" ), NCachedCrashContextProperties::bIsSourceDistribution );
-	AddCrashProperty( TEXT( "IsEnsure" ), bIsEnsure );
-	AddCrashProperty( TEXT( "IsAssert" ), FDebug::HasAsserted() );
-	AddCrashProperty( TEXT( "CrashType" ), GetCrashTypeString(bIsEnsure, FDebug::HasAsserted(), GIsGPUCrashed) );
+	AddCrashProperty( TEXT( "IsEnsure" ), (Type == ECrashContextType::Ensure) );
+	AddCrashProperty( TEXT( "IsAssert" ), (Type == ECrashContextType::Assert) );
+	AddCrashProperty( TEXT( "CrashType" ), GetCrashTypeString(Type) );
 
 	AddCrashProperty( TEXT( "SecondsSinceStart" ), NCachedCrashContextProperties::SecondsSinceStart );
 
@@ -324,7 +326,8 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "EpicAccountId" ), *NCachedCrashContextProperties::EpicAccountId );
 
 	// Legacy callstack element for current crash reporter
-	AddCrashProperty(TEXT("CallStack"), TEXT(""));
+	AddCrashProperty( TEXT( "NumMinidumpFramesToIgnore"), NumMinidumpFramesToIgnore );
+	AddCrashProperty( TEXT( "CallStack" ), TEXT("") );
 
 	// Add new portable callstack element with crash stack
 	AddPortableCallStack();
@@ -332,7 +335,7 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "SourceContext" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserDescription" ), TEXT( "" ) );
 	AddCrashProperty( TEXT( "UserActivityHint" ), *NCachedCrashContextProperties::UserActivityHint );
-	AddCrashProperty( TEXT( "ErrorMessage" ), (const TCHAR*)GErrorMessage ); // GErrorMessage may be broken.
+	AddCrashProperty( TEXT( "ErrorMessage" ), ErrorMessage );
 	AddCrashProperty( TEXT( "CrashDumpMode" ), NCachedCrashContextProperties::CrashDumpMode );
 	AddCrashProperty( TEXT( "CrashReporterMessage" ), *NCachedCrashContextProperties::CrashReportClientRichText );
 
@@ -379,6 +382,17 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationSize"), (uint64)FPlatformMemory::OOMAllocationSize );
 	AddCrashProperty( TEXT( "MemoryStats.OOMAllocationAlignment"), (int32)FPlatformMemory::OOMAllocationAlignment );
 
+	{
+		FString AllThreadStacks;
+		if (GetPlatformAllThreadContextsString(AllThreadStacks))
+		{
+			CommonBuffer += TEXT("<Threads>");
+			CommonBuffer += AllThreadStacks;
+			CommonBuffer += TEXT("</Threads>");
+			CommonBuffer += LINE_TERMINATOR;
+		}
+	}
+
 	EndSection( *RuntimePropertiesTag );
 
 	// Add platform specific properties.
@@ -405,6 +419,11 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddFooter();
 }
 
+void FGenericCrashContext::SetNumMinidumpFramesToIgnore(int InNumMinidumpFramesToIgnore)
+{
+	NumMinidumpFramesToIgnore = InNumMinidumpFramesToIgnore;
+}
+
 void FGenericCrashContext::SetDeploymentName(const FString& EpicApp)
 {
 	NCachedCrashContextProperties::DeploymentName = EpicApp;
@@ -417,13 +436,15 @@ void FGenericCrashContext::GetUniqueCrashName(TCHAR* GUIDBuffer, int32 BufferSiz
 
 const bool FGenericCrashContext::IsFullCrashDump() const
 {
-	return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDump) ||
-		(NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
-}
-
-const bool FGenericCrashContext::IsFullCrashDumpOnEnsure() const
-{
-	return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	if(Type == ECrashContextType::Ensure)
+	{
+		return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	}
+	else
+	{
+		return (NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDump) ||
+			(NCachedCrashContextProperties::CrashDumpMode == (int32)ECrashDumpMode::FullDumpAlways);
+	}
 }
 
 void FGenericCrashContext::SerializeAsXML( const TCHAR* Filename ) const
@@ -563,22 +584,19 @@ FString FGenericCrashContext::GetCrashGameName()
 	return NCachedCrashContextProperties::GameName;
 }
 
-const TCHAR* FGenericCrashContext::GetCrashTypeString(bool InIsEnsure, bool InIsAssert, bool bIsGPUCrashed)
+const TCHAR* FGenericCrashContext::GetCrashTypeString(ECrashContextType Type)
 {
-	if (bIsGPUCrashed)
+	switch (Type)
 	{
+	case ECrashContextType::GPUCrash:
 		return *CrashTypeGPU;
-	}
-	if (InIsEnsure)
-	{
+	case ECrashContextType::Ensure:
 		return *CrashTypeEnsure;
-	}
-	else if (InIsAssert)
-	{
+	case ECrashContextType::Assert:
 		return *CrashTypeAssert;
+	default:
+		return *CrashTypeCrash;
 	}
-
-	return *CrashTypeCrash;
 }
 
 const TCHAR* FGenericCrashContext::EngineModeExString()
@@ -645,53 +663,57 @@ FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStack
 		NumStackFramesToIgnore++;
 	}
 
-	const int32 MaxDepth = 100;
-	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
-	return SetPortableCallStack(NumStackFramesToIgnore, Stack);
+	// Capture the stack trace
+	static const int StackTraceMaxDepth = 100;
+	uint64 StackTrace[StackTraceMaxDepth];
+	FMemory::Memzero(StackTrace);
+	int32 StackTraceDepth = FPlatformStackWalk::CaptureStackBackTrace(StackTrace, StackTraceMaxDepth, Context);
+
+	// Make sure we don't exceed the current stack depth
+	NumStackFramesToIgnore = FMath::Min(NumStackFramesToIgnore, StackTraceDepth);
+
+	// Generate the portable callstack from it
+	SetPortableCallStack(StackTrace + NumStackFramesToIgnore, StackTraceDepth - NumStackFramesToIgnore);
 }
 
-void FGenericCrashContext::SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack)
+void FGenericCrashContext::SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames)
 {
-	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
+	// Get all the modules in the current process
+	uint32 NumModules = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 
-	if (ModuleEntries)
+	TArray<FStackWalkModuleInfo> Modules;
+	Modules.AddUninitialized(NumModules);
+
+	NumModules = FPlatformStackWalk::GetProcessModuleSignatures(Modules.GetData(), NumModules);
+	Modules.SetNum(NumModules);
+
+	// Update the callstack with offsets from each module
+	CallStack.Reset(NumStackFrames);
+	for(int32 Idx = 0; Idx < NumStackFrames; Idx++)
 	{
-		TArray<FStackWalkModuleInfo> ProcessModules;
-		ProcessModules.AddUninitialized(ModuleEntries);
-		FPlatformStackWalk::GetProcessModuleSignatures(ProcessModules.GetData(), ProcessModules.Max());
+		const uint64 StackFrame = StackFrames[Idx];
 
-		TMap<FString, uint64> ImageBases;
-		int32 ModuleIndex = 0;
-		for (TArray<FProgramCounterSymbolInfo>::TConstIterator Itr(Stack); Itr; ++Itr)
+		// Try to find the module containing this stack frame
+		const FStackWalkModuleInfo* FoundModule = nullptr;
+		for(const FStackWalkModuleInfo& Module : Modules)
 		{
-			FString ModuleName = FPaths::GetBaseFilename(Itr->ModuleName);
-
-			if (!ImageBases.Contains(ModuleName))
+			if(StackFrame >= Module.BaseOfImage && StackFrame < Module.BaseOfImage + Module.ImageSize)
 			{
-				for (TArray<FStackWalkModuleInfo>::TConstIterator ProcessModuleItr(ProcessModules); ProcessModuleItr; ++ProcessModuleItr)
-				{
-					FString ProcessModuleName = FPaths::GetBaseFilename(ProcessModuleItr->ImageName);
-
-					if (!ModuleName.Compare(ProcessModuleName, ESearchCase::IgnoreCase))
-					{
-						ImageBases.Add(ModuleName, ProcessModuleItr->BaseOfImage);
-						break;
-					}
-				}
-
+				FoundModule = &Module;
+				break;
 			}
+		}
 
-			uint64 BaseOfImage = MAX_uint64;
-
-			if (ImageBases.Contains(ModuleName))
-			{
-				BaseOfImage = ImageBases[ModuleName];
-			}
-
-			CallStack.Add(FCrashStackFrame(ModuleName, BaseOfImage, Itr->ProgramCounter > BaseOfImage ? Itr->ProgramCounter - BaseOfImage : MAX_uint64));
+		// Add the callstack item
+		if(FoundModule == nullptr)
+		{
+			CallStack.Add(FCrashStackFrame(TEXT("Unknown"), 0, StackFrame));
+		}
+		else
+		{
+			CallStack.Add(FCrashStackFrame(FPaths::GetBaseFilename(FoundModule->ImageName), FoundModule->BaseOfImage, StackFrame - FoundModule->BaseOfImage));
 		}
 	}
-
 }
 
 FProgramCounterSymbolInfoEx::FProgramCounterSymbolInfoEx( FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter ) :

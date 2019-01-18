@@ -16,11 +16,14 @@
 class FVulkanQueue;
 class FVulkanCmdBuffer;
 
-inline bool DelayAcquireBackBuffer()
+enum class EDelayAcquireImageType
 {
-	extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
-	return GCVarDelayAcquireBackBuffer->GetInt() != 0;
-}
+	None,			// acquire next image on frame start
+	DelayAcquire,	// acquire next image just before presenting, rendering is done to intermediate image which is copied to real backbuffer
+	PreAcquire,		// acquire next image immediately after presenting current
+};
+
+extern EDelayAcquireImageType GVulkanDelayAcquireImage;
 
 namespace VulkanRHI
 {
@@ -615,11 +618,11 @@ namespace VulkanRHI
 	public:
 		FBufferAllocation(FResourceHeapManager* InOwner, FDeviceMemoryAllocation* InDeviceMemoryAllocation,
 			uint32 InMemoryTypeIndex, VkMemoryPropertyFlags InMemoryPropertyFlags,
-			uint32 InAlignment,
-			VkBuffer InBuffer, VkBufferUsageFlags InBufferUsageFlags, int32 InPoolSizeIndex)
+			uint32 InAlignment, VkBuffer InBuffer, uint32 InBufferId, VkBufferUsageFlags InBufferUsageFlags, int32 InPoolSizeIndex)
 			: FSubresourceAllocator(InOwner, InDeviceMemoryAllocation, InMemoryTypeIndex, InMemoryPropertyFlags, InAlignment)
 			, BufferUsageFlags(InBufferUsageFlags)
 			, Buffer(InBuffer)
+			, BufferId(InBufferId)
 			, PoolSizeIndex(InPoolSizeIndex)
 		{
 		}
@@ -642,9 +645,15 @@ namespace VulkanRHI
 			return Buffer;
 		}
 
+		inline uint32 GetHandleId() const
+		{
+			return BufferId;
+		}
+
 	protected:
 		VkBufferUsageFlags BufferUsageFlags;
 		VkBuffer Buffer;
+		uint32 BufferId;
 		int32 PoolSizeIndex;
 		friend class FResourceHeapManager;
 	};
@@ -1234,6 +1243,11 @@ namespace VulkanRHI
 			{
 			}
 
+			inline FBufferAllocation* GetBufferAllocation() const
+			{
+				return BufferSuballocation->GetBufferAllocation();
+			}
+
 			inline uint32 GetBindOffset() const
 			{
 				return BufferSuballocation->GetOffset() + CurrentOffset;
@@ -1510,7 +1524,7 @@ namespace VulkanRHI
 		{
 			VkImageMemoryBarrier& Barrier = ImageBarriers[BarrierIndex];
 
-			if (FVulkanPlatform::RequiresPresentLayoutFix() && !DelayAcquireBackBuffer())
+			if (FVulkanPlatform::RequiresPresentLayoutFix() && GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
 			{
 				VkPipelineStageFlags NewSourceStage = GetImageBarrierFlags(Source, Barrier.srcAccessMask, Barrier.oldLayout);;
 				VkPipelineStageFlags NewDestStage = GetImageBarrierFlags(Dest, Barrier.dstAccessMask, Barrier.newLayout);

@@ -51,6 +51,11 @@ namespace UnrealBuildTool
 		/// Delegate for creating a rules instance for a given platform/configuration
 		public Func<UnrealTargetPlatform, UnrealTargetConfiguration, TargetRules> CreateRulesDelegate = null;
 
+		public string Name
+		{
+			get { return TargetFilePath.GetFileNameWithoutAnyExtensions(); }
+		}
+
 		public override string ToString()
 		{
 			return TargetFilePath.GetFileNameWithoutExtension();
@@ -286,35 +291,40 @@ namespace UnrealBuildTool
 		/// <param name="NewPreprocessorDefinitions">List of preprocessor definitons to add</param>
 		public void AddIntelliSensePreprocessorDefinitions(List<string> NewPreprocessorDefinitions)
 		{
-			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
-				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)
+			foreach (string NewPreprocessorDefinition in NewPreprocessorDefinitions)
 			{
-				foreach (string CurDef in NewPreprocessorDefinitions)
+				// Don't add definitions and value combinations that have already been added for this project
+				string CurDef = NewPreprocessorDefinition;
+				if (KnownIntelliSensePreprocessorDefinitions.Add(CurDef))
 				{
-					// Don't add definitions and value combinations that have already been added for this project
-					if (KnownIntelliSensePreprocessorDefinitions.Add(CurDef))
+					// Go ahead and check to see if the definition already exists, but the value is different
+					bool AlreadyExists = false;
+
+					string Def, Value;
+					SplitDefinitionAndValue(CurDef, out Def, out Value);
+
+					// Ignore any API macros being import/export; we'll assume they're valid across the whole project
+					if(Def.EndsWith("_API", StringComparison.Ordinal))
 					{
-						// Go ahead and check to see if the definition already exists, but the value is different
-						bool AlreadyExists = false;
+						CurDef = Def + "=";
+						Value = "";
+					}
 
-						string Def, Value;
-						SplitDefinitionAndValue(CurDef, out Def, out Value);
-						for (int DefineIndex = 0; DefineIndex < IntelliSensePreprocessorDefinitions.Count; ++DefineIndex)
+					for (int DefineIndex = 0; DefineIndex < IntelliSensePreprocessorDefinitions.Count; ++DefineIndex)
+					{
+						string ExistingDef, ExistingValue;
+						SplitDefinitionAndValue(IntelliSensePreprocessorDefinitions[DefineIndex], out ExistingDef, out ExistingValue);
+						if (ExistingDef == Def)
 						{
-							string ExistingDef, ExistingValue;
-							SplitDefinitionAndValue(IntelliSensePreprocessorDefinitions[DefineIndex], out ExistingDef, out ExistingValue);
-							if (ExistingDef == Def)
-							{
-								// Already exists, but the value is changing.  We don't bother clobbering values for existing defines for this project.
-								AlreadyExists = true;
-								break;
-							}
+							// Already exists, but the value is changing.  We don't bother clobbering values for existing defines for this project.
+							AlreadyExists = true;
+							break;
 						}
+					}
 
-						if (!AlreadyExists)
-						{
-							IntelliSensePreprocessorDefinitions.Add(CurDef);
-						}
+					if (!AlreadyExists)
+					{
+						IntelliSensePreprocessorDefinitions.Add(CurDef);
 					}
 				}
 			}
@@ -328,33 +338,29 @@ namespace UnrealBuildTool
 		/// <param name="bAddingSystemIncludes"></param>
 		public void AddIntelliSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
 		{
-			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
-				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)
+			foreach (DirectoryReference CurPath in NewIncludePaths)
 			{
-				foreach (DirectoryReference CurPath in NewIncludePaths)
+				if (bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add(CurPath.FullName) : KnownIntelliSenseIncludeSearchPaths.Add(CurPath.FullName))
 				{
-					if (bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add(CurPath.FullName) : KnownIntelliSenseIncludeSearchPaths.Add(CurPath.FullName))
+					// Incoming include paths are relative to the solution directory, but we need these paths to be
+					// relative to the project file's directory
+					string PathRelativeToProjectFile = NormalizeProjectPath(CurPath);
+
+					// Make sure that it doesn't exist already
+					bool AlreadyExists = false;
+					List<string> SearchPaths = bAddingSystemIncludes ? IntelliSenseSystemIncludeSearchPaths : IntelliSenseIncludeSearchPaths;
+					foreach (string ExistingPath in SearchPaths)
 					{
-						// Incoming include paths are relative to the solution directory, but we need these paths to be
-						// relative to the project file's directory
-						string PathRelativeToProjectFile = NormalizeProjectPath(CurPath);
-
-						// Make sure that it doesn't exist already
-						bool AlreadyExists = false;
-						List<string> SearchPaths = bAddingSystemIncludes ? IntelliSenseSystemIncludeSearchPaths : IntelliSenseIncludeSearchPaths;
-						foreach (string ExistingPath in SearchPaths)
+						if (PathRelativeToProjectFile == ExistingPath)
 						{
-							if (PathRelativeToProjectFile == ExistingPath)
-							{
-								AlreadyExists = true;
-								break;
-							}
+							AlreadyExists = true;
+							break;
 						}
+					}
 
-						if (!AlreadyExists)
-						{
-							SearchPaths.Add(PathRelativeToProjectFile);
-						}
+					if (!AlreadyExists)
+					{
+						SearchPaths.Add(PathRelativeToProjectFile);
 					}
 				}
 			}
@@ -388,8 +394,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatforms">The platforms to write the project files for</param>
 		/// <param name="InConfigurations">The configurations to add to the project files</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>True on success</returns>
-		public virtual bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public virtual bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			throw new BuildException("UnrealBuildTool cannot automatically generate this project type because WriteProjectFile() was not overridden.");
 		}
@@ -399,8 +406,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatforms">The platforms to write the project files for</param>
 		/// <param name="InConfigurations">The configurations to add to the project files</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>List of project files written</returns>
-		public virtual List<Tuple<ProjectFile, string>> WriteDebugProjectFiles(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public virtual List<Tuple<ProjectFile, string>> WriteDebugProjectFiles(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return null;
 		}

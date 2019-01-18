@@ -58,6 +58,9 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 
 	PrimaryActorTick.bCanEverTick = true;
 	bAutoPlay_DEPRECATED = false;
+
+	bReplicates = true;
+	bReplicatePlayback = false;
 }
 
 bool ALevelSequenceActor::RetrieveBindingOverrides(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
@@ -68,6 +71,12 @@ bool ALevelSequenceActor::RetrieveBindingOverrides(const FGuid& InBindingId, FMo
 UObject* ALevelSequenceActor::GetInstanceData() const
 {
 	return bOverrideInstanceData ? DefaultInstanceData : nullptr;
+}
+
+void ALevelSequenceActor::SetReplicatePlayback(bool bInReplicatePlayback)
+{
+	bReplicatePlayback = bInReplicatePlayback;
+	SetReplicates(bReplicatePlayback);
 }
 
 bool ALevelSequenceActor::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -86,11 +95,18 @@ void ALevelSequenceActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ALevelSequenceActor, SequencePlayer);
 }
 
+void ALevelSequenceActor::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	SetReplicates(bReplicatePlayback);
+	InitializePlayer();
+}
+
 void ALevelSequenceActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	InitializePlayer();
 	RefreshBurnIn();
 
 	if (PlaybackSettings.bAutoPlay)
@@ -125,7 +141,8 @@ void ALevelSequenceActor::PostLoad()
 	// since under some circumstances it is possible for the sequence to only be partially loaded.
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	if (LevelSequence.IsValid() && GetWorld()->IsGameWorld())
+	UWorld* LocalWorld = GetWorld();
+	if (LevelSequence.IsValid() && LocalWorld && LocalWorld->IsGameWorld())
 	{
 		// If we're async loading and we don't have the sequence asset loaded, schedule a load for it
 		ULevelSequence* LevelSequenceAsset = GetSequence();
@@ -164,7 +181,7 @@ void ALevelSequenceActor::SetSequence(ULevelSequence* InSequence)
 		// cbb: should ideally null out the template and player when no sequence is assigned, but that's currently not possible
 		if (InSequence)
 		{
-			SequencePlayer->Initialize(InSequence, GetWorld(), PlaybackSettings);
+			SequencePlayer->Initialize(InSequence, GetLevel(), PlaybackSettings);
 		}
 	}
 }
@@ -180,7 +197,7 @@ void ALevelSequenceActor::InitializePlayer()
 			// Level sequence is already loaded. Initialize the player if it's not already initialized with this sequence
 			if (LevelSequenceAsset != SequencePlayer->GetSequence())
 			{
-				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+				SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 			}
 		}
 		else if (!IsAsyncLoading())
@@ -188,7 +205,7 @@ void ALevelSequenceActor::InitializePlayer()
 			LevelSequenceAsset = LoadSequence();
 			if (LevelSequenceAsset != SequencePlayer->GetSequence())
 			{
-				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+				SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 			}
 		}
 		else
@@ -205,7 +222,7 @@ void ALevelSequenceActor::OnSequenceLoaded(const FName& PackageName, UPackage* P
 		ULevelSequence* LevelSequenceAsset = GetSequence();
 		if (SequencePlayer->GetSequence() != LevelSequenceAsset)
 		{
-			SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+			SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 		}
 	}
 }

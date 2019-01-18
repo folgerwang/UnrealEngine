@@ -306,9 +306,9 @@ void UCanvasPanelSlot::SynchronizeProperties()
 
 #if WITH_EDITOR
 
-void UCanvasPanelSlot::PreEditChange(class FEditPropertyChain& PropertyAboutToChange)
+void UCanvasPanelSlot::PreEditChange(UProperty* PropertyThatWillChange)
 {
-	Super::PreEditChange(PropertyAboutToChange);
+	Super::PreEditChange(PropertyThatWillChange);
 
 	SaveBaseLayout();
 }
@@ -319,24 +319,16 @@ void UCanvasPanelSlot::PostEditChangeChainProperty(struct FPropertyChangedChainE
 
 	static FName AnchorsProperty(TEXT("Anchors"));
 
-	FEditPropertyChain::TDoubleLinkedListNode* AnchorNode = PropertyChangedEvent.PropertyChain.GetHead()->GetNextNode();
-	if ( !AnchorNode )
+	if (FEditPropertyChain::TDoubleLinkedListNode* AnchorNode = PropertyChangedEvent.PropertyChain.GetHead()->GetNextNode())
 	{
-		return;
-	}
-
-	FEditPropertyChain::TDoubleLinkedListNode* LayoutDataNode = AnchorNode->GetNextNode();
-
-	if ( !LayoutDataNode )
-	{
-		return;
-	}
-
-	UProperty* AnchorProperty = LayoutDataNode->GetValue();
-
-	if ( AnchorProperty && AnchorProperty->GetFName() == AnchorsProperty )
-	{
-		RebaseLayout();
+		if (FEditPropertyChain::TDoubleLinkedListNode* LayoutDataNode = AnchorNode->GetNextNode())
+		{
+			UProperty* AnchorProperty = LayoutDataNode->GetValue();
+			if (AnchorProperty && AnchorProperty->GetFName() == AnchorsProperty)
+			{
+				RebaseLayout();
+			}
+		}
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);

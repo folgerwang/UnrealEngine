@@ -22,6 +22,8 @@ class SHAREDSETTINGSWIDGETS_API FShaderFormatsPropertyDetails
 {
 	
 public:
+	typedef FText (*GetFriendlyNameFromRHINameFnc)(const FString&);
+	static FText GetFriendlyNameFromRHINameMac(const FString& InRHIName);
 	
 	/**
 	 * Constructor for the parent property details view
@@ -30,7 +32,7 @@ public:
 	 * @param InProperty - The category name to override
 	 * @param InTitle - Title for display
 	 */
-	FShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder, FString InProperty, FString InTitle);
+	FShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder, FString InProperty = TEXT("TargetedRHIs"), FString InTitle = TEXT("Targeted RHIs"));
 	
 	/** Simple delegate for updating shader version warning */
 	void SetOnUpdateShaderWarning(FSimpleDelegate const& Delegate);
@@ -38,7 +40,7 @@ public:
 	/**
 	 * Create the UI to select which windows shader formats we are targetting
 	 */
-	void CreateTargetShaderFormatsPropertyView(ITargetPlatform* TargetPlatform);
+	void CreateTargetShaderFormatsPropertyView(ITargetPlatform* TargetPlatform, GetFriendlyNameFromRHINameFnc FriendlyNameFnc);
 	
 	
 	/**
@@ -59,10 +61,13 @@ private:
 	
 	/** Access to the Parent Property */
 	TSharedPtr<IPropertyHandle> ShaderFormatsPropertyHandle;
-	
+
 	/** The category name to override */
 	FString Property;
-	
+
 	/** Title for display */
 	FString Title;
+
+	/** Preserve shader format order when writing to property */
+	TMap<FName, int> ShaderFormatOrder;
 };

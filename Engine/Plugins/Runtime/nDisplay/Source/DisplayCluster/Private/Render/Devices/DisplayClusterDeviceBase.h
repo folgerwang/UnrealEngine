@@ -9,7 +9,9 @@
 #include "StereoRendering.h"
 #include "StereoRenderTargetManager.h"
 
-#include "Render/IDisplayClusterStereoDevice.h"
+#include "Render/IDisplayClusterStereoRendering.h"
+#include "Render/IDisplayClusterProjectionScreenDataProvider.h"
+#include "Render/Devices/DisplayClusterRenderViewport.h"
 #include "Render/Devices/DisplayClusterViewportArea.h"
 
 
@@ -17,36 +19,63 @@
  * Abstract render device
  */
 class FDisplayClusterDeviceBase
-	: public  IStereoRendering
-	, public  IStereoRenderTargetManager
-	, public  IDisplayClusterStereoDevice
-	, public  FRHICustomPresent
+	: public IStereoRendering
+	, public IStereoRenderTargetManager
+	, public IDisplayClusterStereoRendering
+	, public FRHICustomPresent
 {
 public:
-	FDisplayClusterDeviceBase();
+	FDisplayClusterDeviceBase() = delete;
+	FDisplayClusterDeviceBase(uint32 ViewsPerViewport);
 	virtual ~FDisplayClusterDeviceBase();
 
 public:
 	virtual bool Initialize();
 
-protected:
-
+public:
 	inline uint32 GetSwapInt() const
 	{ return SwapInterval; }
 
-protected:
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IDisplayClusterStereoDevice
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void AddViewport(const FString& ViewportId, IDisplayClusterProjectionScreenDataProvider* DataProvider) override;
+	virtual void RemoveViewport(const FString& ViewportId) override;
+	virtual void RemoveAllViewports() override;
+	virtual void SetDesktopStereoParams(float FOV) override;
+	virtual void SetDesktopStereoParams(const FVector2D& screenSize, const FIntPoint& screenRes, float screenDist) override;
+	virtual void SetInterpupillaryDistance(float dist) override;
+	virtual float GetInterpupillaryDistance() const override;
+	virtual void SetEyesSwap(bool swap) override;
+	virtual bool GetEyesSwap() const override;
+	virtual bool ToggleEyesSwap() override;
+	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy) override;
+	virtual EDisplayClusterSwapSyncPolicy GetSwapSyncPolicy() const override;
+	virtual void GetCullingDistance(float& NearDistance, float& FarDistance) const override;
+	virtual void SetCullingDistance(float NearDistance, float FarDistance) override;
+
+public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IStereoRendering
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	virtual bool IsStereoEnabled() const override;
 	virtual bool IsStereoEnabledOnNextFrame() const override;
 	virtual bool EnableStereo(bool stereo = true) override;
-	virtual void AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const override;
+	virtual void AdjustViewRect(enum EStereoscopicPass StereoPassType, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const override;
 	virtual void CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation) override;
 	virtual FMatrix GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const override;
 	virtual void InitCanvasFromView(class FSceneView* InView, class UCanvas* Canvas) override;
+	
 	virtual IStereoRenderTargetManager* GetRenderTargetManager() override
 	{ return this; }
+
+	virtual int32 GetDesiredNumberOfViews(bool bStereoRequested) const override
+	{
+		return RenderViewports.Num() * ViewsAmountPerViewport;
+	}
+
+	virtual EStereoscopicPass GetViewPassForIndex(bool bStereoRequested, uint32 ViewIndex) const override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,43 +153,50 @@ protected:
 
 	virtual bool Present(int32& InOutSyncInterval) override;
 
-public:
-	//////////////////////////////////////////////////////////////////////////////////////////////
-	// IDisplayClusterStereoDevice
-	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void SetViewportArea(const FIntPoint& loc, const FIntPoint& size) override;
-	virtual void SetDesktopStereoParams(float FOV) override;
-	virtual void SetDesktopStereoParams(const FVector2D& screenSize, const FIntPoint& screenRes, float screenDist) override;
-	virtual void SetInterpupillaryDistance(float dist) override;
-	virtual float GetInterpupillaryDistance() const override;
-	virtual void SetEyesSwap(bool swap) override;
-	virtual bool GetEyesSwap() const override;
-	virtual bool ToggleEyesSwap() override;
-	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy) override;
-	virtual EDisplayClusterSwapSyncPolicy GetSwapSyncPolicy() const override;
-	virtual void GetCullingDistance(float& NearDistance, float& FarDistance) const override;
-	virtual void SetCullingDistance(float NearDistance, float FarDistance) override;
+protected:
+	enum EDisplayClusterEyeType
+	{
+		StereoLeft  = 0,
+		Mono        = 1,
+		StereoRight = 2,
+		COUNT
+	};
 
 protected:
-	// Implements buffer swap synchronization mechanism
-	virtual void WaitForBufferSwapSync(int32& InOutSyncInterval);
 	// Retrieves the projections screen data for current frame
-	void UpdateProjectionScreenDataForThisFrame();
+	void UpdateProjectionDataForThisFrame();
 
 	// Custom projection screen geometry (hw - half-width, hh - half-height of projection screen)
 	// Left bottom corner (from camera point view)
-	virtual FVector GetProjectionScreenGeometryLBC(const enum EStereoscopicPass StereoPassType, const float& hw, const float& hh) const
+	virtual FVector GetProjectionScreenGeometryLBC(const float& hw, const float& hh) const
 	{ return FVector(0.f, -hw, -hh);}
 	
 	// Right bottom corner (from camera point view)
-	virtual FVector GetProjectionScreenGeometryRBC(const enum EStereoscopicPass StereoPassType, const float& hw, const float& hh) const
+	virtual FVector GetProjectionScreenGeometryRBC(const float& hw, const float& hh) const
 	{ return FVector(0.f, hw, -hh);}
 
 	// Left top corner (from camera point view)
-	virtual FVector GetProjectionScreenGeometryLTC(const enum EStereoscopicPass StereoPassType, const float& hw, const float& hh) const
+	virtual FVector GetProjectionScreenGeometryLTC(const float& hw, const float& hh) const
 	{ return FVector(0.f, -hw, hh);}
 
+	// Encodes view index to EStereoscopicPass (the value may be out of EStereoscopicPass bounds)
+	EStereoscopicPass EncodeStereoscopicPass(int ViewIndex) const;
+	// Decodes normal EStereoscopicPass from encoded EStereoscopicPass
+	EStereoscopicPass DecodeStereoscopicPass(const enum EStereoscopicPass StereoPassType) const;
+	// Decodes view index from encoded EStereoscopicPass
+	int DecodeViewIndex(const enum EStereoscopicPass StereoPassType) const;
+	// Decodes viewport index from encoded EStereoscopicPass
+	int DecodeViewportIndex(const enum EStereoscopicPass StereoPassType) const;
+	// Decodes eye type from encoded EStereoscopicPass
+	EDisplayClusterEyeType DecodeEyeType(const enum EStereoscopicPass StereoPassType) const;
+
 protected:
+	// Implements buffer swap synchronization mechanism depending on selected sync policy
+	virtual void WaitForBufferSwapSync(int32& InOutSyncInterval);
+
+	virtual void PerformSynchronizationPolicyNone(int32& InOutSyncInterval);
+	virtual void PerformSynchronizationPolicySoft(int32& InOutSyncInterval);
+	virtual void PerformSynchronizationPolicyNvSwapLock(int32& InOutSyncInterval);
 	void exec_BarrierWait();
 
 protected:
@@ -174,23 +210,19 @@ protected:
 	// Stereo parameters
 	float EyeDist      = 0.064f; // meters
 	bool  bEyeSwap     = false;
-	FVector  EyeLoc[2] = { FVector::ZeroVector, FVector::ZeroVector };
-	FRotator EyeRot[2] = { FRotator::ZeroRotator, FRotator::ZeroRotator };
 
 	// Current world scale
 	float CurrentWorldToMeters = 100.f;
 
-	// Viewport area settings
-	FDisplayClusterViewportArea ViewportArea;
+	// Viewports
+	TArray<FDisplayClusterRenderViewport> RenderViewports;
+
+	// Views per viewport (render passes)
+	uint32 ViewsAmountPerViewport = 0;
 
 	// Clipping plane
 	float NearClipPlane = GNearClippingPlane;
 	float FarClipPlane = 2000000.f;
-
-	// Projection screen data
-	FVector   ProjectionScreenLoc;
-	FRotator  ProjectionScreenRot;
-	FVector2D ProjectionScreenSize;
 
 	uint32 SwapInterval = 1;
 
@@ -198,5 +230,5 @@ protected:
 	EDisplayClusterSwapSyncPolicy SwapSyncPolicy = EDisplayClusterSwapSyncPolicy::None;
 
 protected:
-	FViewport* CurrentViewport;
+	FViewport* MainViewport = nullptr;
 };

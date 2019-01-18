@@ -31,7 +31,8 @@ public:
 	UAnimSequenceBase* AnimObject;
 	FOnAnimObjectChange OnChange;
 
-	virtual void PreEditChange( class FEditPropertyChain& PropertyAboutToChange ) override;
+	using Super::PreEditChange;
+	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 

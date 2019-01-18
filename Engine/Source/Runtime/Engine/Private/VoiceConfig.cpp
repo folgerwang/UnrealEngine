@@ -35,13 +35,21 @@ int32 UVOIPStatics::GetVoiceSampleRate()
 	}
 
 	static FString DesiredSampleRateStr;
-	bRetrievedSampleRate = true;
-
+	
 	if (GConfig->GetString(TEXT("/Script/Engine.AudioSettings"), TEXT("VoiPSampleRate"), DesiredSampleRateStr, GEngineIni))
 	{
-		SampleRate = (int32)GetEnumValueFromString<EVoiceSampleRate>(TEXT("EVoiceSampleRate"), DesiredSampleRateStr);
+		if (DesiredSampleRateStr.Equals(TEXT("Low16000Hz")))
+		{
+			SampleRate = (int32)EVoiceSampleRate::Low16000Hz;
+		}
+		else if (DesiredSampleRateStr.Equals(TEXT("Normal24000Hz")))
+		{
+			SampleRate = (int32)EVoiceSampleRate::Normal24000Hz;
+		}
+
 		if (SampleRate > 0)
 		{		
+			bRetrievedSampleRate = true;
 			return SampleRate;
 		}
 	}

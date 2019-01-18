@@ -1420,20 +1420,9 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		}
 		else
 		{
-			if (Blueprint->IsGeneratedClassAuthoritative() && (Blueprint->GeneratedClass != nullptr))
+			if (Blueprint->GeneratedClass != nullptr)
 			{
 				RemoveStaleFunctions(Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass), Blueprint);
-
-				check(PreviousCDO != nullptr);
-				check(Blueprint->SkeletonGeneratedClass != nullptr);
-
-				// We now know we're a data-only blueprint on the outer pass (generate class is valid), where generated class is authoritative
-				// If the PreviousCDO is to the skeleton, then it will corrupt data when copied over the AuthoriativeClass later on in this function
-				if (PreviousCDO == Blueprint->SkeletonGeneratedClass->GetDefaultObject())
-				{
-					check(Blueprint->PRIVATE_InnermostPreviousCDO == nullptr);
-					Blueprint->PRIVATE_InnermostPreviousCDO = Blueprint->GeneratedClass->GetDefaultObject();
-				}
 			}
 
 			// No actual compilation work to be done, but try to conform the class and fix up anything that might need to be updated if the native base class has changed in any way
@@ -1470,79 +1459,10 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 
 		if (!FKismetEditorUtilities::IsClassABlueprintSkeleton(ClassToRegenerate))
 		{
-			if (Blueprint->bRecompileOnLoad)
-			{
-				// Verify that we had a skeleton generated class if we had a previous CDO, to make sure we have something to copy into
-				check((Blueprint->BlueprintType == BPTYPE_MacroLibrary) || Blueprint->SkeletonGeneratedClass);
-
-				const bool bPreviousMatchesGenerated = (PreviousCDO == Blueprint->GeneratedClass->GetDefaultObject());
-
-				if (Blueprint->BlueprintType != BPTYPE_MacroLibrary)
-				{
-					UObject* CDOThatKickedOffCOL = PreviousCDO;
-					if (Blueprint->IsGeneratedClassAuthoritative() && !bPreviousMatchesGenerated && Blueprint->PRIVATE_InnermostPreviousCDO)
-					{
-						PreviousCDO = Blueprint->PRIVATE_InnermostPreviousCDO;
-					}
-				}
-
-				// If this is the top of the compile-on-load stack for this object, copy the old CDO properties to the newly created one unless they are the same
-				UClass* AuthoritativeClass = (Blueprint->IsGeneratedClassAuthoritative() ? Blueprint->GeneratedClass : Blueprint->SkeletonGeneratedClass);
-				if (AuthoritativeClass != nullptr && PreviousCDO != AuthoritativeClass->GetDefaultObject())
-				{
-					TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-
-					// Make sure the previous CDO has been fully loaded before we use it
-					FBlueprintEditorUtils::PreloadMembers(PreviousCDO);
-
-					// Copy over the properties from the old CDO to the new
-					PropagateParentBlueprintDefaults(AuthoritativeClass);
-					UObject* NewCDO = AuthoritativeClass->GetDefaultObject();
-					{
-						FSaveActorFlagsHelper SaveActorFlags(AuthoritativeClass);
-						UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-						CopyDetails.bAggressiveDefaultSubobjectReplacement = true;
-						CopyDetails.bDoDelta = false;
-						CopyDetails.bCopyDeprecatedProperties = true;
-						CopyDetails.bSkipCompilerGeneratedDefaults = true;
-						UEditorEngine::CopyPropertiesForUnrelatedObjects(PreviousCDO, NewCDO, CopyDetails);
-					}
-
-					if (bRegenerated)
-					{
-						PatchCDOSubobjectsIntoExport(PreviousCDO, NewCDO);
-						// We purposefully do not call post load here, it happens later on in the normal flow
-					}
-
-					// Update the custom property list used in post construction logic to include native class properties for which the regenerated Blueprint CDO now differs from the native CDO.
-					if (UBlueprintGeneratedClass* BPGClass = Cast<UBlueprintGeneratedClass>(AuthoritativeClass))
-					{
-						BPGClass->UpdateCustomPropertyListForPostConstruction();
-					}
-				}
-
-				Blueprint->PRIVATE_InnermostPreviousCDO = nullptr;
-			}
-			else
+			if (!Blueprint->bRecompileOnLoad)
 			{
 				// If we didn't recompile, we still need to propagate flags, and instance components
 				FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(Blueprint);
-			}
-
-			// If this is the top of the compile-on-load stack for this object, copy the old CDO properties to the newly created one
-			if (!Blueprint->IsGeneratedClassAuthoritative() && Blueprint->GeneratedClass != nullptr)
-			{
-				TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-
-				UObject* SkeletonCDO = Blueprint->SkeletonGeneratedClass->GetDefaultObject();
-				UObject* GeneratedCDO = Blueprint->GeneratedClass->GetDefaultObject();
-
-				UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-				CopyDetails.bAggressiveDefaultSubobjectReplacement = false;
-				CopyDetails.bDoDelta = false;
-				UEditorEngine::CopyPropertiesForUnrelatedObjects(SkeletonCDO, GeneratedCDO, CopyDetails);
-
-				Blueprint->SetLegacyGeneratedClassIsAuthoritative();
 			}
 
 			// Now that the CDO is valid, update the OwnedComponents, in case we've added or removed native components
@@ -2808,6 +2728,9 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
+		// We should let the blueprint know we renamed a graph, some stuff may need to be fixed up.
+		Blueprint->NotifyGraphRenamed(Graph, OldGraphName, NewGraphName);
+
 		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
@@ -3211,7 +3134,7 @@ bool FBlueprintEditorUtils::IsBlueprintConst(const UBlueprint* Blueprint)
 {
 	// Macros aren't marked as const because they can modify variables when instanced into a non const class
 	// and will be caught at compile time if they're modifying variables on a const class.
-	return Blueprint->BlueprintType == BPTYPE_Const;
+	return Blueprint && Blueprint->BlueprintType == BPTYPE_Const;
 }
 
 bool FBlueprintEditorUtils::IsBlutility(const UBlueprint* Blueprint)
@@ -3227,7 +3150,7 @@ bool FBlueprintEditorUtils::IsBlutility(const UBlueprint* Blueprint)
 
 bool FBlueprintEditorUtils::IsActorBased(const UBlueprint* Blueprint)
 {
-	return Blueprint->ParentClass && Blueprint->ParentClass->IsChildOf(AActor::StaticClass());
+	return Blueprint && Blueprint->ParentClass && Blueprint->ParentClass->IsChildOf(AActor::StaticClass());
 }
 
 bool FBlueprintEditorUtils::IsDelegateSignatureGraph(const UEdGraph* Graph)
@@ -3253,22 +3176,22 @@ bool FBlueprintEditorUtils::IsMathExpressionGraph(const UEdGraph* InGraph)
 
 bool FBlueprintEditorUtils::IsInterfaceBlueprint(const UBlueprint* Blueprint)
 {
-	return (Blueprint->BlueprintType == BPTYPE_Interface);
+	return (Blueprint && Blueprint->BlueprintType == BPTYPE_Interface);
 }
 
 bool FBlueprintEditorUtils::IsLevelScriptBlueprint(const UBlueprint* Blueprint)
 {
-	return (Blueprint->BlueprintType == BPTYPE_LevelScript);
+	return (Blueprint && Blueprint->BlueprintType == BPTYPE_LevelScript);
 }
 
 bool FBlueprintEditorUtils::IsAnonymousBlueprintClass(const UClass* Class)
 {
-	return (Class->GetOutermost()->ContainsMap());
+	return (Class && Class->GetOutermost()->ContainsMap());
 }
 
 ULevel* FBlueprintEditorUtils::GetLevelFromBlueprint(const UBlueprint* Blueprint)
 {
-	return Cast<ULevel>(Blueprint->GetOuter());
+	return (Blueprint ? Cast<ULevel>(Blueprint->GetOuter()) : nullptr);
 }
 
 bool FBlueprintEditorUtils::SupportsConstructionScript(const UBlueprint* Blueprint)
@@ -4217,9 +4140,19 @@ void FBlueprintEditorUtils::GetHiddenPinsForFunction(UEdGraph const* Graph, UFun
 
 			const FName& Key = It.Key();
 
-			if (Key == NAME_LatentInfo || Key == NAME_HidePin || Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			if (Key == NAME_LatentInfo || Key == NAME_HidePin)
 			{
 				HiddenPins.Add(*It.Value());
+			}
+			else if (Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			{
+				TArray<FName> EnumPinNames;
+				UK2Node_CallFunction::GetExpandEnumPinNames(Function, EnumPinNames);
+				
+				for (const FName& EnumName : EnumPinNames)
+				{
+					HiddenPins.Add(EnumName);
+				}
 			}
 			else if (Key == FBlueprintMetadata::MD_InternalUseParam)
 			{
@@ -4806,6 +4739,13 @@ void FBlueprintEditorUtils::ChangeMemberVariableType(UBlueprint* Blueprint, cons
 
 				if(bChangeVariableType)
 				{
+					const bool bBecameBoolean = Variable.VarType.PinCategory != UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory == UEdGraphSchema_K2::PC_Boolean;
+					const bool bBecameNotBoolean = Variable.VarType.PinCategory == UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory != UEdGraphSchema_K2::PC_Boolean;
+					if (bBecameBoolean || bBecameNotBoolean)
+					{
+						Variable.FriendlyName = FName::NameToDisplayString(Variable.VarName.ToString(), bBecameBoolean);
+					}
+
 					Variable.VarType = NewPinType;
 
 					if(Variable.VarType.IsSet() || Variable.VarType.IsMap())

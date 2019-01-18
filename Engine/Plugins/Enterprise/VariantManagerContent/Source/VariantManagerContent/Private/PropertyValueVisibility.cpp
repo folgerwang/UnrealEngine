@@ -10,9 +10,25 @@
 #define LOCTEXT_NAMESPACE "PropertyValueVisibility"
 
 
-UPropertyValueVisibility::UPropertyValueVisibility(const FObjectInitializer& Init)
-	: Super(Init)
+UPropertyValueVisibility::UPropertyValueVisibility(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
+}
+
+void UPropertyValueVisibility::SetVisibility(bool bVisible)
+{
+	SetRecordedData((uint8*)&bVisible, sizeof(bool));
+}
+
+bool UPropertyValueVisibility::GetVisibility()
+{
+	if (!HasRecordedData())
+	{
+		return false;
+	}
+
+	uint8 Value = *(ValueBytes.GetData());
+	return Value != 0;
 }
 
 void UPropertyValueVisibility::ApplyDataToResolvedObject()
@@ -45,8 +61,8 @@ void UPropertyValueVisibility::ApplyDataToResolvedObject()
 	ContainerObject->SetFlags(RF_Transactional);
 	ContainerObject->Modify();
 
-	const bool bVisibilityValue = *(ValueBytes.GetData()) != 0;
-	ContainerObject->SetVisibility(bVisibilityValue, true);
+	uint8 Value = *(ValueBytes.GetData());
+	ContainerObject->SetVisibility(Value != 0, true);
 
 	// Update object on viewport
 #if WITH_EDITOR

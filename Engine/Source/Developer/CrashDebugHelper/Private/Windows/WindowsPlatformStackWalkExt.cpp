@@ -424,10 +424,9 @@ void FWindowsPlatformStackWalkExt::GetExceptionInfo()
 }
 
 
-int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
+void FWindowsPlatformStackWalkExt::GetCallstacks()
 {
-	const int32 MAX_NAME_LENGHT = FProgramCounterSymbolInfo::MAX_NAME_LENGTH;
-	int32 NumValidFunctionNames = 0;
+	const int32 MAX_NAME_LENGTH = FProgramCounterSymbolInfo::MAX_NAME_LENGTH;
 
 	FCrashExceptionInfo& Exception = CrashInfo.Exception;
 
@@ -445,7 +444,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 	HRESULT hr = Control->GetStoredEventInformation(&DebugEvent, &ProcessID, &ThreadID, Context, ContextSize, &ContextUsed, NULL, 0, 0);
 	if( FAILED(hr) )
 	{
-		return NumValidFunctionNames;
+		return;
 	}
 
 	// Some magic number checks
@@ -510,26 +509,12 @@ int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 			// https://msdn.microsoft.com/en-us/library/windows/hardware/ff547186(v=vs.85).aspx
 			if( ModuleAndFunction.Contains( TEXT( "!" ) ) )
 			{
-				NumValidFunctionNames++;
- 
 				ModuleAndFunction.Split( TEXT( "!" ), &ModuleName, &FunctionName );
 				FunctionName += TEXT( "()" );
 			}
 			else
 			{
 				ModuleName = ModuleAndFunction;
-			}
-
-			// #CrashReport: 2015-07-24 Add this to other platforms
-			// If we find an assert, the actual source file we're interested in is the next one up, so reset the source file found flag
-			if( FunctionName.Len() > 0 )
-			{
-				if( FunctionName.Contains( TEXT( "FDebug::" ), ESearchCase::CaseSensitive )
-					|| FunctionName.Contains( TEXT( "NewReportEnsure" ), ESearchCase::CaseSensitive ) )
-				{
-					bFoundSourceFile = false;
-					AssertOrEnsureIndex = Exception.CallStackString.Num();
-				}
 			}
 
 			// FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter
@@ -541,17 +526,6 @@ int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 			UE_LOG( LogCrashDebugHelper, Log, TEXT( "%3u: %s" ), StackIndex, *GenericFormattedCallstackLine );
 		}
 	}
-
-	// Remove callstack entries below FDebug, we don't need them.
-	if (bTrimCallstack && AssertOrEnsureIndex > 0)
-	{	
-		Exception.CallStackString.RemoveAt( 0, AssertOrEnsureIndex );
-		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack trimmed to %i entries" ), Exception.CallStackString.Num() );
-	}
-
-	UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack generated with %i valid function names" ), NumValidFunctionNames );
-
-	return NumValidFunctionNames;
 }
 
 

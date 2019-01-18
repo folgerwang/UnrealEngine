@@ -9,6 +9,8 @@
 /**
  * This class provides common registration for gamethread editor only tickable objects. It is an
  * abstract base class requiring you to implement the GetStatId, IsTickable, and Tick methods.
+ * If you need a class that can tick in both the Editor and at Runtime then use FTickableGameObject
+ * instead, overriding the IsTickableInEditor() function instead.
  */
 class UNREALED_API FTickableEditorObject : public FTickableObjectBase
 {

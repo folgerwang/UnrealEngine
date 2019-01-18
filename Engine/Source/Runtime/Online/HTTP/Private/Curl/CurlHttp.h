@@ -7,6 +7,7 @@
 #include "Interfaces/IHttpResponse.h"
 #include "IHttpThreadedRequest.h"
 #include "Containers/Queue.h"
+#include "GenericPlatform/HttpRequestPayload.h"
 
 class FCurlHttpResponse;
 
@@ -139,6 +140,8 @@ public:
 	virtual void SetURL(const FString& InURL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
 	virtual void SetContentAsString(const FString& ContentString) override;
+	virtual bool SetContentAsStreamedFile(const FString& Filename) override;
+	virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override;
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
@@ -335,7 +338,7 @@ private:
 	/** The response object which we will use to pair with this request */
 	TSharedPtr<class FCurlHttpResponse,ESPMode::ThreadSafe> Response;
 	/** BYTE array payload to use with the request. Typically for a POST */
-	TArray<uint8> RequestPayload;
+	TUniquePtr<FRequestPayload> RequestPayload;
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;
 	/** Mapping of header section to values. */

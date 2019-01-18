@@ -29,7 +29,7 @@ UMovieSceneParameterSection::UMovieSceneParameterSection( const FObjectInitializ
 			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
-}
+}	
 
 void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 {
@@ -40,6 +40,14 @@ void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 		ReconstructChannelProxy();
 	}
 }
+
+void UMovieSceneParameterSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	ReconstructChannelProxy();
+}
+
 
 void UMovieSceneParameterSection::ReconstructChannelProxy()
 {

@@ -1533,6 +1533,13 @@ UClass* FBlueprintCompileReinstancer::MoveCDOToNewClass(UClass* OwnerClass, cons
 		BPGDuplicatedClass->OverridenArchetypeForCDO = BPClassToReinstance->OverridenArchetypeForCDO;
 	}
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if (BPGDuplicatedClass && BPClassToReinstance)
+	{
+		BPGDuplicatedClass->UberGraphFunctionKey = BPClassToReinstance->UberGraphFunctionKey;
+	}
+#endif
+
 	UFunction* DuplicatedClassUberGraphFunction = BPGDuplicatedClass ? BPGDuplicatedClass->UberGraphFunction : nullptr;
 	if (DuplicatedClassUberGraphFunction)
 	{
@@ -1670,18 +1677,6 @@ static void ReplaceObjectHelper(UObject*& OldObject, UClass* OldClass, UObject*&
 	InstancedPropertyUtils::FArchiveInstancedSubObjCollector  InstancedSubObjCollector(OldObject, InstancedPropertyMap);
 	UEditorEngine::CopyPropertiesForUnrelatedObjects(OldObject, NewUObject);
 	InstancedPropertyUtils::FArchiveInsertInstancedSubObjects InstancedSubObjSpawner(NewUObject, InstancedPropertyMap);
-
-	if (UAnimInstance* AnimTree = Cast<UAnimInstance>(NewUObject))
-	{
-		// Initialising the anim instance isn't enough to correctly set up the skeletal mesh again in a
-		// paused world, need to initialise the skeletal mesh component that contains the anim instance.
-		if (USkeletalMeshComponent* SkelComponent = Cast<USkeletalMeshComponent>(AnimTree->GetOuter()))
-		{
-			SkelComponent->InitAnim(true);
-			// compile change ignores motion vector, so ignore this. 
-			SkelComponent->ClearMotionVector();
-		}
-	}
 
 	UWorld* RegisteredWorld = nullptr;
 	bool bWasRegistered = false;
@@ -2061,12 +2056,7 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 
 	// Now replace any pointers to the old archetypes/instances with pointers to the new one
 	TArray<UObject*> SourceObjects;
-	TArray<UObject*> DstObjects;
-
 	OldToNewInstanceMap.GenerateKeyArray(SourceObjects);
-	OldToNewInstanceMap.GenerateValueArray(DstObjects); // Also look for references in new spawned objects.
-
-	SourceObjects.Append(DstObjects);
 	
 	if (InOriginalCDO)
 	{
@@ -2119,6 +2109,27 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 	}
 
 	FReplaceReferenceHelper::FindAndReplaceReferences(SourceObjects, ObjectsThatShouldUseOldStuff, ObjectsReplaced, OldToNewInstanceMap, ReinstancedObjectsWeakReferenceMap);
+	
+	for (UObject* Obj : ObjectsReplaced)
+	{
+		UObject** NewObject = OldToNewInstanceMap.Find(Obj);
+		if (NewObject && *NewObject)
+		{
+			if (UAnimInstance* AnimTree = Cast<UAnimInstance>(*NewObject))
+			{
+				// Initialising the anim instance isn't enough to correctly set up the skeletal mesh again in a
+				// paused world, need to initialise the skeletal mesh component that contains the anim instance.
+				if (USkeletalMeshComponent* SkelComponent = Cast<USkeletalMeshComponent>(AnimTree->GetOuter()))
+				{
+					SkelComponent->ClearAnimScriptInstance();
+					SkelComponent->InitAnim(true);
+					// compile change ignores motion vector, so ignore this. 
+					SkelComponent->ClearMotionVector();
+				}
+			}
+		}
+	}
+
 
 	if(SelectedActors)
 	{

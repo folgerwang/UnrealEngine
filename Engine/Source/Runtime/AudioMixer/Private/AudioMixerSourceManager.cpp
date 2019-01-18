@@ -1153,7 +1153,7 @@ namespace Audio
 			if (SourceInfo.MixerSourceBuffer->GetNumBuffersQueued() > 0)
 			{
 				SourceInfo.CurrentPCMBuffer = SourceInfo.MixerSourceBuffer->GetNextBuffer();
-				SourceInfo.CurrentAudioChunkNumFrames = SourceInfo.CurrentPCMBuffer->Samples / NumChannels;
+				SourceInfo.CurrentAudioChunkNumFrames = SourceInfo.CurrentPCMBuffer->AudioData.Num() / NumChannels;
 
 				// Subtract the number of frames in the current buffer from our frame index.
 				// Note: if this is the first time we're playing, CurrentFrameIndex will be 0
@@ -2177,7 +2177,7 @@ namespace Audio
 					}
 
 					// Clear out the mixer source buffer
-					SourceInfo.MixerSourceBuffer = nullptr;
+					SourceInfo.MixerSourceBuffer.Reset();
 
 					// Set the sound to be done playing
 					// This will flag the sound to be released

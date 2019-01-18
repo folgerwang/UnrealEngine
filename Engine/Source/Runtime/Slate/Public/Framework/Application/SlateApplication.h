@@ -1595,7 +1595,7 @@ public:
 	FDragDropCheckingOverride OnDragDropCheckOverride;
 #endif
 
-	const TSet<FKey> GetPressedMouseButtons() const;
+	const TSet<FKey>& GetPressedMouseButtons() const;
 
 private:
 
@@ -2178,6 +2178,7 @@ private:
 		bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 		bool HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 		bool HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
+		bool HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& WheelEvent, const FPointerEvent* GestureEvent);
 		bool HandleMotionDetectedEvent(FSlateApplication& SlateApp, const FMotionEvent& MotionEvent);
 
 		/**

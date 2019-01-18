@@ -14,19 +14,16 @@ DEFINE_LOG_CATEGORY(LogBuildPatchTool);
 class FBuildPatchOutputDevice : public FOutputDevice
 {
 public:
-	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
+	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
 		// Only forward verbosities higher than Display as they will already be sent to stdout.
 		// For EC to get any logging, we have to forward all.
-		//if (Verbosity > ELogVerbosity::Display)
-		{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-			printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+		printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #else
-			wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+		wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #endif
-			fflush( stdout );
-		}
+		fflush(stdout);
 	}
 };
 
@@ -107,6 +104,10 @@ void CheckAndReallocThreadPool()
 			GThreadPool->Destroy();
 			GThreadPool = FQueuedThreadPool::Allocate();
 			verify(GThreadPool->Create(DesiredThreadCount, 128 * 1024));
+		}
+		else
+		{
+			UE_LOG(LogBuildPatchTool, Log, TEXT("Continuing with %d spawned worker threads."), ThreadsSpawned);
 		}
 	}
 }

@@ -59,6 +59,9 @@ public:
 	/** Extra time to reduce from current player's time. */
 	FTimespan TimeDelay;
 
+	/** Active media player options. */
+	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
+
 public:
 
 	/** Default constructor. */
@@ -807,9 +810,6 @@ private:
 
 	/** Media player event queue. */
 	TQueue<EMediaEvent, EQueueMode::Mpsc> QueuedEvents;
-
-	/** Active media player options. */
-	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
 
 	/** Time of last audio sample played. */
 	TAtomic<FTimespan> LastAudioRenderedSampleTime;

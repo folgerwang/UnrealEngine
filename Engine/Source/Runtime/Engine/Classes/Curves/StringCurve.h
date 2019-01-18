@@ -153,7 +153,7 @@ public:
 	 * @param KeyHandle Handle to the key whose time to get.
 	 * @return The key's time.
 	 */
-	float GetKeyTime(FKeyHandle KeyHandle) const;
+	virtual float GetKeyTime(FKeyHandle KeyHandle) const override final;
 
 	/**
 	* Get the value for the Key with the specified index.
@@ -184,12 +184,10 @@ public:
 	/**
 	 * Move a key to a new time.
 	 *
-	 * This may change the index of the key, so the new key index is returned.
-	 *
 	 * @param KeyHandle The handle of the key to change.
 	 * @param NewTime The new time to set on the key.
 	 */
-	FKeyHandle SetKeyTime(FKeyHandle KeyHandle, float NewTime);
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewTime) override final;
 
 	/**
 	* Assign a new value to a key.
@@ -210,20 +208,12 @@ public:
 
 public:
 
-	/** Shifts all keys forwards or backwards in time by an even amount, preserving order. */
-	void ShiftCurve(float DeltaTime);
-	void ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles);
-	
-	/** Scales all keys about an origin, preserving order. */
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor);
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles);
-
-public:
-
 	//~ FIndexedCurve interface
 
-	virtual int32 GetNumKeys() const override;
-	virtual bool IsKeyHandleValid(FKeyHandle KeyHandle) const override;
+	virtual int32 GetNumKeys() const override final { return Keys.Num(); }
+
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FStringCurve(*this); }
 
 public:
 

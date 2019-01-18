@@ -29,6 +29,7 @@
 #include "Framework/Application/IWidgetReflector.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Framework/Notifications/NotificationManager.h"
+#include "Framework/Notifications/SlateAsyncTaskNotificationImpl.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "GenericPlatform/ITextInputMethodSystem.h"
 #include "ToolboxModule.h"
@@ -919,6 +920,8 @@ TSharedRef<FSlateApplication> FSlateApplication::Create(const TSharedRef<class G
 		PlatformApplication->OnDisplayMetricsChanged().AddSP(CurrentApplication.ToSharedRef(), &FSlateApplication::OnVirtualDesktopSizeChanged);
 	}
 
+	FAsyncTaskNotificationFactory::Get().RegisterFactory(TEXT("Slate"), []() -> FAsyncTaskNotificationFactory::FImplPointerType { return new FSlateAsyncTaskNotificationImpl(); });
+
 	return CurrentApplication.ToSharedRef();
 }
 
@@ -926,6 +929,8 @@ void FSlateApplication::Shutdown(bool bShutdownPlatform)
 {
 	if (FSlateApplication::IsInitialized())
 	{
+		FAsyncTaskNotificationFactory::Get().UnregisterFactory(TEXT("Slate"));
+
 		CurrentApplication->OnShutdown();
 		CurrentApplication->DestroyRenderer();
 		CurrentApplication->Renderer.Reset();
@@ -2581,26 +2586,26 @@ bool FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>
 	{
 		if (FSlateUser* User = GetOrCreateUser(UserIndex))
 		{
-		FWidgetPath PathToWidget;
-		const bool bFound = FSlateWindowHelper::FindPathToWidget(SlateWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
-		if (bFound)
-		{
-				return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
-		}
-		else
-		{
-			const bool bFoundVirtual = FSlateWindowHelper::FindPathToWidget(SlateVirtualWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
-				if (bFoundVirtual)
+			FWidgetPath PathToWidget;
+			const bool bFound = FSlateWindowHelper::FindPathToWidget(SlateWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
+			if (bFound)
 			{
-					return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
+				return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
 			}
 			else
 			{
-				//ensureMsgf(bFound, TEXT("Attempting to focus a widget that isn't in the tree and visible: %s. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus->ToString());
+				const bool bFoundVirtual = FSlateWindowHelper::FindPathToWidget(SlateVirtualWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
+				if (bFoundVirtual)
+				{
+					return SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
+				}
 			}
 		}
 	}
-	}
+
+#if WITH_SLATE_DEBUGGING
+	FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "SetUserFocusFailed", "Attempting to focus a widget that isn't in the tree and visible. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus);
+#endif
 
 	return false;
 }
@@ -2619,7 +2624,9 @@ void FSlateApplication::SetAllUserFocus(const TSharedPtr<SWidget>& WidgetToFocus
 		}
 		else
 		{
-			//ensureMsgf(bFound, TEXT("Attempting to focus a widget that isn't in the tree and visible: %s. If your intent is to clear focus use ClearAllUserFocus()"), WidgetToFocus->ToString());
+#if WITH_SLATE_DEBUGGING
+			FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "SetUserFocusFailedAll", "Attempting to focus a widget that isn't in the tree and visible. If your intent is to clear focus use ClearUserFocus()"), WidgetToFocus);
+#endif
 		}
 	}
 }
@@ -2755,7 +2762,7 @@ const void* FSlateApplication::FindBestParentWindowHandleForDialogs(const TShare
 	return ParentWindowWindowHandle;
 }
 
-const TSet<FKey> FSlateApplication::GetPressedMouseButtons() const
+const TSet<FKey>& FSlateApplication::GetPressedMouseButtons() const
 {
 	return PressedMouseButtons;
 }
@@ -3243,6 +3250,10 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 		{
 			if ( MouseCaptor.SetMouseCaptor(UserIndex, PointerIndex, CurrentEventPath, RequestedMouseCaptor) )
 			{
+#if WITH_SLATE_DEBUGGING
+				FSlateDebugging::MouseCapture(RequestedMouseCaptor);
+#endif
+
 				if (WidgetsUnderMouse)
 				{
 					const FWeakWidgetPath& LastWidgetsUnderCursor = WidgetsUnderCursorLastEvent.FindRef(FUserAndPointer(UserIndex, PointerIndex));
@@ -3257,8 +3268,18 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 							{
 								if (SomeWidgetPreviouslyUnderCursor != RequestedMouseCaptor)
 								{
-									// Note that the event's pointer position is not translated.
-									SomeWidgetPreviouslyUnderCursor->OnMouseLeave(*InMouseEvent);
+									// It's possible for mouse event to be null if we end up here from a keyboard event. If so, we should synthesize an event
+									if (InMouseEvent)
+									{
+										// Note that the event's pointer position is not translated.
+										SomeWidgetPreviouslyUnderCursor->OnMouseLeave(*InMouseEvent);
+									}
+									else
+									{
+										const FPointerEvent& SimulatedPointer = FPointerEvent();
+										SomeWidgetPreviouslyUnderCursor->OnMouseLeave(SimulatedPointer);
+									}
+									
 
 #if WITH_SLATE_DEBUGGING
 									FSlateDebugging::BroadcastInputEvent(ESlateDebuggingInputEvent::MouseLeave, SomeWidgetPreviouslyUnderCursor);
@@ -3274,6 +3295,13 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 					}
 				}
 			}
+			else
+			{
+#if WITH_SLATE_DEBUGGING
+				FSlateDebugging::BroadcastWarning(NSLOCTEXT("SlateDebugging", "FailedToCaptureMouse", "Failed To Mouse Capture"), RequestedMouseCaptor);
+#endif
+			}
+
 			// When the cursor capture state changes we need to refresh cursor state.
 			bQueryCursorRequested = true;
 		}
@@ -6196,6 +6224,12 @@ bool FSlateApplication::ProcessMouseWheelOrGestureEvent( const FPointerEvent& In
 	}
 
 	SetLastUserInteractionTime(this->GetCurrentTime());
+
+	// Input preprocessors get the first chance at the input
+	if (InputPreProcessors.HandleMouseWheelOrGestureEvent(*this, InWheelEvent, InGestureEvent))
+	{
+		return true;
+	}
 	
 	// NOTE: We intentionally don't reset LastUserInteractionTimeForThrottling here so that the UI can be responsive while scrolling
 
@@ -7531,6 +7565,19 @@ bool FSlateApplication::InputPreProcessorsHelper::HandleMouseButtonDoubleClickEv
 	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
 	{
 		if (InputPreProcessor->HandleMouseButtonDoubleClickEvent(SlateApp, MouseEvent))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FSlateApplication::InputPreProcessorsHelper::HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& WheelEvent, const FPointerEvent* GestureEvent)
+{
+	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
+	{
+		if (InputPreProcessor->HandleMouseWheelOrGestureEvent(SlateApp, WheelEvent, GestureEvent))
 		{
 			return true;
 		}

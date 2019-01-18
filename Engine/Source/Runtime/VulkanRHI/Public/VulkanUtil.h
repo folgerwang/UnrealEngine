@@ -222,12 +222,14 @@ template <>
 class TDataKeyBase<0>
 {
 protected:
-	template <class TDataWriter>
-	void UpdateData(TDataWriter&& WriteToData)
+	template <class DataReceiver>
+	void GetData(DataReceiver&& ReceiveData)
 	{
 		TArray<uint8> TempData;
-		WriteToData(TempData);
+		ReceiveData(TempData);
 	}
+
+	void SetData(const void* InData, uint32 InSize) {}
 
 	void CopyDataDeep(TDataKeyBase& Result) const {}
 	void CopyDataShallow(TDataKeyBase& Result) const {}
@@ -241,15 +243,18 @@ template <>
 class TDataKeyBase<1>
 {
 protected:
-	template <class TDataWriter>
-	void UpdateData(TDataWriter&& WriteToData)
+	template <class DataReceiver>
+	void GetData(DataReceiver&& ReceiveData)
 	{
-		if (!DataStorage)
-		{
-			DataStorage = MakeUnique<TArray<uint8>>();
-			Data = DataStorage.Get();
-		}
-		WriteToData(*Data);
+		EnsureDataStorage();
+		ReceiveData(*Data);
+	}
+
+	void SetData(const void* InData, uint32 InSize)
+	{
+		EnsureDataStorage();
+		Data->SetNum(InSize);
+		FMemory::Memcpy(Data->GetData(), InData, InSize);
 	}
 
 	void CopyDataDeep(TDataKeyBase& Result) const
@@ -273,6 +278,16 @@ protected:
 		return true;
 	}
 
+private:
+	void EnsureDataStorage()
+	{
+		if (!DataStorage)
+		{
+			DataStorage = MakeUnique<TArray<uint8>>();
+			Data = DataStorage.Get();
+		}
+	}
+
 protected:
 	uint32 Hash = 0;
 	TArray<uint8> *Data = nullptr;
@@ -292,14 +307,14 @@ protected:
 	}
 };
 
-template <class TDerived, bool AlwaysCompareData = false>
+template <class Derived, bool AlwaysCompareData = false>
 class TDataKey : private TDataKeyBase<AlwaysCompareData ? 2 : (DO_CHECK != 0)>
 {
 public:
-	template <class TArchiveWriter>
-	void Generate(TArchiveWriter&& WriteToArchive, int32 DataReserve = 0)
+	template <class ArchiveWriter>
+	void GenerateFromArchive(ArchiveWriter&& WriteToArchive, int32 DataReserve = 0)
 	{
-		this->UpdateData([&](TArray<uint8>& InData)
+		this->GetData([&](TArray<uint8>& InData)
 		{
 			FMemoryWriter Ar(InData);
 
@@ -310,33 +325,45 @@ public:
 		});
 	}
 
+	template <class ObjectType>
+	void GenerateFromObject(const ObjectType& Object)
+	{
+		GenerateFromData(&Object, sizeof(Object));
+	}
+
+	void GenerateFromData(const void* InData, uint32 InSize)
+	{
+		this->SetData(InData, InSize);
+		this->Hash = FCrc::MemCrc32(InData, InSize);
+	}
+
 	uint32 GetHash() const
 	{
 		return this->Hash;
 	}
 
-	TDerived CopyDeep() const
+	Derived CopyDeep() const
 	{
-		TDerived Result;
+		Derived Result;
 		Result.Hash = this->Hash;
 		this->CopyDataDeep(Result);
 		return Result;
 	}
 
-	TDerived CopyShallow() const
+	Derived CopyShallow() const
 	{
-		TDerived Result;
+		Derived Result;
 		Result.Hash = this->Hash;
 		this->CopyDataShallow(Result);
 		return Result;
 	}
 
-	friend uint32 GetTypeHash(const TDerived& Key)
+	friend uint32 GetTypeHash(const Derived& Key)
 	{
 		return Key.Hash;
 	}
 
-	friend bool operator==(const TDerived& A, const TDerived& B)
+	friend bool operator==(const Derived& A, const Derived& B)
 	{
 		return ((A.Hash == B.Hash) && A.IsDataEquals(B));
 	}

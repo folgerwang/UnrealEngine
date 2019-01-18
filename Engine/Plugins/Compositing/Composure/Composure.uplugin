@@ -25,11 +25,28 @@
 			"Name" : "ComposureEditor",
 			"Type" : "Editor",
 			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "ComposureLayersEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit"
 		}
 	],
 	"Plugins": [
 		{
 			"Name": "LensDistortion",
+			"Enabled": true
+		},
+		{
+			"Name": "BlueprintMaterialTextureNodes",
+			"Enabled": true
+		},
+		{
+			"Name": "MediaFrameworkUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "OpenColorIO",
 			"Enabled": true
 		}
 	]

@@ -103,6 +103,8 @@ namespace BuildPatchServices
 		FString PrereqPath;
 		// The command line required when launching the prerequisite installer.
 		FString PrereqArgs;
+		// A unique build id generated at original chunking time to identify an exact build.
+		FString BuildId;
 	};
 
 	struct FChunkDataList
@@ -115,7 +117,7 @@ namespace BuildPatchServices
 		 * @return Passed in archive.
 		 */
 		friend FArchive& operator<<(FArchive& Ar, FChunkDataList& ChunkDataList);
-		// The feature level support this build was created with.
+		// The list of chunks.
 		TArray<FChunkInfo> ChunkList;
 	};
 
@@ -167,7 +169,7 @@ namespace BuildPatchServices
 		 * Helper to sort and calculate file sizes after loading.
 		 */
 		void OnPostLoad();
-		// The feature level support this build was created with.
+		// The list of files.
 		TArray<FFileManifest> FileList;
 	};
 

@@ -43,14 +43,19 @@ namespace Gauntlet
         Saved
     }
 
-    /// <summary>
-    /// This class represents a process-role in a test and defines the type, command line,
-    /// and controllers that are needed.
-    /// 
-    /// TODO - can this be removed and UnrealSessionRole used directly?
-    /// 
-    /// </summary>
-    public class UnrealTestRole
+	/// <summary>
+	/// Delegate for role device configuration
+	/// </summary>
+	public delegate void ConfigureDeviceHandler(ITargetDevice Device);
+
+	/// <summary>
+	/// This class represents a process-role in a test and defines the type, command line,
+	/// and controllers that are needed.
+	/// 
+	/// TODO - can this be removed and UnrealSessionRole used directly?
+	/// 
+	/// </summary>
+	public class UnrealTestRole
 	{
 		/// <summary>
 		/// Constructor. This intentionally takes only a type as it's expected that code creating roles should do so via
@@ -97,6 +102,12 @@ namespace Gauntlet
 		public string ExplicitClientCommandLine { get; set; }
 
         public List<UnrealFileToCopy> FilesToCopy { get; set; }
+
+		/// <summary>
+		/// Role device configuration 
+		/// </summary>
+		public ConfigureDeviceHandler ConfigureDevice;
+
 	}
 
 

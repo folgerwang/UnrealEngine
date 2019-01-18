@@ -23,8 +23,33 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "UObject/EnumProperty.h"
 #include "IDetailPropertyRow.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "PropertyHandleImplementation"
+
+void PropertyToTextHelper(FString& OutString, FPropertyNode* InPropertyNode, UProperty* Property, uint8* ValueAddress, EPropertyPortFlags PortFlags)
+{
+	if (InPropertyNode->GetArrayIndex() != INDEX_NONE || Property->ArrayDim == 1)
+	{
+		Property->ExportText_Direct(OutString, ValueAddress, ValueAddress, nullptr, PortFlags);
+	}
+	else
+	{
+		UArrayProperty::ExportTextInnerItem(OutString, Property, ValueAddress, Property->ArrayDim, ValueAddress, Property->ArrayDim, nullptr, PortFlags);
+	}
+}
+
+void TextToPropertyHelper(const TCHAR* Buffer, FPropertyNode* InPropertyNode, UProperty* Property, uint8* ValueAddress, UObject* Object)
+{
+	if (InPropertyNode->GetArrayIndex() != INDEX_NONE || Property->ArrayDim == 1)
+	{
+		Property->ImportText(Buffer, ValueAddress, 0, Object);
+	}
+	else
+	{
+		UArrayProperty::ImportTextInnerItem(Buffer, Property, ValueAddress, 0, Object);
+	}
+}
 
 FPropertyValueImpl::FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode, FNotifyHook* InNotifyHook, TSharedPtr<IPropertyUtilities> InPropertyUtilities )
 	: PropertyNode( InPropertyNode )
@@ -87,7 +112,7 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueString( FString& Out
 			// Check for bogus data
 			if( Property != nullptr && InPropertyNode->GetParentNode() != nullptr )
 			{
-				Property->ExportText_Direct( OutString, ValueAddress, ValueAddress, nullptr, PortFlags );
+				PropertyToTextHelper(OutString, InPropertyNode, Property, ValueAddress, PortFlags);
 
 				UEnum* Enum = nullptr;
 				int64 EnumValue = 0;
@@ -160,7 +185,7 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueText( FText& OutText
 			else
 			{
 				FString ExportedTextString;
-				Property->ExportText_Direct(ExportedTextString, ValueAddress, ValueAddress, nullptr, PPF_PropertyWindow );
+				PropertyToTextHelper(ExportedTextString, InPropertyNode, Property, ValueAddress, PPF_PropertyWindow);
 
 				UEnum* Enum = nullptr;
 				int64 EnumValue = 0;
@@ -403,7 +428,7 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 
 			// Cache the value of the property before modifying it.
 			FString PreviousValue;
-			NodeProperty->ExportText_Direct(PreviousValue, Cur.BaseAddress, Cur.BaseAddress, nullptr, 0 );
+			PropertyToTextHelper(PreviousValue, InPropertyNode, NodeProperty, Cur.BaseAddress, PPF_None);
 
 			// If this property is the inner-property of a container, cache the current value as well
 			FString PreviousContainerValue;
@@ -490,13 +515,13 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 
 			// Set the new value.
 			const TCHAR* NewValue = *InValues[ObjectIndex];
-			NodeProperty->ImportText( NewValue, Cur.BaseAddress, 0, Cur.Object );
+			TextToPropertyHelper(NewValue, InPropertyNode, NodeProperty, Cur.BaseAddress, Cur.Object);
 
 			if (Cur.Object)
 			{
 				// Cache the value of the property after having modified it.
 				FString ValueAfterImport;
-				NodeProperty->ExportText_Direct(ValueAfterImport, Cur.BaseAddress, Cur.BaseAddress, nullptr, 0);
+				PropertyToTextHelper(ValueAfterImport, InPropertyNode, NodeProperty, Cur.BaseAddress, PPF_None);
 
 				if ((Cur.Object->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
 					(Cur.Object->HasAnyFlags(RF_DefaultSubObject) && Cur.Object->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
@@ -1042,7 +1067,7 @@ void FPropertyValueImpl::AddChild()
 		PropertyNodePin->GetReadAddress( !!PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::SingleSelectOnly), ReadAddresses, true, false, true );
 		if ( ReadAddresses.Num() )
 		{
-			// determines whether we actually changed any values (if the user clicks the "emtpy" button when the array is already empty,
+			// determines whether we actually changed any values (if the user clicks the "empty" button when the array is already empty,
 			// we don't want the objects to be marked dirty)
 			bool bNotifiedPreChange = false;
 
@@ -3093,6 +3118,30 @@ void FPropertyHandleBase::ExecuteCustomResetToDefault(const FResetToDefaultOverr
 	Implementation->GetPropertyUtilities()->EnqueueDeferredAction(FSimpleDelegate::CreateLambda([this, InOnCustomResetToDefault]() { OnCustomResetToDefault(InOnCustomResetToDefault); }));
 }
 
+FName FPropertyHandleBase::GetDefaultCategoryName() const
+{
+	UProperty* Property = GetProperty();
+
+	if (Property)
+	{
+		return FObjectEditorUtils::GetCategoryFName(Property);
+	}
+
+	return NAME_None;
+}
+
+FText FPropertyHandleBase::GetDefaultCategoryText() const
+{
+	UProperty* Property = GetProperty();
+
+	if (Property)
+	{
+		return FObjectEditorUtils::GetCategoryText(Property);
+	}
+
+	return FText::GetEmpty();
+}
+
 /** Implements common property value functions */
 #define IMPLEMENT_PROPERTY_VALUE( ClassName ) \
 	ClassName::ClassName( TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities ) \
@@ -3635,7 +3684,7 @@ FPropertyAccess::Result FPropertyHandleObject::SetValue(const FAssetData& NewVal
 	{
 		if (!PropertyNode->GetProperty()->IsA(USoftObjectProperty::StaticClass()))
 		{
-			// Make sure the asset is loaded if we are not a string asset reference.
+			// Make sure the asset is loaded if we are not a soft reference
 			NewValue.GetAsset();
 		}
 
@@ -4381,7 +4430,7 @@ FPropertyAccess::Result FPropertyHandleText::GetValue(FText& OutValue) const
 FPropertyAccess::Result FPropertyHandleText::SetValue(const FText& NewValue, EPropertyValueSetFlags::Type Flags)
 {
 	FString StringValue;
-	FTextStringHelper::WriteToString(StringValue, NewValue);
+	FTextStringHelper::WriteToBuffer(StringValue, NewValue);
 	return Implementation->ImportText(StringValue, Flags);
 }
 

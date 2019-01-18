@@ -13,7 +13,7 @@
  */
 struct CORE_API FApplePlatformCrashContext : public FGenericCrashContext
 {
-	FApplePlatformCrashContext();
+	FApplePlatformCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage);
 	~FApplePlatformCrashContext();
 	
 	/** Signal number */

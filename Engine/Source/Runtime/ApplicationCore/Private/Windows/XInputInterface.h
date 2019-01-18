@@ -86,14 +86,17 @@ private:
 		/** Right trigger analog value */
 		uint8 RightTriggerAnalog;
 
-		/** Id of the controller */
-		int32 ControllerId;
-
 		/** If the controller is currently connected */
 		bool bIsConnected;
-		
+
+		/** Id of the controller */
+		int32 ControllerId;
+	
 		/** Current force feedback values */
 		FForceFeedbackValues ForceFeedback;
+
+		float LastLargeValue;
+		float LastSmallValue;
 	};
 
 	/** If we've been notified by the system that the controller state may have changed */

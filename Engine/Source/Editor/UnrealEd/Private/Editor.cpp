@@ -65,6 +65,7 @@
 #include "K2Node_AddComponent.h"
 
 #include "AutoReimport/AutoReimportUtilities.h"
+#include "AssetToolsModule.h"
 
 
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
@@ -124,6 +125,20 @@ FEditorDelegates::FOnAssetsDeleted						FEditorDelegates::OnAssetsDeleted;
 FEditorDelegates::FOnAssetDragStarted					FEditorDelegates::OnAssetDragStarted;
 FSimpleMulticastDelegate								FEditorDelegates::OnActionAxisMappingsChanged;
 FEditorDelegates::FOnAddLevelToWorld					FEditorDelegates::OnAddLevelToWorld;
+FEditorDelegates::FOnEditCutActorsBegin					FEditorDelegates::OnEditCutActorsBegin;
+FEditorDelegates::FOnEditCutActorsEnd					FEditorDelegates::OnEditCutActorsEnd;
+FEditorDelegates::FOnEditCopyActorsBegin				FEditorDelegates::OnEditCopyActorsBegin;
+FEditorDelegates::FOnEditCopyActorsEnd					FEditorDelegates::OnEditCopyActorsEnd;
+FEditorDelegates::FOnEditPasteActorsBegin				FEditorDelegates::OnEditPasteActorsBegin;
+FEditorDelegates::FOnEditPasteActorsEnd					FEditorDelegates::OnEditPasteActorsEnd;
+FEditorDelegates::FOnDuplicateActorsBegin				FEditorDelegates::OnDuplicateActorsBegin;
+FEditorDelegates::FOnDuplicateActorsEnd					FEditorDelegates::OnDuplicateActorsEnd;
+FEditorDelegates::FOnDeleteActorsBegin					FEditorDelegates::OnDeleteActorsBegin;
+FEditorDelegates::FOnDeleteActorsEnd					FEditorDelegates::OnDeleteActorsEnd;
+FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenReferenceViewer;
+FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenSizeMap;
+FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenAssetAudit;
+FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnEditAssetIdentifiers;
 
 /*-----------------------------------------------------------------------------
 	Globals.
@@ -193,7 +208,31 @@ void FReimportManager::UpdateReimportPaths( UObject* Obj, const TArray<FString>&
 	}
 }
 
-bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification, FString PreferredReimportFile, FReimportHandler* SpecifiedReimportHandler)
+void FReimportManager::UpdateReimportPath(UObject* Obj, const FString& Filename, int32 SourceFileIndex)
+{
+	if (Obj)
+	{
+		TArray<FString> UnusedExistingFilenames;
+		auto* Handler = Handlers.FindByPredicate([&](FReimportHandler* InHandler) { return InHandler->CanReimport(Obj, UnusedExistingFilenames); });
+		if (Handler)
+		{
+			if (SourceFileIndex == INDEX_NONE)
+			{
+				TArray<FString> Filenames;
+				Filenames.Add(Filename);
+				(*Handler)->SetReimportPaths(Obj, Filenames);
+			}
+			else
+			{
+				(*Handler)->SetReimportPaths(Obj, Filename, SourceFileIndex);
+			}
+			Obj->MarkPackageDirty();
+		}
+	}
+}
+
+
+bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification, FString PreferredReimportFile, FReimportHandler* SpecifiedReimportHandler, int32 SourceFileIndex, bool bForceNewFile /*= false*/)
 {
 	// Warn that were about to reimport, so prep for it
 	PreReimport.Broadcast( Obj );
@@ -227,21 +266,26 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 
 		if(CanReimportHandler != nullptr)
 		{
+			TArray<int32> MissingFileIndex;
 			// Check all filenames for missing files
 			bool bMissingFiles = false;
 			if (SourceFilenames.Num() > 0)
 			{
 				for (int32 FileIndex = 0; FileIndex < SourceFilenames.Num(); ++FileIndex)
 				{
-					if (SourceFilenames[FileIndex].IsEmpty() || IFileManager::Get().FileSize(*SourceFilenames[FileIndex]) == INDEX_NONE)
+					if (SourceFilenames[FileIndex].IsEmpty() || IFileManager::Get().FileSize(*SourceFilenames[FileIndex]) == INDEX_NONE || (bForceNewFile && SourceFileIndex == FileIndex))
 					{
-						bMissingFiles = true;
-						break;
+						if (SourceFileIndex == INDEX_NONE || SourceFileIndex == FileIndex)
+						{
+							MissingFileIndex.AddUnique(FileIndex);
+							bMissingFiles = true;
+						}
 					}
 				}
 			}
 			else
 			{
+				MissingFileIndex.AddUnique(SourceFileIndex == INDEX_NONE ? 0 : SourceFileIndex);
 				bMissingFiles = true;
 			}
 
@@ -255,7 +299,10 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 				}
 				else
 				{
-					GetNewReimportPath(Obj, SourceFilenames);
+					for (int32 FileIndex : MissingFileIndex)
+					{
+						GetNewReimportPath(Obj, SourceFilenames, FileIndex);
+					}
 				}
 				if ( SourceFilenames.Num() == 0 )
 				{
@@ -266,21 +313,19 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 				else
 				{
 					// A new filename was supplied, update the path
-					CanReimportHandler->SetReimportPaths(Obj, SourceFilenames);
+					CanReimportHandler->SetReimportPaths(Obj, SourceFilenames[0], SourceFileIndex);
 				}
 			}
 			else if (!PreferredReimportFile.IsEmpty() && !SourceFilenames.Contains(PreferredReimportFile))
 			{
 				// Reimporting the asset from a new file
-				SourceFilenames.Empty();
-				SourceFilenames.Add(PreferredReimportFile);
-				CanReimportHandler->SetReimportPaths(Obj, SourceFilenames);
+				CanReimportHandler->SetReimportPaths(Obj, PreferredReimportFile, SourceFileIndex);
 			}
 
 			if ( bValidSourceFilename )
 			{
 				// Do the reimport
-				EReimportResult::Type Result = CanReimportHandler->Reimport( Obj );
+				EReimportResult::Type Result = CanReimportHandler->Reimport( Obj, SourceFileIndex );
 				if( Result == EReimportResult::Succeeded )
 				{
 					Obj->PostEditChange();
@@ -363,11 +408,11 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 	return bSuccess;
 }
 
-void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification)
+void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification, int32 SourceFileIndex, bool bForceNewFile /*= false*/)
 {
 	//Copy the array to prevent iteration assert if a reimport factory change the selection
 	TArray<UObject*> CopyOfSelectedAssets;
-	TArray<UObject*> MissingFileSelectedAssets;
+	TMap<UObject*, TArray<int32>> MissingFileSelectedAssets;
 	for (UObject *Asset : ToImportObjects)
 	{
 		TArray<FString> SourceFilenames;
@@ -375,18 +420,20 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 		{
 			if (SourceFilenames.Num() == 0)
 			{
-				MissingFileSelectedAssets.Add(Asset);
+				MissingFileSelectedAssets.FindOrAdd(Asset);
 			}
 			else
 			{
 				bool bMissingFile = false;
-				for (FString SourceFilename : SourceFilenames)
+
+				for (int32 FileIndex = 0; FileIndex < SourceFilenames.Num(); ++FileIndex)
 				{
-					if (SourceFilename.IsEmpty() || IFileManager::Get().FileSize(*SourceFilename) == INDEX_NONE)
+					FString SourceFilename = SourceFilenames[FileIndex];
+					if (SourceFilename.IsEmpty() || IFileManager::Get().FileSize(*SourceFilename) == INDEX_NONE || (bForceNewFile && FileIndex == SourceFileIndex))
 					{
-						MissingFileSelectedAssets.Add(Asset);
+						TArray<int32>& SourceIndexArray = MissingFileSelectedAssets.FindOrAdd(Asset);
+						SourceIndexArray.Add(FileIndex);
 						bMissingFile = true;
-						break;
 					}
 				}
 
@@ -412,8 +459,10 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 			Arguments.Add(TEXT("MissingNumber"), FText::FromString(FString::FromInt(MissingFileSelectedAssets.Num())));
 			int MaxListFile = 100;
 			FString AssetToFileListString;
-			for (UObject *Asset : MissingFileSelectedAssets)
+			for (auto Kvp : MissingFileSelectedAssets)
 			{
+				UObject *Asset = Kvp.Key;
+				const TArray<int32>& SourceIndexArray = Kvp.Value;
 				AssetToFileListString += TEXT("\n");
 				if (MaxListFile == 0)
 				{
@@ -424,7 +473,15 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 				if (this->CanReimport(Asset, &SourceFilenames))
 				{
 					MaxListFile--;
-					AssetToFileListString += FString::Printf(TEXT("Asset %s -> Missing file %s"), *(Asset->GetName()), *(SourceFilenames[0]));
+					for (int32 FileIndex : SourceIndexArray)
+					{
+						int32 RemapFileIndex = 0;
+						if (SourceFilenames.IsValidIndex(FileIndex))
+						{
+							RemapFileIndex = FileIndex;
+						}
+						AssetToFileListString += FString::Printf(TEXT("Asset %s -> Missing file %s"), *(Asset->GetName()), *(SourceFilenames[RemapFileIndex]));
+					}
 				}
 			}
 			Arguments.Add(TEXT("AssetToFileList"), FText::FromString(AssetToFileListString));
@@ -436,16 +493,29 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 		//Ask missing file locations
 		if (UserChoice == EAppReturnType::Type::Yes)
 		{
+			bool bCancelAll = true;
 			//Ask the user for a new source reimport path for each asset
-			for (UObject *Asset : MissingFileSelectedAssets)
+			for (auto Kvp : MissingFileSelectedAssets)
 			{
-				TArray<FString> SourceFilenames;
-				this->GetNewReimportPath(Asset, SourceFilenames);
-				if (SourceFilenames.Num() == 0)
+				UObject *Asset = Kvp.Key;
+				const TArray<int32>& SourceIndexArray = Kvp.Value;
+				for (int32 FileIndex : SourceIndexArray)
 				{
-					continue;
+					TArray<FString> SourceFilenames;
+					this->GetNewReimportPath(Asset, SourceFilenames, FileIndex);
+					if (SourceFilenames.Num() == 0)
+					{
+						continue;
+					}
+					bCancelAll = false;
+					this->UpdateReimportPath(Asset, SourceFilenames[0], FileIndex);
 				}
-				this->UpdateReimportPaths(Asset, SourceFilenames);
+				//return if the operation is cancel and we have nothing to re-import
+				if (bCancelAll)
+				{
+					return;
+				}
+
 				CopyOfSelectedAssets.Add(Asset);
 			}
 		}
@@ -456,7 +526,7 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 		//If user ignore those asset just not add them to CopyOfSelectedAssets
 	}
 
-	FReimportManager::Instance()->ReimportMultiple(CopyOfSelectedAssets, /*bAskForNewFileIfMissing=*/false, bShowNotification);
+	FReimportManager::Instance()->ReimportMultiple(CopyOfSelectedAssets, /*bAskForNewFileIfMissing=*/false, bShowNotification, TEXT(""), nullptr, SourceFileIndex);
 }
 
 void FReimportManager::AddReferencedObjects( FReferenceCollector& Collector )
@@ -471,7 +541,7 @@ void FReimportManager::AddReferencedObjects( FReferenceCollector& Collector )
 	}
 }
 
-bool FReimportManager::ReimportMultiple(TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing /*= false*/, bool bShowNotification /*= true*/, FString PreferredReimportFile /*= TEXT("")*/, FReimportHandler* SpecifiedReimportHandler /*= nullptr */)
+bool FReimportManager::ReimportMultiple(TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing /*= false*/, bool bShowNotification /*= true*/, FString PreferredReimportFile /*= TEXT("")*/, FReimportHandler* SpecifiedReimportHandler /*= nullptr */, int32 SourceFileIndex /*= INDEX_NONE*/)
 {
 	bool bBulkSuccess = true;
 
@@ -485,7 +555,7 @@ bool FReimportManager::ReimportMultiple(TArrayView<UObject*> Objects, bool bAskF
 			FScopedSlowTask SingleObjectTask(1.0f, SingleTaskTest);
 			SingleObjectTask.EnterProgressFrame(1.0f);
 
-			bBulkSuccess = bBulkSuccess && Reimport(CurrentObject, bAskForNewFileIfMissing, bShowNotification, PreferredReimportFile, SpecifiedReimportHandler);
+			bBulkSuccess = bBulkSuccess && Reimport(CurrentObject, bAskForNewFileIfMissing, bShowNotification, PreferredReimportFile, SpecifiedReimportHandler, SourceFileIndex);
 		}
 
 		BulkReimportTask.EnterProgressFrame(1.0f);
@@ -494,12 +564,21 @@ bool FReimportManager::ReimportMultiple(TArrayView<UObject*> Objects, bool bAskF
 	return bBulkSuccess;
 }
 
-void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames)
+void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames, int32 SourceFileIndex /*= INDEX_NONE*/)
 {
 	TArray<UObject*> ReturnObjects;
 	FString FileTypes;
 	FString AllExtensions;
 	TArray<UFactory*> Factories;
+	TArray<FString> SourceFileLabels;
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	const auto AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Obj->GetClass());
+	if (AssetTypeActions.IsValid())
+	{
+		TArray<UObject*> Objects;
+		Objects.Add(Obj);
+		AssetTypeActions.Pin()->GetSourceFileLabels(Objects, SourceFileLabels);
+	}
 
 	// Determine whether we will allow multi select and clear old filenames
 	bool bAllowMultiSelect = InOutFilenames.Num() > 1;
@@ -558,7 +637,28 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
 		}
 
-		const FString Title = FString::Printf(TEXT("%s: %s"), *NSLOCTEXT("ReimportManager", "ImportDialogTitle", "Import For").ToString(), *Obj->GetName());
+		FString Title = FString::Printf(TEXT("%s: %s"), *NSLOCTEXT("ReimportManager", "ImportDialogTitle", "Import For").ToString(), *Obj->GetName());
+		if (SourceFileIndex != INDEX_NONE)
+		{
+			if (SourceFileLabels.IsValidIndex(SourceFileIndex))
+			{
+				Title = FString::Printf(TEXT("%s %s %s: %s"),
+					*NSLOCTEXT("ReimportManager", "ImportDialogTitleLabelPart1", "Select").ToString(),
+					*SourceFileLabels[SourceFileIndex],
+					*NSLOCTEXT("ReimportManager", "ImportDialogTitleLabelPart2", "Source File For").ToString(),
+					*Obj->GetName());
+			}
+			else
+			{
+				FString SourceFileIndexStr = FString::FromInt(SourceFileIndex);
+				Title = FString::Printf(TEXT("%s %s %s: %s"),
+					*NSLOCTEXT("ReimportManager", "ImportDialogTitlePart1", "Select Source File Index").ToString(),
+					*SourceFileIndexStr,
+					*NSLOCTEXT("ReimportManager", "ImportDialogTitlePart2", "for").ToString(),
+					*Obj->GetName());
+			}
+		}
+
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
 			Title,

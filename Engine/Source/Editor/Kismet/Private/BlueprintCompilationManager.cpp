@@ -489,7 +489,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			if(bSkipCompile)
 			{
 				CurrentlyCompilingBPs.Add(FCompilerData(QueuedBP, ECompilationManagerJobType::SkeletonOnly, QueuedJob.ClientResultsLog, QueuedJob.CompileOptions, false));
-				if (QueuedBP->IsGeneratedClassAuthoritative() && (QueuedBP->GeneratedClass != nullptr))
+				if (QueuedBP->GeneratedClass != nullptr)
 				{
 					// set bIsRegeneratingOnLoad so that we don't reset loaders:
 					QueuedBP->bIsRegeneratingOnLoad = true;
@@ -689,7 +689,11 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 								if(FuncIt->HasAnyFunctionFlags(EFunctionFlags::FUNC_BlueprintCallable))
 								{
 									UFunction* NewFunction = BP->SkeletonGeneratedClass->FindFunctionByName((*FuncIt)->GetFName());
-									if(NewFunction == nullptr || !NewFunction->IsSignatureCompatibleWith(*FuncIt))
+									if(	NewFunction == nullptr || 
+										!NewFunction->IsSignatureCompatibleWith(*FuncIt) || 
+										// If a function changes its net flags, callers may now need to do a full EX_FinalFunction/EX_VirtualFunction 
+										// instead of a EX_LocalFinalFunction/EX_LocalVirtualFunction:
+										NewFunction->HasAnyFunctionFlags(FUNC_NetFuncFlags) != FuncIt->HasAnyFunctionFlags(FUNC_NetFuncFlags))
 									{
 										BlueprintsWithSignatureChanges.Add(BP);
 										break;

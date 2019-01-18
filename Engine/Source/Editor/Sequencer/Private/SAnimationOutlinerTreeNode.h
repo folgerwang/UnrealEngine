@@ -10,7 +10,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 
-class SEditableLabel;
+class SInlineEditableTextBlock;
 class SSequencerTreeViewRow;
 struct FSlateBrush;
 struct FTableRowStyle;
@@ -58,6 +58,9 @@ private:
 
 	FSlateColor GetForegroundBasedOnSelection() const;
 
+	/** Gets the track out of the underlying Node structure. Can return null. */
+	class UMovieSceneTrack* GetTrackFromNode() const;
+
 	/** Get the tint to apply to the color indicator based on this node's track */
 	FSlateColor GetTrackColorTint() const;
 
@@ -97,16 +100,19 @@ private:
 	FText GetDisplayName() const;
 
 	/** Callback for checking whether the node label can be edited. */
-	bool HandleNodeLabelCanEdit() const;
+	bool IsNodeLabelReadOnly() const;
 
 	/** Callback for when the node label text has changed. */
-	void HandleNodeLabelTextChanged(const FText& NewLabel);
+	void HandleNodeLabelTextCommitted(const FText& NewLabel, ETextCommit::Type CommitType);
 
 	/** Get all descendant nodes from the given root node. */
 	void GetAllDescendantNodes(TSharedPtr<FSequencerDisplayNode> RootNode, TArray<TSharedRef<FSequencerDisplayNode> >& AllNodes);
 
 	/** Called when the user clicks the track color */
-	TSharedRef<SWidget> OnGetColorPicker() const;
+	FReply OnSetTrackColor();
+	void OnColorPickerPicked(FLinearColor NewFolderColor);
+	void OnColorPickerClosed(const TSharedRef<SWindow>& Window);
+	void OnColorPickerCancelled(FLinearColor NewFolderColor);
 
 private:
 
@@ -114,7 +120,7 @@ private:
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;
 
 	/** Holds the editable text label widget. */
-	TSharedPtr<SEditableLabel> EditableLabel;
+	TSharedPtr<SInlineEditableTextBlock> EditableLabel;
 
 	/** True if this node is a top level node, at the root of the tree, false otherwise */
 	bool bIsOuterTopLevelNode;

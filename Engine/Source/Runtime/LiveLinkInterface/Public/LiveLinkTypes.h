@@ -64,6 +64,7 @@ public:
 	{
 		Offset = FPlatformTime::Seconds() - InTime;
 	};
+
 };
 
 USTRUCT()
@@ -220,6 +221,14 @@ struct FOptionalCurveElement
 		Value = InValue;
 		bValid = true;
 	}
+
+	friend FArchive& operator<<(FArchive& Ar, FOptionalCurveElement& InElement)
+	{
+		Ar << InElement.Value;
+		Ar << InElement.bValid;
+
+		return Ar;
+	}
 };
 
 //Helper struct for updating curve data across multiple frames of live link data
@@ -276,5 +285,15 @@ public:
 	void ExtendCurveData(int32 ExtraCurves)
 	{
 		Curves.AddDefaulted(ExtraCurves);
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FLiveLinkFrame& InFrame)
+	{
+		Ar << InFrame.Transforms;
+		Ar << InFrame.Curves;
+		//FLiveLinkMetaData::StaticStruct()->SerializeItem(Ar, (void*)& InFrame.MetaData, nullptr);
+		FLiveLinkWorldTime::StaticStruct()->SerializeItem(Ar, (void*)& InFrame.WorldTime, nullptr);
+
+		return Ar;
 	}
 };

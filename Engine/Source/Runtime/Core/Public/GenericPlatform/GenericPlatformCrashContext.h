@@ -74,12 +74,22 @@ struct FCrashStackFrame
 	uint64 BaseAddress;
 	uint64 Offset;
 
-	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+	FCrashStackFrame(FString ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+		: ModuleName(MoveTemp(ModuleNameIn))
+		, BaseAddress(BaseAddressIn)
+		, Offset(OffsetIn)
 	{
-		ModuleName = ModuleNameIn;
-		BaseAddress = BaseAddressIn;
-		Offset = OffsetIn;
 	}
+};
+
+enum class ECrashContextType
+{
+	Crash,
+	Assert,
+	Ensure,
+	GPUCrash,
+
+	Max
 };
 
 /**
@@ -135,7 +145,7 @@ public:
 	}
 
 	/** Default constructor. */
-	FGenericCrashContext();
+	FGenericCrashContext(ECrashContextType InType, const TCHAR* ErrorMessage);
 
 	virtual ~FGenericCrashContext() { }
 
@@ -160,11 +170,6 @@ public:
 	 */
 	const bool IsFullCrashDump() const;
 
-	/**
-	 * @return whether this crash is a full memory minidump if the crash context is for an ensure
-	 */
-	const bool IsFullCrashDumpOnEnsure() const;
-
 	/** Serializes crash's informations to the specified filename. Should be overridden for platforms where using FFileHelper is not safe, all POSIX platforms. */
 	virtual void SerializeAsXML( const TCHAR* Filename ) const;
 
@@ -185,7 +190,7 @@ public:
 	static FString UnescapeXMLString( const FString& Text );
 
 	/** Helper to get the standard string for the crash type based on crash event bool values. */
-	static const TCHAR* GetCrashTypeString(bool InIsEnsure, bool InIsAssert, bool bIsGPUCrashed);
+	static const TCHAR* GetCrashTypeString(ECrashContextType Type);
 
 	/** Get the Game Name of the crash */
 	static FString GetCrashGameName();
@@ -204,17 +209,20 @@ public:
 
 	/** Adds a plugin descriptor string to the enabled plugins list in the crash context */
 	static void AddPlugin(const FString& PluginDesc);
-	
+
+	/** Sets the number of stack frames to ignore when symbolicating from a minidump */
+	void SetNumMinidumpFramesToIgnore(int32 InNumMinidumpFramesToIgnore);
+
 	/** Generate raw call stack for crash report (image base + offset) */
 	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
 	
 	/** Sets the portable callstack to a specified stack */
-	void SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack);
+	virtual void SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames);
 
 	/**
 	 * @return whether this crash is a non-crash event
 	 */
-	bool GetIsEnsure() const { return bIsEnsure; }
+	ECrashContextType GetType() const { return Type; }
 
 	/**
 	 * Set the current deployment name (ie. EpicApp)
@@ -222,7 +230,15 @@ public:
 	static void SetDeploymentName(const FString& EpicApp);
 
 protected:
-	bool bIsEnsure;
+	/**
+	 * @OutStr - a stream of Thread XML elements containing info (e.g. callstack) specific to an active thread
+	 * @return - whether the operation was successful
+	 */
+	virtual bool GetPlatformAllThreadContextsString(FString& OutStr) const { return false; }
+
+	ECrashContextType Type;
+	const TCHAR* ErrorMessage;
+	int NumMinidumpFramesToIgnore;
 	TArray<FCrashStackFrame> CallStack;
 
 private:

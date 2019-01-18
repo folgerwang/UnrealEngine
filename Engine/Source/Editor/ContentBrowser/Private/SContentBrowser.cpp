@@ -95,6 +95,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	
 	bIsLocked = InArgs._InitiallyLocked;
 	bAlwaysShowCollections = Config != nullptr ? Config->bAlwaysShowCollections : false;
+	bCanSetAsPrimaryBrowser = Config != nullptr ? Config->bCanSetAsPrimaryBrowser : true;
 
 	HistoryManager.SetOnApplyHistoryData(FOnApplyHistoryData::CreateSP(this, &SContentBrowser::OnApplyHistoryData));
 	HistoryManager.SetOnUpdateHistoryData(FOnUpdateHistoryData::CreateSP(this, &SContentBrowser::OnUpdateHistoryData));
@@ -1069,6 +1070,11 @@ void SContentBrowser::SyncTo( const FContentBrowserSelection& ItemSelection, con
 
 void SContentBrowser::SetIsPrimaryContentBrowser(bool NewIsPrimary)
 {
+	if (!CanSetAsPrimaryContentBrowser()) 
+	{
+		return;
+	}
+
 	bIsPrimaryBrowser = NewIsPrimary;
 
 	if ( bIsPrimaryBrowser )
@@ -1083,6 +1089,11 @@ void SContentBrowser::SetIsPrimaryContentBrowser(bool NewIsPrimary)
 			EditorSelection->DeselectAll();
 		}
 	}
+}
+
+bool SContentBrowser::CanSetAsPrimaryContentBrowser() const
+{
+	return bCanSetAsPrimaryBrowser;
 }
 
 TSharedPtr<FTabManager> SContentBrowser::GetTabManager() const
@@ -2792,9 +2803,16 @@ TSharedPtr<SWidget> SContentBrowser::GetFolderContextMenu(const TArray<FString>&
 		FUIAction(
 			FExecuteAction::CreateSP( this, &SContentBrowser::CreateNewFolder, SelectedPaths.Num() > 0 ? SelectedPaths[0] : FString(), InOnCreateNewFolder ),
 			FCanExecuteAction::CreateLambda( [bCanCreateNewFolder] { return bCanCreateNewFolder; } )
-			),
-		"NewFolder"
+			)
 		);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ShowInNewContentBrowser", "Show in New Content Browser"),
+		LOCTEXT("ShowInNewContentBrowserTooltip", "Opens a new Content Browser at this folder location (at least 1 Content Browser window needs to be locked)"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateSP(this, &SContentBrowser::OpenNewContentBrowser)),
+		"FolderContext"
+	);
 
 	return MenuBuilder.MakeWidget();
 }
@@ -2812,6 +2830,11 @@ void SContentBrowser::CreateNewFolder(FString FolderPath, FOnCreateNewFolder InO
 	}
 
 	InOnCreateNewFolder.ExecuteIfBound(DefaultFolderName.ToString(), FolderPath);
+}
+
+void SContentBrowser::OpenNewContentBrowser()
+{
+	FContentBrowserSingleton::Get().SyncBrowserToFolders(PathContextMenu->GetSelectedPaths(), false, true, NAME_None, true);
 }
 
 #undef LOCTEXT_NAMESPACE

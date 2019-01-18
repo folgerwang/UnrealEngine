@@ -5,6 +5,7 @@
 #include "Misc/Paths.h"
 #include "Misc/EngineBuildSettings.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -12,6 +13,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bEnableGameCenterSupport = true;
 	bEnableCloudKitSupport = false;
 	bSupportsPortraitOrientation = true;
+	bSupportsITunesFileSharing = false;
 	BundleDisplayName = TEXT("UE4 Game");
 	BundleName = TEXT("MyUE4Game");
 	BundleIdentifier = TEXT("com.YourCompany.GameNameNoSpaces");
@@ -45,6 +47,17 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bSupportsMetal = true;
 	bSupportsMetalMRT = false;
 	bDisableHTTPS = false;
+}
+
+void UIOSRuntimeSettings::PostReloadConfig(class UProperty* PropertyThatWasLoaded)
+{
+	Super::PostReloadConfig(PropertyThatWasLoaded);
+
+#if PLATFORM_IOS
+
+	FPlatformApplicationMisc::SetGamepadsAllowed(bAllowControllers);
+
+#endif //PLATFORM_IOS
 }
 
 #if WITH_EDITOR

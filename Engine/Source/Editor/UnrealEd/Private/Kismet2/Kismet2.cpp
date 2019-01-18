@@ -1486,10 +1486,13 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, TAr
 				{
 					for (UBlueprint* ParentBlueprint : ParentBPStack)
 					{
-						ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
-						if (ParentSCSNode)
+						if (ParentBlueprint->SimpleConstructionScript)
 						{
-							break;
+							ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
+							if (ParentSCSNode)
+							{
+								break;
+							}
 						}
 					}
 				}
@@ -1809,6 +1812,7 @@ AActor* FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(UBlueprint*
 
 	AActor* NewActor = World->SpawnActor(Blueprint->GeneratedClass, &Location, &Rotator);
 	GEditor->Layers->InitializeNewActorLayers(NewActor);
+	FActorLabelUtilities::SetActorLabelUnique(NewActor, Blueprint->GetName());
 
 	// Quietly ensure that no components are selected
 	USelection* ComponentSelection = GEditor->GetSelectedComponents();

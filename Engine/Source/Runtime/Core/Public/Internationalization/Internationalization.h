@@ -245,6 +245,16 @@ private:
 	FCulturePtr InvariantCulture;
 };
 
+namespace UE4LocGen_Private
+{
+	inline FCulturePtr GetCultureImpl(const TCHAR* InCulture)
+	{
+		return (InCulture && *InCulture)
+			? FInternationalization::Get().GetCulture(InCulture)
+			: nullptr;
+	}
+}
+
 /** The global namespace that must be defined/undefined to wrap uses of the NS-prefixed macros below */
 #undef LOCTEXT_NAMESPACE
 
@@ -252,16 +262,107 @@ private:
  * Creates an FText. All parameters must be string literals. All literals will be passed through the localization system.
  * The global LOCTEXT_NAMESPACE macro must be first set to a string literal to specify this localization key's namespace.
  */
-#define LOCTEXT( InKey, InTextLiteral ) FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText( TEXT( InTextLiteral ), TEXT(LOCTEXT_NAMESPACE), TEXT( InKey ) )
+#define LOCTEXT(InKey, InTextLiteral) FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(TEXT(InTextLiteral), TEXT(LOCTEXT_NAMESPACE), TEXT(InKey))
 
 /**
  * Creates an FText. All parameters must be string literals. All literals will be passed through the localization system.
  */
-#define NSLOCTEXT( InNamespace, InKey, InTextLiteral ) FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText( TEXT( InTextLiteral ), TEXT( InNamespace ), TEXT( InKey ) )
+#define NSLOCTEXT(InNamespace, InKey, InTextLiteral) FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(TEXT(InTextLiteral), TEXT(InNamespace), TEXT(InKey))
 
 /**
  * Creates a culture invariant FText from the given string literal.
  */
 #define INVTEXT(InTextLiteral) FText::AsCultureInvariant(TEXT(InTextLiteral))
+
+/**
+ * Generate an FText representation of the given number (alias for FText::AsNumber).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InNum			The number to generate the FText from.
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ * @param InOpts		Custom formatting options specified as chained setter functions of FNumberFormattingOptions (eg, SetAlwaysSign(true).SetUseGrouping(false)).
+ */
+#define LOCGEN_NUMBER(InNum, InCulture) FText::AsNumber(InNum, nullptr, UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_NUMBER_GROUPED(InNum, InCulture) FText::AsNumber(InNum, &FNumberFormattingOptions::DefaultWithGrouping(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_NUMBER_UNGROUPED(InNum, InCulture) FText::AsNumber(InNum, &FNumberFormattingOptions::DefaultNoGrouping(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_NUMBER_CUSTOM(InNum, InOpts, InCulture) FText::AsNumber(InNum, &FNumberFormattingOptions().InOpts, UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given number as a percentage (alias for FText::AsPercent).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InNum			The number to generate the FText from.
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ * @param InOpts		Custom formatting options specified as chained setter functions of FNumberFormattingOptions (eg, SetAlwaysSign(true).SetUseGrouping(false)).
+ */
+#define LOCGEN_PERCENT(InNum, InCulture) FText::AsPercent(InNum, nullptr, UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_PERCENT_GROUPED(InNum, InCulture) FText::AsPercent(InNum, &FNumberFormattingOptions::DefaultWithGrouping(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_PERCENT_UNGROUPED(InNum, InCulture) FText::AsPercent(InNum, &FNumberFormattingOptions::DefaultNoGrouping(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_PERCENT_CUSTOM(InNum, InOpts, InCulture) FText::AsPercent(InNum, &FNumberFormattingOptions().InOpts, UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given number as a currency (alias for FText::AsCurrencyBase).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InNum			The number to generate the FText from, specified in the smallest fractional value of the currency being used.
+ * @param InCurrency	The currency code (eg, USD, GBP, EUR).
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ */
+#define LOCGEN_CURRENCY(InNum, InCurrency, InCulture) FText::AsCurrencyBase(InNum, TEXT(InCurrency), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given timestamp as a date (alias for FText::AsDate).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InUnixTime	The Unix timestamp to generate the FText from.
+ * @param InDateStyle	The style to use for the date.
+ * @param InTimeZone	The timezone to display the timestamp in.
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ */
+#define LOCGEN_DATE_UTC(InUnixTime, InDateStyle, InTimeZone, InCulture) FText::AsDate(FDateTime::FromUnixTimestamp(InUnixTime), InDateStyle, TEXT(InTimeZone), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_DATE_LOCAL(InUnixTime, InDateStyle, InCulture) FText::AsDate(FDateTime::FromUnixTimestamp(InUnixTime), InDateStyle, FText::GetInvariantTimeZone(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given timestamp as a time (alias for FText::AsTime).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InUnixTime	The Unix timestamp to generate the FText from.
+ * @param InTimeStyle	The style to use for the time.
+ * @param InTimeZone	The timezone to display the timestamp in.
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ */
+#define LOCGEN_TIME_UTC(InUnixTime, InTimeStyle, InTimeZone, InCulture) FText::AsTime(FDateTime::FromUnixTimestamp(InUnixTime), InTimeStyle, TEXT(InTimeZone), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_TIME_LOCAL(InUnixTime, InTimeStyle, InCulture) FText::AsTime(FDateTime::FromUnixTimestamp(InUnixTime), InTimeStyle, FText::GetInvariantTimeZone(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given timestamp as a date and time (alias for FText::AsDateTime).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ * @param InUnixTime	The Unix timestamp to generate the FText from.
+ * @param InDateStyle	The style to use for the date.
+ * @param InTimeStyle	The style to use for the time.
+ * @param InTimeZone	The timezone to display the timestamp in.
+ * @param InCulture		The culture code to use, or an empty string to use the active locale.
+ */
+#define LOCGEN_DATETIME_UTC(InUnixTime, InDateStyle, InTimeStyle, InTimeZone, InCulture) FText::AsDateTime(FDateTime::FromUnixTimestamp(InUnixTime), InDateStyle, InTimeStyle, TEXT(InTimeZone), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+#define LOCGEN_DATETIME_LOCAL(InUnixTime, InDateStyle, InTimeStyle, InCulture) FText::AsDateTime(FDateTime::FromUnixTimestamp(InUnixTime), InDateStyle, InTimeStyle, FText::GetInvariantTimeZone(), UE4LocGen_Private::GetCultureImpl(TEXT(InCulture)))
+
+/**
+ * Generate an FText representation of the given FText when transformed into upper-case (alias for FText::ToUpper).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ */
+#define LOCGEN_TOUPPER(InText) (InText).ToUpper()
+
+/**
+ * Generate an FText representation of the given FText when transformed into lower-case (alias for FText::ToLower).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ */
+#define LOCGEN_TOLOWER(InText) (InText).ToLower()
+
+/**
+ * Generate an FText representation of the given format pattern with the ordered arguments inserted into it (alias for FText::FormatOrdered).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ */
+#define LOCGEN_FORMAT_ORDERED(InPattern, ...) FText::FormatOrdered(InPattern, __VA_ARGS__)
+
+/**
+ * Generate an FText representation of the given format pattern with the named arguments inserted into it (alias for FText::FormatNamed).
+ * This macro exists to allow UHT to parse C++ default FText arguments in UFunctions (as this macro matches the syntax used by FTextStringHelper when exporting/importing stringified FText) and should not be used generally.
+ */
+#define LOCGEN_FORMAT_NAMED(InPattern, ...) FText::FormatNamed(InPattern, __VA_ARGS__)
 
 #undef LOC_DEFINE_REGION

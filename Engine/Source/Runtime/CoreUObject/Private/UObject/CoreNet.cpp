@@ -245,6 +245,26 @@ void FClassNetCacheMgr::ClearClassNetCache()
 	ClassFieldIndices.Empty();
 }
 
+void FClassNetCacheMgr::CountBytes(FArchive& Ar) const
+{
+	ClassFieldIndices.CountBytes(Ar);
+	for (const auto& ClassFieldPair : ClassFieldIndices)
+	{
+		if (ClassFieldPair.Value != nullptr)
+		{
+			Ar.CountBytes(sizeof(FClassNetCache), sizeof(FClassNetCache));
+			ClassFieldPair.Value->CountBytes(Ar);
+		}
+	}
+}
+
+void FClassNetCache::CountBytes(FArchive& Ar) const
+{
+	Fields.CountBytes(Ar);
+	FieldMap.CountBytes(Ar);
+	FieldChecksumMap.CountBytes(Ar);
+}
+
 /*-----------------------------------------------------------------------------
 	UPackageMap implementation.
 -----------------------------------------------------------------------------*/
@@ -319,6 +339,18 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UPackageMap, UObject,
 	}
 );
 
+void UPackageMap::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		TrackedUnmappedNetGuids.CountBytes(Ar);
+		TrackedMappedDynamicNetGuids.CountBytes(Ar);
+		Ar << DebugContextString;
+	}
+}
+
 // ----------------------------------------------------------------
 
 void SerializeChecksum(FArchive &Ar, uint32 x, bool ErrorOK)
@@ -383,16 +415,16 @@ FArchive& FNetBitWriter::operator<<( UObject*& Object )
 
 FArchive& FNetBitWriter::operator<<(FSoftObjectPath& Value)
 {
+	// It's more efficient to serialize as a string then name+string
 	FString Path = Value.ToString();
-
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
-
 	return *this;
+}
+
+FArchive& FNetBitWriter::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
@@ -438,16 +470,17 @@ FArchive& FNetBitReader::operator<<( class FName& N )
 
 FArchive& FNetBitReader::operator<<(FSoftObjectPath& Value)
 {
-	FString Path = Value.ToString();
-
+	FString Path;
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
+	Value.SetPath(MoveTemp(Path));
 
 	return *this;
+}
+
+FArchive& FNetBitReader::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
@@ -477,4 +510,23 @@ void RPC_ValidateFailed( const TCHAR* Reason )
 const TCHAR* RPC_GetLastFailedReason()
 {
 	return GLastRPCFailedReason;
+}
+
+const TCHAR* LexToString(const EChannelCloseReason Value)
+{
+	switch (Value)
+	{
+	case EChannelCloseReason::Destroyed:
+		return TEXT("Destroyed");
+	case EChannelCloseReason::Dormancy:
+		return TEXT("Dormancy");
+	case EChannelCloseReason::LevelUnloaded:
+		return TEXT("LevelUnloaded");
+	case EChannelCloseReason::Relevancy:
+		return TEXT("Relevancy");
+	case EChannelCloseReason::TearOff:
+		return TEXT("TearOff");
+	}
+
+	return TEXT("Unknown");
 }

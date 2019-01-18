@@ -66,7 +66,12 @@
 #include "Matinee/InterpGroupInst.h"
 #include "Matinee/MatineeActor.h"
 #include "FbxExporter.h"
-#include "RawMesh.h"
+
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
+
 #include "Components/BrushComponent.h"
 #include "CineCameraComponent.h"
 #include "Math/UnitConversion.h"
@@ -669,11 +674,12 @@ void FFbxExporter::ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToSt
 	}
 	else
 	{
-		FRawMesh Mesh;
+		FMeshDescription Mesh;
+		UStaticMesh::RegisterMeshAttributes(Mesh);
 		TArray<FStaticMaterial>	Materials;
 		GetBrushMesh(Actor,Actor->Brush,Mesh,Materials);
 
-		if( Mesh.VertexPositions.Num() )
+		if( Mesh.Vertices().Num() )
 		{
 			UStaticMesh* StaticMesh = CreateStaticMesh(Mesh,Materials,GetTransientPackage(),Actor->GetFName());
 			ExportStaticMesh( StaticMesh, &Materials );
@@ -915,8 +921,9 @@ void FFbxExporter::ExportStaticMesh(AActor* Actor, UStaticMeshComponent* StaticM
 
 struct FBSPExportData
 {
-	FRawMesh Mesh;
+	FMeshDescription Mesh;
 	TArray<FStaticMaterial> Materials;
+	TArray<uint32> SmoothGroups;
 	uint32 NumVerts;
 	uint32 NumFaces;
 	uint32 CurrentVertAddIndex;
@@ -952,8 +959,15 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			{
 				FBSPExportData& Data = BrushToMeshMap.FindOrAdd( BrushActor );
 
+				FPoly Poly;
+				GEditor->polyFindMaster(Model, Node.iSurf, Poly);
+
 				Data.NumVerts += Node.NumVertices;
 				Data.NumFaces += Node.NumVertices-2;
+				UMaterialInterface*	Material = Poly.Material;
+				FName MaterialName = Material != nullptr ? Material->GetFName() : NAME_None;
+				Data.Materials.AddUnique(FStaticMaterial(Material, MaterialName, MaterialName));
+				AllMaterials.AddUnique(FStaticMaterial(Material, MaterialName, MaterialName));
 			}
 		}
 	}
@@ -978,36 +992,53 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			}
 
 			TArray<FStaticMaterial>& Materials = ExportData->Materials;
-			FRawMesh& Mesh = ExportData->Mesh;
+			FMeshDescription& Mesh = ExportData->Mesh;
 
 			//Pre-allocate space for this mesh.
 			if( !ExportData->bInitialised )
 			{
-				ExportData->bInitialised = true;
-				Mesh.VertexPositions.Empty();
-				Mesh.VertexPositions.AddUninitialized(ExportData->NumVerts);
+				uint32 NumWedges = ExportData->NumFaces * 3;
 
-				Mesh.FaceMaterialIndices.Empty();
-				Mesh.FaceMaterialIndices.AddUninitialized(ExportData->NumFaces);
-				Mesh.FaceSmoothingMasks.Empty();
-				Mesh.FaceSmoothingMasks.AddUninitialized(ExportData->NumFaces);
-				
-				uint32 NumWedges = ExportData->NumFaces*3;
-				Mesh.WedgeIndices.Empty();
-				Mesh.WedgeIndices.AddUninitialized(NumWedges);
-				Mesh.WedgeTexCoords[0].Empty();
-				Mesh.WedgeTexCoords[0].AddUninitialized(NumWedges);
-				Mesh.WedgeColors.Empty();
-				Mesh.WedgeColors.AddUninitialized(NumWedges);
-				Mesh.WedgeTangentZ.Empty();
-				Mesh.WedgeTangentZ.AddUninitialized(NumWedges);
+				UStaticMesh::RegisterMeshAttributes(Mesh);
+				ExportData->bInitialised = true;
+				Mesh.Empty();
+				Mesh.ReserveNewVertices(ExportData->NumVerts);
+				Mesh.ReserveNewVertexInstances(NumWedges);
+				Mesh.ReserveNewPolygons(ExportData->NumFaces);
+				Mesh.ReserveNewEdges(ExportData->NumFaces * 2);
+				Mesh.ReserveNewPolygonGroups(Materials.Num());
+				//We need to get the PolygonGroupImportedMaterial
+				FStaticMeshDescriptionAttributeGetter InitMeshAttributes(&Mesh);
+				TPolygonGroupAttributesRef<FName> InitPolygonGroupNames = InitMeshAttributes.GetPolygonGroupImportedMaterialSlotNames();
+				for (const FStaticMaterial& StaticMaterial : Materials)
+				{
+					const FPolygonGroupID PolygonGroupID = Mesh.CreatePolygonGroup();
+					InitPolygonGroupNames[PolygonGroupID] = StaticMaterial.ImportedMaterialSlotName;
+				}
+				ExportData->SmoothGroups.Empty(ExportData->NumFaces);
 			}
 			
+			//Get the Attributes
+			FStaticMeshDescriptionAttributeGetter MeshAttributes(&Mesh);
+			TVertexAttributesRef<FVector> VertexPositions = MeshAttributes.GetPositions();
+			TVertexInstanceAttributesRef<FVector2D> UVs = MeshAttributes.GetUVs();
+			TVertexInstanceAttributesRef<FVector4> Colors = MeshAttributes.GetColors();
+			TVertexInstanceAttributesRef<FVector> Normals = MeshAttributes.GetNormals();
+			TEdgeAttributesRef<bool> EdgeHardnesses = MeshAttributes.GetEdgeHardnesses();
+			TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshAttributes.GetEdgeCreaseSharpnesses();
+
+			
 			UMaterialInterface*	Material = Poly.Material;
-
-			AllMaterials.AddUnique(FStaticMaterial(Material));
-
-			int32 MaterialIndex = ExportData->Materials.AddUnique(Material);
+			FName MaterialName = Material != nullptr ? Material->GetFName() : NAME_None;
+			
+			int32 MaterialIndex = INDEX_NONE;
+			if (!ExportData->Materials.Find(FStaticMaterial(Material, MaterialName, MaterialName), MaterialIndex))
+			{
+				MaterialIndex = 0;
+			}
+			const FPolygonGroupID CurrentPolygonGroupID(MaterialIndex);
+			//The material ID should follow the unique materials
+			check(Mesh.IsPolygonGroupValid(CurrentPolygonGroupID));
 
 			const FVector& TextureBase = Model->Points[Surf.pBase];
 			const FVector& TextureX = Model->Vectors[Surf.vTextureU];
@@ -1020,12 +1051,15 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			{
 				const FVert& Vert = Model->Verts[Node.iVertPool + VertexIndex];
 				const FVector& Vertex = Model->Points[Vert.pVertex];
-				Mesh.VertexPositions[ExportData->CurrentVertAddIndex+VertexIndex] = Vertex;
+				FVertexID VertexID = Mesh.CreateVertex();
+				VertexPositions[VertexID] = Vertex;
 			}
 			ExportData->CurrentVertAddIndex += Node.NumVertices;
 
 			for (int32 StartVertexIndex = 1; StartVertexIndex < Node.NumVertices - 1; ++StartVertexIndex)
 			{
+				FVertexInstanceID VertexInstanceIDs[3];
+				FVertexID VertexIDs[3];
 				// These map the node's vertices to the 3 triangle indices to triangulate the convex polygon.
 				int32 TriVertIndices[3] = {
 					Node.iVertPool + StartVertexIndex + 1,
@@ -1037,26 +1071,54 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 					StartIndex + StartVertexIndex,
 					StartIndex };
 
-				Mesh.FaceMaterialIndices[ExportData->CurrentFaceAddIndex] = MaterialIndex;
-				Mesh.FaceSmoothingMasks[ExportData->CurrentFaceAddIndex] =  ( 1 << ( Node.iSurf % 32 ) );
-
-				for (uint32 WedgeIndex = 0; WedgeIndex < 3; ++WedgeIndex)
+				for (uint32 Corner = 0; Corner < 3; ++Corner)
 				{
-					const FVert& Vert = Model->Verts[TriVertIndices[WedgeIndex]];
+					VertexIDs[Corner] = FVertexID(WedgeIndices[Corner]);
+					VertexInstanceIDs[Corner] = Mesh.CreateVertexInstance(VertexIDs[Corner]);
+					const FVert& Vert = Model->Verts[TriVertIndices[Corner]];
 					const FVector& Vertex = Model->Points[Vert.pVertex];
 
 					float U = ((Vertex - TextureBase) | TextureX) / UModel::GetGlobalBSPTexelScale();
 					float V = ((Vertex - TextureBase) | TextureY) / UModel::GetGlobalBSPTexelScale();
-
-					uint32 RealWedgeIndex = ( ExportData->CurrentFaceAddIndex * 3 ) + WedgeIndex;
-
-					Mesh.WedgeIndices[RealWedgeIndex] = WedgeIndices[WedgeIndex];
-					Mesh.WedgeTexCoords[0][RealWedgeIndex] = FVector2D(U,V);
+					UVs.Set(VertexInstanceIDs[Corner], 0, FVector2D(U, V));
 					//This is not exported when exporting the whole level via ExportModel so leaving out here for now. 
-					//Mesh.WedgeTexCoords[1][RealWedgeIndex] = Vert.ShadowTexCoord;
-					Mesh.WedgeColors[RealWedgeIndex] = FColor(255,255,255,255);
-					Mesh.WedgeTangentZ[RealWedgeIndex] = Normal;
+					//UVs.Set(VertexInstanceIDs[Corner], 1, Vert.ShadowTexCoord);
+					Colors[VertexInstanceIDs[Corner]] = FLinearColor::White;
+					Normals[VertexInstanceIDs[Corner]] = Normal;
 				}
+				//Add triangles
+				TArray<FMeshDescription::FContourPoint> Contours;
+				for (int32 Corner = 0; Corner < 3; ++Corner)
+				{
+					int32 ContourPointIndex = Contours.AddDefaulted();
+					FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+					//Find the matching edge ID
+					uint32 CornerIndices[2];
+					CornerIndices[0] = (Corner + 0) % 3;
+					CornerIndices[1] = (Corner + 1) % 3;
+
+					FVertexID EdgeVertexIDs[2];
+					EdgeVertexIDs[0] = VertexIDs[CornerIndices[0]];
+					EdgeVertexIDs[1] = VertexIDs[CornerIndices[1]];
+
+					FEdgeID MatchEdgeId = Mesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+					if (MatchEdgeId == FEdgeID::Invalid)
+					{
+						MatchEdgeId = Mesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+						EdgeHardnesses[MatchEdgeId] = false;
+						EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
+					}
+					ContourPoint.EdgeID = MatchEdgeId;
+					ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+				}
+				// Insert a polygon into the mesh
+				const FPolygonID NewPolygonID = Mesh.CreatePolygon(CurrentPolygonGroupID, Contours);
+				//Triangulate the polygon
+				FMeshPolygon& Polygon = Mesh.GetPolygon(NewPolygonID);
+				Mesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+
+				//Add to the smoothGroup array so we can compute hard edge later
+				ExportData->SmoothGroups.Add((1 << (Node.iSurf % 32)));
 
 				++ExportData->CurrentFaceAddIndex;
 			}
@@ -1065,11 +1127,13 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 
 	for( TMap< ABrush*, FBSPExportData >::TIterator It(BrushToMeshMap); It; ++It )
 	{
-		if( It.Value().Mesh.VertexPositions.Num() )
+		if( It.Value().Mesh.Vertices().Num() )
 		{
+			FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(It.Value().SmoothGroups, It.Value().Mesh);
+
 			UStaticMesh* NewMesh = CreateStaticMesh( It.Value().Mesh, It.Value().Materials, GetTransientPackage(), It.Key()->GetFName() );
 
-			ExportStaticMesh( NewMesh, &AllMaterials );
+			ExportStaticMesh( NewMesh, &It.Value().Materials);
 		}
 	}
 }
@@ -1512,6 +1576,38 @@ void FFbxExporter::FLevelSequenceAnimTrackAdapter::UpdateAnimation( float Time )
 	MovieScenePlayer->GetEvaluationTemplate().Evaluate( Context, *MovieScenePlayer );
 }
 
+bool FFbxExporter::ExportLevelSequenceTracks(UMovieScene* MovieScene, IMovieScenePlayer* MovieScenePlayer, FbxNode* FbxActor, AActor* Actor, const TArray<UMovieSceneTrack*>& Tracks)
+{
+	USkeletalMeshComponent* SkeletalMeshComp = Actor ? Cast<USkeletalMeshComponent>(Actor->GetComponentByClass(USkeletalMeshComponent::StaticClass())) : nullptr;
+
+	const bool bSkip3DTransformTrack = SkeletalMeshComp && GetExportOptions()->MapSkeletalMotionToRoot;
+
+	// Look for the tracks that we currently support
+	for (UMovieSceneTrack* Track : Tracks)
+	{
+		if (Track->IsA(UMovieScene3DTransformTrack::StaticClass()) && !bSkip3DTransformTrack)
+		{
+			UMovieScene3DTransformTrack* TransformTrack = (UMovieScene3DTransformTrack*)Track;
+			ExportLevelSequence3DTransformTrack(FbxActor, *TransformTrack, Actor, MovieScene->GetPlaybackRange());
+		}
+		else if (Track->IsA(UMovieScenePropertyTrack::StaticClass()))
+		{
+			UMovieScenePropertyTrack* PropertyTrack = (UMovieScenePropertyTrack*)Track;
+			ExportLevelSequencePropertyTrack(FbxActor, *PropertyTrack);
+		}
+		else if (Track->IsA(UMovieSceneSkeletalAnimationTrack::StaticClass()))
+		{
+			if (SkeletalMeshComp)
+			{
+				FLevelSequenceAnimTrackAdapter AnimTrackAdapter(MovieScenePlayer, MovieScene);
+				ExportAnimTrack(AnimTrackAdapter, Actor, SkeletalMeshComp);
+			}
+		}
+	}
+
+	return true;
+}
+
 
 bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FGuid>& Bindings, IMovieScenePlayer* MovieScenePlayer, FMovieSceneSequenceIDRef SequenceID )
 {
@@ -1527,6 +1623,8 @@ bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FG
 		{
 			continue;
 		}
+
+		bool bAnyBindingsExported = false;
 
 		for ( TWeakObjectPtr<UObject> RuntimeObject : MovieScenePlayer->FindBoundObjects(MovieSceneBinding.GetObjectGuid(), SequenceID) )
 		{
@@ -1549,34 +1647,16 @@ bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FG
 				// now it should export everybody
 				if ( FbxActor )
 				{
-					USkeletalMeshComponent* SkeletalMeshComp = Cast<USkeletalMeshComponent>( Actor->GetComponentByClass( USkeletalMeshComponent::StaticClass() ) );
-					
-					const bool bSkip3DTransformTrack = SkeletalMeshComp && GetExportOptions()->MapSkeletalMotionToRoot;
-
-					// Look for the tracks that we currently support
-					for ( UMovieSceneTrack* Track : MovieSceneBinding.GetTracks() )
-					{
-						if ( Track->IsA( UMovieScene3DTransformTrack::StaticClass() ) && !bSkip3DTransformTrack )
-						{
-							UMovieScene3DTransformTrack* TransformTrack = (UMovieScene3DTransformTrack*)Track;
-							ExportLevelSequence3DTransformTrack( *FbxActor, *TransformTrack, Actor, MovieScene->GetPlaybackRange() );
-						}
-						else if ( Track->IsA( UMovieSceneFloatTrack::StaticClass() ) )
-						{
-							UMovieSceneFloatTrack* FloatTrack = (UMovieSceneFloatTrack*)Track;
-							ExportLevelSequenceFloatTrack( *FbxActor, *FloatTrack );
-						}
-						else if ( Track->IsA( UMovieSceneSkeletalAnimationTrack::StaticClass() ) )
-						{
-							if ( SkeletalMeshComp )
-							{
-								FLevelSequenceAnimTrackAdapter AnimTrackAdapter( MovieScenePlayer, MovieScene );
-								ExportAnimTrack( AnimTrackAdapter, Actor, SkeletalMeshComp );
-							}
-						}
-					}
+					ExportLevelSequenceTracks(MovieScene, MovieScenePlayer, FbxActor, Actor, MovieSceneBinding.GetTracks());
+					bAnyBindingsExported = true;
 				}
 			}
+		}
+
+		// If no bindings exported, create a dummy actor to export tracks onto
+		if (!bAnyBindingsExported)
+		{
+			ExportLevelSequenceTracks(MovieScene, MovieScenePlayer, nullptr, nullptr, MovieSceneBinding.GetTracks());
 		}
 	}
 
@@ -2433,12 +2513,12 @@ void FFbxExporter::ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovi
 	InFbxCurve.KeyModifyEnd();
 }
 
-void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange )
+void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode* FbxNode, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange )
 {
 	FbxAnimLayer* BaseLayer = AnimStack->GetMember<FbxAnimLayer>( 0 );
 
-	const bool bIsCameraActor = Actor->IsA(ACameraActor::StaticClass());
-	const bool bIsLightActor = Actor->IsA(ALight::StaticClass());
+	const bool bIsCameraActor = Actor ? Actor->IsA(ACameraActor::StaticClass()) : false;
+	const bool bIsLightActor = Actor ? Actor->IsA(ALight::StaticClass()) : false;
 	const bool bBakeRotations = bIsCameraActor || bIsLightActor;
 
 	// TODO: Support more than one section?
@@ -2451,23 +2531,28 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 		return;
 	}
 
+	if (!FbxNode)
+	{
+		FbxNode = CreateNode(TransformTrack.GetDisplayName().ToString());
+	}
+
 	FFrameRate TickResolution = TransformTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
 
-	FbxAnimCurveNode* TranslationNode = FbxActor.LclTranslation.GetCurveNode( BaseLayer, true );
-	FbxAnimCurveNode* RotationNode = FbxActor.LclRotation.GetCurveNode( BaseLayer, true );
-	FbxAnimCurveNode* ScaleNode = FbxActor.LclScaling.GetCurveNode( BaseLayer, true );
+	FbxAnimCurveNode* TranslationNode = FbxNode->LclTranslation.GetCurveNode( BaseLayer, true );
+	FbxAnimCurveNode* RotationNode = FbxNode->LclRotation.GetCurveNode( BaseLayer, true );
+	FbxAnimCurveNode* ScaleNode = FbxNode->LclScaling.GetCurveNode( BaseLayer, true );
 
-	FbxAnimCurve* FbxCurveTransX = FbxActor.LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
-	FbxAnimCurve* FbxCurveTransY = FbxActor.LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
-	FbxAnimCurve* FbxCurveTransZ = FbxActor.LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
+	FbxAnimCurve* FbxCurveTransX = FbxNode->LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
+	FbxAnimCurve* FbxCurveTransY = FbxNode->LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
+	FbxAnimCurve* FbxCurveTransZ = FbxNode->LclTranslation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
 
-	FbxAnimCurve* FbxCurveRotX = FbxActor.LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
-	FbxAnimCurve* FbxCurveRotY = FbxActor.LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
-	FbxAnimCurve* FbxCurveRotZ = FbxActor.LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
+	FbxAnimCurve* FbxCurveRotX = FbxNode->LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
+	FbxAnimCurve* FbxCurveRotY = FbxNode->LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
+	FbxAnimCurve* FbxCurveRotZ = FbxNode->LclRotation.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
 
-	FbxAnimCurve* FbxCurveScaleX = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
-	FbxAnimCurve* FbxCurveScaleY = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
-	FbxAnimCurve* FbxCurveScaleZ = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
+	FbxAnimCurve* FbxCurveScaleX = FbxNode->LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
+	FbxAnimCurve* FbxCurveScaleY = FbxNode->LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
+	FbxAnimCurve* FbxCurveScaleZ = FbxNode->LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
 
 	TArrayView<FMovieSceneFloatChannel*> FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
@@ -2558,86 +2643,110 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 	}
 }
 
-void FFbxExporter::ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieSceneFloatTrack& FloatTrack )
+void FFbxExporter::ExportLevelSequencePropertyTrack( FbxNode* FbxNode, UMovieScenePropertyTrack& PropertyTrack )
 {
 	// TODO: Support more than one section?
-	UMovieSceneFloatSection* FloatSection = FloatTrack.GetAllSections().Num() > 0
-		? Cast<UMovieSceneFloatSection>( FloatTrack.GetAllSections()[0] )
-		: nullptr;
+	UMovieSceneSection* Section = PropertyTrack.GetAllSections().Num() > 0 ? PropertyTrack.GetAllSections()[0] : nullptr;
 
-	const FMovieSceneFloatChannel* FloatChannel = FloatSection ? FloatSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0) : nullptr;
-	if ( FloatChannel == nullptr || FloatChannel->GetTimes().Num() == 0 )
+	if (!Section)
 	{
 		return;
 	}
 
-	FbxCamera* FbxCamera = FbxActor.GetCamera();
-
-	FbxProperty Property;
-	FString PropertyName = FloatTrack.GetTrackName().ToString();
-	bool IsFoV = false;
-	// most properties are created as user property, only FOV of camera in FBX supports animation
-	if ( PropertyName == "Intensity" )
+	if (!FbxNode)
 	{
-		Property = FbxActor.FindProperty( "UE_Intensity", false );
-	}
-	else if ( PropertyName == "FalloffExponent" )
-	{
-		Property = FbxActor.FindProperty( "UE_FalloffExponent", false );
-	}
-	else if ( PropertyName == "AttenuationRadius" )
-	{
-		Property = FbxActor.FindProperty( "UE_Radius", false );
-	}
-	else if ( PropertyName == "FOVAngle" && FbxCamera )
-	{
-		Property = FbxCamera->FocalLength;
-		IsFoV = true;
-	}
-	else if ( PropertyName == "CurrentFocalLength" && FbxCamera )
-	{
-		Property = FbxCamera->FocalLength;
-	}
-	else if ( PropertyName == "AspectRatio" )
-	{
-		Property = FbxActor.FindProperty( "UE_AspectRatio", false );
-	}
-	else if ( PropertyName == "MotionBlur_Amount" )
-	{
-		Property = FbxActor.FindProperty( "UE_MotionBlur_Amount", false );
-	}
-	else if ( PropertyName == "FocusSettings.ManualFocusDistance" && FbxCamera )
-	{
-		Property = FbxCamera->FocusDistance;
+		FbxNode = CreateNode(PropertyTrack.GetDisplayName().ToString());
 	}
 
-	if (Property == 0)
+	FbxCamera* FbxCamera = FbxNode->GetCamera();
+	FFrameRate TickResolution = PropertyTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	FMovieSceneChannelProxy& ChannelProxy = Section->GetChannelProxy();
+	for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 	{
-		CreateAnimatableUserProperty(&FbxActor, FloatChannel->GetDefault().Get(MAX_flt), TCHAR_TO_UTF8(*PropertyName), TCHAR_TO_UTF8(*PropertyName));
+		const FName ChannelTypeName = Entry.GetChannelTypeName();
+		TArrayView<FMovieSceneChannel* const>        Channels = Entry.GetChannels();
+		TArrayView<const FMovieSceneChannelMetaData> AllMetaData = Entry.GetMetaData();
 
-		Property = FbxActor.FindProperty(TCHAR_TO_UTF8(*PropertyName), false);
+		for (int32 Index = 0; Index < Channels.Num(); ++Index)
+		{
+			FMovieSceneChannelHandle Channel = ChannelProxy.MakeHandle(ChannelTypeName, Index);
+			FMovieSceneFloatChannel* FloatChannel = Channel.Cast<FMovieSceneFloatChannel>().Get();
+
+			if (!FloatChannel || FloatChannel->GetTimes().Num() == 0)
+			{
+				continue;
+			}
+
+			const FMovieSceneChannelMetaData& MetaData = AllMetaData[Index];
+			FText Name = FText::FromName(MetaData.Name);
+
+			FbxProperty Property;
+			FString PropertyName = MetaData.Name.IsNone() ? PropertyTrack.GetTrackName().ToString() : MetaData.Name.ToString();
+			bool IsFoV = false;
+			// most properties are created as user property, only FOV of camera in FBX supports animation
+			if (PropertyName == "Intensity")
+			{
+				Property = FbxNode->FindProperty("UE_Intensity", false);
+			}
+			else if (PropertyName == "FalloffExponent")
+			{
+				Property = FbxNode->FindProperty("UE_FalloffExponent", false);
+			}
+			else if (PropertyName == "AttenuationRadius")
+			{
+				Property = FbxNode->FindProperty("UE_Radius", false);
+			}
+			else if (PropertyName == "FOVAngle" && FbxCamera)
+			{
+				Property = FbxCamera->FocalLength;
+				IsFoV = true;
+			}
+			else if (PropertyName == "CurrentFocalLength" && FbxCamera)
+			{
+				Property = FbxCamera->FocalLength;
+			}
+			else if (PropertyName == "AspectRatio")
+			{
+				Property = FbxNode->FindProperty("UE_AspectRatio", false);
+			}
+			else if (PropertyName == "MotionBlur_Amount")
+			{
+				Property = FbxNode->FindProperty("UE_MotionBlur_Amount", false);
+			}
+			else if ( PropertyName == "FocusSettings.ManualFocusDistance" && FbxCamera )
+			{
+				Property = FbxCamera->FocusDistance;
+			}
+
+			if (Property == 0)
+			{
+				CreateAnimatableUserProperty(FbxNode, FloatChannel->GetDefault().Get(MAX_flt), TCHAR_TO_UTF8(*PropertyName), TCHAR_TO_UTF8(*PropertyName));
+
+				Property = FbxNode->FindProperty(TCHAR_TO_UTF8(*PropertyName), false);
+			}
+
+			if (Property == 0)
+			{
+				continue;
+			}
+
+			// Ensure that the property is animatable so that GetCurveNode succeeds
+			Property.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+			
+			FbxAnimCurve* AnimCurve = FbxAnimCurve::Create(Scene, "");
+			FbxAnimCurveNode* CurveNode = Property.GetCurveNode(true);
+			if (!CurveNode)
+			{
+				continue;
+			}
+
+			CurveNode->SetChannelValue<double>(0U, FloatChannel->GetDefault().Get(MAX_flt));
+			CurveNode->ConnectToChannel(AnimCurve, 0U);
+
+			ExportChannelToFbxCurve(*AnimCurve, *FloatChannel, TickResolution, IsFoV ? ERichCurveValueMode::Fov : ERichCurveValueMode::Default);
+		}
 	}
-
-	if (Property == 0)
-	{
-		return;
-	}
-
-	// Ensure that the property is animatable so that GetCurveNode succeeds
-	Property.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
-
-	FbxAnimCurve* AnimCurve = FbxAnimCurve::Create( Scene, "" );
-	FbxAnimCurveNode* CurveNode = Property.GetCurveNode( true );
-	if ( !CurveNode )
-	{
-		return;
-	}
-
-	CurveNode->SetChannelValue<double>( 0U, FloatChannel->GetDefault().Get(MAX_flt) );
-	CurveNode->ConnectToChannel( AnimCurve, 0U );
-
-	FFrameRate TickResolution = FloatTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
-	ExportChannelToFbxCurve(*AnimCurve, *FloatChannel, TickResolution, IsFoV ? ERichCurveValueMode::Fov : ERichCurveValueMode::Default);
 }
 		
 /**
@@ -2653,6 +2762,13 @@ FbxNode* FFbxExporter::FindActor(AActor* Actor)
 	{
 		return NULL;
 	}
+}
+
+FbxNode* FFbxExporter::CreateNode(const FString& NodeName)
+{
+	FbxNode* FbxNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*NodeName));
+	Scene->GetRootNode()->AddChild(FbxNode);
+	return FbxNode;
 }
 
 bool FFbxExporter::FindSkeleton(const USkeletalMeshComponent* SkelComp, TArray<FbxNode*>& BoneNodes)

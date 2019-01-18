@@ -11,6 +11,7 @@
 #include "Input/Reply.h"
 #include "Input/NavigationReply.h"
 #include "Widgets/SWidget.h"
+#include "Widgets/SPanel.h"
 #include "Layout/Children.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
@@ -282,7 +283,9 @@ private:
 
 	void EndInertialScrolling();
 
-private:
+	TSharedPtr<SWidget> GetKeyboardFocusableWidget(TSharedPtr<SWidget> InWidget);
+
+protected:
 
 	/** The panel which stacks the child slots */
 	TSharedPtr<class SScrollPanel> ScrollPanel;
@@ -371,4 +374,59 @@ private:
 	bool bAllowsRightClickDragScrolling : 1;
 	
 	bool bTouchPanningCapture : 1;
+};
+
+class SScrollPanel : public SPanel
+{
+public:
+
+	SLATE_BEGIN_ARGS(SScrollPanel)
+	{
+		_Visibility = EVisibility::SelfHitTestInvisible;
+	}
+
+	SLATE_ARGUMENT(EOrientation, Orientation)
+
+		SLATE_END_ARGS()
+
+		SScrollPanel()
+		: Children(this)
+	{
+	}
+
+	void Construct(const FArguments& InArgs, const TArray<SScrollBox::FSlot*>& InSlots);
+
+public:
+
+	EOrientation GetOrientation()
+	{
+		return Orientation;
+	}
+
+	void SetOrientation(EOrientation InOrientation)
+	{
+		Orientation = InOrientation;
+	}
+
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+
+	virtual FChildren* GetChildren() override
+	{
+		return &Children;
+	}
+
+	float PhysicalOffset;
+	TPanelChildren<SScrollBox::FSlot> Children;
+
+protected:
+	virtual FVector2D ComputeDesiredSize(float) const override;
+
+private:
+
+	float ArrangeChildVerticalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const;
+	float ArrangeChildHorizontalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const;
+
+private:
+
+	EOrientation Orientation;
 };

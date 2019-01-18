@@ -56,12 +56,12 @@ static const uint32 REGISTRATION_QUEUE_SIZE = 16;	// and we'll not reallocate
 
 DEFINE_LOG_CATEGORY_STATIC(LogNavOctree, Warning, All);
 
-DECLARE_CYCLE_STAT(TEXT("Rasterize triangles"), STAT_Navigation_RasterizeTriangles,STATGROUP_Navigation);
-DECLARE_CYCLE_STAT(TEXT("Nav Tick: area register"), STAT_Navigation_TickNavAreaRegister, STATGROUP_Navigation);
+
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: mark dirty"), STAT_Navigation_TickMarkDirty, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: async build"), STAT_Navigation_TickAsyncBuild, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: async pathfinding"), STAT_Navigation_TickAsyncPathfinding, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Debug NavOctree Time"), STAT_DebugNavOctree, STATGROUP_Navigation);
+
 //----------------------------------------------------------------------//
 // Stats
 //----------------------------------------------------------------------//
@@ -70,7 +70,6 @@ DEFINE_STAT(STAT_Navigation_QueriesTimeSync);
 DEFINE_STAT(STAT_Navigation_RequestingAsyncPathfinding);
 DEFINE_STAT(STAT_Navigation_PathfindingSync);
 DEFINE_STAT(STAT_Navigation_PathfindingAsync);
-DEFINE_STAT(STAT_Navigation_AddGeneratedTiles);
 DEFINE_STAT(STAT_Navigation_TileNavAreaSorting);
 DEFINE_STAT(STAT_Navigation_TileGeometryExportToObjAsync);
 DEFINE_STAT(STAT_Navigation_TileVoxelFilteringAsync);
@@ -82,11 +81,27 @@ DEFINE_STAT(STAT_Navigation_ActorsGeometryExportSync);
 DEFINE_STAT(STAT_Navigation_ProcessingActorsForNavMeshBuilding);
 DEFINE_STAT(STAT_Navigation_AdjustingNavLinks);
 DEFINE_STAT(STAT_Navigation_AddingActorsToNavOctree);
+DEFINE_STAT(STAT_Navigation_RecastAddGeneratedTiles);
 DEFINE_STAT(STAT_Navigation_RecastTick);
 DEFINE_STAT(STAT_Navigation_RecastPathfinding);
 DEFINE_STAT(STAT_Navigation_RecastTestPath);
 DEFINE_STAT(STAT_Navigation_RecastBuildCompressedLayers);
+DEFINE_STAT(STAT_Navigation_RecastCreateHeightField);
+DEFINE_STAT(STAT_Navigation_RecastRasterizeTriangles);
+DEFINE_STAT(STAT_Navigation_RecastVoxelFilter);
+DEFINE_STAT(STAT_Navigation_RecastFilter);
+DEFINE_STAT(STAT_Navigation_RecastBuildCompactHeightField);
+DEFINE_STAT(STAT_Navigation_RecastErodeWalkable);
+DEFINE_STAT(STAT_Navigation_RecastBuildLayers);
+DEFINE_STAT(STAT_Navigation_RecastBuildTileCache);
+DEFINE_STAT(STAT_Navigation_RecastBuildPolyMesh);
+DEFINE_STAT(STAT_Navigation_RecastBuildPolyDetail);
+DEFINE_STAT(STAT_Navigation_RecastGatherOffMeshData);
+DEFINE_STAT(STAT_Navigation_RecastCreateNavMeshData);
+DEFINE_STAT(STAT_Navigation_RecastMarkAreas);
+DEFINE_STAT(STAT_Navigation_RecastBuildContours);
 DEFINE_STAT(STAT_Navigation_RecastBuildNavigation);
+DEFINE_STAT(STAT_Navigation_RecastBuildRegions);
 DEFINE_STAT(STAT_Navigation_UpdateNavOctree);
 DEFINE_STAT(STAT_Navigation_CollisionTreeMemory);
 DEFINE_STAT(STAT_Navigation_NavDataMemory);
@@ -125,13 +140,12 @@ namespace FNavigationSystem
 			const UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(World->GetNavigationSystem());
 			return NavSys && NavSys->ShouldLoadNavigationOnClient(&NavData);
 		}
-		else
+		else if (GEngine->NavigationSystemClass && GEngine->NavigationSystemClass->IsChildOf<UNavigationSystemV1>())
 		{
-			const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
-				? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
-				: (const UNavigationSystemV1*)nullptr;
+			const UNavigationSystemV1* NavSysCDO = GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>();
 			return NavSysCDO && NavSysCDO->ShouldLoadNavigationOnClient(&NavData);
 		}
+		return false;
 	}
 
 	bool ShouldDiscardSubLevelNavData(ANavigationData& NavData)

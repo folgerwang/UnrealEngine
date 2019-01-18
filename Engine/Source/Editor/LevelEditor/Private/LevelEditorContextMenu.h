@@ -15,8 +15,8 @@ enum class LevelEditorMenuContext
 {
 	/** This context menu is applicable to a viewport */
 	Viewport,
-	/** This context menu is applicable to an external UI or dialog (disables click-position-based menu items) */
-	NonViewport,
+	/** This context menu is applicable to the Scene Outliner (disables click-position-based menu items) */
+	SceneOutliner,
 };
 
 /**

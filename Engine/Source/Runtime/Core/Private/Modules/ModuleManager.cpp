@@ -69,7 +69,7 @@ FModuleManager& FModuleManager::Get()
 			ModuleManager = new FModuleManager();
 
 			//temp workaround for IPlatformFile being used for FPaths::DirectoryExists before main() sets up the commandline.
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP && !IS_MONOLITHIC
 		// Ensure that dependency dlls can be found in restricted sub directories
 			const TCHAR* RestrictedFolderNames[] = { TEXT("NoRedist"), TEXT("NotForLicensees"), TEXT("CarefullyRedist"), TEXT("Switch") };
 			FString ModuleDir = FPlatformProcess::GetModulesDirectory();
@@ -175,6 +175,14 @@ bool FModuleManager::IsModuleUpToDate(const FName InModuleName) const
 {
 	TMap<FName, FString> ModulePathMap;
 	FindModulePaths(*InModuleName.ToString(), ModulePathMap);
+
+	for (const TPair<FName, FString>& Pair : ModulePathMap)
+	{
+		if (!FPaths::FileExists(*Pair.Value))
+		{
+			return false;
+		}
+	}
 
 	return ModulePathMap.Num() == 1;
 }
@@ -353,7 +361,7 @@ IModuleInterface* FModuleManager::LoadModule( const FName InModuleName )
 	IModuleInterface* Result = LoadModuleWithFailureReason(InModuleName, FailureReason );
 
 	// This should return a valid pointer only if and only if the module is loaded
-	check((Result != nullptr) == IsModuleLoaded(InModuleName));
+	checkSlow((Result != nullptr) == IsModuleLoaded(InModuleName));
 
 	return Result;
 }

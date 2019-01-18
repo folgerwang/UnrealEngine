@@ -1044,7 +1044,8 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 
 UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext)
 {
-	if (GetWorld()->bIsTearingDown)
+	UWorld* World = GetWorld();
+	if (World->bIsTearingDown)
 	{
 		UE_LOG(LogActor, Warning, TEXT("AddComponent failed because we are in the process of tearing down the world"));
 		return nullptr;
@@ -1064,7 +1065,8 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 				TemplateData = BPGC->CookedComponentInstancingData.Find(TemplateName);
 			}
 			
-			if (!TemplateData || !TemplateData->bIsValid)
+			if (!TemplateData || !TemplateData->bIsValid
+				|| !ensureMsgf(TemplateData->ComponentTemplateClass != nullptr, TEXT("AddComponent fast path (%s.%s): Cooked data is valid, but runtime support data is not initialized. Using the slow path instead."), *BPGC->GetName(), *TemplateName.ToString()))
 			{
 				Template = BPGC->FindComponentTemplateByName(TemplateName);
 			}
@@ -1114,7 +1116,6 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 			NewActorComp->RegisterComponent();
 		}
 
-		UWorld* World = GetWorld();
 		if (!bRunningUserConstructionScript && World && bIsSceneComponent)
 		{
 			UPrimitiveComponent* NewPrimitiveComponent = Cast<UPrimitiveComponent>(NewActorComp);

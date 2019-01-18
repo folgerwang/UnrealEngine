@@ -6,6 +6,7 @@
 
 #pragma once
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
+#include "Misc/OutputDeviceFile.h"
 
 struct CORE_API FIOSPlatformOutputDevices : public FGenericPlatformOutputDevices
 {
@@ -13,3 +14,12 @@ struct CORE_API FIOSPlatformOutputDevices : public FGenericPlatformOutputDevices
 };
 
 typedef FIOSPlatformOutputDevices FPlatformOutputDevices;
+
+
+class FIOSOutputDeviceFile : public FOutputDeviceFile
+{
+public:
+	FIOSOutputDeviceFile(const TCHAR* InFilename = nullptr, bool bDisableBackup = false, bool bAppendIfExists = false);
+
+	virtual void Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time) override;
+};

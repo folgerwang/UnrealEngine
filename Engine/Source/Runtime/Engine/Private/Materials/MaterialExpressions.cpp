@@ -1387,12 +1387,14 @@ UMaterialExpressionTextureSample::UMaterialExpressionTextureSample(const FObject
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
 
 	Outputs.Reset();
-	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
-	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
-	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 1, 0, 0));
-	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
-	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
+	Outputs.Add(FExpressionOutput(TEXT("RGB"), 1, 1, 1, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT("R"), 1, 1, 0, 0, 0));
+	Outputs.Add(FExpressionOutput(TEXT("G"), 1, 0, 1, 0, 0));
+	Outputs.Add(FExpressionOutput(TEXT("B"), 1, 0, 0, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT("A"), 1, 0, 0, 0, 1));
+	Outputs.Add(FExpressionOutput(TEXT("RGBA"), 1, 1, 1, 1, 1));
 
+	bShowOutputNameOnPin = true;
 	bCollapsed = false;
 #endif // WITH_EDITORONLY_DATA
 
@@ -2201,6 +2203,23 @@ uint32 UMaterialExpressionTextureProperty::GetInputType(int32 InputIndex)
 	return MCT_Unknown;
 }
 #undef IF_INPUT_RETURN
+
+
+bool UMaterialExpressionTextureProperty::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif
 
 //
@@ -3230,6 +3249,22 @@ int32 UMaterialExpressionTextureCoordinate::Compile(class FMaterialCompiler* Com
 void UMaterialExpressionTextureCoordinate::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(FString::Printf(TEXT("TexCoord[%i]"), CoordinateIndex));
+}
+
+
+bool UMaterialExpressionTextureCoordinate::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
 }
 #endif // WITH_EDITOR
 
@@ -4977,6 +5012,7 @@ void UMaterialExpressionSetMaterialAttributes::PostEditChangeProperty(FPropertyC
 		
 			// Copy final defaults to new input
 			Inputs.Add(FExpressionInput());
+			Inputs.Last().ExpressionName = FName(*FMaterialAttributeDefinitionMap::GetDisplayName(AttributeSetTypes.Last()));
 			GraphNode->ReconstructNode();
 		}	 
 		else if (PreEditAttributeSetTypes.Num() > AttributeSetTypes.Num())
@@ -5018,6 +5054,10 @@ void UMaterialExpressionSetMaterialAttributes::PostEditChangeProperty(FPropertyC
 		else
 		{
 			// Type changed, update pin names
+			for (int i = 1; i < Inputs.Num(); ++i)
+			{
+				Inputs[i].InputName = *FMaterialAttributeDefinitionMap::GetDisplayName(AttributeSetTypes[i - 1]);
+			}
 			GraphNode->ReconstructNode();
 		}
 	}
@@ -10888,7 +10928,10 @@ FString FMaterialLayersFunctions::GetStaticPermutationString() const
 
 void FMaterialLayersFunctions::SerializeForDDC(FArchive& Ar)
 {
-	KeyString = GetStaticPermutationString();
+	if (!Ar.IsCooking())
+	{
+		KeyString = GetStaticPermutationString();
+	}
 	Ar << KeyString;
 }
 
@@ -11067,6 +11110,7 @@ static const TCHAR* GetInputTypeName(uint8 InputType)
 		TEXT("V4"),
 		TEXT("T2d"),
 		TEXT("TCube"),
+		TEXT("TVol"),
 		TEXT("B"),
 		TEXT("MA"),
 		TEXT("TExt")

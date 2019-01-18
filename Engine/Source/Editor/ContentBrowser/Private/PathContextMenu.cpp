@@ -82,6 +82,11 @@ void FPathContextMenu::SetOnFolderFavoriteToggled(const FOnFolderFavoriteToggled
 	OnFolderFavoriteToggled = InOnFolderFavoriteToggled;
 }
 
+const TArray<FString>& FPathContextMenu::GetSelectedPaths() const
+{
+	return SelectedPaths;
+}
+
 void FPathContextMenu::SetSelectedPaths(const TArray<FString>& InSelectedPaths)
 {
 	SelectedPaths = InSelectedPaths;
@@ -107,7 +112,7 @@ TSharedRef<FExtender> FPathContextMenu::MakePathViewContextMenuExtender(const TA
 	}
 	TSharedPtr<FExtender> MenuExtender = FExtender::Combine(Extenders);
 
-	MenuExtender->AddMenuExtension("NewFolder", EExtensionHook::After, TSharedPtr<FUICommandList>(), FMenuExtensionDelegate::CreateSP(this, &FPathContextMenu::MakePathViewContextMenu));
+	MenuExtender->AddMenuExtension("FolderContext", EExtensionHook::After, TSharedPtr<FUICommandList>(), FMenuExtensionDelegate::CreateSP(this, &FPathContextMenu::MakePathViewContextMenu));
 
 	return MenuExtender.ToSharedRef();
 }

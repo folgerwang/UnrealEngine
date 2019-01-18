@@ -25,8 +25,8 @@ namespace UnrealBuildTool
 
 	class TVOSToolChain : IOSToolChain
 	{
-		public TVOSToolChain(FileReference InProjectFile, TVOSProjectSettings InProjectSettings)
-			: base(CppPlatform.TVOS, InProjectFile, InProjectSettings, () => new TVOSToolChainSettings())
+		public TVOSToolChain(ReadOnlyTargetRules InTarget, TVOSProjectSettings InProjectSettings)
+			: base(CppPlatform.TVOS, InTarget, InProjectSettings, () => new TVOSToolChainSettings())
 		{
 		}
 

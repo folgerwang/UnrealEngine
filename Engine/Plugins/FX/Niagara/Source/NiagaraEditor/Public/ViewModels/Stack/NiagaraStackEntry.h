@@ -149,6 +149,8 @@ public:
 
 		const TArray<FStackIssueFix>& GetFixes() const;
 
+		void InsertFix(int32 InsertionIdx, const FStackIssueFix& Fix);
+
 	private:
 		EStackIssueSeverity Severity;
 		FText ShortDescription;
@@ -195,9 +197,7 @@ public:
 
 	virtual bool GetShouldShowInStack() const;
 
-	void GetFilteredChildren(TArray<UNiagaraStackEntry*>& OutFilteredChildren);
-
-	void GetUnfilteredChildren(TArray<UNiagaraStackEntry*>& OutUnfilteredChildren);
+	void GetFilteredChildren(TArray<UNiagaraStackEntry*>& OutFilteredChildren) const;
 
 	void GetUnfilteredChildren(TArray<UNiagaraStackEntry*>& OutUnfilteredChildren) const;
 
@@ -232,7 +232,7 @@ public:
 		return nullptr;
 	}
 
-	void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const;
+	virtual void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const;
 
 	virtual UObject* GetExternalAsset() const;
 
@@ -246,6 +246,10 @@ public:
 
 	void SetOnRequestDrop(FOnRequestDrop InOnRequestCanDrop);
 
+	const bool GetIsSearchResult() const;
+
+	void SetIsSearchResult(bool bInIsSearchResult);
+
 protected:
 	virtual void BeginDestroy() override;
 
@@ -256,8 +260,6 @@ protected:
 	FRequiredEntryData CreateDefaultChildRequiredData() const;
 
 	virtual int32 GetChildIndentLevel() const;
-
-	virtual void GetAdditionalSearchItemsInternal(TArray<FStackSearchItem>& SearchItems) const;
 
 	virtual TOptional<FDropResult> CanDropInternal(const TArray<UNiagaraStackEntry*>& DraggedEntries);
 
@@ -325,4 +327,6 @@ private:
 	TArray<FStackIssue> StackIssues;
 
 	bool bIsFinalized;
+
+	bool bIsSearchResult;
 };

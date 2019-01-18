@@ -198,7 +198,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		FComponentEditorUtils::FillComponentContextMenuOptions(MenuBuilder, SelectedComponents);
 	}
-	else
+	else if (GEditor->GetSelectedActorCount() > 0)
 	{
 		// Generate information about our selection
 		TArray<AActor*> SelectedActors;
@@ -440,6 +440,20 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		MenuBuilder.PopExtender();
 	}	
+	else if (ContextType == LevelEditorMenuContext::SceneOutliner)
+	{
+		TWeakPtr<ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+		if (SceneOutlinerPtr.IsValid())
+		{
+			MenuBuilder.BeginSection("SelectVisibilityLevels");
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("EditSubMenu", "Edit"),
+					FText::GetEmpty(),
+					FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillEditMenu, ContextType));
+			}
+		}
+	}
 
 	MenuBuilder.PopCommandList();
 }
@@ -646,6 +660,13 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		// These menu options appear if only if all the actors are the same type and we aren't selecting brush
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllActorsOfSameClass, NAME_None, SelectAllActorStr );
 	}
+
+	MenuBuilder.BeginSection("SelectActorHierarchy", LOCTEXT("SelectHierarchyHeading", "Hierarchy") );
+	{
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectImmediateChildren );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllDescendants );
+	}
+	MenuBuilder.EndSection();
 
 	// Add brush commands when we have a brush or any surfaces selected
 	MenuBuilder.BeginSection("SelectBSP", LOCTEXT("SelectBSPHeading", "BSP") );

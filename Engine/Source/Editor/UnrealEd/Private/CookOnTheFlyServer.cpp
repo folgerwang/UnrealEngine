@@ -6093,7 +6093,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 
 
 					FString Args(TEXT("build "));
+					Args += TEXT("\"");
 					Args += StablePCPath;
+					Args += TEXT("\"");
 
 					int32 NumMatched = 0;
 					for (int32 Index = 0; Index < SCLCSVPaths->Num(); Index++)
@@ -6104,7 +6106,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 						}
 						NumMatched++;
 						Args += TEXT(" ");
+						Args += TEXT("\"");
 						Args += (*SCLCSVPaths)[Index];
+						Args += TEXT("\"");
 					}
 					if (!NumMatched)
 					{
@@ -6117,7 +6121,9 @@ void UCookOnTheFlyServer::ProcessShaderCodeLibraries(const FString& LibraryName)
 					}
 
 					Args += TEXT(" ");
+					Args += TEXT("\"");
 					Args += PCPath;
+					Args += TEXT("\"");
 					UE_LOG(LogCook, Display, TEXT("  With Args: %s"), *Args);
 
 					int32 Result = UShaderPipelineCacheToolsCommandlet::StaticMain(Args);
@@ -6331,7 +6337,7 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 					IgnorePackageNames.Add(UncookedEditorOnlyPackage);
 				}
 				{
-					Generator.PreSave();
+					Generator.PreSave(CookedPackageNames);
 				}
 				{
 					SCOPE_TIMER(BuildChunkManifest);
@@ -6872,7 +6878,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	TArray<FName> FilesInPath;
 	TSet<FName> StartupSoftObjectPackages;
 
-	// Get the list of string asset references, for both empty package and all startup packages
+	// Get the list of soft references, for both empty package and all startup packages
 	GRedirectCollector.ProcessSoftObjectPathPackageList(NAME_None, false, StartupSoftObjectPackages);
 
 	for (const FName& StartupPackage : CookByTheBookOptions->StartupPackages)

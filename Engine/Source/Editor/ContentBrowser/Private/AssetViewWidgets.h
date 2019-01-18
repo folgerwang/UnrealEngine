@@ -63,6 +63,9 @@ public:
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual FReply OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+
+	/** Returns true if a widget is currently generated for a given asset */
+	bool HasWidgetForAsset(const FName& AssetPathName);
 };
 
 /** The list view mode of the asset view */
@@ -72,6 +75,9 @@ public:
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual FReply OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
+	/** Returns true if a widget is currently generated for a given asset */
+	bool HasWidgetForAsset(const FName& AssetPathName);
 };
 
 /** The columns view mode of the asset view */
@@ -166,9 +172,6 @@ public:
 	/** Get the name text to be displayed for this item */
 	FText GetNameText() const;
 
-	/** Delegate handling when an asset is loaded */
-	void HandleAssetLoaded(UObject* InAsset) const;
-
 protected:
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
 	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool& OutIsKnownDragOperation ) const;
@@ -199,6 +202,12 @@ protected:
 
 	/** Gets the brush for the dirty indicator image */
 	const FSlateBrush* GetDirtyImage() const;
+
+	/** Generate a widget to inject extra external state indicator on the asset. */
+	TSharedRef<SWidget> GenerateExtraStateIconWidget(TAttribute<float> InMaxExtraStateIconWidth) const;
+
+	/** Generate a widget to inject extra external state indicator on the asset tooltip. */
+	TSharedRef<SWidget> GenerateExtraStateTooltipWidget() const;
 
 	/** Gets the visibility for the thumbnail edit mode UI */
 	EVisibility GetThumbnailEditModeUIVisibility() const;
@@ -445,11 +454,17 @@ public:
 	bool CanDisplayPrimitiveTools() const { return false; }
 
 private:
+	/** Get the expected width of an extra state icon. */
+	float GetExtraStateIconWidth() const;
+
+	/** Returns the max width size to be used by extra state icons. */
+	FOptionalSize GetExtraStateIconMaxWidth() const;
+
+	/** Returns the size of the state icon box widget (i.e dirty image, scc)*/
+	FOptionalSize GetStateIconImageSize() const;
+
 	/** Returns the size of the thumbnail widget */
 	FOptionalSize GetThumbnailBoxSize() const;
-
-	/** Returns the size of the source control state box widget */
-	FOptionalSize GetSCCImageSize() const;
 
 private:
 	/** The handle to the thumbnail that this item is rendering */
@@ -559,14 +574,20 @@ protected:
 	/** SAssetViewItem interface */
 	virtual float GetNameTextWrapWidth() const override { return LastGeometry.GetLocalSize().X - 2.f; }
 
-	/** Returns the size of the thumbnail box widget */
+	/** Get the expected width of an extra state icon. */
+	float GetExtraStateIconWidth() const;
+
+	/** Returns the max width size to be used by extra state icons. */
+	FOptionalSize GetExtraStateIconMaxWidth() const;
+
+	/** Returns the size of the state icon box widget (i.e dirty image, scc)*/
+	FOptionalSize GetStateIconImageSize() const;
+
+	/** Returns the size of the thumbnail widget */
 	FOptionalSize GetThumbnailBoxSize() const;
 
 	/** Returns the font to use for the thumbnail label */
 	FSlateFontInfo GetThumbnailFont() const;
-
-	/** Returns the size of the source control state box widget */
-	FOptionalSize GetSCCImageSize() const;
 
 private:
 	/** The handle to the thumbnail that this item is rendering */

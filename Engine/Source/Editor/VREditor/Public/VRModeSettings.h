@@ -3,10 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Teleporter/VREditorTeleporter.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "VISettings.h"
+#include "VREditorInteractor.h"
 #include "VRModeSettings.generated.h"
+
+class UVREditorInteractor;
+class AVREditorTeleporter;
 
 UENUM()
 enum class EInteractorHand : uint8
@@ -74,6 +79,14 @@ public:
 	/** The amount (between 0-1) you have to depress the Oculus Touch controller trigger to register a press */
 	UPROPERTY(EditAnywhere, config, Category = "Motion Controllers", meta = (DisplayName = "Trigger Pressed Threshold (Oculus Touch)", ClampMin = 0.01, ClampMax = 1.0))
 	float TriggerPressedThreshold_Rift;
+
+	/** The class we'll create our interactors from */
+	UPROPERTY(EditAnywhere, config, Category = "Motion Controllers")
+	TSubclassOf<UVREditorInteractor> InteractorClass;
+
+	/** The class we'll create our interactors from */
+	UPROPERTY( EditAnywhere, config, Category = "Motion Controllers" )
+	TSubclassOf<AVREditorTeleporter> TeleporterClass;
 
 private:
 #if WITH_EDITOR

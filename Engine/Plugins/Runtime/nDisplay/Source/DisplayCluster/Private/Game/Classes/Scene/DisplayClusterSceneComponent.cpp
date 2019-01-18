@@ -8,7 +8,6 @@
 #include "Misc/DisplayClusterLog.h"
 
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 UDisplayClusterSceneComponent::UDisplayClusterSceneComponent(const FObjectInitializer& ObjectInitializer) :

@@ -10,11 +10,9 @@
 
 #include "LevelVariantSetsActor.generated.h"
 
-
 class UVariantSet;
 
-
-UCLASS(hideCategories=(Rendering, Physics, LOD, Activation, Input))
+UCLASS(hideCategories=(Rendering, Physics, LOD, Activation, Input, Actor, Cooking))
 class VARIANTMANAGERCONTENT_API ALevelVariantSetsActor : public AActor
 {
 public:
@@ -23,12 +21,10 @@ public:
 
 	ALevelVariantSetsActor(const FObjectInitializer& Init);
 
-	// AActor interface
-	virtual void BeginPlay() override;
-	//~ End AActor interface
-
-	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
-	ULevelVariantSets* GetLevelVariantSets(bool bLoad = false) const;
+	// Non-const so that it doesn't show as pure in blueprints,
+	// since it might trigger a load
+	UFUNCTION(BlueprintCallable, Category="LevelVariantSets", meta=(ToolTip="Returns the LevelVariantSets asset, optionally loading it if necessary"))
+	ULevelVariantSets* GetLevelVariantSets(bool bLoad = false);
 
 	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
 	void SetLevelVariantSets(ULevelVariantSets* InVariantSets);

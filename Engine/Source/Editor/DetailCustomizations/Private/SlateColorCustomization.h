@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
-#include "ColorStructCustomization.h"
+#include "Customizations/ColorStructCustomization.h"
 
 class FDetailWidgetRow;
 

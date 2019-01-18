@@ -9,16 +9,19 @@
 
 #if ENABLE_DRAW_DEBUG
 
-static FColor TraceColor(255,255,255);
-static FColor HitColor(156, 179, 209);
-static FColor PenetratingColor(64, 64, 255);
-static FColor BlockColor(255,64,64);
-static FColor TouchColor(64,255,64);
-static float NormalLength = 20.f;
+namespace CollisionDebugDrawing
+{
+	static FColor TraceColor(255,255,255);
+	static FColor HitColor(156, 179, 209);
+	static FColor PenetratingColor(64, 64, 255);
+	static FColor BlockColor(255,64,64);
+	static FColor TouchColor(64,255,64);
+	static float NormalLength = 20.f;
+}
 
 ENGINE_API void DrawLineTraces(const UWorld* InWorld, const FVector& Start, const FVector& End, const TArray<FHitResult>& Hits, float Lifetime)
 {
-	FColor Color = (Hits.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Hits.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	DrawDebugLine(InWorld, Start, End, Color, false, Lifetime);
 
 	for(int32 HitIdx=0; HitIdx<Hits.Num(); HitIdx++)
@@ -26,11 +29,11 @@ ENGINE_API void DrawLineTraces(const UWorld* InWorld, const FVector& Start, cons
 		const FHitResult& Hit = Hits[HitIdx];
 
 		FVector NormalStart = Hit.Location;
-		FVector NormalEnd = NormalStart + (Hit.Normal * NormalLength);
-		const FColor NormalColor = Hit.bBlockingHit ? BlockColor : TouchColor;
+		FVector NormalEnd = NormalStart + (Hit.Normal * CollisionDebugDrawing::NormalLength);
+		const FColor NormalColor = Hit.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 		NormalStart = Hit.ImpactPoint;
-		NormalEnd = NormalStart + (Hit.ImpactNormal * NormalLength);
+		NormalEnd = NormalStart + (Hit.ImpactNormal * CollisionDebugDrawing::NormalLength);
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 
 		UE_LOG(LogCollision, Log, TEXT("  %d: T=%f C='%s' BLOCK=%d"), HitIdx, Hit.Time, *GetPathNameSafe(Hit.Component.Get()), Hit.bBlockingHit);
@@ -39,7 +42,7 @@ ENGINE_API void DrawLineTraces(const UWorld* InWorld, const FVector& Start, cons
 
 ENGINE_API void DrawSphereSweeps(const UWorld* InWorld, const FVector& Start, const FVector& End, const float Radius, const TArray<FHitResult>& Hits, float Lifetime)
 {
-	FColor Color = (Hits.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Hits.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	DrawDebugSphere(InWorld, Start, Radius, FMath::Max(Radius/4.f, 2.f), Color, false, Lifetime);
 	DrawDebugSphere(InWorld, End, Radius, FMath::Max(Radius/4.f, 2.f), Color, false, Lifetime);
 	DrawDebugLine(InWorld, Start+FVector(0, 0, Radius), End+FVector(0, 0, Radius), Color, false, Lifetime);
@@ -49,11 +52,11 @@ ENGINE_API void DrawSphereSweeps(const UWorld* InWorld, const FVector& Start, co
 		const FHitResult& Hit = Hits[HitIdx];
 
 		FVector NormalStart = Hit.Location;
-		FVector NormalEnd = NormalStart + (Hit.Normal * NormalLength);
-		const FColor NormalColor = Hit.bBlockingHit ? BlockColor : TouchColor;
+		FVector NormalEnd = NormalStart + (Hit.Normal * CollisionDebugDrawing::NormalLength);
+		const FColor NormalColor = Hit.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 		NormalStart = Hit.ImpactPoint;
-		NormalEnd = NormalStart + (Hit.ImpactNormal * NormalLength);
+		NormalEnd = NormalStart + (Hit.ImpactNormal * CollisionDebugDrawing::NormalLength);
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 
 		//UE_LOG(LogCollision, Log, TEXT("  %d: T=%f C='%s' BLOCK=%d"), HitIdx, Hit.Time, Hit.Component ? *Hit.Component->GetPathName() : TEXT("NOCOMP"), Hit.bBlockingHit);
@@ -65,7 +68,7 @@ ENGINE_API void DrawBoxSweeps(const UWorld* InWorld, const FVector& Start, const
 	FBox StartBox(Start-Extent, Start+Extent);
 	FBox EndBox(End-Extent, End+Extent);
 
-	FColor Color = (Hits.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Hits.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 
 	DrawDebugLine(InWorld, Start, End, Color, false, Lifetime);
 	DrawDebugBox(InWorld, StartBox.GetCenter(), StartBox.GetExtent(), Rot, Color, false, Lifetime);
@@ -84,11 +87,11 @@ ENGINE_API void DrawBoxSweeps(const UWorld* InWorld, const FVector& Start, const
 		const FHitResult& Hit = Hits[HitIdx];
 
 		FVector NormalStart = Hit.Location;
-		FVector NormalEnd = NormalStart + (Hit.Normal * NormalLength);
-		const FColor NormalColor = Hit.bBlockingHit ? BlockColor : TouchColor;
+		FVector NormalEnd = NormalStart + (Hit.Normal * CollisionDebugDrawing::NormalLength);
+		const FColor NormalColor = Hit.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 		NormalStart = Hit.ImpactPoint;
-		NormalEnd = NormalStart + (Hit.ImpactNormal * NormalLength);
+		NormalEnd = NormalStart + (Hit.ImpactNormal * CollisionDebugDrawing::NormalLength);
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 
 		//UE_LOG(LogCollision, Log, TEXT("  %d: T=%f C='%s' BLOCK=%d"), HitIdx, Hit.Time, Hit.Component ? *Hit.Component->GetPathName() : TEXT("NOCOMP"), Hit.bBlockingHit);
@@ -97,10 +100,10 @@ ENGINE_API void DrawBoxSweeps(const UWorld* InWorld, const FVector& Start, const
 
 ENGINE_API void DrawCapsuleSweeps(const UWorld* InWorld, const FVector& Start, const FVector& End, float HalfHeight, float Radius, const FQuat& Rotation, const TArray<FHitResult>& Hits, float Lifetime)
 {
-	FColor Color = (Hits.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Hits.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	if (Hits.Num() > 0 && Hits[0].bBlockingHit)
 	{
-		Color = PenetratingColor;
+		Color = CollisionDebugDrawing::PenetratingColor;
 		//		LifeTime=0.f;
 	}
 	DrawDebugLine(InWorld, Start, End, Color, false, Lifetime);
@@ -118,19 +121,19 @@ ENGINE_API void DrawCapsuleSweeps(const UWorld* InWorld, const FVector& Start, c
 	FVector Right = Dir ^ Up; 
 	Right *= Radius;
 
-	DrawDebugLine(InWorld, Start - Right, End - Right, TraceColor, false, Lifetime);
-	DrawDebugLine(InWorld, Start + Right, End + Right, TraceColor, false, Lifetime);
+	DrawDebugLine(InWorld, Start - Right, End - Right, CollisionDebugDrawing::TraceColor, false, Lifetime);
+	DrawDebugLine(InWorld, Start + Right, End + Right, CollisionDebugDrawing::TraceColor, false, Lifetime);
 
 	for(int32 HitIdx=0; HitIdx<Hits.Num(); HitIdx++)
 	{
 		const FHitResult& Hit = Hits[HitIdx];
 
 		FVector NormalStart = Hit.Location;
-		FVector NormalEnd = NormalStart + (Hit.Normal * NormalLength);
-		const FColor NormalColor = Hit.bBlockingHit ? BlockColor : TouchColor;
+		FVector NormalEnd = NormalStart + (Hit.Normal * CollisionDebugDrawing::NormalLength);
+		const FColor NormalColor = Hit.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, NormalColor, false, Lifetime);
 		NormalStart = Hit.ImpactPoint;
-		NormalEnd = NormalStart + (Hit.ImpactNormal * NormalLength);
+		NormalEnd = NormalStart + (Hit.ImpactNormal * CollisionDebugDrawing::NormalLength);
 		DrawDebugDirectionalArrow(InWorld, NormalStart, NormalEnd, 5.f, FColor(255, 255, 0), false, Lifetime);
 
 		//UE_LOG(LogCollision, Log, TEXT("  %d: T=%f C='%s' BLOCK=%d"), HitIdx, Hit.Time, Hit.Component ? *Hit.Component->GetPathName() : TEXT("NOCOMP"), Hit.bBlockingHit);
@@ -139,7 +142,7 @@ ENGINE_API void DrawCapsuleSweeps(const UWorld* InWorld, const FVector& Start, c
 
 ENGINE_API void DrawBoxOverlap(const UWorld* InWorld, const FVector& Pos, const FVector& Extent, const FQuat& Rot, TArray<struct FOverlapResult>& Overlaps, float Lifetime)
 {
-	FColor Color = (Overlaps.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Overlaps.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	DrawDebugBox(InWorld, Pos, Extent, Rot, Color, false, Lifetime);
 
 	for(int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++)
@@ -148,7 +151,7 @@ ENGINE_API void DrawBoxOverlap(const UWorld* InWorld, const FVector& Pos, const 
 
 		if (Overlap.Component.Get())
 		{
-			const FColor OverlapColor = Overlap.bBlockingHit ? BlockColor : TouchColor;
+			const FColor OverlapColor = Overlap.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 			DrawDebugDirectionalArrow(InWorld, Pos, Overlap.Component->GetComponentLocation(), 5.f, OverlapColor, false, Lifetime);
 		}
 
@@ -158,7 +161,7 @@ ENGINE_API void DrawBoxOverlap(const UWorld* InWorld, const FVector& Pos, const 
 
 ENGINE_API void DrawSphereOverlap(const UWorld* InWorld, const FVector& Pos, const float Radius, TArray<struct FOverlapResult>& Overlaps, float Lifetime)
 {
-	FColor Color = (Overlaps.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Overlaps.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	DrawDebugSphere(InWorld, Pos, Radius, FMath::Max(Radius/4.f, 2.f), Color, false, Lifetime);
 
 	for(int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++)
@@ -167,7 +170,7 @@ ENGINE_API void DrawSphereOverlap(const UWorld* InWorld, const FVector& Pos, con
 
 		if (Overlap.Component.Get())
 		{
-			const FColor OverlapColor = Overlap.bBlockingHit ? BlockColor : TouchColor;
+			const FColor OverlapColor = Overlap.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 			DrawDebugDirectionalArrow(InWorld, Pos, Overlap.Component->GetComponentLocation(), 5.f, OverlapColor, false, Lifetime);
 		}
 
@@ -177,7 +180,7 @@ ENGINE_API void DrawSphereOverlap(const UWorld* InWorld, const FVector& Pos, con
 
 ENGINE_API void DrawCapsuleOverlap(const UWorld* InWorld,const FVector& Pos, const float HalfHeight, const float Radius, const FQuat& Rot, TArray<struct FOverlapResult>& Overlaps, float Lifetime)
 {
-	FColor Color = (Overlaps.Num() > 0)? HitColor: TraceColor;
+	FColor Color = (Overlaps.Num() > 0)? CollisionDebugDrawing::HitColor: CollisionDebugDrawing::TraceColor;
 	DrawDebugCapsule(InWorld, Pos, HalfHeight, Radius, Rot, Color, false, Lifetime);
 
 	for(int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++)
@@ -186,7 +189,7 @@ ENGINE_API void DrawCapsuleOverlap(const UWorld* InWorld,const FVector& Pos, con
 
 		if (Overlap.Component.Get())
 		{
-			const FColor OverlapColor = Overlap.bBlockingHit ? BlockColor : TouchColor;
+			const FColor OverlapColor = Overlap.bBlockingHit ? CollisionDebugDrawing::BlockColor : CollisionDebugDrawing::TouchColor;
 			DrawDebugDirectionalArrow(InWorld, Pos, Overlap.Component->GetComponentLocation(), 5.f, OverlapColor, false, Lifetime);
 		}
 

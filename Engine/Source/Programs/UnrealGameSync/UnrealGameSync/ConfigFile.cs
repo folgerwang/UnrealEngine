@@ -300,7 +300,7 @@ namespace UnrealGameSync
 
 		public void SetValues(string Key, string[] Values)
 		{
-			if(Values == null)
+			if(Values == null || Values.Length == 0)
 			{
 				RemoveValue(Key);
 			}

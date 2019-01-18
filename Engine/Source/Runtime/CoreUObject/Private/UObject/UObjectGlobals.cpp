@@ -634,7 +634,7 @@ UPackage* FindPackage( UObject* InOuter, const TCHAR* PackageName )
 	}
 	else
 	{
-		UE_LOG(LogUObjectGlobals, Fatal, TEXT("%s"), TEXT("Attempted to create a package named 'None'") );
+		UE_LOG(LogUObjectGlobals, Fatal, TEXT("Attempted to find a package named 'None' - InName: %s"), PackageName);
 	}
 	return Result;
 }
@@ -4538,6 +4538,12 @@ namespace UE4CodeGen_Private
 		}
 
 		UObjectForceRegistration(NewClass);
+
+		UClass* SuperClass = NewClass->GetSuperClass();
+		if (SuperClass)
+		{
+			NewClass->ClassFlags |= (SuperClass->ClassFlags & CLASS_Inherit);
+		}
 
 		NewClass->ClassFlags |= (EClassFlags)(Params.ClassFlags | CLASS_Constructed);
 		// Make sure the reference token stream is empty since it will be reconstructed later on

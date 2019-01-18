@@ -164,9 +164,28 @@ bool UIpNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, const
 	Socket->SetSendBufferSize(SendSize,SendSize);
 	UE_LOG(LogInit, Log, TEXT("%s: Socket queue %i / %i"), SocketSubsystem->GetSocketAPIName(), RecvSize, SendSize );
 
+	// allow multihome as a url option
+	const TCHAR* MultiHomeBindAddr = URL.GetOption(TEXT("multihome="), nullptr);
+	if (MultiHomeBindAddr != nullptr)
+	{
+		LocalAddr = SocketSubsystem->CreateInternetAddr();
+
+		bool bIsValid = false;
+		LocalAddr->SetIp(MultiHomeBindAddr, bIsValid);
+
+		if (!bIsValid)
+		{
+			LocalAddr = nullptr;
+			UE_LOG(LogNet, Warning, TEXT("Failed to created valid address from multihome address: %s"), MultiHomeBindAddr);
+		}
+	}
+
+	if (!LocalAddr.IsValid())
+	{
+		LocalAddr = SocketSubsystem->GetLocalBindAddr(*GLog);
+	}
+
 	// Bind socket to our port.
-	LocalAddr = SocketSubsystem->GetLocalBindAddr(*GLog);
-	
 	LocalAddr->SetPort(bInitAsClient ? GetClientPort() : URL.Port);
 	
 	int32 AttemptPort = LocalAddr->GetPort();
@@ -612,6 +631,20 @@ UNetConnection* UIpNetDriver::ProcessConnectionlessPacket(const TSharedRef<FInte
 
 
 						MappedClientConnections.Add(RemoteAddrRef, FoundConn);
+
+
+						// Make sure we didn't just invalidate a RecentlyDisconnectedClients entry, with the same address
+						int32 RecentDisconnectIdx = RecentlyDisconnectedClients.IndexOfByPredicate(
+							[&RemoteAddrRef](const FDisconnectedClient& CurElement)
+							{
+								return *RemoteAddrRef == *CurElement.Address;
+							});
+
+						if (RecentDisconnectIdx != INDEX_NONE)
+						{
+							RecentlyDisconnectedClients.RemoveAt(RecentDisconnectIdx);
+						}
+
 
 						ReturnVal = FoundConn;
 

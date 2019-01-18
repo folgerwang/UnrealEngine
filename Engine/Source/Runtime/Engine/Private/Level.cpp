@@ -62,7 +62,7 @@ Level.cpp: Level-related functions
 DEFINE_LOG_CATEGORY(LogLevel);
 
 int32 GActorClusteringEnabled = 1;
-static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
+static FAutoConsoleVariableRef CVarActorClusteringEnabled(
 	TEXT("gc.ActorClusteringEnabled"),
 	GActorClusteringEnabled,
 	TEXT("Whether to allow levels to create actor clusters for GC."),
@@ -1482,6 +1482,14 @@ void ULevel::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		ReleaseRenderingResources();
 		InitializeRenderingResources();
 	}
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 } 
 
 #endif // WITH_EDITOR
@@ -1753,6 +1761,22 @@ void ULevel::InitializeNetworkActors()
 			Actor->bActorSeamlessTraveled = false;
 		}
 	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
+	bAlreadyInitializedNetworkActors = true;
+}
+
+void ULevel::ClearActorsSeamlessTraveledFlag()
+{
+	for (AActor* Actor : Actors)
+	{
+		if (Actor)
+		{
+			Actor->bActorSeamlessTraveled = false;
+		}
+	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
 }
 
 void ULevel::InitializeRenderingResources()

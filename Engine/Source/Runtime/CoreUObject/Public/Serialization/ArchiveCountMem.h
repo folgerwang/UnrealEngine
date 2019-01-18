@@ -12,11 +12,12 @@
 class FArchiveCountMem : public FArchiveUObject
 {
 public:
-	FArchiveCountMem( UObject* Src )
+	FArchiveCountMem( UObject* Src, bool bFilterEditorOnly = false )
 	:	Num(0)
 	,	Max(0)
 	{
 		ArIsCountingMemory = true;
+		ArIsFilterEditorOnly = bFilterEditorOnly;
 		if( Src )
 		{
 			Src->Serialize( *this );

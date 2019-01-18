@@ -2547,8 +2547,11 @@ namespace ObjectTools
 
 		GWarn->EndSlowTask();
 
-		// Redraw viewports
-		GUnrealEd->RedrawAllViewports();
+		if (GUnrealEd)
+		{
+			// Redraw viewports
+			GUnrealEd->RedrawAllViewports();
+		}
 
 		return NumDeletedObjects;
 	}	
@@ -3037,7 +3040,7 @@ namespace ObjectTools
 								Path = FPaths::Combine(*FPaths::ProjectDir(), TEXT("Content"), TEXT("Sounds"), *LanguageExt, *(FPackageName::GetLongPackageAssetName(NewPackageName) + FPackageName::GetAssetPackageExtension()));
 
 								// Move the package into the correct file location by saving it
-								GUnrealEd->Exec( NULL, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\""), *NewPackageName, *Path) );
+								GEditor->Exec( NULL, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\""), *NewPackageName, *Path) );
 							}
 						}
 						else
@@ -3774,8 +3777,7 @@ namespace ThumbnailTools
 
 
 		// Get the rendering info for this object
-		FThumbnailRenderingInfo* RenderInfo =
-			GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
+		FThumbnailRenderingInfo* RenderInfo = GUnrealEd ? GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject ) : nullptr;
 
 		// Wait for all textures to be streamed in before we render the thumbnail
 		// @todo CB: This helps but doesn't result in 100%-streamed-in resources every time! :(
@@ -3891,7 +3893,7 @@ namespace ThumbnailTools
 	FObjectThumbnail* GenerateThumbnailForObjectToSaveToDisk( UObject* InObject )
 	{
 		// Does the object support thumbnails?
-		FThumbnailRenderingInfo* RenderInfo = GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
+		FThumbnailRenderingInfo* RenderInfo = GUnrealEd ? GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject ) : nullptr;
 		if( RenderInfo != NULL && RenderInfo->Renderer != NULL )
 		{
 			// Set the size of cached thumbnails
@@ -4053,6 +4055,12 @@ namespace ThumbnailTools
 		FString PackageName = InPackageFileName;
 		if (FPackageName::TryConvertFilenameToLongPackageName(PackageName, PackageName))
 		{
+			if (PackageName == TEXT("None"))
+			{
+				UE_LOG(LogUObjectGlobals, Warning, TEXT("Attempted to FindCachedThumbnailInPackage named 'None' - PackageName: %s InPackageFileName: %s"), *PackageName, *InPackageFileName);
+				return nullptr;
+			}
+
 			// First check to see if the package is already in memory.  If it is, some or all of the thumbnails
 			// may already be loaded and ready.
 			UObject* PackageOuter = nullptr;

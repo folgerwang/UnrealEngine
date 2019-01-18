@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerSourceVoice.h"
 #include "AudioMixerSource.h"
@@ -246,8 +246,6 @@ namespace Audio
 		return SourceManager->MixOutputBuffers(SourceId, InSubmixChannelType, SendLevel, OutWetBuffer);
 	}
 
-// MSVC 2017 15.8.4 is generating bad code where setting submix will crash. See https://developercommunity.visualstudio.com/content/problem/345511/bad-code-generation-in-vs-2017-v1585.html.
-MSVC_PRAGMA(optimize("", off))
 	void FMixerSourceVoice::SetSubmixSendInfo(FMixerSubmixWeakPtr Submix, const float SendLevel)
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
@@ -276,13 +274,14 @@ MSVC_PRAGMA(optimize("", off))
 			}
 		}
 	}
-MSVC_PRAGMA(optimize("", on))
 
 	void FMixerSourceVoice::OnMixBus(FMixerSourceVoiceBuffer* OutMixerSourceBuffer)
 	{
 		AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
-		for (uint32 i = 0; i < OutMixerSourceBuffer->Samples; ++i)
+		check(OutMixerSourceBuffer->AudioData.Num() > 0);
+
+		for (int32 i = 0; i < OutMixerSourceBuffer->AudioData.Num(); ++i)
 		{
 			OutMixerSourceBuffer->AudioData[i] = 0.0f;
 		}

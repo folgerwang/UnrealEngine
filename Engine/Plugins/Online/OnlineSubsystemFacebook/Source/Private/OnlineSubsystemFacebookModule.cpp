@@ -20,6 +20,8 @@ public:
 		FOnlineSubsystemFacebookPtr OnlineSub = MakeShared<FOnlineSubsystemFacebook, ESPMode::ThreadSafe>(InstanceName);
 		if (OnlineSub->IsEnabled())
 		{
+			UE_LOG_ONLINE(Log, TEXT("Facebook API is being initialized."));
+
 			if(!OnlineSub->Init())
 			{
 				UE_LOG_ONLINE(Warning, TEXT("Facebook API failed to initialize!"));
@@ -40,7 +42,7 @@ public:
 
 void FOnlineSubsystemFacebookModule::StartupModule()
 {
-	UE_LOG_ONLINE(Log, TEXT("Facebook Startup!"));
+	UE_LOG_ONLINE(Log, TEXT("Facebook Module Startup!"));
 
 	FacebookFactory = new FOnlineFactoryFacebook();
 
@@ -51,7 +53,7 @@ void FOnlineSubsystemFacebookModule::StartupModule()
 
 void FOnlineSubsystemFacebookModule::ShutdownModule()
 {
-	UE_LOG_ONLINE(Log, TEXT("Facebook Shutdown!"));
+	UE_LOG_ONLINE(Log, TEXT("Facebook Module Shutdown!"));
 
 	FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
 	OSS.UnregisterPlatformService(FACEBOOK_SUBSYSTEM);

@@ -32,13 +32,49 @@ public:
 	/**
 	 * Initialize the sample.
 	 *
-	 * @param InBinaryBuffer The metadata frame data.
+	 * @param InAudioBuffer The audio frame data.
 	 * @param InNumberOfChannels The number of channel of the audio buffer.
 	 * @param InSampleRate The sample rate of the audio buffer.
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
 	bool Initialize(TArray<int32> InAudioBuffer, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+
+
+	/**
+	 * Set the sample buffer.
+	 *
+	 * @param InAudioBuffer The audio frame data.
+	 * @param InBufferSize The size of the audio buffer.
+	 */
+	bool SetBuffer(const int32* InAudioBuffer, uint32 InBufferSize);
+
+	/**
+	 * Set the sample buffer.
+	 *
+	 * @param InAudioBuffer The audio frame data.
+	 */
+	bool SetBuffer(TArray<int32> InAudioBuffer);
+
+	/**
+	 * Set the sample properties.
+	 *
+	 * @param InBufferSize The size of the audio buffer.
+	 * @param InNumberOfChannels The number of channel of the audio buffer.
+	 * @param InSampleRate The sample rate of the audio buffer.
+	 * @param InTime The sample time (in the player's own clock).
+	 * @param InTimecode The sample timecode if available.
+	 */
+	bool SetProperties(uint32 InBufferSize, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+
+	/**
+	 * Request an uninitialized sample buffer.
+	 * Should be used when the buffer could be filled by something else.
+	 * SetProperties should still be called after.
+	 *
+	 * @param InBufferSize The size of the audio buffer.
+	 */
+	virtual void* RequestBuffer(uint32 InBufferSize);
 
 public:
 

@@ -114,6 +114,27 @@ class DATASMITHCONTENT_API UDatasmithMDLSceneImportData : public UDatasmithScene
 };
 
 UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithGLTFSceneImportData : public UDatasmithSceneImportData
+{
+	GENERATED_BODY()
+ public:
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Generator Name")
+	FString Generator;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Version")
+	float Version;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Author")
+	FString Author;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="License")
+	FString License;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Source")
+	FString Source;
+};
+
+UCLASS(EditInlineNew)
 class DATASMITHCONTENT_API UDatasmithDeltaGenAssetImportData : public UDatasmithAssetImportData
 {
 	GENERATED_BODY()
@@ -156,5 +177,3 @@ public:
 
 #endif // WITH_EDITORONLY_DATA*/
 };
-
-

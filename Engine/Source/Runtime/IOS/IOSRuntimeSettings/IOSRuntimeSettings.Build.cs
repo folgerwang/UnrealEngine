@@ -14,8 +14,9 @@ public class IOSRuntimeSettings : ModuleRules
 			new string[]
 			{
 				"Core",
-				"CoreUObject"
-            }
+				"CoreUObject",
+				"Engine"
+			}
 		);
 	}
 }

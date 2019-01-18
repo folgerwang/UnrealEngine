@@ -51,10 +51,10 @@ public:
 	virtual ~FIntegralCurve() { }
 	
 	/** Get number of keys in curve. */
-	virtual int32 GetNumKeys() const override;
-	
-	/** Checks to see if the key handle is valid for this curve */
-	virtual bool IsKeyHandleValid(FKeyHandle KeyHandle) const override;
+	virtual int32 GetNumKeys() const override final { return Keys.Num(); }
+
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FIntegralCurve(*this); }
 
 	/** Evaluates the value of an array of keys at a time */
 	int32 Evaluate(float Time, int32 InDefaultValue = 0) const;
@@ -84,11 +84,11 @@ public:
 	/** Finds the key at InTime, and updates its value. If it can't find the key within the KeyTimeTolerance, it adds one at that time */
 	FKeyHandle UpdateOrAddKey( float InTime, int32 Value, float KeyTimeTolerance = KINDA_SMALL_NUMBER );
 	
-	/** Move a key to a new time. This may change the index of the key, so the new key index is returned. */
-	FKeyHandle SetKeyTime(FKeyHandle KeyHandle, float NewTime);
+	/** Move a key to a new time. */
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewTime) override final;
 
 	/** Get the time for the Key with the specified index. */
-	float GetKeyTime(FKeyHandle KeyHandle) const;
+	virtual float GetKeyTime(FKeyHandle KeyHandle) const override final;
 
 	/** Set the value of the key with the specified index. */
 	void SetKeyValue(FKeyHandle KeyHandle, int32 NewValue);
@@ -110,14 +110,6 @@ public:
 	
 	/** Gets whether or not the default value should be used for evaluation for time values before the first key. */
 	bool GetUseDefaultValueBeforeFirstKey() const { return bUseDefaultValueBeforeFirstKey; }
-
-	/** Shifts all keys forwards or backwards in time by an even amount, preserving order */
-	void ShiftCurve(float DeltaTime);
-	void ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles);
-	
-	/** Scales all keys about an origin, preserving order */
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor);
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles);
 
 	/** Functions for getting keys based on handles */
 	FIntegralKey& GetKey(FKeyHandle KeyHandle);

@@ -53,6 +53,14 @@ private:
 	EVisibility GetSectionVisibility( UMovieSceneSection* SectionObject ) const;
 
 	/**
+	* Returns whether this section is enabled
+	*
+	* @param SectionObject The section to check for selection
+	* @return The enabled state of the section
+	*/
+	bool GetSectionEnabled(TSharedRef<ISequencerSection> InSequencerSection) const;
+
+	/**
 	 * Calculates a time to pixel converter from the allotted geometry
 	 *
 	 * @param AllottedGeometry	The geometry to use to convert from time to pixels or vice versa

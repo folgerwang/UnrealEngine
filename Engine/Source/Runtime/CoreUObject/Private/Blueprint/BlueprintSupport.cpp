@@ -37,6 +37,7 @@ const FName FBlueprintTags::NativeParentClassPath(TEXT("NativeParentClass"));
 const FName FBlueprintTags::ClassFlags(TEXT("ClassFlags"));
 const FName FBlueprintTags::BlueprintType(TEXT("BlueprintType"));
 const FName FBlueprintTags::BlueprintDescription(TEXT("BlueprintDescription"));
+const FName FBlueprintTags::BlueprintDisplayName(TEXT("BlueprintDisplayName"));
 const FName FBlueprintTags::IsDataOnly(TEXT("IsDataOnly"));
 const FName FBlueprintTags::ImplementedInterfaces(TEXT("ImplementedInterfaces"));
 const FName FBlueprintTags::FindInBlueprintsData(TEXT("FiBData"));
@@ -2040,7 +2041,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 		for (int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
 		{
 			FObjectExport& Export = ExportMap[ExportIndex];
-			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.ToExport() == DeferredCDOIndex)
+			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.IsExport() && Export.OuterIndex.ToExport() == DeferredCDOIndex)
 			{
 				if (Export.Object == nullptr && Export.OuterIndex.IsExport())
 				{
@@ -2066,7 +2067,6 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				if (ensure(PlaceholderExport))
 				{
 					// replace the placeholder with the proper object instance
-					PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
 					Export.ResetObject();
 					UObject* ExportObj = CreateExport(ExportIndex);
 
@@ -2833,12 +2833,11 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 	UObject* TargetObj = DeferringInitializer.GetObj();
 	if (TargetObj)
 	{
-		FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
-		auto IsSuperCdoReadyToBeCopied = [&CdoInitDeferalSys](const UClass* LoadClass, const UObject* SuperCDO)->bool
+		auto IsSuperCdoReadyToBeCopied = [](FDeferredCdoInitializationTracker& InCdoInitDeferalSys, const UClass* LoadClass, const UObject* SuperCDO)->bool
 		{
 			// RF_WasLoaded indicates that this Super was loaded from disk (and hasn't been regenerated on load)
 			// regenerated CDOs will not have the RF_LoadCompleted
-			const bool bSuperCdoLoadPending = CdoInitDeferalSys.IsInitializationDeferred(SuperCDO) ||
+			const bool bSuperCdoLoadPending = InCdoInitDeferalSys.IsInitializationDeferred(SuperCDO) ||
 				SuperCDO->HasAnyFlags(RF_NeedLoad) || (SuperCDO->HasAnyFlags(RF_WasLoaded) && !SuperCDO->HasAnyFlags(RF_LoadCompleted));
 
 			if (bSuperCdoLoadPending)
@@ -2869,8 +2868,9 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 				DEFERRED_DEPENDENCY_CHECK(SuperCDO && SuperCDO->HasAnyFlags(RF_ClassDefaultObject));
 				// use the ObjectArchetype for the super CDO because the SuperClass may have a REINST CDO cached currently
 				SuperClass = SuperCDO->GetClass();
-
-				if (!IsSuperCdoReadyToBeCopied(CdoClass, SuperCDO))
+				
+				FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
+				if (!IsSuperCdoReadyToBeCopied(CdoInitDeferalSys, CdoClass, SuperCDO))
 				{
 					DeferredInitializerCopy = CdoInitDeferalSys.Add(SuperCDO, DeferringInitializer);
 				}
@@ -2895,7 +2895,8 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 				// 
 				// So if the super CDO isn't ready, we need to defer this sub-object
 				const UObject* SuperCDO = SuperClass->ClassDefaultObject;
-				if (!IsSuperCdoReadyToBeCopied(OwnerClass, SuperCDO))
+				FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
+				if (!IsSuperCdoReadyToBeCopied(CdoInitDeferalSys, OwnerClass, SuperCDO))
 				{
 					FDeferredSubObjInitializationTracker& SubObjInitDeferalSys = FDeferredSubObjInitializationTracker::Get();
 					DeferredInitializerCopy = SubObjInitDeferalSys.Add(SuperCDO, DeferringInitializer);

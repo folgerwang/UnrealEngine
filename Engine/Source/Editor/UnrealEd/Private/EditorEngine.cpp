@@ -109,7 +109,6 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/KismetDebugUtilities.h"
-#include "Kismet2/KismetReinstanceUtilities.h"
 
 #include "AssetRegistryModule.h"
 #include "IContentBrowserSingleton.h"
@@ -346,6 +345,7 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	bIsEndingPlay = false;
 	NumOnlinePIEInstances = 0;
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
+	PreviewFeatureLevel = DefaultWorldFeatureLevel;
 
 	bNotifyUndoRedoSelectionChange = true;
 
@@ -658,8 +658,6 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	FCoreUObjectDelegates::IsPackageOKToSaveDelegate.BindUObject(this, &UEditorEngine::IsPackageOKToSave);
 	FCoreUObjectDelegates::AutoPackageBackupDelegate.BindStatic(&FAutoPackageBackup::BackupPackage);
 
-	FCoreUObjectDelegates::OnPackageReloaded.AddUObject(this, &UEditorEngine::HandlePackageReloaded);
-
 	extern void SetupDistanceFieldBuildNotification();
 	SetupDistanceFieldBuildNotification();
 
@@ -690,153 +688,6 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 bool UEditorEngine::HandleOpenAsset(UObject* Asset)
 {
 	return FAssetEditorManager::Get().OpenEditorForAsset(Asset);
-}
-
-void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent)
-{
-	static TSet<UBlueprint*> BlueprintsToRecompileThisBatch;
-
-	if (InPackageReloadPhase == EPackageReloadPhase::PrePackageFixup)
-	{
-		NotifyToolsOfObjectReplacement(InPackageReloadedEvent->GetRepointedObjects());
-
-		// Notify any Blueprint assets that are about to be unloaded.
-		ForEachObjectWithOuter(InPackageReloadedEvent->GetOldPackage(), [&](UObject* InObject)
-		{
-			if (InObject->IsAsset())
-			{
-				// Notify about any BP assets that are about to be unloaded
-				if (UBlueprint* BP = Cast<UBlueprint>(InObject))
-				{
-					BP->ClearEditorReferences();
-				}
-			}
-		}, false, RF_Transient, EInternalObjectFlags::PendingKill);
-	}
-
-	if (InPackageReloadPhase == EPackageReloadPhase::OnPackageFixup)
-	{
-		for (const auto& RepointedObjectPair : InPackageReloadedEvent->GetRepointedObjects())
-		{
-			UObject* OldObject = RepointedObjectPair.Key;
-			UObject* NewObject = RepointedObjectPair.Value;
-		
-			if (OldObject->IsAsset())
-			{
-				if (const UBlueprint* OldBlueprint = Cast<UBlueprint>(OldObject))
-				{
-					if(NewObject && CastChecked<UBlueprint>(NewObject)->GeneratedClass)
-					{
-						// Don't change the class on instances that are being thrown away by the reload code. If we update
-						// the class and recompile the old class ::ReplaceInstancesOfClass will experience some crosstalk 
-						// with the compiler (both trying to create objects of the same class in the same location):
-						TArray<UObject*> OldInstances;
-						GetObjectsOfClass(OldBlueprint->GeneratedClass, OldInstances, false);
-						OldInstances.RemoveAllSwap(
-							[](UObject* Obj){ return !Obj->HasAnyFlags(RF_NewerVersionExists); }
-						);
-						
-						TSet<UObject*> InstancesToLeaveAlone(OldInstances);
-						FReplaceInstancesOfClassParameters ReplaceInstancesParameters(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
-						ReplaceInstancesParameters.InstancesThatShouldUseOldClass = &InstancesToLeaveAlone;
-						FBlueprintCompileReinstancer::ReplaceInstancesOfClassEx(ReplaceInstancesParameters);
-					}
-					else
-					{
-						// we failed to load the UBlueprint and/or it's GeneratedClass. Show a notification indicating that maps may need to be reloaded:
-						FNotificationInfo Warning( 
-							FText::Format(
-								NSLOCTEXT("UnrealEd", "Warning_FailedToLoadParentClass", "Failed to load ParentClass for {0}"),
-								FText::FromName(OldObject->GetFName())
-							)
-						);
-						Warning.ExpireDuration = 3.0f;
-						FSlateNotificationManager::Get().AddNotification(Warning);
-					}
-				}
-			}
-		}
-	}
-
-	if (InPackageReloadPhase == EPackageReloadPhase::PostPackageFixup)
-	{
-		for (TWeakObjectPtr<UObject> ObjectReferencer : InPackageReloadedEvent->GetObjectReferencers())
-		{
-			UObject* ObjectReferencerPtr = ObjectReferencer.Get();
-			if (!ObjectReferencerPtr)
-			{
-				continue;
-			}
-
-			FPropertyChangedEvent PropertyEvent(nullptr, EPropertyChangeType::Redirected);
-			ObjectReferencerPtr->PostEditChangeProperty(PropertyEvent);
-
-			// We need to recompile any Blueprints that had properties changed to make sure their generated class is up-to-date and has no lingering references to the old objects
-			UBlueprint* BlueprintToRecompile = nullptr;
-			if (UBlueprint* BlueprintReferencer = Cast<UBlueprint>(ObjectReferencerPtr))
-			{
-				BlueprintToRecompile = BlueprintReferencer;
-			}
-			else if (UClass* ClassReferencer = Cast<UClass>(ObjectReferencerPtr))
-			{
-				BlueprintToRecompile = Cast<UBlueprint>(ClassReferencer->ClassGeneratedBy);
-			}
-			else
-			{
-				BlueprintToRecompile = ObjectReferencerPtr->GetTypedOuter<UBlueprint>();
-			}
-			
-			if (BlueprintToRecompile && !BlueprintToRecompile->HasAnyFlags(RF_NewerVersionExists))
-			{
-				BlueprintsToRecompileThisBatch.Add(BlueprintToRecompile);
-			}
-		}
-	}
-
-	if (InPackageReloadPhase == EPackageReloadPhase::PreBatch)
-	{
-		// If this fires then ReloadPackages has probably bee called recursively :(
-		check(BlueprintsToRecompileThisBatch.Num() == 0);
-
-		// Flush all pending render commands, as reloading the package may invalidate render resources.
-		FlushRenderingCommands();
-	}
-
-	if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPreGC)
-	{
-		if (Trans)
-		{
-			// Make sure we don't have any lingering transaction buffer references.
-			Trans->Reset(NSLOCTEXT("UnrealEd", "ReloadedPackage", "Reloaded Package"));
-		}
-
-		// Recompile any BPs that had their references updated
-		if (BlueprintsToRecompileThisBatch.Num() > 0)
-		{
-			FScopedSlowTask CompilingBlueprintsSlowTask(BlueprintsToRecompileThisBatch.Num(), NSLOCTEXT("UnrealEd", "CompilingBlueprints", "Compiling Blueprints"));
-
-			for (UBlueprint* BlueprintToRecompile : BlueprintsToRecompileThisBatch)
-			{
-				CompilingBlueprintsSlowTask.EnterProgressFrame(1.0f);
-
-				FKismetEditorUtilities::CompileBlueprint(BlueprintToRecompile, EBlueprintCompileOptions::SkipGarbageCollection);
-			}
-		}
-		BlueprintsToRecompileThisBatch.Reset();
-	}
-
-	if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPostGC)
-	{
-		// Tick some things that aren't processed while we're reloading packages and can result in excessive memory usage if not periodically updated.
-		if (GShaderCompilingManager)
-		{
-			GShaderCompilingManager->ProcessAsyncResults(true, false);
-		}
-		if (GDistanceFieldAsyncQueue)
-		{
-			GDistanceFieldAsyncQueue->ProcessAsyncTasks();
-		}
-	}
 }
 
 void UEditorEngine::HandleSettingChanged( FName Name )
@@ -942,6 +793,18 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		// Always resume the dynamic resolution state to ensure it is same state as in game builds when starting PIE.
 		GEngine->ResumeDynamicResolution();
+
+		if (FSlateApplication::IsInitialized())
+		{
+			//Reset color deficiency settings in case they have been modified during PIE
+			const UEditorStyleSettings* EditorSettings = GetDefault<UEditorStyleSettings>();
+			const EColorVisionDeficiency DeficiencyType = EditorSettings->ColorVisionDeficiencyPreviewType;
+			const int32 Severity = EditorSettings->ColorVisionDeficiencySeverity;
+			const bool bCorrectDeficiency = EditorSettings->bColorVisionDeficiencyCorrection;
+			const bool bShowCorrectionWithDeficiency = EditorSettings->bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+			FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType, Severity, bCorrectDeficiency, bShowCorrectionWithDeficiency);
+		}
+
 	});
 
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
@@ -987,6 +850,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("KismetCompiler"),
 			TEXT("Kismet"),
 			TEXT("Persona"),
+			TEXT("AnimationBlueprintEditor"),
 			TEXT("LevelEditor"),
 			TEXT("MainFrame"),
 			TEXT("PropertyEditor"),
@@ -1238,6 +1102,38 @@ void UEditorEngine::InitBuilderBrush( UWorld* InWorld )
 	}
 }
 
+int32 UEditorEngine::AddViewportClients(FEditorViewportClient* ViewportClient)
+{
+	int32 Result = AllViewportClients.Add(ViewportClient);
+	ViewportClientListChangedEvent.Broadcast();
+	return Result;
+}
+
+void UEditorEngine::RemoveViewportClients(FEditorViewportClient* ViewportClient)
+{
+	AllViewportClients.Remove(ViewportClient);
+
+	// fix up the other viewport indices
+	for (int32 ViewportIndex = ViewportClient->ViewIndex; ViewportIndex < AllViewportClients.Num(); ViewportIndex++)
+	{
+		AllViewportClients[ViewportIndex]->ViewIndex = ViewportIndex;
+	}
+	ViewportClientListChangedEvent.Broadcast();
+}
+
+int32 UEditorEngine::AddLevelViewportClients(FLevelEditorViewportClient* ViewportClient)
+{
+	int32 Result = LevelViewportClients.Add(ViewportClient);
+	LevelViewportClientListChangedEvent.Broadcast();
+	return Result;
+}
+
+void UEditorEngine::RemoveLevelViewportClients(FLevelEditorViewportClient* ViewportClient)
+{
+	LevelViewportClients.Remove(ViewportClient);
+	LevelViewportClientListChangedEvent.Broadcast();
+}
+
 void UEditorEngine::BroadcastObjectReimported(UObject* InObject)
 {
 	ObjectReimportedEvent.Broadcast(InObject);
@@ -1312,9 +1208,9 @@ void UEditorEngine::AddReferencedObjects(UObject* InThis, FReferenceCollector& C
 {
 	UEditorEngine* This = CastChecked<UEditorEngine>(InThis);
 	// Serialize viewport clients.
-	for(uint32 ViewportIndex = 0;ViewportIndex < (uint32)This->AllViewportClients.Num(); ViewportIndex++)
+	for(FEditorViewportClient* ViewportClient : This->AllViewportClients)
 	{
-		This->AllViewportClients[ViewportIndex]->AddReferencedObjects( Collector );
+		ViewportClient->AddReferencedObjects( Collector );
 	}
 
 	// Serialize ActorFactories
@@ -1405,10 +1301,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		FEditorViewportClient* BestRealtimePerspViewport = NULL;
 		FEditorViewportClient* BestPerspViewport = NULL;
 
-		for( int32 ViewportIndex = 0; ViewportIndex < AllViewportClients.Num(); ViewportIndex++ )
+		for(FEditorViewportClient* const ViewportClient : AllViewportClients)
 		{
-			FEditorViewportClient* const ViewportClient = AllViewportClients[ ViewportIndex ];
-
 			// clear any previous audio focus flags
 			ViewportClient->ClearAudioFocus();
 
@@ -1461,10 +1355,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	}
 
 	// Find realtime and visibility settings on all viewport clients
-	for( int32 ViewportIndex = 0; ViewportIndex < AllViewportClients.Num(); ViewportIndex++ )
+	for(FEditorViewportClient* const ViewportClient : AllViewportClients)
 	{
-		FEditorViewportClient* const ViewportClient = AllViewportClients[ ViewportIndex ];
-
 		if( PlayWorld && ViewportClient->IsVisible() )
 		{
 			if( ViewportClient->IsInImmersiveViewport() )
@@ -1548,10 +1440,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// Perform editor level streaming previs if no PIE session is currently in progress.
 	if( !PlayWorld )
 	{
-		for ( int32 ClientIndex = 0 ; ClientIndex < LevelViewportClients.Num() ; ++ClientIndex )
+		for(FLevelEditorViewportClient* ViewportClient : LevelViewportClients)
 		{
-			FLevelEditorViewportClient* ViewportClient = LevelViewportClients[ClientIndex];
-
 			// Previs level streaming volumes in the Editor.
 			if ( ViewportClient->IsPerspective() && GetDefault<ULevelEditorViewportSettings>()->bLevelStreamingVolumePrevis )
 			{
@@ -1787,6 +1677,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	EditorWorldExtensionsManager->Tick( DeltaSeconds );
 
 	// Update viewports.
+	bool bRunDrawWithEditorHidden = false;
 	for (int32 ViewportIndex = AllViewportClients.Num()-1; ViewportIndex >= 0; ViewportIndex--)
 	{
 		FEditorViewportClient* ViewportClient = AllViewportClients[ ViewportIndex ];
@@ -1798,15 +1689,15 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
 			ViewportClient->Tick(DeltaSeconds);
+			bRunDrawWithEditorHidden |= ViewportClient->WantsDrawWhenAppIsHidden();
 		}
 	}
 
 	bool bIsMouseOverAnyLevelViewport = false;
 
 	//Do this check separate to the above loop as the ViewportClient may no longer be valid after we have ticked it
-	for(int32 ViewportIndex = 0;ViewportIndex < LevelViewportClients.Num();ViewportIndex++)
+	for(FLevelEditorViewportClient* ViewportClient : LevelViewportClients)
 	{
-		FLevelEditorViewportClient* ViewportClient = LevelViewportClients[ ViewportIndex ];
 		FViewport* Viewport = ViewportClient->Viewport;
 
 		// Keep track of whether the mouse cursor is over any level viewports
@@ -1828,6 +1719,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		FLevelEditorViewportClient::ClearHoverFromObjects();
 	}
 
+	
 
 	// Commit changes to the BSP model.
 	EditorContext.World()->CommitModelSurfaces();	
@@ -1838,10 +1730,10 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 	// Do not redraw if the application is hidden
 	bool bAllWindowsHidden = !bHasFocus && AreAllWindowsHidden();
-	if( !bAllWindowsHidden )
+	if( !bAllWindowsHidden || bRunDrawWithEditorHidden)
 	{
 		FPixelInspectorModule& PixelInspectorModule = FModuleManager::LoadModuleChecked<FPixelInspectorModule>(TEXT("PixelInspectorModule"));
-		if (PixelInspectorModule.IsPixelInspectorEnable())
+		if (!bAllWindowsHidden && PixelInspectorModule.IsPixelInspectorEnable())
 		{
 			PixelInspectorModule.ReadBackSync();
 		}
@@ -1850,25 +1742,27 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		bool bEditorFrameNonRealtimeViewportDrawn = false;
 		if (GCurrentLevelEditingViewportClient && GCurrentLevelEditingViewportClient->IsVisible())
 		{
-			bool bAllowNonRealtimeViewports = true;
-			bool bWasNonRealtimeViewportDraw = UpdateSingleViewportClient(GCurrentLevelEditingViewportClient, bAllowNonRealtimeViewports, bUpdateLinkedOrthoViewports);
-			if (GCurrentLevelEditingViewportClient->IsLevelEditorClient())
+			if (!bAllWindowsHidden || GCurrentLevelEditingViewportClient->WantsDrawWhenAppIsHidden())
 			{
-				bEditorFrameNonRealtimeViewportDrawn |= bWasNonRealtimeViewportDraw;
+				bool bAllowNonRealtimeViewports = true;
+				bool bWasNonRealtimeViewportDraw = UpdateSingleViewportClient(GCurrentLevelEditingViewportClient, bAllowNonRealtimeViewports, bUpdateLinkedOrthoViewports);
+				if (GCurrentLevelEditingViewportClient->IsLevelEditorClient())
+				{
+					bEditorFrameNonRealtimeViewportDrawn |= bWasNonRealtimeViewportDraw;
+				}
 			}
 		}
 		for (int32 bRenderingChildren = 0; bRenderingChildren < 2; bRenderingChildren++)
 		{
-			for (int32 ViewportIndex = 0; ViewportIndex < AllViewportClients.Num(); ViewportIndex++)
+			for(FEditorViewportClient* ViewportClient : AllViewportClients)
 			{
-				FEditorViewportClient* ViewportClient = AllViewportClients[ViewportIndex];
 				if (ViewportClient == GCurrentLevelEditingViewportClient)
 				{
 					//already given this window a chance to update
 					continue;
 				}
 
-				if ( ViewportClient->IsVisible() )
+				if ( ViewportClient->IsVisible() && (!bAllWindowsHidden || ViewportClient->WantsDrawWhenAppIsHidden()) )
 				{
 					// Only update ortho viewports if that mode is turned on, the viewport client we are about to update is orthographic and the current editing viewport is orthographic and tracking mouse movement.
 					bUpdateLinkedOrthoViewports = GetDefault<ULevelEditorViewportSettings>()->bUseLinkedOrthographicViewports && ViewportClient->IsOrtho() && GCurrentLevelEditingViewportClient && GCurrentLevelEditingViewportClient->IsOrtho() && GCurrentLevelEditingViewportClient->IsTracking();
@@ -2890,11 +2784,11 @@ void UEditorEngine::ProcessToggleFreezeCommand( UWorld* InWorld )
 	else
 	{
 		// pass along the freeze command to all perspective viewports
-		for(int32 ViewportIndex = 0; ViewportIndex < LevelViewportClients.Num(); ViewportIndex++)
+		for(FLevelEditorViewportClient* ViewportClient : LevelViewportClients)
 		{
-			if (LevelViewportClients[ViewportIndex]->IsPerspective())
+			if (ViewportClient->IsPerspective())
 			{
-				LevelViewportClients[ViewportIndex]->Viewport->ProcessToggleFreezeCommand();
+				ViewportClient->Viewport->ProcessToggleFreezeCommand();
 			}
 		}
 	}
@@ -6117,9 +6011,8 @@ void UEditorEngine::NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*
 
 void UEditorEngine::DisableRealtimeViewports()
 {
-	for( int32 x = 0 ; x < AllViewportClients.Num() ; ++x)
+	for(FEditorViewportClient* VC : AllViewportClients)
 	{
-		FEditorViewportClient* VC = AllViewportClients[x];
 		if( VC )
 		{
 			VC->SetRealtime( false, true );
@@ -6134,9 +6027,8 @@ void UEditorEngine::DisableRealtimeViewports()
 
 void UEditorEngine::RestoreRealtimeViewports()
 {
-	for( int32 x = 0 ; x < AllViewportClients.Num() ; ++x)
+	for(FEditorViewportClient* VC : AllViewportClients)
 	{
-		FEditorViewportClient* VC = AllViewportClients[x];
 		if( VC )
 		{
 			VC->RestoreRealtime(true);
@@ -6151,9 +6043,8 @@ void UEditorEngine::RestoreRealtimeViewports()
 
 bool UEditorEngine::IsAnyViewportRealtime()
 {
-	for( int32 x = 0 ; x < AllViewportClients.Num() ; ++x)
+	for(FEditorViewportClient* VC : AllViewportClients)
 	{
-		FEditorViewportClient* VC = AllViewportClients[x];
 		if( VC )
 		{
 			if( VC->IsRealtime() )
@@ -6746,13 +6637,14 @@ void UEditorEngine::UpdateAutoLoadProject()
 #if PLATFORM_MAC
 	if ( !GIsBuildMachine )
 	{
-		if(FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
+		if(FPlatformMisc::MacOSXVersionCompare(10,14,1) < 0)
 		{
 			if(FSlateApplication::IsInitialized())
 			{
-				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance and stability."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), TEXT("UpdateMacOSX"), GEditorSettingsIni );
+				FString SupressSettingName(FString(TEXT("UpdateMacOSX_")) + VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) + TEXT("_") + VERSION_STRINGIFY(ENGINE_MINOR_VERSION) + TEXT("_") + VERSION_STRINGIFY(ENGINE_PATCH_VERSION));
+				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance and stability."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), *SupressSettingName, GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSuppressInTheFuture = true;
+				Info.bDefaultToSuppressInTheFuture = false;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
 				OSUpdateWarning.ShowModal();
 			}
@@ -6834,8 +6726,8 @@ void UEditorEngine::UpdateAutoLoadProject()
 		const ECheckBoxState DontAskAgainCheckBoxState = Local::GetDontAskAgainCheckBoxState();
 		if (DontAskAgainCheckBoxState == ECheckBoxState::Unchecked)
 		{
-			const FText NoXcodeMessageText = LOCTEXT("XcodeNotInstalledWarningNotification", "Xcode is not installed on this Mac.\nMetal shader compilation will fall back to runtime compiled text shaders, which are slower.\nPlease install latest version of Xcode for best performance.");
-			const FText OldXcodeMessageText = LOCTEXT("OldXcodeVersionWarningNotification", "Xcode installed on this Mac is too old to be used for Metal shader compilation.\nFalling back to runtime compiled text shaders, which are slower.\nPlease update to latest version of Xcode for best performance.");
+			const FText NoXcodeMessageText = LOCTEXT("XcodeNotInstalledWarningNotification", "Xcode was not detected on this Mac.\nMetal shader compilation will fall back to runtime compiled text shaders, which are slower.\nPlease install latest version of Xcode for best performance\nand make sure it's set as default using xcode-select tool.");
+			const FText OldXcodeMessageText = LOCTEXT("OldXcodeVersionWarningNotification", "Xcode installed on this Mac is too old to be used for Metal shader compilation.\nFalling back to runtime compiled text shaders, which are slower.\nPlease update to latest version of Xcode for best performance\nand make sure it's set as default using xcode-select tool.");
 
 			FNotificationInfo Info(bIsXcodeInstalled ? OldXcodeMessageText : NoXcodeMessageText);
 			Info.bFireAndForget = false;
@@ -7368,10 +7260,8 @@ void UEditorEngine::UpdateShaderComplexityMaterials()
 {
 	TSet<UWorld *> WorldSet;
 
-	for (int32 i = 0; i < LevelViewportClients.Num(); ++i)
+	for(FLevelEditorViewportClient* ViewportClient : LevelViewportClients)
 	{
-		auto *ViewportClient = LevelViewportClients[i];
-
 		auto ViewMode = ViewportClient->GetViewMode();
 		if (ViewMode == EViewModeIndex::VMI_ShaderComplexity || ViewMode == EViewModeIndex::VMI_ShaderComplexityWithQuadOverdraw)
 		{
@@ -7401,6 +7291,7 @@ void UEditorEngine::OnSceneMaterialsModified()
 void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel)
 {
 	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "UpdatingMaterialsMessage", "Updating Materials"), true);
+	SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
 	SlowTask.MakeDialog();
 
 	//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
@@ -7412,59 +7303,36 @@ void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeat
 	FGlobalComponentReregisterContext RecreateComponents;
 	FlushRenderingCommands();
 
-	SlowTask.EnterProgressFrame(5.0f);
+	// Clear all required global feature levels, we only require the preview feature level.
+	for (uint32 i = (uint32)ERHIFeatureLevel::ES2; i < (uint32)ERHIFeatureLevel::Num; i++)
+	{
+		UMaterialInterface::SetGlobalRequiredFeatureLevel((ERHIFeatureLevel::Type)i, false);
+	}
 
-	// Decrement refcount on old feature level
 	UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
 
-	SlowTask.EnterProgressFrame(50.0f);
-	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	SlowTask.EnterProgressFrame(35.0f);
+	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
 	
-	SlowTask.EnterProgressFrame(40.0f);
-	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+	SlowTask.EnterProgressFrame(35.0f);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
 
+	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskGlobalShaderMapMessage", "Compiling global shaders"));
 	CompileGlobalShaderMap(InFeatureLevel);
+
+	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskFinalizingMessage", "Finalizing"));
 	GShaderCompilingManager->ProcessAsyncResults(false, true);
-	SlowTask.EnterProgressFrame(5.0f);
 }
 
 void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
-	if (DefaultWorldFeatureLevel != InPreviewFeatureLevel)
+	if (PreviewFeatureLevel != InPreviewFeatureLevel)
 	{
 		// Record this feature level as we want to use it for all subsequent level creation and loading
-		DefaultWorldFeatureLevel = InPreviewFeatureLevel;
-
-		FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "ChangingPreviewRenderingLevelMessage", "Changing Preview Rendering Level"), true);
-		SlowTask.MakeDialog();
+		PreviewFeatureLevel = InPreviewFeatureLevel;
 
 		// first change the feature level for global/shared resources
 		SetMaterialsFeatureLevel(InPreviewFeatureLevel);
-
-		SlowTask.EnterProgressFrame(50.0f);
-
-		UWorld* MainWorld = GetEditorWorldContext().World();
-		if (MainWorld != nullptr)
-		{
-			MainWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
-		}
-
-		SlowTask.EnterProgressFrame(25.0f);
-
-		// Update any currently running PIE sessions.
-		for (TObjectIterator<UWorld> It; It; ++It)
-		{
-			UWorld* ItWorld = *It;
-			if (ItWorld->WorldType == EWorldType::PIE)
-			{
-				ItWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
-			}
-		}
-
-		SlowTask.EnterProgressFrame(25.0f);
-
-		GUnrealEd->OnSceneMaterialsModified();
-		GUnrealEd->RedrawAllViewports();
 	}
 }
 
@@ -7472,23 +7340,23 @@ void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
 {
 	FGlobalComponentRecreateRenderStateContext Recreate;
 	FlushRenderingCommands();
-	UMaterial::AllMaterialsCacheResourceShadersForRendering();
-	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
 }
 
-void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
 	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
-	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
+	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == InPreviewFeatureLevel);
 
 	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
 	const FName InitialPreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
 	MaterialShaderQualitySettings->SetPreviewPlatform(MaterialQualityPlatform);
 
-	if (DefaultWorldFeatureLevel != PreviewFeatureLevel)
+	if (PreviewFeatureLevel != InPreviewFeatureLevel)
 	{
 		// a new feature level will recompile the materials and apply the effect of any 'material quality platform'
-		SetFeatureLevelPreview(PreviewFeatureLevel);
+		SetFeatureLevelPreview(InPreviewFeatureLevel);
 	}
 	else if (InitialPreviewPlatform != MaterialQualityPlatform)
 	{
@@ -7496,10 +7364,32 @@ void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, cons
 		AllMaterialsCacheResourceShadersForRendering();
 	}
 
+	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
+
 	if (bSaveSettings)
 	{
 		SaveEditorFeatureLevel();
 	}
+}
+
+void UEditorEngine::ToggleFeatureLevelPreview()
+{
+	ERHIFeatureLevel::Type NewPreviewFeatureLevel = GWorld->FeatureLevel == GMaxRHIFeatureLevel ? PreviewFeatureLevel : GMaxRHIFeatureLevel;
+
+	PreviewFeatureLevelChanged.Broadcast(NewPreviewFeatureLevel);
+	
+	GEditor->OnSceneMaterialsModified();
+	GEditor->RedrawAllViewports();
+}
+
+bool UEditorEngine::IsFeatureLevelPreviewEnabled() const
+{
+	return PreviewFeatureLevel != GMaxRHIFeatureLevel;
+}
+
+bool UEditorEngine::IsFeatureLevelPreviewActive() const
+{
+	return GWorld->FeatureLevel != GMaxRHIFeatureLevel;
 }
 
 void UEditorEngine::LoadEditorFeatureLevel()
@@ -7511,8 +7401,9 @@ void UEditorEngine::LoadEditorFeatureLevel()
 	if (ShaderPlatform != SP_NumPlatforms)
 	{
 		const FName MaterialQualityPlatform = Settings->bIsMaterialQualityOverridePlatform ? Settings->PreviewShaderPlatformName : NAME_None;
-		const ERHIFeatureLevel::Type PreviewFeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
-		SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel, false);
+		const ERHIFeatureLevel::Type FeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
+
+		SetPreviewPlatform(MaterialQualityPlatform, FeatureLevel, false);
 	}
 }
 
@@ -7525,7 +7416,7 @@ void UEditorEngine::SaveEditorFeatureLevel()
 	{
 		Settings->bIsMaterialQualityOverridePlatform = false;
 
-		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(DefaultWorldFeatureLevel);
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(PreviewFeatureLevel);
 		Settings->PreviewShaderPlatformName = LegacyShaderPlatformToShaderFormat(ShaderPlatform);
 	}
 	else

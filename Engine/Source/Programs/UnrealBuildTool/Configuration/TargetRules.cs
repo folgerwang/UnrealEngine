@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
 
@@ -93,7 +94,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Attribute used to mark fields which much match between targets in the shared build environment
 	/// </summary>
-	[AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
 	class RequiresUniqueBuildEnvironmentAttribute : Attribute
 	{
 	}
@@ -138,6 +139,11 @@ namespace UnrealBuildTool
 		/// The name of this target.
 		/// </summary>
 		public readonly string Name;
+
+		/// <summary>
+		/// File containing this target
+		/// </summary>
+		internal FileReference File;
 
 		/// <summary>
 		/// Platform that this target is being built for.
@@ -354,9 +360,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to compile the editor or not. Only desktop platforms (Windows or Mac) will use this, other platforms force this to false.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-NoEditor", Value = "false")]
-		public bool bBuildEditor = true;
+		public bool bBuildEditor
+		{
+			get { return (Type == TargetType.Editor); }
+			set { Log.TraceWarning("Setting {0}.bBuildEditor is deprecated. Set {0}.Type instead.", GetType().Name); }
+		}
 
 		/// <summary>
 		/// Whether to compile code related to building assets. Consoles generally cannot build assets. Desktop platforms generally can.
@@ -372,10 +380,19 @@ namespace UnrealBuildTool
 		public bool bBuildWithEditorOnlyData = true;
 
 		/// <summary>
+		/// Manually specified value for bBuildDeveloperTools.
+		/// </summary>
+		bool? bBuildDeveloperToolsOverride;
+
+		/// <summary>
 		/// Whether to compile the developer tools.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		public bool? bBuildDeveloperTools;
+		public bool bBuildDeveloperTools
+		{
+			set { bBuildDeveloperToolsOverride = value; }
+			get { return bBuildDeveloperToolsOverride ?? (bCompileAgainstEngine && (Type == TargetType.Editor || Type == TargetType.Program)); }
+		}
 
 		/// <summary>
 		/// Whether to force compiling the target platform modules, even if they wouldn't normally be built.
@@ -388,26 +405,21 @@ namespace UnrealBuildTool
 		public bool bForceBuildShaderFormats = false;
 
 		/// <summary>
-		/// Whether we should compile in support for Simplygon or not.
+		/// Whether we should compile SQLite using the custom "Unreal" platform (true), or using the native platform (false).
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-WithSimplygon")]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygon")]
-		public bool bCompileSimplygon = true;
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileCustomSQLitePlatform")]
+		public bool bCompileCustomSQLitePlatform = true;
 
-        /// <summary>
-        /// Whether we should compile in support for Simplygon's SSF library or not.
-        /// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSimplygonSSF")]
-        public bool bCompileSimplygonSSF = true;
-
-        /// <summary>
+		/// <summary>
 		/// Whether to compile lean and mean version of UE.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE")]
-		public bool bCompileLeanAndMeanUE = false;
+		[Obsolete("bCompileLeanAndMeanUE is deprecated. Set bBuildDeveloperTools to the opposite value instead.")]
+		public bool bCompileLeanAndMeanUE
+		{
+			get { return !bBuildDeveloperTools; }
+			set { bBuildDeveloperTools = !value; }
+		}
 
         /// <summary>
 		/// Whether to utilize cache freed OS allocs with MallocBinned
@@ -435,13 +447,6 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstApplicationCore = true;
 
 		/// <summary>
-		/// If true, include ADO database support in core.
-		/// </summary>
-		[RequiresUniqueBuildEnvironment]
-		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bIncludeADO")]
-		public bool bIncludeADO;
-
-		/// <summary>
 		/// Whether to compile Recast navmesh generation.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -451,9 +456,18 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to compile SpeedTree support.
 		/// </summary>
-		[RequiresUniqueBuildEnvironment]
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileSpeedTree")]
-		public bool bCompileSpeedTree = true;
+		bool? bOverrideCompileSpeedTree;
+
+		/// <summary>
+		/// Whether we should compile in support for Simplygon or not.
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public bool bCompileSpeedTree
+		{
+			set { bOverrideCompileSpeedTree = value; }
+			get { return bOverrideCompileSpeedTree ?? Type == TargetType.Editor; }
+		}
 
 		/// <summary>
 		/// Enable exceptions for all modules.
@@ -815,8 +829,22 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to strip iOS symbols or not (implied by bGeneratedSYMFile).
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bStripSymbolsOnIOS = false;
+		[Obsolete("bStripSymbolsOnIOS has been deprecated. Use IOSPlatform.bStripSymbols instead.")]
+		public bool bStripSymbolsOnIOS
+		{
+			get { return IOSPlatform.bStripSymbols; }
+			set { IOSPlatform.bStripSymbols = value; }
+		}
+
+		/// <summary>
+		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
+		/// </summary>
+		[Obsolete("bCreateStubIPA has been deprecated. Use IOSPlatform.bCreateStubIPA instead.")]
+		public bool bCreateStubIPA
+		{
+			get { return IOSPlatform.bCreateStubIPA; }
+			set { IOSPlatform.bCreateStubIPA = value; }
+		}
 
 		/// <summary>
 		/// If true, then enable memory profiling in the build (defines USE_MALLOC_PROFILER=1 and forces bOmitFramePointers=false).
@@ -882,19 +910,6 @@ namespace UnrealBuildTool
 		[CommandLine("-Deploy")]
 		[CommandLine("-SkipDeploy", Value = "false")]
 		public bool bDeployAfterCompile = false;
-
-		/// <summary>
-		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
-		/// </summary>
-		[CommandLine("-CreateStub", Value = "true")]
-		[CommandLine("-NoCreateStub", Value = "false")]
-		public bool bCreateStubIPA = true;
-
-		/// <summary>
-		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
-		/// </summary>
-		[CommandLine("-CopyAppBundleBackToDevice")]
-		public bool bCopyAppBundleBackToDevice = false;
 
 		/// <summary>
 		/// When enabled, allows XGE to compile pre-compiled header files on remote machines.  Otherwise, PCHs are always generated locally.
@@ -966,6 +981,19 @@ namespace UnrealBuildTool
 		/// Add all the public folders as include paths for the compile environment.
 		/// </summary>
 		public bool bLegacyPublicIncludePaths = true;
+
+		/// <summary>
+		/// Which C++ stanard to use for compiling this target
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
+
+		/// <summary>
+		/// Do not allow manifest changes when building this target. Used to cause earlier errors when building multiple targets with a shared build environment.
+		/// </summary>
+		[CommandLine("-NoManifestChanges")]
+		internal bool bNoManifestChanges = false;
 
 		/// <summary>
 		/// The build version string
@@ -1068,15 +1096,22 @@ namespace UnrealBuildTool
 		public List<string> PostBuildSteps = new List<string>();
 
 		/// <summary>
+		/// Specifies additional build products produced as part of this target.
+		/// </summary>
+		public List<string> AdditionalBuildProducts = new List<string>();
+
+		/// <summary>
 		/// Additional arguments to pass to the compiler
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
+		[CommandLine("-CompilerArguments=")]
 		public string AdditionalCompilerArguments;
 
 		/// <summary>
 		/// Additional arguments to pass to the linker
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
+		[CommandLine("-LinkerArguments=")]
 		public string AdditionalLinkerArguments;
 
 		/// <summary>
@@ -1160,32 +1195,8 @@ namespace UnrealBuildTool
 				UEBuildPlatform.GetBuildPlatform(Platform).ResetTarget(this);
 			}
 
-			// Check that the appropriate headers exist to enable Simplygon
-			if(bCompileSimplygon)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "Simplygon", "Simplygon-latest", "Inc", "SimplygonSDK.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygon = false;
-				}
-			}
-			if(bCompileSimplygonSSF)
-			{
-				FileReference HeaderFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "ThirdParty", "NotForLicensees", "SSF", "Public", "ssf.h");
-				if(!FileReference.Exists(HeaderFile))
-				{
-					bCompileSimplygonSSF = false;
-				}
-			}
-
 			// If we've got a changelist set, set that we're making a formal build
 			bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild);
-
-			// @todo remove this hacky build system stuff
-			if (bCreateStubIPA && (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("uebp_LOCAL_ROOT")) && BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac))
-			{
-				bCreateStubIPA = false;
-			}
 
 			// Set the default build version
 			if(String.IsNullOrEmpty(BuildVersion))
@@ -1238,10 +1249,7 @@ namespace UnrealBuildTool
 		{
 			if(Type == global::UnrealBuildTool.TargetType.Game)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1258,10 +1266,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Client)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1281,10 +1286,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Editor)
 			{
-				bCompileLeanAndMeanUE = false;
-
 				// Do not include the editor
-				bBuildEditor = true;
 				bBuildWithEditorOnlyData = true;
 
 				// Require cooked data
@@ -1307,10 +1309,7 @@ namespace UnrealBuildTool
 			}
 			else if(Type == global::UnrealBuildTool.TargetType.Server)
 			{
-				bCompileLeanAndMeanUE = true;
-
 				// Do not include the editor
-				bBuildEditor = false;
 				bBuildWithEditorOnlyData = false;
 
 				// Require cooked data
@@ -1381,6 +1380,37 @@ namespace UnrealBuildTool
 				}
 			}
 			return null;
+		}
+
+		/// <summary>
+		/// Gets a list of platforms that this target supports
+		/// </summary>
+		/// <returns>Array of platforms that the target supports</returns>
+		internal UnrealTargetPlatform[] GetSupportedPlatforms()
+		{
+			// Otherwise take the SupportedPlatformsAttribute from the first type in the inheritance chain that supports it
+			for (Type CurrentType = GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
+			{
+				object[] Attributes = GetType().GetCustomAttributes(typeof(SupportedPlatformsAttribute), false);
+				if (Attributes.Length > 0)
+				{
+					return Attributes.OfType<SupportedPlatformsAttribute>().SelectMany(x => x.Platforms).Distinct().ToArray();
+				}
+			}
+
+			// Otherwise, get the default for the target type
+			if (Type == TargetType.Program)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop);
+			}
+			else if (Type == TargetType.Editor)
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.Editor);
+			}
+			else
+			{
+				return Utils.GetPlatformsInClass(UnrealPlatformClass.All);
+			}
 		}
 
 		/// <summary>
@@ -1468,6 +1498,11 @@ namespace UnrealBuildTool
 		public string Name
 		{
 			get { return Inner.Name; }
+		}
+
+		internal FileReference File
+		{
+			get { return Inner.File; }
 		}
 
 		public UnrealTargetPlatform Platform
@@ -1652,8 +1687,7 @@ namespace UnrealBuildTool
 
 		public bool bBuildDeveloperTools
 		{
-			// appropriate default will be set by this point
-			get { return Inner.bBuildDeveloperTools.Value; }
+			get { return Inner.bBuildDeveloperTools; }
 		}
 
 		public bool bForceBuildTargetPlatforms
@@ -1666,16 +1700,12 @@ namespace UnrealBuildTool
 			get { return Inner.bForceBuildShaderFormats; }
 		}
 
-		public bool bCompileSimplygon
+		public bool bCompileCustomSQLitePlatform
 		{
-			get { return Inner.bCompileSimplygon; }
+			get { return Inner.bCompileCustomSQLitePlatform; }
 		}
 
-        public bool bCompileSimplygonSSF
-		{
-			get { return Inner.bCompileSimplygonSSF; }
-		}
-
+		[Obsolete("bCompileLeanAndMeanUE is deprecated. Use bBuildDeveloperTools instead.")]
 		public bool bCompileLeanAndMeanUE
 		{
 			get { return Inner.bCompileLeanAndMeanUE; }
@@ -1699,11 +1729,6 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstApplicationCore
 		{
 			get { return Inner.bCompileAgainstApplicationCore; }
-		}
-
-		public bool bIncludeADO
-		{
-			get { return Inner.bIncludeADO; }
 		}
 
 		public bool bCompileRecast
@@ -1985,9 +2010,10 @@ namespace UnrealBuildTool
 			get { return Inner.bOmitFramePointers; }
 		}
 
+		[Obsolete("bStripSymbolsOnIOS has been deprecated. Use IOSPlatform.bStripSymbols instead.")]
 		public bool bStripSymbolsOnIOS
 		{
-			get { return Inner.bStripSymbolsOnIOS; }
+			get { return IOSPlatform.bStripSymbols; }
 		}
 
 		public bool bUseMallocProfiler
@@ -2040,14 +2066,10 @@ namespace UnrealBuildTool
 			get { return Inner.bDeployAfterCompile; }
 		}
 
+		[Obsolete("bCreateStubIPA has been deprecated. Use IOSPlatform.bCreateStubIPA instead.")]
 		public bool bCreateStubIPA
 		{
-			get { return Inner.bCreateStubIPA; }
-		}
-
-		public bool bCopyAppBundleBackToDevice
-		{
-			get { return Inner.bCopyAppBundleBackToDevice; }
+			get { return IOSPlatform.bCreateStubIPA; }
 		}
 
 		public bool bAllowRemotelyCompiledPCHs
@@ -2098,6 +2120,16 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths
 		{
 			get { return Inner.bLegacyPublicIncludePaths; }
+		}
+
+		public CppStandardVersion CppStandard
+		{
+			get { return Inner.CppStandard; }
+		}
+
+		internal bool bNoManifestChanges
+		{
+			get { return Inner.bNoManifestChanges; }
 		}
 
 		public string BuildVersion
@@ -2153,6 +2185,11 @@ namespace UnrealBuildTool
 		public IReadOnlyList<string> PostBuildSteps
 		{
 			get { return Inner.PostBuildSteps; }
+		}
+
+		public IReadOnlyList<string> AdditionalBuildProducts
+		{
+			get { return Inner.AdditionalBuildProducts; }
 		}
 
 		public string AdditionalCompilerArguments

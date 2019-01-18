@@ -655,13 +655,13 @@ namespace UnFbx {
 
 						while (EulerRotXIt && EulerRotYIt && EulerRotZIt)
 						{
-							float Pitch = EulerRotationY.GetKeyValue(EulerRotYIt.Key());
-							float Yaw = EulerRotationZ.GetKeyValue(EulerRotZIt.Key());
-							float Roll = EulerRotationX.GetKeyValue(EulerRotXIt.Key());;
+							float Pitch = EulerRotationY.GetKeyValue(*EulerRotYIt);
+							float Yaw = EulerRotationZ.GetKeyValue(*EulerRotZIt);
+							float Roll = EulerRotationX.GetKeyValue(*EulerRotXIt);
 							ConvertRotationToUnreal(Roll, Pitch, Yaw, bIsCamera, bIsLight);
-							EulerRotationX.SetKeyValue(EulerRotXIt.Key(), Roll, false);
-							EulerRotationY.SetKeyValue(EulerRotYIt.Key(), Pitch, false);
-							EulerRotationZ.SetKeyValue(EulerRotZIt.Key(), Yaw, false);
+							EulerRotationX.SetKeyValue(*EulerRotXIt, Roll, false);
+							EulerRotationY.SetKeyValue(*EulerRotYIt, Pitch, false);
+							EulerRotationZ.SetKeyValue(*EulerRotZIt, Yaw, false);
 
 							++EulerRotXIt;
 							++EulerRotYIt;
@@ -685,9 +685,9 @@ namespace UnFbx {
 					bool bFirst = true;
 					while (EulerRotXIt && EulerRotYIt && EulerRotZIt)
 					{
-						float X = EulerRotationX.GetKeyValue(EulerRotXIt.Key());;
-						float Y = EulerRotationY.GetKeyValue(EulerRotYIt.Key());
-						float Z = EulerRotationZ.GetKeyValue(EulerRotZIt.Key());
+						float X = EulerRotationX.GetKeyValue(*EulerRotXIt);;
+						float Y = EulerRotationY.GetKeyValue(*EulerRotYIt);
+						float Z = EulerRotationZ.GetKeyValue(*EulerRotZIt);
 
 						if (!bFirst)
 						{
@@ -715,9 +715,9 @@ namespace UnFbx {
 
 							CurrentOutVal[AxisIndex] += CurrentAngleOffset[AxisIndex];
 						}
-						EulerRotationX.SetKeyValue(EulerRotXIt.Key(), CurrentOutVal.X, false);
-						EulerRotationY.SetKeyValue(EulerRotYIt.Key(), CurrentOutVal.Y, false);
-						EulerRotationZ.SetKeyValue(EulerRotZIt.Key(), CurrentOutVal.Z, false);
+						EulerRotationX.SetKeyValue(*EulerRotXIt, CurrentOutVal.X, false);
+						EulerRotationY.SetKeyValue(*EulerRotYIt, CurrentOutVal.Y, false);
+						EulerRotationZ.SetKeyValue(*EulerRotZIt, CurrentOutVal.Z, false);
 
 						++EulerRotXIt;
 						++EulerRotYIt;
@@ -748,8 +748,6 @@ namespace UnFbx {
 		FbxAnimStack* AnimStack = Scene->GetMember<FbxAnimStack>(0);
 		if (!AnimStack)
 			return;
-
-		MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(Scene->GetGlobalSettings().GetTimeMode()));
 
 		FbxAnimLayer* AnimLayer = AnimStack->GetMember<FbxAnimLayer>(0);
 		if (AnimLayer == NULL)

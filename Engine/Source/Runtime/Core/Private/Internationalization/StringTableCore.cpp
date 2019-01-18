@@ -524,7 +524,8 @@ void FStringTableRedirects::InitStringTableRedirects()
 	{
 		for (FConfigSection::TIterator It(*CoreStringTableSection); It; ++It)
 		{
-			if (It.Key() == TEXT("StringTableRedirects"))
+			static const FName StringTableRedirectsName = TEXT("StringTableRedirects");
+			if (It.Key() == StringTableRedirectsName)
 			{
 				const FString& ConfigValue = It.Value().GetValue();
 

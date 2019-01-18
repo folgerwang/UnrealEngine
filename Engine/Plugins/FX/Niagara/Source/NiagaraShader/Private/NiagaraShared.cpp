@@ -359,7 +359,10 @@ void FNiagaraShaderScript::FinishCompilation()
 		// Shouldn't have anything left to do...
 		TArray<int32> ShaderMapIdsToFinish2;
 		GetShaderMapIDsWithUnfinishedCompilation(ShaderMapIdsToFinish2);
-		ensure(ShaderMapIdsToFinish2.Num() == 0);
+		if (ShaderMapIdsToFinish2.Num() != 0)
+		{
+			UE_LOG(LogShaders, Warning, TEXT("Skipped multiple Niagara shader maps for compilation! May be indicative of no support for a given platform. Count: %d"), ShaderMapIdsToFinish2.Num());
+		}
 	}
 }
 
@@ -448,6 +451,7 @@ bool FNiagaraShaderScript::BeginCompileShaderMap(
 	{
 		INiagaraShaderModule NiagaraShaderModule = FModuleManager::GetModuleChecked<INiagaraShaderModule>(TEXT("NiagaraShader"));
 		NiagaraShaderModule.ProcessShaderCompilationQueue();
+		OutShaderMap = NewShaderMap;
 	}
 	else
 	{

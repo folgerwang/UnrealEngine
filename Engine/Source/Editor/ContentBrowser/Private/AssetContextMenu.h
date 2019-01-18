@@ -91,7 +91,7 @@ private:
 	void GetSelectedAssetsByClass(TMap<UClass*, TArray<UObject*> >& OutSelectedAssetsByClass) const;
 
 	/** Helper to collect resolved filepaths for all selected assets */
-	void GetSelectedAssetSourceFilePaths(TArray<FString>& OutFilePaths) const;
+	void GetSelectedAssetSourceFilePaths(TArray<FString>& OutFilePaths, TArray<FString>& OutUniqueSourceFileLabels, int32 &OutValidSelectedAssetCount) const;
 
 	/** Handler to check to see if a imported asset actions should be visible in the menu */
 	bool AreImportedAssetActionsVisible() const;
@@ -100,7 +100,9 @@ private:
 	bool CanExecuteImportedAssetActions(const TArray<FString> ResolvedFilePaths) const;
 
 	/** Handler for Reimport */
-	void ExecuteReimport();
+	void ExecuteReimport(int32 SourceFileIndex = INDEX_NONE);
+
+	void ExecuteReimportWithNewFile(int32 SourceFileIndex = INDEX_NONE);
 
 	/** Handler for FindInExplorer */
 	void ExecuteFindSourceInExplorer(const TArray<FString> ResolvedFilePaths);

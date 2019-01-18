@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -253,6 +253,13 @@ namespace DeploymentServer
 									}
 								}
 								break;
+
+                            case "backupdocuments":
+                            case "backupdocs":
+                                Console.SetOut(Writer);
+                                LastResult = DeploymentProxy.Deployer.BackupDocumentsDirectory(Bundle, FileList.Count > 0 ? FileList[0] : ".");
+                                break;
+
 							case "backup":
 								Console.SetOut(Writer);
 								LastResult = DeploymentProxy.Deployer.BackupFiles(Bundle, FileList.ToArray());

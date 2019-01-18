@@ -36,6 +36,9 @@ void UFlipPolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMod
 	// Refresh selection (committing may have created a new mesh instance)
 	MeshEditorMode.GetSelectedMeshesAndPolygons( MeshesAndPolygons );
 
+	// Deselect the elements because the selection visual needs to be updated
+	MeshEditorMode.DeselectMeshElements( MeshesAndPolygons );
+
 	// Flip selected polygons
 	for( const auto& MeshAndPolygons : MeshesAndPolygons )
 	{
@@ -57,6 +60,12 @@ void UFlipPolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMod
 		EditableMesh->EndModification();
 
 		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
+	}
+
+	// Re-select the elements to update the selection visual
+	for ( const auto& MeshAndPolygons : MeshesAndPolygons )
+	{
+		MeshEditorMode.SelectMeshElements( MeshAndPolygons.Value );
 	}
 }
 

@@ -11,10 +11,12 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <mach/thread_act.h>
 #include <mach/thread_policy.h>
 #include <libproc.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
@@ -938,19 +940,6 @@ const TCHAR* FMacPlatformProcess::GetModuleExtension()
 const TCHAR* FMacPlatformProcess::GetBinariesSubdirectory()
 {
 	return TEXT("Mac");
-}
-
-const FString FMacPlatformProcess::GetModulesDirectory()
-{
-	if ([[[[NSBundle mainBundle] bundlePath] pathExtension] isEqual: @"app"])
-	{
-		// If we're an app bundle, modules dylibs are stored in .app/Contents/MacOS
-		return [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
-	}
-	else
-	{
-		return FGenericPlatformProcess::GetModulesDirectory();
-	}
 }
 
 void FMacPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR* FileName, const TCHAR* Parms /*= NULL*/, ELaunchVerb::Type Verb /*= ELaunchVerb::Open*/ )

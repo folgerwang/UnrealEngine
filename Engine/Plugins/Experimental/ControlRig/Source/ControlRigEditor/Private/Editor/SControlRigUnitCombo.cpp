@@ -15,7 +15,7 @@
 #include "EditorStyleSet.h"
 #include "ControlRigBlueprintUtils.h"
 #include "SGraphEditorActionMenu.h"
-#include "ControlRigGraph.h"
+#include "Graph/ControlRigGraph.h"
 
 #define LOCTEXT_NAMESPACE "SControlRigUnitCombo"
 

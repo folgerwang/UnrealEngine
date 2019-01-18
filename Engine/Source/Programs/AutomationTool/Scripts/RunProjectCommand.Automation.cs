@@ -64,7 +64,7 @@ public partial class Project : CommandUtils
 	/// <returns></returns>
 	private static string GetLogFolderOutsideOfSandbox()
 	{
-		return GlobalCommandLine.Installed ?
+		return CommandUtils.IsEngineInstalled() ?
 			CmdEnv.LogFolder :
 			CombinePaths(Path.GetTempPath(), CommandUtils.EscapePath(CmdEnv.LocalRoot), "Logs");
 	}
@@ -74,7 +74,7 @@ public partial class Project : CommandUtils
 	/// </summary>
 	private static void CopyLogsBackToLogFolder()
 	{
-		if (!GlobalCommandLine.Installed)
+		if (!CommandUtils.IsEngineInstalled())
 		{
 			var LogFolderOutsideOfSandbox = GetLogFolderOutsideOfSandbox();
 			var TempLogFiles = FindFiles_NoExceptions("*", false, LogFolderOutsideOfSandbox);
@@ -97,7 +97,7 @@ public partial class Project : CommandUtils
 		LogInformation("********** RUN COMMAND STARTED **********");
 
 		var LogFolderOutsideOfSandbox = GetLogFolderOutsideOfSandbox();
-		if (!GlobalCommandLine.Installed && ServerProcess == null)
+		if (!CommandUtils.IsEngineInstalled() && ServerProcess == null)
 		{
 			// In the installed runs, this is the same folder as CmdEnv.LogFolder so delete only in not-installed
 			DeleteDirectory(LogFolderOutsideOfSandbox);

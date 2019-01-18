@@ -52,6 +52,40 @@ public:
 	virtual bool IsSupported() const { return true; }
 
 	/**
+	*	Returns true if mesh reduction is active. Active mean there will be a reduction of the vertices or triangle number
+	*/
+	virtual bool IsReductionActive(const struct FMeshReductionSettings &ReductionSettings) const
+	{
+		return false;
+	}
+
+	virtual bool IsReductionActive(const FSkeletalMeshOptimizationSettings &ReductionSettings) const
+	{
+		float Threshold_One = (1.0f - KINDA_SMALL_NUMBER);
+		float Threshold_Zero = (0.0f + KINDA_SMALL_NUMBER);
+		switch (ReductionSettings.TerminationCriterion)
+		{
+			case SkeletalMeshTerminationCriterion::SMTC_NumOfTriangles:
+			{
+				return ReductionSettings.NumOfTrianglesPercentage < Threshold_One;
+			}
+			break;
+			case SkeletalMeshTerminationCriterion::SMTC_NumOfVerts:
+			{
+				return ReductionSettings.NumOfVertPercentage < Threshold_One;
+			}
+			break;
+			case SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert:
+			{
+				return ReductionSettings.NumOfTrianglesPercentage < Threshold_One || ReductionSettings.NumOfVertPercentage < Threshold_One;
+			}
+			break;
+		}
+
+		return false;
+	}
+
+	/**
 	* Reduces the provided skeletal mesh.
 	* @returns true if reduction was successful.
 	*/
@@ -60,21 +94,6 @@ public:
 		                             bool bReregisterComponent = true
 	                                ) override ;
 
-
-
-	/**
-	* Reduces the raw mesh using the provided reduction settings.
-	* @param OutReducedMesh - Upon return contains the reduced mesh.
-	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
-	* @param InMesh - The mesh to reduce.
-	* @param ReductionSettings - Setting with which to reduce the mesh.
-	*/
-	virtual void Reduce( struct FRawMesh&,
-		                 float&,
-		                 const struct FRawMesh&,
-		                 const FOverlappingCorners&,
-		                 const struct FMeshReductionSettings&
-	                     ) override {};
 
 	/**
 	* Reduces the raw mesh using the provided reduction settings.

@@ -66,16 +66,16 @@ struct FGeneratedCodeData
 	void GatherUserDefinedDependencies(UBlueprint& InBlueprint)
 	{
 		FCompilerNativizationOptions BlankOptions{};
-		FGatherConvertedClassDependencies ClassDependencies(InBlueprint.GeneratedClass, BlankOptions);
-		for (auto Iter : ClassDependencies.ConvertedClasses)
+		TSharedPtr<FGatherConvertedClassDependencies> ClassDependencies = FGatherConvertedClassDependencies::Get(InBlueprint.GeneratedClass, BlankOptions);
+		for (auto Iter : ClassDependencies->ConvertedClasses)
 		{
 			DependentObjects.Add(Iter);
 		}
-		for (auto Iter : ClassDependencies.ConvertedStructs)
+		for (auto Iter : ClassDependencies->ConvertedStructs)
 		{
 			DependentObjects.Add(Iter);
 		}
-		for (auto Iter : ClassDependencies.ConvertedEnum)
+		for (auto Iter : ClassDependencies->ConvertedEnum)
 		{
 			DependentObjects.Add(Iter);
 		}
@@ -96,7 +96,7 @@ struct FGeneratedCodeData
 		DependentObjects.Add(InBlueprint.GeneratedClass);
 
 		bool bUnconvertedHeader = false;
-		for (auto Asset : ClassDependencies.Assets)
+		for (auto Asset : ClassDependencies->Assets)
 		{
 			if (auto BPGC = Cast<UBlueprintGeneratedClass>(Asset))
 			{

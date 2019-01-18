@@ -474,6 +474,7 @@ public:
 	virtual void MouseLeave( FViewport* Viewport ) override;
 	virtual EMouseCursor::Type GetCursor(FViewport* Viewport,int32 X,int32 Y) override;
 	virtual void CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY ) override;
+	virtual void ProcessAccumulatedPointerInput(FViewport* InViewport) override;
 	virtual bool IsOrtho() const override;
 	virtual void LostFocus(FViewport* Viewport) override;
 	virtual FStatUnitData* GetStatUnitData() const override;
@@ -728,6 +729,13 @@ public:
 
 	/** Sets whether or not this viewport is allowed to be possessed by cinematic/scrubbing tools */
 	void SetAllowCinematicControl( bool bInAllowCinematicControl) { bAllowCinematicControl = bInAllowCinematicControl; }
+
+	/** 
+	 * Normally we disable all viewport rendering when the editor is minimized, but the 
+	 * render commands may need to be processed regardless (like if we were outputting to a monitor via capture card). 
+	 * This provides the viewport a way to keep rendering, regardless of the editor's window status.
+	 */
+	virtual bool WantsDrawWhenAppIsHidden() const { return false; }
 
 public:
 	/** True if the window is maximized or floating */
@@ -1122,6 +1130,9 @@ public:
 
 	virtual uint32 GetCachedMouseX() const { return CachedMouseX; }
 	virtual uint32 GetCachedMouseY() const { return CachedMouseY; }
+
+	/** @return True if the camera speed should be scaled by its view distance. */
+	virtual bool ShouldScaleCameraSpeedByDistance() const;
 	
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
@@ -1633,6 +1644,8 @@ private:
 	 */
 	FSceneView* DragStartView;
 	FSceneViewFamily *DragStartViewFamily;
+
+	TArray<FIntPoint> CapturedMouseMoves;
 };
 
 

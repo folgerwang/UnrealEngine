@@ -21,6 +21,7 @@ bool FAndroidInputInterface::VibeIsOn;
 FForceFeedbackValues FAndroidInputInterface::VibeValues;
 
 bool FAndroidInputInterface::bAllowControllers = true;
+bool FAndroidInputInterface::bBlockAndroidKeysOnControllers = false;
 
 FAndroidControllerData FAndroidInputInterface::OldControllerData[MAX_NUM_CONTROLLERS];
 FAndroidControllerData FAndroidInputInterface::NewControllerData[MAX_NUM_CONTROLLERS];
@@ -66,6 +67,7 @@ FAndroidInputInterface::FAndroidInputInterface(const TSharedRef< FGenericApplica
 	, Cursor(InCursor)
 {
 	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bAllowControllers"), bAllowControllers, GEngineIni);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBlockAndroidKeysOnControllers"), bBlockAndroidKeysOnControllers, GEngineIni);
 
 	ButtonMapping[0] = FGamepadKeyNames::FaceButtonBottom;
 	ButtonMapping[1] = FGamepadKeyNames::FaceButtonRight;
@@ -132,6 +134,21 @@ bool FAndroidInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
 		return false;
 
 	return (DeviceMapping[ControllerId].DeviceState == MappingState::Valid);
+}
+
+FString FAndroidInputInterface::GetGamepadControllerName(int32 ControllerId)
+{
+	if (ControllerId < 0 || ControllerId >= MAX_NUM_CONTROLLERS)
+	{
+		return FString(TEXT("None"));
+	}
+
+	if (DeviceMapping[ControllerId].DeviceState != MappingState::Valid)
+	{
+		return FString(TEXT("None"));
+	}
+
+	return DeviceMapping[ControllerId].DeviceInfo.Name;
 }
 
 void FAndroidInputInterface::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
@@ -846,9 +863,20 @@ void FAndroidInputInterface::SendControllerEvents()
 						// comparison. Instead we check the product and vendor IDs to ensure it's the correct one.
 						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("PS4 Wireless Controller")))
 						{
-							CurrentDevice.ButtonRemapping = ButtonRemapType::PS4;
+							if (CurrentDevice.DeviceInfo.Name.EndsWith(TEXT(" (v2)")))
+							{
+								CurrentDevice.ButtonRemapping = ButtonRemapType::PS4;
+							}
 							CurrentDevice.bSupportsHat = true;
 							CurrentDevice.bRightStickZRZ = true;
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("glap QXPGP001")))
+						{
+							CurrentDevice.bSupportsHat = true;
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("STMicroelectronics Lenovo GamePad")))
+						{
+							CurrentDevice.bSupportsHat = true;
 						}
 
 						FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, DeviceIndex);
@@ -921,21 +949,24 @@ void FAndroidInputInterface::SendControllerEvents()
 			FAndroidControllerData& OldControllerState = OldControllerData[ControllerIndex];
 			FAndroidControllerData& NewControllerState = NewControllerData[ControllerIndex];
 
-			if (NewControllerState.LXAnalog != OldControllerState.LXAnalog)
+			// Send controller events any time we have a large enough input threshold similarly to PC/Console (see: XInputInterface.cpp)
+			const float RepeatDeadzone = 0.24f;
+
+			if (NewControllerState.LXAnalog != OldControllerState.LXAnalog || FMath::Abs(NewControllerState.LXAnalog) >= RepeatDeadzone)
 			{
 				MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, NewControllerState.DeviceId, NewControllerState.LXAnalog);
 			}
-			if (NewControllerState.LYAnalog != OldControllerState.LYAnalog)
+			if (NewControllerState.LYAnalog != OldControllerState.LYAnalog || FMath::Abs(NewControllerState.LYAnalog) >= RepeatDeadzone)
 			{
 				//LOGD("    Sending updated LeftAnalogY value of %f", NewControllerState.LYAnalog);
 				MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, NewControllerState.DeviceId, NewControllerState.LYAnalog);
 			}
-			if (NewControllerState.RXAnalog != OldControllerState.RXAnalog)
+			if (NewControllerState.RXAnalog != OldControllerState.RXAnalog || FMath::Abs(NewControllerState.RXAnalog) >= RepeatDeadzone)
 			{
 				//LOGD("    Sending updated RightAnalogX value of %f", NewControllerState.RXAnalog);
 				MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, NewControllerState.DeviceId, NewControllerState.RXAnalog);
 			}
-			if (NewControllerState.RYAnalog != OldControllerState.RYAnalog)
+			if (NewControllerState.RYAnalog != OldControllerState.RYAnalog || FMath::Abs(NewControllerState.RYAnalog) >= RepeatDeadzone)
 			{
 				//LOGD("    Sending updated RightAnalogY value of %f", NewControllerState.RYAnalog);
 				MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, NewControllerState.DeviceId, NewControllerState.RYAnalog);
@@ -1298,9 +1329,19 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 											 }
 											 break;
 				case AKEYCODE_BUTTON_START:
-				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break;
+				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[17] = buttonDown;
+											 }
+											 break;
 				case AKEYCODE_BUTTON_SELECT:
-				case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break;
+				case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown;
+											 }
+											 break;
 				case AKEYCODE_BUTTON_THUMBL: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break;
 				case AKEYCODE_BUTTON_THUMBR: NewControllerData[deviceId].ButtonStates[9] = buttonDown; break;
 				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[10] = buttonDown; break;
@@ -1321,8 +1362,18 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 				case AKEYCODE_BUTTON_X:      NewControllerData[deviceId].ButtonStates[3] = buttonDown; break; // Y
 				case AKEYCODE_BUTTON_Y:      NewControllerData[deviceId].ButtonStates[4] = buttonDown; break; // L1
 				case AKEYCODE_BUTTON_Z:      NewControllerData[deviceId].ButtonStates[5] = buttonDown; break; // R1
-				case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break; // Menu
-				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break; // View
+				case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[17] = buttonDown; // Menu
+											 }
+											 break;
+				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown; // View
+											 }
+											 break;
 				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[8] = buttonDown; break; // ThumbL
 				case AKEYCODE_BUTTON_R2:     NewControllerData[deviceId].ButtonStates[9] = buttonDown; break; // ThumbR
 			}
@@ -1337,8 +1388,18 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 				case AKEYCODE_BUTTON_X:      NewControllerData[deviceId].ButtonStates[3] = buttonDown; break; // Triangle
 				case AKEYCODE_BUTTON_Y:      NewControllerData[deviceId].ButtonStates[4] = buttonDown; break; // L1
 				case AKEYCODE_BUTTON_Z:      NewControllerData[deviceId].ButtonStates[5] = buttonDown; break; // R1
-				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break; // Options
-				case AKEYCODE_BUTTON_R2:     NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break; // Share
+				case AKEYCODE_BUTTON_L2:     NewControllerData[deviceId].ButtonStates[6] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+											 	NewControllerData[deviceId].ButtonStates[17] = buttonDown; // Options
+											 }
+											 break;
+				case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[7] = buttonDown;
+											 if (!bBlockAndroidKeysOnControllers)
+											 {
+												 NewControllerData[deviceId].ButtonStates[16] = buttonDown; // Touchpad
+											 }
+											 break;
 				case AKEYCODE_BUTTON_SELECT: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break; // ThumbL
 				case AKEYCODE_BUTTON_START:  NewControllerData[deviceId].ButtonStates[9] = buttonDown; break; // ThumbR
 				case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[10] = buttonDown; break; // L2

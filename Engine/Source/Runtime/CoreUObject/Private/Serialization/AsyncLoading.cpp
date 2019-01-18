@@ -16,6 +16,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
+#include "Misc/MessageDialog.h"
 #include "Serialization/ArchiveAsync.h"
 #include "Misc/PackageName.h"
 #include "UObject/PackageFileSummary.h"
@@ -47,6 +48,7 @@
 DEFINE_LOG_CATEGORY(LogLoadingDev);
 
 CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, FileIO);
 
 //#pragma clang optimize off
 
@@ -199,6 +201,21 @@ static FAutoConsoleVariableRef CVar_EditorLoadPrecacheSizeKB(
 	GEditorLoadPrecacheSizeKB,
 	TEXT("Size, in KB, to precache when loading packages in the editor.")
 );
+
+int32 GAsyncLoadingPrecachePriority = (int32)AIOP_MIN;
+static FAutoConsoleVariableRef CVarAsyncLoadingPrecachePriority(
+	TEXT("s.AsyncLoadingPrecachePriority"),
+	GAsyncLoadingPrecachePriority,
+	TEXT("Priority of asyncloading precache requests"),
+	ECVF_Default
+);
+
+EAsyncIOPriorityAndFlags GetAsyncIOPrecachePriorityAndFlags()
+{
+	check(GAsyncLoadingPrecachePriority >= AIOP_MIN && GAsyncLoadingPrecachePriority <= AIOP_MAX);
+	EAsyncIOPriorityAndFlags Priority = (EAsyncIOPriorityAndFlags)FMath::Clamp(GAsyncLoadingPrecachePriority, (int32)AIOP_MIN, (int32)AIOP_MAX);
+	return Priority | AIOP_FLAG_PRECACHE;
+}
 
 #if !UE_BUILD_SHIPPING
 
@@ -1520,8 +1537,8 @@ struct FPrecacheCallbackHandler
 		{
 			if (Incoming.Num() == GMaxIncomingRequestsToStall)
 			{
-				UE_LOG(LogStreaming, Log, TEXT("Throttling off (incoming >= %d)"), GMaxIncomingRequestsToStall);
-				FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(false);
+				UE_LOG(LogStreaming, Log, TEXT("Throttling on (incoming >= %d)"), GMaxIncomingRequestsToStall);
+				UpdatePlatformFilePrecacheThrottling(false);
 			}
 		}
 	}
@@ -1633,8 +1650,8 @@ struct FPrecacheCallbackHandler
 			{
 				if (!bPrecacheRequestsEnabled)
 				{
-					UE_LOG(LogStreaming, Log, TEXT("Throttling on (mem < %dMB)"), GMaxReadyRequestsToStallMB * 9 / 10);
-					FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(true);
+					UE_LOG(LogStreaming, Log, TEXT("Throttling off (mem < %dMB)"), GMaxReadyRequestsToStallMB * 9 / 10);
+					UpdatePlatformFilePrecacheThrottling(true);
 					bPrecacheRequestsEnabled = true;
 					bMaybeWasStalledOnIncoming = false; // we don't need to handle this anymore, we just turned it on
 				}
@@ -1647,8 +1664,8 @@ struct FPrecacheCallbackHandler
 			{
 				if (bPrecacheRequestsEnabled)
 				{
-					UE_LOG(LogStreaming, Log, TEXT("Throttling off (mem > %dMB)"), GMaxReadyRequestsToStallMB);
-					FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(false);
+					UE_LOG(LogStreaming, Log, TEXT("Throttling on (mem > %dMB)"), GMaxReadyRequestsToStallMB);
+					UpdatePlatformFilePrecacheThrottling(false);
 					bPrecacheRequestsEnabled = false;
 				}
 			}
@@ -1658,8 +1675,8 @@ struct FPrecacheCallbackHandler
 		if (bPrecacheRequestsEnabled && bMaybeWasStalledOnIncoming)
 		{
 			// we have to force a potentially redundant unstall just to make sure that the incoming stall is cleared now
-			UE_LOG(LogStreaming, Log, TEXT("Throttling on (incoming grabbed)"));
-			FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(true);
+			UE_LOG(LogStreaming, Log, TEXT("Throttling off (incoming grabbed)"));
+			UpdatePlatformFilePrecacheThrottling(true);
 		}
 	}
 
@@ -1668,6 +1685,13 @@ struct FPrecacheCallbackHandler
 		UnprocessedMemUsed -= Size;
 		check(UnprocessedMemUsed >= 0);
 		CheckThottleIOState();
+	}
+
+	void UpdatePlatformFilePrecacheThrottling(bool bEnablePrecacheRequests)
+	{
+		// If we're not processing precache requests, set the min priority to GAsyncLoadingPrecachePriority + 1
+		EAsyncIOPriorityAndFlags NewMinPriority = bEnablePrecacheRequests ? AIOP_MIN : (EAsyncIOPriorityAndFlags)FMath::Clamp(GAsyncLoadingPrecachePriority + 1, (int32)AIOP_MIN, (int32)AIOP_MAX);
+		FPlatformFileManager::Get().GetPlatformFile().SetAsyncMinimumPriority(NewMinPriority);
 	}
 };
 
@@ -5145,6 +5169,8 @@ bool FAsyncLoadingThread::Init()
 
 uint32 FAsyncLoadingThread::Run()
 {
+	LLM_SCOPE(ELLMTag::AsyncLoading);
+
 	AsyncLoadingThreadID = FPlatformTLS::GetCurrentThreadId();
 
 	if (!IsInGameThread())
@@ -5249,8 +5275,7 @@ EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimit
 			uint32 WaitTime = 30;
 			if (IsEventDrivenLoaderEnabled())
 			{
-
-				if (!GetGEDLBootNotificationManager().IsWaitingForSomething())
+				if (!GetGEDLBootNotificationManager().IsWaitingForSomething() && !(IsGarbageCollectionWaiting() || IsGarbageCollecting()))
 				{
 					CheckForCycles();
 					IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("CheckForCycles (non-shipping)"));
@@ -7292,8 +7317,12 @@ EAsyncPackageState::Type ProcessAsyncLoading(bool bUseTimeLimit, bool bUseFullTi
 	SCOPE_CYCLE_COUNTER(STAT_AsyncLoadingTime);
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AsyncLoading);
 
+	CSV_CUSTOM_STAT(FileIO, EDLEventQueueDepth, FAsyncLoadingThread::Get().EventQueue.EventQueue.Num(), ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(FileIO, QueuedPackagesQueueDepth, FAsyncLoadingThread::Get().GetQueuedPackagesCount(), ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(FileIO, ExistingQueuedPackagesQueueDepth, FAsyncLoadingThread::Get().GetExistingAsyncPackagesCount(), ECsvCustomStatOp::Set);
+
 	{
-		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_TickAsyncLoadingGameThread);
+		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_TickAsyncLoadingGameThread); 
 		FAsyncLoadingThread::Get().TickAsyncLoading(bUseTimeLimit, bUseFullTimeLimit, TimeLimit);
 	}
 
@@ -7524,12 +7553,12 @@ void FArchiveAsync2::ReadCallback(bool bWasCancelled, IAsyncReadRequest* Request
 				LogItem(TEXT("Starting Summary"), 0, Size);
 				SummaryRequestPtr = Handle->ReadRequest(0, Size, AIOP_Normal, &ReadCallbackFunction);
 				// I need a precache request here to keep the memory alive until I submit the header request
-				SummaryPrecacheRequestPtr = Handle->ReadRequest(0, Size, AIOP_Precache);
+				SummaryPrecacheRequestPtr = Handle->ReadRequest(0, Size, GetAsyncIOPrecachePriorityAndFlags() );
 #if WITH_EDITOR
 				if (FileSize > Size && GEditorLoadPrecacheSizeKB > 0)
 				{
 					const int64 MaxEditorPrecacheSize = int64(GEditorLoadPrecacheSizeKB) * 1024;
-					EditorPrecacheRequestPtr = Handle->ReadRequest(Size, FMath::Min<int64>(FileSize - Size, MaxEditorPrecacheSize), AIOP_Precache);
+					EditorPrecacheRequestPtr = Handle->ReadRequest(Size, FMath::Min<int64>(FileSize - Size, MaxEditorPrecacheSize), GetAsyncIOPrecachePriorityAndFlags());
 				}
 #endif
 			}
@@ -7771,7 +7800,7 @@ void FArchiveAsync2::CompleteRead()
 			if (LoadPhase != ELoadPhase::ProcessingExports)
 			{
 				CompleteCancel();
-				CanceledReadRequestPtr = Handle->ReadRequest(PrecacheEndPos - HeaderSizeWhenReadingExportsFromSplitFile - 1, 1, AIOP_Precache);
+				CanceledReadRequestPtr = Handle->ReadRequest(PrecacheEndPos - HeaderSizeWhenReadingExportsFromSplitFile - 1, 1, GetAsyncIOPrecachePriorityAndFlags());
 			}
 		}
 	}
@@ -8015,7 +8044,7 @@ IAsyncReadRequest* FArchiveAsync2::MakeEventDrivenPrecacheRequest(int64 Offset, 
 
 
 		check(Offset - HeaderSizeWhenReadingExportsFromSplitFile >= 0);
-		IAsyncReadRequest* Precache = NewHandle->ReadRequest(Offset - HeaderSizeWhenReadingExportsFromSplitFile, BytesToRead, AIOP_Precache, CompleteCallback);
+		IAsyncReadRequest* Precache = NewHandle->ReadRequest(Offset - HeaderSizeWhenReadingExportsFromSplitFile, BytesToRead, GetAsyncIOPrecachePriorityAndFlags(), CompleteCallback);
 		FlushCache();
 		if (Handle)
 		{
@@ -8039,7 +8068,7 @@ IAsyncReadRequest* FArchiveAsync2::MakeEventDrivenPrecacheRequest(int64 Offset, 
 	double StartTime = FPlatformTime::Seconds();
 	check(Offset - HeaderSizeWhenReadingExportsFromSplitFile >= 0);
 	check(Offset + BytesToRead <= TotalSizeOrMaxInt64IfNotReady());
-	IAsyncReadRequest* Precache = Handle->ReadRequest(Offset - HeaderSizeWhenReadingExportsFromSplitFile, BytesToRead, AIOP_Precache, CompleteCallback);
+	IAsyncReadRequest* Precache = Handle->ReadRequest(Offset - HeaderSizeWhenReadingExportsFromSplitFile, BytesToRead, GetAsyncIOPrecachePriorityAndFlags(), CompleteCallback);
 	LogItem(TEXT("Event Precache"), Offset - HeaderSizeWhenReadingExportsFromSplitFile, BytesToRead, StartTime);
 	return Precache;
 }
@@ -8193,7 +8222,7 @@ void FArchiveAsync2::Serialize(void* Data, int64 Count)
 			ErrorCaption,
 			GEngineIni);
 
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage.ToString(), *ErrorCaption.ToString());
+		FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage, &ErrorCaption);
 	}
 #endif
 	// Ensure we aren't reading beyond the end of the file

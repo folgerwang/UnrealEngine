@@ -31,7 +31,7 @@ static const FName ColumnID_AnimCurveWeightLabel( "Weight" );
 static const FName ColumnID_AnimCurveEditLabel( "Edit" );
 static const FName ColumnID_AnimCurveNumBoneLabel("Num Bones");
 
-const float MaxMorphWeight = 5.f;
+extern const float MaxMorphWeight = 5.f;
 //////////////////////////////////////////////////////////////////////////
 // SAnimCurveListRow
 

@@ -66,9 +66,9 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 			if ( AttachParent )
 			{
 				WorldTransform *= AttachParent->GetComponentTransform();
-
-				SceneComponent->SetRelativeTransform( WorldTransform );
 			}
+
+			SceneComponent->SetRelativeTransform( WorldTransform );
 		}
 	}
 

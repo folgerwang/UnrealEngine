@@ -9,7 +9,8 @@
 namespace DisplayClusterStrings
 {
 	// Common strings
-	static constexpr auto strKeyValSeparator = TEXT("=");
+	static constexpr auto strKeyValSeparator   = TEXT("=");
+	static constexpr auto strArrayValSeparator = TEXT(",");
 
 	// Command line arguments
 	namespace args
@@ -23,7 +24,6 @@ namespace DisplayClusterStrings
 		// Stereo device types (command line values)
 		namespace dev
 		{
-			static constexpr auto Debug = TEXT("dc_dev_debug");
 			static constexpr auto QBS   = TEXT("quad_buffer_stereo");
 			static constexpr auto TB    = TEXT("dc_dev_top_bottom");
 			static constexpr auto SbS   = TEXT("dc_dev_side_by_side");
@@ -66,13 +66,26 @@ namespace DisplayClusterStrings
 			{
 				static constexpr auto Header   = TEXT("[cluster_node]");
 				static constexpr auto Addr     = TEXT("addr");
-				static constexpr auto Screen   = TEXT("screen");
-				static constexpr auto Viewport = TEXT("viewport");
+				static constexpr auto Window   = TEXT("window");
 				static constexpr auto PortCS   = TEXT("port_cs");
 				static constexpr auto PortSS   = TEXT("port_ss");
+				static constexpr auto PortCE   = TEXT("port_ce");
 				static constexpr auto Master   = TEXT("master");
 				static constexpr auto Sound    = TEXT("sound");
 				static constexpr auto EyeSwap  = TEXT("eye_swap");
+				// + Id
+			}
+
+			// Window tokens
+			namespace window
+			{
+				static constexpr auto Header     = TEXT("[window]");
+				static constexpr auto Viewports  = TEXT("viewports");
+				static constexpr auto Fullscreen = TEXT("fullscreen");
+				static constexpr auto WinX       = TEXT("WinX");
+				static constexpr auto WinY       = TEXT("WinY");
+				static constexpr auto ResX       = TEXT("ResX");
+				static constexpr auto ResY       = TEXT("ResY");
 				// + Id
 			}
 
@@ -88,6 +101,7 @@ namespace DisplayClusterStrings
 			namespace viewport
 			{
 				static constexpr auto Header = TEXT("[viewport]");
+				static constexpr auto Screen = TEXT("screen");
 				static constexpr auto PosX   = TEXT("x");
 				static constexpr auto PosY   = TEXT("y");
 				static constexpr auto Width  = TEXT("width");
@@ -154,6 +168,16 @@ namespace DisplayClusterStrings
 			namespace render
 			{
 				static constexpr auto Header          = TEXT("[render]");
+			}
+
+			// Network tokens
+			namespace network
+			{
+				static constexpr auto Header                      = TEXT("[network]");
+				static constexpr auto ClientConnectTriesAmount    = TEXT("cln_conn_tries_amount");
+				static constexpr auto ClientConnectRetryDelay     = TEXT("cln_conn_retry_delay");
+				static constexpr auto BarrierGameStartWaitTimeout = TEXT("game_start_timeout");
+				static constexpr auto BarrierWaitTimeout          = TEXT("barrier_wait_timeout");
 			}
 
 			// Debug tokens

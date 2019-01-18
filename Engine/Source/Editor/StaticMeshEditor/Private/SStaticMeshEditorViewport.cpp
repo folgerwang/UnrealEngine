@@ -19,6 +19,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "Engine/StaticMeshSocket.h"
 #include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
+#include "Editor.h"
 
 #define HITPROXY_SOCKET	1
 
@@ -33,6 +34,19 @@ void SStaticMeshEditorViewport::Construct(const FArguments& InArgs)
 
 	PreviewScene->SetFloorOffset(-InArgs._ObjectToEdit->ExtendedBounds.Origin.Z + InArgs._ObjectToEdit->ExtendedBounds.BoxExtent.Z);
 
+	// restore last used feature level
+	UWorld* World = PreviewScene->GetWorld();
+	if (World != nullptr)
+	{
+		World->ChangeFeatureLevel(GWorld->FeatureLevel);
+	}
+
+	UEditorEngine* Editor = CastChecked<UEditorEngine>(GEngine);
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			PreviewScene->GetWorld()->ChangeFeatureLevel(NewFeatureLevel);
+		});
+
 	StaticMeshEditorPtr = InArgs._StaticMeshEditor;
 
 	StaticMesh = InArgs._ObjectToEdit;
@@ -44,10 +58,21 @@ void SStaticMeshEditorViewport::Construct(const FArguments& InArgs)
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
 	PreviewMeshComponent = NewObject<UStaticMeshComponent>(GetTransientPackage(), NAME_None, RF_Transient );
+	if (GEditor->PreviewFeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		PreviewMeshComponent->SetMobility(EComponentMobility::Static);
+	}
 
 	SetPreviewMesh(StaticMesh);
 
-	ViewportOverlay->AddSlot()
+	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &SStaticMeshEditorViewport::OnObjectPropertyChanged);
+}
+
+void SStaticMeshEditorViewport::PopulateViewportOverlays(TSharedRef<SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	Overlay->AddSlot()
 		.VAlign(VAlign_Top)
 		.HAlign(HAlign_Left)
 		.Padding(FMargin(10.0f, 40.0f, 10.0f, 10.0f))
@@ -55,7 +80,14 @@ void SStaticMeshEditorViewport::Construct(const FArguments& InArgs)
 			SAssignNew(OverlayTextVerticalBox, SVerticalBox)
 		];
 
-	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &SStaticMeshEditorViewport::OnObjectPropertyChanged);
+	// this widget will display the current viewed feature level
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
 }
 
 SStaticMeshEditorViewport::SStaticMeshEditorViewport()
@@ -66,6 +98,8 @@ SStaticMeshEditorViewport::SStaticMeshEditorViewport()
 
 SStaticMeshEditorViewport::~SStaticMeshEditorViewport()
 {
+	CastChecked<UEditorEngine>(GEngine)->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+
 	FCoreUObjectDelegates::OnObjectPropertyChanged.RemoveAll(this);
 	if (EditorViewportClient.IsValid())
 	{
@@ -177,7 +211,7 @@ void SStaticMeshEditorViewport::UpdatePreviewSocketMeshes()
 					SocketPreviewMeshComponent = NewObject<UStaticMeshComponent>();
 					PreviewScene->AddComponent(SocketPreviewMeshComponent, FTransform::Identity);
 					SocketPreviewMeshComponents.Add(SocketPreviewMeshComponent);
-					SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket->SocketName);
+					SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetIncludingScale, Socket->SocketName);
 				}
 				else
 				{
@@ -186,7 +220,7 @@ void SStaticMeshEditorViewport::UpdatePreviewSocketMeshes()
 					// In case of a socket rename, ensure our preview component is still snapping to the proper socket
 					if (!SocketPreviewMeshComponent->GetAttachSocketName().IsEqual(Socket->SocketName))
 					{
-						SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket->SocketName);
+						SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetIncludingScale, Socket->SocketName);
 					}
 
 					// Force component to world update to take into account the new socket position.
@@ -233,6 +267,10 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh, boo
 	}
 
 	PreviewMeshComponent = NewObject<UStaticMeshComponent>();
+	if (GEditor->PreviewFeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		PreviewMeshComponent->SetMobility(EComponentMobility::Static);
+	}
 
 	PreviewMeshComponent->SetStaticMesh(InStaticMesh);
 
@@ -249,7 +287,7 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh, boo
 		{
 			SocketPreviewMeshComponent = NewObject<UStaticMeshComponent>();
 			SocketPreviewMeshComponent->SetStaticMesh(Socket->PreviewStaticMesh);
-			SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket->SocketName);
+			SocketPreviewMeshComponent->AttachToComponent(PreviewMeshComponent, FAttachmentTransformRules::SnapToTargetIncludingScale, Socket->SocketName);
 			SocketPreviewMeshComponents.Add(SocketPreviewMeshComponent);
 			PreviewScene->AddComponent(SocketPreviewMeshComponent, FTransform::Identity);
 		}

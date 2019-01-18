@@ -504,3 +504,34 @@ void FScopeCycleCounterUObject::UntrackObjectForMallocProfiling()
 	}
 }
 #endif
+
+#if !STATS && !ENABLE_STATNAMEDEVENTS && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION && USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION
+#include "HAL/ThreadHeartBeat.h"
+#include "HAL/ThreadManager.h"
+
+void FScopeCycleCounterUObject::ReportHitch()
+{
+	float Delta = float(FGameThreadHitchHeartBeat::Get().GetCurrentTime() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
+	bool isGT = FPlatformTLS::GetCurrentThreadId() == GGameThreadId;
+	FString ThreadString(isGT ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+	FString StackString;
+	if (isGT)
+	{
+		if (StatObject->IsValidLowLevel() && StatObject->IsValidLowLevelFast())
+		{
+			StackString = GetFullNameSafe(StatObject);
+		}
+		else
+		{
+			StackString = FString(TEXT("[UObject was invalid]"));
+		}
+	}
+	else
+	{
+		StackString = FString(TEXT("[Not grabbing UObject name from other threads]"));
+	}
+	UE_LOG(LogCore, Error, TEXT("Leaving UObject scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, *StackString);
+}
+#endif
+
+

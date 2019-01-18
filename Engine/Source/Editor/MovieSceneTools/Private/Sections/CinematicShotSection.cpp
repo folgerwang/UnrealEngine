@@ -37,7 +37,7 @@ FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieScen
 			InnerFrameRate = InnerSequence->GetMovieScene()->GetTickResolution();
 		}
 
-		InnerFrameOffset = Section->Parameters.GetStartFrameOffset();
+		InnerFrameOffset = Section->Parameters.StartFrameOffset;
 		SectionStartFrame = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : 0;
 		TimeScale = Section->Parameters.TimeScale;
 	}
@@ -79,7 +79,7 @@ void FCinematicShotSection::SetSingleTime(double GlobalTime)
 
 void FCinematicShotSection::BeginResizeSection()
 {
-	InitialStartOffsetDuringResize = SectionObject.Parameters.GetStartFrameOffset();
+	InitialStartOffsetDuringResize = SectionObject.Parameters.StartFrameOffset;
 	InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
 }
 
@@ -94,10 +94,18 @@ void FCinematicShotSection::ResizeSection(ESequencerSectionResizeMode ResizeMode
 		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
 		const FFrameNumber  ResizeDifference = ResizeTime - InitialStartTimeDuringResize;
 		const FFrameTime    InnerFrameTime   = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
-		const int32         NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
+		FFrameNumber		NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber;
+
+		NewStartOffset += InitialStartOffsetDuringResize;
 
 		// Ensure start offset is not less than 0
-		SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
+		if (NewStartOffset < 0)
+		{
+			FFrameTime OuterFrameTimeOver = ConvertFrameTime(FFrameTime::FromDecimal(NewStartOffset.Value/SectionObject.Parameters.TimeScale), InnerFrameRate, OuterFrameRate);
+			ResizeTime = ResizeTime - OuterFrameTimeOver.GetFrame(); 
+			NewStartOffset = 0;
+		}
+		SectionObject.Parameters.StartFrameOffset = NewStartOffset;
 	}
 
 	FViewportThumbnailSection::ResizeSection(ResizeMode, ResizeTime);
@@ -108,7 +116,7 @@ void FCinematicShotSection::BeginSlipSection()
 	BeginResizeSection();
 }
 
-void FCinematicShotSection::SlipSection(double SlipTime)
+void FCinematicShotSection::SlipSection(FFrameNumber SlipTime)
 {
 	UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
 
@@ -117,14 +125,21 @@ void FCinematicShotSection::SlipSection(double SlipTime)
 	{
 		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
 		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
-		const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize / OuterFrameRate;
-		const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
+		const FFrameNumber  ResizeDifference = SlipTime - InitialStartTimeDuringResize;
+		const FFrameTime    InnerFrameTime = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+		const int32         NewStartOffset = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
 
 		// Ensure start offset is not less than 0
-		SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
+		SectionObject.Parameters.StartFrameOffset = FFrameNumber(FMath::Max(NewStartOffset, 0));
 	}
 
 	FViewportThumbnailSection::SlipSection(SlipTime);
+}
+
+bool FCinematicShotSection::IsReadOnly() const
+{
+	// Overridden to false regardless of movie scene section read only state so that we can double click into the sub section
+	return false;
 }
 
 void FCinematicShotSection::Tick(const FGeometry& AllottedGeometry, const FGeometry& ClippedGeometry, const double InCurrentTime, const float InDeltaTime)

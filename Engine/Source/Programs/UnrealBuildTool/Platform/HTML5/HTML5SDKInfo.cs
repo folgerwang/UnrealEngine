@@ -426,9 +426,9 @@ namespace UnrealBuildTool
 		///
 		/// </summary>
 		/// <returns></returns>
-		public static string Python()
+		public static FileReference Python()
 		{
-			return PYTHON;
+			return new FileReference(PYTHON);
 		}
 
 		/// <summary>

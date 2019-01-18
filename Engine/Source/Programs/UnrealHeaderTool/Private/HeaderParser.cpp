@@ -1010,9 +1010,46 @@ namespace
 			{
 				if (UFunction* Function = Cast<UFunction>(Field))
 				{
-					if (FHeaderParser::FindField(Function, *InValue, false) == nullptr)
+					// multiple entry parsing in the same format as eg SetParam.
+					TArray<FString> RawGroupings;
+					InValue.ParseIntoArray(RawGroupings, TEXT(","), false);
+
+					UProperty* FirstInput = nullptr;
+					for (const FString& RawGroup : RawGroupings)
 					{
-						UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *InValue);
+						TArray<FString> IndividualEntries;
+						RawGroup.ParseIntoArray(IndividualEntries, TEXT("|"));
+
+						for (const FString& Entry : IndividualEntries)
+						{
+							if (Entry.IsEmpty())
+							{
+								continue;
+							}
+							
+							UField* FoundField = FHeaderParser::FindField(Function, *Entry, false);
+							if (!FoundField)
+							{
+								UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *Entry);
+							}
+							else if (UProperty* Prop = Cast<UProperty>(FoundField))
+							{
+								if (!Prop->HasAnyPropertyFlags(CPF_ReturnParm) &&
+
+								    (!Prop->HasAnyPropertyFlags(CPF_OutParm) ||
+									Prop->HasAnyPropertyFlags(CPF_ReferenceParm)))
+								{
+									if (!FirstInput)
+									{
+										FirstInput = Prop;
+									}
+									else
+									{
+										UE_LOG_ERROR_UHT(TEXT("Function already specified an ExpandEnumAsExec input (%s), but '%s' is also an input parameter. Only one is permitted."), *FirstInput->GetName(), *Entry);
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1112,6 +1149,7 @@ namespace
 			|| Property->IsA<UObjectProperty>()
 			|| Property->IsA<UFloatProperty>()
 			|| Property->IsA<UIntProperty>()
+			|| Property->IsA<UInt64Property>()
 			|| Property->IsA<UByteProperty>()
 			|| Property->IsA<UNameProperty>()
 			|| Property->IsA<UBoolProperty>()
@@ -8749,6 +8787,14 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 				OutForm = FString::FromInt(Value);
 			}
 		}
+		else if (Property->IsA(UInt64Property::StaticClass()))
+		{
+			int64 Value;
+			if (FDefaultValueHelper::ParseInt64(CppForm, Value))
+			{
+				OutForm = FString::Printf(TEXT("%lld"), Value);
+			}
+		}
 		else if( Property->IsA(UByteProperty::StaticClass()) )
 		{
 			const UEnum* Enum = CastChecked<UByteProperty>(Property)->Enum;
@@ -8833,7 +8879,7 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			{
 				static const FString UHTDummyNamespace = TEXT("__UHT_DUMMY_NAMESPACE__");
 
-				if (!FTextStringHelper::ReadFromString(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, nullptr, /*bRequiresQuotes*/true, EStringTableLoadingPolicy::Find))
+				if (!FTextStringHelper::ReadFromBuffer(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, /*bRequiresQuotes*/true))
 				{
 					return false;
 				}
@@ -8852,7 +8898,7 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			}
 
 			// Normalize the default value from the parsed value
-			FTextStringHelper::WriteToString(OutForm, ParsedText, /*bRequiresQuotes*/false);
+			FTextStringHelper::WriteToBuffer(OutForm, ParsedText, /*bRequiresQuotes*/false);
 			return true;
 		}
 		else if( Property->IsA(UStrProperty::StaticClass()) )

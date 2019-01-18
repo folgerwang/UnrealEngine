@@ -124,6 +124,8 @@ struct FCharacterMovementComponentPostPhysicsTickFunction : public FTickFunction
 
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>

@@ -154,7 +154,7 @@ class FTransactionObjectEvent
 public:
 	FTransactionObjectEvent() = default;
 
-	FTransactionObjectEvent(const FGuid& InTransactionId, const FGuid& InOperationId, const ETransactionObjectEventType InEventType, const FTransactionObjectDeltaChange& InDeltaChange, const TSharedPtr<ITransactionObjectAnnotation>& InAnnotation, const FName InOriginalObjectName, const FName InOriginalObjectPathName, const FName InOriginalObjectOuterPathName)
+	FTransactionObjectEvent(const FGuid& InTransactionId, const FGuid& InOperationId, const ETransactionObjectEventType InEventType, const FTransactionObjectDeltaChange& InDeltaChange, const TSharedPtr<ITransactionObjectAnnotation>& InAnnotation, const FName InOriginalObjectName, const FName InOriginalObjectPathName, const FName InOriginalObjectOuterPathName, const FName InOriginalObjectClassPathName)
 		: TransactionId(InTransactionId)
 		, OperationId(InOperationId)
 		, EventType(InEventType)
@@ -163,6 +163,7 @@ public:
 		, OriginalObjectName(InOriginalObjectName)
 		, OriginalObjectPathName(InOriginalObjectPathName)
 		, OriginalObjectOuterPathName(InOriginalObjectOuterPathName)
+		, OriginalObjectClassPathName(InOriginalObjectClassPathName)
 	{
 		check(TransactionId.IsValid());
 		check(OperationId.IsValid());
@@ -208,6 +209,11 @@ public:
 	FName GetOriginalObjectPathName() const
 	{
 		return OriginalObjectPathName;
+	}
+
+	FName GetOriginalObjectClassPathName() const
+	{
+		return OriginalObjectClassPathName;
 	}
 
 	/** Was the outer of this object changed? (implies non-property changes) */
@@ -266,6 +272,17 @@ private:
 	FName OriginalObjectName;
 	FName OriginalObjectPathName;
 	FName OriginalObjectOuterPathName;
+	FName OriginalObjectClassPathName;
+};
+
+/**
+ * Diff for a given transaction.
+ */
+struct FTransactionDiff
+{
+	FGuid TransactionId;
+	FString TransactionTitle;
+	TMap<FName, TSharedPtr<FTransactionObjectEvent>> DiffMap;
 };
 
 /**

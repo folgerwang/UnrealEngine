@@ -1673,6 +1673,11 @@ public:
 			BoundShaderState.GeometryShaderRHI != rhs.BoundShaderState.GeometryShaderRHI ||
 			BoundShaderState.DomainShaderRHI != rhs.BoundShaderState.DomainShaderRHI ||
 			BoundShaderState.HullShaderRHI != rhs.BoundShaderState.HullShaderRHI ||
+			VertexShaderHash != rhs.VertexShaderHash ||
+			PixelShaderHash != rhs.PixelShaderHash ||
+			GeometryShaderHash != rhs.GeometryShaderHash ||
+			HullShaderHash != rhs.HullShaderHash ||
+			DomainShaderHash != rhs.DomainShaderHash ||
 			BlendState != rhs.BlendState || 
 			RasterizerState != rhs.RasterizerState || 
 			DepthStencilState != rhs.DepthStencilState ||
@@ -1774,6 +1779,11 @@ public:
 	// TODO: [PSO API] - As we migrate reuse existing API objects, but eventually we can move to the direct initializers. 
 	// When we do that work, move this to RHI.h as its more appropriate there, but here for now since dependent typdefs are here.
 	FBoundShaderStateInput			BoundShaderState;
+	FSHAHash						VertexShaderHash;
+	FSHAHash						PixelShaderHash;
+	FSHAHash						GeometryShaderHash;
+	FSHAHash						HullShaderHash;
+	FSHAHash						DomainShaderHash;
 	FBlendStateRHIParamRef			BlendState;
 	FRasterizerStateRHIParamRef		RasterizerState;
 	FDepthStencilStateRHIParamRef	DepthStencilState;

@@ -9,6 +9,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.view.View;
+import android.view.WindowManager;
 
 public class SplashActivity extends Activity
 {
@@ -18,6 +19,7 @@ public class SplashActivity extends Activity
 		super.onCreate(savedInstanceState);
 
 		boolean ShouldHideUI = false;
+		boolean UseDisplayCutout = false;
 		try {
 			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
 			Bundle bundle = ai.metaData;
@@ -25,6 +27,10 @@ public class SplashActivity extends Activity
 			if(bundle.containsKey("com.epicgames.ue4.GameActivity.bShouldHideUI"))
 			{
 				ShouldHideUI = bundle.getBoolean("com.epicgames.ue4.GameActivity.bShouldHideUI");
+			}
+			if(bundle.containsKey("com.epicgames.ue4.GameActivity.bUseDisplayCutout"))
+			{
+				UseDisplayCutout = bundle.getBoolean("com.epicgames.ue4.GameActivity.bUseDisplayCutout");
 			}
 		}
 		catch (NameNotFoundException e)
@@ -48,6 +54,27 @@ public class SplashActivity extends Activity
 			}
 		}
 
+		// for now only allow on one device manufacturer - fix up later
+		if (!android.os.Build.MANUFACTURER.equals("HUAWEI"))
+		{
+			UseDisplayCutout = false;
+		}
+
+		if (UseDisplayCutout)
+		{
+			// only do this on Android Pie and above
+			if (android.os.Build.VERSION.SDK_INT >= 28)
+			{
+	            WindowManager.LayoutParams params = getWindow().getAttributes();
+		        params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+			    getWindow().setAttributes(params);
+			}
+			else
+			{
+				UseDisplayCutout = false;
+			}
+		}
+
 		Intent intent = new Intent(this, GameActivity.class);
 		intent.putExtras(getIntent());
 		intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
@@ -55,6 +82,10 @@ public class SplashActivity extends Activity
 		if (ShouldHideUI)
 		{
 			intent.putExtra("ShouldHideUI", "true");
+		}
+		if (UseDisplayCutout)
+		{
+			intent.putExtra("UseDisplayCutout", "true");
 		}
 
 		//pass down any extras added to this Activity's intent to the GameActivity intent (GCM data, for example)

@@ -9,6 +9,10 @@
 #include "IMeshReductionManagerModule.h"
 #include "Modules/ModuleManager.h"
 
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+
 #if WITH_EDITOR
 #include "Editor.h"
 #include "MeshMergeHelpers.h"
@@ -82,7 +86,7 @@ bool FProxyGenerationProcessor::Tick(float DeltaTime)
 	return true;
 }
 
-void FProxyGenerationProcessor::ProxyGenerationComplete(FRawMesh& OutProxyMesh, struct FFlattenMaterial& OutMaterial, const FGuid OutJobGUID)
+void FProxyGenerationProcessor::ProxyGenerationComplete(FMeshDescription& OutProxyMesh, struct FFlattenMaterial& OutMaterial, const FGuid OutJobGUID)
 {
 	FScopeLock Lock(&StateLock);
 	FMergeCompleteData** FindData = ProxyMeshJobs.Find(OutJobGUID);
@@ -200,6 +204,30 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 
 	const bool bContainsImposters = Data->MergeData->ImposterComponents.Num() > 0;
 	FBox ImposterBounds(EForceInit::ForceInit);
+
+	auto RemoveVertexColorAndCommitMeshDescription = [&StaticMesh, &Data]()
+	{
+		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
+		{
+			//We cannot remove the vertex color with the mesh description so we assign a white value to all color
+			TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = Data->RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+			//set all value to white
+			for (const FVertexInstanceID& VertexInstanceID : Data->RawMesh.VertexInstances().GetElementIDs())
+			{
+				VertexInstanceColors[VertexInstanceID] = FVector4(1.0f, 1.0f, 1.0f);
+			}
+		}
+
+		//Commit the FMeshDescription to the source model we just created
+		int32 SourceModelIndex = StaticMesh->SourceModels.Num() - 1;
+		FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(SourceModelIndex);
+		if (ensure(MeshDescription))
+		{
+			*MeshDescription = Data->RawMesh;
+			StaticMesh->CommitMeshDescription(SourceModelIndex);
+		}
+	};
+
 	if (bContainsImposters)
 	{
 		TArray<UMaterialInterface*> ImposterMaterials;
@@ -216,13 +244,8 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 				ImposterBounds += Component->GetStaticMesh()->GetBoundingBox().TransformBy(Component->GetComponentToWorld());
 			}
 		}
+		RemoveVertexColorAndCommitMeshDescription();
 
-		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
-		{
-			Data->RawMesh.WedgeColors.Empty();
-		}
-
-		SrcModel.SaveRawMesh(Data->RawMesh);
 		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
 
 		for (UMaterialInterface* Material : ImposterMaterials)
@@ -232,13 +255,8 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	}
 	else
 	{
-		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
-		{
-			Data->RawMesh.WedgeColors.Empty();
-		}
+		RemoveVertexColorAndCommitMeshDescription();
 
-
-		SrcModel.SaveRawMesh(Data->RawMesh);
 		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
 	}	
 
@@ -246,10 +264,28 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 
 	// setup section info map
+	TPolygonGroupAttributesConstRef<FName> PolygonGroupImportedMaterialSlotNames = Data->RawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 	TArray<int32> UniqueMaterialIndices;
-	for (int32 MaterialIndex : Data->RawMesh.FaceMaterialIndices)
+	for (const FPolygonGroupID& PolygonGroupID : Data->RawMesh.PolygonGroups().GetElementIDs())
 	{
-		UniqueMaterialIndices.AddUnique(MaterialIndex);
+		int32 PolygonGroupMaterialIndex = PolygonGroupID.GetValue();
+		FName PolygonGroupName = PolygonGroupImportedMaterialSlotNames[PolygonGroupID];
+		if (PolygonGroupName != NAME_None)
+		{
+			for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
+			{
+				if (StaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName == PolygonGroupName)
+				{
+					PolygonGroupMaterialIndex = MaterialIndex;
+					break;
+				}
+			}
+		}
+		if (!StaticMesh->StaticMaterials.IsValidIndex(PolygonGroupMaterialIndex))
+		{
+			PolygonGroupMaterialIndex = 0;
+		}
+		UniqueMaterialIndices.AddUnique(PolygonGroupMaterialIndex);
 	}
 
 	int32 SectionIndex = 0;

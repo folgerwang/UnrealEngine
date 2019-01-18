@@ -2,6 +2,7 @@
 
 #define USE_NEW_PROCESS_JOBS
 
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
+using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
@@ -288,6 +290,139 @@ namespace UnrealGameSync
 				ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}NotForLicensees{1}DefaultProject.ini", BaseWorkspacePath, Separator));
 			}
 			return ProjectConfigFileNames;
+		}
+
+		public static void ReadGlobalPerforceSettings(ref string ServerAndPort, ref string UserName, ref string DepotPath)
+		{
+			using (RegistryKey Key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Epic Games\\UnrealGameSync", false))
+			{
+				if(Key != null)
+				{
+					ServerAndPort = Key.GetValue("ServerAndPort", ServerAndPort) as string;
+					UserName = Key.GetValue("UserName", UserName) as string;
+					DepotPath = Key.GetValue("DepotPath", DepotPath) as string;
+				}
+			}
+		}
+
+		public static void SaveGlobalPerforceSettings(string ServerAndPort, string UserName, string DepotPath)
+		{
+			try
+			{
+				using (RegistryKey Key = Registry.CurrentUser.CreateSubKey("SOFTWARE\\Epic Games\\UnrealGameSync"))
+				{
+					// Delete this legacy setting
+					try { Key.DeleteValue("Server"); } catch(Exception) { }
+
+					if(String.IsNullOrEmpty(ServerAndPort))
+					{
+						try { Key.DeleteValue("ServerAndPort"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("ServerAndPort", ServerAndPort);
+					}
+
+					if(String.IsNullOrEmpty(UserName))
+					{
+						try { Key.DeleteValue("UserName"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("UserName", UserName);
+					}
+
+					if(String.IsNullOrEmpty(DepotPath) || (DeploymentSettings.DefaultDepotPath != null && String.Equals(DepotPath, DeploymentSettings.DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
+					{
+						try { Key.DeleteValue("DepotPath"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("DepotPath", DepotPath);
+					}
+				}
+			}
+			catch(Exception Ex)
+			{
+				MessageBox.Show("Unable to save settings.\n\n" + Ex.ToString());
+			}
+		}
+
+		public static bool TryPrintFileUsingCache(PerforceConnection Perforce, string DepotPath, string CacheFolder, string Digest, out List<string> Lines, TextWriter Log)
+		{
+			if(Digest == null)
+			{
+				return Perforce.Print(DepotPath, out Lines, Log);
+			}
+
+			string CacheFile = Path.Combine(CacheFolder, Digest);
+			if(File.Exists(CacheFile))
+			{
+				Log.WriteLine("Reading cached copy of {0} from {1}", DepotPath, CacheFile);
+				Lines = new List<string>(File.ReadAllLines(CacheFile));
+				try
+				{
+					File.SetLastWriteTimeUtc(CacheFile, DateTime.UtcNow);
+				}
+				catch(Exception Ex)
+				{
+					Log.WriteLine("Exception touching cache file {0}: {1}", CacheFile, Ex.ToString());
+				}
+				return true;
+			}
+			else
+			{
+				string TempFile = String.Format("{0}.{1}.temp", CacheFile, Guid.NewGuid());
+				if(!Perforce.PrintToFile(DepotPath, TempFile, Log))
+				{
+					Lines = null;
+					return false;
+				}
+				else
+				{
+					Lines = new List<string>(File.ReadAllLines(TempFile));
+					try
+					{
+						File.SetAttributes(TempFile, FileAttributes.Normal);
+						File.SetLastWriteTimeUtc(TempFile, DateTime.UtcNow);
+						File.Move(TempFile, CacheFile);
+					}
+					catch
+					{
+						try
+						{
+							File.Delete(TempFile);
+						}
+						catch
+						{
+						}
+					}
+					return true;
+				}
+			}
+		}
+
+		public static void ClearPrintCache(string CacheFolder)
+		{
+			DirectoryInfo CacheDir = new DirectoryInfo(CacheFolder);
+			if(CacheDir.Exists)
+			{
+				DateTime DeleteTime = DateTime.UtcNow - TimeSpan.FromDays(5.0);
+				foreach(FileInfo CacheFile in CacheDir.EnumerateFiles())
+				{
+					if(CacheFile.LastWriteTimeUtc < DeleteTime || CacheFile.Name.EndsWith(".temp", StringComparison.OrdinalIgnoreCase))
+					{
+						try
+						{
+							CacheFile.Attributes = FileAttributes.Normal;
+							CacheFile.Delete();
+						}
+						catch
+						{
+						}
+					}
+				}
+			}
 		}
 	}
 }

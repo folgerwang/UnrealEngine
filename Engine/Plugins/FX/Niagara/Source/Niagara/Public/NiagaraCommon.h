@@ -187,7 +187,7 @@ struct FNiagaraScriptDataUsageInfo
 
 	/** If true, this script reads attribute data. */
 	UPROPERTY()
-		bool bReadsAttributeData;
+	bool bReadsAttributeData;
 };
 
 
@@ -341,9 +341,6 @@ public:
 
 	/** Would this data interface work on the target execution type? Only call this on the game thread.*/
 	bool CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const;
-
-	/** Would this data interface force a system script to be solo? Only call this on the game thread.*/
-	bool IsSystemSolo() const;
 
 	/** Note that this is the CDO for this type of data interface, as we often cannot guarantee that the same instance of the data interface we compiled with is the one the user ultimately executes.  Only call this on the game thread.*/
 	UNiagaraDataInterface* GetDefaultDataInterface() const;
@@ -509,6 +506,21 @@ struct FNiagaraVariableAttributeBinding
 
 	UPROPERTY()
 	FNiagaraVariable DefaultValueIfNonExistent;
+};
+
+USTRUCT()
+struct FNiagaraVariableDataInterfaceBinding
+{
+	GENERATED_USTRUCT_BODY();
+
+	FNiagaraVariableDataInterfaceBinding() {}
+	FNiagaraVariableDataInterfaceBinding(const FNiagaraVariable& InVar) : BoundVariable(InVar)
+	{
+		check(InVar.IsDataInterface() == true);
+	}
+
+	UPROPERTY()
+	FNiagaraVariable BoundVariable;
 };
 
 

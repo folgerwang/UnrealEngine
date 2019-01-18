@@ -497,7 +497,7 @@ bool FUnixPlatformStackWalk::ProgramCounterToHumanReadableString( int32 CurrentC
 			if (UnixContext)
 			{
 				// for ensure, use the fast path - do not even attempt to get detailed info as it will result in long hitch
-				bool bAddDetailedInfo = !UnixContext->GetIsEnsure();
+				bool bAddDetailedInfo = UnixContext->GetType() != ECrashContextType::Ensure;
 
 				// Program counters in the backtrace point to the location from where the execution will be resumed (in all frames except the one where we crashed),
 				// which results in callstack pointing to the next lines in code. In order to determine the source line where the actual call happened, we need to go
@@ -574,7 +574,7 @@ void FUnixPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString, SI
 {
 	if (Context == nullptr)
 	{
-		FUnixCrashContext CrashContext;
+		FUnixCrashContext CrashContext(ECrashContextType::Crash, TEXT(""));
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
 		CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 		FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
@@ -589,10 +589,11 @@ void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, S
 {
 	const bool bHandlingEnsure = (Flags & EStackWalkFlags::FlagsUsedWhenHandlingEnsure) == EStackWalkFlags::FlagsUsedWhenHandlingEnsure;
 	GHandlingEnsure = bHandlingEnsure;
+	ECrashContextType HandlingType = bHandlingEnsure? ECrashContextType::Ensure : ECrashContextType::Crash;
 
 	if (Context == nullptr)
 	{
-		FUnixCrashContext CrashContext(bHandlingEnsure);
+		FUnixCrashContext CrashContext(HandlingType, TEXT(""));
 		CrashContext.InitFromSignal(0, nullptr, nullptr);
 		CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, &CrashContext);
@@ -602,22 +603,22 @@ void FUnixPlatformStackWalk::StackWalkAndDumpEx(ANSICHAR* HumanReadableString, S
 		/** Helper sets the ensure value in the context and guarantees it gets reset afterwards (even if an exception is thrown) */
 		struct FLocalGuardHelper
 		{
-			FLocalGuardHelper(FUnixCrashContext* InContext, bool bNewEnsureValue)
-				: Context(InContext), bOldEnsureValue(Context->GetIsEnsure())
+			FLocalGuardHelper(FUnixCrashContext* InContext, ECrashContextType NewType)
+				: Context(InContext), OldType(Context->GetType())
 			{
-				Context->SetIsEnsure(bNewEnsureValue);
+				Context->SetType(NewType);
 			}
 			~FLocalGuardHelper()
 			{
-				Context->SetIsEnsure(bOldEnsureValue);
+				Context->SetType(OldType);
 			}
 
 		private:
 			FUnixCrashContext* Context;
-			bool bOldEnsureValue;
+			ECrashContextType OldType;
 		};
 
-		FLocalGuardHelper Guard(reinterpret_cast<FUnixCrashContext*>(Context), bHandlingEnsure);
+		FLocalGuardHelper Guard(reinterpret_cast<FUnixCrashContext*>(Context), HandlingType);
 		FPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 	}
 
@@ -634,6 +635,7 @@ namespace
 			{
 				if (FirstCrashHandlerFrame == reinterpret_cast<uint64*>(BackTrace[i]))
 				{
+					i++;
 					uint64* OverwriteBackTrace = BackTrace;
 
 					for (int j = i; j < Size; j++)
@@ -780,10 +782,18 @@ int32 FUnixPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo *M
 	return Signatures.Index;
 }
 
+thread_local const TCHAR* GAssertErrorMessage = nullptr;
+
+void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
+{
+	GAssertErrorMessage = ErrorMessage;
+	FPlatformMisc::RaiseException(1);
+}
+
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
+void ReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();
@@ -796,8 +806,7 @@ void NewReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 
 	bReentranceGuard = true;
 
-	const bool bIsEnsure = true;
-	FUnixCrashContext EnsureContext(bIsEnsure);
+	FUnixCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
 	EnsureContext.InitFromEnsureHandler(ErrorMessage, __builtin_return_address(0));
 
 	EnsureContext.CaptureStackTrace();
@@ -807,16 +816,15 @@ void NewReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 	EnsureLock.Unlock();
 }
 
-void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId)
 {
 	EnsureLock.Lock();
 	if (!bReentranceGuard)
 	{
 		bReentranceGuard = true;
 
-		const bool bIsEnsure = true;
-		FUnixCrashContext EnsureContext(bIsEnsure);
-		EnsureContext.SetPortableCallStack(0, Stack);
+		FUnixCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
+		EnsureContext.SetPortableCallStack(StackFrames, NumStackFrames);
 		EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
 
 		bReentranceGuard = false;

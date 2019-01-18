@@ -30,6 +30,7 @@ static AssetType* MakeNewAsset(const FString& BaseAssetPath, const FString& Base
 	const FString Dot(TEXT("."));
 	FString AssetPath = BaseAssetPath;
 	FString AssetName = BaseAssetName;
+	AssetName = AssetName.Replace(TEXT("."), TEXT("_"));
 
 	AssetPath /= AssetName;
 	AssetPath += Dot + AssetName;
@@ -41,7 +42,7 @@ static AssetType* MakeNewAsset(const FString& BaseAssetPath, const FString& Base
 	int32 ExtensionIndex = 0;
 	while(AssetData.IsValid() && AssetData.GetClass() == AssetType::StaticClass())
 	{
-		AssetName = FString::Printf(TEXT("%s_%d"), *BaseAssetName, ExtensionIndex);
+		AssetName = FString::Printf(TEXT("%s_%d"), *AssetName, ExtensionIndex);
 		AssetPath = (BaseAssetPath / AssetName) + Dot + AssetName;
 		AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*AssetPath);
 

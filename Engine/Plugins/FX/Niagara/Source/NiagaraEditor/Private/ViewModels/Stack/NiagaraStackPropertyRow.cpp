@@ -52,9 +52,10 @@ void UNiagaraStackPropertyRow::RefreshChildrenInternal(const TArray<UNiagaraStac
 		NewChildren.Add(ChildRow);
 	}
 }
-
-void UNiagaraStackPropertyRow::GetAdditionalSearchItemsInternal(TArray<FStackSearchItem>& SearchItems) const
+void UNiagaraStackPropertyRow::GetSearchItems(TArray<FStackSearchItem>& SearchItems) const
 {
+	SearchItems.Add({ FName("DisplayName"), GetDisplayName() });
+
 	TArray<FString> NodeFilterStrings;
 	DetailTreeNode->GetFilterStrings(NodeFilterStrings);
 	for (FString& FilterString : NodeFilterStrings)

@@ -47,28 +47,28 @@ namespace
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateDateFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateDateFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createDateInstance( icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createDateInstance( icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a date format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateTimeFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateTimeFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createTimeInstance( icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createTimeInstance( icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a time format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateDateTimeFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateDateTimeFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createDateTimeInstance( icu::DateFormat::EStyle::kDefault, icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createDateTimeInstance( icu::DateFormat::kDefault, icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a date-time format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
@@ -113,6 +113,28 @@ ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag)
 	return ETextPluralForm::Other;
 }
 
+TArray<ETextPluralForm> ICUPluralRulesToUEValidPluralForms(const icu::PluralRules* InICUPluralRules)
+{
+	check(InICUPluralRules);
+
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	icu::StringEnumeration* ICUAvailablePluralForms = InICUPluralRules->getKeywords(ICUStatus);
+
+	TArray<ETextPluralForm> UEPluralForms;
+
+	if (ICUAvailablePluralForms)
+	{
+		while (const icu::UnicodeString* ICUTag = ICUAvailablePluralForms->snext(ICUStatus))
+		{
+			UEPluralForms.Add(ICUPluralFormToUE(*ICUTag));
+		}
+		delete ICUAvailablePluralForms;
+	}
+
+	UEPluralForms.Sort();
+	return UEPluralForms;
+}
+
 FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& LocaleName)
 	: ICULocale( TCHAR_TO_ANSI( *LocaleName ) )
 {
@@ -124,11 +146,13 @@ FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& Lo
 		UErrorCode ICUStatus = U_ZERO_ERROR;
 		ICUCardinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_CARDINAL, ICUStatus);
 		checkf(U_SUCCESS(ICUStatus) && ICUCardinalPluralRules, TEXT("Creating a cardinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableCardinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUCardinalPluralRules);
 	}
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		ICUOrdianalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
-		checkf(U_SUCCESS(ICUStatus) && ICUOrdianalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		ICUOrdinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
+		checkf(U_SUCCESS(ICUStatus) && ICUOrdinalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableOrdinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUOrdinalPluralRules);
 	}
 }
 
@@ -640,7 +664,7 @@ TSharedRef<const icu::Collator, ESPMode::ThreadSafe> FCulture::FICUCultureImplem
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone)
 {
 	if (!ICUDateFormat.IsValid())
 	{
@@ -652,7 +676,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFo
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUDateFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUDateFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -681,13 +705,13 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFo
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createDateInstance( UEToICU(DateStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createDateInstance( UEToICU(DateStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
 {
 	if (!ICUTimeFormat.IsValid())
 	{
@@ -699,7 +723,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFo
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUTimeFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUTimeFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -728,13 +752,13 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFo
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createTimeInstance( UEToICU(TimeStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createTimeInstance( UEToICU(TimeStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
 {
 	if (!ICUDateTimeFormat.IsValid())
 	{
@@ -746,7 +770,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTi
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUDateTimeFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUDateTimeFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -776,7 +800,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTi
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createDateTimeInstance( UEToICU(DateStyle), UEToICU(TimeStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createDateTimeInstance( UEToICU(DateStyle), UEToICU(TimeStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
@@ -978,24 +1002,29 @@ const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetCur
 	}
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType) const
 {
 	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType) const
 {
 	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
+}
+
+const TArray<ETextPluralForm>& FCulture::FICUCultureImplementation::GetValidPluralForms(const ETextPluralType PluralType) const
+{
+	return (PluralType == ETextPluralType::Cardinal) ? UEAvailableCardinalPluralForms : UEAvailableOrdinalPluralForms;
 }
 
 #endif

@@ -1,35 +1,80 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/MovieSceneObjectPathChannel.h"
+#include "Engine/World.h"
+
+bool FMovieSceneObjectPathChannelKeyValue::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
+{
+	if (Tag.Type == NAME_SoftObjectProperty)
+	{
+		FSoftObjectPtr OldProperty;
+		Slot << OldProperty;
+
+		SoftPtr = OldProperty.ToSoftObjectPath();
+		if (OldProperty.ToSoftObjectPath().GetSubPathString().Len() == 0)
+		{
+			// Forcibly load the old property so we can store it as a hard reference, only if it was not referencing an actor or other sub object
+			UObject* RawObject = OldProperty.LoadSynchronous();
+
+			// Do not store raw ptrs to actors or other objects that exist in worlds
+			if (RawObject && !RawObject->GetTypedOuter<UWorld>())
+			{
+				HardPtr = RawObject;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+FMovieSceneObjectPathChannelKeyValue& FMovieSceneObjectPathChannelKeyValue::operator=(UObject* NewObject)
+{
+	// Do not store raw ptrs to actors or other objects that exist in worlds
+	if (!NewObject || NewObject->GetTypedOuter<UWorld>())
+	{
+		HardPtr = nullptr;
+	}
+	else
+	{
+		HardPtr = NewObject;
+	}
+
+	SoftPtr = NewObject;
+	return *this;
+}
+
+UObject* FMovieSceneObjectPathChannelKeyValue::Get() const
+{
+	if (!HardPtr && !SoftPtr.IsNull())
+	{
+		UObject* ResolvedPtr = SoftPtr.Get();
+		if (!ResolvedPtr)
+		{
+			ResolvedPtr = SoftPtr.LoadSynchronous();
+		}
+
+		// Do not store raw ptrs to actors or other objects that exist in worlds
+		if (ResolvedPtr && !ResolvedPtr->GetTypedOuter<UWorld>())
+		{
+			HardPtr = ResolvedPtr;
+		}
+		return ResolvedPtr;
+	}
+
+	return HardPtr;
+}
 
 bool FMovieSceneObjectPathChannel::Evaluate(FFrameTime InTime, UObject*& OutValue) const
 {
 	if (Times.Num())
 	{
 		const int32 Index = FMath::Max(0, Algo::UpperBound(Times, InTime.FrameNumber)-1);
-		OutValue = Values[Index].LoadSynchronous();
+		OutValue = Values[Index].Get();
 		return true;
 	}
-	else if (!DefaultValue.IsNull())
+	else if (!DefaultValue.GetSoftPtr().IsNull())
 	{
-		OutValue = DefaultValue.LoadSynchronous();
-		return true;
-	}
-
-	return false;
-}
-
-bool FMovieSceneObjectPathChannel::Evaluate(FFrameTime InTime, TSoftObjectPtr<>& OutValue) const
-{
-	if (Times.Num())
-	{
-		const int32 Index = FMath::Max(0, Algo::UpperBound(Times, InTime.FrameNumber)-1);
-		OutValue = Values[Index];
-		return true;
-	}
-	else if (!DefaultValue.IsNull())
-	{
-		OutValue = DefaultValue;
+		OutValue = DefaultValue.Get();
 		return true;
 	}
 

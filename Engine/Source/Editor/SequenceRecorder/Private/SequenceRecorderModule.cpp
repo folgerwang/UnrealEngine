@@ -154,8 +154,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			// register standalone UI
 			auto RegisterTabSpawner = []()
 			{
-				FLevelEditorModule& LocalLevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
-				LocalLevelEditorModule.GetLevelEditorTabManager()->RegisterTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
+				FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
 				.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
 				.SetDisplayName(LOCTEXT("SequenceRecorderTabTitle", "Sequence Recorder"))
 				.SetTooltipText(LOCTEXT("SequenceRecorderTooltipText", "Open the Sequence Recorder tab."))
@@ -196,7 +195,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 
 			if (FSlateApplication::IsInitialized())
 			{
-				FGlobalTabmanager::Get()->UnregisterTabSpawner(SequenceRecorderTabName);
+				FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(SequenceRecorderTabName);
 			}
 
 			if(FModuleManager::Get().IsModuleLoaded(TEXT("LevelEditor")))

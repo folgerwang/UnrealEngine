@@ -113,6 +113,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities", meta = (DisplayName = "Get Display Name"))
 	static FString GetClassDisplayName(UClass* Class);
 
+	// Returns the outer object of an object.
+	UFUNCTION(BlueprintPure, Category = "Utilities")
+	static UObject* GetOuterObject(const UObject* Object);
+
 	// Engine build number, for displaying to end users.
 	UFUNCTION(BlueprintPure, Category="Development", meta=(BlueprintThreadSafe))
 	static FString GetEngineVersion();
@@ -204,6 +208,9 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "SoftObjectPath", meta = (NativeBreakFunc, BlueprintThreadSafe))
 	static void BreakSoftObjectPath(FSoftObjectPath InSoftObjectPath, FString& PathString);
 
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToSoftObjectReference (SoftObjectPath)", CompactNodeTitle = "->"), Category = "Utilities")
+	static TSoftObjectPtr<UObject> Conv_SoftObjPathToSoftObjRef(const FSoftObjectPath& SoftObjectPath);
+
 	/** Builds a SoftClassPath struct. Generally you should be using Soft Class References/Ptr types instead */
 	UFUNCTION(BlueprintPure, Category = "SoftClassPath", meta = (Keywords = "construct build", NativeMakeFunc, BlueprintThreadSafe))
 	static FSoftClassPath MakeSoftClassPath(const FString& PathString);
@@ -261,11 +268,13 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", BlueprintInternalUseOnly = "true"), Category = "Utilities")
 	static void LoadAsset(UObject* WorldContextObject, TSoftObjectPtr<UObject> Asset, FOnAssetLoaded OnLoaded, FLatentActionInfo LatentInfo);
 
+	UFUNCTION(BlueprintCallable, Category="Utilities", meta=(DeterminesOutputType = "Asset"))
+	static UObject* LoadAsset_Blocking(TSoftObjectPtr<UObject> Asset);
+
 	DECLARE_DYNAMIC_DELEGATE_OneParam(FOnAssetClassLoaded, TSubclassOf<UObject>, Loaded);
 
 	UFUNCTION(BlueprintCallable, meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", BlueprintInternalUseOnly = "true"), Category = "Utilities")
 	static void LoadAssetClass(UObject* WorldContextObject, TSoftClassPtr<UObject> AssetClass, FOnAssetClassLoaded OnLoaded, FLatentActionInfo LatentInfo);
-
 
 	/**
 	 * Creates a literal integer
@@ -380,8 +389,8 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	VariableName	Name of the console variable to find.
 	 * @return	The value if found, 0 otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Development",meta=(WorldContext="WorldContextObject"))
-	static float GetConsoleVariableFloatValue(UObject* WorldContextObject, const FString& VariableName);
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static float GetConsoleVariableFloatValue(const FString& VariableName);
 
 	/**
 	 * Attempts to retrieve the value of the specified integer console variable, if it exists.
@@ -389,8 +398,17 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	VariableName	Name of the console variable to find.
 	 * @return	The value if found, 0 otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Development",meta=(WorldContext="WorldContextObject"))
-	static int32 GetConsoleVariableIntValue(UObject* WorldContextObject, const FString& VariableName);
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static int32 GetConsoleVariableIntValue(const FString& VariableName);
+
+	/**
+	 * Evaluates, if it exists, whether the specified integer console variable has a non-zero value (true) or not (false).
+	 *
+	 * @param	VariableName	Name of the console variable to find.
+	 * @return	True if found and has a non-zero value, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Development")
+	static bool GetConsoleVariableBoolValue(const FString& VariableName);
 
 	/** 
 	 *	Exit the current game 
@@ -686,6 +704,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	/** Set an int32 property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
 	static void SetIntPropertyByName(UObject* Object, FName PropertyName, int32 Value);
+	
+	/** Set an int64 property by name */
+	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
+	static void SetInt64PropertyByName(UObject* Object, FName PropertyName, int64 Value);
 
 	/** Set an uint8 or enum property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true"))
@@ -1500,28 +1522,28 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param AdIdIndex The index of the ID to select for the ad to show
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static void LoadInterstitialAd(int32 AdIdIndex);
+	static void LoadInterstitialAd(int32 AdIdIndex);
 
 	/**
 	* Returns true if the requested interstitial ad is loaded and ready
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static bool IsInterstitialAdAvailable();
+	static bool IsInterstitialAdAvailable();
 
 	/**
 	* Returns true if the requested interstitial ad has been successfully requested (false if load request fails)
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static bool IsInterstitialAdRequested();
+	static bool IsInterstitialAdRequested();
 
 	/**
 	* Shows the loaded interstitial ad (loaded with LoadInterstitialAd)
 	* (Android only)
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-		static void ShowInterstitialAd();
+	static void ShowInterstitialAd();
 
 	/**
 	 * Displays the built-in leaderboard GUI (iOS and Android only; this function may be renamed or moved in a future release)
@@ -1573,22 +1595,28 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static bool GetVolumeButtonsHandledBySystem();
 
 	/**
-	 * Resets the gamepad to player controller id assignments (Android only)
+	 * Resets the gamepad to player controller id assignments (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
 	static void ResetGamepadAssignments();
 
 	/*
-	 * Resets the gamepad assignment to player controller id (Android only)
+	 * Resets the gamepad assignment to player controller id (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 
 	/**
-	 * Returns true if controller id assigned to a gamepad (Android only)
+	 * Returns true if controller id assigned to a gamepad (Android and iOS only)
 	 */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Platform")
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+
+	/**
+	* Returns name of controller if assigned to a gamepad (or None if not assigned) (Android and iOS only)
+	*/
+	UFUNCTION(BlueprintPure, Category = "Utilities|Platform")
+	static FString GetGamepadControllerName(int32 ControllerId);
 
 	/**
 	 * Sets the state of the transition message rendered by the viewport. (The blue text displayed when the game is paused and so forth.)

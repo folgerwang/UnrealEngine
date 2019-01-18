@@ -1,6 +1,8 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/DataTable.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "Internationalization/StabilizeLocalizationKeys.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "Serialization/ObjectWriter.h"
 #include "Serialization/ObjectReader.h"
@@ -155,12 +157,28 @@ void UDataTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 
 void UDataTable::OnPostDataImported(TArray<FString>& OutCollectedImportProblems)
 {
-	if (RowStruct && RowStruct->IsChildOf(FTableRowBase::StaticStruct()))
+	if (RowStruct)
 	{
+		const bool bIsNativeRowStruct = RowStruct->IsChildOf(FTableRowBase::StaticStruct());
+
+		FString DataTableTextNamespace = GetName();
+#if USE_STABLE_LOCALIZATION_KEYS
+		DataTableTextNamespace = TextNamespaceUtil::BuildFullNamespace(DataTableTextNamespace, TextNamespaceUtil::EnsurePackageNamespace(this), /*bAlwaysApplyPackageNamespace*/true);
+#endif
+
 		for (const TPair<FName, uint8*>& TableRowPair : RowMap)
 		{
-			FTableRowBase* CurRow = reinterpret_cast<FTableRowBase*>(TableRowPair.Value);
-			CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
+			if (bIsNativeRowStruct)
+			{
+				FTableRowBase* CurRow = reinterpret_cast<FTableRowBase*>(TableRowPair.Value);
+				CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
+			}
+
+#if WITH_EDITOR
+			// Perform automatic fix-up on any text properties that have been imported from a raw string to assign them deterministic keys
+			// We do this after OnPostDataImport has been run on the row, as that function may perform custom fix-up logic that will fix the keys differently than the default logic
+			StabilizeLocalizationKeys::StabilizeLocalizationKeysForStruct(RowStruct, TableRowPair.Value, DataTableTextNamespace, TableRowPair.Key.ToString());
+#endif
 		}
 	}
 
@@ -362,23 +380,28 @@ void UDataTable::AddRowInternal(FName RowName, uint8* RowData)
 /** Returns the column property where PropertyName matches the name of the column property. Returns NULL if no match is found or the match is not a supported table property */
 UProperty* UDataTable::FindTableProperty(const FName& PropertyName) const
 {
-	UProperty* Property = RowStruct->FindPropertyByName(PropertyName);
-	if (Property == nullptr && RowStruct->IsA<UUserDefinedStruct>())
-	{
-		const FString PropertyNameStr = PropertyName.ToString();
+	UProperty* Property = nullptr;
 
-		for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+	if (RowStruct)
+	{
+		Property = RowStruct->FindPropertyByName(PropertyName);
+		if (Property == nullptr && RowStruct->IsA<UUserDefinedStruct>())
 		{
-			if (PropertyNameStr == RowStruct->PropertyNameToDisplayName(It->GetFName()))
+			const FString PropertyNameStr = PropertyName.ToString();
+
+			for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
 			{
-				Property = *It;
-				break;
+				if (PropertyNameStr == RowStruct->PropertyNameToDisplayName(It->GetFName()))
+				{
+					Property = *It;
+					break;
+				}
 			}
 		}
-	}
-	if (!DataTableUtils::IsSupportedTableProperty(Property))
-	{
-		Property = nullptr;
+		if (!DataTableUtils::IsSupportedTableProperty(Property))
+		{
+			Property = nullptr;
+		}
 	}
 
 	return Property;
@@ -687,12 +710,15 @@ TArray<FString> UDataTable::GetColumnTitles() const
 {
 	TArray<FString> Result;
 	Result.Add(TEXT("Name"));
-	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+	if (RowStruct)
 	{
-		UProperty* Prop = *It;
-		check(Prop != nullptr);
-		const FString DisplayName = DataTableUtils::GetPropertyDisplayName(Prop, Prop->GetName());
-		Result.Add(DisplayName);
+		for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+		{
+			UProperty* Prop = *It;
+			check(Prop != nullptr);
+			const FString DisplayName = DataTableUtils::GetPropertyDisplayName(Prop, Prop->GetName());
+			Result.Add(DisplayName);
+		}
 	}
 	return Result;
 }
@@ -701,12 +727,15 @@ TArray<FString> UDataTable::GetUniqueColumnTitles() const
 {
 	TArray<FString> Result;
 	Result.Add(TEXT("Name"));
-	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+	if (RowStruct)
 	{
-		UProperty* Prop = *It;
-		check(Prop != nullptr);
-		const FString DisplayName = Prop->GetName();
-		Result.Add(DisplayName);
+		for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+		{
+			UProperty* Prop = *It;
+			check(Prop != nullptr);
+			const FString DisplayName = Prop->GetName();
+			Result.Add(DisplayName);
+		}
 	}
 	return Result;
 }
@@ -719,11 +748,14 @@ TArray< TArray<FString> > UDataTable::GetTableData(const EDataTableExportFlags I
 
 	 // First build array of properties
 	 TArray<UProperty*> StructProps;
-	 for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+	 if (RowStruct)
 	 {
-		 UProperty* Prop = *It;
-		 check(Prop != nullptr);
-		 StructProps.Add(Prop);
+		 for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+		 {
+			 UProperty* Prop = *It;
+			 check(Prop != nullptr);
+			 StructProps.Add(Prop);
+		 }
 	 }
 
 	 // Now iterate over rows

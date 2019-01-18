@@ -2,6 +2,7 @@
 
 #include "IOS/IOSApplication.h"
 #include "IOS/IOSInputInterface.h"
+#include "IOS/IOSCursor.h"
 #include "IOSWindow.h"
 #include "Misc/CoreDelegates.h"
 #include "IOS/IOSAppDelegate.h"
@@ -20,7 +21,7 @@ FIOSApplication* FIOSApplication::CreateIOSApplication()
 }
 
 FIOSApplication::FIOSApplication()
-	: GenericApplication( NULL )
+	: GenericApplication(MakeShareable(new FIOSCursor()))
 	, InputInterface( FIOSInputInterface::Create( MessageHandler ) )
 	, bHasLoadedInputPlugins(false)
 {
@@ -196,3 +197,13 @@ void FIOSApplication::OrientationChanged(UIDeviceOrientation orientation)
 }
 #endif
 
+
+bool FIOSApplication::IsGamepadAttached() const
+{
+    if (InputInterface.IsValid())
+	{
+		return InputInterface->IsGamepadAttached();
+	}
+
+	return false;
+}

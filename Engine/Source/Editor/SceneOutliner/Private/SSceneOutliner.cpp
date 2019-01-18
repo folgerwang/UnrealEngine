@@ -29,10 +29,7 @@
 #include "ISceneOutlinerColumn.h"
 #include "SceneOutlinerModule.h"
 #include "SceneOutlinerDelegates.h"
-#include "FractureToolDelegates.h"
-
-
-
+#include "HAL/PlatformApplicationMisc.h"
 #include "Widgets/Input/SSearchBox.h"
 
 #include "SceneOutlinerDragDrop.h"
@@ -46,6 +43,9 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Features/IModularFeatures.h"
 #include "ISceneOutlinerTraversal.h"
+
+//HACK THIS IS TEMP AND SHOULD BE REMOVED 
+#include "FractureToolDelegates.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSceneOutliner, Log, All);
 
@@ -564,6 +564,17 @@ namespace SceneOutliner
 		Folders.OnFolderCreate.AddSP(this, &SSceneOutliner::OnBroadcastFolderCreate);
 		Folders.OnFolderMove.AddSP(this, &SSceneOutliner::OnBroadcastFolderMove);
 		Folders.OnFolderDelete.AddSP(this, &SSceneOutliner::OnBroadcastFolderDelete);
+
+		FEditorDelegates::OnEditCutActorsBegin.AddSP(this, &SSceneOutliner::OnEditCutActorsBegin);
+		FEditorDelegates::OnEditCutActorsEnd.AddSP(this, &SSceneOutliner::OnEditCutActorsEnd);
+		FEditorDelegates::OnEditCopyActorsBegin.AddSP(this, &SSceneOutliner::OnEditCopyActorsBegin);
+		FEditorDelegates::OnEditCopyActorsEnd.AddSP(this, &SSceneOutliner::OnEditCopyActorsEnd);
+		FEditorDelegates::OnEditPasteActorsBegin.AddSP(this, &SSceneOutliner::OnEditPasteActorsBegin);
+		FEditorDelegates::OnEditPasteActorsEnd.AddSP(this, &SSceneOutliner::OnEditPasteActorsEnd);
+		FEditorDelegates::OnDuplicateActorsBegin.AddSP(this, &SSceneOutliner::OnDuplicateActorsBegin);
+		FEditorDelegates::OnDuplicateActorsEnd.AddSP(this, &SSceneOutliner::OnDuplicateActorsEnd);
+		FEditorDelegates::OnDeleteActorsBegin.AddSP(this, &SSceneOutliner::OnDeleteActorsBegin);
+		FEditorDelegates::OnDeleteActorsEnd.AddSP(this, &SSceneOutliner::OnDeleteActorsEnd);
 	}
 
 	void SSceneOutliner::SetupColumns(SHeaderRow& HeaderRow)
@@ -662,6 +673,17 @@ namespace SceneOutliner
 			Folders.OnFolderMove.RemoveAll(this);
 			Folders.OnFolderDelete.RemoveAll(this);
 		}
+
+		FEditorDelegates::OnEditCutActorsBegin.RemoveAll(this);
+		FEditorDelegates::OnEditCutActorsEnd.RemoveAll(this);
+		FEditorDelegates::OnEditCopyActorsBegin.RemoveAll(this);
+		FEditorDelegates::OnEditCopyActorsEnd.RemoveAll(this);
+		FEditorDelegates::OnEditPasteActorsBegin.RemoveAll(this);
+		FEditorDelegates::OnEditPasteActorsEnd.RemoveAll(this);
+		FEditorDelegates::OnDuplicateActorsBegin.RemoveAll(this);
+		FEditorDelegates::OnDuplicateActorsEnd.RemoveAll(this);
+		FEditorDelegates::OnDeleteActorsBegin.RemoveAll(this);
+		FEditorDelegates::OnDeleteActorsEnd.RemoveAll(this);
 	}
 
 	void SSceneOutliner::OnItemAdded(const FTreeItemID& ItemID, uint8 ActionMask)
@@ -985,7 +1007,7 @@ namespace SceneOutliner
 	{
 		// Block events while we clear out the list.  We don't want actors in the level to become deselected
 		// while we doing this
-		TGuardValue<bool> ReentrantGuard(bIsReentrant, true);
+ 		TGuardValue<bool> ReentrantGuard(bIsReentrant, true);
 
 		SharedData->RepresentingWorld = nullptr;
 
@@ -1095,6 +1117,15 @@ namespace SceneOutliner
 
 		PendingOperations.RemoveAt(0, End);
 		SetParentsExpansionState(ExpansionStateInfo);
+
+		for (FName Folder : PendingFoldersSelect)
+		{
+			if (FTreeItemPtr* Item = TreeItemMap.Find(Folder))
+			{
+				OutlinerTreeView->SetItemSelection(*Item, true);
+			}
+		}
+		PendingFoldersSelect.Empty();
 
 		if (bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld)
 		{
@@ -1408,6 +1439,20 @@ namespace SceneOutliner
 		return FItemSelection(*OutlinerTreeView).Folders;
 	}
 
+	TArray<FName> SSceneOutliner::GetSelectedFolderNames() const
+	{
+		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
+		TArray<FName> SelectedFolderNames;
+		for (FFolderTreeItem* Folder : SelectedFolders)
+		{
+			if (Folder)
+			{
+				SelectedFolderNames.Add(Folder->Path);
+			}
+		}
+		return SelectedFolderNames;
+	}
+
 	TSharedPtr<SWidget> SSceneOutliner::OnOpenContextMenu()
 	{
 		TArray<AActor*> SelectedActors;
@@ -1439,6 +1484,80 @@ namespace SceneOutliner
 
 		return TSharedPtr<SWidget>();
 	}
+	
+	bool SSceneOutliner::Delete_CanExecute()
+	{
+		FItemSelection ItemSelection(*OutlinerTreeView);
+		if (ItemSelection.Folders.Num() > 0 && ItemSelection.Folders.Num() == OutlinerTreeView->GetNumItemsSelected())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	bool SSceneOutliner::Rename_CanExecute()
+	{
+		FItemSelection ItemSelection(*OutlinerTreeView);
+		if (ItemSelection.Folders.Num() == 1 && ItemSelection.Folders.Num() == OutlinerTreeView->GetNumItemsSelected())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	void SSceneOutliner::Rename_Execute()
+	{
+		// handle folders only here, actors and components are handled in LevelEditorActions::Rename_Execute
+		FItemSelection ItemSelection(*OutlinerTreeView);
+		if (ItemSelection.Folders.Num() == 1 && ItemSelection.Folders.Num() == OutlinerTreeView->GetNumItemsSelected())
+		{
+			FTreeItemPtr ItemToRename = OutlinerTreeView->GetSelectedItems()[0];
+
+			if (ItemToRename->CanInteract())
+			{
+				PendingRenameItem = ItemToRename->AsShared();
+				ScrollItemIntoView(ItemToRename);
+			}
+		}
+	}
+
+	bool SSceneOutliner::Cut_CanExecute()
+	{
+		FItemSelection ItemSelection(*OutlinerTreeView);
+		if (ItemSelection.Folders.Num() > 0 && ItemSelection.Folders.Num() == OutlinerTreeView->GetNumItemsSelected())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	bool SSceneOutliner::Copy_CanExecute()
+	{
+		FItemSelection ItemSelection(*OutlinerTreeView);
+		if (ItemSelection.Folders.Num() > 0 && ItemSelection.Folders.Num() == OutlinerTreeView->GetNumItemsSelected())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	bool SSceneOutliner::Paste_CanExecute()
+	{
+		if (CanPasteFoldersOnlyFromClipboard())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	bool SSceneOutliner::CanPasteFoldersOnlyFromClipboard()
+	{
+		// Intentionally not checking if the level is locked/hidden here, as it's better feedback for the user if they attempt to paste
+		// and get the message explaining why it's failed, than just not having the option available to them.
+		FString PasteString;
+		FPlatformApplicationMisc::ClipboardPaste(PasteString);
+		return PasteString.StartsWith("BEGIN FOLDERLIST");
+	}
 
 	TSharedPtr<SWidget> SSceneOutliner::BuildDefaultContextMenu()
 	{
@@ -1447,57 +1566,68 @@ namespace SceneOutliner
 			return nullptr;
 		}
 
+		FItemSelection ItemSelection(*OutlinerTreeView);
+
+		const auto NumSelectedItems = OutlinerTreeView->GetNumItemsSelected();
+		bool bPasteCommandOnly = (NumSelectedItems == 0);
+
 		// Build up the menu for a selection
 		const bool bCloseAfterSelection = true;
 		FMenuBuilder MenuBuilder(bCloseAfterSelection, TSharedPtr<FUICommandList>(), SharedData->DefaultMenuExtender);
 
-		const auto NumSelectedItems = OutlinerTreeView->GetNumItemsSelected();
-		if (NumSelectedItems == 1)
-		{
-			OutlinerTreeView->GetSelectedItems()[0]->GenerateContextMenu(MenuBuilder, *this);
-		}
-
 		bool MenuBuilderHasContent = false;
 
-		// We always create a section here, even if there is no parent so that clients can still extend the menu
-		MenuBuilder.BeginSection("MainSection");
+		if (SharedData->bShowParentTree)
 		{
-			FItemSelection ItemSelection(*OutlinerTreeView);
-
-			// Don't add any of these menu items if we're not showing the parent tree
-			if (SharedData->bShowParentTree)
+			if (NumSelectedItems == 0)
 			{
+				const FSlateIcon NewFolderIcon(FEditorStyle::GetStyleSetName(), "SceneOutliner.NewFolderIcon");
+				MenuBuilder.AddMenuEntry(LOCTEXT("CreateFolder", "Create Folder"), FText(), NewFolderIcon, FUIAction(FExecuteAction::CreateSP(this, &SSceneOutliner::CreateFolder)));
 				MenuBuilderHasContent = true;
-
-				if (NumSelectedItems == 0)
+			}
+			else
+			{
+				if (NumSelectedItems == 1)
 				{
-					const FSlateIcon NewFolderIcon(FEditorStyle::GetStyleSetName(), "SceneOutliner.NewFolderIcon");
-					MenuBuilder.AddMenuEntry(LOCTEXT("CreateFolder", "Create Folder"), FText(), NewFolderIcon, FUIAction(FExecuteAction::CreateSP(this, &SSceneOutliner::CreateFolder)));
+					OutlinerTreeView->GetSelectedItems()[0]->GenerateContextMenu(MenuBuilder, *this);
+					MenuBuilderHasContent = true;
 				}
-				else
-				{
-					// Can't move worlds or level blueprints
-					const bool bCanMoveSelection = ItemSelection.Worlds.Num() == 0;
-					if (bCanMoveSelection)
-					{
-						MenuBuilder.AddSubMenu(
-							LOCTEXT("MoveActorsTo", "Move To"),
-							LOCTEXT("MoveActorsTo_Tooltip", "Move selection to another folder"),
-							FNewMenuDelegate::CreateSP(this,  &SSceneOutliner::FillFoldersSubMenu));
-					}
 
-					// If we've only got folders selected, show the selection sub menu
-					if (ItemSelection.Folders.Num() == NumSelectedItems)
-					{
-						MenuBuilder.AddSubMenu(
-							LOCTEXT("SelectSubmenu", "Select"),
-							LOCTEXT("SelectSubmenu_Tooltip", "Select the contents of the current selection"),
-							FNewMenuDelegate::CreateSP(this, &SSceneOutliner::FillSelectionSubMenu));
-					}
+				// If we've only got folders selected, show the selection and edit sub menus
+				if (NumSelectedItems > 0 && ItemSelection.Folders.Num() == NumSelectedItems)
+				{
+					MenuBuilder.AddSubMenu(
+						LOCTEXT("SelectSubmenu", "Select"),
+						LOCTEXT("SelectSubmenu_Tooltip", "Select the contents of the current selection"),
+						FNewMenuDelegate::CreateSP(this, &SSceneOutliner::FillSelectionSubMenu));
+					MenuBuilderHasContent = true;
 				}
 			}
 		}
-		MenuBuilder.EndSection();
+
+			// We always create a section here, even if there is no parent so that clients can still extend the menu
+			MenuBuilder.BeginSection("MainSection");
+			{
+				// Don't add any of these menu items if we're not showing the parent tree
+				if (SharedData->bShowParentTree)
+				{
+					// Can't move worlds or level blueprints
+					if (NumSelectedItems > 0)
+					{
+						const bool bCanMoveSelection = ItemSelection.Worlds.Num() == 0;
+						if (bCanMoveSelection)
+						{
+							MenuBuilder.AddSubMenu(
+								LOCTEXT("MoveActorsTo", "Move To"),
+								LOCTEXT("MoveActorsTo_Tooltip", "Move selection to another folder"),
+								FNewMenuDelegate::CreateSP(this, &SSceneOutliner::FillFoldersSubMenu));
+							MenuBuilderHasContent = true;
+						}
+					}
+				}
+			}
+			MenuBuilder.EndSection();
+		
 
 		if (MenuBuilderHasContent)
 		{
@@ -1648,81 +1778,153 @@ namespace SceneOutliner
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "AddChildrenToSelection", "Immediate Children" ),
-			LOCTEXT( "AddChildrenToSelection_ToolTip", "Select all immediate children of the selected folders" ),
+			LOCTEXT( "AddChildrenToSelection_ToolTip", "Select all immediate actor children of the selected folders" ),
 			FSlateIcon(),
-			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersImmediateChildren));
+			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants, /*bSelectImmediateChildrenOnly=*/ true));
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "AddDescendantsToSelection", "All Descendants" ),
-			LOCTEXT( "AddDescendantsToSelection_ToolTip", "Select all descendants of the selected folders" ),
+			LOCTEXT( "AddDescendantsToSelection_ToolTip", "Select all actor descendants of the selected folders" ),
 			FSlateIcon(),
-			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants));
+			FExecuteAction::CreateSP(this, &SSceneOutliner::SelectFoldersDescendants, /*bSelectImmediateChildrenOnly=*/ false));
 	}
 
-	struct FSelectActors : ITreeItemVisitor
+	void SSceneOutliner::SelectFoldersDescendants(bool bSelectImmediateChildrenOnly)
 	{
-		virtual void Visit(const FActorTreeItem& ActorItem) const override
+		struct FExpandFoldersRecursive : IMutableTreeItemVisitor
 		{
-			if (AActor* Actor = ActorItem.Actor.Get())
+			SSceneOutliner& Outliner;
+			bool bSelectImmediateChildrenOnly;
+
+			FExpandFoldersRecursive(SSceneOutliner& InOutliner, bool bInSelectImmediateChildrenOnly) :
+				Outliner(InOutliner), bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
+
+			virtual void Visit(FActorTreeItem& ActorItem) const override
 			{
-				GEditor->SelectActor(Actor, true, /*bNotify=*/false);
+				if (!Outliner.OutlinerTreeView->IsItemExpanded(ActorItem.AsShared()))
+				{
+					Outliner.OutlinerTreeView->SetItemExpansion(ActorItem.AsShared(), true);
+				}
+
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : ActorItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
 			}
-		}
-	};
 
-	struct FSelectActorsRecursive : FSelectActors
-	{
-		using FSelectActors::Visit;
+			virtual void Visit(FFolderTreeItem& FolderItem) const override
+			{
+				if (!Outliner.OutlinerTreeView->IsItemExpanded(FolderItem.AsShared()))
+				{
+					Outliner.OutlinerTreeView->SetItemExpansion(FolderItem.AsShared(), true);
+				}
 
-		virtual void Visit(const FFolderTreeItem& FolderItem) const override
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
+
+			}
+		};
+
+		struct FSelectActorsRecursive : ITreeItemVisitor
 		{
-			for (auto& Child : FolderItem.GetChildren())
-			{
-				Child.Pin()->Visit(FSelectActorsRecursive());
-			}
-		}
-	};
+			bool bSelectImmediateChildrenOnly;
+			FSelectActorsRecursive(bool bInSelectImmediateChildrenOnly) : bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
 
-	void SSceneOutliner::SelectFoldersImmediateChildren() const
-	{
-		auto SelectedFolders = GetSelectedFolders();
+			virtual void Visit(const FActorTreeItem& ActorItem) const override
+			{
+				if (AActor* Actor = ActorItem.Actor.Get())
+				{
+					GEditor->SelectActor(Actor, true, /*bNotify=*/false);
+				}
+
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : ActorItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
+			}
+
+			virtual void Visit(const FFolderTreeItem& FolderItem) const override
+			{
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}
+			}
+		};
+
+		struct FSelectFoldersRecursive : IMutableTreeItemVisitor
+		{
+			SSceneOutliner& Outliner;
+			bool bSelectImmediateChildrenOnly;
+			FSelectFoldersRecursive(SSceneOutliner& InOutliner, bool bInSelectImmediateChildrenOnly) : Outliner(InOutliner), bSelectImmediateChildrenOnly(bInSelectImmediateChildrenOnly) {}
+
+			virtual void Visit(FFolderTreeItem& FolderItem) const override
+			{
+				Outliner.OutlinerTreeView->SetItemSelection(FolderItem.AsShared(), true);
+
+				if (!bSelectImmediateChildrenOnly)
+				{
+					for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+					{
+						Child.Pin()->Visit(*this);
+					}
+				}	
+			}
+		};
+
+		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
+		OutlinerTreeView->ClearSelection();
+
+		FExpandFoldersRecursive ExpandFoldersRecursive(*this, bSelectImmediateChildrenOnly);
+		for (FFolderTreeItem* Folder : SelectedFolders)
+		{
+			Folder->Visit(ExpandFoldersRecursive);
+		}
+
 		if (SelectedFolders.Num())
 		{
 			// We'll batch selection changes instead by using BeginBatchSelectOperation()
 			GEditor->GetSelectedActors()->BeginBatchSelectOperation();
 
-			OutlinerTreeView->ClearSelection();
-
-			for (const auto& Folder : SelectedFolders)
+			FSelectActorsRecursive SelectActorsRecursive(bSelectImmediateChildrenOnly);
+			for (const FFolderTreeItem* Folder : SelectedFolders)
 			{
-				for (auto& Child : Folder->GetChildren())
+				for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
 				{
-					Child.Pin()->Visit(FSelectActors());
+					Child.Pin()->Visit(SelectActorsRecursive);
 				}
 			}
 
 			GEditor->GetSelectedActors()->EndBatchSelectOperation();
 			GEditor->NoteSelectionChange();
 		}
-	}
 
-	void SSceneOutliner::SelectFoldersDescendants() const
-	{
-		auto SelectedFolders = GetSelectedFolders();
-		if (SelectedFolders.Num())
+		// Don't select folders, only select actors
+		/*  
+		FSelectFoldersRecursive SelectFoldersRecursiveVisitor(*this, bSelectImmediateChildrenOnly);
+		for (const FFolderTreeItem* Folder : SelectedFolders)
 		{
-			// We'll batch selection changes instead by using BeginBatchSelectOperation()
-			GEditor->GetSelectedActors()->BeginBatchSelectOperation();
-
-			OutlinerTreeView->ClearSelection();
-
-			for (const auto& Folder : SelectedFolders)
+			for (TWeakPtr<ITreeItem> Child : Folder->GetChildren())
 			{
-				Folder->Visit(FSelectActorsRecursive());
+				Child.Pin()->Visit(SelectFoldersRecursiveVisitor);
 			}
-
-			GEditor->GetSelectedActors()->EndBatchSelectOperation();
-			GEditor->NoteSelectionChange();
 		}
+		*/
+
+		Refresh();
 	}
 
 	void SSceneOutliner::MoveSelectionTo(FTreeItemRef NewParent)
@@ -1864,6 +2066,413 @@ namespace SceneOutliner
 		}
 	}
 
+	void SSceneOutliner::OnEditCutActorsBegin()
+	{
+		CopyFoldersBegin();
+		DeleteFoldersBegin();
+	}
+
+	void SSceneOutliner::OnEditCutActorsEnd()
+	{
+		CopyFoldersEnd();
+		DeleteFoldersEnd();
+	}
+
+	void SSceneOutliner::OnEditCopyActorsBegin()
+	{
+		CopyFoldersBegin();
+	}
+
+	void SSceneOutliner::OnEditCopyActorsEnd()
+	{
+		CopyFoldersEnd();
+	}
+
+	void SSceneOutliner::OnEditPasteActorsBegin()
+	{
+		TArray<FName> Folders = GetClipboardPasteFolders();
+		PasteFoldersBegin(Folders);
+	}
+
+	void SSceneOutliner::OnEditPasteActorsEnd()
+	{
+		PasteFoldersEnd();
+	}
+
+	void SSceneOutliner::OnDuplicateActorsBegin()
+	{
+		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
+		PasteFoldersBegin(SelectedFolders);
+	}
+
+	void SSceneOutliner::OnDuplicateActorsEnd()
+	{
+		PasteFoldersEnd();
+	}
+
+	void SSceneOutliner::OnDeleteActorsBegin()
+	{
+		DeleteFoldersBegin();
+	}
+
+	void SSceneOutliner::OnDeleteActorsEnd()
+	{
+		DeleteFoldersEnd();
+	}
+
+	void SSceneOutliner::CopyFoldersBegin()
+	{
+		CacheFoldersEdit = GetSelectedFolderNames();
+		FPlatformApplicationMisc::ClipboardPaste(CacheClipboardContents);
+	}
+
+	void SSceneOutliner::CopyFoldersEnd()
+	{
+		if (CacheFoldersEdit.Num() > 0)
+		{
+			CopyFoldersToClipboard(CacheFoldersEdit, CacheClipboardContents);
+			CacheFoldersEdit.Reset();
+		}
+	}
+
+	void SSceneOutliner::CopyFoldersToClipboard(const TArray<FName>& InFolders, const FString& InPrevClipboardContents)
+	{
+		if (InFolders.Num() > 0)
+		{
+			// If clipboard paste has changed since we cached it, actors must have been cut 
+			// so folders need to appended to clipboard contents rather than replacing them.
+			FString CurrClipboardContents;
+			FPlatformApplicationMisc::ClipboardPaste(CurrClipboardContents);
+
+			FString Buffer = ExportFolderList(InFolders);
+
+			FString* SourceData = (CurrClipboardContents != InPrevClipboardContents ? &CurrClipboardContents : nullptr);
+
+			if (SourceData)
+			{
+				SourceData->Append(Buffer);
+			}
+			else
+			{
+				SourceData = &Buffer;
+			}
+
+			// Replace clipboard contents with original plus folders appended
+			FPlatformApplicationMisc::ClipboardCopy(**SourceData);
+		}
+	}
+
+	void SSceneOutliner::PasteFoldersBegin(TArray<FFolderTreeItem*> InFolders)
+	{
+		TArray<FName> FolderNames;
+
+		for (FFolderTreeItem* Folder : InFolders)
+		{
+			if (Folder)
+			{
+				FolderNames.Add(Folder->Path);
+			}
+		}
+
+		PasteFoldersBegin(FolderNames);
+	}
+
+	void SSceneOutliner::PasteFoldersBegin(TArray<FName> InFolders)
+	{
+		struct FCacheExistingChildrenAction : IMutableTreeItemVisitor
+		{
+			SSceneOutliner& Outliner;
+
+			FCacheExistingChildrenAction(SSceneOutliner& InOutliner) : Outliner(InOutliner) {}
+
+			virtual void Visit(FFolderTreeItem& FolderItem) const override
+			{
+				TArray<FTreeItemID> ExistingChildren;
+				for (const TWeakPtr<ITreeItem>& Child : FolderItem.GetChildren())
+				{
+					if (Child.IsValid())
+					{
+						ExistingChildren.Add(Child.Pin()->GetID());
+					}
+				}
+
+				Outliner.CachePasteFolderExistingChildrenMap.Add(FolderItem.Path, ExistingChildren);
+			}
+		};
+
+
+		CacheFoldersEdit.Reset();
+		CachePasteFolderExistingChildrenMap.Reset();
+		PendingFoldersSelect.Reset();
+
+		CacheFoldersEdit = InFolders;
+
+		// Sort folder names so parents appear before children
+		CacheFoldersEdit.Sort();
+
+		// Cache existing children
+		for (FName Folder : CacheFoldersEdit)
+		{
+			if (FTreeItemPtr* TreeItem = TreeItemMap.Find(Folder))
+			{
+				FCacheExistingChildrenAction CacheExistingChildrenAction(*this);
+				(*TreeItem)->Visit(CacheExistingChildrenAction);
+			}
+		}
+	}
+
+	void SSceneOutliner::PasteFoldersEnd()
+	{
+		struct FReparentDuplicatedActorsAction : IMutableTreeItemVisitor
+		{
+			SSceneOutliner& Outliner;
+			mutable bool bVisitedFolder;
+			mutable FName* NewFolderPath;
+			TMap<FName, FName>* FolderMap;
+
+			FReparentDuplicatedActorsAction(SSceneOutliner& InOutliner, TMap<FName, FName>* InFolderMap) : Outliner(InOutliner), bVisitedFolder(false), NewFolderPath(nullptr), FolderMap(InFolderMap) {}
+
+			virtual void Visit(FFolderTreeItem& FolderItem) const override
+			{
+				if (!bVisitedFolder)
+				{
+					bVisitedFolder = true;
+
+					if (!FolderItem.Path.IsNone())
+					{
+						NewFolderPath = FolderMap->Find(FolderItem.Path);
+						if (NewFolderPath && *NewFolderPath != FolderItem.Path)
+						{
+							for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+							{
+								if (Child.IsValid())
+								{
+									Child.Pin()->Visit(*this);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			virtual void Visit(FActorTreeItem& ActorItem) const override
+			{
+				if (NewFolderPath)
+				{
+					if (AActor* Actor = ActorItem.Actor.Get())
+					{
+						FName ParentPath = Actor->GetFolderPath();
+						TArray<FTreeItemID>* ExistingChildren = Outliner.CachePasteFolderExistingChildrenMap.Find(ParentPath);
+
+						if (ExistingChildren && !ExistingChildren->Contains(ActorItem.GetID()))
+						{
+							Actor->SetFolderPath_Recursively(*NewFolderPath);
+						}
+					}
+				}
+			}
+		};
+
+		if (!CheckWorld())
+		{
+			return;
+		}
+			
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "PasteItems", "Paste Items"));
+
+		// Create new folder
+		TMap<FName, FName> FolderMap;
+		for (FName Folder : CacheFoldersEdit)
+		{
+			FName ParentPath = GetParentPath(Folder);
+			FName LeafName = GetFolderLeafName(Folder);
+			if (LeafName != TEXT(""))
+			{
+				if (FName* NewParentPath = FolderMap.Find(ParentPath))
+				{
+					ParentPath = *NewParentPath;
+				}
+
+				FName NewFolderPath = FActorFolders::Get().GetFolderName(*SharedData->RepresentingWorld, ParentPath, LeafName);
+				FActorFolders::Get().CreateFolder(*SharedData->RepresentingWorld, NewFolderPath);
+				FolderMap.Add(Folder, NewFolderPath);
+			}
+		}
+
+		// Populate our data set
+		Populate();
+
+		// Reparent duplicated actors if the folder has been pasted/duplicated
+		for (FName Folder : CacheFoldersEdit)
+		{
+			if (const FName* NewFolder = FolderMap.Find(Folder))
+			{
+				if (FTreeItemPtr* FolderItem = TreeItemMap.Find(Folder))
+				{
+					FReparentDuplicatedActorsAction ReparentDuplicatedActors(*this, &FolderMap);
+					(*FolderItem)->Visit(ReparentDuplicatedActors);
+				}
+
+				Folder = *NewFolder;
+			}
+
+			PendingFoldersSelect.Add(Folder);
+		}
+
+		CacheFoldersEdit.Reset();
+		CachePasteFolderExistingChildrenMap.Reset();
+		FullRefresh();
+	}
+
+	void SSceneOutliner::DuplicateFoldersHierarchy()
+	{
+		struct FSelectFoldersRecursive : IMutableTreeItemVisitor
+		{
+			SSceneOutliner& Outliner;
+			FSelectFoldersRecursive(SSceneOutliner& InOutliner) : Outliner(InOutliner) {}
+
+			virtual void Visit(FFolderTreeItem& FolderItem) const override
+			{
+				// select folders to be duplicated
+				Outliner.OutlinerTreeView->SetItemSelection(FolderItem.AsShared(), true);
+
+				// FItemSelection Selection(*Outliner.OutlinerTreeView);
+
+				for (TWeakPtr<ITreeItem> Child : FolderItem.GetChildren())
+				{
+					Child.Pin()->Visit(*this);
+				}
+			}
+		};
+
+		if (!CheckWorld())
+		{
+			return;
+		}
+
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "DuplicateFoldersHierarchy", "Duplicate Folders Hierarchy"));
+
+		TArray<FFolderTreeItem*> SelectedFolders = GetSelectedFolders();
+
+		if (SelectedFolders.Num() > 0)
+		{
+			// Select actor descendants
+			SelectFoldersDescendants();
+
+			// Select all sub-folders
+			for (FFolderTreeItem* Folder : SelectedFolders)
+			{
+				FSelectFoldersRecursive SelectFoldersRecursive(*this);
+				Folder->Visit(SelectFoldersRecursive);
+			}
+
+			// Duplicate selected
+			GUnrealEd->Exec(SharedData->RepresentingWorld, TEXT("DUPLICATE"));
+		}
+	}
+
+	void SSceneOutliner::DeleteFoldersBegin()
+	{
+		CacheFoldersDelete = GetSelectedFolders();
+	}
+
+	void SSceneOutliner::DeleteFoldersEnd()
+	{
+		struct FMatchName
+		{
+			FMatchName(const FName InPathName)
+				: PathName(InPathName) {}
+
+			const FName PathName;
+
+			bool operator()(const FFolderTreeItem *Entry)
+			{
+				return PathName == Entry->Path;
+			}
+		};
+
+		if (CacheFoldersDelete.Num() > 0)
+		{
+			// Sort in descending order so children will be deleted before parents
+			CacheFoldersDelete.Sort([](const FFolderTreeItem& FolderA, const FFolderTreeItem& FolderB)
+			{
+				return (FolderA.Path > FolderB.Path);
+			});
+
+			for (FFolderTreeItem* Folder : CacheFoldersDelete)
+			{
+				if (Folder)
+				{
+					// Find lowest parent not being deleted, for reparenting children of current folder
+					FName NewParentPath = GetParentPath(Folder->Path);
+					while (!NewParentPath.IsNone() && CacheFoldersDelete.FindByPredicate(FMatchName(NewParentPath)))
+					{
+						NewParentPath = GetParentPath(NewParentPath);
+					}
+
+					Folder->Delete(NewParentPath);
+				}
+			}
+
+			CacheFoldersDelete.Reset();
+			FullRefresh();
+		}
+	}
+
+	TArray<FName> SSceneOutliner::GetClipboardPasteFolders() const
+	{
+		FString PasteString;
+		FPlatformApplicationMisc::ClipboardPaste(PasteString);
+		return ImportFolderList(*PasteString);
+	}
+
+	FString SSceneOutliner::ExportFolderList(TArray<FName> InFolders) const
+	{
+		FString Buffer = FString(TEXT("Begin FolderList\n"));
+
+		for (auto& FolderName : InFolders)
+		{
+			Buffer.Append(FString(TEXT("\tFolder=")) + FolderName.ToString() + FString(TEXT("\n")));
+		}
+
+		Buffer += FString(TEXT("End FolderList\n"));
+
+		return Buffer;
+	}
+
+	TArray<FName> SSceneOutliner::ImportFolderList(const FString& InStrBuffer) const
+	{
+		TArray<FName> Folders;
+
+		int32 Index = InStrBuffer.Find(TEXT("Begin FolderList"));
+		if (Index != INDEX_NONE)
+		{
+			FString TmpStr = InStrBuffer.RightChop(Index);
+			const TCHAR* Buffer = *TmpStr;
+
+			FString StrLine;
+			while (FParse::Line(&Buffer, StrLine))
+			{
+				const TCHAR* Str = *StrLine;				
+				FString FolderName;
+
+				if (FParse::Command(&Str, TEXT("Begin")) && FParse::Command(&Str, TEXT("FolderList")))
+				{
+					continue;
+				}
+				else if (FParse::Command(&Str, TEXT("End")) && FParse::Command(&Str, TEXT("FolderList")))
+				{
+					break;
+				}
+				else if (FParse::Value(Str, TEXT("Folder="), FolderName))
+				{
+					Folders.Add(FName(*FolderName));
+				}
+			}
+		}
+		return Folders;
+	}
+
 	void SSceneOutliner::ScrollItemIntoView(FTreeItemPtr Item)
 	{
 		auto Parent = Item->GetParent();
@@ -1874,15 +2483,6 @@ namespace SceneOutliner
 		}
 
 		OutlinerTreeView->RequestScrollIntoView(Item);
-	}
-
-	void SSceneOutliner::InitiateRename(TSharedRef<ITreeItem> Item)
-	{
-		if (Item->CanInteract())
-		{
-			PendingRenameItem = Item;
-			ScrollItemIntoView(Item);
-		}
 	}
 
 	TSharedRef< ITableRow > SSceneOutliner::OnGenerateRowForOutlinerTree( FTreeItemPtr Item, const TSharedRef< STableViewBase >& OwnerTable )
@@ -2624,7 +3224,8 @@ namespace SceneOutliner
 			}
 
 			// Delete key: Delete selected actors (not rebindable, because it doesn't make much sense to bind.)
-			else if ( InKeyEvent.GetKey() == EKeys::Platform_Delete )
+			// Use Delete and Backspace instead of Platform_Delete because the LevelEditor default Edit Delete is bound to both 
+			else if ( InKeyEvent.GetKey() == EKeys::Delete || InKeyEvent.GetKey() == EKeys::BackSpace )
 			{
 				const FItemSelection Selection(*OutlinerTreeView);
 
@@ -2632,50 +3233,13 @@ namespace SceneOutliner
 				{
 					SharedData->CustomDelete.Execute( Selection.GetWeakActors() );
 				}
-				else if (CheckWorld())
+				else
 				{
-					const FScopedTransaction Transaction( LOCTEXT("UndoAction_DeleteSelection", "Delete selection") );
-
-					// Delete selected folders too
-					auto SelectedItems = OutlinerTreeView->GetSelectedItems();
-					
-					GEditor->SelectNone(true, true);
-
-					for (auto* Folder : Selection.Folders)
+					if (CheckWorld())
 					{
-						Folder->Delete();
-					}
-
-					for (auto* Actor : Selection.GetActorPtrs())
-					{
-						GEditor->SelectActor(Actor, true, false);
-					}
-
-					// Code from FLevelEditorActionCallbacks::Delete_CanExecute()
-					// Should this be just return FReply::Unhandled()?
-					TArray<FEdMode*> ActiveModes; 
-					GLevelEditorModeTools().GetActiveModes( ActiveModes );
-					for( int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex )
-					{
-						const EEditAction::Type CanProcess = ActiveModes[ModeIndex]->GetActionEditDelete();
-						if (CanProcess == EEditAction::Process)
-						{
-							// We don't consider the return value here, as false is assumed to mean there was an internal error processing delete, not that it should defer to other modes/default behaviour
-							ActiveModes[ModeIndex]->ProcessEditDelete();
-							return FReply::Handled();
-						}
-						else if (CanProcess == EEditAction::Halt)
-						{
-							return FReply::Unhandled();
-						}
-					}
-
-					if (GUnrealEd->CanDeleteSelectedActors( SharedData->RepresentingWorld, true, true ))
-					{
-						GEditor->edactDeleteSelected( SharedData->RepresentingWorld );
+						GUnrealEd->Exec(SharedData->RepresentingWorld, TEXT("DELETE"));
 					}
 				}
-
 				return FReply::Handled();
 			}
 		}
@@ -2699,6 +3263,24 @@ namespace SceneOutliner
 			}
 		}
 
+
+		// See if the tree view selector is pointing at a selected item
+		bool bSelectorInSelectionSet = false;
+		for (FSelectionIterator SelectionIt(*SelectedActors); SelectionIt; ++SelectionIt)
+		{
+			AActor* Actor = CastChecked< AActor >(*SelectionIt);
+			if (FTreeItemPtr* ActorItem = TreeItemMap.Find(Actor))
+			{
+				if (OutlinerTreeView->Private_HasSelectorFocus(*ActorItem))
+				{
+					bSelectorInSelectionSet = true;
+					break;
+				}
+			}
+		}
+
+		// If NOT bSelectorInSelectionSet then we want to just move the selector to the first selected item.
+		ESelectInfo::Type SelectInfo = bSelectorInSelectionSet ? ESelectInfo::Direct : ESelectInfo::OnMouseClick;
 		// Show actor selection but only if sub objects are not selected
 		if (Selection.Components.Num() == 0 && Selection.SubComponents.Num() == 0)
 		{
@@ -2708,8 +3290,10 @@ namespace SceneOutliner
 				AActor* Actor = CastChecked< AActor >(*SelectionIt);
 				if (FTreeItemPtr* ActorItem = TreeItemMap.Find(Actor))
 				{
-					OutlinerTreeView->SetItemSelection(*ActorItem, true);
+					OutlinerTreeView->SetItemSelection(*ActorItem, true, SelectInfo);				
+					SelectInfo = ESelectInfo::Direct;
 				}
+
 			}
 		}
 

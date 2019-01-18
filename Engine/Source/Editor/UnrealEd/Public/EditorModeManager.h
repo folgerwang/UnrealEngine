@@ -209,6 +209,9 @@ public:
 	/** Notifies all active modes of captured mouse movement */	
 	bool CapturedMouseMove( FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 InMouseX, int32 InMouseY );
 
+	/** Notifies all active modes of all captured mouse movement */	
+	bool ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves );
+
 	/** Notifies all active modes of keyboard input */
 	bool InputKey( FEditorViewportClient* InViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event);
 

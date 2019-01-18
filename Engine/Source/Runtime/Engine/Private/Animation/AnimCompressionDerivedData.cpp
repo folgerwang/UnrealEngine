@@ -6,6 +6,7 @@
 #include "AnimationUtils.h"
 #include "AnimEncoding.h"
 #include "Animation/AnimCompress.h"
+#include "Animation/AnimCurveCompressionSettings.h"
 #include "AnimationCompression.h"
 #include "UObject/Package.h"
 
@@ -70,6 +71,7 @@ FString FDerivedDataAnimationCompression::GetPluginSpecificCacheKeySuffix() cons
 	//	* Baked Additive Flag
 	//	* Additive ref pose GUID or hardcoded string if not available
 	//	* Compression Settings
+	//	* Curve compression settings
 
 	uint8 AdditiveSettings = bCanBakeAdditive ? (OriginalAnimSequence->RefPoseType << 4) + OriginalAnimSequence->AdditiveAnimType : 0;
 
@@ -78,7 +80,7 @@ FString FDerivedDataAnimationCompression::GetPluginSpecificCacheKeySuffix() cons
 
 	const int32 StripFrame = bPerformStripping ? 1 : 0;
 
-	FString Ret = FString::Printf(TEXT("%i_%i_%i_%i_%s%s%s_%c%c%i_%s_%s"),
+	FString Ret = FString::Printf(TEXT("%i_%i_%i_%i_%s%s%s_%c%c%i_%s_%s_%s"),
 		(int32)UE_ANIMCOMPRESSION_DERIVEDDATA_VER,
 		(int32)CURRENT_ANIMATION_ENCODING_PACKAGE_VERSION,
 		OriginalAnimSequence->CompressCommandletVersion,
@@ -90,7 +92,8 @@ FString FDerivedDataAnimationCompression::GetPluginSpecificCacheKeySuffix() cons
 		RefType,
 		OriginalAnimSequence->RefFrameIndex,
 		(bCanBakeAdditive && AdditiveBase) ? *AdditiveBase->GetRawDataGuid().ToString() : TEXT("NoAdditiveBase"),
-		*OriginalAnimSequence->CompressionScheme->MakeDDCKey()
+		*OriginalAnimSequence->CompressionScheme->MakeDDCKey(),
+		*OriginalAnimSequence->CurveCompressionSettings->MakeDDCKey()
 		);
 
 	return Ret;
@@ -155,13 +158,9 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		}
 
 		AnimToOperateOn->UpdateCompressedTrackMapFromRaw();
-		AnimToOperateOn->CompressedCurveData = AnimToOperateOn->RawCurveData; //Curves don't actually get compressed, but could have additives baked in
+		AnimToOperateOn->UpdateCompressedCurveNames();
 
-		const float MaxCurveError = AnimToOperateOn->CompressionScheme->MaxCurveError;
-		for (FFloatCurve& Curve : AnimToOperateOn->CompressedCurveData.FloatCurves)
-		{
-			Curve.FloatCurve.RemoveRedundantKeys(MaxCurveError);
-		}
+		bool bCurveCompressionSuccess = FAnimationUtils::CompressAnimCurves(*AnimToOperateOn);
 
 #if DO_CHECK
 		FString CompressionName = AnimToOperateOn->CompressionScheme->GetFullName();
@@ -172,7 +171,7 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		AnimToOperateOn->UpdateCompressedNumFramesFromRaw(); //Do this before compression so compress code can read the correct value
 
 		FAnimationUtils::CompressAnimSequence(AnimToOperateOn, *CompressContext.Get());
-		bCompressionSuccessful = AnimToOperateOn->IsCompressedDataValid();
+		bCompressionSuccessful = AnimToOperateOn->IsCompressedDataValid() && bCurveCompressionSuccess;
 
 		ensureMsgf(bCompressionSuccessful, TEXT("Anim Compression failed for Sequence '%s' with compression scheme '%s': compressed data empty\n\tAnimIndex: %i\n\tMaxAnim:%i\n\tAllowAltCompressor:%s\n\tOutput:%s"), 
 											*AnimToOperateOn->GetFullName(), 
@@ -191,6 +190,7 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 	{
 		CA_SUPPRESS(6011); // See https://connect.microsoft.com/VisualStudio/feedback/details/3007725
 		OriginalAnimSequence->CompressionScheme = static_cast<UAnimCompress*>(StaticDuplicateObject(AnimToOperateOn->CompressionScheme, OriginalAnimSequence));
+		OriginalAnimSequence->CurveCompressionSettings = AnimToOperateOn->CurveCompressionSettings;
 	}
 
 	if (bCompressionSuccessful)

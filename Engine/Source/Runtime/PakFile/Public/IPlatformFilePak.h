@@ -502,6 +502,8 @@ public:
 		return Index;
 	}
 
+	void GetFilenamesInChunk(const TArray<int32>& InChunkIDs, TArray<FString>& OutFileList);
+
 	/**
 	 * Gets shared pak file archive for given thread.
 	 *
@@ -522,148 +524,7 @@ public:
 		Found,
 		FoundDeleted,
 	};
-	EFindResult Find(const FString& Filename, FPakEntry* OutEntry) const
-	{		
-		if (Filename.StartsWith(MountPoint))
-		{
-			FString Path(FPaths::GetPath(Filename));
-
-			// Handle the case where the user called FPakFile::UnloadFilenames() and the filenames
-			// were removed from memory.
-			if (bFilenamesRemoved)
-			{
-				// Derived from the following:
-				//     FString RelativeFilename(Filename.Mid(Path.Len() + 1));
-				//     Path = Path.Mid(MountPoint.Len()) / RelativeFilename;
-				// Hash the Path.
-				int AdjustedMountPointLen = Path.Len() < MountPoint.Len() ? Path.Len() : MountPoint.Len();
-				FString LowercaseFilename = Filename.ToLower();
-				const TCHAR* SplitStartPtr = *LowercaseFilename + AdjustedMountPointLen;
-				uint32 SplitLen = LowercaseFilename.Len() - AdjustedMountPointLen;
-				if (*SplitStartPtr == '/')
-				{
-					++SplitStartPtr;
-					--SplitLen;
-				}
-				uint32 PathHash = FCrc::MemCrc32(SplitStartPtr, SplitLen * sizeof(TCHAR), FilenameStartHash);
-
-				// Look it up in our sorted-by-filename-hash array.
-				uint32 PathHashMostSignificantBits = PathHash >> 24;
-				uint32 HashEntriesCount = FilenameHashesIndex[PathHashMostSignificantBits + 1] - FilenameHashesIndex[PathHashMostSignificantBits];
-				uint32* FoundHash = (uint32*)bsearch(&PathHash, FilenameHashes + FilenameHashesIndex[PathHashMostSignificantBits], HashEntriesCount, sizeof(uint32), CompareFilenameHashes);
-				if (FoundHash != NULL)
-				{
-					bool bDeleted = false;
-
-					int32 FoundEntryIndex = FilenameHashesIndices[FoundHash - FilenameHashes];
-
-					if (MiniPakEntries != NULL)
-					{
-						uint32 MemoryOffset = MiniPakEntriesOffsets[FoundEntryIndex];
-
-						bDeleted = (MemoryOffset == MAX_uint32); // deleted records have a magic number in the offset instead (not ideal, but there is no more space in the bit-encoded entry)
-
-						if (OutEntry != NULL)
-						{
-							if (!bDeleted)
-							{
-								// The FPakEntry structures are bit-encoded, so decode it.
-								DecodePakEntry(MiniPakEntries + MemoryOffset, OutEntry);
-							}
-							else
-							{
-								// entry was deleted and original data is inaccessible- build dummy entry
-								(*OutEntry) = FPakEntry();
-								OutEntry->SetDeleteRecord(true);
-								OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
-							}
-						}
-					}
-					else
-					{
-						const FPakEntry* FoundEntry = &Files[FoundEntryIndex];
-
-						bDeleted = FoundEntry->IsDeleteRecord();
-
-						if (OutEntry != NULL)
-						{
-							OutEntry->Offset = FoundEntry->Offset;
-							OutEntry->Size = FoundEntry->Size;
-							OutEntry->UncompressedSize = FoundEntry->UncompressedSize;
-							OutEntry->CompressionMethod = FoundEntry->CompressionMethod;
-							// NEEDED? FMemory::Memcpy(OutEntry->Hash, FoundEntry->Hash, sizeof(OutEntry->Hash));
-							OutEntry->CompressionBlocks = FoundEntry->CompressionBlocks;
-							OutEntry->CompressionBlockSize = FoundEntry->CompressionBlockSize;
-							OutEntry->Flags = FoundEntry->Flags;
-							OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
-						}
-					}
-
-					return bDeleted ? EFindResult::FoundDeleted : EFindResult::Found;
-				}
-			}
-			else
-			{
-				const FPakDirectory* PakDirectory = FindDirectory(*Path);
-				if (PakDirectory != NULL)
-				{
-					FString RelativeFilename(Filename.Mid(Path.Len() + 1));
-					int32 const* FoundEntryIndex = PakDirectory->Find(RelativeFilename);
-					if (FoundEntryIndex != NULL)
-					{
-						bool bDeleted = false;
-
-						if (MiniPakEntries != NULL)
-						{
-							// The FPakEntry structures are bit-encoded, so decode it.
-							uint32 MemoryOffset = MiniPakEntriesOffsets[*FoundEntryIndex];
-
-							bDeleted = (MemoryOffset == MAX_uint32); // deleted records have a magic number in the offset instead (not ideal, but there is no more space in the bit-encoded entry)
-
-							if (OutEntry != NULL)
-							{
-								if (!bDeleted)
-								{
-									// The FPakEntry structures are bit-encoded, so decode it.
-									uint8* FoundPtr = MiniPakEntries + MemoryOffset;
-									DecodePakEntry(FoundPtr, OutEntry);
-								}
-								else
-								{
-									// entry was deleted and original data is inaccessible- build dummy entry
-									(*OutEntry) = FPakEntry();
-									OutEntry->SetDeleteRecord(true);
-									OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
-								}
-							}
-						}
-						else
-						{
-							const FPakEntry* FoundEntry = &Files[*FoundEntryIndex];
-							bDeleted = FoundEntry->IsDeleteRecord();
-
-							if (OutEntry != NULL)
-							{
-								//*OutEntry = **FoundEntry;
-								OutEntry->Offset = FoundEntry->Offset;
-								OutEntry->Size = FoundEntry->Size;
-								OutEntry->UncompressedSize = FoundEntry->UncompressedSize;
-								OutEntry->CompressionMethod = FoundEntry->CompressionMethod;
-								FMemory::Memcpy(OutEntry->Hash, FoundEntry->Hash, sizeof(OutEntry->Hash));
-								OutEntry->CompressionBlocks = FoundEntry->CompressionBlocks;
-								OutEntry->CompressionBlockSize = FoundEntry->CompressionBlockSize;
-								OutEntry->Flags = FoundEntry->Flags;
-								OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
-							}
-						}
-
-						return bDeleted ? EFindResult::FoundDeleted : EFindResult::Found;
-					}
-				}
-			}
-		}
-		return EFindResult::NotFound;
-	}
+	EFindResult Find(const FString& Filename, FPakEntry* OutEntry) const;
 
 	/**
 	 * Sets the pak file mount point.
@@ -1283,6 +1144,16 @@ public:
 	{
 		return Reader.FileSize();
 	}
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		// pak files are read only, so don't need to support flushing
+		return false;
+	}
+	virtual bool Truncate(int64 NewSize) override
+	{
+		// pak files are read only, so don't need to support truncation
+		return false;
+	}
 	///~ End IFileHandle Interface
 };
 
@@ -1429,18 +1300,24 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	bool IsNonPakFilenameAllowed(const FString& InFilename);
 
 	/**
-	* Registers a new AES key with the given guid. Triggers the mounting of any pak files that we encountered that use that key
-	*
-	* @param InEncryptionKeyGuid	Guid for this encryption key
-	* @param InKey					Encryption key
-	*/
+	 * Registers a new AES key with the given guid. Triggers the mounting of any pak files that we encountered that use that key
+	 *
+	 * @param InEncryptionKeyGuid	Guid for this encryption key
+	 * @param InKey					Encryption key
+	 */
 	void RegisterEncryptionKey(const FGuid& InEncryptionKeyGuid, const FAES::FAESKey& InKey);
 
 public:
 
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
+
 	/**
-	* Get the unique name for the pak platform file layer
-	*/
+	 * Get the unique name for the pak platform file layer
+	 */
 	static const TCHAR* GetTypeName()
 	{
 		return TEXT("PakFile");
@@ -1518,6 +1395,8 @@ public:
 	{
 		return FPakPlatformFile::GetTypeName();
 	}
+
+	void Tick() override;
 
 	/**
 	 * Mounts a pak file at the specified path.
@@ -2221,7 +2100,7 @@ public:
 	virtual bool CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override;
 
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override;
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override;
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override;
 
 	/**
 	 * Converts a filename to a path inside pak file.
@@ -2274,6 +2153,8 @@ public:
 	// Access static delegate for handling a pak signature check failure
 	static FPakMasterSignatureTableCheckFailureHandler& GetPakMasterSignatureTableCheckFailureHandler();
 
+	// Get a list of which files live in a given chunk
+	void GetFilenamesInChunk(const FString& InPakFilename, const TArray<int32>& InChunkIDs, TArray<FString>& OutFileList);
 
 	void UnloadPakEntryFilenames(TArray<FString>* DirectoryRootsToKeep = nullptr);
 	void ShrinkPakEntriesMemoryUsage();

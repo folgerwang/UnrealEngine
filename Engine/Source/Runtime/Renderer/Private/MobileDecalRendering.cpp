@@ -16,15 +16,7 @@
 #include "DecalRenderingShared.h"
 
 
-static FRasterizerStateRHIParamRef GetDecalRasterizerState(EDecalRasterizerState DecalRasterizerState)
-{
-	switch (DecalRasterizerState)
-	{
-	case DRS_CW: return TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI();
-	case DRS_CCW: return TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI();
-	default: check(0); return nullptr;
-	}
-}
+extern FRasterizerStateRHIParamRef GetDecalRasterizerState(EDecalRasterizerState DecalRasterizerState);
 
 void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 {

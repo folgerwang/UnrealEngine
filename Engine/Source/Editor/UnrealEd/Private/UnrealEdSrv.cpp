@@ -1355,7 +1355,7 @@ bool UUnrealEdEngine::IsUserInteracting()
 {
 	// Check to see if the user is in the middle of a drag operation.
 	bool bUserIsInteracting = false;
-	for (const FEditorViewportClient* VC : AllViewportClients)
+	for (const FEditorViewportClient* VC : GetAllViewportClients())
 	{
 		// Check for tracking and capture.  If a viewport has mouse capture, it could be locking the mouse to the viewport, which means if we prompt with a dialog
 		// while the mouse is locked to a viewport, we wont be able to interact with the dialog.  
@@ -1587,7 +1587,10 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 		}
 		else
 		{
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "Cut", "Cut"));
+			FEditorDelegates::OnEditCutActorsBegin.Broadcast();
 			CopySelectedActorsToClipboard(InWorld, true);
+			FEditorDelegates::OnEditCutActorsEnd.Broadcast();
 		}
 	}
 	else if( FParse::Command(&Str,TEXT("COPY")) )
@@ -1608,7 +1611,9 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 		}
 		else
 		{
+			FEditorDelegates::OnEditCopyActorsBegin.Broadcast();
 			CopySelectedActorsToClipboard(InWorld, false);
+			FEditorDelegates::OnEditCopyActorsEnd.Broadcast();
 		}
 	}
 	else if( FParse::Command(&Str,TEXT("PASTE")) )
@@ -1652,7 +1657,10 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 				}
 			}
 
+			const FScopedTransaction Transaction(TransDescription);
+			FEditorDelegates::OnEditPasteActorsBegin.Broadcast();
 			PasteSelectedActorsFromClipboard(InWorld, TransDescription, PasteTo);
+			FEditorDelegates::OnEditPasteActorsEnd.Broadcast();
 		}
 	}
 
@@ -2431,6 +2439,18 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 
 				return true;
 			}
+			else if( FParse::Command(&Str, TEXT("CHILDREN")) ) // ACTOR SELECT ALL CHILDREN
+			{
+				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAllChildren", "Select All Children") );
+				edactSelectAllChildren( false );
+				return true;
+			}
+			else if( FParse::Command(&Str, TEXT("DESCENDANTS")) ) // ACTOR SELECT ALL DESCENDANTS
+			{
+				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAllDescendants", "Select All Descendants") );
+				edactSelectAllChildren( true );
+				return true;
+			}
 			else
 			{
 				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectAll", "Select All") );
@@ -2550,7 +2570,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if (!bHandled)
 		{
 			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DeleteComponents", "Delete Components") : NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
+			FEditorDelegates::OnDeleteActorsBegin.Broadcast();
 			edactDeleteSelected( InWorld );
+			FEditorDelegates::OnDeleteActorsEnd.Broadcast();
 		}
 		return true;
 	}
@@ -2734,6 +2756,8 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			//@todo locked levels - if all actor levels are locked, cancel the transaction
 			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DuplicateComponents", "Duplicate Components") : NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
+			FEditorDelegates::OnDuplicateActorsBegin.Broadcast();
+
 			// duplicate selected
 			ABrush::SetSuppressBSPRegeneration(true);
 			edactDuplicateSelected(InWorld->GetCurrentLevel(), GetDefault<ULevelEditorViewportSettings>()->GridEnabled);
@@ -2746,6 +2770,8 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			{
 				RebuildAlteredBSP(); // Update the Bsp of any levels containing a modified brush
 			}
+
+			FEditorDelegates::OnDuplicateActorsEnd.Broadcast();
 		}
 		RedrawLevelEditingViewports();
 		return true;
@@ -3020,11 +3046,11 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 	}
 
 	// Reset the roll on all viewport cameras
-	for(uint32 ViewportIndex = 0;ViewportIndex < (uint32)LevelViewportClients.Num();ViewportIndex++)
+	for(FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
 	{
-		if(LevelViewportClients[ViewportIndex]->IsPerspective())
+		if(ViewportClient->IsPerspective())
 		{
-			LevelViewportClients[ViewportIndex]->RemoveCameraRoll();
+			ViewportClient->RemoveCameraRoll();
 		}
 	}
 

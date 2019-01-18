@@ -253,6 +253,35 @@ const UAssetManagerSettings& UAssetManager::GetSettings() const
 	return *CachedSettings;
 }
 
+FTimerManager* UAssetManager::GetTimerManager() const
+{
+#if WITH_EDITOR
+	if (GEditor)
+	{
+		// In editor use the editor manager
+		if (GEditor->IsTimerManagerValid())
+		{
+			return &GEditor->GetTimerManager().Get();
+		}
+	}
+	else
+#endif
+	{
+		// Otherwise we should always have a game instance
+		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+		for (const FWorldContext& WorldContext : WorldContexts)
+		{
+			if (WorldContext.WorldType == EWorldType::Game && WorldContext.OwningGameInstance)
+			{
+				return &WorldContext.OwningGameInstance->GetTimerManager();
+			}
+		}
+	}
+
+	// This will only hit in very early startup
+	return nullptr;
+}
+
 FPrimaryAssetId UAssetManager::DeterminePrimaryAssetIdForObject(const UObject* Object)
 {
 	const UObject* AssetObject = Object;
@@ -414,12 +443,6 @@ int32 UAssetManager::ScanPathsForPrimaryAssets(FPrimaryAssetType PrimaryAssetTyp
 
 	if (BaseClass)
 	{
-		if (!bShouldGuessTypeAndName)
-		{
-			// Primary type check
-			ARFilter.TagsAndValues.Add(FPrimaryAssetId::PrimaryAssetTypeTag, PrimaryAssetType.ToString());
-		}
-
 		// Class check
 		if (!bHasBlueprintClasses)
 		{
@@ -446,22 +469,6 @@ int32 UAssetManager::ScanPathsForPrimaryAssets(FPrimaryAssetType PrimaryAssetTyp
 			// Make sure this works, if it does remove post load check
 			ClassNames.Add(BaseClass->GetFName());
 			AssetRegistry.GetDerivedClassNames(ClassNames, TSet<FName>(), DerivedClassNames);
-
-			/* DerivedClassNames are short names, GeneratedClass is a long name
-			const FName GeneratedClassName = FName(TEXT("GeneratedClass"));
-			for (const FName& DerivedClassName : DerivedClassNames)
-			{
-			ARFilter.TagsAndValues.Add(GeneratedClassName, DerivedClassName.ToString());
-
-			// Add any old names to the list in case things haven't been resaved
-			TArray<FName> OldNames = FLinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
-
-			for (const FName& OldClassName : OldNames)
-			{
-			ARFilter.TagsAndValues.Add(GeneratedClassName, OldClassName.ToString());
-			}
-			}
-			*/
 		}
 	}
 
@@ -528,6 +535,12 @@ void UAssetManager::StartBulkScanning()
 	{
 		bIsBulkScanning = true;
 		NumberOfSpawnedNotifications = 0;
+
+		if (!WITH_EDITOR)
+		{
+			// Go into temporary caching mode to speed up class queries, not guaranteed safe in editor builds
+			GetAssetRegistry().SetTemporaryCachingMode(true);
+		}
 	}
 }
 
@@ -537,6 +550,13 @@ void UAssetManager::StopBulkScanning()
 	{
 		bIsBulkScanning = false;
 	}
+
+	if (!WITH_EDITOR)
+	{
+		// Leave temporary caching mode
+		GetAssetRegistry().SetTemporaryCachingMode(false);
+	}
+	
 	RebuildObjectReferenceList();
 }
 
@@ -2465,12 +2485,16 @@ bool UAssetManager::ShouldScanPrimaryAssetType(FPrimaryAssetTypeInfo& TypeInfo) 
 		return false;
 	}
 
-	if (!TypeInfo.FillRuntimeData())
+	bool bIsValid, bBaseClassWasLoaded;
+	TypeInfo.FillRuntimeData(bIsValid, bBaseClassWasLoaded);
+
+	if (bBaseClassWasLoaded)
 	{
-		return false;
+		// Had to load a class, leave temporary caching mode for future scans
+		GetAssetRegistry().SetTemporaryCachingMode(false);
 	}
 
-	return true;
+	return bIsValid;
 }
 
 void UAssetManager::ScanPrimaryAssetTypesFromConfig()
@@ -2494,6 +2518,11 @@ void UAssetManager::ScanPrimaryAssetTypesFromConfig()
 	}
 
 	StopBulkScanning();
+}
+
+void UAssetManager::ScanPrimaryAssetRulesFromConfig()
+{
+	const UAssetManagerSettings& Settings = GetSettings();
 
 	// Read primary asset rule overrides
 	for (const FPrimaryAssetRulesOverride& Override : Settings.PrimaryAssetRules)
@@ -2506,10 +2535,50 @@ void UAssetManager::ScanPrimaryAssetTypesFromConfig()
 
 		SetPrimaryAssetRules(Override.PrimaryAssetId, Override.Rules);
 	}
+
+	for (const FPrimaryAssetRulesCustomOverride& Override : Settings.CustomPrimaryAssetRules)
+	{
+		ApplyCustomPrimaryAssetRulesOverride(Override);
+	}
+}
+
+void UAssetManager::ApplyCustomPrimaryAssetRulesOverride(const FPrimaryAssetRulesCustomOverride& CustomOverride)
+{
+	TArray<FPrimaryAssetId> PrimaryAssets;
+	GetPrimaryAssetIdList(CustomOverride.PrimaryAssetType, PrimaryAssets);
+
+	for (FPrimaryAssetId PrimaryAssetId : PrimaryAssets)
+	{
+		if (DoesPrimaryAssetMatchCustomOverride(PrimaryAssetId, CustomOverride))
+		{
+			SetPrimaryAssetRules(PrimaryAssetId, CustomOverride.Rules);
+		}
+	}
+}
+
+bool UAssetManager::DoesPrimaryAssetMatchCustomOverride(FPrimaryAssetId PrimaryAssetId, const FPrimaryAssetRulesCustomOverride& CustomOverride) const
+{
+	if (!CustomOverride.FilterDirectory.Path.IsEmpty())
+	{
+		FSoftObjectPath AssetPath = GetPrimaryAssetPath(PrimaryAssetId);
+		FString PathString = AssetPath.ToString();
+
+		if (!PathString.Contains(CustomOverride.FilterDirectory.Path))
+		{
+			return false;
+		}
+	}
+
+	// Filter string must be checked by an override of this function
+
+	return true;
 }
 
 void UAssetManager::PostInitialAssetScan()
 {
+	// Don't apply rules until scanning is done
+	ScanPrimaryAssetRulesFromConfig();
+
 	bIsPrimaryAssetDirectoryCurrent = true;
 
 #if WITH_EDITOR
@@ -2984,7 +3053,7 @@ const TMap<int32, FAssetManagerChunkInfo>& UAssetManager::GetChunkManagementMap(
 
 void UAssetManager::ApplyPrimaryAssetLabels()
 {
-	// Load all of them off disk. Turn off string asset reference tracking to avoid them getting cooked
+	// Load all of them off disk. Turn off soft object path tracking to avoid them getting cooked
 	FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::NeverCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
 	TSharedPtr<FStreamableHandle> Handle = LoadPrimaryAssetsWithType(PrimaryAssetLabelType);
@@ -3011,26 +3080,53 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 	for (const FPrimaryAssetTypeInfo& TypeInfo : TypeList)
 	{
 		// Cook these types
-		TArray<FAssetData> AssetDataList;
-		GetPrimaryAssetDataList(TypeInfo.PrimaryAssetType, AssetDataList);
+		TArray<FPrimaryAssetId> AssetIdList;
+		GetPrimaryAssetIdList(TypeInfo.PrimaryAssetType, AssetIdList);
 
-		for (const FAssetData& AssetData : AssetDataList)
+		TArray<FName> AssetPackages;
+		for (const FPrimaryAssetId& PrimaryAssetId : AssetIdList)
 		{
-			EPrimaryAssetCookRule CookRule = GetPackageCookRule(AssetData.PackageName);
+			FAssetData AssetData;
+			if (GetPrimaryAssetData(PrimaryAssetId, AssetData))
+			{
+				// If this has an asset data, add that package name
+				AssetPackages.Add(AssetData.PackageName);
+			}
+			else
+			{
+				// If not, this may have bundles, so add those
+				TArray<FAssetBundleEntry> FoundEntries;
+				if (GetAssetBundleEntries(PrimaryAssetId, FoundEntries))
+				{
+					for (const FAssetBundleEntry& FoundEntry : FoundEntries)
+					{
+						for (const FSoftObjectPath& FoundReference : FoundEntry.BundleAssets)
+						{
+							FName PackageName = FName(*FoundReference.GetLongPackageName());
+							AssetPackages.AddUnique(PackageName);
+						}
+					}
+				}
+			}
+		}
+
+		for (FName PackageName : AssetPackages)
+		{
+			EPrimaryAssetCookRule CookRule = GetPackageCookRule(PackageName);
 
 			// Treat DevAlwaysCook as AlwaysCook, may get excluded in VerifyCanCookPackage
 			bool bAlwaysCook = (CookRule == EPrimaryAssetCookRule::AlwaysCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook);
-			bool bCanCook = VerifyCanCookPackage(AssetData.PackageName, false);
+			bool bCanCook = VerifyCanCookPackage(PackageName, false);
 
 			if (bAlwaysCook && bCanCook && !TypeInfo.bIsEditorOnly)
 			{
 				// If this is always cook, not excluded, and not editor only, cook it
-				PackagesToCook.AddUnique(AssetData.PackageName);
+				PackagesToCook.AddUnique(PackageName);
 			}
 			else if (!bCanCook)
 			{
 				// If this package cannot be cooked, add to exclusion list
-				PackagesToNeverCook.AddUnique(AssetData.PackageName);
+				PackagesToNeverCook.AddUnique(PackageName);
 			}
 		}
 	}
@@ -3212,8 +3308,17 @@ void UAssetManager::RefreshPrimaryAssetDirectory(bool bForceRefresh)
 		{
 			FPrimaryAssetTypeData& TypeData = TypePair.Value.Get();
 
-			// Rescan the runtime data, the class may have gotten changed by hot reload
-			if (!TypeData.Info.FillRuntimeData())
+			// Rescan the runtime data, the class may have gotten changed by hot reload or config changes
+			bool bIsValid, bBaseClassWasLoaded;
+			TypeData.Info.FillRuntimeData(bIsValid, bBaseClassWasLoaded);
+
+			if (bBaseClassWasLoaded)
+			{
+				// Had to load a class, leave temporary caching mode for future scans
+				GetAssetRegistry().SetTemporaryCachingMode(false);
+			}
+
+			if (!bIsValid)
 			{
 				continue;
 			}

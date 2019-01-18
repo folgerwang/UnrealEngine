@@ -17,12 +17,12 @@ using Tools.DotNETCommon;
 [Help("UEProjectName", "Optional name of the project we're gathering for (should match its .uproject file, eg QAGame).")]
 [Help("LocalizationProjectNames", "Comma separated list of the projects to gather text from.")]
 [Help("LocalizationBranch", "Optional suffix to use when uploading the new data to the localization provider.")]
-[Help("LocalizationProvider", "Optional localization provide override (default is OneSky).")]
+[Help("LocalizationProvider", "Optional localization provide override.")]
 [Help("LocalizationSteps", "Optional comma separated list of localization steps to perform [Download, Gather, Import, Export, Compile, GenerateReports, Upload] (default is all). Only valid for projects using a modular config.")]
 [Help("IncludePlugins", "Optional flag to include plugins from within the given UEProjectDirectory as part of the gather. This may optionally specify a comma separated list of the specific plugins to gather (otherwise all plugins will be gathered).")]
 [Help("ExcludePlugins", "Optional comma separated list of plugins to exclude from the gather.")]
 [Help("AdditionalCommandletArguments", "Optional arguments to pass to the gather process.")]
-class Localise : BuildCommand
+class Localize : BuildCommand
 {
 	private struct LocalizationBatch
 	{
@@ -75,7 +75,7 @@ class Localise : BuildCommand
 		var LocalizationProviderName = ParseParamValue("LocalizationProvider");
 		if (LocalizationProviderName == null)
 		{
-			LocalizationProviderName = "OneSky";
+			LocalizationProviderName = "";
 		}
 
 		var LocalizationSteps = new List<string>();
@@ -140,8 +140,11 @@ class Localise : BuildCommand
 			IReadOnlyList<PluginInfo> AllPlugins = Plugins.ReadPluginsFromDirectory(new DirectoryReference(PluginsRootDirectory), UEProjectName.Length == 0 ? PluginType.Engine : PluginType.Project);
 
 			// Add a batch for each plugin that meets our criteria
+			var AvailablePluginNames = new HashSet<string>();
 			foreach (var PluginInfo in AllPlugins)
 			{
+				AvailablePluginNames.Add(PluginInfo.Name);
+
 				bool ShouldIncludePlugin = (IncludePlugins.Count == 0 || IncludePlugins.Contains(PluginInfo.Name)) && !ExcludePlugins.Contains(PluginInfo.Name);
 				if (ShouldIncludePlugin && PluginInfo.Descriptor.LocalizationTargets != null && PluginInfo.Descriptor.LocalizationTargets.Length > 0)
 				{
@@ -155,6 +158,15 @@ class Localise : BuildCommand
 					}
 
 					LocalizationBatches.Add(new LocalizationBatch(UEProjectDirectory, RootRelativePluginPath, PluginInfo.Name, PluginTargetNames));
+				}
+			}
+
+			// If we had an explicit list of plugins to include, warn if any were missing
+			foreach (string PluginName in IncludePlugins)
+			{
+				if (!AvailablePluginNames.Contains(PluginName))
+				{
+					LogWarning("The plugin '{0}' specified by -IncludePlugins wasn't found and will be skipped.", PluginName);
 				}
 			}
 		}
@@ -276,7 +288,7 @@ class Localise : BuildCommand
 		{
 			EditorArguments += " -BuildMachine";
 		}
-		EditorArguments += " -Unattended";
+		EditorArguments += " -Unattended -LogLocalizationConflicts";
 
 		// Execute commandlet for each config in each project.
 		bool bLocCommandletFailed = false;
@@ -293,6 +305,7 @@ class Localise : BuildCommand
 
 			if (LocalizationConfigFiles.Count > 0)
 			{
+				var ProjectArgument = String.IsNullOrEmpty(UEProjectName) ? "" : String.Format("\"{0}\"", Path.Combine(RootWorkingDirectory, String.Format("{0}.uproject", UEProjectName)));
 				var CommandletArguments = String.Format("-config=\"{0}\"", String.Join(";", LocalizationConfigFiles));
 
 				if (!String.IsNullOrEmpty(AdditionalCommandletArguments))
@@ -300,7 +313,7 @@ class Localise : BuildCommand
 					CommandletArguments += " " + AdditionalCommandletArguments;
 				}
 
-				string Arguments = String.Format("{0} -run=GatherText {1} {2}", UEProjectName, EditorArguments, CommandletArguments);
+				string Arguments = String.Format("{0} -run=GatherText {1} {2}", ProjectArgument, EditorArguments, CommandletArguments);
 				LogInformation("Running localization commandlet: {0}", Arguments);
 				var StartTime = DateTime.UtcNow;
 				var RunResult = Run(EditorExe, Arguments, null, ERunOptions.Default | ERunOptions.NoLoggingOfRunCommand); // Disable logging of the run command as it will print the exit code which GUBP can pick up as an error (we do that ourselves below)
@@ -478,3 +491,8 @@ class Localise : BuildCommand
 		return AllFiles;
 	}
 }
+
+// Legacy alias
+class Localise : Localize
+{
+};

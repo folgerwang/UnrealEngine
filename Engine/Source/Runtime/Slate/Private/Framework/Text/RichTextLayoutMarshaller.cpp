@@ -38,6 +38,7 @@ void FRichTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout
 
 	TArray<FTextLineHighlight> LineHighlightsToAdd;
 	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>> CachedUnderlineHighlighters;
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextStrikeLineHighlighter>> CachedStrikeLineHighlighters;
 
 	// Iterate through parsed line results and create processed lines with runs.
 	for (int32 LineIndex = 0; LineIndex < LineParseResultsArray.Num(); ++LineIndex)
@@ -49,7 +50,7 @@ void FRichTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout
 
 		for (const FTextRunParseResults& RunParseResult : LineParseResults.Runs)
 		{
-			AppendRunsForText(LineIndex, RunParseResult, ProcessedString, DefaultTextStyle, ModelString, TargetTextLayout, Runs, LineHighlightsToAdd, CachedUnderlineHighlighters);
+			AppendRunsForText(LineIndex, RunParseResult, ProcessedString, DefaultTextStyle, ModelString, TargetTextLayout, Runs, LineHighlightsToAdd, CachedUnderlineHighlighters, CachedStrikeLineHighlighters);
 		}
 
 		LinesToAdd.Emplace(MoveTemp(ModelString), MoveTemp(Runs));
@@ -132,7 +133,8 @@ void FRichTextLayoutMarshaller::AppendRunsForText(
 	FTextLayout& TargetTextLayout,
 	TArray<TSharedRef<IRun>>& Runs,
 	TArray<FTextLineHighlight>& LineHighlights,
-	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters,
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextStrikeLineHighlighter>>& CachedStrikeLineHighlighters
 	)
 {
 	TSharedPtr< ISlateRun > Run;
@@ -180,6 +182,18 @@ void FRichTextLayoutMarshaller::AppendRunsForText(
 			}
 
 			LineHighlights.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+		}
+
+		if (!TextBlockStyle->StrikeBrush.GetResourceName().IsNone())
+		{
+			TSharedPtr<FSlateTextStrikeLineHighlighter> StrikeLineHighlighter = CachedStrikeLineHighlighters.FindRef(TextBlockStyle);
+			if (!StrikeLineHighlighter.IsValid())
+			{
+				StrikeLineHighlighter = FSlateTextStrikeLineHighlighter::Create(TextBlockStyle->StrikeBrush, TextBlockStyle->Font, TextBlockStyle->ColorAndOpacity, TextBlockStyle->ShadowOffset, TextBlockStyle->ShadowColorAndOpacity);
+				CachedStrikeLineHighlighters.Add(TextBlockStyle, StrikeLineHighlighter);
+			}
+
+			LineHighlights.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextStrikeLineHighlighter::DefaultZIndex, StrikeLineHighlighter.ToSharedRef()));
 		}
 	}
 

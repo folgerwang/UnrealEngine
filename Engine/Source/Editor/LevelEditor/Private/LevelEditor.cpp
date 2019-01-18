@@ -799,6 +799,10 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.Select2DLayerBelow,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::Select2DLayerDeltaAway_Clicked, 1)
 		);
+	ActionList.MapAction(
+		Commands.AlignBrushVerticesToGrid,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::AlignBrushVerticesToGrid_Execute)
+		);
 
 	bAlign = false;
 	bool bUseLineTrace = false;
@@ -1054,6 +1058,16 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.InvertSelection,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("ACTOR SELECT INVERT") ) )
 		);
+
+	ActionList.MapAction(
+		Commands.SelectImmediateChildren,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("ACTOR SELECT ALL CHILDREN") ) )
+	);
+
+	ActionList.MapAction(
+		Commands.SelectAllDescendants,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("ACTOR SELECT ALL DESCENDANTS") ) )
+	);
 
 	ActionList.MapAction(
 		Commands.SelectAllActorsOfSameClass,
@@ -1316,6 +1330,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.SeparatePolys,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("BRUSH SEPARATEPOLYS") ) )
 		);
+
 
 	ActionList.MapAction(
 		Commands.CreateBoundingBoxVolume,
@@ -1695,6 +1710,13 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetMaterialQualityLevel, (EMaterialQualityLevel::Type)EMaterialQualityLevel::High ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked, (EMaterialQualityLevel::Type)EMaterialQualityLevel::High ) );
+
+	ActionList.MapAction(
+		Commands.ToggleFeatureLevelPreview,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ToggleFeatureLevelPreview),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive),
+		FIsActionButtonVisible::CreateStatic(FLevelEditorActionCallbacks::IsPreviewModeButtonVisible));
 
 	ActionList.MapAction(
 		Commands.PreviewPlatformOverride_DefaultES2,

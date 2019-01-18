@@ -3,7 +3,6 @@
 #include "OnlineHotfixManager.h"
 #include "OnlineSubsystemUtils.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "Internationalization/Culture.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
 #include "Http.h"
@@ -97,9 +96,9 @@ namespace
 	 * If the file has version information it is compared with compatibility
 	 * If the file has NO version information it is assumed compatible
 	 *
-	 * @param InFilename name of the file to check 
+	 * @param InFilename name of the file to check
 	 * @param OutFilename name of file with version information stripped
-	 * 
+	 *
 	 * @return true if file is compatible, false otherwise
 	 */
 	bool IsCompatibleHotfixFile(const FString& InFilename, FString& OutFilename)
@@ -196,9 +195,6 @@ void UOnlineHotfixManager::Init()
 	TotalBytes = 0;
 	NumBytes = 0;
 	ChangedOrRemovedPakCount = 0;
-	// Build the name of the loc file that we'll care about
-	// It can change at runtime so build it just before fetching the data
-	GameLocName = DebugPrefix + FInternationalization::Get().GetCurrentCulture()->GetTwoLetterISOLanguageName() + TEXT("_Game.locres");
 	OnlineTitleFile = Online::GetTitleFileInterface(OSSName.Len() ? FName(*OSSName, FNAME_Find) : NAME_None);
 	if (OnlineTitleFile.IsValid())
 	{
@@ -272,7 +268,7 @@ struct FHotfixFileSortPredicate
 		{
 			// Non-ini files are applied last
 			int32 Priority = 50;
-			
+
 			if (InHotfixName.EndsWith(TEXT("INI")))
 			{
 				FString HotfixName, NetworkVersion;
@@ -433,7 +429,7 @@ void UOnlineHotfixManager::OnEnumerateFilesForAvailabilityComplete(bool bWasSucc
 	{
 		OnlineTitleFile->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateFilesForAvailabilityCompleteDelegateHandle);
 	}
-	
+
 	EHotfixResult Result = EHotfixResult::Failed;
 	if (bWasSuccessful)
 	{
@@ -506,9 +502,9 @@ void UOnlineHotfixManager::BuildHotfixFileListDeltas()
 	{
 		bool bFoundMatch = HotfixFileList.ContainsByPredicate(
 			[&LastHeader](const FCloudFileHeader& CurrentHeader)
-			{
-				return LastHeader.FileName == CurrentHeader.FileName;
-			});
+		{
+			return LastHeader.FileName == CurrentHeader.FileName;
+		});
 		if (!bFoundMatch)
 		{
 			// We've been removed so add to the removed list
@@ -649,7 +645,7 @@ void UOnlineHotfixManager::ApplyHotfix()
 
 void UOnlineHotfixManager::TriggerHotfixComplete(EHotfixResult HotfixResult)
 {
-	if( HotfixResult != EHotfixResult::Failed )
+	if (HotfixResult != EHotfixResult::Failed)
 	{
 		PatchAssetsFromIniFiles();
 	}
@@ -701,7 +697,7 @@ bool UOnlineHotfixManager::WantsHotfixProcessing(const FCloudFileHeader& FileHea
 	{
 		return FileHeader.FileName.Find(PlatformPrefix) != -1;
 	}
-	return FileHeader.FileName == GameLocName;
+	return false;
 }
 
 bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHeader)
@@ -732,12 +728,6 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 		{
 			UE_LOG(LogHotfixManager, Warning, TEXT("Failed to get contents of %s"), *FileHeader.FileName);
 		}
-	}
-	else if (Extension == TEXT("LOCRES"))
-	{
-		HotfixLocFile(FileHeader);
-		// Currently no failure case for this
-		bSuccess = true;
 	}
 	else if (Extension == TEXT("PAK"))
 	{
@@ -1021,14 +1011,6 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 	return true;
 }
 
-void UOnlineHotfixManager::HotfixLocFile(const FCloudFileHeader& FileHeader)
-{
-	const double StartTime = FPlatformTime::Seconds();
-	FString LocFilePath = FString::Printf(TEXT("%s/%s"), *GetCachedDirectory(), *FileHeader.DLName);
-	FTextLocalizationManager::Get().UpdateFromLocalizationResource(LocFilePath);
-	UE_LOG(LogHotfixManager, Log, TEXT("Updating loc from %s took %f seconds"), *FileHeader.FileName, FPlatformTime::Seconds() - StartTime);
-}
-
 bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 {
 	if (!FCoreDelegates::OnMountPak.IsBound())
@@ -1213,7 +1195,7 @@ void UOnlineHotfixManager::OnReadFileProgress(const FString& FileName, uint64 By
 UOnlineHotfixManager::FConfigFileBackup& UOnlineHotfixManager::BackupIniFile(const FString& IniName, const FConfigFile* ConfigFile)
 {
 	FString BackupIniName = GetConfigFileNamePath(GetStrippedConfigFileName(IniName));
-	if (FConfigFileBackup* Backup = IniBackups.FindByPredicate([&BackupIniName](const FConfigFileBackup& Entry){ return Entry.IniName == BackupIniName; }))
+	if (FConfigFileBackup* Backup = IniBackups.FindByPredicate([&BackupIniName](const FConfigFileBackup& Entry) { return Entry.IniName == BackupIniName; }))
 	{
 		// Only store one copy of each ini file, consisting of the original state
 		return *Backup;
@@ -1318,16 +1300,16 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 
 void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 {
-	UE_LOG( LogHotfixManager, Display, TEXT( "Checking for assets to be patched using data from 'AssetHotfix' section in the Game .ini file" ) );
+	UE_LOG(LogHotfixManager, Display, TEXT("Checking for assets to be patched using data from 'AssetHotfix' section in the Game .ini file"));
 
 	int32 TotalPatchableAssets = 0;
 	AssetsHotfixedFromIniFiles.Reset();
 
 	// Everything should be under the 'AssetHotfix' section in Game.ini
-	FConfigSection* AssetHotfixConfigSection = GConfig->GetSectionPrivate( TEXT( "AssetHotfix" ), false, true, GGameIni );
-	if( AssetHotfixConfigSection != nullptr )
+	FConfigSection* AssetHotfixConfigSection = GConfig->GetSectionPrivate(TEXT("AssetHotfix"), false, true, GGameIni);
+	if (AssetHotfixConfigSection != nullptr)
 	{
-		for( FConfigSection::TIterator It( *AssetHotfixConfigSection ); It; ++It )
+		for (FConfigSection::TIterator It(*AssetHotfixConfigSection); It; ++It)
 		{
 			++TotalPatchableAssets;
 
@@ -1341,9 +1323,9 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 
 			// Make sure the entry has a valid class name that we supprt
 			UClass* AssetClass = nullptr;
-			for( UClass* PatchableAssetClass : PatchableAssetClasses )
+			for (UClass* PatchableAssetClass : PatchableAssetClasses)
 			{
-				if( PatchableAssetClass && (It.Key() == PatchableAssetClass->GetFName()) )
+				if (PatchableAssetClass && (It.Key() == PatchableAssetClass->GetFName()))
 				{
 					AssetClass = PatchableAssetClass;
 					break;
@@ -1385,7 +1367,7 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 								// The hotfix line should be
 								//	+DataTable=<data table path>;TableUpdate;"<json data>"
 								//	+CurveTable=<curve table path>;TableUpdate;"<json data>"
-								
+
 								// We have to read json data as quoted string because tokenizing it creates extra unwanted characters.
 								FString JsonData;
 								if (FParse::QuotedString(*Tokens[2], JsonData))
@@ -1432,17 +1414,17 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 		}
 	}
 
-	if( TotalPatchableAssets == 0 )
+	if (TotalPatchableAssets == 0)
 	{
-		UE_LOG( LogHotfixManager, Display, TEXT( "No assets were found in the 'AssetHotfix' section in the Game .ini file.  No patching needed." ) );
+		UE_LOG(LogHotfixManager, Display, TEXT("No assets were found in the 'AssetHotfix' section in the Game .ini file.  No patching needed."));
 	}
-	else if( TotalPatchableAssets == AssetsHotfixedFromIniFiles.Num() )
+	else if (TotalPatchableAssets == AssetsHotfixedFromIniFiles.Num())
 	{
-		UE_LOG( LogHotfixManager, Display, TEXT( "Successfully patched all %i assets from the 'AssetHotfix' section in the Game .ini file.  These assets will be forced to remain loaded." ), AssetsHotfixedFromIniFiles.Num() );
+		UE_LOG(LogHotfixManager, Display, TEXT("Successfully patched all %i assets from the 'AssetHotfix' section in the Game .ini file.  These assets will be forced to remain loaded."), AssetsHotfixedFromIniFiles.Num());
 	}
 	else
 	{
-		UE_LOG( LogHotfixManager, Error, TEXT( "Only %i of %i assets were successfully patched from 'AssetHotfix' section in the Game .ini file.  The patched assets will be forced to remain loaded.  Any assets that failed to patch may be left in an invalid state!" ), AssetsHotfixedFromIniFiles.Num(), TotalPatchableAssets );
+		UE_LOG(LogHotfixManager, Error, TEXT("Only %i of %i assets were successfully patched from 'AssetHotfix' section in the Game .ini file.  The patched assets will be forced to remain loaded.  Any assets that failed to patch may be left in an invalid state!"), AssetsHotfixedFromIniFiles.Num(), TotalPatchableAssets);
 	}
 }
 
@@ -1485,17 +1467,17 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 			UStrProperty* StrProp = Cast<UStrProperty>(DataTableRowProperty);
 			UNameProperty* NameProp = Cast<UNameProperty>(DataTableRowProperty);
 			USoftObjectProperty* SoftObjProp = Cast<USoftObjectProperty>(DataTableRowProperty);
-			
+
 			// Get the row data by name.
 			static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
 			FTableRowBase* DataTableRow = DataTable->FindRow<FTableRowBase>(FName(*RowName), Context);
 			if (DataTableRow)
 			{
-				// Numeric property
-				if (NumProp)
+				uint8* RowData = DataTableRowProperty->ContainerPtrToValuePtr<uint8>(DataTableRow, 0);
+				if (RowData)
 				{
-					void* RowData = NumProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
-					if (RowData)
+					// Numeric property
+					if (NumProp)
 					{
 						if (NewValue.IsNumeric())
 						{
@@ -1525,18 +1507,8 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 							ProblemStrings.Add(Problem);
 						}
 					}
-					// Row data wasn't found.
-					else
-					{
-						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
-						ProblemStrings.Add(Problem);
-					}
-				}
-				// String property
-				else if (StrProp)
-				{
-					void* RowData = StrProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
-					if (RowData)
+										// String property
+					else if (StrProp)
 					{
 						const FString OldPropertyValue = StrProp->GetPropertyValue(RowData);
 						const FString NewPropertyValue = NewValue;
@@ -1544,18 +1516,8 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 						bWasDataTableChanged = true;
 						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue, *NewPropertyValue);
 					}
-					// Row data wasn't found.
-					else
-					{
-						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
-						ProblemStrings.Add(Problem);
-					}
-				}
-				// FName property
-				else if (NameProp)
-				{
-					void* RowData = NameProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
-					if (RowData)
+					// FName property
+					else if (NameProp)
 					{
 						const FName OldPropertyValue = NameProp->GetPropertyValue(RowData);
 						const FName NewPropertyValue = FName(*NewValue);
@@ -1563,18 +1525,8 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 						bWasDataTableChanged = true;
 						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue.ToString(), *NewPropertyValue.ToString());
 					}
-					// Row data wasn't found.
-					else
-					{
-						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
-						ProblemStrings.Add(Problem);
-					}
-				}
-				// Soft Object property
-				else if (SoftObjProp)
-				{
-					void* RowData = SoftObjProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
-					if (RowData)
+					// Soft Object property
+					else if (SoftObjProp)
 					{
 						const UObject* OldPropertyValue = SoftObjProp->GetObjectPropertyValue(RowData);
 						UObject* NewPropertyValue = LoadObject<UObject>(nullptr, *NewValue);
@@ -1582,17 +1534,24 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 						bWasDataTableChanged = true;
 						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue->GetFullName(), *NewPropertyValue->GetFullName());
 					}
-					// Row data wasn't found.
+					// Not an expected property.
 					else
 					{
-						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
-						ProblemStrings.Add(Problem);
+						// we'll make one last attempt here
+						FString Error = DataTableUtils::AssignStringToProperty(NewValue, DataTableRowProperty, (uint8*)DataTableRow);
+
+						if (Error.Len() > 0)
+						{
+							const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a UNumericProperty, UStrProperty, UNameProperty, or USoftObjectProperty and it should be."), *ColumnName));
+							ProblemStrings.Add(Problem);
+							ProblemStrings.Add(FString::Printf(TEXT("%s"), *Error));
+						}
 					}
 				}
-				// Not an expected property.
+				// Row data wasn't found.
 				else
 				{
-					const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a UNumericProperty, UStrProperty, UNameProperty, or USoftObjectProperty and it should be."), *ColumnName));
+					const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
 					ProblemStrings.Add(Problem);
 				}
 			}
@@ -1623,8 +1582,8 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 		{
 			// Get the row data by name.
 			static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
-			FRichCurve* CurveTableRow = CurveTable->FindCurve(FName(*RowName), Context);
-			
+			FRealCurve* CurveTableRow = CurveTable->FindCurve(FName(*RowName), Context);
+
 			if (CurveTableRow)
 			{
 				// Edit the row with the new value.

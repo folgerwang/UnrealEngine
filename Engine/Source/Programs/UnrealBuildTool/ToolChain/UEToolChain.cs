@@ -22,26 +22,23 @@ namespace UnrealBuildTool
 			CppPlatform = InCppPlatform;
 		}
 
-		public virtual void PrintVersionInfo()
+		public virtual string GetVersionInfo()
 		{
+			return null;
 		}
 
-		public virtual void DoLocalToRemoteFileItem(FileItem LocalFileItem)
-		{
-		}
+		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, List<Action> Actions);
 
-		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph);
-
-		public virtual CPPOutput CompileRCFiles(CppCompileEnvironment Environment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
+		public virtual CPPOutput CompileRCFiles(CppCompileEnvironment Environment, List<FileItem> InputFiles, DirectoryReference OutputDir, List<Action> Actions)
 		{
 			CPPOutput Result = new CPPOutput();
 			return Result;
 		}
 
-		public abstract FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph);
-		public virtual FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
+		public abstract FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions);
+		public virtual FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
 		{
-			return new FileItem[] { LinkFiles(LinkEnvironment, bBuildImportLibraryOnly, ActionGraph) };
+			return new FileItem[] { LinkFiles(LinkEnvironment, bBuildImportLibraryOnly, Actions) };
 		}
 
 
@@ -57,17 +54,12 @@ namespace UnrealBuildTool
 			return FileReference.Combine(LinkEnvironment.IntermediateDirectory, OutputFile.Location.GetFileName() + ".response");
 		}
 
-		public virtual ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment ExecutableLinkEnvironment, ActionGraph ActionGraph)
+		public virtual ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment ExecutableLinkEnvironment, List<Action> Actions)
 		{
 			return new List<FileItem>();
 		}
 
 		public virtual void SetUpGlobalEnvironment(ReadOnlyTargetRules Target)
-		{
-			ParseProjectSettings();
-		}
-
-		public virtual void ParseProjectSettings()
 		{
 		}
 
@@ -75,7 +67,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public virtual void FinalizeOutput(ReadOnlyTargetRules Target, List<FileItem> OutputItems, ActionGraph ActionGraph)
+		public virtual void FinalizeOutput(ReadOnlyTargetRules Target, TargetMakefile Makefile)
 		{
 		}
 
@@ -89,33 +81,7 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		protected virtual void AddPrerequisiteSourceFile(CppCompileEnvironment CompileEnvironment, FileItem SourceFile, List<FileItem> PrerequisiteItems)
-		{
-			PrerequisiteItems.Add(SourceFile);
-
-			if (!CompileEnvironment.Headers.bUseUBTMakefiles)	// In fast build iteration mode, we'll gather includes later on
-			{
-				// @todo ubtmake: What if one of the prerequisite files has become missing since it was updated in our cache? (usually, because a coder eliminated the source file)
-				//		-> Two CASES:
-				//				1) NOT WORKING: Non-unity file went away (SourceFile in this context).  That seems like an existing old use case.  Compile params or Response file should have changed?
-				//				2) WORKING: Indirect file went away (unity'd original source file or include).  This would return a file that no longer exists and adds to the prerequiteitems list
-				List<FileItem> IncludedFileList = CompileEnvironment.Headers.FindAndCacheAllIncludedFiles(SourceFile, CompileEnvironment.IncludePaths, bOnlyCachedDependencies: false);
-				if (IncludedFileList != null)
-				{
-					foreach (FileItem IncludedFile in IncludedFileList)
-					{
-						PrerequisiteItems.Add(IncludedFile);
-					}
-				}
-			}
-		}
-
 		public virtual void SetupBundleDependencies(List<UEBuildBinary> Binaries, string GameName)
-		{
-
-		}
-
-		public virtual void FixBundleBinariesPaths(UEBuildTarget Target, List<UEBuildBinary> Binaries)
 		{
 
 		}

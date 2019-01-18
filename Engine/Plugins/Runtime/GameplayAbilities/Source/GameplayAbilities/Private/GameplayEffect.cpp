@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayEffect.h"
 #include "TimerManager.h"
@@ -29,6 +29,16 @@ const float UGameplayEffect::NO_PERIOD = FGameplayEffectConstants::NO_PERIOD;
 const float UGameplayEffect::INVALID_LEVEL = FGameplayEffectConstants::INVALID_LEVEL;
 
 DECLARE_CYCLE_STAT(TEXT("MakeQuery"), STAT_MakeGameplayEffectQuery, STATGROUP_AbilitySystem);
+
+#if WITH_EDITOR
+#define GETCURVE_REPORTERROR_WITHPOSTLOAD(Handle) \
+	if (Handle.CurveTable) const_cast<UCurveTable*>(Handle.CurveTable)->ConditionalPostLoad(); \
+	GETCURVE_REPORTERROR(Handle);
+
+#define GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(Handle, PathNameString) \
+	if (Handle.CurveTable) const_cast<UCurveTable*>(Handle.CurveTable)->ConditionalPostLoad(); \
+	GETCURVE_REPORTERROR_WITHPATHNAME(Handle, PathNameString);
+#endif // WITH_EDITOR
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------
 //
@@ -89,8 +99,8 @@ void UGameplayEffect::PostLoad()
 	HasGrantedApplicationImmunityQuery = !GrantedApplicationImmunityQuery.IsEmpty();
 
 #if WITH_EDITOR
-	GETCURVE_REPORTERROR(Period.Curve);
-	GETCURVE_REPORTERROR(ChanceToApplyToTarget.Curve);
+	GETCURVE_REPORTERROR_WITHPOSTLOAD(Period.Curve);
+	GETCURVE_REPORTERROR_WITHPOSTLOAD(ChanceToApplyToTarget.Curve);
 	DurationMagnitude.ReportErrors(GetPathName());
 #endif // WITH_EDITOR
 
@@ -567,19 +577,19 @@ void FGameplayEffectModifierMagnitude::ReportErrors(const FString& PathName) con
 {
 	if (MagnitudeCalculationType == EGameplayEffectMagnitudeCalculation::ScalableFloat)
 	{
-		GETCURVE_REPORTERROR_WITHPATHNAME(ScalableFloatMagnitude.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(ScalableFloatMagnitude.Curve, PathName);
 	}
 	else if (MagnitudeCalculationType == EGameplayEffectMagnitudeCalculation::AttributeBased)
 	{
-		GETCURVE_REPORTERROR_WITHPATHNAME(AttributeBasedMagnitude.Coefficient.Curve, PathName);
-		GETCURVE_REPORTERROR_WITHPATHNAME(AttributeBasedMagnitude.PreMultiplyAdditiveValue.Curve, PathName);
-		GETCURVE_REPORTERROR_WITHPATHNAME(AttributeBasedMagnitude.PostMultiplyAdditiveValue.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(AttributeBasedMagnitude.Coefficient.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(AttributeBasedMagnitude.PreMultiplyAdditiveValue.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(AttributeBasedMagnitude.PostMultiplyAdditiveValue.Curve, PathName);
 	}
 	else if (MagnitudeCalculationType == EGameplayEffectMagnitudeCalculation::CustomCalculationClass)
 	{
-		GETCURVE_REPORTERROR_WITHPATHNAME(CustomMagnitude.Coefficient.Curve, PathName);
-		GETCURVE_REPORTERROR_WITHPATHNAME(CustomMagnitude.PreMultiplyAdditiveValue.Curve, PathName);
-		GETCURVE_REPORTERROR_WITHPATHNAME(CustomMagnitude.PostMultiplyAdditiveValue.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(CustomMagnitude.Coefficient.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(CustomMagnitude.PreMultiplyAdditiveValue.Curve, PathName);
+		GETCURVE_REPORTERROR_WITHPATHNAME_WITHPOSTLOAD(CustomMagnitude.PostMultiplyAdditiveValue.Curve, PathName);
 	}
 }
 #endif // WITH_EDITOR
@@ -2030,37 +2040,13 @@ void FActiveGameplayEffectsContainer::ExecuteActiveEffectsFrom(FGameplayEffectSp
 void FActiveGameplayEffectsContainer::ExecutePeriodicGameplayEffect(FActiveGameplayEffectHandle Handle)
 {
 	GAMEPLAYEFFECT_SCOPE_LOCK();
+
 	FActiveGameplayEffect* ActiveEffect = GetActiveGameplayEffect(Handle);
-	if (ActiveEffect && !ActiveEffect->bIsInhibited)
+
+	if (ActiveEffect != nullptr)
 	{
-		FScopeCurrentGameplayEffectBeingApplied ScopedGEApplication(&ActiveEffect->Spec, Owner);
-
-		if (UE_LOG_ACTIVE(VLogAbilitySystem, Log))
-		{
-			ABILITY_VLOG(Owner->OwnerActor, Log, TEXT("Executed Periodic Effect %s"), *ActiveEffect->Spec.Def->GetFName().ToString());
-			for (FGameplayModifierInfo Modifier : ActiveEffect->Spec.Def->Modifiers)
-			{
-				float Magnitude = 0.f;
-				Modifier.ModifierMagnitude.AttemptCalculateMagnitude(ActiveEffect->Spec, Magnitude);
-				ABILITY_VLOG(Owner->OwnerActor, Log, TEXT("         %s: %s %f"), *Modifier.Attribute.GetName(), *EGameplayModOpToString(Modifier.ModifierOp), Magnitude);
-			}
-		}
-
-		// Clear modified attributes before each periodic execution
-		ActiveEffect->Spec.ModifiedAttributes.Empty();
-
-		// Execute
-		ExecuteActiveEffectsFrom(ActiveEffect->Spec);
-
-		// Invoke Delegates for periodic effects being executed
-		UAbilitySystemComponent* SourceASC = ActiveEffect->Spec.GetContext().GetInstigatorAbilitySystemComponent();
-		Owner->OnPeriodicGameplayEffectExecuteOnSelf(SourceASC, ActiveEffect->Spec, Handle);
-		if (SourceASC)
-		{
-			SourceASC->OnPeriodicGameplayEffectExecuteOnTarget(Owner, ActiveEffect->Spec, Handle);
-		}
+		InternalExecutePeriodicGameplayEffect(*ActiveEffect);
 	}
-
 }
 
 FActiveGameplayEffect* FActiveGameplayEffectsContainer::GetActiveGameplayEffect(const FActiveGameplayEffectHandle Handle)
@@ -2561,10 +2547,12 @@ void FActiveGameplayEffectsContainer::InternalUpdateNumericalAttribute(FGameplay
 void FActiveGameplayEffectsContainer::SetAttributeBaseValue(FGameplayAttribute Attribute, float NewBaseValue)
 {
 	const UAttributeSet* Set = Owner->GetAttributeSubobject(Attribute.GetAttributeSetClass());
-	if (ensure(Set))
+	if (!ensureMsgf(Set, TEXT("FActiveGameplayEffectsContainer::SetAttributeBaseValue: Unable to get attribute set for attribute %s"), *Attribute.AttributeName))
 	{
-		Set->PreAttributeBaseChange(Attribute, NewBaseValue);
+		return;
 	}
+
+	Set->PreAttributeBaseChange(Attribute, NewBaseValue);
 
 	// if we're using the new attributes we should always update their base value
 	bool bIsGameplayAttributeDataProperty = FGameplayAttribute::IsGameplayAttributeDataProperty(Attribute.GetUProperty());
@@ -2596,29 +2584,36 @@ void FActiveGameplayEffectsContainer::SetAttributeBaseValue(FGameplayAttribute A
 float FActiveGameplayEffectsContainer::GetAttributeBaseValue(FGameplayAttribute Attribute) const
 {
 	float BaseValue = 0.f;
-	const FAggregatorRef* RefPtr = AttributeAggregatorMap.Find(Attribute);
-	// if this attribute is of type FGameplayAttributeData then use the base value stored there
-	if (FGameplayAttribute::IsGameplayAttributeDataProperty(Attribute.GetUProperty()))
+	if (Owner)
 	{
-		const UStructProperty* StructProperty = Cast<UStructProperty>(Attribute.GetUProperty());
-		check(StructProperty);
-		const UAttributeSet* AttributeSet = Owner->GetAttributeSubobject(Attribute.GetAttributeSetClass());
-		ensure(AttributeSet);
-		const FGameplayAttributeData* DataPtr = StructProperty->ContainerPtrToValuePtr<FGameplayAttributeData>(AttributeSet);
-		if (DataPtr)
+		const FAggregatorRef* RefPtr = AttributeAggregatorMap.Find(Attribute);
+		// if this attribute is of type FGameplayAttributeData then use the base value stored there
+		if (FGameplayAttribute::IsGameplayAttributeDataProperty(Attribute.GetUProperty()))
 		{
-			BaseValue = DataPtr->GetBaseValue();
+			const UStructProperty* StructProperty = Cast<UStructProperty>(Attribute.GetUProperty());
+			check(StructProperty);
+			const UAttributeSet* AttributeSet = Owner->GetAttributeSubobject(Attribute.GetAttributeSetClass());
+			ensure(AttributeSet);
+			const FGameplayAttributeData* DataPtr = StructProperty->ContainerPtrToValuePtr<FGameplayAttributeData>(AttributeSet);
+			if (DataPtr)
+			{
+				BaseValue = DataPtr->GetBaseValue();
+			}
+		}
+		// otherwise, if we have an aggregator use the base value in the aggregator
+		else if (RefPtr)
+		{
+			BaseValue = RefPtr->Get()->GetBaseValue();
+		}
+		// if the attribute is just a float and there is no aggregator then the base value is the current value
+		else
+		{
+			BaseValue = Owner->GetNumericAttribute(Attribute);
 		}
 	}
-	// otherwise, if we have an aggregator use the base value in the aggregator
-	else if (RefPtr)
-	{
-		BaseValue = RefPtr->Get()->GetBaseValue();
-	}
-	// if the attribute is just a float and there is no aggregator then the base value is the current value
 	else
 	{
-		BaseValue = Owner->GetNumericAttribute(Attribute);
+		UE_LOG(LogGameplayEffects, Warning, TEXT("No Owner for FActiveGameplayEffectsContainer in GetAttributeBaseValue"));
 	}
 
 	return BaseValue;
@@ -3176,6 +3171,40 @@ bool FActiveGameplayEffectsContainer::RemoveActiveGameplayEffect(FActiveGameplay
 	return false;
 }
 
+void FActiveGameplayEffectsContainer::InternalExecutePeriodicGameplayEffect(FActiveGameplayEffect& ActiveEffect)
+{
+	GAMEPLAYEFFECT_SCOPE_LOCK();	
+	if (!ActiveEffect.bIsInhibited)
+	{
+		FScopeCurrentGameplayEffectBeingApplied ScopedGEApplication(&ActiveEffect.Spec, Owner);
+
+		if (UE_LOG_ACTIVE(VLogAbilitySystem, Log))
+		{
+			ABILITY_VLOG(Owner->OwnerActor, Log, TEXT("Executed Periodic Effect %s"), *ActiveEffect.Spec.Def->GetFName().ToString());
+			for (FGameplayModifierInfo Modifier : ActiveEffect.Spec.Def->Modifiers)
+			{
+				float Magnitude = 0.f;
+				Modifier.ModifierMagnitude.AttemptCalculateMagnitude(ActiveEffect.Spec, Magnitude);
+				ABILITY_VLOG(Owner->OwnerActor, Log, TEXT("         %s: %s %f"), *Modifier.Attribute.GetName(), *EGameplayModOpToString(Modifier.ModifierOp), Magnitude);
+			}
+		}
+
+		// Clear modified attributes before each periodic execution
+		ActiveEffect.Spec.ModifiedAttributes.Empty();
+
+		// Execute
+		ExecuteActiveEffectsFrom(ActiveEffect.Spec);
+
+		// Invoke Delegates for periodic effects being executed
+		UAbilitySystemComponent* SourceASC = ActiveEffect.Spec.GetContext().GetInstigatorAbilitySystemComponent();
+		Owner->OnPeriodicGameplayEffectExecuteOnSelf(SourceASC, ActiveEffect.Spec, ActiveEffect.Handle);
+		if (SourceASC)
+		{
+			SourceASC->OnPeriodicGameplayEffectExecuteOnTarget(Owner, ActiveEffect.Spec, ActiveEffect.Handle);
+		}
+	}
+}
+
 /** Called by server to actually remove a GameplayEffect */
 bool FActiveGameplayEffectsContainer::InternalRemoveActiveGameplayEffect(int32 Idx, int32 StacksToRemove, bool bPrematureRemoval)
 {
@@ -3597,7 +3626,14 @@ void FActiveGameplayEffectsContainer::OnOwnerTagChange(FGameplayTag TagChange, i
 		GAMEPLAYEFFECT_SCOPE_LOCK();
 
 		FGameplayTagContainer OwnerTags;
-		Owner->GetOwnedGameplayTags(OwnerTags);
+		if (Owner)
+		{
+			Owner->GetOwnedGameplayTags(OwnerTags);
+		}
+		else
+		{
+			UE_LOG(LogGameplayEffects, Warning, TEXT("No Owner for FActiveGameplayEffectsContainer in OnOwnerTagChange"));
+		}
 
 		TSet<FActiveGameplayEffectHandle>& Handles = *Ptr;
 		for (const FActiveGameplayEffectHandle& Handle : Handles)
@@ -3809,21 +3845,11 @@ void FActiveGameplayEffectsContainer::CheckDuration(FActiveGameplayEffectHandle 
 					float PeriodTimeRemaining = TimerManager.GetTimerRemaining(Effect.PeriodHandle);
 					if (PeriodTimeRemaining <= KINDA_SMALL_NUMBER && !Effect.bIsInhibited)
 					{
-						FScopeCurrentGameplayEffectBeingApplied ScopedGEApplication(&Effect.Spec, Owner);
+						InternalExecutePeriodicGameplayEffect(Effect);
 
-						ExecuteActiveEffectsFrom(Effect.Spec);
-
-						// Invoke Delegates for periodic effects being executed
-						UAbilitySystemComponent* SourceASC = Effect.Spec.GetContext().GetInstigatorAbilitySystemComponent();
-						Owner->OnPeriodicGameplayEffectExecuteOnSelf(SourceASC, Effect.Spec, Handle);
-						if (SourceASC)
-						{
-							SourceASC->OnPeriodicGameplayEffectExecuteOnTarget(Owner, Effect.Spec, Handle);
-						}
-
-						// The above call to ExecuteActiveEffectsFrom could cause this effect to be explicitly removed
+						// The call to ExecuteActiveEffectsFrom in InternalExecutePeriodicGameplayEffect could cause this effect to be explicitly removed
 						// (for example it could kill the owner and cause the effect to be wiped via death).
-						// In that case, we need to early out instead of possibly continueing to the below calls to InternalRemoveActiveGameplayEffect
+						// In that case, we need to early out instead of possibly continuing to the below calls to InternalRemoveActiveGameplayEffect
 						if ( Effect.IsPendingRemove )
 						{
 							break;

@@ -83,6 +83,11 @@ FString UKismetSystemLibrary::GetClassDisplayName(UClass* Class)
 	return Class ? Class->GetName() : FString();
 }
 
+UObject* UKismetSystemLibrary::GetOuterObject(const UObject* Object)
+{
+	return Object ? Object->GetOuter() : nullptr;
+}
+
 FString UKismetSystemLibrary::GetEngineVersion()
 {
 	return FEngineVersion::Current().ToString();
@@ -303,7 +308,7 @@ void UKismetSystemLibrary::ExecuteConsoleCommand(UObject* WorldContextObject, co
 	}
 }
 
-float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextObject, const FString& VariableName)
+float UKismetSystemLibrary::GetConsoleVariableFloatValue(const FString& VariableName)
 {
 	float Value = 0.0f;
 
@@ -320,7 +325,7 @@ float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextOb
 	return Value;
 }
 
-int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObject, const FString& VariableName)
+int32 UKismetSystemLibrary::GetConsoleVariableIntValue(const FString& VariableName)
 {
 	int32 Value = 0;
 
@@ -337,7 +342,10 @@ int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObje
 	return Value;
 }
 
-
+bool UKismetSystemLibrary::GetConsoleVariableBoolValue(const FString& VariableName)
+{
+	return (GetConsoleVariableIntValue(VariableName) != 0);
+}
 
 
 void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions)
@@ -789,6 +797,18 @@ void UKismetSystemLibrary::SetIntPropertyByName(UObject* Object, FName PropertyN
 	}
 }
 
+void UKismetSystemLibrary::SetInt64PropertyByName(UObject* Object, FName PropertyName, int64 Value)
+{
+	if (Object != NULL)
+	{
+		UInt64Property* IntProp = FindField<UInt64Property>(Object->GetClass(), PropertyName);
+		if (IntProp != NULL)
+		{
+			IntProp->SetPropertyValue_InContainer(Object, Value);
+		}
+	}
+}
+
 void UKismetSystemLibrary::SetBytePropertyByName(UObject* Object, FName PropertyName, uint8 Value)
 {
 	if(Object != NULL)
@@ -926,6 +946,11 @@ FSoftObjectPath UKismetSystemLibrary::MakeSoftObjectPath(const FString& PathStri
 void UKismetSystemLibrary::BreakSoftObjectPath(FSoftObjectPath InSoftObjectPath, FString& PathString)
 {
 	PathString = InSoftObjectPath.ToString();
+}
+
+TSoftObjectPtr<UObject> UKismetSystemLibrary::Conv_SoftObjPathToSoftObjRef(const FSoftObjectPath& SoftObjectPath)
+{
+	return TSoftObjectPtr<UObject>(SoftObjectPath);
 }
 
 FSoftClassPath UKismetSystemLibrary::MakeSoftClassPath(const FString& PathString)
@@ -2402,6 +2427,11 @@ bool UKismetSystemLibrary::IsControllerAssignedToGamepad(int32 ControllerId)
 	return FPlatformApplicationMisc::IsControllerAssignedToGamepad(ControllerId);
 }
 
+FString UKismetSystemLibrary::GetGamepadControllerName(int32 ControllerId)
+{
+	return FPlatformApplicationMisc::GetGamepadControllerName(ControllerId);
+}
+
 void UKismetSystemLibrary::SetSuppressViewportTransitionMessage(UObject* WorldContextObject, bool bState)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
@@ -2512,6 +2542,11 @@ void UKismetSystemLibrary::LoadAsset(UObject* WorldContextObject, TSoftObjectPtr
 		FLoadAssetAction* NewAction = new FLoadAssetAction(Asset.ToSoftObjectPath(), OnLoaded, LatentInfo);
 		LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
 	}
+}
+
+UObject* UKismetSystemLibrary::LoadAsset_Blocking(TSoftObjectPtr<UObject> Asset)
+{
+	return Asset.ToSoftObjectPath().TryLoad();
 }
 
 void UKismetSystemLibrary::LoadAssetClass(UObject* WorldContextObject, TSoftClassPtr<UObject> AssetClass, UKismetSystemLibrary::FOnAssetClassLoaded OnLoaded, FLatentActionInfo LatentInfo)

@@ -413,6 +413,10 @@ public:
 
 	void OnActorDormancyFlush(FActorRepListType Actor, FGlobalActorReplicationInfo& GlobalInfo);
 
+	void ConditionalGatherDormantDynamicActors(FActorRepListRefView& RepList, const FConnectionGatherActorListParameters& Params, FActorRepListRefView* RemovedList);
+
+	UReplicationGraphNode_ConnectionDormanyNode* GetConnectionNode(const FConnectionGatherActorListParameters& Params);
+
 private:
 
 	TMap<UNetReplicationGraphConnection*, UReplicationGraphNode_ConnectionDormanyNode*> ConnectionNodes;
@@ -439,6 +443,8 @@ public:
 	// Allow graph to override function for creating the dynamic node in the cell
 	TFunction<UReplicationGraphNode*(UReplicationGraphNode_GridCell* Parent)> CreateDynamicNodeOverride;
 
+	UReplicationGraphNode_DormancyNode* GetDormancyNode();
+
 private:
 
 	UPROPERTY()
@@ -448,7 +454,6 @@ private:
 	UReplicationGraphNode_DormancyNode* DormancyNode = nullptr;
 
 	UReplicationGraphNode* GetDynamicNode();
-	UReplicationGraphNode_DormancyNode* GetDormancyNode();
 
 	void OnActorDormancyFlush(FActorRepListType Actor, FGlobalActorReplicationInfo& GlobalInfo, UReplicationGraphNode_DormancyNode* DormancyNode );
 
@@ -669,13 +674,15 @@ USTRUCT()
 struct FTearOffActorInfo
 {
 	GENERATED_BODY()
-	FTearOffActorInfo() : TearOffFrameNum(0), Actor(nullptr) { }
-	FTearOffActorInfo(AActor* InActor, uint32 InTearOffFrameNum) : TearOffFrameNum(InTearOffFrameNum), Actor(InActor) { }
+	FTearOffActorInfo() : TearOffFrameNum(0), Actor(nullptr), bHasReppedOnce(false) { }
+	FTearOffActorInfo(AActor* InActor, uint32 InTearOffFrameNum) : TearOffFrameNum(InTearOffFrameNum), Actor(InActor), bHasReppedOnce(false) { }
 
 	uint32 TearOffFrameNum;
 
 	UPROPERTY()
 	AActor* Actor;
+
+	bool bHasReppedOnce;
 };
 
 /** Adds actors that are always relevant for a connection. This engine version just adds the PlayerController and ViewTarget (usually the pawn) */
@@ -692,7 +699,7 @@ public:
 	virtual void GatherActorListsForConnection(const FConnectionGatherActorListParameters& Params) override;
 	virtual void LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const override;
 
-	void NotifyTearOffActor(AActor* Actor, uint32 FrameNum) { TearOffActors.Emplace( Actor, FrameNum); }
+	void NotifyTearOffActor(AActor* Actor, uint32 FrameNum);
 
 	// Fixme: not safe to have persistent FActorRepListrefViews yet, so need a uproperty based list to hold the persistent items.
 	UPROPERTY()
@@ -951,8 +958,12 @@ public:
 	// ID that is assigned by the replication graph. Will be reassigned/compacted as clients disconnect. Useful for spacing out connection operations. E.g., not stable but always compact.
 	int32 ConnectionId; 
 
+	FVector LastGatherLocation;
+
 	/** Returns connection graph nodes. This is const so that you do not mutate the array itself. You should use AddConnectionGraphNode/RemoveConnectionGraphNode.  */
 	const TArray<UReplicationGraphNode*>& GetConnectionGraphNodes() { return ConnectionGraphNodes; }
+
+	virtual void NotifyAddDormantDestructionInfo(AActor* Actor) override;
 
 private:
 
@@ -991,6 +1002,8 @@ private:
 	bool PrepareForReplication();
 
 	int64 ReplicateDestructionInfos(const FVector& ConnectionViewLocation, const float DestructInfoMaxDistanceSquared);
+	
+	int64 ReplicateDormantDestructionInfos();
 
 	UPROPERTY()
 	TArray<UReplicationGraphNode*> ConnectionGraphNodes;
@@ -1010,6 +1023,16 @@ private:
 
 	TArray<FCachedDestructInfo> PendingDestructInfoList;
 	TSet<FActorDestructionInfo*> TrackedDestructionInfoPtrs; // Set used to guard against double adds into PendingDestructInfoList
+
+	struct FCachedDormantDestructInfo
+	{
+		TWeakObjectPtr<ULevel> Level;
+		TWeakObjectPtr<UObject> ObjOuter;
+		FNetworkGUID NetGUID;
+		FString PathName;
+	};
+
+	TArray<FCachedDormantDestructInfo> PendingDormantDestructList;
 };
 
 // --------------------------------------------------------------------------------------------------------------------------------------------

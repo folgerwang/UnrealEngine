@@ -48,7 +48,7 @@ enum ESoundFormat
 class FIOSAudioSoundBuffer : public FSoundBuffer
 {
 public:
-	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming);
+	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming, bool InProcedural);
 	virtual ~FIOSAudioSoundBuffer(void);
 
 	/**
@@ -83,7 +83,7 @@ public:
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
 	 * @return					Whether the sound looped or not
 	 */
-	virtual bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
+	virtual bool ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping ) override;
 	
 	
 	int32  RenderCallbackBufferSize;
@@ -95,6 +95,7 @@ public:
 	/** Wrapper to assist in the bookkeeping of uncompressed data when streaming */
 	class FADPCMAudioInfo*		DecompressionState;
 	bool	bStreaming;
+	bool    bIsProcedural;
 };
 
 /**
@@ -200,6 +201,7 @@ public:
 	AUGraph GetAudioUnitGraph() const { return AudioUnitGraph; }
 	AUNode GetMixerNode() const { return MixerNode; }
 	AudioUnit GetMixerUnit() const { return MixerUnit; }
+	AudioUnit GetOutputUnit() const { return OutputUnit; }
 
 	/** Thread context management */
 	virtual void ResumeContext();

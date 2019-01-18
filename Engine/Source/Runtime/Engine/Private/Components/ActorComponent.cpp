@@ -157,6 +157,8 @@ UActorComponent::UActorComponent(const FObjectInitializer& ObjectInitializer /*=
 	PrimaryComponentTick.bCanEverTick = false;
 	PrimaryComponentTick.SetTickFunctionEnable(false);
 
+	MarkedForEndOfFrameUpdateArrayIndex = INDEX_NONE;
+
 	CreationMethod = EComponentCreationMethod::Native;
 
 	bAllowReregistration = true;
@@ -196,6 +198,14 @@ void UActorComponent::PostInitProperties()
 		else
 		{
 			OwnerPrivate->AddOwnedComponent(this);
+		}
+	}
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
 		}
 	}
 }

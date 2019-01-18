@@ -85,7 +85,7 @@ namespace UnrealBuildTool
 		public static string[] GetIncludedFolderNames(UnrealTargetPlatform Platform)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
-			return BuildPlatform.GetIncludedFolderNames();
+			return BuildPlatform.GetIncludedFolderNames().ToArray();
 		}
 
 		/// <summary>
@@ -96,7 +96,7 @@ namespace UnrealBuildTool
 		public static string[] GetExcludedFolderNames(UnrealTargetPlatform Platform)
 		{
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
-			return BuildPlatform.GetExcludedFolderNames();
+			return BuildPlatform.GetExcludedFolderNames().ToArray();
 		}
 
 		/// <summary>
@@ -120,6 +120,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the path for the XGE console executable
+		/// </summary>
+		/// <param name="OutXgConsoleExe">On success, receives the path to the XGE console executable</param>
+		/// <returns>True if the path was found, false otherwise</returns>
+		public static bool TryGetXgConsoleExecutable(out string OutXgConsoleExe)
+		{
+			return XGE.TryGetXgConsoleExecutable(out OutXgConsoleExe);
+		}
+
+		/// <summary>
 		///
 		/// </summary>
 		public static void PreventAutoSDKSwitching()
@@ -139,20 +149,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Initialize UBT in the context of another host process (presumably UAT)
 		/// </summary>
-		/// <param name="bIsEngineInstalled">Whether the engine is installed</param>
 		/// <returns>True if initialization was successful</returns>
-		public static bool Initialize(bool bIsEngineInstalled)
+		public static bool Initialize()
 		{
-			UnrealBuildTool.SetIsEngineInstalled(bIsEngineInstalled);
-
 			// Read the XML configuration files
-			if(!XmlConfig.ReadConfigFiles(null))
-			{
-				return false;
-			}
+			XmlConfig.ReadConfigFiles(null);
 
 			// Register all the platform classes
-			UnrealBuildTool.RegisterAllUBTClasses(SDKOutputLevel.Quiet, false);
+			UEBuildPlatform.RegisterPlatforms(false);
 			return true;
 		}
 	}

@@ -82,7 +82,6 @@ extern CORE_API TCHAR GErrorHist[16384];
 
 // #crashReport: 2014-08-19 Combine into one, refactor.
 extern CORE_API TCHAR GErrorExceptionDescription[4096];
-extern CORE_API TCHAR GErrorMessage[4096];
 
 extern CORE_API const FText GTrue, GFalse, GYes, GNo, GNone;
 

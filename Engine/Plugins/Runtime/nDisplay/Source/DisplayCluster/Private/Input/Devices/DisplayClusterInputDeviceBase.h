@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "IDisplayClusterInputDevice.h"
-#include "DisplayClusterInputDeviceTraits.h"
+#include "Input/Devices/IDisplayClusterInputDevice.h"
+#include "Input/Devices/DisplayClusterInputDeviceTraits.h"
 #include "Misc/DisplayClusterLog.h"
 
 #include "CoreMinimal.h"

@@ -10,6 +10,7 @@ import android.os.Build;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
@@ -292,6 +293,112 @@ public class MediaPlayer14
 		catch(IOException e)
 		{
 			GameActivity.Log.debug("setDataSourceURL: Exception = " + e);
+			return false;
+		}
+		return true;
+	}
+
+	public native int nativeReadAt(long identifier, long position, java.nio.ByteBuffer buffer, int offset, int size);
+
+	public class PakDataSource extends MediaDataSource {
+		java.nio.ByteBuffer fileBuffer;
+		long identifier;
+		long fileSize;
+
+		public PakDataSource(long inIdentifier, long inFileSize)
+		{
+			fileBuffer = java.nio.ByteBuffer.allocateDirect(65536);
+			identifier = inIdentifier;
+			fileSize = inFileSize;
+		}
+
+		@Override
+		public synchronized int readAt(long position, byte[] buffer, int offset, int size) throws IOException
+		{
+			synchronized(fileBuffer)
+			{
+				//GameActivity.Log.debug("PDS: readAt(" + position + ", " + offset + ", " + size + ") bufferLen=" + buffer.length + ", fileBuffer.length=" + fileSize);
+				if (position >= fileSize)
+				{
+					return -1;  // EOF
+				}
+				if (position + size > fileSize)
+				{
+					size = (int)(fileSize - position);
+				}
+				if (size > 0)
+				{
+					int readBytes = nativeReadAt(identifier, position, fileBuffer, 0, size);
+					if (readBytes > 0)
+					{
+						System.arraycopy(fileBuffer.array(), fileBuffer.arrayOffset(), buffer, offset, readBytes);
+					}
+
+					return readBytes;
+				}
+				return 0;
+			}
+		}
+
+		@Override
+		public synchronized long getSize() throws IOException
+		{
+			//GameActivity.Log.debug("PDS: getSize() = " + fileSize);
+			return fileSize;
+		}
+
+		@Override
+		public synchronized void close() throws IOException
+		{
+			//GameActivity.Log.debug("PDS: close()");
+		}
+	}
+
+	public boolean setDataSourceArchive(
+		long identifier, long size)
+		throws IOException,
+			java.lang.InterruptedException,
+			java.util.concurrent.ExecutionException
+	{
+		synchronized(this)
+		{
+			Prepared = false;
+			Completed = false;
+		}
+		Looping = false;
+		AudioEnabled = true;
+		audioTracks.clear();
+		videoTracks.clear();
+
+		// Android 6.0 required for MediaDataSource
+		if (android.os.Build.VERSION.SDK_INT < 23)
+		{
+			return false;
+		}
+
+		try
+		{
+			PakDataSource dataSource = new PakDataSource(identifier, size);
+			setDataSource(dataSource);
+
+			releaseOESTextureRenderer();
+			releaseBitmapRenderer();
+
+			if (android.os.Build.VERSION.SDK_INT >= 16)
+			{
+				MediaExtractor extractor = new MediaExtractor();
+				if (extractor != null)
+				{
+					extractor.setDataSource(dataSource);
+					updateTrackInfo(extractor);
+					extractor.release();
+					extractor = null;
+				}
+			}
+		}
+		catch(IOException e)
+		{
+			GameActivity.Log.debug("setDataSource (archive): Exception = " + e);
 			return false;
 		}
 		return true;

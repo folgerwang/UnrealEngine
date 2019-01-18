@@ -306,7 +306,7 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 
 			if ( SoundWave->InitAudioResource( AudioDevice->GetRuntimeFormat( SoundWave ) ) && (SoundWave->DecompressionType != DTYPE_RealTime || SoundWave->CachedRealtimeFirstBuffer == nullptr ) )
 			{
-				FAsyncAudioDecompress TempDecompress(SoundWave);
+				FAsyncAudioDecompress TempDecompress(SoundWave, AudioDevice->NumPrecacheFrames);
 				TempDecompress.StartSynchronousTask();
 			}
 
@@ -330,8 +330,8 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 
 	// @todo Sequencer This fixes looping drawing by pretending we are only dealing with a SoundWave
 	TRange<double> AudioTrueRange = TRange<double>(
-		SectionStartTime - AudioSection->GetStartOffset(),
-		SectionStartTime - AudioSection->GetStartOffset() + DeriveUnloopedDuration(AudioSection) * (1.0f / PitchMultiplierValue));
+		SectionStartTime - FrameRate.AsSeconds(AudioSection->GetStartOffset()),
+		SectionStartTime - FrameRate.AsSeconds(AudioSection->GetStartOffset()) + DeriveUnloopedDuration(AudioSection) * (1.0f / PitchMultiplierValue));
 
 	float TrueRangeSize = AudioTrueRange.Size<float>();
 	float DrawRangeSize = DrawRange.Size<float>();
@@ -621,8 +621,8 @@ FAudioSection::FAudioSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer
 	, StoredDrawRange(TRange<float>::Empty())
 	, StoredSectionHeight(0.f)
 	, Sequencer(InSequencer)
-	, InitialStartOffsetDuringResize(0.f)
-	, InitialStartTimeDuringResize(0.f)
+	, InitialStartOffsetDuringResize(0)
+	, InitialStartTimeDuringResize(0)
 {
 }
 
@@ -734,24 +734,51 @@ void FAudioSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& Pa
 	}
 }
 
+void FAudioSection::BeginResizeSection()
+{
+	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
+	InitialStartOffsetDuringResize = AudioSection->GetStartOffset();
+	InitialStartTimeDuringResize = AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0;
+}
+
+void FAudioSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
+{
+	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
+
+	if (ResizeMode == SSRM_LeadingEdge && AudioSection)
+	{
+		FFrameNumber NewStartOffset = ResizeTime - InitialStartTimeDuringResize;
+		NewStartOffset += InitialStartOffsetDuringResize;
+
+		// Ensure start offset is not less than 0
+		if (NewStartOffset < 0)
+		{
+			ResizeTime = ResizeTime - NewStartOffset;
+			NewStartOffset = FFrameNumber(0);
+		}
+
+		AudioSection->SetStartOffset(NewStartOffset);
+	}
+
+	ISequencerSection::ResizeSection(ResizeMode, ResizeTime);
+}
+
 void FAudioSection::BeginSlipSection()
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 	InitialStartOffsetDuringResize = AudioSection->GetStartOffset();
-	InitialStartTimeDuringResize   = FFrameNumber(AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0) / AudioSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	InitialStartTimeDuringResize = AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0;
 }
 
-void FAudioSection::SlipSection(double SlipTime)
+void FAudioSection::SlipSection(FFrameNumber SlipTime)
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 
-	double StartOffset = (SlipTime - InitialStartTimeDuringResize);
-	StartOffset += InitialStartOffsetDuringResize;
+	FFrameNumber NewStartOffset = SlipTime - InitialStartTimeDuringResize;
+	NewStartOffset += InitialStartOffsetDuringResize;
 
 	// Ensure start offset is not less than 0
-	StartOffset = FMath::Max(StartOffset, 0.0);
-
-	AudioSection->SetStartOffset(StartOffset);
+	AudioSection->SetStartOffset(FMath::Max(NewStartOffset, FFrameNumber(0)));
 
 	ISequencerSection::SlipSection(SlipTime);
 }
@@ -956,7 +983,7 @@ TSharedPtr<SWidget> FAudioTrackEditor::BuildOutlinerEditWidget(const FGuid& Obje
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("AudioText", "Audio"), FOnGetContent::CreateSP(this, &FAudioTrackEditor::BuildAudioSubMenu, Track), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("AudioText", "Audio"), FOnGetContent::CreateSP(this, &FAudioTrackEditor::BuildAudioSubMenu, Track), Params.NodeIsHovered, GetSequencer())
 	];
 }
 

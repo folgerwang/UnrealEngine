@@ -284,10 +284,7 @@ void FUnixCrashContext::CaptureStackTrace()
 		ANSICHAR* StackTrace = (ANSICHAR*) FMemory::Malloc( StackTraceSize );
 		StackTrace[0] = 0;
 
-		// We use __builtin_return_address to save an address location to where our signal handler is called from
-		// We still need to ignore the first frame from pthreads which calls our signal handler, that is why we set it to one
-		// This may need to change something other then glibc is used
-		int32 IgnoreCount = 1;
+		int32 IgnoreCount = 0;
 		CapturePortableCallStack(IgnoreCount, this);
 
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)
@@ -550,23 +547,32 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 
 			if (bReportingNonCrash)
 			{
-				// If we're reporting non-crash, try to avoid spinning here and instead do that in the tick.
-				// However, if there was already a crash reporter running (i.e. we hit ensure() too quickly), take a hitch here
-				if (UnixCrashReporterTracker::CurrentTicker.IsValid())
+				// When running a dedicated server and we are reporting a non-crash and we are already in the process of uploading an ensure
+				// we will skip the upload to avoid hitching.
+				if (UnixCrashReporterTracker::CurrentTicker.IsValid() && IsRunningDedicatedServer())
 				{
-					// do not wait indefinitely, allow 45 second hitch (anticipating callstack parsing)
-					const double kEnsureTimeOut = 45.0;
-					const double kEnsureSleepInterval = 0.1;
-					if (!UnixCrashReporterTracker::WaitForProcWithTimeout(UnixCrashReporterTracker::CurrentlyRunningCrashReporter, kEnsureTimeOut, kEnsureSleepInterval))
+					UE_LOG(LogCore, Warning, TEXT("An ensure is already in the process of being uploaded, skipping upload."));
+				}
+				else
+				{
+					// If we're reporting non-crash, try to avoid spinning here and instead do that in the tick.
+					// However, if there was already a crash reporter running (i.e. we hit ensure() too quickly), take a hitch here
+					if (UnixCrashReporterTracker::CurrentTicker.IsValid())
 					{
-						FPlatformProcess::TerminateProc(UnixCrashReporterTracker::CurrentlyRunningCrashReporter);
+						// do not wait indefinitely, allow 45 second hitch (anticipating callstack parsing)
+						const double kEnsureTimeOut = 45.0;
+						const double kEnsureSleepInterval = 0.1;
+						if (!UnixCrashReporterTracker::WaitForProcWithTimeout(UnixCrashReporterTracker::CurrentlyRunningCrashReporter, kEnsureTimeOut, kEnsureSleepInterval))
+						{
+							FPlatformProcess::TerminateProc(UnixCrashReporterTracker::CurrentlyRunningCrashReporter);
+						}
+
+						UnixCrashReporterTracker::Tick(0.001f);	// tick one more time to make it clean up after itself
 					}
 
-					UnixCrashReporterTracker::Tick(0.001f);	// tick one more time to make it clean up after itself
+					UnixCrashReporterTracker::CurrentlyRunningCrashReporter = FPlatformProcess::CreateProc(RelativePathToCrashReporter, *CrashReportClientArguments, true, false, false, NULL, 0, NULL, NULL);
+					UnixCrashReporterTracker::CurrentTicker = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&UnixCrashReporterTracker::Tick), 1.f);
 				}
-
-				UnixCrashReporterTracker::CurrentlyRunningCrashReporter = FPlatformProcess::CreateProc(RelativePathToCrashReporter, *CrashReportClientArguments, true, false, false, NULL, 0, NULL, NULL);
-				UnixCrashReporterTracker::CurrentTicker = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&UnixCrashReporterTracker::Tick), 1.f);
 			}
 			else
 			{
@@ -642,6 +648,8 @@ void (* GCrashHandlerPointer)(const FGenericCrashContext & Context) = NULL;
 
 extern int32 CORE_API GMaxNumberFileMappingCache;
 
+extern thread_local const TCHAR* GAssertErrorMessage;
+
 /** True system-specific crash handler that gets called first */
 void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 {
@@ -656,7 +664,21 @@ void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 	// Once we crash we can no longer try to find cache files. This can cause a deadlock when crashing while having locked in that file cache
 	GMaxNumberFileMappingCache = 0;
 
-	FUnixCrashContext CrashContext;
+	ECrashContextType Type;
+	const TCHAR* ErrorMessage;
+
+	if (GAssertErrorMessage == nullptr)
+	{
+		Type = ECrashContextType::Crash;
+		ErrorMessage = TEXT("Caught signal");
+	}
+	else
+	{
+		Type = ECrashContextType::Assert;
+		ErrorMessage = GAssertErrorMessage;
+	}
+
+	FUnixCrashContext CrashContext(Type, ErrorMessage);
 	CrashContext.InitFromSignal(Signal, Info, Context);
 	CrashContext.FirstCrashHandlerFrame = static_cast<uint64*>(__builtin_return_address(0));
 

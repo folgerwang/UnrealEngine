@@ -22,6 +22,20 @@
 #define RECAST_NULL_AREA			0
 #define RECAST_UNWALKABLE_POLY_COST	FLT_MAX
 
+// If set, recast will use async workers for rebuilding tiles in runtime
+// All access to tile data must be guarded with critical sections
+#ifndef RECAST_ASYNC_REBUILDING
+#define RECAST_ASYNC_REBUILDING	1
+#endif
+
+//If set we will time slice the nav regen if RECAST_ASYNC_REBUILDING is 0
+#ifndef ALLOW_TIME_SLICE_NAV_REGEN
+#define ALLOW_TIME_SLICE_NAV_REGEN 0
+#endif
+
+//TIME_SLICE_NAV_REGEN must be 0 if we are async rebuilding recast
+#define TIME_SLICE_NAV_REGEN (ALLOW_TIME_SLICE_NAV_REGEN && !RECAST_ASYNC_REBUILDING)
+
 class FPImplRecastNavMesh;
 class FRecastQueryFilter;
 class INavLinkCustomInterface;
@@ -644,7 +658,12 @@ public:
 	
 	/** Returns compressed tile data at given tile coord */
 	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
-	
+
+	/** Gets the size of the compressed tile cache, this is slow */
+#if !UE_BUILD_SHIPPING
+	int32 GetCompressedTileCacheSize();
+#endif
+
 	void GetEdgesForPathCorridor(const TArray<NavNodeRef>* PathCorridor, TArray<struct FNavigationPortalEdge>* PathCorridorEdges) const;
 
 	void UpdateDrawing();

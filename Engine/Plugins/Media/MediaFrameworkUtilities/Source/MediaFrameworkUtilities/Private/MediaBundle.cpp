@@ -6,9 +6,12 @@
 #include "AssetToolsModule.h"
 #include "Editor.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "HAL/PlatformTime.h"
 #include "IAssetTools.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #endif
 
 #include "Engine/TextureRenderTarget2D.h"
@@ -22,6 +25,7 @@
 #include "Profile/IMediaProfileManager.h"
 #include "Profile/MediaProfile.h"
 
+#define LOCTEXT_NAMESPACE "MediaBundle"
 
 /* UMediaBundle
  *****************************************************************************/
@@ -36,6 +40,8 @@ UMediaBundle::UMediaBundle(const FObjectInitializer& ObjectInitializer)
 	DefaultMaterial = DefaultMaterialFinder.Object;
 	DefaultFailedTexture = DefaultFailedTextureFinder.Object;
 	DefaultActorClass = DefaultActorClassFinder.Class;
+
+	PreviousWarningTime = 0.0;
 #endif //WITH_EDITOR && WITH_EDITORONLY_DATA
 }
 
@@ -68,6 +74,21 @@ bool UMediaBundle::OpenMediaSource()
 					IMediaProfileManager::Get().OnMediaProfileChanged().AddUObject(this, &UMediaBundle::OnMediaProfileChanged);
 				}
 			}
+#if WITH_EDITOR && WITH_EDITORONLY_DATA
+			else if(GIsEditor)
+			{
+				const double TimeNow = FPlatformTime::Seconds();
+				const double TimeBetweenWarningsInSeconds = 3.0f;
+
+				if (TimeNow - PreviousWarningTime > TimeBetweenWarningsInSeconds)
+				{
+					FNotificationInfo NotificationInfo(LOCTEXT("MediaOpenFailedError", "The media failed to open. Check Output Log for details!"));
+					NotificationInfo.ExpireDuration = 2.0f;
+					FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+					PreviousWarningTime = TimeNow;
+				}
+			}
+#endif // WITH_EDITOR && WITH_EDITORONLY_DATA
 		}
 	}
 	return bResult;
@@ -273,3 +294,5 @@ void UMediaBundle::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 	}
 }
 #endif
+
+#undef LOCTEXT_NAMESPACE

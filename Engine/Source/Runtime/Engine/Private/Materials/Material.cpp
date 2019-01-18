@@ -71,6 +71,8 @@
 #include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveLinearColorAtlas.h"
+#include "HAL/ThreadHeartBeat.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "Material"
 
@@ -1179,10 +1181,9 @@ void UMaterial::OverrideVectorParameterDefault(const FMaterialParameterInfo& Par
 	bool bShouldRecacheMaterialExpressions = false;
 
 	FMaterialResource* Resource = GetMaterialResource(InFeatureLevel);
-	// Iterate over both the 2D textures and cube texture expressions.
 	const TArray<TRefCountPtr<FMaterialUniformExpression> >& UniformExpressions = Resource->GetUniformVectorParameterExpressions();
 
-	// Iterate over each of the material's texture expressions.
+	// Iterate over each of the material's vector expressions.
 	for (FMaterialUniformExpression* UniformExpression : UniformExpressions)
 	{
 		if (UniformExpression->GetType() == &FMaterialUniformExpressionVectorParameter::StaticType)
@@ -1299,15 +1300,16 @@ bool UMaterial::IsCompilingOrHadCompileError(ERHIFeatureLevel::Type InFeatureLev
 #if WITH_EDITOR
 bool UMaterial::SetVectorParameterValueEditorOnly(FName ParameterName, FLinearColor InValue)
 {
+	bool bSetNewValue = false;
+	UMaterialExpressionVectorParameter* Parameter = nullptr;
 	for (UMaterialExpression* Expression : Expressions)
 	{
-		if (UMaterialExpressionVectorParameter* Parameter = Cast<UMaterialExpressionVectorParameter>(Expression))
+		Parameter = Cast<UMaterialExpressionVectorParameter>(Expression);
+		if (Parameter && Parameter->SetParameterValue(ParameterName, InValue))
 		{
-			if (Parameter->SetParameterValue(ParameterName, InValue))
-			{
-				return true;
-				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
-			}
+			bSetNewValue = true;
+			break;
+			// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 		}
 		else if (UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
@@ -1328,29 +1330,41 @@ bool UMaterial::SetVectorParameterValueEditorOnly(FName ParameterName, FLinearCo
 							{
 								if (FunctionExpressionParameter->SetParameterValue(ParameterName, InValue))
 								{
-									return true;
+									bSetNewValue = true;
+									break;
 								}
 							}
 						}
+					}
+					if (bSetNewValue)
+					{
+						break;
 					}
 				}
 			}
 		}
 	}
-	return false;
+	if (bSetNewValue)
+	{
+		UProperty* ParamProperty = FindField<UProperty>(UMaterialExpressionVectorParameter::StaticClass(), GET_MEMBER_NAME_STRING_CHECKED(UMaterialExpressionVectorParameter, DefaultValue));
+		FPropertyChangedEvent PropertyChangedEvent(ParamProperty);
+		Parameter->PostEditChangeProperty(PropertyChangedEvent);
+	}
+	return bSetNewValue;
 }
 
 bool UMaterial::SetScalarParameterValueEditorOnly(FName ParameterName, float InValue)
 {
+	bool bSetNewValue = false;
+	UMaterialExpressionScalarParameter* Parameter = nullptr;
 	for (UMaterialExpression* Expression : Expressions)
 	{
-		if (UMaterialExpressionScalarParameter* Parameter = Cast<UMaterialExpressionScalarParameter>(Expression))
+		Parameter = Cast<UMaterialExpressionScalarParameter>(Expression);
+		if (Parameter && Parameter->SetParameterValue(ParameterName, InValue))
 		{
-			if (Parameter->SetParameterValue(ParameterName, InValue))
-			{
-				return true;
-				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
-			}
+			bSetNewValue = true;
+			break;
+			// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 		}
 		else if (UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
@@ -1367,20 +1381,33 @@ bool UMaterial::SetScalarParameterValueEditorOnly(FName ParameterName, float InV
 					{
 						for (UMaterialExpression* FunctionExpression : *ExpressionPtr)
 						{
-							if (UMaterialExpressionScalarParameter* FunctionExpressionParameter = Cast<UMaterialExpressionScalarParameter>(FunctionExpression))
+							Parameter = Cast<UMaterialExpressionScalarParameter>(FunctionExpression);
+							if (!bSetNewValue && Parameter)
 							{
-								if (FunctionExpressionParameter->SetParameterValue(ParameterName, InValue))
+								if (Parameter->SetParameterValue(ParameterName, InValue))
 								{
-									return true;
+									bSetNewValue = true;
+									break;
 								}
 							}
 						}
+					}
+					if (bSetNewValue)
+					{
+						break;
 					}
 				}
 			}
 		}
 	}
-	return false;
+	if (bSetNewValue)
+	{
+		UProperty* ParamProperty = FindField<UProperty>(UMaterialExpressionScalarParameter::StaticClass(), GET_MEMBER_NAME_STRING_CHECKED(UMaterialExpressionScalarParameter, DefaultValue));
+		FPropertyChangedEvent PropertyChangedEvent(ParamProperty);
+		Parameter->PostEditChangeProperty(PropertyChangedEvent);
+	}
+
+	return bSetNewValue;
 };
 
 bool UMaterial::SetTextureParameterValueEditorOnly(FName ParameterName, class UTexture* InValue)
@@ -2735,7 +2762,7 @@ bool UMaterial::GetFontParameterValue(const FMaterialParameterInfo& ParameterInf
 }
 
 
-bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2803,7 +2830,7 @@ bool UMaterial::GetStaticSwitchParameterValue(const FMaterialParameterInfo& Para
 }
 
 
-bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly) const
+bool UMaterial::GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bOveriddenOnly, bool bCheckParent /*= true*/) const
 {
 	// In the case of duplicate parameters with different values, this will return the
 	// first matching expression found, not necessarily the one that's used for rendering
@@ -2879,7 +2906,7 @@ bool UMaterial::GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo
 	return bSuccess;
 }
 
-bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const
+bool UMaterial::GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid, bool bCheckParent /*= true*/) const
 {
 	UMaterialExpressionStaticComponentMaskParameter* Parameter = nullptr;	
 
@@ -3093,7 +3120,7 @@ void UMaterial::CacheResourceShadersForRendering(bool bRegenerateId)
 			if (MaterialResource && !MaterialResource->GetGameThreadShaderMap())
 			{
 				FMaterialResource Tmp;
-				if (ReloadMaterialResource(&Tmp, GetOutermost()->GetPathName(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
+				if (ReloadMaterialResource(&Tmp, GetOutermost()->FileName.ToString(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
 				{
 					MaterialResource->SetInlineShaderMap(Tmp.GetGameThreadShaderMap());
 				}
@@ -5679,7 +5706,7 @@ UMaterial::FMaterialCompilationFinished& UMaterial::OnMaterialCompilationFinishe
 }
 #endif // WITH_EDITOR
 
-void UMaterial::AllMaterialsCacheResourceShadersForRendering()
+void UMaterial::AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog)
 {
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 	TArray<UMaterial*> Materials;
@@ -5691,15 +5718,36 @@ void UMaterial::AllMaterialsCacheResourceShadersForRendering()
 	for (UMaterial* Material : Materials)
 	{
 		Material->CacheResourceShadersForRendering(false);
+		FThreadHeartBeat::Get().HeartBeat();
 	}
 #else
-	for (TObjectIterator<UMaterial> It; It; ++It)
+#if WITH_EDITOR
+	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "CacheMaterialShadersMessage", "Caching material shaders"), true);
+	if (bUpdateProgressDialog)
 	{
-		UMaterial* Material = *It;
+		SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
+		SlowTask.MakeDialog();
+	}
+#endif // WITH_EDITOR
+
+	TArray<UObject*> MaterialArray;
+	GetObjectsOfClass(UMaterial::StaticClass(), MaterialArray, true, RF_ClassDefaultObject, EInternalObjectFlags::None);
+	float TaskIncrement = (float)100.0f / MaterialArray.Num();
+
+	for (UObject* MaterialObj : MaterialArray)
+	{
+		UMaterial* Material = (UMaterial*)MaterialObj;
 
 		Material->CacheResourceShadersForRendering(false);
+
+#if WITH_EDITOR
+		if (bUpdateProgressDialog)
+		{
+			SlowTask.EnterProgressFrame(TaskIncrement);
+		}
+#endif // WITH_EDITOR
 	}
-#endif
+#endif // STORE_ONLY_ACTIVE_SHADERMAPS
 }
 
 /**

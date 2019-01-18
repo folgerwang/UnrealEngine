@@ -30,8 +30,11 @@
 #include "K2Node_CallFunction.h"
 #include "K2Node_MacroInstance.h"
 #include "K2Node_Composite.h"
+#include "Blueprint/WidgetNavigation.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
+
+FWidgetBlueprintDelegates::FGetAssetTags FWidgetBlueprintDelegates::GetAssetTags;
 
 FEditorPropertyPathSegment::FEditorPropertyPathSegment()
 	: Struct(nullptr)
@@ -574,6 +577,32 @@ void UWidgetBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 }
 #endif // WITH_EDITORONLY_DATA
 
+#if WITH_EDITORONLY_DATA
+
+void UWidgetBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	Super::GetAssetRegistryTags(OutTags);
+
+	FWidgetBlueprintDelegates::GetAssetTags.Broadcast(this, OutTags);
+}
+
+void UWidgetBlueprint::NotifyGraphRenamed(class UEdGraph* Graph, FName OldName, FName NewName)
+{
+	Super::NotifyGraphRenamed(Graph, OldName, NewName);
+	
+	// Update any explicit widget bindings.
+	WidgetTree->ForEachWidget([OldName, NewName](UWidget* Widget) {
+		if (Widget->Navigation)
+		{
+			Widget->Navigation->SetFlags(RF_Transactional);
+			Widget->Navigation->Modify();
+			Widget->Navigation->TryToRenameBinding(OldName, NewName);
+		}
+	});
+}
+
+#endif
+
 void UWidgetBlueprint::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -592,7 +621,7 @@ void UWidgetBlueprint::PostLoad()
 
 	if( GetLinkerUE4Version() < VER_UE4_FIXUP_WIDGET_ANIMATION_CLASS )
 	{
-		// Fixup widget animiations.
+		// Fixup widget animations.
 		for( auto& OldAnim : AnimationData_DEPRECATED )
 		{
 			FName AnimName = OldAnim.MovieScene->GetFName();
@@ -739,7 +768,7 @@ bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 
 TSharedPtr<FKismetCompilerContext> UWidgetBlueprint::GetCompilerForWidgetBP(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
 {
-	return TSharedPtr<FKismetCompilerContext>(new FWidgetBlueprintCompiler(CastChecked<UWidgetBlueprint>(BP), InMessageLog, InCompileOptions, nullptr));
+	return TSharedPtr<FKismetCompilerContext>(new FWidgetBlueprintCompilerContext(CastChecked<UWidgetBlueprint>(BP), InMessageLog, InCompileOptions, nullptr));
 }
 
 void UWidgetBlueprint::GetReparentingRules(TSet< const UClass* >& AllowedChildrenOfClasses, TSet< const UClass* >& DisallowedChildrenOfClasses) const

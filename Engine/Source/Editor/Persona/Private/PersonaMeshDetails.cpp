@@ -819,14 +819,14 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			SNew(STextBlock)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.Text(this, &FPersonaMeshDetails::GetLODCustomModeNameContent, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		]
 		.ValueContent()
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &FPersonaMeshDetails::IsLODCustomModeCheck, (int32)INDEX_NONE)
 			.OnCheckStateChanged(this, &FPersonaMeshDetails::SetLODCustomModeCheck, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		];
 
 		LodCategories.Empty(SkelMeshLODCount);
@@ -1432,13 +1432,19 @@ void FPersonaMeshDetails::RegenerateOneLOD(int32 LODIndex)
 		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
 		if (LODIndex == CurrentLODInfo.ReductionSettings.BaseLOD
 			&& CurrentLODInfo.bHasBeenSimplified
-			&& !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+			&& !SkelMesh->IsReductionActive(LODIndex)
 			&& SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(LODIndex)
 			&& !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[LODIndex]->IsEmpty())
 		{
 			//Restore the base LOD data
 			CurrentLODInfo.bHasBeenSimplified = false;
 			FLODUtilities::RestoreSkeletalMeshLODImportedData(SkelMesh, LODIndex, true);
+			return;
+		}
+		else if (!CurrentLODInfo.bHasBeenSimplified
+			&& !SkelMesh->IsReductionActive(LODIndex))
+		{
+			//Nothing to reduce
 			return;
 		}
 
@@ -1487,7 +1493,8 @@ FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 	if (SkelMesh->IsValidLODIndex(LODIndex))
 	{
 		FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIndex));
-		if (CurrentLODInfo.bHasBeenSimplified == false && (LODIndex > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
+		bool bIsReductionActive = SkelMesh->IsReductionActive(LODIndex);
+		if (CurrentLODInfo.bHasBeenSimplified == false && (LODIndex > 0 || bIsReductionActive))
 		{
 			if (LODIndex > 0)
 			{
@@ -1498,7 +1505,7 @@ FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 					return FReply::Handled();
 				}
 			}
-			else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+			else if (bIsReductionActive)
 			{
 				//Ask user a special permission when the base LOD can be reduce 
 				const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
@@ -1610,13 +1617,14 @@ void FPersonaMeshDetails::ApplyChanges()
 		for (int32 LODIdx = 0; LODIdx < LODCount; LODIdx++)
 		{
 			FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(LODIdx));
-			if (CurrentLODInfo.bHasBeenSimplified == false && (LODIdx > 0 || CurrentLODInfo.ReductionSettings.IsReductionSettingActive()))
+			bool bIsReductionActive = SkelMesh->IsReductionActive(LODIdx);
+			if (CurrentLODInfo.bHasBeenSimplified == false && (LODIdx > 0 || bIsReductionActive))
 			{
 				if (LODIdx > 0)
 				{
 					bImportedLODs = true;
 				}
-				else if (CurrentLODInfo.ReductionSettings.IsReductionSettingActive())
+				else if (bIsReductionActive)
 				{
 					//Ask user a special permission when the base LOD can be reduce 
 					const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the base LOD?"));
@@ -1630,7 +1638,7 @@ void FPersonaMeshDetails::ApplyChanges()
 			}
 			else if(LODIdx == CurrentLODInfo.ReductionSettings.BaseLOD
 				    && CurrentLODInfo.bHasBeenSimplified
-				    && !CurrentLODInfo.ReductionSettings.IsReductionSettingActive()
+				    && !bIsReductionActive
 				    && SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData.IsValidIndex(0)
 				    && !SkelMesh->GetImportedModel()->OriginalReductionSourceMeshData[0]->IsEmpty())
 			{
@@ -2786,7 +2794,7 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodMenuForLodPicker()
 
 	FText AutoLodText = FText::FromString((TEXT("Auto LOD")));
 	FUIAction AutoLodAction(FExecuteAction::CreateSP(this, &FPersonaMeshDetails::SetCurrentLOD, 0));
-	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForSectionList_Auto_ToolTip", "LOD0 is edit when selecting Auto LOD"), FSlateIcon(), AutoLodAction);
+	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForSectionList_Auto_ToolTip", "With Auto LOD selected, LOD0's properties are visible for editing."), FSlateIcon(), AutoLodAction);
 	// Add a menu item for each texture.  Clicking on the texture will display it in the content browser
 	for (int32 AllLodIndex = 0; AllLodIndex < SkelMeshLODCount; ++AllLodIndex)
 	{

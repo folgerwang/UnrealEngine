@@ -275,7 +275,7 @@ public:
 	UNREALED_API bool GetAutoFrame() const;
 
 	/* Get the curves to will be used during a fit operation */
-	UNREALED_API virtual TArray<FRichCurve*> GetCurvesToFit()const;
+	UNREALED_API TArray<FRealCurve*> GetCurvesToFit() const;
 
 	/** Zoom to fit */
 	UNREALED_API void ZoomToFitHorizontal(const bool bZoomToFitAll = false);
@@ -291,7 +291,7 @@ private:
 	/** Used to track a key and the curve that owns it */
 	struct FSelectedCurveKey
 	{
-		FSelectedCurveKey(FRichCurve* InCurve, FKeyHandle InKeyHandle)
+		FSelectedCurveKey(FRealCurve* InCurve, FKeyHandle InKeyHandle)
 			: Curve(InCurve), KeyHandle(InKeyHandle)
 		{}
 
@@ -312,7 +312,13 @@ private:
 			return (Curve == Other.Curve) && (KeyHandle == Other.KeyHandle);
 		}
 
-		FRichCurve*		Curve;
+		/** Are the curve and the key different ?*/
+		bool			operator != (const FSelectedCurveKey& Other) const
+		{
+			return (Curve != Other.Curve) && (KeyHandle != Other.KeyHandle);
+		}
+
+		FRealCurve*		Curve;
 		FKeyHandle		KeyHandle;
 	};
 
@@ -348,10 +354,10 @@ private:
 	void AddNewKey(FGeometry InMyGeometry, FVector2D ScreenPosition, TSharedPtr<TArray<TSharedPtr<FCurveViewModel>>> CurvesToAddKeysTo, bool bAddKeysInline);
 
 	/** Test if the curve is exists, and if it being displayed on this widget */
-	bool		IsValidCurve(FRichCurve* Curve) const;
+	bool		IsValidCurve(FRealCurve* Curve) const;
 
 	/** Util to get a curve by index */
-	FRichCurve* GetCurve(int32 CurveIndex) const;
+	FRealCurve* GetCurve(int32 CurveIndex) const;
 
 	/** Called when new value for a key is entered */
 	void NewValueEntered( const FText& NewText, ETextCommit::Type CommitInfo );
@@ -432,6 +438,10 @@ private:
 	TOptional<int32> OnGetTimeInFrames() const;
 	void OnTimeInFramesComitted(int32 NewValue, ETextCommit::Type CommitType);
 	void OnTimeInFramesChanged(int32 NewValue);
+
+	void UpdateCurveTimeSingleKey(FSelectedCurveKey Key, float NewTime, bool bSetFromFrame = false);
+	void UpdateCurveTimeSingleKey(FSelectedCurveKey Key, int32 NewFrame);
+	void LogAndToastCurveTimeWarning(FRealCurve* Curve);
 
 	TOptional<float> OnGetValue() const;
 	void OnValueComitted(float NewValue, ETextCommit::Type CommitType);
@@ -523,7 +533,7 @@ private:
 	void ZoomView(FVector2D Delta);
 
 	/* Generates the line(s) for rendering between KeyIndex and the following key. */
-	void CreateLinesForSegment( FRichCurve* Curve, const FRichCurveKey& Key1, const FRichCurveKey& Key2, TArray<FVector2D>& Points, FTrackScaleInfo &ScaleInfo) const;
+	void CreateLinesForSegment( FRealCurve* Curve, ERichCurveInterpMode InterpMode, const TPair<float,float>& Key1_TimeValue, const TPair<float,float>& Key2_TimeValue, TArray<FVector2D>& Points, FTrackScaleInfo &ScaleInfo) const;
 	
 	/** Detect if user is clicking on a curve */
 	TSharedPtr<FCurveViewModel> HitTestCurves(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent);
@@ -546,6 +556,8 @@ private:
 	void	OnSelectInterpolationMode(ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
 
 	bool IsInterpolationModeSelected(ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
+
+	bool HasRichCurves() const;
 
 	/** Flatten or straighten tangents */
 	void OnFlattenOrStraightenTangents(bool bFlattenTangents);
@@ -607,7 +619,7 @@ private:
 
 	void UpdateCurveToolTip( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
 
-	TSharedPtr<FCurveViewModel> GetViewModelForCurve(FRichCurve* InCurve);
+	TSharedPtr<FCurveViewModel> GetViewModelForCurve(FRealCurve* InCurve);
 
 	void OnObjectPropertyChanged(UObject* Object, FPropertyChangedEvent& PropertyChangedEvent);
 
@@ -635,7 +647,7 @@ protected:
 	UNREALED_API void ClearSelectedCurveViewModels();
 
 	/** Set the selected curve view model that matches the rich curve */
-	UNREALED_API void SetSelectedCurveViewModel(FRichCurve* Curve);
+	UNREALED_API void SetSelectedCurveViewModel(FRealCurve* Curve);
 
 	/** Return whether any curve view models are selected */
 	UNREALED_API bool AnyCurveViewModelsSelected() const;

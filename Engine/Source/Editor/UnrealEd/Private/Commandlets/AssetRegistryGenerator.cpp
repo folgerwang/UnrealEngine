@@ -216,6 +216,30 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 		PlatformIniFile.GetArray(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("CompressedChunkWildcard"), CompressedChunkWildcards);
 	}
 
+	// Add manifests for any non-ufs file groups
+	if (bUseAssetManager && !TargetPlatform->HasSecurePackageFormat())
+	{
+		FContentEncryptionConfig ContentEncryptionConfig;
+		UAssetManager::Get().GetContentEncryptionConfig(ContentEncryptionConfig);
+		const TMap<FName, TSet<FName>>& EncryptedNonUFSFileGroups = ContentEncryptionConfig.GetNonUFSFileGroupMap();
+		
+		for (const TMap<FName, TSet<FName>>::ElementType& Element : EncryptedNonUFSFileGroups)
+		{
+			FName GroupName = Element.Key;
+			const TSet<FName>& Files = Element.Value;
+			FChunkPackageSet* NewManifest = new FChunkPackageSet();
+			
+			for (FName File : Files)
+			{
+				FString Filename = File.ToString();
+				FName LongPackageName = *FPackageName::FilenameToLongPackageName(Filename);
+				NewManifest->Add(LongPackageName, Filename);
+			}
+
+			FinalChunkManifests.Add(NewManifest);
+		}
+	}
+
 
 	// generate per-chunk pak list files
 	for (int32 Index = 0; Index < FinalChunkManifests.Num(); ++Index)
@@ -424,22 +448,21 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 		UAssetManager& AssetManager = UAssetManager::Get();
 
 		TMap<int32, FGuid> GuidCache;
-		TEncryptedAssetSet EncryptedAssetSet;
-		TSet<FName> ReleasedAssets;
-		AssetManager.GetEncryptedAssetSet(EncryptedAssetSet, ReleasedAssets);
+		FContentEncryptionConfig EncryptionConfig;
+		AssetManager.GetContentEncryptionConfig(EncryptionConfig);
 
-		for (TEncryptedAssetSet::ElementType EncryptedAssetSetElement : EncryptedAssetSet)
+		for (TMap<FName, TSet<FName>>::ElementType EncryptedAssetSetElement : EncryptionConfig.GetPackageGroupMap())
 		{
 			FName SetName = EncryptedAssetSetElement.Key;
-			TSet<FPrimaryAssetId>& EncryptedPrimaryAssets = EncryptedAssetSetElement.Value;
+			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value;
 
-			for (FPrimaryAssetId EncryptedPrimaryAsset : EncryptedPrimaryAssets)
+			for (FName EncryptedRootPackageName : EncryptedRootAssets)
 			{
-				FAssetData PrimaryAssetData;
-				if (AssetManager.GetPrimaryAssetData(EncryptedPrimaryAsset, PrimaryAssetData))
+				const TArray<const FAssetData*>& PackageAssets = TargetState.GetAssetsByPackageName(EncryptedRootPackageName);
+
+				for (const FAssetData* PackageAsset : PackageAssets)
 				{
-					FName EncryptedPrimaryAssetPackageName = PrimaryAssetData.PackageName;
-					FAssetData* AssetData = const_cast<FAssetData*>(TargetState.GetAssetByObjectPath(PrimaryAssetData.ObjectPath));
+					FAssetData* AssetData = const_cast<FAssetData*>(PackageAsset);
 
 					if (AssetData)
 					{
@@ -803,11 +826,11 @@ void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPack
 
 }
 
-void FAssetRegistryGenerator::PreSave()
+void FAssetRegistryGenerator::PreSave(const TSet<FName>& InCookedPackages)
 {
 	if (bUseAssetManager)
 	{
-		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform);
+		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform, InCookedPackages);
 	}
 }
 

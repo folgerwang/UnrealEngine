@@ -27,10 +27,14 @@ namespace AutomationTool
 			{
 				throw new AutomationException("Project {0} does not exist!", Project);
 			}
-			var RunArguments = MakePathSafeToUseWithCommandLine(Project);
+			string RunArguments = MakePathSafeToUseWithCommandLine(Project);
 			if (!String.IsNullOrEmpty(Arguments))
 			{
 				RunArguments += " " + Arguments;
+			}
+			if(HostPlatform.Current.HostEditorPlatform == UnrealBuildTool.UnrealTargetPlatform.Linux)
+			{
+				RunArguments += " /property:TargetFrameworkVersion=v4.5"; // Need support for 4.6.2 with bundled Mono before removing this.
 			}
 			RunAndLog(Env, Env.MsBuildExe, RunArguments, LogName);
 		}

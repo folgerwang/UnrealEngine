@@ -31,7 +31,6 @@ FMediaIOCorePlayerBase::FMediaIOCorePlayerBase(IMediaEventSink& InEventSink)
 	, CurrentTime(FTimespan::Zero())
 	, EventSink(InEventSink)
 	, VideoFrameRate(30, 1)
-	, LastFrameDropCount(0)
 	, Samples(new FMediaIOCoreSamples)
 	, bUseTimeSynchronization(false)
 	, PreviousFrameTimespan(FTimespan::Zero())
@@ -234,7 +233,6 @@ EMediaStatus FMediaIOCorePlayerBase::GetStatus() const
 TRangeSet<float> FMediaIOCorePlayerBase::GetSupportedRates(EMediaRateThinning /*Thinning*/) const
 {
 	TRangeSet<float> Result;
-	Result.Add(TRange<float>(0.0f));
 	Result.Add(TRange<float>(1.0f));
 	return Result;
 }

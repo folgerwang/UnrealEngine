@@ -1,0 +1,323 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "Common.ush"
+
+Texture2D ReadHeightmapTexture1;
+Texture2D ReadHeightmapTexture2;
+SamplerState ReadHeightmapTexture1Sampler;
+SamplerState ReadHeightmapTexture2Sampler;
+float2 LayerInfo; // x == weight, y == visibility
+float4 OutputConfig; // x == ApplyLayerModifiers, y == OutputAsDelta, z == Use ReadHeightmapTexture2 and out Delta with ReadHeightmapTexture1, w == Output Normals
+float2 HeightmapTextureSize; // x == source heightmap width, y == source heightmap height
+float3 LandscapeGridScale; // x == LS Actor DrawScale.X, y == LS Actor DrawScale.y, z == LS Actor DrawScale.z / 128.0f (ZSCALE)
+float CurrentMipComponentVertexCount;
+
+float3 SampleTextureYNormal(float2 InTextureCoordinates, float2 InTexelSize, bool InUp)
+{
+	float2 SamplingUV = InTextureCoordinates;
+	SamplingUV.y = InUp ? SamplingUV.y - InTexelSize.y : SamplingUV.y + InTexelSize.y;
+	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SamplingUV, 0).rg;
+	float PosHeight = float(((int)round(PosSample.r * 255.0) << 8) | (int)round(PosSample.g * 255.0)) - 32768.0;
+	return float3(SamplingUV * HeightmapTextureSize * LandscapeGridScale.xy, PosHeight * LandscapeGridScale.z * TERRAIN_ZSCALE);
+}
+
+float3 SampleTextureXNormal(float2 InTextureCoordinates, float2 InTexelSize, bool InLeft)
+{
+	float2 SamplingUV = InTextureCoordinates;
+	SamplingUV.x = InLeft ? SamplingUV.x - InTexelSize.x : SamplingUV.x + InTexelSize.x;
+	float2 PosSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SamplingUV, 0).rg;
+	float PosHeight = float(((int)round(PosSample.r * 255.0) << 8) | (int)round(PosSample.g * 255.0)) - 32768.0;
+	return float3(SamplingUV * HeightmapTextureSize * LandscapeGridScale.xy, PosHeight * LandscapeGridScale.z * TERRAIN_ZSCALE);
+}
+
+void PSMain(float2 InTextureCoordinates : TEXCOORD0,
+			out float4 OutColor : SV_Target0)
+{
+	float4 SourceColor = ReadHeightmapTexture1.Sample(ReadHeightmapTexture1Sampler, InTextureCoordinates);
+	float Height = float(((int)round(SourceColor.r * 255.0) << 8) | (int)round(SourceColor.g * 255.0));
+
+	// Perform calculation 0 based
+	Height -= 32768.0f;
+
+	// Output as Layer, so apply Layer info
+	if (OutputConfig.x == 1.0)
+	{
+		Height = round(Height * LayerInfo.x * LayerInfo.y);
+	}
+
+	// Output using 2nd heightmap
+	if (OutputConfig.z == 1.0)
+	{
+		float2 BaseColor = ReadHeightmapTexture2.Sample(ReadHeightmapTexture2Sampler, InTextureCoordinates).rg;
+		float BaseHeight = float(((int)round(BaseColor.r * 255.0) << 8) | (int)round(BaseColor.g * 255.0));
+
+		Height = OutputConfig.y == 1 ? BaseHeight + (Height - BaseHeight) : BaseHeight + Height;
+	}
+	else
+	{
+		// Output as Delta to Source
+		if (OutputConfig.y == 0.0)
+		{
+			Height += 32768.0f;
+		}
+	}
+
+	Height = clamp(Height, 0.0f, 65536.0f);
+	int iHeight = (int)Height;
+	float2 PackedHeight = float2((float)((iHeight - (iHeight & 255)) >> 8) / 255.0, (float)(iHeight & 255) / 255.0);
+
+	OutColor.r = PackedHeight.x;
+	OutColor.g = PackedHeight.y;
+	OutColor.b = SourceColor.b;
+	OutColor.a = SourceColor.a;
+
+	// Output normals
+	if (OutputConfig.w == 1.0)
+	{
+		float2 TexelSize = 1.0 / HeightmapTextureSize;
+
+		bool IsMinBorderTexelX = InTextureCoordinates.x <= TexelSize.x;
+		bool IsMinBorderTexelY = InTextureCoordinates.y <= TexelSize.y;
+		bool IsMaxBorderTexelX = InTextureCoordinates.x >= TexelSize.x * min(CurrentMipComponentVertexCount - 1, 1.0);
+		bool IsMaxBorderTexelY = InTextureCoordinates.y >= TexelSize.y * min(CurrentMipComponentVertexCount - 1, 1.0);
+
+		float3 CurrentPos = float3(InTextureCoordinates * HeightmapTextureSize * LandscapeGridScale.xy, (Height - 32768.0f) * LandscapeGridScale.z * TERRAIN_ZSCALE);
+		float3 FinalNormal = 0.0;
+
+		if (IsMinBorderTexelX) // left border
+		{
+			if (IsMinBorderTexelY) // top border
+			{
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				FinalNormal = normalize(cross(PosRight - CurrentPos, PosDown - CurrentPos));
+			}
+			else if (IsMaxBorderTexelY) // bottom border
+			{
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				FinalNormal = normalize(cross(PosUp - CurrentPos, PosRight - CurrentPos));
+			}
+			else
+			{
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+
+				float3 VectorUpRight = cross(PosUp - CurrentPos, PosRight - CurrentPos);
+				float3 VectorRightDown = cross(PosRight - CurrentPos, PosDown - CurrentPos);
+				FinalNormal = normalize(VectorUpRight + VectorRightDown);
+			}
+		}
+		else if (IsMaxBorderTexelX) // right border
+		{
+			if (IsMinBorderTexelY) // top border
+			{
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				FinalNormal = normalize(cross(PosDown - CurrentPos, PosLeft - CurrentPos));
+			}
+			else if (IsMaxBorderTexelY) // bottom border
+			{
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				FinalNormal = normalize(cross(PosLeft - CurrentPos, PosUp - CurrentPos));
+			}
+			else
+			{
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+
+				float3 VectorLeftUp = cross(PosLeft - CurrentPos, PosUp - CurrentPos);
+				float3 VectorDownLeft = cross(PosDown - CurrentPos, PosLeft - CurrentPos);
+				FinalNormal = normalize(VectorDownLeft + VectorLeftUp);
+			}
+		}
+		else // center border
+		{
+			if (IsMinBorderTexelY) // top border
+			{
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+
+				float3 VectorRightDown = cross(PosRight - CurrentPos, PosDown - CurrentPos);
+				float3 VectorDownLeft = cross(PosDown - CurrentPos, PosLeft - CurrentPos);
+				FinalNormal = normalize(VectorRightDown + VectorDownLeft);
+			}
+			else if (IsMaxBorderTexelY) // bottom border
+			{
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+
+				float3 VectorUpRight = cross(PosUp - CurrentPos, PosRight - CurrentPos);
+				float3 VectorLeftUp = cross(PosLeft - CurrentPos, PosUp - CurrentPos);
+				FinalNormal = normalize(VectorUpRight + VectorLeftUp);
+			}
+			else
+			{
+				float3 PosRight = SampleTextureXNormal(InTextureCoordinates, TexelSize, false);
+				float3 PosLeft = SampleTextureXNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosUp = SampleTextureYNormal(InTextureCoordinates, TexelSize, true);
+				float3 PosDown = SampleTextureYNormal(InTextureCoordinates, TexelSize, false);
+
+				float3 VectorRightDown = cross(PosRight - CurrentPos, PosDown - CurrentPos);
+				float3 VectorDownLeft = cross(PosDown - CurrentPos, PosLeft - CurrentPos);
+
+				float3 VectorUpRight = cross(PosUp - CurrentPos, PosRight - CurrentPos);
+				float3 VectorLeftUp = cross(PosLeft - CurrentPos, PosUp - CurrentPos);
+
+				FinalNormal = normalize(VectorUpRight + VectorLeftUp + VectorRightDown + VectorDownLeft);
+			}
+		}		
+
+		// Scale back to be 0-1 normal
+		OutColor.b = (FinalNormal.x + 1.0) * 0.5;
+		OutColor.a = (FinalNormal.y + 1.0) * 0.5;
+	}
+}
+
+float2 CurrentMipTextureSize;
+float2 ParentMipTextureSize;
+
+void PSMainMips(float2 InTextureCoordinates : TEXCOORD0,
+				out float4 OutColor : SV_Target0)
+{
+	bool IsMinBorderTexelX = false;
+	bool IsMinBorderTexelY = false;
+	bool IsMaxBorderTexelX = false;
+	bool IsMaxBorderTexelY = false;
+
+	// Special case of 1 texel size component
+	if (CurrentMipComponentVertexCount == 1)
+	{		
+		if (CurrentMipTextureSize.x >= CurrentMipTextureSize.y) // x size 1 texel
+		{
+			IsMinBorderTexelY = true;
+			IsMinBorderTexelX = (InTextureCoordinates.x * CurrentMipTextureSize.x) <= 1.0;
+			IsMaxBorderTexelX = (InTextureCoordinates.x * CurrentMipTextureSize.x) >= CurrentMipTextureSize.x - 1.0;
+		}
+		else
+		{
+			IsMinBorderTexelX = true;
+			IsMinBorderTexelY = (InTextureCoordinates.y * CurrentMipTextureSize.y) <= 1.0;
+			IsMaxBorderTexelY = (InTextureCoordinates.y * CurrentMipTextureSize.y) >= CurrentMipTextureSize.y - 1.0;
+		}
+	}
+	else
+	{
+		float2 CurrentMipQuadTexelSize = 1.0 / CurrentMipComponentVertexCount;
+		float2 LandscapeQuadUV = frac(InTextureCoordinates * CurrentMipTextureSize / CurrentMipComponentVertexCount);
+
+		IsMinBorderTexelX = LandscapeQuadUV.x <= CurrentMipQuadTexelSize.x;
+		IsMinBorderTexelY = LandscapeQuadUV.y <= CurrentMipQuadTexelSize.y;
+		IsMaxBorderTexelX = LandscapeQuadUV.x >= (CurrentMipQuadTexelSize.x * max(CurrentMipComponentVertexCount - 1, 1.0));
+		IsMaxBorderTexelY = LandscapeQuadUV.y >= (CurrentMipQuadTexelSize.y * max(CurrentMipComponentVertexCount - 1, 1.0));
+	}
+
+	float2 ParentMipTexelSize = 1.0 / ParentMipTextureSize;
+	float2 SourceUV = InTextureCoordinates - (ParentMipTexelSize * 0.5);
+	float2 HeightResult = 0;
+	float2 NormalResult = 0;
+	OutColor = 0; // Default to 0
+
+	if (IsMinBorderTexelX) // on left border
+	{
+		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV, 0);
+		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
+		float SourceHeight = clamp(float(((int)round(SourceSample.r * 255.0) << 8) | (int)round(SourceSample.g * 255.0)), 0.0, 65536.0);
+		float DownHeight = clamp(float(((int)round(DownSample.r * 255.0) << 8) | (int)round(DownSample.g * 255.0)), 0.0, 65536.0);
+
+		if (IsMinBorderTexelY) // on top border
+		{
+			HeightResult = SourceHeight;
+			NormalResult = float2(SourceSample.ba);
+		}
+		else if (IsMaxBorderTexelY) // on bottom border
+		{
+			HeightResult = DownHeight;
+			NormalResult = float2(DownSample.ba);
+		}
+		else
+		{
+			float FracTopDown = 0.5;
+			HeightResult = clamp(round(lerp(SourceHeight, DownHeight, FracTopDown)), 0.0, 65536.0);
+			NormalResult.x = lerp(SourceSample.b, DownSample.b, FracTopDown);
+			NormalResult.y = lerp(SourceSample.a, DownSample.a, FracTopDown);
+		}
+	}
+	else if (IsMaxBorderTexelX) // on right border
+	{
+		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
+		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + ParentMipTexelSize, 0);
+		float RightHeight = clamp(float(((int)round(RightSample.r * 255.0) << 8) | (int)round(RightSample.g * 255.0)), 0.0, 65536.0);
+		float DownRightHeight = clamp(float(((int)round(DownRightSample.r * 255.0) << 8) | (int)round(DownRightSample.g * 255.0)), 0.0, 65536.0);
+
+		if (IsMinBorderTexelY) // on top border
+		{
+			HeightResult = RightHeight;
+			NormalResult = float2(RightSample.ba);
+		}		
+		else if (IsMaxBorderTexelY) // on bottom border
+		{
+			HeightResult = DownRightHeight;
+			NormalResult = float2(DownRightSample.ba);
+		}
+		else
+		{
+			float FracTopDown = 0.5;
+			HeightResult = clamp(round(lerp(RightHeight, DownRightHeight, FracTopDown)), 0.0, 65536.0);;
+			NormalResult.x = lerp(RightSample.b, DownRightSample.b, FracTopDown);
+			NormalResult.y = lerp(RightSample.a, DownRightSample.a, FracTopDown);
+		}
+	}
+	else // center texel
+	{
+		float4 SourceSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV, 0);
+		float4 DownSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(0.0, ParentMipTexelSize.y), 0);
+		float4 RightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + float2(ParentMipTexelSize.x, 0.0), 0);
+		float4 DownRightSample = ReadHeightmapTexture1.SampleLevel(ReadHeightmapTexture1Sampler, SourceUV + ParentMipTexelSize, 0);
+
+		float SourceHeight = clamp(float(((int)round(SourceSample.r * 255.0) << 8) | (int)round(SourceSample.g * 255.0)), 0.0, 65536.0);
+		float DownHeight = clamp(float(((int)round(DownSample.r * 255.0) << 8) | (int)round(DownSample.g * 255.0)), 0.0, 65536.0);
+		float RightHeight = clamp(float(((int)round(RightSample.r * 255.0) << 8) | (int)round(RightSample.g * 255.0)), 0.0, 65536.0);
+		float DownRightHeight = clamp(float(((int)round(DownRightSample.r * 255.0) << 8) | (int)round(DownRightSample.g * 255.0)), 0.0, 65536.0);
+
+		if (IsMinBorderTexelY) // on top border
+		{
+			float FracSourceToRight = 0.5;
+			HeightResult = clamp(round(lerp(SourceHeight, RightHeight, FracSourceToRight)), 0.0, 65536.0);
+			NormalResult.x = lerp(SourceSample.b, RightSample.b, FracSourceToRight);
+			NormalResult.y = lerp(SourceSample.a, RightSample.a, FracSourceToRight);
+		}
+		else if (IsMaxBorderTexelY) // on bottom border
+		{
+			float FracDownToDownRight = 0.5;
+			HeightResult = clamp(round(lerp(DownHeight, DownRightHeight, FracDownToDownRight)), 0.0, 65536.0);
+			NormalResult.x = lerp(DownSample.b, DownRightSample.b, FracDownToDownRight);
+			NormalResult.y = lerp(DownSample.a, DownRightSample.a, FracDownToDownRight);
+		}
+		else
+		{
+			float FracSourceToRight = 0.5;
+			float FracDownToDownRight = 0.5;
+
+			float SourceToRightHeight = lerp(SourceHeight, RightHeight, 0.5);
+			float DownToDownRightHeight = lerp(DownHeight, DownRightHeight, 0.5);
+
+			float SourceToRightDeltaHeight = RightHeight - 32768.0;
+			float DownToDownRightDeltaHeight = DownRightHeight - 32768.0;
+
+			float FracTopDown = 0.5;
+
+			HeightResult = clamp(round(lerp(SourceToRightHeight, DownToDownRightHeight, 0.5)), 0.0, 65536.0);
+			NormalResult.x = lerp(lerp(SourceSample.b, RightSample.b, FracSourceToRight), lerp(DownSample.b, DownRightSample.b, FracDownToDownRight), FracTopDown);
+			NormalResult.y = lerp(lerp(SourceSample.a, RightSample.a, FracSourceToRight), lerp(DownSample.a, DownRightSample.a, FracDownToDownRight), FracTopDown);
+		}
+	}
+
+	float2 PackedHeightResult = float2((float)(((int)HeightResult - ((int)HeightResult & 255)) >> 8) / 255.0, (float)((int)HeightResult & 255) / 255.0);
+	OutColor = float4(PackedHeightResult.x, PackedHeightResult.y, NormalResult.x, NormalResult.y);
+}

@@ -30,8 +30,10 @@ public:
 	virtual void GetObjectsBeingCustomized(TArray< TWeakObjectPtr<UObject> >& OutObjects) const override;
 	virtual void GetStructsBeingCustomized(TArray< TSharedPtr<FStructOnScope> >& OutStructs) const override;
 	virtual IDetailCategoryBuilder& EditCategory(FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default) override;
+	virtual void GetCategoryNames(TArray<FName>& OutCategoryNames) const override;
 	virtual IDetailPropertyRow& AddPropertyToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle) override;
 	virtual FDetailWidgetRow& AddCustomRowToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle, const FText& InCustomSearchString, bool bForAdvanced = false) override;
+	virtual IDetailPropertyRow* EditDefaultProperty(TSharedPtr<IPropertyHandle> InPropertyHandle) override;
 	virtual TSharedRef<IPropertyHandle> GetProperty(const FName PropertyPath, const UClass* ClassOutermost, FName InInstanceName) override;
 	virtual FName GetTopLevelProperty() override;
 	virtual void HideProperty(const TSharedPtr<IPropertyHandle> Property) override;
@@ -45,12 +47,16 @@ public:
 	virtual UClass* GetBaseClass() const override;
 	virtual const TArray<TWeakObjectPtr<UObject>>& GetSelectedObjects() const override;
 	virtual bool HasClassDefaultObject() const override;
+	virtual void RegisterInstancedCustomPropertyTypeLayout(FName PropertyTypeName, FOnGetPropertyTypeCustomizationInstance PropertyTypeLayoutDelegate, TSharedPtr<IPropertyTypeIdentifier> Identifier = nullptr) override;
+
 	/**
 	 * Creates a default category. The SDetails view will generate widgets in default categories
 	 *
 	 * @param CategoryName	The name of the category to create
 	 */
 	FDetailCategoryImpl& DefaultCategory(FName CategoryName);
+
+	TSharedPtr<FDetailCategoryImpl> GetSubCategoryImpl(FName CategoryName);
 
 	/**
 	* Return true if the category exist
@@ -199,6 +205,9 @@ public:
 	/** Gets internal utilities for generating property layouts. */
 	IPropertyGenerationUtilities& GetPropertyGenerationUtilities() const;
 
+	/** Combines the type layout map from our PropertyGenerationUtilities object, with the local InstancePropertyTypeExtensions map - which provides instance based customizations/overrides. */
+	FCustomPropertyTypeLayoutMap GetInstancedPropertyTypeLayoutMap() const;
+
 private:
 	/**
 	 * Finds a property node for the current property by searching in a fast lookup map or a path search if required
@@ -224,6 +233,8 @@ private:
 	FCategoryMap CustomCategoryMap;
 	/** A mapping of category names to categories which have been not customized */
 	FCategoryMap DefaultCategoryMap;
+	/** Mapping of subcategory names to their subcategory builder */
+	FCategoryMap SubCategoryMap;
 	/** A mapping of classes to top level properties in that class */
 	FClassToPropertyMap& PropertyMap;
 	/** Force hidden categories set by the user */
@@ -250,5 +261,8 @@ private:
 	bool bLayoutForExternalRoot;
 	/** A delegate which is called whenever a node owned by this layout builder has it's visibility forcibly changed. */
 	FSimpleMulticastDelegate OnNodeVisibilityChanged;
+
+	/** Local customizations for this detail layout only. Provides a way for IDetailCustomizations to override type customizations without polluting customizations for other instances. */
+	FCustomPropertyTypeLayoutMap InstancePropertyTypeExtensions;
 };
 

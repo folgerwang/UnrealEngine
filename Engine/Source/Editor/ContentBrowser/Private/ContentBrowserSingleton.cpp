@@ -230,9 +230,22 @@ void FContentBrowserSingleton::CreateNewAsset(const FString& DefaultAssetName, c
 	}
 }
 
-TSharedPtr<SContentBrowser> FContentBrowserSingleton::FindContentBrowserToSync(bool bAllowLockedBrowsers)
+TSharedPtr<SContentBrowser> FContentBrowserSingleton::FindContentBrowserToSync(bool bAllowLockedBrowsers, const FName& InstanceName, bool bNewSpawnBrowser)
 {
 	TSharedPtr<SContentBrowser> ContentBrowserToSync;
+
+	if (InstanceName.IsValid() && !InstanceName.IsNone())
+	{
+		for (int32 BrowserIdx = 0; BrowserIdx < AllContentBrowsers.Num(); ++BrowserIdx)
+		{
+			if (AllContentBrowsers[BrowserIdx].IsValid() && AllContentBrowsers[BrowserIdx].Pin()->GetInstanceName() == InstanceName)
+			{
+				return AllContentBrowsers[BrowserIdx].Pin();
+			}	
+		}
+
+		return ContentBrowserToSync;
+	}
 
 	if ( !PrimaryContentBrowser.IsValid() )
 	{
@@ -241,8 +254,12 @@ TSharedPtr<SContentBrowser> FContentBrowserSingleton::FindContentBrowserToSync(b
 
 	if ( PrimaryContentBrowser.IsValid() && (bAllowLockedBrowsers || !PrimaryContentBrowser.Pin()->IsLocked()) )
 	{
-		// If the primary content browser is not locked, sync it
-		ContentBrowserToSync = PrimaryContentBrowser.Pin();
+		// If wanting to spawn a new browser window, don't set the BrowserToSync in order to summon a new browser
+		if (!bNewSpawnBrowser)
+		{
+			// If the primary content browser is not locked, sync it
+			ContentBrowserToSync = PrimaryContentBrowser.Pin();
+		}
 	}
 	else
 	{
@@ -260,12 +277,12 @@ TSharedPtr<SContentBrowser> FContentBrowserSingleton::FindContentBrowserToSync(b
 	if ( !ContentBrowserToSync.IsValid() )
 	{
 		// There are no valid, unlocked browsers, attempt to summon a new one.
-		SummonNewBrowser(bAllowLockedBrowsers);
+		const FName NewBrowserName = SummonNewBrowser(bAllowLockedBrowsers);
 
 		// Now try to find a non-locked valid browser again, now that a new one may exist
 		for (int32 BrowserIdx = 0; BrowserIdx < AllContentBrowsers.Num(); ++BrowserIdx)
 		{
-			if ( AllContentBrowsers[BrowserIdx].IsValid() && (bAllowLockedBrowsers || !AllContentBrowsers[BrowserIdx].Pin()->IsLocked()) )
+			if ((AllContentBrowsers[BrowserIdx].IsValid() && (NewBrowserName == NAME_None && (bAllowLockedBrowsers || !AllContentBrowsers[BrowserIdx].Pin()->IsLocked()))) || (AllContentBrowsers[BrowserIdx].Pin()->GetInstanceName() == NewBrowserName))
 			{
 				ContentBrowserToSync = AllContentBrowsers[BrowserIdx].Pin();
 				break;
@@ -281,9 +298,9 @@ TSharedPtr<SContentBrowser> FContentBrowserSingleton::FindContentBrowserToSync(b
 	return ContentBrowserToSync;
 }
 
-void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& AssetDataList, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
+void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& AssetDataList, bool bAllowLockedBrowsers, bool bFocusContentBrowser, const FName& InstanceName, bool bNewSpawnBrowser)
 {
-	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers);
+	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers, InstanceName, bNewSpawnBrowser);
 
 	if ( ContentBrowserToSync.IsValid() )
 	{
@@ -296,7 +313,7 @@ void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<FAssetData>& Ass
 	}
 }
 
-void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& AssetList, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
+void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& AssetList, bool bAllowLockedBrowsers, bool bFocusContentBrowser, const FName& InstanceName, bool bNewSpawnBrowser)
 {
 	// Convert UObject* array to FAssetData array
 	TArray<FAssetData> AssetDataList;
@@ -308,12 +325,12 @@ void FContentBrowserSingleton::SyncBrowserToAssets(const TArray<UObject*>& Asset
 		}
 	}
 
-	SyncBrowserToAssets(AssetDataList, bAllowLockedBrowsers, bFocusContentBrowser);
+	SyncBrowserToAssets(AssetDataList, bAllowLockedBrowsers, bFocusContentBrowser, InstanceName, bNewSpawnBrowser);
 }
 
-void FContentBrowserSingleton::SyncBrowserToFolders(const TArray<FString>& FolderList, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
+void FContentBrowserSingleton::SyncBrowserToFolders(const TArray<FString>& FolderList, bool bAllowLockedBrowsers, bool bFocusContentBrowser, const FName& InstanceName, bool bNewSpawnBrowser)
 {
-	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers);
+	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers, InstanceName, bNewSpawnBrowser);
 
 	if ( ContentBrowserToSync.IsValid() )
 	{
@@ -326,9 +343,9 @@ void FContentBrowserSingleton::SyncBrowserToFolders(const TArray<FString>& Folde
 	}
 }
 
-void FContentBrowserSingleton::SyncBrowserTo(const FContentBrowserSelection& ItemSelection, bool bAllowLockedBrowsers, bool bFocusContentBrowser)
+void FContentBrowserSingleton::SyncBrowserTo(const FContentBrowserSelection& ItemSelection, bool bAllowLockedBrowsers, bool bFocusContentBrowser, const FName& InstanceName, bool bNewSpawnBrowser)
 {
-	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers);
+	TSharedPtr<SContentBrowser> ContentBrowserToSync = FindContentBrowserToSync(bAllowLockedBrowsers, InstanceName, bNewSpawnBrowser);
 
 	if ( ContentBrowserToSync.IsValid() )
 	{
@@ -482,8 +499,11 @@ void FContentBrowserSingleton::ChooseNewPrimaryBrowser()
 	{
 		if ( AllContentBrowsers[BrowserIdx].IsValid() )
 		{
-			SetPrimaryContentBrowser(AllContentBrowsers[BrowserIdx].Pin().ToSharedRef());
-			break;
+			if (AllContentBrowsers[BrowserIdx].Pin()->CanSetAsPrimaryContentBrowser())
+			{
+				SetPrimaryContentBrowser(AllContentBrowsers[BrowserIdx].Pin().ToSharedRef());
+				break;
+			}
 		}
 		else
 		{
@@ -507,7 +527,7 @@ void FContentBrowserSingleton::FocusContentBrowser(const TSharedPtr<SContentBrow
 	}
 }
 
-void FContentBrowserSingleton::SummonNewBrowser(bool bAllowLockedBrowsers)
+FName FContentBrowserSingleton::SummonNewBrowser(bool bAllowLockedBrowsers)
 {
 	TSet<FName> OpenBrowserIDs;
 
@@ -549,6 +569,8 @@ void FContentBrowserSingleton::SummonNewBrowser(bool bAllowLockedBrowsers)
 	{
 		// No available slots... don't summon anything
 	}
+
+	return NewTabName;
 }
 
 TSharedRef<SWidget> FContentBrowserSingleton::CreateContentBrowser( const FName InstanceName, TSharedPtr<SDockTab> ContainingTab, const FContentBrowserConfig* ContentBrowserConfig )

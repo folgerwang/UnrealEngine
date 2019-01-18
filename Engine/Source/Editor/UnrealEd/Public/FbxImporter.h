@@ -36,7 +36,6 @@ class USkeleton;
 class UStaticMesh;
 class UTexture;
 struct FExpressionInput;
-struct FRawMesh;
 struct FRichCurve;
 struct FStaticMaterial;
 struct FSkeletalMaterial;
@@ -467,6 +466,10 @@ public:
 	static void SetJointPostConversionMatrix(FbxAMatrix ConversionMatrix) { JointPostConversionMatrix = ConversionMatrix; }
 	static const FbxAMatrix &GetJointPostConversionMatrix() { return JointPostConversionMatrix; }
 
+	static void SetAxisConversionMatrix(FbxAMatrix ConversionMatrix) { AxisConversionMatrix = ConversionMatrix; AxisConversionMatrixInv = ConversionMatrix.Inverse(); }
+	static const FbxAMatrix &GetAxisConversionMatrix() { return AxisConversionMatrix; }
+	static const FbxAMatrix &GetAxisConversionMatrixInv() { return AxisConversionMatrixInv; }
+
 	static FVector ConvertPos(FbxVector4 Vector);
 	static FVector ConvertDir(FbxVector4 Vector);
 	static FRotator ConvertEuler(FbxDouble3 Euler);
@@ -504,6 +507,8 @@ public:
 
 private:
 	static FbxAMatrix JointPostConversionMatrix;
+	static FbxAMatrix AxisConversionMatrix;
+	static FbxAMatrix AxisConversionMatrixInv;
 };
 
 FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh);
@@ -850,6 +855,12 @@ public:
 	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack);
 
 	/**
+	* When we get exported time we call GetanimationInterval from fbx sdk and it return the layer 0 by default
+	* This function return the sum of all layer instead of just the layer 0.
+	*/
+	void GetAnimationIntervalMultiLayer(FbxNode* RootNode, FbxAnimStack* AnimStack, FbxTimeSpan& AnimTimeSpan);
+
+	/**
 	 * Import one animation from CurAnimStack
 	 *
 	 * @param Skeleton	Skeleton that the animation belong to
@@ -862,6 +873,12 @@ public:
 	 * @param AnimTimeSpan	AnimTimeSpan
 	 */
 	bool ImportAnimation(USkeleton* Skeleton, UAnimSequence* DestSeq, const FString& FileName, TArray<FbxNode*>& SortedLinks, TArray<FbxNode*>& NodeArray, FbxAnimStack* CurAnimStack, const int32 ResampleRate, const FbxTimeSpan AnimTimeSpan);
+	/**
+	* Calculate the global Sample Rate for all the nodes in the FbxAnimStack pass in parameter
+	*
+	* @param FbxAnimStack	The anim stack we want to know the best sample rate
+	*/
+	int32 GetGlobalAnimStackSampleRate(FbxAnimStack* CurAnimStack);
 	/**
 	 * Calculate Max Sample Rate - separate out of the original ImportAnimations
 	 *
@@ -1285,7 +1302,7 @@ protected:
 	 * @param LODIndex	LOD level to set up for StaticMesh
 	 * @return bool true if set up successfully
 	 */
-	bool BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex, FRawMesh& RawMesh,
+	bool BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,
 									 EVertexColorImportOption::Type VertexColorImportOption, const TMap<FVector, FColor>& ExistingVertexColorData, const FColor& VertexOverrideColor);
 	
 	/**
@@ -1414,7 +1431,7 @@ protected:
 	 * @param bDisableMissingBindPoseWarning
 	 * @param bUseTime0AsRefPose	in/out - Use Time 0 as Ref Pose 
 	 */
-	bool ImportBone(TArray<FbxNode*>& NodeArray, FSkeletalMeshImportData &ImportData, UFbxSkeletalMeshImportData* TemplateData, TArray<FbxNode*> &OutSortedLinks, bool& bOutDiffPose, bool bDisableMissingBindPoseWarning, bool & bUseTime0AsRefPose, FbxNode *SkeletalMeshNode);
+	bool ImportBone(TArray<FbxNode*>& NodeArray, FSkeletalMeshImportData &ImportData, UFbxSkeletalMeshImportData* TemplateData, TArray<FbxNode*> &OutSortedLinks, bool& bOutDiffPose, bool bDisableMissingBindPoseWarning, bool & bUseTime0AsRefPose, FbxNode *SkeletalMeshNode, bool bIsReimport);
 	
 	/**
 	 * Skins the control points of the given mesh or shape using either the default pose for skinning or the first frame of the

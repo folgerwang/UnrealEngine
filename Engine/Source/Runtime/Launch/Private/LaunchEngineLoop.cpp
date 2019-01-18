@@ -105,7 +105,6 @@
 #if WITH_ENGINE && !UE_BUILD_SHIPPING
 	#include "IAutomationControllerModule.h"
 #endif // WITH_ENGINE && !UE_BUILD_SHIPPING
-	#include "Database.h"
 	#include "DerivedDataCacheInterface.h"
 	#include "ShaderCompiler.h"
 	#include "DistanceFieldAtlas.h"
@@ -985,6 +984,43 @@ static void UpdateCoreCsvStats()
 }
 #endif // WITH_ENGINE && CSV_PROFILER
 
+#if WITH_ENGINE
+namespace AppLifetimeEventCapture
+{
+	static void AppWillDeactivate()
+	{
+		UE_LOG( LogCore, Display, TEXT("AppLifetime: Application will deactivate") );
+		CSV_EVENT_GLOBAL(TEXT("App_WillDeactivate"));
+	}
+
+	static void AppHasReactivated()
+	{
+		UE_LOG( LogCore, Display, TEXT("AppLifetime: Application has reactivated") );
+		CSV_EVENT_GLOBAL(TEXT("App_HasReactivated"));
+	}
+
+	static void AppWillEnterBackground()
+	{
+		UE_LOG( LogCore, Display, TEXT("AppLifetime: Application will enter background") );
+		CSV_EVENT_GLOBAL(TEXT("App_WillEnterBackground"));
+	}
+
+	static void AppHasEnteredForeground()
+	{
+		UE_LOG( LogCore, Display, TEXT("AppLifetime: Application has entered foreground") );
+		CSV_EVENT_GLOBAL(TEXT("App_HasEnteredForeground"));
+	}
+
+	static void Init()
+	{
+		FCoreDelegates::ApplicationWillDeactivateDelegate.AddStatic(AppWillDeactivate);
+		FCoreDelegates::ApplicationHasReactivatedDelegate.AddStatic(AppHasReactivated);
+		FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddStatic(AppWillEnterBackground);
+		FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddStatic(AppHasEnteredForeground);
+	}
+}
+#endif //WITH_ENGINE
+
 
 DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_PreInit_AfterStats, STATGROUP_LoadTime );
 
@@ -1003,8 +1039,8 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	{
 		SCOPED_BOOT_TIMING("LLM Init");
 		LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
-		LLM_SCOPE(ELLMTag::EnginePreInitMemory);
 	}
+	LLM_SCOPE(ELLMTag::EnginePreInitMemory);
 
 	{
 		SCOPED_BOOT_TIMING("InitTaggedStorage");
@@ -1617,6 +1653,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	FCsvProfiler::Get()->Init();
 #endif
 
+#if WITH_ENGINE
+	AppLifetimeEventCapture::Init();
+#endif
+
 #if WITH_ENGINE && TRACING_PROFILER
 	FTracingProfiler::Get()->Init();
 #endif
@@ -2006,9 +2046,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 
 	FString Commandline = FCommandLine::Get();
-	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
+	bool bEnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
 
-	if (EnableShaderCompile && !FPlatformProperties::RequiresCookedData())
+	if (bEnableShaderCompile && !FPlatformProperties::RequiresCookedData())
 	{
 		check(!GShaderCompilingManager);
 		GShaderCompilingManager = new FShaderCompilingManager();
@@ -2027,6 +2067,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	{
+		if (bEnableShaderCompile)
 		{
 			SCOPED_BOOT_TIMING("InitializeShaderTypes");
 			// Initialize shader types before loading any shaders
@@ -2038,12 +2079,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		// Load the global shaders.
 		// if (!IsRunningCommandlet())
 		// hack: don't load global shaders if we are cooking we will load the shaders for the correct platform later
-		if (EnableShaderCompile &&
+		if (bEnableShaderCompile &&
 				!IsRunningDedicatedServer() &&
 				Commandline.Contains(TEXT("cookcommandlet")) == false &&
 				Commandline.Contains(TEXT("run=cook")) == false )
 		// if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")) == false)
 		{
+			LLM_SCOPE(ELLMTag::Shaders);
 			SCOPED_BOOT_TIMING("CompileGlobalShaderMap");
 			CompileGlobalShaderMap(false);
 			if (GIsRequestingExit)
@@ -2253,6 +2295,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		if (FPlatformProperties::RequiresCookedData())
 		{
+			LLM_SCOPE(ELLMTag::Shaders);
 			SCOPED_BOOT_TIMING("FShaderCodeLibrary::OpenLibrary");
 
 			// Open the game library which contains the material shaders.
@@ -3680,6 +3723,7 @@ void FEngineLoop::Tick()
 	// Send a heartbeat for the diagnostics thread
 	FThreadHeartBeat::Get().HeartBeat(true);
 	FGameThreadHitchHeartBeat::Get().FrameStart();
+	FPlatformMisc::TickHotfixables();
 
 	// Make sure something is ticking the rendering tickables in -onethread mode to avoid leaks/bugs.
 	if (!GUseThreadedRendering && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
@@ -4512,9 +4556,9 @@ bool FEngineLoop::AppInit( )
 	}
 
 	// Register the callback that allows the text localization manager to load data for plugins
-	FCoreDelegates::GatherAdditionalLocResPathsCallback.AddLambda([&PluginManager](TArray<FString>& OutLocResPaths)
+	FCoreDelegates::GatherAdditionalLocResPathsCallback.AddLambda([](TArray<FString>& OutLocResPaths)
 	{
-		PluginManager.GetLocalizationPathsForEnabledPlugins(OutLocResPaths);
+		IPluginManager::Get().GetLocalizationPathsForEnabledPlugins(OutLocResPaths);
 	});
 
 	PreInitHMDDevice();
@@ -4570,9 +4614,12 @@ bool FEngineLoop::AppInit( )
 	// Print all initial startup logging
 	FApp::PrintStartupLogMessages();
 
-	// if a logging build, clear out old log files
+	// if a logging build, clear out old log files. Avoid races when multiple processes are running at once.
 #if !NO_LOGGING
-	FMaintenance::DeleteOldLogs();
+	if (!FParse::Param(FCommandLine::Get(), TEXT("MULTIPROCESS")))
+	{
+		FMaintenance::DeleteOldLogs();
+	}
 #endif
 
 #if !UE_BUILD_SHIPPING

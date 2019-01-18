@@ -86,6 +86,7 @@ public:
 	virtual void OnUnregister() override;
 	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
 	int32 GetNumMaterials() const override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -193,9 +194,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	ULocalPlayer* GetOwnerPlayer() const;
 
-	/** @return The draw size of the quad in the world */
+	/** @return The "specified" draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	FVector2D GetDrawSize() const;
+
+	/** @return The "actual" draw size of the quad in the world */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	FVector2D GetCurrentDrawSize() const;
 
 	/** Sets the draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
@@ -267,6 +272,12 @@ public:
 
 	/** Defines the curvature of the widget component when using EWidgetGeometryMode::Cylinder; ignored otherwise.  */
 	float GetCylinderArcAngle() const { return CylinderArcAngle; }
+	
+	/** Sets shared layer name used when this widget is initialized */
+	void SetInitialSharedLayerName(FName NewSharedLayerName) { SharedLayerName = NewSharedLayerName; }
+	
+	/** Sets layer z order used when this widget is initialized */
+	void SetInitialLayerZOrder(int32 NewLayerZOrder) { LayerZOrder = NewLayerZOrder; }
 
 protected:
 	/** Just because the user attempts to receive hardware input does not mean it's possible. */
@@ -287,6 +298,8 @@ protected:
 
 	/** @return the width of the widget component taking GeometryMode into account. */
 	float ComputeComponentWidth() const;
+
+	void UpdateMaterialInstance();
 
 protected:
 	/** The coordinate space in which to render the widget */

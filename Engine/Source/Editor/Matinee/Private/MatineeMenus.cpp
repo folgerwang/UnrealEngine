@@ -489,9 +489,9 @@ void FMatinee::NewGroupPopupTextCommitted(
 		{
 			// find the first perspective viewport - if one exists
 			FLevelEditorViewportClient* ViewportClient = NULL;
-			for( int32 iView = 0; iView < GEditor->LevelViewportClients.Num(); iView++ )
+			for( int32 iView = 0; iView < GEditor->GetLevelViewportClients().Num(); iView++ )
 			{
-				ViewportClient = GEditor->LevelViewportClients[ iView ];
+				ViewportClient = GEditor->GetLevelViewportClients()[ iView ];
 				if( ViewportClient->IsPerspective() )
 				{
 					break;
@@ -3124,10 +3124,8 @@ void FMatinee::LockCameraPitchInViewports(bool bLock)
 {
 	bLockCameraPitch = bLock;
 
-	FLevelEditorViewportClient* ViewportClient = NULL;
-	for( int32 iView = 0; iView < GEditor->LevelViewportClients.Num(); iView++ )
+	for( FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients() )
 	{
-		ViewportClient = GEditor->LevelViewportClients[ iView ];
 		if( ViewportClient->IsPerspective() )
 		{
 			FEditorCameraController* CameraController = ViewportClient->GetCameraController();
@@ -3139,10 +3137,8 @@ void FMatinee::LockCameraPitchInViewports(bool bLock)
 
 void FMatinee::GetLockCameraPitchFromConfig()
 {
-	FLevelEditorViewportClient* ViewportClient = NULL;
-	for( int32 iView = 0; iView < GEditor->LevelViewportClients.Num(); iView++ )
+	for( FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients() )
 	{
-		ViewportClient = GEditor->LevelViewportClients[ iView ];
 		if( ViewportClient->IsPerspective() )
 		{
 			FEditorCameraController* CameraController = ViewportClient->GetCameraController();

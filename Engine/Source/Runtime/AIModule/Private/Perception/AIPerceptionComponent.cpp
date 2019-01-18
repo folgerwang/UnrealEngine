@@ -13,6 +13,8 @@
 
 
 
+DECLARE_CYCLE_STAT(TEXT("Perception Component ProcessStimuli"), STAT_AI_PercepComp_ProcessStimuli, STATGROUP_AI);
+
 DECLARE_CYCLE_STAT(TEXT("Requesting UAIPerceptionComponent::RemoveDeadData call from within a const function"),
 	STAT_FSimpleDelegateGraphTask_RequestingRemovalOfDeadPerceptionData,
 	STATGROUP_TaskGraphTasks);
@@ -218,6 +220,8 @@ void UAIPerceptionComponent::CleanUp()
 {
 	if (bCleanedUp == false)
 	{
+		ForgetAll();
+
 		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
 		if (AIPerceptionSys != nullptr)
 		{
@@ -268,11 +272,13 @@ void UAIPerceptionComponent::GetHostileActors(TArray<AActor*>& OutActors) const
 	OutActors.Reserve(PerceptualData.Num());
 	for (FActorPerceptionContainer::TConstIterator DataIt = GetPerceptualDataConstIterator(); DataIt; ++DataIt)
 	{
-		if (DataIt->Value.bIsHostile && DataIt->Value.HasAnyKnownStimulus())
+		const FActorPerceptionInfo& ActorPerceptionInfo = DataIt->Value;
+
+		if (ActorPerceptionInfo.bIsHostile && ActorPerceptionInfo.HasAnyKnownStimulus())
 		{
-			if (DataIt->Value.Target.IsValid())
+			if (ActorPerceptionInfo.Target.IsValid())
 			{
-				OutActors.Add(DataIt->Value.Target.Get());
+				OutActors.Add(ActorPerceptionInfo.Target.Get());
 			}
 			else
 			{
@@ -391,6 +397,8 @@ void UAIPerceptionComponent::RegisterStimulus(AActor* Source, const FAIStimulus&
 
 void UAIPerceptionComponent::ProcessStimuli()
 {
+	SCOPE_CYCLE_COUNTER(STAT_AI_PercepComp_ProcessStimuli);
+	
 	if(StimuliToProcess.Num() == 0)
 	{
 		UE_VLOG(GetOwner(), LogAIPerception, Warning, TEXT("UAIPerceptionComponent::ProcessStimuli called without any Stimuli to process"));
@@ -399,17 +407,18 @@ void UAIPerceptionComponent::ProcessStimuli()
 
 	const bool bBroadcastEveryTargetUpdate = OnTargetPerceptionUpdated.IsBound();
 	
-	FStimulusToProcess* SourcedStimulus = StimuliToProcess.GetData();
 	TArray<AActor*> UpdatedActors;
 	UpdatedActors.Reserve(StimuliToProcess.Num());
 
-	for (int32 StimulusIndex = 0; StimulusIndex < StimuliToProcess.Num(); ++StimulusIndex, ++SourcedStimulus)
+	for (FStimulusToProcess& SourcedStimulus : StimuliToProcess)
 	{
-		FActorPerceptionInfo* PerceptualInfo = PerceptualData.Find(SourcedStimulus->Source);
+		const uint64 SourceAddr = reinterpret_cast<uint64>(SourcedStimulus.Source);
+
+		FActorPerceptionInfo* PerceptualInfo = PerceptualData.Find(SourceAddr);
 
 		if (PerceptualInfo == NULL)
 		{
-			if (SourcedStimulus->Stimulus.WasSuccessfullySensed() == false)
+			if (SourcedStimulus.Stimulus.WasSuccessfullySensed() == false)
 			{
 				// this means it's a failed perception of an actor our owner is not aware of
 				// at all so there's no point in creating perceptual data for a failed stimulus
@@ -418,32 +427,29 @@ void UAIPerceptionComponent::ProcessStimuli()
 			else
 			{
 				// create an entry
-				PerceptualInfo = &PerceptualData.Add(SourcedStimulus->Source, FActorPerceptionInfo(SourcedStimulus->Source));
+				PerceptualInfo = &PerceptualData.Add(SourceAddr, FActorPerceptionInfo(SourcedStimulus.Source));
 				// tell it what's our dominant sense
 				PerceptualInfo->DominantSense = DominantSenseID;
 
-				PerceptualInfo->bIsHostile = AIOwner != NULL && FGenericTeamId::GetAttitude(AIOwner, SourcedStimulus->Source) == ETeamAttitude::Hostile;
+				PerceptualInfo->bIsHostile = AIOwner != NULL && FGenericTeamId::GetAttitude(AIOwner, SourcedStimulus.Source) == ETeamAttitude::Hostile;
 			}
 		}
 
-		if (PerceptualInfo->LastSensedStimuli.Num() <= SourcedStimulus->Stimulus.Type)
+		if (PerceptualInfo->LastSensedStimuli.Num() <= SourcedStimulus.Stimulus.Type)
 		{
-			const int32 NumberToAdd = SourcedStimulus->Stimulus.Type - PerceptualInfo->LastSensedStimuli.Num() + 1;
-			for (int32 Index = 0; Index < NumberToAdd; ++Index)
-			{
-				PerceptualInfo->LastSensedStimuli.Add(FAIStimulus());
-			}
+			const int32 NumberToAdd = SourcedStimulus.Stimulus.Type - PerceptualInfo->LastSensedStimuli.Num() + 1;
+			PerceptualInfo->LastSensedStimuli.AddDefaulted(NumberToAdd);
 		}
 
-		check(SourcedStimulus->Stimulus.Type.IsValid());
+		check(SourcedStimulus.Stimulus.Type.IsValid());
 
-		FAIStimulus& StimulusStore = PerceptualInfo->LastSensedStimuli[SourcedStimulus->Stimulus.Type];
-		const bool bActorInfoUpdated = SourcedStimulus->Stimulus.WantsToNotifyOnlyOnPerceptionChange() == false 
-			|| SourcedStimulus->Stimulus.WasSuccessfullySensed() != StimulusStore.WasSuccessfullySensed();
+		FAIStimulus& StimulusStore = PerceptualInfo->LastSensedStimuli[SourcedStimulus.Stimulus.Type];
+		const bool bActorInfoUpdated = SourcedStimulus.Stimulus.WantsToNotifyOnlyOnPerceptionChange() == false 
+			|| SourcedStimulus.Stimulus.WasSuccessfullySensed() != StimulusStore.WasSuccessfullySensed();
 
-		if (SourcedStimulus->Stimulus.WasSuccessfullySensed())
+		if (SourcedStimulus.Stimulus.WasSuccessfullySensed())
 		{
-			RefreshStimulus(StimulusStore, SourcedStimulus->Stimulus);
+			RefreshStimulus(StimulusStore, SourcedStimulus.Stimulus);
 		}
 		else if (StimulusStore.IsExpired() == false)
 		{	
@@ -463,10 +469,10 @@ void UAIPerceptionComponent::ProcessStimuli()
 		// if the new stimulus is "valid" or it's info that "no longer sensed" and it used to be sensed successfully
 		if (bActorInfoUpdated)
 		{
-			UpdatedActors.AddUnique(SourcedStimulus->Source);
+			UpdatedActors.AddUnique(SourcedStimulus.Source);
 			if (bBroadcastEveryTargetUpdate)
 			{
-				OnTargetPerceptionUpdated.Broadcast(SourcedStimulus->Source, StimulusStore);
+				OnTargetPerceptionUpdated.Broadcast(SourcedStimulus.Source, StimulusStore);
 			}
 		}
 	}
@@ -512,7 +518,7 @@ bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
 		for (FAIStimulus& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
 		{
 			// Age the stimulus. If it is active but has just expired, mark it as such
-			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false 
+			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false
 				&& (Stimulus.IsActive() || Stimulus.WantsToNotifyOnlyOnPerceptionChange())
 				&& Stimulus.IsExpired() == false)
 			{
@@ -540,7 +546,7 @@ void UAIPerceptionComponent::ForgetActor(AActor* ActorToForget)
 			AIPerceptionSys->OnListenerForgetsActor(*this, *ActorToForget);
 		}
 
-		PerceptualData.Remove(ActorToForget);
+		const int32 NumRemoved = PerceptualData.Remove(reinterpret_cast<uint64>(ActorToForget));
 	}
 }
 

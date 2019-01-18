@@ -210,14 +210,15 @@ bool FLandscapeEditDataInterface::GetComponentsInRegion(int32 X1, int32 Y1, int3
 	return bNotLocked;
 }
 
-void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* Data, int32 Stride, bool CalcNormals, const uint16* NormalData /*= NULL*/, bool CreateComponents /*= false*/)
+void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* InData, int32 InStride, bool InCalcNormals, const uint16* InNormalData, bool InCreateComponents, UTexture2D* InHeightmap, UTexture2D* InXYOffsetmapTexture,
+											   bool InUpdateBounds, bool InUpdateCollision, bool InGenerateMips)
 {
 	const int32 NumVertsX = 1 + X2 - X1;
 	const int32 NumVertsY = 1 + Y2 - Y1;
 
-	if (Stride == 0)
+	if (InStride == 0)
 	{
-		Stride = NumVertsX;
+		InStride = NumVertsX;
 	}
 
 	check(ComponentSizeQuads > 0);
@@ -226,36 +227,36 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 	ALandscape::CalcComponentIndicesOverlap(X1, Y1, X2, Y2, ComponentSizeQuads, ComponentIndexX1, ComponentIndexY1, ComponentIndexX2, ComponentIndexY2);
 
 	FVector* VertexNormals = nullptr;
-	if (CalcNormals)
+	if (InCalcNormals)
 	{
 		// Calculate the normals for each of the two triangles per quad.
 		// Note that the normals at the edges are not correct because they include normals
 		// from triangles outside the current area. They are not updated
 		VertexNormals = new FVector[NumVertsX*NumVertsY];
-		FMemory::Memzero(VertexNormals, NumVertsX*NumVertsY*sizeof(FVector));
+		FMemory::Memzero(VertexNormals, NumVertsX*NumVertsY * sizeof(FVector));
 
 		// Need to consider XYOffset for XY displacemented map
 		FVector2D* XYOffsets = new FVector2D[NumVertsX*NumVertsY];
-		FMemory::Memzero(XYOffsets, NumVertsX*NumVertsY*sizeof(FVector2D));
+		FMemory::Memzero(XYOffsets, NumVertsX*NumVertsY * sizeof(FVector2D));
 		GetXYOffsetDataFast(X1, Y1, X2, Y2, XYOffsets, 0);
 
 		for (int32 Y = 0; Y < NumVertsY - 1; Y++)
 		{
 			for (int32 X = 0; X < NumVertsX - 1; X++)
 			{
-				FVector Vert00 = FVector(XYOffsets[(X+0) + NumVertsX*(Y+0)].X,      XYOffsets[(X+0) + NumVertsX*(Y+0)].Y,      ((float)Data[(X+0) + Stride*(Y+0)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
-				FVector Vert01 = FVector(XYOffsets[(X+0) + NumVertsX*(Y+0)].X,      XYOffsets[(X+0) + NumVertsX*(Y+0)].Y+1.0f, ((float)Data[(X+0) + Stride*(Y+1)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
-				FVector Vert10 = FVector(XYOffsets[(X+0) + NumVertsX*(Y+0)].X+1.0f, XYOffsets[(X+0) + NumVertsX*(Y+0)].Y,      ((float)Data[(X+1) + Stride*(Y+0)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
-				FVector Vert11 = FVector(XYOffsets[(X+0) + NumVertsX*(Y+0)].X+1.0f, XYOffsets[(X+0) + NumVertsX*(Y+0)].Y+1.0f, ((float)Data[(X+1) + Stride*(Y+1)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
+				FVector Vert00 = FVector(XYOffsets[(X + 0) + NumVertsX*(Y + 0)].X, XYOffsets[(X + 0) + NumVertsX*(Y + 0)].Y, ((float)InData[(X + 0) + InStride*(Y + 0)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
+				FVector Vert01 = FVector(XYOffsets[(X + 0) + NumVertsX*(Y + 0)].X, XYOffsets[(X + 0) + NumVertsX*(Y + 0)].Y + 1.0f, ((float)InData[(X + 0) + InStride*(Y + 1)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
+				FVector Vert10 = FVector(XYOffsets[(X + 0) + NumVertsX*(Y + 0)].X + 1.0f, XYOffsets[(X + 0) + NumVertsX*(Y + 0)].Y, ((float)InData[(X + 1) + InStride*(Y + 0)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
+				FVector Vert11 = FVector(XYOffsets[(X + 0) + NumVertsX*(Y + 0)].X + 1.0f, XYOffsets[(X + 0) + NumVertsX*(Y + 0)].Y + 1.0f, ((float)InData[(X + 1) + InStride*(Y + 1)] - 32768.0f) * LANDSCAPE_ZSCALE) * DrawScale;
 
-				FVector FaceNormal1 = ((Vert00-Vert10) ^ (Vert10-Vert11)).GetSafeNormal();
-				FVector FaceNormal2 = ((Vert11-Vert01) ^ (Vert01-Vert00)).GetSafeNormal(); 
+				FVector FaceNormal1 = ((Vert00 - Vert10) ^ (Vert10 - Vert11)).GetSafeNormal();
+				FVector FaceNormal2 = ((Vert11 - Vert01) ^ (Vert01 - Vert00)).GetSafeNormal();
 
 				// contribute to the vertex normals.
-				VertexNormals[(X+1 + NumVertsX*(Y+0))] += FaceNormal1;
-				VertexNormals[(X+0 + NumVertsX*(Y+1))] += FaceNormal2;
-				VertexNormals[(X+0 + NumVertsX*(Y+0))] += FaceNormal1 + FaceNormal2;
-				VertexNormals[(X+1 + NumVertsX*(Y+1))] += FaceNormal1 + FaceNormal2;
+				VertexNormals[(X + 1 + NumVertsX*(Y + 0))] += FaceNormal1;
+				VertexNormals[(X + 0 + NumVertsX*(Y + 1))] += FaceNormal2;
+				VertexNormals[(X + 0 + NumVertsX*(Y + 0))] += FaceNormal1 + FaceNormal2;
+				VertexNormals[(X + 1 + NumVertsX*(Y + 1))] += FaceNormal1 + FaceNormal2;
 			}
 		}
 
@@ -272,7 +273,7 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 			// if nullptr, it was painted away
 			if (Component == nullptr)
 			{
-				if (CreateComponents)
+				if (InCreateComponents)
 				{
 					// not yet implemented
 					continue;
@@ -283,35 +284,38 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 				}
 			}
 
+			UTexture2D* Heightmap = InHeightmap != nullptr ? InHeightmap : Component->GetHeightmap(true);
+			UTexture2D* XYOffsetmapTexture = InXYOffsetmapTexture != nullptr ? InXYOffsetmapTexture : Component->XYOffsetmapTexture;
+
 			Component->Modify();
 
-			FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Component->HeightmapTexture);
+			FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Heightmap);
 			FColor* HeightmapTextureData = (FColor*)TexDataInfo->GetMipData(0);
 
 			FColor* XYOffsetMipData = nullptr;
-			if (Component->XYOffsetmapTexture)
+			if (XYOffsetmapTexture)
 			{
-				FLandscapeTextureDataInfo* XYTexDataInfo = GetTextureDataInfo(Component->XYOffsetmapTexture);
-				XYOffsetMipData = (FColor*)XYTexDataInfo->GetMipData(Component->CollisionMipLevel); 
+				FLandscapeTextureDataInfo* XYTexDataInfo = GetTextureDataInfo(XYOffsetmapTexture);
+				XYOffsetMipData = (FColor*)XYTexDataInfo->GetMipData(Component->CollisionMipLevel);
 			}
 
 			// Find the texture data corresponding to this vertex
-			int32 SizeU = Component->HeightmapTexture->Source.GetSizeX();
-			int32 SizeV = Component->HeightmapTexture->Source.GetSizeY();
+			int32 SizeU = Heightmap->Source.GetSizeX();
+			int32 SizeV = Heightmap->Source.GetSizeY();
 			int32 HeightmapOffsetX = Component->HeightmapScaleBias.Z * (float)SizeU;
 			int32 HeightmapOffsetY = Component->HeightmapScaleBias.W * (float)SizeV;
 
 			// Find coordinates of box that lies inside component
-			int32 ComponentX1 = FMath::Clamp<int32>(X1-ComponentIndexX*ComponentSizeQuads, 0, ComponentSizeQuads);
-			int32 ComponentY1 = FMath::Clamp<int32>(Y1-ComponentIndexY*ComponentSizeQuads, 0, ComponentSizeQuads);
-			int32 ComponentX2 = FMath::Clamp<int32>(X2-ComponentIndexX*ComponentSizeQuads, 0, ComponentSizeQuads);
-			int32 ComponentY2 = FMath::Clamp<int32>(Y2-ComponentIndexY*ComponentSizeQuads, 0, ComponentSizeQuads);
+			int32 ComponentX1 = FMath::Clamp<int32>(X1 - ComponentIndexX*ComponentSizeQuads, 0, ComponentSizeQuads);
+			int32 ComponentY1 = FMath::Clamp<int32>(Y1 - ComponentIndexY*ComponentSizeQuads, 0, ComponentSizeQuads);
+			int32 ComponentX2 = FMath::Clamp<int32>(X2 - ComponentIndexX*ComponentSizeQuads, 0, ComponentSizeQuads);
+			int32 ComponentY2 = FMath::Clamp<int32>(Y2 - ComponentIndexY*ComponentSizeQuads, 0, ComponentSizeQuads);
 
 			// Find subsection range for this box
-			int32 SubIndexX1 = FMath::Clamp<int32>((ComponentX1-1) / SubsectionSizeQuads,0,ComponentNumSubsections-1);	// -1 because we need to pick up vertices shared between subsections
-			int32 SubIndexY1 = FMath::Clamp<int32>((ComponentY1-1) / SubsectionSizeQuads,0,ComponentNumSubsections-1);
-			int32 SubIndexX2 = FMath::Clamp<int32>(ComponentX2 / SubsectionSizeQuads,0,ComponentNumSubsections-1);
-			int32 SubIndexY2 = FMath::Clamp<int32>(ComponentY2 / SubsectionSizeQuads,0,ComponentNumSubsections-1);
+			int32 SubIndexX1 = FMath::Clamp<int32>((ComponentX1 - 1) / SubsectionSizeQuads, 0, ComponentNumSubsections - 1);	// -1 because we need to pick up vertices shared between subsections
+			int32 SubIndexY1 = FMath::Clamp<int32>((ComponentY1 - 1) / SubsectionSizeQuads, 0, ComponentNumSubsections - 1);
+			int32 SubIndexX2 = FMath::Clamp<int32>(ComponentX2 / SubsectionSizeQuads, 0, ComponentNumSubsections - 1);
+			int32 SubIndexY2 = FMath::Clamp<int32>(ComponentY2 / SubsectionSizeQuads, 0, ComponentNumSubsections - 1);
 
 			// To adjust bounding box
 			uint16 MinHeight = MAX_uint16;
@@ -322,10 +326,10 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 				for (int32 SubIndexX = SubIndexX1; SubIndexX <= SubIndexX2; SubIndexX++)
 				{
 					// Find coordinates of box that lies inside subsection
-					int32 SubX1 = FMath::Clamp<int32>(ComponentX1-SubsectionSizeQuads*SubIndexX, 0, SubsectionSizeQuads);
-					int32 SubY1 = FMath::Clamp<int32>(ComponentY1-SubsectionSizeQuads*SubIndexY, 0, SubsectionSizeQuads);
-					int32 SubX2 = FMath::Clamp<int32>(ComponentX2-SubsectionSizeQuads*SubIndexX, 0, SubsectionSizeQuads);
-					int32 SubY2 = FMath::Clamp<int32>(ComponentY2-SubsectionSizeQuads*SubIndexY, 0, SubsectionSizeQuads);
+					int32 SubX1 = FMath::Clamp<int32>(ComponentX1 - SubsectionSizeQuads*SubIndexX, 0, SubsectionSizeQuads);
+					int32 SubY1 = FMath::Clamp<int32>(ComponentY1 - SubsectionSizeQuads*SubIndexY, 0, SubsectionSizeQuads);
+					int32 SubX2 = FMath::Clamp<int32>(ComponentX2 - SubsectionSizeQuads*SubIndexX, 0, SubsectionSizeQuads);
+					int32 SubY2 = FMath::Clamp<int32>(ComponentY2 - SubsectionSizeQuads*SubIndexY, 0, SubsectionSizeQuads);
 
 					// Update texture data for the box that lies inside subsection
 					for (int32 SubY = SubY1; SubY <= SubY2; SubY++)
@@ -338,8 +342,8 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 							checkSlow(LandscapeY >= Y1 && LandscapeY <= Y2);
 
 							// Find the input data corresponding to this vertex
-							int32 DataIndex = (LandscapeX-X1) + Stride * (LandscapeY-Y1);
-							const uint16& Height = Data[DataIndex];
+							int32 DataIndex = (LandscapeX - X1) + InStride * (LandscapeY - Y1);
+							const uint16& Height = InData[DataIndex];
 
 							// for bounding box
 							if (Height < MinHeight)
@@ -351,8 +355,8 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 								MaxHeight = Height;
 							}
 
-							int32 TexX = HeightmapOffsetX + (SubsectionSizeQuads+1) * SubIndexX + SubX;
-							int32 TexY = HeightmapOffsetY + (SubsectionSizeQuads+1) * SubIndexY + SubY;
+							int32 TexX = HeightmapOffsetX + (SubsectionSizeQuads + 1) * SubIndexX + SubX;
+							int32 TexY = HeightmapOffsetY + (SubsectionSizeQuads + 1) * SubIndexY + SubY;
 							FColor& TexData = HeightmapTextureData[TexX + TexY * SizeU];
 
 							// Update the texture
@@ -362,15 +366,15 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 							// Update normals if we're not on an edge vertex
 							if (VertexNormals && LandscapeX > X1 && LandscapeX < X2 && LandscapeY > Y1 && LandscapeY < Y2)
 							{
-								const int32 NormalDataIndex = (LandscapeX-X1) + NumVertsX * (LandscapeY-Y1);
+								const int32 NormalDataIndex = (LandscapeX - X1) + NumVertsX * (LandscapeY - Y1);
 								FVector Normal = VertexNormals[NormalDataIndex].GetSafeNormal();
 								TexData.B = FMath::RoundToInt(127.5f * (Normal.X + 1.0f));
 								TexData.A = FMath::RoundToInt(127.5f * (Normal.Y + 1.0f));
 							}
-							else if (NormalData)
+							else if (InNormalData)
 							{
 								// Need data validation?
-								const uint16& Normal = NormalData[DataIndex];
+								const uint16& Normal = InNormalData[DataIndex];
 								TexData.B = Normal >> 8;
 								TexData.A = Normal & 255;
 							}
@@ -378,33 +382,37 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 					}
 
 					// Record the areas of the texture we need to re-upload
-					int32 TexX1 = HeightmapOffsetX + (SubsectionSizeQuads+1) * SubIndexX + SubX1;
-					int32 TexY1 = HeightmapOffsetY + (SubsectionSizeQuads+1) * SubIndexY + SubY1;
-					int32 TexX2 = HeightmapOffsetX + (SubsectionSizeQuads+1) * SubIndexX + SubX2;
-					int32 TexY2 = HeightmapOffsetY + (SubsectionSizeQuads+1) * SubIndexY + SubY2;
-					TexDataInfo->AddMipUpdateRegion(0,TexX1,TexY1,TexX2,TexY2);
+					int32 TexX1 = HeightmapOffsetX + (SubsectionSizeQuads + 1) * SubIndexX + SubX1;
+					int32 TexY1 = HeightmapOffsetY + (SubsectionSizeQuads + 1) * SubIndexY + SubY1;
+					int32 TexX2 = HeightmapOffsetX + (SubsectionSizeQuads + 1) * SubIndexX + SubX2;
+					int32 TexY2 = HeightmapOffsetY + (SubsectionSizeQuads + 1) * SubIndexY + SubY2;
+					TexDataInfo->AddMipUpdateRegion(0, TexX1, TexY1, TexX2, TexY2);
 				}
 			}
 
 			// See if we need to adjust the bounds. Note we never shrink the bounding box at this point
-			float MinLocalZ = LandscapeDataAccess::GetLocalHeight(MinHeight);
-			float MaxLocalZ = LandscapeDataAccess::GetLocalHeight(MaxHeight);
-
 			bool bUpdateBoxSphereBounds = false;
-			if (MinLocalZ < Component->CachedLocalBox.Min.Z)
-			{
-				Component->CachedLocalBox.Min.Z = MinLocalZ;
-				bUpdateBoxSphereBounds = true;
-			}
-			if (MaxLocalZ > Component->CachedLocalBox.Max.Z)
-			{
-				Component->CachedLocalBox.Max.Z = MaxLocalZ;
-				bUpdateBoxSphereBounds = true;
-			}
 
-			if (bUpdateBoxSphereBounds)
+			if (InUpdateBounds)
 			{
-				Component->UpdateComponentToWorld();
+				float MinLocalZ = LandscapeDataAccess::GetLocalHeight(MinHeight);
+				float MaxLocalZ = LandscapeDataAccess::GetLocalHeight(MaxHeight);
+
+				if (MinLocalZ < Component->CachedLocalBox.Min.Z)
+				{
+					Component->CachedLocalBox.Min.Z = MinLocalZ;
+					bUpdateBoxSphereBounds = true;
+				}
+				if (MaxLocalZ > Component->CachedLocalBox.Max.Z)
+				{
+					Component->CachedLocalBox.Max.Z = MaxLocalZ;
+					bUpdateBoxSphereBounds = true;
+				}
+
+				if (bUpdateBoxSphereBounds)
+				{
+					Component->UpdateComponentToWorld();
+				}
 			}
 
 			// Update mipmaps
@@ -412,22 +420,29 @@ void FLandscapeEditDataInterface::SetHeightData(int32 X1, int32 Y1, int32 X2, in
 			// Work out how many mips should be calculated directly from one component's data.
 			// The remaining mips are calculated on a per texture basis.
 			// eg if subsection is 7x7 quads, we need one 3 mips total: (8x8, 4x4, 2x2 verts)
-			int32 BaseNumMips = FMath::CeilLogTwo(SubsectionSizeQuads+1);
-			TArray<FColor*> MipData;
-			MipData.AddUninitialized(BaseNumMips);
-			MipData[0] = HeightmapTextureData;
-			for (int32 MipIdx = 1; MipIdx < BaseNumMips; MipIdx++)
+			if (InGenerateMips)
 			{
-				MipData[MipIdx] = (FColor*)TexDataInfo->GetMipData(MipIdx);
-			}
-			Component->GenerateHeightmapMips(MipData, ComponentX1, ComponentY1, ComponentX2, ComponentY2, TexDataInfo);
+				int32 BaseNumMips = FMath::CeilLogTwo(SubsectionSizeQuads + 1);
+				TArray<FColor*> MipData;
+				MipData.AddUninitialized(BaseNumMips);
+				MipData[0] = HeightmapTextureData;
+				for (int32 MipIdx = 1; MipIdx < BaseNumMips; MipIdx++)
+				{
+					MipData[MipIdx] = (FColor*)TexDataInfo->GetMipData(MipIdx);
+				}
+				Component->GenerateHeightmapMips(MipData, ComponentX1, ComponentY1, ComponentX2, ComponentY2, TexDataInfo);
 
-			// Update collision
-			Component->UpdateCollisionHeightData(
-				MipData[Component->CollisionMipLevel],
-				Component->SimpleCollisionMipLevel > Component->CollisionMipLevel ? MipData[Component->SimpleCollisionMipLevel] : nullptr,
-				ComponentX1, ComponentY1, ComponentX2, ComponentY2, bUpdateBoxSphereBounds,
-				XYOffsetMipData);
+				if (InUpdateCollision)
+				{
+					// Update collision
+					Component->UpdateCollisionHeightData(
+						MipData[Component->CollisionMipLevel],
+						Component->SimpleCollisionMipLevel > Component->CollisionMipLevel ? MipData[Component->SimpleCollisionMipLevel] : nullptr,
+						ComponentX1, ComponentY1, ComponentX2, ComponentY2, bUpdateBoxSphereBounds,
+						XYOffsetMipData);
+				}
+			}
+
 
 			// Update GUID for Platform Data
 			FPlatformMisc::CreateGuid(Component->StateId);
@@ -491,12 +506,12 @@ void FLandscapeEditDataInterface::RecalculateNormals()
 		}
 
 		// Find the texture data corresponding to this vertex
-		int32 SizeU = Component->HeightmapTexture->Source.GetSizeX();
-		int32 SizeV = Component->HeightmapTexture->Source.GetSizeY();
+		int32 SizeU = Component->GetHeightmap(true)->Source.GetSizeX();
+		int32 SizeV = Component->GetHeightmap(true)->Source.GetSizeY();
 		int32 HeightmapOffsetX = Component->HeightmapScaleBias.Z * (float)SizeU;
 		int32 HeightmapOffsetY = Component->HeightmapScaleBias.W * (float)SizeV;
 
-		FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Component->HeightmapTexture);
+		FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Component->GetHeightmap(true));
 		FColor* HeightmapTextureData = (FColor*)TexDataInfo->GetMipData(0);
 
 		// Apply vertex normals to the component
@@ -552,7 +567,7 @@ void FLandscapeEditDataInterface::RecalculateNormals()
 }
 
 template<typename TStoreData>
-void FLandscapeEditDataInterface::GetHeightDataTemplFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TStoreData& StoreData, TStoreData* NormalData /*= NULL*/)
+void FLandscapeEditDataInterface::GetHeightDataTemplFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TStoreData& StoreData, UTexture2D* InHeightmap, TStoreData* NormalData /*= NULL*/)
 {
 	if (!LandscapeInfo) return;
 	int32 ComponentIndexX1, ComponentIndexY1, ComponentIndexX2, ComponentIndexY2;
@@ -562,19 +577,19 @@ void FLandscapeEditDataInterface::GetHeightDataTemplFast(const int32 X1, const i
 	{
 		for( int32 ComponentIndexX=ComponentIndexX1;ComponentIndexX<=ComponentIndexX2;ComponentIndexX++ )
 		{		
-			ULandscapeComponent* Component = LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX,ComponentIndexY));
+			ULandscapeComponent* Component = LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY));
 
-			FLandscapeTextureDataInfo* TexDataInfo = NULL;
-			FColor* HeightmapTextureData = NULL;
-			if( Component )
-			{
-				TexDataInfo = GetTextureDataInfo(Component->HeightmapTexture);
-				HeightmapTextureData = (FColor*)TexDataInfo->GetMipData(0);
-			}
-			else
+			if (Component == nullptr)
 			{
 				continue;
 			}
+
+			UTexture2D* Heightmap = InHeightmap != nullptr ? InHeightmap : Component->GetHeightmap(true);
+
+			FLandscapeTextureDataInfo* TexDataInfo = NULL;
+			FColor* HeightmapTextureData = NULL;
+			TexDataInfo = GetTextureDataInfo(Heightmap);
+			HeightmapTextureData = (FColor*)TexDataInfo->GetMipData(0);
 
 			// Find coordinates of box that lies inside component
 			int32 ComponentX1 = FMath::Clamp<int32>(X1-ComponentIndexX*ComponentSizeQuads, 0, ComponentSizeQuads);
@@ -607,8 +622,8 @@ void FLandscapeEditDataInterface::GetHeightDataTemplFast(const int32 X1, const i
 							int32 LandscapeY = SubIndexY*SubsectionSizeQuads + ComponentIndexY*ComponentSizeQuads + SubY;
 
 							// Find the texture data corresponding to this vertex
-							int32 SizeU = Component->HeightmapTexture->Source.GetSizeX();
-							int32 SizeV = Component->HeightmapTexture->Source.GetSizeY();
+							int32 SizeU = Heightmap->Source.GetSizeX();
+							int32 SizeV = Heightmap->Source.GetSizeY();
 							int32 HeightmapOffsetX = Component->HeightmapScaleBias.Z * (float)SizeU;
 							int32 HeightmapOffsetY = Component->HeightmapScaleBias.W * (float)SizeV;
 
@@ -916,12 +931,12 @@ uint16 FLandscapeEditDataInterface::GetHeightMapData(const ULandscapeComponent* 
 	check(Component);
 	if (!TextureData)
 	{
-		FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Component->HeightmapTexture);
+		FLandscapeTextureDataInfo* TexDataInfo = GetTextureDataInfo(Component->GetHeightmap(true));
 		TextureData = (FColor*)TexDataInfo->GetMipData(0);	
 	}
 
-	int32 SizeU = Component->HeightmapTexture->Source.GetSizeX();
-	int32 SizeV = Component->HeightmapTexture->Source.GetSizeY();
+	int32 SizeU = Component->GetHeightmap(true)->Source.GetSizeX();
+	int32 SizeV = Component->GetHeightmap(true)->Source.GetSizeY();
 	int32 HeightmapOffsetX = Component->HeightmapScaleBias.Z * (float)SizeU;
 	int32 HeightmapOffsetY = Component->HeightmapScaleBias.W * (float)SizeV;
 
@@ -984,7 +999,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 
 			if( Component )
 			{
-				TexDataInfo = GetTextureDataInfo(Component->HeightmapTexture);
+				TexDataInfo = GetTextureDataInfo(Component->GetHeightmap(true));
 				HeightmapTextureData = (FColor*)TexDataInfo->GetMipData(0);
 				ComponentDataExist[ComponentIndexXY] = true;
 				// Update valid region
@@ -1021,7 +1036,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 						if (BorderComponent[0])
 						{
 							NoBorderX1 = false;
-							NeighborTexDataInfo[0] = GetTextureDataInfo(BorderComponent[0]->HeightmapTexture);
+							NeighborTexDataInfo[0] = GetTextureDataInfo(BorderComponent[0]->GetHeightmap(true));
 							NeighborHeightmapTextureData[0] = (FColor*)NeighborTexDataInfo[0]->GetMipData(0);
 							break;
 						}
@@ -1037,7 +1052,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 						if (BorderComponent[1])
 						{
 							NoBorderX2 = false;
-							NeighborTexDataInfo[1] = GetTextureDataInfo(BorderComponent[1]->HeightmapTexture);
+							NeighborTexDataInfo[1] = GetTextureDataInfo(BorderComponent[1]->GetHeightmap(true));
 							NeighborHeightmapTextureData[1] = (FColor*)NeighborTexDataInfo[1]->GetMipData(0);
 							break;
 						}
@@ -1053,7 +1068,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 						if (BorderComponent[2])
 						{
 							NoBorderY1[ComponentIndexXX] = false;
-							NeighborTexDataInfo[2] = GetTextureDataInfo(BorderComponent[2]->HeightmapTexture);
+							NeighborTexDataInfo[2] = GetTextureDataInfo(BorderComponent[2]->GetHeightmap(true));
 							NeighborHeightmapTextureData[2] = (FColor*)NeighborTexDataInfo[2]->GetMipData(0);
 							break;
 						}
@@ -1064,7 +1079,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 					BorderComponent[2] = BorderComponentY1[ComponentIndexXX];
 					if (BorderComponent[2])
 					{
-						NeighborTexDataInfo[2] = GetTextureDataInfo(BorderComponent[2]->HeightmapTexture);
+						NeighborTexDataInfo[2] = GetTextureDataInfo(BorderComponent[2]->GetHeightmap(true));
 						NeighborHeightmapTextureData[2] = (FColor*)NeighborTexDataInfo[2]->GetMipData(0);
 					}
 				}
@@ -1078,7 +1093,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 						if (BorderComponent[3])
 						{
 							NoBorderY2[ComponentIndexXX] = false;
-							NeighborTexDataInfo[3] = GetTextureDataInfo(BorderComponent[3]->HeightmapTexture);
+							NeighborTexDataInfo[3] = GetTextureDataInfo(BorderComponent[3]->GetHeightmap(true));
 							NeighborHeightmapTextureData[3] = (FColor*)NeighborTexDataInfo[3]->GetMipData(0);
 							break;
 						}
@@ -1089,7 +1104,7 @@ void FLandscapeEditDataInterface::GetHeightDataTempl(int32& ValidX1, int32& Vali
 					BorderComponent[3] = BorderComponentY2[ComponentIndexXX];
 					if (BorderComponent[3])
 					{
-						NeighborTexDataInfo[3] = GetTextureDataInfo(BorderComponent[3]->HeightmapTexture);
+						NeighborTexDataInfo[3] = GetTextureDataInfo(BorderComponent[3]->GetHeightmap(true));
 						NeighborHeightmapTextureData[3] = (FColor*)NeighborTexDataInfo[3]->GetMipData(0);
 					}
 				}
@@ -1445,7 +1460,7 @@ void FLandscapeEditDataInterface::GetHeightData(int32& X1, int32& Y1, int32& X2,
 	GetHeightDataTempl(X1, Y1, X2, Y2, ArrayStoreData);
 }
 
-void FLandscapeEditDataInterface::GetHeightDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, uint16* Data, int32 Stride, uint16* NormalData /*= NULL*/)
+void FLandscapeEditDataInterface::GetHeightDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, uint16* Data, int32 Stride, uint16* NormalData /*= NULL*/, UTexture2D* InHeightmap)
 {
 	if( Stride==0 )
 	{
@@ -1456,11 +1471,11 @@ void FLandscapeEditDataInterface::GetHeightDataFast(const int32 X1, const int32 
 	if (NormalData)
 	{
 		FArrayStoreData ArrayNormalData(X1, Y1, NormalData, Stride);
-		GetHeightDataTemplFast(X1, Y1, X2, Y2, ArrayStoreData, &ArrayNormalData);
+		GetHeightDataTemplFast(X1, Y1, X2, Y2, ArrayStoreData, InHeightmap, &ArrayNormalData);
 	}
 	else
 	{
-		GetHeightDataTemplFast(X1, Y1, X2, Y2, ArrayStoreData);
+		GetHeightDataTemplFast(X1, Y1, X2, Y2, ArrayStoreData, InHeightmap);
 	}
 }
 
@@ -1470,17 +1485,17 @@ void FLandscapeEditDataInterface::GetHeightData(int32& X1, int32& Y1, int32& X2,
 	GetHeightDataTempl(X1, Y1, X2, Y2, SparseStoreData);
 }
 
-void FLandscapeEditDataInterface::GetHeightDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TMap<FIntPoint, uint16>& SparseData, TMap<FIntPoint, uint16>* NormalData /*= NULL*/)
+void FLandscapeEditDataInterface::GetHeightDataFast(const int32 X1, const int32 Y1, const int32 X2, const int32 Y2, TMap<FIntPoint, uint16>& SparseData, TMap<FIntPoint, uint16>* NormalData /*= NULL*/, UTexture2D* InHeightmap)
 {
 	FSparseStoreData SparseStoreData(SparseData);
 	if (NormalData)
 	{
 		FSparseStoreData SparseNormalData(*NormalData);
-		GetHeightDataTemplFast(X1, Y1, X2, Y2, SparseStoreData, &SparseNormalData);
+		GetHeightDataTemplFast(X1, Y1, X2, Y2, SparseStoreData, InHeightmap, &SparseNormalData);
 	}
 	else
 	{
-		GetHeightDataTemplFast(X1, Y1, X2, Y2, SparseStoreData);
+		GetHeightDataTemplFast(X1, Y1, X2, Y2, SparseStoreData, InHeightmap);
 	}
 }
 

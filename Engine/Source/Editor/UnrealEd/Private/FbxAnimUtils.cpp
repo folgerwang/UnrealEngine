@@ -115,8 +115,6 @@ namespace FbxAnimUtils
 				FbxAnimStack* AnimStack = FbxImporter->Scene->GetMember<FbxAnimStack>(0);
 				if (AnimStack != nullptr)
 				{
-					FbxImporter->MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(FbxImporter->Scene->GetGlobalSettings().GetTimeMode()));
-
 					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(FbxImporter->Scene->GetRootNode(), AnimStack);
 
 					// Grab the start time, as we might have a preroll
@@ -130,7 +128,7 @@ namespace FbxAnimUtils
 						if (FbxNode* MeshNode = FindCurveNode(FbxImporter, InCurveNodeName, FbxNodeAttribute::eMesh))
 						{
 							// We have a node, so clear the curve table
-							InOutCurveTable->RowMap.Empty();
+							InOutCurveTable->EmptyTable();
 
 							FbxGeometry* Geometry = (FbxGeometry*)MeshNode->GetNodeAttribute();
 							int32 BlendShapeDeformerCount = Geometry->GetDeformerCount(FbxDeformer::eBlendShape);
@@ -159,7 +157,7 @@ namespace FbxAnimUtils
 										FbxAnimCurve* Curve = Geometry->GetShapeChannel(BlendShapeIndex, ChannelIndex, (FbxAnimLayer*)AnimStack->GetMember(0));
 										if (Curve)
 										{
-											FRichCurve& RichCurve = *InOutCurveTable->RowMap.Add(*ChannelName, new FRichCurve());
+											FRichCurve& RichCurve = InOutCurveTable->AddRichCurve(*ChannelName);
 											RichCurve.Reset();
 
 											FbxImporter->ImportCurve(Curve, RichCurve, AnimTimeSpan, 0.01f);
@@ -173,7 +171,7 @@ namespace FbxAnimUtils
 						else if (FbxNode* SkeletonNode = FindCurveNode(FbxImporter, InCurveNodeName, FbxNodeAttribute::eSkeleton))
 						{
 							// We have a node, so clear the curve table
-							InOutCurveTable->RowMap.Empty();
+							InOutCurveTable->EmptyTable();
 
 							ExtractAttributeCurves(SkeletonNode, false, [&InOutCurveTable, &AnimTimeSpan, &FbxImporter](FbxAnimCurve* InCurve, const FString& InCurveName, const FString& InChannelName, int32 InChannelIndex, int32 InNumChannels)
 							{
@@ -187,7 +185,7 @@ namespace FbxAnimUtils
 									FinalCurveName = InCurveName + "_" + InChannelName;
 								}
 
-								FRichCurve& RichCurve = *InOutCurveTable->RowMap.Add(*FinalCurveName, new FRichCurve());
+								FRichCurve& RichCurve = InOutCurveTable->AddRichCurve(*FinalCurveName);
 								RichCurve.Reset();
 
 								FbxImporter->ImportCurve(InCurve, RichCurve, AnimTimeSpan, 1.0f);

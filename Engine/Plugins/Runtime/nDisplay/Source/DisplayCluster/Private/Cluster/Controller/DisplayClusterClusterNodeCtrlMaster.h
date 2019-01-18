@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "DisplayClusterClusterNodeCtrlSlave.h"
+#include "Cluster/Controller/DisplayClusterClusterNodeCtrlSlave.h"
 
 #include "Network/DisplayClusterMessage.h"
 
 class FDisplayClusterClusterSyncService;
 class FDisplayClusterSwapSyncService;
+class FDisplayClusterClusterEventsService;
 
 
 /**
@@ -28,6 +29,12 @@ public:
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IPDisplayClusterClusterEventsProtocol
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event) override;
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterNodeController
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	virtual bool IsSlave() const override final
@@ -37,8 +44,9 @@ public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterNodeController
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)  override;
-	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
+	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)   override;
+	virtual void GetInputData(FDisplayClusterMessage::DataType& data)  override;
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& data) override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +62,8 @@ protected:
 
 private:
 	// Node servers
-	TUniquePtr<FDisplayClusterClusterSyncService> ClusterSyncServer;
-	TUniquePtr<FDisplayClusterSwapSyncService>    SwapSyncServer;
+	TUniquePtr<FDisplayClusterClusterSyncService>   ClusterSyncServer;
+	TUniquePtr<FDisplayClusterSwapSyncService>      SwapSyncServer;
+	TUniquePtr<FDisplayClusterClusterEventsService> ClusterEventsServer;
 };
 

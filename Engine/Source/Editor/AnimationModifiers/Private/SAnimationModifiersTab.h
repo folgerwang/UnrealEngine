@@ -37,8 +37,6 @@ public:
 	virtual void PostRedo(bool bSuccess) override;
 	/** End FEditorUndoClient */
 protected:
-	/** Creates the class picker for the available modifiers */
-	TSharedRef<SWidget> GetModifierPicker();
 	/** Callback for when user has picked a modifier to add */
 	void OnModifierPicked(UClass* PickedClass);
 
@@ -70,8 +68,7 @@ protected:
 
 	/** Retrieves the currently opened animation asset type and modifier user data */
 	void RetrieveAnimationAsset();
-	/** Creates a new Modifier instance to store with the current asset */
-	UAnimationModifier* CreateModifierInstance(UObject* Outer, UClass* InClass);
+
 	/** Retrieves all animation sequences which are dependent on the current opened skeleton */
 	void FindAnimSequencesForSkeleton(TArray<UAnimSequence *> &ReferencedAnimSequences);
 protected:

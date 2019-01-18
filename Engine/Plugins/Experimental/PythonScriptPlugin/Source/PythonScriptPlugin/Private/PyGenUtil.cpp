@@ -186,6 +186,7 @@ const FGeneratedWrappedOperatorSignature& FGeneratedWrappedOperatorSignature::Op
 		FGeneratedWrappedOperatorSignature(EGeneratedWrappedOperatorType::InlineRightShift,	TEXT(">>="),	TEXT("__irshift__"),	EType::Struct,	EType::Any),
 		FGeneratedWrappedOperatorSignature(EGeneratedWrappedOperatorType::LeftShift,		TEXT("<<"),		TEXT("__lshift__"),		EType::Any,		EType::Any),
 		FGeneratedWrappedOperatorSignature(EGeneratedWrappedOperatorType::InlineLeftShift,	TEXT("<<="),	TEXT("__ilshift__"),	EType::Struct,	EType::Any),
+		FGeneratedWrappedOperatorSignature(EGeneratedWrappedOperatorType::Negated,			TEXT("neg"),	TEXT("__neg__"),		EType::Struct,	EType::None),
 	};
 
 	check(InOpType != EGeneratedWrappedOperatorType::Num);

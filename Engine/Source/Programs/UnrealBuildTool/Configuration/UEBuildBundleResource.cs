@@ -16,14 +16,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="InResourcePath"></param>
-		/// <param name="InBundleContentsSubdir"></param>
-		/// <param name="bInShouldLog"></param>
-		public UEBuildBundleResource(string InResourcePath, string InBundleContentsSubdir = "Resources", bool bInShouldLog = true)
+		/// <param name="BundleResource"></param>
+		public UEBuildBundleResource(ModuleRules.BundleResource BundleResource)
 		{
-			ResourcePath = InResourcePath;
-			BundleContentsSubdir = InBundleContentsSubdir;
-			bShouldLog = bInShouldLog;
+			ResourcePath = BundleResource.ResourcePath;
+			BundleContentsSubdir = BundleResource.BundleContentsSubdir;
+			bShouldLog = BundleResource.bShouldLog;
 		}
 
 		/// <summary>

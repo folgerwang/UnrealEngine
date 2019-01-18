@@ -35,16 +35,6 @@ void SControlPicker::SetControlRig(UControlRig* InRig)
 	if (InRig != RigPtr.Get())
 	{
 		RigPtr = InRig;
-
-		if(InRig)
-		{
-			UControlRigBlueprint* ControlRigBlueprint = CastChecked<UControlRigBlueprint>(CastChecked<UControlRigBlueprintGeneratedClass>(InRig->GetClass())->ClassGeneratedBy);
-			EditorUserWidgetHost->SetUserWidgetClass(ControlRigBlueprint->GetPickerWidgetClass());
-		}
-		else
-		{
-			EditorUserWidgetHost->SetUserWidgetClass(nullptr);
-		}
 	}
 }
 

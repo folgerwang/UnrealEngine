@@ -106,10 +106,10 @@ void PixelInspectorRealtimeManagement(FEditorViewportClient *CurrentViewport, bo
 	}
 }
 
-namespace {
+namespace EditorViewportClient
+{
 	static const float GridSize = 2048.0f;
 	static const int32 CellSize = 16;
-	static const float AutoViewportOrbitCameraTranslate = 256.0f;
 	static const float LightRotSpeed = 0.22f;
 }
 
@@ -393,7 +393,7 @@ FEditorViewportClient::FEditorViewportClient(FEditorModeTools* InModeTools, FPre
 	// NOTE: StereoViewState will be allocated on demand, for viewports than end up drawing in stereo
 
 	// add this client to list of views, and remember the index
-	ViewIndex = GEditor->AllViewportClients.Add(this);
+	ViewIndex = GEditor->AddViewportClients(this);
 
 	// Initialize the Cursor visibility struct
 	RequiredCursorVisibiltyAndAppearance.bSoftwareCursorVisible = false;
@@ -410,8 +410,8 @@ FEditorViewportClient::FEditorViewportClient(FEditorModeTools* InModeTools, FPre
 	DrawHelper.GridColorAxis = FColor(160, 160, 160);
 	DrawHelper.GridColorMajor = FColor(144, 144, 144);
 	DrawHelper.GridColorMinor = FColor(128, 128, 128);
-	DrawHelper.PerspectiveGridSize = GridSize;
-	DrawHelper.NumCells = DrawHelper.PerspectiveGridSize / ( CellSize * 2 );
+	DrawHelper.PerspectiveGridSize = EditorViewportClient::GridSize;
+	DrawHelper.NumCells = DrawHelper.PerspectiveGridSize / ( EditorViewportClient::CellSize * 2 );
 
 	// Most editor viewports do not want motion blur.
 	EngineShowFlags.MotionBlur = 0;
@@ -458,13 +458,7 @@ FEditorViewportClient::~FEditorViewportClient()
 
 	if(GEditor)
 	{
-		GEditor->AllViewportClients.Remove(this);
-
-		// fix up the other viewport indices
-		for (int32 ViewportIndex = ViewIndex; ViewportIndex < GEditor->AllViewportClients.Num(); ViewportIndex++)
-		{
-			GEditor->AllViewportClients[ViewportIndex]->ViewIndex = ViewportIndex;
-		}
+		GEditor->RemoveViewportClients(this);
 	}
 
 	FCoreDelegates::StatCheckEnabled.RemoveAll(this);
@@ -2233,6 +2227,7 @@ void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVect
 	Drag.X = DragDelta.X;
 
 	FViewportCameraTransform& ViewTransform = GetViewTransform();
+	const float CameraSpeedDistanceScale = ShouldScaleCameraSpeedByDistance() ? FVector::Dist( GetViewLocation(), GetLookAtLocation() ) / 1000.f : 1.0f;
 
 	if ( IsOrbitRotationMode( InViewport ) )
 	{
@@ -2246,10 +2241,10 @@ void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVect
 	}
 	else if ( IsOrbitPanMode( InViewport ) )
 	{
-		bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
+		const bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
 
 		const float CameraSpeed = GetCameraSpeed();
-		Drag *= CameraSpeed;
+		Drag *= CameraSpeed * CameraSpeedDistanceScale;
 
 		FVector DeltaLocation = bInvert ? FVector(Drag.X, 0, -Drag.Z ) : FVector(-Drag.X, 0, Drag.Z);
 
@@ -2269,12 +2264,14 @@ void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVect
 	}
 	else if ( IsOrbitZoomMode( InViewport ) )
 	{
+		const bool bInvertY = GetDefault<ULevelEditorViewportSettings>()->bInvertRightMouseDollyYAxis;
+
 		FMatrix OrbitMatrix = ViewTransform.ComputeOrbitMatrix().InverseFast();
 
 		const float CameraSpeed = GetCameraSpeed();
-		Drag *= CameraSpeed;
+		Drag *= CameraSpeed * CameraSpeedDistanceScale;
 
-		FVector DeltaLocation = FVector(0, Drag.X+ -Drag.Y, 0);
+		FVector DeltaLocation = bInvertY ? FVector(0, Drag.X + Drag.Y, 0) : FVector(0, Drag.X+ -Drag.Y, 0);
 
 		FVector LookAt = ViewTransform.GetLookAt();
 
@@ -2477,6 +2474,11 @@ void FEditorViewportClient::SetLowDPIPreview(bool LowDPIPreview)
 	}
 }
 
+bool FEditorViewportClient::ShouldScaleCameraSpeedByDistance() const
+{
+	return GetDefault<ULevelEditorViewportSettings>()->bUseDistanceScaledCameraSpeed;
+}
+
 bool FEditorViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float/*AmountDepressed*/, bool/*Gamepad*/)
 {
 	if (bDisableInput)
@@ -2665,7 +2667,7 @@ void FEditorViewportClient::StopTracking()
 			FSceneViewStateInterface* ParentView = ViewState.GetReference();
 			if (ParentView->IsViewParent())
 			{
-				for (FEditorViewportClient* ViewportClient : GEditor->AllViewportClients)
+				for (FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
 				{
 					if (ViewportClient != nullptr)
 					{
@@ -4004,8 +4006,8 @@ bool FEditorViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId,
 		// Adjust the preview light direction
 		FRotator LightDir = PreviewScene->GetLightDirection();
 
-		LightDir.Yaw += -DragX * LightRotSpeed;
-		LightDir.Pitch += -DragY * LightRotSpeed;
+		LightDir.Yaw += -DragX * EditorViewportClient::LightRotSpeed;
+		LightDir.Pitch += -DragY * EditorViewportClient::LightRotSpeed;
 
 		PreviewScene->SetLightDirection( LightDir );
 		
@@ -4819,13 +4821,14 @@ void FEditorViewportClient::MoveViewportPerspectiveCamera( const FVector& InDrag
 		ViewRotation = ResultQuat.Rotator();	
 	}
 
+	const float DistanceToCurrentLookAt = FVector::Dist( GetViewLocation(), GetLookAtLocation() );
+	const float CameraSpeedDistanceScale = ShouldScaleCameraSpeedByDistance() ? DistanceToCurrentLookAt / 1000.f : 1.f;
+
 	// Update camera Location
-	ViewLocation += InDrag;
+	ViewLocation += InDrag * CameraSpeedDistanceScale;
 
 	if( !bDollyCamera )
 	{
-		const float DistanceToCurrentLookAt = FVector::Dist( GetViewLocation() , GetLookAtLocation() );
-
 		const FQuat CameraOrientation = FQuat::MakeFromEuler( ViewRotation.Euler() );
 		FVector Direction = CameraOrientation.RotateVector( FVector(1,0,0) );
 
@@ -5126,11 +5129,19 @@ void FEditorViewportClient::CapturedMouseMove( FViewport* InViewport, int32 InMo
 	UpdateRequiredCursorVisibility();
 	ApplyRequiredCursorVisibility();
 
+	CapturedMouseMoves.Add(FIntPoint(InMouseX, InMouseY));
+
 	// Let the current editor mode know about the mouse movement.
 	if (ModeTools->CapturedMouseMove(this, InViewport, InMouseX, InMouseY))
 	{
 		return;
 	}
+}
+
+void FEditorViewportClient::ProcessAccumulatedPointerInput(FViewport* InViewport)
+{
+	ModeTools->ProcessCapturedMouseMoves(this, InViewport, CapturedMouseMoves);
+	CapturedMouseMoves.Reset();
 }
 
 void FEditorViewportClient::OpenScreenshot( FString SourceFilePath )

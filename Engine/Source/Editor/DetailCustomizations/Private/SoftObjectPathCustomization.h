@@ -8,7 +8,7 @@
 class IPropertyHandle;
 
 /**
- * Customizes a string asset reference to look like a UObject property
+ * Customizes a soft object path to look like a UObject property
  */
 class FSoftObjectPathCustomization : public IPropertyTypeCustomization
 {

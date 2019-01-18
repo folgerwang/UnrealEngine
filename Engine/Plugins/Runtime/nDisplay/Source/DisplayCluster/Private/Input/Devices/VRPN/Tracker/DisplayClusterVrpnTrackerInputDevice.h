@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DisplayClusterVrpnTrackerInputDataHolder.h"
+#include "Input/Devices/VRPN/Tracker/DisplayClusterVrpnTrackerInputDataHolder.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"

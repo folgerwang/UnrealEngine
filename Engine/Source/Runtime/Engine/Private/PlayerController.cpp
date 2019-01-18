@@ -168,7 +168,7 @@ bool APlayerController::DestroyNetworkActorHandled()
 		if (C->Channels[0] && C->State != USOCK_Closed)
 		{
 			C->bPendingDestroy = true;
-			C->Channels[0]->Close();
+			C->Channels[0]->Close(EChannelCloseReason::Destroyed);
 		}
 		return true;
 	}
@@ -747,18 +747,8 @@ void APlayerController::ClientRestart_Implementation(APawn* NewPawn)
 
 /// @endcond
 
-void APlayerController::Possess(APawn* PawnToPossess)
+void APlayerController::OnPossess(APawn* PawnToPossess)
 {
-	if (!HasAuthority())
-	{
-		FMessageLog("PIE").Warning(FText::Format(
-			LOCTEXT("PlayerControllerPossessAuthorityOnly", "Possess function should only be used by the network authority for {0}"),
-			FText::FromName(GetFName())
-			));
-		UE_LOG(LogPlayerController, Warning, TEXT("Trying to possess %s without network authority! Request will be ignored."), *GetNameSafe(PawnToPossess));
-		return;
-	}
-
 	if ( PawnToPossess != NULL && 
 		(PlayerState == NULL || !PlayerState->bOnlySpectator) )
 	{
@@ -1218,7 +1208,7 @@ bool APlayerController::ServerAcknowledgePossession_Validate(APawn* P)
 
 /// @endcond
 
-void APlayerController::UnPossess()
+void APlayerController::OnUnPossess()
 {
 	if (GetPawn() != NULL)
 	{
@@ -3061,9 +3051,9 @@ void APlayerController::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayI
 				const FActiveForceFeedbackEffect& LastActiveEffect = ForceFeedbackEffectHistoryEntries[i].LastActiveForceFeedbackEffect;
 				const FString HistoryEntry = FString::Printf(TEXT("%s %s %f %s %f"), 
 															*LastActiveEffect.ForceFeedbackEffect->GetFName().ToString(), 
-															*LastActiveEffect.Tag.ToString(), 
+															*LastActiveEffect.Parameters.Tag.ToString(), 
 															LastActiveEffect.ForceFeedbackEffect->GetDuration(),
-															(LastActiveEffect.bLooping ? TEXT("true") : TEXT("false")),
+															(LastActiveEffect.Parameters.bLooping ? TEXT("true") : TEXT("false")),
 															ForceFeedbackEffectHistoryEntries[i].TimeShown);
 				DisplayDebugManager.DrawString(HistoryEntry);
 			}
@@ -3081,9 +3071,9 @@ void APlayerController::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayI
 			{
 				const FString ActiveEntry = FString::Printf(TEXT("%s %s N/A %.2f %s %.2f - LL: %.2f LS: %.2f RL: %.2f RS: %.2f"),
 					*ActiveEffect.ForceFeedbackEffect->GetFName().ToString(),
-					*ActiveEffect.Tag.ToString(),
+					*ActiveEffect.Parameters.Tag.ToString(),
 					ActiveEffect.ForceFeedbackEffect->GetDuration(),
-					(ActiveEffect.bLooping ? TEXT("true") : TEXT("false")),
+					(ActiveEffect.Parameters.bLooping ? TEXT("true") : TEXT("false")),
 					ActiveEffect.PlayTime,
 					ActiveValues.LeftLarge, ActiveValues.LeftSmall, ActiveValues.RightLarge, ActiveValues.RightSmall);
 				DisplayDebugManager.DrawString(ActiveEntry);
@@ -3672,27 +3662,54 @@ void APlayerController::ClientPrestreamTextures_Implementation( AActor* ForcedAc
 	}
 }
 
-void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
+void APlayerController::ClientPlayForceFeedback_Internal_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params)
 {
 	if (ForceFeedbackEffect)
 	{
-		if (Tag != NAME_None)
+		if (Params.Tag != NAME_None)
 		{
 			for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 			{
-				if (ActiveForceFeedbackEffects[Index].Tag == Tag)
+				if (ActiveForceFeedbackEffects[Index].Parameters.Tag == Params.Tag)
 				{
 					ActiveForceFeedbackEffects.RemoveAtSwap(Index);
 				}
 			}
 		}
 
-		ActiveForceFeedbackEffects.Emplace(ForceFeedbackEffect, bLooping, bIgnoreTimeDilation, Tag);
+		ActiveForceFeedbackEffects.Emplace(ForceFeedbackEffect, Params);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		ForceFeedbackEffectHistoryEntries.Emplace(ActiveForceFeedbackEffects.Last(), GetWorld()->GetTimeSeconds());
 #endif
 	}
+}
+
+void APlayerController::K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+	Params.bPlayWhilePaused = bPlayWhilePaused;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+}
+
+void APlayerController::ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	Params.bIgnoreTimeDilation = bIgnoreTimeDilation;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
+}
+
+void APlayerController::ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
+{
+	FForceFeedbackParameters Params;
+	Params.Tag = Tag;
+	Params.bLooping = bLooping;
+	ClientPlayForceFeedback(ForceFeedbackEffect, Params);
 }
 
 void APlayerController::ClientStopForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, FName Tag)
@@ -3706,7 +3723,7 @@ void APlayerController::ClientStopForceFeedback_Implementation( UForceFeedbackEf
 		for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 		{
 			if (    (ForceFeedbackEffect == NULL || ActiveForceFeedbackEffects[Index].ForceFeedbackEffect == ForceFeedbackEffect)
-				 && (Tag == NAME_None || ActiveForceFeedbackEffects[Index].Tag == Tag) )
+				 && (Tag == NAME_None || ActiveForceFeedbackEffects[Index].Parameters.Tag == Tag) )
 			{
 				ActiveForceFeedbackEffects.RemoveAtSwap(Index);
 			}
@@ -4057,7 +4074,9 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 	bool bRightHapticsNeedUpdate = false;
 	bool bGunHapticsNeedUpdate = false;
 
-	bool bProcessFeedback = !bGamePaused;
+	// Always process feedback by default, but if the game is paused then only static
+	// effects that are flagged to play while paused will play
+	bool bProcessFeedback = true;
 #if WITH_EDITOR
 	if (bProcessFeedback)
 	{
@@ -4079,23 +4098,31 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 		// --- Force Feedback --------------------------
 		for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 		{
-			if (!ActiveForceFeedbackEffects[Index].Update(DeltaTime, ForceFeedbackValues))
+			// If the game is paused, only tick force feedback effects that want to ignore time dilation
+			if (!bGamePaused || ActiveForceFeedbackEffects[Index].Parameters.bPlayWhilePaused)
 			{
-				ActiveForceFeedbackEffects.RemoveAtSwap(Index);
+				if (!ActiveForceFeedbackEffects[Index].Update(DeltaTime, ForceFeedbackValues))
+				{
+					ActiveForceFeedbackEffects.RemoveAtSwap(Index);
+				}
 			}
 		}
 
-		for (TSortedMap<uint64, FDynamicForceFeedbackAction>::TIterator It(DynamicForceFeedbacks.CreateIterator()); It; ++It)
+		const bool bProcessDynamicFeedback = !bGamePaused;
+		if (bProcessDynamicFeedback)
 		{
-			if (!It.Value().Update(DeltaTime, ForceFeedbackValues))
+			for (TSortedMap<uint64, FDynamicForceFeedbackAction>::TIterator It(DynamicForceFeedbacks.CreateIterator()); It; ++It)
 			{
-				It.RemoveCurrent();
+				if (!It.Value().Update(DeltaTime, ForceFeedbackValues))
+				{
+					It.RemoveCurrent();
+				}
 			}
-		}
 
-		for (const TPair<int32, FDynamicForceFeedbackDetails*>& DynamicEntry : LatentDynamicForceFeedbacks)
-		{
-			DynamicEntry.Value->Update(ForceFeedbackValues);
+			for (const TPair<int32, FDynamicForceFeedbackDetails*>& DynamicEntry : LatentDynamicForceFeedbacks)
+			{
+				DynamicEntry.Value->Update(ForceFeedbackValues);
+			}
 		}
 
 		if (FForceFeedbackManager* ForceFeedbackManager = FForceFeedbackManager::Get(World))
@@ -4110,39 +4137,41 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 		ForceFeedbackValues.RightSmall = FMath::Clamp(ForceFeedbackValues.RightSmall * ForceFeedbackScale, 0.f, 1.f);
 
 		// --- Haptic Feedback -------------------------
-		if (ActiveHapticEffect_Left.IsValid())
+		if (bProcessDynamicFeedback)
 		{
-			const bool bPlaying = ActiveHapticEffect_Left->Update(DeltaTime, LeftHaptics);
-			if (!bPlaying)
+			if (ActiveHapticEffect_Left.IsValid())
 			{
-				ActiveHapticEffect_Left->bLoop ? ActiveHapticEffect_Left->Restart() : ActiveHapticEffect_Left.Reset();
+				const bool bPlaying = ActiveHapticEffect_Left->Update(DeltaTime, LeftHaptics);
+				if (!bPlaying)
+				{
+					ActiveHapticEffect_Left->bLoop ? ActiveHapticEffect_Left->Restart() : ActiveHapticEffect_Left.Reset();
+				}
+
+				bLeftHapticsNeedUpdate = true;
 			}
 
-			bLeftHapticsNeedUpdate = true;
-		}
-
-		if (ActiveHapticEffect_Right.IsValid())
-		{
-			const bool bPlaying = ActiveHapticEffect_Right->Update(DeltaTime, RightHaptics);
-			if (!bPlaying)
+			if (ActiveHapticEffect_Right.IsValid())
 			{
-				ActiveHapticEffect_Right->bLoop ? ActiveHapticEffect_Right->Restart() : ActiveHapticEffect_Right.Reset();
+				const bool bPlaying = ActiveHapticEffect_Right->Update(DeltaTime, RightHaptics);
+				if (!bPlaying)
+				{
+					ActiveHapticEffect_Right->bLoop ? ActiveHapticEffect_Right->Restart() : ActiveHapticEffect_Right.Reset();
+				}
+
+				bRightHapticsNeedUpdate = true;
 			}
 
-			bRightHapticsNeedUpdate = true;
-		}
-
-		if (ActiveHapticEffect_Gun.IsValid())
-		{
-			const bool bPlaying = ActiveHapticEffect_Gun->Update(DeltaTime, GunHaptics);
-			if (!bPlaying)
+			if (ActiveHapticEffect_Gun.IsValid())
 			{
-				ActiveHapticEffect_Gun->bLoop ? ActiveHapticEffect_Gun->Restart() : ActiveHapticEffect_Gun.Reset();
+				const bool bPlaying = ActiveHapticEffect_Gun->Update(DeltaTime, GunHaptics);
+				if (!bPlaying)
+				{
+					ActiveHapticEffect_Gun->bLoop ? ActiveHapticEffect_Gun->Restart() : ActiveHapticEffect_Gun.Reset();
+				}
+
+				bGunHapticsNeedUpdate = true;
 			}
-
-			bGunHapticsNeedUpdate = true;
 		}
-
 	}
 
 	if (FSlateApplication::IsInitialized())

@@ -264,6 +264,11 @@ struct SLATECORE_API FTextBlockStyle : public FSlateWidgetStyle
 	FSlateBrush HighlightShape;
 	FTextBlockStyle& SetHighlightShape( const FSlateBrush& InHighlightShape ){ HighlightShape = InHighlightShape; return *this; }
 
+	/** The brush used to draw an strike through the text (if any) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance, AdvancedDisplay)
+	FSlateBrush StrikeBrush;
+	FTextBlockStyle& SetStrikeBrush( const FSlateBrush& InStrikeBrush){ StrikeBrush = InStrikeBrush; return *this; }
+
 	/** The brush used to draw an underline under the text (if any) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance, AdvancedDisplay)
 	FSlateBrush UnderlineBrush;

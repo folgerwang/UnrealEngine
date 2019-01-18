@@ -78,7 +78,9 @@ public:
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
 	virtual void ResetLightColor(int32 ControllerId) override {}
 
-	bool IsControllerAssignedToGamepad(int32 ControllerId);
+	void SetGamepadsAllowed(bool bAllowed) { bAllowControllers = bAllowed; }
+	bool IsControllerAssignedToGamepad(int32 ControllerId) const;
+	bool IsGamepadAttached() const;
 
 private:
 
@@ -180,4 +182,6 @@ private:
 	float LastHapticValue;
 	
 	int HapticFeedbackSupportLevel;
+    
+    TMap<FName, double> NextKeyRepeatTime;
 };

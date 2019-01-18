@@ -103,7 +103,7 @@ public:
 	
 protected:
 	/** Override from IMeshPainter used for applying actual painting */
-	virtual bool PaintInternal(const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, EMeshPaintAction PaintAction, float PaintStrength) override;
+	virtual bool PaintInternal(const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays, EMeshPaintAction PaintAction, float PaintStrength) override;
 
 	/** Per vertex action function used for painting vertex colors */
 	void ApplyVertexColor(FPerVertexPaintActionArgs& Args, int32 VertexIndex, FMeshPaintParameters Parameters);

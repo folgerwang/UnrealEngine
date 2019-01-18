@@ -15,6 +15,9 @@
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
 #include "Misc/FileHelper.h"
+#include "Misc/MonitoredProcess.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 //#include "GameProjectGenerationModule.h"
 
 #if WITH_EDITOR
@@ -26,6 +29,7 @@
 #include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
 #include "Windows/COMPointer.h"
+#include "Setup.Configuration.h"
 #if VSACCESSOR_HAS_DTE
 	#pragma warning(push)
 	#pragma warning(disable: 4278)
@@ -101,7 +105,9 @@ static void OnModuleCompileStarted(bool bIsAsyncCompile)
 
 int32 GetVisualStudioVersionForCompiler()
 {
-#if _MSC_VER >= 1910
+#if _MSC_VER >= 1920
+	return 16; // Visual Studio 2019
+#elif _MSC_VER >= 1910
 	return 15; // Visual Studio 2017
 #elif _MSC_VER == 1900
 	return 14; // Visual Studio 2015
@@ -126,8 +132,16 @@ int32 GetVisualStudioVersionForSolution(const FString& InSolutionFile)
 		const int32 VersionStringStart = SolutionFileContents.Find(VisualStudioVersionString);
 		if (VersionStringStart != INDEX_NONE)
 		{
+			const TCHAR* VersionChar = *SolutionFileContents + VersionStringStart + VisualStudioVersionString.Len();
+
+			const TCHAR VersionSuffix[] = TEXT("Version ");
+			if (FCString::Strnicmp(VersionChar, VersionSuffix, ARRAY_COUNT(VersionSuffix) - 1) == 0)
+			{
+				VersionChar += ARRAY_COUNT(VersionSuffix) - 1;
+			}
+
 			FString VersionString;
-			for (const TCHAR* VersionChar = *SolutionFileContents + VersionStringStart + VisualStudioVersionString.Len(); FChar::IsDigit(*VersionChar); ++VersionChar)
+			for (; FChar::IsDigit(*VersionChar); ++VersionChar)
 			{
 				VersionString.AppendChar(*VersionChar);
 			}
@@ -160,7 +174,8 @@ void FVisualStudioSourceCodeAccessor::RefreshAvailability()
 {
 	Locations.Reset();
 
-	AddVisualStudioVersion(15); // Visual Studio 2017
+	AddVisualStudioVersionUsingVisualStudioSetupAPI(16); // Visual Studio 2019
+	AddVisualStudioVersionUsingVisualStudioSetupAPI(15); // Visual Studio 2017
 	AddVisualStudioVersion(14); // Visual Studio 2015
 	AddVisualStudioVersion(12); // Visual Studio 2013
 }
@@ -1148,6 +1163,7 @@ void FVisualStudioSourceCodeAccessor::AddVisualStudioVersion(const int MajorVers
 
 	VisualStudioLocation NewLocation;
 	NewLocation.VersionNumber = MajorVersion;
+	NewLocation.bPreviewRelease = false;
 	NewLocation.ExecutablePath = BaseExecutablePath / TEXT("devenv.exe");
 #if VSACCESSOR_HAS_DTE
 	NewLocation.ROTMoniker = FString::Printf(TEXT("!VisualStudio.DTE.%d.0"), MajorVersion);
@@ -1176,6 +1192,98 @@ void FVisualStudioSourceCodeAccessor::AddVisualStudioVersion(const int MajorVers
 	}
 }
 
+void FVisualStudioSourceCodeAccessor::AddVisualStudioVersionUsingVisualStudioSetupAPI(int VersionNumber)
+{
+	// Try to create the CoCreate the class; if that fails, likely no instances are registered.
+	TComPtr<ISetupConfiguration2> Query;
+	HRESULT Result = CoCreateInstance(__uuidof(SetupConfiguration), nullptr, CLSCTX_ALL, __uuidof(ISetupConfiguration2), (LPVOID*)&Query);
+	if (FAILED(Result))
+	{
+		UE_LOG(LogVSAccessor, Display, TEXT("Unable to create Visual Studio setup instance: %08x"), Result);
+		return;
+	}
+
+	// Get the enumerator
+	TComPtr<IEnumSetupInstances> EnumSetupInstances;
+	Result = Query->EnumAllInstances(&EnumSetupInstances);
+	if (FAILED(Result))
+	{
+		UE_LOG(LogVSAccessor, Warning, TEXT("Unable to query Visual Studio setup instances: %08x"), Result);
+		return;
+	}
+
+	// Get the verison prefix string that we're looking for. We can compare this against reported version numbers from installed Visual Studio instances.
+	TCHAR VersionPrefix[10];
+	FCString::Sprintf(VersionPrefix, TEXT("%d."), VersionNumber);
+	size_t VersionPrefixLen = FCString::Strlen(VersionPrefix);
+
+	// Check the state and version of the enumerated instances
+	TComPtr<ISetupInstance> Instance;
+	for (;;)
+	{
+		unsigned long NumFetched = 0;
+		Result = EnumSetupInstances->Next(1, &Instance, &NumFetched);
+		if (FAILED(Result) || NumFetched == 0)
+		{
+			break;
+		}
+
+		TComPtr<ISetupInstance2> Instance2;
+		Result = Instance->QueryInterface(__uuidof(ISetupInstance2), (LPVOID*)&Instance2);
+		if (SUCCEEDED(Result))
+		{
+			InstanceState State;
+			Result = Instance2->GetState(&State);
+			if (SUCCEEDED(Result) && (State & eLocal) != 0)
+			{
+				BSTR InstallationVersion;
+				Result = Instance2->GetInstallationVersion(&InstallationVersion);
+				if (SUCCEEDED(Result))
+				{
+					if (FCString::Strncmp(InstallationVersion, VersionPrefix, VersionPrefixLen) == 0)
+					{
+						BSTR InstallationPath;
+						Result = Instance2->GetInstallationPath(&InstallationPath);
+						if (SUCCEEDED(Result))
+						{
+							BSTR ProductPath;
+							Result = Instance2->GetProductPath(&ProductPath);
+							if (SUCCEEDED(Result))
+							{
+								VisualStudioLocation NewLocation;
+								NewLocation.VersionNumber = VersionNumber;
+								NewLocation.bPreviewRelease = false;
+								NewLocation.ExecutablePath = FString::Printf(TEXT("%s\\%s"), InstallationPath, ProductPath);
+#if VSACCESSOR_HAS_DTE
+								NewLocation.ROTMoniker = FString::Printf(TEXT("!VisualStudio.DTE.%d.0"), VersionNumber);
+#endif
+
+								TComPtr<ISetupInstanceCatalog> Catalog;
+								Result = Instance2->QueryInterface(__uuidof(ISetupInstanceCatalog), (LPVOID*)&Catalog);
+								if (SUCCEEDED(Result) && Catalog != nullptr)
+								{
+									VARIANT_BOOL PrereleaseFlag;
+									Result = Catalog->IsPrerelease(&PrereleaseFlag);
+									if (SUCCEEDED(Result) && PrereleaseFlag == VARIANT_TRUE)
+									{
+										NewLocation.bPreviewRelease = true;
+									}
+								}
+
+								Locations.Add(NewLocation);
+
+								SysFreeString(ProductPath);
+							}
+							SysFreeString(InstallationPath);
+						}
+					}
+					SysFreeString(InstallationVersion);
+				}
+			}
+		}
+	}
+}
+
 TArray<FVisualStudioSourceCodeAccessor::VisualStudioLocation> FVisualStudioSourceCodeAccessor::GetPrioritizedVisualStudioVersions(const FString& InSolution) const
 {
 	TArray<VisualStudioLocation> PrioritizedLocations = Locations;
@@ -1190,8 +1298,8 @@ TArray<FVisualStudioSourceCodeAccessor::VisualStudioLocation> FVisualStudioSourc
 	{
 		PrioritizedLocations.StableSort([&](const VisualStudioLocation& InFirst, const VisualStudioLocation& InSecond) -> bool
 		{
-			const int32 FirstSortWeight = (InFirst.VersionNumber == SolutionVersion) ? 1 : 0;
-			const int32 SecondSortWeight = (InSecond.VersionNumber == SolutionVersion) ? 1 : 0;
+			const int32 FirstSortWeight = (InFirst.VersionNumber == SolutionVersion) ? (InFirst.bPreviewRelease? 1 : 2) : 0;
+			const int32 SecondSortWeight = (InSecond.VersionNumber == SolutionVersion) ? (InSecond.bPreviewRelease? 1 : 2) : 0;
 			return FirstSortWeight >= SecondSortWeight;
 		});
 	}

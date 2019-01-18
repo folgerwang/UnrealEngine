@@ -233,17 +233,17 @@ namespace UnrealBuildTool
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
+			if (Target.bAllowLTCG && Target.LinkType != TargetLinkType.Monolithic)
+			{
+				throw new BuildException("LTO (LTCG) for modular builds is not supported (lld is not currently used for dynamic libraries).");
+			}
+
 			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
 			Target.bCompileAPEX = Target.Architecture.StartsWith("x86_64");
 			Target.bCompileNvCloth = Target.Architecture.StartsWith("x86_64");
 
-			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
-			{
-				Target.bCompileSimplygon = false;
-				Target.bCompileSimplygonSSF = false;
+			{				
 				Target.bCompileCEF3 = false;
 			}
 
@@ -262,13 +262,6 @@ namespace UnrealBuildTool
 			{
 				Target.bCompileICU = false;
 			}
-
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// When generating project files we need intellisense generator to include info from all modules,
-				// including editor-only third party libs
-				Target.bCompileLeanAndMeanUE = false;
-			}
 		}
 
 		/// <summary>
@@ -286,7 +279,9 @@ namespace UnrealBuildTool
 			// [RCL] 2018-05-02: disabling XGE even during a native build because the support is not ready and you can have mysterious build failures when ib_console is installed.
 			// [RCL] 2018-07-10: enabling XGE for Windows to see if the crash from 2016 still persists. Please disable if you see spurious build errors that don't repro without XGE
 			// [bschaefer] 2018-08-24: disabling XGE due to a bug where XGE seems to be lower casing folders names that are headers ie. misc/Header.h vs Misc/Header.h
-			return false;//BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64;
+			// [bschaefer] 2018-10-04: enabling XGE as an update in xgConsole seems to have fixed it for me
+			// [bschaefer] 2018-12-17: disable XGE again, as the same issue before seems to still be happening but intermittently
+			return false; //BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64;
 		}
 
 		public override bool CanUseParallelExecutor()
@@ -397,14 +392,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		public override string ConvertPath(string OriginalPath)
-		{
-			return LinuxToolChain.ConvertPath(OriginalPath);
-		}
-
-		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>
@@ -462,27 +449,19 @@ namespace UnrealBuildTool
 		/// <param name="LinkEnvironment">The link environment for this target</param>
 		public override void SetUpEnvironment(ReadOnlyTargetRules Target, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
-
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
 			string BaseLinuxPath = SDK.GetBaseLinuxPathForArchitecture(Target.Architecture);
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux && String.IsNullOrEmpty(BaseLinuxPath))
 			{
-				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
+				CompileEnvironment.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
 			{
-				Log.TraceWarning("Inconsistency between LTCG settings in Compile and Link environments: link one takes priority");
-				CompileEnvironment.bAllowLTCG = LinkEnvironment.bAllowLTCG;
-			}
-
-			// disable to LTO for modular builds
-			if (CompileEnvironment.bAllowLTCG && Target.LinkType != TargetLinkType.Monolithic)
-			{
-				Log.TraceWarning("LTO (LTCG) for modular builds is not supported, disabling it");
-				CompileEnvironment.bAllowLTCG = false;
-				LinkEnvironment.bAllowLTCG = false;
+				throw new BuildException("Inconsistency between LTCG settings in Compile ({0}) and Link ({1}) environments",
+					CompileEnvironment.bAllowLTCG,
+					LinkEnvironment.bAllowLTCG
+				);
 			}
 
 			// for now only hide by default monolithic builds.
@@ -545,8 +524,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
 		}
 	}
@@ -782,7 +761,7 @@ namespace UnrealBuildTool
 
 	class LinuxPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Linux; }
 		}
@@ -790,10 +769,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			LinuxPlatformSDK SDK = new LinuxPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid))
 			{

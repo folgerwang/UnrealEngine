@@ -520,6 +520,17 @@ public:
 		}		
 	}
 
+	/** [ASYNC/GAME THREAD] Number of package load requests in the async loading queue */
+	int32 GetQueuedPackagesCount() const
+	{
+		return QueuedPackagesCounter.GetValue();
+	}
+	/** [ASYNC/GAME THREAD] Number of packages being loaded on the async thread and post loaded on the game thread */
+	int32 GetExistingAsyncPackagesCount() const
+	{
+		return ExistingAsyncPackagesCounter.GetValue();
+	}
+
 private:
 
 	/**

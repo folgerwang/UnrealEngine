@@ -28,7 +28,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	ChSequence ( 0 )
 ,	bOpen ( 0 )
 ,	bClose ( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant ( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bReliable ( 0 )
 ,	bPartial ( 0 )
 ,	bPartialInitial ( 0 )
@@ -36,6 +38,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bHasPackageMapExports ( 0 )
 ,	bHasMustBeMappedGUIDs ( 0 )
 ,	bIgnoreRPCs ( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 	check(Connection);
 	// Match the byte swapping settings of the connection
@@ -44,9 +47,6 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	// Copy network version info
 	this->SetEngineNetVer(InConnection->EngineNetworkProtocolVersion);
 	this->SetGameNetVer(InConnection->GameNetworkProtocolVersion);
-
-	// Crash protection: the max string size serializable on this archive 
-	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
 }
 
 /** Copy constructor but with optional parameter to not copy buffer */
@@ -63,7 +63,9 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	ChSequence = InBunch.ChSequence;
 	bOpen =	InBunch.bOpen;
 	bClose = InBunch.bClose;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	bDormant = InBunch.bDormant;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	bIsReplicationPaused = InBunch.bIsReplicationPaused;
 	bReliable =	InBunch.bReliable;
 	bPartial = InBunch.bPartial;
@@ -72,14 +74,13 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	bHasPackageMapExports = InBunch.bHasPackageMapExports;
 	bHasMustBeMappedGUIDs =	InBunch.bHasMustBeMappedGUIDs;
 	bIgnoreRPCs = InBunch.bIgnoreRPCs;
+	CloseReason = InBunch.CloseReason;
 
 	// Copy network version info
 	this->SetEngineNetVer(InBunch.EngineNetVer());
 	this->SetGameNetVer(InBunch.GameNetVer());
 
 	PackageMap = InBunch.PackageMap;
-	
-	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
 
 	if (CopyBuffer)
 	{
@@ -125,7 +126,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( bInClose )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant	( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bIsReplicationPaused	( 0 )
 ,	bReliable	( 0 )
 ,	bPartial	( 0 )
@@ -133,6 +136,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bPartialFinal			( 0 )
 ,	bHasPackageMapExports	( 0 )
 ,	bHasMustBeMappedGUIDs	( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 	checkSlow(!Channel->Closing);
 	checkSlow(Channel->Connection->Channels[Channel->ChIndex]==Channel);
@@ -162,7 +166,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant	( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,   bIsReplicationPaused	( 0 )
 ,	bReliable	( 0 )
 ,	bPartial	( 0 )
@@ -170,6 +176,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bPartialFinal	( 0 )
 ,	bHasPackageMapExports	( 0 )
 ,	bHasMustBeMappedGUIDs	( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 }
 

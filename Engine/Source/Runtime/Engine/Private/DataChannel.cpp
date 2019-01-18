@@ -102,7 +102,7 @@ void UChannel::SetClosingFlag()
 }
 
 
-int64 UChannel::Close()
+int64 UChannel::Close(EChannelCloseReason Reason)
 {
 	check(OpenedLocally || ChIndex == 0);		// We are only allowed to close channels that we opened locally (except channel 0, so the server can notify disconnected clients)
 	check(Connection->Channels[ChIndex]==this);
@@ -116,7 +116,7 @@ int64 UChannel::Close()
 			UE_LOG(LogNet, Log, TEXT("UChannel::Close: Sending CloseBunch. ChIndex == 0. Name: %s"), *Describe());
 		}
 
-		UE_LOG(LogNetDormancy, Verbose, TEXT("UChannel::Close: Sending CloseBunch. Dormant: %d, %s"), Dormant, *Describe());
+		UE_LOG(LogNetDormancy, Verbose, TEXT("UChannel::Close: Sending CloseBunch. Reason: %s, %s"), LexToString(Reason), *Describe());
 
 		// Send a close notify, and wait for ack.
 		PacketHandler* Handler = Connection->Handler.Get();
@@ -133,7 +133,10 @@ int64 UChannel::Close()
 			check(!CloseBunch.IsError());
 			check(CloseBunch.bClose);
 			CloseBunch.bReliable = 1;
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			CloseBunch.bDormant = Dormant;
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
+			CloseBunch.CloseReason = Reason;
 			SendBunch( &CloseBunch, 0 );
 			NumBits = CloseBunch.GetNumBits();
 		}
@@ -142,14 +145,14 @@ int64 UChannel::Close()
 	return NumBits;
 }
 
-void UChannel::ConditionalCleanUp( const bool bForDestroy )
+void UChannel::ConditionalCleanUp( const bool bForDestroy, EChannelCloseReason CloseReason )
 {
 	if ( !IsPendingKill() && !bPooled)
 	{
 		// CleanUp can return false to signify that we shouldn't mark pending kill quite yet
 		// We'll need to call cleanup again later on
 		UNetDriver* Driver = Connection ? Connection->GetDriver() : nullptr;
-		if ( CleanUp( bForDestroy ) )
+		if ( CleanUp( bForDestroy, CloseReason ) )
 		{
 			// Tell the driver that this channel is now cleaned up and can be returned to a pool, if appropriate
 			if (Driver && !bForDestroy)
@@ -166,7 +169,7 @@ void UChannel::ConditionalCleanUp( const bool bForDestroy )
 	}
 }
 
-bool UChannel::CleanUp( const bool bForDestroy )
+bool UChannel::CleanUp(const bool bForDestroy, EChannelCloseReason CloseReason)
 {
 	checkSlow(Connection != NULL);
 	checkSlow(Connection->Channels[ChIndex] == this);
@@ -217,7 +220,7 @@ void UChannel::BeginDestroy()
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		ConditionalCleanUp( true );
+		ConditionalCleanUp(true, EChannelCloseReason::Destroyed);
 	}
 	
 	Super::BeginDestroy();
@@ -257,7 +260,9 @@ void UChannel::ReceivedAcks()
 	*/
 
 	// Release all acknowledged outgoing queued bunches.
-	bool DoClose = 0;
+	bool bCleanup = false;
+	EChannelCloseReason CloseReason = EChannelCloseReason::Destroyed;
+	
 	while( OutRec && OutRec->ReceivedAck )
 	{
 		if (OutRec->bOpen)
@@ -296,7 +301,13 @@ void UChannel::ReceivedAcks()
 			}
 		}
 
-		DoClose = DoClose || !!OutRec->bClose;
+		bCleanup = bCleanup || !!OutRec->bClose;
+
+		if (OutRec->bClose)
+		{
+			CloseReason = OutRec->CloseReason;
+		}
+
 		FOutBunch* Release = OutRec;
 		OutRec = OutRec->Next;
 		delete Release;
@@ -304,14 +315,13 @@ void UChannel::ReceivedAcks()
 	}
 
 	// If a close has been acknowledged in sequence, we're done.
-	if( DoClose || (OpenTemporary && OpenAcked) )
+	if( bCleanup || (OpenTemporary && OpenAcked) )
 	{
-		UE_LOG(LogNetDormancy, Verbose, TEXT("ReceivedAcks: Cleaning up after close acked. Dormant: %d %s"), Dormant, *Describe());		
+		UE_LOG(LogNetDormancy, Verbose, TEXT("ReceivedAcks: Cleaning up after close acked. CloseReason: %s %s"), LexToString(CloseReason), *Describe());		
 
 		check(!OutRec);
-		ConditionalCleanUp();
+		ConditionalCleanUp(false, CloseReason);
 	}
-
 }
 
 void UChannel::Tick()
@@ -346,7 +356,9 @@ bool UChannel::ReceivedSequencedBunch( FInBunch& Bunch )
 	// We have fully received the bunch, so process it.
 	if( Bunch.bClose )
 	{
-		Dormant = Bunch.bDormant;
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		Dormant = Bunch.bDormant || (Bunch.CloseReason == EChannelCloseReason::Dormancy);
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		// Handle a close-notify.
 		if( InRec )
@@ -361,10 +373,10 @@ bool UChannel::ReceivedSequencedBunch( FInBunch& Bunch )
 
 		UE_LOG(LogNetTraffic, Log, TEXT("UChannel::ReceivedSequencedBunch: Bunch.bClose == true. Calling ConditionalCleanUp. ChIndex: %i"), ChIndex );
 
-		ConditionalCleanUp();
-		return 1;
+		ConditionalCleanUp(false, Bunch.CloseReason);
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -628,7 +640,10 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 
 					InPartialBunch->bPartialFinal			= true;
 					InPartialBunch->bClose					= Bunch.bClose;
+					PRAGMA_DISABLE_DEPRECATION_WARNINGS
 					InPartialBunch->bDormant				= Bunch.bDormant;
+					PRAGMA_ENABLE_DEPRECATION_WARNINGS
+					InPartialBunch->CloseReason				= Bunch.CloseReason;
 					InPartialBunch->bIsReplicationPaused	= Bunch.bIsReplicationPaused;
 					InPartialBunch->bHasMustBeMappedGUIDs	= Bunch.bHasMustBeMappedGUIDs;
 				}
@@ -694,9 +709,11 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 
 	if ( HandleBunch != NULL )
 	{
+		const bool bBothSidesCanOpen = Connection->Driver && Connection->Driver->ChannelDefinitionMap[ChName].bServerOpen && Connection->Driver->ChannelDefinitionMap[ChName].bClientOpen;
+
 		if ( HandleBunch->bOpen )
 		{
-			if ( ChName != NAME_Voice )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
+			if ( !bBothSidesCanOpen )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
 			{
 				// If we opened the channel, we shouldn't be receiving bOpen commands from the other side
 				checkf(!OpenedLocally, TEXT("Received channel open command for channel that was already opened locally. %s"), *Describe());
@@ -719,7 +736,7 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 			UE_LOG( LogNetTraffic, Verbose, TEXT( "ReceivedNextBunch: Channel now fully open. ChIndex: %i, OpenPacketId.First: %i, OpenPacketId.Last: %i" ), ChIndex, OpenPacketId.First, OpenPacketId.Last );
 		}
 
-		if ( ChName != NAME_Voice )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
+		if ( !bBothSidesCanOpen )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
 		{
 			// Don't process any packets until we've fully opened this channel 
 			// (unless we opened it locally, in which case it's safe to process packets)
@@ -1026,6 +1043,7 @@ FPacketIdRange UChannel::SendBunch( FOutBunch* Bunch, bool Merge )
 		NextBunch->bOpen = Bunch->bOpen;
 		NextBunch->bClose = Bunch->bClose;
 		NextBunch->bDormant = Bunch->bDormant;
+		NextBunch->CloseReason = Bunch->CloseReason;
 		NextBunch->bIsReplicationPaused = Bunch->bIsReplicationPaused;
 		NextBunch->ChIndex = Bunch->ChIndex;
 		NextBunch->ChType = Bunch->ChType;
@@ -1661,22 +1679,24 @@ void UActorChannel::Init( UNetConnection* InConnection, int32 InChannelIndex, EC
 	RelevantTime			= Connection->Driver->Time;
 	LastUpdateTime			= Connection->Driver->Time - Connection->Driver->SpawnPrioritySeconds;
 	bForceCompareProperties	= false;
+	bActorIsPendingKill		= false;
 	CustomTimeDilation		= 1.0f;
 }
 
 void UActorChannel::SetClosingFlag()
 {
-	if( Actor )
+	if( Actor && Connection )
 	{
 		Connection->RemoveActorChannel( Actor );
 	}
+
 	UChannel::SetClosingFlag();
 }
 
-int64 UActorChannel::Close()
+int64 UActorChannel::Close(EChannelCloseReason Reason)
 {
-	UE_LOG(LogNetTraffic, Log, TEXT("UActorChannel::Close: ChIndex: %d, Actor: %s"), ChIndex, Actor ? *Actor->GetFullName() : TEXT("NULL") );
-	int64 NumBits = UChannel::Close();
+	UE_LOG(LogNetTraffic, Log, TEXT("UActorChannel::Close: ChIndex: %d, Actor: %s, Reason: %s"), ChIndex, *GetFullNameSafe(Actor), LexToString(Reason));
+	int64 NumBits = UChannel::Close(Reason);
 
 	if (Actor != nullptr)
 	{
@@ -1684,7 +1704,7 @@ int64 UActorChannel::Close()
 
 		if (Connection)
 		{
-			if (Dormant && !Connection->InternalAck) // Replay connections always keep dormant channels open and handle this logic elsewhere
+			if ((Reason == EChannelCloseReason::Dormancy) && !Connection->InternalAck) // Replay connections always keep dormant channels open and handle this logic elsewhere
 			{
 				if (Connection->Driver)
 				{
@@ -1698,18 +1718,10 @@ int64 UActorChannel::Close()
 				}
 
 				// Validation checking
-				if ( GNetDormancyValidate > 0 )
-				{
-					bKeepReplicators = true;		// We need to keep the replicators around so we can use
-				}
+				bKeepReplicators = (GNetDormancyValidate > 0);		// We need to keep the replicators around so we can use
 			}
 
 			// SetClosingFlag() might have already done this, but we need to make sure as that won't get called if the connection itself has already been closed
-		}
-
-		// SetClosingFlag() might have already done this, but we need to make sure as that won't get called if the connection itself has already been closed
-		if (Connection)
-		{
 			Connection->RemoveActorChannel( Actor );
 		}
 
@@ -1841,7 +1853,7 @@ void UActorChannel::DestroyActorAndComponents()
 	}
 }
 
-bool UActorChannel::CleanUp( const bool bForDestroy )
+bool UActorChannel::CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason )
 {
 	SCOPE_CYCLE_COUNTER(Stat_ActorChanCleanUp);
 
@@ -1875,10 +1887,12 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 
 			// This will unregister the channel, and make it free for opening again
 			// We need to do this, since the server will assume this channel is free once we ack this packet
-			Super::CleanUp(bForDestroy);
+			Super::CleanUp(bForDestroy, CloseReason);
 
 			// Restore connection property since we'll need it for processing bunches (the Super::CleanUp call above NULL'd it)
 			Connection = OldConnection;
+
+			QueuedCloseReason = CloseReason;
 
 			// Add this channel to the KeepProcessingActorChannelBunchesMap list
 			ChannelsStillProcessing.Add(this);
@@ -1914,14 +1928,14 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 					}
 				}
 			}
-			else if (Dormant && !Actor->GetTearOff())
+			else if (Dormant && (CloseReason == EChannelCloseReason::Dormancy) && !Actor->GetTearOff())	
 			{
 				Actor->NetDormancy = DORM_DormantAll;
 
 				Connection->Driver->NotifyActorFullyDormantForConnection(Actor, Connection);
 				bWasDormant = true;
 			}
-			else if (!Actor->bNetTemporary && Actor->GetWorld() != NULL && !GIsRequestingExit)
+			else if (!Actor->bNetTemporary && Actor->GetWorld() != NULL && !GIsRequestingExit && Connection->Driver->ShouldClientDestroyActor(Actor))
 			{
 				UE_LOG(LogNetDormancy, Verbose, TEXT("UActorChannel::CleanUp: Destroying Actor. %s"), *Describe() );
 
@@ -1971,9 +1985,9 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 	}
 
 	// We check for -1 here, which will be true if this channel has already been closed but still needed to process bunches before fully closing
-	if ( ChIndex >= 0 )	
+	if (ChIndex >= 0)	
 	{
-		return Super::CleanUp( bForDestroy );
+		return Super::CleanUp(bForDestroy, CloseReason);
 	}
 	else
 	{
@@ -2029,6 +2043,10 @@ void UActorChannel::SetChannelActor( AActor* InActor )
 
 	// Set stuff.
 	Actor = InActor;
+	
+	// We could check Actor->IsPendingKill here, but that would supress the warning later.
+	// Further, expect calling code to do these checks.
+	bActorIsPendingKill = false;
 
 	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("SetChannelActor: ChIndex: %i, Actor: %s, NetGUID: %s"), ChIndex, Actor ? *Actor->GetFullName() : TEXT("NULL"), *ActorNetGUID.ToString() );
 
@@ -2143,7 +2161,10 @@ int64 UActorChannel::SetChannelActorForDestroy( FActorDestructionInfo *DestructI
 			check(!CloseBunch.IsError());
 			check(CloseBunch.bClose);
 			CloseBunch.bReliable = 1;
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			CloseBunch.bDormant = 0;
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
+			CloseBunch.CloseReason = DestructInfo->Reason;
 
 			// Serialize DestructInfo
 			NET_CHECKSUM(CloseBunch); // This is to mirror the Checksum in UPackageMapClient::SerializeNewActor
@@ -2472,6 +2493,7 @@ void UActorChannel::ProcessBunch( FInBunch & Bunch )
 	}
 
 	RepFlags.bIgnoreRPCs = Bunch.bIgnoreRPCs;
+	RepFlags.bSkipRoleSwap = bSkipRoleSwap;
 
 	// ----------------------------------------------
 	//	Read chunks of actor content
@@ -2611,57 +2633,63 @@ int32 GNumReplicateActorCalls = 0;
 
 int64 UActorChannel::ReplicateActor()
 {
-	check(Actor);
-	
-	const UWorld* const ActorWorld = Actor->GetWorld();
-	check(ActorWorld);
-
-	const bool bReplay = ActorWorld && (ActorWorld->DemoNetDriver == Connection->GetDriver());
 	SCOPE_CYCLE_COUNTER(STAT_NetReplicateActorTime);
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ReplicateActor);
 
+	check(Actor);
+	check(!Closing);
+	check(Connection);
+	check(nullptr != Cast<UPackageMapClient>(Connection->PackageMap));
+
+	const UWorld* const ActorWorld = Actor->GetWorld();
+	check(ActorWorld);
+
 #if STATS
-	UClass* ParentNativeClass = Actor->GetClass();
-	while(ParentNativeClass->IsNative() == false)
-	{
-		if (ParentNativeClass->GetSuperClass() == nullptr || ParentNativeClass->GetSuperClass() == AActor::StaticClass())
-		{
-			break;
-		}
-
-		ParentNativeClass = ParentNativeClass->GetSuperClass();
-	}
-
+	UClass* ParentNativeClass = GetParentNativeClass(Actor->GetClass());
 	SCOPE_CYCLE_UOBJECT(ParentNativeClass, ParentNativeClass);
 #endif
 
-	check(!Closing);
-	check(Connection);
-	check(Connection->PackageMap);
-	
-	TOptional<FScopedActorRoleSwap> RoleSwap;
-
-	TSharedPtr<FNetworkObjectInfo> NetObjInfo = Connection->Driver->GetNetworkObjectList().Find(Actor);
-	if (NetObjInfo.IsValid() && NetObjInfo->bSwapRoles)
-	{
-		RoleSwap.Emplace(Actor);
-	}
-
+	const bool bReplay = ActorWorld->DemoNetDriver == Connection->GetDriver();
 	const bool bEnableScopedCycleCounter = !bReplay && GReplicateActorTimingEnabled;
 	FSimpleScopeSecondsCounter ScopedSecondsCounter(GReplicateActorTimeSeconds, bEnableScopedCycleCounter);
+
 	if (!bReplay)
 	{
 		GNumReplicateActorCalls++;
 	}
 
-	if (bPausedUntilReliableACK )
+	// triggering replication of an Actor while already in the middle of replication can result in invalid data being sent and is therefore illegal
+	if (bIsReplicatingActor)
+	{
+		FString Error(FString::Printf(TEXT("ReplicateActor called while already replicating! %s"), *Describe()));
+		UE_LOG(LogNet, Log, TEXT("%s"), *Error);
+		ensureMsgf(false, TEXT("%s"), *Error);
+		return 0;
+	}
+	else if (bActorIsPendingKill)
+	{
+		// Don't need to do anything, because it should have already been logged.
+		return 0;
+	}
+	// If our Actor is PendingKill, that's bad. It means that somehow it wasn't properly removed
+	// from the NetDriver or ReplicationDriver.
+	// TODO: Maybe notify the NetDriver / RepDriver about this, and have the channel close?
+	else if (Actor->IsPendingKill())
+	{
+		bActorIsPendingKill = true;
+		FString Error(FString::Printf(TEXT("ReplicateActor called with PendingKill Actor! %s"), *Describe()));
+		UE_CLOG(!bActorIsPendingKill, LogNet, Log, TEXT("%s"), *Error);
+		ensureMsgf(false, TEXT("%s"), *Error);
+		return 0;
+	}
+	else if (bPausedUntilReliableACK)
 	{
 		if (NumOutRec > 0)
-		{			
+		{
 			return 0;
 		}
 		bPausedUntilReliableACK = 0;
-		UE_LOG(LogNet, Log, TEXT( "ReplicateActor: bPausedUntilReliableACK is ending now that reliables have been ACK'd. %s"), *Describe());
+		UE_LOG(LogNet, Log, TEXT("ReplicateActor: bPausedUntilReliableACK is ending now that reliables have been ACK'd. %s"), *Describe());
 	}
 
 	const TArray<FNetViewer>& NetViewers = ActorWorld->GetWorldSettings()->ReplicationViewers;
@@ -2695,22 +2723,14 @@ int64 UActorChannel::ReplicateActor()
 	}
 
 	// The package map shouldn't have any carry over guids
-	if ( CastChecked< UPackageMapClient >( Connection->PackageMap )->GetMustBeMappedGuidsInLastBunch().Num() != 0 )
+	// Static cast is fine here, since we check above.
+	UPackageMapClient* PackageMapClient = static_cast<UPackageMapClient*>(Connection->PackageMap);
+	if (PackageMapClient->GetMustBeMappedGuidsInLastBunch().Num() != 0)
 	{
-		UE_LOG( LogNet, Warning, TEXT( "ReplicateActor: PackageMap->GetMustBeMappedGuidsInLastBunch().Num() != 0: %i" ), CastChecked< UPackageMapClient >( Connection->PackageMap )->GetMustBeMappedGuidsInLastBunch().Num() );
+		UE_LOG(LogNet, Warning, TEXT("ReplicateActor: PackageMap->GetMustBeMappedGuidsInLastBunch().Num() != 0: %i"), PackageMapClient->GetMustBeMappedGuidsInLastBunch().Num());
 	}
-
 
 	bool WroteSomethingImportant = bIsNewlyReplicationUnpaused || bIsNewlyReplicationPaused;
-
-	// triggering replication of an Actor while already in the middle of replication can result in invalid data being sent and is therefore illegal
-	if (bIsReplicatingActor)
-	{
-		FString Error(FString::Printf(TEXT("Attempt to replicate '%s' while already replicating that Actor!"), *Actor->GetName()));
-		UE_LOG(LogNet, Log, TEXT("%s"), *Error);
-		ensureMsgf(false, TEXT("%s"), *Error);
-		return 0;
-	}
 
 	// Create an outgoing bunch, and skip this actor if the channel is saturated.
 	FOutBunch Bunch( this, 0 );
@@ -2774,7 +2794,7 @@ int64 UActorChannel::ReplicateActor()
 	// If initial, send init data.
 	// ----------------------------------------------------------
 
-	if( RepFlags.bNetInitial && OpenedLocally )
+	if (RepFlags.bNetInitial && OpenedLocally)
 	{
 		Connection->PackageMap->SerializeNewActor(Bunch, this, Actor);
 		WroteSomethingImportant = true;
@@ -2785,14 +2805,14 @@ int64 UActorChannel::ReplicateActor()
 	// Possibly downgrade role of actor if this connection doesn't own it
 	FScopedRoleDowngrade ScopedRoleDowngrade( Actor, RepFlags );
 
-	RepFlags.bNetSimulated	= ( Actor->GetRemoteRole() == ROLE_SimulatedProxy );
+	RepFlags.bNetSimulated	= (Actor->GetRemoteRole() == ROLE_SimulatedProxy);
 	RepFlags.bRepPhysics	= Actor->ReplicatedMovement.bRepPhysics;
 	RepFlags.bReplay		= bReplay;
 	//RepFlags.bNetInitial	= RepFlags.bNetInitial;
 
-	UE_LOG(LogNetTraffic, Log, TEXT("Replicate %s, bNetInitial: %d, bNetOwner: %d"), *Actor->GetName(), RepFlags.bNetInitial, RepFlags.bNetOwner );
+	UE_LOG(LogNetTraffic, Log, TEXT("Replicate %s, bNetInitial: %d, bNetOwner: %d"), *Actor->GetName(), RepFlags.bNetInitial, RepFlags.bNetOwner);
 
-	FMemMark	MemMark(FMemStack::Get());	// The calls to ReplicateProperties will allocate memory on FMemStack::Get(), and use it in ::PostSendBunch. we free it below
+	FMemMark MemMark(FMemStack::Get()); // The calls to ReplicateProperties will allocate memory on FMemStack::Get(), and use it in ::PostSendBunch. we free it below
 
 	// ----------------------------------------------------------
 	// Replicate Actor and Component properties and RPCs
@@ -2827,7 +2847,7 @@ int64 UActorChannel::ReplicateActor()
 		// Look for deleted subobjects
 		for (auto RepComp = ReplicationMap.CreateIterator(); RepComp; ++RepComp)
 		{
-			if (!RepComp.Key().IsValid())
+			if (!RepComp.Value()->GetWeakObjectPtr().IsValid())
 			{
 				if (RepComp.Value()->ObjectNetGUID.IsValid())
 				{
@@ -2855,7 +2875,7 @@ int64 UActorChannel::ReplicateActor()
 	// -----------------------------
 
 	int64 NumBitsWrote = 0;
-	if( WroteSomethingImportant )
+	if (WroteSomethingImportant)
 	{
 		FPacketIdRange PacketRange = SendBunch( &Bunch, 1 );
 
@@ -3002,7 +3022,7 @@ void UActorChannel::BecomeDormant()
 	}
 	else
 	{
-		Close();
+		Close(EChannelCloseReason::Dormancy);
 	}
 }
 
@@ -3344,7 +3364,10 @@ UObject* UActorChannel::ReadContentBlockHeader( FInBunch & Bunch, bool& bObjectD
 		CreateSubObjects.Add( SubObj );
 
 		// Add this sub-object to the ImportedNetGuids list so we can possibly map this object if needed
-		Connection->Driver->GuidCache->ImportedNetGuids.Add( NetGUID );
+		if (ensureMsgf(NetGUID.IsValid(), TEXT("Channel tried to add an invalid GUID to the import list: %s"), *Describe()))
+		{
+			Connection->Driver->GuidCache->ImportedNetGuids.Add( NetGUID );
+		}
 	}
 
 	return SubObj;
@@ -3610,33 +3633,49 @@ FObjectReplicator & UActorChannel::GetActorReplicationData()
 	return *ActorReplicator;
 }
 
-TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator( const TWeakObjectPtr<UObject>& Obj )
+TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator( UObject* Obj, bool* bOutCreated )
 {
 	SCOPE_CYCLE_COUNTER(Stat_ActorChanFindOrCreateRep);
-	SCOPE_CYCLE_UOBJECT(ActorChannelFindOrCreateRep, Obj.Get());
+	SCOPE_CYCLE_UOBJECT(ActorChannelFindOrCreateRep, Obj);
 
 	// First, try to find it on the channel replication map
+	bool bCheckDormantReplicators = true;
 	TSharedRef<FObjectReplicator>* ReplicatorRefPtr = ReplicationMap.Find( Obj );
+	if ( ReplicatorRefPtr != nullptr )
+	{
+		if ( !ReplicatorRefPtr->Get().GetWeakObjectPtr().IsValid() )
+		{
+			ReplicatorRefPtr = nullptr;
+			ReplicationMap.Remove( Obj );
+			bCheckDormantReplicators = false;
+		}
+	}
 
-	if ( ReplicatorRefPtr == NULL )
+	// This should only be false if we found the replicator in the ReplicationMap
+	// If we pickup the replicator from the DormantReplicatorMap we treat it as it has been created.
+	if ( bOutCreated != nullptr )
+	{
+		*bOutCreated = (ReplicatorRefPtr == nullptr);
+	}
+
+	if ( ReplicatorRefPtr == nullptr )
 	{
 		// Didn't find it. 
 		// Try to find in the dormancy map
 		TSharedPtr<FObjectReplicator> NewReplicator;
-		ReplicatorRefPtr = Connection->DormantReplicatorMap.Find( Obj );
+		ReplicatorRefPtr = (bCheckDormantReplicators ? Connection->DormantReplicatorMap.Find( Obj ) : nullptr);
 
-		if ( ReplicatorRefPtr == NULL )
+		// Check if we found it and that it is has a valid object
+		if ( ReplicatorRefPtr != nullptr && ReplicatorRefPtr->Get().GetWeakObjectPtr().IsValid() )
 		{
-			// Still didn't find one, need to create
-			UE_LOG( LogNetTraffic, Log, TEXT( "Creating Replicator for %s" ), *Obj->GetName() );
-
-			NewReplicator = Connection->CreateReplicatorForNewActorChannel(Obj.Get());
+			UE_LOG( LogNetTraffic, Log, TEXT( "Found existing replicator for %s" ), *Obj->GetName() );
+			NewReplicator = *ReplicatorRefPtr;
 		}
 		else
 		{
-			UE_LOG( LogNetTraffic, Log, TEXT( "Found existing replicator for %s" ), *Obj->GetName() );
-
-			NewReplicator = *ReplicatorRefPtr;
+			// Still didn't find one, need to create
+			UE_LOG( LogNetTraffic, Log, TEXT( "Creating Replicator for %s" ), *Obj->GetName() );
+			NewReplicator = Connection->CreateReplicatorForNewActorChannel(Obj);
 		}
 
 		// Add to the replication map
@@ -3653,9 +3692,15 @@ TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator( const T
 	return *ReplicatorRefPtr;
 }
 
-bool UActorChannel::ObjectHasReplicator(const TWeakObjectPtr<UObject>& Obj)
+TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator(const TWeakObjectPtr<UObject>& Obj)
 {
-	return ReplicationMap.Contains(Obj);
+	return FindOrCreateReplicator(Obj.Get(), static_cast<bool*>(nullptr));
+}
+
+bool UActorChannel::ObjectHasReplicator(const TWeakObjectPtr<UObject>& Obj) const
+{
+	const TSharedRef<FObjectReplicator>* ReplicatorRefPtr = ReplicationMap.Find(Obj.Get());
+	return ReplicatorRefPtr != nullptr && Obj == ReplicatorRefPtr->Get().GetWeakObjectPtr();
 }
 
 bool UActorChannel::KeyNeedsToReplicate(int32 ObjID, int32 RepKey)
@@ -3688,12 +3733,14 @@ void UActorChannel::AddedToChannelPool()
 	SpawnAcked = false;
 	bForceCompareProperties = false;
 	bIsReplicatingActor = false;
+	bActorIsPendingKill = false;
 	bClearRecentActorRefs = true;
 	QueuedBunchStartTime = 0;
 	CreateSubObjects.Empty();
 #if !UE_BUILD_SHIPPING
 	bBlockChannelFailure = false;
 #endif
+	QueuedCloseReason = EChannelCloseReason::Destroyed;
 	SubobjectRepKeyMap.Empty();
 	SubobjectNakMap.Empty();
 	PendingObjKeys.Empty();
@@ -3715,8 +3762,9 @@ bool UActorChannel::ReplicateSubobject(UObject *Obj, FOutBunch &Bunch, const FRe
 	}
 
 	bool NewSubobject = false;
-
-	if (!ObjectHasReplicator(WeakObj))
+	bool bCreatedReplicator = false;
+	TSharedRef<FObjectReplicator>& ObjectReplicator = FindOrCreateReplicator(Obj, &bCreatedReplicator);
+	if (bCreatedReplicator)
 	{
 		// This is the first time replicating this subobject
 		// This bunch should be reliable and we should always return true
@@ -3726,7 +3774,7 @@ bool UActorChannel::ReplicateSubobject(UObject *Obj, FOutBunch &Bunch, const FRe
 		Bunch.bReliable = true;
 		NewSubobject = true;
 	}
-	bool WroteSomething = FindOrCreateReplicator(WeakObj).Get().ReplicateProperties(Bunch, RepFlags);
+	bool WroteSomething = ObjectReplicator.Get().ReplicateProperties(Bunch, RepFlags);
 	if (NewSubobject && !WroteSomething)
 	{
 		// Write empty payload to force object creation

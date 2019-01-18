@@ -2783,7 +2783,7 @@ void FBlueprintGraphArgumentLayout::GenerateChildContent( IDetailChildrenBuilder
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("FunctionArgDetailsPassByReference", "Pass-by-Reference"))
-				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this paremeter by reference?"))
+				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this parameter by reference?"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			.ValueContent()
@@ -4144,7 +4144,7 @@ bool FBaseBlueprintGraphActionDetails::OnVerifyPinRename(UK2Node_EditablePinBase
 
 	if (InNewName == TEXT("None"))
 	{
-		OutErrorMessage = FText::Format( LOCTEXT("PinNameNone", "'None' is a reserved name"), FText::AsNumber( NAME_SIZE ) );
+		OutErrorMessage = LOCTEXT("PinNameNone", "'None' is a reserved name");
 		return false;
 	}
 

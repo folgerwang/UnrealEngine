@@ -55,6 +55,12 @@ public:
 	/** Delegates to call to extend the command/keybinds for content browser */
 	virtual TArray<FContentBrowserCommandExtender>& GetAllContentBrowserCommandExtenders() { return ContentBrowserCommandExtenders; }
 
+	/** Delegates to be called to add extra state indicators on the asset view items */
+	virtual TArray<FOnGenerateAssetViewExtraStateIndicators>& GetAllAssetViewExtraStateIconGenerators() { return AssetViewExtraStateIconGenerators; }
+
+	/** Delegates to be called to add extra state indicators on the asset view items */
+	virtual TArray<FOnGenerateAssetViewExtraStateIndicators>& GetAllAssetViewExtraStateTooltipGenerators() { return AssetViewExtraStateTooltipGenerators; }
+
 	/** Delegates to be called to extend the drag-and-drop support of the asset view */
 	virtual TArray<FAssetViewDragAndDropExtender>& GetAssetViewDragAndDropExtenders() { return AssetViewDragAndDropExtenders; }
 
@@ -88,6 +94,10 @@ private:
 	TArray<FContentBrowserMenuExtender_SelectedAssets> AssetViewContextMenuExtenders;
 	TArray<FContentBrowserMenuExtender> AssetViewViewMenuExtenders;
 	TArray<FContentBrowserCommandExtender> ContentBrowserCommandExtenders;
+
+	/** All delegates generating extra state indicators */
+	TArray<FOnGenerateAssetViewExtraStateIndicators> AssetViewExtraStateIconGenerators;
+	TArray<FOnGenerateAssetViewExtraStateIndicators> AssetViewExtraStateTooltipGenerators;
 
 	/** All extender delegates for the drag-and-drop support of the asset view */
 	TArray<FAssetViewDragAndDropExtender> AssetViewDragAndDropExtenders;

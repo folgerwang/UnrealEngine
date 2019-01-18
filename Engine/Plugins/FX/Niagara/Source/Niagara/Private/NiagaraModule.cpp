@@ -69,6 +69,7 @@ FNiagaraVariable INiagaraModule::Engine_Owner_XAxis;
 FNiagaraVariable INiagaraModule::Engine_Owner_YAxis;
 FNiagaraVariable INiagaraModule::Engine_Owner_ZAxis;
 FNiagaraVariable INiagaraModule::Engine_Owner_Scale;
+FNiagaraVariable INiagaraModule::Engine_Owner_Rotation;
 
 FNiagaraVariable INiagaraModule::Engine_Owner_SystemLocalToWorld;
 FNiagaraVariable INiagaraModule::Engine_Owner_SystemWorldToLocal;
@@ -84,6 +85,8 @@ FNiagaraVariable INiagaraModule::Engine_Owner_ExecutionState;
 
 FNiagaraVariable INiagaraModule::Engine_ExecutionCount;
 FNiagaraVariable INiagaraModule::Engine_Emitter_NumParticles;
+FNiagaraVariable INiagaraModule::Engine_Emitter_TotalSpawnedParticles;
+FNiagaraVariable INiagaraModule::Engine_System_TickCount;
 FNiagaraVariable INiagaraModule::Engine_System_NumEmittersAlive;
 FNiagaraVariable INiagaraModule::Engine_System_NumEmitters;
 FNiagaraVariable INiagaraModule::Engine_NumSystemInstances;
@@ -95,11 +98,14 @@ FNiagaraVariable INiagaraModule::Engine_System_Age;
 
 FNiagaraVariable INiagaraModule::Emitter_Age;
 FNiagaraVariable INiagaraModule::Emitter_LocalSpace;
+FNiagaraVariable INiagaraModule::Emitter_Determinism;
+FNiagaraVariable INiagaraModule::Emitter_RandomSeed;
 FNiagaraVariable INiagaraModule::Emitter_SpawnRate;
 FNiagaraVariable INiagaraModule::Emitter_SpawnInterval;
 FNiagaraVariable INiagaraModule::Emitter_InterpSpawnStartDt;
 FNiagaraVariable INiagaraModule::Emitter_SpawnGroup;
 
+FNiagaraVariable INiagaraModule::Particles_UniqueID;
 FNiagaraVariable INiagaraModule::Particles_ID;
 FNiagaraVariable INiagaraModule::Particles_Position;
 FNiagaraVariable INiagaraModule::Particles_Velocity;
@@ -121,6 +127,9 @@ FNiagaraVariable INiagaraModule::Particles_UVScale;
 FNiagaraVariable INiagaraModule::Particles_CameraOffset;
 FNiagaraVariable INiagaraModule::Particles_MaterialRandom;
 FNiagaraVariable INiagaraModule::Particles_LightRadius;
+FNiagaraVariable INiagaraModule::Particles_LightExponent;
+FNiagaraVariable INiagaraModule::Particles_LightEnabled;
+FNiagaraVariable INiagaraModule::Particles_LightVolumetricScattering;
 FNiagaraVariable INiagaraModule::Particles_RibbonID;
 FNiagaraVariable INiagaraModule::Particles_RibbonWidth;
 FNiagaraVariable INiagaraModule::Particles_RibbonTwist;
@@ -139,14 +148,17 @@ void INiagaraModule::StartupModule()
 	FWorldDelegates::OnWorldCleanup.AddRaw(this, &INiagaraModule::OnWorldCleanup);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &INiagaraModule::OnPreWorldFinishDestroy);
 
-	FWorldDelegates::OnWorldPostActorTick.AddRaw(this, &INiagaraModule::TickWorld);
 #if WITH_EDITOR	
-	// This is done so that the editor classes are available to load in the cooker on editor builds even though it doesn't load the editor directly.
-	// UMG does something similar for similar reasons.
-	// @TODO We should remove this once Niagara is fully a plug-in.
-	FModuleManager::Get().LoadModule(TEXT("NiagaraEditor"));
+	if (!GIsEditor)
+	{
+		// Loading uncooked data in a game environment, we still need to get some functionality from the NiagaraEditor module.
+		// This includes the ability to compile scripts and load WITH_EDITOR_ONLY data.
+		// Note that when loading with the Editor, the NiagaraEditor module is loaded based on the plugin description.
+		FModuleManager::Get().LoadModule(TEXT("NiagaraEditor"));
+	}
 #endif
 
+	FWorldDelegates::OnWorldPostActorTick.AddRaw(this, &INiagaraModule::TickWorld);
 	CVarDetailLevel.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateRaw(this, &INiagaraModule::OnChangeDetailLevel));
 	OnChangeDetailLevel(CVarDetailLevel.AsVariable());
 
@@ -164,6 +176,7 @@ void INiagaraModule::StartupModule()
 	Engine_Owner_YAxis = FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Engine.Owner.SystemYAxis"));
 	Engine_Owner_ZAxis = FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Engine.Owner.SystemZAxis"));
 	Engine_Owner_Scale = FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Engine.Owner.Scale"));
+	Engine_Owner_Rotation = FNiagaraVariable(FNiagaraTypeDefinition::GetQuatDef(), TEXT("Engine.Owner.Rotation"));
 
 	Engine_Owner_SystemLocalToWorld = FNiagaraVariable(FNiagaraTypeDefinition::GetMatrix4Def(), TEXT("Engine.Owner.SystemLocalToWorld"));
 	Engine_Owner_SystemWorldToLocal = FNiagaraVariable(FNiagaraTypeDefinition::GetMatrix4Def(), TEXT("Engine.Owner.SystemWorldToLocal"));
@@ -179,6 +192,8 @@ void INiagaraModule::StartupModule()
 	
 	Engine_ExecutionCount = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.ExecutionCount"));
 	Engine_Emitter_NumParticles = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.Emitter.NumParticles"));
+	Engine_Emitter_TotalSpawnedParticles = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.Emitter.TotalSpawnedParticles"));
+	Engine_System_TickCount = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.System.TickCount"));
 	Engine_System_NumEmittersAlive = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.System.NumEmittersAlive"));
 	Engine_System_NumEmitters = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.System.NumEmitters"));
 	Engine_NumSystemInstances = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Engine.NumSystemInstances"));
@@ -189,11 +204,14 @@ void INiagaraModule::StartupModule()
 	Engine_System_Age = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Engine.System.Age"));
 	Emitter_Age = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Emitter.Age"));
 	Emitter_LocalSpace = FNiagaraVariable(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Emitter.LocalSpace"));
+	Emitter_RandomSeed = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Emitter.RandomSeed"));
+	Emitter_Determinism = FNiagaraVariable(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Emitter.Determinism"));
 	Emitter_SpawnRate = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Emitter.SpawnRate"));
 	Emitter_SpawnInterval = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Emitter.SpawnInterval"));
 	Emitter_InterpSpawnStartDt = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Emitter.InterpSpawnStartDt"));
 	Emitter_SpawnGroup = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Emitter.SpawnGroup"));
 
+	Particles_UniqueID = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Particles.UniqueID"));
 	Particles_ID = FNiagaraVariable(FNiagaraTypeDefinition::GetIDDef(), TEXT("Particles.ID"));
 	Particles_Position = FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Particles.Position"));
 	Particles_Velocity = FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Particles.Velocity"));
@@ -215,6 +233,9 @@ void INiagaraModule::StartupModule()
 	Particles_CameraOffset = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.CameraOffset"));
 	Particles_MaterialRandom = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.MaterialRandom"));
 	Particles_LightRadius = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.LightRadius"));
+	Particles_LightExponent = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.LightExponent"));
+	Particles_LightEnabled = FNiagaraVariable(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Particles.LightEnabled"));
+	Particles_LightVolumetricScattering = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.LightVolumetricScattering"));
 	Particles_RibbonID = FNiagaraVariable(FNiagaraTypeDefinition::GetIDDef(), TEXT("Particles.RibbonID"));
 	Particles_RibbonWidth = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.RibbonWidth"));
 	Particles_RibbonTwist = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Particles.RibbonTwist"));
@@ -595,6 +616,8 @@ void FNiagaraTypeDefinition::RecreateUserDefinedTypeRegistry()
 
 	for (FSoftObjectPath AssetRef : TotalStructAssets)
 	{
+		FName AssetRefPathNamePreResolve = AssetRef.GetAssetPathName();
+
 		UObject* Obj = AssetRef.ResolveObject();
 		if (Obj == nullptr)
 		{
@@ -610,6 +633,11 @@ void FNiagaraTypeDefinition::RecreateUserDefinedTypeRegistry()
 			{
 				FNiagaraTypeRegistry::Register(ScriptStruct, ParamRefFound != nullptr, PayloadRefFound != nullptr, true);
 			}
+			if (Obj->GetPathName() != AssetRefPathNamePreResolve.ToString())
+			{
+				UE_LOG(LogNiagara, Warning, TEXT("Additional parameter/payload enum has moved from where it was in settings (this may cause errors at runtime): Was: \"%s\" Now: \"%s\""), *AssetRefPathNamePreResolve.ToString(), *Obj->GetPathName());
+			}
+
 		}
 		else
 		{
@@ -620,6 +648,7 @@ void FNiagaraTypeDefinition::RecreateUserDefinedTypeRegistry()
 
 	for (FSoftObjectPath AssetRef : Settings->AdditionalParameterEnums)
 	{
+		FName AssetRefPathNamePreResolve = AssetRef.GetAssetPathName();
 		UObject* Obj = AssetRef.ResolveObject();
 		if (Obj == nullptr)
 		{
@@ -628,12 +657,17 @@ void FNiagaraTypeDefinition::RecreateUserDefinedTypeRegistry()
 
 		if (Obj != nullptr)
 		{
-			const FSoftObjectPath* ParamRefFound = Settings->AdditionalParameterEnums.FindByPredicate([&](const FStringAssetReference& Ref) { return Ref.ToString() == AssetRef.ToString(); });
+			const FSoftObjectPath* ParamRefFound = Settings->AdditionalParameterEnums.FindByPredicate([&](const FSoftObjectPath& Ref) { return Ref.ToString() == AssetRef.ToString(); });
 			const FSoftObjectPath* PayloadRefFound = nullptr;
 			UEnum* Enum = Cast<UEnum>(Obj);
 			if (Enum != nullptr)
 			{
 				FNiagaraTypeRegistry::Register(Enum, ParamRefFound != nullptr, PayloadRefFound != nullptr, true);
+			}
+
+			if (Obj->GetPathName() != AssetRefPathNamePreResolve.ToString())
+			{
+				UE_LOG(LogNiagara, Warning, TEXT("Additional parameter/payload enum has moved from where it was in settings (this may cause errors at runtime): Was: \"%s\" Now: \"%s\""), *AssetRefPathNamePreResolve.ToString(), *Obj->GetPathName());
 			}
 		}
 		else
@@ -754,27 +788,10 @@ FNiagaraTypeDefinition FNiagaraTypeDefinition::GetNumericOutputType(const TArray
 	{
 		return SortedTypeDefinitions[0];
 	}
+
+	return FNiagaraTypeDefinition::GetGenericNumericDef();
 }
 
-//////////////////////////////////////////////////////////////////////////
-
-template<>
-void FNiagaraVariable::SetValue(const bool& Data)
-{
-	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
-	AllocateData();
-	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
-	BoolStruct->SetValue(Data);
-}
-
-template<>
-bool FNiagaraVariable::GetValue() const
-{
-	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
-	check(IsDataAllocated());
-	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
-	return BoolStruct->GetValue();
-}
 
 //////////////////////////////////////////////////////////////////////////
 

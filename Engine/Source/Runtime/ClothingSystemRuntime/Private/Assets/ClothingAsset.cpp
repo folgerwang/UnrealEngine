@@ -1099,8 +1099,6 @@ void FClothParameterMask_PhysMesh::CopyFromPhysMesh(const FClothPhysicalMeshData
 		default:
 			break;
 	}
-
-	CalcRanges();
 }
 
 void FClothParameterMask_PhysMesh::SetValue(int32 InVertexIndex, float InValue)
@@ -1108,8 +1106,6 @@ void FClothParameterMask_PhysMesh::SetValue(int32 InVertexIndex, float InValue)
 	if(InVertexIndex < Values.Num())
 	{
 		Values[InVertexIndex] = InValue;
-
-		CalcRanges();
 	}
 }
 
@@ -1123,38 +1119,25 @@ const TArray<float>& FClothParameterMask_PhysMesh::GetValueArray() const
 	return Values;
 }
 
-void FClothParameterMask_PhysMesh::CalcRanges()
+void FClothParameterMask_PhysMesh::CalcRanges(float& MinValue, float& MaxValue)
 {
 	MinValue = MAX_flt;
 	MaxValue = -MinValue;
 
-	for(const float& Value : Values)
+	const float* ValuesPtr = Values.GetData();
+	for (int32 i=0; i < Values.Num(); ++i)
 	{
-		MaxValue = FMath::Max(Value, MaxValue);
-		MinValue = FMath::Min(Value, MinValue);
-	}
-}
-
-#if WITH_EDITOR
-
-FColor FClothParameterMask_PhysMesh::GetValueAsColor(int32 InVertexIndex) const
-{
-	if(InVertexIndex < Values.Num())
-	{
-		const float& Value = Values[InVertexIndex];
-
-		if(Value == 0.0f)
+		if (ValuesPtr[i] < MinValue)
 		{
-			return FColor::Magenta;
+			MinValue = ValuesPtr[i];
 		}
 
-		uint8 ScaledValue = uint8(((Value - MinValue) / (MaxValue - MinValue)) * 255.0f);
-		return FColor(ScaledValue, ScaledValue, ScaledValue);
+		if (ValuesPtr[i] > MaxValue)
+		{
+			MaxValue = ValuesPtr[i];
+		}
 	}
-
-	return FColor::Red;
 }
-#endif
 
 void FClothParameterMask_PhysMesh::Apply(FClothPhysicalMeshData& InTargetMesh)
 {

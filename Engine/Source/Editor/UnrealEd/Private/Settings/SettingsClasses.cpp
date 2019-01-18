@@ -45,6 +45,7 @@ UContentBrowserSettings::FSettingChangedEvent UContentBrowserSettings::SettingCh
 
 UContentBrowserSettings::UContentBrowserSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
+	, bShowFullCollectionNameInToolTip(true)
 {
 }
 
@@ -386,8 +387,6 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
 
-	bBindSequencerToPIE = false;
-	bBindSequencerToSimulate = true;
 	EnablePIEEnterAndExitSounds = false;
 }
 

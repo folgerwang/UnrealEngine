@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IDisplayClusterConfigParserListener.h"
+#include "Config/Parser/IDisplayClusterConfigParserListener.h"
 #include "Config/DisplayClusterConfigTypes.h"
 
 
@@ -25,20 +25,21 @@ protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterConfigParserListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void AddClusterNode(const FDisplayClusterConfigClusterNode& node) override final;
-	virtual void AddScreen(const FDisplayClusterConfigScreen& screen)         override final;
-	virtual void AddViewport(const FDisplayClusterConfigViewport& viewport)   override final;
-	virtual void AddCamera(const FDisplayClusterConfigCamera& camera)         override final;
-	virtual void AddSceneNode(const FDisplayClusterConfigSceneNode& node)     override final;
-	virtual void AddGeneral(const FDisplayClusterConfigGeneral& general)      override final;
-	virtual void AddRender(const FDisplayClusterConfigRender& render)         override final;
-	virtual void AddStereo(const FDisplayClusterConfigStereo& stereo)         override final;
-	virtual void AddDebug(const FDisplayClusterConfigDebug& debug)            override final;
-	virtual void AddInput(const FDisplayClusterConfigInput& input)            override final;
-	virtual void AddCustom(const FDisplayClusterConfigCustom& custom)         override final;
+	virtual void AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode) override final;
+	virtual void AddWindow(const FDisplayClusterConfigWindow& InCfgWindow)          override final;
+	virtual void AddScreen(const FDisplayClusterConfigScreen& InCfgScreen)          override final;
+	virtual void AddViewport(const FDisplayClusterConfigViewport& InCfgViewport)    override final;
+	virtual void AddCamera(const FDisplayClusterConfigCamera& InCfgCamera)          override final;
+	virtual void AddSceneNode(const FDisplayClusterConfigSceneNode& InCfgSNode)     override final;
+	virtual void AddGeneral(const FDisplayClusterConfigGeneral& InCfgGeneral)       override final;
+	virtual void AddRender(const FDisplayClusterConfigRender& InCfgRender)          override final;
+	virtual void AddStereo(const FDisplayClusterConfigStereo& InCfgStereo)          override final;
+	virtual void AddDebug(const FDisplayClusterConfigDebug& InCfgDebug)             override final;
+	virtual void AddNetwork(const FDisplayClusterConfigNetwork& InCfgNetwork)       override final;
+	virtual void AddInput(const FDisplayClusterConfigInput& InCfgInput)             override final;
+	virtual void AddCustom(const FDisplayClusterConfigCustom& InCfgCustom)          override final;
 
 private:
 	IDisplayClusterConfigParserListener* const ConfigParserListener;
 	FString CurrentConfigPath;
 };
-

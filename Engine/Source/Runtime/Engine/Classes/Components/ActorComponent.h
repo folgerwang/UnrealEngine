@@ -22,6 +22,9 @@ class UAssetUserData;
 class ULevel;
 
 #if WITH_EDITOR
+class SWidget;
+struct FMinimalViewInfo;
+
 /** Annotation for component selection.  This must be in engine isntead of editor for ::IsSelected to work */
 extern ENGINE_API FUObjectAnnotationSparseBool GSelectedComponentAnnotation;
 #endif
@@ -120,6 +123,11 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = AssetUserData)
 	TArray<UAssetUserData*> AssetUserData;
 
+private:
+	/** Used for fast removal of end of frame update */
+	int32 MarkedForEndOfFrameUpdateArrayIndex;
+
+protected:
 	/** 
 	 *  Indicates if this ActorComponent is currently registered with a scene. 
 	 */
@@ -676,7 +684,22 @@ public:
 	 * @note Derived class implementations should call up to their parents.
 	 */
 	virtual void CheckForErrors();
-#endif
+
+	/** 
+	 * Supplies the editor with a view specific to this component (think a view 
+	 * from a camera components POV, a render, etc.). Used for PIP preview windows.
+	 * @return True if the component overrides this, and fills out the view info output.
+	 */
+	virtual bool GetEditorPreviewInfo(float DeltaTime, FMinimalViewInfo& ViewOut) { return false; }
+
+	/**
+	 * If this component is set up to provide a preview window in editor (see GetEditorPreviewInfo), 
+	 * you can use this to customize the preview (to be something other than a world viewport).
+	 * If this returns an empty pointer, then the preview will default to a viewport using the FMinimalViewInfo
+	 * data from GetEditorPreviewInfo().
+	 */
+	virtual TSharedPtr<SWidget> GetCustomEditorPreviewWidget() { return TSharedPtr<SWidget>(); }
+#endif // WITH_EDITOR
 
 	/**
 	 * Uses the bRenderStateDirty/bRenderTransformDirty to perform any necessary work on this component.

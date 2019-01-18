@@ -239,6 +239,8 @@ TD3D11Texture2D<BaseResourceType>::~TD3D11Texture2D()
 #endif
 }
 
+template TD3D11Texture2D<FD3D11BaseTexture2D>::~TD3D11Texture2D();
+
 FD3D11Texture3D::~FD3D11Texture3D()
 {
 	D3D11TextureDeleted( *this );
@@ -604,6 +606,11 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	TextureDesc.BindFlags = bCreateShaderResource? D3D11_BIND_SHADER_RESOURCE : 0;
 	TextureDesc.CPUAccessFlags = CPUAccessFlags;
 	TextureDesc.MiscFlags = bCubeTexture ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0;
+
+	if (Flags & TexCreate_DisableSRVCreation)
+	{
+		bCreateShaderResource = false;
+	}
 
 	if (Flags & TexCreate_Shared)
 	{
@@ -1781,11 +1788,11 @@ void FD3D11DynamicRHI::RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTextu
 
 	D3D11_BOX SourceBoxAdjust =
 	{
-		SourceStartX,
-		SourceStartY,
+		static_cast<UINT>(SourceStartX),
+		static_cast<UINT>(SourceStartY),
 		0,
-		SourceEndX,
-		SourceEndY,
+		static_cast<UINT>(SourceEndX),
+		static_cast<UINT>(SourceEndY),
 		1
 	};
 

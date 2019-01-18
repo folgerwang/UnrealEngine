@@ -14,6 +14,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"EditorStyle",
+					"EditorWidgets",
 					"Engine",
 					"InputCore",
 					"LevelEditor",
@@ -26,6 +27,7 @@ namespace UnrealBuildTool.Rules
 					"PropertyEditor",
 					"Slate",
 					"SlateCore",
+					"TimeManagement",
 					"UnrealEd",
 					"WorkspaceMenuStructure",
 				});

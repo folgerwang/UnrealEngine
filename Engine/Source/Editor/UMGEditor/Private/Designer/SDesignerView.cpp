@@ -335,6 +335,8 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	SetStartupResolution();
 
 	CachedPreviewDesiredSize = FVector2D(0, 0);
+	HeightReadFromSettings = 0;
+	WidthReadFromSettings = 0;
 
 	ResolutionTextFade = FCurveSequence(0.0f, 1.0f);
 	ResolutionTextFade.Play(this->AsShared());
@@ -1754,7 +1756,7 @@ FReply SDesignerView::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointe
 	}
 	else if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
-		if ( !bIsPanning && !bIsZoomingWithTrackpad )
+		if ( !bIsPanning && !bIsZooming )
 		{
 			ResolvePendingSelectedWidgets();
 
@@ -2021,7 +2023,7 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 	{
 		bool bRespectLocks = IsRespectingLocks();
 
-		if (!CandidateUWidget->GetVisibilityInDesigner().IsVisible())
+		if (!CandidateUWidget->IsVisibleInDesigner())
 		{
 			bIncludeInHitTestGrid = false;
 		}
@@ -3223,6 +3225,8 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 {
 	bSafeZoneFlipped = false;
 	bCanPreviewSwapAspectRatio = InResolution.bCanSwapAspectRatio;
+	WidthReadFromSettings = InResolution.Width;
+	HeightReadFromSettings = InResolution.Height;
 	// Phone/tablet resolutions can be stored in either portrait or landscape mode, and may need to be flipped
 	if (bCanPreviewSwapAspectRatio && ((!bPreviewIsPortrait && InResolution.Width < InResolution.Height) ||
 		(bPreviewIsPortrait && InResolution.Width > InResolution.Height)))
@@ -3310,12 +3314,27 @@ bool SDesignerView::HandleIsCommonResolutionSelected(FPlayScreenResolution InRes
 		}
 	}
 
-	if (!InResolution.ProfileName.IsEmpty())
+	int32 TestHeight = InResolution.Height;
+	int32 TestWidth = InResolution.Width;
+
+	// Swap the width and height to test if the preview is currently flipped
+	if ((InResolution.bCanSwapAspectRatio) && (PreviewWidth > PreviewHeight))
 	{
-		return InResolution.ProfileName.Equals(PreviewOverrideName);
+		TestHeight = InResolution.Width;
+		TestWidth = InResolution.Height;
 	}
 
-	return ((InResolution.Width == PreviewWidth ) && (InResolution.Height == PreviewHeight )) || (InResolution.bCanSwapAspectRatio && (InResolution.Height == PreviewWidth) && (InResolution.Width == PreviewHeight));
+	// Compare to the size in the settings
+	const bool bSizeMatches = ((TestWidth == WidthReadFromSettings) && (TestHeight == HeightReadFromSettings))
+		|| (InResolution.bCanSwapAspectRatio && (PreviewWidth > PreviewHeight) && (TestHeight == WidthReadFromSettings) && (TestWidth == HeightReadFromSettings)); // flipped to landscape
+
+	if (!PreviewOverrideName.IsEmpty() || !InResolution.ProfileName.IsEmpty())
+	{
+		// Would have the same r.MobileContentScaleFactor and original size
+		return InResolution.ProfileName.Equals(PreviewOverrideName) && bSizeMatches;
+	}
+
+	return bSizeMatches;
 }
 
 void SDesignerView::AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution> Resolutions, const FText SectionName)
@@ -3564,16 +3583,24 @@ FReply SDesignerView::HandleZoomToFitClicked()
 FReply SDesignerView::HandleSwapAspectRatioClicked()
 {
 	bSafeZoneFlipped = false;
-	int32 OldPreviewHeight = PreviewHeight;
-	PreviewHeight = PreviewWidth;
-	PreviewWidth = OldPreviewHeight;
+	// If in portrait
+	if (PreviewHeight > PreviewWidth)
+	{
+		PreviewHeight = WidthReadFromSettings;
+		PreviewWidth = HeightReadFromSettings;
+	}
+	else
+	{
+		PreviewHeight = HeightReadFromSettings;
+		PreviewWidth = WidthReadFromSettings;
+	}
 
 	ScaleFactor = 1.0f;
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
 
 	// Rescale the swapped sizes if we are on Android
-	if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
+	if (DeviceProfile)
 	{
 		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
 	}

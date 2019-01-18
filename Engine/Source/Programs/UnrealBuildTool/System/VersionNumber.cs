@@ -11,6 +11,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Stores a numeric version consisting of any number of components.
 	/// </summary>
+	[Serializable]
 	class VersionNumber : IComparable<VersionNumber>
 	{
 		/// <summary>

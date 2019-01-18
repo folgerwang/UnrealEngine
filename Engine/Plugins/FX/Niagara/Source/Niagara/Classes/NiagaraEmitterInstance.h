@@ -47,7 +47,7 @@ public:
 
 	void PreTick();
 	void Tick(float DeltaSeconds);
-	void PostProcessParticles();
+	void PostTick();
 	bool HandleCompletion(bool bForce=false);
 
 	bool RequiredPersistentID()const;
@@ -73,6 +73,7 @@ public:
 	void NIAGARA_API UpdateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel, TArray<NiagaraRenderer*>& ToBeAddedList, TArray<NiagaraRenderer*>& ToBeRemovedList);
 
 	FORCEINLINE int32 GetNumParticles()const	{ return ParticleDataSet->GetNumInstances(); }
+	FORCEINLINE int32 GetTotalSpawnedParticles()const	{ return TotalSpawnedParticles; }
 
 	NIAGARA_API const FNiagaraEmitterHandle& GetEmitterHandle() const;
 
@@ -103,6 +104,9 @@ public:
 	NIAGARA_API bool IsReadyToRun() const;
 
 	void Dump()const;
+
+	bool WaitForDebugInfo();
+
 private:
 
 	void CheckForErrors();
@@ -116,6 +120,8 @@ private:
 	uint32 Loops;
 
 	int32 TickCount;
+
+	int32 TotalSpawnedParticles;
 	
 	/** Typical resets must be deferred until the tick as the RT could still be using the current buffer. */
 	uint32 bResetPending : 1;
@@ -153,6 +159,22 @@ private:
 	FNiagaraParameterDirectBinding<int32> UpdateExecCountBinding;
 	TArray<FNiagaraParameterDirectBinding<int32>> EventExecCountBindings;
 
+	/*
+	FNiagaraParameterDirectBinding<int32> SpawnTotalSpawnedParticlesBinding;
+	FNiagaraParameterDirectBinding<int32> UpdateTotalSpawnedParticlesBinding;
+	FNiagaraParameterDirectBinding<int32> GPUTotalSpawnedParticlesBinding;
+	*/
+
+	FNiagaraParameterDirectBinding<int32> SpawnRandomSeedBinding;
+	FNiagaraParameterDirectBinding<int32> UpdateRandomSeedBinding;
+	FNiagaraParameterDirectBinding<int32> GPURandomSeedBinding;
+
+	/*
+	FNiagaraParameterDirectBinding<int32> SpawnDeterminismBinding;
+	FNiagaraParameterDirectBinding<int32> UpdateDeterminismBinding;
+	FNiagaraParameterDirectBinding<int32> GPUDeterminismBinding;
+	*/
+	
 	/** particle simulation data. Must be a shared ref as various things on the RT can have direct ref to it. */
 	FNiagaraDataSet* ParticleDataSet;
 
@@ -166,7 +188,9 @@ private:
 	TArray<FNiagaraDataSet*> UpdateScriptEventDataSets;
 	TArray<FNiagaraDataSet*> SpawnScriptEventDataSets;
 	TMap<FNiagaraDataSetID, FNiagaraDataSet*> DataSetMap;
-	
+
+	TArray<bool> UpdateEventGeneratorIsSharedByIndex;
+	TArray<bool> SpawnEventGeneratorIsSharedByIndex;
 
 	FName OwnerSystemInstanceName;
 

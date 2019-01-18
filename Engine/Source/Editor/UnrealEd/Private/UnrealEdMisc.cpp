@@ -958,6 +958,9 @@ void FUnrealEdMisc::OnExit()
 		}
 		FPlatformProcess::CloseProc(Handle);
 	}
+
+	//Release static class to be sure its not release in a random way. This class use a static multicastdelegate which can be delete before and crash the editor on exit
+	GTexAlignTools.Release();
 }
 
 void FUnrealEdMisc::ShutdownAfterError()
@@ -1793,6 +1796,16 @@ FString FUnrealEdMisc::GetExecutableForCommandlets() const
 	if(ExecutableName.EndsWith(".exe", ESearchCase::IgnoreCase) && !FPaths::GetBaseFilename(ExecutableName).EndsWith("-cmd", ESearchCase::IgnoreCase))
 	{
 		FString NewExeName = ExecutableName.Left(ExecutableName.Len() - 4) + "-Cmd.exe";
+		if (FPaths::FileExists(NewExeName))
+		{
+			ExecutableName = NewExeName;
+		}
+	}
+#elif PLATFORM_MAC
+	// turn UE4editor into UE4editor-cmd
+	if (!FPaths::GetBaseFilename(ExecutableName).EndsWith("-cmd", ESearchCase::IgnoreCase))
+	{
+		FString NewExeName = ExecutableName + "-Cmd";
 		if (FPaths::FileExists(NewExeName))
 		{
 			ExecutableName = NewExeName;

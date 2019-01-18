@@ -5,6 +5,7 @@
 #include "Widgets/Layout/SWrapBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
+#include "EdGraphSchema_K2.h"
 #include "EditorUtilityBlueprint.h"
 #include "UObject/UnrealType.h"
 #include "GlobalEditorUtilityBase.h"
@@ -75,7 +76,7 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 		IDetailCategoryBuilder& ActionsCategory = DetailLayoutBuilder.EditCategory(*CategoryName);
 
 		const APlacedEditorUtilityBase* PlacedActorCDO = Cast<const APlacedEditorUtilityBase>(Class->GetDefaultObject());
-		if (PlacedActorCDO)
+		if (PlacedActorCDO && !PlacedActorCDO->HelpText.IsEmpty())
 		{
 			ActionsCategory.AddCustomRow( FText::FromString(PlacedActorCDO->HelpText) )
 			[
@@ -85,7 +86,7 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 		}
 		
 		const UGlobalEditorUtilityBase* GlobalBlutilityCDO = Cast<const UGlobalEditorUtilityBase>(Class->GetDefaultObject());
-		if (GlobalBlutilityCDO)
+		if (GlobalBlutilityCDO && !GlobalBlutilityCDO->HelpText.IsEmpty())
 		{
 			ActionsCategory.AddCustomRow( FText::FromString(GlobalBlutilityCDO->HelpText) )
 			[
@@ -101,7 +102,7 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 		{
 			UFunction* Function = *FuncIt;
 
-			const bool bCallInEditorFunc = Function->GetBoolMetaData( TEXT("CallInEditor") );
+			const bool bCallInEditorFunc = Function->GetBoolMetaData(FBlueprintMetadata::MD_CallInEditor);
 			const bool bCanExecute = (Function->NumParms == 0) && bCallInEditorFunc;
 
 			if (bCanExecute)

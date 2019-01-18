@@ -270,7 +270,7 @@ public:
 	/**
 	* Use the current alias map to resolve any aliases in this input variable name.
 	*/
-	FNiagaraVariable ResolveAliases(const FNiagaraVariable& InVar);
+	FNiagaraVariable ResolveAliases(const FNiagaraVariable& InVar) const;
 	
 	/**
 	* Has RegisterNodeVisitation been called yet on the owning node of this pin?

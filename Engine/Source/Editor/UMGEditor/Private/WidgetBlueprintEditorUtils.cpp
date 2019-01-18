@@ -32,6 +32,8 @@
 #include "Utility/WidgetSlotPair.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Components/Widget.h"
+#include "Blueprint/WidgetNavigation.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -257,6 +259,16 @@ bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor
 				}
 			}
 		}
+
+		// Update any explicit widget bindings.
+		Blueprint->WidgetTree->ForEachWidget([OldObjectName, NewFName](UWidget* Widget) {
+			if (Widget->Navigation)
+			{
+				Widget->Navigation->SetFlags(RF_Transactional);
+				Widget->Navigation->Modify();
+				Widget->Navigation->TryToRenameBinding(OldObjectName, NewFName);
+			}
+		});
 
 		// Validate child blueprints and adjust variable names to avoid a potential name collision
 		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewFName);
@@ -501,6 +513,11 @@ void FWidgetBlueprintEditorUtils::FindAllAncestorNamedSlotHostWidgetsForContent(
 
 bool FWidgetBlueprintEditorUtils::RemoveNamedSlotHostContent(UWidget* WidgetTemplate, INamedSlotInterface* NamedSlotHost)
 {
+	return ReplaceNamedSlotHostContent(WidgetTemplate, NamedSlotHost, nullptr);
+}
+
+bool FWidgetBlueprintEditorUtils::ReplaceNamedSlotHostContent(UWidget* WidgetTemplate, INamedSlotInterface* NamedSlotHost, UWidget* NewContentWidget)
+{
 	TArray<FName> SlotNames;
 	NamedSlotHost->GetSlotNames(SlotNames);
 
@@ -510,7 +527,7 @@ bool FWidgetBlueprintEditorUtils::RemoveNamedSlotHostContent(UWidget* WidgetTemp
 		{
 			if (SlotContent == WidgetTemplate)
 			{
-				NamedSlotHost->SetContentForSlot(SlotName, nullptr);
+				NamedSlotHost->SetContentForSlot(SlotName, NewContentWidget);
 				return true;
 			}
 		}
@@ -579,37 +596,60 @@ void FWidgetBlueprintEditorUtils::WrapWidgets(TSharedRef<FWidgetBlueprintEditor>
 		int32 OutIndex;
 		UWidget* Widget = Item.GetTemplate();
 		UPanelWidget* CurrentParent = BP->WidgetTree->FindWidgetParent(Widget, OutIndex);
+		UWidget* CurrentSlot = FindNamedSlotHostWidgetForContent(Widget, BP->WidgetTree);
 
-		// If the widget doesn't currently have a parent, and isn't the root, ignore it.
-		if (CurrentParent == nullptr && Widget != BP->WidgetTree->RootWidget)
+		// If the widget doesn't currently have a slot or parent, and isn't the root, ignore it.
+		if (CurrentSlot == nullptr && CurrentParent == nullptr && Widget != BP->WidgetTree->RootWidget)
 		{
 			continue;
 		}
 
 		Widget->Modify();
+		BP->WidgetTree->SetFlags(RF_Transactional);
+		BP->WidgetTree->Modify();
 
-		UPanelWidget*& NewWrapperWidget = OldParentToNewParent.FindOrAdd(CurrentParent);
-		if (NewWrapperWidget == nullptr || !NewWrapperWidget->CanAddMoreChildren())
+		if (CurrentSlot)
 		{
-			NewWrapperWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
-			NewWrapperWidget->SetDesignerFlags(BlueprintEditor->GetCurrentDesignerFlags());
-
-			BP->WidgetTree->SetFlags(RF_Transactional);
-			BP->WidgetTree->Modify();
-
-			if (CurrentParent)
+			// If this is a named slot, we need to properly remove and reassign the slot content
+			INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(CurrentSlot);
+			if (NamedSlotHost != nullptr)
 			{
+				CurrentSlot->SetFlags(RF_Transactional);
+				CurrentSlot->Modify();
+
+				UPanelWidget* NewSlotContents = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+				NewSlotContents->SetDesignerFlags(BlueprintEditor->GetCurrentDesignerFlags());
+
+				FWidgetBlueprintEditorUtils::ReplaceNamedSlotHostContent(Widget, NamedSlotHost, NewSlotContents);
+
+				NewSlotContents->AddChild(Widget);
+
+			}
+		}
+		else if (CurrentParent)
+		{
+			UPanelWidget*& NewWrapperWidget = OldParentToNewParent.FindOrAdd(CurrentParent);
+			if (NewWrapperWidget == nullptr || !NewWrapperWidget->CanAddMoreChildren())
+			{
+				NewWrapperWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+				NewWrapperWidget->SetDesignerFlags(BlueprintEditor->GetCurrentDesignerFlags());				
+
 				CurrentParent->SetFlags(RF_Transactional);
 				CurrentParent->Modify();
 				CurrentParent->ReplaceChildAt(OutIndex, NewWrapperWidget);
-			}
-			else // Root Widget
-			{
-				BP->WidgetTree->RootWidget = NewWrapperWidget;
+
+				NewWrapperWidget->AddChild(Widget);
 			}
 		}
+		else
+		{
+			UPanelWidget* NewRootContents = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+			NewRootContents->SetDesignerFlags(BlueprintEditor->GetCurrentDesignerFlags());
 
-		NewWrapperWidget->AddChild(Widget);
+			BP->WidgetTree->RootWidget = NewRootContents;
+			NewRootContents->AddChild(Widget);
+		}
+
 	}
 
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
@@ -992,18 +1032,34 @@ void FWidgetBlueprintEditorUtils::ExportWidgetsToText(TArray<UWidget*> WidgetsTo
 	UnMarkAllObjects(EObjectMark(OBJECTMARK_TagExp | OBJECTMARK_TagImp));
 
 	FStringOutputDevice Archive;
-	const FExportObjectInnerContext Context;
 
-	// Export each of the selected nodes
+	// Validate all nodes are from the same scope and set all UUserWidget::WidgetTrees (and things outered to it) to be ignored
+	TArray<UObject*> WidgetsToIgnore;
 	UObject* LastOuter = nullptr;
 	for ( UWidget* Widget : WidgetsToExport )
 	{
 		// The nodes should all be from the same scope
 		UObject* ThisOuter = Widget->GetOuter();
-		check(( LastOuter == ThisOuter ) || ( LastOuter == nullptr ));
+		check((LastOuter == ThisOuter) || (LastOuter == nullptr));
 		LastOuter = ThisOuter;
 
-		UExporter::ExportToOutputDevice(&Context, Widget, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
+		if ( UUserWidget* UserWidget = Cast<UUserWidget>(Widget) )
+		{
+			if ( UserWidget->WidgetTree )
+			{
+				WidgetsToIgnore.Add(UserWidget->WidgetTree);
+				// FExportObjectInnerContext does not automatically ignore UObjects if their outer is ignored
+				GetObjectsWithOuter(UserWidget->WidgetTree, WidgetsToIgnore);
+			}
+		}
+	}
+
+	const FExportObjectInnerContext Context(WidgetsToIgnore);
+	// Export each of the selected nodes
+	for ( UWidget* Widget : WidgetsToExport )
+	{
+
+		UExporter::ExportToOutputDevice(&Context, Widget, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, LastOuter);
 
 		// Check to see if this widget was content of another widget holding it in a named slot.
 		if ( Widget->GetParent() == nullptr )
@@ -1161,29 +1217,34 @@ TArray<UWidget*> FWidgetBlueprintEditorUtils::PasteWidgetsInternal(TSharedRef<FW
 						}
 					}
 
-					BlueprintEditor->AddPostDesignerLayoutAction(
-						[=] {
-						FWidgetReference WidgetRef = BlueprintEditor->GetReferenceFromTemplate(NewWidget);
-						UPanelSlot* PreviewSlot = WidgetRef.GetPreview()->Slot;
-						UPanelSlot* TemplateSlot = WidgetRef.GetTemplate()->Slot;
+					BlueprintEditor->RefreshPreview();
+						
+					FWidgetReference WidgetRef = BlueprintEditor->GetReferenceFromTemplate(NewWidget);
 
-						if ( UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PreviewSlot) )
+					UPanelSlot* PreviewSlot = WidgetRef.GetPreview()->Slot;
+					UPanelSlot* TemplateSlot = WidgetRef.GetTemplate()->Slot;
+
+					if ( UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PreviewSlot) )
+					{
+						FVector2D PasteOffset = FVector2D(0, 0);
+						if (bShouldReproduceOffsets)
 						{
-							FVector2D PasteOffset = FVector2D(0, 0);
-							if (bShouldReproduceOffsets)
-							{
-								PasteOffset = CanvasSlot->GetPosition()- FirstWidgetPosition;
-							}
-
-							CanvasSlot->SaveBaseLayout();
-							CanvasSlot->SetDesiredPosition(PasteLocation + PasteOffset);
-							CanvasSlot->RebaseLayout();
+							PasteOffset = CanvasSlot->GetPosition()- FirstWidgetPosition;
 						}
 
-						TMap<FName, FString> SlotProperties;
-						FWidgetBlueprintEditorUtils::ExportPropertiesToText(PreviewSlot, SlotProperties);
-						FWidgetBlueprintEditorUtils::ImportPropertiesFromText(TemplateSlot, SlotProperties);
-					});
+						if (UCanvasPanel* Canvas = Cast<UCanvasPanel>(CanvasSlot->Parent))
+						{
+							Canvas->TakeWidget(); // Generate the underlying widget so redoing the layout below works.
+						}
+
+						CanvasSlot->SaveBaseLayout();
+						CanvasSlot->SetDesiredPosition(PasteLocation + PasteOffset);
+						CanvasSlot->RebaseLayout();
+					}
+
+					TMap<FName, FString> SlotProperties;
+					FWidgetBlueprintEditorUtils::ExportPropertiesToText(PreviewSlot, SlotProperties);
+					FWidgetBlueprintEditorUtils::ImportPropertiesFromText(TemplateSlot, SlotProperties);
 				}
 			}
 

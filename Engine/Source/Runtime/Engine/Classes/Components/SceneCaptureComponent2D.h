@@ -10,6 +10,7 @@
 #include "Components/SceneCaptureComponent.h"
 #include "SceneCaptureComponent2D.generated.h"
 
+class ISceneViewExtension;
 class FSceneInterface;
 
 /**
@@ -80,8 +81,15 @@ class ENGINE_API USceneCaptureComponent2D : public USceneCaptureComponent
 	UPROPERTY(Transient, BlueprintReadWrite, Category = SceneCapture)
 	uint32 bCameraCutThisFrame : 1;
 
+	/** Treat unrendered opaque pixels as fully translucent. This is important for effects such as exponential weight fog, so it does not get applied on unrendered opaque pixels. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
+	uint32 bConsiderUnrenderedOpaquePixelAsFullyTranslucent : 1;
+
+	/** Array of scene view extensions specifically to apply to this scene capture */
+	TArray< TWeakPtr<ISceneViewExtension, ESPMode::ThreadSafe> > SceneViewExtensions;
 
 	//~ Begin UActorComponent Interface
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void OnRegister() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual bool RequiresGameThreadEndOfFrameUpdates() const override
@@ -97,7 +105,8 @@ class ENGINE_API USceneCaptureComponent2D : public USceneCaptureComponent
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	
+
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void Serialize(FArchive& Ar);
 
 	//~ End UObject Interface
@@ -120,4 +129,11 @@ class ENGINE_API USceneCaptureComponent2D : public USceneCaptureComponent
 	void CaptureScene();
 
 	void UpdateSceneCaptureContents(FSceneInterface* Scene) override;
+
+#if WITH_EDITORONLY_DATA
+	void UpdateDrawFrustum();
+
+	/** The frustum component used to show visually where the camera field of view is */
+	class UDrawFrustumComponent* DrawFrustum;
+#endif
 };

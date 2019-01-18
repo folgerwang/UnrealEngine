@@ -22,6 +22,7 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
 #include "Algo/Copy.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -214,6 +215,14 @@ public:
 				}
 			}
 
+			ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+			if (Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+				FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
+			}
+
 			Cache.SetCachedData(X1, Y1, X2, Y2, Data);
 			Cache.Flush();
 		}
@@ -291,6 +300,14 @@ public:
 						DataScanline[X] = Value;
 					}
 				}
+			}
+
+			ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+			if (Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+				FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
 			}
 
 			Cache.SetCachedData(X1, Y1, X2, Y2, Data);
@@ -493,7 +510,7 @@ public:
 				for (ULandscapeComponent* Component : TargetSelectedComponents)
 				{
 					Component->Modify();
-					OldHeightmapTextures.Add(Component->HeightmapTexture);
+					OldHeightmapTextures.Add(Component->GetHeightmap());
 				}
 
 				// Need to split all the component which share Heightmap with selected components
@@ -502,8 +519,8 @@ public:
 				for (ULandscapeComponent* Component : TargetSelectedComponents)
 				{
 					// Search neighbor only
-					const int32 SearchX = Component->HeightmapTexture->Source.GetSizeX() / NeedHeightmapSize - 1;
-					const int32 SearchY = Component->HeightmapTexture->Source.GetSizeY() / NeedHeightmapSize - 1;
+					const int32 SearchX = Component->GetHeightmap()->Source.GetSizeX() / NeedHeightmapSize - 1;
+					const int32 SearchY = Component->GetHeightmap()->Source.GetSizeY() / NeedHeightmapSize - 1;
 					const FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
 
 					for (int32 Y = -SearchY; Y <= SearchY; ++Y)
@@ -511,7 +528,7 @@ public:
 						for (int32 X = -SearchX; X <= SearchX; ++X)
 						{
 							ULandscapeComponent* const Neighbor = LandscapeInfo->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(X, Y));
-							if (Neighbor && Neighbor->HeightmapTexture == Component->HeightmapTexture && !HeightmapUpdateComponents.Contains(Neighbor))
+							if (Neighbor && Neighbor->GetHeightmap() == Component->GetHeightmap() && !HeightmapUpdateComponents.Contains(Neighbor))
 							{
 								Neighbor->Modify();
 								bool bNeedsMoveToCurrentLevel = TargetSelectedComponents.Contains(Neighbor);
@@ -893,6 +910,12 @@ public:
 			for (int32 Idx = 0; Idx < NewComponents.Num(); Idx++)
 			{
 				NewComponents[Idx]->RegisterComponent();
+			}
+
+			if (LandscapeInfo->LandscapeActor.Get()->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+				FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
 			}
 
 			if (bHasXYOffset)
@@ -1709,6 +1732,14 @@ public:
 				{
 					WeightCache.AddDirtyLayer(LayerInfo);
 				}
+			}
+
+			ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+			if (Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+			{
+				FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+				FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
 			}
 
 			if (bApplyToAll)

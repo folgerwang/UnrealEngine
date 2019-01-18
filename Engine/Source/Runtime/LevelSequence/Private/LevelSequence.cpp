@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequence.h"
+#include "ILevelSequenceMetaData.h"
 #include "Engine/EngineTypes.h"
 #include "HAL/IConsoleManager.h"
 #include "Components/ActorComponent.h"
@@ -52,7 +53,6 @@ ULevelSequence::ULevelSequence(const FObjectInitializer& ObjectInitializer)
 
 void ULevelSequence::Initialize()
 {
-	// @todo sequencer: gmp: fix me
 	MovieScene = NewObject<UMovieScene>(this, NAME_None, RF_Transactional);
 
 	const bool bFrameLocked = CVarDefaultEvaluationType.GetValueOnGameThread() != 0;
@@ -104,7 +104,30 @@ void ULevelSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) co
 	}
 #endif
 
+	for (UObject* MetaData : MetaDataObjects)
+	{
+		ILevelSequenceMetaData* MetaDataInterface = Cast<ILevelSequenceMetaData>(MetaData);
+		if (MetaDataInterface)
+		{
+			MetaDataInterface->ExtendAssetRegistryTags(OutTags);
+		}
+	}
+
 	Super::GetAssetRegistryTags(OutTags);
+}
+
+void ULevelSequence::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const
+{
+	for (UObject* MetaData : MetaDataObjects)
+	{
+		ILevelSequenceMetaData* MetaDataInterface = Cast<ILevelSequenceMetaData>(MetaData);
+		if (MetaDataInterface)
+		{
+			MetaDataInterface->ExtendAssetRegistryTagMetaData(OutMetadata);
+		}
+	}
+
+	Super::GetAssetRegistryTagMetadata(OutMetadata);
 }
 
 void PurgeLegacyBlueprints(UObject* InObject, UPackage* Package)
@@ -265,6 +288,11 @@ bool ULevelSequence::CanPossessObject(UObject& Object, UObject* InPlaybackContex
 
 void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
+	LocateBoundObjects(ObjectId, Context, NAME_None, OutObjects);
+}
+
+void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
+{
 	// Handle legacy object references
 	UObject* Object = Context ? ObjectReferences.ResolveBinding(ObjectId, Context) : nullptr;
 	if (Object)
@@ -272,7 +300,7 @@ void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context,
 		OutObjects.Add(Object);
 	}
 
-	BindingReferences.ResolveBinding(ObjectId, Context, OutObjects);
+	BindingReferences.ResolveBinding(ObjectId, Context, StreamedLevelAssetPath, OutObjects);
 }
 
 void ULevelSequence::GatherExpiredObjects(const FMovieSceneObjectCache& InObjectCache, TArray<FGuid>& OutInvalidIDs) const

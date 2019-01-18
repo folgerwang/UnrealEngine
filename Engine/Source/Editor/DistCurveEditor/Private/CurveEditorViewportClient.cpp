@@ -49,6 +49,7 @@ FCurveEditorViewportClient::FCurveEditorViewportClient(TWeakPtr<SDistributionCur
 	MovementAxisLock = AxisLock_None;
 	bBoxSelecting = false;
 	bKeyAdded = false;
+	bNeedsRedraw = true;
 	BoxStartX = 0;
 	BoxStartY = 0;
 	BoxEndX = 0;
@@ -706,8 +707,8 @@ void FCurveEditorViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y
 			DistanceDragged += (FMath::Abs<int32>(DeltaX) + FMath::Abs<int32>(DeltaY));
 
 			// Distance mouse just moved in 'curve' units.
-			float DeltaIn = DeltaX / PixelsPerIn;
-			float DeltaOut = -DeltaY / PixelsPerOut;
+			float DeltaIn = (DeltaX / PixelsPerIn)/GetDPIScale();
+			float DeltaOut = (-DeltaY / PixelsPerOut)/GetDPIScale();
 
 			// If we are panning around, update the Start/End In/Out values for this view.
 			if(bDraggingHandle)
@@ -783,6 +784,11 @@ bool FCurveEditorViewportClient::InputAxis(FViewport* Viewport, int32 Controller
 		return true;
 	}
 	return false;
+}
+
+void FCurveEditorViewportClient::RedrawRequested(FViewport* InViewport)
+{
+	bNeedsRedraw = true;
 }
 
 void FCurveEditorViewportClient::Exec(const TCHAR* Cmd)
@@ -1389,7 +1395,7 @@ FIntPoint FCurveEditorViewportClient::CalcScreenPos(const FVector2D& Val)
 	return Result;
 }
 
-FVector2D FCurveEditorViewportClient::CalcValuePoint(const FIntPoint& Pos)
+FVector2D FCurveEditorViewportClient::CalcValuePoint(const FVector2D& Pos)
 {
 	FVector2D Result;
 	Result.X = SharedData->StartIn + ((Pos.X - LabelWidth) / PixelsPerIn);
@@ -1470,7 +1476,7 @@ int32 FCurveEditorViewportClient::AddNewKeypoint(int32 InCurveIndex, int32 InSub
 	check(InCurveIndex >= 0 && InCurveIndex < SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves.Num());
 
 	FCurveEdEntry& Entry = SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves[InCurveIndex];
-	FVector2D NewKeyVal = CalcValuePoint(ScreenPos);
+	FVector2D NewKeyVal = CalcValuePoint(FVector2D(ScreenPos) / GetDPIScale());
 	float NewKeyIn = SnapIn(NewKeyVal.X);
 
 	FCurveEdInterface* EdInterface = UInterpCurveEdSetup::GetCurveEdInterfacePointer(Entry);

@@ -132,11 +132,26 @@ public:
 		{
 			if (InPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryType)
 			{
-				const UScriptStruct* Struct = CastChecked<const UScriptStruct>(InPin->PinType.PinSubCategoryObject.Get());
-				const FCreateGraphPin* CreateGraphPin = TypeToCreatePinDelegateMap.Find(Struct);
-				if (CreateGraphPin != nullptr)
+				if (InPin->PinType.PinSubCategoryObject != nullptr && InPin->PinType.PinSubCategoryObject->IsA<UScriptStruct>())
 				{
-					return (*CreateGraphPin).Execute(InPin);
+					const UScriptStruct* Struct = CastChecked<const UScriptStruct>(InPin->PinType.PinSubCategoryObject.Get());
+					const FCreateGraphPin* CreateGraphPin = TypeToCreatePinDelegateMap.Find(Struct);
+					if (CreateGraphPin != nullptr)
+					{
+						return (*CreateGraphPin).Execute(InPin);
+					}
+					// Otherwise, fall back to the generic pin for Niagara types. Previous iterations put out an error here, but this 
+					// was not correct as the above list is just overrides from the default renamable pin, usually numeric types with their own custom 
+					// editors for default values. Things like the parameter map can safely just fall through to the end condition and create a
+					// generic renamable pin.
+				}
+				else
+				{
+					UE_LOG(LogNiagaraEditor, Error, TEXT("Pin type is invalid! Pin Name '%s' Owning Node '%s'. Turning into standard int definition!"), *InPin->PinName.ToString(),
+						*InPin->GetOwningNode()->GetName());
+					InPin->PinType.PinSubCategoryObject = MakeWeakObjectPtr(const_cast<UScriptStruct*>(FNiagaraTypeDefinition::GetIntStruct()));
+					InPin->DefaultValue.Empty();
+					return CreatePin(InPin);
 				}
 			}
 			else if (InPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryEnum)
@@ -478,8 +493,11 @@ void FNiagaraEditorModule::StartupModule()
 		TEXT("Dumps the values of the rapid iteration parameters for the specified asset by path."),
 		FConsoleCommandWithArgsDelegate::CreateStatic(&DumpRapidIterationParamersForAsset));
 
-	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraEmitter::StaticClass(), UNiagaraEmitterThumbnailRenderer::StaticClass());
-	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraSystem::StaticClass(), UNiagaraSystemThumbnailRenderer::StaticClass());
+	if (GIsEditor)
+	{
+		UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraEmitter::StaticClass(), UNiagaraEmitterThumbnailRenderer::StaticClass());
+		UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraSystem::StaticClass(), UNiagaraSystemThumbnailRenderer::StaticClass());
+	}
 }
 
 
@@ -559,7 +577,7 @@ void FNiagaraEditorModule::ShutdownModule()
 		IConsoleManager::Get().UnregisterConsoleObject(DumpRapidIterationParametersForAsset);
 	}
 
-	if (UObjectInitialized())
+	if (UObjectInitialized() && GIsEditor)
 	{
 		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraEmitter::StaticClass());
 		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraSystem::StaticClass());

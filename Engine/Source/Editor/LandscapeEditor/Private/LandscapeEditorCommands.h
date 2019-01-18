@@ -43,6 +43,7 @@ public:
 	TSharedPtr<FUICommandInfo> NoiseTool;
 	TSharedPtr<FUICommandInfo> RetopologizeTool;
 	TSharedPtr<FUICommandInfo> VisibilityTool;
+	TSharedPtr<FUICommandInfo> BPCustomTool;
 
 	TSharedPtr<FUICommandInfo> SelectComponentTool;
 	TSharedPtr<FUICommandInfo> AddComponentTool;

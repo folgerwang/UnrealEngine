@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
+#include "Misc/App.h"
 
 void FMovieSceneTimeController::Tick(float DeltaSeconds, float InPlayRate)
 {
@@ -104,6 +105,14 @@ double FMovieSceneTimeController_AudioClock::GetCurrentTime() const
 {
 	FAudioDevice* AudioDevice = GEngine ? GEngine->GetMainAudioDevice() : nullptr;
 	return AudioDevice ? AudioDevice->GetAudioClock() : 0.0;
+}
+
+double FMovieSceneTimeController_TimecodeClock::GetCurrentTime() const
+{
+	FTimecode Timecode = FApp::GetTimecode();
+	FFrameRate FrameRate = FApp::GetTimecodeFrameRate();
+	FFrameNumber FrameNumber = Timecode.ToFrameNumber(FrameRate);
+	return FrameRate.AsSeconds(FrameNumber);
 }
 
 void FMovieSceneTimeController_Tick::OnStartPlaying(const FQualifiedFrameTime& InStartTime)

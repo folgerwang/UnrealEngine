@@ -61,50 +61,50 @@ public class GoogleVR : ModuleRules
 			PublicAdditionalLibraries.Add(GoogleVRIOSLibPath+"libGTMSessionFetcher.a");
 
 			// Frameworks that GoogleVR frame depends on
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreText"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("AudioToolbox"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("AVFoundation"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreGraphics"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreMotion"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("CoreVideo"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("GLKit"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("MediaPlayer"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("OpenGLES"));
-			PublicAdditionalFrameworks.Add(new UEBuildFramework("QuartzCore"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreText"));
+			PublicAdditionalFrameworks.Add(new Framework("AudioToolbox"));
+			PublicAdditionalFrameworks.Add(new Framework("AVFoundation"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreGraphics"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreMotion"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreVideo"));
+			PublicAdditionalFrameworks.Add(new Framework("GLKit"));
+			PublicAdditionalFrameworks.Add(new Framework("MediaPlayer"));
+			PublicAdditionalFrameworks.Add(new Framework("OpenGLES"));
+			PublicAdditionalFrameworks.Add(new Framework("QuartzCore"));
 
 			// GoogleVR framework.
 			// Note: Had to add 5 times because there are 5 different resource bundles and there doesn't seem to be support for
 			//       just adding resource bundles on iOS
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"GVRSDK",														// Framework name
 					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitCore.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"GVRSDK",														// Framework name
 					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitDialogs.bundle"			// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"GVRSDK",														// Framework name
 					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/CardboardSDK.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"GVRSDK",														// Framework name
 					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitHUD.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
+				new Framework(
 					"GVRSDK",														// Framework name
 					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/MaterialRobotoFontLoader.bundle"	// Resources we need copied and staged

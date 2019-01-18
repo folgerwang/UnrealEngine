@@ -19,16 +19,18 @@ namespace UnrealGameSync
 		string UserName;
 		DetectProjectSettingsTask DetectedProjectSettings;
 		string DataFolder;
+		string CacheFolder;
 		TextWriter Log;
 		UserSettings Settings;
 
-		private OpenProjectWindow(UserSelectedProjectSettings Project, UserSettings Settings, string DataFolder, TextWriter Log)
+		private OpenProjectWindow(UserSelectedProjectSettings Project, UserSettings Settings, string DataFolder, string CacheFolder, TextWriter Log)
 		{
 			InitializeComponent();
 
 			this.Settings = Settings;
 			this.DetectedProjectSettings = null;
 			this.DataFolder = DataFolder;
+			this.CacheFolder = CacheFolder;
 			this.Log = Log;
 
 			if(Project == null)
@@ -77,9 +79,9 @@ namespace UnrealGameSync
 			UpdateOkButton();
 		}
 
-		public static bool ShowModal(IWin32Window Owner, UserSelectedProjectSettings Project, out DetectProjectSettingsTask NewDetectedProjectSettings, UserSettings Settings, string DataFolder, TextWriter Log)
+		public static bool ShowModal(IWin32Window Owner, UserSelectedProjectSettings Project, out DetectProjectSettingsTask NewDetectedProjectSettings, UserSettings Settings, string DataFolder, string CacheFolder, TextWriter Log)
 		{
-			OpenProjectWindow Window = new OpenProjectWindow(Project, Settings, DataFolder, Log);
+			OpenProjectWindow Window = new OpenProjectWindow(Project, Settings, DataFolder, CacheFolder, Log);
 			if(Window.ShowDialog(Owner) == DialogResult.OK)
 			{
 				NewDetectedProjectSettings = Window.DetectedProjectSettings;
@@ -111,11 +113,11 @@ namespace UnrealGameSync
 			UpdateWorkspacePathBrowseButton();
 		}
 
-		private void UpdateServerLabel()
+		public static string GetServerLabelText(string ServerAndPort, string UserName)
 		{
 			if(ServerAndPort == null && UserName == null)
 			{
-				ServerLabel.Text = "Using default Perforce server settings.";
+				return "Using default Perforce server settings.";
 			}
 			else
 			{
@@ -137,9 +139,13 @@ namespace UnrealGameSync
 				{
 					Text.AppendFormat("server '{0}'.", ServerAndPort);
 				}
-				ServerLabel.Text = Text.ToString();
+				return Text.ToString();
 			}
+		}
 
+		private void UpdateServerLabel()
+		{
+			ServerLabel.Text = GetServerLabelText(ServerAndPort, UserName);
 			ChangeLink.Location = new Point(ServerLabel.Right + 5, ChangeLink.Location.Y);
 		}
 
@@ -160,7 +166,7 @@ namespace UnrealGameSync
 			WorkspaceRadioBtn.Checked = true;
 			
 			string WorkspaceName;
-			if(NewWorkspaceWindow.ShowModal(this, ServerAndPort, UserName, WorkspaceNameTextBox.Text, Log, out WorkspaceName))
+			if(NewWorkspaceWindow.ShowModal(this, ServerAndPort, UserName, null, WorkspaceNameTextBox.Text, Log, out WorkspaceName))
 			{
 				WorkspaceNameTextBox.Text = WorkspaceName;
 				UpdateOkButton();
@@ -270,7 +276,7 @@ namespace UnrealGameSync
 			UserSelectedProjectSettings SelectedProject;
 			if(TryGetSelectedProject(out SelectedProject))
 			{
-				DetectProjectSettingsTask NewDetectedProjectSettings = new DetectProjectSettingsTask(SelectedProject, DataFolder, Log);
+				DetectProjectSettingsTask NewDetectedProjectSettings = new DetectProjectSettingsTask(SelectedProject, DataFolder, CacheFolder, Log);
 				try
 				{
 					string ProjectFileName = null;
@@ -325,12 +331,15 @@ namespace UnrealGameSync
 			Dialog.Filter = "Project files (*.uproject)|*.uproject|Project directory lists (*.uprojectdirs)|*.uprojectdirs|All supported files (*.uproject;*.uprojectdirs)|*.uproject;*.uprojectdirs|All files (*.*)|*.*" ;
 			Dialog.FilterIndex = Settings.FilterIndex;
 			
-			try
+			if(!String.IsNullOrEmpty(LocalFileTextBox.Text))
 			{
-				Dialog.InitialDirectory = Path.GetDirectoryName(LocalFileTextBox.Text);
-			}
-			catch
-			{
+				try
+				{
+					Dialog.InitialDirectory = Path.GetDirectoryName(LocalFileTextBox.Text);
+				}
+				catch
+				{
+				}
 			}
 
 			if(Dialog.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)

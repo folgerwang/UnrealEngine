@@ -115,6 +115,16 @@ struct MOVIESCENE_API FMovieSceneTimeController_AudioClock : FMovieSceneTimeCont
 	virtual double GetCurrentTime() const override;
 };
 
+
+/**
+* A timing manager that retrieves its time from the Timecode clock
+*/
+struct MOVIESCENE_API FMovieSceneTimeController_TimecodeClock : FMovieSceneTimeController_ExternalClock
+{
+	virtual double GetCurrentTime() const override;
+};
+
+
 /**
  * A timing manager that accumulates delta times from a world
  */
@@ -133,3 +143,5 @@ protected:
 private:
 	double CurrentOffsetSeconds;
 };
+
+

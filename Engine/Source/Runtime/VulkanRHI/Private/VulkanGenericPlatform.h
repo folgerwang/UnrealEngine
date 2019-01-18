@@ -35,13 +35,7 @@ public:
 	// most platforms can query the surface for the present mode, and size, etc
 	static bool SupportsQuerySurfaceProperties() { return true; }
 
-	static void SetupFeatureLevels()
-	{
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_VULKAN_PCES3_1;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_VULKAN_PCES3_1;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_VULKAN_SM4;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_VULKAN_SM5;
-	}
+	static void SetupFeatureLevels();
 
 	static bool SupportsStandardSwapchain() { return true; }
 	static EPixelFormat GetPixelFormatForNonDefaultSwapchain()

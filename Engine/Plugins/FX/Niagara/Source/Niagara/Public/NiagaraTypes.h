@@ -892,3 +892,21 @@ FORCEINLINE uint32 GetTypeHash(const FNiagaraVariable& Var)
 {
 	return HashCombine(GetTypeHash(Var.GetType()), GetTypeHash(Var.GetName()));
 }
+
+template<>
+inline bool FNiagaraVariable::GetValue<bool>() const
+{
+	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
+	check(IsDataAllocated());
+	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
+	return BoolStruct->GetValue();
+}
+
+template<>
+inline void FNiagaraVariable::SetValue<bool>(const bool& Data)
+{
+	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
+	AllocateData();
+	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
+	BoolStruct->SetValue(Data);
+}

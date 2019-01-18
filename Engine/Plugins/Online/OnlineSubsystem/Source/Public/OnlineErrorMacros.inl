@@ -10,6 +10,9 @@
 
 namespace Errors
 {
+	// Configured namspace
+	inline const TCHAR* BaseNamespace() { return TEXT(ONLINE_ERROR_NAMESPACE); }
+
 	// Configuration
 	inline FOnlineError NotConfigured() { return ONLINE_ERROR(EOnlineErrorResult::NotConfigured); }
 

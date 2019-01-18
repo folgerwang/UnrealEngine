@@ -87,7 +87,9 @@ namespace Audio
 		// float Position = NyquistPosition + (InFreq / Nyquist);
 		const float NormalizedFreq = (InFreq / Nyquist);
 		float Position = InFreq >= 0 ? (NormalizedFreq * VectorLength / 2) : VectorLength - (NormalizedFreq * VectorLength / 2);
-		check(Position >= 0.0f && Position <= VectorLength - 1);
+		
+		// Position should be clamped between just above DC and just below nyquist to avoid rounding errors.
+		Position = FMath::Clamp<float>(Position, 0.01f, VectorLength - 1.01f);
 
 		switch (InMethod)
 		{
@@ -283,11 +285,11 @@ namespace Audio
 			Window.ApplyToBuffer(TimeDomainBuffer);
 
 			// Perform FFT.
-			FFTInputParams InputParams;
-			InputParams.InBuffer = TimeDomainBuffer;
+			FFTTimeDomainData InputParams;
+			InputParams.Buffer = TimeDomainBuffer;
 			InputParams.NumSamples = FFTSize;
 
-			FFTOutputParams OutputParams;
+			FFTFreqDomainData OutputParams;
 			OutputParams.OutReal = OutputVector->RealFrequencies.GetData();
 			OutputParams.OutImag = OutputVector->ImagFrequencies.GetData();
 

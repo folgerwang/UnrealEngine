@@ -114,6 +114,10 @@ DECLARE_CYCLE_STAT(TEXT("ParticleComponent CreateRenderState Concurrent GT"), ST
 DECLARE_CYCLE_STAT(TEXT("PSys Comp Marshall Time GT"), STAT_UParticleSystemComponent_Marshall, STATGROUP_Particles);
 
 CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+DEFINE_STAT(STAT_ParticlesOverview_GT);
+DEFINE_STAT(STAT_ParticlesOverview_GT_CNC);
+DEFINE_STAT(STAT_ParticlesOverview_RT);
+DEFINE_STAT(STAT_ParticlesOverview_RT_CNC);
 
 #include "InGamePerformanceTracker.h"
 
@@ -3501,6 +3505,29 @@ bool UParticleSystemComponent::CanBeOccluded()const
 		(Template->FixedRelativeBoundingBox.IsValid || (Template->OcclusionBoundsMethod == EPSOBM_CustomBounds)); //We can only be occluded if we have fixed bounds or custom occlusion bounds.
 }
 
+bool UParticleSystemComponent::CanSkipTickDueToVisibility()
+{
+	if (Template->IsLooping() && CanConsiderInvisible() && !bWasDeactivated)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_LOD_Inactive);
+		bForcedInActive = true;
+		SpawnEvents.Empty();
+		DeathEvents.Empty();
+		CollisionEvents.Empty();
+		KismetEvents.Empty();
+
+		if (bIsManagingSignificance && Template->GetHighestSignificance() < RequiredSignificance)
+		{
+			//We're definitely insignificant so we can stop ticking entirely.
+			OnSignificanceChanged(false, true);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 bool UParticleSystemComponent::CanConsiderInvisible()const
 {
 	UWorld* World = GetWorld();
@@ -3816,6 +3843,7 @@ void UParticleSystemComponent::OnUnregister()
 void UParticleSystemComponent::CreateRenderState_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateRenderState_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	check( GetWorld() );
@@ -3850,6 +3878,7 @@ void UParticleSystemComponent::CreateRenderState_Concurrent()
 void UParticleSystemComponent::SendRenderTransform_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_SendRenderTransform_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	if (bIsActive)
@@ -3867,6 +3896,7 @@ void UParticleSystemComponent::SendRenderTransform_Concurrent()
 void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_SendRenderDynamicData_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	Super::SendRenderDynamicData_Concurrent();
@@ -3901,6 +3931,7 @@ void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 void UParticleSystemComponent::DestroyRenderState_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_DestroyRenderState_Concurrent);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
 
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	check( GetWorld() );
@@ -4816,32 +4847,36 @@ void UParticleSystemComponent::SetComponentTickEnabled(bool bEnabled)
 	bEnabled &= IsRegistered();
 	check(!bEnabled || GetWorld());
 
-	if (ShouldBeTickManaged())
+	bool bShouldTickBeManaged = ShouldBeTickManaged();
+	bool bIsTickManaged = IsTickManaged();
+	FParticleSystemWorldManager* PSCMan = bShouldTickBeManaged || bIsTickManaged ? GetWorldManager() : nullptr;
+
+	if ((bShouldTickBeManaged || bIsTickManaged) && PSCMan == nullptr)
+	{
+		Super::SetComponentTickEnabled(bEnabled);
+		return;
+	}
+
+	if (bShouldTickBeManaged)
 	{
 		Super::SetComponentTickEnabled(false);//Ensure we're not ticking via task graph.
 		if (bEnabled)
 		{
-			FParticleSystemWorldManager* PSCMan = GetWorldManager();
-			check(PSCMan);
 			if (!PSCMan->RegisterComponent(this))
 			{
 				UE_LOG(LogParticles, Error, TEXT("Failed to register with the PSC world manager"));
 			}
 		}
-		else if (IsTickManaged())
+		else if (bIsTickManaged)
 		{
-			FParticleSystemWorldManager* PSCMan = GetWorldManager();
-			check(PSCMan);
 			PSCMan->UnregisterComponent(this);
 		}
 	}
 	else
 	{
 		//Make sure we're not ticking via the manager.
-		if (IsTickManaged())
+		if (bIsTickManaged)
 		{
-			FParticleSystemWorldManager* PSCMan = GetWorldManager();
-			check(PSCMan);
 			PSCMan->UnregisterComponent(this);
 		}
 
@@ -4900,6 +4935,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Effects);
 	LLM_SCOPE(ELLMTag::Particles);
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if (Template == nullptr || Template->Emitters.Num() == 0)
 	{
@@ -5020,21 +5056,8 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	{
 		//For now, we're only allowing the SecondsBeforeInactive optimization on looping emitters as it can cause leaks with non-looping effects.
 		//Longer term, there is likely a better solution.
-		if (Template->IsLooping() && CanConsiderInvisible() && !bWasDeactivated)//Cannot skip ticking if we've been deactivated otherwise the system cannot complete correctly.
+		if (CanSkipTickDueToVisibility())//Cannot skip ticking if we've been deactivated otherwise the system cannot complete correctly.
 		{
-			SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_LOD_Inactive);
-			bForcedInActive = true;
-			SpawnEvents.Empty();
-			DeathEvents.Empty();
-			CollisionEvents.Empty();
-			KismetEvents.Empty();
-
-			if (bIsManagingSignificance && Template->GetHighestSignificance() < RequiredSignificance)
-			{
-				//We're definitely insignificant so we can stop ticking entirely.
-				OnSignificanceChanged(false, true);
-			}
-
 			return;
 		}
 
@@ -5200,6 +5223,8 @@ void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 
 	SCOPE_CYCLE_COUNTER(STAT_ParticleComputeTickTime);
 	FScopeCycleCounterUObject AdditionalScope(AdditionalStatObject(), GET_STATID(STAT_ParticleComputeTickTime));
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT_CNC);
+
 	// Tick Subemitters.
 	int32 EmitterIndex;
 	NumSignificantEmitters = 0;
@@ -5273,6 +5298,7 @@ void UParticleSystemComponent::FinalizeTickComponent()
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, IsInGameThread() ? EInGamePerfTrackerThreads::GameThread : EInGamePerfTrackerThreads::OtherThread, bIsManagingSignificance);
 
 	SCOPE_CYCLE_COUNTER(STAT_ParticleFinalizeTickTime);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if(bAsyncDataCopyIsValid)
 	{
@@ -5284,11 +5310,11 @@ void UParticleSystemComponent::FinalizeTickComponent()
 	}
 
 	bAsyncDataCopyIsValid = false;
+	AsyncWork = nullptr; // this task is done
 	if (!bNeedsFinalize)
 	{
 		return;
 	}
-	AsyncWork = NULL; // this task is done
 	bNeedsFinalize = false;
 
 	if (FXConsoleVariables::bFreezeParticleSimulation == false)
@@ -5456,7 +5482,7 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		//}
 
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
-		if (Behavior != SILENT && ThisTime >= KINDA_SMALL_NUMBER)
+		if (Behavior != SILENT && ThisTime >= 3.0f)
 		{
 			if (bIsInGameThread)
 			{
@@ -5772,6 +5798,7 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 {
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Effects);
 	SCOPE_CYCLE_COUNTER(STAT_ParticleActivateTime);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 	ForceAsyncWorkCompletion(STALL);
 
 	if (IsTemplate() == true || !IsRegistered() || 	!FApp::CanEverRender())
@@ -6019,6 +6046,7 @@ void UParticleSystemComponent::DeactivateSystem()
 {
 	UWorld* World = GetWorld();
 	FInGameScopedCycleCounter InGameCycleCounter(World, EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
 
 	if (IsTemplate() == true)
 	{

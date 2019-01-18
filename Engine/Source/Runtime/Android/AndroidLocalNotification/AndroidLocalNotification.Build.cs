@@ -14,7 +14,6 @@ public class AndroidLocalNotification : ModuleRules
             "Runtime/Engine/Public",
         });
 
-
         PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -22,5 +21,10 @@ public class AndroidLocalNotification : ModuleRules
 			"Engine",
             "Launch"
 		});
+
+		if(Target.Platform == UnrealTargetPlatform.Lumin)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

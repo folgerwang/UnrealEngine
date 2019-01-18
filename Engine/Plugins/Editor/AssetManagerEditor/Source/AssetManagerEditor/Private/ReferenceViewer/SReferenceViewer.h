@@ -141,6 +141,7 @@ private:
 	bool HasExactlyOneNodeSelected() const;
 	bool HasExactlyOnePackageNodeSelected() const;
 	bool HasAtLeastOnePackageNodeSelected() const;
+	bool HasAtLeastOneRealNodeSelected() const;
 
 	void OnInitialAssetRegistrySearchComplete();
 	EActiveTimerReturnType TriggerZoomToFit(double InCurrentTime, float InDeltaTime);

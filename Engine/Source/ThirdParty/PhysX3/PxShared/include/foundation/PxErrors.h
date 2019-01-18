@@ -47,7 +47,6 @@ These error codes are passed to #PxErrorCallback
 
 @see PxErrorCallback
 */
-
 struct PxErrorCode
 {
 	enum Enum
@@ -79,6 +78,8 @@ struct PxErrorCode
 
 		//! \brief The SDK has determined that an operation may result in poor performance.
 		ePERF_WARNING      = 128,
+
+		eLOGGING_INFO	   = 192,
 
 		//! \brief A bit mask for including all errors
 		eMASK_ALL          = -1

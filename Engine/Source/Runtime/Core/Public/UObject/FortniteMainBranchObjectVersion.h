@@ -75,6 +75,12 @@ struct CORE_API FFortniteMainBranchObjectVersion
 		// Allow reducing of the base LOD, we need to store some imported model data so we can reduce again from the same data.
 		AllowSkeletalMeshToReduceTheBaseLOD,
 
+		// Curve Table size reduction
+		ShrinkCurveTableSize,
+
+		// Widgets upgraded with WidgetStopDuplicatingAnimations, may not correctly default-to-self for the widget parameter.
+		WidgetAnimationDefaultToSelfFail,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

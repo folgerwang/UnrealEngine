@@ -891,12 +891,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Appearance")
 	void SetPadding(FMargin InPadding);
 
-	UE_DEPRECATED(4.22, "Deprecating PlayAnimation, use PlayAnimationAtTime instead.")
-	UUMGSequencePlayer* PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f)
-	{
-		return PlayAnimationAtTime(InAnimation, StartAtTime, NumLoopsToPlay, PlayMode, PlaybackSpeed);
-	}
-
 	/**
 	 * Plays an animation in this widget a specified number of times
 	 * 
@@ -907,7 +901,22 @@ public:
 	 * @param PlayMode Specifies the playback mode
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
-	UUMGSequencePlayer* PlayAnimationAtTime(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	UUMGSequencePlayer* PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+
+	/**
+	 * Plays an animation in this widget a specified number of times
+	 * 
+	 * @param InAnimation The animation to play
+	 * @param StartAtTime The time in the animation from which to start playing, relative to the start position. For looped animations, this will only affect the first playback of the animation.
+	 * @param NumLoopsToPlay The number of times to loop this animation (0 to loop indefinitely)
+	 * @param PlaybackSpeed The speed at which the animation should play
+	 * @param PlayMode Specifies the playback mode
+	 */
+	UE_DEPRECATED(4.22, "Short lived attempt to clarify what the default PlayAnimation function does, but going to just keep the default one to make things simple by default.")
+	UUMGSequencePlayer* PlayAnimationAtTime(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f)
+	{
+		return PlayAnimation(InAnimation, StartAtTime, NumLoopsToPlay, PlayMode, PlaybackSpeed);
+	}
 
 	/**
 	 * Plays an animation in this widget a specified number of times stopping at a specified time
@@ -920,7 +929,7 @@ public:
 	 * @param PlaybackSpeed The speed at which the animation should play
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
-	UUMGSequencePlayer* PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	UUMGSequencePlayer* PlayAnimationTimeRange(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
 
 	/**
 	 * Plays an animation on this widget relative to it's current state forward.  You should use this version in situations where
@@ -1131,7 +1140,7 @@ private:
 
 public:
 	/** The widget tree contained inside this user widget initialized by the blueprint */
-	UPROPERTY(Instanced)
+	UPROPERTY(Instanced, TextExportTransient)
 	UWidgetTree* WidgetTree;
 
 public:
@@ -1220,7 +1229,7 @@ protected:
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime);
 
-	UE_DEPRECATED(2.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
+	UE_DEPRECATED(4.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
 	virtual void NativePaint(FPaintContext& InContext) const { }
 
 	/**

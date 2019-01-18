@@ -16,6 +16,9 @@
 #include "UObject/Class.h"
 #include "UObject/UObjectGlobals.h"
 #include "ExternalTexture.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "IPlatformFilePak.h"
 
 #include "Android/AndroidJavaMediaPlayer.h"
 #include "AndroidMediaTextureSample.h"
@@ -260,31 +263,79 @@ bool FAndroidMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Option
 		// make sure that file exists
 		if (!PlatformFile.FileExists(*FilePath))
 		{
-			UE_LOG(LogAndroidMedia, Warning, TEXT("File doesn't exist %s."), *FilePath);
+			// possible it is in a PAK file
+			FPakPlatformFile* PakPlatformFile = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
 
-			return false;
-		}
-
-		// get information about media
-		int64 FileOffset = PlatformFile.FileStartOffset(*FilePath);
-		int64 FileSize = PlatformFile.FileSize(*FilePath);
-		FString FileRootPath = PlatformFile.FileRootPath(*FilePath);
-
-		// play movie as a file or asset
-		if (PlatformFile.IsAsset(*FilePath))
-		{
-			if (!JavaMediaPlayer->SetDataSource(PlatformFile.GetAssetManager(), FileRootPath, FileOffset, FileSize))
+			FPakFile* PakFile = NULL;
+			FPakEntry FileEntry;
+			if (!PakPlatformFile->FindFileInPakFiles(*FilePath, &PakFile, &FileEntry))
 			{
-				UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for asset %s"), *FilePath);
+				UE_LOG(LogAndroidMedia, Warning, TEXT("File doesn't exist %s."), *FilePath);
 				return false;
+			}
+
+			// is it a simple case (can just use file datasource)?
+			if (FileEntry.CompressionMethod == COMPRESS_None && !FileEntry.IsEncrypted())
+			{
+				FString PakFilename = PakFile->GetFilename();
+				int64 PakHeaderSize = FileEntry.GetSerializedSize(PakFile->GetInfo().Version);
+				int64 OffsetInPak = FileEntry.Offset + PakHeaderSize;
+				int64 FileSize = FileEntry.Size;
+
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("not compressed or encrypted PAK: Filename for PAK is: %s"), *PakFilename);
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("PAK Offset: %lld,  Size: %lld (header=%lld)"), OffsetInPak, FileSize, PakHeaderSize);
+
+				int64 FileOffset = PlatformFile.FileStartOffset(*PakFilename) + OffsetInPak;
+				FString FileRootPath = PlatformFile.FileRootPath(*PakFilename);
+
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("Final Offset: %lld in %s"), FileOffset, *FileRootPath);
+
+				if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file in PAK %s"), *FilePath);
+					return false;
+				}
+			}
+			else
+			{
+				// only support media data source on Android 6.0+
+				if (FAndroidMisc::GetAndroidBuildVersion() < 23)
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("File cannot be played on this version of Android due to PAK file with compression or encryption: %s."), *FilePath);
+					return false;
+				}
+
+				TSharedRef<FArchive, ESPMode::ThreadSafe> Archive = MakeShareable(IFileManager::Get().CreateFileReader(*FilePath));
+				if (!JavaMediaPlayer->SetDataSource(Archive))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for archive %s"), *FilePath);
+					return false;
+				}
 			}
 		}
 		else
 		{
-			if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+			// get information about media
+			int64 FileOffset = PlatformFile.FileStartOffset(*FilePath);
+			int64 FileSize = PlatformFile.FileSize(*FilePath);
+			FString FileRootPath = PlatformFile.FileRootPath(*FilePath);
+
+			// play movie as a file or asset
+			if (PlatformFile.IsAsset(*FilePath))
 			{
-				UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file %s"), *FilePath);
-				return false;
+				if (!JavaMediaPlayer->SetDataSource(PlatformFile.GetAssetManager(), FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for asset %s"), *FilePath);
+					return false;
+				}
+			}
+			else
+			{
+				if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file %s"), *FilePath);
+					return false;
+				}
 			}
 		}
 	}
@@ -322,9 +373,65 @@ bool FAndroidMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Option
 }
 
 
-bool FAndroidMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& /*Archive*/, const FString& /*OriginalUrl*/, const IMediaOptions* /*Options*/)
+bool FAndroidMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, const IMediaOptions* /*Options*/)
 {
-	return false; // @todo AndroidMedia: implement opening media from FArchive
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMedia::OpenArchive(%s) - %s"), *OriginalUrl, *PlayerGuid.ToString());
+#endif
+
+	if (CurrentState == EMediaState::Error)
+	{
+		return false;
+	}
+
+	if (Archive->TotalSize() == 0)
+	{
+		UE_LOG(LogAndroidMedia, Verbose, TEXT("Player %p: Cannot open media from archive (archive is empty)"), this);
+		return false;
+	}
+
+	if (OriginalUrl.IsEmpty())
+	{
+		UE_LOG(LogAndroidMedia, Verbose, TEXT("Player %p: Cannot open media from archive (no original URL provided)"), this);
+		return false;
+	}
+
+	Close();
+
+	// only support media data source on Android 6.0+
+	if (FAndroidMisc::GetAndroidBuildVersion() < 23)
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("File cannot be played on this version of Android due to PAK file with compression or encryption: %s."), *OriginalUrl);
+		return false;
+	}
+
+	if (!JavaMediaPlayer->SetDataSource(Archive))
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for archive %s"), *OriginalUrl);
+		return false;
+	}
+
+	// prepare media
+	MediaUrl = OriginalUrl;
+
+#if ANDROIDMEDIAPLAYER_USE_PREPAREASYNC
+	if (!JavaMediaPlayer->PrepareAsync())
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to prepare media source %s"), *OriginalUrl);
+		return false;
+	}
+
+	CurrentState = EMediaState::Preparing;
+	return true;
+#else
+	if (!JavaMediaPlayer->Prepare())
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to prepare media source %s"), *OriginalUrl);
+		return false;
+	}
+
+	return InitializePlayer();
+#endif
 }
 
 

@@ -200,7 +200,7 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		if (bTryUsedAssetsList)
 		{
 			int32 AssetIndex = UsedObjectInCurrentClass.IndexOfByKey(Object);
-			if (INDEX_NONE == AssetIndex && Dependencies.Assets.Contains(Object))
+			if (INDEX_NONE == AssetIndex && Dependencies.Assets.Contains(const_cast<UObject*>(Object)))
 			{
 				AssetIndex = UsedObjectInCurrentClass.Add(Object);
 			}
@@ -1215,6 +1215,11 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FLi
 		int32 Value = CustomValue.IsEmpty() ? 0 : FCString::Atoi(*CustomValue);
 		return FString::Printf(TEXT("%d"), Value);
 	}
+	else if (UEdGraphSchema_K2::PC_Int64 == Type.PinCategory)
+	{
+		int64 Value = CustomValue.IsEmpty() ? 0 : FCString::Atoi64(*CustomValue);
+		return FString::Printf(TEXT("%lld"), Value);
+	}
 	else if ((UEdGraphSchema_K2::PC_Byte == Type.PinCategory) || (UEdGraphSchema_K2::PC_Enum == Type.PinCategory))
 	{
 		UEnum* TypeEnum = Cast<UEnum>(Type.PinSubCategoryObject.Get());
@@ -1376,15 +1381,16 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FLi
 		MetaClass = MetaClass ? MetaClass : UObject::StaticClass();
 		const FString ObjTypeStr = FEmitHelper::GetCppName(EmitterContext.GetFirstNativeOrConvertedClass(MetaClass));
 
+		const bool bAssetSubclassOf = (UEdGraphSchema_K2::PC_SoftClass == Type.PinCategory);
+		const FString TermTypeStr = bAssetSubclassOf ? TEXT("TSoftClassPtr") : TEXT("TSoftObjectPtr");
+
+		FString TermValueStr;
 		if (!CustomValue.IsEmpty())
 		{
-			const bool bAssetSubclassOf = (UEdGraphSchema_K2::PC_SoftClass == Type.PinCategory);
-			return FString::Printf(TEXT("%s<%s>(FSoftObjectPath(TEXT(\"%s\")))")
-				, bAssetSubclassOf ? TEXT("TSoftClassPtr") : TEXT("TSoftObjectPtr")
-				, *ObjTypeStr
-				, *(CustomValue.ReplaceCharWithEscapedChar()));
+			TermValueStr = FString::Printf(TEXT("FSoftObjectPath(TEXT(\"%s\"))"), *(CustomValue.ReplaceCharWithEscapedChar()));
 		}
-		return FString::Printf(TEXT("((%s*)nullptr)"), *ObjTypeStr);
+
+		return FString::Printf(TEXT("%s<%s>(%s)"), *TermTypeStr, *ObjTypeStr, *TermValueStr);
 	}
 	else if (UEdGraphSchema_K2::PC_Object == Type.PinCategory)
 	{
@@ -1443,6 +1449,10 @@ FString FEmitHelper::PinTypeToNativeType(const FEdGraphPinType& Type)
 		else if (UEdGraphSchema_K2::PC_Int == InType.PinCategory)
 		{
 			return TEXT("int32");
+		}
+		else if (UEdGraphSchema_K2::PC_Int64 == InType.PinCategory)
+		{
+			return TEXT("int64");
 		}
 		else if (UEdGraphSchema_K2::PC_Float == InType.PinCategory)
 		{

@@ -154,7 +154,8 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 	{
 		checkSlow(Target.Frequency == SF_Vertex ||
 			Target.Frequency == SF_Pixel ||
-			Target.Frequency == SF_Geometry);
+			Target.Frequency == SF_Geometry || 
+			Target.Frequency == SF_Compute);
 
 		//set defines and profiles for the appropriate shader paths
 		switch(Target.Frequency)
@@ -165,6 +166,8 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("vs_5_0");
 		case SF_Geometry:
 			return TEXT("gs_5_0");
+		case SF_Compute:
+			return TEXT("cs_5_0");
 		}
 	}
 
@@ -926,7 +929,7 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 
 			// append data that is generate from the shader code and assist the usage, mostly needed for DX12 
 			{
-				FShaderCodePackedResourceCounts PackedResourceCounts = { bGlobalUniformBufferUsed, NumSamplers, NumSRVs, NumCBs, NumUAVs };
+				FShaderCodePackedResourceCounts PackedResourceCounts = { bGlobalUniformBufferUsed, static_cast<uint8>(NumSamplers), static_cast<uint8>(NumSRVs), static_cast<uint8>(NumCBs), static_cast<uint8>(NumUAVs) };
 
 				Output.ShaderCode.AddOptionalData(PackedResourceCounts);
 				Output.ShaderCode.AddOptionalData('u', UniformBufferNameBytes.GetData(), UniformBufferNameBytes.Num());

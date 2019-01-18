@@ -101,6 +101,7 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
@@ -123,29 +124,41 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="AppLog\AppLogger.cs" />
-    <Compile Include="Runner\Runner.DeployApp.cs" />
-    <Compile Include="Runner\Runner.KillApp.cs" />
-    <Compile Include="Runner\Runner.StartApp.cs" />
-    <Compile Include="Config\Parser.cs" />
-    <Compile Include="Runner\Runner.StartListeners.cs" />
-    <Compile Include="Runner\Runner.StatusListeners.cs" />
-    <Compile Include="Runner\Runner.StopListeners.cs" />
+    <Compile Include="AppLog\MainWindow.AppLogger.cs" />
+    <Compile Include="Cluster\Config\ConfigurationVersion.cs" />
+    <Compile Include="Cluster\Config\Conversion\ConfigConversion.cs" />
+    <Compile Include="Cluster\Config\Conversion\ConverterFactory.cs" />
+    <Compile Include="Cluster\Config\Conversion\Converters\ConfigConverterBase.cs" />
+    <Compile Include="Cluster\Config\Conversion\Converters\ConfigConverter_22.cs" />
+    <Compile Include="Cluster\Config\Conversion\Converters\IConfigConverter.cs" />
+    <Compile Include="Cluster\Config\Entity\EntityInfo.cs" />
+    <Compile Include="Cluster\Events\ClusterEvent.cs" />
+    <Compile Include="Cluster\Events\ClusterEventWindow.xaml.cs">
+      <DependentUpon>ClusterEventWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Cluster\Events\MainWindow.Events.cs" />
+    <Compile Include="Cluster\Launcher\Launcher.cs" />
+    <Compile Include="Cluster\Launcher\Launcher.SendEvent.cs" />
+    <Compile Include="Cluster\Launcher\Launcher.KillApp.cs" />
+    <Compile Include="Cluster\Launcher\Launcher.RestartComputers.cs" />
+    <Compile Include="Cluster\Launcher\Launcher.StartApp.cs" />
+    <Compile Include="Cluster\Launcher\MainWindow.Launcher.cs" />
+    <Compile Include="Cluster\Log\MainWindow.Log.cs" />
+    <Compile Include="Cluster\Config\Configuration.cs" />
+    <Compile Include="Cluster\Config\Entity\EntityBase.cs" />
+    <Compile Include="Cluster\Config\Entity\EntityViewport.cs" />
+    <Compile Include="Cluster\Config\Entity\EntityWindow.cs" />
+    <Compile Include="Cluster\Config\Entity\EntityClusterNode.cs" />
+    <Compile Include="Cluster\Config\Parser.cs" />
     <Compile Include="UIControl\AutoScroller.cs" />
-    <Compile Include="Runner\Runner.cs" />
-    <Compile Include="Config\BaseInput.cs" />
-    <Compile Include="Config\Camera.cs" />
-    <Compile Include="Config\ClusterNode.cs" />
-    <Compile Include="Config\VRConfig.cs" />
-    <Compile Include="Config\ConfigItem.cs" />
-    <Compile Include="Config\DynamicCamera.cs" />
-    <Compile Include="Config\MasterNode.cs" />
-    <Compile Include="Config\SceneNode.cs" />
-    <Compile Include="Config\SceneNodeView.cs" />
-    <Compile Include="Config\Screen.cs" />
     <Compile Include="Settings\RegistrySaver.cs" />
     <Compile Include="UIControl\UnselectableListBox.cs" />
     <Compile Include="Other\ValidationRules.cs" />
     <Compile Include="ValueConversion\SizeConverter.cs" />
+    <Page Include="Cluster\Events\ClusterEventWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -154,8 +167,6 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Config\TrackerInput.cs" />
-    <Compile Include="Config\Viewport.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -179,6 +190,9 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Properties\app.manifest" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -204,6 +218,7 @@
   <ItemGroup>
     <Resource Include="Resources\nDisplayLauncher.ico" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
