@@ -13,6 +13,7 @@
 
 class UEdGraphPin;
 class INiagaraCompiler;
+struct FNiagaraGraphFunctionAliasContext;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraNode : public UEdGraphNode
@@ -65,6 +66,7 @@ public:
 	UEdGraphPin* GetOutputPin(int32 OutputIndex) const;
 	void GetOutputPins(TArray<class UEdGraphPin*>& OutOutputPins) const;
 	UEdGraphPin* GetPinByPersistentGuid(const FGuid& InGuid) const;
+	virtual void ResolveNumerics(const UEdGraphSchema_Niagara* Schema, bool bSetInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache);
 
 	/** Apply any node-specific logic to determine if it is safe to add this node to the graph. This is meant to be called only in the Editor before placing the node.*/
 	virtual bool CanAddToGraph(UNiagaraGraph* TargetGraph, FString& OutErrorMsg) const;
@@ -114,9 +116,15 @@ public:
 	void ForceChangeId(const FGuid& InId, bool bRaiseGraphNeedsRecompile);
 
 	FOnNodeVisualsChanged& OnVisualsChanged();
+
+	virtual void AppendFunctionAliasForContext(const FNiagaraGraphFunctionAliasContext& InFunctionAliasContext, FString& InOutFunctionAlias) { };
+
 protected:
 	virtual int32 CompileInputPin(class FHlslNiagaraTranslator *Translator, UEdGraphPin* Pin);
 	virtual bool IsValidPinToCompile(UEdGraphPin* Pin) const { return true; }; 
+
+	void NumericResolutionByPins(const UEdGraphSchema_Niagara* Schema, TArray<UEdGraphPin*>& InputPins, TArray<UEdGraphPin*>& OutputPins,
+		bool bFixInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache);
 
 	/** Route input parameter map to output parameter map if it exists. Note that before calling this function,
 		the input pins should have been visited already.*/

@@ -15,7 +15,7 @@ class UNiagaraNodeOutput : public UNiagaraNode
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, Category = Output)
+	UPROPERTY(VisibleAnywhere, Category = Output)
 	TArray<FNiagaraVariable> Outputs;
 
 	UPROPERTY()

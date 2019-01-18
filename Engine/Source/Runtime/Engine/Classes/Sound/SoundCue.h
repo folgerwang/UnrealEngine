@@ -149,6 +149,7 @@ public:
 	virtual float GetDuration() override;
 	virtual const FSoundAttenuationSettings* GetAttenuationSettingsToApply() const override;
 	virtual float GetSubtitlePriority() const override;
+	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
 	//~ End USoundBase Interface.
 
 	/** Construct and initialize a node within this Cue */

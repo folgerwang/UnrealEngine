@@ -10970,7 +10970,10 @@ FString FMaterialLayersFunctions::GetStaticPermutationString() const
 
 void FMaterialLayersFunctions::SerializeForDDC(FArchive& Ar)
 {
-	KeyString = GetStaticPermutationString();
+	if (!Ar.IsCooking())
+	{
+		KeyString = GetStaticPermutationString();
+	}
 	Ar << KeyString;
 }
 

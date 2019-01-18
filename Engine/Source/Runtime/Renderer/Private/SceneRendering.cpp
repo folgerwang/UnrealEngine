@@ -3392,6 +3392,13 @@ void FRendererModule::RegisterOverlayRenderDelegate(const FPostOpaqueRenderDeleg
 	this->OverlayRenderDelegate = InOverlayRenderDelegate;
 }
 
+FPreSceneRenderValues FRendererModule::PreSceneRenderExtension()
+{
+	FPreSceneRenderValues Result;
+	PreSceneRenderDelegate.Broadcast(Result);
+	return Result;
+}
+
 void FRendererModule::RenderPostOpaqueExtensions(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext, TUniformBufferRef<FSceneTexturesUniformParameters>& SceneTextureUniformParams)
 {
 	check(IsInRenderingThread());
@@ -3403,6 +3410,7 @@ void FRendererModule::RenderPostOpaqueExtensions(const FViewInfo& View, FRHIComm
 	RenderParameters.SmallDepthTexture = SceneContext.GetSmallDepthSurface()->GetTexture2D();
 	RenderParameters.ViewUniformBuffer = View.ViewUniformBuffer;
 	RenderParameters.SceneTexturesUniformParams = SceneTextureUniformParams;
+	RenderParameters.GlobalDistanceFieldParams = &View.GlobalDistanceFieldInfo.ParameterData;
 
 	RenderParameters.ViewportRect = View.ViewRect;
 	RenderParameters.RHICmdList = &RHICmdList;

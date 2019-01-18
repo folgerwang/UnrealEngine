@@ -30,7 +30,6 @@
 #include "Abilities/GameplayAbilityTargetActor.h"
 #include "TickableAttributeSetInterface.h"
 #include "GameplayTagResponseTable.h"
-#include "Engine/DemoNetDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 
 #define LOCTEXT_NAMESPACE "AbilitySystemComponent"
@@ -2519,7 +2518,7 @@ void UAbilitySystemComponent::OnRep_ReplicatedAnimMontage()
 		RepAnimMontageInfo.PlayRate = 1.f;
 	}
 
-	const bool bIsPlayingReplay = World && World->DemoNetDriver && World->DemoNetDriver->IsPlaying();
+	const bool bIsPlayingReplay = World && World->IsPlayingReplay();
 
 	const float MONTAGE_REP_POS_ERR_THRESH = bIsPlayingReplay ? CVarReplayMontageErrorThreshold.GetValueOnGameThread() : 0.1f;
 

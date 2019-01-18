@@ -40,25 +40,75 @@ namespace Audio
 		 *                     Generally, set this to false if using this window with an STFT, but use true
 		 *                     if this window will be used on an entire, self-contained signal.
 		 */
-		FWindow(EWindowType InType, int32 InNumFrames, int32 InNumChannels, bool bIsPeriodic);
+		FWindow(EWindowType InType, int32 InNumFrames, int32 InNumChannels, bool bIsPeriodic)
+			: WindowType(InType)
+			, NumSamples(InNumFrames * InNumChannels)
+		{
+			checkf(NumSamples % 4 == 0, TEXT("For performance reasons, this window's length should be a multiple of 4."));
+			Generate(InNumFrames, InNumChannels, bIsPeriodic);
+		}
 
 		// Destructor. Releases memory used for window.
-		~FWindow();
+		~FWindow()
+		{
+		}
 
 		// Apply this window to InBuffer, which is expected to be an interleaved buffer with the same amount of frames
 		// and channels this window was constructed with.
-		void ApplyToBuffer(float* InBuffer);
+		void ApplyToBuffer(float* InBuffer)
+		{
+			if (WindowType == EWindowType::None)
+			{
+				return;
+			}
+
+			check(IsAligned<float*>(InBuffer, 4));
+			MultiplyBuffersInPlace(WindowBuffer.GetData(), InBuffer, NumSamples);
+		}
 
 	private:
+		EWindowType WindowType;
+		AlignedFloatBuffer WindowBuffer;
+		int32 NumSamples;
+
 		// Purposefully hidden constructor.
 		FWindow();
 
 		// Generate the window. Called on constructor.
-		void Generate(int32 NumFrames, int32 NumChannels, bool bIsPeriodic);
+		void Generate(int32 NumFrames, int32 NumChannels, bool bIsPeriodic)
+		{
+			if (WindowType == EWindowType::None)
+			{
+				return;
+			}
 
-		EWindowType WindowType;
-		AlignedFloatBuffer WindowBuffer;
-		int32 NumSamples;
+			WindowBuffer.Reset();
+			WindowBuffer.AddZeroed(NumSamples);
+
+			switch (WindowType)
+			{
+			case EWindowType::Hann:
+			{
+				GenerateHannWindow(WindowBuffer.GetData(), NumFrames, NumChannels, bIsPeriodic);
+				break;
+			}
+			case EWindowType::Hamming:
+			{
+				GenerateHammingWindow(WindowBuffer.GetData(), NumFrames, NumChannels, bIsPeriodic);
+				break;
+			}
+			case EWindowType::Blackman:
+			{
+				GenerateBlackmanWindow(WindowBuffer.GetData(), NumFrames, NumChannels, bIsPeriodic);
+				break;
+			}
+			default:
+			{
+				checkf(false, TEXT("Unknown window type!"));
+				break;
+			}
+			}
+		}
 	};
 
 	struct FFTTimeDomainData

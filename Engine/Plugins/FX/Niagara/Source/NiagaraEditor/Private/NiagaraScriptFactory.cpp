@@ -41,7 +41,7 @@ UObject* UNiagaraScriptFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	check(Settings);
 
 	UNiagaraScript* NewScript;
-	const FStringAssetReference& SettingDefaultScript = GetDefaultScriptFromSettings(Settings);
+	const FSoftObjectPath& SettingDefaultScript = GetDefaultScriptFromSettings(Settings);
 	if (UNiagaraScript* Default = Cast<UNiagaraScript>(SettingDefaultScript.TryLoad()))
 	{
 		NewScript = Cast<UNiagaraScript>(StaticDuplicateObject(Default, InParent, Name, Flags, Class));
@@ -58,7 +58,7 @@ UObject* UNiagaraScriptFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	return NewScript;
 }
 
-const FStringAssetReference& UNiagaraScriptFactoryNew::GetDefaultScriptFromSettings(const UNiagaraEditorSettings* Settings)
+const FSoftObjectPath& UNiagaraScriptFactoryNew::GetDefaultScriptFromSettings(const UNiagaraEditorSettings* Settings)
 {
 	switch (GetScriptUsage())
 	{

@@ -1090,6 +1090,11 @@ FGameplayTag FGameplayTag::RequestGameplayTag(FName TagName, bool ErrorIfNotFoun
 	return UGameplayTagsManager::Get().RequestGameplayTag(TagName, ErrorIfNotFound);
 }
 
+bool FGameplayTag::IsValidGameplayTagString(const FString& TagString, FText* OutError, FString* OutFixedString)
+{
+	return UGameplayTagsManager::Get().IsValidGameplayTagString(TagString, OutError, OutFixedString);
+}
+
 FGameplayTagContainer FGameplayTag::GetGameplayTagParents() const
 {
 	return UGameplayTagsManager::Get().RequestGameplayTagParents(*this);
@@ -1350,7 +1355,6 @@ void FGameplayTag::FromExportString(const FString& ExportString)
 
 FGameplayTagNativeAdder::FGameplayTagNativeAdder()
 {
-	UE_LOG(LogGameplayTags, Display, TEXT("FGameplayTagNativeAdder::FGameplayTagNativeAdder"));
 	UGameplayTagsManager::OnLastChanceToAddNativeTags().AddRaw(this, &FGameplayTagNativeAdder::AddTags);
 }
 

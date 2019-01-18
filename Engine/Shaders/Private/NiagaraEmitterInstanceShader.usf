@@ -8,6 +8,7 @@ NiagaraSimulationShader.usf:
 #if GPU_SIMULATION
 	#include "/Engine/Public/Platform.ush"
 	#include "Common.ush"
+	#include "GlobalDistanceFieldShared.ush"
 #else
 	const static float PI = 3.1415926535897932f;
 #endif
@@ -15,6 +16,20 @@ NiagaraSimulationShader.usf:
 
 #include "Definitions.usf"
 
+// Most of the vector implementations work this way. This helps us keep proper precision.
+float4 ModuloPrecise(float4 x, float4 y){ return x - y * trunc(x/y); }
+float3 ModuloPrecise(float3 x, float3 y){ return x - y * trunc(x/y); }
+float2 ModuloPrecise(float2 x, float2 y){ return x - y * trunc(x/y);}
+float ModuloPrecise(float x, float y){ return x - y * trunc(x/y); }
+int ModuloPrecise(int x, int y){ return x - y * (x/y); }
+int Modulo(int x, int y){  return x - y * (x/y);  }
+
+	
+// using rcp is only 12 bits of precision, we should usually pay for perf
+float4 Reciprocal(float4 x){ return 1.0f/x;}
+float3 Reciprocal(float3 x){ return 1.0f/x; }
+float2 Reciprocal(float2 x){ return 1.0f/x;}
+float Reciprocal(float x){ return 1.0f/x; }
 
 /* -----------------------------------------------------------------
  * GPU simulation utility functions
@@ -35,77 +50,169 @@ NiagaraSimulationShader.usf:
 	float2 Modulo(float2 x, float2 y){ return fmod(x,y); }
 	float Modulo(float x, float y){ return fmod(x,y); }
 
-
-	// 4D random number generator inspired by PCGs (permuted congruential generator)
-	// COPY FROM RANDOM.USH, which we can't easily include here due to a sizable dependency chain
-	uint4 NiagaraRand4DPCG32(int4 p)
+	// utility function used for scene depth calculations
+	float3 WorldPositionFromSceneDepth(float2 ScreenPosition, float SceneDepth)
 	{
-		// taking a signed int then reinterpreting as unsigned gives good behavior for negatives
-		uint4 v = uint4(p);
-
-		// Linear congruential step.
-		v = v * 1664525u + 1013904223u;
-
-		// swapping low and high bits makes all 32 bits pretty good
-		v = v * (1u << 16u) + (v >> 16u);
-
-		// final shuffle
-		v.x += v.y*v.w;
-		v.y += v.z*v.x;
-		v.z += v.x*v.y;
-		v.w += v.y*v.z;
-		v.x += v.y*v.w;
-		v.y += v.z*v.x;
-		v.z += v.x*v.y;
-		v.w += v.y*v.z;
-
-		return v;
+		float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		return HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 	}
+#endif
 
+/* ----------------------------------------------------------------------------
+ * Seeded/Deterministic random number generation functions
+ *
+ * This is a variant of NiagaraRand4DPCG32 from Random.ush. 
+ *
+ * uint is not fully supported in the VM so we simply use ints and drop the 
+ * top and bottom bit swap. This should be fine since signed overflow should 
+ * produce the same results as unsigned overflow when comparing bit-by-bit on 
+ * all relevant architectures.
+ *
+ * Warning: Only contains 24 bits of randomness, since we produce values in 
+ *          the unit interval. 
+ *
+ * Note: Deterministic as long as Seed1, Seed2 and Seed3 are the same *and* as 
+ *       long as no Random or Seeded Random ops are inserted into or removed 
+ *       from the current script.
+ *
+ * TODO(mv): Might want to use a special case based on NiagaraRand3DPCG32 if 
+ *           only 3 or less components are needed, and we can drop one of the 
+ *           seeds, to reduce the operation count
+ * ----------------------------------------------------------------------------
+ */
 
+// static counter that is incremented every time rand3 or rand4 is called. 
+static int RandomCounter = 0;
 
-	// using Marc's PCG random implementation, sequentially; initially seed with DispatchThreadID and tick counter,
-	// then repeat seeding with the result from the PRNG; should be deterministic
-	// TODO: use this in the VM for CPU sims as well
-	//
-	static uint4 RandomVal = 2308975;
-	float4 rand4()
-	{
-		RandomVal = NiagaraRand4DPCG32( int4(GDispatchThreadId+(RandomVal/573).xyz, RandomVal.x/921) + int4(EmitterTickCounter.xxxx));
-		return float4(RandomVal.xyzw) / float4(0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu);
-	}
+// Returns 4 random normalized floats based on 3 explicit integer seeds and one 
+// implicit integer seed. 
+float4 rand4(int Seed1, int Seed2, int Seed3)
+{
+	RandomCounter += 1;
+
+	int4 v = int4(RandomCounter, Seed1, Seed2, Seed3) * 1664525 + 1013904223;
+
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+
+	// NOTE(mv): We can use 24 bits of randomness, as all integers in [0, 2^24] 
+    //           are exactly representable in single precision floats.
+    //           We use the upper 24 bits as they tend to be higher quality.
+
+    // NOTE(mv): The divide can often be folded with the range scale in the rand functions
+
+    return float4((v >> 8) & 0x00ffffff) / 16777216.0; // 0x01000000 == 16777216
+    // return float4((v >> 8) & 0x00ffffff) * (1.0/16777216.0); // bugged, see UE-67738
+}
+
+// float3 specialization of the above:
+// Returns 3 random normalized floats based on 3 explicit integer seeds and one 
+// implicit integer seed. The implicit seed takes the upper 16 bits of the third 
+// explicit seed, as this is often a global seed. 
+// The expression 
+// 
+//    RandomCounter | (Seed3 << 16)
+//
+// should be optimized away at compile time, as the third seed is typically 
+// a global constant.
+float3 rand3(int Seed1, int Seed2, int Seed3)
+{
+    RandomCounter += 1;
+
+    int3 v = int3(Seed1, Seed2, RandomCounter | (Seed3 << 16)) * 1664525 + 1013904223;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    return float3((v >> 8) & 0x00ffffff) / 16777216.0; // 0x01000000 == 16777216
+}
+
+// Cost using rand4: 6 imad, 1 itof, 1 ishr, 1 add, 2 mul
+float rand(float x, int Seed1, int Seed2, int Seed3)
+{
+	return rand3(Seed1, Seed2, Seed3).x * x;
+}
+
+// Cost using rand4: 7 imad, 1 itof, 1 ishr, 1 add, 2 mul
+float2 rand(float2 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand3(Seed1, Seed2, Seed3).xy * x;
+}
+
+// Cost using rand4: 8 imad, 1 itof, 1 ishr, 1 add, 2 mul
+float3 rand(float3 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand3(Seed1, Seed2, Seed3).xyz * x;
+}
+
+// Cost using rand4: 9 imad, 1 itof, 1 ishr, 1 and, 2 mul
+float4 rand(float4 x, int Seed1, int Seed2, int Seed3) 
+{
+    return rand4(Seed1, Seed2, Seed3).xyzw * x;
+}
+
+// Cost using rand4: 6 imad, 2 itof, 1 ishr, 1 add, 2 mul, 1 ftoi
+int rand(int x, int Seed1, int Seed2, int Seed3)
+{
+	// NOTE: Scaling a uniform float range provides better distribution of 
+	//       numbers than using %.
+	// NOTE: Inclusive! So [0, x] instead of [0, x)
+	return int(rand3(Seed1, Seed2, Seed3).x * (x+1));
+}
+
+/* -----------------------------------------------------------------
+ * Un-seeded/Non-deterministic random number generation functions
+ * -----------------------------------------------------------------
+ */
+#if GPU_SIMULATION
+	// NOTE(mv): This simply calls the deterministic random number functions 
+    //           from the Seeded RNG section, but uses non-deterministic seeds 
+    //           as input. In particular, GDispatchThreadId for the first seed 
+	//           and EmitterTickCounter for the second seed. Also note that 
+	//           EmitterTickCounter does *not* reset for each frame, which 
+	//           secures non-determinism across simulations.
+
+	// TODO(mv): This could perhaps be optimized a little bit using slightly 
+	//           cheaper functions, but the difference is likely negligible. 
+	//           So for the sake of brevity and cleanliness, keep it like this.
 
 	float rand(float x)
 	{
-		return rand4().x * x;
+		return rand4(GDispatchThreadId.x, EmitterTickCounter, 0).x * x;
 	}
 
 	float2 rand(float2 x)
 	{
-		float4 rnd = rand4();
-		return float2(rnd.x, rnd.y) * x;
+		return rand4(GDispatchThreadId.x, EmitterTickCounter, 0).xy * x;
 	}
 
 	float3 rand(float3 x)
 	{
-		float4 rnd = rand4();
-		return float3(rnd.x, rnd.y, rnd.z) * x;
+		return rand4(GDispatchThreadId.x, EmitterTickCounter, 0).xyz * x;
 	}
 
 	float4 rand(float4 x) 
 	{
-		return rand4() * x;
+		return rand4(GDispatchThreadId.x, EmitterTickCounter, 0).xyzw * x;
 	}
 
+	// Note: integer randoms are INCLUSIVE, i.e. includes both the upper and lower limit
 	int rand(int x)
 	{
-		RandomVal = NiagaraRand4DPCG32(int4(GDispatchThreadId + (RandomVal / 57843).xyz, 54121) + int4(EmitterTickCounter.xxxx));
-		return RandomVal.x % x+1;
+		return int(rand4(GDispatchThreadId.x, EmitterTickCounter, 0).x * (x+1));
 	}
-
 #else
-
-	//Temporary random hacks
+	// Old unseeded, passthrough to FRandomStream
 	float2 rand(float2 x)
 	{
 		return float2(rand(x.x), rand(x.y));
@@ -120,7 +227,8 @@ NiagaraSimulationShader.usf:
 	{
 		return float4(rand(x.x), rand(x.y), rand(x.z), rand(x.w));
 	}
-
+	
+	// NOTE(mv): Where's rand(float)? Seems to work regardless..
 	int rand(int x);
 #endif
 

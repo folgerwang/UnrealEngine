@@ -24,6 +24,12 @@ void UNiagaraNodeReroute::PostEditChangeProperty(FPropertyChangedEvent& Property
 	}
 }
 
+
+ENiagaraNumericOutputTypeSelectionMode UNiagaraNodeReroute::GetNumericOutputTypeSelectionMode() const
+{
+	return ENiagaraNumericOutputTypeSelectionMode::Largest;
+}
+
 void UNiagaraNodeReroute::PostLoad()
 {
 	Super::PostLoad();

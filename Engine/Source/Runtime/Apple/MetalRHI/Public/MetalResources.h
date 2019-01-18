@@ -1032,10 +1032,14 @@ public:
 	: FRHIStagingBuffer(InBuffer)
 	{
 	}
+	
+	~FMetalStagingBuffer();
 
 	void *Lock(uint32 Offset, uint32 NumBytes);
 
 	void Unlock();
+	
+	FMetalBuffer ReadbackStagingBuffer;
 };
 
 class FMetalShaderLibrary final : public FRHIShaderLibrary

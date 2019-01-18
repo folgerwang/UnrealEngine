@@ -15,16 +15,6 @@
 #
 class FMaterial;
 
-
-
-//	FNiagaraRibbonVertex
-struct FNiagaraRibbonVertex
-{
-	/** The index of the ribbon for multi-ribbon emitters */
-	uint32 RibbonIndex;
-};
-
-
 //	FNiagaraRibbonVertexDynamicParameter
 struct FNiagaraRibbonVertexDynamicParameter
 {
@@ -147,6 +137,12 @@ public:
 		SegmentDistancesSRV = InSegmentDistancesSRV;
 	}
 
+
+	void SetMultiRibbonIndicesSRV(const FShaderResourceViewRHIRef& InMultiRibbonIndicesSRV)
+	{
+		MultiRibbonIndicesSRV = InMultiRibbonIndicesSRV;
+	}
+
 	void SetPackedPerRibbonDataByIndexSRV(const FShaderResourceViewRHIRef& InPackedPerRibbonDataByIndexSRV)
 	{
 		PackedPerRibbonDataByIndexSRV = InPackedPerRibbonDataByIndexSRV;
@@ -180,6 +176,11 @@ public:
 	FORCEINLINE FShaderResourceViewRHIRef GetSegmentDistancesSRV()
 	{
 		return SegmentDistancesSRV;
+	}
+
+	FORCEINLINE FShaderResourceViewRHIRef GetMultiRibbonIndicesSRV()
+	{
+		return MultiRibbonIndicesSRV;
 	}
 
 	FORCEINLINE FShaderResourceViewRHIRef GetPackedPerRibbonDataByIndexSRV()
@@ -225,6 +226,7 @@ private:
 
 	FShaderResourceViewRHIRef SortedIndicesSRV;
 	FShaderResourceViewRHIRef SegmentDistancesSRV;
+	FShaderResourceViewRHIRef MultiRibbonIndicesSRV;
 	FShaderResourceViewRHIRef PackedPerRibbonDataByIndexSRV;
 
 	uint32 SortedIndicesOffset;

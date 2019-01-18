@@ -1034,6 +1034,9 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		SCOPE_CYCLE_COUNTER(STAT_PostInitViews_FlushDel);
 		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
 	}
+	IRendererModule& RendererModule = GetRendererModule();
+	FPreSceneRenderValues PreSceneRenderValues = RendererModule.PreSceneRenderExtension();
+	Views[0].bUsesGlobalDistanceField |= PreSceneRenderValues.bUsesGlobalDistanceField;
 
 	UpdateGPUScene(RHICmdList, *Scene);
 
@@ -1882,7 +1885,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	checkSlow(RHICmdList.IsOutsideRenderPass());
 
-	IRendererModule& RendererModule = GetRendererModule();
 	if (RendererModule.HasPostOpaqueExtentions())
 	{
 		FSceneTexturesUniformParameters SceneTextureParameters;
@@ -1899,6 +1901,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 	checkSlow(RHICmdList.IsOutsideRenderPass());
+	UnbindRenderTargets(RHICmdList);
 	RendererModule.DispatchPostOpaqueCompute(RHICmdList, Views[0].ViewUniformBuffer);
 
 	// No longer needed, release

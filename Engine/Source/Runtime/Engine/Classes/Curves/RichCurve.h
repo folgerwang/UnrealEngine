@@ -312,6 +312,9 @@ public:
 	/** Compresses a rich curve for efficient runtime storage and evaluation */
 	void CompressCurve(struct FCompressedRichCurve& OutCurve, float ErrorThreshold = 0.0001f, float SampleRate = 120.0f) const;
 
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FRichCurve(*this); }
+
 private:
 	void RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepKey, int32 InEndKeepKey);
 	virtual int32 GetKeyIndex(float KeyTime, float KeyTimeTolerance) const override final;

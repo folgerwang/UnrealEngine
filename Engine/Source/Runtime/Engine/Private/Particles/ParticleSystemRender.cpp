@@ -1120,6 +1120,8 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 								[this, SourceData, View, Proxy, Allocation, DynamicParameterAllocation, bInstanced, bSort, ParticleCount, NumVerticesPerParticleInBuffer]()
 								{
 									SCOPE_CYCLE_COUNTER(STAT_FDynamicSpriteEmitterData_GetDynamicMeshElementsEmitter_Task);
+									SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_RT_CNC);
+
 									FMemMark Mark(FMemStack::Get());
 									FParticleOrder* ParticleOrder = NULL;
 									if (bSort)
@@ -2394,6 +2396,7 @@ void FDynamicMeshEmitterData::CalculateParticleTransform(
 void FDynamicMeshEmitterData::GetInstanceData(void* InstanceData, void* DynamicParameterData, void* PrevTransformBuffer, const FParticleSystemSceneProxy* Proxy, const FSceneView* View) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticlePackingTime);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_RT_CNC);
 
 	int32 SubImagesX = Source.SubImages_Horizontal;
 	int32 SubImagesY = Source.SubImages_Vertical;
@@ -6928,6 +6931,7 @@ void FParticleSystemSceneProxy::GetDynamicMeshElements(const TArray<const FScene
 	FInGameScopedCycleCounter InGameCycleCounter(GetScene().GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::RenderThread, bManagingSignificance);
 
 	SCOPE_CYCLE_COUNTER(STAT_FParticleSystemSceneProxy_GetMeshElements);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_RT);
 
 	if ((GIsEditor == true) || (GbEnableGameThreadLODCalculation == false))
 	{
@@ -7067,6 +7071,7 @@ void FParticleSystemSceneProxy::UpdateData(FParticleDynamicData* NewDynamicData)
 void FParticleSystemSceneProxy::UpdateData_RenderThread(FParticleDynamicData* NewDynamicData)
 {
 	FInGameScopedCycleCounter InGameCycleCounter(GetScene().GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::RenderThread, bManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_RT);
 
 	ReleaseRenderThreadResourcesForEmitterData();
 	if (DynamicData != NewDynamicData)
@@ -7260,6 +7265,7 @@ void FParticleSystemSceneProxy::UpdateWorldSpacePrimitiveUniformBuffer() const
 void FParticleSystemSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const
 {
 	FInGameScopedCycleCounter InGameCycleCounter(GetScene().GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::RenderThread, bManagingSignificance);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_RT);
 	if (DynamicData != NULL)
 	{
 		FScopeCycleCounter Context(GetStatId());
@@ -7278,6 +7284,8 @@ void FParticleSystemSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewF
 FPrimitiveSceneProxy* UParticleSystemComponent::CreateSceneProxy()
 {
 	SCOPE_CYCLE_COUNTER(STAT_FParticleSystemSceneProxy_Create);
+	SCOPE_CYCLE_COUNTER(STAT_ParticlesOverview_GT);
+
 	FParticleSystemSceneProxy* NewProxy = NULL;
 
 	//@fixme EmitterInstances.Num() check should be here to avoid proxies for dead emitters but there are some edge cases where it happens for emitters that have just activated...

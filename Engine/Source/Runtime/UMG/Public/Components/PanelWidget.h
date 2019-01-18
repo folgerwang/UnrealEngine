@@ -41,7 +41,7 @@ public:
 
 	/** Gets the index of a specific child widget */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
-	int32 GetChildIndex(UWidget* Content) const;
+	int32 GetChildIndex(const UWidget* Content) const;
 
 	/** @return true if panel contains this widget */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")

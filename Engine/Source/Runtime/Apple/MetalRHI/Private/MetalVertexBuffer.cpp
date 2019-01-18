@@ -774,36 +774,25 @@ FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIPa
 	return new FMetalStagingBuffer(VertexBuffer);
 }
 
-// Call this to lock the vertex-buffer for the given mode.
-// A read-only lock must have the same buffer used to call EnqueueStagedRead, and that fence must have passed or the behaviour is undefined.
-// A write-only lock must not have had the EnqueueStagedRead function called and must supply the buffer.
-void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
+FMetalStagingBuffer::~FMetalStagingBuffer()
 {
-	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
-	uint8* BytePtr = nullptr;
-	if (VertexBuffer->CPUBuffer)
+	if(ReadbackStagingBuffer)
 	{
-		BytePtr = (uint8*)VertexBuffer->CPUBuffer.GetContents();
+		SafeReleaseMetalBuffer(ReadbackStagingBuffer);
 	}
-	else
-	{
-		check(VertexBuffer->Buffer.GetStorageMode() != mtlpp::StorageMode::Private);
-		BytePtr = (uint8*)VertexBuffer->Buffer.GetContents();
-	}
-	BytePtr += Offset;
-	return BytePtr;
 }
 
-// Releases the mapped memory for a lock.
+// Returns the pointer to read the buffer. There is no locking; the buffer is always shared.
+// If this was not fenced correctly it will not have the expected data.
+void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
+{
+	check(ReadbackStagingBuffer);
+	
+	uint8* BackingPtr = (uint8*) ReadbackStagingBuffer.GetContents();
+	return BackingPtr+Offset;
+}
+
 void FMetalStagingBuffer::Unlock()
 {
-	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
-	if (VertexBuffer->CPUBuffer && (VertexBuffer->UsePrivateMemory()))
-	{
-		LLM_SCOPE(ELLMTag::VertexBuffer);
-		SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);
-		VertexBuffer->CPUBuffer = nil;
-	}
+	// does nothing in metal.
 }

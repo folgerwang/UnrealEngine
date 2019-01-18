@@ -1044,7 +1044,7 @@ void FClassActorThumbnailScene::SpawnPreviewActor(UClass* InClass)
 		PreviewActor->Destroy();
 		PreviewActor = nullptr;
 	}
-	if (InClass)
+	if (InClass && !InClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_Abstract))
 	{
 		// Create preview actor
 		FActorSpawnParameters SpawnInfo;

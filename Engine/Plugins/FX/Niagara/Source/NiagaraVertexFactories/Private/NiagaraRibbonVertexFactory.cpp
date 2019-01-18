@@ -39,6 +39,7 @@ public:
 		SortedIndices.Bind(ParameterMap, TEXT("SortedIndices"));
 		SortedIndicesOffset.Bind(ParameterMap, TEXT("SortedIndicesOffset"));
 		SegmentDistances.Bind(ParameterMap, TEXT("SegmentDistances"));
+		MultiRibbonIndices.Bind(ParameterMap, TEXT("MultiRibbonIndices"));
 		PackedPerRibbonDataByIndex.Bind(ParameterMap, TEXT("PackedPerRibbonDataByIndex"));
 
 		ensure(NiagaraParticleDataFloat.IsBound());
@@ -56,6 +57,7 @@ public:
 		Ar << SortedIndices;
 		Ar << SortedIndicesOffset;
 		Ar << SegmentDistances;
+		Ar << MultiRibbonIndices;
 		Ar << PackedPerRibbonDataByIndex;
 	}
 
@@ -78,6 +80,7 @@ public:
 
 		ShaderBindings.Add(SortedIndices, RibbonVF->GetSortedIndicesSRV());
 		ShaderBindings.Add(SegmentDistances, RibbonVF->GetSegmentDistancesSRV());
+		ShaderBindings.Add(MultiRibbonIndices, RibbonVF->GetMultiRibbonIndicesSRV());
 		ShaderBindings.Add(PackedPerRibbonDataByIndex, RibbonVF->GetPackedPerRibbonDataByIndexSRV());
 		ShaderBindings.Add(SortedIndicesOffset, RibbonVF->GetSortedIndicesOffset());
 	}
@@ -89,6 +92,7 @@ private:
 
 	FShaderResourceParameter SortedIndices;
 	FShaderResourceParameter SegmentDistances;
+	FShaderResourceParameter MultiRibbonIndices;
 	FShaderResourceParameter PackedPerRibbonDataByIndex;
 	FShaderParameter SortedIndicesOffset;
 };
@@ -140,10 +144,6 @@ public:
 
 	virtual void FillDeclElements(FVertexDeclarationElementList& Elements, int32& Offset)
 	{
-		uint32 Stride = sizeof(FNiagaraRibbonVertex);
-		/** The stream to read the ribbon index from. */
-		Elements.Add(FVertexElement(0, Offset, VET_UByte4, 0, Stride));
-		Offset += sizeof(int32);
 	}
 
 	virtual void InitDynamicRHI()

@@ -7,6 +7,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Misc/VarargsHelper.h"
 #include "Stats/Stats.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure, int32 NumStackFramesToIgnore );
 
@@ -14,6 +15,8 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 static FCriticalSection					MsgLogfStaticBufferGuard;
 /** Increased from 4096 to fix crashes in the renderthread without autoreporter. */
 static TCHAR							MsgLogfStaticBuffer[8192];
+
+CSV_DEFINE_CATEGORY(FMsgLogf, true);
 
 void FMsg::LogfImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
@@ -68,7 +71,8 @@ void FMsg::LogfImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELo
 void FMsg::Logf_InternalImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
 #if !NO_LOGGING
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMsg_Logf);
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMsgLogf);
+	CSV_CUSTOM_STAT(FMsgLogf, FMsgLogfCount, 1, ECsvCustomStatOp::Accumulate);
 
 	if (Verbosity != ELogVerbosity::Fatal)
 	{

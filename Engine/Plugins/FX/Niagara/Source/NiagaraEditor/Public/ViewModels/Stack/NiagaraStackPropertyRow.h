@@ -23,7 +23,7 @@ public:
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
-	virtual void GetAdditionalSearchItemsInternal(TArray<FStackSearchItem>& SearchItems) const override;
+	virtual void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const override;
 
 private:
 	TSharedPtr<IDetailTreeNode> DetailTreeNode;

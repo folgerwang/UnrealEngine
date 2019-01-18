@@ -1122,6 +1122,10 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 		{
 			SourceEmitter = NULL;
 		}
+		if (TargetEmitter == Instance)
+		{
+			TargetEmitter = NULL;
+		}
 	}
 
 protected:

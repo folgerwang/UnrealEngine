@@ -28,7 +28,8 @@ namespace EThreePlayerSplitScreenType
 	{
 		FavorTop,
 		FavorBottom,
-		Vertical
+		Vertical,
+		Horizontal
 	};
 }
 
@@ -36,7 +37,8 @@ UENUM()
 enum class EFourPlayerSplitScreenType : uint8
 {
 	Grid,
-	Vertical
+	Vertical,
+	Horizontal
 };
 
 /** Helper structure, used to associate GameModes with shortcut names. */
@@ -62,20 +64,6 @@ enum class ESubLevelStripMode : uint8
 
 	// Any child class of this class will be stripped, this is more expensive than ExactClass
 	IsChildOf
-};
-
-USTRUCT()
-struct FSubLevelStrippingInfo
-{
-	GENERATED_BODY()
-
-	// Actor class that should be removed from a level when it is added to a world as a sublevel
-	UPROPERTY(config, EditAnywhere, Category = LevelStreaming, meta = (MetaClass = "Actor"))
-	FSoftClassPath ClassToStrip;
-
-	// Whether the specified class should be be stripped only if an exact class or for any child of that class
-	UPROPERTY(config, EditAnywhere, Category = LevelStreaming)
-	ESubLevelStripMode StripMode;
 };
 
 UCLASS(config=Engine, defaultconfig)
@@ -171,10 +159,6 @@ public:
 	/** The class to use when instantiating the transient GameInstance class */
 	UPROPERTY(config, noclear, EditAnywhere, Category=GameInstance, meta=(MetaClass="GameInstance"))
 	FSoftClassPath GameInstanceClass;
-
-	/** A list of classes that should be stripped from a level's actor array when added to a game world as a sublevel. */
-	UPROPERTY(config, EditAnywhere, Category=LevelStreaming, AdvancedDisplay)
-	TArray<FSubLevelStrippingInfo> SubLevelClassesToStrip;
 
 private:
 

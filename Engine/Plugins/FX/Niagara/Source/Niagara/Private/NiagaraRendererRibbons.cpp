@@ -6,18 +6,18 @@
 #include "NiagaraDataSet.h"
 #include "NiagaraStats.h"
 
-DECLARE_CYCLE_STAT(TEXT("Generate Ribbon Vertex Data"), STAT_NiagaraGenRibbonVertexData, STATGROUP_Niagara);
-DECLARE_CYCLE_STAT(TEXT("Render Ribbons"), STAT_NiagaraRenderRibbons, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("Generate Ribbon Vertex Data [GT]"), STAT_NiagaraGenRibbonVertexData, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("Render Ribbons [RT]"), STAT_NiagaraRenderRibbons, STATGROUP_Niagara);
 
 DECLARE_CYCLE_STAT(TEXT("Genereate GPU Buffers"), STAT_NiagaraGenRibbonGpuBuffers, STATGROUP_Niagara);
 
 
 struct FNiagaraDynamicDataRibbon : public FNiagaraDynamicDataBase
 {
-	TArray<FNiagaraRibbonVertex> VertexData;
 	TArray<int16> IndexData;
 	TArray<int32> SortedIndices;
 	TArray<float> TotalDistances;
+	TArray<uint32> MultiRibbonIndices;
 	TArray<float> PackedPerRibbonDataByIndex;
 
 	//Direct ptr to the dataset. ONLY FOR USE BE GPU EMITTERS.
@@ -108,9 +108,6 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 	int32 TotalFloatSize = DynamicDataRibbon->RTParticleData.GetFloatBuffer().Num() / sizeof(float);
 	FNiagaraGlobalReadBuffer::FAllocation ParticleData;
 
-	int32 SizeInBytes = DynamicDataRibbon->VertexData.GetTypeSize() * DynamicDataRibbon->VertexData.Num();
-	FGlobalDynamicVertexBuffer::FAllocation LocalDynamicVertexAllocation = FGlobalDynamicVertexBuffer::Get().Allocate(SizeInBytes);
-
 	if (DynamicDataRibbon->DataSet->GetSimTarget() == ENiagaraSimTarget::CPUSim)
 	{
 		ParticleData = FNiagaraGlobalReadBuffer::Get().AllocateFloat(TotalFloatSize);
@@ -144,7 +141,6 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 		}
 
 		// Copy the vertex data over.
-		FMemory::Memcpy(LocalDynamicVertexAllocation.Buffer, DynamicDataRibbon->VertexData.GetData(), SizeInBytes);
 		FMemory::Memcpy(DynamicIndexAllocation.Buffer, DynamicDataRibbon->IndexData.GetData(), DynamicDataRibbon->IndexData.Num() * sizeof(int16));
 
 		// Compute the per-view uniform buffers.
@@ -196,7 +192,6 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 
 				CollectorResources.VertexFactory.InitResource();
 				CollectorResources.VertexFactory.SetRibbonUniformBuffer(CollectorResources.UniformBuffer);
-				CollectorResources.VertexFactory.SetVertexBuffer(LocalDynamicVertexAllocation.VertexBuffer, LocalDynamicVertexAllocation.VertexOffset, sizeof(FNiagaraRibbonVertex));
 
 				if (!DynamicDataRibbon->SortedIndices.Num())
 				{
@@ -220,6 +215,14 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				FMemory::Memcpy(TotalDistancesPtr, DynamicDataRibbon->TotalDistances.GetData(), DynamicDataRibbon->TotalDistances.Num() * sizeof(float));
 				RHIUnlockVertexBuffer(TotalDistancesBuffer.Buffer);
 				CollectorResources.VertexFactory.SetSegmentDistances(TotalDistancesBuffer.SRV);
+
+				// Copy a buffer which has the per particle multi ribbon index.
+				FReadBuffer MultiRibbonIndicesBuffer;
+				MultiRibbonIndicesBuffer.Initialize(sizeof(uint32), DynamicDataRibbon->MultiRibbonIndices.Num(), EPixelFormat::PF_R32_UINT, BUF_Volatile);
+				void* MultiRibbonIndexPtr = RHILockVertexBuffer(MultiRibbonIndicesBuffer.Buffer, 0, DynamicDataRibbon->MultiRibbonIndices.Num() * sizeof(uint32), RLM_WriteOnly);
+				FMemory::Memcpy(MultiRibbonIndexPtr, DynamicDataRibbon->MultiRibbonIndices.GetData(), DynamicDataRibbon->MultiRibbonIndices.Num() * sizeof(uint32));
+				RHIUnlockVertexBuffer(MultiRibbonIndicesBuffer.Buffer);
+				CollectorResources.VertexFactory.SetMultiRibbonIndicesSRV(MultiRibbonIndicesBuffer.SRV);
 
 				// Copy the packed u data for stable age based uv generation.
 				FReadBuffer PackedPerRibbonDataByIndexBuffer;
@@ -256,7 +259,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				check(MeshElement.NumPrimitives > 0);
 				MeshElement.NumInstances = 1;
 				MeshElement.MinVertexIndex = 0;
-				MeshElement.MaxVertexIndex = DynamicDataRibbon->VertexData.Num() - 1;
+				MeshElement.MaxVertexIndex = 0;
 				MeshElement.PrimitiveUniformBuffer = WorldSpacePrimitiveUniformBuffer.GetUniformBufferRHI();
 
 				Collector.AddMesh(ViewIndex, MeshBatch);
@@ -284,8 +287,12 @@ int NiagaraRendererRibbons::GetDynamicDataSize()
 	uint32 Size = sizeof(FNiagaraDynamicDataRibbon);
 	if (DynamicDataRender)
 	{
-		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->VertexData.GetAllocatedSize();
-		Size += (static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender))->IndexData.GetAllocatedSize();
+		FNiagaraDynamicDataRibbon* RibbonDynamicData = static_cast<FNiagaraDynamicDataRibbon*>(DynamicDataRender);
+		Size += RibbonDynamicData->IndexData.GetAllocatedSize();
+		Size += RibbonDynamicData->SortedIndices.GetAllocatedSize();
+		Size += RibbonDynamicData->TotalDistances.GetAllocatedSize();
+		Size += RibbonDynamicData->MultiRibbonIndices.GetAllocatedSize();
+		Size += RibbonDynamicData->PackedPerRibbonDataByIndex.GetAllocatedSize();
 	}
 
 	return Size;
@@ -385,11 +392,7 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 		return nullptr;
 	}
 	FNiagaraDynamicDataRibbon* DynamicData = new FNiagaraDynamicDataRibbon;
-	TArray<FNiagaraRibbonVertex>& VertexData = DynamicData->VertexData;
 	TArray<int16>& IndexData = DynamicData->IndexData;
-
-	VertexData.Empty();
-	IndexData.Empty();
 
 	// TODO : deal with the dynamic vertex material parameter should the user have specified it as an output...
 	int32 NumTotalVerts = 0;
@@ -499,10 +502,7 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 					PrevDir = NormDir;
 
 					DynamicData->TotalDistances.Add(TotalDistance);
-					FNiagaraRibbonVertex NewVertex;
-					NewVertex.RibbonIndex = RibbonIndex;
-					VertexData.Add(NewVertex);
-					VertexData.Add(NewVertex);
+					DynamicData->MultiRibbonIndices.Add(RibbonIndex);
 
 					if (i < NumIndices - 1)
 					{

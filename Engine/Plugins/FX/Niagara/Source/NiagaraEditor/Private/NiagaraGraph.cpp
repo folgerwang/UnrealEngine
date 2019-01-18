@@ -59,6 +59,7 @@ FNiagaraGraphScriptUsageInfo::FNiagaraGraphScriptUsageInfo() : UsageType(ENiagar
 
 UNiagaraGraph::UNiagaraGraph(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bNeedNumericCacheRebuilt(true)
 	, bFindParametersAllowed(true)
 	, bIsRenamingParameter(false)
 {
@@ -96,6 +97,7 @@ void UNiagaraGraph::NotifyGraphChanged()
 {
 	FindParameters();
 	Super::NotifyGraphChanged();
+	InvalidateNumericCache();
 }
 
 void UNiagaraGraph::PostLoad()
@@ -724,6 +726,25 @@ void UNiagaraGraph::SubsumeExternalDependencies(TMap<const UObject*, UObject*>& 
 	}
 }
 
+FNiagaraTypeDefinition UNiagaraGraph::GetCachedNumericConversion(class UEdGraphPin* InPin)
+{
+	if (bNeedNumericCacheRebuilt)
+	{
+		RebuildNumericCache();
+	}
+
+	FNiagaraTypeDefinition ReturnDef;
+	if (InPin && InPin->PinId.IsValid())
+	{
+		FNiagaraTypeDefinition* FoundDef = CachedNumericConversions.Find(TPair<FGuid, UEdGraphNode*>(InPin->PinId, InPin->GetOwningNode()));
+		if (FoundDef)
+		{
+			ReturnDef = *FoundDef;
+		}
+	}
+	return ReturnDef;
+}
+
 void UNiagaraGraph::RebuildCachedData(bool bForce)
 {
 	// If the graph hasn't changed since last rebuild, then do nothing.
@@ -875,7 +896,71 @@ void UNiagaraGraph::RebuildCachedData(bool bForce)
 	CachedUsageInfo = NewUsageCache;
 	LastBuiltTraversalDataChangeId = ChangeId;
 
+	RebuildNumericCache();
 }
+
+const class UEdGraphSchema_Niagara* UNiagaraGraph::GetNiagaraSchema() const
+{
+	return Cast<UEdGraphSchema_Niagara>(GetSchema());
+}
+
+void UNiagaraGraph::RebuildNumericCache()
+{
+	CachedNumericConversions.Empty();
+	TMap<UNiagaraNode*, bool> VisitedNodes;
+	for (UEdGraphNode* Node : Nodes)
+	{
+		ResolveNumerics(VisitedNodes, Node);
+	}
+	bNeedNumericCacheRebuilt = false;
+}
+
+void UNiagaraGraph::InvalidateNumericCache()
+{
+	bNeedNumericCacheRebuilt = true; 
+	CachedNumericConversions.Empty();
+}
+
+FString UNiagaraGraph::GetFunctionAliasByContext(const FNiagaraGraphFunctionAliasContext& FunctionAliasContext)
+{
+	FString FunctionAlias;
+	for (UEdGraphNode* Node : Nodes)
+	{
+		UNiagaraNode* NiagaraNode = Cast<UNiagaraNode>(Node);
+		if (NiagaraNode != nullptr)
+		{
+			NiagaraNode->AppendFunctionAliasForContext(FunctionAliasContext, FunctionAlias);
+		}
+	}
+	return FunctionAlias;
+}
+
+void UNiagaraGraph::ResolveNumerics(TMap<UNiagaraNode*, bool>& VisitedNodes, UEdGraphNode* Node)
+{
+	UNiagaraNode* NiagaraNode = Cast<UNiagaraNode>(Node);
+	if (NiagaraNode)
+	{
+		TArray<UEdGraphPin*> InputPins;
+		NiagaraNode->GetInputPins(InputPins);
+		for (int32 i = 0; i < InputPins.Num(); i++)
+		{
+			if (InputPins[i])
+			{
+				UNiagaraNode* FoundNode = Cast<UNiagaraNode>(InputPins[i]->GetOwningNode());
+				if (!FoundNode || VisitedNodes.Contains(FoundNode))
+				{
+					continue;
+				}
+				VisitedNodes.Add(FoundNode, true);
+				ResolveNumerics(VisitedNodes, FoundNode);
+			}
+		}
+
+		NiagaraNode->ResolveNumerics(GetNiagaraSchema(), false, &CachedNumericConversions);
+		
+	}
+}
+
 
 void UNiagaraGraph::SynchronizeInternalCacheWithGraph(UNiagaraGraph* Other)
 {

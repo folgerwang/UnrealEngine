@@ -16,13 +16,17 @@ DECLARE_DELEGATE_OneParam(FStreamableUpdateDelegate, TSharedRef<struct FStreamab
 /** A handle to a synchronous or async load. As long as the handle is Active, loaded assets will stay in memory */
 struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, ESPMode::Fast>
 {
-	/** If this request has finished loading, meaning all available assets were loaded and delegate was called. If assets failed to load they will still be missing */
+	/** 
+	 * If this request has finished loading, meaning all available assets were loaded
+	 * Any assets that failed to load will still be null
+	 * This can be true before the completion callback has happened as it may be in the delayed callback queue
+	 */
 	bool HasLoadCompleted() const
 	{
 		return bLoadCompleted;
 	}
 
-	/** If this request was cancelled. Assets may still have been loaded, but delegate will not be called */
+	/** If this request was cancelled. Assets may still have been loaded, but completion delegate was not called */
 	bool WasCanceled() const
 	{
 		return bCanceled;
@@ -76,8 +80,8 @@ struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, 
 
 	/**
 	 * Cancel a request, callable from within the manager or externally
-	 * This will immediately release the handle even if it is still in progress
-	 * This will normally stop the completion delegate from getting called, unless that delegate is already in the callback delay queue
+	 * This will immediately release the handle even if it is still in progress, and call the cancel callback if bound
+	 * This stops the completion callback from happening, even if it is in the delayed callback queue
 	 */
 	void CancelHandle();
 
@@ -120,8 +124,14 @@ struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, 
 	/** Get the StreamableManager for this handle */
 	struct FStreamableManager* GetOwningManager() const;
 
-	/** Calls a StreamableDelegate, this may defer execution to the next frame depending on CVars */
-	static void ExecuteDelegate(const FStreamableDelegate& Delegate, TSharedPtr<FStreamableHandle> AssociatedHandle = nullptr);
+	/** 
+	 * Calls a StreamableDelegate, this will add to the delayed callback queue depending on s.StreamableDelegateDelayFrames
+	 *
+	 * @param Delegate			Primary delegate to execute
+	 * @param AssociatedHandle	Streamable handle associated with this delegate, may be null
+	 * @param CancelDelegate	If handle gets cancelled before primary delegate executes, this delegate will be called instead
+	 */
+	static void ExecuteDelegate(const FStreamableDelegate& Delegate, TSharedPtr<FStreamableHandle> AssociatedHandle = nullptr, const FStreamableDelegate& CancelDelegate = FStreamableDelegate());
 
 	/** Destructor */
 	~FStreamableHandle();
@@ -297,7 +307,7 @@ struct ENGINE_API FStreamableManager : public FGCObject
 	/** Returns true if all pending async loads have finished for this target */
 	bool IsAsyncLoadComplete(const FSoftObjectPath& Target) const;
 
-	/** This will release any managed active handles pointing to the target string asset reference, even if they include other requested assets in the same load */
+	/** This will release any managed active handles pointing to the target soft object path, even if they include other requested assets in the same load */
 	void Unload(const FSoftObjectPath& Target);
 
 	/** Checks for any redirectors that were previously loaded, and returns the redirected target if found. This will not handle redirects that it doesn't yet know about */

@@ -16,10 +16,10 @@ class UNiagaraNodeDataSetBase : public UNiagaraNode
 
 public:
 
-	UPROPERTY(EditAnywhere, Category = DataSet)
+	UPROPERTY()
 	FNiagaraDataSetID DataSet;
 
-	UPROPERTY(EditAnywhere, Category = Variables)
+	UPROPERTY()
 	TArray<FNiagaraVariable> Variables;
 	
 	UPROPERTY()

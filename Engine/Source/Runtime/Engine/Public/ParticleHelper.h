@@ -242,6 +242,13 @@ enum EParticleStates
 /*-----------------------------------------------------------------------------
 	FParticlesStatGroup
 -----------------------------------------------------------------------------*/
+
+DECLARE_STATS_GROUP(TEXT("ParticlesOverview"), STATGROUP_ParticlesOverview, STATCAT_Advanced);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GT Total"), STAT_ParticlesOverview_GT, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GT Concurrent Total"), STAT_ParticlesOverview_GT_CNC, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Total"), STAT_ParticlesOverview_RT, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Concurrent Total"), STAT_ParticlesOverview_RT_CNC, STATGROUP_ParticlesOverview, );
+
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Particles"),STAT_SpriteParticles,STATGROUP_Particles, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Ptcls Spawned"),STAT_SpriteParticlesSpawned,STATGROUP_Particles, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Ptcls Updated"),STAT_SpriteParticlesUpdated,STATGROUP_Particles, );

@@ -220,6 +220,8 @@ void UAIPerceptionComponent::CleanUp()
 {
 	if (bCleanedUp == false)
 	{
+		ForgetAll();
+
 		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
 		if (AIPerceptionSys != nullptr)
 		{
@@ -270,11 +272,13 @@ void UAIPerceptionComponent::GetHostileActors(TArray<AActor*>& OutActors) const
 	OutActors.Reserve(PerceptualData.Num());
 	for (FActorPerceptionContainer::TConstIterator DataIt = GetPerceptualDataConstIterator(); DataIt; ++DataIt)
 	{
-		if (DataIt->Value.bIsHostile && DataIt->Value.HasAnyKnownStimulus())
+		const FActorPerceptionInfo& ActorPerceptionInfo = DataIt->Value;
+
+		if (ActorPerceptionInfo.bIsHostile && ActorPerceptionInfo.HasAnyKnownStimulus())
 		{
-			if (DataIt->Value.Target.IsValid())
+			if (ActorPerceptionInfo.Target.IsValid())
 			{
-				OutActors.Add(DataIt->Value.Target.Get());
+				OutActors.Add(ActorPerceptionInfo.Target.Get());
 			}
 			else
 			{
@@ -408,7 +412,9 @@ void UAIPerceptionComponent::ProcessStimuli()
 
 	for (FStimulusToProcess& SourcedStimulus : StimuliToProcess)
 	{
-		FActorPerceptionInfo* PerceptualInfo = PerceptualData.Find(SourcedStimulus.Source);
+		const uint64 SourceAddr = reinterpret_cast<uint64>(SourcedStimulus.Source);
+
+		FActorPerceptionInfo* PerceptualInfo = PerceptualData.Find(SourceAddr);
 
 		if (PerceptualInfo == NULL)
 		{
@@ -421,7 +427,7 @@ void UAIPerceptionComponent::ProcessStimuli()
 			else
 			{
 				// create an entry
-				PerceptualInfo = &PerceptualData.Add(SourcedStimulus.Source, FActorPerceptionInfo(SourcedStimulus.Source));
+				PerceptualInfo = &PerceptualData.Add(SourceAddr, FActorPerceptionInfo(SourcedStimulus.Source));
 				// tell it what's our dominant sense
 				PerceptualInfo->DominantSense = DominantSenseID;
 
@@ -512,7 +518,7 @@ bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
 		for (FAIStimulus& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
 		{
 			// Age the stimulus. If it is active but has just expired, mark it as such
-			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false 
+			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false
 				&& (Stimulus.IsActive() || Stimulus.WantsToNotifyOnlyOnPerceptionChange())
 				&& Stimulus.IsExpired() == false)
 			{
@@ -540,7 +546,7 @@ void UAIPerceptionComponent::ForgetActor(AActor* ActorToForget)
 			AIPerceptionSys->OnListenerForgetsActor(*this, *ActorToForget);
 		}
 
-		PerceptualData.Remove(ActorToForget);
+		const int32 NumRemoved = PerceptualData.Remove(reinterpret_cast<uint64>(ActorToForget));
 	}
 }
 

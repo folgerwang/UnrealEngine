@@ -255,7 +255,7 @@ public:
 	/**
 	 * Serializes soft object paths from or into this archive.
 	 *
-	 * @param Value String asset reference to serialize.
+	 * @param Value Soft object path to serialize.
 	 * @return This instance.
 	 */
 	virtual FArchive& operator<<(struct FSoftObjectPath& Value);

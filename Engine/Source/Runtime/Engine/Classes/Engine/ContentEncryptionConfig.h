@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 /** Project specific configuration for content encryption */
@@ -6,14 +6,22 @@ class FContentEncryptionConfig
 {
 public:
 
+	struct FGroup
+	{
+		TSet<FName> PackageNames;
+		bool bStageTimeOnly = false;
+	};
+
+	typedef TMap<FName, FGroup> TGroupMap;
+
 	void AddPackage(FName InGroupName, FName InPackageName)
 	{
-		PackageGroups.FindOrAdd(InGroupName).Add(InPackageName);
+		PackageGroups.FindOrAdd(InGroupName).PackageNames.Add(InPackageName);
 	}
 
-	void AddNonUFSFile(FName InGroupName, FName InFileName)
+	void SetGroupAsStageTimeOnly(FName InGroupName, bool bInStageTimeOnly)
 	{
-		NonUFSFileGroups.FindOrAdd(InGroupName).Add(InFileName);
+		PackageGroups.FindOrAdd(InGroupName).bStageTimeOnly = bInStageTimeOnly;
 	}
 
 	void AddReleasedKey(FGuid InKey)
@@ -21,15 +29,11 @@ public:
 		ReleasedKeys.Add(InKey);
 	}
 
-	const TMap<FName, TSet<FName>>& GetPackageGroupMap() const
+	const TGroupMap& GetPackageGroupMap() const
 	{
 		return PackageGroups;
 	}
 
-	const TMap<FName, TSet<FName>>& GetNonUFSFileGroupMap() const
-	{
-		return NonUFSFileGroups;
-	}
 
 	const TSet<FGuid>& GetReleasedKeys() const
 	{
@@ -38,7 +42,6 @@ public:
 
 private:
 
-	TMap<FName, TSet<FName>> PackageGroups;
-	TMap<FName, TSet<FName>> NonUFSFileGroups;
+	TGroupMap PackageGroups;
 	TSet<FGuid> ReleasedKeys;
 };

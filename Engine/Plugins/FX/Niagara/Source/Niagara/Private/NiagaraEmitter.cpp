@@ -48,7 +48,7 @@ void FNiagaraEmitterScriptProperties::InitDataSetAccess()
 
 		for (FNiagaraDataSetProperties &WriteID : Script->GetVMExecutableData().WriteDataSets)
 		{
-			FNiagaraEventGeneratorProperties Props(WriteID, "", "");
+			FNiagaraEventGeneratorProperties Props(WriteID, "");
 			EventGenerators.Add(Props);
 		}
 	}
@@ -86,6 +86,8 @@ UNiagaraEmitter::UNiagaraEmitter(const FObjectInitializer& Initializer)
 , bUseMinDetailLevel(false)
 , bUseMaxDetailLevel(false)
 , bRequiresPersistentIDs(false)
+, MaxDeltaTimePerTick(0.125)
+, bLimitDeltaTime(true)
 #if WITH_EDITORONLY_DATA
 , ThumbnailImageOutOfDate(true)
 #endif
@@ -329,6 +331,18 @@ void UNiagaraEmitter::PostEditChangeProperty(struct FPropertyChangedEvent& Prope
 		UNiagaraSystem::RequestCompileForEmitter(this);
 #endif
 	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraEmitter, bDeterminism))
+	{
+		if (GraphSource != nullptr)
+		{
+			GraphSource->MarkNotSynchronized(TEXT("Emitter Determinism changed."));
+		}
+
+#if WITH_EDITORONLY_DATA
+		UNiagaraSystem::RequestCompileForEmitter(this);
+#endif
+	}
+
 	ThumbnailImageOutOfDate = true;
 	ChangeId = FGuid::NewGuid();
 	OnPropertiesChangedDelegate.Broadcast();
@@ -530,6 +544,20 @@ void UNiagaraEmitter::OnPostCompile()
 
 	SpawnScriptProps.InitDataSetAccess();
 	UpdateScriptProps.InitDataSetAccess();
+
+	TSet<FName> SpawnIds;
+	TSet<FName> UpdateIds;
+	for (const FNiagaraEventGeneratorProperties& SpawnGeneratorProps : SpawnScriptProps.EventGenerators)
+	{
+		SpawnIds.Add(SpawnGeneratorProps.ID);
+	}
+	for (const FNiagaraEventGeneratorProperties& UpdateGeneratorProps : UpdateScriptProps.EventGenerators)
+	{
+		UpdateIds.Add(UpdateGeneratorProps.ID);
+	}
+
+	SharedEventGeneratorIds.Empty();
+	SharedEventGeneratorIds.Append(SpawnIds.Intersect(UpdateIds).Array());
 
 	for (int32 i = 0; i < EventHandlerScriptProps.Num(); i++)
 	{
@@ -760,6 +788,11 @@ void UNiagaraEmitter::RemoveEventHandlerByUsageId(FGuid EventHandlerUsageId)
 #if WITH_EDITOR
 	UpdateChangeId();
 #endif
+}
+
+bool UNiagaraEmitter::IsEventGeneratorShared(FName EventGeneratorId) const
+{
+	return SharedEventGeneratorIds.Contains(EventGeneratorId);
 }
 
 void UNiagaraEmitter::BeginDestroy()

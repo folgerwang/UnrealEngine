@@ -46,7 +46,7 @@ private:
 		TSharedPtr<SWidget> ValueWidget;
 	};
 
-	void PrimeTreeExpansion();
+	void SynchronizeTreeExpansion();
 
 	TSharedRef<ITableRow> OnGenerateRowForStackItem(UNiagaraStackEntry* Item, const TSharedRef<STableViewBase>& OwnerTable);
 
@@ -96,7 +96,6 @@ private:
 	FSlateColor GetTextColorForItem(UNiagaraStackEntry* Item) const;
 	void AddSearchScrollOffset(int NumberOfSteps);
 	void OnStackSearchComplete();
-	EActiveTimerReturnType TriggerExpandSearchResults(double InCurrentTime, float InDeltaTime);
 	void ExpandSearchResults();
 	bool IsEntryFocusedInSearch(UNiagaraStackEntry* Entry) const;
 	
@@ -139,7 +138,6 @@ private:
 
 	// ~ search stuff
 	TSharedPtr<SSearchBox> SearchBox;
-	TSharedPtr<FActiveTimerHandle> SearchExpandTimer;
 	static const FText OccurencesFormat;
 	bool bNeedsJumpToNextOccurence;
 	

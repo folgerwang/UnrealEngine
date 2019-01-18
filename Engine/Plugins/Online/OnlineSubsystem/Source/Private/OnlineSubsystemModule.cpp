@@ -303,6 +303,8 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetOnlineSubsystem(const FName InSubsy
 
 				if (OSSFactory != nullptr)
 				{
+					UE_LOG_ONLINE(Verbose, TEXT("Creating online subsystem instance for: %s"), *InSubsystemName.ToString());
+						
 					IOnlineSubsystemPtr NewSubsystemInstance = (*OSSFactory)->CreateSubsystem(InstanceName);
 					if (NewSubsystemInstance.IsValid())
 					{

@@ -657,6 +657,8 @@ public:
 	/** Access to the translation */
 	const FVector2D& GetTranslation() const { return Trans; }
 
+	void SetTranslation(const FVector2D& InTrans) { Trans = InTrans; }
+
 	/**
 	 * Specialized function to determine if a transform is precisely the identity transform. Uses exact float comparison, so rounding error is not considered.
 	 */

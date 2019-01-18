@@ -8,6 +8,7 @@
 #include "ActorFactoryNiagara.h"
 #include "NiagaraActor.h"
 #include "NiagaraComponent.h"
+#include "Misc/StringFormatter.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 
@@ -33,6 +34,30 @@ const TArray<FNiagaraOpInfo>& FNiagaraOpInfo::GetOpInfoArray()
 void FNiagaraOpInfo::BuildName(FString InName, FString InCategory)
 {	
 	Name = FName(*(InCategory + TEXT("::") + InName));
+}
+
+bool FNiagaraOpInfo::CreateHlslForAddedInputs(int32 InputCount, FString & HlslResult) const
+{
+	if (!bSupportsAddedInputs || AddedInputFormatting.IsEmpty() || InputCount < 2)
+	{
+		return false;
+	}
+
+	FString Result = TEXT("{0}");
+	FString KeyA = TEXT("A");
+	FString KeyB = TEXT("B");
+	TMap<FString, FStringFormatArg> FormatArgs;
+	FormatArgs.Add(KeyA, FStringFormatArg(Result));
+	FormatArgs.Add(KeyB, FStringFormatArg(Result));
+	for (int32 i = 1; i < InputCount; i++)
+	{
+		FormatArgs[KeyB] = FStringFormatArg(TEXT("{") + FString::FromInt(i) + TEXT("}"));
+		Result = FString::Format(*AddedInputFormatting, FormatArgs);
+		FormatArgs[KeyA] = FStringFormatArg(Result);
+	}
+
+	HlslResult = Result;
+	return true;
 }
 
 BEGIN_FUNCTION_BUILD_OPTIMIZATION
@@ -87,6 +112,9 @@ void FNiagaraOpInfo::Init()
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_Zero));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_Zero, TEXT("{0} + {1}")));
 		Op->BuildName(TEXT("Add"), CategoryName);
+		Op->bSupportsAddedInputs = true;
+		Op->AddedInputTypeRestrictions.Add(Type);
+		Op->AddedInputFormatting = TEXT("{A} + {B}");
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -99,6 +127,9 @@ void FNiagaraOpInfo::Init()
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_Zero));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_Zero, TEXT("{0} - {1}")));		
 		Op->BuildName(TEXT("Subtract"), CategoryName);
+		Op->bSupportsAddedInputs = true;
+		Op->AddedInputTypeRestrictions.Add(Type);
+		Op->AddedInputFormatting = TEXT("{A} - {B}");
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -111,6 +142,9 @@ void FNiagaraOpInfo::Init()
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("{0} * {1}")));
 		Op->BuildName(TEXT("Mul"), CategoryName);
+		Op->bSupportsAddedInputs = true;
+		Op->AddedInputTypeRestrictions.Add(Type);
+		Op->AddedInputFormatting = TEXT("{A} * {B}");
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -153,12 +187,23 @@ void FNiagaraOpInfo::Init()
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Name", "Reciprocal");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Desc", "Result = 1 / A");
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Fast Name", "Reciprocal Fast");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Fast Desc", "12-bits of accuracy, but faster. Result = 1 / A using Newton/Raphson approximation.");
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("rcp({0})")));
+		Op->BuildName(TEXT("RcpFast"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Name", "Reciprocal");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Reciprocal Desc", "More accurate than Reciprocal Fast. Result = 1 / A");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("Reciprocal({0})")));
 		Op->BuildName(TEXT("Rcp"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
+
 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
@@ -574,13 +619,25 @@ void FNiagaraOpInfo::Init()
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
-		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Fmod Name", "FMod");
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Fmod Name", "Modulo");
 		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Fmod Desc", "Result = A % B");
 		Op->Keywords = FText::FromString(TEXT("%"));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
-		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("Modulo({0}, {1})")));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("ModuloPrecise({0}, {1})")));
 		Op->BuildName(TEXT("FMod"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Fmod Name Fast", "Modulo Fast");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Fmod Desc Fast", "Result = A % B. May be less precise than regular FMod.");
+		Op->Keywords = FText::FromString(TEXT("%"));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("Modulo({0}, {1})")));
+		Op->BuildName(TEXT("FModFast"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -624,6 +681,9 @@ void FNiagaraOpInfo::Init()
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("min({0},{1})")));
 		Op->BuildName(TEXT("Min"), CategoryName);
+		Op->bSupportsAddedInputs = true;
+		Op->AddedInputTypeRestrictions.Add(Type);
+		Op->AddedInputFormatting = TEXT("min({A}, {B})");
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -635,6 +695,9 @@ void FNiagaraOpInfo::Init()
 		Op->Inputs.Add(FNiagaraOpInOutInfo(B, Type, BText, BText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("max({0},{1})")));
 		Op->BuildName(TEXT("Max"), CategoryName);
+		Op->bSupportsAddedInputs = true;
+		Op->AddedInputTypeRestrictions.Add(Type);
+		Op->AddedInputFormatting = TEXT("max({A}, {B})");
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		Idx = OpInfos.AddDefaulted();
@@ -712,15 +775,39 @@ void FNiagaraOpInfo::Init()
 		Op->BuildName(TEXT("Length"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
-		//Temporarily here. Rand will be reworked shortly.
+		// Non-deterministic random number generation. Calls FRandomStream on the CPU. 
 		Idx = OpInfos.AddDefaulted();
 		Op = &OpInfos[Idx];
 		Op->Category = CategoryText;
 		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Rand Name", "Random");
-		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Rand Desc", "Returns a random value between 0 and A.");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Rand Desc", "Returns a non-deterministic random value between 0 and A.");
 		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
 		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("rand({0})")));
 		Op->BuildName(TEXT("Rand"), CategoryName);
+		OpInfoMap.Add(Op->Name) = Idx;
+
+
+		// Deterministic/seeded random number generation. 
+		static FName SeedName1(TEXT("Seed 1"));
+		static FName SeedName2(TEXT("Seed 2"));
+		static FName SeedName3(TEXT("Seed 3"));
+		static FText SeedText1 = NSLOCTEXT("NiagaraOpInfo", "Seed1 Desc", "Seed 1");
+		static FText SeedText2 = NSLOCTEXT("NiagaraOpInfo", "Seed2 Desc", "Seed 2");
+		static FText SeedText3 = NSLOCTEXT("NiagaraOpInfo", "Seed3 Desc", "Seed 3");
+		FString DefaultSeed_Zero(TEXT("0"));
+		FNiagaraTypeDefinition SeedType = FNiagaraTypeDefinition::GetIntDef();
+
+		Idx = OpInfos.AddDefaulted();
+		Op = &OpInfos[Idx];
+		Op->Category = CategoryText;
+		Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Seeded Rand Name", "Seeded Random");
+		Op->Description = NSLOCTEXT("NiagaraOpInfo", "Seeded Rand Desc", "Returns a deterministic random value between 0 and A.");
+		Op->Inputs.Add(FNiagaraOpInOutInfo(A, Type, AText, AText, DefaultStr_One));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(SeedName1, SeedType, SeedText1, SeedText1, DefaultSeed_Zero));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(SeedName2, SeedType, SeedText2, SeedText2, DefaultSeed_Zero));
+		Op->Inputs.Add(FNiagaraOpInOutInfo(SeedName3, SeedType, SeedText3, SeedText3, DefaultSeed_Zero));
+		Op->Outputs.Add(FNiagaraOpInOutInfo(Result, Type, ResultText, ResultText, DefaultStr_One, TEXT("rand({0}, {1}, {2}, {3})")));
+		Op->BuildName(TEXT("SeededRand"), CategoryName);
 		OpInfoMap.Add(Op->Name) = Idx;
 
 		//Comparison ops
@@ -816,6 +903,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, IntType, BText, BText, Default_IntOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, IntType, ResultText, ResultText, Default_IntOne, TEXT("{0} & {1}")));
 	Op->BuildName(TEXT("BitAnd"), IntCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(IntType);
+	Op->AddedInputFormatting = TEXT("{A} & {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 
 	Idx = OpInfos.AddDefaulted();
@@ -828,6 +918,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, IntType, BText, BText, Default_IntOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, IntType, ResultText, ResultText, Default_IntOne, TEXT("{0} | {1}")));
 	Op->BuildName(TEXT("BitOr"), IntCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(IntType);
+	Op->AddedInputFormatting = TEXT("{A} | {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 
 	Idx = OpInfos.AddDefaulted();
@@ -840,6 +933,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, IntType, BText, BText, Default_IntOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, IntType, ResultText, ResultText, Default_IntOne, TEXT("{0} ^ {1}")));
 	Op->BuildName(TEXT("BitXOr"), IntCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(IntType);
+	Op->AddedInputFormatting = TEXT("{A} ^ {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 
 	Idx = OpInfos.AddDefaulted();
@@ -853,6 +949,35 @@ void FNiagaraOpInfo::Init()
 	Op->BuildName(TEXT("BitNot"), IntCategoryName);
 	OpInfoMap.Add(Op->Name) = Idx;
 
+	Idx = OpInfos.AddDefaulted();
+	Op = &OpInfos[Idx];
+	Op->Category = IntCategory;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "BitLShift Name", "Bitwise Left Shift");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "BitLShift Desc", "Shifts A left by B bits, padding with zeroes on the right. B should be between 0 and 31 or there will be undefined behavior.");
+	Op->Keywords = FText::FromString(TEXT("<<"));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, IntType, AText, AText, Default_IntOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, IntType, BText, BText, Default_IntOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, IntType, ResultText, ResultText, Default_IntOne, TEXT("{0} << {1}")));
+	Op->BuildName(TEXT("BitLShift"), IntCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(IntType);
+	Op->AddedInputFormatting = TEXT("{A} << {B}");
+	OpInfoMap.Add(Op->Name) = Idx;
+
+	Idx = OpInfos.AddDefaulted();
+	Op = &OpInfos[Idx];
+	Op->Category = IntCategory;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "BitRShift Name", "Bitwise Right Shift");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "BitRShift Desc", "Shifts A right by B bits, taking the sign bit and propagating it to fill in on left (i.e. negative numbers fill with 1's, positive fill with 0's. B should be between 0 and 31 or there will be undefined behavior.");
+	Op->Keywords = FText::FromString(TEXT(">>"));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, IntType, AText, AText, Default_IntOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, IntType, BText, BText, Default_IntOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, IntType, ResultText, ResultText, Default_IntOne, TEXT("{0} >> {1}")));
+	Op->BuildName(TEXT("BitRShift"), IntCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(IntType);
+	Op->AddedInputFormatting = TEXT("{A} >> {B}");
+	OpInfoMap.Add(Op->Name) = Idx;
 	//////////////////////////////////////////////////////////////////////////
 	// Boolean Only Ops
 
@@ -872,6 +997,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, BoolType, BText, BText, Default_BoolOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, BoolType, ResultText, ResultText, Default_BoolOne, TEXT("{0} && {1}")));
 	Op->BuildName(TEXT("LogicAnd"), BoolCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(BoolType);
+	Op->AddedInputFormatting = TEXT("{A} && {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 
 	Idx = OpInfos.AddDefaulted();
@@ -884,6 +1012,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, BoolType, BText, BText, Default_BoolOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, BoolType, ResultText, ResultText, Default_BoolOne, TEXT("{0} || {1}")));
 	Op->BuildName(TEXT("LogicOr"), BoolCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(BoolType);
+	Op->AddedInputFormatting = TEXT("{A} || {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 
 	Idx = OpInfos.AddDefaulted();
@@ -986,6 +1117,9 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, MatrixType, BText, BText, Default_MatrixOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, MatrixType, ResultText, ResultText, Default_MatrixOne, TEXT("{0} * {1}")));
 	Op->BuildName(TEXT("MatrixMultiply"), MatrixCategoryName);
+	Op->bSupportsAddedInputs = true;
+	Op->AddedInputTypeRestrictions.Add(MatrixType);
+	Op->AddedInputFormatting = TEXT("{A} * {B}");
 	OpInfoMap.Add(Op->Name) = Idx;
 	
 	Idx = OpInfos.AddDefaulted();

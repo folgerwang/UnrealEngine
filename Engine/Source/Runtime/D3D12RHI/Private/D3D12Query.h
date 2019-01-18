@@ -148,6 +148,7 @@ private:
 	D3D12_QUERY_HEAP_DESC QueryHeapDesc;        // The description of the current query heap
 	D3D12_QUERY_TYPE QueryType;
 	TRefCountPtr<ID3D12QueryHeap> QueryHeap;    // The query heap where all elements reside
+	FD3D12ResidencyHandle QueryHeapResidencyHandle;
 	TRefCountPtr<FD3D12Resource> ResultBuffer;  // The buffer where all query results are stored
 	void* pResultData;
 };

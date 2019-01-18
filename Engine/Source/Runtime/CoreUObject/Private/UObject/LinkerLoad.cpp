@@ -2725,6 +2725,14 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		if (!bWasFullyLoaded)
 		{
 			Import.SourceLinker = GetPackageLinker( TmpPkg, NULL, InternalLoadFlags, NULL, NULL );
+#if WITH_EDITORONLY_DATA
+			if (Import.SourceLinker && !TmpPkg->HasAnyFlags(RF_WasLoaded))
+			{
+				// If we didn't fully load, make sure our metadata is loaded before using this
+				// We need this case for user defined structs due to the LOAD_DeferDependencyLoads code above
+				Import.SourceLinker->LoadMetaDataFromExportMap(false);
+			}
+#endif
 		}
 	}
 	else
@@ -3007,6 +3015,10 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 			{
 				SafeReplace = true;
 			}
+		}
+		else
+		{
+			SafeReplace = true;
 		}
 
 		if (!Import.XObject && !SafeReplace)

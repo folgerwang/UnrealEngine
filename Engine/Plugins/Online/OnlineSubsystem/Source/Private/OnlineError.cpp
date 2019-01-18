@@ -97,7 +97,7 @@ void FOnlineError::SetFromErrorCode(EOnlineErrorResult InResult, const FString& 
 
 FOnlineError::FOnlineError(bool bSucceededIn)
 	: bSucceeded(bSucceededIn)
-	, Result(bSucceededIn ? EOnlineErrorResult::Success : EOnlineErrorResult::Unknown)
+	, Result(EOnlineErrorResult::Unknown)
 {
 }
 
