@@ -75,6 +75,8 @@ public:
 	/** Get the skeleton tree widget */
 	TSharedRef<class ISkeletonTree> GetSkeletonTree() const { return SkeletonTree.ToSharedRef(); }
 
+	UObject* HandleGetAsset();
+
 public:
 	void HandleObjectsSelected(const TArray<UObject*>& InObjects);
 
