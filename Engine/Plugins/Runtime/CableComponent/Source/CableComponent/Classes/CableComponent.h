@@ -87,7 +87,8 @@ public:
 	FVector EndLocation;
 
 	/** Attaches the end of the cable to a specific Component **/
-	void SetAttachEndToComponent(TWeakObjectPtr<class USceneComponent> Component, FName SocketName = NAME_None);
+	UFUNCTION(BlueprintCallable, Category = "Cable")
+	void SetAttachEndToComponent(USceneComponent* Component, FName SocketName = NAME_None);
 
 	/** Attaches the end of the cable to a specific Component within an Actor **/
 	UFUNCTION(BlueprintCallable, Category = "Cable")
