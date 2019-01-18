@@ -422,6 +422,11 @@ void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, FReductionBaseSkeletalMes
 		ReductionBaseSkeletalMeshBulkData->LoadReductionData(TempBaseLODModel, BaseLODMorphTargetData);
 	}
 
+	FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+	const FSkeletalMeshLODModel& TargetLODModel = SkeletalMeshModel->LODModels[DestinationLOD];
+
+	bool bInitializeMorphData = false;
+
 	for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
 	{
 		if (!MorphTarget->HasDataForLOD(SourceLOD))
@@ -517,11 +522,17 @@ void CreateLODMorphTarget(USkeletalMesh* SkeletalMesh, FReductionBaseSkeletalMes
 			}
 		}
 		
-		FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		const FSkeletalMeshLODModel& TargetLODModel = SkeletalMeshModel->LODModels[DestinationLOD];
 		//Register the new morph target on the target LOD
 		MorphTarget->PopulateDeltas(NewMorphTargetDeltas, DestinationLOD, TargetLODModel.Sections, false, true);
-		SkeletalMesh->RegisterMorphTarget(MorphTarget);
+		if (MorphTarget->HasValidData())
+		{
+			bInitializeMorphData |= SkeletalMesh->RegisterMorphTarget(MorphTarget, false);
+		}
+	}
+
+	if (bInitializeMorphData)
+	{
+		SkeletalMesh->InitMorphTargetsAndRebuildRenderData();
 	}
 }
 
@@ -545,7 +556,7 @@ void FLODUtilities::ClearGeneratedMorphTarget(USkeletalMesh* SkeletalMesh, int32
 			continue;
 		}
 
-		if (MorphTarget->MorphLODModels[TargetLOD].bGeneratedByEngine)
+		//if (MorphTarget->MorphLODModels[TargetLOD].bGeneratedByEngine)
 		{
 			MorphTarget->MorphLODModels[TargetLOD].Reset();
 
@@ -870,6 +881,7 @@ void FLODUtilities::RestoreSkeletalMeshLODImportedData(USkeletalMesh* SkeletalMe
 		//Copy the SkeletalMeshLODModel
 		SkeletalMesh->GetImportedModel()->LODModels[LodIndex] = ImportedBaseLODModel;
 		//Copy the morph target deltas
+		bool bInitMorphTargetData = false;
 		for (UMorphTarget *MorphTarget : SkeletalMesh->MorphTargets)
 		{
 			if (!ImportedBaseLODMorphTargetData.Contains(MorphTarget->GetFullName()))
@@ -879,8 +891,9 @@ void FLODUtilities::RestoreSkeletalMeshLODImportedData(USkeletalMesh* SkeletalMe
 			TArray<FMorphTargetDelta>& ImportedDeltas = ImportedBaseLODMorphTargetData[MorphTarget->GetFullName()];
 
 			MorphTarget->PopulateDeltas(ImportedDeltas, LodIndex, SkeletalMesh->GetImportedModel()->LODModels[LodIndex].Sections, false, false);
-			SkeletalMesh->RegisterMorphTarget(MorphTarget);
+			bInitMorphTargetData |= SkeletalMesh->RegisterMorphTarget(MorphTarget, false);
 		}
+		SkeletalMesh->InitMorphTargetsAndRebuildRenderData();
 		
 		//Empty the bulkdata since we restore it
 		SkeletalMesh->GetImportedModel()->OriginalReductionSourceMeshData[LodIndex]->EmptyBulkData();

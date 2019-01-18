@@ -55,6 +55,10 @@ public:
 	UPROPERTY()
 	FGetLinearColor ColorAndOpacityDelegate;
 
+	/** Flips the image if the localization's flow direction is RightToLeft */
+	UPROPERTY(EditAnywhere, Category = "Localization")
+	bool bFlipForRightToLeftFlowDirection;
+
 public:
 
 	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))

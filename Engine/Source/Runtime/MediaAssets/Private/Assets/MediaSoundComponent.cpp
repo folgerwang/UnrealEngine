@@ -31,6 +31,7 @@ FAutoConsoleVariableRef CVarSyncAudioAfterDropouts(
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponentSync, STATGROUP_Media);
 DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent SampleTime"), STAT_MediaUtils_MediaSoundComponentSampleTime, STATGROUP_Media);
+DECLARE_DWORD_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Queued"), STAT_Media_SoundCompQueued, STATGROUP_Media);
 
 /* Static initialization
  *****************************************************************************/
@@ -52,8 +53,13 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
 	, FrameSyncOffset(0)
-	, bSyncAudioAfterDropouts(false)
 	, LastPlaySampleTime(FTimespan::MinValue())
+	, EnvelopeFollowerAttackTime(10)
+	, EnvelopeFollowerReleaseTime(100)
+	, CurrentEnvelopeValue(0.0f)
+	, bSyncAudioAfterDropouts(false)
+	, bSpectralAnalysisEnabled(false)
+	, bEnvelopeFollowingEnabled(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
@@ -414,36 +420,62 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 		LastPlaySampleTime = OutTime;
 
-		if (bSpectralAnalysisEnabled)
+
+		if (bSpectralAnalysisEnabled || bEnvelopeFollowingEnabled)
 		{
-			// If we have stereo audio, sum to mono before sending to analyzer
+			float* BufferToUseForAnalysis = nullptr;
+			int32 NumFrames = NumSamples;
+			
 			if (NumChannels == 2)
 			{
-				int32 NumFrames = NumSamples / 2;
+				NumFrames = NumSamples / 2;
 
 				// Use the scratch buffer to sum the audio to mono
 				AudioScratchBuffer.Reset();
 				AudioScratchBuffer.AddUninitialized(NumFrames);
-				float* AudioScratchBufferPtr = AudioScratchBuffer.GetData();
+				BufferToUseForAnalysis = AudioScratchBuffer.GetData();
 				int32 SampleIndex = 0;
 				for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex, SampleIndex += NumChannels)
 				{
-					AudioScratchBufferPtr[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
+					BufferToUseForAnalysis[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
 				}
-
-				SpectrumAnalyzer.PushAudio(AudioScratchBufferPtr, NumFrames);
 			}
 			else
 			{
-				SpectrumAnalyzer.PushAudio(OutAudio, NumSamples);
+				BufferToUseForAnalysis = OutAudio;
 			}
 
-			// Launch an analysis task with this audio
-			(new FAutoDeleteAsyncTask<FMediaSoundComponentSpectrumAnalysisTask>(&SpectrumAnalyzer, &SpectrumAnalysisCounter))->StartBackgroundTask();
+			if (bSpectralAnalysisEnabled)
+			{
+				SpectrumAnalyzer.PushAudio(BufferToUseForAnalysis, NumFrames);
+				SpectrumAnalyzer.PerformAnalysisIfPossible(true, true);
+			}
+
+			{
+				FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+				if (bEnvelopeFollowingEnabled)
+				{
+					if (bEnvelopeFollowerSettingsChanged)
+					{
+						EnvelopeFollower.SetAttackTime((float)EnvelopeFollowerAttackTime);
+						EnvelopeFollower.SetReleaseTime((float)EnvelopeFollowerReleaseTime);
+
+						bEnvelopeFollowerSettingsChanged = false;
+					}
+
+					for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+					{
+						EnvelopeFollower.ProcessAudio(BufferToUseForAnalysis[FrameIndex]);
+					}
+
+					CurrentEnvelopeValue = EnvelopeFollower.GetCurrentValue();
+				}
+			}
 		}
 
 		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSync, FMath::Abs((Time - OutTime).GetTotalMilliseconds()));
 		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSampleTime, OutTime.GetTotalMilliseconds());
+		SET_DWORD_STAT(STAT_Media_SoundCompQueued, PinnedSampleQueue->Num());
 	}
 	else
 	{
@@ -467,25 +499,25 @@ void UMediaSoundComponent::SetEnableSpectralAnalysis(bool bInSpectralAnalysisEna
 
 void UMediaSoundComponent::SetSpectralAnalysisSettings(TArray<float> InFrequenciesToAnalyze, EMediaSoundComponentFFTSize InFFTSize)
 {
-	Audio::SpectrumAnalyzerSettings::EFFTSize SpectrumAnalyzerSize;
+	Audio::FSpectrumAnalyzerSettings::EFFTSize SpectrumAnalyzerSize;
 
 	switch (InFFTSize)
 	{
 		case EMediaSoundComponentFFTSize::Min_64: 
-			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Min_64; 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Min_64;
 			break;
 		
 		case EMediaSoundComponentFFTSize::Small_256: 
-			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Small_256; 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Small_256;
 			break;
 		
 		default:
 		case EMediaSoundComponentFFTSize::Medium_512:
-			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Medium_512; 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Medium_512;
 			break;
 
 		case EMediaSoundComponentFFTSize::Large_1024: 
-			SpectrumAnalyzerSize = Audio::SpectrumAnalyzerSettings::EFFTSize::Large_1024; 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Large_1024;
 			break;
 	}
 
@@ -515,6 +547,26 @@ TArray<FMediaSoundComponentSpectralData> UMediaSoundComponent::GetSpectralData()
 	}
 	// Empty array if spectrum analysis is not implemented
 	return TArray<FMediaSoundComponentSpectralData>();
+}
+
+void UMediaSoundComponent::SetEnableEnvelopeFollowing(bool bInEnvelopeFollowing)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	bEnvelopeFollowingEnabled = bInEnvelopeFollowing;
+	CurrentEnvelopeValue = 0.0f;
+}
+
+void UMediaSoundComponent::SetEnvelopeFollowingsettings(int32 AttackTimeMsec, int32 ReleaseTimeMsec)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	EnvelopeFollowerAttackTime = AttackTimeMsec;
+	EnvelopeFollowerReleaseTime = ReleaseTimeMsec;
+	bEnvelopeFollowerSettingsChanged = true;
+}
+
+float UMediaSoundComponent::GetEnvelopeValue() const
+{
+	return CurrentEnvelopeValue;
 }
 
 /* UMediaSoundComponent implementation

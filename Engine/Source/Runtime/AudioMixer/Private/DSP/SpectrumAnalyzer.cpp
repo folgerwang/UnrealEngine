@@ -6,8 +6,9 @@
 namespace Audio
 {
 	FSpectrumAnalyzer::FSpectrumAnalyzer()
-		: CurrentSettings(SpectrumAnalyzerSettings::FSettings())
+		: CurrentSettings(FSpectrumAnalyzerSettings())
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(false)
 		, SampleRate(0.0f)
 		, Window(CurrentSettings.WindowType, (int32)CurrentSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -16,9 +17,10 @@ namespace Audio
 	{
 	}
 
-	FSpectrumAnalyzer::FSpectrumAnalyzer(const SpectrumAnalyzerSettings::FSettings& InSettings, float InSampleRate)
+	FSpectrumAnalyzer::FSpectrumAnalyzer(const FSpectrumAnalyzerSettings& InSettings, float InSampleRate)
 		: CurrentSettings(InSettings)
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(true)
 		, SampleRate(InSampleRate)
 		, Window(InSettings.WindowType, (int32)InSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -29,8 +31,9 @@ namespace Audio
 	}
 
 	FSpectrumAnalyzer::FSpectrumAnalyzer(float InSampleRate)
-		: CurrentSettings(SpectrumAnalyzerSettings::FSettings())
+		: CurrentSettings(FSpectrumAnalyzerSettings())
 		, bSettingsWereUpdated(false)
+		, bIsInitialized(true)
 		, SampleRate(InSampleRate)
 		, Window(CurrentSettings.WindowType, (int32)CurrentSettings.FFTSize, 1, false)
 		, InputQueue(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096))
@@ -40,13 +43,21 @@ namespace Audio
 		ResetSettings();
 	}
 
+	FSpectrumAnalyzer::~FSpectrumAnalyzer()
+	{
+		if (AsyncAnalysisTask.IsValid())
+		{
+			AsyncAnalysisTask->EnsureCompletion(false);
+		}
+	}
+
 	void FSpectrumAnalyzer::Init(float InSampleRate)
 	{
-		SpectrumAnalyzerSettings::FSettings DefaultSettings = SpectrumAnalyzerSettings::FSettings();
+		FSpectrumAnalyzerSettings DefaultSettings = FSpectrumAnalyzerSettings();
 		Init(DefaultSettings, InSampleRate);
 	}
 
-	void FSpectrumAnalyzer::Init(const SpectrumAnalyzerSettings::FSettings& InSettings, float InSampleRate)
+	void FSpectrumAnalyzer::Init(const FSpectrumAnalyzerSettings& InSettings, float InSampleRate)
 	{
 		CurrentSettings = InSettings;
 		bSettingsWereUpdated = false;
@@ -54,6 +65,8 @@ namespace Audio
 		InputQueue.SetCapacity(FMath::Max((int32)CurrentSettings.FFTSize * 4, 4096));
 		FrequencyBuffer.Reset(CurrentSettings);
 		ResetSettings();
+
+		bIsInitialized = true;
 	}
 
 	void FSpectrumAnalyzer::ResetSettings()
@@ -67,7 +80,15 @@ namespace Audio
 
 		Window = FWindow(CurrentSettings.WindowType, (int32)CurrentSettings.FFTSize, 1, false);
 		FFTSize = (int32) CurrentSettings.FFTSize;
-		HopInSamples = GetCOLAHopSizeForWindow(CurrentSettings.WindowType, (uint32)CurrentSettings.FFTSize);
+		
+		if (FMath::IsNearlyZero(CurrentSettings.HopSize))
+		{
+			HopInSamples = GetCOLAHopSizeForWindow(CurrentSettings.WindowType, (uint32)CurrentSettings.FFTSize);
+		}
+		else
+		{
+			HopInSamples = FMath::FloorToInt((float)CurrentSettings.FFTSize * CurrentSettings.HopSize);
+		}
 		
 		AnalysisTimeDomainBuffer.Reset();
 		AnalysisTimeDomainBuffer.AddZeroed(FFTSize);
@@ -76,7 +97,7 @@ namespace Audio
 		bSettingsWereUpdated = false;
 	}
 
-	void FSpectrumAnalyzer::PerformInterpolation(const FSpectrumAnalyzerFrequencyVector* InFrequencies, SpectrumAnalyzerSettings::EPeakInterpolationMethod InMethod, const float InFreq, float& OutReal, float& OutImag)
+	void FSpectrumAnalyzer::PerformInterpolation(const FSpectrumAnalyzerFrequencyVector* InFrequencies, FSpectrumAnalyzerSettings::EPeakInterpolationMethod InMethod, const float InFreq, float& OutReal, float& OutImag)
 	{
 		const int32 VectorLength = InFrequencies->RealFrequencies.Num();
 		const float NyquistPosition = VectorLength / 2;
@@ -93,7 +114,7 @@ namespace Audio
 
 		switch (InMethod)
 		{
-		case Audio::SpectrumAnalyzerSettings::EPeakInterpolationMethod::NearestNeighbor:
+		case Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::NearestNeighbor:
 		{
 			int32 Index = FMath::RoundToInt(Position);
 			OutReal = InFrequencies->RealFrequencies[Index];
@@ -101,7 +122,7 @@ namespace Audio
 			break;
 		}
 			
-		case Audio::SpectrumAnalyzerSettings::EPeakInterpolationMethod::Linear:
+		case Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::Linear:
 		{
 			const int32 LowerIndex = FMath::FloorToInt(Position);
 			const int32 UpperIndex = FMath::CeilToInt(Position);
@@ -116,7 +137,7 @@ namespace Audio
 			OutImag = FMath::Lerp<float>(y1Imag, y2Imag, PositionFraction);
 			break;
 		}	
-		case Audio::SpectrumAnalyzerSettings::EPeakInterpolationMethod::Quadratic:
+		case Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::Quadratic:
 		{
 			const int32 MidIndex = FMath::RoundToInt(Position);
 			const int32 LowerIndex = FMath::Max(0, MidIndex - 1);
@@ -145,19 +166,24 @@ namespace Audio
 		}
 	}
 
-	void FSpectrumAnalyzer::SetSettings(const SpectrumAnalyzerSettings::FSettings& InSettings)
+	void FSpectrumAnalyzer::SetSettings(const FSpectrumAnalyzerSettings& InSettings)
 	{
 		CurrentSettings = InSettings;
 		bSettingsWereUpdated = true;
 	}
 
-	void FSpectrumAnalyzer::GetSettings(SpectrumAnalyzerSettings::FSettings& OutSettings)
+	void FSpectrumAnalyzer::GetSettings(FSpectrumAnalyzerSettings& OutSettings)
 	{
 		OutSettings = CurrentSettings;
 	}
 
 	float FSpectrumAnalyzer::GetMagnitudeForFrequency(float InFrequency)
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}
+
 		const FSpectrumAnalyzerFrequencyVector* OutVector;
 		bool bShouldUnlockBuffer = true;
 
@@ -195,6 +221,11 @@ namespace Audio
 
 	float FSpectrumAnalyzer::GetPhaseForFrequency(float InFrequency)
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}
+
 		const FSpectrumAnalyzerFrequencyVector* OutVector;
 		bool bShouldUnlockBuffer = true;
 
@@ -232,6 +263,11 @@ namespace Audio
 
 	void FSpectrumAnalyzer::LockOutputBuffer()
 	{
+		if (!bIsInitialized)
+		{
+			return;
+		}
+
 		if (LockedFrequencyVector != nullptr)
 		{
 			FrequencyBuffer.UnlockBuffer();
@@ -242,6 +278,11 @@ namespace Audio
 
 	void FSpectrumAnalyzer::UnlockOutputBuffer()
 	{
+		if (!bIsInitialized)
+		{
+			return;
+		}
+
 		if (LockedFrequencyVector != nullptr)
 		{
 			FrequencyBuffer.UnlockBuffer();
@@ -260,8 +301,29 @@ namespace Audio
 		return InputQueue.Push(InBuffer, NumSamples) > 0;
 	}
 
-	bool FSpectrumAnalyzer::PerformAnalysisIfPossible()
+	bool FSpectrumAnalyzer::PerformAnalysisIfPossible(bool bUseLatestAudio, bool bAsync)
 	{
+		if (!bIsInitialized)
+		{
+			return false;
+		}		
+
+		if (bAsync)
+		{
+			// if bAsync is true, kick off a new task if one isn't in flight already, and return.
+			if (!AsyncAnalysisTask.IsValid())
+			{
+				AsyncAnalysisTask.Reset(new FSpectrumAnalyzerTask(this, bUseLatestAudio));
+				AsyncAnalysisTask->StartBackgroundTask();
+			}
+			else if (AsyncAnalysisTask->IsDone())
+			{
+				AsyncAnalysisTask->StartBackgroundTask();
+			}
+
+			return true;
+		}
+
 		// If settings were updated, perform resizing and parameter updates here:
 		if (bSettingsWereUpdated)
 		{
@@ -275,6 +337,12 @@ namespace Audio
 		if (InputQueue.Num() >= ((uint32)FFTSize) && OutputVector)
 		{
 			float* TimeDomainBuffer = AnalysisTimeDomainBuffer.GetData();
+
+			if (bUseLatestAudio)
+			{
+				// If we are only using the latest audio, scrap the oldest audio in the InputQueue:
+				InputQueue.SetNum((uint32)FFTSize);
+			}
 
 			// Perform pop/peek here based on FFT size and hop amount.
 			const int32 PeekAmount = FFTSize - HopInSamples;
@@ -293,7 +361,6 @@ namespace Audio
 			OutputParams.OutReal = OutputVector->RealFrequencies.GetData();
 			OutputParams.OutImag = OutputVector->ImagFrequencies.GetData();
 
-
 			PerformFFT(InputParams, OutputParams);
 
 			// We're done, so unlock this vector.
@@ -307,7 +374,12 @@ namespace Audio
 		}
 	}
 
-	static const int32 SpectrumAnalyzerBufferSize = 3;
+	bool FSpectrumAnalyzer::IsInitialized()
+	{
+		return bIsInitialized;
+	}
+
+	static const int32 SpectrumAnalyzerBufferSize = 4;
 
 	FSpectrumAnalyzerBuffer::FSpectrumAnalyzerBuffer()
 		: OutputIndex(0)
@@ -315,12 +387,12 @@ namespace Audio
 	{
 	}
 
-	FSpectrumAnalyzerBuffer::FSpectrumAnalyzerBuffer(const SpectrumAnalyzerSettings::FSettings& InSettings)
+	FSpectrumAnalyzerBuffer::FSpectrumAnalyzerBuffer(const FSpectrumAnalyzerSettings& InSettings)
 	{
 		Reset(InSettings);
 	}
 
-	void FSpectrumAnalyzerBuffer::Reset(const SpectrumAnalyzerSettings::FSettings& InSettings)
+	void FSpectrumAnalyzerBuffer::Reset(const FSpectrumAnalyzerSettings& InSettings)
 	{
 		FScopeLock ScopeLock(&BufferIndicesCriticalSection);
 
@@ -391,4 +463,10 @@ namespace Audio
 		ImagFrequencies.Reset();
 		ImagFrequencies.AddZeroed(InFFTSize);
 	}
+
+	void FSpectrumAnalysisAsyncWorker::DoWork()
+	{
+		Analyzer->PerformAnalysisIfPossible(bUseLatestAudio, false);
+	}
+
 }
