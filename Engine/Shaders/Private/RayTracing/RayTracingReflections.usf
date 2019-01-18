@@ -35,6 +35,7 @@ uint ShouldDoReflectedShadows;
 uint ShouldDoEmissiveAndIndirectLighting;
 uint UpscaleFactor;
 
+float ReflectionMinRayDistance;
 float ReflectionMaxRayDistance;
 float ReflectionMaxRoughness;
 
@@ -351,6 +352,13 @@ void RayTracingReflectionsRGS()
 
 	const float RoughnessFade = GetRoughnessFade(Roughness, ReflectionMaxRoughness);
 
+	// Sky is only sampled when infinite reflection rays are used.
+	const bool bAllowSkySampling = ReflectionMaxRayDistance < 0;
+
+	// Shorten the rays on rougher surfaces between user-provided min and max ray lengths.
+	// When a shortened ray misses the geometry, we fall back to local reflection capture sampling (similar to SSR).
+	const float LocalMaxRayDistance = bAllowSkySampling ? 1e27f : lerp(ReflectionMaxRayDistance, ReflectionMinRayDistance, Roughness);
+
 	if (RoughnessFade > 0)
 	{
 		for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
@@ -361,7 +369,7 @@ void RayTracingReflectionsRGS()
 				RayDesc Ray;
 				Ray.Origin = WorldPosition + WorldNormal * 0.01;
 				Ray.TMin = 0.0;
-				Ray.TMax = ReflectionMaxRayDistance;
+				Ray.TMax = LocalMaxRayDistance;
 
 				uint DummyVariable;
 				float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
@@ -403,7 +411,7 @@ void RayTracingReflectionsRGS()
 						ReflectedWeight += 1.0;
 					}
 				}
-				else
+				else if (bAllowSkySampling)
 				{
 					if (ReflectionStruct.SkyLightParameters.y > 0)
 					{
@@ -417,21 +425,23 @@ void RayTracingReflectionsRGS()
 				}
 
 				IncidentDirection = Ray.Direction;
-
 				HitDistance = Payload.HitT;
 			}
 		}
 	}
-	else
-	{
-		// To tell the denoiser the black input is valid even if no ray has technically been shot. Uses a high ray hit distance
-		// so that the sample may be reused by another neighbor pixel in the denoise as if RoughnessFade in ]0;1[.
-		HitDistance = 1.0e20;
-	}
 
 	if (ReflectedWeight > 0)
 	{
-		ReflectedColor *= RoughnessFade * rcp(ReflectedWeight);
+		float DistanceFadeRange = LocalMaxRayDistance * 0.1; // Fade out reflections over 10% of the total maximum ray length (arbitrarily chosen)
+		float DistanceFade = bAllowSkySampling ? 1.0 : saturate((LocalMaxRayDistance - HitDistance) * rcp(DistanceFadeRange));
+
+		ReflectedColor *= DistanceFade * RoughnessFade * rcp(ReflectedWeight);
+	}
+	else
+	{
+		// To tell the denoiser the black input is valid even if no valid ray trace result was found. Uses a high ray hit distance
+		// so that the sample may be reused by another neighbor pixel in the denoise as if RoughnessFade in ]0;1[.
+		HitDistance = 1.0e20;
 	}
 
 	ColorOutput[DispatchThreadId] = float4(ReflectedColor);

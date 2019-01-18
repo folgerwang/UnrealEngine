@@ -37,11 +37,18 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionsShadows(
 	TEXT("Enables shadows in ray tracing reflections (default = 1)")
 );
 
-static float GRayTracingReflectionsMaxRayDistance = 1.0e27;
+static float GRayTracingReflectionsMinRayDistance = -1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsMinRayDistance(
+	TEXT("r.RayTracing.Reflections.MinRayDistance"),
+	GRayTracingReflectionsMinRayDistance,
+	TEXT("Sets the minimum ray distance for ray traced reflection rays. Actual reflection ray length is computed as Lerp(MaxRayDistance, MinRayDistance, Roughness), i.e. reflection rays become shorter when traced from rougher surfaces. (default = -1 (infinite rays))")
+);
+
+static float GRayTracingReflectionsMaxRayDistance = -1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxRayDistance(
 	TEXT("r.RayTracing.Reflections.MaxRayDistance"),
 	GRayTracingReflectionsMaxRayDistance,
-	TEXT("Sets the maximum ray distance for ray traced reflection rays (default = 1.0e27)")
+	TEXT("Sets the maximum ray distance for ray traced reflection rays. When ray shortening is used, skybox will not be sampled in RT reflection pass and will be composited later, together with local reflection captures. Negative values turn off this optimization. (default = -1 (infinite rays))")
 );
 
 static const int32 GReflectionLightCountMaximum = 64;
@@ -126,6 +133,7 @@ class FRayTracingReflectionsRG : public FGlobalShader
 		SHADER_PARAMETER(int32, ShouldDoReflectedShadows)
 		SHADER_PARAMETER(int32, ShouldDoEmissiveAndIndirectLighting)
 		SHADER_PARAMETER(int32, UpscaleFactor)
+		SHADER_PARAMETER(float, ReflectionMinRayDistance)
 		SHADER_PARAMETER(float, ReflectionMaxRayDistance)
 		SHADER_PARAMETER(float, ReflectionMaxRoughness)
 
@@ -219,6 +227,7 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 	PassParameters->ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
 	PassParameters->ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;
 	PassParameters->UpscaleFactor = UpscaleFactor;
+	PassParameters->ReflectionMinRayDistance = FMath::Min(GRayTracingReflectionsMinRayDistance, GRayTracingReflectionsMaxRayDistance);
 	PassParameters->ReflectionMaxRayDistance = GRayTracingReflectionsMaxRayDistance;
 	PassParameters->ReflectionMaxRoughness = FMath::Clamp(View.FinalPostProcessSettings.ScreenSpaceReflectionMaxRoughness, 0.01f, 1.0f);
 	PassParameters->LTCMatTexture = GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture;
