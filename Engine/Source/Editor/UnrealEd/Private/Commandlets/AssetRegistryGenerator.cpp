@@ -216,30 +216,34 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 		PlatformIniFile.GetArray(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("CompressedChunkWildcard"), CompressedChunkWildcards);
 	}
 
-	// Add manifests for any non-ufs file groups
+	// Add manifests for any staging-time only groups
 	if (bUseAssetManager && !TargetPlatform->HasSecurePackageFormat())
 	{
 		FContentEncryptionConfig ContentEncryptionConfig;
 		UAssetManager::Get().GetContentEncryptionConfig(ContentEncryptionConfig);
-		const TMap<FName, TSet<FName>>& EncryptedNonUFSFileGroups = ContentEncryptionConfig.GetNonUFSFileGroupMap();
+		const FContentEncryptionConfig::TGroupMap& EncryptedNonUFSFileGroups = ContentEncryptionConfig.GetPackageGroupMap();
 		
-		for (const TMap<FName, TSet<FName>>::ElementType& Element : EncryptedNonUFSFileGroups)
+		for (const FContentEncryptionConfig::TGroupMap::ElementType& Element : EncryptedNonUFSFileGroups)
 		{
-			FName GroupName = Element.Key;
-			const TSet<FName>& Files = Element.Value;
-			FChunkPackageSet* NewManifest = new FChunkPackageSet();
-			
-			for (FName File : Files)
+			if (Element.Value.bStageTimeOnly)
 			{
-				FString Filename = File.ToString();
-				FName LongPackageName = *FPackageName::FilenameToLongPackageName(Filename);
-				NewManifest->Add(LongPackageName, Filename);
-			}
+				FName GroupName = Element.Key;
+				const TSet<FName>& PackageNames = Element.Value.PackageNames;
+				
+				FChunkPackageSet* NewManifest = new FChunkPackageSet();
+				int32 ChunkID = UAssetManager::Get().GetContentEncryptionGroupChunkID(GroupName);
+				
+				for (FName PackageName : PackageNames)
+				{
+					NewManifest->Add(PackageName, FPackageName::LongPackageNameToFilename(PackageName.ToString()));
+				}
 
-			FinalChunkManifests.Add(NewManifest);
+				check(ChunkID < FinalChunkManifests.Num());
+				check(FinalChunkManifests[ChunkID] == nullptr);
+				FinalChunkManifests[ChunkID] = NewManifest;
+			}
 		}
 	}
-
 
 	// generate per-chunk pak list files
 	for (int32 Index = 0; Index < FinalChunkManifests.Num(); ++Index)
@@ -451,10 +455,10 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 		FContentEncryptionConfig EncryptionConfig;
 		AssetManager.GetContentEncryptionConfig(EncryptionConfig);
 
-		for (TMap<FName, TSet<FName>>::ElementType EncryptedAssetSetElement : EncryptionConfig.GetPackageGroupMap())
+		for (FContentEncryptionConfig::TGroupMap::ElementType EncryptedAssetSetElement : EncryptionConfig.GetPackageGroupMap())
 		{
 			FName SetName = EncryptedAssetSetElement.Key;
-			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value;
+			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value.PackageNames;
 
 			for (FName EncryptedRootPackageName : EncryptedRootAssets)
 			{
