@@ -56,6 +56,7 @@ FActiveSound::FActiveSound()
 	, bUpdatePlayPercentage(false)
 	, bUpdateSingleEnvelopeValue(false)
 	, bUpdateMultiEnvelopeValue(false)
+	, bUpdatePlaybackTime(false)
 	, bIsPlayingAudio(false)
 	, bIsStopping(false)
 	, UserIndex(0)
@@ -543,39 +544,73 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		}
 
 		// Check to see if we need to broadcast the envelope value of sounds playing with this active sound
-		if (bUpdateMultiEnvelopeValue && AudioComponentID > 0)
+		if (AudioComponentID > 0)
 		{
-			int32 NumWaveInstances = ThisSoundsWaveInstances.Num();
-
-			// Add up the envelope value for every wave instance so we get a sum of the envelope value for all sources.
-			float EnvelopeValueSum = 0.0f;
-			float MaxEnvelopeValue = 0.0f;
-			for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+			if (bUpdateMultiEnvelopeValue)
 			{
-				const float WaveInstanceEnvelopeValue = WaveInstance->GetEnvelopeValue();
-				EnvelopeValueSum += WaveInstanceEnvelopeValue;
-				MaxEnvelopeValue = FMath::Max(WaveInstanceEnvelopeValue, MaxEnvelopeValue);
+				int32 NumWaveInstances = ThisSoundsWaveInstances.Num();
+
+				// Add up the envelope value for every wave instance so we get a sum of the envelope value for all sources.
+				float EnvelopeValueSum = 0.0f;
+				float MaxEnvelopeValue = 0.0f;
+				for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+				{
+					const float WaveInstanceEnvelopeValue = WaveInstance->GetEnvelopeValue();
+					EnvelopeValueSum += WaveInstanceEnvelopeValue;
+					MaxEnvelopeValue = FMath::Max(WaveInstanceEnvelopeValue, MaxEnvelopeValue);
+				}
+
+				// Now divide by the number of instances to get the average
+				float AverageEnvelopeValue = EnvelopeValueSum / NumWaveInstances;
+				uint64 AudioComponentIDCopy = AudioComponentID;
+				FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances]()
+				{
+					if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
+					{
+						if (AudioComponent->OnAudioMultiEnvelopeValue.IsBound())
+						{
+							AudioComponent->OnAudioMultiEnvelopeValue.Broadcast(AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						}
+
+						if (AudioComponent->OnAudioMultiEnvelopeValueNative.IsBound())
+						{
+							AudioComponent->OnAudioMultiEnvelopeValueNative.Broadcast(AudioComponent, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						}
+					}
+				});
 			}
 
-			// Now divide by the number of instances to get the average
-			float AverageEnvelopeValue = EnvelopeValueSum / NumWaveInstances;
-			uint64 AudioComponentIDCopy = AudioComponentID;
-			FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances]()
+			if (bUpdatePlaybackTime)
 			{
-				if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
-				{
-					if (AudioComponent->OnAudioMultiEnvelopeValue.IsBound())
-					{
-						AudioComponent->OnAudioMultiEnvelopeValue.Broadcast(AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
-					}
+				TMap<uint32, float> WaveInstancePlaybackTimes;
 
-					if (AudioComponent->OnAudioMultiEnvelopeValueNative.IsBound())
+				// Update each of the wave instances playback time based on delta time and the wave instances pitch value
+				for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+				{
+					WaveInstance->PlaybackTime += DeltaTime * WaveInstance->Pitch;
+
+					// For looping sounds, we need to check the wrapping condition
+					if (WaveInstance->LoopingMode != LOOP_Never)
 					{
-						AudioComponent->OnAudioMultiEnvelopeValueNative.Broadcast(AudioComponent, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						float Duration = WaveInstance->WaveData->Duration;
+						if (WaveInstance->PlaybackTime > Duration)
+						{
+							WaveInstance->PlaybackTime = 0.0f;
+						}
 					}
+					WaveInstancePlaybackTimes.Add(WaveInstance->WaveData->GetUniqueID(), WaveInstance->PlaybackTime);
 				}
-			});
+				uint64 AudioComponentIDCopy = AudioComponentID;
+				FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, WaveInstancePlaybackTimes]()
+				{
+					if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
+					{
+						AudioComponent->SetPlaybackTimes(WaveInstancePlaybackTimes);
+					}
+				});
+			}
 		}
+
 	}
 
 	InWaveInstances.Append(ThisSoundsWaveInstances);
