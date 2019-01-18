@@ -427,6 +427,9 @@ public:
 	/** The absolute position of the wave instance relative to forward vector of listener. */
 	float AbsoluteAzimuth; 
 
+	/** The playback time of the wave instance. Updated from active sound. */
+	float PlaybackTime;
+
 	/** The reverb send method to use. */
 	EReverbSendMethod ReverbSendMethod;
 
@@ -845,7 +848,6 @@ protected:
 	friend class FAudioDevice;
 	friend struct FActiveSound;
 };
-
 
 /*-----------------------------------------------------------------------------
 	FWaveModInfo. 

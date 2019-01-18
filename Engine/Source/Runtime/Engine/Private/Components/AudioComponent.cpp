@@ -13,6 +13,14 @@
 
 DECLARE_CYCLE_STAT(TEXT("AudioComponent Play"), STAT_AudioComp_Play, STATGROUP_Audio);
 
+static float BakedAnalysisTimeShiftCVar = 0.0f;
+FAutoConsoleVariableRef CVarBackedAnalysisTimeShift(
+	TEXT("au.AnalysisTimeShift"),
+	BakedAnalysisTimeShiftCVar,
+	TEXT("Shifts the timeline for baked analysis playback.\n")
+	TEXT("Value: The time in seconds to shift the timeline."),
+	ECVF_Default);
+
 
 /*-----------------------------------------------------------------------------
 UAudioComponent implementation.
@@ -408,6 +416,17 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.bUpdatePlayPercentage = OnAudioPlaybackPercentNative.IsBound() || OnAudioPlaybackPercent.IsBound();
 			NewActiveSound.bUpdateSingleEnvelopeValue = OnAudioSingleEnvelopeValue.IsBound() || OnAudioSingleEnvelopeValueNative.IsBound();
 			NewActiveSound.bUpdateMultiEnvelopeValue = OnAudioMultiEnvelopeValue.IsBound() || OnAudioMultiEnvelopeValueNative.IsBound();
+			
+			// Setup audio component cooked analysis data playback data set
+			TArray<USoundWave*> SoundWavesWithCookedData;
+			NewActiveSound.bUpdatePlaybackTime = Sound->GetSoundWavesWithCookedAnalysisData(SoundWavesWithCookedData);
+
+			// Reset the audio component's soundwave playback times
+			SoundWavePlaybackTimes.Reset();
+			for (USoundWave* SoundWave : SoundWavesWithCookedData)
+			{
+				SoundWavePlaybackTimes.Add(SoundWave->GetUniqueID(), FSoundWavePlaybackTimeData(SoundWave));
+			}
 
 			NewActiveSound.MaxDistance = MaxDistance;
 
@@ -1110,4 +1129,167 @@ void UAudioComponent::SetLowPassFilterFrequency(float InLowPassFilterFrequency)
 	}
 }
 
+bool UAudioComponent::HasCookedFFTData() const
+{
+	if (Sound)
+	{
+		USoundWave* SoundWave = Cast<USoundWave>(Sound);
+		if (SoundWave)
+		{
+			return SoundWave->CookedSpectralTimeData.Num() > 0;
+		}
+	}
+	return false;
+}
 
+bool UAudioComponent::HasCookedAmplitudeEnvelopeData() const
+{
+	if (Sound)
+	{
+		USoundWave* SoundWave = Cast<USoundWave>(Sound);
+		if (SoundWave)
+		{
+			return SoundWave->CookedEnvelopeTimeData.Num() > 0;
+		}
+	}
+	return false;
+}
+
+void UAudioComponent::SetPlaybackTimes(const TMap<uint32, float>& InSoundWavePlaybackTimes)
+{
+	// Reset the playback times for everything in case the wave instance stops and is not updated
+	for (auto& Elem : SoundWavePlaybackTimes)
+	{
+		Elem.Value.PlaybackTime = 0.0f;
+	}
+
+	for (auto& Elem : InSoundWavePlaybackTimes)
+	{
+		uint32 ObjectId = Elem.Key;
+		FSoundWavePlaybackTimeData* PlaybackTimeData = SoundWavePlaybackTimes.Find(ObjectId);
+		if (PlaybackTimeData)
+		{
+			PlaybackTimeData->PlaybackTime = FMath::Max(Elem.Value - BakedAnalysisTimeShiftCVar, 0.0f);
+		}
+	}
+}
+
+bool UAudioComponent::GetCookedFFTData(const TArray<float>& FrequenciesToGet, TArray<FSoundWaveSpectralData>& OutSoundWaveSpectralData)
+{
+	bool bHadData = false;
+	if (IsPlaying() && SoundWavePlaybackTimes.Num() > 0 && FrequenciesToGet.Num() > 0)
+	{
+		OutSoundWaveSpectralData.Reset();
+		for (float Frequency : FrequenciesToGet)
+		{
+			FSoundWaveSpectralData NewEntry;
+			NewEntry.FrequencyHz = Frequency;
+			OutSoundWaveSpectralData.Add(NewEntry);
+		}
+
+		// Sort by frequency (lowest frequency first).
+		OutSoundWaveSpectralData.Sort(FCompareSpectralDataByFrequencyHz());
+
+		int32 NumEntriesAdded = 0;
+		for (auto& Entry : SoundWavePlaybackTimes)
+		{
+			if (Entry.Value.PlaybackTime > 0.0f && Entry.Value.SoundWave->CookedSpectralTimeData.Num() > 0)
+			{
+				static TArray<FSoundWaveSpectralData> CookedSpectralData;
+				CookedSpectralData.Reset();
+
+				// Find the point in the spectral data that corresponds to the time
+				Entry.Value.SoundWave->GetInterpolatedCookedFFTDataForTime(Entry.Value.PlaybackTime, Entry.Value.LastFFTCookedIndex, CookedSpectralData, Sound->IsLooping());
+
+				if (CookedSpectralData.Num() > 0)
+				{
+					// Find the interpolated values given the frequencies we want to get
+					for (FSoundWaveSpectralData& OutSpectralData : OutSoundWaveSpectralData)
+					{
+						// Check min edge case: we're requesting cooked FFT data lower than what we have cooked
+						if (OutSpectralData.FrequencyHz < CookedSpectralData[0].FrequencyHz)
+						{
+							// Just mix in the lowest value we have cooked
+							OutSpectralData.Magnitude += CookedSpectralData[0].Magnitude;
+							OutSpectralData.NormalizedMagnitude += CookedSpectralData[0].NormalizedMagnitude;
+						}
+						// Check max edge case: we're requesting cooked FFT data at a higher frequency than what we have cooked
+						else if (OutSpectralData.FrequencyHz >= CookedSpectralData.Last().FrequencyHz)
+						{
+							// Just mix in the highest value we have cooked
+							OutSpectralData.Magnitude += CookedSpectralData.Last().Magnitude;
+							OutSpectralData.NormalizedMagnitude += CookedSpectralData.Last().NormalizedMagnitude;
+						}
+						// We need to find the 2 closest cooked results and interpolate those
+						else
+						{
+							for (int32 SpectralDataIndex = 0; SpectralDataIndex < CookedSpectralData.Num() - 1; ++SpectralDataIndex)
+							{
+								const FSoundWaveSpectralData& CurrentSpectralData = CookedSpectralData[SpectralDataIndex];
+								const FSoundWaveSpectralData& NextSpectralData = CookedSpectralData[SpectralDataIndex + 1];
+								if (OutSpectralData.FrequencyHz >= CurrentSpectralData.FrequencyHz && OutSpectralData.FrequencyHz < NextSpectralData.FrequencyHz)
+								{
+									float Alpha = (OutSpectralData.FrequencyHz - CurrentSpectralData.FrequencyHz) / (NextSpectralData.FrequencyHz - CurrentSpectralData.FrequencyHz);
+									OutSpectralData.Magnitude += FMath::Lerp(CurrentSpectralData.Magnitude, NextSpectralData.Magnitude, Alpha);
+									OutSpectralData.NormalizedMagnitude += FMath::Lerp(CurrentSpectralData.NormalizedMagnitude, NextSpectralData.NormalizedMagnitude, Alpha);
+
+									break;
+								}
+							}
+						}
+					}
+					
+					++NumEntriesAdded;
+					bHadData = true;
+				}
+			}
+		}
+
+		// Divide by the number of entries we added (i.e. we are averaging together multiple cooked FFT data in the case of multiple sound waves playing with cooked data)
+		if (NumEntriesAdded > 1)
+		{
+			for (FSoundWaveSpectralData& OutSpectralData : OutSoundWaveSpectralData)
+			{
+				OutSpectralData.Magnitude /= NumEntriesAdded;
+				OutSpectralData.NormalizedMagnitude /= NumEntriesAdded;
+			}
+		}
+	}
+
+	return bHadData;
+}
+
+bool UAudioComponent::GetCookedEnvelopeData(float& OutEnvelopeData)
+{
+	bool bHadData = false;
+	if (IsPlaying() && SoundWavePlaybackTimes.Num() > 0)
+	{
+		static TArray<FSoundWaveEnvelopeTimeData> CookedEnvelopeData;
+		int32 NumEntriesAdded = 0;
+		OutEnvelopeData = 0.0f;
+		for (auto& Entry : SoundWavePlaybackTimes)
+		{
+			if (Entry.Value.SoundWave->CookedEnvelopeTimeData.Num() > 0 && Entry.Value.PlaybackTime > 0.0f)
+			{
+				CookedEnvelopeData.Reset();
+
+				// Find the point in the spectral data that corresponds to the time
+				float SoundWaveAmplitude = 0.0f;
+				if (Entry.Value.SoundWave->GetInterpolatedCookedEnvelopeDataForTime(Entry.Value.PlaybackTime, Entry.Value.LastEnvelopeCookedIndex, SoundWaveAmplitude, Sound->IsLooping()))
+				{
+					OutEnvelopeData += SoundWaveAmplitude;
+					++NumEntriesAdded;
+					bHadData = true;
+				}
+			}
+		}
+
+		// Divide by number of entries we added... get average amplitude envelope
+		if (bHadData)
+		{
+			OutEnvelopeData /= NumEntriesAdded;
+		}
+	}
+
+	return bHadData;
+}

@@ -82,6 +82,7 @@ namespace UnrealBuildTool
 			new KeyValuePair<string, string>("Engine", "GameplayTags"),
 			new KeyValuePair<string, string>("Engine", "MaterialShaderQualitySettings"),
 			new KeyValuePair<string, string>("Engine", "UnrealEd"),
+			new KeyValuePair<string, string>("Engine", "AudioMixer"),
 			new KeyValuePair<string, string>("PacketHandler", "ReliabilityHandlerComponent"),
 			new KeyValuePair<string, string>("GameplayDebugger", "AIModule"),
 			new KeyValuePair<string, string>("GameplayDebugger", "GameplayTasks"),

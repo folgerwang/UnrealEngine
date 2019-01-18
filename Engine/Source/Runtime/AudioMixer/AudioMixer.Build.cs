@@ -6,7 +6,7 @@ namespace UnrealBuildTool.Rules
 	{
 		public AudioMixer(ReadOnlyTargetRules Target) : base(Target)
 		{
-			OptimizeCode = CodeOptimization.Always;
+			OptimizeCode = CodeOptimization.Never;
 
 			PrivateIncludePathModuleNames.Add("TargetPlatform");
 
@@ -22,7 +22,6 @@ namespace UnrealBuildTool.Rules
 				{
 					"Core",
 					"CoreUObject",
-					"Engine",
 				}
 			);
 
@@ -30,6 +29,7 @@ namespace UnrealBuildTool.Rules
 				new string[]
 				{
 					"CoreUObject",
+					"Engine",
 				}
 			);
 

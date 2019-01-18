@@ -23,6 +23,7 @@ namespace Audio
 			Small_256 = 256,
 			Medium_512 = 512,
 			Large_1024 = 1024,
+			VeryLarge_2048 = 2048,
 			TestLarge_4096 = 4096
 		};
 
