@@ -624,7 +624,12 @@ public:
 	/** 
 	 * Sets the maximum number of channels dynamically. Can't raise the cap over the initial value but can lower it 
 	 */
-	virtual void SetMaxChannels(int32 InMaxChannels);
+	void SetMaxChannels(int32 InMaxChannels);
+
+	/**
+	 * Sets the maximum number of channels dynamically by scaled percentage.
+	 */
+	void SetMaxChannelsScaled(float InScaledChannelCount);
 
 	/** Returns the max channels used by the audio device. */
 	int32 GetMaxChannels() const;
@@ -1550,6 +1555,11 @@ public:
 
 	/** The maximum number of concurrent audible sounds */
 	int32 MaxChannels;
+	int32 MaxChannels_GameThread;
+
+	/** A scaler on the max channels. */
+	float MaxChannelsScale;
+	float MaxChannelsScale_GameThread;
 
 	/** The number of sources to reserve for stopping sounds. */
 	int32 NumStoppingVoices;
