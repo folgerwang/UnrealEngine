@@ -1020,6 +1020,13 @@ namespace UnrealBuildTool
 					CompileAction.ProducedItems.Add(ObjectFile);
 					Result.ObjectFiles.Add(ObjectFile);
 					FileArguments.Add(String.Format("/Fo\"{0}\"", ObjectFile.AbsolutePath));
+
+					// Experimental: support for JSON output of timing data
+					if(Target.WindowsPlatform.Compiler == WindowsCompiler.Clang && Target.WindowsPlatform.bClangTimeTrace)
+					{
+						SharedArguments.Add("-Xclang -ftime-trace");
+						CompileAction.ProducedItems.Add(FileItem.GetItemByFileReference(ObjectFile.Location.ChangeExtension(".json")));
+					}
 				}
 
 				// Don't farm out creation of precompiled headers as it is the critical path task.
