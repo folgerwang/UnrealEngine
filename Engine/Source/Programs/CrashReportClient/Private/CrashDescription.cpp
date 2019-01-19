@@ -138,7 +138,7 @@ void FPrimaryCrashProperties::Shutdown()
 
 void FPrimaryCrashProperties::UpdateIDs()
 {
-	const bool bAddPersonalData = FCrashReportClientConfig::Get().GetAllowToBeContacted() || FEngineBuildSettings::IsInternalBuild();
+	const bool bAddPersonalData = FCrashReportClientConfig::Get().GetAllowToBeContacted();
 	bAllowToBeContacted = bAddPersonalData;
 	if (bAddPersonalData)
 	{
