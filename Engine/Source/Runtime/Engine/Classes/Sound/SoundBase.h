@@ -221,5 +221,8 @@ public:
 	/** Returns whether the sound has cooked analysis data (e.g. FFT or envelope following data) and returns sound waves which have cooked data. */
 	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves);
 
+	/** Queries if the sound has cooked FFT or envelope data. */
+	virtual bool HasCookedFFTData() const { return false; }
+	virtual bool HasCookedAmplitudeEnvelopeData() const { return false; }
 };
 
