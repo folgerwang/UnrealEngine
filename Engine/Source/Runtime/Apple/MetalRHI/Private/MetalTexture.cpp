@@ -527,8 +527,6 @@ void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange, EPixelFormat F
 	}
 	
 	ns::Range Slices(0, Source.Texture.GetArrayLength() * (bIsCubemap ? 6 : 1));
-	// @todo Zebra Temporary workaround for absence of X24_G8 or equivalent to GL_STENCIL_INDEX so that the stencil part of a texture may be sampled
-	// For now, if we find ourselves *requiring* this we lazily blit the stencil data out to a separate texture. radr://21813831
 	if(Source.PixelFormat != PF_DepthStencil && !bUseSourceTex)
 	{
 		Texture = Source.Texture.NewTextureView(MetalFormat, Source.Texture.GetTextureType(), ns::Range(MipRange.location, MipRange.length), Slices);
@@ -1398,7 +1396,7 @@ void FMetalSurface::UpdateSurface(FMetalBuffer& Buffer, uint32 MipIndex, uint32 
 	else
 	{
 #if !PLATFORM_MAC
-		if (Texture.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Texture.GetPixelFormat() <= mtlpp::PixelFormat::ETC2_RGB8A1_sRGB) // @todo zebra
+		if (Texture.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Texture.GetPixelFormat() <= mtlpp::PixelFormat::ETC2_RGB8A1_sRGB) // @todo Calculate correct strides and byte-counts
 		{
 			Stride = 0;
 			BytesPerImage = 0;

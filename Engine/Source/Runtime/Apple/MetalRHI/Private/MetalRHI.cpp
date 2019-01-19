@@ -94,8 +94,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	check( IsInGameThread() );
 	check( !GIsThreadedRendering );
 	
-	// @todo Zebra This is now supported on all GPUs in Mac Metal, but not on iOS.
-	// we cannot render to a volume texture without geometry shader support
+	// we cannot render to a volume texture without geometry shader or vertex-shader-layer support, so initialise to false and enable based on platform feature availability
 	GSupportsVolumeTextureRendering = false;
 	
 	// Metal always needs a render target to render with fragment shaders!
@@ -428,7 +427,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	if (FPlatformMisc::IsDebuggerPresent() && UE_BUILD_DEBUG)
 	{
 #if PLATFORM_IOS // @todo zebra : needs a RENDER_API or whatever
-		// Enable GL debug markers if we're running in Xcode
+		// Enable debug markers if we're running in Xcode
 		extern int32 GEmitMeshDrawEvent;
 		GEmitMeshDrawEvent = 1;
 #endif
@@ -682,7 +681,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		
 	GPixelFormats[PF_BC5				].PlatformFormat	= (uint32)mtlpp::PixelFormat::Invalid;
 	GPixelFormats[PF_R5G6B5_UNORM		].PlatformFormat	= (uint32)mtlpp::PixelFormat::B5G6R5Unorm;
-#else // @todo zebra : srgb?
+#else
     GPixelFormats[PF_DXT1				].PlatformFormat	= (uint32)mtlpp::PixelFormat::BC1_RGBA;
     GPixelFormats[PF_DXT3				].PlatformFormat	= (uint32)mtlpp::PixelFormat::BC2_RGBA;
     GPixelFormats[PF_DXT5				].PlatformFormat	= (uint32)mtlpp::PixelFormat::BC3_RGBA;
@@ -983,7 +982,6 @@ void FMetalRHICommandContext::RHIBeginFrame()
 void FMetalRHIImmediateCommandContext::RHIEndFrame()
 {
 	@autoreleasepool {
-	// @todo zebra: GPUProfilingData.EndFrame();
 #if ENABLE_METAL_GPUPROFILE
 	Profiler->EndFrame();
 #endif
@@ -1023,7 +1021,6 @@ void FMetalRHICommandContext::RHIEndScene()
 void FMetalRHICommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 #if ENABLE_METAL_GPUEVENTS
-	// @todo zebra : this was "[NSString stringWithTCHARString:Name]", an extension only on ios for some reason, it should be on Mac also
 	@autoreleasepool
 	{
 		FPlatformMisc::BeginNamedEvent(Color, Name);

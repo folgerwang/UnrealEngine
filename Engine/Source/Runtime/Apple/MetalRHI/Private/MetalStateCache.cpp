@@ -337,7 +337,7 @@ void FMetalStateCache::SetScissorRect(bool const bEnable, mtlpp::ScissorRect con
 
 void FMetalStateCache::SetBlendFactor(FLinearColor const& InBlendFactor)
 {
-	if(BlendFactor != InBlendFactor) // @todo zebra
+	if(BlendFactor != InBlendFactor)
 	{
 		BlendFactor = InBlendFactor;
 		RasterBits |= EMetalRenderFlagBlendColor;
@@ -346,7 +346,7 @@ void FMetalStateCache::SetBlendFactor(FLinearColor const& InBlendFactor)
 
 void FMetalStateCache::SetStencilRef(uint32 const InStencilRef)
 {
-	if(StencilRef != InStencilRef) // @todo zebra
+	if(StencilRef != InStencilRef)
 	{
 		StencilRef = InStencilRef;
 		RasterBits |= EMetalRenderFlagStencilReferenceValue;
@@ -355,7 +355,7 @@ void FMetalStateCache::SetStencilRef(uint32 const InStencilRef)
 
 void FMetalStateCache::SetDepthStencilState(FMetalDepthStencilState* InDepthStencilState)
 {
-	if(DepthStencilState != InDepthStencilState) // @todo zebra
+	if(DepthStencilState != InDepthStencilState)
 	{
 		DepthStencilState = InDepthStencilState;
 		RasterBits |= EMetalRenderFlagDepthStencilState;
@@ -364,7 +364,7 @@ void FMetalStateCache::SetDepthStencilState(FMetalDepthStencilState* InDepthSten
 
 void FMetalStateCache::SetRasterizerState(FMetalRasterizerState* InRasterizerState)
 {
-	if(RasterizerState != InRasterizerState) // @todo zebra
+	if(RasterizerState != InRasterizerState)
 	{
 		RasterizerState = InRasterizerState;
 		RasterBits |= EMetalRenderFlagFrontFacingWinding|EMetalRenderFlagCullMode|EMetalRenderFlagDepthBias|EMetalRenderFlagTriangleFillMode;
@@ -373,7 +373,7 @@ void FMetalStateCache::SetRasterizerState(FMetalRasterizerState* InRasterizerSta
 
 void FMetalStateCache::SetComputeShader(FMetalComputeShader* InComputeShader)
 {
-	if(ComputeShader != InComputeShader) // @todo zebra
+	if(ComputeShader != InComputeShader)
 	{
 		ComputeShader = InComputeShader;
 		
