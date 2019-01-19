@@ -11,17 +11,16 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 
-/* FRHIGPUMemoryReadback: represents a memory readback request scheduled with RHIScheduleGPUMemoryUpdate
-*
+/* FRHIGPUMemoryReadback: Represents a memory readback request scheduled with CopyToStagingBuffer
+** Wraps a FRHIStagingBuffer with a FRHIGPUFence for synchronization.
 */
 class FRHIGPUMemoryReadback
 {
 public:
 
-	FRHIGPUMemoryReadback(FVertexBufferRHIRef InBuffer, FName RequestName)
+	FRHIGPUMemoryReadback(FName RequestName)
 	{
-		GPUVertexBuffer = InBuffer;
-		StagingBuffer = RHICreateStagingBuffer(InBuffer);
+		DestinationStagingBuffer = RHICreateStagingBuffer();
 		Fence = RHICreateGPUFence(RequestName);
 	}
 
@@ -29,33 +28,47 @@ public:
 	{
 	}
 
-	void Insert(FRHICommandList& RHICmdList, uint32 NumBytes = 0)
+	/**
+	 * Returns the CPU accessible pointer that backs this staging buffer.
+	 * @param RHICmdList The command list to enqueue the copy request on.
+	 * @param SourceBuffer The buffer holding the source data.
+	 * @param NumBytes The number of bytes to copy. If 0, this will copy the entire buffer.
+	 */
+
+	void EnqueueCopy(FRHICommandList& RHICmdList, FVertexBufferRHIParamRef SourceBuffer, uint32 NumBytes = 0)
 	{
-		RHICmdList.EnqueueStagedRead(StagingBuffer, Fence, 0, NumBytes ? NumBytes : GPUVertexBuffer->GetSize());
+		Fence->Clear();
+		RHICmdList.CopyToStagingBuffer(SourceBuffer, DestinationStagingBuffer, 0, NumBytes ? NumBytes : SourceBuffer->GetSize(), Fence);
 	}
 
+	/**
+	 * Indicates if the data is in place and ready to be read.
+	 */
 	bool IsReady()
 	{
 		return !Fence || Fence->Poll();
 	}
 
-	void *RetrieveData(uint32 NumBytes)
+	/**
+	 * Returns the CPU accessible pointer that backs this staging buffer.
+	 * @param NumBytes The maximum number of bytes the host will read from this pointer.
+	 * @returns A CPU accessible pointer to the backing buffer.
+	 */
+	void* Lock(uint32 NumBytes)
 	{
 		ensure(Fence->Poll());
-		return RHILockStagingBuffer(StagingBuffer, 0, NumBytes);
+		return RHILockStagingBuffer(DestinationStagingBuffer, 0, NumBytes);
 	}
 
-	void Finish()
+	/**
+	 * Signals that the host is finished reading from the backing buffer.
+	 */
+	void Unlock()
 	{
-		RHIUnlockStagingBuffer(StagingBuffer);
+		RHIUnlockStagingBuffer(DestinationStagingBuffer);
 	}
 
 private:
-	FStagingBufferRHIRef StagingBuffer;
-	FVertexBufferRHIRef  GPUVertexBuffer;
+	FStagingBufferRHIRef DestinationStagingBuffer;
 	FGPUFenceRHIRef Fence;
 };
-
-
-
-

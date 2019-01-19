@@ -880,24 +880,36 @@ private:
 
 class FD3D12StagingBuffer : public FRHIStagingBuffer
 {
+	friend class FD3D12CommandContext;
+	friend class FD3D12DynamicRHI;
+
 public:
-	FD3D12StagingBuffer(FVertexBufferRHIRef InBuffer)
-		: FRHIStagingBuffer(InBuffer)
+	FD3D12StagingBuffer()
+		: FRHIStagingBuffer()
+		, ShadowBufferSize(0)
 	{}
 
+	virtual ~FD3D12StagingBuffer() final override;
+
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+	virtual void Unlock() final override;
+
+private:
 	TRefCountPtr<FD3D12Resource> StagedRead;
+	uint32 ShadowBufferSize;
 };
 
 class FD3D12GPUFence : public FRHIGPUFence
 {
 public:
-	FD3D12GPUFence(FName InName, FD3D12Fence* InFence) 
+	FD3D12GPUFence(FName InName, FD3D12Fence* InFence)
 		: FRHIGPUFence(InName)
 		, Fence(InFence)
 		, Value(0)
 	{}
 
 	void WriteInternal(ED3D12CommandQueueType QueueType);
+	virtual void Clear() final override;
 	virtual bool Poll() const final override;
 
 protected:

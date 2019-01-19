@@ -261,3 +261,40 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_Render
 	}
 	return RHICreateUnorderedAccessView(VertexBufferRHI, Format);
 }
+
+FD3D12StagingBuffer::~FD3D12StagingBuffer()
+{
+	if (StagedRead)
+	{
+		StagedRead.SafeRelease();
+	}
+}
+
+void* FD3D12StagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
+{
+	check(!bIsLocked);
+	bIsLocked = true;
+	FD3D12Resource* pResource = StagedRead.GetReference();
+	if (pResource)
+	{
+		D3D12_RANGE ReadRange;
+		ReadRange.Begin = Offset;
+		ReadRange.End = Offset + NumBytes;
+		return reinterpret_cast<uint8*>(pResource->Map(&ReadRange)) + Offset;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FD3D12StagingBuffer::Unlock()
+{
+	check(bIsLocked);
+	bIsLocked = false;
+	FD3D12Resource* pResource = StagedRead.GetReference();
+	if (pResource)
+	{
+		pResource->Unmap();
+	}
+}

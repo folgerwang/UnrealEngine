@@ -1199,28 +1199,38 @@ void FVulkanCommandListContext::PrepareParallelFromBase(const FVulkanCommandList
 	TransitionAndLayoutManager.TempCopy(BaseContext.TransitionAndLayoutManager);
 }
 
-void FVulkanCommandListContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+void FVulkanCommandListContext::RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef FenceRHI)
 {
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 
+	FVulkanVertexBuffer* VertexBuffer = ResourceCast(SourceBufferRHI);
 	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
 	Fence->CmdBuffer = CmdBuffer;
 	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
 
 	ensure(CmdBuffer->IsOutsideRenderPass());
-	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
+	if (!StagingBuffer->StagingBuffer || StagingBuffer->StagingBuffer->GetSize() < NumBytes)
+	{
+		if (StagingBuffer->StagingBuffer)
+		{
+			Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer->StagingBuffer);
+		}
+
+		VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
+		StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
+		StagingBuffer->Device = Device;
+	}
+
 	StagingBuffer->QueuedOffset = Offset;
 	StagingBuffer->QueuedNumBytes = NumBytes;
 
 	VkBufferCopy Region;
 	FMemory::Memzero(Region);
 	Region.size = NumBytes;
-	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
 	Region.srcOffset = Offset + VertexBuffer->GetOffset();
 	//Region.dstOffset = 0;
-	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
+	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), StagingBuffer->StagingBuffer->GetHandle(), 1, &Region);
 }
 
 
