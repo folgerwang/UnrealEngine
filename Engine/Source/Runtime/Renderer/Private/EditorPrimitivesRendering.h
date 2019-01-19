@@ -3,6 +3,9 @@
 /*=============================================================================
 	EditorPrimitivesRendering
 =============================================================================*/
+
+#pragma once
+
 #include "MeshPassProcessor.h"
 
 class FEditorPrimitivesBasePassMeshProcessor : public FMeshPassProcessor
