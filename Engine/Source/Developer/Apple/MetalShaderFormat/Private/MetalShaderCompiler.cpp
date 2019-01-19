@@ -1319,7 +1319,6 @@ void BuildMetalShaderOutput(
 	Header.TessellationControlPointOutBuffer    = CCHeader.TessellationControlPointOutBuffer;
 	Header.TessellationControlPointIndexBuffer  = CCHeader.TessellationControlPointIndexBuffer;
 	Header.TessellationOutputAttribs            = TessOutputAttribs;
-	Header.bTessFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "indexBufferType [[ function_constant(32) ]]") != nullptr);
 	Header.bDeviceFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "#define __METAL_DEVICE_CONSTANT_INDEX__ 1") != nullptr);
 	Header.SideTable 							= CCHeader.SideTable;
 	Header.Bindings.ArgumentBufferMasks			= CCHeader.ArgumentBuffers;

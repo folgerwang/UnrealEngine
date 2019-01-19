@@ -221,7 +221,6 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 	// If this triggers than a level above us has failed to provide valid shader data and the cook is probably bogus
 	UE_CLOG(Header.SourceLen == 0 || Header.SourceCRC == 0, LogMetal, Fatal, TEXT("Invalid Shader Bytecode provided."));
 	
-    bTessFunctionConstants = Header.bTessFunctionConstants;
     bDeviceFunctionConstants = Header.bDeviceFunctionConstants;
 
 	// remember where the header ended and code (precompiled or source) begins
@@ -267,29 +266,26 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		[GlslCodeNSString retain];
 	}
 	
-	bHasFunctionConstants = (Header.bTessFunctionConstants || Header.bDeviceFunctionConstants || Header.Bindings.TypedBuffers);
+	bHasFunctionConstants = (Header.bDeviceFunctionConstants);
 
 	ConstantValueHash = 0;
 	
 	Library = InLibrary;
 	
 	bool bNeedsCompiling = false;
-	uint32 const Count = Header.bTessFunctionConstants ? EMetalIndexType_Num : 1;
-	for (uint32 i = 0; i < Count; i++)
+
+	// Find the existing compiled shader in the cache.
+	uint32 FunctionConstantHash = ConstantValueHash;
+	FMetalCompiledShaderKey Key(Header.SourceLen, Header.SourceCRC, FunctionConstantHash);
+	
+	Function = GetMetalCompiledShaderCache().FindRef(Key);
+	if (!Library && Function)
 	{
-		// Find the existing compiled shader in the cache.
-		uint32 FunctionConstantHash = i ^ ConstantValueHash;
-		FMetalCompiledShaderKey Key(Header.SourceLen, Header.SourceCRC, FunctionConstantHash);
-		
-		Function[i] = GetMetalCompiledShaderCache().FindRef(Key);
-		if (!Library && Function[i])
-		{
-			Library = GetMetalCompiledShaderCache().FindLibrary(Function[i]);
-		}
-		else
-		{
-			bNeedsCompiling = true;
-		}
+		Library = GetMetalCompiledShaderCache().FindLibrary(Function);
+	}
+	else
+	{
+		bNeedsCompiling = true;
 	}
 	
     Bindings = Header.Bindings;
@@ -453,11 +449,8 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		UE_CLOG(bHasFunctionConstants && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFunctionConstants), LogMetal, Error, TEXT("Metal shader has function constants but current OS/device does not support them."));
 		UE_CLOG(bHasFunctionConstants && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFunctionConstants), LogMetal, Fatal, TEXT("%s"), *FString(GetSourceCode()));
 		
-        for (uint32 i = 0; i < Count; i++)
-        {
-            GetCompiledFunction((EMetalIndexType)i, true);
-        }
-	}
+        GetCompiledFunction(true);
+    }
 	UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
 	SideTableBinding = Header.SideTable;
 }
@@ -470,16 +463,16 @@ TMetalBaseShader<BaseResourceType, ShaderType>::~TMetalBaseShader()
 }
 
 template<typename BaseResourceType, int32 ShaderType>
-mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction(EMetalIndexType IndexType, bool const bAsync)
+mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunction( bool const bAsync)
 {
-	mtlpp::Function Func = Function[IndexType];
+	mtlpp::Function Func = Function;
     
 	if (!Func)
 	{
 		// Find the existing compiled shader in the cache.
-		uint32 FunctionConstantHash = IndexType ^ ConstantValueHash;
+		uint32 FunctionConstantHash = ConstantValueHash;
 		FMetalCompiledShaderKey Key(SourceLen, SourceCRC, FunctionConstantHash);
-		Func = Function[IndexType] = GetMetalCompiledShaderCache().FindRef(Key);
+		Func = Function = GetMetalCompiledShaderCache().FindRef(Key);
 		
 		if (!Func)
 		{
@@ -491,11 +484,6 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             {
                 ConstantValues = mtlpp::FunctionConstantValues();
 				
-                if(bTessFunctionConstants)
-                {
-                    // Index 32 is the tessellation index-buffer presence constant
-					ConstantValues.SetConstantValues(&IndexType, mtlpp::DataType::UInt, ns::Range(32, 1));
-                }
                 if (bDeviceFunctionConstants)
                 {
                     // Index 33 is the device vendor id constant
@@ -508,21 +496,21 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
 				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunction: %s"), *FString(Name))));
                 if (!bHasFunctionConstants)
                 {
-                    Function[IndexType] = Library.NewFunction(Name);
+                    Function = Library.NewFunction(Name);
                 }
                 else
                 {
 					ns::AutoReleasedError AError;
-					Function[IndexType] = Library.NewFunction(Name, ConstantValues, &AError);
+					Function = Library.NewFunction(Name, ConstantValues, &AError);
 					ns::Error Error = AError;
-					UE_CLOG(Function[IndexType] == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
-                    UE_CLOG(Function[IndexType] == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
+					UE_CLOG(Function == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
+                    UE_CLOG(Function == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
                 }
                 
-                check(Function[IndexType]);
-                GetMetalCompiledShaderCache().Add(Key, Library, Function[IndexType]);
+                check(Function);
+                GetMetalCompiledShaderCache().Add(Key, Library, Function);
                 
-                Func = Function[IndexType];
+                Func = Function;
             }
             else
             {
@@ -580,7 +568,7 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline()
 {
 	if (!Pipeline)
 	{
-		mtlpp::Function Func = GetCompiledFunction(EMetalIndexType_None);
+		mtlpp::Function Func = GetCompiledFunction();
 		check(Func);
         
 		ns::Error Error;
@@ -699,9 +687,9 @@ FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Libra
 	TessellationPatchesPerThreadGroup = Header.TessellationPatchesPerThreadGroup;
 }
 
-mtlpp::Function FMetalVertexShader::GetFunction(EMetalIndexType IndexType)
+mtlpp::Function FMetalVertexShader::GetFunction()
 {
-	return GetCompiledFunction(IndexType);
+	return GetCompiledFunction();
 }
 
 FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode)
@@ -716,9 +704,9 @@ FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library
 	Init(InCode, Header, InLibrary);
 }
 
-mtlpp::Function FMetalPixelShader::GetFunction(EMetalIndexType IndexType)
+mtlpp::Function FMetalPixelShader::GetFunction()
 {
-	return GetCompiledFunction(IndexType);
+	return GetCompiledFunction();
 }
 
 FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode)
@@ -733,9 +721,9 @@ FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library I
 	Init(InCode, Header, InLibrary);
 }
 
-mtlpp::Function FMetalHullShader::GetFunction(EMetalIndexType IndexType)
+mtlpp::Function FMetalHullShader::GetFunction()
 {
-	return GetCompiledFunction(IndexType);
+	return GetCompiledFunction();
 }
 
 FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode)
@@ -792,9 +780,9 @@ FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Libra
 	}
 }
 
-mtlpp::Function FMetalDomainShader::GetFunction(EMetalIndexType IndexType)
+mtlpp::Function FMetalDomainShader::GetFunction()
 {
-	return GetCompiledFunction(IndexType);
+	return GetCompiledFunction();
 }
 
 FVertexShaderRHIRef FMetalDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
@@ -1026,7 +1014,7 @@ FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
 	if (Code)
 	{
 		FMetalPixelShader* Shader = new FMetalPixelShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None))
+		if (Shader->GetFunction())
 		{
 			return Shader;
 		}
@@ -1046,7 +1034,7 @@ FVertexShaderRHIRef FMetalShaderLibrary::CreateVertexShader(const FSHAHash& Hash
 	if (Code)
 	{
 		FMetalVertexShader* Shader = new FMetalVertexShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None))
+		if (Shader->GetFunction())
 		{
 			return Shader;
 		}
@@ -1065,7 +1053,7 @@ FHullShaderRHIRef FMetalShaderLibrary::CreateHullShader(const FSHAHash& Hash)
 	if (Code)
 	{
 		FMetalHullShader* Shader = new FMetalHullShader(Code->Data, Library[Code->Index]);
-		if(Shader->GetFunction(EMetalIndexType_None))
+		if(Shader->GetFunction())
 		{
 			return Shader;
 		}
@@ -1084,7 +1072,7 @@ FDomainShaderRHIRef FMetalShaderLibrary::CreateDomainShader(const FSHAHash& Hash
 	if (Code)
 	{
 		FMetalDomainShader* Shader = new FMetalDomainShader(Code->Data, Library[Code->Index]);
-		if (Shader->GetFunction(EMetalIndexType_None))
+		if (Shader->GetFunction())
 		{
 			return Shader;
 		}

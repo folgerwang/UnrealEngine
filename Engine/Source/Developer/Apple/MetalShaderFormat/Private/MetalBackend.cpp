@@ -1474,9 +1474,9 @@ protected:
             int32 patchIndex = Buffers.GetIndex(patchCount);
             check(patchIndex >= 0 && patchIndex < 30);
             
-            ir_variable* indexBuffer = new(ParseState)ir_variable(glsl_type::void_type, "indexBuffer", ir_var_in);
+            ir_variable* indexBuffer = new(ParseState)ir_variable(glsl_type::uint_type, "indexBuffer", ir_var_in);
             indexBuffer->semantic = "";
-            Buffers.Buffers.Add(indexBuffer);
+            Buffers.Textures.Add(indexBuffer);
             
             int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
             check(IndexBufferIndex >= 0 && IndexBufferIndex < 30);
@@ -1487,7 +1487,8 @@ protected:
 				"ushort2 thread_position_in_threadgroup [[thread_position_in_threadgroup]],\n"
 				"uint2 threadgroup_position_in_grid [[threadgroup_position_in_grid]],\n"
 				"constant uint *patchCount [[ buffer(%d) ]],\n"
-				"const device void *indexBuffer [[ buffer(%d) ]]", // indexBufferType == 0 means not indexed (and will strip) 1 means uint16_t* and 2 means uint32_t*
+				"#define METAL_INDEX_BUFFER_ID %d\n"
+				"typedBuffer1_read(uint, indexBuffer, METAL_INDEX_BUFFER_ID)",
                 patchIndex, IndexBufferIndex
 			);
 			bPrintComma = true;
@@ -1624,19 +1625,12 @@ protected:
 						ralloc_asprintf_append(buffer, "#define GET_INTERNAL_PATCH_ID() (GET_INSTANCE_ID() * GET_PATCH_COUNT() + GET_PATCH_ID())\n");
 						ralloc_asprintf_append(buffer, "#define GET_PATCH_ID_IN_THREADGROUP() (GET_PATCH_ID() %% TessellationPatchesPerThreadGroup)\n");
 						ralloc_asprintf_append(buffer, "#define GET_INPUT_CP_ID() (thread_position_in_grid.x %% TessellationInputControlPoints)\n");
-						/* NOTE: relies upon
-						enum EMetalIndexType
-						{
-							EMetalIndexType_None   = 0,
-							EMetalIndexType_UInt16 = 1,
-							EMetalIndexType_UInt32 = 2
-						};*/
-						ralloc_asprintf_append(buffer, "constant uint indexBufferType [[ function_constant(32) ]];\n");
+
+						ir_variable* indexBuffer = ParseState->symbols->get_variable("indexBuffer");
+						int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
 						ralloc_asprintf_append(buffer, "#define GET_VERTEX_ID() \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 0) ? thread_position_in_grid.x : \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 1) ? ((const device ushort *)indexBuffer)[thread_position_in_grid.x] : \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 2) ? ((const device uint   *)indexBuffer)[thread_position_in_grid.x] : \\\n");
-						ralloc_asprintf_append(buffer, "	thread_position_in_grid.x\n");
+						ralloc_asprintf_append(buffer, "	(is_null_texture(indexBuffer)) ? thread_position_in_grid.x : \\\n");
+						ralloc_asprintf_append(buffer, "	buffer::load<uint, METAL_INDEX_BUFFER_ID>(indexBuffer, thread_position_in_grid.x + patchCount[1])\n");
 						ralloc_asprintf_append(buffer, "/* optionally vertex_id = GET_VERTEX_ID() + grid_origin.x */\n");
 					}
 

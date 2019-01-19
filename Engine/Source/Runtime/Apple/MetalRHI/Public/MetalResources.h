@@ -92,7 +92,7 @@ public:
 	, GlslCodeNSString(nil)
 	, CodeSize(0)
 	{
-		Function[EMetalIndexType_None] = Function[EMetalIndexType_UInt16] = Function[EMetalIndexType_UInt32] = nil;
+		Function = nil;
 	}
 	
 	void Init(const TArray<uint8>& InCode, FMetalCodeHeader& Header, mtlpp::Library InLibrary = nil);
@@ -145,10 +145,10 @@ public:
 	uint32 ConstantValueHash;
     
 protected:
-	mtlpp::Function GetCompiledFunction(EMetalIndexType IndexType, bool const bAsync = false);
+	mtlpp::Function GetCompiledFunction(bool const bAsync = false);
 
     // this is the compiler shader
-	mtlpp::Function Function[EMetalIndexType_Num];
+	mtlpp::Function Function;
     
 private:
 	// This is the MTLLibrary for the shader so we can dynamically refine the MTLFunction
@@ -165,7 +165,6 @@ private:
     
     // Function constant states
     bool bHasFunctionConstants;
-    bool bTessFunctionConstants;
     bool bDeviceFunctionConstants;
 };
 
@@ -175,7 +174,7 @@ public:
 	FMetalVertexShader(const TArray<uint8>& InCode);
 	FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	mtlpp::Function GetFunction(EMetalIndexType IndexType);
+	mtlpp::Function GetFunction();
 	
 	// for VSHS
 	FMetalTessellationOutputs TessellationOutputAttribs;
@@ -198,7 +197,7 @@ public:
 	FMetalPixelShader(const TArray<uint8>& InCode);
 	FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	mtlpp::Function GetFunction(EMetalIndexType IndexType);
+	mtlpp::Function GetFunction();
 };
 
 class FMetalHullShader : public TMetalBaseShader<FRHIHullShader, SF_Hull>
@@ -207,7 +206,7 @@ public:
 	FMetalHullShader(const TArray<uint8>& InCode);
 	FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	mtlpp::Function GetFunction(EMetalIndexType IndexType);
+	mtlpp::Function GetFunction();
 };
 
 class FMetalDomainShader : public TMetalBaseShader<FRHIDomainShader, SF_Domain>
@@ -216,7 +215,7 @@ public:
 	FMetalDomainShader(const TArray<uint8>& InCode);
 	FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	mtlpp::Function GetFunction(EMetalIndexType IndexType);
+	mtlpp::Function GetFunction();
 	
 	mtlpp::Winding TessellationOutputWinding;
 	mtlpp::TessellationPartitionMode TessellationPartitioning;

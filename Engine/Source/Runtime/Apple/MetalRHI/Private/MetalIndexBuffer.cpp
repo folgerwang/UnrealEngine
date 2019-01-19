@@ -12,12 +12,28 @@
 #include "RenderUtils.h"
 #include "HAL/LowLevelMemTracker.h"
 
+static uint32 MetalIndexBufferUsage(uint32 InUsage)
+{
+	uint32 Usage = InUsage;
+	if (RHISupportsTessellation(GMaxRHIShaderPlatform))
+	{
+		Usage |= BUF_ShaderResource;
+	}
+	Usage |= EMetalBufferUsage_GPUOnly|EMetalBufferUsage_LinearTex;
+	return Usage;
+}
+
 /** Constructor */
 FMetalIndexBuffer::FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage)
 	: FRHIIndexBuffer(InStride, InSize, InUsage)
-	, FMetalRHIBuffer(InSize, InUsage|EMetalBufferUsage_GPUOnly|EMetalBufferUsage_LinearTex, RRT_IndexBuffer)
+	, FMetalRHIBuffer(InSize, MetalIndexBufferUsage(InUsage), RRT_IndexBuffer)
 	, IndexType((InStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32)
 {
+	if (RHISupportsTessellation(GMaxRHIShaderPlatform))
+	{
+		EPixelFormat Format = IndexType == mtlpp::IndexType::UInt16 ? PF_R16_UINT : PF_R32_UINT;
+		CreateLinearTexture(Format, this);
+	}
 }
 
 FMetalIndexBuffer::~FMetalIndexBuffer()

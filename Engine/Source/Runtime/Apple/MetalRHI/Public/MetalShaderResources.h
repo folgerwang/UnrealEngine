@@ -292,7 +292,6 @@ struct FMetalCodeHeader
 	EMetalOutputWindingMode TessellationOutputWinding;
 	EMetalPartitionMode TessellationPartitioning;
 	
-	bool bTessFunctionConstants;
 	bool bDeviceFunctionConstants;
 	
 	FMetalCodeHeader()
@@ -320,7 +319,6 @@ struct FMetalCodeHeader
 	, SideTable(-1)
 	, TessellationOutputWinding(EMetalOutputWindingMode::Clockwise)
 	, TessellationPartitioning(EMetalPartitionMode::Pow2)
-	, bTessFunctionConstants(false)
 	, bDeviceFunctionConstants(false)
 	{
 		
@@ -386,7 +384,6 @@ inline FArchive& operator<<(FArchive& Ar, FMetalCodeHeader& Header)
 	
 	Ar << Header.TessellationOutputWinding;
 	Ar << Header.TessellationPartitioning;
-	Ar << Header.bTessFunctionConstants;
 	Ar << Header.bDeviceFunctionConstants;
 
     return Ar;

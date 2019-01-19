@@ -342,9 +342,9 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
     FMetalDomainShader* DomainShader = (FMetalDomainShader*)Init.BoundShaderState.DomainShaderRHI;
     FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
     
-    mtlpp::Function vertexFunction = VertexShader->GetFunction(IndexType);
-    mtlpp::Function fragmentFunction = PixelShader ? PixelShader->GetFunction(EMetalIndexType_None) : nil;
-    mtlpp::Function domainFunction = DomainShader ? DomainShader->GetFunction(EMetalIndexType_None) : nil;
+    mtlpp::Function vertexFunction = VertexShader->GetFunction();
+    mtlpp::Function fragmentFunction = PixelShader ? PixelShader->GetFunction() : nil;
+    mtlpp::Function domainFunction = DomainShader ? DomainShader->GetFunction() : nil;
     
     FMetalShaderPipeline* Pipeline = nil;
     if (vertexFunction && ((PixelShader != nullptr) == (fragmentFunction != nil)) && ((DomainShader != nullptr) == (domainFunction != nil)))
