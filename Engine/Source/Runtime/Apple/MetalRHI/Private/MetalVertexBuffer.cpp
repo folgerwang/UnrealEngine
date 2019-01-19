@@ -769,16 +769,16 @@ void FMetalDynamicRHI::UnlockStagingBuffer_RenderThread(class FRHICommandListImm
 	return RHIUnlockStagingBuffer(StagingBuffer);
 }
 
-FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
+FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer()
 {
-	return new FMetalStagingBuffer(VertexBuffer);
+	return new FMetalStagingBuffer();
 }
 
 FMetalStagingBuffer::~FMetalStagingBuffer()
 {
-	if(ReadbackStagingBuffer)
+	if (ShadowBuffer)
 	{
-		SafeReleaseMetalBuffer(ReadbackStagingBuffer);
+		SafeReleaseMetalBuffer(ShadowBuffer);
 	}
 }
 
@@ -786,13 +786,16 @@ FMetalStagingBuffer::~FMetalStagingBuffer()
 // If this was not fenced correctly it will not have the expected data.
 void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
-	check(ReadbackStagingBuffer);
-	
-	uint8* BackingPtr = (uint8*) ReadbackStagingBuffer.GetContents();
-	return BackingPtr+Offset;
+	check(ShadowBuffer);
+	check(!bIsLocked);
+	bIsLocked = true;
+	uint8* BackingPtr = (uint8*)ShadowBuffer.GetContents();
+	return BackingPtr + Offset;
 }
 
 void FMetalStagingBuffer::Unlock()
 {
 	// does nothing in metal.
+	check(bIsLocked);
+	bIsLocked = false;
 }

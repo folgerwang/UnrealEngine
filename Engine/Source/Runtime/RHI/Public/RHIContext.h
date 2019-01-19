@@ -127,19 +127,17 @@ public:
 	 */
 	virtual void RHIInvalidateCachedState() {};
 
-    /**
-     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
-     * @param StagingBuffer The buffer to stage. Must not be null.
-     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
-     * @param Offset The start of the data in 'StagingBuffer' to make available.
-     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
-     */
-	virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 InOffset, uint32 InNumBytes)
+	/**
+	 * Performs a copy of the data in 'SourceBuffer' to 'DestinationStagingBuffer.' This will occur inline on the GPU timeline. This is a mechanism to perform nonblocking readback of a buffer at a point in time.
+	 * @param SourceBuffer The source vertex buffer that will be inlined copied.
+	 * @param DestinationStagingBuffer The the host-visible destination buffer
+	 * @param Offset The start of the data in 'SourceBuffer'
+	 * @param NumBytes The number of bytes to copy out of 'SourceBuffer'
+	 * @param Fence (optional) A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the Copy was completed. Can be NULL, though that implies you will not have any guarantees as to when it is safe to read from 'DestinationStagingBuffer'
+	 */
+	virtual void RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef DestinationStagingBufferRHI, uint32 InOffset, uint32 InNumBytes, FGPUFenceRHIParamRef FenceRHI = nullptr)
 	{
-		if (Fence)
-		{
-			Fence->Write();
-		}
+		check(false);
 	}
 };
 
