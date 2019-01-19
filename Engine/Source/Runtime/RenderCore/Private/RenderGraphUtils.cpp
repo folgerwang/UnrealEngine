@@ -1,9 +1,13 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderGraphUtils.h"
+#include <initializer_list>
 
-
-void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBindings, const FShaderParametersMetadata* ParametersMetadata, void* InoutParameters)
+void ClearUnusedGraphResourcesImpl(
+	const FShaderParameterBindings& ShaderBindings,
+	const FShaderParametersMetadata* ParametersMetadata,
+	void* InoutParameters,
+	std::initializer_list< FRDGResourceRef > ExcludeList)
 {
 	int32 GraphTextureId = 0;
 	int32 GraphSRVId = 0;
@@ -43,6 +47,15 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 		else
 		{
 			continue;
+		}
+
+		for( FRDGResourceRef ExcludeResource : ExcludeList )
+		{
+			auto Resource = *reinterpret_cast<const FRDGResource* const*>(Base + ByteOffset);
+			if( Resource == ExcludeResource )
+			{
+				continue;
+			}
 		}
 
 		void** ResourcePointerAddress = reinterpret_cast<void**>(Base + ByteOffset);

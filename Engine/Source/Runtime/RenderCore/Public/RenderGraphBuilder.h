@@ -326,6 +326,11 @@ public:
 		return UAV;
 	}
 
+	inline FRDGBufferUAVRef CreateUAV(FRDGBufferRef Buffer, EPixelFormat Format)
+	{
+		return CreateUAV( FRDGBufferUAVDesc(Buffer, Format) );
+	}
+
 	/** Allocates parameter struct specifically to survive through the life time of the render graph. */
 	template< typename ParameterStructType >
 	inline ParameterStructType* AllocParameters() const

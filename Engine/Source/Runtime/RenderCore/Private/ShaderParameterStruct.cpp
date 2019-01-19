@@ -53,10 +53,6 @@ struct FShaderParameterStructBindingContext
 				RenderTargetBindingSlotCppName = CppName;
 				continue;
 			}
-			else if (BaseType == UBMT_RDG_BUFFER)
-			{
-				continue;
-			}
 
 			// Compute the shader member name to look for according to nesting.
 			FString ShaderBindingName = FString::Printf(TEXT("%s%s"), MemberPrefix, Member.GetName());
@@ -77,6 +73,14 @@ struct FShaderParameterStructBindingContext
 			{
 				// The member name of a globally referenced struct is the not name on the struct.
 				ShaderBindingName = Member.GetStructMetadata()->GetShaderVariableName();
+			}
+			else if (BaseType == UBMT_RDG_BUFFER)
+			{
+				if( ParametersMap->ContainsParameterAllocation(*ShaderBindingName) )
+				{
+					UE_LOG(LogShaders, Fatal, TEXT("%s can't bind shader parameter %s as buffer. Use buffer SRV for reading in shader."), *CppName, *ShaderBindingName);
+				}
+				continue;
 			}
 			else if (bUseRootShaderParameters && (BaseType == UBMT_INT32 || BaseType == UBMT_UINT32 || BaseType == UBMT_FLOAT32))
 			{

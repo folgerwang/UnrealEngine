@@ -21,6 +21,8 @@ class FRDGBuffer;
 class FRDGBufferSRV;
 class FRDGBufferUAV;
 
+class FRDGEventName;
+
 struct FPooledRDGBuffer;
 struct FRayTracingShaderBindingsWriter;
 
@@ -100,6 +102,10 @@ private:
 	template<typename TShaderClass>
 	friend void SetShaderParameters(FRayTracingShaderBindingsWriter& RTBindingsWriter, const TShaderClass* Shader, const typename TShaderClass::FParameters& Parameters);
 #endif
+
+	template< typename T >
+	friend void AddPass_ClearUAV(FRDGBuilder&, FRDGEventName&&, FRDGTextureRef, FRDGTextureUAVRef, const T(&ClearValues)[4]);
+	friend void AddPass_ClearUAV(FRDGBuilder&, FRDGEventName&&, FRDGBufferUAVRef, uint32);
 };
 
 /** Descriptor of a graph tracked texture. */
@@ -227,7 +233,7 @@ struct RENDERCORE_API FRDGBufferDesc
 	/** Bitfields describing the uses of that buffer. */
 	EBufferUsageFlags Usage = BUF_None;
 
-	/** The underlying RHI type to use. A bit of a work arround because RHI still have 3 different objects. */
+	/** The underlying RHI type to use. A bit of a work around because RHI still have 3 different objects. */
 	EUnderlyingType UnderlyingType = EUnderlyingType::VertexBuffer;
 
 	/** Returns the total number of bytes allocated for a such buffer. */
@@ -268,6 +274,26 @@ struct RENDERCORE_API FRDGBufferDesc
 		Desc.NumElements = NumElements;
 		return Desc;
 	}
+
+	static inline FRDGBufferDesc CreateIndirectDesc(uint32 NumElements = 1)
+	{
+		FRDGBufferDesc Desc;
+		Desc.UnderlyingType = EUnderlyingType::VertexBuffer;
+		Desc.Usage = EBufferUsageFlags(BUF_Static | BUF_DrawIndirect | BUF_UnorderedAccess | BUF_ShaderResource);
+		Desc.BytesPerElement = 4;
+		Desc.NumElements = NumElements;
+		return Desc;
+	}
+
+	static inline FRDGBufferDesc CreateStructuredDesc(uint32 BytesPerElement, uint32 NumElements)
+	{
+		FRDGBufferDesc Desc;
+		Desc.UnderlyingType = EUnderlyingType::StructuredBuffer;
+		Desc.Usage = EBufferUsageFlags(BUF_Static | BUF_UnorderedAccess | BUF_ShaderResource);
+		Desc.BytesPerElement = BytesPerElement;
+		Desc.NumElements = NumElements;
+		return Desc;
+	}
 };
 
 
@@ -275,26 +301,39 @@ struct RENDERCORE_API FRDGBufferSRVDesc
 {
 	FRDGBufferRef Buffer = nullptr;
 
-	/** Nymber of bytes per element (used for vertex buffer). */
+	/** Number of bytes per element (used for vertex buffer). */
 	uint32 BytesPerElement = 1;
 
 	/** Encoding format for the element (used for vertex buffer). */
 	EPixelFormat Format = PF_Unknown;
+
+	FRDGBufferSRVDesc() {}
+	FRDGBufferSRVDesc(FRDGBufferRef InBuffer);
+	FRDGBufferSRVDesc(FRDGBufferRef InBuffer, EPixelFormat InFormat)
+		: Buffer(InBuffer)
+		, Format(InFormat)
+	{
+		BytesPerElement = GPixelFormats[ Format ].BlockBytes;
+	}
 };
 
 struct RENDERCORE_API FRDGBufferUAVDesc
 {
 	FRDGBufferRef Buffer = nullptr;
 
-	/** Nymber of bytes per element (used for vertex buffer). */
+	/** Number of bytes per element (used for vertex buffer). */
 	EPixelFormat Format = PF_Unknown;
 
 	/** Whether the uav supports atomic counter or append buffer operations (used for structured buffers) */
 	bool bSupportsAtomicCounter = false;
 	bool bSupportsAppendBuffer = false;
 
-	/** Create descriptor for a the UAV of a buffer meant to be use for indirect dral call parameters. */
-	static inline FRDGBufferUAVDesc CreateIndirectDesc(FRDGBufferRef Buffer);
+	FRDGBufferUAVDesc() {}
+	FRDGBufferUAVDesc(FRDGBufferRef InBuffer);
+	FRDGBufferUAVDesc(FRDGBufferRef InBuffer, EPixelFormat InFormat)
+		: Buffer(InBuffer)
+		, Format(InFormat)
+	{}
 };
 
 
@@ -435,11 +474,29 @@ private:
 };
 
 
-FRDGBufferUAVDesc FRDGBufferUAVDesc::CreateIndirectDesc(FRDGBufferRef Buffer)
+inline FRDGBufferSRVDesc::FRDGBufferSRVDesc(FRDGBufferRef InBuffer)
+	: Buffer(InBuffer)
 {
-	checkf(Buffer->Desc.Usage & BUF_DrawIndirect, TEXT("Buffer %s has not been created with a BUF_DrawIndirect flag."), Buffer->Name);
-	FRDGBufferUAVDesc Desc;
-	Desc.Buffer = Buffer;
-	Desc.Format = PF_R32_UINT;
-	return Desc;
+	if( Buffer->Desc.Usage & BUF_DrawIndirect )
+	{
+		BytesPerElement = 4;
+		Format = PF_R32_UINT;
+	}
+	else
+	{
+		checkf(Buffer->Desc.UnderlyingType != FRDGBufferDesc::EUnderlyingType::VertexBuffer, TEXT("VertexBuffer %s requires a type when creating a SRV."), Buffer->Name);
+	}
+}
+
+inline FRDGBufferUAVDesc::FRDGBufferUAVDesc(FRDGBufferRef InBuffer)
+	: Buffer(InBuffer)
+{
+	if( Buffer->Desc.Usage & BUF_DrawIndirect )
+	{
+		Format = PF_R32_UINT;
+	}
+	else
+	{
+		checkf(Buffer->Desc.UnderlyingType != FRDGBufferDesc::EUnderlyingType::VertexBuffer, TEXT("VertexBuffer %s requires a type when creating a UAV."), Buffer->Name);
+	}
 }
