@@ -12,6 +12,8 @@
 
 struct FRenderGraphPass;
 
+class FRDGBuilder;
+
 class FRDGResource;
 class FRDGTexture;
 class FRDGTextureSRV;
