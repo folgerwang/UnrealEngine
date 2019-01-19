@@ -540,6 +540,8 @@ public:
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
 	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
+	virtual bool HasCookedFFTData() const override;
+	virtual bool HasCookedAmplitudeEnvelopeData() const override;
 	//~ End USoundBase Interface.
 
 	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer and when bProcedural is true.

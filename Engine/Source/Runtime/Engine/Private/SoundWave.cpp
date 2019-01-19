@@ -1487,6 +1487,16 @@ bool USoundWave::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSou
 	return false;
 }
 
+bool USoundWave::HasCookedFFTData() const
+{
+	return CookedSpectralTimeData.Num() > 0;
+}
+
+bool USoundWave::HasCookedAmplitudeEnvelopeData() const
+{
+	return CookedEnvelopeTimeData.Num() > 0;
+}
+
 void USoundWave::UpdatePlatformData()
 {
 	if (IsStreaming())
