@@ -204,6 +204,13 @@ namespace UnrealBuildTool
 		public bool bOptimizeGlobalData = true;
 
 		/// <summary>
+		/// (Experimental) Appends the -ftime-trace argument to the command line for Clang, to output a JSON file containing a timeline for the compile. 
+		/// See http://aras-p.info/blog/2019/01/16/time-trace-timeline-flame-chart-profiler-for-Clang/ for more info.
+		/// </summary>
+		[XmlConfigFile(Category = "WindowsPlatform")]
+		public bool bClangTimeTrace = false;
+
+		/// <summary>
 		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
 		/// </summary>
 		internal VCEnvironment Environment;
@@ -373,6 +380,11 @@ namespace UnrealBuildTool
 		public bool bOptimizeGlobalData
 		{
 			get { return Inner.bOptimizeGlobalData; }
+		}
+
+		public bool bClangTimeTrace
+		{
+			get { return Inner.bClangTimeTrace; }
 		}
 
 		public string GetVisualStudioCompilerVersionName()
