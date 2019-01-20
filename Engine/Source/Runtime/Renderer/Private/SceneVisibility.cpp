@@ -1749,6 +1749,7 @@ struct FRelevancePacket
 	FRelevancePrimSet<int32> TranslucentSelfShadowPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleDynamicPrimitivesWithSimpleLights;
 	int32 NumVisibleDynamicPrimitives;
+	int32 NumVisibleDynamicEditorPrimitives;
 	FMeshPassMask VisibleDynamicMeshesPassMask;
 	FRelevancePrimSet<FTranslucentPrimSet::FTranslucentPrim, ETranslucencyPass::TPT_MAX> TranslucencyPrims;
 	// belongs to TranslucencyPrims
@@ -1758,7 +1759,6 @@ struct FRelevancePacket
 	bool bHasCustomDepthPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> LazyUpdatePrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> DirtyIndirectLightingCacheBufferPrimitives;
-	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleEditorPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneProxy*> VolumetricPrimSet;
 	FDrawCommandRelevancePacket DrawCommandPacket;
 
@@ -1831,6 +1831,7 @@ struct FRelevancePacket
 		, OutHasDynamicEditorMeshElementsMasks(InOutHasDynamicEditorMeshElementsMasks)
 		, MarkMasks(InMarkMasks)
 		, NumVisibleDynamicPrimitives(0)
+		, NumVisibleDynamicEditorPrimitives(0)
 		, bHasDistortionPrimitives(false)
 		, bHasCustomDepthPrimitives(false)
 		, PrimitiveCustomDataMemStack(InPrimitiveCustomDataMemStack)
@@ -1984,8 +1985,7 @@ struct FRelevancePacket
 
 			if (bEditorRelevance)
 			{
-				// Editor primitives are rendered after post processing and composited onto the scene
-				VisibleEditorPrimitives.AddPrim(PrimitiveSceneInfo);
+				++NumVisibleDynamicEditorPrimitives;
 
 				if (GIsEditor)
 				{
@@ -2329,9 +2329,9 @@ struct FRelevancePacket
 		WriteView.bUsesLightingChannels |= bUsesLightingChannels;
 		WriteView.bTranslucentSurfaceLighting |= bTranslucentSurfaceLighting;
 		WriteView.bUsesSceneDepth |= bUsesSceneDepth;
-		VisibleEditorPrimitives.AppendTo(WriteView.VisibleEditorPrimitives);
 		VisibleDynamicPrimitivesWithSimpleLights.AppendTo(WriteView.VisibleDynamicPrimitivesWithSimpleLights);
 		WriteView.NumVisibleDynamicPrimitives += NumVisibleDynamicPrimitives;
+		WriteView.NumVisibleDynamicEditorPrimitives += NumVisibleDynamicEditorPrimitives;
 		VisibleDynamicMeshesPassMask.AppendTo(WriteView.VisibleDynamicMeshesPassMask);
 		WriteView.TranslucentPrimSet.AppendScenePrimitives(TranslucencyPrims.Prims, TranslucencyPrims.NumPrims, TranslucencyPrimCount);
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);

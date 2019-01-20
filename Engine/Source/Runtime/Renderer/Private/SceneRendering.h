@@ -902,14 +902,14 @@ public:
 	/** Number of dynamic primitives visible in this view. */
 	int32 NumVisibleDynamicPrimitives;
 
+	/** Number of dynamic editor primitives visible in this view. */
+	int32 NumVisibleDynamicEditorPrimitives;
+
 	/** Marks used mesh passes by visible dynamic meshes. */
 	FMeshPassMask VisibleDynamicMeshesPassMask;
 
 	/** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
 	int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
-
-	/** The dynamic editor primitives visible in this view. */
-	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;
 
 	/** List of visible primitives with dirty indirect lighting cache buffers */
 	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> DirtyIndirectLightingCacheBufferPrimitives;

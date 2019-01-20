@@ -898,6 +898,7 @@ void FViewInfo::Init()
 	}
 
 	NumVisibleDynamicPrimitives = 0;
+	NumVisibleDynamicEditorPrimitives = 0;
 }
 
 FViewInfo::~FViewInfo()
@@ -2873,7 +2874,11 @@ bool FSceneRenderer::ShouldCompositeEditorPrimitives(const FViewInfo& View)
 	}
 
 	// Any elements that needed compositing were drawn then compositing should be done
-	if (View.ViewMeshElements.Num() || View.TopViewMeshElements.Num() || View.BatchedViewElements.HasPrimsToDraw() || View.TopBatchedViewElements.HasPrimsToDraw() || View.VisibleEditorPrimitives.Num())
+	if (View.ViewMeshElements.Num() 
+		|| View.TopViewMeshElements.Num() 
+		|| View.BatchedViewElements.HasPrimsToDraw() 
+		|| View.TopBatchedViewElements.HasPrimsToDraw() 
+		|| View.NumVisibleDynamicEditorPrimitives > 0)
 	{
 		return true;
 	}
