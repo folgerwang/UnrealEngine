@@ -284,39 +284,6 @@ FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSc
 	return SortKey;
 }
 
-void FTranslucentPrimSet::AppendScenePrimitives(FTranslucentPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass)
-{
-	Prims.Append(Elements, Num);
-	PrimsNum.Append(TranslucentPrimitiveCountPerPass);
-}
-
-void FTranslucentPrimSet::PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, const FPrimitiveViewRelevance& ViewRelevance,
-	FTranslucentPrimSet::FTranslucentPrim *InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount)
-{
-	const auto FeatureLevel = ViewInfo.GetFeatureLevel();
-
-	if (ViewInfo.Family->AllowTranslucencyAfterDOF())
-	{
-		if (ViewRelevance.bNormalTranslucencyRelevance)
-		{
-			new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_StandardTranslucency);
-			OutCount.Add(ETranslucencyPass::TPT_StandardTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
-		}
-
-		if (ViewRelevance.bSeparateTranslucencyRelevance)
-		{
-			new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_TranslucencyAfterDOF);
-			OutCount.Add(ETranslucencyPass::TPT_TranslucencyAfterDOF, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
-		}
-	}
-	else // Otherwise, everything is rendered in a single bucket. This is not related to whether DOF is currently enabled or not.
-	{
-		// When using all translucency, Standard and AfterDOF are sorted together instead of being rendered like 2 buckets.
-		new(&InArrayStart[InOutArrayNum++]) FTranslucentPrim(PrimitiveSceneInfo, ETranslucencyPass::TPT_AllTranslucency);
-		OutCount.Add(ETranslucencyPass::TPT_AllTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
-	}
-}
-
 extern int32 GLightShaftRenderAfterDOF;
 
 bool FSceneRenderer::ShouldRenderTranslucency(ETranslucencyPass::Type TranslucencyPass) const
@@ -346,7 +313,7 @@ bool FSceneRenderer::ShouldRenderTranslucency(ETranslucencyPass::Type Translucen
 
 	for (const FViewInfo& View : Views)
 	{
-		if (View.TranslucentPrimSet.PrimsNum.Num(TranslucencyPass) > 0)
+		if (View.TranslucentPrimCount.Num(TranslucencyPass) > 0)
 		{
 			return true;
 		}
@@ -555,7 +522,7 @@ void FDeferredShadingSceneRenderer::ConditionalResolveSceneColorForTranslucentMa
 		bool bNeedsResolve = false;
 		for (int32 TranslucencyPass = 0; TranslucencyPass < ETranslucencyPass::TPT_MAX && !bNeedsResolve; ++TranslucencyPass)
 		{
-			bNeedsResolve |= View.TranslucentPrimSet.PrimsNum.UseSceneColorCopy((ETranslucencyPass::Type)TranslucencyPass);
+			bNeedsResolve |= View.TranslucentPrimCount.UseSceneColorCopy((ETranslucencyPass::Type)TranslucencyPass);
 		}
 
 		if (bNeedsResolve)
@@ -948,7 +915,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 		FMeshPassProcessorRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 		// If downsampling we need to render in the separate buffer. Otherwise we also need to render offscreen to apply TPT_TranslucencyAfterDOF
-		if (RenderInSeparateTranslucency(SceneContext, TranslucencyPass, View.TranslucentPrimSet.PrimsNum.DisableOffscreenRendering(TranslucencyPass)))
+		if (RenderInSeparateTranslucency(SceneContext, TranslucencyPass, View.TranslucentPrimCount.DisableOffscreenRendering(TranslucencyPass)))
 		{
 			checkSlow(RHICmdList.IsOutsideRenderPass());
 

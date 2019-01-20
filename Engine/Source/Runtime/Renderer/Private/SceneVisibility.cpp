@@ -1751,9 +1751,7 @@ struct FRelevancePacket
 	int32 NumVisibleDynamicPrimitives;
 	int32 NumVisibleDynamicEditorPrimitives;
 	FMeshPassMask VisibleDynamicMeshesPassMask;
-	FRelevancePrimSet<FTranslucentPrimSet::FTranslucentPrim, ETranslucencyPass::TPT_MAX> TranslucencyPrims;
-	// belongs to TranslucencyPrims
-	FTranslucenyPrimCount TranslucencyPrimCount;
+	FTranslucenyPrimCount TranslucentPrimCount;
 	FRelevancePrimSet<FMeshDecalPrimSet::KeyType> MeshDecalPrimSet;
 	bool bHasDistortionPrimitives;
 	bool bHasCustomDepthPrimitives;
@@ -2012,8 +2010,23 @@ struct FRelevancePacket
 
 			if (bTranslucentRelevance && !bEditorRelevance && ViewRelevance.bRenderInMainPass)
 			{
-				// Add to set of dynamic translucent primitives
-				FTranslucentPrimSet::PlaceScenePrimitive(PrimitiveSceneInfo, View, ViewRelevance, &TranslucencyPrims.Prims[0], TranslucencyPrims.NumPrims, TranslucencyPrimCount);
+				if (View.Family->AllowTranslucencyAfterDOF())
+				{
+					if (ViewRelevance.bNormalTranslucencyRelevance)
+					{
+						TranslucentPrimCount.Add(ETranslucencyPass::TPT_StandardTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
+					}
+
+					if (ViewRelevance.bSeparateTranslucencyRelevance)
+					{
+						TranslucentPrimCount.Add(ETranslucencyPass::TPT_TranslucencyAfterDOF, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
+					}
+				}
+				else // Otherwise, everything is rendered in a single bucket. This is not related to whether DOF is currently enabled or not.
+				{
+					// When using all translucency, Standard and AfterDOF are sorted together instead of being rendered like 2 buckets.
+					TranslucentPrimCount.Add(ETranslucencyPass::TPT_AllTranslucency, ViewRelevance.bUsesSceneColorCopy, ViewRelevance.bDisableOffscreenRendering);
+				}
 
 				if (ViewRelevance.bDistortionRelevance)
 				{
@@ -2333,7 +2346,7 @@ struct FRelevancePacket
 		WriteView.NumVisibleDynamicPrimitives += NumVisibleDynamicPrimitives;
 		WriteView.NumVisibleDynamicEditorPrimitives += NumVisibleDynamicEditorPrimitives;
 		VisibleDynamicMeshesPassMask.AppendTo(WriteView.VisibleDynamicMeshesPassMask);
-		WriteView.TranslucentPrimSet.AppendScenePrimitives(TranslucencyPrims.Prims, TranslucencyPrims.NumPrims, TranslucencyPrimCount);
+		WriteView.TranslucentPrimCount.Append(TranslucentPrimCount);
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);
 		WriteView.bHasDistortionPrimitives |= bHasDistortionPrimitives;
 		WriteView.bHasCustomDepthPrimitives |= bHasCustomDepthPrimitives;

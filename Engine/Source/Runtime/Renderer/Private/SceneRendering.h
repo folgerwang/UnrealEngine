@@ -190,32 +190,19 @@ public:
 		DisableOffscreenRenderingPerPass[InPass] |= bDisableOffscreenRendering;
 	}
 
-	// @return range in SortedPrims[] after sorting
-	FInt32Range GetPassRange(ETranslucencyPass::Type InPass) const
-	{
-		checkSlow(InPass < ETranslucencyPass::TPT_MAX);
-
-		// can be optimized (if needed)
-
-		// inclusive
-		int32 Start = 0;
-
-		uint32 i = 0;
-
-		for(; i < (uint32)InPass; ++i)
-		{
-			Start += Count[i];
-		}
-
-		// exclusive
-		int32 End = Start + Count[i];
-		
-		return FInt32Range(Start, End);
-	}
-
 	int32 Num(ETranslucencyPass::Type InPass) const
 	{
 		return Count[InPass];
+	}
+
+	int32 NumPrims() const
+	{
+		int32 NumTotal = 0;
+		for (uint32 PassIndex = 0; PassIndex < ETranslucencyPass::TPT_MAX; ++PassIndex)
+		{
+			NumTotal += Count[PassIndex];
+		}
+		return NumTotal;
 	}
 
 	bool UseSceneColorCopy(ETranslucencyPass::Type InPass) const
@@ -292,57 +279,6 @@ public:
 		return KeyType(PrimitiveSceneInfo, (uint32)(InSortPriority - SHRT_MIN));
 	}
 };
-
-/** 
-* Set of sorted translucent scene prims  
-*/
-class FTranslucentPrimSet
-{
-public:
-	/** contains a scene prim */
-	struct FTranslucentPrim
-	{
-		/** Default constructor. */
-		FTranslucentPrim() {}
-
-		// @param InPass
-		FTranslucentPrim(FPrimitiveSceneInfo* InPrimitiveSceneInfo, ETranslucencyPass::Type InPass)
-			:	PrimitiveSceneInfo(InPrimitiveSceneInfo)
-			,	Pass(InPass)
-		{}
-
-		FPrimitiveSceneInfo* PrimitiveSceneInfo;
-		ETranslucencyPass::Type Pass;
-	};
-
-	/**
-	* Insert a primitive to the translucency rendering list[s]
-	*/
-	static void PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, const FPrimitiveViewRelevance& ViewRelevance,
-		FTranslucentPrim* InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount);
-
-	/** 
-	* @return number of prims to render
-	*/
-	int32 NumPrims() const
-	{
-		return Prims.Num();
-	}
-
-	/**
-	* Adds primitives originally created with PlaceScenePrimitive
-	*/
-	void AppendScenePrimitives(FTranslucentPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass);
-
-	FTranslucenyPrimCount PrimsNum;
-
-private:
-
-	/** list of translucent primitives, sorted after calling Sort() */
-	TArray<FTranslucentPrim,SceneRenderingAllocator> Prims;
-};
-
-template <> struct TIsPODType<FTranslucentPrimSet::FTranslucentPrim> { enum { Value = true }; };
 
 /** A batched occlusion primitive. */
 struct FOcclusionPrimitive
@@ -920,8 +856,8 @@ public:
 	/** View dependent global distance field clipmap info. */
 	FGlobalDistanceFieldInfo GlobalDistanceFieldInfo;
 
-	/** Set of translucent prims for this view */
-	FTranslucentPrimSet TranslucentPrimSet;
+	/** Count of translucent prims for this view. */
+	FTranslucenyPrimCount TranslucentPrimCount;
 
 	/** Set of mesh decal prims for this view */
 	FMeshDecalPrimSet MeshDecalPrimSet;
