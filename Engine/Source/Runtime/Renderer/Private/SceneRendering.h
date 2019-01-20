@@ -896,8 +896,11 @@ public:
 	 set visible in StaticMeshVisibilityMap. */
 	TArray<uint64,SceneRenderingAllocator> StaticMeshBatchVisibility;
 
-	/** The dynamic primitives visible in this view. */
-	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleDynamicPrimitives;
+	/** The dynamic primitives with simple lights visible in this view. */
+	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> VisibleDynamicPrimitivesWithSimpleLights;
+
+	/** Number of dynamic primitives visible in this view. */
+	int32 NumVisibleDynamicPrimitives;
 
 	/** Marks used mesh passes by visible dynamic meshes. */
 	FMeshPassMask VisibleDynamicMeshesPassMask;

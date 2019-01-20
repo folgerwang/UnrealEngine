@@ -896,6 +896,8 @@ void FViewInfo::Init()
 	{
 		NumVisibleDynamicMeshElements[PassIndex] = 0;
 	}
+
+	NumVisibleDynamicPrimitives = 0;
 }
 
 FViewInfo::~FViewInfo()
@@ -2587,7 +2589,7 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		INC_DWORD_STAT_BY(STAT_VisibleStaticMeshElements,View.NumVisibleStaticMeshElements);
-		INC_DWORD_STAT_BY(STAT_VisibleDynamicPrimitives,View.VisibleDynamicPrimitives.Num());
+		INC_DWORD_STAT_BY(STAT_VisibleDynamicPrimitives,View.NumVisibleDynamicPrimitives);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// update freezing info

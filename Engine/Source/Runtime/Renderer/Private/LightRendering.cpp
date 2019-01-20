@@ -417,17 +417,12 @@ void FSceneRenderer::GatherSimpleLights(const FSceneViewFamily& ViewFamily, cons
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
-		for (int32 PrimitiveIndex = 0; PrimitiveIndex < View.VisibleDynamicPrimitives.Num(); PrimitiveIndex++)
+		for (int32 PrimitiveIndex = 0; PrimitiveIndex < View.VisibleDynamicPrimitivesWithSimpleLights.Num(); PrimitiveIndex++)
 		{
-			const FPrimitiveSceneInfo* PrimitiveSceneInfo = View.VisibleDynamicPrimitives[PrimitiveIndex];
-			const int32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
-			const FPrimitiveViewRelevance& PrimitiveViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
+			const FPrimitiveSceneInfo* PrimitiveSceneInfo = View.VisibleDynamicPrimitivesWithSimpleLights[PrimitiveIndex];
 
-			if (PrimitiveViewRelevance.bHasSimpleLights)
-			{
-				// TArray::AddUnique is slow, but not expecting many entries in PrimitivesWithSimpleLights
-				PrimitivesWithSimpleLights.AddUnique(PrimitiveSceneInfo);
-			}
+			// TArray::AddUnique is slow, but not expecting many entries in PrimitivesWithSimpleLights
+			PrimitivesWithSimpleLights.AddUnique(PrimitiveSceneInfo);
 		}
 	}
 

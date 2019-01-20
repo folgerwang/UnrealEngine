@@ -1747,7 +1747,8 @@ struct FRelevancePacket
 	FRelevancePrimSet<int32> RelevantStaticPrimitives;
 	FRelevancePrimSet<int32> NotDrawRelevant;
 	FRelevancePrimSet<int32> TranslucentSelfShadowPrimitives;
-	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleDynamicPrimitives;
+	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleDynamicPrimitivesWithSimpleLights;
+	int32 NumVisibleDynamicPrimitives;
 	FMeshPassMask VisibleDynamicMeshesPassMask;
 	FRelevancePrimSet<FTranslucentPrimSet::FTranslucentPrim, ETranslucencyPass::TPT_MAX> TranslucencyPrims;
 	// belongs to TranslucencyPrims
@@ -1829,6 +1830,7 @@ struct FRelevancePacket
 		, OutHasDynamicMeshElementsMasks(InOutHasDynamicMeshElementsMasks)
 		, OutHasDynamicEditorMeshElementsMasks(InOutHasDynamicEditorMeshElementsMasks)
 		, MarkMasks(InMarkMasks)
+		, NumVisibleDynamicPrimitives(0)
 		, bHasDistortionPrimitives(false)
 		, bHasCustomDepthPrimitives(false)
 		, PrimitiveCustomDataMemStack(InPrimitiveCustomDataMemStack)
@@ -1993,9 +1995,14 @@ struct FRelevancePacket
 			else if(bDynamicRelevance)
 			{
 				// Keep track of visible dynamic primitives.
-				VisibleDynamicPrimitives.AddPrim(PrimitiveSceneInfo);
+				++NumVisibleDynamicPrimitives;
 				OutHasDynamicMeshElementsMasks[BitIndex] |= ViewBit;
 				UpdateDynamicPrimMask(ShadingPath, bAddLightmapDensityCommands, ViewRelevance);
+
+				if (ViewRelevance.bHasSimpleLights)
+				{
+					VisibleDynamicPrimitivesWithSimpleLights.AddPrim(PrimitiveSceneInfo);
+				}
 			}
 
 			if (ViewRelevance.bUseCustomViewData)
@@ -2323,7 +2330,8 @@ struct FRelevancePacket
 		WriteView.bTranslucentSurfaceLighting |= bTranslucentSurfaceLighting;
 		WriteView.bUsesSceneDepth |= bUsesSceneDepth;
 		VisibleEditorPrimitives.AppendTo(WriteView.VisibleEditorPrimitives);
-		VisibleDynamicPrimitives.AppendTo(WriteView.VisibleDynamicPrimitives);
+		VisibleDynamicPrimitivesWithSimpleLights.AppendTo(WriteView.VisibleDynamicPrimitivesWithSimpleLights);
+		WriteView.NumVisibleDynamicPrimitives += NumVisibleDynamicPrimitives;
 		VisibleDynamicMeshesPassMask.AppendTo(WriteView.VisibleDynamicMeshesPassMask);
 		WriteView.TranslucentPrimSet.AppendScenePrimitives(TranslucencyPrims.Prims, TranslucencyPrims.NumPrims, TranslucencyPrimCount);
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);
