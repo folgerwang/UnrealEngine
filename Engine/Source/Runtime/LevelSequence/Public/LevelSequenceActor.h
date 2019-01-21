@@ -230,6 +230,7 @@ protected:
 
 	//~ Begin UObject interface
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags *RepFlags) override;
+	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	//~ End UObject interface
 
