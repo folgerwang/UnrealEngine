@@ -87,7 +87,7 @@ TSharedRef<SWidget> UListViewBase::RebuildWidget()
 		}
 		else if (EntryWidgetBP->Status == BS_Error)
 		{
-			ErrorText = FText::Format(LOCTEXT("Error_NonBPEntryWidget", "EntryWidget BP [{0}] has not compiled successfully"), FText::FromString(EntryWidgetBP->GetName()));
+			ErrorText = FText::Format(LOCTEXT("Error_CompilationError", "EntryWidget BP [{0}] has not compiled successfully"), FText::FromString(EntryWidgetBP->GetName()));
 		}
 	}
 #endif

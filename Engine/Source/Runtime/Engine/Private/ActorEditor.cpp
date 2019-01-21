@@ -980,7 +980,7 @@ EDataValidationResult AActor::IsDataValid(TArray<FText>& ValidationErrors)
 	bool bSuccess = CheckDefaultSubobjects();
 	if (!bSuccess)
 	{
-		FText ErrorMsg = FText::Format(LOCTEXT("IsDataValid_Failed_CheckForErrors", "{0} failed CheckDefaultSubobjectsInternal()"), FText::FromString(GetName()));
+		FText ErrorMsg = FText::Format(LOCTEXT("IsDataValid_Failed_CheckDefaultSubobjectsInternal", "{0} failed CheckDefaultSubobjectsInternal()"), FText::FromString(GetName()));
 		ValidationErrors.Add(ErrorMsg);
 	}
 

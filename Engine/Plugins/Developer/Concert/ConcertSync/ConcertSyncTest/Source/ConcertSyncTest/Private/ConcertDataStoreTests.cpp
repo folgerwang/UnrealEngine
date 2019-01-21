@@ -1108,3 +1108,5 @@ bool FConcertDataStoreClientPrivateStore::RunTest(const FString& Parameters)
 
 	return true;
 };
+
+#undef LOCTEXT_NAMESPACE
