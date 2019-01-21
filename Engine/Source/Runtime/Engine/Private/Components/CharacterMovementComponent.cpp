@@ -7672,7 +7672,11 @@ bool UCharacterMovementComponent::ForcePositionUpdate(float DeltaTime)
 	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
 
 #if !(UE_BUILD_SHIPPING)
-	UE_LOG(LogNetPlayerMovement, Warning, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+	const bool bServerMoveHasOccurred = (ServerData->ServerTimeStampLastServerMove != 0.f);
+	if (bServerMoveHasOccurred)
+	{
+		UE_LOG(LogNetPlayerMovement, Warning, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+	}
 #endif
 
 	// Force movement update.
