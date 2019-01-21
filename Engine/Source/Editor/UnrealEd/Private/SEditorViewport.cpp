@@ -21,10 +21,9 @@
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "MaterialShaderQualitySettings.h"
+#include "RHIShaderPlatformDefinitions.inl"
 
 #define LOCTEXT_NAMESPACE "EditorViewport"
-
-#include "RHIShaderPlatformDefinitions.inl"
 
 SEditorViewport::SEditorViewport()
 	: LastTickTime(0)
