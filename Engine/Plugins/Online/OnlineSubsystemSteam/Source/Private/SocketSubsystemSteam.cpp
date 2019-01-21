@@ -97,7 +97,7 @@ bool FSocketSubsystemSteam::Init(FString& Error)
 
 		if (!GConfig->GetDouble(TEXT("OnlineSubsystemSteam"), TEXT("P2PCleanupTimeout"), P2PCleanupTimeout, GEngineIni))
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Missing P2PCleanupTimeout key in OnlineSubsystemSteam of DefaultEngine.ini"));
+			UE_LOG_ONLINE(Log, TEXT("Missing P2PCleanupTimeout key in OnlineSubsystemSteam of DefaultEngine.ini, using default"));
 		}
 	}
 
