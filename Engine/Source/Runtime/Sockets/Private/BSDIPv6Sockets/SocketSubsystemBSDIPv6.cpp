@@ -187,7 +187,9 @@ ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, F
 
 	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		TSharedRef<FInternetAddrBSDIPv6> ResultAddr = StaticCastSharedRef<FInternetAddrBSDIPv6>(GAIResult.Results[0].Address);
+		OutAddr.SetRawIp(ResultAddr->GetRawIp());
+		static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetScopeId(ResultAddr->GetScopeId());
 		return SE_NO_ERROR;
 	}
 

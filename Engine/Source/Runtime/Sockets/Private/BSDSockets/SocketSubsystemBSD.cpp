@@ -90,7 +90,9 @@ ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInte
 
 	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		TSharedRef<FInternetAddrBSD> ResultAddr = StaticCastSharedRef<FInternetAddrBSD>(GAIResult.Results[0].Address);
+		OutAddr.SetRawIp(ResultAddr->GetRawIp());
+		static_cast<FInternetAddrBSD&>(OutAddr).SetScopeId(ResultAddr->GetScopeId());
 		return SE_NO_ERROR;
 	}
 

@@ -89,7 +89,9 @@ ESocketErrors FSocketSubsystemIOS::GetHostByName(const ANSICHAR* HostName, FInte
 
 	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		TSharedRef<FInternetAddrBSDIOS> ResultAddr = StaticCastSharedRef<FInternetAddrBSDIOS>(GAIResult.Results[0].Address);
+		OutAddr.SetRawIp(ResultAddr->GetRawIp());
+		static_cast<FInternetAddrBSDIOS&>(OutAddr).SetScopeId(ResultAddr->GetScopeId());
 		return SE_NO_ERROR;
 	}
 
