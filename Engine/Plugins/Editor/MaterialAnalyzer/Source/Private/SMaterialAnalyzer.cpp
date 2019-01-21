@@ -107,7 +107,7 @@ void SMaterialAnalyzer::Construct(const FArguments& InArgs, const TSharedRef<SDo
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("MaterialToAnalyze", "Material To Analyze: "))
+					.Text(LOCTEXT("MaterialToAnalyzeLabel", "Material To Analyze: "))
 				]
 				+ SHorizontalBox::Slot()
 				.FillWidth(0.5f)
@@ -140,18 +140,18 @@ void SMaterialAnalyzer::Construct(const FArguments& InArgs, const TSharedRef<SDo
 						(
 							SNew(SHeaderRow)
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_MaterialName)
-							.DefaultLabel(LOCTEXT("MaterialName", "Material Name"))
+							.DefaultLabel(LOCTEXT("MaterialNameLabel", "Material Name"))
 							.FillWidth(0.80f)
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_NumberOfChildren)
-							.DefaultLabel(LOCTEXT("NumberOfMaterialChildren", "Number of Children (Direct/Total)"))
+							.DefaultLabel(LOCTEXT("NumberOfMaterialChildrenLabel", "Number of Children (Direct/Total)"))
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_BasePropertyOverrides)
-							.DefaultLabel(LOCTEXT("BasePropertyOverrides", "Base Property Overrides"))
+							.DefaultLabel(LOCTEXT("BasePropertyOverridesLabel", "Base Property Overrides"))
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_MaterialLayerParameters)
-							.DefaultLabel(LOCTEXT("MaterialLayerParameters", "Material Layer Parameters"))
+							.DefaultLabel(LOCTEXT("MaterialLayerParametersLabel", "Material Layer Parameters"))
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_StaticSwitchParameters)
-							.DefaultLabel(LOCTEXT("StaticSwitchParameters", "Static Switch Parameters"))
+							.DefaultLabel(LOCTEXT("StaticSwitchParametersLabel", "Static Switch Parameters"))
 							+ SHeaderRow::Column(SAnalyzedMaterialNodeWidgetItem::NAME_StaticComponentMaskParameters)
-							.DefaultLabel(LOCTEXT("StaticComponenetMaskParameters", "Static Component Mask Parameters"))
+							.DefaultLabel(LOCTEXT("StaticComponenetMaskParametersLabel", "Static Component Mask Parameters"))
 						)
 					]
 				]
@@ -167,7 +167,7 @@ void SMaterialAnalyzer::Construct(const FArguments& InArgs, const TSharedRef<SDo
 						.VAlign(VAlign_Center)
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("Suggestions", "Suggestions"))
+							.Text(LOCTEXT("SuggestionsLabel", "Suggestions"))
 						]
 						+ SVerticalBox::Slot()
 						[
@@ -185,7 +185,7 @@ void SMaterialAnalyzer::Construct(const FArguments& InArgs, const TSharedRef<SDo
 				.VAlign(VAlign_Center)
 				[
 					SAssignNew(StatusBox, STextBlock)
-					.Text(LOCTEXT("Done", "Done"))
+					.Text(LOCTEXT("DoneLabel", "Done"))
 				]
 				+SHorizontalBox::Slot()
 				.HAlign(HAlign_Right)
@@ -283,7 +283,7 @@ void SMaterialAnalyzer::Tick(const FGeometry& AllottedGeometry, const double InC
 		{
 			delete BuildBaseMaterialTreeTask;
 			BuildBaseMaterialTreeTask = nullptr;
-			AsyncWorkFinished(FText::Format(FTextFormat(LOCTEXT("MaterialAnalyzer_DoneWithMaterialInterfaces", "Done with {0} MaterialInterfaces")), GetTotalNumberOfMaterialNodes()));
+			AsyncWorkFinished(FText::Format(FTextFormat(LOCTEXT("DoneWithMaterialInterfaces", "Done with {0} MaterialInterfaces")), GetTotalNumberOfMaterialNodes()));
 
 		}
 
@@ -546,7 +546,7 @@ void SMaterialAnalyzer::BuildBasicMaterialTree()
 		BuildBaseMaterialTreeTask = new FAsyncTask<FBuildBasicMaterialTreeAsyncTask>(AllMaterialTreeRoots, AssetDataArray);
 		BuildBaseMaterialTreeTask->StartBackgroundTask();
 
-		StartAsyncWork(LOCTEXT("BuildingBasicTree", "Building basic material tree"));
+		StartAsyncWork(LOCTEXT("BuildingBasicTree", "Building Basic MaterialTree"));
 
 		if (StatusThrobber.IsValid())
 		{

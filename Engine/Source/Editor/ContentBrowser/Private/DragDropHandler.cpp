@@ -132,7 +132,7 @@ void DragDropHandler::HandleDropOnAssetFolder(const TSharedRef<SWidget>& ParentW
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("DragDropAdvancedCopy", "Advanced Copy Here"),
-			LOCTEXT("DragDropMoveTooltip", "Copy the dragged items and any specified dependencies to this folder, afterwards fixing up any dependencies on copied files to the new files."),
+			LOCTEXT("DragDropAdvancedCopyTooltip", "Copy the dragged items and any specified dependencies to this folder, afterwards fixing up any dependencies on copied files to the new files."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda([=]() { AdvancedCopyActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
 		);
