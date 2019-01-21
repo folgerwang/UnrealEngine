@@ -283,8 +283,7 @@ namespace iPhonePackager
 				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServer.exe";
 				NewProcess.StartInfo.Arguments = "-iphonepackager " + Process.GetCurrentProcess().Id.ToString();
 			}
-			NewProcess.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-			NewProcess.StartInfo.UseShellExecute = true;
+			NewProcess.StartInfo.UseShellExecute = false;
 
 			try
 			{
