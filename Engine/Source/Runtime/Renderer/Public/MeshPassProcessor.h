@@ -453,7 +453,30 @@ private:
 class RENDERER_API FMeshDrawCommandSortKey
 {
 public:
-	uint64 PackedData;
+	union 
+	{
+		uint64 PackedData;
+
+		struct
+		{
+			uint64 VertexShaderHash		: 16; // Order by vertex shader's hash.
+			uint64 PixelShaderHash		: 32; // Order by pixel shader's hash.
+			uint64 Masked				: 16; // First order by masked.
+		} BasePass;
+
+		struct
+		{
+			uint64 MeshIdInPrimitive	: 16; // Order meshes belonging to the same primitive by a stable id.
+			uint64 Distance				: 32; // Order by distance.
+			uint64 Priority				: 16; // First order by priority.
+		} Translucent;
+
+		struct 
+		{
+			uint64 VertexShaderHash : 32;	// Order by vertex shader's hash.
+			uint64 PixelShaderHash : 32;	// First order by pixel shader's hash.
+		} Generic;
+	};
 
 	FORCEINLINE bool operator!=(FMeshDrawCommandSortKey B) const
 	{

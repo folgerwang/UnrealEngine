@@ -237,44 +237,28 @@ FMeshDrawCommandSortKey CalculateTranslucentMeshStaticSortKey(const FPrimitiveSc
 		SortKeyPriority = (uint16)((int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN);
 	}
 
-	FTranslucentMeshSortKey TranslucentMeshSortKey;
-	TranslucentMeshSortKey.Fields.MeshIdInPrimitive = MeshIdInPrimitive;
-	TranslucentMeshSortKey.Fields.Priority = SortKeyPriority;
-	TranslucentMeshSortKey.Fields.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
-
 	FMeshDrawCommandSortKey SortKey;
-	SortKey.PackedData = TranslucentMeshSortKey.PackedData;
+	SortKey.Translucent.MeshIdInPrimitive = MeshIdInPrimitive;
+	SortKey.Translucent.Priority = SortKeyPriority;
+	SortKey.Translucent.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
+
 	return SortKey;
 }
 
 FMeshDrawCommandSortKey CalculateBasePassMeshStaticSortKey(EDepthDrawingMode EarlyZPassMode, EBlendMode BlendMode, const FMeshMaterialShader* VertexShader, const FMeshMaterialShader* PixelShader)
 {
-	union FBasePassMeshSortKey
-	{
-		uint64 PackedData;
-
-		struct
-		{
-			uint64 VertexShaderHash	: 16;	// Order by vertex shader's hash.
-			uint64 PixelShaderHash	: 32;	// Order by pixel shader's hash.
-			uint64 Masked			: 16;	// First order by masked.
-		} Fields;
-	};
-
-	FBasePassMeshSortKey BasePassMeshSortKey;
-	BasePassMeshSortKey.Fields.VertexShaderHash = PointerHash(VertexShader) & 0xFFFF;
-	BasePassMeshSortKey.Fields.PixelShaderHash = PointerHash(PixelShader);
+	FMeshDrawCommandSortKey SortKey;
+	SortKey.BasePass.VertexShaderHash = PointerHash(VertexShader) & 0xFFFF;
+	SortKey.BasePass.PixelShaderHash = PointerHash(PixelShader);
 	if (EarlyZPassMode != DDM_None)
 	{
-		BasePassMeshSortKey.Fields.Masked = BlendMode == EBlendMode::BLEND_Masked ? 0 : 1;
+		SortKey.BasePass.Masked = BlendMode == EBlendMode::BLEND_Masked ? 0 : 1;
 	}
 	else
 	{
-		BasePassMeshSortKey.Fields.Masked = BlendMode == EBlendMode::BLEND_Masked ? 1 : 0;
+		SortKey.BasePass.Masked = BlendMode == EBlendMode::BLEND_Masked ? 1 : 0;
 	}
 
-	FMeshDrawCommandSortKey SortKey;
-	SortKey.PackedData = BasePassMeshSortKey.PackedData;
 	return SortKey;
 }
 

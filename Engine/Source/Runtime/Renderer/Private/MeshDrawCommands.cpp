@@ -147,10 +147,10 @@ void UpdateTranslucentMeshSortKeys(
 		}
 
 		// Patch distance inside translucent mesh sort key.
-		FTranslucentMeshSortKey TranslucentMeshSortKey;
-		TranslucentMeshSortKey.PackedData = VisibleCommand.SortKey.PackedData;
-		TranslucentMeshSortKey.Fields.Distance = (uint32)~BitInvertIfNegativeFloat(*((uint32*)&Distance));
-		VisibleCommand.SortKey.PackedData = TranslucentMeshSortKey.PackedData;		
+		FMeshDrawCommandSortKey SortKey;
+		SortKey.PackedData = VisibleCommand.SortKey.PackedData;
+		SortKey.Translucent.Distance = (uint32)~BitInvertIfNegativeFloat(*((uint32*)&Distance));
+		VisibleCommand.SortKey.PackedData = SortKey.PackedData;
 	}
 }
 

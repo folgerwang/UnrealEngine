@@ -871,23 +871,10 @@ void DrawDynamicMeshPassPrivate(
 
 FMeshDrawCommandSortKey CalculateMeshStaticSortKey(const FMeshMaterialShader* VertexShader, const FMeshMaterialShader* PixelShader)
 {
-	union FMeshSortKey
-	{
-		uint64 PackedData;
-
-		struct
-		{
-			uint64 VertexShaderHash : 32;	// Order by vertex shader's hash.
-			uint64 PixelShaderHash : 32;	// First order by pixel shader's hash.
-		} Fields;
-	};
-
-	FMeshSortKey MeshSortKey;
-	MeshSortKey.Fields.VertexShaderHash = PointerHash(VertexShader);
-	MeshSortKey.Fields.PixelShaderHash = PointerHash(PixelShader);
-
 	FMeshDrawCommandSortKey SortKey;
-	SortKey.PackedData = MeshSortKey.PackedData;
+	SortKey.Generic.VertexShaderHash = PointerHash(VertexShader);
+	SortKey.Generic.PixelShaderHash = PointerHash(PixelShader);
+
 	return SortKey;
 }
 
