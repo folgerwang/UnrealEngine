@@ -48,8 +48,17 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 
 	public override void DownloadProjectFromLocalizationProvider(string ProjectName, ProjectImportExportInfo ProjectImportInfo)
 	{
-		var OneSkyFileName = GetOneSkyFilename(ProjectImportInfo.PortableObjectName);
 		var OneSkyProject = GetOneSkyProject(ProjectName);
+		DownloadLatestPOFiles(OneSkyProject, null, ProjectImportInfo);
+		foreach (var Platform in ProjectImportInfo.SplitPlatformNames)
+		{
+			DownloadLatestPOFiles(OneSkyProject, Platform, ProjectImportInfo);
+		}
+	}
+
+	private void DownloadLatestPOFiles(Project OneSkyProject, string Platform, ProjectImportExportInfo ProjectImportInfo)
+	{
+		var OneSkyFileName = GetOneSkyFilename(ProjectImportInfo.PortableObjectName, Platform);
 		var OneSkyFile = OneSkyProject.UploadedFiles.FirstOrDefault(f => f.Filename == OneSkyFileName);
 
 		// Export
@@ -71,7 +80,10 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 				}
 			}
 
-			ExportOneSkyFileToDirectory(OneSkyFile, new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath)), ProjectImportInfo.PortableObjectName, CulturesToExport, ProjectImportInfo.bUseCultureDirectory);
+			var DestinationDirectory = String.IsNullOrEmpty(Platform) 
+					? new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath))
+					: new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath, ProjectImportExportInfo.PlatformLocalizationFolderName, Platform));
+			ExportOneSkyFileToDirectory(OneSkyFile, DestinationDirectory, ProjectImportInfo.PortableObjectName, CulturesToExport, ProjectImportInfo.bUseCultureDirectory);
 		}
 	}
 
@@ -186,20 +198,12 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 	{
 		var OneSkyProject = GetOneSkyProject(ProjectName);
 
-		Func<string, FileInfo> GetPathForCulture = (string Culture) =>
-		{
-			if (ProjectExportInfo.bUseCultureDirectory)
-			{
-				return new FileInfo(Path.Combine(RootWorkingDirectory, ProjectExportInfo.DestinationPath, Culture, ProjectExportInfo.PortableObjectName));
-			}
-			else
-			{
-				return new FileInfo(Path.Combine(RootWorkingDirectory, ProjectExportInfo.DestinationPath, ProjectExportInfo.PortableObjectName));
-			}
-		};
-
 		// Upload the .po file for the native culture first
-		UploadFileToOneSky(OneSkyProject, GetPathForCulture(ProjectExportInfo.NativeCulture), ProjectExportInfo.NativeCulture);
+		UploadFileToOneSky(OneSkyProject, ProjectExportInfo.NativeCulture, null, ProjectExportInfo);
+		foreach (var Platform in ProjectExportInfo.SplitPlatformNames)
+		{
+			UploadFileToOneSky(OneSkyProject, ProjectExportInfo.NativeCulture, Platform, ProjectExportInfo);
+		}
 
 		if (bUploadAllCultures)
 		{
@@ -209,7 +213,11 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 				// Skip native culture as we uploaded it above
 				if (Culture != ProjectExportInfo.NativeCulture)
 				{
-					UploadFileToOneSky(OneSkyProject, GetPathForCulture(Culture), Culture);
+					UploadFileToOneSky(OneSkyProject, Culture, null, ProjectExportInfo);
+					foreach (var Platform in ProjectExportInfo.SplitPlatformNames)
+					{
+						UploadFileToOneSky(OneSkyProject, Culture, Platform, ProjectExportInfo);
+					}
 				}
 			}
 		}
@@ -244,8 +252,14 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 		return null;
 	}
 
-	private void UploadFileToOneSky(OneSky.Project OneSkyProject, FileInfo FileToUpload, string Culture)
+	private void UploadFileToOneSky(OneSky.Project OneSkyProject, string Culture, string Platform, ProjectImportExportInfo ProjectExportInfo)
 	{
+		var SourceDirectory = String.IsNullOrEmpty(Platform)
+				? new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectExportInfo.DestinationPath))
+				: new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectExportInfo.DestinationPath, ProjectImportExportInfo.PlatformLocalizationFolderName, Platform));
+		var CultureDirectory = (ProjectExportInfo.bUseCultureDirectory) ? new DirectoryInfo(Path.Combine(SourceDirectory.FullName, Culture)) : SourceDirectory;
+
+		var FileToUpload = new FileInfo(Path.Combine(CultureDirectory.FullName, ProjectExportInfo.PortableObjectName));
 		using (var FileStream = FileToUpload.OpenRead())
 		{
 			// Read the BOM
@@ -258,7 +272,7 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 				FileStream.Position = 0;
 			}
 
-			var OneSkyFileName = GetOneSkyFilename(Path.GetFileName(FileToUpload.FullName));
+			var OneSkyFileName = GetOneSkyFilename(ProjectExportInfo.PortableObjectName, Platform);
 
 			Console.WriteLine("Uploading: '{0}' as '{1}' ({2})", FileToUpload.FullName, OneSkyFileName, Culture);
 
@@ -303,9 +317,15 @@ public class OneSkyLocalizationProvider : LocalizationProvider
 		return OneSkyProject;
 	}
 
-	private string GetOneSkyFilename(string BaseFilename)
+	private string GetOneSkyFilename(string BaseFilename, string Platform)
 	{
 		var OneSkyFileName = BaseFilename;
+		if (!String.IsNullOrEmpty(Platform))
+		{
+			// Apply the platform suffix. XLoc will take care of merging the files from different platforms together.
+			var OneSkyFileNameWithSuffix = Path.GetFileNameWithoutExtension(OneSkyFileName) + "_" + Platform + Path.GetExtension(OneSkyFileName);
+			OneSkyFileName = OneSkyFileNameWithSuffix;
+		}
 		if (!String.IsNullOrEmpty(LocalizationBranchName))
 		{
 			// Apply the branch suffix. OneSky will take care of merging the files from different branches together.

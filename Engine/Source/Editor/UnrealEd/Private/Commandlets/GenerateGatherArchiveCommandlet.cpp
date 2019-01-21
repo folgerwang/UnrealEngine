@@ -203,13 +203,13 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 	}
 
 	// Load the manifest and all archives
-	FLocTextHelper LocTextHelper(DestinationPath, ManifestName, ArchiveName, NativeCulture, CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
+	FLocTextHelper LocTextHelper(DestinationPath, ManifestName, ArchiveName, NativeCulture, CulturesToGenerate, GatherManifestHelper->GetLocFileNotifies(), GatherManifestHelper->GetPlatformSplitMode());
 	{
 		FText LoadError;
 		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
 		{
 			UE_LOG(LogGenerateArchiveCommandlet, Error, TEXT("%s"), *LoadError.ToString());
-			return false;
+			return -1;
 		}
 	}
 

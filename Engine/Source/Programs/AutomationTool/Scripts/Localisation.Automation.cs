@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -340,6 +340,8 @@ class Localize : BuildCommand
 				// Upload all text to our localization provider
 				foreach (var ProjectInfo in ProjectInfos)
 				{
+					// Recalculate the split platform paths before doing the upload, as the export may have changed them
+					ProjectInfo.ExportInfo.CalculateSplitPlatformNames(RootLocalizationTargetDirectory);
 					LocProvider.UploadProjectToLocalizationProvider(ProjectInfo.ProjectName, ProjectInfo.ExportInfo);
 				}
 			}
@@ -361,7 +363,7 @@ class Localize : BuildCommand
 		{
 			ProjectInfo.LocalizationSteps.Add(new ProjectStepInfo("Monolithic", MonolithicConfigFile));
 
-			ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(MonolithicConfigFile);
+			ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, MonolithicConfigFile);
 			ProjectInfo.ExportInfo = ProjectInfo.ImportInfo;
 		}
 		else
@@ -384,11 +386,11 @@ class Localize : BuildCommand
 
 					if (FileSuffix.Suffix == "Import")
 					{
-						ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(ModularConfigFile);
+						ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
 					}
 					else if (FileSuffix.Suffix == "Export")
 					{
-						ProjectInfo.ExportInfo = GenerateProjectImportExportInfo(ModularConfigFile);
+						ProjectInfo.ExportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
 					}
 				}
 				else if (FileSuffix.Required)
@@ -401,7 +403,7 @@ class Localize : BuildCommand
 		return ProjectInfo;
 	}
 
-	private ProjectImportExportInfo GenerateProjectImportExportInfo(string LocalizationConfigFile)
+	private ProjectImportExportInfo GenerateProjectImportExportInfo(string RootWorkingDirectory, string LocalizationConfigFile)
 	{
 		var ProjectImportExportInfo = new ProjectImportExportInfo();
 
@@ -443,6 +445,8 @@ class Localize : BuildCommand
 			// bUseCultureDirectory is optional, default is true
 			ProjectImportExportInfo.bUseCultureDirectory = true;
 		}
+
+		ProjectImportExportInfo.CalculateSplitPlatformNames(RootWorkingDirectory);
 
 		return ProjectImportExportInfo;
 	}

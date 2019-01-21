@@ -76,7 +76,11 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 					continue;
 				}
 
-				DownloadLatestPOFile(XLocApiClient, AuthToken, Culture, ProjectImportInfo);
+				DownloadLatestPOFile(XLocApiClient, AuthToken, Culture, null, ProjectImportInfo);
+				foreach (var Platform in ProjectImportInfo.SplitPlatformNames)
+				{
+					DownloadLatestPOFile(XLocApiClient, AuthToken, Culture, Platform, ProjectImportInfo);
+				}
 			}
 		}
 		finally
@@ -85,9 +89,9 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private void DownloadLatestPOFile(XLocApiClient XLocApiClient, string AuthToken, string Culture, ProjectImportExportInfo ProjectImportInfo)
+	private void DownloadLatestPOFile(XLocApiClient XLocApiClient, string AuthToken, string Culture, string Platform, ProjectImportExportInfo ProjectImportInfo)
 	{
-		var XLocFilename = GetXLocFilename(ProjectImportInfo.PortableObjectName);
+		var XLocFilename = GetXLocFilename(ProjectImportInfo.PortableObjectName, Platform);
 
 		// This will throw if the requested culture is invalid, but we don't want to let that kill the whole gather
 		var LatestBuildXml = "";
@@ -151,7 +155,9 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 		else
 		{
-			var DestinationDirectory = new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath));
+			var DestinationDirectory = String.IsNullOrEmpty(Platform) 
+					? new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath))
+					: new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectImportInfo.DestinationPath, ProjectImportExportInfo.PlatformLocalizationFolderName, Platform));
 			var CultureDirectory = (ProjectImportInfo.bUseCultureDirectory) ? new DirectoryInfo(Path.Combine(DestinationDirectory.FullName, Culture)) : DestinationDirectory;
 			if (!CultureDirectory.Exists)
 			{
@@ -234,7 +240,11 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 			var AuthToken = RequestAuthTokenWithRetry(XLocApiClient);
 
 			// Upload the .po file for the native culture first
-			UploadLatestPOFile(TransferServiceClient, AuthToken, ProjectExportInfo.NativeCulture, ProjectExportInfo);
+			UploadLatestPOFile(TransferServiceClient, AuthToken, ProjectExportInfo.NativeCulture, null, ProjectExportInfo);
+			foreach (var Platform in ProjectExportInfo.SplitPlatformNames)
+			{
+				UploadLatestPOFile(TransferServiceClient, AuthToken, ProjectExportInfo.NativeCulture, Platform, ProjectExportInfo);
+			}
 
 			if (bUploadAllCultures)
 			{
@@ -244,7 +254,11 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 					// Skip native culture as we uploaded it above
 					if (Culture != ProjectExportInfo.NativeCulture)
 					{
-						UploadLatestPOFile(TransferServiceClient, AuthToken, Culture, ProjectExportInfo);
+						UploadLatestPOFile(TransferServiceClient, AuthToken, Culture, null, ProjectExportInfo);
+						foreach (var Platform in ProjectExportInfo.SplitPlatformNames)
+						{
+							UploadLatestPOFile(TransferServiceClient, AuthToken, Culture, Platform, ProjectExportInfo);
+						}
 					}
 				}
 			}
@@ -256,13 +270,15 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private void UploadLatestPOFile(TransferServiceClient TransferServiceClient, string AuthToken, string Culture, ProjectImportExportInfo ProjectExportInfo)
+	private void UploadLatestPOFile(TransferServiceClient TransferServiceClient, string AuthToken, string Culture, string Platform, ProjectImportExportInfo ProjectExportInfo)
 	{
-		var SourceDirectory = new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectExportInfo.DestinationPath));
+		var SourceDirectory = String.IsNullOrEmpty(Platform)
+				? new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectExportInfo.DestinationPath))
+				: new DirectoryInfo(CommandUtils.CombinePaths(RootWorkingDirectory, ProjectExportInfo.DestinationPath, ProjectImportExportInfo.PlatformLocalizationFolderName, Platform));
 		var CultureDirectory = (ProjectExportInfo.bUseCultureDirectory) ? new DirectoryInfo(Path.Combine(SourceDirectory.FullName, Culture)) : SourceDirectory;
 
 		var FileToUpload = new FileInfo(Path.Combine(CultureDirectory.FullName, ProjectExportInfo.PortableObjectName));
-		var XLocFilename = GetXLocFilename(ProjectExportInfo.PortableObjectName);
+		var XLocFilename = GetXLocFilename(ProjectExportInfo.PortableObjectName, Platform);
 
 		using (var FileStream = FileToUpload.OpenRead())
 		{
@@ -368,9 +384,15 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		return XLocApiClient.GetLatestBuildByFile(Config.APIKey, AuthToken, XLocUtils.MD5HashString(Config.APIKey + Config.APISecret + Config.LocalizationId + LanguageId + RemoteFilename), Config.LocalizationId, LanguageId, RemoteFilename);
 	}
 
-	private string GetXLocFilename(string BaseFilename)
+	private string GetXLocFilename(string BaseFilename, string Platform)
 	{
 		var XLocFilename = BaseFilename;
+		if (!String.IsNullOrEmpty(Platform))
+		{
+			// Apply the platform suffix. XLoc will take care of merging the files from different platforms together.
+			var XLocFilenameWithSuffix = Path.GetFileNameWithoutExtension(XLocFilename) + "_" + Platform + Path.GetExtension(XLocFilename);
+			XLocFilename = XLocFilenameWithSuffix;
+		}
 		if (!String.IsNullOrEmpty(LocalizationBranchName))
 		{
 			// Apply the branch suffix. XLoc will take care of merging the files from different branches together.

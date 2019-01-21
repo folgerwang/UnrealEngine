@@ -549,6 +549,12 @@ const TArray<FString>& FPaths::GetGameLocalizationPaths()
 	return Results;
 }
 
+FString FPaths::GetPlatformLocalizationFolderName()
+{
+	// Note: If you change this, also update StageLocalizationDataForTarget (CopyBuildToStagingDirectory.Automation.cs), ProjectImportExportInfo.PlatformLocalizationFolderName (LocalizationProvider.cs)
+	return TEXT("Platforms");
+}
+
 const TArray<FString>& FPaths::GetRestrictedFolderNames()
 {
 	static bool bBuiltArray = false;

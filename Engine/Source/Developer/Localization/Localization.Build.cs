@@ -17,6 +17,7 @@ public class Localization : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"DesktopPlatform",
 				"Slate",
 				"SlateCore",
 				"InputCore",

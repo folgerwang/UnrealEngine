@@ -35,7 +35,7 @@ public:
 	 * @param Manifest The populated Internationalization manifest.
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	static bool DeserializeManifest( const FString& InStr, TSharedRef< FInternationalizationManifest > Manifest );
+	static bool DeserializeManifest( const FString& InStr, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName = FName() );
 
 	/**
 	 * Deserializes a Internationalization manifest from a JSON object.
@@ -44,7 +44,7 @@ public:
 	 * @param Manifest The populated Internationalization manifest.
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	static bool DeserializeManifest( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest );
+	static bool DeserializeManifest( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName = FName() );
 
 	/**
 	 * Deserializes a Internationalization manifest from a JSON file.
@@ -53,7 +53,7 @@ public:
 	 * @param Manifest The populated Internationalization manifest.
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	static bool DeserializeManifestFromFile( const FString& InJsonFile, TSharedRef< FInternationalizationManifest > Manifest );
+	static bool DeserializeManifestFromFile( const FString& InJsonFile, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName = FName() );
 
 	/**
 	 * Serializes a Internationalization manifest to a JSON string.
@@ -92,7 +92,7 @@ protected:
 	 *
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	static bool DeserializeInternal( const TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest );
+	static bool DeserializeInternal( const TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName );
 
 	/**
 	 * Convert a Internationalization manifest to a JSON object.
@@ -113,7 +113,7 @@ protected:
 	 *
 	 * @return true if successful, false otherwise.
 	 */
-	static bool JsonObjToManifest( TSharedRef< FJsonObject > InJsonObj, FString InNamespace, TSharedRef< FInternationalizationManifest > Manifest );
+	static bool JsonObjToManifest( TSharedRef< FJsonObject > InJsonObj, FString InNamespace, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName );
 
 	/**
 	 * Takes a Internationalization manifest and arranges the data into a hierarchy based on namespace.
@@ -151,6 +151,7 @@ public:
 	static const FString TAG_DEPRECATED_DEFAULTTEXT;
 	static const FString TAG_SOURCE;
 	static const FString TAG_SOURCE_TEXT;
+	static const FString TAG_PLATFORM_NAME;
 	static const FString TAG_METADATA;
 	static const FString TAG_METADATA_INFO;
 	static const FString TAG_METADATA_KEY;

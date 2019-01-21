@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using AutomationTool;
 using UnrealBuildTool;
+using Tools.DotNETCommon;
 
 namespace EpicGames.Localization
 {
@@ -30,6 +31,30 @@ public struct ProjectImportExportInfo
 
 	/** True if we should use a per-culture directly when importing/exporting */
 	public bool bUseCultureDirectory;
+
+	/** The platform names that we have split into sub-folders */
+	public List<string> SplitPlatformNames;
+
+	/** The platforms sub-folder */
+	public const string PlatformLocalizationFolderName = "Platforms";
+
+	public void CalculateSplitPlatformNames(string RootWorkingDirectory)
+	{
+		// Is this isn't a single culture import/export, then also check for split platform sub-folders
+		SplitPlatformNames = new List<string>();
+		if (bUseCultureDirectory)
+		{
+			var PlatformSourceDirectory = new DirectoryReference(CommandUtils.CombinePaths(RootWorkingDirectory, DestinationPath, PlatformLocalizationFolderName));
+			if (DirectoryReference.Exists(PlatformSourceDirectory))
+			{
+				foreach (DirectoryReference FoundDirectory in DirectoryReference.EnumerateDirectories(PlatformSourceDirectory, "*", SearchOption.TopDirectoryOnly))
+				{
+					string SplitPlatformName = CommandUtils.GetLastDirectoryName(FoundDirectory.FullName);
+					SplitPlatformNames.Add(SplitPlatformName);
+				}
+			}
+		}
+	}
 };
 
 public struct ProjectStepInfo

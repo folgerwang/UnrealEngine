@@ -161,11 +161,12 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObjects(const TArray<FStr
 			continue;
 		}
 
-		GatherTextFromUObject(*It, Arguments);
+		const FName MetaDataPlatformName = GetSplitPlatformNameFromPath(SourceFilePath);
+		GatherTextFromUObject(*It, Arguments, MetaDataPlatformName);
 	}
 }
 
-void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Field, const FGatherParameters& Arguments)
+void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Field, const FGatherParameters& Arguments, const FName InPlatformName)
 {
 	// Gather for object.
 	{
@@ -191,6 +192,7 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Fiel
 					FManifestContext Context;
 					Context.Key = FText::Format(Arguments.OutputKeys[i], PatternArguments).ToString();
 					Context.SourceLocation = FString::Printf(TEXT("From metadata for key %s of member %s in %s"), *Arguments.InputKeys[i], *Field->GetName(), *Field->GetFullGroupName(true));
+					Context.PlatformName = InPlatformName;
 					GatherManifestHelper->AddSourceText(Namespace, LocItem, Context);
 				}
 			}
@@ -227,6 +229,7 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Fiel
 							FManifestContext Context;
 							Context.Key = FText::Format(Arguments.OutputKeys[j], PatternArguments).ToString();
 							Context.SourceLocation = FString::Printf(TEXT("From metadata for key %s of enum value %s of enum %s in %s"), *Arguments.InputKeys[j], *Enum->GetNameStringByIndex(i), *Enum->GetName(), *Enum->GetFullGroupName(true));
+							Context.PlatformName = InPlatformName;
 							GatherManifestHelper->AddSourceText(Namespace, LocItem, Context);
 						}
 					}

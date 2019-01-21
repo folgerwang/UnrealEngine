@@ -21,7 +21,7 @@ public:
 	/**
 	 * Given a loc text helper, generate a compiled LocRes resource for the given culture.
 	 */
-	LOCALIZATION_API static bool GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextKey& InLocResID, FTextLocalizationResource& OutLocRes, const int32 InPriority = 0);
+	LOCALIZATION_API static bool GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextKey& InLocResID, FTextLocalizationResource& OutPlatformAgnosticLocRes, TMap<FName, TSharedRef<FTextLocalizationResource>>& OutPerPlatformLocRes, const int32 InPriority = 0);
 
 	/**
 	 * Given a config file, generate a compiled LocRes resource for the active culture and use it to update the live-entries in the localization manager.

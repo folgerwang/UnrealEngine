@@ -262,8 +262,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 	Parsables.Add(new FIniNamespaceDescriptor());
 
 	// Init a parse context to track the state of the file parsing 
-	FSourceFileParseContext ParseCtxt;
-	ParseCtxt.GatherManifestHelper = GatherManifestHelper;
+	FSourceFileParseContext ParseCtxt(this);
 
 	// Get whether we should gather editor-only data. Typically only useful for the localization of UE4 itself.
 	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherFromEditorOnlyData"), ParseCtxt.ShouldGatherFromEditorOnlyData, GatherTextConfigPath))
@@ -287,6 +286,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 		ParseCtxt.Filename = SourceFile;
 		FPaths::MakePathRelativeTo(ParseCtxt.Filename, *ProjectBasePath);
 		ParseCtxt.LineNumber = 0;
+		ParseCtxt.FilePlatformName = GetSplitPlatformNameFromPath(ParseCtxt.Filename);
 		ParseCtxt.LineText.Empty();
 		ParseCtxt.Namespace.Empty();
 		ParseCtxt.ExcludedRegion = false;
@@ -334,6 +334,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 					FManifestContext SourceContext;
 					SourceContext.Key = ParsedStringTableEntryPair.Key;
 					SourceContext.SourceLocation = ParsedStringTableEntryPair.Value.SourceLocation.ToString();
+					SourceContext.PlatformName = ParsedStringTableEntryPair.Value.PlatformName;
 
 					const FParsedStringTableEntryMetaDataMap* ParsedMetaDataMap = ParsedStringTablePair.Value.MetaDataEntries.Find(ParsedStringTableEntryPair.Key);
 					if (ParsedMetaDataMap && ParsedMetaDataMap->Num() > 0)
@@ -353,7 +354,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 						*ParsedStringTableEntryPair.Value.SourceLocation.ToString()
 						);
 
-					ParseCtxt.GatherManifestHelper->AddSourceText(ParsedStringTablePair.Value.TableNamespace, FLocItem(ParsedStringTableEntryPair.Value.SourceString), SourceContext, &SourceDescription);
+					GatherManifestHelper->AddSourceText(ParsedStringTablePair.Value.TableNamespace, FLocItem(ParsedStringTableEntryPair.Value.SourceString), SourceContext, &SourceDescription);
 				}
 			}
 		}
@@ -929,7 +930,7 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 
 bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( const FString& Token, const FString& InNamespace, const FString& SourceText, const FManifestContext& Context )
 {
-	const bool bIsEditorOnly = EvaluateMacroStack() == EMacroBlockState::EditorOnly;
+	const bool bIsEditorOnly = EvaluateEditorOnlyDefineState() == EEditorOnlyDefineState::Defined;
 
 	if (!bIsEditorOnly || ShouldGatherFromEditorOnlyData)
 	{
@@ -938,7 +939,7 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( 
 			*Filename, 
 			LineNumber, 
 			*LineText);
-		return GatherManifestHelper->AddSourceText(InNamespace, FLocItem(SourceText), Context, &EntryDescription);
+		return OwnerCommandlet->GatherManifestHelper->AddSourceText(InNamespace, FLocItem(SourceText), Context, &EntryDescription);
 	}
 
 	return false;
@@ -947,7 +948,7 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::PushMacroBlock( const FString& InBlockCtx )
 {
 	MacroBlockStack.Push(InBlockCtx);
-	CachedMacroBlockState.Reset();
+	CachedEditorOnlyDefineState.Reset();
 }
 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::PopMacroBlock()
@@ -955,36 +956,37 @@ void UGatherTextFromSourceCommandlet::FSourceFileParseContext::PopMacroBlock()
 	if (MacroBlockStack.Num() > 0)
 	{
 		MacroBlockStack.Pop(/*bAllowShrinking*/false);
-		CachedMacroBlockState.Reset();
+		CachedEditorOnlyDefineState.Reset();
 	}
 }
 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::FlushMacroStack()
 {
 	MacroBlockStack.Reset();
+	CachedEditorOnlyDefineState.Reset();
 }
 
-UGatherTextFromSourceCommandlet::EMacroBlockState UGatherTextFromSourceCommandlet::FSourceFileParseContext::EvaluateMacroStack() const
+UGatherTextFromSourceCommandlet::EEditorOnlyDefineState UGatherTextFromSourceCommandlet::FSourceFileParseContext::EvaluateEditorOnlyDefineState() const
 {
-	if (CachedMacroBlockState.IsSet())
+	if (CachedEditorOnlyDefineState.IsSet())
 	{
-		return CachedMacroBlockState.GetValue();
+		return CachedEditorOnlyDefineState.GetValue();
 	}
 
 	static const FString WithEditorString = TEXT("WITH_EDITOR");
 	static const FString WithEditorOnlyDataString = TEXT("WITH_EDITORONLY_DATA");
 
-	CachedMacroBlockState = EMacroBlockState::Normal;
+	CachedEditorOnlyDefineState = EEditorOnlyDefineState::Undefined;
 	for (const FString& BlockCtx : MacroBlockStack)
 	{
 		if (BlockCtx.Equals(WithEditorString, ESearchCase::CaseSensitive) || BlockCtx.Equals(WithEditorOnlyDataString, ESearchCase::CaseSensitive))
 		{
-			CachedMacroBlockState = EMacroBlockState::EditorOnly;
+			CachedEditorOnlyDefineState = EEditorOnlyDefineState::Defined;
 			break;
 		}
 	}
 
-	return CachedMacroBlockState.GetValue();
+	return CachedEditorOnlyDefineState.GetValue();
 }
 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::SetDefine(const FString& InDefineCtx)
@@ -1085,9 +1087,9 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableImp
 	return true;
 }
 
-bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEntryImpl(const FName InTableId, const FString& InKey, const FString& InSourceString, const FSourceLocation& InSourceLocation)
+bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEntryImpl(const FName InTableId, const FString& InKey, const FString& InSourceString, const FSourceLocation& InSourceLocation, const FName InPlatformName)
 {
-	const bool bIsEditorOnly = EvaluateMacroStack() == EMacroBlockState::EditorOnly;
+	const bool bIsEditorOnly = EvaluateEditorOnlyDefineState() == EEditorOnlyDefineState::Defined;
 
 	// String table entries may be parsed before the string table itself (due to code ordering), so we may need to add our string table below
 	FParsedStringTable& ParsedStringTable = ParsedStringTables.FindOrAdd(InTableId);
@@ -1111,6 +1113,7 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEnt
 		FParsedStringTableEntry& ParsedStringTableEntry = ParsedStringTable.TableEntries.Add(InKey);
 		ParsedStringTableEntry.SourceString = InSourceString;
 		ParsedStringTableEntry.SourceLocation = InSourceLocation;
+		ParsedStringTableEntry.PlatformName = InPlatformName;
 		ParsedStringTableEntry.bIsEditorOnly = bIsEditorOnly;
 		return true;
 	}
@@ -1118,7 +1121,7 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEnt
 
 bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEntryMetaDataImpl(const FName InTableId, const FString& InKey, const FName InMetaDataId, const FString& InMetaData, const FSourceLocation& InSourceLocation)
 {
-	const bool bIsEditorOnly = EvaluateMacroStack() == EMacroBlockState::EditorOnly;
+	const bool bIsEditorOnly = EvaluateEditorOnlyDefineState() == EEditorOnlyDefineState::Defined;
 
 	// String table meta-data may be parsed before the string table itself (due to code ordering), so we may need to add our string table below
 	FParsedStringTable& ParsedStringTable = ParsedStringTables.FindOrAdd(InTableId);
@@ -1162,10 +1165,12 @@ void UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableFro
 		FStringTableRef TmpStringTable = FStringTable::NewStringTable();
 		if (TmpStringTable->ImportStrings(FullImportPath))
 		{
+			const FSourceLocation SourceLocation = FSourceLocation(InTableFilename, INDEX_NONE);
+			const FName TablePlatformName = OwnerCommandlet->GetSplitPlatformNameFromPath(InTableFilename);
+
 			TmpStringTable->EnumerateSourceStrings([&](const FString& InKey, const FString& InSourceString)
 			{
-				const FSourceLocation SourceLocation = FSourceLocation(InTableFilename, INDEX_NONE);
-				AddStringTableEntryImpl(InTableId, InKey, InSourceString, SourceLocation);
+				AddStringTableEntryImpl(InTableId, InKey, InSourceString, SourceLocation, TablePlatformName);
 
 				TmpStringTable->EnumerateMetaData(InKey, [&](const FName InMetaDataId, const FString& InMetaData)
 				{
@@ -1185,7 +1190,7 @@ void UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableFro
 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEntry(const FName InTableId, const FString& InKey, const FString& InSourceString)
 {
-	AddStringTableEntryImpl(InTableId, InKey, InSourceString, FSourceLocation(Filename, LineNumber));
+	AddStringTableEntryImpl(InTableId, InKey, InSourceString, FSourceLocation(Filename, LineNumber), FilePlatformName);
 }
 
 void UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddStringTableEntryMetaData(const FName InTableId, const FString& InKey, const FName InMetaDataId, const FString& InMetaData)
@@ -1453,6 +1458,7 @@ void UGatherTextFromSourceCommandlet::FUICommandMacroDescriptor::TryParseArgs(co
 			FManifestContext CommandContext;
 			CommandContext.Key = Identifier;
 			CommandContext.SourceLocation = SourceLocation;
+			CommandContext.PlatformName = Context.FilePlatformName;
 
 			Context.AddManifestText(GetToken(), Namespace, SourceText, CommandContext);
 
@@ -1468,6 +1474,7 @@ void UGatherTextFromSourceCommandlet::FUICommandMacroDescriptor::TryParseArgs(co
 					FManifestContext CommandTooltipContext;
 					CommandTooltipContext.Key = Identifier + TEXT("_ToolTip");
 					CommandTooltipContext.SourceLocation = SourceLocation;
+					CommandTooltipContext.PlatformName = CommandContext.PlatformName;
 
 					Context.AddManifestText(GetToken(), Namespace, TooltipSourceText, CommandTooltipContext);
 				}
@@ -1602,6 +1609,7 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 					FManifestContext MacroContext;
 					MacroContext.Key = Identifier;
 					MacroContext.SourceLocation = SourceLocation;
+					MacroContext.PlatformName = Context.FilePlatformName;
 
 					Context.AddManifestText( GetToken(), Namespace.Get(FString()), SourceText, MacroContext );
 				}

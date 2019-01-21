@@ -88,10 +88,10 @@ public:
 	bool LoadFromArchive(FArchive& Archive, const FTextKey& LocResID, const int32 Priority);
 
 	/** Save this resource to the given LocRes file. */
-	bool SaveToFile(const FString& FilePath);
+	bool SaveToFile(const FString& FilePath) const;
 
 	/** Save this resource to the given LocRes archive. */
-	bool SaveToArchive(FArchive& Archive, const FTextKey& LocResID);
+	bool SaveToArchive(FArchive& Archive, const FTextKey& LocResID) const;
 
 private:
 	/** Test whether the new entry should replace the current entry, optionally logging a conflict */

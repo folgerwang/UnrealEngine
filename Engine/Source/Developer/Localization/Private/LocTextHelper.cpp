@@ -1,8 +1,10 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LocTextHelper.h"
+#include "PlatformInfo.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 #include "Serialization/Csv/CsvParser.h"
 #include "Internationalization/IBreakIterator.h"
 #include "Internationalization/BreakIterator.h"
@@ -16,12 +18,52 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogLocTextHelper, Log, All);
 
+bool FLocTextPlatformSplitUtils::ShouldSplitPlatformData(const ELocTextPlatformSplitMode& InSplitMode)
+{
+	return InSplitMode != ELocTextPlatformSplitMode::None;
+}
+
+const TArray<FString>& FLocTextPlatformSplitUtils::GetPlatformsToSplit(const ELocTextPlatformSplitMode& InSplitMode)
+{
+	switch (InSplitMode)
+	{
+	case ELocTextPlatformSplitMode::Restricted:
+		return FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms();
+
+	case ELocTextPlatformSplitMode::All:
+		{
+			static TArray<FString> AllPlatformNames = []()
+			{
+				TArray<FString> TmpArray;
+				for (const PlatformInfo::FPlatformInfo& Info : PlatformInfo::EnumeratePlatformInfoArray(false))
+				{
+					if (!Info.IniPlatformName.IsEmpty())
+					{
+						TmpArray.AddUnique(*Info.IniPlatformName);
+					}
+				}
+				TmpArray.Sort();
+				return TmpArray;
+			}();
+			return AllPlatformNames;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	static TArray<FString> EmptyArray;
+	return EmptyArray;
+}
+
+
 void FLocTextConflicts::AddConflict(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation)
 {
 	TSharedPtr<FConflict> ExistingEntry = FindEntryByKey(InNamespace, InKey, InKeyMetadata);
 	if (!ExistingEntry.IsValid())
 	{
-		TSharedRef<FConflict> NewEntry = MakeShareable(new FConflict(InNamespace, InKey, InKeyMetadata));
+		TSharedRef<FConflict> NewEntry = MakeShared<FConflict>(InNamespace, InKey, InKeyMetadata);
 		EntriesByKey.Add(InKey, NewEntry);
 		ExistingEntry = NewEntry;
 	}
@@ -326,13 +368,15 @@ void FLocTextWordCounts::SortRowsByDate()
 }
 
 
-FLocTextHelper::FLocTextHelper(TSharedPtr<ILocFileNotifies> InLocFileNotifies)
-	: LocFileNotifies(MoveTemp(InLocFileNotifies))
+FLocTextHelper::FLocTextHelper(TSharedPtr<ILocFileNotifies> InLocFileNotifies, const ELocTextPlatformSplitMode InPlatformSplitMode)
+	: PlatformSplitMode(InPlatformSplitMode)
+	, LocFileNotifies(MoveTemp(InLocFileNotifies))
 {
 }
 
-FLocTextHelper::FLocTextHelper(FString InTargetPath, FString InManifestName, FString InArchiveName, FString InNativeCulture, TArray<FString> InForeignCultures, TSharedPtr<ILocFileNotifies> InLocFileNotifies)
-	: TargetPath(MoveTemp(InTargetPath))
+FLocTextHelper::FLocTextHelper(FString InTargetPath, FString InManifestName, FString InArchiveName, FString InNativeCulture, TArray<FString> InForeignCultures, TSharedPtr<ILocFileNotifies> InLocFileNotifies, const ELocTextPlatformSplitMode InPlatformSplitMode)
+	: PlatformSplitMode(InPlatformSplitMode)
+	, TargetPath(MoveTemp(InTargetPath))
 	, ManifestName(MoveTemp(InManifestName))
 	, ArchiveName(MoveTemp(InArchiveName))
 	, NativeCulture(MoveTemp(InNativeCulture))
@@ -351,6 +395,21 @@ FLocTextHelper::FLocTextHelper(FString InTargetPath, FString InManifestName, FSt
 	{
 		ForeignCultures.Remove(NativeCulture);
 	}
+}
+
+bool FLocTextHelper::ShouldSplitPlatformData() const
+{
+	return FLocTextPlatformSplitUtils::ShouldSplitPlatformData(PlatformSplitMode);
+}
+
+ELocTextPlatformSplitMode FLocTextHelper::GetPlatformSplitMode() const
+{
+	return PlatformSplitMode;
+}
+
+const TArray<FString>& FLocTextHelper::GetPlatformsToSplit() const
+{
+	return FLocTextPlatformSplitUtils::GetPlatformsToSplit(PlatformSplitMode);
 }
 
 const FString& FLocTextHelper::GetTargetName() const
@@ -436,7 +495,7 @@ void FLocTextHelper::TrimManifest()
 	if (Dependencies.Num() > 0)
 	{
 		// We'll generate a new manifest by only including items that are not in the dependencies
-		TSharedRef<FInternationalizationManifest> TrimmedManifest = MakeShareable(new FInternationalizationManifest());
+		TSharedRef<FInternationalizationManifest> TrimmedManifest = MakeShared<FInternationalizationManifest>();
 
 		for (FManifestEntryByStringContainer::TConstIterator It(Manifest->GetEntriesBySourceTextIterator()); It; ++It)
 		{
@@ -445,7 +504,18 @@ void FLocTextHelper::TrimManifest()
 			for (const FManifestContext& Context : ManifestEntry->Contexts)
 			{
 				FString DependencyFileName;
-				const TSharedPtr<FManifestEntry> DependencyEntry = FindDependencyEntry(ManifestEntry->Namespace, Context, &DependencyFileName);
+				TSharedPtr<FManifestEntry> DependencyEntry = FindDependencyEntry(ManifestEntry->Namespace, Context, &DependencyFileName);
+
+				// Ignore this dependency if the platforms are different
+				if (DependencyEntry.IsValid())
+				{
+					const FManifestContext* DependencyContext = DependencyEntry->FindContext(Context.Key, Context.KeyMetadataObj);
+					if (Context.PlatformName != DependencyContext->PlatformName)
+					{
+						DependencyEntry.Reset();
+						DependencyFileName.Reset();
+					}
+				}
 
 				if (DependencyEntry.IsValid())
 				{
@@ -656,7 +726,7 @@ void FLocTextHelper::TrimArchive(const FString& InCulture)
 	}
 
 	// Copy any translations that match current manifest entries over into the trimmed archive
-	TSharedRef<FInternationalizationArchive> TrimmedArchive = MakeShareable(new FInternationalizationArchive());
+	TSharedRef<FInternationalizationArchive> TrimmedArchive = MakeShared<FInternationalizationArchive>();
 	EnumerateSourceTexts([&](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 	{
 		for (const FManifestContext& Context : InManifestEntry->Contexts)
@@ -766,6 +836,17 @@ bool FLocTextHelper::AddSourceText(const FLocKey& InNamespace, const FLocItem& I
 	if (!ExistingEntry.IsValid())
 	{
 		ExistingEntry = FindDependencyEntry(InNamespace, InContext, &ExistingEntryFileName);
+
+		// Ignore this dependency if the platforms are different
+		if (ExistingEntry.IsValid())
+		{
+			const FManifestContext* DependencyContext = ExistingEntry->FindContext(InContext.Key, InContext.KeyMetadataObj);
+			if (InContext.PlatformName != DependencyContext->PlatformName)
+			{
+				ExistingEntry.Reset();
+				ExistingEntryFileName.Reset();
+			}
+		}
 	}
 
 	if (ExistingEntry.IsValid())
@@ -773,12 +854,13 @@ bool FLocTextHelper::AddSourceText(const FLocKey& InNamespace, const FLocItem& I
 		if (InSource.IsExactMatch(ExistingEntry->Source))
 		{
 			bAddSuccessful = true;
+			ExistingEntry->MergeContextPlatformInfo(InContext);
 		}
 		else
 		{
 			// Grab the source location of the conflicting context
 			const FManifestContext* ConflictingContext = ExistingEntry->FindContext(InContext.Key, InContext.KeyMetadataObj);
-			const FString ExistingEntrySourceLocation = (!ExistingEntryFileName.IsEmpty()) ? ExistingEntryFileName : ConflictingContext->SourceLocation;
+			const FString& ExistingEntrySourceLocation = (!ExistingEntryFileName.IsEmpty()) ? ExistingEntryFileName : ConflictingContext->SourceLocation;
 
 			FString Message = SanitizeLogOutput(
 				FString::Printf(TEXT("Found previously entered localized string: %s [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in %s."),
@@ -1337,44 +1419,70 @@ bool FLocTextHelper::FindKeysForLegacyTranslation(const TSharedRef<const FIntern
 
 TSharedPtr<FInternationalizationManifest> FLocTextHelper::LoadManifestImpl(const FString& InManifestFilePath, const ELocTextHelperLoadFlags InLoadFlags, FText* OutError)
 {
-	TSharedPtr<FInternationalizationManifest> LocalManifest = MakeShareable(new FInternationalizationManifest());
+	TSharedRef<FInternationalizationManifest> LocalManifest = MakeShared<FInternationalizationManifest>();
+
+	auto LoadSingleManifest = [this, &LocalManifest, &OutError](const FString& InManifestFilePathToLoad, const FName InPlatformName) -> bool
+	{
+		bool bLoaded = false;
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PreFileRead(InManifestFilePathToLoad);
+		}
+
+		if (FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile(InManifestFilePathToLoad, LocalManifest, InPlatformName))
+		{
+			bLoaded = true;
+		}
+		else if (OutError)
+		{
+			*OutError = FText::Format(LOCTEXT("Error_LoadManifest_DeserializeFile", "Failed to deserialize manifest '{0}'."), FText::FromString(InManifestFilePathToLoad));
+		}
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PostFileRead(InManifestFilePathToLoad);
+		}
+
+		return bLoaded;
+	};
 
 	// Attempt to load an existing manifest first
 	if (!!(InLoadFlags & ELocTextHelperLoadFlags::Load))
 	{
-		bool bLoaded = false;
-		const bool bExisted = FPaths::FileExists(InManifestFilePath);
+		const bool bExists = FPaths::FileExists(InManifestFilePath);
 
-		if (bExisted)
+		bool bLoadedAll = bExists;
+		if (bExists)
 		{
-			if (LocFileNotifies.IsValid())
+			bLoadedAll &= LoadSingleManifest(InManifestFilePath, FName());
 			{
-				LocFileNotifies->PreFileRead(InManifestFilePath);
-			}
-
-			if (FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile(InManifestFilePath, LocalManifest.ToSharedRef()))
-			{
-				bLoaded = true;
-			}
-			else
-			{
-				if (OutError)
+				// Load all per-platform manifests too
+				// We always do this, as we may have changed the split config so don't want to lose data
+				const FString PlatformManifestName = FPaths::GetCleanFilename(InManifestFilePath);
+				const FString PlatformLocalizationPath = FPaths::GetPath(InManifestFilePath) / FPaths::GetPlatformLocalizationFolderName();
+				IFileManager::Get().IterateDirectory(*PlatformLocalizationPath, [&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) -> bool
 				{
-					*OutError = FText::Format(LOCTEXT("Error_LoadManifest_DeserializeFile", "Failed to deserialize manifest '{0}'."), FText::FromString(InManifestFilePath));
-				}
-			}
-
-			if (LocFileNotifies.IsValid())
-			{
-				LocFileNotifies->PostFileRead(InManifestFilePath);
+					if (bIsDirectory)
+					{
+						const FString PlatformManifestFilePath = FilenameOrDirectory / PlatformManifestName;
+						if (FPaths::FileExists(PlatformManifestFilePath))
+						{
+							const FString SplitPlatformName = FPaths::GetCleanFilename(FilenameOrDirectory);
+							bLoadedAll &= LoadSingleManifest(PlatformManifestFilePath, *SplitPlatformName);
+						}
+					}
+					return true;
+				});
 			}
 		}
 
-		if (bLoaded)
+		if (bLoadedAll)
 		{
 			return LocalManifest;
 		}
-		else if (bExisted)
+
+		if (bExists)
 		{
 			// Don't allow fallback to Create if the file exists but could not be loaded
 			return nullptr;
@@ -1392,80 +1500,170 @@ TSharedPtr<FInternationalizationManifest> FLocTextHelper::LoadManifestImpl(const
 
 bool FLocTextHelper::SaveManifestImpl(const TSharedRef<const FInternationalizationManifest>& InManifest, const FString& InManifestFilePath, FText* OutError) const
 {
-	bool bSaved = false;
-
-	if (LocFileNotifies.IsValid())
+	auto SaveSingleManifest = [this, &OutError](const TSharedRef<const FInternationalizationManifest>& InManifestToSave, const FString& InManifestFilePathToSave) -> bool
 	{
-		LocFileNotifies->PreFileWrite(InManifestFilePath);
-	}
+		bool bSaved = false;
 
-	TSharedRef<FJsonObject> ManifestJsonObject = MakeShareable(new FJsonObject());
-	if (FJsonInternationalizationManifestSerializer::SerializeManifestToFile(InManifest, InManifestFilePath))
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PreFileWrite(InManifestFilePathToSave);
+		}
+
+		if (FJsonInternationalizationManifestSerializer::SerializeManifestToFile(InManifestToSave, InManifestFilePathToSave))
+		{
+			bSaved = true;
+		}
+		else
+		{
+			if (OutError)
+			{
+				*OutError = FText::Format(LOCTEXT("Error_SaveManifest_SerializeFile", "Failed to serialize manifest '{0}'."), FText::FromString(InManifestFilePathToSave));
+			}
+		}
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PostFileWrite(InManifestFilePathToSave);
+		}
+
+		return bSaved;
+	};
+
+	bool bSavedAll = true;
+	if (ShouldSplitPlatformData())
 	{
-		bSaved = true;
+		const FString PlatformManifestName = FPaths::GetCleanFilename(InManifestFilePath);
+		const FString PlatformLocalizationPath = FPaths::GetPath(InManifestFilePath) / FPaths::GetPlatformLocalizationFolderName();
+
+		// Split the manifest into separate entries for each platform, as well as a platform agnostic manifest
+		TSharedRef<FInternationalizationManifest> PlatformAgnosticManifest = MakeShared<FInternationalizationManifest>();
+		TMap<FName, TSharedRef<FInternationalizationManifest>> PerPlatformManifests;
+		{
+			// Always add the split platforms so that they generate an empty manifest if there are no entries for that platform in the master manifest
+			for (const FString& SplitPlatformName : GetPlatformsToSplit())
+			{
+				PerPlatformManifests.Add(*SplitPlatformName, MakeShared<FInternationalizationManifest>());
+			}
+
+			// Split the manifest entries based on the platform they belonged to
+			for (FManifestEntryByStringContainer::TConstIterator It(InManifest->GetEntriesBySourceTextIterator()); It; ++It)
+			{
+				const TSharedRef<FManifestEntry> ManifestEntry = It.Value();
+				for (const FManifestContext& Context : ManifestEntry->Contexts)
+				{
+					TSharedPtr<FInternationalizationManifest> ManifestToUpdate = PlatformAgnosticManifest;
+					if (!Context.PlatformName.IsNone())
+					{
+						if (TSharedRef<FInternationalizationManifest>* PerPlatformManifest = PerPlatformManifests.Find(Context.PlatformName))
+						{
+							ManifestToUpdate = *PerPlatformManifest;
+						}
+					}
+					check(ManifestToUpdate.IsValid());
+
+					if (!ManifestToUpdate->AddSource(ManifestEntry->Namespace, ManifestEntry->Source, Context))
+					{
+						UE_LOG(LogLocTextHelper, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
+							*ManifestEntry->Namespace.GetString(),
+							*Context.Key.GetString(),
+							*ManifestEntry->Source.Text,
+							*FJsonInternationalizationMetaDataSerializer::MetadataToString(ManifestEntry->Source.MetadataObj)
+							);
+					}
+				}
+			}
+		}
+
+		bSavedAll &= SaveSingleManifest(PlatformAgnosticManifest, InManifestFilePath);
+		for (const auto PerPlatformManifestPair : PerPlatformManifests)
+		{
+			const FString PlatformManifestFilePath = PlatformLocalizationPath / PerPlatformManifestPair.Key.ToString() / PlatformManifestName;
+			bSavedAll &= SaveSingleManifest(PerPlatformManifestPair.Value, PlatformManifestFilePath);
+		}
 	}
 	else
 	{
-		if (OutError)
-		{
-			*OutError = FText::Format(LOCTEXT("Error_SaveManifest_SerializeFile", "Failed to serialize manifest '{0}'."), FText::FromString(InManifestFilePath));
-		}
+		bSavedAll &= SaveSingleManifest(InManifest, InManifestFilePath);
 	}
-
-	if (LocFileNotifies.IsValid())
-	{
-		LocFileNotifies->PostFileWrite(InManifestFilePath);
-	}
-
-	return bSaved;
+	return bSavedAll;
 }
 
 TSharedPtr<FInternationalizationArchive> FLocTextHelper::LoadArchiveImpl(const FString& InArchiveFilePath, const ELocTextHelperLoadFlags InLoadFlags, FText* OutError)
 {
-	TSharedPtr<FInternationalizationArchive> LocalArchive = MakeShareable(new FInternationalizationArchive());
+	TSharedRef<FInternationalizationArchive> LocalArchive = MakeShared<FInternationalizationArchive>();
+
+	auto LoadSingleArchive = [this, &LocalArchive, &OutError](const FString& InArchiveFilePathToLoad) -> bool
+	{
+		bool bLoaded = false;
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PreFileRead(InArchiveFilePathToLoad);
+		}
+
+		TSharedPtr<FInternationalizationArchive> NativeArchive;
+		if (!NativeCulture.IsEmpty())
+		{
+			NativeArchive = Archives.FindRef(NativeCulture);
+		}
+
+		if (FJsonInternationalizationArchiveSerializer::DeserializeArchiveFromFile(InArchiveFilePathToLoad, LocalArchive, Manifest, NativeArchive))
+		{
+			bLoaded = true;
+		}
+		else
+		{
+			if (OutError)
+			{
+				*OutError = FText::Format(LOCTEXT("Error_LoadArchive_DeserializeFile", "Failed to deserialize archive '{0}'."), FText::FromString(InArchiveFilePathToLoad));
+			}
+		}
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PostFileRead(InArchiveFilePathToLoad);
+		}
+
+		return bLoaded;
+	};
 
 	// Attempt to load an existing archive first
 	if (!!(InLoadFlags & ELocTextHelperLoadFlags::Load))
 	{
-		bool bLoaded = false;
-		const bool bExisted = FPaths::FileExists(InArchiveFilePath);
+		const bool bExists = FPaths::FileExists(InArchiveFilePath);
 
-		if (bExisted)
+		bool bLoadedAll = bExists;
+		if (bExists)
 		{
-			if (LocFileNotifies.IsValid())
+			bLoadedAll &= LoadSingleArchive(InArchiveFilePath);
 			{
-				LocFileNotifies->PreFileRead(InArchiveFilePath);
-			}
-
-			TSharedPtr<FInternationalizationArchive> NativeArchive;
-			if (!NativeCulture.IsEmpty())
-			{
-				NativeArchive = Archives.FindRef(NativeCulture);
-			}
-			
-			if (FJsonInternationalizationArchiveSerializer::DeserializeArchiveFromFile(InArchiveFilePath, LocalArchive.ToSharedRef(), Manifest, NativeArchive))
-			{
-				bLoaded = true;
-			}
-			else
-			{
-				if (OutError)
+				// Load all per-platform archives too
+				// We always do this, as we may have changed the split config so don't want to lose data
+				const FString ArchiveCultureFilePath = FPaths::GetPath(InArchiveFilePath);
+				const FString PlatformArchiveName = FPaths::GetCleanFilename(InArchiveFilePath);
+				const FString PlatformArchiveCulture = FPaths::GetCleanFilename(ArchiveCultureFilePath);
+				const FString PlatformLocalizationPath = FPaths::GetPath(ArchiveCultureFilePath) / FPaths::GetPlatformLocalizationFolderName();
+				IFileManager::Get().IterateDirectory(*PlatformLocalizationPath, [&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) -> bool
 				{
-					*OutError = FText::Format(LOCTEXT("Error_LoadArchive_DeserializeFile", "Failed to deserialize archive '{0}'."), FText::FromString(InArchiveFilePath));
-				}
-			}
-
-			if (LocFileNotifies.IsValid())
-			{
-				LocFileNotifies->PostFileRead(InArchiveFilePath);
+					if (bIsDirectory)
+					{
+						const FString PlatformArchiveFilePath = FilenameOrDirectory / PlatformArchiveCulture / PlatformArchiveName;
+						if (FPaths::FileExists(PlatformArchiveFilePath))
+						{
+							bLoadedAll &= LoadSingleArchive(PlatformArchiveFilePath);
+						}
+					}
+					return true;
+				});
 			}
 		}
 
-		if (bLoaded)
+		if (bLoadedAll)
 		{
 			return LocalArchive;
 		}
-		else if (bExisted)
+		
+		if (bExists)
 		{
 			// Don't allow fallback to Create if the file exists but could not be loaded
 			return nullptr;
@@ -1483,31 +1681,92 @@ TSharedPtr<FInternationalizationArchive> FLocTextHelper::LoadArchiveImpl(const F
 
 bool FLocTextHelper::SaveArchiveImpl(const TSharedRef<const FInternationalizationArchive>& InArchive, const FString& InArchiveFilePath, FText* OutError) const
 {
-	bool bSaved = false;
-
-	if (LocFileNotifies.IsValid())
+	auto SaveSingleArchive = [this, &OutError](const TSharedRef<const FInternationalizationArchive>& InArchiveToSave, const FString& InArchiveFilePathToSave) -> bool
 	{
-		LocFileNotifies->PreFileWrite(InArchiveFilePath);
-	}
+		bool bSaved = false;
 
-	if (FJsonInternationalizationArchiveSerializer::SerializeArchiveToFile(InArchive, InArchiveFilePath))
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PreFileWrite(InArchiveFilePathToSave);
+		}
+
+		if (FJsonInternationalizationArchiveSerializer::SerializeArchiveToFile(InArchiveToSave, InArchiveFilePathToSave))
+		{
+			bSaved = true;
+		}
+		else
+		{
+			if (OutError)
+			{
+				*OutError = FText::Format(LOCTEXT("Error_SaveArchive_SerializeFile", "Failed to serialize archive '{0}'."), FText::FromString(InArchiveFilePathToSave));
+			}
+		}
+
+		if (LocFileNotifies.IsValid())
+		{
+			LocFileNotifies->PostFileWrite(InArchiveFilePathToSave);
+		}
+
+		return bSaved;
+	};
+
+	bool bSavedAll = true;
+	if (ShouldSplitPlatformData())
 	{
-		bSaved = true;
+		const FString ArchiveCultureFilePath = FPaths::GetPath(InArchiveFilePath);
+		const FString PlatformArchiveName = FPaths::GetCleanFilename(InArchiveFilePath);
+		const FString PlatformArchiveCulture = FPaths::GetCleanFilename(ArchiveCultureFilePath);
+		const FString PlatformLocalizationPath = FPaths::GetPath(ArchiveCultureFilePath) / FPaths::GetPlatformLocalizationFolderName();
+
+		// Split the archive into separate entries for each platform, as well as a platform agnostic archive
+		TSharedRef<FInternationalizationArchive> PlatformAgnosticArchive = MakeShared<FInternationalizationArchive>();
+		TMap<FName, TSharedRef<FInternationalizationArchive>> PerPlatformArchives;
+		{
+			// Always add the split platforms so that they generate an empty archives if there are no entries for that platform in the master archive
+			for (const FString& SplitPlatformName : GetPlatformsToSplit())
+			{
+				PerPlatformArchives.Add(*SplitPlatformName, MakeShared<FInternationalizationArchive>());
+			}
+
+			// Split the archive entries based on the platform they belonged to
+			EnumerateSourceTexts([&InArchive, &PlatformAgnosticArchive, &PerPlatformArchives](TSharedRef<FManifestEntry> InManifestEntry) -> bool
+			{
+				for (const FManifestContext& Context : InManifestEntry->Contexts)
+				{
+					TSharedPtr<FInternationalizationArchive> ArchiveToUpdate = PlatformAgnosticArchive;
+					if (!Context.PlatformName.IsNone())
+					{
+						if (TSharedRef<FInternationalizationArchive>* PerPlatformArchive = PerPlatformArchives.Find(Context.PlatformName))
+						{
+							ArchiveToUpdate = *PerPlatformArchive;
+						}
+					}
+					check(ArchiveToUpdate.IsValid());
+
+					// Keep any translation for the source text
+					TSharedPtr<FArchiveEntry> ArchiveEntry = InArchive->FindEntryByKey(InManifestEntry->Namespace, Context.Key, Context.KeyMetadataObj);
+					if (ArchiveEntry.IsValid())
+					{
+						ArchiveToUpdate->AddEntry(ArchiveEntry.ToSharedRef());
+					}
+				}
+
+				return true; // continue enumeration
+			}, true);
+		}
+
+		bSavedAll &= SaveSingleArchive(PlatformAgnosticArchive, InArchiveFilePath);
+		for (const auto PerPlatformArchivePair : PerPlatformArchives)
+		{
+			const FString PlatformArchiveFilePath = PlatformLocalizationPath / PerPlatformArchivePair.Key.ToString() / PlatformArchiveCulture / PlatformArchiveName;
+			bSavedAll &= SaveSingleArchive(PerPlatformArchivePair.Value, PlatformArchiveFilePath);
+		}
 	}
 	else
 	{
-		if (OutError)
-		{
-			*OutError = FText::Format(LOCTEXT("Error_SaveArchive_SerializeFile", "Failed to serialize archive '{0}'."), FText::FromString(InArchiveFilePath));
-		}
+		bSavedAll &= SaveSingleArchive(InArchive, InArchiveFilePath);
 	}
-
-	if (LocFileNotifies.IsValid())
-	{
-		LocFileNotifies->PostFileWrite(InArchiveFilePath);
-	}
-
-	return bSaved;
+	return bSavedAll;
 }
 
 TSharedPtr<FArchiveEntry> FLocTextHelper::FindTranslationImpl(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const

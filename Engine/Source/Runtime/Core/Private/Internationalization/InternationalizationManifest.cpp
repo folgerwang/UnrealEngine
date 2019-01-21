@@ -8,6 +8,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationManifestObject, Log, All);
 FManifestContext::FManifestContext(const FManifestContext& Other)
 	: Key(Other.Key)
 	, SourceLocation(Other.SourceLocation)
+	, PlatformName(Other.PlatformName)
 	, bIsOptional(Other.bIsOptional)
 {
 	if (Other.InfoMetadataObj.IsValid())
@@ -27,6 +28,7 @@ FManifestContext& FManifestContext::operator=(const FManifestContext& Other)
 	{
 		Key = Other.Key;
 		SourceLocation = Other.SourceLocation;
+		PlatformName = Other.PlatformName;
 		bIsOptional = Other.bIsOptional;
 		InfoMetadataObj.Reset();
 		KeyMetadataObj.Reset();
@@ -294,7 +296,9 @@ const FManifestContext* FManifestEntry::FindContext(const FLocKey& ContextKey, c
 			{
 				continue;
 			}
-			else if ((!Context.KeyMetadataObj.IsValid() && !KeyMetadata.IsValid()) || (*Context.KeyMetadataObj == *KeyMetadata))
+			
+			// If we get here, the meta-data objects are either both null, or both valid
+			if (!Context.KeyMetadataObj.IsValid() || *Context.KeyMetadataObj == *KeyMetadata)
 			{
 				return &Context;
 			}
@@ -315,4 +319,36 @@ const FManifestContext* FManifestEntry::FindContextByKey(const FLocKey& ContextK
 	}
 
 	return nullptr;
+}
+
+void FManifestEntry::MergeContextPlatformInfo(const FManifestContext& InContext)
+{
+	for (FManifestContext& Context : Contexts)
+	{
+		if (Context.Key == InContext.Key)
+		{
+			if (Context.KeyMetadataObj.IsValid() != InContext.KeyMetadataObj.IsValid())
+			{
+				continue;
+			}
+			
+			// If we get here, the meta-data objects are either both null, or both valid
+			if (!Context.KeyMetadataObj.IsValid() || *Context.KeyMetadataObj == *InContext.KeyMetadataObj)
+			{
+				// If the platform name on this context doesn't match what we're being asked to merge to it, clear the 
+				// platform name so that the text becomes platform agnostic (as it is being used by multiple platforms)
+				// Also clear the source location to redact the info
+				if (!Context.PlatformName.IsNone() && Context.PlatformName != InContext.PlatformName)
+				{
+					Context.PlatformName = FName();
+					Context.SourceLocation.Reset();
+				}
+				if (InContext.PlatformName.IsNone() && Context.SourceLocation.IsEmpty())
+				{
+					// Previously redacted source location - use the agnostic source instead
+					Context.SourceLocation = InContext.SourceLocation;
+				}
+			}
+		}
+	}
 }
