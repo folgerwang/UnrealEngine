@@ -41,7 +41,7 @@ namespace AutomationTool.Tasks
 		public string Workspace;
 
 		/// <summary>
-		/// The stream for the workspace; defaults to the current stream. Ignored unless If the Workspace attribute is also specified.
+		/// The stream for the workspace; defaults to the current stream. Ignored unless the Workspace attribute is also specified.
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public string Stream;
