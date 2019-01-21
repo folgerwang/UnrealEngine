@@ -156,7 +156,7 @@ FText FConcertPackageAddedActivityEvent::ToDisplayText(bool bRichText /*=false*/
 	FFormatNamedArguments Arguments;
 	Arguments.Add(TEXT("UserName"), ActivityEventsUtil::ToRichTextBold(GetClientDisplayName(), bRichText));
 	Arguments.Add(TEXT("PackageName"), ActivityEventsUtil::ToRichTextBold(PackageName, bRichText));
-	return FText::Format(LOCTEXT("PackageUpdated", "{UserName} created the package {PackageName}."), Arguments);
+	return FText::Format(LOCTEXT("PackageAdded", "{UserName} created the package {PackageName}."), Arguments);
 }
 
 FConcertPackageDeletedActivityEvent::~FConcertPackageDeletedActivityEvent()
@@ -168,7 +168,7 @@ FText FConcertPackageDeletedActivityEvent::ToDisplayText(bool bRichText /*=false
 	FFormatNamedArguments Arguments;
 	Arguments.Add(TEXT("UserName"), ActivityEventsUtil::ToRichTextBold(GetClientDisplayName(), bRichText));
 	Arguments.Add(TEXT("PackageName"), ActivityEventsUtil::ToRichTextBold(PackageName, bRichText));
-	return FText::Format(LOCTEXT("PackageUpdated", "{UserName} deleted the package {PackageName}."), Arguments);
+	return FText::Format(LOCTEXT("PackageDeleted", "{UserName} deleted the package {PackageName}."), Arguments);
 }
 
 FConcertPackageRenamedActivityEvent::~FConcertPackageRenamedActivityEvent()
@@ -181,7 +181,7 @@ FText FConcertPackageRenamedActivityEvent::ToDisplayText(bool bRichText /*=false
 	Arguments.Add(TEXT("UserName"), ActivityEventsUtil::ToRichTextBold(GetClientDisplayName(), bRichText));
 	Arguments.Add(TEXT("PackageOldName"), ActivityEventsUtil::ToRichTextBold(PackageName, bRichText));
 	Arguments.Add(TEXT("PackageNewName"), ActivityEventsUtil::ToRichTextBold(NewPackageName, bRichText));
-	return FText::Format(LOCTEXT("PackageUpdated", "{UserName} moved the package {PackageOldName} to {PackageNewName}."), Arguments);
+	return FText::Format(LOCTEXT("PackageRenamed", "{UserName} moved the package {PackageOldName} to {PackageNewName}."), Arguments);
 }
 
 #undef LOCTEXT_NAMESPACE

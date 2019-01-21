@@ -736,7 +736,7 @@ void FConcertClientWorkspace::HandleWorkspaceSyncPackageEvent(const FConcertSess
 	if (InitialSyncSlowTask.IsValid())
 	{
 		InitialSyncSlowTask->TotalAmountOfWork = InitialSyncSlowTask->CompletedWork + Event.RemainingWork + 1;
-		InitialSyncSlowTask->EnterProgressFrame(FMath::Min<float>(Event.RemainingWork, 1.0f), FText::Format(LOCTEXT("SynchronizedTransactionFmt", "Synchronized Package {0}..."), FText::FromName(Event.Package.Info.PackageName)));
+		InitialSyncSlowTask->EnterProgressFrame(FMath::Min<float>(Event.RemainingWork, 1.0f), FText::Format(LOCTEXT("SynchronizedPackageFmt", "Synchronized Package {0}..."), FText::FromName(Event.Package.Info.PackageName)));
 	}
 
 	switch (Event.Package.Info.PackageUpdateType)

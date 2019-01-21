@@ -57,10 +57,7 @@
 #include "LauncherPlatformModule.h"
 #include "Misc/ScopedSlowTask.h"
 #include "MaterialShaderQualitySettings.h"
-
-#define LOCTEXT_NAMESPACE "EditorViewport"
 #include "RHIShaderPlatformDefinitions.inl"
-#undef LOCTEXT_NAMESPACE
 
 namespace LevelEditorActionHelpers
 {

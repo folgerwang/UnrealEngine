@@ -165,7 +165,7 @@ FText FMediaIOCommonDisplayModes::GetMediaIOCommonDisplayModeInfoName(int32 InWi
 	{
 	case EMediaIOStandardType::Interlaced: Standard = LOCTEXT("Interlaced_Short", "i"); break;
 	case EMediaIOStandardType::Progressive: Standard = LOCTEXT("Progressive_Short", "p"); break;
-	case EMediaIOStandardType::ProgressiveSegmentedFrame: Standard = LOCTEXT("Progressive_Short", "psf"); break;
+	case EMediaIOStandardType::ProgressiveSegmentedFrame: Standard = LOCTEXT("ProgressiveSegmentedFrame_Short", "psf"); break;
 	}
 
 	const FMediaIOCommonDisplayModeResolutionInfo* Resolution = Find(InWidth, InHeight);
