@@ -343,8 +343,7 @@ public partial class Project : CommandUtils
 					if (bUFS)
 					{
 						List<FileReference> Files = SC.FindFilesToStage(InputDir, StageFilesSearch.AllDirectories);
-						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap"));
-
+						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap") || (SC.DedicatedServer && x.HasExtension(".mp4")));
 						SC.StageFiles(StagedFileType.UFS, InputDir, Files, OutputDir);
 					}
 					else
