@@ -831,7 +831,7 @@ void FProjectedShadowInfo::AddCachedMeshDrawCommandsForPass(
 				CachedMeshDrawCommand.StateBucketId,
 				CachedMeshDrawCommand.MeshFillMode,
 				CachedMeshDrawCommand.MeshCullMode,
-				FMeshDrawCommandSortKey::Default);
+				CachedMeshDrawCommand.SortKey);
 
 			VisibleMeshCommands.Add(NewVisibleMeshDrawCommand);
 		}

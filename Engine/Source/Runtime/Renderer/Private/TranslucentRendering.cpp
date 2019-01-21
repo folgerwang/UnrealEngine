@@ -263,27 +263,6 @@ private:
 
 IMPLEMENT_SHADER_TYPE(, FCopySceneColorPS, TEXT("/Engine/Private/TranslucentLightingShaders.usf"), TEXT("CopySceneColorMain"), SF_Pixel);
 
-FMeshDrawCommandSortKey CalculateStaticTranslucentMeshSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive)
-{
-	uint16 SortKeyPriority = 0;
-
-	if (PrimitiveSceneProxy)
-	{
-		const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
-		SortKeyPriority = (uint16)((int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN);
-	}
-
-	FTranslucentMeshSortKey TranslucentMeshSortKey;
-	TranslucentMeshSortKey.Fields.MeshIdInPrimitive = MeshIdInPrimitive;
-	TranslucentMeshSortKey.Fields.Priority = SortKeyPriority;
-	TranslucentMeshSortKey.Fields.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
-
-	FMeshDrawCommandSortKey SortKey;
-	SortKey.PackedData = TranslucentMeshSortKey.PackedData;
-
-	return SortKey;
-}
-
 extern int32 GLightShaftRenderAfterDOF;
 
 bool FSceneRenderer::ShouldRenderTranslucency(ETranslucencyPass::Type TranslucencyPass) const

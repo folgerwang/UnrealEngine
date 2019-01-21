@@ -328,6 +328,8 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(DebugViewModePassShaders.VertexShader, DebugViewModePassShaders.PixelShader);
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -339,7 +341,7 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 		MeshFillMode,
 		MeshCullMode,
 		1,
-		FMeshDrawCommandSortKey::Default,
+		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
 }

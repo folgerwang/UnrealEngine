@@ -173,6 +173,8 @@ void FCustomDepthPassMeshProcessor::Process(
 	FDepthOnlyShaderElementData ShaderElementData(MobileColorValue);
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(DepthPassShaders.VertexShader, DepthPassShaders.PixelShader);
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -184,7 +186,7 @@ void FCustomDepthPassMeshProcessor::Process(
 		MeshFillMode,
 		MeshCullMode,
 		1,
-		FMeshDrawCommandSortKey::Default,
+		SortKey,
 		bPositionOnly ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 		ShaderElementData);
 }

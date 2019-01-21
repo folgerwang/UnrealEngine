@@ -92,15 +92,6 @@ struct FCompareFMeshDrawCommands
 			return A.StateBucketId < B.StateBucketId;
 		}
 
-		// No valid StateBucketId - we cannot dynamically instance but we can still order by PSO to maximize state filtering
-		if (A.StateBucketId == -1 && B.StateBucketId == -1)
-		{
-			if (A.MeshDrawCommand->CachedPipelineId.GetId() != B.MeshDrawCommand->CachedPipelineId.GetId())
-			{
-				return A.MeshDrawCommand->CachedPipelineId.GetId() < B.MeshDrawCommand->CachedPipelineId.GetId();
-			}
-		}
-
 		return false;
 	}
 };
@@ -1114,7 +1105,7 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 
 void FParallelMeshDrawCommandPass::DumpInstancingStats() const
 {
-	if (!PassNameForStats.IsEmpty())
+	if (!PassNameForStats.IsEmpty() && TaskContext.VisibleMeshDrawCommandsNum > 0)
 	{
 		UE_LOG(LogRenderer, Log, TEXT("Instancing stats for %s"), *PassNameForStats);
 		UE_LOG(LogRenderer, Log, TEXT("   %i Mesh Draw Commands in %i instancing state buckets"), TaskContext.VisibleMeshDrawCommandsNum, TaskContext.NewPassVisibleMeshDrawCommandsNum);

@@ -492,6 +492,8 @@ void FVoxelizeVolumeMeshProcessor::Process(
 		PassShaders.PixelShader = MaterialResource.GetShader<TVoxelizeVolumePS<VMode_Object_Box>>(VertexFactory->GetType());
 	};
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(PassShaders.VertexShader, PassShaders.PixelShader);
+
 	for (int32 VoxelizationPassIndex = 0; VoxelizationPassIndex < NumVoxelizationPasses; VoxelizationPassIndex++)
 	{
 		if (GVolumetricFogVoxelizationShowOnlyPassIndex < 0 || GVolumetricFogVoxelizationShowOnlyPassIndex == VoxelizationPassIndex)
@@ -510,7 +512,7 @@ void FVoxelizeVolumeMeshProcessor::Process(
 				MeshFillMode,
 				MeshCullMode,
 				1,
-				FMeshDrawCommandSortKey::Default,
+				SortKey,
 				EMeshPassFeatures::Default,
 				ShaderElementData);
 		}

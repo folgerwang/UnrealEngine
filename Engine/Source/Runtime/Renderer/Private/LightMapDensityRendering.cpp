@@ -208,6 +208,8 @@ void FLightmapDensityMeshProcessor::Process(
 
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(LightmapDensityPassShaders.VertexShader, LightmapDensityPassShaders.PixelShader);
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -219,7 +221,7 @@ void FLightmapDensityMeshProcessor::Process(
 		MeshFillMode,
 		MeshCullMode,
 		1,
-		FMeshDrawCommandSortKey::Default,
+		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
 }

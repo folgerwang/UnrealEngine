@@ -227,19 +227,54 @@ void SetTranslucentRenderState(FMeshPassProcessorRenderState& DrawRenderState, c
 	}
 }
 
-FMeshDrawCommandSortKey CalculateStaticBaseMeshSortKey(EDepthDrawingMode EarlyZPassMode, EBlendMode BlendMode)
+FMeshDrawCommandSortKey CalculateTranslucentMeshStaticSortKey(const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, uint16 MeshIdInPrimitive)
 {
-	FMeshDrawCommandSortKey SortKey;
+	uint16 SortKeyPriority = 0;
 
+	if (PrimitiveSceneProxy)
+	{
+		const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
+		SortKeyPriority = (uint16)((int32)PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority() - (int32)SHRT_MIN);
+	}
+
+	FTranslucentMeshSortKey TranslucentMeshSortKey;
+	TranslucentMeshSortKey.Fields.MeshIdInPrimitive = MeshIdInPrimitive;
+	TranslucentMeshSortKey.Fields.Priority = SortKeyPriority;
+	TranslucentMeshSortKey.Fields.Distance = 0; // View specific, so will be filled later inside VisibleMeshCommands.
+
+	FMeshDrawCommandSortKey SortKey;
+	SortKey.PackedData = TranslucentMeshSortKey.PackedData;
+	return SortKey;
+}
+
+FMeshDrawCommandSortKey CalculateBasePassMeshStaticSortKey(EDepthDrawingMode EarlyZPassMode, EBlendMode BlendMode, const FMeshMaterialShader* VertexShader, const FMeshMaterialShader* PixelShader)
+{
+	union FBasePassMeshSortKey
+	{
+		uint64 PackedData;
+
+		struct
+		{
+			uint64 VertexShaderHash	: 16;	// Order by vertex shader's hash.
+			uint64 PixelShaderHash	: 32;	// Order by pixel shader's hash.
+			uint64 Masked			: 16;	// First order by masked.
+		} Fields;
+	};
+
+	FBasePassMeshSortKey BasePassMeshSortKey;
+	BasePassMeshSortKey.Fields.VertexShaderHash = PointerHash(VertexShader) & 0xFFFF;
+	BasePassMeshSortKey.Fields.PixelShaderHash = PointerHash(PixelShader);
 	if (EarlyZPassMode != DDM_None)
 	{
-		SortKey.PackedData = BlendMode == EBlendMode::BLEND_Masked ? 0 : 1;
+		BasePassMeshSortKey.Fields.Masked = BlendMode == EBlendMode::BLEND_Masked ? 0 : 1;
 	}
 	else
 	{
-		SortKey.PackedData = BlendMode == EBlendMode::BLEND_Masked ? 1 : 0;
+		BasePassMeshSortKey.Fields.Masked = BlendMode == EBlendMode::BLEND_Masked ? 1 : 0;
 	}
 
+	FMeshDrawCommandSortKey SortKey;
+	SortKey.PackedData = BasePassMeshSortKey.PackedData;
 	return SortKey;
 }
 
@@ -947,19 +982,19 @@ void FBasePassMeshProcessor::Process(
 
 	SetBasePassDitheredLODTransitionState(ViewIfDynamicMeshCommand, MeshBatch, StaticMeshId, DrawRenderState);
 
+	TBasePassShaderElementData<LightMapPolicyType> ShaderElementData(LightMapElementData);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
+
 	FMeshDrawCommandSortKey SortKey = FMeshDrawCommandSortKey::Default;
 
 	if (bTranslucentBasePass)
 	{
-		SortKey = CalculateStaticTranslucentMeshSortKey(PrimitiveSceneProxy, MeshBatch.MeshIdInPrimitive);
+		SortKey = CalculateTranslucentMeshStaticSortKey(PrimitiveSceneProxy, MeshBatch.MeshIdInPrimitive);
 	}
 	else
 	{
-		SortKey = CalculateStaticBaseMeshSortKey(EarlyZPassMode, BlendMode);
+		SortKey = CalculateBasePassMeshStaticSortKey(EarlyZPassMode, BlendMode, BasePassShaders.VertexShader, BasePassShaders.PixelShader);
 	}
-
-	TBasePassShaderElementData<LightMapPolicyType> ShaderElementData(LightMapElementData);
-	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
 	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : Scene->bStaticDrawInstancedStereo;
 	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;

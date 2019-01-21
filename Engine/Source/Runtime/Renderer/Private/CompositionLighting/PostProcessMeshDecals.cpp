@@ -329,6 +329,8 @@ void FMeshDecalMeshProcessor::Process(
 	FMeshMaterialShaderElementData ShaderElementData;
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(MeshDecalPassShaders.VertexShader, MeshDecalPassShaders.PixelShader);
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -340,7 +342,7 @@ void FMeshDecalMeshProcessor::Process(
 		MeshFillMode,
 		MeshCullMode,
 		1,
-		FMeshDrawCommandSortKey::Default,
+		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
 }

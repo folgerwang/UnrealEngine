@@ -397,6 +397,8 @@ void FLandscapeGrassWeightMeshProcessor::Process(
 	FLandscapeGrassWeightShaderElementData ShaderElementData;
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, -1, true);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(PassShaders.VertexShader, PassShaders.PixelShader);
+
 	for (int32 PassIndex = 0; PassIndex < NumPasses; ++PassIndex)
 	{
 		ShaderElementData.OutputPass = PassIndex;
@@ -413,7 +415,7 @@ void FLandscapeGrassWeightMeshProcessor::Process(
 			MeshFillMode,
 			MeshCullMode,
 			1,
-			FMeshDrawCommandSortKey::Default,
+			SortKey,
 			EMeshPassFeatures::Default,
 			ShaderElementData);
 	}

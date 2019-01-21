@@ -1760,6 +1760,8 @@ void FShadowDepthPassMeshProcessor::Process(
 	FShadowDepthShaderElementData ShaderElementData;
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(ShadowDepthPassShaders.VertexShader, ShadowDepthPassShaders.PixelShader);
+
 	const uint32 InstanceFactor = !ShadowDepthType.bOnePassPointLightShadow || RHISupportsGeometryShaders(GShaderPlatformForFeatureLevel[FeatureLevel]) ? 1 : 6;
 	for (uint32 i = 0; i < InstanceFactor; i++)
 	{
@@ -1776,7 +1778,7 @@ void FShadowDepthPassMeshProcessor::Process(
 			MeshFillMode,
 			MeshCullMode,
 			1,
-			FMeshDrawCommandSortKey::Default,
+			SortKey,
 			bUsePositionOnlyVS ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 			ShaderElementData);
 	}

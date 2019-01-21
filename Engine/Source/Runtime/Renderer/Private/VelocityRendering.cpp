@@ -691,6 +691,8 @@ void FVelocityMeshProcessor::Process(
 	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : Scene->bStaticDrawInstancedStereo;
 	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
 
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(VelocityPassShaders.VertexShader, VelocityPassShaders.PixelShader);
+
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -702,7 +704,7 @@ void FVelocityMeshProcessor::Process(
 		MeshFillMode,
 		MeshCullMode,
 		InstanceFactor,
-		FMeshDrawCommandSortKey::Default,
+		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
 }
