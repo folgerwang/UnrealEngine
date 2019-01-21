@@ -96,4 +96,7 @@ public:
 
 	// Ensure the last frame completed on the GPU
 	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
+
+	// Blocks until hardware window is available
+	static void BlockUntilWindowIsAwailable() {};
 };
