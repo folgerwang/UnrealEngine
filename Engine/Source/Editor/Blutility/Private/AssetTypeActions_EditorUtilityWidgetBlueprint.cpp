@@ -49,8 +49,8 @@ void FAssetTypeActions_EditorUtilityWidgetBlueprint::GetActions(const TArray<UOb
 	auto Blueprints = GetTypedWeakObjectPtrs<UWidgetBlueprint>(InObjects);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("Blutility_Edit", "Edit Blueprint"),
-		LOCTEXT("Blutility_EditTooltip", "Opens the selected blueprints in the full blueprint editor."),
+		LOCTEXT("EditorUtilityWidget_Edit", "Edit Blueprint"),
+		LOCTEXT("EditorUtilityWidget_EditTooltip", "Opens the selected blueprints in the full blueprint editor."),
 		FSlateIcon(),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_EditorUtilityWidgetBlueprint::ExecuteEdit, Blueprints),
@@ -124,7 +124,7 @@ void FAssetTypeActions_EditorUtilityWidgetBlueprint::ExecuteEdit(FWeakBlueprintP
 			}
 			else
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("FailedToLoadWidgetBlueprint", "Editor Utility Widget could not be loaded because it derives from an invalid class.\nCheck to make sure the parent class for this blueprint hasn't been removed!"));
+				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("FailedToLoadEditorUtilityWidgetBlueprint", "Editor Utility Widget could not be loaded because it derives from an invalid class.\nCheck to make sure the parent class for this blueprint hasn't been removed!"));
 			}
 		}
 	}
