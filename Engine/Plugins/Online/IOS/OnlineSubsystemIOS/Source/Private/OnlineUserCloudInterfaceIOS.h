@@ -44,7 +44,7 @@ protected:
 	bool ClearCloudFile(const FString& FileName);
 
 public:
-	FOnlineUserCloudInterfaceIOS();
+    FOnlineUserCloudInterfaceIOS() : SaveSystem(NULL), UpdateDictionary(NULL) { MetaDataState = EOnlineAsyncTaskState::Done; }
 	virtual ~FOnlineUserCloudInterfaceIOS();
 
 	// IOnlineUserCloud
