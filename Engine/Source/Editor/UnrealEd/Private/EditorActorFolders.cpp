@@ -330,7 +330,7 @@ FName FActorFolders::GetFolderName(UWorld& InWorld, FName ParentPath, FName InLe
 	NumberFormat.SetUseGrouping(false);
 	NumberFormat.SetMinimumIntegralDigits(SuffixLen);
 
-	FText LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), bHasSuffix ? FText::AsNumber(Suffix++, &NumberFormat) : FText::GetEmpty());
+	FText LeafName = FText::Format(LOCTEXT("FolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), bHasSuffix ? FText::AsNumber(Suffix++, &NumberFormat) : FText::GetEmpty());
 
 	FString ParentFolderPath = ParentPath.IsNone() ? TEXT("") : ParentPath.ToString();
 	if (!ParentFolderPath.IsEmpty())
@@ -341,7 +341,7 @@ FName FActorFolders::GetFolderName(UWorld& InWorld, FName ParentPath, FName InLe
 	FName FolderName(*(ParentFolderPath + LeafName.ToString()));
 	while (ExistingFolders.Contains(FolderName))
 	{
-		LeafName = FText::Format(LOCTEXT("DefaultFolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), FText::AsNumber(Suffix++, &NumberFormat));
+		LeafName = FText::Format(LOCTEXT("FolderNamePattern", "{0}{1}"), FText::FromString(LeafNameRoot), FText::AsNumber(Suffix++, &NumberFormat));
 		FolderName = FName(*(ParentFolderPath + LeafName.ToString()));
 		if (Suffix == 0)
 		{
