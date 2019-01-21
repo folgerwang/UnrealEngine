@@ -1133,11 +1133,7 @@ bool UAudioComponent::HasCookedFFTData() const
 {
 	if (Sound)
 	{
-		USoundWave* SoundWave = Cast<USoundWave>(Sound);
-		if (SoundWave)
-		{
-			return SoundWave->CookedSpectralTimeData.Num() > 0;
-		}
+		return Sound->HasCookedFFTData();
 	}
 	return false;
 }
@@ -1146,11 +1142,7 @@ bool UAudioComponent::HasCookedAmplitudeEnvelopeData() const
 {
 	if (Sound)
 	{
-		USoundWave* SoundWave = Cast<USoundWave>(Sound);
-		if (SoundWave)
-		{
-			return SoundWave->CookedEnvelopeTimeData.Num() > 0;
-		}
+		return Sound->HasCookedAmplitudeEnvelopeData();
 	}
 	return false;
 }

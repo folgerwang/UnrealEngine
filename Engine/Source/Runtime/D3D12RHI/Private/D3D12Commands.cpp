@@ -395,19 +395,32 @@ void FD3D12CommandContext::RHITransitionResources(EResourceTransitionAccess Tran
 	}
 }
 
-void FD3D12CommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+
+void FD3D12CommandContext::RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef FenceRHI)
 {
 	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
 	check(StagingBuffer);
+	ensureMsgf(!StagingBuffer->bIsLocked, TEXT("Attempting to Copy to a locked staging buffer. This may have undefined behavior"));
 
-	FD3D12VertexBuffer* VertexBuffer = FD3D12DynamicRHI::ResourceCast(StagingBuffer->GetBackingBuffer());
+	FD3D12VertexBuffer* VertexBuffer = FD3D12DynamicRHI::ResourceCast(SourceBufferRHI);
 	check(VertexBuffer);
 
 	// Only get data from the first gpu for now.
 	FD3D12Device* StagingDevice = VertexBuffer->GetParentDevice();
-	StagingBuffer->StagedRead.SafeRelease();
-	VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), Offset + NumBytes, StagingBuffer->StagedRead.GetInitReference()));
-	
+
+	// Ensure our shadow buffer is large enough to hold the readback.
+	if (!StagingBuffer->StagedRead || StagingBuffer->ShadowBufferSize < NumBytes)
+	{
+		// @todo-mattc I feel like we should allocate more than NumBytes to handle small reads without blowing tons of space. Need to pool this.
+		// Hopefully d3d12 will do smart pooling out of an internal heap.
+		if (StagingBuffer->StagedRead)
+		{
+			StagingBuffer->StagedRead.SafeRelease();
+		}
+		VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), NumBytes, StagingBuffer->StagedRead.GetInitReference()));
+		StagingBuffer->ShadowBufferSize = NumBytes;
+	}
+
 	{
 		FD3D12Resource* pSourceResource = VertexBuffer->ResourceLocation.GetResource();
 		D3D12_RESOURCE_DESC const& SourceBufferDesc = pSourceResource->GetDesc();
@@ -427,6 +440,7 @@ void FD3D12CommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef Stagin
 
 	if (FenceRHI)
 	{
+		// @todo-mattc we don't want to flush here. That should be the caller's responsibility.
 		RHISubmitCommandsHint();
 		FD3D12GPUFence* Fence = FD3D12DynamicRHI::ResourceCast(FenceRHI);
 		Fence->WriteInternal(ED3D12CommandQueueType::Default);

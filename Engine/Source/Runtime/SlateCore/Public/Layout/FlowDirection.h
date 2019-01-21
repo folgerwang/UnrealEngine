@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
+
 #include "FlowDirection.generated.h"
 
 /**
@@ -26,13 +27,13 @@ enum class EFlowDirection : uint8
 UENUM()
 enum class EFlowDirectionPreference : uint8
 {
-	/** */
+	/** Inherits the flow direction set by the parent widget. */
 	Inherit,
-	/** */
+	/** Begins laying out widgets using the current cultures layout direction preference, flipping the directionality of flows. */
 	Culture,
-	/** */
+	/** Forces a Left to Right layout flow. */
 	LeftToRight,
-	/**  */
+	/** Forces a Right to Left layout flow. */
 	RightToLeft
 };
 

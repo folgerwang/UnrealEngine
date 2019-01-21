@@ -35,5 +35,5 @@ private:
 
 	void OnSearchForReferences();
 	FDataTableEditorRowListViewDataPtr RowDataPtr;
-	TSharedPtr<FDataTableEditor> DataTableEditor;
+	TWeakPtr<FDataTableEditor> DataTableEditor;
 };

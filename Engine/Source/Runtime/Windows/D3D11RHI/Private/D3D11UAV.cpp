@@ -285,3 +285,39 @@ void FD3D11DynamicRHI::RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef Uno
 	UAV->View->SetPrivateData(WKPDID_D3DDebugObjectName, FCString::Strlen(Name) + 1, TCHAR_TO_ANSI(Name));
 #endif
 }
+
+FD3D11StagingBuffer::~FD3D11StagingBuffer()
+{
+	if (StagedRead)
+	{
+		StagedRead.SafeRelease();
+	}
+}
+
+void* FD3D11StagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
+{
+	check(!bIsLocked);
+	bIsLocked = true;
+	if (StagedRead)
+	{
+		// Map the staging buffer's memory for reading.
+		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+		VERIFYD3D11RESULT(Context->Map(StagedRead, 0, D3D11_MAP_READ, 0, &MappedSubresource));
+
+		return (void*)((uint8*)MappedSubresource.pData + Offset);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FD3D11StagingBuffer::Unlock()
+{
+	check(bIsLocked);
+	bIsLocked = false;
+	if (StagedRead)
+	{
+		Context->Unmap(StagedRead, 0);
+	}
+}

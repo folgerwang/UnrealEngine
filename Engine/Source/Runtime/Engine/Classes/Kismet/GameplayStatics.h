@@ -705,6 +705,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
 	static class UReverbEffect* GetCurrentReverbEffect(const UObject* WorldContextObject);
 
+	/**
+	 * Sets the max number of voices (also known as "channels") dynamically by percentage. E.g. if you want to temporarily reduce voice count by 50%, use 0.50. Later, you can return to the original max voice count by using 1.0.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static void SetMaxAudioChannelsScaled(const UObject* WorldContextObject, float MaxChannelCountScale);
+
+	/**
+	 * Retrieves the max voice count currently used by the audio engine.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static int32 GetMaxAudioChannelCount(const UObject* WorldContextObject);
+
+
 	// --- Decal functions ------------------------------
 
 	/** Spawns a decal at the given location and rotation, fire and forget. Does not replicate.

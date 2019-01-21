@@ -826,21 +826,26 @@ float FQuadricSkeletalMeshReduction::SimplifyMesh( const FSkeletalMeshOptimizati
 
 	// Determine the stop criteria used
 
-	const bool bUseVertexCriterion   = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_NumOfVerts     || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert;
-	const bool bUseTriangleCriterion = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_NumOfTriangles || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert;
+	const bool bUseVertexPercentCriterion = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_NumOfVerts || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert;
+	const bool bUseTrianglePercentCriterion = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_NumOfTriangles || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert;
 
+	const bool bUseMaxVertNumCriterion = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_AbsNumOfVerts || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_AbsTriangleOrVert;
+	const bool bUseMaxTrisNumCriterion = Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_AbsNumOfTriangles || Settings.TerminationCriterion == SkeletalMeshTerminationCriterion::SMTC_AbsTriangleOrVert;
 
 	// We can support a stopping criteria based on the MaxDistance the new vertex is from the plans of the source triangles.
 	// but there seems to be no good use for this.  We are better off just using triangle count.
-	const float MaxDist              = FLT_MAX; // (Settings.ReductionMethod != SkeletalMeshOptimizationType::SMOT_NumOfTriangles) ? Settings.MaxDeviationPercentage * Bounds.SphereRadius : FLT_MAX;
-	const int32 MaxTriNumToRetain    = Mesh.NumIndices() / 3;
-	const float TriangleRetainRatio  = FMath::Clamp(Settings.NumOfTrianglesPercentage, 0.f, 1.f);
-	const int32 MinTriNumToRetain    = (bUseTriangleCriterion) ? FMath::Max(4, FMath::CeilToInt(TriangleRetainRatio * MaxTriNumToRetain)) : 4 ; 	
-	const float MaxCollapseCost      = FLT_MAX;
+	const float MaxDist = FLT_MAX; // (Settings.ReductionMethod != SkeletalMeshOptimizationType::SMOT_NumOfTriangles) ? Settings.MaxDeviationPercentage * Bounds.SphereRadius : FLT_MAX;
+	const int32 SrcTriNum = Mesh.NumIndices() / 3;
+	const float TriangleRetainRatio = FMath::Clamp(Settings.NumOfTrianglesPercentage, 0.f, 1.f);
+	const int32 TargetTriNum = (bUseTrianglePercentCriterion) ? FMath::CeilToInt(TriangleRetainRatio * SrcTriNum) : Settings.MaxNumOfTriangles;
 
-	const int32 MaxVerNumToRetain = Mesh.NumVertices();
-	const float VertRetainRatio   = FMath::Clamp(Settings.NumOfVertPercentage, 0.f, 1.f);
-	const int32 MinVerNumToRetain = (bUseVertexCriterion) ? FMath::Max(3, FMath::CeilToInt(VertRetainRatio * MaxVerNumToRetain)) : 0;
+	const int32 MinTriNumToRetain = (bUseTrianglePercentCriterion || bUseMaxTrisNumCriterion) ? FMath::Max(4, TargetTriNum) : 4;
+	const float MaxCollapseCost = FLT_MAX;
+
+	const int32 SrcVertNum = Mesh.NumVertices();
+	const float VertRetainRatio = FMath::Clamp(Settings.NumOfVertPercentage, 0.f, 1.f);
+	const int32 TargetVertNum = (bUseVertexPercentCriterion) ? FMath::CeilToInt(VertRetainRatio * SrcVertNum) : Settings.MaxNumOfVerts + 1;
+	const int32 MinVerNumToRetain = (bUseVertexPercentCriterion || bUseMaxVertNumCriterion) ? FMath::Max(6, TargetVertNum) : 6;
 
 	const float VolumeImportance      = FMath::Clamp(Settings.VolumeImportance, 0.f, 2.f);
 	const bool bLockEdges             = Settings.bLockEdges;
@@ -848,7 +853,7 @@ float FQuadricSkeletalMeshReduction::SimplifyMesh( const FSkeletalMeshOptimizati
 	const bool bEnforceBoneBoundaries = Settings.bEnforceBoneBoundaries;
 
 	// Terminator tells the simplifier when to stop
-	SkeletalSimplifier::FSimplifierTerminator Terminator(MinTriNumToRetain, MaxTriNumToRetain, MinVerNumToRetain, MaxVerNumToRetain, MaxCollapseCost, MaxDist);
+	SkeletalSimplifier::FSimplifierTerminator Terminator(MinTriNumToRetain, SrcTriNum, MinVerNumToRetain, SrcVertNum, MaxCollapseCost, MaxDist);
 
 	double NormalWeight    =16.00;
 	double TangentWeight   = 0.10;

@@ -4,6 +4,7 @@
 #include "Logging/LogMacros.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
+#include "Misc/EngineBuildSettings.h"
 #include "CrashReportClientApp.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 
@@ -52,7 +53,11 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 		UE_LOG(CrashReportClientLog, Log, TEXT("DataRouterUrl: %s"), *DataRouterUrl);
 	}
 
-	if (!GConfig->GetBool( TEXT( "CrashReportClient" ), TEXT( "bAllowToBeContacted" ), bAllowToBeContacted, GEngineIni ))
+	if (FEngineBuildSettings::IsInternalBuild())
+	{
+		bAllowToBeContacted = true;
+	}
+	else if (!GConfig->GetBool( TEXT( "CrashReportClient" ), TEXT( "bAllowToBeContacted" ), bAllowToBeContacted, GEngineIni ))
 	{
 		// Default to true when unattended when config is missing. This is mostly for dedicated servers that do not have config files for CRC.
 		if (bUnattended)

@@ -295,7 +295,7 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 
 			// Iterate over all elements of the map.
 			FScriptMapHelper ScriptMapHelper(MapProperty, ElementValueAddress);
-			const int32 ElementCount = ScriptMapHelper.GetMaxIndex();
+			const int32 ElementCount = ScriptMapHelper.Num();
 			for(int32 j = 0, ElementIndex = 0; ElementIndex < ElementCount; ++j)
 			{
 				if (!ScriptMapHelper.IsValidIndex(j))
@@ -338,7 +338,7 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 
 			// Iterate over all elements of the Set.
 			FScriptSetHelper ScriptSetHelper(SetProperty, ElementValueAddress);
-			const int32 ElementCount = ScriptSetHelper.GetMaxIndex();
+			const int32 ElementCount = ScriptSetHelper.Num();
 			for(int32 j = 0, ElementIndex = 0; ElementIndex < ElementCount; ++j)
 			{
 				if (!ScriptSetHelper.IsValidIndex(j))

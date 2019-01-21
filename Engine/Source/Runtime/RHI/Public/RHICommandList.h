@@ -1447,19 +1447,21 @@ struct FRHICommandWaitComputeFence final : public FRHICommand<FRHICommandWaitCom
 };
 
 template<ECmdList CmdListType>
-struct FRHICommandEnqueueStagedRead final : public FRHICommand<FRHICommandEnqueueStagedRead<CmdListType>>
+struct FRHICommandCopyToStagingBuffer final : public FRHICommand<FRHICommandCopyToStagingBuffer<CmdListType>>
 {
-	FStagingBufferRHIParamRef StagingBuffer;
+	FVertexBufferRHIParamRef SourceBuffer;
+	FStagingBufferRHIParamRef DestinationStagingBuffer;
 	FGPUFenceRHIParamRef Fence;
 	uint32 Offset;
 	uint32 NumBytes;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandEnqueueStagedRead(FStagingBufferRHIParamRef InStagingBuffer, FGPUFenceRHIParamRef InFence, uint32 InOffset, uint32 InNumBytes)
-		: StagingBuffer(InStagingBuffer)
+	FORCEINLINE_DEBUGGABLE FRHICommandCopyToStagingBuffer(FVertexBufferRHIParamRef InSourceBuffer, FStagingBufferRHIParamRef InDestinationStagingBuffer, uint32 InOffset, uint32 InNumBytes, FGPUFenceRHIParamRef InFence = nullptr)
+		: SourceBuffer(InSourceBuffer)
+		, DestinationStagingBuffer(InDestinationStagingBuffer)
 		, Fence(InFence)
 		, Offset(InOffset)
 		, NumBytes(InNumBytes)
-	{		
+	{
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
@@ -2730,14 +2732,14 @@ public:
 		ALLOC_COMMAND(FRHICommandWaitComputeFence<ECmdList::EGfx>)(WaitFence);
 	}
 
-	FORCEINLINE_DEBUGGABLE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+	FORCEINLINE_DEBUGGABLE void CopyToStagingBuffer(FVertexBufferRHIParamRef SourceBuffer, FStagingBufferRHIParamRef DestinationStagingBuffer, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef Fence)
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
+			CMD_CONTEXT(RHICopyToStagingBuffer)(SourceBuffer, DestinationStagingBuffer, Offset, NumBytes, Fence);
 			return;
 		}
-		ALLOC_COMMAND(FRHICommandEnqueueStagedRead<ECmdList::EGfx>)(StagingBuffer, Fence, Offset, NumBytes);
+		ALLOC_COMMAND(FRHICommandCopyToStagingBuffer<ECmdList::EGfx>)(SourceBuffer, DestinationStagingBuffer, Offset, NumBytes, Fence);
 	}
 
 	FORCEINLINE_DEBUGGABLE void BeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* Name)
@@ -3127,14 +3129,14 @@ public:
 		ALLOC_COMMAND(FRHICommandWaitComputeFence<ECmdList::ECompute>)(WaitFence);
 	}
 
-	FORCEINLINE_DEBUGGABLE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+	FORCEINLINE_DEBUGGABLE void CopyToStagingBuffer(FVertexBufferRHIParamRef SourceBuffer, FStagingBufferRHIParamRef DestinationStagingBuffer, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef Fence = nullptr)
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
+			CMD_CONTEXT(RHICopyToStagingBuffer)(SourceBuffer, DestinationStagingBuffer, Offset, NumBytes, Fence);
 			return;
 		}
-		ALLOC_COMMAND(FRHICommandEnqueueStagedRead<ECmdList::ECompute>)(StagingBuffer, Fence, Offset, NumBytes);
+		ALLOC_COMMAND(FRHICommandCopyToStagingBuffer<ECmdList::ECompute>)(SourceBuffer, DestinationStagingBuffer, Offset, NumBytes, Fence);
 	}
 };
 
@@ -3353,9 +3355,9 @@ public:
 		return GDynamicRHI->RHICreateGPUFence(Name);
 	}
 
-	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
+	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer()
 	{
-		return GDynamicRHI->RHICreateStagingBuffer(VertexBuffer);
+		return GDynamicRHI->RHICreateStagingBuffer();
 	}
 
 	FORCEINLINE FBoundShaderStateRHIRef CreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader)
@@ -4291,9 +4293,9 @@ FORCEINLINE FGPUFenceRHIRef RHICreateGPUFence(const FName& Name)
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateGPUFence(Name);
 }
 
-FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
+FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer()
 {
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer(VertexBuffer);
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer();
 }
 
 FORCEINLINE FIndexBufferRHIRef RHICreateAndLockIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
