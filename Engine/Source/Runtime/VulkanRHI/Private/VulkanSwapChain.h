@@ -43,6 +43,13 @@ protected:
 	int32 SemaphoreIndex;
 	uint32 NumPresentCalls;
 	uint32 NumAcquireCalls;
+
+	uint32 RTPacingSampleCount = 0;
+	double RTPacingPreviousFrameCPUTime = 0;
+	double RTPacingSampledDeltaTimeMS = 0;
+	
+	double NextPresentTargetTime = 0;
+
 	VkInstance Instance;
 	TArray<VulkanRHI::FSemaphore*> ImageAcquiredSemaphore;
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
