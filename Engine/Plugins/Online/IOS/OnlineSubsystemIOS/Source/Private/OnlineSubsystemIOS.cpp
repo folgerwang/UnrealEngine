@@ -179,6 +179,17 @@ bool FOnlineSubsystemIOS::Init()
 			StoreInterface = MakeShareable(new FOnlineStoreInterfaceIOS());
 		}
 	}
+
+	if (UserCloudInterface && IsCloudKitEnabled())
+	{
+		FString IOSCloudKitSyncStrategy = "";
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("IOSCloudKitSyncStrategy"), IOSCloudKitSyncStrategy, GEngineIni);
+		
+		if (!IOSCloudKitSyncStrategy.Equals("None"))
+		{
+			UserCloudInterface->InitCloudSave(IOSCloudKitSyncStrategy.Equals("Always"));
+		}
+	}
 	
 	InitAppStoreHelper();
 
@@ -317,14 +328,22 @@ bool FOnlineSubsystemIOS::IsEnabled() const
 	bool bEnableGameCenter = false;
 	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableGameCenterSupport"), bEnableGameCenter, GEngineIni);
 
-	bool bEnableCloudKit = false;
-    GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableCloudKitSupport"), bEnableCloudKit, GEngineIni);
-	
+	const bool bEnableCloudKit = IsCloudKitEnabled();
+
 	const bool bIsInAppPurchasingEnabled = IsInAppPurchasingEnabled();
 	const bool bIsEnabledByConfig = FOnlineSubsystemImpl::IsEnabled(); // TODO: Do we want to enable this by this config?
 	
 	return bEnableGameCenter || bEnableCloudKit || bIsInAppPurchasingEnabled || bIsEnabledByConfig;
 }
+
+bool FOnlineSubsystemIOS::IsCloudKitEnabled()
+{
+	bool bEnableCloudKit;
+	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableCloudKitSupport"), bEnableCloudKit, GEngineIni);
+
+	return bEnableCloudKit;
+}
+
 
 bool FOnlineSubsystemIOS::IsV2StoreEnabled()
 {

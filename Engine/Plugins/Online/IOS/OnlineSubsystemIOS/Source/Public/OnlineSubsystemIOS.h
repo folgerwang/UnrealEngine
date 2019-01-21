@@ -69,6 +69,12 @@ PACKAGE_SCOPE:
 	static bool IsInAppPurchasingEnabled();
 	
 	/**
+	 * Is CloudKit enabled
+	 * @return true if enabled, false otherwise
+	 */
+	static bool IsCloudKitEnabled();
+	
+	/**
 	 * Is Store v2 enabled (disabling legacy store interface)
 	 * @return true if enabled, false otherwise
 	 */

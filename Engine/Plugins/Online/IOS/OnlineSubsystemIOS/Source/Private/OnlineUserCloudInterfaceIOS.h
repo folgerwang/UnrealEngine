@@ -61,9 +61,9 @@ public:
 	virtual void DumpCloudState(const FUniqueNetId& UserId) override;
 	virtual void DumpCloudFileState(const FUniqueNetId& UserId, const FString& FileName) override;
 
+	// Initialize Cloud saving
+	void InitCloudSave(bool InIOSAlwaysSyncCloudFiles);
 private:
-	/** Enable Cloud support - from Settings->iOS->Online */
-	bool bEnableCloudKitSupport;
 	/** File metadata */
 	TArray<struct FCloudFileHeader> CloudMetaData;
     /** File metadata query state */
@@ -80,8 +80,15 @@ private:
 	/** Flag from Settings->iOS: Always read from the iCloud on LoadGame */
 	bool bIOSAlwaysSyncCloudFiles;
 
+	/** Store the iCloud sync status for each save file
+	* entris of type (string) filename: (bool) synced with iCloud
+	* updated by the silent notifications, if enabled
+	*/
+	NSMutableDictionary* UpdateDictionary;
+	
 	/** Delegates to various cloud functionality triggered */
 	FOnEnumerateUserFilesCompleteDelegate OnEnumerateUserCloudFilesCompleteDelegate;
+	FOnReadUserFileCompleteDelegate OnInitialFetchUserCloudFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserCloudFileCompleteDelegate;
 	FOnReadUserFileCompleteDelegate OnReadUserCloudFileCompleteDelegate;
 	FOnDeleteUserFileCompleteDelegate OnDeleteUserCloudFileCompleteDelegate;
@@ -101,6 +108,14 @@ private:
 	 * @param UserId user that triggered the operation
 	 */
 	void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& UserId);
+
+	/**
+	 *	Delegate triggered on the init for each user cloud file read - will overwrite the local files
+	 * @param bWasSuccessful did the operation complete successfully
+	 * @param UserId user that triggered the operation
+	 * @param FileName filename read from cloud
+	 */
+	void OnInitialFetchUserCloudFileComplete(bool bWasSuccessful, const FUniqueNetId& UserId, const FString& FileName);
 
 	/**
 	 *	Delegate triggered for each user cloud file written
@@ -136,13 +151,19 @@ private:
 	 *	Delegate in the iOS file save system
 	 * Called in ReadGame
 	 */
-	void OnReadUserCloudFileBegin(const FString&  FileName, const TArray<uint8>& FileContents);
+	void OnReadUserCloudFileBegin(const FString&  FileName, TArray<uint8>& FileContents);
 
 	/**
 	 *	Delegate in the iOS file save system
 	 * Called in DeleteGame
 	 */
 	void OnDeleteUserCloudFileBegin(const FString&  FileName);
+
+	/**
+	 *	Returns true if the record must be fetched from the iCloud
+	 */
+	 bool ShouldFetchRecordFromCloud(const FString &  FileName);
+
 };
 
 typedef TSharedPtr<FOnlineUserCloudInterfaceIOS, ESPMode::ThreadSafe> FOnlineUserCloudIOSPtr;
