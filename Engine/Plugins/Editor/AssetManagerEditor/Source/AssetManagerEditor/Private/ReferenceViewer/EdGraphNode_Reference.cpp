@@ -1,6 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "EdGraphNode_Reference.h"
+#include "ReferenceViewer/EdGraphNode_Reference.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "EdGraph/EdGraphPin.h"
 #include "HAL/PlatformFilemanager.h"
@@ -176,8 +176,8 @@ UObject* UEdGraphNode_Reference::GetJumpTargetForDoubleClick() const
 {
 	if (Identifiers.Num() > 0 )
 	{
-		GetReferenceGraph()->SetGraphRoot(Identifiers, FIntPoint(NodePosX, NodePosY));
-		GetReferenceGraph()->RebuildGraph();
+		GetReferenceViewerGraph()->SetGraphRoot(Identifiers, FIntPoint(NodePosX, NodePosY));
+		GetReferenceViewerGraph()->RebuildGraph();
 	}
 	return NULL;
 }

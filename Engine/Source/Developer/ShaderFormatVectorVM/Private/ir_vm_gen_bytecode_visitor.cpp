@@ -221,7 +221,8 @@ void BuildExpressionMap()
 		Info->Add(FVMExpresssionInfo(EVectorVMOp::muli, glsl_type::int_type, glsl_type::int_type, glsl_type::int_type));
 		Info = &VMExpressionMap.Add(ir_binop_div);
 		Info->Add(FVMExpresssionInfo(EVectorVMOp::div, glsl_type::float_type, glsl_type::float_type, glsl_type::float_type));
-		//Currently don't have an integer division operation.
+		Info->Add(FVMExpresssionInfo(EVectorVMOp::divi, glsl_type::int_type, glsl_type::int_type, glsl_type::int_type));
+	
 
 		/**
 		* Takes one of two combinations of arguments:
@@ -277,8 +278,10 @@ void BuildExpressionMap()
 		* \name Bit-wise binary operations.
 		*/
 		/*@{*/
-		//Info = &VMExpressionMap.Add(ir_binop_lshift);
-		//Info = &VMExpressionMap.Add(ir_binop_rshift);
+		Info = &VMExpressionMap.Add(ir_binop_lshift);
+		Info->Add(FVMExpresssionInfo(EVectorVMOp::bit_lshift, glsl_type::int_type, glsl_type::int_type, glsl_type::int_type));
+		Info = &VMExpressionMap.Add(ir_binop_rshift);
+		Info->Add(FVMExpresssionInfo(EVectorVMOp::bit_rshift, glsl_type::int_type, glsl_type::int_type, glsl_type::int_type));
 		Info = &VMExpressionMap.Add(ir_binop_bit_and);
 		Info->Add(FVMExpresssionInfo(EVectorVMOp::bit_and, glsl_type::int_type, glsl_type::int_type, glsl_type::int_type));
 		Info = &VMExpressionMap.Add(ir_binop_bit_xor);
@@ -2115,7 +2118,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 			case EVectorVMBaseTypes::Float:
 			{
 				float Val = *(float*)(CompilationOutput.InternalConstantData.GetData() + Offset);
-				OpsConstantTable += FString::Printf(TEXT("%d | %f\n"), TableOffset, Val);
+				OpsConstantTable += FString::Printf(TEXT("%d | %.9g\n"), TableOffset, Val);
 				NumConstants++;
 			}
 			break;

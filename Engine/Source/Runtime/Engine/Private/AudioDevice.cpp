@@ -49,6 +49,13 @@ FAutoConsoleVariableRef CVarSetAudioChannelCount(
 	TEXT("0: Disable, >0: Enable"),
 	ECVF_Default);
 
+static float AudioChannelCountScaleCVar = 1.0f;
+FAutoConsoleVariableRef CVarSetAudioChannelScaleCount(
+	TEXT("au.SetAudioChannelScaleCount"),
+	AudioChannelCountScaleCVar,
+	TEXT("Changes the audio channel count by percentage.\n"),
+	ECVF_Default);
+
 static int32 DisableStoppingVoicesCvar = 0;
 FAutoConsoleVariableRef CVarDisableStoppingVoices(
 	TEXT("au.DisableStoppingVoices"),
@@ -159,6 +166,9 @@ void FDynamicParameter::Update(float DeltaTime)
 
 FAudioDevice::FAudioDevice()
 	: MaxChannels(0)
+	, MaxChannels_GameThread(0)
+	, MaxChannelsScale(1.0f)
+	, MaxChannelsScale_GameThread(1.0f)
 	, NumStoppingVoices(32)
 	, MaxWaveInstances(0)
 	, SampleRate(0)
@@ -247,6 +257,7 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 
 	// MaxChannels is the min of the platform-specific value and the max value in the quality settings (InMaxChannels)
 	MaxChannels = PlatformSettings.MaxChannels > 0 ? FMath::Min(PlatformSettings.MaxChannels, InMaxChannels) : InMaxChannels;
+	MaxChannels_GameThread = MaxChannels;
 
 	// Mixed sample rate is set by the platform
 	SampleRate = PlatformSettings.SampleRate;
@@ -428,6 +439,21 @@ void FAudioDevice::PrecacheStartupSounds()
 
 void FAudioDevice::SetMaxChannels(int32 InMaxChannels)
 {
+	if (!IsInAudioThread())
+	{
+		MaxChannels_GameThread = InMaxChannels;
+
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetMaxChannels"), STAT_AudioSetMaxChannels, STATGROUP_AudioThreadCommands);
+
+		FAudioThread::RunCommandOnAudioThread([this, InMaxChannels]()
+		{
+			this->SetMaxChannels(InMaxChannels);
+
+		}, GET_STATID(STAT_AudioSetMaxChannels));
+
+		return;
+	}
+
 	if (InMaxChannels > Sources.Num())
 	{
 		UE_LOG(LogAudio, Warning, TEXT("Can't increase channels past starting number!"));
@@ -437,14 +463,56 @@ void FAudioDevice::SetMaxChannels(int32 InMaxChannels)
 	MaxChannels = InMaxChannels;
 }
 
+void FAudioDevice::SetMaxChannelsScaled(float InScaledChannelCount)
+{
+	if (!IsInAudioThread())
+	{
+		MaxChannelsScale_GameThread = InScaledChannelCount;
+
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetMaxChannelsScaled"), STAT_AudioSetMaxChannelsScaled, STATGROUP_AudioThreadCommands);
+
+		FAudioThread::RunCommandOnAudioThread([this, InScaledChannelCount]()
+		{
+			MaxChannelsScale = FMath::Clamp(InScaledChannelCount, 0.0f, 1.0f);
+
+		}, GET_STATID(STAT_AudioSetMaxChannelsScaled));
+
+		return;
+	}
+	else
+	{
+		MaxChannelsScale = FMath::Clamp(InScaledChannelCount, 0.0f, 1.0f);
+
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetMaxChannelsScaled"), STAT_AudioSetMaxChannelsScaled, STATGROUP_AudioThreadCommands);
+
+		FAudioThread::RunCommandOnGameThread([this, InScaledChannelCount]()
+		{
+			MaxChannelsScale_GameThread = InScaledChannelCount;
+
+		}, GET_STATID(STAT_AudioSetMaxChannelsScaled));
+	}
+}
+
 int32 FAudioDevice::GetMaxChannels() const
 {
-	if (AudioChannelCountCVar > 0 && AudioChannelCountCVar < Sources.Num())
+	if (IsInAudioThread())
 	{
-		return AudioChannelCountCVar;
-	}
+		if (AudioChannelCountCVar > 0 && AudioChannelCountCVar < Sources.Num())
+		{
+			return FMath::Max(int32(AudioChannelCountCVar * MaxChannelsScale * AudioChannelCountScaleCVar), 1);
+		}
 
-	return MaxChannels;
+		return FMath::Max(int32(MaxChannels * MaxChannelsScale * AudioChannelCountScaleCVar), 1);
+	}
+	else
+	{
+		if (AudioChannelCountCVar > 0 && AudioChannelCountCVar < Sources.Num())
+		{
+			return FMath::Max(int32(AudioChannelCountCVar * MaxChannelsScale_GameThread * AudioChannelCountScaleCVar), 1);
+		}
+
+		return FMath::Max(int32(MaxChannels_GameThread * MaxChannelsScale_GameThread * AudioChannelCountScaleCVar), 1);
+	}
 }
 
 void FAudioDevice::Teardown()

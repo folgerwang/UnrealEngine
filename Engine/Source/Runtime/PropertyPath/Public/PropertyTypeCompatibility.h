@@ -260,15 +260,15 @@ inline bool IsConcreteTypeCompatibleWithReflectedType_Impl<FInt32Interval>(UProp
 }
 
 template<>
-inline bool IsConcreteTypeCompatibleWithReflectedType_Impl<FStringAssetReference>(UProperty* Property)
+inline bool IsConcreteTypeCompatibleWithReflectedType_Impl<FSoftObjectPath>(UProperty* Property)
 {
-	return IsConcreteTypeCompatibleWithReflectedType_BuiltInStruct<FStringAssetReference>(Property);
+	return IsConcreteTypeCompatibleWithReflectedType_BuiltInStruct<FSoftObjectPath>(Property);
 }
 
 template<>
-inline bool IsConcreteTypeCompatibleWithReflectedType_Impl<FStringClassReference>(UProperty* Property)
+inline bool IsConcreteTypeCompatibleWithReflectedType_Impl<FSoftClassPath>(UProperty* Property)
 {
-	return IsConcreteTypeCompatibleWithReflectedType_BuiltInStruct<FStringClassReference>(Property);
+	return IsConcreteTypeCompatibleWithReflectedType_BuiltInStruct<FSoftClassPath>(Property);
 }
 
 template<>

@@ -5,7 +5,6 @@
 #include "Misc/SecureHash.h"
 #include "Math/BigInt.h"
 #include "SignedArchiveWriter.h"
-#include "KeyGenerator.h"
 #include "Misc/AES.h"
 #include "Templates/UniquePtr.h"
 #include "Serialization/LargeMemoryWriter.h"
@@ -19,6 +18,71 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/PlatformFilemanager.h"
 #include "Async/ParallelFor.h"
+
+/**
+ * Encryption keys: public and private
+ */
+struct FKeyPair
+{
+	/** Public decryption key */
+	FEncryptionKey PublicKey;
+	/** Private encryption key */
+	FEncryptionKey PrivateKey;
+
+	friend FArchive& operator<<(FArchive& Ar, FKeyPair& Pair)
+	{
+		Ar << Pair.PublicKey.Exponent;
+		Ar << Pair.PublicKey.Modulus;
+		Ar << Pair.PrivateKey.Exponent;
+		Ar << Pair.PrivateKey.Modulus;
+		return Ar;
+	}
+
+	bool IsValid() const
+	{
+		return !PrivateKey.Exponent.IsZero()
+			&& !PrivateKey.Modulus.IsZero()
+			&& !PublicKey.Exponent.IsZero()
+			&& !PublicKey.Modulus.IsZero();
+	}
+};
+
+bool TestKeys(FKeyPair& Pair)
+{
+	UE_LOG(LogPakFile, Display, TEXT("Testing signature keys."));
+
+	// Just some random values
+	static TEncryptionInt TestData[] =
+	{
+		11,
+		253,
+		128,
+		234,
+		56,
+		89,
+		34,
+		179,
+		29,
+		1024,
+		(int64)(MAX_int32),
+		(int64)(MAX_uint32)-1
+	};
+
+	for (int32 TestIndex = 0; TestIndex < ARRAY_COUNT(TestData); ++TestIndex)
+	{
+		TEncryptionInt EncryptedData = FEncryption::ModularPow(TestData[TestIndex], Pair.PrivateKey.Exponent, Pair.PrivateKey.Modulus);
+		TEncryptionInt DecryptedData = FEncryption::ModularPow(EncryptedData, Pair.PublicKey.Exponent, Pair.PublicKey.Modulus);
+		if (TestData[TestIndex] != DecryptedData)
+		{
+			UE_LOG(LogPakFile, Error, TEXT("Keys do not properly encrypt/decrypt data (failed test with %lld)"), TestData[TestIndex].ToInt());
+			return false;
+		}
+	}
+
+	UE_LOG(LogPakFile, Display, TEXT("Signature keys check completed successfuly."));
+
+	return true;
+}
 
 struct FNamedAESKey
 {
@@ -954,6 +1018,7 @@ TEncryptionInt ParseEncryptionIntFromJson(TSharedPtr<FJsonObject> InObj, const T
 void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FKeyPair& OutSigningKey, TKeyChain& OutKeyChain)
 {
 	FArchive* File = IFileManager::Get().CreateFileReader(*InFilename);
+	UE_CLOG(File == nullptr, LogPakFile, Fatal, TEXT("Specified crypto keys cache '%s' does not exist!"), *InFilename);
 	TSharedPtr<FJsonObject> RootObject;
 	TSharedRef<TJsonReader<char>> Reader = TJsonReaderFactory<char>::Create(File);
 	if (FJsonSerializer::Deserialize(Reader, RootObject))
@@ -1197,34 +1262,6 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 			FMemory::Memcpy(NewKey.Key.Key, AsAnsi, RequiredKeyLength);
 			OutKeyChain.Add(NewKey.Guid, NewKey);
 			UE_LOG(LogPakFile, Display, TEXT("Parsed AES encryption key from command line."));
-		}
-
-		FString KeyFilename;
-		if (FParse::Value(CmdLine, TEXT("sign="), KeyFilename, false))
-		{
-			if (KeyFilename.StartsWith(TEXT("0x")))
-			{
-				TArray<FString> KeyValueText;
-				int32 NumParts = KeyFilename.ParseIntoArray(KeyValueText, TEXT("+"), true);
-				if (NumParts == 3)
-				{
-					OutSigningKey.PrivateKey.Exponent.Parse(KeyValueText[0]);
-					OutSigningKey.PrivateKey.Modulus.Parse(KeyValueText[1]);
-					OutSigningKey.PublicKey.Exponent.Parse(KeyValueText[2]);
-					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
-
-					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from command line."));
-				}
-				else
-				{
-					UE_LOG(LogPakFile, Error, TEXT("Expected 3, got %d, when parsing %s"), KeyValueText.Num(), *KeyFilename);
-					OutSigningKey.PrivateKey.Exponent.Zero();
-				}
-			}
-			else if (!ReadKeysFromFile(*KeyFilename, OutSigningKey))
-			{
-				UE_LOG(LogPakFile, Error, TEXT("Unable to load signature keys %s."), *KeyFilename);
-			}
 		}
 	}
 
@@ -3340,10 +3377,6 @@ bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPa
  *   -Sign=filename use the key pair in filename to sign a pak file, or: -sign=key_hex_values_separated_with_+, i.e: -sign=0x123456789abcdef+0x1234567+0x12345abc
  *    where the first number is the private key exponend, the second one is modulus and the third one is the public key exponent.
  *   -Signed use with -extract and -test to let the code know this is a signed pak
- *   -GenerateKeys=filename generates encryption key pair for signing a pak file
- *   -P=prime will use a predefined prime number for generating encryption key file
- *   -Q=prime same as above, P != Q, GCD(P, Q) = 1 (which is always true if they're both prime)
- *   -GeneratePrimeTable=filename generates a prime table for faster prime number generation (.inl file)
  *   -TableMax=number maximum prime number in the generated table (default is 10000)
  *
  * @param	ArgC	Command-line argument count
@@ -3386,27 +3419,6 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		TAtomic<bool> Result(true);
 		ParallelFor(Commands.Num(), [&Commands, &Result](int32 Idx) { if (!ExecuteUnrealPak(*Commands[Idx])) { Result = false; } });
 		return Result;
-	}
-
-	FString KeyFilename;
-	if (FParse::Value(CmdLine, TEXT("GenerateKeys="), KeyFilename, false))
-	{
-		return GenerateKeys(*KeyFilename);
-	}
-
-	if (FParse::Value(CmdLine, TEXT("GeneratePrimeTable="), KeyFilename, false))
-	{
-		int64 MaxPrimeValue = 10000;
-		FParse::Value(CmdLine, TEXT("TableMax="), MaxPrimeValue);
-		GeneratePrimeNumberTable(MaxPrimeValue, *KeyFilename);
-		return true;
-	}
-
-	if (FParse::Param(CmdLine, TEXT("TestEncryption")))
-	{
-		void TestEncryption();
-		TestEncryption();
-		return true;
 	}
 
 	if (FParse::Param(CmdLine, TEXT("Test")))
@@ -3772,8 +3784,6 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Create=<ResponseFile> [Options]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Dest=<MountPoint>"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Repack [-Output=Path] [-ExcludeDeleted] [Options]"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GenerateKeys=<KeyFilename>"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GeneratePrimeTable=<KeyFilename> [-TableMax=<N>]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename1> <PakFilename2> -diff"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -AuditFiles [-OnlyDeleted] [-CSV=<filename>] [-order=<OrderingFile>] [-SortByOrdering]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -WhatsAtOffset [offset1] [offset2] [offset3] [...]"));

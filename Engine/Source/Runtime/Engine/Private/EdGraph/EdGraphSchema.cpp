@@ -622,7 +622,7 @@ void UEdGraphSchema::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* Tar
 #endif	//#if WITH_EDITOR
 }
 
-FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove) const
+FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove, bool bNotifyLinkedNodes) const
 {
 #if WITH_EDITOR
 	ensureMsgf(bIsIntermediateMove || !MoveToPin.GetOwningNode()->GetGraph()->HasAnyFlags(RF_Transient),
@@ -633,7 +633,7 @@ FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UE
 	// First copy the current set of links
 	TArray<UEdGraphPin*> CurrentLinks = MoveFromPin.LinkedTo;
 	// Then break all links at pin we are moving from
-	MoveFromPin.BreakAllPinLinks();
+	MoveFromPin.BreakAllPinLinks(false);
 	// Try and make each new connection
 	for (int32 i=0; i<CurrentLinks.Num(); i++)
 	{
@@ -644,12 +644,24 @@ FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UE
 #endif
 		{
 			FPinConnectionResponse Response = CanCreateConnection(&MoveToPin, NewLink);
+
+#if WITH_EDITOR
+			if (!Response.CanSafeConnect() && bNotifyLinkedNodes)
+			{
+				// Connection failed, so notify and try again
+				if (UEdGraphNode* LinkedToNode = NewLink->GetOwningNodeUnchecked())
+				{
+					LinkedToNode->PinConnectionListChanged(NewLink);
+					Response = CanCreateConnection(&MoveToPin, NewLink);
+				}
+			}
+#endif
 			if (Response.CanSafeConnect())
 			{
 				MoveToPin.MakeLinkTo(NewLink);
-			}
+			}	
 			else
-			{
+			{ 
 				FinalResponse = Response;
 			}
 		}

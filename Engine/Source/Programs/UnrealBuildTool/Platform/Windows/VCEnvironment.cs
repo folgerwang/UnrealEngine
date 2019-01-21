@@ -502,7 +502,7 @@ namespace UnrealBuildTool
 			if(Compiler == WindowsCompiler.Clang || Compiler == WindowsCompiler.Intel)
 			{
 				ToolChain = WindowsCompiler.VisualStudio2017;
-				if(!WindowsPlatform.TryGetToolChainDir(ToolChain, CompilerVersion, out SelectedToolChainVersion, out SelectedToolChainDir))
+				if(!WindowsPlatform.TryGetToolChainDir(ToolChain, null, out SelectedToolChainVersion, out SelectedToolChainDir))
 				{
 					throw new BuildException("{0}{1} must be installed in order to build this target.", WindowsPlatform.GetCompilerName(Compiler), String.IsNullOrEmpty(CompilerVersion)? "" : String.Format(" ({0})", CompilerVersion));
 				}

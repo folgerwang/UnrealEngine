@@ -1715,7 +1715,8 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.ToggleFeatureLevelPreview,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ToggleFeatureLevelPreview),
 		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled),
-		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive));
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive),
+		FIsActionButtonVisible::CreateStatic(FLevelEditorActionCallbacks::IsPreviewModeButtonVisible));
 
 	ActionList.MapAction(
 		Commands.PreviewPlatformOverride_DefaultES2,

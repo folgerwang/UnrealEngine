@@ -212,6 +212,9 @@ public:
 
 	virtual int32 GetNumKeys() const override final { return Keys.Num(); }
 
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FStringCurve(*this); }
+
 public:
 
 	/** Default value */

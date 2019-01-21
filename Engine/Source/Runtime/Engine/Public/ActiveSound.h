@@ -366,6 +366,9 @@ public:
 	/** Whether or not this active sound will update the average envelope value of every wave instance that plays a sound source. Based on set delegates on audio component. */
 	uint8 bUpdateMultiEnvelopeValue:1;
 
+	/** Whether or not the active sound should update it's owning audio component's playback time. */
+	uint8 bUpdatePlaybackTime:1;
+
 	/** Whether or not this active sound is playing audio, as in making audible sounds. */
 	uint8 bIsPlayingAudio:1;
 

@@ -398,4 +398,9 @@ bool UK2Node_ConstructObjectFromClass::HasExternalDependencies(TArray<class UStr
 	return bSuperResult || bResult;
 }
 
+FText UK2Node_ConstructObjectFromClass::GetKeywords() const
+{
+	return LOCTEXT("ConstructObjectKeywords", "Create New");
+}
+
 #undef LOCTEXT_NAMESPACE

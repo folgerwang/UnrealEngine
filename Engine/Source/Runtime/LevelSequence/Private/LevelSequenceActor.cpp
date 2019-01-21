@@ -52,7 +52,6 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 
 	// SequencePlayer must be a default sub object for it to be replicated correctly
 	SequencePlayer = Init.CreateDefaultSubobject<ULevelSequencePlayer>(this, "AnimationPlayer");
-	SequencePlayer->SetPlaybackClient(this);
 
 	bOverrideInstanceData = false;
 
@@ -61,6 +60,15 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 
 	bReplicates = true;
 	bReplicatePlayback = false;
+}
+
+void ALevelSequenceActor::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	// Have to initialize this here as any properties set on default subobjects inside the constructor
+	// Get stomped by the CDO's properties when the constructor exits.
+	SequencePlayer->SetPlaybackClient(this);
 }
 
 bool ALevelSequenceActor::RetrieveBindingOverrides(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
@@ -181,7 +189,7 @@ void ALevelSequenceActor::SetSequence(ULevelSequence* InSequence)
 		// cbb: should ideally null out the template and player when no sequence is assigned, but that's currently not possible
 		if (InSequence)
 		{
-			SequencePlayer->Initialize(InSequence, GetWorld(), PlaybackSettings);
+			SequencePlayer->Initialize(InSequence, GetLevel(), PlaybackSettings);
 		}
 	}
 }
@@ -197,7 +205,7 @@ void ALevelSequenceActor::InitializePlayer()
 			// Level sequence is already loaded. Initialize the player if it's not already initialized with this sequence
 			if (LevelSequenceAsset != SequencePlayer->GetSequence())
 			{
-				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+				SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 			}
 		}
 		else if (!IsAsyncLoading())
@@ -205,7 +213,7 @@ void ALevelSequenceActor::InitializePlayer()
 			LevelSequenceAsset = LoadSequence();
 			if (LevelSequenceAsset != SequencePlayer->GetSequence())
 			{
-				SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+				SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 			}
 		}
 		else
@@ -222,7 +230,7 @@ void ALevelSequenceActor::OnSequenceLoaded(const FName& PackageName, UPackage* P
 		ULevelSequence* LevelSequenceAsset = GetSequence();
 		if (SequencePlayer->GetSequence() != LevelSequenceAsset)
 		{
-			SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
+			SequencePlayer->Initialize(LevelSequenceAsset, GetLevel(), PlaybackSettings);
 		}
 	}
 }

@@ -73,7 +73,7 @@ FText FNiagaraScriptParameterViewModel::GetTypeDisplayName() const
 	{
 		return FText();
 	}
-	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), GraphVariable->GetType().GetStruct()->GetDisplayNameText());
+	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), GraphVariable->GetType().GetNameText());
 }
 
 void FNiagaraScriptParameterViewModel::NameTextComitted(const FText& Name, ETextCommit::Type CommitInfo)

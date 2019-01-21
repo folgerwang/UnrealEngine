@@ -57,7 +57,7 @@ FControlRigEditMode::FControlRigEditMode()
 	, bSelectingByPath(false)
 	, PivotTransform(FTransform::Identity)
 {
-	Settings = NewObject<UControlRigEditModeSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "Settings").ToString());
+	Settings = NewObject<UControlRigEditModeSettings>(GetTransientPackage(), TEXT("Settings"));
 
 	OnControlsSelectedDelegate.AddRaw(this, &FControlRigEditMode::HandleSelectionChanged);
 

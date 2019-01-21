@@ -152,7 +152,7 @@ public:
 		if (Info != FStructureEditorUtils::DefaultValueChanged)
 		{
 			StructData->Initialize(UserDefinedStruct.Get());
-			
+
 			// Force the set object call because we may be called multiple times in a row if more than one struct was changed at the same time
 			DetailsView->SetObject(UserDefinedStruct.Get(), true);
 		}

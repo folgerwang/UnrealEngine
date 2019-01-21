@@ -166,6 +166,11 @@ uint32 USoundBase::GetSoundConcurrencyObjectID() const
 	return 0;
 }
 
+bool USoundBase::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves)
+{
+	return false;
+}
+
 void USoundBase::PostLoad()
 {
 	Super::PostLoad();

@@ -62,7 +62,7 @@ TArray<UWidget*> UPanelWidget::GetAllChildren() const
 	return Result;
 }
 
-int32 UPanelWidget::GetChildIndex(UWidget* Content) const
+int32 UPanelWidget::GetChildIndex(const UWidget* Content) const
 {
 	const int32 ChildCount = GetChildrenCount();
 	for ( int32 ChildIndex = 0; ChildIndex < ChildCount; ChildIndex++ )

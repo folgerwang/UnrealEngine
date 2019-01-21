@@ -541,11 +541,22 @@ void ExportObjectMetadataToBones(const UObject* ObjectToExport, const TArray<Fbx
 				FbxNode** Node = NameToNode.Find(NodeName);
 				if (Node)
 				{
-					FbxProperty Property = FbxProperty::Create(*Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
-					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+					if (MetadataIt.Value == TEXT("true") || MetadataIt.Value == TEXT("false"))
+					{
+						FbxProperty Property = FbxProperty::Create(*Node, FbxBoolDT, TCHAR_TO_UTF8(*TagAsString));
+						FbxBool ValueBool = MetadataIt.Value == TEXT("true") ? true : false;
 
-					Property.Set(ValueString);
-					Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+						Property.Set(ValueBool);
+						Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+					}
+					else
+					{
+						FbxProperty Property = FbxProperty::Create(*Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
+						FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+
+						Property.Set(ValueString);
+						Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+					}
 				}
 			}
 		}

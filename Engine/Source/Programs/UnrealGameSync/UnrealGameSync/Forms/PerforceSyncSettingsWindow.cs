@@ -12,11 +12,11 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	partial class PerforceSettingsWindow : Form
+	partial class PerforceSyncSettingsWindow : Form
 	{
 		UserSettings Settings;
 
-		public PerforceSettingsWindow(UserSettings Settings)
+		public PerforceSyncSettingsWindow(UserSettings Settings)
 		{
 			this.Settings = Settings;
 			InitializeComponent();

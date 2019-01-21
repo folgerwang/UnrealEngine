@@ -5,6 +5,7 @@
 #include "AudioDevice.h"
 #include "AudioMixerDevice.h"
 #include "CoreMinimal.h"
+#include "DSP/SpectrumAnalyzer.h"
 
 
 // This is our global recording task:
@@ -190,6 +191,56 @@ void UAudioMixerBlueprintLibrary::ResumeRecordingOutput(const UObject* WorldCont
 	}
 }
 
+void UAudioMixerBlueprintLibrary::StartAnalyzingOutput(const UObject* WorldContextObject, USoundSubmix* SubmixToAnalyze /*= nullptr*/, EFFTSize FFTSize /*= EFFTSize::Default*/, EFFTPeakInterpolationMethod InterpolationMethod /*= Linear*/, EFFTWindowType WindowType /*= EFFTWindowType::Hamming*/, float HopSize /*= 0*/)
+{
+	if (Audio::FMixerDevice* MixerDevice = GetAudioMixerDeviceFromWorldContext(WorldContextObject))
+	{
+		Audio::FSpectrumAnalyzerSettings Settings = Audio::FSpectrumAnalyzerSettings();
+		PopulateSpectrumAnalyzerSettings(FFTSize, InterpolationMethod, WindowType, HopSize, Settings);
+		MixerDevice->StartSpectrumAnalysis(SubmixToAnalyze, Settings);
+	}
+	else
+	{
+		UE_LOG(LogAudioMixer, Error, TEXT("Spectrum Analysis is an audio mixer only feature. Please run the game with -audiomixer to enable this feature."));
+	}
+}
+
+void UAudioMixerBlueprintLibrary::StopAnalyzingOutput(const UObject* WorldContextObject, USoundSubmix* SubmixToStopAnalyzing /*= nullptr*/)
+{
+	if (Audio::FMixerDevice* MixerDevice = GetAudioMixerDeviceFromWorldContext(WorldContextObject))
+	{
+		MixerDevice->StopSpectrumAnalysis(SubmixToStopAnalyzing);
+	}
+	else
+	{
+		UE_LOG(LogAudioMixer, Error, TEXT("Spectrum Analysis is an audio mixer only feature. Please run the game with -audiomixer to enable this feature."));
+	}
+}
+
+void UAudioMixerBlueprintLibrary::GetMagnitudeForFrequencies(const UObject* WorldContextObject, const TArray<float>& Frequencies, TArray<float>& Magnitudes, USoundSubmix* SubmixToAnalyze /*= nullptr*/)
+{
+	if (Audio::FMixerDevice* MixerDevice = GetAudioMixerDeviceFromWorldContext(WorldContextObject))
+	{
+		MixerDevice->GetMagnitudesForFrequencies(SubmixToAnalyze, Frequencies, Magnitudes);
+	}
+	else
+	{
+		UE_LOG(LogAudioMixer, Error, TEXT("Output recording is an audio mixer only feature. Please run the game with -audiomixer to enable this feature."));
+	}
+}
+
+void UAudioMixerBlueprintLibrary::GetPhaseForFrequencies(const UObject* WorldContextObject, const TArray<float>& Frequencies, TArray<float>& Phases, USoundSubmix* SubmixToAnalyze /*= nullptr*/)
+{
+	if (Audio::FMixerDevice* MixerDevice = GetAudioMixerDeviceFromWorldContext(WorldContextObject))
+	{
+		MixerDevice->GetPhasesForFrequencies(SubmixToAnalyze, Frequencies, Phases);
+	}
+	else
+	{
+		UE_LOG(LogAudioMixer, Error, TEXT("Output recording is an audio mixer only feature. Please run the game with -audiomixer to enable this feature."));
+	}
+}
+
 void UAudioMixerBlueprintLibrary::AddSourceEffectToPresetChain(const UObject* WorldContextObject, USoundEffectSourcePresetChain* PresetChain, FSourceEffectChainEntry Entry)
 {
 	if (!PresetChain)
@@ -294,4 +345,66 @@ int32 UAudioMixerBlueprintLibrary::GetNumberOfEntriesInSourceEffectChain(const U
 	}
 
 	return 0;
+}
+
+void UAudioMixerBlueprintLibrary::PopulateSpectrumAnalyzerSettings(EFFTSize FFTSize, EFFTPeakInterpolationMethod InterpolationMethod, EFFTWindowType WindowType, float HopSize, Audio::FSpectrumAnalyzerSettings &OutSettings)
+{
+	switch (FFTSize)
+	{
+	case EFFTSize::DefaultSize:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Default;
+		break;
+	case EFFTSize::Min:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Min_64;
+		break;
+	case EFFTSize::Small:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Small_256;
+		break;
+	case EFFTSize::Medium:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Medium_512;
+		break;
+	case EFFTSize::Large:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Large_1024;
+		break;
+	case EFFTSize::Max:
+		OutSettings.FFTSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::TestLarge_4096;
+		break;
+	default:
+		break;
+	}
+
+	switch (InterpolationMethod)
+	{
+	case EFFTPeakInterpolationMethod::NearestNeighbor:
+		OutSettings.InterpolationMethod = Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::NearestNeighbor;
+		break;
+	case EFFTPeakInterpolationMethod::Linear:
+		OutSettings.InterpolationMethod = Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::Linear;
+		break;
+	case EFFTPeakInterpolationMethod::Quadratic:
+		OutSettings.InterpolationMethod = Audio::FSpectrumAnalyzerSettings::EPeakInterpolationMethod::Quadratic;
+		break;
+	default:
+		break;
+	}
+
+	switch (WindowType)
+	{
+	case EFFTWindowType::None:
+		OutSettings.WindowType = Audio::EWindowType::None;
+		break;
+	case EFFTWindowType::Hamming:
+		OutSettings.WindowType = Audio::EWindowType::Hamming;
+		break;
+	case EFFTWindowType::Hann:
+		OutSettings.WindowType = Audio::EWindowType::Hann;
+		break;
+	case EFFTWindowType::Blackman:
+		OutSettings.WindowType = Audio::EWindowType::Blackman;
+		break;
+	default:
+		break;
+	}
+
+	OutSettings.HopSize = HopSize;
 }

@@ -69,6 +69,17 @@ IDetailCategoryBuilder& FDetailLayoutBuilderImpl::EditCategory( FName CategoryNa
 	return *CategoryImpl;
 }
 
+void FDetailLayoutBuilderImpl::GetCategoryNames(TArray<FName>& OutCategoryNames) const
+{
+	OutCategoryNames.Reserve(DefaultCategoryMap.Num() + CustomCategoryMap.Num());
+
+	TArray<FName> TempCategoryNames;
+	DefaultCategoryMap.GenerateKeyArray(TempCategoryNames);
+	OutCategoryNames.Append(TempCategoryNames);
+	CustomCategoryMap.GenerateKeyArray(TempCategoryNames);
+	OutCategoryNames.Append(TempCategoryNames);
+}
+
 IDetailPropertyRow& FDetailLayoutBuilderImpl::AddPropertyToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle)
 {
 	// Get the UProperty itself

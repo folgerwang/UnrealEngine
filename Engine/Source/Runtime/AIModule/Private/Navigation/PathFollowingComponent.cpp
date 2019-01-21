@@ -612,7 +612,8 @@ void UPathFollowingComponent::Initialize()
 
 void UPathFollowingComponent::Cleanup()
 {
-	// empty in base class
+	SetMovementComponent(nullptr);
+	Reset();
 }
 
 void UPathFollowingComponent::UpdateCachedComponents()

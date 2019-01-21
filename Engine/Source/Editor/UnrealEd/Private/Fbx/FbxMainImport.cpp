@@ -3100,7 +3100,7 @@ FString GetFbxPropertyStringValue(const FbxProperty& Property)
 	return ValueStr;
 }
 
-void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
+void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node, bool bPrefixTagWithNodeName)
 {
 	if (!Object || !Node)
 	{
@@ -3118,7 +3118,7 @@ void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
 			// Prefix the FBX metadata tag to make it distinguishable from other metadata
 			// so that it can be exportable through FBX export
 			FString MetadataTag = UTF8_TO_TCHAR(CurrentProperty.GetName());
-			if (!MetadataTag.StartsWith(NodeName))
+			if (bPrefixTagWithNodeName && !MetadataTag.StartsWith(NodeName))
 			{
 				// Append the node name in the tag since all the metadata will be flattened on the Object
 				MetadataTag = NodeName + TEXT(".") + MetadataTag;
@@ -3134,7 +3134,7 @@ void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
 	int NumChildren = Node->GetChildCount();
 	for (int i = 0; i < NumChildren; ++i)
 	{
-		ImportNodeCustomProperties(Object, Node->GetChild(i));
+		ImportNodeCustomProperties(Object, Node->GetChild(i), bPrefixTagWithNodeName);
 	}
 }
 

@@ -85,7 +85,7 @@ FText UK2Node_GetSubsystem::GetNodeTitle(ENodeTitleType::Type TitleType) const
 		}
 
 		const FString& ClassName = CustomClass->GetName();
-		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystemNodeTitleFormat", "Get {ClassName}"), TEXT("ClassName"), FText::FromString(ClassName));
+		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystem_NodeTitleFormat", "Get {ClassName}"), TEXT("ClassName"), FText::FromString(ClassName));
 	}
 
 	return GetTooltipText();
@@ -229,14 +229,14 @@ FText UK2Node_GetSubsystem::GetMenuCategory() const
 {
 	if (CustomClass->IsChildOf<UGameInstanceSubsystem>())
 	{
-		return NSLOCTEXT("K2Node", "GameInstanceSubsystems", "GameInstance Subsystems");
+		return NSLOCTEXT("K2Node", "GetSubsystem_GameInstanceSubsystemsMenuCategory", "GameInstance Subsystems");
 	}
 	else if (CustomClass->IsChildOf<ULocalPlayerSubsystem>())
 	{
-		return NSLOCTEXT("K2Node", "LocalPlayerSubsystems", "LocalPlayer Subsystems");
+		return NSLOCTEXT("K2Node", "GetSubsystem_LocalPlayerSubsystemsMenuCategory", "LocalPlayer Subsystems");
 	}
 
-	return NSLOCTEXT("K2Node", "InvalidSubsystemType", "Invalid Subsystem Type");
+	return NSLOCTEXT("K2Node", "GetSubsystem_InvalidSubsystemTypeMenuCategory", "Invalid Subsystem Type");
 }
 
 FText UK2Node_GetSubsystem::GetTooltipText() const
@@ -246,16 +246,16 @@ FText UK2Node_GetSubsystem::GetTooltipText() const
 		FText SubsystemTypeText;
 		if (CustomClass->IsChildOf<UGameInstanceSubsystem>())
 		{
-			SubsystemTypeText =  NSLOCTEXT("K2Node", "GameInstanceSubsystem", "GameInstance Subsystem");
+			SubsystemTypeText =  NSLOCTEXT("K2Node", "GetSubsystem_GameInstanceSubsystemTooltip", "GameInstance Subsystem");
 		}
 		else
 		{
-			SubsystemTypeText = NSLOCTEXT("K2Node", "LocalPlayerSubsystem", "LocalPlayer Subsystem");
+			SubsystemTypeText = NSLOCTEXT("K2Node", "GetSubsystem_LocalPlayerSubsystemTooltip", "LocalPlayer Subsystem");
 		}
-		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystemTooltipFormat", "Get {ClassName} a {SubsystemType}"), TEXT("ClassName"), CustomClass->GetDisplayNameText(), TEXT("SubsystemType"), SubsystemTypeText);
+		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystem_TooltipFormat", "Get {ClassName} a {SubsystemType}"), TEXT("ClassName"), CustomClass->GetDisplayNameText(), TEXT("SubsystemType"), SubsystemTypeText);
 	}
 
-	return NSLOCTEXT("K2Node", "InvalidSubsystemType", "InvalidSubsystemType");
+	return NSLOCTEXT("K2Node", "GetSubsystem_InvalidSubsystemTypeTooltip", "Invalid Subsystem Type");
 }
 
 UEdGraphPin* UK2Node_GetSubsystem::GetWorldContextPin() const
@@ -412,17 +412,17 @@ void UK2Node_GetSubsystemFromPC::GetMenuActions(FBlueprintActionDatabaseRegistra
 
 FText UK2Node_GetSubsystemFromPC::GetMenuCategory() const
 {
-	return NSLOCTEXT("K2Node", "LocalPlayerSubsystemsFromPC", "PlayerController|LocalPlayer Subsystems");
+	return NSLOCTEXT("K2Node", "GetSubsystemFromPC_MenuCategory", "PlayerController|LocalPlayer Subsystems");
 }
 
 FText UK2Node_GetSubsystemFromPC::GetTooltipText() const
 {
 	if (CustomClass)
 	{
-		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystemTooltipFormat", "Get {ClassName} from Player Controller"), TEXT("ClassName"), CustomClass->GetDisplayNameText());
+		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetSubsystemFromPC_TooltipFormat", "Get {ClassName} from Player Controller"), TEXT("ClassName"), CustomClass->GetDisplayNameText());
 	}
 
-	return NSLOCTEXT("K2Node", "InvalidSubsystemType", "InvalidSubsystemType");
+	return NSLOCTEXT("K2Node", "GetSubsystemFromPC_InvalidSubsystemTypeTooltip", "Invalid Subsystem Type");
 }
 
 UEdGraphPin* UK2Node_GetSubsystemFromPC::GetPlayerControllerPin() const

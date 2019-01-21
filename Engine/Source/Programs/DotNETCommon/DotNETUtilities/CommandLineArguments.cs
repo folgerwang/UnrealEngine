@@ -639,9 +639,22 @@ namespace Tools.DotNETCommon
 								}
 
 								// Apply the value to the field
-								if(ApplyArgument(TargetObject, FieldInfo, Argument, ValueText, AssignedArgument))
+								if(Attribute.ListSeparator == 0)
 								{
-									AssignedArgument = Argument;
+									if(ApplyArgument(TargetObject, FieldInfo, Argument, ValueText, AssignedArgument))
+									{
+										AssignedArgument = Argument;
+									}
+								}
+								else
+								{
+									foreach(string ItemValueText in ValueText.Split(Attribute.ListSeparator))
+									{
+										if(ApplyArgument(TargetObject, FieldInfo, Argument, ItemValueText, AssignedArgument))
+										{
+											AssignedArgument = Argument;
+										}
+									}
 								}
 
 								// Mark this argument as used

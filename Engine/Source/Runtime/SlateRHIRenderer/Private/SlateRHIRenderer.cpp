@@ -989,7 +989,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 		RHICmdList.EnqueueLambda([](FRHICommandListImmediate&)
 		{
 			// Restart the RHI thread timer, so we don't count time spent in Present twice when this command list finishes.
-			int32 ThisCycles = FPlatformTime::Cycles();
+			uint32 ThisCycles = FPlatformTime::Cycles();
 			GWorkingRHIThreadTime += (ThisCycles - GWorkingRHIThreadStartCycles);
 			GWorkingRHIThreadStartCycles = ThisCycles;
 

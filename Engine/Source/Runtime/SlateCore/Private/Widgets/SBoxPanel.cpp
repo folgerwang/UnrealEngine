@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SBoxPanel.h"
 #include "Layout/LayoutUtils.h"
@@ -34,7 +34,7 @@ void SVerticalBox::Construct( const SVerticalBox::FArguments& InArgs )
 }
 
 template<EOrientation Orientation>
-static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Children, const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren )
+static void ArrangeChildrenAlong(EFlowDirection InLayoutFlow, const TPanelChildren<SBoxPanel::FSlot>& Children, const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren )
 {
 	// Allotted space will be given to fixed-size children first.
 	// Remaining space will be proportionately divided between stretch children (SizeRule_Stretch)
@@ -74,7 +74,7 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 
 					// Clamp to the max size if it was specified
 					float MaxSize = CurChild.MaxSize.Get();
-					FixedTotal += MaxSize > 0 ? FMath::Min( MaxSize, ChildSize ) : ChildSize ;
+					FixedTotal += MaxSize > 0 ? FMath::Min( MaxSize, ChildSize ) : ChildSize;
 				}
 			}
 		}
@@ -93,9 +93,9 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 
 		// Now that we have the total fixed-space requirement and the total stretch coefficients we can
 		// arrange widgets top-to-bottom or left-to-right (depending on the orientation).
-		for( int32 ChildIndex=0; ChildIndex < Children.Num(); ++ChildIndex )
+		for (TPanelChildrenConstIterator<SBoxPanel::FSlot> It(Children, Orientation, InLayoutFlow); It; ++It)
 		{
-			const SBoxPanel::FSlot& CurChild = Children[ChildIndex];
+			const SBoxPanel::FSlot& CurChild = *It;
 			const EVisibility ChildVisibility = CurChild.GetWidget()->GetVisibility();
 
 			// Figure out the area allocated to the child in the direction of BoxPanel
@@ -130,14 +130,14 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 				}
 			}
 
-			const FMargin SlotPadding(CurChild.SlotPadding.Get());
+			const FMargin SlotPadding(LayoutPaddingWithFlow(InLayoutFlow, CurChild.SlotPadding.Get()));
 
 			FVector2D SlotSize = (Orientation == Orient_Vertical)
 				? FVector2D(AllottedGeometry.GetLocalSize().X, ChildSize + SlotPadding.GetTotalSpaceAlong<Orient_Vertical>())
 				: FVector2D(ChildSize + SlotPadding.GetTotalSpaceAlong<Orient_Horizontal>(), AllottedGeometry.GetLocalSize().Y);
 
 			// Figure out the size and local position of the child within the slot			
-			AlignmentArrangeResult XAlignmentResult = AlignChild<Orient_Horizontal>( SlotSize.X, CurChild, SlotPadding);
+			AlignmentArrangeResult XAlignmentResult = AlignChild<Orient_Horizontal>(InLayoutFlow, SlotSize.X, CurChild, SlotPadding);
 			AlignmentArrangeResult YAlignmentResult = AlignChild<Orient_Vertical>(SlotSize.Y, CurChild, SlotPadding);
 
 			const FVector2D LocalPosition = (Orientation == Orient_Vertical)
@@ -176,11 +176,11 @@ void SBoxPanel::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 {
 	if ( this->Orientation == Orient_Horizontal )
 	{
-		ArrangeChildrenAlong<Orient_Horizontal>(this->Children, AllottedGeometry, ArrangedChildren );
+		ArrangeChildrenAlong<Orient_Horizontal>(GSlateFlowDirection, this->Children, AllottedGeometry, ArrangedChildren );
 	}
 	else
 	{
-		ArrangeChildrenAlong<Orient_Vertical>(this->Children, AllottedGeometry, ArrangedChildren );
+		ArrangeChildrenAlong<Orient_Vertical>(GSlateFlowDirection, this->Children, AllottedGeometry, ArrangedChildren );
 	}
 }
 

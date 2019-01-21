@@ -9,6 +9,7 @@
 #include "Widgets/SNullWidget.h"
 #include "SlotBase.h"
 #include "Widgets/SWidget.h"
+#include "FlowDirection.h"
 
 /**
  * FChildren is an interface that must be implemented by all child containers.
@@ -223,6 +224,8 @@ public:
 };
 
 
+
+
 /**
  * A generic FChildren that stores children along with layout-related information.
  * The type containing Widget* and layout info is specified by ChildType.
@@ -349,6 +352,121 @@ public:
 private:
 	bool bEmptying;
 };
+
+
+
+template<typename SlotType>
+class TPanelChildrenConstIterator
+{
+public:
+	TPanelChildrenConstIterator(const TPanelChildren<SlotType>& InContainer, EFlowDirection InLayoutFlow)
+		: Container(InContainer)
+		, LayoutFlow(InLayoutFlow)
+	{
+		Reset();
+	}
+
+	TPanelChildrenConstIterator(const TPanelChildren<SlotType>& InContainer, EOrientation InOrientation, EFlowDirection InLayoutFlow)
+		: Container(InContainer)
+		, LayoutFlow(InOrientation == Orient_Vertical ? EFlowDirection::LeftToRight : InLayoutFlow)
+	{
+		Reset();
+	}
+
+	/** Advances iterator to the next element in the container. */
+	TPanelChildrenConstIterator<SlotType>& operator++()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			++Index;
+			break;
+		case EFlowDirection::RightToLeft:
+			--Index;
+			break;
+		}
+
+		return *this;
+	}
+
+	/** Moves iterator to the previous element in the container. */
+	TPanelChildrenConstIterator<SlotType>& operator--()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			--Index;
+			break;
+		case EFlowDirection::RightToLeft:
+			++Index;
+			break;
+		}
+
+		return *this;
+	}
+
+	const SlotType& operator* () const
+	{
+		return Container[Index];
+	}
+
+	const SlotType* operator->() const
+	{
+		return &Container[Index];
+	}
+
+	/** conversion to "bool" returning true if the iterator has not reached the last element. */
+	FORCEINLINE explicit operator bool() const
+	{
+		return Container.IsValidIndex(Index);
+	}
+
+	/** Returns an index to the current element. */
+	int32 GetIndex() const
+	{
+		return Index;
+	}
+
+	/** Resets the iterator to the first element. */
+	void Reset()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			Index = 0;
+			break;
+		case EFlowDirection::RightToLeft:
+			Index = Container.Num() - 1;
+			break;
+		}
+	}
+
+	/** Sets iterator to the last element. */
+	void SetToEnd()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			Index = Container.Num() - 1;
+			break;
+		case EFlowDirection::RightToLeft:
+			Index = 0;
+			break;
+		}
+	}
+
+private:
+
+	const TPanelChildren<SlotType>& Container;
+	int32 Index;
+	EFlowDirection LayoutFlow;
+};
+
+
 
 /**
  * Some advanced widgets contain no layout information, and do not require slots.

@@ -7,7 +7,6 @@
 #include "GeometryCollection/GeometryCollectionComponent.h"
 #include "GeometryCollection/GeometryCollectionActor.h"
 
-#define LOCTEXT_NAMESPACE "MeshFractureSettings"
 
 float UMeshFractureSettings::ExplodedViewExpansion = 0.0f;
 
@@ -76,30 +75,29 @@ UBrickFractureSettings::UBrickFractureSettings() : SlicesX(3), SlicesY(3), Slice
 
 UMeshFractureSettings::UMeshFractureSettings()
 {
-	CommonSettings = NewObject<UCommonFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "CommonSettings").ToString());
+	CommonSettings = NewObject<UCommonFractureSettings>(GetTransientPackage(), TEXT("CommonSettings"));
 	CommonSettings->AddToRoot();
 
-	UniformSettings = NewObject<UUniformFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "UniformSettings").ToString());
+	UniformSettings = NewObject<UUniformFractureSettings>(GetTransientPackage(), TEXT("UniformSettings"));
 	UniformSettings->AddToRoot();
 
-	ClusterSettings = NewObject<UClusterFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "ClusterSettings").ToString());
+	ClusterSettings = NewObject<UClusterFractureSettings>(GetTransientPackage(), TEXT("ClusterSettings"));
 	ClusterSettings->AddToRoot();
 
-	RadialSettings = NewObject<URadialFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "RadialSettings").ToString());
+	RadialSettings = NewObject<URadialFractureSettings>(GetTransientPackage(), TEXT("RadialSettings"));
 	RadialSettings->AddToRoot();
 
-	SlicingSettings = NewObject<USlicingFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "SlicingSettings").ToString());
+	SlicingSettings = NewObject<USlicingFractureSettings>(GetTransientPackage(), TEXT("SlicingSettings"));
 	SlicingSettings->AddToRoot();
 
-	PlaneCutSettings = NewObject<UPlaneCutFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "PlaneCutSettings").ToString());
+	PlaneCutSettings = NewObject<UPlaneCutFractureSettings>(GetTransientPackage(), TEXT("PlaneCutSettings"));
 	PlaneCutSettings->AddToRoot();
 
-	CutoutSettings = NewObject<UCutoutFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "CutoutSettings").ToString());
+	CutoutSettings = NewObject<UCutoutFractureSettings>(GetTransientPackage(), TEXT("CutoutSettings"));
 	CutoutSettings->AddToRoot();
 
-	BrickSettings = NewObject<UBrickFractureSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "BrickSettings").ToString());
+	BrickSettings = NewObject<UBrickFractureSettings>(GetTransientPackage(), TEXT("BrickSettings"));
 	BrickSettings->AddToRoot();
-
 }
 
 UMeshFractureSettings::~UMeshFractureSettings()

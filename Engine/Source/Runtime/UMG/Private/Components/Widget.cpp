@@ -1046,7 +1046,8 @@ bool UWidget::Modify(bool bAlwaysMarkDirty)
 
 	if ( Slot )
 	{
-		Modified &= Slot->Modify(bAlwaysMarkDirty);
+		Slot->SetFlags(RF_Transactional);
+		Modified |= Slot->Modify(bAlwaysMarkDirty);
 	}
 
 	return Modified;
@@ -1120,6 +1121,8 @@ void UWidget::SynchronizeProperties()
 #else
 	SafeWidget->SetClipping(Clipping);
 #endif
+
+	SafeWidget->SetFlowDirectionPreference(FlowDirectionPreference);
 
 	SafeWidget->ForceVolatile(bIsVolatile);
 

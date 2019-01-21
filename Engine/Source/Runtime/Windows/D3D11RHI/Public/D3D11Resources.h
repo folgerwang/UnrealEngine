@@ -784,12 +784,21 @@ public:
 
 class FD3D11StagingBuffer : public FRHIStagingBuffer
 {
+	friend class FD3D11DynamicRHI;
 public:
-	FD3D11StagingBuffer(FVertexBufferRHIRef InBuffer)
-		: FRHIStagingBuffer(InBuffer)
+	FD3D11StagingBuffer()
+		: FRHIStagingBuffer()
 	{}
 
+	virtual ~FD3D11StagingBuffer() final override;
+
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+	virtual void Unlock() final override;
+
+private:
+	FD3D11DeviceContext* Context;
 	TRefCountPtr<ID3D11Buffer> StagedRead;
+	uint32 ShadowBufferSize;
 };
 
 /** Shader resource view class. */
@@ -923,6 +932,12 @@ template<>
 struct TD3D11ResourceTraits<FRHIStagingBuffer>
 {
 	typedef FD3D11StagingBuffer TConcreteType;
+};
+// @todo-staging Implement D3D11 fences.
+template<>
+struct TD3D11ResourceTraits<FRHIGPUFence>
+{
+	typedef FGenericRHIGPUFence TConcreteType;
 };
 template<>
 struct TD3D11ResourceTraits<FRHIShaderResourceView>

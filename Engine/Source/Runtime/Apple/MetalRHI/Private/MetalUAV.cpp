@@ -848,49 +848,49 @@ void FMetalGPUFence::WriteInternal(mtlpp::CommandBuffer& CmdBuffer)
 	check(Fence);
 }
 
-void FMetalRHICommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 Offset, uint32 NumBytes)
+void FMetalRHICommandContext::RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef DestinationStagingBufferRHI, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef FenceRHI)
 {
 	@autoreleasepool {
-	
-		check(StagingBuffer);
+		check(DestinationStagingBufferRHI);
 
-		FMetalStagingBuffer* StageBuffer = ResourceCast(StagingBuffer);
-		FMetalVertexBuffer* VertexBuffer = ResourceCast(StageBuffer->GetBackingBuffer());
-		switch (VertexBuffer->Buffer.GetStorageMode())
+		FMetalStagingBuffer* MetalStagingBuffer = ResourceCast(DestinationStagingBufferRHI);
+		ensureMsgf(!MetalStagingBuffer->bIsLocked, TEXT("Attempting to Copy to a locked staging buffer. This may have undefined behavior"));
+		FMetalVertexBuffer* SourceBuffer = ResourceCast(SourceBufferRHI);
+		FMetalBuffer& ReadbackBuffer = MetalStagingBuffer->ShadowBuffer;
+
+		// Need a shadow buffer for this read. If it hasn't been allocated in our FStagingBuffer or if
+		// it's not big enough to hold our readback we need to allocate.
+		if (!ReadbackBuffer || ReadbackBuffer.GetLength() < NumBytes)
 		{
-	#if PLATFORM_MAC
-			case mtlpp::StorageMode::Managed:
+			if (ReadbackBuffer)
 			{
-				GetMetalDeviceContext().SynchroniseResource(VertexBuffer->Buffer);
-				break;
+				SafeReleaseMetalBuffer(ReadbackBuffer);
 			}
-	#endif
-			case mtlpp::StorageMode::Private:
-			{
-				VertexBuffer->Alloc(VertexBuffer->Buffer.GetLength(), RLM_ReadOnly);
-				GetMetalDeviceContext().CopyFromBufferToBuffer(VertexBuffer->Buffer, Offset, VertexBuffer->CPUBuffer, Offset, NumBytes);
-				break;
-			}
-			default:
-			{
-				break;
-			}
+			FMetalPooledBufferArgs ArgsCPU(GetMetalDeviceContext().GetDevice(), NumBytes, mtlpp::StorageMode::Shared);
+			ReadbackBuffer = GetMetalDeviceContext().CreatePooledBuffer(ArgsCPU);
 		}
 
-		if (InFence)
+		// Inline copy from the actual buffer to the shadow
+		GetMetalDeviceContext().CopyFromBufferToBuffer(SourceBuffer->Buffer, Offset, ReadbackBuffer, 0, NumBytes);
+
+		if (FenceRHI)
 		{
-			FMetalGPUFence* Fence = ResourceCast(InFence);
+			FMetalGPUFence* Fence = ResourceCast(FenceRHI);
 			Fence->WriteInternal(Context->GetCurrentCommandBuffer());
 		}
 	}
 }
-
 
 FGPUFenceRHIRef FMetalDynamicRHI::RHICreateGPUFence(const FName &Name)
 {
 	@autoreleasepool {
 	return new FMetalGPUFence(Name);
 	}
+}
+
+void FMetalGPUFence::Clear()
+{
+	Fence = mtlpp::CommandBufferFence();
 }
 
 bool FMetalGPUFence::Poll() const

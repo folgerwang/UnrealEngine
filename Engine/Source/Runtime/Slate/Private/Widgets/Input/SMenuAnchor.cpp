@@ -174,7 +174,7 @@ bool SMenuAnchor::ComputeVolatility() const
 
 void SMenuAnchor::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
-	ArrangeSingleChild( AllottedGeometry, ArrangedChildren, Children[0], FVector2D::UnitVector );
+	ArrangeSingleChild(GSlateFlowDirection, AllottedGeometry, ArrangedChildren, Children[0], FVector2D::UnitVector);
 	const TSharedPtr<SWindow> PresentingWindow = PopupWindowPtr.Pin();
 	if (IsOpenAndReusingWindow() && PresentingWindow.IsValid())
 	{

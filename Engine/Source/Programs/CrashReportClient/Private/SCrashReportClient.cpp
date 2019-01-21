@@ -20,6 +20,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SSpacer.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
@@ -236,6 +237,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 				[
 					SNew(SCheckBox)
 					.IsChecked( FCrashReportClientConfig::Get().GetAllowToBeContacted() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked )
+					.IsEnabled( !FEngineBuildSettings::IsInternalBuild() )
 					.OnCheckStateChanged(CrashReportClient.ToSharedRef(), &FCrashReportClient::AllowToBeContacted_OnCheckStateChanged)
 				]
 
@@ -246,6 +248,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 				[
 					SNew(STextBlock)
 					.AutoWrapText(true)
+					.IsEnabled( !FEngineBuildSettings::IsInternalBuild() )
 					.Text(LOCTEXT("IAgree", "I agree to be contacted by Epic Games via email if additional information about this crash would help fix it."))
 				]
 			]

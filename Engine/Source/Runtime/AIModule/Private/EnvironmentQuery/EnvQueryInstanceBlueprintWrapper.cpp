@@ -60,7 +60,7 @@ bool UEnvQueryInstanceBlueprintWrapper::GetQueryResultsAsActors(TArray<AActor*>&
 	return false;
 }
 
-TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors()
+TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors() const
 {
 	TArray<AActor*> Results;
 
@@ -103,7 +103,7 @@ bool UEnvQueryInstanceBlueprintWrapper::GetQueryResultsAsLocations(TArray<FVecto
 	return false;
 }
 
-TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations()
+TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations() const
 {
 	TArray<FVector> Results;
 

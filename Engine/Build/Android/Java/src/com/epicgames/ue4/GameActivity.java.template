@@ -121,6 +121,7 @@ import android.webkit.CookieSyncManager;
 import android.media.AudioManager;
 import android.util.DisplayMetrics;
 
+import android.view.DisplayCutout;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.Gravity;
@@ -133,6 +134,7 @@ import android.view.ViewGroup.MarginLayoutParams;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.Window;
 import android.widget.LinearLayout;
@@ -412,6 +414,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	private String ForceExitUpdateButtonText = "";
 	private String ForceExitLink = "";
 	
+	private boolean SplashScreenLaunch = false;
+	private boolean UseDisplayCutout = false;
 	private boolean ShouldHideUI = false;
 
 	/** Whether this application is for distribution */
@@ -1948,8 +1952,10 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		if (_extrasBundle != null)
 		{
 			ShouldHideUI = _extrasBundle.getString("ShouldHideUI") != null;
+			UseDisplayCutout = _extrasBundle.getString("UseDisplayCutout") != null;
 			if (_extrasBundle.getString("UseSplashScreen") != null)
 			{
+				SplashScreenLaunch = true;
 				try {
 					// try to get the splash theme (can't use R.style.UE4SplashTheme since we don't know the package name until runtime)
 					int SplashThemeId = getResources().getIdentifier("UE4SplashTheme", "style", getPackageName());
@@ -1989,6 +1995,14 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			}
 			catch (Exception e) {
 				e.printStackTrace();
+			}
+
+			if (UseDisplayCutout)
+			{
+				// will not be true if not Android Pie or later
+	            WindowManager.LayoutParams params = getWindow().getAttributes();
+		        params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+			    getWindow().setAttributes(params);
 			}
 		}
 
@@ -2299,7 +2313,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				VerifyOBBOnStartUp = false;
 				Log.debug( "Did not find bVerifyOBBOnStartUp, using default.");
 			}
-				
+
 			if(bundle.containsKey("com.epicgames.ue4.GameActivity.bShouldHideUI"))
 			{
 				ShouldHideUI = bundle.getBoolean("com.epicgames.ue4.GameActivity.bShouldHideUI");
@@ -2309,6 +2323,20 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			{
 				Log.debug( "UI hiding not found. Leaving as " + ShouldHideUI);
 			}
+
+			if (SplashScreenLaunch == false && android.os.Build.VERSION.SDK_INT >= 28)
+			{
+				if(bundle.containsKey("com.epicgames.ue4.GameActivity.bUseDisplayCutout"))
+				{
+					UseDisplayCutout = bundle.getBoolean("com.epicgames.ue4.GameActivity.bUseDisplayCutout");
+					Log.debug( "Display cutout set to " + UseDisplayCutout);
+				}
+				else
+				{
+					Log.debug( "Display cutout not found. Leaving as " + UseDisplayCutout);
+				}
+			}
+
 			if(bundle.containsKey("com.epicgames.ue4.GameActivity.BuildConfiguration"))
 			{
 				BuildConfiguration = bundle.getString("com.epicgames.ue4.GameActivity.BuildConfiguration");
@@ -2797,6 +2825,18 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			});
 		}
 
+		// only true if Android Pie or later
+		if (UseDisplayCutout)
+		{
+			// only on Android Pie and later
+			WindowManager.LayoutParams params = getWindow().getAttributes();
+			if (params.layoutInDisplayCutoutMode != WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES)
+			{
+				params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+				getWindow().setAttributes(params);
+			}
+		}
+
 		if(HasAllFiles)
 		{
 			Log.debug("==============> Resuming main init");
@@ -2873,6 +2913,17 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 					restoreTransparentBars();
 				}
 			});
+		}
+
+		// only true if Android Pie or later
+		if (UseDisplayCutout)
+		{
+			WindowManager.LayoutParams params = getWindow().getAttributes();
+			if (params.layoutInDisplayCutoutMode != WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES)
+			{
+				params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+				getWindow().setAttributes(params);
+			}
 		}
 
 		// restore screensaver state

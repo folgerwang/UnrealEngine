@@ -152,6 +152,8 @@ const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 				PathNameString = Parent->GetPathName(ParentOutermost);
 			}
 			TextNamespace = PathNameString + TEXT(" ") + Parent->GetClass()->GetName();
+
+			Parent->OverridePerObjectConfigSection(TextNamespace);
 		}
 		else
 		{

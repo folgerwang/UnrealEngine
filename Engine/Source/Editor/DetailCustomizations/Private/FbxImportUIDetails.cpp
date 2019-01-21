@@ -193,11 +193,11 @@ bool FFbxImportUIDetails::ShowCompareResult()
 				}
 				else if ((SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonMissingBone) > ImportCompareHelper::ECompareResult::SCR_None)
 				{
-					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Warning) Deleted bones: Some bones of the of the current skeletalmesh asset are not use by the incoming fbx."));
+					IconTooltip = (LOCTEXT("SkeletonConflictDeletedBones_IconTooltip", "(Warning) Deleted bones: Some bones of the of the current skeletalmesh asset are not use by the incoming fbx."));
 				}
 				else
 				{
-					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Info) Added bones: Some bones in the incoming fbx do not exist in the current skeletalmesh asset."));
+					IconTooltip = (LOCTEXT("SkeletonConflictAddedBones_IconTooltip", "(Info) Added bones: Some bones in the incoming fbx do not exist in the current skeletalmesh asset."));
 				}
 				 
 				const FSlateBrush* Brush = (SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonBadRoot) > ImportCompareHelper::ECompareResult::SCR_None ? FEditorStyle::GetBrush("Icons.Error")

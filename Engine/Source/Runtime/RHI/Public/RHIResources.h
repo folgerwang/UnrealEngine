@@ -774,8 +774,9 @@ public:
 //
 
 
-/* 
-* Generic GPU fence class used by FRHIGPUMemoryReadback
+/*
+* Generic GPU fence class.
+* Granularity differs depending on backing RHI - ie it may only represent command buffer granularity.
 * RHI specific fences derive from this to implement real GPU->CPU fencing.
 * The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
 * because not all APIs have a GPU/CPU sync object, we need to fake it.
@@ -786,20 +787,15 @@ public:
 	FRHIGPUFence(FName InName) : FenceName(InName) {}
 	virtual ~FRHIGPUFence() {}
 
-    /**
-     * Signal this fence now, which completion can be tested with Poll or Wait.
-	 * RHI implementation might not need to implement this depending on how RHIInsertGPUFence is implemented.
-	 * Note also that RHIInsertGPUFence is currently only called by RHIEnqueueStagedRead.
-     */
-	virtual void Write();
+	virtual void Clear() = 0;
 
-    /**
-     * Poll the fence to see if the GPU has signaled it.
-     * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
-     */
+	/**
+	 * Poll the fence to see if the GPU has signaled it.
+	 * @returns True if and only if the GPU fence has been inserted and the GPU has signaled the fence.
+	 */
 	virtual bool Poll() const = 0;
 
-private:
+protected:
 	FName FenceName;
 };
 
@@ -809,10 +805,12 @@ class RHI_API FGenericRHIGPUFence : public FRHIGPUFence
 public:
 	FGenericRHIGPUFence(FName InName);
 
-	virtual void Write() final override;
+	virtual void Clear() final override;
 
-    /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
+	/** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
 	virtual bool Poll() const final override;
+
+	void WriteInternal();
 
 private:
 	uint32 InsertedFrameNumber;
@@ -1010,19 +1008,34 @@ typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 /* Generic staging buffer class used by FRHIGPUMemoryReadback
 * RHI specific staging buffers derive from this
 */
-class FRHIStagingBuffer : public FRHIResource
+class RHI_API FRHIStagingBuffer : public FRHIResource
 {
 public:
-	FRHIStagingBuffer(FVertexBufferRHIParamRef InBuffer)
-		: BackingBuffer(InBuffer)
-	{
-	}
+	FRHIStagingBuffer()
+		: bIsLocked(false)
+	{}
 
-    /** Convenience function to access the vertex-buffer that acts as the backing-store. */
-	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer.GetReference(); }
+	virtual ~FRHIStagingBuffer() {}
 
+	virtual void *Lock(uint32 Offset, uint32 NumBytes) = 0;
+	virtual void Unlock() = 0;
 protected:
-	FVertexBufferRHIRef BackingBuffer;
+	bool bIsLocked;
+};
+
+class RHI_API FGenericRHIStagingBuffer : public FRHIStagingBuffer
+{
+public:
+	FGenericRHIStagingBuffer()
+		: FRHIStagingBuffer()
+	{}
+
+	~FGenericRHIStagingBuffer() {}
+
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+	virtual void Unlock() final override;
+	FVertexBufferRHIRef ShadowBuffer;
+	uint32 Offset;
 };
 
 typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;

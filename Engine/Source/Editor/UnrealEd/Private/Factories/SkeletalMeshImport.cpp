@@ -428,14 +428,12 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		{
 			int32 OffsetReductionLODIndex = 0;
 			
-			if (FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo(ReimportSpecificLOD))
+			FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo(ReimportSpecificLOD);
+			ExistingMeshDataPtr->bIsReimportLODReduced = (LODInfo && LODInfo->bHasBeenSimplified);
+			if (ExistingMeshDataPtr->bIsReimportLODReduced)
 			{
-				ExistingMeshDataPtr->bIsReimportLODReduced = LODInfo->bHasBeenSimplified;
-				if (LODInfo->bHasBeenSimplified)
-				{
-					//Save the imported LOD reduction settings
-					ExistingMeshDataPtr->ExistingReimportLODReductionSettings = LODInfo->ReductionSettings;
-				}
+				//Save the imported LOD reduction settings
+				ExistingMeshDataPtr->ExistingReimportLODReductionSettings = LODInfo->ReductionSettings;
 			}
 
 			// Remove the zero'th LOD (ie: the LOD being reimported).
@@ -812,6 +810,10 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		FSkeletalMeshLODInfo& BaseLODInfo = SkeletalMesh->GetLODInfoArray()[ReimportLODIndex];
 		//Restore the reimport LOD reduction settings
 		BaseLODInfo.ReductionSettings = MeshData->ExistingReimportLODReductionSettings;
+		if (SkeletalMeshImportedModel && SkeletalMeshImportedModel->OriginalReductionSourceMeshData.IsValidIndex(ReimportLODIndex))
+		{
+			SkeletalMeshImportedModel->OriginalReductionSourceMeshData[ReimportLODIndex]->EmptyBulkData();
+		}
 		//Regenerate the reimport LOD
 		GWarn->BeginSlowTask(LOCTEXT("RegenReimportedLOD", "Generating reimported LOD"), true);
 		FSkeletalMeshUpdateContext UpdateContext;
