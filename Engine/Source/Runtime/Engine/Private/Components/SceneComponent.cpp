@@ -3362,7 +3362,7 @@ FScopedPreventAttachedComponentMove::~FScopedPreventAttachedComponentMove()
 			}
 			if (!bSavedAbsoluteRotation)
 			{
-				Owner->RelativeRotation = ChildRelativeTM.GetRotation().Rotator();
+				Owner->RelativeRotation = Owner->RelativeRotationCache.QuatToRotator(ChildRelativeTM.GetRotation());
 			}
 			if (!bSavedAbsoluteScale)
 			{
