@@ -701,7 +701,13 @@ void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseS
 	}
 
 	int32 PrevNumStreams = Streams.Num();
-	UpdateRHI();
+
+	//hack to allow us to release the alias pointers properly in ReleaseRHI.
+	//To be cleaned up in UE-68826
+	FLocalVertexFactory::ReleaseRHI();
+	FLocalVertexFactory::ReleaseDynamicRHI();
+	FLocalVertexFactory::InitDynamicRHI();
+	FLocalVertexFactory::InitRHI();
 
 	// Verify no additional stream was created
 	check(Streams.Num() == PrevNumStreams);

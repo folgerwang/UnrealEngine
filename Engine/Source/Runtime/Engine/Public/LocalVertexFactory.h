@@ -71,7 +71,7 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual void ReleaseRHI()
+	virtual void ReleaseRHI() override
 	{
 		UniformBuffer.SafeRelease();
 		FVertexFactory::ReleaseRHI();

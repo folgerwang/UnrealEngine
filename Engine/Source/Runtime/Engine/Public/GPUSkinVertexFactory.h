@@ -494,6 +494,15 @@ public:
 		TangentStreamIndex = -1;
 	}
 
+	virtual void ReleaseRHI() override
+	{
+		FLocalVertexFactory::ReleaseRHI();
+
+		//when adding anything else to this function be aware of the bypassing code in InternalUpdateVertexDeclaration
+		PositionVBAlias.ReleaseRHI();
+		TangentVBAlias.ReleaseRHI();
+	}
+
 protected:
 	// Vertex buffer required for creating the Vertex Declaration
 	FVertexBuffer PositionVBAlias;
