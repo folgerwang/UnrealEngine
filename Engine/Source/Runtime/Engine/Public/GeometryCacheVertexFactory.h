@@ -14,6 +14,27 @@
 #include "VertexFactory.h"
 #include "LocalVertexFactory.h"
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FGeometryCacheVertexFactoryUniformBufferParameters, ENGINE_API)
+	SHADER_PARAMETER(FVector, MeshOrigin)
+	SHADER_PARAMETER(FVector, MeshExtension)
+	SHADER_PARAMETER(FVector, MotionBlurDataOrigin)
+	SHADER_PARAMETER(FVector, MotionBlurDataExtension)
+	SHADER_PARAMETER(float, MotionBlurPositionScale)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+typedef TUniformBufferRef<FGeometryCacheVertexFactoryUniformBufferParameters> FGeometryCacheVertexFactoryUniformBufferParametersRef;
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FGeometryCacheManualVertexFetchUniformBufferParameters, ENGINE_API)
+	SHADER_PARAMETER_SRV(Buffer<float>, Position)
+	SHADER_PARAMETER_SRV(Buffer<float>, MotionBlurData)
+	SHADER_PARAMETER_SRV(Buffer<half4>, TangentX)
+	SHADER_PARAMETER_SRV(Buffer<half4>, TangentZ)
+	SHADER_PARAMETER_SRV(Buffer<float4>, Color)
+	SHADER_PARAMETER_SRV(Buffer<float>, TexCoords)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+typedef TUniformBufferRef<FGeometryCacheManualVertexFetchUniformBufferParameters> FGeometryCacheManualVertexFetchUniformBufferParametersRef;
+
 /**
  * The mesh batch element user data should point to an instance of this struct
  */
@@ -30,6 +51,17 @@ struct FGeometryCacheVertexFactoryUserData
 	FVector MotionBlurDataOrigin;
 	FVector MotionBlurDataExtension;
 	float MotionBlurPositionScale;
+
+	FGeometryCacheVertexFactoryUniformBufferParametersRef UniformBuffer;
+
+	FShaderResourceViewRHIRef PositionSRV;
+	FShaderResourceViewRHIRef TangentXSRV;
+	FShaderResourceViewRHIRef TangentZSRV;
+	FShaderResourceViewRHIRef ColorSRV;
+	FShaderResourceViewRHIRef MotionBlurDataSRV;
+	FShaderResourceViewRHIRef TexCoordsSRV;
+
+	FUniformBufferRHIRef ManualVertexFetchUniformBuffer;
 };
 
 class FGeometryCacheVertexFactoryShaderParameters;
@@ -76,6 +108,11 @@ public:
 	* An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
 	*/
 	void SetData(const FDataType& InData);
+
+	void CreateManualVertexFetchUniformBuffer(
+		const FVertexBuffer* PoistionBuffer,
+		const FVertexBuffer* MotionBlurBuffer,
+		FGeometryCacheVertexFactoryUserData& OutUserData) const;
 
 	virtual void InitRHI() override;
 

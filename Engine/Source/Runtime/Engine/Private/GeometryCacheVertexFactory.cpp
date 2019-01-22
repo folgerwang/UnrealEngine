@@ -15,6 +15,9 @@
 FGeometryCacheVertexFactoryShaderParameters
 -----------------------------------------------------------------------------*/
 
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FGeometryCacheVertexFactoryUniformBufferParameters, "GeomCache");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FGeometryCacheManualVertexFetchUniformBufferParameters, "GeomCacheMVF");
+
 /** Shader parameters for use with TGPUSkinVertexFactory */
 class FGeometryCacheVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
 {
@@ -75,6 +78,9 @@ public:
 		ShaderBindings.Add(MotionBlurDataOrigin, BatchData->MotionBlurDataOrigin);
 		ShaderBindings.Add(MotionBlurDataExtension, BatchData->MotionBlurDataExtension);
 		ShaderBindings.Add(MotionBlurPositionScale, BatchData->MotionBlurPositionScale);
+
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FGeometryCacheVertexFactoryUniformBufferParameters>(), BatchData->UniformBuffer);
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FGeometryCacheManualVertexFetchUniformBufferParameters>(), BatchData->ManualVertexFetchUniformBuffer);
 	}
 
 	virtual uint32 GetSize() const override { return sizeof(*this); }
@@ -116,22 +122,74 @@ void FGeometryCacheVertexVertexFactory::SetData(const FDataType& InData)
 	UpdateRHI();
 }
 
+class FDummyVertexBuffer : public FVertexBuffer
+{
+public:
+	FShaderResourceViewRHIRef SRV;
+
+	virtual void InitRHI() override
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		void* BufferData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(FVector4) * 2, BUF_Static | BUF_ShaderResource, CreateInfo, BufferData);
+		FVector4* DummyContents = (FVector4*)BufferData;
+		DummyContents[0] = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+		DummyContents[1] = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		SRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		SRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+};
+TGlobalResource<FDummyVertexBuffer> DummyPositionBuffer;
+
+class FDummyTangentBuffer : public FVertexBuffer
+{
+public:
+	FShaderResourceViewRHIRef SRV;
+
+	virtual void InitRHI() override
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		void* BufferData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(FVector4) * 2, BUF_Static | BUF_ShaderResource, CreateInfo, BufferData);
+		FVector4* DummyContents = (FVector4*)BufferData;
+		DummyContents[0] = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+		DummyContents[1] = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		SRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FPackedNormal), PF_R8G8B8A8_SNORM);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		SRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+};
+TGlobalResource<FDummyTangentBuffer> GDummyTangentBuffer;
+
 void FGeometryCacheVertexVertexFactory::InitRHI()
 {
 	// Position needs to be separate from the rest (we just theck tangents here)
-	check(Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
-		// Motion Blur data also needs to be separate from the rest
-		check(Data.MotionBlurDataComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
-		check(Data.MotionBlurDataComponent.VertexBuffer != Data.PositionComponent.VertexBuffer)
+	check(Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer);
+	// Motion Blur data also needs to be separate from the rest
+	check(Data.MotionBlurDataComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer);
+	check(Data.MotionBlurDataComponent.VertexBuffer != Data.PositionComponent.VertexBuffer);
 
-		// If the vertex buffer containing position is not the same vertex buffer containing the rest of the data,
-		// then initialize PositionStream and PositionDeclaration.
-		if (Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
-		{
-			FVertexDeclarationElementList PositionOnlyStreamElements;
-			PositionOnlyStreamElements.Add(AccessPositionStreamComponent(Data.PositionComponent, 0));
-			InitPositionDeclaration(PositionOnlyStreamElements);
-		}
+	// If the vertex buffer containing position is not the same vertex buffer containing the rest of the data,
+	// then initialize PositionStream and PositionDeclaration.
+	if (Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
+	{
+		FVertexDeclarationElementList PositionOnlyStreamElements;
+		PositionOnlyStreamElements.Add(AccessPositionStreamComponent(Data.PositionComponent, 0));
+		InitPositionDeclaration(PositionOnlyStreamElements);
+	}
 
 	FVertexDeclarationElementList Elements;
 	if (Data.PositionComponent.VertexBuffer != NULL)
@@ -202,9 +260,87 @@ void FGeometryCacheVertexVertexFactory::InitRHI()
 	check(IsValidRef(GetDeclaration()));
 }
 
+void FGeometryCacheVertexVertexFactory::CreateManualVertexFetchUniformBuffer(
+	const FVertexBuffer* PoistionBuffer, 
+	const FVertexBuffer* MotionBlurBuffer,
+	FGeometryCacheVertexFactoryUserData& OutUserData) const
+{
+	FGeometryCacheManualVertexFetchUniformBufferParameters ManualVertexFetchParameters;
+
+	if (PoistionBuffer != NULL)
+	{
+		OutUserData.PositionSRV = RHICreateShaderResourceView(PoistionBuffer->VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+		// Position will need per-component fetch since we don't have R32G32B32 pixel format
+		ManualVertexFetchParameters.Position = OutUserData.PositionSRV;
+	}
+	else
+	{
+		ManualVertexFetchParameters.Position = DummyPositionBuffer.SRV;
+	}
+
+	if (Data.TangentBasisComponents[0].VertexBuffer != NULL)
+	{
+		OutUserData.TangentXSRV = RHICreateShaderResourceView(Data.TangentBasisComponents[0].VertexBuffer->VertexBufferRHI, sizeof(FPackedNormal), PF_R8G8B8A8_SNORM);
+		ManualVertexFetchParameters.TangentX = OutUserData.TangentXSRV;
+	}
+	else
+	{
+		ManualVertexFetchParameters.TangentX = GDummyTangentBuffer.SRV;
+	}
+
+	if (Data.TangentBasisComponents[1].VertexBuffer != NULL)
+	{
+		OutUserData.TangentZSRV = RHICreateShaderResourceView(Data.TangentBasisComponents[1].VertexBuffer->VertexBufferRHI, sizeof(FPackedNormal), PF_R8G8B8A8_SNORM);
+		ManualVertexFetchParameters.TangentZ = OutUserData.TangentZSRV;
+	}
+	else
+	{
+		ManualVertexFetchParameters.TangentZ = GDummyTangentBuffer.SRV;
+	}
+
+	if (Data.ColorComponent.VertexBuffer)
+	{
+		OutUserData.ColorSRV = RHICreateShaderResourceView(Data.ColorComponent.VertexBuffer->VertexBufferRHI, sizeof(FColor), PF_B8G8R8A8);
+		ManualVertexFetchParameters.Color = OutUserData.ColorSRV;
+	}
+	else
+	{
+		OutUserData.ColorSRV = GNullColorVertexBuffer.VertexBufferSRV;
+		ManualVertexFetchParameters.Color = OutUserData.ColorSRV;
+	}
+
+	if (MotionBlurBuffer)
+	{
+		OutUserData.MotionBlurDataSRV = RHICreateShaderResourceView(MotionBlurBuffer->VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+		ManualVertexFetchParameters.MotionBlurData = OutUserData.MotionBlurDataSRV;
+	}
+	else if (PoistionBuffer != NULL)
+	{
+		ManualVertexFetchParameters.MotionBlurData = OutUserData.PositionSRV;
+	}
+	else
+	{
+		ManualVertexFetchParameters.MotionBlurData = DummyPositionBuffer.SRV;
+	}
+
+	if (Data.TextureCoordinates.Num())
+	{
+		checkf(Data.TextureCoordinates.Num() <= 1, TEXT("We're assuming FGeometryCacheSceneProxy uses only one TextureCoordinates vertex buffer"));
+		OutUserData.TexCoordsSRV = RHICreateShaderResourceView(Data.TextureCoordinates[0].VertexBuffer->VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+		// TexCoords will need per-component fetch since we don't have R32G32 pixel format
+		ManualVertexFetchParameters.TexCoords = OutUserData.TexCoordsSRV;
+	}
+	else
+	{
+		ManualVertexFetchParameters.TexCoords = DummyPositionBuffer.SRV;
+	}
+
+	OutUserData.ManualVertexFetchUniformBuffer = FGeometryCacheManualVertexFetchUniformBufferParametersRef::CreateUniformBufferImmediate(ManualVertexFetchParameters, UniformBuffer_SingleFrame);
+}
+
 FVertexFactoryShaderParameters* FGeometryCacheVertexVertexFactory::ConstructShaderParameters(EShaderFrequency ShaderFrequency)
 {
-	return (ShaderFrequency == SF_Vertex) ? new FGeometryCacheVertexFactoryShaderParameters() : nullptr;
+	return (ShaderFrequency == SF_Vertex || ShaderFrequency == SF_RayHitGroup) ? new FGeometryCacheVertexFactoryShaderParameters() : nullptr;
 }
 
 bool FGeometryCacheVertexVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)

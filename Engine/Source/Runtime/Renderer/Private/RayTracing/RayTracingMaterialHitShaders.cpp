@@ -10,10 +10,12 @@ static bool IsSupportedVertexFactoryType(const FVertexFactoryType* VertexFactory
 	static FName LSkinnedVfFname = FName(TEXT("FGPUSkinPassthroughVertexFactory"), FNAME_Find);
 	static FName InstancedVfFname = FName(TEXT("FInstancedStaticMeshVertexFactory"), FNAME_Find);
 	static FName NiagaraSpriteVfFname = FName(TEXT("FNiagaraSpriteVertexFactory"), FNAME_Find);
+	static FName GeometryCacheVfFname = FName(TEXT("FGeometryCacheVertexVertexFactory"), FNAME_Find);
 
 	return (VertexFactoryType == FindVertexFactoryType(LocalVfFname)
 		|| VertexFactoryType == FindVertexFactoryType(LSkinnedVfFname)
-		|| VertexFactoryType == FindVertexFactoryType(NiagaraSpriteVfFname));
+		|| VertexFactoryType == FindVertexFactoryType(NiagaraSpriteVfFname)
+		|| VertexFactoryType == FindVertexFactoryType(GeometryCacheVfFname));
 }
 
 class FMaterialCHS : public FMeshMaterialShader, public FUniformLightMapPolicyShaderParametersType
