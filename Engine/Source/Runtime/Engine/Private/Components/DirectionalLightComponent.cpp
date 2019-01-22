@@ -153,13 +153,12 @@ public:
 	{
 		FVector NewLightShaftOverrideDirection = Component->LightShaftOverrideDirection;
 		NewLightShaftOverrideDirection.Normalize();
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FUpdateLightShaftOverrideDirectionCommand,
-			FDirectionalLightSceneProxy*,Proxy,this,
-			FVector,NewLightShaftOverrideDirection,NewLightShaftOverrideDirection,
-		{
-			Proxy->UpdateLightShaftOverrideDirection_RenderThread(NewLightShaftOverrideDirection);
-		});
+		FDirectionalLightSceneProxy* Proxy = this;
+		ENQUEUE_RENDER_COMMAND(FUpdateLightShaftOverrideDirectionCommand)(
+			[Proxy, NewLightShaftOverrideDirection](FRHICommandList& RHICmdList)
+			{
+				Proxy->UpdateLightShaftOverrideDirection_RenderThread(NewLightShaftOverrideDirection);
+			});
 	}
 
 	/** Accesses parameters needed for rendering the light. */

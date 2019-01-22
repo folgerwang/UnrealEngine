@@ -1168,14 +1168,12 @@ void ULightComponent::InitializeStaticShadowDepthMap()
 			DepthMapData = &MapBuildData->DepthMap;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			SetDepthMapData,
-			FStaticShadowDepthMap*, DepthMap, &StaticShadowDepthMap,
-			const FStaticShadowDepthMapData*, DepthMapData, DepthMapData,
+		FStaticShadowDepthMap* DepthMap = &StaticShadowDepthMap;
+		ENQUEUE_RENDER_COMMAND(SetDepthMapData)(
+			[DepthMap, DepthMapData](FRHICommandList& RHICmdList)
 			{
 				DepthMap->Data = DepthMapData;
-			}
-		);
+			});
 
 		BeginInitResource(&StaticShadowDepthMap);
 	}

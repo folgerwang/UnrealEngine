@@ -20,13 +20,12 @@ static FAutoConsoleVariableRef CVarAllowPointLightCubemapShadows(
 
 void FLocalLightSceneProxy::UpdateRadius_GameThread(float ComponentRadius)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateRadius,
-		FLocalLightSceneProxy*,LightSceneInfo,this,
-		float,ComponentRadius,ComponentRadius,
-	{
-		LightSceneInfo->UpdateRadius(ComponentRadius);
-	});
+	FLocalLightSceneProxy* InLightSceneInfo = this;
+	ENQUEUE_RENDER_COMMAND(UpdateRadius)(
+		[InLightSceneInfo, ComponentRadius](FRHICommandList& RHICmdList)
+		{
+			InLightSceneInfo->UpdateRadius(ComponentRadius);
+		});
 }
 
 /** Accesses parameters needed for rendering the light. */

@@ -1077,11 +1077,9 @@ static bool TestGPUSort_RenderThread(FRHICommandListImmediate& RHICmdList, EGPUS
  */
 void TestGPUSort(EGPUSortTest TestToRun, ERHIFeatureLevel::Type FeatureLevel)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FTestGPUSortCommand,
-		EGPUSortTest, TestToRun, TestToRun,
-		ERHIFeatureLevel::Type, FeatureLevel, FeatureLevel,
-	{
-		TestGPUSort_RenderThread(RHICmdList, TestToRun, FeatureLevel);
-	});
+	ENQUEUE_RENDER_COMMAND(FTestGPUSortCommand)(
+		[TestToRun, FeatureLevel](FRHICommandListImmediate& RHICmdList)
+		{
+			TestGPUSort_RenderThread(RHICmdList, TestToRun, FeatureLevel);
+		});
 }
