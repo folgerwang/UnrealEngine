@@ -129,8 +129,6 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 				PassShaders.GeometryShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, GeometryShaderBindings, MeshDrawCommand.VertexStreams);
 			}
 
-			SetDrawCommandEvent(PrimitiveSceneProxy, MaterialResource, MeshDrawCommand);
-
 			const int32 DrawPrimitiveId = GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement);
 
 			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, InstanceFactor, SortKey, MeshDrawCommand, true);
@@ -210,8 +208,6 @@ void FMeshPassProcessor::BuildRayTracingDrawCommands(
 				PassShaders.RayHitGroupShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, RayHitGroupShaderBindings, MeshDrawCommand.VertexStreams);
 			}
 #endif
-
-			SetDrawCommandEvent(PrimitiveSceneProxy, MaterialResource, MeshDrawCommand);
 
 			const int32 DrawPrimitiveId = 0;
 			const int32 ScenePrimitiveId = 0;

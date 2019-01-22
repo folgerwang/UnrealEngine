@@ -10,7 +10,7 @@
 #include "SceneUtils.h"
 #include "MeshBatch.h"
 
-#define MESH_DRAW_COMMAND_DEBUG_DATA ((!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || VALIDATE_MESH_COMMAND_BINDINGS)
+#define MESH_DRAW_COMMAND_DEBUG_DATA ((!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || VALIDATE_MESH_COMMAND_BINDINGS || WANTS_DRAW_MESH_EVENTS)
 
 /** Mesh pass types supported. */
 namespace EMeshPass
@@ -360,10 +360,6 @@ public:
 
 	/** Non-pipeline state */
 	uint8 StencilRef;
-
-#if WANTS_DRAW_MESH_EVENTS
-	FString DrawEventName;
-#endif
 
 	FMeshDrawCommand()
 	{}
@@ -929,7 +925,6 @@ public:
 		EMeshPassFeatures MeshPassFeatures,
 		const ShaderElementDataType& ShaderElementData);
 private:
-	RENDERER_API void SetDrawCommandEvent(const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMaterial& RESTRICT MaterialResource, FMeshDrawCommand& MeshDrawCommand) const;
 	RENDERER_API int32 GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const;
 };
 

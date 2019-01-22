@@ -743,6 +743,24 @@ void FMeshDrawCommand::SubmitDraw(
 
 	if (GShowMaterialDrawEvents)
 	{
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy = MeshDrawCommand.DebugData.PrimitiveSceneProxy;
+		const FMaterial* Material = MeshDrawCommand.DebugData.Material;
+
+		FString DrawEventName;
+
+		if (PrimitiveSceneProxy)
+		{
+			DrawEventName = FString::Printf(
+				TEXT("%s %s"),
+				// Note: this is the parent's material name, not the material instance
+				*Material->GetFriendlyName(),
+				PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
+		}
+		else
+		{
+			DrawEventName = Material->GetFriendlyName();
+		}
+
 		const uint32 Instances = MeshDrawCommand.NumInstances * MeshDrawCommand.InstanceFactor;
 		if (Instances > 1)
 		{
@@ -751,12 +769,12 @@ void FMeshDrawCommand::SubmitDraw(
 				MaterialEvent,
 				MeshEvent,
 				TEXT("%s %u instances"),
-				*MeshDrawCommand.DrawEventName,
+				*DrawEventName,
 				Instances);
 		}
 		else
 		{
-			BEGIN_DRAW_EVENTF(RHICmdList, MaterialEvent, MeshEvent, *MeshDrawCommand.DrawEventName);
+			BEGIN_DRAW_EVENTF(RHICmdList, MaterialEvent, MeshEvent, *DrawEventName);
 		}
 	}
 #endif
@@ -939,27 +957,6 @@ ERasterizerCullMode FMeshPassProcessor::ComputeMeshCullMode(const FMeshBatch& Me
 	const bool bIsTwoSided = (bMaterialResourceIsTwoSided || bInTwoSidedOverride);
 	const bool bMeshRenderTwoSided = bIsTwoSided || bInTwoSidedOverride;
 	return bMeshRenderTwoSided ? CM_None : (bInReverseCullModeOverride ? CM_CCW : CM_CW);
-}
-
-void FMeshPassProcessor::SetDrawCommandEvent(const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMaterial& RESTRICT MaterialResource, FMeshDrawCommand& MeshDrawCommand) const
-{
-#if WANTS_DRAW_MESH_EVENTS
-	if (GShowMaterialDrawEvents)
-	{
-		if (PrimitiveSceneProxy)
-		{
-			MeshDrawCommand.DrawEventName = FString::Printf(
-				TEXT("%s %s"),
-				// Note: this is the parent's material name, not the material instance
-				*MaterialResource.GetFriendlyName(),
-				PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
-		}
-		else
-		{
-			MeshDrawCommand.DrawEventName = MaterialResource.GetFriendlyName();
-		}
-	}
-#endif
 }
 
 int32 FMeshPassProcessor::GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const
