@@ -29,8 +29,8 @@ struct FVelocityInterpsVSToPS
 
 struct FVelocityVSToPS
 {
-	FVelocityInterpsVSToPS Interps;
 	float4 Position : SV_POSITION;
+	FVelocityInterpsVSToPS Interps;
 };
 
 #if USING_TESSELLATION
@@ -234,8 +234,8 @@ void MainVertexShader(
  *============================================================================*/
  
 void MainPixelShader(
-	FVelocityInterpsVSToPS Input,
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
+	FVelocityInterpsVSToPS Input
 	OPTIONAL_IsFrontFace
 	OPTIONAL_OutDepthConservative
 	,out float4 OutColor : SV_Target0

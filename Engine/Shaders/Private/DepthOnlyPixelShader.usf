@@ -15,12 +15,12 @@ float MobileColorValue;
 
 void Main(
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
-	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
-	float4 PixelPosition : TEXCOORD6,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
 #if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 	float3 PixelPositionExcludingWPO : TEXCOORD7,
 #endif
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position
+	FVertexFactoryInterpolantsVSToPS FactoryInterpolants
+	// float4 PixelPosition : TEXCOORD6 -- Not used currently
 	OPTIONAL_IsFrontFace
 	OPTIONAL_OutDepthConservative,
 #endif

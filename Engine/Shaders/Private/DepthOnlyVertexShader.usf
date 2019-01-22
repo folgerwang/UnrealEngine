@@ -13,15 +13,16 @@
 
 struct FDepthOnlyVSToPS
 {
+	float4 Position : SV_POSITION;
+
+	#if USE_RAW_WORLD_POSITION
+		float3 PixelPositionExcludingWPO : TEXCOORD7;
+	#endif
+	
 	#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 		FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
 		float4 PixelPosition : TEXCOORD6;
 	#endif
-	#if USE_RAW_WORLD_POSITION
-		float3 PixelPositionExcludingWPO : TEXCOORD7;
-	#endif
-
-	float4 Position : SV_POSITION;
 };
 
 #if USING_TESSELLATION	
