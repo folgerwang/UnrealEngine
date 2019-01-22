@@ -5129,16 +5129,16 @@ void FFXSystem::UpdateMultiGPUResources(FRHICommandListImmediate& RHICmdList)
 
 void FFXSystem::VisualizeGPUParticles(FCanvas* Canvas)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-		FVisualizeGPUParticlesCommand,
-		FFXSystem*, FXSystem, this,
-		int32, VisualizationMode, FXConsoleVariables::VisualizeGPUSimulation,
-		FRenderTarget*, RenderTarget, Canvas->GetRenderTarget(),
-		ERHIFeatureLevel::Type, FeatureLevel, GetFeatureLevel(),
+	FFXSystem* FXSystem = this;
+	int32 VisualizationMode = FXConsoleVariables::VisualizeGPUSimulation;
+	FRenderTarget* RenderTarget = Canvas->GetRenderTarget();
+	ERHIFeatureLevel::Type InFeatureLevel = FeatureLevel;
+	ENQUEUE_RENDER_COMMAND(FVisualizeGPUParticlesCommand)(
+		[FXSystem, VisualizationMode, RenderTarget, InFeatureLevel](FRHICommandList& RHICmdList)
 	{
 		FParticleSimulationResources* Resources = FXSystem->GetParticleSimulationResources();
 		FParticleStateTextures& CurrentStateTextures = Resources->GetVisualizeStateTextures();
-		VisualizeGPUSimulation(RHICmdList, FeatureLevel, VisualizationMode, RenderTarget, CurrentStateTextures, GParticleCurveTexture.GetCurveTexture());
+		VisualizeGPUSimulation(RHICmdList, InFeatureLevel, VisualizationMode, RenderTarget, CurrentStateTextures, GParticleCurveTexture.GetCurveTexture());
 	});
 }
 

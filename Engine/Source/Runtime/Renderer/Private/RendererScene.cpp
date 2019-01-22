@@ -442,16 +442,16 @@ void FDistanceFieldSceneData::VerifyIntegrity()
 
 void FScene::UpdateSceneSettings(AWorldSettings* WorldSettings)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-		UpdateSceneSettings,
-		FScene*, Scene, this,
-		float, DefaultMaxDistanceFieldOcclusionDistance, WorldSettings->DefaultMaxDistanceFieldOcclusionDistance,
-		float, GlobalDistanceFieldViewDistance, WorldSettings->GlobalDistanceFieldViewDistance,
-		float, DynamicIndirectShadowsSelfShadowingIntensity, FMath::Clamp(WorldSettings->DynamicIndirectShadowsSelfShadowingIntensity, 0.0f, 1.0f),
+	FScene* Scene = this;
+	float InDefaultMaxDistanceFieldOcclusionDistance = WorldSettings->DefaultMaxDistanceFieldOcclusionDistance;
+	float InGlobalDistanceFieldViewDistance = WorldSettings->GlobalDistanceFieldViewDistance;
+	float InDynamicIndirectShadowsSelfShadowingIntensity = FMath::Clamp(WorldSettings->DynamicIndirectShadowsSelfShadowingIntensity, 0.0f, 1.0f);
+	ENQUEUE_RENDER_COMMAND(UpdateSceneSettings)(
+		[Scene, InDefaultMaxDistanceFieldOcclusionDistance, InGlobalDistanceFieldViewDistance, InDynamicIndirectShadowsSelfShadowingIntensity](FRHICommandList& RHICmdList)
 	{
-		Scene->DefaultMaxDistanceFieldOcclusionDistance = DefaultMaxDistanceFieldOcclusionDistance;
-		Scene->GlobalDistanceFieldViewDistance = GlobalDistanceFieldViewDistance;
-		Scene->DynamicIndirectShadowsSelfShadowingIntensity = DynamicIndirectShadowsSelfShadowingIntensity;
+		Scene->DefaultMaxDistanceFieldOcclusionDistance = InDefaultMaxDistanceFieldOcclusionDistance;
+		Scene->GlobalDistanceFieldViewDistance = InGlobalDistanceFieldViewDistance;
+		Scene->DynamicIndirectShadowsSelfShadowingIntensity = InDynamicIndirectShadowsSelfShadowingIntensity;
 	});
 }
 

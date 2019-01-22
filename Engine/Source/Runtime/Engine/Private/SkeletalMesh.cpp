@@ -4228,28 +4228,28 @@ void FSkeletalMeshSceneProxy::UpdateMorphMaterialUsage_GameThread(TArray<UMateri
 		// update the new LODSections on the render thread proxy
 		if (MaterialsToSwap.Num())
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-			UpdateSkelProxyLODSectionElementsCmd,
-				TSet<UMaterialInterface*>,MaterialsToSwap,MaterialsToSwap,
-				UMaterialInterface*,DefaultMaterial,UMaterial::GetDefaultMaterial(MD_Surface),
-				ERHIFeatureLevel::Type, FeatureLevel, GetScene().GetFeatureLevel(),
-			FSkeletalMeshSceneProxy*,SkelMeshSceneProxy,this,
-			{
+			TSet<UMaterialInterface*> InMaterialsToSwap = MaterialsToSwap;
+			UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+			ERHIFeatureLevel::Type InFeatureLevel = GetScene().GetFeatureLevel();
+			FSkeletalMeshSceneProxy* SkelMeshSceneProxy = this;
+			ENQUEUE_RENDER_COMMAND(UpdateSkelProxyLODSectionElementsCmd)(
+				[InMaterialsToSwap, DefaultMaterial, InFeatureLevel, SkelMeshSceneProxy](FRHICommandList& RHICmdList)
+				{
 					for( int32 LodIdx=0; LodIdx < SkelMeshSceneProxy->LODSections.Num(); LodIdx++ )
 					{
 						FLODSectionElements& LODSection = SkelMeshSceneProxy->LODSections[LodIdx];
 						for( int32 SectIdx=0; SectIdx < LODSection.SectionElements.Num(); SectIdx++ )
 						{
 							FSectionElementInfo& SectionElement = LODSection.SectionElements[SectIdx];
-							if( MaterialsToSwap.Contains(SectionElement.Material) )
+							if( InMaterialsToSwap.Contains(SectionElement.Material) )
 							{
 								// fallback to default material if needed
 								SectionElement.Material = DefaultMaterial;
 							}
 						}
 					}
-					SkelMeshSceneProxy->MaterialRelevance |= DefaultMaterial->GetRelevance(FeatureLevel);
-			});
+					SkelMeshSceneProxy->MaterialRelevance |= DefaultMaterial->GetRelevance(InFeatureLevel);
+				});
 		}
 	}
 }

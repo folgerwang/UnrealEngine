@@ -260,12 +260,11 @@ void ParticleVertexFactoryPool_FreePool_RenderingThread()
 
 void ParticleVertexFactoryPool_FreePool()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		ParticleVertexFactoryFreePool,
-	{
-		ParticleVertexFactoryPool_FreePool_RenderingThread();
-	}
-	);		
+	ENQUEUE_RENDER_COMMAND(ParticleVertexFactoryFreePool)(
+		[](FRHICommandList& RHICmdList)
+		{
+			ParticleVertexFactoryPool_FreePool_RenderingThread();
+		});		
 }
 
 void ParticleVertexFactoryPool_ClearPool_RenderingThread()
@@ -276,12 +275,11 @@ void ParticleVertexFactoryPool_ClearPool_RenderingThread()
 /** Globally accessible function for clearing the pool */
 void ParticleVertexFactoryPool_ClearPool()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		ParticleVertexFactoryFreePool,
-	{
+	ENQUEUE_RENDER_COMMAND(ParticleVertexFactoryFreePool)(
+		[](FRHICommandList& RHICmdList)
+			{
 		ParticleVertexFactoryPool_ClearPool_RenderingThread();
-	}
-	);		
+		});		
 }
 
 ///////////////////////////////////////////////////////////////////////////////

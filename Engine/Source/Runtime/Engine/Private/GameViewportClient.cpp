@@ -1487,10 +1487,11 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	else
 	{
 		// Make sure RHI resources get flushed if we're not using a renderer
-		ENQUEUE_UNIQUE_RENDER_COMMAND( UGameViewportClient_FlushRHIResources,
-		{ 
-			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-		});
+		ENQUEUE_RENDER_COMMAND(UGameViewportClient_FlushRHIResources)(
+			[](FRHICommandListImmediate& RHICmdList)
+			{ 
+				RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+			});
 	}
 
 	// Beyond this point, only UI rendering independent from dynamc resolution.

@@ -251,11 +251,11 @@ FAutoConsoleVariableRef CVarUseOctreeForShadowCulling(
 bool GDumpShadowSetup = false;
 void DumpShadowDumpSetup()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		DumpShadowDumpSetup,
-	{
-		GDumpShadowSetup = true;
-	});
+	ENQUEUE_RENDER_COMMAND(DumpShadowDumpSetup)(
+		[](FRHICommandList& RHICmdList)
+		{
+			GDumpShadowSetup = true;
+		});
 }
 
 FAutoConsoleCommand CmdDumpShadowDumpSetup(

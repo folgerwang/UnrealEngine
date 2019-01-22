@@ -1266,12 +1266,12 @@ void CaptureSceneIntoScratchCubemap(
 		{
 			// Alert the RHI that we're rendering a new frame
 			// Not really a new frame, but it will allow pooling mechanisms to update, like the uniform buffer pool
-			ENQUEUE_UNIQUE_RENDER_COMMAND(
-				BeginFrame,
-			{
-				GFrameNumberRenderThread++;
-				RHICmdList.BeginFrame();
-			})
+			ENQUEUE_RENDER_COMMAND(BeginFrame)(
+				[](FRHICommandList& RHICmdList)
+				{
+					GFrameNumberRenderThread++;
+					RHICmdList.BeginFrame();
+				});
 		}
 
 		GReflectionCaptureRenderTarget.SetSize(CubemapSize);
@@ -1489,20 +1489,21 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 				check(!TEXT("Unknown reflection source type"));
 			}
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER( 
-				FilterCommand,
-				ERHIFeatureLevel::Type, FeatureLevel, GetFeatureLevel(),
-				int32, ReflectionCaptureSize, ReflectionCaptureSize,
-				FScene*, Scene, this,
-				const UReflectionCaptureComponent*, CaptureComponent, CaptureComponent,
-				{
-					FindOrAllocateCubemapIndex(Scene, CaptureComponent);
-					FCaptureComponentSceneState& FoundState = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.FindChecked(CaptureComponent);
+			{
+				ERHIFeatureLevel::Type InFeatureLevel = GetFeatureLevel();
+				int32 InReflectionCaptureSize = ReflectionCaptureSize;
+				FScene* Scene = this;
+				const UReflectionCaptureComponent* InCaptureComponent = CaptureComponent;
+				ENQUEUE_RENDER_COMMAND(FilterCommand)(
+					[InFeatureLevel, InReflectionCaptureSize, Scene, InCaptureComponent](FRHICommandListImmediate& RHICmdList)
+					{
+						FindOrAllocateCubemapIndex(Scene, InCaptureComponent);
+						FCaptureComponentSceneState& FoundState = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.FindChecked(InCaptureComponent);
 
-					ComputeAverageBrightness(RHICmdList, FeatureLevel, ReflectionCaptureSize, FoundState.AverageBrightness);
-					FilterReflectionEnvironment(RHICmdList, FeatureLevel, ReflectionCaptureSize, NULL);
-				}
-			);
+						ComputeAverageBrightness(RHICmdList, InFeatureLevel, InReflectionCaptureSize, FoundState.AverageBrightness);
+						FilterReflectionEnvironment(RHICmdList, InFeatureLevel, InReflectionCaptureSize, nullptr);
+					});
+			}
 
 			// Create a proxy to represent the reflection capture to the rendering thread
 			// The rendering thread will be responsible for deleting this when done with the filtering operation
@@ -1638,24 +1639,26 @@ void FScene::UpdateSkyCaptureContents(
 				});
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER( 
-			FilterCommand,
-			int32, CubemapSize, CaptureComponent->CubemapResolution,
-			float&, AverageBrightness, OutAverageBrightness,
-			FSHVectorRGB3*, IrradianceEnvironmentMap, &OutIrradianceEnvironmentMap,
-			ERHIFeatureLevel::Type, FeatureLevel, GetFeatureLevel(),
 		{
-			if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
-			{
-				MobileReflectionEnvironmentCapture::ComputeAverageBrightness(RHICmdList, FeatureLevel, CubemapSize, AverageBrightness);
-				MobileReflectionEnvironmentCapture::FilterReflectionEnvironment(RHICmdList, FeatureLevel, CubemapSize, IrradianceEnvironmentMap);
-			}
-			else
-			{
-				ComputeAverageBrightness(RHICmdList, FeatureLevel, CubemapSize, AverageBrightness);
-				FilterReflectionEnvironment(RHICmdList, FeatureLevel, CubemapSize, IrradianceEnvironmentMap);
-			}
-		});
+			int32 CubemapSize = CaptureComponent->CubemapResolution;
+			float* AverageBrightness = &OutAverageBrightness;
+			FSHVectorRGB3* IrradianceEnvironmentMap = &OutIrradianceEnvironmentMap;
+			ERHIFeatureLevel::Type InFeatureLevel = GetFeatureLevel();
+			ENQUEUE_RENDER_COMMAND(FilterCommand)(
+				[CubemapSize, AverageBrightness, IrradianceEnvironmentMap, InFeatureLevel](FRHICommandListImmediate& RHICmdList)
+				{
+					if (InFeatureLevel <= ERHIFeatureLevel::ES3_1)
+					{
+						MobileReflectionEnvironmentCapture::ComputeAverageBrightness(RHICmdList, InFeatureLevel, CubemapSize, *AverageBrightness);
+						MobileReflectionEnvironmentCapture::FilterReflectionEnvironment(RHICmdList, InFeatureLevel, CubemapSize, IrradianceEnvironmentMap);
+					}
+					else
+					{
+						ComputeAverageBrightness(RHICmdList, InFeatureLevel, CubemapSize, *AverageBrightness);
+						FilterReflectionEnvironment(RHICmdList, InFeatureLevel, CubemapSize, IrradianceEnvironmentMap);
+					}
+				});
+		}
 
 		// Optionally copy the filtered mip chain to the output texture
 		if (OutProcessedTexture)

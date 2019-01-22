@@ -142,17 +142,16 @@ void FSkeletalMeshObjectCPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 		}
 
 		// queue a call to update this data
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-			SkelMeshObjectUpdateDataCommand,
-			FSkeletalMeshObjectCPUSkin*, MeshObject, this,
-			uint32, FrameNumberToPrepare, FrameNumberToPrepare,
-			uint32, RevisionNumber, RevisionNumber, 
-			FDynamicSkelMeshObjectDataCPUSkin*, NewDynamicData, NewDynamicData,
 		{
-			FScopeCycleCounter Context(MeshObject->GetStatId());
-			MeshObject->UpdateDynamicData_RenderThread(RHICmdList, NewDynamicData, FrameNumberToPrepare, RevisionNumber);
+			FSkeletalMeshObjectCPUSkin* MeshObject = this;
+			ENQUEUE_RENDER_COMMAND(SkelMeshObjectUpdateDataCommand)(
+				[MeshObject, FrameNumberToPrepare, RevisionNumber, NewDynamicData](FRHICommandListImmediate& RHICmdList)
+				{
+					FScopeCycleCounter Context(MeshObject->GetStatId());
+					MeshObject->UpdateDynamicData_RenderThread(RHICmdList, NewDynamicData, FrameNumberToPrepare, RevisionNumber);
+				}
+			);
 		}
-		);
 	}
 }
 

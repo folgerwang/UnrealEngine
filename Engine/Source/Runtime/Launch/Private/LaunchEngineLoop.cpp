@@ -3764,8 +3764,8 @@ void FEngineLoop::Tick()
 			{
 				FlushRenderingCommands();
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					MeasureLongGPUTaskExecutionTimeCmd,
+				ENQUEUE_RENDER_COMMAND(MeasureLongGPUTaskExecutionTimeCmd)(
+					[](FRHICommandListImmediate& RHICmdList)
 					{
 						MeasureLongGPUTaskExecutionTime(RHICmdList);
 					});
@@ -3846,8 +3846,8 @@ void FEngineLoop::Tick()
 		MALLOC_PROFILER(GMalloc->Exec(nullptr, *FString::Printf(TEXT("SNAPSHOTMEMORYFRAME")),*GLog));
 
 		// handle some per-frame tasks on the rendering thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			ResetDeferredUpdates,
+		ENQUEUE_RENDER_COMMAND(ResetDeferredUpdates)(
+			[](FRHICommandList& RHICmdList)
 			{
 				FDeferredUpdateResource::ResetNeedsUpdate();
 				FlushPendingDeleteRHIResources_RenderThread();
@@ -4062,11 +4062,12 @@ void FEngineLoop::Tick()
 			ConcurrentTask = nullptr;
 		}
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND(WaitForOutstandingTasksOnly_for_DelaySceneRenderCompletion,
-			{
-				QUICK_SCOPE_CYCLE_COUNTER(STAT_DelaySceneRenderCompletion_TaskWait);
-				FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
-			});
+			ENQUEUE_RENDER_COMMAND(WaitForOutstandingTasksOnly_for_DelaySceneRenderCompletion)(
+				[](FRHICommandList& RHICmdList)
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_DelaySceneRenderCompletion_TaskWait);
+					FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
+				});
 		}
 #endif
 
@@ -4162,10 +4163,11 @@ void FEngineLoop::Tick()
 		#endif
 
 		// end of RHI frame
-		ENQUEUE_UNIQUE_RENDER_COMMAND(EndFrame,
-		{
-			EndFrameRenderThread(RHICmdList);
-		});
+		ENQUEUE_RENDER_COMMAND(EndFrame)(
+			[](FRHICommandListImmediate& RHICmdList)
+			{
+				EndFrameRenderThread(RHICmdList);
+			});
 
 		// Set CPU utilization stats.
 		const FCPUTime CPUTime = FPlatformTime::GetCPUTime();

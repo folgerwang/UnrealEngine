@@ -522,16 +522,16 @@ public:
 			if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed) && OutstandingHeartbeats.GetValue() < 4)
 			{
 				OutstandingHeartbeats.Increment();
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					HeartbeatTickTickables,
-				{
-					OutstandingHeartbeats.Decrement();
-					// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
-					if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+				ENQUEUE_RENDER_COMMAND(HeartbeatTickTickables)(
+					[](FRHICommandList& RHICmdList)
 					{
-						TickRenderingTickables();
-					}
-				});
+						OutstandingHeartbeats.Decrement();
+						// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
+						if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+						{
+							TickRenderingTickables();
+						}
+					});
 			}
 		}
 		return 0;
@@ -1240,12 +1240,11 @@ void FlushPendingDeleteRHIResources_GameThread()
 {
 	if (!IsRunningRHIInSeparateThread())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			FlushPendingDeleteRHIResources,
-		{
-			FlushPendingDeleteRHIResources_RenderThread();
-		}
-		);
+		ENQUEUE_RENDER_COMMAND(FlushPendingDeleteRHIResources)(
+			[](FRHICommandList& RHICmdList)
+			{
+				FlushPendingDeleteRHIResources_RenderThread();
+			});
 	}
 }
 void FlushPendingDeleteRHIResources_RenderThread()

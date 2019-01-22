@@ -1101,8 +1101,8 @@ bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
 			}
 			else
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					InitializeSystemTextures,
+				ENQUEUE_RENDER_COMMAND(InitializeSystemTextures)(
+					[](FRHICommandListImmediate& RHICmdList)
 					{
 						GetRendererModule().InitializeSystemTextures(RHICmdList);
 					});
