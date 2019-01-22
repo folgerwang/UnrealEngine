@@ -107,6 +107,7 @@ public:
 /** Shader parameter structure used for all shaders. */
 BEGIN_SHADER_PARAMETER_STRUCT(FSSDCommonParameters, )
 	SHADER_PARAMETER_STRUCT_INCLUDE(FSceneViewFamilyBlackboard, SceneBlackboard)
+	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, EyeAdaptation)
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D<uint>, TileClassificationTexture)
 	SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, ViewUniformBuffer)
 END_SHADER_PARAMETER_STRUCT()
@@ -663,6 +664,7 @@ IScreenSpaceDenoiser::FReflectionsOutputs DenoiseReflections(
 	{
 		CommonParameters.SceneBlackboard = SceneBlackboard;
 		CommonParameters.ViewUniformBuffer = View.ViewUniformBuffer;
+		CommonParameters.EyeAdaptation = GetEyeAdaptationTexture(GraphBuilder, View);
 	}
 
 	FScreenSpaceFilteringHistory PrevFrameHistory;
@@ -724,6 +726,7 @@ IScreenSpaceDenoiser::FReflectionsOutputs DenoiseReflections(
 
 		FSSDTemporalAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalAccumulationCS::FParameters>();
 		PassParameters->CommonParameters = CommonParameters;
+
 		PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
 		PassParameters->SignalInput0 = SignalHistory0;
 		PassParameters->SignalInput1 = SignalHistory1;

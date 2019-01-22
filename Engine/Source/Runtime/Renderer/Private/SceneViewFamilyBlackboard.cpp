@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "SceneViewFamilyBlackboard.h"
+#include "SceneRendering.h"
 #include "SceneRenderTargets.h"
 #include "SystemTextures.h"
 
@@ -23,4 +24,16 @@ void SetupSceneViewFamilyBlackboard(
 	OutBlackboard->SceneGBufferC = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferC, GSystemTextures.BlackDummy, TEXT("GBufferC"));
 	OutBlackboard->SceneGBufferD = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferD, GSystemTextures.BlackDummy, TEXT("GBufferD"));
 	OutBlackboard->SceneGBufferE = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferE, GSystemTextures.BlackDummy, TEXT("GBufferE"));
+}
+
+FRDGTextureRef GetEyeAdaptationTexture(FRDGBuilder& GraphBuilder, const FViewInfo& View)
+{
+	if (View.HasValidEyeAdaptation())
+	{
+		return GraphBuilder.RegisterExternalTexture(View.GetEyeAdaptation(GraphBuilder.RHICmdList), TEXT("ViewEyeAdaptation"));
+	}
+	else
+	{
+		return GraphBuilder.RegisterExternalTexture(GSystemTextures.WhiteDummy, TEXT("DefaultViewEyeAdaptation"));
+	}
 }

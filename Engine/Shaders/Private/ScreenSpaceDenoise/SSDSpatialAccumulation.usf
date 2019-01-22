@@ -56,6 +56,10 @@
 		#define CONFIG_UPSCALE              DIM_UPSCALE
 		//#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_DISABLED
 
+		// Do color accumulation with karis weighting to avoid flickering specular highlight to show up the kernel pattern.
+		//#define CONFIG_COLOR_SPACE          (COLOR_SPACE_RGB | COLOR_SPACE_KARIS_WEIGHTING)
+
+
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
@@ -105,6 +109,11 @@
 /** Whether the ray tracing input may needs to be upscale to the view's resolution. */
 #ifndef CONFIG_UPSCALE
 	#define CONFIG_UPSCALE 0
+#endif
+
+/** Color space. */
+#ifndef CONFIG_COLOR_SPACE
+	#define CONFIG_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
 #endif
 
 
@@ -259,6 +268,28 @@ RWTexture2D<float4>	DebugOutput;
 
 //------------------------------------------------------- FUNCTIONS
 
+FSSFSignalSample TransformSignalForPreRejection(FSSFSignalSample Sample)
+{
+	// Unpremultiplied RGBA to avoid any opacity mismatches.
+	Sample.SceneColor.rgb *= SafeRcp(Sample.SceneColor.a);
+
+	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
+		Sample.SceneColor.rgb = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
+	#endif
+	return Sample;
+}
+
+FSSFSignalSample TransformSignalForPostRejection(FSSFSignalSample Sample)
+{
+	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
+		Sample.SceneColor.rgb = LCoCg_2_LinearRGB(Sample.SceneColor.rgb);
+	#endif
+
+	// Premultiplied RGBA
+	Sample.SceneColor.rgb *= Sample.SceneColor.a;
+	return Sample;
+}
+
 // TODO: duplicated with reflection code.
 uint2 GetPixelCoord(uint2 DispatchThreadId)
 {
@@ -294,15 +325,22 @@ void MainCS(
 	// Sample the reference sample.
 	#if !CONFIG_UPSCALE || 1 // TODO: this sample ends up being sampled twice when upscaling.
 		FSSFSignalSample RefSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
+	
+		RefSample = TransformSignal(
+			RefSample, 
+			/* SrcBasis  = */ CONFIG_BUFFER_COLOR_SPACE, 
+			/* DestBasis = */ CONFIG_COLOR_SPACE);
 	#endif
 
 	// Setup the spatial accumulator.
-	FSSFSignalSample Accumulator = CreateSignalSampleFromScalarValue(0.0);
+	FSSFSignalSample NeighborMoment1 = CreateSignalSampleFromScalarValue(0.0);
 	#if !CONFIG_UPSCALE
 		float AccumulatorWeight = 1; //GetMultiImportanceSamplingWeight(RefSceneMetadata, RefSceneMetadata, RefSample, DispatchThreadId);
-	
-		Accumulator = Mul(RefSample, AccumulatorWeight);
+
+		NeighborMoment1 = Mul(RefSample, AccumulatorWeight);
 	#endif
+	
+	FSSFSignalSample NeighborMoment2 = Power(NeighborMoment1, 2.0);
 
 	float CurrentWorldBluringRadius = ComputePixelWorldRadius(RefSceneMetadata);
 
@@ -443,6 +481,11 @@ void MainCS(
 		// Sample the neighborhood.
 		FSSFSignalSample NeighborSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, NeighborBufferUV);
 		FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, NeighborBufferUV);
+		
+		NeighborSample = TransformSignal(
+			NeighborSample, 
+			/* SrcBasis  = */ CONFIG_BUFFER_COLOR_SPACE, 
+			/* DestBasis = */ CONFIG_COLOR_SPACE);
 
 		float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborSceneMetadata);
 
@@ -479,17 +522,23 @@ void MainCS(
 			}
 		}
 		#endif
-
-		Accumulator = Add(Accumulator, Mul(NeighborSample, FinalWeight));
+		
+		NeighborMoment1 = Add(NeighborMoment1, Mul(NeighborSample, FinalWeight));
+		NeighborMoment2 = Add(NeighborMoment2, Mul(Power(NeighborSample, 2.0), FinalWeight));
 	}
+	
+	NeighborMoment1 = TransformSignal(
+		NeighborMoment1, 
+		/* SrcBasis  = */ CONFIG_COLOR_SPACE, 
+		/* DestBasis = */ CONFIG_BUFFER_COLOR_SPACE);
 
 	#if CONFIG_NORMALIZE_OUTPUT
 	{
-		Accumulator = NormalizeToOneSample(Accumulator);
+		NeighborMoment1 = NormalizeToOneSample(NeighborMoment1);
 	}
 	#endif
 
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
 
-	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Accumulator);
+	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, NeighborMoment1);
 } // MainCS

@@ -33,12 +33,6 @@
 #define DEBUG_STORE_NORMALIZED_COMPONENTS 1
 
 
-//------------------------------------------------------- SHARED CONFIG
-
-/** Do normal based anysotropy. */
-#define CONFIG_NORMAL_ANISOTROPY 1
-
-
 //------------------------------------------------------- SHARED CONSTANTS
 
 // Maximum number of mip level supported.
@@ -99,8 +93,26 @@
 	#define SIGNAL_PROCESSING_REFLECTIONS 1
 
 
+/** Defines the color space bitfield. */
+	#define COLOR_SPACE_RGB 0x0
+	#define COLOR_SPACE_YCOCG 0x1
+	#define COLOR_SPACE_LCOCG 0x2
+
+	#define COLOR_SPACE_UNPREMULTIPLY 0x4
+	#define COLOR_SPACE_KARIS_WEIGHTING 0x8
+
+
 /** Light types */
 	#define LIGHT_TYPE_DIRECTIONAL 0
 	#define LIGHT_TYPE_POINT 1
 	#define LIGHT_TYPE_SPOT 2
 	#define LIGHT_TYPE_RECT 3
+
+
+//------------------------------------------------------- SHARED CONFIG
+
+/** Do normal based anysotropy. */
+#define CONFIG_NORMAL_ANISOTROPY 1
+
+/** By default, the color space stored into intermediary buffer is linear premultiplied RGBA. */
+#define CONFIG_BUFFER_COLOR_SPACE COLOR_SPACE_RGB

@@ -42,7 +42,9 @@
 	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
 	#define CONFIG_HISTORY_REJECTION 2
-	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE 1
+	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE (COLOR_SPACE_LCOCG | COLOR_SPACE_UNPREMULTIPLY)
+
+	//#define CONFIG_HISTORY_BLENDING_COLOR_SPACE (COLOR_SPACE_RGB | COLOR_SPACE_UNPREMULTIPLY | COLOR_SPACE_KARIS_WEIGHTING)
 
 #else
 	#error Unimplemented signal processing.
@@ -77,14 +79,14 @@
 	#define CONFIG_CERTAINTY_BASED_REJECTION 0
 #endif
 
-/** The color of the history should be rejected with. */
-#ifndef CONFIG_HISTORY_REJECTION_COLOR_SPACE
-	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE 0
-#endif
-
 /** Whether should use a larger kernel to sample history. */
 #ifndef CONFIG_LARGER_HISTORY_KERNEL
 	#define CONFIG_LARGER_HISTORY_KERNEL 0
+#endif
+
+/** Whether the color should be be weightted according to intensity. */
+#ifndef CONFIG_TEMPORAL_COLOR_WEIGHT
+	#define CONFIG_TEMPORAL_COLOR_WEIGHT 0
 #endif
 
 
@@ -93,6 +95,16 @@
 /** Whether should do history rejection. */
 #ifndef CONFIG_HISTORY_REJECTION
 	#define CONFIG_HISTORY_REJECTION 1
+#endif
+
+/** The color space to use for history rejection. */
+#ifndef CONFIG_HISTORY_REJECTION_COLOR_SPACE
+	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
+#endif
+
+/** The color space to use for history blending. */
+#ifndef CONFIG_HISTORY_BLENDING_COLOR_SPACE
+	#define CONFIG_HISTORY_BLENDING_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
 #endif
 
 
@@ -142,33 +154,21 @@ RWTexture2D<float4>	DebugOutput;
 
 //------------------------------------------------------- FUNCTIONS
 
-float Luma_To_LumaLog(float x)
-{
-	return max(x > 0 ? log2(x) : -100, -100);
-}
-
 FSSFSignalSample TransformSignalForPreRejection(FSSFSignalSample Sample)
 {
-	// Unpremultiplied RGBA to avoid any opacity mismatches.
-	Sample.SceneColor.rgb *= SafeRcp(Sample.SceneColor.a);
-
-	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
-		Sample.SceneColor.rgb = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
-	#endif
-	return Sample;
+	return TransformSignal(
+		Sample,
+		/* SrcConfig = */ CONFIG_BUFFER_COLOR_SPACE,
+		/* DestConfig = */ CONFIG_HISTORY_REJECTION_COLOR_SPACE);
 }
 
 FSSFSignalSample TransformSignalForPostRejection(FSSFSignalSample Sample)
 {
-	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
-		Sample.SceneColor.rgb = LCoCg_2_LinearRGB(Sample.SceneColor.rgb);
-	#endif
-
-	// Premultiplied RGBA
-	Sample.SceneColor.rgb *= Sample.SceneColor.a;
-	return Sample;
+	return TransformSignal(
+		Sample,
+		/* SrcConfig = */ CONFIG_HISTORY_REJECTION_COLOR_SPACE,
+		/* DestConfig = */ CONFIG_BUFFER_COLOR_SPACE);
 }
-
 
 /** Sample history using a point sampler. */
 void PointSampleHistory(float2 ScreenPosition, float2 BufferUV, out FSSFSignalSample OutSample, out FSSFSampleSceneInfos OutMetadata)
@@ -840,7 +840,7 @@ void TemporallyAccumulate(
 
 				// Compute how much this history get changed.
 				float RejectionFactor = 0.0;
-				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
+				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && (CONFIG_HISTORY_REJECTION_COLOR_SPACE & COLOR_SPACE_LCOCG)
 				{
 					RejectionFactor = abs(
 						Luma_To_LumaLog(ClampedTransformedHistorySample.SceneColor.x) -
@@ -885,7 +885,25 @@ void TemporallyAccumulate(
 		float PreviousFrameWeight = min(HistorySample.AccumulatedSampleCount, TargetedSampleCount - CurrentFrame.AccumulatedSampleCount);
 		float PreviousFrameMultiplier = HistorySample.AccumulatedSampleCount > 0 ? PreviousFrameWeight / HistorySample.AccumulatedSampleCount : 0;
 
+		// TODO: use WeightedLerp instead for VALU perf.
+		// Pre transformation of the signal.
+		HistorySample = TransformSignal(
+			HistorySample,
+			/* SrcBasis = */ CONFIG_BUFFER_COLOR_SPACE,
+			/* DestBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE);
+		CurrentFrame = TransformSignal(
+			CurrentFrame,
+			/* SrcBasis = */ CONFIG_BUFFER_COLOR_SPACE,
+			/* DestBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE);
+
+		// Blending.
 		HistorySample = Add(Mul(HistorySample, PreviousFrameMultiplier), CurrentFrame);
+		
+		// Post transformation of the signal.
+		HistorySample = TransformSignal(
+			HistorySample,
+			/* SrcBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE,
+			/* DestBasis = */ CONFIG_BUFFER_COLOR_SPACE);
 	}
 
 	// Romoves NaN and negative numbers

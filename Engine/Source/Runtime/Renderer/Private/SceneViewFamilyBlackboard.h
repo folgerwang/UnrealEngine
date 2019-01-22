@@ -9,6 +9,9 @@
 #include "RenderGraph.h"
 
 
+class FViewInfo;
+
+
 /** Contains reference on all available buffer for a given scene. */
 BEGIN_SHADER_PARAMETER_STRUCT(FSceneViewFamilyBlackboard, )
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneDepthBuffer)
@@ -28,3 +31,7 @@ END_SHADER_PARAMETER_STRUCT()
 void SetupSceneViewFamilyBlackboard(
 	FRDGBuilder& GraphBuilder,
 	FSceneViewFamilyBlackboard* OutBlackboard);
+
+/** Returns a render graph texture resource reference onto the eye adaptation or fallback.
+ */
+FRDGTextureRef GetEyeAdaptationTexture(FRDGBuilder& GraphBuilder, const FViewInfo& View);

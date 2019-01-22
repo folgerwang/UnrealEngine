@@ -13,11 +13,20 @@
 	#define CONFIG_SPECULAR_RATIO_ESTIMATOR 0
 #endif
 
+/** Color space to transform the color to. */
+#ifndef CONFIG_COLOR_SPACE_TRANSFORMATION
+	#define CONFIG_COLOR_SPACE_TRANSFORMATION COLOR_SPACE_TRANSFORMATION_DISABLED
+#endif
+
 
 //------------------------------------------------------- INCLUDE
 
 #include "SSDCommon.ush"
 #include "SSDSignalCore.ush"
+
+#include "../ColorSpace.ush"
+#include "../EyeAdaptationCommon.ush"
+
 
 #if !defined(CONFIG_SIGNAL_PROCESSING)
 	#error Missing CONFIG_SIGNAL_PROCESSING
@@ -34,6 +43,163 @@
 #else
 	#error Unknown CONFIG_SIGNAL_PROCESSING
 
+#endif
+
+
+//------------------------------------------------------- INTERNAL
+
+float Luma4(float3 Color)
+{
+	return (Color.g * 2.0) + (Color.r + Color.b);
+}
+
+float KarisHdrWeightY(float Color, float Exposure) 
+{
+	return rcp(Color * Exposure + 4.0);
+}
+
+float KarisHdrWeightInvY(float Color, float Exposure) 
+{
+	return 4.0 * rcp(1.0 - Color * Exposure);
+}
+
+float Luma_To_LumaLog(float x)
+{
+	return max(x > 0 ? log2(x) : -100, -100);
+}
+
+float GetSignalLuma4(FSSFSignalSample Sample, const uint Basis)
+{
+	// TODO: should force this to be scalar load.
+	float FrameExposureScale = EyeAdaptationLookup();
+		
+	// TODO: exposes optimisation if sample is normalized.
+	const bool bIsNormalizedSample = false;
+
+	if (Basis & COLOR_SPACE_KARIS_WEIGHTING)
+	{
+		float KarisX = Luma4(Sample.SceneColor.rgb);
+		if ((Basis & 0x3))
+		{
+			KarisX = Sample.SceneColor.x;
+		}
+
+		if (!bIsNormalizedSample)
+		{
+			KarisX *= SafeRcp(Sample.AccumulatedSampleCount);
+		}
+		
+		return KarisX *= KarisHdrWeightInvY(KarisX, FrameExposureScale);
+	}
+	else
+	{
+		if ((Basis & 0x3))
+		{
+			return Sample.SceneColor.x;
+		}
+
+		return Luma4(Sample.SceneColor.rgb);
+	}
+}
+
+/** Conveniently transform one simple from a source basis to a destination basis. */
+FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, const uint DestBasis)
+{
+	// If the source and destination bases are the same, early return to not pay ALU and floating point divergence.
+	if (SrcBasis == DestBasis)
+	{
+		return Sample;
+	}
+
+	const float Tweak = 1;
+
+	// TODO: should force this to be scalar load.
+	float FrameExposureScale = EyeAdaptationLookup() * Tweak;
+		
+	// TODO: exposes optimisation if sample is normalized.
+	const bool bIsNormalizedSample = false;
+
+	//Sample.SceneColor *= SafeRcp(Sample.AccumulatedSampleCount);
+
+	// Remove Karis weighting before doing any color transformations.
+	if (SrcBasis & COLOR_SPACE_KARIS_WEIGHTING)
+	{
+		float KarisX = Luma4(Sample.SceneColor.rgb);
+		if ((SrcBasis & 0x3))
+		{
+			KarisX = Sample.SceneColor.x;
+		}
+
+		if (!bIsNormalizedSample)
+		{
+			KarisX *= SafeRcp(Sample.AccumulatedSampleCount);
+		}
+
+		Sample.SceneColor *= KarisHdrWeightInvY(KarisX, FrameExposureScale);
+	}
+	
+	if ((SrcBasis & 0x3) == COLOR_SPACE_YCOCG)
+	{
+		Sample.SceneColor.rgb = YCoCg_2_LinearRGB(Sample.SceneColor.rgb);
+	}
+	else if ((SrcBasis & 0x3) == COLOR_SPACE_LCOCG)
+	{
+		Sample.SceneColor.rgb = LCoCg_2_LinearRGB(Sample.SceneColor.rgb);
+	}
+
+	// Premultiplied RGBA
+	if ((SrcBasis & COLOR_SPACE_UNPREMULTIPLY) == (DestBasis & COLOR_SPACE_UNPREMULTIPLY))
+	{
+		// NOP
+	}
+	else if (SrcBasis & COLOR_SPACE_UNPREMULTIPLY)
+	{
+		Sample.SceneColor.rgb *= Sample.SceneColor.a;
+	}
+	else //if (DestBasis & COLOR_SPACE_UNPREMULTIPLY)
+	{
+		Sample.SceneColor.rgb *= SafeRcp(Sample.SceneColor.a);
+	}
+
+	float x = Luma4(Sample.SceneColor.rgb);
+	if ((DestBasis & 0x3) == COLOR_SPACE_YCOCG)
+	{
+		Sample.SceneColor.xyz = LinearRGB_2_YCoCg(Sample.SceneColor.rgb);
+		x = Sample.SceneColor.x;
+	}
+	else if ((DestBasis & 0x3) == COLOR_SPACE_LCOCG)
+	{
+		Sample.SceneColor.xyz = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
+		x = Sample.SceneColor.x;
+	}
+
+	if (DestBasis & COLOR_SPACE_KARIS_WEIGHTING)
+	{
+		if (bIsNormalizedSample)
+		{
+			Sample.SceneColor *= KarisHdrWeightY(x, FrameExposureScale);
+		}
+		else
+		{
+			Sample.SceneColor *= KarisHdrWeightY(x * SafeRcp(Sample.AccumulatedSampleCount), FrameExposureScale);
+		}
+	}
+	
+	//Sample.SceneColor *= Sample.AccumulatedSampleCount;
+
+	return Sample;
+}
+
+#if 0 // will probably be handy at some point.
+float4 WeightedLerp( float4 ColorA, float WeightA, float4 ColorB, float WeightB, float Blend ) 
+{
+	float BlendA = (1.0 - Blend) * WeightA;
+	float BlendB =        Blend  * WeightB;
+	float RcpBlend = rcp(BlendA + BlendB);
+	BlendA *= RcpBlend;
+	BlendB *= RcpBlend;
+	return ColorA * BlendA + ColorB * BlendB;
+}
 #endif
 
 
