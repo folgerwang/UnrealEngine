@@ -200,10 +200,7 @@ public:
 			ScopesStack[i] = nullptr;
 	}
 
-	~FRDGBuilder()
-	{
-		DestructPasses();
-	}
+	~FRDGBuilder();
 
 	/** Register a external texture to be tracked by the render graph. */
 	inline FRDGTextureRef RegisterExternalTexture(const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture, const TCHAR* Name = TEXT("External"))
