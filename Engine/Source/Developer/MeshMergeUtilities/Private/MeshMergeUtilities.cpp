@@ -1484,7 +1484,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 		}
 	};
 
-	// Landscape culling
+	// Landscape culling.  NB these are temporary copies of the culling data and should be deleted after use.
 	TArray<FMeshDescription*> CullingRawMeshes;
 	if (InMeshProxySettings.bUseLandscapeCulling)
 	{
@@ -1587,7 +1587,14 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 		Processor->Tick(0); // make sure caller gets merging results
 	}
+
+	// Clean up the CullingRawMeshes
+	for (FMeshDescription* RawMesh : CullingRawMeshes)
+	{
+		delete RawMesh;
+	}
 }
+
 
 bool FMeshMergeUtilities::IsValidBaseMaterial(const UMaterialInterface* InBaseMaterial, bool bShowToaster) const
 {
