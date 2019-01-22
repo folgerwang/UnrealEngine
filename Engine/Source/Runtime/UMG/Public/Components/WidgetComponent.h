@@ -90,8 +90,8 @@ public:
 	int32 GetNumMaterials() const override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	void ApplyComponentInstanceData(class FWidgetComponentInstanceData* ComponentInstanceData);
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
+	void ApplyComponentInstanceData(struct FWidgetComponentInstanceData* ComponentInstanceData);
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 
 #if WITH_EDITOR
@@ -570,4 +570,45 @@ protected:
 
 	/** Helper class for drawing widgets to a render target. */
 	class FWidgetRenderer* WidgetRenderer;
+};
+
+USTRUCT()
+struct FWidgetComponentInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FWidgetComponentInstanceData()
+		: RenderTarget(nullptr)
+	{}
+
+	FWidgetComponentInstanceData(const UWidgetComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+		, WidgetClass(SourceComponent->GetWidgetClass())
+		, RenderTarget(SourceComponent->GetRenderTarget())
+	{}
+	virtual ~FWidgetComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<UWidgetComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Super::AddReferencedObjects(Collector);
+
+		UClass* WidgetUClass = *WidgetClass;
+		Collector.AddReferencedObject(WidgetUClass);
+		Collector.AddReferencedObject(RenderTarget);
+	}
+
+public:
+	TSubclassOf<UUserWidget> WidgetClass;
+	UTextureRenderTarget2D* RenderTarget;
 };

@@ -11,32 +11,44 @@
 #include "ChildActorComponent.generated.h"
 
 class AActor;
-struct FAttachedActorInfo;
 
-class ENGINE_API FChildActorComponentInstanceData : public FSceneComponentInstanceData
+USTRUCT()
+struct FChildActorAttachedActorInfo
 {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TWeakObjectPtr<AActor> Actor;
+	UPROPERTY()
+	FName SocketName;
+	UPROPERTY()
+	FTransform RelativeTransform;
+};
+
+USTRUCT()
+struct ENGINE_API FChildActorComponentInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
 public:
+	FChildActorComponentInstanceData() = default;
 	FChildActorComponentInstanceData(const class UChildActorComponent* Component);
 
-	virtual ~FChildActorComponentInstanceData();
+	virtual ~FChildActorComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override;
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	// The name of the spawned child actor so it (attempts to) remain constant across construction script reruns
+	UPROPERTY()
 	FName ChildActorName;
 
+	UPROPERTY()
+	TArray<FChildActorAttachedActorInfo> AttachedActors;
+
 	// The component instance data cache for the ChildActor spawned by this component
-	FComponentInstanceDataCache* ComponentInstanceData;
-
-	struct FAttachedActorInfo
-	{
-		TWeakObjectPtr<AActor> Actor;
-		FName SocketName;
-		FTransform RelativeTransform;
-	};
-
-	TArray<FAttachedActorInfo> AttachedActors;
+	TSharedPtr<FComponentInstanceDataCache> ComponentInstanceData;
 };
 
 /** A component that spawns an Actor when registered, and destroys it when unregistered.*/
@@ -95,12 +107,12 @@ public:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	virtual void BeginPlay() override;
 	//~ End ActorComponent Interface.
 
 	/** Apply the component instance data to the child actor component */
-	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData, const ECacheApplyPhase CacheApplyPhase);
+	void ApplyComponentInstanceData(struct FChildActorComponentInstanceData* ComponentInstanceData, const ECacheApplyPhase CacheApplyPhase);
 
 	/** Create the child actor */
 	virtual void CreateChildActor();

@@ -12,52 +12,29 @@
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////
 
-/** Used to store animation ControlRig data during recompile of BP */
-class FControlRigComponentInstanceData : public FActorComponentInstanceData
+void FControlRigComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) 
 {
-public:
-	FControlRigComponentInstanceData(const UControlRigComponent* SourceComponent)
-		: FActorComponentInstanceData(SourceComponent)
-		, AnimControlRig(SourceComponent->ControlRig)
-	{}
+	FActorComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+	UControlRigComponent* NewComponent = CastChecked<UControlRigComponent>(Component);
 
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	UControlRig* NewControlRig = NewComponent->ControlRig;
+	if (NewControlRig && AnimControlRig)
 	{
-		FActorComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		UControlRigComponent* NewComponent = CastChecked<UControlRigComponent>(Component);
-
-		UControlRig* NewControlRig = NewComponent->ControlRig;
-		if (NewControlRig && AnimControlRig)
-		{
-			// it will just copy same property if not same class
-			TArray<uint8> SavedPropertyBuffer;
-			FObjectWriter Writer(AnimControlRig, SavedPropertyBuffer);
-			FObjectReader Reader(NewComponent->ControlRig, SavedPropertyBuffer);
-		}
+		// it will just copy same property if not same class
+		TArray<uint8> SavedPropertyBuffer;
+		FObjectWriter Writer(AnimControlRig, SavedPropertyBuffer);
+		FObjectReader Reader(NewComponent->ControlRig, SavedPropertyBuffer);
 	}
+}
 
-	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override
+void FControlRigComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	FActorComponentInstanceData::AddReferencedObjects(Collector);
+	if (AnimControlRig)
 	{
-		FActorComponentInstanceData::FindAndReplaceInstances(OldToNewInstanceMap);
+		Collector.AddReferencedObject(AnimControlRig);
 	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		FActorComponentInstanceData::AddReferencedObjects(Collector);
-		if (AnimControlRig)
-		{
-			Collector.AddReferencedObject(AnimControlRig);
-		}
-	}
-
-	bool ContainsData() const
-	{
-		return (AnimControlRig != nullptr);
-	}
-
-	// stored object
-	UControlRig* AnimControlRig;
-};
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////
 UControlRigComponent::UControlRigComponent(const FObjectInitializer& ObjectInitializer)
@@ -147,15 +124,7 @@ void UControlRigComponent::OnPostEvaluate_Implementation()
 	OnPostEvaluateDelegate.Broadcast(this);
 }
 
-FActorComponentInstanceData* UControlRigComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UControlRigComponent::GetComponentInstanceData() const
 {
-	FControlRigComponentInstanceData* InstanceData = new FControlRigComponentInstanceData(this);
-
-	if (!InstanceData->ContainsData())
-	{
-		delete InstanceData;
-		InstanceData = nullptr;
-	}
-
-	return InstanceData;
+	return MakeStructOnScope<FActorComponentInstanceData, FControlRigComponentInstanceData>(this);
 }

@@ -293,12 +293,11 @@ FChildActorComponentInstanceData::FChildActorComponentInstanceData(const UChildA
 {
 	if (Component->GetChildActor())
 	{
-		ComponentInstanceData = new FComponentInstanceDataCache(Component->GetChildActor());
+		ComponentInstanceData = MakeShared<FComponentInstanceDataCache>(Component->GetChildActor());
 		// If it is empty dump it
 		if (!ComponentInstanceData->HasInstanceData())
 		{
-			delete ComponentInstanceData;
-			ComponentInstanceData = nullptr;
+			ComponentInstanceData.Reset();
 		}
 
 		USceneComponent* ChildRootComponent = Component->GetChildActor()->GetRootComponent();
@@ -311,7 +310,7 @@ FChildActorComponentInstanceData::FChildActorComponentInstanceData(const UChildA
 					AActor* AttachedActor = AttachedComponent->GetOwner();
 					if (AttachedActor != Component->GetChildActor())
 					{
-						FAttachedActorInfo Info;
+						FChildActorAttachedActorInfo Info;
 						Info.Actor = AttachedActor;
 						Info.SocketName = AttachedComponent->GetAttachSocketName();
 						Info.RelativeTransform = AttachedComponent->GetRelativeTransform();
@@ -323,21 +322,20 @@ FChildActorComponentInstanceData::FChildActorComponentInstanceData(const UChildA
 	}
 }
 
-FChildActorComponentInstanceData::~FChildActorComponentInstanceData()
+bool FChildActorComponentInstanceData::ContainsData() const
 {
-	delete ComponentInstanceData;
+	return AttachedActors.Num() > 0 || (ComponentInstanceData && ComponentInstanceData->HasInstanceData()) || Super::ContainsData();
 }
 
 void FChildActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
 {
-	FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+	Super::ApplyToComponent(Component, CacheApplyPhase);
 	CastChecked<UChildActorComponent>(Component)->ApplyComponentInstanceData(this, CacheApplyPhase);
 }
 
 void FChildActorComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	FSceneComponentInstanceData::AddReferencedObjects(Collector);
-
+	Super::AddReferencedObjects(Collector);
 	if (ComponentInstanceData)
 	{
 		ComponentInstanceData->AddReferencedObjects(Collector);
@@ -367,20 +365,19 @@ void UChildActorComponent::BeginDestroy()
 	}
 }
 
-FActorComponentInstanceData* UChildActorComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UChildActorComponent::GetComponentInstanceData() const
 {
-	FChildActorComponentInstanceData* InstanceData = CachedInstanceData;
-
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 	if (CachedInstanceData)
 	{
-		// We've handed over ownership of the pointer to the instance cache, so drop our reference
+		InstanceData.InitializeAs<FChildActorComponentInstanceData>(*CachedInstanceData);
+		delete CachedInstanceData;
 		CachedInstanceData = nullptr;
 	}
 	else
 	{
-		InstanceData = new FChildActorComponentInstanceData(this);
+		InstanceData.InitializeAs<FChildActorComponentInstanceData>(this);
 	}
-	
 	return InstanceData;
 }
 
@@ -409,7 +406,7 @@ void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstan
 		USceneComponent* ChildActorRoot = ChildActor->GetRootComponent();
 		if (ChildActorRoot)
 		{
-			for (const FChildActorComponentInstanceData::FAttachedActorInfo& AttachInfo : ChildActorInstanceData->AttachedActors)
+			for (const FChildActorAttachedActorInfo& AttachInfo : ChildActorInstanceData->AttachedActors)
 			{
 				AActor* AttachedActor = AttachInfo.Actor.Get();
 				if (AttachedActor)
@@ -575,7 +572,7 @@ void UChildActorComponent::CreateChildActor()
 					FActorParentComponentSetter::Set(ChildActor, this);
 
 					// Parts that we deferred from SpawnActor
-					const FComponentInstanceDataCache* ComponentInstanceData = (CachedInstanceData ? CachedInstanceData->ComponentInstanceData : nullptr);
+					const FComponentInstanceDataCache* ComponentInstanceData = (CachedInstanceData ? CachedInstanceData->ComponentInstanceData.Get() : nullptr);
 					ChildActor->FinishSpawning(GetComponentTransform(), false, ComponentInstanceData);
 
 					ChildActor->AttachToComponent(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
@@ -584,7 +581,7 @@ void UChildActorComponent::CreateChildActor()
 
 					if (CachedInstanceData)
 					{
-						for (const FChildActorComponentInstanceData::FAttachedActorInfo& AttachedActorInfo : CachedInstanceData->AttachedActors)
+						for (const FChildActorAttachedActorInfo& AttachedActorInfo : CachedInstanceData->AttachedActors)
 						{
 							AActor* AttachedActor = AttachedActorInfo.Actor.Get();
 

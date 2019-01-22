@@ -14,6 +14,8 @@
 #include "EdGraph/EdGraphPin.h"
 #include "Interfaces/Interface_AssetUserData.h"
 #include "UObject/UObjectAnnotation.h"
+#include "UObject/StructOnScope.h"
+#include "ComponentInstanceDataCache.h"
 #include "ActorComponent.generated.h"
 
 class AActor;
@@ -28,20 +30,6 @@ struct FMinimalViewInfo;
 /** Annotation for component selection.  This must be in engine isntead of editor for ::IsSelected to work */
 extern ENGINE_API FUObjectAnnotationSparseBool GSelectedComponentAnnotation;
 #endif
-
-UENUM()
-enum class EComponentCreationMethod : uint8
-{
-	/** A component that is part of a native class. */
-	Native,
-	/** A component that is created from a template defined in the Components section of the Blueprint. */
-	SimpleConstructionScript,	
-	/**A dynamically created component, either from the UserConstructionScript or from a Add Component node in a Blueprint event graph. */
-	UserConstructionScript,
-	/** A component added to a single Actor instance via the Component section of the Actor's details panel. */
-	Instance,
-};
-
 
 /** Information about how to update transform*/
 enum class EUpdateTransformFlags : int32
@@ -256,7 +244,7 @@ private:
 	uint8 MarkedForEndOfFrameUpdateState:2;
 	friend struct FMarkComponentEndOfFrameUpdateState;
 
-	friend class FActorComponentInstanceData;
+	friend struct FActorComponentInstanceData;
 	friend class FActorComponentDetails;
 
 public:
@@ -791,7 +779,7 @@ public:
 	virtual void PostNetReceive() override { }
 
 	/** Called before we throw away components during RerunConstructionScripts, to cache any data we wish to persist across that operation */
-	virtual class FActorComponentInstanceData* GetComponentInstanceData() const;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const;
 
 	//~ Begin UObject Interface.
 	virtual void BeginDestroy() override;

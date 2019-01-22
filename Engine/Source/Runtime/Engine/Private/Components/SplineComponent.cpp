@@ -1534,38 +1534,18 @@ FBoxSphereBounds USplineComponent::CalcBounds(const FTransform& LocalToWorld) co
 
 #endif
 
-
-/** Used to store spline data during RerunConstructionScripts */
-class FSplineInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> USplineComponent::GetComponentInstanceData() const
 {
-public:
-	explicit FSplineInstanceData(const USplineComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{
-	}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<USplineComponent>(Component)->ApplyComponentInstanceData(this, (CacheApplyPhase == ECacheApplyPhase::PostUserConstructionScript));
-	}
-
-	FSplineCurves SplineCurves;
-	FSplineCurves SplineCurvesPreUCS;
-	bool bSplineHasBeenEdited;
-};
-
-
-FActorComponentInstanceData* USplineComponent::GetComponentInstanceData() const
-{
-	FSplineInstanceData* SplineInstanceData = new FSplineInstanceData(this);
+	TStructOnScope<FActorComponentInstanceData> InstanceData = MakeStructOnScope<FActorComponentInstanceData, FSplineInstanceData>(this);
+	FSplineInstanceData* SplineInstanceData = InstanceData.Cast<FSplineInstanceData>();
+	
 	if (bSplineHasBeenEdited)
 	{
 		SplineInstanceData->SplineCurves = SplineCurves;
 	}
 	SplineInstanceData->bSplineHasBeenEdited = bSplineHasBeenEdited;
 
-	return SplineInstanceData;
+	return InstanceData;
 }
 
 

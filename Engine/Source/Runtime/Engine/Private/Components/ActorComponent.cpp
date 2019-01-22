@@ -797,17 +797,9 @@ void UActorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	bHasBegunPlay = false;
 }
 
-FActorComponentInstanceData* UActorComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UActorComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = new FActorComponentInstanceData(this);
-
-	if (!InstanceData->ContainsSavedProperties())
-	{
-		delete InstanceData;
-		InstanceData = nullptr;
-	}
-
-	return InstanceData;
+	return MakeStructOnScope<FActorComponentInstanceData>(this);
 }
 
 void FActorComponentTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -1731,7 +1723,7 @@ bool UActorComponent::IsEditableWhenInherited() const
 		}
 		else
 #endif
-			if (CreationMethod == EComponentCreationMethod::UserConstructionScript)
+		if (CreationMethod == EComponentCreationMethod::UserConstructionScript)
 		{
 			bCanEdit = false;
 		}

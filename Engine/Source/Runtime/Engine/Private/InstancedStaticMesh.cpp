@@ -943,63 +943,12 @@ UInstancedStaticMeshComponent::~UInstancedStaticMeshComponent()
 	ReleasePerInstanceRenderData();
 }
 
-#if WITH_EDITOR
-/** Helper class used to preserve lighting/selection state across blueprint reinstancing */
-class FInstancedStaticMeshComponentInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> UInstancedStaticMeshComponent::GetComponentInstanceData() const
 {
-public:
-	
-	FInstancedStaticMeshComponentInstanceData(const UInstancedStaticMeshComponent& InComponent)
-		: FSceneComponentInstanceData(&InComponent)
-		, StaticMesh(InComponent.GetStaticMesh())
-	{
-	}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UInstancedStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		FSceneComponentInstanceData::AddReferencedObjects(Collector);
-
-		Collector.AddReferencedObject(StaticMesh);
-	}
-
-	/** Used to store lightmap data during RerunConstructionScripts */
-	struct FLightMapInstanceData
-	{
-		/** Transform of component */
-		FTransform Transform;
-
-		/** guid from LODData */
-		TArray<FGuid> MapBuildDataIds;
-	};
-
-public:
-	/** Mesh being used by component */
-	UStaticMesh* StaticMesh;
-
-	// Static lighting info
-	FLightMapInstanceData CachedStaticLighting;
-	TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
-
-	/** The cached selected instances */
-	TBitArray<> SelectedInstances;
-
-	/* The cached random seed */
-	int32 InstancingRandomSeed;
-};
-#endif
-
-FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstanceData() const
-{
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 #if WITH_EDITOR
-	FActorComponentInstanceData* InstanceData = nullptr;
-	FInstancedStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
-	InstanceData = StaticMeshInstanceData = new FInstancedStaticMeshComponentInstanceData(*this);	
+	InstanceData.InitializeAs<FInstancedStaticMeshComponentInstanceData>(this);
+	FInstancedStaticMeshComponentInstanceData* StaticMeshInstanceData = InstanceData.Cast<FInstancedStaticMeshComponentInstanceData>();
 
 	// Fill in info (copied from UStaticMeshComponent::GetComponentInstanceData)
 	StaticMeshInstanceData->CachedStaticLighting.Transform = GetComponentTransform();
@@ -1017,11 +966,8 @@ FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstance
 
 	// Back up random seed
 	StaticMeshInstanceData->InstancingRandomSeed = InstancingRandomSeed;
-
-	return InstanceData;
-#else
-	return nullptr;
 #endif
+	return InstanceData;
 }
 
 void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticMeshComponentInstanceData* InstancedMeshData)
