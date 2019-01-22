@@ -7,6 +7,7 @@
 #include "RayTracingCommon.ush"
 #include "RayTracingDirectionalLight.ush"
 #include "RayTracingRectLight.ush"
+#include "RayTracingSphereLight.ush"
 
 /** Light types */
 #define LIGHT_TYPE_DIRECTIONAL 0
@@ -64,22 +65,31 @@ bool GenerateSpotLightOcclusionRay(
 	out float RayTMax
 )
 {
-	float3 LightDirection = LightParameters.Position - WorldPosition;
-	float RayLength = length(LightDirection);
-	LightDirection /= RayLength;
+	if (LightParameters.SourceRadius > 0.0)
+	{
+		float RayPdf = 0.0;
+		GenerateSphereLightOcclusionRay(LightParameters, WorldPosition, WorldNormal, RandSample,
+			RayOrigin, RayDirection, RayTMin, RayTMax, RayPdf);
+	}
+	else
+	{
+		float3 LightDirection = LightParameters.Position - WorldPosition;
+		float RayLength = length(LightDirection);
+		LightDirection /= RayLength;
+
+		// Apply normal perturbation when defining ray
+		RayOrigin = WorldPosition + WorldNormal * 0.01;
+		RayDirection = LightDirection;
+		RayTMin = 0.0;
+		RayTMax = RayLength;
+	}
 
 	// Apply culling
 	float CosAngle = LightParameters.SpotAngles.x;
-	if (dot(LightDirection, LightParameters.Direction) < CosAngle)
+	if (dot(RayDirection, LightParameters.Direction) < CosAngle)
 	{
 		return false;
 	}
-
-	// Apply normal perturbation when defining ray
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
-	RayDirection = LightDirection;
-	RayTMin = 0.0;
-	RayTMax = RayLength;
 	return true;
 }
 
@@ -111,14 +121,30 @@ bool GenerateOcclusionRay(
 	}
 	#elif LIGHT_TYPE == LIGHT_TYPE_POINT
 	{
-		return GeneratePointLightOcclusionRay(
-			LightParameters,
-			WorldPosition, WorldNormal,
-			RandSample,
-			/* out */ RayOrigin,
-			/* out */ RayDirection,
-			/* out */ RayTMin,
-			/* out */ RayTMax);
+		if (LightParameters.SourceRadius == 0)
+		{
+			return GeneratePointLightOcclusionRay(
+				LightParameters,
+				WorldPosition, WorldNormal,
+				RandSample,
+				/* out */ RayOrigin,
+				/* out */ RayDirection,
+				/* out */ RayTMin,
+				/* out */ RayTMax);
+		}
+		else
+		{
+			float RayPdf;
+			return GenerateSphereLightOcclusionRay(
+				LightParameters,
+				WorldPosition, WorldNormal,
+				RandSample,
+				/* out */ RayOrigin,
+				/* out */ RayDirection,
+				/* out */ RayTMin,
+				/* out */ RayTMax,
+				/* out */ RayPdf);
+		}
 	}
 	#elif LIGHT_TYPE == LIGHT_TYPE_SPOT
 	{
