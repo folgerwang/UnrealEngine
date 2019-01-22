@@ -588,6 +588,7 @@ static bool MigratePropertyValue(UObject* SourceObject, UObject* DestinationObje
 		{
 			if (DestinationObject)
 			{
+				DestinationObject->SetFlags(RF_Transactional);
 				DestinationObject->Modify();
 			}
 			return true;
@@ -665,6 +666,7 @@ void FWidgetBlueprintEditor::PostUndo(bool bSuccessful)
 	FBlueprintEditor::PostUndo(bSuccessful);
 
 	OnWidgetBlueprintTransaction.Broadcast();
+	RefreshPreview();
 }
 
 void FWidgetBlueprintEditor::PostRedo(bool bSuccessful)
@@ -672,6 +674,7 @@ void FWidgetBlueprintEditor::PostRedo(bool bSuccessful)
 	FBlueprintEditor::PostRedo(bSuccessful);
 
 	OnWidgetBlueprintTransaction.Broadcast();
+	RefreshPreview();
 }
 
 TSharedRef<SWidget> FWidgetBlueprintEditor::CreateSequencerWidget()
