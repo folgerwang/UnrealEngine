@@ -494,9 +494,9 @@ FName::FName(const ANSICHAR* Name, EFindName FindType)
  * @param Number Value for the number portion of the name
  * @param FindType Action to take (see EFindName)
  */
-FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType )
+FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType, const bool bSplitName )
 {
-	Init(Name, InNumber, FindType);
+	Init(Name, InNumber, FindType, bSplitName);
 }
 
 FName::FName(const FNameEntrySerialized& LoadedEntry)
