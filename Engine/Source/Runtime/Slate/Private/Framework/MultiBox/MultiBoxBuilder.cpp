@@ -168,8 +168,8 @@ void FBaseMenuBuilder::AddMenuEntry( const FUIAction& UIAction, const TSharedRef
 
 TSharedRef< class SWidget > FMenuBuilder::MakeWidget( FMultiBox::FOnMakeMultiBoxBuilderOverride* InMakeMultiBoxBuilderOverride /* = nullptr */ )
 {
-	// Make menu builders searchable
-	return MultiBox->MakeWidget( true, InMakeMultiBoxBuilderOverride );
+	// Make menu builders searchable (by default)
+	return MultiBox->MakeWidget( bSearchable, InMakeMultiBoxBuilderOverride );
 }
 
 void FMenuBuilder::BeginSection( FName InExtensionHook, const TAttribute< FText >& InHeadingText )

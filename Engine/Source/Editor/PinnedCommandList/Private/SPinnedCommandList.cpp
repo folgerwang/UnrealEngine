@@ -97,8 +97,8 @@ public:
 
 		// Using a menu builder here is slightly wasteful, but as we cant construct
 		// a menu item individually it will have to do for now.
-		const bool bInShouldCloseWindowAfterMenuSelection = true;
-		FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, CommandList.Pin());
+		const bool bInShouldCloseWindowAfterMenuSelection = false;
+		FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, CommandList.Pin(), nullptr, false, InArgs._StyleSet, false);
 		MenuBuilder.SetStyle(InArgs._StyleSet, InArgs._StyleName);
 
 		if(CommandInfo.IsValid() && CommandList.IsValid())
@@ -136,7 +136,7 @@ public:
 					]
 				];
 
-			MenuBuilder.AddWidget(CustomWidgetContainer, FText(), true);
+			MenuBuilder.AddWidget(CustomWidgetContainer, FText(), true, false);
 		}
 		else
 		{
