@@ -318,22 +318,25 @@ namespace iPhonePackager
 			// must have CloudKit and CloudDocuments for com.apple.developer.icloud-services
 			// otherwise the game will not be listed in the Settings->iCloud apps menu on the device
 			{
-				List<string> ServicesGroups = XCentPList.GetArray("com.apple.developer.icloud-services", "string");
-
-				if (ServicesGroups.Count == 0 || !ServicesGroups[0].StartsWith("Cloud"))
+				if (XCentPList.HasKey("com.apple.developer.icloud-services"))
 				{
-					ServicesGroups.Clear();
+					List<string> ServicesGroups = XCentPList.GetArray("com.apple.developer.icloud-services", "string");
 
-					string ServicesString;
-					XCentPList.GetString("com.apple.developer.icloud-services", out ServicesString);
-
-					if (ServicesString.Equals("*"))
+					if (ServicesGroups.Count == 0 || !ServicesGroups[0].StartsWith("Cloud"))
 					{
-						ServicesGroups.Add("CloudKit");
-						ServicesGroups.Add("CloudDocuments");
+						ServicesGroups.Clear();
+
+						string ServicesString;
+						XCentPList.GetString("com.apple.developer.icloud-services", out ServicesString);
+
+						if (ServicesString.Equals("*"))
+						{
+							ServicesGroups.Add("CloudKit");
+							ServicesGroups.Add("CloudDocuments");
+						}
 					}
+					XCentPList.SetValueForKey("com.apple.developer.icloud-services", ServicesGroups);
 				}
-				XCentPList.SetValueForKey("com.apple.developer.icloud-services", ServicesGroups);
 			}
 
 			return XCentPList.SaveToString();
