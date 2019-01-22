@@ -1282,7 +1282,8 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 		{
 			if (InComponentTemplate)
 			{
-				return (!TargetPlatform->IsClientOnly() || InComponentTemplate->NeedsLoadForClient())
+				return InComponentTemplate->NeedsLoadForTargetPlatform(TargetPlatform)
+					&& (!TargetPlatform->IsClientOnly() || InComponentTemplate->NeedsLoadForClient())
 					&& (!TargetPlatform->IsServerOnly() || InComponentTemplate->NeedsLoadForServer());
 			}
 
