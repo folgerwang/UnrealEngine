@@ -294,8 +294,8 @@ public:
 
 	FMaterialUniformExpressionTextureParameter() {}
 
-	FMaterialUniformExpressionTextureParameter(const FMaterialParameterInfo& InParameterInfo, int32 InTextureIndex, ESamplerSourceMode InSourceMode) :
-		Super(InTextureIndex, InSourceMode),
+	FMaterialUniformExpressionTextureParameter(const FMaterialParameterInfo& InParameterInfo, int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSourceMode) :
+		Super(InTextureIndex, InSamplerType, InSourceMode),
 		ParameterInfo(InParameterInfo)
 	{}
 

@@ -493,7 +493,7 @@ int32 CompileTextureSample(
 	}
 	else
 	{
-		TextureCodeIndex = ParameterName.IsSet() ? Compiler->TextureParameter(ParameterName.GetValue(), Texture, TextureReferenceIndex, SamplerSource) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
+		TextureCodeIndex = ParameterName.IsSet() ? Compiler->TextureParameter(ParameterName.GetValue(), Texture, TextureReferenceIndex, SamplerType, SamplerSource) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerType, SamplerSource, MipValueMode);
 	}
 
 	return Compiler->TextureSample(
@@ -1635,7 +1635,7 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 		}
 		else
 		{
-			TextureCodeIndex = Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
+			TextureCodeIndex = Compiler->Texture(Texture, TextureReferenceIndex, SamplerType, SamplerSource, MipValueMode);
 		}
 
 		if (TextureCodeIndex == INDEX_NONE)
@@ -1654,11 +1654,9 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 			FMaterialUniformExpression* TextureUniformBase = Compiler->GetParameterUniformExpression(TextureCodeIndex);
 			if (FMaterialUniformExpressionTexture* TextureUniform = TextureUniformBase->GetTextureUniformExpression())
 			{
+				EffectiveSamplerType = TextureUniform->GetSamplerType();
 				TextureReferenceIndex = TextureUniform->GetTextureIndex();
 				EffectiveTexture = Compiler->GetReferencedTexture(TextureReferenceIndex);
-				// Here we assume that the effective sampler type is correct for the given texture,
-				// with the expectation that the expression that generated this texture should have already triggered an error if the sampler type didn't match
-				EffectiveSamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(EffectiveTexture);
 				if (FMaterialUniformExpressionTextureParameter* TextureParameterUniform = TextureUniform->GetTextureParameterUniformExpression())
 				{
 					EffectiveParameterName = TextureParameterUniform->GetParameterName();
@@ -2012,12 +2010,13 @@ int32 UMaterialExpressionTextureObjectParameter::Compile(class FMaterialCompiler
 		return CompilerError(Compiler, GetRequirements());
 	}
 
-	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObjectParameter")), Texture, SamplerType))
+	// It seems like this error should be checked here, but this can break existing materials, see https://jira.it.epicgames.net/browse/UE-68862
+	/*if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObjectParameter")), Texture, SamplerType))
 	{
 		return INDEX_NONE;
-	}
+	}*/
 
-	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTextureParameter(ParameterName, Texture) : Compiler->TextureParameter(ParameterName, Texture);
+	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTextureParameter(ParameterName, Texture) : Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 }
 
 int32 UMaterialExpressionTextureObjectParameter::CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex)
@@ -2094,12 +2093,13 @@ int32 UMaterialExpressionTextureObject::Compile(class FMaterialCompiler* Compile
 		return CompilerError(Compiler, TEXT("Requires valid texture"));
 	}
 
-	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObject")), Texture, SamplerType))
+	// It seems like this error should be checked here, but this can break existing materials, see https://jira.it.epicgames.net/browse/UE-68862
+	/*if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObject")), Texture, SamplerType))
 	{
 		return INDEX_NONE;
-	}
+	}*/
 
-	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTexture(Texture) : Compiler->Texture(Texture);
+	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTexture(Texture) : Compiler->Texture(Texture, SamplerType);
 }
 
 int32 UMaterialExpressionTextureObject::CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex)
@@ -2524,7 +2524,7 @@ int32 UMaterialExpressionTextureSampleParameterSubUV::Compile(class FMaterialCom
 		return INDEX_NONE;
 	}
 
-	int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture);
+	int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 	return ParticleSubUV(Compiler, TextureCodeIndex, Texture, SamplerType, Coordinates, bBlend);
 }
 
@@ -7521,7 +7521,7 @@ int32 UMaterialExpressionParticleSubUV::Compile(class FMaterialCompiler* Compile
 		{
 			return INDEX_NONE;
 		}
-		int32 TextureCodeIndex = Compiler->Texture(Texture);
+		int32 TextureCodeIndex = Compiler->Texture(Texture, SamplerType);
 		return ParticleSubUV(Compiler, TextureCodeIndex, Texture, SamplerType, Coordinates, bBlend);
 	}
 	else
@@ -8856,7 +8856,7 @@ int32 UMaterialExpressionFontSample::Compile(class FMaterialCompiler* Compiler, 
 			return INDEX_NONE;
 		}
 
-		int32 TextureCodeIndex = Compiler->Texture(Texture);
+		int32 TextureCodeIndex = Compiler->Texture(Texture, ExpectedSamplerType);
 		Result = Compiler->TextureSample(
 			TextureCodeIndex,
 			Compiler->TextureCoordinate(0, false, false),
@@ -8960,7 +8960,7 @@ int32 UMaterialExpressionFontSampleParameter::Compile(class FMaterialCompiler* C
 		{
 			return INDEX_NONE;
 		}
-		int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName,Texture);
+		int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName,Texture, ExpectedSamplerType);
 		Result = Compiler->TextureSample(
 			TextureCodeIndex,
 			Compiler->TextureCoordinate(0, false, false),
@@ -13514,11 +13514,11 @@ int32 UMaterialExpressionAntialiasedTextureMask::Compile(class FMaterialCompiler
 
 	if (!ParameterName.IsValid() || ParameterName.IsNone())
 	{
-		TextureCodeIndex = Compiler->Texture(Texture);
+		TextureCodeIndex = Compiler->Texture(Texture, SamplerType);
 	}
 	else
 	{
-		TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture);
+		TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 	}
 
 	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("AntialiasedTextureMask")), Texture, SamplerType))

@@ -576,13 +576,19 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 
 FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture() :
 	TextureIndex(INDEX_NONE),
+#if WITH_EDITORONLY_DATA
+	SamplerType(SAMPLERTYPE_Color),
+#endif
 	SamplerSource(SSM_FromTextureAsset),
 	TransientOverrideValue_GameThread(NULL),
 	TransientOverrideValue_RenderThread(NULL)
 {}
 
-FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture(int32 InTextureIndex, ESamplerSourceMode InSamplerSource) :
+FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture(int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSamplerSource) :
 	TextureIndex(InTextureIndex),
+#if WITH_EDITORONLY_DATA
+	SamplerType(InSamplerType),
+#endif
 	SamplerSource(InSamplerSource),
 	TransientOverrideValue_GameThread(NULL),
 	TransientOverrideValue_RenderThread(NULL)

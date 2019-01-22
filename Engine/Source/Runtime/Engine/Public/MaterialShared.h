@@ -266,7 +266,7 @@ public:
 
 	FMaterialUniformExpressionTexture();
 
-	FMaterialUniformExpressionTexture(int32 InTextureIndex, ESamplerSourceMode InSamplerSource);
+	FMaterialUniformExpressionTexture(int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSamplerSource);
 
 	// FMaterialUniformExpression interface.
 	virtual void Serialize(FArchive& Ar);
@@ -287,9 +287,17 @@ public:
 
 	int32 GetTextureIndex() const { return TextureIndex; }
 
+#if WITH_EDITORONLY_DATA
+	EMaterialSamplerType GetSamplerType() const { return SamplerType; }
+#endif
+
 protected:
 	/** Index into FMaterial::GetReferencedTextures */
 	int32 TextureIndex;
+#if WITH_EDITORONLY_DATA
+	/** Sampler type of the expression that generated this */
+	EMaterialSamplerType SamplerType;
+#endif
 	ESamplerSourceMode SamplerSource;
 	/** Texture that may be used in the editor for overriding the texture but never saved to disk, accessible only by the game thread! */
 	UTexture* TransientOverrideValue_GameThread;
