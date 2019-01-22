@@ -581,19 +581,17 @@ void FScene::UpdatePlanarReflectionContents(UPlanarReflectionComponent* CaptureC
 				});
 		}
 
-		const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER( 
-			CaptureCommand,
-			FSceneRenderer*, MainSceneRenderer, &MainSceneRenderer,
-			FSceneRenderer*, SceneRenderer, SceneRenderer,
-			FPlanarReflectionSceneProxy*, SceneProxy, CaptureComponent->SceneProxy,
-			FPlanarReflectionRenderTarget*, RenderTarget, CaptureComponent->RenderTarget,
-			FPlane, MirrorPlane, MirrorPlane,
-			FName, OwnerName, OwnerName,
 		{
-			UpdatePlanarReflectionContents_RenderThread(RHICmdList, MainSceneRenderer, SceneRenderer, SceneProxy, RenderTarget, RenderTarget, MirrorPlane, OwnerName, FResolveParams(), true);
-		});
+			const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
+			FSceneRenderer* MainSceneRendererPtr = &MainSceneRenderer;
+			FPlanarReflectionSceneProxy* SceneProxyPtr = CaptureComponent->SceneProxy;
+			FPlanarReflectionRenderTarget* RenderTargetPtr = CaptureComponent->RenderTarget;
+			ENQUEUE_RENDER_COMMAND(CaptureCommand)(
+				[SceneRenderer, MirrorPlane, OwnerName, MainSceneRendererPtr, SceneProxyPtr, RenderTargetPtr](FRHICommandListImmediate& RHICmdList)
+			{
+				UpdatePlanarReflectionContents_RenderThread(RHICmdList, MainSceneRendererPtr, SceneRenderer, SceneProxyPtr, RenderTargetPtr, RenderTargetPtr, MirrorPlane, OwnerName, FResolveParams(), true);
+			});
+		}
 	}
 }
 

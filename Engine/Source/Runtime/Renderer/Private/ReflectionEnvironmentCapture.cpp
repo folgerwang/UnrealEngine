@@ -1363,22 +1363,16 @@ void CaptureSceneIntoScratchCubemap(
 
 		FSceneRenderer* SceneRenderer = FSceneRenderer::CreateSceneRenderer(&ViewFamily, NULL);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER( 
-			CaptureCommand,
-			FSceneRenderer*, SceneRenderer, SceneRenderer,
-			ECubeFace, CubeFace, (ECubeFace)CubeFace,
-			int32, CubemapSize, CubemapSize,
-			bool, bCapturingForSkyLight, bCapturingForSkyLight,
-			bool, bLowerHemisphereIsBlack, bLowerHemisphereIsBlack,
-			FLinearColor, LowerHemisphereColor, LowerHemisphereColor,
-		{
-			CaptureSceneToScratchCubemap(RHICmdList, SceneRenderer, CubeFace, CubemapSize, bCapturingForSkyLight, bLowerHemisphereIsBlack, LowerHemisphereColor);
-
-			if( !bCapturingForSkyLight )
+		ENQUEUE_RENDER_COMMAND(CaptureCommand)(
+			[SceneRenderer, CubeFace, CubemapSize, bCapturingForSkyLight, bLowerHemisphereIsBlack, LowerHemisphereColor](FRHICommandListImmediate& RHICmdList)
 			{
-				RHICmdList.EndFrame();
-			}
-		});
+				CaptureSceneToScratchCubemap(RHICmdList, SceneRenderer, (ECubeFace)CubeFace, CubemapSize, bCapturingForSkyLight, bLowerHemisphereIsBlack, LowerHemisphereColor);
+
+				if (!bCapturingForSkyLight)
+				{
+					RHICmdList.EndFrame();
+				}
+			});
 	}
 }
 
@@ -1468,12 +1462,11 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 
 			const int32 ReflectionCaptureSize = UReflectionCaptureComponent::GetReflectionCaptureSize();
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
-				ClearCommand,
-				int32, ReflectionCaptureSize, ReflectionCaptureSize,
-			{
-				ClearScratchCubemaps(RHICmdList, ReflectionCaptureSize);
-			});
+			ENQUEUE_RENDER_COMMAND(ClearCommand)(
+				[ReflectionCaptureSize](FRHICommandListImmediate& RHICmdList)
+				{
+					ClearScratchCubemaps(RHICmdList, ReflectionCaptureSize);
+				});
 			
 			if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::CapturedScene)
 			{
@@ -1482,14 +1475,13 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 			}
 			else if (CaptureComponent->ReflectionSourceType == EReflectionSourceType::SpecifiedCubemap)
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-					CopyCubemapCommand,
-					UTextureCube*, SourceTexture, CaptureComponent->Cubemap,
-					int32, ReflectionCaptureSize, ReflectionCaptureSize,
-					float, SourceCubemapRotation, CaptureComponent->SourceCubemapAngle * (PI / 180.f),
-					ERHIFeatureLevel::Type, FeatureLevel, GetFeatureLevel(),
+				UTextureCube* SourceTexture = CaptureComponent->Cubemap;
+				float SourceCubemapRotation = CaptureComponent->SourceCubemapAngle * (PI / 180.f);
+				ERHIFeatureLevel::Type InFeatureLevel = FeatureLevel;
+				ENQUEUE_RENDER_COMMAND(CopyCubemapCommand)(
+					[SourceTexture, ReflectionCaptureSize, SourceCubemapRotation, InFeatureLevel](FRHICommandList& RHICmdList)
 					{
-						CopyCubemapToScratchCubemap(RHICmdList, FeatureLevel, SourceTexture, ReflectionCaptureSize, false, false, SourceCubemapRotation, FLinearColor());
+						CopyCubemapToScratchCubemap(RHICmdList, InFeatureLevel, SourceTexture, ReflectionCaptureSize, false, false, SourceCubemapRotation, FLinearColor());
 					});
 			}
 			else
@@ -1604,12 +1596,14 @@ void FScene::UpdateSkyCaptureContents(
 				World->SendAllEndOfFrameUpdates();
 			}
 		}
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ClearCommand,
-			int32, CubemapSize, CaptureComponent->CubemapResolution,
 		{
-			ClearScratchCubemaps(RHICmdList, CubemapSize);
-		});
+			int32 CubemapSize = CaptureComponent->CubemapResolution;
+			ENQUEUE_RENDER_COMMAND(ClearCommand)(
+				[CubemapSize](FRHICommandList& RHICmdList)
+				{
+					ClearScratchCubemaps(RHICmdList, CubemapSize);
+				});
+		}
 
 		if (CaptureComponent->SourceType == SLS_CapturedScene)
 		{
@@ -1618,17 +1612,16 @@ void FScene::UpdateSkyCaptureContents(
 		}
 		else if (CaptureComponent->SourceType == SLS_SpecifiedCubemap)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER( 
-				CopyCubemapCommand,
-				UTextureCube*, SourceTexture, SourceCubemap,
-				int32, CubemapSize, CaptureComponent->CubemapResolution,
-				bool, bLowerHemisphereIsBlack, CaptureComponent->bLowerHemisphereIsBlack,
-				float, SourceCubemapRotation, CaptureComponent->SourceCubemapAngle * (PI / 180.f),
-				ERHIFeatureLevel::Type, FeatureLevel, GetFeatureLevel(),
-				FLinearColor, LowerHemisphereColor, CaptureComponent->LowerHemisphereColor,
-			{
-				CopyCubemapToScratchCubemap(RHICmdList, FeatureLevel, SourceTexture, CubemapSize, true, bLowerHemisphereIsBlack, SourceCubemapRotation, LowerHemisphereColor);
-			});
+			int32 CubemapSize = CaptureComponent->CubemapResolution;
+			bool bLowerHemisphereIsBlack = CaptureComponent->bLowerHemisphereIsBlack;
+			float SourceCubemapRotation = CaptureComponent->SourceCubemapAngle * (PI / 180.f);
+			ERHIFeatureLevel::Type InnerFeatureLevel = FeatureLevel;
+			FLinearColor LowerHemisphereColor = CaptureComponent->LowerHemisphereColor;
+			ENQUEUE_RENDER_COMMAND(CopyCubemapCommand)(
+				[SourceCubemap, CubemapSize, bLowerHemisphereIsBlack, SourceCubemapRotation, InnerFeatureLevel, LowerHemisphereColor](FRHICommandList& RHICmdList)
+				{
+					CopyCubemapToScratchCubemap(RHICmdList, InnerFeatureLevel, SourceCubemap, CubemapSize, true, bLowerHemisphereIsBlack, SourceCubemapRotation, LowerHemisphereColor);
+				});
 		}
 		else
 		{
@@ -1637,13 +1630,12 @@ void FScene::UpdateSkyCaptureContents(
 
 		if (OutRadianceMap)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER( 
-				ReadbackCommand,
-				int32, CubemapSize, CaptureComponent->CubemapResolution,
-				TArray<FFloat16Color>*, RadianceMap, OutRadianceMap,
-			{
-				ReadbackRadianceMap(RHICmdList, CubemapSize, *RadianceMap);
-			});
+			int32 CubemapSize = CaptureComponent->CubemapResolution;
+			ENQUEUE_RENDER_COMMAND(ReadbackCommand)(
+				[CubemapSize, OutRadianceMap](FRHICommandListImmediate& RHICmdList)
+				{
+					ReadbackRadianceMap(RHICmdList, CubemapSize, *OutRadianceMap);
+				});
 		}
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER( 
