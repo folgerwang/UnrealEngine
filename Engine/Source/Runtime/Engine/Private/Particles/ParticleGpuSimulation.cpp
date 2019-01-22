@@ -1660,17 +1660,18 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
 		// Copy new particles in to the vertex buffer.
 		const int32 TilesThisDrawCall = FMath::Min<int32>( TileCount, MaxTilesPerDrawCall );
 		const uint32* TilesPtr = Tiles.GetData() + FirstTile;
-		VertexShader->SetParameters(RHICmdList, ShaderParam);
 		
 		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 		{
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, TilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawParticleTiles(RHICmdList, BufferParam, TilesThisDrawCall);
 		}
 		else
 		{
 			const int32 AlignedTilesThisDrawCall = ComputeAlignedTileCount(TilesThisDrawCall);
 			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, AlignedTilesThisDrawCall);
+			VertexShader->SetParameters(RHICmdList, ShaderParam);
 			DrawAlignedParticleTiles(RHICmdList, AlignedTilesThisDrawCall);
 		}
 		
@@ -4772,11 +4773,15 @@ void FFXSystem::SimulateGPUParticles(
 	static TArray<FNewParticle> NewParticles;
 
 	// One-time register delegate with Trim() so the data above can be freed on demand
-	static FDelegateHandle Clear = FCoreDelegates::GetMemoryTrimDelegate().AddLambda([]()
+	static FDelegateHandle Clear = FCoreDelegates::GetMemoryTrimDelegate().AddLambda([this]()
 	{
-		SimulationCommands.Empty();
-		TilesToClear.Empty();
-		NewParticles.Empty();
+		ENQUEUE_RENDER_COMMAND(FlushCommand) (
+			[this](FRHICommandList& InRHICmdList)
+		{
+			SimulationCommands.Empty();
+			TilesToClear.Empty();
+			NewParticles.Empty();
+		});		
 	});
 
 	for (TSparseArray<FParticleSimulationGPU*>::TIterator It(GPUSimulations); It; ++It)

@@ -136,6 +136,8 @@
 #include "BlueprintEditorModes.h"
 #include "BlueprintEditorSettings.h"
 #include "K2Node_SwitchString.h"
+#include "AnimGraphNode_StateMachineBase.h"
+#include "AnimationStateMachineGraph.h"
 
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
@@ -5534,6 +5536,22 @@ void FBlueprintEditor::DeleteSelectedNodes()
 
 	SetUISelectionState(NAME_None);
 
+	// this closes all the document that is outered by this node
+	// this is used by AnimBP statemachines/states that can create subgraph
+	auto CloseAllDocumentsTab = [this](const UEdGraphNode* InNode)
+	{
+		TArray<UObject*> NodesToClose;
+		GetObjectsWithOuter(InNode, NodesToClose);
+		for (UObject* Node : NodesToClose)
+		{
+			UEdGraph* NodeGraph = Cast<UEdGraph>(Node);
+			if (NodeGraph)
+			{
+				CloseDocumentTab(NodeGraph);
+			}
+		}
+	};
+
 	for (FGraphPanelSelectionSet::TConstIterator NodeIt( SelectedNodes ); NodeIt; ++NodeIt)
 	{
 		if (UEdGraphNode* Node = Cast<UEdGraphNode>(*NodeIt))
@@ -5545,10 +5563,14 @@ void FBlueprintEditor::DeleteSelectedNodes()
 				UAnimStateNodeBase* StateNode = Cast<UAnimStateNodeBase>(Node);
 				if (StateNode)
 				{
-					UEdGraph* NodeGraph = StateNode->GetBoundGraph();
-					if (NodeGraph)
+					CloseAllDocumentsTab(StateNode);
+				}
+				else
+				{
+					const UAnimGraphNode_StateMachineBase* SMNode = Cast<UAnimGraphNode_StateMachineBase>(Node);
+					if (SMNode)
 					{
-						CloseDocumentTab(NodeGraph);
+						CloseAllDocumentsTab(SMNode);
 					}
 				}
 

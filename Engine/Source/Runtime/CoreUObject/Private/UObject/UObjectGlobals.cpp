@@ -626,7 +626,7 @@ UPackage* FindPackage( UObject* InOuter, const TCHAR* PackageName )
 	}
 	else
 	{
-		UE_LOG(LogUObjectGlobals, Fatal, TEXT("%s"), TEXT("Attempted to create a package named 'None'") );
+		UE_LOG(LogUObjectGlobals, Fatal, TEXT("Attempted to find a package named 'None' - InName: %s"), PackageName);
 	}
 	return Result;
 }

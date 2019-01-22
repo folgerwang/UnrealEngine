@@ -2748,7 +2748,8 @@ void SetupSceneTextureUniformParameters(
 		const bool bSetupCustomDepth = (SetupMode & ESceneTextureSetupMode::CustomDepth) != ESceneTextureSetupMode::None;
 
 		FTextureRHIParamRef CustomDepth = DepthDefault;
-		FShaderResourceViewRHIParamRef CustomStencilSRV = GNullColorVertexBuffer.VertexBufferSRV;
+		extern TRefCountPtr<FRHIShaderResourceView> GSystemTextures_WhiteDummySRV;
+		FShaderResourceViewRHIParamRef CustomStencilSRV = GSystemTextures_WhiteDummySRV;
 
 		// if there is no custom depth it's better to have the far distance there
 		IPooledRenderTarget* CustomDepthTarget = SceneContext.bCustomDepthIsValid ? SceneContext.CustomDepth.GetReference() : 0;

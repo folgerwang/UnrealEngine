@@ -115,7 +115,7 @@ private:
 /**
  * SteamVR Head Mounted Display
  */
-class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TStereoLayerManager<FSteamVRLayer>, public FSceneViewExtensionBase, public IHeadMountedDisplayVulkanExtensions
+class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TStereoLayerManager<FSteamVRLayer>, public FSceneViewExtensionBase
 {
 public:
 	static const FName SteamSystemName;
@@ -168,7 +168,6 @@ public:
 
 public:
 	/** IHeadMountedDisplay interface */
-
 	virtual bool IsHMDConnected() override;
 	virtual bool IsHMDEnabled() const override;
 	virtual EHMDWornState::Type GetHMDWornState() override;
@@ -237,11 +236,6 @@ public:
 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override {}
 	virtual void PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
 	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
-
-
-	/** IHeadMountedDisplayVulkanExtensions */
-	virtual bool GetVulkanInstanceExtensionsRequired( TArray<const ANSICHAR*>& Out ) override;
-	virtual bool GetVulkanDeviceExtensionsRequired( VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out ) override;
 
 	// SpectatorScreen
 private:
@@ -313,6 +307,20 @@ public:
 #endif // PLATFORM_WINDOWS
 
 #if !PLATFORM_MAC
+	class FVulkanExtensions : public IHeadMountedDisplayVulkanExtensions
+	{
+	public:
+		FVulkanExtensions(vr::IVRCompositor* InVRCompositor);
+		virtual ~FVulkanExtensions() {}
+
+		/** IHeadMountedDisplayVulkanExtensions */
+		virtual bool GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out) override;
+		virtual bool GetVulkanDeviceExtensionsRequired(VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out) override;
+
+	private:
+		vr::IVRCompositor* VRCompositor;
+	};
+
 	class VulkanBridge : public BridgeBaseImpl
 	{
 	public:
@@ -593,9 +601,6 @@ private:
 
 //@todo steamvr: Remove GetProcAddress() workaround once we have updated to Steamworks 1.33 or higher
 public:
-	static pVRIsHmdPresent VRIsHmdPresentFn;
-	static pVRGetGenericInterface VRGetGenericInterfaceFn;
-
 	friend class FSteamSplashTicker;
 };
 

@@ -548,7 +548,7 @@ void FVulkanViewport::CreateSwapchain()
 			LockToVsync
 		);
 
-		check(Images.Num() == NUM_BUFFERS);
+		checkf(Images.Num() == NUM_BUFFERS, TEXT("Actual Num: %i"), Images.Num());
 
 		FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
 		ensure(CmdBuffer->IsOutsideRenderPass());

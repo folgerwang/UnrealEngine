@@ -1486,10 +1486,13 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, TAr
 				{
 					for (UBlueprint* ParentBlueprint : ParentBPStack)
 					{
-						ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
-						if (ParentSCSNode)
+						if (ParentBlueprint->SimpleConstructionScript)
 						{
-							break;
+							ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
+							if (ParentSCSNode)
+							{
+								break;
+							}
 						}
 					}
 				}

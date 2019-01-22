@@ -468,6 +468,7 @@ void UOvrAvatar::UpdatePostSDK()
 					if (MeshVisible && IsSelfOccluding)
 					{
 						UpdateMeshComponent(*depthMesh, RenderData->localTransform);
+						depthMesh->MarkRefreshTransformDirty();
 					}
 
 					depthMesh->SetVisibility(MeshVisible && IsSelfOccluding, true);
@@ -530,6 +531,7 @@ void UOvrAvatar::UpdatePostSDK()
 					if (MeshVisible && IsSelfOccluding)
 					{
 						UpdateMeshComponent(*depthMesh, RenderData->localTransform);
+						depthMesh->MarkRefreshTransformDirty();
 					}
 
 					depthMesh->SetVisibility(MeshVisible && IsSelfOccluding, true);
@@ -629,6 +631,8 @@ void UOvrAvatar::UpdateSkeleton(UPoseableMeshComponent& mesh, const ovrAvatarSki
 		OvrAvatarHelpers::ConvertTransform(pose.jointTransform[BoneIndex], LocalBone);
 		mesh.BoneSpaceTransforms[BoneIndex] = LocalBone;
 	}
+
+	mesh.MarkRefreshTransformDirty();
 }
 
 USceneComponent* UOvrAvatar::DetachHand(HandType hand)

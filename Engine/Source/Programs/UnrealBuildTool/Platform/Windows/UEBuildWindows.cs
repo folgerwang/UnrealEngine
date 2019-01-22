@@ -384,7 +384,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
 		/// </summary>
-		static readonly VersionNumber DefaultToolChainVersion = VersionNumber.Parse("14.13.26128");
+		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("6.0.0");
+
+		/// <summary>
+		/// The default compiler version to be used, if installed. 
+		/// </summary>
+		static readonly VersionNumber DefaultVisualStudioToolChainVersion = VersionNumber.Parse("14.13.26128");
 
 		/// <summary>
 		/// The default Windows SDK version to be used, if installed.
@@ -911,6 +916,16 @@ namespace UnrealBuildTool
 			}
 			else
 			{
+				VersionNumber DefaultToolChainVersion;
+				if(Compiler == WindowsCompiler.Clang)
+				{
+					DefaultToolChainVersion = DefaultClangToolChainVersion;
+				}
+				else
+				{
+					DefaultToolChainVersion = DefaultVisualStudioToolChainVersion;
+				}
+
 				if(ToolChainVersionToDir.ContainsKey(DefaultToolChainVersion))
 				{
 					ToolChainVersion = DefaultToolChainVersion;

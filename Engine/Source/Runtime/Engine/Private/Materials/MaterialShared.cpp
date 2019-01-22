@@ -1583,10 +1583,12 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 	// If we loaded this material with inline shaders, use what was loaded (GameThreadShaderMap) instead of looking in the DDC
 	if (bContainsInlineShaders)
 	{
-		FMaterialShaderMap* ExistingShaderMap = nullptr;
+		TRefCountPtr<FMaterialShaderMap> ExistingShaderMap = nullptr;
 		
 		if (GameThreadShaderMap)
 		{
+			extern FCriticalSection GIdToMaterialShaderMapCS;
+			FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
 			// Note: in the case of an inlined shader map, the shadermap Id will not be valid because we stripped some editor-only data needed to create it
 			// Get the shadermap Id from the shadermap that was inlined into the package, if it exists
 			ExistingShaderMap = FMaterialShaderMap::FindId(GameThreadShaderMap->GetShaderMapId(), Platform);
@@ -1605,8 +1607,13 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 	}
 	else
 	{
-		// Find the material's cached shader map.
-		GameThreadShaderMap = FMaterialShaderMap::FindId(ShaderMapId, Platform);
+		GameThreadShaderMap = nullptr;
+		{
+			extern FCriticalSection GIdToMaterialShaderMapCS;
+			FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
+			// Find the material's cached shader map.
+			GameThreadShaderMap = FMaterialShaderMap::FindId(ShaderMapId, Platform);
+		}
 
 		// Attempt to load from the derived data cache if we are uncooked
 		if ((!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, true)) && !FPlatformProperties::RequiresCookedData())

@@ -3130,6 +3130,7 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 	, MaxTileGeneratorTasks(1)
 	, AvgLayersPerTile(8.0f)
 	, DestNavMesh(&InDestNavMesh)
+	, RcNavMeshOrigin(ForceInitToZero)
 	, bInitialized(false)
 	, bRestrictBuildingToActiveTiles(false)
 	, Version(0)
@@ -3140,6 +3141,8 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 
 	int32 MaxTiles = 0;
 	int32 MaxPolysPerTile = 0;
+
+	RcNavMeshOrigin = Unreal2RecastPoint(DestNavMesh->NavMeshOriginOffset);
 
 	// recreate navmesh if no data was loaded, or when loaded data doesn't match current grid layout
 	bool bRecreateNavmesh = true;

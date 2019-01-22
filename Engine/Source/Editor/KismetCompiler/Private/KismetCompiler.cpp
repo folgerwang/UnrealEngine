@@ -2256,8 +2256,9 @@ void FKismetCompilerContext::SetDefaultInputValueMetaData(UFunction* Function, c
 	for (const TSharedPtr<FUserPinInfo>& InputDataPtr : InputData)
 	{
 		if ( InputDataPtr.IsValid() &&
-			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) && 
+			!InputDataPtr->PinName.IsNone() &&
 			(InputDataPtr->PinName != UEdGraphSchema_K2::PN_Self) && 
+			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) && 
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Object) &&
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Class) &&
 			(InputDataPtr->PinType.PinCategory != UEdGraphSchema_K2::PC_Interface) )

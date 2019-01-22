@@ -933,6 +933,7 @@ void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,F
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 
+	if (IsInRenderingThread() && !RHICmdList.Bypass())
 	{
 		//#todo-rco: Workaround binary header compatibility for UE4.21.1
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_ReadSurfaceFloatData_Flush);
