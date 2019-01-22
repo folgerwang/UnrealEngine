@@ -300,6 +300,7 @@ public:
 			: bPreviewMesh(true)
 			, bPreviewAnimation(true)
 			, bReferencePose(false)
+			, bCreateAsset(true)
 		{}
 
 		/** Adds a shortcut to setup a preview mesh to override the current display */
@@ -310,6 +311,9 @@ public:
 
 		/** Adds a shortcut to set the character back to reference pose (also clears all bone modifications) */
 		bool bReferencePose;
+
+		/** Adds a combo menu to allow other anim assets to be created */
+		bool bCreateAsset;
 	};
 
 	/** Add common toobar extensions */
@@ -327,6 +331,34 @@ private:
 
 	/** When a new anim notify state blueprint is created, this will handle post creation work such as adding non-event default nodes */
 	void HandleNewAnimNotifyStateBlueprintCreated(UBlueprint* InBlueprint);
+
+	/** Options for asset creation */
+	enum class EPoseSourceOption : uint8
+	{
+		ReferencePose,
+		CurrentPose,
+		CurrentAnimation_AnimData,
+		CurrentAnimation_PreviewMesh,
+		Max
+	};
+
+	TSharedRef< SWidget > GenerateCreateAssetMenu(TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit) const;
+
+	void FillCreateAnimationMenu(FMenuBuilder& MenuBuilder, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit) const;
+
+	void FillCreateAnimationFromCurrentAnimationMenu(FMenuBuilder& MenuBuilder, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit) const;
+
+	void FillCreatePoseAssetMenu(FMenuBuilder& MenuBuilder, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit) const;
+
+	void FillInsertPoseMenu(FMenuBuilder& MenuBuilder, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit) const;
+
+	void InsertCurrentPoseToAsset(const FAssetData& NewPoseAssetData, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit);
+
+	bool CreateAnimation(const TArray<UObject*> NewAssets, const EPoseSourceOption Option, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit);
+
+	bool CreatePoseAsset(const TArray<UObject*> NewAssets, const EPoseSourceOption Option, TWeakPtr<IPersonaToolkit> InWeakPersonaToolkit);
+	
+	bool HandleAssetCreated(const TArray<UObject*> NewAssets);
 
 private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;

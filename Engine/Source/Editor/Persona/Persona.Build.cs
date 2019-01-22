@@ -61,6 +61,7 @@ public class Persona : ModuleRules
                 "UnrealEd",
                 "CommonMenuExtensions",
                 "PinnedCommandList",
+				"SequenceRecorder",
             }
         );
 
