@@ -29,7 +29,7 @@ static FAutoConsoleVariableRef CVarRayTracingOcclusionSamplesPerPixel(
 
 static TAutoConsoleVariable<int32> CVarShadowUseDenoiser(
 	TEXT("r.Shadow.Denoiser"),
-	0, // TODO: change default to 2.
+	2,
 	TEXT("Choose the denoising algorithm.\n")
 	TEXT(" 0: Disabled (default);\n")
 	TEXT(" 1: Forces the default denoiser of the renderer;\n")
