@@ -1553,14 +1553,14 @@ void UInstancedStaticMeshComponent::ReleasePerInstanceRenderData()
 		FPerInstanceRenderDataPtr* CleanupRenderDataPtr = new FPerInstanceRenderDataPtr(PerInstanceRenderData);
 		PerInstanceRenderData.Reset();
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleasePerInstanceRenderData,
-			FPerInstanceRenderDataPtr*, InCleanupRenderDataPtr, CleanupRenderDataPtr,
-		{
-			// Destroy the shared pointer object we allocated on the heap.
-			// Resource will either be released here or by scene proxy on the render thread, whoever gets executed last
-			delete InCleanupRenderDataPtr;
-		});
+		FPerInstanceRenderDataPtr* InCleanupRenderDataPtr = CleanupRenderDataPtr;
+		ENQUEUE_RENDER_COMMAND(FReleasePerInstanceRenderData)(
+			[InCleanupRenderDataPtr](FRHICommandList& RHICmdList)
+			{
+				// Destroy the shared pointer object we allocated on the heap.
+				// Resource will either be released here or by scene proxy on the render thread, whoever gets executed last
+				delete InCleanupRenderDataPtr;
+			});
 	} //-V773
 }
 

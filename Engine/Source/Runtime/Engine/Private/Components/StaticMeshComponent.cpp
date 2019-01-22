@@ -1564,9 +1564,9 @@ void UStaticMeshComponent::PostEditUndo()
 	// Debug check command trying to track down undo related uninitialized resource
 	if (GetStaticMesh() != NULL && GetStaticMesh()->RenderData.IsValid() && GetStaticMesh()->RenderData->LODResources.Num() > 0)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ResourceCheckCommand,
-			FRenderResource*, Resource, &GetStaticMesh()->RenderData->LODResources[0].IndexBuffer,
+		FRenderResource* Resource = &GetStaticMesh()->RenderData->LODResources[0].IndexBuffer;
+		ENQUEUE_RENDER_COMMAND(ResourceCheckCommand)(
+			[Resource](FRHICommandList& RHICmdList)
 			{
 				check( Resource->IsInitialized() );
 			}

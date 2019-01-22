@@ -371,9 +371,9 @@ USubsurfaceProfile::USubsurfaceProfile(const FObjectInitializer& ObjectInitializ
 
 void USubsurfaceProfile::BeginDestroy()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		RemoveSubsurfaceProfile,
-		USubsurfaceProfile*, Ref, this,
+	USubsurfaceProfile* Ref = this;
+	ENQUEUE_RENDER_COMMAND(RemoveSubsurfaceProfile)(
+		[Ref](FRHICommandList& RHICmdList)
 		{
 			GSubsurfaceProfileTextureObject.RemoveProfile(Ref);
 		});

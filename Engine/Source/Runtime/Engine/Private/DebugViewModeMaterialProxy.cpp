@@ -163,17 +163,16 @@ void FDebugViewModeMaterialProxy::ValidateAllShaders(TSet<UMaterialInterface*>& 
 		}
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateDebugMaterialExpressionCache,
-		TArray<FDebugViewModeMaterialProxy*>, MaterialsToUpdateCopy, MaterialsToUpdate,
+	TArray<FDebugViewModeMaterialProxy*> MaterialsToUpdateCopy = MaterialsToUpdate;
+	ENQUEUE_RENDER_COMMAND(UpdateDebugMaterialExpressionCache)(
+		[MaterialsToUpdateCopy](FRHICommandList& RHICmdList)
 		{
 			for (FDebugViewModeMaterialProxy* MaterialToUpdate : MaterialsToUpdateCopy)
 			{
 				check(MaterialToUpdate);
 				MaterialToUpdate->UpdateUniformExpressionCacheIfNeeded(MaterialToUpdate->FMaterial::GetFeatureLevel());
 			}
-		}
-	)
+		});
 
 	FlushRenderingCommands();
 }

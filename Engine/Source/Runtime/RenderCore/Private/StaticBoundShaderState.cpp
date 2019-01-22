@@ -32,8 +32,9 @@ FGlobalBoundShaderStateResource::FGlobalBoundShaderStateResource()
 	}
 	else
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			LinkGlobalBoundShaderStateResource,FGlobalBoundShaderStateResource*,Resource,this,
+		FGlobalBoundShaderStateResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(LinkGlobalBoundShaderStateResource)(
+			[Resource](FRHICommandList& RHICmdList)
 			{
 				Resource->GlobalListLink.LinkHead(GetGlobalBoundShaderStateList());
 			});

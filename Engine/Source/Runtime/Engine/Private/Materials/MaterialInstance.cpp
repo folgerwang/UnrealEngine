@@ -3518,12 +3518,12 @@ void UMaterialInstance::ClearParameterValuesInternal(const bool bAllParameters)
 
 	if (Resource)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FClearMIParametersCommand,
-			FMaterialInstanceResource*,Resource,Resource,
-		{
-			Resource->RenderThread_ClearParameters();
-		});
+		FMaterialInstanceResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(FClearMIParametersCommand)(
+			[InResource](FRHICommandList& RHICmdList)
+			{
+				InResource->RenderThread_ClearParameters();
+			});
 	}
 
 	InitResources();

@@ -380,7 +380,7 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray< FColor >& OutImageData
 	};
 
 	OutImageData.Reset();
-	FReadSurfaceContext ReadSurfaceContext =
+	FReadSurfaceContext Context =
 	{
 		this,
 		&OutImageData,
@@ -388,17 +388,16 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray< FColor >& OutImageData
 		InFlags
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-	  ReadSurfaceCommand,
-	  FReadSurfaceContext, Context, ReadSurfaceContext,
-	{
-		RHICmdList.ReadSurfaceData(
-		  Context.SrcRenderTarget->TextureCubeRHI,
-		  Context.Rect,
-		  *Context.OutData,
-		  Context.Flags
-		);
-	});
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceData(
+				Context.SrcRenderTarget->TextureCubeRHI,
+				Context.Rect,
+				*Context.OutData,
+				Context.Flags
+			);
+		});
 	FlushRenderingCommands();
 
 	return true;
@@ -426,7 +425,7 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray<FFloat16Color>& OutImag
 		ECubeFace CubeFace;
 	};
 
-	FReadSurfaceFloatContext ReadSurfaceFloatContext =
+	FReadSurfaceFloatContext Context =
 	{
 		this,
 		&OutImageData,
@@ -434,18 +433,17 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray<FFloat16Color>& OutImag
 		InFlags.GetCubeFace()
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-	  ReadSurfaceFloatCommand,
-	  FReadSurfaceFloatContext, Context, ReadSurfaceFloatContext,
-	{
-		RHICmdList.ReadSurfaceFloatData(
-		  Context.SrcRenderTarget->TextureCubeRHI,
-		  Context.Rect,
-		  *Context.OutData,
-		  Context.CubeFace,
-		  0,
-		  0
-		);
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceFloatCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceFloatData(
+				Context.SrcRenderTarget->TextureCubeRHI,
+				Context.Rect,
+				*Context.OutData,
+				Context.CubeFace,
+				0,
+				0
+			);
 	});
 
 	FlushRenderingCommands();

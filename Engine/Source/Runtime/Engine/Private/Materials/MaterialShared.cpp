@@ -957,12 +957,12 @@ void FMaterial::ReleaseShaderMap()
 	{
 		GameThreadShaderMap = nullptr;
 		
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseShaderMap,
-			FMaterial*,Material,this,
-		{
-			Material->SetRenderingThreadShaderMap(nullptr);
-		});
+		FMaterial* Material = this;
+		ENQUEUE_RENDER_COMMAND(ReleaseShaderMap)(
+			[Material](FRHICommandList& RHICmdList)
+			{
+				Material->SetRenderingThreadShaderMap(nullptr);
+			});
 	}
 }
 
@@ -3421,10 +3421,10 @@ void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*
 		check(!Material->RequiresSynchronousCompilation());
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FSetShaderMapOnMaterialResources,
-		FMaterialsToUpdateMap, MaterialsToUpdate, MaterialsToUpdate,
+	FMaterialsToUpdateMap InMaterialsToUpdate = MaterialsToUpdate;
+	ENQUEUE_RENDER_COMMAND(FSetShaderMapOnMaterialResources)(
+		[InMaterialsToUpdate](FRHICommandListImmediate& RHICmdList)
 		{
-			SetShaderMapsOnMaterialResources_RenderThread(RHICmdList, MaterialsToUpdate);
+			SetShaderMapsOnMaterialResources_RenderThread(RHICmdList, InMaterialsToUpdate);
 		});
 }

@@ -451,12 +451,12 @@ public:
 	 */
 	void Destroy()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyParticleSimulationResourcesCommand,
-			FParticleSimulationResources*, ParticleResources, this,
-		{
-			delete ParticleResources;
-		});
+		FParticleSimulationResources* ParticleResources = this;
+		ENQUEUE_RENDER_COMMAND(FDestroyParticleSimulationResourcesCommand)(
+			[ParticleResources](FRHICommandList& RHICmdList)
+			{
+				delete ParticleResources;
+			});
 	}
 
 	/**
@@ -2702,12 +2702,12 @@ public:
 	void Destroy()
 	{
 		bDestroyed_GameThread = true;
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleaseParticleSimulationGPUCommand,
-			FParticleSimulationGPU*, Simulation, this,
-		{
-			Simulation->Destroy_RenderThread();
-		});
+		FParticleSimulationGPU* Simulation = this;
+		ENQUEUE_RENDER_COMMAND(FReleaseParticleSimulationGPUCommand)(
+			[Simulation](FRHICommandList& RHICmdList)
+			{
+				Simulation->Destroy_RenderThread();
+			});
 	}
 
 	/**
@@ -2727,12 +2727,12 @@ public:
 	void BeginReleaseResources()
 	{
 		bReleased_GameThread = true;
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleaseParticleSimulationResourcesGPUCommand,
-			FParticleSimulationGPU*, Simulation, this,
-		{
-			Simulation->ReleaseRenderResources();
-		});
+		FParticleSimulationGPU* Simulation = this;
+		ENQUEUE_RENDER_COMMAND(FReleaseParticleSimulationResourcesGPUCommand)(
+			[Simulation](FRHICommandList& RHICmdList)
+			{
+				Simulation->ReleaseRenderResources();
+			});
 	}
 
 private:
@@ -2811,9 +2811,9 @@ public:
 		{
 			// When all references are released, we need the render thread
 			// to release RHI resources and delete this instance.
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				ReleaseCommand,
-				FRenderResource*, Resource, this,
+			FRenderResource* Resource = this;
+			ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+				[Resource](FRHICommandList& RHICmdList)
 				{
 					Resource->ReleaseResource();
 					delete Resource;
@@ -3874,18 +3874,17 @@ FGPUSpriteParticleEmitterInstance(FFXSystem* InFXSystem, FGPUSpriteEmitterInfo& 
 			return;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FComputeGPUSpriteBoundsCommand,
-			FGPUSpriteParticleEmitterInstance*, EmitterInstance, this,
-		{
-			
-			EmitterInstance->ParticleBoundingBox = ComputeParticleBounds(
-				RHICmdList,
-				EmitterInstance->Simulation->VertexBuffer.VertexBufferSRV,
-				EmitterInstance->FXSystem->GetParticleSimulationResources()->GetVisualizeStateTextures().PositionTextureRHI,
-				EmitterInstance->Simulation->VertexBuffer.ParticleCount
-				);
-		});
+		FGPUSpriteParticleEmitterInstance* EmitterInstance = this;
+		ENQUEUE_RENDER_COMMAND(FComputeGPUSpriteBoundsCommand)(
+			[EmitterInstance](FRHICommandListImmediate& RHICmdList)
+			{
+				EmitterInstance->ParticleBoundingBox = ComputeParticleBounds(
+					RHICmdList,
+					EmitterInstance->Simulation->VertexBuffer.VertexBufferSRV,
+					EmitterInstance->FXSystem->GetParticleSimulationResources()->GetVisualizeStateTextures().PositionTextureRHI,
+					EmitterInstance->Simulation->VertexBuffer.ParticleCount
+					);
+			});
 		FlushRenderingCommands();
 
 		// Take the size of sprites in to account.
@@ -3939,9 +3938,9 @@ private:
 		//
 		if (!Simulation->bDestroyed_GameThread)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				FResetVectorFieldCommand,
-				FVectorFieldResource*, Resource, Simulation->LocalVectorField.Resource,
+			FVectorFieldResource* Resource = Simulation->LocalVectorField.Resource;
+			ENQUEUE_RENDER_COMMAND(FResetVectorFieldCommand)(
+				[Resource](FRHICommandList& RHICmdList)
 				{
 					if (Resource)
 					{
@@ -4527,17 +4526,16 @@ void FFXSystem::InitGPUResources()
 		ParticleSimulationResources->Init();
 
 		ParticleSimulationResources->ParticleSortBuffers.SetBufferSize(GParticleSimulationTextureSizeX * GParticleSimulationTextureSizeY);
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FInitParticleSortBuffersCommand,
-			FParticleSimulationResources *, ParticleSimulationResources, ParticleSimulationResources,
+		FParticleSimulationResources* InParticleSimulationResources = ParticleSimulationResources;
+		ENQUEUE_RENDER_COMMAND(FInitParticleSortBuffersCommand)(
+			[InParticleSimulationResources](FRHICommandList& RHICmdList)
 			{
-				ParticleSimulationResources->ParticleSortBuffers.InitRHI();
+				InParticleSimulationResources->ParticleSortBuffers.InitRHI();
 
 				// Initialize SortedVertexBuffer to a valid resource, ensuring it can be used in GetDynamicMeshElementsEmitter() 
-				ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferRHI(0);
-				ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferSRV(0);
-			}
-		);
+				InParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI = InParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferRHI(0);
+				InParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV = InParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferSRV(0);
+			});
 	}
 }
 
@@ -4547,13 +4545,12 @@ void FFXSystem::ReleaseGPUResources()
 	{
 		check(ParticleSimulationResources);
 		ParticleSimulationResources->Release();
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleaseParticleSortBuffersCommand,
-			FParticleSimulationResources *, ParticleSimulationResources, ParticleSimulationResources,
+		FParticleSimulationResources* InParticleSimulationResources = ParticleSimulationResources;
+		ENQUEUE_RENDER_COMMAND(FReleaseParticleSortBuffersCommand)(
+			[InParticleSimulationResources](FRHICommandList& RHICmdList)
 			{
-				ParticleSimulationResources->ParticleSortBuffers.ReleaseRHI();
-			}
-		);
+				InParticleSimulationResources->ParticleSortBuffers.ReleaseRHI();
+			});
 	}
 }
 

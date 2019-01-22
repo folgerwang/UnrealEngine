@@ -727,13 +727,13 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 		INC_DWORD_STAT_BY( STAT_StaticMeshDistanceFieldMemory, DistanceFieldData->GetResourceSizeBytes() );
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateMemoryStats,
-		FStaticMeshLODResources*, This, this,
+	FStaticMeshLODResources* This = this;
+	ENQUEUE_RENDER_COMMAND(UpdateMemoryStats)(
+		[This](FRHICommandList& RHICmdList)
 		{		
 			const uint32 StaticMeshVertexMemory =
-			This->VertexBuffers.StaticMeshVertexBuffer.GetResourceSize() +
-			This->VertexBuffers.PositionVertexBuffer.GetStride() * This->VertexBuffers.PositionVertexBuffer.GetNumVertices();
+				This->VertexBuffers.StaticMeshVertexBuffer.GetResourceSize() +
+				This->VertexBuffers.PositionVertexBuffer.GetStride() * This->VertexBuffers.PositionVertexBuffer.GetNumVertices();
 			const uint32 ResourceVertexColorMemory = This->VertexBuffers.ColorVertexBuffer.GetStride() * This->VertexBuffers.ColorVertexBuffer.GetNumVertices();
 
 			INC_DWORD_STAT_BY( STAT_StaticMeshVertexMemory, StaticMeshVertexMemory );
@@ -1872,9 +1872,9 @@ void UStaticMesh::InitResources()
 	}
 	
 #if	STATS
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateMemoryStats,
-		UStaticMesh*, This, this,
+	UStaticMesh* This = this;
+	ENQUEUE_RENDER_COMMAND(UpdateMemoryStats)(
+		[This](FRHICommandList& RHICmdList)
 		{
 			const uint32 StaticMeshResourceSize = This->GetResourceSizeBytes( EResourceSizeMode::Exclusive );
 			INC_DWORD_STAT_BY( STAT_StaticMeshTotalMemory, StaticMeshResourceSize );

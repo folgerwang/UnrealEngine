@@ -198,11 +198,11 @@ struct FBatchedReleaseResources
 	{
 		if (NumBatch)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				BatchReleaseCommand,
-				FBatchedReleaseResources, BatchedReleaseResources, *this,
+			const FBatchedReleaseResources BatchedReleaseResources = *this;
+			ENQUEUE_RENDER_COMMAND(BatchReleaseCommand)(
+				[BatchedReleaseResources](FRHICommandList& RHICmdList)
 				{
-					BatchedReleaseResources.Execute();
+					((FBatchedReleaseResources&)BatchedReleaseResources).Execute();
 				});
 			Reset();
 		}
@@ -245,9 +245,8 @@ void BeginReleaseResource(FRenderResource* Resource)
 		GBatchedRelease.Add(Resource);
 		return;
 	}
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FRenderResource*,Resource,Resource,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[Resource](FRHICommandList& RHICmdList)
 		{
 			Resource->ReleaseResource();
 		});
@@ -256,9 +255,8 @@ void BeginReleaseResource(FRenderResource* Resource)
 void ReleaseResourceAndFlush(FRenderResource* Resource)
 {
 	// Send the release message.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FRenderResource*,Resource,Resource,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[Resource](FRHICommandList& RHICmdList)
 		{
 			Resource->ReleaseResource();
 		});

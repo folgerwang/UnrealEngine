@@ -57,14 +57,14 @@ FVectorFieldInstance::~FVectorFieldInstance()
 {
 	if (Resource && bInstancedResource)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyVectorFieldResourceCommand,
-			FVectorFieldResource*,Resource,Resource,
-		{
-			Resource->ReleaseResource();
-			delete Resource;
-		});
-		Resource = NULL;
+		FVectorFieldResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(FDestroyVectorFieldResourceCommand)(
+			[InResource](FRHICommandList& RHICmdList)
+			{
+				InResource->ReleaseResource();
+				delete InResource;
+			});
+		Resource = nullptr;
 	}
 }
 
@@ -380,15 +380,15 @@ void UVectorFieldStatic::ReleaseResource()
 {
 	if ( Resource != NULL )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseVectorFieldCommand,
-			FRenderResource*,Resource,Resource,
-		{
-			Resource->ReleaseResource();
-			delete Resource;
-		});
+		FRenderResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(ReleaseVectorFieldCommand)(
+			[InResource](FRHICommandList& RHICmdList)
+			{
+				InResource->ReleaseResource();
+				delete InResource;
+			});
 	}
-	Resource = NULL;
+	Resource = nullptr;
 }
 
 void UVectorFieldStatic::Serialize(FArchive& Ar)
@@ -648,13 +648,13 @@ void UVectorFieldComponent::OnUnregister()
 	{
 		if (VectorFieldInstance)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				FDestroyVectorFieldInstanceCommand,
-				FVectorFieldInstance*, VectorFieldInstance, VectorFieldInstance,
-			{
-				delete VectorFieldInstance;
-			});
-			VectorFieldInstance = NULL;
+			FVectorFieldInstance* InVectorFieldInstance = VectorFieldInstance;
+			ENQUEUE_RENDER_COMMAND(FDestroyVectorFieldInstanceCommand)(
+				[InVectorFieldInstance](FRHICommandList& RHICmdList)
+				{
+					delete InVectorFieldInstance;
+				});
+			VectorFieldInstance = nullptr;
 		}
 	}
 	else if (VectorFieldInstance)

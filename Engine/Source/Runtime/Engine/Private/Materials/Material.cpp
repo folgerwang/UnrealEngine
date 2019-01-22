@@ -255,12 +255,12 @@ public:
 	 */
 	void GameThread_Destroy()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyDefaultMaterialInstanceCommand,
-			FDefaultMaterialInstance*,Resource,this,
-		{
-			delete Resource;
-		});
+		FDefaultMaterialInstance* Resource = this;
+		ENQUEUE_RENDER_COMMAND(FDestroyDefaultMaterialInstanceCommand)(
+			[Resource](FRHICommandList& RHICmdList)
+			{
+				delete Resource;
+			});
 	}
 
 	// FMaterialRenderProxy interface.

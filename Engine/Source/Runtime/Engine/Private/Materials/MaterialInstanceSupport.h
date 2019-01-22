@@ -77,12 +77,12 @@ public:
 	 */
 	void GameThread_Destroy()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyMaterialInstanceResourceCommand,
-			FMaterialInstanceResource*,Resource,this,
-		{
-			delete Resource;
-		});
+		FMaterialInstanceResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(FDestroyMaterialInstanceResourceCommand)(
+			[Resource](FRHICommandList& RHICmdList)
+			{
+				delete Resource;
+			});
 	}
 
 	// FRenderResource interface.

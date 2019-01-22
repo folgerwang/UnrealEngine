@@ -401,14 +401,14 @@ void USkyLightComponent::DestroyRenderState_Concurrent()
 	{
 		GetWorld()->Scene->DisableSkyLight(SceneProxy);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroySkyLightCommand,
-			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
-		{
-			delete LightSceneProxy;
-		});
+		FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FDestroySkyLightCommand)(
+			[LightSceneProxy](FRHICommandList& RHICmdList)
+			{
+				delete LightSceneProxy;
+			});
 
-		SceneProxy = NULL;
+		SceneProxy = nullptr;
 	}
 }
 
@@ -736,10 +736,11 @@ void USkyLightComponent::SetCubemap(UTextureCube* NewCubemap)
 		SetCaptureIsDirty();
 
 #if RHI_RAYTRACING
-		if (SceneProxy) {
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				SetLightProxyDirty,
-				FSkyLightSceneProxy*, LightSceneProxy, SceneProxy,
+		if (SceneProxy)
+		{
+			FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+			ENQUEUE_RENDER_COMMAND(SetLightProxyDirty)(
+				[LightSceneProxy](FRHICommandList& RHICmdList)
 				{
 					LightSceneProxy->IsDirtyImportanceSamplingData = true;
 				});

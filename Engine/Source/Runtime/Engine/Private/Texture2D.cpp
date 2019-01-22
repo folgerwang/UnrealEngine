@@ -1147,12 +1147,12 @@ void UTexture2D::RefreshSamplerStates()
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		RefreshSamplerStatesCommand,
-		FTexture2DResource*, Texture2DResource, ((FTexture2DResource*)Resource),
-	{
-		Texture2DResource->RefreshSamplerStates();
-	});
+	FTexture2DResource* Texture2DResource = ((FTexture2DResource*)Resource);
+	ENQUEUE_RENDER_COMMAND(RefreshSamplerStatesCommand)(
+		[Texture2DResource](FRHICommandList& RHICmdList)
+		{
+			Texture2DResource->RefreshSamplerStates();
+		});
 }
 
 /*-----------------------------------------------------------------------------
@@ -1206,11 +1206,11 @@ FTexture2DResource::~FTexture2DResource()
 {
 	// free resource memory that was preallocated
 	// The deletion needs to happen in the rendering thread.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		DeleteResourceMem,
-		FTexture2DResourceMem*,ResourceMem,ResourceMem,
+	FTexture2DResourceMem* InResourceMem = ResourceMem;
+	ENQUEUE_RENDER_COMMAND(DeleteResourceMem)(
+		[InResourceMem](FRHICommandList& RHICmdList)
 		{
-			delete ResourceMem;
+			delete InResourceMem;
 		});
 
 	// Make sure we're not leaking memory if InitRHI has never been called.
