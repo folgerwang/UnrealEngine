@@ -724,7 +724,7 @@ void FDepthPassMeshProcessor::Process(
 
 	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(DepthPassShaders.VertexShader, DepthPassShaders.PixelShader);
 
-	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : Scene->bStaticDrawInstancedStereo;
+	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : (Scene && Scene->bStaticDrawInstancedStereo);
 	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
 
 	BuildMeshDrawCommands(

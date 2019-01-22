@@ -94,6 +94,11 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 	const FReadOnlyMeshDrawSingleShaderBindings& RESTRICT SingleShaderBindings,
 	FShaderBindingState& RESTRICT ShaderBindingState)
 {
+#if USING_CODE_ANALYSIS
+	MSVC_PRAGMA(warning(push))
+	MSVC_PRAGMA(warning(disable : 6386)) // Parameter.BaseIndex may be out of bounds.
+#endif
+
 	const FUniformBufferRHIParamRef* RESTRICT UniformBufferBindings = SingleShaderBindings.GetUniformBufferStart();
 	const FShaderParameterInfo* RESTRICT UniformBufferParameters = SingleShaderBindings.ParameterMapInfo.UniformBuffers.GetData();
 	const int32 NumUniformBuffers = SingleShaderBindings.ParameterMapInfo.UniformBuffers.Num();
@@ -181,6 +186,10 @@ void FMeshDrawShaderBindings::SetShaderBindings(
 			LooseDataStart += Parameter.Size;
 		}
 	}
+
+#if USING_CODE_ANALYSIS
+	MSVC_PRAGMA(warning(pop))
+#endif
 }
 
 template<class RHIShaderType>

@@ -90,8 +90,6 @@ TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUnifo
 	return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 }
 
-const int32 DefaultBaseVertexIndex = 0;
-
 void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
 	const FSceneInterface* Scene,
 	const FSceneView* View,
@@ -328,6 +326,7 @@ void FLocalVertexFactory::InitRHI()
 	InitDeclaration(Elements);
 	check(IsValidRef(GetDeclaration()));
 
+	const int32 DefaultBaseVertexIndex = 0;
 	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || bCanUseGPUScene)
 	{
 		UniformBuffer = CreateLocalVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex);
