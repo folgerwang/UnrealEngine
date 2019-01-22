@@ -255,7 +255,7 @@ public:
 
 				if (Error)
 				{
-					GLog->Logf(TEXT("FTcpSocketBuilder: Failed to create the socket %s as configured (%i)"), *Description, errno);
+					GLog->Logf(TEXT("FTcpSocketBuilder: Failed to create the socket %s as configured"), *Description);
 
 					SocketSubsystem->DestroySocket(Socket);
 
