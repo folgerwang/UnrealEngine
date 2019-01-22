@@ -90,7 +90,7 @@ TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUnifo
 	return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 }
 
-void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
+void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 	const FSceneInterface* Scene,
 	const FSceneView* View,
 	const FMeshMaterialShader* Shader, 
@@ -98,6 +98,7 @@ void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
 	ERHIFeatureLevel::Type FeatureLevel,
 	const FVertexFactory* VertexFactory, 
 	const FMeshBatchElement& BatchElement,
+	FUniformBufferRHIParamRef VertexFactoryUniformBuffer,
 	FMeshDrawSingleShaderBindings& ShaderBindings,
 	FVertexInputStreamArray& VertexStreams
 	) const
@@ -106,8 +107,6 @@ void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
 	
 	if (LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
 	{
-		FUniformBufferRHIParamRef VertexFactoryUniformBuffer = static_cast<FUniformBufferRHIParamRef>(BatchElement.VertexFactoryUserData);
-
 		if (!VertexFactoryUniformBuffer)
 		{
 			// No batch element override
@@ -149,6 +148,33 @@ void FLocalVertexFactoryShaderParametersBase::GetElementShaderBindings(
 	}
 }
 
+void FLocalVertexFactoryShaderParameters::GetElementShaderBindings(
+	const FSceneInterface* Scene,
+	const FSceneView* View,
+	const FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams
+) const
+{
+	// Decode VertexFactoryUserData as VertexFactoryUniformBuffer
+	FUniformBufferRHIParamRef VertexFactoryUniformBuffer = static_cast<FUniformBufferRHIParamRef>(BatchElement.VertexFactoryUserData);
+
+	FLocalVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
+		Scene,
+		View,
+		Shader,
+		bShaderRequiresPositionOnlyStream,
+		FeatureLevel,
+		VertexFactory,
+		BatchElement,
+		VertexFactoryUniformBuffer,
+		ShaderBindings,
+		VertexStreams);
+}
 
 /**
  * Should we cache the material's shadertype on this platform with this vertex factory? 

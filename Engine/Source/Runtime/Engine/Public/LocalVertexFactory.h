@@ -166,7 +166,8 @@ class FLocalVertexFactoryShaderParametersBase : public FVertexFactoryShaderParam
 public:
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void GetElementShaderBindings(
+
+	void GetElementShaderBindingsBase(
 		const class FSceneInterface* Scene,
 		const FSceneView* View,
 		const FMeshMaterialShader* Shader,
@@ -174,9 +175,10 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		const FVertexFactory* VertexFactory,
 		const FMeshBatchElement& BatchElement,
+		FUniformBufferRHIParamRef VertexFactoryUniformBuffer,
 		FMeshDrawSingleShaderBindings& ShaderBindings,
 		FVertexInputStreamArray& VertexStreams
-		) const override;
+		) const;
 
 	FLocalVertexFactoryShaderParametersBase()
 		: bAnySpeedTreeParamIsBound(false)
@@ -194,4 +196,16 @@ public:
 class FLocalVertexFactoryShaderParameters : public FLocalVertexFactoryShaderParametersBase
 {
 public:
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+	) const override; 
 };
