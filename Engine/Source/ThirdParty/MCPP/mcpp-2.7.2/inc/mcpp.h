@@ -21,6 +21,12 @@ struct file_loader
 };
 typedef struct file_loader file_loader;
 
+/** External interface for redirecting memory allocation functions for MCPP. */
+extern void mcpp_setmalloc(void*(*xm_malloc)(size_t),
+						   void*(*xm_realloc)(void*, size_t),
+						   void(*xm_free)(void* ptr) );
+
+
 /** External interface for preprocessing a file with MCPP. */
 extern int mcpp_run(
 	const char* options,

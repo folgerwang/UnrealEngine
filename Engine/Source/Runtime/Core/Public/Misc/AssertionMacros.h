@@ -10,6 +10,14 @@
 #include "Templates/IsValidVariadicFunctionArg.h"
 #include "Misc/VarArgs.h"
 
+#if DO_CHECK || DO_GUARD_SLOW
+	// We'll put all assert implementation code into a separate section in the linked
+	// executable. This code should never execute so using a separate section keeps
+	// it well off the hot path and hopefully out of the instruction cache. It also
+	// facilitates reasoning about the makeup of a compiled/linked binary.
+	#define UE_DEBUG_SECTION PLATFORM_CODE_SECTION(".uedbg")
+#endif // DO_CHECK || DO_GUARD_SLOW
+
 namespace ELogVerbosity
 {
 	enum Type : uint8;
@@ -41,18 +49,16 @@ struct CORE_API FDebug
 
 #if DO_CHECK || DO_GUARD_SLOW
 private:
+	static void VARARGS CheckVerifyFailedImpl(const ANSICHAR* Expr, const char* File, int32 Line, const TCHAR* Format, ...);
 	static void VARARGS LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...);
+	static void LogAssertFailedMessageImplV(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, va_list Args);
 
 public:
-	/** Failed assertion handler.  Warning: May be called at library startup time. */
+	/**
+	 * Called when a 'check/verify' assertion fails.
+	 */
 	template <typename FmtType, typename... Types>
-	static void LogAssertFailedMessage(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const FmtType& Fmt, Types... Args)
-	{
-		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FDebug::LogAssertFailedMessage");
-
-		LogAssertFailedMessageImpl(Expr, File, Line, Fmt, Args...);
-	}
+	static void UE_DEBUG_SECTION CheckVerifyFailed(const ANSICHAR* Expr, const char* File, int32 Line, const FmtType& Format, Types... Args);
 	
 	/**
 	 * Called when an 'ensure' assertion fails; gathers stack data and generates and error report.
@@ -132,33 +138,92 @@ public:
 // "verify" expressions are always evaluated, but only cause an error if enabled.
 //
 
+#if DO_CHECK || DO_GUARD_SLOW
+	template <typename FmtType, typename... Types>
+	void FORCENOINLINE UE_DEBUG_SECTION FDebug::CheckVerifyFailed(
+		const ANSICHAR* Expr,
+		const ANSICHAR* File,
+		const int Line,
+		const FmtType& Format,
+		Types... Args)
+	{
+		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
+		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to CheckVerifyFailed()");
+		return CheckVerifyFailedImpl(Expr, File, Line, Format, Args...);
+	}
+
+	// MSVC (v19.00.24215.1 at time of writing) ignores no-inline attributes on
+	// lambdas. This can be worked around by calling the lambda from inside this
+	// templated (and correctly non-inlined) function.
+	template <typename RetType=void, class InnerType>
+	RetType FORCENOINLINE UE_DEBUG_SECTION DispatchCheckVerify(InnerType&& Inner)
+	{
+		return Inner();
+	}
+#endif
+
 #if !UE_BUILD_SHIPPING
 #define _DebugBreakAndPromptForRemote() \
 	if (!FPlatformMisc::IsDebuggerPresent()) { FPlatformMisc::PromptForRemoteDebugging(false); } UE_DEBUG_BREAK();
 #else
 	#define _DebugBreakAndPromptForRemote()
 #endif // !UE_BUILD_SHIPPING
+
 #if DO_CHECK
 	#define checkCode( Code )		do { Code; } while ( false );
-	#define verify(expr)			{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(false); } }
-	#define check(expr)				{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(false); } }
+	#define verify(expr)			UE_CHECK_IMPL(expr)
+	#define check(expr)				UE_CHECK_IMPL(expr)
+
+	// Technically we could use just the _F version (lambda-based) for asserts
+	// both with and without formatted messages. However MSVC emits extra
+	// unnecessary instructions when using a lambda; hence the Exec() impl.
+	#define UE_CHECK_IMPL(expr) \
+		{ \
+			if(UNLIKELY(!(expr))) \
+			{ \
+				struct Impl \
+				{ \
+					static void FORCENOINLINE UE_DEBUG_SECTION ExecCheckImplInternal() \
+					{ \
+						FDebug::CheckVerifyFailed(#expr, __FILE__, __LINE__, TEXT("")); \
+					} \
+				}; \
+				Impl::ExecCheckImplInternal(); \
+				PLATFORM_BREAK(); \
+				CA_ASSUME(false); \
+			} \
+		}
 	
 	/**
 	 * verifyf, checkf: Same as verify, check but with printf style additional parameters
 	 * Read about __VA_ARGS__ (variadic macros) on http://gcc.gnu.org/onlinedocs/gcc-3.4.4/cpp.pdf.
 	 */
-	#define verifyf(expr, format,  ...)		{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__, format, ##__VA_ARGS__); CA_ASSUME(false); } }
-	#define checkf(expr, format,  ...)		{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__, format, ##__VA_ARGS__); CA_ASSUME(false); } }
+	#define verifyf(expr, format,  ...)		UE_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
+	#define checkf(expr, format,  ...)		UE_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
+
+	#define UE_CHECK_F_IMPL(expr, format, ...) \
+		{ \
+			if(UNLIKELY(!(expr))) \
+			{ \
+				DispatchCheckVerify([&] () FORCENOINLINE UE_DEBUG_SECTION \
+				{ \
+					FDebug::CheckVerifyFailed(#expr, __FILE__, __LINE__, format, ##__VA_ARGS__); \
+				}); \
+				PLATFORM_BREAK(); \
+				CA_ASSUME(false); \
+			} \
+		}
+
 	/**
 	 * Denotes code paths that should never be reached.
 	 */
-	#define checkNoEntry()       { FDebug::LogAssertFailedMessage( "Enclosing block should never be called", __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed("Enclosing block should never be called", __FILE__, __LINE__ ); CA_ASSUME(false); }
+	#define checkNoEntry()       check(!"Enclosing block should never be called")
 
 	/**
 	 * Denotes code paths that should not be executed more than once.
 	 */
 	#define checkNoReentry()     { static bool s_beenHere##__LINE__ = false;                                         \
-	                               checkf( !s_beenHere##__LINE__, TEXT("Enclosing block was called more than once") );   \
+	                               check( !"Enclosing block was called more than once" || !s_beenHere##__LINE__ );   \
 								   s_beenHere##__LINE__ = true; }
 
 	class FRecursionScopeMarker
@@ -174,10 +239,10 @@ public:
 	 * Denotes code paths that should never be called recursively.
 	 */
 	#define checkNoRecursion()  static uint16 RecursionCounter##__LINE__ = 0;                                            \
-	                            checkf( RecursionCounter##__LINE__ == 0, TEXT("Enclosing block was entered recursively") );  \
+	                            check( !"Enclosing block was entered recursively" || RecursionCounter##__LINE__ == 0 );  \
 	                            const FRecursionScopeMarker ScopeMarker##__LINE__( RecursionCounter##__LINE__ )
 
-	#define unimplemented()       { FDebug::LogAssertFailedMessage( "Unimplemented function called", __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed("Unimplemented function called", __FILE__, __LINE__); CA_ASSUME(false); }
+	#define unimplemented()		check(!"Unimplemented function called")
 
 #else
 	#define checkCode(...)
@@ -195,9 +260,9 @@ public:
 // Check for development only.
 //
 #if DO_GUARD_SLOW
-	#define checkSlow(expr)					{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__); CA_ASSUME(false); } }
-	#define checkfSlow(expr, format, ...)	{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); CA_ASSUME(false); } }
-	#define verifySlow(expr)				{ if(UNLIKELY(!(expr))) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, TEXT("") ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__); CA_ASSUME(false); } }
+	#define checkSlow(expr)					check(expr)
+	#define checkfSlow(expr, format, ...)	checkf(expr, format, ##__VA_ARGS__)
+	#define verifySlow(expr)				check(expr)
 #else
 	#define checkSlow(expr)					{ CA_ASSUME(expr); }
 	#define checkfSlow(expr, format, ...)	{ CA_ASSUME(expr); }
@@ -232,32 +297,28 @@ public:
 
 #if DO_CHECK && !USING_CODE_ANALYSIS // The Visual Studio 2013 analyzer doesn't understand these complex conditionals
 
-	namespace UE4Asserts_Private
-	{
-		// This is used by ensure to generate a bool per instance
-		// by passing a lambda which will uniquely instantiate the template.
-		template <typename Type>
-		bool TrueOnFirstCallOnly(const Type&)
-		{
-			static bool bValue = true;
-			bool Result = bValue;
-			bValue = false;
-			return Result;
-		}
-	}
+	#define UE_ENSURE_IMPL(Capture, Always, InExpression, ...) \
+		(LIKELY(!!(InExpression)) || (DispatchCheckVerify<bool>([Capture] () FORCENOINLINE UE_DEBUG_SECTION \
+		{ \
+			static bool bExecuted = false; \
+			if ((!bExecuted || Always) && FPlatformMisc::IsEnsureAllowed()) \
+			{ \
+				bExecuted = true; \
+				FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true, #InExpression, __FILE__, __LINE__, ##__VA_ARGS__); \
+				if (!FPlatformMisc::IsDebuggerPresent()) \
+				{ \
+					FPlatformMisc::PromptForRemoteDebugging(true); \
+					return false; \
+				} \
+				return true; \
+			} \
+			return false; \
+		}) && ([] () { PLATFORM_BREAK(); } (), false)))
 
-	#if UE_BUILD_SHIPPING
-		#define UE_ENSURE_BREAK() false
-		#define UE_ENSURE_BREAK_ONCE() false
-	#else
-		#define UE_ENSURE_BREAK() ((FPlatformMisc::IsDebuggerPresent() || (FPlatformMisc::PromptForRemoteDebugging(true), true)), UE_DEBUG_BREAK(), false)
-		#define UE_ENSURE_BREAK_ONCE() (UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && UE_ENSURE_BREAK())
-	#endif
-
-	#define ensure(           InExpression                ) (LIKELY(!!(InExpression)) || (FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && FPlatformMisc::IsEnsureAllowed(), #InExpression, __FILE__, __LINE__, TEXT("")               )) || UE_ENSURE_BREAK_ONCE())
-	#define ensureMsgf(       InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || (FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}) && FPlatformMisc::IsEnsureAllowed(), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__)) || UE_ENSURE_BREAK_ONCE())
-	#define ensureAlways(     InExpression                ) (LIKELY(!!(InExpression)) || (FPlatformMisc::IsEnsureAllowed() && FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               )) || UE_ENSURE_BREAK())
-	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) (LIKELY(!!(InExpression)) || (FPlatformMisc::IsEnsureAllowed() && FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__)) || UE_ENSURE_BREAK())
+	#define ensure(           InExpression                ) UE_ENSURE_IMPL( , false, InExpression, TEXT(""))
+	#define ensureMsgf(       InExpression, InFormat, ... ) UE_ENSURE_IMPL(&, false, InExpression, InFormat, ##__VA_ARGS__)
+	#define ensureAlways(     InExpression                ) UE_ENSURE_IMPL( , true,  InExpression, TEXT(""))
+	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) UE_ENSURE_IMPL(&, true,  InExpression, InFormat, ##__VA_ARGS__)
 
 #else	// DO_CHECK
 

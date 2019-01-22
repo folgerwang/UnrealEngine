@@ -42,6 +42,16 @@ typedef FHTML5Types FPlatformTypes;
 #define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT			0
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
 
+#define PLATFORM_BREAK() \
+	[] () -> void \
+	{ \
+			emscripten_log(255, "Debug breakpoint!"); \
+			EM_ASM( \
+				var callstack = new Error; \
+				throw callstack.stack; \
+			); \
+	} ()
+
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
 #else

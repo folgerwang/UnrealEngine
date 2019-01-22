@@ -221,8 +221,8 @@ void FGameplayAttribute::PostSerialize(const FArchive& Ar)
 
 			if (!Attribute)
 			{
-				FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-				FString AssetName = ThreadContext.SerializedObject ? ThreadContext.SerializedObject->GetPathName() : TEXT("Unknown Object");
+				FUObjectSerializeContext* LoadContext = const_cast<FArchive*>(&Ar)->GetSerializeContext();
+				FString AssetName = (LoadContext && LoadContext->SerializedObject) ? LoadContext->SerializedObject->GetPathName() : TEXT("Unknown Object");
 
 				FString OwnerName = AttributeOwner ? AttributeOwner->GetName() : TEXT("NONE");
 				ABILITY_LOG(Warning, TEXT("FGameplayAttribute::PostSerialize called on an invalid attribute with owner %s and name %s. (Asset: %s)"), *OwnerName, *AttributeName, *AssetName);

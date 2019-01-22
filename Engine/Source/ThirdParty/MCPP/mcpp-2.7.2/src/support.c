@@ -163,7 +163,7 @@ void    mcpp_use_mem_buffers(
     for (i = 0; i < NUM_OUTDEST; ++i) {
         if (mem_buffers[ i].buffer)
             /* Free previously allocated memory buffer  */
-            free( mem_buffers[ i].buffer);
+            xfree( mem_buffers[ i].buffer);
         if (use_mem_buffers) {
             /* Output to memory buffers instead of files    */
             mem_buffers[ i].buffer = NULL;
@@ -765,7 +765,7 @@ scan:
                         cwarn(
     "Illegal multi-byte character sequence \"%s\" in quotation",    /* _W1_ */
                         buf, 0L, NULL);
-                        free( buf);
+                        xfree( buf);
                     }
                 }
                 continue;
@@ -922,14 +922,14 @@ static char *   cat_line(
     save1 = save_string( infile->buffer);
     save2 = get_line( FALSE);   /* infile->buffer is overwritten    */
     if (save2 == NULL) {
-        free( save1);
+        xfree( save1);
         return  NULL;
     }
     save2 = save_string( infile->buffer);
     memcpy( infile->buffer, save1, len);
     strcpy( infile->buffer + len, save2);               /* Catenate */
-    free( save1);
-    free( save2);
+    xfree( save1);
+    xfree( save2);
     if (! del_bsl)
         len -= 2;
     infile->bptr = infile->buffer + len;
@@ -1490,7 +1490,7 @@ void    clear_exp_mac( void)
 
     for (i = 1; i < EXP_MAC_IND_MAX; i++) {
         if (expanding_macro[ i].to_be_freed) {
-            free( (void *) expanding_macro[ i].name);
+            xfree( (void *) expanding_macro[ i].name);
             expanding_macro[ i].to_be_freed = FALSE;
         }
     }
@@ -1584,16 +1584,16 @@ int     get_ch( void)
      * input from the parent file/macro, if any.
      */
     infile = file->parent;                  /* Unwind file chain    */
-    free( file->buffer);                    /* Free buffer          */
+    xfree( file->buffer);                    /* Free buffer          */
     if (infile == NULL) {                   /* If at end of input   */
-        free( file->filename);
-        free( file->src_dir);
-        free( file);    /* full_fname is the same with filename for main file*/
+        xfree( file->filename);
+        xfree( file->src_dir);
+        xfree( file);    /* full_fname is the same with filename for main file*/
         return  CHAR_EOF;                   /* Return end of file   */
     }
     if (file->mf) {                         /* Source file included */
-        free( file->filename);              /* Free filename        */
-        free( file->src_dir);               /* Free src_dir         */
+        xfree( file->filename);              /* Free filename        */
+        xfree( file->src_dir);               /* Free src_dir         */
         //fclose( file->fp);                  /* Close finished file  */
 		mfclose(file->mf);
         /* Do not free file->real_fname and file->full_fname        */
@@ -1631,9 +1631,9 @@ int     get_ch( void)
         if (macro_name)     /* file->filename should be freed later */
             expanding( file->filename, TRUE);
         else
-            free( file->filename);
+            xfree( file->filename);
     }
-    free( file);                            /* Free file space      */
+    xfree( file);                            /* Free file space      */
     return  get_ch();                       /* Get from the parent  */
 }
 
@@ -1686,7 +1686,7 @@ static char *   parse_line( void)
             case '*':                       /* Start of a comment   */
 com_start:
                 if ((sp = read_a_comment( sp, &com_size)) == NULL) {
-                    free( temp);            /* End of file with un- */
+                    xfree( temp);            /* End of file with un- */
                     return  NULL;           /*   terminated comment */
                 }
                 if (keep_spaces && mcpp_mode != OLD_PREP) {
@@ -1779,7 +1779,7 @@ not_comment:
                 in_string = FALSE;
             }
             if (tp == NULL) {
-                free( temp);                /* Unbalanced quotation */
+                xfree( temp);                /* Unbalanced quotation */
                 return  parse_line();       /* Skip the line        */
             }
             sp = infile->bptr;
@@ -1808,7 +1808,7 @@ end_line:
     *tp++ = '\n';
     *tp = EOS;
     infile->bptr = strcpy( infile->buffer, temp);   /* Write back to buffer */
-    free( temp);
+    xfree( temp);
     if (macro_line != 0 && macro_line != MACRO_ERROR) { /* Expanding macro  */
         temp = infile->buffer;
         while (char_type[ *temp & UCHARMAX] & HSP)
@@ -2338,6 +2338,10 @@ FILEINFO *  get_file(
     return  file;                           /* All done.            */
 }
 
+void* (*xm_malloc)(size_t size)             = malloc;
+void* (*xm_realloc)(void* ptr, size_t size) = realloc;
+void  (*xm_free)(void* ptr)                 = free;
+
 static const char * const   out_of_memory
     = "Out of memory (required size is %.0s0x%lx bytes)";   /* _F_  */
 
@@ -2351,7 +2355,7 @@ char *
 {
     char *      result;
 
-    if ((result = (char *) malloc( size)) == NULL) {
+    if ((result = (char *) xm_malloc( size)) == NULL) {
         if (mcpp_debug & MEMORY)
             print_heap();
        cfatal( out_of_memory, NULL, (long) size, NULL);
@@ -2369,7 +2373,7 @@ char *  (xrealloc)(
 {
     char *      result;
 
-    if ((result = (char *) realloc( ptr, size)) == NULL && size != 0) {
+    if ((result = (char *) xm_realloc( ptr, size)) == NULL && size != 0) {
         /* 'size != 0' is necessary to cope with some               */
         /*   implementation of realloc( ptr, 0) which returns NULL. */
         if (mcpp_debug & MEMORY)
@@ -2377,6 +2381,30 @@ char *  (xrealloc)(
         cfatal( out_of_memory, NULL, (long) size, NULL);
     }
     return  result;
+}
+
+void (xfree)(
+	void*       ptr
+)
+{
+	xm_free(ptr);
+}
+
+char * xstrdup(const char* str)
+{
+	size_t len = strlen(str) + 1;
+	char* str2 = xmalloc(len);
+	memcpy(str2, str, len);
+	return str2;
+}
+
+void mcpp_setmalloc(void*(*x_malloc)(size_t),
+	void*(*x_realloc)(void*, size_t),
+	void(*x_free)(void* ptr))
+{
+	xm_malloc = x_malloc;
+	xm_realloc = x_realloc;
+	xm_free = x_free;
 }
 
 LINE_COL *  get_src_location(
@@ -2621,7 +2649,7 @@ static void do_msg(
 
 free_arg:
     for (i = 0; i < 2; i++)
-        free( arg_t[ i]);
+        free( arg_t[ i]);   /* not using xmalloc for allocation above */
 }
 
 void    cfatal(

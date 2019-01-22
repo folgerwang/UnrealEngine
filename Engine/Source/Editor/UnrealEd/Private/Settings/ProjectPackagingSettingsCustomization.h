@@ -153,7 +153,7 @@ protected:
 			IDetailCategoryBuilder& ProjectCategory = LayoutBuilder.EditCategory("Project");
 			{
 				TSharedRef<FPropertyRestriction> BuildConfigurationRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("ContentOnlyRestrictionReason", "The DebugGame and Client build configurations are not available in content-only projects.")));
-				const UEnum* const ProjectPackagingBuildConfigurationsEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"));		
+				const UEnum* const ProjectPackagingBuildConfigurationsEnum = StaticEnum<EProjectPackagingBuildConfigurations>();		
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGame));
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGameClient));
 
@@ -169,7 +169,7 @@ protected:
 			if (ClientTargetFileNames.Num() == 0)
 			{
 				TSharedRef<FPropertyRestriction> BuildConfigurationRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("ClientRestrictionReason", "The Client build configurations require a {ProjectName}Client.Target.cs file in your Project/Source folder.")));
-				const UEnum* const ProjectPackagingBuildConfigurationsEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"));
+				const UEnum* const ProjectPackagingBuildConfigurationsEnum = StaticEnum<EProjectPackagingBuildConfigurations>();
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGameClient));
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DevelopmentClient));
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_ShippingClient));

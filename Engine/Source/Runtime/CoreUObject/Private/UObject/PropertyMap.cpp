@@ -9,6 +9,7 @@
 #include "UObject/PropertyHelper.h"
 #include "Misc/ScopeExit.h"
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
+#include "UObject/UObjectThreadContext.h"
 
 namespace UE4MapProperty_Private
 {
@@ -76,12 +77,12 @@ namespace UE4MapProperty_Private
 
 			const uint8* PairA = MapHelperA.GetPairPtr(IndexA);
 			const uint8* PairB = MapHelperB.GetPairPtr(IndexB);
-			if (KeyProp->Identical(PairA, PairToCompare, PortFlags) && ValueProp->Identical(PairA + ValueOffset, PairToCompare + ValueOffset, PortFlags))
+			if (PairA == PairToCompare || (KeyProp->Identical(PairA, PairToCompare, PortFlags) && ValueProp->Identical(PairA + ValueOffset, PairToCompare + ValueOffset, PortFlags)))
 			{
 				++CountA;
 			}
 
-			if (KeyProp->Identical(PairB, PairToCompare, PortFlags) && ValueProp->Identical(PairB + ValueOffset, PairToCompare + ValueOffset, PortFlags))
+			if (PairB == PairToCompare || (KeyProp->Identical(PairB, PairToCompare, PortFlags) && ValueProp->Identical(PairB + ValueOffset, PairToCompare + ValueOffset, PortFlags)))
 			{
 				++CountB;
 			}
@@ -243,6 +244,12 @@ void UMapProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, co
 {
 	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
+	// If we're doing delta serialization within this property, act as if there are no defaults
+	if (!UnderlyingArchive.DoIntraPropertyDelta())
+	{
+		Defaults = nullptr;
+	}
 
 	// Ar related calls in this function must be mirrored in UMapProperty::ConvertFromType
 	checkSlow(KeyProp);

@@ -2063,6 +2063,7 @@ public:
 	 */
 	FORCEINLINE void Reserve(int32 Number)
 	{
+		checkSlow(Number >= 0);
 		if (Number > ArrayMax)
 		{
 			ResizeTo(Number);

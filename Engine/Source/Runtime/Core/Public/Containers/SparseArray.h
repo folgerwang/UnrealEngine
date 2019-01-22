@@ -126,10 +126,18 @@ public:
 	}
 
 	/** Adds an element to the array. */
-	int32 Add(typename TTypeTraits<ElementType>::ConstInitType Element)
+	int32 Add(const ElementType& Element)
 	{
 		FSparseArrayAllocationInfo Allocation = AddUninitialized();
 		new(Allocation) ElementType(Element);
+		return Allocation.Index;
+	}
+
+	/** Adds an element to the array. */
+	int32 Add(ElementType&& Element)
+	{
+		FSparseArrayAllocationInfo Allocation = AddUninitialized();
+		new(Allocation) ElementType(MoveTemp(Element));
 		return Allocation.Index;
 	}
 
@@ -1010,7 +1018,7 @@ template <typename T, typename Allocator> void* operator new( size_t Size, TSpar
 
 struct FScriptSparseArrayLayout
 {
-	int32 ElementOffset;
+	// ElementOffset is at zero offset from the TSparseArrayElementOrFreeListLink - not stored here
 	int32 Alignment;
 	int32 Size;
 };
@@ -1023,7 +1031,6 @@ public:
 	static FScriptSparseArrayLayout GetScriptLayout(int32 ElementSize, int32 ElementAlignment)
 	{
 		FScriptSparseArrayLayout Result;
-		Result.ElementOffset = 0;
 		Result.Alignment     = FMath::Max(ElementAlignment, (int32)alignof(FFreeListLink));
 		Result.Size          = FMath::Max(ElementSize,      (int32)sizeof (FFreeListLink));
 

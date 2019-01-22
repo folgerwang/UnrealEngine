@@ -1470,7 +1470,7 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 				{
 					if( FEngineAnalytics::IsAvailable() )
 					{
-						const static UEnum* FBXImportTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFBXImportType"));
+						const static UEnum* FBXImportTypeEnum = StaticEnum<EFBXImportType>();
 						const static UEnum* FBXAnimationLengthImportTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFBXAnimationLengthImportType"));
 						const static UEnum* MaterialSearchLocationEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialSearchLocation"));
 						const static UEnum* FBXNormalGenerationMethodEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFBXNormalGenerationMethod"));

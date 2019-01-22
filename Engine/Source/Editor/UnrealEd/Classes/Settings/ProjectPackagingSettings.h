@@ -149,7 +149,7 @@ public:
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints)
 	bool bExcludeMonolithicEngineHeadersInNativizedCode;
 
-	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
+	/** If enabled, all content will be put into a one or more .pak files instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;
 
@@ -198,6 +198,19 @@ public:
 	 */	
 	UPROPERTY(config, EditAnywhere, Category = Packaging)
 	FDirectoryPath HttpChunkInstallDataDirectory;
+
+	/**
+	 * A comma separated list of formats to use for .pak file compression. If more than one is specified, the list is in order of priority, with fallbacks to other formats
+	 * in case of errors or unavailability of the format (plugin not enabled, etc).
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, meta = (DisplayName = "Pak File Compression Format(s)"))
+	FString PakFileCompressionFormats;
+
+	/**
+	 * A generic setting for allowing a project to control compression settings during .pak file compression. For instance, if using the Oodle plugin, you could use -oodlemethod=Selkie -oodlelevel=Optimal1
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, meta = (DisplayName = "Pak File Compression Commandline Options"))
+	FString PakFileAdditionalCompressionOptions;
 
 	/** 
 	 * Version name for HTTP Chunk Install Data.

@@ -13,6 +13,7 @@ struct CORE_API FCoreObjectVersion
 		BeforeCustomVersionWasAdded = 0,
 		MaterialInputNativeSerialize,
 		EnumProperties,
+		SkeletalMaterialEditorDataStripping,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

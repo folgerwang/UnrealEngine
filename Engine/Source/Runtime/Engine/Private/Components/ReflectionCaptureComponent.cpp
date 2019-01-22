@@ -890,7 +890,7 @@ void UReflectionCaptureComponent::SerializeLegacyData(FArchive& Ar)
 						LegacyMapBuildData->FullHDRCapturedData.AddUninitialized(UncompressedSize);
 
 						const uint8* SourceData = &CompressedCapturedData[MemoryAr.Tell()];
-						verify(FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, LegacyMapBuildData->FullHDRCapturedData.GetData(), UncompressedSize, SourceData, CompressedSize));
+						verify(FCompression::UncompressMemory(NAME_Zlib, LegacyMapBuildData->FullHDRCapturedData.GetData(), UncompressedSize, SourceData, CompressedSize));
 					}
 
 					LegacyMapBuildData->AverageBrightness = AverageBrightness;

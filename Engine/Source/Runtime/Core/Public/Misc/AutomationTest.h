@@ -1222,62 +1222,107 @@ public:
 
 public:
 
-	void TestEqual(const FString& What, const int32 Actual, const int32 Expected);
-	void TestEqual(const FString& What, const float Actual, const float Expected, float Tolerance = KINDA_SMALL_NUMBER);
-	void TestEqual(const FString& What, const FVector Actual, const FVector Expected, float Tolerance = KINDA_SMALL_NUMBER);
-	void TestEqual(const FString& What, const FColor Actual, const FColor Expected);
+	void TestEqual(const TCHAR* What, int32 Actual, int32 Expected);
+	void TestEqual(const TCHAR* What, float Actual, float Expected, float Tolerance = KINDA_SMALL_NUMBER);
+	void TestEqual(const TCHAR* What, FVector Actual, FVector Expected, float Tolerance = KINDA_SMALL_NUMBER);
+	void TestEqual(const TCHAR* What, FColor Actual, FColor Expected);
+	void TestEqual(const TCHAR* What, const TCHAR* A, const TCHAR* B);
+	void TestEqualInsensitive(const TCHAR* What, const TCHAR* A, const TCHAR* B);
+
+	void TestEqual(const FString& What, int32 Actual, int32 Expected)
+	{
+		TestEqual(*What, Actual, Expected);
+	}
+
+	void TestEqual(const FString& What, float Actual, float Expected, float Tolerance = KINDA_SMALL_NUMBER)
+	{
+		TestEqual(*What, Actual, Expected, Tolerance);
+	}
+
+	void TestEqual(const FString& What, FVector Actual, FVector Expected, float Tolerance = KINDA_SMALL_NUMBER)
+	{
+		TestEqual(*What, Actual, Expected, Tolerance);
+	}
+
+	void TestEqual(const FString& What, FColor Actual, FColor Expected)
+	{
+		TestEqual(*What, Actual, Expected);
+	}
+
+	void TestEqual(const FString& What, const TCHAR* Actual, const TCHAR* Expected)
+	{
+		TestEqual(*What, Actual, Expected);
+	}
+
+	void TestEqual(const TCHAR* What, const FString& Actual, const TCHAR* Expected)
+	{
+		TestEqualInsensitive(What, *Actual, Expected);
+	}
+
+	void TestEqual(const FString& What, const FString& Actual, const TCHAR* Expected)
+	{
+		TestEqualInsensitive(*What, *Actual, Expected);
+	}
+
+	void TestEqual(const TCHAR* What, const TCHAR* Actual, const FString& Expected)
+	{
+		TestEqualInsensitive(What, Actual, *Expected);
+	}
+
+	void TestEqual(const FString& What, const TCHAR* Actual, const FString& Expected)
+	{
+		TestEqualInsensitive(*What, Actual, *Expected);
+	}
+
+	void TestEqual(const TCHAR* What, const FString& Actual, const FString& Expected)
+	{
+		TestEqualInsensitive(What, *Actual, *Expected);
+	}
+
+	void TestEqual(const FString& What, const FString& Actual, const FString& Expected)
+	{
+		TestEqualInsensitive(*What, *Actual, *Expected);
+	}
 
 	/**
 	 * Logs an error if the two values are not equal.
 	 *
-	 * @param Description - Description text for the test.
+	 * @param What - Description text for the test.
 	 * @param A - The first value.
 	 * @param B - The second value.
 	 *
 	 * @see TestNotEqual
 	 */
 	template<typename ValueType> 
-	void TestEqual(const FString& Description, const ValueType& A, const ValueType& B)
+	void TestEqual(const TCHAR* What, const ValueType& A, const ValueType& B)
 	{
 		if (A != B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are not equal."), What), 1);
 		}
 	}
 
-	void TestEqual(const FString& Description, const FString& A, const TCHAR* B)
+	template<typename ValueType>
+	void TestEqual(const FString& What, const ValueType& A, const ValueType& B)
 	{
-		if (A != B)
-		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, *A, B), 1);
-		}
+		TestEqual(*What, A, B);
 	}
 
-	void TestEqual(const FString& Description, const TCHAR* A, const TCHAR* B)
-	{
-		if (FCString::Strcmp(A,B) != 0)
-		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, B), 1);
-		}
-	}
-
-	void TestEqual(const FString& Description, const TCHAR* A, const FString& B)
-	{
-		if (FCString::Strcmp(A, *B) != 0)
-		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, *B), 1);
-		}
-	}
 
 	/**
 	 * Logs an error if the specified Boolean value is not false.
 	 *
-	 * @param Description - Description text for the test.
+	 * @param What - Description text for the test.
 	 * @param Value - The value to test.
 	 *
 	 * @see TestFalse
 	 */
-	void TestFalse(const FString& What, bool Value);
+	void TestFalse(const TCHAR* What, bool Value);
+
+	void TestFalse(const FString& What, bool Value)
+	{
+		TestFalse(*What, Value);
+	}
 
 	/**
 	 * Logs an error if the given shared pointer is valid.
@@ -1287,12 +1332,17 @@ public:
 	 *
 	 * @see TestValid
 	 */
-	template<typename ValueType> void TestInvalid(const FString& Description, const TSharedPtr<ValueType>& SharedPointer)
+	template<typename ValueType> void TestInvalid(const TCHAR* Description, const TSharedPtr<ValueType>& SharedPointer)
 	{
 		if (SharedPointer.IsValid())
 		{
-			AddError(FString::Printf(TEXT("%s: The shared pointer is valid."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The shared pointer is valid."), Description), 1);
 		}
+	}
+
+	template<typename ValueType> void TestInvalid(const FString& Description, const TSharedPtr<ValueType>& SharedPointer)
+	{
+		TestInvalid(*Description, SharedPointer);
 	}
 
 	/**
@@ -1304,32 +1354,38 @@ public:
 	 *
 	 * @see TestEqual
 	 */
-	template<typename ValueType> void TestNotEqual(const FString& Description, const ValueType& A, const ValueType& B)
+	template<typename ValueType> void TestNotEqual(const TCHAR* Description, const ValueType& A, const ValueType& B)
 	{
 		if (A == B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are equal."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are equal."), Description), 1);
 		}
+	}
+
+	template<typename ValueType> void TestNotEqual(const FString& Description, const ValueType& A, const ValueType& B)
+	{
+		TestNotEqual(*Description, A, B);
 	}
 
 	/**
 	 * Logs an error if the specified pointer is NULL.
 	 *
-	 * @param Description - Description text for the test.
+	 * @param What - Description text for the test.
 	 * @param Pointer - The pointer to test.
 	 *
 	 * @see TestNull
 	 */
-	template<typename ValueType> void TestNotNull(const FString& What, ValueType* Pointer)
+	template<typename ValueType> void TestNotNull(const TCHAR* What, ValueType* Pointer)
 	{
 		if (Pointer == nullptr)
 		{
-			AddError(FString::Printf(TEXT("Expected '%s' to be not null."), *What), 1);
+			AddError(FString::Printf(TEXT("Expected '%s' to be not null."), What), 1);
 		}
-		else
-		{
-			AddInfo(FString::Printf(TEXT("Expected '%s' to be not null."), *What), 1);
-		}
+	}
+
+	template<typename ValueType> void TestNotNull(const FString& What, ValueType* Pointer)
+	{
+		TestNotNull(*What, Pointer);
 	}
 
 	/**
@@ -1341,12 +1397,17 @@ public:
 	 *
 	 * @see TestSame
 	 */
-	template<typename ValueType> void TestNotSame(const FString& Description, const ValueType& A, const ValueType& B)
+	template<typename ValueType> void TestNotSame(const TCHAR* Description, const ValueType& A, const ValueType& B)
 	{
 		if (&A == &B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are the same."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are the same."), Description), 1);
 		}
+	}
+
+	template<typename ValueType> void TestNotSame(const FString& Description, const ValueType& A, const ValueType& B)
+	{
+		TestNotSame(*Description, A, B);
 	}
 
 	/**
@@ -1357,7 +1418,12 @@ public:
 	 *
 	 * @see TestNotNull
 	 */
-	void TestNull(const FString& What, const void* Pointer);
+	void TestNull(const TCHAR* What, const void* Pointer);
+
+	void TestNull(const FString& What, const void* Pointer)
+	{
+		TestNull(*What, Pointer);
+	}
 
 	/**
 	 * Logs an error if the two values are not the same object in memory.
@@ -1368,12 +1434,17 @@ public:
 	 *
 	 * @see TestNotSame
 	 */
-	template<typename ValueType> void TestSame(const FString& Description, const ValueType& A, const ValueType& B)
+	template<typename ValueType> void TestSame(const TCHAR* Description, const ValueType& A, const ValueType& B)
 	{
 		if (&A != &B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are not the same."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are not the same."), Description), 1);
 		}
+	}
+
+	template<typename ValueType> void TestSame(const FString& Description, const ValueType& A, const ValueType& B)
+	{
+		TestSame(*Description, A, B);
 	}
 
 	/**
@@ -1384,7 +1455,12 @@ public:
 	 *
 	 * @see TestFalse
 	 */
-	void TestTrue(const FString& What, bool Value);
+	void TestTrue(const TCHAR* What, bool Value);
+
+	void TestTrue(const FString& What, bool Value)
+	{
+		TestTrue(*What, Value);
+	}
 
 	/** Macro version of above, uses the passed in expression as the description as well */
 	#define TestTrueExpr(Expression) TestTrue(TEXT(#Expression), Expression)
@@ -1397,12 +1473,17 @@ public:
 	 *
 	 * @see TestInvalid
 	 */
-	template<typename ValueType> void TestValid(const FString& Description, const TSharedPtr<ValueType>& SharedPointer)
+	template<typename ValueType> void TestValid(const TCHAR* Description, const TSharedPtr<ValueType>& SharedPointer)
 	{
 		if (!SharedPointer.IsValid())
 		{
-			AddError(FString::Printf(TEXT("%s: The shared pointer is not valid."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The shared pointer is not valid."), Description), 1);
 		}
+	}
+
+	template<typename ValueType> void TestValid(const FString& Description, const TSharedPtr<ValueType>& SharedPointer)
+	{
+		TestValid(*Description, SharedPointer);
 	}
 
 protected:

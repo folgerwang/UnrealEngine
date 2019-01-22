@@ -27,7 +27,8 @@ public:
 		UEdGraphPin* VarPin = SelfNode->FindPin(UEdGraphSchema_K2::PN_Self);
 		check( VarPin );
 
-		FBPTerminal* Term = new (Context.Literals) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.Literals.Add(Term);
 		Term->CopyFromPin(VarPin, VarPin->PinName);
 		Term->bIsLiteral = true;
 		Context.NetMap.Add(VarPin, Term);		

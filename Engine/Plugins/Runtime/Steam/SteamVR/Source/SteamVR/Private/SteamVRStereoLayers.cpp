@@ -383,7 +383,7 @@ IStereoLayers* FSteamVRHMD::GetStereoLayers()
 		return FHeadMountedDisplayBase::GetStereoLayers();
 	}
 
-
+	ensure(VROverlay);
 	if (VROverlay)
 	{
 		return this;

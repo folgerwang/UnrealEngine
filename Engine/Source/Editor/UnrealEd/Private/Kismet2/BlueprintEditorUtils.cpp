@@ -115,6 +115,7 @@
 #include "Styling/SlateIconFinder.h"
 #include "BaseWidgetBlueprint.h"
 #include "Components/Widget.h"
+#include "UObject/UObjectThreadContext.h"
 
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
@@ -715,7 +716,7 @@ void FBlueprintEditorUtils::PreloadConstructionScript(UBlueprint* Blueprint)
 	}
 }
 
-void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded)
+void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, FUObjectSerializeContext* InLoadContext)
 {
 	if( (CDO != nullptr) && (Linker != nullptr) && (ExportIndex != INDEX_NONE) )
 	{
@@ -730,15 +731,15 @@ void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Lin
 			// Copy flags from the old CDO.
 			CDO->SetFlags(OldObjectFlags);
 
+			FUObjectSerializeContext* LoadContext = InLoadContext ? InLoadContext : Linker->GetSerializeContext();
+
 			// Make sure the new CDO gets PostLoad called on it, so either add it to ObjLoaded list, or replace it if already present.
-			int32 ObjLoadedIdx = ObjLoaded.Find(OldCDO);
-			if (ObjLoadedIdx != INDEX_NONE)
+			if (!LoadContext->PRIVATE_PatchNewObjectIntoExport(OldCDO, CDO))
 			{
-				ObjLoaded[ObjLoadedIdx] = CDO;
-			}
-			else if (OldObjectFlags & RF_NeedPostLoad)
-			{
-				ObjLoaded.Add(CDO);
+				if (OldObjectFlags & RF_NeedPostLoad)
+				{
+					LoadContext->AddLoadedObject(CDO);
+				}
 			}
 		}
 
@@ -1074,7 +1075,7 @@ struct FRegenerationHelper
 	 * 
 	 * @param  Blueprint	The blueprint whose implemented interfaces you want loaded.
 	 */
-	static void PreloadInterfaces(UBlueprint* Blueprint, TArray<UObject*>& ObjLoaded)
+	static void PreloadInterfaces(UBlueprint* Blueprint)
 	{
 #if WITH_EDITORONLY_DATA // ImplementedInterfaces is wrapped WITH_EDITORONLY_DATA 
 		for (FBPInterfaceDescription const& InterfaceDesc : Blueprint->ImplementedInterfaces)
@@ -1086,14 +1087,14 @@ struct FRegenerationHelper
 				UBlueprint::ForceLoadMembers(InterfaceBlueprint);
 				if (InterfaceBlueprint->HasAnyFlags(RF_BeingRegenerated))
 				{
-					InterfaceBlueprint->RegenerateClass(InterfaceClass, InterfaceClass->ClassDefaultObject, ObjLoaded);
+					InterfaceBlueprint->RegenerateClass(InterfaceClass, InterfaceClass->ClassDefaultObject);
 				}
 			}
 		}
 #endif // #if WITH_EDITORONLY_DATA
 	}
 
-	static void LinkExternalDependencies(UBlueprint* Blueprint, TArray<UObject*>& ObjLoaded)
+	static void LinkExternalDependencies(UBlueprint* Blueprint)
 	{
 		check(Blueprint);
 		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
@@ -1194,7 +1195,7 @@ struct FRegenerationHelper
 		}
 		PreloadMacroSources(MacroSources);
 
-		PreloadInterfaces(Blueprint, ObjLoaded);
+		PreloadInterfaces(Blueprint);
 	}
 };
 
@@ -1264,7 +1265,7 @@ void FBlueprintEditorUtils::PreloadBlueprintSpecificData(UBlueprint* Blueprint)
 	}
 }
 
-UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded)
+UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO)
 {
 	bool bRegenerated = false;
 
@@ -1342,7 +1343,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		const bool bHasCode = !FBlueprintEditorUtils::IsDataOnlyBlueprint(Blueprint) && !bIsMacro;
 
 		// Make sure all used external classes/functions/structures/macros/etc are loaded and linked
-		FRegenerationHelper::LinkExternalDependencies(Blueprint, ObjLoaded);
+		FRegenerationHelper::LinkExternalDependencies(Blueprint);
 
 		bool bSkeletonUpToDate = FKismetEditorUtilities::GenerateBlueprintSkeleton(Blueprint);
 
@@ -1442,11 +1443,11 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		// Patch the new CDOs to the old indices in the linker
 		if( Blueprint->SkeletonGeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx, ObjLoaded);
+			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx, nullptr);
 		}
 		if( Blueprint->GeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, ObjLoaded);
+			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, nullptr);
 		}
 
 		// Success or failure, there's no point in trying to recompile this class again when other objects reference it
@@ -1509,8 +1510,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 
 void FBlueprintEditorUtils::LinkExternalDependencies(UBlueprint* Blueprint)
 {
-	TArray<UObject*> Unused;
-	FRegenerationHelper::LinkExternalDependencies(Blueprint, Unused);
+	FRegenerationHelper::LinkExternalDependencies(Blueprint);
 }
 
 void FBlueprintEditorUtils::RecreateClassMetaData(UBlueprint* Blueprint, UClass* Class, bool bRemoveExistingMetaData)

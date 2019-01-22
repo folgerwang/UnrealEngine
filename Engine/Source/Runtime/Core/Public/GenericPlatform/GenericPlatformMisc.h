@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "CoreFwd.h"
 #include "HAL/PlatformCrt.h"
+#include "Misc/CompressionFlags.h"
 
 class Error;
 class GenericApplication;
@@ -16,6 +17,12 @@ struct FChunkTagID;
 
 template <typename FuncType>
 class TFunction;
+
+#if UE_BUILD_SHIPPING
+#define UE_DEBUG_BREAK() ((void)0)
+#else
+#define UE_DEBUG_BREAK() ((void)(FPlatformMisc::IsDebuggerPresent() && ([] () { UE_DEBUG_BREAK_IMPL(); } (), 1)))
+#endif
 
 namespace EBuildConfigurations
 {
@@ -839,13 +846,6 @@ public:
 	 * @return	Returns the platform specific chunk based install implementation
 	 */
 	static IPlatformChunkInstall* GetPlatformChunkInstall();
-
-	/**
-	 * Returns the platform specific compression interface
-	 *
-	 * @return Returns the platform specific compression interface
-	 */
-	static IPlatformCompression* GetPlatformCompression();
 
 	/**
 	 * Has the OS execute a command and path pair (such as launch a browser)

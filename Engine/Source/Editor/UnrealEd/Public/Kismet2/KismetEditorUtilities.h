@@ -150,7 +150,7 @@ public:
 	static bool GenerateBlueprintSkeleton(UBlueprint* BlueprintObj, bool bForceRegeneration = false);
 
 	/** Recompiles the bytecode of a blueprint only.  Should only be run for recompiling dependencies during compile on load */
-	static void RecompileBlueprintBytecode(UBlueprint* BlueprintObj, TArray<UObject*>* ObjLoaded = nullptr, EBlueprintBytecodeRecompileOptions Flags = EBlueprintBytecodeRecompileOptions::None);
+	static void RecompileBlueprintBytecode(UBlueprint* BlueprintObj, EBlueprintBytecodeRecompileOptions Flags = EBlueprintBytecodeRecompileOptions::None);
 
 	/** Tries to make sure that a data-only blueprint is conformed to its native parent, in case any native class flags have changed */
 	static void ConformBlueprintFlagsAndComponents(UBlueprint* BlueprintObj);

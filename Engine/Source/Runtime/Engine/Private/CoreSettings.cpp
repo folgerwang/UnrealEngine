@@ -175,7 +175,6 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	MaxObjectsInEditor = 12 * 1024 * 1024;
 	MaxObjectsInGame = 2 * 1024 * 1024;	
 	CreateGCClusters = true;	
-	MergeGCClusters = false;
 	MinGCClusterSize = 5;
 	ActorClusteringEnabled = true;
 	BlueprintClusteringEnabled = false;

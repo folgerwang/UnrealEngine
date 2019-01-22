@@ -315,7 +315,7 @@ void UAITask_MoveTo::OnRequestFinished(FAIRequestID RequestID, const FPathFollow
 
 void UAITask_MoveTo::OnPathEvent(FNavigationPath* InPath, ENavPathEvent::Type Event)
 {
-	const static UEnum* NavPathEventEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENavPathEvent"));
+	const static UEnum* NavPathEventEnum = StaticEnum<ENavPathEvent::Type>();
 	UE_VLOG(GetGameplayTasksComponent(), LogGameplayTasks, Log, TEXT("%s> Path event: %s"), *GetName(), *NavPathEventEnum->GetNameStringByValue(Event));
 
 	switch (Event)
