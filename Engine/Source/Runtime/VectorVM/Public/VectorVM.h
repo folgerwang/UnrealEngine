@@ -87,7 +87,7 @@ enum class EVectorVMOp : uint8
 	addi,
 	subi,
 	muli,
-	//divi,//SSE Integer division is not implemented as an intrinsic. Will have to do some manual implementation.
+	divi,//SSE Integer division is not implemented as an intrinsic. Will have to do some manual implementation.
 	clampi,
 	mini,
 	maxi,
@@ -105,6 +105,8 @@ enum class EVectorVMOp : uint8
 	bit_or,
 	bit_xor,
 	bit_not,
+	bit_lshift,
+	bit_rshift,
 
 	//"Boolean" ops. Currently handling bools as integers.
 	logic_and,

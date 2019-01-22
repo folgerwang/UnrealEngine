@@ -210,7 +210,7 @@ bool SAnimationEditorViewportTabBody::CanUseGizmos() const
 	return false;
 }
 
-static FText ConcatenateLine(const FText& InText, const FText& InNewLine)
+FText ConcatenateLine(const FText& InText, const FText& InNewLine)
 {
 	if(InText.IsEmpty())
 	{

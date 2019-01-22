@@ -536,12 +536,21 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 				UATCommand += TEXT(" -encryptinifiles");
 			}
 
-			FString additionalOptions = InProfile->GetCookOptions();
-			if (!additionalOptions.IsEmpty())
+			FString AdditionalOptions = InProfile->GetCookOptions();
+			if (!AdditionalOptions.IsEmpty())
 			{
 				UATCommand += TEXT(" -additionalcookeroptions=\"");
-				UATCommand += additionalOptions;
-                UATCommand += "\"";
+
+				// Escape any quotes in the argument list
+				UATCommand += AdditionalOptions.Replace(TEXT("\""), TEXT("\\\""));
+
+				// If the additional options ends with a slash, make sure we don't escape the quote
+				if (UATCommand.EndsWith("\\"))
+				{
+					UATCommand += TEXT("\\");
+				}
+
+				UATCommand += TEXT("\"");
 			}
 
 			if (FParse::Param(FCommandLine::Get(), TEXT("fastcook")))

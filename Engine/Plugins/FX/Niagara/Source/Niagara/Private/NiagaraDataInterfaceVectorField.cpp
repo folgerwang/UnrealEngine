@@ -1,317 +1,59 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraDataInterfaceVectorField.h"
-#include "Internationalization/Internationalization.h"
 #include "VectorField/VectorFieldStatic.h"
 #include "VectorField/VectorFieldAnimated.h"
-#include "Math/Float16Color.h"
 #include "NiagaraShader.h"
 #include "ShaderParameterUtils.h"
+//#include "Internationalization/Internationalization.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraDataInterfaceVectorField"
 
+// Global HLSL variable base names, used by HLSL.
+static const FString SamplerBaseName(TEXT("VectorFieldSampler_"));
+static const FString TextureBaseName(TEXT("VectorFieldTexture_"));
+static const FString TilingAxesBaseName(TEXT("TilingAxes_"));
+static const FString DimensionsBaseName(TEXT("Dimensions_"));
+static const FString MinBoundsBaseName(TEXT("MinBounds_"));
+static const FString MaxBoundsBaseName(TEXT("MaxBounds_"));
 
-const FString UNiagaraDataInterfaceVectorField::BufferBaseName(TEXT("VectorFieldBuffer_"));
-const FString UNiagaraDataInterfaceVectorField::DimentionsBaseName(TEXT("Dimentions_"));
-const FString UNiagaraDataInterfaceVectorField::BoundsMinBaseName(TEXT("BoundsMin_"));
-const FString UNiagaraDataInterfaceVectorField::BoundsMaxBaseName(TEXT("BoundsMax_"));
+// Global VM function names, also used by the shaders code generation methods.
+static const FName SampleVectorFieldName("SampleField");
+static const FName GetVectorFieldTilingAxesName("FieldTilingAxes");
+static const FName GetVectorFieldDimensionsName("FieldDimensions");
+static const FName GetVectorFieldBoundsName("FieldBounds");
 
-#if 0
-//////////////////////////////////////////////////////////////////////////
-//FNDIVectorField_InstanceData
+/*--------------------------------------------------------------------------------------------------------------------------*/
 
-bool FNDIVectorField_InstanceData::Init(UNiagaraDataInterfaceVectorField* Interface, FNiagaraSystemInstance* SystemInstance)
-{
-	UE_LOG(LogNiagara, Log, TEXT("FNDIVectorField_InstanceData %p"), this);
-	check(SystemInstance);
-	/*
-	USkeletalMesh* PrevMesh = Mesh;
-	Component = nullptr;
-	Mesh = nullptr;
-	Transform = FMatrix::Identity;
-	TransformInverseTransposed = FMatrix::Identity;
-	PrevTransform = FMatrix::Identity;
-	PrevTransformInverseTransposed = FMatrix::Identity;
-	*/
-	DeltaSeconds = 0.0f;
-	Field = Interface->Field;
-
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-	SizeX = 0;
-	SizeY = 0;
-	SizeZ = 0;
-
-	/*
-	OutParameters.WorldToVolume[Index] = VectorFieldInstance->WorldToVolume;
-	OutParameters.VolumeToWorld[Index] = VectorFieldInstance->VolumeToWorldNoScale;
-	OutParameters.VolumeSize[Index] = FVector4(Resource->SizeX, Resource->SizeY, Resource->SizeZ, 0);
-	OutParameters.IntensityAndTightness[Index] = FVector4(Intensity, Tightness, 0, 0);
-	OutParameters.TilingAxes[Index].X = VectorFieldInstance->bTileX ? 1.0f : 0.0f;
-	OutParameters.TilingAxes[Index].Y = VectorFieldInstance->bTileY ? 1.0f : 0.0f;
-	OutParameters.TilingAxes[Index].Z = VectorFieldInstance->bTileZ ? 1.0f : 0.0f;
-	*/
-	TilingAxes.X = Interface->bTileX ? 1.0f : 0.0f;
-	TilingAxes.Y = Interface->bTileY ? 1.0f : 0.0f;
-	TilingAxes.Z = Interface->bTileZ ? 1.0f : 0.0f;
-
-
-	if (StaticVectorField)
-	{
-		SizeX = (uint32)StaticVectorField->SizeX;
-		SizeY = (uint32)StaticVectorField->SizeY;
-		SizeZ = (uint32)StaticVectorField->SizeZ;
-		LocalBounds = StaticVectorField->Bounds;
-	}
-	else if (AnimatedVectorField)
-	{
-		SizeX = (uint32)AnimatedVectorField->VolumeSizeX;
-		SizeY = (uint32)AnimatedVectorField->VolumeSizeY;
-		SizeZ = (uint32)AnimatedVectorField->VolumeSizeZ;
-		LocalBounds = AnimatedVectorField->Bounds;
-	}
-#if 0
-	USkeletalMeshComponent* NewSkelComp = nullptr;
-	if (Interface->Source)
-	{
-		ASkeletalMeshActor* MeshActor = Cast<ASkeletalMeshActor>(Interface->Source);
-		USkeletalMeshComponent* SourceComp = nullptr;
-		if (MeshActor != nullptr)
-		{
-			SourceComp = MeshActor->GetSkeletalMeshComponent();
-		}
-		else
-		{
-			SourceComp = Interface->Source->FindComponentByClass<USkeletalMeshComponent>();
-		}
-
-		if (SourceComp)
-		{
-			Mesh = SourceComp->SkeletalMesh;
-			NewSkelComp = SourceComp;
-		}
-		else
-		{
-			Component = Interface->Source->GetRootComponent();
-		}
-	}
-	else
-	{
-		if (UNiagaraComponent* SimComp = SystemInstance->GetComponent())
-		{
-			if (USkeletalMeshComponent* ParentComp = Cast<USkeletalMeshComponent>(SimComp->GetAttachParent()))
-			{
-				NewSkelComp = ParentComp;
-				Mesh = ParentComp->SkeletalMesh;
-			}
-			else if (USkeletalMeshComponent* OuterComp = SimComp->GetTypedOuter<USkeletalMeshComponent>())
-			{
-				NewSkelComp = OuterComp;
-				Mesh = OuterComp->SkeletalMesh;
-			}
-			else if (AActor* Owner = SimComp->GetAttachmentRootActor())
-			{
-				TArray<UActorComponent*> SourceComps = Owner->GetComponentsByClass(USkeletalMeshComponent::StaticClass());
-				for (UActorComponent* ActorComp : SourceComps)
-				{
-					USkeletalMeshComponent* SourceComp = Cast<USkeletalMeshComponent>(ActorComp);
-					if (SourceComp)
-					{
-						USkeletalMesh* PossibleMesh = SourceComp->SkeletalMesh;
-						if (PossibleMesh != nullptr/* && PossibleMesh->bAllowCPUAccess*/)
-						{
-							Mesh = PossibleMesh;
-							NewSkelComp = SourceComp;
-							break;
-						}
-					}
-				}
-			}
-
-			if (!Component.IsValid())
-			{
-				Component = SimComp;
-			}
-		}
-	}
-
-	if (NewSkelComp)
-	{
-		Component = NewSkelComp;
-	}
-
-	check(Component.IsValid());
-
-	if (!Mesh && Interface->DefaultMesh)
-	{
-		Mesh = Interface->DefaultMesh;
-	}
-
-	if (Component.IsValid() && Mesh)
-	{
-		PrevTransform = Transform;
-		PrevTransformInverseTransposed = TransformInverseTransposed;
-		Transform = Component->GetComponentToWorld().ToMatrixWithScale();
-		TransformInverseTransposed = Transform.InverseFast().GetTransposed();
-	}
-
-	if (!Mesh)
-	{
-		UE_LOG(LogNiagara, Log, TEXT("SkeletalMesh data interface has no valid mesh. Failed InitPerInstanceData - %s"), *Interface->GetFullName());
-		return false;
-	}
-
-	// 	if (!Mesh->bAllowCPUAccess)
-	// 	{
-	// 		UE_LOG(LogNiagara, Log, TEXT("SkeletalMesh data interface using a mesh that does not allow CPU access. Failed InitPerInstanceData - Mesh: %s"), *Mesh->GetFullName());
-	// 		return false;
-	// 	}
-
-	if (!Component.IsValid())
-	{
-		UE_LOG(LogNiagara, Log, TEXT("SkeletalMesh data interface has no valid component. Failed InitPerInstanceData - %s"), *Interface->GetFullName());
-		return false;
-	}
-
-	//	bIsAreaWeightedSampling = Mesh->bSupportUniformlyDistributedSampling;
-
-	// 	//Init the instance filter
-	// 	ValidSections.Empty();
-	// 	FStaticMeshLODResources& Res = Mesh->RenderData->LODResources[0];
-	// 	for (int32 i = 0; i < Res.Sections.Num(); ++i)
-	// 	{
-	// 		if (Interface->SectionFilter.AllowedMaterialSlots.Num() == 0 || Interface->SectionFilter.AllowedMaterialSlots.Contains(Res.Sections[i].MaterialIndex))
-	// 		{
-	// 			ValidSections.Add(i);
-	// 		}
-	// 	}
-	// 
-	// 	if (GetValidSections().Num() == 0)
-	// 	{
-	// 		UE_LOG(LogNiagara, Log, TEXT("StaticMesh data interface has a section filter preventing any spawning. Failed InitPerInstanceData - %s"), *Interface->GetFullName());
-	// 		return false;
-	// 	}
-	// 
-	// 	Sampler.Init(&Res, this);
-
-	if (NewSkelComp)
-	{
-		TWeakObjectPtr<USkeletalMeshComponent> SkelWeakCompPtr = NewSkelComp;
-		SkinningData = SystemInstance->GetWorldManager()->GetSkeletalMeshGeneratedData().GetCachedSkinningData(SkelWeakCompPtr);
-	}
-#endif
-
-	return true;
-}
-
-void FNDIVectorField_InstanceData::UpdateTransforms(const FMatrix& LocalToWorld, FMatrix& OutVolumeToWorld, FMatrix& OutWorldToVolume)
-{
-	const FVector VolumeOffset = LocalBounds.Min;
-	const FVector VolumeScale = LocalBounds.Max - LocalBounds.Min;
-	//VolumeToWorldNoScale = LocalToWorld.GetMatrixWithoutScale().RemoveTranslation();
-	OutVolumeToWorld = FScaleMatrix(VolumeScale) * FTranslationMatrix(VolumeOffset)
-		* LocalToWorld;
-	OutWorldToVolume = OutVolumeToWorld.InverseFast();
-}
-
-const void* FNDIVectorField_InstanceData::Lock()
-{
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-	if (StaticVectorField)
-	{
-		return StaticVectorField->SourceData.LockReadOnly();
-	}
-	return nullptr;
-}
-
-void FNDIVectorField_InstanceData::Unlock()
-{
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-	if (StaticVectorField)
-	{
-		StaticVectorField->SourceData.Unlock();
-	}
-}
-
-
-bool FNDIVectorField_InstanceData::ResetRequired(UNiagaraDataInterfaceVectorField* Interface)const
-{
-	//USceneComponent* Comp = Component.Get();
-	//if (!Comp)
-	//{
-	//	//The component we were bound to is no longer valid so we have to trigger a reset.
-	//	return true;
-	//}
-
-	//if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(Comp))
-	//{
-	//	if (!SkelComp->SkeletalMesh)
-	//	{
-	//		return true;
-	//	}
-	//}
-	//else
-	//{
-		if (!Interface->Field || Interface->Field != Field)
-		{
-			return true;
-		}
-	//}
-
-	return false;
-}
-
-bool FNDIVectorField_InstanceData::Tick(UNiagaraDataInterfaceVectorField* Interface, FNiagaraSystemInstance* SystemInstance, float InDeltaSeconds)
-{
-	if (ResetRequired(Interface))
-	{
-		return true;
-	}
-	else
-	{
-		DeltaSeconds = InDeltaSeconds;
-		/*if (Component.IsValid() && Mesh)
-		{
-			PrevTransform = Transform;
-			PrevTransformInverseTransposed = TransformInverseTransposed;
-			Transform = Component->GetComponentToWorld().ToMatrixWithScale();
-			TransformInverseTransposed = Transform.InverseFast().GetTransposed();
-		}
-		else
-		{
-			PrevTransform = FMatrix::Identity;
-			PrevTransformInverseTransposed = FMatrix::Identity;
-			Transform = FMatrix::Identity;
-			TransformInverseTransposed = FMatrix::Identity;
-		}*/
-		return false;
-	}
-}
-#endif
-
-//Instance Data END
-//////////////////////////////////////////////////////////////////////////
 UNiagaraDataInterfaceVectorField::UNiagaraDataInterfaceVectorField(FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Field(nullptr)
 	, bTileX(false)
 	, bTileY(false)
 	, bTileZ(false)
-	, bGPUBufferDirty(true)
 {
 }
 
+/*--------------------------------------------------------------------------------------------------------------------------*/
+
+
 #if WITH_EDITOR
+void UNiagaraDataInterfaceVectorField::PreEditChange(UProperty* PropertyAboutToChange)
+{
+	Super::PreEditChange(PropertyAboutToChange);
+	
+	// Flush the rendering thread before making any changes to make sure the 
+	// data read by the compute shader isn't subject to a race condition.
+	// TODO(mv): Solve properly using something like a RT Proxy.
+	FlushRenderingCommands();
+}
 
 void UNiagaraDataInterfaceVectorField::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	InitField();
 }
+#endif //WITH_EDITOR
+
 
 void UNiagaraDataInterfaceVectorField::PostLoad()
 {
@@ -320,7 +62,6 @@ void UNiagaraDataInterfaceVectorField::PostLoad()
 	{
 		Field->ConditionalPostLoad();
 	}
-	InitField();
 }
 
 void UNiagaraDataInterfaceVectorField::PostInitProperties()
@@ -330,15 +71,11 @@ void UNiagaraDataInterfaceVectorField::PostInitProperties()
 	//Can we register data interfaces as regular types and fold them into the FNiagaraVariable framework for UI and function calls etc?
 	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
-		FNiagaraTypeRegistry::Register(FNiagaraTypeDefinition(GetClass()), true, false, false);
+		FNiagaraTypeRegistry::Register(FNiagaraTypeDefinition(GetClass()), /*bCanBeParameter*/ true, /*bCanBePayload*/ false, /*bIsUserDefined*/ false);
 	}
 }
 
-#endif //WITH_EDITOR
-
-static const FName SampleVectorFieldName("SampleField");
-static const FName GetVectorDimsName("FieldDimensions");
-static const FName GetVectorFieldBoundsName("FieldBounds");
+/*--------------------------------------------------------------------------------------------------------------------------*/
 
 void UNiagaraDataInterfaceVectorField::GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)
 {
@@ -356,7 +93,7 @@ void UNiagaraDataInterfaceVectorField::GetFunctions(TArray<FNiagaraFunctionSigna
 
 	{
 		FNiagaraFunctionSignature Sig;
-		Sig.Name = GetVectorDimsName;
+		Sig.Name = GetVectorFieldDimensionsName;
 		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("Vector Field")));
 		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Dimensions")));
 
@@ -367,10 +104,21 @@ void UNiagaraDataInterfaceVectorField::GetFunctions(TArray<FNiagaraFunctionSigna
 
 	{
 		FNiagaraFunctionSignature Sig;
+		Sig.Name = GetVectorFieldTilingAxesName;
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("Vector Field")));
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("TilingAxes")));
+
+		Sig.bMemberFunction = true;
+		Sig.bRequiresContext = false;
+		OutFunctions.Add(Sig);
+	}
+
+	{
+		FNiagaraFunctionSignature Sig;
 		Sig.Name = GetVectorFieldBoundsName;
 		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("Vector Field")));
-		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("BoundMin")));
-		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("BoundMax")));
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("MinBounds")));
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("MaxBounds")));
 
 		Sig.bMemberFunction = true;
 		Sig.bRequiresContext = false;
@@ -385,7 +133,7 @@ void UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFu
 	{
 		NDI_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField)::Bind(this, OutFunc);
 	}
-	else if (BindingInfo.Name == GetVectorDimsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 3)
+	else if (BindingInfo.Name == GetVectorFieldDimensionsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 3)
 	{
 		OutFunc = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldDimensions);
 	}
@@ -393,361 +141,10 @@ void UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFu
 	{
 		OutFunc = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldBounds);
 	}
-}
-
-void UNiagaraDataInterfaceVectorField::GetFieldDimensions(FVectorVMContext& Context)
-{
-	/*VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
-	if (!InstData.Get())
+	else if (BindingInfo.Name == GetVectorFieldTilingAxesName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 3)
 	{
-		UE_LOG(LogNiagara, Warning, TEXT("FNDIVectorField_InstanceData has invalid instance data. %s"), *GetPathName());
-	}*/
-
-	VectorVM::FExternalFuncRegisterHandler<float> OutSizeX(Context);	
-	VectorVM::FExternalFuncRegisterHandler<float> OutSizeY(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutSizeZ(Context);
-	
-	for (int32 i = 0; i < Context.NumInstances; ++i)
-	{
-		*OutSizeX.GetDest() = (float)SizeX;		
-		*OutSizeY.GetDest() = (float)SizeY;
-		*OutSizeZ.GetDest() = (float)SizeZ;
-
-		OutSizeX.Advance();
-		OutSizeY.Advance();
-		OutSizeZ.Advance();
+		OutFunc = FVMExternalFunction::CreateUObject(this, &UNiagaraDataInterfaceVectorField::GetFieldTilingAxes);
 	}
-}
-
-void UNiagaraDataInterfaceVectorField::GetFieldBounds(FVectorVMContext& Context)
-{
-	/*VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
-	if (!InstData.Get())
-	{
-		UE_LOG(LogNiagara, Warning, TEXT("FNDIVectorField_InstanceData has invalid instance data. %s"), *GetPathName());
-	}*/
-
-	VectorVM::FExternalFuncRegisterHandler<float> OutMinX(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutMinY(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutMinZ(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutMaxX(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutMaxY(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutMaxZ(Context);
-	
-	for (int32 i = 0; i < Context.NumInstances; ++i)
-	{
-		*OutMinX.GetDest() = LocalBounds.Min.X;
-		*OutMinY.GetDest() = LocalBounds.Min.Y;
-		*OutMinZ.GetDest() = LocalBounds.Min.Z;
-		*OutMaxX.GetDest() = LocalBounds.Max.X;
-		*OutMaxY.GetDest() = LocalBounds.Max.Y;
-		*OutMaxZ.GetDest() = LocalBounds.Max.Z;
-
-		OutMinX.Advance();
-		OutMinY.Advance();
-		OutMinZ.Advance();
-		OutMaxX.Advance();
-		OutMaxY.Advance();
-		OutMaxZ.Advance();
-	}
-}
-
-/*
-* Compute the influence of vector fields on a particle at the given position.
-* @param OutForce - Force to apply to the particle.
-* @param OutVelocity - Direct velocity influence on the particle.
-* @param Position - Position of the particle.
-* @param PerParticleScale - Amount by which to scale the influence on this particle.
-void EvaluateVectorFields(out float3 OutForce, out float4 OutVelocity, float3 Position, float PerParticleScale)
-{
-	float3 TotalForce = 0;
-	float3 WeightedVelocity = 0;
-	float TotalWeight = 0;
-	float FinalWeight = 0;
-
-	for (int VectorFieldIndex = 0; VectorFieldIndex < VectorFields.Count; ++VectorFieldIndex)
-	{
-		float2 IntensityAndTightness = VectorFields.IntensityAndTightness[VectorFieldIndex].xy;
-		float Intensity = IntensityAndTightness.x * PerParticleScale;
-		float Tightness = IntensityAndTightness.y;
-		float3 VolumeSize = VectorFields.VolumeSize[VectorFieldIndex].xyz;
-		float3 VolumeUV = mul(float4(Position.xyz, 1), VectorFields.WorldToVolume[VectorFieldIndex]).xyz;
-		//Tile the UVs if needed. TilingAxes will be 1.0 or 0.0 in each channel depending on which axes are being tiled, if any.
-		VolumeUV -= floor(VolumeUV * VectorFields.TilingAxes[VectorFieldIndex].xyz);
-
-		float3 AxisWeights =
-			saturate(VolumeUV * VolumeSize.xyz) *
-			saturate((1.0f - VolumeUV) * VolumeSize.xyz);
-		float DistanceWeight = min(AxisWeights.x, min(AxisWeights.y, AxisWeights.z));
-
-		// @todo compat hack: Some compilers only allow constant indexing into a texture array
-		//		float3 VectorSample = Texture3DSample(VectorFieldTextures[VectorFieldIndex], VectorFieldTexturesSampler, saturate(VolumeUV)).xyz;
-		float3 VectorSample = SampleVectorFieldTexture(VectorFieldIndex, saturate(VolumeUV));
-
-		float3 Vec = mul(float4(VectorSample, 0), VectorFields.VolumeToWorld[VectorFieldIndex]).xyz;
-		TotalForce += (Vec * DistanceWeight * Intensity);
-		WeightedVelocity += (Vec * Intensity * DistanceWeight * Tightness);
-		TotalWeight += (DistanceWeight * Tightness);
-		FinalWeight = max(FinalWeight, DistanceWeight * Tightness);
-	}
-
-	// Forces are additive.
-	OutForce = TotalForce;
-	// Velocities use a weighted average.
-	OutVelocity.xyz = WeightedVelocity / (TotalWeight + 0.001f);
-	OutVelocity.w = FinalWeight;
-}
-*/
-
-void UNiagaraDataInterfaceVectorField::InitField()
-{
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-	SizeX = 0;
-	SizeY = 0;
-	SizeZ = 0;
-
-	/*
-	OutParameters.WorldToVolume[Index] = VectorFieldInstance->WorldToVolume;
-	OutParameters.VolumeToWorld[Index] = VectorFieldInstance->VolumeToWorldNoScale;
-	OutParameters.VolumeSize[Index] = FVector4(Resource->SizeX, Resource->SizeY, Resource->SizeZ, 0);
-	OutParameters.IntensityAndTightness[Index] = FVector4(Intensity, Tightness, 0, 0);
-	OutParameters.TilingAxes[Index].X = VectorFieldInstance->bTileX ? 1.0f : 0.0f;
-	OutParameters.TilingAxes[Index].Y = VectorFieldInstance->bTileY ? 1.0f : 0.0f;
-	OutParameters.TilingAxes[Index].Z = VectorFieldInstance->bTileZ ? 1.0f : 0.0f;
-	*/
-	TilingAxes.X = bTileX ? 1.0f : 0.0f;
-	TilingAxes.Y = bTileY ? 1.0f : 0.0f;
-	TilingAxes.Z = bTileZ ? 1.0f : 0.0f;
-
-
-	if (StaticVectorField)
-	{
-		SizeX = (uint32)StaticVectorField->SizeX;
-		SizeY = (uint32)StaticVectorField->SizeY;
-		SizeZ = (uint32)StaticVectorField->SizeZ;
-		LocalBounds = StaticVectorField->Bounds;
-	}
-	else if (AnimatedVectorField)
-	{
-		SizeX = (uint32)AnimatedVectorField->VolumeSizeX;
-		SizeY = (uint32)AnimatedVectorField->VolumeSizeY;
-		SizeZ = (uint32)AnimatedVectorField->VolumeSizeZ;
-		LocalBounds = AnimatedVectorField->Bounds;
-	}
-}
-
-const void* UNiagaraDataInterfaceVectorField::Lock()
-{
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-	if (StaticVectorField)
-	{
-		return StaticVectorField->SourceData.LockReadOnly();
-	}
-	return nullptr;
-}
-
-void UNiagaraDataInterfaceVectorField::Unlock()
-{
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-	if (StaticVectorField)
-	{
-		StaticVectorField->SourceData.Unlock();
-	}
-}
-
-void UNiagaraDataInterfaceVectorField::SampleVectorField(FVectorVMContext& Context)
-{
-	// Input arguments...
-	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
-	VectorVM::FExternalFuncInputHandler<float> YParam(Context);
-	VectorVM::FExternalFuncInputHandler<float> ZParam(Context);
-
-	// User pointer buffer (as requested)
-	//VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
-
-	// Outputs...
-	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
-	VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
-
-	/*UE_LOG(LogNiagara, Log, TEXT("Registers: In: %d %d %d %d Out: %d %d %d"),
-		XParam.RegisterIndex, YParam.RegisterIndex, ZParam.RegisterIndex, InstData.RegisterIndex,
-		OutSampleX.RegisterIndex, OutSampleY.RegisterIndex, OutSampleZ.RegisterIndex);*/
-
-	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-	//FMatrix VolumeToWorld;
-	//FMatrix WorldToVolume;
-	//FMatrix LocalToWorld = FMatrix::Identity;
-	//InstData->UpdateTransforms(LocalToWorld, VolumeToWorld, WorldToVolume);
-
-	const FFloat16Color* Data = (const FFloat16Color*)Lock();
-
-	if (Data == nullptr || Field == nullptr || (StaticVectorField == nullptr && AnimatedVectorField == nullptr) || AnimatedVectorField != nullptr)
-	{
-		// Set the default vector to positive X axis...
-		for (int32 InstanceIdx = 0; InstanceIdx < Context.NumInstances; ++InstanceIdx)
-		{
-			VectorRegister Dst = MakeVectorRegister(1.0f, 0.0f, 0.0f, 0.0f);
-
-			float *RegPtr = reinterpret_cast<float*>(&Dst);
-			*OutSampleX.GetDest() = RegPtr[0];
-			*OutSampleY.GetDest() = RegPtr[1];
-			*OutSampleZ.GetDest() = RegPtr[2];
-
-			XParam.Advance();
-			YParam.Advance();
-			ZParam.Advance();
-			OutSampleX.Advance();
-			OutSampleY.Advance();
-			OutSampleZ.Advance();
-		}
-	}
-	else if (StaticVectorField != nullptr)
-	{
-		FVector VolumeSize((float)SizeX, (float)SizeY, (float)SizeZ);
-		uint32 VolumeSizeX = (uint32)SizeX;
-		uint32 VolumeSizeY = (uint32)SizeY;
-		uint32 VolumeSizeZ = (uint32)SizeZ;
-
-		for (int32 InstanceIdx = 0; InstanceIdx < Context.NumInstances; ++InstanceIdx)
-		{
-			FVector Pos(XParam.Get(), YParam.Get(), ZParam.Get());
-			
-			// float3 VolumeUV = mul(float4(Position.xyz, 1), VectorFields.WorldToVolume[VectorFieldIndex]).xyz;
-			//FNDITransformHandler Handler;
-			FVector VolumeUV = Pos;
-			//Handler.TransformPosition(VolumeUV, WorldToVolume);
-
-			// VolumeUV -= floor(VolumeUV * VectorFields.TilingAxes[VectorFieldIndex].xyz);
-			FVector TiledVolume = VolumeUV * TilingAxes;
-			VolumeUV.X -= FMath::FloorToFloat(TiledVolume.X);
-			VolumeUV.Y -= FMath::FloorToFloat(TiledVolume.Y);
-			VolumeUV.Z -= FMath::FloorToFloat(TiledVolume.Z);
-
-			// Saturate(VolumeUV) 
-			VolumeUV.X = FMath::Clamp(VolumeUV.X, 0.0f, 1.0f);
-			VolumeUV.Y = FMath::Clamp(VolumeUV.Y, 0.0f, 1.0f);
-			VolumeUV.Z = FMath::Clamp(VolumeUV.Z, 0.0f, 1.0f);
-
-			// Sample texture...
-			VolumeUV = VolumeUV * VolumeSize;
-
-			/**
-			int3 IntCoord = int3(ModXYZ.x, ModXYZ.y, ModXYZ.z);\n");
-			float3 frc = frac(ModXYZ);\n");
-			*/
-			FVector VecIndex;
-			FVector VecFrac;
-			VecFrac.X = FGenericPlatformMath::Modf(VolumeUV.X, &VecIndex.X);
-			VecFrac.Y = FGenericPlatformMath::Modf(VolumeUV.Y, &VecIndex.Y);
-			VecFrac.Z = FGenericPlatformMath::Modf(VolumeUV.Z, &VecIndex.Z);
-
-			uint32 IndexX = (uint32)VecIndex.X;
-			uint32 IndexY = (uint32)VecIndex.Y;
-			uint32 IndexZ = (uint32)VecIndex.Z;
-
-#define VF_MakeIndex(X, Y, Z) ((X)  + ((Y) * VolumeSizeX) + ((Z) * VolumeSizeX * VolumeSizeY))
-#define VF_Tile(I, Range)  (((I) >= Range) ? 0 : (I))
-
-			// Trilinear interpolation, as defined by https://en.wikipedia.org/wiki/Trilinear_interpolation
-			/** 
-			float3 frc = frac(ModXYZ);
-			float3 V1 = Buffer[IntCoord.x + IntCoord.y*VolumeSizeX + IntCoord.z*VolumeSizeX*VolumeSizeY].xyz;  // V(x0, y0, z0)
-			float3 V2 = Buffer[IntCoord.x + 1 + IntCoord.y*VolumeSizeX + IntCoord.z*VolumeSizeX*VolumeSizeY].xyz; // V(x1, y0, z0)
-			float3 C00 = lerp(V1, V2, frc.xxx);
-			V1 = Buffer[IntCoord.x + IntCoord.y*VolumeSizeX + (IntCoord.z+1)*VolumeSizeX*VolumeSizeY].xyz;  // V(x0, y0, z1)
-			V2 = Buffer[IntCoord.x + 1 + IntCoord.y*VolumeSizeX + (IntCoord.z+1)*VolumeSizeX*VolumeSizeY].xyz; // V(x1, y0, z1)
-			float3 C01 = lerp(V1, V2, frc.xxx);
-			V1 = Buffer[IntCoord.x + (IntCoord.y+1)*VolumeSizeX + IntCoord.z*VolumeSizeX*VolumeSizeY].xyz;  // V(x0, y1, z0)
-			V2 = Buffer[IntCoord.x + 1 + (IntCoord.y+1)*VolumeSizeX + IntCoord.z*VolumeSizeX*VolumeSizeY].xyz; // V(x1, y1, z0)
-			float3 C10 = lerp(V1, V2, frc.xxx);
-			V1 = Buffer[IntCoord.x + (IntCoord.y+1)*VolumeSizeX + (IntCoord.z+1)*VolumeSizeX*VolumeSizeY].xyz;  // V(x0, y1, z1)
-			V2 = Buffer[IntCoord.x + 1 + (IntCoord.y+1)*VolumeSizeX + (IntCoord.z+1)*VolumeSizeX*VolumeSizeY].xyz; // V(x1, y1, z1)
-			float3 C11 = lerp(V1, V2, frc.xxx);
-			float3 C0 = lerp(C00, C10, frc.yyy);
-			float3 C1 = lerp(c01, C11, frc.yyy);
-			Out_Value = lerp(C0, C1, frc.zzz);
-			*/
-			uint32 Index = VF_MakeIndex(VF_Tile(IndexX, VolumeSizeX), VF_Tile(IndexY, VolumeSizeY), VF_Tile(IndexZ, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			FVector V1 ((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);  // V(x0, y0, z0)
-			Index = VF_MakeIndex(VF_Tile(IndexX + 1, VolumeSizeX), VF_Tile(IndexY, VolumeSizeY), VF_Tile(IndexZ, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			FVector V2((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B); // V(x1, y0, z0)
-			FVector C00 = FMath::Lerp(V1, V2, VecFrac.X);
-
-			Index = VF_MakeIndex(IndexX, VF_Tile(IndexY, VolumeSizeY), VF_Tile(IndexZ + 1, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);// V(x0, y0, z1)
-			Index = VF_MakeIndex(VF_Tile(IndexX + 1, VolumeSizeX), VF_Tile(IndexY, VolumeSizeY), VF_Tile(IndexZ + 1, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);// V(x1, y0, z1)
-			FVector C01 = FMath::Lerp(V1, V2, VecFrac.X);
-
-			Index = VF_MakeIndex(VF_Tile(IndexX, VolumeSizeX), VF_Tile(IndexY + 1, VolumeSizeY), VF_Tile(IndexZ, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);// V(x0, y1, z0)
-			Index = VF_MakeIndex(VF_Tile(IndexX + 1, VolumeSizeX), VF_Tile(IndexY + 1, VolumeSizeY), VF_Tile(IndexZ, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B); // V(x1, y1, z0)
-			FVector C10 = FMath::Lerp(V1, V2, VecFrac.X);
-
-			Index = VF_MakeIndex(VF_Tile(IndexX, VolumeSizeX), VF_Tile(IndexY + 1, VolumeSizeY), VF_Tile(IndexZ + 1, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);// V(x0, y1, z1)
-			Index = VF_MakeIndex(VF_Tile(IndexX + 1, VolumeSizeX), VF_Tile(IndexY + 1, VolumeSizeY), VF_Tile(IndexZ + 1, VolumeSizeZ));
-			check(Index < (uint32)(VolumeSizeX*VolumeSizeY*VolumeSizeZ));
-			V1 = FVector((float)Data[Index].R, (float)Data[Index].G, (float)Data[Index].B);// V(x1, y1, z1)
-			FVector C11 = FMath::Lerp(V1, V2, VecFrac.X);
-
-			FVector C0 = FMath::Lerp(C00, C10, VecFrac.Y);
-			FVector C1 = FMath::Lerp(C01, C11, VecFrac.Y);
-			FVector C = FMath::Lerp(C0, C1, VecFrac.Z);
-
-			// Write final output...
-			*OutSampleX.GetDest() = C.X;
-			*OutSampleY.GetDest() = C.Y;
-			*OutSampleZ.GetDest() = C.Z;
-
-			XParam.Advance();
-			YParam.Advance();
-			ZParam.Advance();
-			OutSampleX.Advance();
-			OutSampleY.Advance();
-			OutSampleZ.Advance();
-		}
-	}
-
-	Unlock();
-}
-
-
-bool UNiagaraDataInterfaceVectorField::CanExecuteOnTarget(ENiagaraSimTarget Target)const 
-{
-	return true; 
-}
-
-bool UNiagaraDataInterfaceVectorField::CopyToInternal(UNiagaraDataInterface* Destination) const
-{
-	if (!Super::CopyToInternal(Destination))
-	{
-		return false;
-	}
-
-	UNiagaraDataInterfaceVectorField* OtherTyped = CastChecked<UNiagaraDataInterfaceVectorField>(Destination);
-	OtherTyped->Field = Field;
-	OtherTyped->bTileX = bTileX;
-	OtherTyped->bTileY = bTileY;
-	OtherTyped->bTileZ = bTileZ;
-	OtherTyped->bGPUBufferDirty = true;
-	return true;
 }
 
 bool UNiagaraDataInterfaceVectorField::Equals(const UNiagaraDataInterface* Other) const
@@ -763,184 +160,514 @@ bool UNiagaraDataInterfaceVectorField::Equals(const UNiagaraDataInterface* Other
 		&& OtherTyped->bTileZ == bTileZ;
 }
 
-
-int32 UNiagaraDataInterfaceVectorField::PerInstanceDataSize()const  
+bool UNiagaraDataInterfaceVectorField::CanExecuteOnTarget(ENiagaraSimTarget Target) const
 {
-	return 0;
+	return true;
 }
 
-bool UNiagaraDataInterfaceVectorField::InitPerInstanceData(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance)
-{
-	//FNDIVectorField_InstanceData* Inst = new (PerInstanceData) FNDIVectorField_InstanceData();
-	//return Inst->Init(this, SystemInstance);
-	return false;
-}
+/*--------------------------------------------------------------------------------------------------------------------------*/
 
-void UNiagaraDataInterfaceVectorField::DestroyPerInstanceData(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance)
+#if WITH_EDITOR	
+TArray<FNiagaraDataInterfaceError> UNiagaraDataInterfaceVectorField::GetErrors()
 {
-	/*FNDIVectorField_InstanceData* Inst = (FNDIVectorField_InstanceData*)PerInstanceData;
-	Inst->~FNDIVectorField_InstanceData();*/
+	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
+	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
+	
+	// TODO(mv): Improve error messages?
+	TArray<FNiagaraDataInterfaceError> Errors;
+	if (StaticVectorField != nullptr && !StaticVectorField->bAllowCPUAccess)
+	{
+		FNiagaraDataInterfaceError CPUAccessNotAllowedError(
+			FText::Format(
+				LOCTEXT("CPUAccessNotAllowedError", "This Vector Field needs CPU access in order to be used properly.({0})"), 
+				FText::FromString(StaticVectorField->GetName())
+			),
+			LOCTEXT("CPUAccessNotAllowedErrorSummary", "CPU access error"),
+			FNiagaraDataInterfaceFix::CreateLambda(
+				[=]()
+				{
+					StaticVectorField->SetCPUAccessEnabled();
+					return true;
+				}
+			)
+		);
+		Errors.Add(CPUAccessNotAllowedError);
+	}
+	else if (AnimatedVectorField != nullptr)
+	{
+		FNiagaraDataInterfaceError AnimatedVectorFieldsNotSupportedError(
+			LOCTEXT("AnimatedVectorFieldsNotSupportedErrorSummary", "Invalid vector field type."),
+			LOCTEXT("AnimatedVectorFieldsNotSupportedError", "Animated vector fields are not supported."),
+			nullptr
+		);
+		Errors.Add(AnimatedVectorFieldsNotSupportedError);
+	}
+	else if (Field == nullptr)
+	{
+		FNiagaraDataInterfaceError VectorFieldNotLoadedError(
+			LOCTEXT("VectorFieldNotLoadedErrorSummary", "No Vector Field is loaded."),
+			LOCTEXT("VectorFieldNotLoadedError", "No Vector Field is loaded."),
+			nullptr
+		);
+		Errors.Add(VectorFieldNotLoadedError);
+	}
+	return Errors;
 }
+#endif // WITH_EDITOR	
 
-bool UNiagaraDataInterfaceVectorField::PerInstanceTick(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance, float InDeltaSeconds)
+/*--------------------------------------------------------------------------------------------------------------------------*/
+
+void UNiagaraDataInterfaceVectorField::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
-	/*FNDIVectorField_InstanceData* Inst = (FNDIVectorField_InstanceData*)PerInstanceData;
-	return Inst->Tick(this, SystemInstance, InDeltaSeconds);*/
-	return false;
+	static const TCHAR *FormatDeclarations = TEXT(R"(
+		float3 {TilingAxesName};
+		float3 {DimensionsName};
+		float3 {MinBoundsName};
+		float3 {MaxBoundsName};
+		Texture3D {TextureName};
+		SamplerState {SamplerName};
+	)");
+	TMap<FString, FStringFormatArg> ArgsDeclarations = {
+		{ TEXT("TilingAxesName"), TilingAxesBaseName + ParamInfo.DataInterfaceHLSLSymbol },
+		{ TEXT("DimensionsName"), DimensionsBaseName + ParamInfo.DataInterfaceHLSLSymbol },
+		{ TEXT("MinBoundsName"),  MinBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol },
+		{ TEXT("MaxBoundsName"),  MaxBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol },
+		{ TEXT("TextureName"),    TextureBaseName + ParamInfo.DataInterfaceHLSLSymbol },
+		{ TEXT("SamplerName"),    SamplerBaseName + ParamInfo.DataInterfaceHLSLSymbol }
+	};
+	OutHLSL += FString::Format(FormatDeclarations, ArgsDeclarations);
 }
 
 bool UNiagaraDataInterfaceVectorField::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
 	if (DefinitionFunctionName == SampleVectorFieldName)
 	{
-		FString BufferName = "VectorFieldLUT_" + ParamInfo.DataInterfaceHLSLSymbol;
-		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(float3 In_SamplePoint,  out float3 Out_Value) \n{\n");
-		OutHLSL += TEXT("\t int3 IntCoord = int3(0,0,0);\n");
-		OutHLSL += TEXT("\t int3 Dimensions = int3(1,1,1);\n");
-		OutHLSL += TEXT("\t Out_Value = ") + BufferName + TEXT("[IntCoord.x + IntCoord.y*Dimensions.x + IntCoord.z*Dimensions.x*Dimensions.y].xyz;\n");
-		OutHLSL += TEXT("\n}\n");
+		static const TCHAR *FormatSample = TEXT(R"(
+			void {FunctionName}(float3 In_SamplePoint, out float3 Out_Sample)
+			{
+				float3 SamplePoint = (In_SamplePoint - {MinBoundsName}) / ({MaxBoundsName} - {MinBoundsName});
+				Out_Sample = Texture3DSample({TextureName}, {SamplerName}, SamplePoint).xyz;
+			}
+		)");
+		TMap<FString, FStringFormatArg> ArgsSample = {
+			{TEXT("FunctionName"), InstanceFunctionName},
+			{TEXT("TextureName"), TextureBaseName + ParamInfo.DataInterfaceHLSLSymbol},
+			{TEXT("MinBoundsName"), MinBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol},
+			{TEXT("MaxBoundsName"), MaxBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol},
+			{TEXT("SamplerName"), SamplerBaseName + ParamInfo.DataInterfaceHLSLSymbol}
+		};
+		OutHLSL += FString::Format(FormatSample, ArgsSample);
 		return true;
 	}
-	else if (DefinitionFunctionName == GetVectorDimsName)
+	else if (DefinitionFunctionName == GetVectorFieldTilingAxesName)
 	{
-		FString DimsVar = DimentionsBaseName + ParamInfo.DataInterfaceHLSLSymbol;
-		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(out float3 Out_Value) \n{\n");
-		OutHLSL += TEXT("\t Out_Value = ") + DimsVar + TEXT(";\n");
-		OutHLSL += TEXT("\n}\n");
+		static const TCHAR *FormatTilingAxes = TEXT(R"(
+			void {FunctionName}(out float3 Out_TilingAxes)
+			{
+				Out_TilingAxes = {TilingAxesName};
+			}
+		)");
+		TMap<FString, FStringFormatArg> ArgsTilingAxes = {
+			{TEXT("FunctionName"), InstanceFunctionName},
+			{TEXT("TilingAxesName"), TilingAxesBaseName + ParamInfo.DataInterfaceHLSLSymbol}
+		};
+		OutHLSL += FString::Format(FormatTilingAxes, ArgsTilingAxes);
+		return true;
+	}
+	else if (DefinitionFunctionName == GetVectorFieldDimensionsName)
+	{
+		static const TCHAR *FormatDimensions = TEXT(R"(
+			void {FunctionName}(out float3 Out_Dimensions)
+			{
+				Out_Dimensions = {DimensionsName};
+			}
+		)");
+		TMap<FString, FStringFormatArg> ArgsDimensions = {
+			{TEXT("FunctionName"), InstanceFunctionName},
+			{TEXT("DimensionsName"), DimensionsBaseName + ParamInfo.DataInterfaceHLSLSymbol}
+		};
+		OutHLSL += FString::Format(FormatDimensions, ArgsDimensions);
 		return true;
 	}
 	else if (DefinitionFunctionName == GetVectorFieldBoundsName)
 	{
-		FString BoundsMinVar = BoundsMinBaseName + ParamInfo.DataInterfaceHLSLSymbol;
-		FString BoundsMaxVar = BoundsMaxBaseName + ParamInfo.DataInterfaceHLSLSymbol;
-		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(out float3 Out_MinBounds, out float3 Out_MaxBounds) \n{\n");
-		OutHLSL += TEXT("\t Out_MinBounds = ") + BoundsMinVar + TEXT(";\n");
-		OutHLSL += TEXT("\t Out_MaxBounds = ") + BoundsMaxVar + TEXT(";\n");
-		OutHLSL += TEXT("\n}\n");
+		static const TCHAR *FormatBounds = TEXT(R"(
+			void {FunctionName}(out float3 Out_MinBounds, out float3 Out_MaxBounds)
+			{
+				Out_MinBounds = {MinBoundsName};
+				Out_MaxBounds = {MaxBoundsName};
+			}
+		)");
+		TMap<FString, FStringFormatArg> ArgsBounds = {
+			{TEXT("FunctionName"), InstanceFunctionName},
+			{TEXT("MinBoundsName"), MinBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol},
+			{TEXT("MaxBoundsName"), MaxBoundsBaseName + ParamInfo.DataInterfaceHLSLSymbol}
+		};
+		OutHLSL += FString::Format(FormatBounds, ArgsBounds);
 		return true;
 	}
 	return false;
-}
-
-void UNiagaraDataInterfaceVectorField::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
-{
-	OutHLSL += TEXT("Buffer<float4> ") + BufferBaseName + ParamInfo.DataInterfaceHLSLSymbol + TEXT(";\n");
-	OutHLSL += TEXT("float3 ") + DimentionsBaseName + ParamInfo.DataInterfaceHLSLSymbol + TEXT(";\n");
-}
-
-FRWBuffer& UNiagaraDataInterfaceVectorField::GetGPUBuffer()
-{
-	check(IsInRenderingThread());
-
-	//TODO: Doing this here is not really threadsafe. Need to move to an RT proxy style model?
-	if (bGPUBufferDirty)
-	{
-		UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
-		UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
-
-		uint32 Width = 10;
-		uint32 Height = 10;
-		uint32 Depth = 10;
-		const FFloat16Color* Data = nullptr;
-
-		if (StaticVectorField)
-		{
-			Width = StaticVectorField->SizeX;
-			Height = StaticVectorField->SizeY;
-			Depth = StaticVectorField->SizeZ;
-		}
-		
-		GPUBuffer.Release();
-		uint32 BufferSize = Width * Height * Depth * sizeof(float) * 4;
-		TResourceArray<FVector4> TempTable;
-		TempTable.AddUninitialized(Width*Height*Depth);
-		
-		if (StaticVectorField)
-		{
-			Data = (const FFloat16Color*)StaticVectorField->SourceData.LockReadOnly();
-
-			// TODO sckime - can we just send this down as half4's ???
-			for (uint32 z = 0; z < Depth; z++)
-			{
-				for (uint32 y = 0; y < Height; y++)
-				{
-					for (uint32 x = 0; x < Width; x++)
-					{
-						uint32 Index = x + (y* Height) + (z * Width * Height);
-						TempTable[Index] = FVector4(Data[Index].R, Data[Index].G, Data[Index].B, 0.0f);
-					}
-				}
-			}
-			StaticVectorField->SourceData.Unlock();
-		}
-		else
-		{
-			// We don't support the other types for now.
-			for (uint32 z = 0; z < Depth; z++)
-			{
-				for (uint32 y = 0; y < Height; y++)
-				{
-					for (uint32 x = 0; x < Width; x++)
-					{
-						uint32 Index = x + (y* Height) + (z * Width * Height);
-						TempTable[Index] = FVector4(1.0f, 0.0f, 0.0f, 0.0f);
-					}
-				}
-			}
-		}
-
-		GPUBuffer.Initialize(sizeof(float) * 4, Width*Height*Depth, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
-		//FPlatformMemory::Memcpy(BufferData, TempTable, BufferSize);
-		//RHIUnlockVertexBuffer(GPUBuffer.Buffer.Buffer);
-		bGPUBufferDirty = false;
-	}
-
-	return GPUBuffer;
 }
 
 struct FNiagaraDataInterfaceParametersCS_VectorField : public FNiagaraDataInterfaceParametersCS
 {
 	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) override
 	{
-		VectorFieldBuffer.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BufferBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
-		Dimentions.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::DimentionsBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
-		BoundsMin.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BoundsMinBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
-		BoundsMax.Bind(ParameterMap, *(UNiagaraDataInterfaceVectorField::BoundsMaxBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		VectorFieldSampler.Bind(ParameterMap, *(SamplerBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		VectorFieldTexture.Bind(ParameterMap, *(TextureBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		TilingAxes.Bind(ParameterMap, *(TilingAxesBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		Dimensions.Bind(ParameterMap, *(DimensionsBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		MinBounds.Bind(ParameterMap, *(MinBoundsBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+		MaxBounds.Bind(ParameterMap, *(MaxBoundsBaseName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
 	}
 
 	virtual void Serialize(FArchive& Ar)override
 	{
-		Ar << VectorFieldBuffer;
-		Ar << Dimentions;
-		Ar << BoundsMin;
-		Ar << BoundsMax;
+		Ar << VectorFieldSampler;
+		Ar << VectorFieldTexture;
+		Ar << TilingAxes;
+		Ar << Dimensions;
+		Ar << MinBounds;
+		Ar << MaxBounds;
 	}
 
-	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const override 
+	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface, void* PerInstanceData) const override
 	{
 		check(IsInRenderingThread());
 
+		// Different sampler states used by the computer shader to sample 3D vector field. 
+		// Encoded as bitflags. To sample: 
+		//     1st bit: X-axis tiling flag
+		//     2nd bit: Y-axis tiling flag
+		//     3rd bit: Z-axis tiling flag
+		static FSamplerStateRHIParamRef SamplerStates[8] = { nullptr };
+		if (SamplerStates[0] == nullptr)
+		{
+			SamplerStates[0] = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+			SamplerStates[1] = TStaticSamplerState<SF_Bilinear, AM_Wrap,  AM_Clamp, AM_Clamp>::GetRHI();
+			SamplerStates[2] = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Wrap,  AM_Clamp>::GetRHI();
+			SamplerStates[3] = TStaticSamplerState<SF_Bilinear, AM_Wrap,  AM_Wrap,  AM_Clamp>::GetRHI();
+			SamplerStates[4] = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Wrap>::GetRHI();
+			SamplerStates[5] = TStaticSamplerState<SF_Bilinear, AM_Wrap,  AM_Clamp, AM_Wrap>::GetRHI();
+			SamplerStates[6] = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Wrap,  AM_Wrap>::GetRHI();
+			SamplerStates[7] = TStaticSamplerState<SF_Bilinear, AM_Wrap,  AM_Wrap,  AM_Wrap>::GetRHI();
+		}
+
+		// Get shader and DI
 		const FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
 		UNiagaraDataInterfaceVectorField* VFDI = CastChecked<UNiagaraDataInterfaceVectorField>(DataInterface);
-		FRWBuffer& VFBuffer = VFDI->GetGPUBuffer();
+		
+		// Note: There is a flush in PreEditChange to make sure everything is synced up at this point 
 
-		RHICmdList.SetShaderResourceViewParameter(ComputeShaderRHI, VectorFieldBuffer.GetBaseIndex(), VFBuffer.SRV);
-		SetShaderValue(RHICmdList, ComputeShaderRHI, Dimentions, VFDI->GetDimentions());
-		SetShaderValue(RHICmdList, ComputeShaderRHI, BoundsMin, VFDI->GetBoundsMin());
-		SetShaderValue(RHICmdList, ComputeShaderRHI, BoundsMax, VFDI->GetBoundsMax());
+		// Get and set 3D texture handle from the currently bound vector field.
+		UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(VFDI->Field); 
+		FRHITexture* VolumeTextureRHI = StaticVectorField ? (FRHITexture*)StaticVectorField->GetVolumeTextureRef() : (FRHITexture*)GBlackVolumeTexture->TextureRHI;
+		SetTextureParameter(RHICmdList, ComputeShaderRHI, VectorFieldTexture, VolumeTextureRHI); 
+		
+		// Get and set sampler state
+		FSamplerStateRHIParamRef SamplerState = SamplerStates[int(VFDI->bTileX) + 2 * int(VFDI->bTileY) + 4 * int(VFDI->bTileZ)];
+		SetSamplerParameter(RHICmdList, ComputeShaderRHI, VectorFieldSampler, SamplerState);
+
+		//
+		SetShaderValue(RHICmdList, ComputeShaderRHI, TilingAxes, VFDI->GetTilingAxes());
+		SetShaderValue(RHICmdList, ComputeShaderRHI, Dimensions, VFDI->GetDimensions());
+		SetShaderValue(RHICmdList, ComputeShaderRHI, MinBounds, VFDI->GetMinBounds());
+		SetShaderValue(RHICmdList, ComputeShaderRHI, MaxBounds, VFDI->GetMaxBounds());
 	}
 
 private:
 
-	FShaderResourceParameter VectorFieldBuffer;
-	FShaderParameter Dimentions;
-	FShaderParameter BoundsMin;
-	FShaderParameter BoundsMax;
+	FShaderResourceParameter VectorFieldSampler;
+	FShaderResourceParameter VectorFieldTexture;
+	FShaderParameter TilingAxes;
+	FShaderParameter Dimensions;
+	FShaderParameter MinBounds;
+	FShaderParameter MaxBounds;
 };
 
 FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceVectorField::ConstructComputeParameters()const
 {
 	return new FNiagaraDataInterfaceParametersCS_VectorField();
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------*/
+
+void UNiagaraDataInterfaceVectorField::GetFieldTilingAxes(FVectorVMContext& Context)
+{
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeZ(Context);
+
+	FVector Tilings = GetTilingAxes();
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		*OutSizeX.GetDest() = Tilings.X;
+		*OutSizeY.GetDest() = Tilings.Y;
+		*OutSizeZ.GetDest() = Tilings.Z;
+
+		OutSizeX.Advance();
+		OutSizeY.Advance();
+		OutSizeZ.Advance();
+	}
+}
+
+void UNiagaraDataInterfaceVectorField::GetFieldDimensions(FVectorVMContext& Context)
+{
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeZ(Context);
+
+	FVector Dim = GetDimensions();
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		*OutSizeX.GetDest() = Dim.X;
+		*OutSizeY.GetDest() = Dim.Y;
+		*OutSizeZ.GetDest() = Dim.Z;
+
+		OutSizeX.Advance();
+		OutSizeY.Advance();
+		OutSizeZ.Advance();
+	}
+}
+
+void UNiagaraDataInterfaceVectorField::GetFieldBounds(FVectorVMContext& Context)
+{
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxZ(Context);
+
+	FVector MinBounds = GetMinBounds();
+	FVector MaxBounds = GetMaxBounds();
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		*OutMinX.GetDest() = MinBounds.X;
+		*OutMinY.GetDest() = MinBounds.Y;
+		*OutMinZ.GetDest() = MinBounds.Z;
+		*OutMaxX.GetDest() = MaxBounds.X;
+		*OutMaxY.GetDest() = MaxBounds.Y;
+		*OutMaxZ.GetDest() = MaxBounds.Z;
+
+		OutMinX.Advance();
+		OutMinY.Advance();
+		OutMinZ.Advance();
+		OutMaxX.Advance();
+		OutMaxY.Advance();
+		OutMaxZ.Advance();
+	}
+}
+
+void UNiagaraDataInterfaceVectorField::SampleVectorField(FVectorVMContext& Context)
+{
+	// Input arguments...
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> YParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> ZParam(Context);
+
+	// Outputs...
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
+
+	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
+	UVectorFieldAnimated* AnimatedVectorField = Cast<UVectorFieldAnimated>(Field);
+
+	bool bSuccess = false;
+
+	if (StaticVectorField != nullptr && StaticVectorField->bAllowCPUAccess)
+	{
+		const FVector4 TilingAxes = FVector4(bTileX ? 1.0f : 0.0f, bTileY ? 1.0f : 0.0f, bTileZ ? 1.0f : 0.0f, 0.0);
+
+		const uint32 SizeX = (uint32)StaticVectorField->SizeX;
+		const uint32 SizeY = (uint32)StaticVectorField->SizeY;
+		const uint32 SizeZ = (uint32)StaticVectorField->SizeZ;
+		const FVector4 Size(SizeX, SizeY, SizeZ, 1.0f);
+
+		const FVector4 MinBounds(StaticVectorField->Bounds.Min.X, StaticVectorField->Bounds.Min.Y, StaticVectorField->Bounds.Min.Z, 0.f);
+		const FVector BoundSize = StaticVectorField->Bounds.GetSize();
+
+		const FVector4 *Data = StaticVectorField->CPUData.GetData();
+
+		if (ensure(Data && FMath::Min3(SizeX, SizeY, SizeZ) > 0 && BoundSize.GetMin() > SMALL_NUMBER))
+		{
+			const FVector4 OneOverBoundSize(FVector::OneVector / BoundSize, 1.0f);
+
+			// Math helper
+			static auto FVector4Clamp = [](FVector4 v, FVector4 a, FVector4 b) {
+				return FVector4(FMath::Clamp(v.X, a.X, b.X),
+					FMath::Clamp(v.Y, a.Y, b.Y),
+					FMath::Clamp(v.Z, a.Z, b.Z),
+					FMath::Clamp(v.W, a.W, b.W));
+			};
+
+			static auto FVector4Floor = [](FVector4 v) {
+				return FVector4(FGenericPlatformMath::FloorToFloat(v.X),
+					FGenericPlatformMath::FloorToFloat(v.Y),
+					FGenericPlatformMath::FloorToFloat(v.Z),
+					FGenericPlatformMath::FloorToFloat(v.W));
+			};
+
+			for (int32 InstanceIdx = 0; InstanceIdx < Context.NumInstances; ++InstanceIdx)
+			{
+				// Position in Volume Space
+				FVector4 Pos(XParam.Get(), YParam.Get(), ZParam.Get(), 0.0f);
+
+				// Normalize position
+
+				Pos = (Pos - MinBounds) * OneOverBoundSize;
+
+				// Scaled position
+				Pos = Pos * Size;
+
+				// Offset by half a cell size due to sample being in the center of its cell
+				Pos = Pos - FVector4(0.5f, 0.5f, 0.5f, 0.0f);
+
+				// 
+				FVector4 Index0 = FVector4Floor(Pos);
+				FVector4 Index1 = Index0 + FVector4(1.0f, 1.0f, 1.0f, 0.0f);
+
+				// 
+				FVector4 Fraction = Pos - Index0;
+
+				Index0 = Index0 - TilingAxes*FVector4Floor(Index0 / Size)*Size;
+				Index1 = Index1 - TilingAxes*FVector4Floor(Index1 / Size)*Size;
+
+				Index0 = FVector4Clamp(Index0, FVector4(0.0f), Size - FVector4(1.0f, 1.0f, 1.0f, 0.0f));
+				Index1 = FVector4Clamp(Index1, FVector4(0.0f), Size - FVector4(1.0f, 1.0f, 1.0f, 0.0f));
+
+				// Sample by regular trilinear interpolation:
+
+				// TODO(mv): Optimize indexing for cache? Periodicity is problematic...
+				// TODO(mv): Vectorize?
+				// Fetch corners
+				FVector4 V000 = Data[int(Index0.X + SizeX * Index0.Y + SizeX * SizeY * Index0.Z)];
+				FVector4 V100 = Data[int(Index1.X + SizeX * Index0.Y + SizeX * SizeY * Index0.Z)];
+				FVector4 V010 = Data[int(Index0.X + SizeX * Index1.Y + SizeX * SizeY * Index0.Z)];
+				FVector4 V110 = Data[int(Index1.X + SizeX * Index1.Y + SizeX * SizeY * Index0.Z)];
+				FVector4 V001 = Data[int(Index0.X + SizeX * Index0.Y + SizeX * SizeY * Index1.Z)];
+				FVector4 V101 = Data[int(Index1.X + SizeX * Index0.Y + SizeX * SizeY * Index1.Z)];
+				FVector4 V011 = Data[int(Index0.X + SizeX * Index1.Y + SizeX * SizeY * Index1.Z)];
+				FVector4 V111 = Data[int(Index1.X + SizeX * Index1.Y + SizeX * SizeY * Index1.Z)];
+
+				// Blend x-axis
+				FVector4 V00 = FMath::Lerp(V000, V100, Fraction.X);
+				FVector4 V01 = FMath::Lerp(V001, V101, Fraction.X);
+				FVector4 V10 = FMath::Lerp(V010, V110, Fraction.X);
+				FVector4 V11 = FMath::Lerp(V011, V111, Fraction.X);
+
+				// Blend y-axis
+				FVector4 V0 = FMath::Lerp(V00, V10, Fraction.Y);
+				FVector4 V1 = FMath::Lerp(V01, V11, Fraction.Y);
+
+				// Blend z-axis
+				FVector4 V = FMath::Lerp(V0, V1, Fraction.Z);
+
+				// Write final output...
+				*OutSampleX.GetDest() = V.X;
+				*OutSampleY.GetDest() = V.Y;
+				*OutSampleZ.GetDest() = V.Z;
+
+				XParam.Advance();
+				YParam.Advance();
+				ZParam.Advance();
+				OutSampleX.Advance();
+				OutSampleY.Advance();
+				OutSampleZ.Advance();
+			}
+
+			bSuccess = true;
+		}
+	}
+
+	if (!bSuccess)
+	{
+		// TODO(mv): Add warnings?
+		if (StaticVectorField != nullptr && !StaticVectorField->bAllowCPUAccess)
+		{
+			// No access to static vector data
+		}
+		else if (AnimatedVectorField != nullptr)
+		{
+			// Animated vector field not supported
+		}
+		else if (Field == nullptr)
+		{
+			// Vector field not loaded
+		}
+
+		// Set the default vector to positive X axis corresponding to a velocity of 100 cm/s
+		// Rationale: Setting to the zero vector can be visually confusing and likely to cause problems elsewhere
+		for (int32 InstanceIdx = 0; InstanceIdx < Context.NumInstances; ++InstanceIdx)
+		{
+			*OutSampleX.GetDest() = 0.0f;
+			*OutSampleY.GetDest() = 0.0f;
+			*OutSampleZ.GetDest() = 0.0f;
+
+			XParam.Advance();
+			YParam.Advance();
+			ZParam.Advance();	
+			OutSampleX.Advance();
+			OutSampleY.Advance();
+			OutSampleZ.Advance();
+		}
+	}
+
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------*/
+
+FVector UNiagaraDataInterfaceVectorField::GetTilingAxes() const
+{
+	return FVector(float(bTileX), float(bTileY), float(bTileZ));
+}
+
+FVector UNiagaraDataInterfaceVectorField::GetDimensions() const
+{
+	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
+	if (StaticVectorField)
+	{
+		return FVector(StaticVectorField->SizeX, StaticVectorField->SizeY, StaticVectorField->SizeZ);
+	}
+	return FVector{ 1.0f, 1.0f, 1.0f }; // Matches GBlackVolumeTexture
+}
+
+FVector UNiagaraDataInterfaceVectorField::GetMinBounds() const
+{
+	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
+	if (StaticVectorField)
+	{
+		return StaticVectorField->Bounds.Min;
+	}
+	return FVector{-1.0f, -1.0f, -1.0f};
+}
+
+FVector UNiagaraDataInterfaceVectorField::GetMaxBounds() const
+{
+	UVectorFieldStatic* StaticVectorField = Cast<UVectorFieldStatic>(Field);
+	if (StaticVectorField)
+	{
+		return StaticVectorField->Bounds.Max;
+	}
+	return FVector{1.0f, 1.0f, 1.0f};
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------*/
+
+bool UNiagaraDataInterfaceVectorField::CopyToInternal(UNiagaraDataInterface* Destination) const
+{
+	if (!Super::CopyToInternal(Destination))
+	{
+		return false;
+	}
+
+	UNiagaraDataInterfaceVectorField* OtherTyped = CastChecked<UNiagaraDataInterfaceVectorField>(Destination);
+	OtherTyped->Field = Field;
+	OtherTyped->bTileX = bTileX;
+	OtherTyped->bTileY = bTileY;
+	OtherTyped->bTileZ = bTileZ;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

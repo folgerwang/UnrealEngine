@@ -343,8 +343,7 @@ public partial class Project : CommandUtils
 					if (bUFS)
 					{
 						List<FileReference> Files = SC.FindFilesToStage(InputDir, StageFilesSearch.AllDirectories);
-						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap"));
-
+						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap") || (SC.DedicatedServer && x.HasExtension(".mp4")));
 						SC.StageFiles(StagedFileType.UFS, InputDir, Files, OutputDir);
 					}
 					else
@@ -751,7 +750,7 @@ public partial class Project : CommandUtils
 
 					// Read the receipt for this target
 					TargetReceipt Receipt;
-					if (!TargetReceipt.TryRead(ReceiptFileName, SC.EngineRoot, null, out Receipt))
+					if (!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 					{
 						throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 					}
@@ -1251,7 +1250,7 @@ public partial class Project : CommandUtils
 	{
 		CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSFiles, SC.StageDirectory, SC.DebugStageDirectory, "NonUFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 
-		if (SC.DebugStageDirectory != null)
+		if (!Params.NoDebugInfo)
 		{
 			CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSDebugFiles, SC.DebugStageDirectory, SC.DebugStageDirectory, "DebugFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 		}
@@ -3094,7 +3093,7 @@ public partial class Project : CommandUtils
 
 						// Read the receipt for this target
 						TargetReceipt Receipt;
-						if (!TargetReceipt.TryRead(ReceiptFileName, EngineDir, ProjectDir, out Receipt))
+						if (!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 						{
 							throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 						}

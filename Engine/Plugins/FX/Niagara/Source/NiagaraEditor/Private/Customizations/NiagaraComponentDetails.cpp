@@ -46,6 +46,7 @@
 #include "INiagaraEditorTypeUtilities.h"
 #include "Widgets/Layout/SBox.h"
 #include "UObject/WeakObjectPtr.h"
+#include "NiagaraUserRedirectionParameterStore.h"
 #define LOCTEXT_NAMESPACE "NiagaraComponentDetails"
 
 class FNiagaraComponentNodeBuilder : public IDetailCustomNodeBuilder
@@ -55,8 +56,10 @@ public:
 	{
 		Component = InComponent;
 		Component->OnSynchronizedWithAssetParameters().AddRaw(this, &FNiagaraComponentNodeBuilder::ComponentSynchronizedWithAssetParameters);
-		OriginalScripts.Add(SourceSpawn);
-		OriginalScripts.Add(SourceUpdate);
+		if (SourceSpawn)
+			OriginalScripts.Add(SourceSpawn);
+		if (SourceUpdate)
+			OriginalScripts.Add(SourceUpdate);
 		//UE_LOG(LogNiagaraEditor, Log, TEXT("FNiagaraComponentNodeBuilder %p Component %p"), this, Component.Get());
 	}
 
@@ -88,8 +91,8 @@ public:
 	{
 		check(Component.IsValid());
 		TArray<FNiagaraVariable> Parameters;
-		FNiagaraParameterStore& ParamStore = Component->GetOverrideParameters();
-		ParamStore.GetParameters(Parameters);
+		FNiagaraUserRedirectionParameterStore& ParamStore = Component->GetOverrideParameters();
+		ParamStore.GetUserParameters(Parameters);
 
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
 		
@@ -233,7 +236,7 @@ private:
 	{
 		check(Component.IsValid());
 		Component->GetOverrideParameters().OnParameterChange();
-		Component->SetParameterValueOverriddenLocally(Var, true, false);
+		Component->SetParameterValueOverriddenLocally(Var, true, true);
 	}
 
 	void OnDataInterfaceChanged(FNiagaraVariable Var)
@@ -254,7 +257,7 @@ private:
 		check(Component.IsValid());
 		FScopedTransaction ScopedTransaction(LOCTEXT("ResetParameterValue", "Reset parameter value to system defaults."));
 		Component->Modify();
-		Component->SetParameterValueOverriddenLocally(Parameter, false, false);
+		Component->SetParameterValueOverriddenLocally(Parameter, false, true);
 		return FReply::Handled();
 	}
 
@@ -359,6 +362,11 @@ void FNiagaraComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
 			IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
 			InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component.Get(), ScriptSpawn, ScriptUpdate));
+		}
+		else
+		{
+			IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
+			InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component.Get(), nullptr, nullptr));
 		}
 	}
 }

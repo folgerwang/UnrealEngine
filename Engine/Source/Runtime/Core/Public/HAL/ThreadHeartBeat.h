@@ -57,6 +57,21 @@ class CORE_API FThreadHeartBeat : public FRunnable
 		int32 SuspendedCount;
 		/** The timeout for this thread */
 		double HangDuration;
+
+		/** Suspends this thread's heartbeat */
+		void Suspend()
+		{
+			SuspendedCount++;
+		}
+		/** Resumes this thread's heartbeat */
+		void Resume(double CurrentTime)
+		{
+			check(SuspendedCount > 0);
+			if (--SuspendedCount == 0)
+			{
+				LastHeartBeatTime = CurrentTime;
+			}
+		}
 	};
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
@@ -81,6 +96,9 @@ class CORE_API FThreadHeartBeat : public FRunnable
 	uint32 LastHangCallstackCRC;
 	/** Id of the last thread that hung */
 	uint32 LastHungThreadId;
+
+	/** Global suspended count */
+	FThreadSafeCounter GlobalSuspendCount;
 
 	FThreadHeartBeatClock Clock;
 
@@ -119,12 +137,14 @@ public:
 	void KillHeartBeat();
 	/** 
 	 * Suspend heartbeat measuring for the current thread if the thread has already had a heartbeat 
+	 * @param bAllThreads If true, suspends heartbeat for all threads, not only the current one
 	 */
-	void SuspendHeartBeat();
+	void SuspendHeartBeat(bool bAllThreads = false);
 	/** 
 	 * Resume heartbeat measuring for the current thread 
+	 * @param bAllThreads If true, resumes heartbeat for all threads, not only the current one
 	 */
-	void ResumeHeartBeat();
+	void ResumeHeartBeat(bool bAllThreads = false);
 
 	/**
 	* Returns true/false if this thread is currently performing heartbeat monitoring
@@ -147,18 +167,22 @@ public:
 /** Suspends heartbeat measuring for the current thread in the current scope */
 struct FSlowHeartBeatScope
 {
-	FORCEINLINE FSlowHeartBeatScope()
+private:
+	bool bSuspendedAllThreads;
+public:
+	FORCEINLINE FSlowHeartBeatScope(bool bAllThreads = false)
+		: bSuspendedAllThreads(bAllThreads)
 	{
 		if (FThreadHeartBeat* HB = FThreadHeartBeat::GetNoInit())
 		{
-			HB->SuspendHeartBeat();
+			HB->SuspendHeartBeat(bSuspendedAllThreads);
 		}
 	}
 	FORCEINLINE ~FSlowHeartBeatScope()
 	{
 		if (FThreadHeartBeat* HB = FThreadHeartBeat::GetNoInit())
 		{
-			HB->ResumeHeartBeat();
+			HB->ResumeHeartBeat(bSuspendedAllThreads);
 		}
 	}
 };

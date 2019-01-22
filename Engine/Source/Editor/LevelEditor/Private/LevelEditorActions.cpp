@@ -578,12 +578,25 @@ bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled()
 	{
 		return false;
 	}
+	if (GEditor->PreviewFeatureLevel == ERHIFeatureLevel::SM5)
+	{
+		return true;
+	}
 	return GEditor->IsFeatureLevelPreviewEnabled();
 }
 
 bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewActive()
 {
+	if (GEditor->PreviewFeatureLevel == ERHIFeatureLevel::SM5)
+	{
+		return false;
+	}
 	return GEditor->IsFeatureLevelPreviewEnabled() && GEditor->IsFeatureLevelPreviewActive();
+}
+
+bool FLevelEditorActionCallbacks::IsPreviewModeButtonVisible()
+{
+	return GEditor->PreviewFeatureLevel != ERHIFeatureLevel::SM5;
 }
 
 void FLevelEditorActionCallbacks::SetPreviewPlatform(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
@@ -3300,13 +3313,13 @@ void FLevelEditorCommands::RegisterCommands()
 
 	UI_COMMAND(ToggleFeatureLevelPreview, "Preview Platform", "Preview Platform", EUserInterfaceActionType::ToggleButton, FInputChord());
 
-	UI_COMMAND(PreviewPlatformOverride_AndroidGLES2, "Preview as Android ES2", "Mobile preview using Android's quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_DefaultES2, "Preview as HTML5", "HTML5 preview.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_AndroidGLES2, "Android ES2", "Mobile preview using Android's quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_DefaultES2, "HTML5", "HTML5 preview.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(PreviewPlatformOverride_DefaultES31, "Default High-End Mobile", "Use default mobile settings (no quality overrides).", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_AndroidGLES31, "Preview as Android ES31", "Mobile preview using Android ES3.1 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_AndroidVulkanES31, "Preview as Android Vulkan", "Mobile preview using Android Vulkan quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "Preview as iOS", "Mobile preview using iOS material quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_AndroidGLES31, "Android ES 3.1", "Mobile preview using Android ES3.1 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_AndroidVulkanES31, "Android Vulkan", "Mobile preview using Android Vulkan quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "iOS", "Mobile preview using iOS material quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 
 	UI_COMMAND( ConnectToSourceControl, "Connect to Source Control...", "Opens a dialog to connect to source control.", EUserInterfaceActionType::Button, FInputChord());
@@ -3322,8 +3335,8 @@ void FLevelEditorCommands::RegisterCommands()
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES2", "Mobile / HTML5"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES31", "High-End Mobile"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Preview as SM4"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "No Preview Device. (View as SM5)"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Shader Model 4"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "Shader Model 5"),
 	};
 
 	static const FText FeatureLevelToolTips[ERHIFeatureLevel::Num] = 

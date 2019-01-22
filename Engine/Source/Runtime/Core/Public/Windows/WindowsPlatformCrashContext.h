@@ -13,7 +13,7 @@ struct CORE_API FWindowsPlatformCrashContext : public FGenericCrashContext
 	{
 	}
 
-	virtual void SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack);
+	virtual void SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames);
 
 	virtual void AddPlatformSpecificProperties() const override;
 

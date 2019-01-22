@@ -49,10 +49,10 @@ class UNiagaraNodeInput : public UNiagaraNode
 	GENERATED_UCLASS_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = Input)
+	UPROPERTY(EditAnywhere, Category = Input) 
 	FNiagaraVariable Input;
 
-	UPROPERTY(VisibleAnywhere, Category = Input)
+	UPROPERTY(EditAnywhere, Category = Input)
 	ENiagaraInputNodeUsage Usage;
 
 	/** Controls where this input is relative to others in the calling node. */

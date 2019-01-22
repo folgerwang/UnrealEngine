@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Layout/Margin.h"
-#include "Layout/Visibility.h"
-#include "Layout/SlateRect.h"
-#include "Layout/ArrangedChildren.h"
+#include "Margin.h"
+#include "Visibility.h"
+#include "SlateRect.h"
+#include "ArrangedChildren.h"
+#include "FlowDirection.h"
 
 struct AlignmentArrangeResult
 {
@@ -22,21 +23,36 @@ struct AlignmentArrangeResult
 
 namespace ArrangeUtils
 {
-	/** Gets the alignment of an axis-agnostic int32 so that we can do aligment on an axis without caring about its orientation */
+	/** Gets the alignment of an axis-agnostic int32 so that we can do alignment on an axis without caring about its orientation */
 	template<EOrientation Orientation>
 	struct GetChildAlignment
 	{
 		template<typename SlotType>
-		static int32 AsInt( const SlotType& InSlot );
+		static int32 AsInt(EFlowDirection InFlowDirection, const SlotType& InSlot );
 	};
 
 	template<>
 	struct GetChildAlignment<Orient_Horizontal>
 	{
 		template<typename SlotType>
-		static int32 AsInt( const SlotType& InSlot )
+		static int32 AsInt(EFlowDirection InFlowDirection, const SlotType& InSlot )
 		{
-			return static_cast<int32>(InSlot.HAlignment);
+			switch (InFlowDirection)
+			{
+			default:
+			case EFlowDirection::LeftToRight:
+				return static_cast<int32>(InSlot.HAlignment);
+			case EFlowDirection::RightToLeft:
+				switch (InSlot.HAlignment)
+				{
+				case HAlign_Left:
+					return static_cast<int32>(HAlign_Right);
+				case HAlign_Right:
+					return static_cast<int32>(HAlign_Left);
+				default:
+					return static_cast<int32>(InSlot.HAlignment);
+				}
+			}
 		}
 	};
 
@@ -44,13 +60,14 @@ namespace ArrangeUtils
 	struct GetChildAlignment<Orient_Vertical>
 	{
 		template<typename SlotType>
-		static int32 AsInt( const SlotType& InSlot )
+		static int32 AsInt(EFlowDirection InFlowDirection, const SlotType& InSlot )
 		{
+			// InFlowDirection has no effect in vertical orientations.
 			return static_cast<int32>(InSlot.VAlignment);
 		}
 	};
-
 }
+
 
 
 /**
@@ -65,21 +82,21 @@ namespace ArrangeUtils
  * @return  Offset and Size of widget
  */
 template<EOrientation Orientation, typename SlotType>
-static AlignmentArrangeResult AlignChild(float AllottedSize, float ChildDesiredSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
+static AlignmentArrangeResult AlignChild(EFlowDirection InLayoutFlow, float AllottedSize, float ChildDesiredSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
 {
 	const FMargin& Margin = SlotPadding;
 	const float TotalMargin = Margin.GetTotalSpaceAlong<Orientation>();
 	const float MarginPre = ( Orientation == Orient_Horizontal ) ? Margin.Left : Margin.Top;
 	const float MarginPost = ( Orientation == Orient_Horizontal ) ? Margin.Right : Margin.Bottom;
 
-	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(ChildToArrange);
+	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(InLayoutFlow, ChildToArrange);
 
-	switch ( Alignment )
+	switch (Alignment)
 	{
 	case HAlign_Fill:
-		return AlignmentArrangeResult(MarginPre, ( AllottedSize - TotalMargin ) * ContentScale);
+		return AlignmentArrangeResult(MarginPre, (AllottedSize - TotalMargin) * ContentScale);
 	}
-
+	
 	const float ChildSize = bClampToParent ? FMath::Min(ChildDesiredSize, AllottedSize - TotalMargin) : ChildDesiredSize;
 
 	switch( Alignment )
@@ -97,19 +114,25 @@ static AlignmentArrangeResult AlignChild(float AllottedSize, float ChildDesiredS
 }
 
 template<EOrientation Orientation, typename SlotType>
-static AlignmentArrangeResult AlignChild(float AllottedSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
+static AlignmentArrangeResult AlignChild(float AllottedSize, float ChildDesiredSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
+{
+	return AlignChild<Orientation, SlotType>(EFlowDirection::LeftToRight, AllottedSize, ChildDesiredSize, ChildToArrange, SlotPadding, ContentScale, bClampToParent);
+}
+
+template<EOrientation Orientation, typename SlotType>
+static AlignmentArrangeResult AlignChild(EFlowDirection InLayoutFlow, float AllottedSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
 {
 	const FMargin& Margin = SlotPadding;
 	const float TotalMargin = Margin.GetTotalSpaceAlong<Orientation>();
 	const float MarginPre = ( Orientation == Orient_Horizontal ) ? Margin.Left : Margin.Top;
 	const float MarginPost = ( Orientation == Orient_Horizontal ) ? Margin.Right : Margin.Bottom;
 
-	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(ChildToArrange);
+	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(InLayoutFlow, ChildToArrange);
 
-	switch ( Alignment )
+	switch (Alignment)
 	{
 	case HAlign_Fill:
-		return AlignmentArrangeResult(MarginPre, ( AllottedSize - TotalMargin ) * ContentScale);
+		return AlignmentArrangeResult(MarginPre, (AllottedSize - TotalMargin) * ContentScale);
 	}
 
 	const float ChildDesiredSize = ( Orientation == Orient_Horizontal )
@@ -132,29 +155,52 @@ static AlignmentArrangeResult AlignChild(float AllottedSize, const SlotType& Chi
 	return AlignmentArrangeResult(MarginPre, ( AllottedSize - TotalMargin ) * ContentScale);
 }
 
+template<EOrientation Orientation, typename SlotType>
+static AlignmentArrangeResult AlignChild(float AllottedSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
+{
+	return AlignChild<Orientation, SlotType>(EFlowDirection::LeftToRight, AllottedSize, ChildToArrange, SlotPadding, ContentScale, bClampToParent);
+}
+
 
 /**
  * Arrange a ChildSlot within the AllottedGeometry and populate ArrangedChildren with the arranged result.
  * The code makes certain assumptions about the type of ChildSlot.
  */
 template<typename SlotType>
-void ArrangeSingleChild( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SlotType& ChildSlot, const TAttribute<FVector2D>& ContentScale )
+static void ArrangeSingleChild(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SlotType& ChildSlot, const TAttribute<FVector2D>& ContentScale)
+{
+	ArrangeSingleChild<SlotType>(EFlowDirection::LeftToRight, AllottedGeometry, ArrangedChildren, ChildSlot, ContentScale);
+}
+
+template<typename SlotType>
+static void ArrangeSingleChild(EFlowDirection InFlowDirection, const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SlotType& ChildSlot, const TAttribute<FVector2D>& ContentScale)
 {
 	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if ( ArrangedChildren.Accepts(ChildVisibility) )
 	{
 		const FVector2D ThisContentScale = ContentScale.Get();
-		const FMargin SlotPadding(ChildSlot.SlotPadding.Get());
-		AlignmentArrangeResult XResult = AlignChild<Orient_Horizontal>(AllottedGeometry.GetLocalSize().X, ChildSlot, SlotPadding, ThisContentScale.X);
-		AlignmentArrangeResult YResult = AlignChild<Orient_Vertical>(AllottedGeometry.GetLocalSize().Y, ChildSlot, SlotPadding, ThisContentScale.Y);
+		const FMargin SlotPadding(LayoutPaddingWithFlow(InFlowDirection, ChildSlot.SlotPadding.Get()));
+		const AlignmentArrangeResult XResult = AlignChild<Orient_Horizontal>(InFlowDirection, AllottedGeometry.GetLocalSize().X, ChildSlot, SlotPadding, ThisContentScale.X);
+		const AlignmentArrangeResult YResult = AlignChild<Orient_Vertical>(AllottedGeometry.GetLocalSize().Y, ChildSlot, SlotPadding, ThisContentScale.Y);
 
 		ArrangedChildren.AddWidget( ChildVisibility, AllottedGeometry.MakeChild(
 				ChildSlot.GetWidget(),
-				FVector2D(XResult.Offset,YResult.Offset),
+				FVector2D(XResult.Offset, YResult.Offset),
 				FVector2D(XResult.Size, YResult.Size)
 		) );
 	}
+}
 
+static FMargin LayoutPaddingWithFlow(EFlowDirection InLayoutFlow, const FMargin& InPadding)
+{
+	FMargin ReturnPadding(InPadding);
+	if (InLayoutFlow == EFlowDirection::RightToLeft)
+	{
+		float Temp = ReturnPadding.Left;
+		ReturnPadding.Left = ReturnPadding.Right;
+		ReturnPadding.Right = Temp;
+	}
+	return ReturnPadding;
 }
 
 /**

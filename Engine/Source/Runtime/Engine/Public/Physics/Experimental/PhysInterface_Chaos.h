@@ -593,6 +593,9 @@ public:
 
     ENGINE_API void DeferredAddCollisionDisableTable(uint32 SkelMeshCompID, TMap<struct FRigidBodyIndexPair, bool> * CollisionDisableTable) {}
     ENGINE_API void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID) {}
+
+	void MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning) {}
+	void ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp) {}
     
     void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType) {}
     void AddPendingSleepingEvent(FBodyInstance* BI, ESleepEvent SleepEventType, int32 SceneType) {}

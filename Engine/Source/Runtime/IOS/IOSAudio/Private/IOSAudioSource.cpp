@@ -226,7 +226,7 @@ void FIOSAudioSoundSource::Update(void)
 
     SetFilterFrequency();
     
-    SourceLPFFrequency = LPFFrequency;
+    SourceLPFFrequency = LPFFrequency / (((float) SampleRate) * 0.5f);
     
 	// Factor in the xaudio2 attenuation that happens to stereo assets.
 	if (WaveInstance->WaveData->NumChannels == 2 && WaveInstance->bUseSpatialization)
@@ -292,10 +292,9 @@ void FIOSAudioSoundSource::Play(void)
 		// Updates the source which sets the pitch and volume
 		Update();
         
-        for (Audio::FBiquadFilter& Filter : LowpassFilterBank)
+        for (Audio::FOnePoleLPF& Filter : LowpassFilterBank)
         {
             Filter.Reset();
-            Filter.Init(SampleRate, 1, Audio::EBiquadFilter::Lowpass, LPFFrequency);
         }
         
         for (Audio::FParam& Param : LPFParamBank)
@@ -464,21 +463,38 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
 		FMemory::Memzero(OutData, NumFrames * sizeof(AudioSampleType));
 		return -1;
 	}
-	
+
+    
+    
 	if(Channel == 0)
 	{
-		Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->DecompressionState->NumChannels;
-		
-		// Since StreamCompressedData returns interlaced samples we need to decompress all frames(samples) for all channels here so we don't end up decompressing multiple times
-		// Ensure we have enough memory to do this. If needed we could realloc here but that is bad practice inside the audio callback since it has a hard deadline
-		check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize)
-		
-		// Grab the interlaced channel data
-		Source->bChannel0Finished =
-			Source->IOSBuffer->ReadCompressedData(
+		// Grab the interleaved channel data
+		if (Source->IOSBuffer->bIsProcedural)
+		{
+            Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->NumChannels;
+            check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize);
+            
+            FMemory::Memzero(Source->IOSBuffer->SampleData, Source->IOSBuffer->RenderCallbackBufferSize);
+            
+			int32 DataSize = Source->WaveInstance->WaveData->GeneratePCMData(
+				(uint8*) Source->IOSBuffer->SampleData,
+				Source->IOSBuffer->RenderCallbackBufferSize / sizeof(int16));
+			Source->bChannel0Finished = DataSize <= 0;
+		}
+		else
+		{
+			Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->DecompressionState->NumChannels;
+
+			// Since StreamCompressedData returns interlaced samples we need to decompress all frames(samples) for all channels here so we don't end up decompressing multiple times
+			// Ensure we have enough memory to do this. If needed we could realloc here but that is bad practice inside the audio callback since it has a hard deadline
+			check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize);
+
+			Source->bChannel0Finished =
+				Source->IOSBuffer->ReadCompressedData(
 				(uint8*)Source->IOSBuffer->SampleData,
 				MONO_PCM_BUFFER_SAMPLES,
 				Source->WaveInstance->LoopingMode == LOOP_WithNotification || Source->WaveInstance->LoopingMode == LOOP_Forever);
+		}
 	}
     
     // If the channel count is higher than we've expected,
@@ -492,12 +508,11 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
         
         ChannelIndex = Source->LowpassFilterBank.AddDefaulted(1);
         Source->LowpassFilterBank[ChannelIndex].Reset();
-        Source->LowpassFilterBank[ChannelIndex].Init(Source->SampleRate, 1, Audio::EBiquadFilter::Lowpass, Source->SourceLPFFrequency);
     }
     
     // Set up LPF filter for this channel:
     Audio::FParam& LPFParam = Source->LPFParamBank[Channel];
-    Audio::FBiquadFilter& LowpassFilter = Source->LowpassFilterBank[Channel];
+    Audio::FOnePoleLPF& LowpassFilter = Source->LowpassFilterBank[Channel];
     
     LPFParam.Reset();
     const bool bShouldUpdateCutoffFrequency = !FMath::IsNearlyEqual(Source->SourceLPFFrequency, LPFParam.GetValue());
@@ -524,7 +539,7 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
         float FloatSample = ((float) IntSample) / 32767.0f;
         if(LPFParam.GetValue() != MAX_FILTER_FREQUENCY)
         {
-            LowpassFilter.ProcessAudioFrame(&FloatSample, &FloatSample);
+            FloatSample = LowpassFilter.ProcessAudioSample(FloatSample);
         }
         *OutData++ = (SInt16) (FloatSample * 32767.0f);
 	}

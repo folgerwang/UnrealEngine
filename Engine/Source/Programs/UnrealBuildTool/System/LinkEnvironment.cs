@@ -94,13 +94,6 @@ namespace UnrealBuildTool
 		public List<UEBuildFramework> AdditionalFrameworks = new List<UEBuildFramework>();
 
 		/// <summary>
-		/// For builds that execute on a remote machine (e.g. iPhone), this list contains additional files that
-		/// need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
-		/// automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
-		/// </summary>
-		public List<string> AdditionalShadowFiles = new List<string>();
-
-		/// <summary>
 		/// The iOS/Mac frameworks to link in
 		/// </summary>
 		public List<string> Frameworks = new List<string>();
@@ -262,11 +255,6 @@ namespace UnrealBuildTool
 		public string BundleVersion;
 
 		/// <summary>
-		/// Whether we're linking in monolithic mode. Determines if linking should produce import library file. Relevant only for VC++, clang stores imports in shared library.
-		/// </summary>
-		public bool bShouldCompileMonolithic = false;
-
-		/// <summary>
 		/// A list of the object files to be linked.
 		/// </summary>
 		public List<FileItem> InputFiles = new List<FileItem>();
@@ -291,6 +279,11 @@ namespace UnrealBuildTool
 		/// Necessary when exporting functions by ordinal values instead of by name.
 		/// </summary>
 		public string ModuleDefinitionFile;
+
+		/// <summary>
+		/// All the additional properties from the modules linked into this binary
+		/// </summary>
+		public List<ReceiptProperty> AdditionalProperties = new List<ReceiptProperty>();
 
 		/// <summary>
 		/// Default constructor.
@@ -320,7 +313,6 @@ namespace UnrealBuildTool
 			AdditionalLibraries.AddRange(Other.AdditionalLibraries);
 			RuntimeLibraryPaths.AddRange(Other.RuntimeLibraryPaths);
 			Frameworks.AddRange(Other.Frameworks);
-			AdditionalShadowFiles.AddRange(Other.AdditionalShadowFiles);
 			AdditionalFrameworks.AddRange(Other.AdditionalFrameworks);
 			WeakFrameworks.AddRange(Other.WeakFrameworks);
 			AdditionalBundleResources.AddRange(Other.AdditionalBundleResources);
@@ -357,6 +349,7 @@ namespace UnrealBuildTool
 			DefaultResourceFiles.AddRange(Other.DefaultResourceFiles);
 			CommonResourceFiles.AddRange(Other.CommonResourceFiles);
 			ModuleDefinitionFile = Other.ModuleDefinitionFile;
+			AdditionalProperties.AddRange(Other.AdditionalProperties);
         }
 	}
 }

@@ -1905,13 +1905,13 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	// Import mesh metadata to SkeletalMesh
 	for (FbxNode* MeshNode : ImportSkeletalMeshArgs.NodeArray)
 	{
-		ImportNodeCustomProperties(SkeletalMesh, MeshNode);
+		ImportNodeCustomProperties(SkeletalMesh, MeshNode, true);
 	}
 
 	// Import bone metadata to Skeleton
 	for (FbxNode* SkeletonNode : ImportSkeletalMeshArgs.BoneNodeArray)
 	{
-		ImportNodeCustomProperties(SkeletalMesh->Skeleton, SkeletonNode);
+		ImportNodeCustomProperties(SkeletalMesh->Skeleton, SkeletonNode, true);
 	}
 
 	// ComponentContexts will now go out of scope, causing components to be re-registered

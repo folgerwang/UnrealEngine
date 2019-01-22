@@ -965,6 +965,13 @@ public:
 	virtual const TCHAR* GetConfigOverridePlatform() const { return nullptr; }
 
 	/**
+	 * Allows PerObjectConfig classes, to override the ini section name used for the PerObjectConfig object.
+	 *
+	 * @param SectionName	Reference to the unmodified config section name, that can be altered/modified
+	 */
+	virtual void OverridePerObjectConfigSection(FString& SectionName) {}
+
+	/**
 	 * Imports property values from an .ini file.
 	 *
 	 * @param	Class				the class to use for determining which section of the ini to retrieve text values from

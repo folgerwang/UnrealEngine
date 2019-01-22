@@ -176,7 +176,16 @@ void FGenericErrorReport::SetPrimaryCrashProperties( FPrimaryCrashProperties& ou
 	ICrashDebugHelper* Helper = CrashHelperModule.Get();
 	if (Helper && bValidCallstack)
 	{
-		out_PrimaryCrashProperties.CallStack = Helper->CrashInfo.Exception.CallStackString;
+		TArray<FString> CallStack = Helper->CrashInfo.Exception.CallStackString;
+
+		// Get the callstack and remove any frames that we don't care about
+		int64 NumMinidumpFramesToIgnore = out_PrimaryCrashProperties.NumMinidumpFramesToIgnore;
+		if (NumMinidumpFramesToIgnore > 0)
+		{
+			CallStack.RemoveAt(0, FMath::Min(CallStack.Num(), (int32)NumMinidumpFramesToIgnore));
+		}
+
+		out_PrimaryCrashProperties.CallStack = CallStack;
 		out_PrimaryCrashProperties.Modules = Helper->CrashInfo.ModuleNames;
 		out_PrimaryCrashProperties.SourceContext = Helper->CrashInfo.SourceContext;
 

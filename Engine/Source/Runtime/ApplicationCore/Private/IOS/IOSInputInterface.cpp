@@ -5,6 +5,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/PlatformTime.h"
 
 #import <AudioToolbox/AudioToolbox.h>
 
@@ -334,20 +335,56 @@ void FIOSInputInterface::SendControllerEvents()
 			Controller.bPauseWasPressed = false;
 		}
 		
-		// @todo tvos: Handle repeated buttons?
+        const double CurrentTime = FPlatformTime::Seconds();
+        const float IniitialRepeatDelay = 0.2f;
+        const float RepeatDelay = 0.1;
+
+#define HANDLE_BUTTON_INTERNAL(Gamepad, bWasPressed, bIsPressed, UEButton) \
+if (bWasPressed != bIsPressed) \
+{ \
+	NSLog(@"%@ button %s on controller %d", bIsPressed ? @"Pressed" : @"Released", TCHAR_TO_ANSI(*UEButton.ToString()), (int32)Cont.playerIndex); \
+	bIsPressed ? MessageHandler->OnControllerButtonPressed(UEButton, Cont.playerIndex, false) : MessageHandler->OnControllerButtonReleased(UEButton, Cont.playerIndex, false); \
+    NextKeyRepeatTime.FindOrAdd(UEButton) = CurrentTime + IniitialRepeatDelay; \
+} \
+else if(bIsPressed) \
+{ \
+    double* NextRepeatTime = NextKeyRepeatTime.Find(UEButton); \
+    if(NextRepeatTime && *NextRepeatTime <= CurrentTime) \
+    { \
+        MessageHandler->OnControllerButtonPressed(UEButton, Cont.playerIndex, true); \
+*NextRepeatTime = CurrentTime + RepeatDelay; \
+    } \
+} \
+else \
+{ \
+    NextKeyRepeatTime.Remove(UEButton); \
+}
 		
 #define HANDLE_BUTTON(Gamepad, GCButton, UEButton) \
-if ((Controller.Previous##Gamepad == nil && Gamepad.GCButton.pressed) || Controller.Previous##Gamepad.GCButton.pressed != Gamepad.GCButton.pressed) \
 { \
-	NSLog(@"%@ button %s on controller %d", (ExtendedGamepad.GCButton.pressed) ? @"Pressed" : @"Released", TCHAR_TO_ANSI(*UEButton.ToString()), (int32)Cont.playerIndex); \
-	(Gamepad.GCButton.pressed) ? MessageHandler->OnControllerButtonPressed(UEButton, Cont.playerIndex, false) : MessageHandler->OnControllerButtonReleased(UEButton, Cont.playerIndex, false); \
+	const bool bWasPressed = Controller.Previous##Gamepad != nil && Controller.Previous##Gamepad.GCButton.pressed; \
+	const bool bPressed = Gamepad.GCButton.pressed; \
+	HANDLE_BUTTON_INTERNAL(Gamepad, bWasPressed, bPressed, UEButton); \
 }
 
+        // Send controller events any time we are passed the given input threshold similarly to PC/Console (see: XInputInterface.cpp)
+        const float RepeatDeadzone = 0.24;
+        
 #define HANDLE_ANALOG(Gamepad, GCAxis, UEAxis) \
-if (Controller.Previous##Gamepad != nil && Gamepad.GCAxis.value != Controller.Previous##Gamepad.GCAxis.value) \
+if ((Controller.Previous##Gamepad != nil && Gamepad.GCAxis.value != Controller.Previous##Gamepad.GCAxis.value) || (Gamepad.GCAxis.value < -RepeatDeadzone || Gamepad.GCAxis.value > RepeatDeadzone)) \
 { \
 	NSLog(@"Axis %s is %f", TCHAR_TO_ANSI(*UEAxis.ToString()), Gamepad.GCAxis.value); \
 	MessageHandler->OnControllerAnalog(UEAxis, Cont.playerIndex, Gamepad.GCAxis.value); \
+}
+
+#define HANDLE_ANALOG_VIRTUAL_BUTTONS(Gamepad, GCAxis, UEButtonNegative, UEButtonPositive) \
+{ \
+	const bool bWasNegativePressed = Controller.Previous##Gamepad != nil && Controller.Previous##Gamepad.GCAxis.value <= -RepeatDeadzone; \
+	const bool bNegativePressed = Gamepad.GCAxis.value <= -RepeatDeadzone; \
+	HANDLE_BUTTON_INTERNAL(Gamepad, bWasNegativePressed, bNegativePressed, UEButtonNegative) \
+	const bool bWasPositivePressed = Controller.Previous##Gamepad != nil && Controller.Previous##Gamepad.GCAxis.value >= RepeatDeadzone; \
+	const bool bPositivePressed = Gamepad.GCAxis.value >= RepeatDeadzone; \
+	HANDLE_BUTTON_INTERNAL(Gamepad, bWasPositivePressed, bPositivePressed, UEButtonPositive) \
 }
 		
 		if (ExtendedGamepad != nil)
@@ -371,6 +408,11 @@ if (Controller.Previous##Gamepad != nil && Gamepad.GCAxis.value != Controller.Pr
 			HANDLE_ANALOG(ExtendedGamepad, rightThumbstick.yAxis,	FGamepadKeyNames::RightAnalogY);
 			HANDLE_ANALOG(ExtendedGamepad, leftTrigger,				FGamepadKeyNames::LeftTriggerAnalog);
 			HANDLE_ANALOG(ExtendedGamepad, rightTrigger,			FGamepadKeyNames::RightTriggerAnalog);
+
+			HANDLE_ANALOG_VIRTUAL_BUTTONS(ExtendedGamepad, leftThumbstick.xAxis, FGamepadKeyNames::LeftStickLeft, FGamepadKeyNames::LeftStickRight);
+			HANDLE_ANALOG_VIRTUAL_BUTTONS(ExtendedGamepad, leftThumbstick.yAxis, FGamepadKeyNames::LeftStickDown, FGamepadKeyNames::LeftStickUp);
+			HANDLE_ANALOG_VIRTUAL_BUTTONS(ExtendedGamepad, rightThumbstick.xAxis, FGamepadKeyNames::RightStickLeft, FGamepadKeyNames::RightStickRight);
+			HANDLE_ANALOG_VIRTUAL_BUTTONS(ExtendedGamepad, rightThumbstick.yAxis, FGamepadKeyNames::RightStickDown, FGamepadKeyNames::RightStickUp);
 
 			[Controller.PreviousExtendedGamepad release];
 			Controller.PreviousExtendedGamepad = [ExtendedGamepad saveSnapshot];
@@ -431,7 +473,7 @@ if (Controller.Previous##Gamepad != nil && Gamepad.GCAxis.value != Controller.Pr
 			Controller.PreviousMicroGamepad = [MicroGamepad saveSnapshot];
 			[Controller.PreviousMicroGamepad retain];
         }
-		
+        
 		// motion is orthogonal to buttons
 // @todo tvos: handle motion without attitude or rotation rate
 #if 0

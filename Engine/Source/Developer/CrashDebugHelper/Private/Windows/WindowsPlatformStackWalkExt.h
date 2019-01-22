@@ -51,13 +51,8 @@ struct FWindowsPlatformStackWalkExt
 	/** Extracts info about the exception that caused the crash. */
 	void GetExceptionInfo();
 
-	/**
-	 * Gets the callstack of the crash.
-	 *
-	 * @param bTrimCallstack	If true, trims what it thinks are irrelevant entries after a debug or assert. If false, leaves all callstack entries. 
-	 * @return the number of valid function names
-	 */
-	int32 GetCallstacks(bool bTrimCallstack);
+	/** Gets the callstack of the crash. */
+	void GetCallstacks();
 
 	/** Opens a minidump as a new session. */
 	bool OpenDumpFile( const FString& DumpFileName );

@@ -51,7 +51,7 @@ int32 GPerformFrameStripping = 0;
 
 static const TCHAR* StripFrameCVarName = TEXT("a.StripFramesOnCompression");
 
-static FAutoConsoleVariableRef CVarMaximumAllowedHLODLevel(
+static FAutoConsoleVariableRef CVarAnimStripFramesOnCompression(
 	StripFrameCVarName,
 	GPerformFrameStripping,
 	TEXT("1 = Strip every other frame on animations that have an even number of frames. 0 = off"));
@@ -468,6 +468,13 @@ void UAnimSequence::Serialize(FArchive& Ar)
 		SourceFileTimestamp_DEPRECATED = TEXT("");
 	}
 
+	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
+	// fire a warning if we try and load it in post load
+	if (CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid())
+	{
+		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
+	}
+
 #endif // WITH_EDITORONLY_DATA
 
 	AddAnimLoadingDebugEntry(TEXT("PostSerialize"));
@@ -867,7 +874,8 @@ void UAnimSequence::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 		PostProcessSequence();
 	}
 
-	if (PropertyChangedEvent.Property != nullptr && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UAnimSequence, CurveCompressionSettings))
+	UProperty* Property = PropertyChangedEvent.Property;
+	if (Property != nullptr && Property->GetFName() == GET_MEMBER_NAME_CHECKED(UAnimSequence, CurveCompressionSettings))
 	{
 		RequestSyncAnimRecompression(false);
 	}

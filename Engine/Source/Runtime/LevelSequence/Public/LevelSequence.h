@@ -61,6 +61,8 @@ public:
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
 
+	void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
+
 #if WITH_EDITORONLY_DATA
 
 	/** A pointer to the director blueprint that generates this sequence's DirectorClass. */

@@ -680,15 +680,7 @@ bool FAnimationViewportClient::ShouldDisplayAdditiveScaleErrorMessage() const
 	return false;
 }
 
-static FText ConcatenateLine(const FText& InText, const FText& InNewLine)
-{
-	if(InText.IsEmpty())
-	{
-		return InNewLine;
-	}
-
-	return FText::Format(LOCTEXT("ViewportTextNewlineFormatter", "{0}\n{1}"), InText, InNewLine);
-}
+extern FText ConcatenateLine(const FText& InText, const FText& InNewLine);
 
 FText FAnimationViewportClient::GetDisplayInfo(bool bDisplayAllInfo) const
 {

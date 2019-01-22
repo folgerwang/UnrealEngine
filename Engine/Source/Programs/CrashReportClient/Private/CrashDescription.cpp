@@ -128,6 +128,7 @@ FPrimaryCrashProperties::FPrimaryCrashProperties()
 	bHasMiniDumpFile = false;
 	bHasLogFile = false;
 	bHasPrimaryData = false;
+	NumMinidumpFramesToIgnore = 0;
 }
 
 void FPrimaryCrashProperties::Shutdown()
@@ -137,7 +138,7 @@ void FPrimaryCrashProperties::Shutdown()
 
 void FPrimaryCrashProperties::UpdateIDs()
 {
-	const bool bAddPersonalData = FCrashReportClientConfig::Get().GetAllowToBeContacted() || FEngineBuildSettings::IsInternalBuild();
+	const bool bAddPersonalData = FCrashReportClientConfig::Get().GetAllowToBeContacted();
 	bAllowToBeContacted = bAddPersonalData;
 	if (bAddPersonalData)
 	{
@@ -441,6 +442,7 @@ FCrashContext::FCrashContext( const FString& CrashContextFilepath )
 		GetCrashProperty( DeploymentName, FGenericCrashContext::RuntimePropertiesTag, TEXT( "DeploymentName" ) );
 		GetCrashProperty( AppDefaultLocale, FGenericCrashContext::RuntimePropertiesTag, TEXT( "AppDefaultLocale" ) );
 		GetCrashProperty( bIsEnsure, FGenericCrashContext::RuntimePropertiesTag, TEXT("IsEnsure"));
+		GetCrashProperty( NumMinidumpFramesToIgnore, FGenericCrashContext::RuntimePropertiesTag, TEXT("NumMinidumpFramesToIgnore"));
 
 		if (CrashDumpMode == ECrashDumpMode::FullDump)
 		{

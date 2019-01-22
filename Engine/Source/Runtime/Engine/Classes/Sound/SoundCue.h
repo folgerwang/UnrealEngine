@@ -149,6 +149,9 @@ public:
 	virtual float GetDuration() override;
 	virtual const FSoundAttenuationSettings* GetAttenuationSettingsToApply() const override;
 	virtual float GetSubtitlePriority() const override;
+	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
+	virtual bool HasCookedFFTData() const override;
+	virtual bool HasCookedAmplitudeEnvelopeData() const override;
 	//~ End USoundBase Interface.
 
 	/** Construct and initialize a node within this Cue */
@@ -179,7 +182,8 @@ public:
 	/**
 	 * Recursively finds sound nodes of type T
 	 */
-	template<typename T> void RecursiveFindNode(USoundNode* Node, TArray<T*>& OutNodes)
+	template<typename T> 
+	void RecursiveFindNode(USoundNode* Node, TArray<T*>& OutNodes)
 	{
 		if (Node)
 		{
@@ -197,6 +201,27 @@ public:
 			}
 		}
 	}
+
+	template<typename T>
+	void RecursiveFindNode(const USoundNode* Node, TArray<const T*>& OutNodes) const
+	{
+		if (Node)
+		{
+			// Record the node if it is the desired type
+			if (const T* FoundNode = Cast<T>(Node))
+			{
+				OutNodes.AddUnique(FoundNode);
+			}
+
+			// Recurse.
+			const int32 MaxChildNodes = Node->GetMaxChildNodes();
+			for (int32 ChildIndex = 0; ChildIndex < Node->ChildNodes.Num() && ChildIndex < MaxChildNodes; ++ChildIndex)
+			{
+				RecursiveFindNode<T>(Node->ChildNodes[ChildIndex], OutNodes);
+			}
+		}
+	}
+
 
 	/** Find the path through the sound cue to a node identified by its hash */
 	ENGINE_API bool FindPathToNode(const UPTRINT NodeHashToFind, TArray<USoundNode*>& OutPath) const;

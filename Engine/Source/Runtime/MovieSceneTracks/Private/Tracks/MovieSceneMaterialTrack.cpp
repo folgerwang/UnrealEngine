@@ -3,7 +3,7 @@
 #include "Tracks/MovieSceneMaterialTrack.h"
 #include "MovieSceneCommonHelpers.h"
 #include "Evaluation/MovieSceneParameterTemplate.h"
-
+#include "Evaluation/MovieSceneEvaluationTrack.h"
 
 UMovieSceneMaterialTrack::UMovieSceneMaterialTrack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -103,6 +103,11 @@ UMovieSceneComponentMaterialTrack::UMovieSceneComponentMaterialTrack(const FObje
 FMovieSceneEvalTemplatePtr UMovieSceneComponentMaterialTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
 	return FMovieSceneComponentMaterialSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
+}
+
+void UMovieSceneComponentMaterialTrack::PostCompile(FMovieSceneEvaluationTrack& OutTrack, const FMovieSceneTrackCompilerArgs& Args) const
+{
+	OutTrack.SetEvaluationPriority(EvaluationPriority);
 }
 
 

@@ -144,9 +144,16 @@ namespace UnrealBuildTool.Rules
             if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
             {
                 PrivateDependencyModuleNames.AddRange(new string[] { "D3D11RHI" });
-            }
+				PrivateIncludePaths.AddRange(
+					new string[] {
+					"../../../../Source/Runtime/Windows/D3D11RHI/Private",
+					"../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
+					});
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+			}
 
-            AddWebRTCProxy();
+			AddWebRTCProxy();
             AddSignallingServer();
             AddMatchmakingServer();
             AddWebRTCServers();

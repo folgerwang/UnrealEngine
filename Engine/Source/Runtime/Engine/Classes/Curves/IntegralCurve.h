@@ -53,6 +53,9 @@ public:
 	/** Get number of keys in curve. */
 	virtual int32 GetNumKeys() const override final { return Keys.Num(); }
 
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FIntegralCurve(*this); }
+
 	/** Evaluates the value of an array of keys at a time */
 	int32 Evaluate(float Time, int32 InDefaultValue = 0) const;
 

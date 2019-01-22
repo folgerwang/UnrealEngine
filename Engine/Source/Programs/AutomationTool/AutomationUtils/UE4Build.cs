@@ -22,8 +22,6 @@ namespace AutomationTool
 	{
 		private BuildCommand OwnerCommand;
 
-		private String XGEConsoleExePath = "";
-
 		public bool HasBuildProduct(string InFile)
 		{
 			string File = CommandUtils.CombinePaths(InFile);
@@ -113,7 +111,7 @@ namespace AutomationTool
 
 			ClearExportedXGEXML();
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -NoHotReload -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
 
 			XGEItem Result = new XGEItem();
 			Result.Platform = Platform;
@@ -155,7 +153,7 @@ namespace AutomationTool
 			// run the deployment steps, if necessary
 			foreach(string DeployTargetFile in Item.Manifest.DeployTargetFiles)
 			{
-				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable, String.Format("-deploy=\"{0}\" -nomutex", DeployTargetFile));
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable, String.Format("-Mode=Deploy -Receipt=\"{0}\"", DeployTargetFile));
 			}
 
 			foreach (string ManifestItem in Item.Manifest.BuildProducts)
@@ -185,7 +183,7 @@ namespace AutomationTool
 			PrepareUBT();
 			using(TelemetryStopwatch CleanStopwatch = new TelemetryStopwatch("CleanWithUBT.{0}.{1}.{2}", TargetName, Platform.ToString(), Config))
 			{
-				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-clean" + AddArgs);
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-Clean -NoHotReload" + AddArgs);
 			}
         }
 
@@ -212,7 +210,7 @@ namespace AutomationTool
 			FileReference ManifestFile = GetManifestFile(UprojectPath);
 			CommandUtils.DeleteFile(ManifestFile);
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1}", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1} -NoHotReload", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
 
 			BuildManifest Manifest = AddBuildProductsFromManifest(ManifestFile);
 			CommandUtils.DeleteFile(ManifestFile);
@@ -426,38 +424,10 @@ namespace AutomationTool
 		public class BuildAgenda
 		{
 			/// <summary>
-			/// Full .NET solution files that we will compile and include in the build.  Currently we assume the output
-			/// binary file names match the solution file base name, but with various different binary file extensions.
-			/// </summary>
-			public List<string> DotNetSolutions = new List<string>();
-
-			/// <summary>
 			/// .NET .csproj files that will be compiled and included in the build.  Currently we assume the output
 			/// binary file names match the solution file base name, but with various different binary file extensions.
 			/// </summary>
 			public List<string> DotNetProjects = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary base file names that we want to include and label with the build, but
-			/// we won't be compiling these projects directly ourselves (however, they may be incidentally build or
-			/// published by a different project that we are building.)  We'll look for various .NET binary files with
-			/// this base file name but with different extensions.
-			/// </summary>
-			public List<string> ExtraDotNetFiles = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary files that are specific to IOS and found in the IOS subdirectory.  We define
-			/// these buildproducts as existing in the DotNET\IOS directory and assume that the output binary file names match
-			/// the solution file base name, but with various binary file extensions
-			/// </summary>
-			public List<string> IOSDotNetProjects = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary files that are specific to HTML5.  We define these build products as existing in the 
-			/// DotNET directory and assume that the output binary file names match
-			/// the solution file base name, but with various binary file extensions
-			/// </summary>
-			public List<string> HTML5DotNetProjects = new List<string>();
 
 			public string SwarmAgentProject = "";
 			public string SwarmCoordinatorProject = "";
@@ -537,30 +507,6 @@ namespace AutomationTool
 			Result.AddRange(CommandUtils.FindFiles_NoExceptions("*.xge.xml", false, Root));
 			Result.Sort();
 			return Result;
-		}
-
-		public string XGEConsoleExe()
-		{
-			if (string.IsNullOrEmpty(XGEConsoleExePath))
-			{
-				string[] PathDirs = Environment.GetEnvironmentVariable("PATH").Split(Path.PathSeparator);
-				foreach (string PathDir in PathDirs)
-				{
-					try
-					{
-						string FullPath = Path.Combine(PathDir, "xgConsole" + Platform.GetExeExtension(BuildHostPlatform.Current.Platform));
-						if (CommandUtils.FileExists(FullPath))
-						{
-							XGEConsoleExePath = FullPath;
-							break;
-						}
-					}
-					catch
-					{
-					}
-				}
-			}
-			return XGEConsoleExePath;
 		}
 
 		public bool ProcessXGEItems(List<XGEItem> Actions, string XGETool, string Args, string TaskFilePath, bool ShowProgress)
@@ -663,13 +609,6 @@ namespace AutomationTool
 							break;
 						}
 					}
-				}
-			}
-			foreach(XGEItem Item in Actions)
-			{
-				if(Item.Manifest.PostBuildScripts != null)
-				{
-					Utils.ExecuteCustomBuildSteps(Item.Manifest.PostBuildScripts.Select(x => new FileReference(x)).ToArray());
 				}
 			}
 			foreach (var Item in Actions)
@@ -1058,14 +997,7 @@ namespace AutomationTool
 				CommandUtils.BuildSolution(CommandUtils.CmdEnv, SwarmCoordinatorSolution, "Development", "Mixed Platforms");
 				AddSwarmBuildProducts();
 			}
-			
-			foreach (var DotNetSolution in Agenda.DotNetSolutions)
-			{
-				string Solution = Path.Combine(CommandUtils.CmdEnv.LocalRoot, DotNetSolution);
-				CommandUtils.BuildSolution(CommandUtils.CmdEnv, Solution, "Development", "Any CPU");
-				AddBuildProductsForCSharpProj(Solution);
-			}
-			
+				
 			foreach (var DotNetProject in Agenda.DotNetProjects)
 			{
 				string CsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, DotNetProject);
@@ -1073,28 +1005,9 @@ namespace AutomationTool
 				AddBuildProductsForCSharpProj(CsProj);
 			}
 
-			foreach (var IOSDotNetProject in Agenda.IOSDotNetProjects)
-			{
-				string IOSCsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, IOSDotNetProject);
-				CommandUtils.BuildCSharpProject(CommandUtils.CmdEnv, IOSCsProj);
-				AddIOSBuildProductsForCSharpProj(IOSCsProj);
-			}
-
-			foreach (var HTML5DotNetProject in Agenda.HTML5DotNetProjects)
-			{
-				string CsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, HTML5DotNetProject);
-				CommandUtils.BuildCSharpProject(CommandUtils.CmdEnv, CsProj);
-				AddBuildProductsForCSharpProj(CsProj);
-			}
-
-			foreach (var File in Agenda.ExtraDotNetFiles)
-			{
-				AddBuildProductsForCSharpProj(Path.Combine(CommandUtils.CmdEnv.LocalRoot, File));
-			}
-
-			string XGEConsole = XGEConsoleExe();
+			string XGEConsole = null;
 			bool bDisableXGE = ParseParam("NoXGE") || InForceNoXGE;
-			bool bCanUseXGE = !bDisableXGE && !String.IsNullOrEmpty(XGEConsole);
+			bool bCanUseXGE = !bDisableXGE && PlatformExports.TryGetXgConsoleExecutable(out XGEConsole);
 
 			// only run ParallelExecutor if not running XGE (and we've requested ParallelExecutor and it exists)
 			bool bCanUseParallelExecutor = InUseParallelExecutor && (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64);
@@ -1393,7 +1306,7 @@ namespace AutomationTool
 		FileReference GetManifestFile(FileReference ProjectFile)
 		{
 			// Can't write to Engine directory on installed builds
-			if (Automation.IsEngineInstalled() && ProjectFile != null)
+			if (CommandUtils.IsEngineInstalled() && ProjectFile != null)
 			{
 				return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", "Manifest.xml");
 			}

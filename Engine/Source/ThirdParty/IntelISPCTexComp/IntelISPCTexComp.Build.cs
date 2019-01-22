@@ -34,7 +34,6 @@ public class IntelISPCTexComp : ModuleRules
             string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.dylib";
             PublicAdditionalLibraries.Add(LibraryFilePath);
             PublicDelayLoadDLLs.Add(LibraryFilePath);
-            PublicAdditionalShadowFiles.Add(LibraryFilePath);
             RuntimeDependencies.Add(LibraryFilePath);
         }
         else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))

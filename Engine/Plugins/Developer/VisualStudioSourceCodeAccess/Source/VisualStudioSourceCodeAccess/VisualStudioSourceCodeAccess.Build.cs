@@ -14,7 +14,9 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"SourceCodeAccess",
 					"DesktopPlatform",
-					"Projects"
+					"Projects",
+					"Json",
+					"VisualStudioSetup"
 				}
 			);
 
@@ -44,7 +46,7 @@ namespace UnrealBuildTool.Rules
 						case WindowsCompiler.VisualStudio2017:
 							DTEKey = "VisualStudio.DTE.15.0";
 							break;
-						case WindowsCompiler.VisualStudio2015:
+						case WindowsCompiler.VisualStudio2015_DEPRECATED:
 							DTEKey = "VisualStudio.DTE.14.0";
 							break;
 					}

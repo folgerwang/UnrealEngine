@@ -769,41 +769,33 @@ void FMetalDynamicRHI::UnlockStagingBuffer_RenderThread(class FRHICommandListImm
 	return RHIUnlockStagingBuffer(StagingBuffer);
 }
 
-FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
+FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer()
 {
-	return new FMetalStagingBuffer(VertexBuffer);
+	return new FMetalStagingBuffer();
 }
 
-// Call this to lock the vertex-buffer for the given mode.
-// A read-only lock must have the same buffer used to call EnqueueStagedRead, and that fence must have passed or the behaviour is undefined.
-// A write-only lock must not have had the EnqueueStagedRead function called and must supply the buffer.
+FMetalStagingBuffer::~FMetalStagingBuffer()
+{
+	if (ShadowBuffer)
+	{
+		SafeReleaseMetalBuffer(ShadowBuffer);
+	}
+}
+
+// Returns the pointer to read the buffer. There is no locking; the buffer is always shared.
+// If this was not fenced correctly it will not have the expected data.
 void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
-	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
-	uint8* BytePtr = nullptr;
-	if (VertexBuffer->CPUBuffer)
-	{
-		BytePtr = (uint8*)VertexBuffer->CPUBuffer.GetContents();
-	}
-	else
-	{
-		check(VertexBuffer->Buffer.GetStorageMode() != mtlpp::StorageMode::Private);
-		BytePtr = (uint8*)VertexBuffer->Buffer.GetContents();
-	}
-	BytePtr += Offset;
-	return BytePtr;
+	check(ShadowBuffer);
+	check(!bIsLocked);
+	bIsLocked = true;
+	uint8* BackingPtr = (uint8*)ShadowBuffer.GetContents();
+	return BackingPtr + Offset;
 }
 
-// Releases the mapped memory for a lock.
 void FMetalStagingBuffer::Unlock()
 {
-	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
-	if (VertexBuffer->CPUBuffer && (VertexBuffer->UsePrivateMemory()))
-	{
-		LLM_SCOPE(ELLMTag::VertexBuffer);
-		SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);
-		VertexBuffer->CPUBuffer = nil;
-	}
+	// does nothing in metal.
+	check(bIsLocked);
+	bIsLocked = false;
 }

@@ -8,6 +8,7 @@
 #include "Engine/EngineTypes.h"
 #include "Components/SceneComponent.h"
 #include "Sound/SoundAttenuation.h"
+#include "Sound/SoundWave.h"
 
 #include "AudioComponent.generated.h"
 
@@ -427,6 +428,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
 	void SetLowPassFilterFrequency(float InLowPassFilterFrequency);
 
+	/** Queries if the sound wave playing in this audio component has cooked FFT data. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	bool HasCookedFFTData() const;
+
+	/** Queries if the sound wave playing in this audio component has cooked amplitude analyses. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	bool HasCookedAmplitudeEnvelopeData() const;
+
+	/** Returns the current cooked spectral data of the playing audio component. Returns true if there is data and the audio component is playing. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	bool GetCookedFFTData(const TArray<float>& FrequenciesToGet, TArray<FSoundWaveSpectralData>& OutSoundWaveSpectralData);
+
+	/** Returns the current cooked envelope data of the playing audio component. Returns true if there is data and the audio component is playing. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	bool GetCookedEnvelopeData(float& OutEnvelopeData);
+
 	static void PlaybackCompleted(uint64 AudioComponentID, bool bFailedToStart);
 
 private:
@@ -479,7 +496,9 @@ public:
 
 	static UAudioComponent* GetAudioComponentFromID(uint64 AudioComponentID);
 
-	void UpdateInteriorSettings(bool bFullUpdate);
+	// Sets the audio thread playback time as used by the active sound playing this audio component
+	// Will be set if the audio component is using baked FFT or envelope following data so as to be able to feed that data to BP based on playback time
+	void SetPlaybackTimes(const TMap<uint32, float>& InSoundWavePlaybackTimes);
 
 public:
 
@@ -506,6 +525,32 @@ private:
 	FVector SavedAutoAttachRelativeLocation;
 	FRotator SavedAutoAttachRelativeRotation;
 	FVector SavedAutoAttachRelativeScale3D;
+
+	struct FSoundWavePlaybackTimeData
+	{
+		USoundWave* SoundWave;
+		float PlaybackTime;
+
+		// Cachced indices to boost searching cooked data indices
+		uint32 LastEnvelopeCookedIndex;
+		uint32 LastFFTCookedIndex;
+
+		FSoundWavePlaybackTimeData()
+			: SoundWave(nullptr)
+			, PlaybackTime(0.0f)
+			, LastEnvelopeCookedIndex(INDEX_NONE)
+			, LastFFTCookedIndex(INDEX_NONE)
+		{}
+
+		FSoundWavePlaybackTimeData(USoundWave* InSoundWave)
+			: SoundWave(InSoundWave)
+			, PlaybackTime(0.0f)
+			, LastEnvelopeCookedIndex(INDEX_NONE)
+			, LastFFTCookedIndex(INDEX_NONE)
+		{}
+	};
+	// The current playback times of sound waves in this audio component
+	TMap<uint32, FSoundWavePlaybackTimeData> SoundWavePlaybackTimes;
 
 	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
 	void CancelAutoAttachment(bool bDetachFromParent);

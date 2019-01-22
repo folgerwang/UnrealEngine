@@ -279,6 +279,7 @@ void FBlutilityMenuExtensions::CreateBlutilityActionsMenu(FMenuBuilder& MenuBuil
 							{
 								// We dont run this on the CDO, as bad things could occur!
 								UObject* TempObject = NewObject<UObject>(GetTransientPackage(), FunctionAndUtil.Util->GetClass());
+								TempObject->AddToRoot(); // Some Blutility actions might run GC so the TempObject needs to be rooted to avoid getting destroyed
 
 								if(FunctionAndUtil.Function->NumParms > 0)
 								{
@@ -321,6 +322,8 @@ void FBlutilityMenuExtensions::CreateBlutilityActionsMenu(FMenuBuilder& MenuBuil
 									FEditorScriptExecutionGuard ScriptGuard;
 									TempObject->ProcessEvent(FunctionAndUtil.Function, nullptr);
 								}
+
+								TempObject->RemoveFromRoot();
 							}
 						}));
 				}

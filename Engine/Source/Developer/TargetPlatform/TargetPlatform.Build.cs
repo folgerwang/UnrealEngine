@@ -24,10 +24,7 @@ public class TargetPlatform : ModuleRules
 
 			if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatIntelISPCTexComp");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatIntelISPCTexComp");
 			}
 
 			if (Target.Platform == UnrealTargetPlatform.Win32 ||
@@ -38,12 +35,9 @@ public class TargetPlatform : ModuleRules
 				DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
 				DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 
@@ -68,12 +62,9 @@ public class TargetPlatform : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 
@@ -94,12 +85,9 @@ public class TargetPlatform : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 

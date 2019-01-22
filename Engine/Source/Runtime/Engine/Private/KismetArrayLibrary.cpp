@@ -103,6 +103,38 @@ int32 UKismetArrayLibrary::GenericArray_AddUnique(void* TargetArray, const UArra
 	return NewIndex;
 }
 
+bool UKismetArrayLibrary::GenericArray_Identical(void* ArrayA, const UArrayProperty* ArrayAProp, void* ArrayB, const UArrayProperty* ArrayBProp)
+{
+	if (ArrayA && ArrayB)
+	{
+		UProperty* InnerAProp = ArrayAProp->Inner;
+
+		if (InnerAProp->SameType(ArrayBProp->Inner))
+		{
+			FScriptArrayHelper ArrayAHelper(ArrayAProp, ArrayA);
+			FScriptArrayHelper ArrayBHelper(ArrayBProp, ArrayB);
+
+			const int32 ArrayANum = ArrayAHelper.Num();
+			if (ArrayANum != ArrayBHelper.Num())
+			{
+				return false;
+			}
+
+			for (int32 Index = 0; Index < ArrayANum; ++Index)
+			{
+				if (!InnerAProp->Identical(ArrayAHelper.GetRawPtr(Index), ArrayBHelper.GetRawPtr(Index)))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void UKismetArrayLibrary::GenericArray_Append(void* TargetArray, const UArrayProperty* TargetArrayProp, void* SourceArray, const UArrayProperty* SourceArrayProperty)
 {
 	if(TargetArray && SourceArray)

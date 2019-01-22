@@ -35,9 +35,6 @@ public:
 	//UObject Interface
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif
 	//UObject Interface End
 
 	/** Initializes the per instance data for this interface. Returns false if there was some error and the simulation should be disabled. */
@@ -48,10 +45,8 @@ public:
 	/** Ticks the per instance data for this interface, if it has any. */
 	virtual bool PerInstanceTick(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance, float DeltaSeconds);
 	virtual bool PerInstanceTickPostSimulate(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance, float DeltaSeconds);
-
 	virtual int32 PerInstanceDataSize()const { return sizeof(CQDIPerInstanceData); }
-
-
+	
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
 	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 
@@ -59,19 +54,20 @@ public:
 	void SubmitQuery(FVectorVMContext& Context);
 	void ReadQuery(FVectorVMContext& Context);
 	void PerformQuery(FVectorVMContext& Context);
+	void PerformQuerySyncCPU(FVectorVMContext& Context);
+	void PerformQueryAsyncCPU(FVectorVMContext& Context);
+	void PerformQueryGPU(FVectorVMContext& Context);
+	void QuerySceneDepth(FVectorVMContext& Context);
+	void QueryMeshDistanceField(FVectorVMContext& Context);
 
-	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target) const override { return true; }
 
 	virtual bool GetFunctionHLSL(const FName&  DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
 	virtual void GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
-	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters()const override;
+	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters() const override;
 	
-
-protected:
-	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
-
 private:
 
 	static FCriticalSection CriticalSection;
+	UEnum* TraceChannelEnum;
 };

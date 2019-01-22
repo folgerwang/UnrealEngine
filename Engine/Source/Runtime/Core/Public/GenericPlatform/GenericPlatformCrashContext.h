@@ -210,11 +210,14 @@ public:
 	/** Adds a plugin descriptor string to the enabled plugins list in the crash context */
 	static void AddPlugin(const FString& PluginDesc);
 
+	/** Sets the number of stack frames to ignore when symbolicating from a minidump */
+	void SetNumMinidumpFramesToIgnore(int32 InNumMinidumpFramesToIgnore);
+
 	/** Generate raw call stack for crash report (image base + offset) */
 	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
 	
 	/** Sets the portable callstack to a specified stack */
-	virtual void SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack);
+	virtual void SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames);
 
 	/**
 	 * @return whether this crash is a non-crash event
@@ -235,6 +238,7 @@ protected:
 
 	ECrashContextType Type;
 	const TCHAR* ErrorMessage;
+	int NumMinidumpFramesToIgnore;
 	TArray<FCrashStackFrame> CallStack;
 
 private:

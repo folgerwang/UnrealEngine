@@ -205,7 +205,7 @@ FNodeHandlingFunctor* UK2Node_GetSequenceBinding::CreateNodeHandler(FKismetCompi
 
 void UK2Node_GetSequenceBinding::PreloadRequiredAssets()
 {
-	GetSequence();
+	EnsureFullyLoaded(GetSequence());
 }
 
 FText UK2Node_GetSequenceBinding::GetSequenceName() const

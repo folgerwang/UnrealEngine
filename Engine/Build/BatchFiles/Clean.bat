@@ -11,7 +11,6 @@ rem ##     %2 is the platform name
 rem ##     %3 is the configuration name
 
 setlocal
-echo Cleaning %1 Binaries...
 
 rem ## First, make sure the batch file exists in the folder we expect it to.  This is necessary in order to
 rem ## verify that our relative path to the /Engine/Source directory is correct

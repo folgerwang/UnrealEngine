@@ -7,7 +7,7 @@ public class Engine : ModuleRules
 {
 	public Engine(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivatePCHHeaderFile = "Private/EnginePrivatePCH.h";
+        PrivatePCHHeaderFile = "Private/EnginePrivatePCH.h";
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
@@ -96,6 +96,7 @@ public class Engine : ModuleRules
 				"CinematicCamera",
 				"Analytics",
 				"AnalyticsET",
+                "AudioMixer",
                 //"CrunchCompression"
             }
 		);
@@ -171,6 +172,7 @@ public class Engine : ModuleRules
 		CircularlyReferencedDependentModules.Add("UMG");
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
 		CircularlyReferencedDependentModules.Add("CinematicCamera");
+        CircularlyReferencedDependentModules.Add("AudioMixer");
 
         // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
         // and needs to be listed in an always-included module in order to be compiled into standalone games

@@ -9,6 +9,7 @@
 #include "AssetBundleData.h"
 #include "AssetRegistryModule.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "ContentEncryptionConfig.h"
 #include "AssetManager.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
@@ -20,9 +21,6 @@ struct FPrimaryAssetRulesCustomOverride;
 
 /** Delegate called when acquiring resources/chunks for assets, parameter will be true if all resources were acquired, false if any failed */
 DECLARE_DELEGATE_OneParam(FAssetManagerAcquireResourceDelegate, bool);
-
-/** Type that maps a named group to a set of primary assets */
-typedef TMap <FName, TSet<FName>> TEncryptedAssetSet;
 
 /** 
  * A singleton UObject that is responsible for loading and unloading PrimaryAssets, and maintaining game-specific asset references
@@ -435,6 +433,11 @@ public:
 	 */
 	virtual FName GetUniqueAssetRegistryName(int32 InChunkIndex) const { return NAME_None; }
 
+	/**
+	 * For a given content encryption group name (as defined in the content encryption config that the project provides, return the relevant chunk ID
+	 */
+	virtual int32 GetContentEncryptionGroupChunkID(FName InGroupName) const { return INDEX_NONE; }
+
 	/** Returns the list of chunks assigned to the list of primary assets, which is usually a manager list. This is called by GetPackageChunkIds */
 	virtual bool GetPrimaryAssetSetChunkIds(const TSet<FPrimaryAssetId>& PrimaryAssetSet, const class ITargetPlatform* TargetPlatform, const TArray<int32>& ExistingChunkList, TArray<int32>& OutChunkList) const;
 
@@ -489,8 +492,7 @@ public:
 	/**
 	  * Gathers information about which assets the game wishes to encrypt into named groups
 	  */
-	virtual void GetEncryptedAssetSet(TEncryptedAssetSet& OutEncryptedAssets, TSet<FGuid>& OutReleasedAssets) {}
-
+	virtual void GetContentEncryptionConfig(FContentEncryptionConfig& OutContentEncryptionConfig) {}
 #endif
 
 protected:

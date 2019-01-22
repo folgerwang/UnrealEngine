@@ -687,7 +687,7 @@ TSharedRef<ITableRow> SConcertBrowser::MakeSessionRowWidget(TSharedPtr<FConcertS
 		ActiveSessionDef.Style = EConcertUIStyle::Info;
 		ActiveSessionDef.Visibility = MakeAttributeSP(this, &SConcertBrowser::IsActiveSessionVisible, Item->SessionName);
 		ActiveSessionDef.Text = FEditorFontGlyphs::Info_Circle;
-		ActiveSessionDef.ToolTipText = LOCTEXT("ActiveSessionToolTip", "See the current active session.");
+		ActiveSessionDef.ToolTipText = LOCTEXT("ActiveSessionToolTip", "See the current active session");
 		ActiveSessionDef.OnClicked.BindSP(this, &SConcertBrowser::OnClickActiveSession);
 		
 		// Resume Session

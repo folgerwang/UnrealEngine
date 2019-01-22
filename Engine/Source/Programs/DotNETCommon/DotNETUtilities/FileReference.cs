@@ -56,6 +56,23 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Create a FileReference from a string. If the string is null, returns a null FileReference.
+		/// </summary>
+		/// <param name="FileName">FileName for the string</param>
+		/// <returns>Returns a FileReference representing the given string, or null.</returns>
+		public static FileReference FromString(string FileName)
+		{
+			if(String.IsNullOrEmpty(FileName))
+			{
+				return null;
+			}
+			else
+			{
+				return new FileReference(FileName);
+			}
+		}
+
+		/// <summary>
 		/// Gets the file name without path information
 		/// </summary>
 		/// <returns>A string containing the file name</returns>
@@ -585,6 +602,41 @@ namespace Tools.DotNETCommon
 				FileReference Result = Reader.ReadFileReference();
 				UniqueFiles.Add(Result);
 				return Result;
+			}
+		}
+
+		/// <summary>
+		/// Writes a FileReference to a binary archive
+		/// </summary>
+		/// <param name="Writer">The writer to output data to</param>
+		/// <param name="File">The file reference to write</param>
+		public static void WriteFileReference(this BinaryArchiveWriter Writer, FileReference File)
+		{
+			if(File == null)
+			{
+				Writer.WriteString(null);
+			}
+			else
+			{
+				Writer.WriteString(File.FullName);
+			}
+		}
+
+		/// <summary>
+		/// Reads a FileReference from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>New file reference instance</returns>
+		public static FileReference ReadFileReference(this BinaryArchiveReader Reader)
+		{
+			string FullName = Reader.ReadString();
+			if(FullName == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new FileReference(FullName, FileReference.Sanitize.None);
 			}
 		}
 	}

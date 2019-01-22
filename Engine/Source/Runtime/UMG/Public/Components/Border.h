@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -80,6 +80,10 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Appearance)
 	FVector2D DesiredSizeScale;
+
+	/** Flips the background image if the localization's flow direction is RightToLeft */
+	UPROPERTY(EditAnywhere, Category = "Localization")
+	bool bFlipForRightToLeftFlowDirection;
 
 public:
 

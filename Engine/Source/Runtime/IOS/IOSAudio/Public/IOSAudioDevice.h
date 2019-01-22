@@ -11,7 +11,7 @@
 #include "AudioDevice.h"
 #include "Sound/SoundWave.h"
 #include "DSP/ParamInterpolator.h"
-#include "DSP/Filter.h"
+#include "DSP/OnePole.h"
 
 /*------------------------------------------------------------------------------------
 	Audio Framework system headers
@@ -48,7 +48,7 @@ enum ESoundFormat
 class FIOSAudioSoundBuffer : public FSoundBuffer
 {
 public:
-	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming);
+	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming, bool InProcedural);
 	virtual ~FIOSAudioSoundBuffer(void);
 
 	/**
@@ -95,6 +95,7 @@ public:
 	/** Wrapper to assist in the bookkeeping of uncompressed data when streaming */
 	class FADPCMAudioInfo*		DecompressionState;
 	bool	bStreaming;
+	bool    bIsProcedural;
 };
 
 /**
@@ -149,7 +150,7 @@ public:
 	/** Calculates the audio unit element of the input channel relative to the base bus number */
 	AudioUnitElement GetAudioUnitElement(int32 Channel);
 
-    TArray<Audio::FBiquadFilter> LowpassFilterBank;
+    TArray<Audio::FOnePoleLPF> LowpassFilterBank;
     TArray<Audio::FParam> LPFParamBank;
     
     int32 SampleRate;
@@ -200,6 +201,7 @@ public:
 	AUGraph GetAudioUnitGraph() const { return AudioUnitGraph; }
 	AUNode GetMixerNode() const { return MixerNode; }
 	AudioUnit GetMixerUnit() const { return MixerUnit; }
+	AudioUnit GetOutputUnit() const { return OutputUnit; }
 
 	/** Thread context management */
 	virtual void ResumeContext();

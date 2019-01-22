@@ -1577,7 +1577,7 @@ FD3D12SegHeap* FD3D12SegList::CreateBackingHeap(
 
 	VERIFYD3D12RESULT(Parent->GetDevice()->CreateHeap(&Desc, IID_PPV_ARGS(&D3DHeap)));
 
-	FD3D12SegHeap* Ret = new FD3D12SegHeap(Parent, VisibleNodeMask, D3DHeap, this, FreeHeaps.Num());
+	FD3D12SegHeap* Ret = new FD3D12SegHeap(Parent, VisibleNodeMask, D3DHeap, HeapSize, this, FreeHeaps.Num());
 	FreeHeaps.Add(Ret);
 	return Ret;
 }

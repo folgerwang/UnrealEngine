@@ -195,7 +195,7 @@ void UNiagaraStackItemContent::SetIsAdvanced(bool bInIsAdvanced)
 bool UNiagaraStackItemContent::FilterAdvancedChildren(const UNiagaraStackEntry& Child) const
 {
 	const UNiagaraStackItemContent* ItemContent = Cast<UNiagaraStackItemContent>(&Child);
-	if (ItemContent == nullptr || ItemContent->GetIsAdvanced() == false)
+	if (ItemContent == nullptr || ItemContent->GetIsAdvanced() == false || ItemContent->GetIsSearchResult())
 	{
 		return true;
 	}

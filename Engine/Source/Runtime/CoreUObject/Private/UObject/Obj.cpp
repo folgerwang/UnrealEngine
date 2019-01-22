@@ -2092,11 +2092,13 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 
 	FString ClassSection;
 	FName LongCommitName;
-	if ( bPerObject == true )
+
+	if (bPerObject)
 	{
 		FString PathNameString;
 		UObject* Outermost = GetOutermost();
-		if ( Outermost == GetTransientPackage() )
+
+		if (Outermost == GetTransientPackage())
 		{
 			PathNameString = GetName();
 		}
@@ -2105,7 +2107,10 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 			GetPathName(Outermost, PathNameString);
 			LongCommitName = Outermost->GetFName();
 		}
+
 		ClassSection = PathNameString + TEXT(" ") + GetClass()->GetName();
+
+		OverridePerObjectConfigSection(ClassSection);
 	}
 
 	// If any of my properties are class variables, then LoadConfig() would also be called for each one of those classes.
@@ -2310,11 +2315,13 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 
 	const bool bPerObject = UsesPerObjectConfig(this);
 	FString Section;
-	if ( bPerObject == true )
+
+	if (bPerObject == true)
 	{
 		FString PathNameString;
 		UObject* Outermost = GetOutermost();
-		if ( Outermost == GetTransientPackage() )
+
+		if (Outermost == GetTransientPackage())
 		{
 			PathNameString = GetName();
 		}
@@ -2322,7 +2329,10 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 		{
 			GetPathName(Outermost, PathNameString);
 		}
+
 		Section = PathNameString + TEXT(" ") + GetClass()->GetName();
+
+		OverridePerObjectConfigSection(Section);
 	}
 
 	UObject* CDO = GetClass()->GetDefaultObject();

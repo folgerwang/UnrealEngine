@@ -160,6 +160,7 @@ public:
 		}
 
 		TRefCountPtr<ID3D12QueryHeap> Heap;
+		FD3D12ResidencyHandle ResidencyHandle;
 	};
 
 	static void CalibrateTimers(FD3D12Adapter* ParentAdapter);

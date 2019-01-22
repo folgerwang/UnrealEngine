@@ -216,19 +216,18 @@ public:
 	}
 
 	/**
-	* Creates a staging buffer that uses 'BackingBuffer' as the backing store whose contents may be accessed using Lock/Unlock.
-	* @param BackingBuffer - The buffer whose contents may be accessed using Lock/Unlock.
+	* Creates a staging buffer, which is memory visible to the cpu without any locking.
 	* @return The new staging-buffer.
 	*/
 	// FlushType: Thread safe.	
-	virtual FStagingBufferRHIRef RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer()
 	{
-		return new FRHIStagingBuffer(BackingBuffer);
+		return new FGenericRHIStagingBuffer();
 	}
 
     /**
      * Lock a staging buffer to read contents on the CPU that were written by the GPU, without having to stall.
-     * @discussion This function requires that you have issued an EnqueueStagedRead invocation and verified that the FRHIGPUFence has been signalled before calling.
+     * @discussion This function requires that you have issued an CopyToStagingBuffer invocation and verified that the FRHIGPUFence has been signaled before calling.
      * @param StagingBuffer The buffer to lock.
      * @param Offset The offset in the buffer to return.
      * @param SizeRHI The length of the region in the buffer to lock.
@@ -238,13 +237,13 @@ public:
     
     /**
      * Unlock a staging buffer previously locked with RHILockStagingBuffer.
-     * @param StagingBuffer The buffer to lock.
+     * @param StagingBuffer The buffer that was previously locked.
      */
     virtual void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer);
 
     /**
      * Lock a staging buffer to read contents on the CPU that were written by the GPU, without having to stall.
-     * @discussion This function requires that you have issued an EnqueueStagedRead invocation and verified that the FRHIGPUFence has been signalled before calling.
+     * @discussion This function requires that you have issued an CopyToStagingBuffer invocation and verified that the FRHIGPUFence has been signaled before calling.
      * @param RHICmdList The command-list to execute on or synchronize with.
      * @param StagingBuffer The buffer to lock.
      * @param Offset The offset in the buffer to return.
@@ -256,7 +255,7 @@ public:
     /**
      * Unlock a staging buffer previously locked with LockStagingBuffer_RenderThread.
      * @param RHICmdList The command-list to execute on or synchronize with.
-     * @param StagingBuffer The buffer to lock.
+     * @param StagingBuffer The buffer what was previously locked.
      */
     virtual void UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer);
 

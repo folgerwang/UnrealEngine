@@ -64,6 +64,14 @@ void FBuildPatchServicesPreLoadManagerBase::ResumeBuildPatchInstall()
     }
 }
 
+void FBuildPatchServicesPreLoadManagerBase::CancelBuildPatchInstall()
+{
+	if (ContentBuildInstaller.IsValid())
+	{
+		ContentBuildInstaller->CancelInstall();
+	}
+}
+
 const FText& FBuildPatchServicesPreLoadManagerBase::GetStatusText() const
 {
 	// Static const fixed FText values so that they are not constantly constructed

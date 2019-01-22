@@ -20,7 +20,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "GameFramework/WorldSettings.h"
 
-static void PrintUsage()
+void UImportAssetsCommandlet::PrintUsage()
 {
 	UE_LOG(LogAutomatedImport, Display, TEXT("LogAutomatedImport Usage: LogAutomatedImport {arglist}"));
 	UE_LOG(LogAutomatedImport, Display, TEXT("Arglist:"));

@@ -6862,9 +6862,9 @@ float UCharacterMovementComponent::GetAnalogInputModifier() const
 	return AnalogInputModifier;
 }
 
-static uint32 s_WarningCount = 0;
 float UCharacterMovementComponent::GetSimulationTimeStep(float RemainingTime, int32 Iterations) const
 {
+	static uint32 s_WarningCount = 0;
 	if (RemainingTime > MaxSimulationTimeStep)
 	{
 		if (Iterations < MaxSimulationIterations)
@@ -7672,7 +7672,11 @@ bool UCharacterMovementComponent::ForcePositionUpdate(float DeltaTime)
 	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
 
 #if !(UE_BUILD_SHIPPING)
-	UE_LOG(LogNetPlayerMovement, Warning, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+	const bool bServerMoveHasOccurred = (ServerData->ServerTimeStampLastServerMove != 0.f);
+	if (bServerMoveHasOccurred)
+	{
+		UE_LOG(LogNetPlayerMovement, Warning, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+	}
 #endif
 
 	// Force movement update.

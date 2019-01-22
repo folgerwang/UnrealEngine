@@ -46,6 +46,9 @@ public:
 	/** Get the time for the Key with the specified index. */
 	virtual float GetKeyTime(FKeyHandle KeyHandle) const PURE_VIRTUAL(FIndexedCurve::GetKeyTime, return 0.f;);
 	
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const PURE_VIRTUAL(FIndexedCurve::Duplicate, return nullptr;);
+
 	/** Checks to see if the key handle is valid for this curve. */
 	bool IsKeyHandleValid(FKeyHandle KeyHandle) const;
 

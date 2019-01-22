@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions/AssetTypeActions_AnimCurveCompressionSettings.h"
 #include "Animation/AnimSequence.h"
@@ -108,3 +108,5 @@ void FAssetTypeActions_AnimCurveCompressionSettings::ExecuteCompression(TWeakObj
 		AnimSeq->RequestSyncAnimRecompression(false);
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

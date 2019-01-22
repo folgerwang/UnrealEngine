@@ -17,7 +17,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override string RuntimeVersion
 		{
-			get { return "9.0"; }
+			get { return "10.0"; }
 		}
 
 		/// <summary>
@@ -127,18 +127,18 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			TVOSProjectSettings ProjectSettings = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS)).ReadProjectSettings(Target.ProjectFile);
-			return new TVOSToolChain(Target.ProjectFile, ProjectSettings);
+			return new TVOSToolChain(Target, ProjectSettings);
 		}
 
-		public override void Deploy(UEBuildDeployTarget Target)
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployTVOS().PrepTargetForDeployment(Target);
+			new UEDeployTVOS().PrepTargetForDeployment(Receipt);
 		}
 	}
 
 	class TVOSPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.TVOS; }
 		}
@@ -146,10 +146,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			IOSPlatformSDK SDK = new IOSPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Register this build platform for IOS
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.TVOS.ToString());

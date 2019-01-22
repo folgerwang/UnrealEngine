@@ -427,6 +427,15 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 			ExistingSkelMesh->GetLODNum() == ImportedResource->LODModels.Num() )
 		{
 			int32 OffsetReductionLODIndex = 0;
+			
+			FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo(ReimportSpecificLOD);
+			ExistingMeshDataPtr->bIsReimportLODReduced = (LODInfo && LODInfo->bHasBeenSimplified);
+			if (LODInfo && ExistingMeshDataPtr->bIsReimportLODReduced)
+			{
+				//Save the imported LOD reduction settings
+				ExistingMeshDataPtr->ExistingReimportLODReductionSettings = LODInfo->ReductionSettings;
+			}
+
 			// Remove the zero'th LOD (ie: the LOD being reimported).
 			if (!ReimportSpecificLOD)
 			{
@@ -795,6 +804,24 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		SkeletalMesh->LODSettings->SetLODSettingsToMesh(SkeletalMesh, 0);
 	}
 
+	//Copy back the reimport LOD specific data
+	if (SkeletalMesh->GetLODInfoArray().IsValidIndex(ReimportLODIndex) && MeshData->bIsReimportLODReduced)
+	{
+		FSkeletalMeshLODInfo& BaseLODInfo = SkeletalMesh->GetLODInfoArray()[ReimportLODIndex];
+		//Restore the reimport LOD reduction settings
+		BaseLODInfo.ReductionSettings = MeshData->ExistingReimportLODReductionSettings;
+		if (SkeletalMeshImportedModel && SkeletalMeshImportedModel->OriginalReductionSourceMeshData.IsValidIndex(ReimportLODIndex))
+		{
+			SkeletalMeshImportedModel->OriginalReductionSourceMeshData[ReimportLODIndex]->EmptyBulkData();
+		}
+		//Regenerate the reimport LOD
+		GWarn->BeginSlowTask(LOCTEXT("RegenReimportedLOD", "Generating reimported LOD"), true);
+		FSkeletalMeshUpdateContext UpdateContext;
+		UpdateContext.SkeletalMesh = SkeletalMesh;
+		FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, ReimportLODIndex, false);
+		GWarn->EndSlowTask();
+	}
+
 	//Do everything we need for base LOD re-import
 	if (ReimportLODIndex < 1)
 	{
@@ -1146,7 +1173,7 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		}
 	}
 
-	if (!bImportSkinningOnly)
+	if (!bImportSkinningOnly && !MeshData->bIsReimportLODReduced)
 	{
 		//Fix the OriginalReductionSourceMeshData
 		if (ReimportLODIndex < 0)

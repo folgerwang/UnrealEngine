@@ -67,6 +67,59 @@ UPanelWidget* UWidgetTree::FindWidgetParent(UWidget* Widget, int32& OutChildInde
 	return Parent;
 }
 
+UWidget* UWidgetTree::FindWidgetChild(UPanelWidget* ParentWidget, FName ChildWidgetName, int32& OutChildIndex)
+{
+	OutChildIndex = INDEX_NONE;
+	UWidget* FoundChild = nullptr;
+
+	if (ParentWidget)
+	{
+		const auto CheckWidgetFunc = [&FoundChild, ChildWidgetName](UWidget* Widget) 
+			{
+				if (!FoundChild && Widget->GetFName() == ChildWidgetName)
+				{
+					FoundChild = Widget;
+				}
+			};
+
+		// Check all the children of the given ParentWidget, but only track the index at the top level
+		for (int32 ChildIdx = 0; ChildIdx < ParentWidget->GetChildrenCount(); ++ChildIdx)
+		{
+			CheckWidgetFunc(ParentWidget->GetChildAt(ChildIdx));
+
+			if (!FoundChild)
+			{
+				ForWidgetAndChildren(ParentWidget->GetChildAt(ChildIdx), CheckWidgetFunc);
+			}
+
+			if (FoundChild)
+			{
+				OutChildIndex = ChildIdx;
+				break;
+			}
+		}
+	}
+
+	return FoundChild;
+}
+
+int32 UWidgetTree::FindChildIndex(const UPanelWidget* ParentWidget, const UWidget* ChildWidget)
+{
+	const UWidget* CurrentWidget = ChildWidget;
+	while (CurrentWidget)
+	{
+		const UPanelWidget* NextParent = CurrentWidget->Slot ? CurrentWidget->Slot->Parent : nullptr;
+		if (NextParent && NextParent == ParentWidget)
+		{
+			return NextParent->GetChildIndex(CurrentWidget);
+		}
+
+		CurrentWidget = NextParent;
+	}
+
+	return INDEX_NONE;
+}
+
 bool UWidgetTree::RemoveWidget(UWidget* InRemovedWidget)
 {
 	bool bRemoved = false;
