@@ -165,4 +165,12 @@ public:
 
 	/** Remove an extension from the SequenceRecorder */
 	virtual void RemoveSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) = 0;
+
+	/**
+	* Play the current single node instance on the PreviewComponent from time [0, GetLength()], and record to NewAsset
+	*
+	* @param: PreviewComponent - this component should contains SingleNodeInstance with time-line based asset, currently support AnimSequence or AnimComposite
+	* @param: NewAsset - this is the asset that should be recorded. This will reset all animation data internally
+	*/
+	virtual bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) = 0;
 };

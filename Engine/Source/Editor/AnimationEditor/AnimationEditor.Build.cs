@@ -20,19 +20,20 @@ public class AnimationEditor : ModuleRules
                 "SkeletonEditor",
                 "Kismet",
                 "AnimGraph",
-                "SequenceRecorder",
             }
 		);
 
         PrivateIncludePathModuleNames.AddRange(
             new string[] {
                 "PropertyEditor",
+                "SequenceRecorder",
             }
         );
 
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
                 "PropertyEditor",
+                "SequenceRecorder",
             }
         );
     }

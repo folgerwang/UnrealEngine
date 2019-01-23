@@ -46,9 +46,9 @@
 #include "Engine/CurveTable.h"
 #include "Developer/AssetTools/Public/IAssetTools.h"
 #include "Developer/AssetTools/Public/AssetToolsModule.h"
-#include "SequenceRecorderUtils.h"
 #include "ISkeletonTreeItem.h"
 #include "Algo/Transform.h"
+#include "ISequenceRecorder.h"
 
 const FName AnimationEditorAppIdentifier = FName(TEXT("AnimationEditorApp"));
 
@@ -783,7 +783,8 @@ void FAnimationEditor::HandleAnimationSequenceBrowserCreated(const TSharedRef<IA
 
 bool FAnimationEditor::RecordMeshToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) const
 {
-	return SequenceRecorderUtils::RecordSingleNodeInstanceToAnimation(PreviewComponent, NewAsset);
+	ISequenceRecorder& RecorderModule = FModuleManager::Get().LoadModuleChecked<ISequenceRecorder>("SequenceRecorder");
+	return RecorderModule.RecordSingleNodeInstanceToAnimation(PreviewComponent, NewAsset);
 }
 
 #undef LOCTEXT_NAMESPACE

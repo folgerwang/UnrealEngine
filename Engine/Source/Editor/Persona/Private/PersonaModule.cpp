@@ -82,7 +82,7 @@
 #include "Factories/PoseAssetFactory.h"
 #include "ScopedTransaction.h"
 #include "AnimPreviewInstance.h"
-#include "SequenceRecorderUtils.h"
+#include "ISequenceRecorder.h"
 
 IMPLEMENT_MODULE( FPersonaModule, Persona );
 
@@ -1260,7 +1260,10 @@ bool FPersonaModule::CreateAnimation(const TArray<UObject*> NewAssets, const EPo
 					bResult &= NewAnimSequence->CreateAnimation(Sequence);
 					break;
 				case EPoseSourceOption::CurrentAnimation_PreviewMesh:
-					bResult &= SequenceRecorderUtils::RecordSingleNodeInstanceToAnimation(MeshComponent, NewAnimSequence);
+				{
+					ISequenceRecorder & RecorderModule = FModuleManager::Get().LoadModuleChecked<ISequenceRecorder>("SequenceRecorder");
+					bResult &= RecorderModule.RecordSingleNodeInstanceToAnimation(MeshComponent, NewAnimSequence);
+				}
 					break;
 				default: 
 					ensure(false);
