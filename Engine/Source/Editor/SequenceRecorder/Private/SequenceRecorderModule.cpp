@@ -45,6 +45,7 @@
 #include "Framework/Docking/LayoutExtender.h"
 #include "MovieSceneTimeHelpers.h"
 #include "SequenceRecorderUtils.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 

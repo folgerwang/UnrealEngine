@@ -13,6 +13,7 @@ class AActor;
 class ISequenceAudioRecorder;
 class ISequenceRecorderExtender;
 class USequenceRecordingBase;
+class UAnimSequence;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
