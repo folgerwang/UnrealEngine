@@ -126,9 +126,10 @@ public:
 		case EMediaTextureSampleFormat::CharUYVY:
 		case EMediaTextureSampleFormat::CharYUY2:
 		case EMediaTextureSampleFormat::CharYVYU:
-			return FIntPoint(Width/2, Height);
+			return FIntPoint(Width / 2, Height);
 		case EMediaTextureSampleFormat::YUVv210:
-			return FIntPoint(Width/6, Height);
+			// Padding aligned on 48 (16 and 6 at the same time)
+			return FIntPoint((((Width + 47) / 48) * 48) / 6, Height);
 		default:
 			return FIntPoint(Width, Height);
 		}

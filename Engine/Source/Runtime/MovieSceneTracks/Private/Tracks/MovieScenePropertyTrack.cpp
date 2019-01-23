@@ -60,6 +60,7 @@ FName UMovieScenePropertyTrack::GetTrackName() const
 void UMovieScenePropertyTrack::RemoveAllAnimationData()
 {
 	Sections.Empty();
+	SectionToKey = nullptr;
 }
 
 
@@ -78,6 +79,17 @@ void UMovieScenePropertyTrack::AddSection(UMovieSceneSection& Section)
 void UMovieScenePropertyTrack::RemoveSection(UMovieSceneSection& Section)
 {
 	Sections.Remove(&Section);
+	if (SectionToKey == &Section)
+	{
+		if (Sections.Num() > 0)
+		{
+			SectionToKey = Sections[0];
+		}
+		else
+		{
+			SectionToKey = nullptr;
+		}
+	}
 }
 
 
@@ -86,7 +98,8 @@ bool UMovieScenePropertyTrack::IsEmpty() const
 	return Sections.Num() == 0;
 }
 
-UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
+
+TArray<UMovieSceneSection*, TInlineAllocator<4>> UMovieScenePropertyTrack::FindAllSections(FFrameNumber Time)
 {
 	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections;
 
@@ -100,21 +113,94 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
 
 	Algo::Sort(OverlappingSections, MovieSceneHelpers::SortOverlappingSections);
 
+	return OverlappingSections;
+}
+
+
+UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
+{
+	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections = FindAllSections(Time);
+
 	if (OverlappingSections.Num())
 	{
-		return OverlappingSections[0];
+		if (SectionToKey && OverlappingSections.Contains(SectionToKey))
+		{
+			return SectionToKey;
+		}
+		else
+		{
+			return OverlappingSections[0];
+		}
 	}
 
 	return nullptr;
 }
 
 
-UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber Time)
+UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber Time, float& Weight)
 {
-	UMovieSceneSection* FoundSection = FindSection(Time);
-	if (FoundSection)
+	Weight = 1.0f;
+	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections = FindAllSections(Time);
+	if (SectionToKey)
 	{
-		return FoundSection;
+		bool bCalculateWeight = false;
+		if (SectionToKey && !OverlappingSections.Contains(SectionToKey))
+		{
+			if (SectionToKey->HasEndFrame() && SectionToKey->GetExclusiveEndFrame() < Time)
+			{
+				SectionToKey->SetEndFrame(Time);
+			}
+			else
+			{
+				SectionToKey->SetStartFrame(Time);
+			}
+			if (OverlappingSections.Num() > 0)
+			{
+				bCalculateWeight = true;
+			}
+		}
+		else
+		{
+			if (OverlappingSections.Num() > 1)
+			{
+				bCalculateWeight = true;
+			}
+		}
+		//we need to calculate weight also possibly
+		FOptionalMovieSceneBlendType BlendType = SectionToKey->GetBlendType();
+		if (bCalculateWeight && BlendType.IsValid() && (BlendType.Get() == EMovieSceneBlendType::Additive || BlendType.Get() == EMovieSceneBlendType::Absolute))
+		{
+			//if additive weight is just the inverse of any weight on it
+			if (BlendType.Get() == EMovieSceneBlendType::Additive)
+			{
+				float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+				Weight = !FMath::IsNearlyZero(TotalWeightValue) ? 1.0f / TotalWeightValue : 0.0f;
+			}
+			else
+			{
+				//if absolute need to calculate weight based upon other sections weights (+ implicit absolute weights)
+				int TotalNumOfAbsoluteSections = 1;
+				for (UMovieSceneSection* Section : OverlappingSections)
+				{
+					FOptionalMovieSceneBlendType NewBlendType = Section->GetBlendType();
+
+					if (Section != SectionToKey  && NewBlendType.IsValid() && NewBlendType.Get() == EMovieSceneBlendType::Absolute)
+					{
+						++TotalNumOfAbsoluteSections;
+					}
+				}
+				float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+				Weight = !FMath::IsNearlyZero(TotalWeightValue) ? float(TotalNumOfAbsoluteSections) / TotalWeightValue : 0.0f;
+			}
+		}
+		return SectionToKey;
+	}
+	else
+	{
+		if (OverlappingSections.Num() > 0)
+		{
+			return OverlappingSections[0];
+		}
 	}
 
 	// Find a spot for the section so that they are sorted by start time
@@ -186,3 +272,14 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(FFrameNumber Time
 
 	return NewSection;
 }
+
+void UMovieScenePropertyTrack::SetSectionToKey(UMovieSceneSection* InSection)
+{
+	SectionToKey = InSection;
+}
+
+UMovieSceneSection* UMovieScenePropertyTrack::GetSectionToKey()
+{
+	return SectionToKey;
+}
+

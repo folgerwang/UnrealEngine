@@ -1521,7 +1521,7 @@ FReply FPersonaMeshDetails::RegenerateLOD(int32 LODIndex)
 			else if (bIsReductionActive)
 			{
 				//Ask user a special permission when the base LOD can be reduce 
-				const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceBaseLOD", "Are you sure you'd like to apply mesh reduction to the non-generated base LOD?"));
+				const FText Text(LOCTEXT("Warning_ReductionApplyingToImportedMesh_ReduceNonGenBaseLOD", "Are you sure you'd like to apply mesh reduction to the non-generated base LOD?"));
 				EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
 				if (Ret == EAppReturnType::No)
 				{

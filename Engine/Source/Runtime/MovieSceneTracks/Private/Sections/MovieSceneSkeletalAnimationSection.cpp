@@ -252,6 +252,13 @@ float UMovieSceneSkeletalAnimationSection::MapTimeToAnimation(FFrameTime InPosit
 	return TemplateParams.MapTimeToAnimation(InPosition, InFrameRate);
 }
 
+float UMovieSceneSkeletalAnimationSection::GetTotalWeightValue(FFrameTime InTime) const
+{
+	float ManualWeight = 1.f;
+	Params.Weight.Evaluate(InTime, ManualWeight);
+	return ManualWeight *  EvaluateEasing(InTime);
+}
+
 
 #if WITH_EDITOR
 void UMovieSceneSkeletalAnimationSection::PreEditChange(UProperty* PropertyAboutToChange)

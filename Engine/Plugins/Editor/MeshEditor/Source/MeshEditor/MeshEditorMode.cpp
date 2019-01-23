@@ -459,7 +459,7 @@ FMeshEditorMode::FMeshEditorMode()
 	FMeshEditorSelectionModifiers::Register();
 
 	// Mesh fracture configuration settings
-	MeshFractureSettings = NewObject<UMeshFractureSettings>(GetTransientPackage(), *LOCTEXT("FractureSettingsName", "FractureSettings").ToString());
+	MeshFractureSettings = NewObject<UMeshFractureSettings>(GetTransientPackage(), TEXT("FractureSettings"));
 	MeshFractureSettings->AddToRoot();
 
 	// Register UI commands

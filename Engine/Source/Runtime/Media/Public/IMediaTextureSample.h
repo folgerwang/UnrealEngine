@@ -5,6 +5,8 @@
 #include "CoreTypes.h"
 #include "Math/Color.h"
 #include "Math/IntPoint.h"
+#include "Math/Matrix.h"
+#include "Math/Plane.h"
 #include "Misc/Optional.h"
 #include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
@@ -223,6 +225,25 @@ public:
 	virtual FLinearColor GetOffset() const
 	{
 		return FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	/**
+	 * Get the YUV to RGB conversion matrix.
+	 *
+	 * Equivalent to MediaShaders::YuvToSrgbDefault Matrix.
+	 *
+	 * @return Conversion Matrix
+	 */
+	virtual const FMatrix& GetYUVToRGBMatrix() const
+	{
+		static const FMatrix DefaultMatrix(
+			FPlane(1.164383f, 0.000000f, 1.596027f, 0.000000f),
+			FPlane(1.164383f, -0.391762f, -0.812968f, 0.000000f),
+			FPlane(1.164383f, 2.017232f, 0.000000f, 0.000000f),
+			FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
+		);
+
+		return DefaultMatrix;
 	}
 
 public:

@@ -142,6 +142,7 @@ public:
 	bool MatchIdentifier( FName Match );
 	bool MatchIdentifier( const TCHAR* Match );
 	bool MatchConstInt( const TCHAR* Match );
+	bool MatchAnyConstInt();
 	bool PeekIdentifier( FName Match );
 	bool PeekIdentifier( const TCHAR* Match );
 	bool MatchSymbol( const TCHAR* Match, ESymbolParseOption bParseTemplateClosingBracket = ESymbolParseOption::Normal );
@@ -152,6 +153,8 @@ public:
 	void RequireIdentifier( FName Match, const TCHAR* Tag );
 	void RequireIdentifier( const TCHAR* Match, const TCHAR* Tag );
 	void RequireSymbol( const TCHAR* Match, const TCHAR* Tag, ESymbolParseOption bParseTemplateClosingBracket = ESymbolParseOption::Normal );
+	void RequireConstInt( const TCHAR* Match, const TCHAR* Tag );
+	void RequireAnyConstInt( const TCHAR* Tag );
 
 	/** Clears out the stored comment. */
 	void ClearComment();

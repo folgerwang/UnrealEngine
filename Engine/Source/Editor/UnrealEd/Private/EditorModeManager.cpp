@@ -779,6 +779,20 @@ bool FEditorModeTools::InputAxis(FEditorViewportClient* InViewportClient, FViewp
 	return bHandled;
 }
 
+bool FEditorModeTools::GetPivotForOrbit( FVector& Pivot ) const
+{
+	// Just return the first pivot point specified by a mode
+	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
+	{
+		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
+		if ( Mode->GetPivotForOrbit( Pivot ) )
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool FEditorModeTools::MouseEnter( FEditorViewportClient* InViewportClient, FViewport* Viewport, int32 X, int32 Y )
 {
 	bool bHandled = false;

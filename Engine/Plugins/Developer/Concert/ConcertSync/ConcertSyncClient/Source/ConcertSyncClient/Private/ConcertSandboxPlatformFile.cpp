@@ -1159,11 +1159,13 @@ void FConcertSandboxPlatformFile::NotifyFileDeleted(const FConcertSandboxPlatfor
 		return;
 	}
 
+#if WITH_EDITOR
 	if (FDirectoryWatcherModule* DirectoryWatcherModule = ConcertSandboxPlatformFileUtil::GetDirectoryWatcherModuleIfLoaded())
 	{
 		FFileChangeData FileChange(InPath.GetNonSandboxPath(), FFileChangeData::FCA_Removed);
 		DirectoryWatcherModule->RegisterExternalChanges(TArrayView<const FFileChangeData>(&FileChange, 1));
 	}
+#endif
 }
 
 void FConcertSandboxPlatformFile::MigrateFileToSandbox(const FConcertSandboxPlatformFilePath& InPath) const

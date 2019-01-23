@@ -152,6 +152,8 @@ const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 				PathNameString = Parent->GetPathName(ParentOutermost);
 			}
 			TextNamespace = PathNameString + TEXT(" ") + Parent->GetClass()->GetName();
+
+			Parent->OverridePerObjectConfigSection(TextNamespace);
 		}
 		else
 		{
@@ -176,85 +178,38 @@ FString UTextProperty::GenerateCppCodeForTextValue(const FText& InValue, const F
 {
 	FString CppCode;
 
-	const FString& StringValue = FTextInspector::GetDisplayString(InValue);
-
 	if (InValue.IsEmpty())
 	{
 		CppCode += TEXT("FText::GetEmpty()");
 	}
-	else if (InValue.IsFromStringTable())
-	{
-		FName TableId;
-		FString Key;
-		FStringTableRegistry::Get().FindTableIdAndKey(InValue, TableId, Key);
-
-		// Produces FText::FromStringTable(TEXT("..."), TEXT("..."))
-		CppCode += TEXT("FText::FromStringTable(\n");
-
-		CppCode += Indent;
-		CppCode += TEXT("\t");
-		CppCode += UStrProperty::ExportCppHardcodedText(TableId.ToString(), Indent + TEXT("\t\t"));
-		CppCode += TEXT(", /* String Table ID */\n");
-
-		CppCode += Indent;
-		CppCode += TEXT("\t");
-		CppCode += UStrProperty::ExportCppHardcodedText(Key, Indent + TEXT("\t\t"));
-		CppCode += TEXT(" /* Key */\n");
-
-		CppCode += Indent;
-		CppCode += TEXT("\t)");
-	}
 	else if (InValue.IsCultureInvariant())
 	{
+		const FString& StringValue = FTextInspector::GetDisplayString(InValue);
+
 		// Produces FText::AsCultureInvariant(TEXT("..."))
-		CppCode += TEXT("FText::AsCultureInvariant(");
-		CppCode += UStrProperty::ExportCppHardcodedText(StringValue, Indent + TEXT("\t"));
-		CppCode += TEXT(")");
+		CppCode += TEXT("FText::AsCultureInvariant(\n");
+		CppCode += UStrProperty::ExportCppHardcodedText(StringValue, Indent + TEXT("\t\t"));
+		CppCode += TEXT("\t)");
 	}
 	else
 	{
-		bool bIsLocalized = false;
-		FString Namespace;
-		FString Key;
-		const FString* SourceString = FTextInspector::GetSourceString(InValue);
+		FString ExportedText;
+		FTextStringHelper::WriteToBuffer(ExportedText, InValue);
 
-		if (SourceString && InValue.ShouldGatherForLocalization())
+		if (FTextStringHelper::IsComplexText(*ExportedText))
 		{
-			bIsLocalized = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(FTextInspector::GetSharedDisplayString(InValue), Namespace, Key);
-
-			// Nativized BPs always removes the package localization ID to match how text works at runtime (and to match BP bytecode generation)
-			Namespace = TextNamespaceUtil::StripPackageNamespace(Namespace);
-		}
-
-		if (bIsLocalized)
-		{
-			// Produces FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(TEXT("..."), TEXT("..."), TEXT("..."))
-			CppCode += TEXT("FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(\n");
-
-			CppCode += Indent;
-			CppCode += TEXT("\t");
-			CppCode += UStrProperty::ExportCppHardcodedText(*SourceString, Indent + TEXT("\t\t"));
-			CppCode += TEXT(", /* Literal Text */\n");
-
-			CppCode += Indent;
-			CppCode += TEXT("\t");
-			CppCode += UStrProperty::ExportCppHardcodedText(Namespace, Indent + TEXT("\t\t"));
-			CppCode += TEXT(", /* Namespace */\n");
-
-			CppCode += Indent;
-			CppCode += TEXT("\t");
-			CppCode += UStrProperty::ExportCppHardcodedText(Key, Indent + TEXT("\t\t"));
-			CppCode += TEXT(" /* Key */\n");
-
+			// Produces FTextStringHelper::CreateFromBuffer(TEXT("..."))
+			CppCode += TEXT("FTextStringHelper::CreateFromBuffer(\n");
+			CppCode += UStrProperty::ExportCppHardcodedText(ExportedText, Indent + TEXT("\t\t"));
 			CppCode += Indent;
 			CppCode += TEXT("\t)");
 		}
 		else
 		{
 			// Produces FText::FromString(TEXT("..."))
-			CppCode += TEXT("FText::FromString(");
-			CppCode += UStrProperty::ExportCppHardcodedText(StringValue, Indent + TEXT("\t"));
-			CppCode += TEXT(")");
+			CppCode += TEXT("FText::FromString(\n");
+			CppCode += UStrProperty::ExportCppHardcodedText(ExportedText, Indent + TEXT("\t\t"));
+			CppCode += TEXT("\t)");
 		}
 	}
 

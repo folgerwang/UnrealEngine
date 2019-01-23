@@ -555,10 +555,10 @@ private:
 
 #if !IS_MONOLITHIC
 	/** Finds modules matching a given name wildcard. */
-	void FindModulePaths(const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache = true) const;
+	void FindModulePaths(const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
 
-	/** Finds modules matching a given name wildcard within a given directory. */
-	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
+	/** Finds modules within a given directory. */
+	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, TMap<FName, FString> &OutModulePaths) const;
 #endif
 
 private:
@@ -576,7 +576,7 @@ private:
 	bool bCanProcessNewlyLoadedObjects;
 
 	/** Cache of known module paths. Used for performance. Can increase editor startup times by up to 30% */
-	mutable TOptional<TMap<FName, FString>> ModulePathsCache;
+	mutable TMap<FName, FString> ModulePathsCache;
 
 	/** Multicast delegate that will broadcast a notification when modules are loaded, unloaded, or
 		our set of known modules changes */
@@ -590,10 +590,12 @@ private:
 	FIsPackageLoadedCallback IsPackageLoaded;
 
 	/** Array of engine binaries directories. */
-	TArray<FString> EngineBinariesDirectories;
+	mutable TArray<FString> EngineBinariesDirectories;
+	mutable TArray<FString> PendingEngineBinariesDirectories;
 
 	/** Array of game binaries directories. */
-	TArray<FString> GameBinariesDirectories;
+	mutable TArray<FString> GameBinariesDirectories;
+	mutable TArray<FString> PendingGameBinariesDirectories;
 
 	/** ID used to validate module manifests. Read from the module manifest in the engine directory on first query to load a new module; unset until then. */
 	mutable TOptional<FString> BuildId;

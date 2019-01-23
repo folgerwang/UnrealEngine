@@ -2184,7 +2184,7 @@ void UMaterialExpressionTextureProperty::GetTexturesForceMaterialRecompile(TArra
 void UMaterialExpressionTextureProperty::GetCaption(TArray<FString>& OutCaptions) const
 {
 #if WITH_EDITOR
-	const UEnum* TexturePropertyEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialExposedTextureProperty"));
+	const UEnum* TexturePropertyEnum = StaticEnum<EMaterialExposedTextureProperty>();
 	check(TexturePropertyEnum);
 
 	const FString PropertyDisplayName = TexturePropertyEnum->GetDisplayNameTextByValue(Property).ToString();
@@ -7693,7 +7693,7 @@ int32 UMaterialExpressionViewProperty::Compile(class FMaterialCompiler* Compiler
 
 void UMaterialExpressionViewProperty::GetCaption(TArray<FString>& OutCaptions) const
 {
-	const UEnum* ViewPropertyEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialExposedViewProperty"));
+	const UEnum* ViewPropertyEnum = StaticEnum<EMaterialExposedViewProperty>();
 	check(ViewPropertyEnum);
 
 	OutCaptions.Add(ViewPropertyEnum->GetDisplayNameTextByValue(Property).ToString());
@@ -7995,7 +7995,7 @@ int32 UMaterialExpressionSceneTexture::Compile(class FMaterialCompiler* Compiler
 
 void UMaterialExpressionSceneTexture::GetCaption(TArray<FString>& OutCaptions) const
 {
-	UEnum* Enum = FindObject<UEnum>(NULL, TEXT("Engine.ESceneTextureId"));
+	UEnum* Enum = StaticEnum<ESceneTextureId>();
 
 	check(Enum);
 
@@ -8470,8 +8470,8 @@ int32 UMaterialExpressionTransform::Compile(class FMaterialCompiler* Compiler, i
 void UMaterialExpressionTransform::GetCaption(TArray<FString>& OutCaptions) const
 {
 #if WITH_EDITOR
-	const UEnum* MVCTSEnum = FindObject<UEnum>(nullptr, TEXT("Engine.EMaterialVectorCoordTransformSource"));
-	const UEnum* MVCTEnum = FindObject<UEnum>(nullptr, TEXT("Engine.EMaterialVectorCoordTransform"));
+	const UEnum* MVCTSEnum = StaticEnum<EMaterialVectorCoordTransformSource>();
+	const UEnum* MVCTEnum = StaticEnum<EMaterialVectorCoordTransform>();
 	check(MVCTSEnum);
 	check(MVCTEnum);
 	
@@ -8572,7 +8572,7 @@ int32 UMaterialExpressionTransformPosition::Compile(class FMaterialCompiler* Com
 void UMaterialExpressionTransformPosition::GetCaption(TArray<FString>& OutCaptions) const
 {
 #if WITH_EDITOR
-	const UEnum* MPTSEnum = FindObject<UEnum>(nullptr, TEXT("Engine.EMaterialPositionTransformSource"));
+	const UEnum* MPTSEnum = StaticEnum<EMaterialPositionTransformSource>();
 	check(MPTSEnum);
 	
 	FString TransformDesc;
@@ -12920,7 +12920,7 @@ int32 UMaterialExpressionNoise::Compile(class FMaterialCompiler* Compiler, int32
 
 void UMaterialExpressionNoise::GetCaption(TArray<FString>& OutCaptions) const
 {
-	const UEnum* NFEnum = FindObject<UEnum>(nullptr, TEXT("Engine.ENoiseFunction"));
+	const UEnum* NFEnum = StaticEnum<ENoiseFunction>();
 	check(NFEnum);
 	OutCaptions.Add(NFEnum->GetDisplayNameTextByValue(NoiseFunction).ToString());
 	OutCaptions.Add(TEXT("Noise"));
@@ -12996,7 +12996,7 @@ int32 UMaterialExpressionVectorNoise::Compile(class FMaterialCompiler* Compiler,
 
 void UMaterialExpressionVectorNoise::GetCaption(TArray<FString>& OutCaptions) const
 {
-	const UEnum* VNFEnum = FindObject<UEnum>(nullptr, TEXT("Engine.EVectorNoiseFunction"));
+	const UEnum* VNFEnum = StaticEnum<EVectorNoiseFunction>();
 	check(VNFEnum);
 	OutCaptions.Add(VNFEnum->GetDisplayNameTextByValue(NoiseFunction).ToString());
 	OutCaptions.Add(TEXT("Vector Noise"));

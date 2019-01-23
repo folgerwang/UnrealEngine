@@ -18,7 +18,10 @@ enum SkeletalMeshTerminationCriterion
 {
 	SMTC_NumOfTriangles UMETA(DisplayName = "Triangles", ToolTip = "Triangle count criterion will be used for simplification."),
 	SMTC_NumOfVerts UMETA(DisplayName = "Vertices", ToolTip = "Vertex cont criterion will be used for simplification."),
-	SMTC_TriangleOrVert UMETA(DisplayName = "First Satisfied", ToolTip = "Simplification will continue until either Triangle or Vertex count criteria is met."),
+	SMTC_TriangleOrVert UMETA(DisplayName = "First Percent Satisfied", ToolTip = "Simplification will continue until either Triangle or Vertex count criteria is met."),
+	SMTC_AbsNumOfTriangles UMETA(DisplayName = "Max Triangles", ToolTip = "Triangle count criterion will be used for simplification."),
+	SMTC_AbsNumOfVerts UMETA(DisplayName = "Max Vertices", ToolTip = "Vertex cont criterion will be used for simplification."),
+	SMTC_AbsTriangleOrVert UMETA(DisplayName = "First Max Satisfied", ToolTip = "Simplification will continue until either Triangle or Vertex count criteria is met."),
 	SMTC_MAX UMETA(Hidden),
 };
 
@@ -64,6 +67,14 @@ struct FSkeletalMeshOptimizationSettings
 	/** The percentage of vertices to retain as a ratio, e.g. 0.1 indicates 10 percent */
 	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Percent of Vertices"))
 	float NumOfVertPercentage;
+	
+	/** The maximum number of triangles to retain */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Max Triangle Count", ClampMin = 4))
+	uint32 MaxNumOfTriangles;
+
+	/** The maximum number of vertices to retain */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Max Vertex Count", ClampMin = 6))
+	uint32 MaxNumOfVerts;
 
 	/**If ReductionMethod equals MaxDeviation this value is the maximum deviation from the base mesh as a percentage of the bounding sphere. 
 	 * In code, it ranges from [0, 1]. In the editor UI, it ranges from [0, 100]
@@ -140,6 +151,8 @@ struct FSkeletalMeshOptimizationSettings
 		: TerminationCriterion(SMTC_NumOfTriangles)
 		, NumOfTrianglesPercentage(0.5f)
 		, NumOfVertPercentage(0.5f)
+		, MaxNumOfTriangles(4)
+		, MaxNumOfVerts(6)
 		, MaxDeviationPercentage(0.5f)
 		, ReductionMethod(SMOT_NumOfTriangles)
 		, SilhouetteImportance(SMOI_Normal)

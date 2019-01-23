@@ -7,6 +7,7 @@
 #include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/LinkerManager.h"
+#include "UObject/UObjectThreadContext.h"
 
 /*-----------------------------------------------------------------------------
 	UPackage.
@@ -149,7 +150,9 @@ UMetaData* UPackage::GetMetaData()
 
 	if (MetaData->HasAnyFlags(RF_NeedLoad))
 	{
-		MetaData->GetLinker()->Preload(MetaData);
+		FLinkerLoad* MetaDataLinker = MetaData->GetLinker();
+		check(MetaDataLinker);
+		MetaDataLinker->Preload(MetaData);
 	}
 
 	return MetaData;

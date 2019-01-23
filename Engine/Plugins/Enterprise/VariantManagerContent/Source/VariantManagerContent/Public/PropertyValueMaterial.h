@@ -25,8 +25,15 @@ public:
 	// is just using default materials though, so we have to intercept resolve calls and handle
 	// them in a specific way. This will also let us zero out the value ptr and other things
 	// that shouldn't be used by themselves
-	virtual bool Resolve(UObject* OnObject = nullptr);
+	virtual bool Resolve(UObject* OnObject = nullptr) override;
+
+	virtual UStruct* GetPropertyParentContainerClass() const override;
 
 	virtual void RecordDataFromResolvedObject() override;
 	virtual void ApplyDataToResolvedObject() override;
+
+	virtual UClass* GetPropertyClass() const override;
+	virtual UClass* GetObjectPropertyObjectClass() const override;
+
+	virtual int32 GetValueSizeInBytes() const override;
 };

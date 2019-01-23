@@ -218,6 +218,13 @@ private:
 	void VARARGS CategorizedLogfImpl(const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...);
 
 public:
+	template <typename FmtType>
+	void Logf(const FmtType& Fmt)
+	{
+		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
+		return Log(Fmt);
+	}
+
 	template <typename FmtType, typename... Types>
 	FORCEINLINE void Logf(const FmtType& Fmt, Types... Args)
 	{

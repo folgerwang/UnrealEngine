@@ -67,6 +67,8 @@
 #include "FoliageType.h"
 #include "IVREditorModule.h"
 #include "ShowFlagMenuCommands.h"
+#include "AssetRegistryModule.h"
+#include "IAssetRegistry.h"
 #include "BufferVisualizationMenuCommands.h"
 
 static const FName LevelEditorName("LevelEditor");
@@ -1188,13 +1190,51 @@ void SLevelViewport::BindOptionCommands( FUICommandList& OutCommandList )
 		FIsActionChecked::CreateSP( this, &SLevelViewport::AllowsCinematicPreview )
 		);
 
+	IAssetRegistry & AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+	TArray<FName> ClassNames;
+	TSet<FName> DerivedClassNames;
+	ClassNames.Add(ACameraActor::StaticClass()->GetFName());
+	AssetRegistry.GetDerivedClassNames(ClassNames, TSet<FName>(), DerivedClassNames);
 
-	OutCommandList.MapAction(
-		ViewportActions.CreateCamera,
-		FExecuteAction::CreateSP( this, &SLevelViewport::OnCreateCameraActor ),
-		FCanExecuteAction(),
-		FCanExecuteAction::CreateSP( this, &SLevelViewport::IsPerspectiveViewport ) 
-		);
+	for (FName Name : DerivedClassNames)
+	{
+		// Ignore generated types that cannot be spawned
+		if (Name.ToString().StartsWith("SKEL_") || Name.ToString().StartsWith("REINST_"))
+		{
+			continue;
+		}
+		
+		// Remove _C from display names for blueprint classes
+		FName DisplayName = Name;
+		if (Name.ToString().EndsWith("_C"))
+		{
+			DisplayName = FName(*DisplayName.ToString().LeftChop(2));
+		}
+		
+		// Look for existing UI Command info so one isn't created for every viewport
+		TSharedPtr<FUICommandInfo> * FoundCamera = FLevelViewportCommands::Get().CreateCameras.FindByPredicate([Name](TSharedPtr<FUICommandInfo> Camera) { return Camera->GetCommandName() == Name; });
+		
+		if (FoundCamera)
+		{
+			OutCommandList.MapAction(
+				*FoundCamera,
+				FExecuteAction::CreateSP(this, &SLevelViewport::OnCreateCameraActor, FindObject<UClass>(ANY_PACKAGE, *Name.ToString()))
+			);
+		}
+		else
+		{
+			// If command info isn't found, create a new one
+			TSharedRef<FUICommandInfo> NewCamera = FUICommandInfoDecl(FLevelViewportCommands::Get().AsShared(), Name, FText::FromName(DisplayName), FText::Format(LOCTEXT("SpawnCamerasTooltip", "Spawn Camera here of type {0}"), FText::FromName(Name))).UserInterfaceType(EUserInterfaceActionType::Button).DefaultChord(FInputChord());
+			
+			OutCommandList.MapAction(
+				NewCamera,
+				FExecuteAction::CreateSP(this, &SLevelViewport::OnCreateCameraActor, FindObject<UClass>(ANY_PACKAGE, *Name.ToString()))
+			);
+			
+			FLevelViewportCommands::Get().CreateCameras.Add(NewCamera);
+		}
+
+	}
 
 	OutCommandList.MapAction(
 		ViewportActions.HighResScreenshot,
@@ -1680,7 +1720,7 @@ bool SLevelViewport::IsImmersive() const
 	return false;
 }
 
-void SLevelViewport::OnCreateCameraActor()
+void SLevelViewport::OnCreateCameraActor(UClass* InClass)
 {		
 	// Find the perspective viewport we were using
 	FViewport* pViewPort = GEditor->GetActiveViewport();
@@ -1704,10 +1744,10 @@ void SLevelViewport::OnCreateCameraActor()
 	const FScopedTransaction Transaction(NSLOCTEXT("LevelViewport", "CreateCameraHere", "Create Camera Here"));
 
 	// Set new camera to match viewport
-	ACameraActor* pNewCamera = ViewportClient->GetWorld()->SpawnActor<ACameraActor>();
+	ACameraActor* pNewCamera = Cast<ACameraActor>(ViewportClient->GetWorld()->SpawnActor(InClass));
 	pNewCamera->SetActorLocation( ViewportClient->GetViewLocation(), false );
 	pNewCamera->SetActorRotation( ViewportClient->GetViewRotation() );
-	pNewCamera->GetCameraComponent()->FieldOfView = ViewportClient->ViewFOV;
+	pNewCamera->GetCameraComponent()->SetFieldOfView( ViewportClient->ViewFOV );
 
 	// Deselect any currently selected actors
 	GUnrealEd->SelectNone( true, true );

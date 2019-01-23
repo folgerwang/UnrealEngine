@@ -218,6 +218,12 @@ void USetProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, co
 	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 
+	// If we're doing delta serialization within this property, act as if there are no defaults
+	if (!UnderlyingArchive.DoIntraPropertyDelta())
+	{
+		Defaults = nullptr;
+	}
+
 	// Ar related calls in this function must be mirrored in USetProperty::ConvertFromType
 	checkSlow(ElementProp);
 
@@ -483,14 +489,14 @@ void USetProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue, 
 		checkSlow(StructElementProp->Struct);
 
 		StructDefaults = (uint8*)FMemory::Malloc(SetLayout.Size);
-		ElementProp->InitializeValue(StructDefaults + SetLayout.ElementOffset);
+		ElementProp->InitializeValue(StructDefaults);
 	}
 
 	ON_SCOPE_EXIT
 	{
 		if (StructDefaults)
 		{
-			ElementProp->DestroyValue(StructDefaults + SetLayout.ElementOffset);
+			ElementProp->DestroyValue(StructDefaults);
 			FMemory::Free(StructDefaults);
 		}
 	};

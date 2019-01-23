@@ -11,7 +11,7 @@
 #include "AudioDevice.h"
 #include "Sound/SoundWave.h"
 #include "DSP/ParamInterpolator.h"
-#include "DSP/Filter.h"
+#include "DSP/OnePole.h"
 
 /*------------------------------------------------------------------------------------
 	Audio Framework system headers
@@ -150,7 +150,7 @@ public:
 	/** Calculates the audio unit element of the input channel relative to the base bus number */
 	AudioUnitElement GetAudioUnitElement(int32 Channel);
 
-    TArray<Audio::FBiquadFilter> LowpassFilterBank;
+    TArray<Audio::FOnePoleLPF> LowpassFilterBank;
     TArray<Audio::FParam> LPFParamBank;
     
     int32 SampleRate;

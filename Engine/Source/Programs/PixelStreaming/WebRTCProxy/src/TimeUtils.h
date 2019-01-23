@@ -4,10 +4,9 @@
 
 #include "WebRTCProxyCommon.h"
 
-
-struct FDateTime
+struct FDateTime_BypassRedefinition
 {
-	FDateTime(int Year, int Month, int Day, int Hour, int Minute, int Second, int Milliseconds)
+	FDateTime_BypassRedefinition(int Year, int Month, int Day, int Hour, int Minute, int Second, int Milliseconds)
 	    : Year(Year)
 	    , Month(Month)
 	    , Day(Day)
@@ -40,6 +39,8 @@ struct FDateTime
 	const char* ToString(bool bIncludeMSec=true);
 };
 
+// FDateTime will be removed.
+#define FDateTime FDateTime_BypassRedefinition
 
 /**
  * Returns the local date/time

@@ -33,7 +33,12 @@ namespace UnrealBuildTool.Rules
                     "MeshUtilities",
                     "MessageLog",
                     "Json",
-                    "GLTF",
+                    "MaterialEditor",
+                    "Slate",
+                    "SlateCore",
+                    "Mainframe",
+                    "InputCore",
+                    "EditorStyle",
                 }
                 );
 

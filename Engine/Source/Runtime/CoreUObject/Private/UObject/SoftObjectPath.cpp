@@ -101,10 +101,10 @@ bool FSoftObjectPath::PreSavePath(bool* bReportSoftObjectPathRedirects)
 	return false;
 }
 
-void FSoftObjectPath::PostLoadPath() const
+void FSoftObjectPath::PostLoadPath(FArchive* InArchive) const
 {
 #if WITH_EDITOR
-	GRedirectCollector.OnSoftObjectPathLoaded(*this);
+	GRedirectCollector.OnSoftObjectPathLoaded(*this, InArchive);
 #endif // WITH_EDITOR
 }
 
@@ -177,7 +177,7 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 	{
 		if (Ar.IsPersistent())
 		{
-			PostLoadPath();
+			PostLoadPath(&Ar);
 
 			// If we think it's going to work, we try to do the pre-save fixup now. This is important because it helps with blueprint CDO save determinism with redirectors
 			// It's important that the entire CDO hierarchy gets fixed up before an instance in a map gets saved otherwise the delta serialization will save too much
@@ -232,7 +232,7 @@ bool FSoftObjectPath::ExportTextItem(FString& ValueStr, FSoftObjectPath const& D
 	return true;
 }
 
-bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
+bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText, FArchive* InSerializingArchive)
 {
 	FString ImportedPath;
 	const TCHAR* NewBuffer = UPropertyHelpers::ReadToken(Buffer, ImportedPath, 1);
@@ -274,13 +274,13 @@ bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
 		// We're probably reading config for an editor only object, we need to mark this reference as editor only
 		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::EditorOnlyCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
-		PostLoadPath();
+		PostLoadPath(InSerializingArchive);
 	}
 	else
 #endif
 	{
 		// Consider this a load, so Config string references get cooked
-		PostLoadPath();
+		PostLoadPath(InSerializingArchive);
 	}
 
 	return true;
@@ -338,19 +338,19 @@ bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag,
 	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
-		PostLoadPath();
+		PostLoadPath(&Slot.GetUnderlyingArchive());
 	}
 
 	return bReturn;
 }
 
-UObject* FSoftObjectPath::TryLoad() const
+UObject* FSoftObjectPath::TryLoad(FUObjectSerializeContext* InLoadContext) const
 {
 	UObject* LoadedObject = nullptr;
 
 	if (!IsNull())
 	{
-		LoadedObject = LoadObject<UObject>(nullptr, *ToString());
+		LoadedObject = StaticLoadObject(UObject::StaticClass(), nullptr, *ToString(), nullptr, LOAD_None, nullptr, true, InLoadContext);
 
 #if WITH_EDITOR
 		// Look at core redirects if we didn't find the object
@@ -483,7 +483,7 @@ bool FSoftObjectPath::FixupCoreRedirects()
 	if (OldName != NewName)
 	{
 		// Only do the fixup if the old object isn't in memory, this avoids false positives
-		UObject* FoundOldObject = FindObject<UObject>(nullptr, *OldString);
+		UObject* FoundOldObject = FindObjectSafe<UObject>(nullptr, *OldString);
 
 		if (!FoundOldObject)
 		{
@@ -511,7 +511,7 @@ bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, 
 	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
-		PostLoadPath();
+		PostLoadPath(&Slot.GetUnderlyingArchive());
 	}
 
 	return bReturn;
@@ -564,13 +564,11 @@ bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName
 		bFoundAnything = true;
 	}
 	
-	
-	// Check UObject thread context as a backup, this only works for loads
-	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-	if (ThreadContext.SerializedObject)
+	// Check UObject serialize context as a backup
+	FUObjectSerializeContext* LoadContext = Archive ? Archive->GetSerializeContext() : nullptr;
+	if (LoadContext && LoadContext->SerializedObject)
 	{
-		FLinkerLoad* Linker = ThreadContext.SerializedObject->GetLinker();
-
+		FLinkerLoad* Linker = LoadContext->SerializedObject->GetLinker();
 		if (Linker)
 		{
 			if (CurrentPackageName == NAME_None)

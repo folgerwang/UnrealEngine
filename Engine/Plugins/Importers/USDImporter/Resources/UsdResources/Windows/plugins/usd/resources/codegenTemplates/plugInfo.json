@@ -5,10 +5,10 @@
                 "Types": {
                 }
             }, 
-            "LibraryPath": "@PLUG_INFO_LIBRARY_PATH@", 
+            "LibraryPath": "../../libusd.dll", 
             "Name": "{{ libraryName }}", 
-            "ResourcePath": "@PLUG_INFO_RESOURCE_PATH@", 
-            "Root": "@PLUG_INFO_ROOT@", 
+            "ResourcePath": "resources", 
+            "Root": "..", 
             "Type": "library"
         }
     ]

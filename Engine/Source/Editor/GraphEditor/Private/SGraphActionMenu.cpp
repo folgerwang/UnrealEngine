@@ -1302,11 +1302,11 @@ FReply SGraphActionMenu::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent
 			const int32 NumItemsInAPage = 15; // arbitrary jump because we can't get at the visible item count from here
 			SelectedSuggestion = FMath::Min(FilteredActionNodes.Num() - 1, SelectedSuggestion + NumItemsInAPage);
 		}
-		else if (KeyEvent.GetKey() == EKeys::Home)
+		else if (KeyEvent.GetKey() == EKeys::Home && KeyEvent.IsControlDown())
 		{
 			SelectedSuggestion = 0;
 		}
-		else if (KeyEvent.GetKey() == EKeys::End)
+		else if (KeyEvent.GetKey() == EKeys::End && KeyEvent.IsControlDown())
 		{
 			SelectedSuggestion = FilteredActionNodes.Num() - 1;
 		}

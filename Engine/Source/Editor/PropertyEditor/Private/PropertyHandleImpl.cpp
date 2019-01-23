@@ -2140,6 +2140,11 @@ IMPLEMENT_PROPERTY_ACCESSOR( UObject* )
 IMPLEMENT_PROPERTY_ACCESSOR( const UObject* )
 IMPLEMENT_PROPERTY_ACCESSOR( FAssetData )
 
+FPropertyAccess::Result FPropertyHandleBase::SetValue( const TCHAR* InValue, EPropertyValueSetFlags::Type Flags )
+{
+	return FPropertyAccess::Fail;
+}
+
 FPropertyHandleBase::FPropertyHandleBase( TSharedPtr<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities )
 	: Implementation( MakeShareable( new FPropertyValueImpl( PropertyNode, NotifyHook, PropertyUtilities ) ) )
 {
@@ -3584,6 +3589,11 @@ FPropertyAccess::Result FPropertyHandleString::SetValue( const FString& NewValue
 	return Implementation->SetValueAsString( NewValue, Flags );
 }
 
+FPropertyAccess::Result FPropertyHandleString::SetValue( const TCHAR* NewValue, EPropertyValueSetFlags::Type Flags )
+{
+	return Implementation->SetValueAsString( NewValue, Flags );
+}
+
 FPropertyAccess::Result FPropertyHandleString::GetValue( FName& OutValue ) const
 {
 	void* PropValue = nullptr;
@@ -4435,6 +4445,11 @@ FPropertyAccess::Result FPropertyHandleText::SetValue(const FText& NewValue, EPr
 }
 
 FPropertyAccess::Result FPropertyHandleText::SetValue(const FString& NewValue, EPropertyValueSetFlags::Type Flags)
+{
+	return SetValue(FText::FromString(NewValue), Flags);
+}
+
+FPropertyAccess::Result FPropertyHandleText::SetValue(const TCHAR* NewValue, EPropertyValueSetFlags::Type Flags)
 {
 	return SetValue(FText::FromString(NewValue), Flags);
 }

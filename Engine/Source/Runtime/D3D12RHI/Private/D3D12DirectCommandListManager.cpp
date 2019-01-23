@@ -24,7 +24,13 @@ void FD3D12GPUFence::WriteInternal(ED3D12CommandQueueType QueueType)
 
 bool FD3D12GPUFence::Poll() const
 {
-	return !Value || (Fence && Fence->IsFenceComplete(Value));
+	// @todo-mattc Value of 0 means signaled? Revisit this...
+	return !Value || (Fence && Fence->PeekLastCompletedFence() >= Value);
+}
+
+void FD3D12GPUFence::Clear()
+{
+	Value = MAX_uint64;
 }
 
 
@@ -33,9 +39,9 @@ FGPUFenceRHIRef FD3D12DynamicRHI::RHICreateGPUFence(const FName& Name)
 	return new FD3D12GPUFence(Name, GetAdapter().GetStagingFence());
 }
 
-FStagingBufferRHIRef FD3D12DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+FStagingBufferRHIRef FD3D12DynamicRHI::RHICreateStagingBuffer()
 {
-	return new FD3D12StagingBuffer(VertexBufferRHI);
+	return new FD3D12StagingBuffer();
 }
 
 void* FD3D12DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
@@ -43,30 +49,14 @@ void* FD3D12DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBu
 	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
 	check(StagingBuffer);
 
-	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
-	if (pResource)
-	{
-		D3D12_RANGE ReadRange;
-		ReadRange.Begin = Offset;
-		ReadRange.End = Offset + SizeRHI;
-		return reinterpret_cast<uint8*>(pResource->Map(&ReadRange)) + Offset;
-	}
-	else
-	{
-		return nullptr;
-	}
+	return StagingBuffer->Lock(Offset, SizeRHI);
 }
 
 void FD3D12DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
 {
 	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
 	check(StagingBuffer);
-
-	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
-	if (pResource)
-	{
-		pResource->Unmap();
-	}
+	StagingBuffer->Unlock();
 }
 
 // =============================================================================

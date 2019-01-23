@@ -26,6 +26,8 @@
 	#include "Interfaces/ITargetPlatform.h"
 #endif
 
+#include "UObject/FortniteMainBranchObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 
 DECLARE_STATS_GROUP(TEXT("Niagara Detailed"), STATGROUP_NiagaraDetailed, STATCAT_Advanced);
 

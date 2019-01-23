@@ -29,5 +29,6 @@ public:
 	virtual void AddStereo      (const FDisplayClusterConfigStereo& InCfgStereo) override;
 	virtual void AddDebug       (const FDisplayClusterConfigDebug& InCfgDebug) override;
 	virtual void AddInput       (const FDisplayClusterConfigInput& InCfgInput) override;
+	virtual void AddInputSetup  (const FDisplayClusterConfigInputSetup& InCfgInputSetup) override;
 	virtual void AddCustom      (const FDisplayClusterConfigCustom& InCfgCustom) override;
 };

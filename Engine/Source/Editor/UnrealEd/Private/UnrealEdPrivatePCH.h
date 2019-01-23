@@ -197,7 +197,6 @@
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
 #include "GenericPlatform/GenericPlatformAffinity.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Math/TransformCalculus.h"
 #include "Math/TransformCalculus2D.h"
 #include "Templates/RefCounting.h"

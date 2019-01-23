@@ -351,7 +351,7 @@ else if(bIsPressed) \
     double* NextRepeatTime = NextKeyRepeatTime.Find(UEButton); \
     if(NextRepeatTime && *NextRepeatTime <= CurrentTime) \
     { \
-        MessageHandler->OnControllerButtonPressed(UEButton, Cont.playerIndex, false); \
+        MessageHandler->OnControllerButtonPressed(UEButton, Cont.playerIndex, true); \
 *NextRepeatTime = CurrentTime + RepeatDelay; \
     } \
 } \

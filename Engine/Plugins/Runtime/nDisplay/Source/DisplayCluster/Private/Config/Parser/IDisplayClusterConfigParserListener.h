@@ -14,6 +14,7 @@ public:
 	virtual ~IDisplayClusterConfigParserListener()
 	{ }
 
+	virtual void AddInfo(const FDisplayClusterConfigInfo& InCfgInfo) = 0;
 	virtual void AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode) = 0;
 	virtual void AddWindow(const FDisplayClusterConfigWindow& InCfgWindow) = 0;
 	virtual void AddScreen(const FDisplayClusterConfigScreen& InCfgScreen) = 0;
@@ -26,5 +27,6 @@ public:
 	virtual void AddNetwork(const FDisplayClusterConfigNetwork& InCfgNetwork) = 0;
 	virtual void AddDebug(const FDisplayClusterConfigDebug& InCfgDebug) = 0;
 	virtual void AddInput(const FDisplayClusterConfigInput& InCfgInput) = 0;
+	virtual void AddInputSetup(const FDisplayClusterConfigInputSetup& input) = 0;
 	virtual void AddCustom(const FDisplayClusterConfigCustom& InCfgCustom) = 0;
 };

@@ -433,6 +433,11 @@ public:
 	 */
 	virtual FName GetUniqueAssetRegistryName(int32 InChunkIndex) const { return NAME_None; }
 
+	/**
+	 * For a given content encryption group name (as defined in the content encryption config that the project provides, return the relevant chunk ID
+	 */
+	virtual int32 GetContentEncryptionGroupChunkID(FName InGroupName) const { return INDEX_NONE; }
+
 	/** Returns the list of chunks assigned to the list of primary assets, which is usually a manager list. This is called by GetPackageChunkIds */
 	virtual bool GetPrimaryAssetSetChunkIds(const TSet<FPrimaryAssetId>& PrimaryAssetSet, const class ITargetPlatform* TargetPlatform, const TArray<int32>& ExistingChunkList, TArray<int32>& OutChunkList) const;
 

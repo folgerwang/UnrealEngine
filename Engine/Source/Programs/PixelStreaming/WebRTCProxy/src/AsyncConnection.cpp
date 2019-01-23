@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "AsyncConnection.h"
 #include "Logging.h"
 
@@ -74,7 +73,7 @@ void FAsyncConnection::OnRead(rtc::AsyncSocket*)
 
 	uint32_t Consumed = 0;
 	while (!ReadBuffer.empty() &&
-		(Consumed = Observer.OnRead(&ReadBuffer.front(), static_cast<uint32_t>(ReadBuffer.size()))))
+		(Consumed = Observer.OnRead(&ReadBuffer.front(), static_cast<uint32_t>(ReadBuffer.size()))) != 0)
 	{
 		ReadBuffer.erase(ReadBuffer.begin(), ReadBuffer.begin() + Consumed);
 	}

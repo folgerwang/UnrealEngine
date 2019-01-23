@@ -289,3 +289,5 @@ void TPBDRigidsEvolutionGBF<T, d>::AdvanceOneTimeStep(const T Dt)
 }
 
 template class Chaos::TPBDRigidsEvolutionGBF<float, 3>;
+
+#undef LOCTEXT_NAMESPACE

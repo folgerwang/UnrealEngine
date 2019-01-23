@@ -216,30 +216,40 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 		PlatformIniFile.GetArray(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("CompressedChunkWildcard"), CompressedChunkWildcards);
 	}
 
-	// Add manifests for any non-ufs file groups
+	// Add manifests for any staging-time only groups
 	if (bUseAssetManager && !TargetPlatform->HasSecurePackageFormat())
 	{
+		UE_LOG(LogAssetRegistryGenerator, Log, TEXT("Updating stage-only encryption manifests for platform %s"), *TargetPlatform->IniPlatformName());
 		FContentEncryptionConfig ContentEncryptionConfig;
 		UAssetManager::Get().GetContentEncryptionConfig(ContentEncryptionConfig);
-		const TMap<FName, TSet<FName>>& EncryptedNonUFSFileGroups = ContentEncryptionConfig.GetNonUFSFileGroupMap();
+		const FContentEncryptionConfig::TGroupMap& EncryptedNonUFSFileGroups = ContentEncryptionConfig.GetPackageGroupMap();
 		
-		for (const TMap<FName, TSet<FName>>::ElementType& Element : EncryptedNonUFSFileGroups)
+		for (const FContentEncryptionConfig::TGroupMap::ElementType& Element : EncryptedNonUFSFileGroups)
 		{
-			FName GroupName = Element.Key;
-			const TSet<FName>& Files = Element.Value;
-			FChunkPackageSet* NewManifest = new FChunkPackageSet();
-			
-			for (FName File : Files)
+			if (Element.Value.bStageTimeOnly)
 			{
-				FString Filename = File.ToString();
-				FName LongPackageName = *FPackageName::FilenameToLongPackageName(Filename);
-				NewManifest->Add(LongPackageName, Filename);
-			}
+				UE_LOG(LogAssetRegistryGenerator, Log, TEXT("Adding stage-time only manifest for group '%s'"), *Element.Key.ToString());
 
-			FinalChunkManifests.Add(NewManifest);
+				FName GroupName = Element.Key;
+				const TSet<FName>& PackageNames = Element.Value.PackageNames;
+				
+				FChunkPackageSet* NewManifest = new FChunkPackageSet();
+				for (FName PackageName : PackageNames)
+				{
+					NewManifest->Add(PackageName, FPackageName::LongPackageNameToFilename(PackageName.ToString()));
+				}
+
+				int32 ChunkID = UAssetManager::Get().GetContentEncryptionGroupChunkID(GroupName);
+				if (ChunkID >= FinalChunkManifests.Num())
+				{
+					FinalChunkManifests.AddZeroed(ChunkID - FinalChunkManifests.Num() + 1);
+				}
+				checkf(ChunkID < FinalChunkManifests.Num(), TEXT("Chunk %i out of range. %i manifests available"), ChunkID, FinalChunkManifests.Num() - 1);
+				checkf(FinalChunkManifests[ChunkID] == nullptr, TEXT("Manifest already exists for chunk %i"), ChunkID);
+				FinalChunkManifests[ChunkID] = NewManifest;
+			}
 		}
 	}
-
 
 	// generate per-chunk pak list files
 	for (int32 Index = 0; Index < FinalChunkManifests.Num(); ++Index)
@@ -451,10 +461,10 @@ void FAssetRegistryGenerator::InjectEncryptionData(FAssetRegistryState& TargetSt
 		FContentEncryptionConfig EncryptionConfig;
 		AssetManager.GetContentEncryptionConfig(EncryptionConfig);
 
-		for (TMap<FName, TSet<FName>>::ElementType EncryptedAssetSetElement : EncryptionConfig.GetPackageGroupMap())
+		for (FContentEncryptionConfig::TGroupMap::ElementType EncryptedAssetSetElement : EncryptionConfig.GetPackageGroupMap())
 		{
 			FName SetName = EncryptedAssetSetElement.Key;
-			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value;
+			TSet<FName>& EncryptedRootAssets = EncryptedAssetSetElement.Value.PackageNames;
 
 			for (FName EncryptedRootPackageName : EncryptedRootAssets)
 			{
@@ -1392,6 +1402,13 @@ void FAssetRegistryGenerator::FixupPackageDependenciesForChunks(FSandboxPlatform
 {
 	UE_LOG(LogAssetRegistryGenerator, Log, TEXT("Starting FixupPackageDependenciesForChunks..."));
 	SCOPE_LOG_TIME_IN_SECONDS(TEXT("... FixupPackageDependenciesForChunks complete."), nullptr);
+
+	// Clear any existing manifests from the final array
+	for (FChunkPackageSet* Manifest : FinalChunkManifests)
+	{
+		delete Manifest;
+	}
+	FinalChunkManifests.Empty();
 
 	for (int32 ChunkID = 0, MaxChunk = ChunkManifests.Num(); ChunkID < MaxChunk; ++ChunkID)
 	{

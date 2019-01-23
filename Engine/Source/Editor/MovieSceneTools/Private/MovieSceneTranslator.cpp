@@ -38,7 +38,7 @@ namespace
 	}
 }
 
-FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext)
+FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext, FString InMovieExtension)
 {
 	if (InMovieScene == nullptr)
 	{
@@ -50,8 +50,9 @@ FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FF
 	FrameRate = InFrameRate;
 	ResX = InResX;
 	ResY = InResY;
-	HandleFrames = ConvertFrameTime(FFrameTime(InHandleFrames), InMovieScene->GetTickResolution(), FrameRate);
+	HandleFrames = InHandleFrames;
 	SaveFilename = InSaveFilename;
+	MovieExtension = InMovieExtension;
 
 	// preferred sample rate in UE4
 	DefaultAudioSampleRate = 44100;
@@ -344,16 +345,7 @@ bool FMovieSceneExportData::ConstructCinematicSectionData(const UMovieScene* InM
 
 	SectionData->DisplayName = InCinematicSection->GetShotDisplayName();
 
-#if PLATFORM_MAC
-	static const TCHAR* Extension = TEXT(".mov");
-#elif PLATFORM_UNIX
-	static const TCHAR* Extension = TEXT(".unsupp");
-	return false;
-#else
-	static const TCHAR* Extension = TEXT(".avi");
-#endif
-
-	SectionData->SourceFilename = SectionData->DisplayName + Extension;
+	SectionData->SourceFilename = SectionData->DisplayName + MovieExtension;
 	SectionData->SourceFilePath = TEXT("");
 
 	ConstructSectionData(InMovieScene, SectionData, InCinematicSection, EMovieSceneTranslatorSectionType::Cinematic, SectionData->DisplayName);
@@ -524,6 +516,11 @@ FString FMovieSceneExportData::GetFilenamePath() const
 	return SaveFilenamePath;
 }
 
+FString FMovieSceneExportData::GetMovieExtension() const
+{
+	return MovieExtension;
+}
+
 FFrameRate FMovieSceneExportData::GetFrameRate() const
 {
 	return FrameRate;
@@ -555,7 +552,7 @@ bool FMovieSceneExportData::GetFrameRateIsNTSC() const
 	return (!FMath::IsNearlyZero(FractionalPart));
 }
 
-FFrameTime FMovieSceneExportData::GetHandleFrames() const
+int32 FMovieSceneExportData::GetHandleFrames() const
 {
 	return HandleFrames;
 }
@@ -692,7 +689,7 @@ TSharedPtr<FMovieSceneImportCinematicSectionData> FMovieSceneImportData::CreateC
 	return SectionData;
 }
 
-bool FMovieSceneImportData::SetCinematicSection(TSharedPtr<FMovieSceneImportCinematicSectionData> InSection, int32 InRow, FFrameRate InFrameRate, FFrameNumber InStartFrame, FFrameNumber InEndFrame, FFrameNumber InStartOffsetFrame)
+bool FMovieSceneImportData::SetCinematicSection(TSharedPtr<FMovieSceneImportCinematicSectionData> InSection, int32 InRow, FFrameRate InFrameRate, FFrameNumber InStartFrame, FFrameNumber InEndFrame, TOptional<FFrameNumber> InStartOffsetFrame)
 {
 	if (!InSection.IsValid() || InSection->CinematicSection == nullptr)
 	{
@@ -701,11 +698,14 @@ bool FMovieSceneImportData::SetCinematicSection(TSharedPtr<FMovieSceneImportCine
 
 	FFrameRate TickResolution = MovieSceneData->MovieScene->GetTickResolution();
 	FFrameNumber StartFrame = ConvertFrameTime(InStartFrame, InFrameRate, TickResolution).GetFrame();
-	FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame, InFrameRate, TickResolution).GetFrame();
 	FFrameNumber EndFrame = ConvertFrameTime(InEndFrame, InFrameRate, TickResolution).GetFrame();
-
+		
 	InSection->CinematicSection->Modify();
-	InSection->CinematicSection->Parameters.StartFrameOffset = StartOffsetFrame;
+	if (InStartOffsetFrame.IsSet())
+	{
+		FFrameNumber StartOffsetFrame = ConvertFrameTime(InStartOffsetFrame.GetValue(), InFrameRate, TickResolution).GetFrame();
+		InSection->CinematicSection->Parameters.StartFrameOffset = StartOffsetFrame;
+	}
 	InSection->CinematicSection->SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
 	if (InRow != InSection->CinematicSection->GetRowIndex())
 	{

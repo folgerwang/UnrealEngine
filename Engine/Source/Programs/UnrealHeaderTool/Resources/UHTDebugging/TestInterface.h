@@ -19,4 +19,13 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent)
 	FString SomeFunction(int32 Val) const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	const float SomeFunctionWithConstReturnType() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	UObject* SomeFunctionWithNonConstPointerReturnType() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	const UObject* SomeFunctionWithConstPointerReturnType() const;
 };

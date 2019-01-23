@@ -118,30 +118,43 @@ FVulkanStagingBuffer::~FVulkanStagingBuffer()
 {
 	if (StagingBuffer)
 	{
-		FVulkanVertexBuffer* VertexBuffer = ResourceCast(GetBackingBuffer());
-		VertexBuffer->GetParent()->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
+		check(Device);
+		Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
 	}
 }
 
-FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
+void* FVulkanStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
-	return new FVulkanStagingBuffer(BackingBuffer);
+	check(!bIsLocked);
+	bIsLocked = true;
+	uint32 QueuedEndOffset = QueuedNumBytes + QueuedOffset;
+	uint32 EndOffset = Offset + NumBytes;
+	check(Offset < QueuedNumBytes && EndOffset <= QueuedEndOffset);
+	//#todo-rco: Apply the offset in case it doesn't match
+	return (void*)((uint8*)StagingBuffer->GetMappedPointer() + Offset);
 }
 
-void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+void FVulkanStagingBuffer::Unlock()
+{
+	check(bIsLocked);
+	bIsLocked = false;
+}
+
+FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer()
+{
+	return new FVulkanStagingBuffer();
+}
+
+void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes)
 {
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	uint32 QueuedEndOffset = StagingBuffer->QueuedNumBytes + StagingBuffer->QueuedOffset;
-	uint32 EndOffset = Offset + SizeRHI;
-	check(Offset < StagingBuffer->QueuedNumBytes && EndOffset <= QueuedEndOffset);
-	//#todo-rco: Apply the offset in case it doesn't match
-	return StagingBuffer->StagingBuffer->GetMappedPointer();
+	return StagingBuffer->Lock(Offset, NumBytes);
 }
 
 void FVulkanDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
 {
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer->StagingBuffer);
+	StagingBuffer->Unlock();
 }
 
 /**

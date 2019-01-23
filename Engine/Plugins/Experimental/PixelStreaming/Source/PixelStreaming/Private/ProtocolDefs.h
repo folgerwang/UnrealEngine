@@ -63,11 +63,7 @@ namespace PixelStreamingProtocol
 	inline const TCHAR* PacketTypeStr(EToProxyMsg PktType) 
 	{
 		static const TCHAR* Str[static_cast<uint8>(EToProxyMsg::Count)] = { TEXT("AudioPCM"), TEXT("SpsPps"), TEXT("VideoIDR"), TEXT("Video"), TEXT("ClientConfig"), TEXT("Response") };
-#if WITH_ENGINE
 		check(PktType < EToProxyMsg::Count);
-#else
-		assert(PktType < EToProxyMsg::Count);
-#endif
 		return Str[static_cast<uint8>(PktType)];
 	}
 

@@ -843,6 +843,23 @@ bool FBaseParser::MatchConstInt( const TCHAR* Match )
 	return false;
 }
 
+bool FBaseParser::MatchAnyConstInt()
+{
+	FToken Token;
+	if (GetToken(Token))
+	{
+		if( Token.TokenType==TOKEN_Const && (Token.Type == CPT_Int || Token.Type == CPT_Int64) )
+		{
+			return true;
+		}
+		else
+		{
+			UngetToken(Token);
+		}
+	}
+
+	return false;
+}
 
 void FBaseParser::MatchSemi()
 {
@@ -918,6 +935,25 @@ void FBaseParser::RequireSymbol( const TCHAR* Match, const TCHAR* Tag, ESymbolPa
 	if (!MatchSymbol(Match, bParseTemplateClosingBracket))
 	{
 		FError::Throwf(TEXT("Missing '%s' in %s"), Match, Tag );
+	}
+}
+
+//
+// Require an integer.
+//
+void FBaseParser::RequireConstInt( const TCHAR* Match, const TCHAR* Tag )
+{
+	if (!MatchConstInt(Match))
+	{
+		FError::Throwf(TEXT("Missing integer '%s' in %s"), Match, Tag );
+	}
+}
+
+void FBaseParser::RequireAnyConstInt( const TCHAR* Tag )
+{
+	if (!MatchAnyConstInt())
+	{
+		FError::Throwf(TEXT("Missing integer in %s"), Tag );
 	}
 }
 

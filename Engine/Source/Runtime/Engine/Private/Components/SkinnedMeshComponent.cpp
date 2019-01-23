@@ -348,6 +348,7 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	CurrentEditableComponentTransforms = 0;
 	CurrentReadComponentTransforms = 1;
 	bNeedToFlipSpaceBaseBuffers = false;
+	bBoneVisibilityDirty = false;
 
 	bCanEverAffectNavigation = false;
 	MasterBoneMapCacheCount = 0;
@@ -944,6 +945,8 @@ void USkinnedMeshComponent::RebuildVisibilityArray()
 				}
 			}
 		}
+
+		bBoneVisibilityDirty = true;
 	}
 }
 
@@ -2798,6 +2801,13 @@ void USkinnedMeshComponent::FlipEditableSpaceBases()
 			{
 				GetEditableComponentSpaceTransforms() = GetComponentSpaceTransforms();
 				GetEditableBoneVisibilityStates() = GetBoneVisibilityStates();
+				bBoneVisibilityDirty = false;
+			}
+			// If we have changed bone visibility, then we need to reflect that next frame
+			else if(bBoneVisibilityDirty)
+			{
+				GetEditableBoneVisibilityStates() = GetBoneVisibilityStates();
+				bBoneVisibilityDirty = false;
 			}
 		}
 		else

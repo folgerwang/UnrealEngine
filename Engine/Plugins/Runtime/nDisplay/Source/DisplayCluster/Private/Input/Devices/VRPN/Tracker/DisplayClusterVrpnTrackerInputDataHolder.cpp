@@ -32,7 +32,7 @@ namespace
 
 
 FDisplayClusterVrpnTrackerInputDataHolder::FDisplayClusterVrpnTrackerInputDataHolder(const FDisplayClusterConfigInput& config) :
-	FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnTracker>(config)
+	FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnTracker>(config)
 {
 }
 

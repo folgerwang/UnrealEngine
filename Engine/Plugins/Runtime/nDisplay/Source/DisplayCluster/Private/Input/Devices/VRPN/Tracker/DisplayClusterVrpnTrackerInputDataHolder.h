@@ -12,7 +12,7 @@
  * VRPN tracker device data holder. Responsible for data serialization and deserialization.
  */
 class FDisplayClusterVrpnTrackerInputDataHolder
-	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnTracker>
+	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnTracker>
 {
 public:
 	FDisplayClusterVrpnTrackerInputDataHolder(const FDisplayClusterConfigInput& config);

@@ -17,7 +17,6 @@ DECLARE_MULTICAST_DELEGATE(FOnPropertyApplied);
 
 class UVariantObjectBinding;
 
-
 UENUM()
 enum class EPropertyValueCategory : uint8
 {
@@ -27,9 +26,33 @@ enum class EPropertyValueCategory : uint8
 	RelativeRotation = 4,
 	RelativeScale3D = 8,
 	bVisible = 16,
-	Material = 32
+	Material = 32,
+	Color = 64
 };
 ENUM_CLASS_FLAGS(EPropertyValueCategory)
+
+// Describes one link in a full property path
+// For array properties, a link might be the outer (e.g. AttachChildren, -1, None)
+// while also it may be an inner (e.g. AttachChildren, 2, Cube)
+// Doing this allows us to resolve components regardless of their order, which
+// is important for handling component reordering and transient components (e.g.
+// runtime billboard components, etc)
+USTRUCT()
+struct FCapturedPropSegment
+{
+	GENERATED_USTRUCT_BODY()
+
+	// These are properties so they get duplicated automatically when we duplicate bindings, variants, etc
+
+	UPROPERTY()
+	FString PropertyName;
+
+	UPROPERTY()
+	int32 PropertyIndex = INDEX_NONE;
+
+	UPROPERTY()
+	FString ComponentName;
+};
 
 UCLASS(BlueprintType)
 class VARIANTMANAGERCONTENT_API UPropertyValue : public UObject
@@ -38,7 +61,7 @@ class VARIANTMANAGERCONTENT_API UPropertyValue : public UObject
 
 public:
 
-	void Init(const TArray<UProperty*>& InProps, const TArray<int32> InIndices, const FString& InFullDisplayString, EPropertyValueCategory InCategory = EPropertyValueCategory::Generic);
+	void Init(const TArray<FCapturedPropSegment>& InCapturedPropSegments, UClass* InLeafPropertyClass, const FString& InFullDisplayString, const FName& InPropertySetterName, EPropertyValueCategory InCategory = EPropertyValueCategory::Generic);
 
 	class UVariantObjectBinding* GetParent() const;
 
@@ -59,16 +82,16 @@ public:
 
 	// Need valid resolve
 	void* GetPropertyParentContainerAddress() const;
-	UStruct* GetPropertyParentContainerClass() const;
+	virtual UStruct* GetPropertyParentContainerClass() const;
 	virtual void RecordDataFromResolvedObject();
 	virtual void ApplyDataToResolvedObject();
 	//~ End valid resolve requirement
 
 	// Returns the type of UProperty (UObjectProperty, UFloatProperty, etc)
-	UClass* GetPropertyClass() const;
+	virtual UClass* GetPropertyClass() const;
 	EPropertyValueCategory GetPropCategory() const;
-	UScriptStruct* GetStructPropertyStruct() const;
-	UClass* GetObjectPropertyObjectClass() const;
+	virtual UScriptStruct* GetStructPropertyStruct() const;
+	virtual UClass* GetObjectPropertyObjectClass() const;
 	UEnum* GetEnumPropertyEnum() const;
 
 	// Utility functions for UEnumProperties
@@ -89,7 +112,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="PropertyValue")
 	const FString& GetFullDisplayString() const;
 	FString GetLeafDisplayString() const;
-	int32 GetValueSizeInBytes() const;
+	virtual int32 GetValueSizeInBytes() const;
 	int32 GetPropertyOffsetInBytes() const;
 
 	UFUNCTION(BlueprintCallable, Category="PropertyValue")
@@ -104,10 +127,12 @@ protected:
 
 	UProperty* GetProperty() const;
 
-	// Check if our parent object has the property path we captured. We take the segmented path here because when re-resolving
-	// we might encounter another component in the same hierarchy position. Since we display the component names, its nice to
-	// update the displayed name too
-	bool ResolvePropertiesRecursive(UStruct* ContainerClass, void* ContainerAddress, int32 PropertyIndex, TArray<FString>& SegmentedFullPath);
+	// Applies the recorded data to the TargetObject via the PropertySetter function
+	// (e.g. SetIntensity instead of setting the Intensity UPROPERTY directly)
+	void ApplyViaFunctionSetter(UObject* TargetObject);
+
+	// Check if our parent object has the property path we captured
+	bool ResolvePropertiesRecursive(UStruct* ContainerClass, void* ContainerAddress, int32 PropertyIndex);
 
 	FOnPropertyApplied OnPropertyApplied;
 	FOnPropertyRecorded OnPropertyRecorded;
@@ -117,15 +142,27 @@ protected:
 	UStruct* ParentContainerClass;
 	void* ParentContainerAddress;
 	uint8* PropertyValuePtr;
+	UFunction* PropertySetter;
+
+	UPROPERTY()
+	TArray<FCapturedPropSegment> CapturedPropSegments;
 
 	UPROPERTY()
 	FString FullDisplayString;
 
 	UPROPERTY()
-	bool bHasRecordedData;
+	FName PropertySetterName;
 
 	UPROPERTY()
-	bool bIsObjectProperty;
+	TMap<FString, FString> PropertySetterParameterDefaults;
+
+	UPROPERTY()
+	bool bHasRecordedData;
+
+	// We use these mainly to know how to serialize/deserialize the values of properties that need special care
+	// (e.g. UObjectProperties, name properties, text properties, etc)
+	UPROPERTY()
+	UClass* LeafPropertyClass;
 
 	UPROPERTY()
 	TArray<uint8> ValueBytes;
@@ -133,14 +170,30 @@ protected:
 	UPROPERTY()
 	EPropertyValueCategory PropCategory;
 
-	UPROPERTY()
-	TArray<UProperty*> Properties;
-
-	UPROPERTY()
-	TArray<int32> PropertyIndices;
-
 	TSoftObjectPtr<UObject> TempObjPtr;
 	FName TempName;
 	FString TempStr;
 	FText TempText;
+};
+
+// Deprecated: Only here for backwards compatibility with 4.21
+UCLASS(BlueprintType)
+class VARIANTMANAGERCONTENT_API UPropertyValueTransform : public UPropertyValue
+{
+	GENERATED_UCLASS_BODY()
+
+	// UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
+};
+
+// Deprecated: Only here for backwards compatibility
+UCLASS(BlueprintType)
+class VARIANTMANAGERCONTENT_API UPropertyValueVisibility : public UPropertyValue
+{
+	GENERATED_UCLASS_BODY()
+
+	// UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
 };

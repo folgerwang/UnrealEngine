@@ -64,6 +64,10 @@ struct FPakInfo
 		PakFile_Magic = 0x5A6F12E1,
 		/** Size of cached data. */
 		MaxChunkDataSize = 64*1024,
+		/** Length of a compression format name */
+		CompressionMethodNameLen = 32,
+		/** Number of allowed different methods */
+		MaxNumCompressionMethods=4,
 	};
 
 	/** Version numbers. */
@@ -76,6 +80,7 @@ struct FPakInfo
 		PakFile_Version_RelativeChunkOffsets = 5,
 		PakFile_Version_DeleteRecords = 6,
 		PakFile_Version_EncryptionKeyGuid = 7,
+		PakFile_Version_FNameBasedCompressionMethod = 8,
 
 
 		PakFile_Version_Last,
@@ -97,6 +102,8 @@ struct FPakInfo
 	uint8 bEncryptedIndex;
 	/** Encryption key guid. Empty if we should use the embedded key. */
 	FGuid EncryptionKeyGuid;
+	/** Compression methods used in this pak file (FNames, saved as FStrings) */
+	TArray<FName> CompressionMethods;
 
 	/**
 	 * Constructor.
@@ -109,6 +116,8 @@ struct FPakInfo
 		, bEncryptedIndex(0)
 	{
 		FMemory::Memset(IndexHash, 0, sizeof(IndexHash));
+		// we always put in a NAME_None entry as index 0, so that an uncompressed PakEntry will have CompressionMethodIndex of 0 and can early out easily
+		CompressionMethods.Add(NAME_None);
 	}
 
 	/**
@@ -120,6 +129,8 @@ struct FPakInfo
 	{
 		int64 Size = sizeof(Magic) + sizeof(Version) + sizeof(IndexOffset) + sizeof(IndexSize) + sizeof(IndexHash) + sizeof(bEncryptedIndex);
 		if (InVersion >= PakFile_Version_EncryptionKeyGuid) Size += sizeof(EncryptionKeyGuid);
+		if (InVersion >= PakFile_Version_FNameBasedCompressionMethod) Size += CompressionMethodNameLen * MaxNumCompressionMethods;
+
 		return Size;
 	}
 
@@ -149,6 +160,13 @@ struct FPakInfo
 		}
 		Ar << bEncryptedIndex;
 		Ar << Magic;
+		if (Magic != PakFile_Magic)
+		{
+			// handle old versions by failing out now (earlier versions will be attempted)
+			Magic = 0;
+			return;
+		}
+
 		Ar << Version;
 		Ar << IndexOffset;
 		Ar << IndexSize;
@@ -166,6 +184,68 @@ struct FPakInfo
 				EncryptionKeyGuid.Invalidate();
 			}
 		}
+
+		if (Version < PakFile_Version_FNameBasedCompressionMethod)
+		{
+			// for old versions, put in some known names that we may have used
+			CompressionMethods.Add(NAME_Zlib);
+			CompressionMethods.Add(NAME_Gzip);
+			CompressionMethods.Add(TEXT("Oodle"));
+		}
+		else
+		{
+			// we need to serialize a known size, so make a buffer of "strings"
+			const int32 BufferSize = CompressionMethodNameLen * MaxNumCompressionMethods;
+			ANSICHAR Methods[BufferSize];
+			if (Ar.IsLoading())
+			{
+				Ar.Serialize(Methods, BufferSize);
+				for (int Index = 0; Index < MaxNumCompressionMethods; Index++)
+				{
+					ANSICHAR* MethodString = &Methods[Index * CompressionMethodNameLen];
+					if (MethodString[0] != 0)
+					{
+						CompressionMethods.Add(FName(MethodString));
+					}
+				}
+			}
+			else
+			{
+				// we always zero out fully what we write out so that reading in is simple
+				FMemory::Memzero(Methods, BufferSize);
+
+				for (int Index = 1; Index < CompressionMethods.Num(); Index++)
+				{
+					ANSICHAR* MethodString = &Methods[(Index - 1) * CompressionMethodNameLen];
+					FCStringAnsi::Strcpy(MethodString, CompressionMethodNameLen, TCHAR_TO_ANSI(*CompressionMethods[Index].ToString()));
+				}
+				Ar.Serialize(Methods, BufferSize);
+			}
+		}
+	}
+
+	uint8 GetCompressionMethodIndex(FName CompressionMethod)
+	{
+		// look for existing method
+		for (uint8 Index = 0; Index < CompressionMethods.Num(); Index++)
+		{
+			if (CompressionMethods[Index] == CompressionMethod)
+			{
+				return Index;
+			}
+		}
+
+		checkf(CompressionMethod.ToString().Len() < CompressionMethodNameLen, TEXT("Compression method name, %s, is too long for pak file serialization. You can increase CompressionMethodNameLen, but then will have to handle version management."), *CompressionMethod.ToString());
+		// CompressionMethods always has None at Index 0, that we don't serialize, so we can allow for one more in the array
+		checkf(CompressionMethods.Num() <= MaxNumCompressionMethods, TEXT("Too many unique compression methods in one pak file. You can increase MaxNumCompressionMethods, but then will have to handle version management."));
+
+		// add it if it didn't exist
+		return CompressionMethods.Add(CompressionMethod);
+	}
+
+	FName GetCompressionMethod(uint8 Index) const
+	{
+		return CompressionMethods[Index];
 	}
 };
 
@@ -212,14 +292,14 @@ struct FPakEntry
 	int64 Size;
 	/** Uncompressed file size. */
 	int64 UncompressedSize;
-	/** Compression method. */
-	int32 CompressionMethod;
 	/** File SHA1 value. */
 	uint8 Hash[20];
 	/** Array of compression blocks that describe how to decompress this pak entry. */
 	TArray<FPakCompressedBlock> CompressionBlocks;
 	/** Size of a compressed block in the file. */
 	uint32 CompressionBlockSize;
+	/** Index into the compression methods in this pakfile. */
+	uint8 CompressionMethodIndex;
 	/** Pak entry flags. */
 	uint8 Flags;
 	/** Flag is set to true when FileHeader has been checked against PakHeader. It is not serialized. */
@@ -232,8 +312,8 @@ struct FPakEntry
 		: Offset(-1)
 		, Size(0)
 		, UncompressedSize(0)
-		, CompressionMethod(0)
 		, CompressionBlockSize(0)
+		, CompressionMethodIndex(0)
 		, Flags(Flag_None)
 		, Verified(false)
 	{
@@ -247,11 +327,21 @@ struct FPakEntry
 	 */
 	int64 GetSerializedSize(int32 Version) const
 	{
-		int64 SerializedSize = sizeof(Offset) + sizeof(Size) + sizeof(UncompressedSize) + sizeof(CompressionMethod) + sizeof(Hash);
+		int64 SerializedSize = sizeof(Offset) + sizeof(Size) + sizeof(UncompressedSize) + sizeof(Hash);
+
+		if (Version >= FPakInfo::PakFile_Version_FNameBasedCompressionMethod)
+		{
+			SerializedSize += sizeof(CompressionMethodIndex);
+		}
+		else
+		{
+			SerializedSize += sizeof(int32); // Old CompressedMethod var from pre-fname based compression methods
+		}
+
 		if (Version >= FPakInfo::PakFile_Version_CompressionEncryption)
 		{
 			SerializedSize += sizeof(Flags) + sizeof(CompressionBlockSize);
-			if(CompressionMethod != COMPRESS_None)
+			if(CompressionMethodIndex != 0)
 			{
 				SerializedSize += sizeof(FPakCompressedBlock) * CompressionBlocks.Num() + sizeof(int32);
 			}
@@ -273,7 +363,7 @@ struct FPakEntry
 		// serialized with file headers anyway.
 		return Size == B.Size && 
 			UncompressedSize == B.UncompressedSize &&
-			CompressionMethod == B.CompressionMethod &&
+			CompressionMethodIndex == B.CompressionMethodIndex &&
 			Flags == B.Flags &&
 			CompressionBlockSize == B.CompressionBlockSize &&
 			FMemory::Memcmp(Hash, B.Hash, sizeof(Hash)) == 0 &&
@@ -289,7 +379,7 @@ struct FPakEntry
 		// serialized with file headers anyway.
 		return Size != B.Size || 
 			UncompressedSize != B.UncompressedSize ||
-			CompressionMethod != B.CompressionMethod ||
+			CompressionMethodIndex != B.CompressionMethodIndex ||
 			Flags != B.Flags ||
 			CompressionBlockSize != B.CompressionBlockSize ||
 			FMemory::Memcmp(Hash, B.Hash, sizeof(Hash)) != 0 ||
@@ -307,7 +397,35 @@ struct FPakEntry
 		Ar << Offset;
 		Ar << Size;
 		Ar << UncompressedSize;
-		Ar << CompressionMethod;
+		if (Version < FPakInfo::PakFile_Version_FNameBasedCompressionMethod)
+		{
+			int32 LegacyCompressionMethod;
+			Ar << LegacyCompressionMethod;
+			if (LegacyCompressionMethod == COMPRESS_None)
+			{
+				CompressionMethodIndex = 0;
+			}
+			else if (LegacyCompressionMethod & COMPRESS_ZLIB)
+			{
+				CompressionMethodIndex = 1;
+			}
+			else if (LegacyCompressionMethod & COMPRESS_GZIP)
+			{
+				CompressionMethodIndex = 2;
+			}
+			else if (LegacyCompressionMethod & COMPRESS_Custom)
+			{
+				CompressionMethodIndex = 3;
+			}
+			else
+			{
+				UE_LOG(LogPakFile, Fatal, TEXT("Found an unknown compression type in pak file, will need to be supported for legacy files"));
+			}
+		}
+		else
+		{
+			Ar << CompressionMethodIndex;
+		}
 		if (Version <= FPakInfo::PakFile_Version_Initial)
 		{
 			FDateTime Timestamp;
@@ -316,7 +434,7 @@ struct FPakEntry
 		Ar.Serialize(Hash, sizeof(Hash));
 		if (Version >= FPakInfo::PakFile_Version_CompressionEncryption)
 		{
-			if(CompressionMethod != COMPRESS_None)
+			if(CompressionMethodIndex != 0)
 			{
 				Ar << CompressionBlocks;
 			}
@@ -833,7 +951,7 @@ private:
 		SourcePtr += sizeof(uint32);
 
 		// Filter out the CompressionMethod.
-		OutEntry->CompressionMethod = (Value >> 23) & 0x3f;
+		OutEntry->CompressionMethodIndex = (Value >> 23) & 0x3f;
 
 		// Test for 32-bit safe values. Grab it, or memcpy the 64-bit value
 		// to avoid alignment exceptions on platforms requiring 64-bit alignment
@@ -866,7 +984,7 @@ private:
 		}
 
 		// Fill in the Size.
-		if (OutEntry->CompressionMethod != COMPRESS_None)
+		if (OutEntry->CompressionMethodIndex != 0)
 		{
 			// Size is only present if compression is applied.
 			bool bIsSize32BitSafe = (Value & (1 << 29)) != 0;
@@ -1495,7 +1613,7 @@ public:
 		FPakEntry FileEntry;
 		if (FindFileInPakFiles(Filename, nullptr, &FileEntry))
 		{
-			return FileEntry.CompressionMethod != COMPRESS_None ? FileEntry.UncompressedSize : FileEntry.Size;
+			return FileEntry.CompressionMethodIndex != 0 ? FileEntry.UncompressedSize : FileEntry.Size;
 		}
 		// First look for the file in the user dir.
 		int64 Result = INDEX_NONE;
@@ -1741,7 +1859,7 @@ public:
 				PakFile->GetTimestamp(),
 				PakFile->GetTimestamp(),
 				PakFile->GetTimestamp(),
-				(FileEntry.CompressionMethod != COMPRESS_None) ? FileEntry.UncompressedSize : FileEntry.Size, 
+				(FileEntry.CompressionMethodIndex != 0) ? FileEntry.UncompressedSize : FileEntry.Size,
 				false,	// IsDirectory
 				true	// IsReadOnly
 				);
@@ -1962,7 +2080,7 @@ public:
 						FPakEntry FileEntry;
 						if (FindFileInPakFiles(*Filename, nullptr, &FileEntry))
 						{
-							FileSize = (FileEntry.CompressionMethod != COMPRESS_None) ? FileEntry.UncompressedSize : FileEntry.Size;
+							FileSize = (FileEntry.CompressionMethodIndex != 0) ? FileEntry.UncompressedSize : FileEntry.Size;
 						}
 					}
 
@@ -2174,5 +2292,4 @@ public:
 	static TMap<FString, int32>& GetPakMap() { return GPakSizeMap; }
 #endif
 };
-
 

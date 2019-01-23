@@ -937,7 +937,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 			const FString PinEntryIndentedNewline = "\n" + BuildIndentString(Indent+1);
 			const FString PinDetailsIndentedNewline = "\n" + BuildIndentString(Indent+2);
 
-			static UEnum* PinDirectionEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEdGraphPinDirection"));
+			static UEnum* PinDirectionEnum = StaticEnum<EEdGraphPinDirection>();
 
 			bool bFirst = true;
 			for (UEdGraphPin* Pin : Node->Pins)

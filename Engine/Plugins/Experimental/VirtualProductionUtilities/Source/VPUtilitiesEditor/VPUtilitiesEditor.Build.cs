@@ -13,21 +13,25 @@ public class VPUtilitiesEditor : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
+				"VPUtilities",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"EditorStyle",
 				"Engine",
 				"LevelEditor",
 				"Slate",
 				"SlateCore",
+				"TimeManagement",
 				"UMG",
 				"UMGEditor",
 				"UnrealEd",
 				"VPBookmark",
 				"VREditor",
+				"WorkspaceMenuStructure",
 			}
 		);
 	}

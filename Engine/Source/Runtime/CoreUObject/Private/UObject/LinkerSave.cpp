@@ -11,6 +11,7 @@
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "UObject/UObjectThreadContext.h"
 #include "UObject/UnrealType.h"
+#include "HAL/PlatformStackWalk.h"
 
 /*----------------------------------------------------------------------------
 	FLinkerSave.
@@ -276,10 +277,11 @@ FArchive& FLinkerSave::operator<<( FName& InName )
 {
 	int32 Save = MapName(InName);
 
+	check(GetSerializeContext());
 	ensureMsgf(Save != INDEX_NONE, TEXT("Name \"%s\" is not mapped when saving %s (object: %s, property: %s)"), 
 		*InName.ToString(),
 		*GetArchiveName(),
-		*FUObjectThreadContext::Get().SerializedObject->GetFullName(),
+		*GetSerializeContext()->SerializedObject->GetFullName(),
 		*GetSerializedProperty()->GetFullName());
 
 	int32 Number = InName.GetNumber();
@@ -302,4 +304,56 @@ FArchive& FLinkerSave::operator<<(FLazyObjectPtr& LazyObjectPtr)
 	FUniqueObjectGuid ID;
 	ID = LazyObjectPtr.GetUniqueID();
 	return *this << ID;
+}
+void FLinkerSave::SetSerializeContext(FUObjectSerializeContext* InLoadContext)
+{
+	SaveContext = InLoadContext;
+	if (Saver)
+	{
+		Saver->SetSerializeContext(InLoadContext);
+	}
+}
+
+FUObjectSerializeContext* FLinkerSave::GetSerializeContext()
+{
+	return SaveContext;
+}
+
+void FLinkerSave::UsingCustomVersion(const struct FGuid& Guid)
+{
+	FArchiveUObject::UsingCustomVersion(Guid);
+
+	// Here we're going to try and dump the callstack that added a new custom version after package summary has been serialized
+	if (Summary.GetCustomVersionContainer().GetVersion(Guid) == nullptr)
+	{
+		const FCustomVersion* RegisteredVersion = FCustomVersionContainer::GetRegistered().GetVersion(Guid);
+		check(RegisteredVersion);
+
+		FString CustomVersionWarning = FString::Printf(TEXT("Unexpected custom version \"%s\" used after package %s summary has been serialized. Callstack:\n"),
+			*RegisteredVersion->GetFriendlyName().ToString(), *LinkerRoot->GetName());
+
+		const int32 MaxStackFrames = 100;
+		uint64 StackFrames[MaxStackFrames];
+		int32 NumStackFrames = FPlatformStackWalk::CaptureStackBackTrace(StackFrames, MaxStackFrames);
+
+		// Convert the stack trace to text, ignore the first functions (ProgramCounterToHumanReadableString)
+		const int32 IgnoreStackLinesCount = 1;		
+		ANSICHAR Buffer[1024];
+		const ANSICHAR* CutoffFunction = "UPackage::Save";
+		for (int32 Idx = IgnoreStackLinesCount; Idx < NumStackFrames; Idx++)
+		{			
+			Buffer[0] = '\0';
+			FPlatformStackWalk::ProgramCounterToHumanReadableString(Idx, StackFrames[Idx], Buffer, sizeof(Buffer));
+			CustomVersionWarning += TEXT("\t");
+			CustomVersionWarning += Buffer;
+			CustomVersionWarning += "\n";
+			if (FCStringAnsi::Strstr(Buffer, CutoffFunction))
+			{
+				// Anything below UPackage::Save is not interesting from the point of view of what we're trying to find
+				break;
+			}
+		}
+
+		UE_LOG(LogLinker, Warning, TEXT("%s"), *CustomVersionWarning);
+	}
 }

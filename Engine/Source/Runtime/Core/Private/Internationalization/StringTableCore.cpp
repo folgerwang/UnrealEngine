@@ -567,7 +567,7 @@ void FStringTableRedirects::InitStringTableRedirects()
 	}
 }
 
-void FStringTableRedirects::RedirectTableId(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy)
+void FStringTableRedirects::RedirectTableId(FName& InOutTableId)
 {
 	// Process the static redirect
 	const FName* RedirectedTableId = StringTableRedirects::TableIdRedirects.Find(InOutTableId);
@@ -576,8 +576,8 @@ void FStringTableRedirects::RedirectTableId(FName& InOutTableId, const EStringTa
 		InOutTableId = *RedirectedTableId;
 	}
 
-	// Process the asset redirect
-	IStringTableEngineBridge::RedirectAndLoadStringTableAsset(InOutTableId, InLoadingPolicy);
+	// Process the asset redirect (only works if the asset is loaded)
+	IStringTableEngineBridge::RedirectStringTableAsset(InOutTableId);
 }
 
 void FStringTableRedirects::RedirectKey(const FName InTableId, FString& InOutKey)
@@ -593,17 +593,8 @@ void FStringTableRedirects::RedirectKey(const FName InTableId, FString& InOutKey
 	}
 }
 
-void FStringTableRedirects::RedirectTableIdAndKey(FName& InOutTableId, FString& InOutKey, const EStringTableLoadingPolicy InLoadingPolicy)
+void FStringTableRedirects::RedirectTableIdAndKey(FName& InOutTableId, FString& InOutKey)
 {
-	RedirectTableId(InOutTableId, InLoadingPolicy);
+	RedirectTableId(InOutTableId);
 	RedirectKey(InOutTableId, InOutKey);
-}
-
-
-void FStringTableReferenceCollection::CollectAssetReferences(const FName InTableId, FStructuredArchive::FRecord Record)
-{
-	if (Record.GetUnderlyingArchive().IsObjectReferenceCollector())
-	{
-		IStringTableEngineBridge::CollectStringTableAssetReferences(InTableId, Record.EnterField(FIELD_NAME_TEXT("AssetReferences")));
-	}
 }

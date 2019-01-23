@@ -23,6 +23,7 @@ namespace UnrealBuildTool.Rules
 					"Projects",
 					"RenderCore",
                     "RHI",
+					"UtilityShaders",
                     "WmfMediaFactory",
                 });
 

@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Layout/Margin.h"
-#include "Layout/Visibility.h"
-#include "Layout/SlateRect.h"
-#include "Layout/ArrangedChildren.h"
+#include "Margin.h"
+#include "Visibility.h"
+#include "SlateRect.h"
+#include "ArrangedChildren.h"
+#include "FlowDirection.h"
 
 struct AlignmentArrangeResult
 {

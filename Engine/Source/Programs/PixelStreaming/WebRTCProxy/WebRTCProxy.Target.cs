@@ -2,6 +2,7 @@
 
 using UnrealBuildTool;
 
+[SupportedPlatforms(UnrealTargetPlatform.Win64)]
 public class WebRTCProxyTarget : TargetRules
 {
 	public WebRTCProxyTarget(TargetInfo Target) : base(Target)
@@ -12,8 +13,9 @@ public class WebRTCProxyTarget : TargetRules
         GlobalDefinitions.Add("WEBRTC_WIN");
 		GlobalDefinitions.Add("INCL_EXTRA_HTON_FUNCTIONS");
 
-		// Lean and mean
-		bBuildDeveloperTools = false;
+        ExeBinariesSubFolder = "../../Source/Programs/PixelStreaming/WebRTCProxy/bin";
+        // Lean and mean
+        bBuildDeveloperTools = false;
 		
         // No editor needed
 		bBuildWithEditorOnlyData = false;

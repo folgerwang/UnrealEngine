@@ -24,7 +24,7 @@ FText FSearchableValueInfo::GetDisplayText(const TMap<int32, FText>& InLookupTab
 	if (Result.IsFromStringTable() && FTextInspector::GetSourceString(Result) == &FStringTableEntry::GetPlaceholderSourceString() && !IsInGameThread())
 	{
 		// String Table asset references in FiB may be unresolved as we can't load the asset on the search thread
-		// To solve this we send a request to the game thread to get the display string and wait for the result, this will trigger the asset to load
+		// To solve this we send a request to the game thread to load the asset and wait for the result
 		FName TableId;
 		FString Key;
 		if (FTextInspector::GetTableIdAndKey(Result, TableId, Key) && IStringTableEngineBridge::IsStringTableFromAsset(TableId))
@@ -32,9 +32,10 @@ FText FSearchableValueInfo::GetDisplayText(const TMap<int32, FText>& InLookupTab
 			TPromise<bool> Promise;
 
 			// Run the request on the game thread, filling the promise when done
-			AsyncTask(ENamedThreads::GameThread, [Result, &Promise]()
+			AsyncTask(ENamedThreads::GameThread, [TableId, &Promise]()
 			{
-				Result.ToString(); // Trigger the asset load
+				FName ResolvedTableId = TableId;
+				IStringTableEngineBridge::FullyLoadStringTableAsset(ResolvedTableId); // Trigger the asset load
 				Promise.SetValue(true); // Signal completion
 			});
 

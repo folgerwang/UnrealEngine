@@ -238,7 +238,7 @@ void FSpriteDetailsCustomization::BuildCollisionSection(IDetailCategoryBuilder& 
 	{
 		// Restrict the diced value
 		TSharedPtr<FPropertyRestriction> PreventDicedRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("CollisionGeometryDoesNotSupportDiced", "Collision geometry can not be set to Diced")));
-		const UEnum* const SpritePolygonModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ESpritePolygonMode"));		
+		const UEnum* const SpritePolygonModeEnum = StaticEnum<ESpritePolygonMode::Type>();
 		PreventDicedRestriction->AddDisabledValue(SpritePolygonModeEnum->GetNameStringByValue((uint8)ESpritePolygonMode::Diced));
 
 		// Find and add the property

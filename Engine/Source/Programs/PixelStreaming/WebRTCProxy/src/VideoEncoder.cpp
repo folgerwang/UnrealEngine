@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "VideoEncoder.h"
 #include "Logging.h"
 #include "H264FrameBuffer.h"
@@ -59,7 +58,7 @@ std::unique_ptr<webrtc::VideoEncoder> FVideoEncoderFactory::CreateVideoEncoder(c
 {
 	FClientSession* Session;
 	bool res = PendingClientSessions.Pop(Session, 0);
-	checkf(res, "no client session associated with encoder instance");
+	checkf(res, TEXT("no client session associated with encoder instance"));
 
 	auto VideoEncoder = std::make_unique<FVideoEncoder>(*VideoSource, *Session);
 	Session->VideoEncoder = VideoEncoder.get();

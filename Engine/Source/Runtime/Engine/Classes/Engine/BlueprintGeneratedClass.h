@@ -702,7 +702,7 @@ public:
 	// UClass interface
 #if WITH_EDITOR
 	virtual UClass* GetAuthoritativeClass() override;
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) override;
+	virtual void ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext) override;
 	virtual void FlushCompilationQueueForLevel() override;
 	virtual UObject* GetArchetypeForCDO() const override;
 #endif //WITH_EDITOR

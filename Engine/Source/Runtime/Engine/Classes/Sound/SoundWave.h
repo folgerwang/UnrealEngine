@@ -114,7 +114,7 @@ struct FStreamedAudioPlatformData
 	 *						either be NULL or have enough space for the chunk
 	 * @returns true if requested chunk has been loaded.
 	 */
-	bool TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData);
+	bool TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded = false);
 
 	/** Serialization. */
 	void Serialize(FArchive& Ar, class USoundWave* Owner);
@@ -540,6 +540,8 @@ public:
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
 	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
+	virtual bool HasCookedFFTData() const override;
+	virtual bool HasCookedAmplitudeEnvelopeData() const override;
 	//~ End USoundBase Interface.
 
 	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer and when bProcedural is true.
@@ -778,7 +780,7 @@ public:
 	 * @param ChunkIndex	The Chunk index to cache.
 	 * @param OutChunkData	Address of pointer that will store data.
 	 */
-	bool GetChunkData(int32 ChunkIndex, uint8** OutChunkData);
+	bool GetChunkData(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded = false);
 
 	void SetPrecacheState(ESoundWavePrecacheState InState)
 	{

@@ -48,6 +48,27 @@ bool UOpenColorIOConfiguration::HasTransform(const FString& InSourceColorSpace, 
 	return (TransformData != nullptr);
 }
 
+bool UOpenColorIOConfiguration::Validate() const
+{
+#if WITH_EDITOR 
+
+#if WITH_OCIO
+	if (!ConfigurationFile.FilePath.IsEmpty())
+	{
+		//When loading the configuration file, if any errors are detected, it will throw an exception. Thus, our pointer won't be valid.
+		return LoadedConfig != nullptr;
+	}
+
+	return false;
+#else
+	return false;
+#endif // WITH_OCIO
+
+#else
+	return true;
+#endif // WITH_EDITOR
+}
+
 void UOpenColorIOConfiguration::CreateColorTransform(const FString& InSourceColorSpace, const FString& InDestinationColorSpace)
 {
 	if (InSourceColorSpace.IsEmpty() || InDestinationColorSpace.IsEmpty())
@@ -160,8 +181,12 @@ void UOpenColorIOConfiguration::LoadConfigurationFile()
 #if WITH_EDITOR && WITH_OCIO
 	if (!ConfigurationFile.FilePath.IsEmpty())
 	{
+#if !PLATFORM_EXCEPTIONS_DISABLED
 		try
+#endif
 		{
+			LoadedConfig.reset();
+
 			OCIO_NAMESPACE::ConstConfigRcPtr NewConfig = OCIO_NAMESPACE::Config::CreateFromFile(StringCast<ANSICHAR>(*ConfigurationFile.FilePath).Get());
 			if (NewConfig)
 			{
@@ -173,10 +198,12 @@ void UOpenColorIOConfiguration::LoadConfigurationFile()
 				UE_LOG(LogOpenColorIO, Error, TEXT("Could not load OCIO configuration file %s. Verify that the path is good or that the file is valid."), *ConfigurationFile.FilePath);
 			}
 		}
+#if !PLATFORM_EXCEPTIONS_DISABLED
 		catch (OCIO_NAMESPACE::Exception& exception)
 		{
 			UE_LOG(LogOpenColorIO, Error, TEXT("Could not load OCIO configuration file %s. Error message: %s."), *ConfigurationFile.FilePath, StringCast<TCHAR>(exception.what()).Get());
 		}
+#endif
 	}
 #endif
 }

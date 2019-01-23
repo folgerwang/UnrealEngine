@@ -211,6 +211,10 @@ namespace UnrealBuildTool
 			{
 				Environment.SetEnvironmentVariable(HTML5SDKInfo.PLATFORM_USER_HOME, HTML5SDKInfo.HTML5Intermediatory);
 			}
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
+			{
+				Environment.SetEnvironmentVariable("HOME", "");
+			}
 			return Result;
 		}
 

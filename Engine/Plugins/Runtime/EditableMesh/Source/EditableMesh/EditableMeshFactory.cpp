@@ -38,25 +38,6 @@ FEditableMeshSubMeshAddress UEditableMeshFactory::MakeSubmeshAddress( UPrimitive
 }
 
 
-FEditableMeshSubMeshAddress UEditableMeshFactory::MakeSubmeshAddress( UStaticMesh& StaticMesh, const int32 LODIndex )
-{
-	FEditableMeshSubMeshAddress SubMeshAddress;
-
-	const int32 NumEditableMeshFormats = IModularFeatures::Get().GetModularFeatureImplementationCount("EditableMeshFormat");
-	
-	if(NumEditableMeshFormats > 0)
-	{
-		IEditableMeshFormat& EditableMeshFormat = *static_cast<IEditableMeshFormat*>(IModularFeatures::Get().GetModularFeatureImplementation("EditableMeshFormat", 0));
-
-		SubMeshAddress = FEditableMeshSubMeshAddress();
-		SubMeshAddress.MeshObjectPtr = &StaticMesh;	
-		SubMeshAddress.EditableMeshFormat = &EditableMeshFormat;
-		SubMeshAddress.LODIndex = LODIndex;
-	}
-
-	return SubMeshAddress;
-}
-
 UEditableMesh* UEditableMeshFactory::MakeEditableMesh( UPrimitiveComponent* PrimitiveComponent, const int32 LODIndex )
 {
 	check( PrimitiveComponent != nullptr );

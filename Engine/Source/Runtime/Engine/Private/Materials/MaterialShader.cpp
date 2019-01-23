@@ -35,6 +35,7 @@ namespace MaterialShaderCookStats
 //
 // Globals
 //
+FCriticalSection FMaterialShaderMap::GIdToMaterialShaderMapCS;
 TMap<FMaterialShaderMapId,FMaterialShaderMap*> FMaterialShaderMap::GIdToMaterialShaderMap[SP_NumPlatforms];
 #if ALLOW_SHADERMAP_DEBUG_DATA
 TArray<FMaterialShaderMap*> FMaterialShaderMap::AllMaterialShaderMaps;
@@ -963,10 +964,13 @@ FShader* FMaterialShaderType::FinishCompileShader(
 * @param Platform - The platform to lookup for
 * @return NULL if no cached shader map was found.
 */
-FMaterialShaderMap* FMaterialShaderMap::FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform InPlatform)
+TRefCountPtr<FMaterialShaderMap> FMaterialShaderMap::FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform InPlatform)
 {
+	FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
 	check(ShaderMapId.BaseMaterialId != FGuid());
-	return GIdToMaterialShaderMap[InPlatform].FindRef(ShaderMapId);
+	TRefCountPtr<FMaterialShaderMap> Result = GIdToMaterialShaderMap[InPlatform].FindRef(ShaderMapId);
+	check(Result == nullptr || !Result->bDeletedThroughDeferredCleanup);
+	return Result;
 }
 
 #if ALLOW_SHADERMAP_DEBUG_DATA
@@ -995,6 +999,8 @@ void FMaterialShaderMap::FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlu
 
 void FMaterialShaderMap::FixupShaderTypes(EShaderPlatform Platform, const TMap<FShaderType*, FString>& ShaderTypeNames, const TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames, const TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames)
 {
+	FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
+
 	TArray<FMaterialShaderMapId> Keys;
 	FMaterialShaderMap::GIdToMaterialShaderMap[Platform].GenerateKeyArray(Keys);
 
@@ -1473,7 +1479,8 @@ void FMaterialShaderMap::Compile(
 					{
 						// Create a new mesh material shader map.
 						MeshShaderMapIndex = MeshShaderMaps.Num();
-						MeshShaderMap = new(MeshShaderMaps) FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMap = new FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMaps.Add(MeshShaderMap);
 					}
   
 					// Enqueue compilation all mesh material shaders for this material and vertex factory type combo.
@@ -2134,14 +2141,18 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
 	}
 
-	GIdToMaterialShaderMap[GetShaderPlatform()].Add(ShaderMapId,this);
-	bRegistered = true;
+	{
+		FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
+		GIdToMaterialShaderMap[GetShaderPlatform()].Add(ShaderMapId,this);
+		bRegistered = true;
+	}
 }
 
 void FMaterialShaderMap::AddRef()
 {
 	//#todo-mw: re-enable to try to find potential corruption of the global shader map ID array
 	//check(IsInGameThread());
+	FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
 	check(!bDeletedThroughDeferredCleanup);
 	++NumRefs;
 }
@@ -2150,20 +2161,27 @@ void FMaterialShaderMap::Release()
 {
 	//#todo-mw: re-enable to try to find potential corruption of the global shader map ID array
 	//check(IsInGameThread());
-	check(NumRefs > 0);
-	if(--NumRefs == 0)
+
 	{
-		if (bRegistered)
+		FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
+
+		check(NumRefs > 0);
+		if (--NumRefs == 0)
 		{
-			DEC_DWORD_STAT(STAT_Shaders_NumShaderMaps);
-			DEC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
+			if (bRegistered)
+			{
+				bRegistered = false;
+				DEC_DWORD_STAT(STAT_Shaders_NumShaderMaps);
+				DEC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
+				GIdToMaterialShaderMap[GetShaderPlatform()].Remove(ShaderMapId);
+			}
 
-			GIdToMaterialShaderMap[GetShaderPlatform()].Remove(ShaderMapId);
-			bRegistered = false;
+			check(!bDeletedThroughDeferredCleanup);
+			bDeletedThroughDeferredCleanup = true;
 		}
-
-		check(!bDeletedThroughDeferredCleanup);
-		bDeletedThroughDeferredCleanup = true;
+	}
+	if (bDeletedThroughDeferredCleanup)
+	{
 		BeginCleanup(this);
 	}
 }
@@ -2365,7 +2383,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bo
 
 			if (VertexFactoryType->IsUsedWithMaterials())
 			{
-				new(MeshShaderMaps) FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType);
+				MeshShaderMaps.Add(new FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType));
 			}
 		}
 

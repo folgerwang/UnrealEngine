@@ -12,11 +12,7 @@
 #include "HTML5/HTML5SystemIncludes.h"
 #include <emscripten/emscripten.h>
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FHTML5Misc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 #ifdef __EMSCRIPTEN_PTHREADS__
 #include <emscripten/threading.h>
@@ -104,49 +100,6 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 	FORCEINLINE static bool IsDebuggerPresent()
 	{
 		return true;
-	}
-
-	/** Break into the debugger, if IsDebuggerPresent returns true, otherwise do nothing  */
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if (IsDebuggerPresent())
-		{
-			emscripten_log(255, "DebugBreak() called!");
-			EM_ASM(
-				var callstack = new Error;
-				throw callstack.stack;
-			);
-		}
-	}
-
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
-	FORCEINLINE static void DebugBreak()
-	{
-		UE_DEBUG_BREAK();
-	}
-
-	/** Break into debugger. Returning false allows this function to be used in conditionals. */
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
-	FORCEINLINE static bool DebugBreakReturningFalse()
-	{
-		UE_DEBUG_BREAK();
-		return false;
-	}
-
-	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
-	{
-#if !UE_BUILD_SHIPPING
-		if (!IsDebuggerPresent())
-		{
-			PromptForRemoteDebugging(bIsEnsure);
-		}
-
-		UE_DEBUG_BREAK();
-#endif
-
-		return false;
 	}
 
 	static bool AllowRenderThread()

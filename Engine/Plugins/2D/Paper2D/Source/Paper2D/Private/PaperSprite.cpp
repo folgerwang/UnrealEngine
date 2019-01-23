@@ -479,7 +479,7 @@ protected:
 			FlushRenderingCommands();
 		}
 
-		new (ComponentContexts) FComponentReregisterContext(Component);
+		ComponentContexts.Add(new FComponentReregisterContext(Component));
 	}
 
 private:

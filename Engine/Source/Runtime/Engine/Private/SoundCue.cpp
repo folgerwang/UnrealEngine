@@ -497,12 +497,46 @@ bool USoundCue::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoun
 	for (USoundNodeWavePlayer* Player : WavePlayers)
 	{
 		USoundWave* SoundWave = Player->GetSoundWave();
-		if (SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
+		if (SoundWave && SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
 		{
 			bHasAnalysisData = true;
 		}
 	}
 	return bHasAnalysisData;
+}
+
+bool USoundCue::HasCookedFFTData() const
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<const USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	for (const USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		const USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->HasCookedFFTData())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool USoundCue::HasCookedAmplitudeEnvelopeData() const
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<const USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	for (const USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		const USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->HasCookedAmplitudeEnvelopeData())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 #if WITH_EDITOR

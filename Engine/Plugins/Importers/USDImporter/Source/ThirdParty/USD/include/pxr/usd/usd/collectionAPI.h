@@ -96,7 +96,7 @@ class SdfAssetPath;
 /// </li>
 /// </ul>
 /// </li>
-/// <li><b>rel collection:<i>collectionName</i>:includeRoot</b> - boolean
+/// <li><b>bool collection:<i>collectionName</i>:includeRoot</b> - boolean
 /// attribute indicating whether the pseudo-root path &lt;/&gt; should
 /// be counted as one of the included target paths.  The fallback is false.
 /// This separate attribute is required because relationships cannot
@@ -228,8 +228,8 @@ public:
     static bool
     IsSchemaPropertyBaseName(const TfToken &baseName);
 
-    /// Checks if the given path \p path is an attribute of an API schema of
-    /// type CollectionAPI. If so, it stores the instance name of
+    /// Checks if the given path \p path is of an API schema of type
+    /// CollectionAPI. If so, it stores the instance name of
     /// the schema in \p name and returns true. Otherwise, it returns false.
     USD_API
     static bool
@@ -553,17 +553,6 @@ public:
     static SdfPath GetNamedCollectionPath(
         const UsdPrim &prim, 
         const TfToken &collectionName);
-
-    /// Returns true if \p path points to a collection.
-    /// i.e., if it is a property path and the property name is of the 
-    /// form "collection:{collectionName}.
-    /// If \p collectionName is a valid pointer to a string, it is 
-    /// populated with the name of the collection if path is a valid 
-    /// collection path.
-    USD_API
-    static bool IsCollectionPath(
-        const SdfPath &path,
-        TfToken *collectionName);
 
     /// Computes and returns a MembershipQuery object which can be used to query
     /// inclusion or exclusion of paths in the collection.

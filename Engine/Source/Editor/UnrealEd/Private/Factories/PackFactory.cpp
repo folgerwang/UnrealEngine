@@ -57,15 +57,15 @@ namespace PackFactoryHelper
 	bool BufferedCopyFile(FArchive& DestAr, FArchive& Source, const FPakEntry& Entry, TArray<uint8>& Buffer, const FPakFile& PakFile)
 	{	
 		// Align down
-		const int64 BufferSize = Buffer.Num() & ~(FAES::AESBlockSize-1);
+		const int64 BufferSize = Buffer.Num() & ~(FAES::AESBlockSize - 1);
 		int64 RemainingSizeToCopy = Entry.Size;
 		while (RemainingSizeToCopy > 0)
 		{
 			const int64 SizeToCopy = FMath::Min(BufferSize, RemainingSizeToCopy);
 			// If file is encrypted so we need to account for padding
-			int64 SizeToRead = Entry.IsEncrypted() ? Align(SizeToCopy,FAES::AESBlockSize) : SizeToCopy;
+			int64 SizeToRead = Entry.IsEncrypted() ? Align(SizeToCopy, FAES::AESBlockSize) : SizeToCopy;
 
-			Source.Serialize(Buffer.GetData(),SizeToRead);
+			Source.Serialize(Buffer.GetData(), SizeToRead);
 			if (Entry.IsEncrypted())
 			{
 				FAES::FAESKey Key;
@@ -88,7 +88,7 @@ namespace PackFactoryHelper
 		}
 
 		int64 WorkingSize = Entry.CompressionBlockSize;
-		int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, WorkingSize, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow());
+		int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound(PakFile.GetInfo().GetCompressionMethod(Entry.CompressionMethodIndex), WorkingSize);
 		WorkingSize += MaxCompressionBlockSize;
 		if (PersistentBuffer.Num() < WorkingSize)
 		{
@@ -97,7 +97,7 @@ namespace PackFactoryHelper
 
 		uint8* UncompressedBuffer = PersistentBuffer.GetData() + MaxCompressionBlockSize;
 
-		for (uint32 BlockIndex=0, BlockIndexNum=Entry.CompressionBlocks.Num(); BlockIndex < BlockIndexNum; ++BlockIndex)
+		for (uint32 BlockIndex = 0, BlockIndexNum = Entry.CompressionBlocks.Num(); BlockIndex < BlockIndexNum; ++BlockIndex)
 		{
 			uint32 CompressedBlockSize = Entry.CompressionBlocks[BlockIndex].CompressedEnd - Entry.CompressionBlocks[BlockIndex].CompressedStart;
 			uint32 UncompressedBlockSize = (uint32)FMath::Min<int64>(Entry.UncompressedSize - Entry.CompressionBlockSize*BlockIndex, Entry.CompressionBlockSize);
@@ -113,11 +113,11 @@ namespace PackFactoryHelper
 				FAES::DecryptData(PersistentBuffer.GetData(), SizeToRead, Key);
 			}
 
-			if(!FCompression::UncompressMemory((ECompressionFlags)Entry.CompressionMethod,UncompressedBuffer,UncompressedBlockSize,PersistentBuffer.GetData(),CompressedBlockSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()))
+			if (!FCompression::UncompressMemory(PakFile.GetInfo().GetCompressionMethod(Entry.CompressionMethodIndex), UncompressedBuffer, UncompressedBlockSize, PersistentBuffer.GetData(), CompressedBlockSize))
 			{
 				return false;
 			}
-			DestAr.Serialize(UncompressedBuffer,UncompressedBlockSize);
+			DestAr.Serialize(UncompressedBuffer, UncompressedBlockSize);
 		}
 
 		return true;
@@ -127,7 +127,8 @@ namespace PackFactoryHelper
 	// Uses Buffer or PersistentCompressionBuffer depending on whether the entry is compressed or not.
 	void ExtractFile(const FPakEntry& Entry, FBufferReader& PakReader, TArray<uint8>& Buffer, TArray<uint8>& PersistentCompressionBuffer, FArchive& DestAr, const FPakFile& PakFile)
 	{
-		if (Entry.CompressionMethod == COMPRESS_None)
+		// 0 is uncompressed
+		if (Entry.CompressionMethodIndex == 0)
 		{
 			PackFactoryHelper::BufferedCopyFile(DestAr, PakReader, Entry, Buffer, PakFile);
 		}

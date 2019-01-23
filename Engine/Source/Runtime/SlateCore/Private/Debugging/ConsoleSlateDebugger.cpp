@@ -38,7 +38,7 @@ FConsoleSlateDebugger::FConsoleSlateDebugger()
 		*LOCTEXT("CaptureStack", "Should we capture the stack when there are events?").ToString())
 	, SetInputFilterCommand(
 		TEXT("SlateDebugger.SetInputFilter"),
-		*LOCTEXT("StopDebugger", "Enable or Disable specific filters").ToString(),
+		*LOCTEXT("SetInputFilter", "Enable or Disable specific filters").ToString(),
 		FConsoleCommandWithArgsDelegate::CreateRaw(this, &FConsoleSlateDebugger::SetInputFilter))
 {
 	//EnabledInputEvents[(uint8)ESlateDebuggingInputEvent::MouseMove] = true;

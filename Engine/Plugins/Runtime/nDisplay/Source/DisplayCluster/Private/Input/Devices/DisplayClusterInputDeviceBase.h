@@ -58,8 +58,8 @@ public:
 	virtual FString GetType() const override
 	{ return ConfigData.Type; }
 
-	virtual EDisplayClusterInputDevice GetTypeId() const override
-	{ return static_cast<EDisplayClusterInputDevice>(DevTypeID); }
+	virtual EDisplayClusterInputDeviceType GetTypeId() const override
+	{ return static_cast<EDisplayClusterInputDeviceType>(DevTypeID); }
 
 	virtual FDisplayClusterConfigInput GetConfig() const override
 	{ return ConfigData; }

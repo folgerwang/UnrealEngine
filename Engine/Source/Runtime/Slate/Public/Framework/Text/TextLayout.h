@@ -217,7 +217,7 @@ public:
 		int16 MaxAboveBaseline;
 		int16 MaxBelowBaseline;
 
-		uint8 Kerning;
+		int8 Kerning;
 
 #if TEXT_LAYOUT_DEBUG
 		FString DebugSlice;
@@ -245,7 +245,7 @@ public:
 
 		FVector2D Measure( int32 BeginIndex, int32 EndIndex, float Scale, const FRunTextContext& InTextContext );
 
-		uint8 GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& InTextContext );
+		int8 GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& InTextContext );
 
 		static int32 BinarySearchForBeginIndex( const TArray< FTextRange >& Ranges, int32 BeginIndex );
 

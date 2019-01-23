@@ -179,6 +179,7 @@ namespace Audio
 
 		// Prepare the buffer for the PCM submission
 		SourceVoiceBuffers[0]->AudioData.Reset(NumSamplesPerBuffer);
+		SourceVoiceBuffers[0]->AudioData.AddUninitialized(NumSamplesPerBuffer);
 
 		RawPCMDataBuffer.GetNextBuffer(SourceVoiceBuffers[0].Get(), NumSamplesPerBuffer);
 

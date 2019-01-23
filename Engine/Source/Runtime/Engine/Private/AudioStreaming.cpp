@@ -137,8 +137,8 @@ bool FStreamingWaveData::Initialize(USoundWave* InSoundWave, FAudioStreamingMana
 	FLoadedAudioChunk* FirstChunk = &LoadedChunks[FirstLoadedChunkIndex];
 	FirstChunk->Index = 0;
 
-	// If we fail here, we'll just fail the streaming wave data altogether.
-	if (!SoundWave->GetChunkData(0, &FirstChunk->Data))
+	// Make sure we have loaded the 0th chunk before proceeding:
+	if (!SoundWave->GetChunkData(0, &FirstChunk->Data, true))
 	{
 		// Error/warning logging will have already been performed in the GetChunkData function
 		return false;
@@ -270,6 +270,7 @@ void FStreamingWaveData::BeginPendingRequests(const TArray<uint32>& IndicesToLoa
 		{
 			for (int32 ChunkIndex = 0; ChunkIndex < LoadedChunks.Num(); ++ChunkIndex)
 			{
+				check(Index != 0);
 				if (LoadedChunks[ChunkIndex].Index == Index)
 				{
 					FreeLoadedChunk(LoadedChunks[ChunkIndex]);
@@ -314,12 +315,13 @@ void FStreamingWaveData::BeginPendingRequests(const TArray<uint32>& IndicesToLoa
 				INC_DWORD_STAT_BY(STAT_AudioMemorySize, ChunkSize);
 				INC_DWORD_STAT_BY(STAT_AudioMemory, ChunkSize);
 
-				FAsyncStreamDerivedChunkTask* Task = new(PendingAsyncStreamDerivedChunkTasks)FAsyncStreamDerivedChunkTask(
+				FAsyncStreamDerivedChunkTask* Task = new FAsyncStreamDerivedChunkTask(
 					Chunk.DerivedDataKey,
 					ChunkStorage->Data,
 					ChunkSize,
 					&PendingChunkChangeRequestStatus
 					);
+				PendingAsyncStreamDerivedChunkTasks.Add(Task);
 				Task->StartBackgroundTask();
 			}
 			else
