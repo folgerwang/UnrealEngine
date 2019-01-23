@@ -81,6 +81,11 @@ UObject* ALevelSequenceActor::GetInstanceData() const
 	return bOverrideInstanceData ? DefaultInstanceData : nullptr;
 }
 
+ULevelSequencePlayer* ALevelSequenceActor::GetSequencePlayer() const
+{
+	return SequencePlayer && SequencePlayer->GetSequence() ? SequencePlayer : nullptr;
+}
+
 void ALevelSequenceActor::SetReplicatePlayback(bool bInReplicatePlayback)
 {
 	bReplicatePlayback = bInReplicatePlayback;
