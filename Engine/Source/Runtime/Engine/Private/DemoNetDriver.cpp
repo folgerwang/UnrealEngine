@@ -3667,6 +3667,12 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 	// Speculatively grab seconds now in case we need it to get the time it took to fast forward
 	const double FastForwardStartSeconds = FPlatformTime::Seconds();
 
+	if (FArchive* const StreamingArchive = ReplayStreamer->GetStreamingArchive())
+	{
+		StreamingArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+		StreamingArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+	}
+
 	// Buffer up demo frames until we have enough time built-up
 	while ( ConditionallyReadDemoFrameIntoPlaybackPackets( *ReplayStreamer->GetStreamingArchive() ) )
 	{
@@ -4290,6 +4296,9 @@ bool UDemoNetDriver::FastForwardLevels(const FGotoResult& GotoResult)
 		// First, read in the checkpoint data (if any is available);
 		if (CheckpointArchive->TotalSize() != 0)
 		{
+			CheckpointArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+			CheckpointArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+
 			TGuardValue<bool> LoadingCheckpointGuard(bIsLoadingCheckpoint, true);
 
 			FArchivePos PacketOffset = 0;
@@ -4306,6 +4315,10 @@ bool UDemoNetDriver::FastForwardLevels(const FGotoResult& GotoResult)
 
 		// Next, read in streaming data (if any is available)
 		FArchive* StreamingAr = ReplayStreamer->GetStreamingArchive();
+
+		StreamingAr->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+		StreamingAr->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+		
 		while (!StreamingAr->AtEnd() && ReplayStreamer->IsDataAvailable() && ReadPacketsHelper.ReadPackets(*StreamingAr));
 
 		if (ReadPacketsHelper.IsError())
@@ -4484,6 +4497,9 @@ bool UDemoNetDriver::LoadCheckpoint(const FGotoResult& GotoResult)
 	check( GotoCheckpointArchive != nullptr );
 	check( !bIsFastForwardingForCheckpoint );
 	check( !bIsFastForwarding );
+
+	GotoCheckpointArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+	GotoCheckpointArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
 
 	int32 LevelForCheckpoint = 0;
 
