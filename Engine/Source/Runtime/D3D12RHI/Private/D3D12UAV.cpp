@@ -262,14 +262,6 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView_Render
 	return RHICreateUnorderedAccessView(VertexBufferRHI, Format);
 }
 
-FD3D12StagingBuffer::~FD3D12StagingBuffer()
-{
-	if (StagedRead)
-	{
-		StagedRead.SafeRelease();
-	}
-}
-
 void* FD3D12StagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
 	check(!bIsLocked);

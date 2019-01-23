@@ -965,14 +965,8 @@ public:
 	}
 	void SafeRelease()
 	{
-		if (StagedRead)
-		{
-			StagedRead->Release();
-			StagedRead = nullptr;
-		}
+		StagedRead.SafeRelease();
 	}
-
-	virtual ~FD3D12StagingBuffer() final override;
 
 	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
 	virtual void Unlock() final override;
