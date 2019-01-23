@@ -213,7 +213,7 @@ TSharedRef< SWidget > SNiagaraSpreadsheetRow::GenerateWidgetForColumn(const FNam
 void SNiagaraSpreadsheetView::Construct(const FArguments& InArgs, TSharedRef<FNiagaraSystemViewModel> InSystemViewModel)
 {
 	TabState = UIPerParticleUpdate;
-	ScriptEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"));
+	ScriptEnum = StaticEnum<ENiagaraScriptUsage>();
 	TargetComponent = InSystemViewModel->GetPreviewComponent();
 	ensure(ScriptEnum);
 	

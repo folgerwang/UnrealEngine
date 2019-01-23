@@ -109,11 +109,6 @@ public:
 	{
 	}
 
-	virtual int32 GetCompressionBitWindow() const override
-	{
-		return DEFAULT_ZLIB_BIT_WINDOW;
-	}
-
 	virtual int32 GetPlatformOrdinal() const override
 	{
 		return PlatformOrdinal;
@@ -264,6 +259,10 @@ public:
 		}
 
 		return false;
+	}
+	virtual FName GetZlibReplacementFormat() const override
+	{
+		return TPlatformProperties::GetZlibReplacementFormat() != nullptr ? FName(TPlatformProperties::GetZlibReplacementFormat()) : NAME_Zlib;
 	}
 
 #if WITH_ENGINE

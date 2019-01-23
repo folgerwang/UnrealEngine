@@ -6,6 +6,7 @@
 #include "UObject/ObjectResource.h"
 #include "Internationalization/GatherableTextData.h"
 #include "UObject/PackageFileSummary.h"
+#include "Templates/RefCounting.h"
 
 class FReferenceCollector;
 
@@ -564,7 +565,35 @@ COREUOBJECT_API void DeleteLoaders();
 /** Queues linker for deletion */
 COREUOBJECT_API void DeleteLoader(FLinkerLoad* Loader);
 
-COREUOBJECT_API FLinkerLoad* GetPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride = nullptr);
+/** 
+  * Loads a linker for a package and returns it without loading any objects.
+  * @param InOuter Package if known, can be null
+	* @param InLongPackageName Name of the package to load
+	* @param LoadFlags Flags to pass to the new linker
+	* @param Sandbox Additional sandbox for loading
+	* @param CompatibleGuid Net GUID
+	* @param InReaderOverride Optional archive to use for reading package data
+	* @param LinkerLoadedCallback Callback when the linker is loaded (or not found)
+	* @return Pointer to the loaded linker or null if the file didn't exist
+	*/
+COREUOBJECT_API FLinkerLoad* LoadPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride, TFunctionRef<void(FLinkerLoad* LoadedLinker)> LinkerLoadedCallback);
+COREUOBJECT_API FLinkerLoad* LoadPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = nullptr, FGuid* CompatibleGuid = nullptr, FArchive* InReaderOverride = nullptr);
+
+/** 
+  * Gets a linker for a package and returns it without loading any objects. This call must be preceeded by BeginLoad and followed by EndLoad calls
+  * @param InOuter Package if known, can be null
+  * @param InLongPackageName Name of the package to load
+  * @param LoadFlags Flags to pass to the new linker
+  * @param Sandbox Additional sandbox for loading
+  * @param CompatibleGuid Net GUID
+  * @param InReaderOverride Optional archive to use for reading package data
+	* @param InOutLoadContext Optional load context. If the package linker is already associated with a context that's currently loading objects that context will be returned in this param
+  * @return Pointer to the loaded linker or null if the file didn't exist
+  */
+COREUOBJECT_API FLinkerLoad* GetPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride = nullptr, FUObjectSerializeContext** InOutLoadContext = nullptr);
+
+
+
 COREUOBJECT_API FString GetPrestreamPackageLinkerName(const TCHAR* InLongPackageName, bool bExistSkip = true);
 
 

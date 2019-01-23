@@ -78,7 +78,7 @@ void UGameplayTagsManager::LoadGameplayTagTables(bool bAllowAsyncLoad)
 		// Handle case where the module is dynamically-loaded within a LoadPackage stack, which would otherwise
 		// result in the tag table not having its RowStruct serialized in time. Without the RowStruct, the tags manager
 		// will not be initialized correctly.
-		if (TagTable && IsLoading())
+		if (TagTable)
 		{
 			FLinkerLoad* TagLinker = TagTable->GetLinker();
 			if (TagLinker)

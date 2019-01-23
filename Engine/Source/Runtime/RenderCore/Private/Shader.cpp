@@ -32,7 +32,7 @@ RENDERCORE_API bool UsePreExposure(EShaderPlatform Platform)
 	return CVarUsePreExposure->GetValueOnAnyThread() != 0 && !IsMobilePlatform(Platform) && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
 }
 
-static const ECompressionFlags ShaderCompressionFlag = ECompressionFlags::COMPRESS_ZLIB;
+static const FName ShaderCompressionFormat = NAME_Zlib;
 
 static TAutoConsoleVariable<int32> CVarUsePipelines(
 	TEXT("r.ShaderPipelines"),
@@ -415,7 +415,7 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 #endif
 	, bCodeInSharedLocation(false)
 	, bCodeInSharedLocationRequested(false)
-
+	
 {
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
 
@@ -457,7 +457,7 @@ void FShaderResource::UncompressCode(TArray<uint8>& UncompressedCode) const
 	if (Code.Num() != UncompressedCodeSize)
 	{
 		UncompressedCode.SetNum(UncompressedCodeSize);
-		auto bSucceed = FCompression::UncompressMemory(ShaderCompressionFlag, UncompressedCode.GetData(), UncompressedCodeSize, Code.GetData(), Code.Num());
+		auto bSucceed = FCompression::UncompressMemory(ShaderCompressionFormat, UncompressedCode.GetData(), UncompressedCodeSize, Code.GetData(), Code.Num());
 		check(bSucceed);
 	}
 	else
@@ -471,7 +471,7 @@ void FShaderResource::CompressCode(const TArray<uint8>& UncompressedCode)
 	UncompressedCodeSize = UncompressedCode.Num();
 	Code = UncompressedCode;
 	int32 CompressedSize = Code.Num();
-	if (FCompression::CompressMemory(ShaderCompressionFlag, Code.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num()))
+	if (FCompression::CompressMemory(ShaderCompressionFormat, Code.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num()))
 	{
 		Code.SetNum(CompressedSize);
 	}
@@ -520,7 +520,7 @@ void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 	{
 		SerializeShaderCode(Ar);
 	}
-
+	
 #if WITH_EDITORONLY_DATA
 	if (!bLoadedByCookedMaterial)
 	{

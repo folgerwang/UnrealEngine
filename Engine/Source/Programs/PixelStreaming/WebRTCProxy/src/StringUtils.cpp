@@ -29,6 +29,8 @@ void SNPrintf(char* OutBuffer, int BufSize, _Printf_format_string_ const char* F
 	va_list Args;
 	va_start(Args, Fmt);
 	VSNPrintf(OutBuffer, BufSize, Fmt, Args);
+	va_end(Args);
+
 }
 
 char* GetTemporaryString()

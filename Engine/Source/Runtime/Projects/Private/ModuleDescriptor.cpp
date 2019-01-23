@@ -47,6 +47,9 @@ const TCHAR* ELoadingPhase::ToString( const ELoadingPhase::Type Value )
 	case PostEngineInit:
 		return TEXT( "PostEngineInit" );
 
+	case EarliestPossible:
+		return TEXT("EarliestPossible");
+
 	case None:
 		return TEXT( "None" );
 

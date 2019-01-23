@@ -40,6 +40,7 @@
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/UObjectThreadContext.h"
 
 // This flag enables some expensive class tree validation that is meant to catch mutations of 
 // the class tree outside of SetSuperStruct. It has been disabled because loading blueprints 
@@ -585,16 +586,19 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 	{
 		// Preload everything before we calculate size, as the preload may end up recursively linking things
 		UStruct* InheritanceSuper = GetInheritanceSuper();
-		if (InheritanceSuper)
+		if (Ar.IsLoading())
 		{
-			Ar.Preload(InheritanceSuper);			
-		}
-
-		for (UField* Field = Children; Field; Field = Field->Next)
-		{
-			if (!GEventDrivenLoaderEnabled || !Cast<UFunction>(Field))
+			if (InheritanceSuper)
 			{
-				Ar.Preload(Field);
+				Ar.Preload(InheritanceSuper);
+			}
+
+			for (UField* Field = Children; Field; Field = Field->Next)
+			{
+				if (!GEventDrivenLoaderEnabled || !Cast<UFunction>(Field))
+				{
+					Ar.Preload(Field);
+				}
 			}
 		}
 
@@ -3934,7 +3938,7 @@ bool UClass::HasProperty(UProperty* InProperty) const
 {
 	if ( UClass* PropertiesClass = dynamic_cast<UClass*>(InProperty->GetOuter()) )
 	{
-		return PropertiesClass->FindNearestCommonBaseClass(this) != nullptr;
+		return IsChildOf(PropertiesClass);
 	}
 
 	return false;
@@ -4240,6 +4244,12 @@ void UClass::CreateLinkAndAddChildFunctionsToMap(const FClassFunctionLinkInfo* F
 
 		AddFunctionToFunctionMap(Func, FName(UTF8_TO_TCHAR(FuncNameUTF8)));
 	}
+}
+
+void UClass::ClearFunctionMapsCaches()
+{
+	FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_Write);
+	SuperFuncMap.Empty();
 }
 
 UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper) const

@@ -379,12 +379,12 @@ exp_end:
         int     num;
         for (num = 1; num < mac_num; num++) {   /* 'num' start at 1 */
             if (mac_inf[ num].num_args >= 0) {  /* Macro with args  */
-                free( mac_inf[ num].args);      /* Saved arguments  */
-                free( mac_inf[ num].loc_args);  /* Location of args */
+                xfree( mac_inf[ num].args);      /* Saved arguments  */
+                xfree( mac_inf[ num].loc_args);  /* Location of args */
             }
         }
-        free( mac_inf);
-        free( in_src);
+        xfree( mac_inf);
+        xfree( in_src);
     }
     *pragma_op = has_pragma;
 
@@ -747,8 +747,8 @@ static char *   replace(
                             /* Note: arglist[ n] may be reallocated */
                             /*   and re-written by collect_args()   */
         if ((num_args = collect_args( defp, arglist, m_num)) == ARG_ERROR) {
-            free( arglist[ 0]);             /* Syntax error         */
-            free( arglist);
+            xfree( arglist[ 0]);             /* Syntax error         */
+            xfree( arglist);
             return  NULL;
         }
         if (enable_trace_macro) {
@@ -781,10 +781,10 @@ static char *   replace(
         if (nargs >= 0) {
             if (! enable_trace_macro)
                 /* arglist[0] is needed for macro infs  */
-                free( arglist[ 0]);
-            free( arglist);
+                xfree( arglist[ 0]);
+            xfree( arglist);
         }
-        free( catbuf);
+        xfree( catbuf);
         return  NULL;
     }
     catbuf = xrealloc( catbuf, strlen( catbuf) + 1);
@@ -803,9 +803,9 @@ static char *   replace(
         out_p = substitute( defp, (const char **) arglist, catbuf, expbuf
                 , expbuf + NMACWORK);   /* Expand each arguments    */
         if (! enable_trace_macro)
-            free( arglist[ 0]);
-        free( arglist);
-        free( catbuf);
+            xfree( arglist[ 0]);
+        xfree( arglist);
+        xfree( catbuf);
         expbuf = xrealloc( expbuf, strlen( expbuf) + 1);
                                             /* Use memory sparingly */
         if (mcpp_debug & EXPAND) {
@@ -815,8 +815,8 @@ static char *   replace(
     } else {                                /* Object-like macro or */
         if (nargs == 0 && ! enable_trace_macro)
                             /* Function-like macro with no argument */
-            free( arglist[ 0]);
-        free( arglist);
+            xfree( arglist[ 0]);
+        xfree( arglist);
         out_p = expbuf = catbuf;
     }
 
@@ -825,7 +825,7 @@ static char *   replace(
     if (out_p && defp->nargs == DEF_PRAGMA)
         has_pragma = TRUE;
                     /* Inform mcpp_main() that _Pragma() was found  */
-    free( expbuf);
+    xfree( expbuf);
     if (enable_trace_macro && out_p)
         out_p = close_macro_inf( out_p, m_num, in_src_n);
     if (mcpp_debug & EXPAND)
@@ -1110,7 +1110,7 @@ static char *   catenate(
             } else {
                 unget_string( argp, NULL);
                 if (trace_macro)
-                    free( (char *) argp);
+                    xfree( (char *) argp);
                     /* malloc()ed in remove_magics()    */
                 while ((c = get_ch()) != RT_END) {
                     prev_prev_token = prev_token;
@@ -1154,7 +1154,7 @@ static char *   catenate(
         } else {
             unget_string( argp, NULL);
             if (trace_macro)
-                free( (char *) argp);
+                xfree( (char *) argp);
             if ((c = get_ch()) == DEF_MAGIC) {  /* Remove DEF_MAGIC */
                 c = get_ch();               /*  enabling to replace */
             } else if (c == IN_SRC) {       /* Remove IN_SRC        */
@@ -1976,7 +1976,7 @@ static char *   rescan(
                                     (const char *) infile->bptr, FALSE);
                                         /* Remove pair of magics    */
                             strcpy( infile->bptr, mgc_cleared);
-                            free( mgc_cleared);
+                            xfree( mgc_cleared);
                         }
                     }
                 }
@@ -2315,7 +2315,7 @@ static int  replace_pre(
             arg_len = collect_args( defp, arglist_pre, 0);
                                             /* Collect arguments    */
             if (arg_len == ARG_ERROR) {     /* End of input         */
-                free( arglist_pre[ 0]);
+                xfree( arglist_pre[ 0]);
                 longjmp( jump, 1);
             }
         }
@@ -2330,7 +2330,7 @@ static int  replace_pre(
     if (mcpp_debug & EXPAND)
         dump_unget( "replace_pre exit");
     if (defp->nargs >= 0)
-        free( arglist_pre[ 0]);
+        xfree( arglist_pre[ 0]);
     return  TRUE;
 }
 

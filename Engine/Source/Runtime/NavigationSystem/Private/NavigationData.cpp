@@ -86,6 +86,7 @@ FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANa
 : FPathFindingQuery(InOwner, InNavData, Start, End, SourceQueryFilter)
 , QueryID(GetUniqueID())
 , OnDoneDelegate(Delegate)
+, Mode(EPathFindingMode::Regular)
 {
 
 }

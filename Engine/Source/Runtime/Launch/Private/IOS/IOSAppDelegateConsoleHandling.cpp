@@ -119,7 +119,7 @@ extern bool GShowSplashScreen;
 {
 	if ([ConsoleCommand length] > 0)
 	{
-		if (self.bEngineInit)
+		if (self.bEngineInit && GEngine != nullptr)
 		{
 			TArray<TCHAR> Ch;
 			Ch.AddZeroed([ConsoleCommand length]);

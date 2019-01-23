@@ -113,7 +113,7 @@ protected:
 		EStretch::Type Stretch = EStretch::ScaleToFit;
 		if (const FString* SstretchString = RunInfo.MetaData.Find(TEXT("stretch")))
 		{
-			static const UEnum* StretchEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EStretch"));
+			static const UEnum* StretchEnum = StaticEnum<EStretch::Type>();
 			int64 StretchValue = StretchEnum->GetValueByNameString(*SstretchString);
 			if (StretchValue != INDEX_NONE)
 			{

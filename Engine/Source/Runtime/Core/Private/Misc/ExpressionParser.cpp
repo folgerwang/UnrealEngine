@@ -228,7 +228,7 @@ TOptional<FStringToken> FTokenStream::ParseWhitespace(FStringToken* Accumulate) 
 
 	if (IsReadPosValid(OptReadPos))
 	{
-		return ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; });
+		return ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; }, Accumulate);
 	}
 
 	return TOptional<FStringToken>();

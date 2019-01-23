@@ -25,11 +25,12 @@ void FCompressedGatherHitPoints::Compress(const FGatherHitPoints& Source)
 		int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 		verify(FCompression::CompressMemory(
-			(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed), 
+			NAME_Zlib, 
 			TempCompressedMemory.GetData(), 
 			CompressedSize, 
 			Source.GatherHitPointRanges.GetData(), 
-			UncompressedSize));
+			UncompressedSize,
+			COMPRESS_BiasSpeed));
 
 		GatherHitPointRanges.Empty(CompressedSize);
 		GatherHitPointRanges.AddUninitialized(CompressedSize);
@@ -48,7 +49,7 @@ void FCompressedGatherHitPoints::Compress(const FGatherHitPoints& Source)
 		int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 		verify(FCompression::CompressMemory(
-			(ECompressionFlags)(COMPRESS_ZLIB), 
+			NAME_Zlib,
 			TempCompressedMemory.GetData(), 
 			CompressedSize, 
 			Source.GatherHitPointData.GetData(), 
@@ -68,7 +69,7 @@ void FCompressedGatherHitPoints::Decompress(FGatherHitPoints& Dest) const
 	Dest.GatherHitPointRanges.AddUninitialized(GatherHitPointRangesUncompressedSize);
 
 	verify(FCompression::UncompressMemory(
-		(ECompressionFlags)COMPRESS_ZLIB, 
+		NAME_Zlib,
 		Dest.GatherHitPointRanges.GetData(), 
 		GatherHitPointRangesUncompressedSize, 
 		GatherHitPointRanges.GetData(), 
@@ -78,7 +79,7 @@ void FCompressedGatherHitPoints::Decompress(FGatherHitPoints& Dest) const
 	Dest.GatherHitPointData.AddUninitialized(GatherHitPointDataUncompressedSize);
 
 	verify(FCompression::UncompressMemory(
-		(ECompressionFlags)COMPRESS_ZLIB, 
+		NAME_Zlib,
 		Dest.GatherHitPointData.GetData(), 
 		GatherHitPointDataUncompressedSize, 
 		GatherHitPointData.GetData(), 
@@ -98,11 +99,12 @@ void FCompressedInfluencingRecords::Compress(const FInfluencingRecords& Source)
 		int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 		verify(FCompression::CompressMemory(
-			(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed), 
+			NAME_Zlib,
 			TempCompressedMemory.GetData(), 
 			CompressedSize, 
 			Source.Ranges.GetData(), 
-			UncompressedSize));
+			UncompressedSize,
+			COMPRESS_BiasSpeed));
 
 		Ranges.Empty(CompressedSize);
 		Ranges.AddUninitialized(CompressedSize);
@@ -121,7 +123,7 @@ void FCompressedInfluencingRecords::Compress(const FInfluencingRecords& Source)
 		int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 		verify(FCompression::CompressMemory(
-			(ECompressionFlags)(COMPRESS_ZLIB), 
+			NAME_Zlib,
 			TempCompressedMemory.GetData(), 
 			CompressedSize, 
 			Source.Data.GetData(), 
@@ -141,7 +143,7 @@ void FCompressedInfluencingRecords::Decompress(FInfluencingRecords& Dest) const
 	Dest.Ranges.AddUninitialized(RangesUncompressedSize);
 
 	verify(FCompression::UncompressMemory(
-		(ECompressionFlags)COMPRESS_ZLIB, 
+		NAME_Zlib,
 		Dest.Ranges.GetData(), 
 		RangesUncompressedSize, 
 		Ranges.GetData(), 
@@ -151,7 +153,7 @@ void FCompressedInfluencingRecords::Decompress(FInfluencingRecords& Dest) const
 	Dest.Data.AddUninitialized(DataUncompressedSize);
 
 	verify(FCompression::UncompressMemory(
-		(ECompressionFlags)COMPRESS_ZLIB, 
+		NAME_Zlib,
 		Dest.Data.GetData(), 
 		DataUncompressedSize, 
 		Data.GetData(), 
@@ -164,7 +166,8 @@ void FStaticLightingSystem::SetupRadiosity()
 
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(RadiositySetupThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiositySetup);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiositySetup);
+		RadiositySetupThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("RadiositySetupThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -454,7 +457,8 @@ void FStaticLightingSystem::RunRadiosityIterations()
 
 		for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 		{
-			FMappingProcessingThreadRunnable* ThreadRunnable = new(RadiosityIterationThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiosityIterations);
+			FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_RadiosityIterations);
+			RadiosityIterationThreads.Add(ThreadRunnable);
 			const FString ThreadName = FString::Printf(TEXT("RadiosityIterationThread%u"), ThreadIndex);
 			ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 		}

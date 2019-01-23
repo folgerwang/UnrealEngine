@@ -6,6 +6,8 @@
 #include "Serialization/ArchiveUObject.h"
 #include "UObject/ObjectResource.h"
 #include "UObject/Linker.h"
+#include "UObject/UObjectThreadContext.h"
+#include "Templates/RefCounting.h"
 
 struct FUntypedBulkData;
 
@@ -42,6 +44,9 @@ public:
 
 	/** Index array - location of the name in the NameMap array for each FName is stored in the NameIndices array using the FName's Index */
 	TMap<FName, int32, FDefaultSetAllocator, TLinkerNameMapKeyFuncs<int32>> NameIndices;
+
+	/** Save context associated with this linker */
+	TRefCountPtr<FUObjectSerializeContext> SaveContext;
 
 	/** List of bulkdata that needs to be stored at the end of the file */
 	struct FBulkDataStorageInfo
@@ -80,6 +85,9 @@ public:
 	FArchive& operator<<( FName& InName );
 	FArchive& operator<<( UObject*& Obj );
 	FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override;
+	FUObjectSerializeContext* GetSerializeContext() override;
+	virtual void UsingCustomVersion(const struct FGuid& Guid) override;
 
 #if WITH_EDITOR
 	// proxy for debugdata

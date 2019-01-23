@@ -687,7 +687,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 	if (InstanceTemplate == NULL)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_LoadTime);
-		static const UEnum* RunModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryRunMode"));
+		static const UEnum* RunModeEnum = StaticEnum<EEnvQueryRunMode::Type>();
 
 		// duplicate template in manager's world for BP based nodes
 		const FString NewInstanceName = RunModeEnum

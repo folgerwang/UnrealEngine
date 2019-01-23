@@ -95,10 +95,10 @@ struct COREUOBJECT_API FSoftObjectPath
 
 	/**
 	 * Attempts to load the asset, this will call LoadObject which can be very slow
-	 *
+	 * @param InLoadContext Optional load context when called from nested load callstack
 	 * @return Loaded UObject, or nullptr if the reference is null or the asset fails to load
 	 */
-	UObject* TryLoad() const;
+	UObject* TryLoad(FUObjectSerializeContext* InLoadContext = nullptr) const;
 
 	/**
 	 * Attempts to find a currently loaded object that matches this path
@@ -148,7 +148,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	}
 	FSoftObjectPath& operator=(FSoftObjectPath Other);
 	bool ExportTextItem(FString& ValueStr, FSoftObjectPath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
-	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
+	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText, FArchive* InSerializingArchive = nullptr );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Serializes the internal path and also handles save/PIE fixups. Call this from the archiver overrides */
@@ -157,8 +157,11 @@ struct COREUOBJECT_API FSoftObjectPath
 	/** Fixes up path for saving, call if saving with a method that skips SerializePath. This can modify the path, it will return true if it was modified */
 	bool PreSavePath(bool* bReportSoftObjectPathRedirects = nullptr);
 
-	/** Handles when a path has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks */
-	void PostLoadPath() const;
+	/** 
+	 * Handles when a path has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks
+	 * @param InArchive The archive that loaded this path
+	 */
+	void PostLoadPath(FArchive* InArchive) const;
 
 	/** Fixes up this SoftObjectPath to add the PIE prefix depending on what is currently active, returns true if it was modified. The overload that takes an explicit PIE instance is preferred, if it's available. */
 	bool FixupForPIE();

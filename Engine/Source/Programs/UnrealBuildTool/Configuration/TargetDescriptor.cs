@@ -252,6 +252,12 @@ namespace UnrealBuildTool
 				throw new BuildException("No configurations specified for target");
 			}
 
+			// Make sure the project file exists
+			if(ProjectFile != null && !FileReference.Exists(ProjectFile))
+			{
+				throw new BuildException("Unable to find project '{0}'.", ProjectFile);
+			}
+
 			// Expand all the platforms, architectures and configurations
 			foreach(UnrealTargetPlatform Platform in Platforms)
 			{

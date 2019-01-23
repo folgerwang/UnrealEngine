@@ -25,16 +25,24 @@ uint64 FTimerManager::LastAssignedSerialNumber = 0;
 
 namespace
 {
-	void DescribeFTimerDataSafely(const FTimerData& Data)
+	void DescribeFTimerDataSafely(FOutputDevice& Ar, const FTimerData& Data)
 	{
-		UE_LOG(LogEngine, Log, TEXT("TimerData %p : bLoop=%s, bRequiresDelegate=%s, Status=%d, Rate=%f, ExpireTime=%f"),
+		Ar.Logf(
+			TEXT("TimerData %p : bLoop=%s, bRequiresDelegate=%s, Status=%d, Rate=%f, ExpireTime=%f"),
 			&Data,
 			Data.bLoop ? TEXT("true") : TEXT("false"),
 			Data.bRequiresDelegate ? TEXT("true") : TEXT("false"),
 			static_cast<int32>(Data.Status),
 			Data.Rate,
 			Data.ExpireTime
-			)
+		);
+	}
+
+	FString GetFTimerDataSafely(const FTimerData& Data)
+	{
+		FStringOutputDevice Output;
+		DescribeFTimerDataSafely(Output, Data);
+		return MoveTemp(Output);
 	}
 }
 
@@ -96,7 +104,7 @@ void FTimerManager::OnCrash()
 		}
 		else
 		{
-			DescribeFTimerDataSafely(Timer);
+			DescribeFTimerDataSafely(*GLog, Timer);
 		}
 	}
 	UE_LOG(LogEngine, Log, TEXT("------- %d Expired Active Timers -------"), ExpiredActiveTimerCount);
@@ -105,14 +113,14 @@ void FTimerManager::OnCrash()
 	for (FTimerHandle Handle : PausedTimerSet)
 	{
 		const FTimerData& Timer = GetTimer(Handle);
-		DescribeFTimerDataSafely(Timer);
+		DescribeFTimerDataSafely(*GLog, Timer);
 	}
 
 	UE_LOG(LogEngine, Log, TEXT("------- %d Pending Timers -------"), PendingTimerSet.Num());
 	for (FTimerHandle Handle : PendingTimerSet)
 	{
 		const FTimerData& Timer = GetTimer(Handle);
-		DescribeFTimerDataSafely(Timer);
+		DescribeFTimerDataSafely(*GLog, Timer);
 	}
 
 	UE_LOG(LogEngine, Log, TEXT("------- %d Total Timers -------"), PendingTimerSet.Num() + PausedTimerSet.Num() + ActiveTimerHeap.Num() - ExpiredActiveTimerCount);
@@ -207,7 +215,7 @@ FTimerHandle FTimerManager::K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDy
 	return Result;
 }
 
-void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
+void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate&& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimer);
 
@@ -225,7 +233,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	{
 		// set up the new timer
 		FTimerData NewTimerData;
-		NewTimerData.TimerDelegate = InDelegate;
+		NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 
 		NewTimerData.Rate = InRate;
 		NewTimerData.bLoop = InbLoop;
@@ -261,7 +269,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	}
 }
 
-FTimerHandle FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InDelegate)
+FTimerHandle FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate&& InDelegate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimerForNextTick);
 
@@ -272,7 +280,7 @@ FTimerHandle FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate co
 	NewTimerData.Rate = 0.f;
 	NewTimerData.bLoop = false;
 	NewTimerData.bRequiresDelegate = true;
-	NewTimerData.TimerDelegate = InDelegate;
+	NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 	NewTimerData.ExpireTime = InternalTime;
 	NewTimerData.Status = ETimerStatus::Active;
 
@@ -357,8 +365,6 @@ void FTimerManager::InternalClearAllTimers(void const* Object)
 	{
 		InternalClearTimer(TimerToRemove);
 	}
-
-	ObjectToTimers.Remove(Object);
 }
 
 float FTimerManager::InternalGetTimerRemaining(FTimerData const* const TimerData) const
@@ -556,6 +562,7 @@ void FTimerManager::Tick(float DeltaTime)
 		if (Top->Status == ETimerStatus::ActivePendingRemoval)
 		{
 			ActiveTimerHeap.HeapPop(TopHandle, FTimerHeapOrder(Timers), /*bAllowShrinking=*/ false);
+			RemoveTimer(TopHandle);
 			continue;
 		}
 
@@ -702,7 +709,11 @@ FTimerHandle FTimerManager::AddTimer(FTimerData&& TimerData)
 
 	if (TimerIndicesByObjectKey)
 	{
-		ObjectToTimers.FindOrAdd(TimerIndicesByObjectKey).Add(Result);
+		TSet<FTimerHandle>& HandleSet = ObjectToTimers.FindOrAdd(TimerIndicesByObjectKey);
+
+		bool bAlreadyExists = false;
+		HandleSet.Add(Result, &bAlreadyExists);
+		checkf(!bAlreadyExists, TEXT("A timer with this handle and object has already been added! (%s)"), *GetFTimerDataSafely(TimerData));
 	}
 
 	return Result;
@@ -716,10 +727,10 @@ void FTimerManager::RemoveTimer(FTimerHandle Handle)
 	if (const void* TimerIndicesByObjectKey = Data.TimerIndicesByObjectKey)
 	{
 		TSet<FTimerHandle>* TimersForObject = ObjectToTimers.Find(TimerIndicesByObjectKey);
-		checkf(TimersForObject, TEXT("Removed timer was bound to an object which is not tracked by TimerIndicesByObject!"));
+		checkf(TimersForObject, TEXT("Removed timer was bound to an object which is not tracked by ObjectToTimers! (%s)"), *GetFTimerDataSafely(Data));
 
 		int32 NumRemoved = TimersForObject->Remove(Handle);
-		checkf(NumRemoved == 1, TEXT("Removed timer was bound to an object which is not tracked by TimerIndicesByObject!"));
+		checkf(NumRemoved == 1, TEXT("Removed timer was bound to an object which is not tracked by ObjectToTimers! (%s)"), *GetFTimerDataSafely(Data));
 
 		if (TimersForObject->Num() == 0)
 		{

@@ -822,7 +822,7 @@ void UNiagaraGraph::RebuildCachedData(bool bForce)
 
 			if (FoundEnum == nullptr)
 			{
-				FoundEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+				FoundEnum = StaticEnum<ENiagaraScriptUsage>();
 			}
 
 			FString ResultsEnum = TEXT("??");
@@ -993,7 +993,7 @@ void UNiagaraGraph::SynchronizeInternalCacheWithGraph(UNiagaraGraph* Other)
 				{
 					if (FoundEnum == nullptr)
 					{
-						FoundEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+						FoundEnum = StaticEnum<ENiagaraScriptUsage>();
 					}
 
 					FString ResultsEnum = TEXT("??");

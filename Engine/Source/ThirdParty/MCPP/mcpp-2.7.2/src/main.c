@@ -432,7 +432,7 @@ fatal_error_exit:
     /* Free malloced memory */
     if (mcpp_debug & MACRO_CALL) {
         if (in_file != stdin_name)
-            free( in_file);
+            xfree( in_file);
     }
     clear_filelist();
     clear_symtable();
@@ -474,7 +474,7 @@ int mcpp_run(
 	argv[argc++] = "mcpp";
 	argv[argc++] = filename;
 
-	p = options = strdup(in_options);
+	p = options = xstrdup(in_options);
 	if (p)
 	{
 		while (*p && argc < MAX_OPTIONS)
@@ -517,7 +517,7 @@ int mcpp_run(
 	{
 		*outerrors = mcpp_get_mem_buffer(ERR);
 	}
-	free(options);
+	xfree(options);
 
 	return ret;
 }
@@ -1001,7 +1001,7 @@ static void devide_line(
             *out_ptr = EOS;
             put_a_line( out);           /* Putout the former tokens */
             wp = out_ptr = stpcpy( out, save);      /* Restore the token    */
-            free( save);
+            xfree( save);
         } else {                            /* Still in size        */
             out_ptr = wp;                   /* Advance the pointer  */
         }

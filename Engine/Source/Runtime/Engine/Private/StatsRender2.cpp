@@ -720,6 +720,12 @@ void RenderArrayOfStats( FCanvas* Canvas, const int32 X, int32& Y, const TArray<
 		}
 
 		Y += FunctionToCall( ViewData, ComplexStat, Canvas, X, Y, TotalGroupBudget, bIsBudgetIgnored );
+
+		// Stop drawing after we have gone off the bottom of the screen, if in budget mode continue to gather avg/max stats
+		if (!bBudget && Y > (Globals.SizeXY.Y + Globals.GetFontHeight()))
+		{
+			break;
+		}
 	}
 
 	if (MaxStatsPerGroup < Aggregates.Num())

@@ -969,6 +969,7 @@ struct FAsyncPathFindingQuery : public FPathFindingQuery
 
 	FAsyncPathFindingQuery()
 		: QueryID(INVALID_NAVQUERYID)
+		, Mode(EPathFindingMode::Regular)
 	{ }
 
 	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter);

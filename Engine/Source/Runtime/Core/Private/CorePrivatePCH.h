@@ -163,7 +163,6 @@
 #include "Math/IntRect.h"
 #include "Misc/MemStack.h"
 #include "Containers/LockFreeFixedSizeAllocator.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Modules/ModuleInterface.h"
 #include "Templates/RefCounting.h"
 #include "Async/AsyncWork.h"

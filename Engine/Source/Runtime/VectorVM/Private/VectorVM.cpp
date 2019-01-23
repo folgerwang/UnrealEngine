@@ -1700,8 +1700,8 @@ void VectorVM::Init()
 	static bool Inited = false;
 	if (Inited == false)
 	{
-		g_VectorVMEnumStateObj = FindObject<UEnum>(ANY_PACKAGE, TEXT("EVectorVMOp"), true);
-		g_VectorVMEnumOperandObj = FindObject<UEnum>(ANY_PACKAGE, TEXT("EVectorVMOperandLocation"), true);
+		g_VectorVMEnumStateObj = StaticEnum<EVectorVMOp>();
+		g_VectorVMEnumOperandObj = StaticEnum<EVectorVMOperandLocation>();
 
 		// random noise
 		float TempTable[17][17][17];

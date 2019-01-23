@@ -123,9 +123,9 @@ namespace PayloadDetail
 				if (UncompressedData.Num() > 0)
 				{
 					// Compress the result to send on the wire
-					int32 CompressedSize = FCompression::CompressMemoryBound(COMPRESS_ZLIB, UncompressedData.Num());
+					int32 CompressedSize = FCompression::CompressMemoryBound(NAME_Zlib, UncompressedData.Num());
 					OutCompressedData.SetNumUninitialized(CompressedSize);
-					if (FCompression::CompressMemory(COMPRESS_ZLIB, OutCompressedData.GetData(), CompressedSize, UncompressedData.GetData(), UncompressedData.Num()))
+					if (FCompression::CompressMemory(NAME_Zlib, OutCompressedData.GetData(), CompressedSize, UncompressedData.GetData(), UncompressedData.Num()))
 					{
 						OutUncompressedDataSizeBytes = UncompressedData.Num();
 						OutCompressedData.SetNum(CompressedSize, false);
@@ -162,7 +162,7 @@ namespace PayloadDetail
 				// Uncompress the data
 				TArray<uint8> UncompressedData;
 				UncompressedData.SetNumUninitialized(InUncompressedDataSizeBytes);
-				if (FCompression::UncompressMemory(COMPRESS_ZLIB, UncompressedData.GetData(), UncompressedData.Num(), InCompressedData.GetData(), InCompressedData.Num()))
+				if (FCompression::UncompressMemory(NAME_Zlib, UncompressedData.GetData(), UncompressedData.Num(), InCompressedData.GetData(), InCompressedData.Num()))
 				{
 					// Deserialize the uncompressed data
 					{

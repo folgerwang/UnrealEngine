@@ -459,6 +459,11 @@ extern int      last_is_mbchar( const char * in, int len);
                 /* The line ends with MBCHAR ?  */
 
 /* support.c    */
+
+extern void* (*xm_malloc)(size_t size);
+extern void* (*xm_realloc)(void* ptr, size_t size);
+extern void  (*xm_free)(void* ptr);
+
 extern int      get_unexpandable( int c, int diag);
                 /* Get next unexpandable token  */
 extern void     skip_nl( void);
@@ -490,8 +495,12 @@ extern char *   save_string( const char * text);
 extern FILEINFO *   get_file( const char * name, const char * src_dir
         , const char * fullname, size_t bufsize, int include_opt);
                 /* New FILEINFO initialization  */
+extern void     (xfree)(void* ptr);
+                /* Free allocated memory        */
 extern char *   (xmalloc)( size_t size);
-                /* Get memory or die            */
+extern char *   (xstrdup)(const char* str);
+
+/* Get memory or die            */
 extern char *   (xrealloc)( char * ptr, size_t size);
                 /* Reallocate memory or die     */
 extern LINE_COL *   get_src_location( LINE_COL * p_line_col);

@@ -14,7 +14,7 @@ namespace
 {
 	FString GetActionResultName(int64 Value)
 	{
-		static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPawnActionResult"));
+		static const UEnum* Enum = StaticEnum<EPawnActionResult::Type>();
 		check(Enum);
 		return Enum->GetNameStringByValue(Value);
 	}
@@ -403,7 +403,7 @@ UPawnAction* UPawnAction::CreateActionInstance(UObject* WorldContextObject, TSub
 
 FString UPawnAction::GetStateDescription() const
 {
-	static const UEnum* AbortStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPawnActionAbortState")); 
+	static const UEnum* AbortStateEnum = StaticEnum<EPawnActionAbortState::Type>(); 
 		
 	if (AbortState != EPawnActionAbortState::NotBeingAborted)
 	{
@@ -414,7 +414,7 @@ FString UPawnAction::GetStateDescription() const
 
 FString UPawnAction::GetPriorityName() const
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+	static const UEnum* Enum = StaticEnum<EAIRequestPriority::Type>();
 	check(Enum);
 	return Enum->GetNameStringByValue(GetPriority());
 }
