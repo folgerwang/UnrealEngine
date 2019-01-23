@@ -107,7 +107,7 @@ public:
 	void GetActivities(uint64 Offset, int32 Limit, TArray<FStructOnScope>& OutActivities) const;
 
 	/**
-	 * @Return the delegate that is triggered each time a an activity is about to be added to the ledger.
+	 * @return the delegate that is triggered each time a an activity is about to be added to the ledger.
 	 */
 	FOnAddActivity& OnAddActivity()
 	{
@@ -117,7 +117,7 @@ public:
  	/**
 	 * Update the activity ledger when a client quit or join a session.
 	 * @param ClientStatus - The status of the connection of the client.
-	 * @param UserDisplayName - The display name of the client.
+	 * @param InClientInfo - The client info.
 	 */
 	virtual void RecordClientConectionStatusChanged(EConcertClientStatus ClientStatus, const FConcertClientInfo& InClientInfo);
 
@@ -125,7 +125,7 @@ public:
 	 * Update the activity ledger when a transaction has been applied.
 	 * @param InTransactionFinalizedEvent - The event of the transaction.
 	 * @param TransactionIndex - The index of the transaction in the transaction ledger.
-	 * @param UserDisplayName - The display name of the client.
+	 * @param InClientInfo - The client info.
 	 */
 	virtual void RecordFinalizedTransaction(const FConcertTransactionFinalizedEvent& InTransactionFinalizedEvent, uint64 TransactionIndex, const FConcertClientInfo& InClientInfo);
 
@@ -133,7 +133,7 @@ public:
 	 * Update the activity ledger when a package has been updated.
 	 * @param Revision - The revision of the package.
 	 * @param InPackageInfo - The package info of the updated package.
-	 * @param UserDisplayName - The display name of the client.
+	 * @param InClientInfo - The client info.
 	 */
 	virtual void RecordPackageUpdate(const uint32 Revision, const FConcertPackageInfo& InPackageInfo, const FConcertClientInfo& InClientInfo);
 

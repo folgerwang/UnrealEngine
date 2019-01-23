@@ -3,7 +3,6 @@
 #include "PySlate.h"
 #include "PyGIL.h"
 #include "PyCore.h"
-#include "PyUtil.h"
 #include "PyGenUtil.h"
 #include "PyConversion.h"
 #include "PyWrapperTypeRegistry.h"

@@ -18,6 +18,8 @@ struct FVariantManagerObjectVersion
 
 		CorrectSerializationOfFStringBytes,
 
+		SerializePropertiesAsNames,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

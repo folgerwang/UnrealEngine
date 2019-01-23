@@ -43,6 +43,7 @@ CORE_API FString ExtractPackageNamespace(const FString& InTextNamespace);
  * @return The namespace stripped of any package namespace component.
  */
 CORE_API FString StripPackageNamespace(const FString& InTextNamespace);
+CORE_API void StripPackageNamespaceInline(FString& InOutTextNamespace);
 
 #if USE_STABLE_LOCALIZATION_KEYS
 

@@ -4,6 +4,7 @@
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
+#include "Math/UnrealMathUtility.h"
 #include "MediaSampleQueueDepths.h"
 #include "Misc/ScopeLock.h"
 #include "RenderingThread.h"
@@ -63,46 +64,27 @@ FWmfMediaStreamSink::~FWmfMediaStreamSink()
 /* FWmfMediaStreamSink interface
  *****************************************************************************/
 
-bool FWmfMediaStreamSink::GetNextSample(const TRange<FTimespan>& SampleRange, FWmfMediaStreamSinkSample& OutSample)
+bool FWmfMediaStreamSink::GetNextSample(TComPtr<IMFSample>& OutSample)
 {
-	if (SampleRange.IsEmpty())
-	{
-		return false; // nothing to play
-	}
-
 	FScopeLock Lock(&CriticalSection);
 
-	FQueuedSample QueuedSample;
-
-	while (SampleQueue.Peek(QueuedSample))
+	while (SampleQueue.Num())
 	{
-		if (QueuedSample.MediaType.IsValid())
+		FQueuedSample QueuedSample = SampleQueue.Pop();
+
+		if (QueuedSample.Sample.IsValid())
 		{
-			check(QueuedSample.Sample.IsValid());
-
-			if (!SampleRange.Contains(FTimespan(QueuedSample.Time)))
-			{
-				return false; // no new sample needed
-			}
-
-			check(SampleQueue.Pop());
-
-			OutSample.MediaType = QueuedSample.MediaType;
-			OutSample.Sample = QueuedSample.Sample;
-
+			OutSample = QueuedSample.Sample;
 			return true;
 		}
-
-		SampleQueue.Pop();
-
-		// process pending marker
-		QueueEvent(MEStreamSinkMarker, GUID_NULL, S_OK, QueuedSample.MarkerContext);
-		PropVariantClear(QueuedSample.MarkerContext);
-		delete QueuedSample.MarkerContext;
-
-		UE_LOG(LogWmfMedia, Verbose, TEXT("StreamSink %p: Processed marker (%s)"), this, *WmfMedia::MarkerTypeToString(QueuedSample.MarkerType));
-
-		continue;
+		else
+		{
+			// process pending marker
+			QueueEvent(MEStreamSinkMarker, GUID_NULL, S_OK, QueuedSample.MarkerContext);
+			PropVariantClear(QueuedSample.MarkerContext);
+			delete QueuedSample.MarkerContext;
+			UE_LOG(LogWmfMedia, Verbose, TEXT("StreamSink %p: Processed marker (%s)"), this, *WmfMedia::MarkerTypeToString(QueuedSample.MarkerType));
+		}
 	}
 
 	return false;
@@ -543,11 +525,10 @@ STDMETHODIMP FWmfMediaStreamSink::Flush()
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("StreamSink %p: Flushing samples & markers"), this);
 
-	FQueuedSample QueuedSample;
-
-	while (SampleQueue.Dequeue(QueuedSample))
+	while (SampleQueue.Num())
 	{
-		if (QueuedSample.MediaType.IsValid())
+		FQueuedSample QueuedSample = SampleQueue.Pop();
+		if (QueuedSample.Sample.IsValid())
 		{
 			continue;
 		}
@@ -647,7 +628,7 @@ STDMETHODIMP FWmfMediaStreamSink::PlaceMarker(MFSTREAMSINK_MARKER_TYPE eMarkerTy
 		}
 	}
 
-	SampleQueue.Enqueue({ eMarkerType, MarkerContext, NULL, NULL, 0 });
+	SampleQueue.Add({ eMarkerType, MarkerContext, nullptr });
 
 	return S_OK;
 }
@@ -687,18 +668,46 @@ STDMETHODIMP FWmfMediaStreamSink::ProcessSample(__RPC__in_opt IMFSample* pSample
 		}
 	}
 
+	SampleQueue.Add({ MFSTREAMSINK_MARKER_DEFAULT, NULL, pSample });
+
 	// finish pre-rolling
 	if (Prerolling)
 	{
-		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Preroll complete"), this);
-		Prerolling = false;
-
-		ScheduleWaitForNextSample(pSample);
-		return QueueEvent(MEStreamSinkPrerolled, GUID_NULL, S_OK, NULL);
+		if (IsVideoSampleQueueFull())
+		{
+			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Preroll complete, %d samples queued"), this, VideoSampleQueue->Num());
+			Prerolling = false;
+			return QueueEvent(MEStreamSinkPrerolled, GUID_NULL, S_OK, NULL);
+		}
+		else
+		{
+			TComPtr<IMFSample> NextSample;
+			if (GetNextSample(NextSample))
+			{
+				CopyTextureAndEnqueueSample(NextSample);
+				return QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
+			}
+			else
+			{
+				UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Preroll complete, %d samples queued"), this, VideoSampleQueue->Num());
+				Prerolling = false;
+				return QueueEvent(MEStreamSinkPrerolled, GUID_NULL, S_OK, NULL);
+			}
+		}
 	}
-
-	ScheduleWaitForNextSample(pSample);
-	return S_OK;
+	else
+	{
+		TComPtr<IMFSample> NextSample;
+		if (GetNextSample(NextSample))
+		{
+			ScheduleWaitForNextSample(NextSample);
+		}
+		else
+		{
+			QueueEvent(MEStreamSinkRequestSample, GUID_NULL, S_OK, NULL);
+		}
+		return S_OK;
+	}
 }
 
 
@@ -746,10 +755,22 @@ STDMETHODIMP_(ULONG) FWmfMediaStreamSink::Release()
 	return CurrentRefCount;
 }
 
+
+bool FWmfMediaStreamSink::IsVideoSampleQueueFull() const
+{
+	const int32 NumberOfQueueFrames = 3;
+	const int32 MinNumberOfQueueFrames = FMath::Min(NumberOfQueueFrames, FMediaPlayerQueueDepths::MaxVideoSinkDepth);
+	return (VideoSampleQueue->Num() >= MinNumberOfQueueFrames);
+}
+
+
 void FWmfMediaStreamSink::CopyTextureAndEnqueueSample(IMFSample* pSample)
 {
-	if (VideoSampleQueue->Num() >= FMediaPlayerQueueDepths::MaxVideoSinkDepth)
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("Queue Size: %d"), VideoSampleQueue->Num());
+
+	if (IsVideoSampleQueueFull())
 	{
+		UE_LOG(LogWmfMedia, VeryVerbose, TEXT("Queue is full, dropping samples"));
 		return;
 	}
 
@@ -828,20 +849,22 @@ void FWmfMediaStreamSink::CopyTextureAndEnqueueSample(IMFSample* pSample)
 
 			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopySubresourceRegion() ViewIndex:%d"), dwViewIndex);
 
-			Owner->GetImmediateContext()->CopySubresourceRegion(
-				SharedTexture,
-				0,
-				0,
-				0,
-				0,
-				pTexture2D,
-				dwViewIndex,
-				&SrcBox);
+			TComPtr<IDXGIKeyedMutex> KeyedMutex;
+			SharedTexture->QueryInterface(_uuidof(IDXGIKeyedMutex), (void**)&KeyedMutex);
 
-			// Make sure texture is updated before giving access to the sample in the rendering thread.
-			Owner->GetImmediateContext()->Flush();
+			if (KeyedMutex)
+			{
+				// No wait on acquire since sample is new and key is 0.
+				if (KeyedMutex->AcquireSync(0, 0) == S_OK)
+				{
+					Owner->GetImmediateContext()->CopySubresourceRegion(SharedTexture, 0, 0, 0, 0, pTexture2D, dwViewIndex, &SrcBox);
 
-			VideoSampleQueue->Enqueue(TextureSample);
+					// Mark texture as updated with key of 1
+					// Sample will be read in FWmfMediaHardwareVideoDecodingParameters::ConvertTextureFormat_RenderThread
+					KeyedMutex->ReleaseSync(1);
+					VideoSampleQueue->Enqueue(TextureSample);
+				}
+			}
 		}
 	}
 	else
@@ -867,13 +890,16 @@ void FWmfMediaStreamSink::CopyTextureAndEnqueueSample(IMFSample* pSample)
 	}
 }
 
+
 STDMETHODIMP FWmfMediaStreamSink::Invoke(IMFAsyncResult* pAsyncResult)
 {
 	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p:Invoke"), this);
 	FScopeLock Lock(&CriticalSection);
 
-	if (NextSample.IsValid())
+	TComPtr<IMFSample> NextSample;
+	if (GetNextSample(NextSample))
 	{
+		// process next samples
 		ScheduleWaitForNextSample(NextSample);
 		return S_OK;
 	}
@@ -884,10 +910,12 @@ STDMETHODIMP FWmfMediaStreamSink::Invoke(IMFAsyncResult* pAsyncResult)
 	}
 }
 
+
 STDMETHODIMP FWmfMediaStreamSink::GetParameters(DWORD* pdwFlags, DWORD* pdwQueue)
 {
 	return E_NOTIMPL;
 }
+
 
 void FWmfMediaStreamSink::SetPresentationClock(IMFPresentationClock* InPresentationClock)
 {
@@ -895,10 +923,12 @@ void FWmfMediaStreamSink::SetPresentationClock(IMFPresentationClock* InPresentat
 	PresentationClock = InPresentationClock;
 }
 
+
 void FWmfMediaStreamSink::SetClockRate(float InClockRate)
 {
 	ClockRate = InClockRate;
 }
+
 
 void FWmfMediaStreamSink::SetMediaSamplePoolAndQueue(
 	FWmfMediaHardwareVideoDecodingTextureSamplePool* InVideoSamplePool,
@@ -909,73 +939,19 @@ void FWmfMediaStreamSink::SetMediaSamplePoolAndQueue(
 	VideoSampleQueue = InVideoSampleQueue;
 }
 
+
 void FWmfMediaStreamSink::ScheduleWaitForNextSample(IMFSample* pSample)
 {
 	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("ScheduleWaitForNextSample Start"));
 
-	LONGLONG SampleTime = 0;
-	LONGLONG PresentationTime = 0;
-	MFTIME   SystemTime = 0;
-
-	HRESULT Result = pSample->GetSampleTime(&SampleTime);
-
-	if (FAILED(Result))
+	if (IsVideoSampleQueueFull())
 	{
-		return;
-	}
-
-	if (PresentationClock == nullptr)
-	{
-		return;
-	}
-
-	Result = PresentationClock->GetCorrelatedTime(0, &PresentationTime, &SystemTime);
-
-	LONGLONG DeltaTime = SampleTime - PresentationTime;
-
-	if (ClockRate < 0)
-	{
-		// Support reverse play
-		DeltaTime = -DeltaTime;
-	}
-
-	// Get frame duration
-	LONGLONG Duration = 0;
-	pSample->GetSampleDuration(&Duration);
-	
-	// scale by playing speed
-	if (ClockRate != 0.0f)
-	{
-		Duration /= FMath::Abs(ClockRate);
-	}
-
-	// threshold is between 2 samples
-	Duration = Duration / 2;
-
-	if (DeltaTime < Duration)
-	{
-		if (WaitTimer != nullptr)
-		{
-			// Too slow or on time, show frame
-			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopyTextureAndEnqueueSample Start"));
-			CopyTextureAndEnqueueSample(pSample);
-			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("CopyTextureAndEnqueueSample End"));
-			NextSample = nullptr;
-
-			FTimespan SampleTimeSpan = FTimespan::FromMicroseconds(SampleTime / 10);
-			FTimespan PresentationTimeSpan = FTimespan::FromMicroseconds(PresentationTime / 10);
-			FTimespan DeltaTimespan = FTimespan::FromMicroseconds(DeltaTime / 10);
-
-			UE_LOG(LogWmfMedia, VeryVerbose, TEXT("Sample Time:%s Presentation Time:%s Delta:%s"),
-				*SampleTimeSpan.ToString(TEXT("%h:%m:%s.%t")),
-				*PresentationTimeSpan.ToString(TEXT("%h:%m:%s.%t")),
-				*DeltaTimespan.ToString(TEXT("%h:%m:%s.%t")));
-		}
+		// Return sample to internal queue
+		SampleQueue.Push({ MFSTREAMSINK_MARKER_DEFAULT, NULL, pSample });
 	}
 	else
 	{
-		// Too fast, wait a little
-		NextSample = pSample;
+		CopyTextureAndEnqueueSample(pSample);
 	}
 
 	if (WaitTimer != nullptr)
@@ -991,7 +967,7 @@ void FWmfMediaStreamSink::ScheduleWaitForNextSample(IMFSample* pSample)
 		}
 
 		TComPtr<IMFAsyncResult> pAsyncResult;
-		Result = MFCreateAsyncResult(nullptr, this, nullptr, &pAsyncResult);
+		HRESULT Result = MFCreateAsyncResult(nullptr, this, nullptr, &pAsyncResult);
 		if (SUCCEEDED(Result))
 		{
 			MFPutWaitingWorkItem(WaitTimer, 0, pAsyncResult, nullptr);
@@ -1016,4 +992,3 @@ void FWmfMediaStreamSink::ScheduleWaitForNextSample(IMFSample* pSample)
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #endif
-

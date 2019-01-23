@@ -39,13 +39,21 @@
 
 static const FName ConcertHistoryTabName(TEXT("ConcertHistory"));
 
+//-----------------------------------------------------------------------------
+// Widgets to display icons on top of the content browser assets to show when
+// an asset is locked or modified by somebody else.
+//-----------------------------------------------------------------------------
+
 /**
- * Widget to represent Concert workspace state indicators
+ * Controls the appearance of the Concert workspace lock state icon. The lock state icon is displayed
+ * on an asset in the editor content browser seen when a Concert user saves an assets or explicitly locks
+ * it. The color of the lock depends who owns the lock. The lock can be held by the local client or by another
+ * client connected to the Concert session.
  */
-class SConcertWorkspaceStateIndicators : public SCompoundWidget
+class SConcertWorkspaceLockStateIndicator : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SConcertWorkspaceStateIndicators) {}
+	SLATE_BEGIN_ARGS(SConcertWorkspaceLockStateIndicator) {}
 		SLATE_ARGUMENT(FName, AssetPath)
 	SLATE_END_ARGS();
 
@@ -57,11 +65,12 @@ public:
 	{
 		WorkspaceFrontend = MoveTemp(InWorkspaceFrontend);
 		AssetPath = InArgs._AssetPath;
+		SetVisibility(MakeAttributeSP(this, &SConcertWorkspaceLockStateIndicator::GetVisibility));
 
 		ChildSlot
 		[
 			SNew(SImage)
-				.Image(this, &SConcertWorkspaceStateIndicators::GetLockImage)
+			.Image(this, &SConcertWorkspaceLockStateIndicator::GetImageBrush)
 		];
 	}
 
@@ -76,45 +85,51 @@ public:
 	}
 
 private:
-	/** Gets the brush for the lock indicator image */
-	const FSlateBrush* GetLockImage() const
+	EVisibility GetVisibility()
+	{
+		// If the asset is locked, make the icon visible, collapsed/hidden otherwise.
+		return WorkspaceFrontend->GetResourceLockId(AssetPath).IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	const FSlateBrush* GetImageBrush() const
 	{
 		FGuid LockId = WorkspaceFrontend->GetResourceLockId(AssetPath);
 		if (!LockId.IsValid())
 		{
-			return nullptr;
+			return nullptr; // The asset is not locked, don't show any icon.
 		}
 		else if (LockId == WorkspaceFrontend->GetWorkspaceLockId())
 		{
-			return MyLockBrush;
+			return MyLockBrush; // The asset is locked by this workspace user.
 		}
 		else
 		{
-			return OtherLockBrush;
+			return OtherLockBrush; // The asset is locked by another user.
 		}
 	}
 
-	/* Indicator brushes */
+	// Brushes used to render the lock icon.
 	static const FSlateBrush* MyLockBrush;
 	static const FSlateBrush* OtherLockBrush;
 
 	/** Asset path for this indicator widget.*/
 	FName AssetPath;
 
-	/** Holds pointer to the workspace frontend. */
+	/** Holds pointer to the workspace front-end. */
 	TSharedPtr<FConcertWorkspaceUI> WorkspaceFrontend;
 };
 
-const FSlateBrush* SConcertWorkspaceStateIndicators::MyLockBrush = nullptr;
-const FSlateBrush* SConcertWorkspaceStateIndicators::OtherLockBrush = nullptr;
+const FSlateBrush* SConcertWorkspaceLockStateIndicator::MyLockBrush = nullptr;
+const FSlateBrush* SConcertWorkspaceLockStateIndicator::OtherLockBrush = nullptr;
 
 /**
- * Widget to represent Concert workspace state tooltip
+ * Displays a tooltip when moving the mouse over the 'lock' icon displayed on asset locked
+ * through Concert.
  */
-class SConcertWorkspaceStateTooltip : public SCompoundWidget
+class SConcertWorkspaceLockStateTooltip : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SConcertWorkspaceStateTooltip) {}
+	SLATE_BEGIN_ARGS(SConcertWorkspaceLockStateTooltip) {}
 		SLATE_ARGUMENT(FName, AssetPath)
 	SLATE_END_ARGS();
 
@@ -126,36 +141,36 @@ public:
 	{
 		WorkspaceFrontend = MoveTemp(InWorkspaceFrontend);
 		AssetPath = InArgs._AssetPath;
+		SetVisibility(MakeAttributeSP(this, &SConcertWorkspaceLockStateTooltip::GetTooltipVisibility));
 
 		ChildSlot
 		[
 			SNew(STextBlock)
-			.Visibility(this, &SConcertWorkspaceStateTooltip::GetLockTooltipVisibility)
-			.Text(this, &SConcertWorkspaceStateTooltip::GetLockTooltip)
-			.ColorAndOpacity(this, &SConcertWorkspaceStateTooltip::GetLockColor)
+			.Text(this, &SConcertWorkspaceLockStateTooltip::GetTooltipText)
+			.ColorAndOpacity(this, &SConcertWorkspaceLockStateTooltip::GetLockColor)
 		];
 	}
 
 private:
-	EVisibility GetLockTooltipVisibility() const
+	EVisibility GetTooltipVisibility() const
 	{
-		return !WorkspaceFrontend->GetResourceLockId(AssetPath).IsValid() ? EVisibility::Collapsed : EVisibility::Visible;
+		return WorkspaceFrontend->GetResourceLockId(AssetPath).IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
-	FText GetLockTooltip() const
+	FText GetTooltipText() const
 	{
 		FGuid LockId = WorkspaceFrontend->GetResourceLockId(AssetPath);
 		if (!LockId.IsValid())
 		{
-			return FText::GetEmpty();
+			return FText::GetEmpty(); // Not locked.
 		}
 		else if (LockId == WorkspaceFrontend->GetWorkspaceLockId())
 		{
-			return LOCTEXT("MyLock_Tooltip", "Locked by you");
+			return LOCTEXT("MyLock_Tooltip", "Locked by you"); // Locked by this client.
 		}
 		else
 		{
-			return FText::Format(LOCTEXT("OtherLock_Tooltip", "Locked by: {0}"), WorkspaceFrontend->GetSessionClientUser(LockId));
+			return FText::Format(LOCTEXT("OtherLock_Tooltip", "Locked by: {0}"), WorkspaceFrontend->GetUserDescriptionText(LockId)); // Locked by another client.
 		}
 	}
 
@@ -164,38 +179,173 @@ private:
 		FGuid LockId = WorkspaceFrontend->GetResourceLockId(AssetPath);
 		if (!LockId.IsValid())
 		{
-			return FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			return FLinearColor(); // Not locked.
 		}
 		else if (LockId == WorkspaceFrontend->GetWorkspaceLockId())
 		{
-			return FLinearColor(1.0f, 0.5f, 0.1f, 1.0f);
+			return FConcertFrontendStyle::Get()->GetColor("Concert.Color.LocalUser"); // Locked by this client.
 		}
 		else
 		{
-			return FLinearColor(0.1f, 0.5f, 1.f, 1.f);
+			return FConcertFrontendStyle::Get()->GetColor("Concert.Color.OtherUser"); // Locked by another client.
 		}
-
 	}
 
 	/** Asset path for this indicator widget.*/
 	FName AssetPath;
 
-	/** Holds pointer to the workspace frontend. */
+	/** Holds pointer to the workspace front-end. */
 	TSharedPtr<FConcertWorkspaceUI> WorkspaceFrontend;
 };
+
+/**
+ * Controls the appearance of the workspace 'modified by other' icon. The icon is displayed on an
+ * asset in the editor content browser when the a client different from this workspace client has
+ * live transaction(s) on the asset. The indicator is cleared when all live transactions from other
+ * clients are cleared, usually when the asset is saved to disk.
+ */
+class SConcertWorkspaceModifiedByOtherIndicator : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SConcertWorkspaceModifiedByOtherIndicator) {}
+		SLATE_ARGUMENT(FName, AssetPath)
+	SLATE_END_ARGS();
+
+	/**
+	 * Construct this widget.
+	 * @param InArgs Slate arguments
+	 */
+	void Construct(const FArguments& InArgs, TSharedPtr<FConcertWorkspaceUI> InWorkspaceFrontend)
+	{
+		WorkspaceFrontend = MoveTemp(InWorkspaceFrontend);
+		AssetPath = InArgs._AssetPath;
+		SetVisibility(MakeAttributeSP(this, &SConcertWorkspaceModifiedByOtherIndicator::GetVisibility));
+
+		ChildSlot
+		[
+			SNew(SImage)
+			.Image(this, &SConcertWorkspaceModifiedByOtherIndicator::GetImageBrush)
+		];
+	}
+
+	/** Caches the indicator brushes for access. */
+	static void CacheIndicatorBrush()
+	{
+		if (ModifiedByOtherBrush == nullptr)
+		{
+			ModifiedByOtherBrush = FConcertFrontendStyle::Get()->GetBrush(TEXT("Concert.ModifiedByOther"));
+		}
+	}
+
+private:
+	EVisibility GetVisibility()
+	{
+		return WorkspaceFrontend->IsAssetModifiedByOtherClients(AssetPath) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	const FSlateBrush* GetImageBrush() const
+	{
+		return WorkspaceFrontend->IsAssetModifiedByOtherClients(AssetPath) ? ModifiedByOtherBrush : nullptr;
+	}
+
+	/* Brush indicating that the asset has been modified by another user. */
+	static const FSlateBrush* ModifiedByOtherBrush;
+
+	/** Asset path for this indicator widget.*/
+	FName AssetPath;
+
+	/** Holds pointer to the workspace front-end. */
+	TSharedPtr<FConcertWorkspaceUI> WorkspaceFrontend;
+};
+
+const FSlateBrush* SConcertWorkspaceModifiedByOtherIndicator::ModifiedByOtherBrush = nullptr;
+
+/**
+ * Displays a tooltip when moving the mouse over the 'modified by...' icon displayed on asset
+ * modified, through Concert, by any client other than the client workspace.
+ */
+class SConcertWorkspaceModifiedByOtherTooltip : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SConcertWorkspaceModifiedByOtherTooltip) {}
+		SLATE_ARGUMENT(FName, AssetPath)
+	SLATE_END_ARGS();
+
+	/**
+	 * Construct this widget.
+	 * @param InArgs Slate arguments
+	 */
+	void Construct(const FArguments& InArgs, TSharedPtr<FConcertWorkspaceUI> InWorkspaceFrontend)
+	{
+		WorkspaceFrontend = MoveTemp(InWorkspaceFrontend);
+		AssetPath = InArgs._AssetPath;
+		SetVisibility(MakeAttributeSP(this, &SConcertWorkspaceModifiedByOtherTooltip::GetVisibility));
+
+		ChildSlot
+		[
+			SNew(STextBlock)
+			.Text(this, &SConcertWorkspaceModifiedByOtherTooltip::GetTooltip)
+			.ColorAndOpacity(this, &SConcertWorkspaceModifiedByOtherTooltip::GetToolTipColor)
+		];
+	}
+
+private:
+	EVisibility GetVisibility() const
+	{
+		return WorkspaceFrontend->IsAssetModifiedByOtherClients(AssetPath) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	FText GetTooltip() const
+	{
+		// NOTE: We expect this function to be called only when visible, so we already know the resource was modified by someone.
+		TArray<FConcertClientInfo> ModifiedBy;
+		int ModifyByOtherCount = 0;
+		WorkspaceFrontend->IsAssetModifiedByOtherClients(AssetPath, &ModifyByOtherCount, &ModifiedBy, 1); // Read up to 1 user
+		return ModifyByOtherCount == 1 ?
+			FText::Format(LOCTEXT("ConcertModifiedByUser_Tooltip", "Modified by {0}"), WorkspaceFrontend->GetUserDescriptionText(ModifiedBy[0])) :
+			FText::Format(LOCTEXT("ConcertModifiedByNumUsers_Tooltip", "Modified by {0} other users"), ModifyByOtherCount);
+	}
+
+	FSlateColor GetToolTipColor() const
+	{
+		return WorkspaceFrontend->IsAssetModifiedByOtherClients(AssetPath) ? FConcertFrontendStyle::Get()->GetColor("Concert.Color.OtherUser") : FLinearColor();
+	}
+
+	/** Asset path for this indicator widget.*/
+	FName AssetPath;
+
+	/** Holds pointer to the workspace front-end. */
+	TSharedPtr<FConcertWorkspaceUI> WorkspaceFrontend;
+};
+
+//------------------------------------------------------------------------------
+// FConcertWorkspaceUI implementation.
+//------------------------------------------------------------------------------
 
 FConcertWorkspaceUI::FConcertWorkspaceUI()
 {
 	// Extend ContentBrowser Asset Icon
 	if (FContentBrowserModule* ContentBrowserModule = FModuleManager::Get().GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser")))
 	{
-		SConcertWorkspaceStateIndicators::CacheIndicatorBrushes();
+		// Caches the icon brushes if not already cached.
+		SConcertWorkspaceLockStateIndicator::CacheIndicatorBrushes();
+		SConcertWorkspaceModifiedByOtherIndicator::CacheIndicatorBrush();
 
-		ContentBrowserAssetStateIconDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators()
-			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewExtraStateIcon)).GetHandle();
+		// The 'lock' state icon displayed on top of the asset in the editor content browser.
+		ContentBrowserAssetLockStateIconDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators()
+			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewLockStateIcons)).GetHandle();
 
-		ContentBrowserAssetStateTooltipDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators()
-			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewExtraStateTooltip)).GetHandle();
+		// The 'Lock' state tooltip displayed when hovering the corresponding icon.
+		ContentBrowserAssetLockStateTooltipDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators()
+			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewLockStateTooltip)).GetHandle();
+
+		// The 'Modified by other' icon displayed on top of the asset in the editor content browser.
+		ContentBrowserAssetModifiedByOtherIconDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators()
+			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewModifiedByOtherIcon)).GetHandle();
+
+		// The 'Modified by...' tooltip displayed when hovering the 'Modified by other' icon.
+		ContentBrowserAssetModifiedByOtherTooltipDelegateHandle = ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators()
+			.Add_GetRef(FOnGenerateAssetViewExtraStateIndicators::CreateRaw(this, &FConcertWorkspaceUI::OnGenerateAssetViewModifiedByOtherTooltip)).GetHandle();
 	}
 
 	AssetHistoryLayout = FTabManager::NewLayout("ConcertAssetHistory_Layout")
@@ -215,13 +365,19 @@ FConcertWorkspaceUI::~FConcertWorkspaceUI()
 {
 	// Remove Content Browser Asset Icon extensions
 	FContentBrowserModule* ContentBrowserModule = FModuleManager::Get().GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser"));
-	if (ContentBrowserAssetStateIconDelegateHandle.IsValid() && ContentBrowserModule)
+	if (ContentBrowserAssetLockStateIconDelegateHandle.IsValid() && ContentBrowserModule)
 	{
-		ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetStateIconDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
-		ContentBrowserAssetStateIconDelegateHandle.Reset();
+		ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetLockStateIconDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
+		ContentBrowserAssetLockStateIconDelegateHandle.Reset();
 
-		ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetStateTooltipDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
-		ContentBrowserAssetStateTooltipDelegateHandle.Reset();
+		ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetLockStateTooltipDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
+		ContentBrowserAssetLockStateTooltipDelegateHandle.Reset();
+
+		ContentBrowserModule->GetAllAssetViewExtraStateIconGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetModifiedByOtherIconDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
+		ContentBrowserAssetModifiedByOtherIconDelegateHandle.Reset();
+
+		ContentBrowserModule->GetAllAssetViewExtraStateTooltipGenerators().RemoveAll([DelegateHandle = ContentBrowserAssetModifiedByOtherTooltipDelegateHandle](const FOnGenerateAssetViewExtraStateIndicators& Delegate) { return Delegate.GetHandle() == DelegateHandle; });
+		ContentBrowserAssetModifiedByOtherTooltipDelegateHandle.Reset();
 	}
 }
 
@@ -387,15 +543,25 @@ bool FConcertWorkspaceUI::SubmitChangelist(const FConcertPersistCommand& Persist
 	return bCheckinSuccess;
 }
 
-FText FConcertWorkspaceUI::GetSessionClientUser(const FGuid& ClientId) const
+FText FConcertWorkspaceUI::GetUserDescriptionText(const FGuid& ClientId) const
 {
-	FConcertSessionClientInfo ClientInfo;
 	TSharedPtr<IConcertClientWorkspace> ClientWorkspacePin = ClientWorkspace.Pin();
-	if (ClientWorkspacePin.IsValid() && ClientWorkspacePin->GetSession()->FindSessionClient(ClientId, ClientInfo))
+	if (ClientWorkspacePin)
 	{
-		return FText::Format(LOCTEXT("ConcertOtherLockTooltip", "'{0}'({1}) on {2}"), FText::FromString(ClientInfo.ClientInfo.DisplayName), FText::FromString(ClientInfo.ClientInfo.UserName), FText::FromString(ClientInfo.ClientInfo.DeviceName));
+		FConcertSessionClientInfo ClientSessionInfo;
+		if (ClientWorkspacePin->GetSession()->FindSessionClient(ClientId, ClientSessionInfo))
+		{
+			return GetUserDescriptionText(ClientSessionInfo.ClientInfo);
+		}
 	}
 	return FText();
+}
+
+FText FConcertWorkspaceUI::GetUserDescriptionText(const FConcertClientInfo& ClientInfo) const
+{
+	return (ClientInfo.DisplayName != ClientInfo.UserName) ?
+		FText::Format(LOCTEXT("ConcertUserDisplayNameOnDevice", "'{0}' ({1}) on {2}"), FText::FromString(ClientInfo.DisplayName), FText::FromString(ClientInfo.UserName), FText::FromString(ClientInfo.DeviceName)) :
+		FText::Format(LOCTEXT("ConcertUserNameOnDevice", "'{0}' on {1}"), FText::FromString(ClientInfo.DisplayName), FText::FromString(ClientInfo.DeviceName));
 }
 
 FGuid FConcertWorkspaceUI::GetWorkspaceLockId() const
@@ -456,6 +622,16 @@ void FConcertWorkspaceUI::ExecuteViewHistory(TArray<FName> InResourceNames)
 	{
 		FGlobalTabmanager::Get()->InsertNewDocumentTab(ConcertHistoryTabName, FTabManager::ESearchPreference::PreferLiveTab, CreateHistoryTab(ResourceName));
 	}
+}
+
+bool FConcertWorkspaceUI::IsAssetModifiedByOtherClients(const FName& AssetName, int* OutOtherClientsWithModifNum, TArray<FConcertClientInfo>* OutOtherClientsWithModifInfo, int OtherClientsWithModifMaxFetchNum) const
+{
+	if (TSharedPtr<IConcertClientWorkspace> ClientWorkspacePin = ClientWorkspace.Pin())
+	{
+		return ClientWorkspacePin->IsAssetModifiedByOtherClients(AssetName, OutOtherClientsWithModifNum, OutOtherClientsWithModifInfo, OtherClientsWithModifMaxFetchNum);
+	}
+
+	return false;
 }
 
 TSharedRef<FExtender> FConcertWorkspaceUI::OnExtendContentBrowserAssetSelectionMenu(const TArray<FAssetData>& SelectedAssets)
@@ -551,15 +727,26 @@ TSharedRef<FExtender> FConcertWorkspaceUI::OnExtendLevelEditorSourceControlMenu(
 	return Extender;
 }
 
-TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewExtraStateIcon(const FAssetData& AssetData)
-{
-	return SNew(SConcertWorkspaceStateIndicators, AsShared())
+TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewLockStateIcons(const FAssetData& AssetData)
+{	return SNew(SConcertWorkspaceLockStateIndicator, AsShared())
 		.AssetPath(AssetData.PackageName);
 }
 
-TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewExtraStateTooltip(const FAssetData& AssetData)
+TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewLockStateTooltip(const FAssetData& AssetData)
 {
-	return SNew(SConcertWorkspaceStateTooltip, AsShared())
+	return SNew(SConcertWorkspaceLockStateTooltip, AsShared())
+		.AssetPath(AssetData.PackageName);
+}
+
+TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewModifiedByOtherIcon(const FAssetData& AssetData)
+{
+	return SNew(SConcertWorkspaceModifiedByOtherIndicator, AsShared())
+		.AssetPath(AssetData.PackageName);
+}
+
+TSharedRef<SWidget> FConcertWorkspaceUI::OnGenerateAssetViewModifiedByOtherTooltip(const FAssetData& AssetData)
+{
+	return SNew(SConcertWorkspaceModifiedByOtherTooltip, AsShared())
 		.AssetPath(AssetData.PackageName);
 }
 

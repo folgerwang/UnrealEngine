@@ -230,11 +230,41 @@ FMovieScene3DTransformTemplateData::FMovieScene3DTransformTemplateData(const UMo
 	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= *FloatChannels[4];
 	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= *FloatChannels[5];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= *FloatChannels[6];
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= *FloatChannels[7];
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= *FloatChannels[8];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))
+	{
+		ScaleCurve[0] = *FloatChannels[6];
+	}
+	else
+	{
+		ScaleCurve[0].SetDefault(1.0f);
+	}
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= *FloatChannels[9];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))
+	{
+		ScaleCurve[1] = *FloatChannels[7];
+	}
+	else
+	{
+		ScaleCurve[1].SetDefault(1.0f);
+	}
+
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))
+	{
+		ScaleCurve[2] = *FloatChannels[8];
+	}
+	else
+	{
+		ScaleCurve[2].SetDefault(1.0f);
+	}
+
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))
+	{
+		ManualWeight = *FloatChannels[9];
+	}
+	else
+	{
+		ManualWeight.SetDefault(1.0f);
+	}
 }
 
 MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(FFrameTime Time) const

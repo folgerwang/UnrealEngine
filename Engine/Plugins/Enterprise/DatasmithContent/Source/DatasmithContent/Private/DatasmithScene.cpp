@@ -104,22 +104,6 @@ void UDatasmithScene::Serialize( FArchive& Archive )
 		check(AssetImportData->StaticClass()->IsChildOf(UDatasmithSceneImportData::StaticClass()));
 
 		UDatasmithSceneImportData* SceneImportData = Cast<UDatasmithSceneImportData>(AssetImportData);
-
-		FDatasmithSceneInput SceneInput;
-
-		SceneInput.GUID = FGuid::NewGuid();
-
-		SceneInput.Options = NewObject<UDatasmithImportOptions>(this);
-
-		SceneInput.Options->FilePath = SceneImportData->GetFirstFilename();
-		SceneInput.Options->BaseOptions = SceneImportData->BaseOptions;
-
-		if (AssetImportData->IsA(UDatasmithCADImportSceneData::StaticClass()))
-		{
-			SceneInput.Options->TessellationOptions = Cast<UDatasmithCADImportSceneData>(AssetImportData)->TessellationOptions;
-		}
-
-		Imports.Add(MoveTemp(SceneInput));
 	}
 #endif // #if WITH_EDITORONLY_DATA
 }

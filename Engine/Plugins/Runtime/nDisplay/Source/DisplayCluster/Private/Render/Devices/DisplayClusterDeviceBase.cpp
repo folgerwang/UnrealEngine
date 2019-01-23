@@ -198,33 +198,11 @@ EStereoscopicPass FDisplayClusterDeviceBase::DecodeStereoscopicPass(const enum E
 	return DecodedPass;
 }
 
-int FDisplayClusterDeviceBase::DecodeViewIndex(const enum EStereoscopicPass StereoPassType) const
-{
-	int DecodedViewIndex = 0;
-
-	switch (StereoPassType)
-	{
-	case EStereoscopicPass::eSSP_LEFT_EYE:
-		DecodedViewIndex = 0;
-		break;
-
-	case EStereoscopicPass::eSSP_RIGHT_EYE:
-		DecodedViewIndex = 1;
-		break;
-
-	default:
-		DecodedViewIndex = (int(StereoPassType) - int(EStereoscopicPass::eSSP_MONOSCOPIC_EYE) + 1);
-		break;
-	}
-
-	return DecodedViewIndex;
-}
-
 int FDisplayClusterDeviceBase::DecodeViewportIndex(const enum EStereoscopicPass StereoPassType) const
 {
 	check(ViewsAmountPerViewport > 0);
 
-	const int DecodedViewIndex = DecodeViewIndex(StereoPassType);
+	const int DecodedViewIndex = GetViewIndexForPass(StereoPassType);
 	const int DecodedViewportIndex = DecodedViewIndex / ViewsAmountPerViewport;
 
 	return DecodedViewportIndex;
@@ -422,6 +400,28 @@ EStereoscopicPass FDisplayClusterDeviceBase::GetViewPassForIndex(bool bStereoReq
 
 	// This is a bit tricky but it works
 	return (EStereoscopicPass)CurrentPass;
+}
+
+uint32 FDisplayClusterDeviceBase::GetViewIndexForPass(EStereoscopicPass StereoPassType) const
+{
+	uint32 DecodedViewIndex = 0;
+
+	switch (StereoPassType)
+	{
+	case EStereoscopicPass::eSSP_LEFT_EYE:
+		DecodedViewIndex = 0;
+		break;
+
+	case EStereoscopicPass::eSSP_RIGHT_EYE:
+		DecodedViewIndex = 1;
+		break;
+
+	default:
+		DecodedViewIndex = (int(StereoPassType) - int(EStereoscopicPass::eSSP_MONOSCOPIC_EYE) + 1);
+		break;
+	}
+
+	return DecodedViewIndex;
 }
 
 void FDisplayClusterDeviceBase::UpdateViewport(bool bUseSeparateRenderTarget, const class FViewport& Viewport, class SViewport* ViewportWidget)

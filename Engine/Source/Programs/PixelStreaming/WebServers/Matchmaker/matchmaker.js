@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-const httpPort = 90;
-const matchmakerPort = 9999;
+var httpPort = 90;
+var matchmakerPort = 9999;
 
 const argv = require('yargs').argv;
 

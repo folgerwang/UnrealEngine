@@ -12,7 +12,7 @@
  * VRPN button device data holder. Responsible for data serialization and deserialization.
  */
 class FDisplayClusterVrpnButtonInputDataHolder
-	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnButton>
+	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnButton>
 {
 public:
 	FDisplayClusterVrpnButtonInputDataHolder(const FDisplayClusterConfigInput& config);

@@ -420,9 +420,9 @@ public:
 
 	/**
 	 * Attempts to create an FText instance from a string table ID and key (this is the same as the LOCTABLE macro, except this can also work with non-literal string values).
-	 * @return The found text, or an dummy FText if not found.
+	 * @return The found text, or a dummy FText if not found.
 	 */
-	static FText FromStringTable(const FName InTableId, const FString& InKey, const EStringTableLoadingPolicy InLoadingPolicy = EStringTableLoadingPolicy::FindOrFullyLoad);
+	static FText FromStringTable(const FName InTableId, const FString& InKey, const EStringTableLoadingPolicy InLoadingPolicy = EStringTableLoadingPolicy::FindOrLoad);
 
 	/**
 	 * Generate an FText representing the pass name
@@ -655,7 +655,7 @@ private:
 
 	explicit FText( FString&& InSourceString );
 
-	FText( FName InTableId, FString InKey );
+	FText( FName InTableId, FString InKey, const EStringTableLoadingPolicy InLoadingPolicy );
 
 	FText( FString&& InSourceString, FTextDisplayStringRef InDisplayString );
 
@@ -1038,6 +1038,19 @@ class CORE_API FTextStringHelper
 {
 public:
 	/**
+	 * Create an FText instance from the given stream of text.
+	 * @note This uses ReadFromBuffer internally, but will fallback to FText::FromString if ReadFromBuffer fails to parse the buffer.
+	 *
+	 * @param Buffer			The buffer of text to read from (null terminated).
+	 * @param TextNamespace		An optional namespace to use when parsing texts that use LOCTEXT (default is an empty namespace).
+	 * @param PackageNamespace	The package namespace of the containing object (if loading for a property - see TextNamespaceUtil::GetPackageNamespace).
+	 * @param bRequiresQuotes	True if the read text literal must be surrounded by quotes (eg, when loading from a delimited list).
+	 *
+	 * @return The parsed FText instance.
+	 */
+	static FText CreateFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, const bool bRequiresQuotes = false);
+
+	/**
 	 * Attempt to extract an FText instance from the given stream of text.
 	 *
 	 * @param Buffer			The buffer of text to read from (null terminated).
@@ -1051,7 +1064,7 @@ public:
 	static const TCHAR* ReadFromBuffer(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, const bool bRequiresQuotes = false);
 	
 	UE_DEPRECATED(4.22, "FTextStringHelper::ReadFromString is deprecated. Use FTextStringHelper::ReadFromBuffer instead.")
-	static bool ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, int32* OutNumCharsRead = nullptr, const bool bRequiresQuotes = false, const EStringTableLoadingPolicy InLoadingPolicy = EStringTableLoadingPolicy::FindOrFullyLoad);
+	static bool ReadFromString(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace = nullptr, const TCHAR* PackageNamespace = nullptr, int32* OutNumCharsRead = nullptr, const bool bRequiresQuotes = false, const EStringTableLoadingPolicy InLoadingPolicy = EStringTableLoadingPolicy::FindOrLoad);
 
 	/**
 	 * Write the given FText instance to a stream of text

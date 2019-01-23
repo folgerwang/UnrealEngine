@@ -17,7 +17,8 @@ enum class EMediaCaptureConversionOperation : int8
 {
 	NONE,
 	RGBA8_TO_YUV_8BIT,
-	RGB10_TO_YUVv210_10BIT
+	RGB10_TO_YUVv210_10BIT,
+	INVERT_ALPHA,
 };
 
 /**

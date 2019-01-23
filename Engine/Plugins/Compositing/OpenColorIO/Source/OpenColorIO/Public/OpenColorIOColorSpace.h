@@ -42,17 +42,27 @@ public:
 	UPROPERTY(VisibleAnywhere, Category=ColorSpace)
 	FString FamilyName;
 
+	/** Delimiter used in the OpenColorIO library to make family hierarchies */
+	static const TCHAR* FamilyDelimiter;
+
 public:
 	bool operator==(const FOpenColorIOColorSpace& Other) const { return Other.ColorSpaceIndex == ColorSpaceIndex && Other.ColorSpaceName == ColorSpaceName; }
 
 	/**
-	 * Get a string representation of this source.
-	 * @return String representation, i.e. "[Family] - ColorSpace".
+	 * Get the string representation of this color space.
+	 * @return ColorSpace name. 
 	 */
 	FString ToString() const;
 
 	/** Return true if the index and name have been set properly */
 	bool IsValid() const;
+
+	/** 
+	 * Return the family name at the desired depth level 
+	 * @param InDepth Desired depth in the family string. 0 == First layer. 
+	 * @return FamilyName at the desired depth. Empty string if depth level doesn't exist.
+	 */
+	FString GetFamilyNameAtDepth(int32 InDepth) const;
 };
 
 /**

@@ -214,8 +214,7 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 		: ChordTolerance(0.2f)
 		, MaxEdgeLength(0.0f)
 		, NormalTolerance(20.0f)
-		, StitchingTechnique(EDatasmithCADStitchingTechnique::StitchingNone)
-		, bGenerateRealWorldUVs(false)
+		, StitchingTechnique(EDatasmithCADStitchingTechnique::StitchingSew)
 	{
 
 	}
@@ -256,13 +255,6 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	 */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (ToolTip = "Stitching technique applied on model before tessellation. Sewing could impact number of objects."))
 	EDatasmithCADStitchingTechnique StitchingTechnique;
-
-	/** 
-	 * Specifies whether or not to generate real world UVs
-	 * Default is false.
-	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Geometry & Tessellation Options", meta = (DisplayName = "Real World UVs", ToolTip = "Enable the generation of real world UVs. Disabled by default."))
-	bool bGenerateRealWorldUVs;
 
 public:
 	bool operator == (const FDatasmithTessellationOptions& Other) const
@@ -323,9 +315,13 @@ public:
 	FDatasmithReimportOptions ReimportOptions;
 
 	/** Name of the imported file without its path */
+	UPROPERTY(BlueprintReadWrite, Category = "NotVisible")
 	FString FileName;
+	
 	/** Full path of the imported file */
+	UPROPERTY(BlueprintReadWrite, Category = "NotVisible")
 	FString FilePath;
+	
 	/** Whether to use or not the same options when loading multiple files. Default false */
 	bool bUseSameOptions;
 

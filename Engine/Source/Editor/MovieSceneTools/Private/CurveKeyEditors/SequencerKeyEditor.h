@@ -65,11 +65,6 @@ struct TSequencerKeyEditor
 	{
 		using namespace MovieScene;
 
-		if (TOptional<ValueType> ExternalValue = GetExternalValue())
-		{
-			return ExternalValue.GetValue();
-		}
-
 		ChannelType* Channel = ChannelHandle.Get();
 		ISequencer* Sequencer = WeakSequencer.Pin().Get();
 		UMovieSceneSection* OwningSection = WeakSection.Get();

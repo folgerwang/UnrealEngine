@@ -297,7 +297,7 @@ public:
 	/**
 	 * Sets this section's blend type
 	 */
-	void SetBlendType(EMovieSceneBlendType InBlendType)
+	MOVIESCENE_API virtual void SetBlendType(EMovieSceneBlendType InBlendType)
 	{
 		if (GetSupportedBlendTypes().Contains(InBlendType))
 		{
@@ -499,7 +499,13 @@ public:
 	*  Whether or not we draw a curve for a particular channel owned by this section.
 	*  Defaults to true.
 	*/
-	virtual bool ShowCurveForChannel(const void *Channel) const  { return true; }
+	MOVIESCENE_API virtual bool ShowCurveForChannel(const void *Channel) const  { return true; }
+
+	/** 
+	*  Get The Total Weight Value for this Section
+	*  For Most Sections it's just the Ease Value, but for some Sections also have an extra Weight Curve
+	*/
+	MOVIESCENE_API virtual float GetTotalWeightValue(FFrameTime InTime) const { return EvaluateEasing(InTime); }
 
 protected:
 

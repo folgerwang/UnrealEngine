@@ -301,6 +301,13 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 							.HAlign(HAlign_Right)
 							.VAlign(VAlign_Center)
 							[
+								SNew(SSpacer)
+							]
+
+							+ SHorizontalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							[
 								SAssignNew(BreadcrumbTrail, SBreadcrumbTrail<FSequencerBreadcrumb>)
 								.Visibility(this, &SSequencer::GetBreadcrumbTrailVisibility)
 								.OnCrumbClicked(this, &SSequencer::OnCrumbClicked)

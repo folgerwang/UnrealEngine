@@ -6,6 +6,8 @@
 #include "Editor/UnrealEdEngine.h"
 #include "Sections/TransformPropertySection.h"
 #include "SequencerUtilities.h"
+#include "MovieSceneToolHelpers.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 TSharedRef<ISequencerTrackEditor> FTransformPropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
 {
@@ -63,3 +65,37 @@ void FTransformPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProp
 	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(8, Scale.Z, true));
 }
 
+bool FTransformPropertyTrackEditor::ModifyGeneratedKeysByCurrentAndWeight(UObject *Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedTotalKeys, float Weight) const
+{
+
+	FFrameRate TickResolution = GetSequencer()->GetFocusedTickResolution();
+
+	FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+	FMovieSceneInterrogationData InterrogationData;
+	GetSequencer()->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
+
+	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, GetSequencer()->GetFocusedTickResolution()));
+	EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+	FVector CurrentPos; FRotator CurrentRot;
+	FVector CurrentScale;
+	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(FMovieScenePropertySectionTemplate::GetTransformInterrogationKey()))
+	{
+		CurrentPos = Transform.GetTranslation();
+		CurrentRot = Transform.Rotator();
+		CurrentScale = Transform.GetScale3D();
+		break;
+	}
+	FMovieSceneChannelProxy& Proxy = SectionToKey->GetChannelProxy();
+	GeneratedTotalKeys[0]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.X, Weight);
+	GeneratedTotalKeys[1]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.Y, Weight);
+	GeneratedTotalKeys[2]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.Z, Weight);
+	GeneratedTotalKeys[3]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Roll, Weight);
+	GeneratedTotalKeys[4]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Pitch, Weight);
+	GeneratedTotalKeys[5]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Yaw, Weight);
+	GeneratedTotalKeys[6]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.X, Weight);
+	GeneratedTotalKeys[7]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.Y, Weight);
+	GeneratedTotalKeys[8]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.Z, Weight);
+	return true;
+
+}

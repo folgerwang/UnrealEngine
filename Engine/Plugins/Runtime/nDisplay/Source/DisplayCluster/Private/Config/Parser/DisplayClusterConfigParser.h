@@ -25,6 +25,7 @@ protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterConfigParserListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void AddInfo(const FDisplayClusterConfigInfo& InCfgInfo)                override final;
 	virtual void AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode) override final;
 	virtual void AddWindow(const FDisplayClusterConfigWindow& InCfgWindow)          override final;
 	virtual void AddScreen(const FDisplayClusterConfigScreen& InCfgScreen)          override final;
@@ -37,6 +38,7 @@ protected:
 	virtual void AddDebug(const FDisplayClusterConfigDebug& InCfgDebug)             override final;
 	virtual void AddNetwork(const FDisplayClusterConfigNetwork& InCfgNetwork)       override final;
 	virtual void AddInput(const FDisplayClusterConfigInput& InCfgInput)             override final;
+	virtual void AddInputSetup(const FDisplayClusterConfigInputSetup& InCfgInputSetup)  override final;
 	virtual void AddCustom(const FDisplayClusterConfigCustom& InCfgCustom)          override final;
 
 private:

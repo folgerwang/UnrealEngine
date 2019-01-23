@@ -196,7 +196,7 @@ void SMediaFrameworkVideoInputDisplay::OnMediaClosed()
 			const double TimeBetweenWarningsInSeconds = 3.0;
 			if (TimeNow - VideoInputDisplayUtilities::PreviousWarningTime > TimeBetweenWarningsInSeconds)
 			{
-				FNotificationInfo NotificationInfo(LOCTEXT("MediaOpenFailedError", "A Media Player failed. Check Output Log for details!"));
+				FNotificationInfo NotificationInfo(LOCTEXT("MediaOpenFailedError", "A Media Player failed. Check Output Log for details."));
 				NotificationInfo.ExpireDuration = 2.0f;
 				FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 				VideoInputDisplayUtilities::PreviousWarningTime = TimeNow;
@@ -456,6 +456,8 @@ void SMediaFrameworkVideoInputMediaSourceDisplay::Construct(const FArguments& In
 		check(MediaTexture);
 	}
 
+	bool bOpened = false;
+
 	if (MediaSource && MediaTexture)
 	{
 		MediaPlayer = MediaTexture->GetMediaPlayer();
@@ -471,11 +473,21 @@ void SMediaFrameworkVideoInputMediaSourceDisplay::Construct(const FArguments& In
 			{
 				AttachCallback();
 			}
-			MediaPlayer->OpenSource(MediaSource);
-			MediaPlayer->Play();
+			bOpened = MediaPlayer->OpenSource(MediaSource);
+			bOpened = bOpened && MediaPlayer->Play();
+		}
+		else
+		{
+			UE_LOG(LogMediaFrameworkUtilitiesEditor, Error, TEXT("There is not MediaPlayer associated with the MediaTexture '%s'."), *MediaTexture->GetName());
 		}
 
 		SMediaFrameworkVideoInputDisplay::Construct(MediaSource->GetName());
+
+		if (!bOpened)
+		{
+			FNotificationInfo NotificationInfo(LOCTEXT("MediaOpenFailedError", "A Media Player failed. Check Output Log for details."));
+			FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+		}
 	}
 }
 

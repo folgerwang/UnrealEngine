@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "CmdLine.h"
 #include "StringUtils.h"
 #include "Logging.h"

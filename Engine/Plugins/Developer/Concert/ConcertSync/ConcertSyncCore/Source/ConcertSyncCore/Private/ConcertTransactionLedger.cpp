@@ -239,6 +239,11 @@ FOnAddFinalizedTransaction& FConcertTransactionLedger::OnAddFinalizedTransaction
 	return OnAddFinalizedTransactionDelegate;
 }
 
+FOnLiveTransactionsTrimmed& FConcertTransactionLedger::OnLiveTransactionsTrimmed()
+{
+	return OnLiveTransactionsTrimmedDelegate;
+}
+
 uint64 FConcertTransactionLedger::AddTransaction(const UScriptStruct* InTransactionType, const void* InTransactionData)
 {
 	checkf(InTransactionType->IsChildOf(FConcertTransactionEventBase::StaticStruct()), TEXT("AddTransaction can only be used with types deriving from FConcertTransactionEventBase"));
@@ -364,6 +369,8 @@ void FConcertTransactionLedger::TrimLiveTransactions(const uint64 InIndex, const
 		{
 			LivePackageTransactions.Remove(InPackageName);
 		}
+
+		OnLiveTransactionsTrimmedDelegate.Broadcast(InPackageName, InIndex);
 	}
 }
 

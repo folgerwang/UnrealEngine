@@ -30,21 +30,24 @@ float3 YuvToRgb(float3 YUV, float4x4 ColorTransform, uint SrgbToLinear)
 		ColorTransform[2].xyz
 	);
 
-	YUV -= float3(0.0625, 0.5, 0.5);
+	// Offset in last column of matrix
+	YUV -= float3(ColorTransform[0].w, ColorTransform[1].w, ColorTransform[2].w);
 	float3 sRGB = mul(Coeff, YUV);
 
 	return (SrgbToLinear == 1) ? sRGBToLinear(sRGB) : sRGB;
 }
 
+
 float3 RgbToYuv(float3 RGB, float4x4 ColorTransform, uint InLinearToSrgb)
 {
 	float3 TempRGB = RGB;
-	
 	if (InLinearToSrgb == 1)
 	{
 		TempRGB = LinearToSrgb(RGB);
 	}
 
+	// Offset in last column of matrix, we can then use it directly 
+	// with 4x4 matrix multiplication with homogeneous rgb vector.
 	float3 YUV = mul(ColorTransform, float4(TempRGB, 1.0f)).xyz;
 
 	return float3(

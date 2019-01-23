@@ -4,6 +4,7 @@
 
 #include "IncludePython.h"
 #include "PyConversion.h"
+#include "PyUtil.h"
 #include "PyWrapperBasic.h"
 #include "PyPtr.h"
 #include "CoreMinimal.h"

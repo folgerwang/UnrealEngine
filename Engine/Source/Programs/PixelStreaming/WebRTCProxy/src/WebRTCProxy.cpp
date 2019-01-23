@@ -1,7 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
-
 #include "Console.h"
 #include "SharedQueue.h"
 #include "FileLogOutput.h"
@@ -51,6 +49,9 @@ If specified, it will use local time in logging, instead of UTC.\n\
 \n\
 \n\
 ";
+
+TCHAR GInternalProjectName[64] = TEXT("WebRTCProxy");
+IMPLEMENT_FOREIGN_ENGINE_DIR();
 
 std::pair<std::string, uint16_t> PARAM_Cirrus{ "127.0.0.1", 8888 };
 uint16_t PARAM_UE4Port = 8124;
@@ -263,7 +264,7 @@ int mainImpl(int argc, char* argv[])
 	// Main loop.
 	MSG Msg;
 	BOOL Gm;
-	while ((Gm = ::GetMessage(&Msg, NULL, 0, 0)) != 0 && Gm != -1)
+	while ((Gm = ::GetMessageW(&Msg, NULL, 0, 0)) != 0 && Gm != -1)
 	{
 		::TranslateMessage(&Msg);
 		::DispatchMessage(&Msg);

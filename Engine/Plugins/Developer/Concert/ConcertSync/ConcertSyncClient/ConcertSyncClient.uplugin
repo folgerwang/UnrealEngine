@@ -25,7 +25,12 @@
 			"Name": "ConcertUICore",
 			"Type": "Developer",
 			"LoadingPhase": "Default"
-		}
+		},
+		{
+			"Name": "ConcertSyncClientLibrary",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}		
 	],
 	"Plugins": [
 		{
