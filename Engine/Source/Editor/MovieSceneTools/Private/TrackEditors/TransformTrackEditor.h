@@ -166,4 +166,18 @@ private:
 
 	/** Mapping of objects to their existing transform data (for comparing against new transform data) */
 	TMap< TWeakObjectPtr<UObject>, FTransformData > ObjectToExistingTransform;
+
+private:
+	/** 
+	 * Modify the passed in Generated Keys by the current tracks values and weight at the passed in time.
+
+	 * @param Object The handle to the object modify
+	 * @param Track The track we are modifying
+	 * @param SectionToKey The Sections Channels we will be modifiying
+     * @param Time The Time at which to evaluate
+	 * @param InOutGeneratedTrackKeys The Keys we need to modify. We change these values.
+     * @param Weight The weight we need to modify the values by.
+	 */
+	virtual bool ModifyGeneratedKeysByCurrentAndWeight(UObject* Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber Time, FGeneratedTrackKeys& InOutGeneratedTotalKeys, float Weight) const override;
+
 };

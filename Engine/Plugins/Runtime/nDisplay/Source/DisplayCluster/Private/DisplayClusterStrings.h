@@ -61,6 +61,13 @@ namespace DisplayClusterStrings
 			static constexpr auto Loc      = TEXT("loc");
 			static constexpr auto Rot      = TEXT("rot");
 
+			// Config info
+			namespace info
+			{
+				static constexpr auto Header   = TEXT("[info]");
+				static constexpr auto Version  = TEXT("version");
+			}
+
 			// Cluster tokens
 			namespace cluster
 			{
@@ -132,7 +139,6 @@ namespace DisplayClusterStrings
 				static constexpr auto Type     = TEXT("type");
 				static constexpr auto Address  = TEXT("addr");
 				static constexpr auto Remap    = TEXT("remap");
-				// + Id
 
 				static constexpr auto Right = TEXT("right");
 				static constexpr auto Front = TEXT("front");
@@ -148,6 +154,20 @@ namespace DisplayClusterStrings
 				static constexpr auto DeviceTracker = TEXT("tracker");
 				static constexpr auto DeviceAnalog  = TEXT("analog");
 				static constexpr auto DeviceButtons = TEXT("buttons");
+				static constexpr auto DeviceKeyboard = TEXT("keyboard");
+
+				// + Id
+			}
+
+			// Input Setup tokens
+			namespace inputsetup
+			{
+				static constexpr auto Header  = TEXT("[input_setup]");
+				static constexpr auto Channel = TEXT("ch");
+				static constexpr auto Key     = TEXT("key");
+				static constexpr auto Bind    = TEXT("bind");
+
+				// + Id
 			}
 
 			// General settings tokens

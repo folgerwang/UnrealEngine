@@ -20,8 +20,15 @@
 			"Type": "Editor",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [
-				"Win64",
-				"Linux"
+				"Win64"
+			]
+		},
+		{
+			"Name" : "UnrealUSDWrapper",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" : [
+				"Win64"
 			]
 		}
 	],

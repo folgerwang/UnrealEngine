@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+struct FSlateColor;
+
 class FLiveLinkDebugCurveNodeBase
 {
 public:

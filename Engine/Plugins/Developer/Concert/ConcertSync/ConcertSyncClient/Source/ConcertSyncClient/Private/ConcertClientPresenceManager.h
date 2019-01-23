@@ -23,7 +23,7 @@ class IConcertClientSession;
 struct FConcertClientPresenceStateEntry
 {
 	FConcertClientPresenceStateEntry(TSharedRef<FConcertClientPresenceEventBase> InPresenceEvent)
-		: PresenceEvent(InPresenceEvent)
+		: PresenceEvent(MoveTemp(InPresenceEvent))
 		, bSyncPending(true) {}
 
 	/** Presence state */
@@ -103,15 +103,22 @@ public:
 	void SetPresenceVisibility(const FString& InDisplayName, bool bVisibility, bool bPropagateToAll = false);
 
 	/** Get location update frequency */
-	static double GetLocationUpdateFrequency() { return LocationUpdateFrequencySeconds; }
+	static double GetLocationUpdateFrequency();
 
 	/** Jump (teleport) to another presence */
 	void InitiateJumpToPresence(FGuid InEndpointId);
 
-private:
+	/**
+	 * Returns the path to the UWorld object opened in the editor of the specified client endpoint.
+	 * The information may be unavailable if the client was disconnected, the information hasn't replicated yet
+	 * or the code was not compiled as part of the UE Editor. The path returned can be the path of a play world (PIE/SIE)
+	 * if the user is in PIE/SIE. It this case, the path will look like /Game/UEDPIE_10_FooMap.FooMap rather than /Game/FooMap.FooMap.
+	 * @param InEndpointId The end point of any clients connected to the session (local or remote).
+	 * @return The path to the world being opened in the specified end point editor or an empty string if the information is not available.
+	 */
+	FString GetClientWorldPath(FGuid InEndpointId) const;
 
-	/** Update frequency in seconds */
-	static const double LocationUpdateFrequencySeconds;
+private:
 
 	/** Register event and delegate handlers */
 	void Register();
@@ -283,6 +290,14 @@ private:
 	/** Time since last location update for this client */
 	double SecondsSinceLastLocationUpdate;
 };
+
+#else
+
+namespace FConcertClientPresenceManager
+{
+	/** Get location update frequency */
+	double GetLocationUpdateFrequency();
+}
 
 #endif
 

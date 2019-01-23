@@ -2661,10 +2661,16 @@ void FFbxExporter::ExportLevelSequencePropertyTrack( FbxNode* FbxNode, UMovieSce
 	FbxCamera* FbxCamera = FbxNode->GetCamera();
 	FFrameRate TickResolution = PropertyTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
 
+	const FName FloatChannelTypeName = FMovieSceneFloatChannel::StaticStruct()->GetFName();
 	FMovieSceneChannelProxy& ChannelProxy = Section->GetChannelProxy();
 	for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 	{
 		const FName ChannelTypeName = Entry.GetChannelTypeName();
+		if (ChannelTypeName != FloatChannelTypeName)
+		{
+			continue;
+		}
+		
 		TArrayView<FMovieSceneChannel* const>        Channels = Entry.GetChannels();
 		TArrayView<const FMovieSceneChannelMetaData> AllMetaData = Entry.GetMetaData();
 

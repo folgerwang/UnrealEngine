@@ -5,7 +5,7 @@
 
 
 FDisplayClusterVrpnButtonInputDataHolder::FDisplayClusterVrpnButtonInputDataHolder(const FDisplayClusterConfigInput& config) :
-	FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnButton>(config)
+	FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnButton>(config)
 {
 }
 

@@ -76,6 +76,7 @@ public:
 	}
 
 	virtual EStereoscopicPass GetViewPassForIndex(bool bStereoRequested, uint32 ViewIndex) const override;
+	virtual uint32 GetViewIndexForPass(EStereoscopicPass StereoPassType) const override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -183,8 +184,6 @@ protected:
 	EStereoscopicPass EncodeStereoscopicPass(int ViewIndex) const;
 	// Decodes normal EStereoscopicPass from encoded EStereoscopicPass
 	EStereoscopicPass DecodeStereoscopicPass(const enum EStereoscopicPass StereoPassType) const;
-	// Decodes view index from encoded EStereoscopicPass
-	int DecodeViewIndex(const enum EStereoscopicPass StereoPassType) const;
 	// Decodes viewport index from encoded EStereoscopicPass
 	int DecodeViewportIndex(const enum EStereoscopicPass StereoPassType) const;
 	// Decodes eye type from encoded EStereoscopicPass

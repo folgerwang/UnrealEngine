@@ -11,7 +11,7 @@ enum class EStringTableLoadingPolicy : uint8
 	Find,
 	/** Try and find the String Table, or attempt of load it if it cannot be found (note: the string table found may not be fully loaded) */
 	FindOrLoad,
-	/** Try and find the String Table, or attempt to load it if it cannot be found, or if it was found but not fully loaded */
+	/** Try and find the String Table, or attempt to load it if it cannot be found, or if it was found but not fully loaded (note: this should be used sparingly in places where it is definitely safe to perform a blocking load) */
 	FindOrFullyLoad,
 };
 

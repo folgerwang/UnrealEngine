@@ -21,6 +21,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "KeyDrawParams.h"
 #include "MovieSceneTimeHelpers.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 
 double SSequencerSection::SectionSelectionThrobEndTime = 0;
 double SSequencerSection::KeySelectionThrobEndTime = 0;
@@ -1033,6 +1034,17 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 
 	const bool bEnabled = bParentEnabled && SectionObject.IsActive();
 	const bool bLocked = SectionObject.IsLocked();
+	UMovieScenePropertyTrack* Track = SectionObject.GetTypedOuter<UMovieScenePropertyTrack>();
+	bool bSetSectionToKey = false;
+	if (Track)
+	{
+		if (Track->GetSectionToKey() == &SectionObject)
+		{
+			bSetSectionToKey = true;
+		}
+	}
+
+
 	const ESlateDrawEffect DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
 	FGeometry SectionGeometry = MakeSectionGeometryWithoutHandles( AllottedGeometry, SectionInterface );
@@ -1083,6 +1095,19 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 			FEditorStyle::GetBrush(SelectionBorder),
 			DrawEffects,
 			FLinearColor::Red
+		);
+	}
+	else if (bSetSectionToKey)
+	{
+		static const FName SelectionBorder("Sequencer.Section.LockedBorder");
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			FEditorStyle::GetBrush(SelectionBorder),
+			DrawEffects,
+			FLinearColor::Green
 		);
 	}
 

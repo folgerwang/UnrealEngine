@@ -6,9 +6,7 @@
 #include "Logging/TokenizedMessage.h"
 #include "USDPrimResolver.h"
 
-THIRD_PARTY_INCLUDES_START
 #include "UnrealUSDWrapper.h"
-THIRD_PARTY_INCLUDES_END
 
 #include "USDImporter.generated.h"
 

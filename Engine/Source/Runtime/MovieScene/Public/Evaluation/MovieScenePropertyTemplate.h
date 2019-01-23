@@ -17,6 +17,8 @@
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "MovieSceneSequence.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuator.h"
+#include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
 #include "MovieScenePropertyTemplate.generated.h"
 
 class UMovieScenePropertyTrack;
@@ -113,6 +115,7 @@ namespace PropertyTemplate
 
 		FTrackInstancePropertyBindings& PropertyBindings;
 	};
+
 }
 
 /** Execution token that simple stores a value, and sets it when executed */
@@ -178,7 +181,12 @@ struct TPropertyActuator : TMovieSceneBlendingActuator<PropertyType>
 			PropertyData.PropertyBindings->CallFunction<PropertyType>(*InObject, InFinalValue);
 		}
 	}
+	//This will be specialized at end of this file for floats, transforms,eulertransforms and vectors
+	virtual void Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<PropertyType>::ParamType InValue, const TBlendableTokenStack<PropertyType>& OriginalStack, const FMovieSceneContext& Context) const override
+	{
+	}
 };
+
 
 USTRUCT()
 struct FMovieScenePropertySectionData
@@ -224,6 +232,15 @@ struct MOVIESCENE_API FMovieScenePropertySectionTemplate : public FMovieSceneEva
 	
 	FMovieScenePropertySectionTemplate(){}
 	FMovieScenePropertySectionTemplate(FName PropertyName, const FString& InPropertyPath);
+public:
+	//use thse keys for setting and iterating the correct types.
+	const static FMovieSceneInterrogationKey GetFloatInterrogationKey();
+	const static FMovieSceneInterrogationKey GetInt32InterrogationKey();
+	const static FMovieSceneInterrogationKey GetTransformInterrogationKey();
+	const static FMovieSceneInterrogationKey GetEulerTransformInterrogationKey();
+	const static FMovieSceneInterrogationKey GetVector4InterrogationKey();
+	const static FMovieSceneInterrogationKey GetVectorInterrogationKey();
+	const static FMovieSceneInterrogationKey GetVector2DInterrogationKey();
 
 protected:
 
@@ -253,3 +270,55 @@ protected:
 	UPROPERTY()
 	FMovieScenePropertySectionData PropertyData;
 };
+
+//Specializations 
+template<>
+inline void TPropertyActuator<float>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<float>::ParamType InValue, const TBlendableTokenStack<float>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	float Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetFloatInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<int32>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<int32>::ParamType InValue, const TBlendableTokenStack<int32>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	int32 Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetInt32InterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector2D>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector2D>::ParamType InValue, const TBlendableTokenStack<FVector2D>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector2D Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVector2DInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FEulerTransform>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FEulerTransform>::ParamType InValue, const TBlendableTokenStack<FEulerTransform>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FEulerTransform Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetEulerTransformInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FTransform>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FTransform>::ParamType InValue, const TBlendableTokenStack<FTransform>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FTransform Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetTransformInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector4>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector4>::ParamType InValue, const TBlendableTokenStack<FVector4>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector4 Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVector4InterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector>::ParamType InValue, const TBlendableTokenStack<FVector>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVectorInterrogationKey());
+};
+
+

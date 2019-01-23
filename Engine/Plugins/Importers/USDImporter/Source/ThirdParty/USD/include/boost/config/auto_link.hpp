@@ -362,7 +362,16 @@ BOOST_LIB_VERSION:    The Boost version, in the form x_y, for Boost version x.y.
 #if (defined(_DLL) || defined(_RTLDLL)) && defined(BOOST_DYN_LINK)
 #  define BOOST_LIB_PREFIX
 #elif defined(BOOST_DYN_LINK)
-#  error "Mixing a dll boost library with a static runtime is a really bad idea..."
+
+
+///////////////////////////////////////////
+// EPIC: Disabled this error to workaround static analysis issue
+//#  error "Mixing a dll boost library with a static runtime is a really bad idea..."
+
+#define BOOST_LIB_PREFIX
+///////////////////////////////////////////
+
+
 #else
 #  define BOOST_LIB_PREFIX "lib"
 #endif

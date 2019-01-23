@@ -469,7 +469,7 @@ namespace SceneOutliner
 		ESelectionMode::Type GetSelectionMode() const;
 
 		/** @return the content for the view button */
-		TSharedRef<SWidget> GetViewButtonContent(bool bWorldPickerOnly);
+		TSharedRef<SWidget> GetViewButtonContent(bool bWorldPickerOnly, bool bShouldDisplayChooseWorld);
 
 		/** Build the content for the world picker submenu */
 		void BuildWorldPickerContent(FMenuBuilder& MenuBuilder);

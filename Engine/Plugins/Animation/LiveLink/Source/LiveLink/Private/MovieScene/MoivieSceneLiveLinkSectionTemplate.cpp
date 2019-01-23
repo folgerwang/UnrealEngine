@@ -7,11 +7,16 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Engine/Engine.h"
 #include "Engine/TimecodeProvider.h"
+#include "HAL/ConsoleManager.h"
 
+static TAutoConsoleVariable<int32> CVarSequencerAlwaysSendInterpolatedLiveLink(
+	TEXT("Sequencer.AlwaysSendInterpolatedLiveLink"),
+	0,
+	TEXT("If nonzero we always interpolate when sending out live link data, if 0 we may send out frames at a higher rate than engine tick, if the data is dense."),
+	ECVF_Default);
 
 struct FMovieSceneLiveLinkSectionTemplatePersistentData : IPersistentEvaluationData
 {
-
 	TSharedPtr<FMovieSceneLiveLinkSource> LiveLinkSource;
 };
 
@@ -27,8 +32,6 @@ FMovieSceneLiveLinkTemplateData::FMovieSceneLiveLinkTemplateData(const UMovieSce
 	SubjectName = Section.SubjectName;
 	RefSkeleton = Section.RefSkeleton;
 	ChannelMask = Section.ChannelMask;
-	bAlwaysSendInterpolated = Section.bAlwaysSendInterpolated;
-
 }
 
 //Converts time's in our movie scene frame rate to times in the time code frame rate, based upon where our frame time is and where the timecode frame time is.
@@ -47,7 +50,7 @@ static FLiveLinkWorldTime ConvertFrameTimeToLiveLinkWorldTime(const FFrameTime& 
 	return WorldTime.Time = DiffSeconds + (LiveLinkWorldTime.Time  + LiveLinkWorldTime.Offset);
 }
 
-bool FMovieSceneLiveLinkTemplateData::GetLiveLinkFrameArray(const FFrameTime& FrameTime, const FFrameTime& StartFrameTime, TArray<FLiveLinkFrameData>&  LiveLinkFrameDataArray, const FFrameRate& FrameRate) const
+bool FMovieSceneLiveLinkTemplateData::GetLiveLinkFrameArray(const FFrameTime& FrameTime, const FFrameTime& LowerBound, const FFrameTime& UpperBound, TArray<FLiveLinkFrameData>&  LiveLinkFrameDataArray, const FFrameRate& FrameRate) const
 {
 	//See if we have a valid time code time. 
 	//If so we may can possible send raw data if not asked to only send interpolated.
@@ -62,18 +65,16 @@ bool FMovieSceneLiveLinkTemplateData::GetLiveLinkFrameArray(const FFrameTime& Fr
 	}
 
 	//Send interpolated if told to or no valid timecode synced.
-	bool bSendInterpolated = bAlwaysSendInterpolated || !TimeCodeFrameTime.IsSet();
+	const bool bAlwaysSendInterpolated = CVarSequencerAlwaysSendInterpolatedLiveLink->GetInt() == 0 ? false : true;
+
+	bool bSendInterpolated = bAlwaysSendInterpolated || !TimeCodeFrameTime.IsSet() || LowerBound == UpperBound;
 	FLiveLinkWorldTime WorldTime = FLiveLinkWorldTime(); //this calls FPlatform::Seconds()
 	FVector Vector;
 	
-	//MZ todo need a little more to do so disabling this.
-	bSendInterpolated = true;
 	if (!bSendInterpolated)
 	{
-		//todo need to handle going backward...
-		FFrameTime FrameRangeEnd = FrameTime;
-		FFrameTime FrameRangeStart = StartFrameTime;
-		
+		FFrameTime FrameRangeEnd = LowerBound > UpperBound ? LowerBound : UpperBound;
+		FFrameTime FrameRangeStart = LowerBound > UpperBound ? UpperBound : LowerBound;
 		if (TemplateToPush.Transforms.Num() > 0)
 		{
 			//assume times will be the same for all channels...
@@ -85,34 +86,47 @@ bool FMovieSceneLiveLinkTemplateData::GetLiveLinkFrameArray(const FFrameTime& Fr
 			FFrameNumber Frame;
 			if (EndIndex != INDEX_NONE)
 			{
+				if (EndIndex >= Times.Num())
+				{
+					EndIndex = Times.Num() - 1;
+				}
+				
 				StartIndex = Algo::UpperBound(Times, FrameRangeStart.FrameNumber);
 				if (StartIndex == INDEX_NONE)
 				{
 					StartIndex = EndIndex;
 				}
+				
 			}
 			else
 			{
 				StartIndex = Algo::UpperBound(Times, FrameRangeStart.FrameNumber);
+				if (StartIndex >= Times.Num())
+				{
+					StartIndex = Times.Num() - 1;
+				}
 				if (StartIndex != INDEX_NONE)
 				{
 					EndIndex = StartIndex;
 				}
 			}
+			bSendInterpolated = true; //if we don't send at least one key send interpolated
 			if (EndIndex != INDEX_NONE)
 			{
+				//UE_LOG(LogTemp, Log, TEXT("Send Key LiveLink Start/End Index '%d'  '%d'"), StartIndex,EndIndex);
 				for (int32 Index = StartIndex; Index <= EndIndex; ++Index)
 				{
 					Frame = Times[Index];
 					if (Frame > FrameRangeStart && Frame <= FrameRangeEnd) // doing (begin,end] want to make sure we get the last frame always, future better than past.
 					{
+						//UE_LOG(LogTemp, Log, TEXT("Send Key LiveLink Key Index '%d'"), Index);
+						bSendInterpolated = false;
 						FLiveLinkFrameData FrameData;
 						FrameData.Transforms.Reset(TemplateToPush.Transforms.Num());
 						FrameData.WorldTime = ConvertFrameTimeToLiveLinkWorldTime(Times[Index], FrameRate, FrameTime, WorldTime);
 						if (TimeCodeFrameTime.IsSet())
 						{
-							FrameData.MetaData.SceneTime = TimeCodeFrameTime.GetValue();
-
+							FrameData.MetaData.SceneTime = ConvertFrameTimeToTimeCodeTime(Times[Index], FrameRate, FrameTime, TimeCodeFrameTime.GetValue());
 						}
 						int32 ChannelIndex = 0;
 						for (FTransform Transform : TemplateToPush.Transforms)
@@ -149,6 +163,7 @@ bool FMovieSceneLiveLinkTemplateData::GetLiveLinkFrameArray(const FFrameTime& Fr
 	}
 	if (bSendInterpolated)
 	{
+	//	UE_LOG(LogTemp, Log, TEXT("Send LiveLink Interpolated"));
 		static FLiveLinkFrameData FrameData; //NOTE if we send more then one frame this won't work.
 		
 		FrameData.Transforms.Reset(TemplateToPush.Transforms.Num());
@@ -206,7 +221,7 @@ void FMovieSceneLiveLinkSectionTemplate::EvaluateSwept(const FMovieSceneEvaluati
 	{
 		TArray<FLiveLinkFrameData>  LiveLinkFrameDataArray;
 
-		TemplateData.GetLiveLinkFrameArray(SweptRange.GetUpperBoundValue(), SweptRange.GetLowerBoundValue(), LiveLinkFrameDataArray, Context.GetFrameRate());
+		TemplateData.GetLiveLinkFrameArray(Context.GetTime(), SweptRange.GetLowerBoundValue(), SweptRange.GetUpperBoundValue(), LiveLinkFrameDataArray, Context.GetFrameRate());
 		Data->LiveLinkSource->PublishLiveLinkFrameData(TemplateData.SubjectName, LiveLinkFrameDataArray, TemplateData.RefSkeleton);
 	}
 }
@@ -218,7 +233,7 @@ void FMovieSceneLiveLinkSectionTemplate::Evaluate(const FMovieSceneEvaluationOpe
 	{
 		TArray<FLiveLinkFrameData>  LiveLinkFrameDataArray;
 		FFrameTime FrameTime = Context.GetTime();
-		TemplateData.GetLiveLinkFrameArray(FrameTime, FrameTime,LiveLinkFrameDataArray, Context.GetFrameRate());
+		TemplateData.GetLiveLinkFrameArray(FrameTime, FrameTime, FrameTime,LiveLinkFrameDataArray, Context.GetFrameRate());
 		Data->LiveLinkSource->PublishLiveLinkFrameData(TemplateData.SubjectName, LiveLinkFrameDataArray,TemplateData.RefSkeleton);
 	}
 

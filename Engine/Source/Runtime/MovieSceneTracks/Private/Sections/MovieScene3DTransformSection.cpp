@@ -302,6 +302,19 @@ UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitia
 	bSupportsInfiniteRange = true;
 
 	UpdateChannelProxy();
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+	//Set Defaults this fixes issues with blending sections with newly created sections
+	// Set default translation and rotation
+	for (int32 Index = 0; Index < 6; ++Index)
+	{
+		FloatChannels[Index]->SetDefault(0.f);
+	}
+	// Set default scale and weight
+	for (int32 Index = 6; Index <=9; ++Index)
+	{
+		FloatChannels[Index]->SetDefault(1.f);
+	}
+
 }
 
 void UMovieScene3DTransformSection::Serialize(FArchive& Ar)
@@ -554,4 +567,33 @@ bool UMovieScene3DTransformSection::ShowCurveForChannel(const void *ChannelPtr) 
 		}
 	}
 	return true;
+}
+
+float UMovieScene3DTransformSection::GetTotalWeightValue(FFrameTime InTime) const
+{
+	float Weight = EvaluateEasing(InTime);
+	if (EnumHasAllFlags(TransformMask.GetChannels(), EMovieSceneTransformChannel::Weight))
+	{
+		float ManualWeightVal = 1.f;
+		ManualWeight.Evaluate(InTime, ManualWeightVal);
+		Weight *= ManualWeightVal;
+	}
+	return Weight;
+}
+
+void UMovieScene3DTransformSection::SetBlendType(EMovieSceneBlendType InBlendType) 
+{
+	if (GetSupportedBlendTypes().Contains(InBlendType))
+	{
+		BlendType = InBlendType;
+		//Set the Scale Default based upon the type that was Set
+		float DefaultVal = InBlendType == EMovieSceneBlendType::Absolute ? 1.0f : 0.0f;
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+		// Set default scale and weight
+		for (int32 Index = 6; Index < 9; ++Index)
+		{
+			FloatChannels[Index]->SetDefault(DefaultVal);
+		}
+
+	}
 }

@@ -17,8 +17,262 @@
 #include "Channels/MovieSceneChannelTraits.h"
 #include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
+#include "Evaluation/MovieSceneEvaluation.h"
+#include "Channels/MovieSceneFloatChannel.h"
+#include "Channels/MovieSceneIntegerChannel.h"
 
+struct IImpl
+{
+	virtual ~IImpl() {}
 
+	/* Returns whether a key was created */
+	virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const { return false; }
+
+	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const { }
+
+	virtual bool ModifyByCurrentAndWeight(FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, void* VCurrentValue, float Weight) { return false; }
+
+};
+
+template<typename ChannelType, typename ValueType>
+struct TSetDefaultImpl : IImpl
+{
+	int32 ChannelIndex;
+	ValueType ValueToSet;
+
+	TSetDefaultImpl(int32 InChannelIndex, const ValueType& InValue)
+		: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+	{}
+
+	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+	{
+		ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+		if (Channel && Channel->GetData().GetTimes().Num() == 0)
+		{
+			if (Section->TryModify())
+			{
+				using namespace MovieScene;
+				SetChannelDefault(Channel, ValueToSet);
+			}
+		}
+	}
+};
+
+//If this implementation changes need to change the specializations below.
+template<typename ChannelType, typename ValueType>
+struct TAddKeyImpl : IImpl
+{
+	int32 ChannelIndex;
+	ValueType ValueToSet;
+
+	TAddKeyImpl(int32 InChannelIndex, const ValueType& InValue)
+		: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+	{}
+
+	virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const override
+	{
+		bool bKeyCreated = false;
+		using namespace MovieScene;
+
+		ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+		if (Channel)
+		{
+			bool bShouldKeyChannel = bKeyEvenIfUnchanged;
+			if (!bShouldKeyChannel)
+			{
+				bShouldKeyChannel = !ValueExistsAtTime(Channel, InTime, ValueToSet);
+			}
+
+			if (bShouldKeyChannel)
+			{
+				if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
+				{
+					if (Section->TryModify())
+					{
+						AddKeyToChannel(Channel, InTime, ValueToSet, InterpolationMode);
+						bKeyCreated = true;
+					}
+				}
+			}
+		}
+
+		return bKeyCreated;
+	}
+
+	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+	{
+		using namespace MovieScene;
+
+		ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+		if (Channel && Channel->GetData().GetTimes().Num() == 0)
+		{
+			if (Section->TryModify())
+			{
+				using namespace MovieScene;
+				SetChannelDefault(Channel, ValueToSet);
+			}
+		}
+	}
+	virtual bool ModifyByCurrentAndWeight(FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, void* VCurrentValue, float Weight) { return false; }
+
+};
+
+//Specializations for channels that SUPPORT Blending
+template<>
+struct TAddKeyImpl<FMovieSceneFloatChannel, float> : IImpl
+{
+	int32 ChannelIndex;
+	float ValueToSet;
+
+	TAddKeyImpl(int32 InChannelIndex, const float& InValue)
+		: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+	{}
+
+	virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const override
+	{
+		bool bKeyCreated = false;
+		using namespace MovieScene;
+
+		FMovieSceneFloatChannel* Channel = Proxy.GetChannel<FMovieSceneFloatChannel>(ChannelIndex);
+		if (Channel)
+		{
+			bool bShouldKeyChannel = bKeyEvenIfUnchanged;
+			if (!bShouldKeyChannel)
+			{
+				bShouldKeyChannel = !ValueExistsAtTime(Channel, InTime, ValueToSet);
+			}
+
+			if (bShouldKeyChannel)
+			{
+				if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
+				{
+					if (Section->TryModify())
+					{
+						AddKeyToChannel(Channel, InTime, ValueToSet, InterpolationMode);
+						bKeyCreated = true;
+					}
+				}
+			}
+		}
+
+		return bKeyCreated;
+	}
+
+	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+	{
+		using namespace MovieScene;
+
+		FMovieSceneFloatChannel* Channel = Proxy.GetChannel<FMovieSceneFloatChannel>(ChannelIndex);
+		if (Channel && Channel->GetData().GetTimes().Num() == 0)
+		{
+			if (Section->TryModify())
+			{
+				using namespace MovieScene;
+				SetChannelDefault(Channel, ValueToSet);
+			}
+		}
+	}
+
+	virtual bool ModifyByCurrentAndWeight(FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, void* VCurrentValue, float Weight) override
+	{
+		using namespace MovieScene;
+		float CurrentValue = *(float*)(VCurrentValue);
+		FMovieSceneFloatChannel* Channel = Proxy.GetChannel<FMovieSceneFloatChannel>(ChannelIndex);
+		if (Channel)
+		{
+			float LocalValue;
+			using namespace MovieScene;
+			if (!EvaluateChannel(Channel, InTime, LocalValue))
+			{
+				TOptional<float> OptFloat = Channel->GetDefault();
+				LocalValue = OptFloat.IsSet() ? OptFloat.GetValue() : 0.0f;
+			}
+			ValueToSet = (ValueToSet - CurrentValue) * Weight + LocalValue;
+			return true;
+		}
+
+		return false;
+	}
+
+};
+template<>
+struct TAddKeyImpl<FMovieSceneIntegerChannel, int32> : IImpl
+{
+	int32 ChannelIndex;
+	int32 ValueToSet;
+
+	TAddKeyImpl(int32 InChannelIndex, const int32& InValue)
+		: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+	{}
+
+	virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const override
+	{
+		bool bKeyCreated = false;
+		using namespace MovieScene;
+
+		FMovieSceneIntegerChannel* Channel = Proxy.GetChannel<FMovieSceneIntegerChannel>(ChannelIndex);
+		if (Channel)
+		{
+			bool bShouldKeyChannel = bKeyEvenIfUnchanged;
+			if (!bShouldKeyChannel)
+			{
+				bShouldKeyChannel = !ValueExistsAtTime(Channel, InTime, ValueToSet);
+			}
+
+			if (bShouldKeyChannel)
+			{
+				if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
+				{
+					if (Section->TryModify())
+					{
+						AddKeyToChannel(Channel, InTime, ValueToSet, InterpolationMode);
+						bKeyCreated = true;
+					}
+				}
+			}
+		}
+
+		return bKeyCreated;
+	}
+
+	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+	{
+		using namespace MovieScene;
+
+		FMovieSceneIntegerChannel* Channel = Proxy.GetChannel<FMovieSceneIntegerChannel>(ChannelIndex);
+		if (Channel && Channel->GetData().GetTimes().Num() == 0)
+		{
+			if (Section->TryModify())
+			{
+				using namespace MovieScene;
+				SetChannelDefault(Channel, ValueToSet);
+			}
+		}
+	}
+
+	virtual bool ModifyByCurrentAndWeight(FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, void* VCurrentValue, float Weight) override
+	{
+		using namespace MovieScene;
+		int32 CurrentValue = *(int32*)(VCurrentValue);
+		FMovieSceneIntegerChannel* Channel = Proxy.GetChannel<FMovieSceneIntegerChannel>(ChannelIndex);
+		if (Channel)
+		{
+			int32 LocalValue;
+			using namespace MovieScene;
+			if (!EvaluateChannel(Channel, InTime, LocalValue))
+			{
+				TOptional<int32> OptInt = Channel->GetDefault();
+				LocalValue = OptInt.IsSet() ? OptInt.GetValue() : 0;
+			}
+			ValueToSet = (float)((ValueToSet - CurrentValue)) * Weight + LocalValue;
+			return true;
+		}
+
+		return false;
+	}
+
+};
 struct FMovieSceneChannelValueSetter
 {
 	FMovieSceneChannelValueSetter(const FMovieSceneChannelValueSetter&) = delete;
@@ -43,16 +297,6 @@ struct FMovieSceneChannelValueSetter
 		return MoveTemp(NewValue);
 	}
 
-	struct IImpl
-	{
-		virtual ~IImpl(){}
-
-		/* Returns whether a key was created */
-		virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const { return false; }
-
-		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const { }
-	};
-
 	IImpl* operator->()
 	{
 		return &Impl.GetValue();
@@ -68,85 +312,7 @@ private:
 	FMovieSceneChannelValueSetter()
 	{}
 
-	template<typename ChannelType, typename ValueType>
-	struct TSetDefaultImpl : IImpl
-	{
-		int32 ChannelIndex;
-		ValueType ValueToSet;
-
-		TSetDefaultImpl(int32 InChannelIndex, const ValueType& InValue)
-			: ChannelIndex(InChannelIndex), ValueToSet(InValue)
-		{}
-
-		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
-		{
-			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-			if (Channel && Channel->GetData().GetTimes().Num() == 0)
-			{
-				if (Section->TryModify())
-				{
-					using namespace MovieScene;
-					SetChannelDefault(Channel, ValueToSet);
-				}
-			}
-		}
-	};
-
-	template<typename ChannelType, typename ValueType>
-	struct TAddKeyImpl : IImpl
-	{
-		int32 ChannelIndex;
-		ValueType ValueToSet;
-
-		TAddKeyImpl(int32 InChannelIndex, const ValueType& InValue)
-			: ChannelIndex(InChannelIndex), ValueToSet(InValue)
-		{}
-
-		virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const override
-		{
-			bool bKeyCreated = false;
-			using namespace MovieScene;
-
-			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-			if (Channel)
-			{
-				bool bShouldKeyChannel = bKeyEvenIfUnchanged;
-				if (!bShouldKeyChannel)
-				{
-					bShouldKeyChannel = !ValueExistsAtTime(Channel, InTime, ValueToSet);
-				}
-
-				if (bShouldKeyChannel)
-				{
-					if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
-					{
-						if (Section->TryModify())
-						{
-							AddKeyToChannel(Channel, InTime, ValueToSet, InterpolationMode);
-							bKeyCreated = true;
-						}
-					}
-				}
-			}
-
-			return bKeyCreated;
-		}
-
-		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
-		{
-			using namespace MovieScene;
-
-			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-			if (Channel && Channel->GetData().GetTimes().Num() == 0)
-			{
-				if (Section->TryModify())
-				{
-					using namespace MovieScene;
-					SetChannelDefault(Channel, ValueToSet);
-				}
-			}
-		}
-	};
+	
 	TInlineValue<IImpl> Impl;
 };
 
@@ -206,7 +372,7 @@ protected:
 	 * @return Whether or not a handle guid or track was created. Note this does not return true if keys were added or modified.
 	 */
 	FKeyPropertyResult AddKeysToObjects(
-		TArrayView<UObject* const> ObjectsToKey, FFrameNumber KeyTime, const FGeneratedTrackKeys& GeneratedKeys,
+		TArrayView<UObject* const> ObjectsToKey, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedKeys,
 		ESequencerKeyMode KeyMode, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnInitializeNewTrack)
 	{
@@ -232,7 +398,7 @@ protected:
 
 			if ( ObjectHandle.IsValid() )
 			{
-				KeyPropertyResult |= AddKeysToHandle( ObjectHandle, KeyTime, GeneratedKeys, KeyMode, TrackClass, PropertyName, OnInitializeNewTrack );
+				KeyPropertyResult |= AddKeysToHandle( Object, ObjectHandle, KeyTime, GeneratedKeys, KeyMode, TrackClass, PropertyName, OnInitializeNewTrack );
 			}
 		}
 		return KeyPropertyResult;
@@ -274,7 +440,8 @@ private:
 	/*
 	 * Adds keys to the specified guid.  This may also add tracks and sections depending on the options specified. 
 	 *
-	 * @param ObjectsToKey An array of objects to add keyframes to.
+	 * @param Object Object to add keyframes to.
+	 * @param ObjectHandle Object Handle to add keyframes to.
 	 * @param KeyTime The time to add keys.
 	 * @param GeneratedKeys Array of keys to set
 	 * @param KeyParams The parameters to control keyframing behavior.
@@ -284,8 +451,8 @@ private:
 	 *        track is created, but before any sections or keys have been added.
 	 * @return Whether or not a track was created. Note this does not return true if keys were added or modified.
 	*/
-	FKeyPropertyResult AddKeysToHandle(
-		FGuid ObjectHandle, FFrameNumber KeyTime, const FGeneratedTrackKeys& GeneratedKeys,
+	FKeyPropertyResult AddKeysToHandle(UObject *Object,
+		FGuid ObjectHandle, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedKeys,
 		ESequencerKeyMode KeyMode, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnInitializeNewTrack)
 	{
@@ -319,14 +486,14 @@ private:
 
 		if ( Track )
 		{
-			UMovieSceneSection* SectionToKey = Track->FindOrExtendSection(KeyTime);
+			float Weight = 1.0f;
+			UMovieSceneSection* SectionToKey = Track->FindOrExtendSection(KeyTime, Weight);
 
 			// If there's no overlapping section to key, create one only if a track was newly created. Otherwise, skip keying altogether
 			// so that the user is forced to create a section to key on.
 			if (bTrackCreated && !SectionToKey)
 			{
 				Track->Modify();
-
 				SectionToKey = Track->FindOrAddSection(KeyTime, bSectionCreated);
 				if (bSectionCreated && GetSequencer()->GetInfiniteKeyAreas())
 				{
@@ -336,6 +503,10 @@ private:
 
 			if (SectionToKey && CanAutoKeySection(SectionToKey, KeyTime))
 			{
+				if (!bTrackCreated)
+				{
+					ModifyGeneratedKeysByCurrentAndWeight(Object, Track, SectionToKey, KeyTime, GeneratedKeys, Weight);
+				}
 				KeyPropertyResult |= AddKeysToSection( SectionToKey, KeyTime, GeneratedKeys, KeyMode );
 			}
 		}
@@ -386,12 +557,32 @@ private:
 		return KeyPropertyResult;
 	}
 
+	/**
+	* Scale the generated keys by the the current value and the weight. This is used for supporting layered workflows
+	* so the keyed value is set correctly.
+	* The issue is that the Generated Property Values are the Globa Values that we want to meet but we need to set the local
+    * value on a particular section based upon
+	* The algorithm to implement should be NewGeneratedValue = (GeneratedTotalValue - CurrentValue) * Weight + CurrentChannelValue
+	* Expect that this will only be called if blended sections are occuring, it will not get called if no blending is happening.
+	* @param Object Object we are keying
+	* @param Track The track we are on
+	* @param SectionToKey the section we are on
+	* @param Time Time we are at
+	* @param GeneratedKeys Array of keys that are modified from the changed property. This is the same one that's calculdate but it's the Total/Global
+	* @param Weight The Weight used in the algorithm above. Note it maybe be greater than one since it's the actual inverse of the weight on that section.
+	* @return Return true if this is actually implemented false if not. Usually only TrackEditors with valid BlendTypes will implement this.
+	*/
+	virtual bool ModifyGeneratedKeysByCurrentAndWeight(UObject *Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber Time, FGeneratedTrackKeys& GeneratedTotalKeys, float Weight) const
+	{
+		return false;
+	}
+
 	/** Check whether we can autokey the specified section at the specified time */
 	static bool CanAutoKeySection(UMovieSceneSection* Section, FFrameNumber Time)
 	{
 		FOptionalMovieSceneBlendType BlendType = Section->GetBlendType();
-		// Sections are only eligible for autokey if they are not blendable (or absolute), and overlap the current time
-		return ( !BlendType.IsValid() || BlendType.Get() == EMovieSceneBlendType::Absolute ) && Section->GetRange().Contains(Time);
+		// Sections are only eligible for autokey if they are not blendable (or absolute, relative), and overlap the current time
+		return ( !BlendType.IsValid() || BlendType.Get() == EMovieSceneBlendType::Absolute || BlendType.Get() == EMovieSceneBlendType::Additive) && Section->GetRange().Contains(Time);
 	}
 };
 

@@ -9,7 +9,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Base interface for config data holders
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigBase : public IDisplayClusterStringSerializable
+struct DISPLAYCLUSTER_API FDisplayClusterConfigBase : public IDisplayClusterStringSerializable
 {
 	virtual ~FDisplayClusterConfigBase()
 	{ }
@@ -28,9 +28,20 @@ struct FDisplayClusterConfigBase : public IDisplayClusterStringSerializable
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////
+// Config info
+//////////////////////////////////////////////////////////////////////////////////////////////
+struct DISPLAYCLUSTER_API FDisplayClusterConfigInfo : public FDisplayClusterConfigBase
+{
+	FString Version;
+
+	virtual FString ToString() const override;
+	virtual bool    DeserializeFromString(const FString& line) override;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 // Cluster node configuration (separate application)
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
 {
 	FString Id;
 	FString Addr;
@@ -49,7 +60,7 @@ struct FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Application window configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigWindow : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigWindow : public FDisplayClusterConfigBase
 {
 	FString Id;
 	TArray<FString> ViewportIds;
@@ -66,7 +77,7 @@ struct FDisplayClusterConfigWindow : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Viewport configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigViewport : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigViewport : public FDisplayClusterConfigBase
 {
 	FString Id;
 	FString ScreenId;
@@ -80,7 +91,7 @@ struct FDisplayClusterConfigViewport : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Scene node configuration (DisplayCluster hierarchy is built from such nodes)
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigSceneNode : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigSceneNode : public FDisplayClusterConfigBase
 {
 	FString  Id;
 	FString  ParentId;
@@ -96,7 +107,7 @@ struct FDisplayClusterConfigSceneNode : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Projection screen configuration (used for asymmetric frustum calculation)
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigScreen : public FDisplayClusterConfigSceneNode
+struct DISPLAYCLUSTER_API FDisplayClusterConfigScreen : public FDisplayClusterConfigSceneNode
 {
 	FVector2D Size = FVector2D::ZeroVector;
 
@@ -107,7 +118,7 @@ struct FDisplayClusterConfigScreen : public FDisplayClusterConfigSceneNode
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Camera configuration (DisplayCluster camera)
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigCamera : public FDisplayClusterConfigSceneNode
+struct DISPLAYCLUSTER_API FDisplayClusterConfigCamera : public FDisplayClusterConfigSceneNode
 {
 
 	virtual FString ToString() const override;
@@ -117,7 +128,7 @@ struct FDisplayClusterConfigCamera : public FDisplayClusterConfigSceneNode
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Input device configuration (VRPN and other possible devices)
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigInput : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigInput : public FDisplayClusterConfigBase
 {
 	FString Id;
 	FString Type;
@@ -128,10 +139,25 @@ struct FDisplayClusterConfigInput : public FDisplayClusterConfigBase
 	virtual bool    DeserializeFromString(const FString& line) override;
 };
 
+struct DISPLAYCLUSTER_API FDisplayClusterConfigInputSetup : public FDisplayClusterConfigBase
+{
+	// VRPN device unique name
+	FString Id;
+	// VRPN device channel to bind
+	int32 Channel = -1;
+	// Keyboard key name (for keyboard devices only)
+	FString Key;
+	// Target name to bind
+	FString BindName;
+	
+	virtual FString ToString() const override;
+	virtual bool    DeserializeFromString(const FString& line) override;
+};
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 // General DisplayCluster configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigGeneral : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigGeneral : public FDisplayClusterConfigBase
 {
 	int32 SwapSyncPolicy = 0;
 
@@ -142,7 +168,7 @@ struct FDisplayClusterConfigGeneral : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Render configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigRender : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigRender : public FDisplayClusterConfigBase
 {
 
 	virtual FString ToString() const override;
@@ -152,7 +178,7 @@ struct FDisplayClusterConfigRender : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Stereo configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigStereo : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigStereo : public FDisplayClusterConfigBase
 {
 	float EyeDist = 0.064f;
 
@@ -163,7 +189,7 @@ struct FDisplayClusterConfigStereo : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Network configuration
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigNetwork : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigNetwork : public FDisplayClusterConfigBase
 {
 	int32 ClientConnectTriesAmount    = 10;    // times
 	int32 ClientConnectRetryDelay     = 1000;  // ms
@@ -177,7 +203,7 @@ struct FDisplayClusterConfigNetwork : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Debug settings
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigDebug : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigDebug : public FDisplayClusterConfigBase
 {
 	bool  DrawStats = false;
 	bool  LagSimulateEnabled = false;
@@ -190,7 +216,7 @@ struct FDisplayClusterConfigDebug : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Custom development settings
 //////////////////////////////////////////////////////////////////////////////////////////////
-struct FDisplayClusterConfigCustom : public FDisplayClusterConfigBase
+struct DISPLAYCLUSTER_API FDisplayClusterConfigCustom : public FDisplayClusterConfigBase
 {
 	TMap<FString, FString> Args;
 

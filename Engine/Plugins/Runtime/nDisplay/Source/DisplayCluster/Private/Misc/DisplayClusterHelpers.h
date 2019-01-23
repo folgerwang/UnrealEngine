@@ -73,7 +73,12 @@ namespace DisplayClusterHelpers
 		static bool ExtractCommandLineValue(const FString& line, const FString& argName, T& argVal)
 		{
 			FString tmp;
-			if (FParse::Value(*line, *argName, tmp, false))
+
+			// This is fix for quoted arguments. Normally this should be performed in the FParse::Value
+			// but we need to make it work right now. So use this workaround;
+			const FString FixedArgName = argName + DisplayClusterStrings::strKeyValSeparator;
+
+			if (FParse::Value(*line, *FixedArgName, tmp, false))
 			{
 				DustCommandLineValue(tmp, false);
 				argVal = FDisplayClusterTypesConverter::FromString<T>(tmp);

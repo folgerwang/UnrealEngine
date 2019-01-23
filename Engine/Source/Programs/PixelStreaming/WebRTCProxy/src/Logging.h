@@ -9,7 +9,7 @@
 
 #include "WebRTCProxyCommon.h"
 
-enum class ELogVerbosity : uint8_t
+enum class ELogVerbosity_BypassRedefinition : uint8_t
 {
 	None,
 	Fatal,
@@ -18,12 +18,15 @@ enum class ELogVerbosity : uint8_t
 	Log
 };
 
+// ELogVerbosity will be removed.
+#define ELogVerbosity ELogVerbosity_BypassRedefinition
+
 const char* LogVerbosityToString(ELogVerbosity v);
 
-class FLogCategoryBase
+class FLogCategoryBase_BypassRedefinition
 {
 public:
-	FLogCategoryBase(const char* Name, ELogVerbosity Verbosity, ELogVerbosity CompileTimeVerbosity);
+	FLogCategoryBase_BypassRedefinition(const char* Name, ELogVerbosity Verbosity, ELogVerbosity CompileTimeVerbosity);
 
 	//! Tells if a log message of the specified verbosity should be suppressed or logged
 	bool IsSuppressed(ELogVerbosity V) const;
@@ -36,11 +39,14 @@ public:
 	std::string Name;
 };
 
+// FLogCategoryBase will be removed.
+#define FLogCategoryBase FLogCategoryBase_BypassRedefinition
+
 template <ELogVerbosity DEFAULT_VERBOSITY, ELogVerbosity COMPILETIME_VERBOSITY>
-class FLogCategory : public FLogCategoryBase
+class FLogCategory_BypassRedefinition : public FLogCategoryBase
 {
 public:
-	FLogCategory(const char* Name)
+	FLogCategory_BypassRedefinition(const char* Name)
 	    : FLogCategoryBase(Name, DEFAULT_VERBOSITY, COMPILETIME_VERBOSITY)
 	{
 	}
@@ -50,6 +56,9 @@ public:
 		CompileTimeVerbosity = (int)COMPILETIME_VERBOSITY
 	};
 };
+
+// FLogCategory will be removed.
+#define FLogCategory FLogCategory_BypassRedefinition
 
 /**
  * Interface for log outputs.
@@ -99,15 +108,11 @@ private:
 
 #define EG_LOG(NAME, VERBOSITY, Fmt, ...)                                                                          \
 	{                                                                                                              \
-		if constexpr (EG_LOG_CHECK_COMPILETIME_VERBOSITY(NAME, VERBOSITY))                                         \
+		if EG_LOG_CHECK_COMPILETIME_VERBOSITY(NAME, VERBOSITY)                                         \
 		{                                                                                                          \
 			if (!NAME.IsSuppressed(::ELogVerbosity::VERBOSITY))                                                    \
 			{                                                                                                      \
 				::ILogOutput::LogToAll(__FILE__, __LINE__, &NAME, ::ELogVerbosity::VERBOSITY, Fmt, ##__VA_ARGS__); \
-				if (::ELogVerbosity::VERBOSITY == ::ELogVerbosity::Fatal)                                          \
-				{                                                                                                  \
-					::DoAssert(__FILE__, __LINE__, Fmt, ##__VA_ARGS__);                                            \
-				}                                                                                                  \
 			}                                                                                                      \
 		}                                                                                                          \
 	}

@@ -18,7 +18,7 @@ struct FMovieSceneLiveLinkTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieSceneLiveLinkTemplateData(): bAlwaysSendInterpolated(true) {};
+	FMovieSceneLiveLinkTemplateData(){};
 	FMovieSceneLiveLinkTemplateData(const UMovieSceneLiveLinkSection& Section);
 	
 	UPROPERTY()
@@ -36,10 +36,8 @@ struct FMovieSceneLiveLinkTemplateData
 	UPROPERTY()
 	TArray<bool> ChannelMask; 
 
-	UPROPERTY()
-	bool bAlwaysSendInterpolated;
 
-	bool GetLiveLinkFrameArray(const FFrameTime& FrameTime,const FFrameTime& StartTime, TArray<FLiveLinkFrameData>& LiveLinkFrameDataArray, const FFrameRate& FrameRate) const;
+	bool GetLiveLinkFrameArray(const FFrameTime &FrameTime, const FFrameTime& LowerBound,const FFrameTime& UpperBound, TArray<FLiveLinkFrameData>& LiveLinkFrameDataArray, const FFrameRate& FrameRate) const;
 
 };
 

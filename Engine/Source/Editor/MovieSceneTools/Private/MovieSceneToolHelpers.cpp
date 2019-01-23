@@ -50,6 +50,8 @@
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "Matinee/InterpTrackInstMove.h"
 #include "Channels/MovieSceneChannelProxy.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 /* MovieSceneToolHelpers
  *****************************************************************************/
@@ -1926,4 +1928,26 @@ bool MovieSceneToolHelpers::HasHiddenMobility(const UClass* ObjectClass)
 	}
 
 	return false;
+}
+
+FMovieSceneEvaluationTrack* MovieSceneToolHelpers::GetEvaluationTrack(ISequencer *Sequencer, const FGuid& TrackSignature)
+{
+	FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
+	if (Template)
+	{
+		if (FMovieSceneEvaluationTrack* EvalTrack = Template->FindTrack(TrackSignature))
+		{
+			return EvalTrack;
+		}
+	}
+	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately);
+	Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
+	if (Template)
+	{
+		if (FMovieSceneEvaluationTrack* EvalTrack = Template->FindTrack(TrackSignature))
+		{
+			return EvalTrack;
+		}
+	}
+	return nullptr;
 }
