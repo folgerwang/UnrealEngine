@@ -98,7 +98,7 @@ void UEnvQueryTest_Trace::PostLoad()
 
 FText UEnvQueryTest_Trace::GetDescriptionTitle() const
 {
-	UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);
+	UEnum* ChannelEnum = StaticEnum<ETraceTypeQuery>();
 	FString ChannelDesc = ChannelEnum->GetDisplayNameTextByValue(TraceData.TraceChannel).ToString();
 
 	FString DirectionDesc = TraceFromContext.IsDynamic() ?

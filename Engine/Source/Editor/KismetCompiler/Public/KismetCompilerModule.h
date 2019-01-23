@@ -28,7 +28,7 @@ public:
 	}
 
 	virtual bool CanCompile(const UBlueprint* Blueprint) = 0;
-	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) = 0;
+	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results) = 0;
 	
 	virtual void PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions)
 	{
@@ -57,7 +57,7 @@ public:
 	 * @param	Results  	The results log for warnings and errors.
 	 * @param	Options		Compiler options.
 	 */
-	virtual void CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<class FBlueprintCompileReinstancer> ParentReinstancer = NULL, TArray<UObject*>* ObjLoaded = NULL)=0;
+	virtual void CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<class FBlueprintCompileReinstancer> ParentReinstancer = NULL)=0;
 
 	/**
 	 * Synchronizes Blueprint's GeneratedClass's properties with the NewVariable declarations in the blueprint

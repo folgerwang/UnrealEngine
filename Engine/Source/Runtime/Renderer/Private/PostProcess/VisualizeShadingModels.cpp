@@ -162,7 +162,7 @@ void FRCPassPostProcessVisualizeShadingModels::Process(FRenderingCompositePassCo
 	Canvas.DrawShadowedString( X, Y, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
 	Y += YStep;
 
-	UEnum* Enum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialShadingModel"));
+	UEnum* Enum = StaticEnum<EMaterialShadingModel>();
 	check(Enum);
 
 	Y += 5;

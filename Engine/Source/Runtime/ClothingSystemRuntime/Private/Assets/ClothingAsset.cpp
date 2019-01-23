@@ -241,7 +241,7 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 		USkeletalMeshComponent* Component = *It;
 		if (Component && !Component->IsTemplate() && Component->SkeletalMesh == InSkelMesh)
 		{
-			new(ComponentContexts) FComponentReregisterContext(Component);
+			ComponentContexts.Add(new FComponentReregisterContext(Component));
 		}
 	}
 

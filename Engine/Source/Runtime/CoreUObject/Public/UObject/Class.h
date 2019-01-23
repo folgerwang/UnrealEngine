@@ -15,6 +15,7 @@
 #include "Math/RandomStream.h"
 #include "UObject/GarbageCollection.h"
 #include "UObject/CoreNative.h"
+#include "UObject/ReflectedTypeAccessors.h"
 #include "Templates/HasGetTypeHash.h"
 #include "Templates/IsAbstract.h"
 #include "Templates/IsEnum.h"
@@ -1888,6 +1889,86 @@ public:
 		out_TextValue = GetDisplayValueAsText( EnumPath, EnumeratorValue);
 	}
 
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the name associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetNameByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsName((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsName(const EnumType EnumeratorValue, FName& out_NameValue )
+	{
+		out_NameValue = GetValueAsName(EnumeratorValue);
+	}
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the string associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		return GetValueAsName(EnumeratorValue).ToString();
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsString((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsString(const EnumType EnumeratorValue, FString& out_StringValue )
+	{
+		out_StringValue = GetValueAsString(EnumeratorValue );
+	}
+
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the localized display string associated with the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const EnumType EnumeratorValue )
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetDisplayNameTextByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetDisplayValueAsText((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetDisplayValueAsText(const EnumType EnumeratorValue, FText& out_TextValue )
+	{
+		out_TextValue = GetDisplayValueAsText(EnumeratorValue);
+	}
+
 	// Deprecated Functions
 	UE_DEPRECATED(4.16, "FindEnumIndex is deprecated, call GetIndexByName or GetValueByName instead")
 	int32 FindEnumIndex(FName InName) const { return GetIndexByName(InName, EGetByNameFlags::ErrorIfNotFound); }
@@ -2136,7 +2217,7 @@ public:
 	 * Conditionally recompiles the class after loading, in case any dependencies were also newly loaded
 	 * @param ObjLoaded	If set this is the list of objects that are currently loading, usualy GObjLoaded
 	 */
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) {}
+	virtual void ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext) {}
 	virtual void FlushCompilationQueueForLevel() {}
 #endif //WITH_EDITOR
 
@@ -2316,10 +2397,7 @@ public:
 	}
 
 	/** Clears the function name caches, in case things have changed */
-	void ClearFunctionMapsCaches()
-	{
-		SuperFuncMap.Empty();
-	}
+	void ClearFunctionMapsCaches();
 
 	/** Looks for a given function name */
 	UFunction* FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper = EIncludeSuperFlag::IncludeSuper) const;

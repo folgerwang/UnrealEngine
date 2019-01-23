@@ -29,7 +29,7 @@
 void SNiagaraGeneratedCodeView::Construct(const FArguments& InArgs, TSharedRef<FNiagaraSystemViewModel> InSystemViewModel)
 {
 	TabState = 0;
-	ScriptEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"));
+	ScriptEnum = StaticEnum<ENiagaraScriptUsage>();
 	ensure(ScriptEnum);
 
 	SystemViewModel = InSystemViewModel;

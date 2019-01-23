@@ -32,7 +32,6 @@ typedef FGenericWidePlatformString FAndroidPlatformString;
 
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
-#include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
 
 struct FAndroidPlatformString : public FGenericPlatformString
@@ -45,37 +44,6 @@ struct FAndroidPlatformString : public FGenericPlatformString
 			*Char = TChar<CharType>::ToUpper(*Char);
 		}
 		return Dest;
-	}
-
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	template <typename CharType1, typename CharType2>
-	static inline int32 Stricmp(const CharType1* String1, const CharType2* String2)
-	{
-		return FGenericPlatformStricmp::Stricmp(String1, String2);
-	}
-
-	template <typename CharType>
-	static inline int32 Strnicmp( const CharType* String1, const CharType* String2, SIZE_T Count )
-	{
-		// walk the strings, comparing them case insensitively, up to a max size
-		for (; (*String1 || *String2) && Count > 0; String1++, String2++, Count--)
-		{
-			CharType Char1 = TChar<CharType>::ToUpper(*String1), Char2 = TChar<CharType>::ToUpper(*String2);
-			if (Char1 != Char2)
-			{
-				return Char1 - Char2;
-			}
-		}
-		return 0;
 	}
 
 	/** 
@@ -431,7 +399,13 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		return StrToken + (Pos - AnsiStrToken);
 	}
 
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
 	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
+	{
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
 	{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 		// fix up the Fmt string, as fast as possible, without using an FString
@@ -480,8 +454,8 @@ struct FAndroidPlatformString : public FGenericPlatformString
 			}
 		}
 		NewFormat[NewIndex] = 0;
-#endif // USE_SECURE_CRT
-		int32 Result = vswprintf( Dest, Count, NewFormat, ArgPtr);
+#endif // PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
+		int32 Result = vswprintf( Dest, DestSize, NewFormat, ArgPtr);
 		va_end( ArgPtr );
 		return Result;
 	}
@@ -576,11 +550,17 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		return strtok(StrToken, Delim);
 	}
 
-	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr )
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
+	static FORCEINLINE int32 GetVarArgs(ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr)
 	{
-		int32 Result = vsnprintf(Dest,Count,Fmt,ArgPtr);
+		return GetVarArgs(Dest, DestSize, Count, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, const ANSICHAR*& Fmt, va_list ArgPtr )
+	{
+		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
-		return Result;
+		return (Result != -1 && Result < (int32)DestSize) ? Result : -1;
 	}
 
 	/** 

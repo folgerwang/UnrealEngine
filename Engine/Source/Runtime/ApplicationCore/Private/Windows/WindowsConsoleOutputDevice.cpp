@@ -82,6 +82,10 @@ void FWindowsConsoleOutputDevice::Show( bool ShowWindow )
 			{
 				bIsAttached = true;
 			}
+			else
+			{
+				FWindowsPlatformMisc::SetGracefulTerminationHandler();
+			}
 			ConsoleHandle = GetStdHandle(OutputDeviceConstants::WIN_STD_OUTPUT_HANDLE);
 
 			if( ConsoleHandle != INVALID_HANDLE_VALUE )
@@ -150,9 +154,6 @@ void FWindowsConsoleOutputDevice::Show( bool ShowWindow )
 				ConsolePosY = FMath::Min(FMath::Max(ConsolePosY, DisplayMetrics.VirtualDisplayRect.Top), DisplayMetrics.VirtualDisplayRect.Bottom - BottomPadding);
 
 				::SetWindowPos( GetConsoleWindow(), HWND_TOP, ConsolePosX, ConsolePosY, 0, 0, SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_NOZORDER );
-				
-				// set the control-c, etc handler
-				FPlatformMisc::SetGracefulTerminationHandler();
 			}
 		}
 	}

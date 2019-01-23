@@ -83,6 +83,12 @@ struct FTimerUnifiedDelegate
 
 	/** Utility to output info about delegate as a string. */
 	FString ToString() const;
+
+	// Movable only
+	FTimerUnifiedDelegate(FTimerUnifiedDelegate&&) = default;
+	FTimerUnifiedDelegate(const FTimerUnifiedDelegate&) = delete;
+	FTimerUnifiedDelegate& operator=(FTimerUnifiedDelegate&&) = default;
+	FTimerUnifiedDelegate& operator=(const FTimerUnifiedDelegate&) = delete;
 };
 
 enum class ETimerStatus : uint8
@@ -135,6 +141,12 @@ struct FTimerData
 		, ExpireTime(0)
 		, LevelCollection(ELevelCollectionType::DynamicSourceLevels)
 	{}
+
+	// Movable only
+	FTimerData(FTimerData&&) = default;
+	FTimerData(const FTimerData&) = delete;
+	FTimerData& operator=(FTimerData&&) = default;
+	FTimerData& operator=(const FTimerData&) = delete;
 };
 
 
@@ -392,8 +404,8 @@ protected:
 	FTimerData* FindTimer( FTimerHandle const& InHandle );
 
 private:
-	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
-	FTimerHandle InternalSetTimerForNextTick( FTimerUnifiedDelegate const& InDelegate );
+	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate&& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
+	FTimerHandle InternalSetTimerForNextTick( FTimerUnifiedDelegate&& InDelegate );
 	void InternalClearTimer( FTimerHandle const& InDelegate );
 	void InternalClearAllTimers( void const* Object );
 	float InternalGetTimerRate( FTimerData const* const TimerData ) const;

@@ -114,7 +114,7 @@ NSString* DecodeMetalSourceCode(uint32 CodeSize, TArray<uint8> const& Compressed
 	{
 		TArray<ANSICHAR> UncompressedCode;
 		UncompressedCode.AddZeroed(CodeSize+1);
-		bool bSucceed = FCompression::UncompressMemory(ECompressionFlags::COMPRESS_ZLIB, UncompressedCode.GetData(), CodeSize, CompressedSource.GetData(), CompressedSource.Num());
+		bool bSucceed = FCompression::UncompressMemory(NAME_Zlib, UncompressedCode.GetData(), CodeSize, CompressedSource.GetData(), CompressedSource.Num());
 		if (bSucceed)
 		{
 			GlslCodeNSString = [[NSString stringWithUTF8String:UncompressedCode.GetData()] retain];

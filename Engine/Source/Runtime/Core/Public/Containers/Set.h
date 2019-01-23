@@ -117,6 +117,15 @@ public:
 	}
 
 private:
+	
+	/** Reset a range of FSetElementIds to invalid */
+	FORCEINLINE static void ResetRange(FSetElementId* Range, int32 Count)
+	{
+		for (int32 I = 0; I < Count; ++I)
+		{
+			Range[I] = FSetElementId();
+		}
+	}
 
 	/** The index of the element in the set's element array. */
 	int32 Index;
@@ -247,20 +256,14 @@ public:
 	{
 		if(this != &Copy)
 		{
-			if (Copy.Elements.IsCompact())
-			{
-				Elements = Copy.Elements;
-				HashSize = Copy.HashSize;
-				Rehash();
-			}
-			else
-			{
-				Empty(Copy.Num());
-				for (TConstIterator CopyIt(Copy); CopyIt; ++CopyIt)
-				{
-					Add(*CopyIt);
-				}
-			}
+			int32 CopyHashSize = Copy.HashSize;
+
+			DestructItems((FSetElementId*)Hash.GetAllocation(), HashSize);
+			Hash.ResizeAllocation(0, CopyHashSize, sizeof(FSetElementId));
+			ConstructItems<FSetElementId>(Hash.GetAllocation(), (FSetElementId*)Copy.Hash.GetAllocation(), CopyHashSize);
+			HashSize = CopyHashSize;
+
+			Elements = Copy.Elements;
 		}
 		return *this;
 	}
@@ -374,14 +377,16 @@ public:
 	/** Efficiently empties out the set but preserves all allocations and capacities */
     void Reset()
     {
+		if (Num() == 0)
+		{
+			return;
+		}
+    	
 		// Reset the elements array.
 		Elements.Reset();
 
 		// Clear the references to the elements that have now been removed.
-		for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
-		{
-			GetTypedHash(HashIndex) = FSetElementId();
-		}
+		FSetElementId::ResetRange(Hash.GetAllocation(), HashSize);
     }
 
 	/** Shrinks the set's element storage to avoid slack. */
@@ -1308,7 +1313,7 @@ struct TContainerTraits<TSet<ElementType, KeyFuncs, Allocator> > : public TConta
 
 struct FScriptSetLayout
 {
-	int32 ElementOffset;
+	// int32 ElementOffset = 0; // always at zero offset from the TSetElement - not stored here
 	int32 HashNextIdOffset;
 	int32 HashIndexOffset;
 	int32 Size;
@@ -1327,11 +1332,13 @@ public:
 
 		// TSetElement<TPair<Key, Value>>
 		FStructBuilder SetElementStruct;
-		Result.ElementOffset     = SetElementStruct.AddMember(ElementSize,           ElementAlignment);
+		int32 ElementOffset      = SetElementStruct.AddMember(ElementSize,           ElementAlignment);
 		Result.HashNextIdOffset  = SetElementStruct.AddMember(sizeof(FSetElementId), alignof(FSetElementId));
 		Result.HashIndexOffset   = SetElementStruct.AddMember(sizeof(int32),         alignof(int32));
 		Result.Size              = SetElementStruct.GetSize();
 		Result.SparseArrayLayout = FScriptSparseArray::GetScriptLayout(SetElementStruct.GetSize(), SetElementStruct.GetAlignment());
+
+		checkf(ElementOffset == 0, TEXT("The element inside the TSetElement is expected to be at the start of the struct"));
 
 		return Result;
 	}
@@ -1383,10 +1390,7 @@ public:
 			Hash.ResizeAllocation(0, HashSize, sizeof(FSetElementId));
 		}
 
-		for (auto* It = (FSetElementId*)Hash.GetAllocation(), *End = It + HashSize; It != End; ++It)
-		{
-			*It = FSetElementId();
-		}
+		FSetElementId::ResetRange(Hash.GetAllocation(), HashSize);
 	}
 
 	void RemoveAt(int32 Index, const FScriptSetLayout& Layout)

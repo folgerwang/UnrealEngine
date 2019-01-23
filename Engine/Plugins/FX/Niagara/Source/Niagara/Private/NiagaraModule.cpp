@@ -554,8 +554,8 @@ void FNiagaraTypeDefinition::Init()
 	ScalarStructs.Add(IntStruct);
 	ScalarStructs.Add(FloatStruct);
 
-	ExecutionStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraExecutionState"), true);
-	ExecutionStateSourceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraExecutionStateSource"), true);
+	ExecutionStateEnum = StaticEnum<ENiagaraExecutionState>();
+	ExecutionStateSourceEnum = StaticEnum<ENiagaraExecutionStateSource>();
 	
 	RecreateUserDefinedTypeRegistry();
 }

@@ -213,11 +213,19 @@ void FDebug::LogFormattedMessageWithCallstack(const FName& LogName, const ANSICH
 
 FORCENOINLINE void FDebug::LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...)
 {
+	va_list Args;
+	va_start(Args, Fmt);
+	LogAssertFailedMessageImplV(Expr, File, Line, Fmt, Args);
+	va_end(Args);
+}
+
+void FDebug::LogAssertFailedMessageImplV(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, va_list Args)
+{
 	// Ignore this assert if we're already forcibly shutting down because of a critical error.
 	if( !GIsCriticalError )
 	{
 		TCHAR DescriptionString[4096];
-		GET_VARARGS( DescriptionString, ARRAY_COUNT( DescriptionString ), ARRAY_COUNT( DescriptionString ) - 1, Fmt, Fmt );
+		FCString::GetVarArgs( DescriptionString, ARRAY_COUNT(DescriptionString), Fmt, Args );
 
 		TCHAR ErrorString[MAX_SPRINTF];
 		FCString::Sprintf( ErrorString, TEXT( "Assertion failed: %s" ), ANSI_TO_TCHAR( Expr ) );
@@ -248,7 +256,7 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 	if( bShouldCrash )
 	{
 		// Just trigger a regular assertion which will crash via GError->Logf()
-		FDebug::LogAssertFailedMessage( Expr, File, Line, TEXT("%s"), Msg );
+		FDebug::LogAssertFailedMessageImpl( Expr, File, Line, TEXT("%s"), Msg );
 		return;
 	}
 
@@ -388,6 +396,25 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 
 
 	FPlatformAtomics::InterlockedDecrement(&ActiveEnsureCount);
+}
+
+void FORCENOINLINE FDebug::CheckVerifyFailedImpl(
+	const ANSICHAR* Expr,
+	const ANSICHAR* File,
+	const int Line,
+	const TCHAR* Format,
+	...)
+{
+	va_list Args;
+	va_start(Args, Format);
+	FDebug::LogAssertFailedMessageImplV(Expr, File, Line, Format, Args);
+	va_end(Args);
+
+	if (!FPlatformMisc::IsDebuggerPresent())
+	{
+		FPlatformMisc::PromptForRemoteDebugging(false);
+		FDebug::AssertFailed(Expr, File, Line);
+	}
 }
 
 #endif // DO_CHECK || DO_GUARD_SLOW

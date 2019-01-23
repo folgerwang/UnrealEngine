@@ -105,19 +105,19 @@ static void CacheOperationEnums()
 {
 	if (BasicOpEnum == NULL)
 	{
-		BasicOpEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBasicKeyOperation"));
+		BasicOpEnum = StaticEnum<EBasicKeyOperation::Type>();
 		check(BasicOpEnum);
 	}
 
 	if (ArithmeticOpEnum == NULL)
 	{
-		ArithmeticOpEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EArithmeticKeyOperation"));
+		ArithmeticOpEnum = StaticEnum<EArithmeticKeyOperation::Type>();
 		check(ArithmeticOpEnum);
 	}
 
 	if (TextOpEnum == NULL)
 	{
-		TextOpEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETextKeyOperation"));
+		TextOpEnum = StaticEnum<ETextKeyOperation::Type>();
 		check(TextOpEnum);
 	}
 }

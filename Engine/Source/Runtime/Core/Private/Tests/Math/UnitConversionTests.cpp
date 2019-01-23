@@ -9,6 +9,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnitUnitTests, "System.Core.Math.Unit Conversion", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FParsingUnitTests, "System.Core.Math.Unit Parsing", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
 bool IsRoughlyEqual(double One, double Two, float Epsilon)
 {
@@ -101,6 +102,58 @@ bool FUnitUnitTests::RunTest(const FString& Parameters)
 				Test.ExpectedResult, ToUnitString,
 				Test.AccuracyEpsilon)
 			);
+		}
+	}
+	return bSuccess;
+}
+
+bool FParsingUnitTests::RunTest(const FString& Parameters)
+{
+	struct FTestCases
+	{
+		const TCHAR*					Expression;
+		double							ExpectedValue;
+		EUnit							UnderlyingUnit;
+		TOptional<FNumericUnit<double>>	ExistingValue;
+	};
+
+	FTestCases Tests[] = {
+		{TEXT("10.7cm"),						10.7,		EUnit::Centimeters,			TOptional<FNumericUnit<double>>()},
+		{TEXT("0.7 m"),							70.0,		EUnit::Centimeters,			TOptional<FNumericUnit<double>>()},
+		{TEXT("2m - 1m"),						100.0,		EUnit::Centimeters,			TOptional<FNumericUnit<double>>()},
+		{TEXT("10.4865 MetersPerSecond"),		10.4865,	EUnit::MetersPerSecond,		TOptional<FNumericUnit<double>>()},
+		{TEXT("10.8 cd"),						10.8,		EUnit::Candela,				TOptional<FNumericUnit<double>>()},
+		{TEXT("4.8 cd + 1.2cd"),				6.0,		EUnit::Candela,				TOptional<FNumericUnit<double>>()},
+		{TEXT("1cd/m2 + 0.5 CandelaPerMeter2"),	1.5,		EUnit::CandelaPerMeter2,	TOptional<FNumericUnit<double>>()},
+		{TEXT("+=0.7 m"),						140.0,		EUnit::Centimeters,			TOptional<FNumericUnit<double>>(70.0)},
+	};
+
+	bool bSuccess = true;
+	for (FTestCases& Test : Tests)
+	{
+		const FNumericUnit<double> ExistingValue = Test.ExistingValue.IsSet() ? Test.ExistingValue.GetValue() : FNumericUnit<double>(0.0, EUnit::Unspecified);
+		TValueOrError<FNumericUnit<double>, FText> Result = UnitConversion::TryParseExpression(Test.Expression, Test.UnderlyingUnit, ExistingValue);
+		if (Result.IsValid())
+		{
+			const bool IsEqual = IsRoughlyEqual(Result.GetValue().ConvertTo(Test.UnderlyingUnit).GetValue().Value, Test.ExpectedValue, 1e-6);
+			if (!IsEqual)
+			{
+				AddError(FString::Printf(TEXT("Parsing of expression \"%s\" failed. Expected %d but got %d."),
+					Test.Expression,
+					Test.ExpectedValue,
+					Result.GetValue().Value
+				));
+			}
+			bSuccess &= IsEqual;
+		}
+		else
+		{
+			AddError(FString::Printf( TEXT("Parsing of expression \"%s\" was incorrect (%s). Expected %d."), 
+				Test.Expression, 
+				*(Result.GetError().ToString()), 
+				Test.ExpectedValue
+			));
+			bSuccess = false;
 		}
 	}
 	return bSuccess;

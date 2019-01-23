@@ -630,7 +630,7 @@ namespace BuildPatchServices
 									NewChunkData->GetDataLock(&NewData, &NewHeader);
 									// Uncompress the memory.
 									bool bSuccess = FCompression::UncompressMemory(
-										static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+										NAME_Zlib,
 										NewData,
 										Header->DataSizeUncompressed,
 										Data,
@@ -731,11 +731,12 @@ namespace BuildPatchServices
 				TempCompressedData.AddUninitialized(ChunkAccessHeader->DataSizeUncompressed);
 				// Compression can increase data size, too. This call will return false in that case.
 				bDataIsCompressed = FCompression::CompressMemory(
-					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+					NAME_Zlib,
 					TempCompressedData.GetData(),
 					CompressedSize,
 					ChunkDataSource,
-					ChunkAccessHeader->DataSizeUncompressed);
+					ChunkAccessHeader->DataSizeUncompressed,
+					COMPRESS_BiasMemory);
 			}
 
 			// If compression succeeded, set data vars.

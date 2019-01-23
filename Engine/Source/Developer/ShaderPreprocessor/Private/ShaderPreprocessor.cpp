@@ -114,6 +114,72 @@ private:
 	TMap<FString,FShaderContents> CachedFileContents;
 };
 
+//////////////////////////////////////////////////////////////////////////
+//
+// MCPP memory management callbacks
+//
+//    Without these, the shader compilation process ends up spending
+//    most of its time in malloc/free on Windows.
+//
+
+#if PLATFORM_WINDOWS
+#	define USE_UE_MALLOC_FOR_MCPP 1
+#else
+#	define USE_UE_MALLOC_FOR_MCPP 0
+#endif
+
+#if USE_UE_MALLOC_FOR_MCPP == 2
+
+class FMcppAllocator
+{
+public:
+	void* Alloc(size_t sz)
+	{
+		return ::malloc(sz);
+	}
+
+	void* Realloc(void* ptr, size_t sz)
+	{
+		return ::realloc(ptr, sz);
+	}
+
+	void Free(void* ptr)
+	{
+		::free(ptr);
+	}
+};
+
+#elif USE_UE_MALLOC_FOR_MCPP == 1
+
+class FMcppAllocator
+{
+public:
+	void* Alloc(size_t sz)
+	{
+		return FMemory::Malloc(sz);
+	}
+
+	void* Realloc(void* ptr, size_t sz)
+	{
+		return FMemory::Realloc(ptr, sz);
+	}
+
+	void Free(void* ptr)
+	{
+		FMemory::Free(ptr);
+	}
+};
+
+#endif
+
+#if USE_UE_MALLOC_FOR_MCPP
+
+FMcppAllocator GMcppAlloc;
+
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+
 /**
  * Preprocess a shader.
  * @param OutPreprocessedShader - Upon return contains the preprocessed source code.
@@ -139,39 +205,51 @@ bool PreprocessShader(
 		check(CheckVirtualShaderFilePath(ShaderInput.VirtualSourceFilePath));
 	}
 
-	FString McppOptions;
 	FString McppOutput, McppErrors;
-	ANSICHAR* McppOutAnsi = NULL;
-	ANSICHAR* McppErrAnsi = NULL;
-	bool bSuccess = false;
 
-	// MCPP is not threadsafe.
 	static FCriticalSection McppCriticalSection;
-	FScopeLock McppLock(&McppCriticalSection);
 
-	FMcppFileLoader FileLoader(ShaderInput, ShaderOutput);
+	{
+		FMcppFileLoader FileLoader(ShaderInput, ShaderOutput);
 
-	AddMcppDefines(McppOptions, ShaderInput.Environment.GetDefinitions());
-	AddMcppDefines(McppOptions, AdditionalDefines.GetDefinitionMap());
-	McppOptions += TEXT(" -V199901L");
+		FString McppOptions;
+		AddMcppDefines(McppOptions, ShaderInput.Environment.GetDefinitions());
+		AddMcppDefines(McppOptions, AdditionalDefines.GetDefinitionMap());
+		McppOptions += TEXT(" -V199901L");
 
-	int32 Result = mcpp_run(
-		TCHAR_TO_ANSI(*McppOptions),
-		TCHAR_TO_ANSI(*ShaderInput.VirtualSourceFilePath),
-		&McppOutAnsi,
-		&McppErrAnsi,
-		FileLoader.GetMcppInterface()
+		// MCPP is not threadsafe.
+
+		FScopeLock McppLock(&McppCriticalSection);
+
+#if USE_UE_MALLOC_FOR_MCPP
+		auto spp_malloc		= [](size_t sz)				{ return GMcppAlloc.Alloc(sz); };
+		auto spp_realloc	= [](void* ptr, size_t sz)	{ return GMcppAlloc.Realloc(ptr, sz); };
+		auto spp_free		= [](void* ptr)				{ GMcppAlloc.Free(ptr); };
+
+		mcpp_setmalloc(spp_malloc, spp_realloc, spp_free);
+#endif
+
+		ANSICHAR* McppOutAnsi = NULL;
+		ANSICHAR* McppErrAnsi = NULL;
+
+		int32 Result = mcpp_run(
+			TCHAR_TO_ANSI(*McppOptions),
+			TCHAR_TO_ANSI(*ShaderInput.VirtualSourceFilePath),
+			&McppOutAnsi,
+			&McppErrAnsi,
+			FileLoader.GetMcppInterface()
 		);
 
-	McppOutput = McppOutAnsi;
-	McppErrors = McppErrAnsi;
-
-	if (ParseMcppErrors(ShaderOutput.Errors, ShaderOutput.PragmaDirectives, McppErrors))
-	{
-		// exchange strings
-		FMemory::Memswap( &OutPreprocessedShader, &McppOutput, sizeof(FString) );
-		bSuccess = true;
+		McppOutput = McppOutAnsi;
+		McppErrors = McppErrAnsi;
 	}
 
-	return bSuccess;
+	if (!ParseMcppErrors(ShaderOutput.Errors, ShaderOutput.PragmaDirectives, McppErrors))
+	{
+		return false;
+	}
+
+	OutPreprocessedShader = MoveTemp(McppOutput);
+
+	return true;
 }

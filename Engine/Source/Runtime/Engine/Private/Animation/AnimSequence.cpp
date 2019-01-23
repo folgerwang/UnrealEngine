@@ -470,7 +470,11 @@ void UAnimSequence::Serialize(FArchive& Ar)
 
 	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
 	// fire a warning if we try and load it in post load
-	if (CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid())
+	if ((CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid()) 
+#if WITH_HOT_RELOAD
+		&& (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || !HasAnyFlags(RF_ClassDefaultObject) || !GIsHotReload) // Don't do this to native CDOs during Hot-Reload
+#endif
+		)
 	{
 		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
 	}

@@ -91,6 +91,11 @@ namespace UnrealBuildTool
 		PreDefault,
 
 		/// <summary>
+		/// Loaded as soon as plugins can possibly be loaded (need GConfig)
+		/// </summary>
+		EarliestPossible,
+
+		/// <summary>
 		/// Loaded before the engine is fully initialized, immediately after the config system has been initialized.  Necessary only for very low-level hooks
 		/// </summary>
 		PostConfigInit,

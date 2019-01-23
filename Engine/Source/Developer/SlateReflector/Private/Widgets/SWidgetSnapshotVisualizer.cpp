@@ -439,7 +439,7 @@ void FWidgetSnapshotData::SaveSnapshotToBuffer(TArray<uint8>& OutData) const
 	int32 UncompressedDataSize = TmpJsonData.Num();
 	BufferWriter << UncompressedDataSize;
 
-	BufferWriter.SerializeCompressed(TmpJsonData.GetData(), TmpJsonData.Num(), COMPRESS_ZLIB);
+	BufferWriter.SerializeCompressed(TmpJsonData.GetData(), TmpJsonData.Num(), NAME_Zlib);
 }
 
 TSharedRef<FJsonObject> FWidgetSnapshotData::SaveSnapshotAsJson() const
@@ -475,9 +475,9 @@ TSharedRef<FJsonObject> FWidgetSnapshotData::SaveSnapshotAsJson() const
 				// This is raw texture data - compress it before we encode it to save space
 				const int32 UncompressedDataSizeBytes = TextureData.ColorData.Num() * sizeof(FColor);
 				TArray<uint8> CompressedDataBuffer;
-				CompressedDataBuffer.AddZeroed(FCompression::CompressMemoryBound(COMPRESS_ZLIB, UncompressedDataSizeBytes));
+				CompressedDataBuffer.AddZeroed(FCompression::CompressMemoryBound(NAME_Zlib, UncompressedDataSizeBytes));
 				int32 CompressedDataSize = CompressedDataBuffer.Num();
-				if (FCompression::CompressMemory(COMPRESS_ZLIB, CompressedDataBuffer.GetData(), CompressedDataSize, TextureData.ColorData.GetData(), UncompressedDataSizeBytes))
+				if (FCompression::CompressMemory(NAME_Zlib, CompressedDataBuffer.GetData(), CompressedDataSize, TextureData.ColorData.GetData(), UncompressedDataSizeBytes))
 				{
 					TextureDataJsonObject->SetBoolField(TEXT("IsCompressed"), true);
 					TextureDataJsonObject->SetNumberField(TEXT("UncompressedSize"), UncompressedDataSizeBytes);
@@ -549,7 +549,7 @@ void FWidgetSnapshotData::LoadSnapshotFromBuffer(const TArray<uint8>& InData)
 		BufferReader << UncompressedDataSize;
 
 		UncompressedData.AddZeroed(UncompressedDataSize);
-		BufferReader.SerializeCompressed(UncompressedData.GetData(), 0, COMPRESS_ZLIB);
+		BufferReader.SerializeCompressed(UncompressedData.GetData(), 0, NAME_Zlib);
 	}
 
 	bool bJsonLoaded = false;
@@ -612,7 +612,7 @@ void FWidgetSnapshotData::LoadSnapshotFromJson(const TSharedRef<FJsonObject>& In
 					const int32 UncompressedDataSizeBytes = FMath::TruncToInt(TextureDataJsonObject->GetNumberField(TEXT("UncompressedSize")));
 					TextureData.ColorData.AddZeroed(UncompressedDataSizeBytes / sizeof(FColor));
 
-					FCompression::UncompressMemory(COMPRESS_ZLIB, TextureData.ColorData.GetData(), UncompressedDataSizeBytes, DecodedTextureDataBytes.GetData(), DecodedTextureDataBytes.Num());
+					FCompression::UncompressMemory(NAME_Zlib, TextureData.ColorData.GetData(), UncompressedDataSizeBytes, DecodedTextureDataBytes.GetData(), DecodedTextureDataBytes.Num());
 				}
 				else
 				{

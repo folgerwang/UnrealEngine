@@ -72,7 +72,6 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Serialization/ArchiveReplaceOrClearExternalReferences.h"
 #include "Serialization/ArchiveObjectPropertyMapper.h"
 #include "Serialization/ArchiveReferenceMarker.h"
-#include "Serialization/ArchiveAsync.h"
 #include "Serialization/ArchiveObjectCrc32.h"
 #include "Misc/PackageName.h"
 #include "UObject/ConstructorHelpers.h"

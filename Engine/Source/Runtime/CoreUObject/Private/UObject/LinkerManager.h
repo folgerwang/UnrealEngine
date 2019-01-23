@@ -44,11 +44,18 @@ public:
 
 	FORCEINLINE void RemoveLoaderFromObjectLoadersAndLoadersWithNewImports(FLinkerLoad* LinkerLoad)
 	{
+		{
 #if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
+			FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
 #endif
-		ObjectLoaders.Remove(LinkerLoad);
-		LoadersWithNewImports.Remove(LinkerLoad);
+			ObjectLoaders.Remove(LinkerLoad);
+		}
+		{
+#if THREADSAFE_UOBJECTS
+			FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
+#endif
+			LoadersWithNewImports.Remove(LinkerLoad);
+		}
 	}
 
 	FORCEINLINE void GetLoadersWithNewImportsAndEmpty(TSet<FLinkerLoad*>& OutLoaders)
@@ -65,6 +72,22 @@ public:
 		FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
 #endif
 		LoadersWithNewImports.Add(LinkerLoad);
+	}
+
+	FORCEINLINE void GetLoadersWithForcedExportsAndEmpty(TSet<FLinkerLoad*>& OutLoaders)
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock ObjectLoadersLock(&LoadersWithForcedExportsCritical);
+#endif
+		OutLoaders = MoveTemp(LoadersWithForcedExports);
+	}
+
+	FORCEINLINE void AddLoaderWithForcedExports(FLinkerLoad* LinkerLoad)
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock ObjectLoadersLock(&LoadersWithForcedExportsCritical);
+#endif
+		LoadersWithForcedExports.Add(LinkerLoad);
 	}
 
 #if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
@@ -110,6 +133,12 @@ private:
 	TArray<FLinkerLoad*> LiveLinkers;
 #endif
 	
+	/** List of loaders that have new imports **/
+	TSet<FLinkerLoad*> LoadersWithForcedExports;
+#if THREADSAFE_UOBJECTS
+	FCriticalSection LoadersWithForcedExportsCritical;
+#endif
+
 	/** List of linkers to delete **/
 	TSet<FLinkerLoad*>	PendingCleanupList;
 #if THREADSAFE_UOBJECTS

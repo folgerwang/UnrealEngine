@@ -109,7 +109,7 @@ static void ExportGeomToOBJFile(const FString& InFileName, const TNavStatArray<f
 			FMemory::Memcpy(DestBuffer, &UncompressedSize, HeaderSize);
 			DestBuffer += HeaderSize;
 
-			FCompression::CompressMemory((ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory), (void*)DestBuffer, CompressedSize, (void*)UncompressedBuffer.GetData(), UncompressedSize);
+			FCompression::CompressMemory(NAME_Zlib, (void*)DestBuffer, CompressedSize, (void*)UncompressedBuffer.GetData(), UncompressedSize, COMPRESS_BiasMemory);
 			CompressedBuffer.SetNum(CompressedSize + HeaderSize, false);
 		}
 	};
@@ -1433,17 +1433,7 @@ struct FTileCacheCompressor : public dtTileCacheCompressor
 		uint8* DataPtr = compressed + HeaderSize;		
 		int32 DataSize = maxCompressedSize - HeaderSize;
 
-		//This can be slow. Previously not Biasing speed it was taking up to 10% of the navmesh regen time per tile to compress
-		//and decompress data.
-		//@TODO Revisit this area when FCompression::CompressMemory has been refactored as this code is speed critical
-
-#if FAVOR_NAV_COMPRESSION_SPEED
-		ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed);
-#else
-		ECompressionFlags CompressionFlags = (ECompressionFlags)COMPRESS_ZLIB;
-#endif
-
-		FCompression::CompressMemory(CompressionFlags, (void*)DataPtr, DataSize, (const void*)buffer, bufferSize);
+		FCompression::CompressMemory(NAME_Zlib, (void*)DataPtr, DataSize, (const void*)buffer, bufferSize, COMPRESS_BiasMemory);
 
 		*compressedSize = DataSize + HeaderSize;
 		return DT_SUCCESS;
@@ -1460,8 +1450,7 @@ struct FTileCacheCompressor : public dtTileCacheCompressor
 		const uint8* DataPtr = compressed + HeaderSize;		
 		const int32 DataSize = compressedSize - HeaderSize;
 
-		FCompression::UncompressMemory((ECompressionFlags)(COMPRESS_ZLIB),
-			(void*)buffer, DataHeader.UncompressedSize, (const void*)DataPtr, DataSize);
+		FCompression::UncompressMemory(NAME_Zlib, (void*)buffer, DataHeader.UncompressedSize, (const void*)DataPtr, DataSize);
 
 		*bufferSize = DataHeader.UncompressedSize;
 		return DT_SUCCESS;

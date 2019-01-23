@@ -59,6 +59,8 @@ struct FScopedCreateImportCounter
 	/** Destructor. Called upon CreateImport() exit. */
 	~FScopedCreateImportCounter();
 
+	/** Current load context object */
+	FUObjectSerializeContext* LoadContext;
 	/** Previously stored linker */
 	FLinkerLoad* PreviousLinker;
 	/** Previously stored index */
@@ -447,7 +449,7 @@ public:
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
+	COREUOBJECT_API static FLinkerLoad* CreateLinker(FUObjectSerializeContext* LoadContext, UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
 
 	void Verify();
 
@@ -859,8 +861,8 @@ private:
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinkerAsync(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags
-		, TFunction<void()>&& InSummaryReadyCallback	
+	COREUOBJECT_API static FLinkerLoad* CreateLinkerAsync(FUObjectSerializeContext* LoadContext, UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags
+		, TFunction<void()>&& InSummaryReadyCallback
 	);
 
 protected: // Daniel L: Made this protected so I can override the constructor and create a custom loader to load the header of the linker in the DiffFilesCommandlet
@@ -1182,6 +1184,17 @@ private:
 	//
 	// FLinkerLoad creation helpers END
 	//
+
+private:
+
+	/** Current UObject serialization context */
+	TRefCountPtr<FUObjectSerializeContext> CurrentLoadContext;
+
+public:
+
+	//~ FArchive interface
+	COREUOBJECT_API virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override;
+	COREUOBJECT_API virtual FUObjectSerializeContext* GetSerializeContext() override;
 };
 
 // used by the EDL at boot time to coordinate loading with what is going on with the deferred registration stuff

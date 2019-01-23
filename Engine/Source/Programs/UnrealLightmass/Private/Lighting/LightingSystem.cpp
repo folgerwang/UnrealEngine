@@ -542,7 +542,8 @@ void FStaticLightingSystem::MultithreadProcess()
 	// Spawn the static lighting threads.
 	for(int32 ThreadIndex = 0;ThreadIndex < NumStaticLightingThreads;ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(Threads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_ProcessMappings);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_ProcessMappings);
+		Threads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("MappingProcessingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}

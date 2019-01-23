@@ -1206,7 +1206,7 @@ void FLLMTracker::TrackFree(const void* Ptr, ELLMTracker Tracker, ELLMAllocType 
 #if LLM_USE_ALLOC_INFO_STRUCT
 	State->TrackFree(Ptr, AllocInfo.Tag, Size, true, Tracker, AllocType);
 	#if LLM_ALLOW_ASSETS_TAGS
-		State->TrackFree(nullptr, AllocInfo.AssetTag, Size, false, Tracker, AllocType);
+		State->IncrTag(AllocInfo.AssetTag, 0 - Size, false);
 	#endif
 #else
 	State->TrackFree(Ptr, (int64)AllocInfo, Size, true, Tracker, AllocType);

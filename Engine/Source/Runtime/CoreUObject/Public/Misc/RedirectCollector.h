@@ -77,8 +77,9 @@ public:
 	/**
 	 * Called from FSoftObjectPath::PostLoadPath, registers this for later querying
 	 * @param InPath The soft object path that was loaded
+	 * @Param InArchive The archive that loaded this path
 	 */
-	void OnSoftObjectPathLoaded(const struct FSoftObjectPath& InPath);
+	void OnSoftObjectPathLoaded(const struct FSoftObjectPath& InPath, FArchive* InArchive);
 
 	/**
 	 * Load all soft object paths to resolve them, add that to the remap table, and empty the array
