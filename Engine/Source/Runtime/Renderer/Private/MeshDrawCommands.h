@@ -163,7 +163,7 @@ public:
 private:
 	FVertexBufferRHIParamRef PrimitiveIdVertexBufferRHI;
 	FMeshDrawCommandPassSetupTaskContext TaskContext;
-	FGraphEventArray TaskEventRefs;
+	FGraphEventRef TaskEventRef;
 	FString PassNameForStats;
 
 	// If TaskContext::PrimitiveIdBufferData will be released by RHI Thread.

@@ -573,6 +573,20 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 			}
 		}
 	}
+	else
+	{
+		if (bIsInRenderingThread && CmdList.RTTasks.Num())
+		{
+			ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
+			if (FTaskGraphInterface::Get().IsThreadProcessingTasks(RenderThread_Local))
+			{
+				// this is a deadlock. RT tasks must be done by now or they won't be done. We could add a third queue...
+				UE_LOG(LogRHI, Fatal, TEXT("Deadlock in FRHICommandListExecutor::ExecuteInner (RTTasks)."));
+			}
+			FTaskGraphInterface::Get().WaitUntilTasksComplete(CmdList.RTTasks, RenderThread_Local);
+			CmdList.RTTasks.Reset();
+		}
+	}
 
 	ExecuteInner_DoExecute(CmdList);
 }
@@ -1404,11 +1418,11 @@ void FRHICommandListBase::QueueRenderThreadCommandListSubmit(FGraphEventRef& Ren
 	ALLOC_COMMAND(FRHICommandWaitForAndSubmitRTSubList)(RenderThreadCompletionEvent, CmdList);
 }
 
-void FRHICommandListBase::QueueAsyncPipelineStateCompile(FGraphEventRef& AsyncCompileCompletionEvent)
+void FRHICommandListBase::AddDispatchPrerequisite(const FGraphEventRef& Prereq)
 {
-	if (AsyncCompileCompletionEvent.GetReference())
+	if (Prereq.GetReference())
 	{
-		RTTasks.AddUnique(AsyncCompileCompletionEvent);
+		RTTasks.AddUnique(Prereq);
 	}
 }
 

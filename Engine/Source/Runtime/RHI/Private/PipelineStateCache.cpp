@@ -802,7 +802,7 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 		if (DoAsyncCompile)
 		{
 			OutCachedState->CompletionEvent = TGraphTask<FCompilePipelineStateTask>::CreateTask().ConstructAndDispatchWhenReady(OutCachedState, FGraphicsPipelineStateInitializer());
-			RHICmdList.QueueAsyncPipelineStateCompile(OutCachedState->CompletionEvent);
+			RHICmdList.AddDispatchPrerequisite(OutCachedState->CompletionEvent);
 		}
 		else
 		{
@@ -818,7 +818,7 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 			FGraphEventRef& CompletionEvent = OutCachedState->CompletionEvent;
 			if ( CompletionEvent.IsValid() && !CompletionEvent->IsComplete() )
 			{
-				RHICmdList.QueueAsyncPipelineStateCompile(CompletionEvent);
+				RHICmdList.AddDispatchPrerequisite(CompletionEvent);
 			}
 		}
 
@@ -1008,7 +1008,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 		if (DoAsyncCompile)
 		{
 			OutCachedState->CompletionEvent = TGraphTask<FCompilePipelineStateTask>::CreateTask().ConstructAndDispatchWhenReady(OutCachedState, *Initializer);
-			RHICmdList.QueueAsyncPipelineStateCompile(OutCachedState->CompletionEvent);
+			RHICmdList.AddDispatchPrerequisite(OutCachedState->CompletionEvent);
 		}
 		else
 		{
@@ -1029,7 +1029,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 			FGraphEventRef& CompletionEvent = OutCachedState->CompletionEvent;
 			if ( CompletionEvent.IsValid() && !CompletionEvent->IsComplete() )
 			{
-				RHICmdList.QueueAsyncPipelineStateCompile(CompletionEvent);
+				RHICmdList.AddDispatchPrerequisite(CompletionEvent);
 			}
 		}
 

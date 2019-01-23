@@ -850,7 +850,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	FMeshCommandOneFrameArray* InOutMobileBasePassCSMMeshDrawCommands
 )
 {
-	check(TaskEventRefs.Num() == 0 && MeshPassProcessor != nullptr && TaskContext.PrimitiveIdBufferData == nullptr);
+	check(!TaskEventRef.IsValid() && MeshPassProcessor != nullptr && TaskContext.PrimitiveIdBufferData == nullptr);
 
 	MaxNumDraws = InOutMeshDrawCommands.Num() + NumDynamicMeshElements + NumDynamicMeshCommandBuildRequestElements;
 	if (MaxNumDraws <= 0)
@@ -918,8 +918,8 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 
 	if (bExecuteInParallel)
 	{
-		TaskEventRefs.Add(TGraphTask<FMeshDrawCommandPassSetupTask>::CreateTask(
-			nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(TaskContext));
+		TaskEventRef = TGraphTask<FMeshDrawCommandPassSetupTask>::CreateTask(
+			nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(TaskContext);
 	}
 	else
 	{
@@ -930,10 +930,10 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 
 void FParallelMeshDrawCommandPass::WaitForMeshPassSetupTask() const
 {
-	if (TaskEventRefs.Num() > 0)
+	if (TaskEventRef.IsValid())
 	{
 		// Need to wait on GetRenderThread_Local, as mesh pass setup task can wait on rendering thread inside InitResourceFromPossiblyParallelRendering().
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskEventRefs, ENamedThreads::GetRenderThread_Local());
+		FTaskGraphInterface::Get().WaitUntilTaskCompletes(TaskEventRef, ENamedThreads::GetRenderThread_Local());
 	}
 }
 
@@ -941,7 +941,7 @@ void FParallelMeshDrawCommandPass::Empty()
 {
 	// Need to wait in case if someone dispatched sort and draw merge task, but didn't draw it.
 	WaitForMeshPassSetupTask();
-	TaskEventRefs.Empty();
+	TaskEventRef = nullptr;
 
 	DumpInstancingStats();
 
@@ -1029,8 +1029,6 @@ public:
  */
 struct FRHICommandUpdatePrimitiveIdBuffer : public FRHICommand<FRHICommandUpdatePrimitiveIdBuffer>
 {
-	FGraphEventArray Prereqs;
-
 	FVertexBufferRHIParamRef VertexBuffer;
 	void* VertexBufferData;
 	int32 VertexBufferDataSize;
@@ -1038,12 +1036,10 @@ struct FRHICommandUpdatePrimitiveIdBuffer : public FRHICommand<FRHICommandUpdate
 	virtual ~FRHICommandUpdatePrimitiveIdBuffer() {}
 
 	FORCEINLINE_DEBUGGABLE FRHICommandUpdatePrimitiveIdBuffer(
-		const FGraphEventArray& InPrereqs,
 		FVertexBufferRHIParamRef InVertexBuffer,
 		void* InVertexBufferData,
 		int32 InVertexBufferDataSize)
-		: Prereqs(InPrereqs)
-		, VertexBuffer(InVertexBuffer)
+		: VertexBuffer(InVertexBuffer)
 		, VertexBufferData(InVertexBufferData)
 		, VertexBufferDataSize(InVertexBufferDataSize)
 	{
@@ -1051,9 +1047,6 @@ struct FRHICommandUpdatePrimitiveIdBuffer : public FRHICommand<FRHICommandUpdate
 
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		// Need to wait on GetRenderThread_Local, as mesh pass setup task can wait on rendering thread inside InitResourceFromPossiblyParallelRendering().
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(Prereqs, IsRunningRHIInSeparateThread() ? ENamedThreads::RHIThread : ENamedThreads::GetRenderThread_Local());
-
 		// Upload vertex buffer data.
 		void* RESTRICT Data = (void* RESTRICT)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, VertexBufferDataSize, RLM_WriteOnly);
 		FMemory::BigBlockMemcpy(Data, VertexBufferData, VertexBufferDataSize);
@@ -1077,10 +1070,15 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 	{
 		if (TaskContext.bUseGPUScene)
 		{
-			// Queue a command on the RHI thread which will upload PrimitiveIdVertexBuffer after finishing FMeshDrawCommandPassSetupTaskContext.
+			// Queue a command on the RHI thread which will upload PrimitiveIdVertexBuffer after finishing FMeshDrawCommandPassSetupTask.
 			FRHICommandListImmediate &RHICommandList = GetImmediateCommandList_ForRenderCommand();
+
+			if (TaskEventRef.IsValid())
+			{
+				RHICommandList.AddDispatchPrerequisite(TaskEventRef);
+			}
+
 			new (RHICommandList.AllocCommand<FRHICommandUpdatePrimitiveIdBuffer>())FRHICommandUpdatePrimitiveIdBuffer(
-				TaskEventRefs,
 				PrimitiveIdVertexBufferRHI,
 				TaskContext.PrimitiveIdBufferData,
 				TaskContext.PrimitiveIdBufferDataSize
@@ -1090,10 +1088,14 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 
 		const ENamedThreads::Type RenderThread = ENamedThreads::GetRenderThread();
 
-		FGraphEventArray Prereqs = TaskEventRefs;
+		FGraphEventArray Prereqs;
 		if (ParallelCommandListSet->GetPrereqs())
 		{
 			Prereqs.Append(*ParallelCommandListSet->GetPrereqs());
+		}
+		if (TaskEventRef.IsValid())
+		{
+			Prereqs.Add(TaskEventRef);
 		}
 
 		// Distribute work evenly to the available task graph workers based on NumEstimatedDraws.
