@@ -1604,7 +1604,8 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 
 				if (bForceReference)
 				{
-					OutCastBegin = TEXT("*static_cast<uint8*>(&(");
+					// An enum and its underlying type are not related by inheritance, so 'static_cast' cannot be used here (5.2.9/11).
+					OutCastBegin = TEXT("*reinterpret_cast<uint8*>(&(");
 					OutCastEnd = TEXT("))");
 				}
 				else
