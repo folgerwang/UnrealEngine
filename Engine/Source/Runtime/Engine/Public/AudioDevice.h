@@ -1171,6 +1171,12 @@ public:
 		return bIsStoppingVoicesEnabled;
 	}
 
+	/** Returns if baked analysis querying is enabled. */
+	bool IsBakedAnalaysisQueryingEnabled() const
+	{
+		return bIsBakedAnalysisEnabled;
+	}
+
 	/** Updates the source effect chain. Only implemented in audio mixer. */
 	virtual void UpdateSourceEffectChain(const uint32 SourceEffectChainId, const TArray<FSourceEffectChainEntry>& SourceEffectChain, const bool bPlayEffectChainTails) {}
 
@@ -1699,6 +1705,9 @@ public:
 	uint8 bIsAudioDeviceHardwareInitialized : 1;
 
 	uint8 bIsStoppingVoicesEnabled : 1;
+
+	/** If baked analysis querying is enabled. */
+	uint8 bIsBakedAnalysisEnabled : 1;
 
 	/** Whether or not the audio mixer module is being used by this device. */
 	uint8 bAudioMixerModuleLoaded : 1;
