@@ -12,7 +12,7 @@
 class UAnimationSharingManager;
 class UAnimationSharingSetup;
 
-class ANIMATIONSHARING_API FAnimSharingModule : public FDefaultGameModuleImpl, public FGCObject
+class ANIMATIONSHARING_API FAnimSharingModule : public FDefaultModuleImpl, public FGCObject
 {
 public:
 	// Begin IModuleInterface overrides
