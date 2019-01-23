@@ -24,6 +24,7 @@ public class WorldBrowser : ModuleRules
      
         PrivateDependencyModuleNames.AddRange(
             new string[] {
+				"ApplicationCore",
                 "AppFramework",
                 "Core", 
                 "CoreUObject",
