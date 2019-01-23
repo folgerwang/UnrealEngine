@@ -254,6 +254,9 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Current Camera Settings")
 	float CurrentHorizontalFOV;
 #endif
+
+	/** Override setting FOV to manipulate Focal Length. */
+	virtual void SetFieldOfView(float InFieldOfView) override;
 	
 	/** Returns the horizonal FOV of the camera with current settings. */
 	UFUNCTION(BlueprintCallable, Category = "Cine Camera")

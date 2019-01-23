@@ -252,6 +252,9 @@ void FLevelEditorSequencerIntegration::Initialize()
 			}
 		);
 	}
+
+	const bool bForceRefresh = true;
+	UpdateDetails(bForceRefresh);
 }
 
 void RenameSpawnableRecursive(FSequencer* Sequencer, FMovieSceneSequenceIDRef SequenceID, AActor* ChangedActor)
