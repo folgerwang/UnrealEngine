@@ -140,4 +140,11 @@ struct MOVIESCENE_API FMovieSceneChannel
 	 */
 	virtual void ClearDefault()
 	{}
+
+	/**
+	 * Perfor a possibly heavy operation after an edit change 
+	 *
+	 */
+	virtual void PostEditChange() {}
+
 };
