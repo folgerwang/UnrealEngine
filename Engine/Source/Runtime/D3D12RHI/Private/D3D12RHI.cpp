@@ -22,9 +22,9 @@ DEFINE_LOG_CATEGORY(LogD3D12RHI);
 
 
 static TAutoConsoleVariable<int32> CVarD3D12UseD24(
-	TEXT("r.d3d12.Depth24Bit"),
-	0,
-	TEXT("0: Use 32bit float(default)\n1: Use 24bit fixed point"),
+	TEXT("r.D3D12.Depth24Bit"),
+	1,
+	TEXT("0: Use 32-bit float depth buffer\n1: Use 24-bit fixed point depth buffer(default)\n"),
 	ECVF_ReadOnly
 );
 

@@ -32,9 +32,9 @@ bool D3D11RHI_ShouldAllowAsyncResourceCreation()
 IMPLEMENT_MODULE(FD3D11DynamicRHIModule, D3D11RHI);
 
 static TAutoConsoleVariable<int32> CVarD3D11UseD24(
-	TEXT("r.d3d11.Depth24Bit"),
-	0,
-	TEXT("0: Use 32bit float(default)\n1: Use 24bit fixed point"),
+	TEXT("r.D3D11.Depth24Bit"),
+	1,
+	TEXT("0: Use 32-bit float depth buffer\n1: Use 24-bit fixed point depth buffer(default)\n"),
 	ECVF_ReadOnly
 );
 
