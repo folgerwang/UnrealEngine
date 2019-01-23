@@ -185,11 +185,27 @@ struct KISMET_API FFiBMD
 };
 
 /** Which assets to index for caching */
-enum EFiBCacheOpType
+enum class EFiBCacheOpType
 {
 	CachePendingAssets,
 	CacheUnindexedAssets
 };
+
+/** Flags to control the UX while caching */
+enum class EFiBCacheOpFlags
+{
+	None = 0,
+	/** Whether to show progress */
+	ShowProgress = 1 << 0,
+	/** Whether to hide toast popups */
+	HideNotifications = 1 << 1,
+	/** Whether to allow users to cancel */
+	AllowUserCancel = 1 << 2,
+	/** Set if the user wants to check out and save (applies to unindexed caching only) */
+	CheckOutAndSave = 1 << 3,
+};
+
+ENUM_CLASS_FLAGS(EFiBCacheOpFlags);
 
 /** Options to configure the bulk caching task */
 struct FFindInBlueprintCachingOptions
@@ -479,7 +495,7 @@ public:
 	bool HasCachingFailed() const { return FailedToCachePaths.Num() > 0; };
 
 	/** Callback to note that Blueprint caching is started */
-	void StartedCachingBlueprints();
+	void StartedCachingBlueprints(EFiBCacheOpFlags InCacheOpFlags);
 
 	/**
 	 * Callback to note that Blueprint caching is complete
@@ -496,9 +512,6 @@ public:
 
 	/** Returns a weak reference to the widget that initiated the current caching operation */
 	TWeakPtr<SFindInBlueprints> GetSourceCachingWidget() const { return SourceCachingWidget; }
-
-	/** Serializes an FString to memory and converts the memory into a string of hex characters */
-	static FString ConvertFStringToHexString(FString InValue);
 
 	/** Given a fully constructed Find-in-Blueprint FString of searchable data, will parse and construct a JsonObject */
 	static TSharedPtr< class FJsonObject > ConvertJsonStringToObject(bool bInIsVersioned, FString InJsonString, TMap<int32, FText>& OutFTextLookupTable);
@@ -545,9 +558,6 @@ private:
 
 	/** Callback hook from the Hot Reload manager that indicates that a module has been hot-reloaded */
 	void OnHotReload(bool bWasTriggeredAutomatically);
-
-	/** Callback from Kismet when a Blueprint asset is opened in the editor */
-	void HandleBlueprintEditorOpened(EBlueprintType InBlueprintType);
 
 	/** Helper to gathers the Blueprint's search metadata */
 	FString GatherBlueprintSearchMetadata(const UBlueprint* Blueprint);
