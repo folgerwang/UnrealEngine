@@ -195,7 +195,7 @@ UBrainComponent::UBrainComponent(const FObjectInitializer& ObjectInitializer) : 
 #if ENABLE_VISUAL_LOG
 void UBrainComponent::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const
 {
-	const static UEnum* PriorityEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+	const static UEnum* PriorityEnum = StaticEnum<EAIRequestPriority::Type>();
 
 	if (IsPendingKill())
 	{

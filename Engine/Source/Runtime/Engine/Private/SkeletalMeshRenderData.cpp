@@ -98,7 +98,8 @@ void FSkeletalMeshRenderData::Cache(USkeletalMesh* Owner)
 			for (int32 LODIndex = 0; LODIndex < SkelMeshModel->LODModels.Num(); LODIndex++)
 			{
 				FSkeletalMeshLODModel& LODModel = SkelMeshModel->LODModels[LODIndex];
-				FSkeletalMeshLODRenderData* LODData = new(LODRenderData) FSkeletalMeshLODRenderData();
+				FSkeletalMeshLODRenderData* LODData = new FSkeletalMeshLODRenderData();
+				LODRenderData.Add(LODData);
 
 				LODData->BuildFromLODModel(&LODModel, VertexBufferBuildFlags);
 			}

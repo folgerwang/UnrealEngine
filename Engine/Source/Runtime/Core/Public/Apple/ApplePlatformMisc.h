@@ -20,11 +20,7 @@
 #define WITH_SIMULATOR 0
 #endif
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FApplePlatformMisc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 #ifdef __OBJC__
 
@@ -76,55 +72,7 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 
 		return ( Info.kp_proc.p_flag & P_TRACED ) != 0;
 	}
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if( IsDebuggerPresent() )
-		{
-			//Signal interupt to our process, this is caught by the main thread, this is not immediate but you can continue
-			//when triggered by check macros you will need to inspect other threads for the appFailAssert call.
-			//kill( getpid(), SIGINT );
-
-			//If you want an immediate break use the trap instruction, continued execuction is halted
-#if WITH_SIMULATOR || PLATFORM_MAC
-            __asm__ ( "int $3" );
-#elif PLATFORM_64BITS
-			__asm__ ( "svc 0" );
-#else
-            __asm__ ( "trap" );
 #endif
-		}
-	}
-#endif
-
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
-	FORCEINLINE static void DebugBreak()
-	{
-		UE_DEBUG_BREAK();
-	}
-
-	/** Break into debugger. Returning false allows this function to be used in conditionals. */
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
-	FORCEINLINE static bool DebugBreakReturningFalse()
-	{
-		UE_DEBUG_BREAK();
-		return false;
-	}
-
-	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	UE_DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
-	FORCEINLINE static bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
-	{
-#if !UE_BUILD_SHIPPING
-		if (!IsDebuggerPresent())
-		{
-			PromptForRemoteDebugging(bIsEnsure);
-		}
-
-		UE_DEBUG_BREAK();
-#endif
-
-		return false;
-	}
 
 	FORCEINLINE static void MemoryBarrier()
 	{

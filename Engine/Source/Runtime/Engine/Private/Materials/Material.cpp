@@ -504,7 +504,6 @@ void UMaterialInterface::PostLoadDefaultMaterials()
 			UMaterial* Material = GDefaultMaterials[Domain];
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 			check(Material || (GIsInitialLoad && GEventDrivenLoaderEnabled));
-			check((GIsInitialLoad && GEventDrivenLoaderEnabled) || !Material->HasAnyFlags(RF_NeedLoad)); //-V595
 			if (Material && !Material->HasAnyFlags(RF_NeedLoad))
 #else
 			check(Material);
@@ -574,7 +573,7 @@ void SetCompactFullNameFromObject(FCompactFullName &Dest, UObject* InDepObject)
 
 FString MaterialDomainString(EMaterialDomain MaterialDomain)
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+	static const UEnum* Enum = StaticEnum<EMaterialDomain>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(MaterialDomain));
 }
@@ -3992,7 +3991,7 @@ void UMaterial::DumpDebugInfo()
 	UE_LOG(LogConsoleResponse, Display, TEXT("----------------------------- %s"), *GetFullName());
 
 	{
-		static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+		static const UEnum* Enum = StaticEnum<EMaterialDomain>();
 		check(Enum);
 		UE_LOG(LogConsoleResponse, Display, TEXT("  MaterialDomain %s"), *Enum->GetNameStringByValue(int64(MaterialDomain)));
 	}

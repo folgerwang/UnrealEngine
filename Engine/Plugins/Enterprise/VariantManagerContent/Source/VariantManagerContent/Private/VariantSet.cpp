@@ -76,7 +76,7 @@ FString UVariantSet::GetUniqueVariantName(const FString& InPrefix)
 	}
 
 	// Add a numbered suffix
-	if (UniqueNames.Contains(VarName))
+	if (UniqueNames.Contains(VarName) || VarName.IsEmpty())
 	{
 		int32 Suffix = 0;
 		while (UniqueNames.Contains(VarName + FString::FromInt(Suffix)))

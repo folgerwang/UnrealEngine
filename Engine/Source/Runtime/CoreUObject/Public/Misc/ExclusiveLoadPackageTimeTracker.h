@@ -110,7 +110,8 @@ public:
 	FORCEINLINE static void PushEndLoad()
 	{
 #if WITH_LOADPACKAGE_TIME_TRACKER
-		Get().InternalPushLoadPackage(Get().EndLoadName);
+		FExclusiveLoadPackageTimeTracker& Instance = Get();
+		Instance.InternalPushLoadPackage(Instance.EndLoadName);
 #endif
 	}
 
@@ -186,8 +187,16 @@ private:
 		{}
 	};
 
+	inline static FExclusiveLoadPackageTimeTracker& Get()
+	{
+		if (TrackerInstance)
+			return *TrackerInstance;
+		else
+			return Construct();
+	}
+
 	FExclusiveLoadPackageTimeTracker();
-	COREUOBJECT_API static FExclusiveLoadPackageTimeTracker& Get();
+	COREUOBJECT_API static FExclusiveLoadPackageTimeTracker& Construct();
 
 	/** Starts a time for the specified package name. */
 	COREUOBJECT_API void InternalPushLoadPackage(FName PackageName);
@@ -237,6 +246,8 @@ private:
 
 	/** Auto-registered console command to call ResetReport() */
 	const FAutoConsoleCommand ResetReportCommand;
+
+	static FExclusiveLoadPackageTimeTracker* TrackerInstance;
 
 #endif // WITH_LOADPACKAGE_TIME_TRACKER
 };

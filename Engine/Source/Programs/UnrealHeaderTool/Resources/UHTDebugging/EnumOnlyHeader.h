@@ -5,7 +5,7 @@
 #include "EnumOnlyHeader.generated.h"
 
 UENUM()
-enum ESomeEnum
+enum EOldEnum
 {
 	One,
 	Two,
@@ -13,7 +13,7 @@ enum ESomeEnum
 };
 
 UENUM()
-namespace ESomeNamespacedEnum
+namespace ENamespacedEnum
 {
 	enum Type
 	{
@@ -29,4 +29,47 @@ enum class ECppEnum : uint8
 	Seven,
 	Eight,
 	Nine
+};
+
+UENUM()
+enum struct ECppEnumStruct : uint8
+{
+	Ten,
+	Eleven,
+	Twelve
+};
+
+UENUM()
+enum alignas(8) EAlignedOldEnum
+{
+	Thirteen,
+	Fourteen,
+	Fifteen
+};
+
+UENUM()
+namespace EAlignedNamespacedEnum
+{
+	enum alignas(8) Type
+	{
+		Sixteen,
+		Seventeen,
+		Eighteen
+	};
+}
+
+UENUM()
+enum class alignas(8) EAlignedCppEnum : uint8
+{
+	Nineteen,
+	Twenty,
+	TwentyOne
+};
+
+UENUM()
+enum struct alignas(8) EAlignedCppEnumStruct : uint8
+{
+	TwentyTwo,
+	TwentyThree,
+	TwentyFour
 };

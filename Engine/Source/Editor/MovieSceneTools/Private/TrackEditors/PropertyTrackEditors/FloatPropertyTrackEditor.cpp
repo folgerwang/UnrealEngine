@@ -5,6 +5,8 @@
 #include "UnrealEdGlobals.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackFloatBase.h"
+#include "MovieSceneToolHelpers.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 
 TSharedRef<ISequencerTrackEditor> FFloatPropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer )
@@ -50,4 +52,31 @@ void FFloatPropertyTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder
 
 	MenuBuilder.AddMenuSeparator();
 	FKeyframeTrackEditor::BuildTrackContextMenu(MenuBuilder, Track);
+}
+
+
+bool FFloatPropertyTrackEditor::ModifyGeneratedKeysByCurrentAndWeight(UObject *Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedTotalKeys, float Weight) const
+{
+	
+	FFrameRate TickResolution = GetSequencer()->GetFocusedTickResolution();
+
+	FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+
+	FMovieSceneInterrogationData InterrogationData;
+	GetSequencer()->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
+
+	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, GetSequencer()->GetFocusedTickResolution()));
+	EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+	float CurValue = 0.0f;
+	for (const float &Value : InterrogationData.Iterate<float>(FMovieScenePropertySectionTemplate::GetFloatInterrogationKey()))
+	{
+		CurValue = Value;
+		break;
+	}
+
+	FMovieSceneChannelProxy& Proxy = SectionToKey->GetChannelProxy();
+	GeneratedTotalKeys[0]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurValue, Weight);
+	return true;
+
 }

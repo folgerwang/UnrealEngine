@@ -62,6 +62,8 @@ FFCPXMLImportVisitor::FFCPXMLImportVisitor(TSharedRef<FMovieSceneImportData> InI
 , CurrAudioMasterTrack(nullptr)
 , CurrAudioTrackRowIndex(0)
 , bCurrImportAudioTrackIsStereoChannel(false)
+, MaxVideoTrackRowIndex(0)
+, MaxAudioTrackRowIndex(0)
 {
 	ConstructAudioTrackList();
 	if (AudioTrackList.Num() > 0)
@@ -149,6 +151,10 @@ bool FFCPXMLImportVisitor::VisitNode(TSharedRef<FFCPXMLTrackNode> InTrackNode)
 	{
 		bInVideoTrackNode = bPrevInTrackNode;
 		CurrVideoTrackRowIndex++;
+		if (MaxVideoTrackRowIndex < CurrVideoTrackRowIndex)
+		{
+			MaxVideoTrackRowIndex = CurrVideoTrackRowIndex;
+		}
 	}
 	else if (bInSequenceNode && bInAudioNode)
 	{
@@ -169,6 +175,10 @@ bool FFCPXMLImportVisitor::VisitNode(TSharedRef<FFCPXMLTrackNode> InTrackNode)
 			{
 				CurrAudioTrackRowIndex++;
 			}
+		}
+		if (MaxAudioTrackRowIndex < CurrAudioTrackRowIndex)
+		{
+			MaxAudioTrackRowIndex = CurrAudioTrackRowIndex;
 		}
 	}
 
@@ -261,6 +271,14 @@ bool FFCPXMLImportVisitor::VisitVideoClipItemNode(TSharedRef<FFCPXMLClipItemNode
 
 	FString SectionPathName = GetCinematicSectionPathName(LogNote, MasterClipId);
 
+	int32 HandleFrames = 0;
+	int32 OriginalStartOffset = 0;
+	TOptional<FFrameNumber> NewStartOffset;
+	if (GetCinematicSectionHandleFramesFromMetadata(LogNote, HandleFrames) && GetCinematicSectionStartOffsetFromMetadata(LogNote, OriginalStartOffset))
+	{
+		NewStartOffset = OriginalStartOffset - ((1 + HandleFrames) - StartOffset);
+	}
+
 	// Find actual section
 	TSharedPtr<FMovieSceneImportCinematicSectionData> SectionData = nullptr;
 	if (!SectionPathName.IsEmpty())
@@ -271,7 +289,7 @@ bool FFCPXMLImportVisitor::VisitVideoClipItemNode(TSharedRef<FFCPXMLClipItemNode
 	if (SectionData.IsValid())
 	{
 		// Update existing cinematic section
-		if (!ImportData->SetCinematicSection(SectionData, CurrVideoTrackRowIndex, FrameRate, Start, End, StartOffset))
+		if (!ImportData->SetCinematicSection(SectionData, CurrVideoTrackRowIndex, FrameRate, Start, End, NewStartOffset))
 		{
 			return false;
 		}
@@ -279,7 +297,7 @@ bool FFCPXMLImportVisitor::VisitVideoClipItemNode(TSharedRef<FFCPXMLClipItemNode
 	else
 	{
 		// Add new cinematic section
-		SectionData = ImportData->CreateCinematicSection(ClipItemName, CurrVideoTrackRowIndex, FrameRate, Start, End, StartOffset);
+		SectionData = ImportData->CreateCinematicSection(ClipItemName, CurrVideoTrackRowIndex, FrameRate, Start, End, NewStartOffset.IsSet() ? NewStartOffset.GetValue() : 0);
 		if (!SectionData.IsValid())
 		{
 			return false;
@@ -314,7 +332,7 @@ bool FFCPXMLImportVisitor::VisitAudioClipItemNode(TSharedRef<FFCPXMLClipItemNode
 	FFrameNumber StartOffset;
 	FFrameNumber Start;
 	FFrameNumber End;
-	
+
 	// Get relevant data from this clip item node
 	if (!GetClipItemNodeData(InClipItemNode, ClipItemName, ClipItemId, MasterClipId, LoggingInfoNode, LogNote, Filename, FrameRate, StartOffset, Start, End))
 	{
@@ -766,6 +784,30 @@ bool FFCPXMLImportVisitor::ParseMetadata(const FString& InMetadata, const FStrin
 bool FFCPXMLImportVisitor::GetCinematicSectionPathNameFromMetadata(const FString& InMetadata, FString& OutSectionObjectName) const
 {
 	return ParseMetadata(InMetadata, TEXT("UE4ShotSection"), OutSectionObjectName);
+}
+
+/** Get sequencer shot handle frames from section metadata. Format is "[UE4ShotHandleFrames=handleframes]", whitespace ok. */
+bool FFCPXMLImportVisitor::GetCinematicSectionHandleFramesFromMetadata(const FString& InMetadata, int32& OutHandleFrames) const
+{
+	FString HandleFrameData;
+	bool bSuccess = ParseMetadata(InMetadata, TEXT("UE4ShotHandleFrames"), HandleFrameData);
+	if (bSuccess)
+	{
+		OutHandleFrames = FCString::Atoi(*HandleFrameData);
+	}
+	return bSuccess;
+}
+
+/** Get sequencer shot start offset frame from section metadata. Format is "[UE4ShotStartOffset=startoffset]", whitespace ok. */
+bool FFCPXMLImportVisitor::GetCinematicSectionStartOffsetFromMetadata(const FString& InMetadata, int32& OutStartOffset) const
+{
+	FString StartOffsetData;
+	bool bSuccess = ParseMetadata(InMetadata, TEXT("UE4ShotStartOffset"), StartOffsetData);
+	if (bSuccess)
+	{
+		OutStartOffset = FCString::Atoi(*StartOffsetData);
+	}
+	return bSuccess;
 }
 
 /** Get sequencer track name from track metadata. Format is "[UE4Track=trackobjectname][UE4Row=rowindex]", whitespace ok. */

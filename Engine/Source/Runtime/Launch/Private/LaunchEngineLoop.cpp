@@ -299,6 +299,11 @@ public:
 		{
 			AllowedLogVerbosity = ELogVerbosity::All;
 		}
+
+		if (stdout == nullptr)
+		{
+			AllowedLogVerbosity = ELogVerbosity::NoLogging;
+		}
 	}
 
 	virtual bool CanBeUsedOnAnyThread() const override
@@ -1027,6 +1032,11 @@ DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_
 int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 {
 	SCOPED_BOOT_TIMING("FEngineLoop::PreInit");
+
+#if PLATFORM_WINDOWS
+	// Register a handler for Ctrl-C so we've effective signal handling from the outset.
+	FWindowsPlatformMisc::SetGracefulTerminationHandler();
+#endif // PLATFORM_WINDOWS
 
 	FMemory::SetupTLSCachesOnCurrentThread();
 
@@ -4447,6 +4457,14 @@ bool FEngineLoop::AppInit( )
 		FConfigCacheIni::InitializeConfigSystem();
 	}
 
+	// Load "asap" plugin modules
+	IPluginManager&  PluginManager = IPluginManager::Get();
+	IProjectManager& ProjectManager = IProjectManager::Get();
+	if (!ProjectManager.LoadModulesForProject(ELoadingPhase::EarliestPossible) || !PluginManager.LoadModulesForEnabledPlugins(ELoadingPhase::EarliestPossible))
+	{
+		return false;
+	}
+
 	{
 		SCOPED_BOOT_TIMING("FPlatformStackWalk::Init");
 		// Now that configs have been initialized, setup stack walking options
@@ -4458,9 +4476,6 @@ bool FEngineLoop::AppInit( )
 #endif
 
 	CheckForPrintTimesOverride();
-
-	IPluginManager&  PluginManager  = IPluginManager::Get();
-	IProjectManager& ProjectManager = IProjectManager::Get();
 
 	// Check whether the project or any of its plugins are missing or are out of date
 #if UE_EDITOR && !IS_MONOLITHIC

@@ -501,6 +501,12 @@ namespace nDisplayLauncher.Cluster
 		public void ProcessCommand(ClusterCommandType Cmd, object[] Args = null)
 		{
 			Configuration Config = Parser.Parse(SelectedConfig);
+			if (Config == null)
+			{
+				AppLogger.Log("Couldn't parse the config file. Please make sure it's correct.");
+				return;
+			}
+
 			if (Config.ClusterNodes.Count < 1)
 			{
 				AppLogger.Log("No cluster nodes found in the config file");

@@ -87,7 +87,7 @@ namespace GameProjectAutomationUtils
 		bool bRemoveCreatedProjects = true;		
 		OutCreatedProjects = 0;
 		OutMatchedProjects = 0;
-		UEnum* SourceCategoryEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EContentSourceCategory"));
+		UEnum* SourceCategoryEnum = StaticEnum<EContentSourceCategory>();
 
 		// The category name in the FTemplateItem is not the same as the enum definition EContentSourceCategory - convert it
 		FName CategoryName;

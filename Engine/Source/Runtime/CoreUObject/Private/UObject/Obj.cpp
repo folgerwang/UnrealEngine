@@ -1946,12 +1946,42 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 	}
 
 #if !IS_PROGRAM
+	auto HaveSameProperties = [](const UStruct* Struct1, const UStruct* Struct2) -> bool
+	{
+		TFieldIterator<UProperty> It1(Struct1);
+		TFieldIterator<UProperty> It2(Struct2);
+
+		for (;;)
+		{
+			bool bAtEnd1 = !It1;
+			bool bAtEnd2 = !It2;
+
+			// If one iterator is at the end and one isn't, the property lists are different
+			if (bAtEnd1 != bAtEnd2)
+			{
+				return false;
+			}
+
+			// If both iterators have reached the end, the property lists are the same
+			if (bAtEnd1)
+			{
+				return true;
+			}
+
+			// If the properties are different, the property lists are different
+			if (*It1 != *It2)
+			{
+				return false;
+			}
+		}
+	};
+
 	// Do we have properties that don't exist yet?
 	// If this happens then we're trying to load the config for an object that doesn't
 	// know what its layout is. Usually a call to GetDefaultObject that occurs too early
 	// because ProcessNewlyLoadedUObjects hasn't happened yet
 	checkf(ConfigClass->PropertyLink != nullptr
-		|| (ConfigClass->GetSuperStruct() && ConfigClass->PropertiesSize == ConfigClass->GetSuperStruct()->PropertiesSize)
+		|| (ConfigClass->GetSuperStruct() && HaveSameProperties(ConfigClass, ConfigClass->GetSuperStruct()))
 		|| ConfigClass->PropertiesSize == 0
 		|| GIsRequestingExit, // Ignore this check when exiting as we may have requested exit during init when not everything is initialized
 		TEXT("class %s has uninitialized properties. Accessed too early?"), *ConfigClass->GetName());
@@ -2092,11 +2122,13 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 
 	FString ClassSection;
 	FName LongCommitName;
-	if ( bPerObject == true )
+
+	if (bPerObject)
 	{
 		FString PathNameString;
 		UObject* Outermost = GetOutermost();
-		if ( Outermost == GetTransientPackage() )
+
+		if (Outermost == GetTransientPackage())
 		{
 			PathNameString = GetName();
 		}
@@ -2105,7 +2137,10 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 			GetPathName(Outermost, PathNameString);
 			LongCommitName = Outermost->GetFName();
 		}
+
 		ClassSection = PathNameString + TEXT(" ") + GetClass()->GetName();
+
+		OverridePerObjectConfigSection(ClassSection);
 	}
 
 	// If any of my properties are class variables, then LoadConfig() would also be called for each one of those classes.
@@ -2310,11 +2345,13 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 
 	const bool bPerObject = UsesPerObjectConfig(this);
 	FString Section;
-	if ( bPerObject == true )
+
+	if (bPerObject == true)
 	{
 		FString PathNameString;
 		UObject* Outermost = GetOutermost();
-		if ( Outermost == GetTransientPackage() )
+
+		if (Outermost == GetTransientPackage())
 		{
 			PathNameString = GetName();
 		}
@@ -2322,7 +2359,10 @@ void UObject::SaveConfig( uint64 Flags, const TCHAR* InFilename, FConfigCacheIni
 		{
 			GetPathName(Outermost, PathNameString);
 		}
+
 		Section = PathNameString + TEXT(" ") + GetClass()->GetName();
+
+		OverridePerObjectConfigSection(Section);
 	}
 
 	UObject* CDO = GetClass()->GetDefaultObject();
@@ -4251,7 +4291,6 @@ void CleanupCachedArchetypes();
 //
 void StaticExit()
 {
-	check(FUObjectThreadContext::Get().ObjLoaded.Num() == 0);
 	if (UObjectInitialized() == false)
 	{
 		return;
@@ -4341,7 +4380,6 @@ void StaticExit()
 
 	UObjectBaseShutdown();
 	// Empty arrays to prevent falsely-reported memory leaks.
-	FUObjectThreadContext::Get().ObjLoaded.Empty();
 	FDeferredMessageLog::Cleanup();
 	CleanupGCArrayPools();
 	CleanupLinkerAnnotations();

@@ -432,7 +432,7 @@ bool MovieSceneTranslatorEDL::ImportEDL(UMovieScene* InMovieScene, FFrameRate In
 	return true;
 }
 
-bool MovieSceneTranslatorEDL::ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, const int32 InHandleFrames)
+bool MovieSceneTranslatorEDL::ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, const int32 InHandleFrames, FString InMovieExtension)
 {
 	FString SequenceName = InMovieScene->GetOuter()->GetName();
 	FString SaveBasename = FPaths::GetPath(InSaveFilename) / FPaths::GetBaseFilename(InSaveFilename);
@@ -459,31 +459,25 @@ bool MovieSceneTranslatorEDL::ExportEDL(const UMovieScene* InMovieScene, FFrameR
 			{
 				UMovieSceneCinematicShotSection* CinematicShotSection = Cast<UMovieSceneCinematicShotSection>(ShotSection);
 
-				if ( CinematicShotSection->GetSequence() == nullptr || !CinematicShotSection->HasStartFrame() || !CinematicShotSection->HasEndFrame() )
+				if ( CinematicShotSection->GetSequence() == nullptr || !CinematicShotSection->HasStartFrame() || !CinematicShotSection->HasEndFrame() || !CinematicShotSection->IsActive())
 				{
 					// If the shot doesn't have a valid sequence skip it.  This is currently the case for filler sections.
 					// TODO: Handle this properly in the edl output.
 					continue;
 				}
 
+				FFrameRate TickResolution = CinematicShotSection->GetSequence()->GetMovieScene()->GetTickResolution();
+
 				FString ShotName = CinematicShotSection->GetShotDisplayName();
 				FString ShotPath = CinematicShotSection->GetSequence()->GetMovieScene()->GetOuter()->GetPathName();
 
-				FFrameNumber SourceInFrame  = InHandleFrames;
-				FFrameNumber SourceOutFrame = InHandleFrames + MovieScene::DiscreteSize(CinematicShotSection->GetRange());
+				FFrameNumber SourceInFrame = ConvertFrameTime(InHandleFrames + 1, InFrameRate, TickResolution).FrameNumber;
+				FFrameNumber SourceOutFrame = ConvertFrameTime(InHandleFrames, InFrameRate, TickResolution).FrameNumber + MovieScene::DiscreteSize(CinematicShotSection->GetRange());
 
 				FFrameNumber EditInFrame    = CinematicShotSection->GetInclusiveStartFrame();
 				FFrameNumber EditOutFrame   = CinematicShotSection->GetExclusiveEndFrame();
 
-#if PLATFORM_MAC
-				static const TCHAR* Extension = TEXT(".mov");
-#elif PLATFORM_UNIX
-				static const TCHAR* Extension = TEXT(".unsupp");
-				continue;
-#else
-				static const TCHAR* Extension = TEXT(".avi");
-#endif
-				ShotName += Extension;
+				ShotName += InMovieExtension;
 
 				//@todo shotpath should really be moviefile path
 				ShotPath = ShotName;

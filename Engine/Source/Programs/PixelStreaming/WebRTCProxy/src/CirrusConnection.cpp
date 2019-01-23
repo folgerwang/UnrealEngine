@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "CirrusConnection.h"
 #include "Logging.h"
 
@@ -41,7 +40,7 @@ uint32_t FCirrusConnection::OnRead(const uint8_t* Data, uint32_t Size)
 	Ptr += sizeof(ECirrusToProxyMsg);
 
 	checkf(MsgId < ECirrusToProxyMsg::count,
-		"Invalid message ID received from Cirrus: %u", static_cast<uint32_t>(MsgId));
+		TEXT("Invalid message ID received from Cirrus: %u"), static_cast<uint32_t>(MsgId));
 
 	auto GetString = [&Ptr, Data, Size](std::string& res) -> bool
 	{

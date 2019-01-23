@@ -36,7 +36,7 @@ class FAnimBlueprintCompilerContext : public FKismetCompilerContext
 protected:
 	typedef FKismetCompilerContext Super;
 public:
-	FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions, TArray<UObject*>* InObjLoaded);
+	FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions);
 	virtual ~FAnimBlueprintCompilerContext();
 
 	virtual void PostCompile() override;

@@ -18,6 +18,7 @@
 #include "Math/Color.h"
 #include "StatsCommon.h"
 #include "HAL/ThreadManager.h"
+#include "Templates/UniquePtr.h"
 
 class FScopeCycleCounter;
 class FThreadStats;
@@ -105,12 +106,6 @@ struct CORE_API FStats
 
 struct TStatIdData
 {
-	FORCEINLINE TStatIdData()
-		: AnsiString(0)
-		, WideString(0)
-	{
-	}
-
 	bool IsNone() const
 	{
 		FMinimalName LocalName = Name.Load(EMemoryOrder::Relaxed);
@@ -120,11 +115,11 @@ struct TStatIdData
 	/** Name of the active stat; stored as a minimal name to minimize the data size */
 	TAtomic<FMinimalName> Name;
 
-	/** const ANSICHAR* pointer to a string; stored as a uint64 so it doesn't change size and affect TStatIdData alignment between 32 and 64-bit builds) */
-	uint64 AnsiString;
+	/** const ANSICHAR* pointer to a string describing the stat */
+	TUniquePtr<WIDECHAR[]> StatDescriptionWide;
 
-	/** const WIDECHAR* pointer to a string; stored as a uint64 so it doesn't change size and affect TStatIdData alignment between 32 and 64-bit builds) */
-	uint64 WideString;
+	/** const WIDECHAR* pointer to a string describing the stat */
+	TUniquePtr<ANSICHAR[]> StatDescriptionAnsi;
 };
 
 struct TStatId
@@ -172,7 +167,7 @@ struct TStatId
 	 */
 	FORCEINLINE const ANSICHAR* GetStatDescriptionANSI() const
 	{
-		return reinterpret_cast<const ANSICHAR*>(StatIdPtr->AnsiString);
+		return StatIdPtr->StatDescriptionAnsi.Get();
 	}
 
 	/**
@@ -182,7 +177,7 @@ struct TStatId
 	 */
 	FORCEINLINE const WIDECHAR* GetStatDescriptionWIDE() const
 	{
-		return reinterpret_cast<const WIDECHAR*>(StatIdPtr->WideString);
+		return StatIdPtr->StatDescriptionWide.Get();
 	}
 
 private:

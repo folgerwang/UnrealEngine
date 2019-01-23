@@ -84,6 +84,17 @@
 		_Pragma("clang diagnostic pop")
 #endif // PRAGMA_ENABLE_REORDER_WARNINGS
 
+#ifndef PRAGMA_DISABLE_MACRO_REDEFINED_WARNINGS
+	#define PRAGMA_DISABLE_MACRO_REDEFINED_WARNINGS \
+		_Pragma("clang diagnostic push") \
+		_Pragma("clang diagnostic ignored \"-Wmacro-redefined\"")
+#endif // PRAGMA_DISABLE_MACRO_REDEFINED_WARNINGS
+
+#ifndef PRAGMA_ENABLE_MACRO_REDEFINED_WARNINGS
+	#define PRAGMA_ENABLE_MACRO_REDEFINED_WARNINGS \
+		_Pragma("clang diagnostic pop")
+#endif // PRAGMA_ENABLE_MACRO_REDEFINED_WARNINGS
+
 #ifndef PRAGMA_POP
 	#define PRAGMA_POP \
 		_Pragma("clang diagnostic pop")

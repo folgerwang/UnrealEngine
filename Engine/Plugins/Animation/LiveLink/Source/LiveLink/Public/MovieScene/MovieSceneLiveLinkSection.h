@@ -37,9 +37,7 @@ public:
 	// Channels that we may not send to live link or they are sent but not priority (MattH to do).
 	UPROPERTY()
 	TArray<bool> ChannelMask; 
-	//If true we always send interpolated values, if false we send the raw stored key frames if possible.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Live Link Source")
-	bool bAlwaysSendInterpolated;
+
 
 public:
 	

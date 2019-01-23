@@ -81,7 +81,8 @@ struct FKCHandlerDelegateHelper
 	{
 		check(SelfPin && NetPin && BoundProperty && DelegateNode);
 
-		FBPTerminal* Term = new(Context.VariableReferences) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.VariableReferences.Add(Term);
 		Term->CopyFromPin(SelfPin, BoundProperty->GetName());
 		Term->AssociatedVarProperty = BoundProperty;
 

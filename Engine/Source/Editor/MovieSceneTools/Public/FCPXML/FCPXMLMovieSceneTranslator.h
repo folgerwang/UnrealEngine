@@ -82,7 +82,8 @@ public:
 	 * @param InHandleFrames The number of handle frames to include for each shot.
 	 * @param InSaveFilename The file path to save to.
 	 * @param OutError The return error message
+	 * @param MovieExtension The movie extension for the shot filenames (ie. .avi, .mov, .mp4)
 	 * @return Whether the export was successful
 	 */
-	virtual bool Export(const UMovieScene* InMovieScene, FString InFilenameFormat, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext);
+	virtual bool Export(const UMovieScene* InMovieScene, FString InFilenameFormat, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext, FString InMovieExtension);
 };

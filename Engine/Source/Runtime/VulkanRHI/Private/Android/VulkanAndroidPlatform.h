@@ -95,7 +95,9 @@ public:
 	static bool RequiresSwapchainGeneralInitialLayout() { return true; }
 
 	static bool RequiresWaitingForFrameCompletionEvent() { return false; }
-
+	
+	static void BlockUntilWindowIsAwailable();
+	
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

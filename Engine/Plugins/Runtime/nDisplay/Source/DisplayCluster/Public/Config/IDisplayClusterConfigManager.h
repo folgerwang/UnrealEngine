@@ -50,6 +50,9 @@ public:
 	virtual bool GetInputDevice(int32 idx, FDisplayClusterConfigInput& input) const = 0;
 	virtual bool GetInputDevice(const FString& id, FDisplayClusterConfigInput& input) const = 0;
 
+	virtual TArray<FDisplayClusterConfigInputSetup> GetInputSetupRecords() const = 0;
+	virtual bool GetInputSetupRecord(const FString& id, FDisplayClusterConfigInputSetup& input) const = 0;
+
 	virtual FDisplayClusterConfigGeneral GetConfigGeneral() const = 0;
 	virtual FDisplayClusterConfigStereo  GetConfigStereo()  const = 0;
 	virtual FDisplayClusterConfigRender  GetConfigRender()  const = 0;

@@ -314,7 +314,8 @@ class FStreamedAudioCacheDerivedDataWorker : public FNonAbandonableTask
 						const int32 AudioDataSize = ChunkBuffers[ChunkIndex].Num();
 						const int32 ZeroPadBytes = FMath::Max(MaxChunkSize - AudioDataSize, 0);
 
-						FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
+						FStreamedAudioChunk* NewChunk = new FStreamedAudioChunk();
+						DerivedData->Chunks.Add(NewChunk);
 
 						// Store both the audio data size and the data size so decoders will know what portion of the bulk data is real audio
 						NewChunk->AudioDataSize = AudioDataSize;
@@ -339,7 +340,8 @@ class FStreamedAudioCacheDerivedDataWorker : public FNonAbandonableTask
 				else
 				{
 					// Could not split so copy compressed data into a single chunk
-					FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
+					FStreamedAudioChunk* NewChunk = new FStreamedAudioChunk();
+					DerivedData->Chunks.Add(NewChunk);
 					NewChunk->DataSize = CompressedBuffer.Num();
 					NewChunk->AudioDataSize = NewChunk->DataSize;
 
@@ -643,8 +645,12 @@ FStreamedAudioPlatformData::~FStreamedAudioPlatformData()
 #endif
 }
 
-bool FStreamedAudioPlatformData::TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData)
+bool FStreamedAudioPlatformData::TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded /* = false */)
 {
+	// if bMakeSureChunkIsLoaded is true, we don't actually know the size of the chunk's bulk data,
+	// so it will need to be allocated in GetCopy.
+	check(!bMakeSureChunkIsLoaded || (OutChunkData && (*OutChunkData == nullptr)));
+
 	bool bCachedChunk = false;
 	FStreamedAudioChunk& Chunk = Chunks[ChunkIndex];
 
@@ -658,19 +664,16 @@ bool FStreamedAudioPlatformData::TryLoadChunk(int32 ChunkIndex, uint8** OutChunk
 	}
 #endif // #if WITH_EDITORONLY_DATA
 
-	// Load chunk from bulk data if available.
-	if (Chunk.BulkData.GetBulkDataSize() > 0)
+	// Load chunk from bulk data if available. If the chunk is not loaded, GetCopy will load it synchronously.
+	if (Chunk.BulkData.IsBulkDataLoaded() || bMakeSureChunkIsLoaded)
 	{
 		if (OutChunkData)
 		{
-			if (*OutChunkData == NULL)
-			{
-				*OutChunkData = static_cast<uint8*>(FMemory::Malloc(Chunk.BulkData.GetBulkDataSize()));
-			}
 			Chunk.BulkData.GetCopy((void**)OutChunkData);
 		}
 		bCachedChunk = true;
 	}
+
 
 #if WITH_EDITORONLY_DATA
 	// Wait for async DDC to complete
@@ -747,7 +750,7 @@ void FStreamedAudioPlatformData::Serialize(FArchive& Ar, USoundWave* Owner)
 		Chunks.Empty(NumChunks);
 		for (int32 ChunkIndex = 0; ChunkIndex < NumChunks; ++ChunkIndex)
 		{
-			new(Chunks) FStreamedAudioChunk();
+			Chunks.Add(new FStreamedAudioChunk());
 		}
 	}
 	for (int32 ChunkIndex = 0; ChunkIndex < NumChunks; ++ChunkIndex)

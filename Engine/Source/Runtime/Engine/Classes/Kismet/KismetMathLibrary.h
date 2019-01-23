@@ -1219,7 +1219,7 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static FVector Multiply_VectorVector(FVector A, FVector B);
 
 	/** Scales Vector A by B */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector * float", CompactNodeTitle = "*", ScriptMethod = "MultiplyFloat", Keywords = "* multiply"), Category="Math|Vector")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector * float", CompactNodeTitle = "*", ScriptMethod = "MultiplyFloat", ScriptOperator = "*;*=", Keywords = "* multiply"), Category="Math|Vector")
 	static FVector Multiply_VectorFloat(FVector A, float B);
 	
 	/** Scales Vector A by B */
@@ -1231,7 +1231,7 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static FVector Divide_VectorVector(FVector A, FVector B = FVector(1.f,1.f,1.f));
 
 	/** Vector divide by a float */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector / float", CompactNodeTitle = "/", ScriptMethod = "DivideFloat", Keywords = "/ divide division"), Category="Math|Vector")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector / float", CompactNodeTitle = "/", ScriptMethod = "DivideFloat", ScriptOperator = "/;/=", Keywords = "/ divide division"), Category="Math|Vector")
 	static FVector Divide_VectorFloat(FVector A, float B = 1.f);
 
 	/** Vector divide by an integer */

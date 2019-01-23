@@ -73,6 +73,9 @@ public:
 	virtual bool GetInputDevice(int32 idx, FDisplayClusterConfigInput& input) const override;
 	virtual bool GetInputDevice(const FString& id, FDisplayClusterConfigInput& input) const override;
 
+	virtual TArray<FDisplayClusterConfigInputSetup> GetInputSetupRecords() const override;
+	virtual bool GetInputSetupRecord(const FString& id, FDisplayClusterConfigInputSetup& input) const override;
+
 	virtual FDisplayClusterConfigGeneral GetConfigGeneral() const override
 	{ return CfgGeneral; }
 
@@ -104,6 +107,7 @@ public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterConfigParserListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void AddInfo(const FDisplayClusterConfigInfo& InCfgInfo) override;
 	virtual void AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode) override;
 	virtual void AddWindow(const FDisplayClusterConfigWindow& InCfgWindow) override;
 	virtual void AddScreen(const FDisplayClusterConfigScreen& InCfgScreen) override;
@@ -116,6 +120,7 @@ public:
 	virtual void AddNetwork(const FDisplayClusterConfigNetwork& InCfgNetwork) override;
 	virtual void AddDebug(const FDisplayClusterConfigDebug& InCfgDebug)  override;
 	virtual void AddInput(const FDisplayClusterConfigInput& InCfgInput)  override;
+	virtual void AddInputSetup(const FDisplayClusterConfigInputSetup& InCfgInputSetup) override;
 	virtual void AddCustom(const FDisplayClusterConfigCustom& InCfgCustom) override;
 
 private:
@@ -150,7 +155,9 @@ private:
 	TArray<FDisplayClusterConfigCamera>      CfgCameras;
 	TArray<FDisplayClusterConfigSceneNode>   CfgSceneNodes;
 	TArray<FDisplayClusterConfigInput>       CfgInputDevices;
+	TArray<FDisplayClusterConfigInputSetup>  CfgInputSetupRecords;
 
+	FDisplayClusterConfigInfo    CfgInfo;
 	FDisplayClusterConfigGeneral CfgGeneral;
 	FDisplayClusterConfigStereo  CfgStereo;
 	FDisplayClusterConfigRender  CfgRender;

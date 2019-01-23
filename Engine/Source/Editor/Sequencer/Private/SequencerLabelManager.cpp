@@ -9,8 +9,10 @@ void FSequencerLabelManager::SetMovieScene(UMovieScene* InMovieScene)
 	if (MovieScene != InMovieScene)
 	{
 		MovieScene = InMovieScene;
-		LabelsChangedEvent.Broadcast();
 	}
+
+	// Broadcast the labels changed regardless of the movie scene changed since the label data could have changed
+	LabelsChangedEvent.Broadcast();
 }
 
 
@@ -18,6 +20,7 @@ void FSequencerLabelManager::AddObjectLabel(const FGuid& ObjectId, const FString
 {
 	if (MovieScene.IsValid())
 	{
+		MovieScene->Modify();
 		MovieScene->GetObjectsToLabels().FindOrAdd(ObjectId.ToString()).Strings.AddUnique(Label);
 		MovieScene->MarkPackageDirty();
 		LabelsChangedEvent.Broadcast();
@@ -45,6 +48,8 @@ void FSequencerLabelManager::RemoveObjectLabel(const FGuid& ObjectId, const FStr
 {
 	if (MovieScene.IsValid())
 	{
+		MovieScene->Modify();
+
 		TMap<FString, FMovieSceneTrackLabels>& ObjectsToLabels = MovieScene->GetObjectsToLabels();
 
 		if (ObjectId.IsValid())
@@ -114,6 +119,8 @@ bool FSequencerLabelManager::RenameLabel(const FString& OldLabel, const FString&
 	}
 
 	bool FoundOldLabel = false;
+
+	MovieScene->Modify();
 
 	for (auto& LabelsPair : MovieScene->GetObjectsToLabels())
 	{

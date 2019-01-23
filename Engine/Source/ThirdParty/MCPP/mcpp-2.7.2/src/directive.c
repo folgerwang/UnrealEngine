@@ -581,7 +581,7 @@ static long do_line( void)
     if (standard) {
         if (get_unexpandable( skip_ws(), FALSE) != NO_TOKEN) {
             cerror( excess, work_buf, 0L, NULL);
-            free( save);
+            xfree( save);
             return  -1L;
         }
     } else if (mcpp_mode == OLD_PREP) {
@@ -599,7 +599,7 @@ static long do_line( void)
     }
 
     if (infile->filename)
-        free( infile->filename);
+        xfree( infile->filename);
     infile->filename = save;                /* New file name        */
             /* Note that this does not change infile->real_fname    */
     return  (long) valp->val;               /* New line number      */
@@ -1427,7 +1427,7 @@ DEFBUF *    install_macro(
     } else {                            /* Redefinition             */
         dp->link = defp->link;          /* Replace old def with new */
         *prevp = dp;
-        free( defp);
+        xfree( defp);
     }
     dp->nargs = predefine ? predefine : numargs;
     if (standard) {
@@ -1478,7 +1478,7 @@ int undefine(
         mcpp_fprintf( OUT, "/*undef %ld*//*%s*/\n", src_line, dp->name);
         wrong_line = TRUE;
     }
-    free( dp);                          /* Delete the definition    */
+    xfree( dp);                          /* Delete the definition    */
     if (standard)
         num_of_macro--;
     return  TRUE;
@@ -1692,7 +1692,7 @@ void    clear_symtable( void)
         for (next = *symp; next != NULL; ) {
             dp = next;
             next = dp->link;
-            free( dp);                      /* Free the symbol      */
+            xfree( dp);                      /* Free the symbol      */
         }
         *symp = NULL;
     }

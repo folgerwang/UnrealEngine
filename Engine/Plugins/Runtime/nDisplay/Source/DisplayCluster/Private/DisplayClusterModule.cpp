@@ -125,13 +125,24 @@ bool FDisplayClusterModule::StartSession(const FString& configPath, const FStrin
 
 	UE_LOG(LogDisplayClusterModule, Log, TEXT("StartSession: config path is %s"), *configPath);
 
+	bool bIsConfigManagerDone = false;
+
 	bool result = true;
 	auto it = Managers.CreateIterator();
 	while (result && it)
 	{
 		result = result && (*it)->StartSession(configPath, nodeId);
 		++it;
+
+		//! hack!? First Manager is FDisplayClusterConfigManager, required to other ext modules auto-setup
+		if (!bIsConfigManagerDone)
+		{
+			bIsConfigManagerDone = true;
+			DisplayClusterBeforeStartSessionEvent.Broadcast();
+		}
 	}
+
+	DisplayClusterStartSessionEvent.Broadcast();
 
 	if (!result)
 	{
@@ -151,6 +162,8 @@ void FDisplayClusterModule::EndSession()
 	{
 		pMgr->EndSession();
 	}
+
+	DisplayClusterEndSessionEvent.Broadcast();
 }
 
 bool FDisplayClusterModule::StartScene(UWorld* pWorld)
@@ -199,6 +212,8 @@ void FDisplayClusterModule::PreTick(float DeltaSeconds)
 	{
 		pMgr->PreTick(DeltaSeconds);
 	}
+
+	DisplayClusterPreTickEvent.Broadcast();
 }
 
 IMPLEMENT_MODULE(FDisplayClusterModule, DisplayCluster)

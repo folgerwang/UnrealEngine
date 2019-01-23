@@ -3,7 +3,6 @@
 #include "PackageReader.h"
 #include "HAL/FileManager.h"
 #include "UObject/Class.h"
-#include "Serialization/ArchiveAsync.h"
 #include "Misc/PackageName.h"
 #include "AssetRegistryPrivate.h"
 #include "AssetData.h"

@@ -95,6 +95,14 @@ FMovieSceneCaptureSettings::FMovieSceneCaptureSettings()
 	bAllowTurning = false;
 	bShowPlayer = false;
 	bShowHUD = false;
+
+#if PLATFORM_MAC
+	MovieExtension = TEXT(".mov");
+#elif PLATFORM_UNIX
+	MovieExtension = TEXT(".unsupp");
+#else
+	MovieExtension = TEXT(".avi");
+#endif
 }
 
 UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)

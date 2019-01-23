@@ -74,7 +74,7 @@ struct FConcertServerInfo
 };
 
 /** Holds info on a client connected through concert */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct FConcertClientInfo
 {
 	GENERATED_BODY()
@@ -101,11 +101,11 @@ struct FConcertClientInfo
 	FString UserName;
 
 	/** Holds the display name of the user that owns this instance. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Client Info")
+	UPROPERTY(VisibleAnywhere, Category="Client Info")
 	FString DisplayName;
 
 	/** Holds the color of the user avatar in a session. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Client Info")
+	UPROPERTY(VisibleAnywhere, Category="Client Info")
 	FLinearColor AvatarColor;
 
 	/** Holds the string representation of the desktop actor class to be used as the avatar for a representation of a client */

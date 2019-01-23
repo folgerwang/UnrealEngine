@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
 	{
 		public USDImporter(ReadOnlyTargetRules Target) : base(Target)
         {
-
 			PublicIncludePaths.AddRange(
 				new string[] {
 				}
@@ -17,7 +16,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					ModuleDirectory + "/../UnrealUSDWrapper/Source/Public",
 				}
 				);
 
@@ -52,26 +50,24 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
-			string BaseLibDir = ModuleDirectory + "/../UnrealUSDWrapper/Lib/";
-
 			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
-				string LibraryPath = BaseLibDir + "x64/Release/";
-				PublicAdditionalLibraries.Add(LibraryPath+"/UnrealUSDWrapper.lib");
+				PrivateDependencyModuleNames.Add("UnrealUSDWrapper");
 
-                foreach (string FilePath in Directory.EnumerateFiles(Path.Combine(ModuleDirectory, "../../Binaries/Win64/"), "*.dll", SearchOption.AllDirectories))
+				foreach (string FilePath in Directory.EnumerateFiles(Path.Combine(ModuleDirectory, "../../Binaries/Win64/"), "*.dll", SearchOption.AllDirectories))
                 {
                     RuntimeDependencies.Add(FilePath);
                 }
             }
             else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))
 			{
-                // link directly to runtime libs on Linux, as this also puts them into rpath
+				PrivateDependencyModuleNames.Add("UnrealUSDWrapper");
+
+				// link directly to runtime libs on Linux, as this also puts them into rpath
 				string RuntimeLibraryPath = Path.Combine(ModuleDirectory, "../../Binaries", Target.Platform.ToString(), Target.Architecture.ToString());
 				PrivateRuntimeLibraryPaths.Add(RuntimeLibraryPath);
-				PublicAdditionalLibraries.Add(RuntimeLibraryPath +"/libUnrealUSDWrapper.so");
 
-                foreach (string FilePath in Directory.EnumerateFiles(RuntimeLibraryPath, "*.so*", SearchOption.AllDirectories))
+				foreach (string FilePath in Directory.EnumerateFiles(RuntimeLibraryPath, "*.so*", SearchOption.AllDirectories))
                 {
                     RuntimeDependencies.Add(FilePath);
                 }

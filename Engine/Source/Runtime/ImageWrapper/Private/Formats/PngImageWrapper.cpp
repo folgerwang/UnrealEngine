@@ -122,8 +122,11 @@ void FPngImageWrapper::Compress(int32 Quality)
 {
 	if (!CompressedData.Num())
 	{
+		//Preserve old single thread code on some platform in relation to a type incompatibility at compile time.
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
 		// thread safety
 		FScopeLock PNGLock(&GPNGSection);
+#endif
 
 		check(RawData.Num());
 		check(Width > 0);
@@ -143,7 +146,13 @@ void FPngImageWrapper::Compress(int32 Quality)
 		PNGGuard.SetRowPointers( row_pointers );
 
 		// Store the current stack pointer in the jump buffer. setjmp will return non-zero in the case of a write error.
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
+		//Preserve old single thread code on some platform in relation to a type incompatibility at compile time.
 		if (setjmp(SetjmpBuffer) != 0)
+#else
+		//Use libPNG jump buffer solution to allow concurrent compression\decompression on concurrent threads.
+		if (setjmp(png_jmpbuf(png_ptr)) != 0)
+#endif
 		{
 			return;
 		}
@@ -213,8 +222,11 @@ void FPngImageWrapper::Uncompress(const ERGBFormat InFormat, const int32 InBitDe
 
 void FPngImageWrapper::UncompressPNGData(const ERGBFormat InFormat, const int32 InBitDepth)
 {
+	//Preserve old single thread code on some platform in relation to a type incompatibility at compile time.
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
 	// thread safety
 	FScopeLock PNGLock(&GPNGSection);
+#endif
 
 	check(CompressedData.Num());
 	check(Width > 0);
@@ -242,7 +254,13 @@ void FPngImageWrapper::UncompressPNGData(const ERGBFormat InFormat, const int32 
 		PNGGuard.SetRowPointers(row_pointers);
 
 		// Store the current stack pointer in the jump buffer. setjmp will return non-zero in the case of a read error.
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
+		//Preserve old single thread code on some platform in relation to a type incompatibility at compile time.
 		if (setjmp(SetjmpBuffer) != 0)
+#else
+		//Use libPNG jump buffer solution to allow concurrent compression\decompression on concurrent threads.
+		if (setjmp(png_jmpbuf(png_ptr)) != 0)
+#endif
 		{
 			return;
 		}
@@ -488,7 +506,12 @@ void FPngImageWrapper::user_error_fn(png_structp png_ptr, png_const_charp error_
 
 	// Ensure that FString is destructed prior to executing the longjmp
 
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
+	//Preserve old single thread code on some platform in relation to a type incompatibility at compile time.
+	//The other platforms use libPNG jump buffer solution to allow concurrent compression\decompression on concurrent threads. The jump is trigered in libPNG after this function returns.
 	longjmp(ctx->SetjmpBuffer, 1);
+#endif
+
 }
 
 

@@ -1,0 +1,19 @@
+{
+    "Plugins": [
+        {
+            "Info": {
+                "Types": {
+                    "UsdShadersDiscoveryPlugin" : {
+                        "bases": ["NdrDiscoveryPlugin"],
+                        "displayName": "USD-based shader definition discovery plugin."
+                    }
+                }
+            },
+            "LibraryPath": "../../../../../Binaries/Win64/libusdShaders.dll",
+            "Name": "usdShaders",
+            "ResourcePath": "resources",
+            "Root": "..",
+            "Type": "library"
+        }
+    ]
+}

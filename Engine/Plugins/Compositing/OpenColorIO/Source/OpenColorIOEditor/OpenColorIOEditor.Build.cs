@@ -20,6 +20,8 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Core",
 					"CoreUObject",
+					"DesktopWidgets",
+					"EditorStyle",
 					"Engine",
 					"OpenColorIO",
 					"OpenColorIOLib",

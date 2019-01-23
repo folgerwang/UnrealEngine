@@ -67,7 +67,7 @@ FParseCandidate ParseCandidates[] = {
 	{ TEXT("Lumens"),				EUnit::Lumens },				{ TEXT("lm"),		EUnit::Lumens },
 	{ TEXT("Candela"),				EUnit::Candela },				{ TEXT("cd"),		EUnit::Candela },
 	{ TEXT("Lux"),					EUnit::Lux },					{ TEXT("lx"),		EUnit::Lux },
-	{ TEXT("CandelaPerMeterSquared"), EUnit::CandelaPerMeter2 },	{ TEXT("CandelaPerMeter2"), EUnit::CandelaPerMeter2 },
+	{ TEXT("CandelaPerMeterSquared"), EUnit::CandelaPerMeter2 },	{ TEXT("cd/m2"),	EUnit::CandelaPerMeter2 },		{ TEXT("CandelaPerMeter2"),		EUnit::CandelaPerMeter2 },
 
 	{ TEXT("Milliseconds"),			EUnit::Milliseconds },			{ TEXT("ms"),		EUnit::Milliseconds },
 	{ TEXT("Seconds"),				EUnit::Seconds },				{ TEXT("s"),		EUnit::Seconds },
@@ -288,24 +288,33 @@ struct FUnitExpressionParser
 		
 		if (NumberToken.IsSet())
 		{
-			// Skip over whitespace
-			Stream.ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; }, &NumberToken.GetValue());
+			// Skip past any additional whitespace between number and unit token, e.g "1.0 cm"
+			const TOptional<FStringToken> WhiteSpaceToken = Stream.ParseWhitespace(&NumberToken.GetValue());
 
+			size_t LongestMatch = 0;
 			TOptional<EUnit> Unit;
-			TOptional<FStringToken> UnitToken;
+			FStringToken UnitToken;
+			const FStringToken StartingToken = NumberToken.GetValue();
+
 			for (int32 Index = 0; Index < ARRAY_COUNT(ParseCandidates); ++Index)
 			{
-				UnitToken = Stream.ParseTokenIgnoreCase(ParseCandidates[Index].String, &NumberToken.GetValue());
-				if (UnitToken.IsSet())
+				TOptional<FStringToken> CandidateUnitToken = Stream.ParseTokenIgnoreCase(ParseCandidates[Index].String, &NumberToken.GetValue());
+				const size_t MatchedCharCount = NumberToken.GetValue().GetTokenEndPos() - StartingToken.GetTokenEndPos();
+				if (CandidateUnitToken.IsSet() && MatchedCharCount > LongestMatch)
 				{
 					Unit = ParseCandidates[Index].Unit;
-					break;
+					UnitToken = CandidateUnitToken.GetValue();
+					LongestMatch = MatchedCharCount;
+				}
+				else
+				{
+					NumberToken = StartingToken;
 				}
 			}
 
 			if (Unit.IsSet())
 			{
-				Consumer.Add(NumberToken.GetValue(), FNumericUnit<double>(Value, Unit.GetValue()));
+				Consumer.Add(UnitToken, FNumericUnit<double>(Value, Unit.GetValue()));
 			}
 			else
 			{

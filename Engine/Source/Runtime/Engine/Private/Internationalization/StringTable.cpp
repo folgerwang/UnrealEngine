@@ -5,6 +5,7 @@
 #include "Internationalization/StringTableRegistry.h"
 #include "UObject/SoftObjectPtr.h"
 #include "Misc/PackageName.h"
+#include "UObject/Package.h"
 #include "UObject/GCObject.h"
 #include "Misc/ScopeLock.h"
 #include "Templates/Casts.h"
@@ -74,31 +75,167 @@ class FStringTableEngineBridge : public IStringTableEngineBridge, public FGCObje
 public:
 	static void Initialize()
 	{
+		InstancePtr = &Get();
+	}
+
+	static FStringTableEngineBridge& Get()
+	{
 		static FStringTableEngineBridge Instance;
-		InstancePtr = &Instance;
+		return Instance;
+	}
+
+	void RegisterForGC(UStringTable* InStringTableAsset)
+	{
+		FScopeLock KeepAliveStringTablesLock(&KeepAliveStringTablesCS);
+		KeepAliveStringTables.Add(InStringTableAsset);
+	}
+
+	void UnregisterForGC(UStringTable* InStringTableAsset)
+	{
+		FScopeLock KeepAliveStringTablesLock(&KeepAliveStringTablesCS);
+		KeepAliveStringTables.RemoveSwap(InStringTableAsset);
 	}
 
 private:
+	void HandleStringTableAssetAsyncLoadCompleted(const FName& InLoadedPackageName, UPackage* InLoadedPackage, EAsyncLoadingResult::Type InLoadingResult)
+	{
+		// Get the loading state to complete
+		FAsyncLoadingStringTable AsyncLoadingState;
+		{
+			FScopeLock AsyncLoadingStringTablesLock(&AsyncLoadingStringTablesCS);
+			AsyncLoadingStringTables.RemoveAndCopyValue(InLoadedPackageName, AsyncLoadingState);
+		}
+
+		// Calculate the name of the loaded string table based on the package name
+		FName LoadedStringTableId;
+		if (InLoadingResult == EAsyncLoadingResult::Succeeded)
+		{
+			check(InLoadedPackage);
+			const FString LoadedPackageNameStr = InLoadedPackage->GetName();
+			LoadedStringTableId = *FString::Printf(TEXT("%s.%s"), *LoadedPackageNameStr, *FPackageName::GetLongPackageAssetName(LoadedPackageNameStr));
+		}
+
+		// Notify any listeners of the result
+		for (const FLoadStringTableAssetCallback& LoadedCallback : AsyncLoadingState.LoadedCallbacks)
+		{
+			check(LoadedCallback);
+			LoadedCallback(AsyncLoadingState.RequestedTableId, LoadedStringTableId);
+		}
+	}
+
 	//~ IStringTableEngineBridge interface
-	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) override
+	virtual int32 LoadStringTableAssetImpl(const FName InTableId, FLoadStringTableAssetCallback InLoadedCallback) override
+	{
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
+		if (StringTableAssetReference.IsValid())
+		{
+			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
+			if (StringTableAsset)
+			{
+				// Already loaded
+				if (InLoadedCallback)
+				{
+					InLoadedCallback(InTableId, StringTableAsset->GetStringTableId());
+				}
+				return INDEX_NONE;
+			}
+
+			// Not loaded - either load synchronously or asynchronously depending on the environment
+			if (IsAsyncLoading())
+			{
+				const FString StringTableAssetPackageNameStr = StringTableAssetReference.GetLongPackageName();
+				const FName StringTableAssetPackageName = *StringTableAssetPackageNameStr;
+
+				{
+					FScopeLock AsyncLoadingStringTablesLock(&AsyncLoadingStringTablesCS);
+
+					// Already being asynchronously loaded? If so, merge the request
+					if (FAsyncLoadingStringTable* AsyncLoadingState = AsyncLoadingStringTables.Find(StringTableAssetPackageName))
+					{
+						if (InLoadedCallback)
+						{
+							AsyncLoadingState->LoadedCallbacks.Add(InLoadedCallback);
+						}
+						return AsyncLoadingState->AsyncLoadingId;
+					}
+
+					// Prepare for an asynchronous load
+					FAsyncLoadingStringTable& NewAsyncLoadingState = AsyncLoadingStringTables.Add(StringTableAssetPackageName);
+					NewAsyncLoadingState.RequestedTableId = InTableId;
+					if (InLoadedCallback)
+					{
+						NewAsyncLoadingState.LoadedCallbacks.Add(InLoadedCallback);
+					}
+				}
+
+				// Begin an asynchronous load
+				// Note: The LoadPackageAsync callback may fire immediately if the request is invalid. This would remove the entry from AsyncLoadingStringTables, so it's valid for the find request below to fail in that case
+				const int32 AsyncLoadingId = LoadPackageAsync(StringTableAssetPackageNameStr, FLoadPackageAsyncDelegate::CreateRaw(this, &FStringTableEngineBridge::HandleStringTableAssetAsyncLoadCompleted));
+
+				if (AsyncLoadingId != INDEX_NONE)
+				{
+					// Load ongoing
+					FScopeLock AsyncLoadingStringTablesLock(&AsyncLoadingStringTablesCS);
+					if (FAsyncLoadingStringTable* AsyncLoadingState = AsyncLoadingStringTables.Find(StringTableAssetPackageName))
+					{
+						AsyncLoadingState->AsyncLoadingId = AsyncLoadingId;
+					}
+					return AsyncLoadingId;
+				}
+
+				// Load failed
+				if (InLoadedCallback)
+				{
+					InLoadedCallback(InTableId, FName());
+				}
+				return INDEX_NONE;
+			}
+			else
+			{
+				// Attempt a synchronous load
+				StringTableAsset = Cast<UStringTable>(StringTableAssetReference.TryLoad());
+				if (InLoadedCallback)
+				{
+					InLoadedCallback(InTableId, StringTableAsset ? StringTableAsset->GetStringTableId() : FName());
+				}
+				return INDEX_NONE;
+			}
+		}
+
+		// Not an asset - just say it's already loaded
+		if (InLoadedCallback)
+		{
+			InLoadedCallback(InTableId, InTableId);
+		}
+		return INDEX_NONE;
+	}
+
+	virtual void FullyLoadStringTableAssetImpl(FName& InOutTableId) override
 	{
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
 		if (StringTableAssetReference.IsValid())
 		{
 			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
-			if ((!StringTableAsset && InLoadingPolicy != EStringTableLoadingPolicy::Find) || (StringTableAsset && StringTableAsset->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad) && InLoadingPolicy == EStringTableLoadingPolicy::FindOrFullyLoad))
+			if (!StringTableAsset || StringTableAsset->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad))
 			{
 				StringTableAsset = Cast<UStringTable>(StringTableAssetReference.TryLoad());
 			}
 			if (StringTableAsset)
 			{
 				InOutTableId = StringTableAsset->GetStringTableId();
+			}
+		}
+	}
 
-				// Prevent the string table from being GC'd
-				{
-					FScopeLock KeepAliveStringTablesLock(&KeepAliveStringTablesCS);
-					KeepAliveStringTables.AddUnique(StringTableAsset);
-				}
+	virtual void RedirectStringTableAssetImpl(FName& InOutTableId) override
+	{
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
+		if (StringTableAssetReference.IsValid())
+		{
+			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
+			if (StringTableAsset)
+			{
+				InOutTableId = StringTableAsset->GetStringTableId();
 			}
 		}
 	}
@@ -152,16 +289,27 @@ private:
 	}
 
 private:
+	struct FAsyncLoadingStringTable
+	{
+		int32 AsyncLoadingId = INDEX_NONE;
+		FName RequestedTableId;
+		TArray<FLoadStringTableAssetCallback> LoadedCallbacks;
+	};
+
+	/** Map of string table assets that are currently being async loaded (package name -> async loading state) */
+	TMap<FName, FAsyncLoadingStringTable> AsyncLoadingStringTables;
+	/** Critical section preventing concurrent modification of AsyncLoadingStringTables */
+	mutable FCriticalSection AsyncLoadingStringTablesCS;
+
 	/** Array of string table assets that have been loaded and should be kept alive */
 	TArray<UStringTable*> KeepAliveStringTables;
-
 	/** Critical section preventing concurrent modification of KeepAliveStringTables */
 	mutable FCriticalSection KeepAliveStringTablesCS;
 };
 
 UStringTable::UStringTable()
 	: StringTable(FStringTable::NewStringTable())
-	, StringTableId(*GetPathName())
+	, StringTableId(*GetPathName()) // Note: If you change this ID format, also fix HandleStringTableAssetAsyncLoadCompleted
 {
 	StringTable->SetOwnerAsset(this);
 	StringTable->IsLoaded(!HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
@@ -170,6 +318,7 @@ UStringTable::UStringTable()
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
+		FStringTableEngineBridge::Get().RegisterForGC(this);
 		FStringTableRegistry::Get().RegisterStringTable(GetStringTableId(), StringTable.ToSharedRef());
 	}
 
@@ -187,6 +336,7 @@ void UStringTable::FinishDestroy()
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
+		FStringTableEngineBridge::Get().UnregisterForGC(this);
 		FStringTableRegistry::Get().UnregisterStringTable(GetStringTableId());
 	}
 	StringTable.Reset();

@@ -1528,17 +1528,25 @@ protected:
 
 class FVulkanStagingBuffer : public FRHIStagingBuffer
 {
+	friend class FVulkanCommandListContext;
 public:
-	FVulkanStagingBuffer(FVertexBufferRHIRef InBuffer)
-		: FRHIStagingBuffer(InBuffer)
+	FVulkanStagingBuffer()
+		: FRHIStagingBuffer()
 	{
+		check(!bIsLocked);
 	}
 
 	virtual ~FVulkanStagingBuffer();
 
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+	virtual void Unlock() final override;
+
+private:
 	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
 	uint32 QueuedOffset = 0;
 	uint32 QueuedNumBytes = 0;
+	// The staging buffer was allocated from this device.
+	FVulkanDevice* Device;
 };
 
 class FVulkanGPUFence : public FRHIGPUFence
@@ -1549,6 +1557,7 @@ public:
 	{
 	}
 
+	virtual void Clear() final override;
 	virtual bool Poll() const final override;
 
 protected:

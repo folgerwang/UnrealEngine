@@ -77,7 +77,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Playback", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
-	UPROPERTY(Instanced, transient, replicated, BlueprintReadOnly, Category="Playback", meta=(ExposeFunctionCategories="Game|Cinematic"))
+	UPROPERTY(Instanced, transient, replicated, BlueprintReadOnly, BlueprintGetter=GetSequencePlayer, Category="Playback", meta=(ExposeFunctionCategories="Game|Cinematic"))
 	ULevelSequencePlayer* SequencePlayer;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="General", meta=(AllowedClasses="LevelSequence"))
@@ -150,6 +150,12 @@ public:
 	 */
 	UFUNCTION(BlueprintSetter)
 	void SetReplicatePlayback(bool ReplicatePlayback);
+
+	/**
+	 * Access this actor's sequence player, or None if it is not yet initialized
+	 */
+	UFUNCTION(BlueprintGetter)
+	ULevelSequencePlayer* GetSequencePlayer() const;
 
 	/** Refresh this actor's burn in */
 	void RefreshBurnIn();
@@ -230,6 +236,7 @@ protected:
 
 	//~ Begin UObject interface
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags *RepFlags) override;
+	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	//~ End UObject interface
 

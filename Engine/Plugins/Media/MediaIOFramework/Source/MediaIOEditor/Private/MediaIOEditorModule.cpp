@@ -3,10 +3,14 @@
 
 #include "MediaIOEditorModule.h"
 
+#include "Brushes/SlateImageBrush.h"
+#include "Misc/Paths.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 #include "Customizations/MediaIODeviceCustomization.h"
 #include "Customizations/MediaIOConfigurationCustomization.h"
@@ -18,15 +22,19 @@ DEFINE_LOG_CATEGORY(LogMediaIOEditor);
 
 class FMediaIOEditorModule : public IModuleInterface
 {
+	TUniquePtr<FSlateStyleSet> StyleInstance;
+
 	virtual void StartupModule() override
 	{
 		RegisterCustomizations();
+		RegisterStyle();
 	}
 
 	virtual void ShutdownModule() override
 	{
 		if (!UObjectInitialized() && !GIsRequestingExit)
 		{
+			UnregisterStyle();
 			UnregisterCustomizations();
 		}
 	}
@@ -50,6 +58,28 @@ private:
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOInputConfiguration::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIODevice::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FMediaIOConfiguration::StaticStruct()->GetFName());
+	}
+
+	/** Register slate style */
+	void RegisterStyle()
+	{
+#define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(StyleInstance->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
+
+		StyleInstance = MakeUnique<FSlateStyleSet>(TEXT("MediaIOStyle"));
+		StyleInstance->SetContentRoot(FPaths::EnginePluginsDir() / TEXT("Media/MediaIOFramework/Content/Editor/Icons/"));
+
+		StyleInstance->Set("ClassThumbnail.FileMediaOutput", new IMAGE_BRUSH("FileMediaOutput_64x", FVector2D(64, 64)));
+		StyleInstance->Set("ClassIcon.FileMediaOutput", new IMAGE_BRUSH("FileMediaOutput_16x", FVector2D(16, 16)));
+
+#undef IMAGE_BRUSH
+
+		FSlateStyleRegistry::RegisterSlateStyle(*StyleInstance.Get());
+	}
+
+	/** Unregister slate style */
+	void UnregisterStyle()
+	{
+		FSlateStyleRegistry::UnRegisterSlateStyle(*StyleInstance.Get());
 	}
 };
 

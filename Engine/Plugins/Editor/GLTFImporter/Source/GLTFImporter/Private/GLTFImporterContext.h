@@ -4,57 +4,31 @@
 
 #include "GLTFAsset.h"
 #include "GLTFLogger.h"
+#include "GLTFMaterialFactory.h"
 #include "GLTFReader.h"
-#include "GLTFStaticMeshImporter.h"
+#include "GLTFStaticMeshFactory.h"
 
-#include "Misc/Paths.h"
-
+class UMaterial;
 struct FGLTFImporterContext
 {
 	mutable TArray<GLTF::FLogMessage> LogMessages;
 	GLTF::FFileReader                 Reader;
 	GLTF::FAsset                      Asset;
-	GLTF::FStaticMeshImporter         StaticMeshImporter;
+	GLTF::FStaticMeshFactory          StaticMeshFactory;
+	GLTF::FMaterialFactory            MaterialFactory;
+	TArray<UMaterial*>                Materials;
 
-	bool OpenFile(const FString& FilePath)
-	{
-		LogMessages.Empty();
+	FGLTFImporterContext();
 
-		Reader.ReadFile(FilePath, false, true, Asset);
+	bool OpenFile(const FString& FilePath);
 
-		auto Found = Reader.GetLogMessages().FindByPredicate([](const GLTF::FLogMessage& Message) { return Message.Get<0>() == GLTF::EMessageSeverity::Error; });
-		if (Found)
-		{
-			return false;
-		}
-		check(Asset.ValidationCheck() == GLTF::FAsset::Valid);
+	const TArray<UStaticMesh*>& CreateMeshes(UObject* ParentPackage, EObjectFlags Flags, bool bApplyPostEditChange);
+	const TArray<UMaterial*>&   CreateMaterials(UObject* ParentPackage, EObjectFlags Flags);
 
-		// check extensions supported
-		static const TArray<GLTF::EExtension> SupportedExtensions = {GLTF::EExtension::KHR_MaterialsPbrSpecularGlossiness,
-		                                                             GLTF::EExtension::KHR_MaterialsUnlit, GLTF::EExtension::KHR_LightsPunctual};
-		for (auto Extension : Asset.ExtensionsUsed)
-		{
-			if (SupportedExtensions.Find(Extension) == INDEX_NONE)
-			{
-				LogMessages.Emplace(GLTF::EMessageSeverity::Warning,
-				                    FString::Printf(TEXT("Extension is not supported: %s"), GLTF::ToString(Extension)));
-			}
-		}
-
-		Asset.GenerateNames(FPaths::GetBaseFilename(FilePath));
-
-		return true;
-	}
-
-	const TArray<UStaticMesh*>& ImportMeshes(UObject* ParentPackage, EObjectFlags Flags, bool bApplyPostEditChange)
-	{
-		return StaticMeshImporter.ImportMeshes(Asset, ParentPackage, Flags, bApplyPostEditChange);
-	}
-
-	const TArray<GLTF::FLogMessage>& GetLogMessages() const
-	{
-		LogMessages.Append(Reader.GetLogMessages());
-		LogMessages.Append(StaticMeshImporter.GetLogMessages());
-		return LogMessages;
-	}
+	const TArray<GLTF::FLogMessage>& GetLogMessages() const;
 };
+
+inline const TArray<UStaticMesh*>& FGLTFImporterContext::CreateMeshes(UObject* ParentPackage, EObjectFlags Flags, bool bApplyPostEditChange)
+{
+	return StaticMeshFactory.CreateMeshes(Asset, ParentPackage, Flags, bApplyPostEditChange);
+}

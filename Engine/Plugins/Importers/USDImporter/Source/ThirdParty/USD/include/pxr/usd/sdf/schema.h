@@ -41,6 +41,7 @@
 #include "pxr/base/vt/value.h"
 
 #include <boost/function.hpp>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -304,6 +305,7 @@ public:
     /// for this schema. It does not imply that the value is valid for
     /// a particular field -- the field's validation function must be
     /// used for that.
+    SDF_API
     SdfAllowed IsValidValue(const VtValue& value) const;
 
     /// Returns all registered type names.
@@ -517,7 +519,7 @@ private:
         _SpecDefinitionMap;
     _SpecDefinitionMap _specDefinitions;
 
-    boost::scoped_ptr<Sdf_ValueTypeRegistry> _valueTypeRegistry;
+    std::unique_ptr<Sdf_ValueTypeRegistry> _valueTypeRegistry;
     TfTokenVector _requiredFieldNames;
 };
 

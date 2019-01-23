@@ -390,7 +390,7 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 						UncompressedData.Reset(UncompressedSize);
 						UncompressedData.AddUninitialized(UncompressedSize);
 
-						verify(FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, UncompressedData.GetData(), UncompressedSize, Texture->VolumeData.CompressedDistanceFieldVolume.GetData(), Texture->VolumeData.CompressedDistanceFieldVolume.Num()));
+						verify(FCompression::UncompressMemory(NAME_Zlib, UncompressedData.GetData(), UncompressedSize, Texture->VolumeData.CompressedDistanceFieldVolume.GetData(), Texture->VolumeData.CompressedDistanceFieldVolume.Num()));
 
 						SourceDataPtr = &UncompressedData;
 					}
@@ -468,7 +468,7 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 					UncompressedData.Empty(UncompressedSize);
 					UncompressedData.AddUninitialized(UncompressedSize);
 					verify(FCompression::UncompressMemory(
-						COMPRESS_ZLIB,
+						NAME_Zlib,
 						UncompressedData.GetData(),
 						UncompressedSize,
 						SrcData,

@@ -5,6 +5,7 @@
 #include "IncludePython.h"
 #include "PyConversion.h"
 #include "PyPtr.h"
+#include "PyUtil.h"
 #include "CoreMinimal.h"
 
 #if WITH_PYTHON

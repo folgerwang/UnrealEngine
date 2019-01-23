@@ -24,9 +24,8 @@
 #		include "Windows/AllowWindowsPlatformTypes.h"
 #			include "NvEncoder/nvEncodeAPI.h"
 #			include <d3d11.h>
-#			include "D3D11State.h"
-#			include "D3D11Resources.h"
 #		include "Windows/HideWindowsPlatformTypes.h"
+#		include "D3D11RHIPrivate.h"
 #	pragma warning(pop)
 #endif
 

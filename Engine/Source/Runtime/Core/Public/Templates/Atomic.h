@@ -185,7 +185,7 @@ namespace UE4Atomic_Private
 
 // Basic storage and implementation - only allows getting and setting via platform atomics.
 template <typename T>
-struct alignas(UE4Atomic_Private::TIsSupportedSize<sizeof(T)>::Value ? alignof(UE4Atomic_Private::TUnderlyingIntegerType_T<T>) : alignof(T)) TAtomicBase_Basic
+struct alignas((UE4Atomic_Private::TIsSupportedSize<sizeof(T)>::Value) ? alignof(UE4Atomic_Private::TUnderlyingIntegerType_T<T>) : alignof(T)) TAtomicBase_Basic
 {
 public:
 	/**

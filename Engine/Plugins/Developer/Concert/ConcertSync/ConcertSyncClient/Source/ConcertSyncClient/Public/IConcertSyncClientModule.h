@@ -57,4 +57,14 @@ public:
 
 	/** Teleport to other presence. */
 	virtual void JumpToPresence(const FGuid OtherEndpointId) = 0;
+
+	/**
+	 * Returns the path to the UWorld object opened in the editor of the specified client endpoint.
+	 * The information may be unavailable if the client was disconnected, the information hasn't replicated yet
+	 * or the code was not compiled as part of the UE Editor. The path returned can be the path of a play world (PIE/SIE)
+	 * if the user is in PIE/SIE. It this case, the path will look like /Game/UEDPIE_10_FooMap.FooMap rather than /Game/FooMap.FooMap.
+	 * @param EndpointId The end point of a clients connected to the session (local or remote).
+	 * @return The path to the world being opened in the specified end point editor or an empty string if the information is not available.
+	 */
+	virtual FString GetPresenceWorldPath(const FGuid EndpointId) = 0;
 };

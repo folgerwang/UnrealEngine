@@ -422,7 +422,7 @@ void FString::PathAppend(const TCHAR* Str, int32 StrLength)
 			}
 		}
 
-		Data.Reserve(DataNum + StrLength + 1);
+		Reserve(DataNum + StrLength);
 		Data.Append(Str, StrLength);
 		Data.Add(TEXT('\0'));
 	}
@@ -1411,15 +1411,12 @@ FArchive& operator<<( FArchive& Ar, FString& A )
 		}
 
 		int32 MaxSerializeSize = Ar.GetMaxSerializeSize();
-
 		// Protect against network packets allocating too much memory
-		if (MaxSerializeSize > 0 && SaveNum > MaxSerializeSize)
+		if ((MaxSerializeSize > 0) && (SaveNum > MaxSerializeSize))
 		{
 			Ar.ArIsError         = 1;
 			Ar.ArIsCriticalError = 1;
-
 			UE_LOG(LogCore, Error, TEXT("String is too large (Size: %i, Max: %i)"), SaveNum, MaxSerializeSize);
-
 			return Ar;
 		}
 

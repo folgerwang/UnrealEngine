@@ -1016,6 +1016,8 @@ public:
 	{
 	}
 
+	virtual void Clear() override final;
+
 	void WriteInternal(mtlpp::CommandBuffer& CmdBuffer);
 
 	virtual bool Poll() const override final;
@@ -1026,19 +1028,20 @@ private:
 
 class FMetalStagingBuffer final : public FRHIStagingBuffer
 {
+	friend class FMetalRHICommandContext;
 public:
-	FMetalStagingBuffer(FVertexBufferRHIRef InBuffer)
-	: FRHIStagingBuffer(InBuffer)
+	FMetalStagingBuffer()
+		: FRHIStagingBuffer()
 	{
 	}
-	
-	~FMetalStagingBuffer();
 
-	void *Lock(uint32 Offset, uint32 NumBytes);
+	virtual ~FMetalStagingBuffer() final override;
 
-	void Unlock();
-	
-	FMetalBuffer ReadbackStagingBuffer;
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+
+	virtual void Unlock() final override;
+private:
+	FMetalBuffer ShadowBuffer;
 };
 
 class FMetalShaderLibrary final : public FRHIShaderLibrary

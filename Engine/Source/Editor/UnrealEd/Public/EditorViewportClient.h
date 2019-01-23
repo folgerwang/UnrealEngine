@@ -916,7 +916,13 @@ public:
 	 */
 	void MoveViewportCamera( const FVector& InDrag, const FRotator& InRot, bool bDollyCamera = false );
 
-	
+	/** 
+	 * Get the custom pivot point around which the camera should orbit for this viewport
+	 * @param	OutPivot	The custom pivot point specified by the viewport
+	 * @return	true if a custom pivot point was specified, false otherwise.
+	 */
+	virtual bool GetPivotForOrbit(FVector& OutPivot) const;
+
 	// Utility functions to return the modifier key states
 	bool IsAltPressed() const;
 	bool IsCtrlPressed() const;

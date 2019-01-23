@@ -179,7 +179,7 @@ void UExampleTextureCacheBuilder::SerializeAsset(FArchive& Ar)
 			PlatformData->Mips.Empty(NumMips);
 			for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
 			{
-				new(PlatformData->Mips) FTexture2DMipMap();
+				PlatformData->Mips.Add(new FTexture2DMipMap());
 			}
 		}
 

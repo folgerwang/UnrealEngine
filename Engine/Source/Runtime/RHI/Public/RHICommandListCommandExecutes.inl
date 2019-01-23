@@ -472,13 +472,13 @@ template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
 template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
 template<ECmdList CmdListType>
-void FRHICommandEnqueueStagedRead<CmdListType>::Execute(FRHICommandListBase& CmdList)
+void FRHICommandCopyToStagingBuffer<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(EnqueueStagedRead);
-	INTERNAL_DECORATOR_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
+	INTERNAL_DECORATOR_CONTEXT(RHICopyToStagingBuffer)(SourceBuffer, DestinationStagingBuffer, Offset, NumBytes, Fence);
 }
-template struct FRHICommandEnqueueStagedRead<ECmdList::EGfx>;
-template struct FRHICommandEnqueueStagedRead<ECmdList::ECompute>;
+template struct FRHICommandCopyToStagingBuffer<ECmdList::EGfx>;
+template struct FRHICommandCopyToStagingBuffer<ECmdList::ECompute>;
 
 void FRHICommandBuildLocalUniformBuffer::Execute(FRHICommandListBase& CmdList)
 {

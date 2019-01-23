@@ -127,7 +127,7 @@ public:
 	virtual EConcertConnectionStatus GetConnectionStatus() const override            { return NotMocked<EConcertConnectionStatus>(EConcertConnectionStatus::Connected); }
 	virtual FGuid GetSessionClientEndpointId() const override                        { return NotMocked<FGuid>(); }
 	virtual FGuid GetSessionServerEndpointId() const override                        { return NotMocked<FGuid>(); }
-	virtual FConcertClientInfo GetLocalClientInfo() const override                   { return NotMocked<FConcertClientInfo>(); }
+	virtual const FConcertClientInfo& GetLocalClientInfo() const override            { return NotMocked<const FConcertClientInfo&>(ClientInfo); }
 	virtual void Connect() override                                                  { return NotMocked<void>(); }
 	virtual void Disconnect() override                                               { return NotMocked<void>(); }
 	virtual void Resume() override                                                   { return NotMocked<void>(); }
@@ -147,6 +147,7 @@ protected:
 	FOnConcertClientSessionTick Tick;
 	FOnConcertClientSessionConnectionChanged ConnectionChanged;
 	FOnConcertClientSessionClientChanged ClientChanged;
+	FConcertClientInfo ClientInfo;
 };
 
 /** Specializes the base concert server session to act as a fake server session. */
@@ -1108,3 +1109,5 @@ bool FConcertDataStoreClientPrivateStore::RunTest(const FString& Parameters)
 
 	return true;
 };
+
+#undef LOCTEXT_NAMESPACE

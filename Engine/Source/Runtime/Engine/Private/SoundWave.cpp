@@ -1487,6 +1487,16 @@ bool USoundWave::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSou
 	return false;
 }
 
+bool USoundWave::HasCookedFFTData() const
+{
+	return CookedSpectralTimeData.Num() > 0;
+}
+
+bool USoundWave::HasCookedAmplitudeEnvelopeData() const
+{
+	return CookedEnvelopeTimeData.Num() > 0;
+}
+
 void USoundWave::UpdatePlatformData()
 {
 	if (IsStreaming())
@@ -1557,16 +1567,16 @@ float USoundWave::GetSampleRateForCompressionOverrides(const FPlatformAudioCookO
 	}
 }
 
-bool USoundWave::GetChunkData(int32 ChunkIndex, uint8** OutChunkData)
+bool USoundWave::GetChunkData(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded /* = false */)
 {
-	if (RunningPlatformData->TryLoadChunk(ChunkIndex, OutChunkData) == false)
+	if (RunningPlatformData->TryLoadChunk(ChunkIndex, OutChunkData, bMakeSureChunkIsLoaded) == false)
 	{
 #if WITH_EDITORONLY_DATA
 		// Unable to load chunks from the cache. Rebuild the sound and attempt to recache it.
 		UE_LOG(LogAudio, Display, TEXT("GetChunkData failed, rebuilding %s"), *GetPathName());
 
 		ForceRebuildPlatformData();
-		if (RunningPlatformData->TryLoadChunk(ChunkIndex, OutChunkData) == false)
+		if (RunningPlatformData->TryLoadChunk(ChunkIndex, OutChunkData, bMakeSureChunkIsLoaded) == false)
 		{
 			UE_LOG(LogAudio, Display, TEXT("Failed to build sound %s."), *GetPathName());
 		}

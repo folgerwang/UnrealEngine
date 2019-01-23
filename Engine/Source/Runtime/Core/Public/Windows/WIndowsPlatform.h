@@ -60,8 +60,15 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
 #define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK				(!WITH_EDITOR) // movies will start before engine is initalized
 #define PLATFORM_RHITHREAD_DEFAULT_BYPASS					0
-
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
+
+// Q: Why is there a __nop() before __debugbreak()?
+// A: VS' debug engine has a bug where it will silently swallow explicit
+// breakpoint interrupts when single-step debugging either line-by-line or
+// over call instructions. This can hide legitimate reasons to trap. Asserts
+// for example, which can appear as if the did not fire, leaving a programmer
+// unknowingly debugging an undefined process.
+#define PLATFORM_BREAK() (__nop(), __debugbreak())
 
 #if defined(__INTEL_COMPILER) || _MSC_VER > 1900
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
@@ -102,6 +109,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 	#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  __pragma(clang optimize on)
 #endif
 
+// Tells the compiler to put the decorated function in a certain section (aka. segment) of the executable.
+#define PLATFORM_CODE_SECTION(Name) __declspec(code_seg(Name)) 
+
 // Backwater of the spec. All compilers support this except microsoft, and they will soon
 #if !defined(__clang__)		// Clang expects typename outside template
 	#define TYPENAME_OUTSIDE_TEMPLATE
@@ -137,7 +147,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 // Prefetch
-#define PLATFORM_CACHE_LINE_SIZE	128
+#define PLATFORM_CACHE_LINE_SIZE	64
 
 // DLL export and import definitions
 #define DLLEXPORT __declspec(dllexport)
@@ -164,8 +174,3 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #ifndef ENABLE_WIN_ALLOC_TRACKING
 #define ENABLE_WIN_ALLOC_TRACKING 0
 #endif
-
-#ifndef USE_SECURE_CRT
-#define USE_SECURE_CRT 0
-#endif
-

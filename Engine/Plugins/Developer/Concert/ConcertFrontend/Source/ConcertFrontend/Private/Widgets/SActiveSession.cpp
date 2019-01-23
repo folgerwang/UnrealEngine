@@ -17,8 +17,184 @@
 #include "IConcertUICoreModule.h"
 #include "ConcertMessageData.h"
 #include "SSessionHistory.h"
+#include "IConcertSyncClientModule.h"
 
 #define LOCTEXT_NAMESPACE "SActiveSession"
+
+namespace ActiveSessionDetailsUI
+{
+	static const FName DisplayNameColumnName(TEXT("DisplayName"));
+	static const FName PresenceColumnName(TEXT("Presence"));
+	static const FName LevelColumnName(TEXT("Level"));
+}
+
+
+class SActiveSessionDetailsRow : public SMultiColumnTableRow<TSharedPtr<FConcertSessionClientInfo>>
+{
+	SLATE_BEGIN_ARGS(SActiveSessionDetailsRow) {}
+	SLATE_END_ARGS()
+
+public:
+	/**
+	 * Constructs the widget.
+	 *
+	 * @param InArgs The construction arguments.
+	 * @param InClientInfo The client displayed by this row.
+	 * @param InClientSession The session in which the client is, used to determine if the client is the local one, so that we can suffix it with a "you".
+	 * @param InOwnerTableView The table to which the row must be added.
+	 */
+	void Construct(const FArguments& InArgs, TSharedPtr<FConcertSessionClientInfo> InClientInfo, TWeakPtr<IConcertClientSession> InClientSession, const TSharedRef<STableViewBase>& InOwnerTableView)
+	{
+		SessionClientInfo = MoveTemp(InClientInfo);
+		ClientSession = MoveTemp(InClientSession);
+		SMultiColumnTableRow<TSharedPtr<FConcertSessionClientInfo>>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
+
+		// Set the tooltip for the entire row. Will show up unless there is another item with a tooltip hovered in the row, such as the "presence" icons.
+		SetToolTipText(MakeAttributeSP(this, &SActiveSessionDetailsRow::GetRowToolTip));
+	}
+
+public:
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+	{
+		if (ColumnName == ActiveSessionDetailsUI::DisplayNameColumnName)
+		{
+			// Displays a colored square from a special font (using avatar color) followed by the the display name -> [x] John Smith
+			return SNew(SHorizontalBox)
+				// The 'square' glyph in front of the client name, rendered using special font glyph, in the client avatar color.
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+				[
+					SNew(STextBlock)
+					.Font(this, &SActiveSessionDetailsRow::GetAvatarFont)
+					.ColorAndOpacity(this, &SActiveSessionDetailsRow::GetAvatarColor)
+					.Text(FEditorFontGlyphs::Square)
+				]
+
+				// The client display name.
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					ConcertFrontendUtils::CreateDisplayName(MakeAttributeSP(this, &SActiveSessionDetailsRow::GetDisplayName))
+				];
+		}
+		else if (ColumnName == ActiveSessionDetailsUI::PresenceColumnName)
+		{
+			// Displays a set of icons corresponding to the client presence. The set may be extended later to include other functionalities.
+			TArray<FConcertUIButtonDefinition> ButtonDefs;
+			TSharedRef<SHorizontalBox> PresenceCell = SNew(SHorizontalBox);
+
+			TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+			if (ClientInfoPin.IsValid())
+			{
+				IConcertUICoreModule::Get().GetConcertBrowserClientButtonExtension().Broadcast(*ClientInfoPin, ButtonDefs);
+				ConcertFrontendUtils::AppendButtons(PresenceCell, ButtonDefs);
+			}
+			return PresenceCell;
+		}
+		else // LevelColumnName
+		{
+			check(ColumnName == ActiveSessionDetailsUI::LevelColumnName); // If this fail, was a column added/removed/renamed ?
+
+			// Displays which "level" the client is editing, playing (PIE) or simulating (SIE).
+			return SNew(SBox)
+				.Padding(FMargin(4.0, 0.0))
+				[
+					SNew(STextBlock)
+					.Text(this, &SActiveSessionDetailsRow::GetLevel)
+				];
+		}
+	}
+
+	FText GetRowToolTip() const
+	{
+		// This is a tooltip for the entire row. Like display name, the tooltip will not update in real time if the user change its
+		// settings. See GetDisplayName() for more info.
+		TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+		return ClientInfoPin.IsValid() ? ClientInfoPin->ToDisplayString() : FText();
+	}
+
+	FText GetDisplayName() const
+	{
+		TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+		if (ClientInfoPin.IsValid())
+		{
+			// NOTE: The display name doesn't update in real time at the moment because the concert setting are not propagated
+			//       until the client disconnect/reconnect. Since those settings should not change often, this should not
+			//       be a major deal breaker for the users.
+			TSharedPtr<IConcertClientSession> ClientSessionPin = ClientSession.Pin();
+			if (ClientSessionPin.IsValid() && ClientInfoPin->ClientEndpointId == ClientSessionPin->GetSessionClientEndpointId())
+			{
+				return FText::Format(LOCTEXT("ClientDisplayNameIsYouFmt", "{0} (You)"), FText::FromString(ClientSessionPin->GetLocalClientInfo().DisplayName));
+			}
+
+			// Return the ClientInfo cached.
+			return FText::FromString(ClientInfoPin->ClientInfo.DisplayName);
+		}
+
+		return FText();
+	}
+
+	FText GetLevel() const
+	{
+		TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+		if (ClientInfoPin.IsValid())
+		{
+			// The world path is returned as something like /Game/MyMap.MyMap, but we are only interested to keep the
+			// string left to the '.' to display "/Game/MyMap"
+			FString WorldPath = IConcertSyncClientModule::Get().GetPresenceWorldPath(ClientInfoPin->ClientEndpointId);
+			int Pos;
+			if (WorldPath.FindLastChar('.', Pos))
+			{
+				return FText::FromString(WorldPath.LeftChop(WorldPath.Len() - Pos));
+			}
+
+			// Maybe the '.' was not found, just output the world path as is.
+			return FText::FromString(WorldPath);
+		}
+
+		return FText();
+	}
+
+	FSlateFontInfo GetAvatarFont() const
+	{
+		// This font is used to render a small square box filled with the avatar color.
+		FSlateFontInfo ClientIconFontInfo = FEditorStyle::Get().GetFontStyle(ConcertFrontendUtils::ButtonIconSyle);
+		ClientIconFontInfo.Size = 8;
+		ClientIconFontInfo.OutlineSettings.OutlineSize = 1;
+
+		TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+		if (ClientInfoPin.IsValid())
+		{
+			FLinearColor ClientOutlineColor = ClientInfoPin->ClientInfo.AvatarColor * 0.6f; // Make the font outline darker.
+			ClientOutlineColor.A = ClientInfoPin->ClientInfo.AvatarColor.A; // Put back the original alpha.
+			ClientIconFontInfo.OutlineSettings.OutlineColor = ClientOutlineColor;
+		}
+		else
+		{
+			ClientIconFontInfo.OutlineSettings.OutlineColor = FLinearColor(0.75, 0.75, 0.75); // This is an arbitrary color.
+		}
+
+		return ClientIconFontInfo;
+	}
+
+	FSlateColor GetAvatarColor() const
+	{
+		TSharedPtr<FConcertSessionClientInfo> ClientInfoPin = SessionClientInfo.Pin();
+		if (ClientInfoPin.IsValid())
+		{
+			return ClientInfoPin->ClientInfo.AvatarColor;
+		}
+
+		return FSlateColor(FLinearColor(0.75, 0.75, 0.75)); // This is an arbitrary color.
+	}
+
+private:
+	TWeakPtr<FConcertSessionClientInfo> SessionClientInfo;
+	TWeakPtr<IConcertClientSession> ClientSession;
+};
+
 
 void SActiveSession::Construct(const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow)
 {
@@ -136,6 +312,16 @@ void SActiveSession::Construct(const FArguments& InArgs, const TSharedRef<SDockT
 						.SelectionMode(ESelectionMode::Single)
 						.ListItemsSource(&Clients)
 						.OnGenerateRow(this, &SActiveSession::HandleGenerateRow)
+						.HeaderRow
+						(
+							SNew(SHeaderRow)
+							+SHeaderRow::Column(ActiveSessionDetailsUI::DisplayNameColumnName)
+							.DefaultLabel(LOCTEXT("UserDisplayName", "Display Name"))
+							+SHeaderRow::Column(ActiveSessionDetailsUI::PresenceColumnName)
+							.DefaultLabel(LOCTEXT("UserPresence", "User Presence"))
+							+SHeaderRow::Column(ActiveSessionDetailsUI::LevelColumnName)
+							.DefaultLabel(LOCTEXT("UserLevel", "Level"))
+						)
 					]
 				]
 			]
@@ -188,62 +374,8 @@ void SActiveSession::Construct(const FArguments& InArgs, const TSharedRef<SDockT
 
 TSharedRef<ITableRow> SActiveSession::HandleGenerateRow(TSharedPtr<FConcertSessionClientInfo> InClientInfo, const TSharedRef<STableViewBase>& OwnerTable) const
 {
-	FLinearColor ClientNormalColor = InClientInfo->ClientInfo.AvatarColor * 0.8f;
-	ClientNormalColor.A = InClientInfo->ClientInfo.AvatarColor.A;
-
-	FLinearColor ClientOutlineColor = InClientInfo->ClientInfo.AvatarColor * 0.6f;
-	ClientOutlineColor.A = InClientInfo->ClientInfo.AvatarColor.A;
-
-	FSlateFontInfo ClientIconFontInfo = FEditorStyle::Get().GetFontStyle(ConcertFrontendUtils::ButtonIconSyle);
-	ClientIconFontInfo.Size = 8;
-	ClientIconFontInfo.OutlineSettings.OutlineSize = 1;
-	ClientIconFontInfo.OutlineSettings.OutlineColor = ClientOutlineColor;
-
-	FText ClientDisplayName = FText::FromString(InClientInfo->ClientInfo.DisplayName);
-
-	TSharedPtr<IConcertClientSession> ClientSession = WeakSessionPtr.Pin();
-
-	if (ClientSession.IsValid() && InClientInfo->ClientEndpointId == ClientSession->GetSessionClientEndpointId())
-	{
-		ClientDisplayName = FText::Format(LOCTEXT("ClientDisplayNameIsYouFmt", "{0} (You)"), ClientDisplayName);
-	}
-
-	TSharedRef<SHorizontalBox> ClientRow =
-		SNew(SHorizontalBox)
-
-		// Color Icon
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
-		[
-			SNew(STextBlock)
-			.Font(ClientIconFontInfo)
-			.ColorAndOpacity(ClientNormalColor)
-			.Text(FEditorFontGlyphs::Square)
-		]
-
-		// Client Info
-		+SHorizontalBox::Slot()
-		.VAlign(VAlign_Center)
-		[
-			ConcertFrontendUtils::CreateDisplayName(ClientDisplayName)
-		];
-
-	// Append the buttons to the client row
-	{
-		TArray<FConcertUIButtonDefinition> ButtonDefs;
-		IConcertUICoreModule::Get().GetConcertBrowserClientButtonExtension().Broadcast(*InClientInfo, ButtonDefs);
-
-		ConcertFrontendUtils::AppendButtons(ClientRow, ButtonDefs);
-	}
-
-	return SNew(STableRow<TSharedPtr<FConcertServerInfo>>, OwnerTable)
-		.SignalSelectionMode(ETableRowSignalSelectionMode::Instantaneous)
-		.ToolTipText(InClientInfo->ToDisplayString())
-		[
-			ClientRow
-		];
+	// Generate a row for the client corresponding to InClientInfo.
+	return SNew(SActiveSessionDetailsRow, InClientInfo, WeakSessionPtr, OwnerTable);
 }
 
 void SActiveSession::HandleSessionStartup(TSharedRef<IConcertClientSession> InClientSession)

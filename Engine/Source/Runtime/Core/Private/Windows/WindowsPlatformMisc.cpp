@@ -575,15 +575,20 @@ void FWindowsPlatformMisc::PlatformInit()
  *
  * @param Type Ctrl-C, Ctrl-Break, Close Console Log Window, Logoff, or Shutdown
  */
-static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
+static BOOL WINAPI ConsoleCtrlHandler(DWORD CtrlType)
 {
-	// Once this function is called, Windows gives us about 5 seconds to clean up and exit.
-	// There's no way to cancel. Since console is shutting down, logging might not be reliable.
+	// Only "two-step Ctrl-C" if the termination event is Ctrl-C and the process
+	// is considered interactive. Hard-terminate on all other cases.
+	if (CtrlType != CTRL_C_EVENT || FApp::IsUnattended())
+	{
+		GIsRequestingExit = true;
+	}
 
-	GIsRequestingExit = true;
-
-	// Notify anyone listening that we're about to terminate
-	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+	if (!GIsRequestingExit)
+	{
+		UE_LOG(LogCore, Warning, TEXT("*** INTERRUPTED *** : SHUTTING DOWN"));
+		UE_LOG(LogCore, Warning, TEXT("*** INTERRUPTED *** : CTRL-C TO FORCE QUIT"));
+	}
 
 	// make sure as much data is written to disk as possible
 	if (GLog)
@@ -599,14 +604,68 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 		GError->Flush();
 	}
 
-	// Windows will now terminate this process with ExitCode = 0xC000013A
-	return true;
+	if (!GIsRequestingExit)
+	{
+		// Notify anyone listening that we're about to terminate
+		GIsRequestingExit = true;
+		FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+		return true;
+	}
+
+	// There's no guarantee that the process is paying attention to GIsRequestingExit
+	// (e.g. some long-running commandlets). Using that for shutdown is therefore not
+	// reliable. Deferring to the default CtrlHandler is also no good as that calls
+	// ExitProcess() which will terminate all threads and detach all DLLS. This can
+	// result in deadlocks and/or asserts as each DLL's atexit() is processed. So
+	// let's hard terminate the process. 0xc000013a is what Windows' default handler
+	// would normally pass to ExitProcess() and how ExitProc() terminates threads.
+	TerminateProcess(GetCurrentProcess(), 0xc000013au);
+	return false;
 }
 
 void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 {
+	if (GetConsoleWindow() == nullptr)
+	{
+		return;
+	}
+
 	// Set console control handler so we can exit if requested.
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
+
+#if !UE_BUILD_SHIPPING && PLATFORM_CPU_X86_FAMILY
+	// There are many places that can register a Ctrl-C handler, some of which
+	// we are not in control of (third party Perforce libraries for example). This
+	// can result in Ctrl-C doing nothing, or an abrupt call to ExitProcess() which
+	// will cause asserts and/or deadlocks. So we're going to apply a patch so no
+	// one else can register a handler.
+	auto* SetCtrlCProc = (uint8*)SetConsoleCtrlHandler;
+	if (SetCtrlCProc[0] == 0xff && SetCtrlCProc[1] == 0x25)
+	{
+#if PLATFORM_64BITS
+		// Follow a possible "jmp [eip] + disp32" instruction to get to the actual
+		// implementation of the SetConsoleCtrlHandler function.
+		SetCtrlCProc = *(uint8**)(SetCtrlCProc + 6 + *(uint32*)(SetCtrlCProc + 2));
+#else
+		// Follow "jmp [disp32]"
+		uintptr_t Disp32 = *(uintptr_t*)(SetCtrlCProc + 2);
+		SetCtrlCProc = *(uint8**)(Disp32);
+#endif
+	}
+
+	// Patch the start of the SetConsoleCtrlHandler function.
+	uint8 Patch[] = {
+		0xb8, 0x01, 0x00, 0x00, 0x00,	// mov eax, 1
+		0xc3							// ret
+	};
+	DWORD PrevProtection;
+	if (VirtualProtect(SetCtrlCProc, sizeof(Patch), PAGE_READWRITE, &PrevProtection))
+	{
+		memcpy(SetCtrlCProc, Patch, sizeof(Patch));
+		VirtualProtect(SetCtrlCProc, sizeof(Patch), PrevProtection, &PrevProtection);
+		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
+	}
+#endif // !UE_BUILD_SHIPPING && PLATFORM_CPU_X86_FAMILY
 }
 
 int32 FWindowsPlatformMisc::GetMaxPathLength()

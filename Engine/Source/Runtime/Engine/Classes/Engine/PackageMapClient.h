@@ -24,6 +24,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "Misc/NetworkGuid.h"
+#include "Misc/NetworkVersion.h"
 #include "UObject/CoreNet.h"
 #include "Net/DataBunch.h"
 #include "PackageMapClient.generated.h"
@@ -31,6 +32,7 @@
 class UNetConnection;
 class UNetDriver;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS	// 4.22, Name, Type
 class ENGINE_API FNetFieldExport
 {
 public:
@@ -38,12 +40,23 @@ public:
 	{
 	}
 
+	UE_DEPRECATED(4.22, "Type is no longer required, please use other constructor.")
 	FNetFieldExport( const uint32 InHandle, const uint32 InCompatibleChecksum, const FString InName, FString InType ) :
 		bExported( false ),
 		Handle( InHandle ),
 		CompatibleChecksum( InCompatibleChecksum ),
+		ExportName( *InName ),
 		Name( InName ),
 		Type( InType ),
+		bIncompatible( false )
+	{
+	}
+
+	FNetFieldExport( const uint32 InHandle, const uint32 InCompatibleChecksum, const FName& InName ) :
+		bExported( false ),
+		Handle( InHandle ),
+		CompatibleChecksum( InCompatibleChecksum ),
+		ExportName( InName ),
 		bIncompatible( false )
 	{
 	}
@@ -56,13 +69,27 @@ public:
 
 		if ( Ar.IsLoading() )
 		{
-			C.bExported = Flags == 1 ? true : false;
+			C.bExported = (Flags == 1);
 		}
 
 		if ( C.bExported )
 		{
 			Ar.SerializeIntPacked( C.Handle );
-			Ar << C.CompatibleChecksum << C.Name << C.Type;
+			Ar << C.CompatibleChecksum;
+
+			if (Ar.IsLoading() && Ar.EngineNetVer() < HISTORY_NETEXPORT_SERIALIZATION)
+			{
+				Ar << C.Name;
+				Ar << C.Type;
+
+				C.ExportName = FName(*C.Name);
+			}
+			else
+			{
+				Ar << C.ExportName;
+
+				C.Name = C.ExportName.ToString();
+			}
 		}
 
 		return Ar;
@@ -73,12 +100,16 @@ public:
 	bool			bExported;
 	uint32			Handle;
 	uint32			CompatibleChecksum;
+	FName			ExportName;
+	UE_DEPRECATED(4.22, "Name is deprecated.")
 	FString			Name;
+	UE_DEPRECATED(4.22, "Type is deprecated.")
 	FString			Type;
 
 	// Transient properties
 	mutable bool	bIncompatible;		// If true, we've already determined that this property isn't compatible. We use this to curb warning spam.
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 class ENGINE_API FNetFieldExportGroup
 {

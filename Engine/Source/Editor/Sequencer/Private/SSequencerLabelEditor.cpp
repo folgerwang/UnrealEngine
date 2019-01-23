@@ -8,7 +8,7 @@
 #include "Sequencer.h"
 #include "Widgets/Views/SListView.h"
 #include "SSequencerLabelEditorListRow.h"
-
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SSequencerLabelEditor"
 
@@ -86,6 +86,8 @@ void SSequencerLabelEditor::Construct(const FArguments& InArgs, FSequencer& InSe
 
 void SSequencerLabelEditor::CreateLabelFromFilterText()
 {
+	const FScopedTransaction Transaction(LOCTEXT("AddLabel", "Add Label"));
+
 	for (auto ObjectId : ObjectIds)
 	{
 		Sequencer->GetLabelManager().AddObjectLabel(ObjectId, FilterBox->GetText().ToString());
@@ -157,8 +159,11 @@ FReply SSequencerLabelEditor::HandleFilterBoxKeyDown(const FGeometry& /*Geometry
 {
 	if (KeyEvent.GetKey() == EKeys::Enter)
 	{
-		CreateLabelFromFilterText();
-		return FReply::Handled();
+		if (HandleCreateNewLabelButtonIsEnabled())
+		{
+			CreateLabelFromFilterText();
+			return FReply::Handled();
+		}
 	}
 
 	return FReply::Unhandled();

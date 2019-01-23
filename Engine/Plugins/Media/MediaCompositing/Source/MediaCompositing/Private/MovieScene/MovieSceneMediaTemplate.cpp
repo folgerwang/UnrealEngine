@@ -114,7 +114,7 @@ struct FMediaSectionExecutionToken
 				MediaPlayer->Seek(MediaTime);
 				MediaPlayer->SetRate(1.0f);
 			}
-			else 
+			else if (Context.HasJumped())
 			{
 				MediaPlayer->Seek(MediaTime);
 			}

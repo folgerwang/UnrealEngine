@@ -32,6 +32,9 @@ struct FPoseContext;
 // Disable debugging information for shipping and test builds.
 #define ENABLE_ANIM_DRAW_DEBUG (1 && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
+// Disable node logging for shipping and test builds
+#define ENABLE_ANIM_LOGGING (1 && !NO_LOGGING && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+
 UENUM()
 namespace EDrawDebugItemType
 {
@@ -384,7 +387,7 @@ public:
 	void AnimDrawDebugPlane(const FTransform& BaseTransform, float Radii, const FColor& Color, bool bPersistentLines = false, float LifeTime = -1.f, float Thickness = 0.f) {}
 #endif // ENABLE_ANIM_DRAW_DEBUG
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	const FString& GetActorName() const 
 	{
 		return ActorName; 
@@ -745,7 +748,7 @@ private:
 	TArray<FAnimNodePoseWatch> PoseWatchEntriesForThisFrame;
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	/** Actor name for debug logging purposes */
 	FString ActorName;
 #endif
@@ -849,7 +852,7 @@ private:
 	/** Array of snapshots. Each entry contains a name for finding specific pose snapshots */
 	TArray<FPoseSnapshot> PoseSnapshots;
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	/** Logged message queues. Allows nodes to report messages to MessageLog even though they may be running
 	 *  on a worked thread
 	 */

@@ -200,7 +200,7 @@ public:
 	virtual FGuid GetSessionServerEndpointId() const = 0;
 
 	/** Get the local user's ClientInfo */
-	virtual FConcertClientInfo GetLocalClientInfo() const = 0;
+	virtual const FConcertClientInfo& GetLocalClientInfo() const = 0;
 
 	/** Start the connection handshake with the server session */
 	virtual void Connect() = 0;

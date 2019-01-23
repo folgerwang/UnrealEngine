@@ -67,6 +67,10 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Sequence, AdvancedDisplay, meta=(ClampMin=0, UIMin=0))
 	int32 HandleFrames;
 
+	/** Filename extension for movies referenced in the XMLs/EDLs */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Sequence, AdvancedDisplay)
+	FString MovieExtension;
+
 	/** How much to zero-pad frame numbers on filenames */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=General, AdvancedDisplay, meta=(ClampMin=0, UIMin=0))
 	uint8 ZeroPadFrameNumbers;

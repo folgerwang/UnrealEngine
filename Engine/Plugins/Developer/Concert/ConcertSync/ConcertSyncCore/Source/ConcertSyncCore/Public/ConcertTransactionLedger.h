@@ -9,6 +9,7 @@ class FStructOnScope;
 class FConcertFileCache;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAddFinalizedTransaction, const FConcertTransactionFinalizedEvent& /** FinalizedEvent */, uint64 /** TransactionIndex */);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLiveTransactionsTrimmed, const FName& /** PackageName */, uint64 /*UpToIndex*/);
 
 enum class EConcertTransactionLedgerType : uint8
 {
@@ -66,9 +67,14 @@ public:
 	void ClearLedger();
 
 	/**
-	 * @Return the delegate that is triggered each time a finalized transaction is about to be added to the ledger
+	 * @return the delegate that is triggered each time a finalized transaction is about to be added to the ledger
 	 */
 	FOnAddFinalizedTransaction& OnAddFinalizedTransaction();
+
+	/**
+	 * @return the delegate that is triggered each time live transactions for a given packages are trimmed, which means the package was saved on disk.
+	 */
+	FOnLiveTransactionsTrimmed& OnLiveTransactionsTrimmed();
 
 	/**
 	 * Add the given transaction with this ledger.
@@ -201,4 +207,6 @@ private:
 
 	/** Delegate called every time a finalized transaction is added. */
 	FOnAddFinalizedTransaction OnAddFinalizedTransactionDelegate;
+
+	FOnLiveTransactionsTrimmed OnLiveTransactionsTrimmedDelegate;
 };

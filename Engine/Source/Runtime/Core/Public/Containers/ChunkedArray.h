@@ -65,7 +65,7 @@ public:
 		Chunks.Empty(NumChunks);
 		for(int32 ChunkIndex = 0;ChunkIndex < NumChunks;ChunkIndex++)
 		{
-			new(Chunks) FChunk;
+			Chunks.Add(new FChunk);
 		}
 	}
 
@@ -203,7 +203,7 @@ public:
 		{
 			if (NumElements % NumElementsPerChunk == 0)
 			{
-				new(Chunks) FChunk;
+				Chunks.Add(new FChunk);
 			}
 			NumElements++;
 		}

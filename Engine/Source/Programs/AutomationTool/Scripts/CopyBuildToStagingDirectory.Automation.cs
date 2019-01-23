@@ -343,8 +343,7 @@ public partial class Project : CommandUtils
 					if (bUFS)
 					{
 						List<FileReference> Files = SC.FindFilesToStage(InputDir, StageFilesSearch.AllDirectories);
-						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap"));
-
+						Files.RemoveAll(x => x.HasExtension(".uasset") || x.HasExtension(".umap") || (SC.DedicatedServer && x.HasExtension(".mp4")));
 						SC.StageFiles(StagedFileType.UFS, InputDir, Files, OutputDir);
 					}
 					else
@@ -1698,6 +1697,20 @@ public partial class Project : CommandUtils
 
 		const string OutputFilenameExtension = ".pak";
 
+		// read some compression settings from the project (once, shared across all pak commands)
+		ConfigHierarchy PlatformGameConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		string CompressionFormats = "";
+		if (PlatformGameConfig.GetString("/Script/UnrealEd.ProjectPackagingSettings", "PakFileCompressionFormats", out CompressionFormats))
+		{
+			CompressionFormats = " -compressionformats=" + CompressionFormats;
+		}
+
+		// the game may want to control compression settings, but since it may be in a plugin that checks the commandline for the settings, we need to pass
+		// the settings directly on the UnrealPak commandline, and not put it into the batch file lines (plugins can't get the unrealpak command list, and
+		// there's not a great way to communicate random strings down into the plugins during plugin init time)
+		string AdditionalCompressionOptionsOnCommandLine = "";
+		PlatformGameConfig.GetString("/Script/UnrealEd.ProjectPackagingSettings", "PakFileAdditionalCompressionOptions", out AdditionalCompressionOptionsOnCommandLine);
+
 		List<string> Commands = new List<string>();
 		List<string> LogNames = new List<string>();
 
@@ -1861,7 +1874,7 @@ public partial class Project : CommandUtils
 				{
 					FileReference PrimaryOrderFile   = (PakOrderFileLocations.Count >= 1) ? PakOrderFileLocations[0] : null;
 					FileReference SecondaryOrderFile = (PakOrderFileLocations.Count >= 2) ? PakOrderFileLocations[1] : null;
-					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PrimaryOrderFile, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, PakParams.EncryptionKeyGuid, SecondaryOrderFile));
+					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PrimaryOrderFile, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + CompressionFormats + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, PakParams.EncryptionKeyGuid, SecondaryOrderFile));
 					LogNames.Add(OutputLocation.GetFileNameWithoutExtension());
 				}
 			}
@@ -1872,7 +1885,7 @@ public partial class Project : CommandUtils
 		// Actually execute UnrealPak
 		if (Commands.Count > 0)
 		{
-			RunUnrealPakInParallel(Params.RawProjectPath, Commands, LogNames);
+			RunUnrealPakInParallel(Params.RawProjectPath, Commands, LogNames, AdditionalCompressionOptionsOnCommandLine);
 		}
 
 		// Do any additional processing on the command output
@@ -2008,7 +2021,7 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	private static void RunUnrealPakInParallel(FileReference ProjectFile, List<string> Commands, List<string> LogNames)
+	private static void RunUnrealPakInParallel(FileReference ProjectFile, List<string> Commands, List<string> LogNames, string AdditionalCompressionOptionsOnCommandLine)
 	{
 		LogInformation("Executing {0} UnrealPak command{1}...", Commands.Count, (Commands.Count > 1)? "s" : "");
 
@@ -2020,7 +2033,7 @@ public partial class Project : CommandUtils
 			for(int Idx = 0; Idx < Commands.Count; Idx++)
 			{
 				string LogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, String.Format("UnrealPak-{0}", LogNames[Idx])));
-				string Arguments = Commands[Idx] = String.Format("{0} {1} -multiprocess -abslog={2}", Commands[Idx], MakePathSafeToUseWithCommandLine(ProjectFile.FullName), MakePathSafeToUseWithCommandLine(LogFile));
+				string Arguments = Commands[Idx] = String.Format("{0} {1} -multiprocess -abslog={2} {3}", Commands[Idx], MakePathSafeToUseWithCommandLine(ProjectFile.FullName), MakePathSafeToUseWithCommandLine(LogFile), AdditionalCompressionOptionsOnCommandLine);
 
 				int LocalIdx = Idx;
 				Queue.Enqueue(() => Results[LocalIdx] = Run(UnrealPakExe, Arguments, Options: ERunOptions.AppMustExist | ERunOptions.NoLoggingOfRunCommand));

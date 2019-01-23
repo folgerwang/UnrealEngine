@@ -171,12 +171,55 @@ private:
 class CORE_API IStringTableEngineBridge
 {
 public:
-	/** Redirect and load a string table asset by its name */
-	static void RedirectAndLoadStringTableAsset(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy)
+	/**
+	 * Callback used when loading string table assets.
+	 * @param The name of the table we were asked to load.
+	 * @param The name of the table we actually loaded (may be different if redirected; will be empty if the load failed).
+	 */
+	typedef TFunction<void(FName, FName)> FLoadStringTableAssetCallback;
+
+	/**
+	 * Load a string table asset by its name, potentially doing so asynchronously. 
+	 * @note If the string table is already loaded, or loading is perform synchronously, then the callback will be called before this function returns.
+	 * @return The async loading ID of the asset, or INDEX_NONE if no async loading was performed.
+	 */
+	static int32 LoadStringTableAsset(const FName InTableId, FLoadStringTableAssetCallback InLoadedCallback = FLoadStringTableAssetCallback())
+	{
+		check(IsInGameThread());
+
+		if (InstancePtr)
+		{
+			return InstancePtr->LoadStringTableAssetImpl(InTableId, InLoadedCallback);
+		}
+
+		// No bridge instance - just say it's already loaded
+		if (InLoadedCallback)
+		{
+			InLoadedCallback(InTableId, InTableId);
+		}
+		return INDEX_NONE;
+	}
+
+	/**
+	 * Fully load a string table asset by its name, synchronously.
+	 * @note This should be used sparingly in places where it is definitely safe to perform a blocking load.
+	 */
+	static void FullyLoadStringTableAsset(FName& InOutTableId)
+	{
+		check(IsInGameThread());
+
+		if (InstancePtr)
+		{
+			return InstancePtr->FullyLoadStringTableAssetImpl(InOutTableId);
+		}
+	}
+
+	/** Redirect string table asset by its name */
+	static void RedirectStringTableAsset(FName& InOutTableId)
 	{
 		if (InstancePtr)
 		{
-			InstancePtr->RedirectAndLoadStringTableAssetImpl(InOutTableId, InLoadingPolicy);
+			InstancePtr->RedirectStringTableAssetImpl(InOutTableId);
 		}
 	}
 
@@ -204,7 +247,9 @@ public:
 protected:
 	virtual ~IStringTableEngineBridge() {}
 
-	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) = 0;
+	virtual int32 LoadStringTableAssetImpl(const FName InTableId, FLoadStringTableAssetCallback InLoadedCallback) = 0;
+	virtual void FullyLoadStringTableAssetImpl(FName& InOutTableId) = 0;
+	virtual void RedirectStringTableAssetImpl(FName& InOutTableId) = 0;
 	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FStructuredArchive::FSlot Slot) = 0;
 	virtual bool IsStringTableFromAssetImpl(const FName InTableId) = 0;
 	virtual bool IsStringTableAssetBeingReplacedImpl(const UStringTable* InStringTableAsset) = 0;
@@ -220,18 +265,11 @@ struct CORE_API FStringTableRedirects
 	static void InitStringTableRedirects();
 
 	/** Redirect a table ID */
-	static void RedirectTableId(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy);
+	static void RedirectTableId(FName& InOutTableId);
 
 	/** Redirect a key */
 	static void RedirectKey(const FName InTableId, FString& InOutKey);
 
 	/** Redirect a table ID and key */
-	static void RedirectTableIdAndKey(FName& InOutTableId, FString& InOutKey, const EStringTableLoadingPolicy InLoadingPolicy);
-};
-
-/** String table reference collection utils */
-struct CORE_API FStringTableReferenceCollection
-{
-	/** Collect asset references from the given table ID */
-	static void CollectAssetReferences(const FName InTableId, FStructuredArchive::FRecord Record);
+	static void RedirectTableIdAndKey(FName& InOutTableId, FString& InOutKey);
 };

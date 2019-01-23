@@ -11,15 +11,19 @@ struct FMarginSectionEditorData
 	{
 		MetaData[0].SetIdentifiers("Left", NSLOCTEXT("MovieSceneMarginSection", "LeftText", "Left"));
 		MetaData[0].SortOrder = 0;
+		MetaData[0].bCanCollapseToTrack = false;
 
 		MetaData[1].SetIdentifiers("Top", NSLOCTEXT("MovieSceneMarginSection", "TopText", "Top"));
 		MetaData[1].SortOrder = 1;
+		MetaData[1].bCanCollapseToTrack = false;
 
 		MetaData[2].SetIdentifiers("Right", NSLOCTEXT("MovieSceneMarginSection", "RightText", "Right"));
 		MetaData[2].SortOrder = 2;
+		MetaData[2].bCanCollapseToTrack = false;
 
 		MetaData[3].SetIdentifiers("Bottom", NSLOCTEXT("MovieSceneMarginSection", "BottomText", "Bottom"));
 		MetaData[3].SortOrder = 3;
+		MetaData[3].bCanCollapseToTrack = false;
 
 		ExternalValues[0].OnGetExternalValue = ExtractLeftChannel;
 		ExternalValues[1].OnGetExternalValue = ExtractTopChannel;

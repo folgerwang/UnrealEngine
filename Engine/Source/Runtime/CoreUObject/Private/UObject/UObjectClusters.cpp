@@ -29,14 +29,6 @@ static FAutoConsoleVariableRef CCreateGCClusters(
 	ECVF_Default
 	);
 
-int32 GMergeGCClusters = 0;
-static FAutoConsoleVariableRef CMergeGCClusters(
-	TEXT("gc.MergeGCClusters"),
-	GMergeGCClusters,
-	TEXT("If true, when creating clusters, the clusters referenced from another cluster will get merged into one big cluster."),
-	ECVF_Default
-	);
-
 int32 GMinGCClusterSize = 5;
 static FAutoConsoleVariableRef CMinGCClusterSize(
 	TEXT("gc.MinGCClusterSize"),
@@ -468,7 +460,7 @@ void FindStaleClusters(const TArray<FString>& Args)
 			TotalNumClusters++;
 
 			UObject* ClusterRootObject = static_cast<UObject*>(ObjectItem->Object);
-			FReferenceChainSearch SearchRefs(ClusterRootObject, EReferenceChainSearchMode::ExternalOnly|EReferenceChainSearchMode::Direct);
+			FReferenceChainSearch SearchRefs(ClusterRootObject, EReferenceChainSearchMode::ExternalOnly);
 			
 			bool bReferenced = false;
 			if (SearchRefs.GetReferenceChains().Num() > 0)
@@ -491,6 +483,59 @@ void FindStaleClusters(const TArray<FString>& Args)
 	UE_LOG(LogObj, Display, TEXT("Found %d clusters, including %d stale."), TotalNumClusters, NumStaleClusters);
 }
 
+
+void DumpRefsToCluster(FUObjectCluster* Cluster)
+{
+	FUObjectItem* RootItem = GUObjectArray.IndexToObject(Cluster->RootIndex);
+
+	UE_LOG(LogObj, Display, TEXT("Dumping references to objects in cluster %s"), *static_cast<UObject*>(RootItem->Object)->GetFullName());
+
+	bool bIsReferenced = false;
+	for (int32 ObjectIndex : Cluster->Objects)
+	{
+		FUObjectItem* ObjectItem = GUObjectArray.IndexToObject(ObjectIndex);
+		FReferenceChainSearch SearchRefs(static_cast<UObject*>(ObjectItem->Object), EReferenceChainSearchMode::ExternalOnly | EReferenceChainSearchMode::Shortest);
+		if (SearchRefs.GetReferenceChains().Num())
+		{
+			bIsReferenced = true;
+			SearchRefs.PrintResults(true);
+		}
+	}
+	if (!bIsReferenced)
+	{
+		UE_LOG(LogObj, Display, TEXT("Cluster %s is not currently referenced by anything."), *static_cast<UObject*>(RootItem->Object)->GetFullName());
+	}
+}
+
+void DumpRefsToCluster(const TArray<FString>& Args)
+{
+	// This is seriously slow.
+	UE_LOG(LogObj, Display, TEXT("Searching for references to clusteres. This may take a while..."));
+
+	TArray<int32> RootObjects;
+	for (const FString& Arg : Args)
+	{
+		if (Arg.StartsWith("Root="))
+		{
+			FString ObjectsList = Arg.Mid(5);
+			TArray<FString> ObjectNames;
+			ObjectsList.ParseIntoArray(ObjectNames, TEXT(","));
+			ParseObjectNameArrayForClusters(RootObjects, ObjectNames);
+		}
+	}
+
+	for (int32 RootIndex : RootObjects)
+	{
+		FUObjectItem* RootItem = GUObjectArray.IndexToObject(RootIndex);
+		if (RootItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+		{
+			FUObjectCluster* Cluster = GUObjectClusters.GetObjectCluster(static_cast<UObject*>(RootItem->Object));
+			DumpRefsToCluster(Cluster);
+		}
+	}
+}
+
+
 static FAutoConsoleCommand ListClustersCommand(
 	TEXT("gc.ListClusters"),
 	TEXT("Dumps all clusters do output log. When 'Hiearchy' argument is specified lists all objects inside clusters."),
@@ -502,6 +547,12 @@ static FAutoConsoleCommand FindStaleClustersCommand(
 	TEXT("Dumps all clusters do output log that are not referenced by anything."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(FindStaleClusters)
 	);
+
+static FAutoConsoleCommand DumpRefsToClusterCommand(
+	TEXT("gc.DumpRefsToCluster"),
+	TEXT("Dumps references to all objects within a cluster. Specify the cluster name with Root=Name."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(DumpRefsToCluster)
+);
 
 #endif // !UE_BUILD_SHIPPING
 
@@ -595,48 +646,6 @@ public:
 	}
 
 	/**
-	* Merges an existing cluster with the currently constructed one
-	*
-	* @param ObjectItem UObject's entry in GUObjectArray. This is either the other cluster root or one if the cluster objects.
-	* @param Obj The object to add to cluster
-	* @param ObjectsToSerialize An array of remaining objects to serialize (Obj must be added to it if Obj can be added to cluster)
-	*/
-	void MergeCluster(FUObjectItem* ObjectItem, UObject* Object, TArray<UObject*>& ObjectsToSerialize)
-	{
-		FUObjectItem* OtherClusterRootItem = nullptr;
-		int32 OtherClusterRootIndex = INDEX_NONE;
-		// First find the other cluster root item and its index
-		if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
-		{
-			OtherClusterRootIndex = GUObjectArray.ObjectToIndex(Object);
-			OtherClusterRootItem = ObjectItem;
-		}
-		else
-		{
-			OtherClusterRootIndex = ObjectItem->GetOwnerIndex();
-			check(OtherClusterRootIndex > 0);
-			OtherClusterRootItem = GUObjectArray.IndexToObjectUnsafeForGC(OtherClusterRootIndex);
-		}
-		// This is another cluster, merge it with this one
-		FUObjectCluster& ClusterToMerge = GUObjectClusters[OtherClusterRootItem->GetClusterIndex()];
-		for (int32 OtherClusterObjectIndex : ClusterToMerge.Objects)
-		{
-			FUObjectItem* OtherClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(OtherClusterObjectIndex);
-			OtherClusterObjectItem->SetOwnerIndex(0);
-			AddObjectToCluster(OtherClusterObjectIndex, OtherClusterObjectItem, static_cast<UObject*>(OtherClusterObjectItem->Object), ObjectsToSerialize, true);
-		}		
-		GUObjectClusters.FreeCluster(OtherClusterRootItem->GetClusterIndex());
-
-		// Make sure the root object is also added to the current cluster
-		OtherClusterRootItem->ClearFlags(EInternalObjectFlags::ClusterRoot);
-		OtherClusterRootItem->SetOwnerIndex(0);
-		AddObjectToCluster(OtherClusterRootIndex, OtherClusterRootItem, static_cast<UObject*>(OtherClusterRootItem->Object), ObjectsToSerialize, true);
-
-		// Sanity check so that we make sure the object was actually in the lister it said it belonged to
-		check(ObjectItem->GetOwnerIndex() == ClusterRootIndex);
-	}
-
-	/**
 	* Handles UObject reference from the token stream. Performance is critical here so we're FORCEINLINING this function.
 	*
 	* @param ObjectsToSerialize An array of remaining objects to serialize (Obj must be added to it if Obj can be added to cluster)
@@ -661,32 +670,24 @@ public:
 			{
 				if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot) || ObjectItem->GetOwnerIndex() != 0)
 				{					
-					if (GMergeGCClusters)
-					{
-						// This is an existing cluster, merge it with the current one.
-						MergeCluster(ObjectItem, Object, ObjectsToSerialize);
-					}
-					else
-					{
-						// Simply reference this cluster and all clusters it's referencing
-						const int32 OtherClusterRootIndex = ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot) ? GUObjectArray.ObjectToIndex(Object) : ObjectItem->GetOwnerIndex();
-						FUObjectItem* OtherClusterRootItem = GUObjectArray.IndexToObject(OtherClusterRootIndex);
-						const int32 OtherClusterIndex = OtherClusterRootItem->GetClusterIndex();
-						FUObjectCluster& OtherCluster = GUObjectClusters[OtherClusterIndex];
-						Cluster.ReferencedClusters.AddUnique(OtherClusterRootIndex);
-						OtherCluster.ReferencedByClusters.AddUnique(ClusterRootIndex);
+					// Simply reference this cluster and all clusters it's referencing
+					const int32 OtherClusterRootIndex = ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot) ? GUObjectArray.ObjectToIndex(Object) : ObjectItem->GetOwnerIndex();
+					FUObjectItem* OtherClusterRootItem = GUObjectArray.IndexToObject(OtherClusterRootIndex);
+					const int32 OtherClusterIndex = OtherClusterRootItem->GetClusterIndex();
+					FUObjectCluster& OtherCluster = GUObjectClusters[OtherClusterIndex];
+					Cluster.ReferencedClusters.AddUnique(OtherClusterRootIndex);
+					OtherCluster.ReferencedByClusters.AddUnique(ClusterRootIndex);
 
-						for (int32 OtherClusterReferencedCluster : OtherCluster.ReferencedClusters)
+					for (int32 OtherClusterReferencedCluster : OtherCluster.ReferencedClusters)
+					{
+						if (OtherClusterReferencedCluster != ClusterRootIndex)
 						{
-							if (OtherClusterReferencedCluster != ClusterRootIndex)
-							{
-								Cluster.ReferencedClusters.AddUnique(OtherClusterReferencedCluster);
-							}
+							Cluster.ReferencedClusters.AddUnique(OtherClusterReferencedCluster);
 						}
-						for (int32 OtherClusterReferencedMutableObjectIndex : OtherCluster.MutableObjects)
-						{
-							Cluster.MutableObjects.AddUnique(OtherClusterReferencedMutableObjectIndex);
-						}
+					}
+					for (int32 OtherClusterReferencedMutableObjectIndex : OtherCluster.MutableObjects)
+					{
+						Cluster.MutableObjects.AddUnique(OtherClusterReferencedMutableObjectIndex);
 					}
 				}
 				else if (!GUObjectArray.IsDisregardForGC(Object)) // We know that disregard for GC objects will never be GC'd so no reference is necessary

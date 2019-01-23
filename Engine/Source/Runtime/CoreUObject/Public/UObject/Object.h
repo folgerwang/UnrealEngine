@@ -965,6 +965,13 @@ public:
 	virtual const TCHAR* GetConfigOverridePlatform() const { return nullptr; }
 
 	/**
+	 * Allows PerObjectConfig classes, to override the ini section name used for the PerObjectConfig object.
+	 *
+	 * @param SectionName	Reference to the unmodified config section name, that can be altered/modified
+	 */
+	virtual void OverridePerObjectConfigSection(FString& SectionName) {}
+
+	/**
 	 * Imports property values from an .ini file.
 	 *
 	 * @param	Class				the class to use for determining which section of the ini to retrieve text values from
@@ -1109,7 +1116,7 @@ public:
 	 * Called on the target when a class is loaded with ClassGeneratedBy is loaded.  Should regenerate the class if needed, and return the updated class
 	 * @return	Updated instance of the class, if needed, or NULL if no regeneration was necessary
 	 */
-	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded) { return NULL; };
+	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO) { return NULL; };
 
 	/** 
 	 * Returns whether this object is contained in or part of a blueprint object

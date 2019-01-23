@@ -624,7 +624,12 @@ public:
 	/** 
 	 * Sets the maximum number of channels dynamically. Can't raise the cap over the initial value but can lower it 
 	 */
-	virtual void SetMaxChannels(int32 InMaxChannels);
+	void SetMaxChannels(int32 InMaxChannels);
+
+	/**
+	 * Sets the maximum number of channels dynamically by scaled percentage.
+	 */
+	void SetMaxChannelsScaled(float InScaledChannelCount);
 
 	/** Returns the max channels used by the audio device. */
 	int32 GetMaxChannels() const;
@@ -1166,6 +1171,12 @@ public:
 		return bIsStoppingVoicesEnabled;
 	}
 
+	/** Returns if baked analysis querying is enabled. */
+	bool IsBakedAnalaysisQueryingEnabled() const
+	{
+		return bIsBakedAnalysisEnabled;
+	}
+
 	/** Updates the source effect chain. Only implemented in audio mixer. */
 	virtual void UpdateSourceEffectChain(const uint32 SourceEffectChainId, const TArray<FSourceEffectChainEntry>& SourceEffectChain, const bool bPlayEffectChainTails) {}
 
@@ -1550,6 +1561,11 @@ public:
 
 	/** The maximum number of concurrent audible sounds */
 	int32 MaxChannels;
+	int32 MaxChannels_GameThread;
+
+	/** A scaler on the max channels. */
+	float MaxChannelsScale;
+	float MaxChannelsScale_GameThread;
 
 	/** The number of sources to reserve for stopping sounds. */
 	int32 NumStoppingVoices;
@@ -1689,6 +1705,9 @@ public:
 	uint8 bIsAudioDeviceHardwareInitialized : 1;
 
 	uint8 bIsStoppingVoicesEnabled : 1;
+
+	/** If baked analysis querying is enabled. */
+	uint8 bIsBakedAnalysisEnabled : 1;
 
 	/** Whether or not the audio mixer module is being used by this device. */
 	uint8 bAudioMixerModuleLoaded : 1;

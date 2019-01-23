@@ -2157,32 +2157,42 @@ void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 
 //*********************** StagingBuffer Implementation ***********************//
 
-FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer()
 {
-	return new FD3D11StagingBuffer(VertexBufferRHI);
+	return new FD3D11StagingBuffer();
 }
 
-void FD3D11DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+void FD3D11DynamicRHI::RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef FenceRHI)
 {
+	FD3D11VertexBuffer* SourceBuffer = ResourceCast(SourceBufferRHI);
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
 	if (StagingBuffer)
 	{
-		FD3D11VertexBuffer* VertexBuffer = ResourceCast(StagingBuffer->GetBackingBuffer());
-		if (VertexBuffer)
+		ensureMsgf(!StagingBuffer->bIsLocked, TEXT("Attempting to Copy to a locked staging buffer. This may have undefined behavior"));
+		if (SourceBuffer)
 		{
-			// Free previously allocated buffer.
-			StagingBuffer->StagedRead.SafeRelease();
+			if (!StagingBuffer->StagedRead || StagingBuffer->ShadowBufferSize < NumBytes)
+			{
+				// Free previously allocated buffer.
+				if (StagingBuffer->StagedRead)
+				{
+					StagingBuffer->StagedRead.SafeRelease();
+				}
 
-			// If the static buffer is being locked for reading, create a staging buffer.
-			D3D11_BUFFER_DESC StagedReadDesc;
-			ZeroMemory(&StagedReadDesc, sizeof(D3D11_BUFFER_DESC));
-			StagedReadDesc.ByteWidth = NumBytes;
-			StagedReadDesc.Usage = D3D11_USAGE_STAGING;
-			StagedReadDesc.BindFlags = 0;
-			StagedReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-			StagedReadDesc.MiscFlags = 0;
-			TRefCountPtr<ID3D11Buffer> StagingVertexBuffer;
-			VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagedReadDesc, NULL, StagingBuffer->StagedRead.GetInitReference()), Direct3DDevice);
+				// Allocate a new one with enough space.
+				// @todo-mattc I feel like we should allocate more than NumBytes to handle small reads without blowing tons of space. Need to pool this.
+				D3D11_BUFFER_DESC StagedReadDesc;
+				ZeroMemory(&StagedReadDesc, sizeof(D3D11_BUFFER_DESC));
+				StagedReadDesc.ByteWidth = NumBytes;
+				StagedReadDesc.Usage = D3D11_USAGE_STAGING;
+				StagedReadDesc.BindFlags = 0;
+				StagedReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				StagedReadDesc.MiscFlags = 0;
+				TRefCountPtr<ID3D11Buffer> StagingVertexBuffer;
+				VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagedReadDesc, NULL, StagingBuffer->StagedRead.GetInitReference()), Direct3DDevice);
+				StagingBuffer->ShadowBufferSize = NumBytes;
+				StagingBuffer->Context = Direct3DDeviceIMContext;
+			}
 
 			// Copy the contents of the vertex buffer to the staging buffer.
 			D3D11_BOX SourceBox;
@@ -2190,38 +2200,29 @@ void FD3D11DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuf
 			SourceBox.right = NumBytes;
 			SourceBox.top = SourceBox.front = 0;
 			SourceBox.bottom = SourceBox.back = 1;
-			Direct3DDeviceIMContext->CopySubresourceRegion(StagingBuffer->StagedRead, 0, 0, 0, 0, VertexBuffer->Resource, 0, &SourceBox);
+			Direct3DDeviceIMContext->CopySubresourceRegion(StagingBuffer->StagedRead, 0, 0, 0, 0, SourceBuffer->Resource, 0, &SourceBox);
 		}
 	}
 
+	// @todo-staging Implement real fences for D3D11
+	// D3D11 only has the generic fence for now.
+	FGenericRHIGPUFence* Fence = ResourceCast(FenceRHI);
+
 	if (Fence)
 	{
-		Fence->Write();
+		Fence->WriteInternal();
 	}
 }
 
 void* FD3D11DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
 {
+	check(StagingBufferRHI);
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	if (StagingBuffer && StagingBuffer->StagedRead)
-	{
-		// Map the staging buffer's memory for reading.
-		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-		VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StagingBuffer->StagedRead ,0,D3D11_MAP_READ,0,&MappedSubresource), Direct3DDevice);
-
-		return (void*)((uint8*)MappedSubresource.pData + Offset);
-	}
-	else
-	{
-		return nullptr;
-	}
+	return StagingBuffer->Lock(Offset, SizeRHI);
 }
 
 void FD3D11DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
 {
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	if (StagingBuffer && StagingBuffer->StagedRead)
-	{
-		Direct3DDeviceIMContext->Unmap(StagingBuffer->StagedRead,0);
-	}
+	StagingBuffer->Unlock();
 }

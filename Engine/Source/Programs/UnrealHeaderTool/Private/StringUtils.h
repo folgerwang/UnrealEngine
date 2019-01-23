@@ -35,9 +35,9 @@ FString GetClassPrefix(const FString InClassName);
 FString GetClassPrefix(const FString InClassName, bool& bIsLabeledDeprecated);
 
 /**
-* Generates CRC value for text, ignoring characters such as \r and the terminating \0
+* Generates hash for text, ignoring characters such as \r and the terminating \0
 *
-* @param InText Text to generate CRC for 
-* @return CRC value generated for the specified text buffer
+* @param InText Text to digest
+* @return Hash generated for the specified text buffer
 */
-uint32 GenerateTextCRC(const TCHAR* InText);
+uint32 GenerateTextHash(const TCHAR* InText);

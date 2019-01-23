@@ -14,6 +14,21 @@ struct ITestObject
 {
 };
 
+USTRUCT()
+struct FContainsInstancedProperty
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Instanced)
+	UObject* Prop;
+};
+
+UCLASS()
+class alignas(8) UAlignedObject : public UObject
+{
+	GENERATED_BODY()
+};
+
 UCLASS()
 class UTestObject : public UObject, public ITestObject
 {
@@ -21,6 +36,21 @@ class UTestObject : public UObject, public ITestObject
 
 public:
 	UTestObject(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	UPROPERTY()
+	TArray<FContainsInstancedProperty> InstancedPropertyArray;
+
+	UPROPERTY()
+	TArray<TWeakObjectPtr<UObject>> ObjectWrapperArray;
+
+	UPROPERTY()
+	TSet<FContainsInstancedProperty> InstancedPropertySet;
+
+	UPROPERTY()
+	TMap<FContainsInstancedProperty, TWeakObjectPtr<UObject>> InstancedPropertyToObjectWrapperMap;
+
+	UPROPERTY()
+	TMap<TWeakObjectPtr<UObject>, FContainsInstancedProperty> ObjectWrapperToInstancedPropertyMap;
 
 	UFUNCTION(BlueprintCallable, Category="Random")
 	void TestForNullPtrDefaults(UObject* Obj1 = NULL, UObject* Obj2 = nullptr, UObject* Obj3 = 0);

@@ -1030,7 +1030,7 @@ FEditorParameterGroup&  FMaterialPropertyHelpers::GetParameterGroup(UMaterial* I
 
 void FMaterialPropertyHelpers::GetVectorChannelMaskComboBoxStrings(TArray<TSharedPtr<FString>>& OutComboBoxStrings, TArray<TSharedPtr<SToolTip>>& OutToolTips, TArray<bool>& OutRestrictedItems)
 {
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Add RGBA string options (Note: Exclude the "::Max" entry)
@@ -1050,7 +1050,7 @@ FString FMaterialPropertyHelpers::GetVectorChannelMaskValue(UDEditorParameterVal
 	UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(InParameter);
 	check(VectorParam && VectorParam->bIsUsedAsChannelMask);
 
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Convert from vector to RGBA string
@@ -1081,7 +1081,7 @@ void FMaterialPropertyHelpers::SetVectorChannelMaskValue(const FString& StringVa
 	UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(InParameter);
 	check(VectorParam && VectorParam->bIsUsedAsChannelMask);
 
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Convert from RGBA string to vector

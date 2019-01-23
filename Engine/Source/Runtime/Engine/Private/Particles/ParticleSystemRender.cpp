@@ -6916,7 +6916,8 @@ FMeshBatch* FParticleSystemSceneProxy::GetPooledMeshBatch()
 	}
 	else
 	{
-		Batch = new(MeshBatchPool) FMeshBatch();
+		Batch = new FMeshBatch();
+		MeshBatchPool.Add(Batch);
 	}
 	FirstFreeMeshBatch++;
 	return Batch;

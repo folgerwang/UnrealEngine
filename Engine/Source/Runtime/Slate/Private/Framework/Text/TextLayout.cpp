@@ -40,7 +40,7 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 	FVector2D BreakSizeWithoutTrailingWhitespace( ForceInitToZero );
 	float FirstTrailingWhitespaceCharWidth = 0.0f;
 	int32 WhitespaceStopIndex = CurrentBreak;
-	uint8 Kerning = 0;
+	int8 Kerning = 0;
 
 	if ( Line.Runs.IsValidIndex( OutRunIndex ) )
 	{
@@ -591,7 +591,7 @@ void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float Wrappin
 
 			const bool IsLastBreak = BreakIndex + 1 == LineModel.BreakCandidates.Num();
 			const bool IsFirstBreakOnSoftLine = CurrentWidth == 0.0f;
-			const uint8 Kerning = ( IsFirstBreakOnSoftLine ) ? Break.Kerning : 0;
+			const int8 Kerning = ( IsFirstBreakOnSoftLine ) ? Break.Kerning : 0;
 			const bool BreakDoesFit = CurrentWidth + Break.ActualSize.X + Kerning <= WrappingDrawWidth;
 			const bool BreakWithoutTrailingWhitespaceDoesFit = CurrentWidth + Break.TrimmedWidth + Kerning <= WrappingDrawWidth;
 
@@ -2782,7 +2782,7 @@ int32 FTextLayout::FRunModel::BinarySearchForBeginIndex( const TArray< FTextRang
 	return Mid;
 }
 
-uint8 FTextLayout::FRunModel::GetKerning(int32 CurrentIndex, float InScale, const FRunTextContext& InTextContext)
+int8 FTextLayout::FRunModel::GetKerning(int32 CurrentIndex, float InScale, const FRunTextContext& InTextContext)
 {
 	return Run->GetKerning(CurrentIndex, InScale, InTextContext);
 }

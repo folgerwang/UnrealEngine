@@ -811,7 +811,7 @@ TRigidTransform<T, d> GetTransform(const TPBDRigidParticles<T, d>& InParticles, 
 
 #if 0
 template<class T, int d>
-void UpdateLevelsetConstraintHelperCCD(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d> LocalToWorld1, const TRigidTransform<T, d> LocalToWorld2, const T Thickness, TRigidBodyContactConstraint<T, d>& Constraint)
+void UpdateLevelsetConstraintHelperCCD(const TRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d>& LocalToWorld1, const TRigidTransform<T, d>& LocalToWorld2, const T Thickness, TRigidBodyContactConstraint<T, d>& Constraint)
 {
 	if (InParticles.CollisionParticles(Constraint.ParticleIndex))
 	{

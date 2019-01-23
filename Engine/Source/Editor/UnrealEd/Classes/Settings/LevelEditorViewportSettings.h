@@ -302,6 +302,10 @@ class UNREALED_API ULevelEditorViewportSettings
 	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Use distance-scaled camera speed"), AdvancedDisplay)
 	bool bUseDistanceScaledCameraSpeed;
 
+	/** If enabled, the camera will orbit around the current selection in the viewport */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Orbit camera around selection"), AdvancedDisplay)
+	bool bOrbitCameraAroundSelection;
+
 public:
 
 	/** If enabled will use power of 2 grid settings (e.g, 1,2,4,8,16,...,1024) instead of decimal grid sizes */

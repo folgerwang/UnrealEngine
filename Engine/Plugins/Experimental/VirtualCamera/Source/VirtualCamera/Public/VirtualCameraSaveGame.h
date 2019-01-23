@@ -53,10 +53,12 @@ struct FVirtualCameraAxisSettings
 	float MovementScale;
 
 	/** The lock offset associated with an axis */
-	float LockOffset;
+	float LockRotationOffset;
+	FVector LockLocationOffset;
 
 	/** The freeze offset associated with an axis */
-	float FreezeOffset;
+	float FreezeRotationOffset;
+	FVector FreezeLocationOffset;
 
 	FVirtualCameraAxisSettings()
 	{
@@ -64,23 +66,41 @@ struct FVirtualCameraAxisSettings
 		bIsFrozen = false;
 		StabilizationScale = .5f;
 		MovementScale = 1.f;
-		LockOffset = 0.f;
-		FreezeOffset = 0.f;
+		LockRotationOffset = 0.f;
+		LockLocationOffset = FVector::ZeroVector;
+		FreezeRotationOffset = 0.f;
+		FreezeLocationOffset = FVector::ZeroVector;
 	}
 
 	/**
 	 * Add an offset based on the freeze and lock states
 	 * @param InOffset - The offset to be added
 	 */
-	void AddOffset(const float InOffset)
+	void AddRotationOffset(const float InOffset)
 	{
 		if (bIsFrozen)
 		{
-			FreezeOffset += InOffset;
+			FreezeRotationOffset += InOffset;
 		}
 		else if (bIsLocked)
 		{
-			LockOffset += InOffset;
+			LockRotationOffset += InOffset;
+		}
+	}
+
+	/**
+	 * Add an offset based on the freeze and lock states
+	 * @param InOffset - The offset to be added
+	 */
+	void AddLocationOffset(const FVector InOffset)
+	{
+		if (bIsFrozen)
+		{
+			FreezeLocationOffset += InOffset;
+		}
+		else if (bIsLocked)
+		{
+			LockLocationOffset += InOffset;
 		}
 	}
 
@@ -88,7 +108,8 @@ struct FVirtualCameraAxisSettings
 	 * Get the current total offset applied to this axis
 	 * @return - The total offset this axis has applied
 	 */
-	float GetOffset() const { return FreezeOffset + LockOffset; }
+	float GetRotationOffset() const { return FreezeRotationOffset + LockRotationOffset; }
+	FVector GetLocationOffset() const { return FreezeLocationOffset + LockLocationOffset; }
 
 	/** 
 	 * Helper method to check if an axis is prevented from moving.
@@ -107,7 +128,8 @@ struct FVirtualCameraAxisSettings
 		// If unlocking, clear locking offset
 		if (!bNewIsLocked)
 		{
-			LockOffset = 0.f;
+			LockRotationOffset = 0.f;
+			LockLocationOffset = FVector::ZeroVector;
 		}
 
 		bIsLocked = bNewIsLocked;

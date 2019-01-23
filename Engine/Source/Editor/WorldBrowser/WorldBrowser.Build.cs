@@ -24,6 +24,7 @@ public class WorldBrowser : ModuleRules
      
         PrivateDependencyModuleNames.AddRange(
             new string[] {
+				"ApplicationCore",
                 "AppFramework",
                 "Core", 
                 "CoreUObject",
@@ -43,7 +44,8 @@ public class WorldBrowser : ModuleRules
                 "SourceControl",
 				"SourceControlWindows",
                 "MeshDescription",
-                "LandscapeEditor",
+				"NewLevelDialog",
+				"LandscapeEditor",
                 "FoliageEdit",
                 "ImageWrapper",
                 "Foliage",

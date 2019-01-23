@@ -59,7 +59,8 @@ public:
 		}
 
 		{
-			FBPTerminal* Term = new (Context.InlineGeneratedValues) FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.InlineGeneratedValues.Add(Term);
 			Term->CopyFromPin(ReturnPin, Context.NetNameMap->MakeValidName(ReturnPin));
 			Context.NetMap.Add(ReturnPin, Term);
 		}

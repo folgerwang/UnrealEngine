@@ -47,6 +47,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	{
 		// Skip this line
 	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::info::Header)))
+	{
+		AddInfo(impl_parse<FDisplayClusterConfigInfo>(line));
+	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::cluster::Header)))
 	{
 		AddClusterNode(impl_parse<FDisplayClusterConfigClusterNode>(line));
@@ -94,6 +98,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::input::Header)))
 	{
 		AddInput(impl_parse<FDisplayClusterConfigInput>(line));
+	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::inputsetup::Header)))
+	{
+		AddInputSetup(impl_parse<FDisplayClusterConfigInputSetup>(line));
 	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::custom::Header)))
 	{

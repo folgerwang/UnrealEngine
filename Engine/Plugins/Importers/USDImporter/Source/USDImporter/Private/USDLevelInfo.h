@@ -19,7 +19,7 @@ public:
 	FFilePath FilePath;
 
 	UPROPERTY(EditAnywhere, Category = USD)
-	FFilePath BaseFilePath;
+	TArray<FFilePath> SubLayerPaths;
 
 	UPROPERTY(EditAnywhere, Category = USD)
 	float FileScale;

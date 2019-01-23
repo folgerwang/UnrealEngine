@@ -1262,7 +1262,8 @@ static void GenerateAngularFilteredMip(FImage* DestMip, FImage& SrcMip, float Co
 
 		for (int32 Face = 0; Face < 6; ++Face)
 		{
-			auto* AsyncTask = new(AsyncTasks) FAsyncGenerateMipsPerFaceTask(Face, DestMip, MipExtent, ConeAngle, TexelAreaArray.GetData(), &SrcMip);
+			auto* AsyncTask = new FAsyncGenerateMipsPerFaceTask(Face, DestMip, MipExtent, ConeAngle, TexelAreaArray.GetData(), &SrcMip);
+			AsyncTasks.Add(AsyncTask);
 			AsyncTask->StartBackgroundTask();
 		}
 
@@ -1786,12 +1787,13 @@ static bool CompressMipChain(
 				FCompressedImage2D& DestMip = *new(OutMips) FCompressedImage2D;
 				if (bAllowParallelBuild && FMath::Min(SrcMip.SizeX, SrcMip.SizeY) >= MinAsyncCompressionSize)
 				{
-					FAsyncCompressionTask* AsyncTask = new(AsyncCompressionTasks) FAsyncCompressionTask(
+					FAsyncCompressionTask* AsyncTask = new FAsyncCompressionTask(
 						TextureFormat,
 						&SrcMip,
 						Settings,
 						bImageHasAlphaChannel
 						);
+					AsyncCompressionTasks.Add(AsyncTask);
 #if WITH_EDITOR
 					AsyncTask->StartBackgroundTask(GLargeThreadPool);
 #else

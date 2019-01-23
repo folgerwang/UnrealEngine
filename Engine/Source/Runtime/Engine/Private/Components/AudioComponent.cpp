@@ -416,16 +416,19 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.bUpdatePlayPercentage = OnAudioPlaybackPercentNative.IsBound() || OnAudioPlaybackPercent.IsBound();
 			NewActiveSound.bUpdateSingleEnvelopeValue = OnAudioSingleEnvelopeValue.IsBound() || OnAudioSingleEnvelopeValueNative.IsBound();
 			NewActiveSound.bUpdateMultiEnvelopeValue = OnAudioMultiEnvelopeValue.IsBound() || OnAudioMultiEnvelopeValueNative.IsBound();
-			
-			// Setup audio component cooked analysis data playback data set
-			TArray<USoundWave*> SoundWavesWithCookedData;
-			NewActiveSound.bUpdatePlaybackTime = Sound->GetSoundWavesWithCookedAnalysisData(SoundWavesWithCookedData);
 
-			// Reset the audio component's soundwave playback times
-			SoundWavePlaybackTimes.Reset();
-			for (USoundWave* SoundWave : SoundWavesWithCookedData)
+			// Setup audio component cooked analysis data playback data set
+			if (AudioDevice->IsBakedAnalaysisQueryingEnabled())
 			{
-				SoundWavePlaybackTimes.Add(SoundWave->GetUniqueID(), FSoundWavePlaybackTimeData(SoundWave));
+				TArray<USoundWave*> SoundWavesWithCookedData;
+				NewActiveSound.bUpdatePlaybackTime = Sound->GetSoundWavesWithCookedAnalysisData(SoundWavesWithCookedData);
+
+				// Reset the audio component's soundwave playback times
+				SoundWavePlaybackTimes.Reset();
+				for (USoundWave* SoundWave : SoundWavesWithCookedData)
+				{
+					SoundWavePlaybackTimes.Add(SoundWave->GetUniqueID(), FSoundWavePlaybackTimeData(SoundWave));
+				}
 			}
 
 			NewActiveSound.MaxDistance = MaxDistance;
@@ -1133,11 +1136,7 @@ bool UAudioComponent::HasCookedFFTData() const
 {
 	if (Sound)
 	{
-		USoundWave* SoundWave = Cast<USoundWave>(Sound);
-		if (SoundWave)
-		{
-			return SoundWave->CookedSpectralTimeData.Num() > 0;
-		}
+		return Sound->HasCookedFFTData();
 	}
 	return false;
 }
@@ -1146,11 +1145,7 @@ bool UAudioComponent::HasCookedAmplitudeEnvelopeData() const
 {
 	if (Sound)
 	{
-		USoundWave* SoundWave = Cast<USoundWave>(Sound);
-		if (SoundWave)
-		{
-			return SoundWave->CookedEnvelopeTimeData.Num() > 0;
-		}
+		return Sound->HasCookedAmplitudeEnvelopeData();
 	}
 	return false;
 }

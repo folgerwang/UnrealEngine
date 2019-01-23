@@ -181,18 +181,11 @@ public:
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const = 0;
 
 	/**
-	 * Gets the best generic data compressor for this platform.
+	 * Gets a new compression format to use in place of Zlib. This should be rarely implemented
 	 *
-	 * @return Compression method.
+	 * @return Compression format to use instead of Zlib
 	 */
-	virtual ECompressionFlags GetBaseCompressionMethod() const = 0;
-
-	/**
-	 * Gets the bit window for compressor for this platform.
-	 *
-	 * @return Compression bit window.
-	 */
-	virtual int32 GetCompressionBitWindow() const = 0;
+	virtual FName GetZlibReplacementFormat() const = 0;
 
 	/**
 	 * Generates a platform specific asset manifest given an array of FAssetData.

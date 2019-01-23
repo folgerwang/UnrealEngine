@@ -256,6 +256,9 @@ namespace UnrealBuildTool
 				AddDefinition(Arguments, "_WINDLL");
 			}
 
+			// Maintain the old std::aligned_storage behavior from VS from v15.8 onwards, in case of prebuilt third party libraries are reliant on it
+			AddDefinition(Arguments, "_DISABLE_EXTENDED_ALIGNED_STORAGE");
+
             // Fix Incredibuild errors with helpers using heterogeneous character sets
             if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
             {
@@ -303,6 +306,9 @@ namespace UnrealBuildTool
 
 					// Favor code speed.
 					Arguments.Add("/Ot");
+
+					// Coalesce duplicate strings
+					Arguments.Add("/GF");
 
 					// Only omit frame pointers on the PC (which is implied by /Ox) if wanted.
 					if (CompileEnvironment.bOmitFramePointers == false
@@ -1020,6 +1026,13 @@ namespace UnrealBuildTool
 					CompileAction.ProducedItems.Add(ObjectFile);
 					Result.ObjectFiles.Add(ObjectFile);
 					FileArguments.Add(String.Format("/Fo\"{0}\"", ObjectFile.AbsolutePath));
+
+					// Experimental: support for JSON output of timing data
+					if(Target.WindowsPlatform.Compiler == WindowsCompiler.Clang && Target.WindowsPlatform.bClangTimeTrace)
+					{
+						SharedArguments.Add("-Xclang -ftime-trace");
+						CompileAction.ProducedItems.Add(FileItem.GetItemByFileReference(ObjectFile.Location.ChangeExtension(".json")));
+					}
 				}
 
 				// Don't farm out creation of precompiled headers as it is the critical path task.

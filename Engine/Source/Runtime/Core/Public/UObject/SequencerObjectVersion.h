@@ -42,6 +42,9 @@ struct CORE_API FSequencerObjectVersion
 		// Manual serialization of float channel
 		SerializeFloatChannel,
 
+		// Change the linear keys so they act the old way and interpolate always.
+		ModifyLinearKeysForOldInterp,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

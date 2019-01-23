@@ -2,8 +2,10 @@
 
 #include "GLTFImportFactory.h"
 
+#include "GLTFImportOptions.h"
 #include "GLTFImporterContext.h"
 #include "GLTFImporterModule.h"
+#include "UI/GLTFOptionsWindow.h"
 
 #include "Engine/StaticMesh.h"
 #include "Misc/FeedbackContext.h"
@@ -14,15 +16,43 @@
 #include "Editor/UnrealEd/Public/Editor.h"
 #include "Engine/StaticMesh.h"
 #include "IMessageLogListing.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "Logging/LogMacros.h"
 #include "Logging/TokenizedMessage.h"
+#include "Materials/Material.h"
 #include "MessageLogModule.h"
 #include "PackageTools.h"
+#include "UObject/StrongObjectPtr.h"
 
 #define LOCTEXT_NAMESPACE "GLTFFactory"
 
 namespace GLTFImporterImpl
 {
+	bool ShowOptionsWindow(const FString& Filepath, const FString& PackagePath, UGLTFImportOptions& ImporterOptions)
+	{
+		TSharedPtr<SWindow> ParentWindow;
+		if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+		{
+			IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+			ParentWindow                = MainFrame.GetParentWindow();
+		}
+
+		TSharedRef<SWindow> Window = SNew(SWindow).Title(LOCTEXT("GLTFImportOptionsTitle", "glTF Import Options")).SizingRule(ESizingRule::Autosized);
+
+		TSharedPtr<SGLTFOptionsWindow> OptionsWindow;
+		Window->SetContent(
+		    SAssignNew(OptionsWindow, SGLTFOptionsWindow)
+		        .ImportOptions(&ImporterOptions)
+		        .WidgetWindow(Window)
+		        .FileNameText(FText::Format(LOCTEXT("GLTFImportOptionsFileName", "  Import File  :    {0}"),
+		                                    FText::FromString(FPaths::GetCleanFilename(Filepath))))
+		        .FilePathText(FText::FromString(Filepath))
+		        .PackagePathText(FText::Format(LOCTEXT("GLTFImportOptionsPackagePath", "  Import To   :    {0}"), FText::FromString(PackagePath))));
+
+		FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
+		return OptionsWindow->ShouldImport();
+	}
+
 	void ShowLogMessages(const TArray<GLTF::FLogMessage>& Messages)
 	{
 		if (Messages.Num() > 0)
@@ -63,17 +93,35 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 
 	Warn->Log(Filename);
 
+	TStrongObjectPtr<UGLTFImportOptions> ImporterOptions(NewObject<UGLTFImportOptions>(GetTransientPackage(), TEXT("GLTF Importer Options")));
+	// show import options window
+	{
+		const FString Filepath    = FPaths::ConvertRelativePathToFull(Filename);
+		const FString PackagePath = InParent->GetPathName();
+
+		if (!GLTFImporterImpl::ShowOptionsWindow(Filepath, PackagePath, *ImporterOptions))
+		{
+			bOutOperationCanceled = true;
+			return nullptr;
+		}
+	}
+
 	FGLTFImporterContext& Context = GLTFImporterModule->GetImporterContext();
+	// setup import options
+	{
+		Context.StaticMeshFactory.SetUniformScale(ImporterOptions->ImportScale);
+		Context.StaticMeshFactory.SetGenerateLightmapUVs(ImporterOptions->bGenerateLightmapUVs);
+	}
 
 	UObject* Object = nullptr;
 	if (Context.OpenFile(Filename))
 	{
-		const FString AssetName      = Context.Asset.GetName(Filename);
+		const FString AssetName      = Context.Asset.Name;
 		const FString NewPackageName = UPackageTools::SanitizePackageName(*(FPaths::GetPath(InParent->GetName()) / AssetName));
 		UObject*      ParentPackage  = NewPackageName == InParent->GetName() ? InParent : CreatePackage(nullptr, *NewPackageName);
 
-		const TArray<UStaticMesh*>& CreatedMeshes = Context.ImportMeshes(ParentPackage, Flags, false);
-
+		const TArray<UStaticMesh*>& CreatedMeshes = Context.CreateMeshes(ParentPackage, Flags, false);
+		Context.CreateMaterials(ParentPackage, Flags);
 		UpdateMeshes();
 
 		if (CreatedMeshes.Num() == 1)
@@ -98,20 +146,36 @@ void UGLTFImportFactory::CleanUp()
 	// cleanup any resources/buffers
 
 	FGLTFImporterContext& Context = GLTFImporterModule->GetImporterContext();
-	Context.StaticMeshImporter.CleanUp();
+	Context.StaticMeshFactory.CleanUp();
 
 	Context.Asset.Clear(8 * 1024, 512);
 }
 
 void UGLTFImportFactory::UpdateMeshes() const
 {
-	FGLTFImporterContext&       Context = GLTFImporterModule->GetImporterContext();
-	const TArray<UStaticMesh*>& Meshes  = Context.StaticMeshImporter.GetMeshes();
+	const FGLTFImporterContext& Context   = GLTFImporterModule->GetImporterContext();
+	const TArray<UStaticMesh*>& Meshes    = Context.StaticMeshFactory.GetMeshes();
+	const TArray<UMaterial*>&   Materials = Context.Materials;
+	check(Materials.Num() == Context.Asset.Materials.Num());
 
 	int32 MeshIndex = 0;
 	for (UStaticMesh* StaticMesh : Meshes)
 	{
 		const GLTF::FMesh& GltfMesh = Context.Asset.Meshes[MeshIndex++];
+
+		for (int32 PrimIndex = 0; PrimIndex < GltfMesh.Primitives.Num(); ++PrimIndex)
+		{
+			const GLTF::FPrimitive& Primitive = GltfMesh.Primitives[PrimIndex];
+
+			UMaterialInterface* Material = nullptr;
+			if (Primitive.MaterialIndex != INDEX_NONE)
+			{
+				Material = static_cast<UMaterialInterface*>(Materials[Primitive.MaterialIndex]);
+				check(Material);
+			}
+
+			StaticMesh->StaticMaterials[PrimIndex].MaterialInterface = Material;
+		}
 
 		StaticMesh->MarkPackageDirty();
 		StaticMesh->PostEditChange();

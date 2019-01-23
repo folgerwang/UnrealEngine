@@ -846,7 +846,7 @@ void FCompElementCollectionViewModel::CreateTopLevelElement_Executed()
 		HighlightedClasses.Add(ACompositingElement::StaticClass());
 	}
 
-	UClass* ChosenClass = CompElementCollectionViewModel_Impl::PromptForElementClass(LOCTEXT("PickElementClass", "Pick an Comp Class"), HighlightedClasses);
+	UClass* ChosenClass = CompElementCollectionViewModel_Impl::PromptForElementClass(LOCTEXT("PickCompClass", "Pick an Comp Class"), HighlightedClasses);
 
 	if (ChosenClass)
 	{

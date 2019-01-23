@@ -69,7 +69,7 @@ UMediaCapture::FCaptureFrame::FCaptureFrame()
 
 }
 
-/* UMediaCapture::FCaptureFrame
+/* FMediaCaptureOptions
 *****************************************************************************/
 FMediaCaptureOptions::FMediaCaptureOptions()
 	: Crop(EMediaCaptureCroppingType::None)
@@ -134,7 +134,7 @@ bool UMediaCapture::CaptureActiveSceneViewport(FMediaCaptureOptions CaptureOptio
 	return CaptureSceneViewport(FoundSceneViewport, CaptureOptions);
 }
 
-bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewport, FMediaCaptureOptions CaptureOptions)
+bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewport, FMediaCaptureOptions InCaptureOptions)
 {
 	StopCapture(false);
 
@@ -146,7 +146,7 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 		return false;
 	}
 
-	DesiredCaptureOptions = CaptureOptions;
+	DesiredCaptureOptions = InCaptureOptions;
 	CacheMediaOutput();
 
 	const bool bCurrentlyCapturing = false;
@@ -232,7 +232,8 @@ FIntPoint UMediaCapture::GetOutputSize(const FIntPoint & InSize, const EMediaCap
 	case EMediaCaptureConversionOperation::RGBA8_TO_YUV_8BIT:
 		return FIntPoint(InSize.X / 2, InSize.Y);
 	case EMediaCaptureConversionOperation::RGB10_TO_YUVv210_10BIT:
-		return FIntPoint(InSize.X / 6, InSize.Y);
+		// Padding aligned on 48 (16 and 6 at the same time)
+		return FIntPoint((((InSize.X + 47) / 48) * 48) / 6, InSize.Y);
 	case EMediaCaptureConversionOperation::NONE:
 	default:
 		return InSize;
@@ -643,7 +644,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 							TShaderMapRef<FRGB8toUYVY8ConvertPS> ConvertShader(ShaderMap);
 							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
 							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							ConvertShader->SetParameters(RHICmdList, SourceTexture, MediaShaders::RgbToYuvDefault, bDoLinearToSRGB);
+						ConvertShader->SetParameters(RHICmdList, SourceTexture, MediaShaders::RgbToYuvRec709Full, MediaShaders::YUVOffset8bits, bDoLinearToSRGB);
 						}
 						break;
 					case EMediaCaptureConversionOperation::RGB10_TO_YUVv210_10BIT:
@@ -651,7 +652,15 @@ void UMediaCapture::OnEndFrame_GameThread()
 							TShaderMapRef<FRGB10toYUVv210ConvertPS> ConvertShader(ShaderMap);
 							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
 							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-							ConvertShader->SetParameters(RHICmdList, SourceTexture, MediaShaders::RgbToYuvDefault, bDoLinearToSRGB);
+						ConvertShader->SetParameters(RHICmdList, SourceTexture, MediaShaders::RgbToYuvRec709Full, MediaShaders::YUVOffset10bits, bDoLinearToSRGB);
+						}
+						break;
+					case EMediaCaptureConversionOperation::INVERT_ALPHA:
+						{
+							TShaderMapRef<FInvertAlphaPS> ConvertShader(ShaderMap);
+							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
+							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+							ConvertShader->SetParameters(RHICmdList, SourceTexture);
 						}
 						break;
 					}

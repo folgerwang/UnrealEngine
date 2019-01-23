@@ -818,7 +818,7 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 		LODVertexFactories.Empty(LODResources.Num());
 		for (int i = 0; i < LODResources.Num(); i++)
 		{
-			new(LODVertexFactories) FStaticMeshVertexFactories(GMaxRHIFeatureLevel);
+			LODVertexFactories.Add(new FStaticMeshVertexFactories(GMaxRHIFeatureLevel));
 		}
 	}
 
@@ -940,8 +940,8 @@ void FStaticMeshRenderData::AllocateLODResources(int32 NumLODs)
 	check(LODResources.Num() == 0);
 	while (LODResources.Num() < NumLODs)
 	{
-		new(LODResources) FStaticMeshLODResources;
-		new(LODVertexFactories) FStaticMeshVertexFactories(GMaxRHIFeatureLevel);
+		LODResources.Add(new FStaticMeshLODResources);
+		LODVertexFactories.Add(new FStaticMeshVertexFactories(GMaxRHIFeatureLevel));
 	}
 }
 

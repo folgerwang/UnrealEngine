@@ -54,11 +54,6 @@ void FHTML5TargetPlatform::GetAllDevices( TArray<ITargetDevicePtr>& OutDevices )
 }
 
 
-ECompressionFlags FHTML5TargetPlatform::GetBaseCompressionMethod( ) const
-{
-	return COMPRESS_ZLIB;
-}
-
 
 ITargetDevicePtr FHTML5TargetPlatform::GetDefaultDevice( ) const
 {

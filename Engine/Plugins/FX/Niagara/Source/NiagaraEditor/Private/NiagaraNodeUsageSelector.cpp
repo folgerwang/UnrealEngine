@@ -63,7 +63,7 @@ void UNiagaraNodeUsageSelector::InsertInputPinsFor(const FNiagaraVariable& Var)
 void UNiagaraNodeUsageSelector::AllocateDefaultPins()
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-	UEnum* ENiagaraScriptGroupEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptGroup"), true);
+	UEnum* ENiagaraScriptGroupEnum = StaticEnum<ENiagaraScriptGroup>();
 
 	//Create the inputs for each path.
 	for (int64 i = 0; i < (int64)ENiagaraScriptGroup::Max; i++)

@@ -423,7 +423,23 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 			!FMath::IsNearlyEqual(
 				(float)BufferSize.X / BufferSize.Y,
 				(float)DesiredBufferSize.X / DesiredBufferSize.Y);
-		bAllowDelayResize = bAllowDelayResize && !bAspectRatioChanged;
+
+		if (bAspectRatioChanged)
+		{
+			bAllowDelayResize = false;
+
+			// At this point we're assuming a simple output resize and forcing a hard swap so clear the history.
+			// If we don't the next frame will fail this check as the allocated aspect ratio will match the new
+			// frame's forced size so we end up looking through the history again, finding the previous old size
+			// and reallocating. Only after a few frames can the results actually settle when the history clears 
+			for (int32 i = 0; i < FrameSizeHistoryCount; ++i)
+			{
+				LargestDesiredSizes[i] = FIntPoint::ZeroValue;
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+				HistoryFlags[i] = 0;
+#endif
+			}
+		}
 	}
 
 	if(bAllowDelayResize)
@@ -2018,33 +2034,49 @@ void FSceneRenderTargets::AllocateMobileRenderTargets(FRHICommandList& RHICmdLis
 	}
 }
 
-#define RETURN_VOLUME_TEXTURE_NAME(Index) case Index: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir"#Index) : (TCHAR*)TEXT("TranslucentVolume"#Index)
+// This is a helper class. It generates and provides N names with
+// sequentially incremented postfix starting from 0.
+// Example: SomeName0, SomeName1, ..., SomeName117
+class IncrementalNamesHolder
+{
+public:
+	IncrementalNamesHolder(const TCHAR* const Name, uint32 Size)
+		: ArraySize(Size)
+	{
+		check(Size > 0);
+		Names = new FString[Size];
+		for (uint32 i = 0; i < Size; ++i)
+		{
+			Names[i] = FString::Printf(TEXT("%s%d"), Name, i);
+		}
+	}
+
+	~IncrementalNamesHolder()
+	{
+		delete[] Names;
+	}
+
+	const TCHAR* const operator[] (uint32 Idx) const
+	{
+		check(Idx < ArraySize);
+		return *Names[Idx];
+	}
+
+private:
+	const uint32 ArraySize;
+	FString*     Names = nullptr;
+};
 
 // for easier use of "VisualizeTexture"
-static TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
+static const TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
 {
-	switch(Id)
-	{
-		RETURN_VOLUME_TEXTURE_NAME(0);
-		RETURN_VOLUME_TEXTURE_NAME(1);
-		RETURN_VOLUME_TEXTURE_NAME(2);
+	constexpr uint32 MaxNames = 128;
+	static IncrementalNamesHolder Names   (TEXT("TranslucentVolume"),    MaxNames);
+	static IncrementalNamesHolder NamesDir(TEXT("TranslucentVolumeDir"), MaxNames);
 
-		RETURN_VOLUME_TEXTURE_NAME(3);
-		RETURN_VOLUME_TEXTURE_NAME(4);
-		RETURN_VOLUME_TEXTURE_NAME(5);
+	check(Id < MaxNames);
 
-		RETURN_VOLUME_TEXTURE_NAME(6);
-		RETURN_VOLUME_TEXTURE_NAME(7);
-		RETURN_VOLUME_TEXTURE_NAME(8);
-
-		RETURN_VOLUME_TEXTURE_NAME(9);
-		RETURN_VOLUME_TEXTURE_NAME(10);
-		RETURN_VOLUME_TEXTURE_NAME(11);
-	
-		default:
-			check(0); // Add texture names up to what you need
-	}
-	return (TCHAR*)TEXT("InvalidName");
+	return bDirectional ? NamesDir[Id] : Names[Id];
 }
 
 void FSceneRenderTargets::AllocateReflectionTargets(FRHICommandList& RHICmdList, int32 TargetSize)
