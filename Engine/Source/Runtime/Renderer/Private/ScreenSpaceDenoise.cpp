@@ -555,7 +555,7 @@ static void DenoiseShadowPenumbra(
 		FScreenSpaceFilteringHistory PrevFrameHistory;
 		if (!View.bCameraCut)
 		{
-			PrevFrameHistory = View.PrevViewInfo.ShadowHistories.FindRef(&LightSceneInfo);
+			PrevFrameHistory = View.PrevViewInfo.ShadowHistories.FindRef(LightSceneInfo.Proxy->GetLightComponent());
 		}
 
 		// Process each mip level independently.
@@ -610,7 +610,7 @@ static void DenoiseShadowPenumbra(
 
 		// Saves shadow history.
 		{
-			FScreenSpaceFilteringHistory& NewShadowHistory = View.ViewState->PendingPrevFrameViewInfo.ShadowHistories.FindOrAdd(&LightSceneInfo);
+			FScreenSpaceFilteringHistory& NewShadowHistory = View.ViewState->PendingPrevFrameViewInfo.ShadowHistories.FindOrAdd(LightSceneInfo.Proxy->GetLightComponent());
 			GraphBuilder.QueueTextureExtraction(SignalHistory0, &NewShadowHistory.RT[0]);
 
 			GraphBuilder.QueueTextureExtraction(CommonParameters.TileClassificationTexture, &NewShadowHistory.TileClassification);
