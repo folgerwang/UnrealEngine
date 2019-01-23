@@ -228,6 +228,8 @@ private:
 
 	UWidget* GetWidgetInDesignScopeFromSlateWidget(TSharedRef<SWidget>& InWidget);
 
+	EVisibility GetExtensionCanvasVisibility() const;
+
 private:
 	struct FWidgetHitResult
 	{

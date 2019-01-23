@@ -469,7 +469,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 				.VAlign(VAlign_Fill)
 				[
 					SAssignNew(ExtensionWidgetCanvas, SCanvas)
-					.Visibility(EVisibility::SelfHitTestInvisible)
+					.Visibility(this, &SDesignerView::GetExtensionCanvasVisibility)
 				]
 
 				// Designer overlay UI, toolbar, status messages, zoom level...etc
@@ -495,6 +495,23 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 	FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SDesignerView::SwapSafeZoneTypes);
 	//RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignerView::EnsureTick));
+}
+
+EVisibility SDesignerView::GetExtensionCanvasVisibility() const
+{
+	// If any selected widgets are hidden, then don't show widget extensions.
+	// If we want to support extensions on mixed-visibility in the future,
+	// every existing widget extension will probably need to be updated, as
+	// most do not check widget visibility before performing their function.
+	for (const FWidgetReference& Widget : GetSelectedWidgets())
+	{
+		UWidget* Preview = Widget.GetPreview();
+		if (!Preview || !Preview->IsVisibleInDesigner())
+		{
+			return EVisibility::Hidden;
+		}
+	}
+	return EVisibility::SelfHitTestInvisible;
 }
 
 EActiveTimerReturnType SDesignerView::EnsureTick(double InCurrentTime, float InDeltaTime)
