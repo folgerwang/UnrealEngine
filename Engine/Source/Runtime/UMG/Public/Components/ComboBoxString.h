@@ -124,8 +124,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	void SetSelectedOption(FString Option);
 
+	UFUNCTION(BlueprintCallable, Category = "ComboBox")
+	void SetSelectedIndex(const int32 Index);
+
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	FString GetSelectedOption() const;
+
+	UFUNCTION(BlueprintCallable, Category="ComboBox")
+	int32 GetSelectedIndex() const;
 
 	/** @return The number of options */
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
