@@ -112,7 +112,7 @@ namespace UnrealBuildTool
 			string[] tokens = config.Split('\n');
 
 			// Parse lines of type "KEY='value'"
-			Regex regex = new Regex(variable + "\\s*=\\s*['\\\"](.*)['\\\"]");
+			Regex regex = new Regex(variable + "^\\s*=\\s*['\\\"](.*)['\\\"]");
 			foreach(string line in tokens)
 			{
 				Match m = regex.Match(line);
