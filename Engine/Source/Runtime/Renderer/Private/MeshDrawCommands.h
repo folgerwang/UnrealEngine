@@ -61,6 +61,8 @@ public:
 		, DynamicMeshElements(nullptr)
 		, NumDynamicMeshElements(0)
 		, NumDynamicMeshCommandBuildRequestElements(0)
+		, PrimitiveIdBufferData(nullptr)
+		, PrimitiveIdBufferDataSize(0)
 		, PrimitiveBounds(nullptr)
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
@@ -92,7 +94,7 @@ public:
 	TArray<const FStaticMeshBatch*, SceneRenderingAllocator> MobileBasePassCSMDynamicMeshCommandBuildRequests;
 	FDynamicMeshDrawCommandStorage MeshDrawCommandStorage;
 
-	// Resources preallocated on rendering thread with SceneRenderingAllocator.
+	// Resources preallocated on rendering thread.
 	void* PrimitiveIdBufferData;
 	int32 PrimitiveIdBufferDataSize;
 	FMeshCommandOneFrameArray TempVisibleMeshDrawCommands;
@@ -122,7 +124,8 @@ class FParallelMeshDrawCommandPass
 {
 public:
 	FParallelMeshDrawCommandPass()
-		: MaxNumDraws(0)
+		: bPrimitiveIdBufferDataOwnedByRHIThread(false)
+		, MaxNumDraws(0)
 	{
 	}
 
@@ -162,6 +165,9 @@ private:
 	FMeshDrawCommandPassSetupTaskContext TaskContext;
 	FGraphEventArray TaskEventRefs;
 	FString PassNameForStats;
+
+	// If TaskContext::PrimitiveIdBufferData will be released by RHI Thread.
+	mutable bool bPrimitiveIdBufferDataOwnedByRHIThread;
 
 	// Maximum number of draws for this pass. Used to prealocate resources on rendering thread. 
 	// Has a guarantee that if there won't be any draws, then MaxNumDraws = 0;

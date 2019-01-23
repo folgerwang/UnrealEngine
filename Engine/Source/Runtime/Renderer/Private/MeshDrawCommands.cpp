@@ -850,7 +850,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	FMeshCommandOneFrameArray* InOutMobileBasePassCSMMeshDrawCommands
 )
 {
-	check(TaskEventRefs.Num() == 0 && MeshPassProcessor != nullptr);
+	check(TaskEventRefs.Num() == 0 && MeshPassProcessor != nullptr && TaskContext.PrimitiveIdBufferData == nullptr);
 
 	MaxNumDraws = InOutMeshDrawCommands.Num() + NumDynamicMeshElements + NumDynamicMeshCommandBuildRequestElements;
 	if (MaxNumDraws <= 0)
@@ -905,8 +905,9 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	}
 
 	// Preallocate resources on rendering thread based on MaxNumDraws.
+	bPrimitiveIdBufferDataOwnedByRHIThread = false;
 	TaskContext.PrimitiveIdBufferDataSize = TaskContext.MaxInstanceFactor * MaxNumDraws * sizeof(int32);
-	TaskContext.PrimitiveIdBufferData = FMemStack::Get().Alloc(TaskContext.PrimitiveIdBufferDataSize, 8);
+	TaskContext.PrimitiveIdBufferData = FMemory::Malloc(TaskContext.PrimitiveIdBufferDataSize);
 	PrimitiveIdVertexBufferRHI = GPrimitiveIdVertexBufferPool.Allocate(TaskContext.PrimitiveIdBufferDataSize);
 	TaskContext.MeshDrawCommands.Reserve(MaxNumDraws);
 	TaskContext.TempVisibleMeshDrawCommands.Reserve(MaxNumDraws);
@@ -944,11 +945,18 @@ void FParallelMeshDrawCommandPass::Empty()
 
 	DumpInstancingStats();
 
+	if (!bPrimitiveIdBufferDataOwnedByRHIThread)
+	{
+		FMemory::Free(TaskContext.PrimitiveIdBufferData);
+	}
+
+	bPrimitiveIdBufferDataOwnedByRHIThread = false;
 	MaxNumDraws = 0;
+	PassNameForStats.Empty();
+
 	TaskContext.MeshPassProcessor = nullptr;
 	TaskContext.MobileBasePassCSMMeshPassProcessor = nullptr;
 	TaskContext.DynamicMeshElements = nullptr;
-	PassNameForStats.Empty();
 	TaskContext.MeshDrawCommands.Empty();
 	TaskContext.MobileBasePassCSMMeshDrawCommands.Empty();
 	TaskContext.DynamicMeshCommandBuildRequests.Empty();
@@ -1060,10 +1068,8 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 		return;
 	}
 
-
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer = PrimitiveIdVertexBufferRHI;
 	const int32 BasePrimitiveIdsOffset = 0;
-
 
 	if (ParallelCommandListSet)
 	{
@@ -1077,6 +1083,7 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 				TaskContext.PrimitiveIdBufferData,
 				TaskContext.PrimitiveIdBufferDataSize
 			);
+			bPrimitiveIdBufferDataOwnedByRHIThread = true;
 		}
 
 		const ENamedThreads::Type RenderThread = ENamedThreads::GetRenderThread();
