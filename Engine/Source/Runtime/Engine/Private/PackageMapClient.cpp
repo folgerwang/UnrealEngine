@@ -3187,8 +3187,10 @@ void FNetGUIDCache::CountBytes(FArchive& Ar) const
 
 void FNetFieldExport::CountBytes(FArchive& Ar) const
 {
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	Ar << const_cast<FString&>(Name);
 	Ar << const_cast<FString&>(Type);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FNetFieldExportGroup::CountBytes(FArchive& Ar) const
