@@ -55,6 +55,7 @@
 #include "GPUScene.h"
 #if RHI_RAYTRACING
 #include "RayTracing/RayTracingDynamicGeometryCollection.h"
+#include "RHIGPUReadback.h"
 #endif
 
 // Enable this define to do slow checks for components being added to the wrong
@@ -184,6 +185,8 @@ FSceneViewState::FSceneViewState()
 				TotalRayCountBuffer->Initialize(sizeof(uint32), 1, PF_R32_UINT);
 			});
 	}
+	bReadbackInitialized = false;
+	RayCountGPUReadback = new FRHIGPUMemoryReadback(TEXT("Ray Count Readback"));
 #endif
 }
 
@@ -228,6 +231,8 @@ FSceneViewState::~FSceneViewState()
 #if RHI_RAYTRACING
 	DestroyRWBuffer(VarianceMipTree);
 	DestroyRWBuffer(TotalRayCountBuffer);
+
+	delete RayCountGPUReadback;
 #endif // RHI_RAYTRACING
 }
 

@@ -71,6 +71,7 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UTextureCube;
 class UWindDirectionalSourceComponent;
+class FRHIGPUMemoryReadback;
 
 /** Holds information about a single primitive's occlusion. */
 class FPrimitiveOcclusionHistory
@@ -911,6 +912,10 @@ public:
 	// Path tracer ray counter
 	uint32 TotalRayCount;
 	FRWBuffer* TotalRayCountBuffer;
+
+	// For Ray Count readback:
+	FRHIGPUMemoryReadback* RayCountGPUReadback;
+	bool bReadbackInitialized = false;
 #endif
 
 	// cache for stencil reads to a avoid reallocations of the SRV, Key is to detect if the object has changed

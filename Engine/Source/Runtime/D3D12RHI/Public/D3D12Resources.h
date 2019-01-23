@@ -956,17 +956,7 @@ public:
 		: FRHIStagingBuffer()
 		, ShadowBufferSize(0)
 	{}
-	~FD3D12StagingBuffer()
-	{
-		if (StagedRead)
-		{
-			StagedRead->DeferDelete();
-		}
-	}
-	void SafeRelease()
-	{
-		StagedRead.SafeRelease();
-	}
+	virtual ~FD3D12StagingBuffer() final override;
 
 	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
 	virtual void Unlock() final override;

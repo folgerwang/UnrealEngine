@@ -108,23 +108,25 @@ void FDeferredShadingSceneRenderer::ComputeRayCount(FRHICommandListImmediate& RH
 	int32 NumGroups = FMath::DivideAndRoundUp<int32>(ViewSize.Y, FRayCounterCS::GetGroupSize());
 	DispatchComputeShader(RHICmdList, *RayCounterComputeShader, NumGroups, 1, 1);
 
+	FRHIGPUMemoryReadback* RayCountGPUReadback = ViewState->RayCountGPUReadback;
+
 	// Read read count data from the GPU using a stage buffer to avoid stalls
-	static FRHIGPUMemoryReadback* RayCountGPUReadback = nullptr;
-	if (!RayCountGPUReadback)
+	if (!ViewState->bReadbackInitialized)
 	{
-		RayCountGPUReadback = new FRHIGPUMemoryReadback(ViewState->TotalRayCountBuffer->Buffer, TEXT("Path Tracing Ray Count Readback"));
-		RayCountGPUReadback->Insert(RHICmdList);
+		RayCountGPUReadback->EnqueueCopy(RHICmdList, ViewState->TotalRayCountBuffer->Buffer);
+		ViewState->bReadbackInitialized = true;
 	}
 	else if (RayCountGPUReadback->IsReady())
 	{
-		uint32* RayCountResultBuffer = static_cast<uint32*>(RayCountGPUReadback->RetrieveData(1 * sizeof(uint32)));
+		uint32* RayCountResultBuffer = static_cast<uint32*>(RayCountGPUReadback->Lock(1 * sizeof(uint32)));
 		ViewState->TotalRayCount = RayCountResultBuffer[0];
 		extern ENGINE_API float GAveragePathTracedMRays;
 		GAveragePathTracedMRays = ViewState->TotalRayCount / 1000000.f;
 
-		RayCountGPUReadback->Finish();
-		delete RayCountGPUReadback;
-		RayCountGPUReadback = nullptr;
+		RayCountGPUReadback->Unlock();
+
+		// Enqueue another copy so we can get the data out.
+		RayCountGPUReadback->EnqueueCopy(RHICmdList, ViewState->TotalRayCountBuffer->Buffer);
 	}
 }
 
