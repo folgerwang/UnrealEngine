@@ -583,8 +583,6 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	// Call base.
 	UEngine::Init(InEngineLoop);
 
-	EditorSubsystemCollection.Initialize();
-
 	// Specify "-ForceLauncher" on the command-line to always open the launcher, even in unusual cases.  This is useful for debugging the Launcher startup.
 	const bool bForceLauncherToOpen = FParse::Param(FCommandLine::Get(), TEXT("ForceLauncher"));
 
@@ -721,6 +719,8 @@ void UEditorEngine::HandleSettingChanged( FName Name )
 
 void UEditorEngine::InitializeObjectReferences()
 {
+	EditorSubsystemCollection.Initialize();
+
 	Super::InitializeObjectReferences();
 
 	if ( PlayFromHerePlayerStartClass == NULL )
