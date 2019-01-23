@@ -1228,8 +1228,7 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 		// Increase outgoing sequence number
 		if (!InternalAck)
 		{
-			PacketNotify.CommitAndIncrementOutSeq();
-			HasDirtyAcks = 0u;
+			PacketNotify.CommitAndIncrementOutSeq();			
 		}
 		++OutPacketId; 
 
@@ -1386,12 +1385,18 @@ void UNetConnection::WritePacketHeader(FBitWriter& Writer)
 	Reset.PopWithoutClear(Writer);
 	
 	// Write notification header or refresh the header if used space is the same.
-	PacketNotify.WriteHeader(Writer, bIsHeaderUpdate);
+	bool bWroteHeader = PacketNotify.WriteHeader(Writer, bIsHeaderUpdate);
 
 	// Jump back to where we came from.
 	if (bIsHeaderUpdate)
 	{
 		Restore.PopWithoutClear(Writer);
+
+		// if we wrote the header and successfully refreshed the header status we no longer has any dirty acks
+		if (bWroteHeader)
+		{
+			HasDirtyAcks = 0u;
+		}
 	}
 }
 
@@ -2018,11 +2023,17 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		++HasDirtyAcks;
 
 		// This is to allow us to recover from hitches were we process more than FNetPacketNotify::SequenceHistoryLength packets in a row withouht sending out any packets.
-		// In most cases this allows us to recover smoothly without reporting any pessimistic naks which is the case is we overshoot our ack history.
+		// In most cases this allows us to recover smoothly without reporting any pessimistic naks which will be the case if we overshoot the ack history.
+		// Note: This should only occur if we are running with no timeouts!
 		if (HasDirtyAcks >= FNetPacketNotify::MaxSequenceHistoryLength)
 		{
-			UE_LOG(LogNet, Warning, TEXT("UNetConnection::ReceivedPacket - Too many received acks(%u) since last sent packet. %s "), HasDirtyAcks, *Describe());
+			UE_LOG(LogNet, Warning, TEXT("UNetConnection::ReceivedPacket - Too many received packets to ack (%u) since last sent packet. InSeq: %u %s NextOutGoingSeq: %u"), HasDirtyAcks, PacketNotify.GetInSeq().Get(), *Describe(), PacketNotify.GetOutSeq().Get());
+
 			FlushNet();
+			if (HasDirtyAcks) // if acks still are dirty, flush again
+			{
+				FlushNet();
+			}
 		}
 	}
 }
