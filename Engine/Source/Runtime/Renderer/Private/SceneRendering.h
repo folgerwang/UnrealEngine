@@ -737,6 +737,9 @@ struct FPreviousViewInfo
 
 	// History for the reflections
 	FScreenSpaceFilteringHistory ReflectionsHistory;
+	
+	// History for the ambient occlusion
+	FScreenSpaceFilteringHistory AmbientOcclusionHistory;
 
 	// History for shadow denoising.
 	TMap<const FLightSceneInfo*, FScreenSpaceFilteringHistory> ShadowHistories;
@@ -753,6 +756,7 @@ struct FPreviousViewInfo
 		DOFPostGatherBackgroundHistory.SafeRelease();
 		CustomSSRInput.SafeRelease();
 		ReflectionsHistory.SafeRelease();
+		AmbientOcclusionHistory.SafeRelease();
 		ShadowHistories.Reset();
 	}
 };

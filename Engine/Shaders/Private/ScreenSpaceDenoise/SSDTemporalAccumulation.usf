@@ -46,6 +46,13 @@
 
 	//#define CONFIG_HISTORY_BLENDING_COLOR_SPACE (COLOR_SPACE_RGB | COLOR_SPACE_UNPREMULTIPLY | COLOR_SPACE_KARIS_WEIGHTING)
 
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+	// Input and output layout.
+	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_AO_HISTORY
+	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_AO_HISTORY
+
+	#define CONFIG_HISTORY_REJECTION 1
+
 #else
 	#error Unimplemented signal processing.
 #endif
@@ -260,6 +267,12 @@ void TemporallyAccumulate(
 		//	max(CurrentFrame.AccumulatedSampleCount - TargetedSampleCount, 0),
 		//	0);
 	}
+	#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+	{
+		TargetedSampleCount = TARGETED_SAMPLE_COUNT;
+	}
+	#else
+		#error
 	#endif
 
 	// Sample the history buffer.
@@ -558,7 +571,7 @@ void TemporallyAccumulate(
 	
 	FSSFSignalSample HistorySample = PreviousFrame;
 
-	const bool bPostRejectionBlending = !bBruteForce || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS;
+	const bool bPostRejectionBlending = !bBruteForce || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO;
 
 	if (!bPostRejectionBlending)
 	{
@@ -848,6 +861,10 @@ void TemporallyAccumulate(
 				
 					RejectionFactor = max(RejectionFactor, 1 * max(RejectedDiff.SceneColor.y, RejectedDiff.SceneColor.z));
 					RejectionFactor = max(RejectionFactor, 1 * RejectedDiff.SceneColor.a);
+				}
+				#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+				{
+					RejectionFactor = abs(ClampedTransformedHistorySample.LeavingRayCount - TransformedHistorySample.LeavingRayCount);
 				}
 				#else
 					#error Unsupported signal rejection.

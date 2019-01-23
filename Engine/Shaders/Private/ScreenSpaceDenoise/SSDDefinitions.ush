@@ -75,22 +75,23 @@
 	/** Buffer layout for the reflection output. */
 	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY 4
 
+	/** Buffer layout given by the ray generation shader for ambient occlusion. */
+	#define SIGNAL_BUFFER_LAYOUT_AO_INPUT 5
+
+	/** Internal buffer layout for ambient occlusion. */
+	#define SIGNAL_BUFFER_LAYOUT_AO_HISTORY 6
+
 
 /** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
-	/** Scene color anti aliasing processing. */
-	//#define SIGNAL_PROCESSING_COLORAA 0
-
-	/** Depth of field stabilization processing. */
-	//#define SIGNAL_PROCESSING_DOF 1
-
 	/** Shadow penumbra denoising. */
 	#define SIGNAL_PROCESSING_PENUMBRA 0
 
-	/** Shadow penumbra denoising. */
-	//#define SIGNAL_PROCESSING_DIFUSE_GI 3
-
 	/** Reflection denoising. */
 	#define SIGNAL_PROCESSING_REFLECTIONS 1
+
+	/** Ambient occlusion denoising. */
+	#define SIGNAL_PROCESSING_AO 2
+
 
 
 /** Defines the color space bitfield. */

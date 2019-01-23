@@ -31,6 +31,8 @@
 #include "GPUScene.h"
 #include "RayTracing/RayTracingMaterialHitShaders.h"
 #include "RayTracing/RayTracingDynamicGeometryCollection.h"
+#include "SceneViewFamilyBlackboard.h"
+#include "ScreenSpaceDenoise.h"
 
 TAutoConsoleVariable<int32> CVarEarlyZPass(
 	TEXT("r.EarlyZPass"),
@@ -156,6 +158,15 @@ static TAutoConsoleVariable<int32> CVarRayTracing(
 	TEXT(" 0: off\n")
 	TEXT(" 1: on"),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarUseAODenoiser(
+	TEXT("r.AmbientOcclusion.Denoiser"),
+	2,
+	TEXT("Choose the denoising algorithm.\n")
+	TEXT(" 0: Disabled;\n")
+	TEXT(" 1: Forces the default denoiser of the renderer;\n")
+	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin (default)."),
+	ECVF_RenderThreadSafe);
 
 
 DECLARE_CYCLE_STAT(TEXT("PostInitViews FlushDel"), STAT_PostInitViews_FlushDel, STATGROUP_InitViews);
@@ -1667,6 +1678,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 		if (bCanOverlayRayTracingOutput)
 		{
+			// TODO: convert the entire AO and skylight to rendergraph.
+
 			// SkyLight takes priority over ambient occlusion
 			if (ShouldRenderRayTracingDynamicSkyLight(Scene, ViewFamily))
 			{
@@ -1682,6 +1695,43 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 				TRefCountPtr<IPooledRenderTarget> AmbientOcclusionRT;
 				RenderRayTracingAmbientOcclusion(RHICmdList, nullptr, AmbientOcclusionRT);
 				checkSlow(RHICmdList.IsOutsideRenderPass());
+				
+				int32 DenoiserMode = CVarUseAODenoiser.GetValueOnRenderThread();
+				if (DenoiserMode != 0)
+				{	
+					FRDGBuilder GraphBuilder(RHICmdList);
+
+					FSceneViewFamilyBlackboard SceneBlackboard;
+					SetupSceneViewFamilyBlackboard(GraphBuilder, &SceneBlackboard);
+
+					const IScreenSpaceDenoiser* DefaultDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
+					const IScreenSpaceDenoiser* DenoiserToUse = DenoiserMode == 1 ? DefaultDenoiser : GScreenSpaceDenoiser;
+					
+					IScreenSpaceDenoiser::FAmbientOcclusionRayTracingConfig RayTracingConfig;
+
+					IScreenSpaceDenoiser::FAmbientOcclusionInputs DenoiserInputs;
+					DenoiserInputs.MaskAndRayHitDistance = GraphBuilder.RegisterExternalTexture(AmbientOcclusionRT, TEXT("AOMaskAndHitDistance"));
+
+					const FViewInfo& View = Views[0];
+
+					{
+						RDG_EVENT_SCOPE(GraphBuilder, "%s%s(AmbientOcclusion) %dx%d",
+							DenoiserToUse != DefaultDenoiser ? TEXT("ThirdParty ") : TEXT(""),
+							DenoiserToUse->GetDebugName(),
+							View.ViewRect.Width(), View.ViewRect.Height());
+
+						IScreenSpaceDenoiser::FAmbientOcclusionOutputs DenoiserOutputs = DenoiserToUse->DenoiseAmbientOcclusion(
+							GraphBuilder,
+							View,
+							SceneBlackboard,
+							DenoiserInputs,
+							RayTracingConfig);
+						
+						GraphBuilder.QueueTextureExtraction(DenoiserOutputs.AmbientOcclusionMask, &AmbientOcclusionRT);
+					}
+					GraphBuilder.Execute();
+				}
+
 				// #dxr_todo: Denoise AO
 				CompositeRayTracingAmbientOcclusion(RHICmdList, AmbientOcclusionRT);
 				checkSlow(RHICmdList.IsOutsideRenderPass());

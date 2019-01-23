@@ -40,6 +40,8 @@
 	#include "../DeferredShadingCommon.ush"
 	#include "../CommonViewUniformBuffer.ush"
 
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+
 #else
 	#error Unknown CONFIG_SIGNAL_PROCESSING
 
@@ -383,7 +385,7 @@ float ComputeBilateralWeight(
 	float MaxWorldBluringDistance,
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos NeighborSceneMetadata)
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
 {
 	if (DEBUG_DISABLE_BILATERAL)
 	{
@@ -410,16 +412,27 @@ float ComputeBilateralWeight(
 
 		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
 	}
-	
-	float LobeBilateralWeight = 1;
-	#if CONFIG_TOKOYASHI_BILATERAL
-	//if (View.GeneralPurposeTweak > 0.5)
-	{
-		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
-	}
-	#endif
 
-	return WorldBilateralWeight;
+	float NormalBilateralWeight = 1;
+	if (CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO)
+    {
+		float NoN = max(dot(RefSceneMetadata.WorldNormal, NeighborSceneMetadata.WorldNormal), 0);
+
+		#if 1 // TODO
+			NormalBilateralWeight = pow(NoN, 4);
+		#else
+			// [ Kontkanen et al 2004, "Irradiance Filtering for Monte Carlo Ray Tracing" ]
+			// TODO: looks broken
+			float m = MaxWorldBluringDistance;
+			float a = 0.3;
+			float d = sqrt(1 - NoN); // + length(RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition) * rcp(m);
+			float x = d * rcp(a);
+
+			NormalBilateralWeight = exp(-x * x);
+		#endif
+    }
+
+	return WorldBilateralWeight * NormalBilateralWeight;
 }
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 {
@@ -432,6 +445,8 @@ float ComputeBilateralWeight(
 
 	return LobeBilateralWeight;
 }
+#else
+	#error Unimplemented ComputeBilateralWeight()
 #endif
 
 float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
@@ -488,6 +503,12 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 {
 	return 1;
 }
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+{
+	return 1000; //Sample.PenumbraClosestHit;
+}
+#else
+	#error Unimplemented GetSignalWorldBluringRadius()
 #endif
 
 FSSFSignalSample GetConstantSignalSample(uint TileMode)

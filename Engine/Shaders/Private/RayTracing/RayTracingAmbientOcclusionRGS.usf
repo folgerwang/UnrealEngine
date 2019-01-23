@@ -7,8 +7,7 @@
 #include "RayTracingCommon.ush"
 
 RaytracingAccelerationStructure TLAS;
-RWTexture2D<float4> RWOcclusionMaskUAV;
-RWTexture2D<float> RWRayDistanceUAV;
+RWTexture2D<float2> RWOcclusionMaskUAV;
 
 uint CalcLinearIndex(uint2 PixelCoord)
 {
@@ -67,67 +66,71 @@ void AmbientOcclusionRGS()
 	float3 WorldPosition = ReconstructWorldPositionFromDepth(UV, Depth);
 	float3 WorldNormal = ScreenSpaceData.GBuffer.WorldNormal;
 
+	float RayCount = 0.0;
 	float Visibility = 0.0;
-	float RayDistance = 0.0;
-	float HitCount = 0.0;
+	float ClosestRayHitDistance = 1.#INF;
 	uint SamplesPerPixel = AmbientOcclusion.SamplesPerPixel;
 	
 	// Mask out depth values beyond far plane
-	if (Depth >= SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE)
+	if (Depth >= SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE || ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_UNLIT)
 	{
-		SamplesPerPixel = 0.0;
 		Visibility = 1.0;
+		RayCount = SamplesPerPixel;
+		SamplesPerPixel = 0.0;
 	}
 
 	for (uint SampleIndex = 0; SampleIndex < SamplesPerPixel; ++SampleIndex)
 	{
 		RayDesc Ray;
 		GenerateCosineNormalRay(WorldPosition, WorldNormal, RandSequence, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax);
-		if (dot(WorldNormal, Ray.Direction) > 0.0)
+		
+		if (dot(WorldNormal, Ray.Direction) <= 0.0) // TODO: does it needs to be handled by the denoiser?
+			continue;
+		
+		uint RayFlags = 0
+			| RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+
+		FDefaultPayload Payload = (FDefaultPayload)0;
+
+		TraceRay(
+			TLAS,
+			RayFlags,
+			0xFF, // InstanceInclusionMask
+			0,    // RayContributionToHitGroupIndex
+			1,    // MultiplierForGeometryContributionToShaderIndex
+			0,    // MissShaderIndex
+			Ray,
+			Payload
+		);
+		
+		RayCount += 1;
+		Visibility += Payload.HitT < 0 ? 1.0 : 0.0;
+		if (Payload.HitT >= 0.0)
 		{
-			uint RayFlags = 0
-				| RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+			ClosestRayHitDistance = min(ClosestRayHitDistance, Payload.HitT);
+		}
+	}
 
-			FDefaultPayload Payload = (FDefaultPayload)0;
+	// Output.
+	{
+		float2 RawOutput = 1;
 
-			TraceRay(
-				TLAS,
-				RayFlags,
-				0xFF, // InstanceInclusionMask
-				0,    // RayContributionToHitGroupIndex
-				1,    // MultiplierForGeometryContributionToShaderIndex
-				0,    // MissShaderIndex
-				Ray,
-				Payload
-			);
-
-			Visibility += Payload.HitT < 0 ? 1.0 : 0.0;
-			if (Payload.HitT >= 0.0)
-			{
-				RayDistance += Payload.HitT;
-				HitCount += 1.0;
-			}
+		if (SamplesPerPixel == 0)
+		{
+			RawOutput.x = 1;
+			RawOutput.y = -2;
+		}
+		else if (RayCount == 0)
+		{
+			RawOutput.x = 1;
+			RawOutput.y = -1;
 		}
 		else
 		{
-			Visibility += 0.0;
-			RayDistance += 0.0;
-			HitCount += 1.0;
+			RawOutput.x = Visibility / RayCount;
+			RawOutput.y = ClosestRayHitDistance;
 		}
-	}
 
-	RWOcclusionMaskUAV[PixelCoord] = Visibility;
-	if (SamplesPerPixel > 0)
-	{
-		RWOcclusionMaskUAV[PixelCoord] /= SamplesPerPixel;
-	}
-
-	if (HitCount > 0.0)
-	{
-		RWRayDistanceUAV[PixelCoord] = RayDistance / HitCount;
-	}
-	else
-	{
-		RWRayDistanceUAV[PixelCoord] = 1.0e27;
+		RWOcclusionMaskUAV[PixelCoord] = RawOutput;
 	}
 }

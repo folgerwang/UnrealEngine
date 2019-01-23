@@ -46,71 +46,82 @@ FSSFSignalSample CreateSignalSample()
 //------------------------------------------------------- INPUT/OUTPUT
 
 /** Decode input signal sample. */
-FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 Samples[2])
+FSSFSignalSample DecodeInputSignal(const uint SignalBufferLayout, float4 RawSample[2])
 {
 	FSSFSignalSample OutSample = CreateSignalSample();
 
 	if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT)
 	{
 		OutSample.AccumulatedSampleCount = 1;
-		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * Samples[0].r;
-		OutSample.PenumbraClosestHit = Samples[1].r;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * RawSample[0].r;
+		OutSample.PenumbraClosestHit = RawSample[1].r;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL)
 	{
 		if (DEBUG_STORE_NORMALIZED_COMPONENTS)
 		{
-			OutSample.LeavingRayCount = Samples[0].r * Samples[0].b;
-			OutSample.UncertainRayCount = Samples[0].g * Samples[0].b;
-			OutSample.AccumulatedSampleCount = Samples[0].b - OutSample.UncertainRayCount;
+			OutSample.LeavingRayCount = RawSample[0].r * RawSample[0].b;
+			OutSample.UncertainRayCount = RawSample[0].g * RawSample[0].b;
+			OutSample.AccumulatedSampleCount = RawSample[0].b - OutSample.UncertainRayCount;
 		}
 		else
 		{
-			OutSample.LeavingRayCount = Samples[0].r;
-			OutSample.AccumulatedSampleCount = Samples[0].g;
-			OutSample.UncertainRayCount = Samples[0].b;
+			OutSample.LeavingRayCount = RawSample[0].r;
+			OutSample.AccumulatedSampleCount = RawSample[0].g;
+			OutSample.UncertainRayCount = RawSample[0].b;
 		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION)
 	{
 		//if (Samples[0].r < 1)
-		if (Samples[0].r >= 0)
+		if (RawSample[0].r >= 0)
 		{
 			OutSample.AccumulatedSampleCount = 1;
-			OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * Samples[0].r; // *(255.0 / 254.0);
+			OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * RawSample[0].r; // *(255.0 / 254.0);
 		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
 	{
-		OutSample.AccumulatedSampleCount = Samples[1].r == -2 ? 0 : 1;
-		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
-		OutSample.SceneColor = Samples[0];
+		OutSample.AccumulatedSampleCount = RawSample[1].r == -2 ? 0 : 1;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSample.SceneColor = RawSample[0];
 
 		// max() because ray hit distance is < 0 when miss / not ray has been shot.
-		OutSample.PenumbraClosestHit = Samples[1].r * OutSample.AccumulatedSampleCount;
-		OutSample.PenumbraClosestHit = ((Samples[1].r == -1.0) ? 1.0e20 : Samples[1].r) * OutSample.AccumulatedSampleCount;
+		OutSample.PenumbraClosestHit = RawSample[1].r * OutSample.AccumulatedSampleCount;
+		OutSample.PenumbraClosestHit = ((RawSample[1].r == -1.0) ? 1.0e20 : RawSample[1].r) * OutSample.AccumulatedSampleCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{
-		OutSample.AccumulatedSampleCount = Samples[1].r;
-		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - Samples[0].a);
-		OutSample.SceneColor = OutSample.AccumulatedSampleCount * Samples[0];
+		OutSample.AccumulatedSampleCount = RawSample[1].r;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSample.SceneColor = OutSample.AccumulatedSampleCount * RawSample[0];
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_AO_INPUT)
+	{
+		OutSample.AccumulatedSampleCount = RawSample[0].g < 0 ? 0 : 1;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * RawSample[0].r;
+		OutSample.PenumbraClosestHit = OutSample.AccumulatedSampleCount * RawSample[0].g;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_AO_HISTORY)
+	{
+		OutSample.AccumulatedSampleCount = RawSample[0].g;
+		OutSample.LeavingRayCount = OutSample.AccumulatedSampleCount * RawSample[0].r;
 	}
 
 	return OutSample;
 }
 
 /** Encode output signal sample. */
-void EncodeOutputSignal(const uint SignalBufferLayout, FSSFSignalSample Sample, out float4 OutSamples[2], out uint OutBufferCount)
+void EncodeOutputSignal(const uint SignalBufferLayout, FSSFSignalSample Sample, out float4 OutRawSample[2], out uint OutBufferCount)
 {
-	OutSamples[0] = OutSamples[1] = 0;
+	OutRawSample[0] = OutRawSample[1] = 0;
 	OutBufferCount = 1;
 
 	if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL)
 	{
 		if (DEBUG_STORE_NORMALIZED_COMPONENTS)
 		{
-			OutSamples[0] = float4(
+			OutRawSample[0] = float4(
 				Sample.UncertainRayCount + Sample.AccumulatedSampleCount > 0
 					? Sample.LeavingRayCount / (Sample.UncertainRayCount + Sample.AccumulatedSampleCount)
 					: -1.0,
@@ -122,7 +133,7 @@ void EncodeOutputSignal(const uint SignalBufferLayout, FSSFSignalSample Sample, 
 		}
 		else
 		{
-			OutSamples[0] = float4(
+			OutRawSample[0] = float4(
 				Sample.LeavingRayCount,
 				Sample.AccumulatedSampleCount,
 				Sample.UncertainRayCount,
@@ -133,43 +144,50 @@ void EncodeOutputSignal(const uint SignalBufferLayout, FSSFSignalSample Sample, 
 	{
 		//if (Sample.AccumulatedSampleCount == 0)
 		//{
-		//	OutSamples[0].r = 1.0;
+		//	OutRawSample[0].r = 1.0;
 		//}
 		//else
 		//{
-		//	OutSamples[0].r = (254.0 / 255.0) * (Sample.LeavingRayCount / Sample.AccumulatedSampleCount);
+		//	OutRawSample[0].r = (254.0 / 255.0) * (Sample.LeavingRayCount / Sample.AccumulatedSampleCount);
 		//}
 
-		OutSamples[0].r = Sample.AccumulatedSampleCount == 0 ? -1 : Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
+		OutRawSample[0].r = Sample.AccumulatedSampleCount == 0 ? -1 : Sample.LeavingRayCount / Sample.AccumulatedSampleCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{
-		OutSamples[0] = Sample.SceneColor * (Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
-		OutSamples[1].r = Sample.AccumulatedSampleCount;
+		// Outputs scene color to be compatible with a SSR output.
+		OutRawSample[0] = Sample.SceneColor * (Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
+		OutRawSample[1].r = Sample.AccumulatedSampleCount;
 		OutBufferCount = 2;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_AO_HISTORY)
+	{
+		// Outputs number of ray miss in red to be compatible as a SSAO output.
+		OutRawSample[0].r = Sample.AccumulatedSampleCount > 0 ? Sample.LeavingRayCount / Sample.AccumulatedSampleCount : 1.0;
+		OutRawSample[0].g = Sample.AccumulatedSampleCount;
 	}
 }
 
 /** Sample input signal. */
 FSSFSignalSample SampleInputSignal(Texture2D SignalBuffer0, Texture2D SignalBuffer1, SamplerState Sampler, const uint SignalBufferLayout, float2 UV, float Level = 0)
 {
-	float4 Samples[2];
-	Samples[0] = SignalBuffer0.SampleLevel(Sampler, UV, Level);
-	Samples[1] = SignalBuffer1.SampleLevel(Sampler, UV, Level);
-	return DecodeInputSignal(SignalBufferLayout, Samples);
+	float4 RawSample[2];
+	RawSample[0] = SignalBuffer0.SampleLevel(Sampler, UV, Level);
+	RawSample[1] = SignalBuffer1.SampleLevel(Sampler, UV, Level);
+	return DecodeInputSignal(SignalBufferLayout, RawSample);
 }
 
 /** Sample output signal. */
 void OutputSignal(RWTexture2D<float4> OutputSignalBuffer0, RWTexture2D<float4> OutputSignalBuffer1, const uint SignalBufferLayout, const uint2 PixelPosition, FSSFSignalSample Sample)
 {
-	float4 Samples[2];
+	float4 RawSample[2];
 	uint BufferCount;
-	EncodeOutputSignal(SignalBufferLayout, Sample, Samples, BufferCount);
+	EncodeOutputSignal(SignalBufferLayout, Sample, RawSample, BufferCount);
 
 	if (BufferCount >= 1)
-		OutputSignalBuffer0[PixelPosition] = Samples[0];
+		OutputSignalBuffer0[PixelPosition] = RawSample[0];
 	if (BufferCount >= 2)
-		OutputSignalBuffer1[PixelPosition] = Samples[1];
+		OutputSignalBuffer1[PixelPosition] = RawSample[1];
 }
 
 
