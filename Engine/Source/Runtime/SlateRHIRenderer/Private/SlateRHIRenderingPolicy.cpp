@@ -1306,6 +1306,8 @@ void FSlateRHIRenderingPolicy::DrawElements(
 #if !(PLATFORM_IOS || PLATFORM_ANDROID)
 	if (GSlateColorDeficiencyType != EColorVisionDeficiency::NormalVision && GSlateColorDeficiencySeverity > 0)
 	{
+		RHICmdList.EndRenderPass();
+
 		FPostProcessRectParams RectParams;
 		RectParams.SourceTexture = BackBuffer.GetRenderTargetTexture();
 		RectParams.SourceRect = FSlateRect(0, 0, BackBuffer.GetSizeXY().X, BackBuffer.GetSizeXY().Y);
@@ -1313,6 +1315,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		RectParams.SourceTextureSize = BackBuffer.GetSizeXY();
 
 		PostProcessor->ColorDeficiency(RHICmdList, RendererModule, RectParams);
+
+		FRHIRenderPassInfo RPInfo(ColorTarget, ERenderTargetActions::Load_Store);
+		RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DepthStencilTarget;
+
+		// @todo refactor this.
+		// ColorDeficiency has self-contained renderpasses. To avoid starting an empty renderpass we do not
+		// restart the renderpass here.
 	}
 #endif
 
