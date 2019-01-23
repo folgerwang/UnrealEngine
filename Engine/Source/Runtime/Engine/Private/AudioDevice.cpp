@@ -96,6 +96,13 @@ FAutoConsoleVariableRef CVarWaitForSoundWaveToLoad(
 	TEXT("0: Attempt to play back, 1: Wait for load."),
 	ECVF_Default);
 
+static int32 BakedAnalysisEnabledCVar = 1;
+FAutoConsoleVariableRef CVarBakedAnalysisEnabledCVar(
+	TEXT("au.BakedAnalysisEnabled"),
+	BakedAnalysisEnabledCVar,
+	TEXT("Enables or disables queries to baked analysis from audio component.\n"),
+	ECVF_Default);
+
 static int32 NumPrecacheFramesCvar = 0;
 FAutoConsoleVariableRef CVarNumPrecacheFrames(
 	TEXT("au.NumPrecacheFrames"),
@@ -200,6 +207,7 @@ FAudioDevice::FAudioDevice()
 	, bDisableAudioCaching(false)
 	, bIsAudioDeviceHardwareInitialized(false)
 	, bIsStoppingVoicesEnabled(false)
+	, bIsBakedAnalysisEnabled(false)
 	, bAudioMixerModuleLoaded(false)
 	, bSpatializationIsExternalSend(false)
 	, bOcclusionIsExternalSend(false)
@@ -289,6 +297,8 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 	}
 
 	bIsStoppingVoicesEnabled = !DisableStoppingVoicesCvar;
+
+	bIsBakedAnalysisEnabled = (BakedAnalysisEnabledCVar == 1);
 
 	const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
 
@@ -3678,6 +3688,9 @@ void FAudioDevice::Update(bool bGameTicking)
 		// Update the audio clock, this can be overridden per platform to get a sample-accurate clock
 		UpdateAudioClock();
 	}
+
+	// update if baked analysis is enabled
+	bIsBakedAnalysisEnabled = (BakedAnalysisEnabledCVar == 1);
 
 	if (bGameTicking)
 	{
