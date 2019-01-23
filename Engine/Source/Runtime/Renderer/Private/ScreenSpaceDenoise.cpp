@@ -80,8 +80,8 @@ const IScreenSpaceDenoiser* GScreenSpaceDenoiser = nullptr;
 
 static bool IsSupportedLightType(ELightComponentType LightType)
 {
-	// TODO.
-	return LightType == LightType_Directional || LightType == LightType_Rect;
+	// TODO: whitelist LightType_Spot once implemented in the ray generation shader and tested.
+	return  LightType == LightType_Point || LightType == LightType_Directional || LightType == LightType_Rect;
 }
 
 

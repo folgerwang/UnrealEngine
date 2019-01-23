@@ -474,13 +474,12 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 	{
 		return HitDistanceToWorldBluringRadius * Sample.PenumbraClosestHit * Anisotropy;
 	}
-	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_POINT
+	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_POINT || DIM_LIGHT_TYPE == LIGHT_TYPE_SPOT
 	{
-		return 0; // TODO: point light soft shadows are not implemented.
-	}
-	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_SPOT
-	{
-		return 0; // TODO: spot light soft shadows are not implemented.
+		float3 PixelToLightWorldVector = (LightParameters.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
+		float DistanceFromLight = length(PixelToLightWorldVector);
+
+		return LightParameters.SourceRadius * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
 	}
 	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_RECT
 	{
