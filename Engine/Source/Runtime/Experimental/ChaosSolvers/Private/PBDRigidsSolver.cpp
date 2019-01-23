@@ -100,8 +100,6 @@ namespace Chaos
 		, bIsFloorAnalytic(false)
 		, FloorHeight(0.f)
 		, MaxCollisionDataSize(1024)
-		, MCurrentEvent(nullptr)
-		, MCurrentLock(nullptr)
 		, CollisionDataTimeWindow(0.1f)
 		, DoCollisionDataSpatialHash(true)
 		, CollisionDataSpatialHashRadius(15.f)
@@ -115,6 +113,8 @@ namespace Chaos
 		, TrailingDataTimeWindow(0.1f)
 		, TrailingMinSpeedThreshold(100.f)
 		, TrailingMinVolumeThreshold(1000.f)
+		, MCurrentEvent(nullptr)
+		, MCurrentLock(nullptr)
 	{
 		UE_LOG(LogPBDRigidsSolverSolver, Verbose, TEXT("PBDRigidsSolver::PBDRigidsSolver()"));
 		Reset();
