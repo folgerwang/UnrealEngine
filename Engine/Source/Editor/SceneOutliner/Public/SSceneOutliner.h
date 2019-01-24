@@ -181,6 +181,9 @@ namespace SceneOutliner
 		/** Tells the scene outliner that it should do a full refresh, which will clear the entire tree and rebuild it from scratch. */
 		void FullRefresh();
 
+		/** Tells the scene outliner that there was a change in the level actor list. */
+		void OnLevelActorListChanged();
+
 		/** Attempts to add an item to the tree. Will add any parents if required. */
 		bool AddItemToTree(FTreeItemRef InItem);
 		
@@ -619,6 +622,9 @@ namespace SceneOutliner
 
 		/** true if the Scene Outliner should do a full refresh. */
 		bool bFullRefresh;
+
+		/** True if the Scene Outliner is currently responding to a level visibility change */
+		bool bDisableIntermediateSorting;
 
 		/** true when the actor selection state in the world does not match the selection state of the tree */
 		bool bActorSelectionDirty;

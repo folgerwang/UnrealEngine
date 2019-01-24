@@ -549,7 +549,7 @@ namespace SceneOutliner
 		// @todo outliner: Might not catch some cases (see: CALLBACK_ActorPropertiesChange, CALLBACK_LayerChange, CALLBACK_LevelDirtied, CALLBACK_OnActorMoved, CALLBACK_UpdateLevelsForAllActors)
 		FEditorDelegates::MapChange.AddSP( this, &SSceneOutliner::OnMapChange );
 		FEditorDelegates::NewCurrentLevel.AddSP( this, &SSceneOutliner::OnNewCurrentLevel );
-		GEngine->OnLevelActorListChanged().AddSP( this, &SSceneOutliner::FullRefresh );
+		GEngine->OnLevelActorListChanged().AddSP( this, &SSceneOutliner::OnLevelActorListChanged );
 		FWorldDelegates::LevelAddedToWorld.AddSP( this, &SSceneOutliner::OnLevelAdded );
 		FWorldDelegates::LevelRemovedFromWorld.AddSP( this, &SSceneOutliner::OnLevelRemoved );
 
@@ -1014,6 +1014,11 @@ namespace SceneOutliner
 		Refresh();
 	}
 
+	void SSceneOutliner::OnLevelActorListChanged()
+	{
+		bDisableIntermediateSorting = true;
+		FullRefresh();
+	}
 
 	void SSceneOutliner::Populate()
 	{
@@ -1130,6 +1135,7 @@ namespace SceneOutliner
 		PendingOperations.RemoveAt(0, End);
 		SetParentsExpansionState(ExpansionStateInfo);
 
+
 		for (FName Folder : PendingFoldersSelect)
 		{
 			if (FTreeItemPtr* Item = TreeItemMap.Find(Folder))
@@ -1139,16 +1145,25 @@ namespace SceneOutliner
 		}
 		PendingFoldersSelect.Empty();
 
-		if (bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld)
-		{
-			RequestSort();
-		}
-
+		// Check if we need to sort because we are finished with the populating operations
+		bool bFinalSort = false;
 		if (PendingOperations.Num() == 0)
 		{
 			// We're fully refreshed now.
 			NewItemActions.Empty();
 			bNeedsRefresh = false;
+			if (bDisableIntermediateSorting)
+			{
+				bDisableIntermediateSorting = false;
+				bFinalSort = true;
+			}
+		}
+
+		// If we are allowing intermediate sorts and met the conditions, or this is the final sort after all ops are complete
+		if ((bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld && !bDisableIntermediateSorting) ||
+			bFinalSort)
+		{
+			RequestSort();
 		}
 	}
 
