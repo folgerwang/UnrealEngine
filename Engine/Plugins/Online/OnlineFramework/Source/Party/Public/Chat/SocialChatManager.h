@@ -45,7 +45,7 @@ struct FSocialChatChannelConfig
 };
 
 /** The chat manager is a fully passive construct that watches for creation of chat rooms and message activity therein */
-UCLASS(Within=SocialToolkit)
+UCLASS(Within=SocialToolkit, Config=Game)
 class PARTY_API USocialChatManager : public UObject
 {
 	GENERATED_BODY()
@@ -104,6 +104,11 @@ public:
 
 	USocialToolkit& GetOwningToolkit() const;
 
+	bool AreSlashCommandsEnabled() { return bEnableChatSlashCommands; }
+
+	USocialChatChannel* GetChatRoomForType(ESocialChannelType Key);
+
+
 protected:
 	IOnlineChatPtr GetOnlineChatInterface(ESocialSubsystem InSocialSubsystem = ESocialSubsystem::Primary) const;
 	virtual void InitializeChatManager();
@@ -111,12 +116,16 @@ protected:
 
 	virtual void HandleChatRoomMessageReceived(const FUniqueNetId& LocalUserId, const FChatRoomId& RoomId, const TSharedRef<FChatMessage>& ChatMessage);
 	virtual void HandleChatPrivateMessageReceived(const FUniqueNetId& LocalUserId, const TSharedRef<FChatMessage>& ChatMessage);
+
+	virtual void OnChannelCreatedInternal(USocialChatChannel& CreatedChannel);
+	virtual void OnChannelLeftInternal(USocialChatChannel& ChannelLeft);
 private:
+	TMap < ESocialChannelType, TWeakObjectPtr<USocialChatChannel>> ChannelsByType;
 
 	USocialChatRoom& FindOrCreateRoom(const FChatRoomId& RoomId);
 	USocialChatChannel& FindOrCreateChannel(USocialUser& SocialUser);
 	USocialChatChannel& FindOrCreateChannel(const FText& DisplayName);
-	
+
 	void HandleChatRoomCreated(const FUniqueNetId& LocalUserId, const FChatRoomId& RoomId, bool bWasSuccessful, const FString& Error);
 	void HandleChatRoomConfigured(const FUniqueNetId& LocalUserId, const FChatRoomId& RoomId, bool bWasSuccessful, const FString& Error);
 	void HandleChatRoomJoinPublic(const FUniqueNetId& LocalUserId, const FChatRoomId& RoomId, bool bWasSuccessful, const FString& Error);
@@ -142,6 +151,9 @@ private:
 
 	UPROPERTY()
 	TMap<FString, USocialReadOnlyChatChannel*> ReadOnlyChannelsByDisplayName;
+
+	UPROPERTY(config)
+	bool bEnableChatSlashCommands = true;
 
 	mutable FOnChatChannelCreated OnChannelCreatedEvent;
 	mutable FOnChatChannelLeft OnChannelLeftEvent;
