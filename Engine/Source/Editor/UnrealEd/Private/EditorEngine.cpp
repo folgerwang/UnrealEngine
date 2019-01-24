@@ -7400,8 +7400,14 @@ void UEditorEngine::LoadEditorFeatureLevel()
 	EShaderPlatform ShaderPlatform = ShaderFormatToLegacyShaderPlatform(Settings->PreviewShaderPlatformName);
 	if (ShaderPlatform != SP_NumPlatforms)
 	{
-		const FName MaterialQualityPlatform = Settings->bIsMaterialQualityOverridePlatform ? Settings->PreviewShaderPlatformName : NAME_None;
+		FName MaterialQualityPlatform = NAME_None;
 		const ERHIFeatureLevel::Type FeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
+
+		if (Settings->bIsMaterialQualityOverridePlatform)
+		{
+			MaterialQualityPlatform = Settings->PreviewShaderPlatformName;
+			UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(Settings->PreviewShaderPlatformName);
+		}
 
 		SetPreviewPlatform(MaterialQualityPlatform, FeatureLevel, false);
 	}
