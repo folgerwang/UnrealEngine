@@ -65,7 +65,7 @@ public:
 		// Nobody should be getting a child when there aren't any children.
 		// We expect this to crash!
 		check( false );
-		return TSharedPtr<SWidget>(nullptr).ToSharedRef();
+		return SNullWidget::NullWidget;
 	}
 	
 	virtual TSharedRef<const SWidget> GetChildAt( int32 ) const override
@@ -73,7 +73,7 @@ public:
 		// Nobody should be getting a child when there aren't any children.
 		// We expect this to crash!
 		check( false );
-		return TSharedPtr<const SWidget>(nullptr).ToSharedRef();
+		return SNullWidget::NullWidget;
 	}
 
 private:
@@ -101,8 +101,19 @@ public:
 	}
 
 	virtual int32 Num() const override { return 1; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
+
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override
+	{
+		check(ChildIndex == 0);
+		return FSlotBase::GetWidget();
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override
+	{
+		check(ChildIndex == 0);
+		return FSlotBase::GetWidget();
+	}
+
 private:
 	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { check(ChildIndex == 0); return *this; }
 };
@@ -123,8 +134,18 @@ public:
 	}
 
 	virtual int32 Num() const override { return WidgetPtr.IsValid() ? 1 : 0 ; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
+
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override
+	{
+		check(ChildIndex == 0);
+		return GetWidget();
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override
+	{
+		check(ChildIndex == 0);
+		return GetWidget();
+	}
 
 private:
 	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { static FSlotBase NullSlot; check(ChildIndex == 0); return NullSlot; }
@@ -144,10 +165,32 @@ public:
 		}
 	}
 
+	void DetachWidget()
+	{
+		if (WidgetPtr.IsValid())
+		{
+			WidgetPtr.Reset();
+
+			if (Owner)
+			{
+				Owner->InvalidatePrepass();
+			}
+		}
+	}
+
 	TSharedRef<SWidget> GetWidget() const
 	{
+		ensure(Num() > 0);
 		TSharedPtr<SWidget> Widget = WidgetPtr.Pin();
 		return (Widget.IsValid()) ? Widget.ToSharedRef() : SNullWidget::NullWidget;
+	}
+
+private:
+	SWidget& GetWidgetRef() const
+	{
+		ensure(Num() > 0);
+		SWidget* Widget = WidgetPtr.Pin().Get();
+		return Widget ? *Widget : SNullWidget::NullWidget.Get();
 	}
 
 private:
@@ -608,4 +651,37 @@ public:
 
 private:
 	bool bChangesInvalidatePrepass;
+};
+
+
+/** Required to implement GetChildren() in a way that can dynamically return the currently active child. */
+template<typename SlotType>
+class TOneDynamicChild : public FChildren
+{
+public:
+	TOneDynamicChild(SWidget* InOwner, TPanelChildren<SlotType>* InAllChildren, const TAttribute<int32>* InWidgetIndex)
+		: FChildren(InOwner)
+		, AllChildren(InAllChildren)
+		, WidgetIndex(InWidgetIndex)
+	{ }
+
+	virtual int32 Num() const override { return AllChildren->Num() > 0 ? 1 : 0; }
+
+	virtual TSharedRef<SWidget> GetChildAt(int32 Index) override
+	{
+		check(Index == 0); return AllChildren->GetChildAt(WidgetIndex->Get());
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt(int32 Index) const override
+	{
+		check(Index == 0);
+		return AllChildren->GetChildAt(WidgetIndex->Get());
+	}
+
+private:
+
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { return (*AllChildren)[ChildIndex]; }
+
+	TPanelChildren<SlotType>* AllChildren;
+	const TAttribute<int32>* WidgetIndex;
 };
