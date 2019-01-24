@@ -65,9 +65,12 @@ public:
 	virtual ~FAnimationSetupCustomization() {}
 
 	/** Begin IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override {}
+	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override;
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
 	/** End IPropertyTypeCustomization interface */
+
+protected:
+	FText GetAnimationName(TSharedPtr<IPropertyHandle> PropertyHandle) const;
 
 protected:
 	TSharedPtr<IPropertyHandle> AnimSequencePropertyHandle;

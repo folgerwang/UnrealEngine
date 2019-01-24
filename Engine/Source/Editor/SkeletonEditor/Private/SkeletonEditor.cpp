@@ -234,6 +234,11 @@ void FSkeletonEditor::ExtendMenu()
 	AddMenuExtender(SkeletonEditorModule.GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
 }
 
+UObject* FSkeletonEditor::HandleGetAsset()
+{
+	return GetEditingObject();
+}
+
 void FSkeletonEditor::HandleObjectsSelected(const TArray<UObject*>& InObjects)
 {
 	if (DetailsView.IsValid())

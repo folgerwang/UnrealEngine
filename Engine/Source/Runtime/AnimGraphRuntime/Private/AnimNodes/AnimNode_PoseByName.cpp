@@ -27,6 +27,13 @@ void FAnimNode_PoseByName::RebuildPoseList(const FBoneContainer& InBoneContainer
 void FAnimNode_PoseByName::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
 	FAnimNode_PoseHandler::UpdateAssetPlayer(Context);
+
+	// update pose extraction context if the name differs
+	if (CurrentPoseName != PoseName)
+	{
+		RebuildPoseList(Context.AnimInstanceProxy->GetRequiredBones(), PoseAsset);
+		CurrentPoseName = PoseName;
+	}
 }
 
 void FAnimNode_PoseByName::Evaluate_AnyThread(FPoseContext& Output)

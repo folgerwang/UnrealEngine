@@ -53,6 +53,7 @@ void SScrubControlPanel::Construct( const SScrubControlPanel::FArguments& InArgs
 			SNew( SBorder )
 			[
 				SAssignNew(ScrubWidget, SScrubWidget)
+				.Clipping(EWidgetClipping::ClipToBounds)
 				.Value(InArgs._Value)
 				.NumOfKeys(InArgs._NumOfKeys)
 				.DisplayDrag(InArgs._DisplayDrag)

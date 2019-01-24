@@ -8,14 +8,18 @@ FTransitionBlendInstance::FTransitionBlendInstance() : SkeletalMeshComponent(nul
 
 void FTransitionBlendInstance::Initialise(USkeletalMeshComponent* InSkeletalMeshComponent, UClass* InAnimationBPClass)
 {
-	if (InSkeletalMeshComponent && InAnimationBPClass)
+	if (InSkeletalMeshComponent)
 	{
 		SkeletalMeshComponent = InSkeletalMeshComponent;
-		SkeletalMeshComponent->SetAnimInstanceClass(InAnimationBPClass);
+		if (InAnimationBPClass)
+		{
+			SkeletalMeshComponent->SetAnimInstanceClass(InAnimationBPClass);
+			TransitionInstance = Cast<UAnimSharingTransitionInstance>(SkeletalMeshComponent->GetAnimInstance());
+		}
+		
 		SkeletalMeshComponent->SetComponentTickEnabled(false);	
 		SkeletalMeshComponent->SetForcedLOD(0);
-		SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-		TransitionInstance = Cast<UAnimSharingTransitionInstance>(SkeletalMeshComponent->GetAnimInstance());
+		SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;		
 	}
 }
 

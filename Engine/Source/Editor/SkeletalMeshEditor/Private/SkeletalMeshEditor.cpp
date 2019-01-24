@@ -1049,9 +1049,10 @@ void FSkeletalMeshEditor::HandleReimportAllMeshWithNewFile(int32 SourceFileIndex
 void FSkeletalMeshEditor::ToggleMeshSectionSelection()
 {
 	TSharedRef<IPersonaPreviewScene> PreviewScene = GetPersonaToolkit()->GetPreviewScene();
+	PreviewScene->DeselectAll();
 	bool bState = !PreviewScene->AllowMeshHitProxies();
 	GetMutableDefault<UPersonaOptions>()->bAllowMeshSectionSelection = bState;
-	PreviewScene->SetAllowMeshHitProxies(bState);	
+	PreviewScene->SetAllowMeshHitProxies(bState);
 }
 
 bool FSkeletalMeshEditor::IsMeshSectionSelectionChecked() const

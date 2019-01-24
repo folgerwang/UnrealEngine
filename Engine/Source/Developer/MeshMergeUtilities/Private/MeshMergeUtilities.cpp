@@ -1484,7 +1484,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 		}
 	};
 
-	// Landscape culling
+	// Landscape culling.  NB these are temporary copies of the culling data and should be deleted after use.
 	TArray<FMeshDescription*> CullingRawMeshes;
 	if (InMeshProxySettings.bUseLandscapeCulling)
 	{
@@ -1587,7 +1587,14 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 		Processor->Tick(0); // make sure caller gets merging results
 	}
+
+	// Clean up the CullingRawMeshes
+	for (FMeshDescription* RawMesh : CullingRawMeshes)
+	{
+		delete RawMesh;
+	}
 }
+
 
 bool FMeshMergeUtilities::IsValidBaseMaterial(const UMaterialInterface* InBaseMaterial, bool bShowToaster) const
 {
@@ -3077,12 +3084,12 @@ UMaterialInterface* FMeshMergeUtilities::CreateProxyMaterial(const FString &InBa
 	FString MaterialPackageName;
 	if (InBasePackageName.IsEmpty())
 	{
-		MaterialAssetName = TEXT("M_MERGED_") + FPackageName::GetShortName(MergedAssetPackageName);
+		MaterialAssetName = FPackageName::GetShortName(MergedAssetPackageName);
 		MaterialPackageName = FPackageName::GetLongPackagePath(MergedAssetPackageName) + TEXT("/") + MaterialAssetName;
 	}
 	else
 	{
-		MaterialAssetName = TEXT("M_") + FPackageName::GetShortName(InBasePackageName);
+		MaterialAssetName = FPackageName::GetShortName(InBasePackageName);
 		MaterialPackageName = FPackageName::GetLongPackagePath(InBasePackageName) + TEXT("/") + MaterialAssetName;
 	}
 
@@ -3095,7 +3102,7 @@ UMaterialInterface* FMeshMergeUtilities::CreateProxyMaterial(const FString &InBa
 		MaterialPackage->Modify();
 	}
 
-	UMaterialInstanceConstant* MergedMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(MaterialPackage, InSettings.MaterialSettings, InBaseMaterial, OutMaterial, MaterialAssetName, MaterialPackageName, OutAssetsToSync);
+	UMaterialInstanceConstant* MergedMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(MaterialPackage, InSettings.MaterialSettings, InBaseMaterial, OutMaterial, MaterialPackageName, MaterialAssetName, OutAssetsToSync);
 	// Set material static lighting usage flag if project has static lighting enabled
 	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
