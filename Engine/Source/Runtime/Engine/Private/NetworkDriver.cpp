@@ -203,6 +203,12 @@ static TAutoConsoleVariable<int32> CVarActorChannelPool(
 	1,
 	TEXT("If nonzero, actor channels will be pooled to save memory and object creation cost."));
 
+static TAutoConsoleVariable<int32> CVarAllowReliableMulticastToNonRelevantChannels(
+	TEXT("net.AllowReliableMulticastToNonRelevantChannels"),
+	1,
+	TEXT("Allow Reliable Server Multicasts to be sent to non-Relevant Actors, as long as their is an existing ActorChannel.")
+);
+
 /*-----------------------------------------------------------------------------
 	UNetDriver implementation.
 -----------------------------------------------------------------------------*/
@@ -1398,7 +1404,7 @@ void UNetDriver::InitConnectionlessHandler()
 		if (ConnectionlessHandler.IsValid())
 		{
 			ConnectionlessHandler->NotifyAnalyticsProvider(AnalyticsProvider, AnalyticsAggregator);
-			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true);
+			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, nullptr, nullptr, NetDriverName);
 
 			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
 			TSharedPtr<HandlerComponent> NewComponent =
@@ -3126,20 +3132,12 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 
 	for (auto It = This->ReplicationChangeListMap.CreateIterator(); It; ++It)
 	{
-		if (It.Value().IsValid())
-		{
-			FRepChangelistState* const ChangelistState = It.Value()->GetRepChangelistState();
-			if (ChangelistState && ChangelistState->RepLayout.IsValid())
-			{
-				ChangelistState->RepLayout->AddReferencedObjects(Collector);
-			}
-		}
-		else
+		if (!It.Value().IsValid())
 		{
 			It.RemoveCurrent();
 		}
 	}
-	
+
 	for (FObjectReplicator* Replicator : This->AllOwnedReplicators)
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
@@ -5302,6 +5300,11 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 	SCOPE_CYCLE_COUNTER(STAT_NetProcessRemoteFunc);
 	SCOPE_CYCLE_UOBJECT(Function, Function);
 
+	{
+		UObject* TestObject = (SubObject == nullptr) ? Actor : SubObject;
+		ensureMsgf(TestObject->IsSupportedForNetworking() || TestObject->IsNameStableForNetworking(), TEXT("Attempted to call ProcessRemoteFunction with object that is not supported for networking. Object: %s Function: %s"), *TestObject->GetPathName(), *Function->GetName());
+	}
+
 	bool bBlockSendRPC = false;
 
 	SendRPCDel.ExecuteIfBound(Actor, Function, Parameters, OutParms, Stack, SubObject, bBlockSendRPC);
@@ -5335,13 +5338,18 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 				{
 					// Only send or queue multicasts if the actor is relevant to the connection
 					FNetViewer Viewer(Connection, 0.f);
-					if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation))
-					{
-						if (Connection->GetUChildConnection() != nullptr)
-						{
-							Connection = ((UChildConnection*)Connection)->Parent;
-						}
 
+					if (Connection->GetUChildConnection() != nullptr)
+					{
+						Connection = ((UChildConnection*)Connection)->Parent;
+					}
+
+					// It's possible that an actor is not relevant to a specific connection, but the channel is still alive (due to hysteresis).
+					// However, it's also possible that the Actor could become relevant again before the channel ever closed, and in that case we
+					// don't want to lose Reliable RPCs.
+					if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation) ||
+						((Function->FunctionFlags & FUNC_NetReliable) && !!CVarAllowReliableMulticastToNonRelevantChannels.GetValueOnGameThread() && Connection->FindActorChannelRef(Actor)))
+					{
 						// We don't want to call this unless necessary, and it will internally handle being called multiple times before a clear
 						// Builds any shared serialization state for this rpc
 						RepLayout->BuildSharedSerializationForRPC(Parameters);
@@ -5421,7 +5429,7 @@ bool UNetDriver::ShouldCallRemoteFunction(UObject* Object, UFunction* Function, 
 
 bool UNetDriver::ShouldClientDestroyActor(AActor* Actor) const
 {
-	return true;
+	return (Actor && !Actor->IsA(ALevelScriptActor::StaticClass()));
 }
 
 FAutoConsoleCommandWithWorld	DumpRelevantActorsCommand(

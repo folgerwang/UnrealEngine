@@ -48,8 +48,24 @@ public:
 	 * @param InSocketDescription the debug description of the socket
 	 * @param InSubsystem the subsystem that created this socket
 	 */
-	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem) 
-		: FSocket(InSocketType, InSocketDescription)
+	UE_DEPRECATED(4.22, "Use the socket constructor with protocol specification.")
+	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem)
+		: FSocket(InSocketType, InSocketDescription, ESocketProtocolFamily::IPv6)
+		, Socket(InSocket)
+		, SocketSubsystem(InSubsystem)
+	{ }
+
+	/**
+	 * Assigns a BSD socket to this object
+	 *
+	 * @param InSocket the socket to assign to this object
+	 * @param InSocketType the type of socket that was created
+	 * @param InSocketDescription the debug description of the socket
+	 * @param InSocketProtocol the protocol used to create this socket.
+	 * @param InSubsystem the subsystem that created this socket
+	 */
+	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol, ISocketSubsystem* InSubsystem) 
+		: FSocket(InSocketType, InSocketDescription, InSocketProtocol)
 		, Socket(InSocket)
 		, SocketSubsystem(InSubsystem)
 	{ }

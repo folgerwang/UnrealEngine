@@ -53,7 +53,7 @@ bool FPlatformVerificationTest::RunTest (const FString& Parameters)
 	check(*(uint8*)&Test == 0x12);
 #endif
 
-	FGenericPlatformMath::AutoTest();
+	FPlatformMath::AutoTest();
 
 #if WITH_EDITORONLY_DATA
 	check(FPlatformProperties::HasEditorOnlyData());

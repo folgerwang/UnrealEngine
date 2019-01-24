@@ -20,8 +20,8 @@ class FSocketBSDIOS
 {
 public:
 
-	FSocketBSDIOS(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem)
-		:FSocketBSD(InSocket, InSocketType, InSocketDescription, InSubsystem)
+	FSocketBSDIOS(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol, ISocketSubsystem* InSubsystem)
+		:FSocketBSD(InSocket, InSocketType, InSocketDescription, InSocketProtocol, InSubsystem)
 	{
 	}
 

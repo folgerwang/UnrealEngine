@@ -50,8 +50,24 @@ public:
 	 * @param InSocketType the type of socket that was created.
 	 * @param InSocketDescription the debug description of the socket.
 	 */
-	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem) 
-		: FSocket(InSocketType, InSocketDescription)
+	UE_DEPRECATED(4.22, "Use the socket constructor that specifies protocol stack for better compatibility and debugging")
+	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem)
+		: FSocket(InSocketType, InSocketDescription, ESocketProtocolFamily::None)
+		, Socket(InSocket)
+		, LastActivityTime(0)
+		, SocketSubsystem(InSubsystem)
+	{ }
+
+	/**
+	 * Assigns a BSD socket to this object.
+	 *
+	 * @param InSocket the socket to assign to this object.
+	 * @param InSocketType the type of socket that was created.
+	 * @param InSocketDescription the debug description of the socket.
+	 * @param InSocketProtocol the protocol this socket is initialized with
+	 */
+	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol, ISocketSubsystem * InSubsystem)
+		: FSocket(InSocketType, InSocketDescription, InSocketProtocol)
 		, Socket(InSocket)
 		, LastActivityTime(0.0)
 		, SocketSubsystem(InSubsystem)

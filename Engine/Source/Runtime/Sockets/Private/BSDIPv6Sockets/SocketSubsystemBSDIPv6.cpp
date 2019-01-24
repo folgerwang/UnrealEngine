@@ -8,10 +8,10 @@
 #include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
-class FSocketBSDIPv6* FSocketSubsystemBSDIPv6::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
+class FSocketBSDIPv6* FSocketSubsystemBSDIPv6::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription, ESocketProtocolFamily SocketProtocol)
 {
 	// return a new socket object
-	return new FSocketBSDIPv6(Socket, SocketType, SocketDescription, this);
+	return new FSocketBSDIPv6(Socket, SocketType, SocketDescription, SocketProtocol, this);
 }
 
 ESocketErrors FSocketSubsystemBSDIPv6::TranslateGAIErrorCode(int32 Code) const
@@ -50,17 +50,24 @@ FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FS
 {
 	SOCKET Socket = INVALID_SOCKET;
 	FSocket* NewSocket = NULL;
+
+	// If we're passed None, initialize with IPv6 to maintain valid values.
+	if (ProtocolType == ESocketProtocolFamily::None)
+	{
+		ProtocolType = ESocketProtocolFamily::IPv6;
+	}
+
 	switch (SocketType.GetComparisonIndex())
 	{
 	case NAME_DGram:
 		// Creates a data gram (UDP) socket
 		Socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Datagram, SocketDescription) : NULL;
+		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Datagram, SocketDescription, ProtocolType) : NULL;
 		break;
 	case NAME_Stream:
 		// Creates a stream (TCP) socket
 		Socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Streaming, SocketDescription) : NULL;
+		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Streaming, SocketDescription, ProtocolType) : NULL;
 		break;
 	}
 
@@ -180,7 +187,9 @@ ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, F
 
 	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		TSharedRef<FInternetAddrBSDIPv6> ResultAddr = StaticCastSharedRef<FInternetAddrBSDIPv6>(GAIResult.Results[0].Address);
+		OutAddr.SetRawIp(ResultAddr->GetRawIp());
+		static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetScopeId(ResultAddr->GetScopeId());
 		return SE_NO_ERROR;
 	}
 

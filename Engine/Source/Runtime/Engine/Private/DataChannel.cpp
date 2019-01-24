@@ -2581,7 +2581,14 @@ void UActorChannel::ProcessBunch( FInBunch & Bunch )
 
 	for (auto RepComp = ReplicationMap.CreateIterator(); RepComp; ++RepComp)
 	{
-		RepComp.Value()->PostReceivedBunch();
+		TSharedRef<FObjectReplicator>& ObjectReplicator = RepComp.Value();
+		if (ObjectReplicator->GetObject() == nullptr)
+		{
+			RepComp.RemoveCurrent();
+			continue;
+		}
+
+		ObjectReplicator->PostReceivedBunch();
 	}
 
 	// After all properties have been initialized, call PostNetInit. This should call BeginPlay() so initialization can be done with proper starting values.
@@ -3752,7 +3759,7 @@ bool UActorChannel::ReplicateSubobject(UObject *Obj, FOutBunch &Bunch, const FRe
 	// Once we can lazily handle unmapped references on the client side, this can be simplified.
 	if ( !Connection->Driver->GuidCache->SupportsObject( Obj, &WeakObj ) )
 	{
-		FNetworkGUID NetGUID = Connection->Driver->GuidCache->AssignNewNetGUID_Server( Obj );	//Make sure he gets a NetGUID so that he is now 'supported'
+		Connection->Driver->GuidCache->AssignNewNetGUID_Server( Obj );	//Make sure he gets a NetGUID so that he is now 'supported'
 	}
 
 	bool NewSubobject = false;

@@ -782,7 +782,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		if (GetPIEWorldContext() != nullptr && GetPIEWorldContext()->World() != nullptr)
 		{
-			GEngine->ShutdownWorldNetDriver(GetPIEWorldContext()->World());
+			GetPIEWorldContext()->World()->DestroyDemoNetDriver();
 		}
 	});
 

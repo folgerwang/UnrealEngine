@@ -812,6 +812,10 @@ public:
 
 	uint32 GetReplicationGraphFrame() const { return ReplicationGraphFrame; }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	virtual class AReplicationGraphDebugActor* CreateDebugActor() const;
+#endif
+
 
 	/** Prioritization Constants: these affect how the final priority of an actor is calculated in the prioritize phase */
 	struct FPrioritizationConstants

@@ -527,6 +527,7 @@ public:
 };
 
 uint16 FRepLayout::CompareProperties_r(
+	FRepState* RESTRICT		RepState,
 	const int32				CmdStart,
 	const int32				CmdEnd,
 	const uint8* RESTRICT	ShadowData,
@@ -538,6 +539,7 @@ uint16 FRepLayout::CompareProperties_r(
 {
 	check(ShadowData);
 
+	FRepChangedPropertyTracker* RepChangedPropertyTracker = (RepState ? RepState->RepChangedPropertyTracker.Get() : nullptr);
 	for (int32 CmdIndex = CmdStart; CmdIndex < CmdEnd; CmdIndex++)
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
@@ -548,7 +550,14 @@ uint16 FRepLayout::CompareProperties_r(
 		Handle++;
 
 		const bool bIsLifetime = ((ParentCmd.Flags & ERepParentFlags::IsLifetime) != ERepParentFlags::None);
-		const bool bShouldSkip = !bIsLifetime || (ParentCmd.Condition == COND_InitialOnly && !bIsInitial);
+
+		// Active state of a property applies to *all* connections.
+		// If the property is inactive, we can skip comparing it because we know it won't be sent.
+		// Further, this will keep the last active state of the property in the shadow buffer,
+		// meaning the next time the property becomes active it will be sent to all connections.
+		const bool bActive = (RepChangedPropertyTracker == nullptr || RepChangedPropertyTracker->Parents[Cmd.ParentIndex].Active);
+
+		const bool bShouldSkip = !bIsLifetime || !bActive || (ParentCmd.Condition == COND_InitialOnly && !bIsInitial);
 
 		if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
 		{
@@ -559,7 +568,7 @@ uint16 FRepLayout::CompareProperties_r(
 			}
 
 			// Once we hit an array, start using a stack based approach
-			CompareProperties_Array_r(ShadowData + Cmd.ShadowOffset, (const uint8*)Data + Cmd.Offset, Changed, CmdIndex, Handle, bIsInitial, bForceFail);
+			CompareProperties_Array_r(RepState, ShadowData + Cmd.ShadowOffset, ( const uint8* )Data + Cmd.Offset, Changed, CmdIndex, Handle, bIsInitial, bForceFail );
 			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
 			continue;
 		}
@@ -569,7 +578,27 @@ uint16 FRepLayout::CompareProperties_r(
 			continue;
 		}
 
-		if (bForceFail || !PropertiesAreIdentical(Cmd, (const void*)(ShadowData + Cmd.ShadowOffset), (const void*)(Data + Cmd.Offset)))
+		// RepState may be null in the case where a deprecated version of this function is called.
+		// In that case, just allow this to fail and perform the old logic.
+		if (RepState && Cmd.ParentIndex == RoleIndex)
+		{
+			const ENetRole ObjectRole = *(const ENetRole*)(Data + Cmd.Offset);
+			if (bForceFail || RepState->SavedRole != ObjectRole)
+			{
+				RepState->SavedRole = ObjectRole;
+				Changed.Add(Handle);
+			}
+		}
+		else if (RepState && Cmd.ParentIndex == RemoteRoleIndex)
+		{
+			const ENetRole ObjectRemoteRole = *(const ENetRole*)(Data + Cmd.Offset);
+			if (bForceFail || RepState->SavedRemoteRole != ObjectRemoteRole)
+			{
+				RepState->SavedRemoteRole = ObjectRemoteRole;
+				Changed.Add(Handle);
+			}
+		}
+		else if (bForceFail || !PropertiesAreIdentical(Cmd, (const void*)(ShadowData + Cmd.ShadowOffset), (const void*)(Data + Cmd.Offset)))
 		{
 			StoreProperty(Cmd, (void*)(ShadowData + Cmd.ShadowOffset), (const void*)(Data + Cmd.Offset));
 			Changed.Add(Handle);
@@ -580,6 +609,7 @@ uint16 FRepLayout::CompareProperties_r(
 }
 
 void FRepLayout::CompareProperties_Array_r(
+	FRepState* RESTRICT		RepState,
 	const uint8* RESTRICT	ShadowData,
 	const uint8* RESTRICT	Data,
 	TArray<uint16>&			Changed,
@@ -614,7 +644,7 @@ void FRepLayout::CompareProperties_Array_r(
 
 		const bool bNewForceFail = bForceFail || i >= ShadowArrayNum;
 
-		LocalHandle = CompareProperties_r(CmdIndex + 1, Cmd.EndCmd - 1, ShadowData + ElementOffset, Data + ElementOffset, ChangedLocal, LocalHandle, bIsInitial, bNewForceFail);
+		LocalHandle = CompareProperties_r(RepState, CmdIndex + 1, Cmd.EndCmd - 1, ShadowData + ElementOffset, Data + ElementOffset, ChangedLocal, LocalHandle, bIsInitial, bNewForceFail);
 	}
 
 	if (ChangedLocal.Num())
@@ -637,6 +667,7 @@ void FRepLayout::CompareProperties_Array_r(
 }
 
 bool FRepLayout::CompareProperties(
+	FRepState* RESTRICT				RepState,
 	FRepChangelistState* RESTRICT	RepChangelistState,
 	const uint8* RESTRICT			Data,
 	const FReplicationFlags&		RepFlags) const
@@ -664,7 +695,7 @@ bool FRepLayout::CompareProperties(
 	TArray<uint16>& Changed = NewHistoryItem.Changed;
 	Changed.Empty();
 
-	CompareProperties_r(0, Cmds.Num() - 1, RepChangelistState->StaticBuffer.GetData(), Data, Changed, 0, RepFlags.bNetInitial, false);
+	CompareProperties_r(RepState, 0, Cmds.Num() - 1, RepChangelistState->StaticBuffer.GetData(), Data, Changed, 0, RepFlags.bNetInitial, false);
 
 	if (Changed.Num() == 0)
 	{
@@ -750,12 +781,16 @@ bool FRepLayout::ReplicateProperties(
 
 	FRepChangedPropertyTracker*	ChangeTracker = RepState->RepChangedPropertyTracker.Get();
 
+	TArray<uint16> NewlyActiveChangelist;
+
 	// Rebuild conditional state if needed
 	if (RepState->RepFlags.Value != RepFlags.Value)
 	{
 		RebuildConditionalProperties(RepState, RepFlags);
 
-		RepState->RepFlags.Value = RepFlags.Value;
+		// Filter out any previously inactive changes from still inactive ones
+		TArray<uint16> InactiveChangelist = MoveTemp(RepState->InactiveChangelist);
+		FilterChangeList(InactiveChangelist, RepState->InactiveParents, RepState->InactiveChangelist, NewlyActiveChangelist);
 	}
 
 	if (OwningChannel->Connection->bResendAllDataSinceOpen)
@@ -769,8 +804,15 @@ bool FRepLayout::ReplicateProperties(
 			TArray<uint16> Pruned;
 			PruneChangeList(RepState, Data, RepState->LifetimeChangelist, Pruned);
 			RepState->LifetimeChangelist = MoveTemp(Pruned);
-			SendProperties_BackwardsCompatible(RepState, ChangeTracker, Data, OwningChannel->Connection, Writer, RepState->LifetimeChangelist);
-			return true;
+
+			// No need to merge in the newly active properties here, as the Lifetime Changelist should contain everything
+			// inactive or otherwise.
+			FilterChangeListToActive(RepState->LifetimeChangelist, RepState->InactiveParents, Pruned);
+			if (Pruned.Num() > 0)
+			{
+				SendProperties_BackwardsCompatible(RepState, ChangeTracker, Data, OwningChannel->Connection, Writer, Pruned);
+				return true;
+			}
 		}
 
 		return false;
@@ -788,7 +830,7 @@ bool FRepLayout::ReplicateProperties(
 	// We can early out if we know for sure there are no new changelists to send
 	if (bCompareIndexSame || RepState->LastChangelistIndex == RepChangelistState->HistoryEnd)
 	{
-		if (RepState->NumNaks == 0 && !bFlushPreOpenAckHistory)
+		if (RepState->NumNaks == 0 && !bFlushPreOpenAckHistory && NewlyActiveChangelist.Num() == 0)
 		{
 			// Nothing changed and there are no nak's, so just do normal housekeeping and remove acked history items
 			UpdateChangelistHistory(RepState, ObjectClass, Data, OwningChannel->Connection, NULL);
@@ -826,6 +868,13 @@ bool FRepLayout::ReplicateProperties(
 
 		TArray<uint16> Temp = MoveTemp(Changed);
 		MergeChangeList(Data, HistoryItem.Changed, Temp, Changed);
+	}
+
+	// Merge in newly active properties so they can be sent.
+	if (NewlyActiveChangelist.Num() > 0)
+	{
+		TArray<uint16> Temp = MoveTemp(Changed);
+		MergeChangeList(Data, NewlyActiveChangelist, Temp, Changed);
 	}
 
 	// We're all caught up now
@@ -870,16 +919,32 @@ bool FRepLayout::ReplicateProperties(
 
 	const int32 NumBits = Writer.GetNumBits();
 
+	// Filter out the final changelist into Active and Inaction.
+	TArray<uint16> UnfilteredChanged = MoveTemp(Changed);
+	TArray<uint16> NewlyInactiveChangelist;
+	FilterChangeList(UnfilteredChanged, RepState->InactiveParents, NewlyInactiveChangelist, Changed);
+
+	// If we have any properties that are no longer active, make sure we track them.
+	if (NewlyInactiveChangelist.Num() > 1)
+	{
+		TArray<uint16> Temp = MoveTemp(RepState->InactiveChangelist);
+		MergeChangeList(Data, NewlyInactiveChangelist, Temp, RepState->InactiveChangelist);
+	}
+
 	// Send the final merged change list
 	if (OwningChannel->Connection->InternalAck)
 	{
 		// Remember all properties that have changed since this channel was first opened in case we need it (for bResendAllDataSinceOpen)
+		// We use UnfilteredChanged so LifetimeChangelist contains all properties, regardless of Active state.
 		TArray<uint16> Temp = MoveTemp(RepState->LifetimeChangelist);
-		MergeChangeList(Data, Changed, Temp, RepState->LifetimeChangelist);
+		MergeChangeList(Data, UnfilteredChanged, Temp, RepState->LifetimeChangelist);
 
-		SendProperties_BackwardsCompatible(RepState, ChangeTracker, Data, OwningChannel->Connection, Writer, Changed);
+		if (Changed.Num() > 0)
+		{
+			SendProperties_BackwardsCompatible(RepState, ChangeTracker, Data, OwningChannel->Connection, Writer, Changed);
+		}
 	}
-	else
+	else if (Changed.Num() > 0)
 	{
 		SendProperties(RepState, ChangeTracker, Data, ObjectClass, Writer, Changed, RepChangelistState->SharedSerialization);
 	}
@@ -1394,6 +1459,89 @@ void FRepLayout::PruneChangeList_r(
 	}
 }
 
+void FRepLayout::FilterChangeList(
+	const TArray<uint16>&	Changelist,
+	const TBitArray<>&		InactiveParents,
+	TArray<uint16>&			OutInactiveProperties,
+	TArray<uint16>&			OutActiveProperties) const
+{
+	FChangelistIterator ChangelistIterator(Changelist, 0);
+	FRepHandleIterator HandleIterator(ChangelistIterator, Cmds, BaseHandleToCmdIndex, 0, 1, 0, Cmds.Num() - 1);
+
+	OutInactiveProperties.Empty();
+	OutActiveProperties.Empty();
+
+	while (HandleIterator.NextHandle())
+	{
+		const FRepLayoutCmd& Cmd = Cmds[HandleIterator.CmdIndex];
+
+		TArray<uint16>& Properties = InactiveParents[Cmd.ParentIndex] ? OutInactiveProperties : OutActiveProperties;
+			
+		Properties.Add(HandleIterator.Handle);
+
+		if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
+		{
+			// No need to recursively filter the change list, as handles are only enabled/disabled at the parent level
+			int32 HandleCount = ChangelistIterator.Changed[ChangelistIterator.ChangedIndex];
+			Properties.Add(HandleCount);
+					
+			for (int32 I = 0; I < HandleCount; ++I)
+			{
+				Properties.Add(ChangelistIterator.Changed[ChangelistIterator.ChangedIndex + 1 + I]);
+			}
+
+			Properties.Add(0);
+
+			HandleIterator.JumpOverArray();
+		}
+	}
+
+	OutInactiveProperties.Add(0);
+	OutActiveProperties.Add(0);
+}
+
+void FRepLayout::FilterChangeListToActive(
+	const TArray<uint16>&	Changelist,
+	const TBitArray<>&		InactiveParents,
+	TArray<uint16>&			OutProperties) const
+{
+	FChangelistIterator ChangelistIterator(Changelist, 0);
+	FRepHandleIterator HandleIterator(ChangelistIterator, Cmds, BaseHandleToCmdIndex, 0, 1, 0, Cmds.Num() - 1);
+
+	OutProperties.Empty();
+
+	while (HandleIterator.NextHandle())
+	{
+		const FRepLayoutCmd& Cmd = Cmds[HandleIterator.CmdIndex];
+		if (!InactiveParents[Cmd.ParentIndex])
+		{
+			OutProperties.Add(HandleIterator.Handle);
+
+			if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
+			{
+				// No need to recursively filter the change list, as handles are only enabled/disabled at the parent level
+				int32 HandleCount = ChangelistIterator.Changed[ChangelistIterator.ChangedIndex];
+				OutProperties.Add(HandleCount);
+
+				for (int32 I = 0; I < HandleCount; ++I)
+				{
+					OutProperties.Add(ChangelistIterator.Changed[ChangelistIterator.ChangedIndex + 1 + I]);
+				}
+
+				OutProperties.Add(0);
+
+				HandleIterator.JumpOverArray();
+			}
+		}
+		else if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
+		{
+			HandleIterator.JumpOverArray();
+		}
+	}
+
+	OutProperties.Add(0);
+}
+
 const FRepSerializedPropertyInfo* FRepSerializationSharedInfo::WriteSharedProperty(
 	const FRepLayoutCmd&	Cmd,
 	const FGuid&			PropertyGuid,
@@ -1455,21 +1603,7 @@ void FRepLayout::SendProperties_r(
 	while (HandleIterator.NextHandle())
 	{
 		const FRepLayoutCmd& Cmd = Cmds[HandleIterator.CmdIndex];
-
 		const FRepParentCmd& ParentCmd = Parents[Cmd.ParentIndex];
-
-		if (!RepState->ConditionMap[ParentCmd.Condition] || !ChangedTracker->Parents[Cmd.ParentIndex].Active)
-		{
-			if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
-			{
-				if (!HandleIterator.JumpOverArray())
-				{
-					break;
-				}
-			}
-
-			continue;
-		}
 
 		UE_LOG(LogRepProperties, VeryVerbose, TEXT("SendProperties_r: Parent=%d, Cmd=%d, ArrayIndex=%d"), Cmd.ParentIndex, HandleIterator.CmdIndex, HandleIterator.ArrayIndex);
 		
@@ -1513,6 +1647,17 @@ void FRepLayout::SendProperties_r(
 			WritePropertyHandle(Writer, 0, bDoChecksum);		// Signify end of dynamic array
 			continue;
 		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
+		}		
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if (GDoReplicationContextString> 0)
@@ -1767,23 +1912,7 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 	while (HandleIterator.NextHandle())
 	{
 		const FRepLayoutCmd& Cmd = Cmds[HandleIterator.CmdIndex];
-
 		const FRepParentCmd& ParentCmd = Parents[Cmd.ParentIndex];
-
-		const bool bConditionMatches = ChangedTracker == nullptr || (RepState->ConditionMap[ParentCmd.Condition] && ChangedTracker->Parents[Cmd.ParentIndex].Active);
-
-		if (!bConditionMatches)
-		{
-			if (Cmd.Type == ERepLayoutCmdType::DynamicArray)
-			{
-				if (!HandleIterator.JumpOverArray())
-				{
-					break;
-				}
-			}
-
-			continue;
-		}
 
 		UE_LOG(LogRepProperties, VeryVerbose, TEXT("SendProperties_BackwardsCompatible_r: Parent=%d, Cmd=%d, ArrayIndex=%d"), Cmd.ParentIndex, HandleIterator.CmdIndex, HandleIterator.ArrayIndex);
 
@@ -1855,6 +1984,17 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 			HandleIterator.ChangelistIterator.ChangedIndex++;
 			continue;
 		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
+		}		
 
 		WriteProperty_BackwardsCompatible(Writer, Cmd, HandleIterator.CmdIndex, Owner, Data, bDoChecksum);
 	}
@@ -1863,6 +2003,7 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 }
 
 void FRepLayout::SendAllProperties_BackwardsCompatible_r(
+	FRepState* RESTRICT					RepState,
 	FNetBitWriter&						Writer,
 	const bool							bDoChecksum,
 	UPackageMapClient*					PackageMapClient,
@@ -1905,7 +2046,7 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 				TempWriter.SerializeIntPacked(ArrayIndex);
 
 				UE_LOG(LogRepProperties, VeryVerbose, TEXT("SendAllProperties_BackwardsCompatible_r: (Temp) ArrayIndex=%d"), ArrayIndex);
-				SendAllProperties_BackwardsCompatible_r(TempWriter, bDoChecksum, PackageMapClient, NetFieldExportGroup, CmdIndex + 1, Cmd.EndCmd - 1, ((const uint8*)Array->GetData()) + Cmd.ElementSize * i);
+				SendAllProperties_BackwardsCompatible_r(RepState, TempWriter, bDoChecksum, PackageMapClient, NetFieldExportGroup, CmdIndex + 1, Cmd.EndCmd - 1, ((const uint8*)Array->GetData()) + Cmd.ElementSize * i);
 			}
 
 			uint32 EndArrayIndex = 0;
@@ -1920,6 +2061,17 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
 			continue;
 		}
+		else
+		{
+			if (Cmd.ParentIndex == RoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRole));
+			}
+			else if (Cmd.ParentIndex == RemoteRoleIndex)
+			{
+				Data = reinterpret_cast<const uint8*>(&(RepState->SavedRemoteRole));
+			}
+		}		
 
 		WriteProperty_BackwardsCompatible(Writer, Cmd, CmdIndex, Owner, Data, bDoChecksum);
 	}
@@ -1965,7 +2117,7 @@ void FRepLayout::SendProperties_BackwardsCompatible(
 	if (Changed.Num() == 0)
 	{
 		UE_LOG(LogRepProperties, VeryVerbose, TEXT("SendProperties_BackwardsCompatible: SendAllProperties."));
-		SendAllProperties_BackwardsCompatible_r(Writer, bDoChecksum, PackageMapClient, NetFieldExportGroup.Get(), 0, Cmds.Num() - 1, Data);
+		SendAllProperties_BackwardsCompatible_r(RepState, Writer, bDoChecksum, PackageMapClient, NetFieldExportGroup.Get(), 0, Cmds.Num() - 1, Data);
 	}
 	else
 	{
@@ -2041,7 +2193,7 @@ static bool ReceivePropertyHelper(
 		// Check to see if this property changed
 		if (Parent.RepNotifyCondition == REPNOTIFY_Always || !PropertiesAreIdentical(Cmd, ShadowData + Cmd, Data + SwappedCmd))
 		{
-			(*RepNotifies).AddUnique(Parent.Property);
+			RepNotifies->AddUnique(Parent.Property);
 		}
 		else
 		{
@@ -2924,11 +3076,9 @@ void FRepLayout::CallRepNotifies(FRepState* RepState, UObject* Object) const
 	check(LayoutState == ERepLayoutState::Normal);
 
 	FRepShadowDataBuffer ShadowData(RepState->StaticBuffer.GetData());
-	auto ConstParentIt = Parents.CreateConstIterator();
 
-	for (int32 i = 0; i < RepState->RepNotifies.Num(); i++)
+	for (UProperty* RepProperty : RepState->RepNotifies)
 	{
-		UProperty* RepProperty = RepState->RepNotifies[i];
 		UFunction* RepNotifyFunc = Object->FindFunction(RepProperty->RepNotifyFunc);
 
 		if (RepNotifyFunc == nullptr)
@@ -2946,7 +3096,15 @@ void FRepLayout::CallRepNotifies(FRepState* RepState, UObject* Object) const
 		}
 		else if (RepNotifyFunc->NumParms == 1)
 		{
-			Object->ProcessEvent(RepNotifyFunc, ShadowData + Parents[PropertyToParentHandle.FindChecked(RepProperty)]);
+			const FRepParentCmd& Parent = Parents[PropertyToParentHandle.FindChecked(RepProperty)];
+
+			Object->ProcessEvent(RepNotifyFunc, ShadowData + Parent);
+
+			// now store the complete value in the shadow buffer
+			if (!EnumHasAnyFlags(Parent.Flags, ERepParentFlags::IsNetSerialize | ERepParentFlags::IsCustomDelta))
+			{
+				RepProperty->CopyCompleteValue(ShadowData + Parent, RepProperty->ContainerPtrToValuePtr<uint8>(Object));
+			}
 		}
 	}
 
@@ -4744,12 +4902,10 @@ void FRepLayout::BuildHandleToCmdIndexTable_r(
 	}
 }
 
-void FRepLayout::RebuildConditionalProperties(
-	FRepState * RESTRICT				RepState,
-	const FReplicationFlags&			RepFlags) const
+TStaticBitArray<COND_Max> FRepState::BuildConditionMap(const FReplicationFlags& RepFlags)
 {
-	SCOPE_CYCLE_COUNTER(STAT_NetRebuildConditionalTime);
-	
+	TStaticBitArray<COND_Max> ConditionMap;
+
 	// Setup condition map
 	const bool bIsInitial = RepFlags.bNetInitial ? true : false;
 	const bool bIsOwner = RepFlags.bNetOwner ? true : false;
@@ -4757,27 +4913,47 @@ void FRepLayout::RebuildConditionalProperties(
 	const bool bIsPhysics = RepFlags.bRepPhysics ? true : false;
 	const bool bIsReplay = RepFlags.bReplay ? true : false;
 
-	RepState->ConditionMap[COND_None] = true;
-	RepState->ConditionMap[COND_InitialOnly] = bIsInitial;
+	ConditionMap[COND_None] = true;
+	ConditionMap[COND_InitialOnly] = bIsInitial;
 
-	RepState->ConditionMap[COND_OwnerOnly] = bIsOwner;
-	RepState->ConditionMap[COND_SkipOwner] = !bIsOwner;
+	ConditionMap[COND_OwnerOnly] = bIsOwner;
+	ConditionMap[COND_SkipOwner] = !bIsOwner;
 
-	RepState->ConditionMap[COND_SimulatedOnly] = bIsSimulated;
-	RepState->ConditionMap[COND_SimulatedOnlyNoReplay] = bIsSimulated && !bIsReplay;
-	RepState->ConditionMap[COND_AutonomousOnly] = !bIsSimulated;
+	ConditionMap[COND_SimulatedOnly] = bIsSimulated;
+	ConditionMap[COND_SimulatedOnlyNoReplay] = bIsSimulated && !bIsReplay;
+	ConditionMap[COND_AutonomousOnly] = !bIsSimulated;
 
-	RepState->ConditionMap[COND_SimulatedOrPhysics] = bIsSimulated || bIsPhysics;
-	RepState->ConditionMap[COND_SimulatedOrPhysicsNoReplay] = (bIsSimulated || bIsPhysics) && !bIsReplay;
+	ConditionMap[COND_SimulatedOrPhysics] = bIsSimulated || bIsPhysics;
+	ConditionMap[COND_SimulatedOrPhysicsNoReplay] = (bIsSimulated || bIsPhysics) && !bIsReplay;
 
-	RepState->ConditionMap[COND_InitialOrOwner] = bIsInitial || bIsOwner;
-	RepState->ConditionMap[COND_ReplayOrOwner] = bIsReplay || bIsOwner;
-	RepState->ConditionMap[COND_ReplayOnly] = bIsReplay;
-	RepState->ConditionMap[COND_SkipReplay] = !bIsReplay;
+	ConditionMap[COND_InitialOrOwner] = bIsInitial || bIsOwner;
+	ConditionMap[COND_ReplayOrOwner] = bIsReplay || bIsOwner;
+	ConditionMap[COND_ReplayOnly] = bIsReplay;
+	ConditionMap[COND_SkipReplay] = !bIsReplay;
 
-	RepState->ConditionMap[COND_Custom] = true;
+	ConditionMap[COND_Custom] = true;
+
+	return ConditionMap;
+}
+
+void FRepLayout::RebuildConditionalProperties(
+	FRepState * RESTRICT				RepState,
+	const FReplicationFlags&			RepFlags) const
+{
+	SCOPE_CYCLE_COUNTER(STAT_NetRebuildConditionalTime);
+	
+	TStaticBitArray<COND_Max> ConditionMap = FRepState::BuildConditionMap(RepFlags);
+	for (auto It = TBitArray<>::FIterator(RepState->InactiveParents); It; ++It)
+	{
+		It.GetValue() = !ConditionMap[Parents[It.GetIndex()].Condition];
+	}
 
 	RepState->RepFlags = RepFlags;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	// Keep this up to date for now, in case anyone is using it.
+	RepState->ConditionMap = MoveTemp(ConditionMap);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FRepLayout::InitChangedTracker(FRepChangedPropertyTracker* ChangedTracker) const
@@ -4837,6 +5013,7 @@ void FRepLayout::InitRepState(
 
 	// Start out the conditional props based on a default RepFlags struct
 	// It will rebuild if it ever changes
+	RepState->InactiveParents.Init(false, Parents.Num());
 	RebuildConditionalProperties(RepState, FReplicationFlags());
 }
 
@@ -4964,6 +5141,9 @@ void FRepState::CountBytes(FArchive& Ar) const
 	}
 
 	LifetimeChangelist.CountBytes(Ar);
+
+	InactiveChangelist.CountBytes(Ar);
+	InactiveParents.CountBytes(Ar);
 }
 
 FRepState::~FRepState()

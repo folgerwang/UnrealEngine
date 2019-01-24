@@ -303,6 +303,8 @@ void UEditorEngine::EndPlayMap()
 			if (ThisContext.World())
 			{
 				TeardownPlaySession(ThisContext);
+
+				ShutdownWorldNetDriver(ThisContext.World());
 			}
 
 			// Cleanup online subsystems instantiated during PIE

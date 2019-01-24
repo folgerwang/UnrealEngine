@@ -434,6 +434,15 @@ PACKAGE_SCOPE:
 	 */
 	void RegisterLocalPlayers(class FNamedOnlineSession* Session);
 
+	/**
+	 * Parses the dedicated server custom name launch argument as specified by the
+	 * -SteamServerName= flag.
+	 *
+	 * @return the custom name if the value of the launch argument is specified and less than 64 characters
+	 *			otherwise returns empty string
+	 */
+	FString GetCustomDedicatedServerName() const;
+
 public:
 
 	virtual ~FOnlineSessionSteam() {}

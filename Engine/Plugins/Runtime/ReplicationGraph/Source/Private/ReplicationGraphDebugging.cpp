@@ -992,6 +992,13 @@ void UReplicationGraph::LogConnectionGraphNodes(FReplicationGraphDebugInfo& Debu
 	}
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+AReplicationGraphDebugActor* UReplicationGraph::CreateDebugActor() const
+{
+	return GetWorld()->SpawnActor<AReplicationGraphDebugActor>();
+}
+#endif
+
 void UReplicationGraphNode::LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const
 {
 	DebugInfo.Log(NodeName);

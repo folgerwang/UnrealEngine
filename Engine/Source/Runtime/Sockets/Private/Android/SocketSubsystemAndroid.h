@@ -79,6 +79,8 @@ public:
 	virtual ESocketErrors GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr) override;
 	virtual ESocketErrors CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr) override;
 
+	virtual int32 GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const override;
+
 	/**
 	 * Android platform specific look up to determine the host address
 	 * as many Android devices have multiple interfaces (wifi, cellular et al.)

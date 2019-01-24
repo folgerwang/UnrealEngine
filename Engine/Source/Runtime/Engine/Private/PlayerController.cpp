@@ -4606,6 +4606,9 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 			}
 
 			// Send a camera update if necessary.
+			// That position will be used as the base for replication
+			// (i.e., the origin that will be used when calculating NetCullDistance for other Actors / Objects).
+			// We only do this when the Pawn will move, to prevent spamming RPCs.
 			if (bIsClient && bIsLocallyControlled && GetPawn() && PlayerCameraManager->bUseClientSideCameraUpdates)
 			{
 				UPawnMovementComponent* PawnMovement = GetPawn()->GetMovementComponent();
