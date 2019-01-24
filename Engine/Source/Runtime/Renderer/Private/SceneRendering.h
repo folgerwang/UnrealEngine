@@ -1042,6 +1042,7 @@ public:
 	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> IndirectShadowPrimitives;
 
 	FShaderResourceViewRHIRef PrimitiveSceneDataOverrideSRV;
+	FShaderResourceViewRHIRef LightmapSceneDataOverrideSRV;
 
 #if RHI_RAYTRACING
 	TArray<FRayTracingGeometryInstance, SceneRenderingAllocator> RayTracingGeometryInstances;

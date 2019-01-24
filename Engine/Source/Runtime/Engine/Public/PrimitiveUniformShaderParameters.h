@@ -8,7 +8,7 @@
 #include "RenderResource.h"
 #include "ShaderParameters.h"
 #include "UniformBuffer.h"
-
+#include "LightmapUniformShaderParameters.h"
 
 /** 
  * The uniform shader parameters associated with a primitive. 
@@ -181,14 +181,20 @@ public:
 
 	virtual void ReleaseRHI() override
 	{
-		BufferSRV.SafeRelease();
-		BufferRHI.SafeRelease();
+		PrimitiveSceneDataBufferRHI.SafeRelease();
+		PrimitiveSceneDataBufferSRV.SafeRelease();
+		LightmapSceneDataBufferRHI.SafeRelease();
+		LightmapSceneDataBufferSRV.SafeRelease();
 	}
 
 	FPrimitiveSceneShaderData PrimitiveSceneData;
+	FLightmapSceneShaderData LightmapSceneData;
 
-	FStructuredBufferRHIRef BufferRHI;
-	FShaderResourceViewRHIRef BufferSRV;
+	FStructuredBufferRHIRef PrimitiveSceneDataBufferRHI;
+	FShaderResourceViewRHIRef PrimitiveSceneDataBufferSRV;
+
+	FStructuredBufferRHIRef LightmapSceneDataBufferRHI;
+	FShaderResourceViewRHIRef LightmapSceneDataBufferSRV;
 };
 
 /**

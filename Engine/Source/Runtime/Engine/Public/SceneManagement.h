@@ -25,6 +25,7 @@
 #include "BatchedElements.h"
 #include "MeshBatch.h"
 #include "SceneUtils.h"
+#include "LightmapUniformShaderParameters.h"
 
 #ifndef ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND // RHI_RAYTRACING
 #define ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND	1
@@ -298,9 +299,6 @@ static const int32 NUM_LQ_LIGHTMAP_COEF = 2;
 
 /** The index at which simple coefficients are stored in any array containing all NUM_STORED_LIGHTMAP_COEF coefficients. */ 
 static const int32 LQ_LIGHTMAP_COEF_INDEX = 2;
-
-/** The maximum value between NUM_LQ_LIGHTMAP_COEF and NUM_HQ_LIGHTMAP_COEF. */ 
-static const int32 MAX_NUM_LIGHTMAP_COEF = 2;
 
 /** Compile out low quality lightmaps to save memory */
 // @todo-mobile: Need to fix this!
@@ -636,36 +634,7 @@ class FShadowMap;
 // 16bbp is limited to 64*64 pools
 #define LIGHTMAP_VT_16BIT 1
 
-BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPrecomputedLightingUniformParameters,ENGINE_API)
-	SHADER_PARAMETER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
-	SHADER_PARAMETER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
-	SHADER_PARAMETER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
-	SHADER_PARAMETER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
-	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-	SHADER_PARAMETER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-struct FLightmapSceneShaderData
-{
-	// Must match usf
-	enum { LightmapDataStrideInFloat4s = 8 };
-
-	FVector4 Data[LightmapDataStrideInFloat4s];
-
-	explicit FLightmapSceneShaderData(const FPrecomputedLightingUniformParameters& ShaderParameters)
-	{
-		Setup(ShaderParameters);
-	}
-
-	ENGINE_API FLightmapSceneShaderData(const class FLightCacheInterface* LCI, ERHIFeatureLevel::Type FeatureLevel);
-
-	ENGINE_API void Setup(const FPrecomputedLightingUniformParameters& ShaderParameters);
-};
-
-ENGINE_API void GetPrecomputedLightingParameters(
-	ERHIFeatureLevel::Type FeatureLevel,
-	FPrecomputedLightingUniformParameters& Parameters, 
-	const FLightCacheInterface* LCI);
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapResourceClusterShaderParameters,ENGINE_API)
 	SHADER_PARAMETER_TEXTURE(Texture2D, LightMapTexture) 

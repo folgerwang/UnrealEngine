@@ -886,6 +886,7 @@ void FViewInfo::Init()
 	}
 
 	PrimitiveSceneDataOverrideSRV = nullptr;
+	LightmapSceneDataOverrideSRV = nullptr;
 
 	DitherFadeInUniformBuffer = nullptr;
 	DitherFadeOutUniformBuffer = nullptr;
@@ -1454,7 +1455,11 @@ void FViewInfo::SetupUniformBufferParameters(
 			}
 		}
 
-		if (Scene && Scene->GPUScene.LightmapDataBuffer.SRV)
+		if (LightmapSceneDataOverrideSRV)
+		{
+			ViewUniformShaderParameters.LightmapSceneData = LightmapSceneDataOverrideSRV;
+		}
+		else if (Scene && Scene->GPUScene.LightmapDataBuffer.SRV)
 		{
 			ViewUniformShaderParameters.LightmapSceneData = Scene->GPUScene.LightmapDataBuffer.SRV;
 		}

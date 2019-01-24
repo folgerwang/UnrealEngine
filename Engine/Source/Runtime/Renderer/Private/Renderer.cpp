@@ -121,10 +121,22 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FMeshPa
 				checkf(MeshElement.NumInstances == 1, TEXT("DrawTileMesh does not currently support instancing"));
 				// Force PrimitiveId to be 0 in the shader
 				MeshElement.PrimitiveIdMode = PrimID_ForceZero;
+				
+				// Set the LightmapID to 0, since that's where our light map data resides for this primitive
+				FPrimitiveUniformShaderParameters PrimitiveParams = *(const FPrimitiveUniformShaderParameters*)MeshElement.PrimitiveUniformBufferResource->GetContents();
+				PrimitiveParams.LightmapDataIndex = 0;
+
 				// Now we just need to fill out the first entry of primitive data in a buffer and bind it
-				SinglePrimitiveStructuredBuffer.PrimitiveSceneData = FPrimitiveSceneShaderData(*(const FPrimitiveUniformShaderParameters*)MeshElement.PrimitiveUniformBufferResource->GetContents());
+				SinglePrimitiveStructuredBuffer.PrimitiveSceneData = FPrimitiveSceneShaderData(PrimitiveParams);
+
+				// Set up the parameters for the LightmapSceneData from the given LCI data 
+				FPrecomputedLightingUniformParameters LightmapParams;
+				GetPrecomputedLightingParameters(FeatureLevel, LightmapParams, Mesh.LCI);
+				SinglePrimitiveStructuredBuffer.LightmapSceneData = FLightmapSceneShaderData(LightmapParams);
+
 				SinglePrimitiveStructuredBuffer.InitResource();
-				View.PrimitiveSceneDataOverrideSRV = SinglePrimitiveStructuredBuffer.BufferSRV;
+				View.PrimitiveSceneDataOverrideSRV = SinglePrimitiveStructuredBuffer.PrimitiveSceneDataBufferSRV;
+				View.LightmapSceneDataOverrideSRV = SinglePrimitiveStructuredBuffer.LightmapSceneDataBufferSRV;
 			}
 		}
 		
