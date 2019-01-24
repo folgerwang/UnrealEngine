@@ -785,10 +785,8 @@ static void DenoiseSignalAtConstantPixelDensity(
 		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc[0], TEXT("SSDReflectionsHistory0"));
 		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc[1], TEXT("SSDReflectionsHistory1"));
 
-		const int32 MipLevel = 0;
-
 		FSSDTemporalAccumulationCS::FPermutationDomain PermutationVector;
-		PermutationVector.Set<FSSDTemporalAccumulationCS::FIsMip0Dim>(MipLevel == 0);
+		PermutationVector.Set<FSSDTemporalAccumulationCS::FIsMip0Dim>(true);
 		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
 
 		TShaderMapRef<FSSDTemporalAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
@@ -808,8 +806,8 @@ static void DenoiseSignalAtConstantPixelDensity(
 		PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
 		PassParameters->PrevGBufferB = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferB, GSystemTextures.BlackDummy);
 
-		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput0, MipLevel));
-		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput1, MipLevel));
+		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
+		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
 		
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("SSDDebugReflectionTemporalAccumulation")));
 

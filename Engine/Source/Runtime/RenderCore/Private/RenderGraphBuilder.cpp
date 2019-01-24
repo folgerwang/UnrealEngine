@@ -153,13 +153,16 @@ void FRDGBuilder::Execute()
 	}
 
 	// Pops remaining scopes
-	if ((RENDER_GRAPH_DRAW_EVENTS != 0) && GetEmitDrawEvents())
+	if (RENDER_GRAPH_DRAW_EVENTS)
 	{
-		for (int32 i = 0; i < kMaxScopeCount; i++)
+		if (GetEmitDrawEvents())
 		{
-			if (!ScopesStack[i])
-				break;
-			RHICmdList.PopEvent();
+			for (int32 i = 0; i < kMaxScopeCount; i++)
+			{
+				if (!ScopesStack[i])
+					break;
+				RHICmdList.PopEvent();
+			}
 		}
 	}
 
