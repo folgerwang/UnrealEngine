@@ -1,7 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#pragma once
-
 ULiveLinkDebuggerSettings::ULiveLinkDebuggerSettings()
 	: MinBarColor(FLinearColor(.05f, 0, 0, 1))
 	, MaxBarColor(FLinearColor(1.f, 0, 0, 1))
