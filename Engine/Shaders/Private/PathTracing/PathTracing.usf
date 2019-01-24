@@ -76,6 +76,9 @@ void PathTracingMainRG()
 		float3 RayThroughput = 1.0;
 		float RayPdf = 1.0;
 
+		FRayCone RayCone = (FRayCone)0;
+		RayCone.SpreadAngle = View.EyeToPixelSpreadAngle;
+
 		uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
 		// Cast ray
@@ -86,9 +89,9 @@ void PathTracingMainRG()
 			0,      // RayContributionToHitGroupIndex
 			1,      // MultiplierForGeometryContributionToShaderIndex #dxr_todo: we currently only support shader binding per mesh instance
 			0,      // MissShaderIndex
-			Ray    // RayDesc
+			Ray,    // RayDesc
+			RayCone
 		);
-
 		RayCounter++;
 
 		float MaterialPdf = 0.0;
@@ -175,6 +178,9 @@ void PathTracingMainRG()
 				if (NeePdf > 0.0)
 				{
 					RayDesc LightRay;
+
+					FRayCone LightRayCone = RayCone;
+
 					GenerateLightRay(Ray, LightId, LightUV, LightRay);
 					// #dxr_todo: Guard against tracing a back-facing ray
 
@@ -187,8 +193,9 @@ void PathTracingMainRG()
 						0,         // RayContributionToHitGroupIndex
 						1,         // MultiplierForGeometryContributionToShaderIndex #dxr_todo: we currently only support shader binding per mesh instance
 						0,         // MissShaderIndex
-						LightRay);
-
+						LightRay,
+						LightRayCone
+					);
 					RayCounter++;
 
 					if (!IsHit(LightRay, NeePayload))
@@ -282,8 +289,9 @@ void PathTracingMainRG()
 				0,    // RayContributionToHitGroupIndex
 				1,    // MultiplierForGeometryContributionToShaderIndex
 				0,    // MissShaderIndex
-				Ray);
-
+				Ray,
+				RayCone /* propagated by the material CHS */
+			);
 			RayCounter++;
 		}
 

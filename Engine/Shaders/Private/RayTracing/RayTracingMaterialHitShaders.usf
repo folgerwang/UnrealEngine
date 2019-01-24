@@ -176,11 +176,13 @@ float4 ClipSpacePositionToSvPosition(float4 ClipSpacePosition)
 	return SvPosition;
 }
 
-void CalcInterpolants(in FDefaultAttributes Attributes, out FVertexFactoryInterpolantsVSToPS Interpolants, out float4 FakeSvPosition)
+void CalcInterpolants(in FRayCone RayCone, in FDefaultAttributes Attributes, out FVertexFactoryInterpolantsVSToPS Interpolants, out float4 FakeSvPosition)
 {
 	FVertexFactoryInterpolantsVSToDS PerVertexInterpolants[3];
 	float4 PerVertexClipSpacePositions[3]; // Used to fake SvPosition
-	
+	float3 WorldPositions[3];
+	float2 TexCoords[3];
+
 	for (int i = 0; i < 3; i++)
 	{
 		FVertexFactoryInput Input = LoadVertexFactoryInput(PrimitiveIndex(), i);
@@ -190,13 +192,17 @@ void CalcInterpolants(in FDefaultAttributes Attributes, out FVertexFactoryInterp
 		float4 WorldPositionExcludingWPO = VertexFactoryGetWorldPosition(Input, VFIntermediates);
 		FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPositionExcludingWPO, TangentToLocal);
 		
+		WorldPositions[i] = WorldPositionExcludingWPO.xyz;
 		float4 WorldPosition = WorldPositionExcludingWPO + float4(GetMaterialWorldPositionOffset(VertexParameters), 0.0f);
 		
 		PerVertexInterpolants[i] = VertexFactoryGetInterpolantsVSToDS(Input, VFIntermediates, VertexParameters);
-		
+
+#if NUM_TEX_COORD_INTERPOLATORS || USE_PARTICLE_SUBUVS
+		TexCoords[i] = PerVertexInterpolants[i].InterpolantsVSToPS.TexCoords[0].xy;
+#endif
+
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPosition);
 		PerVertexClipSpacePositions[i] = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
-
 	}
 	
 	FVertexFactoryInterpolantsVSToDS Interpolated = 
@@ -211,6 +217,23 @@ void CalcInterpolants(in FDefaultAttributes Attributes, out FVertexFactoryInterp
 	
 	float4 ClipSpacePosition = PerVertexClipSpacePositions[0] * (1 - Attributes.Barycentrics.x - Attributes.Barycentrics.y) + PerVertexClipSpacePositions[1] * Attributes.Barycentrics.x + PerVertexClipSpacePositions[2] * Attributes.Barycentrics.y;
 	FakeSvPosition = ClipSpacePosition / ClipSpacePosition.w;
+
+#if NUM_TEX_COORD_INTERPOLATORS || USE_PARTICLE_SUBUVS
+	float2 TA = TexCoords[1] - TexCoords[0];
+	float2 TB = TexCoords[2] - TexCoords[0];
+    float UvArea = abs((TA.x * TB.y) - (TA.y * TB.x));
+
+	float3 PA = WorldPositions[1] - WorldPositions[0];
+	float3 PB = WorldPositions[2] - WorldPositions[0];
+    float3 Unnormalized = cross(PB, PA);
+	float InvWorldArea = rsqrt(dot(Unnormalized, Unnormalized));
+    
+    float RayConeCapArea = RayCone.Width * RayCone.Width * (1.0f / (2.0f * PI));
+    float3 RayDir = WorldRayDirection();
+    float3 ShadingNormal = normalize(Interpolated.InterpolantsVSToPS.TangentToWorld2);
+    float RaySlope = dot(RayDir, ShadingNormal);
+    GlobalRayCone_TexArea = (UvArea * InvWorldArea * RayConeCapArea) / max(RaySlope * RaySlope, 0.00001f);
+#endif
 }
 
 [shader("closesthit")]
@@ -221,7 +244,8 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	FVertexFactoryInterpolantsVSToPS Interpolants;
 	float4 SvPosition;
 	
-	CalcInterpolants(Attributes, Interpolants, SvPosition);
+	FRayCone PropagatedCone = PropagateRayCone(PackedPayload.RayCone, 0 /* surface curvature */, RayTCurrent());
+	CalcInterpolants(PropagatedCone, Attributes, Interpolants, SvPosition);
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
@@ -304,7 +328,7 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	
 	Payload.IndirectIrradiance += Payload.DiffuseColor * DiffuseIndirectLighting; // Contains both lightmap & skylight
 
-	PackedPayload = PackRayTracingPayload(Payload);
+	PackedPayload = PackRayTracingPayload(Payload, PropagatedCone);
 }
 
 [shader("anyhit")] 
@@ -316,7 +340,7 @@ void MaterialAHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	FVertexFactoryInterpolantsVSToPS Interpolants;
 	float4 SvPosition;
 	
-	CalcInterpolants(Attributes, Interpolants, SvPosition);
+	CalcInterpolants(PackedPayload.RayCone, Attributes, Interpolants, SvPosition);
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;

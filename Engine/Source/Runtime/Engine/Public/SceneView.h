@@ -755,7 +755,8 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD) \
-	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectLightingCacheShowFlag)
+	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectLightingCacheShowFlag) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, EyeToPixelSpreadAngle)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
 	SHADER_PARAMETER(type, identifier)

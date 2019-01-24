@@ -33,6 +33,9 @@ void RayTracingDebugMainRGS()
 	Ray.TMin = 0.5f; // 1 unit in UE4 = 1 cm -0> 0.5 ==> 5 mm
 	Ray.TMax = 1e27f;
 
+    FRayCone RayCone = (FRayCone)0;
+	RayCone.SpreadAngle = View.EyeToPixelSpreadAngle;
+
 	uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
 	FMaterialClosestHitPayload Payload = TraceRayInternal(
@@ -42,7 +45,8 @@ void RayTracingDebugMainRGS()
 		0,      // RayContributionToHitGroupIndex
 		1,      // MultiplierForGeometryContributionToShaderIndex
 		0,      // MissShaderIndex
-		Ray     // RayDesc
+		Ray,    // RayDesc
+		RayCone
 	);
 
 	float4 Result = float4(0, 0, 0, 1);
@@ -115,7 +119,7 @@ void RayTracingDebugMainRGS()
 [shader("miss")]
 void RayTracingDebugMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
 {
-	PackedPayload.HitT = -1;
+	PackedPayload.Payload.HitT = -1;
 }
 
 
@@ -134,5 +138,5 @@ void RayTracingDebugMainCHS(inout FPackedMaterialClosestHitPayload PackedPayload
 	float3x3 LocalToWorldNormal = transpose(WorldToLocal);
 	Payload.WorldNormal = normalize(mul(LocalToWorldNormal, cross(Edge0, Edge1)));
 
-    PackedPayload = PackRayTracingPayload(Payload);
+    PackedPayload = PackRayTracingPayload(Payload, PackedPayload.RayCone);
 }

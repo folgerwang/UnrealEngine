@@ -131,7 +131,8 @@ float4 BlendWithEnvironment(inout float3 BRDFThroughput, const in FMaterialClose
 float TraceShadowRay(
 	float3 Origin,
 	float3 Direction,
-	float TMax)
+	float TMax,
+	in FRayCone ShadowRayCone)
 {
 	RayDesc Ray;
 	Ray.Origin = Origin;
@@ -148,13 +149,14 @@ float TraceShadowRay(
 		0,         // RayContributionToHitGroupIndex
 		1,         // MultiplierForGeometryContributionToShaderIndex
 		0,         // MissShaderIndex
-		Ray        // RayDesc
+		Ray,       // RayDesc
+		ShadowRayCone
 	);
 
 	return Payload.HitT;
 }
 
-float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload, bool bReflectedShadows)
+float3 ComputeDirectLighting(RayDesc Ray, in FRayCone RayCone, FMaterialClosestHitPayload Payload, bool bReflectedShadows)
 {
 	float3 DirectLighting = float3(0.0, 0.0, 0.0);
 
@@ -249,9 +251,11 @@ float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload, bo
 		//#dxr_todo: check perf improvements forcing TMin == TMax when bReflectedShadows = false, to avoid tracing rays inside if statements
 		if (bReflectedShadows)
 		{
+			FRayCone ShadowRayCone = RayCone;
+
 			//#dxr_todo: add support for sampling area lights (and perhaps add CVar to enable stocastic shadows?)
 			float DistanceToLight = length(ToLight);
-			float HitT = TraceShadowRay(WorldPosition + Payload.WorldNormal*0.001, ShadowRayDirection, DistanceToLight);
+			float HitT = TraceShadowRay(WorldPosition + Payload.WorldNormal*0.001, ShadowRayDirection, DistanceToLight, ShadowRayCone);
 			AmbientOcclusion = HitT < 0.0f;
 		}
 
@@ -263,7 +267,8 @@ float3 ComputeDirectLighting(RayDesc Ray, FMaterialClosestHitPayload Payload, bo
 }
 
 FMaterialClosestHitPayload TraceRayAndAccumulateResults(
-	RayDesc Ray,
+	in RayDesc Ray,
+	inout FRayCone RayCone,
 	inout float3 Radiance)
 {
 	// Call TraceRay iteratively until alpha is 0 and accumulate the result
@@ -279,12 +284,13 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 		0,         // RayContributionToHitGroupIndex
 		1,         // MultiplierForGeometryContributionToShaderIndex
 		0,         // MissShaderIndex
-		Ray        // RayDesc
+		Ray,       // RayDesc
+		RayCone
 	);
 
 	if (ShouldDoDirectLighting)
 	{
-		float3 DirectLighting = ComputeDirectLighting(Ray, Payload, ShouldDoReflectedShadows > 0);
+		float3 DirectLighting = ComputeDirectLighting(Ray, RayCone, Payload, ShouldDoReflectedShadows > 0);
 
 		// Transform NaNs to black, transform negative colors to black.
 		DirectLighting = -min(-DirectLighting, 0.0);
@@ -364,6 +370,12 @@ void RayTracingReflectionsRGS()
 		for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
 		{
 			float3 IncidentDirection = CameraDirection;
+					
+			FRayCone RayCone = (FRayCone)0;
+			RayCone.SpreadAngle = View.EyeToPixelSpreadAngle;
+            float SurfaceCurvature = 0.0f; /* #todo_dxr assume no curvature */
+			RayCone = PropagateRayCone(RayCone, SurfaceCurvature, Depth);
+
 			for (uint BounceIndex = 0; BounceIndex < MaxBounces; ++BounceIndex)
 			{
 				RayDesc Ray;
@@ -392,7 +404,7 @@ void RayTracingReflectionsRGS()
 				uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
 				float3 Radiance = float3(0, 0, 0);
-				FMaterialClosestHitPayload Payload = TraceRayAndAccumulateResults(Ray, Radiance);
+				FMaterialClosestHitPayload Payload = TraceRayAndAccumulateResults(Ray, RayCone, Radiance);
 
 				float4 PathRadiance;
 				if (Payload.HitT >= 0)
@@ -452,7 +464,7 @@ void RayTracingReflectionsRGS()
 [shader("miss")]
 void RayTracingReflectionsMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
 {
-	PackedPayload.HitT = -1;
+	PackedPayload.Payload.HitT = -1;
 }
 
 
@@ -471,5 +483,5 @@ void RayTracingReflectionsMainCHS(inout FPackedMaterialClosestHitPayload PackedP
 	float3x3 LocalToWorldNormal = transpose(WorldToLocal);
 	Payload.WorldNormal = normalize(mul(LocalToWorldNormal, cross(Edge0, Edge1)));
 
-	PackedPayload = PackRayTracingPayload(Payload);
+	PackedPayload = PackRayTracingPayload(Payload, PackedPayload.RayCone);
 }

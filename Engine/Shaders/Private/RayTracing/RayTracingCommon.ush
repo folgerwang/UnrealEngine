@@ -49,33 +49,48 @@ struct FDefaultAttributes
 	float2 Barycentrics;
 };
 
+struct FRayCone
+{
+    float Width;
+    float SpreadAngle;
+};
+
+FRayCone PropagateRayCone(in FRayCone Cone, in float SurfaceSpreadAngle, in float  HitT)
+{
+	FRayCone NewCone;
+	NewCone.Width = Cone.SpreadAngle * HitT + Cone.Width;
+	NewCone.SpreadAngle = Cone.SpreadAngle + SurfaceSpreadAngle;
+	return NewCone;
+}
+
 struct FMaterialClosestHitPayload
 {
-	float HitT;							//4		4bytes	32bits
+	//FRayCone RayCone;                 // 8    8bytes  64bits /* the raycone is hidden in the internal payload */
+	float HitT;							//12	4bytes	32bits
 
-	float3 Radiance;					//16	6bytes	48bits	
-	float3 WorldNormal;					//28	6bytes	48bits
-	float3 BaseColor;					//40	6bytes	48bits
-	float3 DiffuseColor;				//52	0bytes	(derived)
-	float3 SpecularColor;				//64	0bytes	(derived)
-	float Opacity;						//68	2bytes	16bits
-	float Metallic;						//72	1bytes	8bits
-	float Specular;						//76	1bytes	8bits
-	float Roughness;					//80	2bytes	16bits
-	float Ior;							//84	2bytes	16bits
-	uint ShadingModelID;				//88	1byte	4bits
-	uint BlendingMode;					//92	0bytes	4bits (packed)
-	uint PrimitiveLightingChannelMask;	//96	0bytes	(removed)
-	float4 CustomData;					//112	0bytes	(removed)
-	float GBufferAO;					//116	0bytes	(removed)
-	float3 IndirectIrradiance;			//128	0bytes	48bits	
+	float3 Radiance;					//24	6bytes	48bits	
+	float3 WorldNormal;					//36	6bytes	48bits
+	float3 BaseColor;					//48	6bytes	48bits
+	float3 DiffuseColor;				//60	0bytes	(derived)
+	float3 SpecularColor;				//72	0bytes	(derived)
+	float Opacity;						//76	2bytes	16bits
+	float Metallic;						//80	1bytes	8bits
+	float Specular;						//84	1bytes	8bits
+	float Roughness;					//88	2bytes	16bits
+	float Ior;							//92	2bytes	16bits
+	uint ShadingModelID;				//96	1byte	4bits
+	uint BlendingMode;					//100	0bytes	4bits (packed)
+	uint PrimitiveLightingChannelMask;	//104	0bytes	(removed)
+	float4 CustomData;					//120	0bytes	(removed)
+	float GBufferAO;					//124	0bytes	(removed)
+	float3 IndirectIrradiance;			//136	0bytes	48bits	/* gbuffer only has float payload and there are truncation HLSL warnings */
 
 	// Quite some code assume FRayHitInfo has a WorldPos
 	// So keep it here and force to re-construct it in Unpack call using ray information.
 	// It is not packed in FRayHitInfoPacked
-	float3 WorldPos;					//140	0bytes	(derived)
+	float3 WorldPos;					//148	0bytes	(derived)
 
-	uint HitKind;						//144	0bytes 1bit	(packed)
+	uint HitKind;						//152	0bytes 1bit	(packed)
 };
 
 #define USE_PACKED_PAYLOAD 0
@@ -85,6 +100,7 @@ struct FMaterialClosestHitPayload
 struct FPackedMaterialClosestHitPayload
 {
 	float HitT;
+	FRayCone RayCone;
 	int RadienceAndNormal[3];
 	int BaseColorAndOpacity[2];
 	int MetallicAndSpecularAndRoughness;
@@ -92,10 +108,11 @@ struct FPackedMaterialClosestHitPayload
 	int IndirectIrradiance[2];
 };
 
-FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input)
+FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input, in FRayCone RayCone)
 {
     FPackedMaterialClosestHitPayload Output = (FPackedMaterialClosestHitPayload)0;
 	Output.HitT = Input.HitT;
+	Output.RayCone = RayCone; 
     Output.RadienceAndNormal[0]  = f32tof16(Input.Radiance.x);
 	Output.RadienceAndNormal[0] |= f32tof16(Input.Radiance.y) << 16;
 	Output.RadienceAndNormal[1]  = f32tof16(Input.Radiance.z);
@@ -124,6 +141,7 @@ FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayl
 {
     FMaterialClosestHitPayload Output = (FMaterialClosestHitPayload)0;
 	Output.HitT = Input.HitT;
+	Output.RayCone = Input.RayCone; 
 	Output.Radiance.x = f16tof32(Input.RadienceAndNormal[0]);
 	Output.Radiance.y = f16tof32(Input.RadienceAndNormal[0] >> 16);
 	Output.Radiance.z = f16tof32(Input.RadienceAndNormal[1]);
@@ -152,31 +170,41 @@ FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayl
 }
 
 #else
-#define FPackedMaterialClosestHitPayload FMaterialClosestHitPayload
 
-FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input)
+struct FPackedMaterialClosestHitPayload
 {
-	return Input;
+	FRayCone RayCone;
+	FMaterialClosestHitPayload Payload;
+};
+
+FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input, in FRayCone RayCone)
+{
+	FPackedMaterialClosestHitPayload Payload;
+	Payload.RayCone = RayCone;
+	Payload.Payload = Input;
+    return Payload;
 }
 
 FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayload Input, RayDesc Ray)
 {
-	return Input;
+    return Input.Payload;
 }
 
 #endif
 
-FMaterialClosestHitPayload TraceRayInternal(in RaytracingAccelerationStructure TLAS, 
-											in uint RayFlags, 
-											in uint InstanceInclusionMask, 
-											in uint RayContributionToHitGroupIndex,  
-											in uint MultiplierForGeometryContributionToShaderIndex, 
-											in uint MissShaderIndex, 
-											in RayDesc Ray)
+    FMaterialClosestHitPayload TraceRayInternal(in RaytracingAccelerationStructure TLAS,
+											in uint RayFlags,
+											in uint InstanceInclusionMask,
+											in uint RayContributionToHitGroupIndex,
+											in uint MultiplierForGeometryContributionToShaderIndex,
+											in uint MissShaderIndex,
+											in RayDesc Ray,
+											inout FRayCone RayCone)
 {
 	FPackedMaterialClosestHitPayload Payload = (FPackedMaterialClosestHitPayload)0;
+	Payload.RayCone = RayCone;
 
-    TraceRay
+	TraceRay
 	(
 			TLAS,
 			RayFlags,
@@ -188,6 +216,7 @@ FMaterialClosestHitPayload TraceRayInternal(in RaytracingAccelerationStructure T
 			Payload
 	);
 
+    RayCone = Payload.RayCone;
     return UnpackRayTracingPayload(Payload, Ray);
 }
 #endif

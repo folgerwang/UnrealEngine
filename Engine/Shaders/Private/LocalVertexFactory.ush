@@ -184,7 +184,7 @@ FVertexFactoryInput LoadVertexFactoryInput(uint TriangleIndex, int VertexIndex)
 	FTriangleBaseAttributes Triangle = LoadTriangleBaseAttributes(TriangleIndex);
 
 	FVertexFactoryInput Input;
-	Input.Position = float4(WorldRayOrigin() + WorldRayDirection() * RayTCurrent(), 0.0f);
+	Input.Position = float4(Triangle.LocalPositions[VertexIndex], 1.0f);
 	Input.VertexId = Triangle.Indices[VertexIndex];
 #if VF_USE_PRIMITIVE_SCENE_DATA
 	Input.PrimitiveId = GetInstanceUserData();

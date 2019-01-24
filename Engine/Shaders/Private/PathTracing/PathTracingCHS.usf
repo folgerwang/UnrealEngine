@@ -37,5 +37,5 @@ void PathTracingMainCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in
 	Payload.WorldPos = float3(0.0, 0.0, 0.0);
 	Payload.HitKind = 0;
 
-    PackedPayload = PackRayTracingPayload(Payload);
+    PackedPayload = PackRayTracingPayload(Payload, PackedPayload.RayCone);
 }
