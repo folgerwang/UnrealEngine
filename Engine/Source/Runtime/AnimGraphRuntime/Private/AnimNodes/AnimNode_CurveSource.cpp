@@ -99,4 +99,23 @@ void FAnimNode_CurveSource::Update_AnyThread(const FAnimationUpdateContext& Cont
 {
 	// Evaluate any BP logic plugged into this node
 	GetEvaluateGraphExposedInputs().Execute(Context);
+	SourcePose.Update(Context);
+}
+
+void FAnimNode_CurveSource::Initialize_AnyThread(const FAnimationInitializeContext& Context)
+{
+	FAnimNode_Base::Initialize_AnyThread(Context);
+	SourcePose.Initialize(Context);
+}
+
+void FAnimNode_CurveSource::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context)
+{
+	FAnimNode_Base::CacheBones_AnyThread(Context);
+	SourcePose.CacheBones(Context);
+}
+
+void FAnimNode_CurveSource::GatherDebugData(FNodeDebugData& DebugData)
+{
+	FAnimNode_Base::GatherDebugData(DebugData);
+	SourcePose.GatherDebugData(DebugData.BranchFlow(1.f));
 }
