@@ -4691,7 +4691,7 @@ bool FAsyncPackage::AreAllDependenciesFullyLoadedInternal(FAsyncPackage* Package
 				{
 					if (Export.Object && Export.Object->HasAnyFlags(RF_NeedPostLoad|RF_NeedLoad))
 					{
-						OutError = FString::Printf(TEXT("%s Doesn't have %s %s"), *Export.Object->GetFullName(), 
+						OutError = FString::Printf(TEXT("%s has not been %s"), *Export.Object->GetFullName(), 
 							Export.Object->HasAnyFlags(RF_NeedLoad) ? TEXT("Serialized") : TEXT("PostLoaded"));
 						return false;
 					}
