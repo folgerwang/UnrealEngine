@@ -13,3 +13,9 @@ struct FSomeStruct
 
 #pragma endregion X
 };
+
+USTRUCT()
+struct alignas(8) FAlignedStruct
+{
+	GENERATED_BODY()
+};

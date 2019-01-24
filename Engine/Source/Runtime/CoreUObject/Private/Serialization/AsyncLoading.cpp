@@ -17,7 +17,6 @@
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "Misc/MessageDialog.h"
-#include "Serialization/ArchiveAsync.h"
 #include "Misc/PackageName.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
@@ -456,8 +455,6 @@ void FAsyncLoadingThread::CancelAsyncLoadingInternal()
 	QueuedPackagesCounter.Reset();
 
 	NotifyAsyncLoadingStateHasMaybeChanged();
-
-	FUObjectThreadContext::Get().ObjLoaded.Empty();
 
 	// Notify everyone streaming is canceled.
 	CancelLoadingEvent->Trigger();
@@ -3155,11 +3152,10 @@ UObject* FAsyncPackage::EventDrivenIndexToObject(FPackageIndex Index, bool bChec
 		MyDependentNode.Phase = EEventLoadNode::ImportOrExport_Create;
 		if (EventNodeArray.GetNode(MyDependentNode, false).bAddedToGraph || !EventNodeArray.GetNode(MyDependentNode, false).bFired)
 		{
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			UClass* SerClass = Cast<UClass>(ThreadContext.SerializedObject);
+			UClass* SerClass = Cast<UClass>(LoadContext->SerializedObject);
 			if (!SerClass || Linker->ImpExp(Index).ObjectName != SerClass->GetDefaultObjectName())
 			{
-				DumpDependencies(TEXT("Dependencies"), ThreadContext.SerializedObject);
+				DumpDependencies(TEXT("Dependencies"), LoadContext->SerializedObject);
 				UE_LOG(LogStreaming, Fatal, TEXT("Missing Dependency, request for %s but it was still waiting for creation."), *Linker->GetPathName(Index));
 			}
 		}
@@ -3173,8 +3169,7 @@ UObject* FAsyncPackage::EventDrivenIndexToObject(FPackageIndex Index, bool bChec
 
 		if (DumpIndex.IsNull())
 		{
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			DumpDependencies(TEXT("Dependencies"), ThreadContext.SerializedObject);
+			DumpDependencies(TEXT("Dependencies"), LoadContext->SerializedObject);
 		}
 		else
 		{
@@ -3231,7 +3226,7 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 			LastTypeOfWorkPerformed = TEXT("EventDrivenCreateExport");
 			LastObjectWorkWasPerformedOn = nullptr;
 			check(Export.ObjectName != NAME_None || !(Export.ObjectFlags&RF_Public));
-			check(IsLoading());
+			check(LoadContext->HasStartedLoading());
 			if (Export.DynamicType == FObjectExport::EDynamicType::DynamicType)
 			{
 //native blueprint 
@@ -3589,9 +3584,8 @@ void FAsyncPackage::EventDrivenSerializeExport(int32 LocalExportIndex)
 
 		Object->ClearFlags(RF_NeedLoad);
 
-		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		UObject* PrevSerializedObject = ThreadContext.SerializedObject;
-		ThreadContext.SerializedObject = Object;
+		UObject* PrevSerializedObject = LoadContext->SerializedObject;
+		LoadContext->SerializedObject = Object;
 		Linker->bForceSimpleIndexToObject = true;
 
 		// Find the Archetype object for the one we are loading. This is piped to GetArchetypeFromLoader
@@ -3616,7 +3610,7 @@ void FAsyncPackage::EventDrivenSerializeExport(int32 LocalExportIndex)
 		Linker->TemplateForGetArchetypeFromLoader = nullptr;
 
 		Object->SetFlags(RF_LoadCompleted);
-		ThreadContext.SerializedObject = PrevSerializedObject;
+		LoadContext->SerializedObject = PrevSerializedObject;
 		Linker->bForceSimpleIndexToObject = false;
 
 		if (FAA2->Tell() - Export.SerialOffset != Export.SerialSize)
@@ -4131,8 +4125,7 @@ void FAsyncPackage::Event_StartPostload()
 	AsyncPackageLoadingState = EAsyncPackageLoadingState::PostLoad_Etc;
 	EventDrivenLoadingComplete();
 	{
-		TArray<UObject*>& ObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
-		ObjLoaded.Reserve(ObjLoaded.Num() + Linker->ExportMap.Num());
+		LoadContext->ReserveObjectsLoaded(LoadContext->GetNumObjectsLoaded() + Linker->ExportMap.Num());
 		for (int32 LocalExportIndex = 0; LocalExportIndex < Linker->ExportMap.Num(); LocalExportIndex++)
 		{
 			FObjectExport& Export = Linker->ExportMap[LocalExportIndex];
@@ -4141,7 +4134,7 @@ void FAsyncPackage::Event_StartPostload()
 			if (Object && (Object->HasAnyFlags(RF_NeedPostLoad) || Linker->bDynamicClassLinker || Object->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading)))
 			{
 				check(Object->IsValidLowLevelFast());
-				ObjLoaded.Add(Object);
+				LoadContext->AddLoadedObject(Object);
 			}
 		}
 	}
@@ -4698,7 +4691,7 @@ bool FAsyncPackage::AreAllDependenciesFullyLoadedInternal(FAsyncPackage* Package
 				{
 					if (Export.Object && Export.Object->HasAnyFlags(RF_NeedPostLoad|RF_NeedLoad))
 					{
-						OutError = FString::Printf(TEXT("%s Doesn't have %s %s"), *Export.Object->GetFullName(), 
+						OutError = FString::Printf(TEXT("%s has not been %s"), *Export.Object->GetFullName(), 
 							Export.Object->HasAnyFlags(RF_NeedLoad) ? TEXT("Serialized") : TEXT("PostLoaded"));
 						return false;
 					}
@@ -5495,6 +5488,7 @@ FAsyncPackage::FAsyncPackage(const FAsyncPackageDesc& InDesc)
 , FinishObjectsTime(0.0)
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 {
+	LoadContext = new FUObjectSerializeContext();
 	AddRequestID(InDesc.RequestID);
 }
 
@@ -5633,10 +5627,13 @@ void FAsyncPackage::FlushObjectLinkerCache()
 {
 	for (UObject* Obj : PackageObjLoaded)
 	{
-		FLinkerLoad* ObjLinker = Obj->GetLinker();
-		if (ObjLinker)
+		if (Obj)
 		{
-			ObjLinker->FlushCache();
+			FLinkerLoad* ObjLinker = Obj->GetLinker();
+			if (ObjLinker)
+			{
+				ObjLinker->FlushCache();
+			}
 		}
 	}
 }
@@ -5681,7 +5678,7 @@ void FAsyncPackage::BeginAsyncLoad()
 	}
 
 	// this won't do much during async loading except increase the load count which causes IsLoading to return true
-	BeginLoad();
+	BeginLoad(LoadContext);
 }
 
 /**
@@ -5693,7 +5690,7 @@ void FAsyncPackage::EndAsyncLoad()
 	check(IsAsyncLoading());
 
 	// this won't do much during async loading except decrease the load count which causes IsLoading to return false
-	EndLoad();
+	EndLoad(LoadContext);
 
 	if (IsInGameThread())
 	{
@@ -5943,14 +5940,23 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 		// if the linker already exists, we don't need to lookup the file (it may have been pre-created with
 		// a different filename)
 		Linker = FLinkerLoad::FindExistingLinkerForPackage(Package);
-		if (Linker && GEventDrivenLoaderEnabled)
+		if (Linker)
 		{
-			// this almost works, but the EDL does not tolerate redoing steps it already did
-			UE_LOG(LogStreaming, Fatal, TEXT("Package %s was reloaded before it even closed the linker from a previous load. Seems like a waste of time eh?"), *Desc.Name.ToString());
-			check(Package);
-			FWeakAsyncPackagePtr WeakPtr(this);
-			GPrecacheCallbackHandler.RegisterNewSummaryRequest(this);
-			GPrecacheCallbackHandler.SummaryComplete(WeakPtr);
+			// Swap the load context to the currently associated with the existing linker
+			check(Linker->GetSerializeContext());
+			LoadContext->DecrementBeginLoadCount();
+			LoadContext = Linker->GetSerializeContext();
+			LoadContext->IncrementBeginLoadCount();
+
+			if (GEventDrivenLoaderEnabled)
+			{
+				// this almost works, but the EDL does not tolerate redoing steps it already did
+				UE_LOG(LogStreaming, Fatal, TEXT("Package %s was reloaded before it even closed the linker from a previous load. Seems like a waste of time eh?"), *Desc.Name.ToString());
+				check(Package);
+				FWeakAsyncPackagePtr WeakPtr(this);
+				GPrecacheCallbackHandler.RegisterNewSummaryRequest(this);
+				GPrecacheCallbackHandler.SummaryComplete(WeakPtr);
+			}
 		}
 
 		if (!Linker)
@@ -6039,7 +6045,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 			{
 				FWeakAsyncPackagePtr WeakPtr(this);
 				check(Package);
-				Linker = FLinkerLoad::CreateLinkerAsync(Package, *PackageFileName, LinkerFlags
+				Linker = FLinkerLoad::CreateLinkerAsync(LoadContext, Package, *PackageFileName, LinkerFlags
 					, TFunction<void()>(
 						[WeakPtr]()
 				{
@@ -6059,7 +6065,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 			}
 			else
 			{
-				Linker = FLinkerLoad::CreateLinkerAsync(Package, *PackageFileName, LinkerFlags, TFunction<void()>([]() {}));
+				Linker = FLinkerLoad::CreateLinkerAsync(LoadContext, Package, *PackageFileName, LinkerFlags, TFunction<void()>([]() {}));
 			}
 		}
 
@@ -6486,7 +6492,7 @@ EAsyncPackageState::Type FAsyncPackage::PreLoadObjects()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedInternalUseOnly();
 	PackageObjLoaded.Append(ThreadObjLoaded);
 	ThreadObjLoaded.Reset();
 
@@ -6585,7 +6591,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	TGuardValue<bool> GuardIsRoutingPostLoad(ThreadContext.IsRoutingPostLoad, true);
 
-	TArray<UObject*>& ThreadObjLoaded = ThreadContext.ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedInternalUseOnly();
 	if (ThreadObjLoaded.Num())
 	{
 		// New objects have been loaded. They need to go through PreLoad first so exit now and come back after they've been preloaded.
@@ -6665,7 +6671,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 	TGuardValue<bool> GuardIsRoutingPostLoad(PackageScope.ThreadContext.IsRoutingPostLoad, true);
 	FAsyncLoadingTickScope InAsyncLoadingTick;
 
-	TArray<UObject*>& ObjLoadedInPostLoad = PackageScope.ThreadContext.ObjLoaded;
+	TArray<UObject*>& ObjLoadedInPostLoad = LoadContext->PRIVATE_GetObjectsLoadedInternalUseOnly();
 	TArray<UObject*> ObjLoadedInPostLoadLocal;
 
 	STAT(double PostLoadStartTime = FPlatformTime::Seconds());
@@ -6853,8 +6859,9 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_FinishObjects);
 	LastObjectWorkWasPerformedOn	= nullptr;
 	LastTypeOfWorkPerformed			= TEXT("finishing all objects");
-		
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+
+	check(!Linker || LoadContext == Linker->GetSerializeContext());		
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedInternalUseOnly();
 
 	EAsyncLoadingResult::Type LoadingResult;
 	if (!bLoadHasFailed)
@@ -6901,7 +6908,7 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	FinishExternalReadDependenciesIndex = 0;
 
 	// Keep the linkers to close until we finish loading and it's safe to close them too
-	DelayedLinkerClosePackages = MoveTemp(FUObjectThreadContext::Get().DelayedLinkerClosePackages);
+	LoadContext->MoveDelayedLinkerClosePackages(DelayedLinkerClosePackages);
 
 	if (Linker)
 	{
@@ -7733,7 +7740,7 @@ FORCEINLINE void FArchiveAsync2::SetPosAndUpdatePrecacheBuffer(int64 Pos)
 
 void FArchiveAsync2::Seek(int64 InPos)
 {
-	if (GEventDrivenLoaderEnabled && LoadPhase < ELoadPhase::ProcessingExports)
+	if ((GEventDrivenLoaderEnabled || bCookedForEDLInEditor) && LoadPhase < ELoadPhase::ProcessingExports)
 	{
 		check(!HeaderSizeWhenReadingExportsFromSplitFile && HeaderSize && TotalSize() == HeaderSize);
 		if (InPos >= HeaderSize)

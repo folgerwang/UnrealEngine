@@ -36,6 +36,7 @@ public:
 public:
 	bool GetShaderAndLUTResources(ERHIFeatureLevel::Type InFeatureLevel, const FString& InSourceColorSpace, const FString& InDestinationColorSpace, FOpenColorIOTransformResource*& OutShaderResource, FTextureResource*& OutLUT3dResource);
 	bool HasTransform(const FString& InSourceColorSpace, const FString& InDestinationColorSpace);
+	bool Validate() const;
 
 #if WITH_EDITORONLY_DATA && WITH_OCIO
 	OCIO_NAMESPACE::ConstConfigRcPtr GetLoadedConfigurationFile() const { return LoadedConfig; }
@@ -60,7 +61,7 @@ private:
 
 public:
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Config")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Config", meta = (FilePathFilter = "ocio"))
 	FFilePath ConfigurationFile;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ColorSpace", meta=(OCIOConfigFile="ConfigurationFile"))

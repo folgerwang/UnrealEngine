@@ -307,15 +307,15 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 				const uint8* DefaultPairPtr = nullptr;
 				if (DefaultElementValueAddress)
 				{
-					const uint8* MapKeyPtr = MapPairPtr + MapProperty->MapLayout.KeyOffset;
+					const uint8* MapKeyPtr = MapPairPtr;
 					FScriptMapHelper DefaultScriptMapHelper(MapProperty, DefaultElementValueAddress);
 					DefaultPairPtr = DefaultScriptMapHelper.FindMapPairPtrFromHash(MapKeyPtr);
 				}
 
 				if (bGatherMapKey)
 				{
-					const uint8* MapKeyPtr = MapPairPtr + MapProperty->MapLayout.KeyOffset;
-					const uint8* DefaultMapKeyPtr = DefaultPairPtr ? DefaultPairPtr + MapProperty->MapLayout.KeyOffset : nullptr;
+					const uint8* MapKeyPtr = MapPairPtr;
+					const uint8* DefaultMapKeyPtr = DefaultPairPtr ? DefaultPairPtr : nullptr;
 					GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Key)"), ElementIndex), MapProperty->KeyProp, MapKeyPtr, DefaultMapKeyPtr, ChildPropertyGatherTextFlags);
 				}
 				if (bGatherMapValue)
@@ -347,14 +347,7 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 				}
 
 				const uint8* ElementPtr = ScriptSetHelper.GetElementPtr(j);
-				const uint8* DefaultElementPtr = nullptr;
-				if (DefaultElementValueAddress)
-				{
-					FScriptSetHelper DefaultScriptSetHelper(SetProperty, DefaultElementValueAddress);
-					DefaultElementPtr = DefaultScriptSetHelper.FindElementPtrFromHash(ElementPtr);
-				}
-
-				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d)"), ElementIndex), SetProperty->ElementProp, ElementPtr, DefaultElementPtr, ChildPropertyGatherTextFlags);
+				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d)"), ElementIndex), SetProperty->ElementProp, ElementPtr, nullptr, ChildPropertyGatherTextFlags);
 				++ElementIndex;
 			}
 		}

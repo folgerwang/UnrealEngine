@@ -184,7 +184,7 @@ void UK2Node::FixupPinDefaultValues()
 				if (GIsEditor && !Pin->DefaultValue.IsEmpty())
 				{
 					FSoftObjectPath TempRef(Pin->DefaultValue);
-					TempRef.PostLoadPath();
+					TempRef.PostLoadPath(GetLinker());
 					TempRef.PreSavePath();
 					Pin->DefaultValue = TempRef.ToString();
 				}

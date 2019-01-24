@@ -21,6 +21,7 @@
 
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "ISequencerModule.h"
+#include "SequencerSettings.h"
 #include "ObjectEditorUtils.h"
 
 #include "PropertyCustomizationHelpers.h"
@@ -588,7 +589,6 @@ static bool MigratePropertyValue(UObject* SourceObject, UObject* DestinationObje
 		{
 			if (DestinationObject)
 			{
-				DestinationObject->SetFlags(RF_Transactional);
 				DestinationObject->Modify();
 			}
 			return true;
@@ -666,7 +666,6 @@ void FWidgetBlueprintEditor::PostUndo(bool bSuccessful)
 	FBlueprintEditor::PostUndo(bSuccessful);
 
 	OnWidgetBlueprintTransaction.Broadcast();
-	RefreshPreview();
 }
 
 void FWidgetBlueprintEditor::PostRedo(bool bSuccessful)
@@ -674,7 +673,6 @@ void FWidgetBlueprintEditor::PostRedo(bool bSuccessful)
 	FBlueprintEditor::PostRedo(bSuccessful);
 
 	OnWidgetBlueprintTransaction.Broadcast();
-	RefreshPreview();
 }
 
 TSharedRef<SWidget> FWidgetBlueprintEditor::CreateSequencerWidget()
@@ -793,6 +791,8 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 		};
 
 		Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
+		// Never recompile the blueprint on evaluate as this can create an insidious loop
+		Sequencer->GetSequencerSettings()->SetCompileDirectorOnEvaluate(false);
 		Sequencer->OnMovieSceneDataChanged().AddSP( this, &FWidgetBlueprintEditor::OnMovieSceneDataChanged );
 		Sequencer->OnMovieSceneBindingsPasted().AddSP( this, &FWidgetBlueprintEditor::OnMovieSceneBindingsPasted );
 		// Change selected widgets in the sequencer tree view
@@ -1377,6 +1377,18 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 				return In.AnimationGuid == ObjectId;
 			}
 		);
+
+		if (!SourceBinding)
+		{
+			WidgetAnimation->BindPossessableObject(ObjectId, *PreviewWidget, GetAnimationPlaybackContext());
+
+			SourceBinding = WidgetAnimation->AnimationBindings.FindByPredicate(
+				[&](FWidgetAnimationBinding& In)
+			{
+				return In.AnimationGuid == ObjectId;
+			}
+			);
+		}
 
 		check(SourceBinding);
 

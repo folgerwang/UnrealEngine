@@ -815,7 +815,7 @@ void FTextHistory_Base::SerializeForDisplayString(FStructuredArchive::FRecord Re
 		if (!GIsEditor)
 		{
 			// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
-			Namespace = TextNamespaceUtil::StripPackageNamespace(Namespace);
+			TextNamespaceUtil::StripPackageNamespaceInline(Namespace);
 		}
 #endif // WITH_EDITOR
 
@@ -833,7 +833,7 @@ void FTextHistory_Base::SerializeForDisplayString(FStructuredArchive::FRecord Re
 		if (BaseArchive.IsCooking())
 		{
 			// We strip the package localization off the serialized text for a cooked game, as they're not used at runtime
-			Namespace = TextNamespaceUtil::StripPackageNamespace(Namespace);
+			TextNamespaceUtil::StripPackageNamespaceInline(Namespace);
 		}
 		else
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -939,7 +939,7 @@ const TCHAR* FTextHistory_Base::ReadFromBuffer(const TCHAR* Buffer, const TCHAR*
 		if (!GIsEditor)
 		{
 			// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
-			NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
+			TextNamespaceUtil::StripPackageNamespaceInline(NamespaceString);
 		}
 		OutDisplayString = FTextLocalizationManager::Get().GetDisplayString(NamespaceString, KeyString, &SourceString);
 
@@ -995,7 +995,7 @@ const TCHAR* FTextHistory_Base::ReadFromBuffer(const TCHAR* Buffer, const TCHAR*
 		if (!GIsEditor)
 		{
 			// Strip the package localization ID to match how text works at runtime (properties do this when saving during cook)
-			NamespaceString = TextNamespaceUtil::StripPackageNamespace(NamespaceString);
+			TextNamespaceUtil::StripPackageNamespaceInline(NamespaceString);
 		}
 		OutDisplayString = FTextLocalizationManager::Get().GetDisplayString(NamespaceString, KeyString, &SourceString);
 
@@ -2373,21 +2373,17 @@ bool FTextHistory_Transform::GetHistoricNumericData(const FText& InText, FHistor
 ///////////////////////////////////////
 // FTextHistory_StringTableEntry
 
-FTextHistory_StringTableEntry::FTextHistory_StringTableEntry(FName InTableId, FString&& InKey)
-	: TableId(InTableId)
-	, Key(MoveTemp(InKey))
-	, bStringTableAssetPendingLoad(false)
+FTextHistory_StringTableEntry::FTextHistory_StringTableEntry(FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy)
+	: StringTableReferenceData(MakeShared<FStringTableReferenceData, ESPMode::ThreadSafe>())
 {
-	GetStringTableEntry();
+	StringTableReferenceData->Initialize(&Revision, InTableId, MoveTemp(InKey), InLoadingPolicy);
 }
 
 FTextHistory_StringTableEntry::FTextHistory_StringTableEntry(FTextHistory_StringTableEntry&& Other)
 	: FTextHistory(MoveTemp(Other))
-	, TableId(Other.TableId)
-	, Key(MoveTemp(Other.Key))
-	, StringTableEntry(MoveTemp(Other.StringTableEntry))
+	, StringTableReferenceData(MoveTemp(Other.StringTableReferenceData))
 {
-	Other.TableId = FName();
+	Other.StringTableReferenceData.Reset();
 }
 
 FTextHistory_StringTableEntry& FTextHistory_StringTableEntry::operator=(FTextHistory_StringTableEntry&& Other)
@@ -2395,11 +2391,8 @@ FTextHistory_StringTableEntry& FTextHistory_StringTableEntry::operator=(FTextHis
 	FTextHistory::operator=(MoveTemp(Other));
 	if (this != &Other)
 	{
-		TableId = Other.TableId;
-		Key = MoveTemp(Other.Key);
-		StringTableEntry = MoveTemp(Other.StringTableEntry);
-	
-		Other.TableId = FName();
+		StringTableReferenceData = MoveTemp(Other.StringTableReferenceData);
+		Other.StringTableReferenceData.Reset();
 	}
 	return *this;
 }
@@ -2418,7 +2411,7 @@ FString FTextHistory_StringTableEntry::BuildInvariantDisplayString() const
 
 const FString* FTextHistory_StringTableEntry::GetSourceString() const
 {
-	FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
+	FStringTableEntryConstPtr StringTableEntryPin = StringTableReferenceData ? StringTableReferenceData->ResolveStringTableEntry() : nullptr;
 	if (StringTableEntryPin.IsValid())
 	{
 		return &StringTableEntryPin->GetSourceString();
@@ -2428,7 +2421,7 @@ const FString* FTextHistory_StringTableEntry::GetSourceString() const
 
 FTextDisplayStringRef FTextHistory_StringTableEntry::GetDisplayString() const
 {
-	FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
+	FStringTableEntryConstPtr StringTableEntryPin = StringTableReferenceData ? StringTableReferenceData->ResolveStringTableEntry() : nullptr;
 	if (StringTableEntryPin.IsValid())
 	{
 		FTextDisplayStringPtr DisplayString = StringTableEntryPin->GetDisplayString();
@@ -2442,8 +2435,10 @@ FTextDisplayStringRef FTextHistory_StringTableEntry::GetDisplayString() const
 
 void FTextHistory_StringTableEntry::GetTableIdAndKey(FName& OutTableId, FString& OutKey) const
 {
-	OutTableId = TableId;
-	OutKey = Key;
+	if (StringTableReferenceData)
+	{
+		StringTableReferenceData->GetTableIdAndKey(OutTableId, OutKey);
+	}
 }
 
 void FTextHistory_StringTableEntry::Serialize(FStructuredArchive::FRecord Record)
@@ -2461,29 +2456,22 @@ void FTextHistory_StringTableEntry::Serialize(FStructuredArchive::FRecord Record
 		// We will definitely need to do a rebuild later
 		Revision = 0;
 
+		FName TableId;
+		FString Key;
 		Record << NAMED_FIELD(TableId);
 		Record << NAMED_FIELD(Key);
 
 		// String Table assets should already have been created via dependency loading when using the EDL (although they may not be fully loaded yet)
-		const bool bIsAsset = IStringTableEngineBridge::IsStringTableFromAsset(TableId);
-		const EStringTableLoadingPolicy LoadingPolicy = (!bIsAsset || !IsInGameThread() || GEventDrivenLoaderEnabled) ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad;
-		FStringTableRedirects::RedirectTableIdAndKey(TableId, Key, LoadingPolicy);
-
-		// Re-cache the pointer
-		StringTableEntry.Reset();
-		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry(LoadingPolicy == EStringTableLoadingPolicy::Find);
-
-		// If we couldn't load a string table asset because this wasn't the game thread, defer the loading request until we're able to process it
-		bStringTableAssetPendingLoad = !StringTableEntryPin.IsValid() && bIsAsset && !IsInGameThread() && !GEventDrivenLoaderEnabled;
+		StringTableReferenceData = MakeShared<FStringTableReferenceData, ESPMode::ThreadSafe>();
+		StringTableReferenceData->Initialize(&Revision, TableId, MoveTemp(Key), GEventDrivenLoaderEnabled ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad);
 	}
 	else if (BaseArchive.IsSaving())
 	{
-		// Update the table ID and key on save to make sure they're up-to-date
-		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
-		if (StringTableEntryPin.IsValid())
+		FName TableId;
+		FString Key;
+		if (StringTableReferenceData)
 		{
-			FTextDisplayStringPtr DisplayString = StringTableEntryPin->GetDisplayString();
-			FStringTableRegistry::Get().FindTableIdAndKey(DisplayString.ToSharedRef(), TableId, Key);
+			StringTableReferenceData->GetTableIdAndKey(TableId, Key);
 		}
 
 		Record << NAMED_FIELD(TableId);
@@ -2491,7 +2479,10 @@ void FTextHistory_StringTableEntry::Serialize(FStructuredArchive::FRecord Record
 	}
 
 	// Collect string table asset references
-	FStringTableReferenceCollection::CollectAssetReferences(TableId, Record);
+	if (StringTableReferenceData)
+	{
+		StringTableReferenceData->CollectStringTableAssetReferences(Record);
+	}
 }
 
 void FTextHistory_StringTableEntry::SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString)
@@ -2523,29 +2514,22 @@ const TCHAR* FTextHistory_StringTableEntry::ReadFromBuffer(const TCHAR* Buffer, 
 		FString TableIdString;
 		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
 		TEXT_STRINGIFICATION_READ_QUOTED_STRING(TableIdString);
-		TableId = *TableIdString;
+		FName TableId = *TableIdString;
 
 		// Skip whitespace before the comma, and then step over it
 		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(',');
 
 		// Skip whitespace before the value, and then read out the quoted key
+		FString Key;
 		TEXT_STRINGIFICATION_SKIP_WHITESPACE();
 		TEXT_STRINGIFICATION_READ_QUOTED_STRING(Key);
 
 		// Skip whitespace before the closing bracket, and then step over it
 		TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(')');
 
-		// String Table assets should already have been created via dependency loading when using the EDL (although they may not be fully loaded yet)
-		const bool bIsAsset = IStringTableEngineBridge::IsStringTableFromAsset(TableId);
-		const EStringTableLoadingPolicy LoadingPolicy = (!bIsAsset || !IsInGameThread() || GEventDrivenLoaderEnabled) ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad;
-		FStringTableRedirects::RedirectTableIdAndKey(TableId, Key, LoadingPolicy);
-
-		// Re-cache the pointer
-		StringTableEntry.Reset();
-		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry(LoadingPolicy == EStringTableLoadingPolicy::Find);
-
-		// If we couldn't load a string table asset because this wasn't the game thread, defer the loading request until we're able to process it
-		bStringTableAssetPendingLoad = !StringTableEntryPin.IsValid() && bIsAsset && !IsInGameThread();
+		// Prepare the string table reference
+		StringTableReferenceData = MakeShared<FStringTableReferenceData, ESPMode::ThreadSafe>();
+		StringTableReferenceData->Initialize(&Revision, TableId, MoveTemp(Key), EStringTableLoadingPolicy::FindOrLoad);
 
 		// We will definitely need to do a rebuild later
 		Revision = 0;
@@ -2559,77 +2543,175 @@ const TCHAR* FTextHistory_StringTableEntry::ReadFromBuffer(const TCHAR* Buffer, 
 
 bool FTextHistory_StringTableEntry::WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const
 {
-	// Update the table ID and key on save to make sure they're up-to-date
-	FName TmpTableId = TableId;
-	FString TmpKey = Key;
+	if (StringTableReferenceData)
 	{
-		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
-		if (StringTableEntryPin.IsValid())
-		{
-			FTextDisplayStringPtr ResolvedDisplayString = StringTableEntryPin->GetDisplayString();
-			FStringTableRegistry::Get().FindTableIdAndKey(ResolvedDisplayString.ToSharedRef(), TmpTableId, TmpKey);
-		}
-	}
+		FName TableId;
+		FString Key;
+		StringTableReferenceData->GetTableIdAndKey(TableId, Key);
 
 #define LOC_DEFINE_REGION
-	// Produces LOCTABLE("...", "...")
-	Buffer += TEXT("LOCTABLE(\"");
-	Buffer += TmpTableId.ToString().ReplaceCharWithEscapedChar();
-	Buffer += TEXT("\", \"");
-	Buffer += TmpKey.ReplaceCharWithEscapedChar();
-	Buffer += TEXT("\")");
+		// Produces LOCTABLE("...", "...")
+		Buffer += TEXT("LOCTABLE(\"");
+		Buffer += TableId.ToString().ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\", \"");
+		Buffer += Key.ReplaceCharWithEscapedChar();
+		Buffer += TEXT("\")");
 #undef LOC_DEFINE_REGION
 
-	return true;
+		return true;
+	}
+
+	return false;
 }
 
-FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry(const bool InSilent) const
+void FTextHistory_StringTableEntry::FStringTableReferenceData::Initialize(uint16* InRevisionPtr, FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy)
+{
+	RevisionPtr = InRevisionPtr;
+	TableId = InTableId;
+	Key = MoveTemp(InKey);
+	FStringTableRedirects::RedirectTableIdAndKey(TableId, Key);
+
+	if (InLoadingPolicy == EStringTableLoadingPolicy::Find)
+	{
+		// No loading attempt
+		LoadingPhase = EStringTableLoadingPhase::Loaded;
+		ResolveStringTableEntry();
+	}
+	else if (InLoadingPolicy == EStringTableLoadingPolicy::FindOrFullyLoad && IsInGameThread())
+	{
+		// Forced synchronous load
+		LoadingPhase = EStringTableLoadingPhase::Loaded;
+		IStringTableEngineBridge::FullyLoadStringTableAsset(TableId);
+		ResolveStringTableEntry();
+	}
+	else
+	{
+		// Potential asynchronous load
+		LoadingPhase = EStringTableLoadingPhase::PendingLoad;
+		ConditionalBeginAssetLoad();
+	}
+}
+
+FName FTextHistory_StringTableEntry::FStringTableReferenceData::GetTableId() const
+{
+	FScopeLock ScopeLock(&DataCS);
+	return TableId;
+}
+
+FString FTextHistory_StringTableEntry::FStringTableReferenceData::GetKey() const
+{
+	FScopeLock ScopeLock(&DataCS);
+	return Key;
+}
+
+void FTextHistory_StringTableEntry::FStringTableReferenceData::GetTableIdAndKey(FName& OutTableId, FString& OutKey) const
+{
+	FScopeLock ScopeLock(&DataCS);
+	OutTableId = TableId;
+	OutKey = Key;
+}
+
+void FTextHistory_StringTableEntry::FStringTableReferenceData::CollectStringTableAssetReferences(FStructuredArchive::FRecord Record) const
+{
+	if (Record.GetUnderlyingArchive().IsObjectReferenceCollector())
+	{
+		FScopeLock ScopeLock(&DataCS);
+		IStringTableEngineBridge::CollectStringTableAssetReferences(TableId, Record.EnterField(FIELD_NAME_TEXT("AssetReferences")));
+	}
+}
+
+FStringTableEntryConstPtr FTextHistory_StringTableEntry::FStringTableReferenceData::ResolveStringTableEntry()
 {
 	FStringTableEntryConstPtr StringTableEntryPin = StringTableEntry.Pin();
 
-	bool bSuppressMissingEntryWarning = InSilent;
+	if (!StringTableEntryPin.IsValid())
+	{
+		ConditionalBeginAssetLoad();
+	}
 
 	if (!StringTableEntryPin.IsValid() || !StringTableEntryPin->IsOwned())
 	{
-		FScopeLock ScopeLock(&StringTableEntryCS);
+		FScopeLock ScopeLock(&DataCS);
 
-		// Test again now that we've taken the lock in-case another thread beat us to it
-		StringTableEntryPin = StringTableEntry.Pin();
-		if (!StringTableEntryPin.IsValid() || !StringTableEntryPin->IsOwned())
+		// Reset for the case it was disowned rather than became null
+		StringTableEntry.Reset();
+		StringTableEntryPin.Reset();
+
+		if (LoadingPhase != EStringTableLoadingPhase::Loaded)
 		{
-			if (bStringTableAssetPendingLoad && IsInGameThread())
-			{
-				// Attempt to load the string table asset now
-				FTextHistory_StringTableEntry* NonConstThis = const_cast<FTextHistory_StringTableEntry*>(this);
-				FStringTableRedirects::RedirectTableIdAndKey(NonConstThis->TableId, NonConstThis->Key, EStringTableLoadingPolicy::FindOrLoad);
-
-				// We always set this to true even if the load failed
-				bStringTableAssetPendingLoad = false;
-			}
-			else
-			{
-				bSuppressMissingEntryWarning |= bStringTableAssetPendingLoad;
-			}
-
-			StringTableEntryPin.Reset();
-
-			FStringTableConstPtr StringTable = FStringTableRegistry::Get().FindStringTable(TableId);
-			if (StringTable.IsValid())
-			{
-				bSuppressMissingEntryWarning |= !StringTable->IsLoaded();
-				StringTableEntryPin = StringTable->FindEntry(Key);
-			}
-
-			StringTableEntry = StringTableEntryPin;
+			// Table still loading - cannot be resolved yet
+			return nullptr;
 		}
+
+		FStringTableConstPtr StringTable = FStringTableRegistry::Get().FindStringTable(TableId);
+		if (StringTable.IsValid())
+		{
+			if (!StringTable->IsLoaded())
+			{
+				// Table still loading - cannot be resolved yet
+				return nullptr;
+			}
+			StringTableEntryPin = StringTable->FindEntry(Key);
+		}
+		
+		StringTableEntry = StringTableEntryPin;
 	}
 
-	if (!StringTableEntryPin.IsValid() && !bSuppressMissingEntryWarning)
+	if (!StringTableEntryPin.IsValid())
 	{
 		FStringTableRegistry::Get().LogMissingStringTableEntry(TableId, Key);
 	}
 
 	return StringTableEntryPin;
+}
+
+void FTextHistory_StringTableEntry::FStringTableReferenceData::ConditionalBeginAssetLoad()
+{
+	if (!IsInGameThread())
+	{
+		return;
+	}
+
+	FName TableIdToLoad;
+	{
+		FScopeLock ScopeLock(&DataCS);
+
+		if (LoadingPhase != EStringTableLoadingPhase::PendingLoad)
+		{
+			return;
+		}
+
+		TableIdToLoad = TableId;
+		LoadingPhase = EStringTableLoadingPhase::Loading;
+	}
+
+	IStringTableEngineBridge::LoadStringTableAsset(TableIdToLoad, [WeakThis = FStringTableReferenceDataWeakPtr(AsShared())](FName InRequestedTableId, FName InLoadedTableId)
+	{
+		// Was this request still valid?
+		FStringTableReferenceDataPtr This = WeakThis.Pin();
+		if (!This)
+		{
+			return;
+		}
+
+		FScopeLock ScopeLock(&This->DataCS);
+		check(This->TableId == InRequestedTableId);
+
+		// If this string table loaded, then update the table ID using the potentially redirected value
+		if (!InLoadedTableId.IsNone())
+		{
+			This->TableId = InLoadedTableId;
+		}
+		This->LoadingPhase = EStringTableLoadingPhase::Loaded;
+
+		// We will definitely need to do a rebuild later
+		if (This->RevisionPtr)
+		{
+			*This->RevisionPtr = 0;
+		}
+
+		This->ResolveStringTableEntry();
+	});
 }
 
 

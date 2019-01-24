@@ -107,6 +107,7 @@ public:
 						[
 							SAssignNew(EditableLabel, SInlineEditableTextBlock)
 								.IsReadOnly(this, &SSequencerLabelListRow::IsReadOnly)
+								.OnVerifyTextChanged(this, &SSequencerLabelListRow::HandleVerifyNameChanged)
 								.OnTextCommitted(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
 								.Text(
 									Node->Label.IsEmpty()
@@ -155,6 +156,19 @@ private:
 		// TODO sequencer: gmp: allow folder color customization
 		return FLinearColor::Gray;
 	}
+
+
+	bool HandleVerifyNameChanged(const FText& NewText, FText& OutErrorMessage)
+	{
+		if (NewText.ToString().Contains(TEXT(" ")))	
+		{
+			OutErrorMessage = LOCTEXT("InvalidLabel", "Label cannot contains spaces");
+			return false;
+		}
+
+		return true;
+	}
+
 
 	void HandleFolderNameTextChanged(const FText& NewLabel, ETextCommit::Type TextCommitType)
 	{

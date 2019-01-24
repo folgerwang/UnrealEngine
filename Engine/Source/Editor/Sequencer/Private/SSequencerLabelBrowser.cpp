@@ -4,7 +4,7 @@
 #include "SlateOptMacros.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "SSequencerLabelListRow.h"
-
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SSequencerLabelBrowser"
 
@@ -147,6 +147,8 @@ void SSequencerLabelBrowser::ReloadLabelList(bool FullyReload)
 
 void SSequencerLabelBrowser::HandleLabelListRowLabelRenamed(TSharedPtr<FSequencerLabelTreeNode> Node, const FString& NewLabel)
 {
+	const FScopedTransaction Transaction(LOCTEXT("RenameLabel", "Rename Label"));
+
 	if (Sequencer.IsValid() && Sequencer.Pin()->GetLabelManager().RenameLabel(Node->Label, NewLabel))
 	{
 		ReloadLabelList(true);
@@ -209,6 +211,26 @@ void SSequencerLabelBrowser::HandleLabelTreeViewGetChildren(TSharedPtr<FSequence
 	}
 }
 
+void SSequencerLabelBrowser::AddLabelNode(TSharedPtr<FSequencerLabelTreeNode> InItem, FString& NewLabel)
+{
+	if (InItem.IsValid())
+	{
+		if (!NewLabel.IsEmpty())
+		{
+			NewLabel += TEXT(" ");
+		}
+
+		if (!InItem->Label.IsEmpty())
+		{
+			NewLabel += FString(TEXT("label:")) + InItem->Label;
+		}
+
+		for (auto Child : InItem->Children)
+		{
+			AddLabelNode(Child, NewLabel);
+		}
+	}
+}
 
 void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSequencerLabelTreeNode> InItem, ESelectInfo::Type SelectInfo)
 {
@@ -218,15 +240,7 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 	LabelTreeView->GetSelectedItems(SelectedItems);
 	for (TSharedPtr<FSequencerLabelTreeNode> Item : SelectedItems)
 	{
-		if (!NewLabel.IsEmpty())
-		{
-			NewLabel += TEXT(" ");
-		}
-		
-		if (!Item->Label.IsEmpty())
-		{
-			NewLabel += FString(TEXT("label:")) + Item->Label;
-		}
+		AddLabelNode(Item, NewLabel);
 	}
 
 	OnSelectionChanged.ExecuteIfBound(
@@ -237,6 +251,19 @@ void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSeq
 	);
 }
 
+void SSequencerLabelBrowser::RemoveLabelItem(TSharedPtr<FSequencerLabelTreeNode> InItem)
+{
+	if (InItem.IsValid())
+	{
+		for (auto Child : InItem->Children)
+		{
+			RemoveLabelItem(Child);
+		}
+
+		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), InItem->Label);
+	}
+}
+
 
 void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 {
@@ -244,7 +271,9 @@ void SSequencerLabelBrowser::HandleRemoveLabelMenuEntryExecute()
 
 	if (Sequencer.IsValid() && LabelTreeView->GetSelectedItems(SelectedItems) > 0)
 	{
-		Sequencer.Pin()->GetLabelManager().RemoveObjectLabel(FGuid(), SelectedItems[0]->Label);
+		const FScopedTransaction Transaction(LOCTEXT("RemoveLabel", "Remove Label"));
+
+		RemoveLabelItem(SelectedItems[0]);
 	}
 }
 

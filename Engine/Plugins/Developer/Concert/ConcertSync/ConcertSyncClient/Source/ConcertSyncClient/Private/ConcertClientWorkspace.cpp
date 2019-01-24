@@ -15,6 +15,7 @@
 #include "ConcertActivityEvents.h"
 #include "ConcertWorkspaceData.h"
 #include "ConcertClientDataStore.h"
+#include "ConcertClientLiveTransactionAuthors.h"
 
 #include "Containers/Ticker.h"
 #include "Containers/ArrayBuilder.h"
@@ -210,24 +211,34 @@ void FConcertClientWorkspace::BindSession(const TSharedRef<IConcertClientSession
 	// Create Activity Ledger
 	ActivityLedger = MakeUnique<FConcertClientActivityLedger>(InSession);
 
+	// Create the service tracking which clients have live transaction on which packages.
+	LiveTransactionAuthors = MakeUnique<FConcertClientLiveTransactionAuthors>(InSession);
+
 	// Register to Transaction ledger
 	TransactionManager->GetMutableLedger().OnAddFinalizedTransaction().AddLambda([this](const FConcertTransactionFinalizedEvent& FinalizedEvent, uint64 TransactionIndex)
+	{
+		FConcertSessionClientInfo SessionClientInfo;
+		if (Session->FindSessionClient(FinalizedEvent.TransactionEndpointId, SessionClientInfo))
 		{
-			FConcertSessionClientInfo SessionClientInfo;
-			if (Session->FindSessionClient(FinalizedEvent.TransactionEndpointId, SessionClientInfo))
-			{
-				ActivityLedger->RecordFinalizedTransaction(FinalizedEvent, TransactionIndex, SessionClientInfo.ClientInfo);
-			}
-			else
-			{
-				// When the transaction originated from our client
-				IConcertClientPtr ConcertClient = IConcertModule::Get().GetClientInstance(); //TODO any less awkward way to get the client info?
-				if (ConcertClient.IsValid())
-				{
-					ActivityLedger->RecordFinalizedTransaction(FinalizedEvent, TransactionIndex, ConcertClient->GetClientInfo());
-				}
-			}
-		});
+			ActivityLedger->RecordFinalizedTransaction(FinalizedEvent, TransactionIndex, SessionClientInfo.ClientInfo);
+			LiveTransactionAuthors->AddLiveTransaction(FinalizedEvent.ModifiedPackages, SessionClientInfo.ClientInfo, TransactionIndex);
+		}
+		else
+		{
+			// When the transaction originated from our client
+			const FConcertClientInfo& ClientInfo = Session->GetLocalClientInfo();
+			ActivityLedger->RecordFinalizedTransaction(FinalizedEvent, TransactionIndex, ClientInfo);
+			LiveTransactionAuthors->AddLiveTransaction(FinalizedEvent.ModifiedPackages, ClientInfo, TransactionIndex);
+		}
+	});
+
+	TransactionManager->GetMutableLedger().OnLiveTransactionsTrimmed().AddLambda([this](const FName& PackageName, uint64 UpToIndex)
+	{
+		LiveTransactionAuthors->TrimLiveTransactions(PackageName, UpToIndex);
+	});
+
+	// Get the live transactions from the transaction ledger, match live transactions to their authors using the activity ledger and populate the live transaction author tracker.
+	ResolveLiveTransactionAuthors(TransactionManager->GetLedger(), *ActivityLedger, *LiveTransactionAuthors);
 
 	// Register Session events
 	SessionConnectedHandle = Session->OnConnectionChanged().AddRaw(this, &FConcertClientWorkspace::HandleConnectionChanged);
@@ -314,6 +325,9 @@ void FConcertClientWorkspace::UnbindSession()
 
 		// Destroy Activity ledger
 		ActivityLedger.Reset();
+
+		// Destroy the object tracking the live transaction authors.
+		LiveTransactionAuthors.Reset();
 
 		// Unregister Session events
 		if (SessionConnectedHandle.IsValid())
@@ -882,6 +896,11 @@ void FConcertClientWorkspace::PurgePendingPackages()
 		ConcertSyncClientUtil::PurgePackages(PackagesPendingPurge);
 		PackagesPendingPurge.Reset();
 	}
+}
+
+bool FConcertClientWorkspace::IsAssetModifiedByOtherClients(const FName& AssetName, int* OutOtherClientsWithModifNum, TArray<FConcertClientInfo>* OutOtherClientsWithModifInfo, int OtherClientsWithModifMaxFetchNum) const
+{
+	return LiveTransactionAuthors->IsPackageAuthoredByOtherClients(AssetName, OutOtherClientsWithModifNum, OutOtherClientsWithModifInfo, OtherClientsWithModifMaxFetchNum);
 }
 
 #undef LOCTEXT_NAMESPACE

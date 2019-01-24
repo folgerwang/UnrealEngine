@@ -20,8 +20,8 @@ namespace UnrealBuildTool.Rules
             }
 
             List<string> DependenciesToAdd = new List<string>();
-            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*Development.exe"));
-            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*Development.pdb"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "WebRTCProxy.exe"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "WebRTCProxy.pdb"));
             DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*.bat"));
             DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*.ps1"));
             

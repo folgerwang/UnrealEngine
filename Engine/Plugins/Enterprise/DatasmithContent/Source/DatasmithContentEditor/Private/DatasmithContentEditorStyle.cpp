@@ -55,6 +55,8 @@ void FDatasmithContentEditorStyle::Initialize()
 	StyleSet->Set("DatasmithDataPrepEditor.SaveScene.Selected", new IMAGE_PLUGIN_BRUSH("Icons/SaveScene", Icon40x40));
 	StyleSet->Set("DatasmithDataPrepEditor.SaveScene.Selected.Small", new IMAGE_PLUGIN_BRUSH("Icons/SaveScene", Icon20x20));
 
+	StyleSet->Set("DatasmithDataPrepEditor.ShowDatasmithSceneSettings", new IMAGE_PLUGIN_BRUSH("Icons/IconOptions", Icon40x40));
+
 	StyleSet->Set("DatasmithDataPrepEditor.BuildWorld", new IMAGE_PLUGIN_BRUSH("Icons/BuildWorld", Icon40x40));
 	StyleSet->Set("DatasmithDataPrepEditor.BuildWorld.Small", new IMAGE_PLUGIN_BRUSH("Icons/BuildWorld", Icon20x20));
 	StyleSet->Set("DatasmithDataPrepEditor.BuildWorld.Selected", new IMAGE_PLUGIN_BRUSH("Icons/BuildWorld", Icon40x40));

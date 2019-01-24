@@ -21,6 +21,7 @@ class UMovieSceneSection;
 class UInterpTrackMoveAxis;
 struct FMovieSceneObjectBindingID;
 class UMovieSceneTrack;
+struct FMovieSceneEvaluationTrack;
 
 struct FMovieSceneFloatValue;
 template<typename ChannelType> struct TMovieSceneChannelData;
@@ -143,9 +144,10 @@ public:
 	 * @param InFrameRate The frame rate to export the EDL at
 	 * @param InSaveDirectory Optional directory path to save to. If none given, a dialog will pop up to prompt the user
 	 * @param InHandleFrames The number of handle frames to include for each shot.
+	 * @param MovieExtension The movie extension for the shot filenames (ie. .avi, .mov, .mp4)
 	 * @return Whether the export was successful
 	 */
-	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8, FString InMovieExtension = TEXT(".avi"));
 
 	/**
 	* Import movie scene formats
@@ -227,6 +229,15 @@ public:
 	 * @return Whether this object class has hidden mobility and can't be animated
 	 */
 	static bool HasHiddenMobility(const UClass* ObjectClass);
+	
+	/*
+	* Get the Active EvaluationTrack for a given track. Will do a recompile if the track isn't valid
+	*@param Sequencer The sequencer we are evaluating
+	*@aram Track The movie scene track whose evaluation counterpart we want
+	*@return Returns the evaluation track for the given movie scene track. May do a re-compile if needed.
+	*/
+	static FMovieSceneEvaluationTrack* GetEvaluationTrack(ISequencer *Sequencer, const FGuid& TrackSignature);
+
 };
 
 class FTrackEditorBindingIDPicker : public FMovieSceneObjectBindingIDPicker

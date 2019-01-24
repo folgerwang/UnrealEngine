@@ -9,6 +9,9 @@
 #include "BoundShaderStateCache.h"
 #include "D3D11ShaderResources.h"
 
+interface ID3D11DeviceContext;
+typedef ID3D11DeviceContext FD3D11DeviceContext;
+
 template <>
 struct TTypeTraits<D3D11_INPUT_ELEMENT_DESC> : public TTypeTraitsBase<D3D11_INPUT_ELEMENT_DESC>
 {

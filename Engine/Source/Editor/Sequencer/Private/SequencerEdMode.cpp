@@ -20,6 +20,7 @@
 #include "ViewportWorldInteraction.h"
 #include "SSequencer.h"
 #include "Evaluation/MovieScene3DTransformTemplate.h"
+#include "MovieSceneToolHelpers.h"
 
 const FEditorModeID FSequencerEdMode::EM_SequencerMode(TEXT("EM_SequencerMode"));
 
@@ -301,9 +302,7 @@ bool FSequencerEdMode::GetParentTM(FTransform& CurrentRefTM, const TSharedPtr<FS
 								FVector ParentKeyPos;
 								FRotator ParentKeyRot;
 
-								FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
-								FMovieSceneEvaluationTrack* EvalTrack = Template ? Template->FindTrack(TransformTrack->GetSignature()) : nullptr;
-
+								FMovieSceneEvaluationTrack* EvalTrack = MovieSceneToolHelpers::GetEvaluationTrack(Sequencer.Get(), TransformTrack->GetSignature());
 								if (EvalTrack)
 								{
 									GetLocationAtTime(EvalTrack, ParentObject, KeyTime, ParentKeyPos, ParentKeyRot, Sequencer);
@@ -442,9 +441,7 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 									FVector ParentKeyPos;
 									FRotator ParentKeyRot;
 
-									FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
-									FMovieSceneEvaluationTrack* EvalTrack = Template ? Template->FindTrack(TransformTrack->GetSignature()) : nullptr;
-
+									FMovieSceneEvaluationTrack* EvalTrack = MovieSceneToolHelpers::GetEvaluationTrack(Sequencer.Get(), TransformTrack->GetSignature());
 									if (EvalTrack)
 									{
 										GetLocationAtTime(EvalTrack, ParentObject, KeyTime, ParentKeyPos, ParentKeyRot, Sequencer);
@@ -532,7 +529,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 
 	FLinearColor TrackColor = TransformTrack->GetColorTint();
 	// Draw one line per-track (should only really ever be one)
-	if (FMovieSceneEvaluationTrack* EvalTrack = Template->FindTrack(TransformTrack->GetSignature()))
+	if (FMovieSceneEvaluationTrack * EvalTrack = MovieSceneToolHelpers::GetEvaluationTrack(Sequencer.Get(), TransformTrack->GetSignature()))
 	{
 		TArray<FTrajectoryKey> TrajectoryKeys = TransformTrack->GetTrajectoryData(Sequencer->GetLocalTime().Time.FrameNumber, Sequencer->GetSequencerSettings()->GetTrajectoryPathCap());
 		for (TWeakObjectPtr<> WeakBinding : BoundObjects)

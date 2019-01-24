@@ -6,6 +6,25 @@
 #include "Misc/DisplayClusterLog.h"
 
 #include "DisplayClusterStrings.h"
+#include "Misc/DisplayClusterTypesConverter.h"
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// FDisplayClusterConfigInfo
+//////////////////////////////////////////////////////////////////////////////////////////////
+FString FDisplayClusterConfigInfo::ToString() const
+{
+	return FString::Printf(TEXT("[%s + %s=%s]"),
+		*FDisplayClusterConfigBase::ToString(),
+		DisplayClusterStrings::cfg::data::info::Version, *Version);
+}
+
+bool FDisplayClusterConfigInfo::DeserializeFromString(const FString& line)
+{
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::info::Version), Version);
+
+	return FDisplayClusterConfigBase::DeserializeFromString(line);
+}
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -214,6 +233,25 @@ bool FDisplayClusterConfigInput::DeserializeFromString(const FString& line)
 	return FDisplayClusterConfigBase::DeserializeFromString(line);
 }
 
+FString FDisplayClusterConfigInputSetup::ToString() const
+{
+	return FString::Printf(TEXT("[%s + %s=%s, %s=%d, %s=%s, %s=%s]"),
+		*FDisplayClusterConfigBase::ToString(),
+		DisplayClusterStrings::cfg::data::Id, *Id,
+		DisplayClusterStrings::cfg::data::inputsetup::Channel, Channel,
+		DisplayClusterStrings::cfg::data::inputsetup::Key, *Key,
+		DisplayClusterStrings::cfg::data::inputsetup::Bind, *BindName);
+}
+
+bool FDisplayClusterConfigInputSetup::DeserializeFromString(const FString& line)
+{
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::Id), Id);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::inputsetup::Channel), Channel);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::inputsetup::Key),     Key);
+	DisplayClusterHelpers::str::ExtractCommandLineValue(line, FString(DisplayClusterStrings::cfg::data::inputsetup::Bind),    BindName);
+
+	return FDisplayClusterConfigBase::DeserializeFromString(line);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // FDisplayClusterConfigGeneral

@@ -48,6 +48,27 @@ FAnimationTabSummoner::FAnimationTabSummoner(TSharedPtr<class FWidgetBlueprintEd
 
 bool VerifyAnimationRename( FWidgetBlueprintEditor& BlueprintEditor, UWidgetAnimation* Animation, FString NewAnimationName, FText& OutErrorMessage )
 {
+	if (NewAnimationName != SlugStringForValidName(NewAnimationName))
+	{
+		FString InvalidCharacters = INVALID_OBJECTNAME_CHARACTERS;
+		FString CurrentInvalidCharacter;
+		FString FoundInvalidCharacters;
+
+		// Create a string with all invalid characters found to output with the error message.
+		for (int32 StringIndex = 0; StringIndex < InvalidCharacters.Len(); ++StringIndex)
+		{
+			CurrentInvalidCharacter = InvalidCharacters.Mid(StringIndex, 1);
+
+			if (NewAnimationName.Contains(CurrentInvalidCharacter))
+			{
+				FoundInvalidCharacters += CurrentInvalidCharacter;
+			}
+		}
+		
+		OutErrorMessage = FText::Format(LOCTEXT("NameContainsInvalidCharacters", "The object name may not contain the following characters:  {0}"), FText::FromString(FoundInvalidCharacters));
+		return false;
+	}
+
 	UWidgetBlueprint* Blueprint = BlueprintEditor.GetWidgetBlueprintObj();
 	if (Blueprint && FindObject<UWidgetAnimation>( Blueprint, *NewAnimationName, true ) )
 	{
@@ -157,7 +178,7 @@ private:
 	{
 		UWidgetAnimation* Animation = ListItem.Pin()->Animation;
 
-		const FName NewName = MakeObjectNameFromDisplayLabel(InText.ToString(), Animation->GetFName());
+		const FName NewName = *InText.ToString();
 
 		if ( Animation->GetFName() != NewName )
 		{
@@ -173,8 +194,8 @@ private:
 		UWidgetAnimation* WidgetAnimation = ListItem.Pin()->Animation;
 		UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 
-		// Get the new FName slug from the given display name
-		const FName NewFName = MakeObjectNameFromDisplayLabel(InText.ToString(), WidgetAnimation->GetFName());
+		// Name has already been checked in VerifyAnimationRename
+		const FName NewFName = *InText.ToString();
 		const FName OldFName = WidgetAnimation->GetFName();
 
 		UObjectPropertyBase* ExistingProperty = Cast<UObjectPropertyBase>(Blueprint->ParentClass->FindPropertyByName(NewFName));
@@ -409,7 +430,7 @@ private:
 		UWidgetBlueprint* WidgetBlueprint = Editor->GetWidgetBlueprintObj();
 
 		FString BaseName = "NewAnimation";
-		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, *BaseName, RF_Transactional);
+		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, FName(), RF_Transactional);
 
 		FString UniqueName = BaseName;
 		int32 NameIndex = 1;
@@ -420,7 +441,7 @@ private:
 			NameIndex++;
 		}
 
-		const FName NewFName = MakeObjectNameFromDisplayLabel(UniqueName, NewAnimation->GetFName());
+		const FName NewFName = FName(*UniqueName);
 		NewAnimation->SetDisplayLabel( UniqueName );
 		NewAnimation->Rename(*UniqueName);
 
@@ -572,7 +593,7 @@ private:
 			);
 	
 		NewAnimation->MovieScene->Rename(*NewAnimation->GetName(), nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
-
+		NewAnimation->SetDisplayLabel(NewAnimation->GetName());
 
 		bool bRenameRequestPending = true;
 		bool bNewAnimation = true;

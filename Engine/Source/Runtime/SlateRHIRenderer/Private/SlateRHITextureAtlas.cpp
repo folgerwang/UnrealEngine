@@ -11,8 +11,8 @@
 /* FSlateTextureAtlasRHI structors
  *****************************************************************************/
 
-FSlateTextureAtlasRHI::FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle )
-	: FSlateTextureAtlas(InWidth, InHeight, GPixelFormats[PF_B8G8R8A8].BlockBytes, PaddingStyle)
+FSlateTextureAtlasRHI::FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle, bool bUpdatesAfterInitialization)
+	: FSlateTextureAtlas(InWidth, InHeight, GPixelFormats[PF_B8G8R8A8].BlockBytes, PaddingStyle, bUpdatesAfterInitialization)
 	, AtlasTexture(new FSlateTexture2DRHIRef(InWidth, InHeight, PF_B8G8R8A8, NULL, TexCreate_SRGB, true)) 
 {
 }
@@ -79,5 +79,10 @@ void FSlateTextureAtlasRHI::ConditionalUpdateTexture( )
 		});
 
 		bNeedsUpdate = false;
+
+		if (!bUpdatesAfterInitialization)
+		{
+			EmptyAtlasData();
+		}
 	}
 }

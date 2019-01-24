@@ -217,7 +217,6 @@
 #include "Misc/QueuedThreadPool.h"
 #include "GenericPlatform/GenericPlatformAffinity.h"
 #include "Async/AsyncWork.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Misc/SecureHash.h"
 #include "Modules/ModuleManager.h"
 #include "Modules/Boilerplate/ModuleBoilerplate.h"

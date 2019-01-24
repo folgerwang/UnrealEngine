@@ -286,7 +286,7 @@ void SOculusToolWidget::RebuildLayout()
 void SOculusToolWidget::Construct(const FArguments& InArgs)
 {
 	pendingRestart = false;
-	PlatformEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EOculusPlatform"), true);
+	PlatformEnum = StaticEnum<EOculusPlatform>();
 	Platforms.Reset(2);
 
 	UOculusEditorSettings* EditorSettings = GetMutableDefault<UOculusEditorSettings>();

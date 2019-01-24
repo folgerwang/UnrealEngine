@@ -47,7 +47,7 @@ bool WritePackage(const FConcertPackageInfo& InPackageInfo, const TArray<uint8>&
 	Ar.SerializeIntPacked(UncompressedPackageSize);
 	if (UncompressedPackageSize > 0)
 	{
-		Ar.SerializeCompressed((uint8*)InPackageData.GetData(), UncompressedPackageSize, COMPRESS_ZLIB);
+		Ar.SerializeCompressed((uint8*)InPackageData.GetData(), UncompressedPackageSize, NAME_Zlib);
 	}
 
 	// Serialize the footer so we know we didn't crash mid-write
@@ -98,7 +98,7 @@ bool ReadPackage(const TArray<uint8>& InSerializedPackageData, FConcertPackageIn
 		OutPackageData->AddZeroed(UncompressedPackageSize);
 		if (UncompressedPackageSize > 0)
 		{
-			Ar.SerializeCompressed(OutPackageData->GetData(), UncompressedPackageSize, COMPRESS_ZLIB);
+			Ar.SerializeCompressed(OutPackageData->GetData(), UncompressedPackageSize, NAME_Zlib);
 		}
 	}
 

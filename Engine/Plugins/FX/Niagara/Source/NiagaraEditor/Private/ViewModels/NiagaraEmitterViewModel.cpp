@@ -36,7 +36,7 @@ FNiagaraEmitterViewModel::FNiagaraEmitterViewModel(UNiagaraEmitter* InEmitter, T
 	, Simulation(InSimulation)
 	, SharedScriptViewModel(MakeShareable(new FNiagaraScriptViewModel(InEmitter, LOCTEXT("SharedDisplayName", "Graph"), ENiagaraParameterEditMode::EditAll)))
 	, bUpdatingSelectionInternally(false)
-	, ExecutionStateEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraExecutionState")))
+	, ExecutionStateEnum(StaticEnum<ENiagaraExecutionState>())
 {	
 	SetEmitter(InEmitter);
 }

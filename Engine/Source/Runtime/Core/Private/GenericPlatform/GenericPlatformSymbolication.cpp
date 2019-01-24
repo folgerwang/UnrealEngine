@@ -7,6 +7,7 @@
 #include "Misc/Paths.h"
 #include "Serialization/ArchiveSaveCompressedProxy.h"
 #include "Serialization/ArchiveLoadCompressedProxy.h"
+#include "Misc/Compression.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformSymbolication, Log, All);
@@ -22,7 +23,7 @@ bool FGenericPlatformSymbolication::LoadSymbolDatabaseForBinary(FString SourceFo
 		TArray<uint8> DataBuffer;
 		if(FFileHelper::LoadFileToArray(DataBuffer, *InputFile))
 		{
-			FArchiveLoadCompressedProxy DataArchive(DataBuffer, (ECompressionFlags)(COMPRESS_Default));
+			FArchiveLoadCompressedProxy DataArchive(DataBuffer, NAME_Zlib);
 			DataArchive << OutDatabase;
 			if(!DataArchive.GetError())
 			{
@@ -45,7 +46,7 @@ bool FGenericPlatformSymbolication::SaveSymbolDatabaseForBinary(FString TargetFo
 	FString OutputFile = (TargetFolder / ModuleName) + TEXT(".udebugsymbols");
 
 	TArray<uint8> DataBuffer;
-	FArchiveSaveCompressedProxy DataArchive(DataBuffer, (ECompressionFlags)(COMPRESS_ZLIB|COMPRESS_BiasSpeed));
+	FArchiveSaveCompressedProxy DataArchive(DataBuffer, NAME_Zlib, COMPRESS_BiasSpeed);
 	DataArchive << Database;
 	DataArchive.Flush();
 	if(!DataArchive.GetError())

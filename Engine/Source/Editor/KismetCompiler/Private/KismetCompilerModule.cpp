@@ -44,7 +44,7 @@ class FKismet2CompilerModule : public IKismetCompilerInterface
 {
 public:
 	// Implementation of the IKismetCompilerInterface
-	virtual void CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<class FBlueprintCompileReinstancer> ParentReinstancer = NULL, TArray<UObject*>* ObjLoaded = NULL) override;
+	virtual void CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<class FBlueprintCompileReinstancer> ParentReinstancer = NULL) override;
 	virtual void RefreshVariables(UBlueprint* Blueprint) override final;
 	virtual void CompileStructure(class UUserDefinedStruct* Struct, FCompilerResultsLog& Results) override;
 	virtual void RecoverCorruptedBlueprint(class UBlueprint* Blueprint) override;
@@ -56,7 +56,7 @@ public:
 	virtual FString GenerateCppWrapper(UBlueprintGeneratedClass* BPGC, const FCompilerNativizationOptions& NativizationOptions) override;
 	// End implementation
 private:
-	void CompileBlueprintInner(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> Reinstancer, TArray<UObject*>* ObjLoaded);
+	void CompileBlueprintInner(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> Reinstancer);
 
 	TArray<IBlueprintCompiler*> Compilers;
 };
@@ -82,7 +82,7 @@ public:
 };
 
 // Compiles a blueprint.
-void FKismet2CompilerModule::CompileBlueprintInner(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> Reinstancer, TArray<UObject*>* ObjLoaded)
+void FKismet2CompilerModule::CompileBlueprintInner(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> Reinstancer)
 {
 	FBlueprintIsBeingCompiledHelper BeingCompiled(Blueprint);
 
@@ -112,7 +112,7 @@ void FKismet2CompilerModule::CompileBlueprintInner(class UBlueprint* Blueprint, 
 			if ( Compiler->CanCompile(Blueprint) )
 			{
 				Compiled = true;
-				Compiler->Compile(Blueprint, CompileOptions, Results, ObjLoaded);
+				Compiler->Compile(Blueprint, CompileOptions, Results);
 				break;
 			}
 		}
@@ -122,13 +122,13 @@ void FKismet2CompilerModule::CompileBlueprintInner(class UBlueprint* Blueprint, 
 		{
 			if ( UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>(Blueprint) )
 			{
-				FAnimBlueprintCompilerContext Compiler(AnimBlueprint, Results, CompileOptions, ObjLoaded);
+				FAnimBlueprintCompilerContext Compiler(AnimBlueprint, Results, CompileOptions);
 				Compiler.Compile();
 				check(Compiler.NewClass);
 			}
 			else
 			{
-				FKismetCompilerContext Compiler(Blueprint, Results, CompileOptions, ObjLoaded);
+				FKismetCompilerContext Compiler(Blueprint, Results, CompileOptions);
 				Compiler.Compile();
 				check(Compiler.NewClass);
 			}
@@ -188,7 +188,7 @@ FString FKismet2CompilerModule::GenerateCppWrapper(UBlueprintGeneratedClass* BPG
 extern UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
 
 // Compiles a blueprint.
-void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> ParentReinstancer, TArray<UObject*>* ObjLoaded)
+void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TSharedPtr<FBlueprintCompileReinstancer> ParentReinstancer)
 {
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData);
 	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileTime);
@@ -213,7 +213,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 		SkeletonResults.bSilentMode = true;
 		FKismetCompilerOptions SkeletonCompileOptions;
 		SkeletonCompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
-		CompileBlueprintInner(Blueprint, SkeletonCompileOptions, SkeletonResults, ParentReinstancer, ObjLoaded);
+		CompileBlueprintInner(Blueprint, SkeletonCompileOptions, SkeletonResults, ParentReinstancer);
 
 		// Only when doing full compiles do we want to compile all skeletons before continuing to compile 
 		if (CompileOptions.CompileType == EKismetCompileType::Full)
@@ -230,7 +230,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 		FBlueprintCompileReinstancer::OptionallyRefreshNodes(Blueprint);
 
 		// Perform the full compile
-		CompileBlueprintInner(Blueprint, CompileOptions, Results, ParentReinstancer, ObjLoaded);
+		CompileBlueprintInner(Blueprint, CompileOptions, Results, ParentReinstancer);
 
 		if (Results.NumErrors == 0)
 		{
@@ -275,7 +275,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 				FKismetCompilerOptions StubCompileOptions(CompileOptions);
 				StubCompileOptions.CompileType = EKismetCompileType::StubAfterFailure;
 				{
-					CompileBlueprintInner(Blueprint, StubCompileOptions, StubResults, StubReinstancer, ObjLoaded);
+					CompileBlueprintInner(Blueprint, StubCompileOptions, StubResults, StubReinstancer);
 				}
 
 				StubReinstancer->UpdateBytecodeReferences();

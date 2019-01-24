@@ -46,7 +46,7 @@ void FMeshMergingSettingsObjectCustomization::CustomizeDetails(IDetailLayoutBuil
 			EnumProperty = Property;
 						
 			TSharedPtr<FPropertyRestriction> EnumRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("NoSupport","Unable to support this option in Merge Actor")));
-			const UEnum* const MeshLODSelectionTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMeshLODSelectionType"));		
+			const UEnum* const MeshLODSelectionTypeEnum = StaticEnum<EMeshLODSelectionType>();		
 			EnumRestriction->AddDisabledValue(MeshLODSelectionTypeEnum->GetNameStringByValue((uint8)EMeshLODSelectionType::CalculateLOD));
 			EnumProperty->AddRestriction(EnumRestriction.ToSharedRef());
 		}

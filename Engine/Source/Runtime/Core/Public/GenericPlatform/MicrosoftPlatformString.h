@@ -10,11 +10,9 @@
 * Microsoft specific implementation 
 **/
 
-#if !USE_SECURE_CRT
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated  (needed for the secure string functions)
 #pragma warning(disable : 4995) // 'function' was declared deprecated  (needed for the secure string functions)
-#endif
 
 struct FMicrosoftPlatformString : public FGenericPlatformString
 {
@@ -23,43 +21,24 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	 **/
 	static FORCEINLINE WIDECHAR* Strcpy(WIDECHAR* Dest, SIZE_T DestCount, const WIDECHAR* Src)
 	{
-#if USE_SECURE_CRT
-		_tcscpy_s(Dest, DestCount, Src);
-		return Dest;
-#else
 		return (WIDECHAR*)_tcscpy(Dest, Src);
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE WIDECHAR* Strncpy(WIDECHAR* Dest, const WIDECHAR* Src, SIZE_T MaxLen)
 	{
-#if USE_SECURE_CRT
-		_tcsncpy_s(Dest, MaxLen, Src, MaxLen-1);
-#else
 		_tcsncpy(Dest, Src, MaxLen-1);
 		Dest[MaxLen-1] = 0;
-#endif // USE_SECURE_CRT
 		return Dest;
 	}
 
 	static FORCEINLINE WIDECHAR* Strcat(WIDECHAR* Dest, SIZE_T DestCount, const WIDECHAR* Src)
 	{
-#if USE_SECURE_CRT
-		_tcscat_s(Dest, DestCount, Src);
-		return Dest;
-#else
 		return (WIDECHAR*)_tcscat(Dest, Src);
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE WIDECHAR* Strupr(WIDECHAR* Dest, SIZE_T DestCount)
 	{
-#if USE_SECURE_CRT
-		_tcsupr_s(Dest, DestCount);
-		return Dest;
-#else
 		return (WIDECHAR*)_tcsupr(Dest);
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE int32 Strcmp( const WIDECHAR* String1, const WIDECHAR* String2 )
@@ -70,11 +49,6 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	static FORCEINLINE int32 Strncmp( const WIDECHAR* String1, const WIDECHAR* String2, SIZE_T Count )
 	{
 		return _tcsncmp( String1, String2, Count );
-	}
-
-	static FORCEINLINE int32 Strnicmp( const WIDECHAR* String1, const WIDECHAR* String2, SIZE_T Count )
-	{
-		return _tcsnicmp( String1, String2, Count );
 	}
 
 	static FORCEINLINE int32 Strlen( const WIDECHAR* String )
@@ -137,13 +111,15 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 		return _tcstok_s(StrToken, Delim, Context);
 	}
 
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
 	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
 	{
-#if USE_SECURE_CRT
-		int32 Result = _vsntprintf_s( Dest, DestSize, Count, Fmt, ArgPtr );
-#else
-		int32 Result = vswprintf(Dest, Count, Fmt, ArgPtr);
-#endif // USE_SECURE_CRT
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
+	{
+		int32 Result = vswprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
 		return Result;
 	}
@@ -153,42 +129,23 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	 **/
 	static FORCEINLINE ANSICHAR* Strcpy(ANSICHAR* Dest, SIZE_T DestCount, const ANSICHAR* Src)
 	{
-#if USE_SECURE_CRT
-		strcpy_s(Dest, DestCount, Src);
-		return Dest;
-#else
 		return (ANSICHAR*)strcpy(Dest, Src);
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE void Strncpy(ANSICHAR* Dest, const ANSICHAR* Src, SIZE_T MaxLen)
 	{
-#if USE_SECURE_CRT
-		strncpy_s(Dest, MaxLen, Src, MaxLen-1);
-#else
 		strncpy(Dest, Src, MaxLen);
 		Dest[MaxLen-1] = 0;
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE ANSICHAR* Strcat(ANSICHAR* Dest, SIZE_T DestCount, const ANSICHAR* Src)
 	{
-#if USE_SECURE_CRT
-		strcat_s( Dest, DestCount, Src );
-		return Dest;
-#else
 		return (ANSICHAR*)strcat( Dest, Src );
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE ANSICHAR* Strupr(ANSICHAR* Dest, SIZE_T DestCount)
 	{
-#if USE_SECURE_CRT
-		_strupr_s(Dest, DestCount);
-		return Dest;
-#else
 		return (ANSICHAR*)_strupr(Dest);
-#endif // USE_SECURE_CRT
 	}
 
 	static FORCEINLINE int32 Strcmp( const ANSICHAR* String1, const ANSICHAR* String2 )
@@ -200,45 +157,7 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	{
 		return strncmp( String1, String2, Count );
 	}
-
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * Specialized version for ANSICHAR types.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	static FORCEINLINE int32 Stricmp(const ANSICHAR* String1, const ANSICHAR* String2)
-	{
-		return _stricmp(String1, String2);
-	}
-
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	template <typename CharType1, typename CharType2>
-	static FORCEINLINE int32 Stricmp(const CharType1* String1, const CharType2* String2)
-	{
-		return FGenericPlatformStricmp::Stricmp(String1, String2);
-	}
-
-	static FORCEINLINE int32 Strnicmp( const ANSICHAR* String1, const ANSICHAR* String2, SIZE_T Count )
-	{
-		return _strnicmp( String1, String2, Count );
-	}
-
+	
 	static FORCEINLINE int32 Strlen( const ANSICHAR* String )
 	{
 		return strlen( String ); 
@@ -299,15 +218,17 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 		return strtok_s(StrToken, Delim, Context);
 	}
 
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
 	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr )
 	{
-#if USE_SECURE_CRT
-		int32 Result = _vsnprintf_s( Dest, DestSize, Count, Fmt, ArgPtr );
-#else
-		int32 Result = vsnprintf( Dest, Count, Fmt, ArgPtr );
-#endif // USE_SECURE_CRT
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, const ANSICHAR*& Fmt, va_list ArgPtr )
+	{
+		int32 Result = vsnprintf( Dest, DestSize, Fmt, ArgPtr );
 		va_end( ArgPtr );
-		return Result;
+		return (Result != -1 && Result < (int32)DestSize) ? Result : -1;
 	}
 
 	/**
@@ -320,6 +241,4 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	}
 };
 
-#if !USE_SECURE_CRT
 #pragma warning(pop) // 'function' was was declared deprecated  (needed for the secure string functions)
-#endif

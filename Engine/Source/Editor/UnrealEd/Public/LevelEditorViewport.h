@@ -180,6 +180,7 @@ public:
 	virtual void BeginCameraMovement(bool bHasMovement) override;
 	virtual void EndCameraMovement() override;
 	virtual void SetVREditView(bool bGameViewEnable) override;
+	virtual bool GetPivotForOrbit(FVector& Pivot) const override;
 
 	virtual bool OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion) override;
 

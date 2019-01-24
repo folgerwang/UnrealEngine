@@ -952,7 +952,8 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 		if (ServerBuildId == BuildUniqueId)
 		{
 			// Create a new pending search result 
-			FPendingSearchResultSteam* NewPendingSearch = new (PendingSearchResults) FPendingSearchResultSteam(this);
+			FPendingSearchResultSteam* NewPendingSearch = new FPendingSearchResultSteam(this);
+			PendingSearchResults.Add(NewPendingSearch);
 			NewPendingSearch->ServerId = FUniqueNetIdSteam(ServerDetails->m_steamID);
 			NewPendingSearch->HostAddr = ServerAddr;
 

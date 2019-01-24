@@ -41,7 +41,8 @@ public:
 	void RegisterFunctionInput(FKismetFunctionContext& Context, UEdGraphPin* Net, UFunction* Function)
 	{
 		// This net is a parameter into the function
-		FBPTerminal* Term = new (Context.Parameters) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.Parameters.Add(Term);
 		Term->CopyFromPin(Net, Net->PinName);
 
 		// Flag pass by reference parameters specially
@@ -111,7 +112,8 @@ public:
 						// node wired into our function graph, know that it
 						// will first check to see if this already exists 
 						// for it to use (rather than creating one of its own)
-						FBPTerminal* ResultTerm = new (Context.Results) FBPTerminal();
+						FBPTerminal* ResultTerm = new FBPTerminal();
+						Context.Results.Add(ResultTerm);
 						ResultTerm->Name = ParamName;
 
 						ResultTerm->Type = ParamType;
@@ -348,7 +350,7 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 				if (!LocalVariable.DefaultValue.IsEmpty() && (LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftObject || LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftClass))
 				{
 					FSoftObjectPath TempRef(LocalVariable.DefaultValue);
-					TempRef.PostLoadPath();
+					TempRef.PostLoadPath(&Ar);
 					TempRef.PreSavePath();
 					LocalVariable.DefaultValue = TempRef.ToString();
 				}

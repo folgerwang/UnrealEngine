@@ -269,11 +269,6 @@ void FAndroidTargetPlatform::GetAllDevices( TArray<ITargetDevicePtr>& OutDevices
 	}
 }
 
-ECompressionFlags FAndroidTargetPlatform::GetBaseCompressionMethod( ) const
-{
-	return COMPRESS_ZLIB;
-}
-
 ITargetDevicePtr FAndroidTargetPlatform::GetDefaultDevice( ) const
 {
 	// return the first device in the list

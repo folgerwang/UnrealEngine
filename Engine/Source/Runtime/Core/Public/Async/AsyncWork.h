@@ -15,7 +15,6 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 
 /**
 	FAutoDeleteAsyncTask - template task for jobs that delete themselves when complete
@@ -540,6 +539,8 @@ public:
  */
 class FAsyncUncompress : public FNonAbandonableTask
 {
+	/** Format to use										*/
+	FName CompressionFormat;
 	/** Buffer containing uncompressed data					*/
 	void*	UncompressedBuffer;
 	/** Size of uncompressed data in bytes					*/
@@ -557,36 +558,49 @@ public:
 	/**
 	 * Initializes the data and creates the event.
 	 *
-	 * @param	Flags				Flags to control what method to use for decompression
+	 * @param	CompressionFormat	Format to use for decompression
 	 * @param	UncompressedBuffer	Buffer containing uncompressed data
 	 * @param	UncompressedSize	Size of uncompressed data in bytes
 	 * @param	CompressedBuffer	Buffer compressed data is going to be written to
 	 * @param	CompressedSize		Size of CompressedBuffer data in bytes
-	 * @param	bIsSourcePadded		Whether the source memory is padded with a full cache line at the end
+	 * @param	Flags				Flags to control what method to use for decompression
 	 */
-	FAsyncUncompress( 
-		ECompressionFlags InFlags, 
-		void* InUncompressedBuffer, 
-		int32 InUncompressedSize, 
-		void* InCompressedBuffer, 
-		int32 InCompressedSize, 
-		bool bIsSourcePadded = false)
-	:	UncompressedBuffer( InUncompressedBuffer )
-		,	UncompressedSize( InUncompressedSize )
-		,	CompressedBuffer( InCompressedBuffer )
-		,	CompressedSize( InCompressedSize )
-		,	Flags( InFlags )
-		,	bIsSourceMemoryPadded( bIsSourcePadded )
+	FAsyncUncompress(
+		FName InCompressionFormat,
+		void* InUncompressedBuffer,
+		int32 InUncompressedSize,
+		void* InCompressedBuffer,
+		int32 InCompressedSize,
+		ECompressionFlags InFlags = COMPRESS_NoFlags)
+		: CompressionFormat(InCompressionFormat)
+		, UncompressedBuffer(InUncompressedBuffer)
+		, UncompressedSize(InUncompressedSize)
+		, CompressedBuffer(InCompressedBuffer)
+		, CompressedSize(InCompressedSize)
+		, Flags(InFlags)
 	{
-
 	}
+
+	UE_DEPRECATED(4.20, "Use FAsyncCompress with FName for Format")
+		FAsyncUncompress(
+			ECompressionFlags InFlags,
+			void* InUncompressedBuffer,
+			int32 InUncompressedSize,
+			void* InCompressedBuffer,
+			int32 InCompressedSize,
+			bool bIsSourcePadded = false)
+		: FAsyncUncompress(FCompression::GetCompressionFormatFromDeprecatedFlags(InFlags), InUncompressedBuffer, InUncompressedSize,
+			InCompressedBuffer, InCompressedSize, (ECompressionFlags)(InFlags | (bIsSourcePadded ? COMPRESS_SourceIsPadded : COMPRESS_NoFlags)))
+	{
+	}
+
 	/**
 	 * Performs the async decompression
 	 */
 	void DoWork()
 	{
 		// Uncompress from memory to memory.
-		verify( FCompression::UncompressMemory( Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourceMemoryPadded, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()) );
+		verify( FCompression::UncompressMemory( CompressionFormat, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, Flags ) );
 	}
 
 	FORCEINLINE TStatId GetStatId() const

@@ -19,7 +19,7 @@
 /**
  * Texture sample for hardware video decoding.
  */
-class FWmfMediaHardwareVideoDecodingTextureSample :
+class WMFMEDIA_API FWmfMediaHardwareVideoDecodingTextureSample :
 	public FWmfMediaTextureSample, 
 	public IMediaTextureSampleConverter
 {
@@ -44,36 +44,7 @@ public:
 	 * @param InCreateFlags texture create flag
 	 * @return The texture resource object that will hold the sample data.
 	 */
-	ID3D11Texture2D* InitializeSourceTexture(ID3D11Device* InD3D11Device, FTimespan InTime, FTimespan InDuration, const FIntPoint& InDim, uint8 InFormat, EMediaTextureSampleFormat InMediaTextureSampleFormat)
-	{
-		Time = InTime;
-		Dim = InDim;
-		OutputDim = InDim;
-		Duration = InDuration;
-		SampleFormat = InMediaTextureSampleFormat;
-
-		if (SourceTexture.IsValid())
-		{
-			return SourceTexture;
-		}
-
-		D3D11_TEXTURE2D_DESC TextureDesc;
-		TextureDesc.Width = Dim.X;
-		TextureDesc.Height = Dim.Y;
-		TextureDesc.MipLevels = 1;
-		TextureDesc.ArraySize = 1;
-		TextureDesc.Format = (DXGI_FORMAT)GPixelFormats[InFormat].PlatformFormat;
-		TextureDesc.SampleDesc.Count = 1;
-		TextureDesc.SampleDesc.Quality = 0;
-		TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-		TextureDesc.BindFlags = 0;
-		TextureDesc.CPUAccessFlags = 0;
-		TextureDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
-
-		InD3D11Device->CreateTexture2D(&TextureDesc, nullptr, &SourceTexture);
-
-		return SourceTexture;
-	}
+	ID3D11Texture2D* InitializeSourceTexture(const TComPtr<ID3D11Device>& InD3D11Device, FTimespan InTime, FTimespan InDuration, const FIntPoint& InDim, uint8 InFormat, EMediaTextureSampleFormat InMediaTextureSampleFormat);
 
 	/**
 	 * Get media texture sample converter if sample implements it
@@ -123,10 +94,18 @@ public:
 		return DestinationTexture;
 	}
 
+	/**
+	 * Called the the sample is returned to the pool for cleanup purposes
+	 */
+	virtual void ShutdownPoolable() override;
+
 private:
 
 	/** Source Texture resource (from Wmf device). */
 	TComPtr<ID3D11Texture2D> SourceTexture;
+
+	/** D3D11 Device which create the texture, used to release the keyed mutex when the sampled is returned to the pool */
+	TComPtr<ID3D11Device> D3D11Device;
 
 	/** Destination Texture resource (from Rendering device) */
 	FTexture2DRHIRef DestinationTexture;
@@ -134,4 +113,3 @@ private:
 
 /** Implements a pool for WMF texture samples. */
 class FWmfMediaHardwareVideoDecodingTextureSamplePool : public TMediaObjectPool<FWmfMediaHardwareVideoDecodingTextureSample> { };
-

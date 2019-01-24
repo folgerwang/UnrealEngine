@@ -29,7 +29,8 @@
 #endif
 
 	// using asset tagging requires a significantly higher number of per-thread tags, so make it optional
-	// even if this is on, we still need to run with -llmtagset=assets because of the shear number of stat ids it makes
+	// even if this is on, we still need to run with -llmtagsets=assets because of the shear number of stat ids it makes
+	// LLM Assets can be viewed in game using 'Stat LLMAssets'
 	#define LLM_ALLOW_ASSETS_TAGS 0
 
 	#define LLM_STAT_TAGS_ENABLED (LLM_ALLOW_ASSETS_TAGS || 0)
@@ -94,10 +95,21 @@
 			}
 			return false;
 		}
+
+		// This is used by ensure to generate a bool per instance
+		// by passing a lambda which will uniquely instantiate the template.
+		template <typename Type>
+		bool TrueOnFirstCallOnly(const Type&)
+		{
+			static bool bValue = true;
+			bool Result = bValue;
+			bValue = false;
+			return Result;
+		}
 	}
 
 #if !USING_CODE_ANALYSIS
-	#define LLMTrueOnFirstCallOnly			UE4Asserts_Private::TrueOnFirstCallOnly([]{})
+	#define LLMTrueOnFirstCallOnly			LLMPrivate::TrueOnFirstCallOnly([]{})
 #else
 	#define LLMTrueOnFirstCallOnly			false
 #endif

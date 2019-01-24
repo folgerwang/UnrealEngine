@@ -1370,8 +1370,8 @@ struct FRHICommandCopyTexture final : public FRHICommand<FRHICommandCopyTexture>
 	{
 		ensure(SourceTexture);
 		ensure(DestTexture);
-		ensure(SourceTexture->GetTexture2D() || SourceTexture->GetTexture3D() || SourceTexture->GetTextureCube());
-		ensure(DestTexture->GetTexture2D() || DestTexture->GetTexture3D() || DestTexture->GetTextureCube());
+		ensure(SourceTexture->GetTexture2D() || SourceTexture->GetTexture2DArray() || SourceTexture->GetTexture3D() || SourceTexture->GetTextureCube());
+		ensure(DestTexture->GetTexture2D() || DestTexture->GetTexture2DArray() || DestTexture->GetTexture3D() || DestTexture->GetTextureCube());
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };

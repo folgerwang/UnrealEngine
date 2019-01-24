@@ -20,6 +20,9 @@ struct FCapturedPixelsID
 {
 	GENERATED_BODY()
 
+	/** Convert this strream ID to a string */
+	FString ToString() const;
+
 	/** Map of identifiers to their values for this ID. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Capture)
 	TMap<FName, FName> Identifiers;

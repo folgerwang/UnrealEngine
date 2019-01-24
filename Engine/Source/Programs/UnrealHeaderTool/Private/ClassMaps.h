@@ -21,12 +21,13 @@ class FUnrealTypeDefinitionInfo;
 
 extern TMap<FString, TSharedRef<FUnrealSourceFile> > GUnrealSourceFilesMap;
 extern TMap<UField*, TSharedRef<FUnrealTypeDefinitionInfo> > GTypeDefinitionInfoMap;
+extern TMap<const UPackage*, TArray<UField*>> GPackageSingletons;
 extern TMap<UClass*, FString> GClassStrippedHeaderTextMap;
 extern TMap<UClass*, FString> GClassHeaderNameWithNoPathMap;
 extern TSet<FUnrealSourceFile*> GPublicSourceFileSet;
 extern TMap<UProperty*, FString> GArrayDimensions;
 extern TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
-extern TMap<UField*, uint32> GGeneratedCodeCRCs;
+extern TMap<UField*, uint32> GGeneratedCodeHashes;
 extern TMap<UEnum*, EUnderlyingEnumType> GEnumUnderlyingTypes;
 extern TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
 extern TSet<UProperty*> GUnsizedProperties;

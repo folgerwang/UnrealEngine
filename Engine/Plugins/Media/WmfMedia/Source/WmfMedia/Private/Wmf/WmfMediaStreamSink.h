@@ -22,20 +22,6 @@ class FWmfMediaSink;
 
 struct ID3D11Texture2D;
 
-
-/**
- * Structure for media samples queued in a stream sink.
- */
-struct FWmfMediaStreamSinkSample
-{
-	/** The sample's media type. */
-	TComPtr<IMFMediaType> MediaType;
-
-	/** The media sample. */
-	TComPtr<IMFSample> Sample;
-};
-
-
 /**
  * Implements a stream sink object for the WMF pipeline.
  */
@@ -71,11 +57,10 @@ public:
 	/**
 	 * Get the next sample in the queue.
 	 *
-	 * @param SampleRange Time range of samples that should be returned.
 	 * @param OutSample Will contain the sample.
 	 * @return true if a sample was returned, false if the queue is empty.
 	 */
-	bool GetNextSample(const TRange<FTimespan>& SampleRange, FWmfMediaStreamSinkSample& OutSample);
+	bool GetNextSample(TComPtr<IMFSample>& OutSample);
 
 	/**
 	 * Initialize this sink.
@@ -232,6 +217,7 @@ private:
 	 * Check whether sample is ready to display otherwise re-schedule
 	 *
 	 * @param pSample Sample from decoder
+	 * @note This function is not thread-safe but all caller are using a Scope Lock
 	 */
 	void ScheduleWaitForNextSample(IMFSample* pSample);
 
@@ -239,6 +225,12 @@ private:
 	 * Close Timer
 	 */
 	void CloseTimer();
+
+	/**
+	 * Check if video sample queue is full
+	 * @return true when Video Sample Queue is full.
+	 */
+	bool IsVideoSampleQueueFull() const;
 
 private:
 
@@ -281,9 +273,6 @@ private:
 	/** Video sample queue which is filled with current sample*/
 	TMediaSampleQueue<IMediaTextureSample>* VideoSampleQueue;
 
-	/** Next Sample to display when decoder is faster then presentation clock */
-	TComPtr<IMFSample> NextSample;
-
 	/** Make sure we don't spam output with MF_MT_SUBTYPE error message */
 	bool bShowSubTypeErrorMessage;
 
@@ -296,18 +285,12 @@ private:
 		/** Stream marker context. */
 		PROPVARIANT* MarkerContext;
 
-		/** The sample's media type. */
-		TComPtr<IMFMediaType> MediaType;
-
 		/** The media sample. */
 		TComPtr<IMFSample> Sample;
-
-		/** Sample time. */
-		LONGLONG Time;
 	};
 
-	/** Media sample queue. */
-	TQueue<FQueuedSample> SampleQueue;
+	/** Media sample array used as dequeue to store extra samples when video sample queue is full */
+	TArray<FQueuedSample> SampleQueue;
 };
 
 #endif

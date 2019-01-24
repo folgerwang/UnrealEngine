@@ -4,6 +4,8 @@
 
 #include "DatasmithAssetUserData.h"
 #include "Components/SceneComponent.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
 
 namespace
 {
@@ -30,7 +32,9 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 		SceneComponent->SetMobility( Mobility );
 	}
 
-	bool bCanAttach = ( AttachParent && AttachParent->GetComponentLevel() == SceneComponent->GetComponentLevel() );
+	const ULevel* SceneComponentLevel = SceneComponent->GetComponentLevel();
+	bool bCanAttach = ( AttachParent && AttachParent->GetComponentLevel() == SceneComponentLevel );
+	bCanAttach |= ( !AttachParent && ( SceneComponentLevel == nullptr || SceneComponentLevel->OwningWorld == Destination->GetWorld() ) );
 
 	if ( !PreviousTemplate || PreviousTemplate->AttachParent == SceneComponent->GetAttachParent() )
 	{
@@ -48,7 +52,16 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 
 		if ( bCanAttach )
 		{
-			SceneComponent->AttachToComponent( AttachParent.Get(), AttachmentTransformRules );
+			if ( AttachParent )
+			{
+				SceneComponent->AttachToComponent( AttachParent.Get(), AttachmentTransformRules );
+			}
+			// If AtachParent is null, the owning actor is at the root of the world
+			// Just detach it from its current SceneComponent
+			else if( AActor* ParentActor = SceneComponent->GetTypedOuter< AActor >() )
+			{
+				SceneComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			}
 		}
 	}
 

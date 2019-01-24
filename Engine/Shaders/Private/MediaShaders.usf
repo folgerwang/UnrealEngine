@@ -346,3 +346,15 @@ void RGB10toYUVv210ConvertPS(
 
 	OutColor.xyzw = uint4(W0, W1, W2, W3);
 }
+
+
+// shader to invert alpha
+void InvertAlphaPS(
+	float4 InPosition : SV_POSITION,
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	float4 Color = InvertAlphaUB.Texture.Sample(InvertAlphaUB.SamplerP, InUV);
+	OutColor.xyzw = float4(Color.rgb, 1 - Color.a);
+}
+

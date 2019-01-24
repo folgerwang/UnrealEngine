@@ -202,6 +202,9 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		}
 	}
 
+	ExportEDL();
+	ExportFCPXML();
+
 	if (Actor)
 	{
 		// Ensure it doesn't loop (-1 is indefinite)
@@ -242,9 +245,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 	{
 		UE_LOG(LogMovieSceneCapture, Error, TEXT("Could not find or create a Level Sequence Actor for this capture. Capturing will fail."));
 	}
-
-	ExportEDL();
-	ExportFCPXML();
 
 	CaptureState = ELevelSequenceCaptureState::Setup;
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
@@ -903,8 +903,9 @@ void UAutomatedLevelSequenceCapture::ExportEDL()
 
 	FString SaveFilename = 	Settings.OutputDirectory.Path / MovieScene->GetOuter()->GetName();
 	int32 HandleFrames = Settings.HandleFrames;
+	FString MovieExtension = Settings.MovieExtension;
 
-	MovieSceneTranslatorEDL::ExportEDL(MovieScene, Settings.FrameRate, SaveFilename, HandleFrames);
+	MovieSceneTranslatorEDL::ExportEDL(MovieScene, Settings.FrameRate, SaveFilename, HandleFrames, MovieExtension);
 }
 
 double UAutomatedLevelSequenceCapture::GetEstimatedCaptureDurationSeconds() const
@@ -947,13 +948,14 @@ void UAutomatedLevelSequenceCapture::ExportFCPXML()
 	FFrameRate FrameRate = Settings.FrameRate;
 	uint32 ResX = Settings.Resolution.ResX;
 	uint32 ResY = Settings.Resolution.ResY;
+	FString MovieExtension = Settings.MovieExtension;
 
 	FFCPXMLExporter *Exporter = new FFCPXMLExporter;
 
 	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
 	ExportContext->Init();
 
-	bool bSuccess = Exporter->Export(MovieScene, FilenameFormat, FrameRate, ResX, ResY, HandleFrames, SaveFilename, ExportContext);
+	bool bSuccess = Exporter->Export(MovieScene, FilenameFormat, FrameRate, ResX, ResY, HandleFrames, SaveFilename, ExportContext, MovieExtension);
 
 	// Log any messages in context
 	MovieSceneToolHelpers::MovieSceneTranslatorLogMessages(Exporter, ExportContext, false);

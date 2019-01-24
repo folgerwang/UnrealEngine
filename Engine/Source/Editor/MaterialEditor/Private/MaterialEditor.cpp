@@ -4293,7 +4293,8 @@ FMatExpressionPreview* FMaterialEditor::GetExpressionPreview(UMaterialExpression
 		if( !Preview )
 		{
 			bNewlyCreated = true;
-			Preview = new(ExpressionPreviews) FMatExpressionPreview(MaterialExpression);
+			Preview = new FMatExpressionPreview(MaterialExpression);
+			ExpressionPreviews.Add(Preview);
 			Preview->CacheShaders(GMaxRHIShaderPlatform, true);
 		}
 		return Preview;

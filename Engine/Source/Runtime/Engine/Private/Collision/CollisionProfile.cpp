@@ -289,7 +289,7 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 	FString GameTraceChannel	= TEXT("GameTraceChannel");
 
 	// find the enum
-	UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum* Enum = StaticEnum<ECollisionChannel>();
 	// we need this Enum
 	check (Enum);
 	UStruct* Struct = FCollisionResponseContainer::StaticStruct(); 
@@ -310,8 +310,8 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 	int32 PrefixLen = FString(TEXT("ECC_")).Len();
 
 	// need to have mapping table between ECollisionChannel and EObjectTypeQuery/ETraceTypeQuery
-	UEnum* ObjectTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EObjectTypeQuery"), true);
-	UEnum* TraceTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);
+	UEnum* ObjectTypeEnum = StaticEnum<EObjectTypeQuery>();
+	UEnum* TraceTypeEnum = StaticEnum<ETraceTypeQuery>();
 	check (ObjectTypeEnum && TraceTypeEnum);
 
 	for ( int32 EnumIndex=0; EnumIndex<NumEnum; ++EnumIndex )

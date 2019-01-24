@@ -385,7 +385,7 @@ void FDisplayClusterClusterManager::ImportSyncData(const FDisplayClusterMessage:
 			const FString syncId = obj->GetSyncId();
 			if (!data.Contains(syncId))
 			{
-				UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s not found in sync data"), *syncId);
+				UE_LOG(LogDisplayClusterCluster, Verbose, TEXT("%s has nothing to update"), *syncId);
 				continue;
 			}
 

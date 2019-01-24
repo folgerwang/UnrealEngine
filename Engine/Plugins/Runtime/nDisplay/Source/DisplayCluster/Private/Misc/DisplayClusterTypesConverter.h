@@ -30,7 +30,10 @@ public:
 
 template <> inline FString FDisplayClusterTypesConverter::ToString<>(const FString& from) { return from; }
 template <> inline FString FDisplayClusterTypesConverter::ToString<>(const bool& from) { return (from ? DisplayClusterStrings::cfg::spec::ValTrue : DisplayClusterStrings::cfg::spec::ValFalse); }
-template <> inline FString FDisplayClusterTypesConverter::ToString<>(const int32& from) { return FString::FromInt(from); }
+template <> inline FString FDisplayClusterTypesConverter::ToString<> (const int8& from) { return FString::FromInt(from); }
+template <> inline FString FDisplayClusterTypesConverter::ToString<> (const uint8& from) { return ToString(static_cast<int8>(from)); }
+template <> inline FString FDisplayClusterTypesConverter::ToString<> (const int32& from) { return FString::FromInt(from); }
+template <> inline FString FDisplayClusterTypesConverter::ToString<> (const uint32& from) { return ToString(static_cast<int32>(from)); }
 template <> inline FString FDisplayClusterTypesConverter::ToString<>(const float& from) { return FString::SanitizeFloat(from); }
 template <> inline FString FDisplayClusterTypesConverter::ToString<>(const double& from) { return FString::Printf(TEXT("%lf"), from); }
 template <> inline FString FDisplayClusterTypesConverter::ToString<>(const FVector& from) { return from.ToString(); }
@@ -60,7 +63,10 @@ template <> inline FString FDisplayClusterTypesConverter::ToString<>(const EDisp
 
 template <> inline FString   FDisplayClusterTypesConverter::FromString<> (const FString& from) { return from; }
 template <> inline bool      FDisplayClusterTypesConverter::FromString<> (const FString& from) { return (from == FString("1") || from == DisplayClusterStrings::cfg::spec::ValTrue); }
+template <> inline int8      FDisplayClusterTypesConverter::FromString<> (const FString& from) { return FCString::Atoi(*from); }
+template <> inline uint8     FDisplayClusterTypesConverter::FromString<> (const FString& from) { return static_cast<uint8>(FromString<int8>(from)); }
 template <> inline int32     FDisplayClusterTypesConverter::FromString<> (const FString& from) { return FCString::Atoi(*from); }
+template <> inline uint32    FDisplayClusterTypesConverter::FromString<> (const FString& from) { return static_cast<uint32>(FromString<int32>(from)); }
 template <> inline float     FDisplayClusterTypesConverter::FromString<> (const FString& from) { return FCString::Atof(*from); }
 template <> inline double    FDisplayClusterTypesConverter::FromString<> (const FString& from) { return FCString::Atod(*from); }
 template <> inline FVector   FDisplayClusterTypesConverter::FromString<> (const FString& from) { FVector vec;  vec.InitFromString(from); return vec; }

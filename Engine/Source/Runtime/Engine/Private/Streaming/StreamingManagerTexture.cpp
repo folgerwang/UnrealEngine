@@ -520,7 +520,7 @@ void FStreamingManagerTexture::AddLevel( ULevel* Level )
 
 	// If the level was not already there, add a new entry.
 	TextureInstanceAsyncWork->EnsureCompletion();
-	new (LevelTextureManagers) FLevelTextureManager(Level, TextureInstanceAsyncWork->GetTask());
+	LevelTextureManagers.Add(new FLevelTextureManager(Level, TextureInstanceAsyncWork->GetTask()));
 }
 
 /** Removes a ULevel from the streaming manager. */

@@ -251,10 +251,26 @@ bool FDisplayClusterConfigManager::GetInputDevice(const FString& id, FDisplayClu
 	return GetItem(CfgInputDevices, id, input, FString("GetInputDevice"));
 }
 
+TArray<FDisplayClusterConfigInputSetup> FDisplayClusterConfigManager::GetInputSetupRecords() const
+{
+	return CfgInputSetupRecords;
+}
+
+bool FDisplayClusterConfigManager::GetInputSetupRecord(const FString& id, FDisplayClusterConfigInputSetup& input) const
+{
+	return GetItem(CfgInputSetupRecords, id, input, FString("GetInputSetupRecord"));
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterConfigParserListener
 //////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterConfigManager::AddInfo(const FDisplayClusterConfigInfo& InCfgInfo)
+{
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterConfig);
+	UE_LOG(LogDisplayClusterConfig, Log, TEXT("Found info node: %s"), *InCfgInfo.ToString());
+	CfgInfo = InCfgInfo;
+}
+
 void FDisplayClusterConfigManager::AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode)
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterConfig);
@@ -302,6 +318,13 @@ void FDisplayClusterConfigManager::AddInput(const FDisplayClusterConfigInput& In
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterConfig);
 	UE_LOG(LogDisplayClusterConfig, Log, TEXT("Found input device: %s"), *InCfgInput.ToString());
 	CfgInputDevices.Add(InCfgInput);
+}
+
+void FDisplayClusterConfigManager::AddInputSetup(const FDisplayClusterConfigInputSetup& InCfgInputSetup)
+{
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterConfig);
+	UE_LOG(LogDisplayClusterConfig, Log, TEXT("Found input setup record: %s"), *InCfgInputSetup.ToString());
+	CfgInputSetupRecords.Add(InCfgInputSetup);
 }
 
 void FDisplayClusterConfigManager::AddGeneral(const FDisplayClusterConfigGeneral& InCfgGeneral)
@@ -442,7 +465,9 @@ void FDisplayClusterConfigManager::ResetConfigData()
 	CfgCameras.Reset();
 	CfgSceneNodes.Reset();
 	CfgInputDevices.Reset();
+	CfgInputSetupRecords.Reset();
 
+	CfgInfo    = FDisplayClusterConfigInfo();
 	CfgGeneral = FDisplayClusterConfigGeneral();
 	CfgStereo  = FDisplayClusterConfigStereo();
 	CfgNetwork = FDisplayClusterConfigNetwork();

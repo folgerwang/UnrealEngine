@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "StringUtils.h"
 
 void VSNPrintf(char* OutBuffer, int BufSize, const char* Fmt, va_list Args)
@@ -29,6 +28,8 @@ void SNPrintf(char* OutBuffer, int BufSize, _Printf_format_string_ const char* F
 	va_list Args;
 	va_start(Args, Fmt);
 	VSNPrintf(OutBuffer, BufSize, Fmt, Args);
+	va_end(Args);
+
 }
 
 char* GetTemporaryString()

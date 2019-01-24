@@ -215,14 +215,10 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 			}
 
 			// Get Current Names / UIDs
-			Mapping->FillNameArray(UIDToNameLUT);
+			Mapping->FillUIDToNameArray(UIDToNameLUT);
 
 			// Get curve types
-			Mapping->FillCurveTypeArray(UIDToCurveTypeLUT);
-
-			// Get UID List
-			TArray<SmartName::UID_Type> UIDList;
-			Mapping->FillUidArray(UIDList);
+			Mapping->FillUIDToCurveTypeArray(UIDToCurveTypeLUT);
 
 			// if the linked joints don't exists in RequiredBones, remove itself
 			if (UIDToNameLUT.Num() > 0)
@@ -239,7 +235,11 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 					else
 					{
 						// CurveNameIndex shouyld match to UID
-						if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
+						if (CurveName == NAME_None)
+						{
+							bBeingUsed = false;
+						}
+						else if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
 						{
 							//remove the UID
 							bBeingUsed = false;
@@ -280,7 +280,7 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 
 					if (bBeingUsed)
 					{
-						UIDToArrayIndexLUT[UIDList[CurveNameIndex]] = NumAvailableUIDs++;
+						UIDToArrayIndexLUT[CurveNameIndex] = NumAvailableUIDs++;
 					}
 				}
 			}

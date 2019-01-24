@@ -53,7 +53,7 @@ public:
 		return SessionInfo.ServerEndpointId;
 	}
 
-	virtual FConcertClientInfo GetLocalClientInfo() const override
+	virtual const FConcertClientInfo& GetLocalClientInfo() const override
 	{
 		return ClientInfo;
 	}

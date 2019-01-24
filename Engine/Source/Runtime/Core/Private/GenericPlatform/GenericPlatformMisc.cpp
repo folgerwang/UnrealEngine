@@ -16,7 +16,6 @@
 #include "Internationalization/Internationalization.h"
 #include "Misc/Guid.h"
 #include "Math/Color.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
@@ -817,12 +816,6 @@ IPlatformChunkInstall* FGenericPlatformMisc::GetPlatformChunkInstall()
 	return &Singleton;
 }
 
-IPlatformCompression* FGenericPlatformMisc::GetPlatformCompression()
-{
-	static FGenericPlatformCompression Singleton;
-	return &Singleton;
-}
-
 void GenericPlatformMisc_GetProjectFilePathProjectDir(FString& OutGameDir)
 {
 	// Here we derive the game path from the project file location.
@@ -1029,12 +1022,8 @@ bool FGenericPlatformMisc::UseRenderThread()
 
 bool FGenericPlatformMisc::AllowThreadHeartBeat()
 {
-	if (FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread")))
-	{
-		return false;
-	}
-
-	return true;
+	static bool bHeartbeat = !FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread"));
+	return bHeartbeat;
 }
 
 int32 FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads()

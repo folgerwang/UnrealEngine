@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelViewportToolBar.h"
 #include "Framework/Commands/UIAction.h"
@@ -582,8 +582,13 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateOptionsMenu() const
 					);
 			}
 			OptionsMenuBuilder.EndSection();
-
-			OptionsMenuBuilder.AddMenuEntry( LevelViewportActions.CreateCamera );
+		
+			OptionsMenuBuilder.AddSubMenu(
+				LOCTEXT("CameraSubMeun", "Create Camera Here"),
+				LOCTEXT("CameraSubMenu_ToolTip", "Select a camera type to create at current viewport's location"),
+				FNewMenuDelegate::CreateSP(this, &SLevelViewportToolBar::GenerateCameraSpawnMenu)
+			);
+			
 		}
 
 		OptionsMenuBuilder.AddMenuEntry( LevelViewportActions.HighResScreenshot );
@@ -734,6 +739,16 @@ void SLevelViewportToolBar::GenerateViewportTypeMenu( FMenuBuilder& Builder ) co
 			Builder.AddMenuEntry(InDefinition.ActivationCommand);
 		}
 	});
+}
+
+void SLevelViewportToolBar::GenerateCameraSpawnMenu(FMenuBuilder & Builder) const
+{
+	const FLevelViewportCommands& Actions = FLevelViewportCommands::Get();
+
+	for (TSharedPtr<FUICommandInfo> Camera : Actions.CreateCameras)
+	{
+		Builder.AddMenuEntry(Camera);
+	}
 }
 
 TSharedRef<SWidget> SLevelViewportToolBar::GenerateCameraMenu() const

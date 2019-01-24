@@ -32,7 +32,14 @@
 			[
 				"Win64"
 			]
+		},
+		{
+			"Name": "DisplayClusterInput",
+			"Type": "Runtime",
+			"LoadingPhase": "PostDefault",
+			"WhitelistPlatforms": [
+				"Win64"
+			]
 		}
-
 	]
 }

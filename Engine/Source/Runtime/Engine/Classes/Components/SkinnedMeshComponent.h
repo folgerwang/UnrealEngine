@@ -518,6 +518,9 @@ protected:
 	UPROPERTY(Transient)
 	mutable uint8 bCachedLocalBoundsUpToDate:1;
 
+	/** Whether we have updated bone visibility this tick */
+	uint8 bBoneVisibilityDirty:1;
+
 private:
 	/** If true, UpdateTransform will always result in a call to MeshObject->Update. */
 	UPROPERTY(transient)

@@ -57,7 +57,7 @@ namespace ConcertActivityLedgerUtil
 		Ar.SerializeIntPacked(UncompressedActivitySize);
 		if (UncompressedActivitySize > 0)
 		{
-			Ar.SerializeCompressed(UncompressedActivity.GetData(), UncompressedActivitySize, COMPRESS_ZLIB);
+			Ar.SerializeCompressed(UncompressedActivity.GetData(), UncompressedActivitySize, NAME_Zlib);
 		}
 
 		// Serialize the footer so we know we didn't crash mid-write
@@ -129,7 +129,7 @@ namespace ConcertActivityLedgerUtil
 		UncompressedActivity.AddZeroed(UncompressedActivitySize);
 		if (UncompressedActivitySize > 0)
 		{
-			Ar.SerializeCompressed(UncompressedActivity.GetData(), UncompressedActivitySize, COMPRESS_ZLIB);
+			Ar.SerializeCompressed(UncompressedActivity.GetData(), UncompressedActivitySize, NAME_Zlib);
 		}
 
 		// Read the raw transaction data

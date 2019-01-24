@@ -28,7 +28,6 @@
 
 #include "pxr/pxr.h"
 #include "pxr/base/tf/callContext.h"
-#include "pxr/base/tf/copyOnWritePtr.h"
 #include "pxr/base/tf/debug.h"
 #include "pxr/base/tf/diagnosticLite.h"
 #include "pxr/base/tf/error.h"
@@ -47,8 +46,6 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/spin_rw_mutex.h>
 #include <tbb/atomic.h>
-
-#include <boost/scoped_ptr.hpp>
 
 #include <cstdarg>
 #include <list>

@@ -92,13 +92,16 @@ public:
 	virtual FOnAddActivity& OnAddActivity() = 0;
 
 	/**
-	 * @param TransactionIndex index of the transaction to look for.
+	 * @param[in] TransactionIndex index of the transaction to look for.
+	 * @param[out] OutTransaction The transaction corresponding to TransactionIndex if found.
 	 * @return whether or not the transaction event was found.
 	 */
 	virtual bool FindTransactionEvent(uint64 TransactionIndex, FConcertTransactionFinalizedEvent& OutTransaction) const = 0;
 
 	/**
-	 * @param PackageName name of the package to look for.
+	 * @param[in] PackageName name of the package to look for.
+	 * @param[in] Revision the package revision number.
+	 * @param[out] OutPackage Information about the package.
 	 * @return whether or not the package event was found.
 	 */
 	virtual bool FindPackageEvent(const FName& PackageName, const uint32 Revision, FConcertPackageInfo& OutPackage) const = 0;
@@ -112,4 +115,14 @@ public:
 	 * @return the key/value store shared by all clients.
 	 */
 	virtual IConcertClientDataStore& GetDataStore() = 0;
+
+	/**
+	 * Returns true if the specified asset has unsaved modifications from any other client than the one corresponding
+	 * to this workspace client and possibly returns more information about those other clients.
+	 * @param[in] AssetName The asset name.
+	 * @param[out] OutOtherClientsWithModifNum If not null, will contain how many other client(s) have modified the specified package.
+	 * @param[out] OutOtherClientsWithModifInfo If not null, will contain the other client(s) who modified the packages, up to OtherClientsWithModifMaxFetchNum.
+	 * @param[in] OtherClientsWithModifMaxFetchNum The maximum number of client info to store in OutOtherClientsWithModifInfo if the latter is not null.
+	 */
+	virtual bool IsAssetModifiedByOtherClients(const FName& AssetName, int* OutOtherClientsWithModifNum = nullptr, TArray<FConcertClientInfo>* OutOtherClientsWithModifInfo = nullptr, int OtherClientsWithModifMaxFetchNum = 0) const = 0;
 };

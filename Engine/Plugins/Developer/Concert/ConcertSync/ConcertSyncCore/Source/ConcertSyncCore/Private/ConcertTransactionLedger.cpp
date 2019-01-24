@@ -55,7 +55,7 @@ bool WriteTransaction(const FStructOnScope& InTransaction, TArray<uint8>& OutSer
 	Ar.SerializeIntPacked(UncompressedTransactionSize);
 	if (UncompressedTransactionSize > 0)
 	{
-		Ar.SerializeCompressed(UncompressedTransaction.GetData(), UncompressedTransactionSize, COMPRESS_ZLIB);
+		Ar.SerializeCompressed(UncompressedTransaction.GetData(), UncompressedTransactionSize, NAME_Zlib);
 	}
 
 	// Serialize the footer so we know we didn't crash mid-write
@@ -126,7 +126,7 @@ bool ReadTransaction(const TArray<uint8>& InSerializedTransactionData, FStructOn
 	UncompressedTransaction.AddZeroed(UncompressedTransactionSize);
 	if (UncompressedTransactionSize > 0)
 	{
-		Ar.SerializeCompressed(UncompressedTransaction.GetData(), UncompressedTransactionSize, COMPRESS_ZLIB);
+		Ar.SerializeCompressed(UncompressedTransaction.GetData(), UncompressedTransactionSize, NAME_Zlib);
 	}
 
 	// Read the raw transaction data
@@ -237,6 +237,11 @@ void FConcertTransactionLedger::ClearLedger()
 FOnAddFinalizedTransaction& FConcertTransactionLedger::OnAddFinalizedTransaction()
 {
 	return OnAddFinalizedTransactionDelegate;
+}
+
+FOnLiveTransactionsTrimmed& FConcertTransactionLedger::OnLiveTransactionsTrimmed()
+{
+	return OnLiveTransactionsTrimmedDelegate;
 }
 
 uint64 FConcertTransactionLedger::AddTransaction(const UScriptStruct* InTransactionType, const void* InTransactionData)
@@ -364,6 +369,8 @@ void FConcertTransactionLedger::TrimLiveTransactions(const uint64 InIndex, const
 		{
 			LivePackageTransactions.Remove(InPackageName);
 		}
+
+		OnLiveTransactionsTrimmedDelegate.Broadcast(InPackageName, InIndex);
 	}
 }
 

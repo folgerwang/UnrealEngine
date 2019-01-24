@@ -5,7 +5,7 @@
 
 
 FDisplayClusterVrpnAnalogInputDataHolder::FDisplayClusterVrpnAnalogInputDataHolder(const FDisplayClusterConfigInput& config) :
-	FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnAnalog>(config)
+	FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnAnalog>(config)
 {
 }
 

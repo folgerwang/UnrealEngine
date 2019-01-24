@@ -40,14 +40,8 @@ FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, const TMovieSceneExt
 	}
 
 	float NewValue = Channel->GetDefault().Get(0.f);
-	if (Value.IsSet())
-	{
-		NewValue = Value.GetValue();
-	}
-	else
-	{
-		Channel->Evaluate(InTime, NewValue);
-	}
+	Channel->Evaluate(InTime, NewValue);
+	
 
 	using namespace MovieScene;
 	return AddKeyToChannel(Channel, InTime, NewValue, Sequencer.GetKeyInterpolation());

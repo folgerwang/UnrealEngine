@@ -143,6 +143,13 @@ public:
 	/** Sets the new value of the node */
 	void SetContent(bool InContent);
 
+	/** Sets the new value of the node */
+	FORCEINLINE void SetContent(const TCHAR* InContent)
+	{
+		// Force an FString conversion here, otherwise it calls the bool overload
+		SetContent(FString(InContent));
+	}
+
 	/** Gets a list of child nodes */
 	const TArray<TSharedRef<FFCPXMLNode>>& GetChildNodes() const;
 	/** Gets number of child nodes */

@@ -250,8 +250,8 @@ FText::FText( FString&& InSourceString )
 	TextData->SetTextHistory(FTextHistory_Base(MoveTemp(InSourceString)));
 }
 
-FText::FText( FName InTableId, FString InKey )
-	: TextData(new TIndirectTextData<FTextHistory_StringTableEntry>(FTextHistory_StringTableEntry(InTableId, MoveTemp(InKey))))
+FText::FText( FName InTableId, FString InKey, const EStringTableLoadingPolicy InLoadingPolicy )
+	: TextData(new TIndirectTextData<FTextHistory_StringTableEntry>(FTextHistory_StringTableEntry(InTableId, MoveTemp(InKey), InLoadingPolicy)))
 	, Flags(0)
 {
 }
@@ -1491,6 +1491,16 @@ bool TextBiDi::IsControlCharacter(const TCHAR InChar)
 		|| InChar == TEXT('\u2067')  // RIGHT-TO-LEFT ISOLATE
 		|| InChar == TEXT('\u2068')  // FIRST STRONG ISOLATE
 		|| InChar == TEXT('\u2069'); // POP DIRECTIONAL ISOLATE
+}
+
+FText FTextStringHelper::CreateFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, const bool bRequiresQuotes)
+{
+	FText Value;
+	if (!ReadFromBuffer(Buffer, Value, TextNamespace, PackageNamespace, bRequiresQuotes))
+	{
+		Value = FText::FromString(Buffer);
+	}
+	return Value;
 }
 
 const TCHAR* FTextStringHelper::ReadFromBuffer_ComplexText(const TCHAR* Buffer, FText& OutValue, const TCHAR* TextNamespace, const TCHAR* PackageNamespace)

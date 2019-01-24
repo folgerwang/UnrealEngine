@@ -14,6 +14,7 @@ public class UnrealPakTarget : TargetRules
 		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 		bCompileWithPluginSupport = true;
+		bIncludePluginsForTargetPlatforms = true;
 
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = true;

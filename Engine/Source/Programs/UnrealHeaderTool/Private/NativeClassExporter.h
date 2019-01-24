@@ -188,7 +188,7 @@ private:
 	 * @param	Out		the output device for the mirror struct
 	 * @param	Enums	the enum to export
 	 */
-	static void ExportEnum(FOutputDevice& Out, UEnum* Enum);
+	void ExportEnum(FOutputDevice& Out, UEnum* Enum);
 
 	/**
 	 * Exports the inl text for enums declared in non-UClass headers.
@@ -364,9 +364,9 @@ private:
 	 * @param	Spaces			String of spaces to use as an indent for the declaration
 	 * @param	Spaces			String of spaces to use as an indent
 	 *
-	 * @return	The string which represents a range of the emitted properties.
+	 * @return      A pair of strings which represents the pointer and a count of the emitted properties.
 	 */
-	FString OutputProperties(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, const TArray<UProperty*>& Properties, const TCHAR* DeclSpaces, const TCHAR* Spaces);
+	TTuple<FString, FString> OutputProperties(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, const TArray<UProperty*>& Properties, const TCHAR* DeclSpaces, const TCHAR* Spaces);
 
 	/**
 	 * Function to output the C++ code necessary to set up a property
@@ -467,7 +467,7 @@ public:
 	// Constructor
 	FNativeClassHeaderGenerator(
 		const UPackage* InPackage,
-		const TArray<FUnrealSourceFile*>& SourceFiles,
+		const TSet<FUnrealSourceFile*>& SourceFiles,
 		FClasses& AllClasses,
 		bool InAllowSaveExportedHeaders
 	);

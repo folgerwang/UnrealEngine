@@ -7,7 +7,13 @@ public class OodleHandlerComponent : ModuleRules
 {
     public OodleHandlerComponent(ReadOnlyTargetRules Target) : base(Target)
     {
-        ShortName = "OodleHC";
+		// @todo oodle: Clean this up with the compression format?
+
+
+		// this needs to match the version in Oodle.Build.cs
+		string OodleVersion = "255";
+
+		ShortName = "OodleHC";
 
         BinariesSubFolder = "NotForLicensees";
 		
@@ -23,60 +29,32 @@ public class OodleHandlerComponent : ModuleRules
                 "Analytics"
 			});
 
+		PrivateDependencyModuleNames.AddRange(
+			new string[] {
+				"Projects",
+			});
 
-		bool bHaveOodleSDK = false;
-		string OodleNotForLicenseesLibDir = "";
-
-		// Check the NotForLicensees folder first
+		string PlatformName = Target.Platform.ToString();
 		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
-        {
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine( Target.UEThirdPartySourceDirectory, "..", "..",
-				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "255", "win", "lib" );
+		{
+			PlatformName = "win";
+
+			// this is needed to hunt down the DLL in the binaries directory for running unstaged
+			PrivateDependencyModuleNames.AddRange(
+			new string[] {
+				"Projects",
+			});
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine( Target.UEThirdPartySourceDirectory, "..", "..",
-				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "255", "Linux", "lib" );
-		}
-		else if ( Target.Platform == UnrealTargetPlatform.PS4 )
-		{
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine( Target.UEThirdPartySourceDirectory, "..", "..",
-				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "255", "ps4", "lib" );
-		}
-        else if (Target.Platform == UnrealTargetPlatform.XboxOne)
-        {
-            OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
-                "Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-                "Oodle", "255", "XboxOne", "lib");
-        }
-        else if (Target.Platform == UnrealTargetPlatform.Mac)
-        {
-            OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
-            "Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-            "Oodle", "255", "Mac", "lib");
-        }
-		else if (Target.Platform == UnrealTargetPlatform.Android)
-		{
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
-			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-			"Oodle", "255", "Android", "lib");
-		}
-		else if (Target.Platform == UnrealTargetPlatform.IOS)
-		{
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
-			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-			"Oodle", "255", "IOS", "lib");
-		}
-		else if (Target.Platform == UnrealTargetPlatform.Switch)
-		{
-			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
-			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-			"Oodle", "255", "Switch", "lib");
+			PlatformName = "Linux";
 		}
 
+		// Check the NotForLicensees folder first
+		string OodleNotForLicenseesLibDir = System.IO.Path.Combine(ModuleDirectory, "..", "ThirdParty", "NotForLicensees",
+			"Oodle", OodleVersion, PlatformName, "lib");
+
+		bool bHaveOodleSDK = false;
 		if (OodleNotForLicenseesLibDir.Length > 0)
 		{
 			try

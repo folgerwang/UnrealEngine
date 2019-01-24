@@ -104,8 +104,8 @@ void UMovieScene::Serialize( FArchive& Ar )
 		else if (FixedFrameInterval_DEPRECATED == 1 / 120.0f) { DisplayRate = FCommonFrameRates::FPS_120(); }
 		else if (FixedFrameInterval_DEPRECATED != 0.f)
 		{
-			uint32 Numerator = FMath::RoundToInt(1.f / FixedFrameInterval_DEPRECATED);
-			DisplayRate = FFrameRate(Numerator, 1);
+			uint32 Numerator = FMath::RoundToInt(1000.f / FixedFrameInterval_DEPRECATED);
+			DisplayRate = FFrameRate(Numerator, 1000);
 		}
 		else
 		{

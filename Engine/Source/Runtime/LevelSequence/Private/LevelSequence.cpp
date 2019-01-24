@@ -186,11 +186,38 @@ void PurgeLegacyBlueprints(UObject* InObject, UPackage* Package)
 }
 #endif
 
+void ULevelSequence::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+
+#if WITH_EDITORONLY_DATA
+	if (DirectorBlueprint)
+	{
+		DirectorClass = DirectorBlueprint->GeneratedClass.Get();
+
+		// Remove the binding for the director blueprint recompilation and re-add it to be sure there is only one entry in the list
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+	else
+	{
+		DirectorClass = nullptr;
+	}
+#endif
+}
+
 void ULevelSequence::PostLoad()
 {
 	Super::PostLoad();
 
 #if WITH_EDITOR
+	if (DirectorBlueprint)
+	{
+		// Remove the binding for the director blueprint recompilation and re-add it to be sure there is only one entry in the list
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+
 	TSet<FGuid> InvalidSpawnables;
 
 	for (int32 Index = 0; Index < MovieScene->GetSpawnableCount(); ++Index)
@@ -370,6 +397,37 @@ void ULevelSequence::UnbindInvalidObjects(const FGuid& ObjectId, UObject* InCont
 }
 
 #if WITH_EDITOR
+
+UBlueprint* ULevelSequence::GetDirectorBlueprint() const
+{
+	return DirectorBlueprint;
+}
+
+void ULevelSequence::SetDirectorBlueprint(UBlueprint* NewDirectorBlueprint)
+{
+	if (DirectorBlueprint)
+	{
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+	}
+
+	DirectorBlueprint = NewDirectorBlueprint;
+
+	if (DirectorBlueprint)
+	{
+		DirectorClass = NewDirectorBlueprint->GeneratedClass.Get();
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+	else
+	{
+		DirectorClass = nullptr;
+	}
+}
+
+void ULevelSequence::OnDirectorRecompiled(UBlueprint* InCompiledBlueprint)
+{
+	ensure(InCompiledBlueprint == DirectorBlueprint);
+	DirectorClass = DirectorBlueprint->GeneratedClass.Get();
+}
 
 FGuid ULevelSequence::FindOrAddBinding(UObject* InObject)
 {

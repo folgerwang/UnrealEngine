@@ -50,12 +50,13 @@ public:
 #endif
 			PrimitiveSceneInfo->Proxy->VerifyUsedMaterial(Mesh.MaterialRenderProxy);
 
-			FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
+			FStaticMesh* StaticMesh = new FStaticMesh(
 				PrimitiveSceneInfo,
 				Mesh,
 				ScreenSize,
 				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
 				);
+			PrimitiveSceneInfo->StaticMeshes.Add(StaticMesh);
 		}
 	}
 

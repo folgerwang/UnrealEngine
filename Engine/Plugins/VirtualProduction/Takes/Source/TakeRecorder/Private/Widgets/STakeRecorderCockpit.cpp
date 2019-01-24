@@ -94,6 +94,15 @@ void STakeRecorderCockpit::Construct(const FArguments& InArgs)
 
 	CacheMetaData();
 
+	if (TakeMetaData && !TakeMetaData->IsLocked())
+	{
+		int32 NextTakeNumber = UTakesCoreBlueprintLibrary::ComputeNextTakeNumber(TakeMetaData->GetSlate());
+		if (NextTakeNumber != TakeMetaData->GetTakeNumber())
+		{
+			TakeMetaData->SetTakeNumber(NextTakeNumber);
+		}
+	}
+
 	UpdateTakeError();
 	UpdateRecordError();
 

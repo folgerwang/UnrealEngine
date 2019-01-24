@@ -238,10 +238,5 @@ void FStringTableRegistry::Internal_SetLocTableEntryMetaData(const FName InTable
 
 FText FStringTableRegistry::Internal_FindLocTableEntry(const FName InTableId, const FString& InKey, const EStringTableLoadingPolicy InLoadingPolicy) const
 {
-	// RedirectTableIdAndKey also causes string table assets to be loaded (as it has to do this to process asset redirects)
-	FName RedirectedTableId = InTableId;
-	FString RedirectedKey = InKey;
-	FStringTableRedirects::RedirectTableIdAndKey(RedirectedTableId, RedirectedKey, InLoadingPolicy);
-
-	return FText(RedirectedTableId, RedirectedKey);
+	return FText(InTableId, InKey, InLoadingPolicy);
 }

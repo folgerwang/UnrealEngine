@@ -19,7 +19,7 @@ struct FMovieSceneSequenceEditor_LevelSequence : FMovieSceneSequenceEditor
 	virtual UBlueprint* GetBlueprintForSequence(UMovieSceneSequence* InSequence) const override
 	{
 		ULevelSequence* LevelSequence = CastChecked<ULevelSequence>(InSequence);
-		return CastChecked<UBlueprint>(LevelSequence->DirectorBlueprint, ECastCheckedType::NullAllowed);
+		return LevelSequence->GetDirectorBlueprint();
 	}
 
 	virtual UBlueprint* CreateBlueprintForSequence(UMovieSceneSequence* InSequence) const override
@@ -35,8 +35,7 @@ struct FMovieSceneSequenceEditor_LevelSequence : FMovieSceneSequenceEditor
 		FName BlueprintName = "SequenceDirector";
 		Blueprint = FKismetEditorUtilities::CreateBlueprint(ULevelSequenceDirector::StaticClass(), InSequence, BlueprintName, BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
 
-		LevelSequence->DirectorBlueprint = Blueprint;
-		LevelSequence->DirectorClass = CastChecked<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
+		LevelSequence->SetDirectorBlueprint(Blueprint);
 		return Blueprint;
 	}
 

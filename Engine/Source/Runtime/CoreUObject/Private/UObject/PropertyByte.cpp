@@ -8,6 +8,7 @@
 #include "UObject/UObjectThreadContext.h"
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Algo/Find.h"
+#include "UObject/LinkerLoad.h"
 
 /*-----------------------------------------------------------------------------
 	UByteProperty.
@@ -375,8 +376,15 @@ const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Da
 			// Enum could not be created from value. This indicates a bad value so
 			// return null so that the caller of ImportText can generate a more meaningful
 			// warning/error
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(ThreadContext.SerializedObject ? ThreadContext.SerializedObject : ThreadContext.ConstructedObject), *Enum->GetName(), *Temp);
+			UObject* SerializedObject = nullptr;
+			if (FLinkerLoad* Linker = GetLinker())
+			{
+				if (FUObjectSerializeContext* LoadContext = Linker->GetSerializeContext())
+				{
+					SerializedObject = LoadContext->SerializedObject;
+				}
+			}
+			UE_LOG(LogClass, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject ? SerializedObject : FUObjectThreadContext::Get().ConstructedObject), *Enum->GetName(), *Temp);
 			return nullptr;
 		}
 	}

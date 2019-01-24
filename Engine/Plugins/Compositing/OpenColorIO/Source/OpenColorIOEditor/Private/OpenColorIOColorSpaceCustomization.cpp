@@ -4,11 +4,7 @@
 
 #include "Containers/StringConv.h"
 #include "DetailWidgetRow.h"
-#include "Engine/EngineTypes.h"
-#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "IPropertyUtilities.h"
-#include "OpenColorIOColorSpace.h"
-#include "OpenColorIO/OpenColorIO.h"
 #include "PropertyHandle.h"
 #include "Widgets/Input/SComboButton.h"
 
@@ -16,8 +12,12 @@
 
 void FOpenColorIOColorSpaceCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
-	ColorSpaceProperty = InPropertyHandle;
+	//Reset internals
 	ConfigurationFileProperty.Reset();
+	CachedConfigFile.reset();
+	LoadedFilePath = FFilePath();
+	
+	ColorSpaceProperty = InPropertyHandle;
 
 	if (ColorSpaceProperty->GetNumPerObjectValues() == 1 && ColorSpaceProperty->IsValidHandle())
 	{
@@ -87,9 +87,125 @@ void FOpenColorIOColorSpaceCustomization::CustomizeChildren(TSharedRef<IProperty
 {
 }
 
-TSharedRef<SWidget> FOpenColorIOColorSpaceCustomization::HandleSourceComboButtonMenuContent() const
+
+bool FOpenColorIOColorSpaceCustomization::LoadConfigurationFile(const FFilePath& InFilePath)
 {
-	OCIO_NAMESPACE::ConstConfigRcPtr ConfigFile;
+#if !PLATFORM_EXCEPTIONS_DISABLED
+	try
+#endif
+	{
+		CachedConfigFile = OCIO_NAMESPACE::Config::CreateFromFile(StringCast<ANSICHAR>(*InFilePath.FilePath).Get());
+		if (!CachedConfigFile)
+		{
+			return false;
+		}
+	}
+#if !PLATFORM_EXCEPTIONS_DISABLED
+	catch (OCIO_NAMESPACE::Exception&)
+	{
+		return false;
+	}
+#endif
+
+	return true;
+}
+
+void FOpenColorIOColorSpaceCustomization::ProcessColorSpaceForMenuGeneration(FMenuBuilder& InMenuBuilder, const int32 InMenuDepth, const FString& InPreviousFamilyHierarchy, const FOpenColorIOColorSpace& InColorSpace, TArray<FString>& InOutExistingMenuFilter)
+{
+	const FString NextFamilyName = InColorSpace.GetFamilyNameAtDepth(InMenuDepth);
+	if (!NextFamilyName.IsEmpty())
+	{
+		if (!InOutExistingMenuFilter.Contains(NextFamilyName))
+		{
+			//Only add the previous family and delimiter if there was one. First family doesn't need it.
+			const FString PreviousHierarchyToAdd = !InPreviousFamilyHierarchy.IsEmpty() ? InPreviousFamilyHierarchy + FOpenColorIOColorSpace::FamilyDelimiter : TEXT("");
+			const FString NewHierarchy = PreviousHierarchyToAdd + NextFamilyName;;
+			const int32 NextMenuDepth = InMenuDepth + 1;
+			InMenuBuilder.AddSubMenu(
+				FText::FromString(NextFamilyName),
+				LOCTEXT("OpensFamilySubMenu", "ColorSpace Family Sub Menu"),
+				FNewMenuDelegate::CreateRaw(this, &FOpenColorIOColorSpaceCustomization::PopulateSubMenu, NextMenuDepth, NewHierarchy)
+			);
+
+			InOutExistingMenuFilter.Add(NextFamilyName);
+		}
+	}
+	else
+	{
+
+		AddMenuEntry(InMenuBuilder, InColorSpace);
+	}
+}
+
+void FOpenColorIOColorSpaceCustomization::PopulateSubMenu(FMenuBuilder& InMenuBuilder, int32 InMenuDepth, FString InPreviousFamilyHierarchy)
+{
+	//Submenus should always be at a certain depth level
+	check(InMenuDepth > 0);
+
+	// To keep track of submenus that were already added
+	TArray<FString> ExistingSubMenus;
+
+	const int32 ColorSpaceCount = CachedConfigFile->getNumColorSpaces();
+	for (int32 i = 0; i < ColorSpaceCount; ++i)
+	{
+		const char* ColorSpaceName = CachedConfigFile->getColorSpaceNameByIndex(i);
+		OCIO_NAMESPACE::ConstColorSpaceRcPtr LibColorSpace = CachedConfigFile->getColorSpace(ColorSpaceName);
+		if (!LibColorSpace)
+		{
+			continue;
+		}
+
+		FOpenColorIOColorSpace ColorSpace;
+		ColorSpace.ColorSpaceIndex = i;
+		ColorSpace.ColorSpaceName = StringCast<TCHAR>(ColorSpaceName).Get();
+		ColorSpace.FamilyName = StringCast<TCHAR>(LibColorSpace->getFamily()).Get();
+		
+		//Filter out color spaces that don't belong to this hierarchy
+		if (InPreviousFamilyHierarchy.IsEmpty() || ColorSpace.FamilyName.Contains(InPreviousFamilyHierarchy))
+		{
+			ProcessColorSpaceForMenuGeneration(InMenuBuilder, InMenuDepth, InPreviousFamilyHierarchy, ColorSpace, ExistingSubMenus);
+		}
+	}
+}
+
+void FOpenColorIOColorSpaceCustomization::AddMenuEntry(FMenuBuilder& InMenuBuilder, const FOpenColorIOColorSpace& InColorSpace)
+{
+	InMenuBuilder.AddMenuEntry(
+		FText::FromString(InColorSpace.ToString()),
+		FText::FromString(InColorSpace.ToString()),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]
+			{
+				if (UStructProperty* StructProperty = Cast<UStructProperty>(ColorSpaceProperty->GetProperty()))
+				{
+					TArray<void*> RawData;
+					ColorSpaceProperty->AccessRawData(RawData);
+					FOpenColorIOColorSpace* PreviousColorSpaceValue = reinterpret_cast<FOpenColorIOColorSpace*>(RawData[0]);
+
+					FString TextValue;
+					StructProperty->Struct->ExportText(TextValue, &InColorSpace, PreviousColorSpaceValue, nullptr, EPropertyPortFlags::PPF_None, nullptr);
+					ensure(ColorSpaceProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
+				}
+			}
+			),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]
+			{
+				TArray<void*> RawData;
+				ColorSpaceProperty->AccessRawData(RawData);
+				FOpenColorIOColorSpace* ColorSpaceValue = reinterpret_cast<FOpenColorIOColorSpace*>(RawData[0]);
+				return *ColorSpaceValue == InColorSpace;
+			})
+		),
+		NAME_None,
+		EUserInterfaceActionType::RadioButton
+		);
+}
+
+TSharedRef<SWidget> FOpenColorIOColorSpaceCustomization::HandleSourceComboButtonMenuContent()
+{
+	bool bValidConfiguration = false;
 	if (ConfigurationFileProperty.IsValid())
 	{
 		TArray<void*> RawData;
@@ -99,96 +215,49 @@ TSharedRef<SWidget> FOpenColorIOColorSpaceCustomization::HandleSourceComboButton
 		FFilePath* ConfigFilePath = reinterpret_cast<FFilePath*>(RawData[0]);
 		check(ConfigFilePath);
 
-		try
+		if (!ConfigFilePath->FilePath.IsEmpty() && ConfigFilePath->FilePath != LoadedFilePath.FilePath)
 		{
-			ConfigFile = OCIO_NAMESPACE::Config::CreateFromFile(StringCast<ANSICHAR>(*ConfigFilePath->FilePath).Get());
-			if (!ConfigFile)
-			{
-				return SNullWidget::NullWidget;
-			}
+			bValidConfiguration = LoadConfigurationFile(*ConfigFilePath);
 		}
-		catch (OCIO_NAMESPACE::Exception& )
-		{
-			return SNullWidget::NullWidget;
-		}
-	}
-	else
-	{
-		return SNullWidget::NullWidget;
-	}
-
-	// Fetch ColorSpaces from current Config file
-	const int32 ColorSpaceCount = ConfigFile->getNumColorSpaces();
-	if (ColorSpaceCount <= 0)
-	{
-		return SNullWidget::NullWidget;
 	}
 
 	// Generate menu
 	FMenuBuilder MenuBuilder(true, nullptr);
+	TArray<FString> ExistingSubMenus;
 
-	MenuBuilder.BeginSection("AllColorSpaces", LOCTEXT("AllColorSpacesSection", "All ColorSpaces"));
+	MenuBuilder.BeginSection("AllColorSpaces", LOCTEXT("AllColorSpacesSection", "ColorSpaces"));
 	{
-		bool ColorSpaceAdded = false;
-
-		for (int32 i = 0; i < ColorSpaceCount; ++i)
+		if (bValidConfiguration)
 		{
-			const char* ColorSpaceName = ConfigFile->getColorSpaceNameByIndex(i);
-			OCIO_NAMESPACE::ConstColorSpaceRcPtr LibColorSpace = ConfigFile->getColorSpace(ColorSpaceName);
-			if (!LibColorSpace)
+			const int32 ColorSpaceCount = CachedConfigFile->getNumColorSpaces();
+			for (int32 i = 0; i < ColorSpaceCount; ++i)
 			{
-				continue;
+				const char* ColorSpaceName = CachedConfigFile->getColorSpaceNameByIndex(i);
+				OCIO_NAMESPACE::ConstColorSpaceRcPtr LibColorSpace = CachedConfigFile->getColorSpace(ColorSpaceName);
+				if (!LibColorSpace)
+				{
+					continue;
+				}
+
+				FOpenColorIOColorSpace ColorSpace;
+				ColorSpace.ColorSpaceIndex = i;
+				ColorSpace.ColorSpaceName = StringCast<TCHAR>(ColorSpaceName).Get();
+				ColorSpace.FamilyName = StringCast<TCHAR>(LibColorSpace->getFamily()).Get();
+
+				//Top level menus have no preceding hierarchy.
+				const int32 CurrentMenuDepth = 0;
+				const FString PreviousHierarchy = FString();
+				ProcessColorSpaceForMenuGeneration(MenuBuilder, CurrentMenuDepth, PreviousHierarchy, ColorSpace, ExistingSubMenus);
 			}
 
-			const char* FamilyName = LibColorSpace->getFamily();
-
-			FOpenColorIOColorSpace ColorSpace;
-			ColorSpace.ColorSpaceIndex = i;
-			ColorSpace.ColorSpaceName = StringCast<TCHAR>(ColorSpaceName).Get();
-			ColorSpace.FamilyName = StringCast<TCHAR>(FamilyName).Get();
-			//if (!ColorSpace.FamilyName.IsEmpty())
-			//{
-			//	MenuBuilder.
-			//	MenuBuilder.AddSubMenu( LOCTEXT("SubMenu", "Sub Menu"), LOCTEXT("OpensASubmenu", "Opens a submenu"), FNewMenuDelegate::CreateStatic( &FMenus::FillSubMenuEntries ) );
-			//}
-
-			const TSharedPtr<IPropertyHandle> ValueProperty = ColorSpaceProperty;
-
-			MenuBuilder.AddMenuEntry(
-				FText::FromString(ColorSpace.ToString()),
-				FText::FromString(ColorSpace.ToString()),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateLambda([=] {
-						if (UStructProperty* StructProperty = Cast<UStructProperty>(ColorSpaceProperty->GetProperty()))
-						{
-							TArray<void*> RawData;
-							ColorSpaceProperty->AccessRawData(RawData);
-							FOpenColorIOColorSpace* PreviousColorSpaceValue = reinterpret_cast<FOpenColorIOColorSpace*>(RawData[0]);
-
-							FString TextValue;
-							StructProperty->Struct->ExportText(TextValue, &ColorSpace, PreviousColorSpaceValue, nullptr, EPropertyPortFlags::PPF_None, nullptr);
-							ensure(ColorSpaceProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
-						}
-					}),
-					FCanExecuteAction(),
-					FIsActionChecked::CreateLambda([=] {
-						TArray<void*> RawData;
-						ColorSpaceProperty->AccessRawData(RawData);
-						FOpenColorIOColorSpace* ColorSpaceValue = reinterpret_cast<FOpenColorIOColorSpace*>(RawData[0]);
-						return *ColorSpaceValue == ColorSpace;
-					})
-				),
-				NAME_None,
-				EUserInterfaceActionType::RadioButton
-				);
-
-			ColorSpaceAdded = true;
+			if (ColorSpaceCount <= 0)
+			{
+				MenuBuilder.AddWidget(SNullWidget::NullWidget, LOCTEXT("NoColorSpaceFound", "No color space found"), false, false);
+			}
 		}
-
-		if (!ColorSpaceAdded)
+		else
 		{
-			MenuBuilder.AddWidget(SNullWidget::NullWidget, LOCTEXT("NoColorSpaceFound", "No color spaces found"), false, false);
+			MenuBuilder.AddWidget(SNullWidget::NullWidget, LOCTEXT("InvalidConfigurationFile", "Invalid configuration file"), false, false);
 		}
 	}
 	MenuBuilder.EndSection();

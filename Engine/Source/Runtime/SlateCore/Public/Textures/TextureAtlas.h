@@ -76,7 +76,7 @@ struct FAtlasedTextureSlot : public TIntrusiveLinkedList<FAtlasedTextureSlot>
 class SLATECORE_API FSlateTextureAtlas
 {
 public:
-	FSlateTextureAtlas( uint32 InWidth, uint32 InHeight, uint32 InBytesPerPixel, ESlateTextureAtlasPaddingStyle InPaddingStyle )
+	FSlateTextureAtlas( uint32 InWidth, uint32 InHeight, uint32 InBytesPerPixel, ESlateTextureAtlasPaddingStyle InPaddingStyle, bool bInUpdatesAfterInitialization )
 		: AtlasData()
 		, AtlasUsedSlots(NULL)
 		, AtlasEmptySlots(NULL)
@@ -85,6 +85,7 @@ public:
 		, BytesPerPixel( InBytesPerPixel )
 		, PaddingStyle( InPaddingStyle )
 		, bNeedsUpdate( false )
+		, bUpdatesAfterInitialization(bInUpdatesAfterInitialization)
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		, AtlasOwnerThread( ESlateTextureAtlasThreadId::Unknown )
 #endif
@@ -95,9 +96,9 @@ public:
 	virtual ~FSlateTextureAtlas();
 
 	/**
-	 * Clears atlas data
+	 * Clears atlas cpu data.  It does not clear rendering data
 	 */
-	void Empty();
+	void EmptyAtlasData();
 
 	/**
 	 * Adds a texture to the atlas
@@ -201,7 +202,8 @@ protected:
 
 	/** True if this texture needs to have its rendering resources updated */
 	bool bNeedsUpdate;
-
+	/** True if this texture can update after initialziation and we should preserve the atlas slots and cpu memory */
+	bool bUpdatesAfterInitialization;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** 
 	 * The type of thread that owns this atlas - this is the only thread that can safely update it 

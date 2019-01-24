@@ -209,7 +209,7 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 					// If saving intermediates is turned on
 					if (bSaveIntermediateTextures)
 					{
-						const UEnum* PropertyEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialProperty"));
+						const UEnum* PropertyEnum = StaticEnum<EMaterialProperty>();
 						FName PropertyName = PropertyEnum->GetNameByValue(Property);
 						FString TrimmedPropertyName = PropertyName.ToString();
 						TrimmedPropertyName.RemoveFromStart(TEXT("MP_"));

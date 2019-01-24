@@ -203,6 +203,18 @@ void FConcertServerWorkspace::HandleSessionClientChanged(IConcertServerSession& 
 			});
 			Session->SendCustomEvent(SyncEvent, InEndpointId, EConcertMessageFlags::ReliableOrdered);
 		});
+		// PIE/SIE play state.
+		SyncCommandQueue->QueueCommand(InClientInfo.ClientEndpointId, [this](const FConcertServerSyncCommandQueue::FSyncCommandContext& InSyncCommandContext, const FGuid& InEndpointId)
+		{
+			for (const TPair<FName, TArray<FPlaySessionInfo>>& PlayInfoPair : ActivePlaySessions)
+			{
+				for (const FPlaySessionInfo& PlayInfo: PlayInfoPair.Value)
+				{
+					Session->SendCustomEvent(FConcertPlaySessionEvent{EConcertPlaySessionEventType::BeginPlay, PlayInfo.EndpointId, PlayInfoPair.Key, PlayInfo.bIsSimulating}, InEndpointId, EConcertMessageFlags::ReliableOrdered);
+				}
+			}
+		});
+
 		ActivityLedger->RecordClientConectionStatusChanged(EConcertClientStatus::Connected, InClientInfo.ClientInfo);
 		ActivityLedger->DoInitialSync(InClientInfo.ClientEndpointId);
 	}
@@ -340,12 +352,16 @@ void FConcertServerWorkspace::HandlePlaySessionEvent(const FConcertSessionContex
 
 	if (Event.EventType == EConcertPlaySessionEventType::BeginPlay)
 	{
-		return HandleBeginPlaySession(Event.PlayPackageName, Event.PlayEndpointId);
+		HandleBeginPlaySession(Event.PlayPackageName, Event.PlayEndpointId, Event.bIsSimulating);
 	}
-	
-	if (Event.EventType == EConcertPlaySessionEventType::EndPlay)
+	else if (Event.EventType == EConcertPlaySessionEventType::EndPlay)
 	{
-		return HandleEndPlaySession(Event.PlayPackageName, Event.PlayEndpointId);
+		HandleEndPlaySession(Event.PlayPackageName, Event.PlayEndpointId);
+	}
+	else
+	{
+		check(Event.EventType == EConcertPlaySessionEventType::SwitchPlay);
+		HandleSwitchPlaySession(Event.PlayPackageName, Event.PlayEndpointId);
 	}
 }
 
@@ -369,19 +385,31 @@ EConcertSessionResponseCode FConcertServerWorkspace::HandleResourceLockRequest(c
 	return EConcertSessionResponseCode::Success;
 }
 
-void FConcertServerWorkspace::HandleBeginPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId)
+void FConcertServerWorkspace::HandleBeginPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId, bool bIsSimulating)
 {
-	TArray<FGuid>& PlaySessionEndpoints = ActivePlaySessions.FindOrAdd(InPlayPackageName);
-	PlaySessionEndpoints.AddUnique(InEndpointId);
+	TArray<FPlaySessionInfo>& PlaySessionEndpoints = ActivePlaySessions.FindOrAdd(InPlayPackageName);
+	PlaySessionEndpoints.AddUnique({InEndpointId, bIsSimulating});
+}
+
+void FConcertServerWorkspace::HandleSwitchPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId)
+{
+	// The client has toggled between PIE/SIE play type.
+	if (TArray<FPlaySessionInfo>* PlaySessionInfo = ActivePlaySessions.Find(InPlayPackageName))
+	{
+		if (FPlaySessionInfo* PlayInfo = PlaySessionInfo->FindByPredicate([InEndpointId](const FPlaySessionInfo& Info) { return InEndpointId == Info.EndpointId; }))
+		{
+			PlayInfo->bIsSimulating = !PlayInfo->bIsSimulating; // Toggle the status.
+		}
+	}
 }
 
 void FConcertServerWorkspace::HandleEndPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId)
 {
 	bool bDiscardPackage = false;
-	if (TArray<FGuid>* PlaySessionEndpoints = ActivePlaySessions.Find(InPlayPackageName))
+	if (TArray<FPlaySessionInfo>* PlaySessionInfo = ActivePlaySessions.Find(InPlayPackageName))
 	{
-		PlaySessionEndpoints->Remove(InEndpointId);
-		if (PlaySessionEndpoints->Num() == 0)
+		PlaySessionInfo->RemoveAll([InEndpointId](const FPlaySessionInfo& Info) {return Info.EndpointId == InEndpointId; });
+		if (PlaySessionInfo->Num() == 0)
 		{
 			bDiscardPackage = true;
 			ActivePlaySessions.Remove(InPlayPackageName);
@@ -431,7 +459,7 @@ FName FConcertServerWorkspace::FindPlaySession(const FGuid& InEndpointId)
 {
 	for (const auto& ActivePlaySessionPair : ActivePlaySessions)
 	{
-		if (ActivePlaySessionPair.Value.Contains(InEndpointId))
+		if (ActivePlaySessionPair.Value.ContainsByPredicate([InEndpointId](const FPlaySessionInfo& Info){ return Info.EndpointId == InEndpointId; }))
 		{
 			return ActivePlaySessionPair.Key;
 		}

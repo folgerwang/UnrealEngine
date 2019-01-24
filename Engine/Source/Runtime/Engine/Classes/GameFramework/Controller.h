@@ -201,7 +201,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(DisplayName="Get Controlled Pawn", ScriptName="GetControlledPawn"))
 	APawn* K2_GetPawn() const;
 
-	FPawnChangedSignature GetOnNewPawnNotifier() { return OnNewPawn; }
+	FPawnChangedSignature& GetOnNewPawnNotifier() { return OnNewPawn; }
 
 public:
 

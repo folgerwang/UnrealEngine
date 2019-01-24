@@ -310,6 +310,17 @@ public:
 #endif
 	}
 
+	virtual FString GetPresenceWorldPath(const FGuid EndpointId) override
+	{
+#if WITH_EDITOR
+		if (PresenceManager.IsValid())
+		{
+			return PresenceManager->GetClientWorldPath(EndpointId);
+		}
+#endif
+		return FString();
+	}
+
 	virtual void PersistSessionChanges() override
 	{
 #if WITH_EDITOR

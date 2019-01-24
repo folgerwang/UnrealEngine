@@ -164,8 +164,6 @@ void SMediaFrameworkCapture::UnregisterNomadTabSpawner()
 
 TSharedPtr<SMediaFrameworkCapture> SMediaFrameworkCapture::GetPanelInstance()
 {
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	TSharedRef<SDockTab> DockTab = LevelEditorModule.GetLevelEditorTabManager()->InvokeTab(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp);
 	return SMediaFrameworkCapture::WidgetInstance.Pin();
 }
 

@@ -1632,12 +1632,6 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 		ExtraArg += TEXT( "-FailIfGeneratedCodeChanges " );
 	}
 
-	// Shared PCH does no work with hot-reloading engine/editor modules as we don't scan all modules for them.
-	if (!ContainsOnlyGameModules(ModuleNames))
-	{
-		ExtraArg += TEXT("-nosharedpch ");
-	}
-	
 	FString CmdLineParams = FString::Printf( TEXT( "%s %s %s %s%s -IgnoreJunk" ), 
 		*ModuleArg, 
 		BuildPlatformName, BuildConfigurationName, 

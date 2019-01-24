@@ -5,6 +5,7 @@
 #include "Textures/SlateShaderResource.h"
 #include "Textures/SlateTextureData.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Misc/MemStack.h"
 
 DEFINE_STAT(STAT_SlateTextureGPUMemory);
 DEFINE_STAT(STAT_SlateTextureDataMemory);
@@ -32,17 +33,19 @@ ESlateTextureAtlasThreadId GetCurrentSlateTextureAtlasThreadId()
 
 FSlateTextureAtlas::~FSlateTextureAtlas()
 {
-	Empty();
+	EmptyAtlasData();
 }
 
 
 /* FSlateTextureAtlas interface
  *****************************************************************************/
 
-void FSlateTextureAtlas::Empty()
+void FSlateTextureAtlas::EmptyAtlasData()
 {
+	FMemMark Mark(FMemStack::Get());
+
 	// Remove all nodes
-	TArray<FAtlasedTextureSlot*> DeleteSlots;
+	TArray<FAtlasedTextureSlot*, TMemStackAllocator<>> DeleteSlots;
 
 	for (FAtlasedTextureSlot::TIterator SlotIt(AtlasUsedSlots); SlotIt; SlotIt.Next())
 	{

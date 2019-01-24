@@ -201,7 +201,6 @@
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
 #include "Async/AsyncWork.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "GenericPlatform/GenericWindow.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"

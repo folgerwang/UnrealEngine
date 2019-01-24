@@ -23,7 +23,7 @@ enum class EConcertLockFlags : uint8
 };
 ENUM_CLASS_FLAGS(EConcertLockFlags);
 
-class FConcertServerWorkspace 
+class FConcertServerWorkspace
 {
 public:
 	FConcertServerWorkspace(const TSharedRef<IConcertServerSession>& InSession);
@@ -57,16 +57,19 @@ private:
 	/** */
 	EConcertSessionResponseCode HandleResourceLockRequest(const FConcertSessionContext& Context, const FConcertResourceLockRequest& Request, FConcertResourceLockResponse& Response);
 
-	/** */
-	void HandleBeginPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId);
+	/** Invoked when the client corresponding to the specified endpoint begins to "Play" in a mode such as PIE or SIE. */
+	void HandleBeginPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId, bool bIsSimulating);
 
-	/** */
+	/** Invoked when the client corresponding to the specified endpoint exits a "Play" mode such as PIE or SIE. */
 	void HandleEndPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId);
 
-	/** */
+	/** Invoked when the client corresponding to specified endpoint toggles between PIE and SIE play mode. */
+	void HandleSwitchPlaySession(const FName InPlayPackageName, const FGuid& InEndpointId);
+
+	/** Invoked when the cient corresponding to the specified endpoint exits a "Play" mode such as PIE or SIE. */
 	void HandleEndPlaySessions(const FGuid& InEndpointId);
 
-	/** */
+	/** Returns the package name being played (PIE/SIE) by the specified client endpoint if that endpoint is in such play mode, otherwise, returns an empty name. */
 	FName FindPlaySession(const FGuid& InEndpointId);
 
 	/**
@@ -139,8 +142,16 @@ private:
 	/** */
 	TUniquePtr<FConcertServerActivityLedger> ActivityLedger;
 
-	/** Tracks endpoints that are in a play session (package name -> endpoint IDs) */
-	TMap<FName, TArray<FGuid>> ActivePlaySessions;
+	/** Contains the play state (PIE/SIE) of a client endpoint. */
+	struct FPlaySessionInfo
+	{
+		FGuid EndpointId;
+		bool bIsSimulating;
+		bool operator==(const FPlaySessionInfo& Other) const { return EndpointId == Other.EndpointId && bIsSimulating == Other.bIsSimulating; }
+	};
+
+	/** Tracks endpoints that are in a play session (package name -> {endpoint IDs, bSimulating}) */
+	TMap<FName, TArray<FPlaySessionInfo>> ActivePlaySessions;
 
 	/** Tracks locked transaction resources (resource ID -> Lock owner) */
 	struct FLockOwner

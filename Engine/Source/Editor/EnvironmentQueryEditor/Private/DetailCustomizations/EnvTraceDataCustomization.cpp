@@ -134,7 +134,7 @@ void FEnvTraceDataCustomization::CacheTraceModes(TSharedRef<class IPropertyHandl
 	PropCanDisable->GetValue(bCanDisable);
 	PropCanProject->GetValue(bCanShowProjection);
 
-	static UEnum* TraceModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryTrace"));
+	static UEnum* TraceModeEnum = StaticEnum<EEnvQueryTrace::Type>();
 	check(TraceModeEnum);
 
 	TraceModes.Reset();

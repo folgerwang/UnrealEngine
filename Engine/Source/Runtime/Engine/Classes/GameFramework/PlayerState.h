@@ -32,6 +32,31 @@ struct PingAvgData
 };
 
 /**
+ * Struct keeping track of the lowest ping values over a given second.
+ */
+struct PingAvgDataV2
+{
+	/** List of ping values */
+	TArray<uint16> PingValues;
+
+	/** The maximum number of ping values we will keep track of */
+	static const uint8 MAX_PING_VALUES_SIZE = 7;
+
+	/** Default constructor */
+	PingAvgDataV2()
+		: AvgPingV2(0.0f)
+	{
+		for (int32 i = 0; i < MAX_PING_VALUES_SIZE; i++)
+		{
+			PingValues.Add(MAX_uint16);
+		}
+	}
+
+	/** The average of the values in PingValues, calculated after 1s. */
+	float AvgPingV2;
+};
+
+/**
  * A PlayerState is created for every player on a server (or in a standalone game).
  * PlayerStates are replicated to all clients, and contain network game relevant information about the player, such as playername, score, etc.
  */
@@ -117,6 +142,7 @@ public:
 
 	/** Exact ping as float (rounded and compressed in replicated Ping) */
 	float ExactPing;
+	float ExactPingV2;
 
 	/** Used to match up InactivePlayerState with rejoining playercontroller. */
 	UPROPERTY()
@@ -146,6 +172,7 @@ private:
 	 * without using up a lot of space, while also being tolerant of changes in ping update frequency
 	 */
 	PingAvgData		PingBucket[4];
+	PingAvgDataV2	PingBucketV2[4];
 
 	/** The timestamp for when the current PingBucket began filling */
 	float			CurPingBucketTimestamp;

@@ -198,7 +198,8 @@ FModelElement* UModelComponent::CreateNewTempElement(UModelComponent* Component)
 	}
 
 	// make it in the temp array
-	FModelElement* Element = new(*TempElements) FModelElement(Component, NULL);
+	FModelElement* Element = new FModelElement(Component, NULL);
+	TempElements->Add(Element);
 	return Element;
 }
 
@@ -240,7 +241,7 @@ void UModelComponent::ApplyTempElements(bool bLightingWasSuccessful)
 		{
 			UModelComponent* Component = UpdatedComponents[ComponentIndex];
 
-			new(ComponentContexts) FComponentReregisterContext(Component);
+			ComponentContexts.Add(new FComponentReregisterContext(Component));
 		}
 
 		// Release all index buffers since they will be modified by BuildRenderData()

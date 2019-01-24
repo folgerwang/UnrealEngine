@@ -95,7 +95,8 @@ public:
 
 UMovieSceneSequence* UK2Node_GetSequenceBinding::GetSequence() const
 {
-	return Cast<UMovieSceneSequence>(SourceSequence.TryLoad());
+	FLinkerLoad* Linker = GetLinker();
+	return Cast<UMovieSceneSequence>(SourceSequence.TryLoad(Linker ? Linker->GetSerializeContext() : nullptr));
 }
 
 void UK2Node_GetSequenceBinding::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const

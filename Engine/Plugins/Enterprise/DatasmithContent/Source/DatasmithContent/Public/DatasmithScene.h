@@ -14,18 +14,6 @@ class UStaticMesh;
 class UTexture;
 class UWorld;
 
-USTRUCT()
-struct DATASMITHCONTENT_API FDatasmithSceneInput
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FGuid GUID;
-
-	UPROPERTY(EditAnywhere, Category = "Options", meta = (ShowOnlyInnerProperties))
-	UDatasmithImportOptions* Options;
-};
-
 UCLASS()
 class DATASMITHCONTENT_API UDatasmithScene : public UObject
 {
@@ -37,11 +25,6 @@ public:
 	virtual ~UDatasmithScene();
 
 #if WITH_EDITORONLY_DATA
-	/** Array of data to import with associated options used by this Datasmith scene */
-	// TODO: See how to conciliate AssetImportData and FDatasmithSceneInput
-	UPROPERTY()
-	TArray<FDatasmithSceneInput> Imports;
-
 	/** Pointer to data preparation pipeline blueprint used to process input data */
 	UPROPERTY()
 	class UBlueprint* DataPrepRecipeBP;

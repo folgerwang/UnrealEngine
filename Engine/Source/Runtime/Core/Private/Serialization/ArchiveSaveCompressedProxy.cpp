@@ -9,16 +9,15 @@
 /*----------------------------------------------------------------------------
 	FArchiveSaveCompressedProxy
 ----------------------------------------------------------------------------*/
+FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy(FArchiveSaveCompressedProxy::EVS2015Redirector, TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
+	: FArchiveSaveCompressedProxy(InCompressedData, FCompression::GetCompressionFormatFromDeprecatedFlags(InCompressionFlags), InCompressionFlags)
+{
+}
 
-/** 
- * Constructor, initializing all member variables and allocating temp memory.
- *
- * @param	InCompressedData [ref]	Array of bytes that is going to hold compressed data
- * @param	InCompressionFlags		Compression flags to use for compressing data
- */
-FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy( TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags )
-:	CompressedData(InCompressedData)
-,	CompressionFlags(InCompressionFlags)
+FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy(TArray<uint8>& InCompressedData, FName InCompressionFormat, ECompressionFlags InCompressionFlags)
+	: CompressedData(InCompressedData)
+	, CompressionFormat(InCompressionFormat)
+	, CompressionFlags(InCompressionFlags)
 {
 	this->SetIsSaving(true);
 	this->SetIsPersistent(true);
@@ -54,7 +53,7 @@ void FArchiveSaveCompressedProxy::Flush()
 	{
 		// This will call Serialize so we need to indicate that we want to serialize to array.
 		bShouldSerializeToArray = true;
-		SerializeCompressed( TmpDataStart, TmpData - TmpDataStart, CompressionFlags );
+		SerializeCompressed( TmpDataStart, TmpData - TmpDataStart, CompressionFormat, CompressionFlags);
 		bShouldSerializeToArray = false;
 		// Buffer is drained, reset.
 		TmpData	= TmpDataStart;

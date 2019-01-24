@@ -18,7 +18,6 @@ class EDITABLEMESH_API UEditableMeshFactory : public UObject
 public:
 
 	static FEditableMeshSubMeshAddress MakeSubmeshAddress( class UPrimitiveComponent* PrimitiveComponent, const int32 LODIndex );
-	static FEditableMeshSubMeshAddress MakeSubmeshAddress( class UStaticMesh& StaticMesh, const int32 LODIndex );
 
 	static UEditableMesh* MakeEditableMesh( class UPrimitiveComponent* PrimitiveComponent, const FEditableMeshSubMeshAddress& SubMeshAddress );
 
