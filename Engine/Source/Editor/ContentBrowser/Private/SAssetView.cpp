@@ -22,11 +22,9 @@
 #include "Widgets/Input/SSlider.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "EditorReimportHandler.h"
 #include "Settings/ContentBrowserSettings.h"
 #include "Engine/Blueprint.h"
 #include "Editor.h"
-#include "FileHelpers.h"
 #include "AssetSelection.h"
 #include "AssetRegistryModule.h"
 #include "IAssetTools.h"
@@ -1577,80 +1575,8 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 			{
 				if (ExternalDragDropOp->HasFiles())
 				{
-					TArray<FString> ImportFiles;
-					TMap<FString, UObject*> ReimportFiles;
-					FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-					FString RootDestinationPath = SourcesData.PackagePaths[0].ToString();
-					TArray<TPair<FString, FString>> FilesAndDestinations;
-					const TArray<FString>& DragFiles = ExternalDragDropOp->GetFiles();
-					AssetToolsModule.Get().ExpandDirectories(DragFiles, RootDestinationPath, FilesAndDestinations);
-
-					TArray<int32> ReImportIndexes;
-					for (int32 FileIdx = 0; FileIdx < FilesAndDestinations.Num(); ++FileIdx)
-					{
-						const FString& Filename = FilesAndDestinations[FileIdx].Key;
-						const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
-						FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
-						FString PackageName = ObjectTools::SanitizeInvalidChars(DestinationPath + TEXT("/") + Name, INVALID_LONGPACKAGE_CHARACTERS);
-
-
-						// We can not create assets that share the name of a map file in the same location
-						if (FEditorFileUtils::IsMapPackageAsset(PackageName))
-						{
-							//The error message will be log in the import process
-							ImportFiles.Add(Filename);
-							continue;
-						}
-						//Check if package exist in memory
-						UPackage* Pkg = FindPackage(nullptr, *PackageName);
-						bool IsPkgExist = Pkg != nullptr;
-						//check if package exist on file
-						if (!IsPkgExist && !FPackageName::DoesPackageExist(PackageName))
-						{
-							ImportFiles.Add(Filename);
-							continue;
-						}
-						if (Pkg == nullptr)
-						{
-							Pkg = CreatePackage(nullptr, *PackageName);
-							if (Pkg == nullptr)
-							{
-								//Cannot create a package that don't exist on disk or in memory!!!
-								//The error message will be log in the import process
-								ImportFiles.Add(Filename);
-								continue;
-							}
-						}
-						// Make sure the destination package is loaded
-						Pkg->FullyLoad();
-
-						// Check for an existing object
-						UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
-						if (ExistingObject != nullptr)
-						{
-							ReimportFiles.Add(Filename, ExistingObject);
-							ReImportIndexes.Add(FileIdx);
-						}
-						else
-						{
-							ImportFiles.Add(Filename);
-						}
-					}
-					//Reimport
-					for (auto kvp : ReimportFiles)
-					{
-						FReimportManager::Instance()->Reimport(kvp.Value, false, true, kvp.Key);
-					}
-					//Import
-					if (ImportFiles.Num() > 0)
-					{
-						//Remove it in reverse so the smaller index are still valid
-						for (int32 IndexToRemove = ReImportIndexes.Num() - 1; IndexToRemove >= 0; --IndexToRemove)
-						{
-							FilesAndDestinations.RemoveAt(ReImportIndexes[IndexToRemove]);
-						}
-						AssetToolsModule.Get().ImportAssets(ImportFiles, SourcesData.PackagePaths[0].ToString(), nullptr, true, &FilesAndDestinations);
-					}
+					// Delay import until next tick to avoid blocking the process that files were dragged from
+					GEditor->GetEditorSubsystem<UImportSubsystem>()->ImportNextTick(ExternalDragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString());
 				}
 			}
 

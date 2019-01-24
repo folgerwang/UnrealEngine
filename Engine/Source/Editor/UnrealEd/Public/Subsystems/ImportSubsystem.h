@@ -7,8 +7,20 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "Templates/SubclassOf.h"
+#include "Containers/Queue.h"
 
 #include "ImportSubsystem.generated.h"
+
+/**
+ * Interface for tasks that need delayed execution
+ */
+class IImportSubsystemTask
+{
+public:
+	virtual ~IImportSubsystemTask() { }
+
+	virtual void Run() = 0;
+};
 
 /**
  * UImportSubsystem
@@ -25,6 +37,9 @@ public:
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection);
 	virtual void Deinitialize();
+
+	/* Import files next tick */
+	void ImportNextTick(const TArray<FString>& Files, const FString& DestinationPath);
 
 	/** delegate type fired when new assets are being (re-)imported. Params: UFactory* InFactory, UClass* InClass, UObject* InParent, const FName& Name, const TCHAR* Type */
 	DECLARE_MULTICAST_DELEGATE_FiveParams(FOnAssetPreImport, UFactory*, UClass*, UObject*, const FName&, const TCHAR*);
@@ -47,6 +62,9 @@ public:
 
 private:
 
+	/* Run deferred logic waiting to be run next tick */
+	void HandleNextTick();
+
 	/** delegate type fired when new assets are being (re-)imported. Params: UFactory* InFactory, UClass* InClass, UObject* InParent, const FName& Name, const TCHAR* Type */
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnAssetPreImport_Dyn, UFactory*, InFactory, UClass*, InClass, UObject*, InParent, const FName&, Name, const FString, Type);
 	/** delegate type fired when new assets have been (re-)imported. Note: InCreatedObject can be NULL if import failed. Params: UFactory* InFactory, UObject* InCreatedObject */
@@ -60,4 +78,7 @@ private:
 	FOnAssetPostImport_Dyn OnAssetPostImport_BP;
 	UPROPERTY(BlueprintAssignable, DisplayName = "OnAssetReimport", meta = (ScriptName = "OnAssetReimport"))
 	FOnAssetReimport_Dyn OnAssetReimport_BP;
+
+	/* Tasks waiting to be run next tick */
+	TQueue<TSharedPtr<IImportSubsystemTask>> PendingTasks;
 };
