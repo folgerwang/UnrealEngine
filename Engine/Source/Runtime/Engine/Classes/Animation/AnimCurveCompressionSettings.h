@@ -39,6 +39,9 @@ class ENGINE_API UAnimCurveCompressionSettings : public UObject
 	 */
 	bool Compress(UAnimSequence& AnimSeq) const;
 
+	/** Allow us to convert DDC serialized path back into codec object */
+	UAnimCurveCompressionCodec* GetCodec(const FString& Path);
+
 	/** Generates a DDC key that takes into account the current settings and selected codec. */
 	FString MakeDDCKey() const;
 #endif
