@@ -2488,7 +2488,7 @@ bool FRepLayout::ReceiveProperties(
 	const bool bDoChecksum = false;
 #endif
 
-	UE_LOG(LogRepProperties, VeryVerbose, TEXT("ReceiveProperties: Owner=%s, LastChangelistIndex=%d"), *Owner->GetPathName(), RepState ? RepState->LastChangelistIndex : INDEX_NONE);
+	UE_LOG(LogRepProperties, VeryVerbose, TEXT("ReceiveProperties: Owner=%s, LastChangelistIndex=%d"), *Owner->GetPathName(), RepState->LastChangelistIndex);
 
 	bOutHasUnmapped = false;
 
