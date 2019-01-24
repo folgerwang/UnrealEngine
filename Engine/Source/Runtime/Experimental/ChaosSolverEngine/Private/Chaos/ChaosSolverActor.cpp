@@ -11,9 +11,6 @@
 
 AChaosSolverActor::AChaosSolverActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-#if INCLUDE_CHAOS
-	, Solver(nullptr)
-#endif
 	, TimeStepMultiplier(1.f)
 	, CollisionIterations(5)
 	, PushOutIterations(1)
@@ -34,6 +31,9 @@ AChaosSolverActor::AChaosSolverActor(const FObjectInitializer& ObjectInitializer
 	, TrailingMinVolumeThreshold(1000.f)
 	, HasFloor(true)
 	, FloorHeight(0.f)
+#if INCLUDE_CHAOS
+	, Solver(nullptr)
+#endif
 {
 #if INCLUDE_CHAOS
 	// @question(Benn) : Does this need to be created on the Physics thread using a queued command?
