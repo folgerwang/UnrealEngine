@@ -164,7 +164,7 @@ void FSlateD3DTexture::UpdateTextureThreadSafeWithTextureData(FSlateTextureData*
 
 
 FSlateTextureAtlasD3D::FSlateTextureAtlasD3D( uint32 Width, uint32 Height, uint32 StrideBytes, ESlateTextureAtlasPaddingStyle PaddingStyle )
-	: FSlateTextureAtlas( Width, Height, StrideBytes, PaddingStyle )
+	: FSlateTextureAtlas( Width, Height, StrideBytes, PaddingStyle, true )
 	, AtlasTexture( new FSlateD3DTexture( Width, Height ) )
 {
 }
