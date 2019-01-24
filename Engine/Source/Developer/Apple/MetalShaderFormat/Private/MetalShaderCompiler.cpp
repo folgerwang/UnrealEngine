@@ -2106,20 +2106,44 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 			}
 			else
 			{
-				MinOSVersion = TEXT("-mmacosx-version-min=10.12");
+				Output.bSucceeded = false;
+				FShaderCompilerError* NewError = new(Output.Errors) FShaderCompilerError();
+				NewError->StrippedErrorMessage = FString::Printf(
+															 TEXT("Metal %s is no longer supported in UE4 for macOS."),
+															 *StandardVersion
+															 );
+				return;
 			}
 			break;
 		case 1:
+		{
 			HlslCompilerTarget = bIsMobile ? HlslCompilerTarget : HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("1.1");
 			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.11");
-			break;
+			
+			Output.bSucceeded = false;
+			FShaderCompilerError* NewError = new(Output.Errors) FShaderCompilerError();
+			NewError->StrippedErrorMessage = FString::Printf(
+														 TEXT("Metal %s is no longer supported in UE4."),
+														 *StandardVersion
+														 );
+			return;
+		}
 		case 0:
 		default:
+		{
 			check(bIsMobile);
 			StandardVersion = TEXT("1.0");
 			MinOSVersion = TEXT("");
-			break;
+			
+			Output.bSucceeded = false;
+			FShaderCompilerError* NewError = new(Output.Errors) FShaderCompilerError();
+			NewError->StrippedErrorMessage = FString::Printf(
+															 TEXT("Metal %s is no longer supported in UE4."),
+															 *StandardVersion
+															 );
+			return;
+		}
 	}
 	
 	// Force floats if the material requests it

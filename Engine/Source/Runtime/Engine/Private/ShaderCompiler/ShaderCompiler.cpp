@@ -3145,20 +3145,24 @@ void GlobalBeginCompileShader(
 			Input.Environment.SetDefine(TEXT("MAX_SHADER_LANGUAGE_VERSION"), ShaderVersion);
 			
 			FString AllowFastIntrinsics;
+			FString ForceFloats;
 			bool bEnableMathOptimisations = true;
 			if (IsPCPlatform(EShaderPlatform(Target.Platform)))
 			{
 				GConfig->GetString(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("UseFastIntrinsics"), AllowFastIntrinsics, GEngineIni);
 				GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+				GConfig->GetString(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("ForceFloats"), ForceFloats, GEngineIni);
 			}
 			else
 			{
 				GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("UseFastIntrinsics"), AllowFastIntrinsics, GEngineIni);
 				GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+				GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("ForceFloats"), ForceFloats, GEngineIni);
 				// Force no development shaders on iOS
 				bAllowDevelopmentShaderCompile = false;
 			}
 			Input.Environment.SetDefine(TEXT("METAL_USE_FAST_INTRINSICS"), *AllowFastIntrinsics);
+			Input.Environment.SetDefine(TEXT("FORCE_FLOATS"), *ForceFloats);
 			
 			// Same as console-variable above, but that's global and this is per-platform, per-project
 			if (!bEnableMathOptimisations)

@@ -2227,15 +2227,18 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		
 		bool bAllowFastIntrinsics = false;
 		bool bEnableMathOptimisations = true;
+		bool bForceFloats = false;
 		if (IsPCPlatform(Platform))
 		{
 			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
 			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("ForceFloats"), bForceFloats, GEngineIni);
 		}
 		else
 		{
 			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
 			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("ForceFloats"), bForceFloats, GEngineIni);
 		}
 		
 		if (bAllowFastIntrinsics)
@@ -2247,6 +2250,11 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		if (!bEnableMathOptimisations)
 		{
 			KeyString += TEXT("_NoFastMath");
+		}
+		
+		if (bForceFloats)
+		{
+			KeyString += TEXT("_FP32");
 		}
 		
 		// Shaders built for archiving - for Metal that requires compiling the code in a different way so that we can strip it later

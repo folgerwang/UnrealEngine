@@ -78,6 +78,11 @@ public:
 			TargetSettings->EnableMathOptimisations = true;
 		}
 		
+		if (!GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("ForceFloats"), TargetSettings->ForceFloats, GEngineIni))
+		{
+			TargetSettings->ForceFloats = false;
+		}
+		
 		TargetSettings->AddToRoot();
 
 		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");

@@ -58,6 +58,14 @@ public:
 	bool UseFastIntrinsics;
 	
 	/**
+	 * Whether to force Metal shaders to use 32bit floating point precision even when the shader uses half floats.
+	 * Half floats are much more efficient when they are availble but have less accuracy over large ranges,
+	 * as such some projects may need to use 32bit floats to ensure correct rendering.
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Rendering, meta = (DisplayName = "Force 32bit Floating Point Precision", ConfigRestartRequired = true))
+	bool ForceFloats;
+	
+	/**
 	 * Whether to use of Metal shader-compiler's -ffast-math optimisations.
 	 * Fast-Math performs algebraic-equivalent & reassociative optimisations not permitted by the floating point arithmetic standard (IEEE-754).
 	 * These can improve shader performance at some cost to precision and can lead to NaN/INF propagation as they rely on
