@@ -44,10 +44,14 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void APlayerState::UpdatePing(float InPing)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_PlayerState_UpdatePing);
+
 	// Limit the size of the ping, to avoid overflowing PingBucket values
 	InPing = FMath::Min(1.1f, InPing);
 
 	float CurTime = GetWorld()->RealTimeSeconds;
+
+	float InPingInMs = InPing * 1000.f;
 
 	if ((CurTime - CurPingBucketTimestamp) >= 1.f)
 	{
@@ -59,14 +63,35 @@ void APlayerState::UpdatePing(float InPing)
 		CurPingBucketTimestamp = CurTime;
 
 
-		PingBucket[CurPingBucket].PingSum = FMath::FloorToInt(InPing * 1000.f);
+		PingBucket[CurPingBucket].PingSum = FMath::FloorToInt(InPingInMs);
 		PingBucket[CurPingBucket].PingCount = 1;
+
+		PingBucketV2[CurPingBucket] = PingAvgDataV2();
 	}
 	// Limit the number of pings we accept per-bucket, to avoid overflowing PingBucket values
 	else if (PingBucket[CurPingBucket].PingCount < 7)
 	{
-		PingBucket[CurPingBucket].PingSum += FMath::FloorToInt(InPing * 1000.f);
+		PingBucket[CurPingBucket].PingSum += FMath::FloorToInt(InPingInMs);
 		PingBucket[CurPingBucket].PingCount++;
+	}
+
+	TArray<uint16>& CurrentBucketPingValues = PingBucketV2[CurPingBucket].PingValues;
+
+	// This makes sure we will actually add the ping value to the list, since much of the time the new ping value will be higher than
+	// what is already there.
+	if (InPingInMs < CurrentBucketPingValues[PingAvgDataV2::MAX_PING_VALUES_SIZE - 1])
+	{
+		for (int32 i = 0; i < PingAvgDataV2::MAX_PING_VALUES_SIZE; i++)
+		{
+			// This will keep the list of ping values we're currently using sorted - this will insert
+			// a ping value if it is less than any in current list and remove the new max value.
+			if (InPingInMs < CurrentBucketPingValues[i])
+			{
+				CurrentBucketPingValues.Insert(FMath::FloorToInt(InPingInMs), i);
+				CurrentBucketPingValues.RemoveAt(PingAvgDataV2::MAX_PING_VALUES_SIZE);
+				break;
+			}
+		}
 	}
 }
 
@@ -80,6 +105,27 @@ void APlayerState::RecalculateAvgPing()
 		Sum += PingBucket[i].PingSum;
 		Count += PingBucket[i].PingCount;
 	}
+
+	int32 SumV2 = 0;
+	int32 NumValidValues = 0;
+	for (; NumValidValues < PingAvgDataV2::MAX_PING_VALUES_SIZE; NumValidValues++)
+	{
+		if (PingBucketV2[CurPingBucket].PingValues[NumValidValues] != MAX_uint16)
+		{
+			SumV2 += PingBucketV2[CurPingBucket].PingValues[NumValidValues];
+		}
+	}
+
+	// Use NumValidValues instead of MAX_PING_VALUES_SIZE in case there are fewer valid values.
+	PingBucketV2[CurPingBucket].AvgPingV2 = NumValidValues > 0 ? SumV2 / NumValidValues : MAX_flt;
+
+	float AvgSumV2 = 0.0f;
+	for (int32 i = 0; i < ARRAY_COUNT(PingBucketV2); i++)
+	{
+		AvgSumV2 += PingBucketV2[i].AvgPingV2;
+	}
+
+	ExactPingV2 = AvgSumV2 / ARRAY_COUNT(PingBucketV2);
 
 	// Calculate the average, and divide it by 4 to optimize replication
 	ExactPing = (Count > 0 ? ((float)Sum / (float)Count) : 0.f);
