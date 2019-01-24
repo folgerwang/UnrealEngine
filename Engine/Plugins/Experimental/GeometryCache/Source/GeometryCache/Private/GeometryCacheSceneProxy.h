@@ -168,6 +168,10 @@ public:
 
 	FGeometryCacheTrackStreamableRenderResource *Resource;
 	int32 UploadedSampleIndex;
+
+#if RHI_RAYTRACING
+	FRayTracingGeometry RayTracingGeometry;
+#endif
 };
 
 /** Procedural mesh scene proxy */
@@ -201,6 +205,11 @@ public:
 
 	/** Clears the Sections array*/
 	void ClearSections();
+
+#if RHI_RAYTRACING
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+	virtual bool IsRayTracingRelevant() const override { return true; }
+#endif
 	
 private:	
 	FMaterialRelevance MaterialRelevance;
@@ -211,4 +220,6 @@ private:
 
 	/** Array of Track Proxies */
 	TArray<FGeomCacheTrackProxy*> Tracks;
+
+	void FrameUpdate() const;
 };
