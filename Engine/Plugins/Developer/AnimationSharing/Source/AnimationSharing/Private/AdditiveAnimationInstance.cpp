@@ -10,14 +10,18 @@ FAdditiveAnimationInstance::FAdditiveAnimationInstance() : SkeletalMeshComponent
 
 void FAdditiveAnimationInstance::Initialise(USkeletalMeshComponent* InSkeletalMeshComponent, UClass* InAnimationBPClass)
 {
-	if (InSkeletalMeshComponent && InAnimationBPClass)
+	if (InSkeletalMeshComponent)
 	{
 		SkeletalMeshComponent = InSkeletalMeshComponent;
-		SkeletalMeshComponent->SetAnimInstanceClass(InAnimationBPClass);
+		if (InAnimationBPClass)
+		{
+			SkeletalMeshComponent->SetAnimInstanceClass(InAnimationBPClass);
+			AdditiveInstance = Cast<UAnimSharingAdditiveInstance>(SkeletalMeshComponent->GetAnimInstance());
+		}
+		
 		SkeletalMeshComponent->SetComponentTickEnabled(false);	
 		SkeletalMeshComponent->SetForcedLOD(1);
 		SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-		AdditiveInstance = Cast<UAnimSharingAdditiveInstance>(SkeletalMeshComponent->GetAnimInstance());
 	}
 }
 

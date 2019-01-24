@@ -28,7 +28,8 @@ public class Persona : ModuleRules
                 "ContentBrowser",
                 "AssetTools",
                 "AnimationEditor",
-                "MeshReductionInterface"
+                "MeshReductionInterface",
+                "SequenceRecorder",
             }
         );
 
@@ -73,7 +74,8 @@ public class Persona : ModuleRules
                 "SkeletonEditor",
                 "AssetTools",
                 "AnimationEditor",
-                "MeshReductionInterface"
+                "MeshReductionInterface",
+                "SequenceRecorder",
             }
         );
     }

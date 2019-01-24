@@ -714,6 +714,27 @@ void UAnimationBlueprintLibrary::ReplaceAnimNotifies(UAnimSequenceBase* Animatio
 	ReplaceAnimNotifies_Helper(AnimationSequence, OldNotifyClass.Get(), NewNotifyClass.Get(), OnNotifyReplaced, FOnNotifyStateReplaced());
 }
 
+void UAnimationBlueprintLibrary::CopyAnimNotifiesFromSequence(UAnimSequence* SrcAnimSequence, UAnimSequence* DestAnimSequence)
+{
+	if (SrcAnimSequence == nullptr)
+	{
+		UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid Source Animation Sequence for CopyAnimNotifiesFromSequence"));
+	}
+	else if (DestAnimSequence == nullptr)
+	{
+		UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid Destination Animation Sequence for CopyAnimNotifiesFromSequence"));
+	}
+	else if (SrcAnimSequence == DestAnimSequence)
+	{
+		UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Source and Destination Animation Sequence are the same for CopyAnimNotifiesFromSequence"));
+	}
+	else
+	{
+		const bool bShowDialogs = false;
+		UAnimSequence::CopyNotifies(SrcAnimSequence, DestAnimSequence, bShowDialogs);
+	}
+}
+
 int32 UAnimationBlueprintLibrary::RemoveAnimationNotifyEventsByName(UAnimSequence* AnimationSequence, FName NotifyName)
 {
 	int32 NumRemovedEvents = 0;

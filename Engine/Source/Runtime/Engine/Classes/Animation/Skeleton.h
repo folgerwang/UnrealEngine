@@ -275,6 +275,7 @@ UCLASS(hidecategories=Object, MinimalAPI)
 class USkeleton : public UObject, public IInterface_AssetUserData, public IInterface_PreviewMeshProvider
 {
 	friend class UAnimationBlueprintLibrary;
+	friend class FSkeletonDetails;
 
 	GENERATED_UCLASS_BODY()
 

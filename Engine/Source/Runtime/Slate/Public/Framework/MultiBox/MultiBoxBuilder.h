@@ -210,11 +210,15 @@ public:
 	 * @param	InCommandList	The action list that maps command infos to delegates that should be called for each command associated with a multiblock widget
 	 * @param	bInCloseSelfOnly	True if clicking on a menu entry closes itself only and its children but not the entire stack
 	 */
-	FMenuBuilder( const bool bInShouldCloseWindowAfterMenuSelection, TSharedPtr< const FUICommandList > InCommandList, TSharedPtr<FExtender> InExtender = TSharedPtr<FExtender>(), const bool bCloseSelfOnly = false, const ISlateStyle* InStyleSet = &FCoreStyle::Get() )
+	FMenuBuilder( const bool bInShouldCloseWindowAfterMenuSelection, TSharedPtr< const FUICommandList > InCommandList, TSharedPtr<FExtender> InExtender = TSharedPtr<FExtender>(), const bool bCloseSelfOnly = false, const ISlateStyle* InStyleSet = &FCoreStyle::Get(), bool bInSearchable = true )
 		: FBaseMenuBuilder( EMultiBoxType::Menu, bInShouldCloseWindowAfterMenuSelection, InCommandList, bCloseSelfOnly, InExtender, InStyleSet )
 		, bSectionNeedsToBeApplied(false)
+		, bSearchable(bInSearchable)
 	{
-		AddSearchWidget();
+		if(bSearchable)
+		{
+			AddSearchWidget();
+		}
 	}
 
 	/**
@@ -317,6 +321,9 @@ private:
 	
 	/** True if there is a pending section that needs to be applied */
 	bool bSectionNeedsToBeApplied;
+
+	/** Whether this menu is searchable */
+	bool bSearchable;
 };
 
 
