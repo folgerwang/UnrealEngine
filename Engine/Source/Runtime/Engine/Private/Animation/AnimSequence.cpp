@@ -2623,7 +2623,7 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 			FString CurveCodecPath;
 			Ar << CurveCodecPath;
 
-			CurveCompressionCodec = LoadObject<UAnimCurveCompressionCodec>(nullptr, *CurveCodecPath);
+			CurveCompressionCodec = CurveCompressionSettings->GetCodec(CurveCodecPath);
 		}
 		else
 #else
