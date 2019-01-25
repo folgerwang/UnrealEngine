@@ -139,7 +139,7 @@ const FMaterial& FMaterialInstanceResource::GetMaterialWithFallback(ERHIFeatureL
 					UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(Domain);
 					//there was an error, use the default material's resource
 					OutFallbackMaterialRenderProxy = FallbackMaterial->GetRenderProxy();
-					OutFallbackMaterialRenderProxy->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
+					return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
 				}
 			}
 		}
