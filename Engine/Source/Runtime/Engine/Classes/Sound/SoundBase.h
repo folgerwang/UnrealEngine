@@ -15,11 +15,13 @@
 #include "Sound/SoundSourceBusSend.h"
 #include "SoundBase.generated.h"
 
+class USoundConcurrency;
 class USoundEffectSourcePreset;
 class USoundSubmix;
 class USoundSourceBus;
 class USoundEffectSourcePresetChain;
 
+struct FSoundConcurrencySettings;
 struct FSoundSubmixSendInfo;
 struct FSoundSourceBusSendInfo;
 struct FActiveSound;
@@ -81,12 +83,16 @@ public:
 	int32 CurrentPlayCount;
 
 	/** If Override Concurrency is false, the sound concurrency settings to use for this sound. */
+	UPROPERTY()
+	USoundConcurrency* SoundConcurrencySettings_DEPRECATED;
+
+	/** Set of concurrency settings to observe (if override is set to false).  Sound must pass all concurrency settings to play. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
-	class USoundConcurrency* SoundConcurrencySettings;
+	TSet<USoundConcurrency*> ConcurrencySet;
 
 	/** If Override Concurrency is true, concurrency settings to use. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "bOverrideConcurrency"))
-	struct FSoundConcurrencySettings ConcurrencyOverrides;
+	FSoundConcurrencySettings ConcurrencyOverrides;
 
 #if WITH_EDITORONLY_DATA
 	/** Maximum number of times this sound can be played concurrently. */
@@ -144,8 +150,9 @@ public:
 	virtual void PostLoad() override;
 	virtual bool CanBeClusterRoot() const override;
 	virtual bool CanBeInCluster() const override;
+	virtual void Serialize(FArchive& Ar) override;
 	//~ End UObject interface.
-	
+
 	/** Returns whether the sound base is set up in a playable manner */
 	virtual bool IsPlayable() const;
 
@@ -209,8 +216,8 @@ public:
 	/** Returns the sound source sends for this sound. */
 	void GetSoundSourceBusSends(EBusSendType BusSendType, TArray<FSoundSourceBusSendInfo>& OutSends) const;
 
-	/** Returns the FSoundConcurrencySettings struct to use. */
-	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply();
+	/** Returns an array of FSoundConcurrencySettings handles. */
+	void GetConcurrencyHandles(TArray<FConcurrencyHandle>& OutConcurrencyHandles) const;
 
 	/** Returns the priority to use when evaluating concurrency. */
 	float GetPriority() const;

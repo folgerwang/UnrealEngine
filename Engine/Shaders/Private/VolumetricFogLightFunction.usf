@@ -42,7 +42,7 @@ void Main(
 	float3 AbsoluteWorldPosition = SvPositionToWorld(SvPosition);
 	*/
 
-	float2 ScreenPosition = (SvPosition.xy * LightFunctionTexelSize - .5f) * float2(2, -2);
+	float2 ScreenPosition = (SvPosition * LightFunctionTexelSize - .5f) * float2(2, -2);
 	float3 AbsoluteWorldPosition = GetWorldPositionForLightFunctionTexturePosition(ScreenPosition);
 
 	float4 LightVector = mul(float4(AbsoluteWorldPosition, 1), LightFunctionWorldToLight);

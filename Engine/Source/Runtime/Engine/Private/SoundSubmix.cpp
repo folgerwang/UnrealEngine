@@ -145,9 +145,6 @@ void USoundSubmix::StartEnvelopeFollowing(FAudioDevice* InAudioDevice)
 	if (InAudioDevice)
 	{
 		InAudioDevice->StartEnvelopeFollowing(this);
-
-		// Track which audio devices were envelope following with. Note this may be multiple devices if running with multiple PIE.
-		//EnvelopeFollowingDevices.AddUnique(InAudioDevice);
 	}
 }
 
@@ -170,9 +167,6 @@ void USoundSubmix::StopEnvelopeFollowing(FAudioDevice* InAudioDevice)
 	if (InAudioDevice)
 	{
 		InAudioDevice->StopEnvelopeFollowing(this);
-
-		// Stop tracking audio device for envelope following data
-		//EnvelopeFollowingDevices.RemoveSingleSwap(InAudioDevice);
 	}
 }
 
@@ -189,21 +183,8 @@ void USoundSubmix::AddEnvelopeFollowerDelegate(const UObject* WorldContextObject
 	if (AudioDevice)
 	{
 		AudioDevice->AddEnvelopeFollowerDelegate(this, OnSubmixEnvelopeBP);
-
-// 		FSubmixEnvelopeData* EnvelopeData = EnvelopeFollowingData.Find(AudioDevice);
-// 		if (EnvelopeData)
-// 		{
-// 			EnvelopeData->OnSubmixEnvelope.AddUnique(OnSubmixEnvelopeBP);
-// 		}
-// 		else
-// 		{
-// 			FSubmixEnvelopeData& NewEnvelopeData = EnvelopeFollowingData.Add(AudioDevice, FSubmixEnvelopeData());
-// 			NewEnvelopeData.OnSubmixEnvelope.AddUnique(OnSubmixEnvelopeBP);
-// 		}
 	}
-
 }
-
 
 FString USoundSubmix::GetDesc()
 {

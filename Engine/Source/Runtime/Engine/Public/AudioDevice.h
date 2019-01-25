@@ -424,7 +424,7 @@ public:
 class ENGINE_API ISubmixBufferListener
 {
 public:
-	/* 
+	/**
 	Called when a new buffer has been rendered for a given submix
 	@param OwningSubmix	The submix object which has renderered a new buffer
 	@param AudioData		Ptr to the audio buffer
@@ -688,7 +688,7 @@ public:
 
 		USoundAttenuation* AttenuationSettings;
 		TSubclassOf<UAudioComponent> AudioComponentClass = UAudioComponent::StaticClass();
-		USoundConcurrency* ConcurrencySettings;
+		TSet<USoundConcurrency*> ConcurrencySet;
 		bool bAutoDestroy;
 		bool bPlay;
 		bool bStopWhenOwnerDestroyed;
@@ -991,7 +991,7 @@ public:
 		return ActiveSounds; 
 	}
 
-	/* When the set of Audio volumes have changed invalidate the cached values of active sounds */
+	/** When the set of Audio volumes have changed invalidate the cached values of active sounds */
 	void InvalidateCachedInteriorVolumes() const;
 
 	/** Suspend any context related objects */
@@ -1034,7 +1034,7 @@ public:
 	/** Registers a third party listener-observer to this audio device. */
 	void RegisterPluginListener(const TAudioPluginListenerPtr PluginListener);
 
-	/* Unregisters a third party listener-observer to this audio device. */
+	/** Unregisters a third party listener-observer to this audio device. */
 	void UnregisterPluginListener(const TAudioPluginListenerPtr PluginListener);
 
 	bool IsAudioDeviceMuted() const;
@@ -1271,6 +1271,9 @@ private:
 	 */
 	void ParseSoundClasses();
 
+	/** Stops quiet sounds due to being evaluated as not fulfilling concurrency requirements
+	 */
+	void StopQuietSoundsDueToMaxConcurrency(TArray<FWaveInstance*>& WaveInstances, TArray<FActiveSound*>& ActiveSoundsCopy);
 
 	/**
 	 * Set the mix for altering sound class properties
@@ -1528,6 +1531,7 @@ public:
 
 	const FDynamicParameter& GetGlobalPitchScale() const { check(IsInAudioThread()); return GlobalPitchScale; }
 	void SetGlobalPitchModulation(float PitchScale, float TimeSec);
+	float ClampPitch(float InPitchScale);
 
 	float GetPlatformAudioHeadroom() const { check(IsInAudioThread()); return PlatformAudioHeadroom; }
 	void SetPlatformAudioHeadroom(float PlatformHeadRoom);
@@ -1603,7 +1607,7 @@ public:
 	/** 3rd party occlusion interface. */
 	TAudioOcclusionPtr OcclusionInterface;
 
-	/* This devices ambisonics pointer, if one exists */
+	/** This devices ambisonics pointer, if one exists */
 	TAmbisonicsMixerPtr AmbisonicsMixer;
 
 	/** 3rd party listener observers registered to this audio device. */
@@ -1698,7 +1702,7 @@ private:
 	uint8 bGameWasTicking:1;
 
 public:
-	/* HACK: Temporarily disable audio caching.  This will be done better by changing the decompression pool size in the future */
+	/** HACK: Temporarily disable audio caching.  This will be done better by changing the decompression pool size in the future */
 	uint8 bDisableAudioCaching:1;
 
 	/** Whether or not the lower-level audio device hardware initialized. */
@@ -1717,8 +1721,11 @@ public:
 	uint8 bOcclusionIsExternalSend:1;
 	uint8 bReverbIsExternalSend:1;
 
+	/** Max amount of channels a source can be to be spatialized by our active spatialization plugin. */
+	int32 MaxChannelsSupportedBySpatializationPlugin;
+
 private:
-	/* True once the startup sounds have been precached */
+	/** True once the startup sounds have been precached */
 	uint8 bStartupSoundsPreCached:1;
 
 	/** Whether or not various audio plugin interfaces are enabled. */
@@ -1810,6 +1817,10 @@ private:
 
 	/** Threshold priority for allowing oneshot active sounds through the max oneshot active sound limit. */
 	float OneShotPriorityCullThreshold;
+
+	// Global min and max pitch scale, derived from audio settings
+	float GlobalMinPitch;
+	float GlobalMaxPitch;
 };
 
 

@@ -126,6 +126,17 @@ void UAudioComponent::Serialize(FArchive& Ar)
 			bOverrideSubtitlePriority = true;
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading())
+	{
+		if (ConcurrencySettings_DEPRECATED != nullptr)
+		{
+			ConcurrencySet.Add(ConcurrencySettings_DEPRECATED);
+			ConcurrencySettings_DEPRECATED = nullptr;
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
 }
 
 void UAudioComponent::PostLoad()
@@ -357,7 +368,7 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.SetWorld(GetWorld());
 			NewActiveSound.SetSound(Sound);
 			NewActiveSound.SetSoundClass(SoundClassOverride);
-			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
+			NewActiveSound.ConcurrencySet = ConcurrencySet;
 
 			NewActiveSound.VolumeMultiplier = (VolumeModulationMax + ((VolumeModulationMin - VolumeModulationMax) * FMath::SRand())) * VolumeMultiplier;
 			// The priority used for the active sound is the audio component's priority scaled with the sound's priority

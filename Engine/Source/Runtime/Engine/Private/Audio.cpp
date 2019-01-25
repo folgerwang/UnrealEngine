@@ -57,7 +57,14 @@ DEFINE_STAT(STAT_AudioStartSources);
 DEFINE_STAT(STAT_AudioGatherWaveInstances);
 DEFINE_STAT(STAT_AudioFindNearestLocation);
 
-
+/** CVars */
+static int32 DisableStereoSpreadCvar = 0;
+FAutoConsoleVariableRef CVarDisableStereoSpread(
+	TEXT("au.DisableStereoSpread"),
+	DisableStereoSpreadCvar,
+	TEXT("When set to 1, ignores the 3D Stereo Spread property in attenuation settings and instead renders audio from a singular point.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
 
 bool IsAudioPluginEnabled(EAudioPlugin PluginType)
 {
@@ -368,7 +375,7 @@ void FSoundSource::UpdateStereoEmitterPositions()
 	check(WaveInstance->bUseSpatialization);
 	check(Buffer->NumChannels == 2);
 
-	if (WaveInstance->StereoSpread > 0.0f)
+	if (!DisableStereoSpreadCvar && WaveInstance->StereoSpread > 0.0f)
 	{
 		// We need to compute the stereo left/right channel positions using the audio component position and the spread
 		FVector ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
@@ -599,7 +606,7 @@ void FSoundSource::UpdateCommon()
 		Pitch *= AudioDevice->GetGlobalPitchScale().GetValue();
 	}
 
-	Pitch = FMath::Clamp<float>(Pitch, MIN_PITCH, MAX_PITCH);
+	Pitch = AudioDevice->ClampPitch(Pitch);
 
 	// Track playback time even if the voice is not virtual, it can flip to being virtual while playing.
 	const float DeviceDeltaTime = AudioDevice->GetDeviceDeltaTime();

@@ -924,7 +924,7 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 		{
 			check(XAudio2 != nullptr);
 			bSuccess = Validate(TEXT("GetFreeSourceVoice, XAudio2->CreateSourceVoice"),
-				XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, MAX_PITCH, &SourceCallback, SendList, EffectChain));
+				XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, 4.0f, &SourceCallback, SendList, EffectChain));
 		}
 
 		if (bSuccess)

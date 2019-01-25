@@ -709,7 +709,7 @@ namespace Audio
 			Pitch *= AudioDevice->GetGlobalPitchScale().GetValue();
 		}
 
-		Pitch = FMath::Clamp<float>(Pitch, AUDIO_MIXER_MIN_PITCH, AUDIO_MIXER_MAX_PITCH);
+		Pitch = AudioDevice->ClampPitch(Pitch);
 
 		// Scale the pitch by the ratio of the audio buffer sample rate and the actual sample rate of the hardware
 		if (MixerBuffer)
@@ -866,7 +866,7 @@ namespace Audio
 				UE_LOG(LogAudioMixer, Warning, TEXT("Changing the spatialization method on a playing sound is not supported (WaveInstance: %s)"), *WaveInstance->WaveData->GetFullName());
 			}
 
-			// Treat the source as if it is a 2D stereo source
+			// Treat the source as if it is a 2D stereo source:
 			return ComputeStereoChannelMap(SubmixChannelType, OutChannelMap);
 		}
 		else if (WaveInstance->bUseSpatialization && (!FMath::IsNearlyEqual(WaveInstance->AbsoluteAzimuth, PreviousAzimuth, 0.01f) || MixerSourceVoice->NeedsSpeakerMap()))
@@ -890,39 +890,47 @@ namespace Audio
 
 	bool FMixerSource::ComputeStereoChannelMap(const ESubmixChannelFormat InSubmixChannelType, Audio::AlignedFloatBuffer& OutChannelMap)
 	{
-		if (!UseObjectBasedSpatialization() && WaveInstance->bUseSpatialization && (!FMath::IsNearlyEqual(WaveInstance->AbsoluteAzimuth, PreviousAzimuth, 0.01f) || MixerSourceVoice->NeedsSpeakerMap()))
+		// Only recalculate positional data if the source has moved a significant amount:
+		if (WaveInstance->bUseSpatialization && (!FMath::IsNearlyEqual(WaveInstance->AbsoluteAzimuth, PreviousAzimuth, 0.01f) || MixerSourceVoice->NeedsSpeakerMap()))
 		{
 			// Make sure our stereo emitter positions are updated relative to the sound emitter position
-			UpdateStereoEmitterPositions();
-
-			float AzimuthOffset = 0.0f;
-			if (WaveInstance->ListenerToSoundDistance > 0.0f)
+			if (Buffer->NumChannels == 2)
 			{
-				AzimuthOffset = FMath::Atan(0.5f * WaveInstance->StereoSpread / WaveInstance->ListenerToSoundDistance);
-				AzimuthOffset = FMath::RadiansToDegrees(AzimuthOffset);
+				UpdateStereoEmitterPositions();
 			}
-
-			float LeftAzimuth = WaveInstance->AbsoluteAzimuth - AzimuthOffset;
-			if (LeftAzimuth < 0.0f)
+			
+			if (!UseObjectBasedSpatialization())
 			{
-				LeftAzimuth += 360.0f;
+				float AzimuthOffset = 0.0f;
+				if (WaveInstance->ListenerToSoundDistance > 0.0f)
+				{
+					AzimuthOffset = FMath::Atan(0.5f * WaveInstance->StereoSpread / WaveInstance->ListenerToSoundDistance);
+					AzimuthOffset = FMath::RadiansToDegrees(AzimuthOffset);
+				}
+
+				float LeftAzimuth = WaveInstance->AbsoluteAzimuth - AzimuthOffset;
+				if (LeftAzimuth < 0.0f)
+				{
+					LeftAzimuth += 360.0f;
+				}
+
+				float RightAzimuth = WaveInstance->AbsoluteAzimuth + AzimuthOffset;
+				if (RightAzimuth > 360.0f)
+				{
+					RightAzimuth -= 360.0f;
+				}
+
+				// Reset the channel map, the stereo spatialization channel mapping calls below will append their mappings
+				OutChannelMap.Reset();
+
+				MixerDevice->Get3DChannelMap(InSubmixChannelType, WaveInstance, LeftAzimuth, SpatializationParams.NormalizedOmniRadius, OutChannelMap);
+				MixerDevice->Get3DChannelMap(InSubmixChannelType, WaveInstance, RightAzimuth, SpatializationParams.NormalizedOmniRadius, OutChannelMap);
+
+				return true;
 			}
-
-			float RightAzimuth = WaveInstance->AbsoluteAzimuth + AzimuthOffset;
-			if (RightAzimuth > 360.0f)
-			{
-				RightAzimuth -= 360.0f;
-			}
-
-			// Reset the channel map, the stereo spatialization channel mapping calls below will append their mappings
-			OutChannelMap.Reset();
-
-			MixerDevice->Get3DChannelMap(InSubmixChannelType, WaveInstance, LeftAzimuth, SpatializationParams.NormalizedOmniRadius, OutChannelMap);
-			MixerDevice->Get3DChannelMap(InSubmixChannelType, WaveInstance, RightAzimuth, SpatializationParams.NormalizedOmniRadius, OutChannelMap);
-
-			return true;
 		}
-		else if (!OutChannelMap.Num())
+				
+		if (!OutChannelMap.Num())
 		{
 			MixerDevice->Get2DChannelMap(bIsVorbis, InSubmixChannelType, 2, WaveInstance->bCenterChannelOnly, OutChannelMap);
 			return true;
@@ -951,7 +959,7 @@ namespace Audio
 
 	bool FMixerSource::UseObjectBasedSpatialization() const
 	{
-		return (Buffer->NumChannels == 1 &&
+		return (Buffer->NumChannels <= MixerDevice->MaxChannelsSupportedBySpatializationPlugin &&
 				AudioDevice->IsSpatializationPluginEnabled() &&
 				DisableHRTFCvar == 0 &&
 				WaveInstance->SpatializationMethod == ESoundSpatializationAlgorithm::SPATIALIZATION_HRTF);
@@ -959,7 +967,7 @@ namespace Audio
 
 	bool FMixerSource::UseSpatializationPlugin() const
 	{
-		return (Buffer->NumChannels == 1) &&
+		return (Buffer->NumChannels <= MixerDevice->MaxChannelsSupportedBySpatializationPlugin) &&
 			AudioDevice->IsSpatializationPluginEnabled() &&
 			WaveInstance->SpatializationPluginSettings != nullptr;
 	}

@@ -241,4 +241,11 @@ public:
 	/** Returns the UFactory object associated with this reimport handler */
 	virtual const UObject* GetFactoryObject() const { return nullptr; }
 
+	/**	Sets the preferred reimport path, for aiding in resolving reimporting objects where the
+	 *	object path differs from the new path (ex. differing extensions).
+	 */
+	void SetPreferredReimportPath(const FString& Path) { PreferredReimportPath = Path; }
+
+protected:
+	FString PreferredReimportPath;
 };

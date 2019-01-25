@@ -1167,7 +1167,7 @@ void UGameplayStatics::PlaySound2D(const UObject* WorldContextObject, class USou
 
 		NewActiveSound.bIsUISound = true;
 		NewActiveSound.bAllowSpatialization = false;
-		NewActiveSound.ConcurrencySettings = ConcurrencySettings;
+		NewActiveSound.ConcurrencySet.Add(ConcurrencySettings);
 		NewActiveSound.Priority = Sound->Priority;
 		NewActiveSound.SubtitlePriority = Sound->GetSubtitlePriority();
 
@@ -1192,21 +1192,16 @@ UAudioComponent* UGameplayStatics::CreateSound2D(const UObject* WorldContextObje
 
 	UAudioComponent* AudioComponent;
 
-	if (bPersistAcrossLevelTransition)
-	{
-		FAudioDevice::FCreateComponentParams Params(ThisWorld->GetAudioDevice());
-		Params.ConcurrencySettings = ConcurrencySettings;
-		
-		AudioComponent = FAudioDevice::CreateComponent(Sound, Params);
-	}
-	else
-	{
-		FAudioDevice::FCreateComponentParams Params(ThisWorld);
-		Params.ConcurrencySettings = ConcurrencySettings;
+	FAudioDevice::FCreateComponentParams Params = bPersistAcrossLevelTransition
+		? FAudioDevice::FCreateComponentParams(ThisWorld->GetAudioDevice())
+		: FAudioDevice::FCreateComponentParams(ThisWorld);
 
-		AudioComponent = FAudioDevice::CreateComponent(Sound, Params);
+	if (ConcurrencySettings)
+	{
+		Params.ConcurrencySet.Add(ConcurrencySettings);
 	}
-	
+
+	AudioComponent = FAudioDevice::CreateComponent(Sound, Params);
 	if (AudioComponent)
 	{
 		AudioComponent->SetVolumeMultiplier(VolumeMultiplier);
@@ -1267,7 +1262,11 @@ UAudioComponent* UGameplayStatics::SpawnSoundAtLocation(const UObject* WorldCont
 	FAudioDevice::FCreateComponentParams Params(ThisWorld);
 	Params.SetLocation(Location);
 	Params.AttenuationSettings = AttenuationSettings;
-	Params.ConcurrencySettings = ConcurrencySettings;
+	
+	if (ConcurrencySettings)
+	{
+		Params.ConcurrencySet.Add(ConcurrencySettings);
+	}
 
 	UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(Sound, Params);
 
@@ -1329,7 +1328,7 @@ UAudioComponent* UGameplayStatics::SpawnSoundAttached(USoundBase* Sound, USceneC
 	Params.SetLocation(TestLocation);
 	Params.bStopWhenOwnerDestroyed = bStopWhenAttachedToDestroyed;
 	Params.AttenuationSettings = AttenuationSettings;
-	Params.ConcurrencySettings = ConcurrencySettings;
+	Params.ConcurrencySet.Add(ConcurrencySettings);
 
 	UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(Sound, Params);
 	if (AudioComponent)

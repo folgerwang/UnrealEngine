@@ -74,7 +74,7 @@ void FMIDIDeviceModule::Tick( float DeltaTime )
 	if( LastFrameNumberWeTicked != GFrameCounter )
 	{
 		// Update the MIDI device manager
-		UMIDIDeviceManager::ProcessIncomingMIDIEvents();
+		UMIDIDeviceManager::ProcessMIDIEvents();
 
 		LastFrameNumberWeTicked = GFrameCounter;
 	}

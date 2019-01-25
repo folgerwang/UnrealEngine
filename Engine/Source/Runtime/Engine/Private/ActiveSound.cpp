@@ -28,9 +28,7 @@ FActiveSound::FActiveSound()
 	, AudioComponentID(0)
 	, OwnerID(0)
 	, AudioDevice(nullptr)
-	, ConcurrencyGroupID(0)
 	, ConcurrencyGeneration(0)
-	, ConcurrencySettings(nullptr)
 	, SoundClassOverride(nullptr)
 	, SoundSubmixOverride(nullptr)
 	, bHasCheckedOcclusion(false)
@@ -80,8 +78,6 @@ FActiveSound::FActiveSound()
 	, LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
 	, CurrentOcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
 	, CurrentOcclusionVolumeAttenuation(1.0f)
-	, ConcurrencyVolumeScale(1.f)
-	, ConcurrencyDuckingVolumeScale(1.f)
 	, SubtitlePriority(DEFAULT_SUBTITLE_PRIORITY)
 	, Priority(1.0f)
 	, FocusPriorityScale(1.0f)
@@ -141,7 +137,14 @@ void FActiveSound::AddReferencedObjects( FReferenceCollector& Collector)
 
 	Collector.AddReferencedObject(Sound);
 	Collector.AddReferencedObject(SoundClassOverride);
-	Collector.AddReferencedObject(ConcurrencySettings);
+
+	for (USoundConcurrency* Concurrency : ConcurrencySet)
+	{
+		if (Concurrency)
+		{
+			Collector.AddReferencedObject(Concurrency);
+		}
+	}
 
 	for (FAudioComponentParam& Param : InstanceParameters)
 	{
@@ -337,30 +340,22 @@ int32 FActiveSound::FindClosestListener( const TArray<FListener>& InListeners ) 
 	return FAudioDevice::FindClosestListenerIndex(Transform, InListeners);
 }
 
-const FSoundConcurrencySettings* FActiveSound::GetSoundConcurrencySettingsToApply() const
+void FActiveSound::GetConcurrencyHandles(TArray<FConcurrencyHandle>& OutConcurrencyHandles) const
 {
-	if (ConcurrencySettings)
+	OutConcurrencyHandles.Reset();
+	if (!ConcurrencySet.Num() && Sound)
 	{
-		return &ConcurrencySettings->Concurrency;
+		Sound->GetConcurrencyHandles(OutConcurrencyHandles);
+		return;
 	}
-	else if (Sound)
-	{
-		return Sound->GetSoundConcurrencySettingsToApply();
-	}
-	return nullptr;
-}
 
-uint32 FActiveSound::GetSoundConcurrencyObjectID() const
-{
-	if (ConcurrencySettings)
+	for (const USoundConcurrency* Concurrency : ConcurrencySet)
 	{
-		return ConcurrencySettings->GetUniqueID();
+		if (Concurrency)
+		{
+			OutConcurrencyHandles.Emplace(FConcurrencyHandle(*Concurrency));
+		}
 	}
-	else if (Sound)
-	{
-		return Sound->GetSoundConcurrencyObjectID();
-	}
-	return INDEX_NONE;
 }
 
 void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances, const float DeltaTime )
@@ -444,7 +439,8 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		ParseParams.VolumeApp = AudioDevice->GetTransientMasterVolume() * FApp::GetVolumeMultiplier();
 	}
 
-	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * ConcurrencyVolumeScale;
+	const float TotalConcurrencyVolumeScale = GetTotalConcurrencyVolumeScale();
+	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * TotalConcurrencyVolumeScale;
 
 	ParseParams.Priority = Priority;
 	ParseParams.Pitch *= PitchMultiplier * Sound->GetPitchMultiplier();
@@ -533,15 +529,16 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 			}
 		}
 
-		// If this active sound is told to limit concurrency by the quietest sound
-		const FSoundConcurrencySettings* ConcurrencySettingsToApply = GetSoundConcurrencySettingsToApply();
-		if (ConcurrencySettingsToApply && ConcurrencySettingsToApply->ResolutionRule == EMaxConcurrentResolutionRule::StopQuietest)
+		// If the concurrency volume is negative (as set by ConcurrencyManager on creation),
+		// skip updating as its been deemed unnecessary
+		if (VolumeConcurrency >= 0.0f)
 		{
-			check(ConcurrencyGroupID != 0);
 			// Now that we have this sound's active wave instances, lets find the loudest active wave instance to represent the "volume" of this active sound
 			VolumeConcurrency = 0.0f;
 			for (const FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
 			{
+				check(WaveInstance);
+
 				const float WaveInstanceVolume = WaveInstance->GetVolumeWithDistanceAttenuation();
 				if (WaveInstanceVolume > VolumeConcurrency)
 				{
@@ -1039,6 +1036,18 @@ bool FActiveSound::GetFloatParameter( const FName InName, float& OutFloat ) cons
 	}
 
 	return false;
+}
+
+float FActiveSound::GetTotalConcurrencyVolumeScale() const
+{
+	float OutVolume = 1.0f;
+
+	for (const TPair<FConcurrencyGroupID, float>& ConcurrencyGroupVolumePair : ConcurrencyGroupVolumeScales)
+	{
+		OutVolume *= ConcurrencyGroupVolumePair.Value;
+	}
+
+	return OutVolume;
 }
 
 void FActiveSound::SetFloatParameter( const FName InName, const float InFloat )

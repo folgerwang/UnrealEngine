@@ -106,6 +106,7 @@ namespace Audio
 		, NumSourceWorkers(4)
 		, bInitialized(false)
 		, bUsingSpatializationPlugin(false)
+		, MaxChannelsSupportedBySpatializationPlugin(1)
 	{
 		CommandsProcessedEvent = FPlatformProcess::GetSynchEventFromPool();
 		check(CommandsProcessedEvent != nullptr);
@@ -249,6 +250,7 @@ namespace Audio
 		if (SpatializationPlugin.IsValid())
 		{
 			bUsingSpatializationPlugin = true;
+			MaxChannelsSupportedBySpatializationPlugin = MixerDevice->MaxChannelsSupportedBySpatializationPlugin;
 		}
 
 		bInitialized = true;
@@ -1492,7 +1494,7 @@ namespace Audio
 			SCOPE_CYCLE_COUNTER(STAT_AudioMixerHRTF);
 
 			AUDIO_MIXER_CHECK(SpatializationPlugin.IsValid());
-			AUDIO_MIXER_CHECK(SourceInfo.NumInputChannels == 1);
+			AUDIO_MIXER_CHECK(SourceInfo.NumInputChannels <= MaxChannelsSupportedBySpatializationPlugin);
 
 			FAudioPluginSourceInputData AudioPluginInputData;
 			AudioPluginInputData.AudioBuffer = &SourceInfo.SourceBuffer;
@@ -1940,20 +1942,20 @@ namespace Audio
 			if (ChannelTypeInfo.bUsed)
 			{
 				SourceInfo.ScratchChannelMap.Reset();
-				const int32 NumSoureChannels = SourceInfo.bUseHRTFSpatializer ? 2 : SourceInfo.NumInputChannels;
+				const int32 NumSourceChannels = SourceInfo.bUseHRTFSpatializer ? 2 : SourceInfo.NumInputChannels;
 
 				// If this is a 3d source, then just zero out the channel map, it'll cause a temporary blip
 				// but it should reset in the next tick
 				if (SourceInfo.bIs3D)
 				{
 					GameThreadInfo.bNeedsSpeakerMap[SourceId] = true;
-					SourceInfo.ScratchChannelMap.AddZeroed(NumSoureChannels * InNumOutputChannels);
+					SourceInfo.ScratchChannelMap.AddZeroed(NumSourceChannels * InNumOutputChannels);
 				}
 				// If it's a 2D sound, then just get a new channel map appropriate for the new device channel count
 				else
 				{
 					SourceInfo.ScratchChannelMap.Reset();
-					MixerDevice->Get2DChannelMap(SourceInfo.bIsVorbis, ESubmixChannelFormat::Device, NumSoureChannels, SourceInfo.bIsCenterChannelOnly, SourceInfo.ScratchChannelMap);
+					MixerDevice->Get2DChannelMap(SourceInfo.bIsVorbis, ESubmixChannelFormat::Device, NumSourceChannels, SourceInfo.bIsCenterChannelOnly, SourceInfo.ScratchChannelMap);
 				}
 			
 				ChannelTypeInfo.ChannelMapParam.SetChannelMap(SourceInfo.ScratchChannelMap, NumOutputFrames);

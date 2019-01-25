@@ -9,7 +9,7 @@
 #include "MIDIDeviceController.generated.h"
 
 
-UENUM( BlueprintType )
+UENUM(BlueprintType)
 enum class EMIDIEventType : uint8
 {
 	/** Unrecognized MIDI event type.  You can look at Raw Event Type to see what it is. */
@@ -40,10 +40,10 @@ enum class EMIDIEventType : uint8
 
 
 /** Callback function for received MIDI events */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams( FOnMIDIEvent, class UMIDIDeviceController*, MIDIDeviceController, int32, Timestamp, EMIDIEventType, EventType, int32, Channel, int32, ControlID, int32, Velocity, int32, RawEventType );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams(FOnMIDIEvent, class UMIDIDeviceController*, MIDIDeviceController, int32, Timestamp, EMIDIEventType, EventType, int32, Channel, int32, ControlID, int32, Velocity, int32, RawEventType);
 
 
-UCLASS( BlueprintType )
+UCLASS(BlueprintType)
 class MIDIDEVICE_API UMIDIDeviceController : public UObject
 {
 	GENERATED_BODY()
@@ -54,11 +54,11 @@ public:
 	virtual ~UMIDIDeviceController();
 
 	/** Register with this to find out about incoming MIDI events from this device */
-	UPROPERTY( BlueprintAssignable, Category="MIDI Device Controller")
+	UPROPERTY(BlueprintAssignable, Category="MIDI Device Controller")
 	FOnMIDIEvent OnMIDIEvent;
 
 	/** Called from UMIDIDeviceManager after the controller is created to get it ready to use.  Don't call this directly. */
-	void StartupDevice( const int32 InitDeviceID, const int32 InitMIDIBufferSize, bool& bOutWasSuccessful );
+	void StartupDevice(const int32 InitDeviceID, const int32 InitMIDIBufferSize, bool& bOutWasSuccessful);
 
 	/** Called every frame by UMIDIDeviceManager to poll for new MIDI events and broadcast them out to subscribers of OnMIDIEvent.  Don't call this directly. */
 	void ProcessIncomingMIDIEvents();
@@ -70,20 +70,16 @@ public:
 protected:
 
 	/** The unique ID of this device */
-	UPROPERTY( BlueprintReadOnly, Category="MIDI Device Controller")
+	UPROPERTY(BlueprintReadOnly, Category="MIDI Device Controller")
 	int32 DeviceID;
 
 	/** The name of this device.  This name comes from the MIDI hardware, any might not be unique */
-	UPROPERTY( BlueprintReadOnly, Category = "MIDI Device Controller" )
+	UPROPERTY(BlueprintReadOnly, Category = "MIDI Device Controller")
 	FString DeviceName;
-
-
-	// ...
 
 	/** The PortMidi stream used for MIDI input for this device */
 	void* PMMIDIInputStream;
 
 	/** Size of the MIDI buffer in bytes */
 	int32 MIDIBufferSize;
-
 };

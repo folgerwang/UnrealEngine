@@ -140,6 +140,13 @@ namespace Audio
 			return ((ReversedX << Count) & ((1 << N) - 1));
 		}
 
+		// Alternate method for SlowBitReversal. Faster when N >= 7.
+		uint32 SlowBitReversal2(uint32 X, uint32 N)
+		{
+			X = ReverseBits(X);
+			return X >> (32 - N);
+		}
+
 		void ComplexMultiply(const float AReal, const float AImag, const float BReal, const float BImag, float& OutReal, float& OutImag)
 		{
 			OutReal = AReal * BReal - AImag * BImag;
@@ -165,7 +172,7 @@ namespace Audio
 			for (uint32 Index = 0; Index < NumSamples; Index++)
 			{
 				const uint32 NumBits = FMath::Log2(NumSamples);
-				const uint32 ReversedIndex = SlowBitReversal(Index, NumBits);
+				const uint32 ReversedIndex = SlowBitReversal2(Index, NumBits);
 				OutBuffer[ReversedIndex] = InBuffer[Index];
 			}
 		}

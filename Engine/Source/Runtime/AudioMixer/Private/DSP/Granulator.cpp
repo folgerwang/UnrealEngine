@@ -249,8 +249,7 @@ namespace Audio
 		CurrentFrameCount = 0.0f;
 		EndFrameCount = GrainData.DurationSeconds * Parent->SampleRate;
 
-		SpeakerMap[0] = FMath::Sin(0.5f * CurrentPan * PI);
-		SpeakerMap[1] = FMath::Cos(0.5f * CurrentPan * PI);
+		Audio::GetStereoPan(CurrentPan, SpeakerMap[0], SpeakerMap[1]);
 
 		// Get information about the buffer if there is one
 		if (Parent->SampleBuffer.GetData() != nullptr)
@@ -314,8 +313,7 @@ namespace Audio
 			CurrentPan -= 1.0f;
 		}
 
-		SpeakerMap[0] = FMath::Sin(0.5f * CurrentPan * PI);
-		SpeakerMap[1] = FMath::Cos(0.5f * CurrentPan * PI);
+		Audio::GetStereoPan(CurrentPan, SpeakerMap[0], SpeakerMap[1]);
 	}
 
 	void FGrain::SetDurationScale(const float InDurationScale)
@@ -356,8 +354,7 @@ namespace Audio
 			for (int32 Channel = 0; Channel < 2; ++Channel)
 			{
 				// Mix in the generated sample into the output buffer
-				OutStereoFrame[Channel] += EnvelopeValue * FrameScratch[Channel];
-				//OutStereoFrame[Channel] += EnvelopeValue * FrameScratch[Channel] * SpeakerMap[Channel];
+				OutStereoFrame[Channel] += EnvelopeValue * FrameScratch[Channel] * SpeakerMap[Channel];
 			}
 		}
 		else

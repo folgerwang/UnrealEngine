@@ -317,6 +317,22 @@ void USynthComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 }
 #endif
 
+void USynthComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading())
+	{
+		if (ConcurrencySettings_DEPRECATED != nullptr)
+		{
+			ConcurrencySet.Add(ConcurrencySettings_DEPRECATED);
+			ConcurrencySettings_DEPRECATED = nullptr;
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
+}
+
 void USynthComponent::PumpPendingMessages()
 {
 	TFunction<void()> Command;
@@ -387,7 +403,7 @@ void USynthComponent::Start()
 		AudioComponent->bIsUISound = bIsUISound;
 		AudioComponent->bIsPreviewSound = bIsPreviewSound;
 		AudioComponent->bAllowSpatialization = bAllowSpatialization;
-		AudioComponent->ConcurrencySettings = ConcurrencySettings;
+		AudioComponent->ConcurrencySet = ConcurrencySet;
 		AudioComponent->AttenuationOverrides = AttenuationOverrides;
 		AudioComponent->SoundClassOverride = SoundClass;
 		AudioComponent->EnvelopeFollowerAttackTime = EnvelopeFollowerAttackTime;
