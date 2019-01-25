@@ -425,10 +425,7 @@ void FSlateRHIRenderer::UpdateFullscreenState(const TSharedRef<SWindow> Window, 
 void FSlateRHIRenderer::SetSystemResolution(uint32 Width, uint32 Height)
 {
 	FSystemResolution::RequestResolutionChange(Width, Height, FPlatformProperties::HasFixedResolution() ? EWindowMode::Fullscreen : GSystemResolution.WindowMode);
-	if (FPlatformProperties::HasFixedResolution())
-	{
-		IConsoleManager::Get().CallAllConsoleVariableSinks();
-	}
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
