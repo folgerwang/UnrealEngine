@@ -57,15 +57,52 @@ class UK2Node_GetSubsystemFromPC : public UK2Node_GetSubsystem
 public:
 
 	//~Begin UEdGraphNode interface.
-	void AllocateDefaultPins();
-	void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph);
-	FText GetTooltipText() const;
+	virtual void AllocateDefaultPins() override;
+	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
+	virtual FText GetTooltipText() const override;
 	//~End UEdGraphNode interface.
 
-	void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const;
-	FText GetMenuCategory() const;
+	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	virtual FText GetMenuCategory() const override;
 
 	/** Get the world context input pin, can return NULL */
 	UEdGraphPin* GetPlayerControllerPin() const;
+
+};
+
+UCLASS()
+class UK2Node_GetEngineSubsystem : public UK2Node_GetSubsystem
+{
+	GENERATED_BODY()
+public:
+
+	//~Begin UEdGraphNode interface.
+	virtual void AllocateDefaultPins() override;
+	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
+	virtual FText GetTooltipText() const override;
+	//~End UEdGraphNode interface.
+
+	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	virtual FText GetMenuCategory() const override;
 	
+};
+
+UCLASS()
+class UK2Node_GetEditorSubsystem : public UK2Node_GetSubsystem
+{
+	GENERATED_BODY()
+public:
+
+	//~Begin UEdGraphNode interface.
+	virtual void AllocateDefaultPins() override;
+	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
+	virtual FText GetTooltipText() const override;
+	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
+	//~End UEdGraphNode interface.
+
+	virtual bool IsActionFilteredOut(class FBlueprintActionFilter const& Filter) override;
+
+	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	virtual FText GetMenuCategory() const override;
+
 };
