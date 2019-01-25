@@ -352,6 +352,16 @@ struct TStructOpsTypeTraits<FPrimaryAssetId> : public TStructOpsTypeTraitsBase2<
 	};
 };
 IMPLEMENT_STRUCT(PrimaryAssetId);
+
+template<>
+struct TStructOpsTypeTraits<FFallbackStruct> : public TStructOpsTypeTraitsBase2<FFallbackStruct>
+{
+	enum
+	{
+	};
+};
+IMPLEMENT_STRUCT(FallbackStruct);
+
 /*-----------------------------------------------------------------------------
 	Helpers.
 -----------------------------------------------------------------------------*/
