@@ -1083,6 +1083,9 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 				TaskContext.PrimitiveIdBufferData,
 				TaskContext.PrimitiveIdBufferDataSize
 			);
+
+			RHICommandList.RHIThreadFence(true);
+
 			bPrimitiveIdBufferDataOwnedByRHIThread = true;
 		}
 
