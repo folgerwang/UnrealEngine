@@ -356,9 +356,6 @@ IMPLEMENT_STRUCT(PrimaryAssetId);
 template<>
 struct TStructOpsTypeTraits<FFallbackStruct> : public TStructOpsTypeTraitsBase2<FFallbackStruct>
 {
-	enum
-	{
-	};
 };
 IMPLEMENT_STRUCT(FallbackStruct);
 
