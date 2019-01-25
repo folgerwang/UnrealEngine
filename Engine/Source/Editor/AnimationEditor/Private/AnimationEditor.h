@@ -105,10 +105,9 @@ public:
 
 private:
 
-	enum class EPoseSourceOption : uint8
+	/** Options for asset export */
+	enum class EExportSourceOption : uint8
 	{
-		ReferencePose,
-		CurrentPose,
 		CurrentAnimation_AnimData,
 		CurrentAnimation_PreviewMesh,
 		Max
@@ -130,37 +129,20 @@ private:
 
 	void OnApplyCompression();
 
-	void OnExportToFBX(const EPoseSourceOption Option);
+	void OnExportToFBX(const EExportSourceOption Option);
 	//Return true mean the asset was exported, false it was cancel or it fail
 	bool ExportToFBX(const TArray<UObject*> NewAssets, bool bRecordAnimation);
 
 	void OnAddLoopingInterpolation();
 	void OnRemoveBoneTrack();
 
-	TSharedRef< SWidget > GenerateCreateAssetMenu() const;
 	TSharedRef< SWidget > GenerateExportAssetMenu() const;
-
-	void FillCreateAnimationMenu(FMenuBuilder& MenuBuilder) const;
-
-	void FillCreateAnimationFromCurrentAnimationMenu(FMenuBuilder& MenuBuilder) const;
-
-	void FillCreatePoseAssetMenu(FMenuBuilder& MenuBuilder) const;
-
-	void FillInsertPoseMenu(FMenuBuilder& MenuBuilder) const;
-
-	void InsertCurrentPoseToAsset(const FAssetData& NewPoseAssetData);
 
 	void FillCopyToSoundWaveMenu(FMenuBuilder& MenuBuilder) const;
 
 	void FillExportAssetMenu(FMenuBuilder& MenuBuilder) const;
 
 	void CopyCurveToSoundWave(const FAssetData& SoundWaveAssetData) const;
-
-	bool CreateAnimation(const TArray<UObject*> NewAssets, const EPoseSourceOption Option);
-
-	bool CreatePoseAsset(const TArray<UObject*> NewAssets, const EPoseSourceOption Option);
-
-	bool HandleAssetCreated(const TArray<UObject*> NewAssets);
 
 	void ConditionalRefreshEditor(UObject* InObject);
 

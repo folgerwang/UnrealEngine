@@ -233,9 +233,10 @@ public:
 	 * @param bConnectionlessOnly	Whether or not this is a connectionless-only manager (ignores .ini components)
 	 * @param InProvider			The analytics provider
 	 * @param InDDoS				Reference to the owning net drivers DDoS detection handler
+	 * @param InDriverProfile		The PacketHandler configuration profile to use
 	 */
 	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false,
-					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr);
+					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr, FName InDriverProfile=NAME_None);
 
 	UE_DEPRECATED(4.21, "Use the traits based delegate instead for compatibility with other systems.")
 	void InitializeDelegates(FPacketHandlerLowLevelSend InLowLevelSendDel)
@@ -474,6 +475,23 @@ public:
 	{
 		QueuedHandlerPackets.Enqueue(PacketToQueue);
 	}
+
+	/**
+	 * Searches the PacketHandler profile configurations to find if a component is listed.
+	 *
+	 * @param InComponentName	The PacketHandler Component to search for
+	 * @return if there is a profile that has the component included.
+	 */
+	static bool DoesAnyProfileHaveComponent(const FString& InComponentName);
+
+	/**
+	 * Searches the PacketHandler profile configuration for the given netdriver to find if a component is listed.
+	 *
+	 * @param InNetDriverName	The name of the netdriver to search configuration for
+	 * @param InComponentName	The component to search for
+	 * @return if the component is listed in the profile configuration.
+	 */
+	static bool DoesProfileHaveComponent(const FName InNetDriverName, const FString& InComponentName);
 
 	/**
 	 * Gets a packet from the buffered packet queue for sending

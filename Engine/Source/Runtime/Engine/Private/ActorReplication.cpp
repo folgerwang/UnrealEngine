@@ -331,6 +331,7 @@ void AActor::GatherCurrentMovement()
 	if (bReplicateMovement || (RootComponent && RootComponent->GetAttachParent()))
 	{
 		AttachmentReplication.AttachParent = nullptr;
+		AttachmentReplication.AttachComponent = nullptr;
 
 		UPrimitiveComponent* RootPrimComp = Cast<UPrimitiveComponent>(GetRootComponent());
 		if (RootPrimComp && RootPrimComp->IsSimulatingPhysics())

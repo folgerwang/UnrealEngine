@@ -191,8 +191,9 @@ namespace MobileReflectionEnvironmentCapture
 
 			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, ProcessedTexture->TextureRHI);
 
-			FRHICopyTextureInfo CopyInfo(ProcessedTexture->GetSizeX(), ProcessedTexture->GetSizeY());
-			CopyInfo.NumArraySlices = 6;
+			FRHICopyTextureInfo CopyInfo;
+			CopyInfo.Size = FIntVector(ProcessedTexture->GetSizeX(), ProcessedTexture->GetSizeY(), 1);
+			CopyInfo.NumSlices = 6;
 
 			// GPU copy back to the skylight's texture, which is not a render target
 			for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
@@ -202,7 +203,11 @@ namespace MobileReflectionEnvironmentCapture
 				FSceneRenderTargetItem& EffectiveSource = GetEffectiveRenderTarget(SceneContext, false, bUseHQFiltering ? 0 : MipIndex);
 				RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EffectiveSource.ShaderResourceTexture);
 				RHICmdList.CopyTexture(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
-				CopyInfo.AdvanceMip();
+
+				++CopyInfo.SourceMipIndex;
+				++CopyInfo.DestMipIndex;
+				CopyInfo.Size.X = FMath::Max(1, CopyInfo.Size.X / 2);
+				CopyInfo.Size.Y = FMath::Max(1, CopyInfo.Size.Y / 2);
 			}
 		}
 	}

@@ -21,7 +21,7 @@ FText FSocialInteraction_InviteToParty::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_InviteToParty::GetSlashCommandToken()
 {
-	return TEXT("invite");
+	return (LOCTEXT("SlashCommand_InviteToParty", "invite")).ToString();
 }
 
 bool FSocialInteraction_InviteToParty::CanExecute(const USocialUser& User)
@@ -45,7 +45,7 @@ FText FSocialInteraction_JoinParty::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_JoinParty::GetSlashCommandToken()
 {
-	return TEXT("join");
+	return LOCTEXT("SlashCommand_JoinParty", "join").ToString();
 }
 
 bool FSocialInteraction_JoinParty::CanExecute(const USocialUser& User)
@@ -70,7 +70,8 @@ FText FSocialInteraction_AcceptPartyInvite::GetDisplayName(const USocialUser& Us
 
 FString FSocialInteraction_AcceptPartyInvite::GetSlashCommandToken()
 {
-	return TEXT("acceptpartyinvite");
+	//join should be the preferred method of accepting a party invite
+	return FString();
 }
 
 bool FSocialInteraction_AcceptPartyInvite::CanExecute(const USocialUser& User)
@@ -94,7 +95,7 @@ FText FSocialInteraction_RejectPartyInvite::GetDisplayName(const USocialUser& Us
 
 FString FSocialInteraction_RejectPartyInvite::GetSlashCommandToken()
 {
-	return TEXT("rejectpartyinvite");
+	return FString();
 }
 
 bool FSocialInteraction_RejectPartyInvite::CanExecute(const USocialUser& User)
@@ -118,7 +119,7 @@ FText FSocialInteraction_LeaveParty::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_LeaveParty::GetSlashCommandToken()
 {
-	return TEXT("leave");
+	return LOCTEXT("SlashCommand_LeaveParty", "leave").ToString();
 }
 
 bool FSocialInteraction_LeaveParty::CanExecute(const USocialUser& User)
@@ -150,7 +151,7 @@ FText FSocialInteraction_KickPartyMember::GetDisplayName(const USocialUser& User
 
 FString FSocialInteraction_KickPartyMember::GetSlashCommandToken()
 {
-	return TEXT("kick");
+	return LOCTEXT("SlashCommand_KickMember", "kick").ToString();
 }
 
 bool FSocialInteraction_KickPartyMember::CanExecute(const USocialUser& User)
@@ -178,7 +179,7 @@ FText FSocialInteraction_PromoteToPartyLeader::GetDisplayName(const USocialUser&
 
 FString FSocialInteraction_PromoteToPartyLeader::GetSlashCommandToken()
 {
-	return TEXT("promote");
+	return LOCTEXT("SlashCommand_PromoteToLeader", "promote").ToString();
 }
 
 bool FSocialInteraction_PromoteToPartyLeader::CanExecute(const USocialUser& User)

@@ -97,8 +97,8 @@ public:
 
 		// Using a menu builder here is slightly wasteful, but as we cant construct
 		// a menu item individually it will have to do for now.
-		const bool bInShouldCloseWindowAfterMenuSelection = true;
-		FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, CommandList.Pin());
+		const bool bInShouldCloseWindowAfterMenuSelection = false;
+		FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, CommandList.Pin(), nullptr, false, InArgs._StyleSet, false);
 		MenuBuilder.SetStyle(InArgs._StyleSet, InArgs._StyleName);
 
 		if(CommandInfo.IsValid() && CommandList.IsValid())
@@ -136,7 +136,7 @@ public:
 					]
 				];
 
-			MenuBuilder.AddWidget(CustomWidgetContainer, FText(), true);
+			MenuBuilder.AddWidget(CustomWidgetContainer, FText(), true, false);
 		}
 		else
 		{
@@ -483,7 +483,7 @@ void SPinnedCommandList::LoadSettings()
 				}
 				else if(Command.Type == EPinnedCommandListType::CustomWidget)
 				{
-					AddCustomWidget(Command.Name);
+					AddCustomWidget_Internal(Command.Name);
 				}
 			}
 		}
@@ -591,7 +591,10 @@ void SPinnedCommandList::HandleCustomWidgetInteraction(FName InCustomWidgetIdent
 
 void SPinnedCommandList::AddCustomWidget(FName InCustomWidgetIdentifier)
 {
-	AddCustomWidget_Internal(InCustomWidgetIdentifier);
+	if(FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Shift))
+	{
+		AddCustomWidget_Internal(InCustomWidgetIdentifier);
+	}
 }
 
 TSharedPtr<SCommand> SPinnedCommandList::AddCustomWidget_Internal(FName InCustomWidgetIdentifier, const TSharedPtr<const FUICommandList_Pinnable>& InUICommandListPinnable)

@@ -15,6 +15,7 @@
 
 // Determining if we need to be disabled or not
 #include "Misc/ConfigCacheIni.h"
+#include "PacketHandler.h"
 
 // Steam tells us this number in documentation, however there's no define within the SDK
 #define STEAM_AUTH_MAX_TICKET_LENGTH_IN_BYTES 1024
@@ -32,17 +33,31 @@ FOnlineAuthSteam::FOnlineAuthSteam(FOnlineSubsystemSteam* InSubsystem) :
 	bNeverSendKey(false),
 	bSendBadId(false)
 {
-	TArray<FString> ComponentList;
-	GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), ComponentList, GEngineIni);
-
-	for (FString CompStr : ComponentList)
+	const FString SteamModuleName(TEXT("SteamAuthComponentModuleInterface"));
+	if (!PacketHandler::DoesAnyProfileHaveComponent(SteamModuleName))
 	{
-		if (CompStr.Contains(TEXT("SteamAuthComponentModuleInterface")))
+		// Pull the components to see if there's anything we can use.
+		TArray<FString> ComponentList;
+		GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), ComponentList, GEngineIni);
+
+		// Check if Steam Auth is enabled anywhere.
+		for (FString CompStr : ComponentList)
 		{
-			UE_LOG_ONLINE(Log, TEXT("AUTH: Steam Auth Enabled"));
-			bEnabled = true;
-			return;
+			if (CompStr.Contains(SteamModuleName))
+			{
+				bEnabled = true;
+				break;
+			}
 		}
+	}
+	else
+	{
+		bEnabled = true;
+	}
+
+	if (bEnabled)
+	{
+		UE_LOG_ONLINE(Log, TEXT("AUTH: Steam Auth Enabled"));
 	}
 }
 

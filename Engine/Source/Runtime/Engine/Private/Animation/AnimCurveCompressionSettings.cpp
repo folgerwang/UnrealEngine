@@ -45,6 +45,11 @@ bool UAnimCurveCompressionSettings::Compress(UAnimSequence& AnimSeq) const
 	return Success;
 }
 
+UAnimCurveCompressionCodec* UAnimCurveCompressionSettings::GetCodec(const FString& Path)
+{
+	return Codec->GetCodec(Path);
+}
+
 FString UAnimCurveCompressionSettings::MakeDDCKey() const
 {
 	if (Codec == nullptr)

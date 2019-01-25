@@ -137,7 +137,7 @@ void FAnimInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 		RootNode = (FAnimNode_Base*) GetCustomRootNode();
 	}
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	ActorName = GetNameSafe(InAnimInstance->GetOwningActor());
 #endif
 
@@ -251,7 +251,7 @@ FGuid MakeGuidForMessage(const FText& Message)
 
 void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage)
 {
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FGuid CurrentMessageGuid = MakeGuidForMessage(InMessage);
 	if(!PreviouslyLoggedMessages.Contains(CurrentMessageGuid))
 	{
@@ -308,7 +308,7 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	QueuedDrawDebugItems.Reset();
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	//Reset logged update messages
 	LoggedMessagesMap.FindOrAdd(NAME_Update).Reset();
 #endif
@@ -438,7 +438,7 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 	}
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FMessageLog MessageLog(NAME_AnimBlueprintLog);
 	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Update);
 	if (ensureMsgf(Messages, TEXT("PreUpdate isn't called. This could potentially cause other issues.")))
@@ -455,7 +455,7 @@ void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 {
 	ClearObjects();
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FMessageLog MessageLog(NAME_AnimBlueprintLog);
 	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Evaluate))
 	{
@@ -1111,7 +1111,7 @@ void FAnimInstanceProxy::UpdateAnimation()
 void FAnimInstanceProxy::PreEvaluateAnimation(UAnimInstance* InAnimInstance)
 {
 	InitializeObjects(InAnimInstance);
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	LoggedMessagesMap.FindOrAdd(NAME_Evaluate).Reset();
 #endif
 }
@@ -1349,7 +1349,7 @@ void FAnimInstanceProxy::GetSlotWeight(const FName& SlotNodeName, float& out_Slo
 #if DEBUGMONTAGEWEIGHT			
 				TotalDesiredWeight += EvalState->DesiredWeight;
 #endif
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 			UE_LOG(LogAnimation, Verbose, TEXT("GetSlotWeight : Owner: %s, AnimMontage: %s,  (DesiredWeight:%0.2f, Weight:%0.2f)"),
 						*GetActorName(), *EvalState.Montage->GetName(), EvalState.DesiredWeight, EvalState.MontageWeight);
 #endif

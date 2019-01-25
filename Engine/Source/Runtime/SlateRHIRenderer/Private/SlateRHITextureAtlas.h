@@ -23,7 +23,7 @@ public:
 	 * @param InHeight
 	 * @param PaddingStyle
 	 */
-	FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle );
+	FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle, bool bUpdatesAfterInitialization);
 
 	/**
 	 * Destructor.

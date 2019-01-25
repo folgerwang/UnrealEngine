@@ -75,6 +75,10 @@ USceneComponent::USceneComponent(const FObjectInitializer& ObjectInitializer /*=
 	// default behavior is visible
 	bVisible = true;
 	bAutoActivate = false;
+
+	bNetHasReceivedRelativeLocation = false;
+	bNetHasReceivedRelativeRotation = false;
+	bShouldBeAttached = AttachParent != nullptr;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -649,6 +653,7 @@ void USceneComponent::OnRegister()
 			// Failed to attach, we need to clear AttachParent so we don't think we're actually attached when we're not.
 			AttachParent = nullptr;
 			AttachSocketName = NAME_None;
+			bShouldBeAttached = false;
 		}
 	}
 	
@@ -1704,6 +1709,7 @@ void USceneComponent::SetupAttachment(class USceneComponent* InParent, FName InS
 				{
 					AttachParent = InParent;
 					AttachSocketName = InSocketName;
+					bShouldBeAttached = AttachParent != nullptr;
 				}
 			}
 		}
@@ -1933,6 +1939,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		// Save pointer from child to parent
 		AttachParent = Parent;
 		AttachSocketName = SocketName;
+		bShouldBeAttached = AttachParent != nullptr;
 
 		OnAttachmentChanged();
 
@@ -2102,9 +2109,13 @@ void USceneComponent::DetachFromComponent(const FDetachmentTransformRules& Detac
 		{
 			PrimComp->UnWeldFromParent();
 		}
-
-		// Make sure parent points to us if we're registered
-		ensureMsgf(!bRegistered || GetAttachParent()->GetAttachChildren().Contains(this), TEXT("Attempt to detach SceneComponent '%s' owned by '%s' from AttachParent '%s' while not attached."), *GetName(), (Owner ? *Owner->GetName() : TEXT("Unowned")), *GetAttachParent()->GetName());
+		
+		// Due to replication order the ensure below is only valid on server OR if not both parent and child are replicated
+		if ((Owner && Owner->GetLocalRole() == ROLE_Authority) || !(GetIsReplicated() && GetAttachParent()->GetIsReplicated()))
+		{
+			// Make sure parent points to us if we're registered
+			ensureMsgf(!bRegistered || GetAttachParent()->GetAttachChildren().Contains(this), TEXT("Attempt to detach SceneComponent '%s' owned by '%s' from AttachParent '%s' while not attached."), *GetName(), (Owner ? *Owner->GetName() : TEXT("Unowned")), *GetAttachParent()->GetName());
+		}
 
 		if (DetachmentRules.bCallModify && !HasAnyFlags(RF_Transient))
 		{
@@ -2129,6 +2140,7 @@ void USceneComponent::DetachFromComponent(const FDetachmentTransformRules& Detac
 #endif
 		AttachParent = nullptr;
 		AttachSocketName = NAME_None;
+		bShouldBeAttached = 0;
 
 		OnAttachmentChanged();
 
@@ -3119,6 +3131,18 @@ void USceneComponent::OnRep_Transform()
 	bNetUpdateTransform = true;
 }
 
+void USceneComponent::OnRep_RelativeLocation()
+{
+	bNetHasReceivedRelativeLocation = true;
+	OnRep_Transform();
+}
+
+void USceneComponent::OnRep_RelativeRotation()
+{
+	bNetHasReceivedRelativeRotation = true;
+	OnRep_Transform();
+}
+
 void USceneComponent::OnRep_AttachParent()
 {
 	bNetUpdateAttachment = true;
@@ -3193,8 +3217,8 @@ void USceneComponent::PostNetReceive()
 {
 	Super::PostNetReceive();
 
-	// If we have no attach parent, attach to parent's root component.
-	if (GetAttachParent() == nullptr)
+	// If we have no attach parent even though the server told us that we should have one, keep attach to parent's root component until we get the correct pointer.
+	if (bShouldBeAttached && GetAttachParent() == nullptr)
 	{
 		USceneComponent * ParentRoot = GetOwner()->GetRootComponent();
 		if (ParentRoot != this)
@@ -3211,7 +3235,35 @@ void USceneComponent::PostRepNotifies()
 	{
 		Exchange(NetOldAttachParent, AttachParent);
 		Exchange(NetOldAttachSocketName, AttachSocketName);
-		AttachToComponent(NetOldAttachParent, FAttachmentTransformRules::KeepRelativeTransform, NetOldAttachSocketName);
+		
+		// Note: This is a local fix for JIRA UE-43355. If we receive bNetUpdateAttachment without having received a updated transform, assume that we intend to snap and that the relative location/rotation should defaulted
+		if (!bNetHasReceivedRelativeLocation)
+		{
+			RelativeLocation = FVector::ZeroVector;
+			bNetHasReceivedRelativeLocation = true;
+		}
+		if (!bNetHasReceivedRelativeRotation)
+		{
+			RelativeRotation = FRotator::ZeroRotator;
+			bNetHasReceivedRelativeRotation = true;
+		}
+
+		// Check if this is a detach
+		if (AttachParent && !bShouldBeAttached)
+		{
+			ensureMsgf(NetOldAttachParent == nullptr, TEXT("Local modification of AttachParent detected for replicated component %s, disable replication or execute detachment on host."), *GetFullName());
+			DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		}
+		else
+		{
+			const uint8 bOldShouldBeAttached = bShouldBeAttached;
+
+			AttachToComponent(NetOldAttachParent, FAttachmentTransformRules::KeepRelativeTransform, NetOldAttachSocketName);
+
+			// restore bShouldBeAttached to what we have received
+			bShouldBeAttached = bOldShouldBeAttached;
+		}
+
 		bNetUpdateAttachment = false;
 	}
 
@@ -3230,6 +3282,7 @@ void USceneComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(USceneComponent, bAbsoluteRotation);
 	DOREPLIFETIME(USceneComponent, bAbsoluteScale);
 	DOREPLIFETIME(USceneComponent, bVisible);
+	DOREPLIFETIME(USceneComponent, bShouldBeAttached);
 	DOREPLIFETIME(USceneComponent, AttachParent);
 	DOREPLIFETIME(USceneComponent, AttachChildren);
 	DOREPLIFETIME(USceneComponent, AttachSocketName);

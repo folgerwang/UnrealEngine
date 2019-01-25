@@ -8,7 +8,7 @@
 
 // Remap asset for data coming from Live Link. Allows simple application of bone transforms into current pose based on name remapping only
 UCLASS(Blueprintable)
-class ULiveLinkRemapAsset : public ULiveLinkRetargetAsset
+class LIVELINK_API ULiveLinkRemapAsset : public ULiveLinkRetargetAsset
 {
 	GENERATED_UCLASS_BODY()
 

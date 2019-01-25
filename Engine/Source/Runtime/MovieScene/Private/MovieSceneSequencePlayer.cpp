@@ -286,7 +286,10 @@ void UMovieSceneSequencePlayer::StopInternal(FFrameTime TimeToResetTo)
 
 		// Put the cursor at the specified position
 		PlayPosition.Reset(TimeToResetTo);
-		TimeController->StopPlaying(GetCurrentTime());
+		if (TimeController.IsValid())
+		{
+			TimeController->StopPlaying(GetCurrentTime());
+		}
 
 		CurrentNumLoops = 0;
 
