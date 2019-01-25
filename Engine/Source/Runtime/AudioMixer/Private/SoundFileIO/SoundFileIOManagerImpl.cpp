@@ -100,7 +100,7 @@ namespace Audio
 		SoundFileDllHandle = GetSoundFileDllHandle();
 		if (!SoundFileDllHandle)
 		{
-			UE_LOG(LogAudioMixer, Error, TEXT("Failed to load Sound File dll"));
+			UE_LOG(LogAudioMixer, Display, TEXT("Failed to load Sound File dll"));
 			return false;
 		}
 
