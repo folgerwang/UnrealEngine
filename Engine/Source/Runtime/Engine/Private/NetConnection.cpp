@@ -2533,7 +2533,13 @@ void UNetConnection::Tick()
 			Driver->Time,
 			Timeout,
 			*Describe());
-		UE_LOG(LogNet, Warning, TEXT("%s"), *Error);
+		
+		static double LastTimePrinted = 0.0f;
+		if (FPlatformTime::Seconds() - LastTimePrinted > GEngine->NetErrorLogInterval)
+		{
+			UE_LOG(LogNet, Warning, TEXT("%s"), *Error);
+			LastTimePrinted = FPlatformTime::Seconds();
+		}
 
 		if (!bPendingDestroy)
 		{
