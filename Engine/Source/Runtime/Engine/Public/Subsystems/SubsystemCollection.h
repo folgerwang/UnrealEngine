@@ -22,7 +22,7 @@ public:
 	 * Only call from Initialize() of Systems to ensure initialization order
 	 * Note: Dependencies only work within a collection
 	 */
-	bool InitializeDependancy(TSubclassOf<USubsystem> SubsystemClass);
+	bool InitializeDependency(TSubclassOf<USubsystem> SubsystemClass);
 
 	/* FGCObject Interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
