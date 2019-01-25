@@ -13,6 +13,11 @@ namespace UnrealBuildTool
 {
 	class AndroidToolChain : UEToolChain, IAndroidToolChain
 	{
+		// Android NDK toolchain that must be used for C++ compiling
+		readonly int MinimumNDKToolchain = 140100;
+		readonly int MaximumNDKToolchain = 180100;
+		readonly int RecommendedNDKToolchain = 140100;
+
 		public static readonly string[] AllCpuSuffixes =
 		{
 			"-armv7",
@@ -121,6 +126,17 @@ namespace UnrealBuildTool
 			return ClangVersionMajor < Major ||
 				(ClangVersionMajor == Major && ClangVersionMinor < Minor) ||
 				(ClangVersionMajor == Major && ClangVersionMinor == Minor && ClangVersionPatch < Patch);
+		}
+
+		private static string ToolchainIntToString(int ToolchainInt)
+		{
+			int RevisionNum = ToolchainInt / 10000;
+			int RevisionMinor = ToolchainInt - (RevisionNum * 10000);
+			int RevisionLetterNum = RevisionMinor / 100;
+			int RevisionBeta = RevisionMinor - (RevisionLetterNum * 100);
+			char RevisionLetter = Convert.ToChar('a' + RevisionLetterNum);
+
+			return "r" + RevisionNum + (RevisionLetterNum > 0 ? Char.ToString(RevisionLetter) : "");
 		}
 
 		[CommandLine("-Architectures=", ListSeparator = '+')]
@@ -295,6 +311,13 @@ namespace UnrealBuildTool
 			else
 			{
 				throw new BuildException("Cannot find supported Android toolchain with NDKPath:" + NDKPath);
+			}
+
+			// verify NDK toolchain is supported
+			if (NDKDefineInt < MinimumNDKToolchain || NDKDefineInt > MaximumNDKToolchain)
+			{
+				throw new BuildException("Android toolchain NDK " + ToolchainIntToString(NDKDefineInt) + " not supported; please use NDK " + ToolchainIntToString(MinimumNDKToolchain) + " to NDK " + ToolchainIntToString(MaximumNDKToolchain) +
+					" (NDK " + ToolchainIntToString(RecommendedNDKToolchain) + " recommended)");
 			}
 
 			// set up the path to our toolchains
