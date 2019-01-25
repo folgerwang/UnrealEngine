@@ -2739,6 +2739,24 @@ void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
 
 			MeshDescriptionBulkData->Serialize(Ar, Owner);
 		}
+
+		// For transactions only, serialize the unpacked mesh description here too.
+		// This is so we can preserve any transient attributes which have been set on it when undoing.
+		if (Ar.IsTransacting())
+		{
+			bool bIsMeshDescriptionValid = MeshDescription.IsValid();
+			Ar << bIsMeshDescriptionValid;
+
+			if (bIsMeshDescriptionValid)
+			{
+				if (Ar.IsLoading())
+				{
+					MeshDescription = MakeUnique<FMeshDescription>();
+				}
+
+				Ar << (*MeshDescription);
+			}
+		}
 	}
 }
 #endif // #if WITH_EDITOR
