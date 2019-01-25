@@ -30,6 +30,7 @@ public:
 	// IToolkit interface
 
 	virtual FName GetToolkitContextFName() const override;
+	virtual FText GetTabSuffix() const override { return FText::GetEmpty(); }
 	virtual bool ProcessCommandBindings(const FKeyEvent& InKeyEvent) const override;
 	virtual bool IsHosted() const override;
 	virtual const TSharedRef<IToolkitHost> GetToolkitHost() const override;

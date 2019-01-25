@@ -129,16 +129,10 @@ FText FSimpleAssetEditor::GetToolkitName() const
 	if( EditingObjs.Num() == 1 )
 	{
 		const UObject* EditingObject = EditingObjs[ 0 ];
-
-		const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
-
-		Args.Add( TEXT("ObjectName"), FText::FromString( EditingObject->GetName() ) );
-		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-		return FText::Format( LOCTEXT("ToolkitTitle", "{ObjectName}{DirtyState} - {ToolkitName}"), Args );
+		return FText::FromString(EditingObject->GetName());
 	}
 	else
 	{
-		bool bDirtyState = false;
 		UClass* SharedBaseClass = nullptr;
 		for( int32 x = 0; x < EditingObjs.Num(); ++x )
 		{
@@ -164,17 +158,13 @@ FText FSimpleAssetEditor::GetToolkitName() const
 			{
 				SharedBaseClass = SharedBaseClass->GetSuperClass();
 			}
-
-			// If any of the objects are dirty, flag the label
-			bDirtyState |= Obj->GetOutermost()->IsDirty();
 		}
 
 		check(SharedBaseClass);
 
 		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
-		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-		return FText::Format( LOCTEXT("ToolkitTitle_EditingMultiple", "{NumberOfObjects} {ClassName}{DirtyState} - {ToolkitName}"), Args );
+		return FText::Format( LOCTEXT("ToolkitTitle_EditingMultiple", "{NumberOfObjects} {ClassName} - {ToolkitName}"), Args );
 	}
 }
 

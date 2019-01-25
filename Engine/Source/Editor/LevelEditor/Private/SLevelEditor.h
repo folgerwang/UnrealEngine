@@ -93,6 +93,9 @@ public:
 	/** @return	Returns the title to display in the level editor's tab label */
 	FText GetTabTitle() const;
 
+	/** @return	Returns the suffix to display in the level editor's after tab label */
+	FText GetTabSuffix() const;
+
 	/**
 	 * Processes level editor keybindings using events made in a viewport
 	 * 

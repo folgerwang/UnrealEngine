@@ -7345,22 +7345,14 @@ FText FBlueprintEditor::GetToolkitName() const
 
 	if( IsEditingSingleBlueprint() )
 	{
-		const bool bDirtyState = GetBlueprintObj()->GetOutermost()->IsDirty();
-
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-
 		if (FBlueprintEditorUtils::IsLevelScriptBlueprint(GetBlueprintObj()))
 		{
 			const FString& LevelName = FPackageName::GetShortFName( GetBlueprintObj()->GetOutermost()->GetFName().GetPlainNameString() ).GetPlainNameString();	
-
-			Args.Add( TEXT("LevelName"), FText::FromString( LevelName ) );
-			return FText::Format( NSLOCTEXT("KismetEditor", "LevelScriptAppLabel", "{LevelName}{DirtyState} - Level Blueprint Editor"), Args );
+			return FText::FromString(LevelName);
 		}
 		else
 		{
-			Args.Add( TEXT("BlueprintName"), FText::FromString( GetBlueprintObj()->GetName() ) );
-			return FText::Format( NSLOCTEXT("KismetEditor", "BlueprintScriptAppLabel", "{BlueprintName}{DirtyState}"), Args );
+			return FText::FromString(GetBlueprintObj()->GetName());
 		}
 	}
 

@@ -213,18 +213,13 @@ FText FTranslationEditor::GetBaseToolkitName() const
 FText FTranslationEditor::GetToolkitName() const
 {
 	const UObject* EditingObject = GetEditingObject();
-
 	check (EditingObject != NULL);
-
-	// This doesn't correctly indicate dirty status for Translation Editor currently...
-	const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
 
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("Language"), FText::FromString(FPaths::GetBaseFilename(FPaths::GetPath(ArchiveFilePath))));
 	Args.Add(TEXT("ProjectName"), FText::FromString(FPaths::GetBaseFilename(ManifestFilePath)));
-	Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
 	Args.Add( TEXT("ToolkitName"), GetBaseToolkitName() );
-	return FText::Format( LOCTEXT("TranslationEditorAppLabel", "{Language}{DirtyState} - {ProjectName} - {ToolkitName}"), Args );
+	return FText::Format( LOCTEXT("TranslationEditorAppLabel", "{Language} - {ProjectName} - {ToolkitName}"), Args );
 }
 
 FText FTranslationEditor::GetToolkitToolTipText() const

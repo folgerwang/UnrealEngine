@@ -508,17 +508,13 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 	{
 		const UObject* EditingObject = EditingObjs[ 0 ];
 
-		const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
-
 		FFormatNamedArguments Args;
 		Args.Add( TEXT("ObjectName"), FText::FromString( EditingObject->GetName() ) );
-		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
 		Args.Add( TEXT("ToolkitName"), GetBaseToolkitName() );
-		return FText::Format( LOCTEXT("ToolkitName_SingleObject", "{ObjectName}{DirtyState} - {ToolkitName}"), Args );
+		return FText::Format( LOCTEXT("ToolkitName_SingleObject", "{ObjectName} - {ToolkitName}"), Args );
 	}
 	else
 	{
-		bool bDirtyState = false;
 		UClass* SharedBaseClass = NULL;
 		for( int32 x = 0; x < NumEditingObjects; ++x )
 		{
@@ -544,16 +540,12 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 			{
 				SharedBaseClass = SharedBaseClass->GetSuperClass();
 			}
-
-			// If any of the objects are dirty, flag the label
-			bDirtyState |= Obj->GetOutermost()->IsDirty();
 		}
 
 		FFormatNamedArguments Args;
 		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
-		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-		return FText::Format( LOCTEXT("ToolkitName_MultiObject", "{NumberOfObjects} {ClassName}{DirtyState} Objects - Property Matrix Editor"), Args );
+		return FText::Format( LOCTEXT("ToolkitName_MultiObject", "{NumberOfObjects} {ClassName} Objects - Property Matrix Editor"), Args );
 	}
 }
 

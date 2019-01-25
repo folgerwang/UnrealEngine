@@ -354,6 +354,7 @@ SDockTab::SDockTab()
 	, TabRole(ETabRole::PanelTab)
 	, ParentPtr()
 	, TabLabel(NSLOCTEXT("DockTab", "DefaultTabTitle", "UNNAMED"))
+	, TabLabelSuffix(FText::GetEmpty())
 	, OnTabClosed()
 	, OnTabActivated()
 	, OnCanCloseTab()
@@ -481,6 +482,7 @@ void SDockTab::Construct( const FArguments& InArgs )
 	this->OnCanCloseTab = InArgs._OnCanCloseTab;
 	this->OnPersistVisualState = InArgs._OnPersistVisualState;
 	this->TabLabel = InArgs._Label;
+	this->TabLabelSuffix = InArgs._LabelSuffix;
 	this->TabIcon = InArgs._Icon;
 	this->bShouldAutosize = InArgs._ShouldAutosize;
 	this->TabColorScale = InArgs._TabColorScale;
@@ -529,6 +531,7 @@ void SDockTab::Construct( const FArguments& InArgs )
 			+ SOverlay::Slot()
 			.Padding(TAttribute<FMargin>::Create(TAttribute<FMargin>::FGetter::CreateSP(this, &SDockTab::GetTabPadding)))
 			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
 			[
 				SNew(SHorizontalBox)
 				.Visibility(EVisibility::Visible)
@@ -555,13 +558,22 @@ void SDockTab::Construct( const FArguments& InArgs )
 				]
 				// Tab Label
 				+ SHorizontalBox::Slot()
-				.FillWidth(1)
+				.FillWidth(1.0f)
 				.Padding( 0.0f, 1.0f )
 				.VAlign(VAlign_Center)
 				[
 					SAssignNew(LabelWidget, STextBlock)
 					.TextStyle( FCoreStyle::Get(), "Docking.TabFont" )					
 					.Text( this, &SDockTab::GetTabLabel )
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding( 0.0f, 1.0f )
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(LabelWidget, STextBlock)
+					.TextStyle( FCoreStyle::Get(), "Docking.TabFont" )					
+					.Text(this, &SDockTab::GetTabLabelSuffix)
 				]
 				
 				// @todo toolkit major: Could inject inline content here into tab for standalone asset editing dropdown/dirty state, etc.
@@ -695,6 +707,16 @@ FText SDockTab::GetTabLabel() const
 void SDockTab::SetLabel( const TAttribute<FText>& InTabLabel )
 {
 	TabLabel = InTabLabel;
+}
+
+FText SDockTab::GetTabLabelSuffix() const
+{
+	return TabLabelSuffix.Get();
+}
+
+void SDockTab::SetTabLabelSuffix(const TAttribute<FText>& InTabLabelSuffix)
+{
+	TabLabelSuffix = InTabLabelSuffix;
 }
 
 const FSlateBrush* SDockTab::GetTabIcon() const
