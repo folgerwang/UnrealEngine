@@ -1227,11 +1227,11 @@ void FAnimInstanceProxy::SlotEvaluatePose(const FName& SlotNodeName, const FComp
 #endif // DEBUG_MONTAGEINSTANCE_WEIGHT
 			if (AdditiveAnimType == AAT_None)
 			{
-				NonAdditivePoses.Add(NewPose);
+				NonAdditivePoses.Add(FSlotEvaluationPose(MoveTemp(NewPose)));
 			}
 			else
 			{
-				AdditivePoses.Add(NewPose);
+				AdditivePoses.Add(FSlotEvaluationPose(MoveTemp(NewPose)));
 			}
 		}
 	}
@@ -2175,7 +2175,7 @@ void FAnimInstanceProxy::RegisterWatchedPose(const FCSPose<FCompactPose>& Pose, 
 			if (PoseWatch.NodeID == LinkID)
 			{
 				FCompactPose TempPose;
-				Pose.ConvertToLocalPoses(TempPose);
+				FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(Pose, TempPose);
 				PoseWatch.PoseInfo->CopyBonesFrom(TempPose);
 				break;
 			}

@@ -32,8 +32,8 @@ void FAnimNode_ApplyLimits::EvaluateSkeletalControl_AnyThread(FComponentSpacePos
 
 	FPoseContext LocalPose0(Output.AnimInstanceProxy);
 	FPoseContext LocalPose1(Output.AnimInstanceProxy);
-	Output.Pose.ConvertToLocalPoses(LocalPose0.Pose);
-	Output.Pose.ConvertToLocalPoses(LocalPose1.Pose);
+	FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(Output.Pose, LocalPose0.Pose);
+	FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(Output.Pose, LocalPose1.Pose);
 	LocalPose0.Curve = Output.Curve;
 	LocalPose1.Curve = Output.Curve;
 

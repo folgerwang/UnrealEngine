@@ -1674,7 +1674,7 @@ void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, 
 		{
 			// get the remaining bone atoms
 			FTransformArray LocalBones;
-			OutPose.CopyBonesTo(LocalBones);
+			OutPose.MoveBonesTo(LocalBones);
 
 			AnimationFormat_GetAnimationPose(
 				LocalBones,
@@ -1683,7 +1683,7 @@ void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, 
 				RotationScalePairs,
 				EvalDecompContext);
 
-			OutPose.CopyBonesFrom(LocalBones);
+			OutPose.MoveBonesFrom(MoveTemp(LocalBones));
 		}
 	}
 

@@ -25,8 +25,8 @@ struct ENGINE_API FAnimNode_SaveCachedPose : public FAnimNode_Base
 	float GlobalWeight;
 
 protected:
-	FCompactHeapPose CachedPose;
-	FBlendedHeapCurve CachedCurve;
+	FCompactPose CachedPose;
+	FBlendedCurve CachedCurve;
 
 	TArray<FAnimationUpdateContext> CachedUpdateContexts;
 

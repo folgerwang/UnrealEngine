@@ -163,7 +163,7 @@ void FAnimNode_BlendBoneByChannel::Evaluate_AnyThread(FPoseContext& Output)
 				TargetPoseCmpntSpace.SafeSetCSBoneTransforms(QueuedModifiedBoneTransforms);
 
 				// Turn Component Space poses back into local space.
-				TargetPoseCmpntSpace.ConvertToLocalPoses(Output.Pose);
+				FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(MoveTemp(TargetPoseCmpntSpace), Output.Pose);
 			}
 		}
 	}

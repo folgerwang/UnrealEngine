@@ -122,8 +122,12 @@ void FAnimNode_MultiWayBlend::Evaluate_AnyThread(FPoseContext& Output)
 				// total alpha shouldn't be zero
 				Poses[PoseIndex].Evaluate(PoseContext);
 
-				SourcePoses.Add(PoseContext.Pose);
-				SourceCurves.Add(PoseContext.Curve);
+				FCompactPose& SourcePose = SourcePoses.AddDefaulted_GetRef();
+				SourcePose.MoveBonesFrom(PoseContext.Pose);
+
+				FBlendedCurve& SourceCurve = SourceCurves.AddDefaulted_GetRef();
+				SourceCurve.MoveFrom(PoseContext.Curve);
+
 				SourceWeights.Add(CurrentAlpha);
 			}
 		}
