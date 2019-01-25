@@ -147,6 +147,12 @@ void FMeshReductionManagerModule::StartupModule()
 		}
 	}
 
+	// Set the names that will appear as defaults in the project settings
+
+	CVarMeshReductionModule->Set(*StaticMeshModuleName);
+	CVarSkeletalMeshReductionModule->Set(*SkeletalMeshModuleName);
+	CVarProxyLODMeshReductionModule->Set(*MeshMergingModuleName);
+
 	if (!StaticMeshReduction)
 	{
 		UE_LOG(LogMeshReduction, Log, TEXT("No automatic static mesh reduction module available"));
