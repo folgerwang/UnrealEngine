@@ -2,6 +2,7 @@
 
 #include "OnlineAsyncTaskGooglePlayLogin.h"
 #include "OnlineSubsystemGooglePlay.h"
+#include "AndroidRuntimeSettings.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "gpg/builder.h"
@@ -31,19 +32,39 @@ void FOnlineAsyncTaskGooglePlayLogin::Start_OnTaskThread()
 		// Store the Subsystem pointer locally so that the OnAuthActionFinished lambda can capture it
 		FOnlineSubsystemGooglePlay* LocalSubsystem = Subsystem;
 
-		Subsystem->GameServicesPtr = gpg::GameServices::Builder()
-			.SetDefaultOnLog(gpg::LogLevel::VERBOSE)
-			.SetOnAuthActionStarted([](gpg::AuthOperation Op) {
-				UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionStarted: %s"), *FString(DebugString(Op).c_str()));
-			})
-			.SetOnAuthActionFinished([LocalSubsystem](gpg::AuthOperation Op, gpg::AuthStatus LocalStatus) {
-				UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionFinished: %s, AuthStatus: %s"),
-					*FString(DebugString(Op).c_str()),
-					*FString(DebugString(LocalStatus).c_str()));
-				LocalSubsystem->OnAuthActionFinished(Op, LocalStatus);
-			})
-			.AddOauthScope("https://www.googleapis.com/auth/plus.login")
-			.Create(Subsystem->PlatformConfiguration);
+		auto DefaultSettings = GetDefault<UAndroidRuntimeSettings>();
+
+		if (DefaultSettings->bEnableSnapshots)
+		{
+			Subsystem->GameServicesPtr = gpg::GameServices::Builder()
+				.SetDefaultOnLog(gpg::LogLevel::VERBOSE)
+				.SetOnAuthActionStarted([](gpg::AuthOperation Op) {
+					UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionStarted: %s"), *FString(DebugString(Op).c_str()));
+				})
+				.SetOnAuthActionFinished([LocalSubsystem](gpg::AuthOperation Op, gpg::AuthStatus LocalStatus) {
+					UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionFinished: %s, AuthStatus: %s"),
+						*FString(DebugString(Op).c_str()),
+						*FString(DebugString(LocalStatus).c_str()));
+					LocalSubsystem->OnAuthActionFinished(Op, LocalStatus);
+				})
+				.EnableSnapshots()
+				.Create(Subsystem->PlatformConfiguration);
+		}
+		else
+		{
+			Subsystem->GameServicesPtr = gpg::GameServices::Builder()
+				.SetDefaultOnLog(gpg::LogLevel::VERBOSE)
+				.SetOnAuthActionStarted([](gpg::AuthOperation Op) {
+					UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionStarted: %s"), *FString(DebugString(Op).c_str()));
+				})
+				.SetOnAuthActionFinished([LocalSubsystem](gpg::AuthOperation Op, gpg::AuthStatus LocalStatus) {
+					UE_LOG_ONLINE(Log, TEXT("GPG OnAuthActionFinished: %s, AuthStatus: %s"),
+						*FString(DebugString(Op).c_str()),
+						*FString(DebugString(LocalStatus).c_str()));
+					LocalSubsystem->OnAuthActionFinished(Op, LocalStatus);
+				})
+				.Create(Subsystem->PlatformConfiguration);
+		}
 	}
 	else if(Subsystem->GameServicesPtr->IsAuthorized())
 	{

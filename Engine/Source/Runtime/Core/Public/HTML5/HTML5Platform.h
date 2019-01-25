@@ -33,7 +33,6 @@ typedef FHTML5Types FPlatformTypes;
 #define PLATFORM_HAS_BSD_SOCKETS					1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
 #define PLATFORM_HAS_NO_EPROCLIM					1
-#define PLATFORM_USE_PTHREADS						0
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING			1
 #define PLATFORM_REQUIRES_FILESERVER				1
 #define PLATFORM_SUPPORTS_TBB						0
@@ -51,6 +50,18 @@ typedef FHTML5Types FPlatformTypes;
 				throw callstack.stack; \
 			); \
 	} ()
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+	#define PLATFORM_USE_PTHREADS							1
+	#if EXPERIMENTAL_OPENGL_RHITHREAD // see HTML5ToolChain.cs
+		#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0
+		#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
+	#else
+		#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+	#endif
+#else
+	#define PLATFORM_USE_PTHREADS							0
+#endif
 
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1

@@ -176,7 +176,7 @@ public:
 			if (bCheckDevices)
 			{
 				// BHP - Turning off device check to prevent it from interfering with packaging
-				//QueryDevices();
+				QueryDevices();
 			}
 
 			FPlatformProcess::Sleep(5.0f);

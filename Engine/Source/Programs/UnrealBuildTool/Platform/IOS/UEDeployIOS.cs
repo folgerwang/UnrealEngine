@@ -1219,7 +1219,14 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t<key>com.apple.developer.icloud-services</key>");
 				Text.AppendLine("\t<array>");
 				Text.AppendLine("\t\t<string>CloudKit</string>");
+				Text.AppendLine("\t\t<string>CloudDocuments</string>");
 				Text.AppendLine("\t</array>");
+				Text.AppendLine("\t<key>com.apple.developer.ubiquity-container-identifiers</key>");
+				Text.AppendLine("\t<array>");
+				Text.AppendLine("\t\t<string>iCloud.$(CFBundleIdentifier)</string>");
+				Text.AppendLine("\t</array>");
+				Text.AppendLine("\t<key>com.apple.developer.ubiquity-kvstore-identifier</key>");
+				Text.AppendLine("\t<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>");
 			}
 
 			bool bRemoteNotificationsSupported = false;

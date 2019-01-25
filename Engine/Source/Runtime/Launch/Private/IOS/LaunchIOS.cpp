@@ -20,6 +20,10 @@
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/ConfigCacheIni.h"
 #include "MoviePlayer.h"
+#include "PreLoadScreenManager.h"
+#include "TcpConsoleListener.h"
+#include "Interfaces/IPv4/IPv4Address.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
@@ -36,6 +40,13 @@ FAutoConsoleVariableRef CVarDisableAudioSuspendOnAudioInterrupt(
 
 void FAppEntry::Suspend(bool bIsInterrupt)
 {
+	// also treats interrupts BEFORE initializing the engine
+	// the movie player gets initialized on the preinit phase, ApplicationHasEnteredForegroundDelegate and ApplicationWillEnterBackgroundDelegate are not yet available
+	if (GetMoviePlayer())
+	{
+		GetMoviePlayer()->Suspend();
+	}
+
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
@@ -101,6 +112,11 @@ void FAppEntry::Suspend(bool bIsInterrupt)
 
 void FAppEntry::Resume(bool bIsInterrupt)
 {
+	if (GetMoviePlayer())
+	{
+		GetMoviePlayer()->Resume();
+	}
+
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
@@ -262,6 +278,8 @@ void FAppEntry::PlatformInit()
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
+extern TcpConsoleListener *ConsoleListener;
+
 void FAppEntry::Init()
 {
 	FPlatformProcess::SetRealTimeMode();
@@ -306,6 +324,13 @@ void FAppEntry::Init()
 
 	// start up the engine
 	GEngineLoop.Init();
+#ifndef UE_BUILD_SHIPPING
+	if (ConsoleListener == nullptr)
+	{
+		FIPv4Endpoint ConsoleTCP(FIPv4Address::InternalLoopback, 8888); //TODO: @csulea read this from some .ini
+		ConsoleListener = new TcpConsoleListener(ConsoleTCP);
+	}
+#endif // UE_BUILD_SHIPPING
 }
 
 static FSuspendRenderingThread* SuspendThread = NULL;
@@ -335,6 +360,10 @@ void FAppEntry::SuspendTick()
 
 void FAppEntry::Shutdown()
 {
+	if (ConsoleListener)
+	{
+		delete ConsoleListener;
+	}
 	NSLog(@"%s", "Shutting down Game ULD Communications\n");
 	GCommandSystem.Shutdown();
     

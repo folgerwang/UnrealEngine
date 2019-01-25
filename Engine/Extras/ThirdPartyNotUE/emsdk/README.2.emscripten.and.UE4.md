@@ -41,7 +41,7 @@ this is usually (again) in a seperate WIP folder...
 		- .../emsdk/Linux/{clang,node}
 		- .../emsdk/Mac/{clang,node}
 		- .../emsdk/Win64/{clang,node,python}
-	- these are usually the files pulled down during `./emsdk install <version#>` (and the respective platforms)
+	- these are usually the files pulled down during `./emsdk install &lt;version#&gt;` (and the respective platforms)
 		- i.e. no source files
 		- yes, do this for all 3 major desktop platforms
 	- before checking in (see part 3 below):
@@ -73,12 +73,31 @@ this is usually (again) in a seperate WIP folder...
 	file **Build_All_HTML5_libs.rc** -- just mentioned above -- under the **WINDOWS NOTES** section for details on why)
 
 
+- **Engine/Intermediate/Build/HTML5/EmscriptenCache**
+	- every time you upgrade/change your toolchain version (or switch between them or make a local modification
+	to **.../emsdk/emscripten/<version>/system/...** you will need to delete the respective *.bc file or the
+	whole folder to ensure your changes are recompiled
+	- NOTE: after doing this (changing toolchain versions) -- be sure to update your **HTML5SDKInfo.cs**
+	version numbers (see next section for details)
+
+
+- **emscripten ports**
+	- while a lot of the UE4 Thirdparty libs (used with HTML5 builds) are also available as escripten ports,
+	there are a number of custom UE4 changes that are required to make the engine functional for HTML5
+	- for now, we recommend using the UE4 versions until this is revisited in the future
+	- NOTE: when using ports, remember to "turn off" UE4's version
+		- e.g. if you wish to use emscripten's version of SDL2 -- you will need to disable UE4's version:
+			- edit: **.../Engine/Thirdparty/SDL2/SDL2.Build.cs**
+			- delete/comment out the HTML5 section and save the file
+			- this change will be automatically picked up at packaging time
+
+
 * * *
 ## Part 2 - UE4 C# scripts
 
 the following files **ARE** used (for example) by UE4 Editor to package for HTML5:
 - **Engine/Source/Programs/UnrealBuildTool/Platform/HTML5/HTML5SDKInfo.cs**
-	- the only thing of interest here are the string variables listed at the top of the HTML5SDKInfo class 
+	- the only thing of interest here are the string variables listed at the top of the HTML5SDKInfo class
 		- `SDKVersion`
 		- `LLVM_VER`
 		- `NODE_VER`
@@ -97,11 +116,11 @@ the following files **ARE** used (for example) by UE4 Editor to package for HTML
 	- the rest of the file are used for UE4's Editor options that the HTML5 packaging supports
 
 
-NOTE: it seems that latest Editor will rebuild the C# project automatically when packaging (for example) HTML5.
-- but, every-now-and-then -- this sometimes needs manual intervention:
-	- in the **Solution Explorer-> Solution -> Programs**, build (the respective "program"):
+NOTE: it seems that latest Editor will rebuild the C# (AutomationTool) project automatically when packaging (for example) HTML5.
+- **but**, every-now-and-then -- **this sometimes needs manual intervention:**
+	- in the **Solution Explorer -> Solution -> Programs**, build (the respective "program"):
 		- AutomationTool
-		- UnrealBuildTool
+		- UnrealBuildTool (!!! this still needs to be manually built on windows !!!)
 
 
 * * *

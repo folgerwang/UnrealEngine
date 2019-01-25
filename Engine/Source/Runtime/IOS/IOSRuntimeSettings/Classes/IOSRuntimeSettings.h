@@ -82,6 +82,19 @@ enum class EIOSLandscapeOrientation : uint8
 	LandscapeRight = 1 UMETA(DisplayName = "Landscape (right home button)"),
 };
 
+UENUM()
+enum class EIOSCloudKitSyncStrategy : uint8
+{
+	/** Only at game start */
+	None  = 0 UMETA(DisplayName = "Never (do not use iCloud for Load/Save Game)"),
+
+	/** Only at game start */
+	OnlyAtGameStart = 1 UMETA(DisplayName = "At game start only (iOS)"),
+
+	/** Always */
+	Always = 2 UMETA(DisplayName = "Always (whenever LoadGame is called)"),
+};
+
 /**
  *	IOS Build resource file struct, used to serialize filepaths to the configs for use in the build system,
  */
@@ -204,6 +217,10 @@ public:
 	// Should Cloud Kit support (iOS Online Subsystem) be enabled?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
 	uint32 bEnableCloudKitSupport : 1;
+
+	// iCloud Read stategy
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (DisplayName = "iCloud save files sync strategy"), meta = (EditCondition = "bEnableCloudKitSupport"))
+	EIOSCloudKitSyncStrategy IOSCloudKitSyncStrategy;
 
     // Should push/remote notifications support (iOS Online Subsystem) be enabled?
     UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
@@ -521,8 +538,5 @@ public:
 	virtual void PostInitProperties() override;
 	// End of UObject interface
 #endif
-
-private:
-	virtual void EnsureOrientationInProjectDefaultEngine();
 
 };

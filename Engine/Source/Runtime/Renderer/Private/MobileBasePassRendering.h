@@ -49,15 +49,17 @@ enum EOutputFormat
 
 const FLightSceneInfo* GetSceneMobileDirectionalLights(FScene const* Scene, uint32 LightChannel);
 
-/* Info for dynamic point lights rendered in base pass */
-class FMobileBasePassMovablePointLightInfo
+/* Info for dynamic point or spot lights rendered in base pass */
+class FMobileBasePassMovableLightInfo
 {
 public:
-	FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
+	FMobileBasePassMovableLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
 
 	int32 NumMovablePointLights;
 	FVector4 LightPositionAndInvRadius[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 	FVector4 LightColorAndFalloffExponent[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
+	FVector4 SpotLightDirection[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
+	FVector4 SpotLightAngles[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 };
 
 static bool ShouldCacheShaderByPlatformAndOutputFormat(EShaderPlatform Platform, EOutputFormat OutputFormat)
@@ -216,7 +218,7 @@ public:
 		InvReflectionCubemapAverageBrightness.Bind(Initializer.ParameterMap, TEXT("InvReflectionCubemapAverageBrightness"));
 		LightPositionAndInvRadiusParameter.Bind(Initializer.ParameterMap, TEXT("LightPositionAndInvRadius"));
 		LightColorAndFalloffExponentParameter.Bind(Initializer.ParameterMap, TEXT("LightColorAndFalloffExponent"));
-			NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
+		NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
 		ReflectionPositionsAndRadii.Bind(Initializer.ParameterMap, TEXT("ReflectionPositionsAndRadii"));
 		ReflectionCubemap1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap1"));
 		ReflectionSampler1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler1"));
@@ -228,6 +230,9 @@ public:
 		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
 
 		PlanarReflectionParams.Bind(Initializer.ParameterMap);
+
+		SpotLightAnglesParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightAngles"));
+		SpotLightDirectionParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightDirection"));
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
@@ -344,7 +349,7 @@ public:
 
 		if (NumMovablePointLights > 0)
 		{
-			FMobileBasePassMovablePointLightInfo LightInfo(Proxy);
+			FMobileBasePassMovableLightInfo LightInfo(Proxy);
 
 			if (NumMovablePointLights == INT32_MAX)
 			{
@@ -354,6 +359,8 @@ public:
 			// Set dynamic point lights
 			SetShaderValueArray(RHICmdList, PixelShader, LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius, LightInfo.NumMovablePointLights);
 			SetShaderValueArray(RHICmdList, PixelShader, LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent, LightInfo.NumMovablePointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, SpotLightDirectionParameter, LightInfo.SpotLightDirection, LightInfo.NumMovablePointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, SpotLightAnglesParameter, LightInfo.SpotLightAngles, LightInfo.NumMovablePointLights);
 		}
 
 		if (CSMDebugHintParams.IsBound())
@@ -392,6 +399,9 @@ public:
 		Ar << PlanarReflectionParams;
 
 		Ar << CSMDebugHintParams;
+		
+		Ar << SpotLightAnglesParameter;
+		Ar << SpotLightDirectionParameter;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -407,6 +417,8 @@ private:
 	FShaderParameter LightPositionAndInvRadiusParameter;
 	FShaderParameter MobileSkyReflectionParam;
 	FShaderParameter LightColorAndFalloffExponentParameter;
+	FShaderParameter SpotLightDirectionParameter;
+	FShaderParameter SpotLightAnglesParameter;
 	FShaderParameter NumDynamicPointLightsParameter;
 
 

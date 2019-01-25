@@ -298,5 +298,16 @@ extern bool GShowSplashScreen;
 
 #endif // !UE_BUILD_SHIPPING && !TVOS
 
+void EnqueueConsoleCommand(uint8 *Command)
+{
+#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
+	if (!Command)
+	{
+		return;
+	}
+
+	[[IOSAppDelegate GetDelegate] HandleConsoleCommand:[NSString stringWithUTF8String : (const char *)Command]];
+#endif
+}
 
 @end

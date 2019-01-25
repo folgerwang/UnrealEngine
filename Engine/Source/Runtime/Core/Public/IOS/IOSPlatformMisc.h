@@ -20,6 +20,7 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
     static void PlatformPreInit();
 	static void PlatformInit();
     static void PlatformHandleSplashScreen(bool ShowSplashScreen = false);
+	static const TCHAR* GetPlatformFeaturesModuleName();
 
 	FORCEINLINE static int32 GetMaxPathLength()
 	{

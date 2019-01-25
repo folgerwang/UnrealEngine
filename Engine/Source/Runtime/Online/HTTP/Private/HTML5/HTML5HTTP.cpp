@@ -333,7 +333,7 @@ bool FHTML5HttpRequest::StartRequest()
 	{
 		const TCHAR* zurl = *URL;
 		const TCHAR* zverb = *Verb;
-		EM_ASM_({
+		EM_ASM({
 			console.log( "FHTML5HttpRequest::StartRequest()" + $0);
 
 			console.log( "- URL='" + $1 + "'");

@@ -31,6 +31,12 @@ int NumDynamicPointLights;
 #endif
 float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightAngles[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS];
+#endif
+
+#ifndef PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+#define PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS 0
 #endif
 
 #ifndef MOBILE_QL_FORCE_FULLY_ROUGH
@@ -202,7 +208,7 @@ half3 BlendReflectionCapture(FMaterialPixelParameters MaterialParameters, half R
 	float4 Reflection = ReflectionCube.SampleLevel(ReflectionSampler, ProjectedCaptureVector.xyz, MipLevel);
 	half3 SpecularIBL = RGBMDecode(Reflection, 16.0f);
 
-#if MOVABLE_DIRECTIONAL_LIGHT
+#if !LQ_TEXTURE_LIGHTMAP && !CACHED_POINT_INDIRECT_LIGHTING
 	// ignore average brightness for non-lightmap use case.
 	InvReflectionCubemapAverageBrightness = 1.0f;
 #endif
@@ -589,6 +595,13 @@ void Main(
 				{
 					Attenuation = RadialAttenuation(ToLight * LightPositionAndInvRadius[i].w, LightColorAndFalloffExponent[i].w);		
 				}
+				
+				#if PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+				if(SpotLightAngles[i].w > 0.0)
+				{
+					Attenuation *= SpotAttenuation(L, -SpotLightDirection[i].xyz, SpotLightAngles[i].xy);
+				}
+				#endif
 
 				#if !FULLY_ROUGH
 					Color += min(65000.0, (Attenuation * PointNoL) * LightColorAndFalloffExponent[i].rgb * (1.0/PI) * (DiffuseColor + SpecularColor * CalcSpecular(Roughness, PointRoL, PointNoH, H, MaterialParameters.WorldNormal)));

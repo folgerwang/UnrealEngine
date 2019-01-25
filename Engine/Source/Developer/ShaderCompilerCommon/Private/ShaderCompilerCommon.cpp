@@ -893,6 +893,8 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 
 		FString CompilerPath = Input.ExtraSettings.OfflineCompilerPath;
 
+		FString CompilerCommand = "";
+
 		// add process and thread ids to the file name to avoid collision between workers
 		auto ProcID = FPlatformProcess::GetCurrentProcessId();
 		auto ThreadID = FPlatformTLS::GetCurrentThreadId();
@@ -904,27 +906,27 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 		{
 			case SF_Vertex:
 				GLSLSourceFile += TEXT(".vert");
-				CompilerPath += TEXT(" -v");
+				CompilerCommand += TEXT(" -v");
 			break;
 			case SF_Pixel:
 				GLSLSourceFile += TEXT(".frag");
-				CompilerPath += TEXT(" -f");
+				CompilerCommand += TEXT(" -f");
 			break;
 			case SF_Geometry:
 				GLSLSourceFile += TEXT(".geom");
-				CompilerPath += TEXT(" -g");
+				CompilerCommand += TEXT(" -g");
 			break;
 			case SF_Hull:
 				GLSLSourceFile += TEXT(".tesc");
-				CompilerPath += TEXT(" -t");
+				CompilerCommand += TEXT(" -t");
 			break;
 			case SF_Domain:
 				GLSLSourceFile += TEXT(".tese");
-				CompilerPath += TEXT(" -e");
+				CompilerCommand += TEXT(" -e");
 			break;
 			case SF_Compute:
 				GLSLSourceFile += TEXT(".comp");
-				CompilerPath += TEXT(" -C");
+				CompilerCommand += TEXT(" -C");
 			break;
 
 			default:
@@ -934,11 +936,11 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 
 		if (bVulkanSpirV)
 		{
-			CompilerPath += TEXT(" -p");
+			CompilerCommand += TEXT(" -p");
 		}
 		else
 		{
-			CompilerPath += TEXT(" -s");
+			CompilerCommand += TEXT(" -s");
 		}
 
 		FArchive* Ar = IFileManager::Get().CreateFileWriter(*GLSLSourceFile, FILEWRITE_EvenIfReadOnly);
@@ -956,8 +958,21 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 		FString StdErr;
 		int32 ReturnCode = 0;
 
-		// Run Mali shader compiler and wait for completion
-		FPlatformProcess::ExecProcess(*CompilerPath, *GLSLSourceFile, &ReturnCode, &StdOut, &StdErr);
+		// Since v6.2.0, Mali compiler needs to be started in the executable folder or it won't find "external/glslangValidator" for Vulkan
+		FString CompilerWorkingDirectory = FPaths::GetPath(CompilerPath);
+
+		if (!CompilerWorkingDirectory.IsEmpty() && FPaths::DirectoryExists(CompilerWorkingDirectory))
+		{
+			// compiler command line contains flags and the GLSL source file name
+			CompilerCommand += " " + FPaths::ConvertRelativePathToFull(GLSLSourceFile);
+
+			// Run Mali shader compiler and wait for completion
+			FPlatformProcess::ExecProcess(*CompilerPath, *CompilerCommand, &ReturnCode, &StdOut, &StdErr, *CompilerWorkingDirectory);
+		}
+		else
+		{
+			StdErr = "Couldn't find Mali offline compiler at " + CompilerPath;
+		}
 
 		// parse Mali's output and extract instruction count or eventual errors
 		ShaderOutput.bSucceeded = (ReturnCode >= 0);

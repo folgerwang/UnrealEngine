@@ -330,6 +330,11 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FAudioMuteDelegate, bool, int);
 	static FAudioMuteDelegate AudioMuteDelegate;
 	
+	// [iOS only] Called when the audio device changes
+	// For instance, when the headphones are plugged in or removed
+	DECLARE_MULTICAST_DELEGATE_OneParam(FAudioRouteChangedDelegate, bool);
+	static FAudioRouteChangedDelegate AudioRouteChangedDelegate;
+
 	// Generally, events triggering UserMusicInterruptDelegate or AudioMuteDelegate happen only
 	// when a change occurs. When a system comes online needing the current audio state but the
 	// event has already been broadcast, calling ApplicationRequestAudioState will force the

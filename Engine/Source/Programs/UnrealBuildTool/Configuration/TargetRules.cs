@@ -1125,6 +1125,11 @@ namespace UnrealBuildTool
 		public AndroidTargetRules AndroidPlatform = new AndroidTargetRules();
 
 		/// <summary>
+		/// HTML5-specific target settings.
+		/// </summary>
+		public HTML5TargetRules HTML5Platform = new HTML5TargetRules();
+
+		/// <summary>
 		/// IOS-specific target settings.
 		/// </summary>
 		public IOSTargetRules IOSPlatform = new IOSTargetRules();
@@ -1416,6 +1421,7 @@ namespace UnrealBuildTool
 		{
 			yield return this;
 			yield return AndroidPlatform;
+			yield return HTML5Platform;
 			yield return IOSPlatform;
 			yield return LuminPlatform;
 			yield return LinuxPlatform;
@@ -1470,6 +1476,7 @@ namespace UnrealBuildTool
 		{
 			this.Inner = Inner;
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
+			HTML5Platform = new ReadOnlyHTML5TargetRules(Inner.HTML5Platform);
 			IOSPlatform = new ReadOnlyIOSTargetRules(Inner.IOSPlatform);
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
 			LinuxPlatform = new ReadOnlyLinuxTargetRules(Inner.LinuxPlatform);
@@ -2205,6 +2212,7 @@ namespace UnrealBuildTool
 			get;
 			private set;
 		}
+
 		public ReadOnlyLuminTargetRules LuminPlatform
 		{
 			get;
@@ -2212,6 +2220,12 @@ namespace UnrealBuildTool
 		}
 
 		public ReadOnlyLinuxTargetRules LinuxPlatform
+		{
+			get;
+			private set;
+		}
+
+		public ReadOnlyHTML5TargetRules HTML5Platform
 		{
 			get;
 			private set;

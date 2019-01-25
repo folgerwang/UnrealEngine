@@ -114,6 +114,31 @@ public:
 	}
 
 	/**
+	 * Converts this endpoint to an FInternetAddr object.
+	 *
+	 * Note: this method will be removed after the socket subsystem is refactored.
+	 *
+	 * @return Internet address object representing this endpoint.
+	 */
+	TSharedRef<FInternetAddr> ToInternetAddrIPV4() const
+	{
+		check(CachedSocketSubsystem != nullptr && "Networking module not loaded and initialized");
+
+		TSharedRef<FInternetAddr> InternetAddr = CachedSocketSubsystem->CreateInternetAddr();
+		{
+			TArray<uint8> RawAddress;
+			RawAddress.Add(Address.A);
+			RawAddress.Add(Address.B);
+			RawAddress.Add(Address.C);
+			RawAddress.Add(Address.D);
+			InternetAddr->SetRawIp(RawAddress);
+			InternetAddr->SetPort(Port);
+		}
+
+		return InternetAddr;
+	}
+
+	/**
 	 * Gets a string representation for this endpoint.
 	 *
 	 * @return String representation.

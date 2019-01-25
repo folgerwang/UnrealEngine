@@ -260,7 +260,7 @@ FString FMacPlatformProcess::GetGameBundleId()
 
 @end // NSAutoReadPipe
 
-bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
+bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -303,6 +303,13 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 	if (ProcessHandle)
 	{
 		[ProcessHandle setLaunchPath: LaunchPath];
+
+		if (OptionalWorkingDirectory != NULL)
+		{
+			NSString* WorkingDirectory = (NSString*)FPlatformString::TCHARToCFString(OptionalWorkingDirectory);
+			[ProcessHandle setCurrentDirectoryPath : WorkingDirectory];
+			CFRelease((CFStringRef)WorkingDirectory);
+		}
 		
 		TArray<FString> ArgsArray;
 		FString(Params).ParseIntoArray(ArgsArray, TEXT(" "), true);

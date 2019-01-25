@@ -100,7 +100,12 @@ private:
 
 	/** Callback for when the application is moved from the active to inactive state */
 	void HandleApplicationDeactivate();
-	
+
+	/** Callback for when the audio device is changed 
+	* @param InDeviceAvailable - true if the device is available
+	*/
+	void HandleAudioRouteChanged(bool InDeviceAvailable);
+
 	/** Clears the Time Sync flag*/
 	void ClearTimeSync();
 	
@@ -172,5 +177,8 @@ private:
     /** Foreground/background delegate for pause */
     FDelegateHandle EnteredBackgroundHandle;
     FDelegateHandle WillDeactivateHandle;
+
+	/** Delegate for changing the audio device  */
+	FDelegateHandle AudioRouteChangedHandle;
 
 };

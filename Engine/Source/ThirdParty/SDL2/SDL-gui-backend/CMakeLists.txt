@@ -71,7 +71,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(ARCH_64 TRUE)
   # EG BEGIN
   if (CMAKE_SYSTEM_PROCESSOR MATCHES "(amd64)|(AMD64)")
-  set(PROCESSOR_ARCH "x64")
+    set(PROCESSOR_ARCH "x64")
   else()
     set(PROCESSOR_ARCH ${CMAKE_SYSTEM_PROCESSOR})
   endif()
@@ -80,7 +80,7 @@ else()
   set(ARCH_64 FALSE)
   # EG BEGIN
   if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)")
-  set(PROCESSOR_ARCH "x86")
+    set(PROCESSOR_ARCH "x86")
   else()
     set(PROCESSOR_ARCH ${CMAKE_SYSTEM_PROCESSOR})
   endif()
@@ -90,6 +90,9 @@ set(LIBNAME SDL2)
 if(NOT LIBTYPE)
   set(LIBTYPE SHARED)
 endif()
+message(STATUS "*** UE_LOG CMAKE_SIZEOF_VOID_P: ${CMAKE_SIZEOF_VOID_P}")
+message(STATUS "*** UE_LOG PROCESSOR_ARCH: ${PROCESSOR_ARCH}")
+message(STATUS "*** UE_LOG LIBTYPE: ${LIBTYPE}")
 
 # Get the platform
 if(WIN32)
@@ -134,6 +137,10 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "BeOS.*")
 elseif(CMAKE_SYSTEM_NAME MATCHES "Haiku.*")
   set(HAIKU TRUE)
 endif()
+message(STATUS "*** UE_LOG WINDOWS: ${WINDOWS}")
+message(STATUS "*** UE_LOG LINUX: ${LINUX}")
+message(STATUS "*** UE_LOG UNIX: ${UNIX}")
+message(STATUS "*** UE_LOG CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # Don't mistake osx for unix
 if(UNIX AND NOT APPLE)
@@ -148,16 +155,20 @@ else()
   set(UNIX_OR_MAC_SYS OFF)
 endif()
 
-if (UNIX_OR_MAC_SYS AND NOT EMSCRIPTEN) # JavaScript does not yet have threading support, so disable pthreads when building for Emscripten.
+if (UNIX_OR_MAC_SYS)
   set(SDL_PTHREADS_ENABLED_BY_DEFAULT ON)
 else()
   set(SDL_PTHREADS_ENABLED_BY_DEFAULT OFF)
 endif()
+message(STATUS "*** UE_LOG UNIX_SYS: ${UNIX_SYS}")
+message(STATUS "*** UE_LOG UNIX_OR_MAC_SYS: ${UNIX_OR_MAC_SYS}")
+message(STATUS "*** UE_LOG PROCESSOR_ARCH: ${PROCESSOR_ARCH}")
 
 # Default option knobs
 # EG BEGIN
 # !!! FIXME: this test is wrong (both in Epic's SDL fork and the original SDL).  --ryan.
-if((APPLE OR ARCH_64) AND (PROCESSOR_ARCH MATCHES "(x86)|(x64)"))
+#if((APPLE OR ARCH_64) AND (PROCESSOR_ARCH MATCHES "(x86)|(x64)"))
+if(((APPLE OR ARCH_64) AND (PROCESSOR_ARCH MATCHES "(x86)|(x64)")) OR EMSCRIPTEN)
 # EG END
   if(NOT "${CMAKE_OSX_ARCHITECTURES}" MATCHES "arm")
     set(OPT_DEF_SSEMATH ON)
@@ -166,6 +177,8 @@ endif()
 if(UNIX OR MINGW OR MSYS)
   set(OPT_DEF_LIBC ON)
 endif()
+message(STATUS "*** UE_LOG OPT_DEF_LIBC: ${OPT_DEF_LIBC}")
+message(STATUS "*** UE_LOG OPT_DEF_SSEMATH: ${OPT_DEF_SSEMATH}")
 
 # Compiler info
 if(CMAKE_COMPILER_IS_GNUCC)
@@ -270,7 +283,7 @@ if(EMSCRIPTEN)
   set(OPT_DEF_ASM FALSE)
   set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
   set(SDL_ATOMIC_ENABLED_BY_DEFAULT OFF)
-  set(SDL_THREADS_ENABLED_BY_DEFAULT OFF)
+# set(SDL_THREADS_ENABLED_BY_DEFAULT OFF)
   set(SDL_LOADSO_ENABLED_BY_DEFAULT OFF)
   set(SDL_CPUINFO_ENABLED_BY_DEFAULT OFF)
   set(SDL_DLOPEN_ENABLED_BY_DEFAULT OFF)
@@ -368,14 +381,18 @@ set_option(RENDER_D3D          "Enable the Direct3D render driver" ${WINDOWS})
 set_option(VIDEO_VIVANTE       "Use Vivante EGL video driver" ${UNIX_SYS})
 # EG BEGIN
 # (Note that SDL is about to land Vulkan support, which might be different than what Epic has here. Clean it up when it lands.  --ryan.
-set_option(VIDEO_VULKAN        "Add Vulkan support" ON)
+if(NOT EMSCRIPTEN)
+  set_option(VIDEO_VULKAN        "Add Vulkan support" ON)
+endif()
 #dep_option(VIDEO_VULKAN        "Enable Vulkan support" ON "ANDROID OR APPLE OR LINUX OR WINDOWS" OFF)
 # EG END
 set_option(VIDEO_KMSDRM        "Use KMS DRM video driver" ${UNIX_SYS})
 dep_option(KMSDRM_SHARED       "Dynamically load KMS DRM support" ON "VIDEO_KMSDRM" OFF)
 
 # EG BEGIN
-set_option(EPIC_EXTENSIONS     "Enable Epic extensions for Unreal Engine" ON)
+if(NOT EMSCRIPTEN)
+  set_option(EPIC_EXTENSIONS     "Enable Epic extensions for Unreal Engine" ON)
+endif()
 set_option(VIDEO_OFFSCREEN     "Use offscreen video driver" ${EPIC_EXTENSIONS})
 # EG END
 
@@ -994,6 +1011,9 @@ if(EMSCRIPTEN)
       set(SDL_VIDEO_OPENGL_ES2 1)
       set(SDL_VIDEO_RENDER_OGL_ES2 1)
     endif()
+# EG BEGIN
+    set(SDL_VIDEO_VULKAN 0)
+# EG END
   endif()
 elseif(UNIX AND NOT APPLE AND NOT ANDROID)
   if(SDL_AUDIO)

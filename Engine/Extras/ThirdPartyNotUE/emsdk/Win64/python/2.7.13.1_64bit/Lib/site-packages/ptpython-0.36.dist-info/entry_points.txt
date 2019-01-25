@@ -1,0 +1,8 @@
+[console_scripts]
+ptipython = ptpython.entry_points.run_ptipython:run
+ptipython2 = ptpython.entry_points.run_ptipython:run
+ptipython2.7 = ptpython.entry_points.run_ptipython:run
+ptpython = ptpython.entry_points.run_ptpython:run
+ptpython2 = ptpython.entry_points.run_ptpython:run
+ptpython2.7 = ptpython.entry_points.run_ptpython:run
+

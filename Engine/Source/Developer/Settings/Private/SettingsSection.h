@@ -100,10 +100,17 @@ public:
 		return StatusDelegate;
 	}
 
+	virtual FOnSelect& OnSelect() override
+	{
+		return SelectDelegate;
+	}
+
 	virtual bool ResetDefaults() override;
 	virtual bool NotifySectionOnPropertyModified() override;
 	virtual bool Save() override;
 	virtual bool SaveDefaults() override;
+
+	virtual void Select() override;
 
 private:
 
@@ -150,4 +157,7 @@ private:
 
 	/** Holds a delegate that is executed to retrieve a status message for a settings section. */
 	FOnStatus StatusDelegate;
+
+	/** Holds a delegate that is executed when a settings section has been selected. */
+	FOnSelect SelectDelegate;
 };

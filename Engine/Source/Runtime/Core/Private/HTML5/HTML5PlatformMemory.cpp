@@ -27,7 +27,7 @@ const FPlatformMemoryConstants& FHTML5PlatformMemory::GetConstants()
 	if( MemoryConstants.TotalPhysical == 0 )
 	{
 		// Gather platform memory stats.
-		uint64 GTotalMemoryAvailable =  EM_ASM_INT_V({ return Module.TOTAL_MEMORY; });
+		uint64 GTotalMemoryAvailable =  EM_ASM_INT( return Module.TOTAL_MEMORY; );
 
 		MemoryConstants.TotalPhysical = GTotalMemoryAvailable;
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;

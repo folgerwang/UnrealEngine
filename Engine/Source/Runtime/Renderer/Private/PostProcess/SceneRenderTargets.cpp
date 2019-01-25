@@ -476,6 +476,10 @@ uint16 FSceneRenderTargets::GetNumSceneColorMSAASamples(ERHIFeatureLevel::Type I
 	else
 	{
 		NumSamples = CVarMobileMSAA.GetValueOnRenderThread();
+
+		static uint16 PlatformMaxSampleCount = GDynamicRHI->RHIGetPlatformTextureMaxSampleCount();
+		NumSamples = FMath::Min(NumSamples, PlatformMaxSampleCount);
+		
 		if (NumSamples != 1 && NumSamples != 2 && NumSamples != 4 && NumSamples != 8)
 		{
 			UE_LOG(LogRenderer, Warning, TEXT("Requested %d samples for MSAA, but this is not supported; falling back to 1 sample"), NumSamples);

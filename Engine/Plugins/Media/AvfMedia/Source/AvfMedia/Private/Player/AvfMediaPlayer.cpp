@@ -500,6 +500,12 @@ void FAvfMediaPlayer::Close()
         WillDeactivateHandle.Reset();
     }
 
+	if (AudioRouteChangedHandle.IsValid())
+	{
+		FCoreDelegates::AudioRouteChangedDelegate.Remove(AudioRouteChangedHandle);
+		AudioRouteChangedHandle.Reset();
+	}
+
 	CurrentTime = FTimespan::Zero();
 	MediaUrl = FString();
 	
@@ -761,6 +767,11 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
         WillDeactivateHandle = FCoreDelegates::ApplicationWillDeactivateDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationDeactivate);
     }
 
+	if (!AudioRouteChangedHandle.IsValid())
+	{
+		AudioRouteChangedHandle = FCoreDelegates::AudioRouteChangedDelegate.AddRaw(this, &FAvfMediaPlayer::HandleAudioRouteChanged);
+	}
+	
 	return true;
 }
 
@@ -1070,5 +1081,20 @@ void FAvfMediaPlayer::HandleApplicationDeactivate()
 	if ((CurrentState == EMediaState::Playing) && MediaPlayer != nil)
 	{
 		[MediaPlayer pause];
+	}
+}
+
+void FAvfMediaPlayer::HandleAudioRouteChanged(bool InDeviceAvailable)
+{
+	if ((CurrentState == EMediaState::Playing) && MediaPlayer != nil)
+	{
+		if (!InDeviceAvailable)
+		{
+			// restart the media - route it to the active audio device
+			// i.e. when unplugging the headphones
+			[MediaPlayer pause];
+
+			[MediaPlayer play];
+		}
 	}
 }
