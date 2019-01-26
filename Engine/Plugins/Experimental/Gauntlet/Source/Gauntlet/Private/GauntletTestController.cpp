@@ -2,7 +2,7 @@
 
 #include "GauntletTestController.h"
 #include "Engine/Engine.h"
-#include "Engine/GameViewPortClient.h"
+#include "Engine/GameViewportClient.h"
 
 
 UGauntletTestController::UGauntletTestController(const FObjectInitializer& ObjectInitializer)
