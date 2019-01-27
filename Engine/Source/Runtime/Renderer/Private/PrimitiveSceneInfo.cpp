@@ -167,8 +167,7 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 FPrimitiveSceneInfo::~FPrimitiveSceneInfo()
 {
 	check(!OctreeId.IsValidId());
-
-	RemoveCachedMeshDrawCommands();
+	check(StaticMeshCommandInfos.Num() == 0);
 }
 
 #if RHI_RAYTRACING
