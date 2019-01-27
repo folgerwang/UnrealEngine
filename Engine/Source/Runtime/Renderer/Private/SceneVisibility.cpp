@@ -3612,17 +3612,10 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 		bCheckLightShafts = ViewFamily.EngineShowFlags.LightShafts && GLightShafts;
 	}
 
-	if (ViewFamily.EngineShowFlags.HitProxies == 0 && Scene->PrecomputedLightVolumes.Num() > 0)
+	if (ViewFamily.EngineShowFlags.HitProxies == 0 && Scene->PrecomputedLightVolumes.Num() > 0
+		&& GILCUpdatePrimTaskEnabled && FPlatformProcess::SupportsMultithreading())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostVisibilityFrameSetup_IndirectLightingCache_Update);
-		if (GILCUpdatePrimTaskEnabled && FPlatformProcess::SupportsMultithreading())
-		{
-			Scene->IndirectLightingCache.StartUpdateCachePrimitivesTask(Scene, *this, true, OutILCTaskData);
-		}
-		else
-		{
-			Scene->IndirectLightingCache.UpdateCache(Scene, *this, true);
-		}		
+		Scene->IndirectLightingCache.StartUpdateCachePrimitivesTask(Scene, *this, true, OutILCTaskData);
 	}
 
 	{
@@ -3966,7 +3959,17 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 	}
 
-	// if we kicked off ILC update via task, wait and finalize.
+	// If parallel ILC update is disabled, then process it in place.
+	if (ViewFamily.EngineShowFlags.HitProxies == 0
+		&& Scene->PrecomputedLightVolumes.Num() > 0
+		&& !(GILCUpdatePrimTaskEnabled && FPlatformProcess::SupportsMultithreading()))
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostVisibilityFrameSetup_IndirectLightingCache_Update);
+		check(!ILCTaskData.TaskRef.IsValid());
+		Scene->IndirectLightingCache.UpdateCache(Scene, *this, true);
+	}
+
+	// If we kicked off ILC update via task, wait and finalize.
 	if (ILCTaskData.TaskRef.IsValid())
 	{
 		Scene->IndirectLightingCache.FinalizeCacheUpdates(Scene, *this, ILCTaskData);
