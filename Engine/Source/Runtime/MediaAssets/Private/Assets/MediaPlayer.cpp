@@ -225,6 +225,15 @@ FTimespan UMediaPlayer::GetTime() const
 	return PlayerFacade->GetTime();
 }
 
+FTimespan UMediaPlayer::GetLastAudioSampleProcessedTime() const
+{
+	return PlayerFacade->GetLastAudioSampleProcessedTime();
+}
+
+FTimespan UMediaPlayer::GetLastVideoSampleProcessedTime() const
+{
+	return PlayerFacade->GetLastVideoSampleProcessedTime();
+}
 
 FText UMediaPlayer::GetTrackDisplayName(EMediaPlayerTrack TrackType, int32 TrackIndex) const
 {
