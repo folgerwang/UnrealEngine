@@ -315,7 +315,11 @@ public:
 	/** @return true if controlled by a human player (possessed by a PlayerController).	 */
 	UFUNCTION(BlueprintPure, Category=Pawn)
 	virtual bool IsPlayerControlled() const;
-	
+
+	/** @return true if controlled by a bot.	 */
+	UFUNCTION(BlueprintPure, Category = Pawn)
+	virtual bool IsBotControlled() const;
+
 	/**
 	 * Get the view rotation of the Pawn (direction they are looking, normally Controller->ControlRotation).
 	 * @return The view rotation of the Pawn.
