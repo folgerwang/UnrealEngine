@@ -1082,14 +1082,14 @@ float3x3 VertexFactoryGetTangentToLocal(FVertexFactoryInput Input, FVertexFactor
 
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
-	return 0;
-}
-
-uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
 #if USE_PARTICLE_POSITION
 	return Interpolants.ParticleTranslatedWorldPositionAndSize;
 #else
 	return 0;
 #endif
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
 }
