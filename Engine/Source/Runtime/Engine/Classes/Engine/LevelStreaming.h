@@ -359,6 +359,7 @@ public:
 	FBox GetStreamingVolumeBounds();
 
 	/** Gets a pointer to the LoadedLevel value */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	ULevel* GetLoadedLevel() const { return LoadedLevel; }
 	
 	/** Sets the LoadedLevel value to NULL */
