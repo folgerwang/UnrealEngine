@@ -177,12 +177,12 @@ bool FSubsystemCollectionBase::AddAndInitializeSubsystem(UClass* SubsystemClass)
 {
 	if (!SubsystemMap.Contains(SubsystemClass))
 	{
-		// Catch any attempt to add a subsystem of the wrong type
-		checkf(SubsystemClass->IsChildOf(BaseType), TEXT("ClassType (%s) must be a subclass of BaseType(%s)."), *SubsystemClass->GetName(), *BaseType->GetName());
-
 		// Only add instances for non abstract Subsystems
 		if (SubsystemClass && !SubsystemClass->HasAllClassFlags(CLASS_Abstract))
 		{
+			// Catch any attempt to add a subsystem of the wrong type
+			checkf(SubsystemClass->IsChildOf(BaseType), TEXT("ClassType (%s) must be a subclass of BaseType(%s)."), *SubsystemClass->GetName(), *BaseType->GetName());
+
 			const USubsystem* CDO = SubsystemClass->GetDefaultObject<USubsystem>();
 			if (CDO->ShouldCreateSubsystem(Outer))
 			{
