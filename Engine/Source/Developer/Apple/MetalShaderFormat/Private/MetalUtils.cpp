@@ -1251,6 +1251,12 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 			{
 				if (bIsBuffer)
 				{
+                    bool bReallyIsStructuredBuffer = Var->type->sampler_buffer && Var->type->inner_type && Var->type->inner_type->is_record() && (!strncmp(Var->type->name, "RWStructuredBuffer<", 19) || !strncmp(Var->type->name, "StructuredBuffer<", 17));
+                    if (bReallyIsStructuredBuffer)
+					{
+						((glsl_type*)Var->type->inner_type)->HlslName = "__PACKED__";
+					}
+					
 					OutBuffers.AddBuffer(Var);
 				}
 				else
@@ -3295,6 +3301,20 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 	virtual ~FDeReferencePackedVarsVisitor()
 	{
 	}
+	
+	virtual ir_visitor_status visit_leave(ir_assignment * ir) override
+	{
+		auto* DerefRecord = ir->lhs->as_dereference_record();
+		if (DerefRecord)
+		{
+            auto* StructVar = ir->lhs->variable_referenced();
+            if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+            {
+                handle_rvalue((ir_rvalue**)&ir->lhs);
+            }
+		}
+		return ir_rvalue_visitor::visit_leave(ir);
+	}
 
 	virtual ir_visitor_status visit_enter(ir_expression* ir) override
 	{
@@ -3315,6 +3335,16 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 		}
 
 		--ExpressionDepth;
+		return ir_rvalue_visitor::visit_leave(ir);
+	}
+	
+	virtual ir_visitor_status visit_leave(ir_dereference_record * ir) override
+	{
+        auto* StructVar = ir->variable_referenced();
+        if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+        {
+            handle_rvalue((ir_rvalue**)&ir);
+        }
 		return ir_rvalue_visitor::visit_leave(ir);
 	}
 
@@ -3340,17 +3370,25 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 				}
 			}
 		}
-		else if (DeRefRecord && ExpressionDepth > 0)
+		else if (DeRefRecord)
 		{
 			auto* StructVar = DeRefRecord->variable_referenced();
-			if (StructVar->type->HlslName && !strcmp(StructVar->type->HlslName, "__PACKED__"))
+			if (ExpressionDepth > 0 && StructVar->type->HlslName && !strcmp(StructVar->type->HlslName, "__PACKED__"))
 			{
 				if (DeRefRecord->type->vector_elements > 1 && DeRefRecord->type->vector_elements < 4)
 				{
 					auto* Var = GetVar(DeRefRecord);
 					*RValuePtr = new(State)ir_dereference_variable(Var);
 				}
-			}
+            }
+            else if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+            {
+                if (DeRefRecord->type->vector_elements > 1 && DeRefRecord->type->vector_elements < 4)
+                {
+                    auto* Var = GetVar(DeRefRecord);
+                    *RValuePtr = new(State)ir_dereference_variable(Var);
+                }
+            }
 		}
 	}
 

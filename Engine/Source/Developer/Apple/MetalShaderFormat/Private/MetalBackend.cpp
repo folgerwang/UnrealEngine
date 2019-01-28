@@ -1032,6 +1032,14 @@ protected:
 					bool bIsAtomic = Buffers.AtomicVariables.find(var) != Buffers.AtomicVariables.end();
                     if (bIsStructuredBuffer || bIsByteAddressBuffer || bIsInvariantType || bIsAtomic)
 					{
+						if (var->type->inner_type->is_record())
+						{
+							if (hash_table_find(used_structures, var->type->inner_type) == NULL)
+							{
+								hash_table_insert(used_structures, (void*)var->type->inner_type, var->type->inner_type);
+							}
+						}
+						
 						check(BufferIndex <= 30);
                         
                         if (Buffers.AtomicVariables.find(var) == Buffers.AtomicVariables.end())
@@ -1140,6 +1148,14 @@ protected:
 							bool bIsAtomic = Buffers.AtomicVariables.find(var) != Buffers.AtomicVariables.end();
 							if (bIsStructuredBuffer || bIsByteAddressBuffer || bIsInvariantType || bIsAtomic)
 							{
+								if (var->type->inner_type->is_record())
+								{
+									if (hash_table_find(used_structures, var->type->inner_type) == NULL)
+									{
+										hash_table_insert(used_structures, (void*)var->type->inner_type, var->type->inner_type);
+									}
+								}
+								
 								check(BufferIndex >= 0 && BufferIndex <= 30);
 								ralloc_asprintf_append(
 													   buffer,
@@ -3044,18 +3060,27 @@ protected:
 		{
 			char mask[6];
 			unsigned j = 1;
+			
 			if (assign->lhs->type->is_scalar() == false ||
 				assign->write_mask != 0x1)
 			{
-				for (unsigned i = 0; i < 4; i++)
+				auto* DerefRecord = assign->lhs->as_dereference_record();
+				bool bPackableRecord = (assign->lhs->as_dereference_record() && DerefRecord->record->type->HlslName && !strcmp(DerefRecord->record->type->HlslName, "__PACKED__"));
+				bool bPackableVector = assign->lhs->type->is_vector() && assign->lhs->type->vector_elements < 4;
+				if (!bPackableRecord || !bPackableVector)
+				
 				{
-					if ((assign->write_mask & (1 << i)) != 0)
+					for (unsigned i = 0; i < 4; i++)
 					{
-						mask[j] = "xyzw"[i];
-						j++;
+						if ((assign->write_mask & (1 << i)) != 0)
+						{
+							mask[j] = "xyzw"[i];
+							j++;
+						}
 					}
 				}
 			}
+			
 			mask[j] = '\0';
 
 			mask[0] = (j == 1) ? '\0' : '.';
