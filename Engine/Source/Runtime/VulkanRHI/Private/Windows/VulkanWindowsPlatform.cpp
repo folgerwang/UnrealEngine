@@ -3,6 +3,7 @@
 #include "VulkanWindowsPlatform.h"
 #include "../VulkanRHIPrivate.h"
 #include "../VulkanDevice.h"
+#include "amd_ags.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 static HMODULE GVulkanDLLModule = nullptr;
@@ -178,6 +179,50 @@ void FVulkanWindowsPlatform::WriteCrashMarker(const FOptionalVulkanDeviceExtensi
 			int32 LastIndex = Entries.Num() - 1;
 			uint32 Value = Entries[LastIndex];
 			VulkanDynamicAPI::vkCmdSetCheckpointNV(CmdBuffer, (void*)(size_t)Value);
+		}
+	}
+}
+
+void FVulkanWindowsPlatform::CheckDeviceDriver(uint32 DeviceIndex)
+{
+	const bool bAllowVendorDevice = !FParse::Param(FCommandLine::Get(), TEXT("novendordevice"));
+	if (IsRHIDeviceAMD() && bAllowVendorDevice)
+	{
+		AGSGPUInfo AmdGpuInfo;
+		AGSContext* AmdAgsContext = nullptr;
+		if (agsInit(&AmdAgsContext, nullptr, &AmdGpuInfo) == AGS_SUCCESS)
+		{
+			if (DeviceIndex < (uint32)AmdGpuInfo.numDevices)
+			{
+				auto& DeviceInfo = AmdGpuInfo.devices[DeviceIndex];
+				bool bIsPreGCN = DeviceInfo.architectureVersion == AGSDeviceInfo::ArchitectureVersion_GCN;
+				if (DeviceInfo.architectureVersion == AGSDeviceInfo::ArchitectureVersion_PreGCN || bIsPreGCN)
+				{
+					int32 MajorVersion = FCStringAnsi::Atoi(AmdGpuInfo.radeonSoftwareVersion);
+					if (MajorVersion > 0)
+					{
+						if (MajorVersion < 18)
+						{
+							// Blacklist drivers older than 18.xx.xx drivers
+							FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("There are known issues with Vulkan with drivers older than the 18.xx.xx.xx\nfamily of Radeon drivers; the recommended version is 18.12.1.1: please try\nupdating the driver to that version."), TEXT("Vulkan driver version"));
+							FPlatformMisc::RequestExitWithStatus(true, 1);
+						}
+						else if (MajorVersion == 19)
+						{
+							if (WITH_EDITOR)
+							{
+								// Blacklist 19.xx.xx drivers as it introduced an issue with Slate windows/Vulkan viewports on the editor
+								FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("There are known issues with Vulkan on the editor with the 19.xx.xx.xx\nfamily of Radeon drivers; the recommended version is 18.12.1.1: please\n try updating the driver to that version."), TEXT("Vulkan driver version"));
+									FPlatformMisc::RequestExitWithStatus(true, 1);
+							}
+						}
+					}
+
+					GRHIDeviceIsAMDPreGCNArchitecture = GRHIDeviceIsAMDPreGCNArchitecture || bIsPreGCN;
+				}
+			}
+
+			agsDeInit(AmdAgsContext);
 		}
 	}
 }
