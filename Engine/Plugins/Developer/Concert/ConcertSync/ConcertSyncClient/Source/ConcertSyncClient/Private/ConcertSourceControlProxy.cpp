@@ -10,7 +10,7 @@
 
 #include "ConcertClientWorkspace.h"
 
-const FName FConcertSourceControlProxy::ConcertProviderName("Concert");
+const FName FConcertSourceControlProxy::ConcertProviderName("Multi-User");
 
 #define LOCTEXT_NAMESPACE "ConcertSourceControl"
 
