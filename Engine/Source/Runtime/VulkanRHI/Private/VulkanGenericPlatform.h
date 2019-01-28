@@ -12,7 +12,7 @@ class FVulkanGenericPlatform
 {
 public:
 	static bool IsSupported() { return true; }
-	static void CheckDeviceDriver() {}
+	static void CheckDeviceDriver(uint32 DeviceIndex) {}
 
 	static bool LoadVulkanLibrary() { return true; }
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance) { return true; }
