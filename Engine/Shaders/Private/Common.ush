@@ -76,8 +76,8 @@ const static MaterialFloat PI = 3.1415926535897932f;
 #define USE_RAYTRACED_TEXTURE_RAYCONE_LOD (RAYHITGROUPSHADER)
 #endif
 
-// Workaround
 #if COMPILER_HLSLCC
+	// Workaround until UE-69158 gets fixed
 	#define ComputeRayConeLod(Tex)	0
 #else
 static float GlobalRayCone_TexArea;
