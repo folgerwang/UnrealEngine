@@ -773,10 +773,24 @@ FComputeFenceRHIRef FMetalDynamicRHI::RHICreateComputeFence(const FName& Name)
 	}
 }
 
+FMetalComputeFence::FMetalComputeFence(FName InName)
+: FRHIComputeFence(InName)
+, Fence(nullptr)
+{}
+
+FMetalComputeFence::~FMetalComputeFence()
+{
+	if (Fence)
+		Fence->Release();
+}
+
 void FMetalComputeFence::Write(FMetalFence* InFence)
 {
 	check(!Fence);
 	Fence = InFence;
+	if (Fence)
+		Fence->AddRef();
+	
 	FRHIComputeFence::WriteFence();
 }
 
@@ -787,12 +801,19 @@ void FMetalComputeFence::Wait(FMetalContext& Context)
 		Context.SubmitCommandsHint(EMetalSubmitFlagsNone);
 	}
 	Context.GetCurrentRenderPass().Begin(Fence);
+	
+	if (Fence)
+		Fence->Release();
+	
 	Fence = nullptr;
 }
 
 void FMetalComputeFence::Reset()
 {
 	FRHIComputeFence::Reset();
+	if (Fence)
+		Fence->Release();
+
 	Fence = nullptr;
 }
 

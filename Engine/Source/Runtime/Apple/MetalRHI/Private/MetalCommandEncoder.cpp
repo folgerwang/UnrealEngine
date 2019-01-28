@@ -301,7 +301,7 @@ mtlpp::BlitCommandEncoder& FMetalCommandEncoder::GetBlitCommandEncoder(void)
 	return BlitCommandEncoder;
 }
 
-FMetalFence* FMetalCommandEncoder::GetEncoderFence(void) const
+TRefCountPtr<FMetalFence> const& FMetalCommandEncoder::GetEncoderFence(void) const
 {
 	return EncoderFence;
 }
@@ -493,10 +493,10 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 	EncoderFence = CommandList.GetCommandQueue().CreateFence(Label);
 }
 
-FMetalFence* FMetalCommandEncoder::EndEncoding(void)
+TRefCountPtr<FMetalFence> FMetalCommandEncoder::EndEncoding(void)
 {
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
-	FMetalFence* Fence = nullptr;
+	TRefCountPtr<FMetalFence> Fence = nullptr;
 	@autoreleasepool
 	{
 		if(IsRenderCommandEncoderActive())
@@ -573,7 +573,6 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 				RenderCommandEncoder.EndEncoding();
 				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.EndEncoder());
 				RenderCommandEncoder = nil;
-				SafeReleaseMetalFence(EncoderFence);
 				EncoderFence = nullptr;
 			}
 			
@@ -694,7 +693,6 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 			ComputeCommandEncoder.EndEncoding();
 			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.EndEncoder());
 			ComputeCommandEncoder = nil;
-			SafeReleaseMetalFence(EncoderFence);
 			EncoderFence = nullptr;
 		}
 		else if(IsBlitCommandEncoderActive())
@@ -737,7 +735,6 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 			BlitCommandEncoder.EndEncoding();
 			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.EndEncoder());
 			BlitCommandEncoder = nil;
-			SafeReleaseMetalFence(EncoderFence);
 			EncoderFence = nullptr;
 		}
 	}

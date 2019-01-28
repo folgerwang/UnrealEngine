@@ -985,14 +985,9 @@ class FMetalComputeFence : public FRHIComputeFence
 {
 public:
 	
-	FMetalComputeFence(FName InName)
-	: FRHIComputeFence(InName)
-	, Fence(nullptr)
-	{}
+	FMetalComputeFence(FName InName);
 	
-	virtual ~FMetalComputeFence()
-	{
-	}
+	virtual ~FMetalComputeFence();
 	
 	virtual void Reset() final override;
 	

@@ -54,7 +54,7 @@ public:
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    FMetalFence* EndRenderPass(void);
+    TRefCountPtr<FMetalFence> const& EndRenderPass(void);
     
     void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
@@ -80,9 +80,9 @@ public:
 	
 	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    FMetalFence* Submit(EMetalSubmitFlags SubmissionFlags);
+    TRefCountPtr<FMetalFence> const& Submit(EMetalSubmitFlags SubmissionFlags);
     
-    FMetalFence* End(void);
+    TRefCountPtr<FMetalFence> const& End(void);
 	
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
@@ -179,11 +179,11 @@ private:
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
     
-    FMetalFence* PassStartFence;
-    FMetalFence* ParallelPassEndFence;
-	FMetalFence* CurrentEncoderFence;
-    FMetalFence* PrologueEncoderFence;
-	FMetalFence* LastPrologueEncoderFence;
+    TRefCountPtr<FMetalFence> PassStartFence;
+    TRefCountPtr<FMetalFence> ParallelPassEndFence;
+	TRefCountPtr<FMetalFence> CurrentEncoderFence;
+    TRefCountPtr<FMetalFence> PrologueEncoderFence;
+	TRefCountPtr<FMetalFence> LastPrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     

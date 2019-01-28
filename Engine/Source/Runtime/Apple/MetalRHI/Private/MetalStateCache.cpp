@@ -1978,7 +1978,7 @@ void FMetalStateCache::FlushVisibilityResults(FMetalCommandEncoder& CommandEncod
 #if PLATFORM_MAC
 	if(VisibilityResults && VisibilityResults->Buffer && VisibilityResults->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed && VisibilityWritten && CommandEncoder.IsRenderCommandEncoderActive())
 	{
-		FMetalFence* Fence = CommandEncoder.EndEncoding();
+		TRefCountPtr<FMetalFence> Fence = CommandEncoder.EndEncoding();
 		
         CommandEncoder.BeginBlitCommandEncoding();
 		CommandEncoder.WaitForFence(Fence);

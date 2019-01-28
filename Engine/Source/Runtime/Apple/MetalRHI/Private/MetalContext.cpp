@@ -795,10 +795,10 @@ void FMetalDeviceContext::ReleaseBuffer(FMetalBuffer& Buffer)
 
 struct FMetalRHICommandUpdateFence final : public FRHICommand<FMetalRHICommandUpdateFence>
 {
-	FMetalFence* Fence;
+	TRefCountPtr<FMetalFence> Fence;
 	uint32 Num;
 	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence* InFence, uint32 InNum)
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(TRefCountPtr<FMetalFence>& InFence, uint32 InNum)
 	: Fence(InFence)
 	, Num(InNum)
 	{
@@ -839,8 +839,8 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 	EndLabel = [NSString stringWithFormat:@"End Parallel Context Index %d Num %d", NewIndex, NewNum];
 #endif
 	
-	FMetalFence* StartFence(NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1]);
-	FMetalFence* EndFence(CommandList.GetCommandQueue().CreateFence(EndLabel));
+	TRefCountPtr<FMetalFence> StartFence = (NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1].GetReference());
+	TRefCountPtr<FMetalFence> EndFence = CommandList.GetCommandQueue().CreateFence(EndLabel);
 	ParallelFences[NewIndex] = EndFence;
 	
 	// Give the context the fences so that we can properly order the parallel contexts.
@@ -1031,12 +1031,12 @@ void FMetalContext::SetParallelPassFences(FMetalFence* Start, FMetalFence* End)
 	EndFence = End;
 }
 
-FMetalFence* FMetalContext::GetParallelPassStartFence(void) const
+TRefCountPtr<FMetalFence> const& FMetalContext::GetParallelPassStartFence(void) const
 {
 	return StartFence;
 }
 
-FMetalFence* FMetalContext::GetParallelPassEndFence(void) const
+TRefCountPtr<FMetalFence> const& FMetalContext::GetParallelPassEndFence(void) const
 {
 	return EndFence;
 }
@@ -1067,7 +1067,6 @@ void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32
 	RenderPass.Begin(StartFence);
 	
 	// Unset the start fence, the render-pass owns it and we can consider it encoded now!
-	SafeReleaseMetalFence(StartFence);
 	StartFence = nullptr;
 	
 	// make sure first SetRenderTarget goes through
@@ -1080,7 +1079,6 @@ void FMetalContext::FinishFrame()
 	RenderPass.Update(EndFence);
 	
 	// Unset the end fence, the render-pass owns it and we can consider it encoded now!
-	SafeReleaseMetalFence(EndFence);
 	EndFence = nullptr;
 	
 	// End the render pass
@@ -1646,7 +1644,6 @@ void FMetalDeviceContext::SetParallelRenderPassDescriptor(FRHISetRenderTargetsIn
 	if (!RenderPass.IsWithinParallelPass())
 	{
 		RenderPass.Begin(EndFence);
-		SafeReleaseMetalFence(EndFence);
 		EndFence = nullptr;
 		StateCache.InvalidateRenderTargets();
 		SetRenderTargetsInfo(TargetInfo, false);
@@ -1670,7 +1667,6 @@ void FMetalDeviceContext::EndParallelRenderCommandEncoding(void)
 	{
 		RenderPass.EndRenderPass();
 		RenderPass.Begin(StartFence, true);
-		SafeReleaseMetalFence(StartFence);
 		StartFence = nullptr;
 		FPlatformAtomics::AtomicStore(&NumParallelContextsInPass, 0);
 	}
@@ -1723,7 +1719,7 @@ public:
 			
 			if (Index == (Num - 1))
 			{
-				FMetalFence* Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
+				TRefCountPtr<FMetalFence> Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
 				GetMetalDeviceContext().SetParallelPassFences(Fence, nil);
 			}
 

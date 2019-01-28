@@ -128,7 +128,7 @@ void FMetalRenderPass::Update(FMetalFence* Fence)
 		}
 		CurrentEncoder.UpdateFence(Fence);
 		State.FlushVisibilityResults(CurrentEncoder);
-		FMetalFence* NewFence = CurrentEncoder.EndEncoding();
+		TRefCountPtr<FMetalFence> NewFence = CurrentEncoder.EndEncoding();
 		check(!CurrentEncoderFence || !NewFence);
 		if (NewFence)
 		{
@@ -137,7 +137,7 @@ void FMetalRenderPass::Update(FMetalFence* Fence)
 	}
 }
 
-FMetalFence* FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
+TRefCountPtr<FMetalFence> const& FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 {
 	if (CurrentEncoder.GetCommandBuffer() || (Flags & EMetalSubmitFlagsAsyncCommandBuffer))
 	{
@@ -817,7 +817,7 @@ void FMetalRenderPass::DispatchIndirect(FMetalVertexBuffer* ArgumentBuffer, uint
 	}
 }
 
-FMetalFence* FMetalRenderPass::EndRenderPass(void)
+TRefCountPtr<FMetalFence> const& FMetalRenderPass::EndRenderPass(void)
 {
 	if (bWithinRenderPass)
 	{
@@ -1072,7 +1072,7 @@ void FMetalRenderPass::AsyncGenerateMipmapsForTexture(FMetalTexture const& Textu
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, PrologueEncoder.GetBlitCommandEncoderDebugging().GenerateMipmaps(Texture));
 }
 
-FMetalFence* FMetalRenderPass::End(void)
+TRefCountPtr<FMetalFence> const& FMetalRenderPass::End(void)
 {
 	// EndEncoding should provide the encoder fence...
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
