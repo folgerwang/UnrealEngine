@@ -91,12 +91,12 @@ public:
 	
 	uint32 AddRef() const
 	{
-		return uint32(++NumRefs);
+		return uint32(FPlatformAtomics::InterlockedIncrement(&NumRefs));
 	}
 	uint32 Release() const;
 	uint32 GetRefCount() const
 	{
-		return uint32(NumRefs);
+		return uint32(FPlatformAtomics::AtomicRead(&NumRefs));
 	}
 	
 	FMetalFence& operator=(FMetalFence const& Other)

@@ -102,7 +102,7 @@ extern int32 GMetalRuntimeDebugLevel;
 
 uint32 FMetalFence::Release() const
 {
-	uint32 Refs = uint32(--NumRefs);
+	uint32 Refs = uint32(FPlatformAtomics::InterlockedDecrement(&NumRefs));
 	if(Refs == 0)
 	{
 #if METAL_DEBUG_OPTIONS // When using validation we need to use fences only once per-frame in order to make it tractable
