@@ -194,6 +194,16 @@ inline RHI_API bool RHISupportsRayTracingShaders(EShaderPlatform Platform)
 	return Platform == SP_PCD3D_SM5;
 }
 
+/** Can this platform compile shaders that use shader model 6.0 wave intrinsics.
+ *  To use such shaders at runtime, also check GRHISupportsWaveOperations.
+ **/
+inline RHI_API bool RHISupportsWaveOperations(EShaderPlatform Platform)
+{
+	// Currently SM6 shaders are treated as an extension of SM5.
+	return Platform == SP_PCD3D_SM5;
+}
+
+
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
 class TRHIGlobal
@@ -460,6 +470,9 @@ extern RHI_API bool GRHISupportsDynamicResolution;
 
 /** Whether or not the RHI supports ray tracing on current hardware (acceleration structure building and new ray tracing-specific shader types). */
 extern RHI_API bool GRHISupportsRayTracing;
+
+/** Whether or not the RHI supports shader wave operations (shader model 6.0). */
+extern RHI_API bool GRHISupportsWaveOperations;
 
 /** Whether or not the RHI supports an RHI thread.
 Requirements for RHI thread

@@ -139,6 +139,13 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		IID_PPV_ARGS(RootDevice.GetInitReference())
 	));
 
+	// Detect availability of shader model 6.0 wave operations
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS1 Features = {};
+		RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &Features, sizeof(Features));
+		GRHISupportsWaveOperations = Features.WaveOps;
+	}
+
 #if D3D12_RHI_RAYTRACING
 	bool bRayTracingSupported = false;
 

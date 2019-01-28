@@ -174,7 +174,11 @@ enum ECompilerFlags
 	// Shaders uses external texture so may need special runtime handling
 	CFLAG_UsesExternalTexture,
 	// Use emulated uniform buffers on supported platforms
-	CFLAG_UseEmulatedUB
+	CFLAG_UseEmulatedUB,
+	// Enable wave operation intrinsics (requires DX12 and DXC/DXIL on PC).
+	// Check GRHISupportsWaveOperations before using shaders compiled with this flag at runtime.
+	// https://github.com/Microsoft/DirectXShaderCompiler/wiki/Wave-Intrinsics
+	CFLAG_WaveOperations,
 };
 
 enum class EShaderParameterType : uint8
