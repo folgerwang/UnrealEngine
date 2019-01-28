@@ -17,16 +17,17 @@
 struct FBasicRayData
 {
 	float3 Origin;
-	float TFar;
-	float3 Direction;
 	uint Mask;
+	float3 Direction;
+	float TFar;
 };
 
 struct FBasicRayIntersectionData
 {
-	float2 Barycentrics;
-	uint   InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	float  Distance;
 	uint   PrimitiveIndex; // 0xFFFFFFFF if no intersection if found
+	uint   InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	float2 Barycentrics;
 };
 
 struct FOcclusionPayload

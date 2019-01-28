@@ -53,10 +53,10 @@ void TestBasicRayTracing(bool bValidateResults)
 	{
 		TResourceArray<FBasicRayData> RayData;
 		RayData.SetNumUninitialized(NumRays);
-		RayData[0] = FBasicRayData{ { 0.75f, 0.0f, -1.0f}, 100000.0f, {0.0f, 0.0f,  1.0f}, 0xFFFFFFFF }; // expected to hit
-		RayData[1] = FBasicRayData{ { 0.75f, 0.0f, -1.0f},      0.5f, {0.0f, 0.0f,  1.0f}, 0xFFFFFFFF }; // expected to miss (short ray)
-		RayData[2] = FBasicRayData{ { 0.75f, 0.0f,  1.0f}, 100000.0f, {0.0f, 0.0f, -1.0f}, 0xFFFFFFFF }; // expected to miss (back face culled)
-		RayData[3] = FBasicRayData{ {-0.75f, 0.0f, -1.0f}, 100000.0f, {0.0f, 0.0f,  1.0f}, 0xFFFFFFFF }; // expected to miss (doesn't intersect)
+		RayData[0] = FBasicRayData{ { 0.75f, 0.0f, -1.0f}, 0xFFFFFFFF, {0.0f, 0.0f,  1.0f}, 100000.0f }; // expected to hit
+		RayData[1] = FBasicRayData{ { 0.75f, 0.0f, -1.0f}, 0xFFFFFFFF, {0.0f, 0.0f,  1.0f},      0.5f }; // expected to miss (short ray)
+		RayData[2] = FBasicRayData{ { 0.75f, 0.0f,  1.0f}, 0xFFFFFFFF, {0.0f, 0.0f, -1.0f}, 100000.0f }; // expected to miss (back face culled)
+		RayData[3] = FBasicRayData{ {-0.75f, 0.0f, -1.0f}, 0xFFFFFFFF, {0.0f, 0.0f,  1.0f}, 100000.0f }; // expected to miss (doesn't intersect)
 
 		FRHIResourceCreateInfo CreateInfo;
 		CreateInfo.ResourceArray = &RayData;

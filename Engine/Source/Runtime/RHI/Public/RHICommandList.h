@@ -122,18 +122,19 @@ struct FRayTracingShaderBindings
 struct FBasicRayData
 {
 	float Origin[3];
-	float TFar;
-	float Direction[3];
 	uint32 Mask;
+	float Direction[3];
+	float TFar;
 };
 
 // C++ counter-part of FBasicRayIntersectionData declared in RayTracingCommon.ush
 // #dxr_todo: ideally this should be shared with shaders by including a common header
 struct FBasicRayIntersectionData
 {
-	float  Barycentrics[2];
-	uint32 InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	float  Distance;
 	uint32 PrimitiveIndex; // 0xFFFFFFFF if no intersection if found
+	uint32 InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	float  Barycentrics[2];
 };
 #endif // RHI_RAYTRACING
 
