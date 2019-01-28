@@ -324,7 +324,7 @@ public:
 	int32 PipelineId;
 	FGraphicsMinimalPipelineStateInitializer PipelineState;
 	uint32 StencilRef;
-	FShaderBindingState ShaderBindings[SF_NumFrequencies];
+	FShaderBindingState ShaderBindings[SF_NumStandardFrequencies];
 	FVertexInputStream VertexStreams[MaxVertexElementCount];
 
 	FMeshDrawCommandStateCache()

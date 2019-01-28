@@ -231,18 +231,18 @@ private:
 	uint32 SampleCount;
 
 	TSet<TRefCountPtr<FRHIUniformBuffer>> ActiveUniformBuffers;
-	FRHIUniformBuffer* BoundUniformBuffers[SF_NumFrequencies][ML_MaxBuffers];
+	FRHIUniformBuffer* BoundUniformBuffers[SF_NumStandardFrequencies][ML_MaxBuffers];
 	
 	/** Bitfield for which uniform buffers are dirty */
-	uint32 DirtyUniformBuffers[SF_NumFrequencies];
+	uint32 DirtyUniformBuffers[SF_NumStandardFrequencies];
 	
 	/** Vertex attribute buffers */
 	FMetalBufferBinding VertexBuffers[MaxVertexElementCount];
 	
 	/** Bound shader resource tables. */
-	FMetalBufferBindings ShaderBuffers[SF_NumFrequencies];
-	FMetalTextureBindings ShaderTextures[SF_NumFrequencies];
-	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
+	FMetalBufferBindings ShaderBuffers[SF_NumStandardFrequencies];
+	FMetalTextureBindings ShaderTextures[SF_NumStandardFrequencies];
+	FMetalSamplerBindings ShaderSamplers[SF_NumStandardFrequencies];
 	
 	mtlpp::StoreAction ColorStore[MaxSimultaneousRenderTargets];
 	mtlpp::StoreAction DepthStore;

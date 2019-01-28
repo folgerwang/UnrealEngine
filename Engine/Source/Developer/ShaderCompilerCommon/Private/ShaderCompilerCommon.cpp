@@ -1177,11 +1177,9 @@ namespace CrossCompiler
 		TEXT("Pixel"),
 		TEXT("Geometry"),
 		TEXT("Compute"),
-#if RHI_RAYTRACING
 		TEXT("RayGen"),
 		TEXT("RayMiss"),
 		TEXT("RayHitGroup"),
-#endif
 	};
 
 	/** Compile time check to verify that the GL mapping tables are up-to-date. */

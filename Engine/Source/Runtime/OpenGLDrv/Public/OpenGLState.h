@@ -467,11 +467,11 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 	enum { MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE = 14 };
 
 	/** Track the currently bound uniform buffers. */
-	FUniformBufferRHIRef BoundUniformBuffers[SF_NumFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE];
+	FUniformBufferRHIRef BoundUniformBuffers[SF_NumStandardFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE];
 
 	/** Bit array to track which uniform buffers have changed since the last draw call. */
 	bool bAnyDirtyGraphicsUniformBuffers;
-	uint16 DirtyUniformBuffers[SF_NumFrequencies];
+	uint16 DirtyUniformBuffers[SF_NumStandardFrequencies];
 
 	// Used for if(!FOpenGL::SupportsFastBufferData())
 	uint32 UpVertexBufferBytes;
@@ -530,7 +530,7 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 		ShaderParameters = NULL;
 
 		// Release references to bound uniform buffers.
-		for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+		for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 		{
 			for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 			{

@@ -233,7 +233,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	uint32 DynamicIBSizes[] = {128,1024,64*1024,1024*1024,0};
 	DynamicIB = new FD3D11DynamicBuffer(this,D3D11_BIND_INDEX_BUFFER,DynamicIBSizes);
 
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 	{
 		DirtyUniformBuffers[Frequency] = 0;
 	}
@@ -531,7 +531,7 @@ void FD3D11DynamicRHI::CleanupD3DDevice()
 		DynamicIB = NULL;
 
 		// Release references to bound uniform buffers.
-		for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+		for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 		{
 			for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 			{

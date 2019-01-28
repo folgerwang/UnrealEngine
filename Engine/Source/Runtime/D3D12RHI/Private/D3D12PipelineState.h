@@ -314,7 +314,7 @@ struct FD3D12GraphicsPipelineState : public FRHIGraphicsPipelineState
 	const FGraphicsPipelineStateInitializer PipelineStateInitializer;
 	const FD3D12RootSignature* RootSignature;
 	uint16 StreamStrides[MaxVertexElementCount];
-	bool bShaderNeedsGlobalConstantBuffer[SF_NumFrequencies];
+	bool bShaderNeedsGlobalConstantBuffer[SF_NumStandardFrequencies];
 
 	FD3D12PipelineState* PipelineState;
 

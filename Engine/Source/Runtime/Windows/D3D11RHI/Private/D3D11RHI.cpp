@@ -66,7 +66,7 @@ void FD3D11DynamicRHI::ClearState()
 	FMemory::Memzero(CurrentResourcesBoundAsSRVs, sizeof(CurrentResourcesBoundAsSRVs));
 	FMemory::Memzero(CurrentResourcesBoundAsVBs, sizeof(CurrentResourcesBoundAsVBs));
 	CurrentResourceBoundAsIB = nullptr;
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; Frequency++)
 	{
 		MaxBoundShaderResourcesIndex[Frequency] = INDEX_NONE;
 	}

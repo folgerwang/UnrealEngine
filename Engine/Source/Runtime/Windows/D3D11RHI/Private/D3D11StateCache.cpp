@@ -286,7 +286,7 @@ void FD3D11StateCacheBase::ClearState()
 
 #if D3D11_ALLOW_STATE_CACHE
 	// Shader Resource View State Cache
-	for (uint32 ShaderFrequency = 0; ShaderFrequency < SF_NumFrequencies; ShaderFrequency++)
+	for (uint32 ShaderFrequency = 0; ShaderFrequency < SF_NumStandardFrequencies; ShaderFrequency++)
 	{
 		for (uint32 Index = 0; Index < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT; Index++)
 		{
@@ -339,7 +339,7 @@ void FD3D11StateCacheBase::ClearState()
 	CurrentIndexOffset = 0;
 	CurrentPrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
-	for (uint32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
+	for (uint32 Frequency = 0; Frequency < SF_NumStandardFrequencies; Frequency++)
 	{
 		for (uint32 Index = 0; Index < D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT; Index++)
 		{

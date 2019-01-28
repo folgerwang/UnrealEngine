@@ -317,7 +317,7 @@ void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Boun
 	// Shader changed.  All UB's must be reset by high level code to match other platforms anway.
 	// Clear to catch those bugs, and bugs with stale UB's causing layout mismatches.
 	// Release references to bound uniform buffers.
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 	{
 		for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 		{

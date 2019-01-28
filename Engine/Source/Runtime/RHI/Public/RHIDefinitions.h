@@ -28,9 +28,8 @@ enum EShaderFrequency
 	SF_Geometry			= 4,
 	SF_Compute			= 5,
 
+	// Number of standard SM5-style graphics pipeline shader frequencies
 	SF_NumStandardFrequencies = 6,
-
-#if RHI_RAYTRACING
 
 	SF_RayGen			= 6,
 	SF_RayMiss			= 7,
@@ -38,14 +37,6 @@ enum EShaderFrequency
 
 	SF_NumFrequencies	= 9,
 	SF_NumBits			= 4,
-
-#else // RHI_RAYTRACING
-
-	SF_NumFrequencies	= 6,
-	SF_NumBits			= 3,
-
-#endif // RHI_RAYTRACING
-
 };
 static_assert(SF_NumFrequencies <= (1 << SF_NumBits), "SF_NumFrequencies will not fit on SF_NumBits");
 
@@ -1197,15 +1188,12 @@ inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bI
 	case SF_Domain:			String = TEXT("SF_Domain"); break;
 	case SF_Geometry:		String = TEXT("SF_Geometry"); break;
 	case SF_Pixel:			String = TEXT("SF_Pixel"); break;
-	case SF_Compute:		String = TEXT("SF_Compute"); break; 
-
-#if RHI_RAYTRACING
+	case SF_Compute:		String = TEXT("SF_Compute"); break;
 	case SF_RayGen:			String = TEXT("SF_RayGen"); break;
 	case SF_RayMiss:		String = TEXT("SF_RayMiss"); break;
 	case SF_RayHitGroup:	String = TEXT("SF_RayHitGroup"); break;
-#endif // RHI_RAYTRACING
 
-	default:				
+	default:
 		checkf(0, TEXT("Unknown ShaderFrequency %d"), (int32)Frequency);
 		break;
 	}

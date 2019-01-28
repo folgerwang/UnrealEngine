@@ -168,9 +168,9 @@ private:
     
     // Which of the buffers/textures/sampler slots are bound
     // The state cache is responsible for ensuring we bind the correct 
-    FMetalTextureMask BoundTextures[SF_NumFrequencies];
-    uint32 BoundBuffers[SF_NumFrequencies];
-    uint16 BoundSamplers[SF_NumFrequencies];
+    FMetalTextureMask BoundTextures[SF_NumStandardFrequencies];
+    uint32 BoundBuffers[SF_NumStandardFrequencies];
+    uint16 BoundSamplers[SF_NumStandardFrequencies];
     
     FMetalCommandEncoder CurrentEncoder;
     FMetalCommandEncoder PrologueEncoder;
