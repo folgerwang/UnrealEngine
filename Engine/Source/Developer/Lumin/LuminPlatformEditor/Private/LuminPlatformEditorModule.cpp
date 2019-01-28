@@ -69,7 +69,15 @@ class FLuminPlatformEditorModule
 				);
 			}
 
-			// @todo Shader quality settings
+			{
+				static FName NAME_SF_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
+				UShaderPlatformQualitySettings* LuminMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_SF_VULKAN_ES31_LUMIN);
+				SettingsModule->RegisterSettings("Project", "Platforms", "MagicLeapVulkanQuality",
+					LOCTEXT("LuminVulkanQualitySettingsName", "Lumin Material Quality - Vulkan"),
+					LOCTEXT("LuminVulkanQualitySettingsDescription", "Settings for Lumin Vulkan material quality."),
+					LuminMaterialQualitySettings
+				);
+			}
 		}
 
 		// Force the SDK settings into a sane state initially so we can make use of them
@@ -89,6 +97,7 @@ class FLuminPlatformEditorModule
 		{
 			SettingsModule->UnregisterSettings("Project", "Platforms", "Lumin");
 			SettingsModule->UnregisterSettings("Project", "Platforms", "MagicLeapSDK");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "MagicLeapVulkanQuality");
 		}
 	}
 };

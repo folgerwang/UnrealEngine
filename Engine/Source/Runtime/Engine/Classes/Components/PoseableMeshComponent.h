@@ -67,8 +67,8 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	 */
 	void FillComponentSpaceTransforms();
 
-private:
 	void MarkRefreshTransformDirty();
+private:
 	// this is marked if transform has to be updated
 	bool bNeedsRefreshTransform;
 };

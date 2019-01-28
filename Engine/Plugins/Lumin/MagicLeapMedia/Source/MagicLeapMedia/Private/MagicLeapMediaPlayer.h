@@ -12,6 +12,7 @@
 #include "IMediaView.h"
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
+#include "Templates/Atomic.h"
 #include "RenderingThread.h"
 #include "RHI.h"
 #include "RHIResources.h"
@@ -153,12 +154,14 @@ protected:
 
 	bool bPlaybackCompleted;
 
+	TAtomic<FTimespan> CurrentPlaybackTime;
+
 private:
 	virtual bool SetRateOne();
 	virtual bool GetMediaPlayerState(uint16 FlagToPoll) const;
 	virtual void RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI);
 	virtual bool RenderThreadIsBufferAvailable(MLHandle MediaPlayerHandle);
-	virtual bool RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer);
+	virtual bool RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer, bool& OutIsVideoTextureValid);
 	virtual bool RenderThreadReleaseNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle NativeBuffer);
 	virtual bool RenderThreadGetCurrentPosition(const MLHandle MediaPlayerHandle, int32& CurrentPosition);
 };

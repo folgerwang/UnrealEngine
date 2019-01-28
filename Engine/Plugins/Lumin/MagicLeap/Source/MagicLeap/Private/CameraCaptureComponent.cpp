@@ -29,7 +29,7 @@ class FCameraCaptureImpl : public MagicLeap::IAppEventHandler
 {
 public:
 	FCameraCaptureImpl()
-	: bCapturing(false)
+	: CurrentCaptureTaskType(CaptureTaskType::None)
 	{
 #if PLATFORM_LUMIN
 		checkf(GEngine, TEXT("[FCameraCaptureImpl::FCameraCaptureImpl()] GEngine is null!"));
@@ -58,12 +58,12 @@ public:
 	bool TryCaptureImageToFile()
 	{
 #if PLATFORM_LUMIN
-		if (!bCapturing)
+		if (CurrentCaptureTaskType == CaptureTaskType::None)
 		{
-			bCapturing = true;
+			CurrentCaptureTaskType = CaptureTaskType::ImageToFile;
 			FCaptureMessage Msg;
 			Msg.Type = CaptureMsgType::Request;
-			Msg.CaptureType = MLCameraCaptureType_Image;
+			Msg.CaptureType = CurrentCaptureTaskType;
 			Msg.Requester = this;
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
@@ -75,12 +75,12 @@ public:
 	bool TryCaptureImageToTexture()
 	{
 #if PLATFORM_LUMIN
-		if (!bCapturing)
+		if (CurrentCaptureTaskType == CaptureTaskType::None)
 		{
-			bCapturing = true;
+			CurrentCaptureTaskType = CaptureTaskType::ImageToTexture;
 			FCaptureMessage Msg;
 			Msg.Type = CaptureMsgType::Request;
-			Msg.CaptureType = MLCameraCaptureType_ImageRaw;
+			Msg.CaptureType = CurrentCaptureTaskType;
 			Msg.Requester = this;
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
@@ -89,16 +89,32 @@ public:
 		return false;
 	}
 
-	bool TryCaptureVideoToFile(float InDuration)
+	bool TryCaptureVideoToFile()
 	{
 #if PLATFORM_LUMIN
-		if (!bCapturing)
+		if (CurrentCaptureTaskType == CaptureTaskType::None)
 		{
-			bCapturing = true;
+			CurrentCaptureTaskType = CaptureTaskType::StartVideoToFile;
 			FCaptureMessage Msg;
 			Msg.Type = CaptureMsgType::Request;
-			Msg.CaptureType = MLCameraCaptureType_Video;
-			Msg.Duration = InDuration;
+			Msg.CaptureType = CurrentCaptureTaskType;
+			Msg.Requester = this;
+			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
+			return true;
+		}
+#endif //PLATFORM_LUMIN
+		return false;
+	}
+
+	bool TryStopCaptureVideoToFile()
+	{
+#if PLATFORM_LUMIN
+		if (CurrentCaptureTaskType == CaptureTaskType::StartVideoToFile)
+		{
+			CurrentCaptureTaskType = CaptureTaskType::StopVideoToFile;
+			FCaptureMessage Msg;
+			Msg.Type = CaptureMsgType::Request;
+			Msg.CaptureType = CurrentCaptureTaskType;
 			Msg.Requester = this;
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
@@ -110,7 +126,7 @@ public:
 	bool TryGetResult(FCaptureMessage& OutMsg)
 	{
 #if PLATFORM_LUMIN
-		if (bCapturing && CameraCaptureRunnable->OutgoingMessages.Peek(OutMsg))
+		if (CurrentCaptureTaskType != CaptureTaskType::None && CameraCaptureRunnable->OutgoingMessages.Peek(OutMsg))
 		{
 			if (OutMsg.Requester == this)
 			{
@@ -123,7 +139,7 @@ public:
 	}
 
 public:
-	bool bCapturing;
+	CaptureTaskType CurrentCaptureTaskType;
 	TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> CameraCaptureRunnable;
 };
 
@@ -140,7 +156,10 @@ UCameraCaptureComponent::~UCameraCaptureComponent()
 #if PLATFORM_LUMIN
 	if (Impl)
 	{
-		Impl->AsyncDestroy();
+		if (!Impl->AsyncDestroy())
+	    {
+			delete Impl;
+    	}
 		Impl = nullptr;
 	}
 #else
@@ -175,89 +194,48 @@ void UCameraCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
     {
       switch (Msg.CaptureType)
       {
-      case MLCameraCaptureType_Image:
-      {
-        if (Msg.Success)
-        {
-          CaptureImgToFileSuccess.Broadcast(Msg.FilePath);
-        }
-        else
-        {
-          CaptureImgToFileFailure.Broadcast();
-        }
-      }
-      break;
+	  case CaptureTaskType::ImageToFile:
+	  {
+		  CaptureImgToFileResult.ExecuteIfBound(Msg.Success, Msg.FilePath);
+		  Impl->CurrentCaptureTaskType = CaptureTaskType::None;
+	  }
+	  break;
 
-      case MLCameraCaptureType_ImageRaw:
-      {
-        if (Msg.Success)
-        {
-          CaptureImgToTextureSuccess.Broadcast(Msg.Texture);
-        }
-        else
-        {
-          CaptureImgToTextureFailure.Broadcast();
-        }
-      }
-      break;
+	  case CaptureTaskType::ImageToTexture:
+	  {
+		  CaptureImgToTextureResult.ExecuteIfBound(Msg.Success, Msg.Texture);
+		  Impl->CurrentCaptureTaskType = CaptureTaskType::None;
+	  }
+	  break;
 
-      case MLCameraCaptureType_Video:
-      {
-        if (Msg.Success)
-        {
-          CaptureVidToFileSuccess.Broadcast(Msg.FilePath);
-        }
-        else
-        {
-          CaptureVidToFileFailure.Broadcast();
-        }
-      }
+	  case CaptureTaskType::StartVideoToFile:
+	  {
+		  StartRecordingResult.ExecuteIfBound(Msg.Success);
+		  // do not reset Impl->CurrentCaptureTaskType if start recording is successful
+		  // as this constitutes an ongoing capture state
+		  if (!Msg.Success)
+		  {
+			  Impl->CurrentCaptureTaskType = CaptureTaskType::None;
+		  }
+	  }
+	  break;
+
+	  case CaptureTaskType::StopVideoToFile:
+	  {
+		  StopRecordingResult.ExecuteIfBound(Msg.Success, Msg.FilePath);
+		  Impl->CurrentCaptureTaskType = CaptureTaskType::None;
+	  }
       break;
       }
-
-      Impl->bCapturing = false;
     }
   }
 #endif //WITH_MLSDK
 }
 
-UCameraCaptureComponent::FCameraCaptureLogMessage& UCameraCaptureComponent::OnCaptureLogMessage()
+bool UCameraCaptureComponent::CaptureImageToFileAsync(const FCameraCaptureImgToFile& ResultDelegate)
 {
-  return CaptureLogMessage;
-}
+  CaptureImgToFileResult = ResultDelegate;
 
-UCameraCaptureComponent::FCameraCaptureImgToFileSuccess& UCameraCaptureComponent::OnCaptureImgToFileSuccess()
-{
-  return CaptureImgToFileSuccess;
-}
-
-UCameraCaptureComponent::FCameraCaptureImgToFileFailure& UCameraCaptureComponent::OnCaptureImgToFileFailure()
-{
-  return CaptureImgToFileFailure;
-}
-
-UCameraCaptureComponent::FCameraCaptureImgToTextureSuccess& UCameraCaptureComponent::OnCaptureImgToTextureSuccess()
-{
-  return CaptureImgToTextureSuccess;
-}
-
-UCameraCaptureComponent::FCameraCaptureImgToTextureFailure& UCameraCaptureComponent::OnCaptureImgToTextureFailure()
-{
-  return CaptureImgToTextureFailure;
-}
-
-UCameraCaptureComponent::FCameraCaptureVidToFileSuccess& UCameraCaptureComponent::OnCaptureVidToFileSuccess()
-{
-  return CaptureVidToFileSuccess;
-}
-
-UCameraCaptureComponent::FCameraCaptureVidToFileFailure& UCameraCaptureComponent::OnCaptureVidToFileFailure()
-{
-  return CaptureVidToFileFailure;
-}
-
-bool UCameraCaptureComponent::CaptureImageToFileAsync()
-{
   if (Impl->TryCaptureImageToFile())
   {
     return true;
@@ -267,8 +245,10 @@ bool UCameraCaptureComponent::CaptureImageToFileAsync()
   return false;
 }
 
-bool UCameraCaptureComponent::CaptureImageToTextureAsync()
+bool UCameraCaptureComponent::CaptureImageToTextureAsync(const FCameraCaptureImgToTexture& ResultDelegate)
 {
+  CaptureImgToTextureResult = ResultDelegate;
+
   if (Impl->TryCaptureImageToTexture())
   {
     return true;
@@ -278,15 +258,35 @@ bool UCameraCaptureComponent::CaptureImageToTextureAsync()
   return false;
 }
 
-bool UCameraCaptureComponent::CaptureVideoToFileAsync(float InDuration)
+bool UCameraCaptureComponent::StartRecordingVideoAsync(const FCameraCaptureStartRecording& ResultDelegate)
 {
-  if (Impl->TryCaptureVideoToFile(InDuration))
+  StartRecordingResult = ResultDelegate;
+
+  if (Impl->TryCaptureVideoToFile())
   {
     return true;
   }
 
   Log("Camera capture already in progress!");
   return false;
+}
+
+bool UCameraCaptureComponent::StopRecordingVideoAsync(const FCameraCaptureStopRecording& ResultDelegate)
+{
+	StopRecordingResult = ResultDelegate;
+
+	if (Impl->TryStopCaptureVideoToFile())
+	{
+		return true;
+	}
+
+	Log("Camera capture already in progress!");
+	return false;
+}
+
+bool UCameraCaptureComponent::IsCapturing() const
+{
+	return Impl && Impl->CurrentCaptureTaskType != CaptureTaskType::None;
 }
 
 int64 UCameraCaptureComponent::GetPreviewHandle()
@@ -301,5 +301,5 @@ int64 UCameraCaptureComponent::GetPreviewHandle()
 void UCameraCaptureComponent::Log(const FString& LogMessage)
 {
   UE_LOG(LogCameraCapture, Log, TEXT("%s"), *LogMessage);
-  CaptureLogMessage.Broadcast(LogMessage);
+  CaptureLogMessage.Broadcast(FString::Printf(TEXT("<br>%s"), *LogMessage));
 }

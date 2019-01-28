@@ -16,3 +16,12 @@ void Main(
 {
     OutColor = Texture2DSample(InTexture, InTextureSampler, Input.UV);
 }
+
+void MainsRGBSource(
+	FScreenVertexOutput Input,
+	out float4 OutColor : SV_Target0
+	)
+{
+    OutColor = Texture2DSample(InTexture, InTextureSampler, Input.UV);
+	OutColor.rgb = pow( OutColor.rgb, 1.0f / 2.2f );
+}

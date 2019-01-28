@@ -16,6 +16,7 @@ namespace UnrealBuildTool.Rules
 					"../../../../../Source/Runtime/OpenGLDrv/Private",
 					"../../../../../Source/Runtime/VulkanRHI/Private",
 					"../../../../../Source/Runtime/Engine/Classes/Components",
+					"../../../../../Source/Runtime/Engine/Classes/Kismet",
 				});
 
 			PublicIncludePathModuleNames.AddRange(
@@ -33,7 +34,6 @@ namespace UnrealBuildTool.Rules
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/" + Target.Platform);
 			}
 
-
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
@@ -44,7 +44,6 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"Renderer",
-					"HeadMountedDisplay",
 					"Slate",
 					"SlateCore",
 					"ImageWrapper",
@@ -55,8 +54,14 @@ namespace UnrealBuildTool.Rules
 					"VulkanRHI",
 					"OVRPlugin",
 					"ProceduralMeshComponent",
-                    "Projects",
-                });
+					"Projects",
+				});
+
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"HeadMountedDisplay",
+				});
 
 			if (Target.bBuildEditor == true)
 			{
@@ -79,6 +84,7 @@ namespace UnrealBuildTool.Rules
 					PrivateIncludePaths.AddRange(
 						new string[]
 						{
+							"OculusMR/Public",
 							"../../../../../Source/Runtime/Windows/D3D11RHI/Private",
 							"../../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
 							"../../../../../Source/Runtime/D3D12RHI/Private",
@@ -91,12 +97,12 @@ namespace UnrealBuildTool.Rules
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11Audio");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
-                    AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
-                }
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+				}
 
 				// Vulkan
 				{
-                    AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
 				}
 
 				// OVRPlugin
@@ -107,13 +113,20 @@ namespace UnrealBuildTool.Rules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Android)
 			{
+				// We are not currently supporting Mixed Reality on Android, but we need to include IOculusMRModule.h for OCULUS_MR_SUPPORTED_PLATFORMS definition
+				PrivateIncludePaths.AddRange(
+						new string[]
+						{
+							"OculusMR/Public"
+						});
+
 				// Vulkan
 				{
-                    AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
-                }
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+				}
 
-                // AndroidPlugin
-                {
+				// AndroidPlugin
+				{
 					string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
 					AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(PluginPath, "GearVR_APL.xml"));
 				}

@@ -17,4 +17,5 @@ public:
 	virtual void Enable() = 0;
 	virtual bool SupportsExplicitEnable() const = 0;
 	virtual void Disable() = 0;
+	virtual void OnBeginRendering_GameThread_Update() {}
 };

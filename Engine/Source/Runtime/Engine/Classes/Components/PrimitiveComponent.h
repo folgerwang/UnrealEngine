@@ -318,10 +318,6 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Rendering)
 	uint8 bRenderInMainPass:1;
 
-	/** If true, this component will be rendered in mono only if an HMD is connected and monoscopic far field rendering is activated. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Rendering)
-	uint8 bRenderInMono:1;
-
 	/** Whether the primitive receives decals. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Rendering)
 	uint8 bReceivesDecals:1;
@@ -979,7 +975,7 @@ public:
 
 	/** Sets a new slope override for this component instance. */
 	UFUNCTION(BlueprintCallable, Category="Physics")
-	void SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride);
+	virtual void SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride);
 
 	/** 
 	 *	Sets whether or not a single body should use physics simulation, or should be 'fixed' (kinematic).
@@ -1440,10 +1436,6 @@ public:
 	/** Sets bRenderInMainPass property and marks the render state dirty. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering")
 	void SetRenderInMainPass(bool bValue);
-
-	/** Sets bRenderInMono property and marks the render state dirty. */
-	UFUNCTION(BlueprintCallable, Category = "Rendering")
-	void SetRenderInMono(bool bValue);
 
 public:
 	static int32 CurrentTag;

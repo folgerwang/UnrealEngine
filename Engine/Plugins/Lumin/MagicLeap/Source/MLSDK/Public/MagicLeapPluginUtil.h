@@ -5,6 +5,8 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/CString.h"
 
 #if PLATFORM_WINDOWS
 #define ML_INCLUDES_START THIRD_PARTY_INCLUDES_START \
@@ -28,50 +30,10 @@ public:
 		// We search various places for the ML API DLLs to support loading alternate
 		// implementations. For example to use VDZI on PC platforms.
 		// Public MLSDK path.
-		FString MLSDK;
 
-		// Give preference to the config setting.
-		FString MLSDKPath;
 		FString MLSDKEnvironmentVariableName = TEXT("MLSDK");
-		FString OriginalMLSDKEnvironmentVariableName = TEXT("MLSDKOriginal");
+		FString MLSDK = FPlatformMisc::GetEnvironmentVariable(*MLSDKEnvironmentVariableName);
 
-		//save off the value of MLSDK, if it hasn't been saved before
-		MLSDK = FPlatformMisc::GetEnvironmentVariable(*OriginalMLSDKEnvironmentVariableName);
-		MLSDK.TrimToNullTerminator();
-		if (MLSDK.IsEmpty())
-		{
-			//only once, read the starting value
-			MLSDK = FPlatformMisc::GetEnvironmentVariable(*MLSDKEnvironmentVariableName);
-			FPlatformMisc::SetEnvironmentVar(*OriginalMLSDKEnvironmentVariableName, *MLSDK);
-		}
-
-
-		GConfig->GetString(TEXT("/Script/LuminPlatformEditor.MagicLeapSDKSettings"), TEXT("MLSDKPath"), MLSDKPath, GEngineIni);
-		MLSDKPath.TrimToNullTerminator();
-		if (MLSDKPath.Len() > 0)
-		{
-			int32 StartIndex = -1;
-			bool bFirstQuote = MLSDKPath.FindChar('"', StartIndex);
-			int32 EndIndex = -1;
-			bool bLastQuote = MLSDKPath.FindLastChar('"', EndIndex);
-			if (StartIndex != 1 && EndIndex != -1 && StartIndex < EndIndex)
-			{
-				++StartIndex;
-				MLSDKPath = MLSDKPath.Mid(StartIndex, EndIndex - StartIndex);
-			}
-			else
-			{
-				MLSDKPath.Empty();
-			}
-
-			if (MLSDKPath.Len() > 0 && FPaths::DirectoryExists(MLSDKPath))
-			{
-				MLSDK = MLSDKPath;
-			}
-		}
-
-		MLSDK.TrimToNullTerminator();
-		FPlatformMisc::SetEnvironmentVar(*MLSDKEnvironmentVariableName, *MLSDK);
 
 		if (CheckForVDZILibraries)
 		{
@@ -84,13 +46,24 @@ public:
 				DllSearchPaths.Add(VDZILibraryPath);
 			}
 
+			// We also search in the MLSDK VDZI paths for libraries if we have them.
 			if (!MLSDK.IsEmpty())
 			{
-				// The default VDZI dir.
-				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
-				// We also need to add the default bin dir as dependent libs are placed there instead
-				// of in the lib directory.
-				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
+				TArray<FString> ZIShimPath = GetZIShimPath(MLSDK);
+				if (ZIShimPath.Num() > 0)
+				{
+					DllSearchPaths.Append(GetZIShimPath(MLSDK));
+				}
+				else
+				{
+					// Fallback to adding fixed known paths if we fail to get anything from
+					// the configuration data.
+					// The default VDZI dir.
+					DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
+					// We also need to add the default bin dir as dependent libs are placed there instead
+					// of in the lib directory.
+					DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
+				}
 			}
 		}
 #endif
@@ -188,7 +161,125 @@ public:
 		}
 	}
 
+	/** Fills the Variables with the evaluated contents of the SDK Shim discovery data. */
+	bool GetZIShimVariables(const FString & MLSDK, TMap<FString, FString> & ResultVariables) const
+	{
+		// The known path to the paths file.
+		FString SDKShimDiscoveryFile = FPaths::Combine(MLSDK, TEXT(".metadata"), TEXT("sdk_shim_discovery.txt"));
+		if (!FPaths::FileExists(SDKShimDiscoveryFile))
+		{
+			return false;
+		}
+		// Map of variable to value for evaluating the content of the file.
+		// On successful parsing and evaluation we copy the data to the result.
+		TMap<FString, FString> Variables;
+		Variables.Add(TEXT("$(MLSDK)"), MLSDK);
+		// TODO: Determine MLSDK version and set MLSDK_VERSION variable.
+#if PLATFORM_WINDOWS
+		Variables.Add(TEXT("$(HOST)"), TEXT("win64"));
+#elif PLATFORM_LINUX
+		Variables.Add(TEXT("$(HOST)"), TEXT("linux64"));
+#elif PLATFORM_MAC
+		Variables.Add(TEXT("$(HOST)"), TEXT("osx"));
+#endif // PLATFORM_WINDOWS
+		// Single pass algo for evaluating the file:
+		// 1. for each line:
+		// a. for each occurance of $(NAME):
+		// i. replace with Variables[NAME], if no NAME var found ignore replacement.
+		// b. split into var=value, and add to Variables.
+		IPlatformFile& PlatformFile = IPlatformFile::GetPlatformPhysical();
+		TUniquePtr<IFileHandle> File(PlatformFile.OpenRead(*SDKShimDiscoveryFile));
+		if (File)
+		{
+			TArray<uint8> Data;
+			Data.SetNumZeroed(File->Size() + 1);
+			File->Read(Data.GetData(), Data.Num() - 1);
+			FUTF8ToTCHAR TextConvert(reinterpret_cast<ANSICHAR*>(Data.GetData()));
+			const TCHAR * Text = TextConvert.Get();
+			while (Text && *Text)
+			{
+				Text += FCString::Strspn(Text, TEXT("\t "));
+				if (Text[0] == '#' || Text[0] == '\r' || Text[0] == '\n' || !*Text)
+				{
+					// Skip comment or empty lines.
+					Text += FCString::Strcspn(Text, TEXT("\r\n"));
+				}
+				else
+				{
+					// Parse variable=value line.
+					FString Variable(FCString::Strcspn(Text, TEXT("\t= ")), Text);
+					Text += Variable.Len();
+					Text += FCString::Strspn(Text, TEXT("\t= "));
+					FString Value(FCString::Strcspn(Text, TEXT("\r\n")), Text);
+					Text += Value.Len();
+					Value.TrimEndInline();
+					// Eval any var references in both variable and value.
+					int32 EvalCount = 0;
+					do
+					{
+						EvalCount = 0;
+						for (auto VarEntry : Variables)
+						{
+							EvalCount += Variable.ReplaceInline(*VarEntry.Key, *VarEntry.Value);
+							EvalCount += Value.ReplaceInline(*VarEntry.Key, *VarEntry.Value);
+						}
+					} while (EvalCount != 0 && (Variable.Contains(TEXT("$(")) || Value.Contains(TEXT("$("))));
+					// Intern the new variable.
+					Variable = TEXT("$(") + Variable + TEXT(")");
+					Variables.Add(Variable, Value);
+				}
+				// Skip over EOL to get to the next line.
+				if (Text[0] == '\r' && Text[1] == '\n')
+				{
+					Text += 2;
+				}
+				else
+				{
+					Text += 1;
+				}
+			}
+		}
+		// We now need to copy the evaled variables to the result and un-munge them for
+		// plain access. We use them munged for the eval for easier eval replacement above.
+		ResultVariables.Empty(Variables.Num());
+		for (auto VarEntry : Variables)
+		{
+			ResultVariables.Add(VarEntry.Key.Mid(2, VarEntry.Key.Len() - 3), VarEntry.Value);
+		}
+		return true;
+	}
+
 private:
 	TArray<FString> DllSearchPaths;
 	TArray<void*> DllHandles;
+
+	TArray<FString> GetZIShimPath(const FString & MLSDK) const
+	{
+#if PLATFORM_WINDOWS
+		const FString ZIShimPathVar = "ZI_SHIM_PATH_win64";
+#elif PLATFORM_LINUX
+		const FString ZIShimPathVar = "ZI_SHIM_PATH_linux64";
+#elif PLATFORM_MAC
+		const FString ZIShimPathVar = "ZI_SHIM_PATH_osx";
+#else
+		const FString ZIShimPathVar = "";
+#endif // PLATFORM_WINDOWS
+
+		TMap<FString, FString> Variables;
+		if (GetZIShimVariables(MLSDK, Variables) && Variables.Contains(ZIShimPathVar))
+		{
+			// The shim path var we are looking for.
+			FString Value = Variables[ZIShimPathVar];
+			// Since it's a path variable it can have multiple components. Hence
+			// split those out into our result;
+			TArray<FString> Result;
+			for (FString Path; Value.Split(TEXT(";"), &Path, &Value); )
+			{
+				Result.Add(Path);
+			}
+			Result.Add(Value);
+			return Result;
+		}
+		return TArray<FString>();
+	}
 };

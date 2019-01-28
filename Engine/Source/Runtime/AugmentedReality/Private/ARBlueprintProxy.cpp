@@ -3,7 +3,7 @@
 #include "ARBlueprintProxy.h"
 #include "ARSystem.h"
 
-TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> UARBaseAsyncTaskBlueprintProxy::RegisteredARSystem = nullptr;
+TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> UARBaseAsyncTaskBlueprintProxy::RegisteredARSystem = nullptr;
 
 UARBaseAsyncTaskBlueprintProxy::UARBaseAsyncTaskBlueprintProxy(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -35,13 +35,13 @@ void UARBaseAsyncTaskBlueprintProxy::Tick(float DeltaTime)
 	}
 }
 
-void UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewARSystem)
+void UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& NewARSystem)
 {
 	RegisteredARSystem = NewARSystem;
 }
 
 
-const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& UARBaseAsyncTaskBlueprintProxy::GetARSystem()
+const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& UARBaseAsyncTaskBlueprintProxy::GetARSystem()
 {
 	return RegisteredARSystem;
 }

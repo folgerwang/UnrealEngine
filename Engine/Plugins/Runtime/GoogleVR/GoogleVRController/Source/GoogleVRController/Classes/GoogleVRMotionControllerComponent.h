@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -184,6 +184,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
 	void SetPointerDistance(float Distance);
 
+	/** Get the Current Pointer Distance.
+	*  Can be used for debugging your scene
+	*  @return the distance used.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
+	float GetCurrentPointerDistance() const;
+
 	/** IGoogleVRPointer Implementation */
 	virtual void OnPointerEnter(const FHitResult& HitResult, bool IsHitInteractive) override;
 	virtual void OnPointerHover(const FHitResult& HitResult, bool IsHitInteractive) override;
@@ -235,7 +242,7 @@ private:
 	bool bAreSubComponentsEnabled;
 	EGoogleVRControllerBatteryLevel LastKnownBatteryState;
 	bool bBatteryWasCharging;
-	float Counter = 0.0f;
+	float PointerDistance = 0.0f;
 
 	static constexpr float CONTROLLER_OFFSET_RATIO = 0.8f;
 	static constexpr float TOUCHPAD_RADIUS = 0.015f;

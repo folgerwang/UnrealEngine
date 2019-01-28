@@ -18,7 +18,14 @@ public class LibOVRAvatar : ModuleRules
 			PublicAdditionalLibraries.Add(OculusThirdPartyDirectory + "/lib/win64/libovravatar.lib");
 			isLibrarySupported = true;
 		}
-		else
+        else if (Target.Platform == UnrealTargetPlatform.Android)
+        {
+            PublicAdditionalLibraries.Add(OculusThirdPartyDirectory + "/lib/armeabi-v7a/libovravatarloader.so");
+            string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
+            AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(PluginPath, "LibOVRAvatar_APL.xml"));
+            isLibrarySupported = true;
+        }
+        else
 		{
 			System.Console.WriteLine("Oculus Avatar SDK not supported for this platform");
 		}

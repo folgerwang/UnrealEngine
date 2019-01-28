@@ -19,13 +19,17 @@ FMagicLeapEyeTracker::FMagicLeapEyeTracker()
 
 FMagicLeapEyeTracker::~FMagicLeapEyeTracker()
 {
+	Destroy();
+}
+
+void FMagicLeapEyeTracker::Destroy()
+{
 	if (VREyeTracker)
 	{
 		delete VREyeTracker;
 		VREyeTracker = nullptr;
 	}
 }
-
 
 bool FMagicLeapEyeTracker::GetEyeTrackerGazeData(FEyeTrackerGazeData& OutGazeData) const
 {
@@ -173,14 +177,18 @@ bool FMagicLeapEyeTracker::GetFixationComfort(FMagicLeapFixationComfort& Fixatio
 }
 
 /************************************************************************/
-/* FMagicLeapEyeTrackerModule                                                     */
+/* FMagicLeapEyeTrackerModule                                           */
 /************************************************************************/
+FMagicLeapEyeTrackerModule::FMagicLeapEyeTrackerModule()
+	: IMagicLeapModule("MagicLeapEyeTracker")
+{
+
+}
+
 void FMagicLeapEyeTrackerModule::StartupModule()
 {
 	IEyeTrackerModule::StartupModule();
-
 	MagicLeapEyeTracker = TSharedPtr<FMagicLeapEyeTracker, ESPMode::ThreadSafe>(new FMagicLeapEyeTracker());
-
 	OnDrawDebugHandle = AHUD::OnShowDebugInfo.AddRaw(this, &FMagicLeapEyeTrackerModule::OnDrawDebug);
 }
 
@@ -188,6 +196,14 @@ void FMagicLeapEyeTrackerModule::ShutdownModule()
 {
 	AHUD::OnShowDebugInfo.Remove(OnDrawDebugHandle);
 	FCoreUObjectDelegates::PreLoadMap.Remove(OnPreLoadMapHandle);
+}
+
+void FMagicLeapEyeTrackerModule::Disable()
+{
+	if (MagicLeapEyeTracker.IsValid())
+	{
+		MagicLeapEyeTracker->Destroy();
+	}
 }
 
 TSharedPtr<class IEyeTracker, ESPMode::ThreadSafe> FMagicLeapEyeTrackerModule::CreateEyeTracker()
@@ -199,9 +215,9 @@ void FMagicLeapEyeTrackerModule::OnDrawDebug(AHUD* HUD, UCanvas* Canvas, const F
 {
 	if (CVarEnableEyetrackingDebug.GetValueOnGameThread())
 	{
-		if (MagicLeapEyeTracker.IsValid() && MagicLeapEyeTracker->VREyeTracker)
+		if (MagicLeapEyeTracker.IsValid() && MagicLeapEyeTracker->GetVREyeTracker())
 		{
-			MagicLeapEyeTracker->VREyeTracker->DrawDebug(HUD, Canvas, DisplayInfo, YL, YPos);
+			MagicLeapEyeTracker->GetVREyeTracker()->DrawDebug(HUD, Canvas, DisplayInfo, YL, YPos);
 		}
 	}
 }

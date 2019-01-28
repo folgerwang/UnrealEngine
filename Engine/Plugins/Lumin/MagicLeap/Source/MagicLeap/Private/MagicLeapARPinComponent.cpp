@@ -445,6 +445,8 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		return;
 	}
 
+	bool bDidPin = false;
+
 	if (PinnedSceneComponent != nullptr)
 	{
 		if (!bPinned)
@@ -483,10 +485,7 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 				}
 			}
 
-			if (bPinned)
-			{
-				OnPersistentEntityPinned.Broadcast(bDataRestored);
-			}
+			bDidPin = bPinned;
 		}
 
 		if (bPinned)
@@ -503,6 +502,11 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 				NewComponentWorldTransform = FTransform(NewComponentWorldTransformMatrix);
 
 				PinnedSceneComponent->SetWorldLocationAndRotation(NewComponentWorldTransform.GetLocation(), NewComponentWorldTransform.Rotator());
+
+				if (bDidPin)
+				{
+					OnPersistentEntityPinned.Broadcast(bDataRestored);
+				}
 			}
 		}
 	}

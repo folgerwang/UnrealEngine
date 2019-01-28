@@ -1214,7 +1214,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 			APlayerController* PlayerController = LocalPlayer->PlayerController;
 
 			const bool bEnableStereo = GEngine->IsStereoscopic3D(InViewport);
-			const int32 NumViews = bStereoRendering ? ((ViewFamily.IsMonoscopicFarFieldEnabled()) ? 3 : GEngine->StereoRenderingDevice->GetDesiredNumberOfViews(bStereoRendering)) : 1;
+			const int32 NumViews = bStereoRendering ? GEngine->StereoRenderingDevice->GetDesiredNumberOfViews(bStereoRendering) : 1;
 
 			for (int32 i = 0; i < NumViews; ++i)
 			{

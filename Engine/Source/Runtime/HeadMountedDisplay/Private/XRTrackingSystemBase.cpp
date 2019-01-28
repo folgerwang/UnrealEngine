@@ -10,12 +10,20 @@
 // Tracking system delegates
 FXRTrackingSystemDelegates::FXRTrackingOriginChanged FXRTrackingSystemDelegates::OnXRTrackingOriginChanged;
 
-FXRTrackingSystemBase::FXRTrackingSystemBase()
+
+
+
+FXRTrackingSystemBase::FXRTrackingSystemBase(IARSystemSupport* InARImplementation)
 {
+	ARCompositionComponent = MakeShared<FARSupportInterface , ESPMode::ThreadSafe>(InARImplementation, this);
 }
 
 FXRTrackingSystemBase::~FXRTrackingSystemBase()
 {
+	if (ARCompositionComponent.IsValid())
+	{
+		ARCompositionComponent.Reset();
+	}
 }
 
 uint32 FXRTrackingSystemBase::CountTrackedDevices(EXRTrackedDeviceType Type /*= EXRTrackedDeviceType::Any*/)
@@ -103,6 +111,17 @@ void FXRTrackingSystemBase::UpdateExternalTrackingPosition(const FTransform& Ext
 }
 
 
+TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> FXRTrackingSystemBase::GetARCompositionComponent()
+{
+	return ARCompositionComponent;
+}
+
+const TSharedPtr<const FARSupportInterface , ESPMode::ThreadSafe> FXRTrackingSystemBase::GetARCompositionComponent() const
+{
+	return ARCompositionComponent;
+}
+
+
 FTransform FXRTrackingSystemBase::RefreshTrackingToWorldTransform(FWorldContext& WorldContext)
 {
 	CachedTrackingToWorld = ComputeTrackingToWorldTransform(WorldContext);
@@ -116,17 +135,8 @@ FTransform FXRTrackingSystemBase::ComputeTrackingToWorldTransform(FWorldContext&
 	UWorld* World = WorldContext.World();
 	if (World)
 	{
-		const ULocalPlayer* XRPlayer = nullptr;
-
-		const TArray<ULocalPlayer*>& LocalPlayers = GEngine->GetGamePlayers(World);
-		for (const ULocalPlayer* Player : LocalPlayers)
-		{
-			if (Player->IsPrimaryPlayer())
-			{
-				XRPlayer = Player;
-				break;
-			}
-		}
+		// Get the primary player for this world context
+		const ULocalPlayer* XRPlayer = GEngine->GetFirstGamePlayer(World);
 
 		if (XRPlayer)
 		{

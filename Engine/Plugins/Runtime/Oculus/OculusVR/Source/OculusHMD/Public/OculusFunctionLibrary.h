@@ -174,7 +174,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* on controller recenter; if it's 0, only the controller will recenter. Returns false if not
 	* supported.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetReorientHMDOnControllerRecenter(bool recenterMode);
 
 	/**
@@ -265,76 +265,6 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	static void ClearLoadingSplashScreens();
 
 	/**
-	 * Shows loading splash screen.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
-	static void ShowLoadingSplashScreen();
-
-	/**
-	 * Hides loading splash screen.
-	 *
-	 * @param	bClear	(in) Clear all splash screens after hide.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
-	static void HideLoadingSplashScreen(bool bClear = false);
-
-	/**
-	 * Enables/disables splash screen to be automatically shown when LoadMap is called.
-	 *
-	 * @param	bAutoShowEnabled	(in)	True, if automatic showing of splash screens is enabled when map is being loaded.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
-	static void EnableAutoLoadingSplashScreen(bool bAutoShowEnabled);
-
-	/**
-	 * Returns true, if the splash screen is automatically shown when LoadMap is called.
-	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
-	static bool IsAutoLoadingSplashScreenEnabled();
-
-	/**
-	 * Sets a texture for loading icon mode and shows it. This call will clear all the splashes.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
-	static void ShowLoadingIcon(class UTexture2D* Texture);
-
-	/**
-	 * Clears the loading icon. This call will clear all the splashes.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
-	static void HideLoadingIcon();
-
-	/**
-	 * Returns true, if the splash screen is in loading icon mode.
-	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
-	static bool IsLoadingIconEnabled();
-
-	/**
-	 * Sets loading splash screen parameters.
-	 *
-	 * @param TexturePath		(in) A path to the texture asset to be used for the splash. Gear VR uses it as a path for loading icon; all other params are currently ignored by Gear VR.
-	 * @param DistanceInMeters	(in) Distance, in meters, to the center of the splash screen.
-	 * @param SizeInMeters		(in) Size, in meters, of the quad with the splash screen.
-	 * @param RotationAxes		(in) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
-	 * @param RotationDeltaInDeg (in) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
-	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
-	static void SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg);
-
-	/**
-	 * Returns loading splash screen parameters.
-	 *
-	 * @param TexturePath		(out) A path to the texture asset to be used for the splash. Gear VR uses it as a path for loading icon; all other params are currently ignored by Gear VR.
-	 * @param DistanceInMeters	(out) Distance, in meters, to the center of the splash screen.
-	 * @param SizeInMeters		(out) Size, in meters, of the quad with the splash screen.
-	 * @param RotationAxes		(out) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
-	 * @param RotationDeltaInDeg (out) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
-	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
-	static void GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg);
-
-	/**
 	* Returns true, if the app has input focus.
 	*/
 	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
@@ -407,6 +337,12 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	static void EnableOrientationTracking(bool bOrientationTracking);
 
 	/**
+	* Enables/disables orientation tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers = false);
+
+	/**
 	 * Returns IStereoLayers interface to work with overlays.
 	 */
 	static class IStereoLayers* GetStereoLayers();
@@ -421,9 +357,10 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	/**
 	* Returns the list of points in UE world space of the requested Boundary Type 
 	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	* @param UsePawnSpace			(in) Boolean indicating to return the points in world space or pawn space
 	*/
 	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
-	static TArray<FVector> GetGuardianPoints(EBoundaryType BoundaryType);
+	static TArray<FVector> GetGuardianPoints(EBoundaryType BoundaryType, bool UsePawnSpace = false);
 
 	/**
 	* Returns the dimensions in UE world space of the requested Boundary Type

@@ -115,22 +115,6 @@ static TAutoConsoleVariable<int32> CVarMobileMultiViewDirect(
 	TEXT("When enabled the scene color render target array is provided by the hmd plugin so we can skip the blit.\n"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarMonoscopicFarField(
-	TEXT("vr.MonoscopicFarField"),
-	0,
-	TEXT("0 to disable (default), 1 to enable."),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarMonoscopicFarFieldMode(
-	TEXT("vr.MonoscopicFarFieldMode"),
-	1,
-	TEXT("Experimental, mobile only")
-	TEXT(", 0 to disable, 1 to enable (default)")
-	TEXT(", 2 stereo near field only")
-	TEXT(", 3 stereo near field with far field pixel depth test disabled")
-	TEXT(", 4 mono far field only"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
 static TAutoConsoleVariable<int32> CVarRoundRobinOcclusion(
 	TEXT("vr.RoundRobinOcclusion"),
 	0,
@@ -1372,7 +1356,7 @@ void FViewInfo::SetupUniformBufferParameters(
 	extern FVector GetReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight();
 	ViewUniformShaderParameters.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight = GetReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight();
 
-	ViewUniformShaderParameters.StereoPassIndex = (StereoPass <= eSSP_LEFT_EYE) ? 0 : (StereoPass == eSSP_RIGHT_EYE) ? 1 : StereoPass - eSSP_MONOSCOPIC_EYE + 1;
+	ViewUniformShaderParameters.StereoPassIndex = GEngine->StereoRenderingDevice ? GEngine->StereoRenderingDevice->GetViewIndexForPass(StereoPass) : 0;
 	ViewUniformShaderParameters.StereoIPD = StereoIPD;
 	
 	ViewUniformShaderParameters.PreIntegratedBRDF = GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI;

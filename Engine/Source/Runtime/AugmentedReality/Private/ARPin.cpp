@@ -14,7 +14,7 @@
 
 uint32 UARPin::DebugPinId = 0;
 
-void UARPin::InitARPin( const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystemOwner, USceneComponent* InComponentToPin, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry, const FName InDebugName )
+void UARPin::InitARPin( const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystemOwner, USceneComponent* InComponentToPin, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry, const FName InDebugName )
 {
 	ARSystem = InTrackingSystemOwner;
 	LocalToTrackingTransform = InLocalToTrackingTransform;
@@ -42,7 +42,7 @@ FTransform UARPin::GetLocalToTrackingTransform() const
 
 FTransform UARPin::GetLocalToWorldTransform() const
 {
-	return GetLocalToTrackingTransform() * GetARSystem()->GetTrackingToWorldTransform();
+	return GetLocalToTrackingTransform() * GetARSystem()->GetXRTrackingSystem()->GetTrackingToWorldTransform();
 }
 
 EARTrackingState UARPin::GetTrackingState() const
@@ -144,7 +144,7 @@ void UARPin::SetOnARTransformUpdated( const FOnARTransformUpdated& InHandler )
 	OnARTransformUpdated = InHandler;
 }
 
-TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> UARPin::GetARSystem() const
+TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> UARPin::GetARSystem() const
 {
 	auto MyARSystem = ARSystem.Pin();
 	return MyARSystem;

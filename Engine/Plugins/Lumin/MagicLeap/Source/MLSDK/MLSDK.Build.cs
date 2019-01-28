@@ -36,6 +36,10 @@ public class MLSDK : ModuleRules
 				case UnrealTargetPlatform.Lumin:
 					LibraryPlatformFolder = "lumin";
 					break;
+				default:
+					// This will fail the bIsMLSDKInstalled check, causing WITH_MLSDK to be set to 0 for unsupported platforms.
+					LibraryPlatformFolder = "unsupported";
+					break;
 			}
 			LibraryPath = Path.Combine(LibraryPath, LibraryPlatformFolder);
 
@@ -48,16 +52,10 @@ public class MLSDK : ModuleRules
 				ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, Target.Platform);
 
 				PublicIncludePaths.Add(IncludePath);
-				if (Target.Platform != UnrealTargetPlatform.Lumin)
+				if (Target.Platform == UnrealTargetPlatform.Lumin)
 				{
-					string VirtualDeviceIncludePath = "";
-					if (Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
-					{
-						PublicIncludePaths.Add(VirtualDeviceIncludePath);
-					}
+					PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
 				}
-				//PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
-				PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
 
 				string MLSDKLibraryPath = "";
 				Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
@@ -89,11 +87,12 @@ public class MLSDK : ModuleRules
 					"ml_mediaplayer",
 					"ml_musicservice",
 					"ml_perception_client",
+					"ml_platform",
 					"ml_privileges",
+					"ml_purchase",
 					"ml_screens",
 					"ml_secure_storage",
 					"ml_sharedfile",
-					"ml_purchase"
 				};
 
 				if (Target.Platform == UnrealTargetPlatform.Win64)

@@ -1601,6 +1601,29 @@ void AActor::SetOwner(AActor* NewOwner)
 	}
 }
 
+bool AActor::HasLocalNetOwner() const
+{
+	// I might be the top owner if I am a Pawn or a Controller (owner will be null)
+	const AActor* TopOwner = this;
+
+	if (Owner != nullptr)
+	{
+		// I have an owner so search that for the top owner
+		for (TopOwner = Owner; TopOwner->Owner; TopOwner = TopOwner->Owner)
+		{
+		}
+	}
+
+	// Top owner will normally be a Pawn or a Controller
+	if (const APawn* Pawn = Cast<APawn>(TopOwner))
+	{
+		return Pawn->IsLocallyControlled();
+	}
+
+	const AController* Controller = Cast<AController>(TopOwner);
+	return Controller && Controller->IsLocalController();
+}
+
 bool AActor::HasNetOwner() const
 {
 	if (Owner == nullptr)

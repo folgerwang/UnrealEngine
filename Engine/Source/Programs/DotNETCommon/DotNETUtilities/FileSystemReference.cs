@@ -314,6 +314,11 @@ namespace Tools.DotNETCommon
 			return Result.ToString();
 		}
 
+		public string ToNormalizedPath()
+		{
+			return FullName.Replace("\\", "/");
+		}
+
 		/// <summary>
 		/// Returns a string representation of this filesystem object
 		/// </summary>

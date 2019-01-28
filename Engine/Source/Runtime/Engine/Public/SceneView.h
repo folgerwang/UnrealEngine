@@ -80,27 +80,6 @@ public:
 	}
 };
 
-enum EMonoscopicFarFieldMode
-{
-	// Disabled
-	Off = 0,
-
-	// Enabled
-	On = 1,
-
-	// Render only the stereo views up to the far field clipping plane
-	StereoOnly = 2,
-
-	// Render only the stereo views, but without the far field clipping plane enabled.
-	// This is useful for finding meshes that pass the culling test, but aren't 
-	// actually visible in the stereo view and should be explicitly set to far field.
-	// Like a sky box.
-	StereoNoClipping = 3,
-
-	// Render only the far field view behind the far field clipping plane
-	MonoOnly = 4,
-};
-
 /** Method used for primary screen percentage method. */
 enum class EPrimaryScreenPercentageMethod
 {
@@ -128,41 +107,6 @@ enum class ESecondaryScreenPercentageMethod
 	LowerPixelDensitySimulation,
 
 	// TODO: Same config as primary upscale?
-};
-
-// Parameters defining monoscopic far field VR rendering
-struct FMonoscopicFarFieldParameters
-{
-	// Culling plane in unreal units between stereo and mono far field
-	float CullingDistance;
-
-	// Culling plane distance for stereo views in NDC depth [0:1]
-	float StereoDepthClip;
-
-	// Culling plane distance for the mono far field view in NDC depth [0:1]
-	// This is the same the stereo depth clip, but with the overlap distance bias applied.
-	float MonoDepthClip;
-
-	// Stereo disparity lateral offset between a stereo view and the mono far field view at the culling plane distance for reprojection.
-	float LateralOffset;
-
-	// Distance to overlap the mono and stereo views in unreal units to handle precision artifacts
-	float OverlapDistance;
-
-	EMonoscopicFarFieldMode Mode;
-
-	bool bEnabled;
-
-	FMonoscopicFarFieldParameters() :
-		CullingDistance(0.0f),
-		StereoDepthClip(0.0f),
-		MonoDepthClip(0.0f), 
-		LateralOffset(0.0f),
-		OverlapDistance(50.0f),
-		Mode(EMonoscopicFarFieldMode::Off),
-		bEnabled(false)
-	{
-	}
 };
 
 // Construction parameters for a FSceneView
@@ -1377,7 +1321,6 @@ public:
 		,	DeltaWorldTime(0.0f)
 		,	CurrentRealTime(0.0f)
 		,	GammaCorrection(1.0f)
-		,	MonoFarFieldCullingDistance(0.0f)
 		,	bRealtimeUpdate(false)
 		,	bDeferClear(false)
 		,	bResolveScene(true)			
@@ -1393,7 +1336,6 @@ public:
 					DeltaWorldTime = World->GetDeltaSeconds();
 					CurrentRealTime = World->GetRealTimeSeconds();
 					bTimesSet = true;
-					MonoFarFieldCullingDistance = World->GetMonoFarFieldCullingDistance();
 				}
 			}
 		}
@@ -1422,9 +1364,6 @@ public:
 
 		/** Gamma correction used when rendering this family. Default is 1.0 */
 		float GammaCorrection;
-
-		/** Distance from the camera to set the mono far field culling plane in unreal units. */
-		float MonoFarFieldCullingDistance;
 
 		/** Indicates whether the view family is updated in real-time. */
 		uint32 bRealtimeUpdate:1;
@@ -1471,9 +1410,6 @@ public:
 
 	/** The new show flags for the views (meant to replace the old system). */
 	FEngineShowFlags EngineShowFlags;
-
-	/** Monoscopic rendering parameters for VR */
-	FMonoscopicFarFieldParameters MonoParameters;
 
 	/** The current world time. */
 	float CurrentWorldTime;
@@ -1583,11 +1519,6 @@ public:
 
 	/** Returns whether the screen percentage show flag is supported or not for this view family. */
 	bool SupportsScreenPercentage() const;
-
-	const bool IsMonoscopicFarFieldEnabled() const
-	{
-		return MonoParameters.bEnabled && MonoParameters.Mode != EMonoscopicFarFieldMode::Off;
-	}
 
 	bool AllowTranslucencyAfterDOF() const;
 

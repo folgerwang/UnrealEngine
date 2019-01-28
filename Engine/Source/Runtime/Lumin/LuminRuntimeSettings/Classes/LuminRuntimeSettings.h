@@ -122,9 +122,9 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Version Code", ClampMin = 0))
 	int32 VersionCode;
 
-	/** Name of the minimum Lumin OS Version required */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Minimum OS Version Required"))
-	FString MinimumOSVersion;
+	/** Minimum API level required based on which APIs have been integrated into the base engine. Developers can set higher API levels if they are implementing newer APIs. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Minimum API Level", ClampMin = 2))
+	int32 MinimumAPILevel;
 
 	/** Any privileges your app needs. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "App Privileges"))
@@ -149,4 +149,8 @@ public:
 	/** Which of the currently enabled occlusion plugins to use on Lumin. */
 	UPROPERTY(config, EditAnywhere, Category = "Audio")
 	FString OcclusionPlugin;
+
+	// Strip debug symbols from packaged builds even if they aren't shipping builds.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedBuild, meta = (DisplayName = "Strip debug symbols from packaged builds even if they aren't shipping builds"))
+	bool bRemoveDebugInfo;
 };

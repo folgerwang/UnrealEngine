@@ -2787,7 +2787,6 @@ class FFakeStereoRenderingDevice : public IStereoRendering
 public:
 	FFakeStereoRenderingDevice() 
 		: FOVInDegrees(100)
-		, MonoCullingDistance(0.0f)
 		, Width(640)
 		, Height(480)
 	{
@@ -2828,7 +2827,7 @@ public:
 
 	virtual void CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation) override
 	{
-		if (StereoPassType != eSSP_FULL && StereoPassType != eSSP_MONOSCOPIC_EYE)
+		if (StereoPassType != eSSP_FULL)
 		{
 			float EyeOffset = 3.20000005f;
 			const float PassOffset = (StereoPassType == eSSP_LEFT_EYE) ? EyeOffset : -EyeOffset;
@@ -2843,7 +2842,7 @@ public:
 		const float InHeight = Height;
 		const float XS = 1.0f / FMath::Tan(HalfFov);
 		const float YS = InWidth / FMath::Tan(HalfFov) / InHeight;
-		const float NearZ = (StereoPassType != eSSP_MONOSCOPIC_EYE) ? GNearClippingPlane : MonoCullingDistance;
+		const float NearZ = GNearClippingPlane;
 
 		return FMatrix(
 			FPlane(XS, 0.0f, 0.0f, 0.0f),
@@ -2854,11 +2853,6 @@ public:
 
 	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override
 	{
-		if (InView != nullptr && InView->Family != nullptr)
-		{
-			const FSceneViewFamily& ViewFamily = *InView->Family;
-			MonoCullingDistance = ViewFamily.MonoParameters.CullingDistance - ViewFamily.MonoParameters.OverlapDistance;
-		}
 	}
 
 	virtual void RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const override
@@ -2875,7 +2869,6 @@ public:
 	}
 
 	float FOVInDegrees;		// max(HFOV, VFOV) in degrees of imaginable HMD
-	float MonoCullingDistance;
 	int32 Width, Height;	// resolution of imaginable HMD
 };
 

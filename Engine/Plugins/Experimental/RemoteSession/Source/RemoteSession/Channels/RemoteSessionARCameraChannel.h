@@ -60,9 +60,9 @@ private:
 		TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> AsyncTask;
 	};
 
-	struct FDeompressedImage
+	struct FDecompressedImage
 	{
-		FDeompressedImage() : Width(0), Height(0) {}
+		FDecompressedImage() : Width(0), Height(0) {}
 
 		int32 Width;
 		int32 Height;
@@ -75,7 +75,7 @@ private:
 	TArray<TSharedPtr<FCompressionTask, ESPMode::ThreadSafe>> CompressionQueue;
 
 	/** Images that have been received and are available for rendering */
-	TArray<TSharedPtr<FDeompressedImage, ESPMode::ThreadSafe>> DecompressionQueue;
+	TArray<TSharedPtr<FDecompressedImage, ESPMode::ThreadSafe>> DecompressionQueue;
 	FThreadSafeCounter DecompressionTaskCount;
 	FCriticalSection DecompressionQueueLock;
 

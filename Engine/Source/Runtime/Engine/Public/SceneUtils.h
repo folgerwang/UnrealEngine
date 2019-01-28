@@ -290,6 +290,8 @@ ENGINE_API bool IsMobileHDRMosaic();
 
 ENGINE_API EMobileHDRMode GetMobileHDRMode();
 
+ENGINE_API bool IsMobileColorsRGB();
+
 /**
 * A pool of render (e.g. occlusion/timer) queries which are allocated individually, and returned to the pool as a group.
 */

@@ -15,6 +15,8 @@
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/GameEngine.h"
+#include "Engine/Public/SceneUtils.h"
+#include "OculusHMDPrivate.h"
 
 
 namespace OculusHMD
@@ -32,17 +34,11 @@ FOvrpLayer::FOvrpLayer(uint32 InOvrpLayerId) :
 
 FOvrpLayer::~FOvrpLayer()
 {
-	if (InRenderThread())
-	{
-		ExecuteOnRHIThread_DoNotWait([this]()
-		{
-			ovrp_DestroyLayer(OvrpLayerId);
-		});
-	}
-	else
+	check(InRenderThread() || InRHIThread());
+	ExecuteOnRHIThread_DoNotWait([this]()
 	{
 		ovrp_DestroyLayer(OvrpLayerId);
-	}
+	});
 }
 
 
@@ -51,6 +47,7 @@ FOvrpLayer::~FOvrpLayer()
 //-------------------------------------------------------------------------------------------------
 
 FLayer::FLayer(uint32 InId, const IStereoLayers::FLayerDesc& InDesc) :
+	bNeedsTexSrgbCreate(false),
 	Id(InId),
 	OvrpLayerId(0),
 	bUpdateTexture(false),
@@ -66,6 +63,7 @@ FLayer::FLayer(uint32 InId, const IStereoLayers::FLayerDesc& InDesc) :
 
 
 FLayer::FLayer(const FLayer& Layer) :
+	bNeedsTexSrgbCreate(Layer.bNeedsTexSrgbCreate),
 	Id(Layer.Id),
 	Desc(Layer.Desc),
 	OvrpLayerId(Layer.OvrpLayerId),
@@ -311,7 +309,8 @@ bool FLayer::CanReuseResources(const FLayer* InLayer) const
 		OvrpLayerDesc.MipLevels != InLayer->OvrpLayerDesc.MipLevels ||
 		OvrpLayerDesc.SampleCount != InLayer->OvrpLayerDesc.SampleCount ||
 		OvrpLayerDesc.Format != InLayer->OvrpLayerDesc.Format ||
-		((OvrpLayerDesc.LayerFlags ^ InLayer->OvrpLayerDesc.LayerFlags) & ovrpLayerFlag_Static))
+		((OvrpLayerDesc.LayerFlags ^ InLayer->OvrpLayerDesc.LayerFlags) & ovrpLayerFlag_Static) ||
+		bNeedsTexSrgbCreate != InLayer->bNeedsTexSrgbCreate)
 	{
 		return false;
 	}
@@ -328,7 +327,7 @@ bool FLayer::CanReuseResources(const FLayer* InLayer) const
 }
 
 
-void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandListImmediate& RHICmdList, const FLayer* InLayer)
+void FLayer::Initialize_RenderThread(const FSettings* Settings, FCustomPresent* CustomPresent, FRHICommandListImmediate& RHICmdList, const FLayer* InLayer)
 {
 	CheckInRenderThread();
 
@@ -338,7 +337,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 	}
 	else
 	{
-		bInvertY = ( CustomPresent->GetLayerFlags() & ovrpLayerFlag_TextureOriginAtBottomLeft ) != 0;
+		bInvertY = (CustomPresent->GetLayerFlags() & ovrpLayerFlag_TextureOriginAtBottomLeft) != 0;
 
 		uint32 SizeX = 0, SizeY = 0;
 
@@ -367,7 +366,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 			return;
 
 		ovrpShape Shape;
-		
+
 		switch (Desc.ShapeType)
 		{
 		case IStereoLayers::QuadLayer:
@@ -395,8 +394,15 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 		uint32 NumSamples = 1;
 		int LayerFlags = CustomPresent->GetLayerFlags();
 
-		if(!(Desc.Flags & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE))
+		if (!(Desc.Flags & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE))
+		{
 			LayerFlags |= ovrpLayerFlag_Static;
+		}
+
+		if (Settings->Flags.bChromaAbCorrectionEnabled)
+		{
+			LayerFlags |= ovrpLayerFlag_ChromaticAberrationCorrection;
+		}
 
 		// Calculate layer desc
 		ovrp_CalculateLayerDesc(
@@ -430,6 +436,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 		RightTextureSetProxy = InLayer->RightTextureSetProxy;
 		RightDepthTextureSetProxy = InLayer->RightDepthTextureSetProxy;
 		bUpdateTexture = InLayer->bUpdateTexture;
+		bNeedsTexSrgbCreate = InLayer->bNeedsTexSrgbCreate;
 	}
 	else
 	{
@@ -522,13 +529,12 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 				ResourceType = RRT_Texture2D;
 			}
 
-			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-			uint32 ColorTexCreateFlags = TexCreate_ShaderResource | TexCreate_RenderTargetable;
+			uint32 ColorTexCreateFlags = TexCreate_ShaderResource | TexCreate_RenderTargetable | (bNeedsTexSrgbCreate ? TexCreate_SRGB : 0);
 			uint32 DepthTexCreateFlags = TexCreate_ShaderResource | TexCreate_DepthStencilTargetable;
 
 			FClearValueBinding ColorTextureBinding = FClearValueBinding();
 
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			FClearValueBinding DepthTextureBinding = SceneContext.GetDefaultDepthClear();
 
 			TextureSetProxy = CustomPresent->CreateTextureSetProxy_RenderThread(SizeX, SizeY, ColorFormat, ColorTextureBinding, NumMips, NumSamples, NumSamplesTileMem, ResourceType, ColorTextures, ColorTexCreateFlags);
@@ -613,6 +619,10 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 	OvrpLayerSubmit.LayerId = OvrpLayerId;
 	OvrpLayerSubmit.TextureStage = TextureSetProxy.IsValid() ? TextureSetProxy->GetSwapChainIndex_RHIThread() : 0;
 
+	bool injectColorScale = Id == 0 || Settings->bApplyColorScaleAndOffsetToAllLayers;
+	OvrpLayerSubmit.ColorOffset = injectColorScale ? Settings->ColorOffset : ovrpVector4f{ 0, 0, 0, 0 };
+	OvrpLayerSubmit.ColorScale = injectColorScale ? Settings->ColorScale : ovrpVector4f{ 1, 1, 1, 1};
+
 	if (Id != 0)
 	{
 		int SizeX = OvrpLayerDesc.TextureSize.w;
@@ -664,11 +674,14 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 
 		FTransform PlayerTransform(BaseOrientation, BaseLocation);
 
-		FQuat Orientation = Desc.Transform.Rotator().Quaternion();
-		FVector Location = Desc.Transform.GetLocation();
+		FQuat Orientation = BaseOrientation.Inverse() * Desc.Transform.Rotator().Quaternion();
+		FVector Location = PlayerTransform.InverseTransformPosition(Desc.Transform.GetLocation());
+		FPose OutLayerPose = FPose(Orientation, Location);
+		if(Desc.PositionType != IStereoLayers::FaceLocked)
+			ConvertPose_Internal(FPose(Orientation,Location), OutLayerPose, Settings->BaseOrientation.Inverse(), Settings->BaseOrientation.Inverse().RotateVector(-Settings->BaseOffset*LocationScaleInv), 1.0);
 
-		OvrpLayerSubmit.Pose.Orientation = ToOvrpQuatf(BaseOrientation.Inverse() * Orientation);
-		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f((PlayerTransform.InverseTransformPosition(Location)) * LocationScale);
+		OvrpLayerSubmit.Pose.Orientation = ToOvrpQuatf(OutLayerPose.Orientation);
+		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f(OutLayerPose.Position * LocationScale);
 		OvrpLayerSubmit.LayerSubmitFlags = 0;
 
 		if (Desc.PositionType == IStereoLayers::FaceLocked)

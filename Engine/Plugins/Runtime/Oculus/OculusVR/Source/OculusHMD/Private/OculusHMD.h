@@ -190,6 +190,7 @@ public:
 	virtual void UpdateSplashScreen() override;
 	virtual IStereoLayers::FLayerDesc GetDebugCanvasLayerDesc(FTextureRHIRef Texture) override;
 	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
+	virtual bool ShouldCopyDebugLayersToSpectatorScreen() const override { return true; }
 
 	// ISceneViewExtension
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
@@ -228,6 +229,7 @@ protected:
 #endif
 
 	class FSceneViewport* FindSceneViewport();
+	FOculusSplashDesc GetUESplashScreenDesc();
 
 public:
 	bool IsHMDActive() const;
@@ -236,7 +238,6 @@ public:
 	FCustomPresent* GetCustomPresent_Internal() const { return CustomPresent; }
 
 	float GetWorldToMetersScale() const;
-	float GetMonoCullingDistance() const;
 
 	ESpectatorScreenMode GetSpectatorScreenMode_RenderThread() const;
 
@@ -311,6 +312,8 @@ public:
 
 	const int GetNextFrameNumber() const { return NextFrameNumber; }
 
+	const FRotator GetSplashRotation() const { return SplashRotation; }
+
 	void StartGameFrame_GameThread(); // Called from OnStartGameFrame
 	void FinishGameFrame_GameThread(); // Called from OnEndGameFrame
 	void StartRenderFrame_GameThread(); // Called from BeginRenderViewFamily
@@ -319,6 +322,7 @@ public:
 	void FinishRHIFrame_RHIThread(); // Called from FinishRendering_RHIThread
 
 	void SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel);
+	void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers);
 
 	OCULUSHMD_API void UpdateRTPoses();
 
@@ -337,8 +341,7 @@ protected:
 	void IPDCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #endif
 
-	void LoadFromIni();
-	void SaveToIni();
+	void LoadFromSettings();
 
 protected:
 	void UpdateHMDWornState();
@@ -378,7 +381,7 @@ protected:
 	FSplashPtr Splash;
 	IRendererModule* RendererModule;
 
-	ovrpTrackingOrigin TrackingOrigin;
+	EHMDTrackingOrigin::Type TrackingOrigin;
 	// Stores difference between ViewRotation and EyeOrientation from previous frame
 	FQuat LastPlayerOrientation;
 	// Stores GetFrame()->PlayerLocation (i.e., ViewLocation) from the previous frame
@@ -388,7 +391,6 @@ protected:
 	TWeakPtr<SWindow> CachedWindow;
 	FVector2D CachedWindowSize;
 	float CachedWorldToMetersScale;
-	float CachedMonoCullingDistance;
 
 	// Game thread
 	FSettingsPtr Settings;
@@ -417,6 +419,8 @@ protected:
 	FHMDViewMesh VisibleAreaMeshes[2];
 
 	FPerformanceStats PerformanceStats;
+
+	FRotator SplashRotation; // rotation applied to all splash screens (dependent on HMD orientation as the splash is shown)
 
 #if !UE_BUILD_SHIPPING
 	FDelegateHandle DrawDebugDelegateHandle;

@@ -40,6 +40,13 @@ void FLuminLifecycle::Initialize()
 	}
 	else
 	{
+		// It is possible that FLuminLifecycle::Initialize() is called before LaunchLumin::InitCommandLine().
+		// So initialize command line here to take in args passed via mldb launch.
+		if (!FCommandLine::IsInitialized())
+		{
+			// initialize the command line to an empty string
+			FCommandLine::Set(TEXT(""));
+		}
 		OnNewInitArgs_Handler(nullptr);
 	}
 }

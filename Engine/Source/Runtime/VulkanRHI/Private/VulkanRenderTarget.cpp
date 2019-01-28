@@ -943,6 +943,16 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 	ImmediateContext.GetCommandBufferManager()->PrepareForNewActiveCommandBuffer();
 }
 
+void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRect Rect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+{
+	TArray<FColor> FromColorData;
+	RHIReadSurfaceData(TextureRHI, Rect, FromColorData, InFlags);
+	for (FColor& From : FromColorData)
+	{
+		OutData.Emplace(FLinearColor(From));
+	}
+}
+
 void FVulkanDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
 	FRHITexture2D* TextureRHI2D = TextureRHI->GetTexture2D();

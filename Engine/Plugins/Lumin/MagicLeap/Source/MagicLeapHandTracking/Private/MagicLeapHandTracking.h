@@ -199,6 +199,7 @@ public:
 	virtual void Enable() override;
 	virtual bool SupportsExplicitEnable() const override;
 	virtual void Disable() override;
+	virtual void OnBeginRendering_GameThread_Update() override;
 
 	const FHandState& GetLeftHandState() const;
 	const FHandState& GetRightHandState() const;
@@ -217,6 +218,7 @@ private:
 	const FTransform* FindTransformBySource(FName SourceName) const;
 	const FHandState* FindHandBySource(FName SourceName) const;
 	void UpdateTrackerData();
+	void UpdateCurrentHandTrackerTransforms();
 	void AddKeys();
 	void ConditionallyEnable();
 	void OnAppPause() override;

@@ -22,17 +22,11 @@ FTextureSetProxy::FTextureSetProxy(FTextureRHIParamRef InRHITexture, const TArra
 
 FTextureSetProxy::~FTextureSetProxy()
 {
-	if (InRenderThread())
-	{
-		ExecuteOnRHIThread([this]()
-		{
-			ReleaseResources_RHIThread();
-		});
-	}
-	else
+	check(InRenderThread() || InRHIThread());
+	ExecuteOnRHIThread([this]()
 	{
 		ReleaseResources_RHIThread();
-	}
+	});
 }
 
 

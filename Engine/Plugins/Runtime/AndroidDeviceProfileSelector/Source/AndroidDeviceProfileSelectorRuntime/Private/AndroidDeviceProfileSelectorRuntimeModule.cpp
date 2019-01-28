@@ -21,13 +21,23 @@ void FAndroidDeviceProfileSelectorRuntimeModule::ShutdownModule()
 
 FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfileName()
 {
-#if PLATFORM_LUMIN
-	// @todo Lumin: when removing this, also remove Lumin from the .uplugin
-	UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [Lumin]"));
-	return TEXT("Lumin");
-#endif
-
 	static FString ProfileName;
+
+#if PLATFORM_LUMIN
+	if (ProfileName.IsEmpty())
+	{
+		// Fallback profiles in case we do not match any rules
+		ProfileName = FPlatformMisc::GetDefaultDeviceProfileName();
+		if (ProfileName.IsEmpty())
+		{
+			ProfileName = FPlatformProperties::PlatformName();
+		}
+	}
+
+	// @todo Lumin: when removing this, also remove Lumin from the .uplugin
+	UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [%s]"), *ProfileName);
+	return ProfileName;
+#endif
 	
 	if (ProfileName.IsEmpty())
 	{

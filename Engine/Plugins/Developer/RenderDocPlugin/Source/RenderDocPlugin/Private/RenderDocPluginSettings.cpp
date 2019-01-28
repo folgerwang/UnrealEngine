@@ -5,11 +5,6 @@
 
 static FName DeveloperSettingsConsoleVariableMetaFName(TEXT("ConsoleVariable"));
 
-void URenderDocPluginSettings::SaveSettings()
-{
-	SaveConfig(CPF_Config, *GetClass()->GetDefaultConfigFilename(), GConfig);
-}
-
 void URenderDocPluginSettings::PostInitProperties()
 {
 	Super::PostInitProperties();
@@ -18,7 +13,6 @@ void URenderDocPluginSettings::PostInitProperties()
 	if (IsTemplate())
 	{
 		ImportConsoleVariableValues();
-		SaveSettings();
 	}
 #endif
 }

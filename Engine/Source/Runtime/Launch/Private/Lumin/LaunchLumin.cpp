@@ -26,8 +26,14 @@ static void InitCommandLine()
 {
 	static const uint32 CMD_LINE_MAX = 16384u;
 
-	// initialize the command line to an empty string
-	FCommandLine::Set(TEXT(""));
+	// It is possible that FLuminLifecycle::Initialize() is called before LaunchLumin::InitCommandLine().
+	// If so, FLuminLifecycle::Initialize() would have initialized the command line and filled it with args passed via mldb launch.
+	// So initialize command line here only if it hasnt been initialized already.
+	if (!FCommandLine::IsInitialized())
+	{
+		// initialize the command line to an empty string
+		FCommandLine::Set(TEXT(""));
+	}
 
 	// Adds command line args coming from lifecycle app init args.
 	FLuminPlatformMisc::InitLifecycle();	

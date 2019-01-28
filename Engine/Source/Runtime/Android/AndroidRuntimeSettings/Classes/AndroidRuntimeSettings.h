@@ -574,13 +574,15 @@ public:
 
 	virtual void PostReloadConfig(class UProperty* PropertyThatWasLoaded) override;
 
+
 #if WITH_EDITOR
+private:
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostInitProperties() override;
+	void HandlesRGBHWSupport();
+	
 	// End of UObject interface
-
-private:
 	void EnsureValidGPUArch();
 #endif
 };

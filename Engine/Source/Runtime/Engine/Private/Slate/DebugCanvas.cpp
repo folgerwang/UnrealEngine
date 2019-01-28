@@ -238,7 +238,7 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 				StereoLayers->GetAllocatedTexture(LayerID, HMDSwapchain, HMDNull);
 
 				// If drawing to a layer tell the spectator screen controller to copy that layer to the spectator screen.
-				if (LayerID != INVALID_LAYER_ID && GEngine && GEngine->XRSystem)
+				if (StereoLayers->ShouldCopyDebugLayersToSpectatorScreen() && LayerID != INVALID_LAYER_ID && GEngine && GEngine->XRSystem)
 				{
 					IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
 					if (HMD)

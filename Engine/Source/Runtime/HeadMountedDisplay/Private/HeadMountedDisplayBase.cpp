@@ -20,6 +20,14 @@
 // functions (default ctors, etc.) get compiled into this module
 #include "IXRSystemAssets.h"
 
+
+FHeadMountedDisplayBase::FHeadMountedDisplayBase(IARSystemSupport* InARImplementation)
+	: FXRTrackingSystemBase(InARImplementation)
+	, bHeadTrackingEnforced(false)
+{
+}
+
+
 void FHeadMountedDisplayBase::RecordAnalytics()
 {
 	TArray<FAnalyticsEventAttribute> EventAttributes;
@@ -97,7 +105,7 @@ FVector2D FHeadMountedDisplayBase::GetEyeCenterPoint_RenderThread(EStereoscopicP
 
 	// Note: IsHeadTrackingAllowed() can only be called from the game thread.
 	// IsStereoEnabled() and IsHeadTrackingEnforced() can be called from both the render and game threads, however.
-	if (IsStereoEnabled() || IsHeadTrackingEnforced())
+	if (!(IsStereoEnabled() || IsHeadTrackingEnforced()))
 	{
 		return FVector2D(0.5f, 0.5f);
 	}

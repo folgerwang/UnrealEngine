@@ -49,7 +49,7 @@ public:
 
 
 
-UCLASS(meta = (BlueprintSpawnableComponent, Experimental), ClassGroup = Rendering)
+UCLASS(hideCategories=(Physics), meta = (BlueprintSpawnableComponent, Experimental), ClassGroup = Rendering)
 class MRMESH_API UMRMeshComponent : public UPrimitiveComponent, public IMRMesh
 {
 public:
@@ -58,6 +58,7 @@ public:
 	GENERATED_UCLASS_BODY()
 
 	virtual void BeginPlay() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION(BlueprintPure, Category = "Mesh Reconstruction")
 	bool IsConnected() const override { return bConnected; }
@@ -71,15 +72,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mesh Reconstruction")
 	void Clear() override;
 
+	// UPrimitiveComponent.. public BP function needs to stay public to avoid nativization errors. (RR)
+	virtual void SetMaterial(int32 ElementIndex, class UMaterialInterface* InMaterial) override;
+protected:
+	virtual void OnActorEnableCollisionChanged() override;
+	virtual void UpdatePhysicsToRBChannels() override;
+public:
+	virtual void SetCollisionObjectType(ECollisionChannel Channel) override;
+	virtual void SetCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse) override;
+	virtual void SetCollisionResponseToAllChannels(ECollisionResponse NewResponse) override;
+	virtual void SetCollisionResponseToChannels(const FCollisionResponseContainer& NewResponses) override;
+	virtual void SetCollisionEnabled(ECollisionEnabled::Type NewType) override;
+	virtual void SetCollisionProfileName(FName InCollisionProfileName) override;
+
+	virtual void SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride) override;
+
 private:
 	//~ UPrimitiveComponent
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	virtual void SetMaterial(int32 ElementIndex, class UMaterialInterface* InMaterial) override;
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
+	virtual class UBodySetup* GetBodySetup();
 	//~ UPrimitiveComponent
 	//~ UActorComponent
+	virtual bool ShouldCreatePhysicsState() const override;
 	virtual void SendRenderDynamicData_Concurrent() override;
 	//~ UActorComponent
 
@@ -89,6 +106,8 @@ private:
 	//~ IMRMesh
 
 private:
+	void CacheBodySetupHelper();
+	class UBodySetup* CreateBodySetupHelper();
 	void SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args);
 
 	void RemoveBodyInstance(int32 BodyIndex);
@@ -104,13 +123,19 @@ private:
 	bool bCreateMeshProxySections = true;
 
 	/** If true, MRMesh will automatically update its navmesh whenever any Mesh section is updated. This may be expensive. If this is disabled use ForceNavMeshUpdate to trigger a navmesh update when necessary.  Moving the component will also trigger a navmesh update.*/
-	UPROPERTY(EditAnywhere, Category = Appearance)
+	UPROPERTY(EditAnywhere, Category = MRMesh)
 	bool bUpdateNavMeshOnMeshUpdate = true;
 
-	bool bEnableCollision = false;
+	/** If true, MRMesh will not create a collidable ridgid body for each mesh section and can therefore never have collision.  Avoids the cost of generating collision.*/
+	UPROPERTY(EditAnywhere, Category = MRMesh)
+	bool bNeverCreateCollisionMesh = false;
+
 	bool bConnected = false;
 
-	UPROPERTY(transient)
+	UPROPERTY(Transient)
+	class UBodySetup* CachedBodySetup = nullptr;
+
+	UPROPERTY(Transient)
 	TArray<UBodySetup*> BodySetups;
 
 	TArray<FBodyInstance*> BodyInstances;

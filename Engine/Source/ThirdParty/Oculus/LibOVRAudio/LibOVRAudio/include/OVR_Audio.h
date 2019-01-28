@@ -1,7 +1,7 @@
 /********************************************************************************//**
 \file      OVR_Audio.h
 \brief     OVR Audio SDK public header file
-\copyright 2015 Oculus VR, LLC All Rights reserved.
+\copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
 ************************************************************************************/
 #ifndef OVR_Audio_h
 #define OVR_Audio_h

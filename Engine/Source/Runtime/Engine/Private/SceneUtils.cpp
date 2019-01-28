@@ -164,6 +164,13 @@ ENGINE_API EMobileHDRMode GetMobileHDRMode()
 	return HDRMode;
 }
 
+ENGINE_API bool IsMobileColorsRGB()
+{
+	static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+	const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+
+	return !IsMobileHDR() && bMobileUseHWsRGBEncoding;
+}
 
 #if HAS_GPU_STATS
 static const int32 NumGPUProfilerBufferedFrames = 4;

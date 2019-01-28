@@ -51,6 +51,11 @@ FTimespan FMagicLeapCameraPreviewPlayer::GetTime() const
 	return FTimespan::Zero();
 }
 
+FTimespan FMagicLeapCameraPreviewPlayer::GetDuration() const
+{
+	return FTimespan::Zero();
+}
+
 void FMagicLeapCameraPreviewPlayer::RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI)
 {
 	FExternalTextureRegistry::Get().RegisterExternalTexture(InGuid, InTextureRHI, InSamplerStateRHI, FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
@@ -77,11 +82,12 @@ bool FMagicLeapCameraPreviewPlayer::RenderThreadIsBufferAvailable(MLHandle Media
 	return UCameraCaptureComponent::GetPreviewHandle() != ML_INVALID_HANDLE;
 }
 
-bool FMagicLeapCameraPreviewPlayer::RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer)
+bool FMagicLeapCameraPreviewPlayer::RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer, bool& OutIsVideoTextureValid)
 {
 	ensureMsgf(IsInRenderingThread(), TEXT("RenderThreadGetNativeBuffer called outside of render thread"));
 	(void)MediaPlayerHandle;
 	NativeBuffer = UCameraCaptureComponent::GetPreviewHandle();
+	OutIsVideoTextureValid = true;
 	return NativeBuffer != ML_INVALID_HANDLE;
 }
 

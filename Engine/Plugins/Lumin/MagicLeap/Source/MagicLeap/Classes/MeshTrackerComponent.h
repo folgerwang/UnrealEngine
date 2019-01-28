@@ -2,42 +2,10 @@
 
 #pragma once
 
+#include "MeshTrackerTypes.h"
+#include "MeshBlockSelectorInterface.h"
 #include "Components/SceneComponent.h"
 #include "MeshTrackerComponent.generated.h"
-
-/** Type of mesh to query from the underlying system. */
-UENUM(BlueprintType)
-enum class EMeshType : uint8
-{
-	/*! Meshing should be done as triangles. */
-	Triangles,
-	/*! Return mesh vertices as a point cloud. */
-	PointCloud
-};
-
-/** Vertex color mode. */
-UENUM(BlueprintType)
-enum class EMLMeshVertexColorMode : uint8
-{
-	/** Vertex Color is not set. */
-	None    UMETA(DisplayName = "No Vertex Color"),
-	/*! Vertex confidence is interpolated between two specified colors. */
-	Confidence  UMETA(DisplayName = "Vertex Confidence"),
-	/*! Each block is given a color from a list. */
-	Block  UMETA(DisplayName = "Blocks Colored")
-};
-
-/** Discrete level of detail required. */
-UENUM(BlueprintType)
-enum class EMeshLOD : uint8
-{
-	/*! Minimum LOD. */
-	Minimum,
-	/*! Medium LOD. */
-	Medium,
-	/*! Maximum LOD. */
-	Maximum,
-};
 
 /**
 	The MeshTrackerComponent class manages requests for environmental mesh data, processes the results and provides
@@ -47,12 +15,12 @@ enum class EMeshLOD : uint8
 	FOnMeshTrackerUpdated broadcast.
 */
 UCLASS(ClassGroup = MagicLeap, BlueprintType, Blueprintable, EditInlineNew, meta = (BlueprintSpawnableComponent))
-class MAGICLEAP_API UMeshTrackerComponent
-	: public USceneComponent
+class MAGICLEAP_API UMeshTrackerComponent : public USceneComponent, public IMeshBlockSelectorInterface
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
+	UMeshTrackerComponent();
 	/** Destroys the FMeshTrackerImpl instance.*/
 	~UMeshTrackerComponent();
 
@@ -71,14 +39,33 @@ public:
 	void DisconnectMRMesh(class UMRMeshComponent* InMRMeshPtr);
 
 	/**
+		Sets the interface to be used for selecting blocks to mesh.
+		@param Selector pointer to the object which implements IMeshBlockSelectorInterface.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Meshing|MagicLeap")
+	void ConnectBlockSelector(TScriptInterface<IMeshBlockSelectorInterface> Selector);
+
+	/** 
+	 * Disconnects the previously connected IMeshBlockSelectorInterface.
+	 * The default implementation is used this case - all new and updated blocks are meshed with the MeshTrackerComponent'd LevelOfDetail.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Meshing|MagicLeap")
+	void DisconnectBlockSelector();
+
+	/** IMeshBlockSelectorInterface */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Meshing|MagicLeap")
+	void SelectMeshBlocks(const FMLTrackingMeshInfo& NewMeshInfo, TArray<FMeshBlockRequest>& RequestedMesh);
+	virtual void SelectMeshBlocks_Implementation(const FMLTrackingMeshInfo& NewMeshInfo, TArray<FMeshBlockRequest>& RequestedMesh) override;
+
+	/**
 		Delegate used by OnMeshUpdated().
-		@param Index The index of the mesh section in the ProceduralMeshComponent that was updated.
+		@param ID The ID of the mesh section in the ProceduralMeshComponent that was updated.
 		@param Vertices List of all vertices in the updated mesh section.
 		@param Triangles List of all triangles in the updated mesh section.
 		@param Normals List of the normals of all triangles in the updated mesh section.
 		@param Confidence List of the confidence values per vertex in the updated mesh section. This can be used to determine if the user needs to scan more.
 	*/
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnMeshTrackerUpdated, int32, Index, const TArray<FVector>&, Vertices, const TArray<int32>&, Triangles, const TArray<FVector>&, Normals, const TArray<float>&, Confidence);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnMeshTrackerUpdated, FGuid, ID, const TArray<FVector>&, Vertices, const TArray<int32>&, Triangles, const TArray<FVector>&, Normals, const TArray<float>&, Confidence);
 
 	/** Activated whenever new information about this mesh tracker is detected. */
 	UPROPERTY(BlueprintAssignable)
@@ -154,12 +141,6 @@ public:
 	UPROPERTY(transient)
 	class UMRMeshComponent* MRMesh;
 
-	/**
-		The procedural mesh generated should bake physics and update its collision data.
-		TODO: Can we calculate this based on the collision flags of the UProceduralMeshComponent?
-		It seems like those are not being respected directly by the component.
-	*/
-
 	/** Polls for and handles the results of the environmental mesh queries. */
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -174,6 +155,11 @@ public:
 #endif
 
 private:
+	void RequestMeshInfo();
+	bool GetMeshInfoResult();
+	void RequestMesh();
+	bool GetMeshResult();
+
 	class FMeshTrackerImpl *Impl;
 
 #if WITH_EDITOR
