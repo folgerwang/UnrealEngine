@@ -674,12 +674,17 @@ void CreateTranslucentBasePassUniformBuffer(
 
 	BasePassParameters.SceneTextures.SceneColorCopyTexture = SceneColorCopy ? SceneColorCopy->GetRenderTargetItem().ShaderResourceTexture : GBlackTexture->TextureRHI;
 
+	FScene* Scene = View.Family->Scene ? View.Family->Scene->GetRenderScene() : nullptr;
 
-	check(View.Family->Scene);
-	FScene* Scene = View.Family->Scene->GetRenderScene();
-
-	Scene->UniformBuffers.TranslucentBasePassUniformBuffer.UpdateUniformBufferImmediate(BasePassParameters);
-	BasePassUniformBuffer = Scene->UniformBuffers.TranslucentBasePassUniformBuffer;
+	if (Scene)
+	{
+		Scene->UniformBuffers.TranslucentBasePassUniformBuffer.UpdateUniformBufferImmediate(BasePassParameters);
+		BasePassUniformBuffer = Scene->UniformBuffers.TranslucentBasePassUniformBuffer;
+	}
+	else
+	{
+		BasePassUniformBuffer = TUniformBufferRef<FTranslucentBasePassUniformParameters>::CreateUniformBufferImmediate(BasePassParameters, UniformBuffer_SingleFrame);
+	}
 }
 
 class FTranslucencyUpsamplingPS : public FGlobalShader
