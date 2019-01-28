@@ -845,9 +845,6 @@ public:
 	/** Number of dynamic editor primitives visible in this view. */
 	int32 NumVisibleDynamicEditorPrimitives;
 
-	/** Marks used mesh passes by visible dynamic meshes. */
-	FMeshPassMask VisibleDynamicMeshesPassMask;
-
 	/** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
 	int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
 
@@ -892,6 +889,9 @@ public:
 
 	/** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicMeshElements;
+
+	/* Mesh pass relevance for gathered dynamic mesh elements. */
+	TArray<FMeshPassMask, SceneRenderingAllocator> DynamicMeshElementsPassRelevance;
 
 	/** Gathered in UpdateRayTracingWorld from all the primitives with dynamic view relevance, used in each mesh pass. */
 	TArray<FMeshBatchAndRelevance, SceneRenderingAllocator> RayTracedDynamicMeshElements;

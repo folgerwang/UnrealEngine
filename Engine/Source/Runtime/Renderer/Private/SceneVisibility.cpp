@@ -1848,91 +1848,6 @@ struct FRelevancePacket
 		MarkRelevant();
 	}
 
-	void UpdateDynamicPrimMask(EShadingPath ShadingPath, bool bAddLightmapDensityCommands, const FPrimitiveViewRelevance& ViewRelevance)
-	{
-		// Compute number mesh pass mask for this dynamic primitive.
-		if (ViewRelevance.bDrawRelevance && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth))
-		{
-			VisibleDynamicMeshesPassMask.Set(EMeshPass::DepthPass);
-			VisibleDynamicMeshesPassMask.Set(EMeshPass::BasePass);
-
-			if (ShadingPath == EShadingPath::Mobile)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::MobileBasePassCSM);
-			}
-
-			if (ViewRelevance.bRenderCustomDepth)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::CustomDepth);
-			}
-
-			if (bAddLightmapDensityCommands)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::LightmapDensity);
-			}
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			else if (View.Family->UseDebugViewPS())
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::DebugViewMode);
-			}
-#endif
-
-#if WITH_EDITOR
-			if (View.bAllowTranslucentPrimitivesInHitProxy)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::HitProxy);
-			}
-			else
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::HitProxyOpaqueOnly);
-			}
-#endif
-
-			if (ViewRelevance.bVelocityRelevance)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::Velocity);
-			}
-		}
-
-		if (ViewRelevance.HasTranslucency()
-			&& !ViewRelevance.bEditorPrimitiveRelevance
-			&& ViewRelevance.bRenderInMainPass)
-		{
-			if (View.Family->AllowTranslucencyAfterDOF())
-			{
-				if (ViewRelevance.bNormalTranslucencyRelevance)
-				{
-					VisibleDynamicMeshesPassMask.Set(EMeshPass::TranslucencyStandard);
-				}
-
-				if (ViewRelevance.bSeparateTranslucencyRelevance)
-				{
-					VisibleDynamicMeshesPassMask.Set(EMeshPass::TranslucencyAfterDOF);
-				}
-			}
-			else
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::TranslucencyAll);
-			}
-
-			if (ViewRelevance.bDistortionRelevance)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::Distortion);
-			}
-
-			if (ShadingPath == EShadingPath::Mobile && View.bIsSceneCapture)
-			{
-				VisibleDynamicMeshesPassMask.Set(EMeshPass::MobileInverseOpacity);
-			}
-		}
-#if WITH_EDITOR
-		if (ViewRelevance.bDrawRelevance)
-		{
-			VisibleDynamicMeshesPassMask.Set(EMeshPass::EditorSelection);
-		}
-#endif
-	}
-
 	void ComputeRelevance()
 	{
 		CombinedShadingModelMask = 0;
@@ -1995,7 +1910,6 @@ struct FRelevancePacket
 				// Keep track of visible dynamic primitives.
 				++NumVisibleDynamicPrimitives;
 				OutHasDynamicMeshElementsMasks[BitIndex] |= ViewBit;
-				UpdateDynamicPrimMask(ShadingPath, bAddLightmapDensityCommands, ViewRelevance);
 
 				if (ViewRelevance.bHasSimpleLights)
 				{
@@ -2345,7 +2259,6 @@ struct FRelevancePacket
 		VisibleDynamicPrimitivesWithSimpleLights.AppendTo(WriteView.VisibleDynamicPrimitivesWithSimpleLights);
 		WriteView.NumVisibleDynamicPrimitives += NumVisibleDynamicPrimitives;
 		WriteView.NumVisibleDynamicEditorPrimitives += NumVisibleDynamicEditorPrimitives;
-		VisibleDynamicMeshesPassMask.AppendTo(WriteView.VisibleDynamicMeshesPassMask);
 		WriteView.TranslucentPrimCount.Append(TranslucentPrimCount);
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);
 		WriteView.bHasDistortionPrimitives |= bHasDistortionPrimitives;
@@ -2572,6 +2485,109 @@ static void SetDynamicMeshElementViewCustomData(TArray<FViewInfo>& InViews, cons
 	}
 }
 
+void ComputeDynamicMeshRelevance(EShadingPath ShadingPath, bool bAddLightmapDensityCommands, const FPrimitiveViewRelevance& ViewRelevance, const FMeshBatchAndRelevance& MeshBatch, FViewInfo& View, FMeshPassMask& PassMask)
+{
+	const int32 NumElements = MeshBatch.Mesh->Elements.Num();
+
+	if (ViewRelevance.bDrawRelevance && (ViewRelevance.bRenderInMainPass || ViewRelevance.bRenderCustomDepth))
+	{
+		PassMask.Set(EMeshPass::DepthPass);
+		View.NumVisibleDynamicMeshElements[EMeshPass::DepthPass] += NumElements;
+
+		PassMask.Set(EMeshPass::BasePass);
+		View.NumVisibleDynamicMeshElements[EMeshPass::BasePass] += NumElements;
+
+		if (ShadingPath == EShadingPath::Mobile)
+		{
+			PassMask.Set(EMeshPass::MobileBasePassCSM);
+			View.NumVisibleDynamicMeshElements[EMeshPass::MobileBasePassCSM] += NumElements;
+		}
+
+		if (ViewRelevance.bRenderCustomDepth)
+		{
+			PassMask.Set(EMeshPass::CustomDepth);
+			View.NumVisibleDynamicMeshElements[EMeshPass::CustomDepth] += NumElements;
+		}
+
+		if (bAddLightmapDensityCommands)
+		{
+			PassMask.Set(EMeshPass::LightmapDensity);
+			View.NumVisibleDynamicMeshElements[EMeshPass::LightmapDensity] += NumElements;
+		}
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		else if (View.Family->UseDebugViewPS())
+		{
+			PassMask.Set(EMeshPass::DebugViewMode);
+			View.NumVisibleDynamicMeshElements[EMeshPass::DebugViewMode] += NumElements;
+		}
+#endif
+
+#if WITH_EDITOR
+		if (View.bAllowTranslucentPrimitivesInHitProxy)
+		{
+			PassMask.Set(EMeshPass::HitProxy);
+			View.NumVisibleDynamicMeshElements[EMeshPass::HitProxy] += NumElements;
+		}
+		else
+		{
+			PassMask.Set(EMeshPass::HitProxyOpaqueOnly);
+			View.NumVisibleDynamicMeshElements[EMeshPass::HitProxyOpaqueOnly] += NumElements;
+		}
+#endif
+
+		if (ViewRelevance.bVelocityRelevance)
+		{
+			PassMask.Set(EMeshPass::Velocity);
+			View.NumVisibleDynamicMeshElements[EMeshPass::Velocity] += NumElements;
+		}
+	}
+
+	if (ViewRelevance.HasTranslucency()
+		&& !ViewRelevance.bEditorPrimitiveRelevance
+		&& ViewRelevance.bRenderInMainPass)
+	{
+		if (View.Family->AllowTranslucencyAfterDOF())
+		{
+			if (ViewRelevance.bNormalTranslucencyRelevance)
+			{
+				PassMask.Set(EMeshPass::TranslucencyStandard);
+				View.NumVisibleDynamicMeshElements[EMeshPass::TranslucencyStandard] += NumElements;
+			}
+
+			if (ViewRelevance.bSeparateTranslucencyRelevance)
+			{
+				PassMask.Set(EMeshPass::TranslucencyAfterDOF);
+				View.NumVisibleDynamicMeshElements[EMeshPass::TranslucencyAfterDOF] += NumElements;
+			}
+		}
+		else
+		{
+			PassMask.Set(EMeshPass::TranslucencyAll);
+			View.NumVisibleDynamicMeshElements[EMeshPass::TranslucencyAll] += NumElements;
+		}
+
+		if (ViewRelevance.bDistortionRelevance)
+		{
+			PassMask.Set(EMeshPass::Distortion);
+			++View.NumVisibleDynamicMeshElements[EMeshPass::Distortion] += NumElements;
+		}
+
+		if (ShadingPath == EShadingPath::Mobile && View.bIsSceneCapture)
+		{
+			PassMask.Set(EMeshPass::MobileInverseOpacity);
+			++View.NumVisibleDynamicMeshElements[EMeshPass::MobileInverseOpacity] += NumElements;
+		}
+	}
+
+#if WITH_EDITOR
+	if (ViewRelevance.bDrawRelevance)
+	{
+		PassMask.Set(EMeshPass::EditorSelection);
+		View.NumVisibleDynamicMeshElements[EMeshPass::EditorSelection] += NumElements;
+	}
+#endif
+}
+
 void FSceneRenderer::GatherDynamicMeshElements(
 	TArray<FViewInfo>& InViews, 
 	const FScene* InScene, 
@@ -2601,6 +2617,7 @@ void FSceneRenderer::GatherDynamicMeshElements(
 		}
 
 		const bool bIsInstancedStereo = (ViewCount > 0) ? (InViews[0].IsInstancedStereoPass() || InViews[0].bIsMobileMultiViewEnabled) : false;
+		const EShadingPath ShadingPath = Scene->GetShadingPath();
 
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < NumPrimitives; ++PrimitiveIndex)
 		{
@@ -2624,18 +2641,25 @@ void FSceneRenderer::GatherDynamicMeshElements(
 			{
 				InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
 			}
-		}
 
-		// Compute MaxNumVisibleDynamicMeshes.
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-		{
-			FViewInfo& View = Views[ViewIndex];
-
-			for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+			// Compute DynamicMeshElementsMeshPassRelevance for this primitive.
+			for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
 			{
-				if (View.VisibleDynamicMeshesPassMask.Get((EMeshPass::Type) PassIndex))
+				FViewInfo& View = InViews[ViewIndex];
+				const bool bAddLightmapDensityCommands = View.Family->EngineShowFlags.LightMapDensity && AllowDebugViewmodes();
+				const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveIndex];
+
+				View.DynamicMeshElementsPassRelevance.SetNum(View.DynamicMeshElements.Num());
+
+				const int32 NumPrimitiveElements = Collector.GetMeshBatchCount(ViewIndex);
+				const int32 PrimitiveFirstElement = View.DynamicMeshElements.Num() - NumPrimitiveElements;
+
+				for (int32 ElementIndex = PrimitiveFirstElement; ElementIndex < NumPrimitiveElements; ++ElementIndex)
 				{
-					View.NumVisibleDynamicMeshElements[PassIndex] = Collector.GetMeshElementCount(ViewIndex);
+					const FMeshBatchAndRelevance& MeshBatch = View.DynamicMeshElements[ElementIndex];
+					FMeshPassMask& PassRelevance = View.DynamicMeshElementsPassRelevance[ElementIndex];
+
+					ComputeDynamicMeshRelevance(ShadingPath, bAddLightmapDensityCommands, ViewRelevance, MeshBatch, View, PassRelevance);
 				}
 			}
 		}

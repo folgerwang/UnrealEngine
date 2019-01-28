@@ -84,6 +84,7 @@ public:
 	FMeshPassProcessor* MeshPassProcessor;
 	FMeshPassProcessor* MobileBasePassCSMMeshPassProcessor;
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>* DynamicMeshElements;
+	const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance;
 
 	// Commands.
 	int32 NumDynamicMeshElements;
@@ -142,6 +143,7 @@ public:
 		FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 		FMeshPassProcessor* MeshPassProcessor,
 		const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+		const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance,
 		int32 NumDynamicMeshElements,
 		TArray<const FStaticMeshBatch*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
 		int32 NumDynamicMeshCommandBuildRequestElements,

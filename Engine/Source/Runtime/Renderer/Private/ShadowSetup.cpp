@@ -1181,6 +1181,7 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForShadowDepth(FSceneRenderer& R
 		FExclusiveDepthStencil::DepthNop_StencilNop,
 		MeshPassProcessor,
 		DynamicSubjectMeshElements,
+		nullptr,
 		NumDynamicSubjectMeshElements * InstanceFactor,
 		SubjectMeshCommandBuildRequests,
 		NumSubjectMeshCommandBuildRequestElements * InstanceFactor,

@@ -891,8 +891,6 @@ void FViewInfo::Init()
 	DitherFadeInUniformBuffer = nullptr;
 	DitherFadeOutUniformBuffer = nullptr;
 
-	VisibleDynamicMeshesPassMask.Reset();
-
 	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
 	{
 		NumVisibleDynamicMeshElements[PassIndex] = 0;
@@ -2695,6 +2693,7 @@ void FSceneRenderer::SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type
 				BasePassDepthStencilAccess,
 				MeshPassProcessor,
 				View.DynamicMeshElements,
+				&View.DynamicMeshElementsPassRelevance,
 				View.NumVisibleDynamicMeshElements[PassType],
 				ViewCommands.DynamicMeshCommandBuildRequests[PassType],
 				ViewCommands.NumDynamicMeshCommandBuildRequestElements[PassType],

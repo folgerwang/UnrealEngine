@@ -434,6 +434,7 @@ void GenerateDynamicMeshDrawCommands(
 	EMeshPass::Type PassType,
 	FMeshPassProcessor* PassMeshProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+	const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance,
 	int32 MaxNumDynamicMeshElements,
 	const TArray<const FStaticMeshBatch*, SceneRenderingAllocator>& DynamicMeshCommandBuildRequests,
 	int32 MaxNumBuildRequestElements,
@@ -443,6 +444,7 @@ void GenerateDynamicMeshDrawCommands(
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateDynamicMeshDrawCommands);
 	check(PassMeshProcessor);
+	check((PassType == EMeshPass::Num) == (DynamicMeshElementsPassRelevance == nullptr));
 
 	FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext(
 		MeshDrawCommandStorage,
@@ -456,11 +458,14 @@ void GenerateDynamicMeshDrawCommands(
 
 		for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
 		{
-			const FMeshBatchAndRelevance& MeshAndRelevance = DynamicMeshElements[MeshIndex];
-			check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
-			const uint64 BatchElementMask = ~0ull;
+			if (!DynamicMeshElementsPassRelevance || (*DynamicMeshElementsPassRelevance)[MeshIndex].Get(PassType))
+			{
+				const FMeshBatchAndRelevance& MeshAndRelevance = DynamicMeshElements[MeshIndex];
+				check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+				const uint64 BatchElementMask = ~0ull;
 
-			PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+				PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+			}
 		}
 
 		const int32 NumCommandsGenerated = VisibleCommands.Num() - NumCommandsBefore;
@@ -497,6 +502,7 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 	FMeshPassProcessor* PassMeshProcessor,
 	FMeshPassProcessor* MobilePassCSMPassMeshProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+	const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance,
 	int32 MaxNumDynamicMeshElements,
 	const TArray<const FStaticMeshBatch*, SceneRenderingAllocator>& DynamicMeshCommandBuildRequests,
 	int32 MaxNumBuildRequestElements,
@@ -506,6 +512,7 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_GenerateMobileBasePassDynamicMeshDrawCommands);
 	check(PassMeshProcessor && MobilePassCSMPassMeshProcessor);
+	check((PassType == EMeshPass::Num) == (DynamicMeshElementsPassRelevance == nullptr));
 
 	FDynamicPassMeshDrawListContext DynamicPassMeshDrawListContext(
 		MeshDrawCommandStorage,
@@ -522,19 +529,22 @@ void GenerateMobileBasePassDynamicMeshDrawCommands(
 
 		for (int32 MeshIndex = 0; MeshIndex < NumDynamicMeshBatches; MeshIndex++)
 		{
-			const FMeshBatchAndRelevance& MeshAndRelevance = DynamicMeshElements[MeshIndex];
-			check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
-			const uint64 BatchElementMask = ~0ull;
+			if (!DynamicMeshElementsPassRelevance || (*DynamicMeshElementsPassRelevance)[MeshIndex].Get(PassType))
+			{
+				const FMeshBatchAndRelevance& MeshAndRelevance = DynamicMeshElements[MeshIndex];
+				check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+				const uint64 BatchElementMask = ~0ull;
 
-			const int32 PrimitiveIndex = MeshAndRelevance.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->GetIndex();
-			if (MobileCSMVisibilityInfo.bMobileDynamicCSMInUse
-				&& (MobileCSMVisibilityInfo.bAlwaysUseCSM || MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[PrimitiveIndex]))
-			{
-				MobilePassCSMPassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
-			}
-			else
-			{
-				PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+				const int32 PrimitiveIndex = MeshAndRelevance.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->GetIndex();
+				if (MobileCSMVisibilityInfo.bMobileDynamicCSMInUse
+					&& (MobileCSMVisibilityInfo.bAlwaysUseCSM || MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap[PrimitiveIndex]))
+				{
+					MobilePassCSMPassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+				}
+				else
+				{
+					PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+				}
 			}
 		}
 
@@ -690,6 +700,7 @@ public:
 				Context.MeshPassProcessor,
 				Context.MobileBasePassCSMMeshPassProcessor,
 				*Context.DynamicMeshElements,
+				Context.DynamicMeshElementsPassRelevance,
 				Context.NumDynamicMeshElements,
 				Context.DynamicMeshCommandBuildRequests,
 				Context.NumDynamicMeshCommandBuildRequestElements,
@@ -705,6 +716,7 @@ public:
 				Context.PassType,
 				Context.MeshPassProcessor,
 				*Context.DynamicMeshElements,
+				Context.DynamicMeshElementsPassRelevance,
 				Context.NumDynamicMeshElements,
 				Context.DynamicMeshCommandBuildRequests,
 				Context.NumDynamicMeshCommandBuildRequestElements,
@@ -842,6 +854,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 	FMeshPassProcessor* MeshPassProcessor,
 	const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements,
+	const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance,
 	int32 NumDynamicMeshElements,
 	TArray<const FStaticMeshBatch*, SceneRenderingAllocator>& InOutDynamicMeshCommandBuildRequests,
 	int32 NumDynamicMeshCommandBuildRequestElements,
@@ -851,6 +864,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 )
 {
 	check(!TaskEventRef.IsValid() && MeshPassProcessor != nullptr && TaskContext.PrimitiveIdBufferData == nullptr);
+	check((PassType == EMeshPass::Num) == (DynamicMeshElementsPassRelevance == nullptr));
 
 	MaxNumDraws = InOutMeshDrawCommands.Num() + NumDynamicMeshElements + NumDynamicMeshCommandBuildRequestElements;
 	if (MaxNumDraws <= 0)
@@ -861,6 +875,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.MeshPassProcessor = MeshPassProcessor;
 	TaskContext.MobileBasePassCSMMeshPassProcessor = MobileBasePassCSMMeshPassProcessor;
 	TaskContext.DynamicMeshElements = &DynamicMeshElements;
+	TaskContext.DynamicMeshElementsPassRelevance = DynamicMeshElementsPassRelevance;
 
 	TaskContext.View = &View;
 	TaskContext.ShadingPath = Scene->GetShadingPath();
@@ -957,6 +972,7 @@ void FParallelMeshDrawCommandPass::Empty()
 	TaskContext.MeshPassProcessor = nullptr;
 	TaskContext.MobileBasePassCSMMeshPassProcessor = nullptr;
 	TaskContext.DynamicMeshElements = nullptr;
+	TaskContext.DynamicMeshElementsPassRelevance = nullptr;
 	TaskContext.MeshDrawCommands.Empty();
 	TaskContext.MobileBasePassCSMMeshDrawCommands.Empty();
 	TaskContext.DynamicMeshCommandBuildRequests.Empty();
