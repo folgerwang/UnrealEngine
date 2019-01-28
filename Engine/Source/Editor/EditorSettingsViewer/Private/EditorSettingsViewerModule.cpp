@@ -41,6 +41,7 @@
 
 #include "CrashReporterSettings.h"
 #include "Analytics/AnalyticsPrivacySettings.h"
+#include "Analytics/CrashReportsPrivacySettings.h"
 #include "VRModeSettings.h"
 #include "Editor/EditorPerformanceSettings.h"
 #include "Settings/SkeletalMeshEditorSettings.h"
@@ -261,6 +262,13 @@ protected:
 			LOCTEXT("PrivacyAnalyticsSettingsDescription", "Configure the way your Editor usage information is handled."),
 			GetMutableDefault<UAnalyticsPrivacySettings>()
 			);
+
+		// Crash reports
+		SettingsModule.RegisterSettings("Editor", "Privacy", "Analitics",
+			LOCTEXT("PrivacyBugReportsSettingsName", "Bug Reports"),
+			LOCTEXT("PrivacyBugReportsSettingsDescription", "Configure the way your bug reports information is handled."),
+			GetMutableDefault<UCrashReportsPrivacySettings>()
+		);
 	}
 
 	/** Unregisters all settings. */

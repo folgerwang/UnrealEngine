@@ -6,10 +6,10 @@
 #include "Templates/SharedPointer.h"
 
 class ITargetDeviceServiceManager;
+class IDeviceManagerCustomPlatformWidgetCreator;
 class SDockTab;
 class SWidget;
 class SWindow;
-
 
 /**
  * Interface for device manager modules.

@@ -13,8 +13,10 @@
 #include "EditorStyleSet.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/IDeviceManagerCustomPlatformWidgetCreator.h"
 #include "PlatformInfo.h"
-
+#include "IDeviceManagerModule.h"
+#include "Modules/ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "SDeviceBrowserDeviceAdder"
 
@@ -30,38 +32,9 @@ void SDeviceBrowserDeviceAdder::Construct(const FArguments& InArgs, const TShare
 	// callback for clicking of the Add button
 	auto AddButtonClicked = [this]() -> FReply {
 		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(*PlatformComboBox->GetSelectedItem());
+		check(TargetPlatform);
 
-		FString DeviceIdString = DeviceIdTextBox->GetText().ToString();
-		bool bAdded = TargetPlatform->AddDevice(DeviceIdString, false);
-		if (bAdded)
-		{
-			// pass credentials to the newly added device
-			if (TargetPlatform->RequiresUserCredentials())
-			{
-				// We cannot guess the device id, so we have to look it up by name
-				TArray<ITargetDevicePtr> Devices;
-				TargetPlatform->GetAllDevices(Devices);
-				for (ITargetDevicePtr Device : Devices)
-				{
-					if (Device.IsValid() && Device->GetId().GetDeviceName() == DeviceIdString)
-					{
-						FString UserNameString = UserNameTextBox->GetText().ToString();
-						FString UserPassString = UserPasswordTextBox->GetText().ToString();
-
-						Device->SetUserCredentials(UserNameString, UserPassString);
-					}
-				}
-			}
-
-			DeviceIdTextBox->SetText(FText::GetEmpty());
-			DeviceNameTextBox->SetText(FText::GetEmpty());
-			UserNameTextBox->SetText(FText::GetEmpty());
-			UserPasswordTextBox->SetText(FText::GetEmpty());
-		}
-		else
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("DeviceAdderFailedToAddDeviceMessage", "Failed to add the device!"));
-		}
+		TargetPlatform->GetCustomWidgetCreator()->AddDevice(TargetPlatform->PlatformName(), CustomPlatformWidget);
 
 		return FReply::Handled();
 	};
@@ -72,56 +45,12 @@ void SDeviceBrowserDeviceAdder::Construct(const FArguments& InArgs, const TShare
 
 		if (PlatformName.IsValid())
 		{
-			FString TextCheck = DeviceNameTextBox->GetText().ToString();
-			TextCheck.TrimStartAndEndInline();
-
-			if (!TextCheck.IsEmpty())
-			{
-				ITargetPlatform* Platform = GetTargetPlatformManager()->FindTargetPlatform(*PlatformName);
-
-				if (Platform != nullptr)
-				{
-					if (!Platform->RequiresUserCredentials())
-					{
-						return true;
-					}
-
-					// check user/password as well
-					TextCheck = UserNameTextBox->GetText().ToString();
-					TextCheck.TrimStartAndEndInline();
-
-					if (!TextCheck.IsEmpty())
-					{
-						// do not trim the password
-						return !UserPasswordTextBox->GetText().ToString().IsEmpty();
-					}
-				}
-			}
+			ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(*PlatformComboBox->GetSelectedItem());
+			check(TargetPlatform);
+			return TargetPlatform->GetCustomWidgetCreator()->IsAddDeviceInputValid(*PlatformName, CustomPlatformWidget);
 		}
 
 		return false;
-	};
-
-	// callback for determining the visibility of the credentials box
-	auto CredentialsBoxVisibility = [this]() -> EVisibility {
-		TSharedPtr<FString> PlatformName = PlatformComboBox->GetSelectedItem();
-
-		if (PlatformName.IsValid())
-		{
-			ITargetPlatform* Platform = GetTargetPlatformManager()->FindTargetPlatform(*PlatformName);
-
-			if ((Platform != nullptr) && Platform->RequiresUserCredentials())
-			{
-				return EVisibility::Visible;
-			}
-		}
-
-		return EVisibility::Collapsed;
-	};
-
-	// callback for changes in the device name text box
-	auto DeviceNameTextBoxTextChanged = [this](const FString& Text) {
-		DetermineAddUnlistedButtonVisibility();
 	};
 
 	// callback for getting the name of the selected platform
@@ -161,7 +90,15 @@ void SDeviceBrowserDeviceAdder::Construct(const FArguments& InArgs, const TShare
 
 	// callback for handling platform selection changes
 	auto PlatformComboBoxSelectionChanged = [this](TSharedPtr<FString> StringItem, ESelectInfo::Type SelectInfo) {
-		// @todo
+		
+		FString PlatformName = *StringItem;
+
+		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(PlatformName);
+		check(TargetPlatform);
+
+		// create custom widget for the platform and place it in the panel
+		CustomPlatformWidget = TargetPlatform->GetCustomWidgetCreator()->CreateAddDeviceWidget(PlatformName);
+		CustomPlatformWidgetPanel->SetContent(CustomPlatformWidget.ToSharedRef());
 	};
 
 	// construct children
@@ -206,52 +143,12 @@ void SDeviceBrowserDeviceAdder::Construct(const FArguments& InArgs, const TShare
 							]
 					]
 
-				// device identifier input
+				// custom platform widget
 				+ SHorizontalBox::Slot()
 					.HAlign(HAlign_Fill)
 					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 					[
-						SNew(SVerticalBox)
-							.ToolTipText(LOCTEXT("DeviceIdToolTip", "The device's unique identifier. Depending on the selected Platform, this can be a host name, an IP address, a MAC address or some other platform specific unique identifier."))
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Left)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("DeviceIdLabel", "Device Identifier:"))
-							]
-
-						+ SVerticalBox::Slot()
-							.FillHeight(1.0)
-							.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-							[
-								SAssignNew(DeviceIdTextBox, SEditableTextBox)
-							]
-					]
-
-				// device name input
-				+ SHorizontalBox::Slot()
-					.HAlign(HAlign_Fill)
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew(SVerticalBox)
-							.ToolTipText(LOCTEXT("DeviceNameToolTip", "A display name for this device. Once the device is connected, this will be replaced with the device's actual name."))
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Left)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("DisplayNameLabel", "Display Name:"))
-							]
-
-						+ SVerticalBox::Slot()
-							.FillHeight(1.0)
-							.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-							[
-								SAssignNew(DeviceNameTextBox, SEditableTextBox)
-							]
+						SAssignNew(CustomPlatformWidgetPanel, SBox)
 					]
 
 				// add button
@@ -267,60 +164,6 @@ void SDeviceBrowserDeviceAdder::Construct(const FArguments& InArgs, const TShare
 							.OnClicked_Lambda(AddButtonClicked)
 					]
 			]
-
-		+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-					.Visibility_Lambda(CredentialsBoxVisibility)
-
-				// user name input
-				+ SHorizontalBox::Slot()
-					.FillWidth(0.5f)
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Left)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("UserNameLabel", "User:"))
-							]
-
-						+ SVerticalBox::Slot()
-							.FillHeight(1.0f)
-							.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-							[
-								SAssignNew(UserNameTextBox, SEditableTextBox)
-							]
-					]
-
-				// user password input
-				+ SHorizontalBox::Slot()
-					.FillWidth(0.5f)
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Left)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("UserPasswordLabel", "Password:"))
-							]
-
-						+ SVerticalBox::Slot()
-							.FillHeight(1.0f)
-							.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-							[
-								SAssignNew(UserPasswordTextBox, SEditableTextBox)
-									.IsPassword(true)
-							]
-					]
-			]
 	];
 
 	RefreshPlatformList();
@@ -330,18 +173,6 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 /* SDeviceBrowserDeviceAdder implementation
  *****************************************************************************/
-
-void SDeviceBrowserDeviceAdder::DetermineAddUnlistedButtonVisibility()
-{
-	if (PlatformComboBox->GetSelectedItem().IsValid())
-	{
-		FString DeviceIdText = DeviceIdTextBox->GetText().ToString();
-		DeviceIdText.TrimStartInline();
-
-		AddButton->SetEnabled(!DeviceIdText.IsEmpty());
-	}
-}
-
 
 void SDeviceBrowserDeviceAdder::RefreshPlatformList()
 {
@@ -356,6 +187,5 @@ void SDeviceBrowserDeviceAdder::RefreshPlatformList()
 
 	PlatformComboBox->RefreshOptions();
 }
-
 
 #undef LOCTEXT_NAMESPACE

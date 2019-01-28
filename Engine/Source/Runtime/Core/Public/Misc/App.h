@@ -18,8 +18,7 @@
 #include "HAL/PlatformProcess.h"
 
 // platforms which can have runtime threading switches
-#define HAVE_RUNTIME_THREADING_SWITCHES			(PLATFORM_DESKTOP || PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_HTML5)
-
+#define HAVE_RUNTIME_THREADING_SWITCHES			(!PLATFORM_XBOXONE && !PLATFORM_PS4 && !PLATFORM_ANDROID && !PLATFORM_TVOS && !PLATFORM_SWITCH && !PLATFORM_LUMIN)
 
 /**
  * Provides information about the application.

@@ -44,8 +44,15 @@ FString DescribeSignal(int32 Signal, siginfo_t* Info, ucontext_t *Context)
 		break;
 	case SIGSEGV:
 #ifdef __x86_64__	// architecture-specific
-		ErrorString += FString::Printf(TEXT("SIGSEGV: invalid attempt to %s memory at address 0x%016x"),
-			(Context != nullptr) ? ((Context->uc_mcontext.gregs[REG_ERR] & 0x2) ? TEXT("write") : TEXT("read")) : TEXT("access"), (uint64)Info->si_addr);
+		if (Context && (Context->uc_mcontext.gregs[REG_TRAPNO] == 13))
+		{
+			ErrorString += FString::Printf(TEXT("SIGSEGV: unaligned memory access (SIMD vectors?)"));
+		}
+		else
+		{
+			ErrorString += FString::Printf(TEXT("SIGSEGV: invalid attempt to %s memory at address 0x%016x"),
+				(Context != nullptr) ? ((Context->uc_mcontext.gregs[REG_ERR] & 0x2) ? TEXT("write") : TEXT("read")) : TEXT("access"), (uint64)Info->si_addr);
+		}
 #else
 		ErrorString += FString::Printf(TEXT("SIGSEGV: invalid attempt to access memory at address 0x%016x"), (uint64)Info->si_addr);
 #endif // __x86_64__
@@ -382,7 +389,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 	}
 
 	/* Table showing the desired behavior when wanting to show a pop up or not. As well as avoiding starting CRC
-	 *  based on an *.ini setting bAgreedToCrashUpload and whether or not we are unattended
+	 *  based on an *.ini setting bSendUnattendedBugReports and whether or not we are unattended
 	 *
 	 *  Unattended | AgreeToUpload || Show Popup | Start CRC
 	 *  ----------------------------------------------------
@@ -408,10 +415,10 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 #endif
 
 	// By default we wont upload unless the *.ini has set this to true
-	bool bAgreedToCrashUpload = false;
-	GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bAgreeToCrashUpload"), bAgreedToCrashUpload, GEngineIni);
+	bool bSendUnattendedBugReports = false;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
 
-	bool bSkipCRC = bUnattended && !bAgreedToCrashUpload;
+	bool bSkipCRC = bUnattended && !bSendUnattendedBugReports;
 
 	if (!bSkipCRC)
 	{
@@ -524,7 +531,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 			FString CrashReportLogFilename = LogBaseFilename + TEXT("-CRC") + LogExtension;
 			FString CrashReportLogFilepath = FPaths::Combine(*LogFolder, *CrashReportLogFilename);
 			FString CrashReportClientArguments = TEXT(" -Abslog=");
-			CrashReportClientArguments += *CrashReportLogFilepath;
+			CrashReportClientArguments += TEXT("\"\"") + CrashReportLogFilepath + TEXT("\"\"");
 			CrashReportClientArguments += TEXT(" ");
 
 			if (bUnattended)
@@ -532,7 +539,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 				CrashReportClientArguments += TEXT(" -Unattended ");
 			}
 
-			if (bAgreedToCrashUpload)
+			if (bSendUnattendedBugReports)
 			{
 				CrashReportClientArguments += TEXT(" -SkipPopup ");
 			}
@@ -543,7 +550,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 				CrashReportClientArguments += TEXT(" -CleanCrashReports ");
 			}
 
-			CrashReportClientArguments += CrashInfoAbsolute + TEXT("/");
+			CrashReportClientArguments += TEXT("\"\"") + CrashInfoAbsolute + TEXT("/\"\"");
 
 			if (bReportingNonCrash)
 			{

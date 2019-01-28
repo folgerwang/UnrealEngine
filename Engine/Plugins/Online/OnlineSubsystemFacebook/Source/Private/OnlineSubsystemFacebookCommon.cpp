@@ -196,6 +196,11 @@ IOnlineChatPtr FOnlineSubsystemFacebookCommon::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemFacebookCommon::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemFacebookCommon::GetTurnBasedInterface() const
 {
 	return nullptr;

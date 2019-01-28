@@ -424,6 +424,15 @@ BuildToolchain()
   set +x
 }
 
+BuildLLVMCompilerRt()
+{
+  echo "building LLVM-compiler-rt"
+  set -x
+  cd Build/BatchFiles/Linux/Toolchain
+  sh BuildLLVM-compiler-rt.sh
+  set +x
+}
+
 FixICU()
 {
   echo "setting symlinks for ICU libraries (possibly temporary)"
@@ -512,6 +521,7 @@ print_valid_build_opts() {
   echo "    ICU"
   echo "    Mono"
   echo "    GoogleTest"
+  echo "    LLVMCompilerRt"
 }
 
 BuildList=()

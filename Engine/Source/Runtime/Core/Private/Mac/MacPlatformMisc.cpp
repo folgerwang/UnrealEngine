@@ -1772,7 +1772,15 @@ void FMacCrashContext::GenerateInfoInFolder(char const* const InfoFolder) const
 void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 {
 	// Prevent CrashReportClient from spawning another CrashReportClient.
-	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
+	bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
+
+	bool bSendUnattendedBugReports = true;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
+
+	if (GMacAppInfo.bIsUnattended && !bSendUnattendedBugReports)
+	{
+		bCanRunCrashReportClient = false;
+	}
 
 	if(bCanRunCrashReportClient)
 	{
@@ -1839,8 +1847,16 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 {
 	// Prevent CrashReportClient from spawning another CrashReportClient.
-	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
+	bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
 	
+	bool bSendUnattendedBugReports = true;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
+
+	if(GMacAppInfo.bIsUnattended && !bSendUnattendedBugReports)
+	{
+		bCanRunCrashReportClient = false;
+	}
+
 	if(bCanRunCrashReportClient)
 	{
 		SCOPED_AUTORELEASE_POOL;

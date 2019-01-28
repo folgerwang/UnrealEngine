@@ -1812,7 +1812,7 @@ static bool ComputeProjectedSphereShaft(
 		}
 	}
 
-	return InOutMinX <= InOutMaxX;
+	return InOutMinX < InOutMaxX;
 }
 
 uint32 FMath::ComputeProjectedSphereScissorRect(FIntRect& InOutScissorRect, FVector SphereOrigin, float Radius, FVector ViewOrigin, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix)

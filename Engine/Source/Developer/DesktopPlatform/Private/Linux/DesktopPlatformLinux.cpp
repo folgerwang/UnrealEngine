@@ -124,6 +124,7 @@ bool FDesktopPlatformLinux::RegisterEngineInstallation(const FString &RootDir, F
 
 		ConfigFile.Dirty = true;
 		ConfigFile.Write(ConfigPath);
+		bRes = true;
 	}
 	return bRes;
 }
@@ -168,31 +169,34 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 		Section.Remove(Key);
 	}
 
-	// @todo: currently we can enumerate only this installation
-	FString EngineDir = FPaths::RootDir();
-	FPaths::NormalizeDirectoryName(EngineDir);
-	FPaths::CollapseRelativeDirectories(EngineDir);
+	// Iterate through all entries.
+	for (auto It : Section)
+	{
+		FString EngineDir = It.Value.GetValue();
+		FPaths::NormalizeDirectoryName(EngineDir);
+		FPaths::CollapseRelativeDirectories(EngineDir);
 
-	FString EngineId;
-	const FName* Key = Section.FindKey(EngineDir);
-	if (Key)
-	{
-		FGuid IdGuid;
-		FGuid::Parse(Key->ToString(), IdGuid);
-		EngineId = IdGuid.ToString(EGuidFormats::DigitsWithHyphensInBraces);;
-	}
-	else
-	{
-		if (!OutInstallations.FindKey(EngineDir))
+		FString EngineId;
+		const FName* Key = Section.FindKey(EngineDir);
+		if (Key)
 		{
-			EngineId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
-			Section.AddUnique(*EngineId, EngineDir);
-			ConfigFile.Dirty = true;
+			FGuid IdGuid;
+			FGuid::Parse(Key->ToString(), IdGuid);
+			EngineId = IdGuid.ToString(EGuidFormats::DigitsWithHyphensInBraces);
 		}
-	}
-	if (!EngineId.IsEmpty() && !OutInstallations.Find(EngineId))
-	{
-		OutInstallations.Add(EngineId, EngineDir);
+		else
+		{
+			if (!OutInstallations.FindKey(EngineDir))
+			{
+				EngineId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
+				Section.AddUnique(*EngineId, EngineDir);
+				ConfigFile.Dirty = true;
+			}
+		}
+		if (!EngineId.IsEmpty() && !OutInstallations.Find(EngineId))
+		{
+			OutInstallations.Add(EngineId, EngineDir);
+		}
 	}
 
 	ConfigFile.Write(ConfigPath);

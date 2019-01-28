@@ -121,6 +121,11 @@ IOnlineChatPtr FOnlineSubsystemTwitch::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemTwitch::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemTwitch::GetTurnBasedInterface() const
 {
 	return nullptr;

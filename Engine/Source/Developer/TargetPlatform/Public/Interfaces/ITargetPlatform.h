@@ -12,6 +12,7 @@ namespace PlatformInfo
 	struct FPlatformInfo;
 }
 
+class IDeviceManagerCustomPlatformWidgetCreator;
 
 /**
  * Enumerates features that may be supported by target platforms.
@@ -491,6 +492,11 @@ public:
 	 * Given a platform ordinal number, returns the corresponding ITargetPlatform instance
 	 */
 	TARGETPLATFORM_API static const ITargetPlatform* GetPlatformFromOrdinal(int32 Ordinal);
+
+	/**
+	 * Returns custom DeviceManager widget creator for this platform
+	 */
+	virtual TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator> GetCustomWidgetCreator() const = 0;
 
 public:
 

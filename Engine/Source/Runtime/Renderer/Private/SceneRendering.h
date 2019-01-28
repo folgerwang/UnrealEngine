@@ -1858,6 +1858,7 @@ struct FFastVramConfig
 	uint32 DOFSetup;
 	uint32 DOFReduce;
 	uint32 DOFPostfilter;
+	uint32 PostProcessMaterial;
 
 	uint32 CustomDepth;
 	uint32 ShadowPointLight;

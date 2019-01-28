@@ -533,3 +533,5 @@ void FLinuxPlatformInstallation::ErrorDialog(const FString &Message, const FStri
 	FErrorDialog Dialog(Message, LogText);
 	Dialog.DoModal();
 }
+
+#undef LOCTEXT_NAMESPACE

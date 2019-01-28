@@ -320,6 +320,11 @@ IOnlineChatPtr FOnlineSubsystemSteam::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemSteam::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemSteam::GetTurnBasedInterface() const
 {
 	return nullptr;

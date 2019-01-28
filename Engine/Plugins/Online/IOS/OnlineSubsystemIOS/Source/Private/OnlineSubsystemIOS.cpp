@@ -127,6 +127,11 @@ IOnlineChatPtr FOnlineSubsystemIOS::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemIOS::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemIOS::GetTurnBasedInterface() const
 {
 	return TurnBasedInterface;

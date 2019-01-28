@@ -84,6 +84,12 @@ private:
 
 	// @todo gmp: implement an IoC container
 	TSharedPtr<ITargetDeviceServiceManager> TargetDeviceServiceManager;
+
+	// default widget creator for platforms that don't specify their own
+	TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator> DefaultWidgetCreator;
+
+	// custom widget creators
+	TMap<FString, TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator>> CustomWidgetCreators;
 };
 
 

@@ -1077,10 +1077,23 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ERenderTargetLoadAction DepthLoadAction = bDepthWasCleared ? ERenderTargetLoadAction::ELoad : ERenderTargetLoadAction::EClear;
 		SceneContext.BeginRenderingGBuffer(RHICmdList, ERenderTargetLoadAction::ENoAction, DepthLoadAction, BasePassDepthStencilAccess, ViewFamily.EngineShowFlags.ShaderComplexity);
 	}
+	// Wait for Async SSAO before rendering base pass with forward rendering
+	if (IsForwardShadingEnabled(ShaderPlatform))
+	{
+		GCompositionLighting.GfxWaitForAsyncSSAO(RHICmdList);
+	}
+
 	GRenderTargetPool.AddPhaseEvent(TEXT("BasePass"));
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_BasePass));
 	RenderBasePass(RHICmdList, BasePassDepthStencilAccess, ForwardScreenSpaceShadowMask.GetReference(), bDoParallelBasePass, bRenderLightmapDensity);
+
+	// Release forward screen space shadow mask right after base pass in forward rendering to free resources, such as FastVRAM
+	if (IsForwardShadingEnabled(ShaderPlatform))
+	{
+		ForwardScreenSpaceShadowMask.SafeRelease();
+	}
+
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_AfterBasePass));
 	ServiceLocalQueue();
 
@@ -1277,8 +1290,23 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	checkSlow(RHICmdList.IsOutsideRenderPass());
 
+	if(!IsForwardShadingEnabled(ShaderPlatform))
 	{
 		GCompositionLighting.GfxWaitForAsyncSSAO(RHICmdList);
+	}
+	else
+	{
+		// Release SSAO texture and HZB texture earlier to free resources, such as FastVRAM.
+		SceneContext.ScreenSpaceAO.SafeRelease();
+		SceneContext.bScreenSpaceAOIsValid = false;
+
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
+			FViewInfo& View = Views[ViewIndex];
+
+			View.HZB.SafeRelease();
+		}
 	}
 
 	checkSlow(RHICmdList.IsOutsideRenderPass());

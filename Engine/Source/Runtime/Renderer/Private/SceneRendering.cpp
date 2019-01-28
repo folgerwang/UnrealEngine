@@ -363,6 +363,7 @@ FASTVRAM_CVAR(DBufferMask, 0);
 FASTVRAM_CVAR(DOFSetup, 1);
 FASTVRAM_CVAR(DOFReduce, 1);
 FASTVRAM_CVAR(DOFPostfilter, 1);
+FASTVRAM_CVAR(PostProcessMaterial, 1);
 
 FASTVRAM_CVAR(CustomDepth, 0);
 FASTVRAM_CVAR(ShadowPointLight, 0);
@@ -493,6 +494,7 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowPointLight, ShadowPointLight);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowPerObject, ShadowPerObject);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowCSM, ShadowCSM);
+	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_PostProcessMaterial, PostProcessMaterial);
 
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldCulledObjectBuffers, DistanceFieldCulledObjectBuffers);
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldTileIntersectionResources, DistanceFieldTileIntersectionResources);

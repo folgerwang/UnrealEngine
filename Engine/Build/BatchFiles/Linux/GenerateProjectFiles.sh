@@ -23,7 +23,7 @@ fi
 source "$BASE_PATH/SetupMono.sh" $BASE_PATH
 
 if [ -f "$BASE_PATH/../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj" ]; then
-	xbuild "$BASE_PATH/../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj" /property:Configuration="Development" /p:TargetFrameworkVersion=v4.5 /verbosity:quiet /nologo
+	xbuild "$BASE_PATH/../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj" /property:Configuration="Development" /verbosity:quiet /nologo
 fi
 
 # pass all parameters to UBT

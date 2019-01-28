@@ -89,6 +89,10 @@ enum class ERenderGraphPassFlags
 
 	/** Pass uses compute only */
 	Compute = 1 << 0,
+
+	//#todo-rco: Remove this when we can do split/per mip layout transitions.
+	/** Hint to some RHIs this pass will be generating mips to optimize transitions. */
+	GenerateMips = 1 << 1,
 };
 
 ENUM_CLASS_FLAGS(ERenderGraphPassFlags)

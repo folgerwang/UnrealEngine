@@ -6,6 +6,7 @@
 #include "Widgets/Text/STextBlock.h"
 #include "EditorStyleSet.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/IDeviceManagerCustomPlatformWidgetCreator.h"
 #include "Widgets/Shared/SDeviceQuickInfo.h"
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
@@ -74,6 +75,14 @@ void SDeviceDetails::Construct(const FArguments& InArgs, const TSharedRef<FDevic
 					[
 						// quick info
 						SAssignNew(QuickInfo, SDeviceQuickInfo)
+					]
+
+				// custom platform widget
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+					[
+						SAssignNew(CustomPlatformWidgetPanel, SBox)
 					]
 
 				+ SVerticalBox::Slot()
@@ -157,6 +166,18 @@ void SDeviceDetails::Construct(const FArguments& InArgs, const TSharedRef<FDevic
 				FeatureList.Add(MakeShareable(new FDeviceDetailsFeature(TEXT("PowerOn"), TargetDevice->SupportsFeature(ETargetDeviceFeatures::PowerOn))));
 				FeatureList.Add(MakeShareable(new FDeviceDetailsFeature(TEXT("ProcessSnapshot"), TargetDevice->SupportsFeature(ETargetDeviceFeatures::ProcessSnapshot))));
 				FeatureList.Add(MakeShareable(new FDeviceDetailsFeature(TEXT("Reboot"), TargetDevice->SupportsFeature(ETargetDeviceFeatures::Reboot))));
+
+				// create custom widget for the platform and place it in the panel
+				TSharedPtr<SWidget> CustomWidget = TargetPlatform.GetCustomWidgetCreator()->CreateDeviceInfoWidget(TargetPlatform.PlatformName(), TargetDevice);
+				if (CustomWidget)
+				{
+					CustomPlatformWidgetPanel->SetContent(CustomWidget.ToSharedRef());
+				}
+				else
+				{
+					CustomPlatformWidgetPanel->SetContent(SNullWidget::NullWidget);
+				}
+
 			}
 		}
 

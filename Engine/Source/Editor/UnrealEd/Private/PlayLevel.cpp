@@ -102,6 +102,7 @@
 #include "IVREditorModule.h"
 #include "EditorModeRegistry.h"
 #include "PhysicsManipulationMode.h"
+#include "CookerSettings.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayLevel, Log, All);
@@ -1991,6 +1992,11 @@ void UEditorEngine::PlayUsingLauncher()
 		if ( bCanCookOnTheFlyInEditor )
 		{
 			CurrentLauncherCookMode = ELauncherProfileCookModes::OnTheFlyInEditor;
+			bIncrimentalCooking = false;
+		}
+		if ( GetDefault<UCookerSettings>()->bCookOnTheFlyForLaunchOn )
+		{
+			CurrentLauncherCookMode = ELauncherProfileCookModes::OnTheFly;
 			bIncrimentalCooking = false;
 		}
 		LauncherProfile->SetCookMode( CurrentLauncherCookMode );

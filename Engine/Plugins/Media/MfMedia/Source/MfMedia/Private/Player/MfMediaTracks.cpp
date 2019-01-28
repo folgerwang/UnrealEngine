@@ -9,6 +9,7 @@
 #include "Internationalization/Internationalization.h"
 #include "Math/IntPoint.h"
 #include "MediaHelpers.h"
+#include "MediaSampleQueueDepths.h"
 #include "MediaSamples.h"
 #include "MediaPlayerOptions.h"
 #include "Misc/ScopeLock.h"
@@ -279,6 +280,11 @@ void FMfMediaTracks::ProcessSample(IMFSample* Sample, HRESULT Status, DWORD Stre
 
 		if (Track.StreamIndex == StreamIndex)
 		{
+			if (Samples->NumAudio() >= FMediaPlayerQueueDepths::MaxAudioSinkDepth)
+			{
+				return;
+			}
+
 			if (((StreamFlags & MF_SOURCE_READERF_ENDOFSTREAM) != 0) || ((StreamFlags & MF_SOURCE_READERF_ERROR) != 0))
 			{
 				UE_LOG(LogMfMedia, Verbose, TEXT("Tracks %p: Audio done"), this);
@@ -318,6 +324,11 @@ void FMfMediaTracks::ProcessSample(IMFSample* Sample, HRESULT Status, DWORD Stre
 
 		if (Track.StreamIndex == StreamIndex)
 		{
+			if (Samples->NumCaption() >= FMediaPlayerQueueDepths::MaxCaptionSinkDepth)
+			{
+				return;
+			}
+
 			if (((StreamFlags & MF_SOURCE_READERF_ENDOFSTREAM) != 0) || ((StreamFlags & MF_SOURCE_READERF_ERROR) != 0))
 			{
 				UE_LOG(LogMfMedia, Verbose, TEXT("Tracks %p: Caption done"), this);
@@ -359,6 +370,11 @@ void FMfMediaTracks::ProcessSample(IMFSample* Sample, HRESULT Status, DWORD Stre
 
 		if (Track.StreamIndex == StreamIndex)
 		{
+			if (Samples->NumVideoSamples() >= FMediaPlayerQueueDepths::MaxVideoSinkDepth)
+			{
+				return;
+			}
+
 			if (((StreamFlags & MF_SOURCE_READERF_ENDOFSTREAM) != 0) || ((StreamFlags & MF_SOURCE_READERF_ERROR) != 0))
 			{
 				UE_LOG(LogMfMedia, Verbose, TEXT("Tracks %p: Video done"), this);
@@ -1416,6 +1432,28 @@ const FMfMediaTracks::FFormat* FMfMediaTracks::GetVideoFormat(int32 TrackIndex, 
 
 bool FMfMediaTracks::RequestSample(DWORD StreamIndex)
 {
+	if (SelectedAudioTrack != INDEX_NONE && AudioTracks[SelectedAudioTrack].StreamIndex == StreamIndex)
+	{
+		if (Samples->NumAudio() >= FMediaPlayerQueueDepths::MaxAudioSinkDepth)
+		{
+			return false;
+		}
+	}
+	else if (SelectedCaptionTrack != INDEX_NONE && CaptionTracks[SelectedCaptionTrack].StreamIndex == StreamIndex)
+	{
+		if (Samples->NumCaption() >= FMediaPlayerQueueDepths::MaxCaptionSinkDepth)
+		{
+			return false;
+		}
+	}
+	else if (SelectedVideoTrack != INDEX_NONE && VideoTracks[SelectedVideoTrack].StreamIndex == StreamIndex)
+	{
+		if (Samples->NumVideoSamples() >= FMediaPlayerQueueDepths::MaxVideoSinkDepth)
+		{
+			return false;
+		}
+	}
+
 #if MFMEDIATRACKS_USE_ASYNCREADER
 	const HRESULT Result = SourceReader->ReadSample(StreamIndex, 0, nullptr, nullptr, nullptr, nullptr);
 

@@ -72,6 +72,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, meta = (DisplayName = "Iterative cooking for the File->Cook Content menu item"))
 	bool bIterativeCookingForFileCookContent;
 
+	/** Enable -cookonthefly for launch on */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, meta = (DisplayName = "Cooking on the fly when launching from the editor (launch on)"))
+	bool bCookOnTheFlyForLaunchOn;
+
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, meta = (
 		ConsoleVariable = "cook.displaymode", DisplayName = "Cooker Progress Display Mode",
 		ToolTip = "Controls log output of the cooker"))
@@ -108,6 +112,10 @@ public:
 	/** List of module names to exclude when cooking for dedicated client */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Modules excluded when cooking for dedicated client"))
 	TArray<FString> ModulesExcludedOnDedicatedClient;
+
+	/** List of r values that need to be versioned */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "r values that need to be versioned"))
+	TArray<FString> VersionedIntRValues;
 
 	/** Quality of 0 means fastest, 4 means best quality */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "PVRTC Compression Quality (0-4, 0 is fastest)"))
