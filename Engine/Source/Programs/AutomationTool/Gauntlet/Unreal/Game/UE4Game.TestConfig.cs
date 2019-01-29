@@ -18,7 +18,8 @@ namespace UE4Game
 		/// <summary>
 		/// Map to use
 		/// </summary>
-		public string Map { get; set; }
+		[AutoParam]
+		public string Map = "";
 
 		/// <summary>
 		/// Applies these options to the provided app config
