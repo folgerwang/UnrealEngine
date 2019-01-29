@@ -610,7 +610,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 		default:
 		case SCWErrorCode::GeneralCrash:
 			{
-				if (GDumpSCWJobInfoOnCrash != 0)
+				if (GDumpSCWJobInfoOnCrash != 0 || GIsBuildMachine)
 				{
 					auto DumpSingleJob = [](FShaderCompileJob* SingleJob) -> FString
 					{
