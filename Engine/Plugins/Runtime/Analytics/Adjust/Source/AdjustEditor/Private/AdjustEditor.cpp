@@ -7,7 +7,7 @@
 #include "AdjustSettings.h"
 #include "Analytics.h"
 
-IMPLEMENT_MODULE( FAdjustEditorModule, AdjustEditorModule );
+IMPLEMENT_MODULE( FAdjustEditorModule, AdjustEditor );
 
 #define LOCTEXT_NAMESPACE "Adjust"
 

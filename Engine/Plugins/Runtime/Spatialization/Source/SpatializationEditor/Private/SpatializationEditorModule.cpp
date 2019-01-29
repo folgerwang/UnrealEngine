@@ -13,4 +13,4 @@ void FSpatializationEditorModule::ShutdownModule()
 	// Nothing done here for now.
 }
 
-IMPLEMENT_MODULE(FSpatializationEditorModule, NativeSpatializationEditor)
+IMPLEMENT_MODULE(FSpatializationEditorModule, SpatializationEditor)

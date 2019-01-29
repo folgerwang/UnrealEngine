@@ -24,4 +24,4 @@ public:
 	}
 };
 
-IMPLEMENT_MODULE(FTimeManagementEditorModule, TimeManagementEditorModule);
+IMPLEMENT_MODULE(FTimeManagementEditorModule, TimeManagementEditor);

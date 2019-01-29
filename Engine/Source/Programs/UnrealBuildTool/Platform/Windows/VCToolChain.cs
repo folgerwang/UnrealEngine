@@ -1502,6 +1502,19 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Add any forced references to functions
+			foreach(string IncludeFunction in LinkEnvironment.IncludeFunctions)
+			{
+				if(CppPlatform == CppPlatform.Win32)
+				{
+					Arguments.Add(String.Format("/INCLUDE:_{0}", IncludeFunction)); // Assume decorated cdecl name
+				}
+				else
+				{
+					Arguments.Add(String.Format("/INCLUDE:{0}", IncludeFunction));
+				}
+			}
+
 			// Create a response file for the linker, unless we're generating IntelliSense data
 			FileReference ResponseFileName = GetResponseFileName(LinkEnvironment, OutputFile);
 			if (!ProjectFileGenerator.bGenerateProjectFiles)

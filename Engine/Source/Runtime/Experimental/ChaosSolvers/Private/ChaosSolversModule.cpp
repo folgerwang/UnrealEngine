@@ -2,6 +2,7 @@
 
 #include "ChaosSolversModule.h"
 #include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 
 #if INCLUDE_CHAOS
 
@@ -307,5 +308,7 @@ IMPLEMENT_MODULE(FChaosSolversModule, ChaosSolvers);
 
 // Workaround for module not having any exported symbols
 CHAOSSOLVERS_API int ChaosSolversExportedSymbol = 0;
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, ChaosSolvers);
 
 #endif

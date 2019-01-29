@@ -6,7 +6,7 @@
 #include "FlurrySettings.h"
 #include "Analytics.h"
 
-IMPLEMENT_MODULE( FFlurryEditorModule, FlurryEditorModule );
+IMPLEMENT_MODULE( FFlurryEditorModule, FlurryEditor );
 
 #define LOCTEXT_NAMESPACE "Flurry"
 

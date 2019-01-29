@@ -3150,6 +3150,12 @@ namespace UnrealBuildTool
 			// Create the rules from the assembly
 			ModuleRules RulesObject = RulesAssembly.CreateModuleRules(ModuleName, Rules, ReferenceChain);
 
+			// Set whether the module requires an IMPLEMENT_MODULE macro
+			if(!RulesObject.bRequiresImplementModule.HasValue)
+			{
+				RulesObject.bRequiresImplementModule = (RulesObject.Type == ModuleRules.ModuleType.CPlusPlus && RulesObject.Name != Rules.LaunchModuleName);
+			}
+
 			// Reads additional dependencies array for project module from project file and fills PrivateDependencyModuleNames. 
 			if (ProjectDescriptor != null && ProjectDescriptor.Modules != null)
 			{

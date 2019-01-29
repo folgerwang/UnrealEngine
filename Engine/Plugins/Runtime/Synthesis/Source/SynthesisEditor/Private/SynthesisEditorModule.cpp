@@ -12,7 +12,7 @@
 #include "AudioEditorModule.h"
 #include "EpicSynth1PresetBank.h"
 
-IMPLEMENT_MODULE(FSynthesisEditorModule, FSynthesisEditor)
+IMPLEMENT_MODULE(FSynthesisEditorModule, SynthesisEditor)
 
 void FSynthesisEditorModule::StartupModule()
 {
