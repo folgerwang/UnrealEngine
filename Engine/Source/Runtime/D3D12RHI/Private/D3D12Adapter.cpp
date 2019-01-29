@@ -158,7 +158,13 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		}
 	}
 
- 	if (bRayTracingSupported && FParse::Param(FCommandLine::Get(), TEXT("raytracing"))) // Preview DXR functionality requires an explicit opt-in via a command line switch
+	auto GetRayTracingCVarValue = []()
+	{
+		auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"));
+		return CVar && CVar->GetInt() > 0;
+	};
+
+ 	if (bRayTracingSupported && GetRayTracingCVarValue() && !FParse::Param(FCommandLine::Get(), TEXT("noraytracing")))
 	{
 		RootDevice->QueryInterface(IID_PPV_ARGS(RootRayTracingDevice.GetInitReference()));
 		if (RootRayTracingDevice)
