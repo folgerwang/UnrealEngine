@@ -12,6 +12,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Internationalization/Text.h"
 #include "Internationalization/Internationalization.h"
 #include "Misc/Guid.h"
@@ -1284,4 +1285,12 @@ bool FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<u
 TArray<FChunkTagID> FGenericPlatformMisc::GetOnDemandChunkTagIDs()
 {
 	return TArray<FChunkTagID>();
+}
+
+FString FGenericPlatformMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+	FString Path = RootDir() / RelativePath;
+	FString Result;
+	FFileHelper::LoadFileToString(Result, *Path);
+	return Result;
 }
