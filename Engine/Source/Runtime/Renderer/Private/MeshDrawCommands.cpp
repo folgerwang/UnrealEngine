@@ -283,7 +283,8 @@ void UpdateMobileBasePassMeshSortKeys(
 		{
 			const FPrimitiveBounds& PrimitiveBounds = ScenePrimitiveBounds[Cmd.DrawPrimitiveId];
 			PrimitiveDistance = (PrimitiveBounds.BoxSphereBounds.Origin - ViewOrigin).Size();
-			bBackground = (PrimitiveBounds.BoxSphereBounds.SphereRadius > HALF_WORLD_MAX / 4.0f); // TODO: per-primitive bBackgound flag
+			bBackground = Cmd.SortKey.PackedData & 0x2 ? true : false; // Set in MobileBasePass.cpp - GetBasePassStaticSortKey
+			bBackground|= (PrimitiveBounds.BoxSphereBounds.SphereRadius > HALF_WORLD_MAX / 4.0f);
 			bMasked = Cmd.SortKey.PackedData & 0x1 ? true : false; // Set in MobileBasePass.cpp - GetBasePassStaticSortKey
 		}
 
