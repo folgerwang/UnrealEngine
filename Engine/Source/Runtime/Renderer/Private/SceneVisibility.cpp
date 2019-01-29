@@ -3277,6 +3277,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		HasDynamicEditorMeshElementsMasks.AddZeroed(NumPrimitives);
 	}
 
+	const bool bIsInstancedStereo = (Views.Num() > 0) ? (Views[0].IsInstancedStereoPass() || Views[0].bIsMobileMultiViewEnabled) : false;
 	UpdateReflectionSceneData(Scene);
 
 	uint8 ViewBit = 0x1;
@@ -3561,8 +3562,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 			LeftData[Index] |= RightData[Index];
 		}
 	}
-
-	const bool bIsInstancedStereo = (Views.Num() > 0) ? (Views[0].IsInstancedStereoPass() || Views[0].bIsMobileMultiViewEnabled) : false;
+	
 	ViewBit = 0x1;
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{

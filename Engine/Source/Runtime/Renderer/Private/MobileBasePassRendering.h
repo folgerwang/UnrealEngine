@@ -246,8 +246,11 @@ public:
 				
 		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
 
+		//temp compile hacks
+#if 0
 		SpotLightAnglesParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightAngles"));
 		SpotLightDirectionParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightDirection"));
+#endif
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
@@ -271,9 +274,12 @@ public:
 		Ar << NumDynamicPointLightsParameter;
 	
 		Ar << CSMDebugHintParams;
-		
+	
+		//temp compile hacks
+#if 0
 		Ar << SpotLightAnglesParameter;
 		Ar << SpotLightDirectionParameter;
+#endif
 
 		return bShaderHasOutdatedParameters;
 	}

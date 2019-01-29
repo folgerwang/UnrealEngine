@@ -524,11 +524,14 @@ void TMobileBasePassPSPolicyParamType<FUniformLightMapPolicy>::GetShaderBindings
 
 		if (LightPositionAndInvRadiusParameter.IsBound())
 		{
+			//temp compile fixes.
+#if 0
 			// Set dynamic point lights
 			FMobileBasePassMovablePointLightInfo LightInfo(PrimitiveSceneProxy);
 			ShaderBindings.Add(NumDynamicPointLightsParameter, LightInfo.NumMovablePointLights);
 			ShaderBindings.Add(LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius);
 			ShaderBindings.Add(LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent);
+#endif
 		}
 	}
 	else
