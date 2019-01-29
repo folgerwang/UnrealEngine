@@ -223,7 +223,7 @@ bool FRenderTarget::ReadLinearColorPixels(TArray<FLinearColor> &OutImageData, FR
 		});
 	FlushRenderingCommands();
 
-	return true;
+	return OutImageData.Num() > 0;
 }
 
 /**
@@ -238,6 +238,7 @@ bool FRenderTarget::ReadLinearColorPixelsPtr(FLinearColor* OutImageBytes, FReadS
 	bool bResult = ReadLinearColorPixels(SurfaceData, InFlags, InRect);
 	if (bResult)
 	{
+		check(SurfaceData.Num() != 0);
 		FMemory::Memcpy(OutImageBytes, &SurfaceData[0], SurfaceData.Num() * sizeof(FLinearColor));
 	}
 

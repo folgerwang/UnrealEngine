@@ -12,7 +12,7 @@ namespace EngineTest
 	/// <summary>
 	/// Runs automated tests on a platform
 	/// </summary>
-	public class RunAutomatedTests : UE4Game.DefaultNode
+	public class RunAutomatedTests : UE4Game.DefaultTest
 	{
 		public RunAutomatedTests(Gauntlet.UnrealTestContext InContext)
 			: base(InContext)

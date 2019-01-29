@@ -12,6 +12,7 @@
 #include "Rendering/SlateRenderer.h"
 #include "Rendering/SlateDrawBuffer.h"
 #include "Slate/SlateTextures.h"
+#include "RendererInterface.h"
 
 class FSlateElementBatcher;
 class FSlateRHIRenderingPolicy;
@@ -52,7 +53,7 @@ private:
 struct FViewportInfo : public FRenderResource
 {
 	/** The projection matrix used in the viewport */
-	FMatrix ProjectionMatrix;
+	FMatrix ProjectionMatrix;	
 	/** The viewport rendering handle */
 	FViewportRHIRef ViewportRHI;
 	/** The depth buffer texture if any */
@@ -60,20 +61,15 @@ struct FViewportInfo : public FRenderResource
 
 	// Buffers used in HDR compositing
 	/** sRGB UI render target */
-	FTexture2DRHIRef UITargetRT;
-	/** HDR source data */
-	FTexture2DRHIRef HDRSourceRT;
-	/** sRGB UI render target */
-	FTexture2DRHIRef UITargetSRV;
-	/** HDR source data */
-	FTexture2DRHIRef HDRSourceSRV;
+	TRefCountPtr<IPooledRenderTarget> UITargetRT;
+	TRefCountPtr<IPooledRenderTarget> UITargetRTMask;
 
 	/** Color-space LUT for HDR UI composition. */
 	FTexture3DRHIRef ColorSpaceLUTRT;
 	FTexture3DRHIRef ColorSpaceLUTSRV;
 	int32 ColorSpaceLUTOutputDevice;
 	int32 ColorSpaceLUTOutputGamut;
-
+		
 	//FTexture2DRHIRef RenderTargetTexture;
 	/** The OS Window handle (for recreating the viewport) */
 	void* OSWindow;
@@ -99,35 +95,30 @@ struct FViewportInfo : public FRenderResource
 	int32 HDROutputDevice;
 
 	IViewportRenderTargetProvider* RTProvider;
-
+	
 	/** FRenderResource interface */
 	virtual void InitRHI() override;
 	virtual void ReleaseRHI() override;
 
 	FViewportInfo()
-		: ColorSpaceLUTOutputDevice(0),
-		ColorSpaceLUTOutputGamut(0),
-		OSWindow(NULL),
-		Width(0),
-		Height(0),
-		DesiredWidth(0),
-		DesiredHeight(0),
-		bRequiresStencilTest(false),
-		bFullscreen(false),
-		PixelFormat(EPixelFormat::PF_Unknown),
-		SDRPixelFormat(EPixelFormat::PF_Unknown),
-		RTProvider(nullptr)
+		:	ColorSpaceLUTOutputDevice(0),
+			ColorSpaceLUTOutputGamut(0),
+			OSWindow(NULL), 
+			Width(0),
+			Height(0),
+			DesiredWidth(0),
+			DesiredHeight(0),
+			bRequiresStencilTest(false),
+			bFullscreen(false),
+			PixelFormat(EPixelFormat::PF_Unknown),
+			SDRPixelFormat(EPixelFormat::PF_Unknown),
+			RTProvider(nullptr)
 	{
-
 	}
 
 	~FViewportInfo()
 	{
 		DepthStencil.SafeRelease();
-		UITargetRT.SafeRelease();
-		HDRSourceRT.SafeRelease();
-		UITargetSRV.SafeRelease();
-		HDRSourceSRV.SafeRelease();
 		ColorSpaceLUTRT.SafeRelease();
 		ColorSpaceLUTSRV.SafeRelease();
 	}
@@ -140,14 +131,14 @@ struct FViewportInfo : public FRenderResource
 		if (RTProvider)
 		{
 			FSlateShaderResource* RenderTargetTexture = RTProvider->GetViewportRenderTargetTexture();
-			if (RenderTargetTexture)
+			if( RenderTargetTexture )
 			{
 				FSlateRenderTargetRHI* RHITarget = (FSlateRenderTargetRHI*)RenderTargetTexture;
 				return RHITarget->GetTypedResource();
 			}
 		}
 		return nullptr;
-	}
+	}	
 };
 
 /** A Slate rendering implementation for Unreal engine */

@@ -115,22 +115,6 @@ static TAutoConsoleVariable<int32> CVarMobileMultiViewDirect(
 	TEXT("When enabled the scene color render target array is provided by the hmd plugin so we can skip the blit.\n"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarMonoscopicFarField(
-	TEXT("vr.MonoscopicFarField"),
-	0,
-	TEXT("0 to disable (default), 1 to enable."),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarMonoscopicFarFieldMode(
-	TEXT("vr.MonoscopicFarFieldMode"),
-	1,
-	TEXT("Experimental, mobile only")
-	TEXT(", 0 to disable, 1 to enable (default)")
-	TEXT(", 2 stereo near field only")
-	TEXT(", 3 stereo near field with far field pixel depth test disabled")
-	TEXT(", 4 mono far field only"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
 static TAutoConsoleVariable<int32> CVarRoundRobinOcclusion(
 	TEXT("vr.RoundRobinOcclusion"),
 	0,
@@ -379,6 +363,7 @@ FASTVRAM_CVAR(DBufferMask, 0);
 FASTVRAM_CVAR(DOFSetup, 1);
 FASTVRAM_CVAR(DOFReduce, 1);
 FASTVRAM_CVAR(DOFPostfilter, 1);
+FASTVRAM_CVAR(PostProcessMaterial, 1);
 
 FASTVRAM_CVAR(CustomDepth, 0);
 FASTVRAM_CVAR(ShadowPointLight, 0);
@@ -509,6 +494,7 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowPointLight, ShadowPointLight);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowPerObject, ShadowPerObject);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_ShadowCSM, ShadowCSM);
+	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_PostProcessMaterial, PostProcessMaterial);
 
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldCulledObjectBuffers, DistanceFieldCulledObjectBuffers);
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldTileIntersectionResources, DistanceFieldTileIntersectionResources);
@@ -1337,13 +1323,10 @@ void FViewInfo::SetupUniformBufferParameters(
 	checkSlow(sizeof(ViewUniformShaderParameters.SkyIrradianceEnvironmentMap) == sizeof(FVector4)* 7);
 	SetupSkyIrradianceEnvironmentMapConstants((FVector4*)&ViewUniformShaderParameters.SkyIrradianceEnvironmentMap);
 
-	ViewUniformShaderParameters.MobilePreviewMode =
-		(GIsEditor &&
-		(RHIFeatureLevel == ERHIFeatureLevel::ES2 || RHIFeatureLevel == ERHIFeatureLevel::ES3_1) &&
-		GMaxRHIFeatureLevel > ERHIFeatureLevel::ES3_1) ? 1.0f : 0.0f;
+	ViewUniformShaderParameters.MobilePreviewMode = Scene == nullptr ? 0.0f: (IsSimulatedPlatform(Scene->GetShaderPlatform()) ? 1.0f : 0.0f);
 
 	// Padding between the left and right eye may be introduced by an HMD, which instanced stereo needs to account for.
-	if ((Family != nullptr) && (StereoPass != eSSP_FULL) && (Family->Views.Num() > 1))
+	if ((StereoPass != eSSP_FULL) && (Family->Views.Num() > 1))
 	{
 		check(Family->Views.Num() >= 2);
 
@@ -1375,7 +1358,7 @@ void FViewInfo::SetupUniformBufferParameters(
 	extern FVector GetReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight();
 	ViewUniformShaderParameters.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight = GetReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight();
 
-	ViewUniformShaderParameters.StereoPassIndex = (StereoPass <= eSSP_LEFT_EYE) ? 0 : (StereoPass == eSSP_RIGHT_EYE) ? 1 : StereoPass - eSSP_MONOSCOPIC_EYE + 1;
+	ViewUniformShaderParameters.StereoPassIndex = GEngine->StereoRenderingDevice ? GEngine->StereoRenderingDevice->GetViewIndexForPass(StereoPass) : 0;
 	ViewUniformShaderParameters.StereoIPD = StereoIPD;
 	
 	ViewUniformShaderParameters.PreIntegratedBRDF = GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI;

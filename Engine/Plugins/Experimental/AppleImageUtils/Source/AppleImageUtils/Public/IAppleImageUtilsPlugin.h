@@ -144,6 +144,59 @@ public:
 	 * @return the CGImage if conversion was possible
 	 */
 	virtual CGImageRef UTexture2DToCGImage(UTexture2D* Source) = 0;
+
+	/**
+	 * Converts a image to an array of JPEG data synchronously
+	 *
+	 * @param SourceImage the image to compress
+	 * @param OutBytes the buffer that is populated during compression
+	 * @param Quality the quality level to compress to
+	 * @param bWantColor whether the JPEG is color (true) or monochrome (false)
+	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
+	 */
+	virtual void ConvertToJPEG(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
+
+#if SUPPORTS_IMAGE_UTILS_2_1
+	/**
+	 * Converts a image to an array of HEIF data synchronously
+	 *
+	 * @param SourceImage the image to compress
+	 * @param OutBytes the buffer that is populated during compression
+	 * @param Quality the quality level to compress to
+	 * @param bWantColor whether the HEIF is color (true) or monochrome (false)
+	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
+	 */
+	virtual void ConvertToHEIF(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
+
+	/**
+	 * Converts a image to an array of PNG data synchronously
+	 *
+	 * @param SourceImage the image to compress
+	 * @param OutBytes the buffer that is populated during compression
+	 * @param Quality the quality level to compress to
+	 * @param bWantColor whether the PNG is color (true) or monochrome (false)
+	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
+	 */
+	virtual void ConvertToPNG(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
+
+	/**
+	 * Converts a image to an array of TIFF data synchronously
+	 *
+	 * @param SourceImage the image to compress
+	 * @param OutBytes the buffer that is populated during compression
+	 * @param Quality the quality level to compress to
+	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
+	 */
+	virtual void ConvertToTIFF(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
+#endif
 #endif
 };
 

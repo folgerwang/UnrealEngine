@@ -820,6 +820,27 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Allows the platform to return various build metadata that is not tracked by other means. If the returned string changes, the makefile will be invalidated.
+		/// </summary>
+		/// <param name="ProjectFile">The project file being built</param>
+		/// <returns>String describing the current build metadata</returns>
+		public string GetExternalBuildMetadata(FileReference ProjectFile)
+		{
+			StringBuilder Result = new StringBuilder();
+			GetExternalBuildMetadata(ProjectFile, Result);
+			return Result.ToString();
+		}
+
+		/// <summary>
+		/// Allows the platform to return various build metadata that is not tracked by other means. If the returned string changes, the makefile will be invalidated.
+		/// </summary>
+		/// <param name="ProjectFile">The project file being built</param>
+		/// <param name="Metadata">String builder to contain build metadata</param>
+		public virtual void GetExternalBuildMetadata(FileReference ProjectFile, StringBuilder Metadata)
+		{
+		}
+
+		/// <summary>
 		/// Checks if platform is part of a given platform group
 		/// </summary>
 		/// <param name="Platform">The platform to check</param>

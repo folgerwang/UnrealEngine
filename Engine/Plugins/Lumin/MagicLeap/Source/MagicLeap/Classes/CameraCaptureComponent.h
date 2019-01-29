@@ -30,35 +30,80 @@ public:
   virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
   /**
-	Instigates a capture image to file task on a separate thread.
-	@brief The newly created jpeg file will have an automatically generated name which is guaranteed
-		   to be unique.  The user should register event handlers for both the success and fail events.
-		   Upon completion, a successful operation will provide the file path of the newly created jpeg
-		   to the FCameraCaptureImgToFileSuccess event handler.
+   Delegate used to notify the initiating blueprint when a capture image to file task has completed.
+   @note Although this signals the task as complete, it may have failed or been cancelled.
+   @param bSuccess True if the task succeeded, false otherwise.
+   @param FilePath A string containing the file path to the newly created jpeg.
+ */
+  DECLARE_DYNAMIC_DELEGATE_TwoParams(FCameraCaptureImgToFile, bool, bSuccess, const FString&, FilePath);
+
+  /**
+	Delegate used to pass the captured image back to the initiating blueprint.
+	@note The captured texture will remain in memory for the lifetime of the calling application (if the task succeeds).
+	@param bSuccess True if the task succeeded, false otherwise.
+	@param CaptureTexture A UTexture2D containing the captured image.
   */
-  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
-  bool CaptureImageToFileAsync();
+  DECLARE_DYNAMIC_DELEGATE_TwoParams(FCameraCaptureImgToTexture, bool, bSuccess, UTexture2D*, CaptureTexture);
+
+  /**
+	Delegate used to notify the initiating blueprint of the result of a request to begin recording video.
+	@note Although this signals the task as complete, it may have failed or been cancelled.
+	@param bSuccess True if the task succeeded, false otherwise.
+  */
+  DECLARE_DYNAMIC_DELEGATE_OneParam(FCameraCaptureStartRecording, bool, bSuccess);
+
+  /**
+	Delegate used to notify the initiating blueprint of the result of a request to stop recording video.
+	@note Although this signals the task as complete, it may have failed or been cancelled.
+	@param bSuccess True if the task succeeded, false otherwise.
+	@param FilePath A string containing the path to the newly created mp4.
+  */
+  DECLARE_DYNAMIC_DELEGATE_TwoParams(FCameraCaptureStopRecording, bool, bSuccess, const FString&, FilePath);
+
+  /**
+	Initiates a capture image to file task on a separate thread.
+	@brief The newly created jpeg file will have an automatically generated name which is guaranteed
+		   to be unique.  Upon completion, a successful operation will provide the file path of the newly
+		   created jpeg to the FCameraCaptureImgToFile event handler.
+	@param ResultDelegate The delegate to be notified once the camera image has been saved to a jpeg file.
+  */
+  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  bool CaptureImageToFileAsync(const FCameraCaptureImgToFile& ResultDelegate);
 
   /** 
-    Instigates a capture image to memory task on a speparate thread.
+    Initiates a capture image to memory task on a speparate thread.
 	@brief The user should register event handlers for both the success and fail events.  Upon completion,
 		   a successful operation will provide a dynamically generated texture containing the captured
 		   image to the FCameraCaptureImgToTextureSuccess event handler.
-    @note The generated texture will be garbage collected when this class is destroyed.
+    @note The generated texture will be garbage collected when this app is destroyed.
+	@param ResultDelegate The delegate to be notified once the camera image has been saved to a texture.
   */
-  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
-  bool CaptureImageToTextureAsync();
+  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  bool CaptureImageToTextureAsync(const FCameraCaptureImgToTexture& ResultDelegate);
 
   /** 
-    Instigates a capture video to file task on a separate thread.
-	@brief The newly created mp4 file will have an automatically generated name which is guaranteed
-		   to be unique.  The user should register event handlers for both the success and fail events.
-		   Upon completion, a successful operation will provide the file path of the saved mp4 file to the
-		   FCameraCaptureVidToFileSuccess event handler.
-	@param VideoLength The length in seconds of the footage to be captured.
+    Initiates the capturing of video/audio data on a separate thread.
+	@note The system will continue to record video until StopRecordingVideo is called.
+	@param ResultDelegate The delegate to be notified once the recording has begun or failed to begin.
   */
-  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
-  bool CaptureVideoToFileAsync(float VideoLength);
+  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  bool StartRecordingVideoAsync(const FCameraCaptureStartRecording& ResultDelegate);
+
+  /**
+	Stops the recording and saves the video/audio data to an mp4 file.
+	@note The newly created mp4 file will have an automatically generated name which is guaranteed
+		  to be unique.
+	@param ResultDelegate The delegate to be notified once the video/audio data has been saved to an mp4 file.
+  */
+  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  bool StopRecordingVideoAsync(const FCameraCaptureStopRecording& ResultDelegate);
+
+  /**
+	Gets the capture state of the component.
+	@return True if the component is currently capturing, false otherwise.
+  */
+  UFUNCTION(BlueprintPure, Category = "CameraCapture|MagicLeap")
+  bool IsCapturing() const;
 
   /**
 	Retrieves a handle to the current preview buffer.
@@ -69,84 +114,20 @@ public:
 
 public:
   /**
-    Delegate used to pass log messages from the capture worker thread to the instigating blueprint.
+    Delegate used to pass log messages from the capture worker thread to the initiating blueprint.
 	@note This is useful if the user wishes to have log messages in 3D space.
     @param LogMessage A string containing the log message.
   */
   DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCameraCaptureLogMessage, FString, LogMessage);
 
-  /**
-    Delegate used to notify the instigating blueprint of a capture image to file success.
-    @param FilePath A string containing the file path to the newly created jpeg.
-  */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCameraCaptureImgToFileSuccess, FString, FilePath);
-
-  /** Delegate used to notify the instigating blueprint of a capture image to file failure. */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE(FCameraCaptureImgToFileFailure);
-
-  /**
-    Delegate used to pass the successfully captured image back to the instigating blueprint.
-    @note The captured texture will be cleaned up when this component is destroyed.
-    @param CaptureTexture A UTexture2D containing the captured image.
-  */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCameraCaptureImgToTextureSuccess, UTexture2D*, CaptureTexture);
-
-  /** Delegate used to notify the instigating blueprint of a capture image to texture failure. */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE(FCameraCaptureImgToTextureFailure);
-
-  /** Delegate used to notify the instigating blueprint of a capture video to file success.
-
-    @param FilePath A string containing the path to the newly created mp4.
-  */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCameraCaptureVidToFileSuccess, FString, FilePath);
-
-  /** Delegate used to notify the instigating blueprint of a capture video to file failure. */
-  DECLARE_DYNAMIC_MULTICAST_DELEGATE(FCameraCaptureVidToFileFailure);
-
-  /** Activated when a log message is generated on the capture thread. */
-  FCameraCaptureLogMessage& OnCaptureLogMessage();
-
-  /** Activated when an image is successfully captured to file on the capture thread. */
-  FCameraCaptureImgToFileSuccess& OnCaptureImgToFileSuccess();
-
-  /** Activated when an image fails to capture to file on the capture thread. */
-  FCameraCaptureImgToFileFailure& OnCaptureImgToFileFailure();
-
-  /** Activated when an image is successfully captured to texture on the capture thread. */
-  FCameraCaptureImgToTextureSuccess& OnCaptureImgToTextureSuccess();
-
-  /** Activated when an image fails to capture to texture on the capture thread. */
-  FCameraCaptureImgToTextureFailure& OnCaptureImgToTextureFailure();
-
-  /** Activated when a video is successfully captured to file on the capture thread. */
-  FCameraCaptureVidToFileSuccess& OnCaptureVidToFileSuccess();
-
-  /** Activated when a video is fails to capture to file on the capture thread. */
-  FCameraCaptureVidToFileFailure& OnCaptureVidToFileFailure();  
-
 private:
-  class FCameraCaptureImpl *Impl;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureLogMessage CaptureLogMessage;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureImgToFileSuccess CaptureImgToFileSuccess;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureImgToFileFailure CaptureImgToFileFailure;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureImgToTextureSuccess CaptureImgToTextureSuccess;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureImgToTextureFailure CaptureImgToTextureFailure;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureVidToFileSuccess CaptureVidToFileSuccess;
-
-  UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
-  FCameraCaptureVidToFileFailure CaptureVidToFileFailure;
+	class FCameraCaptureImpl *Impl;
+	UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
+	FCameraCaptureLogMessage CaptureLogMessage;
+	FCameraCaptureImgToFile CaptureImgToFileResult;
+	FCameraCaptureImgToTexture CaptureImgToTextureResult;
+	FCameraCaptureStartRecording StartRecordingResult;
+	FCameraCaptureStopRecording StopRecordingResult;
 
 private:
   void Log(const FString& LogMessage);

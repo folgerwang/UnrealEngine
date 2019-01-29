@@ -25,6 +25,7 @@ IMPLEMENT_APPLICATION(TestPAL, "TestPAL");
 #define ARG_THREAD_SINGLETON_TEST			"threadsingleton"
 #define ARG_SYSINFO_TEST					"sysinfo"
 #define ARG_CRASH_TEST						"crash"
+#define ARG_ENSURE_TEST						"ensure"
 #define ARG_STRINGPRECISION_TEST			"stringprecision"
 #define ARG_DSO_TEST						"dso"
 #define ARG_GET_ALLOCATION_SIZE_TEST		"getallocationsize"
@@ -304,22 +305,6 @@ int32 CrashTest(const TCHAR* CommandLine)
 	GEngineLoop.PreInit(CommandLine);
 	UE_LOG(LogTestPAL, Display, TEXT("Running crash test (this should not exit)."));
 
-	// try ensures first (each ensure fires just once)
-	{
-		for (int IdxEnsure = 0; IdxEnsure < 5; ++IdxEnsure)
-		{
-			FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FIRST ensure() #%d times"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
-			ensure(false);
-		}
-	}
-	{
-		for (int IdxEnsure = 0; IdxEnsure < 5; ++IdxEnsure)
-		{
-			FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled SECOND ensure() #%d times"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
-			ensure(false);
-		}
-	}
-
 	if (FParse::Param(CommandLine, TEXT("logfatal")))
 	{
 		UE_LOG(LogTestPAL, Fatal, TEXT("  LogFatal!"));
@@ -328,9 +313,140 @@ int32 CrashTest(const TCHAR* CommandLine)
 	{
 		checkf(false, TEXT("  checkf!"));
 	}
+	else if (FParse::Param(CommandLine, TEXT("unaligned")))
+	{
+		FQuat Quat[2];
+		uint8* BytePtr = (uint8*) &Quat;
+		FQuat* QuatBadPtr = (FQuat*)(BytePtr + 3);
+		*QuatBadPtr = FQuat::Identity;
+
+		// This never going to be called, but kept here so entire block is not optimized out
+		UE_LOG(LogTestPAL, Warning, TEXT("Quat.X = %f"), Quat[0].X);
+	}
 	else
 	{
 		*(int *)0x10 = 0x11;
+	}
+
+	FEngineLoop::AppPreExit();
+	FEngineLoop::AppExit();
+	return 0;
+}
+
+/**
+ * Ensure test
+ */
+int32 EnsureTest(const TCHAR* CommandLine)
+{
+	FPlatformMisc::SetCrashHandler(NULL);
+	FPlatformMisc::SetGracefulTerminationHandler();
+
+	GEngineLoop.PreInit(CommandLine);
+	UE_LOG(LogTestPAL, Display, TEXT("Running ensure test."));
+
+	// try ensures first (each ensure fires just once)
+	{
+		UE_LOG(LogTestPAL, Display, TEXT("Trying 5 ensureAlways 5 times."));
+		UE_LOG(LogTestPAL, Display, TEXT("-------------------------------------------------------------------------"));
+		for (int IdxEnsure = 0; IdxEnsure < 5; ++IdxEnsure)
+		{
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("*************** FIRST ensureAlways #%d time ***************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FIRST ensureAlways() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensureAlways(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("*************** SECOND ensureAlways #%d time ***************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled SECOND ensureAlways() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensureAlways(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("*************** THIRD ensureAlways #%d time ***************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled THIRD ensureAlways() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensureAlways(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("*************** FOURTH ensureAlways #%d time ***************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FOURTH ensureAlways() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensureAlways(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("*************** FIFTH ensureAlways #%d time ***************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FIFTH ensureAlways() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensureAlways(false);
+			}
+		}
+
+		UE_LOG(LogTestPAL, Display, TEXT("Trying 10 ensures 5 times."));
+		UE_LOG(LogTestPAL, Display, TEXT("-------------------------------------------------------------------------"));
+		for (int IdxEnsure = 0; IdxEnsure < 5; ++IdxEnsure)
+		{
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** FIRST ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FIRST ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** SECOND ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled SECOND ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** THIRD ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled THIRD ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** FOURTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FOURTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** FIFTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled FIFTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** SIXTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled SIXTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** SEVENTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled SEVENTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** EIGTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled EIGHTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** NINETH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled NINETH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+			{
+				UE_LOG(LogTestPAL, Display, TEXT("****************** TENTH ensure #%d time ******************"), IdxEnsure);
+				FScopeLogTime EnsureLogTime(*FString::Printf(TEXT("Handled TENTH ensure() #%d time"), IdxEnsure), nullptr, FScopeLogTime::ScopeLog_Seconds);
+				ensure(false);
+			}
+
+		}
+
 	}
 
 	FEngineLoop::AppPreExit();
@@ -1266,6 +1382,10 @@ int32 MultiplexedMain(int32 ArgC, char* ArgV[])
 		{
 			return CrashTest(*TestPAL::CommandLine);
 		}
+		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_ENSURE_TEST))
+		{
+			return EnsureTest(*TestPAL::CommandLine);
+		}
 		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_STRINGPRECISION_TEST))
 		{
 			return StringPrecisionTest(*TestPAL::CommandLine);
@@ -1315,6 +1435,7 @@ int32 MultiplexedMain(int32 ArgC, char* ArgV[])
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test per-thread singletons"), ANSI_TO_TCHAR( ARG_THREAD_SINGLETON_TEST ));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test (some) system information"), ANSI_TO_TCHAR( ARG_SYSINFO_TEST ));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test crash handling (pass '-logfatal' for testing Fatal logs)"), ANSI_TO_TCHAR( ARG_CRASH_TEST ));
+	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test ensure handling (including ensureAlways and repeated ensures)"), ANSI_TO_TCHAR( ARG_ENSURE_TEST ));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test passing %%*s in a format string"), ANSI_TO_TCHAR( ARG_STRINGPRECISION_TEST ));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test APIs for dealing with dynamic libraries"), ANSI_TO_TCHAR( ARG_DSO_TEST ));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test GMalloc->GetAllocationSize()"), UTF8_TO_TCHAR(ARG_GET_ALLOCATION_SIZE_TEST));

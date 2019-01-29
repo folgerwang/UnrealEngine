@@ -2132,9 +2132,6 @@ public:
 	/** Helper for getting the time since a certain time. */
 	float TimeSince( float Time ) const;
 
-	/** Helper for getting the mono far field culling distance. */
-	float GetMonoFarFieldCullingDistance() const;
-
 	/** Creates a new physics scene for this world. */
 	void CreatePhysicsScene(const AWorldSettings* Settings = nullptr);
 

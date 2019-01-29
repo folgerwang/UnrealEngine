@@ -112,7 +112,6 @@ void SRenderDocPluginHelpWindow::Construct(const FArguments& InArgs)
 					{
 						URenderDocPluginSettings* Settings = GetMutableDefault<URenderDocPluginSettings>();
 						Settings->bShowHelpOnStartup = (NewState == ECheckBoxState::Checked);
-						Settings->SaveSettings();
 					})
 					[
 						SNew(STextBlock)

@@ -184,6 +184,17 @@ struct FSlotEvaluationPose
 		, Weight(InWeight)
 	{
 	}
+
+	FSlotEvaluationPose(FSlotEvaluationPose&& InEvaluationPose)
+		: AdditiveType(InEvaluationPose.AdditiveType)
+		, Weight(InEvaluationPose.Weight)
+	{
+		Pose.MoveBonesFrom(InEvaluationPose.Pose);
+		Curve.MoveFrom(InEvaluationPose.Curve);
+	}
+
+	FSlotEvaluationPose(const FSlotEvaluationPose& InEvaluationPose) = default;
+	FSlotEvaluationPose& operator=(const FSlotEvaluationPose& InEvaluationPose) = default;
 };
 
 /** Helper struct to store a Queued Montage BlendingOut event. */
@@ -967,6 +978,9 @@ public:
 	bool ParallelCanEvaluate(const USkeletalMesh* InSkeletalMesh) const;
 
 	/** Perform evaluation. Can be called from worker threads. */
+	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose);
+
+	UE_DEPRECATED(4.32, "Please use ParallelEvaluateAnimation without passing OutBoneSpaceTransforms.")
 	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutBoneSpaceTransforms, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose);
 
 	void PostEvaluateAnimation();

@@ -17,6 +17,9 @@
 #include "Misc/MessageDialog.h"
 #include "Misc/FeedbackContext.h"
 #include "EditorFramework/AssetImportData.h"
+#include "AudioEditorModule.h"
+#include "AudioDevice.h"
+#include "SoundFileIO/SoundFileIO.h"
 
 
 static bool bSoundFactorySuppressImportOverwriteDialog = false;
@@ -93,7 +96,13 @@ USoundFactory::USoundFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("wav;Sound"));
+	Formats.Add(TEXT("wav;Wave Audio File"));
+
+#if WITH_SNDFILE_IO
+	Formats.Add(TEXT("aif;Audio Interchange File"));
+	Formats.Add(TEXT("ogg;OGG Vorbis bitstream format "));
+	Formats.Add(TEXT("flac;Free Lossless Audio Codec"));
+#endif // WITH_SNDFILE_IO
 
 	bCreateNew = false;
 	bAutoCreateCue = false;
@@ -120,6 +129,65 @@ UObject* USoundFactory::FactoryCreateBinary
 {
 	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, FileType);
 
+	UObject* SoundObject = nullptr;
+
+	const bool SuppressOverwrite = bSoundFactorySuppressImportOverwriteDialog;
+	if (FCString::Stricmp(FileType, TEXT("WAV")) == 0)
+	{
+		SoundObject = CreateObject(Class, InParent, Name, Flags, Context, FileType, Buffer, BufferEnd, Warn);
+	}
+
+#if WITH_SNDFILE_IO
+	if (!SoundObject)
+	{
+		// Read raw audio data
+		TArray<uint8> RawAudioData;
+		RawAudioData.Empty(BufferEnd - Buffer);
+		RawAudioData.AddUninitialized(BufferEnd - Buffer);
+		FMemory::Memcpy(RawAudioData.GetData(), Buffer, RawAudioData.Num());
+
+		// Convert audio data to a wav file in memory
+		TArray<uint8> RawWaveData;
+		if (Audio::ConvertAudioToWav(RawAudioData, RawWaveData))
+		{
+			const uint8* Ptr = &RawWaveData[0];
+
+			// Perpetuate the setting of the suppression flag to avoid
+			// user notification if we attempt to call CreateObject twice
+			bSoundFactorySuppressImportOverwriteDialog = SuppressOverwrite;
+			SoundObject = CreateObject(Class, InParent, Name, Flags, Context, TEXT("WAV"), Ptr, Ptr + RawWaveData.Num() - 1, Warn);
+		}
+	}
+#endif // WITH_SNDFILE_IO
+
+	if (!SoundObject)
+	{
+		// Unrecognized sound format
+		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound format '%s' in %s"), FileType, *Name.ToString());
+		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+	}
+
+	return SoundObject;
+}
+
+void USoundFactory::SuppressImportOverwriteDialog()
+{
+	bSoundFactorySuppressImportOverwriteDialog = true;
+}
+
+UObject* USoundFactory::CreateObject
+(
+	UClass*				Class,
+	UObject*			InParent,
+	FName				Name,
+	EObjectFlags		Flags,
+	UObject*			Context,
+	const TCHAR*		FileType,
+	const uint8*&		Buffer,
+	const uint8*		BufferEnd,
+	FFeedbackContext*	Warn
+)
+{
 	if (FCString::Stricmp(FileType, TEXT("WAV")) == 0)
 	{
 		// create the group name for the cue
@@ -140,7 +208,7 @@ UObject* USoundFactory::FactoryCreateBinary
 		{
 			if (!bCuePathIsValid)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_ImportFailed_f", "Import failed for {0}: {1}"), FText::FromString(CuePackageName), Reason));
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("SoundFactory", "Import Failed", "Import failed for {0}: {1}"), FText::FromString(CuePackageName), Reason));
 				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
@@ -247,8 +315,11 @@ UObject* USoundFactory::FactoryCreateBinary
 
 			if (*WaveInfo.pBitsPerSample != 16)
 			{
+#if !WITH_SNDFILE_IO
 				WaveInfo.ReportImportFailure();
-				Warn->Logf(ELogVerbosity::Error, TEXT("Currently, only 16 bit WAV files are supported (%s)."), *Name.ToString());
+				Warn->Logf(ELogVerbosity::Error, TEXT("Only 16 bit WAV source files are supported (%s) on this editor platform."), *Name.ToString());
+#endif // WITH_SNDFILE_IO
+
 				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 				return nullptr;
 			}
@@ -306,34 +377,32 @@ UObject* USoundFactory::FactoryCreateBinary
 			TArray<int32> ChannelIndices;
 			if (ChannelCount == 4)
 			{
-				ChannelIndices = { 
-					SPEAKER_FrontLeft, 
-					SPEAKER_FrontRight, 
-					SPEAKER_LeftSurround, 
-					SPEAKER_RightSurround 
+				ChannelIndices = {
+					SPEAKER_FrontLeft,
+					SPEAKER_FrontRight,
+					SPEAKER_LeftSurround,
+					SPEAKER_RightSurround
 				};
 			}
 			else if (ChannelCount == 6)
 			{
-				ChannelIndices = { 
-					SPEAKER_FrontLeft, 
-					SPEAKER_FrontRight, 
-					SPEAKER_FrontCenter, 
-					SPEAKER_LeftSurround, 
-					SPEAKER_LowFrequency, 
-					SPEAKER_LeftSurround, 
-					SPEAKER_RightSurround 
+				ChannelIndices = {
+					SPEAKER_FrontLeft,
+					SPEAKER_FrontRight,
+					SPEAKER_FrontCenter,
+					SPEAKER_LowFrequency,
+					SPEAKER_LeftSurround,
+					SPEAKER_RightSurround
 				};
 			}
 			else if (ChannelCount == 8)
 			{
-				ChannelIndices = { 
-					SPEAKER_FrontLeft, 
-					SPEAKER_FrontRight, 
-					SPEAKER_FrontCenter, 
-					SPEAKER_LeftSurround, 
-					SPEAKER_LowFrequency, 
-					SPEAKER_LeftSurround, 
+				ChannelIndices = {
+					SPEAKER_FrontLeft,
+					SPEAKER_FrontRight,
+					SPEAKER_FrontCenter,
+					SPEAKER_LowFrequency,
+					SPEAKER_LeftSurround,
 					SPEAKER_RightSurround,
 					SPEAKER_LeftBack,
 					SPEAKER_RightBack
@@ -347,6 +416,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			}
 
 			// Make some new sound waves
+			check(ChannelCount == ChannelIndices.Num());
 			for (int32 Chan = 0; Chan < ChannelCount; ++Chan)
 			{
 				// Build the deinterleaved buffer for the channel
@@ -411,6 +481,7 @@ UObject* USoundFactory::FactoryCreateBinary
 		Sound->Duration = (float)NumFrames / *WaveInfo.pSamplesPerSec;
 		Sound->SetSampleRate(*WaveInfo.pSamplesPerSec);
 		Sound->NumChannels = ChannelCount;
+		Sound->TotalSamples = *WaveInfo.pSamplesPerSec * Sound->Duration;
 
 		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Sound);
 
@@ -426,25 +497,15 @@ UObject* USoundFactory::FactoryCreateBinary
 			CreateSoundCue(Sound, bMoveCue ? CuePackage : InParent, Flags, bIncludeAttenuationNode, bIncludeModulatorNode, bIncludeLoopingNode, CueVolume);
 		}
 
-		for (int32 ComponentIndex = 0; ComponentIndex < ComponentsToRestart.Num(); ++ComponentIndex)
+		for (UAudioComponent* AudioComponent : ComponentsToRestart)
 		{
-			ComponentsToRestart[ComponentIndex]->Play();
+			AudioComponent->Play();
 		}
 
 		Sound->bNeedsThumbnailGeneration = true;
 
 		return Sound;
 	}
-	else
-	{
-		// Unrecognized.
-		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound format '%s' in %s"), FileType, *Name.ToString());
-		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
-		return nullptr;
-	}
-}
 
-void USoundFactory::SuppressImportOverwriteDialog()
-{
-	bSoundFactorySuppressImportOverwriteDialog = true;
+	return nullptr;
 }

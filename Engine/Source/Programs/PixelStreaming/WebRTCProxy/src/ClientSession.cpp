@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "ClientSession.h"
 #include "Logging.h"
 #include "Conductor.h"
@@ -234,7 +233,7 @@ void FClientSession::OnSuccess(webrtc::SessionDescriptionInterface* Desc)
 	PeerConnection->SetLocalDescription(
 		FSetSessionDescriptionObserver::Create(
 	        []() {},
-	        [](const std::string& error) { checkf("Setting local description failed: %s", error.c_str()); }
+	        [](const std::string& error) { checkf(false, TEXT("Setting local description failed: %s"), error.c_str()); }
 		),
 		Desc
 	);

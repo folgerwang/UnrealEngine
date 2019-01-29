@@ -291,8 +291,8 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 			if (!LinuxCursor->IsHidden())
 			{
-				int xOffset, yOffset;
-				GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
+				FWindowProperties Props;
+				GetWindowPropertiesInEventLoop(NativeWindow, Props);
 
 				// When bUsingHighPrecisionMouseInput=1, changing the position cache causes the cursor (inside top/left/right etc. ViewPort)
 				// to not move correct with the selection tool. The next part should be only run when not in Editor mode.
@@ -301,7 +301,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 					int32 BorderSizeX, BorderSizeY;
 					CurrentEventWindow->GetNativeBordersSize(BorderSizeX, BorderSizeY);
 
-					LinuxCursor->SetCachedPosition(motionEvent.x + xOffset + BorderSizeX, motionEvent.y + yOffset + BorderSizeY);
+					LinuxCursor->SetCachedPosition(motionEvent.x + Props.Location.X + BorderSizeX, motionEvent.y + Props.Location.Y + BorderSizeY);
 				}
 
 				if( !CurrentEventWindow->GetDefinition().HasOSWindowBorder )
@@ -309,7 +309,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 					if ( CurrentEventWindow->IsRegularWindow() )
 					{
 						FVector2D CurrentPosition = LinuxCursor->GetPosition();
-						MessageHandler->GetWindowZoneForPoint( CurrentEventWindow.ToSharedRef(), CurrentPosition.X - xOffset, CurrentPosition.Y - yOffset );
+						MessageHandler->GetWindowZoneForPoint( CurrentEventWindow.ToSharedRef(), CurrentPosition.X - Props.Location.X, CurrentPosition.Y - Props.Location.Y );
 						MessageHandler->OnCursorSet();
 					}
 				}
@@ -945,13 +945,11 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 	case SDL_FINGERDOWN:
 		{
+			UE_LOG(LogLinuxWindow, Verbose, TEXT("Finger %llu is down at (%f, %f)"), Event.tfinger.fingerId, Event.tfinger.x, Event.tfinger.y);
+
 			// touch events can have no window associated with them, in that case ignore (with a warning)
 			if (LIKELY(!bWindowlessEvent))
 			{
-				int xOffset, yOffset;
-				GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
-				FVector2D Offset(static_cast<float>(xOffset), static_cast<float>(yOffset));
-
 				// remove touch context even if it existed
 				uint64 FingerId = static_cast<uint64>(Event.tfinger.fingerId);
 				if (UNLIKELY(Touches.Find(FingerId) != nullptr))
@@ -962,7 +960,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 				FTouchContext NewTouch;
 				NewTouch.TouchIndex = Touches.Num();
-				NewTouch.Location = GetTouchEventLocation(Event) + Offset;
+				NewTouch.Location = GetTouchEventLocation(NativeWindow, Event);
 				NewTouch.DeviceId = Event.tfinger.touchId;
 				Touches.Add(FingerId, NewTouch);
 
@@ -983,10 +981,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			// touch events can have no window associated with them, in that case ignore (with a warning)
 			if (LIKELY(!bWindowlessEvent))
 			{
-				int xOffset, yOffset;
-				GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
-				FVector2D Offset(static_cast<float>(xOffset), static_cast<float>(yOffset));
-
 				uint64 FingerId = static_cast<uint64>(Event.tfinger.fingerId);
 				FTouchContext* TouchContext = Touches.Find(FingerId);
 				if (UNLIKELY(TouchContext == nullptr))
@@ -996,7 +990,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				}
 				else
 				{
-					TouchContext->Location = GetTouchEventLocation(Event) + Offset;
+					TouchContext->Location = GetTouchEventLocation(NativeWindow, Event);
 					// check touch device?
 
 					UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchEnded at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
@@ -1018,10 +1012,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			// touch events can have no window associated with them, in that case ignore (with a warning)
 			if (LIKELY(!bWindowlessEvent))
 			{
-				int xOffset, yOffset;
-				GetWindowPositionInEventLoop(NativeWindow, &xOffset, &yOffset);
-				FVector2D Offset(static_cast<float>(xOffset), static_cast<float>(yOffset));
-
 				uint64 FingerId = static_cast<uint64>(Event.tfinger.fingerId);
 				FTouchContext* TouchContext = Touches.Find(FingerId);
 				if (UNLIKELY(TouchContext == nullptr))
@@ -1032,14 +1022,14 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				else
 				{
 					// do not send moved event if position has not changed
-					FVector2D Location = GetTouchEventLocation(Event) + Offset;
+					FVector2D Location = GetTouchEventLocation(NativeWindow, Event);
 					if (LIKELY((Location - TouchContext->Location).IsNearlyZero() == false))
 					{
 						TouchContext->Location = Location;
 						UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchMoved at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
 						MessageHandler->OnTouchMoved(TouchContext->Location, 1.0f, TouchContext->TouchIndex, 0);// TouchContext->DeviceId);
-	}
-}
+					}
+				}
 			}
 			else
 			{
@@ -1055,13 +1045,15 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 	}
 }
 
-FVector2D FLinuxApplication::GetTouchEventLocation(SDL_Event TouchEvent)
+FVector2D FLinuxApplication::GetTouchEventLocation(SDL_HWindow NativeWindow, SDL_Event TouchEvent)
 {
 	checkf(TouchEvent.type == SDL_FINGERDOWN || TouchEvent.type == SDL_FINGERUP || TouchEvent.type == SDL_FINGERMOTION, TEXT("Wrong touch event."));
-	// contrary to SDL2 documentation, the coordinates received from touchscreen monitors are screen space (window space to be more correct)
-	return FVector2D(TouchEvent.tfinger.x, TouchEvent.tfinger.y);
-}
 
+	FWindowProperties Props;
+	GetWindowPropertiesInEventLoop(NativeWindow, Props);
+	// coordinates aren't necessarily normalized: e.g. if the input is grabbed and we're sliding outside of the window we can get x > 1
+	return FVector2D(Props.Location.X + Props.Size.X * TouchEvent.tfinger.x, Props.Location.Y + Props.Size.Y * TouchEvent.tfinger.y);
+}
 
 EWindowZone::Type FLinuxApplication::WindowHitTest(const TSharedPtr< FLinuxWindow > &Window, int x, int y)
 {
@@ -1266,6 +1258,8 @@ TSharedPtr< FLinuxWindow > FLinuxApplication::FindEventWindow(SDL_Event* Event, 
 			WindowID = Event->drop.windowID;
 			break;
 		case SDL_FINGERDOWN:
+		case SDL_FINGERUP:
+		case SDL_FINGERMOTION:
 			// SDL touch events are windowless, but Slate needs to associate touch down with a particular window.
 			// Assume that the current focus window is the one relevant for the touch and if there's none, assume the event windowless
 			if (CurrentFocusWindow.IsValid())
@@ -1700,47 +1694,56 @@ bool FLinuxApplication::HandleWindowCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 	return false;
 }
 
-void FLinuxApplication::SaveWindowLocationsForEventLoop(void)
+void FLinuxApplication::SaveWindowPropertiesForEventLoop(void)
 {
 	for (int32 WindowIndex = 0; WindowIndex < Windows.Num(); ++WindowIndex)
 	{
 		TSharedRef< FLinuxWindow > Window = Windows[WindowIndex];
-		int x = 0;
-		int y = 0;
+		int X = 0;
+		int Y = 0;
+		int Width = 0;
+		int Height = 0;
 		SDL_HWindow NativeWindow = Window->GetHWnd();
-		SDL_GetWindowPosition(NativeWindow, &x, &y);
-		SavedWindowLocationsForEventLoop.FindOrAdd(NativeWindow) = FVector2D(x, y);
+		SDL_GetWindowPosition(NativeWindow, &X, &Y);
+		SDL_GetWindowSize(NativeWindow, &Width, &Height);
+
+		FWindowProperties Props;
+		Props.Location = FVector2D(static_cast<float>(X), static_cast<float>(Y));
+		Props.Size = FVector2D(static_cast<float>(Width), static_cast<float>(Height));
+		SavedWindowPropertiesForEventLoop.FindOrAdd(NativeWindow) = Props;
 	}
 }
 
-void FLinuxApplication::ClearWindowLocationsAfterEventLoop(void)
+void FLinuxApplication::ClearWindowPropertiesAfterEventLoop(void)
 {
-	SavedWindowLocationsForEventLoop.Empty();
+	SavedWindowPropertiesForEventLoop.Empty();
 }
 
-void FLinuxApplication::GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, int *x, int *y)
+void FLinuxApplication::GetWindowPropertiesInEventLoop(SDL_HWindow NativeWindow, FWindowProperties& Properties)
 {
-	FVector2D *Position = SavedWindowLocationsForEventLoop.Find(NativeWindow);
-	if(Position)
+	FWindowProperties *SavedProps = SavedWindowPropertiesForEventLoop.Find(NativeWindow);
+	if(SavedProps)
 	{
-		// Found saved location.
-		*x = Position->X;
-		*y = Position->Y;
+		Properties = *SavedProps;
 	}
 	else if(NativeWindow)
 	{
-		SDL_GetWindowPosition(NativeWindow, x, y);
+		int X, Y, Width, Height;
+		SDL_GetWindowPosition(NativeWindow, &X, &Y);
+		SDL_GetWindowSize(NativeWindow, &Width, &Height);
+		Properties.Location = FVector2D(static_cast<float>(X), static_cast<float>(Y));
+		Properties.Size = FVector2D(static_cast<float>(Width), static_cast<float>(Height));
 
 		// If we've hit this case, then we're either not in the event
 		// loop, or suddenly have a new window to keep track of.
 		// Record the initial window position.
-		SavedWindowLocationsForEventLoop.FindOrAdd(NativeWindow) = FVector2D(*x, *y);
+		SavedWindowPropertiesForEventLoop.FindOrAdd(NativeWindow) = Properties;
 	}
 	else
 	{
-		UE_LOG(LogLinuxWindowEvent, Error, TEXT("Tried to get the location of a non-existing window\n"));
-		*x = 0;
-		*y = 0;
+		UE_LOG(LogLinuxWindowEvent, Error, TEXT("Tried to get the location of a non-existent window\n"));
+		Properties.Location = FVector2D(0, 0);
+		Properties.Size = FVector2D(0, 0);
 	}
 }
 

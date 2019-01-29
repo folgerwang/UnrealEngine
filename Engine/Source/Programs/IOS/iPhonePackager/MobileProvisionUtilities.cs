@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -313,6 +313,30 @@ namespace iPhonePackager
 				}
 
 				XCentPList.SetValueForKey("keychain-access-groups", KeyGroups);
+			}
+
+			// must have CloudKit and CloudDocuments for com.apple.developer.icloud-services
+			// otherwise the game will not be listed in the Settings->iCloud apps menu on the device
+			{
+				if (XCentPList.HasKey("com.apple.developer.icloud-services"))
+				{
+					List<string> ServicesGroups = XCentPList.GetArray("com.apple.developer.icloud-services", "string");
+
+					if (ServicesGroups.Count == 0 || !ServicesGroups[0].StartsWith("Cloud"))
+					{
+						ServicesGroups.Clear();
+
+						string ServicesString;
+						XCentPList.GetString("com.apple.developer.icloud-services", out ServicesString);
+
+						if (ServicesString.Equals("*"))
+						{
+							ServicesGroups.Add("CloudKit");
+							ServicesGroups.Add("CloudDocuments");
+						}
+					}
+					XCentPList.SetValueForKey("com.apple.developer.icloud-services", ServicesGroups);
+				}
 			}
 
 			return XCentPList.SaveToString();

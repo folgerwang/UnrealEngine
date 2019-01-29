@@ -256,6 +256,9 @@ namespace UnrealBuildTool
 				AddDefinition(Arguments, "_WINDLL");
 			}
 
+			// Maintain the old std::aligned_storage behavior from VS from v15.8 onwards, in case of prebuilt third party libraries are reliant on it
+			AddDefinition(Arguments, "_DISABLE_EXTENDED_ALIGNED_STORAGE");
+
             // Fix Incredibuild errors with helpers using heterogeneous character sets
             if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
             {
@@ -303,6 +306,9 @@ namespace UnrealBuildTool
 
 					// Favor code speed.
 					Arguments.Add("/Ot");
+
+					// Coalesce duplicate strings
+					Arguments.Add("/GF");
 
 					// Only omit frame pointers on the PC (which is implied by /Ox) if wanted.
 					if (CompileEnvironment.bOmitFramePointers == false
@@ -1204,6 +1210,45 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
+				FileReference IconFile;
+				if(Target.ProjectFile != null && !CompileEnvironment.bUseSharedBuildEnvironment)
+				{
+					IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
+				}
+				else
+				{
+					IconFile = WindowsPlatform.GetApplicationIcon(null);
+				}
+				CompileAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(IconFile));
+
+				// Setup the compile environment, setting the icon to use via a macro. This is used in Default.rc2.
+				AddDefinition(Arguments, String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
+
+				// Apply the target settings for the resources
+				if(!CompileEnvironment.bUseSharedBuildEnvironment)
+				{
+					if (!String.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
+					{
+						AddDefinition(Arguments, String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
+					}
+
+					if (!String.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
+					{
+						AddDefinition(Arguments, String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
+					}
+
+					if (!String.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
+					{
+						AddDefinition(Arguments, String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
+					}
+
+					if (Target.ProjectFile != null)
+					{
+						AddDefinition(Arguments, String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
+					}
+				}
+
 				// Add the RES file to the produced item list.
 				FileItem CompiledResourceFile = FileItem.GetItemByFileReference(
 					FileReference.Combine(
@@ -1227,6 +1272,25 @@ namespace UnrealBuildTool
 			}
 
 			return Result;
+		}
+
+		/// <summary>
+		/// Macros passed via the command line have their quotes stripped, and are tokenized before being re-stringized by the compiler. This conversion
+		/// back and forth is normally ok, but certain characters such as single quotes must always be paired. Remove any such characters here.
+		/// </summary>
+		/// <param name="Value">The macro value</param>
+		/// <returns>The sanitized value</returns>
+		static string SanitizeMacroValue(string Value)
+		{
+			StringBuilder Result = new StringBuilder(Value.Length);
+			for(int Idx = 0; Idx < Value.Length; Idx++)
+			{
+				if(Value[Idx] != '\'' && Value[Idx] != '\"')
+				{
+					Result.Append(Value[Idx]);
+				}
+			}
+			return Result.ToString();
 		}
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, List<Action> Actions)
@@ -1435,6 +1499,19 @@ namespace UnrealBuildTool
 				if(!String.IsNullOrEmpty(LinkEnvironment.AdditionalArguments))
 				{
 					Arguments.Add(LinkEnvironment.AdditionalArguments.Trim());
+				}
+			}
+
+			// Add any forced references to functions
+			foreach(string IncludeFunction in LinkEnvironment.IncludeFunctions)
+			{
+				if(CppPlatform == CppPlatform.Win32)
+				{
+					Arguments.Add(String.Format("/INCLUDE:_{0}", IncludeFunction)); // Assume decorated cdecl name
+				}
+				else
+				{
+					Arguments.Add(String.Format("/INCLUDE:{0}", IncludeFunction));
 				}
 			}
 

@@ -1017,16 +1017,11 @@ void FPaths::MakeStandardFilename(FString& InPath)
 	// if this is an empty path, use the relative base dir
 	if (InPath.Len() == 0)
 	{
-#if !PLATFORM_HTML5
 		InPath = FPlatformProcess::BaseDir();
-		// if the base directory is nothing then this function will recurse infinitely instead of returning nothing. 
+		// if the base directory is nothing then this function will recurse infinitely instead of returning nothing.
 		if (InPath.Len() == 0)
 			return;
 		FPaths::MakeStandardFilename(InPath);
-#else
-		// @todo: revisit this as needed
-//		InPath = TEXT("/");
-#endif
 		return;
 	}
 

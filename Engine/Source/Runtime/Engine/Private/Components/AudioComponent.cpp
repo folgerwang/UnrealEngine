@@ -126,6 +126,17 @@ void UAudioComponent::Serialize(FArchive& Ar)
 			bOverrideSubtitlePriority = true;
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading())
+	{
+		if (ConcurrencySettings_DEPRECATED != nullptr)
+		{
+			ConcurrencySet.Add(ConcurrencySettings_DEPRECATED);
+			ConcurrencySettings_DEPRECATED = nullptr;
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
 }
 
 void UAudioComponent::PostLoad()
@@ -357,7 +368,7 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.SetWorld(GetWorld());
 			NewActiveSound.SetSound(Sound);
 			NewActiveSound.SetSoundClass(SoundClassOverride);
-			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
+			NewActiveSound.ConcurrencySet = ConcurrencySet;
 
 			NewActiveSound.VolumeMultiplier = (VolumeModulationMax + ((VolumeModulationMin - VolumeModulationMax) * FMath::SRand())) * VolumeMultiplier;
 			// The priority used for the active sound is the audio component's priority scaled with the sound's priority
@@ -416,16 +427,19 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.bUpdatePlayPercentage = OnAudioPlaybackPercentNative.IsBound() || OnAudioPlaybackPercent.IsBound();
 			NewActiveSound.bUpdateSingleEnvelopeValue = OnAudioSingleEnvelopeValue.IsBound() || OnAudioSingleEnvelopeValueNative.IsBound();
 			NewActiveSound.bUpdateMultiEnvelopeValue = OnAudioMultiEnvelopeValue.IsBound() || OnAudioMultiEnvelopeValueNative.IsBound();
-			
-			// Setup audio component cooked analysis data playback data set
-			TArray<USoundWave*> SoundWavesWithCookedData;
-			NewActiveSound.bUpdatePlaybackTime = Sound->GetSoundWavesWithCookedAnalysisData(SoundWavesWithCookedData);
 
-			// Reset the audio component's soundwave playback times
-			SoundWavePlaybackTimes.Reset();
-			for (USoundWave* SoundWave : SoundWavesWithCookedData)
+			// Setup audio component cooked analysis data playback data set
+			if (AudioDevice->IsBakedAnalaysisQueryingEnabled())
 			{
-				SoundWavePlaybackTimes.Add(SoundWave->GetUniqueID(), FSoundWavePlaybackTimeData(SoundWave));
+				TArray<USoundWave*> SoundWavesWithCookedData;
+				NewActiveSound.bUpdatePlaybackTime = Sound->GetSoundWavesWithCookedAnalysisData(SoundWavesWithCookedData);
+
+				// Reset the audio component's soundwave playback times
+				SoundWavePlaybackTimes.Reset();
+				for (USoundWave* SoundWave : SoundWavesWithCookedData)
+				{
+					SoundWavePlaybackTimes.Add(SoundWave->GetUniqueID(), FSoundWavePlaybackTimeData(SoundWave));
+				}
 			}
 
 			NewActiveSound.MaxDistance = MaxDistance;

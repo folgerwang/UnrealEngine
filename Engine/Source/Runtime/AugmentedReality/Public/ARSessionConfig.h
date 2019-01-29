@@ -174,6 +174,10 @@ public:
 	/** @see CandidateImages */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
+
+	// Add a new CandidateImage to the ARSessionConfig.
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void AddCandidateImage(UARCandidateImage* NewCandidateImage);
     
 	/** @see MaxNumSimultaneousImagesTracked */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
@@ -199,7 +203,7 @@ public:
 	/** @see CandidateObjects */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void AddCandidateObject(UARCandidateObject* CandidateObject);
-	
+
 	/** @see DesiredVideoFormat */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	FARVideoFormat GetDesiredVideoFormat() const;
@@ -220,7 +224,12 @@ public:
 	/** @see FaceTrackingUpdate */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate);
+
+
+	bool ShouldDoHorizontalPlaneDetection() const { return bHorizontalPlaneDetection; }
+	bool ShouldDoVerticalPlaneDetection() const { return bVerticalPlaneDetection; }
 	
+	const TArray<uint8>& GetSerializedARCandidateImageDatabase() const;	
 private:
 	//~ UObject interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -309,4 +318,8 @@ protected:
 	/** Whether to track the face as if you are looking out of the device or as a mirror */
 	UPROPERTY(EditAnywhere, Category="Face AR Settings")
 	EARFaceTrackingUpdate FaceTrackingUpdate;
+	
+	/** Data array for storing the cooked image database */
+	UPROPERTY()
+	TArray<uint8> SerializedARCandidateImageDatabase;	
 };

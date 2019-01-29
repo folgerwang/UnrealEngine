@@ -168,7 +168,6 @@ static void PlayOneShotSound(FAudioDevice* InAudioDevice, const TArray<USoundWav
 
 	NewActiveSound.bIsUISound = true;
 	NewActiveSound.bAllowSpatialization = false;
-	NewActiveSound.ConcurrencySettings = nullptr;
 	NewActiveSound.Priority = 1.0f;
 
 	// Add it to the audio device

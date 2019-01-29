@@ -262,7 +262,7 @@ void MainPS_ES2(
 #if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
 #if OUTPUT_GAMMA_SPACE
 	FullSceneColor.rgb = sqrt(FullSceneColor.rgb);
-#else
+#elif OUTPUT_MOBILE_HDR
 	FullSceneColor = Encode32BPPHDR(FullSceneColor, SvPosition);
 #endif
 #endif

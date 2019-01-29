@@ -27,6 +27,8 @@ public:
 
 	virtual FString GetMovieName() override;
 	virtual bool IsLastMovieInPlaylist() override;
+	virtual void Suspend() override;
+	virtual void Resume() override;
 
 	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
 	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
@@ -61,6 +63,8 @@ private:
     AVAssetTrack*               AVVideoTrack;
     CMSampleBufferRef           LatestSamples;
 
+	FString MovieName;
+
     // AV Synchronization
     float                       VideoRate;
     int                         SyncStatus;
@@ -69,6 +73,9 @@ private:
 
     bool                        bVideoTracksLoaded;
     bool                        bWasActive;
+
+	bool						bIsMovieInterrupted;
+	CMTime						ResumeTime;
 
 	FCriticalSection			VideoTracksLoadingLock;
 
@@ -85,4 +92,7 @@ private:
 
     bool CheckForNextFrameAndCopy();
 
+	void ReleaseMovie();
+
+	bool LoadMovie(FString MovieName);
 };

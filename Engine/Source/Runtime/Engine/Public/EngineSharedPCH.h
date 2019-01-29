@@ -207,7 +207,6 @@
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
 #include "Async/AsyncWork.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Serialization/BufferReader.h"
 #include "Containers/StaticArray.h"
 #include "Misc/SecureHash.h"

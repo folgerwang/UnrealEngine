@@ -98,7 +98,7 @@ public class ICU : ModuleRules
 			}
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
-			Target.Platform == UnrealTargetPlatform.Android)
+			Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			string StaticLibraryExtension = "a";
 
@@ -323,27 +323,14 @@ public class ICU : ModuleRules
 			}
 		}
 
-		// common defines
-		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
-			(Target.Platform == UnrealTargetPlatform.Win32) ||
-			(Target.IsInPlatformGroup(UnrealPlatformGroup.Unix)) ||
-			(Target.Platform == UnrealTargetPlatform.Android) ||
-			(Target.Platform == UnrealTargetPlatform.Mac) ||
-			(Target.Platform == UnrealTargetPlatform.IOS) ||
-			(Target.Platform == UnrealTargetPlatform.TVOS) ||
-			(Target.Platform == UnrealTargetPlatform.PS4) ||
-			(Target.Platform == UnrealTargetPlatform.XboxOne) ||
-			(Target.Platform == UnrealTargetPlatform.HTML5) ||
-			(Target.Platform == UnrealTargetPlatform.Switch)
-			)
-		{
-			// Definitions
-			PublicDefinitions.Add("U_USING_ICU_NAMESPACE=0"); // Disables a using declaration for namespace "icu".
-			PublicDefinitions.Add("U_STATIC_IMPLEMENTATION"); // Necessary for linking to ICU statically.
-			PublicDefinitions.Add("UNISTR_FROM_CHAR_EXPLICIT=explicit"); // Makes UnicodeString constructors for ICU character types explicit.
-			PublicDefinitions.Add("UNISTR_FROM_STRING_EXPLICIT=explicit"); // Makes UnicodeString constructors for "char"/ICU string types explicit.
-			PublicDefinitions.Add("UCONFIG_NO_TRANSLITERATION=1"); // Disables declarations and compilation of unused ICU transliteration functionality.
-		}
+		// common defines (this used to be inside an if TargetPlatform == ___ block that looked to include every platform known to man, so just removed the if)
+		// Definitions
+		PublicDefinitions.Add("U_USING_ICU_NAMESPACE=0"); // Disables a using declaration for namespace "icu".
+		PublicDefinitions.Add("U_STATIC_IMPLEMENTATION"); // Necessary for linking to ICU statically.
+		PublicDefinitions.Add("UNISTR_FROM_CHAR_EXPLICIT=explicit"); // Makes UnicodeString constructors for ICU character types explicit.
+		PublicDefinitions.Add("UNISTR_FROM_STRING_EXPLICIT=explicit"); // Makes UnicodeString constructors for "char"/ICU string types explicit.
+		PublicDefinitions.Add("UCONFIG_NO_TRANSLITERATION=1"); // Disables declarations and compilation of unused ICU transliteration functionality.
+		
 
 		if (Target.Platform == UnrealTargetPlatform.PS4)
 		{

@@ -81,6 +81,9 @@ struct CORE_API FFortniteMainBranchObjectVersion
 		// Widgets upgraded with WidgetStopDuplicatingAnimations, may not correctly default-to-self for the widget parameter.
 		WidgetAnimationDefaultToSelfFail,
 
+		// HUDWidgets now require an element tag
+		FortHUDElementNowRequiresTag,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

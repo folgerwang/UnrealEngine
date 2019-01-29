@@ -34,7 +34,7 @@ static void
 FeedAudioDevice(_THIS, const void *buf, const int buflen)
 {
     const int framelen = (SDL_AUDIO_BITSIZE(this->spec.format) / 8) * this->spec.channels;
-    EM_ASM_ARGS({
+    MAIN_THREAD_EM_ASM({
         var numChannels = SDL2.audio.currentOutputBuffer['numberOfChannels'];
         for (var c = 0; c < numChannels; ++c) {
             var channelData = SDL2.audio.currentOutputBuffer['getChannelData'](c);
@@ -99,7 +99,7 @@ HandleCaptureProcess(_THIS)
         return;
     }
 
-    EM_ASM_ARGS({
+    MAIN_THREAD_EM_ASM({
         var numChannels = SDL2.capture.currentCaptureBuffer.numberOfChannels;
         for (var c = 0; c < numChannels; ++c) {
             var channelData = SDL2.capture.currentCaptureBuffer.getChannelData(c);
@@ -144,7 +144,7 @@ HandleCaptureProcess(_THIS)
 static void
 EMSCRIPTENAUDIO_CloseDevice(_THIS)
 {
-    EM_ASM_({
+    MAIN_THREAD_EM_ASM({
         if ($0) {
             if (SDL2.capture.silenceTimer !== undefined) {
                 clearTimeout(SDL2.capture.silenceTimer);
@@ -197,7 +197,7 @@ EMSCRIPTENAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscaptu
     /* based on parts of library_sdl.js */
 
     /* create context (TODO: this puts stuff in the global namespace...)*/
-    result = EM_ASM_INT({
+    result = MAIN_THREAD_EM_ASM_INT({
         if(typeof(SDL2) === 'undefined') {
             SDL2 = {};
         }
@@ -248,7 +248,7 @@ EMSCRIPTENAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscaptu
 #endif
 
     /* limit to native freq */
-    this->spec.freq = EM_ASM_INT_V({ return SDL2.audioContext.sampleRate; });
+    this->spec.freq = MAIN_THREAD_EM_ASM_INT({ return SDL2.audioContext.sampleRate; });
 
     SDL_CalculateAudioSpec(&this->spec);
 
@@ -269,7 +269,7 @@ EMSCRIPTENAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscaptu
            feels like it's a pretty inefficient tapdance in similar ways,
            to be honest. */
 
-        EM_ASM_({
+        MAIN_THREAD_EM_ASM({
             var have_microphone = function(stream) {
                 //console.log('SDL audio capture: we have a microphone! Replacing silence callback.');
                 if (SDL2.capture.silenceTimer !== undefined) {
@@ -311,7 +311,7 @@ EMSCRIPTENAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscaptu
         }, this->spec.channels, this->spec.samples, HandleCaptureProcess, this);
     } else {
         /* setup a ScriptProcessorNode */
-        EM_ASM_ARGS({
+        MAIN_THREAD_EM_ASM({
             SDL2.audio.scriptProcessorNode = SDL2.audioContext['createScriptProcessor']($1, 0, $0);
             SDL2.audio.scriptProcessorNode['onaudioprocess'] = function (e) {
                 if ((SDL2 === undefined) || (SDL2.audio === undefined)) { return; }
@@ -342,7 +342,7 @@ EMSCRIPTENAUDIO_Init(SDL_AudioDriverImpl * impl)
     impl->ProvidesOwnCallbackThread = 1;
 
     /* check availability */
-    available = EM_ASM_INT_V({
+    available = MAIN_THREAD_EM_ASM_INT({
         if (typeof(AudioContext) !== 'undefined') {
             return 1;
         } else if (typeof(webkitAudioContext) !== 'undefined') {
@@ -355,7 +355,7 @@ EMSCRIPTENAUDIO_Init(SDL_AudioDriverImpl * impl)
         SDL_SetError("No audio context available");
     }
 
-    capture_available = available && EM_ASM_INT_V({
+    capture_available = available && MAIN_THREAD_EM_ASM_INT({
         if ((typeof(navigator.mediaDevices) !== 'undefined') && (typeof(navigator.mediaDevices.getUserMedia) !== 'undefined')) {
             return 1;
         } else if (typeof(navigator.webkitGetUserMedia) !== 'undefined') {

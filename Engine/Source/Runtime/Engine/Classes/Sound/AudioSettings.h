@@ -139,6 +139,14 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(ClampMin=0))
 	int32 MaximumConcurrentStreams;
 
+	/** The value to use to clamp the min pitch scale */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = 0.001, ClampMax = 4.0, UIMin = 0.001, UIMax = 4.0))
+	float GlobalMinPitchScale;
+
+	/** The value to use to clamp the min pitch scale */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = 0.001, ClampMax = 4.0, UIMin = 0.001, UIMax = 4.0))
+	float GlobalMaxPitchScale;
+
 	UPROPERTY(config, EditAnywhere, Category="Quality")
 	TArray<FAudioQualitySettings> QualityLevels;
 

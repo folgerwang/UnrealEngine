@@ -8,8 +8,11 @@ public class TargetPlatform : ModuleRules
 	public TargetPlatform(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
-        PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
-        PublicDependencyModuleNames.Add("DesktopPlatform");
+		PrivateDependencyModuleNames.Add("SlateCore");
+		PrivateDependencyModuleNames.Add("Slate");
+		PrivateDependencyModuleNames.Add("EditorStyle");
+		PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
+		PublicDependencyModuleNames.Add("DesktopPlatform");
 		PublicDependencyModuleNames.Add("LauncherPlatform");
 
 		PrivateIncludePathModuleNames.Add("Engine");

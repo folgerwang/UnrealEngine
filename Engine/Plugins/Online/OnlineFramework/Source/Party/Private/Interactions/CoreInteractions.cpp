@@ -28,7 +28,7 @@ FText FSocialInteraction_AddFriend::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_AddFriend::GetSlashCommandToken()
 {
-	return TEXT("friend");
+	return FString();
 }
 
 bool FSocialInteraction_AddFriend::CanExecute(const USocialUser& User)
@@ -90,7 +90,7 @@ FText FSocialInteraction_RemoveFriend::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_RemoveFriend::GetSlashCommandToken()
 {
-	return TEXT("unfriend");
+	return LOCTEXT("SlashCommand_Unfriend", "unfriend").ToString();
 }
 
 bool FSocialInteraction_RemoveFriend::CanExecute(const USocialUser& User)
@@ -115,7 +115,7 @@ FText FSocialInteraction_AcceptFriendInvite::GetDisplayName(const USocialUser& U
 
 FString FSocialInteraction_AcceptFriendInvite::GetSlashCommandToken()
 {
-	return TEXT("accept");
+	return FString();
 }
 
 bool FSocialInteraction_AcceptFriendInvite::CanExecute(const USocialUser& User)
@@ -139,7 +139,7 @@ FText FSocialInteraction_RejectFriendInvite::GetDisplayName(const USocialUser& U
 
 FString FSocialInteraction_RejectFriendInvite::GetSlashCommandToken()
 {
-	return TEXT("reject");
+	return FString();
 }
 
 bool FSocialInteraction_RejectFriendInvite::CanExecute(const USocialUser& User)
@@ -163,7 +163,7 @@ FText FSocialInteraction_Block::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_Block::GetSlashCommandToken()
 {
-	return TEXT("block");
+	return LOCTEXT("SlashCommand_BlockUser", "block").ToString();
 }
 
 bool FSocialInteraction_Block::CanExecute(const USocialUser& User)
@@ -187,7 +187,7 @@ FText FSocialInteraction_Unblock::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_Unblock::GetSlashCommandToken()
 {
-	return TEXT("unblock");
+	return LOCTEXT("SlashCommand_Unblock", "unblock").ToString();
 }
 
 bool FSocialInteraction_Unblock::CanExecute(const USocialUser& User)
@@ -212,7 +212,7 @@ FText FSocialInteraction_PrivateMessage::GetDisplayName(const USocialUser& User)
 
 FString FSocialInteraction_PrivateMessage::GetSlashCommandToken()
 {
-	return TEXT("whisper");
+	return LOCTEXT("SlashCommand_PrivateMessage", "whisper").ToString();
 }
 
 bool FSocialInteraction_PrivateMessage::CanExecute(const USocialUser& User)
@@ -241,7 +241,7 @@ FText FSocialInteraction_ShowPlatformProfile::GetDisplayName(const USocialUser& 
 
 FString FSocialInteraction_ShowPlatformProfile::GetSlashCommandToken()
 {
-	return TEXT("profile");
+	return TEXT("");
 }
 
 bool FSocialInteraction_ShowPlatformProfile::CanExecute(const USocialUser& User)

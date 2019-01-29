@@ -558,11 +558,13 @@ bool FDesktopPlatformBase::CleanGameProject(const FString& ProjectDir, FString& 
 
 bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
 {
+	FModuleManager& ModuleManager = FModuleManager::Get();
+
 	// Get the project directory
 	FString ProjectDir = FPaths::GetPath(ProjectFileName);
 
 	// Build the argument list
-	FString Arguments = FString::Printf(TEXT("%s %s"), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform());
+	FString Arguments = FString::Printf(TEXT("%s %s"), ModuleManager.GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform());
 
 	// Append the project name if it's a foreign project
 	if ( !ProjectFileName.IsEmpty() )
@@ -574,7 +576,12 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 	Arguments += " -TargetType=Editor -Progress -NoHotReloadFromIDE";
 
 	// Run UBT
-	return RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
+	bool bResult = RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
+
+	// Reset module paths in case they have changed during compilation
+	ModuleManager.ResetModulePathsCache();
+
+	return bResult;
 }
 
 bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn, FString LogFilePath)
@@ -1218,13 +1225,13 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 	{
 		FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Mac/RunXBuild.sh"));
 		CompilerExecutableFilename = TEXT("/bin/sh");
-		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development /property:TargetFrameworkVersion=v4.5 %s"), *ScriptPath, *CsProjLocation);
+		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development %s"), *ScriptPath, *CsProjLocation);
 	}
 	else if (PLATFORM_LINUX)
 	{
 		FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Linux/RunXBuild.sh"));
 		CompilerExecutableFilename = TEXT("/bin/bash");
-		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development /property:TargetFrameworkVersion=v4.0 %s"), *ScriptPath, *CsProjLocation);
+		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development %s"), *ScriptPath, *CsProjLocation);
 	}
 	else
 	{

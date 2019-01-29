@@ -60,6 +60,8 @@ protected:
 	EVisibility RestartVisible() const;
 	FReply IgnoreRecommendation(FName tag);
 	FReply UnhideIgnoredRecommendations();
+	bool UsingForwardShading() const;
+	FString GetConfigPath() const;
 	FReply Refresh();
 	EVisibility CanUnhideIgnoredRecommendations() const;
 	EVisibility IsVisible(FName tag) const;
@@ -88,6 +90,12 @@ protected:
 	FReply MobileHDRDisable(bool text);
 	EVisibility MobileHDRVisibility(FName tag) const;
 
+	FReply AndroidManifestEnable(bool text);
+	EVisibility AndroidManifestVisibility(FName tag) const;
+
+	FReply AndroidPackagingFix(bool text);
+	EVisibility AndroidPackagingVisibility(FName tag) const;
+
 	FReply AntiAliasingEnable(bool text);
 	EVisibility AntiAliasingVisibility(FName tag) const;
 
@@ -96,6 +104,9 @@ protected:
 
 	FReply SelectLight(FString lightName);
 	FReply IgnoreLight(FString lightName);
+	
+	void OnShowButtonChanged( ECheckBoxState NewState );
+	ECheckBoxState IsShowButtonChecked() const;
 
 	APostProcessVolume* PostProcessVolume;
 	UEnum* PlatformEnum;

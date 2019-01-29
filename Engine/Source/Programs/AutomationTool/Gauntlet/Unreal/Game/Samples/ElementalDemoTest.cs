@@ -15,7 +15,7 @@ namespace UE4Game
 	/// <summary>
 	/// Runs automated tests on a platform
 	/// </summary>
-	public class ElementalDemoTest : DefaultNode
+	public class ElementalDemoTest : DefaultTest
 	{
 		public ElementalDemoTest(Gauntlet.UnrealTestContext InContext)
 			: base(InContext)

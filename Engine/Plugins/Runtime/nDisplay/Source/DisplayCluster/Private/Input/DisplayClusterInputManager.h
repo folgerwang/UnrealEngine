@@ -10,6 +10,7 @@
 class IDisplayClusterInputDevice;
 struct FDisplayClusterVrpnAnalogChannelData;
 struct FDisplayClusterVrpnButtonChannelData;
+struct FDisplayClusterVrpnKeyboardChannelData;
 struct FDisplayClusterVrpnTrackerChannelData;
 
 
@@ -17,7 +18,7 @@ struct FDisplayClusterVrpnTrackerChannelData;
  * Input manager. Implements everything related to VR input devices (VRPN, etc.)
  */
 class FDisplayClusterInputManager
-	: public    IPDisplayClusterInputManager
+	: public IPDisplayClusterInputManager
 {
 public:
 	FDisplayClusterInputManager();
@@ -39,25 +40,37 @@ public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterInputManager
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	// Device API
+	virtual const IDisplayClusterInputDevice* GetDevice(EDisplayClusterInputDeviceType DeviceType, const FString& DeviceID) const override;
+
 	// Device amount
-	virtual uint32 GetAxisDeviceAmount()    const override;
-	virtual uint32 GetButtonDeviceAmount()  const override;
-	virtual uint32 GetTrackerDeviceAmount() const override;
+	virtual uint32 GetAxisDeviceAmount()     const override;
+	virtual uint32 GetButtonDeviceAmount()   const override;
+	virtual uint32 GetKeyboardDeviceAmount() const override;
+	virtual uint32 GetTrackerDeviceAmount()  const override;
 
 	// Device IDs
-	virtual bool GetAxisDeviceIds   (TArray<FString>& ids) const override;
-	virtual bool GetButtonDeviceIds (TArray<FString>& ids) const override;
-	virtual bool GetTrackerDeviceIds(TArray<FString>& ids) const override;
-
-	// Button data access
-	virtual bool GetButtonState(const FString& devId, const uint8 btn, bool& curState)       const override;
-	virtual bool IsButtonPressed(const FString& devId, const uint8 btn, bool& curPressed)    const override;
-	virtual bool IsButtonReleased(const FString& devId, const uint8 btn, bool& curReleased)  const override;
-	virtual bool WasButtonPressed(const FString& devId, const uint8 btn, bool& wasPressed)   const override;
-	virtual bool WasButtonReleased(const FString& devId, const uint8 btn, bool& wasReleased) const override;
+	virtual bool GetAxisDeviceIds    (TArray<FString>& ids) const override;
+	virtual bool GetButtonDeviceIds  (TArray<FString>& ids) const override;
+	virtual bool GetKeyboardDeviceIds(TArray<FString>& ids) const override;
+	virtual bool GetTrackerDeviceIds (TArray<FString>& ids) const override;
 
 	// Axes data access
 	virtual bool GetAxis(const FString& devId, const uint8 axis, float& value) const override;
+
+	// Button data access
+	virtual bool GetButtonState   (const FString& devId, const uint8 btn, bool& curState)    const override;
+	virtual bool IsButtonPressed  (const FString& devId, const uint8 btn, bool& curPressed)  const override;
+	virtual bool IsButtonReleased (const FString& devId, const uint8 btn, bool& curReleased) const override;
+	virtual bool WasButtonPressed (const FString& devId, const uint8 btn, bool& wasPressed)  const override;
+	virtual bool WasButtonReleased(const FString& devId, const uint8 btn, bool& wasReleased) const override;
+
+	// Keyboard data access
+	virtual bool GetKeyboardState   (const FString& devId, const uint8 btn, bool& curState)    const override;
+	virtual bool IsKeyboardPressed  (const FString& devId, const uint8 btn, bool& curPressed)  const override;
+	virtual bool IsKeyboardReleased (const FString& devId, const uint8 btn, bool& curReleased) const override;
+	virtual bool WasKeyboardPressed (const FString& devId, const uint8 btn, bool& wasPressed)  const override;
+	virtual bool WasKeyboardReleased(const FString& devId, const uint8 btn, bool& wasReleased) const override;
 
 	// Tracking data access
 	virtual bool GetTrackerLocation(const FString& devId, const uint8 tr, FVector& location) const override;
@@ -84,6 +97,7 @@ private:
 	// Device data
 	bool GetAxisData   (const FString& devId, const uint8 channel, FDisplayClusterVrpnAnalogChannelData&  data) const;
 	bool GetButtonData (const FString& devId, const uint8 channel, FDisplayClusterVrpnButtonChannelData&  data) const;
+	bool GetKeyboardData(const FString& devId, const uint8 channel, FDisplayClusterVrpnKeyboardChannelData&  data) const;
 	bool GetTrackerData(const FString& devId, const uint8 channel, FDisplayClusterVrpnTrackerChannelData& data) const;
 
 private:

@@ -1,17 +1,17 @@
 /************************************************************************************
 
-Copyright   :   Copyright 2014 Oculus VR, LLC. All Rights reserved.
+Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License");
-you may not use the Oculus VR Rift SDK except in compliance with the License,
+Licensed under the Oculus SDK License Version 3.5 (the "License");
+you may not use the Oculus SDK except in compliance with the License,
 which is provided at the time of installation or download, or which
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.2
+https://developer.oculus.com/licenses/sdk-3.5/
 
-Unless required by applicable law or agreed to in writing, the Oculus VR SDK
+Unless required by applicable law or agreed to in writing, the Oculus SDK
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -94,13 +94,13 @@ OVRP_EXPORT ovrpResult ovrp_GetAudioInId2(void const** audioInId);
 /// function.
 OVRP_EXPORT ovrpResult ovrp_GetAudioInDeviceId2(void const** audioInDeviceId);
 
-/// Returns an array of pointers to extension names which need to be enabled for the instance 
+/// Returns an array of pointers to extension names which need to be enabled for the instance
 /// in order for the VR runtime to support Vulkan-based applications.
 /// @note ovrp_PreInitialize must be called and return a successful result before calling this
 /// function.
 OVRP_EXPORT ovrpResult ovrp_GetInstanceExtensionsVk(char const** instanceExtensions, int* instanceExtensionCount);
 
-/// Returns an array of pointers to extension names which need to be enabled for the device 
+/// Returns an array of pointers to extension names which need to be enabled for the device
 /// in order for the VR runtime to support Vulkan-based applications.
 /// @note ovrp_PreInitialize must be called and return a successful result before calling this
 /// function.
@@ -115,12 +115,19 @@ OVRP_EXPORT ovrpResult ovrp_DestroyDistortionWindow2();
 //Returns handedness as specified in the mobile device
 OVRP_EXPORT ovrpResult ovrp_GetDominantHand(ovrpHandedness* dominantHand);
 
+/// Used by System Activities application for setting the Remote Handedness.
+OVRP_EXPORT ovrpResult ovrp_SetRemoteHandedness(ovrpHandedness handedness);
+
 //Returns the recenter mode (i.e. what the HMD does when the controller recenters).
 // If true, the HMD recenters on controller recenter, and if false, the HMD does nothing on controller recenter.
 OVRP_EXPORT ovrpResult ovrp_GetReorientHMDOnControllerRecenter(ovrpBool* recenter);
 
 //Sets the recenter mode on mobile, and returns unsupported on PC.
 OVRP_EXPORT ovrpResult ovrp_SetReorientHMDOnControllerRecenter(ovrpBool recenter);
+
+//Sets color scale parameters; can be used for effects like fade-to-black. Final pixel color will be multiplied by colorScale
+//and added to offset. If applyToAllLayers is false, this applies only for the eyefov layer. If it's true, it's for every layer submitted.
+OVRP_EXPORT ovrpResult ovrp_SetColorScaleAndOffset(const ovrpVector4f colorScale, const ovrpVector4f colorOffset, const ovrpBool applyToAllLayers);
 
 /// Creates a layer.
 /// The desc remains constant for the lifetime of the layer.
@@ -139,6 +146,9 @@ OVRP_EXPORT ovrpResult ovrp_GetLayerTextureStageCount(int layerId, int* layerTex
 
 /// Gets the texture handle for a specific layer stage and eye.
 OVRP_EXPORT ovrpResult ovrp_GetLayerTexture2(int layerId, int stage, ovrpEye eyeId, ovrpTextureHandle* textureHandle, ovrpTextureHandle* depthTextureHandle);
+
+/// Gets the texture handle for a specific layer stage and eye.
+OVRP_EXPORT ovrpResult ovrp_GetLayerAndroidSurfaceObject(int layerId, void** surfaceObject);
 
 /// Return the vertices and indices for the eye occlusion mesh.
 OVRP_EXPORT ovrpResult ovrp_GetLayerOcclusionMesh(
@@ -292,8 +302,17 @@ OVRP_EXPORT ovrpResult ovrp_SetNodePositionTracked2(ovrpNode nodeId, ovrpBool no
 /// Gets the current pose, acceleration, and velocity of the given node on the given update cadence.
 OVRP_EXPORT ovrpResult ovrp_GetNodePoseState3(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
 
+/// Gets the current pose, acceleration, and velocity of the given node on the given update cadence, without applying any modifier (e.g. HeadPoseModifier)
+OVRP_EXPORT ovrpResult ovrp_GetNodePoseStateRaw(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
+
 /// Gets the current frustum for the given node, if available.
 OVRP_EXPORT ovrpResult ovrp_GetNodeFrustum2(ovrpNode nodeId, ovrpFrustum2f* nodeFrustum);
+
+/// Set relative rotation/translation to the eye pose
+OVRP_EXPORT ovrpResult ovrp_SetHeadPoseModifier(const ovrpQuatf* relativeRotation, const ovrpVector3f* relativeTranslation);
+
+/// Get current relative rotation/translation to the eye pose
+OVRP_EXPORT ovrpResult ovrp_GetHeadPoseModifier(ovrpQuatf* relativeRotation, ovrpVector3f* relativeTranslation);
 
 /// Gets the controller state for the given controllers.
 OVRP_EXPORT ovrpResult ovrp_GetControllerState4(ovrpController controllerMask, ovrpControllerState4* controllerState);
@@ -486,6 +505,15 @@ OVRP_EXPORT ovrpResult ovrp_ResetAppPerfStats2();
 /// Return the app FPS, thread safe
 OVRP_EXPORT ovrpResult ovrp_GetAppFramerate2(float* appFramerate);
 
+/// Returns if a certain perf metrics is suppoerted
+OVRP_EXPORT ovrpResult ovrp_IsPerfMetricsSupported(ovrpPerfMetrics perfMetrics, ovrpBool* supported);
+
+/// Returns if a floating point perf metrics
+OVRP_EXPORT ovrpResult ovrp_GetPerfMetricsFloat(ovrpPerfMetrics perfMetrics, float* value);
+
+/// Returns if an integer perf metrics
+OVRP_EXPORT ovrpResult ovrp_GetPerfMetricsInt(ovrpPerfMetrics perfMetrics, int* value);
+
 /// Set a latency when getting the hand node poses through ovrp_GetNodePoseState2(ovrpStep_Render, ...)
 OVRP_EXPORT ovrpResult ovrp_SetHandNodePoseStateLatency(double latencyInSeconds);
 
@@ -513,8 +541,8 @@ OVRP_EXPORT ovrpResult ovrp_GetGPUUtilSupported(ovrpBool* gpuUtilSupported);
 /// Return the GPU util if the device supports it
 OVRP_EXPORT ovrpResult ovrp_GetGPUUtilLevel(float* gpuUtil);
 
-/// Set thread's performance level, for example, put the performance critical thread on golden cores, 
-/// future policy might change for future hardware 
+/// Set thread's performance level, for example, put the performance critical thread on golden cores,
+/// future policy might change for future hardware
 OVRP_EXPORT ovrpResult ovrp_SetThreadPerformance(int threadId, ovrpThreadPerf perf);
 
 /// This is specifically for Unity to fix Core Affinity wrong assignment.
@@ -530,6 +558,26 @@ OVRP_EXPORT ovrpResult ovrp_GetGPUFrameTime(float* gpuTime);
 OVRP_EXPORT ovrpResult ovrp_GetViewportStencil(ovrpEye eyeId, ovrpViewportStencilType type, ovrpVector2f *vertices, int *vertexCount, ovrpUInt16 *indices, int *indexCount);
 
 OVRP_EXPORT ovrpResult ovrp_SendEvent(const char* eventName, const char* param);
+
+OVRP_EXPORT ovrpResult ovrp_SendEvent2(const char* eventName, const char* param, const char* source);
+
+OVRP_EXPORT ovrpResult ovrp_AddCustomMetadata(const char* metadataName, const char* metadataParam);
+
+OVRP_EXPORT ovrpResult ovrp_SetVrApiPropertyInt(int propertyEnum, int value);
+
+OVRP_EXPORT ovrpResult ovrp_SetVrApiPropertyFloat(int propertyEnum, float value);
+
+OVRP_EXPORT ovrpResult ovrp_GetVrApiPropertyInt(int propertyEnum, int* value);
+
+OVRP_EXPORT ovrpResult ovrp_GetCurrentTrackingTransformPose(ovrpPosef* trackingTransformPose);
+
+OVRP_EXPORT ovrpResult ovrp_GetTrackingTransformRawPose(ovrpPosef* trackingTransformRawPose);
+
+OVRP_EXPORT ovrpResult ovrp_GetTimeInSeconds(double* timeInSeconds);
+
+/// Return a parameter for PTW to compress depth value
+/// Intuitively, it means the closest depth we can save in alpha.
+OVRP_EXPORT ovrpResult ovrp_GetPTWNear(float* ptwNear);
 
 #ifdef __cplusplus
 }

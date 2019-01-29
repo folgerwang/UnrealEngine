@@ -1,8 +1,6 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreMinimal.h"
-#include "Modules/ModuleInterface.h"
-#include "Modules/ModuleManager.h"
+#include "IOSPlatformEditorModule.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstance.h"
 #include "PropertyEditorModule.h"
@@ -13,88 +11,81 @@
 #include "MaterialShaderQualitySettingsCustomization.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "ShaderPlatformQualitySettings.h"
-#include "IOSCustomIconProjectBuildMutatorFeature.h"
 #include "Features/IModularFeatures.h"
+#include "ISettingsSection.h"
 
 #define LOCTEXT_NAMESPACE "FIOSPlatformEditorModule"
 
+FSimpleMulticastDelegate FIOSPlatformEditorModule::OnSelect;
 
-/**
- * Module for iOS as a target platform
- */
-class FIOSPlatformEditorModule
-	: public IModuleInterface
+void FIOSPlatformEditorModule::StartupModule()
 {
-	// IModuleInterface interface
+	// register settings detail panel customization
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(
+		"IOSRuntimeSettings",
+		FOnGetDetailCustomizationInstance::CreateStatic(&FIOSTargetSettingsCustomization::MakeInstance)
+	);
 
-	virtual void StartupModule() override
+	FOnUpdateMaterialShaderQuality UpdateMaterials = FOnUpdateMaterialShaderQuality::CreateLambda([]()
 	{
-		// register settings detail panel customization
-		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.RegisterCustomClassLayout(
-			"IOSRuntimeSettings",
-			FOnGetDetailCustomizationInstance::CreateStatic(&FIOSTargetSettingsCustomization::MakeInstance)
+		FGlobalComponentRecreateRenderStateContext Recreate;
+		FlushRenderingCommands();
+		UMaterial::AllMaterialsCacheResourceShadersForRendering();
+		UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+	});
+
+	PropertyModule.RegisterCustomClassLayout(
+		UShaderPlatformQualitySettings::StaticClass()->GetFName(),
+		FOnGetDetailCustomizationInstance::CreateStatic(&FMaterialShaderQualitySettingsCustomization::MakeInstance, UpdateMaterials)
 		);
 
-		FOnUpdateMaterialShaderQuality UpdateMaterials = FOnUpdateMaterialShaderQuality::CreateLambda([]()
-		{
-			FGlobalComponentRecreateRenderStateContext Recreate;
-			FlushRenderingCommands();
-			UMaterial::AllMaterialsCacheResourceShadersForRendering();
-			UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
-		});
+	PropertyModule.NotifyCustomizationModuleChanged();
 
-		PropertyModule.RegisterCustomClassLayout(
-			UShaderPlatformQualitySettings::StaticClass()->GetFName(),
-			FOnGetDetailCustomizationInstance::CreateStatic(&FMaterialShaderQualitySettingsCustomization::MakeInstance, UpdateMaterials)
-			);
+	// register settings
+	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
-		PropertyModule.NotifyCustomizationModuleChanged();
-
-		// register settings
-		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
-
-		if (SettingsModule != nullptr)
-		{
-			SettingsModule->RegisterSettings("Project", "Platforms", "iOS",
-				LOCTEXT("RuntimeSettingsName", "iOS"),
-				LOCTEXT("RuntimeSettingsDescription", "Settings and resources for the iOS platform"),
-				GetMutableDefault<UIOSRuntimeSettings>()
-			);
-
-			{
-				static FName NAME_SF_METAL(TEXT("SF_METAL"));
-				UShaderPlatformQualitySettings* IOSMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_SF_METAL);
-				SettingsModule->RegisterSettings("Project", "Platforms", "iOSMetalQuality",
-					LOCTEXT("IOSMetalQualitySettingsName", "iOS Material Quality"),
-					LOCTEXT("IOSMetalQualitySettingsDescription", "Settings for iOS material quality"),
-					IOSMaterialQualitySettings
-				);
-			}
-		}
-
-		IModularFeatures::Get().RegisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
-	}
-
-	virtual void ShutdownModule() override
+	if (SettingsModule != nullptr)
 	{
-		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+		TSharedPtr<ISettingsSection> SelectedSection = SettingsModule->RegisterSettings("Project", "Platforms", "iOS",
+			LOCTEXT("RuntimeSettingsName", "iOS"),
+			LOCTEXT("RuntimeSettingsDescription", "Settings and resources for the iOS platform"),
+			GetMutableDefault<UIOSRuntimeSettings>()
+		);
 
-		if (SettingsModule != nullptr)
+		SelectedSection->OnSelect().BindRaw(this, &FIOSPlatformEditorModule::HandleSelectIOSSection);
+
 		{
-			SettingsModule->UnregisterSettings("Project", "Platforms", "iOS");
-			SettingsModule->UnregisterSettings("Project", "Platforms", "iOSMetalQuality");
+			static FName NAME_SF_METAL(TEXT("SF_METAL"));
+			UShaderPlatformQualitySettings* IOSMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_SF_METAL);
+			SettingsModule->RegisterSettings("Project", "Platforms", "iOSMetalQuality",
+				LOCTEXT("IOSMetalQualitySettingsName", "iOS Material Quality"),
+				LOCTEXT("IOSMetalQualitySettingsDescription", "Settings for iOS material quality"),
+				IOSMaterialQualitySettings
+			);
 		}
-
-		IModularFeatures::Get().UnregisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
 	}
 
-private:
+	IModularFeatures::Get().RegisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
+}
 
-	FIOSCustomIconProjectBuildMutatorFeature ProjectBuildMutator;
+void FIOSPlatformEditorModule::ShutdownModule()
+{
+	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
-};
+	if (SettingsModule != nullptr)
+	{
+		SettingsModule->UnregisterSettings("Project", "Platforms", "iOS");
+		SettingsModule->UnregisterSettings("Project", "Platforms", "iOSMetalQuality");
+	}
 
+	IModularFeatures::Get().UnregisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
+}
+
+void FIOSPlatformEditorModule::HandleSelectIOSSection()
+{
+	FIOSPlatformEditorModule::OnSelect.Broadcast();
+}
 
 IMPLEMENT_MODULE(FIOSPlatformEditorModule, IOSPlatformEditor);
 

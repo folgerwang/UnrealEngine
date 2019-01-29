@@ -39,7 +39,7 @@ FPopupMethodReply SVirtualWindow::OnQueryPopupMethod() const
 
 bool SVirtualWindow::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
-	TooltipPresenter->SetContent(TooltipContent.IsValid() ? TooltipContent.ToSharedRef() : SNullWidget::NullWidget);
+	TooltipPresenter->SetContent(TooltipContent);
 
 	return true;
 }

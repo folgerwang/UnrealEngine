@@ -2207,6 +2207,23 @@ void FBodyInstance::CopyBodyInstancePropertiesFrom(const FBodyInstance* FromInst
 	*this = *FromInst;
 }
 
+void FBodyInstance::CopyRuntimeBodyInstancePropertiesFrom(const FBodyInstance* FromInst)
+{
+	check(FromInst);
+	check(!FromInst->bPendingCollisionProfileSetup);
+
+	if (FromInst->bOverrideWalkableSlopeOnInstance)
+	{
+		SetWalkableSlopeOverride(FromInst->GetWalkableSlopeOverride());
+	}
+
+	CollisionResponses = FromInst->CollisionResponses;
+	CollisionProfileName = FromInst->CollisionProfileName;
+	CollisionEnabled = FromInst->CollisionEnabled;
+
+	UpdatePhysicsFilterData();
+}
+
 FPhysScene* FBodyInstance::GetPhysicsScene() const
 {
 	if(ActorHandle.IsValid())
@@ -2482,7 +2499,7 @@ void FBodyInstance::UpdateMassProperties()
 					const FKShapeElem* ShapeElem = FPhysxUserData::Get<FKShapeElem>(FPhysicsInterface::GetUserData(Shape));
 					bool bIsTriangleMesh = FPhysicsInterface::GetShapeType(Shape) == ECollisionShapeType::Trimesh;
 					bool bHasNoMass = ShapeElem && !ShapeElem->GetContributeToMass();
-					if(bIsTriangleMesh || bHasNoMass)
+					if (bIsTriangleMesh || bHasNoMass)
 					{
 						Shapes.RemoveAtSwap(ShapeIdx);
 					}
@@ -2493,7 +2510,7 @@ void FBodyInstance::UpdateMassProperties()
 				{
 					struct FWeldedBatch
 					{
-						TArray<FPhysicsShapeHandle> Shapes;
+							TArray<FPhysicsShapeHandle> Shapes;
 						FTransform RelTM;
 					};
 
@@ -2502,7 +2519,7 @@ void FBodyInstance::UpdateMassProperties()
 
 					for(const FPhysicsShapeHandle& Shape : Shapes) //sort all welded children by their original bodies
 					{
-						if(FWeldInfo* WeldInfo = ShapeToBodiesMap->Find(Shape))
+						if (FWeldInfo* WeldInfo = ShapeToBodiesMap->Find(Shape))
 						{
 							FWeldedBatch* WeldedBatch = BodyToShapes.Find(WeldInfo->ChildBI);
 							if(!WeldedBatch)
@@ -2517,7 +2534,7 @@ void FBodyInstance::UpdateMassProperties()
 						{
 							//no weld info so shape really belongs to this body
 							FWeldedBatch* WeldedBatch = BodyToShapes.Find(this);
-							if(!WeldedBatch)
+							if (!WeldedBatch)
 							{
 								WeldedBatch = &BodyToShapes.Add(this);
 								WeldedBatch->RelTM = FTransform::Identity;
@@ -2545,11 +2562,15 @@ void FBodyInstance::UpdateMassProperties()
 				}
 				else
 				{
-					//No children welded so just get this body's mass properties
-					FTransform MassModifierTransform(FQuat::Identity, FVector(0.f, 0.f, 0.f), Scale3D);	//Ensure that any scaling that is done on the component is passed into the mass frame modifiers
-					TotalMassProperties = ComputeMassProperties(this, Shapes, MassModifierTransform);
+					// If we have no shapes that affect mass we cannot compute the mass properties in a meaningful way.
+					if (Shapes.Num())
+					{
+						//No children welded so just get this body's mass properties
+						FTransform MassModifierTransform(FQuat::Identity, FVector(0.f, 0.f, 0.f), Scale3D);	//Ensure that any scaling that is done on the component is passed into the mass frame modifiers
+						TotalMassProperties = ComputeMassProperties(this, Shapes, MassModifierTransform);
+					}
 				}
-
+			
 				// #PHYS2 Refactor out PxMassProperties (Our own impl?)
 				PxQuat MassOrientation;
 				const FVector MassSpaceInertiaTensor = P2UVector(PxMassProperties::getMassSpaceInertia(TotalMassProperties.inertiaTensor, MassOrientation));

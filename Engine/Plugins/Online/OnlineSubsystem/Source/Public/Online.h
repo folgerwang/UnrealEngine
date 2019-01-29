@@ -20,6 +20,7 @@
 #include "Interfaces/OnlineEntitlementsInterface.h"
 #include "Interfaces/OnlineUserCloudInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
+#include "Interfaces/OnlineStatsInterface.h"
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \
@@ -156,6 +157,13 @@ namespace Online
 	 * @return Interface pointer for the appropriate service
 	 */
 	IMPLEMENT_GET_INTERFACE(Presence);
+
+	/**
+	 * Get the interface for accessing the stats services
+	 * @param SubsystemName - Name of the requested online service
+	 * @return Interface pointer for the appropriate party service
+	 */
+	IMPLEMENT_GET_INTERFACE(Stats);
 };
 
 #undef IMPLEMENT_GET_INTERFACE

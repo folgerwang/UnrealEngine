@@ -540,9 +540,10 @@ bool FFCPXMLExportVisitor::ConstructVideoNode(TSharedRef<FFCPXMLNode> InParentNo
 		return false;
 	}
  
-	for (TSharedPtr<FMovieSceneExportCinematicTrackData> CinematicTrack : CinematicMasterTrackData->CinematicTracks)
+	// Add in reverse order
+	for (int32 RowIndex = CinematicMasterTrackData->CinematicTracks.Num()-1; RowIndex >= 0; --RowIndex)
 	{
-		if (!ConstructVideoTrackNode(VideoNode, CinematicTrack, CinematicMasterTrackData)) 
+		if (!ConstructVideoTrackNode(VideoNode, CinematicMasterTrackData->CinematicTracks[RowIndex], CinematicMasterTrackData)) 
 		{ 
 			return false;
 		}
@@ -600,17 +601,18 @@ bool FFCPXMLExportVisitor::ConstructAudioNode(TSharedRef<FFCPXMLNode> InParentNo
 
 	uint32 TrackIndex = 1;
 
-	for (TSharedPtr<FMovieSceneExportAudioMasterTrackData> AudioMasterTrack : ExportData->MovieSceneData->AudioMasterTracks)
+	// Add in reverse order
+	for (int32 RowIndex = ExportData->MovieSceneData->AudioMasterTracks.Num() - 1; RowIndex >= 0; --RowIndex)
 	{
-		if (!AudioMasterTrack.IsValid())
+		if (!ExportData->MovieSceneData->AudioMasterTracks[RowIndex].IsValid())
 		{
 			return false;
 		}
 
-		for (TSharedPtr<FMovieSceneExportAudioTrackData> AudioTrack : AudioMasterTrack->AudioTracks)
+		for (TSharedPtr<FMovieSceneExportAudioTrackData> AudioTrack : ExportData->MovieSceneData->AudioMasterTracks[RowIndex]->AudioTracks)
 		{
 			uint32 OutNumTracks{ 0 };
-			if (!ConstructAudioTrackNode(AudioNode, AudioTrack, AudioMasterTrack, TrackIndex, OutNumTracks))
+			if (!ConstructAudioTrackNode(AudioNode, AudioTrack, ExportData->MovieSceneData->AudioMasterTracks[RowIndex], TrackIndex, OutNumTracks))
 			{
 				return false;
 			}
@@ -1142,12 +1144,12 @@ bool FFCPXMLExportVisitor::GetCinematicSectionFrames(const TSharedPtr<FMovieScen
 		return false;
 	}
 
-	int32 Handles = ExportData->GetHandleFrames().FloorToFrame().Value;
+	int32 HandleFrames = ExportData->GetHandleFrames();
 	OutStartFrame = InCinematicSectionData->StartFrame.Value;
 	OutEndFrame = InCinematicSectionData->EndFrame.Value;
 	OutDuration = OutEndFrame - OutStartFrame;
-	OutInFrame = Handles;
-	OutOutFrame = Handles + OutDuration;
+	OutInFrame = HandleFrames + 1;
+	OutOutFrame = HandleFrames + OutDuration;
 
 	return true;
 }
@@ -1281,7 +1283,16 @@ bool FFCPXMLExportVisitor::CreateCinematicSectionMetadata(const UMovieSceneCinem
 	{
 		return false;
 	}
+
 	OutMetadata = TEXT("[UE4ShotSection=") + InSection->GetPathName() + TEXT("]");
+
+	// Store the start offset and the handle frames for round-tripping to compute the new start offset
+	int32 HandleFrames = ExportData->GetHandleFrames();
+	FFrameRate TickResolution = InSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	int32 StartFrameOffset = ConvertFrameTime(InSection->Parameters.StartFrameOffset, TickResolution, ExportData->GetFrameRate()).CeilToFrame().Value;
+
+	OutMetadata += TEXT("[UE4ShotStartOffset=") + FString::FromInt(StartFrameOffset) + TEXT("]");
+	OutMetadata += TEXT("[UE4ShotHandleFrames=") + FString::FromInt(HandleFrames) + TEXT("]");
 	return true;
 }
 

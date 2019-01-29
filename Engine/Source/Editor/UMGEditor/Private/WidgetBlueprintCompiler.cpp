@@ -20,6 +20,7 @@
 #include "IUMGModule.h"
 #include "UMGEditorProjectSettings.h"
 #include "WidgetCompilerRule.h"
+#include "Editor/WidgetCompilerLog.h"
 #include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -54,11 +55,11 @@ void FWidgetBlueprintCompiler::PreCompile(UBlueprint* Blueprint, const FKismetCo
 	CompileCount++;
 }
 
-void FWidgetBlueprintCompiler::Compile(UBlueprint * Blueprint, const FKismetCompilerOptions & CompileOptions, FCompilerResultsLog & Results, TArray<UObject*>* ObjLoaded)
+void FWidgetBlueprintCompiler::Compile(UBlueprint * Blueprint, const FKismetCompilerOptions & CompileOptions, FCompilerResultsLog & Results)
 {
 	if (UWidgetBlueprint* WidgetBlueprint = CastChecked<UWidgetBlueprint>(Blueprint))
 	{
-		FWidgetBlueprintCompilerContext Compiler(WidgetBlueprint, Results, CompileOptions, ObjLoaded);
+		FWidgetBlueprintCompilerContext Compiler(WidgetBlueprint, Results, CompileOptions);
 		Compiler.Compile();
 		check(Compiler.NewClass);
 	}
@@ -92,8 +93,8 @@ bool FWidgetBlueprintCompiler::GetBlueprintTypesForClass(UClass* ParentClass, UC
 	return false;
 }
 
-FWidgetBlueprintCompilerContext::FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
-	: Super(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
+FWidgetBlueprintCompilerContext::FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions)
+	: Super(SourceSketch, InMessageLog, InCompilerOptions)
 	, NewWidgetBlueprintClass(nullptr)
 	, WidgetSchema(nullptr)
 {
@@ -763,6 +764,26 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 	Super::FinishCompilingClass(Class);
 }
 
+
+class FBlueprintCompilerLog : public IWidgetCompilerLog
+{
+public:
+	FBlueprintCompilerLog(FCompilerResultsLog& InMessageLog)
+		: MessageLog(InMessageLog)
+	{
+	}
+
+	virtual void InternalLogMessage(TSharedRef<FTokenizedMessage>& InMessage) override
+	{
+		MessageLog.AddTokenizedMessage(InMessage);
+	}
+
+private:
+	// Compiler message log (errors, warnings, notes)
+	FCompilerResultsLog& MessageLog;
+};
+
+
 void FWidgetBlueprintCompilerContext::PostCompile()
 {
 	Super::PostCompile();
@@ -786,7 +807,8 @@ void FWidgetBlueprintCompilerContext::PostCompile()
 
 	if (!Blueprint->bIsRegeneratingOnLoad && bIsFullCompile)
 	{
-		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, MessageLog);
+		FBlueprintCompilerLog BlueprintLog(MessageLog);
+		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, BlueprintLog);
 
 		if (MessageLog.NumErrors == 0 && WidgetClass->bAllowTemplate)
 		{

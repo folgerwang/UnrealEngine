@@ -13,7 +13,7 @@ struct FDisplayClusterConfigInput;
  * VRPN analog device data holder. Responsible for data serialization and deserialization.
  */
 class FDisplayClusterVrpnAnalogInputDataHolder
-	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnAnalog>
+	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnAnalog>
 {
 public:
 	FDisplayClusterVrpnAnalogInputDataHolder(const FDisplayClusterConfigInput& config);

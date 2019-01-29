@@ -14,10 +14,39 @@
 /** Turn on Steam filter generation output */
 #define DEBUG_STEAM_FILTERS 1
 
-/** @TODO ONLINE Server values needed to advertise with Steam (NOTE: Steam expects UTF8) */
-#define STEAMPRODUCTNAME "unrealdk"
-#define STEAMGAMEDIR "unrealtest"
-#define STEAMGAMEDESC "Unreal Test!"
+/* Server values needed to advertise with Steam (NOTE: Steam expects UTF8)
+ *
+ * Specify these in your Target.cs files for your project.
+ * Make sure to escape the strings!
+ * If these do not match the same values on the Steam partner backend, 
+ * matchmaking will not work for your dedicated server
+ */
+#ifndef UE4_PROJECT_STEAMPRODUCTNAME
+#ifdef STEAMPRODUCTNAME
+UE_DEPRECATED(4.22, "The Steam Product Name Macro has been updated to be configurable from your Target.cs file. Please change STEAMPRODUCTNAME to UE4_PROJECT_STEAMPRODUCTNAME.")
+#define UE4_PROJECT_STEAMPRODUCTNAME STEAMPRODUCTNAME
+#else
+#define UE4_PROJECT_STEAMPRODUCTNAME "unrealdk"
+#endif
+#endif
+
+#ifndef UE4_PROJECT_STEAMGAMEDIR
+#ifdef STEAMGAMEDIR
+UE_DEPRECATED(4.22, "The Steam Game Directory Macro has been updated to be configurable from your Target.cs file. Please change STEAMGAMEDIR to UE4_PROJECT_STEAMGAMEDIR.")
+#define UE4_PROJECT_STEAMGAMEDIR STEAMGAMEDIR
+#else
+#define UE4_PROJECT_STEAMGAMEDIR "unrealtest"
+#endif
+#endif
+
+#ifndef UE4_PROJECT_STEAMGAMEDESC
+#ifdef STEAMGAMEDESC
+UE_DEPRECATED(4.22, "The Steam Game Description Macro has been updated to be configurable from your Target.cs file. Please change STEAMGAMEDESC to UE4_PROJECT_STEAMGAMEDESC.")
+#define UE4_PROJECT_STEAMGAMEDESC STEAMGAMEDESC
+#else
+#define UE4_PROJECT_STEAMGAMEDESC "Unreal Test!"
+#endif
+#endif
 
 /**
  * Get the engine unique build id as Steam key
@@ -200,66 +229,27 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 	}
 
 	// Get the advertised session settings out as Steam key/value pairs
-	FSteamSessionKeyValuePairs AdvertisedKeyValuePairs;
-	GetServerKeyValuePairsFromSession(Session, AdvertisedKeyValuePairs);
+	FSteamSessionKeyValuePairs ViaOnlineServicePairs;
+	GetServerKeyValuePairsFromSession(Session, ViaOnlineServicePairs);
 
-	if (Session->SessionInfo.IsValid())
-	{
-		FOnlineSessionInfoSteam* SessionInfo = (FOnlineSessionInfoSteam*)(Session->SessionInfo.Get());
-		GetServerKeyValuePairsFromSessionInfo(SessionInfo, AdvertisedKeyValuePairs);
-	}
-
-	FString SessionFlags = GetSessionFlagsAsString(Session->SessionSettings);
-	AdvertisedKeyValuePairs.Add(STEAMKEY_SESSIONFLAGS, SessionFlags);
-
-	FString SessionBuildUniqueId = GetBuildIdAsSteamKey(Session->SessionSettings);
-
-	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, AdvertisedKeyValuePairs, EOnlineDataAdvertisementType::ViaOnlineService);
-
-	FSteamSessionKeyValuePairs AuxKeyValuePairs;
-	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, AuxKeyValuePairs, EOnlineDataAdvertisementType::ViaPingOnly);
-	
-	FSteamSessionKeyValuePairs TempKeyValuePairs;
-	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, TempKeyValuePairs, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
-	AdvertisedKeyValuePairs.Append(TempKeyValuePairs);
-	AuxKeyValuePairs.Append(TempKeyValuePairs);
-	
-	FString GameTagsString, GameDataString;
+	// Grab the session flags
+	ViaOnlineServicePairs.Add(STEAMKEY_SESSIONFLAGS, GetSessionFlagsAsString(Session->SessionSettings));
 
 	// Start the game tags with the build id so search results can early out
-	GameTagsString = SessionBuildUniqueId;
+	FString GameTagsString = GetBuildIdAsSteamKey(Session->SessionSettings);
 
-	// Create the properly formatted Steam string (ie key:value,key:value,key) for GameTags/GameData
-	FSteamSessionKeyValuePairs::TConstIterator It(AdvertisedKeyValuePairs);
-	if (It)
+	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, ViaOnlineServicePairs, EOnlineDataAdvertisementType::ViaOnlineService);
+
+	FSteamSessionKeyValuePairs ViaPingPairs;
+	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, ViaPingPairs, EOnlineDataAdvertisementType::ViaPingOnly);
+
+	FSteamSessionKeyValuePairs ViaOnlineServicePingPairs;
+	GetServerKeyValuePairsFromSessionSettings(TempSessionSettings, ViaOnlineServicePingPairs, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
+	// Generate the tag data first, due to its small size
+	for (FSteamSessionKeyValuePairs::TConstIterator It(ViaOnlineServicePairs); It; ++It)
 	{
-		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
-		FString NewKey = FString::Printf(TEXT("%s:%s"), *It.Key(), *It.Value());
-
-		if (GameTagsString.Len() + NewKey.Len() < k_cbMaxGameServerTags)
-		{
-			GameTagsString = GameTagsString + "," + NewKey;
-		}
-		else
-		{
-			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
-		}
-
-		if (NewKey.Len() < k_cbMaxGameServerGameData)
-		{
-			GameDataString = NewKey;
-		}
-		else
-		{
-			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameData call"), *NewKey);
-		}
-
-		++It;
-	}
-	for (; It; ++It)
-	{
-		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Game Tags (%s, %s)"), *It.Key(), *It.Value());
 		FString NewKey = FString::Printf(TEXT(",%s:%s"), *It.Key(), *It.Value());
 		if (GameTagsString.Len() + NewKey.Len() < k_cbMaxGameServerTags)
 		{
@@ -269,10 +259,28 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		{
 			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
 		}
+	}
+
+	// Push in the other tags from session info (these are dropped from the tag queries for space reasons)
+	if (Session->SessionInfo.IsValid())
+	{
+		FOnlineSessionInfoSteam* SessionInfo = (FOnlineSessionInfoSteam*)(Session->SessionInfo.Get());
+		GetServerKeyValuePairsFromSessionInfo(SessionInfo, ViaOnlineServicePairs);
+	}
+
+	// Append both advertising sets with the dual advertisement filters
+	ViaOnlineServicePairs.Append(ViaOnlineServicePingPairs);
+
+	// Create the properly formatted Steam string (ie key:value,key:value,key) for GameData
+	FString GameDataString;
+	for (FSteamSessionKeyValuePairs::TConstIterator It(ViaOnlineServicePairs); It; ++It)
+	{
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Game Data (%s, %s)"), *It.Key(), *It.Value());
+		FString NewKey = FString::Printf(TEXT("%s:%s"), *It.Key(), *It.Value());
 
 		if (GameDataString.Len() + NewKey.Len() < k_cbMaxGameServerGameData)
 		{
-			GameDataString += NewKey;
+			GameDataString += ((GameDataString.Len() > 0) ? "," : "") + NewKey;
 		}
 		else
 		{
@@ -287,31 +295,26 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		SteamGameServerPtr->SetGameTags(TCHAR_TO_UTF8(*GameTagsString));
 	}
 
-	// Large and searchable game data (never returned)
+	// Large and searchable game data (never returned, used to filter things on the master server)
 	if (GameDataString.Len() > 0 && GameDataString.Len() < k_cbMaxGameServerGameData)
 	{
 		UE_LOG_ONLINE_SESSION(Verbose, TEXT("SetGameData(%s)"), *GameDataString);
 		SteamGameServerPtr->SetGameData(TCHAR_TO_UTF8(*GameDataString));
 	}
 
-	// @TODO ONLINE - distinguish between server side keys (SetGameData()) and client side keys (SetKeyValue())
-	// Set the advertised filter keys (these can not be filtered at master-server level, only client side)
+	// Set the advertised filter keys (these can not be filtered at master-server level, only client side via talking to the server)
 	SteamGameServerPtr->ClearAllKeyValues();
 
-	// Key value pairs sent as rules (requires secondary RulesRequest call)
-	for (FSteamSessionKeyValuePairs::TConstIterator AdvKeyIt(AdvertisedKeyValuePairs); AdvKeyIt; ++AdvKeyIt)
-	{
-		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Aux Server Data (%s, %s)"), *AdvKeyIt.Key(), *AdvKeyIt.Value());
-		SteamGameServerPtr->SetKeyValue(TCHAR_TO_UTF8(*AdvKeyIt.Key()), TCHAR_TO_UTF8(*AdvKeyIt.Value()));
-	}
+	// Push all the filters in for the KeyValue data.
+	ViaOnlineServicePairs.Append(ViaPingPairs);
 
 	// Key value pairs sent as rules (requires secondary RulesRequest call)
-	for (FSteamSessionKeyValuePairs::TConstIterator AuxKeyIt(AuxKeyValuePairs); AuxKeyIt; ++AuxKeyIt)
+	for (FSteamSessionKeyValuePairs::TConstIterator AuxKeyIt(ViaOnlineServicePairs); AuxKeyIt; ++AuxKeyIt)
 	{
-		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Aux Server Data (%s, %s)"), *AuxKeyIt.Key(), *AuxKeyIt.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Pushing Server KVData (%s, %s)"), *AuxKeyIt.Key(), *AuxKeyIt.Value());
 		SteamGameServerPtr->SetKeyValue(TCHAR_TO_UTF8(*AuxKeyIt.Key()), TCHAR_TO_UTF8(*AuxKeyIt.Value()));
 	}
-}	
+}
 
 /**
  *	Get a human readable description of task
@@ -335,11 +338,15 @@ void FOnlineAsyncTaskSteamCreateServer::Tick()
 		if (Session != nullptr && SteamGameServerPtr != nullptr)
 		{
 			bool bWantsDedicated = Session->SessionSettings.bIsDedicated;
-			UE_LOG_ONLINE(Verbose, TEXT("Initializing Steam game server. Is dedicated? %d"), bWantsDedicated);
+			UE_LOG_ONLINE(Verbose, TEXT("Starting Steam game server. Dedicated? %d Game Dir is: %s Product Name is: %s\nGame Desc is: %s"),
+				bWantsDedicated,
+				ANSI_TO_TCHAR((UE4_PROJECT_STEAMGAMEDIR)),
+				ANSI_TO_TCHAR((UE4_PROJECT_STEAMPRODUCTNAME)),
+				ANSI_TO_TCHAR((UE4_PROJECT_STEAMGAMEDESC)));
 
-			SteamGameServerPtr->SetModDir(STEAMGAMEDIR);
-			SteamGameServerPtr->SetProduct(STEAMPRODUCTNAME);
-			SteamGameServerPtr->SetGameDescription(STEAMGAMEDESC);
+			SteamGameServerPtr->SetModDir(UE4_PROJECT_STEAMGAMEDIR);
+			SteamGameServerPtr->SetProduct(UE4_PROJECT_STEAMPRODUCTNAME);
+			SteamGameServerPtr->SetGameDescription(UE4_PROJECT_STEAMGAMEDESC);
 			SteamGameServerPtr->SetDedicatedServer(bWantsDedicated);
 
 			if (!SteamGameServerPtr->BLoggedOn())
@@ -407,7 +414,10 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 				check(Session->SessionSettings.bIsDedicated);
 				// Associate the dedicated server anonymous login as the owning user
 				Session->OwningUserId = SessionInt->GameServerSteamId;
-				Session->OwningUserName = Session->OwningUserId->ToString();
+
+				// Figure if we need to override the server name here
+				FString CustomDedicatedServerName = SessionInt->GetCustomDedicatedServerName();
+				Session->OwningUserName = (!CustomDedicatedServerName.IsEmpty()) ? CustomDedicatedServerName : Session->OwningUserId->ToString();
 			}
 
 			bool bShouldUseAdvertise = true;
@@ -773,7 +783,7 @@ void FOnlineAsyncTaskSteamFindServerBase::CreateQuery(MatchMakingKeyValuePair_t*
     NumFilters = 0;
 	// Filter must match at least our game
 	FCStringAnsi::Strncpy(Filters[NumFilters].m_szKey, "gamedir", KeySize);
-	FCStringAnsi::Strncpy(Filters[NumFilters].m_szValue, STEAMGAMEDIR, ValueSize);
+	FCStringAnsi::Strncpy(Filters[NumFilters].m_szValue, UE4_PROJECT_STEAMGAMEDIR, ValueSize);
 	NumFilters++;
 
 	FString MapName;
@@ -952,7 +962,8 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 		if (ServerBuildId == BuildUniqueId)
 		{
 			// Create a new pending search result 
-			FPendingSearchResultSteam* NewPendingSearch = new (PendingSearchResults) FPendingSearchResultSteam(this);
+			FPendingSearchResultSteam* NewPendingSearch = new FPendingSearchResultSteam(this);
+			PendingSearchResults.Add(NewPendingSearch);
 			NewPendingSearch->ServerId = FUniqueNetIdSteam(ServerDetails->m_steamID);
 			NewPendingSearch->HostAddr = ServerAddr;
 

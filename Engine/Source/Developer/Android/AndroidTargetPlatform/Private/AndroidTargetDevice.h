@@ -227,7 +227,7 @@ protected:
 	 */
 	bool ExecuteAdbCommand( const FString& Params, FString* OutStdOut, FString* OutStdErr ) const;
 
-private:
+protected:
 
 	// The variant of the Android platform, i.e. ATC, DXT or PVRTC.
 	FString AndroidVariant;

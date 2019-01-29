@@ -210,7 +210,6 @@ void UOculusFunctionLibrary::AddLoadingSplashScreen(class UTexture2D* Texture, F
 			{
 				Splash->ClearSplashes();
 			}
-			Splash->SetLoadingIconMode(false);
 
 			FOculusSplashDesc Desc;
 			Desc.LoadingTexture = Texture;
@@ -233,180 +232,6 @@ void UOculusFunctionLibrary::ClearLoadingSplashScreens()
 		if (Splash)
 		{
 			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-void UOculusFunctionLibrary::ShowLoadingSplashScreen()
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->SetLoadingIconMode(false);
-			Splash->Show();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-void UOculusFunctionLibrary::HideLoadingSplashScreen(bool bClear)
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->Hide();
-			if (bClear)
-			{
-				Splash->ClearSplashes();
-			}
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-void UOculusFunctionLibrary::EnableAutoLoadingSplashScreen(bool bAutoShowEnabled)
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->SetAutoShow(bAutoShowEnabled);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-bool UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled()
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			return Splash->IsAutoShow();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-	return false;
-}
-
-void UOculusFunctionLibrary::ShowLoadingIcon(class UTexture2D* Texture)
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->ClearSplashes();
-			FOculusSplashDesc Desc;
-			Desc.LoadingTexture = Texture;
-			Splash->AddSplash(Desc);
-			Splash->SetLoadingIconMode(true);
-			Splash->Show();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-void UOculusFunctionLibrary::HideLoadingIcon()
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->Hide();
-			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-bool UOculusFunctionLibrary::IsLoadingIconEnabled()
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			return Splash->IsLoadingIconMode();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-	return false;
-}
-
-
-void UOculusFunctionLibrary::SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg)
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
-			FOculusSplashDesc Desc;
-			Desc.TexturePath = TexturePath;
-			Desc.QuadSizeInMeters = SizeInMeters;
-			Desc.TransformInMeters = FTransform(DistanceInMeters);
-			Desc.DeltaRotation = FQuat(RotationAxis, FMath::DegreesToRadians(RotationDeltaInDeg));
-			Splash->AddSplash(Desc);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
-}
-
-void UOculusFunctionLibrary::GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg)
-{
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			FOculusSplashDesc Desc;
-			if (Splash->GetSplash(0, Desc))
-			{
-				if (Desc.LoadingTexture && Desc.LoadingTexture->IsValidLowLevel())
-				{
-					TexturePath = Desc.LoadingTexture->GetPathName();
-				}
-				else
-				{
-					TexturePath = Desc.TexturePath.ToString();
-				}
-				DistanceInMeters = Desc.TransformInMeters.GetTranslation();
-				SizeInMeters	 = Desc.QuadSizeInMeters;
-
-				const FQuat rotation(Desc.DeltaRotation);
-				rotation.ToAxisAndAngle(RotationAxis, RotationDeltaInDeg);
-			}
 		}
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -591,6 +416,16 @@ void UOculusFunctionLibrary::EnableOrientationTracking(bool bOrientationTracking
 #endif
 }
 
+void UOculusFunctionLibrary::SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->SetColorScaleAndOffset(ColorScale, ColorOffset, bApplyToAllLayers);
+	}
+#endif
+}
 
 class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 {
@@ -633,7 +468,7 @@ bool UOculusFunctionLibrary::IsGuardianDisplayed()
 	return false;
 }
 
-TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType BoundaryType)
+TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType BoundaryType, bool UsePawnSpace /* = false */)
 {
 	TArray<FVector> BoundaryPointList;
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -657,7 +492,15 @@ TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType Boundary
 
 				for (int i = 0; i < NumPoints; i++)
 				{
-					FVector point = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+					FVector point;
+					if (UsePawnSpace)
+					{
+						point = OculusHMD->ConvertVector_M2U(BoundaryPoints[i]);
+					}
+					else
+					{
+						point = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+					}
 					BoundaryPointList.Add(point);
 				}
 			}

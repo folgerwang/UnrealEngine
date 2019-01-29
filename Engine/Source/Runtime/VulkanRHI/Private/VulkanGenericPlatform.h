@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "PixelFormat.h"
 #include "Containers/ArrayView.h"
+#include "RHI.h"	// for GShaderPlatformForFeatureLevel and its friends
 
 struct FOptionalVulkanDeviceExtensions;
 

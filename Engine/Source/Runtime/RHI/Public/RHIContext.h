@@ -626,18 +626,18 @@ public:
 	virtual void RHICopyTexture(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FRHICopyTextureInfo& CopyInfo)
 	{
 		const bool bIsCube = SourceTexture->GetTextureCube() != nullptr;
-		const bool bAllCubeFaces = bIsCube && (CopyInfo.NumArraySlices % 6) == 0;
-		const int32 NumArraySlices = bAllCubeFaces ? CopyInfo.NumArraySlices / 6 : CopyInfo.NumArraySlices;
+		const bool bAllCubeFaces = bIsCube && (CopyInfo.NumSlices % 6) == 0;
+		const int32 NumArraySlices = bAllCubeFaces ? CopyInfo.NumSlices / 6 : CopyInfo.NumSlices;
 		const int32 NumFaces = bAllCubeFaces ? 6 : 1;
 		for (int32 ArrayIndex = 0; ArrayIndex < NumArraySlices; ++ArrayIndex)
 		{
-			int32 SourceArrayIndex = CopyInfo.SourceArraySlice + ArrayIndex;
-			int32 DestArrayIndex = CopyInfo.DestArraySlice + ArrayIndex;
+			int32 SourceArrayIndex = CopyInfo.SourceSliceIndex + ArrayIndex;
+			int32 DestArrayIndex = CopyInfo.DestSliceIndex + ArrayIndex;
 			for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
 			{
 				FResolveParams ResolveParams(FResolveRect(),
 					bIsCube ? (ECubeFace)FaceIndex : CubeFace_PosX,
-					CopyInfo.MipIndex,
+					CopyInfo.SourceMipIndex,
 					SourceArrayIndex,
 					DestArrayIndex
 				);

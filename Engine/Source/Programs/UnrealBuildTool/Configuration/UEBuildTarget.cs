@@ -1195,7 +1195,8 @@ namespace UnrealBuildTool
 			}
 
 			// Create the makefile
-			TargetMakefile Makefile = new TargetMakefile(TargetToolChain.GetVersionInfo(), ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
+			string ExternalMetadata = UEBuildPlatform.GetBuildPlatform(Platform).GetExternalBuildMetadata(ProjectFile);
+			TargetMakefile Makefile = new TargetMakefile(TargetToolChain.GetVersionInfo(), ExternalMetadata, ReceiptFileName, ProjectIntermediateDirectory, TargetType, bDeployAfterCompile, bHasProjectScriptPlugin);
 
 			// Setup the hot reload module list
 			Makefile.HotReloadModuleNames = GetHotReloadModuleNames();
@@ -1282,8 +1283,6 @@ namespace UnrealBuildTool
 						CppCompileEnvironment DefaultResourceCompileEnvironment = new CppCompileEnvironment(GlobalCompileEnvironment);
 
 						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Windows", "Resources", "Default.rc2"));
-
-						WindowsPlatform.SetupResourceCompileEnvironment(DefaultResourceCompileEnvironment, Rules);
 
 						CPPOutput DefaultResourceOutput = TargetToolChain.CompileRCFiles(DefaultResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, EngineIntermediateDirectory, Makefile.Actions);
 						GlobalLinkEnvironment.DefaultResourceFiles.AddRange(DefaultResourceOutput.ObjectFiles);
@@ -1474,6 +1473,10 @@ namespace UnrealBuildTool
 					{
 						bResult &= Binary.CheckRestrictedFolders(DirectoryReference.FromFile(ProjectFile), ModuleRestrictedFolderCache);
 					}
+					foreach(KeyValuePair<FileReference, FileReference> Pair in RuntimeDependencyTargetFileToSourceFile)
+					{
+						bResult &= CheckRestrictedFolders(Pair.Key, Pair.Value);
+					}
 
 					if(!bResult)
 					{
@@ -1509,6 +1512,53 @@ namespace UnrealBuildTool
 			CleanStaleModules();
 
 			return Makefile;
+		}
+
+		/// <summary>
+		/// Check that copying a file from one location to another does not violate rules regarding restricted folders
+		/// </summary>
+		/// <param name="TargetFile">The destination location for the file</param>
+		/// <param name="SourceFile">The source location of the file</param>
+		/// <returns>True if the copy is permitted, false otherwise</returns>
+		bool CheckRestrictedFolders(FileReference TargetFile, FileReference SourceFile)
+		{
+			List<RestrictedFolder> TargetRestrictedFolders = GetRestrictedFolders(TargetFile);
+			List<RestrictedFolder> SourceRestrictedFolders = GetRestrictedFolders(SourceFile);
+			foreach(RestrictedFolder SourceRestrictedFolder in SourceRestrictedFolders)
+			{
+				if(!TargetRestrictedFolders.Contains(SourceRestrictedFolder))
+				{
+					Log.TraceError("Runtime dependency '{0}' is copied to '{1}', which does not contain a '{2}' folder.", SourceFile, TargetFile, SourceRestrictedFolder);
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Gets the restricted folders that the given file is in
+		/// </summary>
+		/// <param name="File">The file to test</param>
+		/// <returns>List of restricted folders for the file</returns>
+		List<RestrictedFolder> GetRestrictedFolders(FileReference File)
+		{
+			// Find the base directory for this binary
+			DirectoryReference BaseDir;
+			if(File.IsUnderDirectory(UnrealBuildTool.RootDirectory))
+			{
+				BaseDir = UnrealBuildTool.RootDirectory;
+			}
+			else if(ProjectDirectory != null && File.IsUnderDirectory(ProjectDirectory))
+			{
+				BaseDir = ProjectDirectory;
+			}
+			else
+			{
+				return new List<RestrictedFolder>();
+			}
+
+			// Find the restricted folders under the base directory
+			return RestrictedFolders.FindRestrictedFolders(BaseDir, File.Directory);
 		}
 
 		/// <summary>
@@ -2546,7 +2596,7 @@ namespace UnrealBuildTool
 			BuildPlugins = new List<UEBuildPlugin>(NameToInstance.Values);
 
 			// Determine if the project has a script plugin. We will always build UHT if there is a script plugin in the game folder.
-			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.SupportedPrograms != null && x.Descriptor.SupportedPrograms.Contains("UnrealHeaderTool") && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
+			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.SupportedPrograms != null && x.Descriptor.SupportedPrograms.Contains("UnrealHeaderTool"));
 		}
 
 		/// <summary>
@@ -3099,6 +3149,12 @@ namespace UnrealBuildTool
 		{
 			// Create the rules from the assembly
 			ModuleRules RulesObject = RulesAssembly.CreateModuleRules(ModuleName, Rules, ReferenceChain);
+
+			// Set whether the module requires an IMPLEMENT_MODULE macro
+			if(!RulesObject.bRequiresImplementModule.HasValue)
+			{
+				RulesObject.bRequiresImplementModule = (RulesObject.Type == ModuleRules.ModuleType.CPlusPlus && RulesObject.Name != Rules.LaunchModuleName);
+			}
 
 			// Reads additional dependencies array for project module from project file and fills PrivateDependencyModuleNames. 
 			if (ProjectDescriptor != null && ProjectDescriptor.Modules != null)

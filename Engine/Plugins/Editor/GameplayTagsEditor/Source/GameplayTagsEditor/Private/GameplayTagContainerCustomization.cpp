@@ -11,6 +11,7 @@
 #include "DetailWidgetRow.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Input/SHyperlink.h"
+#include "EditorFontGlyphs.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagContainerCustomization"
 
@@ -40,8 +41,9 @@ void FGameplayTagContainerCustomization::CustomizeHeader(TSharedRef<class IPrope
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
-					SNew(SComboButton)
+					SAssignNew(EditButton, SComboButton)
 					.OnGetMenuContent(this, &FGameplayTagContainerCustomization::GetListContent)
+					.OnMenuOpenChanged(this, &FGameplayTagContainerCustomization::OnGameplayTagListMenuOpenStateChanged)
 					.ContentPadding(FMargin(2.0f, 2.0f))
 					.MenuPlacement(MenuPlacement_BelowAnchor)
 					.ButtonContent()
@@ -117,27 +119,87 @@ void FGameplayTagContainerCustomization::RefreshTagList()
 
 TSharedRef<ITableRow> FGameplayTagContainerCustomization::MakeListViewWidget(TSharedPtr<FString> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
+	TSharedPtr<SWidget> TagItem;
+
 	if (UGameplayTagsManager::Get().ShowGameplayTagAsHyperLinkEditor(*Item.Get()))
 	{
-		return SNew( STableRow< TSharedPtr<FString> >, OwnerTable )
-		[
-			SNew(SHyperlink)
-			.Text( FText::FromString(*Item.Get()) )
-			.OnNavigate( this, &FGameplayTagContainerCustomization::OnTagDoubleClicked, *Item.Get() )
-		];
-
+		TagItem = SNew(SHyperlink)
+			.Text(FText::FromString(*Item.Get()))
+			.OnNavigate(this, &FGameplayTagContainerCustomization::OnTagDoubleClicked, *Item.Get());
 	}
-
+	else
+	{
+		TagItem = SNew(STextBlock).Text(FText::FromString(*Item.Get()));
+	}
 
 	return SNew( STableRow< TSharedPtr<FString> >, OwnerTable )
 	[
-		SNew(STextBlock) .Text( FText::FromString(*Item.Get()) )
+		SNew(SHorizontalBox)
+
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0,0,2,0)
+		[
+			SNew(SButton)
+			.IsEnabled(!StructPropertyHandle->IsEditConst())
+			.ContentPadding(FMargin(0))
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Danger")
+			.ForegroundColor(FSlateColor::UseForeground())
+			.OnClicked(this, &FGameplayTagContainerCustomization::OnRemoveTagClicked, *Item.Get())
+			[
+				SNew(STextBlock)
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text(FEditorFontGlyphs::Times)
+			]
+		]
+
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			TagItem.ToSharedRef()
+		]
 	];
 }
 
 void FGameplayTagContainerCustomization::OnTagDoubleClicked(FString TagName)
 {
 	UGameplayTagsManager::Get().NotifyGameplayTagDoubleClickedEditor(TagName);
+}
+
+FReply FGameplayTagContainerCustomization::OnRemoveTagClicked(FString TagName)
+{
+	TArray<FString> NewValues;
+
+	StructPropertyHandle->EnumerateRawData([TagName, &NewValues](void* RawTagContainer, const int32 /*DataIndex*/, const int32 /*NumDatas*/) -> bool {
+		
+		FGameplayTagContainer TagContainerCopy = *static_cast<FGameplayTagContainer*>(RawTagContainer);
+		for (int32 TagIndex = 0; TagIndex < TagContainerCopy.Num(); TagIndex++)
+		{
+			FGameplayTag Tag = TagContainerCopy.GetByIndex(TagIndex);
+			if (Tag.GetTagName().ToString() == TagName)
+			{
+				TagContainerCopy.RemoveTag(Tag);
+			}
+		}
+		
+		NewValues.Add(TagContainerCopy.ToString());
+
+		return true;
+	});
+
+	{
+		FScopedTransaction Transaction(LOCTEXT("RemoveGameplayTagFromContainer", "Remove Gameplay Tag"));
+		for (int i = 0; i < NewValues.Num(); i++)
+		{
+			StructPropertyHandle->SetPerObjectValue(i, NewValues[i]);
+		}
+	}
+
+	RefreshTagList();
+
+	return FReply::Handled();
 }
 
 TSharedRef<SWidget> FGameplayTagContainerCustomization::GetListContent()
@@ -154,18 +216,34 @@ TSharedRef<SWidget> FGameplayTagContainerCustomization::GetListContent()
 
 	bool bReadOnly = StructPropertyHandle->IsEditConst();
 
+	TSharedRef<SGameplayTagWidget> TagWidget = SNew(SGameplayTagWidget, EditableContainers)
+		.Filter(Categories)
+		.ReadOnly(bReadOnly)
+		.TagContainerName(StructPropertyHandle->GetPropertyDisplayName().ToString())
+		.OnTagChanged(this, &FGameplayTagContainerCustomization::RefreshTagList)
+		.PropertyHandle(StructPropertyHandle);
+
+	LastTagWidget = TagWidget;
+
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.MaxHeight(400)
 		[
-			SNew(SGameplayTagWidget, EditableContainers)
-			.Filter(Categories)
-			.ReadOnly(bReadOnly)
-			.TagContainerName(StructPropertyHandle->GetPropertyDisplayName().ToString())
-			.OnTagChanged(this, &FGameplayTagContainerCustomization::RefreshTagList)
-			.PropertyHandle(StructPropertyHandle)
+			TagWidget
 		];
+}
+
+void FGameplayTagContainerCustomization::OnGameplayTagListMenuOpenStateChanged(bool bIsOpened)
+{
+	if (bIsOpened)
+	{
+		TSharedPtr<SGameplayTagWidget> TagWidget = LastTagWidget.Pin();
+		if (TagWidget.IsValid())
+		{
+			EditButton->SetMenuContentWidgetToFocus(TagWidget->GetWidgetToFocusOnOpen());
+		}
+	}
 }
 
 FReply FGameplayTagContainerCustomization::OnClearAllButtonClicked()

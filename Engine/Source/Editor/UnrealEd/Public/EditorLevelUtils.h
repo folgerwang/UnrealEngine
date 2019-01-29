@@ -97,10 +97,11 @@ public:
 	 * @param	LevelStreamingClass					The streaming class type instead to use for the level.
 	 * @param	DefaultFilename						Optional file name for level.  If empty, the user will be prompted during the save process.
 	 * @param	bMoveSelectedActorsIntoNewLevel		If true, move any selected actors into the new level.
+	 * @param	InTemplateWorld						If valid, the new level will be a copy of the template world.
 	 *
 	 * @return	Returns the newly created level, or NULL on failure
 	 */
-	static UNREALED_API ULevelStreaming* CreateNewStreamingLevelForWorld(UWorld& World, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FString& DefaultFilename = TEXT(""), bool bMoveSelectedActorsIntoNewLevel = false);
+	static UNREALED_API ULevelStreaming* CreateNewStreamingLevelForWorld(UWorld& World, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FString& DefaultFilename = TEXT(""), bool bMoveSelectedActorsIntoNewLevel = false, UWorld* InTemplateWorld = nullptr);
 
 
 	/**

@@ -13,6 +13,8 @@
 
 #define LOCTEXT_NAMESPACE "ExclusiveLoadPackageTimeTracker"
 
+FExclusiveLoadPackageTimeTracker* FExclusiveLoadPackageTimeTracker::TrackerInstance;
+
 FExclusiveLoadPackageTimeTracker::FExclusiveLoadPackageTimeTracker()
 	: TrackerOverhead(0.f)
 	, EndLoadName(FName(TEXT("EndLoad")))
@@ -28,9 +30,10 @@ FExclusiveLoadPackageTimeTracker::FExclusiveLoadPackageTimeTracker()
 {
 }
 
-FExclusiveLoadPackageTimeTracker& FExclusiveLoadPackageTimeTracker::Get()
+FExclusiveLoadPackageTimeTracker& FExclusiveLoadPackageTimeTracker::Construct()
 {
 	static FExclusiveLoadPackageTimeTracker Tracker;
+	TrackerInstance = &Tracker;
 	return Tracker;
 }
 

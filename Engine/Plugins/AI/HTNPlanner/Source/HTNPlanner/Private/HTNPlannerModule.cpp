@@ -20,7 +20,7 @@ class FHTNPlannerModule : public IHTNPlannerModule
 	virtual void ShutdownModule() override;
 };
 
-IMPLEMENT_MODULE(FHTNPlannerModule, HTNPlannerModule)
+IMPLEMENT_MODULE(FHTNPlannerModule, HTNPlanner)
 
 void FHTNPlannerModule::StartupModule()
 {

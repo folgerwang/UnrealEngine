@@ -520,7 +520,7 @@ void FStreamingManagerTexture::AddLevel( ULevel* Level )
 
 	// If the level was not already there, add a new entry.
 	TextureInstanceAsyncWork->EnsureCompletion();
-	new (LevelTextureManagers) FLevelTextureManager(Level, TextureInstanceAsyncWork->GetTask());
+	LevelTextureManagers.Add(new FLevelTextureManager(Level, TextureInstanceAsyncWork->GetTask()));
 }
 
 /** Removes a ULevel from the streaming manager. */
@@ -1390,8 +1390,7 @@ bool FStreamingManagerTexture::HandleDumpTextureStreamingStatsCommand( const TCH
 }
 #endif // STATS_FAST
 
-#if !UE_BUILD_SHIPPING
-
+#if STATS
 bool FStreamingManagerTexture::HandleListStreamingTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	FScopeLock ScopeLock(&CriticalSection);
@@ -1448,6 +1447,9 @@ bool FStreamingManagerTexture::HandleListStreamingTexturesCommand( const TCHAR* 
 	}
 	return true;
 }
+#endif // STATS
+
+#if !UE_BUILD_SHIPPING
 
 bool FStreamingManagerTexture::HandleResetMaxEverRequiredTexturesCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 {

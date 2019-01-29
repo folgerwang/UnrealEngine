@@ -59,6 +59,26 @@ public:
 	virtual void EndScene() override;
 	virtual void PreTick(float DeltaSeconds) override;
 
+
+public:
+	virtual FDisplayClusterBeforeStartSessionEvent& OnDisplayClusterBeforeStartSession() override
+	{ return DisplayClusterBeforeStartSessionEvent; }
+
+	virtual FDisplayClusterStartSessionEvent& OnDisplayClusterStartSession() override
+	{ return DisplayClusterStartSessionEvent; }
+
+	virtual FDisplayClusterEndSessionEvent& OnDisplayClusterEndSession() override
+	{ return DisplayClusterEndSessionEvent; }
+
+	virtual FDisplayClusterPreTickEvent& OnDisplayClusterPreTick() override
+	{ return DisplayClusterPreTickEvent; }
+
+private:
+	FDisplayClusterBeforeStartSessionEvent   DisplayClusterBeforeStartSessionEvent;
+	FDisplayClusterStartSessionEvent         DisplayClusterStartSessionEvent;
+	FDisplayClusterEndSessionEvent           DisplayClusterEndSessionEvent;
+	FDisplayClusterPreTickEvent              DisplayClusterPreTickEvent;
+
 private:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IModuleInterface

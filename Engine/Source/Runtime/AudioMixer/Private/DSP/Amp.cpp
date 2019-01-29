@@ -196,8 +196,6 @@ namespace Audio
 	{
 		GainEnv = 1.0f;
 		GainMod = 1.0f;
-		Pan = 0.0f;
-		PanMod = 0.0f;
 	}
 
 }

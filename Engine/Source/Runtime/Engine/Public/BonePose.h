@@ -87,6 +87,9 @@ public:
 	};
 
 	const TArray<FTransform, InAllocator>& GetBones() const { return Bones; }
+
+	TArray<FTransform, InAllocator>&& MoveBones() { return MoveTemp(Bones); }
+
 protected:
 	TArray<FTransform, InAllocator> Bones;
 };
@@ -175,6 +178,13 @@ public:
 		this->Bones = SrcPose.Bones;
 	}
 
+	void InitFrom(FBaseCompactPose&& SrcPose)
+	{
+		SetBoneContainer(SrcPose.BoneContainer);
+		this->Bones = MoveTemp(SrcPose.Bones);
+		SrcPose.BoneContainer = nullptr;
+	}
+
 	// Copy bone transform from SrcPose to this
 	template <typename OtherAllocator>
 	void CopyBonesFrom(const FBaseCompactPose<OtherAllocator>& SrcPose)
@@ -192,6 +202,16 @@ public:
 		}
 	}
 	
+	void MoveBonesFrom(FBaseCompactPose<Allocator>& SrcPose)
+	{
+		if (this != &SrcPose)
+		{
+			this->Bones = SrcPose.MoveBones();
+			BoneContainer = &SrcPose.GetBoneContainer();
+			SrcPose.BoneContainer = nullptr;
+		}
+	}
+
 	template <typename OtherAllocator>
 	void CopyBonesFrom(const TArray<FTransform, OtherAllocator>& SrcPoseBones)
 	{
@@ -211,6 +231,18 @@ public:
 		// you'll like to make CopyBonesTo(FBaseCompactPose<OtherAllocator>& DestPose) to fix this properly
 		// if you need bone container
 		DestPoseBones = this->Bones;
+	}
+
+	// Moves transform data out of the supplied InTransforms. InTransform will be left empty
+	void MoveBonesFrom(TArray<FTransform, Allocator>&& InTransforms)
+	{
+		this->Bones = MoveTemp(InTransforms);
+	}
+
+	// Moves transform data out of this to the supplied InTransforms. Bones will be left empty
+	void MoveBonesTo(TArray<FTransform, Allocator>& InTransforms)
+	{
+		InTransforms = MoveTemp(this->Bones);
 	}
 
 	void Empty()
@@ -326,38 +358,12 @@ protected:
 	const FBoneContainer* BoneContainer;
 };
 
-struct FCompactHeapPose;
-
 struct ENGINE_API FCompactPose : public FBaseCompactPose<FAnimStackAllocator>
 {
 };
 
 struct ENGINE_API FCompactHeapPose : public FBaseCompactPose<FDefaultAllocator>
 {
-	// Moves transform data out of the supplied SrcPose (SrcPose will be left empty)
-	void MoveBonesFrom(FCompactHeapPose& SrcPose)
-	{
-		Bones = MoveTemp(SrcPose.Bones);
-		BoneContainer = SrcPose.BoneContainer;
-		SrcPose.BoneContainer = NULL;
-	}
-
-	//Moves transform data to supplied array (pose will be left empty)
-	void MoveBonesTo(TArray<FTransform>& OutTransforms)
-	{
-		OutTransforms = MoveTemp(Bones);
-		BoneContainer = NULL;
-	}
-
-	// Moves transform data out of the supplied InTransforms. InTransform will be left empty
-	void MoveBonesFrom(TArray<FTransform>& InTransforms)
-	{
-		// if number doesn't match it is not compatible to start with
-		if (InTransforms.Num() == Bones.Num())
-		{
-			Bones = MoveTemp(InTransforms);
-		}
-	}
 };
 
 struct FMeshPose : public FBasePose<FMeshPoseBoneIndex, FDefaultAllocator>
@@ -376,14 +382,6 @@ public:
 		check(InBoneContainer && InBoneContainer->IsValid());
 		BoneContainer = InBoneContainer;
 		InitBones(BoneContainer->GetNumBones());
-	}
-
-	//void InitFrom(FCompactPose& CompactPose);
-
-	void MoveBonesTo(TArray<FTransform>& OutTransforms)
-	{
-		OutTransforms = MoveTemp(Bones);
-		BoneContainer = NULL;
 	}
 
 	// Sets this pose to its ref pose
@@ -430,6 +428,14 @@ struct FCSPose
 	void InitPose(const PoseType& SrcPose)
 	{
 		Pose.InitFrom(SrcPose);
+		ComponentSpaceFlags.Empty(Pose.GetNumBones());
+		ComponentSpaceFlags.AddZeroed(Pose.GetNumBones());
+		ComponentSpaceFlags[0] = 1;
+	}
+
+	void InitPose(PoseType&& SrcPose)
+	{
+		Pose.InitFrom(MoveTemp(SrcPose));
 		ComponentSpaceFlags.Empty(Pose.GetNumBones());
 		ComponentSpaceFlags.AddZeroed(Pose.GetNumBones());
 		ComponentSpaceFlags[0] = 1;
@@ -494,7 +500,8 @@ struct FCSPose
 	void LocalBlendCSBoneTransforms(const TArray<struct FBoneTransform>& BoneTransforms, float Alpha);
 
 	// Convert any component space transforms back to local space
-	void ConvertToLocalPoses(PoseType& OutPose) const;
+	static void ConvertComponentPosesToLocalPoses(FCSPose<PoseType>&& InPose, PoseType& OutPose);
+	static void ConvertComponentPosesToLocalPoses(const FCSPose<PoseType>& InPose, PoseType& OutPose);
 
 protected:
 	PoseType Pose;
@@ -812,10 +819,10 @@ void FCSPose<PoseType>::LocalBlendCSBoneTransforms(const TArray<struct FBoneTran
 }
 
 template<class PoseType>
-void FCSPose<PoseType>::ConvertToLocalPoses(PoseType& OutPose) const
+void FCSPose<PoseType>::ConvertComponentPosesToLocalPoses(const FCSPose<PoseType>& InPose, PoseType& OutPose)
 {
-	checkSlow(Pose.IsValid());
-	OutPose = Pose;
+	checkSlow(InPose.Pose.IsValid());
+	OutPose = InPose.Pose;
 
 	// now we need to convert back to local bases
 	// only convert back that has been converted to mesh base
@@ -825,18 +832,52 @@ void FCSPose<PoseType>::ConvertToLocalPoses(PoseType& OutPose) const
 	// go from child to parent since I need parent inverse to go back to local
 	// root is same, so no need to do Index == 0
 	const BoneIndexType RootBoneIndex(0);
-	if (ComponentSpaceFlags[RootBoneIndex])
+	if (InPose.ComponentSpaceFlags[RootBoneIndex])
 	{
-		OutPose[RootBoneIndex] = Pose[RootBoneIndex];
+		OutPose[RootBoneIndex] = InPose.Pose[RootBoneIndex];
 	}
 
-	const int32 NumBones = Pose.GetNumBones();
+	const int32 NumBones = InPose.Pose.GetNumBones();
 	for (int32 Index = NumBones - 1; Index > 0; Index--)
 	{
 		const BoneIndexType BoneIndex(Index);
-		if (ComponentSpaceFlags[BoneIndex])
+		if (InPose.ComponentSpaceFlags[BoneIndex])
 		{
-			const BoneIndexType ParentIndex = Pose.GetParentBoneIndex(BoneIndex);
+			const BoneIndexType ParentIndex = InPose.Pose.GetParentBoneIndex(BoneIndex);
+			OutPose[BoneIndex].SetToRelativeTransform(OutPose[ParentIndex]);
+			OutPose[BoneIndex].NormalizeRotation();
+		}
+	}
+}
+
+template<class PoseType>
+void FCSPose<PoseType>::ConvertComponentPosesToLocalPoses(FCSPose<PoseType>&& InPose, PoseType& OutPose)
+{
+	checkSlow(InPose.Pose.IsValid());
+
+	const int32 NumBones = InPose.Pose.GetNumBones();
+
+	// now we need to convert back to local bases
+	// only convert back that has been converted to mesh base
+	// if it was local base, and if it hasn't been modified
+	// that is still okay even if parent is changed, 
+	// that doesn't mean this local has to change
+	// go from child to parent since I need parent inverse to go back to local
+	// root is same, so no need to do Index == 0
+	const BoneIndexType RootBoneIndex(0);
+	if (InPose.ComponentSpaceFlags[RootBoneIndex])
+	{
+		OutPose[RootBoneIndex] = InPose.Pose[RootBoneIndex];
+	}
+
+	OutPose = MoveTemp(InPose.Pose);
+	
+	for (int32 Index = NumBones - 1; Index > 0; Index--)
+	{
+		const BoneIndexType BoneIndex(Index);
+		if (InPose.ComponentSpaceFlags[BoneIndex])
+		{
+			const BoneIndexType ParentIndex = OutPose.GetParentBoneIndex(BoneIndex);
 			OutPose[BoneIndex].SetToRelativeTransform(OutPose[ParentIndex]);
 			OutPose[BoneIndex].NormalizeRotation();
 		}

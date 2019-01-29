@@ -255,6 +255,20 @@ public:
 	UPROPERTY()
 	uint8 bActorSeamlessTraveled:1;
 
+	/**
+	 * Does this actor have an owner responsible for replication? (APlayerController typically)
+	 *
+	 * @return true if this actor can call RPCs or false if no such owner chain exists
+	 */
+	virtual bool HasNetOwner() const;
+
+	/**
+	 * Does this actor have a locally controlled owner responsible for replication? (APlayerController typically)
+	 *
+	 * @return true if this actor can call RPCs or false if no such owner chain exists
+	 */
+	virtual bool HasLocalNetOwner() const;
+
 protected:
 	/**
 	 * If true, this actor will replicate to remote machines
@@ -265,13 +279,6 @@ protected:
 
 	/** This function should only be used in the constructor of classes that need to set the RemoteRole for backwards compatibility purposes */
 	void SetRemoteRoleForBackwardsCompat(const ENetRole InRemoteRole) { RemoteRole = InRemoteRole; }
-
-	/**
-	 * Does this actor have an owner responsible for replication? (APlayerController typically)
-	 *
-	 * @return true if this actor can call RPCs or false if no such owner chain exists
-	 */
-	virtual bool HasNetOwner() const;
 
 	/** Called when owner changes, does nothing by default but can be overridden */
 	UFUNCTION()

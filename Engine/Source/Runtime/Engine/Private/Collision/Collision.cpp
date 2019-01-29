@@ -654,7 +654,7 @@ namespace CollisionResponseConsoleCommands
 
 	void ListCollisionChannelNames()
 	{
-		const UEnum *ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+		const UEnum *ChannelEnum = StaticEnum<ECollisionChannel>();
 		if (ChannelEnum)
 		{
 			for (int32 ChannelValue = 0; ChannelValue < ECollisionChannel::ECC_MAX; ChannelValue++)
@@ -753,7 +753,7 @@ namespace CollisionResponseConsoleCommands
 
 	ECollisionChannel StringToCollisionChannel(const FString& InString)
 	{
-		const UEnum *ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+		const UEnum *ChannelEnum = StaticEnum<ECollisionChannel>();
 		if (ChannelEnum)
 		{
 			int32 ChannelInt = INDEX_NONE;
@@ -815,7 +815,7 @@ namespace CollisionResponseConsoleCommands
 
 	ECollisionTraceFlag StringToCollisionComplexity(const FString& InString)
 	{
-		const UEnum *ComplexityEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionTraceFlag"), true);
+		const UEnum *ComplexityEnum = StaticEnum<ECollisionTraceFlag>();
 		if (ComplexityEnum)
 		{
 			int32 ComplexityInt = INDEX_NONE;
@@ -899,7 +899,7 @@ namespace CollisionResponseConsoleCommands
 		if (Results.Num() > 0)
 		{
 			Results.Sort(FSortComponentsWithResponseToProfile(RequiredResponse));
-			const UEnum *ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+			const UEnum *ChannelEnum = StaticEnum<ECollisionChannel>();
 			TMap<ECollisionChannel, FString> EnumToDisplayNameMap;
 
 			// Get max column widths for some data
@@ -1036,7 +1036,7 @@ namespace CollisionResponseConsoleCommands
 		}
 		// Display Summary
 		check(RequiredResponse < ECollisionResponse::ECR_MAX);
-		const UEnum *ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+		const UEnum *ChannelEnum = StaticEnum<ECollisionChannel>();
 		const FString ChannelName = (ChannelEnum ? ChannelEnum->GetNameStringByValue(TestChannel) : TEXT("<unknown>"));
 		const FString ChannelDisplayName = GetDisplayNameText(ChannelEnum, TestChannel, ChannelName);
 		UE_LOG(LogCollisionCommands, Log, TEXT("----------------------------------------------------------------------"));
@@ -1146,7 +1146,7 @@ namespace CollisionResponseConsoleCommands
 			}
 
 			Results.Sort(FSortComponentsForComplexity(ComponentAssetNameMap));
-			const UEnum *ComplexityEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionTraceFlag"), true);
+			const UEnum *ComplexityEnum = StaticEnum<ECollisionTraceFlag>();
 			if (!ensure(ComplexityEnum != nullptr))
 			{
 				return;

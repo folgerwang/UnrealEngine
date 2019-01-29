@@ -2189,16 +2189,16 @@ void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture
 	int32 DestBarrierIndex = Barrier.AddImageBarrier(DstSurface.Image, DstSurface.GetFullAspectMask(), 1);
 	{
 		VkImageSubresourceRange& Range = Barrier.GetSubresource(SourceBarrierIndex);
-		Range.baseMipLevel = CopyInfo.MipIndex;
-		Range.baseArrayLayer = CopyInfo.SourceArraySlice;
-		Range.layerCount = CopyInfo.NumArraySlices;
+		Range.baseMipLevel = CopyInfo.SourceMipIndex;
+		Range.baseArrayLayer = CopyInfo.SourceSliceIndex;
+		Range.layerCount = CopyInfo.NumSlices;
 		Barrier.SetTransition(SourceBarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout), EImageLayoutBarrier::TransferSource);
 	}
 	{
 		VkImageSubresourceRange& Range = Barrier.GetSubresource(DestBarrierIndex);
-		Range.baseMipLevel = CopyInfo.MipIndex;
-		Range.baseArrayLayer = CopyInfo.DestArraySlice;
-		Range.layerCount = CopyInfo.NumArraySlices;
+		Range.baseMipLevel = CopyInfo.DestMipIndex;
+		Range.baseArrayLayer = CopyInfo.DestSliceIndex;
+		Range.layerCount = CopyInfo.NumSlices;
 		Barrier.SetTransition(DestBarrierIndex, EImageLayoutBarrier::Undefined, EImageLayoutBarrier::TransferDest);
 	}
 
@@ -2207,17 +2207,17 @@ void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture
 	VkImageCopy Region;
 	FMemory::Memzero(Region);
 	ensure(SrcSurface.Width == DstSurface.Width && SrcSurface.Height == DstSurface.Height);
-	Region.extent.width = FMath::Max(1u, SrcSurface.Width>> CopyInfo.MipIndex);
-	Region.extent.height = FMath::Max(1u, SrcSurface.Height >> CopyInfo.MipIndex);
+	Region.extent.width = FMath::Max(1u, SrcSurface.Width>> CopyInfo.SourceMipIndex);
+	Region.extent.height = FMath::Max(1u, SrcSurface.Height >> CopyInfo.SourceMipIndex);
 	Region.extent.depth = 1;
 	Region.srcSubresource.aspectMask = SrcSurface.GetFullAspectMask();
-	Region.srcSubresource.baseArrayLayer = CopyInfo.SourceArraySlice;
-	Region.srcSubresource.layerCount = CopyInfo.NumArraySlices;
-	Region.srcSubresource.mipLevel = CopyInfo.MipIndex;
+	Region.srcSubresource.baseArrayLayer = CopyInfo.SourceSliceIndex;
+	Region.srcSubresource.layerCount = CopyInfo.NumSlices;
+	Region.srcSubresource.mipLevel = CopyInfo.SourceMipIndex;
 	Region.dstSubresource.aspectMask = DstSurface.GetFullAspectMask();
-	Region.dstSubresource.baseArrayLayer = CopyInfo.DestArraySlice;
-	Region.dstSubresource.layerCount = CopyInfo.NumArraySlices;
-	Region.dstSubresource.mipLevel = CopyInfo.MipIndex;
+	Region.dstSubresource.baseArrayLayer = CopyInfo.DestSliceIndex;
+	Region.dstSubresource.layerCount = CopyInfo.NumSlices;
+	Region.dstSubresource.mipLevel = CopyInfo.DestMipIndex;
 	VulkanRHI::vkCmdCopyImage(CmdBuffer,
 		SrcSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		DstSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

@@ -17,6 +17,7 @@
 
 #include "PixelFormat.h"
 
+#include "Misc/FallbackStruct.h"
 #include "Misc/Guid.h"
 #include "Misc/DateTime.h"
 #include "Misc/Timespan.h"

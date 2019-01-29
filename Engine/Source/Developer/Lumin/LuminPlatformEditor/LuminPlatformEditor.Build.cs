@@ -27,8 +27,10 @@ public class LuminPlatformEditor : ModuleRules
 				"TargetPlatform",
 				"RenderCore",
 				"MaterialShaderQualitySettings",
-                "AudioSettingsEditor",
-            }
+				"AudioSettingsEditor",
+				"UnrealEd",
+				"PropertyPath",
+			}
 		);
 
 		PrivateIncludePathModuleNames.AddRange(

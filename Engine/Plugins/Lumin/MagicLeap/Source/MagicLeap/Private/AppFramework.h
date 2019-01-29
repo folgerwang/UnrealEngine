@@ -21,6 +21,7 @@ ML_INCLUDES_END
 #include "ImageTrackerRunnable.h"
 
 class FMagicLeapHMD;
+class IMagicLeapModule;
 struct FTrackingFrame;
 
 enum class EFailReason : uint8
@@ -83,7 +84,11 @@ public:
 
 	static void AddEventHandler(MagicLeap::IAppEventHandler* InEventHandler);
 	static void RemoveEventHandler(MagicLeap::IAppEventHandler* InEventHandler);
-	static void AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler);
+	static bool AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler);
+
+	static void RegisterMagicLeapModule(IMagicLeapModule* InModule);
+	static void UnregisterMagicLeapModule(IMagicLeapModule* InModule);
+	static IMagicLeapModule* GetMagicLeapModule(FName InName);
 
 private:
 	const FTrackingFrame* GetCurrentFrame() const;
@@ -106,6 +111,7 @@ private:
 	static MagicLeap::FAsyncDestroyer* AsyncDestroyer;
 	TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> CameraCaptureRunnable;
 	TSharedPtr<FImageTrackerRunnable, ESPMode::ThreadSafe> ImageTrackerRunnable;
+	static TMap<FName, IMagicLeapModule*> RegisteredModules;
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeap, Log, All);

@@ -28,6 +28,12 @@ static TAutoConsoleVariable<int32> CVarMobileUseLegacyShadingModel(
 	TEXT("If 1 then use legacy (pre 4.20) shading model (such as spherical guassian specular calculation.) (will cause a shader rebuild)"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarMobileEnableMovableSpotLights(
+	TEXT("r.Mobile.EnableMovableSpotlights"),
+	0,
+	TEXT("If 1 then enable movable spotlight support"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
 
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarMobileSeparateMaskedPass(
@@ -43,6 +49,13 @@ static TAutoConsoleVariable<int32> CVarMobileParallelBasePass(
 	TEXT("Toggles parallel base pass rendering for the mobile renderer. Parallel rendering must be enabled for this to have an effect."),
 	ECVF_RenderThreadSafe
 );
+
+static TAutoConsoleVariable<int32> CVarMobileUseHWsRGBEncoding(
+	TEXT("r.Mobile.UseHWsRGBEncoding"),
+	0,
+	TEXT("0: Write sRGB encoding in the shader\n")
+	TEXT("1: Use GPU HW to convert linear to sRGB automatically (device must support sRGB write control)\n"),
+	ECVF_RenderThreadSafe);
 
 
 #define IMPLEMENT_MOBILE_SHADING_BASEPASS_LIGHTMAPPED_VERTEX_SHADER_TYPE(LightMapPolicyType,LightMapPolicyName) \
@@ -126,7 +139,7 @@ void GetSkyTextureParams(const FScene* Scene, float& AverageBrightnessOUT, FText
 	}
 }
 
-FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
+FMobileBasePassMovableLightInfo::FMobileBasePassMovableLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
 : NumMovablePointLights(0)
 {
 	static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
@@ -137,7 +150,13 @@ FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const
 		for (FLightPrimitiveInteraction* LPI = InSceneProxy->GetPrimitiveSceneInfo()->LightList; LPI && NumMovablePointLights < MobileNumDynamicPointLights; LPI = LPI->GetNextLight())
 		{
 			FLightSceneProxy* LightProxy = LPI->GetLight()->Proxy;
-			if (LightProxy->GetLightType() == LightType_Point && LightProxy->IsMovable() && (LightProxy->GetLightingChannelMask() & InSceneProxy->GetLightingChannelMask()) != 0)
+			const uint8 LightType = LightProxy->GetLightType(); 
+			const bool bIsValidLightType =
+				  LightType == LightType_Point
+				|| LightType == LightType_Rect
+				|| (LightType == LightType_Spot && CVarMobileEnableMovableSpotLights.GetValueOnRenderThread());
+				
+			if (bIsValidLightType && LightProxy->IsMovable() && (LightProxy->GetLightingChannelMask() & InSceneProxy->GetLightingChannelMask()) != 0)
 			{
 				FLightParameters LightParameters;
 
@@ -145,6 +164,14 @@ FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const
 
 				LightPositionAndInvRadius[NumMovablePointLights] = LightParameters.LightPositionAndInvRadius;
 				LightColorAndFalloffExponent[NumMovablePointLights] = LightParameters.LightColorAndFalloffExponent;
+				SpotLightDirection[NumMovablePointLights] = LightParameters.NormalizedLightDirection;
+				SpotLightAngles[NumMovablePointLights].Set(LightParameters.SpotAngles.X, LightParameters.SpotAngles.Y, 0.f, LightType == LightType_Spot ? 1.0f : 0.0f);
+
+				if (LightType == LightType_Rect)
+				{
+					// Treat rect lights as point lights.
+					LightColorAndFalloffExponent[NumMovablePointLights] = FVector4(FVector(LightProxy->GetColor()), LightParameters.LightColorAndFalloffExponent.W);
+				}
 
 				if (LightProxy->IsInverseSquared())
 				{

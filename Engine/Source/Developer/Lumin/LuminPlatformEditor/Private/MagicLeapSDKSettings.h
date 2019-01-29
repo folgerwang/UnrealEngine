@@ -20,7 +20,7 @@ public:
 	UMagicLeapSDKSettings();
 	
 	/** Location on disk of the Magic Leap SDK (falls back to MLSDK environment variable if this is left blank) */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "SDK Config", Meta = (DisplayName = "Location of Magic Leap SDK", ConfigRestartRequired = true))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = SDKConfig, Meta = (DisplayName = "Location of Magic Leap SDK"))
 	FDirectoryPath MLSDKPath;
 
 #if WITH_EDITOR

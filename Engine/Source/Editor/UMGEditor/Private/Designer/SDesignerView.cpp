@@ -3521,7 +3521,7 @@ TSharedRef<SWidget> SDesignerView::GetScreenSizingFillMenu()
 
 void SDesignerView::CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPreviewSizeMode SizeMode)
 {
-	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+	const static UEnum* PreviewSizeEnum = StaticEnum<EDesignPreviewSizeMode>();
 
 	// Add desired size option
 	FUIAction DesiredSizeAction(
@@ -3535,7 +3535,7 @@ void SDesignerView::CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPrev
 
 FText SDesignerView::GetScreenSizingFillText() const
 {
-	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+	const static UEnum* PreviewSizeEnum = StaticEnum<EDesignPreviewSizeMode>();
 
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{

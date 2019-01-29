@@ -10,3 +10,8 @@ UNetAnalyticsAggregatorConfig::UNetAnalyticsAggregatorConfig(const FObjectInitia
 	: Super(ObjectInitializer)
 {
 }
+
+void UNetAnalyticsAggregatorConfig::OverridePerObjectConfigSection(FString& SectionName)
+{
+	SectionName = GetName() + TEXT(" ") + GetClass()->GetName();
+}

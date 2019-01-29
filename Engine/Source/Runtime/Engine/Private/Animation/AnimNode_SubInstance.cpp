@@ -77,7 +77,7 @@ void FAnimNode_SubInstance::Evaluate_AnyThread(FPoseContext& Output)
 			InputNode->InputCurve.CopyFrom(Output.Curve);
 		}
 
-		InstanceToRun->ParallelEvaluateAnimation(false, nullptr, BoneTransforms, BlendedCurve, Output.Pose);
+		InstanceToRun->ParallelEvaluateAnimation(false, nullptr, BlendedCurve, Output.Pose);
 
 		Output.Curve.CopyFrom(BlendedCurve);
 	}
@@ -107,28 +107,6 @@ void FAnimNode_SubInstance::GatherDebugData(FNodeDebugData& DebugData)
 	InPose.GatherDebugData(DebugData.BranchFlow(1.0f));
 }
 
-bool FAnimNode_SubInstance::HasPreUpdate() const
-{
-	return true;
-}
-
-void FAnimNode_SubInstance::PreUpdate(const UAnimInstance* InAnimInstance)
-{
-	AllocateBoneTransforms(InAnimInstance);
-}
-
-void FAnimNode_SubInstance::AllocateBoneTransforms(const UAnimInstance* InAnimInstance)
-{
-	if(USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent())
-	{
-		USkeletalMesh* SkelMesh = SkelComp->SkeletalMesh;
-
-		const int32 NumTransforms = SkelComp->GetComponentSpaceTransforms().Num();
-		BoneTransforms.Empty(NumTransforms);
-		BoneTransforms.AddZeroed(NumTransforms);
-	}
-}
-
 void FAnimNode_SubInstance::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
 {
 	if(*InstanceClass)
@@ -148,9 +126,6 @@ void FAnimNode_SubInstance::OnInitializeAnimInstance(const FAnimInstanceProxy* I
 		// We use the tag to name the object, but as we verify there are no duplicates in the compiler we
 		// dont need to verify it is unique here.
 		InstanceToRun = NewObject<UAnimInstance>(MeshComp, InstanceClass, Tag);
-
-		// Set up bone transform array
-		AllocateBoneTransforms(InstanceToRun);
 
 		// Initialize the new instance
 		InstanceToRun->InitializeAnimation();

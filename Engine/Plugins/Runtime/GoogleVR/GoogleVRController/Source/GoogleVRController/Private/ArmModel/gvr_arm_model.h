@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,12 +16,6 @@ namespace gvr_arm_model {
       Vector3 headDirection;
       Vector3 headPosition;
       float deltaTimeSeconds;
-    };
-
-    enum GazeBehavior {
-      Never,
-      DuringMotion,
-      Always
     };
 
     enum Handedness {
@@ -59,10 +53,6 @@ namespace gvr_arm_model {
     float GetPointerTiltAngle();
     void SetPointerTiltAngle(float tilt_angle);
 
-    // Determines how the shoulder should follow the gaze.
-    GazeBehavior GetGazeBehavior() const;
-    void SetGazeBehavior(GazeBehavior gaze_behavior);
-
     // Determines if the controller is in the left hand or right hand.
     Handedness GetHandedness() const;
     void SetHandedness(Handedness new_handedness);
@@ -97,12 +87,12 @@ namespace gvr_arm_model {
     void SetIsLockedToHead(bool is_locked);
     bool GetIsLockedToHead();
 
-    void Update(const UpdateData& update_data);
+    void Update(const UpdateData& update_data, bool recentered);
 
   private:
 
     void UpdateHandedness();
-    void UpdateTorsoDirection(const UpdateData& update_data);
+    void UpdateTorsoDirection(const UpdateData& update_data, bool recentered);
     void UpdateFromController(const UpdateData& update_data);
     void UpdateVelocity(const UpdateData& update_data);
     void TransformElbow(const UpdateData& update_data);
@@ -115,7 +105,6 @@ namespace gvr_arm_model {
     float added_elbow_height;
     float added_elbow_depth;
     float pointer_tilt_angle;
-    GazeBehavior follow_gaze;
     Handedness handedness;
     bool use_accelerometer;
     float fade_distance_from_face;

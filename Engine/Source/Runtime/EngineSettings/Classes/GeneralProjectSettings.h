@@ -79,7 +79,7 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bStartInVR;
 	
-	/** This field is no longer used; @see FARSystemBase::StartARSession(); @see UARBlueprintLibrary::StartARSession() */
+	/** This field is no longer used; @see FARSupportInterface ::StartARSession(); @see UARBlueprintLibrary::StartARSession() */
 	UPROPERTY()
 	bool bStartInAR_DEPRECATED;
 

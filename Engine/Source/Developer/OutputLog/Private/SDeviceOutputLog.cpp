@@ -220,11 +220,6 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 	if (DeviceList.IsValidIndex(ExistingEntryIdx))
 	{
 		DeviceList[ExistingEntryIdx]->DeviceWeakPtr = DiscoveredDevice;
-		
-		if (CurrentDevicePtr.IsValid() && CurrentDevicePtr->DeviceId.GetDeviceName() == DeviceList[ExistingEntryIdx]->DeviceId.GetDeviceName())
-		{
-			CurrentDeviceOutputPtr = DiscoveredDevice->CreateDeviceOutputRouter(this);
-		}
 	}
 	else
 	{

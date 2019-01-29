@@ -9,7 +9,7 @@
 class ICirrusConnectionObserver
 {
 public:
-	~ICirrusConnectionObserver()
+	virtual ~ICirrusConnectionObserver()
 	{}
 
 	virtual void OnCirrusConfig(const std::string& Config) = 0;

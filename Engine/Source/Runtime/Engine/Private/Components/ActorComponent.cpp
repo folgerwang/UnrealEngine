@@ -84,7 +84,7 @@ FGlobalComponentReregisterContext::FGlobalComponentReregisterContext()
 	// Detach all actor components.
 	for(UActorComponent* Component : TObjectRange<UActorComponent>())
 	{
-		new(ComponentContexts) FComponentReregisterContext(Component);
+		ComponentContexts.Add(new FComponentReregisterContext(Component));
 	}
 }
 
@@ -110,7 +110,7 @@ FGlobalComponentReregisterContext::FGlobalComponentReregisterContext(const TArra
 		}
 		if( bShouldReregister )
 		{
-			new(ComponentContexts) FComponentReregisterContext(Component);		
+			ComponentContexts.Add(new FComponentReregisterContext(Component));
 		}
 	}
 }
@@ -131,7 +131,7 @@ FGlobalComponentRecreateRenderStateContext::FGlobalComponentRecreateRenderStateC
 	// recreate render state for all components.
 	for (UActorComponent* Component : TObjectRange<UActorComponent>())
 	{
-		new(ComponentContexts) FComponentRecreateRenderStateContext(Component);
+		ComponentContexts.Add(new FComponentRecreateRenderStateContext(Component));
 	}
 }
 

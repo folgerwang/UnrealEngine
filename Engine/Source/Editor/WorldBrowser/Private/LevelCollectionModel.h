@@ -102,11 +102,23 @@ public:
 	/**	Shows level in the world */
 	void ShowLevels(const FLevelModelList& InLevelList);
 
+	/** Toggles the selected levels to a visible state; toggles all other levels to an invisible state */
+	void ShowOnlySelectedLevels();
+
+	/** Toggles the selected levels to an invisible state; toggles all other levels to a visible state */
+	void ShowAllButSelectedLevels();
+
 	/**	Unlocks level in the world */
 	void UnlockLevels(const FLevelModelList& InLevelList);
 	
 	/**	Locks level in the world */
 	void LockLevels(const FLevelModelList& InLevelList);
+
+	/** Toggles the selected levels to a locked state; toggles all other levels to an unlocked state */
+	void LockOnlySelectedLevels();
+
+	/** Toggles the selected levels to an unlocked state; toggles all other levels to a locked state */
+	void LockAllButSelectedLevels();
 
 	/**	Saves level to disk */
 	void SaveLevels(const FLevelModelList& InLevelList);
@@ -408,6 +420,9 @@ protected:
 
 	/** Toggles the selected levels to a visible state; toggles all other levels to an invisible state */
 	void ShowOnlySelectedLevels_Executed();
+	
+	/** Toggles the selected levels to an invisible state; toggles all other levels to a visible state */
+	void ShowAllButSelectedLevels_Executed();
 
 	/** Toggles all levels to a visible state in the viewports */
 	void ShowAllLevels_Executed();
@@ -420,6 +435,12 @@ protected:
 
 	/** Unlocks selected levels */
 	void UnlockSelectedLevels_Executed();
+
+	/** Toggles the selected levels to a locked state; toggles all other levels to an unlocked state */
+	void LockOnlySelectedLevels_Executed();
+
+	/** Toggles the selected levels to an unlocked state; toggles all other levels to a locked state */
+	void LockAllButSelectedLevels_Executed();
 
 	/** Locks all levels */
 	void LockAllLevels_Executed();

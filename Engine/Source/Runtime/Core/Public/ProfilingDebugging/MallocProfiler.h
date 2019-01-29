@@ -20,6 +20,15 @@
 #include "HAL/PlatformTLS.h"
 #include "Misc/ScopeLock.h"
 
+/**
+ * Maximum depth of stack backtrace.
+ * Reducing this will sometimes truncate the amount of callstack info you get but will also reduce
+ * the number of over all unique call stacks as some of the script call stacks are REALLY REALLY
+ * deep and end up eating a lot of memory which will OOM you on consoles. A good value for consoles 
+ * when doing long runs is 50.
+ */
+#define	MEMORY_PROFILER_MAX_BACKTRACE_DEPTH			75
+
 /*=============================================================================
 	Malloc profiler enumerations
 =============================================================================*/
@@ -175,6 +184,49 @@ public:
 };
 
 /*=============================================================================
+	CallStack address information.
+=============================================================================*/
+
+/**
+ * Helper structure encapsulating a callstack.
+ */
+struct FCallStackInfo
+{
+	/** CRC of program counters for this callstack.				*/
+	uint32	CRC;
+	/** Array of indices into callstack address info array.		*/
+	int32		AddressIndices[MEMORY_PROFILER_MAX_BACKTRACE_DEPTH];
+
+	/**
+	 * Serialization operator.
+	 *
+	 * @param	Ar			Archive to serialize to
+	 * @param	AllocInfo	Callstack info to serialize
+	 * @return	Passed in archive
+	 */
+	friend FArchive& operator << ( FArchive& Ar, FCallStackInfo CallStackInfo )
+	{
+		Ar << CallStackInfo.CRC;
+		// Serialize valid callstack indices.
+		int32 i=0;
+		for( ; i<ARRAY_COUNT(CallStackInfo.AddressIndices) && CallStackInfo.AddressIndices[i]!=-1; i++ )
+		{
+			Ar << CallStackInfo.AddressIndices[i];
+		}
+		// Terminate list of address indices with -1 if we have a normal callstack.
+		int32 Stopper = -1;
+		// And terminate with -2 if the callstack was truncated.
+		if( i== ARRAY_COUNT(CallStackInfo.AddressIndices) )
+		{
+			Stopper = -2;
+		}
+
+		Ar << Stopper;
+		return Ar;
+	}
+};
+
+/*=============================================================================
 	FMallocProfiler
 =============================================================================*/
 
@@ -226,7 +278,7 @@ protected:
 	/** Mapping from callstack CRC to offset in call stack info buffer.								*/
 	TMap<uint32,int32>							CRCToCallStackIndexMap;
 	/** Buffer of unique call stack infos.															*/
-	FCompressedGrowableBuffer				CallStackInfoBuffer;
+	TArray<FCallStackInfo>				CallStackInfoBuffer;
 
 	/** Mapping from a hash to an index in the tags array.											*/
 	TMap<uint32, int32>						HashToTagTableIndexMap;

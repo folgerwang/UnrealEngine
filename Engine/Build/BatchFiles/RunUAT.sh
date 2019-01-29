@@ -77,7 +77,7 @@ if [ "$UATCompileArg" = "-compile" ]; then
 		fi
 		echo Compiling AutomationTool with xbuild
 
-		ARGS="/p:Configuration=Development /p:Platform=AnyCPU /p:TargetFrameworkVersion=v4.5 /verbosity:quiet /nologo"
+		ARGS="/p:Configuration=Development /p:Platform=AnyCPU /verbosity:quiet /nologo"
 		ARGS="${ARGS} /p:TargetFrameworkProfile="
 
 		echo "xbuild Source/Programs/AutomationTool/AutomationTool.csproj $ARGS"

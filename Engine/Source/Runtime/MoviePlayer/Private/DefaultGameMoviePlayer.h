@@ -105,6 +105,8 @@ public:
 	virtual bool IsLastMovieInPlaylist() override;
 
 	virtual void ForceCompletion() override;
+	virtual void Suspend() override;
+	virtual void Resume() override;
 
 	float GetViewportDPIScale() const;
 

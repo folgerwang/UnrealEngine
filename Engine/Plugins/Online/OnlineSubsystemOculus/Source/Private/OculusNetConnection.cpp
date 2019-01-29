@@ -88,7 +88,6 @@ void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 	}
 
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
-	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
@@ -99,15 +98,15 @@ void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 		{
 			DataToSend = ProcessedData.Data;
 			CountBits = ProcessedData.CountBits;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else
 		{
-			CountBytes = 0;
+			CountBits = 0;
 		}
 	}
 
 	bool bBlockSend = false;
+	uint32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
 
 #if !UE_BUILD_SHIPPING
 	LowLevelSendDel.ExecuteIfBound((void*)DataToSend, CountBytes, bBlockSend);

@@ -9,11 +9,13 @@ UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	, bEnableCookOnTheSide(false)
 	, bEnableBuildDDCInBackground(false)
 	, bIterativeCookingForLaunchOn(false)
+	, bCookOnTheFlyForLaunchOn(false)
 	, CookProgressDisplayMode(ECookProgressDisplayMode::RemainingPackages)
 	, bIgnoreIniSettingsOutOfDateForIteration(false)
 	, bIgnoreScriptPackagesOutOfDateForIteration(false)
 	, bCompileBlueprintsInDevelopmentMode(true)
 	, BlueprintComponentDataCookingMethod(EBlueprintComponentDataCookingMethod::EnabledBlueprintsOnly)
+	, bAllowCookedDataInEditorBuilds(false)
 	, bCookBlueprintComponentTemplateData(false)
 {
 	SectionName = TEXT("Cooker");

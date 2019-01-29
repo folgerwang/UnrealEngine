@@ -30,4 +30,7 @@ public:
 	
 	UPROPERTY(config, EditAnywhere, Category = Oculus)
 	EOculusPlatform PerfToolTargetPlatform;
+
+	UPROPERTY(globalconfig, EditAnywhere, Category = Oculus)
+	bool bAddMenuOption;
 };

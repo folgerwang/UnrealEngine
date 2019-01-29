@@ -102,6 +102,24 @@
 // Generic compiler pre-setup.
 #include "GenericPlatform/GenericPlatformCompilerPreSetup.h"
 
+// Whether the CPU is x86/x64 (i.e. both 32 and 64-bit variants)
+#ifndef PLATFORM_CPU_X86_FAMILY
+	#if (defined(_M_IX86) || defined(__i386__) || defined(_M_X64) || defined(__amd64__) || defined(__x86_64__))
+		#define PLATFORM_CPU_X86_FAMILY	1
+	#else
+		#define PLATFORM_CPU_X86_FAMILY	0
+	#endif
+#endif
+
+// Whether the CPU is AArch32/AArch64 (i.e. both 32 and 64-bit variants)
+#ifndef PLATFORM_CPU_ARM_FAMILY
+	#if (defined(__arm__) || defined(_M_ARM) || defined(__aarch64__) || defined(_M_ARM64))
+		#define PLATFORM_CPU_ARM_FAMILY	1
+	#else
+		#define PLATFORM_CPU_ARM_FAMILY	0
+	#endif
+#endif
+
 #if PLATFORM_APPLE
 	#include <stddef.h> // needed for size_t
 #endif
@@ -168,24 +186,6 @@
 #endif
 #ifndef PLATFORM_64BITS
 	#error "PLATFORM_64BITS must be defined"
-#endif
-
-// Whether the CPU is x86/x64 (i.e. both 32 and 64-bit variants)
-#ifndef PLATFORM_CPU_X86_FAMILY
-	#if (defined(_M_IX86) || defined(__i386__) || defined(_M_X64) || defined(__amd64__) || defined(__x86_64__))
-		#define PLATFORM_CPU_X86_FAMILY	1
-	#else
-		#define PLATFORM_CPU_X86_FAMILY	0
-	#endif
-#endif
-
-// Whether the CPU is AArch32/AArch64 (i.e. both 32 and 64-bit variants)
-#ifndef PLATFORM_CPU_ARM_FAMILY
-	#if (defined(__arm__) || defined(_M_ARM) || defined(__aarch64__) || defined(_M_ARM64))
-		#define PLATFORM_CPU_ARM_FAMILY	1
-	#else
-		#define PLATFORM_CPU_ARM_FAMILY	0
-	#endif
 #endif
 
 // Base defines, these have defaults
@@ -609,7 +609,7 @@
 
 // Prefetch
 #ifndef PLATFORM_CACHE_LINE_SIZE
-	#define PLATFORM_CACHE_LINE_SIZE	128
+	#define PLATFORM_CACHE_LINE_SIZE	64
 #endif
 
 // Compile-time warnings and errors. Use these as "#pragma COMPILER_WARNING("XYZ")". GCC does not expand macro parameters to _Pragma, so we can't wrap the #pragma part.
@@ -622,6 +622,11 @@
 	#define GCC_DIAGNOSTIC_HELPER(x) _Pragma(#x)
 	#define COMPILE_WARNING(x) GCC_DIAGNOSTIC_HELPER(GCC warning x)
 	#define COMPILE_ERROR(x) GCC_DIAGNOSTIC_HELPER(GCC error x)
+#endif
+
+// Tells the compiler to put the decorated function in a certain section (aka. segment) of the executable.
+#ifndef PLATFORM_CODE_SECTION
+	#define PLATFORM_CODE_SECTION(Name)
 #endif
 
 // These have to be forced inline on some OSes so the dynamic loader will not
@@ -795,13 +800,13 @@ namespace TypeTests
 	template <typename A, typename B>
 	struct TAreTypesEqual
 	{
-		enum { Value = false };
+		static const bool Value = false;
 	};
 
 	template <typename T>
 	struct TAreTypesEqual<T, T>
 	{
-		enum { Value = true };
+		static const bool Value = true;
 	};
 
 	static_assert(!PLATFORM_TCHAR_IS_4_BYTES || sizeof(TCHAR) == 4, "TCHAR size must be 4 bytes.");

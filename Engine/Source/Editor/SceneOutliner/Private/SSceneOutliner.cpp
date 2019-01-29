@@ -264,6 +264,12 @@ namespace SceneOutliner
 		SortOutlinerTimer = 0.0f;
 		bPendingFocusNextFrame = InInitOptions.bFocusSearchBoxWhenOpened;
 
+		// Use the variable for the User Chosen World to enforce the Specified World To Display
+		if ( InInitOptions.SpecifiedWorldToDisplay )
+		{
+			SharedData->UserChosenWorld = InInitOptions.SpecifiedWorldToDisplay;
+		}
+
 		SortByColumn = FBuiltInColumnTypes::Label();
 		SortMode = EColumnSortMode::Ascending;
 
@@ -417,12 +423,15 @@ namespace SceneOutliner
 		];
 
 		// Separator
-		VerticalBox->AddSlot()
-		.AutoHeight()
-		.Padding(0, 0, 0, 1)
-		[
-			SNew(SSeparator)
-		];
+		if ( SharedData->Mode == ESceneOutlinerMode::ActorBrowsing || !InInitOptions.SpecifiedWorldToDisplay )
+		{
+			VerticalBox->AddSlot()
+			.AutoHeight()
+			.Padding(0, 0, 0, 1)
+			[
+				SNew(SSeparator)
+			];
+		}
 
 		if (SharedData->Mode == ESceneOutlinerMode::ActorBrowsing)
 		{
@@ -451,7 +460,7 @@ namespace SceneOutliner
 					.ContentPadding(0)
 					.ForegroundColor( this, &SSceneOutliner::GetViewButtonForegroundColor )
 					.ButtonStyle( FEditorStyle::Get(), "ToggleButton" ) // Use the tool bar item style for this button
-					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, false )
+					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, false, !InInitOptions.SpecifiedWorldToDisplay)
 					.ButtonContent()
 					[
 						SNew(SHorizontalBox)
@@ -474,7 +483,7 @@ namespace SceneOutliner
 				]
 			];
 		} //end if (SharedData->Mode == ESceneOutlinerMode::ActorBrowsing)
-		else
+		else if ( !InInitOptions.SpecifiedWorldToDisplay )
 		{
 			// Bottom panel
 			VerticalBox->AddSlot()
@@ -491,7 +500,7 @@ namespace SceneOutliner
 					.ContentPadding(0)
 					.ForegroundColor( this, &SSceneOutliner::GetViewButtonForegroundColor )
 					.ButtonStyle( FEditorStyle::Get(), "ToggleButton" ) // Use the tool bar item style for this button
-					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, true )
+					.OnGetMenuContent( this, &SSceneOutliner::GetViewButtonContent, true, !InInitOptions.SpecifiedWorldToDisplay)
 					.ButtonContent()
 					[
 						SNew(SHorizontalBox)
@@ -540,7 +549,7 @@ namespace SceneOutliner
 		// @todo outliner: Might not catch some cases (see: CALLBACK_ActorPropertiesChange, CALLBACK_LayerChange, CALLBACK_LevelDirtied, CALLBACK_OnActorMoved, CALLBACK_UpdateLevelsForAllActors)
 		FEditorDelegates::MapChange.AddSP( this, &SSceneOutliner::OnMapChange );
 		FEditorDelegates::NewCurrentLevel.AddSP( this, &SSceneOutliner::OnNewCurrentLevel );
-		GEngine->OnLevelActorListChanged().AddSP( this, &SSceneOutliner::FullRefresh );
+		GEngine->OnLevelActorListChanged().AddSP( this, &SSceneOutliner::OnLevelActorListChanged );
 		FWorldDelegates::LevelAddedToWorld.AddSP( this, &SSceneOutliner::OnLevelAdded );
 		FWorldDelegates::LevelRemovedFromWorld.AddSP( this, &SSceneOutliner::OnLevelRemoved );
 
@@ -699,7 +708,7 @@ namespace SceneOutliner
 		return ViewOptionsComboButton->IsHovered() ? FEditorStyle::GetSlateColor(InvertedForegroundName) : FEditorStyle::GetSlateColor(DefaultForegroundName);
 	}
 
-	TSharedRef<SWidget> SSceneOutliner::GetViewButtonContent(bool bWorldPickerOnly)
+	TSharedRef<SWidget> SSceneOutliner::GetViewButtonContent(bool bWorldPickerOnly, bool bShouldDisplayChooseWorld)
 	{
 		FMenuBuilder MenuBuilder(!bWorldPickerOnly, NULL);
 
@@ -776,15 +785,18 @@ namespace SceneOutliner
 			}
 			MenuBuilder.EndSection();
 
-			MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowWorldHeading", "World"));
+			if( bShouldDisplayChooseWorld )
 			{
-				MenuBuilder.AddSubMenu(
-					LOCTEXT("ChooseWorldSubMenu", "Choose World"),
-					LOCTEXT("ChooseWorldSubMenuToolTip", "Choose the world to display in the outliner."),
-					FNewMenuDelegate::CreateSP(this, &SSceneOutliner::BuildWorldPickerContent)
-				);
+				MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ShowWorldHeading", "World"));
+				{
+					MenuBuilder.AddSubMenu(
+						LOCTEXT("ChooseWorldSubMenu", "Choose World"),
+						LOCTEXT("ChooseWorldSubMenuToolTip", "Choose the world to display in the outliner."),
+						FNewMenuDelegate::CreateSP(this, &SSceneOutliner::BuildWorldPickerContent)
+					);
+				}
+				MenuBuilder.EndSection();
 			}
-			MenuBuilder.EndSection();
 		}
 
 		return MenuBuilder.MakeWidget();
@@ -1002,6 +1014,11 @@ namespace SceneOutliner
 		Refresh();
 	}
 
+	void SSceneOutliner::OnLevelActorListChanged()
+	{
+		bDisableIntermediateSorting = true;
+		FullRefresh();
+	}
 
 	void SSceneOutliner::Populate()
 	{
@@ -1118,6 +1135,7 @@ namespace SceneOutliner
 		PendingOperations.RemoveAt(0, End);
 		SetParentsExpansionState(ExpansionStateInfo);
 
+
 		for (FName Folder : PendingFoldersSelect)
 		{
 			if (FTreeItemPtr* Item = TreeItemMap.Find(Folder))
@@ -1127,16 +1145,25 @@ namespace SceneOutliner
 		}
 		PendingFoldersSelect.Empty();
 
-		if (bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld)
-		{
-			RequestSort();
-		}
-
+		// Check if we need to sort because we are finished with the populating operations
+		bool bFinalSort = false;
 		if (PendingOperations.Num() == 0)
 		{
 			// We're fully refreshed now.
 			NewItemActions.Empty();
 			bNeedsRefresh = false;
+			if (bDisableIntermediateSorting)
+			{
+				bDisableIntermediateSorting = false;
+				bFinalSort = true;
+			}
+		}
+
+		// If we are allowing intermediate sorts and met the conditions, or this is the final sort after all ops are complete
+		if ((bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld && !bDisableIntermediateSorting) ||
+			bFinalSort)
+		{
+			RequestSort();
 		}
 	}
 
@@ -2966,7 +2993,7 @@ namespace SceneOutliner
 				Refresh();
 			}
 		}
-		else if (IsActorDisplayable(ChangedActor))
+		else if (IsActorDisplayable(ChangedActor) && SharedData->RepresentingWorld == ChangedActor->GetWorld())
 		{
 			// Attempt to add the item if we didn't find it - perhaps it now matches the filter?
 			ConstructItemFor<FActorTreeItem>(ChangedActor);
@@ -3048,7 +3075,7 @@ namespace SceneOutliner
 					if( Selection.Actors.Num() == 1 )
 					{
 						// Signal that an actor was selected. We assume it is valid as it won't have been added to ActorsToSelect if not.
-						OnItemPicked.ExecuteIfBound( Selection.Actors[0]->AsShared() );
+						OutlinerTreeView->SetSelection( Selection.Actors[0]->AsShared(), ESelectInfo::OnKeyPress );
 					}
 				}
 			}

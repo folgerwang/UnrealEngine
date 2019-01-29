@@ -44,6 +44,8 @@
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Framework/Docking/LayoutExtender.h"
 #include "MovieSceneTimeHelpers.h"
+#include "SequenceRecorderUtils.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -771,6 +773,11 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				SequenceRecorderTabPtr->SetContent(SNew(SSequenceRecorder));
 			}
 		}
+	}
+
+	virtual bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) override
+	{
+		return SequenceRecorderUtils::RecordSingleNodeInstanceToAnimation(PreviewComponent, NewAsset);
 	}
 
 #if WITH_EDITOR

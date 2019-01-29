@@ -174,7 +174,7 @@ COREUOBJECT_API const FString* GetIniFilenameFromObjectsReference(const FString&
  */
 COREUOBJECT_API FString ResolveIniObjectsReference(const FString& ObjectReference, const FString* IniFilename = nullptr, bool bThrow = false);
 
-COREUOBJECT_API bool ResolveName(UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw, uint32 LoadFlags = LOAD_None);
+COREUOBJECT_API bool ResolveName(UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw, uint32 LoadFlags = LOAD_None, FUObjectSerializeContext* InLoadContext = nullptr);
 COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
 
 COREUOBJECT_API int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<void(int32&)> IndexMutator);
@@ -222,10 +222,11 @@ COREUOBJECT_API bool ParseObject( const TCHAR* Stream, const TCHAR* Match, UClas
  * @param LoadFlags		Flags controlling how to handle loading from disk
  * @param Sandbox		A list of packages to restrict the search for the object
  * @param bAllowObjectReconciliation	Whether to allow the object to be found via FindObject in the case of seek free loading
+ * @param InSerializeContext	Additional context when called during serialization
  *
  * @return The object that was loaded or found. NULL for a failure.
  */
-COREUOBJECT_API UObject* StaticLoadObject( UClass* Class, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename = NULL, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = NULL, bool bAllowObjectReconciliation = true );
+COREUOBJECT_API UObject* StaticLoadObject( UClass* Class, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename = NULL, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = NULL, bool bAllowObjectReconciliation = true, FUObjectSerializeContext* InSerializeContext = nullptr );
 COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename = NULL, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = NULL);
 
 /**
@@ -281,9 +282,10 @@ COREUOBJECT_API void StaticTick( float DeltaTime, bool bUseFullTimeLimit = true,
  * @param	InOuter		Package to load new package into (usually NULL or ULevel->GetOuter())
  * @param	Filename	Long package name to load
  * @param	LoadFlags	Flags controlling loading behavior
+ * @param InLoadContext	Additional context when called during serialization
  * @return	Loaded package if successful, NULL otherwise
  */
-COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride = nullptr );
+COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride = nullptr, FUObjectSerializeContext* InLoadContext = nullptr );
 
 /* Async package loading result */
 namespace EAsyncLoadingResult
@@ -507,8 +509,8 @@ COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit
 COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoadingUntilComplete(TFunctionRef<bool()> CompletionPredicate, float TimeLimit);
 
 /** UObjects are being loaded between these calls */
-COREUOBJECT_API void BeginLoad(const TCHAR* DebugContext = nullptr);
-COREUOBJECT_API void EndLoad();
+COREUOBJECT_API void BeginLoad(FUObjectSerializeContext* LoadContext, const TCHAR* DebugContext = nullptr);
+COREUOBJECT_API void EndLoad(FUObjectSerializeContext* LoadContext);
 
 /**
  * Find an existing package by name
@@ -2106,50 +2108,55 @@ struct FCppClassTypeInfoStatic;
 
 namespace UE4CodeGen_Private
 {
-	enum class EPropertyClass
+	enum class EPropertyGenFlags : uint32
 	{
-		Byte,
-		Int8,
-		Int16,
-		Int,
-		Int64,
-		UInt16,
-		UInt32,
-		UInt64,
-		UnsizedInt,
-		UnsizedUInt,
-		Float,
-		Double,
-		Bool,
-		SoftClass,
-		WeakObject,
-		LazyObject,
-		SoftObject,
-		Class,
-		Object,
-		Interface,
-		Name,
-		Str,
-		Array,
-		Map,
-		Set,
-		Struct,
-		Delegate,
-		MulticastDelegate,
-		Text,
-		Enum,
+		None              = 0x00,
+
+		// First 5 bits are the property type
+		Byte              = 0x00,
+		Int8              = 0x01,
+		Int16             = 0x02,
+		Int               = 0x03,
+		Int64             = 0x04,
+		UInt16            = 0x05,
+		UInt32            = 0x06,
+		UInt64            = 0x07,
+		UnsizedInt        = 0x08,
+		UnsizedUInt       = 0x09,
+		Float             = 0x0A,
+		Double            = 0x0B,
+		Bool              = 0x0C,
+		SoftClass         = 0x0D,
+		WeakObject        = 0x0E,
+		LazyObject        = 0x0F,
+		SoftObject        = 0x10,
+		Class             = 0x11,
+		Object            = 0x12,
+		Interface         = 0x13,
+		Name              = 0x14,
+		Str               = 0x15,
+		Array             = 0x16,
+		Map               = 0x17,
+		Set               = 0x18,
+		Struct            = 0x19,
+		Delegate          = 0x1A,
+		MulticastDelegate = 0x1B,
+		Text              = 0x1C,
+		Enum              = 0x1D,
+
+		// Property-specific flags
+		NativeBool        = 0x20
 	};
+
+	ENUM_CLASS_FLAGS(EPropertyGenFlags)
+
+	// Value which masks out the type of combined EPropertyGenFlags.
+	constexpr EPropertyGenFlags PropertyTypeMask = (EPropertyGenFlags)0x1F;
 
 	enum class EDynamicType
 	{
 		NotDynamic,
 		Dynamic
-	};
-
-	enum class ENativeBool
-	{
-		NotNative,
-		Native
 	};
 
 #if WITH_METADATA
@@ -2162,212 +2169,207 @@ namespace UE4CodeGen_Private
 
 	struct FEnumeratorParam
 	{
-		const char*               NameUTF8;
-		int64                     Value;
-#if WITH_METADATA
-		const FMetaDataPairParam* MetaDataArray;
-		int32                     NumMetaData;
-#endif
+		const char* NameUTF8;
+		int64       Value;
 	};
 
 	// This is not a base class but is just a common initial sequence of all of the F*PropertyParams types below.
 	// We don't want to use actual inheritance because we want to construct aggregated compile-time tables of these things.
 	struct FPropertyParamsBase
 	{
-		EPropertyClass Type;
-		const char*    NameUTF8;
-		EObjectFlags   ObjectFlags;
-		EPropertyFlags PropertyFlags;
-		int32          ArrayDim;
-		const char*    RepNotifyFuncUTF8;
+		const char*       NameUTF8;
+		const char*       RepNotifyFuncUTF8;
+		EPropertyFlags    PropertyFlags;
+		EPropertyGenFlags Flags;
+		EObjectFlags      ObjectFlags;
+		int32             ArrayDim;
 	};
 
 	struct FPropertyParamsBaseWithOffset // : FPropertyParamsBase
 	{
-		EPropertyClass Type;
-		const char*    NameUTF8;
-		EObjectFlags   ObjectFlags;
-		EPropertyFlags PropertyFlags;
-		int32          ArrayDim;
-		const char*    RepNotifyFuncUTF8;
-		int32          Offset;
+		const char*       NameUTF8;
+		const char*       RepNotifyFuncUTF8;
+		EPropertyFlags    PropertyFlags;
+		EPropertyGenFlags Flags;
+		EObjectFlags      ObjectFlags;
+		int32             ArrayDim;
+		int32             Offset;
 	};
 
 	struct FGenericPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
+		const char*       NameUTF8;
+		const char*       RepNotifyFuncUTF8;
+		EPropertyFlags    PropertyFlags;
+		EPropertyGenFlags Flags;
+		EObjectFlags      ObjectFlags;
+		int32             ArrayDim;
+		int32             Offset;
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FBytePropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UEnum*         (*EnumFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UEnum*            (*EnumFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FBoolPropertyParams // : FPropertyParamsBase
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		uint32           ElementSize;
-		ENativeBool      NativeBool;
-		SIZE_T           SizeOfOuter;
-		void           (*SetBitFunc)(void* Obj);
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		uint32              ElementSize;
+		SIZE_T              SizeOfOuter;
+		void              (*SetBitFunc)(void* Obj);
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FObjectPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UClass*        (*ClassFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UClass*          (*ClassFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FClassPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UClass*        (*MetaClassFunc)();
-		UClass*        (*ClassFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UClass*           (*MetaClassFunc)();
+		UClass*           (*ClassFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FSoftClassPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UClass*        (*MetaClassFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UClass*           (*MetaClassFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FInterfacePropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UClass*        (*InterfaceClassFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UClass*           (*InterfaceClassFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FStructPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UScriptStruct* (*ScriptStructFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UScriptStruct*    (*ScriptStructFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FDelegatePropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UFunction*     (*SignatureFunctionFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UFunction*        (*SignatureFunctionFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FMulticastDelegatePropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UFunction*     (*SignatureFunctionFunc)();
+		const char*         NameUTF8;
+		const char*         RepNotifyFuncUTF8;
+		EPropertyFlags      PropertyFlags;
+		EPropertyGenFlags   Flags;
+		EObjectFlags        ObjectFlags;
+		int32               ArrayDim;
+		int32               Offset;
+		UFunction*        (*SignatureFunctionFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
 	struct FEnumPropertyParams // : FPropertyParamsBaseWithOffset
 	{
-		EPropertyClass   Type;
-		const char*      NameUTF8;
-		EObjectFlags     ObjectFlags;
-		EPropertyFlags   PropertyFlags;
-		int32            ArrayDim;
-		const char*      RepNotifyFuncUTF8;
-		int32            Offset;
-		UEnum*         (*EnumFunc)();
+		const char*        NameUTF8;
+		const char*        RepNotifyFuncUTF8;
+		EPropertyFlags     PropertyFlags;
+		EPropertyGenFlags  Flags;
+		EObjectFlags       ObjectFlags;
+		int32              ArrayDim;
+		int32              Offset;
+		UEnum*           (*EnumFunc)();
 #if WITH_METADATA
-		const FMetaDataPairParam*           MetaDataArray;
-		int32                               NumMetaData;
+		const FMetaDataPairParam* MetaDataArray;
+		int32                     NumMetaData;
 #endif
 	};
 
@@ -2396,13 +2398,13 @@ namespace UE4CodeGen_Private
 	struct FFunctionParams
 	{
 		UObject*                          (*OuterFunc)();
-		const char*                         NameUTF8;
-		EObjectFlags                        ObjectFlags;
 		UFunction*                        (*SuperFunc)();
-		EFunctionFlags                      FunctionFlags;
+		const char*                         NameUTF8;
 		SIZE_T                              StructureSize;
 		const FPropertyParamsBase* const*   PropertyArray;
 		int32                               NumProperties;
+		EObjectFlags                        ObjectFlags;
+		EFunctionFlags                      FunctionFlags;
 		uint16                              RPCId;
 		uint16                              RPCResponseId;
 #if WITH_METADATA
@@ -2414,14 +2416,14 @@ namespace UE4CodeGen_Private
 	struct FEnumParams
 	{
 		UObject*                  (*OuterFunc)();
-		EDynamicType                DynamicType;
-		const char*                 NameUTF8;
-		EObjectFlags                ObjectFlags;
 		FText                     (*DisplayNameFunc)(int32);
-		uint8                       CppForm; // this is of type UEnum::ECppForm
+		const char*                 NameUTF8;
 		const char*                 CppTypeUTF8;
 		const FEnumeratorParam*     EnumeratorParams;
 		int32                       NumEnumerators;
+		EObjectFlags                ObjectFlags;
+		EDynamicType                DynamicType;
+		uint8                       CppForm; // this is of type UEnum::ECppForm
 #if WITH_METADATA
 		const FMetaDataPairParam*   MetaDataArray;
 		int32                       NumMetaData;
@@ -2434,12 +2436,12 @@ namespace UE4CodeGen_Private
 		UScriptStruct*                    (*SuperFunc)();
 		void*                             (*StructOpsFunc)(); // really returns UScriptStruct::ICppStructOps*
 		const char*                         NameUTF8;
-		EObjectFlags                        ObjectFlags;
-		uint32                              StructFlags; // EStructFlags
 		SIZE_T                              SizeOf;
 		SIZE_T                              AlignOf;
 		const FPropertyParamsBase* const*   PropertyArray;
 		int32                               NumProperties;
+		EObjectFlags                        ObjectFlags;
+		uint32                              StructFlags; // EStructFlags
 #if WITH_METADATA
 		const FMetaDataPairParam*           MetaDataArray;
 		int32                               NumMetaData;
@@ -2449,11 +2451,11 @@ namespace UE4CodeGen_Private
 	struct FPackageParams
 	{
 		const char*                        NameUTF8;
+		UObject*                  (*const *SingletonFuncArray)();
+		int32                              NumSingletons;
 		uint32                             PackageFlags; // EPackageFlags
 		uint32                             BodyCRC;
 		uint32                             DeclarationsCRC;
-		UObject*                  (*const *SingletonFuncArray)();
-		int32                              NumSingletons;
 #if WITH_METADATA
 		const FMetaDataPairParam*          MetaDataArray;
 		int32                              NumMetaData;
@@ -2470,17 +2472,17 @@ namespace UE4CodeGen_Private
 	struct FClassParams
 	{
 		UClass*                                   (*ClassNoRegisterFunc)();
-		UObject*                           (*const *DependencySingletonFuncArray)();
-		int32                                       NumDependencySingletons;
-		uint32                                      ClassFlags; // EClassFlags
-		const FClassFunctionLinkInfo*               FunctionLinkArray;
-		int32                                       NumFunctions;
-		const FPropertyParamsBase* const*           PropertyArray;
-		int32                                       NumProperties;
 		const char*                                 ClassConfigNameUTF8;
 		const FCppClassTypeInfoStatic*              CppClassInfo;
+		UObject*                           (*const *DependencySingletonFuncArray)();
+		const FClassFunctionLinkInfo*               FunctionLinkArray;
+		const FPropertyParamsBase* const*           PropertyArray;
 		const FImplementedInterfaceParams*          ImplementedInterfaceArray;
+		int32                                       NumDependencySingletons;
+		int32                                       NumFunctions;
+		int32                                       NumProperties;
 		int32                                       NumImplementedInterfaces;
+		uint32                                      ClassFlags; // EClassFlags
 #if WITH_METADATA
 		const FMetaDataPairParam*                   MetaDataArray;
 		int32                                       NumMetaData;

@@ -206,7 +206,7 @@ private:
 	TWeakObjectPtr<UWorld> World;
 	uint32 WorldID;
 
-	class USoundBase* Sound;
+	USoundBase* Sound;
 
 	uint64 AudioComponentID;
 	FName AudioComponentUserID;
@@ -257,14 +257,14 @@ public:
 
 	FAudioDevice* AudioDevice;
 
-	/** The group of active concurrent sounds that this sound is playing in. */
-	FConcurrencyGroupID ConcurrencyGroupID;
+	/** The concurrent groups that this sound is actively playing in. */
+	TArray<FConcurrencyGroupID> ConcurrencyGroupIDs;
 
 	/** The generation of this sound in the concurrency group. */
 	int32 ConcurrencyGeneration;
 
 	/** Optional USoundConcurrency to override for the sound. */
-	USoundConcurrency* ConcurrencySettings;
+	TSet<USoundConcurrency*> ConcurrencySet;
 
 private:
 	/** Optional SoundClass to override for the sound. */
@@ -404,11 +404,8 @@ public:
 	/** The interpolated parameter for the volume attenuation due to occlusion. */
 	FDynamicParameter CurrentOcclusionVolumeAttenuation;
 
-	/** A volume scale to apply to a sound based on the concurrency count of the active sound when it started. Will reduce volume of new sounds if many sounds are playing in concurrency group. */
-	float ConcurrencyVolumeScale;
-
-	/** A volume to apply to a sound based on the concurrency generation and the current generation count. Will reduce volume of older sounds as new sounds play in concurrency group. */
-	float ConcurrencyDuckingVolumeScale;
+	/** Volume scale factors to apply to a sound based on the concurrency count of the active sound when it started. Will reduce volume of new sounds if many sounds are playing in concurrency group. */
+	TMap<FConcurrencyGroupID, float> ConcurrencyGroupVolumeScales;
 
 	float SubtitlePriority;
 
@@ -421,7 +418,8 @@ public:
 	/** The amount distance is scaled due to focus */
 	float FocusDistanceScale;
 
-	// The volume used to determine concurrency resolution for "quietest" active sound
+	/** The volume used to determine concurrency resolution for "quietest" active sound.
+	// If negative, tracking is disabled for lifetime of ActiveSound */
 	float VolumeConcurrency;
 
 	/** The time in seconds with which to check for occlusion from its closest listener */
@@ -485,6 +483,9 @@ public:
 	 * Check whether to apply the radio filter
 	 */
 	void ApplyRadioFilter(const struct FSoundParseParameters& ParseParams);
+
+	/** Gets total concurrency gain stage based on all concurrency memberships of sound */
+	float GetTotalConcurrencyVolumeScale() const;
 
 	/** Sets a float instance parameter for the ActiveSound */
 	void SetFloatParameter(const FName InName, const float InFloat);
@@ -554,16 +555,13 @@ public:
 	int32 FindClosestListener( const TArray<struct FListener>& InListeners ) const;
 	
 	/** Returns the unique ID of the active sound's owner if it exists. Returns 0 if the sound doesn't have an owner. */
-	uint32 GetOwnerID() const { return OwnerID; }
+	FSoundOwnerObjectID GetOwnerID() const { return OwnerID; }
 
-	/** Gets the sound concurrency to apply on this active sound instance */
-	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply() const;
+	/** Gets the sound concurrency handles applicable to this sound instance*/
+	void GetConcurrencyHandles(TArray<FConcurrencyHandle>& OutConcurrencyHandles) const;
 
 	/** Delegate callback function when an async occlusion trace completes */
 	static void OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDatum& TraceDatum);
-
-	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
-	uint32 GetSoundConcurrencyObjectID() const;
 
 	/** Applies the active sound's attenuation settings to the input parse params using the given listener */
 	void ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener, const FSoundAttenuationSettings* SettingsAttenuationNode = nullptr);

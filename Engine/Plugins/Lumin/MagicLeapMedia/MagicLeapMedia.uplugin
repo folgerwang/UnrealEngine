@@ -26,6 +26,12 @@
 			"WhitelistPlatforms" : [ "Lumin" ]
 		},
 		{
+			"Name" : "MagicLeapMediaCodec",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "Lumin" ]
+		},
+		{
 			"Name" : "MagicLeapMediaEditor",
 			"Type" : "Editor",
 			"LoadingPhase": "PostEngineInit"
@@ -36,6 +42,12 @@
             "LoadingPhase": "PostEngineInit",
             "WhitelistPlatforms": [ "Lumin", "Mac", "Win64" ]
         },
+        {
+			"Name" : "MagicLeapMediaCodecFactory",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Lumin", "Mac", "Win64" ]
+		},
         {
 			"Name" : "MagicLeapCameraPreviewFactory",
 			"Type" : "RuntimeNoCommandlet",

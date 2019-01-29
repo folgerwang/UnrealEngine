@@ -199,17 +199,17 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 					FlushRenderingCommands();
 
 					SortElement.RenderBatchArray.Empty();
-					ReadTextureOutput(RenderTargetResource, Property, CurrentOutput);
-
-					if(CurrentMaterialSettings->bPerformBorderSmear)
-					{
-						FMaterialBakingHelpers::PerformUVBorderSmear(CurrentOutput.PropertyData[Property], RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight());
-					}
+						ReadTextureOutput(RenderTargetResource, Property, CurrentOutput);
+						
+						if (CurrentMaterialSettings->bPerformBorderSmear)
+						{
+							FMaterialBakingHelpers::PerformUVBorderSmear(CurrentOutput.PropertyData[Property], RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight());
+						}
 #if WITH_EDITOR
 					// If saving intermediates is turned on
 					if (bSaveIntermediateTextures)
 					{
-						const UEnum* PropertyEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialProperty"));
+						const UEnum* PropertyEnum = StaticEnum<EMaterialProperty>();
 						FName PropertyName = PropertyEnum->GetNameByValue(Property);
 						FString TrimmedPropertyName = PropertyName.ToString();
 						TrimmedPropertyName.RemoveFromStart(TEXT("MP_"));
@@ -323,7 +323,7 @@ FExportMaterialProxy* FMaterialBakingModule::CreateMaterialProxy(UMaterialInterf
 
 void FMaterialBakingModule::ReadTextureOutput(FTextureRenderTargetResource* RenderTargetResource, EMaterialProperty Property, FBakeOutput& Output)
 {	
-	checkf(!Output.PropertyData.Contains(Property) && !Output.PropertySizes.Contains(Property), TEXT("Should be reading same property data twice"));
+	checkf(!Output.PropertyData.Contains(Property) && !Output.PropertySizes.Contains(Property), TEXT("Should not be reading same property data twice"));
 
 	TArray<FColor>& OutputColor = Output.PropertyData.Add(Property);
 	FIntPoint& OutputSize = Output.PropertySizes.Add(Property);	
@@ -404,10 +404,23 @@ void FMaterialBakingModule::ReadTextureOutput(FTextureRenderTargetResource* Rend
 				for (int32 PixelX = 0; PixelX < OutputSize.X; PixelX++)
 				{
 					const FFloat16Color& Pixel16 = Color16[PixelX + YOffset];
+
+					const FFloat16Color MagentaFloat16 = FFloat16Color(FLinearColor(1.0f, 0.0f, 1.0f));
 					FColor& Pixel8 = OutputColor[PixelX + YOffset];
-					Pixel8.R = (uint8)FMath::RoundToInt(Pixel16.R.GetFloat() * Scale);
-					Pixel8.G = (uint8)FMath::RoundToInt(Pixel16.G.GetFloat() * Scale);
-					Pixel8.B = (uint8)FMath::RoundToInt(Pixel16.B.GetFloat() * Scale);
+					/*if (Pixel16 == MagentaFloat16)
+					{
+						Pixel8.R = 255;
+						Pixel8.G = 0;
+						Pixel8.B = 255;
+					}
+					else*/
+					{
+						Pixel8.R = (uint8)FMath::RoundToInt(Pixel16.R.GetFloat() * Scale);
+						Pixel8.G = (uint8)FMath::RoundToInt(Pixel16.G.GetFloat() * Scale);
+						Pixel8.B = (uint8)FMath::RoundToInt(Pixel16.B.GetFloat() * Scale);						
+					}
+					
+					
 					Pixel8.A = 255;
 				}
 			}

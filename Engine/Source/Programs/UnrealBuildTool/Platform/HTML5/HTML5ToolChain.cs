@@ -14,8 +14,11 @@ namespace UnrealBuildTool
 	{
 		// ini configurations
 		static bool enableSIMD = false;
-		static bool enableMultithreading = false;
+		static bool enableMultithreading = true;
+		static bool useLLVMwasmBackend = false; // experimental
+		public static string libExt = ".bc";  // experimental - LLVMWasmBackend
 		static bool bEnableTracing = false; // Debug option
+		static bool bMultithreading_UseOffscreenCanvas = true; // else use Offscreen_Framebuffer
 
 		// verbose feedback
 		delegate void VerbosePrint(CppConfiguration Configuration, bool bOptimizeForSize);	// proto
@@ -53,22 +56,29 @@ namespace UnrealBuildTool
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, UnrealTargetPlatform.HTML5);
 
 //			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableSIMD", out enableSIMD);
-//			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableMultithreading", out enableMultithreading);
+			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableMultithreading", out enableMultithreading);
+			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "OffscreenCanvas", out bMultithreading_UseOffscreenCanvas);
+			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "LLVMWasmBackend", out useLLVMwasmBackend);
 			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableTracing", out bEnableTracing);
 
-			// TODO: remove this "fix" when emscripten supports (SIMD & pthreads) + WASM
+			if (useLLVMwasmBackend)
+			{
+				libExt = ".a";  // experimental - LLVMWasmBackend
+			}
+
+			// TODO: remove this "fix" when emscripten supports WASM with SIMD
 				enableSIMD = false;
-				// TODO: double check Engine/Source/Runtime/Core/Private/HTML5/HTML5PlatformProcess.cpp::SupportsMultithreading()
-				enableMultithreading = false;
 
 			Log.TraceInformation("HTML5ToolChain: EnableSIMD = "         + enableSIMD           );
 			Log.TraceInformation("HTML5ToolChain: EnableMultithreading " + enableMultithreading );
+			Log.TraceInformation("HTML5ToolChain: OffscreenCanvas "      + bMultithreading_UseOffscreenCanvas );
+			Log.TraceInformation("HTML5ToolChain: LLVMWasmBackend "      + useLLVMwasmBackend   );
 			Log.TraceInformation("HTML5ToolChain: EnableTracing = "      + bEnableTracing       );
 
 			PrintOnce = new VerbosePrint(PrintOnceOn); // reset
 
 			Log.TraceInformation("Setting Emscripten SDK: located in " + HTML5SDKInfo.EMSCRIPTEN_ROOT);
-			HTML5SDKInfo.SetupEmscriptenTemp();
+			string TempDir = HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
 			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If EMSDK is present, Emscripten is already configured by the developer
@@ -76,6 +86,7 @@ namespace UnrealBuildTool
 				// If not using preset emsdk, configure our generated .emscripten config, instead of autogenerating one in the user's home directory.
 				Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
 				Environment.SetEnvironmentVariable("EM_CACHE", HTML5SDKInfo.EMSCRIPTEN_CACHE);
+				Environment.SetEnvironmentVariable("EMCC_TEMP_DIR", TempDir);
 			}
 		}
 
@@ -96,9 +107,6 @@ namespace UnrealBuildTool
 			Result += " -Wno-undefined-var-template"; // 1.36.11
 			Result += " -Wno-invalid-offsetof"; // using offsetof on non-POD types
 			Result += " -Wno-gnu-string-literal-operator-template"; // allow static FNames
-
-// no longer needed as of UE4.18
-//			Result += " -Wno-array-bounds"; // some VectorLoads go past the end of the array, but it's okay in that case
 
 			if (bEnableShadowVariableWarnings)
 			{
@@ -144,13 +152,47 @@ namespace UnrealBuildTool
 			// JavaScript option overrides (see src/settings.js)
 			if (enableSIMD)
 			{
-				Result += " -msse2 -s SIMD=1";
+//				Result += " -msse2 -s SIMD=1";
 			}
 
 			if (enableMultithreading)
 			{
-				Result += " -s USE_PTHREADS=1";
+				Result += " -msse2 -s USE_PTHREADS=1";
+				Result += " -DEXPERIMENTAL_OPENGL_RHITHREAD=" + (bMultithreading_UseOffscreenCanvas ? "1" : "0");
+
+				// NOTE: use "emscripten native" video, keyboard, mouse
 			}
+			else
+			{
+				// SDL2 is not supported for multi-threading WASM builds
+				// WARNING: SDL2 may be removed in a future UE4 release
+				// can comment out to use "emscripten native" single threaded
+	//			Result += " -DHTML5_USE_SDL2";
+			}
+
+			if (useLLVMwasmBackend)  // experimental - LLVMWasmBackend
+			{
+				Result += " -s WASM_OBJECT_FILES=1";
+				Environment.SetEnvironmentVariable("EMCC_WASM_BACKEND", "1");
+			}
+
+			// --------------------------------------------------------------------------------
+
+			// emscripten ports
+// WARNING: seems emscripten ports cannot be currently used
+// there might be UE4 changes needed that are found in Engine/Source/ThirdParty/...
+
+//			Result += " -s USE_ZLIB=1";
+//			Result += " -s USE_LIBPNG=1";
+//			Result += " -s USE_VORBIS=1";
+//			Result += " -s USE_OGG=1";
+//			Result += " -s USE_FREETYPE=1";	// TAG = 'release_1'
+//			Result += " -s USE_HARFBUZZ=1";	// TAG = '1.2.4				note: path is https://github.com/harfbuzz/harfbuzz/archive/1.2.4.zip
+//			Result += " -s USE_ICU=1";		// TAG = 'release-53-1'
+
+			// SDL_Audio needs to be linked in [no matter if -DHTML5_USE_SDL2 is used or not]
+// TODO: remove AudioMixerSDL from Engine/Source/Runtime/Launch/Launch.Build.cs and replace with emscripten native functions
+//			Result += " -s USE_SDL=2";
 
 			// --------------------------------------------------------------------------------
 
@@ -159,7 +201,7 @@ namespace UnrealBuildTool
 			Environment.SetEnvironmentVariable("EMCC_SKIP_SANITY_CHECK", "1");
 
 			// THESE ARE TEST/DEBUGGING
-//			Environment.SetEnvironmentVariable("EMCC_DEBUG", "1");
+	//		Environment.SetEnvironmentVariable("EMCC_DEBUG", "1");
 //			Environment.SetEnvironmentVariable("EMCC_CORES", "8");
 //			Environment.SetEnvironmentVariable("EMCC_OPTIMIZE_NORMALLY", "1");
 
@@ -169,15 +211,16 @@ namespace UnrealBuildTool
 			{
 				Environment.SetEnvironmentVariable(HTML5SDKInfo.PLATFORM_USER_HOME, HTML5SDKInfo.HTML5Intermediatory);
 			}
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
+			{
+				Environment.SetEnvironmentVariable("HOME", "");
+			}
 			return Result;
 		}
 
 		string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment)
 		{
 			string Result = GetSharedArguments_Global(CompileEnvironment.Configuration, CompileEnvironment.bOptimizeForSize, CompileEnvironment.Architecture, CompileEnvironment.bEnableShadowVariableWarnings, CompileEnvironment.bShadowVariableWarningsAsErrors, CompileEnvironment.bEnableUndefinedIdentifierWarnings, CompileEnvironment.bUndefinedIdentifierWarningsAsErrors, CompileEnvironment.bUseInlining);
-
-// no longer needed as of UE4.18
-//			Result += " -Wno-reorder"; // we disable constructor order warnings.
 
 			return Result;
 		}
@@ -207,21 +250,15 @@ namespace UnrealBuildTool
 			 *    > rm Engine/Binaries/HTML5/UE4Game.js*
 			 */
 
-			// suppress link time warnings
-// no longer needed as of UE4.18
-//			Result += " -Wno-parentheses"; // precedence order
-
 			// enable verbose mode
 			Result += " -v";
 
+
+			// --------------------------------------------------
 			// do we want debug info?
+
 			if (LinkEnvironment.Configuration == CppConfiguration.Debug || LinkEnvironment.bCreateDebugInfo)
 			{
-				// TODO: Would like to have -g2 enabled here, but the UE4 manifest currently requires that UE4Game.js.symbols
-				// is always generated to the build, but that file is redundant if -g2 is passed (i.e. --emit-symbol-map gets ignored)
-				// so in order to enable -g2 builds, the UE4 packager should be made aware that .symbols file might not always exist.
-//				Result += " -g2";
-
 				// As a lightweight alternative, just retain function names in output.
 				Result += " --profiling-funcs";
 
@@ -255,9 +292,15 @@ namespace UnrealBuildTool
 				Result += " -s GL_ASSERTIONS=1";
 //				Result += " -s ASSERTIONS=2";
 //				Result += " -s GL_ASSERTIONS=2";
+				Result += " -s GL_DEBUG=1";
 
 				// In non-shipping builds, don't run ctol evaller, it can take a bit of extra time.
 				Result += " -s EVAL_CTORS=0";
+
+				// --------------------------------------------------
+
+				// UE4Game.js.symbols is redundant if -g2 is passed (i.e. --emit-symbol-map gets ignored)
+				Result += " -g1";
 
 //				// add source map loading to code
 //				string source_map = Path.Combine(HTML5SDKInfo.EMSCRIPTEN_ROOT, "src", "emscripten-source-map.min.js");
@@ -266,21 +309,60 @@ namespace UnrealBuildTool
 
 				// link in libcxxabi demangling
 				Result += " -s DEMANGLE_SUPPORT=1";
+
+				// --------------------------------------------------
+
+				if (enableMultithreading)
+				{
+					Result += " --threadprofiler";
+				}
 			}
 
-			Result += " -s BINARYEN=1 -s ALLOW_MEMORY_GROWTH=1";
-//			Result += " -s BINARYEN_METHOD=\\'native-wasm\\'";
-//			Result += " -s BINARYEN_MEM_MAX=-1";
-			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
+			if (bEnableTracing)
+			{
+				Result += " --tracing";
+			}
 
-			// no need for exceptions
-			Result += " -s DISABLE_EXCEPTION_CATCHING=1";
+
+
+			// --------------------------------------------------
+			// emscripten memory
+
+			if (enableMultithreading)
+			{
+				Result += " -s ALLOW_MEMORY_GROWTH=0";
+				Result += " -s TOTAL_MEMORY=512MB";
+
+// NOTE: browsers needs to temporarly have some flags set:
+//  https://github.com/kripken/emscripten/wiki/Pthreads-with-WebAssembly
+//  https://kripken.github.io/emscripten-site/docs/porting/pthreads.html
+				Result += " -s PTHREAD_POOL_SIZE=4 -s PTHREAD_HINT_NUM_CORES=2";
+			}
+			else
+			{
+				Result += " -s ALLOW_MEMORY_GROWTH=1";
+			}
+
+
+			// --------------------------------------------------
+			// WebGL
 
 			// NOTE: UE-51094 UE-51267 -- always USE_WEBGL2, webgl1 only feature can be switched on the fly via url paramater "?webgl1"
 //			if (targetWebGL2)
 			{
-				// Enable targeting WebGL 2 when available.
 				Result += " -s USE_WEBGL2=1";
+				if ( enableMultithreading )
+				{
+					if ( bMultithreading_UseOffscreenCanvas )
+					{
+						Result += " -s OFFSCREENCANVAS_SUPPORT=1";
+					}
+					else
+					{
+						Result += " -s OFFSCREEN_FRAMEBUFFER=1";
+					}
+					Result += " -s PROXY_TO_PTHREAD=1";
+				}
 
 				// Also enable WebGL 1 emulation in WebGL 2 contexts. This adds backwards compatibility related features to WebGL 2,
 				// such as:
@@ -298,25 +380,43 @@ namespace UnrealBuildTool
 			// The HTML page template precreates the WebGL context, so instruct the runtime to hook into that if available.
 			Result += " -s GL_PREINITIALIZED_CONTEXT=1";
 
+
+			// --------------------------------------------------
+			// wasm
+
+			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
+			Result += " -s WASM=1";
+
+
+			// --------------------------------------------------
+			// house keeping
+
 			// export console command handler. Export main func too because default exports ( e.g Main ) are overridden if we use custom exported functions.
 			Result += " -s EXPORTED_FUNCTIONS=\"['_main', '_on_fatal']\"";
+			Result += " -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['Pointer_stringify', 'writeAsciiToMemory', 'stackTrace']\"";
 
+			Result += " -s DISABLE_EXCEPTION_CATCHING=1";
+			Result += " -s ERROR_ON_UNDEFINED_SYMBOLS=1";
 			Result += " -s NO_EXIT_RUNTIME=1";
 
-			Result += " -s ERROR_ON_UNDEFINED_SYMBOLS=1";
 
-			if (bEnableTracing)
-			{
-				Result += " --tracing";
-			}
+			// --------------------------------------------------
+			// emscripten filesystem
 
 			Result += " -s CASE_INSENSITIVE_FS=1";
+			Result += " -s FORCE_FILESYSTEM=1";
 
 //			if (enableMultithreading)
 //			{
+// was recommended to NOT use either of these...
 //				Result += " -s ASYNCIFY=1"; // alllow BLOCKING calls (i.e. sleep)
+//				Result += " -s EMTERPRETIFY_ASYNC=1"; // alllow BLOCKING calls (i.e. sleep)
 //			}
 
+			// TODO: ASMFS
+
+
+			// --------------------------------------------------
 			return Result;
 		}
 
@@ -388,7 +488,7 @@ namespace UnrealBuildTool
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
 				// Add the object file to the produced item list.
-				FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".bc"));
+				FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + libExt));
 				CompileAction.ProducedItems.Add(ObjectFile);
 				FileArguments += string.Format(" -o \"{0}\"", ObjectFile.AbsolutePath);
 
@@ -525,9 +625,12 @@ namespace UnrealBuildTool
 			LinkAction.ProducedItems.Add(OutputFile);
 			ReponseLines.Add(string.Format(" -o \"{0}\"", OutputFile.AbsolutePath));
 
-			FileItem OutputBC = FileItem.GetItemByPath(LinkEnvironment.OutputFilePath.FullName.Replace(".js", ".bc").Replace(".html", ".bc"));
-			LinkAction.ProducedItems.Add(OutputBC);
-			ReponseLines.Add(string.Format(" --save-bc \"{0}\"", OutputBC.AbsolutePath));
+			FileItem OutputLink = FileItem.GetItemByPath(LinkEnvironment.OutputFilePath.FullName.Replace(".js", libExt).Replace(".html", libExt));
+			LinkAction.ProducedItems.Add(OutputLink);
+			if(!useLLVMwasmBackend)
+			{
+				ReponseLines.Add(string.Format(" --save-bc \"{0}\"", OutputLink.AbsolutePath));
+			}
 
 			LinkAction.StatusDescription = Path.GetFileName(OutputFile.AbsolutePath);
 
@@ -548,6 +651,10 @@ namespace UnrealBuildTool
 			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
 				BuildProducts.Add(Binary.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
+				if ( enableMultithreading )
+				{
+					BuildProducts.Add(Binary.OutputFilePath + ".mem", BuildProductType.RequiredResource);
+				}
 				BuildProducts.Add(Binary.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
 			}
 		}

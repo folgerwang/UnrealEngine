@@ -23,6 +23,8 @@ typedef TSharedPtr<class FOnlineVoiceImpl, ESPMode::ThreadSafe> FOnlineVoiceImpl
 typedef TSharedPtr<class FOnlineExternalUINull, ESPMode::ThreadSafe> FOnlineExternalUINullPtr;
 typedef TSharedPtr<class FOnlineIdentityNull, ESPMode::ThreadSafe> FOnlineIdentityNullPtr;
 typedef TSharedPtr<class FOnlineAchievementsNull, ESPMode::ThreadSafe> FOnlineAchievementsNullPtr;
+typedef TSharedPtr<class FOnlineStoreV2Null, ESPMode::ThreadSafe> FOnlineStoreV2NullPtr;
+typedef TSharedPtr<class FOnlinePurchaseNull, ESPMode::ThreadSafe> FOnlinePurchaseNullPtr;
 
 /**
  *	OnlineSubsystemNull - Implementation of the online subsystem for Null services
@@ -51,8 +53,8 @@ public:
 	virtual IOnlineIdentityPtr GetIdentityInterface() const override;
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
-	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const override { return nullptr; }
-	virtual IOnlinePurchasePtr GetPurchaseInterface() const override { return nullptr; }
+	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const override;
+	virtual IOnlinePurchasePtr GetPurchaseInterface() const override;
 	virtual IOnlineEventsPtr GetEventsInterface() const override;
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlineSharingPtr GetSharingInterface() const override;
@@ -60,6 +62,7 @@ public:
 	virtual IOnlineMessagePtr GetMessageInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
+	virtual IOnlineStatsPtr GetStatsInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
 	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 
@@ -87,6 +90,7 @@ PACKAGE_SCOPE:
 		LeaderboardsInterface(nullptr),
 		IdentityInterface(nullptr),
 		AchievementsInterface(nullptr),
+		StoreV2Interface(nullptr),
 		OnlineAsyncTaskThreadRunnable(nullptr),
 		OnlineAsyncTaskThread(nullptr)
 	{}
@@ -110,6 +114,12 @@ private:
 
 	/** Interface for achievements */
 	FOnlineAchievementsNullPtr AchievementsInterface;
+
+	/** Interface for store */
+	FOnlineStoreV2NullPtr StoreV2Interface;
+
+	/** Interface for purchases */
+	FOnlinePurchaseNullPtr PurchaseInterface;
 
 	/** Online async task runnable */
 	class FOnlineAsyncTaskManagerNull* OnlineAsyncTaskThreadRunnable;

@@ -10,6 +10,11 @@
 #include "UObject/TextProperty.h"
 #include "VariantObjectBinding.h"
 #include "VariantManagerObjectVersion.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/Script.h"
+#if WITH_EDITOR
+#include "EdGraphSchema_K2.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "PropertyValue"
 
@@ -20,18 +25,13 @@ UPropertyValue::UPropertyValue(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-void UPropertyValue::Init(const TArray<UProperty*>& InProps, const TArray<int32> InIndices, const FString& InFullDisplayString, EPropertyValueCategory InCategory)
+void UPropertyValue::Init(const TArray<FCapturedPropSegment>& InCapturedPropSegments, UClass* InLeafPropertyClass, const FString& InFullDisplayString, const FName& InPropertySetterName, EPropertyValueCategory InCategory)
 {
-	Properties = InProps;
-	PropertyIndices = InIndices;
+	CapturedPropSegments = InCapturedPropSegments;
+	LeafPropertyClass = InLeafPropertyClass;
 	FullDisplayString = InFullDisplayString;
+	PropertySetterName = InPropertySetterName;
 	PropCategory = InCategory;
-
-	int32 NumProps = Properties.Num();
-	if (NumProps > 0 && Properties[NumProps-1]->IsA(UObjectProperty::StaticClass()))
-	{
-		bIsObjectProperty = true;
-	}
 
 	ClearLastResolve();
 	ValueBytes.SetNumUninitialized(GetValueSizeInBytes());
@@ -46,13 +46,11 @@ UVariantObjectBinding* UPropertyValue::GetParent() const
 uint32 UPropertyValue::GetPropertyPathHash()
 {
 	uint32 Hash = 0;
-	for (UProperty* Prop : Properties)
+	for (const FCapturedPropSegment& Seg : CapturedPropSegments)
 	{
-		Hash = HashCombine(Hash, GetTypeHash(Prop));
-	}
-	for (int32 Index : PropertyIndices)
-	{
-		Hash = HashCombine(Hash, GetTypeHash(Index));
+		Hash = HashCombine(Hash, GetTypeHash(Seg.PropertyName));
+		Hash = HashCombine(Hash, GetTypeHash(Seg.PropertyIndex));
+		Hash = HashCombine(Hash, GetTypeHash(Seg.ComponentName));
 	}
 	return Hash;
 }
@@ -72,7 +70,8 @@ void UPropertyValue::Serialize(FArchive& Ar)
 		// read our pointer at some point (or just created this propertyvalue), so we need to create it
 		if (TempObjPtr.IsNull())
 		{
-			if (bIsObjectProperty && HasRecordedData())
+			UClass* PropClass = GetPropertyClass();
+			if (PropClass && PropClass->IsChildOf(UObjectProperty::StaticClass()) && HasRecordedData())
 			{
 				UObject* Obj = *((UObject**)ValueBytes.GetData());
 				if (Obj && Obj->IsValidLowLevel())
@@ -98,9 +97,12 @@ void UPropertyValue::Serialize(FArchive& Ar)
 		else if (CustomVersion >= FVariantManagerObjectVersion::CorrectSerializationOfFNameBytes)
 		{
 			FName Name;
-			if (GetPropertyClass()->IsChildOf(UNameProperty::StaticClass()))
+			if (UClass* PropClass = GetPropertyClass())
 			{
-				Name = *((FName*)ValueBytes.GetData());
+				if (PropClass->IsChildOf(UNameProperty::StaticClass()))
+				{
+					Name = *((FName*)ValueBytes.GetData());
+				}
 			}
 
 			Ar << Name;
@@ -116,34 +118,51 @@ void UPropertyValue::Serialize(FArchive& Ar)
 			Ar << TempStr;
 			Ar << TempText;
 
-			if (GetPropertyClass()->IsChildOf(UNameProperty::StaticClass()))
+			if (UClass* PropClass = GetPropertyClass())
 			{
-				int32 NumBytes = sizeof(FName);
-				ValueBytes.SetNumUninitialized(NumBytes);
-				FMemory::Memcpy(ValueBytes.GetData(), &TempName, NumBytes);
+				if (PropClass->IsChildOf(UNameProperty::StaticClass()))
+				{
+					int32 NumBytes = sizeof(FName);
+					ValueBytes.SetNumUninitialized(NumBytes);
+					FMemory::Memcpy(ValueBytes.GetData(), &TempName, NumBytes);
+				}
+				else if (PropClass->IsChildOf(UStrProperty::StaticClass()))
+				{
+					int32 NumBytes = sizeof(FString);
+					ValueBytes.SetNumUninitialized(NumBytes);
+					FMemory::Memcpy(ValueBytes.GetData(), &TempStr, NumBytes);
+				}
+				else if (PropClass->IsChildOf(UTextProperty::StaticClass()))
+				{
+					int32 NumBytes = sizeof(FText);
+					ValueBytes.SetNumUninitialized(NumBytes);
+					FMemory::Memcpy(ValueBytes.GetData(), &TempText, NumBytes);
+				}
 			}
-			else if (GetPropertyClass()->IsChildOf(UStrProperty::StaticClass()))
+			else
 			{
-				int32 NumBytes = sizeof(FString);
-				ValueBytes.SetNumUninitialized(NumBytes);
-				FMemory::Memcpy(ValueBytes.GetData(), &TempStr, NumBytes);
-			}
-			else if (GetPropertyClass()->IsChildOf(UTextProperty::StaticClass()))
-			{
-				int32 NumBytes = sizeof(FText);
-				ValueBytes.SetNumUninitialized(NumBytes);
-				FMemory::Memcpy(ValueBytes.GetData(), &TempText, NumBytes);
+				//UE_LOG(LogVariantContent, Error, TEXT("Failed to retrieve property class for property '%s'"), *GetFullDisplayString());
+				bHasRecordedData = false;
 			}
 		}
 		else if (CustomVersion >= FVariantManagerObjectVersion::CorrectSerializationOfFNameBytes)
 		{
 			FName Name;
 			Ar << Name;
-			if (GetPropertyClass() == UNameProperty::StaticClass())
+
+			if (UClass* PropClass = GetPropertyClass())
 			{
-				int32 NumBytes = sizeof(FName);
-				ValueBytes.SetNumUninitialized(NumBytes);
-				FMemory::Memcpy(ValueBytes.GetData(), &Name, NumBytes);
+				if (PropClass == UNameProperty::StaticClass())
+				{
+					int32 NumBytes = sizeof(FName);
+					ValueBytes.SetNumUninitialized(NumBytes);
+					FMemory::Memcpy(ValueBytes.GetData(), &Name, NumBytes);
+				}
+			}
+			else
+			{
+				//UE_LOG(LogVariantContent, Error, TEXT("Failed to retrieve property class for property '%s'"), *GetFullDisplayString());
+				bHasRecordedData = false;
 			}
 		}
 	}
@@ -165,22 +184,53 @@ bool UPropertyValue::Resolve(UObject* Object)
 		return false;
 	}
 
-	TArray<FString> SegmentedFullPath;
-	FullDisplayString.ParseIntoArray(SegmentedFullPath, PATH_DELIMITER);
+	if (CapturedPropSegments.Num() == 0)
+	{
+		return false;
+	}
 
-	if (!ResolvePropertiesRecursive(Object->GetClass(), Object, 0, SegmentedFullPath))
+	if (!ResolvePropertiesRecursive(Object->GetClass(), Object, 0))
 	{
 		// UE_LOG(LogVariantContent, Error, TEXT("Failed to resolve UPropertyValue '%s' on UObject '%s'"), *GetFullDisplayString(), *Object->GetName());
 		return false;
 	}
 
-	FString StringAfter = SegmentedFullPath[0];
-	for (int32 Index = 1; Index < SegmentedFullPath.Num(); Index++)
+	// Try to recover if we had a project that didn't have the LeafPropertyClass fix, so that
+	// we don't lose all our variants
+	if (LeafPropertyClass == nullptr && LeafProperty != nullptr)
 	{
-		StringAfter += PATH_DELIMITER + SegmentedFullPath[Index];
+		LeafPropertyClass = LeafProperty->GetClass();
 	}
 
-	FullDisplayString = StringAfter;
+	if (ParentContainerClass)
+	{
+		if (const UClass* Class = Cast<const UClass>(ParentContainerClass))
+		{
+			PropertySetter = Class->FindFunctionByName(PropertySetterName);
+			if (PropertySetter)
+			{
+				UClass* ThisClass = GetPropertyClass();
+				bool bFoundParameterWithClassType = false;
+
+				for (TFieldIterator<UProperty> It(PropertySetter); It; ++It)
+				{
+					UProperty* Prop = *It;
+
+					if (ThisClass == Prop->GetClass())
+					{
+						bFoundParameterWithClassType = true;
+						//break;
+					}
+				}
+
+				if (!bFoundParameterWithClassType)
+				{
+					UE_LOG(LogVariantContent, Error, TEXT("Property setter does not have a parameter that can receive an object of the property type (%s)!"), *ThisClass->GetName());
+					PropertySetter = nullptr;
+				}
+			}
+		}
+	}
 
 	return true;
 }
@@ -240,6 +290,26 @@ void UPropertyValue::RecordDataFromResolvedObject()
 		SetRecordedData(PropertyValuePtr, PropertySizeBytes);
 	}
 
+	// If we don't have parameter defaults, try fetching them
+#if WITH_EDITOR
+	if (PropertySetter && PropertySetterParameterDefaults.Num() == 0)
+	{
+		for (TFieldIterator<UProperty> It(PropertySetter); It; ++It)
+		{
+			UProperty* Prop = *It;
+			FString Defaults;
+
+			// Store property setter parameter defaults, as this is kept in metadata which is not available at runtime
+			UEdGraphSchema_K2::FindFunctionParameterDefaultValue(PropertySetter, Prop, Defaults);
+
+			if (!Defaults.IsEmpty())
+			{
+				PropertySetterParameterDefaults.Add(Prop->GetName(), Defaults);
+			}
+		}
+	}
+#endif //WITH_EDITOR
+
 	OnPropertyRecorded.Broadcast();
 }
 
@@ -270,9 +340,14 @@ void UPropertyValue::ApplyDataToResolvedObject()
 		ContainerObject->Modify();
 	}
 
+	if (PropertySetter)
+	{
+		// If we resolved, these are valid
+		ApplyViaFunctionSetter((UObject*)ParentContainerAddress);
+	}
 	// Bool properties need to be set in a particular way since they hold internal private
 	// masks and offsets
-	if (UBoolProperty* PropAsBool = Cast<UBoolProperty>(LeafProperty))
+	else if (UBoolProperty* PropAsBool = Cast<UBoolProperty>(LeafProperty))
 	{
 		bool* ValueBytesAsBool = (bool*)ValueBytes.GetData();
 		PropAsBool->SetPropertyValue(PropertyValuePtr, *ValueBytesAsBool);
@@ -324,13 +399,7 @@ void UPropertyValue::ApplyDataToResolvedObject()
 
 UClass* UPropertyValue::GetPropertyClass() const
 {
-	UProperty* Prop = GetProperty();
-	if (Prop)
-	{
-		return Prop->GetClass();
-	}
-
-	return nullptr;
+	return LeafPropertyClass;
 }
 
 EPropertyValueCategory UPropertyValue::GetPropCategory() const
@@ -584,7 +653,8 @@ const TArray<uint8>& UPropertyValue::GetRecordedData()
 	ValueBytes.SetNum(GetValueSizeInBytes());
 
 	// We need to resolve our softpath still
-	if (bHasRecordedData && bIsObjectProperty && !TempObjPtr.IsNull())
+	UClass* PropClass = GetPropertyClass();
+	if (bHasRecordedData && PropClass && PropClass->IsChildOf(UObjectProperty::StaticClass()) && !TempObjPtr.IsNull())
 	{
 		// Force resolve of our soft object pointer
 		UObject* Obj = TempObjPtr.LoadSynchronous();
@@ -653,7 +723,8 @@ void UPropertyValue::SetRecordedData(const uint8* NewDataBytes, int32 NumBytes, 
 
 			// Don't need to actually update the pointer, as that will be done when serializing
 			// But we do need to reset it or else GetRecordedData will read its data instead of ValueBytes
-			if (bIsObjectProperty)
+			UClass* PropClass = GetPropertyClass();
+			if (PropClass && PropClass->IsChildOf(UObjectProperty::StaticClass()))
 			{
 				TempObjPtr.Reset();
 			}
@@ -673,28 +744,118 @@ FOnPropertyRecorded& UPropertyValue::GetOnPropertyRecorded()
 
 UProperty* UPropertyValue::GetProperty() const
 {
-	int32 NumProps = Properties.Num();
-	if (NumProps > 0)
-	{
-		return Properties[NumProps-1];
-	}
-
-	return nullptr;
+	return LeafProperty;
 }
 
-bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* ContainerAddress, int32 SegmentIndex, TArray<FString>& SegmentedFullPath)
+void UPropertyValue::ApplyViaFunctionSetter(UObject* TargetObject)
+{
+	//Reference: ScriptCore.cpp, UObject::CallFunctionByNameWithArguments
+
+	if (!TargetObject)
+	{
+		UE_LOG(LogVariantContent, Error, TEXT("Trying to apply via function setter with a nullptr target object! (UPropertyValue: %s)"), *GetFullDisplayString());
+		return;
+	}
+	if (!PropertySetter)
+	{
+		UE_LOG(LogVariantContent, Error, TEXT("Trying to apply via function setter with a nullptr function setter! (UPropertyValue: %s)"), *GetFullDisplayString());
+		return;
+	}
+
+	UProperty* LastParameter = nullptr;
+
+	// find the last parameter
+	for ( TFieldIterator<UProperty> It(PropertySetter); It && (It->PropertyFlags&(CPF_Parm|CPF_ReturnParm)) == CPF_Parm; ++It )
+	{
+		LastParameter = *It;
+	}
+
+	// Parse all function parameters.
+	uint8* Parms = (uint8*)FMemory_Alloca(PropertySetter->ParmsSize);
+	FMemory::Memzero( Parms, PropertySetter->ParmsSize );
+
+	for (TFieldIterator<UProperty> It(PropertySetter); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		UProperty* LocalProp = *It;
+		checkSlow(LocalProp);
+		if (!LocalProp->HasAnyPropertyFlags(CPF_ZeroConstructor))
+		{
+			LocalProp->InitializeValue_InContainer(Parms);
+		}
+	}
+
+	const uint32 ExportFlags = PPF_None;
+	int32 NumParamsEvaluated = 0;
+	bool bAppliedRecordedData = false;
+
+	UClass* ThisValueClass = GetPropertyClass();
+	int32 ThisValueSize = GetValueSizeInBytes();
+	const TArray<uint8>& RecordedData = GetRecordedData();
+
+	for( TFieldIterator<UProperty> It(PropertySetter); It && It->HasAnyPropertyFlags(CPF_Parm) && !It->HasAnyPropertyFlags(CPF_OutParm|CPF_ReturnParm); ++It, NumParamsEvaluated++ )
+	{
+		UProperty* PropertyParam = *It;
+		checkSlow(PropertyParam); // Fix static analysis warning
+
+		// Check for a default value
+		FString* Defaults = PropertySetterParameterDefaults.Find(PropertyParam->GetName());
+		if (Defaults)
+		{
+			const TCHAR* Result = PropertyParam->ImportText( **Defaults, PropertyParam->ContainerPtrToValuePtr<uint8>(Parms), ExportFlags, NULL );
+			if (!Result)
+			{
+				UE_LOG(LogVariantContent, Error, TEXT("Failed at applying the default value for parameter '%s' of PropertyValue '%s'"), *PropertyParam->GetName(), *GetFullDisplayString());
+			}
+		}
+
+		// Try adding our recorded data bytes
+		if (!bAppliedRecordedData && PropertyParam->GetClass() == ThisValueClass)
+		{
+			bool bParamMatchesThisProperty = true;
+
+			if (ThisValueClass->IsChildOf(UStructProperty::StaticClass()))
+			{
+				UScriptStruct* ThisStruct = GetStructPropertyStruct();
+				UScriptStruct* PropStruct = Cast<UStructProperty>(PropertyParam)->Struct;
+
+				bParamMatchesThisProperty = (ThisStruct == PropStruct);
+			}
+
+			if (bParamMatchesThisProperty)
+			{
+				uint8* StartAddr = It->ContainerPtrToValuePtr<uint8>(Parms);
+				FMemory::Memcpy(StartAddr, RecordedData.GetData(), ThisValueSize);
+				bAppliedRecordedData = true;
+			}
+		}
+	}
+
+	// Only actually call the function if we managed to pack our recorded bytes in the params. Else we will
+	// just reset the object to defaults
+	if (bAppliedRecordedData)
+	{
+		FEditorScriptExecutionGuard ScriptGuard;
+		TargetObject->ProcessEvent(PropertySetter, Parms);
+	}
+	else
+	{
+		UE_LOG(LogVariantContent, Error, TEXT("Did not find a parameter that could receive our value of class %s"), *GetPropertyClass()->GetName());
+	}
+
+	// Destroy our params
+	for( TFieldIterator<UProperty> It(PropertySetter); It && It->HasAnyPropertyFlags(CPF_Parm); ++It )
+	{
+		It->DestroyValue_InContainer(Parms);
+	}
+}
+
+bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* ContainerAddress, int32 SegmentIndex)
 {
 	// Adapted from PropertyPathHelpers.cpp because it is incomplete for arrays of UObjects (important for components)
 
-	UProperty* Property = Properties[SegmentIndex];
+	FCapturedPropSegment& Seg = CapturedPropSegments[SegmentIndex];
 
-	// This can happen if we capture a property then recompile without it
-	if (Property == nullptr)
-	{
-		return false;
-	}
-
-	const int32 ArrayIndex = PropertyIndices[SegmentIndex] == INDEX_NONE ? 0 : PropertyIndices[SegmentIndex];
+	const int32 ArrayIndex = Seg.PropertyIndex == INDEX_NONE ? 0 : Seg.PropertyIndex;
 
 	if (SegmentIndex == 0)
 	{
@@ -702,11 +863,11 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 		ParentContainerAddress = ContainerAddress;
 	}
 
-	Property = FindField<UProperty>(ContainerClass, Property->GetFName());
+	UProperty* Property = FindField<UProperty>(ContainerClass, *Seg.PropertyName);
 	if (Property)
 	{
 		// Not the last link in the chain --> Dig down deeper updating our class/address if we jump an UObjectProp/UStructProp
-		if (SegmentIndex < (Properties.Num()-1))
+		if (SegmentIndex < (CapturedPropSegments.Num()-1))
 		{
 			// Check first to see if this is a simple object (eg. not an array of objects)
 			if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
@@ -718,7 +879,7 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 					ParentContainerClass = CurrentObject->GetClass();
 					ParentContainerAddress = CurrentObject;
 
-					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1, SegmentedFullPath);
+					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1);
 				}
 			}
 			// Check to see if this is a simple weak object property (eg. not an array of weak objects).
@@ -733,7 +894,7 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 					ParentContainerClass = CurrentObject->GetClass();
 					ParentContainerAddress = CurrentObject;
 
-					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1, SegmentedFullPath);
+					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1);
 				}
 			}
 			// Check to see if this is a simple soft object property (eg. not an array of soft objects).
@@ -748,7 +909,7 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 					ParentContainerClass = CurrentObject->GetClass();
 					ParentContainerAddress = CurrentObject;
 
-					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1, SegmentedFullPath);
+					return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 1);
 				}
 			}
 			// Check to see if this is a simple structure (eg. not an array of structures)
@@ -761,7 +922,7 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 				ParentContainerClass = StructProp->Struct;
 				ParentContainerAddress = StructAddress;
 
-				return ResolvePropertiesRecursive(StructProp->Struct, StructAddress, SegmentIndex + 1, SegmentedFullPath);
+				return ResolvePropertiesRecursive(StructProp->Struct, StructAddress, SegmentIndex + 1);
 			}
 			else if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property))
 			{
@@ -770,19 +931,25 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 				// property just as a regular property with an ArrayIndex, it will fail getting the ValuePtr
 				// because for some reason properties always have ArrayDim = 1
 
-				int32 InnerArrayIndex = PropertyIndices[SegmentIndex+1] == INDEX_NONE ? 0 : PropertyIndices[SegmentIndex+1];
+				FCapturedPropSegment NextSeg = CapturedPropSegments[SegmentIndex+1];
+
+				int32 InnerArrayIndex = NextSeg.PropertyIndex == INDEX_NONE ? 0 : NextSeg.PropertyIndex;
 
 				FScriptArrayHelper ArrayHelper(ArrayProp, ArrayProp->ContainerPtrToValuePtr<void>(ContainerAddress));
+
+				// In the case of a component, this also ensures we have at least one component in the array, as
+				// InnerArrayIndex will always be zero
 				if (!ArrayHelper.IsValidIndex(InnerArrayIndex))
 				{
-					// UE_LOG(LogVariantContent, Error, TEXT("Failed to resolve: UArrayProperty '%s' does not have an inner with index %d!"), *ArrayProp->GetName(), InnerArrayIndex);
 					return false;
 				}
 
 				// Array properties show up in the path as two entries (one for the array prop and one for the inner)
 				// so if we're on the second-to-last path segment, it means we want to capture the inner property, so don't
 				// step into it
-				if (SegmentIndex == Properties.Num() - 2)
+				// This also handles generic arrays of UObject* and structs without stepping into them (that is,
+				// prevents us from going into the ifs below)
+				if (SegmentIndex == CapturedPropSegments.Num() - 2)
 				{
 					LeafProperty = ArrayProp->Inner;
 					PropertyValuePtr = ArrayHelper.GetRawPtr(InnerArrayIndex);
@@ -798,26 +965,31 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 					ParentContainerAddress = StructAddress;
 
 					// The next link in the chain is just this array's inner. Let's just skip it instead
-					return ResolvePropertiesRecursive(ArrayOfStructsProp->Struct, StructAddress, SegmentIndex + 2, SegmentedFullPath);
+					return ResolvePropertiesRecursive(ArrayOfStructsProp->Struct, StructAddress, SegmentIndex + 2);
 				}
 				if ( UObjectProperty* InnerObjectProperty = Cast<UObjectProperty>(ArrayProp->Inner) )
 				{
-					void* ObjPtrContainer = ArrayHelper.GetRawPtr(InnerArrayIndex);
-					UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
-					if (CurrentObject)
+					// If we make it in here we know it's a property inside a component as we don't
+					// step into generic UObject properties. We also know its a component of our actor
+					// as we don't capture components from other actors
+
+					// This lets us search for the component by name instead, ignoring our InnerArrayIndex
+					// This is intuitive because if a component is reordered in the details panel, we kind
+					// of expect our bindings to 'follow'.
+
+					for (int32 ComponentIndex = 0; ComponentIndex < ArrayHelper.Num(); ComponentIndex++)
 					{
-						ParentContainerClass = CurrentObject->GetClass();
-						ParentContainerAddress =  CurrentObject;
+						void* ObjPtrContainer = ArrayHelper.GetRawPtr(ComponentIndex);
+						UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
 
-						if (CurrentObject->IsA(UActorComponent::StaticClass()))
+						if (CurrentObject && CurrentObject->IsA(UActorComponent::StaticClass()) && CurrentObject->GetName() == NextSeg.ComponentName)
 						{
-							// +0 instead of +2 here because we don't write two entries in the full path per array property, this
-							// SegmentIndex is the array segment index
-							SegmentedFullPath[SegmentIndex] = FString(ATTACH_CHILDREN_NAME) + TEXT("[") + FString::FromInt(InnerArrayIndex) + TEXT("] (") + CurrentObject->GetName() + TEXT(")");
-						}
+							ParentContainerClass = CurrentObject->GetClass();
+							ParentContainerAddress =  CurrentObject;
 
-						// The next link in the chain is just this array's inner. Let's just skip it instead
-						return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2, SegmentedFullPath);
+							// The next link in the chain is just this array's inner. Let's just skip it instead
+							return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2);
+						}
 					}
 				}
 			}
@@ -842,6 +1014,64 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 
 	ClearLastResolve();
 	return false;
+}
+
+UPropertyValueTransform::UPropertyValueTransform(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+}
+
+void UPropertyValueTransform::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	// Don't need to patch up the property setter name as this won't be used
+	if (this->HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
+	switch (PropCategory)
+	{
+	case EPropertyValueCategory::RelativeLocation:
+		PropertySetterName = FName(TEXT("SetRelativeLocation"));
+		break;
+	case EPropertyValueCategory::RelativeRotation:
+		PropertySetterName = FName(TEXT("SetRelativeLocation"));
+		break;
+	case EPropertyValueCategory::RelativeScale3D:
+		PropertySetterName = FName(TEXT("SetRelativeScale3D"));
+		break;
+	default:
+		UE_LOG(LogVariantContent, Error, TEXT("Problem serializing old PropertyValueTransform '%s'"), *GetFullDisplayString());
+		break;
+	}
+}
+
+UPropertyValueVisibility::UPropertyValueVisibility(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+}
+
+void UPropertyValueVisibility::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	// Don't need to patch up the property setter name as this won't be used
+	if (this->HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
+	switch (PropCategory)
+	{
+	case EPropertyValueCategory::bVisible:
+		PropertySetterName = FName(TEXT("SetVisibility"));
+		break;
+	default:
+		UE_LOG(LogVariantContent, Error, TEXT("Problem serializing old PropertyValueVisibility '%s'"), *GetFullDisplayString());
+		break;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

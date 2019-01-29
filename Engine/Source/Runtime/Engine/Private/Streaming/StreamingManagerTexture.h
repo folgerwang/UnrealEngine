@@ -107,8 +107,10 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 #if STATS_FAST
 	bool HandleDumpTextureStreamingStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // STATS_FAST
+#if STATS
+	bool HandleListStreamingTexturesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+#endif // STATS
 #if !UE_BUILD_SHIPPING
-	bool HandleListStreamingTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleResetMaxEverRequiredTexturesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleLightmapStreamingFactorCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCancelTextureStreamingCommand( const TCHAR* Cmd, FOutputDevice& Ar );

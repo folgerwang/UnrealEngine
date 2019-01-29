@@ -9,7 +9,7 @@ if [ -z "$TARGET_ARCH" ]; then
 	TARGET_ARCH=x86_64-unknown-linux-gnu
 fi
 
-export VULKAN_SDK=`pwd`/../Vulkan/Linux
+export VULKAN_SDK=`pwd`/../Vulkan
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:$PKG_CONFIG_PATH
 
 BuildWithOptions()

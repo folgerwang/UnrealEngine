@@ -7,6 +7,8 @@
 #include "IHeadMountedDisplayModule.h"
 #include "IMagicLeapHMD.h"
 
+class IMagicLeapInputDevice;
+
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules
  * within this plugin.
@@ -49,4 +51,10 @@ public:
 	* @return Shared pointer to the HMD.
 	*/
 	virtual TWeakPtr<IMagicLeapHMD, ESPMode::ThreadSafe> GetHMD() = 0;
+
+	virtual void RegisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
+	virtual void UnregisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
+	virtual void EnableInputDevices() = 0;
+	virtual void DisableInputDevices() = 0;
+	virtual void OnBeginRendering_GameThread_UpdateInputDevices() = 0;
 };

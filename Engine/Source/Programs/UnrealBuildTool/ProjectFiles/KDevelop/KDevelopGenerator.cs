@@ -90,7 +90,7 @@ namespace UnrealBuildTool
 			if (TargetName == GameProjectName)
 			{
 				ProjectCmdArg = " -project=\"" + OnlyGameProject.FullName + "\"";
-				Executable = "mono";
+				Executable = "Engine/Build/BatchFiles/Linux/RunMono.sh";
 				BuildCommand = "Engine/Binaries/DotNET/UnrealBuildTool.exe";
 
 				if (Type == 1)
@@ -102,7 +102,7 @@ namespace UnrealBuildTool
 			else if (TargetName == (GameProjectName + "Editor"))
 			{
 				ProjectCmdArg = " -editorrecompile -project=\"" + OnlyGameProject.FullName + "\"";
-				Executable = "mono";
+				Executable = "Engine/Build/BatchFiles/Linux/RunMono.sh";
 				BuildCommand = "Engine/Binaries/DotNET/UnrealBuildTool.exe";
 
 				if (Type == 1)

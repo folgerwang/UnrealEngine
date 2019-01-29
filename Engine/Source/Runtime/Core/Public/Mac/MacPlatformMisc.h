@@ -94,6 +94,8 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 	 */
 	static bool IsRunningOnBattery();
 
+	static IPlatformChunkInstall* GetPlatformChunkInstall();
+
 	/**
 	 * Returns whether the Mac OS X version is 10.9.x or not.
 	 */

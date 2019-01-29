@@ -164,6 +164,11 @@ public:
 	 */
 	virtual bool SaveDefaults() = 0;
 
+	/**
+	* Called when the current section is selected.
+	*/
+	virtual void Select() = 0;
+
 public:
 
 	/**
@@ -232,6 +237,13 @@ public:
 	DECLARE_DELEGATE_RetVal(FText, FOnStatus)
 	virtual FOnStatus& OnStatus() = 0;
 
+
+	/**
+	* A delegate that is executed to check whether a settings section can be edited.
+	*
+	*/
+	DECLARE_DELEGATE(FOnSelect)
+	virtual FOnSelect& OnSelect() = 0;
 public:
 
 	/** Virtual destructor. */

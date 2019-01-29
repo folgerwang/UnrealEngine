@@ -56,6 +56,7 @@
 			.setContentTitle(title);
 		if (android.os.Build.VERSION.SDK_INT >= 21)
 		{
+			builder.setContentText(details);
 			builder.setColor(0xff0e1e43);
 		}
 

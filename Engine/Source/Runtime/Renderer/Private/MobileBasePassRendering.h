@@ -49,15 +49,17 @@ enum EOutputFormat
 
 const FLightSceneInfo* GetSceneMobileDirectionalLights(FScene const* Scene, uint32 LightChannel);
 
-/* Info for dynamic point lights rendered in base pass */
-class FMobileBasePassMovablePointLightInfo
+/* Info for dynamic point or spot lights rendered in base pass */
+class FMobileBasePassMovableLightInfo
 {
 public:
-	FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
+	FMobileBasePassMovableLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
 
 	int32 NumMovablePointLights;
 	FVector4 LightPositionAndInvRadius[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 	FVector4 LightColorAndFalloffExponent[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
+	FVector4 SpotLightDirection[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
+	FVector4 SpotLightAngles[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 };
 
 static bool ShouldCacheShaderByPlatformAndOutputFormat(EShaderPlatform Platform, EOutputFormat OutputFormat)
@@ -167,8 +169,12 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+		static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+		const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+
 		TMobileBasePassVSBaseType<LightMapPolicyType>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-		OutEnvironment.SetDefine( TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32 ? 1u : 0u );
+		OutEnvironment.SetDefine( TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32 && !bMobileUseHWsRGBEncoding);
+		OutEnvironment.SetDefine( TEXT("OUTPUT_MOBILE_HDR"), OutputFormat == HDR_LINEAR_64 ? 1u : 0u);
 	}
 	
 	/** Initialization constructor. */
@@ -216,7 +222,7 @@ public:
 		InvReflectionCubemapAverageBrightness.Bind(Initializer.ParameterMap, TEXT("InvReflectionCubemapAverageBrightness"));
 		LightPositionAndInvRadiusParameter.Bind(Initializer.ParameterMap, TEXT("LightPositionAndInvRadius"));
 		LightColorAndFalloffExponentParameter.Bind(Initializer.ParameterMap, TEXT("LightColorAndFalloffExponent"));
-			NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
+		NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
 		ReflectionPositionsAndRadii.Bind(Initializer.ParameterMap, TEXT("ReflectionPositionsAndRadii"));
 		ReflectionCubemap1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap1"));
 		ReflectionSampler1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler1"));
@@ -228,6 +234,9 @@ public:
 		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
 
 		PlanarReflectionParams.Bind(Initializer.ParameterMap);
+
+		SpotLightAnglesParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightAngles"));
+		SpotLightDirectionParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightDirection"));
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
@@ -344,7 +353,7 @@ public:
 
 		if (NumMovablePointLights > 0)
 		{
-			FMobileBasePassMovablePointLightInfo LightInfo(Proxy);
+			FMobileBasePassMovableLightInfo LightInfo(Proxy);
 
 			if (NumMovablePointLights == INT32_MAX)
 			{
@@ -354,6 +363,8 @@ public:
 			// Set dynamic point lights
 			SetShaderValueArray(RHICmdList, PixelShader, LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius, LightInfo.NumMovablePointLights);
 			SetShaderValueArray(RHICmdList, PixelShader, LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent, LightInfo.NumMovablePointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, SpotLightDirectionParameter, LightInfo.SpotLightDirection, LightInfo.NumMovablePointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, SpotLightAnglesParameter, LightInfo.SpotLightAngles, LightInfo.NumMovablePointLights);
 		}
 
 		if (CSMDebugHintParams.IsBound())
@@ -392,6 +403,9 @@ public:
 		Ar << PlanarReflectionParams;
 
 		Ar << CSMDebugHintParams;
+		
+		Ar << SpotLightAnglesParameter;
+		Ar << SpotLightDirectionParameter;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -407,6 +421,8 @@ private:
 	FShaderParameter LightPositionAndInvRadiusParameter;
 	FShaderParameter MobileSkyReflectionParam;
 	FShaderParameter LightColorAndFalloffExponentParameter;
+	FShaderParameter SpotLightDirectionParameter;
+	FShaderParameter SpotLightAnglesParameter;
 	FShaderParameter NumDynamicPointLightsParameter;
 
 
@@ -494,9 +510,13 @@ public:
 	
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{		
+		static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+		const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+
 		TMobileBasePassPSBaseType<LightMapPolicyType>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
-		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32);
+		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32 && !bMobileUseHWsRGBEncoding);
+		OutEnvironment.SetDefine(TEXT("OUTPUT_MOBILE_HDR"), OutputFormat == HDR_LINEAR_64 ? 1u : 0u);
 		if (NumMovablePointLights == INT32_MAX)
 		{
 			OutEnvironment.SetDefine(TEXT("MAX_DYNAMIC_POINT_LIGHTS"), (uint32)MAX_BASEPASS_DYNAMIC_POINT_LIGHTS);
@@ -867,9 +887,6 @@ public:
 
 			bool bEncodedHDR = GetMobileHDRMode() == EMobileHDRMode::EnabledRGBE && MaterialResource->GetMaterialDomain() != MD_UI;;
 
-			static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
-			const bool bIsMobileMonoscopic = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnRenderThread() != 0);
-
 			if (bEncodedHDR == false)
 			{
 				switch (BlendMode)
@@ -886,10 +903,6 @@ public:
 					{
 						DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_Zero, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
 					} 
-					else if (bIsMobileMonoscopic)
-					{
-						DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::GetRHI());
-					}
 					else
 					{
 						DrawRenderState.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());

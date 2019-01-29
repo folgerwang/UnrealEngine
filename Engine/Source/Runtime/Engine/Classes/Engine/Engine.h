@@ -2752,6 +2752,10 @@ public:
 	UPROPERTY()
 	TArray<FString> RuntimeServerActors;
 
+	/** Amount of time in seconds between network error logging */
+	UPROPERTY(globalconfig)
+	float NetErrorLogInterval;
+
 	/** Spawns all of the registered server actors */
 	virtual void SpawnServerActors(UWorld *World);
 

@@ -90,7 +90,7 @@ namespace UnrealBuildTool
 
 			if (IsVSLuminSupportInstalled(InProjectFileFormat) && TargetType == TargetType.Game && InPlatform == UnrealTargetPlatform.Lumin)
 			{
-				string MLSDK = Environment.GetEnvironmentVariable("MLSDK");
+				string MLSDK = Utils.CleanDirectorySeparators(Environment.GetEnvironmentVariable("MLSDK"), '\\');
 
 				// TODO: Check if MPK name can be other than the project name.
 				string GameName = TargetRulesPath.GetFileNameWithoutExtension();
@@ -109,6 +109,9 @@ namespace UnrealBuildTool
                 ELFFile = Path.Combine(ELFFile, "..\\..\\Intermediate\\Lumin\\Mabu\\Packaged\\bin\\" + GameName);
 				string DebuggerFlavor = "MLDebugger";
 
+				string SymFile = Utils.MakePathRelativeTo(NMakeOutputPath.Directory.FullName, ProjectFilePath.Directory.FullName);
+				SymFile = Path.Combine(SymFile, "..\\..\\Intermediate\\Lumin\\Mabu\\Binaries", Path.ChangeExtension(NMakeOutputPath.GetFileName(), ".sym"));
+
 				// following are defaults for debugger options
 				string Attach = "false";
 				string EnableAutoStop = "true";
@@ -124,8 +127,9 @@ namespace UnrealBuildTool
 													"<EnableAutoStop>{5}</EnableAutoStop>" + ProjectFileGenerator.NewLine +
 													"<AutoStopAtFunction>{6}</AutoStopAtFunction>" + ProjectFileGenerator.NewLine +
 													"<EnablePrettyPrinting>{7}</EnablePrettyPrinting>" + ProjectFileGenerator.NewLine +
-													"<MLDownloadOnStart>{8}</MLDownloadOnStart>" + ProjectFileGenerator.NewLine;
-				ProjectFileBuilder.Append(ProjectFileGenerator.NewLine + string.Format(CustomPathEntriesTemplate, MLSDK, PackageFile, ELFFile, DebuggerFlavor, Attach, EnableAutoStop, AutoStopAtFunction, EnablePrettyPrinting, MLDownloadOnStart));
+													"<MLDownloadOnStart>{8}</MLDownloadOnStart>" + ProjectFileGenerator.NewLine +
+													"<SymFile>{9}</SymFile>" + ProjectFileGenerator.NewLine;
+				ProjectFileBuilder.Append(ProjectFileGenerator.NewLine + string.Format(CustomPathEntriesTemplate, MLSDK, PackageFile, ELFFile, DebuggerFlavor, Attach, EnableAutoStop, AutoStopAtFunction, EnablePrettyPrinting, MLDownloadOnStart, SymFile));
 			}
 		}
 	}

@@ -2160,7 +2160,7 @@ void FShaderCompilingManager::PropagateMaterialChangesToPrimitives(const TMap<FM
 
 				if (bPrimitiveIsDependentOnMaterial)
 				{
-					new(ComponentContexts) FComponentRecreateRenderStateContext(PrimitiveComponent);
+					ComponentContexts.Add(new FComponentRecreateRenderStateContext(PrimitiveComponent));
 				}
 			}
 		}
@@ -2973,13 +2973,11 @@ void GlobalBeginCompileShader(
 		static const auto CVarInstancedStereo = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
 		static const auto CVarMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MultiView"));
 		static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
-		static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
 		static const auto CVarODSCapture = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.ODSCapture"));
 
 		const bool bIsInstancedStereoCVar = CVarInstancedStereo ? (CVarInstancedStereo->GetValueOnGameThread() != 0) : false;
 		const bool bIsMultiViewCVar = CVarMultiView ? (CVarMultiView->GetValueOnGameThread() != 0) : false;
 		const bool bIsMobileMultiViewCVar = CVarMobileMultiView ? (CVarMobileMultiView->GetValueOnGameThread() != 0) : false;
-		const bool bIsMonoscopicFarField = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnGameThread() != 0);
 		const bool bIsODSCapture = CVarODSCapture && (CVarODSCapture->GetValueOnGameThread() != 0);
 
 		const EShaderPlatform ShaderPlatform = static_cast<EShaderPlatform>(Target.Platform);
@@ -2998,7 +2996,6 @@ void GlobalBeginCompileShader(
 			GShaderCompilingManager->SuppressWarnings(ShaderPlatform);
 		}
 
-		Input.Environment.SetDefine(TEXT("MONOSCOPIC_FAR_FIELD"), bIsMonoscopicFarField);
 		Input.Environment.SetDefine(TEXT("ODS_CAPTURE"), bIsODSCapture);
 	}
 
@@ -3291,6 +3288,13 @@ void GlobalBeginCompileShader(
 	}
 
 	Input.Environment.SetDefine(TEXT("PLATFORM_SUPPORTS_PER_PIXEL_DBUFFER_MASK"), IsUsingPerPixelDBufferMask(EShaderPlatform(Target.Platform)) ? 1 : 0);
+
+
+	if (IsMobilePlatform((EShaderPlatform)Target.Platform))
+	{
+		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.EnableMovableSpotlights"));
+		Input.Environment.SetDefine(TEXT("PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS"), CVar ? (CVar->GetInt() != 0) : 0);
+	}
 
 	// Allow the target shader format to modify the shader input before we add it as a job
 	const IShaderFormat* Format = GetTargetPlatformManagerRef().FindShaderFormat(Input.ShaderFormat);

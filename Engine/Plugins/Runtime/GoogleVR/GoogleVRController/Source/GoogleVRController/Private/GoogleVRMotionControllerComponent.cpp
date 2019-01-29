@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRMotionControllerComponent.h"
 #include "GoogleVRController.h"
@@ -108,6 +108,7 @@ void UGoogleVRMotionControllerComponent::SetPointerDistance(float Distance)
 {
 	if (LaserVisualComponent != nullptr)
 	{
+		PointerDistance = Distance;
 		LaserVisualComponent->SetPointerDistance(Distance, GetWorldToMetersScale(), PlayerController->PlayerCameraManager->GetCameraLocation());
 	}
 }
@@ -275,7 +276,7 @@ void UGoogleVRMotionControllerComponent::BeginPlay()
 		{
 			LaserVisualComponent->SetDefaultLaserDistance(WorldToMetersScale);
 		}
-
+		PointerDistance = GetDefaultReticleDistance();
 		LaserVisualComponent->SetDefaultReticleDistance(WorldToMetersScale, PlayerController->PlayerCameraManager->GetCameraLocation());
 	}
 
@@ -530,6 +531,8 @@ void UGoogleVRMotionControllerComponent::OnPointerHover(const FHitResult& HitRes
 		float Distance = Difference.Size();
 		float ModifiedDistance = GetRaycastModeBasedDistance(Distance);
 		LaserVisualComponent->UpdateLaserDistance(ModifiedDistance, GetWorldToMetersScale());
+		FVector ReticleDifference = Location - OriginLocation;
+		PointerDistance = ReticleDifference.Size();
 		LaserVisualComponent->UpdateReticleLocation(Location, OriginLocation, GetWorldToMetersScale(), PlayerController->PlayerCameraManager->GetCameraLocation());
 	}
 }
@@ -548,6 +551,7 @@ void UGoogleVRMotionControllerComponent::OnPointerExit(const FHitResult& HitResu
 		{
 			LaserVisualComponent->SetDefaultLaserDistance(WorldToMetersScale);
 		}
+		PointerDistance = GetDefaultReticleDistance();
 		LaserVisualComponent->SetDefaultReticleDistance(WorldToMetersScale, PlayerController->PlayerCameraManager->GetCameraLocation());
 		LaserVisualComponent->UpdateLaserCorrection(FVector(0, 0, 0));
 	}
@@ -617,6 +621,12 @@ float UGoogleVRMotionControllerComponent::GetDefaultReticleDistance() const
 		return LaserVisualComponent->GetDefaultReticleDistance(WorldToMetersScale);
 	}
 	return 2.5f * WorldToMetersScale;
+}
+
+float UGoogleVRMotionControllerComponent::GetCurrentPointerDistance() const
+{
+	float WorldToMetersScale = GetWorldToMetersScale();
+	return PointerDistance * WorldToMetersScale;
 }
 
 bool UGoogleVRMotionControllerComponent::IsPointerActive() const

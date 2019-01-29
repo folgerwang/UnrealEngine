@@ -11,12 +11,15 @@
 #include "PreLoadSettingsContainer.h"
 
 #include "HAL/ThreadManager.h"
+#include "Modules/ModuleManager.h"
 
 #if PLATFORM_ANDROID
 #if USE_ANDROID_EVENTS
 #include "Android/AndroidEventManager.h"
 #endif
 #endif
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, PreLoadScreen);
 
 DEFINE_LOG_CATEGORY_STATIC(LogPreLoadScreenManager, Log, All);
 

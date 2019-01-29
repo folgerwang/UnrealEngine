@@ -27,7 +27,7 @@ void emscripten_log(int flags, ...);
 #define checkNoRecursion(...)
 
 inline void html5_break_msg(const char* msg, const char* file, int line) {
-	EM_ASM_ARGS(
+	EM_ASM(
 	{
 		var InMsg = Pointer_stringify($0);
 		var InFile = Pointer_stringify($1);

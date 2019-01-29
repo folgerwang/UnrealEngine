@@ -608,7 +608,7 @@ class CORE_API FTextHistory_StringTableEntry : public FTextHistory
 {
 public:
 	FTextHistory_StringTableEntry() {}
-	FTextHistory_StringTableEntry(FName InTableId, FString&& InKey);
+	FTextHistory_StringTableEntry(FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy);
 
 	/** Allow moving */
 	FTextHistory_StringTableEntry(FTextHistory_StringTableEntry&& Other);
@@ -638,23 +638,65 @@ private:
 	FTextHistory_StringTableEntry(const FTextHistory_StringTableEntry&);
 	FTextHistory_StringTableEntry& operator=(FTextHistory_StringTableEntry&);
 
-	/** Get the string table pointer, potentially re-caching it if it's missing or stale */
-	FStringTableEntryConstPtr GetStringTableEntry(const bool InSilent = false) const;
+	enum class EStringTableLoadingPhase : uint8
+	{
+		/** This string table is pending load, and load should be attempted when possible */
+		PendingLoad,
+		/** This string table is currently being loaded, potentially asynchronously */
+		Loading,
+		/** This string was loaded, though that load may have failed */
+		Loaded,
+	};
 
-	/** The string table ID being referenced */
-	FName TableId;
+	/** Hosts the reference data for this text history */
+	class FStringTableReferenceData : public TSharedFromThis<FStringTableReferenceData, ESPMode::ThreadSafe>
+	{
+	public:
+		/** Initialize this data, immediately starting an asset load if required and possible */
+		void Initialize(uint16* InRevisionPtr, FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy);
 
-	/** The key within the string table being referenced */
-	FString Key;
+		/** Get the string table ID being referenced */
+		FName GetTableId() const;
 
-	/** True if the string table asset referenced is pending load because we weren't able to load it during Serialize */
-	mutable bool bStringTableAssetPendingLoad;
+		/** Get the key within the string table being referenced */
+		FString GetKey() const;
 
-	/** Cached string table entry pointer */
-	mutable FStringTableEntryConstWeakPtr StringTableEntry;
+		/** Get the table ID and key within it that are being referenced */
+		void GetTableIdAndKey(FName& OutTableId, FString& OutKey) const;
 
-	/** Critical section preventing concurrent access when re-caching StringTableEntry */
-	mutable FCriticalSection StringTableEntryCS;
+		/** Collect any string table asset references */
+		void CollectStringTableAssetReferences(FStructuredArchive::FRecord Record) const;
+
+		/** Resolve the string table pointer, potentially re-caching it if it's missing or stale */
+		FStringTableEntryConstPtr ResolveStringTableEntry();
+
+	private:
+		/** Begin an asset load if required and possible */
+		void ConditionalBeginAssetLoad();
+
+		/** Pointer to the owner text history revision that we need to reset when the cached string table entry pointer changes */
+		uint16* RevisionPtr = nullptr;
+
+		/** The string table ID being referenced */
+		FName TableId;
+
+		/** The key within the string table being referenced */
+		FString Key;
+
+		/** The loading phase of any referenced string table asset */
+		EStringTableLoadingPhase LoadingPhase = EStringTableLoadingPhase::PendingLoad;
+
+		/** Cached string table entry pointer */
+		FStringTableEntryConstWeakPtr StringTableEntry;
+
+		/** Critical section preventing concurrent access to the resolved data */
+		mutable FCriticalSection DataCS;
+	};
+	typedef TSharedPtr<FStringTableReferenceData, ESPMode::ThreadSafe> FStringTableReferenceDataPtr;
+	typedef TWeakPtr<FStringTableReferenceData, ESPMode::ThreadSafe> FStringTableReferenceDataWeakPtr;
+
+	/** The reference data for this text history */
+	FStringTableReferenceDataPtr StringTableReferenceData;
 };
 
 /** Handles history for FText::FromTextGenerator */

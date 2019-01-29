@@ -519,13 +519,39 @@ struct FBaseBlendedCurve
 	}
 
 	/**
-	 * Override with inupt curve 
+	 * Override with input curve 
 	 */
 	void Override(const FBaseBlendedCurve& CurveToOverrideFrom)
 	{
-		InitFrom(CurveToOverrideFrom);
-		Elements.Reset();
-		Elements.Append(CurveToOverrideFrom.Elements);
+		// make sure this doesn't happen
+		if (ensure(&CurveToOverrideFrom != this))
+		{
+			check(CurveToOverrideFrom.UIDToArrayIndexLUT != nullptr);
+			UIDToArrayIndexLUT = CurveToOverrideFrom.UIDToArrayIndexLUT;
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
+			Elements.Reset();
+			Elements.Append(CurveToOverrideFrom.Elements);
+			bInitialized = true;
+		}
+	}
+
+	/**
+	 * Override with input curve, leaving input curve invalid
+	 */
+	void OverrideMove(FBaseBlendedCurve& CurveToOverrideFrom)
+	{
+		// make sure this doesn't happen
+		if (ensure(&CurveToOverrideFrom != this))
+		{
+			check(CurveToOverrideFrom.UIDToArrayIndexLUT != nullptr);
+			UIDToArrayIndexLUT = CurveToOverrideFrom.UIDToArrayIndexLUT;
+			CurveToOverrideFrom.UIDToArrayIndexLUT = nullptr;
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
+			CurveToOverrideFrom.NumValidCurveCount = 0;
+			Elements = MoveTemp(CurveToOverrideFrom.Elements);
+			bInitialized = true;
+			CurveToOverrideFrom.bInitialized = false;
+		}
 	}
 
 	/** Return number of elements */
@@ -555,6 +581,19 @@ struct FBaseBlendedCurve
 			bInitialized = true;
 		}
 	}
+
+	/** Once moved, source is invalid */
+	void MoveFrom(FBaseBlendedCurve<Allocator>& CurveToMoveFrom)
+	{
+		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
+		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
+		NumValidCurveCount = CurveToMoveFrom.NumValidCurveCount;
+		CurveToMoveFrom.NumValidCurveCount = 0;
+		Elements = MoveTemp(CurveToMoveFrom.Elements);
+		bInitialized = true;
+		CurveToMoveFrom.bInitialized = false;
+	}
+
 	/** Empty */
 	void Empty()
 	{
@@ -576,26 +615,12 @@ struct FBaseBlendedCurve
 	}
 };
 
-struct FBlendedHeapCurve;
-
 struct ENGINE_API FBlendedCurve : public FBaseBlendedCurve<FAnimStackAllocator>
 {
 };
 
 struct ENGINE_API FBlendedHeapCurve : public FBaseBlendedCurve<FDefaultAllocator>
 {
-	/** Once moved, source is invalid */
-	void MoveFrom(FBlendedHeapCurve& CurveToMoveFrom)
-	{
-		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
-		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
-		NumValidCurveCount = CurveToMoveFrom.NumValidCurveCount;
-		CurveToMoveFrom.NumValidCurveCount = 0;
-		Elements = MoveTemp(CurveToMoveFrom.Elements);
-		bInitialized = true;
-		CurveToMoveFrom.bInitialized = false;
-	}
-
 };
 
 UENUM()

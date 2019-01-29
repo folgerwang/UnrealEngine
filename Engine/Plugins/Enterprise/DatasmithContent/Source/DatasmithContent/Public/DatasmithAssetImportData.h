@@ -150,7 +150,6 @@ UENUM(BlueprintType)
 enum class EVREDDataTableType : uint8
 {
 	NotDatatable,
-	Variants,
 	AnimClips,
 	AnimNodes
 };

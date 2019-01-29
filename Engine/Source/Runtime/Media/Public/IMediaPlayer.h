@@ -224,6 +224,16 @@ public:
 	}
 
 	/**
+	 * Notify player of last sample time of audio used.
+	 *
+	 * @param SampleTime The last audio sample dequeued by one of the audio sinks.
+	 */
+	virtual void SetLastAudioRenderedSampleTime(FTimespan SampleTime)
+	{
+		// override in child classes if supported
+	}
+
+	/**
 	 * Tick the player's audio related code.
 	 *
 	 * This is a high-frequency tick function. Media players override this method

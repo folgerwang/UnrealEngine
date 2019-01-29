@@ -15,7 +15,7 @@ class FGeometryCollectionPlugin : public IGeometryCollectionPlugin
 	virtual void ShutdownModule() override;
 };
 
-IMPLEMENT_MODULE( FGeometryCollectionPlugin, GeometryCollection )
+IMPLEMENT_MODULE( FGeometryCollectionPlugin, GeometryCollectionCore )
 
 
 

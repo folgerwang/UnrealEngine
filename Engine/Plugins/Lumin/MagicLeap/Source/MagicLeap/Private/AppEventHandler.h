@@ -39,13 +39,15 @@ namespace MagicLeap
 	class MAGICLEAP_API IAppEventHandler
 	{
 	public:
+		typedef TFunction<void()> FEventHandler;
+
 #if WITH_MLSDK
 		/** 
 			Adds the IAppEventHandler instance to the application's list of IAppEventHandler instances.
 			Populates a RequiredPrivileges list based on the privilge ids passed via InRequiredPrivileges;
 			@param InRequiredPrivileges The list of privilge ids required by the calling system.
 		*/
-		IAppEventHandler(TArray<MLPrivilegeID> InRequiredPrivileges);
+		IAppEventHandler(const TArray<MLPrivilegeID>& InRequiredPrivileges);
 #endif // WITH_MLSDK
 
 		IAppEventHandler();
@@ -57,7 +59,7 @@ namespace MagicLeap
 			Can be overridden by inheriting class that needs to destroy certain api interfaces before the perception stack is
 			closed down.
 		*/
-		virtual void OnAppShutDown() {}
+		virtual void OnAppShutDown();
 
 		/**
 			Use to check status of privilege requests.
@@ -67,7 +69,7 @@ namespace MagicLeap
 		/**
 			Can be overridden by inheriting class in order to pause its system.
 		*/
-		virtual void OnAppPause() {}
+		virtual void OnAppPause();
 
 		/**
 			Can be overridden by inheriting class in order to resume its system.
@@ -87,12 +89,52 @@ namespace MagicLeap
 			Pushes this object onto a worker thread so that it's blocking destructor can be called without locking up the update thread.
 			@note This should only be called by objects that have a blocking destructor and are no longer referenced.
 		*/
-		void AsyncDestroy();
+		bool AsyncDestroy();
+
+		/**
+			Use this as an alternative to overriding the OnAppShutDown function.  This allows you to use IAppEventHandler
+			as and aggregate class rather than an ancestor. 
+		*/
+		void SetOnAppShutDownHandler(FEventHandler&& InOnAppShutDownHandler)
+		{
+			OnAppShutDownHandler = MoveTemp(InOnAppShutDownHandler);
+		}
+
+		/**
+			Use this as an alternative to overriding the OnAppTick function.  This allows you to use IAppEventHandler
+			as and aggregate class rather than an ancestor.
+		*/
+		void SetOnAppTickHandler(FEventHandler&& InOnAppTickHandler)
+		{
+			OnAppTickHandler = MoveTemp(InOnAppTickHandler);
+		}
+
+		/**
+			Use this as an alternative to overriding the OnAppPause function.  This allows you to use IAppEventHandler
+			as and aggregate class rather than an ancestor.
+		*/
+		void SetOnAppPauseHandler(FEventHandler&& InOnAppPauseHandler)
+		{
+			OnAppPauseHandler = MoveTemp(InOnAppPauseHandler);
+		}
+
+		/**
+			Use this as an alternative to overriding the OnAppResume function.  This allows you to use IAppEventHandler
+			as and aggregate class rather than an ancestor.
+		*/
+		void SetOnAppResumeHandler(FEventHandler&& InOnAppResumeHandler)
+		{
+			OnAppResumeHandler = MoveTemp(InOnAppResumeHandler);
+		}
 
 	protected:
 #if WITH_MLSDK
 		TMap<MLPrivilegeID, FRequiredPrivilege> RequiredPrivileges;
 #endif // WITH_MLSDK
+		FEventHandler OnAppShutDownHandler;
+		FEventHandler OnAppTickHandler;
+		FEventHandler OnAppPauseHandler;
+		FEventHandler OnAppResumeHandler;
 		bool bAllPrivilegesInSync;
 		bool bWasSystemEnabledOnPause;
 		FCriticalSection CriticalSection;

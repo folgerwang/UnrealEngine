@@ -246,6 +246,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static void EndQuery(GLenum QueryType);
 
+	static bool SupportsFramebufferSRGBEnable();
+
 	static FORCEINLINE void DeleteSync(UGLsync Sync)
 	{
 		if (GUseThreadedRendering)

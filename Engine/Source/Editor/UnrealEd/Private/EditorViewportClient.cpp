@@ -1003,7 +1003,7 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 	}
 
 	// Allocate our stereo view state on demand, so that only viewports that actually use stereo features have one
-	const int32 ViewStateIndex = (StereoPass > eSSP_MONOSCOPIC_EYE) ? StereoPass - eSSP_MONOSCOPIC_EYE : 0;
+	const int32 ViewStateIndex = (StereoPass > eSSP_RIGHT_EYE) ? StereoPass - eSSP_RIGHT_EYE : 0;
 	if (bStereoRendering)
 	{
 		if (StereoViewStates.Num() <= ViewStateIndex)
@@ -2211,86 +2211,162 @@ static bool IsOrbitZoomMode( FViewport* Viewport )
 	 return RightMouseButton || (LeftMouseButton && MiddleMouseButton);
 }
 
+bool FEditorViewportClient::GetPivotForOrbit(FVector& Pivot) const
+{
+	return ModeTools->GetPivotForOrbit(Pivot);
+}
 
 void FEditorViewportClient::InputAxisForOrbit(FViewport* InViewport, const FVector& DragDelta, FVector& Drag, FRotator& Rot)
 {
-	// Ensure orbit is enabled
-	const bool bEnable=true;
-	ToggleOrbitCamera(bEnable);
-
-	FRotator TempRot = GetViewRotation();
-
-	SetViewRotation( FRotator(0,90,0) );
-	ConvertMovementToOrbitDragRot(DragDelta, Drag, Rot);
-	SetViewRotation( TempRot );
-
-	Drag.X = DragDelta.X;
-
-	FViewportCameraTransform& ViewTransform = GetViewTransform();
-	const float CameraSpeedDistanceScale = ShouldScaleCameraSpeedByDistance() ? FVector::Dist( GetViewLocation(), GetLookAtLocation() ) / 1000.f : 1.0f;
-
-	if ( IsOrbitRotationMode( InViewport ) )
+	FVector OrbitPoint;
+	bool bHasCustomOrbitPivot = GetPivotForOrbit(OrbitPoint);
+	if ( GetDefault<ULevelEditorViewportSettings>()->bOrbitCameraAroundSelection && IsOrbitRotationMode( InViewport ) && bHasCustomOrbitPivot )
 	{
-		SetViewRotation( GetViewRotation() + FRotator( Rot.Pitch, -Rot.Yaw, Rot.Roll ) );
+		// Override the default orbit behavior to allow orbiting around a given pivot
+		// This uses different computations from the default orbit behavior so it must not ToggleOrbitCamera
+		const bool bEnable = false;
+		ToggleOrbitCamera(bEnable);
+
+		ConvertMovementToOrbitDragRot(DragDelta, Drag, Rot);
+
+		const FRotator ViewRotation = GetViewRotation();
+
+		// Compute the look-at and view location centered on the orbit point
+		const FVector LookAtOffset = GetLookAtLocation() - OrbitPoint;
+		const FVector ViewLocationOffset = GetViewLocation() - OrbitPoint;
+
+		// When the roll is at 180 degrees, it means the view is upside down, so invert the yaw rotation
+		if (ViewRotation.Roll == 180.f)
+		{
+			Rot.Yaw = -Rot.Yaw;
+		}
+
+		// Compute the delta rotation to apply as a transform
+		FRotator DeltaRotation(Rot.Pitch, Rot.Yaw, Rot.Roll);
+		FRotator ViewRotationNoPitch = ViewRotation;
+		ViewRotationNoPitch.Pitch = 0;
+
+		FTransform ViewRotationTransform = FTransform(ViewRotationNoPitch);
+		FTransform DeltaRotationTransform = ViewRotationTransform.Inverse() * FTransform(DeltaRotation) * ViewRotationTransform;
+
+		// Apply the delta rotation to the view rotation
+		FRotator RotatedView = (FTransform(ViewRotation) * DeltaRotationTransform).Rotator();
+
+		// Correct the rotation to remove drift in the roll
+		if (FMath::IsNearlyEqual(FMath::Abs(RotatedView.Roll), 180.f, 1.f))
+		{
+			RotatedView.Roll = 180.f;
+		}
+		else if (FMath::IsNearlyZero(RotatedView.Roll, 1.f))
+		{
+			RotatedView.Roll = 0.f;
+		}
+		else
+		{
+			// FTransform::Rotator() returns an invalid RotatedView with roll in it when the initial pitch is at +/-90 degrees due to a singularity
+			// FVector::ToOrientatioRotator uses an alternate computation that doesn't suffer from the singularity. However, the roll it returns
+			// is always 0 so it's not possible to tell if it's upside down and its yaw is flipped 180 degrees
+			FVector ViewVector = ViewRotation.Vector();
+			FVector RotatedViewVector = DeltaRotationTransform.TransformVector(ViewVector);
+			FRotator RotatedViewRotator = RotatedViewVector.ToOrientationRotator();
+
+			RotatedView = RotatedViewRotator + FRotator(0.f, -180.f, ViewRotation.Roll);
+		}
+
+		SetViewRotation(RotatedView);
+
+		// Set the new rotated look-at
+		FVector RotatedLookAtOffset = DeltaRotationTransform.TransformVector(LookAtOffset);
+		FVector RotatedLookAt = OrbitPoint + RotatedLookAtOffset;
+		SetLookAtLocation(RotatedLookAt);
+
+		// Set the new rotated view location
+		FVector RotatedViewOffset = DeltaRotationTransform.TransformVector(ViewLocationOffset);
+		FVector RotatedViewLocation = OrbitPoint + RotatedViewOffset;
+		SetViewLocation(RotatedViewLocation);
+
 		FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_ROTATION : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_ROTATION);
-		
-		/*
-		 * Recalculates the view location according to the new SetViewRotation() did earlier.
-		 */
-		SetViewLocation(ViewTransform.ComputeOrbitMatrix().Inverse().GetOrigin());
 	}
-	else if ( IsOrbitPanMode( InViewport ) )
+	else
 	{
-		const bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
+		// Ensure orbit is enabled
+		const bool bEnable=true;
+		ToggleOrbitCamera(bEnable);
 
-		const float CameraSpeed = GetCameraSpeed();
-		Drag *= CameraSpeed * CameraSpeedDistanceScale;
+		FRotator TempRot = GetViewRotation();
 
-		FVector DeltaLocation = bInvert ? FVector(Drag.X, 0, -Drag.Z ) : FVector(-Drag.X, 0, Drag.Z);
+		SetViewRotation( FRotator(0,90,0) );
+		ConvertMovementToOrbitDragRot(DragDelta, Drag, Rot);
+		SetViewRotation( TempRot );
 
-		FVector LookAt = ViewTransform.GetLookAt();
+		Drag.X = DragDelta.X;
 
-		FMatrix RotMat =
-			FTranslationMatrix( -LookAt ) *
-			FRotationMatrix( FRotator(0,GetViewRotation().Yaw,0) ) * 
-			FRotationMatrix( FRotator(0, 0, GetViewRotation().Pitch));
+		FViewportCameraTransform& ViewTransform = GetViewTransform();
+		const float CameraSpeedDistanceScale = ShouldScaleCameraSpeedByDistance() ? FVector::Dist( GetViewLocation(), GetLookAtLocation() ) / 1000.f : 1.0f;
 
-		FVector TransformedDelta = RotMat.InverseFast().TransformVector(DeltaLocation);
+		if ( IsOrbitRotationMode( InViewport ) )
+		{
+			SetViewRotation( GetViewRotation() + FRotator( Rot.Pitch, -Rot.Yaw, Rot.Roll ) );
+			FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_ROTATION : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_ROTATION);
 
-		SetLookAtLocation( GetLookAtLocation() + TransformedDelta );
-		SetViewLocation(ViewTransform.ComputeOrbitMatrix().Inverse().GetOrigin());
+			/*
+			 * Recalculates the view location according to the new SetViewRotation() did earlier.
+			 */
+			SetViewLocation(ViewTransform.ComputeOrbitMatrix().Inverse().GetOrigin());
+		}
+		else if ( IsOrbitPanMode( InViewport ) )
+		{
+			const bool bInvert = GetDefault<ULevelEditorViewportSettings>()->bInvertMiddleMousePan;
 
-		FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_PAN : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_PAN);
-	}
-	else if ( IsOrbitZoomMode( InViewport ) )
-	{
+			const float CameraSpeed = GetCameraSpeed();
+			Drag *= CameraSpeed * CameraSpeedDistanceScale;
+
+			FVector DeltaLocation = bInvert ? FVector(Drag.X, 0, -Drag.Z ) : FVector(-Drag.X, 0, Drag.Z);
+
+			FVector LookAt = ViewTransform.GetLookAt();
+
+			FMatrix RotMat =
+				FTranslationMatrix( -LookAt ) *
+				FRotationMatrix( FRotator(0,GetViewRotation().Yaw,0) ) *
+				FRotationMatrix( FRotator(0, 0, GetViewRotation().Pitch));
+
+			FVector TransformedDelta = RotMat.InverseFast().TransformVector(DeltaLocation);
+
+			SetLookAtLocation( GetLookAtLocation() + TransformedDelta );
+			SetViewLocation(ViewTransform.ComputeOrbitMatrix().Inverse().GetOrigin());
+
+			FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_PAN : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_PAN);
+		}
+		else if ( IsOrbitZoomMode( InViewport ) )
+		{
 		const bool bInvertY = GetDefault<ULevelEditorViewportSettings>()->bInvertRightMouseDollyYAxis;
 
-		FMatrix OrbitMatrix = ViewTransform.ComputeOrbitMatrix().InverseFast();
+			FMatrix OrbitMatrix = ViewTransform.ComputeOrbitMatrix().InverseFast();
 
-		const float CameraSpeed = GetCameraSpeed();
-		Drag *= CameraSpeed * CameraSpeedDistanceScale;
+			const float CameraSpeed = GetCameraSpeed();
+			Drag *= CameraSpeed * CameraSpeedDistanceScale;
 
-		FVector DeltaLocation = bInvertY ? FVector(0, Drag.X + Drag.Y, 0) : FVector(0, Drag.X+ -Drag.Y, 0);
+			FVector DeltaLocation = bInvertY ? FVector(0, Drag.X + Drag.Y, 0) : FVector(0, Drag.X+ -Drag.Y, 0);
 
-		FVector LookAt = ViewTransform.GetLookAt();
+			FVector LookAt = ViewTransform.GetLookAt();
 
-		// Orient the delta down the view direction towards the look at
-		FMatrix RotMat =
-			FTranslationMatrix( -LookAt ) *
-			FRotationMatrix( FRotator(0,GetViewRotation().Yaw,0) ) * 
-			FRotationMatrix( FRotator(0, 0, GetViewRotation().Pitch));
+			// Orient the delta down the view direction towards the look at
+			FMatrix RotMat =
+				FTranslationMatrix( -LookAt ) *
+				FRotationMatrix( FRotator(0,GetViewRotation().Yaw,0) ) *
+				FRotationMatrix( FRotator(0, 0, GetViewRotation().Pitch));
 
-		FVector TransformedDelta = RotMat.InverseFast().TransformVector(DeltaLocation);
+			FVector TransformedDelta = RotMat.InverseFast().TransformVector(DeltaLocation);
 
-		SetViewLocation( OrbitMatrix.GetOrigin() + TransformedDelta );
+			SetViewLocation( OrbitMatrix.GetOrigin() + TransformedDelta );
 
-		FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_ZOOM : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_ZOOM);
-	}
+			FEditorViewportStats::Using(IsPerspective() ? FEditorViewportStats::CAT_PERSPECTIVE_MOUSE_ORBIT_ZOOM : FEditorViewportStats::CAT_ORTHOGRAPHIC_MOUSE_ORBIT_ZOOM);
+		}
 
-	if ( IsPerspective() )
-	{
-		PerspectiveCameraMoved();
+		if ( IsPerspective() )
+		{
+			PerspectiveCameraMoved();
+		}
 	}
 }
 

@@ -182,6 +182,6 @@ private:
 	float LastHapticValue;
 	
 	int HapticFeedbackSupportLevel;
-    
-    TMap<FName, double> NextKeyRepeatTime;
+	
+	TMap<FName, double> NextKeyRepeatTime;
 };

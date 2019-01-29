@@ -8,6 +8,8 @@
  * FOpenColorIOColorSpace implementation
  */
 
+const TCHAR* FOpenColorIOColorSpace::FamilyDelimiter = TEXT("/");
+
 FOpenColorIOColorSpace::FOpenColorIOColorSpace()
 	: ColorSpaceIndex(INDEX_NONE)
 { }
@@ -22,7 +24,7 @@ FString FOpenColorIOColorSpace::ToString() const
 {
 	if (IsValid())
 	{
-		return FString::Printf(TEXT("[%s] %s"), *FamilyName, *ColorSpaceName);
+		return FString::Printf(TEXT("%s"), *ColorSpaceName);
 	}
 	return TEXT("<Invalid>");
 }
@@ -32,6 +34,27 @@ bool FOpenColorIOColorSpace::IsValid() const
 	return ColorSpaceIndex != INDEX_NONE && !ColorSpaceName.IsEmpty();
 }
 
+FString FOpenColorIOColorSpace::GetFamilyNameAtDepth(int32 InDepth) const
+{
+	FString ReturnName;
+
+	TArray<FString> Families;
+	FamilyName.ParseIntoArray(Families, FamilyDelimiter);
+	if (Families.IsValidIndex(InDepth))
+	{
+		ReturnName = Families[InDepth];
+	}
+	else
+	{
+		//No separator found, does it want the first family?
+		if (InDepth == 0 && !FamilyName.IsEmpty())
+		{
+			ReturnName = FamilyName;
+		}
+	}
+
+	return ReturnName;
+}
 
 /*
  * FOpenColorIOColorConversionSettings implementation

@@ -48,14 +48,38 @@ namespace MediaShaders
 		FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
 	);
 
-	const FMatrix RgbToYuvDefault = FMatrix(
-		FPlane(0.299900f, 0.584000f, 0.114000f, 0.000000f),
-		FPlane(-0.14700f, -0.289000f, 0.436000f, 0.500000f),
-		FPlane(0.615000f, -0.515000f, -0.100000f, 0.500000f),
+	const FMatrix YuvToRgbRec709Full = FMatrix(
+		FPlane(1.164400f, 0.000000f, 1.792700f, 0.000000f),
+		FPlane(1.164400f, -0.213300f, -0.532900f, 0.000000f),
+		FPlane(1.164400f, 2.112400f, 0.000000f, 0.000000f),
 		FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
 	);
-}
 
+	const FMatrix RgbToYuvRec709Full = FMatrix(
+		FPlane(0.182581f, 0.614210f, 0.062020f, 0.000000f),
+		FPlane(-0.100642f, -0.338566f, 0.439208f, 0.000000f),
+		FPlane(0.439227f, -0.398944f, -0.040283f, 0.000000f),
+		FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
+	);
+
+	const FVector YUVOffset8bits = FVector(0.06274509803921568627f, 0.5019607843137254902f, 0.5019607843137254902f);
+
+	const FVector YUVOffset10bits = FVector(0.06256109481915933529f, 0.50048875855327468231f, 0.50048875855327468231f);
+
+	/** Setup YUV Offset in matrix */
+	FMatrix CombineColorTransformAndOffset(const FMatrix& InMatrix, const FVector& InYUVOffset)
+	{
+		FMatrix Result = InMatrix;
+		// Offset in last column:
+		// 1) to allow for 4x4 matrix multiplication optimization when going from RGB to YUV (hence the 1.0 in the [3][3] matrix location)
+		// 2) stored in empty space when going from YUV to RGB
+		Result.M[0][3] = InYUVOffset.X;
+		Result.M[1][3] = InYUVOffset.Y;
+		Result.M[2][3] = InYUVOffset.Z;
+		Result.M[3][3] = 1.0f;
+		return Result;
+	}
+}
 
 /* FMediaShadersVS shader
  *****************************************************************************/
@@ -77,11 +101,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FAYUVConvertUB, "AYUVConvertUB");
 IMPLEMENT_SHADER_TYPE(, FAYUVConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("AYUVConvertPS"), SF_Pixel);
 
 
-void FAYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> AYUVTexture, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FAYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> AYUVTexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FAYUVConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.Sampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SrgbToLinear = SrgbToLinear;
 		UB.Texture = AYUVTexture;
@@ -138,11 +162,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNV12ConvertUB, "NV12ConvertUB");
 IMPLEMENT_SHADER_TYPE(, FNV12ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("NV12ConvertPS"), SF_Pixel);
 
 
-void FNV12ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> NV12Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FNV12ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> NV12Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FNV12ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.OutputWidth = OutputDimensions.X;
 		UB.SamplerB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
@@ -173,11 +197,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FNV21ConvertUB, "NV21ConvertUB");
 IMPLEMENT_SHADER_TYPE(, FNV21ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("NV21ConvertPS"), SF_Pixel);
 
 
-void FNV21ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> NV21Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FNV21ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> NV21Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FNV21ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.OutputWidth = OutputDimensions.Y;
 		UB.SamplerB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
@@ -237,13 +261,13 @@ IMPLEMENT_SHADER_TYPE(, FYCbCrConvertPS, TEXT("/Engine/Private/MediaShaders.usf"
 IMPLEMENT_SHADER_TYPE(, FYCbCrConvertPS_4x4Matrix, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YCbCrConvertPS_4x4Matrix"), SF_Pixel);
 
 
-void FYCbCrConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> LumaTexture, TRefCountPtr<FRHITexture2D> CbCrTexture, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYCbCrConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> LumaTexture, TRefCountPtr<FRHITexture2D> CbCrTexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FYCbCrConvertUB UB;
 	{
 		UB.CbCrSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.CbCrTexture = CbCrTexture;
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.LumaSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.LumaTexture = LumaTexture;
 		UB.SrgbToLinear = SrgbToLinear;
@@ -270,11 +294,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FUYVYConvertUB, "UYVYConvertUB");
 IMPLEMENT_SHADER_TYPE(, FUYVYConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("UYVYConvertPS"), SF_Pixel);
 
 
-void FUYVYConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> UYVYTexture, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FUYVYConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> UYVYTexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FUYVYConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SamplerB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
 		UB.SrgbToLinear = SrgbToLinear;
@@ -306,11 +330,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FYUVConvertUB, "YUVConvertUB");
 IMPLEMENT_SHADER_TYPE(, FYUVConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YUVConvertPS"), SF_Pixel);
 
 
-void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YTexture, TRefCountPtr<FRHITexture2D> UTexture, TRefCountPtr<FRHITexture2D> VTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YTexture, TRefCountPtr<FRHITexture2D> UTexture, TRefCountPtr<FRHITexture2D> VTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FYUVConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SrgbToLinear = SrgbToLinear;
 		UB.YTexture = YTexture;
 		UB.UTexture = UTexture;
@@ -341,11 +365,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FYUVv210ConvertUB, "YUVv210ConvertUB");
 IMPLEMENT_SHADER_TYPE(, FYUVv210ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YUVv210ConvertPS"), SF_Pixel);
 
 
-void FYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YUVTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YUVTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FYUVv210ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SrgbToLinear = SrgbToLinear;
 		UB.OutputDimX = OutputDimensions.X;
 		UB.OutputDimY = OutputDimensions.Y;
@@ -374,11 +398,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FYUY2ConvertUB, "YUY2ConvertUB");
 IMPLEMENT_SHADER_TYPE(, FYUY2ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YUY2ConvertPS"), SF_Pixel);
 
 
-void FYUY2ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YUY2Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYUY2ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YUY2Texture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FYUY2ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.OutputWidth = OutputDimensions.X;
 		UB.SamplerB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
@@ -408,11 +432,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FYVYUConvertUB, "YVYUConvertUB");
 IMPLEMENT_SHADER_TYPE(, FYVYUConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YVYUConvertPS"), SF_Pixel);
 
 
-void FYVYUConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YVYUTexture, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYVYUConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YVYUTexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool SrgbToLinear)
 {
 	FYVYUConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SamplerB = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
 		UB.SrgbToLinear = SrgbToLinear;
@@ -440,11 +464,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB8toUYVY8ConvertUB, "RGB8toUYVY8Conv
 IMPLEMENT_SHADER_TYPE(, FRGB8toUYVY8ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("RGB8toUYVY8ConvertPS"), SF_Pixel);
 
 
-void FRGB8toUYVY8ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb)
+void FRGB8toUYVY8ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool LinearToSrgb)
 {
 	FRGB8toUYVY8ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
 		UB.LinearToSrgb = LinearToSrgb;
 		UB.Texture = RGBATexture;
@@ -471,11 +495,11 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRGB10toYUVv210ConvertUB, "RGB10toYUVv2
 IMPLEMENT_SHADER_TYPE(, FRGB10toYUVv210ConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("RGB10toYUVv210ConvertPS"), SF_Pixel);
 
 
-void FRGB10toYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, bool LinearToSrgb)
+void FRGB10toYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture, const FMatrix& ColorTransform, const FVector& YUVOffset, bool LinearToSrgb)
 {
 	FRGB10toYUVv210ConvertUB UB;
 	{
-		UB.ColorTransform = ColorTransform;
+		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
 		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
 		UB.LinearToSrgb = LinearToSrgb;
 		UB.Texture = RGBATexture;
@@ -485,5 +509,31 @@ void FRGB10toYUVv210ConvertPS::SetParameters(FRHICommandList& CommandList, TRefC
 	TUniformBufferRef<FRGB10toYUVv210ConvertUB> Data = TUniformBufferRef<FRGB10toYUVv210ConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
 	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FRGB10toYUVv210ConvertUB>(), Data);
 }
+
+
+/* FInvertAlphaPS shader
+ *****************************************************************************/
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FInvertAlphaUB, )
+SHADER_PARAMETER_TEXTURE(Texture2D, Texture)
+SHADER_PARAMETER_SAMPLER(SamplerState, SamplerP)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FInvertAlphaUB, "InvertAlphaUB");
+IMPLEMENT_SHADER_TYPE(, FInvertAlphaPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("InvertAlphaPS"), SF_Pixel);
+
+
+void FInvertAlphaPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture)
+{
+	FInvertAlphaUB UB;
+	{
+		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
+		UB.Texture = RGBATexture;
+	}
+
+	TUniformBufferRef<FInvertAlphaUB> Data = TUniformBufferRef<FInvertAlphaUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
+	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FInvertAlphaUB>(), Data);
+}
+
 
 

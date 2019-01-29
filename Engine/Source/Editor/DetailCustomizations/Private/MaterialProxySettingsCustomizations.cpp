@@ -108,7 +108,7 @@ void FMaterialProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropert
 			if (bUseNativeTool)
 			{
 				TSharedPtr<FPropertyRestriction> EnumRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("NoSupport", "Unable to support this option in Merge Actor")));
-				const UEnum* const TextureSizingTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETextureSizingType"));
+				const UEnum* const TextureSizingTypeEnum = StaticEnum<ETextureSizingType>();
 				EnumRestriction->AddHiddenValue(TextureSizingTypeEnum->GetNameStringByValue((uint8)ETextureSizingType::TextureSizingType_UseSimplygonAutomaticSizing));
 				EnumHandle->AddRestriction(EnumRestriction.ToSharedRef());
 			}

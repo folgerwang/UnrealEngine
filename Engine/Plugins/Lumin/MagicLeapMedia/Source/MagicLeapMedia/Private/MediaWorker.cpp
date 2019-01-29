@@ -61,6 +61,7 @@ uint32 FMediaWorker::Run()
 	{
 		uint16_t States = 0;
 		MLResult Result = MLMediaPlayerPollStates(MediaPlayerHandle, MLMediaPlayerPollingStateFlag_IsBufferAvailable, &States);
+		UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPollStates failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		if (Result != MLResult_Ok || !(MLMediaPlayerPollingStateFlag_IsBufferAvailable & States))
 		{
 			continue;
@@ -68,6 +69,7 @@ uint32 FMediaWorker::Run()
 
 		int32 currentPositionMilSec = 0;
 		Result = MLMediaPlayerGetCurrentPosition(MediaPlayerHandle, &currentPositionMilSec);
+		UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetCurrentPosition failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		const FTimespan Time = FTimespan::FromMilliseconds(currentPositionMilSec);
 
 		int32 width = 0;
@@ -75,7 +77,7 @@ uint32 FMediaWorker::Run()
 		Result = MLMediaPlayerGetVideoSize(MediaPlayerHandle, &width, &height);
 		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("Error getting video dimensions"));
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetVideoSize failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 			continue;
 		}
 
@@ -101,7 +103,7 @@ uint32 FMediaWorker::Run()
 
 		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("Error acquiring next video buffer"));
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerAcquireNextAvailableBuffer failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 			continue;
 		}
 
@@ -111,8 +113,8 @@ uint32 FMediaWorker::Run()
 			UE_LOG(LogMagicLeapMedia, Error, TEXT("CopyFrameTexture failed"));
 		}
 
-		MLMediaPlayerReleaseBuffer(MediaPlayerHandle, nativeBuffer);
-
+		Result = MLMediaPlayerReleaseBuffer(MediaPlayerHandle, nativeBuffer);
+		UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerReleaseBuffer failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		{
 			FScopeLock Lock(CriticalSection);
 			SwapBuffers();

@@ -145,6 +145,7 @@ FMagicLeapMediaPlayer::FMagicLeapMediaPlayer(IMediaEventSink& InEventSink)
 , MediaWorker(nullptr)
 , bWasMediaPlayingBeforeAppPause(false)
 , bPlaybackCompleted(false)
+, CurrentPlaybackTime(FTimespan::Zero())
 {
 	if (FLuminPlatformMisc::ShouldUseVulkan())
 	{
@@ -156,7 +157,7 @@ FMagicLeapMediaPlayer::FMagicLeapMediaPlayer(IMediaEventSink& InEventSink)
 	}
 	
 	MLResult Result = MLMediaPlayerCreate(&MediaPlayerHandle);
-	UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerCreate failed with error %d."), Result);
+	UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerCreate failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 	CurrentState = (Samples.IsValid() && Result == MLResult_Ok) ? EMediaState::Closed : EMediaState::Error;
 	
 	if (!GSupportsImageExternal)
@@ -202,7 +203,7 @@ FMagicLeapMediaPlayer::~FMagicLeapMediaPlayer()
 						if (MLHandleIsValid(Params.MediaPlayerHandle))
 						{
 							MLResult Result = MLMediaPlayerDestroy(Params.MediaPlayerHandle);
-							UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %d."), Result);
+							UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 						}
 					});
 			}
@@ -243,7 +244,7 @@ FMagicLeapMediaPlayer::~FMagicLeapMediaPlayer()
 				}
 
 				MLResult Result = MLMediaPlayerDestroy(Params.MediaPlayerHandle);
-				UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %d."), Result);
+				UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 					});
 			}
 
@@ -252,7 +253,7 @@ FMagicLeapMediaPlayer::~FMagicLeapMediaPlayer()
 		else
 		{
 			MLResult Result = MLMediaPlayerDestroy(MediaPlayerHandle);
-			UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %d."), Result);
+			UE_CLOG(Result != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerDestroy failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 
 		MediaPlayerHandle = ML_INVALID_HANDLE;
@@ -269,6 +270,11 @@ void FMagicLeapMediaPlayer::Close()
 		return;
 	}
 
+	{
+		FScopeLock Lock(&CriticalSection);
+		bPlaybackCompleted = true;
+	}
+
 	// remove delegates if registered
 	if (ResumeHandle.IsValid())
 	{
@@ -283,10 +289,10 @@ void FMagicLeapMediaPlayer::Close()
 	}
 
 	MLResult StopResult = MLMediaPlayerStop(MediaPlayerHandle);
-	UE_CLOG(StopResult != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerStop failed with error %d"), StopResult);
+	UE_CLOG(StopResult != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerStop failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(StopResult)));
 
 	MLResult ResetResult = MLMediaPlayerReset(MediaPlayerHandle);
-	UE_CLOG(ResetResult != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerReset failed with error %d"), ResetResult);
+	UE_CLOG(ResetResult != MLResult_Ok, LogMagicLeapMedia, Error, TEXT("MLMediaPlayerReset failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(ResetResult)));
 
 	CurrentState = EMediaState::Closed;
 
@@ -388,7 +394,7 @@ bool FMagicLeapMediaPlayer::Open(const FString& Url, const IMediaOptions* Option
 		MLResult Result = MLMediaPlayerSetDataSourceForPath(MediaPlayerHandle, TCHAR_TO_UTF8(*FilePath));
 		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetDataSourceForPath for path %s failed with error %d."), *FilePath, Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetDataSourceForPath for path %s failed with error %s."), *FilePath, UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 			EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
 			return false;
 		}
@@ -399,7 +405,7 @@ bool FMagicLeapMediaPlayer::Open(const FString& Url, const IMediaOptions* Option
 		MLResult Result = MLMediaPlayerSetDataSourceForURI(MediaPlayerHandle, TCHAR_TO_UTF8(*Url));
 		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetDataSourceForURI for remote media source %s failed with error %d."), *Url, Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetDataSourceForURI for remote media source %s failed with error %s."), *Url, UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 			EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
 			return false;
 		}
@@ -413,7 +419,7 @@ bool FMagicLeapMediaPlayer::Open(const FString& Url, const IMediaOptions* Option
 	MLResult Result = MLMediaPlayerPrepareAsync(MediaPlayerHandle);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPrepareAsync for media source %s failed with error %d"), *Url, Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPrepareAsync for media source %s failed with error %s"), *Url, UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpenFailed);
 		return false;
 	}
@@ -463,7 +469,7 @@ FTimespan FMagicLeapMediaPlayer::GetDuration() const
 		}
 		else
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetDuration failed with error %d"), Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetDuration failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 	}
 
@@ -497,23 +503,7 @@ TRangeSet<float> FMagicLeapMediaPlayer::GetSupportedRates(EMediaRateThinning Thi
 
 FTimespan FMagicLeapMediaPlayer::GetTime() const
 {
-	FTimespan Time = FTimespan::Zero();
-
-	if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused)
-	{
-		int32 currentPositionMilSec = 0;
-		MLResult Result = MLMediaPlayerGetCurrentPosition(MediaPlayerHandle, &currentPositionMilSec);
-		if (Result == MLResult_Ok)
-		{
-			Time = FTimespan::FromMilliseconds(currentPositionMilSec);
-		}
-		else
-		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetCurrentPosition failed with error %d"), Result);
-		}
-	}
-
-	return Time;
+	return CurrentPlaybackTime.Load();
 }
 
 bool FMagicLeapMediaPlayer::IsLooping() const
@@ -532,11 +522,11 @@ bool FMagicLeapMediaPlayer::Seek(const FTimespan& Time)
 	}
 	else if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused)
 	{
-		MLResult Result = MLMediaPlayerSeekTo(MediaPlayerHandle, Time.GetTotalMilliseconds(), MLMediaSeekMode_Previous_Sync);
+		MLResult Result = MLMediaPlayerSeekTo(MediaPlayerHandle, Time.GetTotalMilliseconds(), MLMediaSeekMode_Closest_Sync);
 		if (Result != MLResult_Ok)
 		{
 			bSuccess = false;
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSeekTo failed with error %d"), Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSeekTo failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 	}
 
@@ -548,7 +538,7 @@ bool FMagicLeapMediaPlayer::SetLooping(bool Looping)
 	MLResult Result = MLMediaPlayerSetLooping(MediaPlayerHandle, Looping);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetLooping failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetLooping failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 
@@ -580,7 +570,7 @@ bool FMagicLeapMediaPlayer::SetRate(float Rate)
 		}
 		else
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPause failed with error %d!"), Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPause failed with error %s!"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 	}
 	else if (Rate == 1.0f)
@@ -607,7 +597,7 @@ bool FMagicLeapMediaPlayer::SetNativeVolume(float Volume)
 		if (Result != MLResult_Ok)
 		{
 			bSuccess = false;
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetVolume failed with error %d."), Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSetVolume failed with error %s."), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 	}
 
@@ -624,6 +614,17 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 	if (CurrentState != EMediaState::Playing && CurrentState != EMediaState::Paused)
 	{
 		return;
+	}
+
+	int32 currentPositionMilSec = 0;
+	MLResult Result = MLMediaPlayerGetCurrentPosition(MediaPlayerHandle, &currentPositionMilSec);
+	if (Result == MLResult_Ok)
+	{
+		CurrentPlaybackTime = FTimespan::FromMilliseconds(currentPositionMilSec);
+	}
+	else
+	{
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetCurrentPosition failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 	}
 
 	// deal with resolution changes (usually from streams)
@@ -664,7 +665,7 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 					}
 
 					MLHandle NativeBuffer = ML_INVALID_HANDLE;
-					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, NativeBuffer))
+					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, NativeBuffer, TextureDataPtr->bIsVideoTextureValid))
 					{
 						return;
 					}
@@ -708,7 +709,7 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 
 					if (!TextureDataPtr->bIsVideoTextureValid)
 					{
-						FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, TextureDataPtr->VideoTexture, TextureDataPtr->VideoSampler, FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+						Params.MediaPlayer->RegisterExternalTexture(Params.PlayerGuid, TextureDataPtr->VideoTexture, TextureDataPtr->VideoSampler);
 						TextureDataPtr->bIsVideoTextureValid = true;
 					}
 
@@ -756,7 +757,7 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 					// MLHandle because Unreal's uint64 is 'unsigned long long *' whereas uint64_t for the C-API is 'unsigned long *'
 					// TODO: Fix the Unreal types for the above comment.
 					MLHandle nativeBuffer = ML_INVALID_HANDLE;
-					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, nativeBuffer))
+					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, nativeBuffer, TextureDataPtr->bIsVideoTextureValid))
 					{
 						return;
 					}
@@ -814,8 +815,7 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 					{
 						FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
 						FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
-						FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, MediaVideoTexture, SamplerStateRHI, FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-
+						Params.MediaPlayer->RegisterExternalTexture(Params.PlayerGuid, MediaVideoTexture, SamplerStateRHI);
 						TextureDataPtr->bIsVideoTextureValid = true;
 					}
 				});
@@ -895,20 +895,14 @@ void FMagicLeapMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 					// MLHandle because Unreal's uint64 is 'unsigned long long *' whereas uint64_t for the C-API is 'unsigned long *'
 					// TODO: Fix the Unreal types for the above comment.
 					MLHandle NativeBuffer = ML_INVALID_HANDLE;
-					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, NativeBuffer))
+					if (!Params.MediaPlayer->RenderThreadGetNativeBuffer(Params.MediaPlayerHandle, NativeBuffer, PinnedTextureData->bIsVideoTextureValid))
 					{
 						UE_LOG(LogMagicLeapMedia, Error, TEXT("Error acquiring next video buffer"));
 						return;
 					}
 
-					int32 currentPositionMilSec = 0;
-					if (!Params.MediaPlayer->RenderThreadGetCurrentPosition(Params.MediaPlayerHandle, currentPositionMilSec))
-					{
-						UE_LOG(LogMagicLeapMedia, Error, TEXT("Error acquiring current position."));
-						return;
-					}
 					// write frame into texture
-					FRHITexture2D* Texture = Params.VideoSample->InitializeTexture(FTimespan::FromMilliseconds(currentPositionMilSec));
+					FRHITexture2D* Texture = Params.VideoSample->InitializeTexture(Params.MediaPlayer->GetTime());
 					if (Texture != nullptr)
 					{
 						int32 Resource = *reinterpret_cast<int32*>(Texture->GetNativeResource());
@@ -1103,7 +1097,7 @@ FString FMagicLeapMediaPlayer::GetTrackLanguage(EMediaTrackType TrackType, int32
 		}
 		else
 		{
-			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetTrackLanguage failed with error %d"), Result);
+			UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetTrackLanguage failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		}
 	}
 
@@ -1128,7 +1122,7 @@ bool FMagicLeapMediaPlayer::GetVideoTrackFormat(int32 TrackIndex, int32 FormatIn
 	MLResult Result = MLMediaPlayerGetVideoSize(MediaPlayerHandle, &width, &height);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetVideoSize failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetVideoSize failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 
@@ -1154,7 +1148,7 @@ bool FMagicLeapMediaPlayer::SelectTrack(EMediaTrackType TrackType, int32 TrackIn
 			}
 			else
 			{
-				UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSelectTrack failed with error %d"), Result);
+				UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerSelectTrack failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 			}
 		}
 	}
@@ -1194,7 +1188,7 @@ FIntPoint FMagicLeapMediaPlayer::GetVideoDimensions() const
 	MLResult Result = MLMediaPlayerGetVideoSize(MediaPlayerHandle, &width, &height);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetVideoSize failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetVideoSize failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 	}
 	return FIntPoint(width, height);
 }
@@ -1204,7 +1198,7 @@ bool FMagicLeapMediaPlayer::SetRateOne()
 	MLResult Result = MLMediaPlayerStart(MediaPlayerHandle);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerStart failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerStart failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 	
@@ -1219,7 +1213,7 @@ bool FMagicLeapMediaPlayer::GetMediaPlayerState(uint16 FlagToPoll) const
 	MLResult Result = MLMediaPlayerPollStates(MediaPlayerHandle, FlagToPoll, &StateFlags);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPollStates failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPollStates failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 
@@ -1233,21 +1227,40 @@ bool FMagicLeapMediaPlayer::RenderThreadIsBufferAvailable(MLHandle InMediaPlayer
 	MLResult Result = MLMediaPlayerPollStates(InMediaPlayerHandle, MLMediaPlayerPollingStateFlag_IsBufferAvailable, &StateFlags);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPollStates failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerPollStates failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 
 	return MLMediaPlayerPollingStateFlag_IsBufferAvailable & StateFlags;
 }
 
-bool FMagicLeapMediaPlayer::RenderThreadGetNativeBuffer(const MLHandle InMediaPlayerHandle, MLHandle& NativeBuffer)
+bool FMagicLeapMediaPlayer::RenderThreadGetNativeBuffer(const MLHandle InMediaPlayerHandle, MLHandle& NativeBuffer, bool& OutIsVideoTextureValid)
 {
 	ensureMsgf(IsInRenderingThread(), TEXT("RenderThreadGetNativeBuffer called outside of render thread"));
 	MLResult Result = MLMediaPlayerAcquireNextAvailableBuffer(InMediaPlayerHandle, &NativeBuffer);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerAcquireNextAvailableBuffer failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerAcquireNextAvailableBuffer failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
+	}
+
+	Result = MLMediaPlayerGetFrameTransformationMatrix(InMediaPlayerHandle, FrameTransformationMatrix);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetFrameTransformationMatrix failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
+		return false;
+	}
+
+	if (UScale != FrameTransformationMatrix[0] ||
+		UOffset != FrameTransformationMatrix[12] ||
+		(-VScale) != FrameTransformationMatrix[5] /*||
+		(1.0f - VOffset) != FrameTransformationMatrix[13]*/)
+	{
+		UScale = FrameTransformationMatrix[0];
+		UOffset = FrameTransformationMatrix[12];
+		VScale = -FrameTransformationMatrix[5];
+		//VOffset = 1.0f - FrameTransformationMatrix[13];
+		OutIsVideoTextureValid = false;
 	}
 
 	return true;
@@ -1259,7 +1272,7 @@ bool FMagicLeapMediaPlayer::RenderThreadReleaseNativeBuffer(const MLHandle InMed
 	MLResult Result = MLMediaPlayerReleaseBuffer(InMediaPlayerHandle, NativeBuffer);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerReleaseBuffer failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerReleaseBuffer failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 
@@ -1272,7 +1285,7 @@ bool FMagicLeapMediaPlayer::RenderThreadGetCurrentPosition(const MLHandle InMedi
 	MLResult Result = MLMediaPlayerGetCurrentPosition(InMediaPlayerHandle, &CurrentPosition);
 	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetCurrentPosition failed with error %d"), Result);
+		UE_LOG(LogMagicLeapMedia, Error, TEXT("MLMediaPlayerGetCurrentPosition failed with error %s"), UTF8_TO_TCHAR(MLMediaResultGetString(Result)));
 		return false;
 	}
 

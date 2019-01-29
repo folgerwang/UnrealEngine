@@ -23,6 +23,17 @@ namespace MagicLeap
 		return FVector(-InVec3f.xyz.z * WorldToMetersScale, InVec3f.xyz.x * WorldToMetersScale, InVec3f.xyz.y * WorldToMetersScale);
 	}
 
+	FORCEINLINE FVector ToFVectorNoScale(const MLVec3f& InVec3f)
+	{
+		return FVector(-InVec3f.xyz.z, InVec3f.xyz.x, InVec3f.xyz.y);
+	}
+
+	FORCEINLINE FVector ToFVectorExtents(const MLVec3f& InVec3f, float WorldToMetersScale)
+	{
+		// No sign change for FVector::X
+		return FVector(InVec3f.xyz.z * WorldToMetersScale, InVec3f.xyz.x * WorldToMetersScale, InVec3f.xyz.y * WorldToMetersScale);
+	}
+
 	FORCEINLINE MLVec3f ToMLVector(const FVector& InVector, float WorldToMetersScale)
 	{
 		float InverseScale = 1.0f / WorldToMetersScale;
@@ -36,6 +47,17 @@ namespace MagicLeap
 	FORCEINLINE MLVec3f ToMLVectorNoScale(const FVector& InVector)
 	{
 		return ToMLVector(InVector, 1.0f);
+	}
+
+	FORCEINLINE MLVec3f ToMLVectorExtents(const FVector& InVector, float WorldToMetersScale)
+	{
+		float InverseScale = 1.0f / WorldToMetersScale;
+		MLVec3f vec;
+		vec.xyz.x = InVector.Y * InverseScale;
+		vec.xyz.y = InVector.Z * InverseScale;
+		// No sign change for MLVec3f::z
+		vec.xyz.z = InVector.X * InverseScale;
+		return vec;
 	}
 
 	FORCEINLINE FQuat ToFQuat(const MLQuaternionf& InQuat)
@@ -76,6 +98,75 @@ namespace MagicLeap
 			FPlane(-InMat4f.matrix_colmajor[8], -InMat4f.matrix_colmajor[9], -InMat4f.matrix_colmajor[10], -InMat4f.matrix_colmajor[11]),
 			FPlane(InMat4f.matrix_colmajor[12], InMat4f.matrix_colmajor[13], InMat4f.matrix_colmajor[14], InMat4f.matrix_colmajor[15])
 		);
+	}
+
+	FORCEINLINE FVector ToFVector(const MLMat4f& InMatrix, float WorldToMetersScale)
+	{
+		MLVec3f MLPosition;
+		MLPosition.xyz.x = InMatrix.matrix_colmajor[12];
+		MLPosition.xyz.y = InMatrix.matrix_colmajor[13];
+		MLPosition.xyz.z = InMatrix.matrix_colmajor[14];
+		return ToFVector(MLPosition, WorldToMetersScale);
+	}
+
+	FORCEINLINE FQuat ToFQuat(const MLMat4f& InMatrix)
+	{
+		const float Trace = InMatrix.matrix_colmajor[0] + InMatrix.matrix_colmajor[5] + InMatrix.matrix_colmajor[10];
+
+		MLQuaternionf Output;
+		if (Trace > 0)
+		{
+			const float S = FMath::Sqrt(Trace + 1.0) * 2;
+			Output.w = S * 0.25;
+			Output.x = (InMatrix.matrix_colmajor[6] - InMatrix.matrix_colmajor[9]) / S;
+			Output.y = (InMatrix.matrix_colmajor[8] - InMatrix.matrix_colmajor[2]) / S;
+			Output.z = (InMatrix.matrix_colmajor[1] - InMatrix.matrix_colmajor[4]) / S;
+		}
+		else if (InMatrix.matrix_colmajor[0] > InMatrix.matrix_colmajor[5] && InMatrix.matrix_colmajor[0] > InMatrix.matrix_colmajor[10])
+		{
+			const float S = FMath::Sqrt(InMatrix.matrix_colmajor[0] - InMatrix.matrix_colmajor[5] - InMatrix.matrix_colmajor[10] + 1.0) * 2;
+			Output.x = S * 0.25;
+			Output.w = (InMatrix.matrix_colmajor[6] - InMatrix.matrix_colmajor[9]) / S;
+			Output.y = (InMatrix.matrix_colmajor[1] - InMatrix.matrix_colmajor[4]) / S;
+			Output.z = (InMatrix.matrix_colmajor[8] - InMatrix.matrix_colmajor[2]) / S;
+		}
+		else if (InMatrix.matrix_colmajor[5] > InMatrix.matrix_colmajor[10])
+		{
+			const float S = FMath::Sqrt(InMatrix.matrix_colmajor[5] - InMatrix.matrix_colmajor[0] - InMatrix.matrix_colmajor[10] + 1.0) * 2;
+			Output.y = S * 0.25;
+			Output.w = (InMatrix.matrix_colmajor[8] - InMatrix.matrix_colmajor[2]) / S;
+			Output.x = (InMatrix.matrix_colmajor[1] - InMatrix.matrix_colmajor[4]) / S;
+			Output.z = (InMatrix.matrix_colmajor[6] - InMatrix.matrix_colmajor[9]) / S;
+		}
+		else
+		{
+			const float S = FMath::Sqrt(InMatrix.matrix_colmajor[10] - InMatrix.matrix_colmajor[5] - InMatrix.matrix_colmajor[0] + 1.0) * 2;
+			Output.z = S * 0.25;
+			Output.w = (InMatrix.matrix_colmajor[1] - InMatrix.matrix_colmajor[4]) / S;
+			Output.x = (InMatrix.matrix_colmajor[8] - InMatrix.matrix_colmajor[2]) / S;
+			Output.y = (InMatrix.matrix_colmajor[6] - InMatrix.matrix_colmajor[9]) / S;
+		}
+
+		return ToFQuat(Output);
+	}
+
+	// TODO: Remove this once Screens team fixes setting dimensions when returning the ScreenInfoEx list
+	FORCEINLINE MLVec3f ScaleFromMLMatrix(const MLMat4f& InMatrix)
+	{
+		MLVec3f MLScale;
+		MLScale.x = FMath::Sqrt(
+			FMath::Square(InMatrix.matrix_colmajor[0])
+			+ FMath::Square(InMatrix.matrix_colmajor[1])
+			+ FMath::Square(InMatrix.matrix_colmajor[2]));
+		MLScale.y = FMath::Sqrt(
+			FMath::Square(InMatrix.matrix_colmajor[4])
+			+ FMath::Square(InMatrix.matrix_colmajor[5])
+			+ FMath::Square(InMatrix.matrix_colmajor[6]));
+		MLScale.z = FMath::Sqrt(
+			FMath::Square(InMatrix.matrix_colmajor[8])
+			+ FMath::Square(InMatrix.matrix_colmajor[9])
+			+ FMath::Square(InMatrix.matrix_colmajor[10]));
+		return MLScale;
 	}
 #endif //WITH_MLSDK
 

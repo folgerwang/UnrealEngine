@@ -594,7 +594,6 @@ void SFindInBlueprints::Construct( const FArguments& InArgs, TSharedPtr<FBluepri
 
 	HostTab = InArgs._ContainingTab;
 	bIsLocked = false;
-	bKeepCacheBarOpenOnCacheCompletion = false;
 
 	if (HostTab.IsValid())
 	{
@@ -723,11 +722,10 @@ void SFindInBlueprints::Construct( const FArguments& InArgs, TSharedPtr<FBluepri
 
 void SFindInBlueprints::ConditionallyAddCacheBar()
 {
-	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
-
-	// Do not add a second cache bar and do not add it when there are no unindexed Blueprints
-	if(FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetNumberUnindexedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount() > 0)
+	// Do not add when it should not be visible
+	if(GetCachingBarVisibility() == EVisibility::Visible)
 	{
+		// Do not add a second cache bar
 		if(MainVerticalBox.IsValid() && !CacheBarSlot.IsValid())
 		{
 			// Create a single string of all the Blueprint paths that failed to cache, on separate lines
@@ -1329,8 +1327,9 @@ EVisibility SFindInBlueprints::GetCacheAllCancelButtonVisibility() const
 
 EVisibility SFindInBlueprints::GetCachingBarVisibility() const
 {
+	const bool bIsPIESimulating = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld);
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
-	return (FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetNumberUnindexedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount())? EVisibility::Visible : EVisibility::Collapsed;
+	return (FindInBlueprintManager.GetNumberUncachedAssets() > 0 || (!bIsPIESimulating && (FindInBlueprintManager.GetNumberUnindexedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount())))? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SFindInBlueprints::GetCachingBlueprintNameVisiblity() const
@@ -1406,18 +1405,13 @@ FText SFindInBlueprints::GetCurrentCacheBlueprintName() const
 	return FText::FromName(FFindInBlueprintSearchManager::Get().GetCurrentCacheBlueprintName());
 }
 
-void SFindInBlueprints::OnCacheStarted(EFiBCacheOpType InOpType)
+void SFindInBlueprints::OnCacheStarted(EFiBCacheOpType InOpType, EFiBCacheOpFlags InOpFlags)
 {
 	const bool bIsCacheBarAdded = CacheBarSlot.IsValid();
-
-	// Keep the cache bar open after a re-indexing operation if we're currently showing it (post-search unindexed/out-of-date UI context)
-	bKeepCacheBarOpenOnCacheCompletion = (InOpType == EFiBCacheOpType::CachePendingAssets) && bIsCacheBarAdded;
-
-	// Show progress during a re-indexing operation only if we have multiple assets to process (e.g. avoid showing after compiling a single asset)
-	const bool bShouldShowProgress = InOpType != EFiBCacheOpType::CachePendingAssets || FFindInBlueprintSearchManager::Get().GetNumberPendingAssets() > 1;
+	const bool bShowProgress = EnumHasAnyFlags(InOpFlags, EFiBCacheOpFlags::ShowProgress);
 
 	// Ensure that the cache bar is visible to show progress
-	if (!bIsCacheBarAdded && bShouldShowProgress)
+	if (!bIsCacheBarAdded && bShowProgress)
 	{
 		ConditionallyAddCacheBar();
 	}
@@ -1425,28 +1419,17 @@ void SFindInBlueprints::OnCacheStarted(EFiBCacheOpType InOpType)
 
 void SFindInBlueprints::OnCacheComplete(EFiBCacheOpType InOpType)
 {
-	if (InOpType == EFiBCacheOpType::CacheUnindexedAssets)
+	TWeakPtr<SFindInBlueprints> SourceCachingWidgetPtr = FFindInBlueprintSearchManager::Get().GetSourceCachingWidget();
+	if (InOpType == EFiBCacheOpType::CacheUnindexedAssets
+		&& SourceCachingWidgetPtr.IsValid() && SourceCachingWidgetPtr.Pin() == SharedThis(this))
 	{
 		// Resubmit the last search, which will also remove the bar if needed
 		OnSearchTextCommitted(SearchTextField->GetText(), ETextCommit::OnEnter);
 	}
-	else if(!bKeepCacheBarOpenOnCacheCompletion)
+	else if (CacheBarSlot.IsValid())
 	{
-		const bool bIsCacheBarAdded = CacheBarSlot.IsValid();
-
-		if (bIsCacheBarAdded)
-		{
-			if (!bKeepCacheBarOpenOnCacheCompletion)
-			{
-				// Remove the cache bar
-				OnRemoveCacheBar();
-			}
-		}
-		else if(bKeepCacheBarOpenOnCacheCompletion)
-		{
-			// Restore the cache bar to its previous state (e.g. in case the user closed the progress bar while caching)
-			ConditionallyAddCacheBar();
-		}
+		// Remove the cache bar
+		OnRemoveCacheBar();
 	}
 }
 

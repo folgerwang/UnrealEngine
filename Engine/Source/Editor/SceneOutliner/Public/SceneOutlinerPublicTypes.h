@@ -153,6 +153,9 @@ namespace SceneOutliner
 
 		/** Broadcasts whenever the Scene Outliners selection changes */
 		FSimpleMulticastDelegate::FDelegate OnSelectionChanged;
+		
+		/** If not null, it will force the Scene Outliner to only display this world and it will remove the chose world from the UI */
+		UWorld* SpecifiedWorldToDisplay;
 
 	public:
 
@@ -163,6 +166,7 @@ namespace SceneOutliner
 			, bFocusSearchBoxWhenOpened( false )
 			, bShowCreateNewFolder( true )
 			, Filters( new FOutlinerFilters )
+			, SpecifiedWorldToDisplay( nullptr )
 		{}
 	};
 

@@ -1,6 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "Logging.h"
 #include "StringUtils.h"
 #include "TimeUtils.h"
@@ -103,4 +102,6 @@ void ILogOutput::LogToAll(
 	{
 		Out->Log(File, Line, Category, Verbosity, Buf);
 	}
+
+	va_end(Args);
 }

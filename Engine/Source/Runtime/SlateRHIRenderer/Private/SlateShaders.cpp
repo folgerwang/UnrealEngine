@@ -100,8 +100,8 @@ void FSlateElementPS::ModifyCompilationEnvironment(const FGlobalShaderPermutatio
 void FSlateMaskingVertexDeclaration::InitRHI()
 {
 	FVertexDeclarationElementList Elements;
-	uint32 Stride = sizeof(FVector2D);
-	Elements.Add(FVertexElement(0, 0, VET_Float2, 0, Stride));
+	uint32 Stride = sizeof(uint32);
+	Elements.Add(FVertexElement(0, 0, VET_UByte4, 0, Stride));
 
 	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
 }
@@ -160,6 +160,7 @@ FSlateMaskingVS::FSlateMaskingVS(const ShaderMetaType::CompiledShaderInitializer
 	: FGlobalShader(Initializer)
 {
 	ViewProjection.Bind(Initializer.ParameterMap, TEXT("ViewProjection"));
+	MaskRect.Bind(Initializer.ParameterMap, TEXT("MaskRectPacked"));
 	SwitchVerticalAxisMultiplier.Bind(Initializer.ParameterMap, TEXT("SwitchVerticalAxisMultiplier"));
 }
 
@@ -173,12 +174,21 @@ void FSlateMaskingVS::SetVerticalAxisMultiplier(FRHICommandList& RHICmdList, flo
 	SetShaderValue(RHICmdList, GetVertexShader(), SwitchVerticalAxisMultiplier, InMultiplier );
 }
 
+void FSlateMaskingVS::SetMaskRect(FRHICommandList& RHICmdList, const FVector2D& TopLeft, const FVector2D& TopRight, const FVector2D& BotLeft, const FVector2D& BotRight)
+{
+	//FVector4 MaskRectVal[4] = { FVector4(TopLeft, FVector2D::ZeroVector), FVector4(TopRight, FVector2D::ZeroVector), FVector4(BotLeft, FVector2D::ZeroVector), FVector4(BotRight, FVector2D::ZeroVector) };
+	FVector4 MaskRectVal[2] = { FVector4(TopLeft, TopRight), FVector4(BotLeft, BotRight) };
+
+	SetShaderValue(RHICmdList, GetVertexShader(), MaskRect, MaskRectVal);
+}
+
 /** Serializes the shader data */
 bool FSlateMaskingVS::Serialize(FArchive& Ar)
 {
 	bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 
 	Ar << ViewProjection;
+	Ar << MaskRect;
 	Ar << SwitchVerticalAxisMultiplier;
 
 	return bShaderHasOutdatedParameters;

@@ -52,23 +52,24 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "Fixed TimeStep (i.e. use requestAnimationFrame)"))
 	bool UseFixedTimeStep; // need to make a note of: answerhub 409629
 
-//	TODO: re-enable these when they become supported in WASM
-//	/**
-//	 * Enable SIMD
-//	 * NOTE 1: this does not currently work with WASM - it will be forced false in this case.
-//	 * NOTE 2: SIMD will be supported during WASM builds in a future emscripten release.
-//	 */
-//	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "SIMD support"))
-//	bool EnableSIMD;
+	/**
+	 * Enable Multithreading (Experimental)
+	 */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "Multithreading support"))
+	bool EnableMultithreading;
 
-//	TODO: re-enable these when they become supported in WASM
-//	/**
-//	 * Enable Multithreading
-//	 * NOTE 1: this is not supported currently in WASM - it will be forced false in this case.
-//	 * NOTE 2: Multithreading will be supported during WASM builds in a future emscripten release.
-//	 */
-//	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "Multithreading support"))
-//	bool EnableMultithreading;
+	/**
+	 * Use OffscreenCanvas Support (else use Offscreen Framebuffer)
+	 * Note: Multithreading rendering option (WORK IN PROGRESS)
+	 */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "Offscreen Canvas [experimental]"))
+	bool OffscreenCanvas;
+
+	/**
+	 * Use LLVM WASM Backend (WORK IN PROGRESS)
+	 */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "LLVM Wasm backend [experimental]"))
+	bool LLVMWasmBackend;
 
 	/**
 	 * Enable Tracing (trace.h)

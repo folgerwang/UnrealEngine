@@ -222,6 +222,7 @@ public:
 	virtual void Offset(FFrameNumber DeltaPosition) override;
 	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override;
 	virtual void ClearDefault() override;
+	virtual void PostEditChange() override;
 
 public:
 
@@ -255,6 +256,15 @@ public:
 	}
 
 public:
+
+	bool Serialize(FArchive& Ar);
+	void PostSerialize(const FArchive& Ar);
+	friend FArchive& operator<<(FArchive& Ar, FMovieSceneFloatChannel& Me)
+	{
+		Me.Serialize(Ar);
+		return Ar;
+	}
+
 
 	/** Serialize this float function from a mismatching property tag (FRichCurve) */
 	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
@@ -349,7 +359,12 @@ public:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneFloatChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneFloatChannel>
 {
-	enum { WithStructuredSerializeFromMismatchedTag = true };
+	enum 
+	{ 
+		WithStructuredSerializeFromMismatchedTag = true, 
+	    WithSerializer = true,
+		WithPostSerialize = true,
+    };
 };
 
 template<>

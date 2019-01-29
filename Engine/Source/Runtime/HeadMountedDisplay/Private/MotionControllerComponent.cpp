@@ -42,7 +42,7 @@ namespace LegacyMotionSources
 {
 	static bool GetSourceNameForHand(EControllerHand InHand, FName& OutSourceName)
 	{
-		UEnum* HandEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EControllerHand"));
+		UEnum* HandEnum = StaticEnum<EControllerHand>();
 		if (HandEnum)
 		{
 			FString ValueName = HandEnum->GetNameStringByValue((int64)InHand);
@@ -471,8 +471,7 @@ bool UMotionControllerComponent::PollControllerState(FVector& Position, FRotator
 	{
 		// Cache state from the game thread for use on the render thread
 		const AActor* MyOwner = GetOwner();
-		const APawn* MyPawn = Cast<APawn>(MyOwner);
-		bHasAuthority = MyPawn ? MyPawn->IsLocallyControlled() : (MyOwner->Role == ENetRole::ROLE_Authority);
+		bHasAuthority = MyOwner->HasLocalNetOwner();
 	}
 
 	if(bHasAuthority)

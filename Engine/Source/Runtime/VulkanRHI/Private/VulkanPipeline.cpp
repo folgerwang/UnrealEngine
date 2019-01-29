@@ -618,7 +618,7 @@ FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::CreateAndAdd(
 		FVulkanShader* VulkanShaders[ShaderStage::NumStages];
 		GetVulkanShaders(PSOInitializer.BoundShaderState, VulkanShaders);
 		CreateGfxPipelineFromEntry(GfxEntry.Get(), VulkanShaders, Pipeline);
-
+	
 		// Recover if we failed to create the pipeline.
 		if (!Pipeline->GetHandle())
 		{
@@ -1359,7 +1359,7 @@ inline FVulkanLayout* FVulkanPipelineStateCacheManager::FindOrAddLayout(const FV
 	{
 		Layout = new FVulkanComputeLayout(Device);
 	}
-	
+
 	Layout->DescriptorSetLayout.CopyFrom(DescriptorSetLayoutInfo);
 	Layout->Compile(DSetLayoutMap);
 
@@ -1508,7 +1508,7 @@ FVulkanPipelineStateCacheManager::FGfxPipelineEntry* FVulkanPipelineStateCacheMa
 FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, FGfxPSIKey& PSIKey, TGfxPipelineEntrySharedPtr& OutGfxEntry, FGfxEntryKey& OutGfxEntryKey)
 {
 	OutGfxEntry = nullptr;
-
+	
 	FGfxPipelineEntry* GfxEntry = CreateGfxEntry(PSOInitializer);
 	FGfxEntryKey GfxEntryKey = GfxEntry->CreateKey();
 

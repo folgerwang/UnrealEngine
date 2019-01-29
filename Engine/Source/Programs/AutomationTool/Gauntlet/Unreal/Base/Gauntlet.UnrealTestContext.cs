@@ -47,20 +47,20 @@ namespace Gauntlet
 		/// <summary>
 		/// Name of this project
 		/// </summary>
-		[AutoParam("")]
-		public string Project;
+		[AutoParam]
+		public string Project = "";
 
 		/// <summary>
 		/// Reference to the build that is being tested
 		/// </summary>
-		[AutoParamWithNames("", "Build", "Builds")]
-		public string Build;
+		[AutoParamWithNames("Build", "Builds")]
+		public string Build = "";
 
 		/// <summary>
 		/// Does this project use 'Game' or Client/Server?
 		/// </summary>
 		[AutoParam(true)]
-		public bool UsesSharedBuildType;
+		public bool UsesSharedBuildType = true;
 
 		// todo - remove this and pass in BuildSource
 		public Type BuildSourceType;

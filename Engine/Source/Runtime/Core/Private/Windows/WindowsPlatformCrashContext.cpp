@@ -16,6 +16,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/OutputDeviceFile.h"
 #include "Templates/ScopedPointer.h"
@@ -305,14 +306,23 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 {
 	// Prevent CrashReportClient from spawning another CrashReportClient.
 	const TCHAR* ExecutableName = FPlatformProcess::ExecutableName();
-	const bool bCanRunCrashReportClient = FCString::Stristr( ExecutableName, TEXT( "CrashReportClient" ) ) == nullptr;
+	bool bCanRunCrashReportClient = FCString::Stristr( ExecutableName, TEXT( "CrashReportClient" ) ) == nullptr;
+
+	// Suppress the user input dialog if we're running in unattended mode
+	bool bNoDialog = FApp::IsUnattended() || ReportUI == EErrorReportUI::ReportInUnattendedMode || IsRunningDedicatedServer();
+
+	bool bSendUnattendedBugReports = true;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
+
+	if (bNoDialog && !bSendUnattendedBugReports)
+	{
+		bCanRunCrashReportClient = false;
+	}
+
 	if( bCanRunCrashReportClient )
 	{
 		static const TCHAR CrashReportClientExeName[] = TEXT("CrashReportClient.exe");
 		bool bCrashReporterRan = false;
-
-		// Suppress the user input dialog if we're running in unattended mode
-		bool bNoDialog = FApp::IsUnattended() || ReportUI == EErrorReportUI::ReportInUnattendedMode || IsRunningDedicatedServer();
 
 		// Generate Crash GUID
 		TCHAR CrashGUID[FGenericCrashContext::CrashGUIDLength];

@@ -55,17 +55,25 @@ ML_INCLUDES_END
 
 enum class CaptureMsgType : uint32
 {
+	Invalid,
 	Request,
 	Response,
 	Log
 };
 
+enum class CaptureTaskType : uint32
+{
+	None,
+	ImageToFile,
+	ImageToTexture,
+	StartVideoToFile,
+	StopVideoToFile,
+};
+
 struct FCaptureMessage
 {
 	CaptureMsgType Type;
-#if WITH_MLSDK
-	MLCameraCaptureType CaptureType;
-#endif //WITH_MLSDK
+	CaptureTaskType CaptureType;
 	FString Log;
 	FString FilePath;
 	bool Success;
@@ -74,16 +82,20 @@ struct FCaptureMessage
 	class FCameraCaptureImpl* Requester;
 
 	FCaptureMessage()
-		: Type(CaptureMsgType::Request)
-#if WITH_MLSDK
-		, CaptureType(MLCameraCaptureType_Image)
-#endif //WITH_MLSDK
-		, Log("")
-		, Success(false)
-		, Texture(nullptr)
-		, Duration(0.0f)
-		, Requester(nullptr)
-	{}
+	{
+		Clear();
+	}
+
+	void Clear()
+	{
+		Type = CaptureMsgType::Invalid;
+		CaptureType = CaptureTaskType::None;
+		Log = "";
+		Success = false;
+		Texture = nullptr;
+		Duration = 0.0f;
+		Requester = nullptr;
+	}
 };
 
 class FCameraCaptureRunnable : public FRunnable, public MagicLeap::IAppEventHandler
@@ -93,22 +105,11 @@ public:
 	virtual ~FCameraCaptureRunnable();
 
 	uint32 Run() override;
-
 	void Stop() override;
-
-	void BeginCapture();
-
-	void EndCapture(bool InSuccess);
-
-	void Log(const FString& Info);
-
-	void ProcessCaptureMessage(const FCaptureMessage& InMsg);
-
 	void OnAppPause() override;
-
 	void OnAppResume() override;
-
 	void OnAppShutDown() override;
+	void ProcessCaptureMessage(const FCaptureMessage& InMsg);
 
 	/** Internal thread this instance is running on */
 	FRunnableThread* Thread;
@@ -116,14 +117,10 @@ public:
 	TQueue<FCaptureMessage, EQueueMode::Spsc> IncomingMessages;
 	TQueue<FCaptureMessage, EQueueMode::Spsc> OutgoingMessages;
 	FEvent* Semaphore;
-	FCaptureMessage CurrentMessage;
 	bool bCameraConnected;
-	const float RetryConnectWaitTime;
 
 #if WITH_MLSDK
 	MLCameraDeviceStatusCallbacks DeviceStatusCallbacks;
-	MLCameraCaptureCallbacks CaptureCallbacks;
-	MLCameraOutput* CameraOutput;
 #endif //WITH_MLSDK
 
 	const FString ImgExtension;
@@ -131,12 +128,23 @@ public:
 	FString UniqueFileName;
 	TSharedPtr<IImageWrapper> ImageWrapper;
 	FThreadSafeBool bPaused;
+	FCaptureMessage CurrentTask;
 	static FThreadSafeCounter64 PreviewHandle;
 
 private:
 #if WITH_MLSDK
 	static void OnPreviewBufferAvailable(MLHandle Output, void *Data);
 #endif //WITH_MLSDK
+
+	bool TryConnect();
+	bool DoCaptureTask();
+	bool CaptureImageToFile();
+	bool CaptureImageToTexture();
+	bool StartRecordingVideo();
+	bool StopRecordingVideo();
+	void Pause();
+	void Log(const FString& Info);
+	void CancelIncomingTasks();
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCameraCaptureRunnable, Verbose, All);

@@ -28,6 +28,12 @@ public:
 
 	void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture);
 
+	virtual bool ShouldCopyDebugLayersToSpectatorScreen() const override
+	{
+		// Emulated layer support means that the debug layer will be in the 3d scene render that the spectator screen displays.
+		return false;
+	}
+
 protected:
 	
 	/**

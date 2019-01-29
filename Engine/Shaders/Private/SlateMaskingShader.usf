@@ -4,6 +4,13 @@
 
 float4x4 ViewProjection;
 
+
+// MaskRect[0].xy = TopLeft
+// MaskRect[0].zw = TopRight
+// MaskRect[1].xy = BottomLeft
+// MaskRect[1].zw = BottomRight
+float4 MaskRectPacked[2];
+
 float SwitchVerticalAxisMultiplier;
 
 struct VertexToPixelInterpolants
@@ -11,15 +18,15 @@ struct VertexToPixelInterpolants
     float4 Position : SV_POSITION;
 };
 
-VertexToPixelInterpolants MainVS(
-	in float2 InPosition : ATTRIBUTE0
-	)
+VertexToPixelInterpolants MainVS(in uint InPosition : ATTRIBUTE0)
 {
 	VertexToPixelInterpolants VOut = (VertexToPixelInterpolants)0;
 
-    float4 WorldPosition = float4(InPosition.xy, 0, 1);
+	const float2 MaskRect[4] = { MaskRectPacked[0].xy, MaskRectPacked[0].zw, MaskRectPacked[1].xy, MaskRectPacked[1].zw };
 
-    VOut.Position = mul(WorldPosition, ViewProjection);
+    float4 WorldPosition = float4(MaskRect[InPosition], 0, 1);
+
+	VOut.Position = mul(WorldPosition, ViewProjection);
 
 #if (ES2_PROFILE && COMPILER_GLSL_ES2) || (ES3_1_PROFILE && COMPILER_GLSL_ES3_1)
 	// @todo-mobile: Fix this in the projection matrix

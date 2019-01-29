@@ -294,6 +294,40 @@ namespace WorldHierarchy
 		}
 	}
 
+	void FLevelModelTreeItem::OnShowOnlySelected()
+	{
+		FLevelModelList LevelsToChange;
+		PopulateLevelModelList(LevelsToChange);
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->ShowOnlySelectedLevels();
+	}
+
+	void FLevelModelTreeItem::OnShowAllButSelected()
+	{
+		FLevelModelList LevelsToChange;
+		PopulateLevelModelList(LevelsToChange);
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->ShowAllButSelectedLevels();
+	}
+
+	void FLevelModelTreeItem::PopulateLevelModelList(FLevelModelList& InModelList)
+	{
+		if (LevelModel.IsValid())
+		{
+			InModelList.Add(LevelModel.Pin());
+		}
+	}
+
 	void FLevelModelTreeItem::SetVisible(bool bVisible)
 	{
 		FLevelModelList LevelModels;
@@ -328,6 +362,32 @@ namespace WorldHierarchy
 		{
 			SetLocked(!LevelModel.Pin()->IsLocked());
 		}
+	}
+
+	void FLevelModelTreeItem::OnLockOnlySelected()
+	{
+		FLevelModelList LevelsToChange;
+		PopulateLevelModelList(LevelsToChange);
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->LockOnlySelectedLevels();
+	}
+
+	void FLevelModelTreeItem::OnLockAllButSelected()
+	{
+		FLevelModelList LevelsToChange;
+		PopulateLevelModelList(LevelsToChange);
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->LockAllButSelectedLevels();
 	}
 
 	bool FLevelModelTreeItem::IsLocked() const
@@ -718,6 +778,48 @@ namespace WorldHierarchy
 		SetVisible(!IsVisible());
 	}
 
+	void FFolderTreeItem::OnShowOnlySelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList LevelsToChange;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(LevelsToChange);
+		}
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->ShowOnlySelectedLevels();
+	}
+
+	void FFolderTreeItem::OnShowAllButSelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList LevelsToChange;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(LevelsToChange);
+		}
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->ShowAllButSelectedLevels();
+	}
+
+	void FFolderTreeItem::PopulateLevelModelList(FLevelModelList& InModelList)
+	{
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(InModelList);
+		}
+	}
+
 	void FFolderTreeItem::SetVisible(bool bVisible)
 	{
 		for (auto& Child : Children)
@@ -742,6 +844,40 @@ namespace WorldHierarchy
 	void FFolderTreeItem::OnToggleLock()
 	{
 		SetLocked(!IsLocked());
+	}
+
+	void FFolderTreeItem::OnLockOnlySelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList LevelsToChange;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(LevelsToChange);
+		}
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->LockOnlySelectedLevels();
+	}
+
+	void FFolderTreeItem::OnLockAllButSelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList LevelsToChange;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(LevelsToChange);
+		}
+		if (GetLevelSelectionFlag())
+		{
+			FLevelModelList CurrentLevels = WorldModel.Pin()->GetSelectedLevels();
+			LevelsToChange.Append(CurrentLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(LevelsToChange);
+		WorldModel.Pin()->LockAllButSelectedLevels();
 	}
 
 	void FFolderTreeItem::SetLocked(bool bLocked)

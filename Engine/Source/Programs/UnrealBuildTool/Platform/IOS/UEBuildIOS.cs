@@ -980,6 +980,16 @@ namespace UnrealBuildTool
 		public override void ModifyModuleRulesForActivePlatform(string ModuleName, ModuleRules Rules, ReadOnlyTargetRules Target)
 		{
 		}
+		
+		/// <summary>
+		/// Setup the binaries for this specific platform.
+		/// </summary>
+		/// <param name="Target">The target being built</param>
+		/// <param name="ExtraModuleNames"></param>
+		public override void AddExtraModules(ReadOnlyTargetRules Target, List<string> ExtraModuleNames)
+		{
+			ExtraModuleNames.Add("IOSPlatformFeatures");
+		}
 
 		/// <summary>
 		/// Creates a toolchain instance for the given platform.

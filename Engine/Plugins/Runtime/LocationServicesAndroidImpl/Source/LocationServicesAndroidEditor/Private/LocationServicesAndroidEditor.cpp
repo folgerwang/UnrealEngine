@@ -12,7 +12,7 @@
 #endif
 
 
-IMPLEMENT_MODULE( FLocationServicesAndroidEditorModule, LocationServicesAndroidEditorModule );
+IMPLEMENT_MODULE( FLocationServicesAndroidEditorModule, LocationServicesAndroidEditor );
 
 #define LOCTEXT_NAMESPACE "FLocationServicesAndroidEditorModule"
 

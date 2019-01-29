@@ -12,6 +12,7 @@ namespace PlatformInfo
 	struct FPlatformInfo;
 }
 
+class IDeviceManagerCustomPlatformWidgetCreator;
 
 /**
  * Enumerates features that may be supported by target platforms.
@@ -181,18 +182,11 @@ public:
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const = 0;
 
 	/**
-	 * Gets the best generic data compressor for this platform.
+	 * Gets a new compression format to use in place of Zlib. This should be rarely implemented
 	 *
-	 * @return Compression method.
+	 * @return Compression format to use instead of Zlib
 	 */
-	virtual ECompressionFlags GetBaseCompressionMethod() const = 0;
-
-	/**
-	 * Gets the bit window for compressor for this platform.
-	 *
-	 * @return Compression bit window.
-	 */
-	virtual int32 GetCompressionBitWindow() const = 0;
+	virtual FName GetZlibReplacementFormat() const = 0;
 
 	/**
 	 * Generates a platform specific asset manifest given an array of FAssetData.
@@ -498,6 +492,11 @@ public:
 	 * Given a platform ordinal number, returns the corresponding ITargetPlatform instance
 	 */
 	TARGETPLATFORM_API static const ITargetPlatform* GetPlatformFromOrdinal(int32 Ordinal);
+
+	/**
+	 * Returns custom DeviceManager widget creator for this platform
+	 */
+	virtual TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator> GetCustomWidgetCreator() const = 0;
 
 public:
 

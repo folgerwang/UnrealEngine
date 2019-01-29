@@ -372,7 +372,7 @@ namespace Audio
 			int32 WrappedNextFrameIndex = WrapIndex(NextFrameIndex, BufferNumFrames);
 
 			// Update the current playback time
-			PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
+			PlaybackProgress = ((float)WrappedCurrentFrameIndex) / BufferSampleRate;
 
 			const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
 			const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;

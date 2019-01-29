@@ -40,7 +40,7 @@ public class Python : ModuleRules
 
 				PotentialSDKs.AddRange(
 					new PythonSDKPaths[] {
-						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, PlatformDir), Path.Combine(PythonSourceTPSDir, PlatformDir, "include"), Path.Combine(PythonSourceTPSDir, PlatformDir, "libs"), "python27.lib"),
+						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, PlatformDir), new List<string>() { Path.Combine(PythonSourceTPSDir, PlatformDir, "include") }, Path.Combine(PythonSourceTPSDir, PlatformDir, "libs"), "python27.lib"),
 						//DiscoverPythonSDK("C:/Program Files/Python36"),
 						DiscoverPythonSDK("C:/Python27"),
 					}
@@ -50,9 +50,27 @@ public class Python : ModuleRules
 			{
 				PotentialSDKs.AddRange(
 					new PythonSDKPaths[] {
-						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, "Mac"), Path.Combine(PythonSourceTPSDir, "Mac", "include"), Path.Combine(PythonBinaryTPSDir, "Mac"), "libpython2.7.dylib")
+						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, "Mac"), new List<string>() { Path.Combine(PythonSourceTPSDir, "Mac", "include") }, Path.Combine(PythonBinaryTPSDir, "Mac"), "libpython2.7.dylib")
 					}
 				);
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				if (Target.Architecture.StartsWith("x86_64"))
+				{
+					var PlatformDir = Target.Platform.ToString();
+
+					PotentialSDKs.AddRange(
+						new PythonSDKPaths[] {
+							new PythonSDKPaths(
+								Path.Combine(PythonBinaryTPSDir, PlatformDir),
+								new List<string>() {
+									Path.Combine(PythonSourceTPSDir, PlatformDir, "include", "python2.7"),
+									Path.Combine(PythonSourceTPSDir, PlatformDir, "include", Target.Architecture)
+								},
+								Path.Combine(PythonSourceTPSDir, PlatformDir, "lib"), "libpython2.7.a"),
+					});
+				}
 			}
 
 			foreach (var PotentialSDK in PotentialSDKs)
@@ -115,11 +133,16 @@ public class Python : ModuleRules
 				PublicDefinitions.Add("HAVE_ROUND=1");
 			}
 
-			PublicSystemIncludePaths.Add(PythonSDK.PythonIncludePath);
+			PublicSystemIncludePaths.AddRange(PythonSDK.PythonIncludePath);
 			if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
 				// Mac doesn't understand PublicLibraryPaths
 				PublicAdditionalLibraries.Add(Path.Combine(PythonSDK.PythonLibPath, PythonSDK.PythonLibName));
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				PublicAdditionalLibraries.Add(Path.Combine(PythonSDK.PythonLibPath, PythonSDK.PythonLibName));
+				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Python/Linux/lib/libpython2.7.so.1.0");
 			}
 			else
 			{
@@ -230,12 +253,12 @@ public class Python : ModuleRules
 			}
 		}
 
-		return new PythonSDKPaths(PythonRoot, PythonIncludePath, PythonLibPath, PythonLibName);
+		return new PythonSDKPaths(PythonRoot, new List<string>() { PythonIncludePath }, PythonLibPath, PythonLibName);
 	}
 
 	private class PythonSDKPaths
 	{
-		public PythonSDKPaths(string InPythonRoot, string InPythonIncludePath, string InPythonLibPath, string InPythonLibName)
+		public PythonSDKPaths(string InPythonRoot, List<string> InPythonIncludePath, string InPythonLibPath, string InPythonLibName)
 		{
 			PythonRoot = InPythonRoot;
 			PythonIncludePath = InPythonIncludePath;
@@ -249,7 +272,7 @@ public class Python : ModuleRules
 		}
 
 		public string PythonRoot;
-		public string PythonIncludePath;
+		public List<string> PythonIncludePath;
 		public string PythonLibPath;
 		public string PythonLibName;
 	};

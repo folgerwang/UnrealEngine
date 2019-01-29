@@ -17,14 +17,14 @@ namespace
 {
 	FString GetEventName(int64 Value)
 	{
-		static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPawnActionEventType"));
+		static const UEnum* Enum = StaticEnum<EPawnActionEventType::Type>();
 		check(Enum);
 		return Enum->GetNameStringByValue(Value);
 	}
 
 	FString GetPriorityName(int64 Value)
 	{
-		static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+		static const UEnum* Enum = StaticEnum<EAIRequestPriority::Type>();
 		check(Enum);
 		return Enum->GetNameStringByValue(Value);
 	}

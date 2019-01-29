@@ -265,12 +265,20 @@ public:
 
 	virtual bool IsExpanded() const override
 	{
-		return Item.GetTemplate()->bExpandedInDesigner;
+		if (UWidget* Template = Item.GetTemplate())
+		{
+			return Template->bExpandedInDesigner;
+		}
+
+		return false;
 	}
 
 	virtual void SetExpanded(bool bIsExpanded) override
 	{
-		Item.GetTemplate()->bExpandedInDesigner = bIsExpanded;
+		if (UWidget* Template = Item.GetTemplate())
+		{
+			Template->bExpandedInDesigner = bIsExpanded;
+		}
 	}
 
 	virtual bool CanRename() const override;

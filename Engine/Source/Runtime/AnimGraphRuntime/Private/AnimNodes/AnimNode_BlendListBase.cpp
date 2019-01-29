@@ -225,8 +225,8 @@ void FAnimNode_BlendListBase::Evaluate_AnyThread(FPoseContext& Output)
 			FPoseLink& CurrentPose = BlendPose[PoseIndex];
 			CurrentPose.Evaluate(EvaluateContext);
 
-			FilteredPoses[i].CopyBonesFrom(EvaluateContext.Pose);
-			FilteredCurve[i] = EvaluateContext.Curve;
+			FilteredPoses[i].MoveBonesFrom(EvaluateContext.Pose);
+			FilteredCurve[i].MoveFrom(EvaluateContext.Curve);
 		}
 
 		// Use the calculated blend sample data if we're blending per-bone

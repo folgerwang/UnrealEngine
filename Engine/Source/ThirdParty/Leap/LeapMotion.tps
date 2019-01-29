@@ -11,5 +11,5 @@
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <LicenseFolder>None</LicenseFolder>
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/LeapSDK_License.txt</LicenseFolder>
 </TpsData>

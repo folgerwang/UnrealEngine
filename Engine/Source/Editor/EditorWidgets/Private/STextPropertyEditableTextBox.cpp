@@ -301,7 +301,7 @@ void STextPropertyEditableStringTableReference::OnStringTableComboChanged(TShare
 	{
 		// Make sure any selected string table asset is loaded
 		FName TableId = NewSelection->TableId;
-		IStringTableEngineBridge::RedirectAndLoadStringTableAsset(TableId, EStringTableLoadingPolicy::FindOrFullyLoad);
+		IStringTableEngineBridge::FullyLoadStringTableAsset(TableId);
 
 		FStringTableConstPtr StringTable = FStringTableRegistry::Get().FindStringTable(TableId);
 		if (StringTable.IsValid())

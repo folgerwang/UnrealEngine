@@ -220,6 +220,11 @@ IOnlineChatPtr FOnlineSubsystemGoogleCommon::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemGoogleCommon::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemGoogleCommon::GetTurnBasedInterface() const
 {
 	return nullptr;

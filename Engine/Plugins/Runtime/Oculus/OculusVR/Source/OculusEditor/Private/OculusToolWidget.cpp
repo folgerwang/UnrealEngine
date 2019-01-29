@@ -13,6 +13,7 @@
 #include "Widgets/Text/SRichTextBlock.h"
 #include "UObject/EnumProperty.h"
 #include "EdGraph/EdGraph.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "UnrealEdMisc.h"
 
 #define CALL_MEMBER_FUNCTION(object, memberFn) ((object).*(memberFn))
@@ -66,7 +67,7 @@ EVisibility SOculusToolWidget::IsVisible(FName tag) const
 	if(targetPlatform == EOculusPlatform::PC && !((int)setting->supportMask & (int)SupportFlags::SupportPC)) return EVisibility::Collapsed;
 
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
-	const bool bForwardShading = Settings->bForwardShading != 0;
+	const bool bForwardShading = UsingForwardShading();
 	if (bForwardShading && ((int)setting->supportMask & (int)SupportFlags::ExcludeForward)) return EVisibility::Collapsed;
 	if (!bForwardShading && ((int)setting->supportMask & (int)SupportFlags::ExcludeDeferred)) return EVisibility::Collapsed;
 
@@ -180,7 +181,7 @@ void SOculusToolWidget::RebuildLayout()
 		+ SHorizontalBox::Slot().FillWidth(10).VAlign(VAlign_Top)
 		[
 			SNew(SRichTextBlock)
-			.Text(LOCTEXT("TargetPlatform", "Target Platform: "))
+			.Text(LOCTEXT("TargetPlatform", "Target Platform: (This setting changes which recommendations are displayed, but does NOT modify your project.)"))
 		]
 		+SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Top)
 		[
@@ -190,6 +191,26 @@ void SOculusToolWidget::RebuildLayout()
 			.OnSelectionChanged( this, &SOculusToolWidget::OnChangePlatform )
 		]
 	];
+	/*
+	// Omitting this option for now, because the tool is currently something you only need to launch once or twice.
+	// If later tabs end up increasing use cases significantly we may re-add.
+	box.Get().AddSlot()
+	.Padding(5, 5)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().FillWidth(10).VAlign(VAlign_Top)
+		[
+			SNew(SRichTextBlock)
+			.Text(LOCTEXT("ShowToolButtonInEditor", "Add Oculus Tool Button to editor (change appears after restart in Windows -> Developer Tools -> Oculus Tool):"))
+		]
+		+SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Top)
+		[
+			SNew(SCheckBox)
+			.OnCheckStateChanged( this, &SOculusToolWidget::OnShowButtonChanged )
+			.IsChecked( this, &SOculusToolWidget::IsShowButtonChecked )
+		]
+	];
+		*/
 
 	AddSimpleSetting(box, SimpleSettings.Find(FName("StartInVR")));
 	AddSimpleSetting(box, SimpleSettings.Find(FName("SupportDash")));
@@ -198,6 +219,8 @@ void SOculusToolWidget::RebuildLayout()
 	AddSimpleSetting(box, SimpleSettings.Find(FName("InstancedStereo")));
 	AddSimpleSetting(box, SimpleSettings.Find(FName("MobileMultiView")));
 	AddSimpleSetting(box, SimpleSettings.Find(FName("MobileHDR")));
+	AddSimpleSetting(box, SimpleSettings.Find(FName("AndroidManifest")));
+	AddSimpleSetting(box, SimpleSettings.Find(FName("AndroidPackaging")));
 
 	box = NewCategory(scroller, LOCTEXT("PostProcessHeader", "<RichTextBlock.Bold>Post-Processing Settings:</>\nThe below settings all refer to your project's post-processing settings. Post-processing can be very expensive in VR, so we recommend disabling many expensive post-processing effects. You can fine-tune your post-processing settings with a Post Process Volume. <a href=\"https://docs.unrealengine.com/en-us/Platforms/VR/VRPerformance\" id=\"HyperlinkDecorator\">Read more.</>."));
 	AddSimpleSetting(box, SimpleSettings.Find(FName("LensFlare")));
@@ -286,7 +309,7 @@ void SOculusToolWidget::RebuildLayout()
 void SOculusToolWidget::Construct(const FArguments& InArgs)
 {
 	pendingRestart = false;
-	PlatformEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EOculusPlatform"), true);
+	PlatformEnum = StaticEnum<EOculusPlatform>();
 	Platforms.Reset(2);
 
 	UOculusEditorSettings* EditorSettings = GetMutableDefault<UOculusEditorSettings>();
@@ -307,7 +330,7 @@ void SOculusToolWidget::Construct(const FArguments& InArgs)
 		LOCTEXT("StartInVRButtonText", "Enable Start in VR"),
 		&SOculusToolWidget::StartInVRVisibility,
 		&SOculusToolWidget::StartInVREnable,
-		(int)SupportFlags::SupportMobile | (int)SupportFlags::SupportPC
+		(int)SupportFlags::SupportPC
 	});
 
 	SimpleSettings.Add(FName("SupportDash"), {
@@ -316,7 +339,7 @@ void SOculusToolWidget::Construct(const FArguments& InArgs)
 		LOCTEXT("SupportDashButtonText", "Enable Dash Support"),
 		&SOculusToolWidget::SupportDashVisibility,
 		&SOculusToolWidget::SupportDashEnable,
-		(int)SupportFlags::SupportMobile | (int)SupportFlags::SupportPC
+		(int)SupportFlags::SupportPC
 	});
 
 	SimpleSettings.Add(FName("ForwardShading"), {
@@ -325,7 +348,7 @@ void SOculusToolWidget::Construct(const FArguments& InArgs)
 		LOCTEXT("ForwardShadingButtonText", "Enable Forward Shading"),
 		&SOculusToolWidget::ForwardShadingVisibility,
 		&SOculusToolWidget::ForwardShadingEnable,
-		(int)SupportFlags::SupportMobile | (int)SupportFlags::SupportPC
+		(int)SupportFlags::SupportPC // | (int)SupportFlags::SupportMobile // not including mobile because mobile is forced to use forward regardless of this setting
 	});
 
 	SimpleSettings.Add(FName("InstancedStereo"), {
@@ -352,6 +375,24 @@ void SOculusToolWidget::Construct(const FArguments& InArgs)
 		LOCTEXT("MobileHDRButton", "Disable Mobile HDR"),
 		&SOculusToolWidget::MobileHDRVisibility,
 		&SOculusToolWidget::MobileHDRDisable,
+		(int)SupportFlags::SupportMobile
+	});
+
+	SimpleSettings.Add(FName("AndroidManifest"), {
+		FName("AndroidManifest"),
+		LOCTEXT("AndroidManifestDescription", "You need to enable \"Configure the AndroidManifest for deployment to Oculus Mobile\" for all mobile apps. <a href=\"https://developer.oculus.com/documentation/unreal/latest/concepts/unreal-quick-start-guide-go/\" id=\"HyperlinkDecorator\">Read more.</>"),
+		LOCTEXT("AndroidManifestButton", "Configure Android Manifest"),
+		&SOculusToolWidget::AndroidManifestVisibility,
+		&SOculusToolWidget::AndroidManifestEnable,
+		(int)SupportFlags::SupportMobile
+	});
+
+	SimpleSettings.Add(FName("AndroidPackaging"), {
+		FName("AndroidPackaging"),
+		LOCTEXT("AndroidPackagingDescription", "Some mobile packaging settings need to be fixed. (SDK versions, and FullScreen Immersive settings.) <a href=\"https://developer.oculus.com/documentation/unreal/latest/concepts/unreal-quick-start-guide-go/\" id=\"HyperlinkDecorator\">Read more.</>"),
+		LOCTEXT("AndroidPackagingButton", "Configure Android Packaging"),
+		&SOculusToolWidget::AndroidPackagingVisibility,
+		&SOculusToolWidget::AndroidPackagingFix,
 		(int)SupportFlags::SupportMobile
 	});
 
@@ -460,6 +501,15 @@ FReply SOculusToolWidget::UnhideIgnoredRecommendations()
 	return FReply::Handled();
 }
 
+bool SOculusToolWidget::UsingForwardShading() const
+{
+	UOculusEditorSettings* EditorSettings = GetMutableDefault<UOculusEditorSettings>();
+	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
+	EOculusPlatform targetPlatform = EditorSettings->PerfToolTargetPlatform;
+	return targetPlatform == EOculusPlatform::Mobile || Settings->bForwardShading;
+
+}
+
 FReply SOculusToolWidget::Refresh()
 {
 	RebuildLayout();
@@ -476,24 +526,21 @@ FReply SOculusToolWidget::ForwardShadingEnable(bool text)
 	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(ANSI_TO_TCHAR("r.ForwardShading"));
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bForwardShading = 1;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bForwardShading)), Settings->GetDefaultConfigFilename());
 	SuggestRestart();
 	return FReply::Handled();
 }
 
 EVisibility SOculusToolWidget::ForwardShadingVisibility(FName tag) const
 {
-	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
-	const bool bForwardShading = Settings->bForwardShading != 0;
-
-	return bForwardShading ? EVisibility::Collapsed : EVisibility::Visible;
+	return UsingForwardShading() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 FReply SOculusToolWidget::InstancedStereoEnable(bool text)
 {
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bInstancedStereo = 1;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bInstancedStereo)), Settings->GetDefaultConfigFilename());
 	SuggestRestart();
 	return FReply::Handled();
 }
@@ -511,7 +558,8 @@ FReply SOculusToolWidget::MobileMultiViewEnable(bool text)
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bMobileMultiView = 1;
 	Settings->bMobileMultiViewDirect = 1;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bMobileMultiView)), Settings->GetDefaultConfigFilename());
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bMobileMultiViewDirect)), Settings->GetDefaultConfigFilename());
 	SuggestRestart();
 	return FReply::Handled();
 }
@@ -529,7 +577,7 @@ FReply SOculusToolWidget::MobileHDRDisable(bool text)
 {
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bMobileHDR = 0;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bMobileHDR)), Settings->GetDefaultConfigFilename());
 	SuggestRestart();
 	return FReply::Handled();
 }
@@ -540,11 +588,60 @@ EVisibility SOculusToolWidget::MobileHDRVisibility(FName tag) const
 	return Settings->bMobileHDR == 0 ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
+FString SOculusToolWidget::GetConfigPath() const
+{
+	return GEngineIni;
+	//return FString::Printf(TEXT("%sDefaultEngine.ini"), *FPaths::SourceConfigDir());
+}
+
+FReply SOculusToolWidget::AndroidManifestEnable(bool text)
+{
+	const TCHAR* AndroidSettings = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+	GConfig->SetBool(AndroidSettings, TEXT("bPackageForGearVR"), true, GetConfigPath());
+	GConfig->Flush(0);
+	return FReply::Handled();
+}
+
+const int MIN_SDK_VERSION = 23;
+
+EVisibility SOculusToolWidget::AndroidManifestVisibility(FName tag) const
+{
+	const TCHAR* AndroidSettings = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+	bool v = false;
+	return (GConfig->GetBool(AndroidSettings, TEXT("bPackageForGearVR"), v, GetConfigPath()) && v) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+FReply SOculusToolWidget::AndroidPackagingFix(bool text)
+{
+	const TCHAR* AndroidSettings = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+	GConfig->SetInt(AndroidSettings, TEXT("MinSDKVersion"), MIN_SDK_VERSION, GetConfigPath());
+	GConfig->SetInt(AndroidSettings, TEXT("TargetSDKVersion"), MIN_SDK_VERSION, GetConfigPath());
+	GConfig->SetBool(AndroidSettings, TEXT("bFullScreen"), true, GetConfigPath());
+	GConfig->Flush(0);
+	return FReply::Handled();
+}
+
+EVisibility SOculusToolWidget::AndroidPackagingVisibility(FName tag) const
+{
+	const TCHAR* AndroidSettings = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+	bool fullscreen = false;
+	int minSDK = 0;
+	int targetSDK = 0;
+	if (!GConfig->GetBool(AndroidSettings, TEXT("bFullScreen"), fullscreen, GetConfigPath()) ||
+		!GConfig->GetInt(AndroidSettings, TEXT("MinSDKVersion"), minSDK, GetConfigPath()) ||
+		!GConfig->GetInt(AndroidSettings, TEXT("TargetSDKVersion"), targetSDK, GetConfigPath()))
+	{
+		return EVisibility::Visible;
+	}
+	return (minSDK < MIN_SDK_VERSION || targetSDK < MIN_SDK_VERSION || !fullscreen) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+
 FReply SOculusToolWidget::AntiAliasingEnable(bool text)
 {
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->DefaultFeatureAntiAliasing = EAntiAliasingMethod::AAM_TemporalAA;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, DefaultFeatureAntiAliasing)), Settings->GetDefaultConfigFilename());
 	return FReply::Handled();
 }
 
@@ -556,7 +653,7 @@ EVisibility SOculusToolWidget::AntiAliasingVisibility(FName tag) const
 	static IConsoleVariable* CVarMSAACount = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MSAACount"));
 	CVarMSAACount->Set(4);
 
-	const bool bAADisabled = Settings->bForwardShading && Settings->DefaultFeatureAntiAliasing != EAntiAliasingMethod::AAM_TemporalAA && Settings->DefaultFeatureAntiAliasing != EAntiAliasingMethod::AAM_MSAA;
+	const bool bAADisabled = UsingForwardShading() && Settings->DefaultFeatureAntiAliasing != EAntiAliasingMethod::AAM_TemporalAA && Settings->DefaultFeatureAntiAliasing != EAntiAliasingMethod::AAM_MSAA;
 
 	return bAADisabled ? EVisibility::Visible : EVisibility::Collapsed;
 }
@@ -565,7 +662,7 @@ FReply SOculusToolWidget::AllowStaticLightingEnable(bool text)
 {
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bAllowStaticLighting = true;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bAllowStaticLighting)), Settings->GetDefaultConfigFilename());
 	SuggestRestart();
 	return FReply::Handled();
 }
@@ -576,16 +673,30 @@ EVisibility SOculusToolWidget::AllowStaticLightingVisibility(FName tag) const
 	return Settings->bAllowStaticLighting ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
+void SOculusToolWidget::OnShowButtonChanged(ECheckBoxState NewState)
+{
+	GConfig->SetBool(TEXT("/Script/OculusEditor.OculusEditorSettings"), TEXT("bAddMenuOption"), NewState == ECheckBoxState::Checked ? true : false, FString::Printf(TEXT("%sDefaultEditor.ini"), *FPaths::SourceConfigDir()));
+	GConfig->Flush(0);
+}
+
+ECheckBoxState SOculusToolWidget::IsShowButtonChecked() const
+{
+	bool v;
+	GConfig->GetBool(TEXT("/Script/OculusEditor.OculusEditorSettings"), TEXT("bAddMenuOption"), v, FString::Printf(TEXT("%sDefaultEditor.ini"), *FPaths::SourceConfigDir()));
+	return v ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
 FReply SOculusToolWidget::LensFlareDisable(bool text)
 {
 	URendererSettings* Settings = GetMutableDefault<URendererSettings>();
 	Settings->bDefaultFeatureLensFlare = false;
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bDefaultFeatureLensFlare)), Settings->GetDefaultConfigFilename());
 
 	if (PostProcessVolume != NULL)
 	{
 		PostProcessVolume->Settings.bOverride_LensFlareIntensity = 0;
+		Settings->SaveConfig();
 	}
-	Settings->SaveConfig();
 
 	return FReply::Handled();
 }
@@ -635,7 +746,7 @@ FReply SOculusToolWidget::StartInVREnable(bool text)
 {
 	UGeneralProjectSettings* Settings = GetMutableDefault<UGeneralProjectSettings>();
 	Settings->bStartInVR = 1;
-	Settings->SaveConfig();
+	Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UGeneralProjectSettings, bStartInVR)), Settings->GetDefaultConfigFilename());
 	return FReply::Handled();
 }
 

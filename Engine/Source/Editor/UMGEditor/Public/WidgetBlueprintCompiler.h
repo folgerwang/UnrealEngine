@@ -21,7 +21,7 @@ public:
 
 	bool CanCompile(const UBlueprint* Blueprint) override;
 	void PreCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
-	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override;
+	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results) override;
 	void PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
 	bool GetBlueprintTypesForClass(UClass* ParentClass, UClass*& OutBlueprintClass, UClass*& OutBlueprintGeneratedClass) const override;
 
@@ -48,7 +48,7 @@ protected:
 	typedef FKismetCompilerContext Super;
 
 public:
-	FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded);
+	FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions);
 	virtual ~FWidgetBlueprintCompilerContext();
 
 	static bool CanAllowTemplate(FCompilerResultsLog& MessageLog, UWidgetBlueprintGeneratedClass* InClass);

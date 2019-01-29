@@ -616,8 +616,7 @@ bool FGameplayDebuggerDataPack::RequestReplication(int16 SyncCounter)
 		FMemory::Memcpy(CompressedBuffer, &CompressionHeader, CompressionHeaderSize);
 		CompressedBuffer += CompressionHeaderSize;
 
-		FCompression::CompressMemory((ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-			CompressedBuffer, CompressedSize, UncompressedBuffer.GetData(), UncompressedSize);
+		FCompression::CompressMemory(NAME_Zlib,	CompressedBuffer, CompressedSize, UncompressedBuffer.GetData(), UncompressedSize, COMPRESS_BiasMemory);
 
 		Data.SetNum(CompressionHeaderSize + CompressedSize);
 	}
@@ -660,8 +659,7 @@ void FGameplayDebuggerDataPack::OnReplicated()
 		TArray<uint8> UncompressedBuffer;
 		UncompressedBuffer.AddUninitialized(UncompressedSize);
 
-		FCompression::UncompressMemory((ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-			UncompressedBuffer.GetData(), UncompressedSize, CompressedBuffer, CompressedSize);
+		FCompression::UncompressMemory(NAME_Zlib, UncompressedBuffer.GetData(), UncompressedSize, CompressedBuffer, CompressedSize);
 
 		FMemoryReader ArReader(UncompressedBuffer);
 		SerializeDelegate.Execute(ArReader);

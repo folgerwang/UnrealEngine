@@ -70,7 +70,7 @@ void UEnvQueryTest_Overlap::RunTest(FEnvQueryInstance& QueryInstance) const
 
 FText UEnvQueryTest_Overlap::GetDescriptionTitle() const
 {
-	UEnum* ShapeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvOverlapShape"), true);
+	UEnum* ShapeEnum = StaticEnum<EEnvOverlapShape::Type>();
 	FString ShapeDesc = ShapeEnum->GetDisplayNameTextByValue(OverlapData.OverlapShape).ToString();
 
 	return FText::FromString(FString::Printf(TEXT("%s: %s"), 
@@ -79,10 +79,10 @@ FText UEnvQueryTest_Overlap::GetDescriptionTitle() const
 
 FText UEnvQueryTest_Overlap::GetDescriptionDetails() const
 {
-	UEnum* ShapeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvOverlapShape"), true);
+	UEnum* ShapeEnum = StaticEnum<EEnvOverlapShape::Type>();
 	FString ShapeDesc = ShapeEnum->GetDisplayNameTextByValue(OverlapData.OverlapShape).ToString();
 
-	UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum* ChannelEnum = StaticEnum<ECollisionChannel>();
 	FString ChannelDesc = ChannelEnum->GetDisplayNameTextByValue(OverlapData.OverlapChannel).ToString();
 
 	FString SizeDesc;

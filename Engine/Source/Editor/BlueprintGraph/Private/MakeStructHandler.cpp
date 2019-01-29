@@ -141,7 +141,8 @@ void FKCHandler_MakeStruct::Compile(FKismetFunctionContext& Context, UEdGraphNod
 				Schema->ConvertPropertyToPinType(OverrideProperty, /*out*/ PinType);
 
 				// Create the term in the list
-				FBPTerminal* OverrideTerm = new (Context.VariableReferences) FBPTerminal();
+				FBPTerminal* OverrideTerm = new FBPTerminal();
+				Context.VariableReferences.Add(OverrideTerm);
 				OverrideTerm->Type = PinType;
 				OverrideTerm->AssociatedVarProperty = OverrideProperty;
 				OverrideTerm->Context = OutputStructTerm;

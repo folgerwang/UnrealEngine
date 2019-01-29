@@ -27,17 +27,16 @@ struct CORE_API FHTML5PlatformTime : public FGenericPlatformTime
 	// for HTML5 - this returns the time since startup.
 	static FORCEINLINE double Seconds()
 	{
-		double t = emscripten_get_now();
-		return (t - emscripten_t0) / 1000.0;
+		return (emscripten_get_now() - emscripten_t0) * 0.001;
 	}
 
 	static FORCEINLINE uint32 Cycles()
 	{
-		return (uint32)(Seconds() * 1000000);
+		return (uint32)((emscripten_get_now() - emscripten_t0) * 1000.0);
 	}
 	static FORCEINLINE uint64 Cycles64()
 	{
-		return (uint64)(Seconds() * 1000000);
+		return (uint64)((emscripten_get_now() - emscripten_t0) * 1000.0);
 	}
 
 };

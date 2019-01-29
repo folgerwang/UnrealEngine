@@ -329,6 +329,8 @@ private:
 	bool			bCanceled;
 	/** Set to true when request has been completed */
 	bool			bCurlRequestCompleted;
+	/** Set to true when request has "30* Multiple Choices" (e.g. 301 Moved Permanently, 302 temporary redirect, 308 Permanent Redirect, etc.) */
+	bool			bRedirected;
 	/** Set to true if request failed to be added to curl multi */
 	CURLMcode		CurlAddToMultiResult;
 	/** Operation result code as returned by libcurl */

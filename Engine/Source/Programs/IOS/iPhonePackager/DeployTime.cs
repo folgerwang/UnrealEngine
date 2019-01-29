@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -249,10 +249,9 @@ namespace iPhonePackager
 				{
 					DeploymentServerProcess = CreateDeploymentServerProcess();
 				}
-
 				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
-				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID" + Process.GetCurrentProcess().Id.ToString());
+					typeof(DeploymentInterface),
+					@"ipc://iPhonePackager/DeploymentServer_PID" + Process.GetCurrentProcess().Id.ToString());
 			}
 
 			if (DeployTimeInstance == null)
@@ -269,15 +268,18 @@ namespace iPhonePackager
 		static Process CreateDeploymentServerProcess()
 		{
 			Process NewProcess = new Process();
+
+			NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
+
 			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
 			{
-				NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
+				NewProcess.StartInfo.WorkingDirectory.TrimEnd('/');
 				NewProcess.StartInfo.FileName = "../../../Build/BatchFiles/Mac/RunMono.sh";
 				NewProcess.StartInfo.Arguments = "\"" + NewProcess.StartInfo.WorkingDirectory + "/DeploymentServer.exe\" -iphonepackager " + Process.GetCurrentProcess().Id.ToString();
 			}
 			else
 			{
-				NewProcess.StartInfo.WorkingDirectory = Path.GetFullPath(".");
+				NewProcess.StartInfo.WorkingDirectory.TrimEnd('\\');
 				NewProcess.StartInfo.FileName = NewProcess.StartInfo.WorkingDirectory + "\\DeploymentServer.exe";
 				NewProcess.StartInfo.Arguments = "-iphonepackager " + Process.GetCurrentProcess().Id.ToString();
 			}
@@ -286,7 +288,7 @@ namespace iPhonePackager
 			try
 			{
 				NewProcess.Start();
-				System.Threading.Thread.Sleep(500);
+				System.Threading.Thread.Sleep(1000);
 			}
 			catch (System.Exception ex)
 			{

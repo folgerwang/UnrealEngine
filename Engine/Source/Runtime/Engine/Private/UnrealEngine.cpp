@@ -222,6 +222,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #endif
 
 #include "HAL/FileManagerGeneric.h"
+#include "UObject/UObjectThreadContext.h"
 
 #include "Particles/ParticleSystemManager.h"
 #include "Components/SkinnedMeshComponent.h"
@@ -2279,6 +2280,23 @@ void LoadEngineClass(FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineCl
 	}
 }
 
+/** Special function that loads an engine texture and adds it to root set in cooked builds. 
+  * This is to prevent the textures from being added to GC clusters (root set objects are not clustered) 
+	* because otherwise since they're always going to be referenced by UUnrealEngine object which will 
+	* prevent the clusters from being GC'd. */
+template <typename TextureType>
+static void LoadEngineTexture(TextureType*& InOutTexture, const TCHAR* InName)
+{
+	if (!InOutTexture)
+	{
+		InOutTexture = LoadObject<TextureType>(nullptr, InName, nullptr, LOAD_None, nullptr);
+	}
+	if (FPlatformProperties::RequiresCookedData() && InOutTexture)
+	{
+		InOutTexture->AddToRoot();
+	}
+}
+
 UEngineCustomTimeStep* InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
 {
 	UEngineCustomTimeStep* NewCustomTimeStep = nullptr;
@@ -2389,50 +2407,15 @@ void UEngine::InitializeObjectReferences()
 		}
 	}
 
-	if( DefaultTexture == NULL )
-	{
-		DefaultTexture = LoadObject<UTexture2D>(NULL, *DefaultTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( DefaultDiffuseTexture == NULL )
-	{
-		DefaultDiffuseTexture = LoadObject<UTexture2D>(NULL, *DefaultDiffuseTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( HighFrequencyNoiseTexture == NULL )
-	{
-		HighFrequencyNoiseTexture = LoadObject<UTexture2D>(NULL, *HighFrequencyNoiseTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( DefaultBokehTexture == NULL )
-	{
-		DefaultBokehTexture = LoadObject<UTexture2D>(NULL, *DefaultBokehTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if (DefaultBloomKernelTexture == NULL)
-	{
-		DefaultBloomKernelTexture = LoadObject<UTexture2D>(NULL, *DefaultBloomKernelTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( PreIntegratedSkinBRDFTexture == NULL )
-	{
-		PreIntegratedSkinBRDFTexture = LoadObject<UTexture2D>(NULL, *PreIntegratedSkinBRDFTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( MiniFontTexture == NULL )
-	{
-		MiniFontTexture = LoadObject<UTexture2D>(NULL, *MiniFontTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if( WeightMapPlaceholderTexture == NULL )
-	{
-		WeightMapPlaceholderTexture = LoadObject<UTexture2D>(NULL, *WeightMapPlaceholderTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
-
-	if (LightMapDensityTexture == NULL)
-	{
-		LightMapDensityTexture = LoadObject<UTexture2D>(NULL, *LightMapDensityTextureName.ToString(), NULL, LOAD_None, NULL);
-	}
+	LoadEngineTexture(DefaultTexture, *DefaultTextureName.ToString());
+	LoadEngineTexture(DefaultDiffuseTexture, *DefaultDiffuseTextureName.ToString());
+	LoadEngineTexture(HighFrequencyNoiseTexture, *HighFrequencyNoiseTextureName.ToString());
+	LoadEngineTexture(DefaultBokehTexture, *DefaultBokehTextureName.ToString());
+	LoadEngineTexture(DefaultBloomKernelTexture, *DefaultBloomKernelTextureName.ToString());
+	LoadEngineTexture(PreIntegratedSkinBRDFTexture, *PreIntegratedSkinBRDFTextureName.ToString());
+	LoadEngineTexture(MiniFontTexture, *MiniFontTextureName.ToString());
+	LoadEngineTexture(WeightMapPlaceholderTexture, *WeightMapPlaceholderTextureName.ToString());
+	LoadEngineTexture(LightMapDensityTexture, *LightMapDensityTextureName.ToString());
 
 	if ( DefaultPhysMaterial == NULL )
 	{
@@ -2805,7 +2788,6 @@ class FFakeStereoRenderingDevice : public IStereoRendering
 public:
 	FFakeStereoRenderingDevice() 
 		: FOVInDegrees(100)
-		, MonoCullingDistance(0.0f)
 		, Width(640)
 		, Height(480)
 	{
@@ -2846,7 +2828,7 @@ public:
 
 	virtual void CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation) override
 	{
-		if (StereoPassType != eSSP_FULL && StereoPassType != eSSP_MONOSCOPIC_EYE)
+		if (StereoPassType != eSSP_FULL)
 		{
 			float EyeOffset = 3.20000005f;
 			const float PassOffset = (StereoPassType == eSSP_LEFT_EYE) ? EyeOffset : -EyeOffset;
@@ -2861,7 +2843,7 @@ public:
 		const float InHeight = Height;
 		const float XS = 1.0f / FMath::Tan(HalfFov);
 		const float YS = InWidth / FMath::Tan(HalfFov) / InHeight;
-		const float NearZ = (StereoPassType != eSSP_MONOSCOPIC_EYE) ? GNearClippingPlane : MonoCullingDistance;
+		const float NearZ = GNearClippingPlane;
 
 		return FMatrix(
 			FPlane(XS, 0.0f, 0.0f, 0.0f),
@@ -2872,11 +2854,6 @@ public:
 
 	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override
 	{
-		if (InView != nullptr && InView->Family != nullptr)
-		{
-			const FSceneViewFamily& ViewFamily = *InView->Family;
-			MonoCullingDistance = ViewFamily.MonoParameters.CullingDistance - ViewFamily.MonoParameters.OverlapDistance;
-		}
 	}
 
 	virtual void RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const override
@@ -2893,7 +2870,6 @@ public:
 	}
 
 	float FOVInDegrees;		// max(HFOV, VFOV) in degrees of imaginable HMD
-	float MonoCullingDistance;
 	int32 Width, Height;	// resolution of imaginable HMD
 };
 
@@ -8634,20 +8610,21 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 {
 	FGuid Result(0,0,0,0);
 
-	BeginLoad(*PackageName.ToString());
 	uint32 LoadFlags = LOAD_NoWarn | LOAD_NoVerify;
 	if (bForPIE)
 	{
 		LoadFlags |= LOAD_PackageForPIE;
 	}
 	UPackage* PackageToReset = nullptr;
-	FLinkerLoad* Linker = GetPackageLinker(NULL, *PackageName.ToString(), LoadFlags, NULL, NULL);
-	if (Linker != NULL && Linker->LinkerRoot != NULL)
+	FLinkerLoad* Linker = LoadPackageLinker(nullptr, *PackageName.ToString(), LoadFlags, nullptr, nullptr, nullptr, [&PackageToReset, &Result](FLinkerLoad* InLinker)
 	{
-		Result = Linker->LinkerRoot->GetGuid();
-		PackageToReset = Linker->LinkerRoot;
-	}
-	EndLoad();
+		check(InLinker);
+		if (InLinker != nullptr && InLinker->LinkerRoot != nullptr)
+		{
+			Result = InLinker->LinkerRoot->GetGuid();
+			PackageToReset = InLinker->LinkerRoot;
+		}
+	});
 
 	ResetLoaders(PackageToReset);
 	Linker = nullptr;
@@ -11078,7 +11055,12 @@ void UEngine::HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureT
 
 void UEngine::HandleNetworkFailure(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	UE_LOG(LogNet, Log, TEXT("NetworkFailure: %s, Error: '%s'"), ENetworkFailure::ToString(FailureType), *ErrorString);
+	static double LastTimePrinted = 0.0f;
+	if (FPlatformTime::Seconds() - LastTimePrinted > NetErrorLogInterval)
+	{
+		UE_LOG(LogNet, Log, TEXT("NetworkFailure: %s, Error: '%s'"), ENetworkFailure::ToString(FailureType), *ErrorString);
+		LastTimePrinted = FPlatformTime::Seconds();
+	}
 
 	if (!NetDriver)
 	{
@@ -12689,7 +12671,8 @@ void UEngine::UpdateTransitionType(UWorld *CurrentWorld)
 
 FWorldContext& UEngine::CreateNewWorldContext(EWorldType::Type WorldType)
 {
-	FWorldContext *NewWorldContext = (new (WorldList) FWorldContext);
+	FWorldContext* NewWorldContext = new FWorldContext;
+	WorldList.Add(NewWorldContext);
 	NewWorldContext->WorldType = WorldType;
 	NewWorldContext->ContextHandle = FName(*FString::Printf(TEXT("Context_%d"), NextWorldContextHandle++));
 
@@ -13731,7 +13714,8 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 
 		for (UObject* OldInstance : Components)
 		{
-			FInstancedObjectRecord* pRecord = new(SavedInstances) FInstancedObjectRecord();
+			FInstancedObjectRecord* pRecord = new FInstancedObjectRecord();
+			SavedInstances.Add(pRecord);
 			pRecord->OldInstance = OldInstance;
 			OldInstanceMap.Add(OldInstance->GetPathName(OldObject), SavedInstances.Num() - 1);
 			const uint32 AdditionalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
@@ -13969,7 +13953,7 @@ bool AllowHighQualityLightmaps(ERHIFeatureLevel::Type FeatureLevel)
 // Helper function for changing system resolution via the r.setres console command
 void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWindowMode::Type InWindowMode)
 {
-#if PLATFORM_UNIX
+#if PLATFORM_UNIX || PLATFORM_HTML5
 	// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
 	// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
 	if (InWindowMode == EWindowMode::Fullscreen)

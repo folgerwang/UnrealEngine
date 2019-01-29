@@ -6,7 +6,9 @@
 #include "Windows/WindowsHWrapper.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 
+#if WITH_WINDOWS_MIXED_REALITY
 #include "MixedRealityInterop.h"
+#endif
 
 #include "WindowsMixedRealityFunctionLibrary.Generated.h"
 

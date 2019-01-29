@@ -222,8 +222,9 @@ private:
 	 * @param OutForwardVector - Upon return, will hold the forward vector
 	 * @param OutRightVector - Upon return, will hold the right vector
 	 * @param OutUpVector - Upon return, will hold the up vector
+	 * @param bAllowLock - Use the locking axis (if valid) or the camera axis
 	 */
-	void GetDirectionVectorsForCamera(FVector& OutForwardVector, FVector& OutRightVector, FVector& OutUpVector) const;
+	void GetDirectionVectorsForCamera(FVector& OutForwardVector, FVector& OutRightVector, FVector& OutUpVector, bool bTryLock) const;
 
 	/**
 	 * Gets the current location offset

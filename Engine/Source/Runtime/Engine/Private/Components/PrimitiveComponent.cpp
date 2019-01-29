@@ -3440,15 +3440,6 @@ void UPrimitiveComponent::SetRenderInMainPass(bool bValue)
 	}
 }
 
-void UPrimitiveComponent::SetRenderInMono(bool bValue)
-{
-	if (bRenderInMono != bValue)
-	{
-		bRenderInMono = bValue;
-		MarkRenderStateDirty();
-	}
-}
-
 void UPrimitiveComponent::SetLODParentPrimitive(UPrimitiveComponent * InLODParentPrimitive)
 {
 #if WITH_EDITOR	

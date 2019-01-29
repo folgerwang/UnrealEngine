@@ -96,6 +96,7 @@ FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationShouldUn
 FCoreDelegates::FApplicationStartupArgumentsDelegate FCoreDelegates::ApplicationReceivedStartupArgumentsDelegate;
 
 FCoreDelegates::FUserMusicInterruptDelegate FCoreDelegates::UserMusicInterruptDelegate;
+FCoreDelegates::FAudioRouteChangedDelegate FCoreDelegates::AudioRouteChangedDelegate;
 FCoreDelegates::FAudioMuteDelegate FCoreDelegates::AudioMuteDelegate;
 FCoreDelegates::FApplicationRequestAudioState FCoreDelegates::ApplicationRequestAudioState;
 
@@ -199,3 +200,4 @@ void RegisterEncryptionKeyCallback(TEncryptionKeyFunc InCallback)
 		InCallback(OutKey);
 	});
 }
+

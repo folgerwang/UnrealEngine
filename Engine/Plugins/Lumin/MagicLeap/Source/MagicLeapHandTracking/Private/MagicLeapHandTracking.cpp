@@ -333,6 +333,9 @@ FMagicLeapHandTracking::FMagicLeapHandTracking(const TSharedRef<FGenericApplicat
 	, bIsHandTrackingStateValid(false)
 {
 #if WITH_MLSDK
+	// Zero-out structs
+	FMemory::Memset(&HandTrackingDatas, 0, sizeof(HandTrackingDatas));
+
 	// Initialize gesture data to default values.
 	HandTrackingDatas[0].left_hand_state.keypose = MLHandTrackingKeyPose_NoHand;
 	HandTrackingDatas[0].right_hand_state.keypose = MLHandTrackingKeyPose_NoHand;
@@ -351,11 +354,7 @@ FMagicLeapHandTracking::FMagicLeapHandTracking(const TSharedRef<FGenericApplicat
 
 	// We're implicitly requiring that the MagicLeapPlugin has been loaded and
 	// initialized at this point.
-	auto HMD = IMagicLeapPlugin::Get().GetHMD().Pin();
-	if (HMD.IsValid())
-	{
-		HMD->RegisterMagicLeapInputDevice(this);
-	}
+	IMagicLeapPlugin::Get().RegisterMagicLeapInputDevice(this);
 }
 
 FMagicLeapHandTracking::~FMagicLeapHandTracking()
@@ -364,11 +363,7 @@ FMagicLeapHandTracking::~FMagicLeapHandTracking()
 	// but it isn't an assumption that we should make.
 	if (IMagicLeapPlugin::IsAvailable())
 	{
-		auto HMD = IMagicLeapPlugin::Get().GetHMD().Pin();
-		if (HMD.IsValid())
-		{
-			HMD->UnregisterMagicLeapInputDevice(this);
-		}
+		IMagicLeapPlugin::Get().UnregisterMagicLeapInputDevice(this);
 	}
 
 	Disable();
@@ -742,6 +737,8 @@ void FMagicLeapHandTracking::EnumerateSources(TArray<FMotionControllerSource>& S
 void FMagicLeapHandTracking::Tick(float DeltaTime)
 {
 	UpdateTrackerData();
+	UpdateCurrentHandTrackerTransforms();
+	UpdateLiveLink();
 }
 
 void FMagicLeapHandTracking::SendControllerEvents()
@@ -828,6 +825,13 @@ void FMagicLeapHandTracking::Disable()
 			UE_LOG(LogMagicLeapHandTracking, Error, TEXT("Error destroying hand tracker."));
 		}
 	}
+#endif
+}
+
+void FMagicLeapHandTracking::OnBeginRendering_GameThread_Update()
+{
+#if WITH_MLSDK
+	UpdateCurrentHandTrackerTransforms();
 #endif
 }
 
@@ -1088,18 +1092,21 @@ namespace MagicLeapHandTracking
 
 void FMagicLeapHandTracking::UpdateTrackerData()
 {
+	// This updates the tracker data and live link clients while "consuming" a data
+	// slot for the frame.
 #if WITH_MLSDK
+	check(IsInGameThread());
+
 	if (MLHandleIsValid(HandTracker))
 	{
 		CurrentHandTrackingDataIndex = 1 - CurrentHandTrackingDataIndex;
-		bIsHandTrackingStateValid =		MLHandTrackingGetData(HandTracker, &HandTrackingDatas[CurrentHandTrackingDataIndex]) == MLResult_Ok;
+		bIsHandTrackingStateValid = MLHandTrackingGetData(HandTracker, &HandTrackingDatas[CurrentHandTrackingDataIndex]) == MLResult_Ok;
 		//MagicLeapHandTracking::LogMLHandTrackingData(GetCurrentHandTrackingData());
 	}
 	else
 	{
 		bIsHandTrackingStateValid = false;
 	}
-
 	if (bIsHandTrackingStateValid && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
 		const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
@@ -1108,6 +1115,26 @@ void FMagicLeapHandTracking::UpdateTrackerData()
 		const MLHandTrackingData& HandTrackingData = GetCurrentHandTrackingData();
 
 		LeftHand.Gesture = TranslateGestureEnum(HandTrackingData.left_hand_state.keypose);
+		RightHand.Gesture = TranslateGestureEnum(HandTrackingData.right_hand_state.keypose);
+
+		LeftHand.GestureConfidence = HandTrackingData.left_hand_state.keypose_confidence[HandTrackingData.left_hand_state.keypose];
+		RightHand.GestureConfidence = HandTrackingData.right_hand_state.keypose_confidence[HandTrackingData.right_hand_state.keypose];
+	}
+#endif //WITH_MLSDK
+}
+
+void FMagicLeapHandTracking::UpdateCurrentHandTrackerTransforms()
+{
+#if WITH_MLSDK
+	check(IsInGameThread());
+
+	if (MLHandleIsValid(HandTracker) && bIsHandTrackingStateValid && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
+	{
+		const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
+		check(AppFramework.IsInitialized());
+
+		const MLHandTrackingData& HandTrackingData = GetCurrentHandTrackingData();
+
 		if (LeftHand.Gesture != EHandTrackingGesture::NoHand)
 		{
 			LeftHand.HandCenterNormalized = MagicLeap::ToFVector(HandTrackingData.left_hand_state.hand_center_normalized, 1.0f);
@@ -1119,8 +1146,6 @@ void FMagicLeapHandTracking::UpdateTrackerData()
 
 			MagicLeapHandTracking::FetchHandTransforms(AppFramework, HandTrackingStaticData.left, LeftHand, TEXT("left hand"));
 		}
-
-		RightHand.Gesture = TranslateGestureEnum(HandTrackingData.right_hand_state.keypose);
 		if (RightHand.Gesture != EHandTrackingGesture::NoHand)
 		{
 			RightHand.HandCenterNormalized = MagicLeap::ToFVector(HandTrackingData.right_hand_state.hand_center_normalized, 1.0f);
@@ -1132,13 +1157,8 @@ void FMagicLeapHandTracking::UpdateTrackerData()
 
 			MagicLeapHandTracking::FetchHandTransforms(AppFramework, HandTrackingStaticData.right, RightHand, TEXT("right hand"));
 		}
-
-		LeftHand.GestureConfidence = HandTrackingData.left_hand_state.keypose_confidence[HandTrackingData.left_hand_state.keypose];
-		RightHand.GestureConfidence = HandTrackingData.right_hand_state.keypose_confidence[HandTrackingData.right_hand_state.keypose];
-
-		UpdateLiveLink();
 	}
-#endif //WITH_MLSDK
+#endif
 }
 
 void FMagicLeapHandTracking::AddKeys()

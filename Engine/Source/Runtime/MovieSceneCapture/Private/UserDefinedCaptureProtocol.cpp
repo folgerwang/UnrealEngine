@@ -11,6 +11,9 @@
 #include "Slate/SceneViewport.h"
 #include "ImagePixelData.h"
 #include "Engine/Engine.h"
+#include "Logging/MessageLog.h"
+
+#define LOCTEXT_NAMESPACE "UserDefinedImageCaptureProtocol"
 
 struct FCaptureProtocolFrameData : IFramePayload
 {
@@ -64,6 +67,26 @@ private:
 	/** Weak pointer back to the protocol. Only used to invoke OnBufferReady. */
 	TWeakObjectPtr<UUserDefinedCaptureProtocol> WeakProtocol;
 };
+
+FString FCapturedPixelsID::ToString() const
+{
+	FString Name;
+	for (const TTuple<FName, FName>& Pair : Identifiers)
+	{
+		if (Name.Len() > 0)
+		{
+			Name += TEXT(",");
+		}
+
+		Name += Pair.Key.ToString();
+		if (Pair.Value != NAME_None)
+		{
+			Name += TEXT(":");
+			Name += Pair.Value.ToString();
+		}
+	}
+	return Name.Len() > 0 ? Name : TEXT("<none>");
+}
 
 
 UUserDefinedCaptureProtocol::UUserDefinedCaptureProtocol(const FObjectInitializer& ObjInit)
@@ -371,14 +394,25 @@ void UUserDefinedImageCaptureProtocol::WriteImageToDisk(const FCapturedPixels& P
 	{
 		return;
 	}
+	else if (PixelData.ImageData->GetBitDepth() != 8)
+	{
+		if (Format == EDesiredImageFormat::BMP)
+		{
+			FMessageLog("PIE")
+			.Warning(FText::Format(LOCTEXT("InvalidBMPExport", "Unable to write the specified render target (stream '{0}' is {1}bit) as BMP. BMPs must be supplied 8bit render targets."),
+				FText::FromString(StreamID.ToString()), FText::AsNumber(PixelData.ImageData->GetBitDepth())));
+			return;
+		}
+		else if (Format == EDesiredImageFormat::JPG)
+		{
+			FMessageLog("PIE")
+				.Warning(FText::Format(LOCTEXT("InvalidJPGExport", "Unable to write the specified render target (stream '{0}' is {1}bit) as JPG. JPGs must be supplied 8bit render targets."),
+					FText::FromString(StreamID.ToString()), FText::AsNumber(PixelData.ImageData->GetBitDepth())));
+			return;
+		}
+	}
 
 	TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
-
-	// If the pixels are FColors, and this is the final pixels buffer, and we're writing PNG, always write out full alpha
-	if (PixelData.ImageData->GetType() == EImagePixelType::Color && ImageTask->Format == EImageFormat::PNG && StreamID.Identifiers.OrderIndependentCompareEqual(FinalPixelsID.Identifiers))
-	{
-		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
-	}
 
 	// Cache the buffer ID so we generate the correct filename
 	CurrentStreamID = &StreamID;
@@ -389,6 +423,12 @@ void UUserDefinedImageCaptureProtocol::WriteImageToDisk(const FCapturedPixels& P
 	ImageTask->bOverwriteFile = false;
 
 	CurrentStreamID = nullptr;
+
+	// If the pixels are FColors, and this is the final pixels buffer, and we're writing PNG, always write out full alpha
+	if (PixelData.ImageData->GetType() == EImagePixelType::Color && ImageTask->Format == EImageFormat::PNG && StreamID.Identifiers.OrderIndependentCompareEqual(FinalPixelsID.Identifiers))
+	{
+		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+	}
 
 	if (Format == EDesiredImageFormat::EXR)
 	{
@@ -425,3 +465,5 @@ void UUserDefinedImageCaptureProtocol::OnFileWritten()
 {
 	--NumOutstandingOperations;
 }
+
+#undef LOCTEXT_NAMESPACE

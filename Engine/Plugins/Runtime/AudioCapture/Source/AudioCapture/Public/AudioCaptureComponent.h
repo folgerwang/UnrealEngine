@@ -12,6 +12,8 @@ class AUDIOCAPTURE_API UAudioCaptureComponent : public USynthComponent
 {
 	GENERATED_BODY()
 
+protected:
+
 	UAudioCaptureComponent(const FObjectInitializer& ObjectInitializer);
 
 	//~ Begin USynthComponent interface

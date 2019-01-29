@@ -22,7 +22,6 @@ static const TArray<FString> StringArray = {
 UMovieSceneLiveLinkSection::UMovieSceneLiveLinkSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bAlwaysSendInterpolated = true;
 	BlendType = EMovieSceneBlendType::Absolute;
 }
 void UMovieSceneLiveLinkSection::SetSubjectName(const FName& InSubjectName)

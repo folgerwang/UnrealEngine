@@ -161,8 +161,8 @@ namespace Audio
 	// InLinear pan is [-1.0, 1.0] so it can be modulated by a bipolar LFO
 	static FORCEINLINE void GetStereoPan(const float InLinearPan, float& OutLeft, float& OutRight)
 	{
-		const float LeftPhase = 0.25f * PI * (InLinearPan + 1.0f);
-		const float RightPhase = 0.5f * PI * (0.5f * (InLinearPan + 1.0f) + 1.0f);
+		const float LeftPhase = 0.5f * PI * (0.5f * (InLinearPan + 1.0f) + 1.0f);
+		const float RightPhase = 0.25f * PI * (InLinearPan + 1.0f);
 		OutLeft = FMath::Clamp(FastSin(LeftPhase), 0.0f, 1.0f);
 		OutRight = FMath::Clamp(FastSin(RightPhase), 0.0f, 1.0f);
 	}
@@ -466,7 +466,7 @@ namespace Audio
 
 			// Determine the actual capacity we have to ensure we don't write past the read index.
 			const uint32 CurrentSlack = (ReadIndex <= WriteIndex) ? ((ReadIndex + Capacity) - WriteIndex) : (ReadIndex - WriteIndex);
-			const uint32 NumSamplesToCopy = FMath::Min(CurrentSlack, NumSamples);
+			const uint32 NumSamplesToCopy = FMath::Min(CurrentSlack - 1, NumSamples);
 			const uint32 DestBufferRemainder = Capacity - WriteIndex;
 			if (NumSamplesToCopy >= DestBufferRemainder)
 			{

@@ -19,14 +19,21 @@ cd "$TPS_HTML5"/../Ogg/libogg-1.2.2/build/HTML5
 cd "$TPS_HTML5"/../Vorbis/libvorbis-1.3.2/build/HTML5
 	./build_html5.sh
 
+# WARNING: this might take a while...
 cd "$TPS_HTML5"/../ICU/icu4c-53_1
 	./BuildForHTML5.sh
 
 cd "$TPS_HTML5"/../HarfBuzz/harfbuzz-1.2.4/BuildForUE/HTML5
 	./BuildForHTML5.sh
 
-cd "$TPS_HTML5"/../PhysX/PhysX_3.4/Source/compiler/HTML5
+# WARNING: this might take a while...
+cd "$TPS_HTML5"/../PhysX3/PhysX_3.4/Source/compiler/cmake/html5
 	./BuildForHTML5.sh
 
+# WARNING: this might take a while...
+cd "$TPS_HTML5"/../SDL2
+	./build_html5.sh
 
 cd "$TPS_HTML5"
+
+echo 'Success!'

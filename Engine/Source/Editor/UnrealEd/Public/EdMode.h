@@ -119,6 +119,13 @@ public:
 	/** If the Edmode is handling its own mouse deltas, it can disable the MouseDeltaTacker */
 	virtual bool DisallowMouseDeltaTracking() const { return false; }
 
+	/** 
+	 * Lets each mode/tool specify a pivot point around which the camera should orbit
+	 * @param	OutPivot	The custom pivot point returned by the mode/tool
+	 * @return	true if a custom pivot point was specified, false otherwise.
+	 */
+	virtual bool GetPivotForOrbit(FVector& OutPivot) const { return false; }
+
 	/**
 	 * Get a cursor to override the default with, if any.
 	 * @return true if the cursor was overridden.

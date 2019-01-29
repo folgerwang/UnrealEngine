@@ -82,21 +82,19 @@ void FSteamVRHMD::UpdateSplashScreen()
 		const FIntPoint TextureSize = Texture->GetSizeXY();
 		const float	InvAspectRatio = (TextureSize.X > 0) ? float(TextureSize.Y) / float(TextureSize.X) : 1.0f;
 
-		LayerDesc.UVRect = FBox2D(SplashOffset, SplashOffset + SplashScale);
-		
 		// Get the current pose of the HMD
 		FVector HMDPosition;
 		FQuat HMDOrientation;
 		GetCurrentPose(IXRTrackingSystem::HMDDeviceId, HMDOrientation, HMDPosition);
 
-		FTransform Translation(FVector(500.0f, 0.0f, 100.0f));
+		FTransform Translation(FVector(500.0f, 0.0f, 100.0f) + SplashOffset);
 		FRotator Rotation(HMDOrientation);
 		Rotation.Pitch = 0.0f;
 		Rotation.Roll = 0.0f;
 		LayerDesc.Transform = Translation * FTransform(Rotation.Quaternion());
 
 		// Set texture size to 8m wide, keeping the aspect ratio.
-		LayerDesc.QuadSize = FVector2D(800.0f, 800.0f*InvAspectRatio);
+		LayerDesc.QuadSize = FVector2D(800.0f, 800.0f*InvAspectRatio) * SplashScale;
 
 		if (SplashLayerHandle)
 		{
@@ -383,7 +381,7 @@ IStereoLayers* FSteamVRHMD::GetStereoLayers()
 		return FHeadMountedDisplayBase::GetStereoLayers();
 	}
 
-
+	ensure(VROverlay);
 	if (VROverlay)
 	{
 		return this;

@@ -3,6 +3,17 @@
 #pragma once
 
 #include "UObject/NameTypes.h"
+#include "UObject/NameTypes.h"
+#include "InputCoreTypes.h"
+
+/** Magic Leap motion sources */
+struct FMagicLeapMotionSourceNames
+{
+	static const FName Control0;
+	static const FName Control1;
+	static const FName MobileApp;
+	static const FName Unknown;
+};
 
 /** List of input key names for all keys specific to Magic Leap Controller and Mobile Companion App. */
 struct FMagicLeapControllerKeyNames
@@ -16,6 +27,19 @@ struct FMagicLeapControllerKeyNames
 	static const FName Right_MoveButton_Name;
 	static const FName Right_AppButton_Name;
 	static const FName Right_HomeButton_Name;
+};
+
+struct FMagicLeapKeys
+{
+	static const FKey MotionController_Left_Thumbstick_Z;
+	static const FKey Left_MoveButton;
+	static const FKey Left_AppButton;
+	static const FKey Left_HomeButton;
+
+	static const FKey MotionController_Right_Thumbstick_Z;
+	static const FKey Right_MoveButton;
+	static const FKey Right_AppButton;
+	static const FKey Right_HomeButton;
 };
 
 /** Defines the Magic Leap controller type. */

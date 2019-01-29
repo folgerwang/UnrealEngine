@@ -201,20 +201,31 @@ static const WIDECHAR* GetFormattedArgument(const FFormatInfo& Info, VA_LIST_REF
 	return Formatted;
 }
 
-int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
+int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
 {
-  	const WIDECHAR* Format = Fmt;
+	const WIDECHAR* Format = Fmt;
 	const WIDECHAR* DestStart = Dest;
 
-	while (Count > 1 &&  *Format)
+	if (DestSize == 0)
+	{
+		return -1;
+	}
+
+	--DestSize;
+	while (*Format)
 	{
 		if (*Format == LITERAL(WIDECHAR, '%'))
 		{
 			if (*(Format + 1) == LITERAL(WIDECHAR, '%'))
 			{
+				if (DestSize == 0)
+				{
+					*Dest = 0;
+					return -1;
+				}
 				*Dest++ = *Format;
 				Format += 2;
-				Count--;
+				DestSize--;
 				continue;
 			}
 
@@ -226,24 +237,36 @@ int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int3
 			const WIDECHAR* FormattedArg = GetFormattedArgument(Info, ArgPtr, Formatted, Length);
 			if (FormattedArg && Length > 0)
 			{
-				if (Length < Count)
+				if (Length < DestSize)
 				{
 					FMemory::Memcpy(Dest, FormattedArg, Length * sizeof(WIDECHAR));
 					Dest += Length;
+					DestSize -= Length;
 				}
-				Count -= Length;
+				else
+				{
+					FMemory::Memcpy(Dest, FormattedArg, DestSize * sizeof(WIDECHAR));
+					Dest += DestSize;
+					*Dest = 0;
+					return -1;
+				}
 			}
 		}
 		else
 		{
+			if (DestSize == 0)
+			{
+				*Dest = 0;
+				return -1;
+			}
 			*Dest++ = *Format++;
-			Count--;
+			DestSize--;
 		}
 	}
 
 	*Dest = 0;
 
-	return Count > 1 ? Dest - DestStart : -1;
+	return Dest - DestStart;
 }
 
 #endif // !PLATFORM_USE_SYSTEM_VSWPRINTF

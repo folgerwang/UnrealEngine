@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class LuminRuntimeSettings : ModuleRules
 {
@@ -8,13 +9,13 @@ public class LuminRuntimeSettings : ModuleRules
 	{
 		BinariesSubFolder = "Lumin";
 
-		PrivateDependencyModuleNames.AddRange(
+        PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
 				"CoreUObject",
 				"Engine",
-			}
+            }
 		);
 
         if (Target.Type == TargetRules.TargetType.Editor || Target.Type == TargetRules.TargetType.Program)

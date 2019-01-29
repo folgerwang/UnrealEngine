@@ -24,6 +24,11 @@ bool FDisplayClusterConfigParser::ParseFile(const FString& path)
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterConfigParserListener
 //////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterConfigParser::AddInfo(const FDisplayClusterConfigInfo& InCfgInfo)
+{
+	ConfigParserListener->AddInfo(InCfgInfo);
+}
+
 void FDisplayClusterConfigParser::AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode)
 {
 	ConfigParserListener->AddClusterNode(InCfgCNode);
@@ -82,6 +87,11 @@ void FDisplayClusterConfigParser::AddDebug(const FDisplayClusterConfigDebug& InC
 void FDisplayClusterConfigParser::AddInput(const FDisplayClusterConfigInput& InCfgInput)
 {
 	ConfigParserListener->AddInput(InCfgInput);
+}
+
+void FDisplayClusterConfigParser::AddInputSetup(const FDisplayClusterConfigInputSetup& InCfgInputSetup)
+{
+	ConfigParserListener->AddInputSetup(InCfgInputSetup);
 }
 
 void FDisplayClusterConfigParser::AddCustom(const FDisplayClusterConfigCustom& InCfgCustom)

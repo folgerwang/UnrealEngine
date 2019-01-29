@@ -4,6 +4,7 @@
 
 #include "IXRTrackingSystem.h"
 #include "IXRCamera.h"
+#include "ARSupportInterface.h"
 
 class HEADMOUNTEDDISPLAY_API FXRTrackingSystemDelegates
 {
@@ -19,7 +20,7 @@ public:
 class HEADMOUNTEDDISPLAY_API FXRTrackingSystemBase : public IXRTrackingSystem
 {
 public:
-	FXRTrackingSystemBase();
+	FXRTrackingSystemBase(IARSystemSupport* InARImplementation);
 	virtual ~FXRTrackingSystemBase();
 
 	/**
@@ -138,12 +139,9 @@ public:
 	*/
 	virtual void UpdateExternalTrackingPosition(const FTransform& ExternalTrackingTransform) override;
 
-	/**
-	 * This method should return the world to meters scale for the current frame.
-	 * Should be callable on both the render and the game threads.
-	 * @return the current world to meter scale.
-	 */
-	virtual float GetWorldToMetersScale() const =0;
+
+	TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> GetARCompositionComponent();
+	const TSharedPtr<const FARSupportInterface , ESPMode::ThreadSafe> GetARCompositionComponent() const;
 
 protected:
 	/** 
@@ -175,5 +173,8 @@ protected:
 	 * will attempt to normalize the internal tracking system to match this calibration when called.
 	 */
 	FTransform CalibratedOffset;
+
+private:
+	TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> ARCompositionComponent;
 };
 

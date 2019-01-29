@@ -57,14 +57,5 @@ public class UMG : ModuleRules
 			    }
             );
 		}
-
-		if (Target.Type == TargetType.Editor)
-		{
-			PublicDependencyModuleNames.AddRange(
-				new string[] {
-					"UnrealEd",
-				}
-			);
-		}
 	}
 }

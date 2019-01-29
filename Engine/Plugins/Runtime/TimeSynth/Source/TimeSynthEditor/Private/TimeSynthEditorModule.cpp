@@ -12,7 +12,7 @@
 #include "TimeSynthVolumeGroup.h"
 #include "AudioEditorModule.h"
 
-IMPLEMENT_MODULE(FTimeSynthEditorModule, FTimeSynthEditor)
+IMPLEMENT_MODULE(FTimeSynthEditorModule, TimeSynthEditor)
 
 void FTimeSynthEditorModule::StartupModule()
 {

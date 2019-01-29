@@ -228,8 +228,8 @@ bool FOnlineSessionSteam::CreateSession(int32 HostingPlayerNum, FName SessionNam
 		Session->NumOpenPublicConnections = NewSessionSettings.bIsDedicated ? NewSessionSettings.NumPublicConnections : NewSessionSettings.NumPublicConnections - 1;
 
 		Session->HostingPlayerNum = HostingPlayerNum;
-		Session->OwningUserId = SteamUser() ? MakeShareable(new FUniqueNetIdSteam(SteamUser()->GetSteamID())) : NULL;
-		Session->OwningUserName = SteamFriends() ? SteamFriends()->GetPersonaName() : FString(TEXT(""));
+		Session->OwningUserId = SteamUser() ? MakeShareable(new FUniqueNetIdSteam(SteamUser()->GetSteamID())) : nullptr;
+		Session->OwningUserName = SteamFriends() ? SteamFriends()->GetPersonaName() : GetCustomDedicatedServerName();
 		
 		// Unique identifier of this build for compatibility
 		Session->SessionSettings.BuildUniqueId = GetBuildUniqueId();
@@ -350,6 +350,12 @@ uint32 FOnlineSessionSteam::CreateLANSession(int32 HostingPlayerNum, FNamedOnlin
 	// Setup the host session info
 	FOnlineSessionInfoSteam* NewSessionInfo = new FOnlineSessionInfoSteam(ESteamSession::LANSession);
 	NewSessionInfo->InitLAN();
+
+	if (!Session->OwningUserId.IsValid())
+	{
+		// Use the lan user id, requires us to advertise the host ip and port
+		Session->OwningUserId = MakeShareable(new FUniqueNetIdSteam(k_steamIDLanModeGS));
+	}
 	Session->SessionInfo = MakeShareable(NewSessionInfo);
 
 	// Don't create the LAN beacon if advertising is off
@@ -684,6 +690,14 @@ bool FOnlineSessionSteam::CancelMatchmaking(const FUniqueNetId& SearchingPlayerI
 bool FOnlineSessionSteam::FindSessions(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
 	uint32 Return = ONLINE_FAIL;
+
+	// Dedicated servers shouldn't be matchmaking. 
+	if (SteamSubsystem->IsDedicated())
+	{
+		SearchSettings->SearchState = EOnlineAsyncTaskState::Failed;
+		TriggerOnFindSessionsCompleteDelegates(false);
+		return false;
+	}
 
 	// Don't start another search while one is in progress
 	if (!CurrentSessionSearch.IsValid() && SearchSettings->SearchState != EOnlineAsyncTaskState::InProgress)
@@ -1300,6 +1314,25 @@ bool FOnlineSessionSteam::GetResolvedConnectString(const FOnlineSessionSearchRes
 	}
 
 	return bSuccess;
+}
+
+FString FOnlineSessionSteam::GetCustomDedicatedServerName() const
+{
+	FString ServerName;
+
+	if (FParse::Value(FCommandLine::Get(), TEXT("-SteamServerName="), ServerName))
+	{
+		if (ServerName.Len() >= k_cbMaxGameServerName)
+		{
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("SteamServerName overflows the maximum amount of characters %d allowed, truncating."), k_cbMaxGameServerName);
+			// Must have space for the null terminator
+			ServerName = ServerName.Left(k_cbMaxGameServerName - 1);
+		}
+
+		return ServerName;
+	}
+	
+	return TEXT("");
 }
 
 FOnlineSessionSettings* FOnlineSessionSteam::GetSessionSettings(FName SessionName) 

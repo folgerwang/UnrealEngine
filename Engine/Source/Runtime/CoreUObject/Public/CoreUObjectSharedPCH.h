@@ -198,7 +198,6 @@
 #include "Async/AsyncWork.h"
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Containers/Queue.h"
 #include "Serialization/MemoryArchive.h"
 #include "GenericPlatform/GenericPlatformFile.h"

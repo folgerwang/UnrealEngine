@@ -93,8 +93,8 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	/** Toggles maximize mode in the viewport */
 	TSharedPtr< FUICommandInfo > ToggleMaximize;
 
-	/** Creates a cameraActor at current perspective viewport position */
-	TSharedPtr< FUICommandInfo > CreateCamera;
+	/** Creates a subclass of ACameraActor at current perspective viewport position */
+	TArray< TSharedPtr< FUICommandInfo > > CreateCameras;
 
 	/** Opens the control panel for high resolution screenshots */
 	TSharedPtr< FUICommandInfo > HighResScreenshot;

@@ -249,6 +249,7 @@ public:
 	/* From UMovieSection*/
 	
 	virtual bool ShowCurveForChannel(const void *Channel) const override;
+	virtual void SetBlendType(EMovieSceneBlendType InBlendType) override;
 
 public:
 
@@ -278,7 +279,8 @@ protected:
 	virtual void PostEditImport() override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-
+	virtual float GetTotalWeightValue(FFrameTime InTime) const override;
+	
 	void UpdateChannelProxy();
 
 private:

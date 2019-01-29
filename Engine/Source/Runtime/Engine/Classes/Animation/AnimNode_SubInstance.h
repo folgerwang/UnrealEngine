@@ -57,8 +57,6 @@ public:
 	TArray<UProperty*> SubInstanceProperties;
 
 	// Temporary storage for the output of the subinstance, will be copied into output pose.
-	// Declared at member level to avoid reallocating the objects
-	TArray<FTransform> BoneTransforms;
 	FBlendedHeapCurve BlendedCurve;
 
 	// FAnimNode_Base interface
@@ -67,8 +65,6 @@ public:
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
-	virtual bool HasPreUpdate() const override;
-	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
 
 protected:
 	virtual void OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance) override;
@@ -76,7 +72,4 @@ protected:
 
 	// Shutdown the currently running instance
 	void TeardownInstance();
-
-	// Makes sure the bone transforms array can contain the pose information from the provided anim instance
-	void AllocateBoneTransforms(const UAnimInstance* InAnimInstance);
 };

@@ -215,9 +215,9 @@ void FMovieSceneObjectCache::UpdateBindings(const FGuid& InGuid, IMovieScenePlay
 		// Because these are ordered parent-first, the parent must have already been bound, if it exists
 		if (Possessable->GetParent().IsValid())
 		{
-			ChildBindings.FindOrAdd(Possessable->GetParent()).AddUnique(InGuid);
-
 			TArrayView<TWeakObjectPtr<>> ParentBoundObjects = FindBoundObjects(Possessable->GetParent(), Player);
+
+			ChildBindings.FindOrAdd(Possessable->GetParent()).AddUnique(InGuid);
 
 			// Refresh bindings in case of map changes
 			Bindings = BoundObjects.Find(InGuid);

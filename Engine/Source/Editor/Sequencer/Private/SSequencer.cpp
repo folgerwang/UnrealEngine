@@ -75,6 +75,7 @@
 #include "LevelSequence.h"
 #include "SequencerLog.h"
 #include "MovieSceneCopyableBinding.h"
+#include "MovieSceneCopyableTrack.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -294,6 +295,13 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 							[
 								SNew(SSequencerCurveEditorToolBar, InSequencer, CurveEditorAndSequencerCommands)
 								.Visibility(this, &SSequencer::GetCurveEditorToolBarVisibility)
+							]
+
+							+ SHorizontalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							[
+								SNew(SSpacer)
 							]
 
 							+ SHorizontalBox::Slot()
@@ -1102,7 +1110,7 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	bool bSupportsDropFormatDisplay = FTimecode::IsDropFormatTimecodeSupported(Sequencer->GetFocusedDisplayRate());
 
-	const UEnum* FrameNumberDisplayEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFrameNumberDisplayFormats"), true);
+	const UEnum* FrameNumberDisplayEnum = StaticEnum<EFrameNumberDisplayFormats>();
 	check(FrameNumberDisplayEnum);
 
 	if (Settings)
@@ -1145,14 +1153,34 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 		auto OnStartChanged = [=](double NewValue){
 
 			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
-			double Min = (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
-			double Max = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value; 
+			double Min = -FLT_MAX;
+			double Max = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value;
 
 			NewValue = FMath::Clamp(NewValue, Min, Max);
 			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
 
 			FFrameNumber Upper = MovieScene::DiscreteExclusiveUpper(SequencerPtr.Pin()->GetPlaybackRange());
-			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(FMath::Min(ValueAsFrame, Upper-1), Upper));
+
+			TRange<FFrameNumber> NewRange = TRange<FFrameNumber>(FMath::Min(ValueAsFrame, Upper - 1), Upper);
+
+			SequencerPtr.Pin()->SetPlaybackRange(NewRange);
+
+			TRange<double> PlayRangeSeconds = SequencerPtr.Pin()->GetPlaybackRange() / SequencerPtr.Pin()->GetFocusedTickResolution();
+			const double AdditionalRange = (PlayRangeSeconds.GetUpperBoundValue() - PlayRangeSeconds.GetLowerBoundValue()) * 0.1;
+
+			TRange<double> NewClampRange = SequencerPtr.Pin()->GetClampRange();
+			NewClampRange.SetLowerBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() - AdditionalRange);
+			if (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() > NewClampRange.GetLowerBoundValue())
+			{
+				SequencerPtr.Pin()->SetClampRange(NewClampRange);
+			}
+
+			TRange<double> NewViewRange = SequencerPtr.Pin()->GetViewRange();
+			NewViewRange.SetLowerBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() - AdditionalRange);
+			if (SequencerPtr.Pin()->GetViewRange().GetLowerBoundValue() > NewViewRange.GetLowerBoundValue())
+			{
+				SequencerPtr.Pin()->SetViewRange(NewViewRange);
+			}
 		};
 
 		MenuBuilder.AddWidget(
@@ -1189,13 +1217,30 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 
 			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
 			double Min = SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue().Value;
-			double Max = (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
+			double Max = FLT_MAX;
 
 			NewValue = FMath::Clamp(NewValue, Min, Max);
 			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
 
 			FFrameNumber Lower = MovieScene::DiscreteInclusiveLower(SequencerPtr.Pin()->GetPlaybackRange());
 			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(Lower, FMath::Max(ValueAsFrame, Lower)));
+
+			TRange<double> PlayRangeSeconds = SequencerPtr.Pin()->GetPlaybackRange() / SequencerPtr.Pin()->GetFocusedTickResolution();
+			const double AdditionalRange = (PlayRangeSeconds.GetUpperBoundValue() - PlayRangeSeconds.GetLowerBoundValue()) * 0.1;
+
+			TRange<double> NewClampRange = SequencerPtr.Pin()->GetClampRange();
+			NewClampRange.SetUpperBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() + AdditionalRange);
+			if (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() < NewClampRange.GetUpperBoundValue())
+			{
+				SequencerPtr.Pin()->SetClampRange(NewClampRange);
+			}
+
+			TRange<double> NewViewRange = SequencerPtr.Pin()->GetViewRange();
+			NewViewRange.SetUpperBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() + AdditionalRange);
+			if (SequencerPtr.Pin()->GetViewRange().GetUpperBoundValue() < NewViewRange.GetUpperBoundValue())
+			{
+				SequencerPtr.Pin()->SetViewRange(NewViewRange);
+			}
 		};
 
 		MenuBuilder.AddWidget(
@@ -2344,7 +2389,7 @@ bool SSequencer::CanPaste()
 	// Attempts to deserialize the text into object bindings/tracks that Sequencer understands.
 	if (Sequencer->CanPaste(TextToImport))
 	{
-		TArray<UMovieSceneTrack*> ImportedTracks;
+		TArray<UMovieSceneCopyableTrack*> ImportedTracks;
 		TArray<UMovieSceneSection*> ImportedSections;
 		TArray<UMovieSceneCopyableBinding*> ImportedObjects;
 		Sequencer->ImportTracksFromText(TextToImport, ImportedTracks);

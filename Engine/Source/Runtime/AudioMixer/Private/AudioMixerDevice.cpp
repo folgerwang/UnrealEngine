@@ -698,12 +698,6 @@ namespace Audio
 		// Now register all the non-core submixes.
 
 #if WITH_EDITOR
-		// sanity check the Submixes map to ensure we don't leak any instances of FMixerSubmix.
-		for (auto& Submix : Submixes)
-		{
-			checkf(Submix.Value.IsUnique(), TEXT("Possible leak: please check FMixerSubmix for possible circular references."));
-		}
-
 		Submixes.Reset();
 #endif
 

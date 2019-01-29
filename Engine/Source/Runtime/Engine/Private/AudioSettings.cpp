@@ -56,6 +56,9 @@ UAudioSettings::UAudioSettings(const FObjectInitializer& ObjectInitializer)
 
 	bAllowVirtualizedSounds = true;
 	bIsAudioMixerEnabled = false;
+
+	GlobalMinPitchScale = 0.4F;
+	GlobalMaxPitchScale = 2.0F;
 }
 
 void UAudioSettings::AddDefaultSettings()

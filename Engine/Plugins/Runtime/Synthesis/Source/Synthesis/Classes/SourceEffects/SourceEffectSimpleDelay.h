@@ -12,7 +12,7 @@ struct SYNTHESIS_API FSourceEffectSimpleDelaySettings
 	GENERATED_USTRUCT_BODY()
 
 	// Speed of sound in meters per second when using distance-based delay
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.01", UIMin = "0.01", UIMax = "10000.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.01", UIMin = "0.01", UIMax = "10000.0", EditCondition = "bDelayBasedOnDistance"))
 	float SpeedOfSound;
 
 	// Delay amount in seconds

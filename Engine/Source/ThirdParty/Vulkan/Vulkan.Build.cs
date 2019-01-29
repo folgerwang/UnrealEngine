@@ -17,13 +17,15 @@ public class Vulkan : ModuleRules
         {
             // Check if the installed SDK is newer or the same than the provided headers distributed with the Engine
             int ThirdPartyVersion = GetThirdPartyVersion();
-            int SDKVersion = GetSDKVersion(VulkanSDKPath);
+            string VulkanSDKHeaderPath = Path.Combine(VulkanSDKPath, "include");
+
+            int SDKVersion = GetSDKVersion(VulkanSDKHeaderPath);
             if (SDKVersion >= ThirdPartyVersion)
             {
                 // If the user has an installed SDK, use that instead
-                PublicSystemIncludePaths.Add(VulkanSDKPath + "/Include");
+                PublicSystemIncludePaths.Add(VulkanSDKHeaderPath);
                 // Older SDKs have an extra subfolder
-                PublicSystemIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
+                PublicSystemIncludePaths.Add(VulkanSDKHeaderPath + "/vulkan");
 
                 bUseThirdParty = false;
             }

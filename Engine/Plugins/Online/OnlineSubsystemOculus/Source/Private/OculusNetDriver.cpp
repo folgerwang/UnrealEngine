@@ -1,4 +1,4 @@
-// Copyright 2016 Oculus VR, LLC All Rights reserved.
+// Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
 
 #include "OculusNetDriver.h"
 #include "OnlineSubsystemOculusPrivate.h"

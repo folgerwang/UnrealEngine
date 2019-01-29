@@ -60,12 +60,14 @@ public:
 	TSharedPtr<FLayer, ESPMode::ThreadSafe> Clone() const;
 
 	bool CanReuseResources(const FLayer* InLayer) const;
-	void Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandListImmediate& RHICmdList, const FLayer* InLayer = nullptr);
+	void Initialize_RenderThread(const FSettings* Settings, FCustomPresent* CustomPresent, FRHICommandListImmediate& RHICmdList, const FLayer* InLayer = nullptr);
 	void UpdateTexture_RenderThread(FCustomPresent* CustomPresent, FRHICommandListImmediate& RHICmdList);
 
 	const ovrpLayerSubmit* UpdateLayer_RHIThread(const FSettings* Settings, const FGameFrame* Frame, const int LayerIndex);
 	void IncrementSwapChainIndex_RHIThread(FCustomPresent* CustomPresent);
 	void ReleaseResources_RHIThread();
+
+	bool bNeedsTexSrgbCreate;
 
 protected:
 	uint32 Id;

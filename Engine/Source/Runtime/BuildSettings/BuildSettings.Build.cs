@@ -9,6 +9,8 @@ public class BuildSettings : ModuleRules
 	{
 		PrivateIncludePathModuleNames.Add("Core");
 
+		bRequiresImplementModule = false;
+
 		PrivateDefinitions.Add(string.Format("ENGINE_VERSION_MAJOR={0}", Target.Version.MajorVersion));
 		PrivateDefinitions.Add(string.Format("ENGINE_VERSION_MINOR={0}", Target.Version.MinorVersion));
 		PrivateDefinitions.Add(string.Format("ENGINE_VERSION_HOTFIX={0}", Target.Version.PatchVersion));

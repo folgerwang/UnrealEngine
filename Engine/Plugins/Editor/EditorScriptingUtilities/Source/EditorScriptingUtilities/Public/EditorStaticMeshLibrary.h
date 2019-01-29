@@ -54,7 +54,7 @@ struct FEditorScriptingMeshReductionOptions
 };
 
 /** Types of Collision Construct that are generated **/
-UENUM()
+UENUM(BlueprintType)
 enum class EScriptingCollisionShapeType : uint8
 {
 	Box,

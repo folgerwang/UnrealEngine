@@ -1196,14 +1196,21 @@ bool UEditorLevelLibrary::CreateProxyMeshActor(const TArray<class AStaticMeshAct
 		return false;
 	}
 
+	FString FailureReason;
+	FString PackageName = EditorScriptingUtils::ConvertAnyPathToLongPackagePath(MergeOptions.BasePackageName, FailureReason);
+	if (PackageName.IsEmpty())
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("CreateProxyMeshActor. Failed to convert the BasePackageName. %s"), *FailureReason);
+		return false;
+	}
+
 	// Cleanup actors
 	TArray<AStaticMeshActor*> StaticMeshActors;
 	TArray<UPrimitiveComponent*> AllComponents_UNUSED;
 	FVector PivotLocation;
-	FString FailureReason;
 	if (!InternalEditorLevelLibrary::FindValidActorAndComponents(ActorsToMerge, StaticMeshActors, AllComponents_UNUSED, PivotLocation, FailureReason))
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("MergeStaticMeshActors failed. %s"), *FailureReason);
+		UE_LOG(LogEditorScripting, Error, TEXT("CreateProxyMeshActor failed. %s"), *FailureReason);
 		return false;
 	}
 	TArray<AActor*> AllActors(StaticMeshActors);
@@ -1219,7 +1226,7 @@ bool UEditorLevelLibrary::CreateProxyMeshActor(const TArray<class AStaticMeshAct
 		MergeOptions.MeshProxySettings, // Merge settings
 		nullptr,                        // Base Material used for final proxy material. Note: nullptr for default impl: /Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial
 		nullptr,                        // Package for generated assets. Note: if nullptr, BasePackageName is used
-		MergeOptions.BasePackageName,   // Will be used for naming generated assets, in case InOuter is not specified ProxyBasePackageName will be used as long package name for creating new packages
+		PackageName,                    // Will be used for naming generated assets, in case InOuter is not specified ProxyBasePackageName will be used as long package name for creating new packages
 		FGuid::NewGuid(),               // Identify a job, First argument of the ProxyDelegate
 		ProxyDelegate                   // Called back on asset creation
 	);

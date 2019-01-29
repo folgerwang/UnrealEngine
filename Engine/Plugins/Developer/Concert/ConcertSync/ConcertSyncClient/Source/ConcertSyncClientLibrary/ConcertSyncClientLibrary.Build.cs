@@ -1,0 +1,36 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+namespace UnrealBuildTool.Rules
+{
+	public class ConcertSyncClientLibrary : ModuleRules
+	{
+		public ConcertSyncClientLibrary(ReadOnlyTargetRules Target) : base(Target)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"Core",
+					"CoreUObject",
+					"Engine",
+				}
+			);
+
+			if (Target.bBuildDeveloperTools)
+			{
+				PrivateDefinitions.Add("WITH_CONCERT=1");
+
+				PrivateDependencyModuleNames.AddRange(
+					new string[]
+					{
+						"ConcertSyncClient",
+						"ConcertTransport",
+					}
+				);
+			}
+			else
+			{
+				PrivateDefinitions.Add("WITH_CONCERT=0");
+			}
+		}
+	}
+}

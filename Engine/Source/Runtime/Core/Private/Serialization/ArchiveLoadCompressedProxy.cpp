@@ -9,15 +9,15 @@
 	FArchiveLoadCompressedProxy
 ----------------------------------------------------------------------------*/
 
-/** 
- * Constructor, initializing all member variables and allocating temp memory.
- *
- * @param	InCompressedData	Array of bytes that is holding compressed data
- * @param	InCompressionFlags	Compression flags that were used to compress data
- */
-FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy( const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags )
-:	CompressedData(InCompressedData)
-,	CompressionFlags(InCompressionFlags)
+FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy(FArchiveLoadCompressedProxy::EVS2015Redirector, const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags)
+	: FArchiveLoadCompressedProxy(InCompressedData, FCompression::GetCompressionFormatFromDeprecatedFlags(InCompressionFlags))
+{
+}
+
+FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy(const TArray<uint8>& InCompressedData, FName InCompressionFormat, ECompressionFlags InCompressionFlags)
+	:	CompressedData(InCompressedData)
+	,	CompressionFormat(InCompressionFormat)
+	,	CompressionFlags(InCompressionFlags)
 {
 	this->SetIsLoading(true);
 	this->SetIsPersistent(true);
@@ -32,7 +32,6 @@ FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy( const TArray<uint8>& I
 	TmpData			= TmpDataEnd;
 }
 
-/** Destructor, freeing temporary memory. */
 FArchiveLoadCompressedProxy::~FArchiveLoadCompressedProxy()
 {
 	// Free temporary memory allocated.
@@ -49,7 +48,7 @@ void FArchiveLoadCompressedProxy::DecompressMoreData()
 {
 	// This will call Serialize so we need to indicate that we want to serialize from array.
 	bShouldSerializeFromArray = true;
-	SerializeCompressed( TmpDataStart, LOADING_COMPRESSION_CHUNK_SIZE /** it's ignored, but that's how much we serialize */, CompressionFlags );
+	SerializeCompressed( TmpDataStart, LOADING_COMPRESSION_CHUNK_SIZE /** it's ignored, but that's how much we serialize */, CompressionFormat, CompressionFlags);
 	bShouldSerializeFromArray = false;
 	// Buffer is filled again, reset.
 	TmpData = TmpDataStart;

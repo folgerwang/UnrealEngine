@@ -9,6 +9,7 @@
 #include "GameFramework/HUD.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "MagicLeapEyeTrackerTypes.h"
+#include "IMagicLeapModule.h"
 #include "MagicLeapEyeTrackerModule.generated.h"
 
 class FMagicLeapVREyeTracker;
@@ -70,7 +71,7 @@ public:
 	{
 		return FModuleManager::LoadModuleChecked<IMagicLeapEyeTrackerModule>("MagicLeapEyeTracker");
 	}
-
+	
 	/**
 	* Checks to see if this module is loaded and ready.  It is only valid to call Get() if
 	* IsAvailable() returns true.
@@ -99,6 +100,7 @@ public:
 	/************************************************************************/
 	/* IEyeTracker                                                          */
 	/************************************************************************/
+	void Destroy();
 	virtual void SetEyeTrackedPlayer(APlayerController* PlayerController) override;
 	virtual bool GetEyeTrackerGazeData(FEyeTrackerGazeData& OutGazeData) const override;
 	virtual bool GetEyeTrackerStereoGazeData(FEyeTrackerStereoGazeData& OutGazeData) const override;
@@ -111,20 +113,25 @@ public:
 
 	EMagicLeapEyeTrackingCalibrationStatus GetCalibrationStatus() const;
 
-private:
-	friend class FMagicLeapEyeTrackerModule;
+	inline FMagicLeapVREyeTracker* GetVREyeTracker() const
+	{
+		return VREyeTracker;
+	}
 
+private:
 	FMagicLeapVREyeTracker* VREyeTracker;
 };
 
-class FMagicLeapEyeTrackerModule : public IMagicLeapEyeTrackerModule
+class FMagicLeapEyeTrackerModule : public IMagicLeapEyeTrackerModule, public IMagicLeapModule
 {
 	/************************************************************************/
 	/* IInputDeviceModule                                                   */
 	/************************************************************************/
 public:
+	FMagicLeapEyeTrackerModule();
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+	virtual void Disable() override;
 	virtual TSharedPtr< class IEyeTracker, ESPMode::ThreadSafe > CreateEyeTracker() override;
 
 	/************************************************************************/

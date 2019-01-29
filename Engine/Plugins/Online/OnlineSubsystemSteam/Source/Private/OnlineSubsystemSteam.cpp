@@ -31,6 +31,14 @@
 #include "OnlineAuthInterfaceSteam.h"
 #include "VoiceInterfaceSteam.h"
 
+/* Specify this define in your Target.cs for your project
+ *
+ * This helps the SteamAPI find your project on shipping builds
+ * if your game is launched outside of Steam.
+ */
+#ifndef UE4_PROJECT_STEAMSHIPPINGID
+#define UE4_PROJECT_STEAMSHIPPINGID 0
+#endif
 
 #if !UE_BUILD_SHIPPING
 namespace OSSConsoleVariables
@@ -188,8 +196,7 @@ void ConfigureSteamInitDevOptions(bool& RequireRelaunch, int32& RelaunchAppId)
 #else
 	// Always check against the Steam client when shipping
 	RequireRelaunch = true;
-	// Enter shipping app id here
-	RelaunchAppId = 0;
+	RelaunchAppId = UE4_PROJECT_STEAMSHIPPINGID;
 #endif
 }
 
@@ -309,6 +316,11 @@ IOnlinePresencePtr FOnlineSubsystemSteam::GetPresenceInterface() const
 }
 
 IOnlineChatPtr FOnlineSubsystemSteam::GetChatInterface() const
+{
+	return nullptr;
+}
+
+IOnlineStatsPtr FOnlineSubsystemSteam::GetStatsInterface() const
 {
 	return nullptr;
 }

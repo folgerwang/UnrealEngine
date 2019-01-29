@@ -706,7 +706,7 @@ float UnwindChannel(const float& OldValue, float NewValue)
 	return NewValue;
 }
 
-void F3DTransformTrackEditor::GetTransformKeys( const TOptional<FTransformData>& LastTransform, const FTransformData& CurrentTransform, EMovieSceneTransformChannel ChannelsToKey, FGeneratedTrackKeys& OutGeneratedKeys )
+void F3DTransformTrackEditor::GetTransformKeys( const TOptional<FTransformData>& LastTransform, const FTransformData& CurrentTransform, EMovieSceneTransformChannel ChannelsToKey, FGeneratedTrackKeys& OutGeneratedKeys)
 {
 	bool bLastVectorIsValid = LastTransform.IsSet();
 
@@ -719,7 +719,8 @@ void F3DTransformTrackEditor::GetTransformKeys( const TOptional<FTransformData>&
 
 	// Set translation keys/defaults
 	{
-		FVector LastVector = bLastVectorIsValid ? LastTransform->Translation : FVector(), CurrentVector = CurrentTransform.Translation;
+		FVector DiffVector = LastTransform.IsSet() ? LastTransform->Translation : FVector();
+		FVector LastVector = bLastVectorIsValid ? DiffVector : FVector(), CurrentVector = CurrentTransform.Translation;
 		bool bKeyX = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::TranslationX) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.X, CurrentVector.X) );
 		bool bKeyY = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::TranslationY) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.Y, CurrentVector.Y) );
 		bool bKeyZ = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::TranslationZ) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.Z, CurrentVector.Z) );
@@ -736,7 +737,8 @@ void F3DTransformTrackEditor::GetTransformKeys( const TOptional<FTransformData>&
 
 	// Set rotation keys/defaults
 	{
-		FVector LastVector = bLastVectorIsValid ? LastTransform->Rotation.Euler() : FVector(), CurrentVector = CurrentTransform.Rotation.Euler();
+		FVector DiffVector = LastTransform.IsSet() ? LastTransform->Rotation.Euler() : FVector();
+		FVector LastVector = bLastVectorIsValid ? DiffVector : FVector(), CurrentVector = CurrentTransform.Rotation.Euler();
 
 		if (bLastVectorIsValid)
 		{
@@ -760,11 +762,13 @@ void F3DTransformTrackEditor::GetTransformKeys( const TOptional<FTransformData>&
 		OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(3, CurrentVector.X, bKeyX));
 		OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(4, CurrentVector.Y, bKeyY));
 		OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(5, CurrentVector.Z, bKeyZ));
+
 	}
 
 	// Set scale keys/defaults
 	{
-		FVector LastVector = bLastVectorIsValid ? LastTransform->Scale : FVector(), CurrentVector = CurrentTransform.Scale;
+		FVector DiffVector = LastTransform.IsSet() ? LastTransform->Scale : FVector();
+		FVector LastVector = bLastVectorIsValid ? DiffVector: FVector(), CurrentVector = CurrentTransform.Scale;
 		bool bKeyX = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::ScaleX) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.X, CurrentVector.X) );
 		bool bKeyY = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::ScaleY) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.Y, CurrentVector.Y) );
 		bool bKeyZ = EnumHasAnyFlags(ChannelsToKey, EMovieSceneTransformChannel::ScaleZ) && ( !bLastVectorIsValid || !FMath::IsNearlyEqual(LastVector.Z, CurrentVector.Z) );
@@ -818,6 +822,7 @@ void F3DTransformTrackEditor::AddTransformKeys( UObject* ObjectToKey, const TOpt
 	}
 
 	TSharedRef<FGeneratedTrackKeys> GeneratedKeys = MakeShared<FGeneratedTrackKeys>();
+
 	GetTransformKeys(LastTransform, CurrentTransform, ChannelsToKey, *GeneratedKeys);
 
 	auto InitializeNewTrack = [](UMovieScene3DTransformTrack* NewTrack)
@@ -827,10 +832,45 @@ void F3DTransformTrackEditor::AddTransformKeys( UObject* ObjectToKey, const TOpt
 
 	auto OnKeyProperty = [=](FFrameNumber Time) -> FKeyPropertyResult
 	{
-		return this->AddKeysToObjects({ ObjectToKey }, Time, *GeneratedKeys, KeyMode, UMovieScene3DTransformTrack::StaticClass(), TransformPropertyName, InitializeNewTrack);
+		return this->AddKeysToObjects({ ObjectToKey }, Time, *GeneratedKeys,  KeyMode, UMovieScene3DTransformTrack::StaticClass(), TransformPropertyName, InitializeNewTrack);
 	};
 
 	AnimatablePropertyChanged( FOnKeyProperty::CreateLambda(OnKeyProperty) );
+}
+
+bool F3DTransformTrackEditor::ModifyGeneratedKeysByCurrentAndWeight(UObject *Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedTotalKeys, float Weight) const
+{
+
+	FFrameRate TickResolution = GetSequencer()->GetFocusedTickResolution();
+	FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+
+	FMovieSceneInterrogationData InterrogationData;
+	GetSequencer()->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
+
+	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, GetSequencer()->GetFocusedTickResolution()));
+	EvalTrack.Interrogate(Context, InterrogationData, Object);
+			
+	FVector CurrentPos; FRotator CurrentRot;
+	FVector CurrentScale;
+	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformTrack::GetInterrogationKey()))
+	{
+		CurrentPos = Transform.GetTranslation();
+		CurrentRot = Transform.Rotator();
+		CurrentScale = Transform.GetScale3D();
+		break;
+	}
+	FMovieSceneChannelProxy& Proxy = SectionToKey->GetChannelProxy();
+	GeneratedTotalKeys[0]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.X, Weight);
+	GeneratedTotalKeys[1]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.Y, Weight);
+	GeneratedTotalKeys[2]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentPos.Z, Weight);
+	GeneratedTotalKeys[3]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Roll, Weight);
+	GeneratedTotalKeys[4]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Pitch, Weight);
+	GeneratedTotalKeys[5]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentRot.Yaw, Weight);
+	GeneratedTotalKeys[6]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.X, Weight);
+	GeneratedTotalKeys[7]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.Y, Weight);
+	GeneratedTotalKeys[8]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&CurrentScale.Z, Weight);
+	return true;
+
 }
 
 void AddUnwoundKey(FMovieSceneFloatChannel& Channel, FFrameNumber Time, float Value)

@@ -25,6 +25,7 @@
 #include "Misc/EngineVersion.h"
 #include "Stats/Stats.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Misc/Compression.h"
 
 #if CSV_PROFILER
 
@@ -1074,9 +1075,10 @@ private:
 						// Compress the data in Buffer into the GZipBuffer array
 						CompressedSize = GZipBuffer.Num();
 						if (FCompression::CompressMemory(
-							(ECompressionFlags)(ECompressionFlags::COMPRESS_GZIP | ECompressionFlags::COMPRESS_BiasSpeed),
+							NAME_Zlib,
 							GZipBuffer.GetData(), CompressedSize,
-							Buffer.GetData(), BytesInBuffer))
+							Buffer.GetData(), BytesInBuffer,
+							ECompressionFlags::COMPRESS_BiasSpeed))
 						{
 							break;
 						}

@@ -8,7 +8,9 @@
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "Containers/BitArray.h"
 THIRD_PARTY_INCLUDES_START
-	#include <SDL.h>
+	#ifdef HTML5_USE_SDL2
+		#include <SDL.h>
+	#endif
 	#include <emscripten/html5.h>
 THIRD_PARTY_INCLUDES_END
 
@@ -30,8 +32,11 @@ public:
 
 	void SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler);
 
+#ifdef HTML5_USE_SDL2
 	/** Tick the interface (i.e check for new controllers) */
 	void Tick( float DeltaTime, const SDL_Event& Event,TSharedRef < FGenericWindow>& ApplicationWindow );
+#endif
+
 	/**
 	 * Poll for controller state and send events if needed
 	 */

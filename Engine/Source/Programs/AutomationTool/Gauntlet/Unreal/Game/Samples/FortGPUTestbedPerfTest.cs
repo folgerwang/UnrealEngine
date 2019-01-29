@@ -15,7 +15,7 @@ namespace UE4Game
 	/// <summary>
 	/// Runs automated tests on a platform
 	/// </summary>
-	public class FortGPUTestbedPerfTest : DefaultNode
+	public class FortGPUTestbedPerfTest : DefaultTest
 	{
 		public FortGPUTestbedPerfTest(Gauntlet.UnrealTestContext InContext)
 			: base(InContext)

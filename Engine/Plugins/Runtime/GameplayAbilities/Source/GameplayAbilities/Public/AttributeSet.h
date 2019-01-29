@@ -289,6 +289,12 @@ public:
 	/** Returns the scaled value at level 0 */
 	float GetValue(const FString* ContextString = nullptr) const;
 
+	/** Used when using a scalable float as a bool */
+	bool AsBool(float Level = 0, const FString* ContextString = nullptr) const;
+
+	/** Returns the value as an int32 */
+	int32 AsInteger(float Level = 0, const FString* ContextString = nullptr) const;
+
 	/** True if there is no curve lookup */
 	bool IsStatic() const
 	{

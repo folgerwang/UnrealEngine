@@ -218,7 +218,7 @@ public:
 	void MakeSearchQuery(FString InSearchString, bool bInIsFindWithinBlueprint, enum ESearchQueryFilter InSearchFilterForImaginaryDataReturn = ESearchQueryFilter::AllFilter, EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST, FOnSearchComplete InOnSearchComplete = FOnSearchComplete());
 
 	/** Called when caching Blueprints is started */
-	void OnCacheStarted(EFiBCacheOpType InOpType);
+	void OnCacheStarted(EFiBCacheOpType InOpType, EFiBCacheOpFlags InOpFlags);
 	
 	/** Called when caching Blueprints is complete */
 	void OnCacheComplete(EFiBCacheOpType InOpType);
@@ -409,7 +409,4 @@ private:
 
 	/** True if current search should not be changed by an external source */
 	bool bIsLocked;
-
-	/** True if the cache bar should remain active after a caching operation */
-	bool bKeepCacheBarOpenOnCacheCompletion;
 };

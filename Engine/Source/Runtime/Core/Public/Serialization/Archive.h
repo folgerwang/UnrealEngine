@@ -9,7 +9,7 @@
 #include "Templates/IsEnumClass.h"
 #include "Templates/Function.h"
 #include "HAL/PlatformProperties.h"
-#include "Misc/Compression.h"
+#include "Misc/CompressionFlags.h"
 #include "Misc/EngineVersionBase.h"
 #include "Internationalization/TextNamespaceFwd.h"
 #include "Templates/IsValidVariadicFunctionArg.h"
@@ -28,7 +28,7 @@ struct FUntypedBulkData;
 struct FArchiveSerializedPropertyChain;
 template<class TEnum> class TEnumAsByte;
 typedef TFunction<bool (double RemainingTime)> FExternalReadCallback;
-
+struct FUObjectSerializeContext;
 
 // Temporary while we shake out the EDL at boot
 #define USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME (1)
@@ -746,7 +746,10 @@ public:
 	 * @param	bTreatBufferAsFileReader true if V is actually an FArchive, which is used when saving to read data - helps to avoid single huge allocations of source data
 	 * @param	bUsePlatformBitWindow use a platform specific bitwindow setting
 	 */
-	void SerializeCompressed(void* V, int64 Length, ECompressionFlags Flags, bool bTreatBufferAsFileReader = false, bool bUsePlatformBitWindow = false);
+	UE_DEPRECATED(4.20, "Use the FName based version of SerializeCompressed (which also removes the basically-unused bUsePlatformBitWindow)")
+	void SerializeCompressed(void* V, int64 Length, ECompressionFlags Flags = COMPRESS_NoFlags, bool bTreatBufferAsFileReader = false, bool bUsePlatformBitWindow = false);
+	void SerializeCompressed(void* V, int64 Length, FName CompressionFormat, ECompressionFlags Flags=COMPRESS_NoFlags, bool bTreatBufferAsFileReader=false);
+
 
 
 	FORCEINLINE bool IsByteSwapping()
@@ -871,7 +874,7 @@ public:
 	 *
 	 * @param Guid The guid of the custom version.  This must have previously been registered with FCustomVersionRegistration.
 	 */
-	void UsingCustomVersion(const struct FGuid& Guid);
+	virtual void UsingCustomVersion(const struct FGuid& Guid);
 
 	/**
 	 * Queries a custom version from the archive.  If the archive is being used to write, the custom version must have already been registered.
@@ -979,6 +982,11 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	FORCEINLINE bool DoDelta() const
 	{
 		return !ArNoDelta;
+	}
+
+	FORCEINLINE bool DoIntraPropertyDelta() const
+	{
+		return !ArNoIntraPropertyDelta;
 	}
 
 	FORCEINLINE bool IsIgnoringOuterRef() const
@@ -1260,6 +1268,12 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	virtual bool IsEditorOnlyPropertyOnTheStack() const;
 #endif
 
+	/* Sets the current UObject serialization context for this archive */
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) {}
+
+	/* Gets the current UObject serialization context for this archive */
+	virtual FUObjectSerializeContext* GetSerializeContext() { return nullptr; }
+
 	/** 
 	 * Adds external read dependency 
 	 *
@@ -1405,8 +1419,11 @@ public:
 	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
 	uint8 ArIgnoreArchetypeRef : 1;
 
-	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
+	/** If true, do not perform delta serialization of properties. */
 	uint8 ArNoDelta : 1;
+
+	/** If true, do not perform delta serialization within properties (e.g. TMaps and TSets). */
+	uint8 ArNoIntraPropertyDelta : 1;
 
 	/** If true, we will not serialize the Outer reference in UObject. */
 	uint8 ArIgnoreOuterRef : 1;

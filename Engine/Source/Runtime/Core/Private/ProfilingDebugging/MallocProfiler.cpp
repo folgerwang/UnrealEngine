@@ -26,14 +26,6 @@
 
 CORE_API FMallocProfiler* GMallocProfiler;
 
-/**
- * Maximum depth of stack backtrace.
- * Reducing this will sometimes truncate the amount of callstack info you get but will also reduce
- * the number of over all unique call stacks as some of the script call stacks are REALLY REALLY
- * deep and end up eating a lot of memory which will OOM you on consoles. A good value for consoles 
- * when doing long runs is 50.
- */
-#define	MEMORY_PROFILER_MAX_BACKTRACE_DEPTH			75
 /** Number of backtrace entries to skip											*/
 #define MEMORY_PROFILER_SKIP_NUM_BACKTRACE_ENTRIES	1
 /** Whether to track allocation tags? */
@@ -130,49 +122,6 @@ struct FProfilerHeader
 
 		check( Ar.IsSaving() );
 		Header.ExecutableName.SerializeAsANSICharArray(Ar,255);
-		return Ar;
-	}
-};
-
-/*=============================================================================
-	CallStack address information.
-=============================================================================*/
-
-/**
- * Helper structure encapsulating a callstack.
- */
-struct FCallStackInfo
-{
-	/** CRC of program counters for this callstack.				*/
-	uint32	CRC;
-	/** Array of indices into callstack address info array.		*/
-	int32		AddressIndices[MEMORY_PROFILER_MAX_BACKTRACE_DEPTH];
-
-	/**
-	 * Serialization operator.
-	 *
-	 * @param	Ar			Archive to serialize to
-	 * @param	AllocInfo	Callstack info to serialize
-	 * @return	Passed in archive
-	 */
-	friend FArchive& operator << ( FArchive& Ar, FCallStackInfo CallStackInfo )
-	{
-		Ar << CallStackInfo.CRC;
-		// Serialize valid callstack indices.
-		int32 i=0;
-		for( ; i<ARRAY_COUNT(CallStackInfo.AddressIndices) && CallStackInfo.AddressIndices[i]!=-1; i++ )
-		{
-			Ar << CallStackInfo.AddressIndices[i];
-		}
-		// Terminate list of address indices with -1 if we have a normal callstack.
-		int32 Stopper = -1;
-		// And terminate with -2 if the callstack was truncated.
-		if( i== ARRAY_COUNT(CallStackInfo.AddressIndices) )
-		{
-			Stopper = -2;
-		}
-
-		Ar << Stopper;
 		return Ar;
 	}
 };
@@ -442,7 +391,6 @@ uint32 FMallocProfilerTagsTls::TlsSlot = 0;
 FMallocProfiler::FMallocProfiler(FMalloc* InMalloc)
 :	UsedMalloc( InMalloc )
 ,   bEndProfilingHasBeenCalled( false )
-,	CallStackInfoBuffer( 512 * 1024, COMPRESS_ZLIB )
 ,	bOutputFileClosed(false)
 ,	TrackingDepth(0)
 ,	MemoryOperationCount( 0 )
@@ -735,13 +683,11 @@ void FMallocProfiler::EndProfiling()
 		Header.CallStackTableOffset			= SymbolFileWriter->Tell();
 		Header.CallStackTableEntries		= CallStackInfoBuffer.Num();
 
-		CallStackInfoBuffer.Lock();
 		for( int32 CallStackIndex=0; CallStackIndex<CallStackInfoBuffer.Num(); CallStackIndex++ )
 		{
-			FCallStackInfo* CallStackInfo = (FCallStackInfo*) CallStackInfoBuffer.Access( CallStackIndex * sizeof(FCallStackInfo) );
+			FCallStackInfo* CallStackInfo = (FCallStackInfo*) &CallStackInfoBuffer[CallStackIndex];
 			(*SymbolFileWriter) << (*CallStackInfo);
 		}
-		CallStackInfoBuffer.Unlock();
 
 		// Write out tags and update the header with offset and count
 		Header.TagsTableOffset = SymbolFileWriter->Tell();
@@ -876,7 +822,7 @@ int32 FMallocProfiler::GetCallStackIndex()
 		}
 
 		// Append to compressed buffer.
-		CallStackInfoBuffer.Append( &CallStackInfo, sizeof(FCallStackInfo) );
+		CallStackInfoBuffer.Add( CallStackInfo );
 	}
 
 	check(Index!=INDEX_NONE);

@@ -72,9 +72,14 @@ namespace Audio
 	void FDelayStereo::UpdateDelays()
 	{
 		// As delay ratio goes to zero, the delay times are the same
-		for (FDelay& Delay : Delays)
+		if (NumChannels == 1)
 		{
-			Delay.SetEasedDelayMsec(DelayTimeMsec * (1.0f + DelayRatio), bIsInit);
+			Delays[0].SetEasedDelayMsec(DelayTimeMsec * (1.0f + DelayRatio), bIsInit);
+		}
+		else
+		{
+			Delays[0].SetEasedDelayMsec(DelayTimeMsec * (1.0f + DelayRatio), bIsInit);
+			Delays[1].SetEasedDelayMsec(DelayTimeMsec * (1.0f - DelayRatio), bIsInit);
 		}
 	}
 

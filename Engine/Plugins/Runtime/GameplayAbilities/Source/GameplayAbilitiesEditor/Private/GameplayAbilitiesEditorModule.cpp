@@ -363,7 +363,7 @@ FAutoConsoleCommand RecompileGameplayAbilitiesEditorCommand(
 void FGameplayAbilitiesEditorModule::ApplyGameplayModEvaluationChannelAliasesToEnumMetadata()
 {
 	UAbilitySystemGlobals* AbilitySystemGlobalsCDO = UAbilitySystemGlobals::StaticClass()->GetDefaultObject<UAbilitySystemGlobals>();
-	const UEnum* EvalChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayModEvaluationChannel"));
+	const UEnum* EvalChannelEnum = StaticEnum<EGameplayModEvaluationChannel>();
 	if (ensure(EvalChannelEnum) && ensure(AbilitySystemGlobalsCDO))
 	{
 		const TCHAR* DisplayNameMeta = TEXT("DisplayName");
@@ -396,7 +396,7 @@ void FGameplayAbilitiesEditorModule::ApplyGameplayModEvaluationChannelAliasesToE
 		else
 		{
 			// If not allowed to use channels, also hide the "Evaluate up to channel" option 
-			const UEnum* AttributeBasedFloatCalculationTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAttributeBasedFloatCalculationType"));
+			const UEnum* AttributeBasedFloatCalculationTypeEnum = StaticEnum<EAttributeBasedFloatCalculationType>();
 			if (ensure(AttributeBasedFloatCalculationTypeEnum))
 			{
 				const int32 ChannelBasedCalcIdx = AttributeBasedFloatCalculationTypeEnum->GetIndexByValue(static_cast<int64>(EAttributeBasedFloatCalculationType::AttributeMagnitudeEvaluatedUpToChannel));

@@ -62,6 +62,12 @@
 #include "DesktopPlatformModule.h"
 #include "IAndroidDeviceDetectionModule.h"
 #include "IAndroidDeviceDetection.h"
+#include "CookerSettings.h"
+#include "HAL/PlatformFilemanager.h"
+#include "SourceControlHelpers.h"
+#include "ISourceControlModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "DebuggerCommands"
@@ -1164,6 +1170,66 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 			}
 		}
 	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("CookerSettings");
+	
+	UCookerSettings* CookerSettings = GetMutableDefault<UCookerSettings>();
+
+	{
+		FUIAction UIAction;
+		UIAction.ExecuteAction = FExecuteAction::CreateLambda([CookerSettings]
+			{
+				CookerSettings->bCookOnTheFlyForLaunchOn = !CookerSettings->bCookOnTheFlyForLaunchOn;
+				CookerSettings->Modify(true);
+
+				// Update source control
+
+				FString ConfigPath = FPaths::ConvertRelativePathToFull(CookerSettings->GetDefaultConfigFilename());
+
+				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*ConfigPath))
+				{
+					if (ISourceControlModule::Get().IsEnabled())
+					{
+						FText ErrorMessage;
+
+						if (!SourceControlHelpers::CheckoutOrMarkForAdd(ConfigPath, FText::FromString(ConfigPath), NULL, ErrorMessage))
+						{
+							FNotificationInfo Info(ErrorMessage);
+							Info.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(Info);
+						}
+					}
+					else
+					{
+						if (!FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*ConfigPath, false))
+						{
+							FNotificationInfo Info(FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(ConfigPath)));
+							Info.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(Info);
+						}
+					}
+				}
+
+				// Save settings
+				CookerSettings->UpdateSinglePropertyInConfigFile(CookerSettings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCookerSettings, bCookOnTheFlyForLaunchOn)), CookerSettings->GetDefaultConfigFilename());
+			});
+
+		UIAction.GetActionCheckState = FGetActionCheckState::CreateLambda([CookerSettings]
+			{
+				return CookerSettings->bCookOnTheFlyForLaunchOn ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			});
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("CookOnTheFlyOnLaunch", "Enable cooking on the fly"),
+			LOCTEXT("CookOnTheFlyOnLaunchDescription", "Cook on the fly instead of cooking upfront when launching"),
+			FSlateIcon(),
+			UIAction,
+			NAME_None,
+			EUserInterfaceActionType::Check
+		);
+	}
+
 	MenuBuilder.EndSection();
 
 	if (PlatformsWithNoDevices.Num() > 0)

@@ -37,9 +37,10 @@ public:
 		When the task completes, the instigating blueprint will be notified by either a FSetImageTargetSucceeded
 		or FSetImageTargetFailed event.
 		@param ImageTarget The new texture to be tracked.
+		@return True if the initiation of the target change was successful, false otherwise.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
-	void SetTargetAsync(UTexture2D* ImageTarget);
+	bool SetTargetAsync(UTexture2D* ImageTarget);
 
 	/** Delegate used to notify the instigating blueprint that the target image was successfully set. */
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSetImageTargetSucceeded);
@@ -115,7 +116,6 @@ public:
 	bool bUseUnreliablePose;
 
 private:
-	friend class FImageTrackerImpl;
 	class FImageTrackerImpl *Impl;
 	bool bTick;
 

@@ -92,6 +92,10 @@ namespace ReplayTaskNames
 
 #define DEMO_CHECKSUMS 0		// When setting this to 1, this will invalidate all demos, you will need to re-record and playback
 
+// static delegates
+FOnDemoStartedDelegate UDemoNetDriver::OnDemoStarted;
+FOnDemoFailedToStartDelegate UDemoNetDriver::OnDemoFailedToStart;
+
 // This is only intended for testing purposes
 // A "better" way might be to throw together a GameplayDebuggerComponent or Category, so we could populate
 // more than just the DemoTime.
@@ -3667,6 +3671,12 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 	// Speculatively grab seconds now in case we need it to get the time it took to fast forward
 	const double FastForwardStartSeconds = FPlatformTime::Seconds();
 
+	if (FArchive* const StreamingArchive = ReplayStreamer->GetStreamingArchive())
+	{
+		StreamingArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+		StreamingArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+	}
+
 	// Buffer up demo frames until we have enough time built-up
 	while ( ConditionallyReadDemoFrameIntoPlaybackPackets( *ReplayStreamer->GetStreamingArchive() ) )
 	{
@@ -3890,8 +3900,8 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 		UE_LOG(LogDemo, Warning, TEXT("UDemoNetConnection::ReplayStreamingReady: Failed. %s"), Result.bRecording ? TEXT("") : EDemoPlayFailure::ToString(EDemoPlayFailure::DemoNotFound));
 
 		if (Result.bRecording)
-	{
-		StopDemo();
+		{
+			StopDemo();
 		}
 		else
 		{
@@ -3899,6 +3909,8 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 		}
 		return;
 	}
+
+
 
 	if ( !Result.bRecording )
 	{
@@ -3941,6 +3953,9 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 
 		UE_LOG(LogDemo, Log, TEXT("ReplayStreamingReady: playing back replay [%s] %s, which was recorded on engine version %s"),
 			*PlaybackDemoHeader.Guid.ToString(EGuidFormats::Digits), *DemoURL.Map, *PlaybackDemoHeader.EngineVersion.ToString());
+
+		// Notify all listeners that a demo is starting
+		OnDemoStarted.Broadcast(this);
 	}
 }
 
@@ -4290,6 +4305,9 @@ bool UDemoNetDriver::FastForwardLevels(const FGotoResult& GotoResult)
 		// First, read in the checkpoint data (if any is available);
 		if (CheckpointArchive->TotalSize() != 0)
 		{
+			CheckpointArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+			CheckpointArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+
 			TGuardValue<bool> LoadingCheckpointGuard(bIsLoadingCheckpoint, true);
 
 			FArchivePos PacketOffset = 0;
@@ -4306,6 +4324,10 @@ bool UDemoNetDriver::FastForwardLevels(const FGotoResult& GotoResult)
 
 		// Next, read in streaming data (if any is available)
 		FArchive* StreamingAr = ReplayStreamer->GetStreamingArchive();
+
+		StreamingAr->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+		StreamingAr->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
+		
 		while (!StreamingAr->AtEnd() && ReplayStreamer->IsDataAvailable() && ReadPacketsHelper.ReadPackets(*StreamingAr));
 
 		if (ReadPacketsHelper.IsError())
@@ -4484,6 +4506,9 @@ bool UDemoNetDriver::LoadCheckpoint(const FGotoResult& GotoResult)
 	check( GotoCheckpointArchive != nullptr );
 	check( !bIsFastForwardingForCheckpoint );
 	check( !bIsFastForwarding );
+
+	GotoCheckpointArchive->SetEngineNetVer(PlaybackDemoHeader.EngineNetworkProtocolVersion);
+	GotoCheckpointArchive->SetGameNetVer(PlaybackDemoHeader.GameNetworkProtocolVersion);
 
 	int32 LevelForCheckpoint = 0;
 
@@ -5569,6 +5594,9 @@ void UDemoNetDriver::NotifyDemoPlaybackFailure(EDemoPlayFailure::Type FailureTyp
 
 	const bool bIsPlaying = IsPlaying();
 
+	// fire delegate
+	OnDemoFailedToStart.Broadcast(this, FailureType);
+
 	StopDemo();
 
 	if (bIsPlaying)
@@ -5812,7 +5840,7 @@ void UDemoNetDriver::Serialize(FArchive& Ar)
 		LevelStatusesByName.CountBytes(Ar);
 		for (const auto& LevelStatusNamePair : LevelStatusesByName)
 		{
-			Ar << const_cast<FString&>(LevelStatusNamePair.Key);
+			LevelStatusNamePair.Key.CountBytes(Ar);
 		}
 
 		LevelStatusIndexByLevel.CountBytes(Ar);

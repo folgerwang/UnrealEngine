@@ -26,6 +26,7 @@
 #include "Compilation/MovieSceneCompiler.h"
 #include "TimerManager.h"
 #include "UObject/Package.h"
+#include "Editor/WidgetCompilerLog.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -1366,7 +1367,7 @@ void UUserWidget::OnDesignerChanged(const FDesignerChangedEventArgs& EventArgs)
 	}
 }
 
-void UUserWidget::ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, FCompilerResultsLog& CompileLog) const
+void UUserWidget::ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, IWidgetCompilerLog& CompileLog) const
 {
 	ValidateCompiledDefaults(CompileLog);
 	ValidateCompiledWidgetTree(BlueprintWidgetTree, CompileLog);

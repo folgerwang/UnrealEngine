@@ -31,6 +31,12 @@ int NumDynamicPointLights;
 #endif
 float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightAngles[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS];
+#endif
+
+#ifndef PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+#define PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS 0
 #endif
 
 #ifndef MOBILE_QL_FORCE_FULLY_ROUGH
@@ -202,7 +208,7 @@ half3 BlendReflectionCapture(FMaterialPixelParameters MaterialParameters, half R
 	float4 Reflection = ReflectionCube.SampleLevel(ReflectionSampler, ProjectedCaptureVector.xyz, MipLevel);
 	half3 SpecularIBL = RGBMDecode(Reflection, 16.0f);
 
-#if MOVABLE_DIRECTIONAL_LIGHT
+#if !LQ_TEXTURE_LIGHTMAP && !CACHED_POINT_INDIRECT_LIGHTING
 	// ignore average brightness for non-lightmap use case.
 	InvReflectionCubemapAverageBrightness = 1.0f;
 #endif
@@ -312,12 +318,21 @@ half3 FrameBufferBlendOp(half4 Source)
 #endif
 }
 
+
+void ApplyPixelDepthOffsetForMobileBasePass(inout FMaterialPixelParameters MaterialParameters, FPixelMaterialInputs PixelMaterialInputs, out float OutDepth)
+{
+    float PixelDepthOffset = ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
+}
+
 void Main( 
 	FVertexFactoryInterpolantsVSToPS Interpolants
 	, FMobileBasePassInterpolantsVSToPS BasePassInterpolants
 	, in float4 SvPosition : SV_Position
 	OPTIONAL_IsFrontFace
 	, out half4 OutColor	: SV_Target0
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+    , out float OutDepth : SV_Depth
+#endif
 	)
 {
 #if MOBILE_MULTI_VIEW
@@ -335,7 +350,7 @@ void Main(
 	VertexFactoryUnpackInterpolants(Interpolants, PackedInterpolants);
 #endif
 
-#if (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES3_1_EXT) && OUTPUT_GAMMA_SPACE && !MOBILE_EMULATION
+#if (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES3_1_EXT) && !OUTPUT_MOBILE_HDR && !MOBILE_EMULATION
 	// LDR ES2 needs screen vertical flipped
 	SvPosition.y = ResolvedView.BufferSizeAndInvSize.y - SvPosition.y - 1;
 #endif
@@ -357,6 +372,10 @@ void Main(
 		MaterialParameters.ReflectionVector = ReflectionAboutCustomWorldNormal(MaterialParameters, MaterialParameters.WorldNormal, false);
 #endif
 	}
+
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+	ApplyPixelDepthOffsetForMobileBasePass(MaterialParameters, PixelMaterialInputs, OutDepth);
+#endif
 	  
 	//Clip if the blend mode requires it.
 	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
@@ -589,6 +608,13 @@ void Main(
 				{
 					Attenuation = RadialAttenuation(ToLight * LightPositionAndInvRadius[i].w, LightColorAndFalloffExponent[i].w);		
 				}
+				
+				#if PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+				if(SpotLightAngles[i].w > 0.0)
+				{
+					Attenuation *= SpotAttenuation(L, -SpotLightDirection[i].xyz, SpotLightAngles[i].xy);
+				}
+				#endif
 
 				#if !FULLY_ROUGH
 					Color += min(65000.0, (Attenuation * PointNoL) * LightColorAndFalloffExponent[i].rgb * (1.0/PI) * (DiffuseColor + SpecularColor * CalcSpecular(Roughness, PointRoL, PointNoH, H, MaterialParameters.WorldNormal)));
@@ -636,7 +662,7 @@ void Main(
 		// Scene color alpha is not used yet so we set it to 0
 		OutColor.a = 0.0;
 
-		#if !OUTPUT_GAMMA_SPACE 
+		#if OUTPUT_MOBILE_HDR 
 			if (GetHDR32bppEncodeMode() == HDR_ENCODE_NONE)
 			{
 				// FP16 HDR stores Z in framebuffer alpha
@@ -645,7 +671,7 @@ void Main(
 		#endif
 	#endif
 
-	#if !MATERIALBLENDING_MODULATE && OUTPUT_GAMMA_SPACE
+	#if !MATERIALBLENDING_MODULATE && !OUTPUT_MOBILE_HDR
 		// MobileHDR applies PreExposure in tonemapper
 		OutColor.rgb *= ResolvedView.PreExposure;
 	#endif
@@ -659,7 +685,7 @@ void Main(
 	#endif
 	clip(OutColor.a - GetMaterialOpacityMaskClipValue());
 #else
-	#if ES2_PROFILE && !OUTPUT_GAMMA_SPACE && !MATERIALDOMAIN_UI
+	#if ES2_PROFILE && OUTPUT_MOBILE_HDR && !MATERIALDOMAIN_UI
 		half Mode = GetHDR32bppEncodeMode();
 		if (Mode == HDR_ENCODE_RGBE)
 		{
@@ -673,15 +699,6 @@ void Main(
 	#endif
 	#if OUTPUT_GAMMA_SPACE
 		OutColor.rgb = sqrt(OutColor.rgb);
-	#endif
-
-	// We write to alpha here for mono far field mask computation
-	#if MONOSCOPIC_FAR_FIELD
-		#if MATERIALBLENDING_ANY_TRANSLUCENT
-			OutColor.a = Opacity;
-		#else
-			OutColor.a = 1.0;
-		#endif
 	#endif
 #endif
 }

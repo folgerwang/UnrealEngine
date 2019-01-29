@@ -197,6 +197,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMobileUseLegacyShadingModel : 1;
 
+	UPROPERTY(config, meta = (
+		ConsoleVariable = "r.Mobile.UseHWsRGBEncoding", DisplayName = "Single-pass linear rendering",
+		ToolTip = "If true then mobile single-pass (non mobile HDR) rendering will use HW accelerated sRGB encoding/decoding. Available only on Oculus for now."))
+		uint32 bMobileUseHWsRGBEncoding : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Mobile, meta=(
 		ConsoleVariable="r.Mobile.AllowDitheredLODTransition", DisplayName="Allow Dithered LOD Transition",
 		ToolTip="Whether to support 'Dithered LOD Transition' material option on mobile platforms. Enabling this may degrade performance as rendering will not benefit from Early-Z optimization.",
@@ -545,12 +550,6 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		uint32 bMobileMultiViewDirect : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
-		ConsoleVariable = "vr.MonoscopicFarField", DisplayName = "Monoscopic Far Field",
-		ToolTip = "Enable monoscopic far field rendering (only available for mobile).",
-		ConfigRestartRequired = true))
-		uint32 bMonoscopicFarField : 1;
-
-	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
 		ConsoleVariable = "vr.RoundRobinOcclusion", DisplayName = "Round Robin Occlusion Queries",
 		ToolTip = "Enable round-robin scheduling of occlusion queries for VR.",
 		ConfigRestartRequired = false))
@@ -634,16 +633,23 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		uint32 bMobileAllowMovableDirectionalLights : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = MobileShaderPermutationReduction, meta = (
-		ConsoleVariable = "r.MobileNumDynamicPointLights", DisplayName = "Max Movable Point Lights", ClampMax = 4,
-		ToolTip = "The number of dynamic point lights to support on mobile devices. Setting this to 0 for games which do not require dynamic point lights will reduce the number of shaders generated. Changing this setting requires restarting the editor.",
+		ConsoleVariable = "r.MobileNumDynamicPointLights", DisplayName = "Max Movable Spotlights / Point Lights", ClampMax = 4,
+		ToolTip = "The number of dynamic spotlights or point lights to support on mobile devices. Setting this to 0 for games which do not require dynamic spotlights or point lights will reduce the number of shaders generated. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired = true))
 		uint32 MobileNumDynamicPointLights;
 
 	UPROPERTY(config, EditAnywhere, Category = MobileShaderPermutationReduction, meta = (
-		ConsoleVariable = "r.MobileDynamicPointLightsUseStaticBranch", DisplayName = "Use Shared Movable Point Light Shaders",
-		ToolTip = "If this setting is enabled, the same shader will be used for any number of dynamic point lights (up to the maximum specified above) hitting a surface. This is slightly slower but reduces the number of shaders generated. Changing this setting requires restarting the editor.",
+		ConsoleVariable = "r.MobileDynamicPointLightsUseStaticBranch", DisplayName = "Use Shared Movable Spotlight / Point Light Shaders",
+		ToolTip = "If this setting is enabled, the same shader will be used for any number of dynamic spotlights or point lights (up to the maximum specified above) hitting a surface. This is slightly slower but reduces the number of shaders generated. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired = true))
 		uint32 bMobileDynamicPointLightsUseStaticBranch : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = MobileShaderPermutationReduction, meta = (
+		ConsoleVariable = "r.Mobile.EnableMovableSpotlights",
+		DisplayName = "Support Movable Spotlights",
+		ToolTip = "Generate shaders for primitives to receive lighting from movable spotlights. This incurs an additional cost when processing movable lights. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired = true))
+		uint32 bMobileAllowMovableSpotlights : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
 		ConsoleVariable = "r.SkinCache.SceneMemoryLimitInMB", DisplayName = "Maximum memory for Compute Skincache per world (MB)",

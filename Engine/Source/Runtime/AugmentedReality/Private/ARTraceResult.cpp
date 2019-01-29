@@ -14,7 +14,7 @@ FARTraceResult::FARTraceResult()
 }
 
 
-FARTraceResult::FARTraceResult( const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& InARSystem, float InDistanceFromCamera, EARLineTraceChannels InTraceChannel, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry )
+FARTraceResult::FARTraceResult( const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& InARSystem, float InDistanceFromCamera, EARLineTraceChannels InTraceChannel, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry )
 : DistanceFromCamera(InDistanceFromCamera)
 , TraceChannel(InTraceChannel)
 , LocalToTrackingTransform(InLocalToTrackingTransform)
@@ -29,6 +29,11 @@ float FARTraceResult::GetDistanceFromCamera() const
 	return DistanceFromCamera;
 }
 
+void FARTraceResult::SetLocalToWorldTransform(const FTransform& LocalToWorldTransform)
+{
+	LocalToTrackingTransform = LocalToWorldTransform * ARSystem->GetXRTrackingSystem()->GetTrackingToWorldTransform().Inverse();
+}
+
 FTransform FARTraceResult::GetLocalToTrackingTransform() const
 {
 	return LocalToTrackingTransform;
@@ -37,7 +42,7 @@ FTransform FARTraceResult::GetLocalToTrackingTransform() const
 
 FTransform FARTraceResult::GetLocalToWorldTransform() const
 {
-	return LocalToTrackingTransform * ARSystem->GetTrackingToWorldTransform();
+	return LocalToTrackingTransform * ARSystem->GetXRTrackingSystem()->GetTrackingToWorldTransform();
 }
 
 

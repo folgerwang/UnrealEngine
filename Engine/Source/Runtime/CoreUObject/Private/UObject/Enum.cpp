@@ -12,6 +12,7 @@
 #include "UObject/DevObjectVersion.h"
 #include "UObject/CoreObjectVersion.h"
 #include "UObject/CoreRedirects.h"
+#include "UObject/LinkerLoad.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEnum, Log, All);
 
@@ -485,8 +486,15 @@ int32 UEnum::GetIndexByNameString(const FString& InSearchString, EGetByNameFlags
 	else if (!!(Flags & EGetByNameFlags::ErrorIfNotFound) && !InSearchString.IsEmpty() && !InSearchString.Equals(FName().ToString(), StringComparisonMethod))
 	{
 		// None is passed in by blueprints at various points, isn't an error. Any other failed resolve should be fixed
-		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(ThreadContext.SerializedObject ? ThreadContext.SerializedObject : ThreadContext.ConstructedObject), *GetName(), *InSearchString);
+		UObject* SerializedObject = nullptr;
+		if (FLinkerLoad* Linker = GetLinker())
+		{
+			if (FUObjectSerializeContext* LoadContext = Linker->GetSerializeContext())
+			{
+				SerializedObject = LoadContext->SerializedObject;
+			}
+		}
+		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(SerializedObject ? SerializedObject : FUObjectThreadContext::Get().ConstructedObject), *GetName(), *InSearchString);
 	}
 
 	return INDEX_NONE;

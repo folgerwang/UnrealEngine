@@ -29,7 +29,11 @@
 ** following #pragma disables the warning.
 */
 
+
+#ifdef _MSC_VER
 #pragma warning(disable: 4305)
+#endif
+
 
 /*----------------------------------------------------------------------------
 ** Normal #defines follow.

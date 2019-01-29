@@ -570,7 +570,8 @@ void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMe
 				// reset material maps, it won't work anyway. 
 				ExistLODInfo.LODMaterialMap.Empty();
 
-				FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(ExistLODModel);
+				FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(ExistLODModel);
+				SkeletalMeshImportedModel->LODModels.Add(NewLODModel);
 				// add LOD info back
 				SkeletalMesh->AddLODInfo(ExistLODInfo);
 				check(LODIndex < SkeletalMesh->GetLODInfoArray().Num());
@@ -897,7 +898,8 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					FSkeletalMeshLODModel* NewLODModel = nullptr;
 					if (RealIndex >= SkeletalMesh->GetLODNum())
 					{
-						NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
+						NewLODModel = new FSkeletalMeshLODModel(LODModel);
+						SkeletalMeshImportedModel->LODModels.Add(NewLODModel);
 						// add LOD info back
 						SkeletalMesh->AddLODInfo(LODInfo);
 					}
@@ -1028,14 +1030,16 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 							if (bRegenLODs)
 							{
 								//We need to add LODInfo
-								FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
+								FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(LODModel);
+								SkeletalMeshImportedModel->LODModels.Add(NewLODModel);
 								SkeletalMesh->AddLODInfo(LODInfo);
 								RestoreReductionSourceData(i, SkeletalMesh->GetLODNum() - 1);
 							}
 						}
 						else
 						{
-							FSkeletalMeshLODModel* NewLODModel = new(SkeletalMeshImportedModel->LODModels) FSkeletalMeshLODModel(LODModel);
+							FSkeletalMeshLODModel* NewLODModel = new FSkeletalMeshLODModel(LODModel);
+							SkeletalMeshImportedModel->LODModels.Add(NewLODModel);
 							SkeletalMesh->AddLODInfo(LODInfo);
 
 							RestoreReductionSourceData(i, SkeletalMesh->GetLODNum() - 1);

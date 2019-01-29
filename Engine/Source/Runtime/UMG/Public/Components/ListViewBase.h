@@ -412,7 +412,7 @@ public:
 
 #if WITH_EDITOR
 	virtual const FText GetPaletteCategory() override;
-	virtual void ValidateCompiledDefaults(FCompilerResultsLog& CompileLog) const override;
+	virtual void ValidateCompiledDefaults(IWidgetCompilerLog& CompileLog) const override;
 #endif
 
 	TSubclassOf<UUserWidget> GetEntryWidgetClass() const { return EntryWidgetClass; }

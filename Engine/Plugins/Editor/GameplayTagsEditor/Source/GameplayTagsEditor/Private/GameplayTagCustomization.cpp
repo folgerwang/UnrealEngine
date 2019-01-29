@@ -38,8 +38,9 @@ void FGameplayTagCustomization::CustomizeHeader(TSharedRef<class IPropertyHandle
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SNew(SComboButton)
+			SAssignNew(EditButton, SComboButton)
 			.OnGetMenuContent(this, &FGameplayTagCustomization::GetListContent)
+			.OnMenuOpenChanged(this, &FGameplayTagCustomization::OnGameplayTagListMenuOpenStateChanged)
 			.ContentPadding(FMargin(2.0f, 2.0f))
 			.MenuPlacement(MenuPlacement_BelowAnchor)
 			.ButtonContent()
@@ -96,19 +97,36 @@ TSharedRef<SWidget> FGameplayTagCustomization::GetListContent()
 
 	bool bReadOnly = StructPropertyHandle->IsEditConst();
 
+	TSharedRef<SGameplayTagWidget> TagWidget =
+		SNew(SGameplayTagWidget, EditableContainers)
+		.Filter(Categories)
+		.ReadOnly(bReadOnly)
+		.TagContainerName(StructPropertyHandle->GetPropertyDisplayName().ToString())
+		.MultiSelect(false)
+		.OnTagChanged(this, &FGameplayTagCustomization::OnTagChanged)
+		.PropertyHandle(StructPropertyHandle);
+
+	LastTagWidget = TagWidget;
+
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.MaxHeight(400)
 		[
-			SNew(SGameplayTagWidget, EditableContainers)
-			.Filter(Categories)
-			.ReadOnly(bReadOnly)
-			.TagContainerName(StructPropertyHandle->GetPropertyDisplayName().ToString())
-			.MultiSelect(false)
-			.OnTagChanged(this, &FGameplayTagCustomization::OnTagChanged)
-			.PropertyHandle(StructPropertyHandle)
+			TagWidget
 		];
+}
+
+void FGameplayTagCustomization::OnGameplayTagListMenuOpenStateChanged(bool bIsOpened)
+{
+	if (bIsOpened)
+	{
+		TSharedPtr<SGameplayTagWidget> TagWidget = LastTagWidget.Pin();
+		if (TagWidget.IsValid())
+		{
+			EditButton->SetMenuContentWidgetToFocus(TagWidget->GetWidgetToFocusOnOpen());
+		}
+	}
 }
 
 void FGameplayTagCustomization::OnPropertyValueChanged()

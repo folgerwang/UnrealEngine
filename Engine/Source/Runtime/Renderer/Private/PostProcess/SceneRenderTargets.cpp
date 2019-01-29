@@ -476,6 +476,10 @@ uint16 FSceneRenderTargets::GetNumSceneColorMSAASamples(ERHIFeatureLevel::Type I
 	else
 	{
 		NumSamples = CVarMobileMSAA.GetValueOnRenderThread();
+
+		static uint16 PlatformMaxSampleCount = GDynamicRHI->RHIGetPlatformTextureMaxSampleCount();
+		NumSamples = FMath::Min(NumSamples, PlatformMaxSampleCount);
+		
 		if (NumSamples != 1 && NumSamples != 2 && NumSamples != 4 && NumSamples != 8)
 		{
 			UE_LOG(LogRenderer, Warning, TEXT("Requested %d samples for MSAA, but this is not supported; falling back to 1 sample"), NumSamples);
@@ -528,12 +532,8 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 	int GBufferFormat = CVarGBufferFormat.GetValueOnRenderThread();
 
 	// Set default clear values
-	const bool bUseMonoClearValue = ViewFamily.IsMonoscopicFarFieldEnabled() &&
-									ViewFamily.MonoParameters.Mode != EMonoscopicFarFieldMode::StereoNoClipping && 
-									ViewFamily.Views.Num() == 3;
-
-	SetDefaultColorClear(bUseMonoClearValue ? FClearValueBinding() : FClearValueBinding::Black);
-	SetDefaultDepthClear(bUseMonoClearValue ? FClearValueBinding(ViewFamily.MonoParameters.StereoDepthClip, 0) : FClearValueBinding::DepthFar);
+	SetDefaultColorClear(FClearValueBinding::Black);
+	SetDefaultDepthClear(FClearValueBinding::DepthFar);
 
 	int SceneColorFormat;
 	{
@@ -622,10 +622,6 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 	// Do allocation of render targets if they aren't available for the current shading path
 	CurrentFeatureLevel = NewFeatureLevel;
 	AllocateRenderTargets(RHICmdList, ViewFamily.Views.Num());
-	if (ViewFamily.IsMonoscopicFarFieldEnabled() && ViewFamily.Views.Num() == 3)
-	{
-		AllocSceneMonoRenderTargets(RHICmdList, SceneRenderer->Views[2]);
-	}
 }
 
 void FSceneRenderTargets::BeginRenderingSceneColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode/*=EUninitializedColorExistingDepth*/, FExclusiveDepthStencil DepthStencilAccess, bool bTransitionWritable)
@@ -654,23 +650,6 @@ void FSceneRenderTargets::BeginRenderingSceneColor(FRHICommandList& RHICmdList, 
 void FSceneRenderTargets::FinishRenderingSceneColor(FRHICommandList& RHICmdList)
 {
 	RHICmdList.EndRenderPass();
-}
-
-void FSceneRenderTargets::BeginRenderingSceneMonoColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode, FExclusiveDepthStencil DepthStencilAccess)
-{
-	SCOPED_DRAW_EVENT(RHICmdList, BeginRenderingSceneMonoColor);
-
-	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction, StencilLoadAction;
-	ERenderTargetStoreAction ColorStoreAction, DepthStoreAction, StencilStoreAction;
-	DecodeRenderTargetMode(RenderTargetMode, ColorLoadAction, ColorStoreAction, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess);
-
-	FRHIRenderPassInfo RPInfo(GetSceneColorSurface(), MakeRenderTargetActions(ColorLoadAction, ColorStoreAction));
-	RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(MakeRenderTargetActions(DepthLoadAction, DepthStoreAction), MakeRenderTargetActions(StencilLoadAction, StencilStoreAction));
-	RPInfo.DepthStencilRenderTarget.DepthStencilTarget = GetSceneDepthSurface();
-	RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = DepthStencilAccess;
-
-	TransitionRenderPassTargets(RHICmdList, RPInfo);
-	RHICmdList.BeginRenderPass(RPInfo, TEXT("BeginRenderingSceneMonoColor"));
 }
 
 int32 FSceneRenderTargets::FillGBufferRenderPassInfo(ERenderTargetLoadAction ColorLoadAction, FRHIRenderPassInfo& OutRenderPassInfo, int32& OutVelocityRTIndex)
@@ -956,6 +935,9 @@ void FSceneRenderTargets::AllocSceneColor(FRHICommandList& RHICmdList)
 
 	EPixelFormat SceneColorBufferFormat = GetSceneColorFormat();
 
+	// Mobile non-mobileHDR is the only platform rendering to a true sRGB buffer natively
+	bool MobileHWsRGB = IsMobileColorsRGB() && IsMobilePlatform(GShaderPlatformForFeatureLevel[CurrentFeatureLevel]);
+
 	// Create the scene color.
 	{
 		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(BufferSize, SceneColorBufferFormat, DefaultColorClear, TexCreate_None, TexCreate_RenderTargetable, false));
@@ -967,6 +949,7 @@ void FSceneRenderTargets::AllocSceneColor(FRHICommandList& RHICmdList)
 			// GCNPerformanceTweets.pdf Tip 37: Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 			Desc.TargetableFlags |= TexCreate_UAV;
 		}
+		Desc.Flags |= MobileHWsRGB ? TexCreate_SRGB : 0;
 
 		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, GetSceneColorForCurrentShadingPath(), GetSceneColorTargetName(CurrentShadingPath));
 	}
@@ -1018,42 +1001,6 @@ void FSceneRenderTargets::AllocMobileMultiViewDepth(FRHICommandList& RHICmdList,
 		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, MobileMultiViewSceneDepthZ, TEXT("MobileMultiViewSceneDepthZ"));
 	}
 	check(MobileMultiViewSceneDepthZ);
-}
-
-void FSceneRenderTargets::AllocSceneMonoRenderTargets(FRHICommandList& RHICmdList, const FViewInfo& MonoView)
-{
-	if (SceneMonoColor && SceneMonoDepthZ)
-	{
-		return;
-	}
-
-	const EPixelFormat SceneColorBufferFormat = GetSceneColorFormat();
-
-	{
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(MonoView.ViewRect.Max, SceneColorBufferFormat, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
-	
-		Desc.Flags |= TexCreate_FastVRAM;
-		Desc.NumSamples = GetNumSceneColorMSAASamples(CurrentFeatureLevel);
-
-		if (CurrentFeatureLevel >= ERHIFeatureLevel::SM5 && Desc.NumSamples == 1)
-		{
-			Desc.TargetableFlags |= TexCreate_UAV;
-		}
-
-		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneMonoColor, TEXT("SceneMonoColor"));
-	}
-
-	{
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(MonoView.ViewRect.Max, PF_DepthStencil, FClearValueBinding::DepthFar, TexCreate_None, TexCreate_DepthStencilTargetable, false));
-		Desc.NumSamples = GetNumSceneColorMSAASamples(CurrentFeatureLevel);
-		Desc.Flags |= TexCreate_FastVRAM;
-		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneMonoDepthZ, TEXT("SceneMonoDepthZ"));
-	}
-
-	UE_LOG(LogRenderer, Log, TEXT("Allocating monoscopic scene render targets to support %ux%u"), MonoView.ViewRect.Max.X, MonoView.ViewRect.Max.Y);
-
-	check(SceneMonoColor);
-	check(SceneMonoDepthZ);
 }
 
 void FSceneRenderTargets::AllocLightAttenuation(FRHICommandList& RHICmdList)
@@ -2014,33 +1961,49 @@ void FSceneRenderTargets::AllocateMobileRenderTargets(FRHICommandList& RHICmdLis
 	}
 }
 
-#define RETURN_VOLUME_TEXTURE_NAME(Index) case Index: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir"#Index) : (TCHAR*)TEXT("TranslucentVolume"#Index)
+// This is a helper class. It generates and provides N names with
+// sequentially incremented postfix starting from 0.
+// Example: SomeName0, SomeName1, ..., SomeName117
+class IncrementalNamesHolder
+{
+public:
+	IncrementalNamesHolder(const TCHAR* const Name, uint32 Size)
+		: ArraySize(Size)
+	{
+		check(Size > 0);
+		Names = new FString[Size];
+		for (uint32 i = 0; i < Size; ++i)
+		{
+			Names[i] = FString::Printf(TEXT("%s%d"), Name, i);
+		}
+	}
+
+	~IncrementalNamesHolder()
+	{
+		delete[] Names;
+	}
+
+	const TCHAR* const operator[] (uint32 Idx) const
+	{
+		check(Idx < ArraySize);
+		return *Names[Idx];
+	}
+
+private:
+	const uint32 ArraySize;
+	FString*     Names = nullptr;
+};
 
 // for easier use of "VisualizeTexture"
-static TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
+static const TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
 {
-	switch(Id)
-	{
-		RETURN_VOLUME_TEXTURE_NAME(0);
-		RETURN_VOLUME_TEXTURE_NAME(1);
-		RETURN_VOLUME_TEXTURE_NAME(2);
+	constexpr uint32 MaxNames = 128;
+	static IncrementalNamesHolder Names   (TEXT("TranslucentVolume"),    MaxNames);
+	static IncrementalNamesHolder NamesDir(TEXT("TranslucentVolumeDir"), MaxNames);
 
-		RETURN_VOLUME_TEXTURE_NAME(3);
-		RETURN_VOLUME_TEXTURE_NAME(4);
-		RETURN_VOLUME_TEXTURE_NAME(5);
+	check(Id < MaxNames);
 
-		RETURN_VOLUME_TEXTURE_NAME(6);
-		RETURN_VOLUME_TEXTURE_NAME(7);
-		RETURN_VOLUME_TEXTURE_NAME(8);
-
-		RETURN_VOLUME_TEXTURE_NAME(9);
-		RETURN_VOLUME_TEXTURE_NAME(10);
-		RETURN_VOLUME_TEXTURE_NAME(11);
-	
-		default:
-			check(0); // Add texture names up to what you need
-	}
-	return (TCHAR*)TEXT("InvalidName");
+	return bDirectional ? NamesDir[Id] : Names[Id];
 }
 
 void FSceneRenderTargets::AllocateReflectionTargets(FRHICommandList& RHICmdList, int32 TargetSize)
@@ -2541,11 +2504,6 @@ void FSceneRenderTargets::ReleaseSceneColor()
 	for (auto i = 0; i < (int32)ESceneColorFormatType::Num; ++i)
 	{
 		SceneColor[i].SafeRelease();
-	}
-	if (SceneMonoColor)
-	{
-		SceneMonoColor.SafeRelease();
-		SceneMonoDepthZ.SafeRelease();
 	}
 }
 

@@ -95,12 +95,15 @@ public:
 		UI_COMMAND( World_ShowSelectedLevels, "Show Selected", "Toggles selected levels to a visible state in the viewports", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_HideSelectedLevels, "Hide Selected", "Toggles selected levels to an invisible state in the viewports", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_ShowOnlySelectedLevels, "Show Only Selected", "Toggles the selected levels to a visible state; toggles all other levels to an invisible state", EUserInterfaceActionType::Button, FInputChord() );
-		UI_COMMAND( World_ShowAllLevels, "Show All", "Toggles all levels to a visible state in the viewports", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( World_ShowAllButSelectedLevels, "Show All But Selected", "Toggles the selected levels to an invisible state; toggles all other levels to a visible state", EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND( World_ShowAllLevels, "Show All", "Toggles all levels to a visible state in the viewports", EUserInterfaceActionType::Button, FInputChord());
 		UI_COMMAND( World_HideAllLevels, "Hide All", "Hides all levels to an invisible state in the viewports", EUserInterfaceActionType::Button, FInputChord() );
 
 		//lock
 		UI_COMMAND( World_LockSelectedLevels, "Lock Selected", "Locks selected levels", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_UnockSelectedLevels, "Unlock Selected", "Unlocks selected levels", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND(World_LockOnlySelectedLevels, "Lock Only Selected", "Toggles the selected levels to a locked state; toggles all other levels to an unlocked state", EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(World_LockAllButSelectedLevels, "Lock All But Selected", "Toggles the selected levels to an unlocked state; toggles all other levels to a locked state", EUserInterfaceActionType::Button, FInputChord());
 		UI_COMMAND( World_LockAllLevels, "Lock All", "Locks all levels", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_UnockAllLevels, "Unlock All", "Unlocks all levels", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_LockReadOnlyLevels, "Lock Read-Only Levels", "Locks all read-only levels", EUserInterfaceActionType::Button, FInputChord() );
@@ -264,6 +267,9 @@ public:
 	/** Makes selected Levels visible; makes all others invisible */
 	TSharedPtr< FUICommandInfo > World_ShowOnlySelectedLevels;
 
+	/** Makes selected Levels invisible; makes all others visible */
+	TSharedPtr< FUICommandInfo > World_ShowAllButSelectedLevels;
+
 	/** Makes all Levels visible */
 	TSharedPtr< FUICommandInfo > World_ShowAllLevels;
 
@@ -282,6 +288,12 @@ public:
 
 	/** Unlocks selected levels */
 	TSharedPtr< FUICommandInfo > World_UnockAllLevels;
+
+	/** Makes selected Levels locked; makes all others unlocked */
+	TSharedPtr< FUICommandInfo > World_LockOnlySelectedLevels;
+
+	/** Makes selected Levels unlocked; makes all others locked */
+	TSharedPtr< FUICommandInfo > World_LockAllButSelectedLevels;
 
 	/** Locks all read-only levels */
 	TSharedPtr< FUICommandInfo > World_LockReadOnlyLevels;

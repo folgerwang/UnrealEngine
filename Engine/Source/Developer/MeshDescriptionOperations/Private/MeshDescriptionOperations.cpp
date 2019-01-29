@@ -10,6 +10,9 @@
 #include "RenderUtils.h"
 #include "mikktspace.h"
 #include "UVMapSettings.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, MeshDescriptionOperations)
 
 DEFINE_LOG_CATEGORY(LogMeshDescriptionOperations);
 

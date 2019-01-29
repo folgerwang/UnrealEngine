@@ -44,17 +44,20 @@ FString TextNamespaceUtil::ExtractPackageNamespace(const FString& InTextNamespac
 
 FString TextNamespaceUtil::StripPackageNamespace(const FString& InTextNamespace)
 {
+	FString StrippedNamespace = InTextNamespace;
+	StripPackageNamespaceInline(StrippedNamespace);
+	return StrippedNamespace;
+}
+
+void TextNamespaceUtil::StripPackageNamespaceInline(FString& InOutTextNamespace)
+{
 	int32 StartMarkerIndex = INDEX_NONE;
-	int32 EndMarkerIndex = InTextNamespace.Len() - 1;
-	if (InTextNamespace.Len() > 0 && InTextNamespace[EndMarkerIndex] == PackageNamespaceEndMarker && InTextNamespace.FindLastChar(PackageNamespaceStartMarker, StartMarkerIndex))
+	int32 EndMarkerIndex = InOutTextNamespace.Len() - 1;
+	if (InOutTextNamespace.Len() > 0 && InOutTextNamespace[EndMarkerIndex] == PackageNamespaceEndMarker && InOutTextNamespace.FindLastChar(PackageNamespaceStartMarker, StartMarkerIndex))
 	{
-		FString StrippedNamespace = InTextNamespace.Left(StartMarkerIndex);
-		StrippedNamespace.TrimEndInline();
-
-		return StrippedNamespace;
+		InOutTextNamespace.RemoveAt(StartMarkerIndex, (EndMarkerIndex - StartMarkerIndex) + 1, /*bAllowShrinking*/false);
+		InOutTextNamespace.TrimEndInline();
 	}
-
-	return InTextNamespace;
 }
 
 #if USE_STABLE_LOCALIZATION_KEYS

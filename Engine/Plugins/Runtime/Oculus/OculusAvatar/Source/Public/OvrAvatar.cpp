@@ -8,9 +8,13 @@
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshLODModel.h"
 #include "Rendering/SkeletalMeshModel.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/Skeleton.h"
+#include "Model.h"
+#include "Animation/MorphTarget.h"
 
 float DebugLineScale = 100.f;
 bool DrawDebug = false;
@@ -58,6 +62,17 @@ static const FString SampleModeToString(ovrAvatarMaterialLayerSampleMode mode)
 	return mode < ovrAvatarMaterialLayerSampleMode_Count ? sMatSampleModeStrings[mode] : sEmptyString;
 }
 
+FColor UOvrAvatar::GetColorFromVertex(const ovrAvatarMeshVertex& vertex)
+{
+	return FColor::Black;
+}
+
+FColor UOvrAvatar::GetColorFromVertex(const ovrAvatarMeshVertexV2& vertex)
+{
+	FLinearColor LinearColor(vertex.r, vertex.g, vertex.b, vertex.a);
+	return LinearColor.ToFColor(false);
+}
+
 UOvrAvatar::UOvrAvatar()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -73,6 +88,8 @@ void UOvrAvatar::BeginPlay()
 	HandInputState[HandType_Right].isActive = true;
 	AvatarHands[HandType_Left] = nullptr;
 	AvatarHands[HandType_Right] = nullptr;
+
+	ControllerType = GetControllerTypeByHardware();
 }
 
 void UOvrAvatar::BeginDestroy()
@@ -119,7 +136,7 @@ void UOvrAvatar::AddDepthMeshComponent(ovrAvatarAssetID id, UPoseableMeshCompone
 
 void UOvrAvatar::HandleAvatarSpecification(const ovrAvatarMessage_AvatarSpecification* message)
 {
-	if (Avatar || OnlineUserID != message->oculusUserID)
+	if (Avatar || !message->oculusUserID || OnlineUserID != message->oculusUserID)
 		return;
 
 	Avatar = ovrAvatar_Create(message->avatarSpec, ovrAvatarCapability_All);
@@ -161,8 +178,11 @@ void UOvrAvatar::HandleAvatarSpecification(const ovrAvatarMessage_AvatarSpecific
 					BodyMeshID = RenderData->meshAssetID;
 				}
 
-				UPoseableMeshComponent* DepthMesh = CreateDepthMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName + TEXT("_Depth"));
-				DepthMesh->SetMasterPoseComponent(MeshComponent);
+				if (UseDepthMeshes)
+				{
+					UPoseableMeshComponent* DepthMesh = CreateDepthMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName + TEXT("_Depth"));
+					DepthMesh->SetMasterPoseComponent(MeshComponent);
+				}
 
 				const auto& material = RenderData->materialState;
 				const bool UseNormalMap = material.normalMapTextureID > 0;
@@ -255,22 +275,28 @@ void UOvrAvatar::HandleAvatarSpecification(const ovrAvatarMessage_AvatarSpecific
 			case ovrAvatarRenderPartType_SkinnedMeshRenderPBS_V2:
 			{
 				const ovrAvatarRenderPart_SkinnedMeshRenderPBS_V2* RenderData = ovrAvatarRenderPart_GetSkinnedMeshRenderPBSV2(RenderPart);
-				FString MeshName = name + FString::Printf(TEXT("_%u"), RenderIndex);
-				UPoseableMeshComponent* MeshComponent = CreateMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName);
 
 				if (RenderIndex == 0 && IsBodyComponent)
 				{
 					BodyMeshID = RenderData->meshAssetID;
 				}
 
-				UPoseableMeshComponent* DepthMesh = CreateDepthMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName + TEXT("_Depth"));
-				DepthMesh->SetMasterPoseComponent(MeshComponent);
+				FString MeshName = name + FString::Printf(TEXT("_%u"), RenderIndex);
 
-				auto Material = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2"));
-				auto DepthMaterial = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_2_Depth"));
-				
+				UPoseableMeshComponent* MeshComponent = CreateMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName);
+				const auto MaterialString = GetPBRV2MainMaterialString(false);
+				auto Material = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, *MaterialString);
 				MeshComponent->SetMaterial(0, UMaterialInstanceDynamic::Create(Material, GetTransientPackage()));
-				DepthMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(DepthMaterial, GetTransientPackage()));
+				MeshComponent->SetVisibility(false, true);
+
+				if (UseDepthMeshes)
+				{
+					UPoseableMeshComponent* DepthMesh = CreateDepthMeshComponent(BaseComponent, RenderData->meshAssetID, MeshName + TEXT("_Depth"));
+					DepthMesh->SetMasterPoseComponent(MeshComponent);
+					auto DepthMaterial = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_2_Depth"));
+					DepthMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(DepthMaterial, GetTransientPackage()));
+					DepthMesh->SetVisibility(false, true);
+				}
 
 				// Cache the Normal Map ID for appropriate tagging on Load.
 				FOvrAvatarManager::Get().CacheNormalMapID(RenderData->materialState.normalTextureID);
@@ -288,17 +314,67 @@ void UOvrAvatar::HandleAvatarSpecification(const ovrAvatarMessage_AvatarSpecific
 	{
 		const ovrAvatarAssetID Asset = ovrAvatar_GetReferencedAsset(Avatar, AssetIndex);
 		AssetIds.Add(Asset);
-		ovrAvatarAsset_BeginLoading(Asset);
+		UE_LOG(LogAvatars, Display, TEXT("[Avatars] - Loading Asset ID: %llu"), Asset);
+
+		ovrAvatarAsset_BeginLoadingLOD(Asset, LevelOfDetail);
 	}
 }
 
 void UOvrAvatar::HandleAssetLoaded(const ovrAvatarMessage_AssetLoaded* message)
 {
-	if (auto Asset = AssetIds.Find(message->assetID))
+	const ovrAvatarAssetType assetType = ovrAvatarAsset_GetType(message->asset);
+	const bool OurCombinedMeshLoaded = assetType == ovrAvatarAssetType_CombinedMesh && ovrAvatarAsset_GetAvatar(message->asset) == Avatar && Avatar != nullptr;
+
+	if (OurCombinedMeshLoaded)
+	{
+		UE_LOG(LogAvatars, Display, TEXT("[Avatars] ovrAvatarAssetType_CombinedMesh Loaded"));
+
+		auto BaseComponent = RootAvatarComponents.Find(BodyName);
+		if (BaseComponent && BaseComponent->Get())
+		{
+			BodyMeshID = message->assetID;
+
+			USkeletalMesh * mesh = NewObject<USkeletalMesh>(GetTransientPackage(), NAME_None, RF_Transient);
+
+			UE_LOG(LogAvatars, Display, TEXT("Loading Combined Mesh"));
+			LoadMesh<ovrAvatarMeshAssetDataV2, ovrAvatarMeshVertexV2>(mesh, ovrAvatarAsset_GetCombinedMeshData(message->asset));
+
+			FString MeshName = BodyName + FString::Printf(TEXT("_Combined"));
+			UPoseableMeshComponent* MeshComponent = CreateMeshComponent(BaseComponent->Get(), message->assetID, MeshName);
+			const auto CombinedMaterialString = GetPBRV2MainMaterialString(true);
+			auto Material = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, *CombinedMaterialString);
+			MeshComponent->SetMaterial(0, UMaterialInstanceDynamic::Create(Material, GetTransientPackage()));
+			MeshComponent->SetSkeletalMesh(mesh);
+			MeshComponent->RecreateRenderState_Concurrent();
+			MeshComponent->SetVisibility(false, true);
+
+			if (UseDepthMeshes)
+			{
+				UPoseableMeshComponent* DepthMesh = CreateDepthMeshComponent(BaseComponent->Get(), message->assetID, MeshName + TEXT("_Depth"));
+				auto DepthMaterial = (UMaterialInterface*)StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_2_Depth"));
+				DepthMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(DepthMaterial, GetTransientPackage()));
+				DepthMesh->SetSkeletalMesh(mesh);
+				DepthMesh->RecreateRenderState_Concurrent();
+				DepthMesh->SetMasterPoseComponent(MeshComponent);
+				DepthMesh->SetVisibility(false, true);
+			}
+
+			uint32_t MeshCount = 0;
+			const auto MeshIds = ovrAvatarAsset_GetCombinedMeshIDs(message->asset, &MeshCount);
+			for (uint32_t meshIndex = 0; meshIndex < MeshCount; meshIndex++)
+			{
+				// TODO: Check if they have a mesh assigned and destroy it
+				// Can happen if other avatars load the same mesh asset we are waiting on (unlikely as all will be mesh combining, but who knows)
+				RemoveMeshComponent(MeshIds[meshIndex]);
+				RemoveDepthMeshComponent(MeshIds[meshIndex]);
+
+				AssetIds.Remove(MeshIds[meshIndex]);
+			}
+		}
+	}
+	else if (auto Asset = AssetIds.Find(message->assetID))
 	{
 		AssetIds.Remove(*Asset);
-
-		const ovrAvatarAssetType assetType = ovrAvatarAsset_GetType(message->asset);
 
 		switch (assetType)
 		{
@@ -307,7 +383,7 @@ void UOvrAvatar::HandleAssetLoaded(const ovrAvatarMessage_AssetLoaded* message)
 			if (UPoseableMeshComponent* MeshComp = GetMeshComponent(message->assetID))
 			{
 				USkeletalMesh* mesh = NewObject<USkeletalMesh>(GetTransientPackage(), NAME_None, RF_Transient);
-				LoadMesh(mesh, ovrAvatarAsset_GetMeshData(message->asset));
+				LoadMesh<ovrAvatarMeshAssetData, ovrAvatarMeshVertex>(mesh, ovrAvatarAsset_GetMeshData(message->asset));
 				MeshComp->SetSkeletalMesh(mesh);
 				MeshComp->RecreateRenderState_Concurrent();
 
@@ -336,8 +412,9 @@ void UOvrAvatar::HandleAssetLoaded(const ovrAvatarMessage_AssetLoaded* message)
 		}
 	}
 
-	if (Avatar && AssetIds.Num() == 0)
+	if (Avatar && AssetIds.Num() == 0 && !AreMaterialsInitialized)
 	{
+		AreMaterialsInitialized = true;
 		InitializeMaterials();
 	}
 }
@@ -355,6 +432,16 @@ UPoseableMeshComponent* UOvrAvatar::GetMeshComponent(ovrAvatarAssetID id) const
 	return Return;
 }
 
+void UOvrAvatar::RemoveMeshComponent(ovrAvatarAssetID id)
+{
+	auto MeshComponent = MeshComponents.Find(id);
+	if (MeshComponent && MeshComponent->IsValid())
+	{
+		MeshComponents.Remove(id);
+		MeshComponent->Get()->DestroyComponent(true);
+	}
+}
+
 UPoseableMeshComponent* UOvrAvatar::GetDepthMeshComponent(ovrAvatarAssetID id) const
 {
 	UPoseableMeshComponent* Return = nullptr;
@@ -367,6 +454,17 @@ UPoseableMeshComponent* UOvrAvatar::GetDepthMeshComponent(ovrAvatarAssetID id) c
 
 	return Return;
 }
+
+void UOvrAvatar::RemoveDepthMeshComponent(ovrAvatarAssetID id)
+{
+	auto MeshComponent = DepthMeshComponents.Find(id);
+	if (MeshComponent && MeshComponent->IsValid())
+	{
+		DepthMeshComponents.Remove(id);
+		MeshComponent->Get()->DestroyComponent(true);
+	}
+}
+
 
 void UOvrAvatar::DebugDrawBoneTransforms()
 {
@@ -468,6 +566,7 @@ void UOvrAvatar::UpdatePostSDK()
 					if (MeshVisible && IsSelfOccluding)
 					{
 						UpdateMeshComponent(*depthMesh, RenderData->localTransform);
+						depthMesh->MarkRefreshTransformDirty();
 					}
 
 					depthMesh->SetVisibility(MeshVisible && IsSelfOccluding, true);
@@ -530,6 +629,7 @@ void UOvrAvatar::UpdatePostSDK()
 					if (MeshVisible && IsSelfOccluding)
 					{
 						UpdateMeshComponent(*depthMesh, RenderData->localTransform);
+						depthMesh->MarkRefreshTransformDirty();
 					}
 
 					depthMesh->SetVisibility(MeshVisible && IsSelfOccluding, true);
@@ -557,65 +657,140 @@ void UOvrAvatar::UpdateTransforms(float DeltaTime)
 	{
 		ovrpPoseStatef ovrPose;
 		ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, ovrpNode_Head, &ovrPose);
-		
+
 
 		OvrAvatarHelpers::OvrPoseToAvatarTransform(BodyTransform, ovrPose.Pose);
 		BodyTransform.position.y += PlayerHeightOffset;
 	}
 
-	// Left touch
+	ovrpResult result = ovrpFailure_NotInitialized;
+	ovrpController ControllerMask = ovrpController_None;
+	ovrpController ActiveController = ovrpController_None;
+	result = ovrp_GetConnectedControllers2(&ControllerMask);
+
+	if (result != ovrpSuccess)
+	{
+		UE_LOG(LogAvatars, Display, TEXT("ovrp_GetConnectedControllers2 failed %d"), result);
+	}
+
+	result = ovrp_GetActiveController2(&ActiveController);
+
+	if (result != ovrpSuccess)
+	{
+		UE_LOG(LogAvatars, Display, TEXT("ovrp_GetActiveController2 failed %d"), result);
+	}
+
+	// Left hand
 	{
 		ovrpControllerState4 controllerState;
-		ovrp_GetControllerState4(ovrpController_LTouch, &controllerState);
+		ovrpController LeftControllerType = ovrpController_None;
 
-		ovrpPoseStatef ovrPose;
-		ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, ovrpNode_HandLeft, &ovrPose);
+		if (ControllerMask & ovrpController_LTouch)
+		{
+			LeftControllerType = ovrpController_LTouch;
+		}
+		else if (ControllerMask & ovrpController_LTrackedRemote)
+		{
+			LeftControllerType = ovrpController_LTrackedRemote;
+		}
 
 		ovrAvatarHandInputState& handInputState = HandInputState[HandType_Left];
-		OvrAvatarHelpers::OvrPoseToAvatarTransform(handInputState.transform, ovrPose.Pose);
+		handInputState.isActive = false;
 
-		handInputState.isActive = true;
-		handInputState.indexTrigger = controllerState.IndexTrigger[ovrpHand_Left];
-		handInputState.handTrigger = controllerState.HandTrigger[ovrpHand_Left];
-		handInputState.joystickX = controllerState.Thumbstick[ovrpHand_Left].x;
-		handInputState.joystickY = controllerState.Thumbstick[ovrpHand_Left].y;
+		if (LeftControllerType != ovrpController_None)
+		{
+			ovrp_GetControllerState4(LeftControllerType, &controllerState);
 
-		OvrAvatarHelpers::OvrAvatarParseButtonsAndTouches(controllerState, ovrpHand_Left, handInputState);
+			ovrpPoseStatef ovrPose;
+			ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, ovrpNode_HandLeft, &ovrPose);
+
+			OvrAvatarHelpers::OvrPoseToAvatarTransform(handInputState.transform, ovrPose.Pose);
+
+			handInputState.isActive = true;
+			handInputState.indexTrigger = controllerState.IndexTrigger[ovrpHand_Left];
+			handInputState.handTrigger = controllerState.HandTrigger[ovrpHand_Left];
+			handInputState.joystickX = controllerState.Thumbstick[ovrpHand_Left].x;
+			handInputState.joystickY = controllerState.Thumbstick[ovrpHand_Left].y;
+
+			OvrAvatarHelpers::OvrAvatarParseButtonsAndTouches(controllerState, ovrpHand_Left, handInputState);
+		}
 	}
-	// Right touch
+	// Right hand
 	{
 		ovrpControllerState4 controllerState;
-		ovrp_GetControllerState4(ovrpController_RTouch, &controllerState);
+		ovrpController RightControllerType = ovrpController_None;
 
-		ovrpPoseStatef ovrPose;
-		ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, ovrpNode_HandRight, &ovrPose);
+		if (ControllerMask & ovrpController_RTouch)
+		{
+			RightControllerType = ovrpController_RTouch;
+		}
+		else if (ControllerMask & ovrpController_RTrackedRemote)
+		{
+			RightControllerType = ovrpController_RTrackedRemote;
+		}
 
-		ovrAvatarHandInputState& handInputState = HandInputState[HandType_Right];
-		OvrAvatarHelpers::OvrPoseToAvatarTransform(handInputState.transform, ovrPose.Pose);
+		ovrAvatarHandInputState& handInputState = HandInputState[ovrpHand_Right];
+		handInputState.isActive = false;
 
-		handInputState.isActive = true;
-		handInputState.indexTrigger = controllerState.IndexTrigger[ovrpHand_Right];
-		handInputState.handTrigger = controllerState.HandTrigger[ovrpHand_Right];
-		handInputState.joystickX = controllerState.Thumbstick[ovrpHand_Right].x;
-		handInputState.joystickY = controllerState.Thumbstick[ovrpHand_Right].y;
+		if (RightControllerType != ovrpController_None)
+		{
+			ovrp_GetControllerState4(RightControllerType, &controllerState);
 
-		OvrAvatarHelpers::OvrAvatarParseButtonsAndTouches(controllerState, ovrpHand_Right, handInputState);
+			ovrpPoseStatef ovrPose;
+			ovrp_GetNodePoseState3(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, ovrpNode_HandRight, &ovrPose);
+
+			OvrAvatarHelpers::OvrPoseToAvatarTransform(handInputState.transform, ovrPose.Pose);
+
+			handInputState.isActive = true;
+			handInputState.indexTrigger = controllerState.IndexTrigger[ovrpHand_Right];
+			handInputState.handTrigger = controllerState.HandTrigger[ovrpHand_Right];
+			handInputState.joystickX = controllerState.Thumbstick[ovrpHand_Right].x;
+			handInputState.joystickY = controllerState.Thumbstick[ovrpHand_Right].y;
+
+			OvrAvatarHelpers::OvrAvatarParseButtonsAndTouches(controllerState, ovrpHand_Right, handInputState);
+		}
 	}
 
 	HandInputState[HandType_Right].transform.position.y += PlayerHeightOffset;
 	HandInputState[HandType_Left].transform.position.y += PlayerHeightOffset;
 
 	ovrAvatarPose_UpdateBody(Avatar, BodyTransform);
-	ovrAvatarPose_UpdateHands(Avatar, HandInputState[HandType_Left], HandInputState[HandType_Right]);
+
+	switch (ControllerType)
+	{
+	case ovrAvatarControllerType_Malibu:
+	case ovrAvatarControllerType_Go:
+		ovrAvatarPose_Update3DofHands(Avatar, &HandInputState[HandType_Left], &HandInputState[HandType_Right], ControllerType);
+		break;
+	case ovrAvatarControllerType_Touch:
+		ovrAvatarPose_UpdateHands(Avatar, HandInputState[HandType_Left], HandInputState[HandType_Right]);
+		break;
+	default:
+		break;
+	}
 }
 
-void UOvrAvatar::RequestAvatar(uint64_t userId)
+void UOvrAvatar::RequestAvatar(
+	uint64_t userId,
+	ovrAvatarAssetLevelOfDetail lod,
+	bool useCombinedBodyMesh)
 {
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars] RequestAvatar %llu, %d, %d"), userId, lod, useCombinedBodyMesh);
+
 	OnlineUserID = userId;
+	LevelOfDetail = lod;
+
+	if (LookAndFeel != ovrAvatarLookAndFeelVersion_Two && useCombinedBodyMesh)
+	{
+		UE_LOG(LogAvatars, Display, TEXT("[Avatars] RequestAvatar: Combined Body Mesh only compatible with ovrAvatarLookAndFeelVersion_Two"));
+	}
+
+	UseCombinedBodyMesh = LookAndFeel == ovrAvatarLookAndFeelVersion_Two && useCombinedBodyMesh;
 
 	auto requestSpec = ovrAvatarSpecificationRequest_Create(userId);
 	ovrAvatarSpecificationRequest_SetLookAndFeelVersion(requestSpec, LookAndFeel);
-
+	ovrAvatarSpecificationRequest_SetLevelOfDetail(requestSpec, LevelOfDetail);
+	ovrAvatarSpecificationRequest_SetCombineMeshes(requestSpec, UseCombinedBodyMesh);
 
 	ovrAvatar_RequestAvatarSpecificationFromSpecRequest(requestSpec);
 	ovrAvatarSpecificationRequest_Destroy(requestSpec);
@@ -629,6 +804,8 @@ void UOvrAvatar::UpdateSkeleton(UPoseableMeshComponent& mesh, const ovrAvatarSki
 		OvrAvatarHelpers::ConvertTransform(pose.jointTransform[BoneIndex], LocalBone);
 		mesh.BoneSpaceTransforms[BoneIndex] = LocalBone;
 	}
+
+	mesh.MarkRefreshTransformDirty();
 }
 
 USceneComponent* UOvrAvatar::DetachHand(HandType hand)
@@ -904,6 +1081,7 @@ UPoseableMeshComponent* UOvrAvatar::CreateMeshComponent(USceneComponent* parent,
 	MeshComponent->CastShadow = false;
 	MeshComponent->bRenderCustomDepth = false;
 	MeshComponent->bRenderInMainPass = true;
+	MeshComponent->SetVisibility(false, true);
 
 	AddMeshComponent(assetID, MeshComponent);
 
@@ -920,16 +1098,19 @@ UPoseableMeshComponent* UOvrAvatar::CreateDepthMeshComponent(USceneComponent* pa
 	MeshComponent->CastShadow = false;
 	MeshComponent->bRenderCustomDepth = true;
 	MeshComponent->bRenderInMainPass = false;
+	MeshComponent->SetVisibility(false, true);
 
 	AddDepthMeshComponent(assetID, MeshComponent);
 
 	return MeshComponent;
 }
 
-void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetData* data)
+template<typename MeshAssetData, typename VertexType>
+void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const MeshAssetData* data)
 {
-	UE_LOG(LogAvatars, Display, TEXT("[Avatars] Loaded Mesh."));
 #if WITH_EDITOR
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars] Loaded Mesh WITH_EDITOR."));
+
 	FSkeletalMeshLODModel* LodModel = new FSkeletalMeshLODModel();
 	SkeletalMesh->GetImportedModel()->LODModels.Add(LodModel);
 
@@ -946,11 +1127,12 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	LodInfo.LODMaterialMap.Add(0);
 
 	SkeletalMesh->Materials.Add(UMaterial::GetDefaultMaterial(MD_Surface));
+	SkeletalMesh->Materials[0].UVChannelData.bInitialized = true;
 	SkeletalMesh->RefSkeleton.Empty(data->skinnedBindPose.jointCount);
 
 	SkeletalMesh->bUseFullPrecisionUVs = true;
 	SkeletalMesh->bHasBeenSimplified = false;
-	SkeletalMesh->bHasVertexColors = false;
+	SkeletalMesh->bHasVertexColors = true;
 
 	for (uint32 BoneIndex = 0; BoneIndex < data->skinnedBindPose.jointCount; BoneIndex++)
 	{
@@ -959,13 +1141,22 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 		LodModel->Sections[0].BoneMap.Add(BoneIndex);
 
 		FString BoneString = data->skinnedBindPose.jointNames[BoneIndex];
+
+		// Not allowed to duplicate bone names...
+		static FString RootBoneName = FString(TEXT("root"));
+		if (BoneString == RootBoneName)
+		{
+			BoneString += FString::Printf(TEXT("_%u"), BoneIndex);
+		}
+
 		FName BoneName = FName(*BoneString);
 
 		FTransform Transform = FTransform::Identity;
 		OvrAvatarHelpers::ConvertTransform(data->skinnedBindPose.jointTransform[BoneIndex], Transform);
 
 		FReferenceSkeletonModifier Modifier = FReferenceSkeletonModifier(SkeletalMesh->RefSkeleton, nullptr);
-		Modifier.Add(FMeshBoneInfo(BoneName, BoneString, data->skinnedBindPose.jointParents[BoneIndex]), Transform);
+		int32 ParentIndex = BoneIndex > 0 && data->skinnedBindPose.jointParents[BoneIndex] < 0 ? 0 : data->skinnedBindPose.jointParents[BoneIndex];
+		Modifier.Add(FMeshBoneInfo(BoneName, BoneString, ParentIndex), Transform);
 	}
 
 	check(data->indexCount % 3 == 0);
@@ -980,7 +1171,7 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 
 	MeshSection.SoftVertices.SetNumUninitialized(data->vertexCount);
 
-	const ovrAvatarMeshVertex* SourceVertex = data->vertexBuffer;
+	const VertexType* SourceVertex = data->vertexBuffer;
 	const uint32_t NumBlendWeights = 4;
 
 	FSoftSkinVertex* DestVertex = MeshSection.SoftVertices.GetData();
@@ -990,6 +1181,7 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	for (uint32_t VertIndex = 0; VertIndex < data->vertexCount; VertIndex++, SourceVertex++, DestVertex++)
 	{
 		DestVertex->Position = 100.0f * FVector(-SourceVertex->z, SourceVertex->x, SourceVertex->y);
+		DestVertex->Color = UOvrAvatar::GetColorFromVertex(*SourceVertex);
 
 		BoundBox += DestVertex->Position;
 
@@ -1047,6 +1239,8 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	SkeletalMesh->Skeleton->MergeAllBonesToBoneTree(SkeletalMesh);
 	SkeletalMesh->PostLoad();
 #else
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars] Loaded Mesh."));
+
 	FSkeletalMeshLODRenderData* LodRenderData = new FSkeletalMeshLODRenderData();
 	SkeletalMesh->AllocateResourceForRendering();
 	SkeletalMesh->GetResourceForRendering()->LODRenderData.Add(LodRenderData);
@@ -1064,11 +1258,12 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	LodInfo.LODMaterialMap.Add(0);
 
 	SkeletalMesh->Materials.Add(UMaterial::GetDefaultMaterial(MD_Surface));
+	SkeletalMesh->Materials[0].UVChannelData.bInitialized = true;
 	SkeletalMesh->RefSkeleton.Empty(data->skinnedBindPose.jointCount);
 
 	SkeletalMesh->bUseFullPrecisionUVs = true;
 	SkeletalMesh->bHasBeenSimplified = false;
-	SkeletalMesh->bHasVertexColors = false;
+	SkeletalMesh->bHasVertexColors = true;
 
 	for (uint32 BoneIndex = 0; BoneIndex < data->skinnedBindPose.jointCount; BoneIndex++)
 	{
@@ -1077,13 +1272,22 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 		LodRenderData->RenderSections[0].BoneMap.Add(BoneIndex);
 
 		FString BoneString = data->skinnedBindPose.jointNames[BoneIndex];
+
+		// Not allowed to duplicate bone names...
+		static FString RootBoneName = FString(TEXT("root"));
+		if (BoneString == RootBoneName)
+		{
+			BoneString += FString::Printf(TEXT("_%u"), BoneIndex);
+		}
+
 		FName BoneName = FName(*BoneString);
 
 		FTransform Transform = FTransform::Identity;
 		OvrAvatarHelpers::ConvertTransform(data->skinnedBindPose.jointTransform[BoneIndex], Transform);
 
 		FReferenceSkeletonModifier Modifier = FReferenceSkeletonModifier(SkeletalMesh->RefSkeleton, nullptr);
-		Modifier.Add(FMeshBoneInfo(BoneName, BoneString, data->skinnedBindPose.jointParents[BoneIndex]), Transform);
+		int32 ParentIndex = BoneIndex > 0 && data->skinnedBindPose.jointParents[BoneIndex] < 0 ? 0 : data->skinnedBindPose.jointParents[BoneIndex];
+		Modifier.Add(FMeshBoneInfo(BoneName, BoneString, ParentIndex), Transform);
 	}
 
 	check(data->indexCount % 3 == 0);
@@ -1096,7 +1300,7 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	MeshSection.NumVertices = data->vertexCount;
 	MeshSection.MaxBoneInfluences = 4;
 
-	const ovrAvatarMeshVertex* SourceVertex = data->vertexBuffer;
+	const VertexType* SourceVertex = data->vertexBuffer;
 	const uint32_t NumBlendWeights = 4;
 
 	FBox BoundBox = FBox();
@@ -1106,6 +1310,7 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 	LodRenderData->StaticVertexBuffers.ColorVertexBuffer.Init(data->vertexCount);
 	LodRenderData->StaticVertexBuffers.StaticMeshVertexBuffer.Init(data->vertexCount, 1);
 
+	TArray<FColor> ColorArray;
 	TArray<TSkinWeightInfo<true>> InWeights;
 	InWeights.AddUninitialized(data->vertexCount);
 	TMap<int32, TArray<int32>> OverlappingVertices;
@@ -1115,6 +1320,8 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 		FModelVertex ModelVertex;
 		ModelVertex.Position = 100.0f * FVector(-SourceVertex->z, SourceVertex->x, SourceVertex->y);
 		BoundBox += ModelVertex.Position;
+
+		ColorArray.Add(UOvrAvatar::GetColorFromVertex(*SourceVertex));
 
 		FVector n = FVector(-SourceVertex->nz, SourceVertex->nx, SourceVertex->ny);
 		FVector t = FVector(-SourceVertex->tz, SourceVertex->tx, SourceVertex->ty);
@@ -1160,6 +1367,7 @@ void UOvrAvatar::LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetD
 		OverlappingVertices.Add(VertIndex, Vertices);
 	}
 
+	LodRenderData->StaticVertexBuffers.ColorVertexBuffer.InitFromColorArray(ColorArray);
 	LodRenderData->SkinWeightVertexBuffer.SetHasExtraBoneInfluences(true);
 	LodRenderData->SkinWeightVertexBuffer = InWeights;
 	MeshSection.DuplicatedVerticesBuffer.Init(data->vertexCount, OverlappingVertices);
@@ -1186,6 +1394,7 @@ void UOvrAvatar::InitializeMaterials()
 	for (uint32_t ComponentIndex = 0; ComponentIndex < ComponentCount; ComponentIndex++)
 	{
 		const ovrAvatarComponent* OvrComponent = ovrAvatarComponent_Get(Avatar, ComponentIndex);
+		const bool IsBodyComponent = FString(OvrComponent->name).Contains(BodyName);
 
 		for (uint32_t RenderIndex = 0; RenderIndex < OvrComponent->renderPartCount; ++RenderIndex)
 		{
@@ -1216,15 +1425,96 @@ void UOvrAvatar::InitializeMaterials()
 				break;
 			case ovrAvatarRenderPartType_SkinnedMeshRenderPBS_V2:
 			{
-				const ovrAvatarRenderPart_SkinnedMeshRenderPBS_V2* RenderData = ovrAvatarRenderPart_GetSkinnedMeshRenderPBSV2(RenderPart);
-				if (UPoseableMeshComponent* mesh = GetMeshComponent(RenderData->meshAssetID))
+				if (IsBodyComponent && UseCombinedBodyMesh && RenderIndex == 0)
 				{
-					UpdateMaterialPBRV2(*mesh, *RenderData);
-				}
+					const ovrAvatarRenderPart_SkinnedMeshRenderPBS_V2* RenderData = ovrAvatarRenderPart_GetSkinnedMeshRenderPBSV2(RenderPart);
+					if (UPoseableMeshComponent* mesh = GetMeshComponent(RenderData->meshAssetID))
+					{
+						static FName AlbedoFields[] =
+						{
+							"Albedo_Body",
+							"Albedo_Clothing",
+							"Albedo_Visor",
+							"Albedo_Hair",
+							"Albedo_Beard"
+						};
 
-				if (UPoseableMeshComponent* mesh = GetDepthMeshComponent(RenderData->meshAssetID))
+						static FName AlbedoMultiplierFields[] =
+						{
+							"AlbedoMultiplier_Body",
+							"AlbedoMultiplier_Clothing",
+							"AlbedoMultiplier_Visor",
+							"AlbedoMultiplier_Hair",
+							"AlbedoMultiplier_Beard"
+						};
+
+						static FName RoughnessFields[] =
+						{
+							"BodyRoughness",
+							"ClothingRoughness",
+							"VisorRoughness",
+							"HairRoughness",
+							"BeardRoughness"
+						};
+
+						static FName NormalFields[] =
+						{
+							"BodyNormal",
+							"ClothingNormal",
+							"VisorNormal",
+							"HairNormal",
+							"BeardNormal"
+						};
+
+						static FName RedThresholds[] =
+						{
+							"BodyRedThreshold",
+							"ClothingRedThreshold",
+							"VisorRedThreshold",
+							"HairRedThreshold",
+							"BeardRedThreshold"
+						};
+
+						UMaterialInstanceDynamic* MaterialInstance = Cast<UMaterialInstanceDynamic>(mesh->GetMaterial(0));
+
+						uint32_t Count = 0;
+						const ovrAvatarPBSMaterialState* MaterialStates = ovrAvatar_GetBodyPBSMaterialStates(RenderPart, &Count);
+
+						for (uint32_t MatIndex = 0; MatIndex < Count; MatIndex++)
+						{
+							auto matState = MaterialStates[MatIndex];
+
+							const float ThresholdValue = (float)MatIndex * 0.25f + 0.05f;
+							MaterialInstance->SetScalarParameterValue(RedThresholds[MatIndex], ThresholdValue);
+
+							if (auto AlbedoTexture = FOvrAvatarManager::Get().FindTexture(matState.albedoTextureID))
+							{
+								MaterialInstance->SetTextureParameterValue(AlbedoFields[MatIndex], AlbedoTexture);
+							}
+
+							MaterialInstance->SetVectorParameterValue(
+								AlbedoMultiplierFields[MatIndex],
+								OvrAvatarHelpers::OvrAvatarVec4ToLinearColor(matState.albedoMultiplier));
+
+							if (auto MetallicnessTexture = FOvrAvatarManager::Get().FindTexture(matState.metallicnessTextureID))
+							{
+								MaterialInstance->SetTextureParameterValue(RoughnessFields[MatIndex], MetallicnessTexture);
+							}
+
+							if (auto NormalTexture = FOvrAvatarManager::Get().FindTexture(matState.normalTextureID))
+							{
+								MaterialInstance->SetTextureParameterValue(NormalFields[MatIndex], NormalTexture);
+							}
+						}
+					}
+				}
+				else
 				{
-					UpdateMaterialPBRV2(*mesh, *RenderData);
+					const ovrAvatarRenderPart_SkinnedMeshRenderPBS_V2* RenderData = ovrAvatarRenderPart_GetSkinnedMeshRenderPBSV2(RenderPart);
+					if (UPoseableMeshComponent* mesh = GetMeshComponent(RenderData->meshAssetID))
+					{
+						UpdateMaterialPBRV2(*mesh, *RenderData);
+					}
 				}
 			}
 			break;
@@ -1383,5 +1673,64 @@ void UOvrAvatar::DebugLogMaterialData(const ovrAvatarMaterialState& material, co
 	UE_LOG(LogAvatars, Display, TEXT("\n[Avatars] -----------------------------------------------------------------------------"));
 }
 
+static FString* gOverrideMaterial = nullptr;
+const FString& UOvrAvatar::GetPBRV2MainMaterialString(bool useCombined)
+{
+	static FString Mobile = FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Mobile"));
+	static FString CombinedMobile = FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Mobile_Combined"));
+	static FString PCSingle = FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2.OculusAvatars_PBRV2"));
+	static FString PCCombined = FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Combined"));
 
+	if (gOverrideMaterial)
+	{
+		return *gOverrideMaterial;
+	}
 
+#if PLATFORM_ANDROID
+	return useCombined ? CombinedMobile : Mobile;
+#else
+	return useCombined ? PCCombined : PCSingle;
+#endif
+}
+
+ovrAvatarControllerType UOvrAvatar::GetControllerTypeByHardware()
+{
+	if (!FOvrAvatarManager::Get().IsOVRPluginValid())
+		return ovrAvatarControllerType_Touch;
+
+	ovrAvatarControllerType controllerType = ovrAvatarControllerType_Touch;
+
+	ovrpSystemHeadset hmdType = ovrpSystemHeadset_None;
+	ovrpResult result = ovrp_GetSystemHeadsetType2(&hmdType);
+
+	if (result != ovrpSuccess)
+	{
+		UE_LOG(LogAvatars, Warning, TEXT("GetControllerTypeByHardware: ovrp_GetSystemHeadsetType2 failed %d"), result);
+	}
+
+	switch (hmdType)
+	{
+	case ovrpSystemHeadset_GearVR_R320:
+	case ovrpSystemHeadset_GearVR_R321:
+	case ovrpSystemHeadset_GearVR_R322:
+	case ovrpSystemHeadset_GearVR_R323:
+	case ovrpSystemHeadset_GearVR_R324:
+	case ovrpSystemHeadset_GearVR_R325:
+		controllerType = ovrAvatarControllerType_Malibu;
+		break;
+	case ovrpSystemHeadset_Oculus_Go:  
+		controllerType = ovrAvatarControllerType_Go;
+		break;
+	case ovrpSystemHeadset_Oculus_Quest: 
+	case ovrpSystemHeadset_Rift_DK1:
+	case ovrpSystemHeadset_Rift_DK2:
+	case ovrpSystemHeadset_Rift_CV1:
+	case ovrpSystemHeadset_Rift_CB:
+	default:
+		controllerType = ovrAvatarControllerType_Touch;
+		break;
+	}
+
+	return controllerType;
+}
+	
