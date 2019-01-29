@@ -32,7 +32,7 @@ int NumDynamicPointLights;
 float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
 float4 SpotLightAngles[MAX_DYNAMIC_POINT_LIGHTS];
-float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS]; 
 #endif
 
 #ifndef PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
