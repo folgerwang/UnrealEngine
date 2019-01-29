@@ -98,6 +98,9 @@ public:
 	/** Forces the widget to refresh its tags on the next tick */
 	void RefreshOnNextTick();
 
+	/** Gets the widget to focus once the menu opens. */
+	TSharedPtr<SWidget> GetWidgetToFocusOnOpen();
+
 private:
 
 	/* string that sets the section of the ini file to use for this class*/ 

@@ -42,6 +42,8 @@ private:
 	/** Callback function to create content for the combo button. */
 	TSharedRef<SWidget> GetListContent();
 
+	void OnGameplayTagListMenuOpenStateChanged(bool bIsOpened);
+
 	/** Returns Tag name currently selected*/
 	FText SelectedTag() const;
 
@@ -59,5 +61,9 @@ private:
 
 	void OnTagDoubleClicked();
 	EVisibility GetVisibilityForTagTextBlockWidget(bool ForTextWidget) const;
+
+	TSharedPtr<class SComboButton> EditButton;
+
+	TWeakPtr<class SGameplayTagWidget> LastTagWidget;
 };
 
