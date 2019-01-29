@@ -164,7 +164,7 @@ UObject* USoundFactory::FactoryCreateBinary
 	{
 		// Unrecognized sound format
 		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound format '%s' in %s"), FileType, *Name.ToString());
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 	}
 
 	return SoundObject;
