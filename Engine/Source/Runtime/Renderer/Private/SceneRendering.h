@@ -1828,4 +1828,4 @@ private:
 extern FFastVramConfig GFastVRamConfig;
 
 extern bool UseCachedMeshDrawCommands();
-extern bool IsDynamicInstancingEnabled();
+extern bool IsDynamicInstancingEnabled(ERHIFeatureLevel::Type FeatureLevel);

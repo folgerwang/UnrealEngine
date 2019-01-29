@@ -71,10 +71,10 @@ static TAutoConsoleVariable<int32> CVarMeshDrawCommandsDynamicInstancing(
 	TEXT("Whether to dynamically combine multiple compatible visible Mesh Draw Commands into one instanced draw on vertex factories that support it."),
 	ECVF_RenderThreadSafe);
 
-bool IsDynamicInstancingEnabled()
+bool IsDynamicInstancingEnabled(ERHIFeatureLevel::Type FeatureLevel)
 {
 	return CVarMeshDrawCommandsDynamicInstancing.GetValueOnRenderThread() > 0
-		&& UseGPUScene(GMaxRHIShaderPlatform, GMaxRHIFeatureLevel); // always disabled on platforms that do not support auto-instacing
+		&& UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 }
 
 int32 GDumpInstancingStats = 0;

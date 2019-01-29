@@ -302,6 +302,7 @@ void UpdateMobileBasePassMeshSortKeys(
  * TempVisibleMeshDrawCommands must be presized for NewPassVisibleMeshDrawCommands.
  */
 void BuildMeshDrawCommandPrimitiveIdBuffer(
+	bool bDynamicInstancing,
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
 	void* RESTRICT PrimitiveIdData,
@@ -323,7 +324,7 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 	int32* RESTRICT PrimitiveIds = (int32*)PrimitiveIdData;
 	const uint32 MaxPrimitiveId = PrimitiveIdDataSize / sizeof(int32);
 
-	if (IsDynamicInstancingEnabled())
+	if (bDynamicInstancing)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_DynamicInstancingOfVisibleMeshDrawCommands);
 		check(VisibleMeshDrawCommands.Num() <= TempVisibleMeshDrawCommands.Max() && TempVisibleMeshDrawCommands.Num() == 0);
@@ -772,6 +773,7 @@ public:
 			if (Context.bUseGPUScene)
 			{
 				BuildMeshDrawCommandPrimitiveIdBuffer(
+					Context.bDynamicInstancing,
 					Context.MeshDrawCommands,
 					Context.MeshDrawCommandStorage,
 					Context.PrimitiveIdBufferData,
@@ -819,7 +821,8 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 
 		if (bUseGPUScene)
 		{
-			if (IsDynamicInstancingEnabled())
+			const bool bDynamicInstancing = IsDynamicInstancingEnabled(FeatureLevel);
+			if (bDynamicInstancing)
 			{
 				NewPassVisibleMeshDrawCommands.Empty(NumDrawCommands);
 			}
@@ -831,6 +834,7 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 			void* PrimitiveIdBufferData = RHILockVertexBuffer(OutPrimitiveIdVertexBuffer, 0, PrimitiveIdBufferDataSize, RLM_WriteOnly);
 
 			BuildMeshDrawCommandPrimitiveIdBuffer(
+				bDynamicInstancing,
 				VisibleMeshDrawCommands,
 				MeshDrawCommandStorage,
 				PrimitiveIdBufferData,
@@ -882,7 +886,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.ShadingPath = Scene->GetShadingPath();
 	TaskContext.PassType = PassType;
 	TaskContext.bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, View.GetFeatureLevel());
-	TaskContext.bDynamicInstancing = TaskContext.bUseGPUScene && IsDynamicInstancingEnabled();
+	TaskContext.bDynamicInstancing = IsDynamicInstancingEnabled(View.GetFeatureLevel());
 	TaskContext.bReverseCulling = View.bReverseCulling;
 	TaskContext.bRenderSceneTwoSided = View.bRenderSceneTwoSided;
 	TaskContext.BasePassDepthStencilAccess = BasePassDepthStencilAccess;

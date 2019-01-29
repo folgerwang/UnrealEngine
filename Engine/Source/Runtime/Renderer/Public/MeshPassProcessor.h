@@ -988,6 +988,7 @@ extern void SubmitMeshDrawCommands(
 	const FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
 	int32 BasePrimitiveIdsOffset,
+	bool bDynamicInstancing,
 	FRHICommandList& RHICmdList);
 
 extern void SubmitMeshDrawCommandsRange(
