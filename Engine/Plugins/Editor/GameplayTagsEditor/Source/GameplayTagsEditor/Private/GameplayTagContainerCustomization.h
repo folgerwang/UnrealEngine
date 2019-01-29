@@ -74,5 +74,6 @@ private:
 	TSharedPtr<SListView<TSharedPtr<FString>>> TagListView;
 
 	void OnTagDoubleClicked(FString TagName);
+	FReply OnRemoveTagClicked(FString TagName);
 };
 
