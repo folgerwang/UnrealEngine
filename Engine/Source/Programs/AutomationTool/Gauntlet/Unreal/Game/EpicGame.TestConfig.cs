@@ -194,9 +194,6 @@ namespace EpicGame
 
 			if (AppConfig.ProcessType.IsClient())
 			{
-				// turn off skill-based matchmaking, turn off porta;
-				AppConfig.CommandLine += " -nosbmm";
-
                 if (LogPSO)
                 {
                     AppConfig.CommandLine += " -logpso";
