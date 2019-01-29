@@ -25,6 +25,7 @@
 #include "Misc/Parse.h"
 #include "Internationalization/Regex.h"
 
+#include <android/asset_manager.h>
 #include <android/log.h>
 #if USE_ANDROID_INPUT
 #include <android/keycodes.h>
@@ -40,6 +41,10 @@
 #include "Async/TaskGraphInterfaces.h"
 
 #include "FramePro/FrameProProfiler.h"
+
+#if USE_ANDROID_JNI
+extern AAssetManager * AndroidThunkCpp_GetAssetManager();
+#endif
 
 static int32 GAndroidTraceMarkersEnabled = 0;
 static FAutoConsoleVariableRef CAndroidTraceMarkersEnabled(
@@ -1065,6 +1070,28 @@ void FAndroidMisc::ShareURL(const FString& URL, const FText& Description, int32 
 #endif
 }
 
+FString FAndroidMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+	AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
+	AAsset* asset = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(*RelativePath), AASSET_MODE_BUFFER);
+
+	if (asset)
+	{
+		const void* FileContents = (const ANSICHAR*)AAsset_getBuffer(asset);
+		int32 FileLength = AAsset_getLength(asset);
+
+		TArray<ANSICHAR> TextContents;
+		TextContents.AddUninitialized(FileLength + 1);
+		FMemory::Memcpy(TextContents.GetData(), FileContents, FileLength);
+		TextContents[FileLength] = 0;
+
+		AAsset_close(asset);
+
+		return FString(ANSI_TO_TCHAR(TextContents.GetData()));
+	}
+
+	return FString();
+}
 
 void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InDeviceBuildNumber, FString InOSLanguage )
 {

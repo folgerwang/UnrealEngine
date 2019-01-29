@@ -1257,7 +1257,13 @@ public:
 	static bool RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc);
 
 	static TArray<FChunkTagID> GetOnDemandChunkTagIDs();
-	
+
+	/*
+	 * Loads a text file relative to the package root on platforms that distribute apps in package formats.
+	 * For other platforms, the path is relative to the root directory.
+	*/
+	static FString LoadTextFileFromPlatformPackage(const FString& RelativePath);
+
 #if !UE_BUILD_SHIPPING
 	/** 
 	 * Returns any platform specific warning messages we want printed on screen

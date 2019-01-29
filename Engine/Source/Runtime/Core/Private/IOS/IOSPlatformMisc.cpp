@@ -18,6 +18,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/ScopeExit.h"
 #include "Apple/ApplePlatformCrashContext.h"
 #include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
@@ -1000,6 +1001,63 @@ void FIOSPlatformMisc::ShareURL(const FString& URL, const FText& Description, in
 	});
 }
 
+
+FString FIOSPlatformMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+	FString FilePath = FString([[NSBundle mainBundle] bundlePath]) / RelativePath;
+
+	// read in the command line text file (coming from UnrealFrontend) if it exists
+	int32 File = open(TCHAR_TO_UTF8(*FilePath), O_RDONLY);
+	if (File == -1)
+	{
+		LowLevelOutputDebugStringf(TEXT("No file found at %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	ON_SCOPE_EXIT
+	{
+		close(File);
+	};
+
+	struct stat FileInfo;
+	FileInfo.st_size = -1;
+
+	if (fstat(File, &FileInfo))
+	{
+		LowLevelOutputDebugStringf(TEXT("Failed to determine file size of %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	if (FileInfo.st_size > MAX_int32 - 1)
+	{
+		LowLevelOutputDebugStringf(TEXT("File too big %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	LowLevelOutputDebugStringf(TEXT("Found %s file") LINE_TERMINATOR, *RelativePath);
+
+	int32 FileSize = static_cast<int32>(FileInfo.st_size);
+	TArray<char> FileContents;
+	FileContents.AddUninitialized(FileSize + 1);
+	FileContents[FileSize] = 0;
+
+	int32 NumRead = read(File, FileContents.GetData(), FileSize);
+	if (NumRead != FileSize)
+	{
+		LowLevelOutputDebugStringf(TEXT("Failed to read %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	// chop off trailing spaces
+	int32 Last = FileSize - 1;
+	while (FileContents[0] && isspace(FileContents[Last]))
+	{
+		FileContents[Last] = 0;
+		--Last;
+	}
+
+	return FString(UTF8_TO_TCHAR(FileContents.GetData()));
+}
 
 void FIOSPlatformMisc::EnableVoiceChat(bool bEnable)
 {

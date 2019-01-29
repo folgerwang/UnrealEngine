@@ -171,6 +171,7 @@ public:
 		{
 			LocalHMD = HMD.Pin();
 		}
+#if WITH_MLSDK
 		else
 		{
 			//initialize AR system
@@ -182,7 +183,8 @@ public:
 			ARModule->ConnectARImplementationToXRSystem(LocalHMD.Get());
 			ARModule->InitializeARImplementation();
 		}
-#endif
+#endif // WITH_MLSDK
+#endif // !PLATFORM_MAC
 		if (LocalHMD.IsValid() && !LocalHMD->IsInitialized())
 		{
 			LocalHMD->Startup();
