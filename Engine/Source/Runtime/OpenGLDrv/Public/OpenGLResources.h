@@ -2010,9 +2010,65 @@ private:
 	FCustomPresentRHIRef CustomPresent;
 };
 
+// Fences
+
+// Note that Poll() and WriteInternal() will stall the RHI thread if one is present.
+class FOpenGLGPUFence : public FRHIGPUFence
+{
+public:
+	FOpenGLGPUFence(FName InName)
+		: FRHIGPUFence(InName)
+		, bValidSync(false)
+	{}
+
+	virtual ~FOpenGLGPUFence() final override;
+
+	virtual void Clear() final override;
+	virtual bool Poll() const final override;
+	
+	void WriteInternal();
+private:
+	UGLsync Fence;
+	// We shadow the sync state to know if/when we need to destroy it.
+	bool bValidSync;
+};
+
+class FOpenGLStagingBuffer : public FRHIStagingBuffer
+{
+	friend class FOpenGLDynamicRHI;
+public:
+	FOpenGLStagingBuffer() : FRHIStagingBuffer()
+	{
+		Initialize();
+	}
+
+	virtual ~FOpenGLStagingBuffer() final override;
+
+	// Locks the shadow of VertexBuffer for read. This will stall the RHI thread.
+	virtual void *Lock(uint32 Offset, uint32 NumBytes) final override;
+
+	// Unlocks the shadow. This is an error if it was not locked previously.
+	virtual void Unlock() final override;
+private:
+	void Initialize();
+
+	GLuint ShadowBuffer;
+	uint32 ShadowSize;
+};
+
 template<class T>
 struct TOpenGLResourceTraits
 {
+};
+template<>
+struct TOpenGLResourceTraits<FRHIGPUFence>
+{
+	typedef FOpenGLGPUFence TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIStagingBuffer>
+{
+	typedef FOpenGLStagingBuffer TConcreteType;
 };
 template<>
 struct TOpenGLResourceTraits<FRHIVertexDeclaration>

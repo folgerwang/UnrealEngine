@@ -533,6 +533,16 @@ public:
 	virtual FTextureCubeRHIRef RHICreateTextureCubeFromResource(EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, const FClearValueBinding& ClearValueBinding, GLuint Resource, uint32 Flags);
 	virtual void RHIAliasTextureResources(FTextureRHIParamRef DestTexture, FTextureRHIParamRef SrcTexture);
 
+	// Inline copy
+	virtual void RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef DestinationStagingBufferRHI, uint32 InOffset, uint32 InNumBytes, FGPUFenceRHIParamRef FenceRHI) final override;
+	virtual void* RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI) final override;
+	virtual void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer) final override;
+	virtual void* LockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI) final override;
+	virtual	void UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer) final override;
+
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer() final override;
+	virtual FGPUFenceRHIRef RHICreateGPUFence(const FName &Name) final override;
+
 	void Cleanup();
 
 	void PurgeFramebufferFromCaches(GLuint Framebuffer);
@@ -678,6 +688,18 @@ public:
 		if (ShouldRunGLRenderContextOpOnThisThread(RHICmdList))\
 		{\
 			return GLCommand();\
+		}\
+		else\
+		{\
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)( GLCommand ); \
+			RHITHREAD_GLTRACE_BLOCKING;\
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
+		}\
+
+#define RHITHREAD_GLCOMMAND_EPILOGUE_NORETURN() };\
+		if (ShouldRunGLRenderContextOpOnThisThread(RHICmdList))\
+		{\
+			GLCommand();\
 		}\
 		else\
 		{\
