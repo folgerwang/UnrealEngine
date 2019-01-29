@@ -28,6 +28,7 @@ void SGlobalOpenAssetDialog::Construct(const FArguments& InArgs, FVector2D InSiz
 	AssetPickerConfig.bShowBottomToolbar = true;
 	AssetPickerConfig.bAutohideSearchBar = false;
 	AssetPickerConfig.bCanShowClasses = false;
+	AssetPickerConfig.bAddFilterUI = true;
 	AssetPickerConfig.SaveSettingsName = TEXT("GlobalAssetPicker");
 
 	ChildSlot
