@@ -4855,7 +4855,9 @@ FArchive* FPakFile::GetSharedReader(IPlatformFile* LowerLevel)
 			}
 
 #if DO_CHECK
-			ReaderMap.Emplace(Thread, new FThreadCheckingArchiveProxy(PakReader, Thread));
+			FArchive* Proxy = new FThreadCheckingArchiveProxy(PakReader, Thread);
+			ReaderMap.Emplace(Thread, Proxy);
+			PakReader = Proxy;
 #else //DO_CHECK
 			ReaderMap.Emplace(Thread, PakReader);
 #endif //DO_CHECK
