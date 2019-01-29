@@ -5840,7 +5840,7 @@ void UDemoNetDriver::Serialize(FArchive& Ar)
 		LevelStatusesByName.CountBytes(Ar);
 		for (const auto& LevelStatusNamePair : LevelStatusesByName)
 		{
-			Ar << const_cast<FString&>(LevelStatusNamePair.Key);
+			LevelStatusNamePair.Key.CountBytes(Ar);
 		}
 
 		LevelStatusIndexByLevel.CountBytes(Ar);

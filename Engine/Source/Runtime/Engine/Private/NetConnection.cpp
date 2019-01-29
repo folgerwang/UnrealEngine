@@ -33,6 +33,7 @@
 #include "UObject/LinkerLoad.h"
 #include "UObject/ObjectKey.h"
 #include "UObject/UObjectIterator.h"
+#include "Net/NetworkGranularMemoryLogging.h"
 
 static TAutoConsoleVariable<int32> CVarPingExcludeFrameTime( TEXT( "net.PingExcludeFrameTime" ), 0, TEXT( "Calculate RTT time between NIC's of server and client." ) );
 
@@ -480,55 +481,65 @@ void UNetConnection::Serialize( FArchive& Ar )
 		//		Histogram data.
 		// These are probably insignificant, though.
 
-		Ar << Challenge;
-		Ar << ClientResponse;
-		Ar << RequestURL;
-		Ar << CDKeyHash;
-		Ar << CDKeyResponse;
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UNetConnection::Serialize");
 
-		SendBuffer.CountMemory(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("Challenge", Challenge.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ClientResponse", ClientResponse.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RequestURL", RequestURL.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("CDKeyHash", CDKeyHash.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("CDKeyResponse", CDKeyResponse.CountBytes(Ar));
 
-		Channels.CountBytes(Ar);
-		OutReliable.CountBytes(Ar);
-		InReliable.CountBytes(Ar);
-		PendingOutRec.CountBytes(Ar);
-		ActorChannels.CountBytes(Ar);
-		DestroyedStartupOrDormantActorGUIDs.CountBytes(Ar);
-		KeepProcessingActorChannelBunchesMap.CountBytes(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("SendBuffer", SendBuffer.CountMemory(Ar));
 
-		for (const auto& KeepProcessingActorChannelBunchesPair : KeepProcessingActorChannelBunchesMap)
-		{
-			KeepProcessingActorChannelBunchesPair.Value.CountBytes(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("Channels", Channels.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("OutReliable", OutReliable.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("InReliable", InReliable.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("PendingOutRec", PendingOutRec.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ActorChannels", ActorChannels.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DestroyedStartupOrDormantActorGUIDs", DestroyedStartupOrDormantActorGUIDs.CountBytes(Ar));
 
-		DormantReplicatorMap.CountBytes(Ar);
-		for (auto& DormantReplicatorPair : DormantReplicatorMap)
-		{
-			DormantReplicatorPair.Value->Serialize(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("KeepProcessingActorChannelBunchesMap",
+			KeepProcessingActorChannelBunchesMap.CountBytes(Ar);
+			for (const auto& KeepProcessingActorChannelBunchesPair : KeepProcessingActorChannelBunchesMap)
+			{
+				KeepProcessingActorChannelBunchesPair.Value.CountBytes(Ar);
+			}
+		);
 
-		ClientVisibleLevelNames.CountBytes(Ar);
-		ClientVisibileActorOuters.CountBytes(Ar);
-		ActorsStarvedByClassTimeMap.CountBytes(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DormantReplicatorMap",
+			DormantReplicatorMap.CountBytes(Ar);
+			for (auto& DormantReplicatorPair : DormantReplicatorMap)
+			{
+				DormantReplicatorPair.Value->Serialize(Ar);
+			}
+		);
 
-		for (auto& ActorsStarvedByClassTimePair : ActorsStarvedByClassTimeMap)
-		{
-			Ar << ActorsStarvedByClassTimePair.Key;
-			ActorsStarvedByClassTimePair.Value.CountBytes(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ClientVisibleLevelNames", ClientVisibleLevelNames.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ClientVisibileActorOuters", ClientVisibileActorOuters.CountBytes(Ar));
 
-		IgnoringChannels.CountBytes(Ar);
-		OutgoingBunches.CountBytes(Ar);
-		ChannelsWaitingForInternalAck.CountBytes(Ar);
-		LastOut.CountMemory(Ar);
-		SendBunchHeader.CountMemory(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ActorsStarvedByClassTimeMap",
+			ActorsStarvedByClassTimeMap.CountBytes(Ar);
+			for (auto& ActorsStarvedByClassTimePair : ActorsStarvedByClassTimeMap)
+			{
+				Ar << ActorsStarvedByClassTimePair.Key;
+				ActorsStarvedByClassTimePair.Value.CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("IgnoringChannels", IgnoringChannels.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("OutgoingBunches", OutgoingBunches.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ChannelsWaitingForInternalAck", ChannelsWaitingForInternalAck.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastOut", LastOut.CountMemory(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("SendBunchHeader", SendBunchHeader.CountMemory(Ar));
 
 #if DO_ENABLE_NET_TEST
-		Delayed.CountBytes(Ar);
-		for (const DelayedPacket& Packet : Delayed)
-		{
-			Packet.CountBytes(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("Delayed",
+			Delayed.CountBytes(Ar);
+			for (const DelayedPacket& Packet : Delayed)
+			{
+				Packet.CountBytes(Ar);
+			}
+		);
 #endif
 	}
 }

@@ -21,6 +21,7 @@
 #include "Engine/ReplicationDriver.h"
 #include "Stats/StatsMisc.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "Net/NetworkGranularMemoryLogging.h"
 
 DEFINE_LOG_CATEGORY(LogNet);
 DEFINE_LOG_CATEGORY(LogRep);
@@ -2972,43 +2973,53 @@ void UActorChannel::Serialize(FArchive& Ar)
 
 	if (Ar.IsCountingMemory())
 	{
-		ReplicationMap.CountBytes(Ar);
-		for (const auto& MapPair : ReplicationMap)
-		{
-			Ar.CountBytes(sizeof(*MapPair.Value), sizeof(*MapPair.Value));
-			MapPair.Value->Serialize(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UActorChannel::Serialize");
 
-		QueuedBunches.CountBytes(Ar);
-		for (const FInBunch* Bunch : QueuedBunches)
-		{
-			if (Bunch)
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ReplicationMap",
+			ReplicationMap.CountBytes(Ar);
+			for (const auto& MapPair : ReplicationMap)
 			{
-				Bunch->CountMemory(Ar);
+				Ar.CountBytes(sizeof(*MapPair.Value), sizeof(*MapPair.Value));
+				MapPair.Value->Serialize(Ar);
 			}
-		}
-
-		PendingGuidResolves.CountBytes(Ar);
-		QueuedMustBeMappedGuidsInLastBunch.CountBytes(Ar);
-
-		QueuedExportBunches.CountBytes(Ar);
-		for (const FOutBunch* Bunch : QueuedExportBunches)
-		{
-			if (Bunch)
+		);
+		
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("QueudBunches",	
+			QueuedBunches.CountBytes(Ar);
+			for (const FInBunch* Bunch : QueuedBunches)
 			{
-				Bunch->CountMemory(Ar);
+				if (Bunch)
+				{
+					Bunch->CountMemory(Ar);
+				}
 			}
-		}
+		);
 
-		SubobjectRepKeyMap.CountBytes(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("PendingGuidResolves", PendingGuidResolves.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("QueuedMustBeMappedGuidsInLastBunch", QueuedMustBeMappedGuidsInLastBunch.CountBytes(Ar));
 
-		SubobjectNakMap.CountBytes(Ar);
-		for (const auto& NakMapPair : SubobjectNakMap)
-		{
-			NakMapPair.Value.ObjKeys.CountBytes(Ar);
-		}
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("QueuedExportBunches",
+			QueuedExportBunches.CountBytes(Ar);
+			for (const FOutBunch* Bunch : QueuedExportBunches)
+			{
+				if (Bunch)
+				{
+					Bunch->CountMemory(Ar);
+				}
+			}
+		);
 
-		PendingObjKeys.CountBytes(Ar);
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("SubobjectRepKeyMap", SubobjectRepKeyMap.CountBytes(Ar));
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("SubobjectNakMap",
+			SubobjectNakMap.CountBytes(Ar);
+			for (const auto& NakMapPair : SubobjectNakMap)
+			{
+				NakMapPair.Value.ObjKeys.CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("PendingObjKeys", PendingObjKeys.CountBytes(Ar));
 	}
 }
 
