@@ -237,6 +237,12 @@ void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 		}
 	}
 	
+	TSharedPtr<IPropertyHandle> SimulatePhysicsPropertyHandle = BodyInstanceHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bSimulatePhysics));
+	if (SimulatePhysicsPropertyHandle.IsValid())
+	{
+		FSimpleDelegate OnSimulatePhysicsChangedDelegate = FSimpleDelegate::CreateSP(this, &FBodyInstanceCustomization::OnSimulatePhysicsChanged);
+		SimulatePhysicsPropertyHandle->SetOnPropertyValueChanged(OnSimulatePhysicsChangedDelegate);
+	}
 
 	AddCollisionCategory(StructPropertyHandle, StructBuilder, StructCustomizationUtils);
 }
@@ -783,6 +789,10 @@ TSharedRef<SWidget> FBodyInstanceCustomization::MakeCollisionProfileComboWidget(
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
 
+void FBodyInstanceCustomization::OnSimulatePhysicsChanged()
+{
+	UpdateCollisionProfile();
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // NOTE! I have a lot of ensure to make sure it's set correctly
