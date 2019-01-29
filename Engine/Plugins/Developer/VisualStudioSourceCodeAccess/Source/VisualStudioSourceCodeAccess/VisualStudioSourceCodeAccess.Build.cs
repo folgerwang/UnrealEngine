@@ -58,7 +58,7 @@ namespace UnrealBuildTool.Rules
 				}
 			}
 
-			if (bHasVisualStudioDTE)
+			if (bHasVisualStudioDTE && Target.WindowsPlatform.StaticAnalyzer != WindowsStaticAnalyzer.PVSStudio)
 			{
 				PublicDefinitions.Add("VSACCESSOR_HAS_DTE=1");
 			}
