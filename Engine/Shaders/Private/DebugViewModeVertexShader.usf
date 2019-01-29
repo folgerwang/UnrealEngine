@@ -5,7 +5,9 @@
 =============================================================================*/
 
 #define TEX_COORD_SCALE_ANALYSIS 1
- 
+
+#define SCENE_TEXTURES_DISABLED 1
+
 #include "Common.ush"
 
 struct FTexCoordScalesParams

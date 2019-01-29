@@ -79,12 +79,14 @@ void FDebugViewModeMaterialProxy::ClearAllShaders(UMaterialInterface* InMaterial
 	FlushRenderingCommands();
 	bReentrantCall = true;
 
+	TArray<FDebugViewModeMaterialProxy*, TInlineAllocator<1> > MaterialsToDelete;
+
 	if (!InMaterialInterface)
 	{
 		for (TMap<FMaterialUsagePair, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
 		{
 			FDebugViewModeMaterialProxy* Proxy = It.Value();
-			delete Proxy;
+			MaterialsToDelete.Add(Proxy);
 			It.Value() = nullptr;
 		}
 		DebugMaterialShaderMap.Empty();
@@ -96,12 +98,28 @@ void FDebugViewModeMaterialProxy::ClearAllShaders(UMaterialInterface* InMaterial
 			if (It.Key().MaterialInterface == InMaterialInterface)
 			{
 				FDebugViewModeMaterialProxy* Proxy = It.Value();
-				delete Proxy;
+				MaterialsToDelete.Add(Proxy);
 				It.Value() = nullptr;
 
 				It.RemoveCurrent();
 			}
 		}
+	}
+
+	if (MaterialsToDelete.Num())
+	{
+		ENQUEUE_RENDER_COMMAND(DeleteDebugMaterials)([MaterialsToDelete](FRHICommandList& RHICmdList)
+		{
+			for (FDebugViewModeMaterialProxy* MaterialToDelete : MaterialsToDelete)
+			{
+				if (MaterialToDelete)
+				{
+					delete MaterialToDelete;
+				}
+			}
+		});
+
+		FlushRenderingCommands();
 	}
 
 	bReentrantCall = false;
@@ -163,18 +181,19 @@ void FDebugViewModeMaterialProxy::ValidateAllShaders(TSet<UMaterialInterface*>& 
 		}
 	}
 
-	TArray<FDebugViewModeMaterialProxy*> MaterialsToUpdateCopy = MaterialsToUpdate;
-	ENQUEUE_RENDER_COMMAND(UpdateDebugMaterialExpressionCache)(
-		[MaterialsToUpdateCopy](FRHICommandList& RHICmdList)
+	if (MaterialsToUpdate.Num())
+	{
+		ENQUEUE_RENDER_COMMAND(UpdateDebugMaterialExpressionCache)([MaterialsToUpdate](FRHICommandList& RHICmdList)
 		{
-			for (FDebugViewModeMaterialProxy* MaterialToUpdate : MaterialsToUpdateCopy)
+			for (FDebugViewModeMaterialProxy* MaterialToUpdate : MaterialsToUpdate)
 			{
 				check(MaterialToUpdate);
 				MaterialToUpdate->UpdateUniformExpressionCacheIfNeeded(MaterialToUpdate->FMaterial::GetFeatureLevel());
 			}
 		});
 
-	FlushRenderingCommands();
+		FlushRenderingCommands();
+	}
 }
 
 FDebugViewModeMaterialProxy::FDebugViewModeMaterialProxy(
