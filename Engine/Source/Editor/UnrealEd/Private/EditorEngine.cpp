@@ -7325,6 +7325,8 @@ void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeat
 
 	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskFinalizingMessage", "Finalizing"));
 	GShaderCompilingManager->ProcessAsyncResults(false, true);
+
+	PreviewFeatureLevelChanged.Broadcast(InFeatureLevel);
 }
 
 void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
@@ -7339,12 +7341,13 @@ void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPrevie
 	}
 }
 
-void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
+void UEditorEngine::AllMaterialsCacheResourceShadersForRendering(ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
 	FGlobalComponentRecreateRenderStateContext Recreate;
 	FlushRenderingCommands();
 	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
 	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
+	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
 }
 
 void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings/* = true*/)
@@ -7374,10 +7377,8 @@ void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, ERHI
 	else if (InitialPreviewPlatform != MaterialQualityPlatform)
 	{
 		// Rebuild materials if we have the same feature level but a different 'material quality platform'
-		AllMaterialsCacheResourceShadersForRendering();
+		AllMaterialsCacheResourceShadersForRendering(InPreviewFeatureLevel);
 	}
-
-	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
 
 	if (bSaveSettings)
 	{
