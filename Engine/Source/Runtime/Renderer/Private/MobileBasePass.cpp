@@ -383,8 +383,6 @@ void MobileBasePass::SetOpaqueRenderState(FMeshPassProcessorRenderState& DrawRen
 void MobileBasePass::SetTranslucentRenderState(FMeshPassProcessorRenderState& DrawRenderState, const FMaterial& Material)
 {
 	bool bEncodedHDR = GetMobileHDRMode() == EMobileHDRMode::EnabledRGBE && Material.GetMaterialDomain() != MD_UI;
-	static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
-	const bool bIsMobileMonoscopic = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnRenderThread() != 0);
 
 	if (bEncodedHDR == false)
 	{
@@ -395,10 +393,6 @@ void MobileBasePass::SetTranslucentRenderState(FMeshPassProcessorRenderState& Dr
 			{
 				DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_Zero, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
 			} 
-			else if (bIsMobileMonoscopic)
-			{
-				DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::GetRHI());
-			}
 			else
 			{
 				DrawRenderState.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
@@ -522,16 +516,15 @@ void TMobileBasePassPSPolicyParamType<FUniformLightMapPolicy>::GetShaderBindings
 		ShaderBindings.Add(ReflectionPositionsAndRadii, CapturePositions);
 		ShaderBindings.Add(MobileReflectionParams, ReflectionParams);
 
-		if (LightPositionAndInvRadiusParameter.IsBound())
+		if (LightPositionAndInvRadiusParameter.IsBound() || SpotLightDirectionParameter.IsBound())
 		{
-			//temp compile fixes.
-#if 0
 			// Set dynamic point lights
-			FMobileBasePassMovablePointLightInfo LightInfo(PrimitiveSceneProxy);
+			FMobileBasePassMovableLightInfo LightInfo(PrimitiveSceneProxy);
 			ShaderBindings.Add(NumDynamicPointLightsParameter, LightInfo.NumMovablePointLights);
 			ShaderBindings.Add(LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius);
 			ShaderBindings.Add(LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent);
-#endif
+			ShaderBindings.Add(SpotLightDirectionParameter, LightInfo.SpotLightDirection);
+			ShaderBindings.Add(SpotLightAnglesParameter, LightInfo.SpotLightAngles);
 		}
 	}
 	else

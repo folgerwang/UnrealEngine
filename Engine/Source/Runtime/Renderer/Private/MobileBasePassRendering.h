@@ -243,14 +243,10 @@ public:
 		LightPositionAndInvRadiusParameter.Bind(Initializer.ParameterMap, TEXT("LightPositionAndInvRadius"));
 		LightColorAndFalloffExponentParameter.Bind(Initializer.ParameterMap, TEXT("LightColorAndFalloffExponent"));
 		NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
-				
-		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
-
-		//temp compile hacks
-#if 0
 		SpotLightAnglesParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightAngles"));
 		SpotLightDirectionParameter.Bind(Initializer.ParameterMap, TEXT("SpotLightDirection"));
-#endif
+						
+		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
@@ -272,14 +268,10 @@ public:
 		Ar << LightPositionAndInvRadiusParameter;
 		Ar << LightColorAndFalloffExponentParameter;
 		Ar << NumDynamicPointLightsParameter;
-	
-		Ar << CSMDebugHintParams;
-	
-		//temp compile hacks
-#if 0
 		Ar << SpotLightAnglesParameter;
 		Ar << SpotLightDirectionParameter;
-#endif
+			
+		Ar << CSMDebugHintParams;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -299,6 +291,8 @@ private:
 	FShaderParameter LightPositionAndInvRadiusParameter;
 	FShaderParameter LightColorAndFalloffExponentParameter;
 	FShaderParameter NumDynamicPointLightsParameter;
+	FShaderParameter SpotLightDirectionParameter;
+	FShaderParameter SpotLightAnglesParameter;
 
 	FShaderParameter CSMDebugHintParams;
 
