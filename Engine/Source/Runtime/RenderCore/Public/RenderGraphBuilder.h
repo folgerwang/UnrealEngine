@@ -223,7 +223,10 @@ public:
 		return OutTexture;
 	}
 
-	/** Create graph tracked resource from a descriptor with a debug name. */
+	/** Create graph tracked resource from a descriptor with a debug name.
+	 *
+	 * The debug name is the name used for GPU debugging tools, but also for the VisualizeTexture/Vis command.
+	 */
 	inline FRDGTextureRef CreateTexture(const FPooledRenderTargetDesc& Desc, const TCHAR* DebugName)
 	{
 		#if RENDER_GRAPH_DEBUGGING
@@ -238,7 +241,10 @@ public:
 		return Texture;
 	}
 
-	/** Create graph tracked resource from a descriptor with a debug name. */
+	/** Create graph tracked resource from a descriptor with a debug name.
+	 *
+	 * The debug name is the name used for GPU debugging tools, but also for the VisualizeTexture/Vis command.
+	 */
 	inline FRDGBufferRef CreateBuffer(const FRDGBufferDesc& Desc, const TCHAR* DebugName)
 	{
 		#if RENDER_GRAPH_DEBUGGING
@@ -339,6 +345,9 @@ public:
 	}
 
 	/** Adds a lambda pass to the graph.
+	 *
+	 * The Name of the pass should be generated with enough information to identify it's purpose and GPU cost, to be clear
+	 * for GPU profiling tools.
 	 *
 	 * Caution: The pass parameter will be validated, and should not longer be modified after this call, since the pass may be executed
 	 * right away with the immediate debugging mode.
