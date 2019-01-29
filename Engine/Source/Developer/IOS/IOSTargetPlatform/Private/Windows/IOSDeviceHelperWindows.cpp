@@ -175,8 +175,13 @@ public:
 		{
 			if (bCheckDevices)
 			{
-				// BHP - Turning off device check to prevent it from interfering with packaging
-				QueryDevices();
+#if WITH_EDITOR
+				if (GIsEditor || FPlatformProperties::IsProgram())
+				{
+					// BHP - Turning off device check to prevent it from interfering with packaging
+					QueryDevices();
+				}
+#endif
 			}
 
 			FPlatformProcess::Sleep(5.0f);
