@@ -52,6 +52,11 @@ namespace EButtonTouchMethod
 		DownAndUp,
 
 		/**
+		 * Click will be triggered immediately on touch down, and touch will not be captured.
+		 */
+		Down,
+
+		/**
 		 * Inside a list, buttons can only be clicked with precise tap.
 		 * Moving the pointer will scroll the list.
 		 */
