@@ -170,11 +170,11 @@ void FPointCloudSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	}
 
 	const bool bIsWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
-	FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy(IsSelected());
+	FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy();
 	if (bIsWireframe)
 	{
 		FMaterialRenderProxy* WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr,
+				GEngine->WireframeMaterial->GetRenderProxy(),
 				FLinearColor(0, 0.5f, 1.f)
 		);
 		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);

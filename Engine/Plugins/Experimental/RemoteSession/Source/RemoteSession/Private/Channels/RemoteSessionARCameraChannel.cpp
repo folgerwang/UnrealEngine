@@ -316,7 +316,7 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 
 	SetUniformBufferParameterImmediate(RHICmdList, VertexShader->GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
 	VertexShader->SetParameters(RHICmdList, InView);
-	PixelShader->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
+	PixelShader->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy());
 
 	if (VertexBufferRHI && IndexBufferRHI.IsValid())
 	{
