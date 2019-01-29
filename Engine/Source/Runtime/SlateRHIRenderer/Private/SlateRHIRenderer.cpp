@@ -28,6 +28,8 @@
 #include "Interfaces/ISlate3DRenderer.h"
 #include "Slate/SlateTextureAtlasInterface.h"
 #include "CommonRenderResources.h"
+#include "RenderTargetPool.h"
+#include "RendererUtils.h"
 
 DECLARE_CYCLE_STAT(TEXT("Slate RT: Rendering"), STAT_SlateRenderingRTTime, STATGROUP_Slate);
 DECLARE_CYCLE_STAT(TEXT("Slate RT: Create Batches"), STAT_SlateRTCreateBatches, STATGROUP_Slate);
@@ -425,10 +427,7 @@ void FSlateRHIRenderer::UpdateFullscreenState(const TSharedRef<SWindow> Window, 
 void FSlateRHIRenderer::SetSystemResolution(uint32 Width, uint32 Height)
 {
 	FSystemResolution::RequestResolutionChange(Width, Height, FPlatformProperties::HasFixedResolution() ? EWindowMode::Fullscreen : GSystemResolution.WindowMode);
-	if (FPlatformProperties::HasFixedResolution())
-	{
-		IConsoleManager::Get().CallAllConsoleVariableSinks();
-	}
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
@@ -438,10 +437,7 @@ void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWind
 		// Force the window system to resize the active viewport, even though nothing might have appeared to change.
 		// On windows, DXGI might change the window resolution behind our backs when we alt-tab out. This will make
 		// sure that we are actually in the resolution we think we are.
-#if !PLATFORM_HTML5
-		// @todo: fixme for HTML5. 
 		GSystemResolution.ForceRefresh();
-#endif 
 	}
 }
 
@@ -562,6 +558,7 @@ public:
 		FGlobalShader(Initializer)
 	{
 		UITexture.Bind(Initializer.ParameterMap, TEXT("UITexture"));
+		UIWriteMaskTexture.Bind(Initializer.ParameterMap, TEXT("UIWriteMaskTexture"));
 		UISampler.Bind(Initializer.ParameterMap, TEXT("UISampler"));
 		SceneTexture.Bind(Initializer.ParameterMap, TEXT("SceneTexture"));
 		SceneSampler.Bind(Initializer.ParameterMap, TEXT("SceneSampler"));
@@ -572,7 +569,7 @@ public:
 	}
 	FCompositePS() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, FTextureRHIParamRef UITextureRHI, FTextureRHIParamRef SceneTextureRHI, FTextureRHIParamRef ColorSpaceLUTRHI)
+	void SetParameters(FRHICommandList& RHICmdList, FTextureRHIParamRef UITextureRHI, FTextureRHIParamRef UITextureWriteMaskRHI, FTextureRHIParamRef SceneTextureRHI, FTextureRHIParamRef ColorSpaceLUTRHI)
 	{
 		static const auto CVarOutputDevice = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.Display.OutputDevice"));
 
@@ -581,6 +578,11 @@ public:
 		SetTextureParameter(RHICmdList, GetPixelShader(), ColorSpaceLUT, ColorSpaceLUTSampler, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), ColorSpaceLUTRHI);
 		SetShaderValue(RHICmdList, GetPixelShader(), UILevel, CVarUILevel.GetValueOnRenderThread());
 		SetShaderValue(RHICmdList, GetPixelShader(), OutputDevice, CVarOutputDevice->GetValueOnRenderThread());
+		
+		if (GSupportsRenderTargetWriteMask)
+		{
+			SetTextureParameter(RHICmdList, GetPixelShader(), UIWriteMaskTexture, UITextureWriteMaskRHI);
+		}
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -593,6 +595,7 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << UITexture << UISampler;
+		Ar << UIWriteMaskTexture;
 		Ar << SceneTexture << SceneSampler;
 		Ar << ColorSpaceLUT << ColorSpaceLUTSampler;
 		Ar << UILevel << OutputDevice;
@@ -611,6 +614,7 @@ public:
 
 private:
 	FShaderResourceParameter UITexture;
+	FShaderResourceParameter UIWriteMaskTexture;
 	FShaderResourceParameter UISampler;
 	FShaderResourceParameter SceneTexture;
 	FShaderResourceParameter SceneSampler;
@@ -707,22 +711,28 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 			const uint32 ViewportHeight = (ViewportRT) ? ViewportRT->GetSizeY() : ViewportInfo.Height;
 
 			// Check to see that targets are up-to-date
-			if (bCompositeUI && (!ViewportInfo.UITargetRT || ViewportInfo.UITargetRT->GetSizeX() != ViewportWidth || ViewportInfo.UITargetRT->GetSizeY() != ViewportHeight))
+			if (bCompositeUI && (!ViewportInfo.UITargetRT || ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture->GetTexture2D()->GetSizeX() != ViewportWidth || ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture->GetTexture2D()->GetSizeY() != ViewportHeight))
 			{
 				// Composition buffers
-				ViewportInfo.UITargetRT.SafeRelease();
-				ViewportInfo.HDRSourceRT.SafeRelease();
-				ViewportInfo.ColorSpaceLUTRT.SafeRelease();
-				ViewportInfo.UITargetSRV.SafeRelease();
+				uint32 BaseFlags = (GSupportsRenderTargetWriteMask) ? TexCreate_NoFastClearFinalize : TexCreate_None;
 
-				FRHIResourceCreateInfo CreateInfo;
-				RHICreateTargetableShaderResource2D(ViewportWidth, ViewportHeight, PF_B8G8R8A8, 1, TexCreate_None, TexCreate_RenderTargetable, false, CreateInfo, ViewportInfo.UITargetRT, ViewportInfo.UITargetSRV);
-				RHICreateTargetableShaderResource2D(ViewportWidth, ViewportHeight, GRHIHDRDisplayOutputFormat, 1, TexCreate_None, TexCreate_RenderTargetable, false, CreateInfo, ViewportInfo.HDRSourceRT, ViewportInfo.HDRSourceSRV);
+				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(ViewportWidth, ViewportHeight),
+					PF_B8G8R8A8,
+					FClearValueBinding::Transparent,
+					BaseFlags,
+					TexCreate_ShaderResource | TexCreate_RenderTargetable,
+					false,
+					1,
+					true,
+					true));
+
+				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ViewportInfo.UITargetRT, TEXT("UITargetRT"));
 
 				// LUT
 				ViewportInfo.ColorSpaceLUTRT.SafeRelease();
 				ViewportInfo.ColorSpaceLUTSRV.SafeRelease();
 
+				FRHIResourceCreateInfo CreateInfo;
 				RHICreateTargetableShaderResource3D(CompositionLUTSize, CompositionLUTSize, CompositionLUTSize, PF_A2B10G10R10, 1, TexCreate_None, TexCreate_RenderTargetable, false, CreateInfo, ViewportInfo.ColorSpaceLUTRT, ViewportInfo.ColorSpaceLUTSRV);
 				bLUTStale = true;
 			}
@@ -731,14 +741,14 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 			if (bCompositeUI)
 			{
-				FResolveParams ResolveParams;
 				bClear = true; // Force a clear of the UI buffer to black
 
-							   // Grab HDR backbuffer
-				RHICmdList.CopyToResolveTarget(FinalBuffer, ViewportInfo.HDRSourceRT, ResolveParams);
+				// Make sure the backbuffer is readable
+				FResolveParams ResolveParams;
+				RHICmdList.CopyToResolveTarget(FinalBuffer, FinalBuffer, ResolveParams);
 
 				// UI backbuffer is temp target
-				BackBuffer = ViewportInfo.UITargetRT;
+				BackBuffer = ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture->GetTexture2D();
 			}
 
 			if (SlateWireFrame)
@@ -864,7 +874,13 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 				// Composition pass
 				{
 					FResolveParams ResolveParams;
-					RHICmdList.CopyToResolveTarget(ViewportInfo.UITargetRT, ViewportInfo.UITargetSRV, ResolveParams);
+					RHICmdList.CopyToResolveTarget(ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture, ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture, ResolveParams);
+
+					if (GSupportsRenderTargetWriteMask)
+					{
+						RHICmdList.TransitionResource(EResourceTransitionAccess::EMetaData, ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture);
+						FRenderTargetWriteMask::Decode(RHICmdList, ShaderMap, { ViewportInfo.UITargetRT }, ViewportInfo.UITargetRTMask, 0, TEXT("UIRTWriteMask"));
+					}
 
 					FRHIRenderPassInfo RPInfo(FinalBuffer, ERenderTargetActions::Load_Store);
 					RHICmdList.BeginRenderPass(RPInfo, TEXT("SlateComposite"));
@@ -889,7 +905,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-							PixelShader->SetParameters(RHICmdList, ViewportInfo.UITargetSRV, ViewportInfo.HDRSourceSRV, ViewportInfo.ColorSpaceLUTSRV);
+							PixelShader->SetParameters(RHICmdList, ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture, ViewportInfo.UITargetRTMask->GetRenderTargetItem().TargetableTexture, FinalBuffer, ViewportInfo.ColorSpaceLUTSRV);
 						}
 						else
 						{
@@ -903,7 +919,7 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-							PixelShader->SetParameters(RHICmdList, ViewportInfo.UITargetSRV, ViewportInfo.HDRSourceSRV, ViewportInfo.ColorSpaceLUTSRV);
+							PixelShader->SetParameters(RHICmdList, ViewportInfo.UITargetRT->GetRenderTargetItem().TargetableTexture, ViewportInfo.UITargetRTMask->GetRenderTargetItem().TargetableTexture, FinalBuffer, ViewportInfo.ColorSpaceLUTSRV);
 						}
 
 						RendererModule.DrawRectangle(
@@ -919,6 +935,9 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 					}
 					RHICmdList.EndRenderPass();
 				}
+
+				// Put the backbuffer back to the correct one.
+				BackBuffer = FinalBuffer;
 			} //bCompositeUI
 
 			if (!bRenderedStereo && GEngine && IsValidRef(ViewportInfo.GetRenderTargetTexture()) && GEngine->StereoRenderingDevice.IsValid())

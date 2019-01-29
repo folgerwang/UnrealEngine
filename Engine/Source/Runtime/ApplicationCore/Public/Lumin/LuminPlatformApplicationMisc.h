@@ -24,7 +24,7 @@ struct APPLICATIONCORE_API FLuminPlatformApplicationMisc : public FAndroidApplic
 		return false;
 	}
 
-
+	static class GenericApplication* CreateApplication();
 };
 
 typedef FLuminPlatformApplicationMisc FPlatformApplicationMisc;

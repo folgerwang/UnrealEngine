@@ -48,6 +48,7 @@ struct CORE_API FLuminPlatformMisc : public FAndroidMisc
 	/** Android overrides. */
 	static bool ShouldUseVulkan();
 	static bool ShouldUseDesktopVulkan();
+	static const TCHAR* GetDefaultDeviceProfileName();
 
 	/** Lumin specific. */
 	static bool ShouldUseDesktopOpenGL();

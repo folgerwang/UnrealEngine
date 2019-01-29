@@ -30,7 +30,22 @@ static TAutoConsoleVariable<int32> CVarMobileUseLegacyShadingModel(
 	TEXT("If 1 then use legacy (pre 4.20) shading model (such as spherical guassian specular calculation.) (will cause a shader rebuild)"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarMobileEnableMovableSpotLights(
+	TEXT("r.Mobile.EnableMovableSpotlights"),
+	0,
+	TEXT("If 1 then enable movable spotlight support"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileBasePassUniformParameters, "MobileBasePass");
+
+static TAutoConsoleVariable<int32> CVarMobileUseHWsRGBEncoding(
+	TEXT("r.Mobile.UseHWsRGBEncoding"),
+	0,
+	TEXT("0: Write sRGB encoding in the shader\n")
+	TEXT("1: Use GPU HW to convert linear to sRGB automatically (device must support sRGB write control)\n"),
+	ECVF_RenderThreadSafe);
+
 
 #define IMPLEMENT_MOBILE_SHADING_BASEPASS_LIGHTMAPPED_VERTEX_SHADER_TYPE(LightMapPolicyType,LightMapPolicyName) \
 	typedef TMobileBasePassVS< LightMapPolicyType, LDR_GAMMA_32 > TMobileBasePassVS##LightMapPolicyName##LDRGamma32; \
@@ -90,7 +105,7 @@ bool TMobileBasePassPSPolicyParamType<LightMapPolicyType>::ModifyCompilationEnvi
 	return true;
 }
 
-FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
+FMobileBasePassMovableLightInfo::FMobileBasePassMovableLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
 : NumMovablePointLights(0)
 {
 	static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
@@ -101,7 +116,13 @@ FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const
 		for (FLightPrimitiveInteraction* LPI = InSceneProxy->GetPrimitiveSceneInfo()->LightList; LPI && NumMovablePointLights < MobileNumDynamicPointLights; LPI = LPI->GetNextLight())
 		{
 			FLightSceneProxy* LightProxy = LPI->GetLight()->Proxy;
-			if (LightProxy->GetLightType() == LightType_Point && LightProxy->IsMovable() && (LightProxy->GetLightingChannelMask() & InSceneProxy->GetLightingChannelMask()) != 0)
+			const uint8 LightType = LightProxy->GetLightType(); 
+			const bool bIsValidLightType =
+				  LightType == LightType_Point
+				|| LightType == LightType_Rect
+				|| (LightType == LightType_Spot && CVarMobileEnableMovableSpotLights.GetValueOnRenderThread());
+				
+			if (bIsValidLightType && LightProxy->IsMovable() && (LightProxy->GetLightingChannelMask() & InSceneProxy->GetLightingChannelMask()) != 0)
 			{
 				FLightShaderParameters LightParameters;
 				LightProxy->GetLightShaderParameters(LightParameters);

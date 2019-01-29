@@ -17,7 +17,6 @@
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "EngineUtils.h"
 #include "Engine/NetConnection.h"
-#include "Engine/ActorChannel.h"
 
 /**
  *	
@@ -959,7 +958,7 @@ void FGlobalActorReplicationInfo::LogDebugString(FOutputDevice& Ar) const
 
 void FConnectionReplicationActorInfo::LogDebugString(FOutputDevice& Ar) const
 {
-	Ar.Logf(TEXT("  Channel: %s"), *GetNameSafe(Channel));
+	Ar.Logf(TEXT("  Channel: %s"), *(Channel ? Channel->Describe() : TEXT("None")));
 	Ar.Logf(TEXT("  CullDistSq: %.2f (%.2f)"), CullDistanceSquared, FMath::Sqrt(CullDistanceSquared));
 	Ar.Logf(TEXT("  NextReplicationFrameNum: %d. ReplicationPeriodFrame: %d. LastRepFrameNum: %d. ActorChannelCloseFrameNum: %d. IsDormantOnConnection: %d. TearOff: %d"), NextReplicationFrameNum, ReplicationPeriodFrame, LastRepFrameNum, ActorChannelCloseFrameNum, bDormantOnConnection, bTearOff);
 }
@@ -992,6 +991,13 @@ void UReplicationGraph::LogConnectionGraphNodes(FReplicationGraphDebugInfo& Debu
 		DebugInfo.PopIndent();
 	}
 }
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+AReplicationGraphDebugActor* UReplicationGraph::CreateDebugActor() const
+{
+	return GetWorld()->SpawnActor<AReplicationGraphDebugActor>();
+}
+#endif
 
 void UReplicationGraphNode::LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const
 {

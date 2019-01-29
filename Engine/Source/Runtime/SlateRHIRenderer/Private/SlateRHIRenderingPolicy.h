@@ -90,6 +90,8 @@ private:
 	TSlateElementVertexBuffer<FSlateVertex> VertexBuffers;
 	FSlateElementIndexBuffer IndexBuffers;
 
+	FSlateStencilClipVertexBuffer StencilVertexBuffer;
+
 	/** Handles post process effects for slate */
 	TSharedRef<FSlatePostProcessor> PostProcessor;
 

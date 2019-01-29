@@ -59,7 +59,6 @@ void UMovieSceneGeometryCacheSection::PostLoad()
 
 		Params.EndOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
 	}
-
 }
 
 void UMovieSceneGeometryCacheSection::Serialize(FArchive& Ar)

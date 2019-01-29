@@ -5,6 +5,13 @@
 	"Plugins": [
 		{
 			"Name": "GoogleARCore",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Android"
+			]
+		},
+		{
+			"Name": "AppleARKit",
 			"Enabled": true
 		}
 	],

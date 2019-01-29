@@ -16,9 +16,9 @@ struct FOculusSplashDesc
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(config, EditAnywhere, Category = Settings, meta = (
-		AllowedClasses = "Texture2D",
+		AllowedClasses = "Texture",
 		ToolTip = "Texture to display"))
-	FSoftObjectPath TexturePath;
+	FSoftObjectPath		TexturePath;
 
 	UPROPERTY(config, EditAnywhere, Category = Settings, meta = (
 		ToolTip = "transform of center of quad (meters)."))
@@ -45,8 +45,9 @@ struct FOculusSplashDesc
 	bool				bNoAlphaChannel;
 
 	// Runtime data
-	UTexture2D*			LoadingTexture;
+	UTexture*			LoadingTexture;
 	FTextureRHIRef		LoadedTexture;
+	bool				bIsDynamic;
 
 	FOculusSplashDesc()
 		: TransformInMeters(FVector(4.0f, 0.f, 0.f))
@@ -57,6 +58,7 @@ struct FOculusSplashDesc
 		, bNoAlphaChannel(false)
 		, LoadingTexture(nullptr)
 		, LoadedTexture(nullptr)
+		, bIsDynamic(false)
 	{
 	}
 
@@ -65,8 +67,8 @@ struct FOculusSplashDesc
 		return TexturePath == d.TexturePath &&
 			TransformInMeters.Equals(d.TransformInMeters) &&
 			QuadSizeInMeters == d.QuadSizeInMeters && DeltaRotation.Equals(d.DeltaRotation) &&
-			TextureOffset == d.TextureOffset && TextureScale == d.TextureScale && 
+			TextureOffset == d.TextureOffset && TextureScale == d.TextureScale &&
 			bNoAlphaChannel == d.bNoAlphaChannel &&
-			LoadingTexture == d.LoadingTexture && LoadedTexture == d.LoadedTexture;
+			LoadingTexture == d.LoadingTexture && LoadedTexture == d.LoadedTexture && bIsDynamic == d.bIsDynamic;
 	}
 };

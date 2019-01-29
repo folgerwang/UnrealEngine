@@ -20,12 +20,16 @@ protected:
 	/** Debug description of socket usage. */
 	FString SocketDescription;
 
+	/** Protocol used in creation of a socket */
+	ESocketProtocolFamily SocketProtocol;
+
 public:
 
 	/** Default constructor. */
 	inline FSocket() :
 		SocketType(SOCKTYPE_Unknown),
-		SocketDescription(TEXT(""))
+		SocketDescription(TEXT("")),
+		SocketProtocol(ESocketProtocolFamily::None)
 	{ }
 
 	/**
@@ -34,9 +38,24 @@ public:
 	 * @param InSocketType The type of socket being created
 	 * @param InSocketDescription The debug description of the socket
 	 */
+	UE_DEPRECATED(4.22, "Please migrate to the constructor that specifies protocol stack")
 	inline FSocket(ESocketType InSocketType, const FString& InSocketDescription) :
 		SocketType(InSocketType),
-		SocketDescription(InSocketDescription)
+		SocketDescription(InSocketDescription),
+		SocketProtocol(ESocketProtocolFamily::None)
+	{ }
+
+	/**
+	 * Specifies the type of socket being created
+	 *
+	 * @param InSocketType The type of socket being created
+	 * @param InSocketDescription The debug description of the socket
+	 * @param InSocketProtocol the protocol stack this socket should be created on.
+	 */
+	inline FSocket(ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol) :
+		SocketType(InSocketType),
+		SocketDescription(InSocketDescription),
+		SocketProtocol(InSocketProtocol)
 	{ }
 
 	/** Virtual destructor. */
@@ -375,5 +394,16 @@ public:
 	FORCEINLINE FString GetDescription() const
 	{
 		return SocketDescription;
+	}
+
+	/**
+	 * Get the type of protocol the socket is bound to
+	 *
+	 * @return Socket type.
+	 * @see GetDescription, GetPortNo
+	 */
+	FORCEINLINE ESocketProtocolFamily GetProtocol() const
+	{
+		return SocketProtocol;
 	}
 };

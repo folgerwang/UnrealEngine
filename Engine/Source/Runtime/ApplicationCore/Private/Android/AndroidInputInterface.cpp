@@ -12,6 +12,10 @@
 #include "HAL/IConsoleManager.h"
 #include "IHapticDevice.h"
 
+#ifndef ANDROID_GAMEPAD_TRIGGER_THRESHOLD
+	#define ANDROID_GAMEPAD_TRIGGER_THRESHOLD	0.30f
+#endif
+
 TArray<TouchInput> FAndroidInputInterface::TouchInputStack = TArray<TouchInput>();
 FCriticalSection FAndroidInputInterface::TouchInputCriticalSection;
 
@@ -888,6 +892,10 @@ void FAndroidInputInterface::SendControllerEvents()
 						{
 							CurrentDevice.bSupportsHat = true;
 						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Razer")))
+						{
+							CurrentDevice.bSupportsHat = true;
+						}
 
 						FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, DeviceIndex);
 
@@ -996,7 +1004,7 @@ void FAndroidInputInterface::SendControllerEvents()
 
 				// Handle the trigger theshold "virtual" button state
 				//check(ButtonMapping[10] == FGamepadKeyNames::LeftTriggerThreshold);
-				NewControllerState.ButtonStates[10] = NewControllerState.LTAnalog >= 0.1f;
+				NewControllerState.ButtonStates[10] = NewControllerState.LTAnalog >= ANDROID_GAMEPAD_TRIGGER_THRESHOLD;
 			}
 			if (NewControllerState.RTAnalog != OldControllerState.RTAnalog)
 			{
@@ -1005,7 +1013,7 @@ void FAndroidInputInterface::SendControllerEvents()
 
 				// Handle the trigger theshold "virtual" button state
 				//check(ButtonMapping[11] == FGamepadKeyNames::RightTriggerThreshold);
-				NewControllerState.ButtonStates[11] = NewControllerState.RTAnalog >= 0.1f;
+				NewControllerState.ButtonStates[11] = NewControllerState.RTAnalog >= ANDROID_GAMEPAD_TRIGGER_THRESHOLD;
 			}
 
 			const double CurrentTime = FPlatformTime::Seconds();

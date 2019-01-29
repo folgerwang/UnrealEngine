@@ -30,7 +30,7 @@ static bool IsResourceObjectValid(UObject*& InObject)
 	return true;
 }
 
-FSlateWindowElementList::FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow)
+FSlateWindowElementList::FSlateWindowElementList(const TSharedPtr<SWindow>& InPaintWindow)
 	: WeakPaintWindow(InPaintWindow)
 	, RawPaintWindow(InPaintWindow.Get())
 	, RenderTargetWindow(nullptr)

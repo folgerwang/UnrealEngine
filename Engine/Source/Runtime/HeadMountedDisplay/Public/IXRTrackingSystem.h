@@ -162,6 +162,13 @@ public:
 	 */
 	virtual FTransform GetTrackingToWorldTransform() const = 0;
 
+	/**
+	 * This method should return the world to meters scale for the current frame.
+	 * Should be callable on both the render and the game threads.
+	 * @return the current world to meter scale.
+	 */
+	virtual float GetWorldToMetersScale() const = 0;
+
 	/** 
 	 * Computes a transform to convert from 'Floor' origin space to 'Eye' origin space.
 	 * Useful when changing between the two different TrackingOrigin spaces.

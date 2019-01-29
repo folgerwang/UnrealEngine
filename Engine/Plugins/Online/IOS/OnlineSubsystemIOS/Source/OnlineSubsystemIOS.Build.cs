@@ -10,8 +10,12 @@ public class OnlineSubsystemIOS : ModuleRules
 		PrivateIncludePaths.AddRange( 
             new string[] {
                 "Private",             
-                }
-                );
+                });
+
+        PublicIncludePaths.AddRange(
+            new string[] {
+                "Runtime/IOS/IOSPlatformFeatures/Public"
+                });
 
         PublicDefinitions.Add("ONLINESUBSYSTEMIOS_PACKAGE=1");
 
@@ -23,6 +27,7 @@ public class OnlineSubsystemIOS : ModuleRules
                 "Sockets",
 				"OnlineSubsystem", 
                 "Http",
+                "IOSPlatformFeatures",
             }
             );
 

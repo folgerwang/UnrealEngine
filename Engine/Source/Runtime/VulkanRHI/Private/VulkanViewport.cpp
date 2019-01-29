@@ -270,7 +270,7 @@ void FVulkanViewport::AdvanceBackBufferFrame()
 {
 	check(IsInRenderingThread());
 
-	if (GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
+	if (FVulkanPlatform::SupportsStandardSwapchain() && GVulkanDelayAcquireImage != EDelayAcquireImageType::DelayAcquire)
 	{
 		RenderingBackBuffer = nullptr;
 		RenderingBackBufferReference = nullptr;

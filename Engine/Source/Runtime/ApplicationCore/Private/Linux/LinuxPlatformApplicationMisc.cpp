@@ -398,7 +398,7 @@ void FLinuxPlatformApplicationMisc::PumpMessages( bool bFromMainLoop )
 	{
 		if( LinuxApplication )
 		{
-			LinuxApplication->SaveWindowLocationsForEventLoop();
+			LinuxApplication->SaveWindowPropertiesForEventLoop();
 
 			SDL_Event event;
 
@@ -407,7 +407,7 @@ void FLinuxPlatformApplicationMisc::PumpMessages( bool bFromMainLoop )
 				LinuxApplication->AddPendingEvent( event );
 			}
 
-			LinuxApplication->ClearWindowLocationsAfterEventLoop();
+			LinuxApplication->ClearWindowPropertiesAfterEventLoop();
 		}
 		else
 		{

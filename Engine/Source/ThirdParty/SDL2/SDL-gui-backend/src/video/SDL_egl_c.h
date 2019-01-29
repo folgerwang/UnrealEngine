@@ -45,7 +45,7 @@ typedef struct SDL_EGL_VideoData
     
     EGLDisplay(EGLAPIENTRY *eglGetDisplay) (NativeDisplayType display);
     EGLDisplay(EGLAPIENTRY *eglGetPlatformDisplay) (EGLenum platform,
-                                void *native_display,
+                                NativeDisplayType native_display,
                                 const EGLint *attrib_list);
     EGLDisplay(EGLAPIENTRY *eglGetPlatformDisplayEXT) (EGLenum platform,
                                 void *native_display,
@@ -111,7 +111,7 @@ typedef struct SDL_EGL_VideoData
     /* whether EGL display was offscreen */
     int is_offscreen;
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG BEGIN */
+/* EG END */
 
 } SDL_EGL_VideoData;
 
@@ -125,7 +125,7 @@ typedef struct SDL_EGL_Context
 
 typedef SDL_EGL_Context* SDL_EGLContext;
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG BEGIN */
+/* EG END */
 
 /* OpenGLES functions */
 extern int SDL_EGL_GetAttribute(_THIS, SDL_GLattr attrib, int *value);

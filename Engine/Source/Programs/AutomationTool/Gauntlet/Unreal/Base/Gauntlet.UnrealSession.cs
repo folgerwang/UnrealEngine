@@ -133,12 +133,20 @@ namespace Gauntlet
 				RequiredBuildFlags |= BuildFlags.CanReplaceExecutable;
 			}
 
-            if (Globals.Params.ParseParam("bulk") && (InPlatform == UnrealTargetPlatform.Android || InPlatform == UnrealTargetPlatform.IOS))
+			//@todo: for bulk/packaged builds, we should mark the platform as capable of these as we're catching global and not test specific flags
+			// where we may be running parallel tests on multiple platforms
+			if (Globals.Params.ParseParam("bulk") && (InPlatform == UnrealTargetPlatform.Android || InPlatform == UnrealTargetPlatform.IOS))
             {
                 RequiredBuildFlags |= BuildFlags.Bulk;
             }
 
-            Options = InOptions;
+			if (Globals.Params.ParseParam("packaged") && (InPlatform == UnrealTargetPlatform.Switch))
+			{
+				RequiredBuildFlags |= BuildFlags.Packaged;
+			}
+
+
+			Options = InOptions;
             FilesToCopy = new List<UnrealFileToCopy>();
 			RoleModifier = ERoleModifier.None;
         }

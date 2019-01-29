@@ -26,5 +26,8 @@ public class SlateViewerTarget : TargetRules
 		// SlateViewer.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.
 		bHasExports = false;
+
+		// Make sure to get all code in SlateEditorStyle compiled in
+        bBuildDeveloperTools = true;
 	}
 }

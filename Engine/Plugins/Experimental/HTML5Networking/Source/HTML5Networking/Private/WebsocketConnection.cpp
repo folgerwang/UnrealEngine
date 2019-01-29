@@ -69,7 +69,6 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
-	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
@@ -80,13 +79,14 @@ void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 		{
 			DataToSend = ProcessedData.Data;
 			CountBits = ProcessedData.CountBits;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else
 		{
 			CountBits = 0;
 		}
 	}
+
+	uint32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
 
 	if (CountBits > (MaxPacket * 8))
 	{
@@ -96,6 +96,8 @@ void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 	bool bBlockSend = false;
 
 #if !UE_BUILD_SHIPPING
+	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("UWebSocketConnection::LowLevelSend: Address: %s, CountBytes: %i"), *LowLevelGetRemoteAddress(true), CountBytes);
+
 	LowLevelSendDel.ExecuteIfBound((void*)DataToSend, CountBytes, bBlockSend);
 #endif
 
@@ -150,6 +152,10 @@ void UWebSocketConnection::FinishDestroy()
 
 void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)
 {
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("UWebSocketConnection::ReceivedRawPacket: Address: %s, Count: %i"), *LowLevelGetRemoteAddress(true), Count);
+#endif
+
 	if (Count == 0 ||   // nothing to process
 		Driver == NULL) // connection closing
 	{

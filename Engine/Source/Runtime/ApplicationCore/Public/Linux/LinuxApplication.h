@@ -22,8 +22,19 @@ class IInputDevice;
 
 class FLinuxApplication : public GenericApplication, public FSelfRegisteringExec, public IInputInterface
 {
-
 public:
+	/**
+	 * Stores window properties at the beginning of handling the events.
+	 */
+	struct FWindowProperties
+	{
+		/** Location at the moment of receiving events */
+		FVector2D Location;
+
+		/** Size at the moment of receiving events */
+		FVector2D Size;
+	};
+
 	static FLinuxApplication* CreateLinuxApplication();
 
 	enum UserDefinedEvents
@@ -100,10 +111,10 @@ public:
 	 * the old event data and new window location data. Use this to
 	 * save the window locations for use during the loop.
 	 */
-	void SaveWindowLocationsForEventLoop(void);
+	void SaveWindowPropertiesForEventLoop(void);
 
 	/** Clear out data saved in SaveWindowLocationsForEventLoop(). */
-	void ClearWindowLocationsAfterEventLoop(void);
+	void ClearWindowPropertiesAfterEventLoop(void);
 
 	/**
 	 * Get a window position inside the event loop. Fall back on
@@ -114,10 +125,9 @@ public:
 	 *					 a drop-in replacement for
 	 *					 SDL_GetWindowPosition, so it uses the
 	 *					 native window type.
-	 * @param x			Pointer to the X component of the position.
-	 * @param y			Pointer to the Y component of the position.
+	 * @param WindowProperties link to properties structure
 	 */
-	void GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, int *x, int *y);
+	void GetWindowPropertiesInEventLoop(SDL_HWindow NativeWindow, FWindowProperties& Properties);
 
 	virtual bool IsMouseAttached() const override;
 
@@ -197,7 +207,7 @@ private:
 	void RefreshDisplayCache();
 
 	/** Gets the location from a given touch event. */
-	FVector2D GetTouchEventLocation(SDL_Event TouchEvent);
+	FVector2D GetTouchEventLocation(SDL_HWindow NativeWindow, SDL_Event TouchEvent);
 
 public:
 	virtual IInputInterface* GetInputInterface() override
@@ -278,13 +288,11 @@ private:
 	TArray< TSharedRef< FLinuxWindow > > RevertFocusStack;
 
 	/**
-	 * Saved window locations used for event loop. Note: Using raw
-	 * handle here because weak pointers can change meaning as a
-	 * response to some event in the middle of the loop, potentially
-	 * corrupting our indexing. These keys should not be de-referenced
+	 * Saved window properties used for event loop, because the 
+	 * These keys should not be de-referenced
 	 * (but comparison is okay).
 	 */
-	TMap< SDL_HWindow, FVector2D > SavedWindowLocationsForEventLoop;
+	TMap<SDL_HWindow, FWindowProperties> SavedWindowPropertiesForEventLoop;
 
 	int32 bAllowedToDeferMessageProcessing;
 

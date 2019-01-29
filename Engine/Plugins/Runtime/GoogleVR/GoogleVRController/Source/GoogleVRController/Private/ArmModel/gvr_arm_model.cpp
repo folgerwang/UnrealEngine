@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "gvr_arm_model.h"
@@ -19,7 +19,6 @@ Controller::Controller()
 : added_elbow_height(0.0f)
 , added_elbow_depth(0.0f)
 , pointer_tilt_angle(15.0f)
-, follow_gaze(GazeBehavior::DuringMotion)
 , handedness(Handedness::Right)
 , use_accelerometer(false)
 , fade_distance_from_face(0.32f)
@@ -67,14 +66,6 @@ float Controller::GetPointerTiltAngle() {
 
 void Controller::SetPointerTiltAngle(float tilt_angle) {
   pointer_tilt_angle = tilt_angle;
-}
-
-gvr_arm_model::Controller::GazeBehavior Controller::GetGazeBehavior() const {
-  return follow_gaze;
-}
-
-void Controller::SetGazeBehavior(GazeBehavior gaze_behavior) {
-  follow_gaze = gaze_behavior;
 }
 
 gvr_arm_model::Controller::Handedness Controller::GetHandedness() const {
@@ -146,9 +137,9 @@ void Controller::UpdateHandedness() {
   shoulder_position.Scale(handed_multiplier);
 }
 
-void Controller::Update(const UpdateData& update_data) {
+void Controller::Update(const UpdateData& update_data, bool recentered) {
   UpdateHandedness();
-  UpdateTorsoDirection(update_data);
+  UpdateTorsoDirection(update_data, recentered);
 
   if (update_data.connected) {
     UpdateFromController(update_data);
@@ -167,20 +158,16 @@ void Controller::Update(const UpdateData& update_data) {
   UpdateTransparency(update_data);
 }
 
-void Controller::UpdateTorsoDirection(const UpdateData& update_data) {
-  // Ignore updates here if requested.
-  if (follow_gaze == GazeBehavior::Never) {
-    return;
-  }
+void Controller::UpdateTorsoDirection(const UpdateData& update_data, bool recentered) {
 
   // Determine the gaze direction horizontally.
   Vector3 head_direction = update_data.headDirection;
   head_direction.y(0.0f);
   head_direction = head_direction.Normalized();
 
-  if (follow_gaze == GazeBehavior::Always) {
+  if (recentered) {
     torso_direction = head_direction;
-  } else if (follow_gaze == GazeBehavior::DuringMotion) {
+  } else {
     float angular_velocity = update_data.gyro.Magnitude();
     float gaze_filter_strength = FMath::Clamp((angular_velocity - 0.2f) / 45.0f, 0.0f, 0.1f);
     torso_direction = Vector3::Slerp(torso_direction, head_direction, gaze_filter_strength);

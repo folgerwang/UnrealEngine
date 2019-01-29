@@ -5,10 +5,10 @@
 #include "GenericPlatform/IInputInterface.h"
 #include "IInputDevice.h"
 #include "IMagicLeapInputDevice.h"
-#include "IHapticDevice.h"
 #include "IMotionController.h"
 #include "XRMotionControllerBase.h"
 #include "IMagicLeapControllerPlugin.h"
+#include <Containers/Queue.h>
 #include "Misc/ScopeLock.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
@@ -33,92 +33,95 @@ class IMagicLeapTouchpadGestures;
 /**
  * MagicLeap Motion Controller
  */
-class FMagicLeapController : public IMagicLeapInputDevice, public IHapticDevice, public FXRMotionControllerBase
+class FMagicLeapController : public IMagicLeapInputDevice, public FXRMotionControllerBase
 {
+private:
+#if WITH_MLSDK
+	class FControllerMapper
+	{
+	friend class FMagicLeapController;
+	private:
+		TMap<FName, int32> MotionSourceToInputControllerIndex;
+		FName InputControllerIndexToMotionSource[MLInput_MaxControllers];
+		TMap<EControllerHand, FName> HandToMotionSource;
+		TMap<FName, EControllerHand> MotionSourceToHand;
+		FCriticalSection CriticalSection;
+		EControllerHand DefaultInputControllerIndexToHand[MLInput_MaxControllers];
+
+	protected:
+		void UpdateMotionSourceInputIndexPairing(const MLInputControllerState ControllerState[MLInput_MaxControllers]);
+	public:
+		FControllerMapper();
+
+		void MapHandToMotionSource(EControllerHand Hand, FName MotionSource);
+
+		FName GetMotionSourceForHand(EControllerHand Hand) const;
+		EControllerHand GetHandForMotionSource(FName MotionSource) const;
+
+		FName GetMotionSourceForInputControllerIndex(uint8 controller_id) const;
+		uint8 GetInputControllerIndexForMotionSource(FName MotionSource) const;
+
+		EControllerHand GetHandForInputControllerIndex(uint8 controller_id) const;
+		uint8 GetInputControllerIndexForHand(EControllerHand Hand) const;
+		EMLControllerType MotionSourceToControllerType(FName InMotionSource);
+
+		void SwapHands();
+	};
+#endif //WITH_MLSDK
 public:
 	FMagicLeapController(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler);
 	virtual ~FMagicLeapController();
 
 	/** IMagicLeapInputDevice interface */
-	virtual void Tick(float DeltaTime) override;
-	virtual void SendControllerEvents() override;
-	virtual void SetMessageHandler(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler) override;
-	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
-	virtual void SetChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
-	virtual void SetChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override;
-	virtual class IHapticDevice* GetHapticDevice() override;
-	virtual bool IsGamepadAttached() const override;
-	virtual void Enable() override;
-	virtual bool SupportsExplicitEnable() const override;
-	virtual void Disable() override;
-
-	/** IHapticDevice interface */
-	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
-	virtual void GetHapticFrequencyRange(float& MinFrequency, float& MaxFrequency) const override;
-	virtual float GetHapticAmplitudeScale() const override;
-
-private:
-	void InternalSetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values, bool bFromHapticInterface);
-public:
+	void Tick(float DeltaTime) override;
+	void SendControllerEvents() override;
+	void SetMessageHandler(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler) override;
+	bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
+	bool IsGamepadAttached() const override;
+	void Enable() override;
+	bool SupportsExplicitEnable() const override;
+	void Disable() override;
 
 	/** IMotionController interface */
-	virtual bool GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition, float WorldToMetersScale) const override;
-	virtual ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const override;
-	virtual FName GetMotionControllerDeviceTypeName() const override;
+	bool GetControllerOrientationAndPosition(const int32 ControllerIndex, const FName MotionSource, FRotator& OutOrientation, FVector& OutPosition, float WorldToMetersScale) const override;
+	ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const FName MotionSource) const override;
+	FName GetMotionControllerDeviceTypeName() const override;
+	void EnumerateSources(TArray<FMotionControllerSource>& SourcesOut) const override;
 
-	/** FMagicLeapController interface */
-	bool IsInputStateValid() const;
+	/** IInputDevice interface */
+	void SetChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override { }
+	void SetChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override { }
 
-	void OnChar(uint32 CharUTF32);
-#if WITH_MLSDK
-	void OnKeyDown(MLKeyCode KeyCode);
-	void OnKeyUp(MLKeyCode KeyCode);
-	void OnButtonDown(uint8 ControllerID, MLInputControllerButton Button);
-	void OnButtonUp(uint8 ControllerID, MLInputControllerButton Button);
-#endif //WITH_MLSDK
-	void OnControllerConnected(EControllerHand Hand);
-	void OnControllerDisconnected(EControllerHand Hand);
-
-	void SetControllerIsConnected(EControllerHand Hand, bool bConnected);
-
-	bool GetControllerMapping(int32 ControllerIndex, EControllerHand& Hand) const;
-	void InvertControllerMapping();
-	EMLControllerType GetMLControllerType(EControllerHand Hand) const;
-
-	bool PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
-	bool PlayControllerLEDEffect(EControllerHand Hand, EMLControllerLEDEffect LEDEffect, EMLControllerLEDSpeed LEDSpeed, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
-	bool PlayControllerHapticFeedback(EControllerHand Hand, EMLControllerHapticPattern HapticPattern, EMLControllerHapticIntensity Intensity);
-	bool SetControllerTrackingMode(EMLControllerTrackingMode TrackingMode);
 	EMLControllerTrackingMode GetControllerTrackingMode();
+	bool SetControllerTrackingMode(EMLControllerTrackingMode TrackingMode);
 
 	void RegisterTouchpadGestureReceiver(IMagicLeapTouchpadGestures* Receiver);
 	void UnregisterTouchpadGestureReceiver(IMagicLeapTouchpadGestures* Receiver);
 
+	bool PlayLEDPattern(FName MotionSource, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
+	bool PlayLEDEffect(FName MotionSource, EMLControllerLEDEffect LEDEffect, EMLControllerLEDSpeed LEDSpeed, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
+	bool PlayHapticPattern(FName MotionSource, EMLControllerHapticPattern HapticPattern, EMLControllerHapticIntensity Intensity);
+
+#if WITH_MLSDK
+	// Has to be public so button functions can use it
+	FControllerMapper ControllerMapper;
+#endif //WITH_MLSDK
+
+	bool GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition, float WorldToMetersScale) const override;
+	ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const override;
+	EMLControllerType GetMLControllerType(EControllerHand Hand) const;
+	bool PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
+	bool PlayControllerLEDEffect(EControllerHand Hand, EMLControllerLEDEffect LEDEffect, EMLControllerLEDSpeed LEDSpeed, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
+	bool PlayControllerHapticFeedback(EControllerHand Hand, EMLControllerHapticPattern HapticPattern, EMLControllerHapticIntensity Intensity);
+
 private:
 	void UpdateTrackerData();
-	void UpdateControllerTransformFromInputTracker(const class FAppFramework& AppFramework, FTransform& ControllerTransform, EControllerHand ControllerHand);
-#if WITH_MLSDK
-	void UpdateControllerTransformFromControllerTracker(const class FAppFramework& AppFramework, const MLControllerSystemState& ControllerSystemState, FTransform& ControllerTransform, int32 DeviceIndex);
-#endif //WITH_MLSDK
-	void SendControllerEventsForHand(EControllerHand Hand);
+	void UpdateControllerStateFromInputTracker(const class FAppFramework& AppFramework, FName MotionSource);
+	void UpdateControllerStateFromControllerTracker(const class FAppFramework& AppFramework, FName MotionSource);
 	void AddKeys();
-	void DebouncedButtonMessageHandler(bool NewButtonState, bool OldButtonState, const FName& ButtonName);
-#if WITH_MLSDK
-	const FName& MagicLeapButtonToUnrealButton(int32 ControllerID, MLInputControllerButton ml_button);
-#endif //WITH_MLSDK
-	const FName& MagicLeapTouchToUnrealThumbstickAxis(EControllerHand Hand, uint32 TouchIndex);
-	const FName& MagicLeapTouchToUnrealThumbstickButton(EControllerHand Hand);
-	const FName& MagicLeapTriggerToUnrealTriggerAxis(EControllerHand Hand);
-	const FName& MagicLeapTriggerToUnrealTriggerKey(EControllerHand Hand);
-#if WITH_MLSDK
-	MLInputControllerFeedbackPatternLED UnrealToMLPatternLED(EMLControllerLEDPattern LEDPattern) const;
-	MLInputControllerFeedbackEffectLED UnrealToMLEffectLED(EMLControllerLEDEffect LEDEffect) const;
-	MLInputControllerFeedbackColorLED UnrealToMLColorLED(EMLControllerLEDColor LEDColor) const;
-	MLInputControllerFeedbackEffectSpeedLED UnrealToMLSpeedLED(EMLControllerLEDSpeed LEDSpeed) const;
-	MLInputControllerFeedbackPatternVibe UnrealToMLPatternVibe(EMLControllerHapticPattern HapticPattern) const;
-	MLInputControllerFeedbackIntensity UnrealToMLHapticIntensity(EMLControllerHapticIntensity HapticIntensity) const;
-#endif //WITH_MLSDK
+	void ReadConfigParams();
 	void InitializeInputCallbacks();
+	void SendControllerEventsForHand(EControllerHand Hand);
 
 	TSharedPtr<FGenericApplicationMessageHandler> MessageHandler;
 	int32 DeviceIndex;
@@ -126,61 +129,23 @@ private:
 #if WITH_MLSDK
 	MLHandle InputTracker;
 	MLHandle ControllerTracker;
-	MLInputControllerState InputState[MLInput_MaxControllers];
-	MLInputControllerState OldInputState[MLInput_MaxControllers];
-	MLInputControllerCallbacks InputControllerCallbacks;
-	MLInputKeyboardCallbacks InputKeyboardCallbacks;
+	MLInputControllerDof ControllerDof;
 	EMLControllerTrackingMode TrackingMode;
+	MLInputControllerState InputControllerState[MLInput_MaxControllers];
+	MLControllerSystemState ControllerSystemState;
+	MLInputControllerCallbacks InputControllerCallbacks;
+	TMap<FName, FMagicLeapControllerState> CurrMotionSourceControllerState;
+	TMap<FName, FMagicLeapControllerState> PrevMotionSourceControllerState;
 #endif //WITH_MLSDK
 
 	bool bIsInputStateValid;
-	bool bTriggerState;
-	bool bTriggerKeyPressing;
 
-	float triggerKeyIsConsideredPressed;
-	float triggerKeyIsConsideredReleased;
-
-	FTransform LeftControllerTransform;
-	FTransform RightControllerTransform;
-
-	TMap<int32, EControllerHand> ControllerIDToHand;
-	TMap<EControllerHand, int32> HandToControllerID;
-
-	TMap<int32, FMagicLeapControllerState> ControllerIDToControllerState;
-
-	struct FMagicLeapKeys
-	{
-		static const FKey MotionController_Left_Thumbstick_Z;
-		static const FKey Left_MoveButton;
-		static const FKey Left_AppButton;
-		static const FKey Left_HomeButton;
-
-		static const FKey MotionController_Right_Thumbstick_Z;
-		static const FKey Right_MoveButton;
-		static const FKey Right_AppButton;
-		static const FKey Right_HomeButton;
-	};
+	float TriggerKeyIsConsideredPressed;
+	float TriggerKeyIsConsideredReleased;
 
 	TArray<IMagicLeapTouchpadGestures*> TouchpadGestureReceivers;
 
-#if WITH_MLSDK
-	TArray<MLKeyCode> PendingKeyDowns;
-	TArray<MLKeyCode> PendingKeyUps;
-#endif //WITH_MLSDK
-	TArray<uint32> PendingCharKeys;
-	FCriticalSection KeyCriticalSection;
-
-	struct FButtonMap
-	{
-#if WITH_MLSDK
-		MLInputControllerButton Button;
-#endif //WITH_MLSDK
-		uint8 ControllerID;
-		bool bPressed;
-	};
-
-	TArray<FButtonMap> PendingButtonStates;
-	FCriticalSection ButtonCriticalSection;
+	TQueue<TPair<FName, bool>> PendingButtonEvents;
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapController, Display, All);

@@ -12,6 +12,10 @@ class REMOTESESSION_API FXRTrackingProxy :
 	public FXRTrackingSystemBase
 {
 public:
+	FXRTrackingProxy()
+		: FXRTrackingSystemBase(nullptr)
+	{}
+		
 	virtual bool IsTracking(int32 DeviceId) override { return true; }
 	virtual bool DoesSupportPositionalTracking() const override { return true; }
 	virtual bool IsHeadTrackingAllowed() const override { return true; }

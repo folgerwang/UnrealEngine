@@ -3168,7 +3168,6 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 				FPakData* PakData = &CachedPakData[PakIndex];
 
 				UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch on chunk [%i/%i]! Expected 0x%8X, Received 0x%8X"), SignatureIndex, PakData->ChunkHashes.Num(), PakData->OriginalSignatureFileHash, ThisHash);
-				UE_LOG(LogPakFile, Warning, TEXT("Pak file has been corrupted or tampered with!"));
 
 				// Check the signatures are still as we expected them
 				TPakChunkHash CurrentSignatureHash = ComputePakChunkHash(&PakData->ChunkHashes[0], PakData->ChunkHashes.Num() * sizeof(TPakChunkHash));

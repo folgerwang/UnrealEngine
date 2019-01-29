@@ -9,9 +9,18 @@
 UENUM(BlueprintType)
 enum class EStereoDelaySourceEffect : uint8
 {
+	// Left input mixes with left delay line output and feeds to left output. 
+	// Right input mixes with right delay line output and feeds to right output.
 	Normal = 0,
+
+	// Left input mixes right delay line output and feeds to right output.
+	// Right input mixes with left delay line output and feeds to left output.
 	Cross,
+
+	// Left input mixes with left delay line output and feeds to right output.
+	// Right input mixes with right delay line output and feeds to left output.
 	PingPong,
+
 	Count UMETA(Hidden)
 };
 
@@ -20,18 +29,23 @@ struct SYNTHESIS_API FSourceEffectStereoDelaySettings
 {
 	GENERATED_USTRUCT_BODY()
 
+	// What mode to set the stereo delay effect.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset")
 	EStereoDelaySourceEffect DelayMode;
 
+	// The base amount of delay in the left and right channels of the delay line.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "2000.0", UIMin = "0.0", UIMax = "2000.0"))
 	float DelayTimeMsec;
 
+	// The amount of audio to feedback into the delay line once the delay has been tapped.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Feedback;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	// Delay spread for left and right channels. Allows left and right channels to have differential delay amounts. Useful for stereo channel decorrelation.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "-1.0", ClampMax = "1.0", UIMin = "-1.0", UIMax = "1.0"))
 	float DelayRatio;
 
+	// The amount of delay effect to mix with the dry input signal into the effect.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float WetLevel;
 

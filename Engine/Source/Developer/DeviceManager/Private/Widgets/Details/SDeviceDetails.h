@@ -54,4 +54,7 @@ private:
 
 	/** The quick information widget. */
 	TSharedPtr<SDeviceQuickInfo> QuickInfo;
+
+	/** Panel on which custom widget will be placed */
+	TSharedPtr<SBox> CustomPlatformWidgetPanel;
 };

@@ -9,6 +9,8 @@
 #include "OnlineIdentityNull.h"
 #include "VoiceInterfaceNull.h"
 #include "OnlineAchievementsInterfaceNull.h"
+#include "OnlineStoreV2InterfaceNull.h"
+#include "OnlinePurchaseInterfaceNull.h"
 
 FThreadSafeCounter FOnlineSubsystemNull::TaskCounter;
 
@@ -92,6 +94,16 @@ IOnlineStorePtr FOnlineSubsystemNull::GetStoreInterface() const
 	return nullptr;
 }
 
+IOnlineStoreV2Ptr FOnlineSubsystemNull::GetStoreV2Interface() const
+{
+	return StoreV2Interface;
+}
+
+IOnlinePurchasePtr FOnlineSubsystemNull::GetPurchaseInterface() const
+{
+	return PurchaseInterface;
+}
+
 IOnlineEventsPtr FOnlineSubsystemNull::GetEventsInterface() const
 {
 	return nullptr;
@@ -127,6 +139,11 @@ IOnlineChatPtr FOnlineSubsystemNull::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemNull::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemNull::GetTurnBasedInterface() const
 {
 	return nullptr;
@@ -149,10 +166,10 @@ bool FOnlineSubsystemNull::Tick(float DeltaTime)
 		OnlineAsyncTaskThreadRunnable->GameTick();
 	}
 
- 	if (SessionInterface.IsValid())
- 	{
- 		SessionInterface->Tick(DeltaTime);
- 	}
+	if (SessionInterface.IsValid())
+	{
+		SessionInterface->Tick(DeltaTime);
+	}
 
 	if (VoiceInterface.IsValid() && bVoiceInterfaceInitialized)
 	{
@@ -175,11 +192,13 @@ bool FOnlineSubsystemNull::Init()
 		check(OnlineAsyncTaskThread);
 		UE_LOG_ONLINE(Verbose, TEXT("Created thread (ID:%d)."), OnlineAsyncTaskThread->GetThreadID());
 
- 		SessionInterface = MakeShareable(new FOnlineSessionNull(this));
+		SessionInterface = MakeShareable(new FOnlineSessionNull(this));
 		LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsNull(this));
 		IdentityInterface = MakeShareable(new FOnlineIdentityNull(this));
 		AchievementsInterface = MakeShareable(new FOnlineAchievementsNull(this));
 		VoiceInterface = MakeShareable(new FOnlineVoiceImpl(this));
+		StoreV2Interface = MakeShareable(new FOnlineStoreV2Null(*this));
+		PurchaseInterface = MakeShareable(new FOnlinePurchaseNull(*this));
 	}
 	else
 	{
@@ -214,18 +233,20 @@ bool FOnlineSubsystemNull::Shutdown()
 	}
 	
 #define DESTRUCT_INTERFACE(Interface) \
- 	if (Interface.IsValid()) \
- 	{ \
- 		ensure(Interface.IsUnique()); \
- 		Interface = nullptr; \
- 	}
+	if (Interface.IsValid()) \
+	{ \
+		ensure(Interface.IsUnique()); \
+		Interface = nullptr; \
+	}
  
- 	// Destruct the interfaces
+	// Destruct the interfaces
+	DESTRUCT_INTERFACE(PurchaseInterface);
+	DESTRUCT_INTERFACE(StoreV2Interface);
 	DESTRUCT_INTERFACE(VoiceInterface);
 	DESTRUCT_INTERFACE(AchievementsInterface);
 	DESTRUCT_INTERFACE(IdentityInterface);
 	DESTRUCT_INTERFACE(LeaderboardsInterface);
- 	DESTRUCT_INTERFACE(SessionInterface);
+	DESTRUCT_INTERFACE(SessionInterface);
 	
 #undef DESTRUCT_INTERFACE
 	

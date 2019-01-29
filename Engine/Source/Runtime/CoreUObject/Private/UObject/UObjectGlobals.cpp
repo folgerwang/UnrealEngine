@@ -4019,7 +4019,7 @@ namespace UE4CodeGen_Private
 #endif
 
 		UProperty* NewProp = nullptr;
-		switch (PropBase->Type)
+		switch (PropBase->Flags & PropertyTypeMask)
 		{
 			default:
 			{
@@ -4027,7 +4027,7 @@ namespace UE4CodeGen_Private
 				check(false);
 			}
 
-			case EPropertyClass::Byte:
+			case EPropertyGenFlags::Byte:
 			{
 				const FBytePropertyParams* Prop = (const FBytePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UByteProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->EnumFunc ? Prop->EnumFunc() : nullptr);
@@ -4039,7 +4039,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Int8:
+			case EPropertyGenFlags::Int8:
 			{
 				const FInt8PropertyParams* Prop = (const FInt8PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UInt8Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4051,7 +4051,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Int16:
+			case EPropertyGenFlags::Int16:
 			{
 				const FInt16PropertyParams* Prop = (const FInt16PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UInt16Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4063,7 +4063,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Int:
+			case EPropertyGenFlags::Int:
 			{
 				const FIntPropertyParams* Prop = (const FIntPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UIntProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4075,7 +4075,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Int64:
+			case EPropertyGenFlags::Int64:
 			{
 				const FInt64PropertyParams* Prop = (const FInt64PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UInt64Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4087,7 +4087,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::UInt16:
+			case EPropertyGenFlags::UInt16:
 			{
 				const FUInt16PropertyParams* Prop = (const FUInt16PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UUInt16Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4099,7 +4099,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::UInt32:
+			case EPropertyGenFlags::UInt32:
 			{
 				const FUInt32PropertyParams* Prop = (const FUInt32PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UUInt32Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4111,7 +4111,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::UInt64:
+			case EPropertyGenFlags::UInt64:
 			{
 				const FUInt64PropertyParams* Prop = (const FUInt64PropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UUInt64Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4123,7 +4123,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::UnsizedInt:
+			case EPropertyGenFlags::UnsizedInt:
 			{
 				const FUnsizedIntPropertyParams* Prop = (const FUnsizedIntPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UUInt64Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4135,7 +4135,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::UnsizedUInt:
+			case EPropertyGenFlags::UnsizedUInt:
 			{
 				const FUnsizedUIntPropertyParams* Prop = (const FUnsizedUIntPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UUInt64Property(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4147,7 +4147,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Float:
+			case EPropertyGenFlags::Float:
 			{
 				const FFloatPropertyParams* Prop = (const FFloatPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UFloatProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4159,7 +4159,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Double:
+			case EPropertyGenFlags::Double:
 			{
 				const FDoublePropertyParams* Prop = (const FDoublePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UDoubleProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4171,7 +4171,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Bool:
+			case EPropertyGenFlags::Bool:
 			{
 				auto DoDetermineBitfieldOffsetAndMask = [](uint32& Offset, uint32& BitMask, void (*SetBit)(void* Obj), const SIZE_T SizeOf)
 				{
@@ -4203,7 +4203,7 @@ namespace UE4CodeGen_Private
 					check(BitMask);
 				}
 
-				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UBoolProperty(FObjectInitializer(), EC_CppProperty, Offset, Prop->PropertyFlags, BitMask, Prop->ElementSize, Prop->NativeBool == ENativeBool::Native);
+				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UBoolProperty(FObjectInitializer(), EC_CppProperty, Offset, Prop->PropertyFlags, BitMask, Prop->ElementSize, !!(Prop->Flags & EPropertyGenFlags::NativeBool));
 
 #if WITH_METADATA
 				MetaDataArray = Prop->MetaDataArray;
@@ -4212,7 +4212,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Object:
+			case EPropertyGenFlags::Object:
 			{
 				const FObjectPropertyParams* Prop = (const FObjectPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UObjectProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->ClassFunc ? Prop->ClassFunc() : nullptr);
@@ -4224,7 +4224,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::WeakObject:
+			case EPropertyGenFlags::WeakObject:
 			{
 				const FWeakObjectPropertyParams* Prop = (const FWeakObjectPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UWeakObjectProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->ClassFunc ? Prop->ClassFunc() : nullptr);
@@ -4236,7 +4236,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::LazyObject:
+			case EPropertyGenFlags::LazyObject:
 			{
 				const FLazyObjectPropertyParams* Prop = (const FLazyObjectPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) ULazyObjectProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->ClassFunc ? Prop->ClassFunc() : nullptr);
@@ -4248,7 +4248,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::SoftObject:
+			case EPropertyGenFlags::SoftObject:
 			{
 				const FSoftObjectPropertyParams* Prop = (const FSoftObjectPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) USoftObjectProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->ClassFunc ? Prop->ClassFunc() : nullptr);
@@ -4260,7 +4260,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Class:
+			case EPropertyGenFlags::Class:
 			{
 				const FClassPropertyParams* Prop = (const FClassPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UClassProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->MetaClassFunc ? Prop->MetaClassFunc() : nullptr, Prop->ClassFunc ? Prop->ClassFunc() : nullptr);
@@ -4272,7 +4272,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::SoftClass:
+			case EPropertyGenFlags::SoftClass:
 			{
 				const FSoftClassPropertyParams* Prop = (const FSoftClassPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) USoftClassProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->MetaClassFunc ? Prop->MetaClassFunc() : nullptr);
@@ -4284,7 +4284,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Interface:
+			case EPropertyGenFlags::Interface:
 			{
 				const FInterfacePropertyParams* Prop = (const FInterfacePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UInterfaceProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->InterfaceClassFunc ? Prop->InterfaceClassFunc() : nullptr);
@@ -4296,7 +4296,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Name:
+			case EPropertyGenFlags::Name:
 			{
 				const FNamePropertyParams* Prop = (const FNamePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UNameProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4308,7 +4308,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Str:
+			case EPropertyGenFlags::Str:
 			{
 				const FStrPropertyParams* Prop = (const FStrPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UStrProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4320,7 +4320,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Array:
+			case EPropertyGenFlags::Array:
 			{
 				const FArrayPropertyParams* Prop = (const FArrayPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UArrayProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4335,7 +4335,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Map:
+			case EPropertyGenFlags::Map:
 			{
 				const FMapPropertyParams* Prop = (const FMapPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UMapProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4350,7 +4350,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Set:
+			case EPropertyGenFlags::Set:
 			{
 				const FSetPropertyParams* Prop = (const FSetPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) USetProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4365,7 +4365,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Struct:
+			case EPropertyGenFlags::Struct:
 			{
 				const FStructPropertyParams* Prop = (const FStructPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UStructProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->ScriptStructFunc ? Prop->ScriptStructFunc() : nullptr);
@@ -4377,7 +4377,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Delegate:
+			case EPropertyGenFlags::Delegate:
 			{
 				const FDelegatePropertyParams* Prop = (const FDelegatePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UDelegateProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->SignatureFunctionFunc ? Prop->SignatureFunctionFunc() : nullptr);
@@ -4389,7 +4389,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::MulticastDelegate:
+			case EPropertyGenFlags::MulticastDelegate:
 			{
 				const FMulticastDelegatePropertyParams* Prop = (const FMulticastDelegatePropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UMulticastDelegateProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->SignatureFunctionFunc ? Prop->SignatureFunctionFunc() : nullptr);
@@ -4401,7 +4401,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Text:
+			case EPropertyGenFlags::Text:
 			{
 				const FTextPropertyParams* Prop = (const FTextPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UTextProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags);
@@ -4413,7 +4413,7 @@ namespace UE4CodeGen_Private
 			}
 			break;
 
-			case EPropertyClass::Enum:
+			case EPropertyGenFlags::Enum:
 			{
 				const FEnumPropertyParams* Prop = (const FEnumPropertyParams*)PropBase;
 				NewProp = new (EC_InternalUseOnlyConstructor, Outer, UTF8_TO_TCHAR(Prop->NameUTF8), Prop->ObjectFlags) UEnumProperty(FObjectInitializer(), EC_CppProperty, Prop->Offset, Prop->PropertyFlags, Prop->EnumFunc ? Prop->EnumFunc() : nullptr);

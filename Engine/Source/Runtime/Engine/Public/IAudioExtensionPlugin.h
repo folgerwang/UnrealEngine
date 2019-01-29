@@ -126,7 +126,7 @@ struct FAudioPluginInitializationParams
 
 struct FAudioPluginSourceInputData
 {
-	// The ID of the source voice
+	// The index of the source voice. Guaranteed to be between 0 and the max number of sources rendered.
 	int32 SourceId;
 
 	// The ID of the audio component associated with the wave instance.
@@ -228,6 +228,15 @@ public:
 		return DisplayName;
 	}
 	/* End IAudioPluginWithMetadata implementation */
+
+	/**
+	* @return the max amount of channels your plugin supports. For example, override this to
+	*         return 2 to support spatializing mono and stereo sources.
+	*/
+	virtual int32 GetMaxSupportedChannels()
+	{
+		return 1;
+	}
 
 	/**
 	* @return a new instance of your spatialization plugin, owned by a shared pointer.
@@ -404,6 +413,14 @@ public:
 
 	/** Initialize the occlusion plugin with the same rate and number of sources. */
 	virtual void Initialize(const FAudioPluginInitializationParams InitializationParams)
+	{
+	}
+
+	/**
+	* Shuts down the audio plugin.
+	*
+	*/
+	virtual void Shutdown()
 	{
 	}
 

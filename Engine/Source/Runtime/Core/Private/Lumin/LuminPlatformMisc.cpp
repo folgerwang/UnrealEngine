@@ -144,6 +144,15 @@ bool FLuminPlatformMisc::ShouldUseDesktopVulkan()
 	return ShouldUseVulkan() && !bUseMobileRendering;
 }
 
+const TCHAR* FLuminPlatformMisc::GetDefaultDeviceProfileName()
+{
+	if (ShouldUseDesktopVulkan() || ShouldUseDesktopOpenGL())
+	{
+		return TEXT("Lumin_Desktop");
+	}
+	return TEXT("Lumin");
+}
+
 bool FLuminPlatformMisc::ShouldUseDesktopOpenGL()
 {
 	bool bUseMobileRendering = false;

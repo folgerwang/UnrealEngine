@@ -5,7 +5,7 @@
 #include "ARTypes.h"
 #include "ARTraceResult.generated.h"
 
-class FARSystemBase;
+class FARSupportInterface ;
 
 /**
  * A result of an intersection found during a hit-test.
@@ -17,9 +17,11 @@ struct AUGMENTEDREALITY_API FARTraceResult
 	
 	FARTraceResult();
 	
-	FARTraceResult( const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& InARSystem, float InDistanceFromCamera, EARLineTraceChannels InTraceChannel, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry );
+	FARTraceResult( const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& InARSystem, float InDistanceFromCamera, EARLineTraceChannels InTraceChannel, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry );
 	
 	float GetDistanceFromCamera() const;
+
+	void SetLocalToWorldTransform(const FTransform& LocalToWorldTransform);
 	
 	FTransform GetLocalToTrackingTransform() const;
 	
@@ -28,6 +30,14 @@ struct AUGMENTEDREALITY_API FARTraceResult
 	UARTrackedGeometry* GetTrackedGeometry() const;
 	
 	EARLineTraceChannels GetTraceChannel() const;
+
+	struct FARTraceResultComparer
+	{
+		FORCEINLINE_STATS bool operator()(const FARTraceResult& A, const FARTraceResult& B) const
+		{
+			return A.GetDistanceFromCamera() < B.GetDistanceFromCamera();
+		}
+	};
 	
 private:
 	
@@ -53,7 +63,7 @@ private:
 	UARTrackedGeometry* TrackedGeometry;
 	
 	/** A reference to the AR system that creates this hit test result. */
-	TSharedPtr<IXRTrackingSystem, ESPMode::ThreadSafe> ARSystem;
+	TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> ARSystem;
 };
 
 UCLASS()

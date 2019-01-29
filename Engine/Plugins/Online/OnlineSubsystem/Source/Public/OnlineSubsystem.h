@@ -38,6 +38,7 @@ class IOnlineTurnBased;
 class IOnlineUser;
 class IOnlineUserCloud;
 class IOnlineVoice;
+class IOnlineStats;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Log, All);
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Log, All);
@@ -96,6 +97,7 @@ typedef TSharedPtr<class IOnlineTurnBased, ESPMode::ThreadSafe> IOnlineTurnBased
 typedef TSharedPtr<class IOnlineTournament, ESPMode::ThreadSafe> IOnlineTournamentPtr;
 typedef TSharedPtr<class FOnlineNotificationHandler, ESPMode::ThreadSafe> FOnlineNotificationHandlerPtr;
 typedef TSharedPtr<class FOnlineNotificationTransportManager, ESPMode::ThreadSafe> FOnlineNotificationTransportManagerPtr;
+typedef TSharedPtr<class IOnlineStats, ESPMode::ThreadSafe> IOnlineStatsPtr;
 
 /**
  * Called when the connection state as reported by the online platform changes
@@ -423,6 +425,12 @@ public:
 	 * @return Interface pointer for the appropriate online chat service
 	 */
 	virtual IOnlineChatPtr GetChatInterface() const = 0;
+	
+	/** 
+	 * Get the interface for accessing online stats
+	 * @return Interface pointer for the appropriate online stat service
+	 */
+	virtual IOnlineStatsPtr GetStatsInterface() const = 0;
 
 	/**
 	 * Get the notification handler instance for this subsystem

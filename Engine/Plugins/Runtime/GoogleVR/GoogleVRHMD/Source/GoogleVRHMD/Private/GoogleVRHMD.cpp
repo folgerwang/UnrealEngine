@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRHMD.h"
 #include "Engine/LocalPlayer.h"
@@ -306,7 +306,8 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FGoogleVRHMDPlugin::C
 // Begin FGoogleVRHMD Self API     //
 /////////////////////////////////////
 FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
-	: FSceneViewExtensionBase(AutoRegister)
+	: FHeadMountedDisplayBase(nullptr)
+	, FSceneViewExtensionBase(AutoRegister)
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	, CustomPresent(nullptr)
 #endif

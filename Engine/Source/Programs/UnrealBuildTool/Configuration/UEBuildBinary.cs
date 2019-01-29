@@ -744,7 +744,6 @@ namespace UnrealBuildTool
 
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, Target);
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.

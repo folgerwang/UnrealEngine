@@ -13,6 +13,11 @@ namespace UnrealBuildTool
 {
 	class AndroidToolChain : UEToolChain, IAndroidToolChain
 	{
+		// Android NDK toolchain that must be used for C++ compiling
+		readonly int MinimumNDKToolchain = 140100;
+		readonly int MaximumNDKToolchain = 180100;
+		readonly int RecommendedNDKToolchain = 140100;
+
 		public static readonly string[] AllCpuSuffixes =
 		{
 			"-armv7",
@@ -35,7 +40,8 @@ namespace UnrealBuildTool
 			{ "-x64", "x6" },
 			{ "-es2", "" }, // since there's only one gpu arch now, we can strip it
 			//LUMIN_MERGE
-			{ "-gl4", "" }
+			{ "-lumingl4", "" },
+			{ "-lumin", "" }
 		};
 
 
@@ -68,9 +74,9 @@ namespace UnrealBuildTool
 
 		static private Dictionary<string, string[]> LibrariesToSkip = new Dictionary<string, string[]> {
 			{ "-armv7", new string[] { } },
-			{ "-arm64", new string[] { "nvToolsExt", "nvToolsExtStub", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so" } },
-			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "opus", "speex_resampler", } },
-			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "gpg", } },
+			{ "-arm64", new string[] { "nvToolsExt", "nvToolsExtStub", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "vorbisenc", } },
+			{ "-x86",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "opus", "speex_resampler", "vorbisenc", } },
+			{ "-x64",   new string[] { "nvToolsExt", "nvToolsExtStub", "oculus", "OVRPlugin", "vrapi", "vrintegrationloader", "ovrkernel", "systemutils", "openglloader", "ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/libovrplatformloader.so", "gpg", "vorbisenc", } },
 		};
 
 		static private Dictionary<string, string[]> ModulesToSkip = new Dictionary<string, string[]> {
@@ -121,6 +127,17 @@ namespace UnrealBuildTool
 			return ClangVersionMajor < Major ||
 				(ClangVersionMajor == Major && ClangVersionMinor < Minor) ||
 				(ClangVersionMajor == Major && ClangVersionMinor == Minor && ClangVersionPatch < Patch);
+		}
+
+		private static string ToolchainIntToString(int ToolchainInt)
+		{
+			int RevisionNum = ToolchainInt / 10000;
+			int RevisionMinor = ToolchainInt - (RevisionNum * 10000);
+			int RevisionLetterNum = RevisionMinor / 100;
+			int RevisionBeta = RevisionMinor - (RevisionLetterNum * 100);
+			char RevisionLetter = Convert.ToChar('a' + RevisionLetterNum);
+
+			return "r" + RevisionNum + (RevisionLetterNum > 0 ? Char.ToString(RevisionLetter) : "");
 		}
 
 		[CommandLine("-Architectures=", ListSeparator = '+')]
@@ -295,6 +312,13 @@ namespace UnrealBuildTool
 			else
 			{
 				throw new BuildException("Cannot find supported Android toolchain with NDKPath:" + NDKPath);
+			}
+
+			// verify NDK toolchain is supported
+			if (NDKDefineInt < MinimumNDKToolchain || NDKDefineInt > MaximumNDKToolchain)
+			{
+				throw new BuildException("Android toolchain NDK " + ToolchainIntToString(NDKDefineInt) + " not supported; please use NDK " + ToolchainIntToString(MinimumNDKToolchain) + " to NDK " + ToolchainIntToString(MaximumNDKToolchain) +
+					" (NDK " + ToolchainIntToString(RecommendedNDKToolchain) + " recommended)");
 			}
 
 			// set up the path to our toolchains
@@ -682,9 +706,9 @@ namespace UnrealBuildTool
 				Result += " -fno-exceptions";
 			}
 
-			// Conditionally enable (default disabled) generation of information about every class with virtual functions for use by the C++ runtime type identification features 
-			// (`dynamic_cast' and `typeid'). If you don't use those parts of the language, you can save some space by using -fno-rtti. 
-			// Note that exception handling uses the same information, but it will generate it as needed. 
+			// Conditionally enable (default disabled) generation of information about every class with virtual functions for use by the C++ runtime type identification features
+			// (`dynamic_cast' and `typeid'). If you don't use those parts of the language, you can save some space by using -fno-rtti.
+			// Note that exception handling uses the same information, but it will generate it as needed.
 			if (CompileEnvironment.bUseRTTI)
 			{
 				Result += " -frtti";
@@ -697,8 +721,8 @@ namespace UnrealBuildTool
 			//@todo android: these are copied verbatim from UE3 and probably need adjustment
 			if (Architecture == "-armv7")
 			{
-				//		Result += " -mthumb-interwork";			// Generates code which supports calling between ARM and Thumb instructions, w/o it you can't reliability use both together 
-				Result += " -funwind-tables";           // Just generates any needed static data, affects no code 
+				//		Result += " -mthumb-interwork";			// Generates code which supports calling between ARM and Thumb instructions, w/o it you can't reliability use both together
+				Result += " -funwind-tables";           // Just generates any needed static data, affects no code
 				Result += " -fstack-protector";         // Emits extra code to check for buffer overflows
 														//		Result += " -mlong-calls";				// Perform function calls by first loading the address of the function into a reg and then performing the subroutine call
 				Result += " -fno-strict-aliasing";      // Prevents unwanted or invalid optimizations that could produce incorrect code
@@ -719,7 +743,7 @@ namespace UnrealBuildTool
 					Result += " -mfpu=vfpv3-d16";       //@todo android: UE3 was just vfp. arm7a should all support v3 with 16 registers
 				}
 
-				// Add flags for on-device debugging	
+				// Add flags for on-device debugging
 				if (CompileEnvironment.Configuration == CppConfiguration.Debug)
 				{
 					Result += " -fno-omit-frame-pointer";   // Disable removing the save/restore frame pointer for better debugging
@@ -740,7 +764,7 @@ namespace UnrealBuildTool
 			}
 			else if (Architecture == "-arm64")
 			{
-				Result += " -funwind-tables";           // Just generates any needed static data, affects no code 
+				Result += " -funwind-tables";           // Just generates any needed static data, affects no code
 				Result += " -fstack-protector";         // Emits extra code to check for buffer overflows
 				Result += " -fno-strict-aliasing";      // Prevents unwanted or invalid optimizations that could produce incorrect code
 				Result += " -fpic";                     // Generates position-independent code (PIC) suitable for use in a shared library

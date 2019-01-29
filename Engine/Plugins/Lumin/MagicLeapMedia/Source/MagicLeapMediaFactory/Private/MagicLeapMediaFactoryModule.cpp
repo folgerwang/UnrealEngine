@@ -109,8 +109,6 @@ public:
 
     	// supported platforms
     	SupportedPlatforms.Add(TEXT("Lumin"));
-    	// Hack until we get a separete ini platform for Lumin. Will not affect Android since this plugin is not built for it.
-    	SupportedPlatforms.Add(TEXT("Android"));
 
 		// supported schemes
 		SupportedUriSchemes.Add(TEXT("file"));

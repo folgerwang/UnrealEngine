@@ -1619,12 +1619,6 @@ protected:
 	/** Returns the scene color texture multi-view is targeting. */	
 	FTextureRHIParamRef GetMultiViewSceneColor(const FSceneRenderTargets& SceneContext) const;
 
-	/** Composites the monoscopic far field view into the stereo views. */
-	void CompositeMonoscopicFarField(FRHICommandListImmediate& RHICmdList);
-
-	/** Renders a depth mask into the monoscopic far field view to ensure we only render visible pixels. */
-	void RenderMonoscopicFarFieldMask(FRHICommandListImmediate& RHICmdList);
-
 	void UpdatePrimitiveIndirectLightingCacheBuffers();
 	void ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 
@@ -1656,6 +1650,8 @@ public:
 protected:
 	/** Finds the visible dynamic shadows for each view. */
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
+
+	void PrepareViewVisibilityLists();
 
 	/** Build visibility lists on CSM receivers and non-csm receivers. */
 	void BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo);
@@ -1809,6 +1805,7 @@ struct FFastVramConfig
 	uint32 DOFSetup;
 	uint32 DOFReduce;
 	uint32 DOFPostfilter;
+	uint32 PostProcessMaterial;
 
 	uint32 CustomDepth;
 	uint32 ShadowPointLight;

@@ -5,7 +5,7 @@
 #include "ARTypes.h"
 #include "ARPin.generated.h"
 
-class FARSystemBase;
+class FARSupportInterface ;
 class USceneComponent;
 
 UCLASS(BlueprintType, Experimental, Category="AR AugmentedReality")
@@ -14,7 +14,7 @@ class AUGMENTEDREALITY_API UARPin : public UObject
 	GENERATED_BODY()
 	
 public:
-	virtual void InitARPin( const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystemOwner, USceneComponent* InComponentToPin, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry, const FName InDebugName );
+	virtual void InitARPin( const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystemOwner, USceneComponent* InComponentToPin, const FTransform& InLocalToTrackingTransform, UARTrackedGeometry* InTrackedGeometry, const FName InDebugName );
 
 	/**
 	 * Maps from a Pin's Local Space to the Tracking Space.
@@ -83,7 +83,7 @@ public:
 	
 	
 protected:
-	TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> GetARSystem() const;
+	TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> GetARSystem() const;
 	
 private:
 	static uint32 DebugPinId;
@@ -103,7 +103,7 @@ private:
 	UPROPERTY()
 	EARTrackingState TrackingState;
 	
-	TWeakPtr<FARSystemBase, ESPMode::ThreadSafe> ARSystem;
+	TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> ARSystem;
 	
 	FName DebugName;
 	

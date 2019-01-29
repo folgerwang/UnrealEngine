@@ -189,6 +189,23 @@ bool FIOSTargetDevice::GetUserCredentials(FString& OutUserName, FString& OutUser
 {
 	return false;
 }
+
+inline void FIOSTargetDevice::ExecuteConsoleCommand(const FString& ExecCommand) const
+{
+	FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServer.exe"));
+	FString Params = FString::Printf(TEXT(" command -device %s -param \"%s\""), *DeviceId.GetDeviceName(), *ExecCommand);
+	FString WorkingFoder = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/"));
+
+#if PLATFORM_MAC
+	// On Mac we launch UBT with Mono
+	FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
+	Params = FString::Printf(TEXT("\"%s\" \"%s\" %s"), *ScriptPath, *DSFilename, *Params);
+	DSFilename = TEXT("/bin/sh");
+#endif
+
+	FPlatformProcess::CreateProc(*DSFilename, *Params, true, false, false, NULL, 0, *WorkingFoder, NULL);
+}
+
 inline ITargetDeviceOutputPtr FIOSTargetDevice::CreateDeviceOutputRouter(FOutputDevice* Output) const
 {
 	FIOSTargetDeviceOutputPtr DeviceOutputPtr = MakeShareable(new FIOSTargetDeviceOutput());

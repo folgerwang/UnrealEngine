@@ -12,9 +12,6 @@
 #include "Editor.h"
 #endif
 
-#if WITH_MLSDK
-#include "ml_planes.h"
-#endif //WITH_MLSDK
 
 class FPlanesTrackerImpl
 {
@@ -36,7 +33,6 @@ public:
 #if WITH_MLSDK
 		if (!MLHandleIsValid(Tracker))
 		{
-			UE_LOG(LogMagicLeap, Display, TEXT("Creating Planes Tracker"));
 			MLResult CreateResult = MLPlanesCreate(&Tracker);
 
 			if (CreateResult != MLResult_Ok || !MLHandleIsValid(Tracker))
@@ -161,7 +157,6 @@ UPlanesComponent::UPlanesComponent()
 	, MaxResults(10)
 	, MinHolePerimeter(50.0f)
 	, MinPlaneArea(25.0f)
-	, IgnoreBoundingVolume(false)
 	, Impl(new FPlanesTrackerImpl())
 {
 	// Make sure this component ticks
@@ -194,12 +189,18 @@ UPlanesComponent::~UPlanesComponent()
 	Impl = nullptr;
 }
 
+void UPlanesComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	Impl->Create();
+}
+
 void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 #if WITH_MLSDK
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!(IMagicLeapPlugin::Get().IsMagicLeapHMDValid() && Impl->Create()))
+	if (!(IMagicLeapPlugin::Get().IsMagicLeapHMDValid()))
 	{
 		return;
 	}
@@ -252,7 +253,7 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 					planeTransform.SetRotation(rotation);
 				}
 
-				planeTransform.SetRotation(MagicLeap::ToUERotator(planeTransform.GetRotation()));
+				planeTransform.ConcatenateRotation(FQuat(FVector(0, 0, 1), PI));
 				planeTransform.AddToTranslation(PoseTransform.GetLocation());
 				planeTransform.ConcatenateRotation(PoseTransform.Rotator().Quaternion());
 				resultPlane.PlanePosition = planeTransform.GetLocation();
@@ -261,6 +262,7 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 				// We are rotating it by 90 degrees clock-wise about the right axis (Y) to get the up vector (Z) to point in the direction of the plane's normal.
 				// Since we are rotating the axis, the rotation is in the opposite direction of the object i.e. -90 degrees.
 				resultPlane.ContentOrientation = UKismetMathLibrary::Conv_VectorToRotator(UKismetMathLibrary::RotateAngleAxis(UKismetMathLibrary::Conv_RotatorToVector(resultPlane.PlaneOrientation), -90, UKismetMathLibrary::GetRightVector(resultPlane.PlaneOrientation)));
+				resultPlane.ID = FGuid(resultMLPlanes[i].id, (resultMLPlanes[i].id >> 32), 0, 0);
 				MLToUnrealPlanesQueryFlags(resultMLPlanes[i].flags, resultPlane.PlaneFlags);
 
 				Planes.Add(resultPlane);
@@ -307,20 +309,9 @@ bool UPlanesComponent::RequestPlanes(int32 UserData, const FPlaneResultDelegate&
 	query.flags = UnrealToMLPlanesQueryFlags(QueryFlags);
 	query.min_hole_length = MinHolePerimeter / WorldToMetersScale;
 	query.min_plane_area = MinPlaneArea / (WorldToMetersScale * WorldToMetersScale);
-	PoseInverse.ConcatenateRotation(SearchVolume->GetComponentQuat());
 	query.bounds_center = MagicLeap::ToMLVector(PoseInverse.TransformPosition(SearchVolume->GetComponentLocation()), WorldToMetersScale);
-	query.bounds_rotation = MagicLeap::ToMLQuat(PoseInverse.GetRotation());
-	query.bounds_extents = MagicLeap::ToMLVector(SearchVolume->GetScaledBoxExtent(), WorldToMetersScale);
-	// MagicLeap::ToMLVector() causes the Z component to be negated.
-	// The bounds were thus invalid and resulted in everything being tracked. 
-	// This provides the content devs with an option to ignore the bounding volume at will.
-	// TODO: Can this be improved?
-	if (!IgnoreBoundingVolume)
-	{
-		query.bounds_extents.x = FMath::Abs<float>(query.bounds_extents.x);
-		query.bounds_extents.y = FMath::Abs<float>(query.bounds_extents.y);
-		query.bounds_extents.z = FMath::Abs<float>(query.bounds_extents.z);
-	}
+	query.bounds_rotation = MagicLeap::ToMLQuat(PoseInverse.TransformRotation(SearchVolume->GetComponentQuat()));
+	query.bounds_extents = MagicLeap::ToMLVectorExtents(SearchVolume->GetScaledBoxExtent(), WorldToMetersScale);
 
 	MLHandle handle;
 	MLResult QueryResult = MLPlanesQueryBegin(Impl->Tracker, &query, &handle);

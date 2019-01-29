@@ -223,7 +223,7 @@ bool FAnimPreviewInstanceProxy::Evaluate(FPoseContext& Output)
 					ApplyBoneControllers(BoneControllers, ComponentSpacePoseContext);
 
 					// convert back to local @todo check this
-					ComponentSpacePoseContext.Pose.ConvertToLocalPoses(Output.Pose);
+					FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(ComponentSpacePoseContext.Pose, Output.Pose);
 
 					if(bSetKey)
 					{

@@ -102,6 +102,12 @@ public:
 	/**	Shows level in the world */
 	void ShowLevels(const FLevelModelList& InLevelList);
 
+	/** Toggles the selected levels to a visible state; toggles all other levels to an invisible state */
+	void ShowOnlySelectedLevels();
+
+	/** Toggles the selected levels to an invisible state; toggles all other levels to a visible state */
+	void ShowAllButSelectedLevels();
+
 	/**	Unlocks level in the world */
 	void UnlockLevels(const FLevelModelList& InLevelList);
 	
@@ -408,6 +414,9 @@ protected:
 
 	/** Toggles the selected levels to a visible state; toggles all other levels to an invisible state */
 	void ShowOnlySelectedLevels_Executed();
+	
+	/** Toggles the selected levels to an invisible state; toggles all other levels to a visible state */
+	void ShowAllButSelectedLevels_Executed();
 
 	/** Toggles all levels to a visible state in the viewports */
 	void ShowAllLevels_Executed();

@@ -18,6 +18,7 @@
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "MetalShaderResources.h"
 #include "MetalLLM.h"
+#include "Engine/RendererSettings.h"
 
 DEFINE_LOG_CATEGORY(LogMetal)
 
@@ -1155,4 +1156,27 @@ void FMetalDynamicRHI::RHIReleaseThreadOwnership()
 void* FMetalDynamicRHI::RHIGetNativeDevice()
 {
 	return (void*)ImmediateContext.Context->GetDevice().GetPtr();
+}
+
+uint16 FMetalDynamicRHI::RHIGetPlatformTextureMaxSampleCount()
+{
+	TArray<EMobileMSAASampleCount::Type> SamplesArray{ EMobileMSAASampleCount::Type::One, EMobileMSAASampleCount::Type::Two, EMobileMSAASampleCount::Type::Four, EMobileMSAASampleCount::Type::Eight };
+
+	uint16 PlatformMaxSampleCount = EMobileMSAASampleCount::Type::One;
+	for (auto sampleIt = SamplesArray.CreateConstIterator(); sampleIt; ++sampleIt)
+	{
+		int sample = *sampleIt;
+
+#if PLATFORM_IOS || PLATFORM_MAC
+		id<MTLDevice> Device = (id<MTLDevice>)RHIGetNativeDevice();
+		check(Device);
+
+		if (![Device supportsTextureSampleCount : sample])
+		{
+			break;
+		}
+		PlatformMaxSampleCount = sample;
+#endif
+	}
+	return PlatformMaxSampleCount;
 }

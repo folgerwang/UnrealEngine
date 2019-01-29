@@ -6,6 +6,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/Input/STextComboBox.h"
 #include "AnimationSharingTypes.h"
+#include "Templates/SharedPointer.h"
 
 #define LOCTEXT_NAMESPACE "AnimationSharingSetupCustomization"
 
@@ -337,10 +338,46 @@ UEnum* GetStateEnumClass(const TSharedPtr<IPropertyHandle>& InProperty)
 	return nullptr;
 }
 
-
 TSharedRef<IPropertyTypeCustomization> FAnimationSetupCustomization::MakeInstance()
 {
 	return MakeShareable(new FAnimationSetupCustomization());
+}
+
+void FAnimationSetupCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
+{
+	const FName AnimSequencePropertyName = GET_MEMBER_NAME_CHECKED(FAnimationSetup, AnimSequence);
+	AnimSequencePropertyHandle = PropertyHandle->GetChildHandle(AnimSequencePropertyName);
+	
+	HeaderRow
+	.NameContent()
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.FillWidth(1)
+		.VAlign(VAlign_Center)
+		[
+			// Show the name of the asset or actor
+			SNew(STextBlock)
+			.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
+			.Text_Lambda([this]() -> FText
+			{
+				if (AnimSequencePropertyHandle.IsValid())
+				{
+					FText PropertyValueAsName;
+					if (AnimSequencePropertyHandle->GetValueAsFormattedText(PropertyValueAsName) == FPropertyAccess::Success)
+					{
+						return PropertyValueAsName;
+					}
+				}
+
+				return LOCTEXT("None", "None");
+			})			
+		]
+	];
+	/*.ValueContent()
+	[
+		PropertyHandle->CreatePropertyValueWidget()
+	];*/	
 }
 
 void FAnimationSetupCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)

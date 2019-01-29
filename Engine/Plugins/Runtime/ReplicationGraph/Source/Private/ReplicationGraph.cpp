@@ -413,6 +413,7 @@ void UReplicationGraph::InitializeActorsInWorld(UWorld* InWorld)
 void UReplicationGraph::InitializeForWorld(UWorld* World)
 {
 	ActiveNetworkActors.Reset();
+	GlobalActorReplicationInfoMap.ResetActorMap();
 
 	for (UReplicationGraphNode* Manager : GlobalGraphNodes)
 	{
@@ -800,7 +801,8 @@ int32 UReplicationGraph::ServerReplicateActors(float DeltaSeconds)
 					FConnectionReplicationActorInfo& ConnectionActorInfo = *MapIt.Value().Get();
 					UActorChannel* Channel = MapIt.Key();
 					checkSlow(Channel != nullptr);
-					ensureMsgf(Channel == ConnectionActorInfo.Channel, TEXT("Channel: %s ConnectionActorInfo.Channel: %s. Actor: %s "), *GetNameSafe(Channel), *GetNameSafe(ConnectionActorInfo.Channel), ConnectionActorInfo.Channel ? *GetNameSafe(ConnectionActorInfo.Channel->Actor) : TEXT("NULLCHANNEL"));
+					checkSlow(ConnectionActorInfo.Channel != nullptr);
+					ensureMsgf(Channel == ConnectionActorInfo.Channel, TEXT("Channel: %s ConnectionActorInfo.Channel: %s."), *(Channel ? Channel->Describe() : FString(TEXT("None"))), *(ConnectionActorInfo.Channel ? ConnectionActorInfo.Channel->Describe() : FString(TEXT("None"))));
 
 					if (ConnectionActorInfo.ActorChannelCloseFrameNum > 0 && ConnectionActorInfo.ActorChannelCloseFrameNum <= FrameNum)
 					{
@@ -825,7 +827,7 @@ int32 UReplicationGraph::ServerReplicateActors(float DeltaSeconds)
 							//UE_CLOG(DebugConnection, LogReplicationGraph, Display, TEXT("Closing Actor Channel:0x%x 0x%X0x%X, %s %d <= %d"), ConnectionActorInfo.Channel, Actor, NetConnection, *GetNameSafe(ConnectionActorInfo.Channel->Actor), ConnectionActorInfo.ActorChannelCloseFrameNum, FrameNum);
 							if (RepGraphConditionalActorBreakpoint(Actor, NetConnection))
 							{
-								UE_LOG(LogReplicationGraph, Display, TEXT("Closing Actor Channel due to timeout: %s. %d <= %d (%s)"), *Actor->GetName(), ConnectionActorInfo.ActorChannelCloseFrameNum, FrameNum, *NetConnection->Describe());
+								UE_LOG(LogReplicationGraph, Display, TEXT("Closing Actor Channel due to timeout: %s. %d <= %d (%s)"), *(ConnectionActorInfo.Channel->Describe()), ConnectionActorInfo.ActorChannelCloseFrameNum, FrameNum, *NetConnection->Describe());
 							}
 
 							INC_DWORD_STAT_BY( STAT_NetActorChannelsClosed, 1 );
@@ -1025,8 +1027,9 @@ void UReplicationGraph::ReplicateActorListsForConnection_Default(UNetReplication
 				// -------------------
 				if (GlobalData.Settings.StarvationPriorityScale > 0.f)
 				{
-					const uint32 FramesSinceLastRep = (FrameNum - ConnectionData.LastRepFrameNum);
-					const float StarvationFactor = 1.f - FMath::Clamp<float>((float)FramesSinceLastRep / (float)MaxFramesSinceLastRep, 0.f, 1.f);
+					// StarvationPriorityScale = scale "Frames since last rep". E.g, 2.0 means treat every missed frame as if it were 2, etc.
+					const float FramesSinceLastRep = ((float)(FrameNum - ConnectionData.LastRepFrameNum)) * GlobalData.Settings.StarvationPriorityScale;
+					const float StarvationFactor = 1.f - FMath::Clamp<float>(FramesSinceLastRep / (float)MaxFramesSinceLastRep, 0.f, 1.f);
 
 					AccumulatedPriority += StarvationFactor;
 
@@ -1052,19 +1055,15 @@ void UReplicationGraph::ReplicateActorListsForConnection_Default(UNetReplication
 				// -------------------
 				//	Game code priority
 				// -------------------
-							
-				if (GlobalData.ForceNetUpdateFrame > 0)
+				
+				if ( GlobalData.ForceNetUpdateFrame > ConnectionData.LastRepFrameNum )
 				{
-					const int32 ForceNetUpdateDelta = static_cast<int32>(GlobalData.ForceNetUpdateFrame - ConnectionData.LastRepFrameNum);
-					if ( ForceNetUpdateDelta > 0 )
-					{
-						// Note that in legacy ForceNetUpdate did not actually bump priority. This gives us a hard coded bump if we haven't replicated since the last ForceNetUpdate frame.
-						AccumulatedPriority -= 1.f;
+					// Note that in legacy ForceNetUpdate did not actually bump priority. This gives us a hard coded bump if we haven't replicated since the last ForceNetUpdate frame.
+					AccumulatedPriority -= 1.f;
 
-						if (DO_REPGRAPH_DETAILS(UNLIKELY(DebugDetails)))
-						{
-							DebugDetails->GameCodeScaling = -1.f;
-						}
+					if (DO_REPGRAPH_DETAILS(UNLIKELY(DebugDetails)))
+					{
+						DebugDetails->GameCodeScaling = -1.f;
 					}
 				}
 							
@@ -1549,7 +1548,7 @@ void UReplicationGraph::UpdateActorChannelCloseFrameNum(AActor* Actor, FConnecti
 {
 	if (RepGraphConditionalActorBreakpoint(Actor, NetConnection))
 	{
-		UE_LOG(LogReplicationGraph, Display, TEXT("UReplicationGraph::UpdateActorChannelCloseFrameNum: %s. Channel: %p FrameNum: %d ActorChannelFrameTimeout: %d."), *Actor->GetName(), ConnectionData.Channel, FrameNum, GlobalData.Settings.ActorChannelFrameTimeout);
+		UE_LOG(LogReplicationGraph, Display, TEXT("UReplicationGraph::UpdateActorChannelCloseFrameNum: %s. Channel: %s FrameNum: %d ActorChannelFrameTimeout: %d."), *Actor->GetName(), *(ConnectionData.Channel ? ConnectionData.Channel->Describe() : FString(TEXT("None"))), FrameNum, GlobalData.Settings.ActorChannelFrameTimeout);
 	}
 
 	// Only update if the actor has a timeout set
@@ -1901,9 +1900,13 @@ void UNetReplicationGraphConnection::InitForConnection(UNetConnection* InConnect
 	InConnection->SetReplicationConnectionDriver(this);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	DebugActor = GetWorld()->SpawnActor<AReplicationGraphDebugActor>();
-	DebugActor->ConnectionManager = this;
-	DebugActor->ReplicationGraph = Cast<UReplicationGraph>(GetOuter());
+	UReplicationGraph* Graph = Cast<UReplicationGraph>(GetOuter());
+	DebugActor = Graph->CreateDebugActor();
+	if (DebugActor)
+	{
+		DebugActor->ConnectionManager = this;
+		DebugActor->ReplicationGraph = Graph;
+	}
 #endif
 
 #if 0
@@ -2252,6 +2255,10 @@ bool UReplicationGraphNode_ActorList::NotifyRemoveNetworkActor(const FNewReplica
 		{
 			UE_LOG(LogReplicationGraph, Warning, TEXT("Attempted to remove %s from list %s but it was not found. (StreamingLevelName == NAME_None)"), *GetActorRepListTypeDebugString(ActorInfo.Actor), *GetFullName());
 		}
+		else
+		{
+			bRemovedSomething = true;
+		}
 
 		if (CVar_RepGraph_Verify)
 		{
@@ -2260,7 +2267,7 @@ bool UReplicationGraphNode_ActorList::NotifyRemoveNetworkActor(const FNewReplica
 	}
 	else
 	{
-		StreamingLevelCollection.RemoveActor(ActorInfo, bWarnIfNotFound, this);
+		bRemovedSomething = StreamingLevelCollection.RemoveActor(ActorInfo, bWarnIfNotFound, this);
 	}
 
 	return bRemovedSomething;

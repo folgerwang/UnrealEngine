@@ -718,6 +718,12 @@ void FAndroidOpenGL::QueryTimestampCounter(GLuint Query)
 
 }
 
+bool FAndroidOpenGL::SupportsFramebufferSRGBEnable()
+{	
+	static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+	const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+	return bMobileUseHWsRGBEncoding;
+}
 
 void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
 {

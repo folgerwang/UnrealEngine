@@ -281,15 +281,12 @@ bool FChunkCacheWorker::CheckSignature(const FChunkRequest& ChunkInfo)
 	if (!bChunkHashesMatch)
 	{
 		UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch on chunk [%i/%i]! Expected 0x%8X, Received 0x%8X"), ChunkInfo.Index, ChunkHashes.Num(), ChunkHashes[ChunkInfo.Index], ChunkHash);
-		UE_LOG(LogPakFile, Warning, TEXT("Pak file has been corrupted or tampered with!"));
 
 		TPakChunkHash CurrentSignatureHash = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
 		if (OriginalSignatureFileHash != CurrentSignatureHash)
 		{
 			UE_LOG(LogPakFile, Warning, TEXT("Master signature table has changed since initialization!"));
 		}
-			
-		ensure(bChunkHashesMatch);
 
 		const FPakChunkSignatureCheckFailedData Data(Reader->GetArchiveName(), ChunkHashes[ChunkInfo.Index], ChunkHash, ChunkInfo.Index);
 		FPakPlatformFile::GetPakChunkSignatureCheckFailedHandler().Broadcast(Data);

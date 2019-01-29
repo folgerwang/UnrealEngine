@@ -68,6 +68,12 @@ public:
 #endif
 			/** Dynamically update pixel density to maintain framerate */
 			uint64				bPixelDensityAdaptive : 1;
+
+			/** Recenters the HMD too when the controller recenter button is pressed on Go and GearVR */
+			uint64				bRecenterHMDWithController : 1;
+
+			/** All future eye buffers will need to be created with TexSRGB_Create flag due to the current feature level (ES31) */
+			uint64				bsRGBEyeBuffer : 1;
 		};
 		uint64 Raw;
 	} Flags;
@@ -77,12 +83,12 @@ public:
 	FQuat BaseOrientation; // base orientation
 
 	/** Viewports for each eye, in render target texture coordinates */
-	FIntRect EyeRenderViewport[3];
+	FIntRect EyeRenderViewport[2];
 	/** Viewports for each eye, without DynamicResolution scaling applied */
-	FIntRect EyeUnscaledRenderViewport[3];
+	FIntRect EyeUnscaledRenderViewport[2];
 
-	ovrpMatrix4f EyeProjectionMatrices[3]; // 0 - left, 1 - right, same as Views
-	ovrpMatrix4f PerspectiveProjection[3]; // used for calc ortho projection matrices
+	ovrpMatrix4f EyeProjectionMatrices[2]; // 0 - left, 1 - right, same as Views
+	ovrpMatrix4f PerspectiveProjection[2]; // used for calc ortho projection matrices
 
 	FIntPoint RenderTargetSize;
 	float PixelDensity;
@@ -94,12 +100,17 @@ public:
 	float VsyncToNextVsync;
 
 	ETiledMultiResLevel MultiResLevel;
+	int CPULevel;
+	int GPULevel;
+
+	ovrpVector4f ColorScale, ColorOffset;
+	bool bApplyColorScaleAndOffsetToAllLayers;
 
 public:
 	FSettings();
 	virtual ~FSettings() {}
 
-	bool IsStereoEnabled() const { return FPlatformMisc::IsStandaloneStereoOnlyDevice() || Flags.bStereoEnabled && Flags.bHMDEnabled; }
+	bool IsStereoEnabled() const { return Flags.bStereoEnabled && Flags.bHMDEnabled; }
 
 	void SetPixelDensity(float NewPixelDensity);
 	void SetPixelDensityMin(float NewPixelDensityMin);

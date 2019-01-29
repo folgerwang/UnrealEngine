@@ -45,6 +45,7 @@ public:
 	virtual IOnlineMessagePtr GetMessageInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
+	virtual IOnlineStatsPtr GetStatsInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
 	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual bool Init() override;
@@ -67,6 +68,12 @@ PACKAGE_SCOPE:
 	 * @return true if IAP should be available, false otherwise
 	 */
 	static bool IsInAppPurchasingEnabled();
+	
+	/**
+	 * Is CloudKit enabled
+	 * @return true if enabled, false otherwise
+	 */
+	static bool IsCloudKitEnabled();
 	
 	/**
 	 * Is Store v2 enabled (disabling legacy store interface)

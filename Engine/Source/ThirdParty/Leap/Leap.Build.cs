@@ -14,7 +14,7 @@ public class Leap : ModuleRules
             PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Leap/include");
 
             string LibraryPath = Target.UEThirdPartySourceDirectory + "Leap/lib";
-			string LibraryName = "Leap";
+			string LibraryName = "LeapC";
 			if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
 			{
 				LibraryName += "d";

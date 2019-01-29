@@ -392,6 +392,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = GooglePlayServices)
 	TArray<FGooglePlayLeaderboardMapping> LeaderboardMap;
 
+	// Enabling this requests snapshots support for saved games during Google Play login.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = GooglePlayServices, meta = (DisplayName = "Enable Snapshots on Google Play login"))
+	bool bEnableSnapshots;
+
 	// Enabling this includes the AdMob SDK and will be detected by Google Play Console on upload of APK.  Disable if you do not need ads to remove this warning.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = GooglePlayServices, meta = (DisplayName = "Include AdMob support for ads"))
 	bool bSupportAdMob;
@@ -570,13 +574,15 @@ public:
 
 	virtual void PostReloadConfig(class UProperty* PropertyThatWasLoaded) override;
 
+
 #if WITH_EDITOR
+private:
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostInitProperties() override;
+	void HandlesRGBHWSupport();
+	
 	// End of UObject interface
-
-private:
 	void EnsureValidGPUArch();
 #endif
 };

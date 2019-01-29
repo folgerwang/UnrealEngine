@@ -294,6 +294,30 @@ namespace WorldHierarchy
 		}
 	}
 
+	void FLevelModelTreeItem::OnShowOnlySelected()
+	{
+		if (LevelModel.IsValid())
+		{
+			WorldModel.Pin()->ShowOnlySelectedLevels();
+		}
+	}
+
+	void FLevelModelTreeItem::OnShowAllButSelected()
+	{
+		if (LevelModel.IsValid())
+		{
+			WorldModel.Pin()->ShowAllButSelectedLevels();
+		}
+	}
+
+	void FLevelModelTreeItem::PopulateLevelModelList(FLevelModelList& InModelList)
+	{
+		if (LevelModel.IsValid())
+		{
+			InModelList.Add(LevelModel.Pin());
+		}
+	}
+
 	void FLevelModelTreeItem::SetVisible(bool bVisible)
 	{
 		FLevelModelList LevelModels;
@@ -716,6 +740,38 @@ namespace WorldHierarchy
 	void FFolderTreeItem::OnToggleVisibility()
 	{
 		SetVisible(!IsVisible());
+	}
+
+	void FFolderTreeItem::OnShowOnlySelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList ChildLevels;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(ChildLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(ChildLevels);
+		WorldModel.Pin()->ShowOnlySelectedLevels();
+	}
+
+	void FFolderTreeItem::OnShowAllButSelected()
+	{
+		// This can be triggered on the non selected folder, so get its children instead
+		FLevelModelList ChildLevels;
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(ChildLevels);
+		}
+		WorldModel.Pin()->SetSelectedLevels(ChildLevels);
+		WorldModel.Pin()->ShowAllButSelectedLevels();
+	}
+
+	void FFolderTreeItem::PopulateLevelModelList(FLevelModelList& InModelList)
+	{
+		for (auto& Child : Children)
+		{
+			Child->PopulateLevelModelList(InModelList);
+		}
 	}
 
 	void FFolderTreeItem::SetVisible(bool bVisible)

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Chat/ChatSlashCommands.h"
 #include "Chat/SocialChatManager.h"
@@ -251,7 +251,7 @@ void FRegisteredSlashCommands::PrepareInteractionAutocompleteStrings(const TArra
 				//clear stale users while narrowing down commands to single command
 				if (bValidUsersCached)
 				{
-					for (const TSharedPtr<FInteractionCommandWrapper>& InteractionCmd : RelevantCommands)
+					for (const TSharedPtr<FInteractionCommandWrapper>& InteractionCmd : RegisteredInteractionSlashCommands)
 					{
 						InteractionCmd->ResetUserCache();
 					}
@@ -381,10 +381,21 @@ void FInteractionCommandWrapper::GetAutoCompleteStrings(TArray< TSharedPtr<FAuto
 		{
 			for (TWeakObjectPtr<USocialUser> CachedUser : CachedValidUsers)
 			{
-				if (CachedUser.IsValid() && WrappedInteraction.IsAvailable(*CachedUser))
+				if (CachedUser.IsValid())
 				{
-					FString AutoCompleteStringForUser = GetCommandNameString() + TEXT(" ") + CachedUser->GetDisplayName();
-					OutStringContainer.Add(MakeShared<FAutoCompleteStruct>(AutoCompleteStringForUser, SharedThis(this), CachedUser));
+					bool bUserMatchesText = true;
+
+					if (UserTextTokens.Num() >= 2)
+					{
+						const FString& TypedUserName = UserTextTokens.Last();
+						bUserMatchesText = CachedUser->GetDisplayName().StartsWith(TypedUserName);
+					}
+
+					if(bUserMatchesText)
+					{
+						FString AutoCompleteStringForUser = GetCommandNameString() + TEXT(" ") + CachedUser->GetDisplayName();
+						OutStringContainer.Add(MakeShared<FAutoCompleteStruct>(AutoCompleteStringForUser, SharedThis(this), CachedUser));
+					}
 				}
 			}
 		}

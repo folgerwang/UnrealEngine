@@ -8,7 +8,7 @@
 #include "ARPin.h"
 #include "ARTrackable.h"
 
-TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> UARBlueprintLibrary::RegisteredARSystem = nullptr;
+TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> UARBlueprintLibrary::RegisteredARSystem = nullptr;
 
 EARTrackingQuality UARBlueprintLibrary::GetTrackingQuality()
 {
@@ -119,6 +119,25 @@ TArray<FARTraceResult> UARBlueprintLibrary::LineTraceTrackedObjects( const FVect
 		Result = ARSystem->LineTraceTrackedObjects(ScreenCoord, ActiveTraceChannels);
 	}
 	
+	return Result;
+}
+
+TArray<FARTraceResult> UARBlueprintLibrary::LineTraceTrackedObjects3D(const FVector Start, const FVector End, bool bTestFeaturePoints, bool bTestGroundPlane, bool bTestPlaneExtents, bool bTestPlaneBoundaryPolygon)
+{
+	TArray<FARTraceResult> Result;
+
+	auto ARSystem = GetARSystem();
+	if (ARSystem.IsValid())
+	{
+		EARLineTraceChannels ActiveTraceChannels =
+			(bTestFeaturePoints ? EARLineTraceChannels::FeaturePoint : EARLineTraceChannels::None) |
+			(bTestGroundPlane ? EARLineTraceChannels::GroundPlane : EARLineTraceChannels::None) |
+			(bTestPlaneExtents ? EARLineTraceChannels::PlaneUsingExtent : EARLineTraceChannels::None) |
+			(bTestPlaneBoundaryPolygon ? EARLineTraceChannels::PlaneUsingBoundaryPolygon : EARLineTraceChannels::None);
+
+		Result = ARSystem->LineTraceTrackedObjects(Start, End, ActiveTraceChannels);
+	}
+
 	return Result;
 }
 
@@ -235,13 +254,13 @@ void UARBlueprintLibrary::RemovePin( UARPin* PinToRemove )
 
 
 
-void UARBlueprintLibrary::RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewARSystem)
+void UARBlueprintLibrary::RegisterAsARSystem(const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& NewARSystem)
 {
 	RegisteredARSystem = NewARSystem;
 }
 
 
-const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& UARBlueprintLibrary::GetARSystem()
+const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& UARBlueprintLibrary::GetARSystem()
 {
 	return RegisteredARSystem;
 }
@@ -430,3 +449,17 @@ TArray<FARVideoFormat> UARBlueprintLibrary::GetSupportedVideoFormats(EARSessionT
 	}
 	return TArray<FARVideoFormat>();
 }
+
+UARCandidateImage* UARBlueprintLibrary::AddRuntimeCandidateImage(UARSessionConfig* SessionConfig, UTexture2D* CandidateTexture, FString FriendlyName, float PhysicalWidth)
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->AddRuntimeCandidateImage(SessionConfig, CandidateTexture, FriendlyName, PhysicalWidth);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+

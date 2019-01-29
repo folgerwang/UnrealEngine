@@ -151,6 +151,12 @@ void FIOSPlatformMisc::PlatformInit()
 	}
 }
 
+// Defines the PlatformFeatures module name for iOS, used by PlatformFeatures.h.
+const TCHAR* FIOSPlatformMisc::GetPlatformFeaturesModuleName()
+{
+	return TEXT("IOSPlatformFeatures");
+}
+
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
 {
     if (GShowSplashScreen != ShowSplashScreen)

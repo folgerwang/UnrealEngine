@@ -285,15 +285,14 @@ void FDefaultStereoLayers::UpdateSplashScreen()
 		LayerDesc.Flags = ELayerFlags::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL;
 		LayerDesc.PositionType = ELayerType::TrackerLocked;
 		LayerDesc.Texture = Texture;
-		LayerDesc.UVRect = FBox2D(SplashOffset, SplashOffset + SplashScale);
 
-		FTransform Translation(FVector(500.0f, 0.0f, 100.0f));
+		FTransform Translation(FVector(500.0f, 0.0f, 100.0f) + SplashOffset);
 		FRotator Rotation(Orientation);
 		Rotation.Pitch = 0.0f;
 		Rotation.Roll = 0.0f;
 		LayerDesc.Transform = Translation * FTransform(Rotation.Quaternion());
 
-		LayerDesc.QuadSize = FVector2D(800.0f, 450.0f);
+		LayerDesc.QuadSize = FVector2D(800.0f, 450.0f) * SplashScale;
 
 		if (SplashLayerHandle)
 		{

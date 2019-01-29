@@ -1003,7 +1003,7 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 	}
 
 	// Allocate our stereo view state on demand, so that only viewports that actually use stereo features have one
-	const int32 ViewStateIndex = (StereoPass > eSSP_MONOSCOPIC_EYE) ? StereoPass - eSSP_MONOSCOPIC_EYE : 0;
+	const int32 ViewStateIndex = (StereoPass > eSSP_RIGHT_EYE) ? StereoPass - eSSP_RIGHT_EYE : 0;
 	if (bStereoRendering)
 	{
 		if (StereoViewStates.Num() <= ViewStateIndex)

@@ -3,6 +3,7 @@
 #include "MagicLeapHelperVulkan.h"
 #include "IMagicLeapHelperVulkanPlugin.h"
 #include "Engine/Engine.h"
+#include "XRThreadUtils.h"
 
 #if !PLATFORM_MAC
 #include "VulkanRHIPrivate.h"
@@ -62,10 +63,10 @@ void FMagicLeapHelperVulkan::BlitImage(uint64 SrcName, int32 SrcLevel, int32 Src
 	Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	Region.srcSubresource.layerCount = 1;
 	Region.dstOffsets[0].x = DstX;
-	Region.dstOffsets[0].y = DstY;
+	Region.dstOffsets[0].y = DstY + DstHeight;
 	Region.dstOffsets[0].z = DstZ;
 	Region.dstOffsets[1].x = DstX + DstWidth;
-	Region.dstOffsets[1].y = DstY + DstHeight;
+	Region.dstOffsets[1].y = DstY;
 	Region.dstOffsets[1].z = DstZ + DstDepth;
 	Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	Region.dstSubresource.baseArrayLayer = DstLevel;
@@ -218,36 +219,40 @@ bool FMagicLeapHelperVulkan::GetMediaTexture(FTextureRHIRef& ResultTexture, FSam
 		return false;
 	}
 
-	VkImageMemoryBarrier ImageBarrier;
-	FMemory::Memzero(&ImageBarrier, sizeof(VkImageMemoryBarrier));
-	ImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	ImageBarrier.pNext = nullptr;
-	ImageBarrier.srcAccessMask = 0;
-	ImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	ImageBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-	ImageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	ImageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	ImageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	ImageBarrier.image = MediaSurface.imported_image;
-	ImageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	ImageBarrier.subresourceRange.baseMipLevel = 0;
-	ImageBarrier.subresourceRange.levelCount = 1;
-	ImageBarrier.subresourceRange.baseArrayLayer = 0;
-	ImageBarrier.subresourceRange.layerCount = 1;
+	VkImage ImportedImage = MediaSurface.imported_image;
+	ExecuteOnRHIThread_DoNotWait([Device, ImportedImage]()
+	{
+		VkImageMemoryBarrier ImageBarrier;
+		FMemory::Memzero(&ImageBarrier, sizeof(VkImageMemoryBarrier));
+		ImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		ImageBarrier.pNext = nullptr;
+		ImageBarrier.srcAccessMask = 0;
+		ImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		ImageBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+		ImageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		ImageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		ImageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		ImageBarrier.image = ImportedImage;
+		ImageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ImageBarrier.subresourceRange.baseMipLevel = 0;
+		ImageBarrier.subresourceRange.levelCount = 1;
+		ImageBarrier.subresourceRange.baseArrayLayer = 0;
+		ImageBarrier.subresourceRange.layerCount = 1;
 
-	FVulkanCommandListContext& ImmediateContext = Device->GetImmediateContext();
-	FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
-	VulkanRHI::vkCmdPipelineBarrier(
-		CmdBuffer->GetHandle(),
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		0,
-		0,
-		nullptr,
-		0,
-		nullptr,
-		1,
-		&ImageBarrier);
+		FVulkanCommandListContext& ImmediateContext = Device->GetImmediateContext();
+		FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
+		VulkanRHI::vkCmdPipelineBarrier(
+			CmdBuffer->GetHandle(),
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			0,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&ImageBarrier);
+	});
 
 	FSamplerYcbcrConversionInitializer ConversionInitializer;
 	FMemory::Memzero(&ConversionInitializer, sizeof(FSamplerYcbcrConversionInitializer));

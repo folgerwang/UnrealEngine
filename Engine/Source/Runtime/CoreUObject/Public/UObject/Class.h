@@ -11,6 +11,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Object.h"
+#include "Misc/FallbackStruct.h"
 #include "Misc/Guid.h"
 #include "Math/RandomStream.h"
 #include "UObject/GarbageCollection.h"
@@ -3242,7 +3243,6 @@ template<> struct TBaseStructure<FBox2D>
 	COREUOBJECT_API static UScriptStruct* Get();
 };	
 
-struct FFallbackStruct;
 template<> struct TBaseStructure<FFallbackStruct>
 {
 	COREUOBJECT_API static UScriptStruct* Get();

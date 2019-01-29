@@ -123,6 +123,26 @@ TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirecti
 	return NullLightParams->UniformBufferRHI;
 }
 
+void FMobileSceneRenderer::PrepareViewVisibilityLists()
+{
+	// Prepare view's visibility lists.
+	// TODO: only do this when CSM + static is required.
+	for (auto& View : Views)
+	{
+		FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
+		// Init list of primitives that can receive Dynamic CSM.
+		MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap.Init(false, View.PrimitiveVisibilityMap.Num());
+
+		// Init static mesh visibility info for CSM drawlist
+		MobileCSMVisibilityInfo.MobileCSMStaticMeshVisibilityMap.Init(false, View.StaticMeshVisibilityMap.Num());
+		MobileCSMVisibilityInfo.MobileCSMStaticBatchVisibility.AddZeroed(View.StaticMeshBatchVisibility.Num());
+
+		// Init static mesh visibility info for default drawlist that excludes meshes in CSM only drawlist.
+		MobileCSMVisibilityInfo.MobileNonCSMStaticMeshVisibilityMap = View.StaticMeshVisibilityMap;
+		MobileCSMVisibilityInfo.MobileNonCSMStaticBatchVisibility = View.StaticMeshBatchVisibility;
+	}
+}
+
 void FMobileSceneRenderer::SetupMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView)
 {
 	// Sort front to back on all platforms, even HSR benefits from it
@@ -187,6 +207,11 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	{
 		// Setup dynamic shadows.
 		InitDynamicShadows(RHICmdList);
+	}
+	else
+	{
+		// TODO: only do this when CSM + static is required.
+		PrepareViewVisibilityLists();
 	}
 
 	SetupMobileBasePassAfterShadowInit(BasePassDepthStencilAccess, ViewCommandsPerView);
@@ -304,10 +329,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	TArray<const FViewInfo*> ViewList;
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++) 
 	{
-		if (Views[ViewIndex].StereoPass != eSSP_MONOSCOPIC_EYE)
-		{
-			ViewList.Add(&Views[ViewIndex]);
-		}
+		ViewList.Add(&Views[ViewIndex]);
 	}
 
 	const bool bGammaSpace = !IsMobileHDR();
@@ -455,17 +477,6 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		RenderTranslucency(RHICmdList, ViewList, !bGammaSpace || bRenderToSceneColor);
 		FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-	}
-
-	if (ViewFamily.IsMonoscopicFarFieldEnabled() && ViewFamily.Views.Num() == 3)
-	{
-		TArray<const FViewInfo*> MonoViewList;
-		MonoViewList.Add(&Views[2]);
-
-		RenderMonoscopicFarFieldMask(RHICmdList);
-		RenderMobileBasePass(RHICmdList, MonoViewList);
-		RenderTranslucency(RHICmdList, MonoViewList, !bGammaSpace || bRenderToSceneColor);
-		CompositeMonoscopicFarField(RHICmdList);
 	}
 
 	if (!View.bIsMobileMultiViewDirectEnabled)

@@ -90,7 +90,7 @@ return
 
 # upgrading emsdk - REMEMBER TO DO THE FOLLOWING:
 #
-# - edit Engine/Source/Programs/UnrealBuildTool/HTML5/HTML5SDKInfo.cs
+# - edit Engine/Source/Programs/UnrealBuildTool/Platform/HTML5/HTML5SDKInfo.cs
 #   + update version (paths)
 #   + NOTE: requires UBT rebuild !!!
 #
@@ -111,7 +111,7 @@ return
 #     -02 release: development
 #     -0z release: for size (at the cost of performance)
 #     -00 debug
-# for details, see: .../Engine/Source/Programs/UnrealBuildTool/HTML5/HTML5ToolChain.cs
+# for details, see: .../Engine/Source/Programs/UnrealBuildTool/Platform/HTML5/HTML5ToolChain.cs
 #     GetCLArguments_Global() & GetLinkArguments()
 
 

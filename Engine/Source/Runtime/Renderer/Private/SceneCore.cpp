@@ -166,7 +166,7 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	bHasTranslucentObjectShadow(bInHasTranslucentObjectShadow),
 	bHasInsetObjectShadow(bInHasInsetObjectShadow),
 	bSelfShadowOnly(false),
-	bES2DynamicPointLight(false)
+	bMobileDynamicPointLight(false)
 {
 	// Determine whether this light-primitive interaction produces a shadow.
 	if(PrimitiveSceneInfo->Proxy->HasStaticLighting())
@@ -225,15 +225,26 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		// Add the interaction to the light's interaction list.
 		PrevPrimitiveLink = PrimitiveSceneInfo->Proxy->IsMeshShapeOftenMoving() ? &LightSceneInfo->DynamicInteractionOftenMovingPrimitiveList : &LightSceneInfo->DynamicInteractionStaticPrimitiveList;
 
-		// mobile movable point lights
-		if (PrimitiveSceneInfo->Scene->GetFeatureLevel() < ERHIFeatureLevel::SM4 && LightSceneInfo->Proxy->GetLightType() == LightType_Point && LightSceneInfo->Proxy->IsMovable())
+		// mobile movable spotlights / point lights
+		if (PrimitiveSceneInfo->Scene->GetShadingPath() == EShadingPath::Mobile && LightSceneInfo->Proxy->IsMovable())
 		{
-			bES2DynamicPointLight = true;
-			PrimitiveSceneInfo->NumMobileMovablePointLights++;
-			// enable dynamic path for primitives affected by dynamic point lights
-			PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
-			// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
-			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
+			const uint8 LightType = LightSceneInfo->Proxy->GetLightType();
+			static const auto CVarMobileEnableMovableSpotLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableMovableSpotLights"));
+
+			const bool bIsValidLightType = 
+				   LightType == LightType_Rect
+				|| LightType == LightType_Point
+				|| (LightType == LightType_Spot && CVarMobileEnableMovableSpotLights->GetValueOnRenderThread());
+
+			if( bIsValidLightType )
+			{
+				bMobileDynamicPointLight = true;
+				PrimitiveSceneInfo->NumMobileMovablePointLights++;
+				// enable dynamic path for primitives affected by dynamic point lights
+				PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
+				// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
+				PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
+			} 
 		}
 	}
 
@@ -275,7 +286,7 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 	FlushCachedShadowMapData();
 
 	// Track mobile movable point light count
-	if (bES2DynamicPointLight)
+	if (bMobileDynamicPointLight)
 	{
 		PrimitiveSceneInfo->NumMobileMovablePointLights--;
 		// enable dynamic path for primitives affected by dynamic point lights

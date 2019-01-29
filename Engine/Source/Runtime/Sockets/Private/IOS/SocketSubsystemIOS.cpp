@@ -12,10 +12,10 @@
 
 FSocketSubsystemIOS* FSocketSubsystemIOS::SocketSingleton = NULL;
 
-class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
+class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription, ESocketProtocolFamily SocketProtocol)
 {
 	UE_LOG(LogIOS, Log, TEXT(" FSocketSubsystemIOS::InternalBSDSocketFactory"));
-	return new FSocketBSDIOS(Socket, SocketType, SocketDescription, this);
+	return new FSocketBSDIOS(Socket, SocketType, SocketDescription, SocketProtocol, this);
 }
 
 FName CreateSocketSubsystem( FSocketSubsystemModule& SocketSubsystemModule )
@@ -89,7 +89,9 @@ ESocketErrors FSocketSubsystemIOS::GetHostByName(const ANSICHAR* HostName, FInte
 
 	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		TSharedRef<FInternetAddrBSDIOS> ResultAddr = StaticCastSharedRef<FInternetAddrBSDIOS>(GAIResult.Results[0].Address);
+		OutAddr.SetRawIp(ResultAddr->GetRawIp());
+		static_cast<FInternetAddrBSDIOS&>(OutAddr).SetScopeId(ResultAddr->GetScopeId());
 		return SE_NO_ERROR;
 	}
 
@@ -101,7 +103,10 @@ FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FStrin
 	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType);
 	if (NewSocket)
 	{
-		NewSocket->SetIPv6Only(false);
+		if (ProtocolType != ESocketProtocolFamily::IPv4)
+		{
+			NewSocket->SetIPv6Only(false);
+		}
 
 		// disable the SIGPIPE exception 
 		int bAllow = 1;

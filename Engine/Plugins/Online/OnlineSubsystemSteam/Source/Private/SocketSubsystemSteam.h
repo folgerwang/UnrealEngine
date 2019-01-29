@@ -6,6 +6,7 @@
 #include "UObject/WeakObjectPtr.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
+#include "IPAddressSteam.h"
 #include "OnlineSubsystemSteamTypes.h"
 #include "Containers/Ticker.h"
 #include "OnlineSubsystemSteamPackage.h"
@@ -15,7 +16,7 @@ class Error;
 /**
  * Windows specific socket subsystem implementation
  */
-class FSocketSubsystemSteam : public ISocketSubsystem, public FTickerObjectBase
+class FSocketSubsystemSteam : public ISocketSubsystem, public FTickerObjectBase, public FSelfRegisteringExec
 {
 protected:
 
@@ -28,35 +29,50 @@ protected:
 	/** Tracks existing Steamworks connections, for connection failure/timeout resolution */
 	TArray<struct FWeakObjectPtr> SteamConnections;
 
-    /** Keep track of Steam P2P connections */
+	/** Holds Steam connection information for each user */
 	struct FSteamP2PConnectionInfo
 	{
-        /** Steam networking interface responsible for this connection */
+		/** Steam networking interface responsible for this connection */
 		ISteamNetworking* SteamNetworkingPtr;
-		/** Channel to close */
-		int32 Channel;
-        /** Last time P2P session had activity (RecvFrom, etc) */
+
+		/** 
+		 * Last time the user's p2p session had activity (RecvFrom, etc). 
+		 * The value of this member is always the max value of the ConnectedChannels object
+		 */
 		double LastReceivedTime;
 
-		FSteamP2PConnectionInfo() :
-			SteamNetworkingPtr(NULL),
-			Channel(-1),
-			LastReceivedTime(0.0)
+		/** 
+		 * Channel connection ids for this user
+		 */
+		TArray<int32> ConnectedChannels;
+
+		FSteamP2PConnectionInfo(ISteamNetworking* InNetworkPtr=nullptr) :
+			SteamNetworkingPtr(InNetworkPtr),
+			LastReceivedTime(FPlatformTime::Seconds())
 		{
 		}
 
-		FSteamP2PConnectionInfo(ISteamNetworking* InSteamNetworkingPtr, double InTime, int32 InChannel=-1) :
-			SteamNetworkingPtr(InSteamNetworkingPtr),
-			Channel(InChannel),
-			LastReceivedTime(InTime)
+
+		/** This helper function automatically updates LastRecievedTime */
+		void AddOrUpdateChannel(int32 InChannel, double InTime)
 		{
+			ConnectedChannels.AddUnique(InChannel);
+			LastReceivedTime = FMath::Max(LastReceivedTime, InTime);
 		}
 	};
 
-    /** List of Steam P2P connections being tracked */
-	TMap<class FUniqueNetIdSteam, FSteamP2PConnectionInfo> AcceptedConnections;
-	/** List of Steam P2P connections to shutdown (dead connections remain around a few seconds longer to flush) */
-	TMap<class FUniqueNetIdSteam, FSteamP2PConnectionInfo> DeadConnections;
+    /** 
+	 * List of Steam P2P connections we have
+	 * As connections at start do not have a channel id, the key is just the accounts connected to us.
+	 */
+	TMap<FUniqueNetIdSteam, FSteamP2PConnectionInfo> AcceptedConnections;
+
+	/** 
+	 * List of Steam P2P connections to shutdown.
+	 * If the FInternetAddrSteam has a channel id of -1, all connections are dropped from the user.
+	 * Also tracked is the time in which the connection was marked to be removed (for linger purposes)
+	 */
+	TMap<FInternetAddrSteam, double> DeadConnections;
 
 	/**
 	 * Should Steam P2P sockets all fall back to Steam servers relay if a direct connection fails
@@ -64,7 +80,7 @@ protected:
 	 */
 	bool bAllowP2PPacketRelay;
 	/** 
-     * Timeout period for any P2P session
+     * Timeout (in seconds) period for any P2P session
 	 * read from [OnlineSubsystemSteam.P2PConnectionTimeout]
      * (should be at least as long as NetDriver::ConnectionTimeout) 
      */
@@ -73,6 +89,14 @@ protected:
 	double P2PDumpCounter;
 	/** Connection info output interval */
 	double P2PDumpInterval;
+	/**
+	 * The timeout (in seconds) between when a connection/channel is marked as destroyed
+	 * and when it's cleaned up. This allows for catching lingering messages
+	 * from other users.
+	 * If set to 0, all dead connections will be cleaned up each tick.
+	 * read from [OnlineSubsystemSteam.P2PCleanupTimeout]
+	 */
+	double P2PCleanupTimeout;
 
 	/**
 	 * Adds a steam socket for tracking
@@ -113,8 +137,10 @@ PACKAGE_SCOPE:
 	/**
 	 * Iterate through the pending dead connections and permanently remove any that have been around
 	 * long enough to flush their contents
+	 *
+	 * @param bSkipLinger skips the timeout reserved for lingering connection information to a race condition
 	 */
-	void CleanupDeadConnections();
+	void CleanupDeadConnections(bool bSkipLinger);
 
 	/**
 	 * Associate the game server steam id with any sockets that were created prior to successful login
@@ -142,7 +168,7 @@ PACKAGE_SCOPE:
 	 * 
 	 * @param RemoteId failure address
 	 */
-	void ConnectFailure(class FUniqueNetIdSteam& RemoteId);
+	void ConnectFailure(const FUniqueNetIdSteam& RemoteId);
 
 	/**
 	 * Potentially accept an incoming connection from a Steam P2P request
@@ -152,17 +178,18 @@ PACKAGE_SCOPE:
 	 * 
 	 * @return true if accepted, false otherwise
 	 */
-	bool AcceptP2PConnection(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& RemoteId);
+	bool AcceptP2PConnection(ISteamNetworking* SteamNetworkingPtr, const FUniqueNetIdSteam& RemoteId);
 
 	/**
 	 * Add/update a Steam P2P connection as being recently accessed
 	 *
 	 * @param SteamNetworkingPtr proper networking interface that this session is communicating on
 	 * @param SessionId P2P session recently heard from
+	 * @param ChannelId the channel id that the update happened on
      *
      * @return true if the connection is active, false if this is in the dead connections list
 	 */
-	bool P2PTouch(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& SessionId);
+	bool P2PTouch(ISteamNetworking* SteamNetworkingPtr, const FUniqueNetIdSteam& SessionId, int32 ChannelId = -1);
 
 	/**
 	 * Remove a Steam P2P session from tracking and close the connection
@@ -170,7 +197,44 @@ PACKAGE_SCOPE:
 	 * @param SessionId P2P session to remove
 	 * @param Channel channel to close, -1 to close all communication
 	 */
-	void P2PRemove(FUniqueNetIdSteam& SessionId, int32 Channel = -1);
+	void P2PRemove(const FUniqueNetIdSteam& SessionId, int32 Channel = -1);
+
+	/**
+	 * Checks to see if a Steam P2P Connection is pending close on the given channel.
+	 *
+	 * Before checking the given channel, this function checks if the session is marked for
+	 * global disconnection.
+	 * 
+	 * @param SessionId the user id tied to the session disconnection
+	 * @param Channel the communications channel id for the user if it exists
+	 */
+	bool IsConnectionPendingRemoval(const FUniqueNetIdSteam& SteamId, int32 Channel);
+
+	/**
+	 * Determines if the SocketSubsystemSteam should override the platform
+	 * socket subsystem. This means ISocketSubsystem::Get() will return this subsystem
+	 * by default. However, the platform subsystem will still be accessible by
+	 * specifying ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM) as well as via
+	 * passthrough operations.
+	 *
+	 * If the project does not want to use SteamNetworking features, add
+	 * bUseSteamNetworking=false to your OnlineSubsystemSteam configuration
+	 *
+	 * @return if SteamNetworking should be the default socketsubsystem.
+	 */
+	bool ShouldOverrideDefaultSubsystem() const;
+
+	/**
+	 * Dumps the Steam P2P networking information for a given session state
+	 *
+	 * @param SessionInfo struct from Steam call to GetP2PSessionState
+	 */
+	void DumpSteamP2PSessionInfo(P2PSessionState_t& SessionInfo);
+
+	/**
+	 * Dumps all connection information for each user connection over SteamNet.
+	 */
+	void DumpAllOpenSteamSessions();
 
 public:
 
@@ -179,6 +243,7 @@ public:
 		P2PConnectionTimeout(45.0f),
 		P2PDumpCounter(0.0),
 		P2PDumpInterval(10.0),
+		P2PCleanupTimeout(1.5),
 		LastSocketError(0)
 	{
 	}
@@ -321,13 +386,6 @@ public:
 	virtual TSharedRef<FInternetAddr> GetLocalBindAddr(FOutputDevice& Out) override;
 
 	/**
-	 * Dumps the Steam P2P networking information for a given session state
-	 *
-	 * @param SessionInfo struct from Steam call to GetP2PSessionState
-	 */
-	void DumpSteamP2PSessionInfo(P2PSessionState_t& SessionInfo);
-
-	/**
 	 * Chance for the socket subsystem to get some time
 	 *
 	 * @param DeltaTime time since last tick
@@ -338,6 +396,9 @@ public:
 	 * Waiting on a socket is not supported.
 	 */
 	virtual bool IsSocketWaitSupported() const override { return false; }
+
+	// FSelfRegisteringExec
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 };
 
 /**

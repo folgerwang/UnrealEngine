@@ -1,17 +1,17 @@
 /************************************************************************************
 
-Copyright   :   Copyright 2014 Oculus VR, LLC. All Rights reserved.
+Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License");
-you may not use the Oculus VR Rift SDK except in compliance with the License,
+Licensed under the Oculus SDK License Version 3.5 (the "License");
+you may not use the Oculus SDK except in compliance with the License,
 which is provided at the time of installation or download, or which
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.2
+https://developer.oculus.com/licenses/sdk-3.5/
 
-Unless required by applicable law or agreed to in writing, the Oculus VR SDK
+Unless required by applicable law or agreed to in writing, the Oculus SDK
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -28,7 +28,7 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 28
+#define OVRP_MINOR_VERSION 32
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -92,6 +92,7 @@ typedef enum {
   ovrpFailure_NotYetImplemented = -1005,
   ovrpFailure_OperationFailed = -1006,
   ovrpFailure_InsufficientSize = -1007,
+  ovrpFailure_DataIsInvalid = -1008,
 } ovrpResult;
 
 #define OVRP_SUCCESS(result) ((result) >= 0)
@@ -109,10 +110,14 @@ typedef enum {
   /// Background: Some legacy unity versions set thread affinities wrong on newer hardware like Oculus Go
   /// We need patch it in the runtime for published legacy apps.
   /// This flag will be passed from fixed Unity versions explicitly, so we can skip the runtime patch mechanism since we already have proper fixes.
-  /// Deprecated Background: Several Unity versions incorrectly indicated they handled applying thread affinity, so this flag has been deprecated 
+  /// Deprecated Background: Several Unity versions incorrectly indicated they handled applying thread affinity, so this flag has been deprecated
   /// in order to fallback to runtime thread affinity handling. In the future, a new flag will be introduced to allow engine opt-out of
   /// runtime affinity handling.
   ovrpInitializeFlag_NoLegacyCoreAffinityPatch = (1 << 3), // DEPRECATED
+
+  /// Allow to use sRGB frame buffer, we use it as an initialization flag because we need make the window surface
+  /// sRGB compilable, this can't be changed after window created.
+  ovrpInitializeFlag_SupportSRGBFrameBuffer = (1 << 4)
 } ovrpInitializeFlags;
 
 
@@ -224,13 +229,14 @@ typedef enum {
 
 typedef enum {
   ovrpSystemHeadset_None,
-  ovrpSystemHeadset_GearVR_R320, // Note4 Innovator
-  ovrpSystemHeadset_GearVR_R321, // S6 Innovator
-  ovrpSystemHeadset_GearVR_R322, // GearVR Commercial 1
-  ovrpSystemHeadset_GearVR_R323, // GearVR Commercial 2 (USB Type C)
-  ovrpSystemHeadset_GearVR_R324, // GearVR Commercial 3 (USB Type C)
-  ovrpSystemHeadset_GearVR_R325, // GearVR Commercial 4 (USB Type C)
-  ovrpSystemHeadset_Oculus_Go,   // Oculus Go Commercial 1
+  ovrpSystemHeadset_GearVR_R320,  // Note4 Innovator
+  ovrpSystemHeadset_GearVR_R321,  // S6 Innovator
+  ovrpSystemHeadset_GearVR_R322,  // GearVR Commercial 1
+  ovrpSystemHeadset_GearVR_R323,  // GearVR Commercial 2 (USB Type C)
+  ovrpSystemHeadset_GearVR_R324,  // GearVR Commercial 3 (USB Type C)
+  ovrpSystemHeadset_GearVR_R325,  // GearVR Commercial 4 (USB Type C)
+  ovrpSystemHeadset_Oculus_Go,    // Oculus Go Commercial 1
+  ovrpSystemHeadset_Oculus_Quest, // Oculus Quest
 
   ovrpSystemHeadset_Rift_DK1 = 0x1000,
   ovrpSystemHeadset_Rift_DK2,
@@ -407,6 +413,31 @@ typedef struct {
   float AdaptiveGpuPerformanceScale;
 } ovrpAppPerfStats;
 
+/// Cross-platform perf metrics
+typedef enum {
+  ovrpPerfMetrics_App_CpuTime_Float = 0,
+  ovrpPerfMetrics_App_GpuTime_Float = 1,
+  ovrpPerfMetrics_App_MotionToPhotonLatencyTime_Float_DEPRECATED = 2,
+
+  ovrpPerfMetrics_Compositor_CpuTime_Float = 3,
+  ovrpPerfMetrics_Compositor_GpuTime_Float = 4,
+  ovrpPerfMetrics_Compositor_DroppedFrameCount_Int = 5,
+  ovrpPerfMetrics_Compositor_LatencyTime_Float_DEPRECATED = 6,
+
+  ovrpPerfMetrics_System_GpuUtilPercentage_Float = 7,
+  ovrpPerfMetrics_System_CpuUtilAveragePercentage_Float = 8,
+  ovrpPerfMetrics_System_CpuUtilWorstPercentage_Float = 9,
+
+  // 1.32.0
+  ovrpPerfMetrics_Device_CpuClockFrequencyInMHz_Float = 10,
+  ovrpPerfMetrics_Device_GpuClockFrequencyInMHz_Float = 11,
+  ovrpPerfMetrics_Device_CpuClockLevel_Int = 12,
+  ovrpPerfMetrics_Device_GpuClockLevel_Int = 13,
+
+  ovrpPerfMetrics_Count,
+  ovrpPerfMetrics_Max = 0x7fffffff,
+} ovrpPerfMetrics;
+
 /// A 2D size with integer components.
 typedef struct { int w, h; } ovrpSizei;
 
@@ -421,6 +452,9 @@ typedef struct { float x, y; } ovrpVector2f;
 
 /// A 3D vector with float components.
 typedef struct { float x, y, z; } ovrpVector3f;
+
+/// A 4D vector with float components.
+typedef struct { float x, y, z, w; } ovrpVector4f;
 
 /// A quaternion rotation.
 typedef struct { float x, y, z, w; } ovrpQuatf;
@@ -647,6 +681,7 @@ const static ovrpFrustum2f s_identityFrustum2 = {0, 0, {0, 0, 0, 0}};
 const static ovrpVector3f s_vec3Zero = {0, 0, 0};
 const static ovrpVector2f s_vec2Zero = {0, 0};
 const static ovrpVector3f s_vec3One = {1, 1, 1};
+const static ovrpQuatf s_identifyQuat = {0, 0, 0, 1};
 const static ovrpCameraIntrinsics s_invalidCameraIntrinsics = {ovrpBool_False, -1, {0, 0, 0, 0}, 0, 0, {0, 0}};
 const static ovrpCameraExtrinsics s_invalidCameraExtrinsics = {ovrpBool_False,
                                                                -1,
@@ -731,6 +766,8 @@ typedef enum {
   ovrpLayerFlag_NoAllocation = (1 << 5),
   /// Enable protected content, added in 1.23
   ovrpLayerFlag_ProtectedContent = (1 << 6),
+  /// Allocate AndroidSurfaceSwapChain, instead of regular TextureSwapChain
+  ovrpLayerFlag_AndroidSurfaceSwapChain = (1 << 7),
 } ovrpLayerFlags;
 
 /// Layer description used by ovrp_SetupLayer to create the layer
@@ -808,6 +845,9 @@ typedef enum {
     ovrpRecti ViewportRect[ovrpEye_Count]; \
     ovrpPosef Pose;                        \
     int LayerSubmitFlags;                  \
+    /* Added in 1.31 */                    \
+    ovrpVector4f ColorScale;               \
+    ovrpVector4f ColorOffset;              \
   }
 
 typedef OVRP_LAYER_SUBMIT ovrpLayerSubmit;
@@ -856,7 +896,8 @@ typedef union {
 typedef enum {
   ovrpViewportStencilType_HiddenArea = 0,
   ovrpViewportStencilType_VisibleArea = 1,
-  ovrpViewportStencilType_BorderLine = 2
+  ovrpViewportStencilType_BorderLine = 2,
+  ovrpViewportStencilType_VisibleRectangle = 3,
 } ovrpViewportStencilType;
 
 #undef OVRP_LAYER_SUBMIT

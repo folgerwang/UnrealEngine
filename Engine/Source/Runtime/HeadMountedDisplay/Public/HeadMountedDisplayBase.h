@@ -15,10 +15,7 @@ class HEADMOUNTEDDISPLAY_API FHeadMountedDisplayBase : public FXRTrackingSystemB
 {
 
 public:
-	FHeadMountedDisplayBase()
-		: bHeadTrackingEnforced(false)
-	{}
-
+	FHeadMountedDisplayBase(IARSystemSupport* InARImplementation);
 	virtual ~FHeadMountedDisplayBase() {}
 
 	/**

@@ -1021,7 +1021,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 
 	void AccumulateScreenPos(FAbilitySystemComponentDebugInfo& Info);
 	virtual void Debug_Internal(struct FAbilitySystemComponentDebugInfo& Info);
-	void DebugLine(struct FAbilitySystemComponentDebugInfo& Info, FString Str, float XOffset, float YOffset);
+	void DebugLine(struct FAbilitySystemComponentDebugInfo& Info, FString Str, float XOffset, float YOffset, int32 MinTextRowsToAdvance = 0);
 	FString CleanupName(FString Str);
 
 	/** Print a debug list of all gameplay effects */

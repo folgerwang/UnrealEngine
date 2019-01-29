@@ -252,7 +252,6 @@ namespace Audio
 				CurrentBuffer = 1;
 			}
 #endif
-			
 		}
 		else if (SoundWave && !SoundWave->bIsBus)
 		{

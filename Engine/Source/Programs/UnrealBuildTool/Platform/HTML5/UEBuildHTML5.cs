@@ -9,6 +9,64 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+/// <summary>
+	/// HTML5-specific target settings
+	/// </summary>
+	public class HTML5TargetRules
+	{
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		public HTML5TargetRules()
+		{
+			XmlConfig.ApplyTo(this);
+		}
+
+		/// <summary>
+		/// Use LLVM Wasm backend
+		/// </summary>
+		public string libExt = HTML5ToolChain.libExt;
+	}
+
+	/// <summary>
+	/// Read-only wrapper for HTML5-specific target settings
+	/// </summary>
+	public class ReadOnlyHTML5TargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private HTML5TargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlyHTML5TargetRules(HTML5TargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Accessors for fields on the inner TargetRules instance
+		/// </summary>
+
+		#region Read-only accessor properties
+#if !__MonoCS__
+#pragma warning disable CS1591
+#endif
+
+		public string libExt
+		{
+			get { return Inner.libExt; }
+		}
+
+#if !__MonoCS__
+#pragma warning restore CS1591
+#endif
+		#endregion
+	}
+
 	class HTML5Platform : UEBuildPlatform
 	{
 		/// <summary>
@@ -49,7 +107,7 @@ namespace UnrealBuildTool
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
 			Target.bCompilePhysX = true;
-			Target.bCompileForSize = true;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
+			Target.bCompileForSize = false;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
 			Target.bUsePCHFiles = false;
 			Target.bDeployAfterCompile = true;
 		}
@@ -69,7 +127,7 @@ namespace UnrealBuildTool
 		public override bool IsBuildProduct(string FileName, string[] NamePrefixes, string[] NameSuffixes)
 		{
 			return IsBuildProductName(FileName, NamePrefixes, NameSuffixes, ".js")
-				|| IsBuildProductName(FileName, NamePrefixes, NameSuffixes, ".bc");
+				|| IsBuildProductName(FileName, NamePrefixes, NameSuffixes, HTML5ToolChain.libExt);
 		}
 
 		/// <summary>
@@ -86,7 +144,7 @@ namespace UnrealBuildTool
 				case UEBuildBinaryType.Executable:
 					return ".js";
 				case UEBuildBinaryType.StaticLibrary:
-					return ".bc";
+					return HTML5ToolChain.libExt;
 			}
 
 			return base.GetBinaryExtension(InBinaryType);

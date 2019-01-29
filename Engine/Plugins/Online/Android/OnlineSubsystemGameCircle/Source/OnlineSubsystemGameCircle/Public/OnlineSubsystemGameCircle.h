@@ -50,6 +50,7 @@ public:
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override { return nullptr; }
 	virtual IOnlineChatPtr GetChatInterface() const override { return nullptr; }
+	virtual IOnlineStatsPtr GetStatsInterface() const override { return nullptr; }
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return nullptr; }
 	virtual IOnlineTournamentPtr GetTournamentInterface() const override { return nullptr; }
 

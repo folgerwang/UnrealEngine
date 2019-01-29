@@ -81,9 +81,16 @@ struct ENGINE_API FSmartNameMapping
 	// @param Array - Array to fill
 	void FillNameArray(TArray<FName>& Array) const;
 
+	// Fill an array with curve names in UID order (None will be placed in invalid UID slots)
+	void FillUIDToNameArray(TArray<FName>& Array) const;
+
 	// Fill an array with curve types for all used names
 	// @param Array - Array to fill
 	void FillCurveTypeArray(TArray<FAnimCurveType>& Array) const;
+
+
+	// Fill an array with curve types in UID order
+	void FillUIDToCurveTypeArray(TArray<FAnimCurveType>& Array) const;
 
 #if WITH_EDITOR
 	// Change a name

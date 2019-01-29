@@ -329,6 +329,7 @@ FPooledRenderTargetDesc FRCPassPostProcessMaterial::ComputeOutputDesc(EPassOutpu
 	Ret.AutoWritable = false;
 	Ret.DebugName = TEXT("PostProcessMaterial");
 	Ret.ClearValue = FClearValueBinding(FLinearColor::Black);
+	Ret.Flags |= GFastVRamConfig.PostProcessMaterial;
 
 	return Ret;
 }

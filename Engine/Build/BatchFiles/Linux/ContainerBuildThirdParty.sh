@@ -251,7 +251,7 @@ InitContainer()
 		# Setup lxc networking
 		local NET_KEY="net.0"
 		local ADDR_KEY=".address"
-		if [ `GetMajorVersion` -eq "1" ] || [ `GetMinorVersion` -eq "0" ]; then
+		if [ `GetMajorVersion` -eq "1" ]; then
 			NET_KEY="network"
 			ADDR_KEY=""
 		fi
@@ -298,6 +298,9 @@ InitContainer()
 		CloseContainer $CONTAINER_NAME
 		exit 1;
 	fi
+
+	# Uncomment this if you want to jump in to shell
+	#lxc-attach -n $CONTAINER_NAME -- su user
 }
 
 ### Close Container ###
@@ -370,7 +373,7 @@ REAL_GID=`id -g $SUDO_USER`
 if [ $REAL_UID -ne 0 ]; then
 	USER_INIT_COMMAND="set +e; USER_UID=\`id -u user 2>/dev/null\`; USER_GID=\`id -g user 2>/dev/null\`; GROUP_GID=\`getent group user | awk -F: '{print \$3}' 2>/dev/null\`; if [ -z \$USER_UID ]; then useradd -u $REAL_UID user 1>/dev/null; fi; if [ -z \$USER_GID ]; then groupadd -g $REAL_GID user; elif [ ! \$GROUP_GID == $REAL_GID ]; then groupmod -g $REAL_GID user 1>/dev/null; fi; if [ ! \$USER_UID == $REAL_UID ]; then usermod -u $REAL_UID; fi; if [ ! \$USER_GID == $REAL_GID ]; then usermod -g $REAL_GID user 1>/dev/null; fi; set -e";
 else
-	USER_INIT_COMMAND=""
+	USER_INIT_COMMAND="echo stub"
 fi
 
 # Initial container setup for Ubuntu 14.04
@@ -379,8 +382,18 @@ UBUNTU_INIT_COMMAND="set -e; if [ -d /sys/fs/selinux ]; then mount -o remount,ro
 # Initial container setup for CentOS 6
 CENTOS_INIT_COMMAND="set -e; if [ ! -f /var/.uecontainerinit-$INIT_VERSION ]; then yum install -y wget 1>/dev/null; cd /tmp; wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm 1>/dev/null; rpm -ivh --replacepkgs epel-release-6-8.noarch.rpm 1>/dev/null; yum install -y alsa-lib-devel autoconf bison bzip2 clang cmake coreutils elfutils-libelf-devel expat-devel file flex gcc-c++ gettext git glibc-static gperf help2man libffi-devel libtool libX11-devel libXcursor-devel libXext-devel libXft-devel libXi-devel libXinerama-devel libxml2-devel libXmu-devel libXpm-devel libXrandr-devel libXScrnSaver-devel libxshmfence-devel llvm llvm-devel mesa-libEGL-devel mesa-libGL-devel ncurses-devel patch pkgconfig pulseaudio-libs-devel tar texinfo which xorg-x11-proto-devel xorg-x11-util-macros xz zlib-devel; $WAYLAND_BUILD_SCRIPT; fi; touch /var/.uecontainerinit-$INIT_VERSION; $USER_INIT_COMMAND; set +e;"
 
+# Initial container setup for CentOS 7
+CENTOS7_INIT_COMMAND="set -e; if [ ! -f /var/.uecontainerinit-$INIT_VERSION ]; then yum install -y epel-releas centos-release-scl; yum install -y alsa-lib-devel autoconf bison bzip2  clang cmake3 coreutils elfutils-libelf-devel expat-devel file flex gcc-c++ gettext git glibc-static gperf help2man libffi-devel libtool libX11-devel libXcursor-devel libXext-devel libXft-devel libXi-devel libXinerama-devel libxml2-devel libXmu-devel libXpm-devel libXrandr-devel libXScrnSaver-devel libxshmfence-devel llvm-toolset-7 llvm-toolset-7-llvm-devel make mesa-libEGL-devel mesa-libGL-devel ncurses-devel patch pkgconfig pulseaudio-libs-devel svn tar texinfo wget which xorg-x11-proto-devel xorg-x11-util-macros xz zlib-devel; $WAYLAND_BUILD_SCRIPT; fi; touch /var/.uecontainerinit-$INIT_VERSION; $USER_INIT_COMMAND; set +e;"
+
 InstallPackages
+
+# Default - only this builds toolchain
 BuildThirdParty centos 6 amd64 $CENTOS_INIT_COMMAND
+
+# Newer centos for building compiler-rt
+#BuildThirdParty centos 7 amd64 $CENTOS7_INIT_COMMAND
+
+# Others...
 #BuildThirdParty centos 6 i386 $CENTOS_INIT_COMMAND
 #BuildThirdParty ubuntu trusty arm64 $UBUNTU_INIT_COMMAND
 #BuildThirdParty ubuntu trusty armhf $UBUNTU_INIT_COMMAND

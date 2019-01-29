@@ -19,8 +19,6 @@ UAvfFileMediaSourceFactory::UAvfFileMediaSourceFactory(const FObjectInitializer&
 	Formats.Add(TEXT("3gp2;3GPP2 Multimedia File"));
 	Formats.Add(TEXT("3gpp;3GPP Multimedia File"));
 	Formats.Add(TEXT("ac3;AC-3 Audio File"));
-	Formats.Add(TEXT("aif;Audio Interchange File"));
-	Formats.Add(TEXT("aiff;Audio Interchange File"));
 	Formats.Add(TEXT("amr;Adaptive Multi-Rate Audio"));
 	Formats.Add(TEXT("au;Audio File"));
 	Formats.Add(TEXT("bwf;Broadcast Wave Audio"));
@@ -33,8 +31,6 @@ UAvfFileMediaSourceFactory::UAvfFileMediaSourceFactory(const FObjectInitializer&
 	Formats.Add(TEXT("mp4;MPEG-4 Movie"));
 	Formats.Add(TEXT("sdv;Samsung Digital Video"));
 	Formats.Add(TEXT("snd;Sound File"));
-	Formats.Add(TEXT("wav;Wave Audio File"));
-	Formats.Add(TEXT("wave;Wave Audio File"));
 
 	SupportedClass = UFileMediaSource::StaticClass();
 	bEditorImport = true;
@@ -46,11 +42,7 @@ UAvfFileMediaSourceFactory::UAvfFileMediaSourceFactory(const FObjectInitializer&
 
 bool UAvfFileMediaSourceFactory::FactoryCanImport(const FString& Filename)
 {
-	// @hack: disable file extensions that are used in other factories
-	// @todo gmp: add support for multiple factories per file extension
-	const FString FileExtension = FPaths::GetExtension(Filename);
-
-	return (FileExtension.ToUpper() != FString("WAV"));
+	return true;
 }
 
 

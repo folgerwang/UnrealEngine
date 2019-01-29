@@ -44,10 +44,6 @@
 #if WITH_MLSDK
 ML_INCLUDES_START
 #include <ml_image_tracking.h>
-//#include <ml_perception.h>
-//#include <ml_snapshot.h>
-//#include <ml_head_tracking.h>
-//#include <ml_coordinate_frame_uid.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
 

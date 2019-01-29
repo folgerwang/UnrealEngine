@@ -9,6 +9,7 @@
 #include "Misc/CoreDelegates.h"
 #include "RenderingThread.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+#include "IMagicLeapModule.h"
 
 #if WITH_MLSDK
 ML_INCLUDES_START
@@ -19,6 +20,8 @@ ML_INCLUDES_END
 TArray<MagicLeap::IAppEventHandler*> FAppFramework::EventHandlers;
 FCriticalSection FAppFramework::EventHandlersCriticalSection;
 MagicLeap::FAsyncDestroyer* FAppFramework::AsyncDestroyer = nullptr;
+TMap<FName, IMagicLeapModule*> FAppFramework::RegisteredModules;
+
 
 FAppFramework::FAppFramework()
 {}
@@ -90,7 +93,6 @@ void FAppFramework::ApplicationPauseDelegate()
 {
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP PAUSE ++++++"));
 
-
 	if (GEngine)
 	{
 		saved_max_fps_ = GEngine->GetMaxFPS();
@@ -122,6 +124,7 @@ void FAppFramework::ApplicationResumeDelegate()
 {
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP RESUME ++++++"));
 
+	// Resume rendering
 	// Resume rendering
 	FMagicLeapHMD * const HMD = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
 	if (HMD)
@@ -343,7 +346,30 @@ void FAppFramework::RemoveEventHandler(MagicLeap::IAppEventHandler* EventHandler
 	EventHandlers.Remove(EventHandler);
 }
 
-void FAppFramework::AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler)
+bool FAppFramework::AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler)
 {
-	AsyncDestroyer->AddRaw(InEventHandler);
+	if (AsyncDestroyer != nullptr)
+	{
+		AsyncDestroyer->AddRaw(InEventHandler);
+		return true;
+	}
+
+	return false;
+}
+
+void FAppFramework::RegisterMagicLeapModule(IMagicLeapModule* InModule)
+{
+	checkf(RegisteredModules.Find(InModule->GetName()) == nullptr, TEXT("MagicLeapModule %s has already been registered!"), *InModule->GetName().ToString());
+	RegisteredModules.Add(InModule->GetName(), InModule);
+}
+
+void FAppFramework::UnregisterMagicLeapModule(IMagicLeapModule* InModule)
+{
+	RegisteredModules.Remove(InModule->GetName());
+}
+
+IMagicLeapModule* FAppFramework::GetMagicLeapModule(FName InName)
+{
+	IMagicLeapModule** MagicLeapModule = RegisteredModules.Find(InName);
+	return MagicLeapModule ? *MagicLeapModule : nullptr;
 }

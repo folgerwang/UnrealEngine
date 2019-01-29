@@ -226,6 +226,9 @@ public:
 	virtual void RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents) final override;
 
 	virtual void RHICalibrateTimers() final override;
+
+	virtual uint16 RHIGetPlatformTextureMaxSampleCount() override;
+
 private:
 	FTextureMemoryStats MemoryStats;
 	FMetalRHIImmediateCommandContext ImmediateContext;

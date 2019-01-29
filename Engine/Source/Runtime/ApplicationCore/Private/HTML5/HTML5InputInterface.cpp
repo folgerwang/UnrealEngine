@@ -5,7 +5,9 @@
 #include "HAL/OutputDevices.h"
 #include "HAL/PlatformTime.h"
 THIRD_PARTY_INCLUDES_START
+#ifdef HTML5_USE_SDL2
 #include <SDL.h>
+#endif
 THIRD_PARTY_INCLUDES_END
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHTML5, Log, All);
@@ -56,7 +58,6 @@ static FGamepadKeyNames::Type ButtonMapping[HTML5_INPUT_INTERFACE_BUTTON_MAPPING
 	FGamepadKeyNames::DPadRight
 };
 
-
 TSharedRef< FHTML5InputInterface > FHTML5InputInterface::Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor )
 {
 	return MakeShareable( new FHTML5InputInterface( InMessageHandler, InCursor ) );
@@ -65,8 +66,8 @@ TSharedRef< FHTML5InputInterface > FHTML5InputInterface::Create(  const TSharedR
 EM_BOOL mouse_move_callback(int evType, const EmscriptenMouseEvent* evt, void* userData) {
 	/* rescale (in case canvas is being scaled)*/
 	double client_w, client_h, xscale, yscale;
-	int canvas_w, canvas_h, canvas_fs;
-	emscripten_get_canvas_size(&canvas_w, &canvas_h, &canvas_fs);
+	int canvas_w, canvas_h;
+	emscripten_get_canvas_element_size(NULL, &canvas_w, &canvas_h);
 	emscripten_get_element_css_size(NULL, &client_w, &client_h);
 	xscale = canvas_w/client_w;
 	yscale = canvas_h/client_h;
@@ -89,6 +90,7 @@ void FHTML5InputInterface::SetMessageHandler( const TSharedRef< FGenericApplicat
 	MessageHandler = InMessageHandler;
 }
 
+#ifdef HTML5_USE_SDL2
 void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedRef < FGenericWindow>& ApplicationWindow )
 {
 
@@ -174,12 +176,18 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 			break;
 	}
 }
+#endif
 
 void FHTML5InputInterface::SendControllerEvents()
 {
 	// game pads can only be polled.
 	static int PrevNumGamepads = 0;
+//#ifdef __EMSCRIPTEN_PTHREADS__
+//	/// XXX TODO Restore this, emscripten_get_num_gamepads() currently has a moderately high performance impact, so disabled for local testing
+//	static bool GamepadSupported = false;
+//#else
 	static bool GamepadSupported = true;
+//#endif
 
 	const double CurrentTime = FPlatformTime::Seconds();
 

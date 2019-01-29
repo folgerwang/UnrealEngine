@@ -19,7 +19,8 @@ enum EStereoscopicPass
 	eSSP_FULL,
 	eSSP_LEFT_EYE,
 	eSSP_RIGHT_EYE,
-	eSSP_MONOSCOPIC_EYE
+	eSSP_LEFT_EYE_SIDE,
+	eSSP_RIGHT_EYE_SIDE
 };
 
 class IStereoRendering
@@ -59,10 +60,8 @@ public:
 			return EStereoscopicPass::eSSP_FULL;
 		else if (ViewIndex == 0)
 			return EStereoscopicPass::eSSP_LEFT_EYE;
-		else if (ViewIndex == 1)
-			return EStereoscopicPass::eSSP_RIGHT_EYE;
 		else
-			return EStereoscopicPass::eSSP_MONOSCOPIC_EYE;
+			return EStereoscopicPass::eSSP_RIGHT_EYE;
 	}
 
 	/**
@@ -79,9 +78,6 @@ public:
 		case eSSP_RIGHT_EYE:
 			return 1;
 
-		case eSSP_MONOSCOPIC_EYE:
-			return 2;
-
 		default:
 			check(0);
 			return -1;
@@ -93,7 +89,7 @@ public:
 	*/
 	virtual bool IsStereoEyePass(EStereoscopicPass Pass)
 	{
-		return !((Pass == EStereoscopicPass::eSSP_FULL) || (Pass == EStereoscopicPass::eSSP_MONOSCOPIC_EYE));
+		return !(Pass == EStereoscopicPass::eSSP_FULL);
 	}
 	
 	/**
@@ -101,7 +97,7 @@ public:
 	*/
 	static bool IsAPrimaryView(EStereoscopicPass Pass)
 	{
-		return Pass == eSSP_FULL || Pass == eSSP_LEFT_EYE || Pass == eSSP_MONOSCOPIC_EYE;
+		return Pass == eSSP_FULL || Pass == eSSP_LEFT_EYE;
 	}
 	
 	/**
@@ -117,7 +113,7 @@ public:
 	*/
 	static bool IsAnAdditionalView(EStereoscopicPass Pass)
 	{
-		return Pass > eSSP_MONOSCOPIC_EYE;
+		return Pass > eSSP_RIGHT_EYE;
 	}
 
 	/**

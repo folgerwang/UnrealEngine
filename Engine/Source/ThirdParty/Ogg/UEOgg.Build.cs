@@ -94,6 +94,17 @@ public class UEOgg : ModuleRules
 				PublicAdditionalLibraries.Add("libogg_static.lib");
 			}
 		}
-	}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+        {
+            PublicAdditionalLibraries.Add(OggLibPath + "ios" + "/libogg.a");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.PS4)
+        {
+            PublicAdditionalLibraries.Add(OggLibPath + "ORBIS_Release" + "/libogg-1.2.2_PS4_Static.a");
+        }
+        else if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            PublicAdditionalLibraries.Add(OggLibPath + "NX64" + "/Ogg_Switch_Static.a");
+        }
+    }
 }
-

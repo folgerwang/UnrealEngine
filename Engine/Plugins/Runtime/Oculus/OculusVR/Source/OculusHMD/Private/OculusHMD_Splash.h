@@ -54,79 +54,52 @@ public:
 
 	void Tick_RenderThread(float DeltaTime);
 	bool IsTickable() const { return bTickable; }
-	bool IsShown() const;
+	bool IsShown() const { return bIsShown; }
 
 	void Startup();
+	void LoadSettings();
 	void ReleaseResources_RHIThread();
 	void PreShutdown();
 	void Shutdown();
 
-	bool IsLoadingStarted() const { return bLoadingStarted; }
-	bool IsLoadingCompleted() const { return bLoadingCompleted; }
-
-	void OnLoadingBegins();
-	void OnLoadingEnds();
-
-	bool AddSplash(const FOculusSplashDesc&);
+	int AddSplash(const FOculusSplashDesc&);
 	void ClearSplashes();
 	bool GetSplash(unsigned index, FOculusSplashDesc& OutDesc);
+	void StopTicker();
 
-	void SetAutoShow(bool bInAuto) { bAutoShow = bInAuto; }
-	bool IsAutoShow() const { return bAutoShow; }
-
-	void SetLoadingIconMode(bool bInLoadingIconMode) { bLoadingIconMode = bInLoadingIconMode; }
-	bool IsLoadingIconMode() const { return bLoadingIconMode; }
-
-	enum EShowFlags
-	{
-		ShowManually = (1 << 0),
-		ShowAutomatically = (1 << 1),
-	};
-
-	void Show(uint32 InShowFlags = ShowManually);
-	void Hide(uint32 InShowFlags = ShowManually);
-
-	// delegate method, called when loading begins
-	void OnPreLoadMap(const FString&) { OnLoadingBegins(); }
-
-	// delegate method, called when loading ends
-	void OnPostLoadMap(UWorld*) { OnLoadingEnds(); }
-
+	void Show();
+	void Hide();
 
 protected:
-	void OnShow();
-	void OnHide();
-	bool PushFrame();
 	void UnloadTextures();
 	void LoadTexture(FSplashLayer& InSplashLayer);
 	void UnloadTexture(FSplashLayer& InSplashLayer);
 
-	void RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList, double TimeInSeconds);
+	void RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList);
+	IStereoLayers::FLayerDesc StereoLayerDescFromOculusSplashDesc(FOculusSplashDesc OculusDesc);
 
 protected:
 	FOculusHMD* OculusHMD;
 	FCustomPresent* CustomPresent;
 	TSharedPtr<FTicker> Ticker;
+	int32 FramesOutstanding;
 	FCriticalSection RenderThreadLock;
 	FSettingsPtr Settings;
 	FGameFramePtr Frame;
 	TArray<FSplashLayer> SplashLayers;
 	uint32 NextLayerId;
 	FLayerPtr BlackLayer;
+	FLayerPtr UELayer;
+	TArray<FLayerPtr> Layers_RenderThread_Input;
 	TArray<FLayerPtr> Layers_RenderThread;
 	TArray<FLayerPtr> Layers_RHIThread;
 
 	// All these flags are only modified from the Game thread
 	bool bInitialized;
 	bool bTickable;
-	bool bLoadingStarted;
-	bool bLoadingCompleted;
-	bool bLoadingIconMode; // this splash screen is a simple loading icon (if supported)
-	bool bAutoShow; // whether or not show splash screen automatically (when LoadMap is called)
-	bool bIsBlack;
+	bool bIsShown;
 
 	float SystemDisplayInterval;
-	uint32 ShowFlags;
 	double LastTimeInSeconds;
 };
 

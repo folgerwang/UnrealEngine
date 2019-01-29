@@ -114,9 +114,12 @@ namespace UnrealBuildTool
 			}
 
 			// set up the path to our toolchains
+			// Clang path used to be in quotes, but some part of FileReference in AndroidToolChain was choking on the quotes.  Don't put your MLSDK in a directory with spaces for now, I guess.
 			ClangPath = ToolsDict["CXX"];
-			ArPathArm64 = ToolsDict["AR"];
+			ArPathArm64 = "\"" + ToolsDict["AR"] + "\"";
+			// The strip command does not execute through the shell. Hence we don't quote it.
 			StripPath = ToolsDict["STRIP"];
+			// The objcopy command does not execute through the shell. Hence we don't quote it.
 			ObjCopyPath = ToolsDict["OBJCOPY"];
 
 			// force the compiler to be executed through a command prompt instance
@@ -161,19 +164,25 @@ namespace UnrealBuildTool
 			GPUArchitectures = new List<string>();
 			if (AdditionalGPUArches != null)
 			{
-				if (AdditionalGPUArches.Contains("es2"))
+				if (!UseMobileRendering() && AdditionalGPUArches.Contains("lumingl4"))
 				{
-					GPUArchitectures.Add("-es2");
+					GPUArchitectures.Add("-lumingl4");
 				}
-				if (AdditionalGPUArches.Contains("gl4"))
+				else
 				{
-					GPUArchitectures.Add("-gl4");
+					GPUArchitectures.Add("-lumin");
 				}
 			}
-			//if nothing was specified via commandline, use the ini settings
 			if (GPUArchitectures.Count == 0)
 			{
-				GPUArchitectures.Add((UseMobileRendering() ? "-es2" : "-gl4"));
+				if (UseMobileRendering() || UseVulkan())
+				{
+					GPUArchitectures.Add("-lumin");
+				}
+				else
+				{
+					GPUArchitectures.Add("-lumingl4");
+				}
 			}
 
 			AllComboNames = (from Arch in Arches
@@ -199,7 +208,14 @@ namespace UnrealBuildTool
 			string Params = base.GetCLArguments_Global(CompileEnvironment, Architecture);
 
 			Params += " -Wno-undefined-var-template";
-			Params += " -DPLATFORM_LUMINGL4=" + ((GPUArchitectures[0] == "-gl4") ? "1" : "0");
+			if (GPUArchitectures.Contains("-lumingl4"))
+			{
+				Params += " -DPLATFORM_LUMINGL4=1";
+			}
+			else
+			{
+				Params += " -DPLATFORM_LUMINGL4=0";
+			}
 
 			// jf: added for seal, as XGE seems to not preserve case in includes properly
 			Params += " -Wno-nonportable-include-path";         // not all of these are real
@@ -304,6 +320,36 @@ namespace UnrealBuildTool
 		public override string GetStripPath(FileReference SourceFile)
 		{
 			return StripPath;
+		}
+
+		/// <summary>
+		/// Creates an object file with only the symbolic debug information from an executable.
+		/// </summary>
+		/// <param name="SourceExeFile">The executable with debug symbol information.</param>
+		/// <param name="TargetSymFile">The generated object file with debug symbols.</param>
+		public void ExtractSymbols(FileReference SourceExeFile, FileReference TargetSymFile)
+		{
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
+			StartInfo.FileName =ObjCopyPath;
+			StartInfo.Arguments = " --only-keep-debug \"" + SourceExeFile.FullName + "\" \"" + TargetSymFile.FullName + "\"";
+			StartInfo.UseShellExecute = false;
+			StartInfo.CreateNoWindow = true;
+			Utils.RunLocalProcessAndLogOutput(StartInfo);
+		}
+
+		/// <summary>
+		/// Creates a debugger link in an executable referencing where the debug symbols for it are located.
+		/// </summary>
+		/// <param name="SourceDebugFile">An object file with the debug symbols, can be an executable or the file generated with ExtractSymbols.</param>
+		/// <param name="TargetExeFile">The executable to reference the split debug info into.</param>
+		public void LinkSymbols(FileReference SourceDebugFile, FileReference TargetExeFile)
+		{
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
+			StartInfo.FileName = ObjCopyPath;
+			StartInfo.Arguments = " --add-gnu-debuglink=\"" + SourceDebugFile.FullName + "\" \"" + TargetExeFile.FullName + "\"";
+			StartInfo.UseShellExecute = false;
+			StartInfo.CreateNoWindow = true;
+			Utils.RunLocalProcessAndLogOutput(StartInfo);
 		}
 	};
 }

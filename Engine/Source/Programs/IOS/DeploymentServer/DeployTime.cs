@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using Manzana;
 using System.Linq;
 using iPhonePackager;
+using System.Net.Sockets;
 
 namespace DeploymentServer
 {
@@ -360,7 +361,7 @@ namespace DeploymentServer
             });
         }
 
-		public void ListenToDevice(string inDeviceID)
+		public void ListenToDevice(string inDeviceID, TextWriter Writer)
 		{
 			MobileDeviceInstance	targetDevice = null;
 
@@ -383,8 +384,9 @@ namespace DeploymentServer
 					string	curLog = targetDevice.GetSyslogData();
 					if(curLog.Trim().Length > 0)
 					{
-						Console.Write(curLog);
+						Writer.Write(curLog);
 					}
+					System.Threading.Thread.Sleep(50);
 				}
 			}
 			else
@@ -393,18 +395,72 @@ namespace DeploymentServer
 			}
 		}
 
-        /// <summary>
-        /// Installs an IPA to all connected devices
-        /// </summary>
-        public bool InstallIPAOnDevice(string IPAPath)
+		public void TunnelToDevice(string inDeviceID, String Command)
+		{
+			MobileDeviceInstance TargetDevice = null;
+			
+			PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
+			{
+				if (inDeviceID == Device.DeviceId)
+				{
+					TargetDevice = Device;
+				}
+				return true;
+			});
+			IntPtr TCPService = new IntPtr();
+			if (TargetDevice != null)
+			{
+				TargetDevice.StartTCPRelayService(ref TCPService);
+
+				int SentDat = TargetDevice.TunnelData(Command, TCPService);
+
+				TargetDevice.StopSyslogService();
+			}
+			else
+			{
+				ReportIF.Error("Could not find device " + inDeviceID);
+			}
+		}
+
+		public MobileDeviceInstance StartTCPTunnel(string inDeviceID, ref IntPtr TCPService, short Port = 8888)
+		{
+			MobileDeviceInstance targetDevice = null;
+
+			PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
+			{
+				if (inDeviceID == Device.DeviceId)
+				{
+					targetDevice = Device;
+				}
+				return true;
+			});
+			if (targetDevice != null)
+			{
+				if (targetDevice.StartTCPRelayService(ref TCPService))
+				{
+					return targetDevice;
+				}
+				ReportIF.Error("Could not start TCP relay to " + inDeviceID);
+			}
+			else
+			{
+				ReportIF.Error("Could not find device " + inDeviceID);
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Installs an IPA to all connected devices
+		/// </summary>
+		public bool InstallIPAOnDevice(string IPAPath)
         {
             if ((IPAPath == null) || (IPAPath.Length == 0))
             {
                 return false;
             }
 
-            // Transfer to all connected devices
-            return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
+			// Transfer to all connected devices
+			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
             {
                 // Transfer the file to the device
                 string DeviceName = Device.DeviceName;

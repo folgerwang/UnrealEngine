@@ -286,6 +286,22 @@ public:
 	FTimespan GetTime() const;
 
 	/**
+	 * Get time of last audio sample decoded
+	 *
+	 * @return Time of last audio sample decoded.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	FTimespan GetLastAudioSampleProcessedTime() const;
+
+	/**
+	 * Get time of last video sample decoded
+	 *
+	 * @return Time of last video sample decoded.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	FTimespan GetLastVideoSampleProcessedTime() const;
+
+	/**
 	 * Get the human readable name of the specified track.
 	 *
 	 * @param TrackType The type of track.

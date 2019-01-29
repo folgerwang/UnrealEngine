@@ -67,6 +67,10 @@ bool FWebSocketServer::Init(uint32 Port, FWebsocketClientConnectedCallBack CallB
 	Info.options = 0;
 	// tack on this object.
 	Info.user = this;
+
+	//Info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	Info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+
 	Context = lws_create_context(&Info);
 
 	if (Context == NULL)

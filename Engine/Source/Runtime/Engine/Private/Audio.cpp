@@ -57,7 +57,14 @@ DEFINE_STAT(STAT_AudioStartSources);
 DEFINE_STAT(STAT_AudioGatherWaveInstances);
 DEFINE_STAT(STAT_AudioFindNearestLocation);
 
-
+/** CVars */
+static int32 DisableStereoSpreadCvar = 0;
+FAutoConsoleVariableRef CVarDisableStereoSpread(
+	TEXT("au.DisableStereoSpread"),
+	DisableStereoSpreadCvar,
+	TEXT("When set to 1, ignores the 3D Stereo Spread property in attenuation settings and instead renders audio from a singular point.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
 
 bool IsAudioPluginEnabled(EAudioPlugin PluginType)
 {
@@ -368,7 +375,7 @@ void FSoundSource::UpdateStereoEmitterPositions()
 	check(WaveInstance->bUseSpatialization);
 	check(Buffer->NumChannels == 2);
 
-	if (WaveInstance->StereoSpread > 0.0f)
+	if (!DisableStereoSpreadCvar && WaveInstance->StereoSpread > 0.0f)
 	{
 		// We need to compute the stereo left/right channel positions using the audio component position and the spread
 		FVector ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
@@ -599,7 +606,7 @@ void FSoundSource::UpdateCommon()
 		Pitch *= AudioDevice->GetGlobalPitchScale().GetValue();
 	}
 
-	Pitch = FMath::Clamp<float>(Pitch, MIN_PITCH, MAX_PITCH);
+	Pitch = AudioDevice->ClampPitch(Pitch);
 
 	// Track playback time even if the voice is not virtual, it can flip to being virtual while playing.
 	const float DeviceDeltaTime = AudioDevice->GetDeviceDeltaTime();
@@ -754,6 +761,7 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	: WaveData(nullptr)
 	, SoundClass(nullptr)
 	, SoundSubmix(nullptr)
+	, SourceEffectChain(nullptr)
 	, ActiveSound(InActiveSound)
 	, Volume(0.0f)
 	, DistanceAttenuation(1.0f)
@@ -783,11 +791,14 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, bIsMusic(false)
 	, bReverb(true)
 	, bCenterChannelOnly(false)
+	, bIsPaused(false)
 	, bReportedSpatializationWarning(false)
 	, bIsAmbisonics(false)
 	, bIsStopping(false)
 	, SpatializationMethod(ESoundSpatializationAlgorithm::SPATIALIZATION_Default)
+	, SpatializationPluginSettings(nullptr)
 	, OcclusionPluginSettings(nullptr)
+	, ReverbPluginSettings(nullptr)
 	, OutputTarget(EAudioOutputTarget::Speaker)
 	, LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
 	, OcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
@@ -801,8 +812,13 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, AttenuationDistance(0.0f)
 	, ListenerToSoundDistance(0.0f)
 	, AbsoluteAzimuth(0.0f)
+	, PlaybackTime(0.0f)
+	, ReverbSendMethod(EReverbSendMethod::Linear)
 	, ReverbSendLevelRange(0.0f, 0.0f)
 	, ReverbSendLevelDistanceRange(0.0f, 0.0f)
+	, ManualReverbSendLevel(0.0f)
+	, TypeHash(0)
+	, WaveInstanceHash(0)
 	, UserIndex(0)
 {
 	TypeHash = ++TypeHashCounter;

@@ -6,6 +6,8 @@
 #include "OVR_Avatar.h"
 #include "Containers/Map.h"
 #include "Containers/Queue.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "Engine/Texture2D.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAvatars, Log, All);
@@ -36,7 +38,7 @@ public:
 	float GetSDKPacketDuration(ovrAvatarPacket* packet);
 	void FreeSDKPacket(ovrAvatarPacket* packet);
 
-	bool IsOVRPluginValid() const { return OVRPluginHandle != nullptr; }
+	bool IsOVRPluginValid() const;
 	
 	void SetSDKLoggingLevel(ovrAvatarLogLevel level) { ovrAvatar_SetLoggingLevel(level); }
 private:

@@ -10,8 +10,9 @@
 #include "Engine/Texture.h"
 #include "Engine/Texture2D.h"
 
-
 #if SUPPORTS_IMAGE_UTILS_1_0
+	#include "Apple/ApplePlatformMisc.h"
+
 	#import <CoreImage/CIContext.h>
 
 	// For runtime checks so that clang doesn't warn on targets < our SDK version
@@ -32,6 +33,12 @@ class FAppleImageUtilsPlugin :
 	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) override;
 #if SUPPORTS_IMAGE_UTILS_1_0
 	virtual CGImageRef UTexture2DToCGImage(UTexture2D* Source) override;
+	virtual void ConvertToJPEG(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) override;
+#if SUPPORTS_IMAGE_UTILS_2_1
+	virtual void ConvertToHEIF(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) override;
+	virtual void ConvertToPNG(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) override;
+	virtual void ConvertToTIFF(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) override;
+#endif
 #endif
 };
 
@@ -61,15 +68,30 @@ public:
 };
 
 class FAppleImageUtilsConversionTask :
-	public FAppleImageUtilsConversionTaskBase,
-	public FGCObject
+	public FAppleImageUtilsConversionTaskBase
 {
 public:
-	FAppleImageUtilsConversionTask(UTexture* InSourceImage) :
+#if SUPPORTS_IMAGE_UTILS_1_0
+	FAppleImageUtilsConversionTask(CIImage* InSourceImage) :
 		FAppleImageUtilsConversionTaskBase()
 		, SourceImage(InSourceImage)
 	{
+		check(InSourceImage != nullptr);
 	}
+
+	virtual ~FAppleImageUtilsConversionTask()
+	{
+		if (SourceImage != nullptr)
+		{
+			[SourceImage release];
+		}
+	}
+#else
+	FAppleImageUtilsConversionTask() :
+		FAppleImageUtilsConversionTaskBase()
+	{
+	}
+#endif
 
 	//~ IAppleImageUtilsConversionTask
 	virtual TArray<uint8> GetData() override { return MoveTemp(ConvertedBytes); }
@@ -77,20 +99,13 @@ public:
 
 	void MarkComplete() { bIsDone = true; }
 
-	//~ FGCObject
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	//~ FGCObject
-
-	/** The UTexture that wraps the Apple image data underneath */
-	UTexture* SourceImage;
+#if SUPPORTS_IMAGE_UTILS_1_0
+	/** Must be released */
+	CIImage* SourceImage;
+#endif
 	/** Where the data is placed when the task is done */
 	TArray<uint8> ConvertedBytes;
 };
-
-void FAppleImageUtilsConversionTask::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObject(SourceImage);
-}
 
 #if SUPPORTS_IMAGE_UTILS_1_0
 static inline NSDictionary* ToQualityDictionary(int32 Quality)
@@ -99,14 +114,14 @@ static inline NSDictionary* ToQualityDictionary(int32 Quality)
 	Quality = FMath::Clamp(Quality, 0, 100);
 	float QualityF = float(Quality) * 0.01f;
 
-	NSDictionary* Options = [[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat: QualityF], kCGImageDestinationLossyCompressionQuality, nil] autorelease];
+	NSDictionary* Options = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat: QualityF], kCGImageDestinationLossyCompressionQuality, nil];
 	return Options;
 }
 
 static inline NSDictionary* ToCpuDictionary(bool bUseGpu)
 {
 	BOOL UseCpu = bUseGpu ? NO : YES;
-	NSDictionary* Options = [[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool: UseCpu], kCIContextUseSoftwareRenderer, nil] autorelease];
+	NSDictionary* Options = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool: UseCpu], kCIContextUseSoftwareRenderer, nil];
 	return Options;
 }
 
@@ -115,8 +130,11 @@ static inline CGColorSpaceRef ToColorSpace(bool bWantColor)
 	return bWantColor ? CGColorSpaceCreateWithName(kCGColorSpaceSRGB) : CGColorSpaceCreateWithName(kCGColorSpaceGenericGrayGamma2_2);
 }
 
-static inline CIImage* ToImage(IAppleImageInterface* AppleImageInterface, float Scale, ETextureRotationDirection Rotate)
+/** Note this image object must be released */
+static inline CIImage* AllocateImage(IAppleImageInterface* AppleImageInterface)
 {
+	// Touching UObjects so must be in game thread, hence not part of the autorelease pool due to multithreading
+	check(IsInGameThread());
 	check(AppleImageInterface != nullptr);
 
 	CIImage* Image = nullptr;
@@ -125,6 +143,7 @@ static inline CIImage* ToImage(IAppleImageInterface* AppleImageInterface, float 
 		case EAppleTextureType::Image:
 		{
 			Image = AppleImageInterface->GetImage();
+			[Image retain];
 			break;
 		}
 
@@ -133,7 +152,7 @@ static inline CIImage* ToImage(IAppleImageInterface* AppleImageInterface, float 
 			CVPixelBufferRef PixelBuffer = AppleImageInterface->GetPixelBuffer();
 			if (PixelBuffer != nullptr)
 			{
-				Image = [[CIImage imageWithCVPixelBuffer: PixelBuffer] autorelease];
+				Image = [[CIImage alloc] initWithCVPixelBuffer: PixelBuffer];
 			}
 			break;
 		}
@@ -143,11 +162,18 @@ static inline CIImage* ToImage(IAppleImageInterface* AppleImageInterface, float 
 			IOSurfaceRef Surface = AppleImageInterface->GetSurface();
 			if (Surface != nullptr)
 			{
-				Image = [[CIImage imageWithIOSurface: Surface] autorelease];
+				Image = [[CIImage alloc] initWithIOSurface: Surface];
 			}
 			break;
 		}
 	}
+	return Image;
+}
+
+/** Note must be called from the processing thread since this uses the autorelease pool and assumes scoped release pools */
+static inline CIImage* ApplyScaleAndRotation(CIImage* SourceImage, float Scale, ETextureRotationDirection Rotate)
+{
+	CIImage* Image = SourceImage;
 	// Handle scaling if requested
 	if (Scale != 1.f)
 	{
@@ -203,42 +229,22 @@ TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageU
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(FString::Printf(TEXT("ConvertToJPEG texture type (%d) was not supported"), (int32)AppleImage->GetTextureType()));
 	}
 
-	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(SourceImage);
 #if SUPPORTS_IMAGE_UTILS_1_0
 	if (!FAppleImageUtilsAvailability::SupportsImageUtils10())
 	{
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToJPEG requires iOS 10.0+ or macOS 10.12+"));
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [ConversionTask, Quality, bWantColor, bUseGpu, Scale, Rotate]()
+	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(AllocateImage(AppleImage));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ConversionTask, Quality, bWantColor, bUseGpu, Scale, Rotate]()
 	{
-		IAppleImageInterface* AppleImageInterface = Cast<IAppleImageInterface>(ConversionTask->SourceImage);
-
-		// Convert to Apple objects
-		CIContext* ConversionContext = [[[CIContext alloc] initWithOptions: ToCpuDictionary(bUseGpu)] autorelease];
-		CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
-		CIImage* Image = ToImage(AppleImageInterface, Scale, Rotate);
-
-		// This will perform the work on the GPU or inline on this thread
-		NSData* ConvertedData = [ConversionContext JPEGRepresentationOfImage: Image colorSpace: ColorSpace options: ToQualityDictionary(Quality)];
-		if (ConvertedData != nullptr)
-		{
-			uint32 CompressedSize = ConvertedData.length;
-			ConversionTask->ConvertedBytes.AddUninitialized(CompressedSize);
-			FPlatformMemory::Memcpy(ConversionTask->ConvertedBytes.GetData(), [ConvertedData bytes], CompressedSize);
-
-			[ConvertedData release];
-		}
-
-		CGColorSpaceRelease(ColorSpace);
-
+		ConvertToJPEG(ConversionTask->SourceImage, ConversionTask->ConvertedBytes, Quality, bWantColor, bUseGpu, Scale, Rotate);
 		// Notify any async listeners that we are done
 		ConversionTask->MarkComplete();
 	});
-#else
-	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToJPEG requires iOS 10.0+ or macOS 10.12+"));
-#endif
 	return ConversionTask;
+#endif
+	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToJPEG requires iOS 10.0+ or macOS 10.12+"));
 }
 
 TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageUtilsPlugin::ConvertToHEIF(UTexture* SourceImage, int32 Quality, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
@@ -254,42 +260,22 @@ TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageU
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(FString::Printf(TEXT("ConvertToHEIF texture type (%d) was not supported"), (int32)AppleImage->GetTextureType()));
 	}
 
-	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(SourceImage);
 #if SUPPORTS_IMAGE_UTILS_2_1
 	if (!FAppleImageUtilsAvailability::SupportsImageUtils21())
 	{
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToHEIF requires iOS 11.0+ or macOS 10.13.4+"));
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [ConversionTask, Quality, bWantColor, bUseGpu, Scale, Rotate]()
+	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(AllocateImage(AppleImage));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ConversionTask, Quality, bWantColor, bUseGpu, Scale, Rotate]()
 	{
-		IAppleImageInterface* AppleImageInterface = Cast<IAppleImageInterface>(ConversionTask->SourceImage);
-
-		// Convert to Apple objects
-		CIContext* ConversionContext = [[[CIContext alloc] initWithOptions: ToCpuDictionary(bUseGpu)] autorelease];
-		CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
-		CIImage* Image = ToImage(AppleImageInterface, Scale, Rotate);
-
-		// This will perform the work on the GPU or inline on this thread
-		NSData* ConvertedData = [ConversionContext HEIFRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: ToQualityDictionary(Quality)];
-		if (ConvertedData != nullptr)
-		{
-			uint32 CompressedSize = ConvertedData.length;
-			ConversionTask->ConvertedBytes.AddUninitialized(CompressedSize);
-			FPlatformMemory::Memcpy(ConversionTask->ConvertedBytes.GetData(), [ConvertedData bytes], CompressedSize);
-
-			[ConvertedData release];
-		}
-
-		CGColorSpaceRelease(ColorSpace);
-
+		ConvertToHEIF(ConversionTask->SourceImage, ConversionTask->ConvertedBytes, Quality, bWantColor, bUseGpu, Scale, Rotate);
 		// Notify any async listeners that we are done
 		ConversionTask->MarkComplete();
 	});
-#else
-	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToHEIF requires iOS 11.0+ or macOS 10.13.4+"));
-#endif
 	return ConversionTask;
+#endif
+	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToHEIF requires iOS 11.0+ or macOS 10.13.4+"));
 }
 
 TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageUtilsPlugin::ConvertToPNG(UTexture* SourceImage, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
@@ -305,42 +291,22 @@ TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageU
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(FString::Printf(TEXT("ConvertToPNG texture type (%d) was not supported"), (int32)AppleImage->GetTextureType()));
 	}
 
-	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(SourceImage);
-#if SUPPORTS_IMAGE_UTILS_2_0
-	if (!FAppleImageUtilsAvailability::SupportsImageUtils20())
+#if SUPPORTS_IMAGE_UTILS_2_1
+	if (!FAppleImageUtilsAvailability::SupportsImageUtils21())
 	{
-		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToPNG requires iOS 11.0+ or macOS 10.13+"));
+		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToPNG requires iOS 11.0+ or macOS 10.13.4+"));
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [ConversionTask, bWantColor, bUseGpu, Scale, Rotate]()
+	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(AllocateImage(AppleImage));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ConversionTask, bWantColor, bUseGpu, Scale, Rotate]()
 	{
-		IAppleImageInterface* AppleImageInterface = Cast<IAppleImageInterface>(ConversionTask->SourceImage);
-
-		// Convert to Apple objects
-		CIContext* ConversionContext = [[[CIContext alloc] initWithOptions: ToCpuDictionary(bUseGpu)] autorelease];
-		CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
-		CIImage* Image = ToImage(AppleImageInterface, Scale, Rotate);
-
-		// This will perform the work on the GPU or inline on this thread
-		NSData* ConvertedData = [ConversionContext PNGRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: @{}];
-		if (ConvertedData != nullptr)
-		{
-			uint32 CompressedSize = ConvertedData.length;
-			ConversionTask->ConvertedBytes.AddUninitialized(CompressedSize);
-			FPlatformMemory::Memcpy(ConversionTask->ConvertedBytes.GetData(), [ConvertedData bytes], CompressedSize);
-
-			[ConvertedData release];
-		}
-
-		CGColorSpaceRelease(ColorSpace);
-
+		ConvertToPNG(ConversionTask->SourceImage, ConversionTask->ConvertedBytes, bWantColor, bUseGpu, Scale, Rotate);
 		// Notify any async listeners that we are done
 		ConversionTask->MarkComplete();
 	});
-#else
-	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToPNG requires iOS 11.0+ or macOS 10.13+"));
-#endif
 	return ConversionTask;
+#endif
+	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToPNG requires iOS 11.0+ or macOS 10.13.4+"));
 }
 
 TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageUtilsPlugin::ConvertToTIFF(UTexture* SourceImage, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
@@ -356,42 +322,22 @@ TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> FAppleImageU
 		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(FString::Printf(TEXT("ConvertToTIFF texture type (%d) was not supported"), (int32)AppleImage->GetTextureType()));
 	}
 
-	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(SourceImage);
-#if SUPPORTS_IMAGE_UTILS_1_0
-	if (!FAppleImageUtilsAvailability::SupportsImageUtils10())
+#if SUPPORTS_IMAGE_UTILS_2_1
+	if (!FAppleImageUtilsAvailability::SupportsImageUtils21())
 	{
-		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToTIFF requires iOS 10.0+ or macOS 10.12+"));
+		return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToTIFF requires iOS 11.0+ or macOS 10.13.4+"));
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [ConversionTask, bWantColor, bUseGpu, Scale, Rotate]()
+	TSharedPtr<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe> ConversionTask = MakeShared<FAppleImageUtilsConversionTask, ESPMode::ThreadSafe>(AllocateImage(AppleImage));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this, ConversionTask, bWantColor, bUseGpu, Scale, Rotate]()
 	{
-		IAppleImageInterface* AppleImageInterface = Cast<IAppleImageInterface>(ConversionTask->SourceImage);
-
-		// Convert to Apple objects
-		CIContext* ConversionContext = [[[CIContext alloc] initWithOptions: ToCpuDictionary(bUseGpu)] autorelease];
-		CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
-		CIImage* Image = ToImage(AppleImageInterface, Scale, Rotate);
-
-		// This will perform the work on the GPU or inline on this thread
-		NSData* ConvertedData = [ConversionContext TIFFRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: @{}];
-		if (ConvertedData != nullptr)
-		{
-			uint32 CompressedSize = ConvertedData.length;
-			ConversionTask->ConvertedBytes.AddUninitialized(CompressedSize);
-			FPlatformMemory::Memcpy(ConversionTask->ConvertedBytes.GetData(), [ConvertedData bytes], CompressedSize);
-
-			[ConvertedData release];
-		}
-
-		CGColorSpaceRelease(ColorSpace);
-
+		ConvertToTIFF(ConversionTask->SourceImage, ConversionTask->ConvertedBytes, bWantColor, bUseGpu, Scale, Rotate);
 		// Notify any async listeners that we are done
 		ConversionTask->MarkComplete();
 	});
-#else
-	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToTIFF requires iOS 10.0+ or macOS 10.12+"));
-#endif
 	return ConversionTask;
+#endif
+	return MakeShared<FAppleImageUtilsFailedConversionTask, ESPMode::ThreadSafe>(TEXT("ConvertToTIFF requires iOS 11.0+ or macOS 10.13.4+"));
 }
 
 #if SUPPORTS_IMAGE_UTILS_1_0
@@ -456,6 +402,92 @@ CGImageRef FAppleImageUtilsPlugin::UTexture2DToCGImage(UTexture2D* Source)
 	}
 	return ImageRef;
 }
+
+void FAppleImageUtilsPlugin::ConvertToJPEG(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
+{
+	SCOPED_AUTORELEASE_POOL;
+
+	// Convert to Apple objects
+	CIContext* ConversionContext = [CIContext contextWithOptions: ToCpuDictionary(bUseGpu)];
+	CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
+	CIImage* Image = ApplyScaleAndRotation(SourceImage, Scale, Rotate);
+
+	// This will perform the work on the GPU or inline on this thread
+	NSData* ConvertedData = [ConversionContext JPEGRepresentationOfImage: Image colorSpace: ColorSpace options: ToQualityDictionary(Quality)];
+	if (ConvertedData != nullptr)
+	{
+		uint32 CompressedSize = ConvertedData.length;
+		OutBytes.AddUninitialized(CompressedSize);
+		FPlatformMemory::Memcpy(OutBytes.GetData(), [ConvertedData bytes], CompressedSize);
+	}
+
+	CGColorSpaceRelease(ColorSpace);
+}
+
+#if SUPPORTS_IMAGE_UTILS_2_1
+void FAppleImageUtilsPlugin::ConvertToHEIF(CIImage* SourceImage, TArray<uint8>& OutBytes, int32 Quality,  bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
+{
+	SCOPED_AUTORELEASE_POOL;
+
+	// Convert to Apple objects
+	CIContext* ConversionContext = [CIContext contextWithOptions: ToCpuDictionary(bUseGpu)];
+	CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
+	CIImage* Image = ApplyScaleAndRotation(SourceImage, Scale, Rotate);
+
+	// This will perform the work on the GPU or inline on this thread
+	NSData* ConvertedData = [ConversionContext HEIFRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: ToQualityDictionary(Quality)];
+	if (ConvertedData != nullptr)
+	{
+		uint32 CompressedSize = ConvertedData.length;
+		OutBytes.AddUninitialized(CompressedSize);
+		FPlatformMemory::Memcpy(OutBytes.GetData(), [ConvertedData bytes], CompressedSize);
+	}
+
+	CGColorSpaceRelease(ColorSpace);
+}
+
+void FAppleImageUtilsPlugin::ConvertToPNG(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
+{
+	SCOPED_AUTORELEASE_POOL;
+
+	// Convert to Apple objects
+	CIContext* ConversionContext = [CIContext contextWithOptions: ToCpuDictionary(bUseGpu)];
+	CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
+	CIImage* Image = ApplyScaleAndRotation(SourceImage, Scale, Rotate);
+
+	// This will perform the work on the GPU or inline on this thread
+	NSData* ConvertedData = [ConversionContext PNGRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: @{}];
+	if (ConvertedData != nullptr)
+	{
+		uint32 CompressedSize = ConvertedData.length;
+		OutBytes.AddUninitialized(CompressedSize);
+		FPlatformMemory::Memcpy(OutBytes.GetData(), [ConvertedData bytes], CompressedSize);
+	}
+
+	CGColorSpaceRelease(ColorSpace);
+}
+
+void FAppleImageUtilsPlugin::ConvertToTIFF(CIImage* SourceImage, TArray<uint8>& OutBytes, bool bWantColor, bool bUseGpu, float Scale, ETextureRotationDirection Rotate)
+{
+	SCOPED_AUTORELEASE_POOL;
+
+	// Convert to Apple objects
+	CIContext* ConversionContext = [CIContext contextWithOptions: ToCpuDictionary(bUseGpu)];
+	CGColorSpaceRef ColorSpace = ToColorSpace(bWantColor);
+	CIImage* Image = ApplyScaleAndRotation(SourceImage, Scale, Rotate);
+
+	// This will perform the work on the GPU or inline on this thread
+	NSData* ConvertedData = [ConversionContext TIFFRepresentationOfImage: Image format: kCIFormatARGB8 colorSpace: ColorSpace options: @{}];
+	if (ConvertedData != nullptr)
+	{
+		uint32 CompressedSize = ConvertedData.length;
+		OutBytes.AddUninitialized(CompressedSize);
+		FPlatformMemory::Memcpy(OutBytes.GetData(), [ConvertedData bytes], CompressedSize);
+	}
+
+	CGColorSpaceRelease(ColorSpace);
+}
+#endif
 
 	#pragma clang diagnostic pop
 #endif

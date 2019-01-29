@@ -4563,7 +4563,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		new DeviceInfoData(0x054c, 0x05c4, "PS4 Wireless Controller"),
 		new DeviceInfoData(0x054c, 0x09cc, "PS4 Wireless Controller (v2)"),
 		new DeviceInfoData(0x05ac, 0x056a, "glap QXPGP001"),
-		new DeviceInfoData(0x0483, 0x5750, "STMicroelectronics Lenovo GamePad")
+		new DeviceInfoData(0x0483, 0x5750, "STMicroelectronics Lenovo GamePad"),
+		new DeviceInfoData(0x1532, 0x0705, "Razer Razer Claire T1 Wired")
 	};
 
 	public class InputDeviceInfo {
@@ -4591,7 +4592,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		for (int deviceIndex=0; deviceIndex < deviceIds.length; deviceIndex++)
 		{
 			InputDevice inputDevice = InputDevice.getDevice(deviceIds[deviceIndex]);
-			if (inputDevice.getId() == deviceId)
+			if (inputDevice != null && inputDevice.getId() == deviceId)
 			{
 				int vendorId = 0;
 				int productId = 0;

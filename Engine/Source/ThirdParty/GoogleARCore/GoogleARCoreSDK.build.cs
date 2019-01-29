@@ -21,10 +21,12 @@ public class GoogleARCoreSDK : ModuleRules
 		{
 			string ARCoreSDKArmLibPath = ARCoreSDKBaseLibPath + "armeabi-v7a/";
 			string ARCoreSDKArm64LibPath = ARCoreSDKBaseLibPath + "arm64-v8a/";
+			string ARCoreSDKx86LibPath = ARCoreSDKBaseLibPath + "x86/";
 
 			// toolchain will filter properly
 			PublicLibraryPaths.Add(ARCoreSDKArmLibPath);
 			PublicLibraryPaths.Add(ARCoreSDKArm64LibPath);
+			PublicLibraryPaths.Add(ARCoreSDKx86LibPath);
 
 			PublicAdditionalLibraries.Add("arcore_sdk_c");
 		}
@@ -35,6 +37,7 @@ public class GoogleARCoreSDK : ModuleRules
 			PublicAdditionalLibraries.Add(ARCoreSDKiOSLibPath + "libGoogleToolboxForMac.a");
 			PublicAdditionalLibraries.Add(ARCoreSDKiOSLibPath + "libProtobuf.a");
 
+			PublicAdditionalLibraries.Add("c++");
 			PublicAdditionalLibraries.Add("sqlite3");
 			PublicAdditionalLibraries.Add("z");
 
@@ -43,6 +46,7 @@ public class GoogleARCoreSDK : ModuleRules
 			PublicAdditionalFrameworks.Add(new Framework("CoreGraphics"));
 			PublicAdditionalFrameworks.Add(new Framework("CoreImage"));
 			PublicAdditionalFrameworks.Add(new Framework("CoreMotion"));
+			PublicAdditionalFrameworks.Add(new Framework("CoreMedia"));
 			PublicAdditionalFrameworks.Add(new Framework("CoreVideo"));
 			PublicAdditionalFrameworks.Add(new Framework("Foundation"));
 			PublicAdditionalFrameworks.Add(new Framework("ImageIO"));

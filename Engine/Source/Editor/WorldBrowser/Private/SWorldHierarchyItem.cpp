@@ -20,6 +20,7 @@
 
 #include "WorldTreeItemTypes.h"
 #include "LevelFolders.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -384,8 +385,21 @@ FSlateColor SWorldHierarchyItem::GetDrawColor() const
 
 FReply SWorldHierarchyItem::OnToggleVisibility()
 {
-	WorldTreeItem->OnToggleVisibility();
-
+	if (FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Alt))
+	{
+		if (WorldTreeItem->IsVisible()) 
+		{
+			WorldTreeItem->OnShowAllButSelected();
+		}
+		else
+		{
+			WorldTreeItem->OnShowOnlySelected();
+		}
+	}
+	else
+	{
+		WorldTreeItem->OnToggleVisibility();
+	}
 	return FReply::Handled();
 }
 

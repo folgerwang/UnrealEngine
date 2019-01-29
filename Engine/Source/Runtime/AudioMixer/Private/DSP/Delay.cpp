@@ -61,6 +61,7 @@ namespace Audio
 	{
 		// Directly set the delay
 		DelayInSamples = InDelayMsec * SampleRate * 0.001f;
+		check(DelayInSamples < AudioBufferSize);
 		Update(true);
 	}
 
@@ -78,6 +79,11 @@ namespace Audio
 			DelayInSamples = InDelayMsec * SampleRate * 0.001f;
 		}
 		Update(bIsInit);
+	}
+
+	void FDelay::SetEaseFactor(const float InEaseFactor)
+	{
+		EaseDelayMsec.SetEaseFactor(InEaseFactor);
 	}
 
 	void FDelay::SetOutputAttenuationDB(const float InDelayAttenDB)

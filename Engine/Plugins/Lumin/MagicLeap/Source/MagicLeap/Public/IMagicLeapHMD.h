@@ -7,7 +7,6 @@ class IMagicLeapInputDevice;
 class IMagicLeapHMD
 {
 public:
-	virtual void RegisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
-	virtual void UnregisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
+	// TODO: no point keeping a single function here.
 	virtual bool IsInitialized() const = 0;
 };

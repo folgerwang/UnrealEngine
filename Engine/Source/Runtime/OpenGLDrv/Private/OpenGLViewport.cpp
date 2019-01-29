@@ -102,6 +102,7 @@ void FOpenGLDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI
 
 	bRevertToSharedContextAfterDrawingViewport = false;
 	EOpenGLCurrentContext CurrentContext = PlatformOpenGLCurrentContext( PlatformDevice );
+#ifndef __EMSCRIPTEN__
 	if( CurrentContext != CONTEXT_Rendering )
 	{
 		check(CurrentContext == CONTEXT_Shared);
@@ -109,6 +110,11 @@ void FOpenGLDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI
 		bRevertToSharedContextAfterDrawingViewport = true;
 		PlatformRenderingContextSetup(PlatformDevice);
 	}
+#else
+// XXX multithread check?
+	// On WebGL, PlatformRenderingContextSetup actually makes-current the Shared context.
+	check(CurrentContext == CONTEXT_Shared);
+#endif
 
 	// Set the render target and viewport.
 	if( RenderTarget )
@@ -225,11 +231,10 @@ FOpenGLViewport::FOpenGLViewport(FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHa
 	, FrameSyncEvent(InOpenGLRHI)
 {
 	check(OpenGLRHI);
-	//@to-do spurious check for HTML5, will need to go away. 
 	// @todo lumin: Add a "PLATFORM_HAS_NO_NATIVE_WINDOW" or something
-#if !PLATFORM_HTML5 && !PLATFORM_LUMIN
+#if !PLATFORM_LUMIN
 	check(InWindowHandle);
-#endif 
+#endif
 	check(IsInGameThread());
 	PlatformGlGetError();	// flush out old errors.
 	OpenGLRHI->Viewports.Add(this);

@@ -29,6 +29,7 @@ namespace WindowsMixedReality
 		return false;
 	}
 
+#if WITH_WINDOWS_MIXED_REALITY
 	MixedRealityInterop::HMDTrackingStatus FWindowsMixedRealityStatics::GetControllerTrackingStatus(MixedRealityInterop::HMDHand hand)
 	{
 		FWindowsMixedRealityHMD* hmd = GetWindowsMixedRealityHMD();
@@ -53,14 +54,16 @@ namespace WindowsMixedReality
 		return false;
 	}
 
-	void FWindowsMixedRealityStatics::PollInput()
+	bool FWindowsMixedRealityStatics::PollInput()
 	{
 		FWindowsMixedRealityHMD* hmd = GetWindowsMixedRealityHMD();
 
 		if (hmd != nullptr)
 		{
-			hmd->PollInput();
+			return hmd->PollInput();
 		}
+
+		return false;
 	}
 
 	MixedRealityInterop::HMDInputPressState FWindowsMixedRealityStatics::GetPressState(
@@ -96,6 +99,28 @@ namespace WindowsMixedReality
 		if (hmd != nullptr)
 		{
 			hmd->SubmitHapticValue(hand, value);
+		}
+	}
+#endif
+
+	// Remoting
+	void FWindowsMixedRealityStatics::ConnectToRemoteHoloLens(FString remoteIP, unsigned int bitrate)
+	{
+		FWindowsMixedRealityHMD* hmd = GetWindowsMixedRealityHMD();
+
+		if (hmd != nullptr)
+		{
+			hmd->ConnectToRemoteHoloLens(*remoteIP, bitrate);
+		}
+	}
+
+	void FWindowsMixedRealityStatics::DisconnectFromRemoteHoloLens()
+	{
+		FWindowsMixedRealityHMD* hmd = GetWindowsMixedRealityHMD();
+
+		if (hmd != nullptr)
+		{
+			hmd->DisconnectFromRemoteHoloLens();
 		}
 	}
 }

@@ -69,12 +69,20 @@ void FNetAnalyticsAggregator::Init()
 
 void FNetAnalyticsAggregator::InitConfig()
 {
-	UNetAnalyticsAggregatorConfig* CurConfig = NewObject<UNetAnalyticsAggregatorConfig>((UObject*)GetTransientPackage(), NetDriverName);
+	UClass* ClassRef = UNetAnalyticsAggregatorConfig::StaticClass();
+	UNetAnalyticsAggregatorConfig* CurConfig = FindObject<UNetAnalyticsAggregatorConfig>(ClassRef, *NetDriverName.ToString());
+
+	if (CurConfig == nullptr)
+	{
+		CurConfig = NewObject<UNetAnalyticsAggregatorConfig>(ClassRef, NetDriverName);
+	}
 
 	AnalyticsDataConfigMap.Empty();
 
 	// If the config is hotfixed, make sure no data holders are currently active, as they can't be selectively hotfixed if loaded
-	ensure(AnalyticsDataMap.Num() == 0);
+	// (this does seem to happen, frequently - so limits the hotfixability of Net Analytics)
+	UE_CLOG(AnalyticsDataMap.Num() > 0, PacketHandlerLog, Warning,
+			TEXT("Net Analytics hotfixed while already active. Analytics hotfix changes may not be applied correctly."));
 
 	if (CurConfig != nullptr)
 	{

@@ -456,6 +456,44 @@ namespace UnrealBuildTool
 				CompileEnvironment.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
+			if (CompileEnvironment.bPGOOptimize != LinkEnvironment.bPGOOptimize)
+			{
+				throw new BuildException("Inconsistency between PGOOptimize settings in Compile ({0}) and Link ({1}) environments",
+					CompileEnvironment.bPGOOptimize,
+					LinkEnvironment.bPGOOptimize
+				);
+			}
+
+			if (CompileEnvironment.bPGOProfile != LinkEnvironment.bPGOProfile)
+			{
+				throw new BuildException("Inconsistency between PGOProfile settings in Compile ({0}) and Link ({1}) environments",
+					CompileEnvironment.bPGOProfile,
+					LinkEnvironment.bPGOProfile
+				);
+			}
+
+			if (CompileEnvironment.bPGOOptimize)
+			{
+				DirectoryReference BaseDir = UnrealBuildTool.EngineDirectory;
+				if (Target.ProjectFile != null)
+				{
+					BaseDir = DirectoryReference.FromFile(Target.ProjectFile);
+				}
+				CompileEnvironment.PGODirectory = Path.Combine(BaseDir.FullName, "Build", Target.Platform.ToString(), "PGO").Replace('\\', '/') + "/";
+				CompileEnvironment.PGOFilenamePrefix = "profile.profdata";
+
+				LinkEnvironment.PGODirectory = CompileEnvironment.PGODirectory;
+				LinkEnvironment.PGOFilenamePrefix = CompileEnvironment.PGOFilenamePrefix;
+			}
+
+			// For consistency with other platforms, also enable LTO whenever doing profile-guided optimizations.
+			// Obviously both PGI (instrumented) and PGO (optimized) binaries need to have that
+			if (CompileEnvironment.bPGOProfile || CompileEnvironment.bPGOOptimize)
+			{
+				CompileEnvironment.bAllowLTCG = true;
+				LinkEnvironment.bAllowLTCG = true;
+			}
+
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
 			{
 				throw new BuildException("Inconsistency between LTCG settings in Compile ({0}) and Link ({1}) environments",
@@ -535,7 +573,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "v12_clang-6.0.1-centos7";	// now unified for all the architectures
+		static string ExpectedSDKVersion = "v13_clang-7.0.1-centos7";	// now unified for all the architectures
 
 		/// <summary>
 		/// Platform name (embeds architecture for now)

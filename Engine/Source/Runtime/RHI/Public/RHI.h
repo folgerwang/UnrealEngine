@@ -1289,36 +1289,20 @@ struct FResolveParams
 
 struct FRHICopyTextureInfo
 {
-	// Number of texels to copy. Z Must be always be > 0.
-	FIntVector Size = {0, 0, 1};
+	// Number of texels to copy. By default it will copy the whole resource if no size is specified.
+	FIntVector Size = FIntVector::ZeroValue;
 
-	/** The mip index to copy in both source and dest. */
-	int32 MipIndex = 0;
+	// Position of the copy from the source texture/to destination texture
+	FIntVector SourcePosition = FIntVector::ZeroValue;
+	FIntVector DestPosition = FIntVector::ZeroValue;
 
-	/** Array index or cube face to resolve in the source. For Cubemap arrays this would be ArraySlice * 6 + FaceIndex. */
-	int32 SourceArraySlice = 0;
-	/** Array index or cube face to resolve in the dest. */
-	int32 DestArraySlice = 0;
-	// How many slices or faces to copy.
-	int32 NumArraySlices = 1;
+	uint32 SourceSliceIndex = 0;
+	uint32 DestSliceIndex = 0;
+	uint32 NumSlices = 1;
 
-	// 2D copy
-	FRHICopyTextureInfo(int32 InWidth, int32 InHeight)
-		: Size(InWidth, InHeight, 1)
-	{
-	}
-
-	FRHICopyTextureInfo(const FIntVector& InSize)
-		: Size(InSize)
-	{
-	}
-
-	void AdvanceMip()
-	{
-		++MipIndex;
-		Size.X = FMath::Max(Size.X / 2, 1);
-		Size.Y = FMath::Max(Size.Y / 2, 1);
-	}
+	// Mips to copy and destination mips
+	uint32 SourceMipIndex = 0;
+	uint32 DestMipIndex = 0;
 };
 
 enum class EResourceTransitionAccess

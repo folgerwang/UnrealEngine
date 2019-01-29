@@ -12,6 +12,7 @@
 #include "Rendering/SlateRenderer.h"
 #include "Rendering/SlateDrawBuffer.h"
 #include "Slate/SlateTextures.h"
+#include "RendererInterface.h"
 
 class FSlateElementBatcher;
 class FSlateRHIRenderingPolicy;
@@ -64,13 +65,8 @@ private:
 
 		// Buffers used in HDR compositing
 		/** sRGB UI render target */
-		FTexture2DRHIRef UITargetRT;
-		/** HDR source data */
-		FTexture2DRHIRef HDRSourceRT;
-		/** sRGB UI render target */
-		FTexture2DRHIRef UITargetSRV;
-		/** HDR source data */
-		FTexture2DRHIRef HDRSourceSRV;
+		TRefCountPtr<IPooledRenderTarget> UITargetRT;
+		TRefCountPtr<IPooledRenderTarget> UITargetRTMask;
 
 		/** Color-space LUT for HDR UI composition. */
 		FTexture3DRHIRef ColorSpaceLUTRT;
@@ -128,10 +124,6 @@ private:
 		~FViewportInfo()
 		{
 			DepthStencil.SafeRelease();
-			UITargetRT.SafeRelease();
-			HDRSourceRT.SafeRelease();
-			UITargetSRV.SafeRelease();
-			HDRSourceSRV.SafeRelease();
 			ColorSpaceLUTRT.SafeRelease();
 			ColorSpaceLUTSRV.SafeRelease();
 		}

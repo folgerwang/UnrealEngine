@@ -12,6 +12,10 @@
 #endif
 #endif
 
+#if PLATFORM_ANDROID
+#include "Android/AndroidOpenGL.h"
+#endif
+
 namespace OculusHMD
 {
 
@@ -22,7 +26,7 @@ namespace OculusHMD
 class FOpenGLCustomPresent : public FCustomPresent
 {
 public:
-	FOpenGLCustomPresent(FOculusHMD* InOculusHMD);
+	FOpenGLCustomPresent(FOculusHMD* InOculusHMD, bool srgbSupport);
 
 	// Implementation of FCustomPresent, called by Plugin itself
 	virtual int GetLayerFlags() const override;
@@ -32,8 +36,8 @@ public:
 };
 
 
-FOpenGLCustomPresent::FOpenGLCustomPresent(FOculusHMD* InOculusHMD) :
-	FCustomPresent(InOculusHMD, ovrpRenderAPI_OpenGL, PF_R8G8B8A8, true, false)
+FOpenGLCustomPresent::FOpenGLCustomPresent(FOculusHMD* InOculusHMD, bool srgbSupport) :
+	FCustomPresent(InOculusHMD, ovrpRenderAPI_OpenGL, PF_R8G8B8A8, srgbSupport, false)
 {
 }
 
@@ -92,7 +96,12 @@ void FOpenGLCustomPresent::SubmitGPUFrameTime(float GPUFrameTime)
 
 FCustomPresent* CreateCustomPresent_OpenGL(FOculusHMD* InOculusHMD)
 {
-	return new FOpenGLCustomPresent(InOculusHMD);
+#if PLATFORM_ANDROID
+	const bool sRGBSupport = FAndroidOpenGL::SupportsFramebufferSRGBEnable();
+#else
+	const bool sRGBSupport = true;
+#endif
+	return new FOpenGLCustomPresent(InOculusHMD, sRGBSupport);
 }
 
 

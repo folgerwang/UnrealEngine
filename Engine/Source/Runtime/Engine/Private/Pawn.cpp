@@ -216,6 +216,11 @@ bool APawn::IsPlayerControlled() const
 	return PlayerState && !PlayerState->bIsABot;
 }
 
+bool APawn::IsBotControlled() const
+{
+	return PlayerState && PlayerState->bIsABot;
+}
+
 bool APawn::ReachedDesiredRotation()
 {
 	// Only base success on Yaw 

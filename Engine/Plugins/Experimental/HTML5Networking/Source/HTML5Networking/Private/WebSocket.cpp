@@ -72,6 +72,9 @@ FWebSocket::FWebSocket(
 	Info.uid = -1;
 	Info.user = this;
 
+	//Info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	Info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+
 	Context = lws_create_context(&Info);
 
 	check(Context);

@@ -11,92 +11,8 @@
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
 #include "VisualizeTexture.h"
+#include "RendererUtils.h"
 
-
-static TAutoConsoleVariable<int32> CVarGenerateDecalRTWriteMaskTexture(
-	TEXT("r.Decal.GenerateRTWriteMaskTexture"),
-	1,
-	TEXT("Turn on or off generation of the RT write mask texture for decals\n"),
-	ECVF_Default);
-
-
-
-
-class FRTWriteMaskDecodeCS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FRTWriteMaskDecodeCS, Global);
-
-public:
-	static const uint32 ThreadGroupSizeX = 8;
-	static const uint32 ThreadGroupSizeY = 8;
-
-	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
-	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
-	}
-
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEX"), ThreadGroupSizeX);
-		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEY"), ThreadGroupSizeY);
-
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-	}
-
-	FRTWriteMaskDecodeCS() {}
-
-public:
-	FShaderParameter OutCombinedRTWriteMask;		// UAV
-	FShaderResourceParameter RTWriteMaskInput0;				// SRV 
-	FShaderResourceParameter RTWriteMaskInput1;				// SRV 
-	FShaderResourceParameter RTWriteMaskInput2;				// SRV 
-	FShaderParameter UtilizeMask;				// SRV 
-
-	FRTWriteMaskDecodeCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: FGlobalShader(Initializer)
-	{
-		RTWriteMaskDimensions.Bind(Initializer.ParameterMap, TEXT("RTWriteMaskDimensions"));
-		OutCombinedRTWriteMask.Bind(Initializer.ParameterMap, TEXT("OutCombinedRTWriteMask"));
-		RTWriteMaskInput0.Bind(Initializer.ParameterMap, TEXT("RTWriteMaskInput0"));
-		RTWriteMaskInput1.Bind(Initializer.ParameterMap, TEXT("RTWriteMaskInput1"));
-		RTWriteMaskInput2.Bind(Initializer.ParameterMap, TEXT("RTWriteMaskInput2"));
-		UtilizeMask.Bind(Initializer.ParameterMap, TEXT("UtilizeMask"));
-	}
-
-	void SetCS(FRHICommandList& RHICmdList, const FRenderingCompositePassContext& Context, FIntPoint WriteMaskDimensions)
-	{
-		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
-
-		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
-		//PostprocessParameter.SetCS(ShaderRHI, Context, Context.RHICmdList, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-		SetShaderValue(Context.RHICmdList, ShaderRHI, RTWriteMaskDimensions, WriteMaskDimensions);
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, RTWriteMaskInput0, SceneContext.DBufferA->GetRenderTargetItem().RTWriteMaskBufferRHI_SRV);
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, RTWriteMaskInput1, SceneContext.DBufferB->GetRenderTargetItem().RTWriteMaskBufferRHI_SRV);
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, RTWriteMaskInput2, SceneContext.DBufferC->GetRenderTargetItem().RTWriteMaskBufferRHI_SRV);
-		int32 UseMask = CVarGenerateDecalRTWriteMaskTexture.GetValueOnRenderThread();
-		SetShaderValue(Context.RHICmdList, ShaderRHI, UtilizeMask, UseMask);
-	}
-
-	virtual bool Serialize(FArchive& Ar) override
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << RTWriteMaskDimensions;
-		Ar << OutCombinedRTWriteMask;
-		Ar << RTWriteMaskInput0;
-		Ar << RTWriteMaskInput1;
-		Ar << RTWriteMaskInput2;
-		Ar << UtilizeMask;
-		return bShaderHasOutdatedParameters;
-	}
-
-private:
-	FShaderParameter			RTWriteMaskDimensions;
-};
-
-IMPLEMENT_SHADER_TYPE(, FRTWriteMaskDecodeCS, TEXT("/Engine/Private/RTWriteMaskDecode.usf"), TEXT("RTWriteMaskCombineMain"), SF_Compute);
 
 static TAutoConsoleVariable<float> CVarStencilSizeThreshold(
 	TEXT("r.Decal.StencilSizeThreshold"),
@@ -601,68 +517,6 @@ const TCHAR* GetStageName(EDecalRenderStage Stage)
 }
 
 
-void FRCPassPostProcessDeferredDecals::DecodeRTWriteMask(FRenderingCompositePassContext& Context)
-{
-	// @todo: get these values from the RHI?
-	const uint32 MaskTileSizeX = 8;
-	const uint32 MaskTileSizeY = 8;
-
-	check(GSupportsRenderTargetWriteMask);
-
-	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-	FTextureRHIRef DBufferTex = SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture;
-
-	FIntPoint RTWriteMaskDims(
-		FMath::DivideAndRoundUp(DBufferTex->GetTexture2D()->GetSizeX(), MaskTileSizeX),
-		FMath::DivideAndRoundUp(DBufferTex->GetTexture2D()->GetSizeY(), MaskTileSizeY));
-
-	FIntPoint CombinedRTWriteMaskDims(RTWriteMaskDims.X * 2, RTWriteMaskDims.Y);
-
-	// allocate the DBufferMask from the render target pool.
-	FPooledRenderTargetDesc MaskDesc(FPooledRenderTargetDesc::Create2DDesc(CombinedRTWriteMaskDims,
-		PF_R8_UINT,
-		FClearValueBinding::White,
-		TexCreate_None | GFastVRamConfig.DBufferMask,
-		TexCreate_UAV | TexCreate_RenderTargetable,
-		false));
-
-	GRenderTargetPool.FindFreeElement(Context.RHICmdList, MaskDesc, SceneContext.DBufferMask, TEXT("DBufferMask"));
-
-	FIntRect ViewRect(0, 0, DBufferTex->GetTexture2D()->GetSizeX(), DBufferTex->GetTexture2D()->GetSizeY());
-
-	TShaderMapRef< FRTWriteMaskDecodeCS > ComputeShader(Context.GetShaderMap());
-
-	//  #todo-renderpasses remove once everything is renderpasses
-	UnbindRenderTargets(Context.RHICmdList);
-	Context.SetViewportAndCallRHI(ViewRect);
-	Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-
-	// set destination
-	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->OutCombinedRTWriteMask.GetBaseIndex(), SceneContext.DBufferMask->GetRenderTargetItem().UAV);
-	ComputeShader->SetCS(Context.RHICmdList, Context, RTWriteMaskDims);
-
-	RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, SceneContext.DBufferMask->GetRenderTargetItem().UAV);
-	{
-		SCOPED_DRAW_EVENTF(Context.RHICmdList, DeferredDecals, TEXT("Combine DBuffer RTWriteMasks"));
-
-		FIntPoint ThreadGroupCountValue(
-			FMath::DivideAndRoundUp((uint32)RTWriteMaskDims.X, FRTWriteMaskDecodeCS::ThreadGroupSizeX),
-			FMath::DivideAndRoundUp((uint32)RTWriteMaskDims.Y, FRTWriteMaskDecodeCS::ThreadGroupSizeY));
-
-		DispatchComputeShader(Context.RHICmdList, *ComputeShader, ThreadGroupCountValue.X, ThreadGroupCountValue.Y, 1);
-	}
-
-	//	void FD3D11DynamicRHI::RHIGraphicsWaitOnAsyncComputeJob( uint32 FenceIndex )
-	Context.RHICmdList.FlushComputeShaderCache();
-
-	RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, SceneContext.DBufferMask->GetRenderTargetItem().UAV);
-	
-	// un-set destination
-	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->OutCombinedRTWriteMask.GetBaseIndex(), NULL);
-}
-
-
 void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& Context)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
@@ -997,7 +851,8 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 				{
 					if (GSupportsRenderTargetWriteMask)
 					{
-						DecodeRTWriteMask(Context);
+						SCOPED_DRAW_EVENTF(RHICmdList, DeferredDecals, TEXT("Combine DBuffer WriteMasks"));
+						FRenderTargetWriteMask::Decode(Context.RHICmdList, Context.GetShaderMap(), { SceneContext.DBufferA, SceneContext.DBufferB, SceneContext.DBufferC }, SceneContext.DBufferMask, GFastVRamConfig.DBufferMask, TEXT("DBufferMask"));
 					}
 
 					if (SceneContext.DBufferMask)

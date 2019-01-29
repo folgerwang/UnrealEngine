@@ -20,7 +20,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The version number to write
 		/// </summary>
-		public const int CurrentVersion = 10;
+		public const int CurrentVersion = 11;
 
 		/// <summary>
 		/// The time at which the makefile was created
@@ -31,6 +31,11 @@ namespace UnrealBuildTool
 		/// Information about the toolchain used to build. This string will be output before building.
 		/// </summary>
 		public string ToolchainInfo;
+
+		/// <summary>
+		/// Any additional information about the build environment which the platform can use to invalidate the makefile
+		/// </summary>
+		public string ExternalMetadata;
 
 		/// <summary>
 		/// Path to the receipt file for this target
@@ -132,15 +137,17 @@ namespace UnrealBuildTool
 		/// Constructor
 		/// </summary>
 		/// <param name="ToolchainInfo">String describing the toolchain used to build. This will be output before executing actions.</param>
+		/// <param name="ExternalMetadata">External build metadata from the platform</param>
 		/// <param name="ReceiptFile">Path to the receipt file</param>
 		/// <param name="ProjectIntermediateDirectory">Path to the project intermediate directory</param>
 		/// <param name="TargetType">The type of target</param>
 		/// <param name="bDeployAfterCompile">Whether to deploy the target after compiling</param>
 		/// <param name="bHasProjectScriptPlugin">Whether the target has a project script plugin</param>
-		public TargetMakefile(string ToolchainInfo, FileReference ReceiptFile, DirectoryReference ProjectIntermediateDirectory, TargetType TargetType, bool bDeployAfterCompile, bool bHasProjectScriptPlugin)
+		public TargetMakefile(string ToolchainInfo, string ExternalMetadata, FileReference ReceiptFile, DirectoryReference ProjectIntermediateDirectory, TargetType TargetType, bool bDeployAfterCompile, bool bHasProjectScriptPlugin)
 		{
 			this.CreateTimeUtc = DateTime.UtcNow;
 			this.ToolchainInfo = ToolchainInfo;
+			this.ExternalMetadata = ExternalMetadata;
 			this.ReceiptFile = ReceiptFile;
 			this.ProjectIntermediateDirectory = ProjectIntermediateDirectory;
 			this.TargetType = TargetType;
@@ -167,6 +174,7 @@ namespace UnrealBuildTool
 		{
 			CreateTimeUtc = new DateTime(Reader.ReadLong(), DateTimeKind.Utc);
 			ToolchainInfo = Reader.ReadString();
+			ExternalMetadata = Reader.ReadString();
 			ReceiptFile = Reader.ReadFileReference();
 			ProjectIntermediateDirectory = Reader.ReadDirectoryReference();
 			TargetType = (TargetType)Reader.ReadInt();
@@ -196,6 +204,7 @@ namespace UnrealBuildTool
 		{
 			Writer.WriteLong(CreateTimeUtc.Ticks);
 			Writer.WriteString(ToolchainInfo);
+			Writer.WriteString(ExternalMetadata);
 			Writer.WriteFileReference(ReceiptFile);
 			Writer.WriteDirectoryReference(ProjectIntermediateDirectory);
 			Writer.WriteInt((int)TargetType);
@@ -382,6 +391,16 @@ namespace UnrealBuildTool
 							return null;
 						}
 					}
+				}
+
+				// Get the current build metadata from the platform
+				string CurrentExternalMetadata = UEBuildPlatform.GetBuildPlatform(Platform).GetExternalBuildMetadata(ProjectFile);
+				if(String.Compare(CurrentExternalMetadata, Makefile.ExternalMetadata, StringComparison.Ordinal) != 0)
+				{
+					Log.TraceLog("Old metadata:\n", Makefile.ExternalMetadata);
+					Log.TraceLog("New metadata:\n", CurrentExternalMetadata);
+					ReasonNotLoaded = "build metadata has changed";
+					return null;
 				}
 			}
 

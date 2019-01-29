@@ -74,7 +74,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Trace Result", meta = (AdvancedDisplay="1", Keywords = "ar augmentedreality augmented reality tracking tracing linetrace"))
 	static TArray<FARTraceResult> LineTraceTrackedObjects( const FVector2D ScreenCoord, bool bTestFeaturePoints = true, bool bTestGroundPlane = true, bool bTestPlaneExtents = true, bool bTestPlaneBoundaryPolygon = true );
 	
-	
+	/**
+	 * Perform a line trace against any real-world geometry as tracked by the AR system.
+	 *
+	 * @param Start					Start point of the trace, in world space.
+	 * @param End					End point of the trace, in world space.
+	 *
+	 * @return a list of \c FARTraceResult sorted by distance from camera.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Trace Result", meta = (AdvancedDisplay = "1", Keywords = "ar augmentedreality augmented reality tracking tracing linetrace"))
+	static TArray<FARTraceResult> LineTraceTrackedObjects3D(const FVector Start, const FVector End, bool bTestFeaturePoints = true, bool bTestGroundPlane = true, bool bTestPlaneExtents = true, bool bTestPlaneBoundaryPolygon = true);
+
 	/** @return how well the tracking system is performing at the moment */
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR Tracking Quality", Keywords = "ar augmentedreality augmented reality tracking quality"))
 	static EARTrackingQuality GetTrackingQuality();
@@ -193,12 +203,27 @@ public:
 	static TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld();
 	static TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> GetCandidateObject(FVector Location, FVector Extent);
 	
+	/**
+	 * Create an ARCandidateImage object and add it to the ARCandidateImageList of the given \c UARSessionConfig object.
+	 *
+	 * Note that you need to restart the AR session with the \c UARSessionConfig you are adding to to make the change take effect.
+	 *
+	 * On ARCore platform, you can leave the PhysicalWidth to 0 if you don't know the physical size of the image or
+	 * the physical size is dynamic. And this function takes time to perform non-trivial image processing (20ms - 30ms),
+	 * and should be run on a background thread.
+	 *
+	 * @return A \c UARCandidateImage Object pointer if the underlying ARPlatform added the candidate image at runtime successfully.
+	 *		  Return nullptr otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Session", meta = (Keywords = "ar augmentedreality augmented reality candidate image"))
+	static UARCandidateImage* AddRuntimeCandidateImage(UARSessionConfig* SessionConfig, UTexture2D* CandidateTexture, FString FriendlyName, float PhysicalWidth);
+
 public:
-	static void RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewArSystem);
+	static void RegisterAsARSystem(const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
 	
 private:
-	static const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& GetARSystem();
-	static TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> RegisteredARSystem;
+	static const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
+	static TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
 };
 
 

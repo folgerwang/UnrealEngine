@@ -80,7 +80,7 @@ void FMrcFrameworkModule::ShutdownModule()
 void FMrcFrameworkModule::OnWorldCreated(UWorld* NewWorld)
 {
 #if WITH_EDITORONLY_DATA
-	const bool bIsGameInst = !IsRunningCommandlet() && NewWorld->IsGameWorld();
+	const bool bIsGameInst = !IsRunningCommandlet() && NewWorld && NewWorld->IsGameWorld();
 	if (bIsGameInst)
 #endif 
 	{

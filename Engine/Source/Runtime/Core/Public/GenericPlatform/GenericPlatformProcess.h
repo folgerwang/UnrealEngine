@@ -216,7 +216,7 @@ struct CORE_API FGenericPlatformProcess
 	static const TCHAR* ShaderDir();
 	static void SetShaderDir(const TCHAR*Where);
 	static void SetCurrentWorkingDirectoryToBaseDir();
-	
+
 	/** Get the current working directory (only really makes sense on desktop platforms) */
 	static FString GetCurrentWorkingDirectory();
 
@@ -403,8 +403,9 @@ struct CORE_API FGenericPlatformProcess
 	 * @param OutReturnCode may be 0
 	 * @param OutStdOut may be 0
 	 * @param OutStdErr may be 0
+	 * @OptionalWorkingDirectory may be 0
 	 */
-	static bool ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr );
+	static bool ExecProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory = NULL);
 
 	/**
 	 * Executes a process as administrator, requesting elevation as necessary. This

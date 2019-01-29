@@ -12,12 +12,22 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
+#include "PropertyEditorModule.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "DetailWidgetRow.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ISettingsModule.h"
+#include "OculusEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "OculusEditor"
 
 const FName FOculusEditorModule::OculusPerfTabName = FName("OculusPerfCheck");
+
+void FOculusEditorModule::PostLoadCallback()
+{
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+}
 
 void FOculusEditorModule::StartupModule()
 {
@@ -39,19 +49,18 @@ void FOculusEditorModule::StartupModule()
 			FCanExecuteAction());
 
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		{
-			TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
-			MenuExtender->AddMenuExtension("Miscellaneous", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddMenuExtension));
-			LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
-		}
 
-		// If we want a toolbar icon we can uncomment this. Leaving it nice and low key right now.
+		// Adds an option to launch the tool to Window->Developer Tools.
+		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+		MenuExtender->AddMenuExtension("Miscellaneous", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddMenuExtension));
+		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+		
 		/*
-		{
-			TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-			ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddToolbarExtension));
-			LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
-		}*/
+		// If you want to make the tool even easier to launch, and add a toolbar button.
+		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+		ToolbarExtender->AddToolBarExtension("Launch", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddToolbarExtension));
+		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+		*/
 
 
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(OculusPerfTabName, FOnSpawnTab::CreateRaw(this, &FOculusEditorModule::OnSpawnPluginTab))
@@ -97,11 +106,9 @@ void FOculusEditorModule::RegisterSettings()
 			LOCTEXT("RuntimeSettingsDescription", "Configure the OculusVR plugin"),
 			GetMutableDefault<UOculusHMDRuntimeSettings>()
 		);
-		SettingsModule->RegisterSettings("Project", "Plugins", "OculusVR",
-			LOCTEXT("RuntimeSettingsName", "OculusVR"),
-			LOCTEXT("RuntimeSettingsDescription", "Configure the OculusVR plugin"),
-			GetMutableDefault<UOculusHMDRuntimeSettings>()
-		);
+
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.RegisterCustomClassLayout(UOculusHMDRuntimeSettings::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FOculusHMDSettingsDetailsCustomization::MakeInstance));
 	}
 }
 
@@ -113,6 +120,11 @@ void FOculusEditorModule::UnregisterSettings()
 	}
 }
 
+FReply FOculusEditorModule::PluginClickFn(bool text)
+{
+	PluginButtonClicked();
+	return FReply::Handled();
+}
 
 void FOculusEditorModule::PluginButtonClicked()
 {
@@ -121,14 +133,48 @@ void FOculusEditorModule::PluginButtonClicked()
 
 void FOculusEditorModule::AddMenuExtension(FMenuBuilder& Builder)
 {
-	Builder.AddMenuEntry(FOculusToolCommands::Get().OpenPluginWindow);
+	bool v = false;
+	GConfig->GetBool(TEXT("/Script/OculusEditor.OculusEditorSettings"), TEXT("bAddMenuOption"), v, GEditorIni);
+	if (v)
+	{
+		Builder.AddMenuEntry(FOculusToolCommands::Get().OpenPluginWindow);
+	}
 }
 
 void FOculusEditorModule::AddToolbarExtension(FToolBarBuilder& Builder)
 {
 	Builder.AddToolBarButton(FOculusToolCommands::Get().OpenPluginWindow);
 }
-	
+
+TSharedRef<IDetailCustomization> FOculusHMDSettingsDetailsCustomization::MakeInstance()
+{
+	return MakeShareable(new FOculusHMDSettingsDetailsCustomization);
+}
+
+FReply FOculusHMDSettingsDetailsCustomization::PluginClickFn(bool text)
+{
+	FGlobalTabmanager::Get()->InvokeTab(FOculusEditorModule::OculusPerfTabName);
+	return FReply::Handled();
+}
+
+void FOculusHMDSettingsDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
+{
+	// Labeled "General Oculus" instead of "General" to enable searchability. The button "Launch Oculus Utilities Window" doesn't show up if you search for "Oculus"
+	IDetailCategoryBuilder& CategoryBuilder = DetailLayout.EditCategory("General Oculus", FText::GetEmpty(), ECategoryPriority::Important);
+	CategoryBuilder.AddCustomRow(LOCTEXT("General Oculus", "General"))
+		.WholeRowContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("LaunchTool", "Launch Oculus Utilities Window"))
+				.OnClicked(this, &FOculusHMDSettingsDetailsCustomization::PluginClickFn, true)
+			]
+			+ SHorizontalBox::Slot().FillWidth(8)
+		];
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 IMPLEMENT_MODULE(FOculusEditorModule, OculusEditor);

@@ -38,6 +38,21 @@ struct FTimecode
 		, bDropFrameFormat(InbDropFrame)
 	{}
 
+	FTimecode(double InSeconds, const FFrameRate& FrameRate)
+		: bDropFrameFormat(false)
+	{
+		int32 WholeSeconds = InSeconds;
+		const float FractionalSeconds = InSeconds - WholeSeconds;
+
+		Frames = FMath::FloorToInt(FrameRate.Numerator * FractionalSeconds);
+
+		Seconds = WholeSeconds % 60;
+		WholeSeconds /= 60;
+		Minutes = WholeSeconds % 60;
+		WholeSeconds /= 60;
+		Hours = WholeSeconds % 24;
+	}
+
 public:
 
 	/**

@@ -134,6 +134,11 @@ IOnlineChatPtr FOnlineSubsystemOculus::GetChatInterface() const
 	return nullptr;
 }
 
+IOnlineStatsPtr FOnlineSubsystemOculus::GetStatsInterface() const
+{
+	return nullptr;
+}
+
 IOnlineTurnBasedPtr FOnlineSubsystemOculus::GetTurnBasedInterface() const
 {
 	return nullptr;

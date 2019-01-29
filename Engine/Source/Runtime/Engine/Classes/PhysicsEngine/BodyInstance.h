@@ -569,6 +569,9 @@ public:
 	/** Utility for copying properties from one BodyInstance to another. */
 	void CopyBodyInstancePropertiesFrom(const FBodyInstance* FromInst);
 
+	/** Utility for copying only the runtime instanced properties from one BodyInstance to another. */
+	void CopyRuntimeBodyInstancePropertiesFrom(const FBodyInstance* FromInst);
+
 	/** Find the correct PhysicalMaterial for simple geometry on this body */
 	UPhysicalMaterial* GetSimplePhysicalMaterial() const;
 

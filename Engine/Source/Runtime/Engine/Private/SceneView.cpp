@@ -714,7 +714,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 #if PLATFORM_ANDROID
 	static const auto MobileMultiViewCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
-	bIsMobileMultiViewEnabled = RHISupportsMobileMultiView(ShaderPlatform) && StereoPass != eSSP_MONOSCOPIC_EYE && (MobileMultiViewCVar && MobileMultiViewCVar->GetValueOnAnyThread() != 0);
+	bIsMobileMultiViewEnabled = RHISupportsMobileMultiView(ShaderPlatform) && (MobileMultiViewCVar && MobileMultiViewCVar->GetValueOnAnyThread() != 0);
 
 	// TODO: Test platform support for direct
 	static const auto MobileMultiViewDirectCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView.Direct"));
@@ -926,24 +926,7 @@ void FSceneView::UpdateViewMatrix()
 	}
 
 	ViewMatrices.UpdateViewMatrix(StereoViewLocation, StereoViewRotation);
-
-	// Derive the view frustum from the view projection matrix.
-	if ((StereoPass == eSSP_LEFT_EYE || StereoPass == eSSP_RIGHT_EYE) && Family->IsMonoscopicFarFieldEnabled())
-	{
-		// Stereo views use mono far field plane when using mono far field rendering
-		const FPlane FarPlane(ViewMatrices.GetViewOrigin() + GetViewDirection() * Family->MonoParameters.CullingDistance, GetViewDirection());
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), FarPlane, true, false);
-	}
-	else if (StereoPass == eSSP_MONOSCOPIC_EYE)
-	{
-		// Mono view uses near plane
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), true);
-	}
-	else
-	{
-		// Standard rendering setup
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), false);
-	}
+	GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), false);
 
 	// We need to keep ShadowViewMatrices in sync.
 	ShadowViewMatrices = ViewMatrices;
@@ -2315,24 +2298,6 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	bNullifyWorldSpacePosition = false;
 #endif
 
-	// Setup mono far field for VR
-	static const auto CVarMono = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
-	static const auto CVarMonoMode = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarFieldMode"));
-	bool bIsStereoEnabled = false;
-	if (GEngine != nullptr && GEngine->StereoRenderingDevice.IsValid())
-	{
-		bIsStereoEnabled = GEngine->StereoRenderingDevice->IsStereoEnabledOnNextFrame();
-	}
-
-	const bool bIsMobile = FSceneInterface::GetShadingPath(GetFeatureLevel()) == EShadingPath::Mobile;
-
-	if (bIsStereoEnabled && bIsMobile && CVarMono && CVarMonoMode)
-	{
-		MonoParameters.bEnabled = CVarMono->GetValueOnAnyThread() != 0;
-		MonoParameters.Mode = static_cast<EMonoscopicFarFieldMode>(FMath::Clamp(CVarMonoMode->GetValueOnAnyThread(), 0, 4));
-		MonoParameters.CullingDistance = CVS.MonoFarFieldCullingDistance;
-	}
-
 	// ScreenPercentage is not supported in ES2/3.1 with MobileHDR = false. Disable show flag so to have it respected.
 	const bool bIsMobileLDR = (GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && !IsMobileHDR());
 	if (bIsMobileLDR)
@@ -2377,7 +2342,7 @@ const FSceneView& FSceneViewFamily::GetStereoEyeView(const EStereoscopicPass Eye
 	}
 	else // For extra views
 	{
-		return *Views[EyeIndex - eSSP_MONOSCOPIC_EYE + 1];
+		return *Views[EyeIndex - eSSP_RIGHT_EYE + 1];
 	}
 }
 

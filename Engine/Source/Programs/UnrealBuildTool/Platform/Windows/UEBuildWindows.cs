@@ -428,7 +428,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
 		/// </summary>
-		static readonly VersionNumber DefaultVisualStudioToolChainVersion = VersionNumber.Parse("14.13.26128");
+		static readonly VersionNumber DefaultVisualStudioToolChainVersion = VersionNumber.Parse("14.16.27023");
 
 		/// <summary>
 		/// The default Windows SDK version to be used, if installed.
@@ -1489,52 +1489,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Configures the resource compile environment for the given target
-		/// </summary>
-		/// <param name="ResourceCompileEnvironment">The compile environment</param>
-		/// <param name="Target">The target being built</param>
-		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, ReadOnlyTargetRules Target)
-		{
-			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
-			FileReference IconFile;
-			if(Target.ProjectFile != null && !ResourceCompileEnvironment.bUseSharedBuildEnvironment)
-			{
-				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
-			}
-			else
-			{
-				IconFile = WindowsPlatform.GetApplicationIcon(null);
-			}
-
-			// Setup the compile environment, setting the icon to use via a macro. This is used in Default.rc2.
-			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
-
-			// Apply the target settings for the resources
-			if(!ResourceCompileEnvironment.bUseSharedBuildEnvironment)
-			{
-				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CompanyName))
-				{
-					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COMPANY_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.CompanyName)));
-				}
-
-				if (!String.IsNullOrEmpty(Target.WindowsPlatform.CopyrightNotice))
-				{
-					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_COPYRIGHT_STRING={0}", SanitizeMacroValue(Target.WindowsPlatform.CopyrightNotice)));
-				}
-
-				if (!String.IsNullOrEmpty(Target.WindowsPlatform.ProductName))
-				{
-					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_NAME={0}", SanitizeMacroValue(Target.WindowsPlatform.ProductName)));
-				}
-
-				if (Target.ProjectFile != null)
-				{
-					ResourceCompileEnvironment.Definitions.Add(String.Format("PROJECT_PRODUCT_IDENTIFIER={0}", SanitizeMacroValue(Target.ProjectFile.GetFileNameWithoutExtension())));
-				}
-			}
-		}
-
-		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>
@@ -1731,25 +1685,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Macros passed via the command line have their quotes stripped, and are tokenized before being re-stringized by the compiler. This conversion
-		/// back and forth is normally ok, but certain characters such as single quotes must always be paired. Remove any such characters here.
-		/// </summary>
-		/// <param name="Value">The macro value</param>
-		/// <returns>The sanitized value</returns>
-		static string SanitizeMacroValue(string Value)
-		{
-			StringBuilder Result = new StringBuilder(Value.Length);
-			for(int Idx = 0; Idx < Value.Length; Idx++)
-			{
-				if(Value[Idx] != '\'' && Value[Idx] != '\"')
-				{
-					Result.Append(Value[Idx]);
-				}
-			}
-			return Result.ToString();
-		}
-
-		/// <summary>
 		/// Setup the configuration environment for building
 		/// </summary>
 		/// <param name="Target"> The target being built</param>
@@ -1834,6 +1769,21 @@ namespace UnrealBuildTool
 			else
 			{
 				return new VCToolChain(CppPlatform, Target);
+			}
+		}
+
+		/// <summary>
+		/// Allows the platform to return various build metadata that is not tracked by other means. If the returned string changes, the makefile will be invalidated.
+		/// </summary>
+		/// <param name="ProjectFile">The project file being built</param>
+		/// <param name="Metadata">String builder to contain build metadata</param>
+		public override void GetExternalBuildMetadata(FileReference ProjectFile, StringBuilder Metadata)
+		{
+			base.GetExternalBuildMetadata(ProjectFile, Metadata);
+
+			if(ProjectFile != null)
+			{
+				Metadata.AppendLine("ICON: {0}", GetApplicationIcon(ProjectFile));
 			}
 		}
 

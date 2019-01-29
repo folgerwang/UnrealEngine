@@ -1422,7 +1422,7 @@ void FSteamVRHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoP
 
 FMatrix FSteamVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const
 {
-	check(IsStereoEnabled());
+	check(IsStereoEnabled() || IsHeadTrackingEnforced());
 
 	vr::Hmd_Eye HmdEye = (StereoPassType == eSSP_LEFT_EYE) ? vr::Eye_Left : vr::Eye_Right;
 	float Left, Right, Top, Bottom;
@@ -1552,6 +1552,7 @@ bool FSteamVRHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
 }
 
 FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSteamVRPlugin) :
+	FHeadMountedDisplayBase(nullptr),
 	FSceneViewExtensionBase(AutoRegister), 
 	bHmdEnabled(true),
 	HmdWornState(EHMDWornState::Unknown),

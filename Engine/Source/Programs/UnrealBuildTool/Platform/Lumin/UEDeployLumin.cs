@@ -32,9 +32,7 @@ namespace UnrealBuildTool
 
 		private ConfigHierarchy GetConfigCacheIni(ConfigHierarchyType Type)
 		{
-			// @todo Lumin: So - this is the problem with subclassing a platform currently - ini files. Lumin will use Android ini files
-			// until I finish and get code over from another branch (key letter Q) that allows for insertion of a subclassed ini platform thing
-			return ConfigCache.ReadHierarchy(Type, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
+			return ConfigCache.ReadHierarchy(Type, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Lumin);
 		}
 
 		private string GetRuntimeSetting(string Key)
@@ -77,14 +75,23 @@ namespace UnrealBuildTool
 			return ApplicationDisplayName;
 		}
 
-        private string GetMinimumOSVersionRequired()
-        {
-            string MinOSVersionRequired = GetRuntimeSetting("MinimumOSVersion");
-            return String.IsNullOrWhiteSpace(MinOSVersionRequired) ? "nova_1.0" : MinOSVersionRequired;
-        }
+		private string GetMinimumAPILevelRequired()
+		{
+			const Int32 AbsoluteMinValue = 2;
 
-        private void GetAppPrivileges(ConfigHierarchy EngineIni, StringBuilder Text)
-        {
+			Int32 Value = AbsoluteMinValue;
+			GetConfigCacheIni(ConfigHierarchyType.Engine).
+				GetInt32("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "MinimumAPILevel", out Value);
+			if (Value < AbsoluteMinValue)
+			{
+				Log.TraceInformation("Config-specified MinimumAPILevel {0} is lower than engine's minimum {1}", Value, AbsoluteMinValue);
+				Value = AbsoluteMinValue;
+			}
+			return Value.ToString();
+		}
+
+		private void GetAppPrivileges(ConfigHierarchy EngineIni, StringBuilder Text)
+		{
 			List<string> AppPrivileges;
 			EngineIni.GetArray("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "AppPrivileges", out AppPrivileges);
 			if (AppPrivileges != null)
@@ -102,7 +109,7 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-        }
+		}
 
 		private string CleanFilePath(string FilePath)
 		{
@@ -124,44 +131,35 @@ namespace UnrealBuildTool
 			return "Icon/Portal";
 		}
 
-        public string GetMLSDKVersion(ConfigHierarchy EngineIni)
-        {
-            string MLSDKPath;
-            string Major = "0";
-            string Minor = "0";
-            if (EngineIni.GetString("/Script/LuminPlatformEditor.MagicLeapSDKSettings", "MLSDKPath", out MLSDKPath) && !string.IsNullOrWhiteSpace(MLSDKPath))
-            {
-                Dictionary<string, string> PathEntry;
-                ConfigHierarchy.TryParse(MLSDKPath, out PathEntry);
-                MLSDKPath = PathEntry.Values.First();
-            }
-            if (string.IsNullOrWhiteSpace(MLSDKPath))
-            {
-                MLSDKPath = Environment.GetEnvironmentVariable("MLSDK");
-            }
-            if (!string.IsNullOrEmpty(MLSDKPath))
-            {
-                if (Directory.Exists(MLSDKPath))
-                {
-                    String VersionFile = string.Format("{0}/include/ml_version.h", MLSDKPath).Replace('/', Path.DirectorySeparatorChar);
-                    if (File.Exists(VersionFile))
-                    {
-                        string FileText = File.ReadAllText(VersionFile);
-                        string Pattern = @"(MLSDK_VERSION_MAJOR) (?'MAJOR'\d+).*(MLSDK_VERSION_MINOR) (?'MINOR'\d+).*(MLSDK_VERSION_REVISION) (?'REV'\d+)";
-                        Regex VersionRegex = new Regex(Pattern, RegexOptions.Singleline);
-                        MatchCollection Matches = VersionRegex.Matches(FileText);
-                        if (Matches.Count > 0 &&
-                            !string.IsNullOrEmpty(Matches[0].Groups["MAJOR"].Value) &&
-                            !string.IsNullOrEmpty(Matches[0].Groups["MINOR"].Value))
-                        {
-                            Major = Matches[0].Groups["MAJOR"].Value;
-                            Minor = Matches[0].Groups["MINOR"].Value;
-                        }
-                    }
-                }
-            }
-            return string.Format("{0}.{1}", Major, Minor);
-        }
+		public string GetMLSDKVersion(ConfigHierarchy EngineIni)
+		{
+			string MLSDKPath;
+			string Major = "0";
+			string Minor = "0";
+			MLSDKPath = Environment.GetEnvironmentVariable("MLSDK");
+			if (!string.IsNullOrEmpty(MLSDKPath))
+			{
+				if (Directory.Exists(MLSDKPath))
+				{
+					String VersionFile = string.Format("{0}/include/ml_version.h", MLSDKPath).Replace('/', Path.DirectorySeparatorChar);
+					if (File.Exists(VersionFile))
+					{
+						string FileText = File.ReadAllText(VersionFile);
+						string Pattern = @"(MLSDK_VERSION_MAJOR) (?'MAJOR'\d+).*(MLSDK_VERSION_MINOR) (?'MINOR'\d+).*(MLSDK_VERSION_REVISION) (?'REV'\d+)";
+						Regex VersionRegex = new Regex(Pattern, RegexOptions.Singleline);
+						MatchCollection Matches = VersionRegex.Matches(FileText);
+						if (Matches.Count > 0 &&
+							!string.IsNullOrEmpty(Matches[0].Groups["MAJOR"].Value) &&
+							!string.IsNullOrEmpty(Matches[0].Groups["MINOR"].Value))
+						{
+							Major = Matches[0].Groups["MAJOR"].Value;
+							Minor = Matches[0].Groups["MINOR"].Value;
+						}
+					}
+				}
+			}
+			return string.Format("{0}.{1}", Major, Minor);
+		}
 
 		public string GenerateManifest(string ProjectName, bool bForDistribution, string Architecture)
 		{
@@ -183,15 +181,15 @@ namespace UnrealBuildTool
 
 			string PackageName = GetPackageName(ProjectName);
 			string ApplicationDisplayName = GetApplicationDisplayName(ProjectName);
-			string MinimumOSVersion = GetMinimumOSVersionRequired();
+			string MinimumAPILevel = GetMinimumAPILevelRequired();
 			string TargetExecutableName = "bin/" + ProjectName;
 
 			Text.AppendLine(string.Format("<manifest xmlns:ml=\"magicleap\" ml:package=\"{0}\" ml:version_name=\"{1}\" ml:version_code=\"{2}\">", PackageName, ProjectVersion, VersionCode));
-			Text.AppendLine(string.Format("\t<application ml:visible_name=\"{0}\" ml:sdk_version=\"{1}\" ml:minimum_os=\"{2}\">",
-                ApplicationDisplayName,
-                SDKVersion,
-                MinimumOSVersion));
-            GetAppPrivileges(EngineIni, Text);
+			Text.AppendLine(string.Format("\t<application ml:visible_name=\"{0}\" ml:sdk_version=\"{1}\" ml:min_api_level=\"{2}\">",
+				ApplicationDisplayName,
+				SDKVersion,
+				MinimumAPILevel));
+			GetAppPrivileges(EngineIni, Text);
 			Text.AppendLine(string.Format("\t\t<component ml:name=\".fullscreen\" ml:visible_name=\"{0}\" ml:binary_name=\"{1}\" ml:type=\"{2}\">", ApplicationDisplayName, TargetExecutableName, GetApplicationType()));
 
 			string IconTag = string.Format("<icon ml:model_folder=\"{0}\" ml:portal_folder=\"{1}\"/>", GetIconModelStagingPath(), GetIconPortalStagingPath());
@@ -290,6 +288,14 @@ namespace UnrealBuildTool
 			return UPL.ProcessPluginNode(Architecture, "stageFiles", "");
 		}
 
+		private bool GetRemoveDebugInfo()
+		{
+			ConfigHierarchy Ini = GetConfigCacheIni(ConfigHierarchyType.Engine);
+			bool Value = false;
+			Ini.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bRemoveDebugInfo", out Value);
+			return Value;
+		}
+
 		private void MakeMabuPackage(string ProjectName, DirectoryReference ProjectDirectory, string ExePath, bool bForDistribution, string EngineDir, string MpkName)
 		{
 			string UE4BuildPath = Path.Combine(ProjectDirectory.FullName, "Intermediate/Lumin/Mabu");
@@ -300,19 +306,27 @@ namespace UnrealBuildTool
 
 
 			LuminToolChain ToolChain = new LuminToolChain(ProjectFile);
-
-			// If asked for, and if we are doing a distribution package, we strip debug symbols.
 			string ExecSrcFile = Path.Combine(UE4BuildPath, "Binaries", Path.GetFileName(ExePath));
-			if (bForDistribution)
+
+			if (bForDistribution || GetRemoveDebugInfo())
 			{
+				// If asked for, and if we are doing a distribution package, we strip debug symbols.
 				Directory.CreateDirectory(Path.GetDirectoryName(ExecSrcFile));
 				ToolChain.StripSymbols(new Tools.DotNETCommon.FileReference(ExePath), new Tools.DotNETCommon.FileReference(ExecSrcFile));
+				// We also create a SYM file to support debugging of stripped executables
+				string SymFile = Path.ChangeExtension(ExecSrcFile, "sym");
+				ToolChain.ExtractSymbols(new FileReference(ExePath), new FileReference(SymFile));
+				ToolChain.LinkSymbols(new FileReference(SymFile), new FileReference(ExecSrcFile));
 			}
 			else
 			{
 				// The generated mabu needs the src exe file. So we copy the original as-is so mabu can find it.
 				Directory.CreateDirectory(Path.GetDirectoryName(ExecSrcFile));
 				File.Copy(ExePath, ExecSrcFile, true);
+				// If the exe has debug info we need to remove a likely old sym file so that debugging doesn't use
+				// outdated information.
+				string SymFile = Path.ChangeExtension(ExecSrcFile, "sym");
+				File.Delete(SymFile);
 			}
 
 			// Generate manifest (after UPL is setup
@@ -324,7 +338,7 @@ namespace UnrealBuildTool
 			Certificate = CleanFilePath(Certificate);
 			if (!string.IsNullOrEmpty(Certificate))
 			{
-				Certificate = Path.GetFullPath(Path.Combine(EngineDir, "Binaries/Lumin", Certificate));
+				Certificate = Path.GetFullPath(Path.Combine(ProjectDirectory.FullName, Certificate));
 
 				if (File.Exists(Certificate))
 				{

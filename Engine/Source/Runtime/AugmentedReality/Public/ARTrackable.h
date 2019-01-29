@@ -5,7 +5,7 @@
 #include "ARTypes.h"
 #include "ARTrackable.generated.h"
 
-class FARSystemBase;
+class FARSupportInterface ;
 class UAREnvironmentCaptureProbeTexture;
 
 UCLASS(BlueprintType)
@@ -20,7 +20,7 @@ public:
 
 	virtual void DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const;
 	
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform );
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform );
 	
 	void UpdateTrackingState( EARTrackingState NewTrackingState );
 	
@@ -55,7 +55,7 @@ public:
 	float GetLastUpdateTimestamp() const;
 	
 protected:
-	TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> GetARSystem() const;
+	TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> GetARSystem() const;
 	
 	UPROPERTY()
 	FTransform LocalToTrackingTransform;
@@ -70,7 +70,7 @@ protected:
 	TUniquePtr<IARRef> NativeResource;
 	
 private:
-	TWeakPtr<FARSystemBase, ESPMode::ThreadSafe> ARSystem;
+	TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> ARSystem;
 	
 	/** The frame number this tracked geometry was last updated on */
 	uint32 LastUpdateFrameNumber;
@@ -89,9 +89,9 @@ class AUGMENTEDREALITY_API UARPlaneGeometry : public UARTrackedGeometry
 	
 public:
 
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent );
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent );
 	
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundingPoly, UARPlaneGeometry* InSubsumedBy);
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundingPoly, UARPlaneGeometry* InSubsumedBy);
 	
 	virtual void DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
@@ -130,7 +130,7 @@ class AUGMENTEDREALITY_API UARTrackedPoint : public UARTrackedGeometry
 public:
 	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform);
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform);
 };
 
 UCLASS(BlueprintType)
@@ -141,21 +141,37 @@ class AUGMENTEDREALITY_API UARTrackedImage : public UARTrackedGeometry
 public:
 	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateImage* InDetectedImage);
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FVector2D InEstimatedSize, UARCandidateImage* InDetectedImage);
 
 	/** @see DetectedImage */
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
+	
+	/*
+	 * Get the estimate size of the detected image, where X is the estimated width, and Y is the estimated height.
+	 *
+	 * Note that ARCore can return a valid estimate size of the detected image when the tracking state of the UARTrackedImage
+	 * is tracking. The size should reflect the actual size of the image target, which could be different than the input physical
+	 * size of the candidate image.
+	 *
+	 * ARKit will return the physical size of the ARCandidate image.
+	 */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
+	FVector2D GetEstimateSize();
 
 	UE_DEPRECATED(4.21, "This property is now deprecated, please use GetTrackingState() and check for EARTrackingState::Tracking or IsTracked() instead.")
 	/** Whether the image is currently being tracked by the AR system */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	bool bIsTracked;
 
-private:
+protected:
 	/** The candidate image that was detected in the scene */
 	UPROPERTY()
 	UARCandidateImage* DetectedImage;
+
+	/** The estimated image size that was detected in the scene */
+	UPROPERTY()
+	FVector2D EstimatedSize;
 };
 
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
@@ -258,7 +274,7 @@ class AUGMENTEDREALITY_API UARFaceGeometry : public UARTrackedGeometry
 	GENERATED_BODY()
 	
 public:
-	void UpdateFaceGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InTransform, const FTransform& InAlignmentTransform, FARBlendShapeMap& InBlendShapes, TArray<FVector>& InVertices, const TArray<int32>& Indices, const FTransform& InLeftEyeTransform, const FTransform& InRightEyeTransform, const FVector& InLookAtTarget);
+	void UpdateFaceGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InTransform, const FTransform& InAlignmentTransform, FARBlendShapeMap& InBlendShapes, TArray<FVector>& InVertices, const TArray<int32>& Indices, const FTransform& InLeftEyeTransform, const FTransform& InRightEyeTransform, const FVector& InLookAtTarget);
 	
 	virtual void DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
@@ -319,7 +335,7 @@ public:
 	/** Draw a box visulizing the bounds of the probe */
 	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
-	void UpdateEnvironmentCapture(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FVector InExtent);
+	void UpdateEnvironmentCapture(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FVector InExtent);
 
 	/** @see Extent */
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Environment Capture Probe")
@@ -345,7 +361,7 @@ class AUGMENTEDREALITY_API UARTrackedObject : public UARTrackedGeometry
 public:
 	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateObject* InDetectedObject);
+	void UpdateTrackedGeometry(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateObject* InDetectedObject);
 	
 	/** @see DetectedObject */
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")

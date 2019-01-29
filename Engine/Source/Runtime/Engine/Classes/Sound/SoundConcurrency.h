@@ -8,7 +8,22 @@
 #include "SoundConcurrency.generated.h"
 
 class FAudioDevice;
+class FSoundConcurrencyManager;
+
 struct FActiveSound;
+
+/** Sound concurrency group ID. */
+using FConcurrencyGroupID = uint32;
+
+/** Sound concurrency unique object IDs. */
+using FConcurrencyObjectID = uint32;
+
+/** Sound owner object IDs */
+using FSoundOwnerObjectID = uint32;
+
+/** Sound instance (USoundBase) object ID. */
+using FSoundObjectID = uint32;
+
 
 UENUM()
 namespace EMaxConcurrentResolutionRule
@@ -54,9 +69,9 @@ struct ENGINE_API FSoundConcurrencySettings
 
 	/** Which concurrency resolution policy to use if max voice count is reached. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
-	TEnumAsByte<enum EMaxConcurrentResolutionRule::Type> ResolutionRule;
+	TEnumAsByte<EMaxConcurrentResolutionRule::Type> ResolutionRule;
 
-	/** 
+	/**
 	 * The amount of attenuation to apply to older voice instances in this concurrency group. This reduces volume of older voices in a concurrency group as new voices play.
 	 *
 	 * AppliedVolumeScale = Math.Pow(DuckingScale, VoiceGeneration)
@@ -77,54 +92,83 @@ class USoundConcurrency : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Settings)
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Settings, meta = (ShowOnlyInnerProperties))
 	FSoundConcurrencySettings Concurrency;
 };
 
-struct FActiveSound;
+/** How the concurrency request is handled by the concurrency manager */
+enum class EConcurrencyMode : uint8
+{
+	Group,
+	Owner,
+	OwnerPerSound,
+	Sound,
+};
 
-/** USoundConcurrency unique object IDs. */
-typedef uint32 FConcurrencyObjectID;
+/** Handle to all required data to create and catalog a concurrency group */
+struct FConcurrencyHandle
+{
+	const FSoundConcurrencySettings& Settings;
+	const FConcurrencyObjectID ObjectID;
+	const bool bIsOverride;
 
-/** Sound owner object IDs */
-typedef uint32 FSoundOwnerObjectID;
+	/** Constructs a handle from concurrency override settings */
+	FConcurrencyHandle(const FSoundConcurrencySettings& InSettings);
 
-/** Sound instance (USoundBase) object ID. */
-typedef uint32 FSoundObjectID;
+	/** Constructs a handle to a concurrency asset */
+	FConcurrencyHandle(const USoundConcurrency& Concurrency);
 
-typedef uint32 FConcurrencyGroupID;
+	EConcurrencyMode GetMode(const FActiveSound& ActiveSound) const;
+};
 
-/** Struct which is an array of active sound pointers for tracking concurrency */
+
+/** Class which tracks array of active sound pointers for concurrency management */
 class FConcurrencyGroup
 {
 	/** Array of active sounds for this concurrency group. */
 	TArray<FActiveSound*> ActiveSounds;
-	int32 MaxActiveSounds;
-	FConcurrencyGroupID ConcurrencyGroupID;
-	EMaxConcurrentResolutionRule::Type ResolutionRule;
+
+	FConcurrencyGroupID GroupID;
+	FConcurrencyObjectID ObjectID;
+	FSoundConcurrencySettings Settings;
 	int32 Generation;
 
 public:
 	/** Constructor for the max concurrency active sound entry. */
-	FConcurrencyGroup();
-	FConcurrencyGroup(struct FActiveSound* ActiveSound);
+	FConcurrencyGroup(FConcurrencyGroupID GroupID, const FConcurrencyHandle& ConcurrencyHandle);
 
-	/** Retrieves the active sounds array. */
-	TArray<FActiveSound*>& GetActiveSounds();
+	static FConcurrencyGroupID GenerateNewID();
 
-	/** Returns the number of active sounds in concurrency group. */
-	const int32 GetNumActiveSounds() const { return ActiveSounds.Num(); }
+	/** Returns the active sounds array. */
+	const TArray<FActiveSound*>& GetActiveSounds() const { return ActiveSounds; }
 
-	/** Retrieves the current generation */
+	/** Returns the id of the concurrency group */
+	FConcurrencyGroupID GetGroupID() const { return GroupID; }
+
+	/** Returns the current generation */
 	const int32 GetGeneration() const { return Generation; }
+
+	/** Returns the current generation */
+	const FSoundConcurrencySettings& GetSettings() const { return Settings; }
+
+	/** Returns the parent object ID */
+	FConcurrencyObjectID GetObjectID() const { return ObjectID; }
+
+	/** Determines if the group is full. */
+	bool IsEmpty() const { return ActiveSounds.Num() == 0; }
+
+	/** Determines if the group is full. */
+	bool IsFull() const { return Settings.MaxCount <= ActiveSounds.Num(); }
 
 	/** Adds an active sound to the active sound array. */
 	void AddActiveSound(struct FActiveSound* ActiveSound);
 
+	/** Removes an active sound from the active sound array. */
+	void RemoveActiveSound(FActiveSound* ActiveSound);
+
 	/** Sorts the active sound array by volume */
 	void StopQuietSoundsDueToMaxConcurrency();
-
-	FConcurrencyGroupID GetID() const { return ConcurrencyGroupID; }
 };
 
 typedef TMap<FConcurrencyGroupID, FConcurrencyGroup> FConcurrencyGroups;
@@ -161,37 +205,46 @@ typedef TMap<FSoundOwnerObjectID, FSoundInstanceEntry> FOwnerPerSoundConcurrency
 /** Maps sound object ids to active sound array for global concurrency limiting */
 typedef TMap<FSoundObjectID, FConcurrencyGroupID> FPerSoundToActiveSoundsMap;
 
+
 class FSoundConcurrencyManager
 {
 public:
 	FSoundConcurrencyManager(class FAudioDevice* InAudioDevice);
 	ENGINE_API ~FSoundConcurrencyManager();
 
+	void CreateNewGroupsFromHandles(
+		const FActiveSound& NewActiveSound,
+		const TArray<FConcurrencyHandle>& ConcurrencyHandles,
+		TArray<FConcurrencyGroup*>& OutGroupsToApply
+	);
+
 	/** Returns a newly allocated active sound given the input active sound struct. Will return nullptr if the active sound concurrency evaluation doesn't allow for it. */
 	FActiveSound* CreateNewActiveSound(const FActiveSound& NewActiveSound);
 
-	/** Removes the active sound from the manager to remove it from concurrency tracking. */
+	/** Removes the active sound from concurrency tracking. */
 	void RemoveActiveSound(FActiveSound* ActiveSound);
 
 	/** Stops any active sounds due to max concurrency quietest sound resolution rule */
 	void StopQuietSoundsDueToMaxConcurrency();
 
 private: // Methods
-	/** This function handles the concurrency evaluation that happens per USoundConcurrencyObject */
-	FActiveSound* HandleConcurrencyEvaluation(const FActiveSound& NewActiveSound);
+	/** Evaluates whether or not the sound can play given the concurrency group's rules. Appends permissible
+	sounds to evict in order for sound to play (if required) and returns the desired concurrency group. */
+	FConcurrencyGroup* CanPlaySound(const FActiveSound& NewActiveSound, const FConcurrencyGroupID GroupID, TArray<FActiveSound*>& OutSoundsToEvict);
 
-	/** This function handles the concurrency evaluation that happens per-voice rather than per USoundConcurrencyObject */
-	FActiveSound* HandleConcurrencyEvaluationOverride(const FActiveSound& NewActiveSound);
+	/** Creates a new concurrency group and returns pointer to said group */
+	FConcurrencyGroup& CreateNewConcurrencyGroup(const FConcurrencyHandle& ConcurrencyHandle);
 
-	/** Resolves the concurrency resolution rule for a given sound and its concurrency group */
-	FActiveSound* ResolveConcurrency(const FActiveSound& NewActiveSound, FConcurrencyGroup& ConcurrencyGroup);
+	/**  Creates an active sound to play, assigning it to the provided concurrency groups, and evicting required sounds */
+	FActiveSound* CreateAndEvictActiveSounds(const FActiveSound& NewActiveSound, const TArray<FConcurrencyGroup*>& GroupsToApply, const TArray<FActiveSound*>& SoundsToEvict);
 
-	FActiveSound* MakeNewActiveSound(const FActiveSound& NewActiveSound);
+	/** Finds an active sound able to be evicted based on the provided concurrency settings. */
+	FActiveSound* GetEvictableSound(const FActiveSound& NewActiveSound, const FConcurrencyGroup& ConcurrencyGroup);
 
-	FConcurrencyGroupID MakeNewConcurrencyGroupAndSound(FActiveSound** OutActiveSound, const FActiveSound& NewActiveSound);
+	/** Handles concurrency evaluation that happens per USoundConcurrencyObject */
+	FActiveSound* EvaluateConcurrency(const FActiveSound& NewActiveSound, TArray<FConcurrencyHandle>& ConcurrencyHandles);
 
 private: // Data
-
 	/** Owning audio device ptr for the concurrency manager. */
 	FAudioDevice* AudioDevice;
 
@@ -203,9 +256,9 @@ private: // Data
 	/** A map of owners to concurrency maps for sounds which are concurrency-limited per sound owner. */
 	FOwnerPerSoundConcurrencyMap OwnerPerSoundConcurrencyMap;
 
-	FPerSoundToActiveSoundsMap SoundObjectToActiveSounds;
+	/** Map of sound objects concurrency-limited globally */
+	FPerSoundToActiveSoundsMap SoundObjectToConcurrencyGroup;
 
 	/** A map of concurrency active sound ID to concurrency active sounds */
 	FConcurrencyGroups ConcurrencyGroups;
-
 };

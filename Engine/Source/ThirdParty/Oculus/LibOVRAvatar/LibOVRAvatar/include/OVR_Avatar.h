@@ -1,8 +1,8 @@
-/**************************************************
+/**********************************************************************************
 \file      OVR_Avatar.h
 \brief     OVR Avatar SDK public header file
-\copyright 2016 Oculus VR, LLC All Rights reserved.
-***************************************************/
+\copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
+***********************************************************************************/
 #ifndef OVR_Avatar_h
 #define OVR_Avatar_h
 
@@ -61,7 +61,7 @@ typedef enum ovrAvatarMessageType_ {
 
 
 /// Avatar Logging Level
-/// Mathes the Android Log Levels
+/// Matches the Android Log Levels
 typedef enum ovrAvatarLogLevel_ {
 	ovrAvatarLogLevel_Unknown = 0,
 	ovrAvatarLogLevel_Default, 
@@ -75,6 +75,12 @@ typedef enum ovrAvatarLogLevel_ {
 
 } ovrAvatarLogLevel;
 
+typedef enum ovrAvatarAssetLevelOfDetail_ {
+	ovrAvatarAssetLevelOfDetail_One = 1,
+	ovrAvatarAssetLevelOfDetail_Three = 3,
+	ovrAvatarAssetLevelOfDetail_Five = 5
+} ovrAvatarAssetLevelOfDetail;
+
 /// The avatar specification for the requested user ID.
 ///
 typedef struct ovrAvatarMessage_AvatarSpecification_ {
@@ -85,8 +91,9 @@ typedef struct ovrAvatarMessage_AvatarSpecification_ {
 /// The asset that has finished loading.
 ///
 typedef struct ovrAvatarMessage_AssetLoaded_ {
-	ovrAvatarAssetID assetID; ///< The asset id
-	ovrAvatarAsset* asset;    ///< The opaque asset type
+	ovrAvatarAssetID assetID; 			///< The asset id
+	ovrAvatarAsset* asset;    			///< The opaque asset type
+	ovrAvatarAssetLevelOfDetail lod; 	///< The level of detail of the asset
 } ovrAvatarMessage_AssetLoaded;
 
 /// Remove a message from the message queue if there are any.
@@ -154,6 +161,10 @@ OVRN_EXPORT(void) ovrAvatarSpecificationRequest_SetCombineMeshes(
 	ovrAvatarSpecificationRequest* request, 
 	bool useCombinedMesh);
 
+
+OVRN_EXPORT(void) ovrAvatarSpecificationRequest_SetLevelOfDetail(
+	ovrAvatarSpecificationRequest* request,
+	const ovrAvatarAssetLevelOfDetail lod);
 /// Avatar Specification Request Functions
 
 /// Request the avatar specification for a given user ID.
@@ -244,13 +255,6 @@ typedef enum ovrAvatarControllerType_
 
 	ovrAvatarControllerType_Count,
 } ovrAvatarControllerType;
-
-/// Level of Detail for Assets
-typedef enum ovrAvatarAssetLevelOfDetail_ {
-	ovrAvatarAssetLevelOfDetail_One = 1,
-	ovrAvatarAssetLevelOfDetail_Three = 3,
-	ovrAvatarAssetLevelOfDetail_Five = 5
-} ovrAvatarAssetLevelOfDetail;
 
 /// Look and Feel of Avatar Version
 typedef enum ovrAvatarLookAndFeelVersion_
@@ -751,7 +755,9 @@ typedef enum ovrAvatarAssetType_ {
     ovrAvatarAssetType_Pose,         ///< Internal type (to be removed in a future version)
     ovrAvatarAssetType_Material,     ///< Material asset
     ovrAvatarAssetType_CombinedMesh, ///< Combined Mesh asset
-    ovrAvatarAssetType_PBSMaterial,  ///< PBS Material asset
+	ovrAvatarAssetType_PBSMaterial,  ///< PBS Material asset
+
+	ovrAvatarAssetType_FailedLoad,   ///< Indicates the asset failed to load
     ovrAvatarAssetType_Count         ///< Count of different asset types
 } ovrAvatarAssetType;
 
@@ -844,6 +850,13 @@ typedef struct ovrAvatarTextureAssetData_ {
 ///
 OVRN_EXPORT (void) ovrAvatarAsset_BeginLoading(
 	ovrAvatarAssetID assetID);
+
+/// Begin loading asset.
+/// \param assetID asset ID
+/// \param assetLOD asset Level of Detail
+OVRN_EXPORT(void) ovrAvatarAsset_BeginLoadingLOD(
+	const ovrAvatarAssetID assetID,
+	const ovrAvatarAssetLevelOfDetail assetLOD);
 
 /// Get asset type.
 /// \param asset opaque pointer to asset

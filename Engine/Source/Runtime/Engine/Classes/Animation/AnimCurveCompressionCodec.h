@@ -52,6 +52,8 @@ class ENGINE_API UAnimCurveCompressionCodec : public UObject
 	/** Compresses the curve data from an animation sequence. */
 	virtual bool Compress(const UAnimSequence& AnimSeq, FAnimCurveCompressionResult& OutResult) PURE_VIRTUAL(UAnimCurveCompressionCodec::Compress, return false;);
 
+	/** Allow us to convert DDC serialized path back into codec object */
+	virtual UAnimCurveCompressionCodec* GetCodec(const FString& Path) { return this; }
 	/*
 	 * Called to generate a unique DDC key for this codec instance.
 	 * A suitable key should be generated from: the InstanceGuid, a codec version, and all relevant properties that drive the behavior.

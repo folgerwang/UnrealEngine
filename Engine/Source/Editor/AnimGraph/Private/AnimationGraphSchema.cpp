@@ -367,7 +367,9 @@ void UAnimationGraphSchema::DroppedAssetsOnPin(const TArray<FAssetData>& Assets,
 	UAnimationAsset* Asset = FAssetData::GetFirstAsset<UAnimationAsset>(Assets);
 	if ((Asset != NULL) && (Pin != NULL))
 	{
-		SpawnNodeFromAsset(Asset, GraphPosition, Pin->GetOwningNode()->GetGraph(), Pin);
+		// Don't have access to bounding information for node, using fixed offset that should work for most cases.
+		const FVector2D FixedOffset(-250.0f, 50.0f);
+		SpawnNodeFromAsset(Asset, GraphPosition + FixedOffset, Pin->GetOwningNode()->GetGraph(), Pin);
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRControllerFunctionLibrary.h"
 #include "GoogleVRController.h"
@@ -223,58 +223,6 @@ void UGoogleVRControllerFunctionLibrary::SetArmModelPointerTiltAngle(float TiltA
 	if(GVRController != nullptr)
 	{
 		GVRController->GetArmModelController().SetPointerTiltAngle(TiltAngle);
-	}
-#endif
-}
-
-EGoogleVRArmModelFollowGazeBehavior UGoogleVRControllerFunctionLibrary::GetArmModelGazeBehavior()
-{
-#if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
-	FGoogleVRController* GVRController = GetGoogleVRController();
-	if(GVRController != nullptr)
-	{
-		gvr_arm_model::Controller::GazeBehavior GazeBehavior = GVRController->GetArmModelController().GetGazeBehavior();
-		switch (GazeBehavior)
-		{
-			case gvr_arm_model::Controller::Never:
-				return EGoogleVRArmModelFollowGazeBehavior::Never;
-			case gvr_arm_model::Controller::DuringMotion:
-				return EGoogleVRArmModelFollowGazeBehavior::DuringMotion;
-			case gvr_arm_model::Controller::Always:
-				return EGoogleVRArmModelFollowGazeBehavior::Always;
-			default:
-				return EGoogleVRArmModelFollowGazeBehavior::Never;
-		}
-	}
-#endif
-
-	return EGoogleVRArmModelFollowGazeBehavior::Never;
-}
-
-void UGoogleVRControllerFunctionLibrary::SetArmModelGazeBehavior(EGoogleVRArmModelFollowGazeBehavior GazeBehavior)
-{
-#if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
-	FGoogleVRController* GVRController = GetGoogleVRController();
-	if(GVRController != nullptr)
-	{
-		gvr_arm_model::Controller::GazeBehavior NewGazeBehavior;
-		switch (GazeBehavior)
-		{
-			case EGoogleVRArmModelFollowGazeBehavior::Never:
-				NewGazeBehavior = gvr_arm_model::Controller::Never;
-				break;
-			case EGoogleVRArmModelFollowGazeBehavior::DuringMotion:
-				NewGazeBehavior = gvr_arm_model::Controller::DuringMotion;
-				break;
-			case EGoogleVRArmModelFollowGazeBehavior::Always:
-				NewGazeBehavior = gvr_arm_model::Controller::Always;
-				break;
-			default:
-				NewGazeBehavior = gvr_arm_model::Controller::Never;
-				break;
-		}
-
-		GVRController->GetArmModelController().SetGazeBehavior(NewGazeBehavior);
 	}
 #endif
 }

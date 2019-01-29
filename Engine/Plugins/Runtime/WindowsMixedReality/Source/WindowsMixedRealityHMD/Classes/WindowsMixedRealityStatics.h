@@ -9,7 +9,9 @@
 #include <DirectXMath.h>
 #pragma warning(default:4668)
 
+#if WITH_WINDOWS_MIXED_REALITY
 #include "MixedRealityInterop.h"
+#endif
 
 namespace WindowsMixedReality
 {
@@ -51,11 +53,12 @@ namespace WindowsMixedReality
 
 		static bool SupportsSpatialInput();
 
+#if WITH_WINDOWS_MIXED_REALITY
 		static MixedRealityInterop::HMDTrackingStatus GetControllerTrackingStatus(MixedRealityInterop::HMDHand hand);
 
 		static bool GetControllerOrientationAndPosition(MixedRealityInterop::HMDHand hand, FRotator& OutOrientation, FVector& OutPosition);
 
-		static void PollInput();
+		static bool PollInput();
 
 		static MixedRealityInterop::HMDInputPressState GetPressState(
 			WindowsMixedReality::MixedRealityInterop::HMDHand hand,
@@ -68,5 +71,9 @@ namespace WindowsMixedReality
 		static void SubmitHapticValue(
 			MixedRealityInterop::HMDHand hand,
 			float value);
+#endif
+		// Remoting
+		static void ConnectToRemoteHoloLens(FString remoteIP, unsigned int bitrate);
+		static void DisconnectFromRemoteHoloLens();
 	};
 }

@@ -2,7 +2,7 @@
 
 #include "GauntletTestController.h"
 #include "Engine/Engine.h"
-
+#include "Engine/GameViewportClient.h"
 
 
 UGauntletTestController::UGauntletTestController(const FObjectInitializer& ObjectInitializer)
@@ -41,6 +41,18 @@ FString UGauntletTestController::GetCurrentMap() const
 FGauntletModule* UGauntletTestController::GetGauntlet()
 {
 	return ParentModule;
+}
+
+UWorld* UGauntletTestController::GetWorld() const
+{
+	UGameInstance* GameInstance = GEngine->GameViewport->GetGameInstance();
+
+	return GameInstance ? GameInstance->GetWorld() : nullptr;
+}
+
+APlayerController* UGauntletTestController::GetFirstPlayerController() const
+{
+	return GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;	
 }
 
 void UGauntletTestController::EndTest(int32 ExitCode /*= 0*/)

@@ -5,7 +5,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "RenderDocPluginSettings.generated.h"
 
-UCLASS(config = RenderDocPlugin, meta = (DisplayName = "RenderDoc"))
+UCLASS(config = Engine, defaultconfig, meta = (DisplayName = "RenderDoc"))
 class RENDERDOCPLUGIN_API URenderDocPluginSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
@@ -52,9 +52,6 @@ public:
 		ToolTip = "Path to the main RenderDoc executable to use.",
 		ConfigRestartRequired = true))
 	FString RenderDocBinaryPath;
-
-public:
-	void SaveSettings();
 
 public:
 	virtual void PostInitProperties() override;

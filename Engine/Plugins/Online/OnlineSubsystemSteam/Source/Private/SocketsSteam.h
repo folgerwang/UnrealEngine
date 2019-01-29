@@ -48,14 +48,15 @@ PACKAGE_SCOPE:
 
 public:
 	/**
-	 * Assigns a Windows socket to this object
+	 * Creates a Steam socket
 	 *
 	 * @param InSocket the socket to assign to this object
 	 * @param InSocketType the type of socket that was created
 	 * @param InSocketDescription the debug description of the socket
+	 * @param InSocketProtocol the protocol used to create this socket.
 	 */
-	FSocketSteam(ISteamNetworking* InSteamNetworkingPtr, FUniqueNetIdSteam& InLocalSteamId, const FString& InSocketDescription) :
-		FSocket(SOCKTYPE_Datagram, InSocketDescription),
+	FSocketSteam(ISteamNetworking* InSteamNetworkingPtr, FUniqueNetIdSteam& InLocalSteamId, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol) :
+		FSocket(SOCKTYPE_Datagram, InSocketDescription, InSocketProtocol),
 		LocalSteamId(InLocalSteamId),
 		SteamChannel(0),
 		SteamSendMode(k_EP2PSendUnreliable),

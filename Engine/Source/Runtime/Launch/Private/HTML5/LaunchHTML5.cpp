@@ -3,12 +3,15 @@
 #include "CoreMinimal.h"
 #include "Misc/App.h"
 #include "Misc/OutputDeviceError.h"
+#include "HTML5/HTML5PlatformMisc.h"
 #include "Templates/ScopedPointer.h"
 #include "LaunchEngineLoop.h"
 #include "EngineAnalytics.h"
 #include "Interfaces/IAnalyticsProvider.h"
 THIRD_PARTY_INCLUDES_START
-	#include <SDL.h>
+	#ifdef HTML5_USE_SDL2
+		#include <SDL.h>
+	#endif
 	#include <emscripten/emscripten.h>
 	#include <emscripten/trace.h>
 	#include <emscripten/html5.h>
@@ -17,12 +20,14 @@ THIRD_PARTY_INCLUDES_END
 DEFINE_LOG_CATEGORY_STATIC(LogHTML5Launch, Log, All);
 
 #include <string.h>
+#include <locale.h>
 
 FEngineLoop	GEngineLoop;
 TCHAR GCmdLine[2048];
 
 void HTML5_Tick()
 {
+//	UE_LOG(LogTemp,Display,TEXT("HTML5_Tick"));
 	static uint32 FrameCount = 1;
 	char Buf[128];
 	sprintf(Buf, "Frame %u", FrameCount);
@@ -53,6 +58,7 @@ const char *beforeunload_callback(int eventType, const void *reserved, void *use
 
 void HTML5_Init ()
 {
+	UE_LOG(LogTemp,Display,TEXT("HTML5_Init"));
 	emscripten_trace_record_frame_start();
 
 	// initialize the engine
@@ -72,7 +78,9 @@ void HTML5_Init ()
 	emscripten_trace_record_frame_end();
 
 	// main loop
-	emscripten_set_main_loop(HTML5_Tick, 0, true);
+	emscripten_set_main_loop(HTML5_Tick, 0, false);
+	emscripten_set_main_loop_timing(EM_TIMING_SETIMMEDIATE, 0);
+	EM_ASM(throw 'SimulateInfiniteLoop');
 }
 
 class FHTML5Exec : private FSelfRegisteringExec
@@ -96,8 +104,28 @@ public:
 };
 static TUniquePtr<FHTML5Exec> GHTML5Exec;
 
-int main(int argc, char* argv[])
+/*
+#if HTML5_ENABLE_RENDERER_THREAD
+// Keep the HTML5 Canvas on the main thread to receive proxied WebGL events to.
+#define EMSCRIPTEN_PTHREAD_TRANSFERRED_CANVASES ""
+#else
+// Transfer the canvas to the main UE4 application thread so that OffscreenCanvas
+// can be used on it. Using OffscreenCanvas ties the WebGL context to being only
+// accessible from a single thread, so UE4 multithreaded rendering cannot be
+// enabled at the same time this is used.
+#define EMSCRIPTEN_PTHREAD_TRANSFERRED_CANVASES "#canvas"
+#endif
+*/
+
+int main(int argc, char** argv)
 {
+	// Specify the application wide locale to be UTF-8 aware. Without this,
+	// wprintf family of functions will fail on not being able to handle
+	// non-ASCII characters such as Scandinavian å, ä and ö. Even more,
+	// current UE_LOG() handling is not able to cope with these kind of
+	// failures, and would crash.
+	setlocale(LC_ALL, "C.UTF-8");
+
 	UE_LOG(LogHTML5Launch,Display,TEXT("Starting UE4 ... %s\n"), GCmdLine);
 
 	// TODO: configure this via the command line?
@@ -106,7 +134,10 @@ int main(int argc, char* argv[])
 
 	emscripten_trace_enter_context("main");
 
+#ifdef HTML5_USE_SDL2
+	EM_ASM({console.log("SDL_Init")});
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
+#endif
 	GCmdLine[0] = 0;
 	// to-do use Platform Str functions.
 	FCString::Strcpy(GCmdLine, TEXT(" "));

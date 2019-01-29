@@ -1471,7 +1471,7 @@ bool FUnixPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 	return !system(TCHAR_TO_UTF8(*Commandline));
 }
 
-bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
+bool FUnixPlatformProcess::ExecProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory)
 {
 	FString CmdLineParams = Params;
 	FString ExecutableFileName = URL;
@@ -1492,7 +1492,7 @@ bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, i
 	const bool bLaunchHidden = false;
 	const bool bLaunchReallyHidden = bLaunchHidden;
 
-	FProcHandle ProcHandle = FPlatformProcess::CreateProc(*ExecutableFileName, *CmdLineParams, bLaunchDetached, bLaunchHidden, bLaunchReallyHidden, NULL, 0, NULL, PipeWrite);
+	FProcHandle ProcHandle = FPlatformProcess::CreateProc(*ExecutableFileName, *CmdLineParams, bLaunchDetached, bLaunchHidden, bLaunchReallyHidden, NULL, 0, OptionalWorkingDirectory, PipeWrite);
 	if (ProcHandle.IsValid())
 	{
 		while (FPlatformProcess::IsProcRunning(ProcHandle))

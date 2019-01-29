@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # by rcl^epic
 
 SelfName=`basename $0`
@@ -22,7 +22,7 @@ ARCHELIBDIRECTORIES=("x86_64 lib64" "i686 lib" "ARM32 lib" "ARM64 lib64")
 BuildPlatform=`uname | awk '{print tolower($0)}'`
 
 if [ $BuildPlatform == "linux" ]; then
-        if [ `ls /var/.uecontainerinit*` == "" ]; then
+        if [ "`ls /var/.uecontainerinit*`" == "" ]; then
 		echo "You must run this script via ContainerBuildThirdParty.sh"
 		echo "e.g. sudo ./ContainerBuildThirdParty.sh -b Toolchain"
 		exit

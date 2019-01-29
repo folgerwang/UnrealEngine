@@ -19,7 +19,6 @@ class FGameFrame : public TSharedFromThis<FGameFrame, ESPMode::ThreadSafe>
 public:
 	uint32 FrameNumber;				// current frame number. (StartGameFrame_GameThread)
 	float WorldToMetersScale;		// World units (UU) to Meters scale. (OnStartGameFrame)
-	float MonoCullingDistance;		// Monoscopic camera culling distance (OnStartGameFrame)
 	FVector2D WindowSize;			// actual window size (StartGameFrame_GameThread)
 	FEngineShowFlags ShowFlags;		// (PreRenderViewFamily_RenderThread)
 

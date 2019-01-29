@@ -1278,11 +1278,11 @@ namespace UnrealBuildTool
 						if (Directory.Exists(MaliGraphicsDebuggerPath))
 						{
 							Directory.CreateDirectory(Path.Combine(UE4BuildPath, "libs", NDKArch));
-							string MaliLibSrcPath = Path.Combine(MaliGraphicsDebuggerPath, @"target\android-non-root\arm", NDKArch, "libMGD.so");
+							string MaliLibSrcPath = Path.Combine(MaliGraphicsDebuggerPath, "target", "android-non-root", "arm", NDKArch, "libMGD.so");
 							if (!File.Exists(MaliLibSrcPath))
 							{
 								// in v4.3.0 library location was changed
-								MaliLibSrcPath = Path.Combine(MaliGraphicsDebuggerPath, @"target\android\arm\unrooted", NDKArch, "libMGD.so");
+								MaliLibSrcPath = Path.Combine(MaliGraphicsDebuggerPath, "target", "android", "arm", "unrooted", NDKArch, "libMGD.so");
 							}
 							string MaliLibDstPath = Path.Combine(UE4BuildPath, "libs", NDKArch, "libMGD.so");
 
@@ -1307,6 +1307,21 @@ namespace UnrealBuildTool
 			}
 		}
 
+		void LogBuildSetup()
+		{
+			ConfigHierarchy Ini = GetConfigCacheIni(ConfigHierarchyType.Engine);
+			bool bBuildForES2 = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForES2", out bBuildForES2);
+			bool bBuildForES31 = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForES31", out bBuildForES31);
+			bool bSupportsVulkan = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSupportsVulkan", out bSupportsVulkan);
+
+			Log.TraceInformation("bBuildForES2: {0}", (bBuildForES2 ? "true" : "false"));
+			Log.TraceInformation("bBuildForES31: {0}", (bBuildForES31 ? "true" : "false"));
+			Log.TraceInformation("bSupportsVulkan: {0}", (bSupportsVulkan ? "true" : "false"));
+		}
+		
 		void CopyVulkanValidationLayers(string UE4BuildPath, string UE4Arch, string NDKArch, string Configuration)
 		{
 			bool bSupportsVulkan = false;
@@ -2987,6 +3002,8 @@ namespace UnrealBuildTool
 					throw new BuildException("Android SDK license file not found.  Please agree to license in Android project settings in the editor.");
 				}
 			}
+
+			LogBuildSetup();
 
 			bool bIsBuildMachine = Environment.GetEnvironmentVariable("IsBuildMachine") == "1";
 

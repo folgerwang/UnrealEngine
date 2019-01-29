@@ -217,7 +217,8 @@ dd {
   background: #F12742;
 }
 
-#nav-tree-contents .children_ul .item > a:first-child img {
+#nav-tree-contents .children_ul .item > a:first-child img,
+#nav-tree-contents .children_ul .item > a:first-child span {
   /* display: none; */
 
   position: relative;
@@ -227,9 +228,15 @@ dd {
   padding: 0 !important;
   filter: brightness(0);
 }
+#nav-tree-contents .children_ul .item > a:first-child span {
+  display: block;
+  font-size: 6px;
+  padding: 12px 0 0 12px !important;
+}
 
 #nav-tree-contents .children_ul .item > a {
   position: relative;
+  text-shadow: none;
 }
 
 #nav-tree-contents .children_ul[style*="display:none"] ~ .item a:before {
@@ -249,8 +256,8 @@ dd {
 
 #nav-tree-contents .children_ul .item > a:first-child {
   position: absolute;
-  top: 8px;
-  left: 12px;
+  top: 0;
+  left: 0;
 }
 
 #nav-tree-contents .children_ul .item .label a,
@@ -404,6 +411,7 @@ hr {
 }
 
 .contents table:not(.memname):not(.mlabels) img[alt="o"],
-.contents table:not(.memname):not(.mlabels) img[alt="\\"] {
-  display: none;
+.contents table:not(.memname):not(.mlabels) img[alt="\\"],
+.contents table .entry > span {
+  display: none !important;
 }

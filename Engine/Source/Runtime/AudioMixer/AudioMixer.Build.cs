@@ -31,19 +31,13 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
-			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
-				(Target.Platform == UnrealTargetPlatform.Win32))
-			{
-                PublicIncludePathModuleNames.Add("UELibSampleRate");
-
-                AddEngineThirdPartyPrivateStaticDependencies(Target,
+			AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",
 					"Vorbis",
 					"VorbisFile",
 					"libOpus",
-                    "UELibSampleRate"
-                    );
-			}
+					"UELibSampleRate"
+					);
 
 			// TODO test this for HTML5 !
 			//if (Target.Platform == UnrealTargetPlatform.HTML5)
@@ -89,6 +83,19 @@ namespace UnrealBuildTool.Rules
 				AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"libOpus"
 					);
+			}
+
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows))
+			{
+				string LibSndFilePath = Target.UEThirdPartyBinariesDirectory + "libsndfile/";
+				LibSndFilePath += Target.Platform == UnrealTargetPlatform.Win32
+					? "Win32"
+					: "Win64";
+					
+				PublicAdditionalLibraries.Add("libsndfile-1.lib");
+				PublicDelayLoadDLLs.Add("libsndfile-1.dll");
+				PublicIncludePathModuleNames.Add("UELibSampleRate");
+				PublicLibraryPaths.Add(LibSndFilePath);
 			}
 		}
 	}

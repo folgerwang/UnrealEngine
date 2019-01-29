@@ -86,7 +86,6 @@ namespace UnrealBuildTool
 			}
 
 			// look up Android specific settings
-			// @todo Lumin: When we subclass platform ini's, this would be Platform!!
 			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", ConfigBoolKeys.ToArray(), null, null))
 			{
 				return false;
@@ -266,7 +265,7 @@ namespace UnrealBuildTool
 			base.ValidateTarget(Target);
 
 			// #todo: ICU is crashing on startup, this is a workaround
-			Target.bCompileICU = false;
+			Target.bCompileICU = true;
 		}
 	}
 
@@ -276,7 +275,7 @@ namespace UnrealBuildTool
 		/// This is the minimum SDK version we support.
 		/// </summary>
 		static uint MinimumSDKVersionMajor = 0;
-		static uint MinimumSDKVersionMinor = 16;
+		static uint MinimumSDKVersionMinor = 19;
 
 		public override string GetSDKTargetPlatformName()
 		{
@@ -314,34 +313,11 @@ namespace UnrealBuildTool
 		protected override bool HasAnySDK()
 		{
 			string EnvVarKey = "MLSDK";
-			string IniVarKey = "MLSDKPath";
 
 			string MLSDKPath = Environment.GetEnvironmentVariable(EnvVarKey);
-			{
-				var configCacheIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, (DirectoryReference)null, UnrealTargetPlatform.Unknown);
-
-				string path;
-				if (GetPath(configCacheIni, "/Script/LuminPlatformEditor.MagicLeapSDKSettings", IniVarKey, out path) && !string.IsNullOrEmpty(path))
-				{
-					// if the folder specified by the config var doesn't exist, fall back to the env var.
-					if (Directory.Exists(path))
-					{
-						if (MLSDKPath != path)
-						{
-							Console.WriteLine("*** MLSDK environment variable differs from config file; overriding environment variable ***");
-						}
-
-						MLSDKPath = path;
-					}
-				}
-
-				// Set for the process
-				Environment.SetEnvironmentVariable(EnvVarKey, MLSDKPath);
-			}
-
-			// we don't have an MLSDK directory specified
 			if (String.IsNullOrEmpty(MLSDKPath))
 			{
+				Console.WriteLine("*** Unable to determine MLSDK location ***");
 				return false;
 			}
 
@@ -366,11 +342,12 @@ namespace UnrealBuildTool
 
 			if (DetectedMajorVersion < MinimumSDKVersionMajor || (DetectedMajorVersion == MinimumSDKVersionMajor && DetectedMinorVersion < MinimumSDKVersionMinor))
 			{
-				Console.WriteLine("*** Found installed MLSDK version {0}.{1} but require at least {2}.{3} ***",
-					DetectedMajorVersion, DetectedMinorVersion, MinimumSDKVersionMajor, MinimumSDKVersionMinor);
+				Console.WriteLine("*** Found installed MLSDK version {0}.{1} at '{2}' but require at least {3}.{4} ***",
+					DetectedMajorVersion, DetectedMinorVersion, MLSDKPath, MinimumSDKVersionMajor, MinimumSDKVersionMinor);
 				return false;
 			}
 
+			Console.WriteLine("*** Found installed MLSDK version {0}.{1} at '{2}' ***", DetectedMajorVersion, DetectedMinorVersion, MLSDKPath);
 			return true;
 		}
 

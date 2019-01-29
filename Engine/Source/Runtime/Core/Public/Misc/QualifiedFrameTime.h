@@ -4,6 +4,7 @@
 
 #include "Misc/FrameRate.h"
 #include "Misc/FrameTime.h"
+#include "Misc/Timecode.h"
 
 /**
  * A frame time qualified by a frame rate context
@@ -24,6 +25,15 @@ struct FQualifiedFrameTime
 	FQualifiedFrameTime(const FFrameTime& InTime, const FFrameRate& InRate)
 		: Time(InTime), Rate(InRate)
 	{}
+
+	/**
+	 * User construction from a timecode and its frame rate
+	 */
+	FQualifiedFrameTime(const FTimecode& InTimecode, const FFrameRate& InRate)
+		: Time(InTimecode.ToFrameNumber(InRate))
+		, Rate(InRate)
+	{
+	}
 
 public:
 

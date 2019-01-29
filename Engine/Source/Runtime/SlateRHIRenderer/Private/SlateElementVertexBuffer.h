@@ -8,6 +8,7 @@
 #include "SlateGlobals.h"
 #include "RHI.h"
 #include "RenderResource.h"
+#include "Containers/ResourceArray.h"
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex Buffer Memory (GPU)"), STAT_SlateVertexBufferMemory, STATGROUP_SlateMemory, );
 
@@ -168,4 +169,59 @@ private:
 	/** Hidden copy methods. */
 	TSlateElementVertexBuffer( const TSlateElementVertexBuffer& );
 	void operator=(const TSlateElementVertexBuffer& );
+};
+
+
+class FSlateStencilClipVertexBuffer : public FVertexBuffer
+{
+public:
+	FSlateStencilClipVertexBuffer()
+	{}
+
+	~FSlateStencilClipVertexBuffer() {};
+
+	/** Initializes the vertex buffers RHI resource. */
+	virtual void InitDynamicRHI()
+	{
+		if (!IsValidRef(VertexBufferRHI))
+		{
+			static FStencilBufferResourceArray ResourceArray;
+
+			FRHIResourceCreateInfo CreateInfo;
+			CreateInfo.ResourceArray = &ResourceArray;
+			VertexBufferRHI = RHICreateVertexBuffer(ResourceArray.GetResourceDataSize(), BUF_Static, CreateInfo);
+
+			// Ensure the vertex buffer could be created
+			check(IsValidRef(VertexBufferRHI));
+		}
+	}
+
+	/** Releases the vertex buffers RHI resource. */
+	virtual void ReleaseDynamicRHI()
+	{
+		VertexBufferRHI.SafeRelease();
+	}
+
+	/** Returns a friendly name for this buffer. */
+	virtual FString GetFriendlyName() const { return TEXT("SlateElementVertices"); }
+
+private:
+	struct FStencilBufferResourceArray : FResourceArrayInterface
+	{
+		virtual const void* GetResourceData() const override
+		{
+			static uint32 Verts[] = { 0, 1, 2, 3};
+			return Verts;
+		}
+
+		virtual uint32 GetResourceDataSize() const override
+		{
+			return sizeof(uint32) * 4;
+		}
+
+		virtual void Discard() override {}
+		virtual bool IsStatic() const override { return true; }
+		virtual bool GetAllowCPUAccess() const override { return false; }
+		virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
+	};
 };

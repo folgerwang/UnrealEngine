@@ -4,11 +4,12 @@
 #include "Misc/ConfigCacheIni.h"
 #include "SocketsSteam.h"
 #include "IPAddressSteam.h"
+#include "OnlineSubsystemSteam.h"
 #include "OnlineSessionInterfaceSteam.h"
 #include "SocketSubsystemModule.h"
 #include "SteamNetConnection.h"
 
-FSocketSubsystemSteam* FSocketSubsystemSteam::SocketSingleton = NULL;
+FSocketSubsystemSteam* FSocketSubsystemSteam::SocketSingleton = nullptr;
 
 /**
  * Create the socket subsystem for the given platform service
@@ -21,7 +22,7 @@ FName CreateSteamSocketSubsystem()
 	if (SocketSubsystem->Init(Error))
 	{
 		FSocketSubsystemModule& SSS = FModuleManager::LoadModuleChecked<FSocketSubsystemModule>("Sockets");
-		SSS.RegisterSocketSubsystem(STEAM_SUBSYSTEM, SocketSubsystem, true);
+		SSS.RegisterSocketSubsystem(STEAM_SUBSYSTEM, SocketSubsystem, SocketSubsystem->ShouldOverrideDefaultSubsystem());
 		return STEAM_SUBSYSTEM;
 	}
 	else
@@ -52,7 +53,7 @@ void DestroySteamSocketSubsystem()
  */
 FSocketSubsystemSteam* FSocketSubsystemSteam::Create()
 {
-	if (SocketSingleton == NULL)
+	if (SocketSingleton == nullptr)
 	{
 		SocketSingleton = new FSocketSubsystemSteam();
 	}
@@ -65,11 +66,11 @@ FSocketSubsystemSteam* FSocketSubsystemSteam::Create()
  */
 void FSocketSubsystemSteam::Destroy()
 {
-	if (SocketSingleton != NULL)
+	if (SocketSingleton != nullptr)
 	{
 		SocketSingleton->Shutdown();
 		delete SocketSingleton;
-		SocketSingleton = NULL;
+		SocketSingleton = nullptr;
 	}
 }
 
@@ -92,6 +93,11 @@ bool FSocketSubsystemSteam::Init(FString& Error)
 		if (!GConfig->GetFloat(TEXT("OnlineSubsystemSteam"), TEXT("P2PConnectionTimeout"), P2PConnectionTimeout, GEngineIni))
 		{
 			UE_LOG_ONLINE(Warning, TEXT("Missing P2PConnectionTimeout key in OnlineSubsystemSteam of DefaultEngine.ini"));
+		}
+
+		if (!GConfig->GetDouble(TEXT("OnlineSubsystemSteam"), TEXT("P2PCleanupTimeout"), P2PCleanupTimeout, GEngineIni))
+		{
+			UE_LOG_ONLINE(Log, TEXT("Missing P2PCleanupTimeout key in OnlineSubsystemSteam of DefaultEngine.ini, using default"));
 		}
 	}
 
@@ -122,15 +128,20 @@ void FSocketSubsystemSteam::Shutdown()
 		}
 	}
 
-	// Cleanup any remaining sessions
-	TArray<FUniqueNetIdSteam> SessionIds;
-	AcceptedConnections.GenerateKeyArray(SessionIds);
-	for (int SessionIdx=0; SessionIdx < SessionIds.Num(); SessionIdx++)
-	{
-		P2PRemove(SessionIds[SessionIdx]);
-	}
+	UE_LOG_ONLINE(Verbose, TEXT("Shutting down SteamNet connections"));
 	
-	CleanupDeadConnections();
+	// Empty the DeadConnections list as we're shutting down anyways
+	// This is so we don't spend time checking the DeadConnections
+	// for duplicate pending closures
+	DeadConnections.Empty();
+
+	// Cleanup any remaining sessions
+	for (auto SessionIds : AcceptedConnections)
+	{
+		P2PRemove(SessionIds.Key, -1);
+	}
+
+	CleanupDeadConnections(true);
 
 	// Cleanup sockets
 	TArray<FSocketSteam*> TempArray = SteamSockets;
@@ -156,14 +167,14 @@ void FSocketSubsystemSteam::Shutdown()
  */
 FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType)
 {
-	FSocket* NewSocket = NULL;
+	FSocket* NewSocket = nullptr;
 	if (SocketType == FName("SteamClientSocket"))
 	{
 		ISteamUser* SteamUserPtr = SteamUser();
-		if (SteamUserPtr != NULL)
+		if (SteamUserPtr != nullptr)
 		{
 			FUniqueNetIdSteam ClientId(SteamUserPtr->GetSteamID());
-			NewSocket = new FSocketSteam(SteamNetworking(), ClientId, SocketDescription);
+			NewSocket = new FSocketSteam(SteamNetworking(), ClientId, SocketDescription, ProtocolType);
 
 			if (NewSocket)
 			{
@@ -180,12 +191,12 @@ FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FStr
 			// If the GameServer connection hasn't been created yet, mark the socket as invalid for now
 			if (SessionInt->bSteamworksGameServerConnected && SessionInt->GameServerSteamId->IsValid() && SessionInt->bPolicyResponseReceived)
 			{
-				NewSocket = new FSocketSteam(SteamGameServerNetworking(), *SessionInt->GameServerSteamId, SocketDescription);
+				NewSocket = new FSocketSteam(SteamGameServerNetworking(), *SessionInt->GameServerSteamId, SocketDescription, ProtocolType);
 			}
 			else
 			{
 				FUniqueNetIdSteam InvalidId(uint64(0));
-				NewSocket = new FSocketSteam(SteamGameServerNetworking(), InvalidId, SocketDescription);
+				NewSocket = new FSocketSteam(SteamGameServerNetworking(), InvalidId, SocketDescription, ProtocolType);
 			}
 
 			if (NewSocket)
@@ -252,11 +263,13 @@ void FSocketSubsystemSteam::RegisterConnection(USteamNetConnection* Connection)
 	FWeakObjectPtr ObjectPtr = Connection;
 	SteamConnections.Add(ObjectPtr);
 
-	if (Connection->RemoteAddr.IsValid() && Connection->Socket)
+	if (Connection->GetInternetAddr().IsValid() && Connection->Socket)
 	{
 		FSocketSteam* SteamSocket = (FSocketSteam*)Connection->Socket;
-		FInternetAddrSteam& SteamAddr = (FInternetAddrSteam&)(*Connection->RemoteAddr);
-		P2PTouch(SteamSocket->SteamNetworkingPtr, SteamAddr.SteamId);
+		TSharedPtr<const FInternetAddrSteam> SteamAddr = StaticCastSharedPtr<const FInternetAddrSteam>(Connection->GetInternetAddr());
+
+		UE_LOG_ONLINE(Log, TEXT("Adding user %s from RegisterConnection"), *SteamAddr->ToString(true));
+		P2PTouch(SteamSocket->SteamNetworkingPtr, SteamAddr->SteamId, SteamAddr->SteamChannel);
 	}
 }
 
@@ -270,21 +283,20 @@ void FSocketSubsystemSteam::UnregisterConnection(USteamNetConnection* Connection
 	check(!Connection->bIsPassthrough);
 
 	FWeakObjectPtr ObjectPtr = Connection;
-	int32 NumRemoved = SteamConnections.RemoveSingleSwap(ObjectPtr);
 
 	// Don't call P2PRemove again if we didn't actually remove a connection. This 
 	// will get called twice - once the connection is closed and when the connection
 	// is garbage collected. It's possible that the player who left rejoined before garbage
 	// collection runs (their connection object will be different), so P2PRemove would kick
 	// them from the session when it shouldn't.
-	if (NumRemoved > 0 && Connection->RemoteAddr.IsValid())
+	if (SteamConnections.RemoveSingleSwap(ObjectPtr) == 1 && Connection->GetInternetAddr().IsValid())
 	{
-		FInternetAddrSteam& SteamAddr = (FInternetAddrSteam&)(*Connection->RemoteAddr);
-		P2PRemove(SteamAddr.SteamId, SteamAddr.SteamChannel);
+		TSharedPtr<const FInternetAddrSteam> SteamAddr = StaticCastSharedPtr<const FInternetAddrSteam>(Connection->GetInternetAddr());
+		P2PRemove(SteamAddr->SteamId, SteamAddr->SteamChannel);
 	}
 }
 
-void FSocketSubsystemSteam::ConnectFailure(FUniqueNetIdSteam& RemoteId)
+void FSocketSubsystemSteam::ConnectFailure(const FUniqueNetIdSteam& RemoteId)
 {
 	// Remove any GC'd references
 	for (int32 ConnIdx=SteamConnections.Num()-1; ConnIdx>=0; ConnIdx--)
@@ -299,16 +311,16 @@ void FSocketSubsystemSteam::ConnectFailure(FUniqueNetIdSteam& RemoteId)
 	for (int32 ConnIdx=0; ConnIdx<SteamConnections.Num(); ConnIdx++)
 	{
 		USteamNetConnection* SteamConn = CastChecked<USteamNetConnection>(SteamConnections[ConnIdx].Get());
-		FInternetAddrSteam& RemoteAddrSteam = (FInternetAddrSteam&)*(SteamConn->RemoteAddr);
+		TSharedPtr<const FInternetAddrSteam> RemoteAddrSteam = StaticCastSharedPtr<const FInternetAddrSteam>(SteamConn->GetInternetAddr());
 
 		// Only checking Id here because its a complete failure (channel doesn't matter)
-		if (RemoteAddrSteam.SteamId == RemoteId)
+		if (RemoteAddrSteam->SteamId == RemoteId)
 		{
 			SteamConn->Close();
 		}
 	}
 
-	P2PRemove(RemoteId);
+	P2PRemove(RemoteId, -1);
 }
 
 /**
@@ -406,7 +418,7 @@ ESocketErrors FSocketSubsystemSteam::TranslateErrorCode(int32 Code)
  */
 TSharedRef<FInternetAddr> FSocketSubsystemSteam::GetLocalBindAddr(FOutputDevice& Out)
 {
-	FInternetAddrSteam* SteamAddr = NULL;
+	FInternetAddrSteam* SteamAddr = nullptr;
 	CSteamID SteamId;
 	if (SteamUser())
 	{
@@ -437,13 +449,15 @@ TSharedRef<FInternetAddr> FSocketSubsystemSteam::GetLocalBindAddr(FOutputDevice&
  * 
  * @return true if accepted, false otherwise
  */
-bool FSocketSubsystemSteam::AcceptP2PConnection(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& RemoteId)
+bool FSocketSubsystemSteam::AcceptP2PConnection(ISteamNetworking* SteamNetworkingPtr, const FUniqueNetIdSteam& RemoteId)
 {
-	if (SteamNetworkingPtr && RemoteId.IsValid() && DeadConnections.Find(RemoteId) == NULL)
+	if (SteamNetworkingPtr && RemoteId.IsValid() && !IsConnectionPendingRemoval(RemoteId, -1))
 	{
+		UE_LOG_ONLINE(Log, TEXT("Adding P2P connection information with user %s (Name: %s)"), *RemoteId.ToString(), *RemoteId.ToDebugString());
 		// Blindly accept connections (but only if P2P enabled)
 		SteamNetworkingPtr->AcceptP2PSessionWithUser(RemoteId);
-		AcceptedConnections.Add(RemoteId, FSteamP2PConnectionInfo(SteamNetworkingPtr, FPlatformTime::Seconds()));
+		UE_CLOG_ONLINE(AcceptedConnections.Contains(RemoteId), Warning, TEXT("User %s already exists in the connections list!!"), *RemoteId.ToString());
+		AcceptedConnections.Add(RemoteId, FSteamP2PConnectionInfo(SteamNetworkingPtr));
 		return true;
 	}
 
@@ -455,15 +469,22 @@ bool FSocketSubsystemSteam::AcceptP2PConnection(ISteamNetworking* SteamNetworkin
  *
  * @param SteamNetworkingPtr proper networking interface that this session is communicating on
  * @param SessionId P2P session recently heard from
+ * @param ChannelId the channel id that the update happened on
  *
  * @return true if the connection is active, false if this is in the dead connections list
  */
-bool FSocketSubsystemSteam::P2PTouch(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& SessionId)
+bool FSocketSubsystemSteam::P2PTouch(ISteamNetworking* SteamNetworkingPtr, const FUniqueNetIdSteam& SessionId, int32 ChannelId)
 {
     // Don't update any sessions coming from pending disconnects
-	if (DeadConnections.Find(SessionId) == NULL)
+	if (!IsConnectionPendingRemoval(SessionId, ChannelId))
 	{
-		AcceptedConnections.Add(SessionId, FSteamP2PConnectionInfo(SteamNetworkingPtr, FPlatformTime::Seconds()));
+		FSteamP2PConnectionInfo& ChannelUpdate = AcceptedConnections.FindOrAdd(SessionId);
+		ChannelUpdate.SteamNetworkingPtr = SteamNetworkingPtr;
+
+		if (ChannelId != -1)
+		{
+			ChannelUpdate.AddOrUpdateChannel(ChannelId, FPlatformTime::Seconds());
+		}
 		return true;
 	}
 
@@ -476,17 +497,103 @@ bool FSocketSubsystemSteam::P2PTouch(ISteamNetworking* SteamNetworkingPtr, FUniq
  * @param SessionId P2P session to remove
  * @param Channel channel to close, -1 to close all communication
  */
-void FSocketSubsystemSteam::P2PRemove(FUniqueNetIdSteam& SessionId, int32 Channel)
+void FSocketSubsystemSteam::P2PRemove(const FUniqueNetIdSteam& SessionId, int32 Channel)
 {
 	FSteamP2PConnectionInfo* ConnectionInfo = AcceptedConnections.Find(SessionId);
 	if (ConnectionInfo)
 	{
-        // Move active connections to the dead list so they can be removed (giving Steam a chance to flush connection)
-		DeadConnections.Add(SessionId, FSteamP2PConnectionInfo(ConnectionInfo->SteamNetworkingPtr, FPlatformTime::Seconds(), Channel));
+		const bool bRemoveAllConnections = (Channel == -1);
+		
+		// Only modify the DeadConnections list if we're actively going to change it
+		if (!IsConnectionPendingRemoval(SessionId, Channel))
+		{
+			if (bRemoveAllConnections)
+			{
+				UE_LOG_ONLINE(Verbose, TEXT("Replacing all existing removals with global removal for %s"), *SessionId.ToString());
+				// Go through and remove all the connections for this user
+				for (TMap<FInternetAddrSteam, double>::TIterator It(DeadConnections); It; ++It)
+				{
+					if (It->Key.SteamId == SessionId)
+					{
+						It.RemoveCurrent();
+					}
+				}
+			}
+
+			// Move active connections to the dead list so they can be removed (giving Steam a chance to flush connection)
+			FInternetAddrSteam RemoveConnection(SessionId);
+			RemoveConnection.SetPort(Channel);
+			DeadConnections.Add(RemoveConnection, FPlatformTime::Seconds());
+
+			UE_LOG_ONLINE(Log, TEXT("Removing P2P Session Id: %s, Channel: %d, IdleTime: %0.3f"), *SessionId.ToDebugString(), Channel, 
+				ConnectionInfo ? (FPlatformTime::Seconds() - ConnectionInfo->LastReceivedTime) : 9999.f);
+		}
+
+		if (bRemoveAllConnections)
+		{
+			// Clean up dead connections will remove the user from the map for us
+			UE_CLOG_ONLINE((ConnectionInfo->ConnectedChannels.Num() > 0), Verbose, TEXT("Removing all channel connections for %s"), *SessionId.ToString());
+			ConnectionInfo->ConnectedChannels.Empty();
+		}
+		else
+		{
+			bool bWasRemoved = ConnectionInfo->ConnectedChannels.Remove(Channel) > 0;
+			UE_CLOG_ONLINE(bWasRemoved, Verbose, TEXT("Removing channel %d from user %s"), Channel, *SessionId.ToString());
+		}
+	}
+}
+
+/**
+ * Checks to see if a Steam P2P Connection is pending close on the given channel.
+ *
+ * Before checking the given channel, this function checks if the session is marked for
+ * global disconnection.
+ *
+ * @param SessionId the user id tied to the session disconnection
+ * @param Channel the communications channel id for the user if it exists
+ */
+bool FSocketSubsystemSteam::IsConnectionPendingRemoval(const FUniqueNetIdSteam& SteamId, int32 Channel)
+{
+	FInternetAddrSteam RemovalToFind(SteamId);
+	RemovalToFind.SetPort(-1);
+
+	// Check with -1 first as that ends all communications with another user
+	if (!DeadConnections.Contains(RemovalToFind))
+	{
+		// If we were asked to check for -1, then early out as we've already checked the entry
+		if (Channel == -1)
+		{
+			return false;
+		}
+
+		// Then look for the specific channel instance.
+		RemovalToFind.SetPort(Channel);
+		return DeadConnections.Contains(RemovalToFind);
 	}
 
-	UE_LOG_ONLINE(Log, TEXT("Removing P2P Session Id: %s, IdleTime: %0.3f"), *SessionId.ToDebugString(), ConnectionInfo ? (FPlatformTime::Seconds() - ConnectionInfo->LastReceivedTime) : 9999.f);
-	AcceptedConnections.Remove(SessionId);
+	return true;
+}
+
+/**
+ * Determines if the SocketSubsystemSteam should override the platform
+ * socket subsystem. This means ISocketSubsystem::Get() will return this subsystem
+ * by default. However, the platform subsystem will still be accessible by
+ * specifying ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM) as well as via
+ * passthrough operations.
+ *
+ * If the project does not want to use SteamNetworking features, add
+ * bUseSteamNetworking=false to your OnlineSubsystemSteam configuration
+ *
+ * @return if SteamNetworking should be the default socketsubsystem.
+ */
+bool FSocketSubsystemSteam::ShouldOverrideDefaultSubsystem() const
+{
+	bool bOverrideSetting;
+	if (GConfig && GConfig->GetBool(TEXT("OnlineSubsystemSteam"), TEXT("bUseSteamNetworking"), bOverrideSetting, GEngineIni))
+	{
+		return bOverrideSetting;
+	}
+	return true;
 }
 
 /**
@@ -508,7 +615,6 @@ bool FSocketSubsystemSteam::Tick(float DeltaTime)
 		bDumpSessionInfo = true;
 	}
 
-	TArray<FUniqueNetIdSteam> ExpiredSessions;
 	for (TMap<FUniqueNetIdSteam, FSteamP2PConnectionInfo>::TConstIterator It(AcceptedConnections); It; ++It)
 	{
 		const FUniqueNetIdSteam& SessionId = It.Key();
@@ -518,19 +624,19 @@ bool FSocketSubsystemSteam::Tick(float DeltaTime)
 		if (CurSeconds - ConnectionInfo.LastReceivedTime < P2PConnectionTimeout)
 		{
 			P2PSessionState_t SessionInfo;
-			if (ConnectionInfo.SteamNetworkingPtr != NULL && ConnectionInfo.SteamNetworkingPtr->GetP2PSessionState(SessionId, &SessionInfo))
+			if (ConnectionInfo.SteamNetworkingPtr != nullptr && ConnectionInfo.SteamNetworkingPtr->GetP2PSessionState(SessionId, &SessionInfo))
 			{
 				bExpiredSession = false;
 
 				if (bDumpSessionInfo)
 				{
 					UE_LOG_ONLINE(Verbose, TEXT("Dumping Steam P2P socket details:"));
-					UE_LOG_ONLINE(Verbose, TEXT("- Id: %s, IdleTime: %0.3f"), *SessionId.ToDebugString(), (CurSeconds - ConnectionInfo.LastReceivedTime));
+					UE_LOG_ONLINE(Verbose, TEXT("- Id: %s, Number of Channels: %d, IdleTime: %0.3f"), *SessionId.ToDebugString(), ConnectionInfo.ConnectedChannels.Num(), (CurSeconds - ConnectionInfo.LastReceivedTime));
 
 					DumpSteamP2PSessionInfo(SessionInfo);
 				}
 			}
-			else
+			else if(ConnectionInfo.ConnectedChannels.Num() > 0) // Suppress this print so that it only prints if we expected to have a connection.
 			{
 				UE_LOG_ONLINE(Verbose, TEXT("Failed to get Steam P2P session state for Id: %s, IdleTime: %0.3f"), *SessionId.ToDebugString(), (CurSeconds - ConnectionInfo.LastReceivedTime));
 			}
@@ -538,53 +644,79 @@ bool FSocketSubsystemSteam::Tick(float DeltaTime)
 
 		if (bExpiredSession)
 		{
-			ExpiredSessions.Add(SessionId);
+			P2PRemove(SessionId, -1);
 		}
 	}
 
-	// Cleanup any closed/invalid sessions
-	for (int32 SessionIdx=0; SessionIdx < ExpiredSessions.Num(); SessionIdx++)
-	{
-		FUniqueNetIdSteam& SessionId = ExpiredSessions[SessionIdx];
-		P2PRemove(SessionId);
-	}
-
-	CleanupDeadConnections();
+	CleanupDeadConnections(false);
 
 	return true;
+}
+
+bool FSocketSubsystemSteam::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+#if !UE_BUILD_SHIPPING
+	if (FParse::Command(&Cmd, TEXT("dumpsteamsessions")))
+	{
+		DumpAllOpenSteamSessions();
+		return true;
+	}
+#endif
+
+	return false;
 }
 
 /**
  * Iterate through the pending dead connections and permanently remove any that have been around
  * long enough to flush their contents
+ * 
+ * @param bSkipLinger skips the timeout reserved for lingering connection data
  */
-void FSocketSubsystemSteam::CleanupDeadConnections()
+void FSocketSubsystemSteam::CleanupDeadConnections(bool bSkipLinger)
 {
 	double CurSeconds = FPlatformTime::Seconds();
-	TArray<FUniqueNetIdSteam> ExpiredSessions;
-	for (TMap<FUniqueNetIdSteam, FSteamP2PConnectionInfo>::TConstIterator It(DeadConnections); It; ++It)
+	for (TMap<FInternetAddrSteam, double>::TIterator It(DeadConnections); It; ++It)
 	{
-		const FUniqueNetIdSteam& SessionId = It.Key();
-		const FSteamP2PConnectionInfo& ConnectionInfo = It.Value();
-		if (CurSeconds - ConnectionInfo.LastReceivedTime >= 3.0f)
+		const FInternetAddrSteam& SteamConnection = It.Key();
+		if (P2PCleanupTimeout == 0.0 || CurSeconds - It.Value() >= P2PCleanupTimeout || bSkipLinger)
 		{
-			if (ConnectionInfo.Channel == -1)
+			// Only modify connections if the user exists. This check is only done for safety
+			if (AcceptedConnections.Contains(SteamConnection.SteamId))
 			{
-				ConnectionInfo.SteamNetworkingPtr->CloseP2PSessionWithUser(SessionId);
-			}
-			else
-			{
-				ConnectionInfo.SteamNetworkingPtr->CloseP2PChannelWithUser(SessionId, ConnectionInfo.Channel);
+				const FSteamP2PConnectionInfo& ConnectionInfo = AcceptedConnections[SteamConnection.SteamId];
+				bool bShouldRemoveUser = true;
+				// All communications are to be removed
+				if (SteamConnection.GetPort() == -1)
+				{
+					UE_LOG_ONLINE(Log, TEXT("Closing all communications with user %s"), *SteamConnection.ToString(false));
+					ConnectionInfo.SteamNetworkingPtr->CloseP2PSessionWithUser(SteamConnection.SteamId);
+				}
+				else
+				{
+					UE_LOG_ONLINE(Log, TEXT("Closing channel %d with user %s"), SteamConnection.SteamChannel, *SteamConnection.ToString(false));
+					ConnectionInfo.SteamNetworkingPtr->CloseP2PChannelWithUser(SteamConnection.SteamId, SteamConnection.SteamChannel);
+					// If we no longer have any channels open with the user, we must remove the user, as Steam will do this automatically.
+					if (ConnectionInfo.ConnectedChannels.Num() != 0)
+					{
+						bShouldRemoveUser = false;
+						UE_LOG_ONLINE(Verbose, TEXT("%s still has %d open connections."), *SteamConnection.ToString(false), ConnectionInfo.ConnectedChannels.Num());
+					}
+					else
+					{
+						UE_LOG_ONLINE(Verbose, TEXT("%s has no more open connections! Going to remove"), *SteamConnection.ToString(false));
+					}
+				}
+
+				if (bShouldRemoveUser)
+				{
+					// Remove the user information from our current connections as they are no longer connected to us.
+					UE_LOG_ONLINE(Log, TEXT("%s has been removed."), *SteamConnection.ToString(false));
+					AcceptedConnections.Remove(SteamConnection.SteamId);
+				}
 			}
 
-			ExpiredSessions.Add(SessionId);
+			It.RemoveCurrent();
 		}
-	}
-
-	for (int32 SessionIdx=0; SessionIdx < ExpiredSessions.Num(); SessionIdx++)
-	{
-		FUniqueNetIdSteam& SessionId = ExpiredSessions[SessionIdx];
-		DeadConnections.Remove(SessionId);
 	}
 }
 
@@ -603,4 +735,23 @@ void FSocketSubsystemSteam::DumpSteamP2PSessionInfo(P2PSessionState_t& SessionIn
 		SessionInfo.m_bUsingRelay);
 	UE_LOG_ONLINE(Verbose, TEXT("-- QueuedBytes: %i, QueuedPackets: %i"), SessionInfo.m_nBytesQueuedForSend,
 		SessionInfo.m_nPacketsQueuedForSend);
+}
+
+/**
+ * Dumps all connection information for each user connection over SteamNet.
+ */
+void FSocketSubsystemSteam::DumpAllOpenSteamSessions()
+{
+	UE_LOG_ONLINE(Verbose, TEXT("Current Connection Info: "));
+	for (TMap<FUniqueNetIdSteam, FSteamP2PConnectionInfo>::TConstIterator It(AcceptedConnections); It; ++It)
+	{
+		UE_LOG_ONLINE(Verbose, TEXT("- Connection %s"), *It->Key.ToDebugString());
+		UE_LOG_ONLINE(Verbose, TEXT("--  Last Update Time: %d"), It->Value.LastReceivedTime);
+		FString ConnectedChannels(TEXT(""));
+		for (int32 i = 0; i < It->Value.ConnectedChannels.Num(); ++i)
+		{
+			ConnectedChannels = FString::Printf(TEXT("%s %d"), *ConnectedChannels, It->Value.ConnectedChannels[i]);
+		}
+		UE_LOG_ONLINE(Verbose, TEXT("--  Channels:%s"), *ConnectedChannels);
+	}
 }

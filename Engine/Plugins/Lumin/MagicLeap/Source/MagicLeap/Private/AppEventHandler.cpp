@@ -49,8 +49,12 @@ namespace MagicLeap
 		return UTF8_TO_TCHAR("");
 	}
 
-	IAppEventHandler::IAppEventHandler(TArray<MLPrivilegeID> InRequiredPrivilegeIDs)
-	: bAllPrivilegesInSync(false)
+	IAppEventHandler::IAppEventHandler(const TArray<MLPrivilegeID>& InRequiredPrivilegeIDs)
+	: OnAppShutDownHandler(nullptr)
+	, OnAppTickHandler(nullptr)
+	, OnAppPauseHandler(nullptr)
+	, OnAppResumeHandler(nullptr)
+	, bAllPrivilegesInSync(false)
 	, bWasSystemEnabledOnPause(false)
 	{
 		RequiredPrivileges.Reserve(InRequiredPrivilegeIDs.Num());
@@ -116,6 +120,14 @@ namespace MagicLeap
 	}
 #endif // WITH_MLSDK
 
+	void IAppEventHandler::OnAppShutDown()
+	{
+		if (OnAppShutDownHandler)
+		{
+			OnAppShutDownHandler();
+		}
+	}
+
 	void IAppEventHandler::OnAppTick()
 	{
 #if WITH_MLSDK
@@ -172,6 +184,19 @@ namespace MagicLeap
 			}
 		}
 #endif // WITH_MLSDK
+
+		if (OnAppTickHandler)
+		{
+			OnAppTickHandler();
+		}
+	}
+
+	void IAppEventHandler::OnAppPause()
+	{
+		if (OnAppPauseHandler)
+		{
+			OnAppPauseHandler();
+		}
 	}
 
 	void IAppEventHandler::OnAppResume()
@@ -184,10 +209,15 @@ namespace MagicLeap
 			ItRequiredPrivilege.Value.State = EPrivilegeState::NotYetRequested;
 		}
 #endif // WITH_MLSDK
+
+		if (OnAppResumeHandler)
+		{
+			OnAppResumeHandler();
+		}
 	}
 
-	void IAppEventHandler::AsyncDestroy()
+	bool IAppEventHandler::AsyncDestroy()
 	{
-		FAppFramework::AsyncDestroy(this);
+		return FAppFramework::AsyncDestroy(this);
 	}
 }

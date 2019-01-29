@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidPermission.h"
 #include "AndroidPermissionFunctionLibrary.h"

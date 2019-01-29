@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRHMDFunctionLibrary.h"
 #include "GoogleVRHMD.h"
@@ -125,7 +125,11 @@ bool UGoogleVRHMDFunctionLibrary::IsInDaydreamMode()
 	FGoogleVRHMD* HMD = GetHMD();
 	if(HMD)
 	{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+		return (HMD->GetViewerType() == GVR_VIEWER_TYPE_DAYDREAM);
+#else
 		return HMD->IsInDaydreamMode();
+#endif
 	}
 
 	return false;
@@ -370,4 +374,15 @@ bool UGoogleVRHMDFunctionLibrary::GetRecenterTransform(FQuat& RecenterOrientatio
 	}
 #endif
 	return false;
+}
+
+void UGoogleVRHMDFunctionLibrary::SetRecenterControllerOnly(bool bIsRecenterControllerOnly)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	FGoogleVRHMD* HMD = GetHMD();
+	if (HMD)
+	{
+		HMD->SetRecenterControllerOnly(bIsRecenterControllerOnly);
+	}
+#endif
 }

@@ -54,6 +54,26 @@ public partial class Project : CommandUtils
 			);
 	}
 
+	static Mutex DSBlockMutex = null;
+
+	static void CreateDeploymentServerMutex()
+	{
+		bool bCreatedMutex = false;
+		String MutexName = "Global\\DeploymentServer_Mutex_RestartNotAllowed";
+		DSBlockMutex = new Mutex(true, MutexName, out bCreatedMutex); // we don'e really care if ia already created here, we just want it to be active when we're building
+	}
+
+	static void CloseDeploymentServerMutex()
+	{
+		// Release the mutex to avoid the abandoned mutex timeout.
+		if (DSBlockMutex != null)
+		{
+			DSBlockMutex.ReleaseMutex();
+			DSBlockMutex.Dispose();
+			DSBlockMutex = null;
+		}
+	}
+
 	public static void Build(BuildCommand Command, ProjectParams Params, int WorkingCL = -1, ProjectBuildTargets TargetMask = ProjectBuildTargets.All)
 	{
 		Params.ValidateAndLog();
@@ -203,7 +223,9 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
+		CreateDeploymentServerMutex();
 		UE4Build.Build(Agenda, InDeleteBuildProducts: Params.Clean, InUpdateVersionFiles: WorkingCL > 0);
+		CloseDeploymentServerMutex();
 
 		if (WorkingCL > 0) // only move UAT files if we intend to check in some build products
 		{

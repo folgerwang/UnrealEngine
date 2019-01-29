@@ -481,10 +481,16 @@ public:
 	 */
 	void SetVerticalAxisMultiplier(FRHICommandList& RHICmdList, float InMultiplier);
 
+	/**
+	 * Sets the mask rect positions
+	 */
+	void SetMaskRect(FRHICommandList& RHICmdList, const FVector2D& TopLeft, const FVector2D& TopRight, const FVector2D& BotLeft, const FVector2D& BotRight);
+
 	virtual bool Serialize(FArchive& Ar) override;
 
 private:
-
+	/** Mask rect parameter */
+	FShaderParameter MaskRect;
 	/** ViewProjection parameter used by the shader */
 	FShaderParameter ViewProjection;
 	/** Parameter used to determine if we need to swtich the vertical axis for opengl */

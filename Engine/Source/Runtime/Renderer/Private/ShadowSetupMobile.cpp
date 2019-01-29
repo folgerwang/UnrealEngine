@@ -270,6 +270,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 		break;
 	}
 }
+
 /** Finds the visible dynamic shadows for each view. */
 void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 {
@@ -304,22 +305,7 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 
 	FSceneRenderer::InitDynamicShadows(RHICmdList);
 
-	// Prepare view's visibility lists.
-	// TODO: only do this when CSM + static is required.
-	for (auto& View : Views)
-	{
-		FMobileCSMVisibilityInfo& MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo;
-		// Init list of primitives that can receive Dynamic CSM.
-		MobileCSMVisibilityInfo.MobilePrimitiveCSMReceiverVisibilityMap.Init(false, View.PrimitiveVisibilityMap.Num());
-
-		// Init static mesh visibility info for CSM drawlist
-		MobileCSMVisibilityInfo.MobileCSMStaticMeshVisibilityMap.Init(false, View.StaticMeshVisibilityMap.Num());
-		MobileCSMVisibilityInfo.MobileCSMStaticBatchVisibility.AddZeroed(View.StaticMeshBatchVisibility.Num());
-
-		// Init static mesh visibility info for default drawlist that excludes meshes in CSM only drawlist.
-		MobileCSMVisibilityInfo.MobileNonCSMStaticMeshVisibilityMap = View.StaticMeshVisibilityMap;
-		MobileCSMVisibilityInfo.MobileNonCSMStaticBatchVisibility = View.StaticMeshBatchVisibility;
-	}
+	PrepareViewVisibilityLists();
 
 	bool bAlwaysUseCSM = false;
 	for (FLightSceneInfo* MobileDirectionalLightSceneInfo : Scene->MobileDirectionalLights)

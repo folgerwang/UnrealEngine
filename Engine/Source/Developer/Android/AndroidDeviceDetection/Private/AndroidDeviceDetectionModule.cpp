@@ -310,8 +310,9 @@ private:
 			}
 			else
 			{
-				// grab the Android version
-				const FString AndroidVersionCommand = FString::Printf(TEXT("-s %s %s ro.build.version.release"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
+				// grab the Lumin/Android version
+				const FString AndroidVersionCommand = bForLumin ? FString::Printf(TEXT("%s ro.build.id"), *GetPropCommand) :
+					FString::Printf(TEXT("-s %s %s ro.build.version.release"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 				if (!ExecuteAdbCommand(*AndroidVersionCommand, &NewDeviceInfo.HumanAndroidVersion, nullptr))
 				{
 					continue;

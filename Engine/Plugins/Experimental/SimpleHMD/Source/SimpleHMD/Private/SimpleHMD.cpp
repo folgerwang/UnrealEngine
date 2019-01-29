@@ -306,6 +306,7 @@ bool FSimpleHMD::IsActiveThisFrame(class FViewport* InViewport) const
 }
 
 FSimpleHMD::FSimpleHMD(const FAutoRegister& AutoRegister) :
+	FHeadMountedDisplayBase(nullptr),
 	FSceneViewExtensionBase(AutoRegister),
 	CurHmdOrientation(FQuat::Identity),
 	LastHmdOrientation(FQuat::Identity),

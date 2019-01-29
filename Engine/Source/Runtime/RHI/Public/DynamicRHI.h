@@ -1105,6 +1105,9 @@ public:
 
 	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) { return true; }
 
+	virtual uint16 RHIGetPlatformTextureMaxSampleCount() { return 8; };
+
+
 #if RHI_RAYTRACING
 	// #dxr_todo: reverted index buffer may be needed to support mirrored meshes
 	virtual FRayTracingGeometryRHIRef RHICreateRayTracingGeometry(const FRayTracingGeometryInitializer& Initializer)
