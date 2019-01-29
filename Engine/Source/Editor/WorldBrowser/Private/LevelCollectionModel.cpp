@@ -175,6 +175,12 @@ void FLevelCollectionModel::BindCommands()
 	
 	ActionList.MapAction( Commands.World_UnockSelectedLevels,
 		FExecuteAction::CreateSP( this, &FLevelCollectionModel::UnlockSelectedLevels_Executed  ) );
+
+	ActionList.MapAction(Commands.World_LockOnlySelectedLevels,
+		FExecuteAction::CreateSP(this, &FLevelCollectionModel::LockOnlySelectedLevels_Executed));
+
+	ActionList.MapAction(Commands.World_LockAllButSelectedLevels,
+		FExecuteAction::CreateSP(this, &FLevelCollectionModel::LockAllButSelectedLevels_Executed));
 	
 	ActionList.MapAction( Commands.World_LockAllLevels,
 		FExecuteAction::CreateSP( this, &FLevelCollectionModel::LockAllLevels_Executed  ) );
@@ -518,6 +524,16 @@ void FLevelCollectionModel::LockLevels(const FLevelModelList& InLevelList)
 			(*It)->SetLocked(true);
 		}
 	}
+}
+
+void FLevelCollectionModel::LockOnlySelectedLevels()
+{
+	LockOnlySelectedLevels_Executed();
+}
+
+void FLevelCollectionModel::LockAllButSelectedLevels()
+{
+	LockAllButSelectedLevels_Executed();
 }
 
 void FLevelCollectionModel::SaveLevels(const FLevelModelList& InLevelList)
@@ -1586,6 +1602,28 @@ void FLevelCollectionModel::UnlockSelectedLevels_Executed()
 	UnlockLevels(GetSelectedLevels());
 }
 
+void FLevelCollectionModel::LockOnlySelectedLevels_Executed()
+{
+	//stash off a copy of the original array, as setting visibility can destroy the selection
+	FLevelModelList SelectedLevelsCopy = GetSelectedLevels();
+
+	InvertSelection_Executed();
+	UnlockSelectedLevels_Executed();
+	SetSelectedLevels(SelectedLevelsCopy);
+	LockSelectedLevels_Executed();
+}
+
+void FLevelCollectionModel::LockAllButSelectedLevels_Executed()
+{
+	//stash off a copy of the original array, as setting visibility can destroy the selection
+	FLevelModelList SelectedLevelsCopy = GetSelectedLevels();
+
+	InvertSelection_Executed();
+	LockSelectedLevels_Executed();
+	SetSelectedLevels(SelectedLevelsCopy);
+	UnlockSelectedLevels_Executed();
+}
+
 void FLevelCollectionModel::LockAllLevels_Executed()
 {
 	if (!IsReadOnly())
@@ -1760,6 +1798,8 @@ void FLevelCollectionModel::FillLockSubMenu(FMenuBuilder& InMenuBuilder)
 
 	InMenuBuilder.AddMenuEntry( Commands.World_LockSelectedLevels );
 	InMenuBuilder.AddMenuEntry( Commands.World_UnockSelectedLevels );
+	InMenuBuilder.AddMenuEntry(Commands.World_LockOnlySelectedLevels);
+	InMenuBuilder.AddMenuEntry(Commands.World_LockAllButSelectedLevels);
 	InMenuBuilder.AddMenuEntry( Commands.World_LockAllLevels );
 	InMenuBuilder.AddMenuEntry( Commands.World_UnockAllLevels );
 

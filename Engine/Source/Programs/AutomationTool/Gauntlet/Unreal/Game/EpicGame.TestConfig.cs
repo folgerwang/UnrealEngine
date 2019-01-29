@@ -19,22 +19,22 @@ namespace EpicGame
 		/// <summary>
 		/// Should this test skip mcp?
 		/// </summary>
-		[AutoParam(false)]
+		[AutoParam]
 		public bool NoMCP = false;
 
-		[AutoParam(false)]
+		[AutoParam]
 		public bool FastCook = false;
 
 		/// <summary>
 		/// Which backend to use for matchmaking
 		/// </summary>
-		[AutoParam("DevLatest")]
-		public string EpicApp = "";
+		[AutoParam]
+		public string EpicApp = "DevLatest";
 
 		/// <summary>
 		/// Unique buildid to avoid matchmaking collisions
 		/// </summary>
-		[AutoParam("")]
+		[AutoParam]
 		protected string BuildIDOverride = "";
 
 		/// <summary>
@@ -54,13 +54,13 @@ namespace EpicGame
 		/// <summary>
 		/// Make sure the client gets -logpso when we are collecting them
 		/// </summary>
-		[AutoParam(false)]
+		[AutoParam]
         public bool LogPSO = false;
 
         /// <summary>
         /// Should this test assign a random test account?
         /// </summary>
-        [AutoParam(true)]
+        [AutoParam]
         public bool PreAssignAccount = true;
 
 
@@ -194,9 +194,6 @@ namespace EpicGame
 
 			if (AppConfig.ProcessType.IsClient())
 			{
-				// turn off skill-based matchmaking, turn off porta;
-				AppConfig.CommandLine += " -nosbmm";
-
                 if (LogPSO)
                 {
                     AppConfig.CommandLine += " -logpso";

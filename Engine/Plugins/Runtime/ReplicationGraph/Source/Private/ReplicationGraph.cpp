@@ -60,6 +60,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "DrawDebugHelpers.h"
 #include "Misc/ScopeExit.h"
+#include "Net/NetworkGranularMemoryLogging.h"
 
 int32 CVar_RepGraph_Pause = 0;
 static FAutoConsoleVariableRef CVarRepGraphPause(TEXT("Net.RepGraph.Pause"), CVar_RepGraph_Pause, TEXT("Pauses actor replication in the Replication Graph."), ECVF_Default );
@@ -207,6 +208,45 @@ UReplicationGraph::UReplicationGraph()
 		};
 	}
 #endif
+}
+
+extern void CountReplicationGraphSharedBytes_Private(FArchive& Ar);
+
+void UReplicationGraph::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UReplicationGraph::Serialize");
+
+		// Currently, there is some global memory associated with RepGraph.
+		// If there happens to be multiple RepGraphs, that would cause it to be counted multiple times.
+		// This works, as "obj list" is the primary use case of counting memory, but it would break
+		// if different legitimate memory counts happened in the same frame.
+		static uint64 LastSharedCountFrame = 0;
+		if (GFrameCounter != LastSharedCountFrame)
+		{
+			LastSharedCountFrame = GFrameCounter;
+
+			GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RepGraphSharedBytes", CountReplicationGraphSharedBytes_Private(Ar));
+		}
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("PrioritizedReplicationList", PrioritizedReplicationList.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("GlobalActorReplicationInfoMap", GlobalActorReplicationInfoMap.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ActiveNetworkActors", ActiveNetworkActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RPCSendPolicyMap", RPCSendPolicyMap.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RPC_Multicast_OpenChannelForClass", RPC_Multicast_OpenChannelForClass.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("CSVTracker", CSVTracker.CountBytes(Ar));
+
+		if (FastSharedReplicationBunch)
+		{
+			GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("FastSharedReplicationBunch",
+				Ar.CountBytes(sizeof(FOutBunch), sizeof(FOutBunch));
+				FastSharedReplicationBunch->CountMemory(Ar);
+			);
+		}
+	}
 }
 
 void UReplicationGraph::InitForNetDriver(UNetDriver* InNetDriver)
@@ -1821,6 +1861,29 @@ bool UReplicationGraph::IsConnectionReady(UNetConnection* Connection)
 UNetReplicationGraphConnection::UNetReplicationGraphConnection()
 {
 
+}
+
+void UNetReplicationGraphConnection::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UNetReplicationGraphConnection::Serialize");
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ActorInfoMap", ActorInfoMap.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ActorInfoMap", OnClientVisibleLevelNameAddMap.CountBytes(Ar));
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("PendingDestructionInfoList",
+			PendingDestructInfoList.CountBytes(Ar);
+			for (const FCachedDestructInfo& Info : PendingDestructInfoList)
+			{
+				Info.CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("TrackedDestructionInfoPtrs", TrackedDestructionInfoPtrs.CountBytes(Ar));
+	}
 }
 
 void UNetReplicationGraphConnection::TearDown()

@@ -8,6 +8,6 @@ class FHTNTestSuiteModule : public IHTNTestSuiteModule
 {
 };
 
-IMPLEMENT_MODULE(FHTNTestSuiteModule, HTNTestSuiteModule)
+IMPLEMENT_MODULE(FHTNTestSuiteModule, HTNTestSuite)
 
 #undef LOCTEXT_NAMESPACE

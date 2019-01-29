@@ -19,7 +19,9 @@
 #include "HAL/PlatformFilemanager.h"
 #include "Async/ParallelFor.h"
 #include "Async/AsyncWork.h"
+#include "Modules/ModuleManager.h"
 
+IMPLEMENT_MODULE(FDefaultModuleImpl, PakFileUtilities);
 
 /**
  * Encryption keys: public and private

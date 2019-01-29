@@ -20,6 +20,7 @@
 #include "IUMGModule.h"
 #include "UMGEditorProjectSettings.h"
 #include "WidgetCompilerRule.h"
+#include "Editor/WidgetCompilerLog.h"
 #include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -763,6 +764,26 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 	Super::FinishCompilingClass(Class);
 }
 
+
+class FBlueprintCompilerLog : public IWidgetCompilerLog
+{
+public:
+	FBlueprintCompilerLog(FCompilerResultsLog& InMessageLog)
+		: MessageLog(InMessageLog)
+	{
+	}
+
+	virtual void InternalLogMessage(TSharedRef<FTokenizedMessage>& InMessage) override
+	{
+		MessageLog.AddTokenizedMessage(InMessage);
+	}
+
+private:
+	// Compiler message log (errors, warnings, notes)
+	FCompilerResultsLog& MessageLog;
+};
+
+
 void FWidgetBlueprintCompilerContext::PostCompile()
 {
 	Super::PostCompile();
@@ -786,7 +807,8 @@ void FWidgetBlueprintCompilerContext::PostCompile()
 
 	if (!Blueprint->bIsRegeneratingOnLoad && bIsFullCompile)
 	{
-		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, MessageLog);
+		FBlueprintCompilerLog BlueprintLog(MessageLog);
+		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, BlueprintLog);
 
 		if (MessageLog.NumErrors == 0 && WidgetClass->bAllowTemplate)
 		{

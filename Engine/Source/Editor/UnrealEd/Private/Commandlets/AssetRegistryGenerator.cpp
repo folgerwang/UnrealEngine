@@ -278,6 +278,7 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 				if ( PakChunkFilename.MatchesWildcard(CompressedChunkWildcard) )
 				{
 					PakChunkOptions += " compressed";
+					break;
 				}
 			}
 

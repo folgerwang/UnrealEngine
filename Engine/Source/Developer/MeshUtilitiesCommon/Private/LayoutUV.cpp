@@ -5,6 +5,9 @@
 #include "OverlappingCorners.h"
 #include "Algo/IntroSort.h"
 #include "HAL/PlatformTime.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, MeshUtilitiesCommon)
 
 DEFINE_LOG_CATEGORY_STATIC(LogLayoutUV, Warning, All);
 

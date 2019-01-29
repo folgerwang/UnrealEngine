@@ -3828,10 +3828,10 @@ public:
 		}
 	};
 
-	FPakCompressedReaderPolicy(const FPakFile& InPakFile, const FPakEntry& InPakEntry, FArchive* InPakReader)
+	FPakCompressedReaderPolicy(const FPakFile& InPakFile, const FPakEntry& InPakEntry, TAcquirePakReaderFunction& InAcquirePakReader)
 		: PakFile(InPakFile)
 		, PakEntry(InPakEntry)
-		, PakReader(InPakReader)
+		, AcquirePakReader(InAcquirePakReader)
 	{
 	}
 
@@ -3839,8 +3839,8 @@ public:
 	const FPakFile&		PakFile;
 	/** Pak file entry for this file. */
 	FPakEntry			PakEntry;
-	/** Pak file archive to read the data from. */
-	FArchive*			PakReader;
+	/** Function that gives us an FArchive to read from. The result should never be cached, but acquired and used within the function doing the serialization operation */
+	TAcquirePakReaderFunction AcquirePakReader;
 
 	FORCEINLINE int64 FileSize() const
 	{
@@ -3873,6 +3873,8 @@ public:
 		ScratchSpace.EnsureBufferSpace(CompressionBlockSize, WorkingBufferRequiredSize * 2);
 		WorkingBuffers[0] = ScratchSpace.ScratchBuffer.Get();
 		WorkingBuffers[1] = ScratchSpace.ScratchBuffer.Get() + WorkingBufferRequiredSize;
+
+		FArchive* PakReader = AcquirePakReader();
 
 		while (Length > 0)
 		{
@@ -4831,30 +4833,31 @@ FArchive* FPakFile::GetSharedReader(IPlatformFile* LowerLevel)
 		{
 			PakReader = ExistingReader->Get();
 		}
-	}
-	if (!PakReader)
-	{
-		// Create a new FArchive reader and pass it to the new handle.
-		if (LowerLevel != NULL)
-		{
-			IFileHandle* PakHandle = LowerLevel->OpenRead(*GetFilename());
-			if (PakHandle)
-			{
-				PakReader = CreatePakReader(*PakHandle, *GetFilename());
-			}
-		}
-		else
-		{
-			PakReader = CreatePakReader(*GetFilename());
-		}
+
 		if (!PakReader)
 		{
-			UE_LOG(LogPakFile, Fatal, TEXT("Unable to create pak \"%s\" handle"), *GetFilename());
-		}
-		{
-			FScopeLock ScopedLock(&CriticalSection);
+			// Create a new FArchive reader and pass it to the new handle.
+			if (LowerLevel != NULL)
+			{
+				IFileHandle* PakHandle = LowerLevel->OpenRead(*GetFilename());
+				if (PakHandle)
+				{
+					PakReader = CreatePakReader(*PakHandle, *GetFilename());
+				}
+			}
+			else
+			{
+				PakReader = CreatePakReader(*GetFilename());
+			}
+			if (!PakReader)
+			{
+				UE_LOG(LogPakFile, Fatal, TEXT("Unable to create pak \"%s\" handle"), *GetFilename());
+			}
+
 #if DO_CHECK
-			ReaderMap.Emplace(Thread, new FThreadCheckingArchiveProxy(PakReader, Thread));
+			FArchive* Proxy = new FThreadCheckingArchiveProxy(PakReader, Thread);
+			ReaderMap.Emplace(Thread, Proxy);
+			PakReader = Proxy;
 #else //DO_CHECK
 			ReaderMap.Emplace(Thread, PakReader);
 #endif //DO_CHECK
@@ -5418,27 +5421,27 @@ IFileHandle* FPakPlatformFile::CreatePakFileHandle(const TCHAR* Filename, FPakFi
 {
 	IFileHandle* Result = NULL;
 	bool bNeedsDelete = true;
-	FArchive* PakReader = PakFile->GetSharedReader(LowerLevel);
+	TFunction<FArchive*()> AcquirePakReader = [PakFile, LowerLevelPlatformFile = LowerLevel]() { return PakFile->GetSharedReader(LowerLevelPlatformFile); };
 
 	// Create the handle.
 	if (FileEntry->CompressionMethodIndex != 0 && PakFile->GetInfo().Version >= FPakInfo::PakFile_Version_CompressionEncryption)
 	{
 		if (FileEntry->IsEncrypted())
 		{
-			Result = new FPakFileHandle< FPakCompressedReaderPolicy<FPakSimpleEncryption> >(*PakFile, *FileEntry, PakReader, bNeedsDelete);
+			Result = new FPakFileHandle< FPakCompressedReaderPolicy<FPakSimpleEncryption> >(*PakFile, *FileEntry, AcquirePakReader, bNeedsDelete);
 		}
 		else
 		{
-			Result = new FPakFileHandle< FPakCompressedReaderPolicy<> >(*PakFile, *FileEntry, PakReader, bNeedsDelete);
+			Result = new FPakFileHandle< FPakCompressedReaderPolicy<> >(*PakFile, *FileEntry, AcquirePakReader, bNeedsDelete);
 		}
 	}
 	else if (FileEntry->IsEncrypted())
 	{
-		Result = new FPakFileHandle< FPakReaderPolicy<FPakSimpleEncryption> >(*PakFile, *FileEntry, PakReader, bNeedsDelete);
+		Result = new FPakFileHandle< FPakReaderPolicy<FPakSimpleEncryption> >(*PakFile, *FileEntry, AcquirePakReader, bNeedsDelete);
 	}
 	else
 	{
-		Result = new FPakFileHandle<>(*PakFile, *FileEntry, PakReader, bNeedsDelete);
+		Result = new FPakFileHandle<>(*PakFile, *FileEntry, AcquirePakReader, bNeedsDelete);
 	}
 
 	return Result;

@@ -231,6 +231,11 @@ public:
 	FString			PathName;
 	FName			StreamingLevelName;
 	EChannelCloseReason Reason;
+
+	void CountBytes(FArchive& Ar)
+	{
+		PathName.CountBytes(Ar);
+	}
 };
 
 /** Used to specify properties of a channel type */

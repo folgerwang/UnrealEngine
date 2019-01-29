@@ -238,6 +238,26 @@ public:
 	}
 
 	/**
+	 * Store an already tokenized message.
+	 */
+	void AddTokenizedMessage(TSharedRef<FTokenizedMessage> InMessage)
+	{
+		switch (InMessage->GetSeverity())
+		{
+		case EMessageSeverity::Error:
+		case EMessageSeverity::CriticalError:
+			++NumErrors;
+			break;
+		case EMessageSeverity::Warning:
+		case EMessageSeverity::PerformanceWarning:
+			++NumWarnings;
+			break;
+		}
+
+		Messages.Add(InMessage);
+	}
+
+	/**
 	 * Commit all stored potential messages for a given node. Returns true if any messages were written.
 	 */
 	bool CommitPotentialMessages(UEdGraphNode* Source);

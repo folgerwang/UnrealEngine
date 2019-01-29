@@ -62,7 +62,7 @@
 #include "Engine/ReplicationDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "Engine/LevelScriptActor.h"
-#include "Serialization/ArchiveCountMem.h"
+#include "Net/NetworkGranularMemoryLogging.h"
 
 #if USE_SERVER_PERF_COUNTERS
 #include "PerfCountersModule.h"
@@ -2237,54 +2237,30 @@ void UNetDriver::Serialize( FArchive& Ar )
 		//		DDoSDetection data
 		// These are probably insignificant, though.
 
-#define WITH_SCOPED_COUNT_LOG 1
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UNetDriver::Serialize");
 
-#if WITH_SCOPED_COUNT_LOG
-		const bool bIsCountMemArchive = FString(TEXT("FArchiveCountMem")).Equals(Ar.GetArchiveName());
-		auto GetMaxBytes = [bIsCountMemArchive](FArchive& InAr) -> uint64
-		{
-			return bIsCountMemArchive ? ((FArchiveCountMem&)InAr).GetMax() : 0;
-		};
-
-		uint64 BeforeAction = 0;
-		uint64 AfterAction = GetMaxBytes(Ar);
-
-#define SCOPED_COUNT_LOG(SCOPE_NAME, WORK) \
-	{ \
-		BeforeAction = AfterAction; \
-		WORK; \
-		AfterAction = GetMaxBytes(Ar); \
-		UE_LOG(LogNet, Log, TEXT("UNetDriver::Serialize: " SCOPE_NAME " is %d bytes"), AfterAction - BeforeAction); \
-	}
-
-#else
-		
-#define SCOPED_COUNT_LOG(SCOPE_NAME, WORK) WORK;
-
-#endif // WITH_SCOPED_COUNT_LOG
-
-		SCOPED_COUNT_LOG("MappedClientConnection", MappedClientConnections.CountBytes(Ar));
-		SCOPED_COUNT_LOG("RecentlyDisconnectedClients", RecentlyDisconnectedClients.CountBytes(Ar));
-		SCOPED_COUNT_LOG("GuidCache",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("MappedClientConnection", MappedClientConnections.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RecentlyDisconnectedClients", RecentlyDisconnectedClients.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("GuidCache",
 			if (FNetGUIDCache const * const LocalGuidCache = GuidCache.Get())
 			{
 				LocalGuidCache->CountBytes(Ar);
 			}
 		);
 		
-		SCOPED_COUNT_LOG("LocalNetCache",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LocalNetCache",
 			if (FClassNetCacheMgr const * const LocalNetCache = NetCache.Get())
 			{
 				LocalNetCache->CountBytes(Ar);
 			}
 		);
 
-		SCOPED_COUNT_LOG("LastPrioritizedActors", LastPrioritizedActors.CountBytes(Ar));
-		SCOPED_COUNT_LOG("LastRelevantActors", LastRelevantActors.CountBytes(Ar));
-		SCOPED_COUNT_LOG("LastSentActors", LastSentActors.CountBytes(Ar));
-		SCOPED_COUNT_LOG("LastNonRelevantActors", LastNonRelevantActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastPrioritizedActors", LastPrioritizedActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastRelevantActors", LastRelevantActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastSentActors", LastSentActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastNonRelevantActors", LastNonRelevantActors.CountBytes(Ar));
 
-		SCOPED_COUNT_LOG("DestroyedStartupOrDormantActors",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DestroyedStartupOrDormantActors",
 			DestroyedStartupOrDormantActors.CountBytes(Ar);
 
 			for (const auto& DestroyedStartupOrDormantActorPair : DestroyedStartupOrDormantActors)
@@ -2292,14 +2268,14 @@ void UNetDriver::Serialize( FArchive& Ar )
 				if (FActorDestructionInfo const * const DestructionInfo = DestroyedStartupOrDormantActorPair.Value.Get())
 				{
 					Ar.CountBytes(sizeof(FActorDestructionInfo), sizeof(FActorDestructionInfo));
-					Ar << const_cast<FString&>(DestructionInfo->PathName);
+					DestructionInfo->PathName.CountBytes(Ar);
 				}
 			}
 		);
 
-		SCOPED_COUNT_LOG("RenamedStartupActors", RenamedStartupActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RenamedStartupActors", RenamedStartupActors.CountBytes(Ar));
 
-		SCOPED_COUNT_LOG("RepChangedPropertyTrackerMap",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RepChangedPropertyTrackerMap",
 			RepChangedPropertyTrackerMap.CountBytes(Ar);
 
 			for (const auto& RepChangedPropertyTrackerPair : RepChangedPropertyTrackerMap)
@@ -2308,7 +2284,7 @@ void UNetDriver::Serialize( FArchive& Ar )
 			}
 		);
 
-		SCOPED_COUNT_LOG("RepLayoutMap",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RepLayoutMap",
 			RepLayoutMap.CountBytes(Ar);
 
 			for (const auto& RepLayoutPair : RepLayoutMap)
@@ -2321,7 +2297,7 @@ void UNetDriver::Serialize( FArchive& Ar )
 			}
 		);
 
-		SCOPED_COUNT_LOG("ReplicationChangeListMap", 
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ReplicationChangeListMap", 
 			ReplicationChangeListMap.CountBytes(Ar);
 
 			for (const auto& ReplicationChangeListPair : ReplicationChangeListMap)
@@ -2330,22 +2306,19 @@ void UNetDriver::Serialize( FArchive& Ar )
 			}
 		);
 
-		SCOPED_COUNT_LOG("GuidToReplicatorMap", GuidToReplicatorMap.CountBytes(Ar));
-		SCOPED_COUNT_LOG("UnmappedReplicators", UnmappedReplicators.CountBytes(Ar));
-		SCOPED_COUNT_LOG("AllOwnedReplicators", AllOwnedReplicators.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("GuidToReplicatorMap", GuidToReplicatorMap.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("UnmappedReplicators", UnmappedReplicators.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("AllOwnedReplicators", AllOwnedReplicators.CountBytes(Ar));
 
 		// Replicators are owned by UActorChannels, and so we don't track them here.
 
-		SCOPED_COUNT_LOG("NetworkObjects",
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("NetworkObjects",
 			if (FNetworkObjectList const * const NetObjList = NetworkObjects.Get())
 			{
 				Ar.CountBytes(sizeof(FNetworkObjectList), sizeof(FNetworkObjectList));
 				NetworkObjects->CountBytes(Ar);
 			}
 		);
-
-#undef SCOPED_COUNT_LOG
-#undef WITH_SCOPED_COUNT_LOG
 	}
 }
 

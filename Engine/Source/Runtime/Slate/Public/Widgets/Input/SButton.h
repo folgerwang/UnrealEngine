@@ -231,6 +231,9 @@ protected:
 	/** Release the button */
 	virtual void Release();
 
+	/** Utility function to translate other input click methods to regular ones. */
+	TEnumAsByte<EButtonClickMethod::Type> GetClickMethodFromInputType(const FPointerEvent& MouseEvent) const;
+
 	/** Utility function to determine if the incoming mouse event is for a precise tap or click */
 	bool IsPreciseTapOrClick(const FPointerEvent& MouseEvent) const;
 

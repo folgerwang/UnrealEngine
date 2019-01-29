@@ -114,6 +114,12 @@ public:
 	/**	Locks level in the world */
 	void LockLevels(const FLevelModelList& InLevelList);
 
+	/** Toggles the selected levels to a locked state; toggles all other levels to an unlocked state */
+	void LockOnlySelectedLevels();
+
+	/** Toggles the selected levels to an unlocked state; toggles all other levels to a locked state */
+	void LockAllButSelectedLevels();
+
 	/**	Saves level to disk */
 	void SaveLevels(const FLevelModelList& InLevelList);
 
@@ -429,6 +435,12 @@ protected:
 
 	/** Unlocks selected levels */
 	void UnlockSelectedLevels_Executed();
+
+	/** Toggles the selected levels to a locked state; toggles all other levels to an unlocked state */
+	void LockOnlySelectedLevels_Executed();
+
+	/** Toggles the selected levels to an unlocked state; toggles all other levels to a locked state */
+	void LockAllButSelectedLevels_Executed();
 
 	/** Locks all levels */
 	void LockAllLevels_Executed();

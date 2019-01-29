@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace EditorTest
 {
-	class BootTest : UE4Game.DefaultNode
+	class BootTest : UE4Game.DefaultTest
 	{
 		public BootTest(Gauntlet.UnrealTestContext InContext) 
 			: base(InContext)

@@ -12,7 +12,7 @@
 #endif
 
 
-IMPLEMENT_MODULE( FLocationServicesIOSEditorModule, LocationServicesIOSEditorModule );
+IMPLEMENT_MODULE( FLocationServicesIOSEditorModule, LocationServicesIOSEditor );
 
 #define LOCTEXT_NAMESPACE "FLocationServicesIOSEditorModule"
 

@@ -6,7 +6,7 @@
 #include "ApsalarSettings.h"
 #include "Analytics.h"
 
-IMPLEMENT_MODULE( FApsalarEditorModule, ApsalarEditorModule );
+IMPLEMENT_MODULE( FApsalarEditorModule, ApsalarEditor );
 
 #define LOCTEXT_NAMESPACE "Apsalar"
 

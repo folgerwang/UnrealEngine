@@ -45,4 +45,4 @@ class FStandaloneRenderer : public IModuleInterface
 {
 };
 
-IMPLEMENT_MODULE( FStandaloneRenderer, BlankPlugin )
+IMPLEMENT_MODULE( FStandaloneRenderer, StandaloneRenderer )

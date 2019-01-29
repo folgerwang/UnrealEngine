@@ -61,6 +61,8 @@ private:
 	/** Callback function to create content for the combo button. */
 	TSharedRef<SWidget> GetListContent();
 
+	void OnGameplayTagListMenuOpenStateChanged(bool bIsOpened);
+
 	/** Cached property handle */
 	TSharedPtr<IPropertyHandle> StructPropertyHandle;
 
@@ -73,6 +75,11 @@ private:
 	/** The TagList, kept as a member so we can update it later */
 	TSharedPtr<SListView<TSharedPtr<FString>>> TagListView;
 
+	TSharedPtr<class SComboButton> EditButton;
+
+	TWeakPtr<class SGameplayTagWidget> LastTagWidget;
+
 	void OnTagDoubleClicked(FString TagName);
+	FReply OnRemoveTagClicked(FString TagName);
 };
 

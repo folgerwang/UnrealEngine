@@ -6,8 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
         public TimeSynthEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
-            OptimizeCode = CodeOptimization.Never;
-
             PublicDependencyModuleNames.AddRange(
 				new string[] {
                     "Core",

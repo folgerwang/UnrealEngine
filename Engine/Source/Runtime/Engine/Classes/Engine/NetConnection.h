@@ -22,6 +22,7 @@
 #include "ReplicationDriver.h"
 #include "Analytics/EngineNetAnalytics.h"
 #include "PacketTraits.h"
+#include "Net/Util/ResizableCircularQueue.h"
 
 #include "NetConnection.generated.h"
 
@@ -205,6 +206,29 @@ public:
 };
 #endif
 
+/** Record of channels with data written into each outgoing packet. */
+struct FWrittenChannelsRecord
+{
+	enum { DefaultInitialSize = 1024 };
+
+	struct FChannelRecordEntry
+	{
+		uint32 Value : 31;
+		uint32 IsSequence : 1;
+	};
+
+	typedef TResizableCircularQueue<FChannelRecordEntry> FChannelRecordEntryQueue;
+
+	FChannelRecordEntryQueue ChannelRecord;
+	int32 LastPacketId;
+
+public:
+	FWrittenChannelsRecord(size_t InitialSize = DefaultInitialSize)
+		: ChannelRecord(InitialSize)
+		, LastPacketId(-1)
+	{
+	}
+};
 
 UCLASS(customConstructor, Abstract, MinimalAPI, transient, config=Engine)
 class UNetConnection : public UPlayer
@@ -1084,8 +1108,8 @@ private:
 	/** This is only used in UChannel::SendBunch. It's a member so that we can preserve the allocation between calls, as an optimization, and in a thread-safe way to be compatible with demo.ClientRecordAsyncEndOfFrame */
 	TArray<FOutBunch*> OutgoingBunches;
 
-	/** Bookkeeping for connections using internal ack to avoid acking all open channels */
-	TArray<int32> ChannelsWaitingForInternalAck;
+	/** Per packet bookkeeping of written channelIds */
+	FWrittenChannelsRecord ChannelRecord;
 
 	/** Sequence data used to implement reliability */
 	FNetPacketNotify PacketNotify;

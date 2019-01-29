@@ -692,6 +692,12 @@ namespace UnrealBuildTool
 							BinaryLinkEnvironment.InputFiles.Add(LinkInputFile);
 						}
 					}
+
+					// Force a reference to initialize module for this binary
+					if(Module.Rules.bRequiresImplementModule.Value)
+					{
+						BinaryLinkEnvironment.IncludeFunctions.Add(String.Format("IMPLEMENT_MODULE_{0}", Module.Name));
+					}
 				}
 				else
 				{

@@ -275,6 +275,11 @@ namespace UnrealBuildTool
 		public List<FileItem> CommonResourceFiles = new List<FileItem>();
 
 		/// <summary>
+		/// List of functions that should be exported from this module
+		/// </summary>
+		public List<string> IncludeFunctions = new List<string>();
+
+		/// <summary>
 		/// Provides a Module Definition File (.def) to the linker to describe various attributes of a DLL.
 		/// Necessary when exporting functions by ordinal values instead of by name.
 		/// </summary>
@@ -348,6 +353,7 @@ namespace UnrealBuildTool
 			InputLibraries.AddRange(Other.InputLibraries);
 			DefaultResourceFiles.AddRange(Other.DefaultResourceFiles);
 			CommonResourceFiles.AddRange(Other.CommonResourceFiles);
+			IncludeFunctions.AddRange(Other.IncludeFunctions);
 			ModuleDefinitionFile = Other.ModuleDefinitionFile;
 			AdditionalProperties.AddRange(Other.AdditionalProperties);
         }

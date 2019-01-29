@@ -2,6 +2,9 @@
 
 #include "AppleVisionBlueprintSupport.h"
 #include "AppleVisionBlueprintProxy.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, AppleVisionBlueprintSupport)
 
 UK2Node_DetectFaces::UK2Node_DetectFaces(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

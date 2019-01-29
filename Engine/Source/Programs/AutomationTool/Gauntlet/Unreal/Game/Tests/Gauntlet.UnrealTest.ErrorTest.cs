@@ -12,7 +12,7 @@ namespace Gauntlet.UnrealTest
 	/// Base class for error tests. Contains all the logic but the smaller classes should be used.
 	/// E.g. -test=ErrorTestEnsure -server
 	/// </summary>
-	public class ErrorTestBase : UE4Game.DefaultNode
+	public class ErrorTestBase : UE4Game.DefaultTest
 	{
 		protected enum ErrorTypes
 		{

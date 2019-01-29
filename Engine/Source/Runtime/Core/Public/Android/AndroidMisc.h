@@ -158,6 +158,8 @@ public:
 	static void ReleaseMobileHaptics();
 	static void ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY);
 
+	static FString LoadTextFileFromPlatformPackage(const FString& RelativePath);
+
 	// ANDROID ONLY:
 	static void SetVersionInfo(FString AndroidVersion, FString DeviceMake, FString DeviceModel, FString DeviceBuildNumber, FString OSLanguage);
 	static const FString GetAndroidVersion();

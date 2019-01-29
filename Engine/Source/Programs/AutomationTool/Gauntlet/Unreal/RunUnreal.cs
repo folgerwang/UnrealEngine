@@ -103,7 +103,7 @@ namespace Gauntlet
 			if (ContextOptions.TestList.Count == 0)
 			{
 				Gauntlet.Log.Info("No test specified, creating default test node");
-				ContextOptions.TestList.Add(TestRequest.CreateRequest("DefaultNode"));
+				ContextOptions.TestList.Add(TestRequest.CreateRequest("DefaultTest"));
 			}
 
 			// todo, pass this in as a BuildSource and remove the COntextOption params specific to finding builds

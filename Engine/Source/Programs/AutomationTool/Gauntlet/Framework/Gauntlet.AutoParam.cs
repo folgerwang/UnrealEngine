@@ -40,7 +40,43 @@ namespace Gauntlet
 		protected string[] OptionNames;
 
 		/// <summary>
-		/// Constructor taking a name and default value
+		/// Constructor that takes nothing. Param option should be -MemberName or -MemberName=value.
+		/// Members with no matching param will be left as-is.
+		/// </summary>
+		public AutoParam()
+		{
+			this.OptionNames = null;
+			this.Default = null;
+		}
+
+		/// <summary>
+		/// Constructor that takes an array of of potential argument names, e.g. {"build","builds"}
+		/// Members with no matching param will be left as-is.
+		/// </summary>
+		/// <param name="Name"></param>
+		/// <param name="Default"></param>
+		protected AutoParam(params string[] OptionNames)
+		{
+			this.OptionNames = OptionNames;
+			this.Default = null;
+		}
+
+		/// <summary>
+
+		/// <summary>
+		/// Constructor that takes a default argument to use if no param is specified. Param option should be -MemberName or -MemberName=value.
+		/// Members with no matching param will be set to 'Default'
+		/// </summary>
+		/// <param name="Default"></param>
+		public AutoParam(object Default)
+		{
+			this.OptionNames = null;
+			this.Default = Default;
+		}
+
+		/// <summary>
+		/// Constructor that takes an array of of potential argument names, e.g. {"build","builds"}
+		/// Members with no matching param will be set to 'Default'
 		/// </summary>
 		/// <param name="Name"></param>
 		/// <param name="Default"></param>
@@ -50,12 +86,7 @@ namespace Gauntlet
 			this.Default = Default;
 		}
 
-
-		public AutoParam(object Default)
-		{
-			this.OptionNames = null;
-			this.Default = Default;
-		}
+		
 
 		/// <summary>
 		/// Checks whether Args contains a -Param statement, if so returns true else
@@ -232,7 +263,7 @@ namespace Gauntlet
 							object DefaultValue = Opt.Default;
 							object NewValue = null;
 
-							if (DefaultValue.GetType() != MemberType)
+							if (DefaultValue != null && DefaultValue.GetType() != MemberType)
 							{
 								Log.Warning("AutoParam default value for member {0} is type {1}, not {2}", Member.Name, DefaultValue.GetType(), MemberType);
 							}
@@ -375,6 +406,11 @@ namespace Gauntlet
 	{
 		public AutoParamWithNames(object Default, params string[] OptionNames)  :
 			base(Default, OptionNames)
+		{
+		}
+
+		public AutoParamWithNames(params string[] OptionNames) :
+			base(OptionNames)
 		{
 		}
 	}

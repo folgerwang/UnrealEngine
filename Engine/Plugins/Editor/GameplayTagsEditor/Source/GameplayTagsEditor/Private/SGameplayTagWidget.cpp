@@ -1368,4 +1368,9 @@ void SGameplayTagWidget::OpenRenameGameplayTagDialog(TSharedPtr<FGameplayTagNode
 	FSlateApplication::Get().AddModalWindow(RenameTagWindow, CurrentWindow);
 }
 
+TSharedPtr<SWidget> SGameplayTagWidget::GetWidgetToFocusOnOpen()
+{
+	return SearchTagBox;
+}
+
 #undef LOCTEXT_NAMESPACE
