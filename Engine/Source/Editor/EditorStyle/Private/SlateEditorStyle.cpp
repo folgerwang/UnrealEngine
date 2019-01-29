@@ -3,10 +3,13 @@
 #include "SlateEditorStyle.h"
 #include "Misc/CommandLine.h"
 #include "Styling/CoreStyle.h"
+#include "SlateOptMacros.h"
 
 #if (WITH_EDITOR || (IS_PROGRAM && PLATFORM_DESKTOP))
 	#include "PlatformInfo.h"
 #endif
+
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush( RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
@@ -7870,3 +7873,5 @@ void FSlateEditorStyle::FStyle::SetupMyBlueprintStyles()
 #undef BORDER_BRUSH
 #undef DEFAULT_FONT
 #undef ICON_FONT
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
