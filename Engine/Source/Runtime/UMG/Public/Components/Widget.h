@@ -735,7 +735,7 @@ public:
 	 * Allows UMG elements to evaluate their default states and determine whether they are acceptable.
 	 * To trigger compilation failure, add an error to the log. Warnings and notes will be visible, but will not cause compiles to fail.
 	 */
-	virtual void ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const {}
+	virtual void ValidateCompiledDefaults(class IWidgetCompilerLog& CompileLog) const {}
 #else
 	FORCEINLINE bool IsDesignTime() const { return false; }
 #endif

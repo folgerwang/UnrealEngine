@@ -93,7 +93,7 @@ public:
 	void SetEntrySpacing(const FVector2D& InEntrySpacing);
 
 #if WITH_EDITOR
-	virtual void ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const override;
+	virtual void ValidateCompiledDefaults(class IWidgetCompilerLog& CompileLog) const override;
 #endif
 
 #if WITH_EDITORONLY_DATA
