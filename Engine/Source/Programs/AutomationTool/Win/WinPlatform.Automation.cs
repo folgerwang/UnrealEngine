@@ -174,11 +174,19 @@ public abstract class BaseWinPlatform : Platform
 	{
 		return "Windows";
 	}
+	
+	public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
+	{
+		string PakParams = " -patchpaddingalign=2048";
 
-    public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
-    {
-        return " -patchpaddingalign=2048";
-    }
+		string OodleDllPath = DirectoryReference.Combine(SC.ProjectRoot, "Binaries/ThirdParty/Oodle/Win64/UnrealPakPlugin.dll").FullName;
+		if (File.Exists(OodleDllPath))
+		{
+			PakParams += String.Format(" -customcompressor=\"{0}\"", OodleDllPath);
+		}
+
+		return PakParams;
+	}
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
