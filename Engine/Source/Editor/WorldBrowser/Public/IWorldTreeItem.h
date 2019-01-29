@@ -264,6 +264,8 @@ namespace WorldHierarchy
 		virtual void OnShowAllButSelected() {}
 		virtual void PopulateLevelModelList(FLevelModelList& InModelList) {}
 		virtual void OnToggleLightingScenario() {}
+		virtual void OnLockOnlySelected() {}
+		virtual void OnLockAllButSelected() {}
 		virtual void OnToggleLock() {}
 		virtual void OnSave() {}
 		virtual void OnOpenKismet() {} 

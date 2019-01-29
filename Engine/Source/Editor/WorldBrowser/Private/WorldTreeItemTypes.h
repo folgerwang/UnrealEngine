@@ -77,6 +77,8 @@ namespace WorldHierarchy
 		virtual void PopulateLevelModelList(FLevelModelList& InModelList) override;
 		virtual void OnToggleLightingScenario() override;
 		virtual void OnToggleLock() override;
+		virtual void OnLockOnlySelected() override;
+		virtual void OnLockAllButSelected() override;
 		virtual void OnSave() override;
 		virtual void OnOpenKismet() override;
 
@@ -156,6 +158,8 @@ namespace WorldHierarchy
 		virtual void OnShowAllButSelected() override;
 		virtual void PopulateLevelModelList(FLevelModelList& InModelList) override;
 		virtual void OnToggleLock() override;
+		virtual void OnLockOnlySelected() override;
+		virtual void OnLockAllButSelected() override;
 		virtual void OnSave() override;
 		virtual const FSlateBrush* GetHierarchyItemBrush() const override;
 		virtual float GetHierarchyItemBrushWidth() const { return 16.0f; }
