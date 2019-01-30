@@ -258,6 +258,10 @@ public:
 		// we must not record the "open" here...what matters is when we start reading the file!
 		return new FLoggingAsyncReadFileHandle(this, Filename, LowerLevel->OpenAsyncRead(Filename));
 	}
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		return LowerLevel->OpenMapped(Filename);
+	}
 
 	void AddToOpenLog(const TCHAR* Filename)
 	{

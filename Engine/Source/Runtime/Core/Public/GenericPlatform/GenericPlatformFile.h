@@ -14,6 +14,7 @@
 #include "Misc/EnumClassFlags.h"
 
 class IAsyncReadFileHandle;
+class IMappedFileHandle;
 
 /**
 * Enum for async IO priorities. 
@@ -385,6 +386,19 @@ public:
 	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags MinPriority)
 	{
 	}
+
+	/** Open a file for async reading. This call does hit the disk; it is synchronous open. 
+	*
+	* @param Filename file to be mapped. This doesn't actually map anything, just opens the file.
+	* @return Close the file by delete'ing the handle. A non-null return value does mean the file exists. 
+	* Null can be returned for many reasons even if the file exists. Perhaps this platform does not support mapped files, or this file is compressed in a pak file.
+	* Generally you attempt to open mapped, and if that fails, then use other file operations instead.
+	*/
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename)
+	{
+		return nullptr;
+	}
+
 
 	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB);
 

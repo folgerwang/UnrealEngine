@@ -482,6 +482,10 @@ public:
 		//@todo no wrapped logging for async file handles (yet)
 		return Result;
 	}
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		return LowerLevel->OpenMapped(Filename);
+	}
 	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
 		LowerLevel->SetAsyncMinimumPriority(Priority);

@@ -653,6 +653,15 @@ public:
 	{
 		LowerLevel->SetAsyncMinimumPriority(Priority);
 	}
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		FString UserFilename(*ConvertToSandboxPath(Filename));
+		if (!OkForInnerAccess(Filename) || LowerLevel->FileExists(*UserFilename))
+		{
+			return LowerLevel->OpenMapped(*UserFilename);
+		}
+		return LowerLevel->OpenMapped(Filename);
+	}
 
 };
 

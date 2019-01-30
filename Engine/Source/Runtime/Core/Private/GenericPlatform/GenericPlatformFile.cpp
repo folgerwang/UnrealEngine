@@ -12,6 +12,7 @@
 #include "HAL/LowLevelMemTracker.h"
 
 #include "Async/AsyncFileHandle.h"
+#include "Async/MappedFileHandle.h"
 
 class FGenericBaseRequest;
 class FGenericAsyncReadFileHandle;
@@ -443,6 +444,10 @@ IAsyncReadFileHandle* IPlatformFile::OpenAsyncRead(const TCHAR* Filename)
 DEFINE_STAT(STAT_AsyncFileMemory);
 DEFINE_STAT(STAT_AsyncFileHandles);
 DEFINE_STAT(STAT_AsyncFileRequests);
+
+DEFINE_STAT(STAT_MappedFileMemory);
+DEFINE_STAT(STAT_MappedFileHandles);
+DEFINE_STAT(STAT_MappedFileRegions);
 
 int64 IFileHandle::Size()
 {
