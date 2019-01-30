@@ -3,6 +3,9 @@
 #include "OculusFunctionLibrary.h"
 #include "OculusHMDPrivate.h"
 #include "OculusHMD.h"
+#include "Logging/MessageLog.h"
+
+#define LOCTEXT_NAMESPACE "OculusFunctionLibrary"
 
 //-------------------------------------------------------------------------------------------------
 // UOculusFunctionLibrary
@@ -235,6 +238,82 @@ void UOculusFunctionLibrary::ClearLoadingSplashScreens()
 		}
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::ShowLoadingSplashScreen()
+{
+	FText Message = LOCTEXT("ShowLoadingSplashScreen",
+		"UOculusFunctionLibrary::ShowLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::ShowSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+void UOculusFunctionLibrary::HideLoadingSplashScreen(bool bClear)
+{
+	FText Message = LOCTEXT("HideLoadingSplashScreenDeprecated",
+		"UOculusFunctionLibrary::HideLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::HideSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+void UOculusFunctionLibrary::EnableAutoLoadingSplashScreen(bool bAutoShowEnabled)
+{
+	FText Message = LOCTEXT("EnableAutoLoadingSplashScreenDeprecated",
+		"UOculusFunctionLibrary::EnableAutoLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::EnableAutoLoadingSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+bool UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled()
+{
+	FText Message = LOCTEXT("IsAutoLoadingSplashScreenEnabledDeprecated",
+		"UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+
+	return false;
+}
+
+void UOculusFunctionLibrary::ShowLoadingIcon(class UTexture2D* Texture)
+{
+	FText Message = LOCTEXT("IsAutoLoadingSplashScreenEnabledDeprecated",
+		"UOculusFunctionLibrary::ShowLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+void UOculusFunctionLibrary::HideLoadingIcon()
+{
+	FText Message = LOCTEXT("HideLoadingIconDeprecated",
+		"UOculusFunctionLibrary::HideLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+bool UOculusFunctionLibrary::IsLoadingIconEnabled()
+{
+	FText Message = LOCTEXT("IsLoadingIconEnabledDeprecated",
+		"UOculusFunctionLibrary::IsLoadingIconEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+	return false;
+}
+
+
+void UOculusFunctionLibrary::SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg)
+{
+	FText Message = LOCTEXT("SetLoadingSplashParamsDeprecated",
+		"UOculusFunctionLibrary::SetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+}
+
+void UOculusFunctionLibrary::GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg)
+{
+	FText Message = LOCTEXT("GetLoadingSplashParamsDeprecated",
+		"UOculusFunctionLibrary::GetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 bool UOculusFunctionLibrary::HasInputFocus()
@@ -629,3 +708,5 @@ void UOculusFunctionLibrary::SetGuardianVisibility(bool GuardianVisible)
 	}
 #endif
 }
+
+#undef LOCTEXT_NAMESPACE
