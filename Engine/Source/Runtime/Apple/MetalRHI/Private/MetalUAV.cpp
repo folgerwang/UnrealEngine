@@ -827,8 +827,15 @@ void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess T
 		}
 		if (WriteComputeFence)
 		{
+			// Get the current render pass fence.
+			TRefCountPtr<FMetalFence> const& MetalFence = Context->GetCurrentRenderPass().End();
+			
+			// Write it again as we may wait on this fence in two different encoders
+			Context->GetCurrentRenderPass().Update(MetalFence);
+
+			// Write it into the RHI object
 			FMetalComputeFence* Fence = ResourceCast(WriteComputeFence);
-			Fence->Write(Context->GetCurrentRenderPass().End());
+			Fence->Write(MetalFence);
 			if (GSupportsEfficientAsyncCompute)
 			{
 				this->RHISubmitCommandsHint();

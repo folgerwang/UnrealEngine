@@ -178,12 +178,15 @@ private:
 	// To ensure that buffer uploads aren't overwritten before they are used track what is in flight
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
-    
-    TRefCountPtr<FMetalFence> PassStartFence;
-    TRefCountPtr<FMetalFence> ParallelPassEndFence;
+
+	// Fences for the current command encoder chain
+	TRefCountPtr<FMetalFence> PassStartFence;
 	TRefCountPtr<FMetalFence> CurrentEncoderFence;
-    TRefCountPtr<FMetalFence> PrologueEncoderFence;
-	TRefCountPtr<FMetalFence> LastPrologueEncoderFence;
+	TRefCountPtr<FMetalFence> ParallelPassEndFence;
+
+	// Fences for the prologue command encoder chain
+	TRefCountPtr<FMetalFence> PrologueStartEncoderFence;
+	TRefCountPtr<FMetalFence> PrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     
