@@ -306,16 +306,16 @@ bool FRegisteredSlashCommands::SpaceWasJustTyped(const FString& NewUserText)
 void FChatSlashCommand::RecacheForLocalization() const
 {
 	//re-read the source text reference to get the new localization
-	CommandNameString = CommandNameTextSrc->ToString();
+	CommandNameString = CommandNameTextSrc.ToString();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 // Chat Slash Command
 
 FChatSlashCommand::FChatSlashCommand(const FText& InCommandName) 
-	: CommandNameTextSrc(&InCommandName)
+	: CommandNameTextSrc(InCommandName)
 {
-	//done outside of initializer list to avoid pesky headerfile order definition compile errors/warnings
+	//done outside of initializer list to avoid pesky header file order definition compile errors/warnings
 	CommandNameString = InCommandName.ToString();
 }
 

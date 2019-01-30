@@ -108,7 +108,7 @@ protected:
 	mutable FString CommandNameString;
 
 private:
-	const FText* CommandNameTextSrc;
+	const FText CommandNameTextSrc;
 	TWeakObjectPtr<USocialToolkit> MyToolkit;
 
 	FChatSlashCommand(const FChatSlashCommand& copy) = delete;
