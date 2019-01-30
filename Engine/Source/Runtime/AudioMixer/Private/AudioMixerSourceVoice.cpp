@@ -141,11 +141,11 @@ namespace Audio
 		}
 	}
 
-	void FMixerSourceVoice::SetChannelMap(ESubmixChannelFormat InChannelType, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly)
+	void FMixerSourceVoice::SetChannelMap(ESubmixChannelFormat InChannelType, const uint32 NumInputChannels, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly)
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
 
-		SourceManager->SetChannelMap(SourceId, InChannelType, InChannelMap, bInIs3D, bInIsCenterChannelOnly);
+		SourceManager->SetChannelMap(SourceId, InChannelType, NumInputChannels, InChannelMap, bInIs3D, bInIsCenterChannelOnly);
 	}
 
 	void FMixerSourceVoice::SetSpatializationParams(const FSpatializationParams& InParams)
