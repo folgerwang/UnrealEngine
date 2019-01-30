@@ -259,6 +259,7 @@ FStagingBufferRHIRef FOpenGLDynamicRHI::RHICreateStagingBuffer()
 	return new FOpenGLStagingBuffer();
 #else
 	UE_LOG(LogRHI, Fatal, TEXT("Staging Buffers are only available in OpenGL3 or later"));
+	return nullptr;
 #endif
 }
 
@@ -300,6 +301,7 @@ void* FOpenGLStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 	RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(void*);
 #else
 	UE_LOG(LogRHI, Fatal, TEXT("Staging Buffers are only available in OpenGL3 or later"));
+	return nullptr;
 #endif
 }
 

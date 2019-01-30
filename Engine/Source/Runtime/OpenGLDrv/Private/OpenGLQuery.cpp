@@ -1146,6 +1146,7 @@ FGPUFenceRHIRef FOpenGLDynamicRHI::RHICreateGPUFence(const FName &Name)
 	return new FOpenGLGPUFence(Name);
 #else
 	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+	return nullptr;
 #endif
 }
 
@@ -1200,6 +1201,7 @@ bool FOpenGLGPUFence::Poll() const
 	RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(bool);
 #else
 	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+	return false;
 #endif
 }
 
