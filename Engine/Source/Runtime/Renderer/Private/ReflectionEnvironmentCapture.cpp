@@ -1573,16 +1573,9 @@ void CopyToSkyTexture(FRHICommandList& RHICmdList, FScene* Scene, FTexture* Proc
 		FRHICopyTextureInfo CopyInfo;
 		CopyInfo.Size = FilteredCube.ShaderResourceTexture->GetSizeXYZ();
 		CopyInfo.NumSlices = 6;
+		CopyInfo.NumMips = NumMips;
 
-		for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
-		{
-			RHICmdList.CopyTexture(FilteredCube.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
-
-			++CopyInfo.SourceMipIndex;
-			++CopyInfo.DestMipIndex;
-			CopyInfo.Size.X = FMath::Max(1, CopyInfo.Size.X / 2);
-			CopyInfo.Size.Y = FMath::Max(1, CopyInfo.Size.Y / 2);
-		}
+		RHICmdList.CopyTexture(FilteredCube.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
 
 		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, ProcessedTexture->TextureRHI);
 	}
