@@ -769,6 +769,7 @@ public:
 
 protected:
 	VkQueryPool QueryPool;
+	VkEvent ResetEvent;
 	const uint32 MaxQueries;
 	const VkQueryType QueryType;
 	TArray<uint64> QueryOutput;
