@@ -18,6 +18,9 @@ public class UnrealFrontendTarget : TargetRules
 		bCompileWithStatsWithoutEngine = true;
 		bCompileWithPluginSupport = true;
 
+		// For UI functionality
+		bBuildDeveloperTools = true;
+
 		bHasExports = false;
 	}
 }
