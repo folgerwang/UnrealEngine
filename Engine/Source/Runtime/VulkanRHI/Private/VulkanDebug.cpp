@@ -3647,6 +3647,36 @@ void FWrapLayer::SetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEven
 	}
 }
 
+void FWrapLayer::ResetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEvent Event, VkPipelineStageFlags StageMask)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdResetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
+void FWrapLayer::SetEvent(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdSetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
+void FWrapLayer::ResetEvent(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdResetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
 void FWrapLayer::GetEventStatus(VkResult Result, VkDevice Device, VkEvent Event)
 {
 	if (Result == VK_RESULT_MAX_ENUM)
@@ -3659,16 +3689,6 @@ void FWrapLayer::GetEventStatus(VkResult Result, VkDevice Device, VkEvent Event)
 	{
 #if VULKAN_ENABLE_DUMP_LAYER
 		PrintResult(Result);
-#endif
-	}
-}
-
-void FWrapLayer::ResetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEvent Event, VkPipelineStageFlags StageMask)
-{
-	if (Result == VK_RESULT_MAX_ENUM)
-	{
-#if VULKAN_ENABLE_DUMP_LAYER
-		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdResetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
 #endif
 	}
 }
