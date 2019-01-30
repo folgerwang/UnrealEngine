@@ -66,7 +66,7 @@ public:
 
 	static const CORE_API uint64 GetAsyncLoadingThreadMask()
 	{
-		return GetLittleCoreMask();
+		return AllCores;
 	}
 
 	static EThreadPriority GetRenderingThreadPriority()
