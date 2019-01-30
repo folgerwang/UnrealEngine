@@ -12,6 +12,8 @@ struct FMath;
 // We require SSE2
 #include <emmintrin.h>
 
+// We suppress static analysis warnings for the cast from (double*) to (float*) in VectorLoadFloat2 below:
+// -V:VectorLoadFloat2:615
 
 /*=============================================================================
  *	Helpers:
