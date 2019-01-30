@@ -452,7 +452,9 @@ public:
 			//Vertex instances and Polygons
 			for (int32 TriangleIndex = 0; TriangleIndex < (int32)NumTris; TriangleIndex++)
 			{
-				FVertexInstanceID CornerInstanceIDs[3];
+				TArray<FVertexInstanceID> CornerInstanceIDs;
+				CornerInstanceIDs.SetNum(3);
+
 				FVertexID CornerVerticesIDs[3];
 				for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 				{
@@ -514,36 +516,13 @@ public:
 					MaterialPolygonGroupID = PolygonGroupMapping[MaterialIndex];
 				}
 
-				// Create polygon edges
-				TArray<FMeshDescription::FContourPoint> Contours;
-				{
-					// Add the edges of this triangle
-					for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
-					{
-						int32 ContourPointIndex = Contours.AddDefaulted();
-						FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-						//Find the matching edge ID
-						uint32 CornerIndices[2];
-						CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
-						CornerIndices[1] = (TriangleEdgeNumber + 1) % 3;
-
-						FVertexID EdgeVertexIDs[2];
-						EdgeVertexIDs[0] = CornerVerticesIDs[CornerIndices[0]];
-						EdgeVertexIDs[1] = CornerVerticesIDs[CornerIndices[1]];
-
-						FEdgeID MatchEdgeId = OutReducedMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-						if (MatchEdgeId == FEdgeID::Invalid)
-						{
-							MatchEdgeId = OutReducedMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-							// @todo: set edge hardness?
-						}
-						ContourPoint.EdgeID = MatchEdgeId;
-						ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
-					}
-				}
-
 				// Insert a polygon into the mesh
-				const FPolygonID NewPolygonID = OutReducedMesh.CreatePolygon(MaterialPolygonGroupID, Contours);
+				TArray<FEdgeID> NewEdgeIDs;
+				const FPolygonID NewPolygonID = OutReducedMesh.CreatePolygon(MaterialPolygonGroupID, CornerInstanceIDs, &NewEdgeIDs);
+				for (const FEdgeID NewEdgeID : NewEdgeIDs)
+				{
+					// @todo: set NewEdgeID edge hardness?
+				}
 				const int32 NewTriangleIndex = OutReducedMesh.GetPolygonTriangles(NewPolygonID).AddDefaulted();
 				FMeshTriangle& NewTriangle = OutReducedMesh.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 				for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)

@@ -179,8 +179,8 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	virtual bool IsReadyForFinishDestroy() override;
 	//~ End UObject Interface
 
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	void ApplyComponentInstanceData(class FPrecomputedSkyLightInstanceData* ComponentInstanceData);
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
+	void ApplyComponentInstanceData(struct FPrecomputedSkyLightInstanceData* ComponentInstanceData);
 
 	/** Called each tick to recapture and queued sky captures. */
 	static void UpdateSkyCaptureContents(UWorld* WorldToUpdate);
@@ -307,4 +307,38 @@ protected:
 };
 
 
+/** Used to store lightmap data during RerunConstructionScripts */
+USTRUCT()
+struct FPrecomputedSkyLightInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FPrecomputedSkyLightInstanceData() = default;
+	FPrecomputedSkyLightInstanceData(const USkyLightComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+	{}
+	virtual ~FPrecomputedSkyLightInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<USkyLightComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	UPROPERTY()
+	FGuid LightGuid;
+
+	UPROPERTY()
+	float AverageBrightness;
+
+	// This has to be refcounted to keep it alive during the handoff without doing a deep copy
+	TRefCountPtr<FSkyTextureCubeResource> ProcessedSkyTexture;
+
+	FSHVectorRGB3 IrradianceEnvironmentMap;
+};
 

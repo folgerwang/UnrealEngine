@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "UObject/StructOnScope.h"
+#include "ComponentInstanceDataCache.generated.h"
 
 class AActor;
 class UActorComponent;
@@ -17,18 +19,61 @@ enum class ECacheApplyPhase
 	PostUserConstructionScript,		// After the user construction script has been run
 };
 
-/** Base class for component instance cached data of a particular type. */
-class ENGINE_API FActorComponentInstanceData
+UENUM()
+enum class EComponentCreationMethod : uint8
 {
+	/** A component that is part of a native class. */
+	Native,
+	/** A component that is created from a template defined in the Components section of the Blueprint. */
+	SimpleConstructionScript,
+	/**A dynamically created component, either from the UserConstructionScript or from a Add Component node in a Blueprint event graph. */
+	UserConstructionScript,
+	/** A component added to a single Actor instance via the Component section of the Actor's details panel. */
+	Instance,
+};
+
+USTRUCT()
+struct FActorComponentDuplicatedObjectData
+{
+	GENERATED_BODY()
+
+	FActorComponentDuplicatedObjectData(UObject* InObject = nullptr);
+
+	bool Serialize(FArchive& Ar);
+
+	// The duplicated object
+	UObject* DuplicatedObject;
+
+	// Object Outer Depth so we can sort creation order
+	int32 ObjectPathDepth;
+};
+
+// Trait to signal ActorCompomentInstanceData duplicated objects uses a serialize function
+template<>
+struct TStructOpsTypeTraits<FActorComponentDuplicatedObjectData> : public TStructOpsTypeTraitsBase2<FActorComponentDuplicatedObjectData>
+{
+	enum
+	{
+		WithSerializer = true,
+	};
+};
+
+/** Base class for component instance cached data of a particular type. */
+USTRUCT()
+struct ENGINE_API FActorComponentInstanceData
+{
+	GENERATED_BODY()
 public:
 	FActorComponentInstanceData();
 	FActorComponentInstanceData(const UActorComponent* SourceComponent);
 
-	virtual ~FActorComponentInstanceData()
-	{}
+	virtual ~FActorComponentInstanceData() = default;
 
 	/** Determines whether this component instance data matches the component */
 	bool MatchesComponent(const UActorComponent* Component, const UObject* ComponentTemplate, const TMap<UActorComponent*, const UObject*>& ComponentToArchetypeMap) const;
+
+	/** Determines if any instance data was actually saved. */
+	virtual bool ContainsData() const { return SavedProperties.Num() > 0; }
 
 	/** Applies this component instance data to the supplied component */
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase);
@@ -38,24 +83,41 @@ public:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector);
 
-	bool ContainsSavedProperties() const { return SavedProperties.Num() > 0; }
-
 	const UClass* GetComponentClass() const { return SourceComponentTemplate ? SourceComponentTemplate->GetClass() : nullptr; }
 
+	const UObject* GetComponentTemplate() const { return SourceComponentTemplate; }
+
 protected:
+	friend class FComponentPropertyWriter;
+	friend class FComponentPropertyReader;
+
 	/** The template used to create the source component */
+	UPROPERTY()
 	const UObject* SourceComponentTemplate;
 
-	/** The index of the source component in its owner's serialized array 
-		when filtered to just that component type */
-	int32 SourceComponentTypeSerializedIndex;
-
 	/** The method that was used to create the source component */
+	UPROPERTY() 
 	EComponentCreationMethod SourceComponentCreationMethod;
 
+	/** The index of the source component in its owner's serialized array
+	when filtered to just that component type */
+	UPROPERTY()
+	int32 SourceComponentTypeSerializedIndex;
+
+	UPROPERTY()
 	TArray<uint8> SavedProperties;
-	TArray<UObject*> InstancedObjects;
-	TArray<uint32_t> ObjectReferenceIndicesInByteArray;
+
+	// Duplicated objects created when saving component instance properties
+	UPROPERTY()
+	TArray<FActorComponentDuplicatedObjectData> DuplicatedObjects;
+
+	// Referenced objects in component instance saved properties
+	UPROPERTY()
+	TArray<UObject*> ReferencedObjects;
+
+	// Referenced names in component instance saved properties
+	UPROPERTY()
+	TArray<FName> ReferencedNames;
 };
 
 /** 
@@ -66,12 +128,12 @@ class ENGINE_API FComponentInstanceDataCache
 {
 public:
 
-	FComponentInstanceDataCache() {}
+	FComponentInstanceDataCache() = default;
 
 	/** Constructor that also populates cache from Actor */
 	FComponentInstanceDataCache(const AActor* InActor);
 
-	~FComponentInstanceDataCache();
+	~FComponentInstanceDataCache() = default;
 
 	/** Non-copyable */
 	FComponentInstanceDataCache(const FComponentInstanceDataCache&) = delete;
@@ -80,6 +142,9 @@ public:
 	/** Movable */
 	FComponentInstanceDataCache(FComponentInstanceDataCache&&) = default;
 	FComponentInstanceDataCache& operator=(FComponentInstanceDataCache&&) = default;
+
+	/** Serialize Instance data for persistence or transmission. */
+	void Serialize(FArchive& Ar);
 
 	/** Iterates over an Actor's components and applies the stored component instance data to each */
 	void ApplyToActor(AActor* Actor, const ECacheApplyPhase CacheApplyPhase) const;
@@ -92,8 +157,12 @@ public:
 	void AddReferencedObjects(FReferenceCollector& Collector);
 
 private:
-	/** Map of data type name to data of that type */
-	TArray< FActorComponentInstanceData* > ComponentsInstanceData;
+	// called during de-serialization to copy serialized properties over existing component instance data and keep non UPROPERTY data intact
+	void CopySerializableProperties(TArray<TStructOnScope<FActorComponentInstanceData>> InComponentsInstanceData);
 
+	/** Map of component instance data struct (template -> instance data) */
+	TArray<TStructOnScope<FActorComponentInstanceData>> ComponentsInstanceData;
+
+	/** Map of the actor instanced scene component to their transform relative to the root. */
 	TMap< USceneComponent*, FTransform > InstanceComponentTransformToRootMap;
 };

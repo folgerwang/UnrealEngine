@@ -12,6 +12,9 @@ class FDirectoryWatchRequestWindows;
 
 class FDirectoryWatcherWindows : public IDirectoryWatcher
 {
+private:
+	/** A directory and its associated IDirectoryWatcher::WatchOptions, which represents a unique ID for a watch request */
+	typedef TPair<FString, uint32> FDirectoryWithFlags;
 public:
 	FDirectoryWatcherWindows();
 	virtual ~FDirectoryWatcherWindows();
@@ -21,7 +24,7 @@ public:
 	virtual void Tick (float DeltaSeconds) override;
 
 	/** Map of directory paths to requests */
-	TMap<FString, FDirectoryWatchRequestWindows*> RequestMap;
+	TMap<FDirectoryWithFlags, FDirectoryWatchRequestWindows*> RequestMap;
 	TArray<FDirectoryWatchRequestWindows*> RequestsPendingDelete;
 
 	/** A count of FDirectoryWatchRequestWindows created to ensure they are cleaned up on shutdown */

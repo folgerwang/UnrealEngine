@@ -195,3 +195,8 @@ void FGenericWindow::DrawAttention(const FWindowDrawAttentionParameters& Paramet
 {
 	// empty default functionality
 }
+
+void FGenericWindow::SetNativeWindowButtonsVisibility(bool bVisible)
+{
+	// empty default functionality
+}

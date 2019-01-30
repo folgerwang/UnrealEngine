@@ -59,9 +59,9 @@ bool FUnrealCEFSubProcessRemoteObject::ExecuteMethod(const CefString& MethodName
 	FGuid CallbackGuid = RemoteScripting->CallbackRegistry.FindOrAdd(Context, Retval, Accept, Reject, true);
 	CefRefPtr<CefProcessMessage> Message = CefProcessMessage::Create("UE::ExecuteUObjectMethod");
 	CefRefPtr<CefListValue> MessageArguments = Message->GetArgumentList();
-	MessageArguments->SetString(0, CefString(*ObjectId.ToString(EGuidFormats::Digits)));
+	MessageArguments->SetString(0, CefString(TCHAR_TO_WCHAR(*ObjectId.ToString(EGuidFormats::Digits))));
 	MessageArguments->SetString(1, MethodName);
-	MessageArguments->SetString(2, CefString(*CallbackGuid.ToString(EGuidFormats::Digits)));
+	MessageArguments->SetString(2, CefString(TCHAR_TO_WCHAR(*CallbackGuid.ToString(EGuidFormats::Digits))));
 	MessageArguments->SetList(3, RemoteScripting->V8ArrayToCef(Arguments));
 
 	Browser->SendProcessMessage(PID_BROWSER, Message);
@@ -74,7 +74,7 @@ FUnrealCEFSubProcessRemoteObject::~FUnrealCEFSubProcessRemoteObject()
 {
 	CefRefPtr<CefProcessMessage> Message = CefProcessMessage::Create("UE::ReleaseUObject");
 	CefRefPtr<CefListValue> MessageArguments = Message->GetArgumentList();
-	MessageArguments->SetString(0, CefString(*ObjectId.ToString(EGuidFormats::Digits)));
+	MessageArguments->SetString(0, CefString(TCHAR_TO_WCHAR(*ObjectId.ToString(EGuidFormats::Digits))));
 	Browser->SendProcessMessage(PID_BROWSER, Message);
 }
 

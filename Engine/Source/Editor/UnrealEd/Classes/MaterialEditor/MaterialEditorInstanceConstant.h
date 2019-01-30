@@ -299,6 +299,8 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	 */
 	void SetSourceInstance(UMaterialInstanceConstant* MaterialInterface);
 
+	void CopyBasePropertiesFromParent();
+
 	void SetSourceFunction(UMaterialFunctionInstance* MaterialFunction);
 
 	/** 
@@ -335,4 +337,6 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	/** Whether or not we should show only overridden properties*/
 	bool bShowOnlyOverrides;
 };
+
+
 

@@ -9,10 +9,15 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 
+#include "Subsystems/EngineSubsystem.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
+#include "EditorSubsystem.h"
 #include "Subsystems/SubsystemBlueprintLibrary.h"
+#include "Subsystems/EditorSubsystemBlueprintLibrary.h"
 #include "GameFramework/PlayerController.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
 
 // ************************************************************************************
 //    UK2Node_GetSubsystem
@@ -430,4 +435,274 @@ UEdGraphPin* UK2Node_GetSubsystemFromPC::GetPlayerControllerPin() const
 	UEdGraphPin* Pin = FindPin(TEXT("PlayerController"));
 	check(Pin == NULL || Pin->Direction == EGPD_Input);
 	return Pin;
+}
+
+
+// ************************************************************************************
+//    UK2Node_GetEngineSubsystem
+// ************************************************************************************
+
+void UK2Node_GetEngineSubsystem::AllocateDefaultPins()
+{
+	// Add blueprint pin
+	if (!CustomClass)
+	{
+		CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Class, USubsystem::StaticClass(), TEXT("Class"));
+	}
+
+	// Result pin
+	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Object, (CustomClass ? (UClass*)CustomClass : UEngineSubsystem::StaticClass()), UEdGraphSchema_K2::PN_ReturnValue);
+
+	// Skip the UK2Node_GetSubsystem implementation
+	UK2Node::AllocateDefaultPins();
+}
+
+void UK2Node_GetEngineSubsystem::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
+{
+	// Skip the UK2Node_GetSubsystem implementation
+	UK2Node::ExpandNode(CompilerContext, SourceGraph);
+
+	static const FName Class_ParamName(TEXT("Class"));
+
+	UK2Node_GetEngineSubsystem* GetEngineSubsystemNode = this;
+	UEdGraphPin* SpawnClassPin = GetEngineSubsystemNode->GetClassPin();
+	UEdGraphPin* SpawnNodeResult = GetEngineSubsystemNode->GetResultPin();
+
+	UClass* SpawnClass = (SpawnClassPin != nullptr) ? Cast<UClass>(SpawnClassPin->DefaultObject) : nullptr;
+	if (SpawnClassPin && (SpawnClassPin->LinkedTo.Num() == 0) && !SpawnClass)
+	{
+		CompilerContext.MessageLog.Error(*NSLOCTEXT("K2Node", "GetSubsystem_Error", "Node @@ must have a class specified.").ToString(), GetEngineSubsystemNode);
+		GetEngineSubsystemNode->BreakAllNodeLinks();
+		return;
+	}
+
+	// Choose appropriate underlying Getter
+	FName Get_FunctionName;
+	if (CustomClass->IsChildOf<ULocalPlayerSubsystem>())
+	{
+		Get_FunctionName = GET_FUNCTION_NAME_CHECKED(USubsystemBlueprintLibrary, GetEngineSubsystem);
+	}
+	else
+	{
+		CompilerContext.MessageLog.Error(*NSLOCTEXT("K2Node", "GetSubsystem_Error", "Node @@ must have a class specified.").ToString(), GetEngineSubsystemNode);
+		GetEngineSubsystemNode->BreakAllNodeLinks();
+		return;
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// create 'USubsystemBlueprintLibrary::GetEngineSubsystem' call node
+	UK2Node_CallFunction* CallGetNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(GetEngineSubsystemNode, SourceGraph);
+	CallGetNode->FunctionReference.SetExternalMember(Get_FunctionName, USubsystemBlueprintLibrary::StaticClass());
+	CallGetNode->AllocateDefaultPins();
+
+	UEdGraphPin* CallCreateClassTypePin = CallGetNode->FindPinChecked(Class_ParamName);
+	UEdGraphPin* CallCreateResult = CallGetNode->GetReturnValuePin();
+
+	if (SpawnClassPin && SpawnClassPin->LinkedTo.Num() > 0)
+	{
+		// Copy the 'class' connection from the spawn node to 'USubsystemBlueprintLibrary::GetLocalPlayerSubSystemFromPlayerController'
+		CompilerContext.MovePinLinksToIntermediate(*SpawnClassPin, *CallCreateClassTypePin);
+	}
+	else
+	{
+		// Copy class literal onto 'USubsystemBlueprintLibrary::GetLocalPlayerSubSystemFromPlayerController' call
+		CallCreateClassTypePin->DefaultObject = *CustomClass;
+	}
+
+	// Move result connection from spawn node to 'USubsystemBlueprintLibrary::Get[something]Subsystem'
+	CallCreateResult->PinType = SpawnNodeResult->PinType;
+	CompilerContext.MovePinLinksToIntermediate(*SpawnNodeResult, *CallCreateResult);
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// Break any links to the expanded node
+	GetEngineSubsystemNode->BreakAllNodeLinks();
+}
+
+void UK2Node_GetEngineSubsystem::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
+{
+	static TArray<UClass*> Subclasses;
+	Subclasses.Reset();
+	GetDerivedClasses(UEngineSubsystem::StaticClass(), Subclasses);
+
+	auto CustomizeCallback = [](UEdGraphNode* Node, bool bIsTemplateNode, UClass* Subclass)
+	{
+		auto TypedNode = CastChecked<UK2Node_GetEngineSubsystem>(Node);
+		TypedNode->Initialize(Subclass);
+	};
+
+	UClass* ActionKey = GetClass();
+	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
+	{
+		for (auto& Iter : Subclasses)
+		{
+			UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create(ActionKey);
+			check(Spawner);
+
+			Spawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeCallback, Iter);
+			ActionRegistrar.AddBlueprintAction(ActionKey, Spawner);
+		}
+	}
+}
+
+FText UK2Node_GetEngineSubsystem::GetMenuCategory() const
+{
+	return NSLOCTEXT("K2Node", "GetEngineSubsystem_MenuCategory", "Engine Subsystems");
+}
+
+FText UK2Node_GetEngineSubsystem::GetTooltipText() const
+{
+	if (CustomClass)
+	{
+		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetEngineSubsystem_TooltipFormat", "Get {ClassName} an Engine Subsystem"), TEXT("ClassName"), CustomClass->GetDisplayNameText());
+	}
+
+	return NSLOCTEXT("K2Node", "GetEngineSubsystem_InvalidSubsystemTypeTooltip", "Invalid Subsystem Type");
+}
+
+// ************************************************************************************
+//    UK2Node_GetEditorSubsystem
+// ************************************************************************************
+
+void UK2Node_GetEditorSubsystem::AllocateDefaultPins()
+{
+	// Add blueprint pin
+	if (!CustomClass)
+	{
+		CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Class, USubsystem::StaticClass(), TEXT("Class"));
+	}
+
+	// Result pin
+	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Object, (CustomClass ? (UClass*)CustomClass : UEditorSubsystem::StaticClass()), UEdGraphSchema_K2::PN_ReturnValue);
+
+	// Skip the UK2Node_GetSubsystem implementation
+	UK2Node::AllocateDefaultPins();
+}
+
+void UK2Node_GetEditorSubsystem::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
+{
+	// Skip the UK2Node_GetSubsystem implementation
+	UK2Node::ExpandNode(CompilerContext, SourceGraph);
+
+	static const FName Class_ParamName(TEXT("Class"));
+
+	UK2Node_GetEditorSubsystem* GetEditorSubsystemNode = this;
+	UEdGraphPin* SpawnClassPin = GetEditorSubsystemNode->GetClassPin();
+	UEdGraphPin* SpawnNodeResult = GetEditorSubsystemNode->GetResultPin();
+
+	UClass* SpawnClass = (SpawnClassPin != nullptr) ? Cast<UClass>(SpawnClassPin->DefaultObject) : nullptr;
+	if (SpawnClassPin && (SpawnClassPin->LinkedTo.Num() == 0) && !SpawnClass)
+	{
+		CompilerContext.MessageLog.Error(*NSLOCTEXT("K2Node", "GetSubsystem_Error", "Node @@ must have a class specified.").ToString(), GetEditorSubsystemNode);
+		GetEditorSubsystemNode->BreakAllNodeLinks();
+		return;
+	}
+
+	// Choose appropriate underlying Getter
+	FName Get_FunctionName;
+	if (CustomClass->IsChildOf<ULocalPlayerSubsystem>())
+	{
+		Get_FunctionName = GET_FUNCTION_NAME_CHECKED(UEditorSubsystemBlueprintLibrary, GetEditorSubsystem);
+	}
+	else
+	{
+		CompilerContext.MessageLog.Error(*NSLOCTEXT("K2Node", "GetSubsystem_Error", "Node @@ must have a class specified.").ToString(), GetEditorSubsystemNode);
+		GetEditorSubsystemNode->BreakAllNodeLinks();
+		return;
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// create 'USubsystemBlueprintLibrary::GetEditorSubsystem' call node
+	UK2Node_CallFunction* CallGetNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(GetEditorSubsystemNode, SourceGraph);
+	CallGetNode->FunctionReference.SetExternalMember(Get_FunctionName, USubsystemBlueprintLibrary::StaticClass());
+	CallGetNode->AllocateDefaultPins();
+
+	UEdGraphPin* CallCreateClassTypePin = CallGetNode->FindPinChecked(Class_ParamName);
+	UEdGraphPin* CallCreateResult = CallGetNode->GetReturnValuePin();
+
+	if (SpawnClassPin && SpawnClassPin->LinkedTo.Num() > 0)
+	{
+		// Copy the 'class' connection from the spawn node to 'USubsystemBlueprintLibrary::GetLocalPlayerSubSystemFromPlayerController'
+		CompilerContext.MovePinLinksToIntermediate(*SpawnClassPin, *CallCreateClassTypePin);
+	}
+	else
+	{
+		// Copy class literal onto 'USubsystemBlueprintLibrary::GetLocalPlayerSubSystemFromPlayerController' call
+		CallCreateClassTypePin->DefaultObject = *CustomClass;
+	}
+
+	// Move result connection from spawn node to 'USubsystemBlueprintLibrary::Get[something]Subsystem'
+	CallCreateResult->PinType = SpawnNodeResult->PinType;
+	CompilerContext.MovePinLinksToIntermediate(*SpawnNodeResult, *CallCreateResult);
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// Break any links to the expanded node
+	GetEditorSubsystemNode->BreakAllNodeLinks();
+}
+
+void UK2Node_GetEditorSubsystem::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
+{
+	static TArray<UClass*> Subclasses;
+	Subclasses.Reset();
+	GetDerivedClasses(UEditorSubsystem::StaticClass(), Subclasses);
+
+	auto CustomizeCallback = [](UEdGraphNode* Node, bool bIsTemplateNode, UClass* Subclass)
+	{
+		auto TypedNode = CastChecked<UK2Node_GetEditorSubsystem>(Node);
+		TypedNode->Initialize(Subclass);
+	};
+
+	UClass* ActionKey = GetClass();
+	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
+	{
+		for (auto& Iter : Subclasses)
+		{
+			UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create(ActionKey);
+			check(Spawner);
+
+			Spawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeCallback, Iter);
+			ActionRegistrar.AddBlueprintAction(ActionKey, Spawner);
+		}
+	}
+}
+
+FText UK2Node_GetEditorSubsystem::GetMenuCategory() const
+{
+	return NSLOCTEXT("K2Node", "GetEditorSubsystem_MenuCategory", "Editor Subsystems");
+}
+
+FText UK2Node_GetEditorSubsystem::GetTooltipText() const
+{
+	if (CustomClass)
+	{
+		return FText::FormatNamed(NSLOCTEXT("K2Node", "GetEditorSubsystem_TooltipFormat", "Get {ClassName} an Editor Subsystem"), TEXT("ClassName"), CustomClass->GetDisplayNameText());
+	}
+
+	return NSLOCTEXT("K2Node", "GetEditorSubsystem_InvalidSubsystemTypeTooltip", "Invalid Subsystem Type");
+}
+
+bool UK2Node_GetEditorSubsystem::IsActionFilteredOut(class FBlueprintActionFilter const& Filter)
+{
+	for(UBlueprint* BP : Filter.Context.Blueprints)
+	{
+		if (!FBlueprintEditorUtils::IsBlutility(BP))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void UK2Node_GetEditorSubsystem::ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const
+{
+	Super::ValidateNodeDuringCompilation(MessageLog);
+
+	const UBlueprint* BP = FBlueprintEditorUtils::FindBlueprintForNodeChecked(this);
+
+	if (!FBlueprintEditorUtils::IsBlutility(BP))
+	{
+		const FText ErrorText = NSLOCTEXT("K2Node", "GetSubsystem_Error", "Editor Subsystems can only be used in Editor Utilities / Blutilities");
+		MessageLog.Error(*ErrorText.ToString(), this);
+	}
 }

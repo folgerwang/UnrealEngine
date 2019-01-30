@@ -1058,7 +1058,9 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 
 			for (int32 StartVertexIndex = 1; StartVertexIndex < Node.NumVertices - 1; ++StartVertexIndex)
 			{
-				FVertexInstanceID VertexInstanceIDs[3];
+				TArray<FVertexInstanceID> VertexInstanceIDs;
+				VertexInstanceIDs.SetNum(3);
+
 				FVertexID VertexIDs[3];
 				// These map the node's vertices to the 3 triangle indices to triangulate the convex polygon.
 				int32 TriVertIndices[3] = {
@@ -1086,33 +1088,16 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 					Colors[VertexInstanceIDs[Corner]] = FLinearColor::White;
 					Normals[VertexInstanceIDs[Corner]] = Normal;
 				}
-				//Add triangles
-				TArray<FMeshDescription::FContourPoint> Contours;
-				for (int32 Corner = 0; Corner < 3; ++Corner)
-				{
-					int32 ContourPointIndex = Contours.AddDefaulted();
-					FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-					//Find the matching edge ID
-					uint32 CornerIndices[2];
-					CornerIndices[0] = (Corner + 0) % 3;
-					CornerIndices[1] = (Corner + 1) % 3;
 
-					FVertexID EdgeVertexIDs[2];
-					EdgeVertexIDs[0] = VertexIDs[CornerIndices[0]];
-					EdgeVertexIDs[1] = VertexIDs[CornerIndices[1]];
-
-					FEdgeID MatchEdgeId = Mesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-					if (MatchEdgeId == FEdgeID::Invalid)
-					{
-						MatchEdgeId = Mesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-						EdgeHardnesses[MatchEdgeId] = false;
-						EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-					}
-					ContourPoint.EdgeID = MatchEdgeId;
-					ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
-				}
 				// Insert a polygon into the mesh
-				const FPolygonID NewPolygonID = Mesh.CreatePolygon(CurrentPolygonGroupID, Contours);
+				TArray<FEdgeID> NewEdgeIDs;
+				const FPolygonID NewPolygonID = Mesh.CreatePolygon(CurrentPolygonGroupID, VertexInstanceIDs, &NewEdgeIDs);
+				for (const FEdgeID EdgeID : NewEdgeIDs)
+				{
+					EdgeHardnesses[EdgeID] = false;
+					EdgeCreaseSharpnesses[EdgeID] = 0.0f;
+				}
+
 				//Triangulate the polygon
 				FMeshPolygon& Polygon = Mesh.GetPolygon(NewPolygonID);
 				Mesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -1828,8 +1813,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 					const FTransform RelativeTransform = RotationDirectionConvert * Component->GetComponentToWorld().GetRelativeTransform(Actor->GetTransform());
 
 					FTransform ActorTransform(FRotator::MakeFromEuler(ActorRotation).Quaternion(), ActorLocation, ActorScale);
-					FTransform TotalTransform = RelativeTransform;
-					TotalTransform.Accumulate(ActorTransform);
+					FTransform TotalTransform = RelativeTransform * ActorTransform;
 
 					ActorNode->LclTranslation.Set(Converter.ConvertToFbxPos(TotalTransform.GetLocation()));
 					ActorNode->LclRotation.Set(Converter.ConvertToFbxRot(TotalTransform.GetRotation().Euler()));

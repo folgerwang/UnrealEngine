@@ -29,6 +29,9 @@ class UNREALED_API UFbxTextureImportData : public UFbxAssetImportData
 	UPROPERTY(EditAnywhere, config, Category = Material, meta = (ImportType = "Mesh", AllowedClasses = "MaterialInterface"))
 	FSoftObjectPath BaseMaterialName;
 
+	/** transient, ImportUI customize helper to store if we must show or not the BaseMaterialName property. */
+	bool bUseBaseMaterial;
+
 	UPROPERTY(config, meta = (ImportType = "Mesh"))
 	FString BaseColorName;
 

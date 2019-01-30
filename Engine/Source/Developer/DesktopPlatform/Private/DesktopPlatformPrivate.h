@@ -10,6 +10,8 @@
 #include "Mac/DesktopPlatformMac.h"
 #elif PLATFORM_LINUX
 #include "Linux/DesktopPlatformLinux.h"
+#else
+#include "DesktopPlatformStub.h"
 #endif
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDesktopPlatform, Log, All);

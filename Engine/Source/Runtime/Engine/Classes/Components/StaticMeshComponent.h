@@ -447,7 +447,7 @@ public:
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface.
 
 	//~ Begin UPrimitiveComponent Interface.
@@ -665,7 +665,7 @@ public:
 	/** Get this components index in its parents blueprint created components array (used for matching instance data) */
 	int32 GetBlueprintCreatedComponentIndex() const;
 
-	void ApplyComponentInstanceData(class FStaticMeshComponentInstanceData* ComponentInstanceData);
+	void ApplyComponentInstanceData(struct FStaticMeshComponentInstanceData* ComponentInstanceData);
 
 	virtual void PropagateLightingScenarioChange() override;
 
@@ -681,5 +681,73 @@ private:
 #endif
 };
 
+/** Vertex data stored per-LOD */
+USTRUCT()
+struct FStaticMeshVertexColorLODData
+{
+	GENERATED_BODY()
+
+	/** copy of painted vertex data */
+	UPROPERTY()
+	TArray<FPaintedVertex> PaintedVertices;
+
+	/** Copy of vertex buffer colors */
+	UPROPERTY()
+	TArray<FColor> VertexBufferColors;
+
+	/** Index of the LOD that this data came from */
+	UPROPERTY()
+	uint32 LODIndex;
+
+	/** Check whether this contains valid data */
+	bool IsValid() const
+	{
+		return PaintedVertices.Num() > 0 && VertexBufferColors.Num() > 0;
+	}
+};
+
+USTRUCT()
+struct FStaticMeshComponentInstanceData : public FPrimitiveComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FStaticMeshComponentInstanceData() = default;
+	FStaticMeshComponentInstanceData(const UStaticMeshComponent* SourceComponent);
+	virtual ~FStaticMeshComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override;
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	/** Add vertex color data for a specified LOD before RerunConstructionScripts is called */
+	void AddVertexColorData(const struct FStaticMeshComponentLODInfo& LODInfo, uint32 LODIndex);
+
+	/** Re-apply vertex color data after RerunConstructionScripts is called */
+	bool ApplyVertexColorData(UStaticMeshComponent* StaticMeshComponent) const;
+
+	/** Mesh being used by component */
+	UPROPERTY()
+	class UStaticMesh* StaticMesh;
+
+	/** Array of cached vertex colors for each LOD */
+	UPROPERTY()
+	TArray<FStaticMeshVertexColorLODData> VertexColorLODs;
+
+	/** Used to store lightmap data during RerunConstructionScripts */
+	UPROPERTY()
+	TArray<FGuid> CachedStaticLighting;
+
+	/** Texture streaming build data */
+	UPROPERTY()
+	TArray<FStreamingTextureBuildInfo> StreamingTextureData;
+
+#if WITH_EDITORONLY_DATA
+	/** Texture streaming editor data (for viewmodes) */
+	UPROPERTY()
+	TArray<uint32> MaterialStreamingRelativeBoxes;
+#endif
+};
 
 

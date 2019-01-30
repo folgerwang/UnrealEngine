@@ -41,7 +41,7 @@ public:
 	bool Init(const FString& InDirectory, uint32 Flags);
 
 	/** Adds a delegate to get fired when the directory changes */
-	FDelegateHandle AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate );
+	FDelegateHandle AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate, uint32 Flags );
 	/** Removes a delegate to get fired when the directory changes */
 	bool RemoveDelegate( FDelegateHandle InHandle );
 	/** Returns true if this request has any delegates listening to directory changes */
@@ -64,9 +64,6 @@ private:
 	bool bRunning;
 	bool bEndWatchRequestInvoked;
 
-	/** Whether to report directory creation/deletion changes. */
-	bool bIncludeDirectoryChanges;
-
 	/** Whether or not watch subtree. */
 	bool bWatchSubtree;
 
@@ -80,8 +77,11 @@ private:
 
 	int NotifyFilter;
 
-	TArray<IDirectoryWatcher::FDirectoryChanged> Delegates;
-	TArray<FFileChangeData> FileChanges;
+	/** A delegate with its corresponding IDirectoryWatcher::WatchOptions flags */
+	typedef TPair<IDirectoryWatcher::FDirectoryChanged, uint32> FWatchDelegate;
+	TArray<FWatchDelegate> Delegates;
+	/** Each FFileChangeData tracks whether it is a directory or not */
+	TArray<TPair<FFileChangeData, bool>> FileChanges;
 
 	void Shutdown();
 	void ProcessChanges();

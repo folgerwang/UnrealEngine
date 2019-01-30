@@ -69,6 +69,7 @@ public:
 		, _ContentPadding( FMargin( 2 ) )
 		, _TabRole(ETabRole::PanelTab)
 		, _Label()
+		, _LabelSuffix()
 		, _Icon( FStyleDefaults::GetNoBrush() )
 		, _OnTabClosed()
 		, _OnTabActivated()
@@ -85,6 +86,7 @@ public:
 		SLATE_ATTRIBUTE( FMargin, ContentPadding )
 		SLATE_ARGUMENT( ETabRole, TabRole )
 		SLATE_ATTRIBUTE( FText, Label )
+		SLATE_ATTRIBUTE(FText, LabelSuffix)
 		SLATE_ATTRIBUTE( const FSlateBrush*, Icon )
 		SLATE_EVENT( FOnTabClosedCallback, OnTabClosed )
 		SLATE_EVENT( FOnTabActivatedCallback, OnTabActivated )
@@ -173,6 +175,12 @@ public:
 
 	/** The label that appears on the tab. */
 	void SetLabel( const TAttribute<FText>& InTabLabel );
+
+	/** Get Label Suffix */
+	FText GetTabLabelSuffix() const;
+
+	/** Set Label Suffix.  A second text field at the end of the Label that takes precedence and isn't lost when space is restricted */
+	void SetTabLabelSuffix(const TAttribute<FText>& InTabLabelSuffix);
 
 	/** The tooltip text that appears on the tab. */
 	void SetTabToolTipWidget(TSharedPtr<SToolTip> InTabToolTipWidget);
@@ -338,6 +346,9 @@ protected:
 
 	/** The label on the tab */
 	TAttribute<FText> TabLabel;
+
+	/** A second text field at the end of the Label that takes precedence and isn't lost when space is restricted */
+	TAttribute<FText> TabLabelSuffix;
 
 	/** The icon on the tab */
 	TAttribute<const FSlateBrush*> TabIcon;

@@ -67,6 +67,8 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_Mesh_NoReductionModuleAvailable;
 
+	static FName Generic_Mesh_TooMuchUVChannels;
+
 	/** Static Mesh **/
 	static FName StaticMesh_TooManyMaterials;
 
@@ -77,6 +79,8 @@ struct CORE_API FFbxErrors
 	static FName StaticMesh_BuildError;
 
 	static FName StaticMesh_AllTrianglesDegenerate;
+
+	static FName StaticMesh_AdjacencyOptionForced;
 
 	/** SkeletalMesh **/
 	static FName SkeletalMesh_DifferentRoots;

@@ -155,7 +155,7 @@ FFontEditor::~FFontEditor()
 	if (Editor != NULL)
 	{
 		Editor->UnregisterForUndo(this);
-		Editor->OnObjectReimported().RemoveAll(this);
+		Editor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.RemoveAll(this);
 	}
 }
 
@@ -164,7 +164,7 @@ void FFontEditor::InitFontEditor(const EToolkitMode::Type Mode, const TSharedPtr
 	FReimportManager::Instance()->OnPostReimport().AddRaw(this, &FFontEditor::OnPostReimport);
 
 	// Register to be notified when an object is reimported.
-	GEditor->OnObjectReimported().AddSP(this, &FFontEditor::OnObjectReimported);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddSP(this, &FFontEditor::OnObjectReimported);
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.AddSP(this, &FFontEditor::OnObjectPropertyChanged);
 

@@ -4,6 +4,8 @@
 #include "Serialization/ObjectWriter.h"
 #include "Serialization/ObjectReader.h"
 #include "Serialization/DuplicatedObject.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectAnnotation.h"
 #include "UObject/UObjectGlobals.h"
@@ -16,11 +18,10 @@
 class FComponentPropertyWriter : public FObjectWriter
 {
 public:
-	FComponentPropertyWriter(const UActorComponent* InComponent, TArray<uint8>& InBytes, TArray<UObject*>& InInstancedObjects, TArray<uint32_t>& InObjectReferenceIndicesInByteArray)
-		: FObjectWriter(InBytes)
+	FComponentPropertyWriter(const UActorComponent* InComponent, FActorComponentInstanceData& InActorInstanceData)
+		: FObjectWriter(InActorInstanceData.SavedProperties)
 		, Component(InComponent)
-		, InstancedObjects(InInstancedObjects)
-		, ObjectReferenceIndicesInByteArray(InObjectReferenceIndicesInByteArray)
+		, ActorInstanceData(InActorInstanceData)
 	{
 		// Include properties that would normally skip tagged serialization (e.g. bulk serialization of array properties).
 		ArPortFlags |= PPF_ForceTaggedSerialization;
@@ -80,7 +81,7 @@ public:
 			else if (Object->GetOuter() == Component)
 			{
 				Result = DuplicateObject(Object, GetTransientPackage());
-				InstancedObjects.Add(Result);
+				ActorInstanceData.DuplicatedObjects.Emplace(Result);
 			}
 			else
 			{
@@ -107,6 +108,16 @@ public:
 		return Result;
 	}
 
+	virtual FArchive& operator<<(FName& Name) override
+	{
+		// store the reference to this name in the array instead of the global table, this allow to for persistence
+		int32 ReferenceIndex = ActorInstanceData.ReferencedNames.AddUnique(Name);
+		// save the name as an index in the referenced name array
+		*this << ReferenceIndex;
+
+		return *this;
+	}
+
 	virtual FArchive& operator<<(UObject*& Object) override
 	{
 		UObject* SerializedObject = Object;
@@ -116,41 +127,38 @@ public:
 		}
 
 		// store the pointer to this object
+		int32 ReferenceIndex = INDEX_NONE;
 		if (SerializedObject)
 		{
-			ObjectReferenceIndicesInByteArray.Add(Bytes.Num());
+			ReferenceIndex = ActorInstanceData.ReferencedObjects.Num();
+			ActorInstanceData.ReferencedObjects.Add(SerializedObject);
 		}
-		Serialize(&SerializedObject, sizeof(UObject*));
-#if DO_CHECK
-		if (SerializedObject)
-		{
-			uint32_t PtrIdx = Bytes.Num() - sizeof(UObject*);
-			void* NewObjAddress = static_cast<void*>(&Bytes[PtrIdx]);
-			UObject* NewObjValue = *(reinterpret_cast<UObject**>(NewObjAddress));
-			ensure(NewObjValue == SerializedObject);
-		}
-#endif
+		// save the pointer as an index in the referenced object array
+		*this << ReferenceIndex;
 
 		return *this;
 	}
 
+	virtual FArchive& operator<<(FLazyObjectPtr& LazyObjectPtr) override
+	{
+		UObject* Obj = LazyObjectPtr.Get();
+		*this << Obj;
+		return *this;
+	}
+
 private:
-
 	const UActorComponent* Component;
-
+	FActorComponentInstanceData& ActorInstanceData;
 	TSet<const UProperty*> PropertiesToSkip;
-	
-	TArray<UObject*>& InstancedObjects;
-	TArray<uint32_t>& ObjectReferenceIndicesInByteArray;
-
 	FUObjectAnnotationSparse<FDuplicatedObject,false> DuplicatedObjectAnnotation;
 };
 
 class FComponentPropertyReader : public FObjectReader
 {
 public:
-	FComponentPropertyReader(UActorComponent* InComponent, TArray<uint8>& InBytes)
-		: FObjectReader(InBytes)
+	FComponentPropertyReader(UActorComponent* InComponent, FActorComponentInstanceData& InActorInstanceData)
+		: FObjectReader(InActorInstanceData.SavedProperties)
+		, ActorInstanceData(InActorInstanceData)
 	{
 		// Include properties that would normally skip tagged serialization (e.g. bulk serialization of array properties).
 		ArPortFlags |= PPF_ForceTaggedSerialization;
@@ -166,22 +174,129 @@ public:
 		return PropertiesToSkip.Contains(InProperty);
 	}
 
+	virtual FArchive& operator<<(FName& Name) override
+	{
+		// FName are serialized as Index in ActorInstanceData instead of the normal FName table
+		int32 ReferenceIndex = INDEX_NONE;
+		*this << ReferenceIndex;
+		Name = ActorInstanceData.ReferencedNames.IsValidIndex(ReferenceIndex) ? ActorInstanceData.ReferencedNames[ReferenceIndex] : FName();
+		return *this;
+	}
+
+	virtual FArchive& operator<<(UObject*& Object) override
+	{
+		// UObject pointer are serialized as Index in ActorInstanceData
+		int32 ReferenceIndex = INDEX_NONE;
+		*this << ReferenceIndex;
+		Object = ActorInstanceData.ReferencedObjects.IsValidIndex(ReferenceIndex) ? ActorInstanceData.ReferencedObjects[ReferenceIndex] : nullptr;
+		return *this;
+	}
+
+	virtual FArchive& operator<<(FLazyObjectPtr& LazyObjectPtr) override
+	{
+		UObject* Obj = LazyObjectPtr.Get();
+		*this << Obj;
+		return *this;
+	}
+
+	FActorComponentInstanceData& ActorInstanceData;
 	TSet<const UProperty*> PropertiesToSkip;
 };
 
+
+FActorComponentDuplicatedObjectData::FActorComponentDuplicatedObjectData(UObject* InObject)
+	: DuplicatedObject(InObject)
+	, ObjectPathDepth(0)
+{
+	if (DuplicatedObject)
+	{
+		for (UObject* Outer = DuplicatedObject; Outer; Outer = Outer->GetOuter())
+		{
+			++ObjectPathDepth;
+		}
+	}
+}
+
+bool FActorComponentDuplicatedObjectData::Serialize(FArchive& Ar)
+{
+	enum class EVersion : uint8
+	{
+		InitialVersion = 0,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	EVersion Version = EVersion::LatestVersion;
+	Ar << Version;
+
+	if (Version > EVersion::LatestVersion)
+	{
+		Ar.SetError();
+		return true;
+	}
+
+	FString ObjectClassPath;
+	FString ObjectOuterPath;
+	FName ObjectName;
+	uint32 ObjectPersistentFlags = 0;
+	TArray<uint8> ObjectData;
+
+	if (Ar.IsSaving() && DuplicatedObject)
+	{
+		UClass* ObjectClass = DuplicatedObject->GetClass();
+		ObjectClassPath = ObjectClass ? ObjectClass->GetPathName() : FString();
+		ObjectOuterPath = DuplicatedObject->GetOuter() ? DuplicatedObject->GetOuter()->GetPathName() : FString();
+		ObjectName = DuplicatedObject->GetFName();
+		ObjectPersistentFlags = DuplicatedObject->GetFlags() & RF_Load;
+		if (ObjectClass)
+		{
+			FMemoryWriter Writer(ObjectData);
+			ObjectClass->SerializeTaggedProperties(Writer, (uint8*)DuplicatedObject, ObjectClass, nullptr);
+		}
+	}
+
+	Ar << ObjectClassPath;
+	Ar << ObjectOuterPath;
+	Ar << ObjectName;
+	Ar << ObjectPersistentFlags;
+	Ar << ObjectData;
+
+	// If loading use the de-serialized property to assign DuplicatedObject
+	if (Ar.IsLoading())
+	{
+		DuplicatedObject = nullptr;
+		// Get the object class
+		if (UClass* ObjectClass = LoadObject<UClass>(nullptr, *ObjectClassPath))
+		{
+			// Get the object outer
+			if (UObject* FoundOuter = StaticFindObject(UObject::StaticClass(), nullptr, *ObjectOuterPath))
+			{
+				// Create the duplicated object
+				DuplicatedObject = NewObject<UObject>(FoundOuter, ObjectClass, *ObjectName.ToString(), (EObjectFlags)ObjectPersistentFlags);
+
+				// Deserialize the duplicated object
+				FMemoryReader Reader(ObjectData);
+				ObjectClass->SerializeTaggedProperties(Reader, (uint8*)DuplicatedObject, ObjectClass, nullptr);
+			}
+		}
+	}
+
+	return true;
+}
+
 FActorComponentInstanceData::FActorComponentInstanceData()
 	: SourceComponentTemplate(nullptr)
-	, SourceComponentTypeSerializedIndex(-1)
 	, SourceComponentCreationMethod(EComponentCreationMethod::Native)
-{
-}
+	, SourceComponentTypeSerializedIndex(INDEX_NONE)
+{}
 
 FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* SourceComponent)
 {
 	check(SourceComponent);
 	SourceComponentTemplate = SourceComponent->GetArchetype();
 	SourceComponentCreationMethod = SourceComponent->CreationMethod;
-	SourceComponentTypeSerializedIndex = -1;
+	SourceComponentTypeSerializedIndex = INDEX_NONE;
 
 	// UCS components can share the same template (e.g. an AddComponent node inside a loop), so we also cache their serialization index here (relative to the shared template) as a means for identification
 	if(SourceComponentCreationMethod == EComponentCreationMethod::UserConstructionScript)
@@ -209,30 +324,28 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 			}
 			if (!bFound)
 			{
-				SourceComponentTypeSerializedIndex = -1;
+				SourceComponentTypeSerializedIndex = INDEX_NONE;
 			}
 		}
 	}
 
 	if (SourceComponent->IsEditableWhenInherited())
 	{
-		FComponentPropertyWriter ComponentPropertyWriter(SourceComponent, SavedProperties, InstancedObjects, ObjectReferenceIndicesInByteArray);
+		FComponentPropertyWriter ComponentPropertyWriter(SourceComponent, *this);
 
 		// Cache off the length of an array that will come from SerializeTaggedProperties that had no properties saved in to it.
 		auto GetSizeOfEmptyArchive = []() -> int32
 		{
 			const UActorComponent* DummyComponent = GetDefault<UActorComponent>();
-			TArray<uint8> NoWrittenPropertyReference;
-			TArray<UObject*> NoInstances;
-			TArray<uint32_t> NoObjectReferences;
-			FComponentPropertyWriter NullWriter(nullptr, NoWrittenPropertyReference, NoInstances, NoObjectReferences);
+			FActorComponentInstanceData DummyInstanceData;
+			FComponentPropertyWriter NullWriter(nullptr, DummyInstanceData);
 			UClass* ComponentClass = DummyComponent->GetClass();
 			
 			// By serializing the component with itself as its defaults we guarantee that no properties will be written out
 			ComponentClass->SerializeTaggedProperties(NullWriter, (uint8*)DummyComponent, ComponentClass, (uint8*)DummyComponent);
 
-			check(NoInstances.Num() == 0 && NoObjectReferences.Num() == 0);
-			return NoWrittenPropertyReference.Num();
+			check(DummyInstanceData.DuplicatedObjects.Num() == 0 && DummyInstanceData.ReferencedObjects.Num() == 0);
+			return DummyInstanceData.SavedProperties.Num();
 		};
 
 		static const int32 SizeOfEmptyArchive = GetSizeOfEmptyArchive();
@@ -243,6 +356,15 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 		{
 			SavedProperties.Empty();
 		}
+	}
+
+	// Sort duplicated objects, if any, this ensures that lower depth duplicated objects are first in the array, which ensures proper creation order when deserializing
+	if (DuplicatedObjects.Num() > 0)
+	{
+		DuplicatedObjects.StableSort([](const FActorComponentDuplicatedObjectData& One, const FActorComponentDuplicatedObjectData& Two) -> bool
+		{
+			return One.ObjectPathDepth < Two.ObjectPathDepth;
+		});
 	}
 }
 
@@ -290,15 +412,15 @@ void FActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, c
 	{
 		Component->DetermineUCSModifiedProperties();
 
-		for (UObject* InstancedObject : InstancedObjects)
+		for (const FActorComponentDuplicatedObjectData& DuplicatedObjectData : DuplicatedObjects)
 		{
-			if (InstancedObject)
+			if (DuplicatedObjectData.DuplicatedObject)
 			{
-				InstancedObject->Rename(nullptr, Component, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+				DuplicatedObjectData.DuplicatedObject->Rename(nullptr, Component, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
 			}
 		}
 
-		FComponentPropertyReader ComponentPropertyReader(Component, SavedProperties);
+		FComponentPropertyReader ComponentPropertyReader(Component, *this);
 
 		if (Component->IsRegistered())
 		{
@@ -310,16 +432,7 @@ void FActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, c
 void FActorComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(SourceComponentTemplate);
-	Collector.AddReferencedObjects(InstancedObjects);
-
-	for (uint32_t Idx : ObjectReferenceIndicesInByteArray)
-	{
-		UObject** Obj = (UObject**)&SavedProperties[Idx];
-		if (*Obj)
-		{
-			Collector.AddReferencedObject(*Obj);
-		}
-	}
+	Collector.AddReferencedObjects(ReferencedObjects);
 }
 
 FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
@@ -337,10 +450,10 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 		{
 			if (bIsChildActor || Component->IsCreatedByConstructionScript()) // Only cache data from 'created by construction script' components
 			{
-				FActorComponentInstanceData* ComponentInstanceData = Component->GetComponentInstanceData();
-				if (ComponentInstanceData)
+				TStructOnScope<FActorComponentInstanceData> ComponentInstanceData = Component->GetComponentInstanceData();
+				if (ComponentInstanceData.IsValid())
 				{
-					ComponentsInstanceData.Add(ComponentInstanceData);
+					ComponentsInstanceData.Add(MoveTemp(ComponentInstanceData));
 				}
 			}
 			else if (Component->CreationMethod == EComponentCreationMethod::Instance)
@@ -370,12 +483,40 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 	}
 }
 
-FComponentInstanceDataCache::~FComponentInstanceDataCache()
+void FComponentInstanceDataCache::Serialize(FArchive& Ar)
 {
-	for (FActorComponentInstanceData* ComponentData : ComponentsInstanceData)
+	enum class EVersion : uint8
 	{
-		delete ComponentData;
+		InitialVersion = 0,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	EVersion Version = EVersion::LatestVersion;
+	Ar << Version;
+
+	if (Version > EVersion::LatestVersion)
+	{
+		Ar.SetError();
+		return;
 	}
+
+
+	if (Ar.IsLoading())
+	{
+		// Since not all properties are serializable we don't want to deserialize the map directly,
+		// so we deserialize it in a temp array and copy it over
+		TArray<TStructOnScope<FActorComponentInstanceData>> TempInstanceData;
+		Ar << TempInstanceData;
+		CopySerializableProperties(MoveTemp(TempInstanceData));
+	}
+	else
+	{
+		Ar << ComponentsInstanceData;
+	}
+
+	Ar << InstanceComponentTransformToRootMap;
 }
 
 void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyPhase CacheApplyPhase) const
@@ -465,9 +606,9 @@ void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyP
 				// Cache template here to avoid redundant calls in the loop below
 				const UObject* ComponentTemplate = ComponentToArchetypeMap.FindChecked(ComponentInstance);
 
-				for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
+				for (const TStructOnScope<FActorComponentInstanceData>& ComponentInstanceData : ComponentsInstanceData)
 				{
-					if (	ComponentInstanceData
+					if (	ComponentInstanceData.IsValid()
 						&&	ComponentInstanceData->GetComponentClass() == ComponentTemplate->GetClass() // filter on class early to avoid unnecessary virtual and expensive tests
 						&&	ComponentInstanceData->MatchesComponent(ComponentInstance, ComponentTemplate, ComponentToArchetypeMap))
 					{
@@ -495,9 +636,9 @@ void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyP
 
 void FComponentInstanceDataCache::FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
 {
-	for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
+	for (TStructOnScope<FActorComponentInstanceData>& ComponentInstanceData : ComponentsInstanceData)
 	{
-		if (ComponentInstanceData)
+		if (ComponentInstanceData.IsValid())
 		{
 			ComponentInstanceData->FindAndReplaceInstances(OldToNewInstanceMap);
 		}
@@ -525,11 +666,42 @@ void FComponentInstanceDataCache::AddReferencedObjects(FReferenceCollector& Coll
 {
 	Collector.AddReferencedObjects(InstanceComponentTransformToRootMap);
 
-	for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
+	for (TStructOnScope<FActorComponentInstanceData>& ComponentInstanceData : ComponentsInstanceData)
 	{
-		if (ComponentInstanceData)
+		if (ComponentInstanceData.IsValid())
 		{
 			ComponentInstanceData->AddReferencedObjects(Collector);
+		}
+	}
+}
+
+void FComponentInstanceDataCache::CopySerializableProperties(TArray<TStructOnScope<FActorComponentInstanceData>> InComponentsInstanceData)
+{
+	auto CopyProperties = [](TStructOnScope<FActorComponentInstanceData>& DestData, const TStructOnScope<FActorComponentInstanceData>& SrcData)
+	{
+		for (TFieldIterator<const UProperty> PropertyIt(SrcData.GetStruct(), EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::IncludeDeprecated, EFieldIteratorFlags::ExcludeInterfaces); PropertyIt; ++PropertyIt)
+		{
+			const void* SrcValuePtr = PropertyIt->ContainerPtrToValuePtr<void>(SrcData.Get());
+			void* DestValuePtr = PropertyIt->ContainerPtrToValuePtr<void>(DestData.Get());
+			PropertyIt->CopyCompleteValue(DestValuePtr, SrcValuePtr);
+		}
+	};
+
+	for (TStructOnScope<FActorComponentInstanceData>& InstanceData : InComponentsInstanceData)
+	{
+		TStructOnScope<FActorComponentInstanceData>* DestInstanceData = ComponentsInstanceData.FindByPredicate([&InstanceData](TStructOnScope<FActorComponentInstanceData>& InInstanceData)
+		{
+			return InstanceData->GetComponentTemplate() == InInstanceData->GetComponentTemplate() && InstanceData.GetStruct() == InInstanceData.GetStruct();
+		});
+		// if we find a ComponentInstanceData to apply it too, we copy the properties over
+		if (DestInstanceData)
+		{
+			CopyProperties(*DestInstanceData, InstanceData);
+		}
+		// otherwise we just add our to the list, since no component instance data was created for it
+		else
+		{
+			ComponentsInstanceData.Add(MoveTemp(InstanceData));
 		}
 	}
 }

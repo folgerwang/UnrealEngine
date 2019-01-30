@@ -227,7 +227,10 @@ public:
 	 *        the platform, not all parameters may be supported.
 	 */
 	virtual void DrawAttention(const FWindowDrawAttentionParameters& Parameters);
-	
+
+	/** Shows or hides native window buttons on platforms that use them */
+	virtual void SetNativeWindowButtonsVisibility(bool bVisible);
+
 protected:
 
 	TSharedPtr< FGenericWindowDefinition > Definition;

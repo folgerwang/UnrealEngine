@@ -48,7 +48,7 @@ public:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	virtual class FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 
 	/** Get the ControlRig hosted by this component */
 	UFUNCTION(BlueprintPure, Category = "ControlRig", meta = (DisplayName = "Get ControlRig", ScriptName = "GetControlRig"))
@@ -74,5 +74,33 @@ public:
 	}
 
 private:
-	friend class FControlRigComponentInstanceData;
+	friend struct FControlRigComponentInstanceData;
+};
+
+/** Used to store animation ControlRig data during recompile of BP */
+USTRUCT()
+struct FControlRigComponentInstanceData : public FActorComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FControlRigComponentInstanceData()
+		: AnimControlRig(nullptr)
+	{}
+	FControlRigComponentInstanceData(const UControlRigComponent* SourceComponent)
+		: FActorComponentInstanceData(SourceComponent)
+		, AnimControlRig(SourceComponent->ControlRig)
+	{}
+	virtual ~FControlRigComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return (AnimControlRig != nullptr) || Super::ContainsData();
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	// stored object
+	UPROPERTY()
+	UControlRig* AnimControlRig;
 };

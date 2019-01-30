@@ -43,6 +43,8 @@ public:
 
 	void CollectChildPropertiesRecursive(TSharedPtr<IPropertyHandle> Node, TArray<TSharedPtr<IPropertyHandle>>& OutProperties);
 	
+	void ConstructMaterialImportMethod(TSharedPtr<IPropertyHandle> ImportMaterialPropHandle, class IDetailCategoryBuilder& MaterialCategory);
+
 	void ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Handle, class IDetailCategoryBuilder& MaterialCategory);
 
 	/** Checks whether a metadata string is valid for a given import type 
@@ -76,6 +78,9 @@ public:
 	void OnEmmisiveTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	void OnEmissiveColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	void OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	FReply MaterialBaseParamClearAllProperties();
+
+	void OnMaterialImportMethodChanged(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	
 	TWeakObjectPtr<UFbxImportUI> ImportUI;		// The UI data object being customised
 	IDetailLayoutBuilder* CachedDetailBuilder;	// The detail builder for this cusomtomisation
@@ -108,6 +113,10 @@ private:
 	/** Cached VertexColorImportOption property handle */
 	TSharedPtr<IPropertyHandle> VertexColorImportOptionHandle;
 	TSharedPtr<IPropertyHandle> SkeletalMeshVertexColorImportOptionHandle;
+
+	TArray< TSharedPtr< FString > > ImportMethodNames;
+	TSharedPtr<class STextComboBox> MaterialImportMethodComboBox;
+	bool bShowBaseMaterialUI;
 
 	TArray< TSharedPtr< FString > > BaseColorNames;
 	TArray< TSharedPtr< FString > > BaseTextureNames;

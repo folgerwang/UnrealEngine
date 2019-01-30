@@ -125,13 +125,13 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 	}
 
 	// Load the manifest and all archives
-	FLocTextHelper LocTextHelper(SourcePath, ManifestName, ArchiveName, NativeCultureName, CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
+	FLocTextHelper LocTextHelper(SourcePath, ManifestName, ArchiveName, NativeCultureName, CulturesToGenerate, GatherManifestHelper->GetLocFileNotifies(), GatherManifestHelper->GetPlatformSplitMode());
 	{
 		FText LoadError;
 		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
 		{
 			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("%s"), *LoadError.ToString());
-			return false;
+			return -1;
 		}
 	}
 
@@ -148,25 +148,56 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		if (!bLocMetaFileSaved)
 		{
 			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Could not write file %s"), *TextLocalizationMetaDataResourcePath);
-			return false;
+			return -1;
 		}
 	}
 
 	// Generate the LocRes file for each culture
 	for (const FString& CultureName : CulturesToGenerate)
 	{
-		const FString TextLocalizationResourcePath = DestinationPath / CultureName / ResourceName;
-
-		const bool bLocResFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, TextLocalizationResourcePath, [&LocTextHelper, &CultureName, &bSkipSourceCheck](const FString& InSaveFileName) -> bool
+		auto GenerateSingleLocRes = [this, &DestinationPath, &CultureName, &ResourceName](const FTextLocalizationResource& InLocRes, const FName InPlatformName) -> bool
 		{
-			FTextLocalizationResource LocRes;
-			return FTextLocalizationResourceGenerator::GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, FTextKey(InSaveFileName), LocRes) && LocRes.SaveToFile(InSaveFileName);
-		});
+			FString TextLocalizationResourcePath;
+			if (InPlatformName.IsNone())
+			{
+				TextLocalizationResourcePath = DestinationPath / CultureName / ResourceName;
+			}
+			else
+			{
+				TextLocalizationResourcePath = DestinationPath / FPaths::GetPlatformLocalizationFolderName() / InPlatformName.ToString() / CultureName / ResourceName;
+			}
 
-		if (!bLocResFileSaved)
+			const bool bLocResFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, TextLocalizationResourcePath, [&InLocRes](const FString& InSaveFileName) -> bool
+			{
+				return InLocRes.SaveToFile(InSaveFileName);
+			});
+
+			if (!bLocResFileSaved)
+			{
+				UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Could not write file %s"), *TextLocalizationResourcePath);
+				return false;
+			}
+
+			return true;
+		};
+
+		FTextLocalizationResource PlatformAgnosticLocRes;
+		TMap<FName, TSharedRef<FTextLocalizationResource>> PerPlatformLocRes;
+		const FTextKey LocResId = DestinationPath / CultureName / ResourceName;
+		if (!FTextLocalizationResourceGenerator::GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, LocResId, PlatformAgnosticLocRes, PerPlatformLocRes))
 		{
-			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Could not write file %s"), *TextLocalizationResourcePath);
+			UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("Failed to generate LocRes %s"), LocResId.GetChars());
 			return false;
+		}
+	
+		bool bSuccess = GenerateSingleLocRes(PlatformAgnosticLocRes, FName());
+		for (const auto& PerPlatformLocResPair : PerPlatformLocRes)
+		{
+			bSuccess &= GenerateSingleLocRes(*PerPlatformLocResPair.Value, PerPlatformLocResPair.Key);
+		}
+		if (!bSuccess)
+		{
+			return -1;
 		}
 	}
 

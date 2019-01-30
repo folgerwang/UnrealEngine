@@ -26,9 +26,6 @@ FGameplayAbilitiesEditor::FGameplayAbilitiesEditor()
 
 FGameplayAbilitiesEditor::~FGameplayAbilitiesEditor()
 {
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
-	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-	
 	// NOTE: Any tabs that we still have hanging out when destroyed will be cleaned up by FBaseToolkit's destructor
 }
 

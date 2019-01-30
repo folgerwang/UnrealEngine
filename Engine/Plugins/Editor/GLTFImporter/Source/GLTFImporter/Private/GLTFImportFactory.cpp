@@ -89,7 +89,7 @@ UGLTFImportFactory::UGLTFImportFactory(const FObjectInitializer& ObjectInitializ
 UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename,
                                                const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Parms);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Parms);
 
 	Warn->Log(Filename);
 
@@ -134,7 +134,7 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Object);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Object);
 
 	GLTFImporterImpl::ShowLogMessages(Context.GetLogMessages());
 

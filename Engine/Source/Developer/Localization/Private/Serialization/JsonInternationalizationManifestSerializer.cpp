@@ -46,7 +46,7 @@ struct FCompareStructuredEntryByNamespace
 };
 
 
-bool FJsonInternationalizationManifestSerializer::DeserializeManifest( const FString& InStr, TSharedRef< FInternationalizationManifest > Manifest )
+bool FJsonInternationalizationManifestSerializer::DeserializeManifest( const FString& InStr, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName )
 {
 	TSharedPtr<FJsonObject> JsonManifestObj;
 	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InStr );
@@ -54,20 +54,20 @@ bool FJsonInternationalizationManifestSerializer::DeserializeManifest( const FSt
 
 	if ( bExecSuccessful && JsonManifestObj.IsValid() )
 	{
-		bExecSuccessful = DeserializeInternal( JsonManifestObj.ToSharedRef(), Manifest );
+		bExecSuccessful = DeserializeInternal( JsonManifestObj.ToSharedRef(), Manifest, PlatformName );
 	}
 
 	return bExecSuccessful;
 }
 
 
-bool FJsonInternationalizationManifestSerializer::DeserializeManifest( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest )
+bool FJsonInternationalizationManifestSerializer::DeserializeManifest( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName )
 {
-	return DeserializeInternal( InJsonObj, Manifest );
+	return DeserializeInternal( InJsonObj, Manifest, PlatformName );
 }
 
 
-bool FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile( const FString& InJsonFile, TSharedRef< FInternationalizationManifest > Manifest )
+bool FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile( const FString& InJsonFile, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName )
 {
 	// Read in file as string
 	FString FileContents;
@@ -87,7 +87,7 @@ bool FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile( c
 		return false;
 	}
 
-	return DeserializeInternal(JsonObject.ToSharedRef(), Manifest);
+	return DeserializeInternal(JsonObject.ToSharedRef(), Manifest, PlatformName);
 }
 
 
@@ -137,7 +137,7 @@ bool FJsonInternationalizationManifestSerializer::SerializeManifestToFile( TShar
 }
 
 
-bool FJsonInternationalizationManifestSerializer::DeserializeInternal( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest )
+bool FJsonInternationalizationManifestSerializer::DeserializeInternal( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName )
 {
 	if( InJsonObj->HasField( TAG_FORMATVERSION ) )
 	{
@@ -155,7 +155,7 @@ bool FJsonInternationalizationManifestSerializer::DeserializeInternal( TSharedRe
 		Manifest->SetFormatVersion(FInternationalizationManifest::EFormatVersion::Initial);
 	}
 
-	return JsonObjToManifest(InJsonObj, TEXT(""), Manifest );
+	return JsonObjToManifest(InJsonObj, TEXT(""), Manifest, PlatformName );
 }
 
 
@@ -182,7 +182,7 @@ bool FJsonInternationalizationManifestSerializer::SerializeInternal( TSharedRef<
 }
 
 
-bool FJsonInternationalizationManifestSerializer::JsonObjToManifest( TSharedRef< FJsonObject > InJsonObj, FString ParentNamespace, TSharedRef< FInternationalizationManifest > Manifest )
+bool FJsonInternationalizationManifestSerializer::JsonObjToManifest( TSharedRef< FJsonObject > InJsonObj, FString ParentNamespace, TSharedRef< FInternationalizationManifest > Manifest, const FName PlatformName )
 {
 	bool bConvertSuccess = true;
 	FString AccumulatedNamespace = ParentNamespace;
@@ -266,6 +266,7 @@ bool FJsonInternationalizationManifestSerializer::JsonObjToManifest( TSharedRef<
 						FManifestContext CommandContext;
 						CommandContext.Key = Key;
 						CommandContext.SourceLocation = SourceLocation;
+						CommandContext.PlatformName = PlatformName;
 
 						if( ContextJSONObject->HasTypedField< EJson::Boolean >( TAG_OPTIONAL ) )
 						{
@@ -337,7 +338,7 @@ bool FJsonInternationalizationManifestSerializer::JsonObjToManifest( TSharedRef<
 			const TSharedPtr< FJsonValue >  SubnamespaceEntry = *SubnamespaceIter;
 			const TSharedPtr< FJsonObject > SubnamespaceJSONObject = SubnamespaceEntry->AsObject();
 
-			if( !JsonObjToManifest( SubnamespaceJSONObject.ToSharedRef(), AccumulatedNamespace, Manifest ) )
+			if( !JsonObjToManifest( SubnamespaceJSONObject.ToSharedRef(), AccumulatedNamespace, Manifest, PlatformName ) )
 			{
 				bConvertSuccess = false;
 				break;

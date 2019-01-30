@@ -51,9 +51,14 @@ namespace
 		FLocKeyPairMultiMap CollapsedNSSourceStringToExpandedNSKey;
 	};
 
-	TSharedRef<FInternationalizationManifest> BuildCollapsedManifest(FLocTextHelper& InLocTextHelper, const ELocalizedTextCollapseMode InTextCollapseMode, FCollapsedData& OutCollapsedData)
+	void BuildCollapsedManifest(FLocTextHelper& InLocTextHelper, const ELocalizedTextCollapseMode InTextCollapseMode, FCollapsedData& OutCollapsedData, TSharedPtr<FInternationalizationManifest>& OutPlatformAgnosticManifest, TMap<FName, TSharedRef<FInternationalizationManifest>>& OutPerPlatformManifests)
 	{
-		TSharedRef<FInternationalizationManifest> CollapsedManifest = MakeShared<FInternationalizationManifest>();
+		// Always add the split platforms so that they generate an empty manifest if there are no entries for that platform in the master manifest
+		OutPlatformAgnosticManifest = MakeShared<FInternationalizationManifest>();
+		for (const FString& SplitPlatformName : InLocTextHelper.GetPlatformsToSplit())
+		{
+			OutPerPlatformManifests.Add(*SplitPlatformName, MakeShared<FInternationalizationManifest>());
+		}
 
 		InLocTextHelper.EnumerateSourceTexts([&](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
@@ -63,8 +68,18 @@ namespace
 			{
 				bool bAddedContext = false;
 
+				TSharedPtr<FInternationalizationManifest> ManifestToUpdate = OutPlatformAgnosticManifest;
+				if (!Context.PlatformName.IsNone())
+				{
+					if (TSharedRef<FInternationalizationManifest>* PerPlatformManifest = OutPerPlatformManifests.Find(Context.PlatformName))
+					{
+						ManifestToUpdate = *PerPlatformManifest;
+					}
+				}
+				check(ManifestToUpdate.IsValid());
+
 				// Check if the entry already exists in the manifest
-				TSharedPtr<FManifestEntry> ExistingEntry = CollapsedManifest->FindEntryByContext(CollapsedNamespace, Context);
+				TSharedPtr<FManifestEntry> ExistingEntry = ManifestToUpdate->FindEntryByContext(CollapsedNamespace, Context);
 				if (ExistingEntry.IsValid())
 				{
 					if (InManifestEntry->Source.IsExactMatch(ExistingEntry->Source))
@@ -97,7 +112,7 @@ namespace
 				}
 				else
 				{
-					if (CollapsedManifest->AddSource(CollapsedNamespace, InManifestEntry->Source, Context))
+					if (ManifestToUpdate->AddSource(CollapsedNamespace, InManifestEntry->Source, Context))
 					{
 						bAddedContext = true;
 					}
@@ -137,8 +152,6 @@ namespace
 
 			return true; // continue enumeration
 		}, true);
-
-		return CollapsedManifest;
 	}
 
 	TMap<FPortableObjectEntryKey, TArray<FString>> ExtractPreservedPOComments(const FPortableObjectFormatDOM& InPortableObject)
@@ -416,9 +429,18 @@ namespace
 
 bool PortableObjectPipeline::Import(FLocTextHelper& InLocTextHelper, const FString& InCulture, const FString& InPOFilePath, const ELocalizedTextCollapseMode InTextCollapseMode)
 {
+	// This function only works when not splitting per-platform data
+	if (InLocTextHelper.ShouldSplitPlatformData())
+	{
+		UE_LOG(LogPortableObjectPipeline, Error, TEXT("PortableObjectPipeline::Import may only be used when not splitting platform data."));
+		return false;
+	}
+
 	// Build the collapsed manifest data needed to import
 	FCollapsedData CollapsedData;
-	TSharedRef<FInternationalizationManifest> CollapsedManifest = BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData);
+	TSharedPtr<FInternationalizationManifest> PlatformAgnosticManifest;
+	TMap<FName, TSharedRef<FInternationalizationManifest>> PerPlatformManifests;
+	BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData, PlatformAgnosticManifest, PerPlatformManifests);
 
 	return ImportPortableObject(InLocTextHelper, InCulture, InPOFilePath, CollapsedData);
 }
@@ -427,32 +449,51 @@ bool PortableObjectPipeline::ImportAll(FLocTextHelper& InLocTextHelper, const FS
 {
 	// We may only have a single culture if using this setting
 	const bool bSingleCultureMode = !bUseCultureDirectory;
-	if (bSingleCultureMode && InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1)
+	if (bSingleCultureMode && (InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1 || InLocTextHelper.ShouldSplitPlatformData()))
 	{
-		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
+		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture when not splitting platform data."));
 		return false;
 	}
 
 	// Build the collapsed manifest data needed to import
 	FCollapsedData CollapsedData;
-	TSharedRef<FInternationalizationManifest> CollapsedManifest = BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData);
+	TSharedPtr<FInternationalizationManifest> PlatformAgnosticManifest;
+	TMap<FName, TSharedRef<FInternationalizationManifest>> PerPlatformManifests;
+	BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData, PlatformAgnosticManifest, PerPlatformManifests);
 
 	// Process the desired cultures
 	bool bSuccess = true;
 	for (const FString& CultureName : InLocTextHelper.GetAllCultures(bSingleCultureMode))
 	{
-		// Which path should we use for the PO?
-		FString POFilePath;
-		if (bUseCultureDirectory)
+		auto ImportSinglePortableObject = [&](const FName InPlatformName) -> bool
 		{
-			POFilePath = InPOCultureRootPath / CultureName / InPOFilename;
-		}
-		else
-		{
-			POFilePath = InPOCultureRootPath / InPOFilename;
-		}
+			// Which path should we use for the PO?
+			FString POFilePath;
+			if (bUseCultureDirectory)
+			{
+				// Platforms splits are only supported when exporting all cultures (see the error at the start of this function)
+				if (InPlatformName.IsNone())
+				{
+					POFilePath = InPOCultureRootPath / CultureName / InPOFilename;
+				}
+				else
+				{
+					POFilePath = InPOCultureRootPath / FPaths::GetPlatformLocalizationFolderName() / InPlatformName.ToString() / CultureName / InPOFilename;
+				}
+			}
+			else
+			{
+				POFilePath = InPOCultureRootPath / InPOFilename;
+			}
 
-		bSuccess &= ImportPortableObject(InLocTextHelper, CultureName, POFilePath, CollapsedData);
+			return ImportPortableObject(InLocTextHelper, CultureName, POFilePath, CollapsedData);
+		};
+
+		bSuccess &= ImportSinglePortableObject(FName());
+		for (const auto& PerPlatformManifestPair : PerPlatformManifests)
+		{
+			bSuccess &= ImportSinglePortableObject(PerPlatformManifestPair.Key);
+		}
 	}
 
 	return bSuccess;
@@ -460,20 +501,29 @@ bool PortableObjectPipeline::ImportAll(FLocTextHelper& InLocTextHelper, const FS
 
 bool PortableObjectPipeline::Export(FLocTextHelper& InLocTextHelper, const FString& InCulture, const FString& InPOFilePath, const ELocalizedTextCollapseMode InTextCollapseMode, const bool bShouldPersistComments)
 {
+	// This function only works when not splitting per-platform data
+	if (InLocTextHelper.ShouldSplitPlatformData())
+	{
+		UE_LOG(LogPortableObjectPipeline, Error, TEXT("PortableObjectPipeline::Export may only be used when not splitting platform data."));
+		return false;
+	}
+
 	// Build the collapsed manifest data needed to export
 	FCollapsedData CollapsedData;
-	TSharedRef<FInternationalizationManifest> CollapsedManifest = BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData);
+	TSharedPtr<FInternationalizationManifest> PlatformAgnosticManifest;
+	TMap<FName, TSharedRef<FInternationalizationManifest>> PerPlatformManifests;
+	BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData, PlatformAgnosticManifest, PerPlatformManifests);
 
-	return ExportPortableObject(InLocTextHelper, InCulture, InPOFilePath, InTextCollapseMode, CollapsedManifest, CollapsedData, bShouldPersistComments);
+	return ExportPortableObject(InLocTextHelper, InCulture, InPOFilePath, InTextCollapseMode, PlatformAgnosticManifest.ToSharedRef(), CollapsedData, bShouldPersistComments);
 }
 
 bool PortableObjectPipeline::ExportAll(FLocTextHelper& InLocTextHelper, const FString& InPOCultureRootPath, const FString& InPOFilename, const ELocalizedTextCollapseMode InTextCollapseMode, const bool bShouldPersistComments, const bool bUseCultureDirectory)
 {
 	// We may only have a single culture if using this setting
 	const bool bSingleCultureMode = !bUseCultureDirectory;
-	if (bSingleCultureMode && InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1)
+	if (bSingleCultureMode && (InLocTextHelper.GetAllCultures(bSingleCultureMode).Num() != 1 || InLocTextHelper.ShouldSplitPlatformData()))
 	{
-		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
+		UE_LOG(LogPortableObjectPipeline, Error, TEXT("bUseCultureDirectory may only be used with a single culture when not splitting platform data."));
 		return false;
 	}
 
@@ -486,24 +536,43 @@ bool PortableObjectPipeline::ExportAll(FLocTextHelper& InLocTextHelper, const FS
 
 	// Build the collapsed manifest data to export
 	FCollapsedData CollapsedData;
-	TSharedRef<FInternationalizationManifest> CollapsedManifest = BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData);
+	TSharedPtr<FInternationalizationManifest> PlatformAgnosticManifest;
+	TMap<FName, TSharedRef<FInternationalizationManifest>> PerPlatformManifests;
+	BuildCollapsedManifest(InLocTextHelper, InTextCollapseMode, CollapsedData, PlatformAgnosticManifest, PerPlatformManifests);
 
 	// Process the desired cultures
 	bool bSuccess = true;
 	for (const FString& CultureName : InLocTextHelper.GetAllCultures(bSingleCultureMode))
 	{
-		// Which path should we use for the PO?
-		FString POFilePath;
-		if (bUseCultureDirectory)
+		auto ExportSinglePortableObject = [&](const TSharedRef<FInternationalizationManifest>& InCollapsedManifest, const FName InPlatformName) -> bool
 		{
-			POFilePath = InPOCultureRootPath / CultureName / InPOFilename;
-		}
-		else
-		{
-			POFilePath = InPOCultureRootPath / InPOFilename;
-		}
+			// Which path should we use for the PO?
+			FString POFilePath;
+			if (bUseCultureDirectory)
+			{
+				// Platforms splits are only supported when exporting all cultures (see the error at the start of this function)
+				if (InPlatformName.IsNone())
+				{
+					POFilePath = InPOCultureRootPath / CultureName / InPOFilename;
+				}
+				else
+				{
+					POFilePath = InPOCultureRootPath / FPaths::GetPlatformLocalizationFolderName() / InPlatformName.ToString() / CultureName / InPOFilename;
+				}
+			}
+			else
+			{
+				POFilePath = InPOCultureRootPath / InPOFilename;
+			}
 
-		bSuccess &= ExportPortableObject(InLocTextHelper, CultureName, POFilePath, InTextCollapseMode, CollapsedManifest, CollapsedData, bShouldPersistComments);
+			return ExportPortableObject(InLocTextHelper, CultureName, POFilePath, InTextCollapseMode, InCollapsedManifest, CollapsedData, bShouldPersistComments);
+		};
+
+		bSuccess &= ExportSinglePortableObject(PlatformAgnosticManifest.ToSharedRef(), FName());
+		for (const auto& PerPlatformManifestPair : PerPlatformManifests)
+		{
+			bSuccess &= ExportSinglePortableObject(PerPlatformManifestPair.Value, PerPlatformManifestPair.Key);
+		}
 	}
 
 	return bSuccess;

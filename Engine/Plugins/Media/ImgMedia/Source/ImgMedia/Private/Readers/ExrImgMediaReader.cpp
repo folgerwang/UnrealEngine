@@ -57,23 +57,22 @@ bool FExrImgMediaReader::ReadFrame(const FString& ImagePath, FImgMediaFrame& Out
 
 	auto BufferDeleter = [BufferSize](void* ObjectToDelete) {
 #if USE_IMGMEDIA_DEALLOC_POOL
-		// free buffers on the thread pool, because memory allocators may perform
-		// expensive operations, such as filling the memory with debug values
-		TFunction<void()> FreeBufferTask = [ObjectToDelete, BufferSize]()
+		if (FQueuedThreadPool* ImgMediaThreadPoolSlow = GetImgMediaThreadPoolSlow())
 		{
-#endif
-			FMemory::Free(ObjectToDelete);
-#if USE_IMGMEDIA_DEALLOC_POOL
-		};
-
-		if (GImgMediaThreadPoolSlow != nullptr)
-		{
-			AsyncPool(*GImgMediaThreadPoolSlow, FreeBufferTask);
+			// free buffers on the thread pool, because memory allocators may perform
+			// expensive operations, such as filling the memory with debug values
+			TFunction<void()> FreeBufferTask = [ObjectToDelete]()
+			{
+				FMemory::Free(ObjectToDelete);
+			};
+			AsyncPool(*ImgMediaThreadPoolSlow, FreeBufferTask);
 		}
 		else
 		{
-			FreeBufferTask();
+			FMemory::Free(ObjectToDelete);
 		}
+#else
+		FMemory::Free(ObjectToDelete);
 #endif
 	};
 

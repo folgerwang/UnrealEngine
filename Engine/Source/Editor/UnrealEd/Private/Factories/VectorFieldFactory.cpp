@@ -202,7 +202,7 @@ UObject* UVectorFieldStaticFactory::FactoryCreateBinary(
 	const uint8* BufferEnd,
 	FFeedbackContext* Warn )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	check( InClass == UVectorFieldStatic::StaticClass() );
 
@@ -264,7 +264,7 @@ UObject* UVectorFieldStaticFactory::FactoryCreateBinary(
 		VectorField->InitResource();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, VectorField);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, VectorField);
 
 	return VectorField;
 }

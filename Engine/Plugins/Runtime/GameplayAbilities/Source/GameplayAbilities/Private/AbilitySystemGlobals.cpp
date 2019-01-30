@@ -340,7 +340,7 @@ void UAbilitySystemGlobals::InitAttributeDefaults()
 #if WITH_EDITOR
 		if (GIsEditor && !RegisteredReimportCallback)
 		{
-			GEditor->OnObjectReimported().AddUObject(this, &UAbilitySystemGlobals::OnTableReimported);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddUObject(this, &UAbilitySystemGlobals::OnTableReimported);
 			RegisteredReimportCallback = true;
 		}
 #endif

@@ -2367,6 +2367,12 @@ void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsRe
 		UAnimSequenceBase* Sequence;
 	};
 
+	// MenuBuilder always has a search widget added to it by default, hence if larger then 1 then something else has been added to it
+	if (MenuBuilder.GetMultiBox()->GetBlocks().Num() > 1)
+	{
+		MenuBuilder.AddMenuSeparator();
+	}
+
 	FClassViewerInitializationOptions InitOptions;
 	InitOptions.Mode = EClassViewerMode::ClassPicker;
 	InitOptions.bShowObjectRootClass = false;
@@ -2376,6 +2382,7 @@ void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsRe
 	InitOptions.bExpandRootNodes = true;
 	InitOptions.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	InitOptions.ClassFilter = MakeShared<FNotifyStateClassFilter>(Sequence);
+	InitOptions.bShowBackgroundBorder = false;
 
 	FClassViewerModule& ClassViewerModule = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
 	MenuBuilder.AddWidget(

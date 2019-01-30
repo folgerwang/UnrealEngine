@@ -933,8 +933,9 @@ public:
 	 * @param Name Value for the string portion of the name
 	 * @param Number Value for the number portion of the name
 	 * @param FindType Action to take (see EFindName)
+	 * @param bSplitName true if the trailing number should be split from the name when Number == NAME_NO_NUMBER_INTERNAL, or false to always use the name as-is
 	 */
-	FName( const TCHAR* Name, int32 InNumber, EFindName FindType=FNAME_Add );
+	FName( const TCHAR* Name, int32 InNumber, EFindName FindType=FNAME_Add, const bool bSplitName=true );
 
 	/**
 	 * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance

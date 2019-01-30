@@ -503,7 +503,7 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 		return;
 	}
 	 
-	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+	const UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
 	if ( !World )
 	{
 		return;
@@ -513,14 +513,8 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	{
 		UUserWidget* LiveWidget = *Itr;
 
-		// Skip any widget that's not in the current world context.
-		if ( LiveWidget->GetWorld() != World )
-		{
-			continue;
-		}
-
-		// Skip any widget that is not a child of the class specified.
-		if ( !LiveWidget->GetClass()->IsChildOf(WidgetClass) )
+		// Skip any widget that's not in the current world context or that is not a child of the class specified.
+		if (LiveWidget->GetWorld() != World || !LiveWidget->GetClass()->IsChildOf(WidgetClass))
 		{
 			continue;
 		}
@@ -539,16 +533,17 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	}
 }
 
-void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly)
+void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextObject, TArray<UUserWidget*>& FoundWidgets, TSubclassOf<UInterface> Interface, bool TopLevelOnly)
 {
+	//Prevent possibility of an ever-growing array if user uses this in a loop
 	FoundWidgets.Empty();
 
 	if (!Interface || !WorldContextObject)
 	{
 		return;
 	}
-
-	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+	 
+	const UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
 	if (!World)
 	{
 		return;
@@ -558,19 +553,20 @@ void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextOb
 	{
 		UUserWidget* LiveWidget = *Itr;
 
-		if (LiveWidget->GetWorld() != World)
+		// Skip any widget that's not in the current world context or that is not a child of the class specified.
+		if (LiveWidget->GetWorld() != World || !LiveWidget->GetClass()->ImplementsInterface(Interface))
 		{
 			continue;
 		}
 
 		if (TopLevelOnly)
 		{
-			if (LiveWidget->IsInViewport() && LiveWidget->GetClass()->ImplementsInterface(Interface))
+			if (LiveWidget->IsInViewport())
 			{
 				FoundWidgets.Add(LiveWidget);
 			}
 		}
-		else if (LiveWidget->GetClass()->ImplementsInterface(Interface))
+		else
 		{
 			FoundWidgets.Add(LiveWidget);
 		}

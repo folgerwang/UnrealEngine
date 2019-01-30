@@ -34,6 +34,7 @@ namespace UnrealBuildTool.Rules
 						"EditorStyle",
 						"LevelEditor",
 						"UnrealEd",
+						"EditorSubsystem",
 					}
 				);
 			}

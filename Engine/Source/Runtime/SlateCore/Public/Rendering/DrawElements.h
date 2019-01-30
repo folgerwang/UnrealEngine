@@ -1359,7 +1359,7 @@ public:
 /**
  * Represents a top level window and its draw elements.
  */
-class FSlateWindowElementList
+class FSlateWindowElementList : public FNoncopyable
 {
 	friend class FSlateElementBatcher;
 	friend class FSlateDrawElement;

@@ -295,7 +295,9 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 					{
 						const uint32 RenderingTriangleFirstVertexIndex = FRenderingPolygonGroup::TriangleIndexToRenderingTriangleFirstIndex( RenderingSection, FTriangleID( SectionTriangleIndex ) );
 
-						FVertexInstanceID TriangleVertexInstanceIDs[ 3 ];
+						TArray<FVertexInstanceID> TriangleVertexInstanceIDs;
+						TriangleVertexInstanceIDs.SetNum( 3 );
+
 						FVertexID TriangleVertexIDs[ 3 ];
 						for( uint32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex )
 						{
@@ -313,27 +315,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 						if( bIsValidTriangle )
 						{
-							FEdgeID NewEdgeIDs[ 3 ];
-
-							// Connect edges
-							{
-								// Add the edges of this triangle
-								for( uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber )
-								{
-									const FVertexID VertexID0 = TriangleVertexIDs[ TriangleEdgeNumber ];
-									const FVertexID VertexID1 = TriangleVertexIDs[ ( TriangleEdgeNumber + 1 ) % 3 ];
-									
-									FEdgeID NewEdgeID = MeshDescription->GetVertexPairEdge( VertexID0, VertexID1 );
-
-									if( NewEdgeID == FEdgeID::Invalid )
-									{
-										NewEdgeID = MeshDescription->CreateEdge( VertexID0, VertexID1 );
-									}
-
-									NewEdgeIDs[ TriangleEdgeNumber ] = NewEdgeID;
-								}
-							}
-
 							// Static meshes only support triangles, so there's no need to triangulate anything yet.  We'll make both
 							// a triangle and a polygon here.
 							const FTriangleID NewTriangleID = FTriangleID( SectionTriangleIndex );
@@ -341,19 +322,13 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 							NewRenderingPolygonGroup.Triangles.Insert( NewTriangleID );
 							FMeshTriangle& NewTriangle = NewRenderingPolygonGroup.Triangles[ NewTriangleID ];
 
-							static TArray<FMeshDescription::FContourPoint> Perimeter;
-							Perimeter.Reset( 3 );
-							Perimeter.AddUninitialized( 3 );
 							for( uint32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex )
 							{
-								Perimeter[ TriangleVertexIndex ].VertexInstanceID = TriangleVertexInstanceIDs[ TriangleVertexIndex ];
-								Perimeter[ TriangleVertexIndex ].EdgeID = NewEdgeIDs[ TriangleVertexIndex ];
-
 								NewTriangle.SetVertexInstanceID( TriangleVertexIndex, TriangleVertexInstanceIDs[ TriangleVertexIndex ] );
 							}
 
 							// Insert a polygon into the mesh
-							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon( NewPolygonGroupID, Perimeter );
+							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon( NewPolygonGroupID, TriangleVertexInstanceIDs );
 
 							// Create a rendering polygon mirror, indexed by the same ID
 							RenderingPolygons.Insert( NewPolygonID );

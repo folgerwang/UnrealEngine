@@ -13,6 +13,27 @@ class FLegacySlateFontInfoCache : public FGCObject, public TSharedFromThis<FLega
 {
 public:
 	/**
+	 * Context used to help debug font fallback requests
+	 */
+	struct FFallbackContext
+	{
+	public:
+		FFallbackContext() = default;
+
+		FFallbackContext(const FFontData* InFontData, const TCHAR InChar)
+			: FontData(InFontData)
+			, Char(InChar)
+		{
+		}
+
+		FString ToString() const;
+
+	private:
+		const FFontData* FontData = nullptr;
+		TCHAR Char = 0;
+	};
+
+	/**
 	 * Get (or create) the singleton instance of this cache
 	 */
 	static FLegacySlateFontInfoCache& Get();
@@ -33,9 +54,14 @@ public:
 	TSharedPtr<const FCompositeFont> GetSystemFont();
 
 	/**
+	 * Is the localized fallback font available (can be controlled via a CVar).
+	 */
+	bool IsLocalizedFallbackFontAvailable() const;
+
+	/**
 	 * Get (or create) the culture specific fallback font
 	 */
-	const FFontData& GetLocalizedFallbackFontData();
+	const FFontData& GetLocalizedFallbackFontData(const FFallbackContext& InContext);
 
 	/**
 	 * Get the revision index of the currently active localized fallback font.
@@ -43,7 +69,7 @@ public:
 	uint16 GetLocalizedFallbackFontRevision() const;
 
 	/**
-	 * Is that last resort fallback font available (not all builds have it).
+	 * Is the last resort fallback font available (not all builds have it).
 	 */
 	bool IsLastResortFontAvailable() const;
 
@@ -55,7 +81,7 @@ public:
 	/**
 	 * Get (or create) the last resort fallback font
 	 */
-	const FFontData& GetLastResortFontData();
+	const FFontData& GetLastResortFontData(const FFallbackContext& InContext);
 
 	// FGCObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;

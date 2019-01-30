@@ -15,7 +15,7 @@
 #include "ScopedTransaction.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Application/SlateApplication.h"
-
+#include "ActorSequenceEditorStyle.h"
 
 #define LOCTEXT_NAMESPACE "ActorSequenceEditorSummoner"
 
@@ -521,6 +521,7 @@ FActorSequenceEditorSummoner::FActorSequenceEditorSummoner(TSharedPtr<FBlueprint
 	bIsSingleton = true;
 
 	TabLabel = LOCTEXT("SequencerTabName", "Sequencer");
+	TabIcon = FSlateIcon(FActorSequenceEditorStyle::Get().GetStyleSetName(), "ClassIcon.ActorSequence");
 }
 
 TSharedRef<SWidget> FActorSequenceEditorSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const

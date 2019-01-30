@@ -120,6 +120,7 @@ public:
 	virtual FName GetToolkitFName() const override = 0;				// Must implement in derived class!
 	virtual FText GetBaseToolkitName() const override = 0;			// Must implement in derived class!
 	virtual FText GetToolkitName() const override;
+	virtual FText GetTabSuffix() const override;
 	virtual FText GetToolkitToolTipText() const override;
 	virtual FString GetWorldCentricTabPrefix() const override = 0;	// Must implement in derived class!
 	virtual class FEdMode* GetEditorMode() const override;

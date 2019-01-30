@@ -38,7 +38,7 @@ TSharedRef<FTimecodeSynchronizerEditorToolkit> FTimecodeSynchronizerEditorToolki
 
 void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UTimecodeSynchronizer* InTimecodeSynchronizer)
 {
-	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FTimecodeSynchronizerEditorToolkit::HandleAssetPostImport);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddRaw(this, &FTimecodeSynchronizerEditorToolkit::HandleAssetPostImport);
 
 	const bool bIsUpdatable = false;
 	const bool bAllowFavorites = true;
@@ -126,7 +126,7 @@ void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const ET
 
 FTimecodeSynchronizerEditorToolkit::~FTimecodeSynchronizerEditorToolkit()
 {
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 	if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
 	{
 		Asset->OnSynchronizationEvent().RemoveAll(this);

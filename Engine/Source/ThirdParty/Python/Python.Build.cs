@@ -1,4 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -49,9 +50,7 @@ public class Python : ModuleRules
 			{
 				PotentialSDKs.AddRange(
 					new PythonSDKPaths[] {
-						//DiscoverPythonSDK("/Library/Frameworks/Python.framework/Versions/3.6"),
-						DiscoverPythonSDK("/Library/Frameworks/Python.framework/Versions/2.7"),
-						//DiscoverPythonSDK("/System/Library/Frameworks/Python.framework/Versions/2.7"),
+						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, "Mac"), new List<string>() { Path.Combine(PythonSourceTPSDir, "Mac", "include") }, Path.Combine(PythonBinaryTPSDir, "Mac"), "libpython2.7.dylib")
 					}
 				);
 			}
@@ -105,6 +104,7 @@ public class Python : ModuleRules
 		if (PythonSDK == null)
 		{
 			PublicDefinitions.Add("WITH_PYTHON=0");
+			Console.WriteLine("Python SDK not found");
 		}
 		else
 		{

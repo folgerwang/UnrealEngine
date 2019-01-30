@@ -57,7 +57,7 @@ class UNREALED_API UGatherTextCommandletBase : public UCommandlet
 	GENERATED_UCLASS_BODY()
 
 public:
-	virtual void Initialize( const TSharedPtr< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo );
+	virtual void Initialize( const TSharedRef< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo );
 
 	// Wrappers for extracting config values
 	bool GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename );
@@ -66,10 +66,18 @@ public:
 	int32 GetStringArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
 	int32 GetPathArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
 
+	// Utilities for split platform detection
+	bool IsSplitPlatformName(const FName InPlatformName) const;
+	bool ShouldSplitPlatformForPath(const FString& InPath, FName* OutPlatformName = nullptr) const;
+	FName GetSplitPlatformNameFromPath(const FString& InPath) const;
+
 protected:
 	TSharedPtr< FLocTextHelper > GatherManifestHelper;
 
 	TSharedPtr< FLocalizationSCC > SourceControlInfo;
+
+	/** Mapping from platform name to the path marker for that platform */
+	TMap<FName, FString> SplitPlatforms;
 
 private:
 	virtual void CreateCustomEngine(const FString& Params) override ; //Disallow other text commandlets to make their own engine.	

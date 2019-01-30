@@ -177,11 +177,11 @@ UObject* UFbxFactory::FactoryCreateFile
 	if( bOperationCanceled )
 	{
 		bOutOperationCanceled = true;
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, NULL);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NULL);
 		return NULL;
 	}
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	UObject* CreatedObject = NULL;
 	//Look if its a re-import, in that cazse we must call the re-import factory
@@ -224,7 +224,7 @@ UObject* UFbxFactory::FactoryCreateFile
 		if ( !DetectImportType(UFactory::CurrentFilename) )
 		{
 			// Failed to read the file info, fail the import
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, NULL);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NULL);
 			return NULL;
 		}
 	}
@@ -368,7 +368,7 @@ UObject* UFbxFactory::FactoryCreateFile
 				else
 				{
 					// count meshes in lod groups if we dont care about importing LODs
-					bool bCountLODGroupMeshes = !bImportStaticMeshLODs;
+					bool bCountLODGroupMeshes = !bImportStaticMeshLODs && bCombineMeshes;
 					int32 NumLODGroups = 0;
 					InterestingNodeCount = FbxImporter->GetFbxMeshCount(RootNodeToImport,bCountLODGroupMeshes,NumLODGroups);
 
@@ -767,7 +767,7 @@ UObject* UFbxFactory::FactoryCreateFile
 		FbxImporter->ReleaseScene();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, CreatedObject);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, CreatedObject);
 
 	return CreatedObject;
 }
@@ -1151,16 +1151,45 @@ namespace ImportCompareHelper
 		}
 	}
 
-	void FillFbxMaterials(const TArray<FbxNode*>& MeshNodes, FMaterialCompareData& MaterialCompareData)
+	void FillFbxMaterials(UnFbx::FFbxImporter* FFbxImporter, const TArray<FbxNode*>& MeshNodes, FMaterialCompareData& MaterialCompareData)
 	{
 		TArray<FName> NodeMaterialNames;
 		for (int32 NodeIndex = 0; NodeIndex < MeshNodes.Num(); ++NodeIndex)
 		{
 			FbxNode* Node = MeshNodes[NodeIndex];
-			for (int32 MaterialIndex = 0; MaterialIndex < Node->GetMaterialCount(); ++MaterialIndex)
+			if (Node->GetMesh() == nullptr)
 			{
+				continue;
+			}
+
+			int32 MaterialCount = Node->GetMaterialCount();
+			TArray<int32> MaterialUseByMesh;
+			FbxLayer* BaseLayer = Node->GetMesh()->GetLayer(0);
+			FbxLayerElementMaterial* MateriallayerElement = BaseLayer->GetMaterials();
+			FbxLayerElement::EMappingMode MaterialMappingMode = MateriallayerElement ? MateriallayerElement->GetMappingMode() : FbxLayerElement::eByPolygon;
+
+			if (MaterialMappingMode == FbxLayerElement::eAllSame || MaterialCount == 0 || MateriallayerElement == nullptr)
+			{
+				MaterialUseByMesh.Add(0);
+			}
+			else
+			{
+				int32 PolygonCount = Node->GetMesh()->GetPolygonCount();
+				for (int32 PolygonIndex = 0; PolygonIndex < PolygonCount; PolygonIndex++)
+				{
+					MaterialUseByMesh.AddUnique(MateriallayerElement->GetIndexArray().GetAt(PolygonIndex));
+				}
+			}
+
+			for (int32 MaterialIndex = 0; MaterialIndex < MaterialCount; ++MaterialIndex)
+			{
+				//Skip unused mesh material
+				if (!MaterialUseByMesh.Contains(MaterialIndex))
+				{
+					continue;
+				}
 				FbxSurfaceMaterial* SurfaceMaterial = Node->GetMaterial(MaterialIndex);
-				FName SurfaceMaterialName = FName(UTF8_TO_TCHAR(SurfaceMaterial->GetName()));
+				FName SurfaceMaterialName = FName(UTF8_TO_TCHAR(FFbxImporter->MakeName(SurfaceMaterial->GetName())));
 				if (!NodeMaterialNames.Contains(SurfaceMaterialName))
 				{
 					FMaterialData& MaterialData = MaterialCompareData.ResultAsset.AddDefaulted_GetRef();
@@ -1301,7 +1330,7 @@ namespace ImportCompareHelper
 		else
 		{
 			// count meshes in lod groups if we dont care about importing LODs
-			bool bCountLODGroupMeshes = !bImportStaticMeshLODs;
+			bool bCountLODGroupMeshes = !bImportStaticMeshLODs && bCombineMeshes;
 			int32 NumLODGroups = 0;
 			FFbxImporter->GetFbxMeshCount(FFbxImporter->Scene->GetRootNode(), bCountLODGroupMeshes, NumLODGroups);
 			// if there were LODs in the file, do not combine meshes even if requested
@@ -1426,7 +1455,7 @@ namespace ImportCompareHelper
 			StaticMeshNodes.Append(FbxMeshArray);
 		}
 
-		FillFbxMaterials(StaticMeshNodes, ImportUI->MaterialCompareData);
+		FillFbxMaterials(FFbxImporter, StaticMeshNodes, ImportUI->MaterialCompareData);
 		//Compare the result and set the conflict status
 		SetHasConflict(ImportUI->MaterialCompareData);
 	}
@@ -1473,7 +1502,7 @@ namespace ImportCompareHelper
 			}
 
 			//Fill the result fbx data
-			FillFbxMaterials(FlattenSkeletalMeshNodes, ImportUI->MaterialCompareData);
+			FillFbxMaterials(FFbxImporter, FlattenSkeletalMeshNodes, ImportUI->MaterialCompareData);
 
 			//Compare the result and set the conflict status
 			SetHasConflict(ImportUI->MaterialCompareData);

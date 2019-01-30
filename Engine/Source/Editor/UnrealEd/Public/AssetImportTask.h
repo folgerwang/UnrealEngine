@@ -9,6 +9,8 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetImportTask, Log, All);
 
+class UFactory;
+
 /**
  * Contains data for a group of assets to import
  */ 
@@ -44,6 +46,10 @@ public:
 	/** Save after importing */
 	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
 	bool bSave;
+
+	/** Optional factory to use */
+	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
+	UFactory* Factory;
 
 	/** Import options specific to the type of asset */
 	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")

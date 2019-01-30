@@ -147,13 +147,16 @@ bool UMaterialGraphNode::CanPasteHere(const UEdGraph* TargetGraph) const
 FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	TArray<FString> Captions;
-	MaterialExpression->GetCaption(Captions);
+	if (MaterialExpression)
+	{
+		MaterialExpression->GetCaption(Captions);
+	}
 
 	if (TitleType == ENodeTitleType::EditableTitle)
 	{
 		return FText::FromString(GetParameterName());
 	}
-	else if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
+	else if (MaterialExpression && (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle))
 	{
 		return FText::FromString(MaterialExpression->GetClass()->GetDescription());
 	}
@@ -161,18 +164,20 @@ FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		// More useful to display multi line parameter captions in reverse order
 		// TODO: May have to choose order based on expression type if others need correct order
-		int32 CaptionIndex = Captions.Num() -1;
+		int32 CaptionIndex = Captions.Num() - 1;
 
 		FTextBuilder NodeTitle;
-		NodeTitle.AppendLine(Captions[CaptionIndex]);
-
+		if (Captions.IsValidIndex(CaptionIndex))
+		{
+			NodeTitle.AppendLine(Captions[CaptionIndex]);
+		}
 		for (; CaptionIndex > 0; )
 		{
 			CaptionIndex--;
 			NodeTitle.AppendLine(Captions[CaptionIndex]);
 		}
 
-		if ( MaterialExpression->bShaderInputData && (MaterialExpression->bHidePreviewWindow || MaterialExpression->bCollapsed))
+		if (MaterialExpression && MaterialExpression->bShaderInputData && (MaterialExpression->bHidePreviewWindow || MaterialExpression->bCollapsed))
 		{
 			if (MaterialExpression->IsA<UMaterialExpressionTextureProperty>())
 			{

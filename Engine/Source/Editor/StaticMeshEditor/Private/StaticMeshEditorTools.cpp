@@ -372,8 +372,9 @@ static void FillEnumOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InE
 	}
 }
 
-FMeshBuildSettingsLayout::FMeshBuildSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
+FMeshBuildSettingsLayout::FMeshBuildSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InLODIndex)
 	: ParentLODSettings( InParentLODSettings )
+	, LODIndex(InLODIndex)
 {
 
 }
@@ -862,6 +863,20 @@ void FMeshBuildSettingsLayout::OnBuildAdjacencyBufferChanged(ECheckBoxState NewS
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.BuildSettings"), TEXT("bBuildAdjacencyBuffer"), bBuildAdjacencyBuffer ? TEXT("True") : TEXT("False"));
 		}
 		BuildSettings.bBuildAdjacencyBuffer = bBuildAdjacencyBuffer;
+		if (!BuildSettings.bBuildAdjacencyBuffer && ParentLODSettings.IsValid())
+		{
+			if (ParentLODSettings.Pin()->PreviewLODRequiresAdjacencyInformation(LODIndex))
+			{
+				//Prompt the user
+				FText ConfirmRequiredAdjacencyText = LOCTEXT("ConfirmRequiredAdjacencyBufferRemove", "This LOD is using at least one tessellation material that required the adjacency buffer to be computed.\nAre you sure to want to remove the adjacency buffer?");
+				EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmRequiredAdjacencyText);
+				if (Result == EAppReturnType::No)
+				{
+					//Put back the adjacency buffer option to true
+					BuildSettings.bBuildAdjacencyBuffer = true;
+				}
+			}
+		}
 	}
 }
 
@@ -1892,6 +1907,7 @@ void FMeshSectionSettingsLayout::OnSectionChanged(int32 ForLODIndex, int32 Secti
 	FStaticMeshRenderData* RenderData = StaticMesh.RenderData.Get();
 	if (RenderData && RenderData->LODResources.IsValidIndex(LODIndex))
 	{
+		bool bRefreshAll = false;
 		FStaticMeshLODResources& LOD = RenderData->LODResources[LODIndex];
 		if (LOD.Sections.IsValidIndex(SectionIndex))
 		{
@@ -1902,9 +1918,22 @@ void FMeshSectionSettingsLayout::OnSectionChanged(int32 ForLODIndex, int32 Secti
 			FScopedTransaction Transaction(LOCTEXT("StaticMeshOnSectionChangedTransaction", "Staticmesh editor: Section material slot changed"));
 			GetStaticMesh().Modify();
 			FMeshSectionInfo Info = StaticMesh.SectionInfoMap.Get(LODIndex, SectionIndex);
+			int32 CancelOldValue = Info.MaterialIndex;
 			Info.MaterialIndex = NewStaticMaterialIndex;
 			StaticMesh.SectionInfoMap.Set(LODIndex, SectionIndex, Info);
+			bool bUserCancel = false;
+			bRefreshAll = StaticMesh.FixLODRequiresAdjacencyInformation(ForLODIndex, false, true, &bUserCancel);
+			if (bUserCancel)
+			{
+				//Revert the section info map change
+				Info.MaterialIndex = CancelOldValue;
+				StaticMesh.SectionInfoMap.Set(LODIndex, SectionIndex, Info);
+			}
 			CallPostEditChange();
+		}
+		if (bRefreshAll)
+		{
+			StaticMeshEditor.RefreshTool();
 		}
 	}
 }
@@ -2444,7 +2473,7 @@ void FMeshMaterialsLayout::OnMaterialChanged(UMaterialInterface* NewMaterial, UM
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
 	StaticMesh.SetMaterial(MaterialIndex, NewMaterial);
-	StaticMeshEditor.RefreshViewport();
+	StaticMeshEditor.RefreshTool();
 }
 
 TSharedRef<SWidget> FMeshMaterialsLayout::OnGenerateWidgetsForMaterial(UMaterialInterface* Material, int32 SlotIndex)
@@ -3237,7 +3266,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 
 				if (StaticMesh->IsMeshDescriptionValid(LODIndex))
 				{
-					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
+					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared(), LODIndex ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
 				}
 
@@ -3881,6 +3910,13 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 	StaticMeshEditor.RefreshTool();
 }
 
+bool FLevelOfDetailSettingsLayout::PreviewLODRequiresAdjacencyInformation(int32 LODIndex)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	return StaticMesh->FixLODRequiresAdjacencyInformation(LODIndex, true, false, nullptr);
+}
+
 FReply FLevelOfDetailSettingsLayout::OnApply()
 {
 	ApplyChanges();
@@ -4205,7 +4241,7 @@ FText FLevelOfDetailSettingsLayout::GetCurrentLodTooltip() const
 {
 	if (StaticMeshEditor.GetStaticMeshComponent() != nullptr && StaticMeshEditor.GetStaticMeshComponent()->ForcedLodModel == 0)
 	{
-		return FText::FromString(TEXT("LOD0 is edit when selecting Auto LOD"));
+		return LOCTEXT("StaticMeshEditorLODPickerCurrentLODTooltip", "With Auto LOD selected, LOD0's properties are visible for editing");
 	}
 	return FText::GetEmpty();
 }

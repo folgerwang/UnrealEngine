@@ -70,6 +70,8 @@
 
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 FSimpleMulticastDelegate								FEditorDelegates::NewCurrentLevel;
 FEditorDelegates::FOnMapChanged							FEditorDelegates::MapChange;
 FSimpleMulticastDelegate								FEditorDelegates::LayerChange;
@@ -139,6 +141,8 @@ FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenReferenceVi
 FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenSizeMap;
 FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnOpenAssetAudit;
 FEditorDelegates::FOnViewAssetIdentifiers				FEditorDelegates::OnEditAssetIdentifiers;
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /*-----------------------------------------------------------------------------
 	Globals.

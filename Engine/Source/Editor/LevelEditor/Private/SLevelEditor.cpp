@@ -178,6 +178,7 @@ void SLevelEditor::Initialize( const TSharedRef<SDockTab>& OwnerTab, const TShar
 {
 	// Bind the level editor tab's label to the currently loaded level name string in the main frame
 	OwnerTab->SetLabel( TAttribute<FText>( this, &SLevelEditor::GetTabTitle) );
+	OwnerTab->SetTabLabelSuffix(TAttribute<FText>(this, &SLevelEditor::GetTabSuffix));
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked< FLevelEditorModule >(LevelEditorModuleName);
 
@@ -300,14 +301,13 @@ FText SLevelEditor::GetTabTitle() const
 {
 	const IMainFrameModule& MainFrameModule = FModuleManager::GetModuleChecked< IMainFrameModule >( MainFrameModuleName );
 
-	const bool bIncludeGameName = false;
+	return FText::FromString(MainFrameModule.GetLoadedLevelName());
+}
 
+FText SLevelEditor::GetTabSuffix() const
+{
 	const bool bDirtyState = World && World->GetCurrentLevel()->GetOutermost()->IsDirty();
-
-	FFormatNamedArguments Args;
-	Args.Add( TEXT("LevelName"), FText::FromString( MainFrameModule.GetLoadedLevelName() ) );
-	Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-	return FText::Format( NSLOCTEXT("LevelEditor", "TabTitleSpacer", "{LevelName}{DirtyState}"), Args );
+	return bDirtyState ? FText::FromString(TEXT("*")) : FText::GetEmpty();
 }
 
 bool SLevelEditor::HasActivePlayInEditorViewport() const

@@ -23,6 +23,10 @@
 #include "Settings/LevelEditorPlaySettings.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "Misc/CompilationResult.h"
+
+#include "EditorSubsystem.h"
+#include "Subsystems/SubsystemCollection.h"
+
 #include "EditorEngine.generated.h"
 
 class AMatineeActor;
@@ -746,6 +750,7 @@ public:
 
 	/** Called when an object is reimported. */
 	DECLARE_EVENT_OneParam( UEditorEngine, FObjectReimported, UObject* );
+	UE_DEPRECATED(4.22, "Use the ImportSubsystem instead. GEditor->GetEditorSubsystem<UImportSubsystem>()")
 	FObjectReimported& OnObjectReimported() { return ObjectReimportedEvent; }
 
 	/** Editor-only event triggered before an actor or component is moved, rotated or scaled by an editor system */
@@ -3089,6 +3094,41 @@ private:
 
 	/** Delegate handle for game viewport close requests in PIE sessions. */
 	FDelegateHandle ViewportCloseRequestedDelegateHandle;
+
+public:
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	UEditorSubsystem* GetEditorSubsystemBase(TSubclassOf<UEditorSubsystem> SubsystemClass) const
+	{
+		checkSlow(this != nullptr);
+		return EditorSubsystemCollection.GetSubsystem<UEditorSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetEditorSubsystem() const
+	{
+		checkSlow(this != nullptr);
+		return EditorSubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get all Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 *
+	 * Do not hold onto this Array reference unless you are sure the lifetime is less than that of UGameInstance
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetEditorSubsystemArray() const
+	{
+		return EditorSubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+private:
+	FSubsystemCollection<UEditorSubsystem> EditorSubsystemCollection;
+
 };
 
 //////////////////////////////////////////////////////////////////////////

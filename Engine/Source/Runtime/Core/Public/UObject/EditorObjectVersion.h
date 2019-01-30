@@ -69,6 +69,8 @@ struct CORE_API FEditorObjectVersion
 		StaticMeshDeprecatedRawMesh,
 		// MeshDescriptionBulkData contains a Guid used as a DDC key
 		MeshDescriptionBulkDataGuid,
+		// Change to MeshDescription serialization (removed FMeshPolygon::HoleContours)
+		MeshDescriptionRemovedHoles,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

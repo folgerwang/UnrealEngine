@@ -364,8 +364,8 @@ public:
 	virtual bool IsReadyForFinishDestroy() override;
 	//~ End UObject Interface.
 
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	void ApplyComponentInstanceData(class FPrecomputedLightInstanceData* ComponentInstanceData);
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
+	void ApplyComponentInstanceData(struct FPrecomputedLightInstanceData* ComponentInstanceData);
 	virtual void PropagateLightingScenarioChange() override;
 	virtual bool IsPrecomputedLightingValid() const override;
 
@@ -422,5 +422,41 @@ public:
 
 };
 
+
+/** Used to store lightmap data during RerunConstructionScripts */
+USTRUCT()
+struct FPrecomputedLightInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+
+	FPrecomputedLightInstanceData() = default;
+	FPrecomputedLightInstanceData(const ULightComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+		, Transform(SourceComponent->GetComponentTransform())
+		, LightGuid(SourceComponent->LightGuid)
+		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
+	{}
+	virtual ~FPrecomputedLightInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<ULightComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	UPROPERTY()
+	FTransform Transform;
+
+	UPROPERTY()
+	FGuid LightGuid;
+
+	UPROPERTY()
+	int32 PreviewShadowMapChannel;
+};
 
 

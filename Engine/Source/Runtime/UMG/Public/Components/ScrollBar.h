@@ -30,6 +30,10 @@ public:
 	bool bAlwaysShowScrollbar;
 
 	/**  */
+	UPROPERTY(EditAnywhere, Category = "Behavior")
+	bool bAlwaysShowScrollbarTrack;
+
+	/**  */
 	UPROPERTY(EditAnywhere, Category="Behavior")
 	TEnumAsByte<EOrientation> Orientation;
 

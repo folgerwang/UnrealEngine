@@ -443,6 +443,11 @@ EOrientation SScrollBox::GetOrientation()
 	return Orientation;
 }
 
+void SScrollBox::SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel)
+{
+	ConsumeMouseWheel = NewConsumeMouseWheel;
+}
+
 void SScrollBox::SetOrientation(EOrientation InOrientation)
 {
 	if (Orientation != InOrientation)
@@ -472,6 +477,11 @@ void SScrollBox::SetScrollBarVisibility(EVisibility InVisibility)
 void SScrollBox::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 {
 	ScrollBar->SetScrollBarAlwaysVisible(InAlwaysVisible);
+}
+
+void SScrollBox::SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible)
+{
+	ScrollBar->SetScrollBarTrackAlwaysVisible(InAlwaysVisible);
 }
 
 void SScrollBox::SetScrollBarThickness(FVector2D InThickness)

@@ -36,7 +36,7 @@ struct TDefaultNumericTypeInterface : INumericTypeInterface<NumericType>
 		static const FNumberFormattingOptions NumberFormattingOptions = FNumberFormattingOptions()
 			.SetUseGrouping(false)
 			.SetMinimumFractionalDigits(TIsIntegral<NumericType>::Value ? 0 : 1)
-			.SetMaximumFractionalDigits(TIsIntegral<NumericType>::Value ? 0 : 6);
+			.SetMaximumFractionalDigits(TIsIntegral<NumericType>::Value ? 0 : 7);
 		return FastDecimalFormat::NumberToString(Value, ExpressionParser::GetLocalizedNumberFormattingRules(), NumberFormattingOptions);
 	}
 	virtual TOptional<NumericType> FromString(const FString& InString, const NumericType& InExistingValue) override

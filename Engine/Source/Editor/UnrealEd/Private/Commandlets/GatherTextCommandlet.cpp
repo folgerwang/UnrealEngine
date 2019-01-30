@@ -1,11 +1,13 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/GatherTextCommandlet.h"
-#include "UObject/Class.h"
+#include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "Misc/ConfigCacheIni.h"
-#include "Misc/App.h"
+#include "HAL/FileManager.h"
+#include "UObject/Class.h"
 #include "UObject/Package.h"
+#include "SourceControlHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherTextCommandlet, Log, All);
 
@@ -122,8 +124,23 @@ int32 UGatherTextCommandlet::ProcessGatherConfig(const FString& GatherTextConfig
 
 	UE_LOG(LogGatherTextCommandlet, Display, TEXT("Beginning GatherText Commandlet for '%s'"), *GatherTextConfigPath);
 
+	// Read in the platform split mode to use
+	ELocTextPlatformSplitMode PlatformSplitMode = ELocTextPlatformSplitMode::None;
+	{
+		FString PlatformSplitModeString;
+		if (GetStringFromConfig(TEXT("CommonSettings"), TEXT("PlatformSplitMode"), PlatformSplitModeString, GatherTextConfigPath))
+		{
+			UEnum* PlatformSplitModeEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ELocTextPlatformSplitMode"));
+			const int64 PlatformSplitModeInt = PlatformSplitModeEnum->GetValueByName(*PlatformSplitModeString);
+			if (PlatformSplitModeInt != INDEX_NONE)
+			{
+				PlatformSplitMode = (ELocTextPlatformSplitMode)PlatformSplitModeInt;
+			}
+		}
+	}
+
 	// Basic helper that can be used only to gather a new manifest for writing
-	TSharedRef<FLocTextHelper> CommandletGatherManifestHelper = MakeShareable(new FLocTextHelper(MakeShareable(new FLocFileSCCNotifies(CommandletSourceControlInfo))));
+	TSharedRef<FLocTextHelper> CommandletGatherManifestHelper = MakeShareable(new FLocTextHelper(MakeShareable(new FLocFileSCCNotifies(CommandletSourceControlInfo)), PlatformSplitMode));
 	CommandletGatherManifestHelper->LoadManifest(ELocTextHelperLoadFlags::Create);
 
 	const FString GatherTextStepPrefix = TEXT("GatherTextStep");
@@ -148,7 +165,7 @@ int32 UGatherTextCommandlet::ProcessGatherConfig(const FString& GatherTextConfig
 		return NumericalSuffixOne < NumericalSuffixTwo;
 	});
 
-	//Execute each step defined in the config file.
+	// Execute each step defined in the config file.
 	for (const FString& StepName : StepNames)
 	{
 		FString CommandletClassName = GConfig->GetStr( *StepName, TEXT("CommandletClass"), GatherTextConfigPath ) + TEXT("Commandlet");
@@ -205,6 +222,58 @@ int32 UGatherTextCommandlet::ProcessGatherConfig(const FString& GatherTextConfig
 		}
 
 		UE_LOG(LogGatherTextCommandlet, Display, TEXT("Completed %s: %s in %f seconds"), *StepName, *CommandletClassName, FPlatformTime::Seconds() - CommandletExecutionStartTime);
+	}
+
+	// Clean-up any stale per-platform data
+	{
+		FString DestinationPath;
+		if (GetPathFromConfig(TEXT("CommonSettings"), TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath))
+		{
+			IFileManager& FileManager = IFileManager::Get();
+
+			auto RemoveDirectory = [&FileManager](const TCHAR* InDirectory)
+			{
+				FileManager.IterateDirectoryRecursively(InDirectory, [&FileManager](const TCHAR* FilenameOrDirectory, bool bIsDirectory) -> bool
+				{
+					if (!bIsDirectory)
+					{
+						if (!USourceControlHelpers::IsAvailable() || !USourceControlHelpers::MarkFileForDelete(FilenameOrDirectory))
+						{
+							FileManager.Delete(FilenameOrDirectory, false, true);
+						}
+					}
+					return true;
+				});
+				FileManager.DeleteDirectory(InDirectory, false, true);
+			};
+
+			const FString PlatformLocalizationPath = DestinationPath / FPaths::GetPlatformLocalizationFolderName();
+			if (CommandletGatherManifestHelper->ShouldSplitPlatformData())
+			{
+				// Remove any stale platform sub-folders
+				FileManager.IterateDirectory(*PlatformLocalizationPath, [&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) -> bool
+				{
+					if (bIsDirectory)
+					{
+						const FString SplitPlatformName = FPaths::GetCleanFilename(FilenameOrDirectory);
+						if (!CommandletGatherManifestHelper->GetPlatformsToSplit().Contains(SplitPlatformName))
+						{
+							RemoveDirectory(FilenameOrDirectory);
+						}
+					}
+					return true;
+				});
+			}
+			else
+			{
+				// Remove the entire Platforms folder
+				RemoveDirectory(*PlatformLocalizationPath);
+			}
+		}
+		else
+		{
+			UE_LOG(LogGatherTextCommandlet, Warning, TEXT("No destination path specified in the 'CommonSettings' section. Cannot check for stale per-platform data!"));
+		}
 	}
 
 	return 0;

@@ -222,6 +222,7 @@ void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const TArra
 				Context.InfoMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.InfoMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.InfoMetaData)) : nullptr;
 				Context.bIsOptional = TextSourceSiteContext.IsOptional;
 				Context.SourceLocation = TextSourceSiteContext.SiteDescription;
+				Context.PlatformName = GetSplitPlatformNameFromPath(TextSourceSiteContext.SiteDescription);
 
 				FLocItem Source(GatherableTextData.SourceData.SourceString);
 

@@ -1201,6 +1201,7 @@ void FMaterialInstanceEditor::RebuildMaterialInstanceEditor()
 	if( MaterialEditorInstance )
 	{
 		ReInitMaterialFunctionProxies();
+		MaterialEditorInstance->CopyBasePropertiesFromParent();
 		MaterialEditorInstance->RegenerateArrays();
 		RebuildInheritanceList(); // Required b/c recompiled parent materials result in invalid weak object pointers
 		UpdatePropertyWindow();

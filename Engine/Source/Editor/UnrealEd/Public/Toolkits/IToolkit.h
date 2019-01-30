@@ -80,6 +80,9 @@ public:
 	/** Returns the localized name of this toolkit */
 	virtual FText GetToolkitName() const = 0;
 
+	/** Returns the localized tab suffix */
+	virtual FText GetTabSuffix() const = 0;
+
 	/** Returns the localized tooltip text of this toolkit */
 	virtual FText GetToolkitToolTipText() const = 0;
 

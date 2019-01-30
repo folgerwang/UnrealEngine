@@ -354,7 +354,7 @@ void FConcertClientTransactionManager::HandleObjectTransacted(UObject* InObject,
 
 		if (TransactionAnnotation.IsValid())
 		{
-			FConcertSyncObjectWriter AnnotationWriter(&PendingTransaction.FinalizedLocalIdentifierTable, InObject, ObjectUpdate.SerializedAnnotationData, bIncludeEditorOnlyProperties, true);
+			FConcertSyncObjectWriter AnnotationWriter(&PendingTransaction.FinalizedLocalIdentifierTable, InObject, ObjectUpdate.SerializedAnnotationData, bIncludeEditorOnlyProperties, false);
 			TransactionAnnotation->Serialize(AnnotationWriter);
 		}
 

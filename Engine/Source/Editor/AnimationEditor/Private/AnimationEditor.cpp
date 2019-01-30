@@ -85,7 +85,7 @@ FAnimationEditor::~FAnimationEditor()
 		Editor->UnregisterForUndo(this);
 	}
 
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
 }
 
@@ -107,7 +107,7 @@ void FAnimationEditor::InitAnimationEditor(const EToolkitMode::Type Mode, const 
 
 	// Register post import callback to catch animation imports when we have the asset open (we need to reinit)
 	FReimportManager::Instance()->OnPostReimport().AddRaw(this, &FAnimationEditor::HandlePostReimport);
-	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FAnimationEditor::HandlePostImport);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddRaw(this, &FAnimationEditor::HandlePostImport);
 
 	FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>("Persona");
 	PersonaToolkit = PersonaModule.CreatePersonaToolkit(InAnimationAsset);

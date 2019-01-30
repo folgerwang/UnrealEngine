@@ -242,9 +242,9 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 	{
 		const bool bCanFallback = bOverrideFallback || MaxFallbackLevel >= EFontFallback::FF_LocalizedFallback;
 
-		if (bCanFallback)
+		if (bCanFallback && FLegacySlateFontInfoCache::Get().IsLocalizedFallbackFontAvailable())
 		{
-			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontData());
+			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontData(FLegacySlateFontInfoCache::FFallbackContext(&InFontData, Char)));
 
 			if (ReturnVal.FaceAndMemory.IsValid())
 			{	
@@ -266,7 +266,7 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 
 		if (bCanFallback && FLegacySlateFontInfoCache::Get().IsLastResortFontAvailable())
 		{
-			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLastResortFontData());
+			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLastResortFontData(FLegacySlateFontInfoCache::FFallbackContext(&InFontData, Char)));
 
 			if (ReturnVal.FaceAndMemory.IsValid())
 			{

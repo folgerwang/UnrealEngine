@@ -414,12 +414,7 @@ FText FFlipbookEditor::GetBaseToolkitName() const
 
 FText FFlipbookEditor::GetToolkitName() const
 {
-	const bool bDirtyState = FlipbookBeingEdited->GetOutermost()->IsDirty();
-
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("FlipbookName"), FText::FromString(FlipbookBeingEdited->GetName()));
-	Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty());
-	return FText::Format(LOCTEXT("FlipbookEditorToolkitName", "{FlipbookName}{DirtyState}"), Args);
+	return FText::FromString(FlipbookBeingEdited->GetName());
 }
 
 FText FFlipbookEditor::GetToolkitToolTipText() const

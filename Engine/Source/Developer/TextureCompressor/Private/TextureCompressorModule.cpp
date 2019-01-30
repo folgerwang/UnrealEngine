@@ -1404,79 +1404,115 @@ static void AdjustImageColors( FImage& Image, const FTextureBuildSettings& InBui
 		const int32 NumPixels = Image.SizeX * Image.SizeY * Image.NumSlices;
 		FLinearColor* ImageColors = Image.AsRGBA32F();
 
-		for( int32 CurPixelIndex = 0; CurPixelIndex < NumPixels; ++CurPixelIndex )
+		int32 NumJobs = FTaskGraphInterface::Get().GetNumWorkerThreads();
+		int32 NumPixelsEachJob = NumPixels / NumJobs;
+		if (NumPixelsEachJob * NumJobs < NumPixels)
 		{
-			const FLinearColor OriginalColorRaw = ImageColors[ CurPixelIndex ];
-
-			FLinearColor OriginalColor = OriginalColorRaw;
-			if (InBuildSettings.bChromaKeyTexture && (OriginalColor.Equals(ChromaKeyTarget, ChromaKeyThreshold)))
-			{
-				OriginalColor = FLinearColor::Transparent;
-			}
-
-			// Convert to HSV
-			FLinearColor HSVColor = OriginalColor.LinearRGBToHSV();
-			float& PixelHue = HSVColor.R;
-			float& PixelSaturation = HSVColor.G;
-			float& PixelValue = HSVColor.B;
-
-			// Apply brightness adjustment
-			PixelValue *= InParams.AdjustBrightness;
-
-			// Apply brightness power adjustment
-			if( !FMath::IsNearlyEqual( InParams.AdjustBrightnessCurve, 1.0f, (float)KINDA_SMALL_NUMBER ) && InParams.AdjustBrightnessCurve != 0.0f )
-			{
-				// Raise HSV.V to the specified power
-				PixelValue = FMath::Pow( PixelValue, InParams.AdjustBrightnessCurve );
-			}
-
-			// Apply "vibrance" adjustment
-			if( !FMath::IsNearlyZero( InParams.AdjustVibrance, (float)KINDA_SMALL_NUMBER ) )
-			{
-				const float SatRaisePow = 5.0f;
-				const float InvSatRaised = FMath::Pow( 1.0f - PixelSaturation, SatRaisePow );
-
-				const float ClampedVibrance = FMath::Clamp( InParams.AdjustVibrance, 0.0f, 1.0f );
-				const float HalfVibrance = ClampedVibrance * 0.5f;
-
-				const float SatProduct = HalfVibrance * InvSatRaised;
-
-				PixelSaturation += SatProduct;
-			}
-
-			// Apply saturation adjustment
-			PixelSaturation *= InParams.AdjustSaturation;
-
-			// Apply hue adjustment
-			PixelHue += InParams.AdjustHue;
-
-			// Clamp HSV values
-			{
-				PixelHue = FMath::Fmod( PixelHue, 360.0f );
-				if( PixelHue < 0.0f )
-				{
-					// Keep the hue value positive as HSVToLinearRGB prefers that
-					PixelHue += 360.0f;
-				}
-				PixelSaturation = FMath::Clamp( PixelSaturation, 0.0f, 1.0f );
-				PixelValue = FMath::Clamp( PixelValue, 0.0f, 1.0f );
-			}
-
-			// Convert back to a linear color
-			FLinearColor LinearColor = HSVColor.HSVToLinearRGB();
-
-			// Apply RGB curve adjustment (linear space)
-			if( !FMath::IsNearlyEqual( InParams.AdjustRGBCurve, 1.0f, (float)KINDA_SMALL_NUMBER ) && InParams.AdjustRGBCurve != 0.0f )
-			{
-				LinearColor.R = FMath::Pow( LinearColor.R, InParams.AdjustRGBCurve );
-				LinearColor.G = FMath::Pow( LinearColor.G, InParams.AdjustRGBCurve );
-				LinearColor.B = FMath::Pow( LinearColor.B, InParams.AdjustRGBCurve );
-			}
-
-			// Remap the alpha channel
-			LinearColor.A = FMath::Lerp(InParams.AdjustMinAlpha, InParams.AdjustMaxAlpha, OriginalColor.A);
-			ImageColors[ CurPixelIndex ] = LinearColor;
+			++NumPixelsEachJob;
 		}
+
+		// bForceSingleThread is set to true when: 
+		// (a) editor or cooker is loading as this is when the derived data cache is rebuilt as it will already be limited to a single thread 
+		//     and thus overhead of multithreading will simply make it slower
+		// (b) texture is smaller than 256x256 as it will cost more to multithread than to run on single thread.	
+		const static int MinPixelsToMultithread = 16384;
+		bool bForceSingleThread = (NumPixels < MinPixelsToMultithread) || GIsEditorLoadingPackage || GIsCookerLoadingPackage || IsInAsyncLoadingThread();
+
+		TFunction<void (int32)> AdjustImageColorsFunc = [&](int32 Index)
+		{
+			int32 StartIndex = Index * NumPixelsEachJob;
+			int32 EndIndex = FMath::Min(StartIndex + NumPixelsEachJob, NumPixels);
+			for (int32 CurPixelIndex = StartIndex; CurPixelIndex < EndIndex; ++CurPixelIndex)
+			{
+				const FLinearColor OriginalColorRaw = ImageColors[CurPixelIndex];
+
+				FLinearColor OriginalColor = OriginalColorRaw;
+				if (InBuildSettings.bChromaKeyTexture && (OriginalColor.Equals(ChromaKeyTarget, ChromaKeyThreshold)))
+				{
+					OriginalColor = FLinearColor::Transparent;
+				}
+
+				// Convert to HSV
+				FLinearColor HSVColor = OriginalColor.LinearRGBToHSV();
+				float& PixelHue = HSVColor.R;
+				float& PixelSaturation = HSVColor.G;
+				float& PixelValue = HSVColor.B;
+
+				float OriginalLuminance = PixelValue;
+
+				// Apply brightness adjustment
+				PixelValue *= InParams.AdjustBrightness;
+
+				// Apply brightness power adjustment
+				if (!FMath::IsNearlyEqual(InParams.AdjustBrightnessCurve, 1.0f, (float)KINDA_SMALL_NUMBER) && InParams.AdjustBrightnessCurve != 0.0f)
+				{
+					// Raise HSV.V to the specified power
+					PixelValue = FMath::Pow(PixelValue, InParams.AdjustBrightnessCurve);
+				}
+
+				// Apply "vibrance" adjustment
+				if (!FMath::IsNearlyZero(InParams.AdjustVibrance, (float)KINDA_SMALL_NUMBER))
+				{
+					const float SatRaisePow = 5.0f;
+					const float InvSatRaised = FMath::Pow(1.0f - PixelSaturation, SatRaisePow);
+
+					const float ClampedVibrance = FMath::Clamp(InParams.AdjustVibrance, 0.0f, 1.0f);
+					const float HalfVibrance = ClampedVibrance * 0.5f;
+
+					const float SatProduct = HalfVibrance * InvSatRaised;
+
+					PixelSaturation += SatProduct;
+				}
+
+				// Apply saturation adjustment
+				PixelSaturation *= InParams.AdjustSaturation;
+
+				// Apply hue adjustment
+				PixelHue += InParams.AdjustHue;
+
+				// Clamp HSV values
+				{
+					PixelHue = FMath::Fmod(PixelHue, 360.0f);
+					if (PixelHue < 0.0f)
+					{
+						// Keep the hue value positive as HSVToLinearRGB prefers that
+						PixelHue += 360.0f;
+					}
+					PixelSaturation = FMath::Clamp(PixelSaturation, 0.0f, 1.0f);
+
+					// Clamp brightness if non-HDR
+					if (!InBuildSettings.bHDRSource)
+					{
+						PixelValue = FMath::Clamp(PixelValue, 0.0f, 1.0f);
+					}
+				}
+
+				// Convert back to a linear color
+				FLinearColor LinearColor = HSVColor.HSVToLinearRGB();
+
+				// Apply RGB curve adjustment (linear space)
+				if (!FMath::IsNearlyEqual(InParams.AdjustRGBCurve, 1.0f, (float)KINDA_SMALL_NUMBER) && InParams.AdjustRGBCurve != 0.0f)
+				{
+					LinearColor.R = FMath::Pow(LinearColor.R, InParams.AdjustRGBCurve);
+					LinearColor.G = FMath::Pow(LinearColor.G, InParams.AdjustRGBCurve);
+					LinearColor.B = FMath::Pow(LinearColor.B, InParams.AdjustRGBCurve);
+				}
+
+				// Clamp HDR RGB channels to 1 or the original luminance (max original RGB channel value), whichever is greater
+				if (InBuildSettings.bHDRSource)
+				{
+					LinearColor.R = FMath::Clamp(LinearColor.R, 0.0f, (OriginalLuminance > 1.0f ? OriginalLuminance : 1.0f));
+					LinearColor.G = FMath::Clamp(LinearColor.G, 0.0f, (OriginalLuminance > 1.0f ? OriginalLuminance : 1.0f));
+					LinearColor.B = FMath::Clamp(LinearColor.B, 0.0f, (OriginalLuminance > 1.0f ? OriginalLuminance : 1.0f));
+				}
+
+				// Remap the alpha channel
+				LinearColor.A = FMath::Lerp(InParams.AdjustMinAlpha, InParams.AdjustMaxAlpha, OriginalColor.A);
+				ImageColors[CurPixelIndex] = LinearColor;
+			}
+		};
+
+		ParallelFor(NumJobs, AdjustImageColorsFunc, bForceSingleThread);
 	}
 }
 

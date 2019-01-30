@@ -365,7 +365,7 @@ bool FLevelEditorActionCallbacks::ToggleFavorite_CanExecute()
 		const int32 NumFavorites = MRUFavorites.GetNumFavorites();
 		// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
 		const FString PackageName = GetWorld()->GetOutermost()->GetName();
-		return (NumFavorites <= FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num() || MRUFavorites.ContainsFavoritesItem(PackageName));
+		return (NumFavorites < FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num() || MRUFavorites.ContainsFavoritesItem(PackageName));
 	}
 	return false;
 }
@@ -3047,7 +3047,7 @@ void FLevelEditorCommands::RegisterCommands()
 			.DefaultChord( FInputChord() );
 		OpenRecentFileCommands.Add( OpenRecentFile );
 	}
-	for (int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxRecentFiles; ++CurFavoriteIndex)
+	for (int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxFavoriteFiles; ++CurFavoriteIndex)
 	{
 		// NOTE: The actual label and tool-tip will be overridden at runtime when the command is bound to a menu item, however
 		// we still need to set one here so that the key bindings UI can function properly

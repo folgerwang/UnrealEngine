@@ -227,7 +227,7 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 {
 	Flags |= RF_Transactional;
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
  	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
  
@@ -569,7 +569,7 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 // 		ImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*CurrentFilename).ToString();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Result);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Result);
 
 	return Result;
 }

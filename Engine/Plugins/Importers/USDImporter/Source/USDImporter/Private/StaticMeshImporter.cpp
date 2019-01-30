@@ -145,7 +145,6 @@ bool FUSDStaticMeshImportState::AddPolygons(FMeshDescriptionWrapper& DestMeshWra
 	TMap<int32, FPolygonGroupID> PolygonGroupMapping;
 	TArray<FVertexInstanceID> CornerInstanceIDs;
 	TArray<FVertexID> CornerVerticesIDs;
-	TArray<FMeshDescription::FContourPoint> Contours;
 	int32 CurrentVertexInstanceIndex = 0;
 
 	bool bFlipThisGeometry = bFlip;
@@ -241,33 +240,9 @@ bool FUSDStaticMeshImportState::AddPolygons(FMeshDescriptionWrapper& DestMeshWra
 			PolygonGroupMapping.Add(RealMaterialIndex, ExistingPolygonGroup);
 		}
 
-		// Create polygon edges
-		Contours.Reset();
-		for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
-		{
-			int32 ContourPointIndex = Contours.AddDefaulted();
-			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-			//Find the matching edge ID
-			uint32 CornerIndices[2];
-			CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
-			CornerIndices[1] = (PolygonEdgeNumber + 1) % PolygonVertexCount;
-
-			FVertexID EdgeVertexIDs[2];
-			EdgeVertexIDs[0] = CornerVerticesIDs[CornerIndices[0]];
-			EdgeVertexIDs[1] = CornerVerticesIDs[CornerIndices[1]];
-
-			FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-			if (MatchEdgeId == FEdgeID::Invalid)
-			{
-				MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-			}
-			ContourPoint.EdgeID = MatchEdgeId;
-			ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
-		}
-
 		FPolygonGroupID PolygonGroupID = PolygonGroupMapping[RealMaterialIndex];
 		// Insert a polygon into the mesh
-		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, Contours);
+		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, CornerInstanceIDs);
 		if (bFlipThisGeometry)
 		{
 			MeshDescription->ReversePolygonFacing(NewPolygonID);

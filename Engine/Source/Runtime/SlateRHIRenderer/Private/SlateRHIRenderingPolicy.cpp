@@ -601,7 +601,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	FTexture2DRHIRef& ColorTarget,
 	FTexture2DRHIRef& DepthStencilTarget,
 	const TArray<FSlateRenderBatch>& RenderBatches,
-	const FSlateRenderingOptions& Options)
+	const FSlateRenderingParams& Params)
 {
 	// Should only be called by the rendering thread
 	check(IsInRenderingThread());
@@ -621,10 +621,6 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	}
 
 	IRendererModule& RendererModule = FModuleManager::GetModuleChecked<IRendererModule>(RendererModuleName);
-
-	float TimeSeconds = FApp::GetCurrentTime() - GStartTime;
-	float DeltaTimeSeconds = FApp::GetDeltaTime();
-	float RealTimeSeconds = FPlatformTime::Seconds() - GStartTime;
 
 	static const FEngineShowFlags DefaultShowFlags(ESFIM_Game);
 
@@ -648,7 +644,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateScenes);
 		for (int32 i = 0; i < ResourceManager->GetSceneCount(); i++)
 		{
-			SceneViewFamilyContexts[i] = new  FSceneViewFamilyContext
+			SceneViewFamilyContexts[i] = new FSceneViewFamilyContext
 			(
 				FSceneViewFamily::ConstructionValues
 				(
@@ -656,11 +652,11 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					ResourceManager->GetSceneAt(i),
 					DefaultShowFlags
 				)
-				.SetWorldTimes(TimeSeconds, DeltaTimeSeconds, RealTimeSeconds)
+				.SetWorldTimes(Params.CurrentWorldTime, Params.DeltaTimeSeconds, Params.CurrentRealTime)
 				.SetGammaCorrection(DisplayGamma)
 				.SetRealtimeUpdate(true)
 			);
-			SceneViews[i] = CreateSceneView(SceneViewFamilyContexts[i], BackBuffer, Options.ViewProjectionMatrix);
+			SceneViews[i] = CreateSceneView(SceneViewFamilyContexts[i], BackBuffer, Params.ViewProjectionMatrix);
 		}
 
 		SceneViewFamilyContexts[NumScenes - 1] = new FSceneViewFamilyContext
@@ -671,11 +667,11 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				nullptr,
 				DefaultShowFlags
 			)
-			.SetWorldTimes(TimeSeconds, DeltaTimeSeconds, RealTimeSeconds)
+			.SetWorldTimes(Params.CurrentWorldTime, Params.DeltaTimeSeconds, Params.CurrentRealTime)
 			.SetGammaCorrection(DisplayGamma)
 			.SetRealtimeUpdate(true)
 		);
-		SceneViews[NumScenes - 1] = CreateSceneView(SceneViewFamilyContexts[NumScenes - 1], BackBuffer, Options.ViewProjectionMatrix);
+		SceneViews[NumScenes - 1] = CreateSceneView(SceneViewFamilyContexts[NumScenes - 1], BackBuffer, Params.ViewProjectionMatrix);
 	}
 
 	TShaderMapRef<FSlateElementVS> GlobalVertexShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
@@ -698,7 +694,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 #endif
 
 	const bool bAbsoluteIndices = CVarSlateAbsoluteIndices.GetValueOnRenderThread() != 0;
-	const bool bSwitchVerticalAxis = Options.bAllowSwitchVerticalAxis && RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]);
+	const bool bSwitchVerticalAxis = Params.bAllowSwitchVerticalAxis && RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]);
 
 	// This variable tracks the last clipping state, so that if multiple batches have the same clipping state, we don't have to do any work.
 	TOptional<FSlateClippingState> LastClippingState;
@@ -712,7 +708,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	// Disable depth/stencil testing by default
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	FVector2D ViewTranslation2D = Options.ViewOffset;
+	FVector2D ViewTranslation2D = Params.ViewOffset;
 
 	// Draw each element
 	/*
@@ -782,7 +778,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		if (!RenderBatch.CustomDrawer.IsValid())
 		{
 			FMatrix DynamicOffset = FTranslationMatrix::Make(FVector(RenderBatch.DynamicOffset.X, RenderBatch.DynamicOffset.Y, 0));
-			const FMatrix ViewProjection = DynamicOffset * Options.ViewProjectionMatrix;
+			const FMatrix ViewProjection = DynamicOffset * Params.ViewProjectionMatrix;
 
 			UpdateScissorRect(
 				RHICmdList,
@@ -850,11 +846,11 @@ void FSlateRHIRenderingPolicy::DrawElements(
 						;
 				}
 
-				if (EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) || Options.bWireFrame)
+				if (EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) || Params.bWireFrame)
 				{
 					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Wireframe, CM_None, false>::GetRHI();
 
-					if (Options.bWireFrame)
+					if (Params.bWireFrame)
 					{
 						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 					}
@@ -1212,7 +1208,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 						bSwitchVerticalAxis,
 						InGraphicsPSOInit,
 						StencilVertexBuffer,
-						Options.ViewProjectionMatrix,
+						Params.ViewProjectionMatrix,
 						true);
 				};
 

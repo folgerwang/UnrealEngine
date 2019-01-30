@@ -15,11 +15,9 @@ void DirectoryWatchMacCallback( ConstFSEventStreamRef StreamRef, void* WatchRequ
 
 // ============================================================================================================================
 
-FDirectoryWatchRequestMac::FDirectoryWatchRequestMac(uint32 Flags)
+FDirectoryWatchRequestMac::FDirectoryWatchRequestMac()
 :	bRunning(false)
 ,	bEndWatchRequestInvoked(false)
-,	bIncludeDirectoryEvents((Flags & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0)
-,	bIgnoreChangesInSubtree((Flags & IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree) != 0)
 {
 }
 
@@ -99,16 +97,16 @@ bool FDirectoryWatchRequestMac::Init(const FString& InDirectory)
 	return true;
 }
 
-FDelegateHandle FDirectoryWatchRequestMac::AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
+FDelegateHandle FDirectoryWatchRequestMac::AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate, uint32 Flags )
 {
-	Delegates.Add(InDelegate);
-	return Delegates.Last().GetHandle();
+	Delegates.Emplace(InDelegate, Flags);
+	return Delegates.Last().Key.GetHandle();
 }
 
 bool FDirectoryWatchRequestMac::RemoveDelegate( FDelegateHandle InHandle )
 {
-	return Delegates.RemoveAll([=](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
-		return Delegate.GetHandle() == InHandle;
+	return Delegates.RemoveAll([=](const FWatchDelegate& Delegate) {
+		return Delegate.Key.GetHandle() == InHandle;
 	}) != 0;
 }
 
@@ -127,9 +125,29 @@ void FDirectoryWatchRequestMac::ProcessPendingNotifications()
 	// Trigger all listening delegates with the files that have changed
 	if ( FileChanges.Num() > 0 )
 	{
-		for (int32 DelegateIdx = 0; DelegateIdx < Delegates.Num(); ++DelegateIdx)
+		TMap<uint32, TArray<FFileChangeData>> FileChangeCache;
+		for (const FWatchDelegate& Delegate : Delegates)
 		{
-			Delegates[DelegateIdx].Execute(FileChanges);
+			// Filter list of all file changes down to ones that just match this delegate's flags
+			TArray<FFileChangeData>* CachedChanges = FileChangeCache.Find(Delegate.Value);
+			if (CachedChanges)
+			{
+				Delegate.Key.Execute(*CachedChanges);
+			}
+			else
+			{
+				const bool bIncludeDirs = (Delegate.Value & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0;
+				TArray<FFileChangeData>& Changes = FileChangeCache.Add(Delegate.Value);
+				for (const TPair<FFileChangeData, bool>& FileChangeData : FileChanges)
+				{
+					// @todo support IgnoreChangesInSubtree
+					if (!FileChangeData.Value || bIncludeDirs)
+					{
+						Changes.Add(FileChangeData.Key);
+					}
+				}
+				Delegate.Key.Execute(Changes);
+			}
 		}
 
 		FileChanges.Empty();
@@ -149,13 +167,10 @@ void FDirectoryWatchRequestMac::ProcessChanges( size_t EventCount, void* EventPa
 	for( size_t EventIndex = 0; EventIndex < EventCount; ++EventIndex )
 	{
 		const FSEventStreamEventFlags Flags = EventFlags[EventIndex];
-		if( !(Flags & kFSEventStreamEventFlagItemIsFile) )
+		if( !(Flags & kFSEventStreamEventFlagItemIsFile) && !(Flags & kFSEventStreamEventFlagItemIsDir) )
 		{
-			if( !bIncludeDirectoryEvents || !(Flags & kFSEventStreamEventFlagItemIsDir))
-			{
-				// events about directories and symlinks don't concern us
-				continue;
-			}
+			// events about symlinks don't concern us
+			continue;
 		}
 
 		// Warning: some events have more than one of created, removed nd modified flag.
@@ -209,6 +224,6 @@ void FDirectoryWatchRequestMac::ProcessChanges( size_t EventCount, void* EventPa
 			Action = FFileChangeData::FCA_Removed;
 		}
 
-		new(FileChanges) FFileChangeData(FilePath, Action);
+		FileChanges.Emplace(FFileChangeData(FilePath, Action), (Flags & kFSEventStreamEventFlagItemIsDir) != 0);
 	}
 }

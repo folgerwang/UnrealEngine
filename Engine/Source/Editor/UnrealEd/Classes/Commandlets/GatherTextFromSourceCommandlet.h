@@ -22,10 +22,10 @@ class UGatherTextFromSourceCommandlet : public UGatherTextCommandletBase
 private:
 #define LOC_DEFINE_REGION
 
-	enum class EMacroBlockState : uint8
+	enum class EEditorOnlyDefineState : uint8
 	{
-		Normal,
-		EditorOnly,
+		Undefined,
+		Defined,
 	};
 
 	struct FSourceLocation
@@ -55,6 +55,7 @@ private:
 	{
 		FString SourceString;
 		FSourceLocation SourceLocation;
+		FName PlatformName;
 		bool bIsEditorOnly;
 	};
 
@@ -85,7 +86,7 @@ private:
 
 		void FlushMacroStack();
 
-		EMacroBlockState EvaluateMacroStack() const;
+		EEditorOnlyDefineState EvaluateEditorOnlyDefineState() const;
 
 		void SetDefine( const FString& InDefineCtx );
 
@@ -102,6 +103,7 @@ private:
 		//Working data
 		FString Filename;
 		int32 LineNumber;
+		FName FilePlatformName;
 		FString LineText;
 		FString Namespace;
 		bool ExcludedRegion;
@@ -115,15 +117,13 @@ private:
 		//Should editor-only data be included in this gather?
 		bool ShouldGatherFromEditorOnlyData;
 
-		//Destination location of the parsed FLocTextEntrys
-		TSharedPtr< FLocTextHelper > GatherManifestHelper;
-
 		//Discovered string table data from all files
 		TMap<FName, FParsedStringTable> ParsedStringTables;
 
-		FSourceFileParseContext()
+		FSourceFileParseContext(UGatherTextFromSourceCommandlet* InOwnerCommandlet)
 			: Filename()
 			, LineNumber(0)
+			, FilePlatformName()
 			, LineText()
 			, Namespace()
 			, ExcludedRegion(false)
@@ -134,21 +134,23 @@ private:
 			, WithinNamespaceDefine(false)
 			, WithinStartingLine()
 			, ShouldGatherFromEditorOnlyData(false)
-			, GatherManifestHelper()
 			, MacroBlockStack()
-			, CachedMacroBlockState()
+			, CachedEditorOnlyDefineState()
+			, OwnerCommandlet(InOwnerCommandlet)
 		{
-
+			check(OwnerCommandlet);
 		}
 
 	private:
 		bool AddStringTableImpl( const FName InTableId, const FString& InTableNamespace );
-		bool AddStringTableEntryImpl( const FName InTableId, const FString& InKey, const FString& InSourceString, const FSourceLocation& InSourceLocation );
+		bool AddStringTableEntryImpl( const FName InTableId, const FString& InKey, const FString& InSourceString, const FSourceLocation& InSourceLocation, const FName InPlatformName );
 		bool AddStringTableEntryMetaDataImpl( const FName InTableId, const FString& InKey, const FName InMetaDataId, const FString& InMetaData, const FSourceLocation& InSourceLocation );
 
 		//Working data
 		TArray<FString> MacroBlockStack;
-		mutable TOptional<EMacroBlockState> CachedMacroBlockState;
+		mutable TOptional<EEditorOnlyDefineState> CachedEditorOnlyDefineState;
+
+		UGatherTextFromSourceCommandlet* OwnerCommandlet;
 	};
 
 	class FParsableDescriptor

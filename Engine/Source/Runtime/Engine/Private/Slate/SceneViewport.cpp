@@ -1233,8 +1233,7 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 	// Resizing the window directly is only supported in the game
 	if( FApp::IsGame() && NewWindowSizeX > 0 && NewWindowSizeY > 0 )
 	{		
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> WindowToResize = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef(), WidgetPath );
+		TSharedPtr<SWindow> WindowToResize = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef());
 
 		if( WindowToResize.IsValid() )
 		{
@@ -1591,8 +1590,7 @@ void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 
 			{
 				// Get the viewport for this window from the renderer so we can render directly to the backbuffer
 				FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
-				FWidgetPath WidgetPath;
-				void* ViewportResource = Renderer->GetViewportResource( *FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef(), WidgetPath ) );
+				void* ViewportResource = Renderer->GetViewportResource(*FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef()));
 				if( ViewportResource )
 				{
 					ViewportRHI = *((FViewportRHIRef*)ViewportResource);
@@ -1660,10 +1658,9 @@ void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 	{
 		// Get the viewport for this window from the renderer so we can render directly to the backbuffer
 		FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
-		FWidgetPath WidgetPath;
 		if (ViewportWidget.IsValid())
 		{
-			auto WidgetWindow = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef(), WidgetPath);
+			auto WidgetWindow = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
 			if (WidgetWindow.IsValid())
 			{
 				void* ViewportResource = Renderer->GetViewportResource(*WidgetWindow);
@@ -1768,8 +1765,7 @@ void FSceneViewport::OnPlayWorldViewportSwapped( const FSceneViewport& OtherView
 	{
 		FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
 
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( PinnedViewport.ToSharedRef(), WidgetPath );
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( PinnedViewport.ToSharedRef() );
 
 		WindowRenderTargetUpdate( Renderer, Window.Get() );
 	}
@@ -1995,8 +1991,7 @@ void FSceneViewport::InitDynamicRHI()
 	if (PinnedViewport.IsValid())
 	{
 
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(PinnedViewport.ToSharedRef(), WidgetPath);
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(PinnedViewport.ToSharedRef());
 		
 		WindowRenderTargetUpdate(Renderer, Window.Get());
 		if (UseSeparateRenderTarget())

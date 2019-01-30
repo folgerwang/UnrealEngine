@@ -1588,8 +1588,7 @@ void SNewClassDialog::SetupParentClassItems(const TArray<FNewClassInfo>& UserSpe
 
 void SNewClassDialog::CloseContainingWindow()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath);
+	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( ContainingWindow.IsValid() )
 	{

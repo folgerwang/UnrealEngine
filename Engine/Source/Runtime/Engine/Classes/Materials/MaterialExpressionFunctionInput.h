@@ -67,7 +67,7 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	uint32 bUsePreviewValueAsDefault:1;
 
 	/** Controls where the input is displayed relative to the other inputs. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MaterialExpressionFunctionInput)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MaterialExpression)
 	int32 SortPriority;
 
 	/** 

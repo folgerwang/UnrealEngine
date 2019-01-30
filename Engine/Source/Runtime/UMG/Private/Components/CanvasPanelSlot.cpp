@@ -331,7 +331,7 @@ void UCanvasPanelSlot::PostEditChangeChainProperty(struct FPropertyChangedChainE
 		}
 	}
 
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 }
 
 void UCanvasPanelSlot::SaveBaseLayout()

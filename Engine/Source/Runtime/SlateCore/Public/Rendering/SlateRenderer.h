@@ -27,7 +27,10 @@ typedef TRefCountPtr<FRHITexture2D> FTexture2DRHIRef;
  */
 struct FRenderThreadUpdateContext
 {
-	class FSlateDrawBuffer* DrawBuffer;
+	class FSlateDrawBuffer* WindowDrawBuffer;
+	float WorldTimeSeconds;
+	float DeltaTimeSeconds;
+	float RealTimeSeconds;
 	void* RenderTargetResource;
 	void* Renderer;
 	bool bClearTarget;

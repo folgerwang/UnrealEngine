@@ -941,10 +941,27 @@ namespace PropertyEditorHelpers
 		TAttribute<bool>::FGetter IsPropertyButtonEnabledDelegate = TAttribute<bool>::FGetter::CreateStatic(&IsPropertyButtonEnabled, WeakPropertyEditor);
 		TAttribute<bool> IsEnabledAttribute = TAttribute<bool>::Create( IsPropertyButtonEnabledDelegate );
 
+		TAttribute<bool> IsAddEnabledAttribute = TAttribute<bool>::Create(
+			TAttribute<bool>::FGetter::CreateLambda([WeakPropertyEditor, PropertyEditor]() {
+			if (WeakPropertyEditor.IsValid())
+			{
+				UProperty* Property = WeakPropertyEditor.Pin()->GetProperty();
+				// Check for multiple array selections with mismatched values
+				UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property);
+				if (ArrayProperty)
+				{
+					FString ArrayString;
+					FPropertyAccess::Result GetValResult = PropertyEditor->GetPropertyHandle()->GetValueAsDisplayString(ArrayString);
+					return IsPropertyButtonEnabled(WeakPropertyEditor) && GetValResult == FPropertyAccess::Success;
+				}
+			}
+			return IsPropertyButtonEnabled(WeakPropertyEditor);
+		}));
+
 		switch( ButtonType )
 		{
 		case EPropertyButton::Add:
-			NewButton = PropertyCustomizationHelpers::MakeAddButton( FSimpleDelegate::CreateSP( PropertyEditor, &FPropertyEditor::AddItem ), FText(), IsEnabledAttribute );
+			NewButton = PropertyCustomizationHelpers::MakeAddButton( FSimpleDelegate::CreateSP( PropertyEditor, &FPropertyEditor::AddItem ), FText(), IsAddEnabledAttribute);
 			break;
 
 		case EPropertyButton::Empty:

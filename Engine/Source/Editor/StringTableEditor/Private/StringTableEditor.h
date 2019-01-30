@@ -10,6 +10,7 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Widgets/Views/SListView.h"
+#include "Misc/TextFilter.h"
 
 /** Viewer/editor for a String Table */
 class FStringTableEditor : public IStringTableEditor, public FEditorUndoClient
@@ -30,7 +31,7 @@ public:
 	void InitStringTableEditor(const EToolkitMode::Type Mode, const TSharedPtr<class IToolkitHost>& InitToolkitHost, UStringTable* StringTable);
 
 	/** Constructor */
-	FStringTableEditor();
+	FStringTableEditor() = default;
 
 	/** Destructor */
 	virtual ~FStringTableEditor();
@@ -56,10 +57,6 @@ private:
 	/** Cached string table entry */
 	struct FCachedStringTableEntry
 	{
-		FCachedStringTableEntry()
-		{
-		}
-
 		FCachedStringTableEntry(FString InKey, FString InSourceString)
 			: Key(MoveTemp(InKey))
 			, SourceString(MoveTemp(InSourceString))
@@ -103,6 +100,18 @@ private:
 	/** Handler for the source string being committed. Treat as if "Add" were pressed. */
 	void OnSourceStringCommitted(const FText& InText, ETextCommit::Type);
 
+	/** Handler for the search box string being changed. */
+	void OnFilterTextChanged(const FText& InNewText);
+
+	/** Check function for context menu delete action. */
+	bool CanExecuteDelete() const;
+
+	/** Handler for context menu delete action. */
+	void ExecuteDelete();
+
+	/** Handler for when opening the context menu in the list view. */
+	TSharedPtr<SWidget> OnConstructContextMenu();
+
 	/** Handler for the "Add" button */
 	FReply OnAddClicked();
 
@@ -115,6 +124,13 @@ private:
 	/** Editable text for the namespace */
 	TSharedPtr<SEditableTextBox> NamespaceEditableTextBox;
 
+	/** Search box for the text entries */
+	TSharedPtr<class SSearchBox> SearchBox;
+
+	/** Text filter for text entries */
+	using FEntryTextFilter = TTextFilter< TSharedPtr<FCachedStringTableEntry> >;
+	TSharedPtr<FEntryTextFilter> EntryTextFilter;
+
 	/** Editable text for the key */
 	TSharedPtr<SEditableTextBox> KeyEditableTextBox;
 
@@ -126,6 +142,9 @@ private:
 
 	/** List view showing the cached string table entries */
 	TSharedPtr<SListView<TSharedPtr<FCachedStringTableEntry>>> StringTableEntriesListView;
+
+	/** List of UI commands */
+	TSharedPtr<class FUICommandList> CommandList;
 
 	/**	The tab ID for the string table tab */
 	static const FName StringTableTabId;

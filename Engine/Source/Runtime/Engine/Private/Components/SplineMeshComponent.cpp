@@ -1101,38 +1101,17 @@ void USplineMeshComponent::RecreateCollision()
 	}
 }
 
-/** Used to store spline mesh data during RerunConstructionScripts */
-class FSplineMeshInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> USplineMeshComponent::GetComponentInstanceData() const
 {
-public:
-	explicit FSplineMeshInstanceData(const USplineMeshComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{
-	}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<USplineMeshComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	FVector StartPos;
-	FVector EndPos;
-	FVector StartTangent;
-	FVector EndTangent;
-};
-
-FActorComponentInstanceData* USplineMeshComponent::GetComponentInstanceData() const
-{
-	FActorComponentInstanceData* InstanceData = nullptr;
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 	if (bAllowSplineEditingPerInstance)
 	{
-		FSplineMeshInstanceData *SplineMeshInstanceData = new FSplineMeshInstanceData(this);
+		InstanceData.InitializeAs<FSplineMeshInstanceData>(this);
+		FSplineMeshInstanceData *SplineMeshInstanceData = InstanceData.Cast<FSplineMeshInstanceData>();
 		SplineMeshInstanceData->StartPos = SplineParams.StartPos;
 		SplineMeshInstanceData->EndPos = SplineParams.EndPos;
 		SplineMeshInstanceData->StartTangent = SplineParams.StartTangent;
 		SplineMeshInstanceData->EndTangent = SplineParams.EndTangent;
-		InstanceData = SplineMeshInstanceData;
 	}
 	else
 	{

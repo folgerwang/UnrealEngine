@@ -23,7 +23,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogImgMedia, Log, All);
 
 #if USE_IMGMEDIA_DEALLOC_POOL
 	/** Thread pool used for deleting image frame buffers. */
-	extern FQueuedThreadPool* GImgMediaThreadPoolSlow;
+	extern FQueuedThreadPool* GetImgMediaThreadPoolSlow();
 #endif
 
 

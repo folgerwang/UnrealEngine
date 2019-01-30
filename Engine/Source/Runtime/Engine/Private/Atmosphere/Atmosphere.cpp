@@ -731,40 +731,17 @@ void UAtmosphericFogComponent::Serialize(FArchive& Ar)
 	}
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FAtmospherePrecomputeInstanceData : public FSceneComponentInstanceData
-{
-public:
-	FAtmospherePrecomputeInstanceData(const UAtmosphericFogComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{}
-
-	virtual ~FAtmospherePrecomputeInstanceData()
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UAtmosphericFogComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	struct FAtmospherePrecomputeParameters PrecomputeParameter;
-
-	FByteBulkData TransmittanceData;
-	FByteBulkData IrradianceData;
-	FByteBulkData InscatterData;
-};
 
 // Backup the precomputed data before re-running Blueprint construction script
-FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UAtmosphericFogComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = nullptr;
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 
 	if (TransmittanceData.GetElementCount() && IrradianceData.GetElementCount() && InscatterData.GetElementCount() && PrecomputeCounter == EValid)
 	{
 		// Allocate new struct for holding light map data
-		FAtmospherePrecomputeInstanceData* PrecomputedData = new FAtmospherePrecomputeInstanceData(this);
-		InstanceData = PrecomputedData;
+		InstanceData.InitializeAs<FAtmospherePrecomputeInstanceData>(this);
+		FAtmospherePrecomputeInstanceData* PrecomputedData = InstanceData.Cast<FAtmospherePrecomputeInstanceData>();
 
 		// Fill in info
 		PrecomputedData->PrecomputeParameter = PrecomputeParams;
@@ -796,7 +773,6 @@ FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData(
 	{
 		InstanceData = Super::GetComponentInstanceData();
 	}
-
 	return InstanceData;
 }
 

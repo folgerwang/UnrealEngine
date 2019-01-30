@@ -132,8 +132,7 @@ void SDiscoveringAssetsDialog::AssetRegistryLoadComplete()
 
 void SDiscoveringAssetsDialog::CloseDialog()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( Window.IsValid() )
 	{

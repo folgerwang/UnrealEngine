@@ -204,6 +204,7 @@ UWidgetInteractionComponent::FWidgetTraceResult UWidgetInteractionComponent::Per
 				{
 					TraceResult.bWasHit = true;
 					TraceResult.HitResult = HitResult;
+					break;
 				}
 			}
 			else

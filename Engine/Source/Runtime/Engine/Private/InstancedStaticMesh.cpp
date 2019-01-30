@@ -826,6 +826,16 @@ void FInstancedStaticMeshSceneProxy::SetupInstancedMeshBatch(int32 LODIndex, int
 	}
 }
 
+void FInstancedStaticMeshSceneProxy::GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const
+{
+	FStaticMeshSceneProxy::GetLightRelevance(LightSceneProxy, bDynamic, bRelevant, bLightMapped, bShadowMapped);
+
+	if (InstancedRenderData.PerInstanceRenderData->InstanceBuffer.GetNumInstances() == 0)
+	{
+		bRelevant = false;
+	}
+}
+
 bool FInstancedStaticMeshSceneProxy::GetShadowMeshElement(int32 LODIndex, int32 BatchIndex, uint8 InDepthPriorityGroup, FMeshBatch& OutMeshBatch, bool bDitheredLODTransition) const
 {
 	if (LODIndex < InstancedRenderData.VertexFactories.Num() && FStaticMeshSceneProxy::GetShadowMeshElement(LODIndex, BatchIndex, InDepthPriorityGroup, OutMeshBatch, bDitheredLODTransition))
@@ -933,63 +943,12 @@ UInstancedStaticMeshComponent::~UInstancedStaticMeshComponent()
 	ReleasePerInstanceRenderData();
 }
 
-#if WITH_EDITOR
-/** Helper class used to preserve lighting/selection state across blueprint reinstancing */
-class FInstancedStaticMeshComponentInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> UInstancedStaticMeshComponent::GetComponentInstanceData() const
 {
-public:
-	
-	FInstancedStaticMeshComponentInstanceData(const UInstancedStaticMeshComponent& InComponent)
-		: FSceneComponentInstanceData(&InComponent)
-		, StaticMesh(InComponent.GetStaticMesh())
-	{
-	}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UInstancedStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		FSceneComponentInstanceData::AddReferencedObjects(Collector);
-
-		Collector.AddReferencedObject(StaticMesh);
-	}
-
-	/** Used to store lightmap data during RerunConstructionScripts */
-	struct FLightMapInstanceData
-	{
-		/** Transform of component */
-		FTransform Transform;
-
-		/** guid from LODData */
-		TArray<FGuid> MapBuildDataIds;
-	};
-
-public:
-	/** Mesh being used by component */
-	UStaticMesh* StaticMesh;
-
-	// Static lighting info
-	FLightMapInstanceData CachedStaticLighting;
-	TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
-
-	/** The cached selected instances */
-	TBitArray<> SelectedInstances;
-
-	/* The cached random seed */
-	int32 InstancingRandomSeed;
-};
-#endif
-
-FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstanceData() const
-{
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 #if WITH_EDITOR
-	FActorComponentInstanceData* InstanceData = nullptr;
-	FInstancedStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
-	InstanceData = StaticMeshInstanceData = new FInstancedStaticMeshComponentInstanceData(*this);	
+	InstanceData.InitializeAs<FInstancedStaticMeshComponentInstanceData>(this);
+	FInstancedStaticMeshComponentInstanceData* StaticMeshInstanceData = InstanceData.Cast<FInstancedStaticMeshComponentInstanceData>();
 
 	// Fill in info (copied from UStaticMeshComponent::GetComponentInstanceData)
 	StaticMeshInstanceData->CachedStaticLighting.Transform = GetComponentTransform();
@@ -1007,11 +966,8 @@ FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstance
 
 	// Back up random seed
 	StaticMeshInstanceData->InstancingRandomSeed = InstancingRandomSeed;
-
-	return InstanceData;
-#else
-	return nullptr;
 #endif
+	return InstanceData;
 }
 
 void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticMeshComponentInstanceData* InstancedMeshData)
@@ -2395,32 +2351,32 @@ void UInstancedStaticMeshComponent::SelectInstance(bool bInSelected, int32 InIns
 			SelectedInstances.Init(false, PerInstanceSMData.Num());
 		}
 
-		check(SelectedInstances.IsValidIndex(InInstanceIndex));
-		check(SelectedInstances.IsValidIndex(InInstanceIndex + (InInstanceCount - 1)));
-
+		check(InInstanceIndex >= 0 && InInstanceCount > 0);
+		check(InInstanceIndex + InInstanceCount - 1 < SelectedInstances.Num());
+		
 		for (int32 InstanceIndex = InInstanceIndex; InstanceIndex < InInstanceIndex + InInstanceCount; InstanceIndex++)
 		{
-			SelectedInstances[InstanceIndex] = bInSelected;
-		}
-
-		if (PerInstanceRenderData.IsValid())
-		{
-			for (int32 InstanceIndex = InInstanceIndex; InstanceIndex < InInstanceIndex + InInstanceCount; InstanceIndex++)
+			if (SelectedInstances.IsValidIndex(InInstanceIndex))
 			{
-				// Record if the instance is selected
-				FColor HitProxyColor(ForceInit);
-				bool bSelected = SelectedInstances[InstanceIndex] != 0;
-				if (PerInstanceRenderData->HitProxies.IsValidIndex(InstanceIndex))
+				SelectedInstances[InstanceIndex] = bInSelected;
+
+				if (PerInstanceRenderData.IsValid())
 				{
-					HitProxyColor = PerInstanceRenderData->HitProxies[InstanceIndex]->Id.GetColor();
+					// Record if the instance is selected
+					FColor HitProxyColor(ForceInit);
+					bool bSelected = SelectedInstances[InstanceIndex] != 0;
+					if (PerInstanceRenderData->HitProxies.IsValidIndex(InstanceIndex))
+					{
+						HitProxyColor = PerInstanceRenderData->HitProxies[InstanceIndex]->Id.GetColor();
+					}
+
+					int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
+					if (RenderIndex != INDEX_NONE)
+					{
+						InstanceUpdateCmdBuffer.SetEditorData(RenderIndex, HitProxyColor, bSelected);
+					}
 				}
-				
-				int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
-				if (RenderIndex != INDEX_NONE)
-				{
-					InstanceUpdateCmdBuffer.SetEditorData(RenderIndex, HitProxyColor, bSelected);
-				}
-			}
+			}			
 		}
 		
 		MarkRenderStateDirty();

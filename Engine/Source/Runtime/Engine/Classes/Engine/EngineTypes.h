@@ -1505,43 +1505,6 @@ struct FSubtitleCue
 };
 
 
-/**	A subtitle localized to a specific language. */
-USTRUCT()
-struct FLocalizedSubtitle
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** The 3-letter language for this subtitle */
-	UPROPERTY()
-	FString LanguageExt;
-
-	/**
-	 * Subtitle cues.  If empty, use SoundNodeWave's SpokenText as the subtitle.  Will often be empty,
-	 * as the contents of the subtitle is commonly identical to what is spoken.
-	 */
-	UPROPERTY()
-	TArray<FSubtitleCue> Subtitles;
-
-	/** true if this sound is considered to contain mature content. */
-	UPROPERTY()
-	uint32 bMature:1;
-
-	/** true if the subtitles have been split manually. */
-	UPROPERTY()
-	uint32 bManualWordWrap:1;
-
-	/** true if the subtitles should be displayed one line at a time. */
-	UPROPERTY()
-	uint32 bSingleLine:1;
-
-	FLocalizedSubtitle()
-		: bMature(false)
-		, bManualWordWrap(false)
-		, bSingleLine(false)
-	{ }
-};
-
-
 /**	Per-light settings for Lightmass */
 USTRUCT()
 struct FLightmassLightSettings

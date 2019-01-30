@@ -468,12 +468,7 @@ FText FSpriteEditor::GetBaseToolkitName() const
 
 FText FSpriteEditor::GetToolkitName() const
 {
-	const bool bDirtyState = SpriteBeingEdited->GetOutermost()->IsDirty();
-
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("SpriteName"), FText::FromString(SpriteBeingEdited->GetName()));
-	Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty());
-	return FText::Format(LOCTEXT("SpriteEditorToolkitName", "{SpriteName}{DirtyState}"), Args);
+	return FText::FromString(SpriteBeingEdited->GetName());
 }
 
 FText FSpriteEditor::GetToolkitToolTipText() const

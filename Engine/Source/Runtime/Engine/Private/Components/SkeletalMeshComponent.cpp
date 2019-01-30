@@ -2498,7 +2498,7 @@ FBoxSphereBounds USkeletalMeshComponent::CalcBounds(const FTransform& LocalToWor
 #endif// #if WITH_APEX_CLOTHING
 
 		bCachedLocalBoundsUpToDate = true;
-		CachedLocalBounds = NewBounds.TransformBy(LocalToWorld.Inverse());
+		CachedLocalBounds = NewBounds.TransformBy(LocalToWorld.ToInverseMatrixWithScale());
 
 		return NewBounds;
 	}

@@ -885,6 +885,18 @@ public:
 	ENGINE_API void SetNumSourceModels(int32 Num);
 	ENGINE_API void RemoveSourceModel(int32 Index);
 
+	/*
+	 * Verify that a specific LOD using a material needing the adjacency buffer have the build option set to create the adjacency buffer.
+	 *
+	 * LODIndex: The LOD to fix
+	 * bPreviewMode: If true the the function will not fix the build option. It will also change the return behavior, return true if the LOD need adjacency buffer, false otherwise
+	 * bPromptUser: if true a dialog will ask the user if he agree changing the build option to allow adjacency buffer
+	 * OutUserCancel: if the value is not null and the bPromptUser is true, the prompt dialog will have a cancel button and the result will be put in the parameter.
+	 *
+	 * The function will return true if any LOD build settings option is fix to add adjacency option. It will return false if no action was done. In case bPreviewMode is true it return true if the LOD need adjacency buffer, false otherwise.
+	 */
+	ENGINE_API bool FixLODRequiresAdjacencyInformation(const int32 LODIndex, const bool bPreviewMode = false, bool bPromptUser = false, bool* OutUserCancel = nullptr);
+	
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;

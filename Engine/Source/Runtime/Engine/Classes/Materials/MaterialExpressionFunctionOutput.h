@@ -26,7 +26,7 @@ class UMaterialExpressionFunctionOutput : public UMaterialExpression
 	FString Description;
 
 	/** Controls where the output is displayed relative to the other outputs. */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionFunctionOutput)
+	UPROPERTY(EditAnywhere, Category=MaterialExpression)
 	int32 SortPriority;
 
 	/** Stores the expression in the material function connected to this output. */

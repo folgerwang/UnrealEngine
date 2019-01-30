@@ -89,7 +89,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMesh(UObject* InParent, FbxNode* N
 struct FFBXUVs
 {
 	// constructor
-	FFBXUVs(FbxMesh* Mesh)
+	FFBXUVs(UnFbx::FFbxImporter* FbxImporter, FbxMesh* Mesh)
 		: UniqueUVCount(0)
 	{
 		check(Mesh);
@@ -157,7 +157,7 @@ struct FFBXUVs
 		}
 	}
 
-	void Phase2(FbxMesh* Mesh)
+	void Phase2(UnFbx::FFbxImporter* FbxImporter, FbxMesh* Mesh)
 	{
 		//
 		//	store the UVs in arrays for fast access in the later looping of triangles 
@@ -202,6 +202,12 @@ struct FFBXUVs
 				}
 			}
 		}
+
+		if (UniqueUVCount > MAX_MESH_TEXTURE_COORDS_MD)
+		{
+			FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_TooMuchUVChannel", "Reached the maximum number of UV Channels for a Static Mesh({0}) - discarding {1} UV Channels"), FText::AsNumber(MAX_MESH_TEXTURE_COORDS_MD), FText::AsNumber(UniqueUVCount-MAX_MESH_TEXTURE_COORDS_MD))), FFbxErrors::Generic_Mesh_TooMuchUVChannels);
+		}
+
 		UniqueUVCount = FMath::Min<int32>(UniqueUVCount, MAX_MESH_TEXTURE_COORDS_MD);
 	}
 
@@ -280,7 +286,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		return false;
 	}
 
-	FFBXUVs FBXUVs(Mesh);
+	FFBXUVs FBXUVs(this, Mesh);
 	int32 FBXNamedLightMapCoordinateIndex = FBXUVs.FindLightUVIndex();
 	if (FBXNamedLightMapCoordinateIndex != INDEX_NONE)
 	{
@@ -411,7 +417,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		LayerElementMaterial->GetMappingMode() : FbxLayerElement::eByPolygon;
 
 	//	todo second phase UV, ok to put in first phase?
-	FBXUVs.Phase2(Mesh);
+	FBXUVs.Phase2(this, Mesh);
 
 	//
 	// get the smoothing group layer
@@ -627,7 +633,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 			check(P.Num() > 2); //triangle is the smallest polygon we can have
 			const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
 			//Check for degenerated polygons, avoid NAN
-			if (Normal.IsNearlyZero(ComparisonThreshold))
+			if (Normal.IsNearlyZero(ComparisonThreshold) || Normal.ContainsNaN())
 			{
 				SkippedVertexInstance += PolygonVertexCount;
 				continue;
@@ -828,13 +834,10 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		}
 
 		// Create polygon edges
-		TArray<FMeshDescription::FContourPoint> Contours;
 		{
 			// Add the edges of this polygon
 			for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
 			{
-				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
 				//Find the matching edge ID
 				uint32 CornerIndices[2];
 				CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
@@ -849,8 +852,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				{
 					MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 				}
-				ContourPoint.EdgeID = MatchEdgeId;
-				ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
+
 				//RawMesh do not have edges, so by ordering the edge with the triangle construction we can ensure back and forth conversion with RawMesh
 				//When raw mesh will be completly remove we can create the edges right after the vertex creation.
 				int32 EdgeIndex = INDEX_NONE;
@@ -890,7 +892,9 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		}
 		FPolygonGroupID PolygonGroupID = PolygonGroupMapping[RealMaterialIndex];
 		// Insert a polygon into the mesh
-		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, Contours);
+		TArray<FEdgeID> NewEdgeIDs;
+		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, CornerInstanceIDs, &NewEdgeIDs);
+		check(NewEdgeIDs.Num() == 0);
 		//Triangulate the polygon
 		FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 		MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -1126,7 +1130,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	else
 	{
 		// count meshes in lod groups if we dont care about importing LODs
-		bool bCountLODGroupMeshes = !bImportStaticMeshLODs;
+		bool bCountLODGroupMeshes = !bImportStaticMeshLODs && bCombineMeshes;
 		int32 NumLODGroups = 0;
 		GetFbxMeshCount(Scene->GetRootNode(), bCountLODGroupMeshes, NumLODGroups);
 		// if there were LODs in the file, do not combine meshes even if requested
@@ -1406,7 +1410,15 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		// Create a package for each mesh
 		if (Package == nullptr)
 		{
-			NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
+			if (Parent != nullptr && Parent->GetOutermost() != nullptr)
+			{
+				NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
+			}
+			else
+			{
+				AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("ImportStaticMeshAsSingle", "Invalid Parent package when importing {0}.\nThe asset will not be imported."), FText::FromString(MeshName))), FFbxErrors::Generic_ImportingNewObjectFailed);
+				return nullptr;
+			}
 			NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 			Package = CreatePackage(NULL, *NewPackageName);
 		}
@@ -1930,6 +1942,11 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	{
 		MeshDescription->TriangulateMesh();
 	}
+	bool bUserCancel = false;
+	if (StaticMesh->FixLODRequiresAdjacencyInformation(LODIndex))
+	{
+		AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Warning_AdjacencyOptionForced", "Adjacency information not built for static mesh with a material that requires it. Forcing build setting to use adjacency. LOD Index: {0} StaticMesh: {1}"), LODIndex, FText::FromString(StaticMesh->GetPathName()))), FFbxErrors::StaticMesh_AdjacencyOptionForced);
+	}
 
 	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
 	if (!ImportOptions->bImportScene)
@@ -2345,7 +2362,9 @@ bool UnFbx::FFbxImporter::FillCollisionModelList(FbxNode* Node)
 				{
 					Record = Models->GetValue();
 				}
-				Record->Add(Node);
+
+				//Unique add
+				Record->AddUnique(Node);
 			}
 		}
 

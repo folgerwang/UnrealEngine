@@ -50,12 +50,7 @@ FText FTileMapEdModeToolkit::GetToolkitName() const
 {
 	if (CurrentTileSetPtr.IsValid())
 	{
-		const bool bDirtyState = CurrentTileSetPtr->GetOutermost()->IsDirty();
-
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("TileSetName"), FText::FromString(CurrentTileSetPtr->GetName()));
-		Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty());
-		return FText::Format(LOCTEXT("TileMapEditAppLabel", "{TileSetName}{DirtyState}"), Args);
+		return FText::FromString(CurrentTileSetPtr->GetName());
 	}
 	return GetBaseToolkitName();
 }
