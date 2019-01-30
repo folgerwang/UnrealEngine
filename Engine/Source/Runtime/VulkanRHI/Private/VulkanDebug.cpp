@@ -3647,6 +3647,22 @@ void FWrapLayer::SetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEven
 	}
 }
 
+void FWrapLayer::GetEventStatus(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		DevicePrintfBegin(CommandBuffer, FString::Printf(TEXT("GetEventStatus(Event=0x%p)"), Event));
+#endif
+	}
+	else
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		PrintResult(Result);
+#endif
+	}
+}
+
 void FWrapLayer::ResetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEvent Event, VkPipelineStageFlags StageMask)
 {
 	if (Result == VK_RESULT_MAX_ENUM)
