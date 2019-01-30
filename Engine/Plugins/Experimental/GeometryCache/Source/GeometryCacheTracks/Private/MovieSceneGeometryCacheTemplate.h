@@ -19,8 +19,8 @@ struct FMovieSceneGeometryCacheSectionTemplateParameters : public FMovieSceneGeo
 		, SectionStartTime(InSectionStartTime)
 		, SectionEndTime(InSectionEndTime)
 	{}
-	virtual ~FMovieSceneGeometryCacheSectionTemplateParameters() {};
-	virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+
+	float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
 
 	UPROPERTY()
 	FFrameNumber SectionStartTime;
