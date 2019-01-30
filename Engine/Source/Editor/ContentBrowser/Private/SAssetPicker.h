@@ -18,6 +18,7 @@ class FUICommandList;
 class SAssetSearchBox;
 class SAssetView;
 class SFilterList;
+class SComboButton;
 enum class ECheckBoxState : uint8;
 
 /**
@@ -132,6 +133,9 @@ private:
 
 	/** The filter list */
 	TSharedPtr<SFilterList> FilterListPtr;
+
+	/** The filter combo button */
+	TSharedPtr<SComboButton> FilterComboButtonPtr;
 
 	/** Called to when an asset is selected or the none button is pressed */
 	FOnAssetSelected OnAssetSelected;
