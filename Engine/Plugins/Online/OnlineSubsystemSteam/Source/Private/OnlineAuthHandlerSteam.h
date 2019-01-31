@@ -14,6 +14,7 @@ class FSteamAuthHandlerComponent : public HandlerComponent
 public:
 	FSteamAuthHandlerComponent();
 	virtual ~FSteamAuthHandlerComponent();
+	virtual void CountBytes(FArchive& Ar) const override;
 	virtual void Initialize() override;
 	virtual void NotifyHandshakeBegin() override;
 

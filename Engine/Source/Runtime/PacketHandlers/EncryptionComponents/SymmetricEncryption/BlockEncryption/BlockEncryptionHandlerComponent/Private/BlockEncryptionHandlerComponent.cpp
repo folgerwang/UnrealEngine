@@ -28,6 +28,16 @@ BlockEncryptionHandlerComponent::BlockEncryptionHandlerComponent(BlockEncryptor*
 	KeySizeInBytes = InKeySizeInBytes != 0 ? InKeySizeInBytes : Encryptor->GetDefaultKeySize();
 }
 
+void BlockEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	Key.CountBytes(Ar);
+}
+
 void BlockEncryptionHandlerComponent::Initialize()
 {
 	if (Handler->Mode == Handler::Mode::Client)

@@ -123,6 +123,16 @@ FSteamAuthHandlerComponent::~FSteamAuthHandlerComponent()
 	}
 }
 
+void FSteamAuthHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	UserTicket.CountBytes(Ar);
+}
+
 void FSteamAuthHandlerComponent::Initialize()
 {
 	if (!AuthInterface.IsValid() || !AuthInterface->IsSessionAuthEnabled())

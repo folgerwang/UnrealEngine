@@ -13,6 +13,8 @@ public:
 	/* Initializes default data */
 	ReliabilityHandlerComponent();
 
+	virtual void CountBytes(FArchive& Ar) const;
+
 	virtual void Initialize() override;
 
 	virtual bool IsValid() const override;

@@ -44,6 +44,13 @@ RSAEncryptionHandlerComponent::RSAEncryptionHandlerComponent(int32 InKeySizeInBi
 	bRequiresHandshake = true;
 }
 
+void RSAEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+}
+
 void RSAEncryptionHandlerComponent::Initialize()
 {
 	Params.GenerateRandomWithKeySize(Rng, KeySizeInBits);

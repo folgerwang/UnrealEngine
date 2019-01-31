@@ -29,6 +29,15 @@ StreamEncryptionHandlerComponent::StreamEncryptionHandlerComponent(StreamEncrypt
 	KeySizeInBytes = InKeySizeInBytes != 0 ? InKeySizeInBytes : Encryptor->GetDefaultKeySize();
 }
 
+void StreamEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+	Key.CountBytes(Ar);
+}
+
 void StreamEncryptionHandlerComponent::Initialize()
 {
 	if (Handler->Mode == Handler::Mode::Client)

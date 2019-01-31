@@ -304,6 +304,14 @@ OodleHandlerComponent::~OodleHandlerComponent()
 	FreeDictionary(ClientDictionary);
 }
 
+void OodleHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+}
+
 void OodleHandlerComponent::InitFirstRunConfig()
 {
 	// Check that the OodleHandlerComponent section exists, and if not, init with defaults

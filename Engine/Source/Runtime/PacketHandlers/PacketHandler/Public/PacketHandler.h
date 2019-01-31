@@ -210,6 +210,13 @@ public:
 	{
 		delete [] Data;
 	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Ar.CountBytes(sizeof(*this), sizeof(*this));
+		Ar.CountBytes(FMath::DivideAndRoundUp(CountBits, 8u), FMath::DivideAndRoundUp(CountBits, 8u));
+		Address.CountBytes(Ar);
+	}
 };
 
 /**
@@ -405,6 +412,8 @@ public:
 
 	/** Returns a pointer to the first component in the HandlerComponents array with the specified name. */
 	TSharedPtr<HandlerComponent> GetComponentByName(FName ComponentName) const;
+
+	virtual void CountBytes(FArchive& Ar) const;
 
 protected:
 	/**
@@ -828,6 +837,8 @@ public:
 	 * NOTE: Can also mean disabled, e.g. during hotfix
 	 */
 	virtual void NotifyAnalyticsProvider() {}
+
+	virtual void CountBytes(FArchive& Ar) const;
 
 protected:
 	/**

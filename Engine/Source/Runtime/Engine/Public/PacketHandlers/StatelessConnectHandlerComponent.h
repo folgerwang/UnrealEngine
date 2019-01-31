@@ -43,6 +43,8 @@ public:
 	 */
 	StatelessConnectHandlerComponent();
 
+	virtual void CountBytes(FArchive& Ar) const override;
+
 	virtual bool IsValid() const override { return true; }
 
 	virtual void NotifyHandshakeBegin() override;

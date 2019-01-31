@@ -47,6 +47,7 @@ public:
 	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override;
 	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override;
 	virtual int32 GetReservedPacketBits() const override;
+	virtual void CountBytes(FArchive& Ar) const override;
 
 private:
 	TUniquePtr<FEncryptionContext> EncryptionContext;

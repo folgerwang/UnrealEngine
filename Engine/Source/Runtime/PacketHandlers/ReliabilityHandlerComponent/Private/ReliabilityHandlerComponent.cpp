@@ -19,6 +19,23 @@ ReliabilityHandlerComponent::ReliabilityHandlerComponent()
 {
 }
 
+void ReliabilityHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	BufferedPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
+}
+
 void ReliabilityHandlerComponent::Initialize()
 {
 	SetActive(true);

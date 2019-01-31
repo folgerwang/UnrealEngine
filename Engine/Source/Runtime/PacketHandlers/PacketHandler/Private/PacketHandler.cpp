@@ -379,6 +379,54 @@ TSharedPtr<HandlerComponent> PacketHandler::GetComponentByName(FName ComponentNa
 	return nullptr;
 }
 
+void PacketHandler::CountBytes(FArchive& Ar) const
+{
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+	OutgoingPacket.CountMemory(Ar);
+	IncomingPacket.CountMemory(Ar);
+
+	HandlerComponents.CountBytes(Ar);
+	for (const TSharedPtr<HandlerComponent>& Component : HandlerComponents)
+	{
+		if (HandlerComponent const * const LocalComponent = Component.Get())
+		{
+			LocalComponent->CountBytes(Ar);
+		}
+	}
+
+	// Don't handle EncryptionComponent, as it should be in our components array.
+
+	BufferedPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
+
+	// Unfortunately, there's currently no way to safely calculate memory usage for TQueues.
+	// so QueuedPackets, QueuedRawPackets, QueuedHandlerPackets, and QueuedConnectionlessPackets
+	// can't be tracked without a rework.
+
+	BufferedConnectionlessPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedConnectionlessPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
+
+	// Don't handle ReliabilityComponent, since it should be in our components array.
+	// Don't track AnalyticsProvider as that should be handled elsewhere.
+}
+
+void HandlerComponent::CountBytes(FArchive& Ar) const
+{
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+}
+
 const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, const FString& Address)
 {
 	SCOPE_CYCLE_COUNTER(Stat_PacketHandler_Incoming_Internal);

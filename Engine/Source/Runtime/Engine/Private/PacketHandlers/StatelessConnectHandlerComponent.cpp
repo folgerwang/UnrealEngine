@@ -209,6 +209,20 @@ StatelessConnectHandlerComponent::StatelessConnectHandlerComponent()
 	bRequiresHandshake = true;
 }
 
+void StatelessConnectHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+
+	for (int32 i = 0; i < SECRET_COUNT; ++i)
+	{
+		HandshakeSecret[i].CountBytes(Ar);
+	}
+
+	LastChallengeSuccessAddress.CountBytes(Ar);
+}
+
 void StatelessConnectHandlerComponent::NotifyHandshakeBegin()
 {
 	if (Handler->Mode == Handler::Mode::Client)

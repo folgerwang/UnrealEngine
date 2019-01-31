@@ -274,6 +274,8 @@ public:
 	/** Default Destructor */
 	~OodleHandlerComponent();
 
+	virtual void CountBytes(FArchive& Ar) const override;
+
 	/**
 	 * Initializes first-run config settings
 	 */

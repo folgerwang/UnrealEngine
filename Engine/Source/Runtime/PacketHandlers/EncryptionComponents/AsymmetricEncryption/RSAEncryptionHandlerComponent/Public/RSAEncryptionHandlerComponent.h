@@ -40,6 +40,8 @@ public:
 	*/
 	RSAEncryptionHandlerComponent(int32 InKeySizeInBits = 1024);
 
+	virtual void CountBytes(FArchive& Ar) const override;
+
 	/* Initializes the handler component */
 	virtual void Initialize() override;
 

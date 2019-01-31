@@ -207,3 +207,24 @@ int32 FAESHandlerComponent::GetReservedPacketBits() const
 	// Worst case includes the encryption enabled bit, the termination bit, padding up to the next whole byte, and a block of padding.
 	return 2 + 7 + (BlockSizeInBytes * 8);
 }
+
+void FAESHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	FEncryptionComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(FEncryptionComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	/*
+	Note, as of now, EncryptionContext is just typedef'd, but none of the base
+	types actually allocated memory directly in their classes (although there may be
+	global state).
+	if (FEncryptionContext const * const LocalContext = EncrpytionContext.Get())
+	{
+		LocalContext->CountBytes(Ar);
+	}
+	*/
+
+	Key.CountBytes(Ar);
+	Ciphertext.CountBytes(Ar);
+}
