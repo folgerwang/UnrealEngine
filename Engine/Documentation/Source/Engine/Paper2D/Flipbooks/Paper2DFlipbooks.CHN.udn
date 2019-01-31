@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2723269
+﻿INTSourceChangelist:3782314
 Title:Paper 2D Flipbooks
 Crumbs: %ROOT%, Engine, Engine/Paper2D
 Description:虚幻引擎 4 中 Flipbooks 的描述及其创建方法。 
@@ -10,46 +10,8 @@ Related:Engine/Rendering/Materials
 Related:Engine/Content/Types/Textures
 Version:4.9
 SkillLevel:Beginner
+topic-image:Flipbook_Topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Paper2D\Flipbooks:title%](Flipbook_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Paper2D\Flipbooks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Paper2D\Flipbooks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Paper2D\Flipbooks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Paper2D\Flipbooks:title%](Flipbook_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Paper2D\Flipbooks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Paper2D\Flipbooks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Paper2D\Flipbooks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:banner]
 ![](Flipbook_Banner2.png)

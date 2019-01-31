@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.6 - 为角色添加模型
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何将模型添加到第一人称射击游戏角色。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -31,6 +31,7 @@ Version:4.11
 
 在这步中，我们将为角色赋予一个骨架网格体。`Character` 类默认创建一个 `SkeletalMeshComponent` 对象，因此需要明确的便是使用哪个 `SkeletalMesh` 资源。
 
+(#ImportingaSkeletalMesh)
 ## 导入骨架网格体
 
 1.	回到 Content Browser 文件框中的 Content 文件夹。
@@ -49,6 +50,7 @@ Version:4.11
 
 1.	点击 **Save** 按钮保存导入的模型。
 
+(#SettingupaThirdPersonMesh)
 ## 设置第三人称模型
 
 1.	双击 **BP_FPSCharacter** 图标将其在 **蓝图编辑器** 中打开。
@@ -77,6 +79,7 @@ Version:4.11
 
 1.	 关闭 **蓝图编辑器** 之前须 **编译** 并 **保存** **BP_FPSCharacter** 蓝图。
 
+(#VerifyingtheNewMeshinPIEMode)
 ## 在 PIE 模式中验证新模型
 
 现在即可在编辑器中查看新增的模型。

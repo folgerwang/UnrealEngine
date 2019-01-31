@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3200412
+﻿INTSourceChangelist:3579346
 Availability:Public
-Title:Nvidia Ansel Photography 插件
-Description:Nvidia Ansel 游戏内摄影工具的集成。此工具可从游戏中采集高精度图像并进行分享
+Title:NVIDIA Ansel Photography 插件
+Description:NVIDIA Ansel 游戏内摄影工具的集成。此工具可从游戏中采集高精度图像并进行分享。
 Crumbs:
 Parent:Engine/Plugins
 Order:1
@@ -18,10 +18,12 @@ reference-image:ansel_example.gif
 
 [INCLUDE:Engine/Plugins/Ansel/Overview#intro]
 
+(#StartingOut)
 ## 开始
 
 [DIR(output:"topic" parent:"Engine/Plugins/Ansel" type:"overview")]
 
+(#Reference)
 ## 参考
 
 [DIR(output:"topic" parent:"Engine/Plugins/Ansel" type:"reference")]

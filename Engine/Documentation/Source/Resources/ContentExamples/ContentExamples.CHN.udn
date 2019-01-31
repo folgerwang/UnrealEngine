@@ -1,113 +1,76 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:内容示例
 Crumbs:%ROOT%, Resources
-Description:展示具有相关文件的特定内容或技术的示例资源。
+Description:通过相关的文档展示特定概念或方法的示例资产。
+Version: 4.9
+topic-image:ce_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ce_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples]
-	[/PARAM]
-	[PARAM:description]
-	%Resources/ContentExamples:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ce_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples]
-	[/PARAM]
-	[PARAM:description]
-	%Resources/ContentExamples:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:ContentExamples] 
 [REGION:fullwidth]
 ![](CEs_Image.png)
 [/REGION]
 
-**Content Examples** （内容示例）是一种您可以通过相关文件来对照检索专门设置的示例资源一种训练方法。每个内容示例都包含了其在内容示例项目中的独有关卡。当您在每个关卡中移动时，您将会看到一系列有数字的底座，每一个都有其各自的示例资源。通过查看该内容示例和示例数字的文件，您可以了解该示例是如何被创建的。
+**内容示例** 是一个很好的学习途径，你可以通过相关文件来对照检索专门的示例资源。每个内容示例都包含了其在内容示例项目中的独有关卡。在每个关卡中移动时，你将看到一系列有数字的底座，每个都拥有其自身的示例资源。查看内容示例和示例数字文档可以了解该示例是如何被创建的。
 
-您可以在内容示例关卡中随意打开任何示例，变更或编辑它们，制作您自己的示例版本，并学习它们是如何被建立的。您也可以在您的关卡中使用任何示例。
+可以在内容示例关卡中随意打开任何示例，并进行变更或编辑，制作属于你自己的版本，并了解它们的组成方式。也可以在自己的关卡中使用任何示例。
 [/EXCERPT:ContentExamples]
 
-## 要点知识
+(#essentials)
+## 基础
 
-[REGION:topics third]
 %Resources/ContentExamples/ExampleLevelOverview:TopicCompact%
 %Resources/ContentExamples/LevelDesign:TopicCompact%
 %Resources/ContentExamples/Brushes:TopicCompact%
 %Resources/ContentExamples/ImportOptions:TopicCompact%
 %Resources/ContentExamples/NavMesh:TopicCompact%
 %Resources/ContentExamples/MathHall:TopicCompact%
-[/REGION]
 
-
+(#Animation)
 ## 动画
 
-[REGION:topics third]
 %Resources/ContentExamples/Animation:TopicCompact%
 %Resources/ContentExamples/MorphTargets:TopicCompact%
-[/REGION]
 
+(#audio)
 ## 音频
 
-[REGION:topics third]
 %Resources/ContentExamples/Audio:TopicCompact%
-[/REGION]
 
+(#blueprintsandblueprintnetworking)
 ## 蓝图和蓝图网络
 
-[REGION:topics third]
 %Resources/ContentExamples/Blueprints:TopicCompact%
 %Resources/ContentExamples/Blueprint_Splines:TopicCompact%
 %Resources/ContentExamples/Networking:TopicCompact%
-[/REGION]
 
 
+(#landscapes)
 ## 地貌
-[REGION:topics third]
-%Resources/ContentExamples/Landscapes:TopicCompact%
-[/REGION]
 
+%Resources/ContentExamples/Landscapes:TopicCompact%
+
+(#matinee&cinematics)
 ## Matinee和过场动画
 
-[REGION:topics third]
 %Resources/ContentExamples/Matinee:TopicCompact%
-[/REGION]
 
-## Paper 2D
+(#paper2d)
+## 纸张2D
 
-[REGION:topics third]
 %Resources/ContentExamples/Paper2D:TopicCompact%
-[/REGION]
 
 
+(#physics)
 ## 物理
 
-[REGION:topics third]
 %Resources/ContentExamples/Physics:TopicCompact%
 %Resources/ContentExamples/Destructables:TopicCompact%
-[/REGION]
 
+(#rendering)
 ## 渲染
-[REGION:topics third]
+
 %Resources/ContentExamples/Materials:TopicCompact%
 %Resources/ContentExamples/Lighting:TopicCompact%
 %Resources/ContentExamples/PostProcessing:TopicCompact%
@@ -116,13 +79,16 @@ Description:展示具有相关文件的特定内容或技术的示例资源。
 %Resources/ContentExamples/Cloth:TopicCompact%
 %Resources/ContentExamples/DynamicSceneShadows:TopicCompact%
 %Resources/ContentExamples/Reflections:TopicCompact%
-[/REGION]
+%Resources/ContentExamples/Decals:TopicCompact%
 
-## 静态网格物体和体积
-[REGION:topics third]
+(#staticmeshes&volumes)
+## 静态网格体和体积
+
 %Resources/ContentExamples/StaticMeshes:TopicCompact%
 %Resources/ContentExamples/Volumes:TopicCompact%
-[/REGION]
 
+
+
+ 
 
 

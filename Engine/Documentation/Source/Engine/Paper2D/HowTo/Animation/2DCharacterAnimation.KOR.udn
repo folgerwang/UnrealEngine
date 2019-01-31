@@ -81,7 +81,7 @@ SkillLevel: Intermediate
 
 	![](Animation9.png)
 
-1.	함수의 **디테일** 패널에서 **IsMoving?** 이라는 불리언 **입력** 과 **Output Flipbook** 이라는 **출력** 페이퍼 플립북을 추가합니다.
+1.	함수의 **디테일** 패널에서 **IsMoving?** 이라는 부울 **입력** 과 **Output Flipbook** 이라는 **출력** 페이퍼 플립북을 추가합니다.
 
 	![](Animation10.png)
 

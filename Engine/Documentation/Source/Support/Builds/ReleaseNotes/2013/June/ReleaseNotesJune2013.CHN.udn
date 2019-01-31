@@ -1,188 +1,189 @@
-﻿INTSourceChangelist:0
-Title: 2013年6月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年6月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-8
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_06 |
-| **Changelist #** | 1687979 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2010 version 10.0.40219.1 SP1 Rel |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_06|
+| **变更列表编号**| 1687979|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2010 版本 10.0.40219.1 SP1 Rel|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * UE4 Parallel Rendering Roadmap: [Parallel Rendering Plans for UE4](https://udn.unrealengine.com/questions/168240/parallel-rendering-plans-for-ue4.html)
+ * 当前引擎开发路线图：[UE4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * UE4 并行渲染路线图：[UE4 的并行渲染计划](https://udn.unrealengine.com/questions/168240/parallel-rendering-plans-for-ue4.html)
 
 
-## Major New Features
+## 主要新功能
 
-####Blueprints
-* **New User-Defined Enumeration Asset**
-	* A new "User defined enums" category has been added in the MyBlueprint widget, containing all user-defined enums used in the current blueprint.  
-		![](UDEnumb.png)(h:360)  ![](UDEnuma.png)(h:360)  
+####蓝图
+* **新的用户定义的列举资源**
+	* 我的蓝图（MyBlueprint）控件中已添加新的“用户定义的列举”类别，包含当前蓝图中使用的所有用户定义列举。  
+		![](UDEnumb.png)(h:360)  ![](UDEnuma.png)(h:360)
 
-* **New Physics Joints and Constraints in Blueprints**
-	* You can now add physics joints (constraints) to Blueprints!  
+* **蓝图中的新物理关节和约束**
+	* 现在可以将物理关节（约束）添加到蓝图！  
 		![](constraints1.png)(w:480)
-	* The Components menu in the Blueprint Editor allows the addition of many types of components to existing components with a new ability to create a "joint" or "constraint" through a component variable in the Details panel.  
+	* 通过蓝图编辑器中的组件（Components）菜单可向现有组件添加多种类型的组件，并且可通过详细信息（Details）面板中的组件变量创建“关节”或“约束”。  
 		![](constraints2.png)
 
 
-####Editor Tools
-* **Placement Browser**
-	* With this new combined browser, you can see only the content which can be placed your level.	
+####编辑器工具
+* **放置浏览器**
+	* 使用此新组合浏览器，只能看到可以放置关卡的内容。  	
 		![](PlacementBrowser.png)(w:640)
-	* Extended control scheme makes asset placement smoother and more discoverable!
-	* Just click the piece of content you want to place, and click in the viewport where you want to place it, or hold [CTRL] when placing to stamp down multiples quickly.
+	* 扩展了控制方案，使资源放置更流畅，也更显眼！
+	* 只需单击要放置的内容，然后在视口中单击要放置内容的位置，或按住 [CTRL] 键以快速放置多个相同对象。
 
-* **New Asset & Actor Picker**
-	* New widgets have been added which are color-coded to the asset type that can be used; double clicking on the thumbnail will open an editor for the displayed asset.  
+* **新资源和 Actor 拾取器**
+	* 添加的新控件对可以使用的资源类型按颜色编码；双击缩略图将打开显示资源的编辑器。  
 		![](widget1.png)
-		* Not all assets display a thumbnail by default, but this can be enabled using the new UPROPERTY metadata tag ShowThumbnail="true".
-	* The new picker allows drag-n'-drop of assets from the content browser, and also allows you to copy  & paste assets between the Content Browser and the widget.  
+		* 默认情况下，并非所有资源都显示缩略图，但可以使用新的 UPROPERTY 元数据标签 ShowThumbnail="true" 启用此功能。  
+	* 新拾取器允许从内容浏览器拖放资源，还允许在内容浏览器和控件之间复制和粘贴资源。  
 		![](widget3.png)
-	* The Picker even gives you access to the Content Browser menu via the arrow, with additional options at the bottom of the menu.  
+	* 拾取器甚至允许通过箭头和菜单底部的其他选项访问内容浏览器（Content Browser）菜单。  
 		![](widget5.png)
-	* 'Browse' is replicated in the main widget for easy access.
-	* It even supports a specialization for Actor properties, displaying a Scene Outliner when the combo-button arrow is clicked. The 'Show' item in the menu focuses the viewport on the Actor in question.
+	* 可以在主控件中复制“浏览（Browse）”，以便于访问。
+	* 它甚至支持 Actor 属性的专用化，在单击组合按钮箭头时显示场景大纲视图。菜单中的“显示（Show）”项将视口聚集在相关的 Actor 上。
 
-* **FBX Reimporting Improvement**
-	* FBX code has been refactored to create UAssetImportData-derived classes for static meshes, skeletal meshes, and animation sequences!	
+* **FBX 重新导入改进**
+	* 已重构 FBX 代码，以便为静态网格体、骨架网格体和动画序列创建 UAssetImportData 派生类。  	
 		![](FBXimport.png)(w:480)
-	* When assets are imported from FBX, the import options configured when they were created are now stored and reused every time they are reimported.
-	* These options can be edited in the asset's properties in a property called "Asset Import Data"
+	* 现在，从 FBX 导入资源时，创建时配置的导入选项已存储且可在每次重新导入时重复使用。
+	* 这些选项可以在“资源导入数据（Asset Import Data）”属性的资源属性中进行编辑
 
-####Gameplay and Framework
-* **C++ Class Wizard**
-	* This function allows the addition of new Parent Classes in order to introduce new Pawns, Characters, PlayerControllers, and other game features into your game.  
+####Gameplay 和框架
+* **C++ 类向导**
+	* 此功能允许添加新的父类，以便在游戏中推出新的 Pawn、角色、玩家控制器和其他游戏功能。  
 		![](NCW.png)(w:640)
-	* Invoked via **"File->Add Code to Project..."**.
-		* The copyright line in the generated code is now configurable in ini files.
+	* 已通过 **“文件（File）->将代码添加到项目...（Add Code to Project...）”** 调用。
+		* 生成代码中的版权信息现在可在 ini 文件中配置。
 
 
-####Persona and Animation Tools
-* **Convert AnimSequences to AnimMontages and AnimComposites in Persona**
-	* There is now a context menu option when using AnimSequences in Persona to create AnimComposites and AnimMontages.  
+####角色编辑器和动画工具
+* **在角色编辑器中将 AnimSequence 转换为 AnimMontage 和 AnimComposite**
+	* 现在，在角色编辑器中使用 AnimSequence 创建 AnimComposite 和 AnimMontage 时，可以使用上下文菜单选项。  
 		![](Anim.png)(convert:false)
-	* By simply selecting an AnimSequence and right-clicking on it in the Content Browser, the user has the ability to now create both the AnimMontage and AnimComposite types with a mouse click from the menus!
+	* 只需选择 AnimSequence 并在内容浏览器中右键单击它，用户现在可以通过从菜单中单击鼠标创建 AnimMontage 和 AnimComposite 类型！
 
 
-##New Additions
+##新增内容
 
-####Blueprints
-* BlueprintReadWrite or BlueprintReadOnly on private UPROPERTYs are now illegal.  Please make these public or protected instead.
-
-
-####Sound
-* Exposed Reverb Settings via a new Reverb Effect asset type.
+####蓝图
+* 私有 UPROPERTY 上的 BlueprintReadWrite 或 BlueprintReadOnly 现在无效。请将其公开或保护起来。
 
 
-####Core
-* DisplayName and FriendlyName are now specifier keywords and do not have to be specified inside a meta=(...) block.
-* Headers containing only UENUMs no longer cause a compile error.
-* FFileHelper::SaveStringToFile can now write a zero byte file if you supply an empty string.
-* DEFINE_LOG_CATEGORY_STATIC should not be used in headers.
-	* Instead, DECLARE_LOG_CATEGORY_EXTERN should be specified in a header and a corresponding DEFINE_LOG_CATEGORY should be placed in a related .cpp file.
-* Added DepotName access to CrashDebugHelper. 
-	* This lets the user specify the depot name, allowing you to debug minidumps from any branch.
-* Properly handle missing documentation folder in project generation for people who do not sync it. 
+####声音
+* 已通过新的混响效果（Reverb Effect）资源类型公开混响设置。
 
 
-
-####Editor Tools
-* **Landscape:**
-	* Added support for Material Attributes type to TerrainLayerSwitch, TerrainLayerBlend, and LandscapeLayerBlend.
-	* Added landscape to the primitive stats window.
-* Added a game-agnostic setting to toggle loading the most recently loaded project. This feature is now also available to non-rocket users but is disabled by default.
-* HighResShot now works in the editor viewport via the OutputLog. 
-	* Input in the form "HighResShot 1920x1080" will create a screenshot of each level editor viewport 1920 by 1080 pixels. 
-	* Input in the form HighResShot 2 will create shots at the viewport resolution multiplied by 2.
-	* "Build and Run" projects for generated UE4 solution files.
-	* Now, everything that you can compile and run is at the top of the solution in a new Build and Run folder. 
-* Added new (game-agnostic) UE4Editor and UE4Game targets. These are great if you just want to load up a sample. 
-* Added instant sub-menus: 
-	* Changed submenus to open instantly when hovering! 
-	* Made submenus not dismiss when moving off the item, but TOWARD the menu. 
-	* Improved responsiveness when opening sub-menus as well. 
-* **Slate & UI:**
-	* Improved editable text "look & feel".
-	* Added Slate tool-tip caching (eliminates hitching when mousing over UI). 
-* Added new menu options to the Content Browser to allow the user to create AnimComposites and AnimMontages from AnimSequences.
-* On closing a tab, the tab to the left of it then gains focus.
-
-
-####Gameplay and Framework
-* Added wizard to add source code files to an existing project.
-	* Invoked via File->Add Code to Project...
-	* The copyright line in generated code is configurable in ini files.
-* New invert system added in PlayerInput. 
-	* You can now call InvertAxis <AxisName> to invert all input to a defined Axis (for example "InvertAxis Lookup" would replace old InvertMouse).
-	* You can also invert a specific Axis key with InvertAxisKey (for example if you wanted to invert just mouse lookup, but not joystick, you could do "InvertAxisKey MouseY").
-* Added a new Pawn: SpectatorPawn. PlayerController spectating state uses a SpectatorPawn. 
-	* Fixed up DebugCameraController, LogVisualizer, and a couple game Controllers to use the new spectator model.
-* Added components with rigid body replication: StaticMeshReplicatedComponent and SkeletalMeshReplicatedComponent.
-* Added functionality to optionally bake a predefined flag into recasts off-mesh connections for faster filtering.
-	* Added a way to query polys in pathing distance with RecastNavMesh. 
-	* Introduced named filters to be used while querying RecastNavMesh.
-* Introduced an option for game-specific code to define custom navigation system class (derived from UNavigationSystem).
-* MatineeActor: bHidePlayer, bDisableMovementInput, bDisableLookatInput.
-* Navmesh generation switched over from task graph to FAsynTasks (no more blocking game thread when building a big navmesh).
-
-
-####Online
-* Implemented per-user cloud storage via Mcp services.
-	* Enumerates list of files available for a user.
-	* Download individual files.
-	* Caches files to disk and only downloads if hash doesn't match.
-
-
-####Platform
-* Support for programs (like SlateViewer) has been added/improved for IOS.
-
-
-####Rendering
-* Merged in flexible depth/stencil read/write access for dx11 (low level rendering feature). 
-* Added Speedtree integration.
-* Added cube map scene capture actor.
-* Added HDR export for cube render targets.
-* **Materials & Textures:**
-	* MaterialParameterCollections: 
-	* Asset that defines a collection of parameters and their default values.  
-	* Materials can reference these parameters with a CollectonParameter node. 
-	* Blueprint can then set values for these parameters efficiently at runtime, and all materials will get the new value.
-	* Can be used to implement global material parameters, or per-level parameters, or just convenient previews of mass material changes in the editor. 
-	* Removing parameters from the collection can break many blueprints and materials at once, so care must be taken.
-* **Lighting & Shadows:**
-	* Lightmass solver quality improvements.
-	* Geometry whose smoothed normal does not match its triangle normal very well no longer causes extremely splotchy lighting and poor build times.
-	* Switched to using min distance heuristic for the irradiance cache as it works better for clean architectural lighting, also got rid of the invalid min radius which was causing artifacts.
-	* Direct lighting as seen by final gather rays is now computed with explicit sampling of lights instead of photon density estimation, which reduces leaking and improves accuracy in first bounce lighting near a shadow transition.
-	* Irradiance cache population and interpolation for a single mapping are now processed on multiple threads, greatly reducing build times in maps with a single large mapping, if there are enough threads. 
-		* Buid time with a single 512 lightmap is 5x faster.
-	* Added low quality HDR directional lightmaps. Removed simple lightmaps.
-	* Added r.DumpShaderDebugInfo, which will cause debug info to be dumped for any shaders compiled while it is set to 1. 
-	* For D3D11 this means a preprocessed version of the source, a batch file to call fxc to compile to D3D assembly, a batch file to call AMD GPUShaderAnalyzer if installed.
-
-
-####Animation/Persona
-* **Persona:**
-	* Added " Additive Base" option to Show menu in Persona's viewport to allow the user to see the animations additive base pose.
-	* Morph Target deletion is now handled via context menu.
+####核心
+* DisplayName 和 FriendlyName 现在是说明符关键字，不需要在 meta=(...) 块内指定。
+* 仅包含 UENUM 的标头不会再导致编译错误。
+* 如果提供空字符串，FFileHelper::SaveStringToFile 现在可以写入零字节文件。
+* 不能在标头中使用 DEFINE_LOG_CATEGORY_STATIC。
+	* 现在应在标头中指定 DECLARE_LOG_CATEGORY_EXTERN，并将相应的 DEFINE_LOG_CATEGORY 放置在相关的 .cpp 文件中。
+* 添加了对 CrashDebugHelper 的 DepotName 访问权限。
+	* 这允许用户指定库名，从而允许从任何分支调试小型转储。
+* 在项目生成时为没有同步的用户正确处理缺少的文档文件夹。
 
 
 
-##Upgrade Notes
+####编辑器工具
+* **地形：**
+	* 添加了对 TerrainLayerSwitch、TerrainLayerBlend 和 LandscapeLayerBlend 材质属性类型的支持。
+	* 已将地形添加到图元统计数据窗口中。
+* 添加了与游戏无关的设置，以切换加载最近加载的项目。此功能现在也可供新用户使用，但默认为禁用状态。
+* HighResShot 现在可以通过 OutputLog 在编辑器视口中工作。
+	* 以“HighResShot 1920x1080”格式输入将按 1920×1080 像素创建每个关卡编辑器视口的屏幕截图。
+	* 以 HighResShot 2 形式输入将以视口分辨率乘以 2 的像素创建屏幕截图。
+	* 为生成的 UE4 解决方案文件“编译并运行”项目。
+	* 现在，可以编译和运行的所有文件都位于新的“编译并运行”文件夹中解决方案的顶部。
+* 添加了新的（与游戏无关）UE4Editor 和 UE4Game 目标。这些功能在您只想加载示例时非常有用。
+* 添加了即时子菜单：
+	* 已更改子菜单行为，现在可在鼠标悬停时立即打开。
+	* 离开项目时子菜单不消失，但指向菜单时会消失。
+	* 改进了打开子菜单时的响应能力。
+* **Slate 和 UI：**
+	* 改进了可编辑文本“界面外观”。
+	* 添加了 Slate 工具提示缓存（消除了鼠标悬停在 UI 上时故障）。
+* 内容浏览器中添加了新菜单选项，以允许用户从 AnimSequence 创建 AnimComposite 和 AnimMontage。
+* 关闭选项卡后，左侧选项卡获得焦点。
+
+
+####Gameplay 和框架
+* 添加了将源代码文件添加到现有项目的向导。
+	* 已通过文件（File）->将代码添加到项目...（Add Code to Project...）调用
+	* 生成代码中的版权信息可以在 ini 文件中配置。
+* 在 PlayerInput 中添加了新的反转系统。
+	* 现在，可以调用 InvertAxis <AxisName> 以将所有输入反转为已定义的轴（例如，“InvertAxis 查找”将替换旧的 InvertMouse）。
+	* 还可以使用 InvertAxisKey 反转特定轴按键（例如，如果只想反转鼠标查找，而不是摇杆，则可以执行“InvertAxisKey MouseY”）。
+* 添加了新 Pawn：SpectatorPawn。PlayerController 玩家控制器使用 SpectatorPawn。
+	* 已修复 DebugCameraController、LogVisualizer 和多个游戏控制器，以使用新的旁观者模型。
+* 添加了刚体复制组件：StaticMeshReplicatedComponent 和 SkeletalMeshReplicatedComponent。
+* 添加了可选择性将预定义标记烘焙到重新构建脱离网格体连接的功能，以实现快速过滤。
+	* 添加了一种使用 RecastNavMesh 在路径距离控制中查询多边形的方法。
+	* 推出了查询 RecastNavMesh 时要使用的命名过滤器。
+* 推出了游戏特定代码的选项，以定义自定义导航系统类（从 UNavigationSystem 派生）。
+* MatineeActor：bHidePlayer、bDisableMovementInput、bDisableLookatInput。
+* 寻路网格体生成从任务图切换到 FAsynTask（在构建大型寻路网格体时不再拦截游戏线程）。
+
+
+####在线
+* 已通过 Mcp 服务实现按用户云存储。
+	* 列举用户的可用文件列表。
+	* 下载单个文件。
+	* 将文件缓存到磁盘且仅在散列不匹配时下载。
+
+
+####平台
+* 为 IOS 添加/改进了对程序（如 SlateViewer）的支持。
+
+
+####渲染
+* 已合并灵活的深度/模具读/写访问权限（低级渲染功能）。
+* 添加了 Speedtree 集成。
+* 添加了立方体贴图场景捕获 Actor。
+* 添加了立方体渲染目标的 HDR 导出。
+* **材质和纹理：**
+	* MaterialParameterCollection：
+	* 定义参数集及其默认值的资源。
+	* 材质可以通过 CollectonParameter 节点引用这些参数。
+	* 蓝图随后可以在运行时有效地设置这些参数的值，且所有材质都会获得新值。
+	* 可以用于实现全局材质参数或各级关卡参数，或仅用于在编辑器中便于预览大量材质更改。
+	* 从集合中删除参数可能会同时破坏许多蓝图和材质，因此必须小心。
+* **光照和阴影：**
+	* Lightmass 解算器质量改进。
+	* 平滑法线与其三角形法线匹配不佳的几何体不会再导致斑点明显的光照和冗长的构建时间。
+	* 改成了为辐射缓存使用最小距离启发法，因为这样能够更好地实现干净的建筑光照，也可以消除导致瑕疵的无效最小半径。
+	* 现在，通过光源的显式采样而非光子密度估计来计算最终聚集光线看到的直接光照，减少泄露并提高阴影过渡附近的第一次反射光照的准确度。
+	* 现在，在多个线程上处理单个映射的辐射缓存填充和插值，如果有足够的线程，则可以大大减少在具有单个大映射的贴图中的构建时间。
+		* 使用单个 512 光照贴图将构建时间缩短 5 倍。
+	* 添加了低质量 HDR 定向光照贴图。删除了简单光照贴图。
+	* 添加了 r.DumpShaderDebugInfo，当设置其为 1 时，将为编译的任何着色器转储调试信息。
+	* 对于 D3D11，这是指源码预处理版本，如果已安装，则为调用 fxc 以编译为 D3D 程序集的批处理文件，以及调用 AMD GPUShaderAnalyzer 的批处理文件。
+
+
+####动画/角色编辑器
+* **角色编辑器：**
+	* 已将“Additive 基础”（Additive Base）选项添加到角色编辑器视口中的显示（Show）菜单，以允许用户查看动画 Additive 基础姿势。
+	* 现在可通过快捷菜单处理顶点变形目标删除。
+
+
+	
+##Upgrade Notes （以下内容仅供参考，不作翻译）
 
 ####Blueprints
 * Blueprint classes that do cannot provide a world context from self can now be flagged in UCLASS metadata as "ShowHiddenSelfPins".  
@@ -239,7 +240,7 @@ Template:ReleaseNotes.html
 
 
 ####Online
-* Extended support for FVector net quantization: [Vector Network Quantization](https://udn.unrealengine.com/questions/166428/vector-network-quantization.html)
+* Extended support for FVector net quantization: [矢量网络量化](https://udn.unrealengine.com/questions/166428/vector-network-quantization.html)
 * Merged the simple and streaming file server code into one. Updated the clientside code so that a streaming server extends the simple network server.
 
 

@@ -16,7 +16,7 @@ Related: Programming/UnrealArchitecture/Delegates
 
 ## 타이머 관리
 
-타이머는 글로벌 (`FTimerManager` 유형인) **Timer Manager** (타이머 매니저)에서 관리합니다. 글로벌 타이머 매니저는 **Game Instance** (게임 인스턴스) 오브젝트와 각 **World** (월드)에 존재합니다. 타임 매니저와 함꼐 타이머를 셋업하는 데 사용되는 주 함수는 `SetTimer` 와 `SetTimerForNextTick` 둘 있는데, 각각 오버로드가 다수 있습니다. 이들 각각은 어떤 유형의 오브젝트 또는 함수 델리게이트에도 붙일 수 있으며, 원한다면 일정 간격마다 `SetTimer` 가 반복되도록 만들 수 있습니다. 이 함수 관련 자세한 내용은 [Timer Manager API page](API:FTimerManager) 를 참고하세요.
+타이머는 글로벌 (`FTimerManager` 유형인) **Timer Manager** (타이머 매니저)에서 관리합니다. 글로벌 타이머 매니저는 **Game Instance** (게임 인스턴스) 오브젝트와 각 **World** (월드)에 존재합니다. 타임 매니저와 함께 타이머를 셋업하는 데 사용되는 주 함수는 `SetTimer` 와 `SetTimerForNextTick` 둘 있는데, 각각 오버로드가 다수 있습니다. 이들 각각은 어떤 유형의 오브젝트 또는 함수 델리게이트에도 붙일 수 있으며, 원한다면 일정 간격마다 `SetTimer` 가 반복되도록 만들 수 있습니다. 이 함수 관련 자세한 내용은 [Timer Manager API page](API:FTimerManager) 를 참고하세요.
 
 [REGION:note]타이머를 호출한 Actor 와 같은 오브젝트가 시간이 다 되기 전 소멸되면 타이머는 자동 취소됩니다. 이 경우, Timer Handle 은 유효하지 않은 상태가 되어 함수가 호출되지 않습니다.[/REGION]
 

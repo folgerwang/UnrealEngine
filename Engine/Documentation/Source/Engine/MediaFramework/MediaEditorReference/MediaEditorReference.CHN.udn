@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Title: Media Editor Reference
+﻿INTSourceChangelist:3782314
+Availability:Public
+Title: 媒体编辑器参考文档
 Crumbs:%ROOT%, Engine
-Description:Breaks down the interface elements and options within the Media Editor used with Media Framework. 
+Description:详细介绍了媒体框架所使用的媒体编辑器的界面元素及选项。 
 Type: Reference
 Version: 4.18
 Parent: Engine/MediaFramework
@@ -14,170 +14,172 @@ Related: Engine\MediaFramework\HowTo
 
 [TOC(start:2 end:2)]
 
-When opening a **Media Player** asset, the **Media Editor** window will open presenting you with options for playing back and controlling different asspects of your **Media Source** assets. 
-In the Media Editor, you can define the player plug-in used for a Media Source, select between different audio/video tracks (if applicable) as well as define settings for the Media Player itself. 
-The **Info** tab inside this editor will also display information about the type of media you are accessing which can be used to debug any potential playback problems. 
-Please refer to each of the sections below for more information and a breakdown of the available options. 
+打开 **媒体播放器（Media Player）** 资源时，**媒体编辑器（Media Editor）** 窗口将打开，它提供播放和控制 **媒体源** 资源的不同方面的选项。 
+在“媒体编辑器（Media Editor）”中，你可以定义用于媒体源的播放器插件，在不同的音频/视频轨迹（如果适用）之间进行选择，以及定义媒体播放器自身的设置。 
+该编辑器中的 **信息（Info）** 选项卡也会显示与正在使用的媒体类型相关的信息，可以使用该信息来对任何可能出现的播放问题进行调试。 
+请参阅以下各个部分来获取更多信息以及详细了解可用的选项。 
 
-## Toolbar
+## 工具栏
 
 ![](Toolbar.png)
 
-The **Toolbar** section of the Media Editor enables you to control the playback of media. 
+媒体编辑器的 **工具栏（Toolbar）** 部分使你能够控制媒体播放。 
 
 [REGION:note]
-You must first select a valid Media Source from the **Media Library** window that you want to play in order for the playback options to become available. 
+要使播放选项变为可用状态，必须先从 **媒体库（Media Library）** 窗口中选择要播放的有效媒体源。 
 [/REGION]
 
-| Option | Description |
+| 选项 | 说明 |
 | -------- | ----------- |
-| ![](toolbar_1.png) | Saves this Media Player asset (Ctrl+S). |
-| ![](toolbar_2.png) | Browse to the Media Player asset in the Content Browser (Ctrl+B). |
-| ![](toolbar_3.png) | Jump to previous item in the Playlist (disabled if no Playlist is active). |
-| ![](toolbar_4.png) | Rewind the media source to the beginning. |
-| ![](toolbar_5.png) | Reverse playback of the selected media (clicking multiple times increases the seek speed). |
-| ![](toolbar_6.png) | Start/Resume media playback. |
-| ![](toolbar_7.png) | Pause media playback. |
-| ![](toolbar_8.png) | Fast foward media playback (clicking multiple times increases the seek speed). |
-| ![](toolbar_9.png) | Jump to the next item in the Playlist (disabled if no Playlist is active). |
-| ![](toolbar_10.png) | Close the currently opened media. |
+| ![](toolbar_1.png) | 保存该媒体播放器（Media Player）资源（**Ctrl+S**）。|
+| ![](toolbar_2.png) | 在内容浏览器中浏览至媒体播放器（Media Player）资源（**Ctrl+B**）。|
+| ![](toolbar_3.png) | 跳转到播放列表中的前一项。|
+| ![](toolbar_4.png) | 将媒体源倒回至开头。|
+| ![](toolbar_5.png) | 使所选媒体的播放倒退（多次单击会增大搜寻速度）。|
+| ![](toolbar_6.png) | 开始/继续媒体播放。|
+| ![](toolbar_7.png) | 暂停媒体播放。|
+| ![](toolbar_8.png) | 快进媒体播放（多次单击会增大搜寻速度）。|
+| ![](toolbar_9.png) | 跳转到播放列表中的后一项。|
+| ![](toolbar_10.png) | 关闭当前打开的媒体。|
 
 
-## Player Window
+(#playerwindow)
+## “播放器（Player）”窗口
 
 ![](Player.png)
 
-The **Player Window** enables you to view the playback of your media as well as define **Playback Options**.
-When you open a Media Source and mouse overview this window, you will see text overlays that display the name of the file (upper-left), the current player plugin being used (upper-right), the state of the media (lower-left) and current horizontal and vertical field of view settings and view rotation (lower-right), which are used for 360 videos. 
+**“播放器（Player）”窗口** 使你能够查看媒体播放以及定义 **播放选项（Playback Options）**。
+打开媒体源并将鼠标悬停在该窗口上时，你将看到显示文件名称（左上角）、当前使用的播放器插件（右上角）、媒体的状态（左下角）和用于360视频的当前水平、垂直视野及视图旋转（右下角）的文本覆层。
+
 
 [REGION:warning]
-As of engine 4.18, there are no player plugins that support 360 videos however future iterations of the Media Framework tools will provide more support for them. 
+从虚幻引擎4.18开始，不提供支持360视频的播放器插件，但是在媒体框架工具的未来迭代中，我们将为它们提供更多的支持。 
 [/REGION]
 
-At top of the Player Window, there is a text field that displays the URL path (which you can use to Open directly in Blueprint with the **Open URL** Blueprint node). To the right of the URL field, a reload button can be used to reload the current media (similar to pressing the reload button on most web browsers and can be used to reload external URLs that link to the internet). 
-To the left of the URL field, via the drop-down menu, are the **Capture Devices** options. 
+在“播放器（Player）”窗口的顶部，具有显示URL路径（你可以使用 **打开URL（Open URL）** 蓝图节点在蓝图中直接打开）的文本字段。在URL字段的右侧，具有可用于重新加载当前媒体的重新加载按钮（与大部分Web浏览器中的重新加载按钮的作用相似，可用于重新加载链接到互联网的外部URL）。 
+在URL字段的左侧，具有 **捕捉设备（Capture Devices）** 选项（可通过单击下拉菜单让其显示）。 
 
-### Capture Devices
+### 捕捉设备（Capture Devices）
 
 ![](CaptureDevices.png)
 
-The Capture Devices menu options are available when you have connected and [supported devices](Engine/MediaFramework/TechReference) attached to your computer. 
-These options enable you to test different audio and capture devices where the URL will update with the selected device. Capture Devices are slightly different the other Media Sources as you can have multiple devices connected. 
-You can use Blueprint (or C++) code to enumerate and filter for specific devices. 
+**捕捉设备（Capture Devices）** 菜单和选项变为可用状态的前提是有已连接且[受支持的设备](Engine/MediaFramework/TechReference)连接到计算机。 
+这些选项使你能够测试不同的音频和捕捉设备，URL会随所选择的设备而更新。捕捉设备与其他媒体源的细微差异之处在于可以连接多个设备。 
+可以使用蓝图或C++代码来枚举和过滤特定设备。 
 
 ![](Enumerate.png)
 
 [REGION:caption]
-Above, in a Blueprint, you can search for enumerate or capture devices to see the list of optional enumerators. 
+如上图中所示，可通过在蓝图中搜索“enumerate”或“capture devices”来查看可选枚举器的列表。 
 [/REGION]
 
-In the example below, a sample setup using the **Enumerate Video Capture Devices** node is shown to filter for specified devices that we can use to obtain the URL to open. 
+下面的示例中展示了使用 **枚举视频捕捉设备（Enumerate Video Capture Devices）** 节点的样本设置，它过滤可用于获取要打开的URL的指定设备。 
 
 ![](EnumerateExample.png)
 
 [REGION:note]
-Please see the Capturing Video from a Webcam How-to for more information. 
+请参阅 [](Engine\MediaFramework\HowTo\UsingWebCams\) 页面来获取更多信息。 
 [/REGION]
 
-### Playback Options
+### 播放选项（Playback Options）
 
 ![](PlaybackOptions.png)
 
-Also part of the Player Window is the **Playback Options** menu that contains several different options used to define how your media is played. 
+“播放器（Player）”窗口中还包括 **播放选项（Playback Options）** 菜单，该菜单中包含可用于定义媒体播放方式的多个不同选项。 
 
-**Player**
-| Option | Description |
+**播放器**
+| 选项 | 说明 |
 | --- | --- |
-| **Decoder** | This section enables you to define the player plug-in used for media (Automatic is the default which will auto-select the appropriate player plugin based on the type of media).  |
+| **解码器（Decoder）** | 此部分使你能够定义用于媒体的播放器插件。默认设置是“自动（Automatic）”，它将基于媒体类型自动选择相应的播放器插件。|
 
-**Tracks**
-| Option | Description |
+**轨迹（Tracks）**
+| 选项 | 说明 |
 | --- | --- |
-| **Audio** | Enables you to set the default audio track associated with a media source (if multiple audio tracks are embedded with the media) or disable the audio track.  |
-| **Captions** | Enables you to define the default caption track for a selected media source (if tracks are embedded with the media). |
-| **Subtitles** | Enables you to define the default subtitles track for a selected media source (if tracks are embedded with the media). |
-| **Text** | Enables you to define the default text track for a selected media source (if tracks are embedded with the media). |
-| **Video** | Enables you to set the default video track associated with a media source (if multiple video tracks are embedded with the media) or disable the video track. |
+| **音频（Audio）** | 使你能够设置与媒体源关联的默认音频轨迹（如果媒体中嵌入了多个音频轨迹）或禁用音频轨迹。|
+| **说明（Captions）** | 使你能够为所选的媒体源定义默认说明轨迹（如果媒体中嵌入了轨迹）。|
+| **字幕（Subtitles）** | 使你能够为所选的媒体源定义默认字幕轨迹（如果媒体中嵌入了轨迹）。|
+| **文本（Text）** | 使你能够为所选的媒体源定义默认文本轨迹（如果媒体中嵌入了轨迹）。|
+| **视频（Video）** | 使你能够设置与媒体源关联的默认视频轨迹（如果媒体中嵌入了多个视频轨迹）或禁用视频轨迹。|
 
-**Formats**
-| Option | Description |
+**格式（Formats）**
+| 选项 | 说明 |
 | --- | --- |
-| **Audio** | Displays the available audio format tracks which you can select from (if applicable).  |
-| **Captions** | Displays the available caption format tracks which you can select from (if applicable).  |
-| **Subtitles** | Displays the available subtitle format tracks which you can select from (if applicable).  |
-| **Text** | Displays the available text format tracks which you can select from (if applicable).  |
-| **Video** | Displays the available video format tracks which you can select from (if applicable).  |
+| **音频（Audio）** | 显示可以选择的可用音频格式轨迹（如果适用）。|
+| **说明（Captions）** | 显示可以选择的可用说明格式轨迹（如果适用）。|
+| **字幕（Subtitles）** | 显示可以选择的可用字幕格式轨迹（如果适用）。|
+| **文本（Text）** | 显示可以选择的可用文本格式轨迹（如果适用）。|
+| **视频（Video）** | 显示可以选择的可用视频格式轨迹（如果适用）。|
 
-**View**
-| Option | Description |
+**视图（View）**
+| 选项 | 说明 |
 | --- | --- |
-| **Scale** | Change the video size to Fit (fit video in the Player Window), Fill (fill video in the Player Window) or Original Size (to use the original dimensions of the video).  |
-| **Show Text Overlays** | Toggles the display of any associated overlay assets with the selected media. |
+| **缩放（Scale）** | 将视频大小更改为“适应（Fit）”（使视频适应“播放器（Player）”窗口）、“填充（Fill）”（使视频填满“播放器（Player）”窗口）或“原始大小（Original Size）”（使用视频的原始大小）。|
+| **显示文本覆层（Show Text Overlays）** | 将与所选媒体关联的覆层资源切换为显示。|
 
 
-## Media Library
+## 媒体库（Media Library）
 
 ![](MediaLibrary.png)
 
-The **Media Library** displays all of the Media Source assets within your project that you can open in the Media Editor. 
-You can right-click on a source in this window to open up a context menu that you can use to edit the asset, open in the Media Editor, browse to the asset in the Content Browser or show the location of the Media File on your computer. 
-This window also displays the type of each Media Source as well as their associated URL string. 
+**媒体库（Media Library）** 显示可以在“媒体编辑器（Media Editor）”中打开的项目中的所有媒体源资源。 
+可以在此窗口中右键单击源来打开情境菜单，它可用于编辑资源，在“媒体编辑器（Media Editor）”中打开，在内容浏览器中浏览至资源或显示媒体文件在计算机上的位置。 
+此窗口也将显示每个媒体源的类型及其关联的URL字符串。 
 
-## Playlist
+## 播放列表（Playlist）
 
 ![](Playlist.png)
 
-The **Playlist** section of the Media Editor not only displays all of the files contained within a Media Playlist but also enables you to create/save new Media Playlists assets inside your project. 
-The arrows in the upper-right corner of the Playlist window function similar to the Toolbar's **Prev** and **Next** buttons and enable you to cycle through Media Sources in your playlist.
+“媒体编辑器（Media Editor）”的 **播放列表（Playlist）** 部分不仅可以显示媒体播放列表中包含的所有文件，也使你能够在项目中创建/保存新的媒体播放列表资源。 
+“播放列表（Playlist）”窗口右上角的箭头的作用与工具栏中的 **上一个（Prev）** 和 **下一个（Next）** 按钮的作用相似，它们使你能够在播放列表中的媒体源间进行循环。
 
 ![](ActiveMediaPlaylist.png)
 
 [REGION:caption]
-Above an active Media Playlist displays, each of the Media Sources contained within it, with the arrow marker pointing to the currently playing source. 
+如上图中所示，处于激活状态的媒体播放列表会显示它包含的每个媒体源，而且会有箭头标记指向当前正在播放的源。 
 [/REGION]
 
-Each Media Source when active has a local Media Playlist created inside the Media Editor. You can save the local Media Playlist as a new Media Playlist by clicking the **Save** icon. 
+当媒体源处于激活状态时，引擎会在“媒体编辑器（Media Editor）”中为每个媒体源创建本地媒体播放列表。通过单击 **保存（Save）** 图标可将本地媒体播放列表保存为新的媒体播放列表。 
 
 ![](UnsavedPlaylist.png)
 
 [REGION:warning]
-As of engine 4.18, there currently is no way to add Media Sources to a local Media Playlist, however, support slated for updates in future engine releases. 
+截至虚幻引擎4.18，当前没有将媒体源添加到本地媒体播放列表的方法，但是，我们计划在未来的引擎发行版中进行更新以提供这样的支持。 
 [/REGION]
 
 
-## Details / Info
+## 细节（Details） / 信息（Info）
 
 ![](Details.png)
 
-The **Details** panel provides options for controlling playback of the Media Player itself. 
+**细节（Details）** 面板提供用于控制“媒体播放器（Media Player）”自身的播放的选项。 
 
-**Playback**
-| Option | Description |
+**播放（Playback）**
+| 选项 | 说明 |
 | -------- | ----------- |
-| **Play on Open** | When enabled will automatically start to play a Media Source when opening the source through Blueprint or C++. |
-| **Shuffle** | When a Playlist is opened, if this option is enabled, the player will randomly select a source within the playlist rather than playback sequentially. |
-| **Loop** | When enabled will loop a single Media Source (this will not loop a playlist, you must set Loop on the playlist if you want to loop a whole playlist). |
+| **打开时播放（Play on Open）** | 如启用，将在通过蓝图或C++打开源时自动开始播放媒体源。|
+| **随机（Shuffle）** | 如果启用此选项，打开播放列表时，播放器将随机选择播放列表中的源而不是按顺序播放。|
+| **循环（Loop）** | 如启用，将循环单个媒体源或整个媒体播放列表（不支持循环视频捕捉设备）。|
 
-**View Settings**
-| Option | Description |
+**视图设置（View Settings）**
+| 选项 | 说明 |
 | -------- | ----------- |
-| **Horizontal Field of View** | Enables you to manually set the Horizontal FOV value for 360 videos.  |
-| **Vertical Field of View** | Enables you to manually set the Vertical FOV value for 360 videos. |
-| **View Rotation** | Enables you to manually set the View Rotation for 360 videos. |
+| **水平视野（Horizontal Field of View）** | 使你能够手动为360视频设置水平FOV值。|
+| **垂直视野（Vertical Field of View）** | 使你能够手动为360视频设置垂直FOV值。|
+| **视图旋转（View Rotation）** | 使你能够手动为360视频设置视图旋转。|
 
 [REGION:warning]
-As cited in the Player Window section, engine 4.18 does not support 360 videos however future iterations of the Media Framework tools will provide support for them. 
+正如在[“播放器（Player）”窗口](#playerwindow)部分中提及的，版本4.18不支持360视频。但是，在媒体框架工具的未来迭代中，我们将为它们提供支持。 
 [/REGION]
 
-### Info Panel
+### “信息（Info）”面板
 
 ![](InfoPanel.png)
 
-The **Info** panel provides information about the selected Media Source that you can use for debugging purposes. 
-This window displays the player plugin associated with the file, the number of video and audio streams and information about video and audio tracks such as the codec being used, sample rate and dimensions. 
+**“信息（Info）”** 面板提供与所选媒体源相关的信息，可将该信息用于调试目的。 
+此窗口显示与文件关联的播放器插件、视频和音频流的数量和所使用的编码解码器、取样速率和大小等与视频和音频轨迹相关的信息。 
 
-Any errors when trying to playback video will be displayed here, for example, if you attempt to load an unsupported format, it will list it in this window as **Not supported**. 
-Additionally, you can use the **Copy to Clipboard** button to copy this information out which you can use to post to our official forums or Answer Hub pages to get help with and troubleshoot any playback issues. 
+尝试播放视频时发生的错误将在此处显示，例如，如果尝试加载不受支持的格式，在该窗口中该错误将列示为 **不受支持（Not supported）**。 
+另外，可以使用 **复制到剪贴板（Copy to Clipboard）** 按钮来复制此信息，然后可以将该信息发布到我们的官方论坛或[Answer Hub](https://answers.unrealengine.com/)页面来获取帮助以及对任何播放问题进行故障排除。 
 
 
 

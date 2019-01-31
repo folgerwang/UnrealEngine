@@ -1,0 +1,49 @@
+﻿INTSourceChangelist:4675766
+Availability: Public
+Crumbs: 
+Title: 현재 상태 인터페이스 개요
+Description: Presence Interface, 현재 상태 인터페이스 개요입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: presence
+
+
+온라인 서비스에 로그인하면 사용자는 자신의 친구나 온라인에서 만난 다른 사용자에 대한 (온라인인지, 지금 무얼 하는지, 게임에 참가할 수 있는지 등의) 정보를 볼 수 있습니다. **Presense Interface** (현재 상태 인터페이스)는 온라인 서브 시스템에 이러한 기능을 제공합니다.
+
+## 현재 상태
+
+대부분의 온라인 서비스는 각 사용자의 "온라인", "오프라인", "자리 비움"과 같은 여러가지 기본 상태뿐 아니라 "로비에 있음" 또는 "(맵에서) 매치 중"과 같은 게임 특정 상태를 인식합니다. 그러나 서비스 별 개인 정보 보호 정책 및 계정 설정으로 인해 이러한 설정이 항상 표시되지 않을 수도, 사용자에 따라 볼 수 있거나 없을 수도 있습니다. 온라인 서브 시스템은 이러한 정책이나 설정과 상호 작용하지 않지만 검색하는 정보는 영향을 받습니다.
+
+### 현재 상태 정의
+
+[`FOnlineUserPresence`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresence/index.html) 클래스에는 사용자의 현재 상태와 관련된 모든 정보가 들어있습니다. 사용자의 현재 온라인 상태인지 게임을 하고 있는지와 같은 기본 정보 외에도 ([`FOnlineUserPresenceStatus`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresenceStatus/index.html) 클래스를 사용하면) 사용자의 현재 상태 관련 보다 자세한 정보를 저장합니다. 여기에는 보통 현지화 표시명, ([`EOnlinePresenceState`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/EOnlinePresenceState__Type/index.html) 유형의) 열거형 값으로 표시되는 사용자의 기본 상태, 게임 전용 데이터를 저장하는 키-값 세트가 포함되며, 이를 통해 현재 상태 표시 메시지를 만들 수 있습니다.
+
+#### Xbox Live 의 현재 상태 데이터
+
+Microsoft 의 (Xbox One 용) Xbox Live 서비스 에서 개발자는 Xbox Developer Portal 사이트의 "Rich Presence Strings" 섹션을 통해 각 상태의 현지화 스트링을 설정하고 그 키를 구할 수 있습니다. 다른 온라인 사용자에게 표시되는 현재 상태로 설정한 스트링을 사용하려면, 그 키를 `FOnlineUserPresence` 파라미터 내 `StatusStr` 변수에 넣어 `SetPresence` 함수가 받을 수 있도록 합니다. 이 스트링은 중괄호({})로 표시되는 변수 삽입을 지원합니다. 예를 들어 스트링의 영어 버전이 "Playing a match on {current\_map}" 이라면 "current\_map" 은 게임에서 현재 상태를 설정할 때 업데이트할 수 있는 변수입니다. 변수를 설정하려면, `SetPresence` 에 전달하는 `FOnlinePresence` 의 `Properties` 배열에 요소를 추가합니다. 예제에서 요소에 포함되는 키는 "Event\_current\_map" 및 영문 맵 이름을 나타내는 값이며, 메시지에서 "Forest Map" 와 같이 표시됩니다.
+
+#### PlayStation Network 의 현재 상태 데이터
+
+Sony 의 Playstation Network 에서 개발자는 현지화되지 않은 스트링을 `SetPresence` 함수가 받는 `FOnlineUserPresence` 파라미터 내 `StatusStr` 변수에 넣을 수 있습니다. 이 변수를 비워두면, 'Properties` 변수를 검사하여 키 값이 "DefaultPresenceKey" 인 항목이 있는지 확인하여 대신 사용합니다. 다른 사용자는 현재 상태 쿼리에 성공하면 이 스트링을 확인합니다. `FOnlineUserPresenceStatus` 파라미터에 "CustomData" 키( 또는 `CustomPresenceDataKey` 상수)로 커스텀 프로퍼티를 설정하면 사용할 수 있는 숨겨진 스트링도 있으며, 같은 게임을 실행하는 다른 사용자가 받을 수 있습니다. 이 스트링은 표시되지 않지만 개발자가 선택한 용도로 사용할 수 있습니다.
+
+[REGION:note]
+상태 스트링이 변수든 `Properties` 변수의 "DefaultPresenceKey" 항목이든 어디로 전송되든 상관 없이 다른 사용자 머신에서 `Properties` 변수의 "DefaultPresenceKey" 항목에 저장됩니다.
+[/REGION]
+[REGION:tip]
+[친구 인터페이스](Programming/Online/Interfaces/Friends) 에도 세션 ID 키처럼 PlayStation Network 의 현재 상태 인터페이스를 통해 사용할 수 없는 현재 상태 정보를 몇 가지 액세스할 수 있습니다.
+[/REGION]
+
+### 다른 사용자에 대한 정보 검색
+
+특정 사용자 관련 현재 상태 정보를 수집하는 기본적인 흐름은 온라인 서비스에 `QueryPresence` 에다 `FUniqueNetId` 로 사용자를 지정하여 요청하는 것으로 시작합니다. 작업이 끝나면 제공된 'FOnPresenceTaskCompleteDelegate`가 호출되어 사용자와 요청의 성공 또는 실패 여부를 나타냅니다. 성공하면 로컬 현재 상태 정보 캐시에 최신 상태 정보가 포함되며 이는 'GetCachedPresence' 함수를 통해 사용할 수 있습니다.
+
+[REGION:tip]
+사용자의 현재 상태를 온라인 서브시스템에 적극적으로 알리는 온라인 서비스도 있습니다. 그 서비스에서 `QueryPresence` 를 실제로 호출하거나 그 델리게이트를 기다릴 필요는 없지만, 여러 서비스에 두루 작동하도록 하기 위해 일반적인 코드 흐름은 유지해야 합니다.
+[/REGION]
+
+### 사용자의 현재 상태 설정
+
+`SetPresence` 함수는 온라인 서비스를 통해 로컬 사용자의 현재 상태를 설정합니다. 온라인 서비스와 새로운 상태를 확인해야 하기에 비동기 호출이며, 완료 시 `FOnPresenceTaskCompleteDelegate` 유형 델리게이트를 호출합니다. 현재 상태 자체는 FOnlineUserPresenceStatus 클래스에서 설명합니다.

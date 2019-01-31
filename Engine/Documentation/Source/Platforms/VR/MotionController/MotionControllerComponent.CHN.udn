@@ -1,202 +1,257 @@
-﻿INTSourceChangelist:2972740
-Availability:Public
+﻿INTSourceChangelist:3810467
+Availability: Public
+Crumbs: %ROOT%
 Title:运动控制器组件设置
-Crumbs:%ROOT%, Platforms
-Description:如何设置 VR 互动的运动控制器。
-Navigation:platform
-Version:4.9
-Skilllevel:Intermediate
+Description:有关如何为VR互动设置运动控制器的信息。
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
 parent:Platforms/VR
-type:overview
+Order: 2
+Tags: VR
 
 [TOC(start:2)]
 
-可将运动控制器作为组件添加到 Pawn 或角色，并设置其所代表的“手臂”。
-该文档讲述如何设置使用运动控制器的虚拟现实项目。
+无论您是要针对哪个虚拟现实平台进行开发，添加对运动控制器的支持都可以提升沉浸感和互动程度，而这是无法通过控制器或鼠标和键盘实现的。在以下操作指南中，我们将介绍如何向支持运动控制器的VR平台添加这种支持。 
 
-[region:tip]
-首先确保 VR 头戴设备和运动控制器已在电脑上插好，必备驱动已安装。 
-[VR 文档](Platforms/VR) 讲述如何结合 UE4 使用各种 VR 头戴设备。
-[/region]
+(#supportedplatforms)
+## 支持的平台 
 
+“组件（Components）”选项卡中的运动控制器组件将适用于下VR平台。
+
+* Oculus VR
+* Steam VR
+* Gear VR
+* Playstation VR
+
+如果没有列出您开发的目标平台，确保查看平台文档以了解如何设置运动控制器以便使用。 
+
+(#motioncontrollersetup)
 ## 运动控制器设置
 
-使 VR 项目使用运动控制器需要在 Pawn 上添加一个运动控制器组件并进行配置。 
-此部分将讲述如何进行快速设置，以便在项目中使用运动控制器。
+在下面一节中，我们将介绍如何添加和设置运动控制器工作所需的组件。
 
 [region:note]
-请注意：此设置可应用至任何 UE4 项目的任意 Pawn。
+本操作指南在编写时，假设您已设置了Pawn，以能够与您开发所针对的VR头戴式显示器（HMD）配合工作。如果您不确定如何操作，请查看您开发所针对的VR头戴式显示器（HMD）的[入门指南](Platforms/VR)。 
 [/region]
 
-1. 在 **Content Browser** 中打开 **Player Pawn** 蓝图。
+1. 首先，在 **内容浏览器** 内部，找到并打开 **玩家Pawn** 蓝图。
 
-	![](Open_VR_Pawn.png)
+    [REGION:lightbox]
+    [![](Open_VR_Pawn.png)(w:427)](Open_VR_Pawn.png)
+    [/REGION]
 
-1. 蓝图打开后，前往 **Viewport** 标签，在 **Components** 部分点击 **Add Component** 按钮显示可添加到此蓝图的组件。 
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
 
-	![](Find_Components.png)
+1.  在 **组件（Components）** 部分，单击 **添加组件（Add Component）** 按钮，以显示可以添加到该蓝图的组件。 
 
-1. 使用单词 **Motion** 作为搜索条目在显示的列表中搜索运动控制器。 
-	找到运动控制器组件后，点击将其添加至组件列表。
+    [REGION:lightbox]
+    [![](Find_Components.png)(w:435)](Find_Components.png)
+    [/REGION]
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	kcyHnfpmWbU
-	[/PARAMLITERAL]
-	[/OBJECT]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
 
-1. 添加运动控制器后，点击将其选中，然后在 **Details** 面板的 **Motion Controller** 部分下将 **Hand** 设为 **Left**。
+1. 在搜索框中输入 **Motion**，然后单击 **运动控制器（Motion Controller）** 组件以将其添加到组件列表，并将其命名为 **MC_Left**。
 
-	![](Setting_Up_Components.png)
+	![](Add_MC_Component.png)
 
-1. 在世界场景中添加运动控制器可视展示的方法：在 **Components 面板** 中选中 **运动控制器**，然后点击 **Add Component** 按钮添加一个 **静态网格体组件**。
-	将静态网格体组件拖至运动控制器上（成为其父项）， 
-	然后在 Details 面板中为新组件的静态网格体属性添加一个静态网格体资源。
+1. 选择新添加的运动控制器组件，在 **细节（Details）** 面板的 **运动控制器（Motion Controller）** 部分下面，确保将 **手（Hand）** 设置为 **左（Left）**。
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	x4vjDqnHQnk
-	[/PARAMLITERAL]
-	[/OBJECT]
+    [REGION:lightbox]
+    [![](Setting_Up_Components.png)(w:787)](Setting_Up_Components.png)
+    [/REGION]
 
-	[region:tip]
-	如项目当前未包含任何静态网格体资源，则需自行导入网格体，或点击工具栏中的 Marketplace 按钮访问市场，从中下载一些资源以供项目使用。
-	如静态网格体的尺寸不合适，可通过 Details 面板中 Transform 部分的 Scale 功能将其缩放到适宜的尺寸。
-	[/region]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
 
-1. 再添加一个以根为父项的运动控制器组件，并将其设为 **Right Hand**。添加一个以新运动控制器组件为父项的静态网格体组件，并将右手的网格体应用到其上。
+1. 接下来，选择 **组件（Components）面板** 中的 **运动控制器组件（Motion Controller Component）**，单击 **添加组件（Add Component）** 按钮，然后搜索并添加 **静态网格体组件（Static Mesh Component）**，将其命名为 **SM_Left**。 
 
-	![](Finshed_MC_Setup.png)
+	![](Add_SM_To_MC.png)
 
 	[region:note]
-	在上图中，锥形网格体已被分解开，以显示有两个网格体存在。 
-	设置项目时，将两个静态网格体组件的坐标位置设为 0,0,0，使其重叠放置。
+	确保该静态网格体组件是运动控制器组件的子代，否则在运动控制器移动时，静态网格体不会跟随。
 	[/region]
 
-## 使用运动控制器
+1. 现在，在静态网格体组件“细节（Details）”面板的 **静态网格体（Static Mesh）** 部分中，输入“静态网格体（Static Mesh）”来表示运动控制器的外观。在本示例中，我们使用简单箱体，但您可以随意使用任何现有的静态网格体。
 
-蓝图编辑器的 Palette 面板中包含运动控制器专有的输入功能键。
+    [REGION:lightbox]
+    [![](SM_MC_Static_Mesh.png)(w:787)](SM_MC_Static_Mesh.png)
+    [/REGION]
+
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
+
+1. 现在，复制整个左手运动控制器设置，然后将 **左（Left）** 替换为 **右（Right）**。还需确保该运动控制器将用于哪只手，方法是前往运动控制器组件，然后将 **手（Hand）** 从“左（Left）”更改为 **右（Right）**。
+
+    [REGION:lightbox]
+    [![](Finshed_MC_Setup.png)(w:787)](Finshed_MC_Setup.png)
+    [/REGION]
+
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
+
+1. 编译并保存您的Pawn蓝图，确保将它放在测试关卡中，然后启动项目。当您戴上HMD，拿起运动控制器时，现在应该能够执行以下视频中显示的操作。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		CD6-Mje1y6g
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		100
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+
+(#workingwithmotioncontrollers)
+## 操作运动控制器
+
+特定于运动控制器的输入控制可以在蓝图编辑器的“选用板（Palette）”面板中找到。
 
 [region:tip]
-在蓝图编辑器的 **Palette** 面板中使用 **MotionController** 作为条目进行搜索，将显示运动控制器可用的全部按钮和功能键。
+如果您使用搜索词 **MotionController** 在蓝图编辑器 **选用板（Palette）** 内部搜索，将会看到运动控制器可以使用的所有可用按钮和控制。
 [/region]
 
 ![](Working_With_MC.png)
 
-对可用运动控制器输入选项进行查看后可发现它们的所对应的功能名称旁有一个大写的 **L** 或 **R**。 
-L/R 代表 **左** 或 **右** 运动控制器使用。
+需要注意的是，左右运动控制器有一些独立的输入。输入节点名称旁边的大写字母 **L** 或 **R** 表示这是用于左或右运动控制器的输入。
 
 ![](MC_Left_Right.png)
 
+[COMMENT:none]
 
-## 设置运动控制器
+(#usingmotioncontrollers)
+## 使用运动控制器
 
-在以下部分中我们将对运动控制器进行设置，以便达到这样的效果：按下 **右手** 运动控制器扳机键后世界场景中将生成一个包含静态网格体的蓝图，按下 **左手** 运动控制器扳机键后将从世界场景中移除网格体。 
+在以下一节中，我们将设置运动控制器，这样当您按下 **右手** 运动控制器上的扳机按钮时，将在场景中产生包含静态网格体的蓝图；而按下 **左手** 运动控制器上的扳机按钮时，将从场景中移除该网格体。 
 
-1. 在 Content Browser 中新建一个名为 **BP_Sphere** 的蓝图，然后双击打开。  
+1. 在内容浏览器中，创建一个名为 **BP_Sphere** 的新蓝图，并双击打开。  
 
-1. 前往 **Viewport** 标签，新添加一个 **静态网格体组件**。
+1. 导航到 **视口（Viewport）** 选项卡，添加一个新的 **静态网格体组件**。
 
-	![](Add_SM_Component.png)
+    ![](Add_SM_Component.png)
 
-1. 将静态网格体组件移到 **Default Screen Root** 上，将静态网格体设为使用 **ArcadeEditorSphere**，然后编译并保存蓝图。
+1. 将该静态网格体组件移到 **默认屏幕根（Default Screen Root）** 上面，并将使用的静态网格体设置为 **ArcadeEditorSphere**，然后编译并保存蓝图。
 
-	[OBJECT:EmbeddedVideo]
-		[PARAMLITERAL:width]
-		640
-		[/PARAMLITERAL]
-		[PARAMLITERAL:height]
-		360
-		[/PARAMLITERAL]
-		[PARAMLITERAL:videoid]
-		PszzV_I0xso
-		[/PARAMLITERAL]
-	[/OBJECT]
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        PszzV_I0xso
+        [/PARAMLITERAL]
+    [/OBJECT]
 
-	[region:note]
-	如未找到 **ArcadeEditorSphere**，须确定 **Engine Content** 已启用：前往 **View Options**，点击 **Engine Content** 文件夹使其显示在 Content Browser 中。
-	[/region]
+    [region:note]
+    如果您找不到 **ArcadeEditorSphere**，确保您启用了 **引擎内容（Engine Content）** 文件夹，方法是转至 **视图选项（View Options）**，然后单击 **引擎内容（Engine Content）** 文件夹以使其显示在内容浏览器中。
+    [/region]
 
-1. 关闭 BP_Sphere 蓝图，打开 **Pawn** 蓝图。
+1. 关闭BP_Sphere蓝图，打开 **Pawn** 蓝图。
 
-1. 前往 my Blueprint 面板中的 **Event Graph** 标签，新建一个名为 **Objects**、**变量类型（Variable Type）** 为阵列的 **Actor** 变量。
-	
-	![](Create_New_Var.png)
+1. 在我的蓝图面板中，导航到 **事件图表（Event Graph）** 选项卡，创建新的 **Actor** 变量并命名为 **Objects**，**变量类型（Variable Type）** 设为数组。
+    
+    ![](Create_New_Var.png)
 
-1. 按下运动控制器的扳机键后，即可通过蓝图从世界场景中添加或移除特定物体。在事件图表中添加并连接以下蓝图节点完成此操作。完成后的效果与下图相似。
+1. 通过该蓝图，当按下运动控制器上的扳机按钮时，会在场景中添加和移除指定对象。为此，在事件图表内部，添加以下蓝图节点并将它们连接起来。完成后，您应该看到类似下图的内容。
 
-	![](Add_Objects_Setup.png)
+    [REGION:lightbox]
+    [![](Add_Objects_Setup.png)(w:459)](Add_Objects_Setup.png)
+    [/REGION]
 
-	[region:note]
-	添加 **Spawn Offset** 的目的是确保放置在此例中的物体为可见。此偏移不为必需，可略过 - 将 **GetActorTransform** 节点的 **Return Value** 与 **SpawnActor** 节点上的 **Spawn Transform** 输入相连。
-	![](Add_Objects_Setup_Alt.png)
-	[/region]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
 
-1. 选择 **Spawn Actor** 节点，并将步骤 1 中创建的 ** BP_Sphere** 蓝图指定到 Class 输入。
+    [region:note]
+        在本示例中，为了确保放置对象时能够看到对象，添加了 **产生偏移**。该偏移不是必需的，并可以忽略，方法是将 **返回值（Return Value）** 从 **GetActorTransform** 节点连到 **SpawnActor** 节点上的 **产生变换（Spawn Transform）**。
+        [REGION:lightbox]
+        [![](Add_Objects_Setup_Alt.png)(w:367)](Add_Objects_Setup_Alt.png)
+        [/REGION]
+        [REGION:caption]
+        单击查看大图。
+        [/REGION]    
+    [/region]
 
-	![](Setting_SpawnActor_Up.png)
+1. 选择 **SpawnActor** 节点，并将第一步创建的 **BP_Sphere** 蓝图分配给类输入。
 
-1. 蓝图的此部分可用于移除放置在世界场景中的物体。添加并连接以下蓝图节点即可添加此功能。完成后的效果与下图相似。
+    ![](Setting_SpawnActor_Up.png)
 
-	![](Remove_Objects_Setup.png)
+1. 蓝图的这个部分让我们能够移除放置在场景中的对象。要添加此功能，添加以下蓝图节点并将它们连接起来。完成后，您应该看到类似下图的内容。
 
-	[region:note]
-	键盘输入键放置在图表中，便于快速测试。使用运动控制器时无需包括这些输入。
-	[/region]
+    [REGION:lightbox]
+    [![](Remove_Objects_Setup.png)(w:459)](Remove_Objects_Setup.png)
+    [/REGION]
 
-1. **编译** 并 **保存** 变更至 Pawn 蓝图，然后按下 **Play** 按钮。 
-	关卡载入后，按下键盘 **K** 键或右手运动控制器的右扳机键即可在世界场景中添加物体。 
-	如以下视频所示，按下键盘 **T** 键或左手运动控制器的 **左** 扳机键即可移除世界场景中的物体。
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
 
-	[OBJECT:EmbeddedVideo]
-		[PARAMLITERAL:width]
-		640
-		[/PARAMLITERAL]
-		[PARAMLITERAL:height]
-		360
-		[/PARAMLITERAL]
-		[PARAMLITERAL:videoid]
-		VXUowSUKT9I
-		[/PARAMLITERAL]
-	[/OBJECT]
+    [region:note]
+    为了快速测试，在图表中放置了键盘输入键。您无需包含这些输入，这不影响运动控制器的工作。
+    [/region]
 
-## 培训视频
+1. **编译（Compile）** 并 **保存（Save）** 对Pawn蓝图的更改，然后按 **播放（Play）** 按钮。 
+    关卡启动后，尝试按键盘上的 **K** 键或按右手运动控制器上的右扳机来向场景添加对象。 
+    要从场景移除对象，按键盘上的 **T** 键，或按左手运动控制器上的 **左** 扳机，具体可参见以下视频演示。
+
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        VXUowSUKT9I
+        [/PARAMLITERAL]
+    [/OBJECT]
+
+[/COMMENT]
+
+(#trainingstreams)
+## 培训直播
 
 [REGION:topics third]
 [OBJECT:TopicCompactVideo]
-	[PARAMLITERAL:title]
-	设置运动控制器
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	6ALnsdQnkVQ
-	[/PARAMLITERAL]
+    [PARAMLITERAL:title]
+    设置运动控制器
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    6ALnsdQnkVQ
+    [/PARAMLITERAL]
 [/OBJECT]
 [OBJECT:TopicCompactVideo]
-	[PARAMLITERAL:title]
-	创建使用运动控制器的 VR 互动：第一部分
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	eRNtgFo6iU0
-	[/PARAMLITERAL]
+    [PARAMLITERAL:title]
+    使用运动控制器在VR中创建互动第1部分
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    eRNtgFo6iU0
+    [/PARAMLITERAL]
 [/OBJECT]
 [OBJECT:TopicCompactVideo]
-	[PARAMLITERAL:title]
-		创建使用运动控制器的 VR 互动：第二部分
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	utOahIZgKgc
-	[/PARAMLITERAL]
+    [PARAMLITERAL:title]
+        使用运动控制器在VR中创建互动第2部分
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    utOahIZgKgc
+    [/PARAMLITERAL]
 [/OBJECT]
 [/REGION]

@@ -1,0 +1,54 @@
+﻿INTSourceChangelist:4501274
+Availability: Public
+Crumbs: 
+Title: VRED から Datasmith のコンテンツをエクスポートする
+Description: Autodesk VRED 用のプラグイン スクリプトのインストール方法と、Datasmith が Unreal にインポート可能な FBX に VRED のシーンを エクスポートする方法について説明します。
+Type: 
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Experimental
+Tags: VRED
+
+
+![](datasmith-setup-vred.png)
+
+[TOC(start:2 end:2)]
+
+## Exporter プラグイン スクリプトのインストール
+
+Unreal Engine で VRED のコンテンツを使用した作業を開始する前に、VRED 用のプラグイン スクリプトをインストールする必要があります。
+
+Exporter プラグインが現在サポートしている VRED Professional のバージョンについては、 [](Enterprise/Datasmith/SupportedSoftwareandFileTypes) を参照してください。
+
+下のステップに従って、コンピュータにインストールした、サポートされているバージョンの VRED の Datasmith Exporter プラグイン スクリプトをインストールしてください。
+
+1. Unreal Engine のインストール フォルダで、 *「Enterprise\\Plugins\\Editor\\DatasmithFBXImporter\\Extras\\VREDPlugin」* フォルダにある *vrDatasmithExporter.py* スクリプトを見つけます。
+2. このスクリプトを、インストールした VRED によるプラグインの検索先のフォルダにコピーします。
+    詳細については、 [VRED のドキュメント](http://help.autodesk.com/view/VREDPRODUCTS/2018/ENU/?guid=GUID-C085B3DC-A66C-48EB-8FE4-43E4383AC46E) を参照してください。
+3. VRED を再起動します。
+
+## Datasmith へのエクスポート
+
+VRED のシーンを仕上げてバリアントを登録したら、シーンを FBX にエクスポートします。
+
+1. VRED のメイン メニューから以下を選択します。
+    *   **[File (ファイル)] > [Export (エクスポート)] > [Export to Datasmith... (Datasmith にエクスポート...)]**( VRED 2018 の場合)
+    *   **[File (ファイル)]> [Export Scene Data (シーン データのエクスポート)] > [Export to Datasmith... (Datasimith にエクスポート)]** (VRED 2019 の場合)
+        ![VRED からの Datasmith のエクスポート](datasmith-vred-export.png "VRED からの Datasmith のエクスポート")
+2. フォルダを参照してファイル名を選択します。
+
+選択した場所にエクスポータによって *「.FBX」* ファイルが作成されます。
+
+### 最終結果
+
+これで、新規の *「.FBX」* ファイルを Unreal Editor にインポートする準備が整いました。[](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+[REGION:note]
+また、エクスポータによって *「.FBX」* ファイルの横に、シーンのライトに関する追加情報を含む *「.lights」* ファイルと、登録したバリアントに関する情報を含む *「.var」* ファイルが作成されます。これらのファイルに含まれる情報は Datasmith インポータで必要になります。*「.FBX」* ファイルを別の場所に移動する際は、これらの追加ファイルが同じ相対パスにあることを確認してください。
+[/REGION]

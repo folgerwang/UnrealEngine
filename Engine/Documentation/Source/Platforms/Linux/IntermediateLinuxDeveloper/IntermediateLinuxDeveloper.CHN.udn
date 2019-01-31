@@ -1,42 +1,17 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title: Intermediate Linux Developers
+﻿INTSourceChangelist:3782314
+Availability: NoPublish
+Title: 中级Linux开发者
 Crumbs:%ROOT%, Platforms, Platforms/Linux
-Description:Learn how to cook, package, and share your games.
+Description:学习如何烘焙、打包和分享您的游戏。
 Platform:Linux
 Navigation:platform
-Version: 4.11
+Version: 4.13
 type:landing
 parent:Platforms/Linux
 order: 2
 tags:Linux
 SkillLevel: Intermediate
+topic-image:intermediate_topics.png
 
-[VAR:Params]
-[PARAM:image]
-	![%Platforms/Linux/IntermediateLinuxDeveloper:title%](intermediate_topics.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Platforms/Linux/IntermediateLinuxDeveloper:title%
-[/PARAM]
-[PARAM:description]
-	%Platforms/Linux/IntermediateLinuxDeveloper:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Platforms/Linux/IntermediateLinuxDeveloper]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-If you have some experience developing games on Linux, but you've never learned how to share projects with others, this learning path is for you. The following
-learning path is designed to help you gain skills with cross-compilation, multi-platform game development, cooking and packaging your Linux projects, and 
-integrating your project with Steam.
+如果您有一些在Linux上开发游戏的经验，但从来没学习过如何与他人共享项目，那么此学习路径适用于您。下面的学习路径旨在帮助您获得有关交叉编译、多平台游戏开发、烘焙和打包Linux项目以及将项目与Steam集成的技能。
 

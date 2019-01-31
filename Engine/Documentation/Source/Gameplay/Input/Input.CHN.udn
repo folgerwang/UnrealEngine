@@ -1,114 +1,137 @@
-﻿INTSourceChangelist:2711553
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:输入
-Crumbs:%ROOT%, Gameplay, Gameplay/Framework
-Description: **输入** 目标负责将玩家输入的内容转换为Actor可以理解并使用的数据形式。
-version: 4.9
-
-
-**PlayerInput** (玩家输入）目标负责将玩家输入的内容转换为Actor,例如PlayerController或Pawn，可以理解并使用的数据形式。 这是输入处理流程的一部分，它会将玩家的硬件输入转换成为游戏事件以及随PlayerInput映射及InputComponent而进行的移动行为。
+Crumbs:%ROOT%
+Description:输入对象负责将玩家的输入转换为以Actor能够理解和使用之形式表现的数据。
+version: 4.15
+skilllevel:Beginner
+Parent:Engine/Gameplay
+order:
+type:overview
+tags:Input
 
 [TOC (start:2 end:4)]
 
+ **PlayerInput** 对象负责将玩家的输入转换为Actor（如PlayerController或Pawn）能够 
+理解并使用的数据。它是输入处理流程的一部分，该流程使用PlayerInput映射和InputComponent将来自玩家的硬件输入转换为游戏事件和移动。
+
+[REGION:note]
+有关设置输入的示例，请参阅[](Gameplay\HowTo\SetUpInput)文档。
+[/REGION]
+
+(#hardwareinput
+)
 ## 硬件输入
-玩家的硬件输入是非常简洁明了的。  一般包含了键盘的按键输入，鼠标点击或鼠标移动，以及控制器按键或摇杆移动。 
+来自玩家的硬件输入非常简单。它通常包括按键、点击鼠标或移动鼠标、按控制器按钮或移动操纵杆。对于不符合标准轴或按钮索引的专用输入设备，或具有非常见输入范围的专用输入设备，可以使用[](Gameplay\Input\RawInput)进行手动配置。
 
 
-## PlayerInput(玩家输入)
+(#playerInput)
+
+## PlayerInput
 [EXCERPT:PlayerInput]
-PlayerInput是PlayerController类内管理玩家输入的UObject。 它仅在客户端生成。  在PlayerInput内有两种结构体被定义。  第一个是FInputActionKeyMapping，定义ActionMapping（动作映射）。 另一个是FInputAxisKeyMapping，定义AxisMapping（轴映射）。 
-在ActionMapping（动作映射）和AxisMapping（轴映射）中使用的硬件输入定义都设立于InputCoreTypes中。
+PlayerInput是用于管理玩家输入的PlayerController类中的UObject。它仅在客户端上生成。PlayerInput中定义了
+两种结构体。第一种是 **FInputActionKeyMapping**，它定义了操作映射（ActionMapping）。另一种是 **FInputAxisKeyMapping**，它定义了轴映射（AxisMapping）。 
+在操作映射（ActionMapping）和轴映射（AxisMapping）中使用的硬件输入定义都是在InputCoreType中建立的。
 
-[EXCERPT:ActionMapping]
-$ ActionMappings : 映射离散的按钮或按键到 "friendly name" （友好名称），该值稍后将会被绑定到由事件驱动的行为。 最终效果是在按下（和/或放开）一个键，鼠标按键或小键盘按键后，直接触发一些游戏行为。   
-[/EXCERPT:ActionMapping]
+[INCLUDE:#actionmapping]
 
-[EXCERPT:AxisMapping]
-$ AxisMappings : 映射键盘，控制器，或鼠标到"friendly name" （友好名称）中，该值稍后会被绑定到持续的游戏行为中，例如移动。  在AxisMapping中映射的输入被持续地查看，即使它们仅仅是报告其当前输入值为零。  这使得移动或其它游戏行为非常地平滑，而不是在ActionMapping中由输入所触发的离散游戏事件。  
+[INCLUDE:#axismapping]
 
-	[REGION:tip]
-	硬件轴，例如摇杆控制器，提供输入的不同程度的反馈，而不是离散的1（已按下）或0（未按下）输入。  这表明，这些值可以变小或变大，而您角色的移动也将相应变化。 这些输入方式对提供更多类型移动的输入很有用，AxisMapping还能映射通用的移动键值，例如WASD或上，下，左，右，以及被持续观察的游戏行为。 
-	[/REGION:tip]
-[/EXCERPT:AxisMapping]
+(#Settinginputmappings)
 
 ### 设置输入映射
 
-输入映射存储在配置文件中，但可以很容易地通过关卡编辑器的项目设置选项卡来设置。
+输入映射存储在配置文件中，可以在项目设置（Project Settings）的输入部分进行编辑。
 
-1. 在关卡编辑器中，选择 **Edit > Project Settings** （编辑>项目设置）。
+1. 在关卡编辑器（Level Editor）中，选择 **编辑>项目设置（Edit > Project Settings）**。
 
 	![](ProjectSettingsMenu.png)
-[PUBLISH:Licensee]
-1. 点击出现在 **Project Settings** （项目设置）选项卡的 **Input** （输入）。
 
-	![](ProjectSettingsWindow.png)
-[/PUBLISH:Licensee]
-[PUBLISH:Rocket]
-1. 点击出现在 **Project Settings** （项目设置）选项卡的 **Input** （输入）。
+1. 在显示的 **项目设置（Project Settings）** 选项卡中，单击 **输入（Input）**。
 
-	![](rocketprojectsettings.png)
-[/PUBLISH:Rocket]
 
-在本窗口中，您可以：
+在此窗口中，您可以：
 	
-**变更（硬件）轴输入的属性：**
+ **更改（硬件）轴输入的属性（Change the properties of (hardware) axis inputs）：**
 ![](AxisConfig.png)
 
-**添加或编辑ActionMappings(动作映射）:**
+ **添加或编辑操作映射（Add or edit ActionMappings）：**
 ![](ActionMappings.png)
 
-**添加或编辑AxisMappings（轴映射）:**
+ **添加或编辑轴映射（Add or edit AxisMappings）：**
 ![](AxisMappings.png)
 [/EXCERPT:PlayerInput]
 
-## InputComponent（输入组件）
-InputComponents在Pawn和Controller中最为常见，不过如果需要，仍可以在other Actors（其它Actor）及Level Scripts（关卡脚本）中进行设置。  InputComponent链接您项目中的AxisMapping及ActionMapping到游戏的行为，一般为函数，可在C++代码或蓝图图表中进行设置。  
+[COMMENT:none]
+[EXCERPT:ActionMapping]
+$ ActionMappings : 将离散按钮或按键映射到一个“友好的名称”，该名称稍后将与事件驱动型行为绑定。最终的效果是，按下（和/或释放）单个键、鼠标按钮或键盘按钮
+将直接触发某个游戏行为。   
+[/EXCERPT:ActionMapping]
 
-InputComponents的输入处理的优先堆栈如下（最高优先级排列在最前）：
-
-1. 最近启用"Accepts input"的Actor-可以是从门到可拾取项目的任意物品。
-	1. 启用了 "Accepts input" （接受输入）的所有Actor都会有输入处理,包含从最近启用到最早启用的Actor。
+[EXCERPT:AxisMapping]
+$ AxisMappings : 将键盘、控制器或鼠标输入映射到一个“友好的名称”，该名称稍后将绑定到连续的游戏行为，例如移动。在轴映射（AxisMapping）中映射的输入会被持续轮询，即使当它们刚刚报告它们的输入值 
+当前为零时也是如此。这可实现移动或其他游戏行为的平稳过渡，而不是由操作映射（ActionMapping）中输入所触发的离散游戏事件。  
 
 	[REGION:tip]
-	如果您想要把某个特殊的Actor总是作为输入处理的首个处理对象，您可以重新启用其"Accepts input"（接受输入）并且它将会被移动到栈的顶端。 
+	硬件轴（例如控制器操纵杆）提供输入的程度，而不是离散的1（按下）或0（不按下）输入。也就是说，它们可以被小幅度或大幅度地移动， 
+	而您角色的移动也会相应地变化。虽然这些输入方法非常适合提供可扩展的移动输入量，但轴映射（AxisMapping）也可以将常见的移动键（如WASD键或上下左右方向键）映射到持续轮询的游戏行为。 
 	[/REGION:tip]
-1. 控制器
-1. 关卡脚本
-1. Pawn
+[/EXCERPT:AxisMapping]
+[/COMMENT]
 
-如果某个InputComponent接受输入，则该堆栈的下方将无法访问。
+(#inputcomponent)
 
-## 输入处理流程
+## InputComponent
+ **InputComponents** 最常出现在Pawn和控制器中，但如果需要，也可以在其他Actor和关卡脚本中设置它们。InputComponent 将项目中的轴映射（AxisMapping）和操作映射（ActionMapping）链接到
+以C++代码或蓝图图表建立的游戏操作（通常为函数）。  
+
+InputComponent用于执行输入处理的优先级堆栈如下（最高优先级优先）：
+
+1. 其“接受输入（Accepts input）”已启用的Actor，从最晚启用者到最早启用者。
+	[REGION:tip]
+	如果您希望某个特定的Actor总是第一个被考虑进行输入处理的Actor，那么您可以重新启用它的“接受输入（Accepts input）”，该Actor将被移动到堆栈的顶部。 
+	[/REGION:tip]
+1. 控制器。
+1. 关卡脚本。
+1. Pawn。
+
+如果一个InputComponent获得了输入，那么它在堆栈的后继部分将不再可用。
+
+(#inputprocessingprocedure)
+
+## 输入处理程序
 
 [REGION:raw]
 ![](InputFlow.png)
 [/REGION]
 
-### 示例-向前移动
+(#example-movingforward)
 
-本示例来自于虚幻引擎4附带的第一人称模板。  
+### 示例 - 向前移动
 
-1. **玩家的硬件输入:** 玩家按下 **W** 键。
-1. **PlayerInput Mapping（玩家输入映射）:** AxisMapping（轴映射）将用户输入的 **W** 理解为"向前移动"一格。
+此示例取自虚幻引擎4随附提供的第一人称模板。  
+
+1. **玩家的硬件输入（Hardware Input from Player）：**玩家按下W键。
+1. **玩家输入映射（PlayerInput Mapping）：**轴映射（AxisMapping）将W转换为比例为1的“向前移动（MoveForward）”。
 		
 	![](AxisMappingW.png)
 
-1. **InputComponent Priority Stack（InputComponent优先堆栈）:** 在InputComponent优先堆栈处理完成后，"MoveForward"（向前移动）输入的首个绑定发生于AFirstPersonBaseCodeCharacter类内。 此类为当前玩家的Pawn，所以其InputComponent（输入组件）被最后检查。 
+1. **InputComponent优先级堆栈（InputComponent Priority Stack）：**继续操作InputComponent优先级堆栈，“向前移动（MoveForward）”输入的第一个绑定位于AFirstPersonBaseCodeCharacter类中。此类是当前玩家的Pawn，所以它的InputComponent排在最后检查。 
 
 		void AFirstPersonBaseCodeCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
 			{
 				// set up gameplay key bindings
 				check(InputComponent);
 				...
-				BIND_AXIS(InputComponent, "MoveForward", &AFirstPersonBaseCodeCharacter::MoveForward);
+				InputComponent->BindAxis("MoveForward", this, &AFirstPersonBaseCodeCharacter::MoveForward);
 				...
 			} 
 
-	此步骤也可以在蓝图中，通过放置一个InputAxis MoveForward 节点到角色的EventGraph（事件图表）中来完成。 此节点连接的对象将会执行在 **W** 键按下后的事件。
+	这一步也可以在蓝图中通过在角色的事件图（EventGraph）中设置一个InputAxis MoveForward节点来完成。无论这个节点连接到什么对象，该对象都是按下W键时将执行的对象。
 
 	![](InputMappingMoveForward.png)
 
-1. 	**Game Logic（游戏逻辑）:** 执行AFirstPersonBaseCodeCharacter的MoveForward（向前移动）函数。
+1. 	**游戏逻辑（Game Logic）：**AFirstPersonBaseCodeCharacter的MoveForward函数执行。
 
 		void AFirstPersonBaseCodeCharacter::MoveForward(float Value)
 			{
@@ -127,8 +150,25 @@ InputComponents的输入处理的优先堆栈如下（最高优先级排列在�
 				}
 			}
 	
-	在蓝图中的实现： 
+	蓝图实施： 
 
 	[REGION:fullwidth]
 	![](MoveForward_Blueprint.png)
 	[/REGION:fullwidth]
+
+(#touchinterface)
+
+## 触摸界面
+
+默认情况下，在触控设备上运行的游戏将拥有两个虚拟操纵杆（就像一个主机控制器）。您可以在 **项目设置（Project Settings）** 中的 **输入（Input）** 部分使用 **默认触摸界面（Default Touch Interface）** 属性 
+更改操纵杆。这将指向一个触摸界面设置（Touch Interface Setup）资源。默认的  **DefaultVirtualJoysticks** 位于共享引擎内容中（`/Engine/MobileResources/HUD/DefaultVirtualJoysticks.DefaultVirtualJoysticks`）。 
+还有一个仅有左操纵杆的版本 **LeftVirtualJoystickOnly**，适用于不需要转动摄像机的游戏。
+
+![](VirtualJoysticksSettings.png)(w:800)
+
+请注意，您需要选中对象选取器 **视图选项（View Options）** 设置中的 **显示引擎内容（Show Engine Content）** 复选框才能看到这些内容。
+
+![](showenginecontent.png)
+
+如果您不想要任何虚拟操纵杆，只需清除默认触摸界面（Default Touch Interface）属性。此外，您可以通过选中始终显示触摸界面（Always Show Touch Interface）（或者通过使用-faketouches运行PC游戏）来强制让您的游戏的触摸界面
+独立于它所运行的平台。

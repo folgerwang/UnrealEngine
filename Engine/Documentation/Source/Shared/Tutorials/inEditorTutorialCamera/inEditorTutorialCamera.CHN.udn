@@ -1,36 +1,39 @@
-﻿Availability:NoPublish
-Title:2D & 3D视口
+﻿INTSourceChangelist:3810557
+Availability:NoPublish
+Title:二维和三维视口
 Description:
 Crumbs:
 
 [EXCERPT:Stage3]
 
 [VAR:StageTitle]
-视口介绍
+Viewport Introduction
 [/VAR]
 
-[EXCERPT:ViewportIntro]
-视口是您进入到虚幻编辑器中创建的世界的窗口。您可以像在游戏中导航那样来导航视口，或者可以像您在建筑物蓝图中进行方案设计那样来应用视口。虚幻引擎视口包含了个各种同工具和可视查看器，以帮助您精确地查看您所需要的数据。
-[/EXCERPT:ViewportIntro]
+[INCLUDE:#ViewportIntro]
 
 ![](viewports.png)
 
 [/EXCERPT:Stage3]
 
-
+[COMMENT:none]
+[EXCERPT:ViewportIntro]
+ **视口（Viewports）** 是您查看在虚幻引擎中创建的世界场景的窗口。您可以像在游戏中那样浏览它们，也可以像在架构蓝图中那样以更具方案设计感的方式使用它们。虚幻编辑器视口包含各种工具和查看器，以帮助您准确地查看所需的数据。 
+[/EXCERPT:ViewportIntro]
+[/COMMENT]
 
 
 [EXCERPT:Stage3.1]
 
 [VAR:StageTitle]
-3D视口
+三维视口
 [/VAR]
 
-默认情况下，关卡编辑器具有单个可视的3D视口：
+默认情况下，关卡编辑器只有一个三维视口可见。
 
 ![](3Dviewport.png)
 
-这种类型的视口展示的世界以3D呈现，如同从相机中查看世界那样，类似于您在游戏中的所见。
+这种类型的视口以三维方式显示世界场景，就像从摄像机的角度观看世界场景一样，这与您在游戏中看到的情况类似。
 
 [/EXCERPT:Stage3.1]
 
@@ -40,14 +43,14 @@ Crumbs:
 [EXCERPT:Stage3.2]
 
 [VAR:StageTitle]
-2D视口
+二维视口
 [/VAR]
 
-点击视口的右上方的按钮以对其最小化，以展示显示世界的正视图的2D视口。
+单击视口右上角的按钮以最小化该视口，由此显露显示世界场景正视图的二维视口。
 
 ![](2Dviewport.png)
 
-可以为侧面，正面或顶面。这其中的每一面都显示了以向下的方向来查看世界的轴-分别为X，Y或Z轴。
+这些视图可以是侧面正视图、正面正视图或顶部正视图。每一个视图都各自显示了沿着世界场景的一个轴（X、Y或Z轴）向下看的世界场景。
 
 [/EXCERPT:Stage3.2]
 
@@ -60,11 +63,11 @@ Crumbs:
 视口布局
 [/VAR]
 
-视口可以用不同的配置来排列，这种配置被称为布局。当前布局可从视口选项菜单中选择：
+视口可以被安排在名为布局的不同配置中。您可以从视口选项（Viewport Options）菜单中选择当前布局：
 
 ![](viewport_options.png)
 
-在布局菜单下，您可以选择可用布局之一：
+在布局（Layouts）下，您可以从以下可用布局中选择一种：
 
 ![](viewport_layouts.png)
 
@@ -75,14 +78,14 @@ Crumbs:
 [EXCERPT:Stage5]
 
 [VAR:StageTitle]
-鼠标导航
+鼠标导航（Mouse Navigation）
 [/VAR]
 
-现在，您已经对视口有了一定的了解，那么接下来让我们看下如何在场景中进行导航！
+现在您已对视口有了更多的了解，那么让我们看一看如何在场景中导航！
 
-有一系列鼠标按钮组合可供您在导航视口时使用：
+您可以使用许多鼠标按钮组合来导航视口：
 
-1. 按下鼠标左键并进行拖曳来前后移动及左右旋转。
+1. 按住鼠标左键并拖动，以前后移动，以及左右转动。
 
 	![](LMB_Drag.png)
 
@@ -95,20 +98,20 @@ Crumbs:
 [EXCERPT:Stage5.1]
 
 [VAR:StageTitle]
-鼠标导航
+鼠标导航（Mouse Navigation）
 [/VAR]
 
-现在，您已经对视口有了一定的了解，那么接下来让我们看下如何在场景中进行导航！
+现在您已对视口有了更多的了解，那么让我们看一看如何在场景中导航！
 
-有一系列鼠标按钮组合可供您在导航视口时使用：
+您可以使用许多鼠标按钮组合来导航视口：
 
-1. 按下鼠标左键并进行拖曳来前后移动及左右旋转。
-
-	![](LMB_Drag.png)
-
-1. 按住鼠标右键不放并拖曳以旋转相机。
+1. 按住鼠标左键并拖动，以前后移动，以及左右转动。
 
 	![](LMB_Drag.png)
+
+1. 按住鼠标右键并拖动，以旋转摄像机。
+
+	![](RMB_Drag.png)
 
 
 [/EXCERPT:Stage5.1]
@@ -119,22 +122,22 @@ Crumbs:
 [EXCERPT:Stage5.12]
 
 [VAR:StageTitle]
-鼠标导航
+鼠标导航（Mouse Navigation）
 [/VAR]
 
-现在，您已经对视口有了一定的了解，那么接下来让我们看下如何在场景中进行导航！
+现在您已对视口有了更多的了解，那么让我们看一看如何在场景中导航！
 
-有一系列鼠标按钮组合可供您在导航视口时使用：
+您可以使用许多鼠标按钮组合来导航视口：
 
-1. 按下鼠标左键并进行拖曳来前后移动及左右旋转。
-
-	![](LMB_Drag.png)
-
-1. 按住鼠标右键不放并拖曳以旋转相机。
+1. 按住鼠标左键并拖动，以前后移动，以及左右转动。
 
 	![](LMB_Drag.png)
 
-1. 按住鼠标左键+鼠标右键不放并拖曳来上下左右移动相机。
+1. 按住鼠标右键并拖动，以旋转摄像机。
+
+	![](RMB_Drag.png)
+
+1. 按住鼠标左键和右键并拖动，以上下或左右平移摄像机。
 
 	![](LMBRMB_Drag.png)
 
@@ -147,18 +150,18 @@ Crumbs:
 [EXCERPT:Stage7]
 
 [VAR:StageTitle]
-快速聚焦
+快速聚焦（Quick Focus）
 [/VAR]
 
-您可以快速置中，或聚焦显示世界中物体（一般指的是Actors）的视口，这样可以让编辑更为方便。
+您可以快速地将视口居中或聚焦在世界场景中的对象（通常称为Actor），从而更轻松地编辑它们。
 
-**如需聚焦视口于Actor:**
+ **若要将视口聚焦在Actor上：**
 
-1. 点击视口中的Actor。
+1. 单击视口中的Actor。
 
 	![](focus_select.png)
 
-1. 按下F键来置中，并对视口中的该Actor缩放。
+1. 按下F键以在视口中居中并放大该Actor。
 
 	![](focus_actor.png)
 
@@ -170,10 +173,10 @@ Crumbs:
 [EXCERPT:Stage11]
 
 [VAR:StageTitle]
-书签
+书签（Bookmarks）
 [/VAR]
 
-书签可被用来记录视口的位置和旋转以供后期使用。当制作更大的关卡时，使用书签将会使得在关卡中快速移动到关键区域变得更为方便。
+书签是一种记录视口摄像机位置和旋转以供随后使用的方法。在处理较大的关卡时，使用书签将使您更轻松地将关卡快速移动到关键区域。
 
 [/EXCERPT:Stage11]
 
@@ -182,12 +185,12 @@ Crumbs:
 [EXCERPT:Stage12]
 
 [VAR:StageTitle]
-书签
+书签（Bookmarks）
 [/VAR]
 
-书签可被用来记录视口的位置和旋转以供后期使用。当制作更大的关卡时，使用书签将会使得在关卡中快速移动到关键区域变得更为方便。
+书签是一种记录视口摄像机位置和旋转以供随后使用的方法。在处理较大的关卡时，使用书签将使您更轻松地将关卡快速移动到关键区域。
 
-您可以使用Windows系统的Ctrl键或Mac系统的Command键配合位于键盘顶部位置的数字键来设置书签（例如:  Ctrl + 0 到 Ctrl + 9)。
+您可以使用Ctrl或Command键连同键盘顶部的数字键（例如：Ctrl + 0到Ctrl + 9）来设置书签。
 
 [/EXCERPT:Stage12]
 
@@ -196,14 +199,14 @@ Crumbs:
 [EXCERPT:Stage13]
 
 [VAR:StageTitle]
-书签
+书签（Bookmarks）
 [/VAR]
 
-书签可被用来记录视口的位置和旋转以供后期使用。当制作更大的关卡时，使用书签将会使得在关卡中快速移动到关键区域变得更为方便。
+书签是一种记录视口摄像机位置和旋转以供随后使用的方法。在处理较大的关卡时，使用书签将使您更轻松地将关卡快速移动到关键区域。
 
-您可以使用Windows系统的Ctrl键或Mac系统的Command键配合位于键盘顶部位置的数字键来设置书签（例如:  Ctrl + 0 到 Ctrl + 9)。
+您可以使用Ctrl或Command键连同键盘顶部的数字键（例如：Ctrl + 0到Ctrl + 9）来设置书签。
 
-热键设置完成后，您可以按下相应键(0-9)来返回该位置。
+一旦设置好热键，您可以通过按下相应的键（0-9）返回其位置。
 
 [/EXCERPT:Stage13]
 
@@ -211,14 +214,14 @@ Crumbs:
 [EXCERPT:Stage39]
 
 [VAR:StageTitle]
-结束
+完
 [/VAR]
 
-以上包含了供您学习基础视口浏览，聚焦Actor，以及使用书签的2D和3D视口教程。
+二维和三维视口教程到此结束，您已了解了基本视口导航、聚焦Actor和使用书签。
 
-[您想要了解更多吗?](DOCLINK:Engine/UI/LevelEditor/Viewports/ViewportControls)
+[是否想要了解更多？](DOCLINK:Engine/UI/LevelEditor/Viewports/ViewportControls)
 
-您可以点击此窗口底部的"Home"（主页）按钮来尝试其他教程和介绍，或者您可以关闭此教程以开始使用虚幻编辑器。
+您可以单击此窗口底部的“主页（Home）”按钮来尝试其他教程和演练，也可以直接关闭本教程以跳转到使用虚幻编辑器的部分。
 
 ![](Stage1.png)
 

@@ -46,7 +46,7 @@ LightSwitch 클래스는 항상 PointLightComponent 와 SphereComponent 를 갖�
 ![](BP_Only_EventGraph.png)
 
 [REGION:note]
-**우클릭** 메뉴에서 Toggle Visibility 를 찾을 수 없는 경우 '맥락 의존적' 체크를 해제하거나 '노드 찾기' 메뉴에서 검색해 보시기 바랍니다. 그냥 포인트 라이트 변수 노드에서 선을 끌어 
+**우클릭** 메뉴에서 Toggle Visibility 를 찾을 수 없는 경우 '컨텍스트에 따라' 체크를 해제하거나 '노드 찾기' 메뉴에서 검색해 보시기 바랍니다. 그냥 포인트 라이트 변수 노드에서 선을 끌어 
 놓은 다음 Toggle Visibility 를 검색해도 같은 결과를 얻을 수 있습니다.
 [/REGION]
 [REGION:note]

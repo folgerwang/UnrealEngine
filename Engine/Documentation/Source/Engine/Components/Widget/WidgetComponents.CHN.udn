@@ -1,40 +1,61 @@
-﻿INTSourceChangelist:2659220
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:控件组件
 Crumbs:%ROOT%, Engine, Engine/Components
-Description:介绍了作为控件组件蓝图 3D 实例且可以在世界中互动的控件组件。 
+Description:描述控件组件，即可以在世界场景中与之交互的控件蓝图的三维实例。 
 Related: Engine/UMG
 Related: Engine/UMG/UserGuide/WidgetBlueprints
 Related: Engine/MediaFramework
 Related: Engine/Blueprints/UserGuide/Components
 SkillLevel: Beginner
-Version: 4.9
+Version: 4.13
 
-使用控件组件，您可以在游戏世界中显示那些通过 [**Unreal Motion Graphics**](Engine/UMG/UserGuide) 创建的 3D UI 元素。 
+控件组件使您能够在游戏世界场景中显示通过[虚幻运动图形](Engine/UMG/UserGuide)创建的三维UI元素。 
 
-## Widget Component （小组件）
+(#widgetcomponent)
 
-**WidgetComponent** 本身是控件组件蓝图（Widget Blueprint）的一个 3D 实例，您可以在游戏世界中与它进行互动。 
+## 控件组件
 
-在下面的示例中，我们添加了一个 WidgetComponent，它可以让我们指定一个控件组件类蓝图。 
+ **控件（Widget）** 组件自身是一个控件蓝图的三维实例，您可以在游戏世界场景中与之交互。 
+
+在下面的示例中，我们添加了一个控件组件，它现在允许我们指定一个控件类蓝图。 
 
 ![](Engine/UMG/HowTo/Create3DWidgets/UMG_3D_21.png)
 
-_该示例使用了一个小组件蓝图在游戏世界中显示互动菜单。_
-
-您可以更改 Draw Size 或 Max Interaction Distance 设置来改变 WidgetComponent 在世界中的呈现方式。 
-
-![](Engine/UMG/HowTo/Create3DWidgets/UMG_3D_22.png)(w:720)
-
-在场景中放置包含 WidgetComponent 的 Actor 之后，我们的控件组件类蓝图将显示在世界中。 
-
-![](Engine/UMG/HowTo/Create3DWidgets/UMG_3D_30.png)(w:720)
-
-请参见 **[](Engine/UMG/HowTo/Create3DWidgets)** 了解关于使用 WidgetCompoment 和控件组件蓝图创建此示例的操作步骤指南。 
-
-[REGION:note]
-该组件仍处在试验阶段，在今后的版本中可能有大量改动或被去除。 
+[REGION:caption]
+本例使用控件蓝图显示出现在游戏世界场景中的交互式菜单。
 [/REGION]
+
+您可以通过更改 **绘制大小（Draw Size）** 或使用 **按要求大小绘制（Draw at Desired Size）** 来更改控件组件的大小。 
+
+![](Engine/UMG/HowTo/Create3DWidgets/UMG_3D_22.png)
+
+一旦您将包含控件组件的Actor放置到关卡中，控件类蓝图就会显示在世界场景中。 
+
+![](Engine/UMG/HowTo/Create3DWidgets/UMG_3D_30.png)
+
+[REGION:caption]
+这里我们有一个装在墙上的交互式键盘。
+[/REGION]
+
+(#widgetcomponentpropertyreference)
+
+## 控件组件属性参考
+
+下面是可以通过控件组件的 **细节（Details）** 面板调整的属性。 
+
+| 选项 | 说明 |
+| --- | ----------- |
+| **空间（Space）** | 用于渲染控件（世界场景（World）或屏幕（Screen））的坐标空间。使用世界场景（World）时，控件以网格体的形式在世界场景中进行渲染，并且可被遮挡，而屏幕（Screen）将在完全处于世界场景之外的屏幕上渲染控件，并且控件永远不会被遮挡。|
+| **控件类（Widget Class）** | 用于创建和显示用户控件实例的用户控件类。|
+| **绘制大小（Draw Size）** | 显示的四边形的大小。|
+| **手动重绘（Manually Redraw）** | 控件是否应等待被告知重绘方可实际绘制。|
+| **重绘时间（Redraw Time）** | 绘制时间间隔，如果为0，则重绘每一帧。如果为1，我们将每秒重绘。这也可以与手动重绘（Manually Redraw）配合使用。您可以说，手动重绘，但只能以这个最大速率重绘。|
+| **窗口可聚焦（Window Focusable）** | 创建用于托管控件的虚拟窗口是否可聚焦？此窗口是否应得到用户的关注。|
+| **按要求大小绘制（Draw at Desired Size）** | 使渲染目标自动匹配控件类指定的所需大小。如果每一帧都绘制，那么成本会很高昂。 
+| **枢轴（Pivot）** | 控件相对于该位置放置的对齐点/枢轴点。|
+
+
 
 
 

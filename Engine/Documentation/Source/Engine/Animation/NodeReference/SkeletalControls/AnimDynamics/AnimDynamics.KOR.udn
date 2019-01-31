@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:애님 다이내믹스
+Title:AnimDynamics
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:AnimDynamics 를 사용하여 물리 기반 이차 애니메이션을 내는 법을 설명합니다.
 version: 4.12

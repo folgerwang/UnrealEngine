@@ -1,16 +1,19 @@
-﻿INTSourceChangelist:2755911
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:1.必要设置
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第一步。必要设置
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:1
 
-
-
-
+[NAV]
 
 本快速入门将对项目中可用内容进行假定，如您不适应即时进行的替代或问题解决，建议以如下步骤设置项目。
 
+(#Steps)
 ## 步骤
 
 [EXCERPT:AIProjectStart]
@@ -25,6 +28,8 @@ version:4.9
 如需了解关于开始新项目的详细内容，请参考 [项目浏览器](Engine/Basics/Projects/Browser) 用户指南。
 
 [/EXCERPT:AIProjectStart]
+
+[NAV]
 
 
 

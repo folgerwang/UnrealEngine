@@ -1,297 +1,486 @@
-﻿Availability: Public
-Title:植被
-Crumbs:%ROOT%
-Description:System for rendering instanced meshes on the surfaces of other geometry for use as foliage or other ground cover effects.
-Version: 4.9
+﻿INTSourceChangelist:3807090
+Availability: Public
+Title:植物实例化网格体
+Crumbs:%ROOT%, Engine
+Description:在其他网格体表面上渲染实例化网格体的系统，将其用作植物或其他覆盖地面的效果。
+Version: 4.12
 SkillLevel:Intermediate
 parent:Engine
-order:9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Foliage:title%](Engine/Foliage/foliage_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/foliage_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Foliage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Foliage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Foliage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Foliage:title%](Engine/Foliage/foliage_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/foliage_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Foliage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Foliage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Foliage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+order:11
+topic-image:Engine/Foliage/foliage_topic.png
+topic-icon:%ROOT%/foliage_icon.png
 
 [REGION:header_img]
-![Foliage_Scene.jpg](Foliage_Scene.jpg)
+![Foliage Tool](Foliage_Banner.png)(w:900)
 [/REGION]
 
-本文档介绍了新的实例化植被系统和编辑模式，在2011年6月的QA版本中首次向大家提供，目前正在开发中。
-
-[TOC(start:2)]
-
+[TOC(start:2 end:3)]
 
 [EXCERPT:Intro]
 
-## 概述
-
-以前，虚幻引擎3有一个遗留的植被系统，包括植被体积和地形装饰物，但是它们非常不灵活，执行起来不是非常好，并且不能很好地和Unreal Lightmass交互。
-
-新的植被系统允许您快速地描画 或/和 清除景观、静态网格物体、遗留地形系统制作的地形上的网格物体。这些网格物体可以自动地组合成一批，然后通过使用硬件实例化渲染这批网格物体，这意味着，仅需要一个描画函数就会渲染所有实例。
+通过植物实例化网格体系统可在地形Actor、其他静态网格体Actor和BSP几何体上轻松绘制或清除静态网格体的集。这些网格体将自动集组成批，使用硬件实例化进行渲染，意味着只需要一个单一绘制调用即可对诸多实例进行渲染。
 
 [/EXCERPT:Intro]
 
-## 植被编辑模式
+[region:note]
+如需了解植物工具的使用，请参见[](Resources\ContentExamples\Landscapes)内容范例的[植物](Resources\ContentExamples\Landscapes\1_3)部分。
+[/region]
 
-植被编辑模式可以通过按下UnrealEd左上角的Modes（模式）工具条中的植被按钮来激活。
+(#foliageeditmode)
+## 植物编辑模式
 
-![FoliageMode.png](FoliageMode.png)(w:78 h:172)
+使用植物工具后，点击 **模式** 面板中的植物按钮（**Shift+4**）。 
 
-激活了该模式将会显示植被编辑模式窗口。
+![FoliageMode.png](FoliageMode.png)
+ 
+**模式** 面板中将出现“植物编辑模式”窗口。
 
-![FoliageWindowInitial.png](FoliageWindowInitial.png)(w:283 h:241)
+![FoliageWindowInitial.png](FoliageWindowInitial.png)
 
 
+(#meshlist)
+## 网格体列表
 
-##网格物体列表
+网格体列表中放置的静态网格体将用作植物。要将一个静态网格体添加到网格体列表，需要首先从 **内容浏览器** 将静态网格体拖入 **将植物放置于此处**。
 
-最初，这里没有列出植被网格物体。在您能够描画植被之前，您需要从内容浏览器中拖拽一个静态网格物体到Foliage（植被）编辑模式窗口的Mesh List (网格物体列表)区域。
+[REGION:lightbox]
+[![](Foliage_TextBar.png)(w:400)](Foliage_TextBar.png)
+[/REGION]
 
-![FoliageWindowDrag.png](FoliageWindowDrag.png)(w:1003 h:354)
+[REGION:tip]
+尝试添加正确的actor类型时只显示黄色的植物类型。如果未看到其显示，尝试添加的内容将无法使用。
+[/REGION]
 
-当拖拽完网格物体后，将会显示网格物体的图标及参数值。您可以将多个静态网格物体拖拽到Mesh List（网格物体列表）中。
+为调整用作植物的静态网格体属性，则在网格体列表中选择“静态网格体”，然后按下植物工具右下角的 **放大镜** 图标。这将公开选中的静态网格体细节。 
 
-![FoliageWindowAfterDrag.png](FoliageWindowAfterDrag.png)(w:284 h:571)
+[REGION:lightbox]
+[![](Expose_Instanc_Options.png)(w:190)](Expose_Instanc_Options.png)
+[/REGION]
 
-网格物体列表中的每个网格物体都有三个模式，可以通过网格物体左侧的按钮进行访问。![(mesh list mode)](MeshListMode.png)(w:52 h:20) 第一个模式是折叠视图，仅显示网格物体名称和图标。第二个模式是Paint Settings(描画)设置模式，它具有一些参数，用于控制在关卡中放置实例的方式。第三个模式是Instance Settings(实例设置)模式，它控制已经放置到关卡中的实例的行为。在本文档中接下来的部分会对这些内容进行详细介绍。
+按下后出现的效果应与下图相似。
 
-当处于Paint Settings(描画设置) 或Instance Settings（实例设置）模式时，在网格物体图标上方也会出现三个按钮。
+[REGION:lightbox]
+[![](Foliage_Mesh_Options.png)(w:190)](Foliage_Mesh_Options.png)
+[/REGION]
 
+
+(#selectingfoliagemeshesinthemeshlist)
+### 选择网格体列表中的植物网格体
+
+将鼠标悬停在列表中的网格体上，然后勾选/取消勾选左上角的勾选框，即可启用网格体列表中的植物网格体。 
+
+![](Foliage_Selecting_Meshes.png)
+
+在网格体列表中点击植物网格体即可将其选中。此操作将使其橙色高亮显示，然后便能在下方的选项面板中调整诸多属性。 
+
+[REGION:lightbox]
+[![](Foliage_Selected_Meshes.png)(w:190)](Foliage_Selected_Meshes.png)
+[/REGION]
+
+(#brushsettings)
+## 笔刷设置
+
+![](Foliage_Brush_Settings.png)
+
+在网格体列表中（如上图所示），网格体编辑工具将显示当前选中植物工具相关的属性。 
+（并不会显示每个植物工具的每项设置。）
+
+| 项目 | 描述 |
+| ---- | ----------- |
+| **笔刷尺寸** | 笔刷的大小（以虚幻单位计）。 | 
+| **绘制密度** |  [INCLUDE:Engine/Foliage#PaintDensity] |
+| **擦除密度** |  [INCLUDE:Engine/Foliage#EraseDensity] |
+
+含有名称 **地形**、**静态网格体**、**BSP** 和 **半透明** 的勾选框决定着使用工具时植物网格体将被放置在哪种类型的Actor上。勾选框则说明应使用工具时植物网格体将被放置在这类Actor上。取消勾选框则说明植物网格体不会被放置在这类Actor上。
+
+[COMMENT:none]
+-
+[EXCERPT:PaintDensity]
+使用 **鼠标左键** 时添加实例的目标密度。
+* 这是一个范围在0到1之间的值。值为1时将以每个网格体“网格体”属性中列出的最大密度来绘制网格体实例（如下所示）。
+* 如笔刷中的网格体密度已大于此值，则不会添加网格体。
+[/EXCERPT:PaintDensity]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:EraseDensity]
+使用 **Ctrl+Shift+点击** 擦除实例时希望达到的目标密度。
+* 这是一个范围在0到1之间的值。0代表无网格体，1代表每个网格体“网格体”属性中列出的最大密度（如下所示）。如网格体的数量少于这个所需的擦除密度，则不会擦除更多网格体。 
+* 此操作可用于使已绘制的网格体变薄，而无需完全移除所有实例。
+[/EXCERPT:EraseDensity]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:Filter]
+希望在上方放置实例的对象类型。 
+* 注意：植物球体笔刷并未处于匹配过滤类型的对象上方时，植物球体笔刷将消失。 
+* 还需要注意：只能在处于活跃流送关卡中的对象上进行绘制。
+[/EXCERPT:Filter]
+-
+[/COMMENT]
+
+[REGION:note]
+同时还支持平板电脑按压灵敏度。在考虑所有其他参数后，笔按压将调制出添加或移除的植物网格体数量。
+[/REGION]
+
+(#foliagetools)
+## 植物工具
+在植物窗口顶部的工具栏中通过正确按钮可选择5种工具。 
+
+| 项目 | 描述 |
 | --- | --- |
-| ![&lt;-](Foliage_ReplaceMesh.png)(w:12 h:12) | 这个按钮使用内容浏览器中当前选中的静态网格物体替换当前关卡中已经放置的所有网格物体实例。|
-| ![X](Foliage_DeleteMesh.png)(w:12 h:12) | 这个按钮将网格物体从网格物体列表中删除并且 **删除已经放置到关卡中的该网格物体的所有实例** 。|
-| ![magnifying glass](Foliage_SyncCB.png)(w:12 h:12) | 这个按钮在内容浏览器中定位该静态网格物体。|
+| ![Paint Tool](ToolPaint.png) | **绘制工具** - 用于从场景添加和移除植物实例。 |
+| ![Reapply Tool](ToolReapply.png) | **重应用工具** - 用于修改已在场景中绘制的实例的参数。 |
+| ![Select Tool](ToolSelect.png) | **选择工具** - 用于选择单个实例，用于移动、删除等操作。 |
+| ![Paint Select Tool](ToolPaintSelect.png) | **套索工具** - 用于选择使用绘制笔刷的各类实例。 |
+| ![Fill Tool](ToolFill.png) | **填充工具** - 用于决定使用绘制工具放置的网格体数量。 |
 
+(#painttool)
+### 绘制工具
+![Paint Tool](ToolPaint.png)
 
+绘制工具是植物编辑模式的默认工具。可使用它在关卡中绘制网格体列表中的静态网格体实例。启用植物编辑模式时，将在关卡中绘制一个透明球体笔刷，说明植物笔刷将在何处进行操作。可在下图中查看植物绘制笔刷的外观。
 
-## 植被工具
-通过选择植被窗口顶部的适当按钮，有4个可用的工具。
+![](Foliage_Paint_Tool_Gimzo.png)
 
-| --- | --- |
-| ![Paint Tool](ToolPaint.png)(w:61 h:61) |描画工具，用于向世界中添加植被实例及从世界中删除植被实例。|
-| ![Reapply Tool](ToolReapply.png)(w:61 h:61) | Reapply（重新应用）工具, 用于改变已经在世界中描画的实例的参数。在2011年10月的版本中初次提供该功能。|
-| ![Select Tool](ToolSelect.png)(w:61 h:61) | Selection（选择）工具，用于选择单独的实例以进行移动、删除等操作。在2011年9月的版本中初次提供该功能。|
-| ![Paint Select Tool](ToolPaintSelect.png)(w:61 h:61) | Paint Select(描画选择)工具，通过使用描画画刷选择多个实例。在2011年9月的版本中初次提供该功能。|
+[REGION:tip]
+植物绘制也可在VR编辑器中使用。如需了解VR中的植物绘制功能按钮，请参见[](Engine/Editor/VR/Controls)。
+[/REGION]
 
+**将植物添加到笔刷区域的方法：**  
+* 长按 **鼠标左键** 并 **点击** 希望添加植物之处。网格体列表中当前选中的所有网格体将根据其当前参数和设置进行添加。
 
+绘制网格体时，引擎将在与查看方向平行的球体中执行一些线条追踪，意味着能在球体中看到的所有表面均会成为植物实例的潜在目标。
 
-### 描画工具
+**从笔刷区域擦除植物的方法：**  
+* 长按 **Shift** 和 **鼠标左键**，**点击** 希望移除植物之处。
 
-![Paint Tool](ToolPaint.png)(w:61 h:61)
+(#paintsettings)
+### 绘制设置
 
-当激活Foliage Mode（植被模式）时，将会在关卡中描画一个透明的球形画刷，代表操作植被画刷的位置。按下Ctrl键并按下鼠标将会在画刷区域添加植被，按下Ctrl+Shift 将会抹去植被。
+网格体列表中的每个静态网格体都拥有数个属性，在绘制选中的静态网格体时控制实例的放置、缩放或旋转方式。在网格体列表中选择所需的静态网格体，然后再调整下方显示的属性，即可对属性进行访问。
 
-当描画植被时，引擎在球体类似物中向您的视角处执行几次线性检测，这意味球体中您可以看到的任何表面都是植被实例的潜在目标。
+[REGION:lightbox]
+[![](Foliage_PaintSettings.png)(w:190)](Foliage_PaintSettings.png)
+[/REGION]
 
-当抹去植被时，将会从所有这些球体内部的实例随机选择将要抹去的候选实例。
-
-
-#### 在网格物体列表中选择网格物体
-
-可以通过点击网格物体列表中的网格物体来选中它们及取消选中它们(桔色是选中)。当在编辑器视口中描画时，仅影响选中的网格物体。关卡中已经放置的其他静态网格物体的植被实例不会受到任何影响，并且网格物体列表中没有选中的项的实例不会被添加到关卡中。
-
-以下是选中两个网格物体的示例。将不会在关卡中描画或抹去S_CloverPlant_01网格物体，因为没有选中它。
-
-![FoliageWindowTwoSelected.png](FoliageWindowTwoSelected.png)(w:284 h:434)
-
-
-#### 画刷设置
-
-
-* **Brush Size(画刷尺寸)** 是画刷的尺寸，以Unreal单位为单位。
-* **Paint Density(描画密度)** 是指当使用Ctrl键时您添加实例时所使用的目标密度。
-    * 这个值得范围是从0到1，值为1将会以每个网格物体的Mesh（网格物体）属性中列出的最大密度描画网格物体实例(参照下面)。
-    * 如果画刷中网格物体的密度已经大于这个值，那么将不会添加网格物体。
-* **Erase Density(抹去密度)** 是指当您使用Ctrl+Shift抹去实例时您想获得的目标密度。
-    * 这个值的范围是从0到1，0代表没有网格物体。如果网格物体的密度小于这个期望的抹去密度，那么将不再会抹去网格物体。
-    * 这允许您把已经描画的网格物体变得稀疏，而不必完全地删除所有实例。
-* **Filter(筛选)** 允许您控制用于放置实例放置到哪种对象上。
-    * 注意，当植被球形画刷位于和该筛选类型不匹配时，该画刷将会消失。
-    * 同时请注意，您仅能在激活的动态载入关卡中的对象上进行描画。
-
-
-同时，支持笔触按下敏感度。笔触按压程度将会调制添加的或删除的植被物体的数量，当然，也考虑所有其他参数。
-
-
-#### 描画设置
-
-Mesh List(网格物体列表)中的每个网格物体都有很多属性，这些属性用于控制在描画时如何为这个网格物体放置实例。可以通过按下中间描画画刷图标来访问这些属性。
-
-![Paint Settings Mode](PaintSettingsMode.png)(w:284 h:270)
+以下是每个部分用途的高级描述：
 
 | **属性** | **描述** |
 | --- | --- |
-| Density / 1Kuu&sup2(密度/ 1Kuu&sup2); | 每 1000x1000虚幻单位区域内，放置这个网格物体的实例的数量。|
-| Radius(半径) | 这个网格物体实例之间的最小距离。(在2011年10月份之前的版本中，该设置不能正常使用。) |
-| Align to Normal (对齐到法线)| 是否旋转植被网格物体使它垂直或则遵循它所放置在的表面的方向。|
-| Max Angle(最大角度) | 如果这个值不为0，那么这项指出了当对齐到法线时所遵循的最大角度。比如，如果地面是30&deg;斜坡，并且您设置Max Angle(最大角度) 为10&deg;，那么植被将尝试顺着地面的方向但是会放置在距离垂直方向10&deg;的地方。 如果您在5&deg;表面上放置一个实例，角度小于n 10&deg;，那么植被将会旋转角度来匹配 5&deg;斜坡。|
-| Uniform Scale(均匀缩放) | 是否想独立地缩放实例的X、Y和 Z的范围。|
-| Scale Min/Max (比例 最小值/最大值)| 实例将会在最小值和最大值比例范围之间随机选择进行缩放。|
-| Random Pitch(随机倾斜度) &plusmn;| 给您所指定的 &plusmn; 角度添加变换，以便实例不会都精确地指向同一个方向。|
-| Ground Slope(地面坡度) | 如果该项为非零值，那么当您正在植被的表面比这个角度更陡峭时，将不会在其上面放置植被实例。如果该项为负值，那么仅在比指定的角度更陡峭的表面上放置植被实例。|
-| Height Min/Max (高度 最大值/最小值)| 如果指定了该项，那么当世界空间Z（高度）值在这个范围之外时，将不会应用实例。|
-| Landscape Layer(景观层) | 如果在这项输入信息，那么将仅在指定的景观层上均匀地描画植被实例，其它参数也会应用。|
+| **网格体** | 在此处输入要使用的静态网格体类型。 |
+| **绘制** | 可在此处调整多项属性，如植物网格体之间的最小距离、添加植物的密度、以及植物网格体是否可被缩放。|
+| **放置** | 此属性控制植物网格体在关卡中被绘制时将如何进行放置。|
+| **实例设置** | 此属性可调整此实例的行为，不使用派生自内容浏览器中静态网格体的属性。|
+
+(#reapplytool)
+### 重应用工具
+
+![Reapply Tool](ToolReapply.png)
+
+利用重应用工具可选择性地修改已放置在场景中的植物网格体的特定参数。用启用的重应用工具在植物网格体上进行绘制时，在网格体列表中选中的植物网格体将更新，以反映在重应用工具中进行的修改。
+
+[REGION:lightbox]
+[![](Foliage_Reapply.png)(w:190)](Foliage_Reapply.png)
+[/REGION]
 
 
+设置复选框后，在现有实例上绘制笔刷时将重新应用相应的参数。使用绘制工具时多数设置均相同，然而也存在几点不同：
 
-### Reapply (重新应用) 工具
-
-![Reapply Tool](ToolReapply.png)(w:61 h:61)
-
-该重新应用工具允许您选择性地修改已经放置在关卡中的实例的参数。
-
-![Reapply Settings](ReapplySettings.png)(w:435 h:441)
-
-这里提供的设置和描画工具中的设置非常类似，但是左侧有一个额外的复选框，用于选择要重新应用的参数。
-
-![Reapply Checkboxes](ReapplyCheckboxes.png)(w:283 h:259)
-
-如果选中了某个复选框，那么当在现有实例上应用描画画刷时将会重新应用对应的参数。大部分设置和使用描画工具时一样，但是有几点区别：
-
+| 项目 | 描述 |
 | --- | --- |
-|Density Adjust(密度调整)|这是现有实例的密度乘数。如果您设置滑块为2.0，那么特定区域中实例的数量将会加倍。设置滑块的值为0.5，那么在描画后将仅留下50%的实例。|
-|Ground Slope(地面坡度)|这将删除不符合地面坡度标准的实例。将不会添加新的实例。|
-|Height Min/Max(高度 最小值/最大值)|这将删除不符合高度范围标准的实例。将不会添加新的实例。|
-|Landscape Layer(景观图层)|这将会根据指定图层密度成比例地删除实例。将不会添加新的实例。|
+| **网格体** | 在此处输入要使用的静态网格体类型。 |
+| **绘制** | 可在此处覆盖将植物网格体添加到关卡时要发生的情况。 |
+| **放置** | 可在此处覆盖植物网格体放置在关卡中的方式。 |
 
+(#selecttool)
+### 选择工具
+![Select Tool](ToolSelect.png)
 
-### Selection(选择)工具
-![Select Tool](ToolSelect.png)(w:61 h:61)
+选择工具启用后，点击植物网格体的单个实例即可将其选中。按住 **Ctrl** 键同时点击关卡中的植物网格体即可一次性选中多个植物网格体。
 
-当激活选择工具时，可以通过点击单独的实例来选中它们。按下CTRL并点击可以进行多选。一旦选中了实例，便可以执行一些动作：
+[REGION:lightbox]
+[![](Foliage_SelectInstance.png)(w:600)](Foliage_SelectInstance.png)
+[/REGION]
 
-| **动作** | **结果** |
+选中网格体后，即可对其执行以下操作。
+
+| **操作** | **结果** |
 | --- | --- |
-| Drag a widget axis（拖拽控件轴） | 选中的实例将跟随空间移动，根据空间模式的不同，可以进行旋转或缩放。|
-| Alt + 拖拽控件轴 |首先会复制选中的实例，然后这些实例将随着空间移动。|
-| Delete（删除）键| 选中的实例将会被删除。|
-| End（结束）键 | 选中的实例将尝试对齐到地面。如果最初放置实例时启用了该设置，那么它们将会对齐到正常位置。|
+| **拖动一根控件轴** | 选中的实例将随控件移动，根据控件模式进行旋转或缩放。 |
+| **按住Alt拖动一根控件轴** | 选中的实例将首先被复制，然后跟随控件进行移动。 |
+| **Delete键** | 选中的实例将被删除。 |
+| **End键** | 选中的实例将尝试对齐到地面。如最初放置时此设置已启用，实例将对齐法线。 |
 
-![Selection Tool](Selection.png)(w:345 h:359)
+通过诸多 **选择** 按钮可选择所有植物网格体Actor、选择所有无效植物网格体、或取消选中已选项。
+
+![](Foliage_Select_Options.png)
+
+(#lassotool)
+### 套索工具
+
+![Lasso Tool](ToolPaintSelect.png)
+
+利用套索工具可以同时选中大量或少量植物网格体。可使用过滤设置来确保放置在特定对象上的植物网格体不会被选中。要选择植物网格体，按住 **鼠标右键** 并在场景中移动鼠标即可。要取消选择植物网格体，在绘制时按下 **Shift** 键即可。拥有选项后，即可切换至常规选择工具，执行植物网格体复制、移动和移除等操作。
+
+![Lasso Tool](Foliage_Lasso.png)
+
+(#filltool)
+### 填充工具
+
+![Fill Tool](ToolFill.png)
+
+填充工具能够用选中的植物网格体来覆盖关卡中的整个静态网格体actor。填充工具的功能和绘制工具类似，主要不同在于一次点击即可覆盖植物中的整个actor。在希望被植物所覆盖的静态网格体上按下 **鼠标左键** 即可使用填充工具。点击鼠标键的次数越多，添加的植物就越多。移除植物的方法是按住 **Shift** 键，使用 **鼠标左键** 点击希望移除植物的静态网格体。
+
+[REGION:lightbox]
+[![](Foliage_Fill.png)(w:600)](Foliage_Fill.png)
+[/REGION]
+
+[region:tip]
+如果用填充工具无法移除植物网格体，则需要点击其放置的actor，而非点击添加的植物网格体。
+[/region]
 
 
-### Paint Selection(描画选择） 工具
-![Paint Select Tool](ToolPaintSelect.png)(w:61 h:61)
-
-Paint Selection(描画选择)工具允许您通过使用球形画刷同时选择多个实例，该球形画刷也可以同描画工具结合使用。可以应用网格物体列表选择及筛选设置，就像它们应用于正常的网格物体描画一样。在描画过程中按下Shift键可以取消选中实例。一旦您选中了某个实例，您可以切换到正常的Selection(选择)工具并执行那里列出的某些动作。
-
-![Paint Select Tool](PaintSelection.png)(w:327 h:361)
-
-
-
-## 实例设置模式
-
-注意： 这个模式是在2011年7月的QA版本中添加的。
-
-![Instance Settings Mode](PlacedInstancesMode.png)(w:285 h:172)
-
-| **属性** | **描述** |
-| --- | --- |
-| Instance Count (实例数量)| 该属性显示了在当前动态载入关卡中目前所放置的这个网格物体的实例的数量。|
-| Cluster Count（群集数量） | 该属性显示了在当前动态载入关卡中渲染这个网格物体的实例所使用的群集数量。在一个单独的描画函数中一同渲染的成组的实例成为一个群集，用于提高描画效率。群集分配是世界空间中群集中已有的实例及群集半径自动决定的。以下两个参数可以调整这个属性。|
-| Instances Per Cluster（每个群集中的实例数量） | 这设置了每个群集中的实例数量的最大值。记住，一个群集中的所有实例总是在一个单独的描画函数中进行渲染，总三角形数量等于每个网格物体的多边形数量乘以每个群集中实例数量的结果。理想的数量是由网格物体中多边形的数量所决定的。|
-| Cluster Radius（群集半径） | 这是在将实例分配给新的群集之前，该群集可以增长到的最大尺寸。降低这个数值将会增加群集的数量，但是却改进了遮挡,因为该群集具有较小的边界框。|
-| Cull Distance Start(剔除距离起点) | 这是实例开始淡出的距离，以世界单位为单位。注意，这项需要在材质中进行设置。请参照以下的Culling（剔除）部分。|
-| Cull Distance End(剔除距离终点) | 这是实例完全被剔除掉的距离，以世界单位为单位。如果材质没有设置为淡入淡出单独材质，那么整个群集会一起消失及重新出现。请参照以下的Culling（剔除）部分。|
-
-
-
+(#culling)
 ## 剔除
 
-注意： 这个功能是在2011年7月的QA版本中添加的。
+因为植物实例在单次绘制调用中被渲染为群集，所以每个群集将基于遮挡被渲染（或不被渲染）。如在 **结束剔除距离** 参数中设置了一个值，则超过此距离的群集也将被剔除。然而，此项将导致网格体分组因整个群集超出范围而突然消失。
 
-因为植被实例是在一个单独的描画函数中作为群集渲染的，所以根据遮挡情况每个群集或者被渲染或者不被渲染。如果您在 **Cull Distance End(剔除距离结束点)** 参数中设置了一个值，那么当超出那个距离后也会剔除该群集。但是，由于整个群集都超出了范围，所以将会导致成组的网格物体突然消失。
+添加一个 **开始剔除距离** 参数并正确设置材质即可解决此问题。
+ 在顶点着色器中将计算一个逐实例淡化因子，其在开始距离处为1.0、结束距离处为0.0。 
+ 可使用 **PerInstanceFadeAmount** 节点在材质中进行访问。
+ 如将此连接到一个不透明度或遮罩值，则可将其用于淡化一定距离之外的距离（在其到达 **剔除距离结束** 并从渲染中被移除之前）。
 
-这可以通过添加 **Cull Distance Start(剔除距离起点)** 参数然后适当地设置材质来降低这种现象。在顶点着色器中，将会计算每个实例的淡入淡出因数，该因数在其实距离处是1.0，在结束距离处是0.0。该因数将会传递给 Vertex Color (顶点颜色)材质节点的alpha通道。如果您将它连接到一个不透明度或蒙版值上，那么在实例达到 Cull Distance End(剔除距离终点)并从渲染中删除之前您可以使用它来随着距离淡入淡出实例，
+下方的材质范例将材质遮罩与淡化因子相乘，以弱化植物网格体的叶片，直到其完全消失。
 
-以下的示例材质将材质蒙板和淡入淡出因数相乘来使得网格物体的叶子变淡，直至完全消失。
+![Culling Material Example](Foliage_MaterialSetup.png)
 
-![Culling Material Example](CullingMaterial.png)(w:752 h:378)
+(#lod)
+## LOD
 
+植物上支持静态网格体LOD。但有几个注意事项：
 
+* 须确保静态网格体在元素排列中只拥有一个条目（在LOD0下可见）。
+* 注意：光照贴图和阴影贴图在所有LOD等级之间共享，因此所有LOD需使用相同的展开。
+* 当前实例的整个群集将同时修改LOD。未来的版本中可能添加逐实例基于距离的淡化。
 
-## 静态网格物体设置
+(#lighting)
+## 光照
 
-对于用于植被的静态网格物体来说，有几个需要注意的静态网格物体编辑器设置。首先，静态网格物体的
-**bUsedForInstancing** 标志应该启用。同时，您应该确保您的静态网格物体在Elements(元素)数组(可以在 LODInfo下找到)中仅有一项。
-
-
-### LOD（细节层次级别）
-
-从2011年10月份的版本开始，植被上支持静态网格物体细节层次。有几点需要注意：
-
-
-* 推荐您在您的材质上启用Screen Door Fading（屏幕门淡入淡出）功能。
-* 注意，所有LOD层次之间共享光照贴图和阴影贴图，所以所有LOD需要使用同样的展开图。
-* 目前，整个群集的实例同时改变LODs。以后，我们可能添加让每个实例基于距离淡入淡出的支持。
+每个个体网格体实例皆有由Lightmass生成的阴影贴图和/或光照贴图，他们将在每个预计算的批次中平铺在一起。为使预计算光照在实例化植物上拥有良好效果，应勾选静态网格体上的几项设置。为实例化网格体生成阴影贴图时Lightmass的宽容度较低；如果设置不正确，在构建灯光后可能出现黑色的网格体。
 
 
-
-### 光照
-
-每个单独的网格物体实例具有它自己的由Lightmass生成的 阴影 和/或 光照 贴图，并且这些贴图会针对每个支持预计算的组平铺到一起。需要在静态网格物体上选中几个设置才能使得预计算光照在实例化的植被上正常工作。当生成针对实例化网格物体的阴影贴图时，Lightmass的设置需要非常严格，错误的设置可能导致重新构建光照后出现黑色网格物体。
+* **光照贴图坐标索引** - 此项必须设为拥有独有UV展开的有效UV通道。静态网格体编辑器的 **生成独有UV** 功能（可从 **窗口** 菜单中访问）即可迅速生成一个独有展开。
+* **光照贴图分辨率** - 此项必须是一个足够小的数字，以便单一群集中实例的所有阴影贴图（默认为100）平铺在一起，而不会超过最大纹理分辨率（4094x4096）。
 
 
-* Light Map Coordinate Index(光照贴图坐标索引) - 必须设置为具有位移UV展开图 的有效UV通道。静态网格物体的"Generate Unique UVs(生成唯一UVs)"功能可以快速地生成唯一的展开图。
-* Lightmap Resolution(光照贴图分辨率) - 这项必须是足够小的值，以便在一个单独群组中的实例的所有阴影贴图(默认100个)可以平铺到一起，而不会超出最大贴图分辨率(4094x4096)。
+
+(#foliagescalability)
+## 植物可延展性
+
+植物静态网格体可使用[可延展性系统](Engine/Performance/Scalability/ScalabilityReference/)来增加或减少当前被渲染到屏幕上的植物实例数量。要将此功能添加到项目，须执行以下操作：
+
+[region:note]
+为使用“植物绘制”模式，关卡必须包含启用了碰撞的地形地貌或静态网格体。 
+[/region]
+
+1. 在内容浏览器中点击右键。在 **创建高级资源（Create Advanced Asset）** 部分中展开 **杂项（Miscellaneous）** 部分，并选择 **植物类型（Foliage Type）** 选项。
+
+	[REGION:lightbox]
+	[![](Foliage_Scalability_00.png)(w:300)](Foliage_Scalability_00.png)
+	[/REGION]
+
+1. 为植物类型输入一个命名（此例中我们使用的是 **FT_Box**），然后双击FT_Box植物类型将其打开。  
+
+	[REGION:lightbox]
+	[![](Foliage_Scalability_01.png)(w:405)](Foliage_Scalability_01.png)
+	[/REGION]
+
+1. FT_Box打开后，展开 **网格体（Mesh）** 和 **可延展性（Scalability）** 部分。
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_02_Windows.png)(w:405)](Foliage_Scalability_02_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_02_Mac.png)(w:405)](Foliage_Scalability_02_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+1. 在 **内容浏览器** 中选中一个静态网格体（在此例中我们使用的是初学者内容包中的 **Shape_Cube**）。在FT_Box植物类型中，在 **网格体** 部分下将 **Shape_Cube** 从内容浏览器拖至 **网格体** 选项。
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_03_Windows.png)(w:405)](Foliage_Scalability_03_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_03_Mac.png)(w:405)](Foliage_Scalability_03_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+1. 在FT_Box植物类型的 **可延展性** 部分中，点击 **启用密度缩放（Enable Density Scaling）** 旁的小框，使可延展性系统能够访问此静态网格体。
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_04_Windows.png)(w:405)](Foliage_Scalability_04_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Foliage_Scalability_04_Mac.png)(w:405)](Foliage_Scalability_04_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[region:note]
+	只应为不带碰撞的细节植物（如小石块和灌木丛）**启用** **启用密度缩放（Enable Density Scaling）** 选项。就带碰撞的植物类型（如树木）而言，此项应被 **禁用**，因为被移除实例的碰撞仍将留存在游戏中。
+	[/region]
+
+1. 在 **模式** 面板中选择 **植物工具**。将FT_Box植物类型选中，并从内容浏览器拖至 **将植物放置于此处** 区域。
+
+	[REGION:lightbox]
+	[![](Foliage_Scalability_05.png)(w:250)](Foliage_Scalability_05.png)
+	[/REGION]
+
+1. 选中放置在植物类型列表中的FT_Box植物类型。在视口中长按 **鼠标左键** 开始将FT_Box植物类型网格体绘制到一个表面上。 
+
+	[REGION:lightbox]
+	[![](Foliage_Scalability_06.png)(w:592)](Foliage_Scalability_06.png)
+	[/REGION]
+
+1. 在 **工具条** 上点击 **运行** 来启动关卡。导航至已添加植物的位置。
+
+	![](Foliage_Scalability_07.png)
+
+1. 按下 **重音符** 键（`）打开 **控制台** 并输入以下命令（后接0到1之间的一个小数）即可控制植物渲染的密度。
+
+	* **foliage.DensityScale**
+
+	[region:warning]
+	调整“植物密度缩放”设置时，可以看到结果不会在任何编辑器视口中实时更新。要看到植物密度实时更新的唯一方法是项目处于PIE、模拟或Standalone游戏模式中时输入命令。 
+	[/region]
+
+如下所示，植物密度在foliage.DensityScale设置设为0.1、0.2、0.3、0.4、0.5、0.6、0.7、0.8、0.9、1.0时会发生变化。
+
+[REGION:fullwidth]
+[INCLUDE:Engine\Foliage\#FS]
+[/REGION]
+
+[COMMENT:none]
+---
+[EXCERPT:FS]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	10
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	FS
+	[/PARAMLITERAL]
+	[PARAM:caption]
+	**拖动滑条即可在0.1到1.0之间调整foliage.DensityScale设置。**
+	[/PARAM]
+	[PARAM:image_list]
+	![](FS_1.png)
+	![](FS_2.png)
+	![](FS_3.png)
+	![](FS_4.png)
+	![](FS_5.png)
+	![](FS_6.png)
+	![](FS_7.png)
+	![](FS_8.png)
+	![](FS_9.png)
+	![](FS_10.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:FS]
+
+[/COMMENT]
 
 
-[PUBLISH:Licensee]
 
 
-### 关于在游戏机平台上进行实例化的设置
 
-在类似于 Xbox360和PS3等游戏机平台上进行硬件实例化的工作方式可能和PC略有不同。为了在一个单独描画调用中渲染多个实例，需要复制静态网格物体的索引缓冲数据。在静态网格物体上有一个设置为 **Console Preallocate Instance Count(游戏机平台与分配实例数量)** 。这个值控制我们想在一个单独描画函数中渲染的预分配的实例数量。
 
-比如，如果您有一个具有100个三角形的植被网格物体，那么一般这需要300个顶点索引(每个三角形3个)来渲染一个正常的静态网格物体。每个顶点索引占两个字节，所以需要为该静态网格物体存储600个字节的数据。
 
-如果您想在一个单独的描画函数中最多渲染20个网格物体实例作为作为植被，那么我们可以设置ConsolePreallocateInstanceCount 为20，这将重复存储这300个索引20次。这意味着那个静态网格物体的索引所需要的内存总量将增加到12,000个字节(20 * 300 * 2)。
 
-无论在关卡中放置多个少个实例，这个网格物体的性能消耗仅产生一次，但是简单地预分配那个数据允许我们在任何需要的时候从一个单独的描画函数中渲染多达20个这个网格物体的实例，渲染大约2000个三角形。
 
-当ConsolePreallocateInstanceCount不能满足我们想在一个群集中渲染的实例数量时，引擎将会自动地进行多个描画调用（上面的 Instances Per Cluster（每个群集中实例的数量）设置）。
 
-在游戏机平台上，如果在描画函数中渲染的三角形总数量非常多，描画调用的性能消耗相对来说不是那么昂贵。所以使用内存在一个单独的描画调用中预分配多个实例将不会产生很大的性能提升。
 
-所以，您设置植被所使用的静态网格物体的ConsolePreallocateInstanceCount数值时应该考虑到实例中三角形的数量，以保证游戏机平台的GPU持续运行。设置的值太小将会导致游戏机平台的GPU空闲，等待单独的描画调用；设置的值太大将会导致浪费内存，且不会获得任何较大的性能提升。
-[/PUBLISH:Licensee]
 
- 
+
 
 
 

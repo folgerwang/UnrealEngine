@@ -85,8 +85,8 @@ UE4 프로젝트를 컴파일할 때, 프로젝트의 소스 코드만 컴파일
 	[/PARAMLITERAL]
 	[PARAM:content]
 	    [REGION:warning]
-        현재 리눅스 용으로는 언리얼 엔진 바이너리 인스톨러를 제공하지 않습니다.
-		리눅스 사용자는 [UE4 솔루션용 빌드 환경설정](#bookmark1) 부분을 참고하세요.
+        현재 Linux 용으로는 언리얼 엔진 바이너리 인스톨러를 제공하지 않습니다.
+		Linux 사용자는 [UE4 솔루션용 빌드 환경설정](#bookmark1) 부분을 참고하세요.
         _소스에서 언리얼 엔진을 빌드하는 방법은 [](GettingStarted/DownloadingUnrealEngine) 문서를 참고하시기 바랍니다._
         [/REGION]
 	[/PARAM]

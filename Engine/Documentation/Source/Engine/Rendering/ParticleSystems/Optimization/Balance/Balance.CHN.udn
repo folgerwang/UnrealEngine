@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2741693
+﻿INTSourceChangelist:3243860
 Availability: Public
 Title: 视觉效果和性能的平衡
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Optimization
 Description: 在各种方法中寻求视觉与性能的平衡。
 Version: 4.9
+tags:Particles
 
 
 
@@ -11,6 +12,7 @@ Version: 4.9
 
 
 
+(#ConsideringCostsUpFront)
 ## 预先考虑性能消耗
 
 通常，创建您需要的特效最终归结为可以找到可以最好地展示关键元素的参考镜头片段或图像。使用参考样本将特效细分为这些关键元素可以在制作时节约大量的时间，并给你提供了以下信息。
@@ -28,6 +30,7 @@ Version: 4.9
 
 
 
+(#AlternativeMeansofCreatingEffects)
 ## 创建特效的可替换方法
 
 有时候您需要创建的特效可能根本不是粒子特效，在很多这样的情况中，最好使用模型来创建特效而不是使用粒子系统。比如，战争前机器中有几个地方在远处有大量的烟雾和开炮效果。 如果使用粒子来渲染这些效果，我们会遇到几个问题。

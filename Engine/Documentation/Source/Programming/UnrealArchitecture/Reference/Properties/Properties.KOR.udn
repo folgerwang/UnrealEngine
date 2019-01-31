@@ -75,8 +75,8 @@ tags:bitfield
 ### 부동 소수점 유형
 언리얼은 표준 C++ 부동 소수점 유형인 float 와 double 을 사용합니다.
 
-### 불리언 유형
-불리언 유형은 C++ bool 키워드 또는 비트 필드로 나타낼 수 있습니다.
+### 부울 유형
+부울 유형은 C++ bool 키워드 또는 비트 필드로 나타낼 수 있습니다.
 
 	uint32 bIsHungry : 1;
 	bool bIsThirsty;

@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4352050
+Availability: Public
+Crumbs: 
+Title: 游戏性技能系统
+Description: 对游戏性技能系统的高层次解读。
+Type: 
+Version: 4.20
+Parent: Gameplay
+Order: 1
+Tags: Gameplay Ability System
+
+
+![](GameplayAbilitySystemTopicImage_01.png "GameplayAbilitySystemTopicImage_01.png")
+
+**游戏性技能系统** 是一个高度灵活的框架，可用于构建你可能会在RPG或MOBA游戏中看到的技能和属性类型。你可以构建可供游戏中的角色使用的动作或被动技能，使这些动作导致各种属性累积或损耗的状态效果，实现约束这些动作使用的“冷却”计时器或资源消耗，更改技能等级及每个技能等级的技能效果，激活粒子或音效，等等。简单来说，此系统可帮助你在任何现代RPG或MOBA游戏中设计、实现及高效关联各种游戏中的技能，既包括跳跃等简单技能，也包括你喜欢的角色的复杂技能集。
+
+## 系统设置
+
+由于游戏性技能系统是一个插件，需要先启用才能使用。只需两步即可启用它：
+
+*   在 **编辑（Edit）** -> **插件（Plugins）** 窗口中启用游戏性技能系统插件。  
+    ![](GameplayAbilitySystem_Plugin_00.png "GameplayAbilitySystem_Plugin_00.png")
+*   要使用此系统的全部功能，添加"GameplayAbilities"、"GameplayTags"和"GameplayTasks"到项目的“(ProjectName).Build.cs”文件中的`PublicDependencyModuleNames`中。这很容易做到，只需找到公用模块列表：
+
+[COMMENT:none]
+[/COMMENT]
+
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+要使用游戏性技能系统，将上述三个模块名称添加到花括号列表中的任意位置，如下所示：
+
+
+    PublicDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks", "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+技能系统组件是游戏中的角色访问游戏性技能系统的主要接口。此组件管理Gameplay属性，运行游戏性事件，存储游戏性技能，甚至处理玩家输入到游戏性技能激活、确认及取消命令的绑定。任何要与游戏性技能系统交互的Actor都应具有技能系统组件。

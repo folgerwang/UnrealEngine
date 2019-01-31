@@ -1,0 +1,196 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 데이터스미스에 CAD 파일 포맷 사용
+Description: 데이터스미스로 CAD 파일 포맷에서 콘텐츠를 임포트할 때 적용되는 특수 사항을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 4
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+Tags: CAD
+topic-image:datasmith-cad-topic.png
+
+
+![Using Datasmith for CAD File Formats](datasmith-cad-banner.png "Using Datasmith for CAD File Formats")
+
+데이터스미스를 사용하여 대부분의 지원 CAD 파일 포맷에서 언리얼 에디터로 씬을 가져오려는 경우, 데이터스미스가 씬을 처리하는 방식에 대해 [](Enterprise/Datasmith/Overview), [](Enterprise/Datasmith/Overview/ImportProcess) 의 기본적인 부분 이외에도 몇 가지 알아야 할 것이 있습니다.
+
+## CAD 워크플로
+
+데이터스미스는 대부분의 CAD 파일 유형에 **Direct** (직접) 워크플로를 사용합니다. 즉 CAD 씬을 [지원 파일 유형](Enterprise/) 중 하나로 저장하기만 하면 그 파일을 데이터스미스 CAD 임포터로 언리얼 에디터에 가져올 수 있다는 뜻입니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+## 테셀레이션
+
+CAD 포맷에서 종종 커브와 수학 함수를 사용하여 표면과 입체면을 정의합니다. 제조 공정에서 사용하려면 이 표면의 정밀도와 부드러움이 필수입니다. 하지만 최신 GPU 칩은 트라이앵글 메시로 이루어진 표면의 렌더링에 고도로 최적화되어 있습니다. 언리얼같은 실시간 렌더러와 게임 엔진은 초당 수십장의 사진과 같은 실사 퀄리티 이미지를 만들기 위해 GPU 성능을 극한까지 끌어올려야 하는데, 여기에는 보통 트라이앵글 메시로 이루어진 지오메트리만 사용됩니다.
+
+데이터스미스는 CAD 파일의 곡면에서 이미 메시 표현이 없는 경우 가장 근접한 트라이앵글 메시를 자동 계산해서 이 간극을 채웁니다. 이 프로세스를 일컬어 *tessellation*, 테셀레이션이라 하며, CAD 데이터를 실시간 환경에서 사용하도록 준비할 때 필수 단계입니다.
+
+예를 들어 왼쪽 이미지는 기본 CAD 뷰어에서 렌더링한 표면을 나타냅니다. 오른쪽 이미지는 그 표면에 대해 생성된 트라이앵글 메시의 와이어프레임을 나타냅니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![파라메트릭 표면](cad-tessellation-example-surface.png) 
+[/PARAM]
+[PARAM:after]
+![트라이앵글화된 메시](cad-tessellation-example-wireframe.png) 
+[/PARAM]
+[/OBJECT]
+
+실시간 렌더링을 위한 표면 테셀레이션 작업에는 표면의 정확도와 렌더링 속도 사이 절충 작업이 수반됩니다.
+
+본질적으로 트라이앵글 메시는 원본 표면에 수학적으로 정확히 일치할 수가 없습니다. 테셀레이션은 항상 원본 표면을 일정한 수준의 디테일로 샘플링한 모형을 만들어 GPU 가 지오메트리를 더욱 빠르게 렌더링할 수 있도록 합니다. 보통 메시가 원본 표면에 가까울수록 더욱 복잡해집니다. 즉 트라이앵글 수는 많아지고 작아집니다. 렌더링이 좋아질 수는 있지만, GPU 비용이 높아집니다. 테셀레이션 메시의 정확도를 낮추면, 트라이앵글이 커지고 적어져 GPU 가 더욱 빨리 렌더링할 수 있지만, 각지거나 자글자글해 보여 원하는 시각적 충실도가 나오지 않을 수 있습니다.
+
+그래서 테셀레이션 프로세스의 목표는 메시의 트라이앵글 수를 최소화하고 시각적 충실도는 원본에 맞게 극대화하는 것입니다. 보통 표면이 부드럽고 평평한 곳에서는 비교적 큰 트라이앵글을 조금, 복잡하고 고르지 않은 표면에서는 비교적 작은 트라이앵글을 많이 사용하는 것을 목표로 한다는 뜻입니다.
+
+데이터스미스로 CAD 씬을 임포트할 때 조정할 수 있는 파라미터는 세 가지이며, 다음과 같습니다. 이 값을 조정하면 데이터스미스가 곡면에 대해 생성하는 스태틱 메시 지오메트리의 복잡도와 충실도를 제어할 수 있습니다.
+
+[REGION:tip]
+스태틱 메시 애셋을 개별 리임포트할 때도 똑같은 옵션을 설정할 수 있습니다. 이를 통해 씬의 전반적인 테셀레이션 값을 설정한 다음, 레벨 오브 디테일을 높이거나 낮춰야 하는 개별 오브젝트의 세팅을 덮어쓰면 됩니다. [](Enterprise/Datasmith/Overview/ReimportWorkflow) 문서도 참고하세요.
+[/REGION]
+
+### 현 허용치
+
+Chord Tolerance 는 가끔 현(chord 또는 sag) 오차라고도 하는데, 테셀레이션 면의 한 점이 원본 표면에 그에 해당하는 점에서 멀어질 수 있는 최대 거리를 정의합니다.
+
+![Chord tolerance examples](datasmith-cad-chordtolerance-whatis.png "Chord tolerance examples")
+
+이 파라미터 값을 낮추면 테셀레이션 표면이 원본 표면과 비슷하게 유지되어, 작은 트라이앵글이 많아집니다.
+
+이 세팅의 효과는 굴곡이 심한 부분에서 두드러지는데, 허용치 값을 높이면 생성되는 트라이앵글이 커져 표면의 부드러움이 감소합니다.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#chordtolimage1] | [INCLUDE:#chordtolimage2] | [INCLUDE:#chordtolimage3] |
+| [INCLUDE:#chordtolimage1data] | [INCLUDE:#chordtolimage2data] | [INCLUDE:#chordtolimage3data] |
+[/REGION]
+[COMMENT:none]
+[EXCERPT:chordtolimage1]
+[REGION:lightbox]
+[![](chordtolerance-1-1.png)(w:320)](chordtolerance-1-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage1]
+
+[EXCERPT:chordtolimage1data]
+0.1mm: 134 000 트라이앵글
+[/EXCERPT:chordtolimage1data]
+
+[EXCERPT:chordtolimage2]
+[REGION:lightbox]
+[![](chordtolerance-2-1.png)(w:320)](chordtolerance-2-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage2]
+
+[EXCERPT:chordtolimage2data]
+0.5mm: 37 500 트라이앵글
+[/EXCERPT:chordtolimage2data]
+
+[EXCERPT:chordtolimage3]
+[REGION:lightbox]
+[![](chordtolerance-3-1.png)(w:320)](chordtolerance-3-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage3]
+
+[EXCERPT:chordtolimage3data]
+10mm: 13 500 트라이앵글
+[/EXCERPT:chordtolimage3data]
+[/COMMENT]
+
+### 최대 에지 길이
+
+Max Edge Length 는 테셀레이션 메시의 트라이앵글에서 에지 하나의 최대 길이를 제한하는 세팅입니다. 
+
+![Max edge length examples](datasmith-cad-maxedgelength-whatis.png "Max edge length examples")
+
+이 세팅의 효과는 모델의 평평한 부분에 가장 잘 드러납니다. 이 값을 너무 낮게 설정하면, 평평한 부분에 필요 이상으로 작은 트라이앵글이 많은 것이 보일 것입니다. 반면 이 값을 너무 높게 설정하거나 한계를 두지 않으면, 가끔 이상한 모양의 트라이앵글이 너무 길거나 얇게 나오므로, 역시 피하는 것이 좋습니다.
+
+이 값을 0 으로 설정하면, 데이터스미스는 생성되는 트라이앵글의 에지 길이에 제한을 두지 않습니다.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#image1] | [INCLUDE:#image2] | [INCLUDE:#image3] |
+| [INCLUDE:#image1data] | [INCLUDE:#image2data] | [INCLUDE:#image3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:image1]
+[REGION:lightbox]
+[![](maxedgelength-1.png)(w:320)](maxedgelength-1.png)
+[/REGION]
+[/EXCERPT:image1]
+
+[EXCERPT:image1data]
+10mm: 128 000 트라이앵글
+[/EXCERPT:image1data]
+
+[EXCERPT:image2]
+[REGION:lightbox]
+[![](maxedgelength-2.png)(w:320)](maxedgelength-2.png)
+[/REGION]
+[/EXCERPT:image2]
+
+[EXCERPT:image2data]
+20mm: 43 700 트라이앵글
+[/EXCERPT:image2data]
+
+[EXCERPT:image3]
+[REGION:lightbox]
+[![](maxedgelength-3.png)(w:320)](maxedgelength-3.png)
+[/REGION]
+[/EXCERPT:image3]
+
+[EXCERPT:image3data]
+40mm: 21 000 트라이앵글
+[/EXCERPT:image3data]
+[/COMMENT]
+
+
+### 노멀 허용치
+
+Normal Tolerance 는 테셀레이션 메시의 두 인접 트라이앵글 사이 벌어질 수 있는 최대 각도를 도 단위로 정의합니다.
+
+![Normal tolerance example](datasmith-cad-normaltolerance-whatis.png "Normal tolerance example")
+
+현 허용치와 마찬가지로 노멀 허용치도 테셀레이션 메시를 원본 메시에 가깝게 만드는 효과가 있습니다. 하지만 굴곡이 심한 부분의 디테일은 보존하면서 평평한 부분에 생성되는 트라이앵글에만 효과를 줄 때 특히 좋습니다.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#normtolimage1] | [INCLUDE:#normtolimage2] | [INCLUDE:#normtolimage3] |
+| [INCLUDE:#normtolimage1data] | [INCLUDE:#normtolimage2data] | [INCLUDE:#normtolimage3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:normtolimage1]
+[REGION:lightbox]
+[![](normaltolerance-1.png)(w:320)](normaltolerance-1.png)
+[/REGION]
+[/EXCERPT:normtolimage1]
+
+[EXCERPT:normtolimage1data]
+5°: 295 000 트라이앵글
+[/EXCERPT:normtolimage1data]
+
+[EXCERPT:normtolimage2]
+[REGION:lightbox]
+[![](normaltolerance-2.png)(w:320)](normaltolerance-2.png)
+[/REGION]
+[/EXCERPT:normtolimage2]
+
+[EXCERPT:normtolimage2data]
+10°: 100 000 트라이앵글
+[/EXCERPT:normtolimage2data]
+
+[EXCERPT:normtolimage3]
+[REGION:lightbox]
+[![](normaltolerance-3.png)(w:320)](normaltolerance-3.png)
+[/REGION]
+[/EXCERPT:normtolimage3]
+
+[EXCERPT:normtolimage3data]
+40°: 21 500 트라이앵글
+[/EXCERPT:normtolimage3data]
+[/COMMENT]

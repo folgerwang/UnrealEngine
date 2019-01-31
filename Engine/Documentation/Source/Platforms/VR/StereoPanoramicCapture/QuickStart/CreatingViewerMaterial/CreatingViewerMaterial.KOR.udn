@@ -20,9 +20,9 @@ Tags:Sequencer
 
 [NAV]
 
-여기서는 예전 단계에서 생성된 스테레오 이미지를 확인할 수 있도록 해주는 머티리얼을 생성하여 구성해 보도록 하겠습니다.
+여기서는 이전 단계에서 생성된 스테레오 이미지를 확인할 수 있도록 해주는 머티리얼을 생성하여 구성해 보도록 하겠습니다.
 
-1. 프로젝트가 저장된 폴더의 **StereoPanoramaImages\Saved\StereoPanorama\(찍은 날짜&시간)** 폴더에서 예전 단계에서 생성된 스테레오 이미지를 찾습니다.
+1. 프로젝트가 저장된 폴더의 **StereoPanoramaImages\Saved\StereoPanorama\(찍은 날짜&시간)** 폴더에서 이전 단계에서 생성된 스테레오 이미지를 찾습니다.
 
     [REGION:lightbox]
     [![](Platforms\VR\StereoPanoramicCapture\QuickStart\TakingStereoImages\SPHT_Rendered_Images.png)(w:473)](Platforms\VR\StereoPanoramicCapture\QuickStart\TakingStereoImages\SPHT_Rendered_Images.png)
@@ -33,7 +33,7 @@ Tags:Sequencer
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. 두 이미지 모두 찾았으면 선택한 뒤 윈도우 위치에서 콘텐츠 브라우저로 끌어 놓아 UE4 프로젝트로 임포트합니다.
+1. 두 이미지 모두 찾았으면 선택한 뒤 Windows 위치에서 콘텐츠 브라우저로 끌어 놓아 UE4 프로젝트로 임포트합니다.
 
     [REGION:lightbox]
     [![](SPHT_Import_Stereo_Images.png)(w:639)](SPHT_Import_Stereo_Images.png)

@@ -49,7 +49,7 @@ topic-image:topic.png
 ## 업적에서 값 읽기                                                                                                            
 **Get Cached Achievement Progress** 는 제공된 **Player Controller** 에 대해 주어진 **Achievement ID** 의 진행상황을 반환하며, 앞서 **Cache Achievements** 노드가 실행되고 성공적으로 반환된 경우에만 작동합니다.
 
-iOS Game Center 의 경우, 이 값은 사실상 integer 로 저장되기에 그 float 에다 floor 를 적용한(, 즉 그 값보다 작은 정수인) 것입니다. 구글 플레이 서비스에서는 float 값을 받습니다.
+iOS Game Center 의 경우, 이 값은 사실상 integer 로 저장되기에 그 float 에다 floor 를 적용한(, 즉 그 값보다 작은 정수인) 것입니다. Google 플레이 서비스에서는 float 값을 받습니다.
 
 **블루프린트:**
 
@@ -61,7 +61,7 @@ iOS Game Center 의 경우, 이 값은 사실상 integer 로 저장되기에 그
 
 **Write Achievement Progress** 는 플랫폼의 업적 시스템에 메시지를 전송하여 주어진 사용자(, 즉 **Player Controller** 와 **User Tag**) 에 대해 제공된 업적에 **Progress** (진행상황)을 기반으로 한 백분율 (0.0% - 100.0%) 값을 씁니다. "일회성" 업적의 경우 **Progress** 에 항상 `100.0` 을 전달하는 반면, 진행형 업적의 경우 해당 업적에 도달하는 것을 `100.0` 으로 해서 항상 그보다 적은 백분율 값을 전달합니다.
 
-iOS 게임 센터의 경우, 이 값은 실제로 정수로 전송되므로, 진행형 업적 값은 1 에서 100 사이의 정수만 가능합니다. 구글 플레이 서비스에서는 실수가 전송됩니다.
+iOS 게임 센터의 경우, 이 값은 실제로 정수로 전송되므로, 진행형 업적 값은 1 에서 100 사이의 정수만 가능합니다. Google 플레이 서비스에서는 실수가 전송됩니다.
 
 참고로 이는 **latent** (잠복성) 노드이므로, 실행 출력 핀이 여럿 있습니다. 가장 상단의 것은 "pass through" (통과)로, 다른 실행 출력 핀과 마찬가지로 작동합니다. 다른 두 개의 핀 (**On Success** 와 **On Failure**) 은 온라인 서비스가 값을 반환( 또는 실패)할 때 실행됩니다. 실행시 성공을 반환하면 **Written Achievement Name**, **Written Progress**, **Written User Tag** 는 노드에 전달한 것과 동일한 비공백 값을 반환합니다.
 

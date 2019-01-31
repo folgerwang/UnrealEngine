@@ -1,0 +1,382 @@
+Availability: Public
+Crumbs: 
+Title: Working with Modular Characters
+Description: Describes the different methods you can use to create modular characters comprised of multiple Skeletal Meshes. 
+Type: 
+Version: 4.20 
+Parent: Engine/Animation
+Order: 2
+Tags: undefined
+
+
+![](ModularBanner.png)
+
+When creating systems that enable players to customize their characters and swap out different parts, for example different heads or body types, clothing or other options, you'll want to consider constructing your characters in a modular way. Rather than importing a Skeletal Mesh for the full character, breaking out your Skeletal Mesh into sections, such as the torso, legs, and head, and importing them into the Engine; you can then use some of the methods described on this page for assembling those pieces and animating them.. Not only will this give you increased flexibility in generating different characters, it will also be more performant. 
+
+## Master Pose Component
+
+The **Master Pose Component** is a Blueprint callable function that enables you to set a **Skinned Mesh Component Object** (or Skinned Mesh Component Objects) as children to another Skinned Mesh Component Object considered to be the master. For example, you can define the Torso as the Master Pose Component, assign an animation to the Torso, then add Feet, Legs, Hands and a Head as children which will follow the animation assigned to the Torso. 
+
+Behind the scenes, the children do not use any Bone Transform Buffer and won't run any animations even if you set them on the child, it only uses the Torso's Bone Transform Buffer when rendered which makes it a very lightweight attachment system. The only Component that has to run animation is the Torso, and all attached Components will use the Torso's Bone Transform (below is an example setup where we have assigned an animation to the Torso). 
+
+![](SetMasterPoseComponentImage.png)
+
+*Above, we use the **Construction Script** inside a Blueprint to set the Torso Skeletal Mesh as the **Master Bone Component** and the other aspects of our modular character as children.*  
+
+[REGION:note]
+The **Set Master Pose Component** function has a second parameter of the boolean type called **Force Update**. If the Force Update is false, it will skip updating all runtime info if it's the same as the input Master Component (if enabled, it will force updating the runtime info).  This is only true during registration as that can be serialized, and it will need to refresh all runtime data.
+[/REGION]
+
+Each aspect of our character is a Skeletal Mesh that we can change out with another **Skeletal Mesh Component**. 
+
+![](HiddenComponents.png)
+
+*Above, we have toggled the display of the Torso and the Feet (we could change these out with different Skeletal Meshes that follow the same Skeletal hierarchy). *
+
+  
+One issue to consider however, is that when using **Master Pose Component**, although it does reduce the game thread cost, it does not reduce the render cost. You will still render the same number of Components separately, keeping in mind that additional sections per Component will incur more draw calls. 
+
+[REGION:note]
+There is also the limitation that any children of the Master Bone has to be a subset with the exact matching structure, you cannot have any other extra joints or skip any joints. Since there are no Bone Buffer data for extra joints, it will render using the reference pose. Also, you cannot run any other animations or physics on any children.
+[/REGION]
+
+## Copy Pose From Mesh
+
+**Copy Pose From Mesh** is an **AnimGraph** node you can use on the **Animation Blueprint** of the child that enables you to copy the animation pose from any **Skeletal Mesh Component**.   
+  
+[REGION:lightbox]
+[![CopyPoseFromMesh.png](CopyPoseFromMesh.png)(w:900)](CopyPoseFromMesh.png)
+[/REGION]
+
+[REGION:caption]
+Click image for full view.
+[/REGION]
+  
+*Copy Pose From Mesh will only copy matching bones, and everything else will use the reference pose. However, you can play the animation on top of the copied transforms as illustrated above.*
+
+When using [Copy Pose From Mesh](Engine/Animation/AnimHowTo/CopyPose), you will want to make sure that the Skeletal Mesh Component you copy from had already ticked, otherwise you will copy the last frame's animation (for example, if you are copying from the Body and the Head is the Child). To ensure the Body has ticked, you can attach the Head to the Body, which will ensure the parent ticks first before the child. 
+
+[REGION:note]
+You could also set the relationship in code. If you set it as a prerequisite, it will ensure ticking them prior to the current component. See the [Tick Dependency](Programming/UnrealArchitecture/Actors/Ticking) page for more information.
+[/REGION]
+
+Some elements to consider when using Copy Pose From Mesh is that it is more expensive than Master Pose Component because this runs the animation on each child. Additionally, if you want to use physics on the child, you may want to use the [Rigid Body](Engine/Animation/NodeReference/SkeletalControls/RigidBody) or [AnimDynamics](Engine/Animation/NodeReference/SkeletalControls/AnimDynamics) skeletal control nodes instead.
+
+When previewing an animation in the Animation Editor, you can assign additional meshes that will automatically use Copy Pose From Mesh. You can also create a custom **Preview Mesh Collection** that you can use to build collections of related Skeletal Meshes that are animated together (such as the components of a character). Below we illustrate how to change and assign different Skeletal Meshes to our preview enabling us to swap out different heads on our character. 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	-a_GC1y2SA0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## Skeletal Mesh Merge
+
+At runtime you can merge multiple Skeletal Meshes into a single Skeletal Mesh through code with `FSkeletalMeshMerge`. While this has a high initial cost of creating the Skeletal Mesh, the rendering cost is cheaper since you are rendering a single Skeletal Mesh instead of multiple meshes. For example, if you have a character comprised of three Components (head, body and legs) and you have 50 characters on screen, this would result in **50 draw calls**. Without Skeletal Mesh Merge, each Component has its own draw call resulting in three calls per character or a total of **150 draw calls**. 
+
+When using `FSkeletalMeshMerge`, your main "body" has to contain all the animations because the merged mesh will only use the Skeleton that's set and it has to contain all the joints you'd need to animate. If you have extra joints for certain body parts, you still have to have all the animations on the body. Other things to consider, you can only run one animation on the merged mesh and transferring Morph Targets to the merged mesh is not supported. If however, you look at `FSkeletalMeshMerge::GenerateLODModel`, once you have your Skeletal Mesh you can create your Morph Targets by calculating the `FMorphTargetDelta` between your base mesh and any morphs. 
+
+Additionally when using `FSkeletalMeshMerge` you will likely need to build your content in a specific way from the start. You'll want to use one common Material and decide on an atlas for your Textures (for example, boots go in this region while gloves go in this region and so on) so you can cut up and put together your textures to make new ones and render your whole character as one section. 
+
+### Mesh Merge Example
+
+In the example below, we use the Mesh Merge code to assemble several Skeletal Meshes at runtime. 
+
+![](Individual_Meshes.png)
+
+Above, we have several Skeletal Meshes that we want to join together into a single Skeletal Mesh at runtime. For this example, we create a Blueprint callable function through code called **Mesh Merge** that will enable us to define the meshes that we want to merge together. The first thing we would need to do is to create our C++ class based on a [Blueprint Function Library](Programming/BlueprintFunctionLibraries) that will enable us to call the function from any Blueprint and we call it **MeshMergeFunctionLibrary**. 
+
+![](Blueprint_FunctionLibrary.png)
+
+Below we have provided the sample code blocks you can use inside your **header** and **source** files: 
+
+**.h code sample**
+
+	// Fill out your copyright notice in the Description page of Project Settings.
+	#pragma once
+	#include "CoreMinimal.h"
+	#include "Kismet/BlueprintFunctionLibrary.h"
+	#include "UObject/NoExportTypes.h"
+	#include "MeshMergeFunctionLibrary.generated.h"
+	/**
+	* Blueprint equivalent of FSkeleMeshMergeSectionMapping
+	* Info to map all the sections from a single source skeletal mesh to
+	* a final section entry in the merged skeletal mesh.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeSectionMapping_BP
+	{
+		GENERATED_BODY()
+			/** Indices to final section entries of the merged skeletal mesh */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray SectionIDs;
+	};
+	/**
+	* Used to wrap a set of UV Transforms for one mesh.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransform
+	{
+		GENERATED_BODY()
+			/** A list of how UVs should be transformed on a given mesh, where index represents a specific UV channel. */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransforms;
+	};
+	/**
+	* Blueprint equivalent of FSkelMeshMergeUVTransforms
+	* Info to map all the sections about how to transform their UVs
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransformMapping
+	{
+		GENERATED_BODY()
+			/** For each UV channel on each mesh, how the UVS should be transformed. */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransformsPerMesh;
+	};
+	/**
+	* Struct containing all parameters used to perform a Skeletal Mesh merge.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkeletalMeshMergeParams
+	{
+		GENERATED_BODY()
+			FSkeletalMeshMergeParams()
+		{
+			MeshSectionMappings = TArray();
+			UVTransformsPerMesh = TArray();
+			StripTopLODS = 0;
+			bNeedsCpuAccess = false;
+			bSkeletonBefore = false;
+			Skeleton = nullptr;
+		}
+		// An optional array to map sections from the source meshes to merged section entries
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshSectionMappings;
+		// An optional array to transform the UVs in each mesh
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray UVTransformsPerMesh;
+		// The list of skeletal meshes to merge.
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshesToMerge;
+		// The number of high LODs to remove from input meshes
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			int32 StripTopLODS;
+		// Whether or not the resulting mesh needs to be accessed by the CPU for any reason (e.g. for spawning particle effects).
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bNeedsCpuAccess : 1;
+		// Update skeleton before merge. Otherwise, update after.
+		// Skeleton must also be provided.
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bSkeletonBefore : 1;
+		// Skeleton that will be used for the merged mesh.
+		// Leave empty if the generated skeleton is OK.
+		UPROPERTY(EditAnywhere, BlueprintReadOnly)
+			class USkeleton* Skeleton;
+	};
+	/**
+	*
+	*/
+	UCLASS()
+	class PROJECTNAME_API UMeshMergeFunctionLibrary : public UBlueprintFunctionLibrary
+	{
+		GENERATED_BODY()
+	public:
+		/**
+		* Merges the given meshes into a single mesh.
+		* @return The merged mesh (will be invalid if the merge failed).
+		*/
+		UFUNCTION(BlueprintCallable, Category = "Mesh Merge", meta = (UnsafeDuringActorConstruction = "true"))
+			static class USkeletalMesh* MergeMeshes(const FSkeletalMeshMergeParams& Params);
+	};
+	~~~
+
+Inside the header, you need to change out all the **PROJECTNAME_API** references to the name of your actual project. For example, if your project is called "MyProject", you will need to instead use **MYPROJECT_API** in all those instances for the code to work. 
+
+**.cpp code sample**
+
+	// Fill out your copyright notice in the Description page of Project Settings.
+	#include "MeshMergeFunctionLibrary.h"
+	#include "SkeletalMeshMerge.h"
+	#include "Engine/SkeletalMeshSocket.h"
+	#include "Engine/SkeletalMesh.h"
+	#include "Animation/Skeleton.h"
+	static void ToMergeParams(const TArray<FSkelMeshMergeSectionMapping_BP>& InSectionMappings, TArray<FSkelMeshMergeSectionMapping>& OutSectionMappings)
+	{
+		if (InSectionMappings.Num() > 0)
+		{
+			OutSectionMappings.AddUninitialized(InSectionMappings.Num());
+			for (int32 i = 0; i < InSectionMappings.Num(); ++i)
+			{
+				OutSectionMappings[i].SectionIDs = InSectionMappings[i].SectionIDs;
+			}
+		}
+	}
+	static void ToMergeParams(const TArray<FSkelMeshMergeUVTransformMapping>& InUVTransformsPerMesh, TArray<FSkelMeshMergeUVTransforms>& OutUVTransformsPerMesh)
+	{
+		if (InUVTransformsPerMesh.Num() > 0)
+		{
+			OutUVTransformsPerMesh.Empty();
+			OutUVTransformsPerMesh.AddUninitialized(InUVTransformsPerMesh.Num());
+			for (int32 i = 0; i < InUVTransformsPerMesh.Num(); ++i)
+			{
+				TArray<TArray<FTransform>>& OutUVTransforms = OutUVTransformsPerMesh[i].UVTransformsPerMesh;
+				const TArray<FSkelMeshMergeUVTransform>& InUVTransforms = InUVTransformsPerMesh[i].UVTransformsPerMesh;
+				if (InUVTransforms.Num() > 0)
+				{
+					OutUVTransforms.Empty();
+					OutUVTransforms.AddUninitialized(InUVTransforms.Num());
+					for (int32 j = 0; j < InUVTransforms.Num(); j++)
+					{
+						OutUVTransforms[i] = InUVTransforms[i].UVTransforms;
+					}
+				}
+			}
+		}
+	}
+	USkeletalMesh* UMeshMergeFunctionLibrary::MergeMeshes(const FSkeletalMeshMergeParams& Params)
+	{
+		TArray<USkeletalMesh*> MeshesToMergeCopy = Params.MeshesToMerge;
+		MeshesToMergeCopy.RemoveAll([](USkeletalMesh* InMesh)
+		{
+			return InMesh == nullptr;
+		});
+		if (MeshesToMergeCopy.Num() <= 1)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Must provide multiple valid Skeletal Meshes in order to perform a merge."));
+			return nullptr;
+		}
+		EMeshBufferAccess BufferAccess = Params.bNeedsCpuAccess ?
+			EMeshBufferAccess::ForceCPUAndGPU :
+			EMeshBufferAccess::Default;
+		TArray<FSkelMeshMergeSectionMapping> SectionMappings;
+		TArray<FSkelMeshMergeUVTransforms> UvTransforms;
+		ToMergeParams(Params.MeshSectionMappings, SectionMappings);
+		ToMergeParams(Params.UVTransformsPerMesh, UvTransforms);
+		bool bRunDuplicateCheck = false;
+		USkeletalMesh* BaseMesh = NewObject<USkeletalMesh>();
+		if (Params.Skeleton && Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+			bRunDuplicateCheck = true;
+			for (USkeletalMeshSocket* Socket : BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket : BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+		}
+		FSkeletalMeshMerge Merger(BaseMesh, MeshesToMergeCopy, SectionMappings, Params.StripTopLODS, BufferAccess, UvTransforms.GetData());
+		if (!Merger.DoMerge())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Merge failed!"));
+			return nullptr;
+		}
+		if (Params.Skeleton && !Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+		}
+		if (bRunDuplicateCheck)
+		{
+			TArray<FName> SkelMeshSockets;
+			TArray<FName> SkelSockets;
+			for (USkeletalMeshSocket* Socket : BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					SkelMeshSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket : BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					SkelSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			TSet<FName> UniqueSkelMeshSockets;
+			TSet<FName> UniqueSkelSockets;
+			UniqueSkelMeshSockets.Append(SkelMeshSockets);
+			UniqueSkelSockets.Append(SkelSockets);
+			int32 Total = SkelSockets.Num() + SkelMeshSockets.Num();
+			int32 UniqueTotal = UniqueSkelMeshSockets.Num() + UniqueSkelSockets.Num();
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount: %d | SkelSocketCount: %d | Combined: %d"), SkelMeshSockets.Num(), SkelSockets.Num(), Total);
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount: %d | SkelSocketCount: %d | Combined: %d"), UniqueSkelMeshSockets.Num(), UniqueSkelSockets.Num(), UniqueTotal);
+			UE_LOG(LogTemp, Warning, TEXT("Found Duplicates: %s"), *((Total != UniqueTotal) ? FString("True") : FString("False")));
+		}
+		return BaseMesh;
+	}
+
+
+Once you compile the code inside the Editor, you can create an ActorBlueprint with a **Skeletal Mesh Component** and an exposed variable of the **Skeletal Mesh Parameters** type. This variable will provide you with several properties to define not only the Skeletal Meshes to merge, but how those meshes are merged and additional options.
+
+![](SkelMeshParams.png)
+
+Below are the options you can use to define how your Skeletal Meshes are merged: 
+
+| Property | Description |
+| --- | --- |
+| **Mesh Section Mappings** | This is an optional array to map sections from the source meshes to merged section entries. |
+| **UVTransforms Per Mesh** | 	This is an optional array used to transform the UVs in each mesh. |
+| **Meshes to Merge** | These are the Skeletal Meshes that will be merged together.  |
+| **Strip Top LODs** | 	The number of top LODs to remove from input meshes.  |
+| **Needs Cpu Access** | Whether or not the resulting mesh needs to be accessed by the CPU for any reason (For example, for spawning particle effects). |
+| **Skeleton Before** | Whether to update the Skeleton before the merge or after (A Skeleton must also be provided). |
+| **Skeleton** | This is the Skeleton that will be used for the merged mesh. You can leave this empty if the generated Skeleton is okay. |
+
+Inside your **Event Graph**, upon **Event Begin Play**, use the node network below.   
+  
+[REGION:lightbox]
+[![](MeshMergeBPScript.png)(w:900)](MeshMergeBPScript.png)
+[/REGION]
+
+Click image for full view.  
+  
+You can use your new Blueprint Function **Merge Meshes** to return a Skeletal Mesh object reference while passing in the Mesh Merge Parameters. The **Skeletal Mesh Component** that is added to the Blueprint can then be used as the target for setting a new Skeletal Mesh to use, which you can point to the return value of the Merge Meshes function call. In the above example, we are also assigning an Idleanimation for the Skeletal Mesh to play once all of the individual meshes have been merged.   
+
+After you add the Mesh Merge Blueprint to the Level, inside the **Details** panel, you can define the **Mesh Merge Parameters** including the **Meshes to Use** and **Skeleton** asset to use.   
+  
+
+![](AssignedDetails-1.png)
+
+At runtime, the Mesh Merge function will execute and assemble the Skeletal Mesh based on the defined meshes.
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	N4dri0RLZFg
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## Comparison Chart
+
+Whether you are using **Master Pose Component**, **Copy Pose from Mesh**, or **Skeletal Mesh Merge** there are advantages and disadvantages with each method. The table below outlines the setup and performance cost associated with each, as well as additional features that are (or are not) supported.   
+
+| | Master | Copy Pose | Mesh Merge |
+| --- | --- | --- | --- |
+| **Setup Cost** | Min | Medium | High |
+| **Game Thread Cost** | Min | High | Medium |
+| **Render Thread Cost** | High | High | Low |
+| **Physics** | No | AnimDynamics or RigidBody | Yes |
+| **Morph Target** | Yes | Yes | No |

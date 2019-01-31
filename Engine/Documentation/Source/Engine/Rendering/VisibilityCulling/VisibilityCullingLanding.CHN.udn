@@ -1,69 +1,20 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling
+Title: 可视性剔除
 Crumbs: %ROOT%, Engine, 
-Description: Visibility Culling Landing Page
+Description: 可视性剔除主题页面
 Version: 4.13
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
+虚幻引擎4运用多种方法的组合来从场景中收集数据，以进行可视性和遮挡剔除，这种剔除可用于验证Actor是否应该可见。由于不会渲染不需要的内容，因而此系统有助于优化游戏。在这些遮挡方法中，大部分都是相互配合工作的，而有一些则可以在动态可视性选项不可用时（例如使用手机时）使用。 
 
 
-Unreal Engine 4 uses a combination of methods to gather data from the scene for visibility and occlusion culling that can be used to test whether an Actor should be visible. This system is useful
-for optimizing your game by not rendering what is not needed. These culling methods largely work in conjunction with one another, while some can be used when a dynamic visibility option is not 
-available, like with mobile. 
-
-
-## Visibility Culling Topics
+##可视性剔除主题
 
 [REGION:buttonlist]
-
 	* [](Engine\Rendering\VisibilityCulling\CullingOverview "%Engine\Rendering\VisibilityCulling\CullingOverview:description%")
 	* [](Engine\Rendering\VisibilityCulling\CullingBestPractices "%Engine\Rendering\VisibilityCulling\CullingBestPractices:description%")
 	* [](Engine\Rendering\VisibilityCulling\CullingPerformance "%Engine\Rendering\VisibilityCulling\CullingPerformance:description%")
 	* [](Engine\Rendering\VisibilityCulling\CullingTipsTricks "%Engine\Rendering\VisibilityCulling\CullingTipsTricks:description%")
-	[COMMENT:none]
--* [](Engine\Rendering\VisibilityCulling\CullDistanceVolume "%Engine\Rendering\VisibilityCulling\CullDistanceVolume:description%")-
-[/COMMENT]
-	[COMMENT:none]
--* [](Engine\Rendering\VisibilityCulling\PrecomputedVisibilityVolume "%Engine\Rendering\VisibilityCulling\PrecomputedVisibilityVolume:description%")-
-[/COMMENT]
-	
 [/REGION]
 

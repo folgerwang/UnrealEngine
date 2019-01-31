@@ -1,0 +1,66 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 3ds Max 用 Datasmith Exporter プラグインをインストールする
+Description: 3ds Max 用 Datasmith Exporter プラグインのインストール方法について説明します。
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/3dsMax
+Order: 4
+Tags: Enterprise
+Tags: 3DS Max
+Tags: how to
+Tags: Datasmith
+Tags: studio
+
+
+![](datasmith-setup-install-max-2.png)
+
+Unreal Engine で 3ds Max のコンテンツを使用した作業を開始する前に、3ds Max 用の Unreal Datasmith Exporter プラグインをインストールする必要があります。
+
+Exporter プラグインが現在サポートしている 3ds Max のバージョンについては、 [](Enterprise/Datasmith/SupportedSoftwareAndFileTypes) を参照してください。
+
+[REGION:tip]
+Datasmith Exporter プラグインのダウンロード リンクは、所属している組織の内外を問わず不特定多数のユーザーと共有していただけます。Datasmith Exporter プラグインのダウンロードおよび使用に際して Unreal Studio の利用資格は要求されません。ただし、Datasmith Exporter プラグインを自ら配布することは許可されません。
+[/REGION]
+
+## 3ds Max 用 Datasmith Exporter のインストール
+
+次の手順にしたがって、コンピュータにインストールした、サポートされているバージョンの 3ds Max の Datasmith Exporter プラグインをインストールしてください。
+
+1. マシン上で実行中の Autodesk 3ds Max のインスタンスをすべて終了します。起動しているインスタンスがあると、インストールは失敗します。
+1. 古いバージョンの Datasmith Exporter プラグインが既にインストールされている場合は、あらかじめアンインストールしておくことを推奨します。詳細については、 [3ds Max 用 Datasmith Exporter の削除](#3dsMax用DatasmithExporterの削除) を参照してください。
+1. Exporter プラグインを [「Datasmith Export Plugins」](https://www.unrealengine.com/studio/downloads) ページからダウンロードします。
+1. ダウンロードが完了したら、インストーラーを実行して使用許諾契約に同意し、プロンプトに従います。
+    ![Datasmith Exporter のインストーラー ウィザード](3DS_Install_1.png "Datasmith Exporter のインストーラー ウィザード")
+1. プラグインがまだ Microsoft に登録されていないことが原因のセキュリティ警告が表示される場合があります。**[More info (詳細)]** をクリックします。
+    ![More info (詳細)](unnamed-image-resize546x189.png "More info （詳細）")  
+    **[Run Anyway (このまま実行)]** をクリックします。
+    ![Run anyway (このまま実行)](unnamed-image-resize549x190.png "Run anyway （このまま実行）")
+1. インストーラーは、お使いのシステムにインストールされている Autodesk 3ds Max のバージョンを自動検出します。Datasmith 経由でエクスポートできるようにするバージョンのボックスをオンにして、 **[Install (インストール)]** をクリックします。
+    ![3ds Max のバージョンを選択](3DS_Install_3.png "3ds Max のバージョンを選択")
+
+### 最終結果
+
+Datasmith Exporter プラグインがインストールされ、シーンを 3ds Max から *「.udatasmith」* ファイルとしてエクスポートできるようになりました。詳細については [](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/ExportingDatasmithContentfrom3dsMax) を参照してください。
+
+## 3ds Max 用 Datasmith Exporter の削除
+
+**Unreal Datasmith Exporter for 3ds Max** アプリケーションをお使いのシステムで検出して削除するには、Windows の標準のコントロール パネル ユーティリティを使用してください。
+
+例えば、Windows 10 の場合は **[アプリと機能]** コントロール パネルを使用します。リストにある Datasmith Exporter プラグインのエントリをクリックして、 **[アンインストール]** をクリックします。
+
+[REGION:lightbox]
+[![](uninstall-datasmith-max-plugin-appsfeatures.png)](uninstall-datasmith-max-plugin-appsfeatures.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+または、コントロール パネルの **[プログラムのアンインストールまたは変更]** を使用します。Datasmith Exporter プラグインのエントリを右クリックして、コンテキスト メニューから **[アンインストール]** を選択します。
+
+[REGION:lightbox]
+[![](uninstall-datasmith-max-plugin-uninstallchange.png)](uninstall-datasmith-max-plugin-uninstallchange.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]

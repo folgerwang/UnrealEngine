@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:测试多人游戏
 Crumbs: %ROOT%, Gameplay
@@ -6,6 +6,7 @@ Description:介绍如何设置 Unreal Editor 以测试多人游戏。
 Related: Resources/ContentExamples/Networking
 Version: 4.9
 Parent:Gameplay
+SkillLevel: Advanced
 type:how-to
 order:18
 
@@ -13,6 +14,7 @@ order:18
 
 本页介绍了如何更改编辑器的某些设置，以测试不同的多人场景。 
 
+(#SettingNumberofPlayers)
 ## 设置玩家数量
 
 **增加玩家数量**
@@ -28,6 +30,7 @@ order:18
 ![](PIE.png)
 
 
+(#AdjustingPlayWindows)
 ## 调整游戏窗口
 
 您完全可以使用编辑器的视口作为游戏窗口，但为了清晰起见，使用适用于每位玩家的窗口可能更好。 
@@ -42,6 +45,7 @@ order:18
 
 虽然模拟客户端拥有自己的窗口，但此设置还会模拟服务器创建独立窗口。 
 
+(#AdvancedSettings)
 ## 高级设置
 
 如果您已设置 **Play** 方法以使用新的编辑器窗口，您可能想要调整编辑器窗口的大小。 
@@ -68,6 +72,7 @@ order:18
 当在编辑器中使用每个游戏会话的新窗口玩游戏时，您将注意到每个窗口顶部将显示玩家是服务器玩家还是客户端玩家。同时，在 **Play** 模式下，移动窗口时，
 系统将为您下次在编辑器会话中 **Play** 记住其位置（因此，您无需一直移动窗口，这样使得更简单）。 
 
+(#MultiplayerOptions)
 ### 多人选项
 
 **Advanced Settings** 中还包括用于设置附加多人选项的部分： 
@@ -94,6 +99,7 @@ order:18
 | **Command Line Arguments** | 您可在此分配将传输到独立游戏实例的附加命令行选项。 |
 | **Multiplayer Window Size (in pixels)** | 定义生成附加独立游戏实例时所采用的宽度/高度。 |
 
+(#ListenServervs.DedicatedServer)
 ## 监听服务器与专用服务器
 
 启动多人游戏时，游戏托管方式有两种。第一种方式是通过使用 **Listen Server**（默认设置），这表示拥有权限的机器也可以运行客户端，并可在为其他玩家托管时正常玩游戏。 

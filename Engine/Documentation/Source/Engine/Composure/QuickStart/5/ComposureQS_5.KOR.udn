@@ -62,7 +62,7 @@ tags:Composure
     [/REGION]
 
     [region:note]
-    블루프린트 검색 창의 **Context Sensitivity** (맥락 의존적) 옵션을 꺼 줘야 목록에서 이 노드가 보입니다.
+    블루프린트 검색 창의 **Context Sensitivity** (컨텍스트에 따라) 옵션을 꺼 줘야 목록에서 이 노드가 보입니다.
     
     ![](ComposureQS_S5_4.png)
     [/region]

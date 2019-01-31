@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2841213
+﻿INTSourceChangelist:3108692
 Availability: Public
 Title: 在虚幻 4 中使用 Perforce 作为版本控制软件
 Crumbs: %ROOT%, Engine, Engine\Basics\SourceControl
@@ -16,13 +16,16 @@ version: 4.9
 虚幻引擎 4 已经整合了一个叫做 Perforce 的版本控制软件，以便让大家能够在项目上协同工作。
 版本控制软件能够为团队成员提供一个共享资源和代码的方式，并且还提供了文件的备份以及历史记录查询，这样便能在当有问题发生时将某部分回滚到一个早先的版本上。
 
+(#Workflow)
 ## 工作流程 
 在虚幻编辑器中，对于资源的工作流程基本上都是遵循了 Perforce 的流程。文件，或者叫资源文件（扩展名为 .uasset 和 .umap）是编辑器主要的工作对象。
 由于这些文件是二进制的格式，因此并不能被作为文本文件打开，也不能在文本合并工具中合并。因此，当对一个文件进行改动时，编辑器将会锁定该文件（在 Perforce 中被叫做 **Check Out**），
 这样其他用户就无法对它同时也进行修改。当该用户完成了对这个锁定的文件的修改编辑，则需要签入（check in 或者 commit）那些文件，将文件上传到服务器上，并且释放文件的锁定状态。
 
+(#UsingPerforcewithUnrealEngine4)
 ## 在虚幻引擎 4 中使用 Perforce
 
+(#SettingupaPerforceserveronyourLocalMachine)
 ### 在本地机器上设置 Perforce 服务器
 
 [Region:tip]
@@ -98,13 +101,16 @@ version: 4.9
 
 完成编辑后，点击键盘上的 **Ctrl+S** 保存并退出。命令行应该会提示 **Typemap saved**。
 
+(#ServeronyourLocalNetwork)
 ### 局域网的服务器
 可以在本地局域网中设置一个服务器便于团队成员协同工作。只需要遵循上述的过程搭建服务并在客户端使用该服务器的连接信息即可。
 
+(#CloudProvider)
 ### 云服务商
 有一些云服务商提供了 Perforce 的云端架设服务以便于远程协作。可以先快速浏览以下搜索引擎中的 **Perforce Hosting** 结果。
 每个主机服务商都有些不同，但总的来说都是会提供一组验证信息供你连接。查看下面的 **从虚幻编辑器中连接** 的部分来了解连接到 Perforce 云服务的信息。
 
+(#SettingupaLocalWorkspace)
 ### 设置本地的 Workspace
 要在 Perforce 管理下的文件进行工作，需要在本机设置一个 Workspace 这样 Perforce 才能管理这些文件。
 可以在 P4V 界面的主菜单中，View 菜单下的打开 Workspace 分页然后便能创建 Workspace 了：
@@ -125,6 +131,7 @@ version: 4.9
 如果团队中每个人都准备自己来编译引擎和游戏的话，那么 Binaries 则无需加入到版本管理中，但如果团队中有人只是想获取一个版本就能直接在编辑器中工作的话，则需要把 Binaries 添加上去。
 请留意先前的 server typemap 的设置，能够让程序员们直接重新编译版本而不受在默认的 Perforce 管理配置下这些文件只读属性的限制。
 
+(#AddingFilestoPerforce)
 ### 向 Perforce 添加文件
 
 向 Perforce 添加文件可以通过以下几个步骤完成。
@@ -145,6 +152,7 @@ version: 4.9
 只需要在 P4V 的 Depot 视图中找到相应的项目目录，然后再该项目上 **点击右键** 并选择 **获取最新版本**。
 然后将会根据当前 workspace 的根目录设置来获取该项目的所有文件到本地硬盘中。
 
+(#ConnectingfromUnrealEditor)
 ### 从虚幻编辑器中连接
 可以在编辑器中直接连接 Perforce 服务器，只需点击 **工具栏** 的 **版本控制** 按钮：
 

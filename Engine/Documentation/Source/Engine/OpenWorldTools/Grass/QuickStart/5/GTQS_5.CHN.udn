@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2576221
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 5. 发挥想象
 Crumbs:
@@ -10,12 +10,12 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[Previous Step](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
+	[上一步](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[How-To Home](Engine\OpenWorldTools\Grass\QuickStart "%Engine\OpenWorldTools\Grass\QuickStart:Title%")
+		[指南首页](Engine\OpenWorldTools\Grass\QuickStart "%Engine\OpenWorldTools\Grass\QuickStart:Title%")
 	[/PARAM]
 	[PARAM:next]
 	[/PARAM]

@@ -1,0 +1,209 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 结合使用Datasmith与3ds Max
+Description: 描述在使用Datasmith将场景从Autodesk 3ds Max导入虚幻编辑器时需要特别考虑的因素。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 2
+Tags: Enterprise
+Tags: 3DS Max
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+topic-image:max_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![3ds Max中的V-Ray](max_datasmith_compare_vray.png) 
+	[/PARAM]
+	[PARAM:after]
+	![UE4](max_datasmith_compare_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+*图片由Litrix提供。*
+
+如果你打算使用Datasmith将场景从Autodesk 3ds Max导入虚幻编辑器，除了解[Datasmith概述](Enterprise/Datasmith/Overview)和[Datasmith导入过程简介](Enterprise/Datasmith/Overview/ImportProcess)中介绍的基础知识之外，你还需要了解一些关于Datasmith如何处理场景的额外信息。
+
+## 3ds Max工作流
+
+针对3ds Max，Datasmith使用 **导出插件（Export Plugin）** 工作流。这就是说要使用Datasmith将3ds Max内容导入虚幻，你需要完成以下操作：
+
+1.  安装针对3ds Max的插件。请参阅[安装针对3ds Max的Datasmith导出程序插件](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/InstallingExporterPlugin)。
+2.  将3ds Max内容导出为 *.udatasmith* 文件。请参阅[从3ds Max导出Datasmith内容](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/ExportingDatasmithContentfrom3dsMax)。
+3.  使用Datasmith导入程序将导出的 *.udatasmith* 文件导入虚幻编辑器。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 实例
+
+Datasmith发现3ds Max场景中同一主对象有多个实例时，它仅会为该对象创建一个静态网格体资源，然后将该静态网格体的多个实例放入虚幻引擎中的关卡。这通常更能满足运行时内存要求并确保项目性能，同时由于静态网格体的数量较少，内容管理也变得更加简单。
+
+我们建议尽可能利用这一优势，针对场景中的所有重复元素（例如窗户、门或椅子）使用3ds Max中的实例。
+
+## 支点
+
+在3ds Max中，你可以为场景中的每个对象设置自定义支点，即使这些对象是同一主对象的实例也不列外。Datasmith将对象转换到虚幻引擎时，它会按如下方式处理这些支点。
+
+*   如果3ds Max中的 *所有* 实例具有相同的自定义支点，Datasmith会将该支点设置为创建的静态网格体资源的支点位置。在虚幻引擎关卡中旋转Datasmith为该对象创建的任何静态网格体Actor时，它会按预期围绕该自定义支点的位置旋转。
+*   如果有一个或多个实例使用与其他实例不同的支点位置，Datasmith会在虚幻引擎中将创建的静态网格体资源设置为使用3ds Max对象的默认支点位置。每次需要将该资源放入关卡时，它不会创建静态网格体Actor，而是在该实例的自定义支点位置创建一个新的空父Actor。然后它会为该父Actor提供一个引用静态网格体资源的静态网格体组件，该组件相对于父Actor平移偏移，放置在3D场景中的相应位置。该子组件的后缀名为`_pivot`。
+
+例如，左侧茶壶的盖子顶上有一个自定义支点：
+
+![实例化对象上的自定义支点](InstancedObjectPivotPoint.png "Custom pivot points on instanced objects")
+
+Datasmith将场景导入虚幻引擎时，它会在3D世界场景中的该支点位置创建名为`Teapot002`的新Actor。此Actor获得了一个名为`Teapot002_Pivot`的静态网格体组件，该组件引用了茶壶的静态网格体资源，并相对于父Actor适当偏移，从而显示在场景中相对其他几何体的合适位置：
+
+![表达自定义支点的父Actor](PivotPointSubComponent.png "Parent Actor to represent the custom pivot")
+
+虚幻引擎关卡中的父Actor可以移动、旋转和缩放，模型按预期运行。需要注意的是，在这种情况下，模型是父Actor的 *组件*，其本身不是静态网格体Actor。例如，在上面的示例中，右侧的茶壶在关卡中实例化为静态网格体Actor，而不是具有静态网格体组件的Actor。
+
+[REGION:note]
+Datasmith不支持在3ds Max中设置使用不同支点 *且* 比例不均匀的对象实例。如果你有这样的实例，请在导出之前对其使用 **[重置XForm实用程序（Reset XForm Utility）](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=GUID-B98414B9-4F28-45F4-A1F4-9DA994548ED9)**。
+[/REGION]
+
+## 光源
+
+Datasmith维护着关于3ds Max场景中光源的丰富信息，使虚幻关卡中的光源尽可能接近在3ds Max中设置的光源。
+
+Datasmith可转换各种3ds Max光源类型，包括标准、光度、V-Ray和Corona光源。对于每种光源，它会将以下信息导入虚幻：
+
+*   在3D空间中的位置、方向、形态和尺寸。
+*   光源类型（例如，点光源或聚光源）。
+*   强度、单位、灯的颜色、温度和滤色。
+*   渲染形态可视性。
+*   IES光源描述文件。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![3ds Max](3DS_LightCharacteristics.png) 
+	[/PARAM]
+	[PARAM:after]
+	![虚幻引擎4](UE4_LightCharacteristics.png) 
+	[/PARAM]
+[/OBJECT]
+
+*最上面：具有IES配置文件和开尔文温度的点光源。  
+中间：具有IES配置文件和缩放光源强度的点光源。  
+最下面：带滤色的聚光源。*
+
+但是，每个光源系统会产生不同的效果。虽然Datasmith将光源的位置、类型和属性尽可能不变地导入虚幻引擎，为了达到满意的效果和优化运行时关卡的光照性能，你可能仍需在导入后调整关卡的光源。
+
+使用Datasmith时3ds Max和虚幻引擎的几个显着差异：
+
+*   Datasmith目前不支持光源实例。它会在关卡中为3ds Max中的每个实例化光源创建单独的光源Actor。
+*   3ds Max中的标准光源没有单位，并且允许使用虚幻引擎不支持的自定义衰减参数。
+*   不支持某些V-Ray形态，例如竖直圆柱、椭圆体和自定义网格体光源。
+*   区域光源需要进行特殊处理（见下文）。
+
+### 区域、平面和体积光源
+
+3ds Max支持从2D形态或3D体积发出的某些光源，而这些光源在虚幻引擎中没有精确的对应物。这包括Mental Ray区域光源、V-Ray平面光源、圆盘光源、穹状光源和球形光源等。Datasmith从3ds Max导入一个此类区域光源时，它会使用名为 **DatasmithAreaLightMesh** 的特殊自定义蓝图类来模仿该光源的行为。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![区域光源关闭](max_datasmith_arealightmesh_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![区域光源开启](max_datasmith_arealightmesh_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+此蓝图主要是将自动生成的自发光曲面与点光源或聚光源配对：
+
+*   自发光曲面的作用是表达关卡3D空间中光源的可见物理范围，以及来自其他曲面的反射。  
+    你可以控制该曲面的发光形态、尺寸、颜色和强度。只需在视口或 **世界大纲视图（World Outliner）** 中选择DatasmithActorLightMesh Actor，然后使用 **细节（Details）** 面板中的 **外观（Appearance）** 功能按钮即可。  
+    ![控制发光曲面的形态](max_datasmith_area_light_appearance.png "Controls the shape of the glowing surface")
+*   点光源或聚光源的作用是将实际光源发射到场景中。  
+    光源设置为DatasmithActorLightMesh Actor上的组件。要设置光源的属性，请在视口或 **世界大纲视图（World Outliner）** 中选择DatasmithActorLightMesh Actor，然后在 **细节（Details）** 面板顶部的场景树中选择“点光源组件”或“聚光源组件”：  
+    ![控制发射到其他曲面的光源](max_datasmith_area_light_props.png "Controls the light being emitted onto other surfaces")  
+    有关光源属性的详细信息，请参阅[点光源](Engine/Rendering/LightingAndShadows/LightTypes/Point)和[聚光源](Engine/Rendering/LightingAndShadows/LightTypes/Spot)。
+
+这种设置产生的光源可以显示在场景中，并照亮周围的物体。但是，与离线渲染不同，DatasmithAreaLightMesh发射到关卡中的实际光源是从单个点投射，而不是从整个面投射的。
+
+无论是使用Lightmass烘焙光源还是使用动态光源，自发光曲面当前都不会将任何光源投射到场景中。实际上，只有点光源或聚光源组件在关卡中照亮周围的物体。
+
+## 材质
+
+针对3ds Max场景中的每种材质，Datasmith尝试使用等效着色器图在虚幻引擎项目中创建新的材质，从而在虚幻引擎的实体渲染器中生成同样的效果。
+
+你应该可以很容易地转换具有单个着色模型且图相对简单的材质。例如，以下3ds Max材质可以轻松地转换：
+
+![3ds Max中的简单材质](3DS_SimpleMaterial-resize526x484.png "Simple material in 3ds Max")
+
+如果打开导入的材质资源，你会发现它们的图往往与在3ds Max中的原图略有不同，即使是上述简单材质也是如此。这通常是由于在着色模型之间进行转换造成的：Datasmith尝试尽可能地保留视觉效果，即使有时需要在图中插入额外的连接点或常量也不例外。  
+
+也就是说，3ds Max支持多种不同的材质着色模型，例如V-Ray、Corona、Arnold、Mental Ray等。每个着色模型都是软件中独立的部分，具有自己独特的特性，并不总是彼此一致。有时，Datasmith能够将这些特性转换为虚幻引擎提供的类似特性。例如，如果3ds Max材质使用 *凹凸贴图（bump maps）*，Datasmith会自动将这些贴图转换为 *法线贴图（normal maps）*。
+
+但是，如果着色模型的特性更加复杂，Datasmith就不一定能处理了。对于具有混用多个输出着色器的复杂图的材质，它可能就无法在虚幻中生成等效的效果，例如：
+
+![3ds Max中的复杂材质](3DS_ComplexMaterial.png "Complex material in 3ds Max")
+
+在这些情况下，需要执行一些额外的操作，以便导入后在虚幻编辑器中调整或替换这些材质。
+
+[REGION:note]
+Datasmith不会从3ds Max中转换 **Autodesk材质**。如果将Revit场景导入3ds Max，场景中通常会使用这些材质。你需要在导出到Datasmith之前，在3ds Max中替换这些材质；或在导入场景之后，在虚幻编辑器中替换这些材质。
+[/REGION]
+
+## UV通道
+
+Datasmith始终确保导入虚幻的每个静态网格体都有一组UV，以便在将静态光照构建到光照贴图纹理时供Lightmass使用。导入Datasmith文件时，虚幻引擎会自动创建该UV通道，并将每个静态网格体资源设置为使用该新通道来烘焙光照贴图。
+
+但是，某些情况下，你可能想要在3ds Max中手动创建自定义光照贴图UV，完全控制接缝的位置以及分配给几何体中三角形的相对空间。在这些情况下，你需要了解UV是如何从3ds Max导入虚幻的。
+
+针对每个静态网格体，虚幻引擎支持多达8个UV通道。每当Datasmith将3ds Max中的几何体对象导入虚幻引擎中的静态网格体资源时，它会使用2个UV通道来为该静态网格体生成光照贴图UV。因此，Datasmith可为自3ds Max导入虚幻的每个对象保留多达6个既有UV通道。
+
+但是，在3ds Max中，每个对象最多可以有99个UV通道。因此，Datasmith会按由小而大的顺序排列在3ds Max中找到的通道，将前6个导入虚幻。
+
+例如，下面的3ds Max对象的修改器列表中有5个UV通道。在这些通道中，每个通道关联一个0到99之间的数字。Datasmith导入这5个UV通道之后，会从0开始重置与之关联的数字。这会在虚幻中形成编号为0-4的一组UV通道。最后，导入过程会为自动生成的光照贴图创建2个额外的UV，在本例中编号为5和6。
+
+![3ds Max和虚幻中的UV通道编号](UVChannels_MaxVsUnreal.png "UV channel numbering in 3ds Max and Unreal")(w:500)
+
+下表详细介绍了3ds Max和虚幻之间UV通道编号的关系：
+
+| 3DS Max UV通道 | 产生的虚幻UV通道 | 注 |
+| --- | --- | --- |
+| 1 | 0 | 	3ds Max中的UV通道1分配给虚幻中的UV通道0。|
+| 2 | 1 | 3ds Max中的UV通道2分配给虚幻中的UV通道1。|
+| 3| 2 | 	3ds Max中的UV通道3分配给虚幻中的UV通道2。|
+| 10 | 3 | 3ds Max中的UV通道10分配给虚幻中的UV通道3。|
+| 99 | 4 | 3ds Max中的UV通道99分配给虚幻中的UV通道4。|
+| `--` | 5 | 	在导入期间，会在虚幻中生成UV通道5，以自动解包Datasmith场景中包含的几何体。它是生成UV通道6使用的光照贴图UV的基础。|
+| `--`| 6 | 虚幻中的UV通道6是基于UV通道5生成的，根据用于静态网格体光照贴图分辨率值的数据导入选项，正确填充和打包UV图表。|
+
+
+[REGION:note]
+目前，还无法阻止在导入时创建自动光照贴图UV，或者阻止导入后虚幻中的静态网格体使用自动生成的光照贴图UV。如果要让导入的静态网格体使用从3ds Max导入的既有UV通道，需更改每个静态网格体资源的光照贴图使用的UV通道。
+
+以下操作可以实现目的：
+
+*   在静态网格体编辑器中。在 **细节（Details）** 面板上，展开 **常规设置（General Settings）** 组下的“高级功能按钮”（Advanced controls），然后将 **光照贴图坐标索引（Light Map Coordinate Index）** 设置为要使用的UV通道。
+*   在Python中：调用 `static_mesh.set_editor_property("light_map_coordinate_index", index)`。
+[/REGION]
+
+## 自定义碰撞形态
+
+如果要为3ds Max中的对象进行自定义物理碰撞几何体建模，可以使用特殊的命名规范让Datasmith自动将该几何体指定给其对应的静态网格体资源。Datasmith使用与FBX导入程序相同的命名约定来识别和分配这些特殊的碰撞网格体：  
+
+*   如果场景中存在的凸面几何体对象使用的名称与另一个对象相同，只是在名称中添加前缀`UCX_`，Datasmith会将该`UCX_`对象视为另一个对象的碰撞表达。它只会将另一个对象导入为静态网格体资源；而将前缀为`UCX_`的对象指定为该静态网格体资源的碰撞网格体。  
+    设置为碰撞网格体的对象可以是任何完全闭合的凸面3D形态。例如，框可以是凸面对象。下图说明了什么是凸面，什么不是凸面：  
+    ![凸面和非凸面示例](Convex-resize334x269.gif "Convex and non-convex examples")
+
+## 细节层级
+
+当前，Datasmith还无法导入3ds Max中设置的任何自定义细节层级。但是，你可以在虚幻编辑器中自动生成新的细节层级。有关详细信息，请参阅[自动生成LOD](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration)或[使用蓝图或Python创建细节级别](Engine/Editor/ScriptingAndAutomation/HowTos/CreatingLODs)。
+
+## 转换说明和警告
+
+Datasmith导出3ds Max场景后，它会弹出一个窗口，其中列出在该过程中遇到的所有说明、问题、警告或错误：
+
+![3ds Max转换说明和警告](max_datasmith_conversion_notes.png "3ds Max conversion notes and warnings")
+
+此窗口旨在让你了解场景中所有可能无法完全按预期导入虚幻的元素。
+
+*   其中一些行（例如上图中关于缺少位图的行）指出了源场景中的问题，你可能需要在3ds Max中修复这些问题，然后重新导出到Datasmith。
+*   其他行则告知Datasmith或虚幻引擎不支持的3ds Max中的某些元素，或者Datasmith必须以你不期望的方式转换的元素。
+
+将Datasmith场景导入虚幻编辑器后，如果要查找可能需要清理的转换问题，可以查看该表。

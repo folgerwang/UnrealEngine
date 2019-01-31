@@ -1,169 +1,169 @@
-﻿INTSourceChangelist:2468080
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:1. 所需资源的设置
+Title:1.需要的资源设置
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
-Description:在这个步骤中，我们会设置在项目中使用到的资源。 
+Description:在这一步中，我们将设置在项目中使用的资源。 
+version: 4.9
+tags:Blueprints
+parent:Engine\Blueprints\HowTo
+type:how-to
+type:multi-step
+order:1
 
+[NAV]
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[How-To Home](Engine\Blueprints\HowTo "%Engine\Blueprints\HowTo:Title%")
-	[/PARAM]
-	[PARAM:next]
-	[Next Step](Engine\Blueprints\HowTo\BPHT_2 "%Engine\Blueprints\HowTo\BPHT_2:title%") 
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-在这个页面中，我们会进行一些准备工作，并对稍后在本指南中使用的资源进行设置。 我们会创建一个可破坏的静态网格物体，放置一些生成位置，并创建基础HUD来对玩家显示游戏状态的信息。 
+在这一页上，我们将做一些准备工作，并设置本指南后面需要使用的资源。我们将创建一个可破坏的静态网格体，放置一些生成位置，并创建一个基本的HUD，以向玩家显示有关游戏状态的信息。 
 
 [REGION:note]
-我们在启用了 **Starter Content** （入门内容）的前提下，专为这个教程创建了一个基于 **蓝图第一人称** 模板的新项目。 如果您不确定如何基于模板创建项目，或者如何启用初学者内容，请查看[](Engine/Basics/Projects/Browser)文档以了解关于设置项目的信息。 
+在本指南中，我们在启用 **初学者内容包（Starter Content）** 的情况下基于 **蓝图第一人称（Blueprint First Person）** 模板创建了一个新项目。如果您不确定如何基于模板创建项目或如何启用初学者内容包（Starter Content），请参阅[](Engine/Basics/Projects/Browser)文档了解有关设置项目的信息。 
 [/REGION]
 
-在您创建并打开了项目后，请按下 **Ctrl+N** 来创建 **新关卡** ，并在弹出窗口时选择 **默认值** 。 在您创建了新关卡后，请按照以下步骤来开始设置每个所需的资源。 
+创建并打开项目后，按 **Ctrl+N** 创建一个 **新关卡（New Level）**，并在弹出窗口提示时选择 **默认（Default）**。一旦您创建了一个新的关卡，请按照下面的部分开始设置各个必需的资源。 
 
-## 创建可破坏的静态网格物体
+(#createadestructiblestaticmesh)
 
-让我们首先创建可射击的岩石，它会在被击中后销毁。 
+## 创建可破坏的静态网格体
 
-1.	在 **内容浏览器** 中，打开 **Content/StarterContent/Props** 文件夹。 
+让我们首先创建可射击岩石，当我们击中它时，它将被摧毁。 
 
-1.	在 **Props** 文件夹， **右键点击** **SM_Rock** 并选择 **Create Destructible Mesh** （创建可破坏网格物体）。 
+1.	在 **内容浏览器（Content Browser）** 中，打开 **Content/StarterContent/Props** 文件夹。 
+
+1.	在 **道具（Props）** 文件夹中，**右键单击** **SM_Rock** 并选择 **创建可破坏的网格体（Create Destructible Mesh）**。 
 
 	![](CreateMesh.png)
 
-1.	打开 **SM_Rock_DM** 资源，然后点击工具条中的 **Fracture Mesh** （破裂网格物体）按钮。 
+1.	打开 **SM_Rock_DM** 资源，然后从工具栏单击 **破裂网格体（Fracture Mesh）** 按钮。 
 
 	![](FractureMesh.png)
 
 	[REGION:note]
-	如果您没有在预览窗口中看到岩石，请关闭窗口并再打开一次。 
+	如果在预览窗口中没有看到岩石，则关闭窗口并重新打开它。 
 	[/REGION]
 
-1.	**保存** 并关闭 **SM_Rock_DM** 资源。 
+1.	**保存（Save）** 并关闭 **SM_Rock_DM** 资源。 
 
-1.	**右键点击** **SM_Rock_DM** 资源并选择 **Asset Actions/Create Blueprint Using This...** （资源操作/使用它来创建蓝图...）。 
+1.	**右键单击** **SM_Rock_DM** 资源，然后选择 **资源操作/使用此...创建蓝图（Asset Actions/Create Blueprint Using This...）**. 
 
 	![](CreateBlueprint.png)
 
-	在弹出窗口时，给蓝图起个名称，比如 **BP_Rock** 。 
+	当出现提示时，给蓝图命名，例如 **BP_Rock**。 
 
-1.	在蓝图打开时，点击 **Add Component** （添加组件）按钮，然后添加一个 **Projectile Movement** （射弹移动）组件。 
+1.	当蓝图打开时，单击 **添加组件（Add Component）** 按钮，然后添加一个 **发射物移动（Projectile Movement）** 组件。 
 
 	![](AddProjectile.png)
 
-1.	点击 **射弹移动** 组件，然后在 **详细信息** 中设置 **初始速度** 、 **最大速度** 并把 **X** 的 **速度** 设置为 **1500.00** 。 
+1.	单击 **发射物移动（Projectile Movement）** 组件，然后在 **细节（Details）** 中将 **X** 的 **初始速度（Initial Speed）**、**最大速度（Max Speed）** 和 **速度（Velocity）** 设置为 **1500.00**。 
 
 	![](ProjectileDetails.png)
 
-1.	选择 **可破坏** 组件，然后在 **碰撞** 下的 **详细信息** 面板，勾选 **模拟生成碰撞事件** 选项。 
+1.	选择 **可破坏物** 组件，然后在 **碰撞（Collision）** 下的 **细节（Details）** 面板中，选中 **模拟生成碰撞事件（Simulation Generates Hit Events）** 选项。 
 
 	![](GenerateHits.png)
 
-1.	点击 **编译** 和 **保存** 按钮，然后关闭蓝图。 
+1.	单击 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭蓝图。 
+
+(#placespawnpoints)
 
 ## 放置生成点 
 
-我们现在会在关卡中创建一些生成点，以启动可射击的岩石。 
+现在我们将在要启动可射击岩石的关卡中创建一些生成点。 
 
-1.	在 **模式** 菜单，搜索并添加 **目标点** 到关卡中。 
+1.	从 **模式（Modes）** 菜单中，搜索 **目标点（Target Point）** 并将其添加到关卡。 
 
 	![](AddTargetPoint.png)
 
-1.	选择关卡中的 **对象点** ，并将其 **变换** 设置为如下显示内容。 
+1.	在关卡中选择 **目标点（TargetPoint）**，并设置其 **变形（Transform）**，如下所示。 
 
 	![](TargetPointTransform.png)
 
-	**X** 的 **位置** 为 **7.0m** （其余为0），而 **Y** 的 **旋转** 为 **40.0** （其余为0）。 
+	**X** 的 **位置（Location）** 为 **7.0m、0.0m、0.0m**，**旋转（Rotation）** 为 **0.0、40.0、0.0**。 
 
-1.	在关卡中，在选择了 **目标点** 后，按下 **Ctrl+W** 来复制它，并按如下显示方式来设置其 **详细信息** 值。 
+	[REGION:note]
+	输入7.0m，即可将该值转换为700cm，即等值。检查VR最佳实践（VR Best Practies）页面上的[世界场景比例](Platforms/VR/ContentSetup)部分，因为它给出了如何计算虚幻单位以及如何更改测量值显示方式的细分。 
+	[/REGION]
+
+1.	在关卡中，选择 **目标点（Target Point）**，按下 **Ctrl+W** 复制它并设置其 **细节（Details）**，如下所示。 
 
 	![](Duplicate1.png)
 
-	这样将会把生成点移动到首个生成点的左侧。 
+	这将把生成点移动到第一个生成点的左边。 
 
-1.	按下 **Ctrl+W** 以再次复制 **目标点** ，并按如下显示的方式来设置新目标点的 **详细信息** 。 
+1.	再次按下 **Ctrl+W** 复制 **目标点（Target Point）**，并设置新目标点的 **细节（Details）**，如下所示。 
 
 	![](NewDuplicate.png)
 
-	现在您在玩家起始位置处有了3个生成点（控制器图标和方向由蓝色箭头来指示）。 
+1.	在关卡中选择 **玩家出生点（PlayerStart）**，然后按下 **E** 进入 **旋转（Rotation）** 模式，旋转它以使其面对目标点。 
 
 	![](TargetPointsAdded.png)
 
+	您现在将有三个生成点在玩家出生点对面（蓝色箭头指示控制器图标和方向）。 
+
+
+(#creatingahud)
 
 ## 创建HUD
 
-在设置的最后，需要我们创建基础HUD，从而进行信息通信。 
+最后一部分的设置需要我们创建一个基本HUD来与之通信。 
 
-1.	在 **内容浏览器** 的空白处， **右键点击** 并选择 **User Interface/Widget Blueprint** （用户接口/控件蓝图）。 
+1.	在 **内容浏览器（Content Browser）** 中的空白空间内，**右键单击** 并选择 **用户界面/控件蓝图（User Interface/Widget Blueprint）**。 
 
 	![](CreateWidgetBlueprint.png)
 
-	**控件蓝图** 指的是用来创建HUD元素的、与 **Unreal Motion Graphics UI** （虚幻运动图形UI）共同使用的蓝图类型。 
+	**控件蓝图（Widget Blueprint）** 是一种与用于创建HUD元素的 **虚幻运动图形UI（Unreal Motion Graphics UI）** 一起使用的蓝图类型。 
 
 	[REGION:note]
-	请查看 [](Engine/UMG) 以获得更多信息。 
+	请参阅[](Engine/UMG)了解更多信息。 
 	[/REGION]
 
-1.	在提示时，将其命名为 **HUD** 并打开。 
+1.	收到提示时，将其命名为 **HUD**，然后打开它。 
 
-1.	在 **面板** 下的 **Palette** 窗口中，把 **Vertical Box** （垂直框体） 拖曳到 **Hierarchy** （层次结构） 窗口的 **CanvasPanel** 中。 
+1.	在 **面板（Panel）** 下的 **调色板（Palette）** 窗口中，将一个 **垂直方框（Vertical Box）** 拖动到 **层级（Hierarchy）** 窗口中的 **画布面板（CanvasPanel）** 上。 
 
 	![](AddVerticalBox.png)
 
-1.	另外在 **面板** 菜单下，拖曳 **Horizontal Box** （水平框体）到 **Hierarchy** （层次结构）窗口中的 **Vertical Box** （垂直框体）。 
+1.	此外，在 **面板（Panel）** 下，将一个 **水平方框（Horizontal Box）** 拖动到 **层级（Hierarchy）** 窗口中的 **垂直方框（Vertical Box）** 上。 
 
 	![](AddHorizontalBox.png)
 
-1.	在 **Palette** 下的 **Common** （通用）部分，拖曳两个 **Text** （文本）控件到 **Hierarchy** （层次结构）窗口中的 **Horizontal Box** （水平框体）。  
+1.	在 **调色板（Palette）** 中的 **通用（Common）** 部分中，将两个 **文本（Text）** 控件拖动到 **层级（Hierarchy）** 窗口中的 **水平方框（Horizontal Box）** 上。  
 
 	![](AddTextBlocks.png)
 
-1.	选择 **Hierarchy** （层次结构）窗口中的 **Vertical Box** （垂直框体），然后在 **详细信息** 面板中点击 **Anchors** （定位点）并选择以下显示的内容。 
+1.	在 **层级（Hierarchy）** 窗口中选择 **垂直方框（Vertical Box）**，然后在 **细节（Details）** 面板中，单击 **锚点（Anchors）** 并选择其中一个锚点，如下所示。 
 
 	![](AnchorSelected.png)
 
 	[REGION:note]
-	无论屏幕大小如何， **Anchor** （定位点）都会锁定指定位置的UI元素（请参见[](Engine/UMG/UserGuide/Anchors)以了解更多信息）。 
+	**锚点（Anchor）** 将把UI元素锁定到指定位置，而不论屏幕大小如何（请参阅[](Engine/UMG/UserGuide/Anchors)了解更多信息）。 
 	[/REGION]
 
-1.	在选择了 **Vertical Box** （垂直框体）后，将其移动到屏幕右侧并对其进行缩放，使文本能够显示。 
+1.	选择 **垂直方框（Vertical Box）** 后，将其移动到屏幕右侧并重新调整其大小，以便显示文本。 
 
 	![](MovedWidget.png)
 
-1.	点击框体中显示的最左侧的文本，然后在 **Text** （文本）下的 **Details** （详细信息）面板中输入 **Pulls :** 。 
+1.	单击框中最左边显示的文本，然后在 **文本（Text）** 下的 **细节（Details）** 面板中输入“Pulls:”。 
 
 	![](EnterText1.png)
 
-1.	对于其它文本，在 **Text** （文本）域中输入 **10** 。 
+1.	对于其他文本，为其 **文本（Text）** 字段输入“10”。 
 
 	![](EnterText2.png)
 
-	这个文本就是我们基于游戏状态在稍后进行通信和更新的内容。 
+	此文本是我们稍后会根据游戏状态进行通信和更新的内容。 
 
-1.	在 **Hierarchy** （层次结构）窗口， **右键点击** 并 **复制** **Horizontal Box**（水平框体），然后将其粘贴到 **Vertical Box** （垂直框体）上。 
+1.	在 **层级（Hierarchy）** 窗口中，**右键单击** 并 **复制（Copy）** **水平方框（Horizontal Box）**，然后将其粘贴到 **垂直方框（Vertical Box）** 顶部。 
 
-1.	重复之前的步骤，这样目前在 **Vertical Box** （垂直框体）下会有三个 **Horizontal Box**（水平框体），而文本会如下方那样显示。 
+1.	重复上一个步骤，从而使 **垂直方框（Vertical Box）** 下有三个 **水平方框（Horizontal Box）**，且文本显示如下。 
 
 	![](AddedBoxes.png)
 
-1.	更新其它文本域内容为 **Shots** （设置为 **3** ）和 **Score** （设置为 **0** ），并点击 **编译** 按钮。  
+1.	更新其他文本字段至“射击次数（Shots）”（设置为“3”）和“分数（Score）”（设置为“0”），并单击 **编译（Compile）** 按钮。  
 
 	![](UpdateText.png)
 
-1.	**编译** 并 **保存** 您的蓝图，然后关闭 **HUD Widget Blueprint** （HUD控件蓝图）。 
+1.	**编译（Compile）** 并 **保存（Save）**，然后关闭HUD控件蓝图。 
 
-现在我们的资源设置就完成了。 在下一步中，我们会对 **Character Blueprint** （角色蓝图）进行一些小小的变更，从而确保游戏中的可玩角色进行了正确设置。 
-
-
+现在，我们的资源已设置完毕。在下一步中，我们将对 **角色蓝图（Character Blueprint）** 做一些小改动，以确保可操作角色能够在游戏中正确设置。 
 
 
-
+[NAV]

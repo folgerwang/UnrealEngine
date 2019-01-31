@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3151855
+﻿INTSourceChangelist:4677050
 Availability:Public
 Title: 平台开发
 Crumbs:%ROOT%
@@ -8,50 +8,34 @@ version: 4.9
 parent:%ROOT%
 order:8
 type:landing
+topic-icon:%ROOT%/platform_icon.png
 
-[VAR:Params]
-[PARAM:image]
-	![%Platforms:title%](%ROOT%/placeholder_topic.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/platform_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Platforms:title%
-[/PARAM]
-[PARAM:description]
-	%Platforms:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Platforms]
-[/PARAM]
-[/VAR]
+(#Mobile)
+## 移动平台
 
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
+[DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Mobile" org:"hierarchy")]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
+(#VirtualReality)
+## 虚拟现实平台
 
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-platforms
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+[DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"VR" tags:"Platform" org:"hierarchy")]
 
+(#Desktop)
+## 台式机平台
 
-## 平台
+[DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Desktop" org:"hierarchy")]
 
-[DIR(end:"2" output:"listbutton" type:"landing" parent:"Platforms" org:"hierarchy")]
+[PUBLISH:licensee]
+(#Console)
+## 主机平台
+
+[DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Console" org:"hierarchy")]
+[/PUBLISH:licensee]
+
+(#CloudDeployment)
+## 云部署
+
+%Platforms/PixelStreaming:topic%
 
 ## 平台工具
 

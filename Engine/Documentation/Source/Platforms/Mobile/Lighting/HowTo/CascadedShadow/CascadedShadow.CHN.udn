@@ -1,113 +1,104 @@
-﻿INTSourceChangelist:3019695
+﻿INTSourceChangelist:4378815
 Availability:Public
-Title:使用级联阴影
+Title: 使用级联阴影
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
-Description:设置移动游戏的级联阴影。
+Description:为移动游戏设置级联阴影。
 Platform:Mobile
-Related:Platforms/Mobile/Performance
-Related:Platforms/Mobile/Textures
-Related:Engine/Rendering/Materials/CustomizedUVs
-Related:Engine/Rendering/Materials/MaterialProperties/BlendModes
-Related:Engine/Rendering/Materials/ExpressionReference/Utility
-version:4.12
+Related: Platforms/Mobile/Performance
+Related: Platforms/Mobile/Textures
+Related: Engine/Rendering/Materials/CustomizedUVs
+Related: Engine/Rendering/Materials/MaterialProperties/BlendModes
+Related: Engine/Rendering/Materials/ExpressionReference/Utility
+version: 4.20
 parent:Platforms/Mobile
 order:3
 type:overview
 tags:mobile
 
-### 启用动态级联阴影贴图
+静止定向光源可用于为场景中的动态对象投射动态级联阴影贴图（CSM）。使用CSM阴影时，动态对象上的阴影将与场景中静态对象投射的预计算的阴影正确混合。
 
-如要在 UE4 移动项目中使用动态级联阴影贴图，需要执行以下步骤。
+在此操作指南中，我们将为关卡中的特定对象设置CSM。
 
-1. 打开 **Project Settings**，然后前往 **Engine** > **Rendering** >  **Mobile** 部分，启用 **Enable Combined Static and CSM Shadowing**。 
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562 h:310)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
-	[/region]
+![](CascadedShadows_HeroImage.png)
 
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
+## 步骤
 
+[REGION:note]
+**必要设置：**CSM仅在场景中有定向光源的情况下有效。如果没有，请添加一个并确保选中它。要了解构建简单的房间以及向其中添加光照的步骤，请参阅[光照快速入门指南](Engine/Rendering/LightingAndShadows/QuickStart)。
+[/REGION]
 
-1. 场景中存在 **定向光照** 时，CSM 才能正常使用。如不存在定向光照，请添加并选中。然后在 **Transform** 部分下将 **Mobility** 设置设为 **Stationary**。
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
-	[/region]
+1.选中场景中的定向光源。然后在 **变换（Transform）** 部分下，请确保 **可移动性（Mobility）** 设置已设置为 **静止（Stationary）**。
+   [REGION:lightbox]
+   [![CSM_Setup_01](CSM_Setup_01.png)(w:640)](CSM_Setup_01.png)
+   [/REGION]
+   [REGION:caption]
+   单击查看大图。
+   [/REGION]
+1.在仍然选中定向光源的情况下，转至 **细节（Details）** 面板并找到 **级联阴影贴图（Cascaded Shadows Maps）** 部分。调整定向光源的以下属性。
+   [REGION:lightbox]
+   [![CSM_Setup_02](CSM_Setup_02.png)(w:640)](CSM_Setup_02.png)
+   [/REGION]
+   [REGION:caption]
+   单击查看大图。
+   [/REGION]
 
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
+   | 属性名称 | 值 |
+   |---|---|
+   | **动态阴影距离静止光源（Dynamic Shadow Distance Stationary Light）** | 2,000 |
+   |** 动态阴影级联数量（Num Dynamic Shadows Cascades）** | 1 |
 
-1. 保持选中定向光照，前往 **Details** 面板中的 **Cascaded Shadows Maps** 部分，调整定向光照的下列属性。
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
-	[/region]
+[REGION:note]
+以上设置为建议设置。可针对项目进行变更，对数值进行试验，实现最佳效果。
+[/REGION]
 
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
+1.在当前发行版中，所有静态网格体的默认设置中都启用了CSM。但是，对于不需要CSM的网格体，可以将其关闭。要关闭CSM，选中无需启用CSM的网格体。在 **细节（Details）** 面板的 **移动（Mobile）** 部分下，单击以取消选中 **接收CSM阴影（Receive CSM Shadows）** 的复选框。
+   ![](CascadedShadows_Steps_MobileSectionReceiveCSMShadows.png)
 
-	* **Dynamic Shadow Distance Stationary Light:**2,000
-	* **Num Dynamic Shadows Cascades:**1
-	* **Insert Shadows For Movable Objects:**False
-	[region:note]
-	以上设置为建议设置，可针对项目进行变更，对数值进行试验，实现最佳效果。 
-	[/region]
+1.在 **主工具栏** 中，将 **运行模式（Play Mode）** 更改为 **移动预览（Mobile Preview）** 并按 **运行（Play）** 按钮以启动关卡。
+   
+[REGION:tip]
+如“移动预览（Mobile Preview）”窗口未显示，需查看其是否已在“虚幻编辑器”窗口的后面启动。
+[/REGION]
 
-1. 在项目的关卡中选择需要接收 CSM 的静态网格体，然后在 **Mobile** 部分下的 **Details** 面板中启用 **Receive Combined Static and CSM Shadows from Stationary Lights** 选项。
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
-	[/region]
+[REGION:lightbox]
+[![](CSM_Setup_04.png)(w:640)](CSM_Setup_04.png)
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]
 
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
+[REGION:note]
+以下视频展示了 **接收CSM阴影（Receive CSM Shadows）** 设置的作用。在此视频中，已为构成地面的静态网格体开启了 **接收CSM阴影（Receive CSM Shadows）** 设置，但为构成楼梯的静态网格体关闭了该设置。注意，玩家角色在地面上时拥有阴影，但在楼梯上时却没有阴影。这是因为地面的 **接收CSM阴影（Receive CSM Shadows）** 设置处于启用状态，而楼梯的该设置处于禁用状态。
 
-	[region:note]
-	以下视频展示了 Receive Combined Static and CSM Shadows from Stationary Lights（从静态光照接收组合静态和 CSM 阴影）选项的作用。在此视频中，构成地面的静态网格体已开启该选项，但构成楼梯的静态网格体却并未开启。注意：玩家在地面上时拥有阴影，但在楼梯上时却没有阴影。这是因为地面已开启 Receive Combined Static and CSM Shadows from Stationary Lights 选项，而楼梯却未开启。
+如要使放置在环境中的静态网格体的阴影在角色上投射阴影，需要将静态网格体的 **移动性（Mobility）** 设置从 **静态（Static）** 更改为 **可移动（Movable）**。
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	nrGejxSnJwI
-	[/PARAMLITERAL]
-	[/OBJECT]
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    nrGejxSnJwI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-	[/region]
+[/REGION]
 
-1. 在 **主工具栏** 中，将 **Play Mode** 设为 **Mobile Preview**，然后按下 **Play** 按钮启动关卡。
+## 最终结果
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800 h:400)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
-	[/region]
+关卡成功启动后，将角色放置在拥有静态阴影的位置；进出阴影时，角色的动态阴影将和关卡中的烘焙阴影进行无缝混合，如下图所示。
 
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
-
-	[region:tip]
-	如 Mobile Preview 窗口未显示，需要查看其是否在虚幻编辑器窗口之后启动。
-	[/region]
-
-1. 关卡成功启动后，将角色放置在拥有静态阴影的位置；进出阴影时，角色的动态阴影将和关卡中的烘焙阴影进行无缝混合，如下图所示。
-	
-	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262 h:281)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
-	[/REGION]
-
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
-
-	[region:note]
-	如要使放置在场景中的静态网格体的阴影在角色上投射阴影，须将静态网格体的 **Mobility** 设置从 ***Static** 改为 **Movable**。
-	[/region]
+[REGION:lightbox]
+[![](CSM_Final_Result.png)(w:640)](CSM_Final_Result.png)
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]

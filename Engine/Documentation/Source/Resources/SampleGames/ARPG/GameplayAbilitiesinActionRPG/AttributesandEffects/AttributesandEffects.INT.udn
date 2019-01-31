@@ -1,0 +1,26 @@
+Availability: Public
+Crumbs: 
+Title: Attributes and Effects In ARPG
+Description: Taking a look at how attributes and effects are used in ARPG.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 1
+Tags: 
+
+
+The first step to using the ability system in Action RPG (ARPG) is to enable the **GameplayAbilities** Plugin and then create an **Attribute Set** class. Abilities are only supported in a C++ game because Attribute Sets must be a C++ subclass of **UAttributeSet**. **URPGAttributeSet** defines attributes for **current/max health** and **mana**, **attack** and **defense** **buffs**, **movement** **speed**, and a **temporary** **damage** attribute used in the damage formula. Each of these attributes is defined as an **FGameplayAttributeData** structure, which stores a **Base value** that is only modified by permanent changes and a **Current value** which is modified by temporary buffs/debuffs. The class uses some macros to add boilerplate code to handle modification and replication of these attributes. Since ARPG is relatively straightforward there is only one AttributeSet however for some games it may make more sense to have a Core set that is shared by players and enemies and a Player set that inherits from **Core** and includes extra attributes only used by players.
+
+Before attributes are modified, the **PreAttributeChange** function handles scaling the current health/mana with the max value. After attributes are modified, the **PostGameplayEffectExecute** function handles clamping and notifying other objects about the changes. In ARPG all characters inherit from an **RPGCharacterBase** class that offers Blueprint Events to handle things like taking damage. The constructor for **RPGCharacterBase** is responsible for creating the **URPGAbilitySystemComponent** and **URPGAttributeSet** subobjects that enables gameplay effects to work. Depending on the game it may make more sense to handle this in your game-specific **AbilitySystemComponent** subclass or controller. Also, you may wish to spawn **AttributeSets** or **AbilitySystemComponents** when an Actor is first interacted with to avoid object overhead.
+
+Before damage can be applied, a character needs to have **Health > 0**. There are several ways to initialize default values for attributes, but for ARPG we decided to initialize them using a **Stats GameplayEffect**. The Stats gameplay effect is applied in  **ARPGCharacterBase::AddStartupGameplayAbilities** where it reads the list of **PassiveGameplayEffects** from the character Blueprint and applies them, at the current **CharacterLevel**. If **CharacterLevel** changes, it removes and re-adds them at the new level. Here is what the **GE_StatsBase** gameplay effect used for NPCs looks like inside the Unreal Engine 4 (UE4) editor:   
+
+![](ARPG_AttributesAndEffects_01.png "ARPG_AttributesAndEffects_01.png")
+
+The **Instant duration** means that this is applied permanently precisely one time. Then for each of the primary stats, there is an **Attribute Modifier** that overrides the value based on a **CurveTable**. **StartingStats** is imported from a **CSV** in **Abilities/DataTables** and has a row for each stat and a column for each level. In this case, it will look at the **DefaultMaxHealth** row, and the column will be **CharacterLevel**. The **GE_PlayerStats** effect inherits from this generic effect and changes all the rows to be **PlayerMaxHealth** and so forth. By using Curve Tables in this way, it is easy to rebalance attributes for the entire game at once, without having to modify each individual effect by hand. You can also set up scripts outside the game to create **CSV** or **JSON** files from external data sources like **Excel** and import those as needed.
+
+Mana is changed using simple **Modifiers** with the **Add** operation, but to do damage, the **RPGDamageExecution** class is used. The execution calculations consist of two parts, a set of capture declarations and an execution function. The capture declaration macros register information with the UE4 Editor, so Gameplay Effects can use the execution in your project. For each captured attribute, the list of currently active temporary modifiers is captured along with their gameplay tags. Then in **URPGDamageExecution::Execute_Implementation** it applies only those modifiers that match the Gameplay Tags that were passed in at effect execution time. After combining those modifiers to get a “calculated” number for **Damage**, **AttackPower**, and **DefensePower**, it turns that into “final” damage using the formula **SourceDamage * AttackPower / DefensePower**. The final damage then turns into a Health modifier in **URPGAttributeSet::PostGameplayEffectExecute**. Here is what **GE_DamageBase** looks like:  
+
+![](ARPG_AttributesAndEffects_02.png "ARPG_AttributesAndEffects_02.png")
+
+The Damage done comes from the **DefaultAttack** row in **AttackDamage**, but you can also apply a per-attack multiplier by changing the 1.0 scale to the left of the Curve Table reference. The **Source/Target** tags allow setting the **Require/Ignore** tags for filtering, in this case, the damage will not be applied if the target has the tag **Status.DamageImmune**. Each individual attack subclasses **GE_DamageBase** and modifies the tags or modifiers as needed.

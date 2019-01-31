@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.2 -通过全局矢量场来驱动粒子动作
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.2 - 通过全局矢量场驱动粒子运动
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
-Description:特效库示例关卡概述。
+Description:概述效果库示例关卡。
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Related: Engine/Rendering/ParticleSystems/Overview
 Related: Engine/Rendering/ParticleSystems/Reference
@@ -9,56 +10,19 @@ Related: Engine/Rendering/ParticleSystems/Optimization
 Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
 Related: Engine/Rendering/ParticleSystems/ParticleLights
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_B\2_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_B\2_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:2_BTopic.png
 
 [REGION:fullwidth]
 ![](image050.png)
 [/REGION]
 
 
-全局矢量场与上一例中的本地矢量场类似，但全局矢量场并不是发射器内的模块，而是可以按您所需来放置在关卡内，进行位置配置和编辑的Actor。和本地矢量场一样，GPU粒子仅在其位于场内时受矢量场的力的影响。
+ **全局矢量场（Global Vector Field）** 类似于前一个示例中的局部矢量场，但它不是发射器内部的模块，而是一个Actor，您可以将其放置在关卡中，并根据需要对其进行定位和编辑。就像在局部矢量场中时一样，GPU粒子只有在矢量场的体积内才会受到矢量场的力的影响。 
 
-如需对其进行设置，您必须把矢量场放置到您的关卡中并添加一个全局矢量场模块到您的发射器中。完成了！
+若要设置它，您只需在关卡中放置一个矢量场体积，并向发射器添加一个全局矢量场（Global Vector Field）模块。如此即可！
 
-在本例中，您可以选择关卡中的矢量场(VectorFieldVolume1)并将其沿着Y轴移动。当粒子在场中穿行时，它们的运动会受场的影响。
+在本例中，您可以选择关卡中的矢量场(VectorFieldVolume1)并沿着Y轴移动它。当粒子通过矢量场时，它们的运动会受到矢量场的影响。
 
 ![](image052.png)
 

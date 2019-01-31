@@ -1,59 +1,20 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:第三人称
 Crumbs:%ROOT%
 Description:诸多场景实例、游戏实例和教程的链接。
 Navigation:topic
 Version:4.9
+topic-image:TP_ThirdPersonBP_Preview.png
 
-
-[VAR:Params]
-[PARAM:image]
-	![](TP_ThirdPersonBP_Preview.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Resources/Templates/ThirdPerson:title%
-[/PARAM]
-[PARAM:description]
-	%Resources/Templates/ThirdPerson:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Resources/Templates/ThirdPerson]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-resources
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
-
-![](templateMore.png)(convert:false)
+![](templateMore.PNG)(convert:false)
 
 如果您已经使用 **第三人称模板** 开始新游戏，那就再好不过啦！如您希望了解特定操作的指南，或者从零开始了解无限的创造可能，均可在此文档中寻找灵感。
 
 * 在 **蓝图可视化脚本（Blueprints Visual Scripting）** 系统上 [研读](Engine/Blueprints) 并 [观看视频](Videos)。有时重点不在于结果，而在于执行的方式。即使您最后将在 C++ 中进行工作，了解蓝图也有助于快速将灵感转化为原型。
 * 使用 [虚幻动态图形](Engine/UMG) 为第三人称游戏 [创建 HUD](Engine/UMG/QuickStart)。
 * 为什么不在场景中添加一些可破坏模型呢？在 [可破坏 Actor 文档](Engine/Physics/Destructibles) 和 [](Engine/Blueprints/HowTo) 中查看操作方法！
-* 可通过 [行为树](Gameplay/AI/BehaviorTreeQuickStart) 为游戏添加 **AI 角色**，使其追逐、逃离、帮助或伤害玩家。
+* 可通过 [行为树](Engine/AI/BehaviorTrees/QuickStart)为游戏添加 **AI 角色**，使其追逐、逃离、帮助或伤害玩家。
 	* **奖励提示**：在 **ThirdPersonCharacter** 和全新 **AI 角色** 上实现 [破坏](Engine/Blueprints/UserGuide/Events#eventanydamage)，并设置这二者均可 [摧毁](Engine/Blueprints/UserGuide/Events#eventendplay) 对方。在 [](Gameplay/HowTo/SpawnAndDestroyActors/Blueprints) 指南中有该操作的详细内容。
 	* **双倍奖励提示**：参考 [](Gameplay/HowTo/CharacterMovement/Blueprints) 指南，为 AI 和 **ThirdPersonCharacter** 设置更多移动选项！
 * 如果玩家角色会被杀死，那么是否需要重生选项？请查阅 [重生玩家](Gameplay/HowTo/RespawnPlayer/Blueprints) 指南。
@@ -73,11 +34,4 @@ resources
 	* 程序化内容
 	* 覆盖系统
 
-[COMMENT:none]
 
-
-* 使用 [级联粒子编辑器](Engine/Rendering/ParticleSystems/Cascade) 创建表现枪口火舌的 [粒子效果](Engine/Rendering/ParticleSystems)！然后使用 [粒子系统组件](Engine/Components/Rendering#particlesystemcomponent)，将其添加到 **ThirdPersonCharacter** 蓝图，并在 **InputAction Fire** 事件中启用组件。
-	* 奖励提示：为 **FirstPersonProjectile** 添加一个粒子系统组件，使其获得烟雾拖尾的效果。在 [此处](Engine/Rendering/ParticleSystems/Reference/Modules/Required) 查找 **Use Local Space** 属性。
-
-
-[/COMMENT]

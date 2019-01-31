@@ -1,4 +1,5 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:1.6 - 单独半透明
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Materials
 Description:材质实例示例关卡概述，示例1.6： 单独半透明
@@ -13,50 +14,16 @@ Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/MaterialProperties
+Version: 4.9
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_6:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![无后期效果的单独半透明](MP_1_6_001.png)(h:400)
 	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_6:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_6:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_6]
+	[PARAM:after]
+	![带景深的单独半透明](MP_1_6_002.png)(h:400)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_6:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_6:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_6:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_6]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-<div align="center">
-![](MP_1_6_001.png)(h:350) ![](MP_1_6_002.png)(h:350)
-</div>
 
 单独描画半透明对象。**Separate Translucency** （单独半透明）着色器将不受 **Depth of Field** （景深）的影响。
 

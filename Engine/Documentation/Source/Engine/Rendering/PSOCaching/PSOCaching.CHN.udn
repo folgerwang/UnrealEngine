@@ -1,0 +1,45 @@
+﻿INTSourceChangelist:4678589
+Availability: Public
+Crumbs: 
+Title: PSO缓存
+Description: 管线状态对象（PSO）缓存工具有助于缩短其加载虚幻引擎4（UE4）关卡和内容所花的时间。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering
+Order: 
+Tags: Rendering
+Tags: Graphics
+
+
+![](PSO_Caching_Header.png "PSO_Caching_Header.png")
+
+**管线状态对象**（PSO）缓存工具可用于减轻虚幻引擎4关卡加载内容块时出现的卡顿。以下页面包含在UE4项目中编译和使用PSO数据的大量相关信息。
+
+(#psocachingoverview)
+
+## PSO缓存总览
+
+PSO缓存的原理是首先创建UE4项目中使用的[材质](Engine/Rendering/Materials)所需要的所有着色器的一个列表。此列表将用于加快UE4项目首次遭遇这些着色器时的编译进程。这又有助于减少材质需要编译新着色器时项目可能出现的卡顿。以下信息图说明了PSO缓存系统在UE4中的工作原理。
+
+[REGION:lightbox]
+[![](PSO_Caching_Digramh.jpg)](PSO_Caching_Digramh.jpg)
+[/REGION]
+[REGION:caption]
+点击查看全图。
+[/REGION]
+
+(#guides)
+
+## 指南
+
+%Engine/Rendering/PSOCaching/GatheringPSOData:topic%
+%Engine/Rendering/PSOCaching/EnablingBuildingPSOCaching:topic%
+%Engine/Rendering/PSOCaching/CompilingUsingPSOCachingData:topic%
+%Engine/Rendering/PSOCaching/BuildingPSOCache:topic%
+%Engine/Rendering/PSOCaching/BuildingUE4ProjectWithPSOCaching:topic%
+
+(#reference)
+
+## 参考
+
+%Engine/Rendering/PSOCaching/PSOReference:topic%

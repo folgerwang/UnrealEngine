@@ -3,7 +3,7 @@ Crumbs: %ROOT%
 Title:Rigid Body
 Description:Describes the Rigid Body node and how it can be used as a lightweight physics simulation inside Animation Blueprints. 
 Type:reference
-Version: 4.18
+Version: 4.20
 Parent:Engine/Animation/NodeReference/SkeletalControls
 Order:1
 tags:Animation
@@ -21,7 +21,7 @@ Characters using this simulation can also generate collision with static geometr
 
 ![](RigidBodyNode.png)
 
-A typical use case for the Rigid Body node is on characters that have ponytails, chains, or other bones that "dangle" that you want to apply physics to. 
+A typical use case for the **Rigid Body** node is on characters that have ponytails, chains, or other bones that "dangle" that you want to apply physics to. 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -45,7 +45,19 @@ A typical use case for the Rigid Body node is on characters that have ponytails,
 Above, the hoses coming out of the character's head have a Physics Asset that is used with the Rigid Body node inside an Animation Blueprint. 
 [/REGION]
 
-## Setup
+## Input and Output Pins
+
+The table below outlines the available input and output pins along with a definition of the pins usage. 
+
+![](RigidBodyPins.png)
+
+| Pin | Description |
+| --- | --- |
+| **External Force** | Applies a uniform external force in World Space. For example, this allows for easily faking inertia of movement while still simulating in component space. |
+| **Component Pose** | Takes in a Pose in Component Space and Outputs a Pose in Component Space. |
+| **Alpha** | Current strength of the Skeletal Controls.|
+
+## Example RigidBody Node Setup
 
 Before using this node, inside your [Physics Asset](Engine/Physics/PhAT) select and set the [](Engine/Physics/PhysicsBodies) you want to simulate to **Simulated**. 
 
@@ -60,12 +72,12 @@ With your **Physics Asset** set up, inside the **AnimGraph** of your **Animation
 ![](RigidBody_11.png)
 
 [REGION:caption]
-Above, we are taking in data from another Animation Blueprint and feeding it through the Rigid Body node before ending in our Final Animation Pose. 
+Above, we are taking in data from another Animation Blueprint and feeding it through the **Rigid Body** node before ending in our Final Animation Pose. 
 [/REGION]
 
 With the Rigid Body node selected in your AnimGraph, you can change properties that define how the node is used inside the **Details** panel. 
 
-![](RigidBody_12.png)
+![](RigidBodyDetails.png)
 
 | Property | Description |
 | -------- | ----------- |
@@ -80,3 +92,32 @@ With the Rigid Body node selected in your AnimGraph, you can change properties t
 
 [INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 
+## Using Joints as a Base for Simulation
+
+As of engine version 4.20, the **RigidBody** node supports any joint as a base for simulation by setting **Simulation Space** to **Base Bone Space** and selecting a bone to use as the **Base Bone Ref**. One thing to note however, moving the entire Skeletal Mesh and individually modifying the Base Bone will have no affect on velocities. 
+
+Below is an example of using the **RigidBody** node and simulating from an assigned Base Bone for a weapon. 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	xjWqVQT3DoU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## Resetting Dynamics
+
+The **RigidBody** node also supports **Reset Dynamics**. To use this, get the Anim Instance from a Skeletal Mesh in Blueprint and use the function call, **Reset Dynamics** to reset the simulation. 
+
+![ResetDynamics](ResetDynamics.png)

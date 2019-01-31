@@ -1,125 +1,442 @@
-﻿INTSourceChangelist:1917101
-Availability:Public
-Title:颜色分级
-Crumbs: %ROOT%, Engine, Engine/Rendering, Engine/Rendering/PostProcessEffects
-Description:调整场景颜色所需的色调映射和颜色校正效果
+INTSourceChangelist:3801260
+Availability: Public
+Crumbs: %ROOT%
+Title:颜色分级和胶片色调映射器
+Description:用于调整场景颜色的色调映射器和颜色校正效果。
+Type: Overview
+SkillLevel:Beginner
+Version:4.16
+Parent:Engine/Rendering/PostProcessEffects
+related:Engine/Rendering/PostProcessEffects/UsingLUTs
+Order:4
+Tags:Post Process
+Topic-image:ColorGrading_Overview.png
+Social-image:ColorGrading_Overview.png
 
-在虚幻引擎中，术语 **颜色分级** 包含了 **色调映射** 功能(从HDR到LDR的转换)和进一步的 **颜色校正** 功能(从LDR颜色到屏幕颜色的转换)。
+[TOC(start:2 end:3)]
 
+![](ColorGrading_Overview.png)
+[REGION:caption]颜色分级工具使您能够更改场景的视觉效果和色调，例如本文中使用不同场景颜色显示场景的示例。[/REGION]
+
+在虚幻引擎中，**颜色分级**一词涵盖了[高动态范围（HDR）显示输出](Engine/Rendering/HDRDisplayOutput)使用的色调映射功能（HDR到LDR转换），
+并改进了图像的颜色校正（用于筛选颜色变换的LDR颜色）处理。
+
+(#tonemapping)
 ## 色调映射
 
 [EXCERPT:ToneMapping_Desc]
-**色调映射** 函数的功能是把大范围的HDR(高动态范围的)颜色映射为小范围的LDR(低动态范围)颜色，以便显示器可以显示该颜色。 这个过程是在后期处理过程中正常渲染之后完成的。 全局色调映射器是一个具有3个输入(RGB)和三个输出(RGB)的函数。 局部色调映射器也会在计算时将邻近像素作为计算因素，但其运算强度会更高(意味着处理速度更慢)。 一个良好的色调映射器函数即使像素颜色非常亮，也会尝试保留该像素的颜色。
+**色调映射** 功能的目的是将广泛的高动态范围（HDR）颜色映射到显示器能够输出的低动态范围（LDR）。这是后期处理的最后一个阶段，
+经过法线渲染后，这个过程在后期处理期间执行。您可以将色调映射的过程想象成一种模拟胶片对光线的反应的方法。 
 [/EXCERPT:ToneMapping_Desc]
 
-以下图表显示了范围从由0到5的每个通道是如何映射到新的0到1的范围的：
+(#academycolorencodingsystem(aces)filmictonemapper)
+### 学院色彩编码系统（ACES）胶片色调映射器
 
-![Tone Mapping Graphs](newtone.jpg)
+[REGION:note]
+从虚幻引擎4.15版本开始，胶片色调映射器作为默认色调映射器启用。之前开发的任何内容可能会因为这项更改而呈现不同的效果。要使用旧色调映射器， 
+可以输入以下控制台命令：
 
-这是使用的函数：
-
-	GammaColor = LinearColor / (LinearColor + 0.187) * 1.035;
-
-注意明亮的颜色渐渐地变得更亮，但是要比暗颜色变亮的程度小得多。 黑色部分仍然是黑色，并且曲线会有一个几乎呈线性的部分会比没有进行色调映射的曲线更加陡峭。 那会导致对比度的提高。 当使用色调映射器时这是正常的，并且会获得一个不同的外观，因而为了获得更好的效果，源图片需要在亮度上更加具有动态性(更高的HDR)。 这样就可以呈现出更加真实的电影般的效果。
-
-现在呈现的色调映射器公式已经有了两个可调整的常量，如有更多的数学公式将可进行进一步的调整，但是找到一个好用的函数并不像达到我们所需的质量/便携性/性能那么简单。 我们决定坚持使用简单的公式，并使用简单的颜色查找来修改得到的LDR颜色。 因为我们已经把HDR颜色映射到了一个有限范围内，所以我们可以获得许多暗色表现方式，并且我们仍可以修改明亮的颜色。 这个方法是很容易理解的，它在局部控制上提供了很大的灵活性，以及几乎稳定不变的性能。 
-
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Scene Color Tint** （场景着色）| 被应用为HDR场景颜色的过滤器颜色（乘积）。 [INCLUDE:#SceneColorTint] |
-| **Tonemapper Toe Factor** （色调映射器末端因数）| 启用对色调映射器中暗色的修改。 该值的范围是[0.0, 1.0]。 [INCLUDE:#TonemapperToeFactor] |
-
-[COMMENT:none]
-
-[EXCERPT:SceneColorTint]
-[REGION:imagetable]
-| ![Scene Color Tint - (1.0, 1.0, 1.0)](scene_tint_full_small.png)(w:390) | ![Scene Color Tint - (0.25, 0.25, 0.25)](scene_tint_quarter_small.png)(w:390)
-| ------ | ------ |
-| (1.0, 1.0, 1.0) | (0.25, 0.25, 0.25) |
+	r.TonemapperFilm 0
+	
+输入以下内容，可以使用最接近“旧”色调映射器的色调映射器属性值：
+* **斜面（Slope）：**0.98
+* **末端（Toe）：**0.3
+* **肩部（Shoulder）：**0.22
+* **黑色调（Black Clip）：**0
+* **白色调（White Clip）：**0.025
 [/REGION]
-[/EXCERPT:SceneColorTint]
 
-[EXCERPT:TonemapperToeFactor]
-[REGION:imagetable]
-| ![Toe Factor - 0](toe_factor_0_small.png)(w:390) | ![Toe Factor - 1](toe_factor_1_small.png)(w:390)
-| ------ | ------ |
-| 0.0 | 1.0 |
+UE4中使用的胶片色调映射器符合[学院色彩编码系统（ACES）](http://www.oscars.org/science-technology/sci-tech-projects/aces)针对电视和电影 
+设定的行业标准。这样可确保在多种不同的格式和显示器之间保持颜色一致，同时确保源资料在未来的可用性，因为不必针对未来出现的 
+每种介质进行调整。该胶片色调映射器还使用UE4之前使用的相同全局色调映射器，唯一不同的是现在有一种胶片反应，意味着S形曲线现在能更好地模拟
+生胶片来打造更优质的总体外观。 
+
+有明显不同的两个地方分别是泛光和曝光度。
+
+(#physicallycorrectemissiveandbloom)
+#### 物理更正自发光和泛光
+
+现在，自发光值在物理上是正确的，因此随着自发光率的增大，颜色会变浅，类似于彩色光在真实世界中的工作原理。颜色经过色调映射后，如果最终颜色
+足够量，能够开始让胶片/传感器变得饱和，颜色就会变白。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![胶片色调映射器 | 自发光](Bloom_FilmicToneMapper.png)(w:700)
+	[/PARAM]
+	[PARAM:after]
+	![旧色调映射器 | 自发光](Bloom_OldToneMapper.png)(w:700)
+	[/PARAM]
+[/OBJECT]
+
+
+
+该示例对比的是“旧”色调映射器和新的胶片色调映射器。自发光率足够大时，颜色开始变白，这与旧色调映射器不同，旧版的值会
+变得过度饱和，导致材质区域失去细节。在胶片色调映射器中，您甚至可以看到，该场景中的泛光保持其物理上的正确度，同时 
+也不会过度饱和，从而保留反射原色值。
+
+(#exposurelevels)
+#### 曝光度
+
+曝光度在物理上是正确的，因此颜色仍保持其原有的形状，而不是失去细节。
+
+![](Exposure_Default.png)(w:500)
+
+在该示例中，有多种颜色和材质类型以及不同的粗糙度和金属感。曝光偏差也设置为0。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![胶片色调映射器 | 曝光偏差：3](Exposure_FilmicToneMapper.png)(w:700)
+	[/PARAM]
+	[PARAM:after]
+	![旧色调映射器 | 曝光偏差：3](Exposure_OldToneMapper.png)(w:700)
+	[/PARAM]
+[/OBJECT]
+
+在这个比较中，曝光偏差已经增加到值3，因此真实地展现了胶片色调映射器与“旧”色调映射器实现相比较的反应。此外，值3也意味着，经过处理的图像亮度是默认值0的八倍，如以上示例所示。
+
+随着曝光度的增加，胶片和“旧”色调映射器之间的差异会变得越来越明显。胶片示例中的球体会继续保持其颜色和阴影的形状，即使它们看起来似乎更明亮一些。使用“旧”色调映射器的球体的颜色将开始与阴影混合起来。纯色球体确实会变得明亮，但你很难辨别出它们有较高的曝光值，而胶片色调映射器考虑了这一点。如果增大曝光值，胶片反应看起来就像一个自然的镜头效果。
+
+(#tonemappersettings)
+### 色调映射器设置
+
+在后期处理体积的 **色调映射器（Tone Mapper）** 部分中，您会看到与ACES标准化生胶片相符的属性。您可以调节这些色调映射器控制，为项目模拟出其他类型的生胶片效果。 
+
+[REGION:note]
+建议在项目范围内对这些属性进行更改来打造特定的效果，而不是动态更改或逐个镜头的更改。相反，您应使用 
+[颜色分级](#colorcorrectionproperties)属性进行任何艺术效果调整。
 [/REGION]
-[/EXCERPT:TonemapperToeFactor]
 
-[/COMMENT]
-
-## 颜色校正
-
-[EXCERPT:LookupTexture]
-颜色校正是通过查找表(LUTs)来完成的。 我们决定不使用3个1维的查找表格而是使用单个3维的查找表格，因为这为我们提供了更加复杂的颜色转换(比如,颜色冲淡)。 以下图片显示了16x16x16中性色LUT (查找表)展开为一个256x16的贴图(正如当前在贴图浏览器中看到的这个贴图)：
+![](ToneMapperProperties.png)(w:500)
 
 [REGION:raw]
-![Neutral LUT](RGBTable16x1.png)
+| 属性 | 说明 |
+| -------- | ----------- |
+| [REGION:tablesection] 色调映射器[/REGION] ||
+| **斜面（Slope）** | 该属性调整用于色调映射器的S曲线的坡度，值越大，斜坡越陡（越深），值越小，斜坡越平缓（越浅）。值在范围[0.0, 1.0].[0.0, 1.0]。[INCLUDE:#slopetable]  |
+| **末端（Toe）** | 该属性调节色调映射器中的深色。值在范围[0.0, 1.0].[0.0, 1.0]。[INCLUDE:#toetable] |
+| **肩部（Shoulder）** | 该属性调节色调映射器中的亮色。值在范围[0.0, 1.0]中 [INCLUDE:#shouldertable] |
+| **黑色调（Black Clip）** | 该属性设置当黑色开始截断其值时发生交叉的位置。一般来说，**不应** 调整该值。该值在范围[0.0, 1.0]中 [INCLUDE:#blackcliptable] |
+| **白色调（White Clip）** | 该属性设置当白色开始开始截断其值时发生交叉的位置。在大多数情况下会呈现出细微变化。该值在范围 [0.0, 1.0] 中 [INCLUDE:#whitecliptable] |
 [/REGION]
 
 [REGION:note]
-您可以使用本页面的RGBTable16x1.png图片，但不要进行复制和粘贴，因为屏幕上显示的图片并不一定代表源图像。 
-
-* [LUT Texture Example](RGBTable16x1.png) -右键点击并 **另存为**
-
+如果您想像上图一样在实时图表中测试不同的色调映射器值，可以设置默认[UE4色调映射器示例](https://www.desmos.com/calculator/h8rbdpawxj)。
 [/REGION]
 
-修改后的贴图可能如下所示：
+
+[COMMENT:none]
+- 色调映射器属性摘录---
+
+
+[EXCERPT:slopetable]
+| [INCLUDE:#slopegraph] | [INCLUDE:#slopeimage] |
+| --- | --- |
+||
+[/EXCERPT:slopetable]
+
+[EXCERPT:toetable]
+| [INCLUDE:#toegraph] | [INCLUDE:#toeimage] |
+| --- | --- |
+||
+[/EXCERPT:toetable]
+
+[EXCERPT:shouldertable]
+| [INCLUDE:#shouldergraph] | [INCLUDE:#shoulderimage] |
+| --- | --- |
+||
+[/EXCERPT:shouldertable]
+
+[EXCERPT:blackcliptable]
+| [INCLUDE:#blackclipgraph] | [INCLUDE:#blackclipimage] |
+| --- | --- |
+||
+[/EXCERPT:blackcliptable]
+
+[EXCERPT:whitecliptable]
+| [INCLUDE:#whiteclipgraph] | [INCLUDE:#whiteclipimage] |
+| --- | --- |
+||
+[/EXCERPT:whitecliptable]
+
+---------------------------------
+
+[EXCERPT:slopegraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Slope:0.88（默认值）](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Slope:0.6](Slope_0_6.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:slopegraph]
+
+[EXCERPT:slopeimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Slope:0.88（默认值）](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Slope:0.6](SlopeToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:slopeimage]
+
+------------------------------
+
+[EXCERPT:toegraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Toe:0.55（默认值）](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Toe:0.8](Toe_0_8.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:toegraph]
+
+[EXCERPT:toeimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Toe:0.55（默认值）](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Toe:0.8](ToeToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:toeimage]
+
+-----------------------------
+
+[EXCERPT:shouldergraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Shoulder:0.26（默认值）](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Shoulder:1](Shoulder_1.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:shouldergraph]
+
+[EXCERPT:shoulderimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Shoulder:0.26（默认值）](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Shoulder:1](ShoulderToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:shoulderimage]
+
+-----------------------------
+
+[EXCERPT:blackclipgraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Black Clip:0（默认值）](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Black Clip:0.1](BlackClip_0_1.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:blackclipgraph]
+
+[EXCERPT:blackclipimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Black Clip:0（默认值）](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Black Clip:0.1](BlackClipToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:blackclipimage]
+
+-----------------------------
+
+[EXCERPT:whiteclipgraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![White Clip:0.04（默认值）](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![White Clip:0.2](WhiteClip_0_2.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:whiteclipgraph]
+
+[EXCERPT:whiteclipimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![White Clip:0.04（默认值）](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![White Clip:0.2](WhiteClipToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:whiteclipimage]
+
+--- 色调映射器属性摘录结束 -
+[/COMMENT]
+
+
+(#colorcorrection)
+## 颜色校正
+
+颜色校正或颜色分级用于变更或增强场景的总体照明颜色。随着HDR显示器的出现，在处理前保持颜色
+原有的色彩变得非常重要。这样可确保正确显示颜色。  
+
+在过去，颜色校正是通过[查找表（LUT）](Engine/Rendering/PostProcessEffects/UsingLUTs)实现的，而LUT使用的是LDR，显示器上输出的最终颜色 
+使用的是sRGB颜色空间。这在使用HDR显示器时会存在问题，因为LUT只是当前支持的、调节参数时所针对的显示器的一个快照，
+不能在HDR显示器上呈现相同的效果。为解决这类问题，[颜色校正控制](#colorcorrectionproperties)在场景引用的线性空间中完成其工作， 
+这意味着所有颜色都是先捕捉，再进行色调映射。这样就可以根据任何颜色校正仅调节一个HDR显示器上的颜色，然后在输出图像的所有显示器都能正确显示， 
+而无论是HDR还是LDR均无影响。
+
+[REGION:note]
+如需进一步了解HDR管道以及如何有效利用以为您创造更优质内容的信息，请参阅[高动态范围显示输出](Engine/Rendering/HDRDisplayOutput)页面。
+[/REGION]
+
+(#colorcorrectionproperties)
+### 颜色校正属性
+
+在后期处理体积的 **颜色分级** 部分中，您会找到能够对场景进行更多艺术效果控制的属性。 
+
+(#settings)
+#### 设置
+
+[REGION:imagetable]
+| ![](RGBColorWheel.png)(w:500) | ![](HSVColorWheel.png)(w:500) |
+| --- | --- |
+|RGB|HSV|
+[/REGION]
+
+在每个部分下面，您可以使用色轮来选择和拖动颜色值。您还可以在以下模式中选择：
+
+* RGB——该选项调节红色、绿色、蓝色值。
+* HSV——该选项调节色调和饱和度值。
+
+[REGION:tip]
+要更精准地控制滑块值，可以按住 **Shift** 键，同时拖动滑块。
+[/REGION]
+
+![](ColorGradingProperties.png)(w:500)
 
 [REGION:raw]
-![Sepia Tone LUT](LUT_Sepia.png)
+| 属性 | 说明 |
+| -------- | ----------- |
+| [REGION:tablesection] 白平衡 [/REGION] | 该部分中的属性用于调节场景中的颜色，以便白色呈现出真正的白色。这样在指定光照条件下，能够正确照亮场景中的其他颜色。|
+| **色温（Temp）** | 该属性调节与场景中的光线温度有关的白平衡。光线温度与该属性匹配时，光线呈现为白色。使用的值高于场景中的光线时，会产生“暖色”或黄色，相反，如果值低于场景光线，则产生“冷色”或蓝色。|
+| **色调（Tint）** | 该属性通过调节青色和洋红色范围来调整场景的白平衡温度色调。理想状态下，调节白平衡 **色温（Temp）** 属性后应使用该设置来获得正确的颜色。在某些光线温度下，颜色可能会看起来更黄或更蓝。该属性可以用于平衡所产生的颜色，让颜色看起来更自然一些。|
+| [REGION:tablesection] 全局 [/REGION] | 该部分中的属性是您可以用于场景的一组全局颜色校正。|
+| **饱和度（Saturation）** | 该属性调整所表现的颜色（色调）的强度（纯度）。饱和度越高，颜色看起来越接近原色（红色、绿色、蓝色），饱和度降低时，颜色的灰色或褪色效果变得明显。|
+| **对比度（Contrast）** | 该属性将调节场景中光线和深色值的色调范围。降低强度会去除高亮，让图像显得更亮，营造出一种褪色效果，而强度提升会加强高亮，让整体图像变暗。|
+| **伽马（Gamma）** | 该属性将调节图像中间色调的亮度以准确重现颜色。降低或增大该值会让图像呈现出褪色或过暗的效果。|
+| **增益（Gain）** | 该属性调节图像白色（高亮）的亮度以准确重现颜色。增大或降低该值会让图像呈现出褪色或过暗的效果。|
+| **偏移（Offset）** | 该属性将调节图像黑色（阴影）的亮度以准确重现颜色。增大或降低该值会让图像阴影呈现出褪色或过暗的效果。|
+| **场景颜色色调（Scene Color Tint）** | 这是一个应用于HDR场景颜色的滤色贴图的乘数。|
+| **颜色分级LUT强度（Color Grading LUT Intensity）** | 一种控制颜色校正效果的比例因子。|
+| **颜色分级LUT** | 用作颜色校正的查找表的LUT纹理。[INCLUDE:Engine/Rendering/PostProcessEffects/ColorGrading#ColorGradingLUT] |
+| [REGION:tablesection] 阴影 [/REGION] | 该部分中的属性用于调整场景中阴影的颜色校正值。|
+| **Saturation** | 该属性调整所表现的颜色（色调）的强度（纯度）。饱和度越高，颜色看起来越接近原色（红色、绿色、蓝色），饱和度降低时，颜色的灰色或褪色效果变得明显。|
+| **对比度（Contrast）** | 该属性将调节场景中光线和深色值的色调范围。降低强度会去除高亮，让图像显得更亮，营造出一种褪色效果，而强度提升会加强高亮，让整体图像变暗。|
+| **伽马（Gamma）** | 该属性将调节图像的亮度以准确重现颜色。增大或降低该值会让图像中间色调呈现出褪色或过暗的效果。|
+| **增益（Gain）** | 该属性调节图像白色（高亮）的亮度以准确重现颜色。增大或降低该值会让图像呈现出褪色或过暗的效果。|
+| **偏移（Offset）** | 该属性将调节图像黑色（阴影）的亮度以准确重现颜色。增大或降低该值会让图像阴影呈现出褪色或过暗的效果。|
+| **最大阴影（Shadows Max）** | 这是影响 **阴影** 部分中已经调整的颜色校正属性的属性乘数。|
+| [REGION:tablesection] 中间色调 [/REGION] | 该部分中的属性用于调整场景的中间色调的颜色校正值。|
+| **饱和度（Saturation）** | 该属性调整所表现的颜色（色调）的强度（纯度）。饱和度越高，颜色看起来越接近原色（红色、绿色、蓝色），饱和度降低时，颜色的灰色或褪色效果变得明显。|
+| **对比度（Contrast）** | 该属性将调节场景中光线和深色值的色调范围。降低强度会去除高亮，让图像显得更亮，营造出一种褪色效果，而强度提升会加强高亮，让整体图像变暗。|
+| **伽马（Gamma）** | 该属性将调节图像的亮度以准确重现颜色。增大或降低该值会让图像中间色调呈现出褪色或过暗的效果。|
+| **增益（Gain）** | 该属性调节图像白色（高亮）的亮度以准确重现颜色。增大或降低该值会让图像呈现出褪色或过暗的效果。|
+| **偏移（Offset）** | 该属性将调节图像黑色（阴影）的亮度以准确重现颜色。增大或降低该值会让图像阴影呈现出褪色或过暗的效果。|
+| [REGION:tablesection] 高亮 [/REGION] | 该部分中的属性用于调整场景的高亮部分的颜色校正值。|
+| **饱和度（Saturation）** | 该属性调整所表现的颜色（色调）的强度（纯度）。饱和度越高，颜色看起来越接近原色（红色、绿色、蓝色），饱和度降低时，颜色的灰色或褪色效果变得明显。|
+| **对比度（Contrast）** | 该属性将调节场景中光线和深色值的色调范围。降低强度会去除高亮，让图像显得更亮，营造出一种褪色效果，而强度提升会加强高亮，让整体图像变暗。|
+| **伽马（Gamma）** | 该属性将调节图像的亮度以准确重现颜色。增大或降低该值会让图像中间色调呈现出褪色或过暗的效果。|
+| **增益（Gain）** | 该属性调节图像白色（高亮）的亮度以准确重现颜色。增大或降低该值会让图像呈现出褪色或过暗的效果。|
+| **偏移（Offset）** | 该属性将调节图像黑色（阴影）的亮度以准确重现颜色。增大或降低该值会让图像阴影呈现出褪色或过暗的效果。|
+| **最小高亮（HighLights Min）** | 这是影响 **阴影** 部分中已经调整的颜色校正属性的属性乘数。|
 [/REGION]
 
-为使用LUT（查找表）,您需要在您要使用的后期处理体积中分配LUT贴图。 
 
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Color Grading Intensity** (颜色分级强度)| 控制颜色校正效果的缩放因数。 |
-| **Color Grading LUT** （颜色分级查找表）| 用于颜色校正查找表的LUT贴图。 [INCLUDE:Engine/Rendering/PostProcessEffects/ColorGrading#ColorGradingLUT] |
+(#workflowforgoodcolorcorrection)
+### 良好颜色校正的工作流
+
+在使用后期处理体积中的颜色分级工具时，应培养一些好的使用习惯。 
+
+* **色调映射器** 控制应针对项目范围外观进行设置。理想状态下，这些属性不应调整，更不应动态调整或逐个镜头的调整。 
+如有需要，可以使用[颜色分级](#colorcorrectionproperties)属性。
+
+* 首先使用 **全局** 颜色校正属性对场景进行初始总体润色，然后再调整任何其他属性。大部分颜色分级更改应该使用 
+这些属性来完成。
+
+* 不应尝试使用 **增益（Gain）** 属性来调节场景曝光度。该属性应该用于针对不同颜色进行微调。请改为使用 **曝光偏差（Exposure Bias）**，这个选项位于 **镜头（Lens）** > 
+**自动曝光（Auto-Exposure）** 部分中。
+
+* 使用较小的 **偏移（Offset）** 让阴影或暗色区域显得更明亮一些。如果希望事物看起来有些模糊或泛光效果，可以设置更大的值，反之， 
+如果场景过于模糊或泛光过多，可以降低该值，从场景中剔除一些颜色。
+
+* 改为使用[查找表（LUT）](Engine/Rendering/PostProcessEffects/UsingLUTs)来为场景着色，该操作发生在色调映射之后，因此应使用颜色分级属性 
+实现您想要的效果，以保持在所有输出显示器（LDR和HDR）上呈现一致的效果。但是，使用LUT设置色调，然后调整颜色校正来获得相似效果， 
+也是快速实现效果的好方法。
+
+
+(#trainingstreams)
+## 培训视频
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	A-wectYNfRQ
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	50
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+
+
+
 
 [COMMENT:none]
 
 [EXCERPT:ColorGradingLUT]
 [REGION:imagetable]
-| ![Natural Scene](lut_none.png)(w:265) | ![Greenish Scene](lut_green.png)(w:265) | ![Reddish Scene](lut_red.png)(w:265) |
+| [INCLUDE:#colorgradingnone] | [INCLUDE:#colorgradinggreen] | [INCLUDE:#colorgradingred] |
 | ------ | ------ | ------ |
-| ![Neutral LUT](RGBTable16x1.png) | ![Greenish LUT](LUT_Greenish.png) | ![Reddish LUT](LUT_Reddish.png) |
+| ![中性LUT](RGBTable16x1.png) | ![偏绿LUT](LUT_Greenish.png) | ![偏红LUT](LUT_Reddish.png) |
 [/REGION:imagetable]
 [/EXCERPT:ColorGradingLUT]
 
+[EXCERPT:colorgradingnone]
+[REGION:lightbox]
+[![中性色调场景](lut_none.png)(w:300)](lut_none.png)
+[/REGION]
+[REGION:caption]单击查看大图。[/REGION]
+[/EXCERPT:colorgradingnone]
+
+[EXCERPT:colorgradinggreen]
+[REGION:lightbox]
+[![偏绿场景](lut_green.png)(w:300)](lut_green.png)
+[/REGION]
+[REGION:caption]单击查看大图。[/REGION]
+[/EXCERPT:colorgradinggreen]
+
+[EXCERPT:colorgradingred]
+[REGION:lightbox]
+[![偏红场景](lut_red.png)(w:300)](lut_red.png)
+[/REGION]
+[REGION:caption]单击查看大图。[/REGION]
+[/EXCERPT:colorgradingred]
+
 [/COMMENT]
-
-### LUT贴图创建
-
-流程如下：
-
-1. 获得您想调整的场景的具有代表性的屏幕截图，把它们放到一个Photoshop文档中。
-1. 加载中性色的 256x16 LUT到Photoshop中。
-
-	[REGION:note]
-	您可以使用本页面的RGBTable16x1.png图片，但不要进行复制和粘贴，因为屏幕上显示的图片并不一定代表源图像。 
-
-	* [LUT Texture Example](RGBTable16x1.png) -右键点击并 **另存为**
-
-	[/REGION]
-
-1. 把LUT插入到具有屏幕截图的Photshop文档中（在LUT文档中选择所有，复制，切换到屏幕截图文档，粘帖)。
-1. 应用颜色处理操作(最好通过添加调整层来实现，否则您需要提前使得所有东西都变平，这会使得稍后的256x16大小的图片裁剪变得更加复杂 )。
-1. 选择该256x16 LUT (在图层面板中选择LUT层，菜单:选择/加载 , 确定)。
-1. 复制已合并的LUT内容。（菜单：编辑/复制已合并内容）。
-1. 以引擎可以读取的某种非压缩格式粘帖并保存该256x16的贴图。(菜单：文件/新建，菜单：编辑/粘贴，菜单：文件/另存为）。
-1. 在编辑器中导入该贴图，然后定义ColorLookupTable贴图组。 
-
-
-可以进行各种颜色校正。 这里有几个示例：
-
-* Brightness(亮度)
-* Saturation(饱和度)
-* 简单的对比度(具有区间限定的线性变化)
-* 较高质量的对比度(比如，在中间部分具有比较陡峭的线性部分的曲线)
-* 选择性地修改图片的暗处、中间色调及亮处区域(比如，曲线)
-* 选择性地修改特定的颜色(从亮度处于单独通道的某些颜色空间内，展现的效果最佳，比如LAB)
-* 调整甚至可以在不同的颜色空间内进行(比如，LAB可以使得亮度和颜色独立，这是非常有用的)。 
-
-[/EXCERPT:LookupTexture]

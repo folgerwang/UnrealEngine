@@ -16,7 +16,7 @@ topic-image:ActorLocking_Topic.png
 
 ## 뷰포트의 액터 파일럿
 
-뷰포트의 액터 파일럿을 위해서는, 액터에 우클릭한 다음 맥락 메뉴에서 **Pilot** (파일럿)을 선택합니다.
+뷰포트의 액터 파일럿을 위해서는, 액터에 우클릭한 다음 컨텍스트 메뉴에서 **Pilot** (파일럿)을 선택합니다.
 
 ![](PilotActorViewport.png)(w:700)
 

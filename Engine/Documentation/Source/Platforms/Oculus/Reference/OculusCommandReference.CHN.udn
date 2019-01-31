@@ -1,33 +1,74 @@
-﻿INTSourceChangelist:3622862
-Availability:Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Crumbs: %ROOT%
-Title:Rift 命令参考
-Description:Rift 可使用的诸多命令。
-Type:Reference
-Version:4.17
-Parent:Platforms/Oculus
-Order:2
-Tags:VR
-Tags:Platform
+Title: Rift命令参考
+Description: Rift可使用的诸多命令。
+Type: Reference
+Version: 4.17
+Parent: Platforms/Oculus
+Order: 2
+Tags: VR
+Tags: Platform
 topic-image:oculus_command_reff.png
 
-以下部分包含诸多 INI 和控制台命令，可用于调整 UE4 和 Oculus Rift 相互互动的方式。 
+以下部分包含诸多INI和控制台命令，可用于调整UE4和Oculus Rift相互互动的方式。 
+
+
  
+[COMMENT:none]
 
-## Oculus Rift VR Mirror 模式
+(#oculusriftvrmirrormode)
 
-VR 镜像（VR Mirror）是视口窗口的名称，这个视口能使非 VR 用户看到 VR 用户看到的景象。使用 Oculus Rift 时，可使用几种方式修改 VR 镜像的显示方式。以下命令可用来修改 VR 镜像模式的显示方式，以及 VR 镜像所显示出的效果。
+## Oculus Rift VR镜像模式
+
+VR镜像是视口窗口的名称，其能使非VR用户看到VR用户眼中的景象。使用Oculus Rift时，可通过几种方式修改VR镜像的显示方式。以下命令可用于修改VR镜像模式的显示方式，以及VR镜像所显示出的效果。
 
 [REGION:note]
-按下重音符 **`** 键打开 UE4 控制台，然后输入 **VR.MirrorMode** 和以下数字，即可输入命令。
+按下重音符 **`** 键打开UE4控制台，然后输入 **VR.MirrorMode** 和以下数字，即可输入以下命令。
 [/REGION]
 
 
 |命令|描述|图像|
 |-----------|-------------------|----------------|
-|VR.MirrorMode 0|禁用 VR 镜像|N/A|
+|VR.MirrorMode 0|禁用VR镜像|N/A|
 |VR.MirrorMode 1| 不带变形的单眼显示。|[REGION:lightbox][![](Rift_VRMode_1.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
 |VR.MirrorMode 2| 不带光学变形的双眼立体显示。|[REGION:lightbox][![](Rift_VRMode_2.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
-|VR.MirrorMode 3| 带光学变形和 Guardian 边界的双眼显示。|[REGION:lightbox][![](Rift_VRMode_3.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
+|VR.MirrorMode 3| 带光学变形和Guardian边界的双眼显示。|[REGION:lightbox][![](Rift_VRMode_3.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
 |VR.MirrorMode 4| 立体单眼显示。|[REGION:lightbox][![](Rift_VRMode_4.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
 |VR.MirrorMode 5| 宽银幕单眼显示。|[REGION:lightbox][![](Rift_VRMode_5.png)(w:160)](Rift_VRMode_1.png)[/REGION]|
+
+[/COMMENT]
+
+
+|命令|描述|
+|-----------|-------------------|
+|**vr.oculus.bHQBuffer**|启用/禁用将浮点纹理格式用于眼睛层。|
+|**vr.oculus.bHQBuffer**|启用/禁用将多个mipmap等级用于眼睛层。|
+|**vr.oculus.bUpdateOnRenderThread**|启用/禁用渲染线程上的更新。|
+|**vr.oculus.Debug.bShowStats**| 启用或禁用统计数据的渲染。|
+|**vr.oculus.Debug.CaptureCubemap**| 采集一张Oculus Home的立方体贴图。可选参数（所有数字参数皆默认为零）：xoff= 从原点的-X轴偏移 yoff= -Y轴偏移 zoff=-Z轴偏移 yaw= -- 查看的方向（roll和pitch固定为零） gearvr -- 生成一张GearVR格式立方体贴图（采集的立方体高度为1024像素，而非2048像素）。|
+|**vr.oculus.Debug.EnforceHeadTracking**| 设为开启后则强制进行头部追踪，即使未在立体模式中也同样如此。|
+|**vr.oculus.Debug.FCP**|显示或覆盖当前的远剪切平面。|
+|**vr.oculus.Debug.IPD**|显示或修改当前的瞳孔间距（米）。|
+|**vr.oculus.Debug.NCP**|显示或覆盖当前的近剪切平面。|
+|**vr.oculus.Debug.Reset**|将诸多立体渲染参数重设为原始设置。|
+|**vr.oculus.Debug.Show**|显示诸多立体渲染参数的当前值。|
+|**vr.oculus.PixelDensity**|像素密度将渲染目标纹理尺寸设为推荐纹理尺寸的一个因子。因其可能稍大于原生分辨率，将PixelDensity设为1.0与将r.ScreenPercentage设为100并不相同|
+|**vr.oculus.PixelDensity.adaptive**|启用或禁用自适应像素密度。|
+|**vr.oculus.PixelDensity.max**|自适应像素密度启用时的最大像素密度。|
+|**vr.oculus.PixelDensity.min**|自适应像素密度启用时的最小像素密度。|
+|**vr.oculus.ShowGlobalMenu**|打开全局菜单。|
+|**vr.oculus.ShowQuitMenu**|打开退出菜单。|
+|**vr.oculus.Stress.CPU**|开始CPU压力测试。用法：vr.oculus.Stress.CPU [PerFrameTime [TotalTimeLimit]]|
+|**vr.oculus.Stress.GPU**|开始GPU压力测试。用法：vr.oculus.Stress.GPU [LoadMultiplier [TimeLimit]]|
+|**vr.oculus.Stress.PD**|开始像素密度压力测试，像素密度按每TotalTimeLimit秒一帧的频率变化。用法：vr.oculus.Stress.PD [TotalTimeLimit]|
+|**vr.oculus.Stress.Reset**|重设压力测试器并停止当前运行的所有压力测试。用法：vr.oculus.Stress.Reset|
+
+
+
+
+
+
+
+
+

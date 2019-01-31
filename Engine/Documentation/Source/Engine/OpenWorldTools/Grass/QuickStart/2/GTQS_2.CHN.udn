@@ -1,7 +1,8 @@
-﻿Availability:Public
-Title:2. 草地工具的Actor创建和设置
+﻿INTSourceChangelist:3807090
+Availability:Public
+Title:2.草地工具Actor创建和设置
 Crumbs:
-Description: 如何为草地工具创建和设置所需的Actors
+Description:如何为草地工具创建和设置所需的Actor
 Navigation:topic
 SkillLevel:Intermediate
 Version: 4.8
@@ -14,42 +15,47 @@ Version: 4.8
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[How-To Home](Engine\OpenWorldTools\Grass\QuickStart "%Engine\OpenWorldTools\Grass\QuickStart:Title%")
+		[快速入门主页](Engine\OpenWorldTools\Grass\QuickStart "%Engine\OpenWorldTools\Grass\QuickStart:Title%")
 	[/PARAM]
 	[PARAM:next]
-	[Next Step](Engine\OpenWorldTools\Grass\QuickStart\3 "%Engine\OpenWorldTools\Grass\QuickStart\3:title%") 
+	[后续步骤](Engine\OpenWorldTools\Grass\QuickStart\3 "%Engine\OpenWorldTools\Grass\QuickStart\3:title%") 
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-在下述部分中，我们会创建草地工具正常运行需要用到的Actor和材质。我们会继续使用上一步中创建的 **GT_00** 关卡。
+在以下部分中，我们将创建草地工具正常运行所需的Actor和材质。
+我们将继续使用上一步创建的 **GT_00** 关卡。
 
 
-1. 在 **内容浏览器** 中 **右键点击** ，然后从显示的菜单中，转到 **其它** > **地貌草地类型** 来创建地貌草地类型，将其命名为 **Grass_00** 。
+1. 在 **内容浏览器** 中 **单击右键**，从显示的菜单中选择 **其他（Miscellaneous）** >**地形草地类型（Landscape Grass Type）** 来创建地形草地类型，并将其命名为 **Grass_00**。
 
-	![](T_Create_LS_Grass.png)
+	[REGION:lightbox]
+	[![](T_Create_LS_Grass.png)(w:196)](T_Create_LS_Grass.png)
+	[/REGION]
 
-1. **双击** 地貌草地类型，在打开后，通过点击 **加号** 按钮来添加新项目到 **草地变量** 数组，这个 **加号** 按钮位于 **草地变量** 名称的右侧。
+1. **双击** 地形草地类型以将其打开，打开后，按 **草地品种（Grass Varieties）** 名称右侧的 **加号** 图标，向 **草地品种（Grass Varieties）** 数组添加新项。
 	
-	![](T_Add_New_GV.png)
+	[REGION:lightbox]
+	[![](T_Add_New_GV.png)(w:298)](T_Add_New_GV.png)
+	[/REGION]
 
-1. 在 **地貌草地类型** Actor中搜寻 **草地网格物体** 部分，然后点击显示为 **无** 的输入框，并输入 **SM_FieldGrass_01** 来作为搜索关键字。 
+1. 在 **地形草地类型** Actor内部，寻找 **草地网格体（Grass Mesh）** 部分，然后单击显示 **无（None）** 的输入框，并输入 **SM_FieldGrass_01** 作为搜索词，然后单击 **SM_FieldGrass_01** 将其载入以作为 **草地网格体**。 
 
 	![](T_Set_Grass_Type.gif)(convert:false)
 
-1. 点击SM_FieldGrass_01来将其作为  **草地网格物体** 来载入。
+1. 添加静态网格体后，需要设置以下属性，确保产生足够数量的草地网格体，并且这些网格体随机旋转并与地形贴合。
 
-1. 在添加了静态网格物体后，我们需要设置如下属性来确保生成足够的草地网格物体，并且这些网格物体被随机旋转并与地貌对齐。
-
-	![](T_Grass_Props.png)
+	[REGION:lightbox]
+	[![](T_Grass_Props.png)(w:330)](T_Grass_Props.png)
+	[/REGION]
 	
-	|属性名称 | 值 | 为何设置 |
+	|属性名称 | 值 | 原因 |
 	|--------------|-------|---------|
-	|**草地密度**    |400.0     |因为我们需要这个地貌看起来像草地，我们必须要生成大量静态网格物体，从而让这片地貌看起来覆盖于郁郁葱葱的草地中。
-	|**使用网格**         |启用   | 使用网格可以让静态网格物体看起来更为自然，这样可以对其放置位置进行偏移。|
-	|**随机旋转**  |启用   | 对用于植被和草地的静态网格物体赋予随机的旋转值，确保使用的静态网格物体的同一侧不会总是被观察到，从而增加场景的视觉多样性。|
-	|**对齐到表面** |启用   | 这样设置可以使得使用的静态网格物体与地貌的表面相一致。|
+	|**草地密度（Grass Density）**    |400.0     | 由于需要呈现出草地的样子，因此必须产生大量静态网格体，让地形看起来覆盖着浓密的草地。|
+	|**使用网格（Use Grid）**         |启用（Enabled）   | 为了让静态网格体看起来更自然，用于调整放置位置。|
+	|**随机旋转（Random Rotation）**  |启用（Enabled）   | 为植物和草地所用的静态网格体指定一个随机旋转，确保在添加场景视觉变化时，不会总是看到静态网格体的同一个面。|
+	|**贴合表面（Align to Surface）** |启用（Enabled）   | 确保所用静态网格体贴合地形表面。|
 
 

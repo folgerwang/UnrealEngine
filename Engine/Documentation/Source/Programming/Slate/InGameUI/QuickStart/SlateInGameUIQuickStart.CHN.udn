@@ -1,25 +1,25 @@
-﻿INTSourceChangelist:0
-Title:Slate In-Game UI Quick Start
+﻿INTSourceChangelist:3238697
+Title:Slate游戏内UI快速入门
 Crumbs:
 Description:
 Availability:Docs
-Version:4.4
+Version:4.9
 
-## Project Setup
+## 项目设置
 
-To start off, creat a new basic code project:
+首先，创建一个新的基础代码项目：
 
 [REGION:fullwidth]
 ![](image001.png)
 [/REGION]
 
-This provides the following classes by default:
+默认情况下，这样会提供以下类：
 
 ![](image003.png)
 
-## Getting something on screen
+## 在屏幕上显示内容
 
-1. In addition to the default classes, I added a new class called "MainMenu" to encapsulate the menus I would create.  The first thing I did to just get something to show up on screen was to create a few simple functions to construct the menu, and some to open and close (hide and show) it. I also added a member variable SWidget Shared Pointer to keep a reference to the top most Slate Widget in the menu hierarchy.
+1.  除了默认类，我还添加了一个新类“MainMenu”来封装我将会创建的菜单。为了在屏幕上显示一些内容，首先创建一些简单的函数来构造菜单，并创建一些用于打开和关闭（隐藏和显示）菜单的函数。我还添加了一个成员变量“SWidget共享指针”来保持对菜单层级中的最上方Slate控件的引用。
 
 		#pragma once
 
@@ -28,24 +28,24 @@ This provides the following classes by default:
 		class MainMenu : public TSharedFromThis<MainMenu>
 		{
 		public:
-			/** Construct our widgets etc that we need for the menus */
+			/** 构造菜单所需的控件等 */
 			void ConstructMenu();
 
-			/** Display the menu by adding our root widget to the GameViewport's widget content */
+			/** 通过向GameViewport控件内容添加根控件来显示菜单 */
 			void OpenMenu();
 
-			/** Close the menu by removing our root widget from the GameViewport's widget content */
+			/** 通过从GameViewport控件内容移除根控件来关闭菜单 */
 			void CloseMenu();
 
 		private:
 
-			/** This is the root-most Slate Widget of our menu.  Everything else is a child of this. */
+			/** 这是菜单的最根部Slate控件。其他都是它的子代。*/
 			TSharedPtr<SWidget> MenuRoot;
 		};
 
-	The MainMenu class derives from the TSharedFromThis template because it is helpful for passing safe references to "this" for delegate functions for Slate Menu events, but we will get into that more later.
+	MainMenu类派生自TSharedFromThis模板，因为这有助于传递对“this”的安全引用，以用于“Slate菜单”事件的代理函数，我们稍后再讨论这一点。
 
-1. Add basic implementation for the functions of the menu class:
+1.  为菜单类函数添加基本实现：
 
 		#include "SlateGameMenuExample.h"
 		#include "MainMenu.h"
@@ -81,15 +81,15 @@ This provides the following classes by default:
 
 		#undef LOCTEXT_NAMESPACE
 
-Just to get something to show up on screen I picked a random Slate Widget from elsewhere in the code to be our temporary MenuRoot.  This then gets added the the GameViewport's ViewportWidgetContent so it will be displayed. Also we make sure to give the SlateMenu keyboard focus so it can respond to input.  Note the use of the LOCTEXT macros, it is important to always use these for any text that will have to be localized to other languages. This is discussed more in this blog post:
+为了在屏幕上显示内容，我从代码中的任意地方选择了一个随机Slate控件作为临时MenuRoot。然后，它会被添加到GameViewport的ViewportWidgetContent，这样就会显示出来。此外，我们确保SlateMenu获得键盘焦点，以便它能够响应输入。注意LOCTEXT宏的使用，务必始终使用它来表示必须本地化为其他语言的任意文本。本博文将详细讨论这一点：
 
-[Creating A Localization Ready Game In UE4: Part 1 - Text](https://www.unrealengine.com/blog/creating-a-localization-ready-game-in-ue4-part-1-text)
+[在UE4中创建可本地化的游戏：第1部分——文本](https://www.unrealengine.com/blog/creating-a-localization-ready-game-in-ue4-part-1-text)
 
-Next I added a new GameMode to represent the state of the player being at the main menu called "MainMenuGameMode". This just defines the type of PlayerController we are using for this game mode, uses the BeginPlay event to open the main menu, and keeps a reference to the MainMenu in a Shared Pointer.
+接下来，我添加了一个新的GameMode来表示位于主菜单“MainMenuGameMode”的玩家的状态。这只是定义我们用于这种游戏模式的PlayerController类型，使用BeginPlay事件打开主菜单，并在共享指针中保持对MainMenu的引用。
 
 	#pragma once
 
-	#include "GameFramework/GameMode.h"
+	#include "GameFramework/GameModeBase.h"
 	#include "MainMenuGameMode.generated.h"
 
 	class MainMenu;
@@ -98,17 +98,21 @@ Next I added a new GameMode to represent the state of the player being at the ma
 	 * 
 	 */
 	UCLASS()
-	class AMainMenuGameMode : public AGameMode
+	class AMainMenuGameMode : public AGameModeBase
 	{
 		GENERATED_UCLASS_BODY()
 
+	protected:
+
 		virtual void BeginPlay() override;
+
+	public:
 
 		TSharedPtr<MainMenu> MainMenuPtr;
 	
 	};
 
-Note here that GameMode is a UClass, and thus requires the standard #include for the generated header, the UCLASS() macro before the class definition, and the GENERATED_UCLASS_BODY() at  the start of the class definition.
+这里需要注意，GameMode是UClass，因此需要标准的#include用于生成的头，UCLASS()宏放在类定义前面，GENERATED_UCLASS_BODY()放在类定义开头。
 
 	#include "SlateGameMenuExample.h"
 	#include "MainMenuGameMode.h"
@@ -117,7 +121,7 @@ Note here that GameMode is a UClass, and thus requires the standard #include for
 	#include "MainMenu.h"
 
 	AMainMenuGameMode::AMainMenuGameMode(const FObjectInitializer& ObjectInitializer)
-		: Super(ObjectInitializer)
+		:Super(ObjectInitializer)
 	{
 		PlayerControllerClass = ASlateGameMenuExamplePlayerController::StaticClass(); 
 	}
@@ -129,31 +133,31 @@ Note here that GameMode is a UClass, and thus requires the standard #include for
 		MainMenuPtr->OpenMenu();
 	}
 
-Now we have to specify this new GameMode as the one to use.  This can be done either in the World Settings on a per-level basis like so:
+现在，我们需要将这个新的GameMode指定为要使用的模式。这可以逐个关卡地在场景设置中指定：
 
 ![](image005.png)
 
-Or via the Default GameMode setting in Project Settings > Maps & Modes:
+或者通过“项目设置（Project Settings）>贴图和模式（Maps & Modes）”中的默认GameMode设置：
 
 [REGION:fullwidth]
 ![](image007.png)
 [/REGION]
 
-With that, we are able to get some content on the screen:
+这样我们就能够在屏幕上显示一些内容：
 
 [REGION:fullwidth]
 ![](image009.png)
 [/REGION]
 
-The single search box widget I added is taking up the entire viewport, but this is a good starting point.
+我添加的这个搜索框控件占据了整个视口，但这是一个好的起点。
 
-Adding some buttons
+添加一些按钮
 
-Now let us make this menu closer to what one would conceivably want for a Main Menu.  Maybe a simple layout like so:
+现在，让我们来处理一下这个菜单，让它看起来更像是一个常见的“主菜单”。或许类似于下面这个简单的布局：
 
 ![](image011.png)
 
-Here there are three buttons contained in a larger region. The Play button starts the game, the Exit button quits the application, and the Options button takes you to another menu.  To achieve this, I modified the ConstructMenu function to look like this:
+这里在一个更大的区域中包含了三个按钮。“播放”按钮用于启动游戏，“退出”按钮用于退出应用程序，“选项”按钮可以转至另一个菜单。为此，我修改了ConstructMenu函数，如下：
 
 	#include "StyleDefaults.h"
 
@@ -230,19 +234,19 @@ Here there are three buttons contained in a larger region. The Play button start
 		;
 	}
 
-As you can see here, Slate has some special syntax to allow you to use various operators to modify the properties (There is a little information about the Declarative Syntax and Composition of Slate at those links). You can set the properties of Slate Widget with the "." operator after using SNew(SWidget), and you can nest child widget inside of other widgets with the bracket operators.
+如您所见，Slate有一些特殊语法，让您可以使用各种运算符来修改属性（这些链接提供了一些有关Slate声明性语法和结构的信息）。您可以在使用SNew(SWidget)后，通过“.”运算符来设置Slate属性，并可以用括号运算符在其他控件内部嵌套子控件。
 
-The above example has an SBorder around everything, and inside of that there is an SVerticalBox that has 4 slots including some menu title text and our three buttons.  Various alignments and sizing is used to get the desired look.  There is more information about how Layout in slate works at that link. These additions ended up with a menu looking like this:
+上述示例在所有内容外部使用了SBorder，内部使用了一个SVerticalBox，它有4个插槽，用于包含菜单标题文本和三个按钮。使用了多种对齐方式和大小来得到所需的外观。该链接提供了有关Slate中的“布局”工作方式的更多信息。这些添加最终会产生类似于以下示例的菜单：
 
 ![](image013.png)
 
-This is looking a lot closer to what we want. Notice that the SButtons in the code above have their OnClicked property being set.  This is a delegate that will call a function of your choosing when the button is clicked. The "Start Game" button's OnClicked declaration looks like this:
+这更接近于我们想要的效果。请注意，上述代码中已经设置了SButtons的OnClicked属性。这是一个代理，在您单击该按钮时将调用您选择的函数。“开始游戏”按钮的OnClicked声明类似于：
 
 	.OnClicked(FOnClicked::CreateSP(this, &MainMenu::StartGame))
 
-FOnClicked is a kind of delegate that is invoked when widgets want to notify a user that they have been clicked, and it is intended for use by buttons and other button-like widgets. To hook up a delegate, you need to specify an object on which to call the function, the function to call, and optionally parameters to pass to the function.  There are different functions you can use to specify the delegate, here I have used CreateSP, which is a shared pointer-based member function delegate (this is why MainMenu derives from TSharedFromThis, so I can use the safer shared-pointer option). You can also use raw C++ pointers with CreateRaw, or you can use static functions with CreateStatic (these do not require you to specify an object to call the function on).
+FOnClicked是控件想要通知用户已经单击过这些控件时调用的一类代理，旨在供按钮和其他类似于按钮的控件使用。要关联代理，您需要指定要对其调用函数的对象、要调用的函数和要传递给函数的可选参数。您可以使用不同的函数来指定代理，我在这里使用的是CreateSP，这是基于共享指针的成员函数代理（这也是MainMenu派生自TSharedFromThis的原因，所以我使用更安全的共享指针选项）。您还可以结合使用原始C++指针和CreateRaw，或者可以结合使用静态函数和CreateStatic（这样就无需指定要对其调用函数的对象）。
 
-So now the delegates for the Start Game and Quit Game button have been specified, the functions they call need to be defined.  These are pretty simple functions. 
+现在，已经指定了“开始游戏”和“退出游戏”按钮的代理，接下来需要定义它们调用的函数。这些是非常简单的函数。 
 
 	FReply MainMenu::StartGame()
 	{
@@ -255,7 +259,7 @@ So now the delegates for the Start Game and Quit Game button have been specified
 		return FReply::Handled();
 	}
 
-This function uses ServerTravel to tell the engine to change to a different map to start the game.  Then we close the menu.  You might have noticed that this function is returning an FReply.  A Reply is something that a Slate event returns to the system to notify it about certain aspect of how an event was handled. For example, a widget may handle an OnMouseDown event by asking the system to give mouse capture to a specific Widget ( To do this, return FReply::CaptureMouse( NewMouseCapture ).)
+此函数使用ServerTravel来告诉引擎切换到另一个地图来开始游戏。然后，我们关闭菜单。您或许注意到了，该函数正在返回FReply。Reply是指Slate事件返回给系统以通知其事件处理方式的特定方面的信息。例如，控件处理OnMouseDown事件的方式可能是告诉系统对特定控件给予鼠标捕获（为此，return FReply::CaptureMouse( NewMouseCapture )。）
 
 	FReply MainMenu::QuitGame()
 	{
@@ -268,16 +272,16 @@ This function uses ServerTravel to tell the engine to change to a different map 
 		return FReply::Handled();
 	}
 
-The Quit Game function just uses the console command "quit" to exit the game after closing the menu.
+QuitGame函数仅使用控制台命令“quit”在关闭菜单后退出游戏。
 
-Both of these functions use a reference to the player controller to call functions, which meant I had to modify MainMenu.cpp to keep a WeakObjectPtr to PlayerController, and set that via the constructor, like so:
+这两个函数都使用对玩家控制器的引用来调用函数，这意味着我必须修改MainMenu.cpp以保持对PlayerController的WeakObjectPtr，并通过构造函数来进行这项设置，如：
 
 	MainMenu::MainMenu(TWeakObjectPtr<class APlayerController> InController)
 	:	MyPlayerController(InController)
 	{
 	}
 
-The MainMenuGameMode just grabs the first PlayerController and passes that to the MainMenu class like so:
+MainMenuGameMode仅抓取第一个PlayerController并将抓取的信息传递给MainMenu类，如：
 
 	#include "../../../../../../Engine/Source/Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 	void AMainMenuGameMode::BeginPlay()
@@ -285,7 +289,7 @@ The MainMenuGameMode just grabs the first PlayerController and passes that to th
 		APlayerController* FirstPC = NULL;
 		if (GetWorld() != NULL)
 		{
-			// player 0 gets to own the UI
+			// 玩家0获得UI
 			FirstPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 		}
 		MainMenuPtr = MakeShareable(new MainMenu(TWeakObjectPtr<APlayerController>(FirstPC)));
@@ -293,50 +297,50 @@ The MainMenuGameMode just grabs the first PlayerController and passes that to th
 		MainMenuPtr->OpenMenu();
 	}
 
-Two other issues we have here is that by default no mouse cursor is drawn, so it is hard for the player to click on the buttons we just made.  Also, the PlayerController is still using the mouse and keyboard input to control the character and camera in the world, so moving the mouse around to click a button also moves the world camera behind the menu.  These are fixed by enabling CinematicMode to disable Player input temporarily and by telling the PlayerController to show the mouse cursor like so:
+这里的另外两个问题是，在默认情况下，没有绘制鼠标光标，因此玩家很难单击我们刚刚创建的按钮。此外，PlayerController仍在使用鼠标和键盘输入来控制场景中的角色和摄像机，因此移动鼠标来单击按钮也会移动菜单背后的场景摄像机。要解决这两个问题，可以启用CinematicMode来暂时禁用玩家输入，并告诉PlayerController显示鼠标光标，如：
 
 	void MainMenu::OpenMenu()
 	{
 		if (GEngine && GEngine->GameViewport)
 		{
-			// Add our menu widget content to the game viewport so it is displayed
+			// 将菜单控件内容添加到游戏视口以便能显示它
 			UGameViewportClient* const GVC = GEngine->GameViewport;
 			GVC->AddViewportWidgetContent(MenuRoot.ToSharedRef());
 			if (MyPlayerController.IsValid())
 			{
-				// Enable the mouse cursor and disable other input (moving the mouse will not rotate the camera, etc).
+				// 启用鼠标光标并禁用其他输入（移动鼠标不会旋转摄像机等）。
 				MyPlayerController->SetCinematicMode(true, false, false, true, true);
 				MyPlayerController->bShowMouseCursor = true;
 			}
 		}
 	}
 
-Close Menu does the opposite:
+关闭菜单起到相反作用：
 
 	void MainMenu::CloseMenu()
 	{
 		if (GEngine && GEngine->GameViewport)
 		{
-			// Remove our menu widget content from the game viewport so it is no longer displayed
+			// 从游戏视口移除菜单控件内容，以便不再显示它
 			UGameViewportClient* const GVC = GEngine->GameViewport;
 			GVC->RemoveViewportWidgetContent(MenuRoot.ToSharedRef());
 			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
 			if (MyPlayerController.IsValid())
 			{
-				// Re-enable other input and remove the mouse cursor
+				// 重新启用其他输入并移除鼠标光标
 				MyPlayerController->SetCinematicMode(false, false, false, true, true);
 				MyPlayerController->bShowMouseCursor = false;
 			}
 		}
 	}
 
-Defining and Using Slate Styles
+定义和使用Slate样式
 
-Next we want to define and use some Slate Styles so we can quickly and easily change the styling of our menus. Styles really just consist of some text strings used to refer to brushes (which are a containers for information about how to draw a slate element), widget styles, Slate font information, etc.
+接下来，我们想要定义和使用一些Slate样式，便于我们快速并轻松地更改菜单样式。样式只包含一些文本字符串，用来引用笔刷（即包含如何绘制Slate元素的相关信息的容器）、控件样式、Slate字体信息等。
 
-For example, you could define styles for a toolbar button like so:
+例如，您可以为工具栏按钮定义样式，如：
 
-	// Normal button
+	// 普通按钮
 	FButtonStyle Button = FButtonStyle()
 		.SetNormal(BOX_BRUSH("Button", FVector2D(32, 32), 8.0f / 32.0f))
 		.SetHovered(BOX_BRUSH("Button_Hovered", FVector2D(32, 32), 8.0f / 32.0f))
@@ -346,7 +350,7 @@ For example, you could define styles for a toolbar button like so:
 		.SetPressedPadding(FMargin(2, 3, 2, 1));
 	Style->Set("MyButtonStyle ", Button);
 
-Or a text style, like so:
+或文本样式，如：
 
 	const FTextBlockStyle NormalText = FTextBlockStyle()
 		.SetFont(TTF_FONT("Fonts/Roboto-Regular", 9))
@@ -357,15 +361,15 @@ Or a text style, like so:
 		.SetHighlightShape(BOX_BRUSH("TextBlockHighlightShape", FMargin(3.f / 8.f)));
 	Style->Set("NormalText", NormalText); 
 
-For completeness, the above BRUSH and FONT macros are defined like this to keep the definitions simpler:
+为了完成代码，上述BRUSH和FONT宏按如下所示定义以简化定义：
 
-	#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
-	#define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
-	#define BORDER_BRUSH( RelativePath, ... ) FSlateBorderBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
-	#define TTF_FONT( RelativePath, ... ) FSlateFontInfo( Style->RootToContentDir( RelativePath, TEXT(".ttf") ), __VA_ARGS__ )
-	#define OTF_FONT( RelativePath, ... ) FSlateFontInfo( Style->RootToContentDir( RelativePath, TEXT(".otf") ), __VA_ARGS__ )
+	#define IMAGE_BRUSH( RelativePath, ...) FSlateImageBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
+	#define BOX_BRUSH( RelativePath, ...) FSlateBoxBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
+	#define BORDER_BRUSH( RelativePath, ...) FSlateBorderBrush( Style->RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
+	#define TTF_FONT( RelativePath, ...) FSlateFontInfo( Style->RootToContentDir( RelativePath, TEXT(".ttf") ), __VA_ARGS__ )
+	#define OTF_FONT( RelativePath, ...) FSlateFontInfo( Style->RootToContentDir( RelativePath, TEXT(".otf") ), __VA_ARGS__ )
 
-These styles can then be used on a button like this:
+这些样式可以按如下所示用于按钮：
 
 	SNew(SButton)	// Start Game button
 	.ButtonStyle(&FMySlateStyle::Get().GetWidgetStyle<FButtonStyle>("MyButtonStyle"))
@@ -375,23 +379,23 @@ These styles can then be used on a button like this:
 	.VAlign(VAlign_Center)
 	.Text(LOCTEXT("StartGameButtonText", "Start Game"))
 
-For the example slate menu, I created a separate class called MySlateStyle that created two FSlateStyleSets (groups  of styles), which define the same styles, but just define their visual look differently.  That way I can switch between the two style sets easily. The above "Style" variable is an FLateStyleSet that is created, has a bunch of styles on it set like above, and then registered in the Slate Style Registry like this:
+对于示例Slate菜单，我创建了一个单独的类，叫做MySlateStyle，它创建了两个FSlateStyleSets（样式组），它们定义相同的样式，但定义不同的视觉外观。这样我就能够轻松地切换两个样式集。上述创建的FLateStyleSet中的“Style”变量包含一组按照以上方式设置的样式，然后按如下所示注册到Slate样式注册表中：
 
 	FSlateStyleRegistry::RegisterSlateStyle(NewStyle);
 
-Initially I threw together some random styles and came up with this:
+最初我将一些随机样式输入进去并得出这样的结果：
 
 ![](image015.png)
 
-Sure is ugly, but now it can be easily iterated on to make it look good.
+当然不美观，但现在可以轻松地迭代来加以美化。
 
-Adding a second menu
+再添加一个菜单
 
-Above I explained how to get the Start Game and Quit Game buttons working, but the Options button is still not functional.  This button is supposed to bring the player to another menu when clicked.  It would certainly be possible to use ServerTravel to move to another level that opened up a different menu, and then travel back to the MainMenu level when "back" was clicked, but I went with a different method.
+上文我解释了如何让“开始游戏”和“退出游戏”按钮工作，但“选项”按钮仍无法工作。该按钮应该是让玩家单击按钮后前往另一个菜单。毫无疑问可以使用ServerTravel移到另一个关卡，打开另一个菜单，然后单击“后退”时返回到MainMenu关卡，但我采用了另一个方法。
 
-I wanted to just have the options menu pop-up over the main menu, so wrapped the main menu in a SOverlay, which allows you to define different slots of content, which can be overlapping. This overlay became the new root widget of our menu. 
+我想在主菜单上弹出选项菜单，所以将主菜单包含在SOverlay中，这样就可以定义不同的可以重叠的内容插槽。这个重叠成为菜单的新根控件。 
 
-In the construct function, I construct both menus:
+在构造函数中，我构造了两个菜单：
 
 	void MainMenu::ConstructMenu()
 	{
@@ -399,34 +403,34 @@ In the construct function, I construct both menus:
 
 		HeaderFontInfo = FMySlateStyle::Get().GetFontStyle("RichText.Header");
 	
-		// Set up the main menu widget contents
+		// 设置主菜单控件内容
 		MenuRoot =
-			SNew(SOverlay)	// Overlay used to allow the Options menu to be "overlayed" or displayed on top of this menu
-			+SOverlay::Slot()	// New Slot for the overlay.  This contains just the Main Menu content
+			SNew(SOverlay)	// 用于允许“选项”菜单被“覆盖”或显示在该菜单上方的重叠
+			+SOverlay::Slot()	// New Slot for the overlay.这只包含主菜单内容
 			[
 				// ...
-				// Main menu widgets
+				// 主菜单控件
 				/ ...
 			]
 		;
 
 		// ...
 
-		// Build options menu widgets
+		// 构建选项菜单控件
 		OptionsMenuRoot = SNew(SBorder)
 			.Cursor(EMouseCursor::Default)
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
 			[
 				// ...
-				// Main menu widgets
+				// 主菜单控件
 				/ ...
 			]
 			;
 
 	}
 
-When I want to display the options menu, I put the root widget of the options menu into a new slot in the root SOverlay:
+当我想要显示选项菜单时，我把选项菜单的根控件放入根SOverlay中的新插槽中：
 
 	FReply MainMenu::OpenOptionsMenu()
 	{
@@ -434,7 +438,7 @@ When I want to display the options menu, I put the root widget of the options me
 
 		if (MenuRootOverlay)
 		{
-			// Add another slot to the Main Menu's overlay and put our Options menu content in it
+			// 将另一个插槽添加到主菜单的重叠，并在其中放入我们的“选项”菜单内容
 			OptionsMenuSlot = &MenuRootOverlay->AddSlot()
 				[
 					OptionsMenuRoot.ToSharedRef()
@@ -445,7 +449,7 @@ When I want to display the options menu, I put the root widget of the options me
 		return FReply::Handled();
 	}
 
-And when I want to hide the options menu, I remove that slot:
+当我想要隐藏选项菜单时，我会移除该插槽：
 
 	FReply MainMenu::CloseOptionsMenu()
 	{
@@ -453,22 +457,22 @@ And when I want to hide the options menu, I remove that slot:
 
 		if (MenuRootOverlay != NULL)
 		{
-			// Remove option menu overlay slot
+			// 移除选项菜单重叠插槽
 			MenuRootOverlay->RemoveSlot(OptionsMenuSlot->Widget);
 		}
 
 		return FReply::Handled();
 	}
 
-Creating further random styles for the options menu, things looked about like this:
+为选项菜单创建更多随机样式，如以下示例：
 
 ![](image017.png)
 
-Changing options
+更改选项
 
-In the above screenshot, you can see there are options to change the menu style and the font style.
+在以上截图中，您会看到，有一些用于更改菜单样式和字体样式的选项。
 
-These again use some simple delegates, which call these functions.
+这些同样使用一些简单的代理来调用这些函数。
 
 	void MainMenu::StyleComboBoxSelectionChanged(TSharedPtr<FString> StringItem, ESelectInfo::Type SelectInfo)
 	{
@@ -481,7 +485,7 @@ These again use some simple delegates, which call these functions.
 			FMySlateStyle::SetStyle2();
 		}
 
-		// After making these changes, close the menu, reconstruct it, and open it again
+		// 进行这些更改后，关闭菜单，重新构造并再次打开
 		CloseOptionsMenu();
 		CloseMenu();
 		ConstructMenu();
@@ -496,23 +500,23 @@ These again use some simple delegates, which call these functions.
 		OptionsMenuHeaderText->SetFont(HeaderFontInfo);
 	}
 
-References to the STextBlock objects are maintained by using SAssignNew  in the Construct function to assign the resulting widget object to a member variable, which can be referenced in the delegate functions:
+对STextBlock对象的引用通过在构造函数中使用SAssignNew来维护，以将产生的控件对象分配给可以在代理函数中引用的成员变量：
 
 	SAssignNew(OptionsMenuHeaderText, STextBlock)	// Header text
 	.TextStyle(&FMySlateStyle::Get().GetWidgetStyle<FTextBlockStyle>("RichText.Header"))
 	.Text(LOCTEXT("OptionsMenuTitle", "Options!"))
 
-Since changing the Style Combo Box selection results in the menu getting rebuilt, a little extra code was necessary to ensure the correct style was selected when the menu got rebuilt, so this bit of code is also in the Construct function:
+由于更改样式复选框选择会导致菜单被重新构建，因此需要一点额外的代码来确保菜单在重新构建后选择正确的样式，这部分代码也在构造函数中编写：
 
-	// Holds the list of Styles
+	// 保存样式列表
 	StyleList.Empty();
 	StyleList.Add(MakeShareable(new FString("Style1")));
 	StyleList.Add(MakeShareable(new FString("Style2")));
 
-	// Since Construct Menus is called when the menu style changes, make sure the selection in the Menu Style combo box is up to date with the new selection
+	// 在菜单样式更改时调用构造函数菜单，因此确保菜单样式复选框中的选择在做出新选择时是最新的
 	FString CurrentStyleName = FMySlateStyle::Get().GetStyleSetName().ToString();
 	TSharedPtr<FString> CurrentlySelectedStyle;
-	for (TSharedPtr<FString> StyleString : StyleList)
+	for (TSharedPtr<FString> StyleString :StyleList)
 	{
 		if (StyleString->Equals(CurrentStyleName))
 		{
@@ -524,35 +528,35 @@ Since changing the Style Combo Box selection results in the menu getting rebuilt
 		CurrentlySelectedStyle = StyleList[0];
 	}
 
-Now changing the style drop down results in a different style (though the styles themselves still need work):
+现在，更改样式下拉菜单会产生另一种样式（虽然样式本身仍需要处理）：
 
 ![](image019.png)
 
-And now changing the font slider also changes the font size:
+现在，更改字体滑块也会更改字体大小：
 
 ![](image021.png)
 
-After making some decent backgrounds and styles, the final menu looked like this:
+创建一些合适的背景和样式后，最终菜单应该类似于以下示例：
 
 [REGION:imagetable]
 |![](image023.png)(w:460) | ![](image025.png)(w:460) |
 | ------ | ------ |
-| Main Menu with Style 1 | Options Menu with Stye 2 |
+| 使用样式1的主菜单 | 使用样式2的选项菜单 |
 [/REGION]
  
-## Using the Widget Reflector
+## 使用控件反射器
 
-One tool that is especially useful when designing Slate menus is the Widget Reflector, which can be accessed from the Developer Tools menu.
+在设计Slate菜单时特别有用的一个工具是控件反射器，可以从“开发者工具”菜单访问。
 
 [REGION:fullwidth]
 ![](image027.png)
 ![](image029.png)
 [/REGION]
  
-This shows you every Slate widget that exists, in the hierarchy it exists in, and even shows you its visibility, and the code file and line where it was created.  This information can be really helpful when debugging your menus, or to investigate other menus to see how they were made.  Also the "Pick Widget" button allows you to find whatever widget your mouse is over in the widget hierarchy:
+它按照控件存在的层级显示存在的每一个Slate控件，甚至显示其可见性以及创建它的代码文件和代码行。在调试菜单时，或者调查其他菜单以了解它们的创建方式时，该信息非常有用。此外，“选取控件”按钮允许您从控件层级中查找鼠标所在的下部件：
 
 [REGION:fullwidth]
 ![](image031.png)
 [/REGION]
 
-You can also press the button again (or hit escape) to freeze on the widget you have currently selected.
+您还可以再次按下这个按钮（或按ESC键）来冻结当前选中的控件。

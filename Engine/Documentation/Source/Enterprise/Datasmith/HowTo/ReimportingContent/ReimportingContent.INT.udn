@@ -1,0 +1,92 @@
+Availability: Public
+Crumbs: 
+Title: Reimporting Datasmith Content into Unreal Engine 4
+Description: Detailed instructions on the various ways you can update Datasmith content that you've already imported into Unreal to pick up changes in the source material.
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 4
+Tags: Enterprise, how to, Unreal Studio, Datasmith, beginner
+
+
+This page describes how to reimport Datasmith content into the Unreal Editor, and how to control what updates get synchronized to the Actors in your Levels.
+
+For background information, including an overview of what reimporting does to the assets in your Project and the Actors in your Level, see [About the Datasmith Reimport Workflow](Enterprise/Datasmith/Overview/ReimportWorkflow).
+
+## Exporting or Saving the Source File
+
+In order to smoothly update a Datasmith Scene that you've already imported, you must put the new version of your source file in the *same* location on your computer as the file that you originally imported when you created that Datasmith Scene Asset.
+
+If you don't know the original source path for the Datasmith Scene Asset you want to reimport, you can find out by checking its Details:
+
+1.  Double-click the **Datasmith Scene** Asset in the Content Browser to open it in the **Asset Editor**.
+2.  If the **Details** panel is hidden, show it by selecting **Window > Details** from the main menu.
+3.  Look for the **File Path > Source File** setting:  
+    ![Datasmith Scene source file](datasmith-reimport-scene-asset-details.png "Datasmith Scene source file")
+
+In addition, you should make sure that your saved or exported file contains everything that you want to be part of your Datasmith Scene in the Unreal Editor, not just objects you've recently modified in your source. If you have the option to export only a selected part of your scene, don't use that option. If you do, your post-reimport Datasmith content in the Unreal Editor will be limited to only those exported objects.
+
+## Reimporting the Datasmith Scene Asset
+
+To reimport the Datasmith Scene Asset from a new version of a source file:
+
+1.  Right-click the **Datasmith Scene** Asset in the Content Browser, and select **Reimport** from the contextual menu.  
+    ![Reimport the Datasmith Scene Asset](datasmith-reimport-datasmith-scene.png "Reimport the Datasmith Scene Asset")
+2.  You'll be prompted to specify some reimport options. These are the same ones you originally set on import, with a couple of additions.  
+    The new options, under **Sync Current Level Actors**, determine whether the updates made to your Datasmith Scene Asset should also be applied to any Datasmith Scene Actors in the current Level that were created from the Asset you're updating.  
+    ![Reimport options](datasmith-reimport-sync-level-actors.png "Reimport options")  
+    If you don't want to synchronize your Actors now, you can do it later. See [Synchronizing a Datasmith Scene Actor with its Asset](#synchronizingadatasmithsceneactorwithitsasset) below.  
+    For more information on the other import options, see [Datasmith Import Options](Enterprise/Datasmith/ImportOptions).
+3.  Set the options you want the importer to use, and click **Import**. 
+
+[REGION:warning]
+The reimport process may overwrite geometry, materials and textures in your Content Browser. For details, see [About the Datasmith Reimport Workflow](Enterprise/Datasmith/Overview/ReimportWorkflow)
+[/REGION]
+
+## Synchronizing a Datasmith Scene Actor with its Asset
+
+There are two ways you can re-synchronize a Datasmith Scene Actor in a Level with its corresponding Datasmith Scene Asset.
+
+**Option 1.**
+
+At the time you reimport your Datasmith Scene Asset:
+
+1.  Open the Level that contains your Datasmith Scene Actor.
+2.  Reimport your Datasmith Scene Asset as described under [Reimporting the Datasmith Scene Asset](#reimportingthedatasmithsceneasset) above.
+3.  In the **Import Options** dialog, find the **Sync Current Level Actors** section. Make sure to check the **Datasmith Scene Actors** box.  
+    If you want to add back to your Level any Actors that you've previously deleted, also check the **Re-Spawn Deleted Actors** option.  
+    ![Sync Level Actors](datasmith-reimport-sync-level-actors.png "Sync Level Actors")
+4.  Click **Import**.
+
+**Option 2.**
+
+At any time after you reimport the Asset:
+
+1.  Open the Level that contains your Datasmith Scene Actor.
+2.  Select the Datasmith Scene Actor in the **World Outliner**.  
+    ![Select Datasmith Scene Actor](datasmith-reimport-select-scene-actor.png "Select Datasmith Scene Actor")
+3.  In the **Details** panel, find the **Datasmith** section.  
+    ![Update Actors from Scene](datasmith-reimport-sync-details.png "Update Actors from Scene")
+4.  If you want to add back to your Level any Actors that you've previously deleted, check the **Respawn deleted actors** option.
+5.  Click **Update actors from Scene**.
+
+## Reimporting Individual Assets
+
+Instead of reimporting an entire Datasmith Scene Asset, you can pick and choose individual Static Mesh, Material, and Texture Assets to update.
+
+To re-import a single Asset:
+
+1.  Right-click the Asset in the Content Browser, and choose **Reimport** from the contextual menu.  
+    ![Reimport Static Mesh Asset](datasmith-reimport-asset.png "Reimport Static Mesh Asset")  
+    For a Material Asset, choose **Datasmith > Reimport Material**.  
+    ![Reimport Material Asset](datasmith-reimport-material.png "Reimport Material Asset")
+    [REGION:note]
+    You'll only see the **Datasmith > Reimport Material** option for Material Assets that Datasmith created from scratch to match a material definition in your source file, which is typically the case for Materials imported from 3ds Max. However, this option does not appear for Material Assets that are instances of Materials built in to Datasmith, which is typically the case for Materials imported from CAD files or SketchUp.
+    [/REGION]
+2.  You'll be prompted to specify some reimport options for the Asset.  
+    These are the same ones you originally set on import. For more information on all these options, see [Datasmith Import Options](Enterprise/Datasmith/ImportOptions).
+
+[REGION:note]
+When you re-import individual Assets, you don't get the option to synchronize Level Actors. Every reference to the Asset in your Project will automatically use the updated version of your Asset. See [About the Datasmith Reimport Workflow](Enterprise/Datasmith/Overview/ReimportWorkflow).
+[/REGION]

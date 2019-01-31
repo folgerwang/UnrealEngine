@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2732056
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:调整灯光
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -6,11 +6,11 @@ Description:在场景中对灯光颜色、明亮度以及其他灯光设定进�
 Version:4.9
 SkillLevel:Intermediate
 
-
 在下列步骤中，我们将利用 **Matinee** 创建可以移动、存在颜色和明亮度变化的灯光。 
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
+(#AddtheMatineeActor,HallwayandLight)
 ## 添加 Matinee Actor、走廊和灯光
 
 在这步中，我们将添加 **Matinee Actor**，创建一个小走廊并添加灯光。 
@@ -63,6 +63,7 @@ SkillLevel:Intermediate
 
 	![](MHT5_AddPointLight.png)
 
+(#AddtheLighttoMatineeandSetupTracks)
 ## 为 Matinee 添加灯光并设置轨迹
 
 在这步中，我们将为 **Matinee** 添加灯光并使用关键帧设置轨迹。 
@@ -102,6 +103,7 @@ SkillLevel:Intermediate
 	![](MHT5_AllKeysAdded.png)(w:720)
 
 
+(#AdjustMovementandIntensity)
 ## 调整运动和强度
 
 在这步中，我们将设置灯光运动并对其强度进行调整。 
@@ -129,6 +131,7 @@ SkillLevel:Intermediate
 	_此操作将增加灯光的强度，使其向走廊中央移动时变得更加明亮。_
 
 
+(#AdjustLightColorandAttenuationRadius)
 ## 调整灯光颜色和衰减半径
 
 在这步中，我们将调整灯光在走廊中移动时的颜色和尺寸（或称作 **衰减半径**）。 
@@ -146,6 +149,7 @@ SkillLevel:Intermediate
 	![](MHT5_AttenuationKey4.png)(w:720)
 
 
+(#FinishingUp-BuildingandPlaying)
 ## 完成 - 构建并开始游戏
 
 在这步中我们将完成 **Matinee**、**构建** 几何体与灯光，然后在编辑器中 **开始游戏**，查看实现的效果。 

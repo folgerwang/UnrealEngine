@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4320499
 Availability: Public
 Crumbs: %ROOT%, Platforms, Platforms/MR
-Title: Troubleshooting Mixed Reality Capture
-Description: Product documentation including reference and guides for Unreal Engine 4
+Title: 混合现实捕捉的故障排除
+Description: 包含参考及指南的虚幻引擎4产品文档
 Version: 4.20
 Parent: Platforms/MR
 Order: 5
@@ -10,48 +10,49 @@ Tags: Reference
 Tags: MR
 Tags: landingpage
 Tags: Early Access
-reference-image:MR_CaptureFlicker.gif
 topic-image:MR_CaptureFlicker.png
+reference-image:MR_CaptureFlicker.gif
 
-This page provides troubleshooting information for Mixed Reality Capture (MRC).
 
-## Flickering During Captures
+此页面提供混合现实捕捉（MRC）的故障排除信息。
 
-Depending on the resolution of the MR capture target (the default is 1080p), your app may be constrained by its render target pool size. By default, render targets are set to reallocate as needed, which can lead to ping-ponging and flickering as the MR capture targets fight with the stereo render targets. (shown in the video below)
+## 捕捉时闪烁
 
-If you see this kind of behavior, you can change the render target resize rule to ‘Grow’ (in your engine.ini file, set *r.SceneRenderTargetResizeMethod=2*). Making this change should resolve the issue.
+根据MR捕捉目标的分辨率（默认值是1080p），你的应用程序可能会受到其渲染目标存储池容量的限制。默认情况下，渲染目标会被设置为“按需要重新分配”，这会导致出现乒乓效应和闪烁，因为MR捕捉目标会与立体渲染目标冲突。(如以下视频所示)
+
+如果发现这种行为，可以将渲染目标大小调整规则更改为“增加”（在engine.ini文件中，请这样设置：*r.SceneRenderTargetResizeMethod=2*）。进行这一更改应该会解决这一问题。
 
 [REGION:asyncgif]
-![](MR_CaptureFlicker.gif)(w:640 convert:false)
+![](MR_CaptureFlicker.gif)(w:640)
 [/REGION]
   
 
-## Capture Not Displaying on Spectator Screen
+## 捕捉在旁观者模式中不显示
 
-The MRC framework uses the [Virtual Reality Spectator Screen](Platforms/VR/VRSpectatorScreen) to display the composited scene. This means the Mixed Reality capture will only be displayed when running in Virtual Reality. If your project also uses the spectator screen, then you need to conditionally guard where you use them. There are MRC methods to help with this:
+MRC框架使用[虚拟现实旁观者模式](Platforms/VR/VRSpectatorScreen)来显示合成的场景。这意味着混合现实捕捉仅当在虚拟现实下运行时才会显示。如果你的项目也使用观众画面，那么你需要使用条件语句对使用它们的位置进行校正检查。存在有助于实现这一检查的MRC方法：
 
 **Get Mixed Reality Capture Texture**  
-Returns the Capture Texture, or a nullptr if there isn't one.
+返回Capture Texture，如果不存在，则返回空指针。
 
 ![](MR_BP_GetMixedRealityCaptureTexture.png "MR_BP_GetMixedRealityCaptureTexture.png")
 
 **Is Mixed Reality Capture Broadcasting**  
-Returns true, if the system is sending the capture texture to the spectator screen.  
+如果系统将捕捉纹理发送到观众画面，返回true。  
 
 ![](MR_BP_IsMixedRealityCaptureBroadcasting.png "MR_BP_IsMixedRealityCaptureBroadcasting.png")
 
 **Set Mixed Reality Capture Broadcasting**  
-Toggles whether the capture system is sending the capture texture to the spectator screen or not.  
+切换捕捉系统是否将捕捉纹理发送到观众画面的设置。  
 
 ![](MR_BP_SetMixedRealityCaptureBroadcasting.png "MR_BP_SetMixedRealityCaptureBroadcasting.png")
 
-**An Example of Using the MRC Methods**  
+**使用MRC方法的一个示例**  
 ![](MR_MCR_SpecialConsiderations.png "MR_MCR_SpecialConsiderations.png")
 
-## Controller/Trigger Not Responding During Calibration
+## 校准过程中控制器/扳机没有响应。
 
-If your controller input does not appear to respond during calibration, below are several possible causes.
+如果在校准过程中控制器输入没有响应，原因可能有以下几种。
 
-*   **The headset sensor in not covered.** If theheadset’s sensor is not covered, the controllers may not be active.
-*   **The application window needs to have focus.** If theMRCalibration window is not the current active window, the controller actions may not be captured by the calibration program. 
-*   **The Oculus system may not be configured to run from Unknown Sources.** As a part of Early Access, the calibration program is still in active development and has not been reviewed by Oculus.  ![](MR_OculusUnknownSourcesSetting.png "MR_OculusUnknownSourcesSetting.png")
+*   **头盔传感器未覆盖好。**如果头盔传感器未覆盖好，控制器可能就无法激活。
+*   **应用程序窗口需要具有焦点。**如果MRCalibration窗口不是当前活动窗口，校准系统可能无法捕捉控制器动作。 
+*   **Oculus系统可能未配置为允许从未知来源（Unknown Sources）运行。**目前处于抢先体验阶段，校准系统仍在积极开发中，Oculus尚未审查。![](MR_OculusUnknownSourcesSetting.png "MR_OculusUnknownSourcesSetting.png")

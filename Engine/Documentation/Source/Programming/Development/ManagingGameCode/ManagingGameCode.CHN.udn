@@ -1,16 +1,26 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3426963
+Availability:Public
 Title:管理游戏代码
 Crumbs: %ROOT%, Programming, Programming\Development
-Description:添加代码并生成项目文件。 
-Version: 4.5
+Description:添加代码和生成项目文件。 
+Version: 4.16
+Parent:Programming/Development
+Order:
+type:overview
 
 %Globals:OSSelect%
 
-## 添加代码到项目
+(#addingcodetoprojects)
+
+## 将代码添加到项目
+
+(#c++classwizard)
 
 ### C++类向导
 
 [INCLUDE:Programming\Development\ManagingGameCode\CppClassWizard#main]
+
+(#developmentenvironment)
 
 ### 开发环境
 
@@ -25,7 +35,11 @@ Version: 4.5
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	一般情况下，代码文件可以通过Visual Studio来创建，并通过 **Solution Explorer** （解决方案浏览器）来添加到游戏项目中。 您也可以添加代码文件到Visual Studio外的合适文件夹中，并自动重建解决方案和项目文件。 这使得通过操作系统UI来快速添加许多文件变得方便，并使得团队工作更为方便，因为解决方案和项目文件不需要在团队成员间同步。 每个人都可以同步代码文件并在本地重建项目文件。
+	代码文件可通过Visual Studio创建并通过 **解决方案浏览器** 按常规方式添加到游戏项目。 
+	也可以将代码文件添加到Visual Studio之外的正确文件夹并自动重编译 
+	解决方案和项目文件。这样一来便能通过操作系统UI快速添加大量文件，并使团队工作 
+	更为简便，因为解决方案和项目文件不需要在团队成员之间同步。 
+	每个开发人员可在本地同步代码文件并重编译项目文件。
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
@@ -38,10 +52,16 @@ Version: 4.5
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	一般情况下，代码文件可以通过Xcode来创建，并通过 **Project Navigator* （项目导航程序）来添加到游戏项目中。 您也可以添加代码文件到Xcode外的合适文件夹中，并自动重建项目文件。 这使得通过操作系统UI来快速添加许多文件变得方便，并使得团队工作更为方便，因为解决方案和项目文件不需要在团队成员间同步。 每个人都可以同步代码文件并在本地重建项目文件。
+	代码文件可通过Xcode创建并通过 **解决方案导航器** 按常规方式添加到游戏项目。 
+	也可将代码文件添加到Xcode之外的正确文件夹，并自动重编译项目文件。 
+	这样一来便能通过操作系统UI快速添加大量文件，并使团队工作 
+	更为简便，因为解决方案和项目文件不需要在团队成员之间同步。每个开发人员可在 
+	本地同步代码文件并重编译项目文件。
 	[/PARAM]
 [/OBJECT]
 
+
+(#openingprojectsinthedevelopmentenvironment)
 
 ## 在开发环境中打开项目
 
@@ -56,21 +76,21 @@ Version: 4.5
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	如果您的项目已经在编辑器中打开，您可以通过选择 **文件** 菜单的 **在Visual Studio中打开** 来很方便地在Visual Studio中打开它。
+	如项目已在编辑器中打开，则可在 **文件（File）** 菜单中选择 **打开Visual Studio（Open Visual Studio）**，轻松将其在Visual Studio中打开。
 
 	![](open_visual_studio.png)
 
-	您也可以通过Windows Explorer浏览器或 Visual Studio的 **文件 > 打开 > 项目/解决方案** 来打开Visual Studio中的项目。 
+	可通过Windows浏览器或Visual Studio的 **文件（File） > 打开（Open） > 项目/解决方案（Project/Solution）**。 
 
 	[PUBLISH:Licensee]
-	**如您的项目位于虚幻引擎4的根目录：**
+	**如项目处于UE4根目录中：**
 
-	* 打开虚幻引擎4根目录下的Visual Studio解决方案的`UE4.sln`文件。
+	* 打开UE4根目录中的UE4.sln Visual Studio解决方案。
 
-	**如您的项目位于虚幻引擎4的根目录外：**
+	**如项目处于UE4根目录之外：**
 	[/PUBLISH:Licensee]
 
-	* 请打开位于项目根目录的`[ProjectName].sln` Visual Studio解决方案文件。
+	* 打开项目根目录中的[ProjectName].sln Visual Studio解决方案。
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
@@ -83,19 +103,21 @@ Version: 4.5
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	如果您的项目已经在编辑器中打开，您可以通过选择 **文件** 菜单的 **在Xcode中打开** 来很方便地在Xcode中打开它。
+	如项目已在编辑器中打开，则可在 **文件（File）** 菜单中选择 **在Xcode中打开（Open in Xcode）**，轻松将其在Xcode中打开。
 
 	![](open_xcode.png)
 
-	您也可以通过搜寻程序或Xcode的 **文件 > 打开** 来打开Xcode中的项目。
+	也可通过查找器或Xcode的 **文件（File） > 打开（Open）** 在Xcode中打开项目。
 
-	* 请打开位于项目根目录的`[ProjectName].xcodeproj` Xcode项目文件。 
+	* 打开项目根目录中的[ProjectName].xcodeproj Xcode项目。 
 	[/PARAM]
 [/OBJECT]
 
 
 
-## 生产项目文件
+(#generatingprojectfiles)
+
+## 生成项目文件
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -109,28 +131,32 @@ Version: 4.5
 	[/PARAMLITERAL]
 	[PARAM:content]
 	[REGION:warning]
-		项目文件是中间文件 - 位于`[ProjectDirectory]\Intermediate\ProjectFiles`。 这表示，如果您删除`Intermediate`文件夹，您必须重新生成项目文件。
+		项目文件被视为中间文件，放置于 `[项目路径]\Intermediate\ProjectFiles` 中。这意味着如果删除 `Intermediate` 文件夹，则必须重新生成项目文件。
 	[/REGION]
 	[/PARAM]
 [/OBJECT]
 
 [PUBLISH:Licensee]
+(#generateprojectfiles.bat)
+
 ### GenerateProjectFiles.bat
 
-**如您的项目位于虚幻引擎4的根目录：**
+**如项目处于UE4根目录中：**
 
-1. 运行`UE4`根目录下的`GenerateProjectFiles.bat`批处理文件。
-1. 打开`UE4`根目录下的Visual Studio解决方案`UE4.sln`文件。
+1. 运行 `UE4` 根目录中的GenerateProjectFiles.bat批处理文件。
+1. 打开 `UE4` 根目录中的UE4.sln Visual Studio解决方案。
 
-这是[](Programming/UnrealBuildSystem/ProjectFileGenerator)可用的高级选项，您可以用它来生成项目文件以供发布，用于额外的平台或Visual Studio 2013。 
+有可用于[](Programming/UnrealBuildSystem/ProjectFileGenerator)的高级选项，可用于生成用于发布（或额外平台）的项目文件。
 
 [/PUBLISH:Licensee]
 
+(#.uprojectfiles)
+
 ### .uproject文件
 [PUBLISH:Licensee]
-如需让 **Generate Visual Studio Files** （生成Visual Studio文件）显示于用于`.uproject`文件的 **右键点击** 菜单，您必须首先在`UE4\Engine\Build\BatchFiles`中运行`RegisterShellCommands.bat`。 
+要使 **生成Visual Studio文件** 菜单项目显示在 `.uproject` 的 **右键点击** 菜单中，必须首先运行 `UE4\Engine\Build\BatchFiles` 中的 `RegisterShellCommands.bat`。 
 
-**如您的项目位于虚幻引擎4的根目录外：**
+**如项目处于UE4根目录之外：**
 [/PUBLISH:Licensee]
 
 [OBJECT:ToggleButtonContent]
@@ -144,17 +170,17 @@ Version: 4.5
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1. 在资源管理器中浏览至`[ProjectName].uproject`的位置。
+	1. 在Windows浏览器中导航到[ProjectName].uproject的路径。
 	
-	1. **右击** `[ProjectName].uproject`文件并选择 **生成Visual Studio文件** 。
+	1. 在[ProjectName].uproject文件上 **点击右键** 并选择 **生成Visual Studio文件（Generate Visual Studio Files）**。
 	
 		![](Generate_Visual_Studio_Files.png)
 
-	1. UnrealBuildTool会更新项目文件和解决方案，包括生成智能提示数据。
+	1. UnrealBuildTool更新项目文件和解决方案，包括生成Intellisense数据。
 
 		![](generate_project_files.png)
 
-	1. 请打开位于项目根目录的`[ProjectName].sln` Visual Studio解决方案文件，以查看Visual Studio中的游戏项目。
+	1. 打开项目根目录中的[ProjectName].sln Visual Studio解决方案，在Visual Studio中查看游戏项目。
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
@@ -167,23 +193,23 @@ Version: 4.5
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1. 在搜寻程序中浏览至[ProjectName].uproject的位置。 
+	1. 在查找器中导航到[ProjectName].uproject的路径。 
 
-	1. **右击** `[ProjectName].uproject`文件并选择生成 Xcode文件。 
+	1. 在[ProjectName].uproject文件上 **点击右键** 并选择生成Xcode文件（Generate Xcode Files）。 
 
 		![](Generate_Xcode_Files.png)
 
-	1. UnrealBuildTool会更新项目
+	1. UnrealBuildTool更新项目
 
 		![](generate_project_files_xcode.png)
 
-	1. 请打开位于项目根目录的[ProjectName].xcodeproj Xcode项目，以查看Xcode中的游戏项目。 
+	1. 打开项目根目录中的[ProjectName].xcodeproj Xcode项目，在Xcode中查看游戏项目。 
 	[/PARAM]
 [/OBJECT]
 
 [PUBLISH:Licensee]
 [REGION:note]
-对于位于虚幻引擎4根目录位置外的项目的高级项目文件生成选项，请编辑`RegisterShellCommands.bat`批处理文件。 `生成Visual Studio项目(所有平台)`的条目显示了额外菜单条目的示例，在本例中具有`-AllPlatforms`标识。 [可用选项](Programming/UnrealBuildSystem/ProjectFileGenerator)和主要`GenerateProjectFiles.bat`文件相同。  
+如要了解UE4根目录之外项目的高级项目文件生成选项，则对RegisterShellCommands.bat批处理文件进行编辑。Generate Visual Studio项目（全平台）条目将显示一个额外菜单条目的范例，在这种情况下带 `-AllPlatforms` 标签。[可用选项](Programming/UnrealBuildSystem/ProjectFileGenerator)与主GenerateProjectFiles.bat文件相同。  
 [/REGION:note]
 [/PUBLISH:Licensee]
 

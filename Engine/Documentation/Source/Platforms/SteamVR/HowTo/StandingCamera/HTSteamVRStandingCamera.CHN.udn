@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3749327
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:为 Steam VR 设置站立式摄像机
@@ -19,8 +19,12 @@ topic-image:Platforms\SteamVR\SteamVRDevelopment_topic.png
 
 1. 首先，打开或新建一个 Pawn 蓝图，然后前往 **Viewport** 标签的 **Component** 部分。在此处用以下命名添加以下两个组件，并将 VRCamera 设为 VRCameraRoot 的子项：
     
-    * **Scene** - VRCameraRoot
-    * **Camera** - VRCamera
+    [REGION:simpletable]
+	|组件名称| 值 |
+    |--------|------------|
+    |**Scene**|VRCameraRoot|
+    |**Camera**|VRCamera|
+	[/region]
 
 	![](HT_SteamVR_Camera_Setup_00.png)
 

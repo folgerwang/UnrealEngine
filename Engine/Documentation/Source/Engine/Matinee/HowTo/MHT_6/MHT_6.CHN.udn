@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2732144
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:实现材质动画
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -7,11 +7,11 @@ Version:4.9
 SkillLevel:Intermediate
 
 
----
 在以下步骤中，我们将在对象上创建闪烁变化的 **材质**，并使玩家角色靠近时 **材质** 颜色发生变化。 
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
+(#AddtheMatineeActor,Props,andTracksinMatinee)
 ## 添加 Matinee Actor、道具和 Matinee 中的轨迹
 
 在这步中，我们将添加 **Matinee Actor**，添加场景中使用的一些道具，以及在 **Matinee** 中使用的轨迹。
@@ -76,7 +76,7 @@ SkillLevel:Intermediate
 
 	![](MHT6_AddFloatMaterialTrack.png)
 
-
+(#VectorMaterialParameterMatinee)
 ## 矢量材质参数 Matinee
 
 在以下步骤中，我们将在 **Matinee** 中通过 **矢量材质参数（Vector Material Parameter）** 轨迹改变玩家角色靠近时椅子的颜色。
@@ -198,6 +198,7 @@ SkillLevel:Intermediate
 	_玩家角色离开椅子后，它将变回默认颜色。_
 
 
+(#FloatMaterialParameterMatinee)
 ## Float 材质参数 Matinee
 
 在下列步骤中，我们将使用 **Matinee** 中的 **Float 材质参数** 轨迹创建应用在台阶阶梯上闪烁变化的 **材质**。
@@ -275,18 +276,4 @@ SkillLevel:Intermediate
 	_可以看到台阶阶梯在黑色和白色之间来回闪烁变化。_
 
 	_如需加快闪烁速度，在 **Matinee** 中将关键帧之间的时间调短即可。_
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.1 - 制作新角色
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何制作第一人称射击游戏项目的新角色。
 SkillLevel:Beginner
-Version:4.11
+Version: 4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -25,6 +25,7 @@ Version:4.11
 
 在此步中，我们将使用引擎的 Character 基类制作一个新角色。Character 类（派生自 Pawn 类）内置有双足移动功能，如行走、奔跑、跳跃。
 
+(#AddingaCharacterClass)
 ## 添加 Character 类
 
 可手动添加 \*.h 和 \*.cpp 文件到 Visual Studio 解决方案，较好的做法是使用 C++ 类向导将新类添加到项目。使用 C++ 类向导后，引擎将创建头和源模板，用于设置虚幻引擎专属的宏。
@@ -45,6 +46,7 @@ Version:4.11
 	创建 FPSCharacter 类后，即可切换到 **Visual Studio**，为新建的类添加代码。`FPSCharacter.h` 和 `FPSCharacter.cpp` 将打开，虚幻引擎将自动编译并加载新类的代码。
 	[/REGION]
 
+(#VerifyingtheCharacterClass)
 ## 验证角色类
 
 1.	在 **Solution Explorer** 中展开 **FPSProject > Source > FPSProject**。
@@ -96,9 +98,9 @@ Version:4.11
 		}
 		
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 		}
 
@@ -114,6 +116,7 @@ Version:4.11
 
 	![](FPSCharacterContentBrowser.png)
 
+(#ExtendingyourCPPFPSCharacterClasstoBlueprints)
 ## 将 CPP FPS Character 类扩展为蓝图
 
 现在即可将 CPP FPS Character 类扩展为蓝图。在 [](Gameplay/ClassCreation/CodeAndBlueprints) 参考页面中可了解 C++ 类扩展为蓝图的更多内容。
@@ -136,6 +139,7 @@ Version:4.11
 
 1.	关闭蓝图编辑器之前须保存 `BP_FPSCharacter` 蓝图。
 
+(#SettingtheDefaultPawnClass)
 ## 设置默认 Pawn 类
 
 将新建游戏模式成功扩展为蓝图后，此步骤中我们需要设置项目将 `BP_FPSCharacter` 用作默认 **Pawn**。

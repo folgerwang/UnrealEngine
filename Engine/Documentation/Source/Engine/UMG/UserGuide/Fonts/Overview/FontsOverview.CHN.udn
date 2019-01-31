@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3401632
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:字体资源和编辑器
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
@@ -20,10 +20,12 @@ SkillLevel:Beginner
 
 此页面包含可用于 **字体编辑器** 的 **字体** 和 **字体风格** 资源。 
  
+(#FontAssets)
 ## 字体资源
 
 虚幻引擎 4 中的字体被分类为 **字体** 资源，使用两种缓存方法：**Runtime** 的形式是合成字体；**Offline** 是更古老的预计算字体图谱法。在字体编辑器中打开字体资源后即可在两种方法之间切换（无需替换即可简单将现有字体资源从 Offline 转换到新合成方法）。 
 
+(#FontFaceAssets)
 ## 字体风格（Font Face）资源
 
 导入字体时便会创建 **字体风格** 资源，它将保存可被字体资源引用的字体数据。这意味着相同的字体数据可在多个字体资源之间交替使用，甚至与资源中的多个字型共用，最终减少内存消耗。 
@@ -76,6 +78,7 @@ SkillLevel:Beginner
 -
 [/COMMENT]
 
+(#UpgradingFontAssetsto4.15andLater)
 ## 将字体资源更新至 4.15 及更新版本
 
 从虚幻引擎 4.15 版本开始，字体资源现已被拆分为两个单独的资源，字体和字体风格。现有的字体资源在加载中会更新其内部字体数据到内置的字体风格资源中，但不会对它们进行自动拆分。需要打开字体编辑器，在字体群里的条目下选择 **Upgrade Data**。此操作使用户能编辑这些资源，并与创建的其他字体资源共享这些资源。 
@@ -85,6 +88,7 @@ SkillLevel:Beginner
 点击 **Upgrade Data** 后，将弹出保存新字体风格资源的提示。 
 
 
+(#FontEditor)
 ## 字体编辑器
 
 在 **Content Browser** 中双击字体资源后，它将在 **字体编辑器** 窗口中打开。 
@@ -93,6 +97,7 @@ SkillLevel:Beginner
 
 字体编辑器窗口详解如下： 
 
+(#ToolbarMenu)
 #### 工具栏菜单
 
 ![](ToolbarMenu.png)(w:550)
@@ -106,6 +111,7 @@ SkillLevel:Beginner
 
 用户可在此窗口中指定此字体资源使用的默认字体群。用户可添加特定字体风格的多个版本（如常规、粗体、斜体、下划线等），或将不同字体风格的合集设为一个合成字体。如已创建一个空白字体，则也可从此窗口中指定字体。 
 
+(#Sub-FontFamily)
 #### 子字体群
 
 ![](AddSubFontFamily.png)(h:50)
@@ -117,12 +123,14 @@ SkillLevel:Beginner
 可在此处指定字符范围。进入此字符范围后将指定不同于默认字体的另一种字体。这在需要为不同语言使用不同字体类型时十分实用。
 
 
+(#Preview)
 #### 预览 
 
 ![](Preview.png)
 
 此窗口可预览字体，并提供一个文本输入框以便输入范例文本。 
 
+(#DrawForMetrics)
 #### Draw For Metrics
 
 ![](PreviewDrawFontMetrics.png)
@@ -134,6 +142,7 @@ SkillLevel:Beginner
 * **Grapheme Cluster Bounds** - 此边界框沿给定语言中的逻辑字符而绘制，可能由数个字形组成（例如一个基础字符和重音符号）。
 * **Glyph Bounds** - 这是沿给定字形绘制的边界框。
 
+(#Details)
 #### 详情
 
 ![](Details.png)(w:500)
@@ -142,6 +151,7 @@ SkillLevel:Beginner
 * 如使用旧方法，在 Offline 缓存模式中仍然可以修改字体的参数。 
 * 也可将现有字体资源从 **Offline** 转换为 **Runtime**，无需进行替换。 
 
+(#ExampleFontAsset)
 ## 范例字体资源
 
 范例字体资源显示如下。 

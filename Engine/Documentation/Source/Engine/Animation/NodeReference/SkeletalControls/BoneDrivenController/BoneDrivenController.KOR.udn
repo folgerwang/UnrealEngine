@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:본 구동 컨트롤러
+Title:Bone Driven Controller
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:하나 이상의 영향받는 본 동작에 동적으로 영향을 끼칠 수 있도록 본을 "구동"시킬 수 있는 Bone Driver Controller 노드에 대한 설명입니다.
 version: 4.12
 topic-image:BoneDrivenController.png
 
-**Bone Driven Controller** 는 하나의 본을 구동시켜 하나 이상 영향받는 본 동작에 동적으로 영향을 끼치도록 할 수 있습니다. 여러가지 액세서리가 붙어있는 캐릭터의 경우 블렌딩을 많이 사용해도 애니메이션 도중 지오메트리가 교차하지 않도록 하는 데 좋습니다.
+**Bone Driven Controller** (본 구동 컨트롤러)는 하나의 본을 구동시켜 하나 이상 영향받는 본 동작에 동적으로 영향을 끼치도록 할 수 있습니다. 여러가지 액세서리가 붙어있는 캐릭터의 경우 블렌딩을 많이 사용해도 애니메이션 도중 지오메트리가 교차하지 않도록 하는 데 좋습니다.
 
 구동되는 값은 **Multiplier** (배수)를 붙여 새로운 범위로 리매핑하여 직접 설정하거나, **커브** 애셋을 사용하여 동작을 구동시킵니다. 커브를 사용하는 방법이 가장 좋은데, 자연스러운 반응을 정의할 수 있고, 지점/탄젠트를 조정하면서 그 변화를 실시간 확인할 수 있기 때문입니다.
 

@@ -8,7 +8,7 @@ version:4.14
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming\Tutorials\UMG\3 "%Programming\Tutorials\UMG\3:title%")
+		[이전 단계](Programming\Tutorials\UMG\3 "%Programming\Tutorials\UMG\3:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

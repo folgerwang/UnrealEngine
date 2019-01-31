@@ -13,7 +13,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Networking/1_1 "%Resources/ContentExamples/Networking/1_1:title%")
+		[이전 예제](Resources/ContentExamples/Networking/1_1 "%Resources/ContentExamples/Networking/1_1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

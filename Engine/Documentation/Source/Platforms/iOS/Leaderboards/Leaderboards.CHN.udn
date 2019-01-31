@@ -1,48 +1,16 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Title:使用 iOS Game Center 排行榜
 Description:在游戏中使用排行榜。
 Crumbs:
 Availability:Public
 Parent:Platforms/iOS
 order:4
-type:howto
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/iOS/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/iOS/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/iOS/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/iOS/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:how-to
+topic-image:topic.png
 
 ![](Platforms\Mobile\Leaderboards\iOSleaderboard.png)(w:320 convert:false)
 
+(#Configuration)
 ## 配置
 
 在 [排行榜、成就和挑战](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/GameKit_Guide/Achievements/Achievements.html#//apple_ref/doc/uid/TP40008304-CH7-SW10) 中可查阅应用程序 iOS Game Center 设置的内容。

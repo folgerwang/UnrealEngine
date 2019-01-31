@@ -1,0 +1,190 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith with Deltagen and VRED
+Description: Describes special considerations that apply when you use Datasmith to import scenes from 3DExcite Deltagen or Autodesk VRED.
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent:Enterprise/Datasmith/SoftwareInteropGuides
+Order: 1
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: Experimental
+Tags: interop
+Tags: Deltagen
+Tags: VRED
+Tags: Landing Page
+
+
+[REGION:note]
+To get you up and running, we are providing experimental access to this draft content. Check back soon for updates!
+[/REGION]
+
+If you plan to use Datasmith to bring scenes into Unreal Editor from 3DExcite Deltagen or Autodesk VRED, you'll need to know a few extra things about how Datasmith treats your scene, in addition to the basics that you'll find described in the [Datasmith Overview](Enterprise/Datasmith/Overview) and [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## Workflow
+
+[REGION:note]
+Importing from Deltagen and VRED is only available to users with the Datasmith Plus entitlement. If you'd like to know more, contact us [here](https://www.unrealengine.com/en-US/enterprise/contact-us).
+[/REGION]
+
+### Deltagen
+
+Datasmith uses an **Export** workflow for Deltagen. That means that to get your Deltagen content into Unreal using Datasmith, you need to:
+
+1.  Export your Deltagen scene to an*.fbx* file using the export feature built in to Deltagen.
+2.  Use the Datasmith Deltagen Fbx importer to bring that file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+### VRED
+
+Datasmith uses an **Export Plugin** workflow for VRED. That means that to get your VRED content into Unreal using Datasmith, you need to:
+
+1.  Install a plugin script for VRED, and use it to export your VRED scene to a *.fbx* file. See [Exporting Datasmith Content from VRED](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED/ExportingDatasmithContentfromVRED).
+2.  Use the Datasmith VRED Fbx importer to bring your exported *.fbx* file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Variants
+
+The Datasmith FBX importer for Deltagen and VRED brings the variants and variant sets that you've defined in your Deltagen or VRED scene into Unreal. You can select these different variants and variant sets in your Project at runtime, using a dedicated set of Blueprint functions.
+
+[REGION:note]
+It is up to you to decide how the player running your Unreal Project should choose between these variants at runtime, and to write the gameplay code that triggers the appropriate Blueprint functions. For example, you might want to create a UI or a set of menus that players can use to select variants, or to trigger variants in response to key presses or other inputs. The Datasmith importer does not create any UI or menus for you — it only gives you all the tools you need to create them yourself.
+[/REGION]
+
+### About Variant Data
+
+The importer creates a new **Variants** folder in your Project, next to your Datasmith Scene Asset. In this folder, it creates a Data Table Asset to store the variants that it found in your source scene.
+
+Each row in this table is a record of a single variant or a variant set that you can activate at runtime. You can double-click this Data Table Asset to see the data it contains. This can be useful to see the names of the variants and variant sets that you have available in your Project, or if you need to verify the details of what items each one of these variants controls.
+
+In the DataTable Editor, shown below, the **Data Table panel (1)** lists each of the variants in your scene. The **Row Editor panel (2)** shows the details about the variant that is currently selected in the top panel.
+
+[REGION:lightbox]
+[![Variants Data Table](datasmith-variants-datatable.png "Variants Data Table")](datasmith-variants-datatable.png)
+
+*Click for full image.*
+[/REGION]
+[REGION:note]
+If your scene comes from VRED, the name of every variant is given an additional suffix that indicates its type: `_GV` for geometry variants, `_MV` for material variants, `_VS` for variant sets, and so on. VRED allows multiple variants to exist with the same name, as long as they are of different types. This suffix helps you to differentiate these variants when working in Unreal.
+[/REGION]
+
+### Selecting Variants
+
+The Datasmith FBX importer for Deltagen and VRED adds a new instance of one of the following classes to your Level:  
+
+*   For Deltagen, **BP_VariantSelector**.
+*   For VRED, **VREDVariantsSelector**
+
+This variant selector Actor is set up automatically with a reference to your variant Data Table, so that it can access all of the variant data that Datasmith imported from your source file. It also has a reference to a root Actor that is placed at the top of your imported scene hierarchy, immediately under the Datasmith Scene Actor, so that it can find the scene elements that it needs to modify when you swap between different variants. You'll find these settings in the **Deltagen** or **VRED** section of the Details panel:
+
+![Variant selector details](variant-selector-detail.png "Variant selector details")
+
+[REGION:tip]
+If your scene has camera variants, you can also give the variant selector a reference to a Camera Actor in your Level. Any time you select a new camera variant, the 3D transform of the camera Actor you set here will be updated.
+[/REGION]
+
+The variant selector class is pre-set with several Blueprint functions. You can call these functions at runtime to select which variants should be shown in your Level. 
+
+If you edit the variant selector Actor, you can find these functions in the functions list in the **My Blueprint** panel, and drag them into the Event Graph to call them in response to custom events you create:
+
+![Variant selector functions](variant-selector-functions.png "Variant selector functions")
+
+To find these Blueprint nodes in a different Blueprint class or a UMG widget that you create:  
+
+1.  Create a new variable, and set its type to be an Object Reference to the **BP_VariantSelector** or **VREDVariantsSelector** class.  
+    Set this variable to point to the variant selector object you've placed in your Level.
+2.  Add a **Get** node for that variable to your Event Graph, and drag from its output pin to create a new node.
+3.  Look in the **Deltagen** or **VRED** category to find the functions for controlling your variants:  
+    [REGION:lightbox]
+    [![Variant Blueprint functions](datasmith-variant-selectors.png "Variant Blueprint functions")](datasmith-variant-selectors.png)  
+    *Click for full image.*
+    [/REGION]
+
+Once you can see the list of nodes:
+
+*   Use one of the **Select Variant** nodes to specify the name of a specific variant that you want to activate.
+*   Use the **Get** nodes to read the names and types of your variants and variant sets from the data contained in the Data Table. This can be very useful if you want to create a UI programmatically based on the names of the actual variants that are available in your scene, instead of hard-coding specific variant names into your UI.
+
+The following image shows how these Blueprint API functions could be used within a UMG UI widget. The variant nodes are highlighted. 
+
+[REGION:lightbox]
+[![Variant functions in a UI Widget](variants_ui.png "Variant functions in a UI Widget")](variants_ui.png)
+
+*Click for full image.*
+[/REGION]
+
+## Animations
+
+If your Deltagen or VRED scene contains any animated scene elements, the Datasmith FBX importer brings those animations into Unreal in exactly the same way as it imports variants. You can play, stop and reset these animations in your project at runtime, using a set of Blueprint functions exposed by a different helper class.
+
+[REGION:note]
+As with variants, it is up to you to decide how the player running your Unreal Project should trigger these animations at runtime, and to write the gameplay code that calls the appropriate Blueprint functions. For example, you might want to create a UI or a set of menus that players can use to select animations, or to trigger animations in response to key presses or other inputs. The Datasmith importer does not create any UI or menus for you — it only gives you the tools you need to create them yourself.
+[/REGION]
+
+### About Animation Data
+
+The importer creates a new **Animations** folder in your Project, next to your Datasmith Scene Asset. In this folder, it creates:
+
+*   A **Curves** folder that contains animation curve Assets. Each of these Assets contains the raw animation curve for a single scene element that the importer found in your source file.
+*   A Data Table Asset that records the animations that the importer found in your source scene. Each row in this table is a record of a single animation that you can enable at runtime. If you need to see the names of the animations that you have available to you, or if you need to verify the details of what scene items each one of these animations controls, you can double-click this Asset to open it up.  
+    The **Data Table panel (1)** lists each of the animations in your scene. The **Row Editor panel (2)** shows the details about the animation that is currently selected in the upper panel.
+
+[REGION:lightbox]
+[![Animation Data Table](datasmith-vred-animtable.png "Animation Data Table")](datasmith-vred-animtable.png)
+
+*Click for full image.*
+[/REGION]
+
+Each animation is made up of separate tracks, and each track refers to one of the curve Assets the importer created in the **Curves** folder:
+
+![](vred-animation-curve-setting.png "vred-animation-curve-setting.png")
+
+### Controlling Animations
+
+If your FBX file contains any animations, the Datasmith FBX importer for Deltagen and VRED adds a new instance of one of the following classes to your Level:  
+
+*   For Deltagen, **BP_AnimationPlayer**.
+*   For VRED, **VREDAnimationPlayer**
+
+This animation player Actor is set up automatically with a reference to your animation Data Table, so that it can access all of the animation data that Datasmith imported from your source file. It also has a reference to a root Actor that is placed at the top of your imported scene hierarchy, immediately under the Datasmith Scene Actor, so that it can find the scene elements that it needs to modify when you choose to play those animations. You'll find these settings in the **Deltagen** or **Default** (for VRED) section of the **Details** panel:  
+
+![Animation player details](animation-player-details.png "Animation player details")
+
+#### Animation Blueprint API
+
+[REGION:tip]
+The animation player class is pre-set with several Blueprint functions that you can call at runtime to select which animations you want to play in your Level, and when.
+[/REGION]
+
+If you edit the animation player Actor, you can find these functions in the functions list in the **My Blueprint** panel, and drag them into the Event Graph to call them in response to custom events you create:
+
+![Animation player functions](animation-player-functions.png "Animation player functions")
+
+To find these Blueprint nodes in a different Blueprint class or a UMG widget that you create:  
+
+1.  Create a new variable, and set its type to be an Object Reference to the **BP_AnimationPlayer** or **VREDAnimationPlayer** class.  
+    Set this variable to point to the animation player object you've placed in your Level.
+2.  Add a **Get** node for that variable to your Event Graph, and drag from its output pin to create a new node.
+3.  Look in the **Call Function **category (and also the  **Deltagen** category if you're working with Deltagen) to find the functions for controlling your animations:
+[REGION:lightbox]
+[![Animation Blueprint functions](datasmith-vreddgen-anim-blueprint-api.png "Animation Blueprint functions")](datasmith-vreddgen-anim-blueprint-api.png)
+
+*Click for full image.*
+[/REGION]
+
+The nodes that you'll use most often are:
+
+| Name | Description |
+| --- | --- |
+| **Play Animation** | 	Plays the animation whose name matches the name that you pass to the node. |
+| **Reset** | Resets all animatable Actors in the Level to their default transforms. |
+| **Set Animation** | Switches the animation currently being run by this animation player. |
+| **Update Animation** | Evaluates the current animation at the time that you pass to the node, and sets the transform of all animated Actors in the Level to match those transforms. |
+| **Get Animation Names** | Returns an Array that contains the names of all animations you can pass to the **Play Animation** node. |
+
+The following image shows an example of how these Blueprint API functions could be used within a UMG UI widget. The animation nodes are highlighted.
+
+[![Animation functions in a UI widget](animation_ui.png "Animation functions in a UI widget")](animation_ui.png)
+
+*Click for full image.*

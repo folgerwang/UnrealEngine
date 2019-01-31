@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4276998
 Availability: Public
 Crumbs:
-Title: Rendering to Multiple Displays with nDisplay
-Description: Describes how to use the nDisplay system to render your Unreal Engine Project simultaneously on multiple displays.
+Title: 使用nDisplay在多显示屏上进行渲染
+Description: 描述如何使用nDisplay系统同时在多个显示器上渲染您的虚幻引擎项目。
 Version: 4.20
 Parent: Engine/Rendering
 Order: 0
@@ -15,247 +15,249 @@ Tags: Page
 
 ![](ndisplay_banner.png)
 
-Interactive content isn't limited to being displayed on a single screen, or even a single dual-screen device like a VR headset. An increasing number of visualization systems aim to immerse the viewer more effectively in the game environment by rendering real-time content through multiple simultaneous displays. These systems may be made up of multiple adjacent physical screens, such as a [Powerwall](https://en.wikipedia.org/wiki/Powerwall) display; or they may use multiple projectors to project the 3D environment onto physical surfaces like domes, tilted walls, or curved screens, such as in a [Cave](https://en.wikipedia.org/wiki/Cave_automatic_virtual_environment) virtual environment.
+互动式内容不仅限于显示在一个屏幕上，或者像VR头显这样的双屏设备上。越来越多的视觉化系统想要通过多个同步显示屏实时渲染内容，更高效地让观众沉浸在游戏世界中。这些系统可能由多个相邻的物理显示屏组成，如[Powerwall](https://en.wikipedia.org/wiki/Powerwall)显示屏；或者可能使用多个投影仪将3D环境投影到穹顶、倾斜幕墙、曲面屏等物理表面，如[Cave](https://en.wikipedia.org/wiki/Cave_automatic_virtual_environment)虚拟环境。
 
-The Unreal Engine supports these usage scenarios through a system called **nDisplay**. This system addresses some of the most important challenges in rendering 3D content simultaneously to multiple displays:
+虚幻引擎通过一个系统 **nDisplay** 为这些使用场景提供支持。该系统可以解决将3D内容同时渲染到多个显示屏的一些最重要的挑战：
 
-* It eases the process of deploying and launching multiple instances of your Project across different computers in the network, each rendering to one or more display devices.
-* It manages all the calculations involved in computing the viewing frustum for each screen in real time, based on the spatial layout of your display hardware.
-* It ensures that the content being shown on the various screens remains *exactly* in sync, with deterministic content across all instances of the Engine.
-* It offers passive and active stereoscopic rendering.
-* It can be driven by input from VR tracking systems, so that the viewpoint in the displays accurately follows the point of view of a moving viewer in real life.
-* It is flexible enough to support any number of screens in any relative orientation, and can be easily reused across any number of Projects.
+* 它有助于完成在网络中的不同计算机上部署和启动多个项目实例的过程，并且这些计算机各自可以渲染到一个或多个显示设备。
+* 它管理根据显示硬件的空间布局，实时计算每个屏幕的视锥体所涉及的所有计算工作。
+* 它确保各个屏幕上显示的内容保持 *完全* 同步，将确定性内容分发到所有引擎实例。
+* 它提供无源和有源立体声渲染。
+* 它可以受VR跟踪系统输入的驱动，这样显示屏中的视点就可以准确地实时跟随移动观众的视点。
+* 它足够灵活，可以支持任意相对方向的任意数量的屏幕，并可以在任意数量的项目中轻松复用。
 
-## nDisplay System Overview
+## nDisplay系统概述
 
-Every nDisplay setup has a single *master* computer, and any number of additional computers.  
+每个nDisplay设置都有一台 *主* 计算机和任意数量的附加计算机。  
 
-* Each computer in the network runs one or more instances of your Project's packaged executable file. Each of those Unreal Engine instances is responsible for rendering a single segment of the same 3D scene to a single screen or display.
-* The master node is also responsible for accepting input from a VRPN device, and replicating that input to all other connected computers.
+* 网络中的每一台计算机都运行项目封装可执行文件的一个或多个实例。其中每一个虚幻引擎实例都负责将同一3D场景的一个分段渲染到单一屏幕或显示屏。
+* 主节点还负责从VRPN设备接收输入，然后将该输入复制到所有其他相连的计算机。
 
 ![nDisplay network overview](image5.png "nDisplay network overview")
 
-To make this possible, nDisplay adds several components to the usual Unreal system architecture:
+为此，nDisplay向普通虚幻系统架构添加了多个组件：
 
-* A network provisioning and management application, called **nDisplayLauncher**. You run this application on a single computer in your network to automatically deploy and launch your Project on all the computers in your network. 
-* A separate listener application, called **nDisplayListener**, that runs on each computer. This application listens for incoming requests from the nDisplayLauncher, and processes those requests on the local computer.
-* A shared configuration file that contains all the settings nDisplay needs to start up the right number of instances on the right computers, each rendering the right point of view on the game's 3D world to produce the illusion of a seamless rendering across all display screens or projectors. See [About the nDisplay Configuration File](#aboutthendisplayconfigurationfile) below.
+* 一个网络配置和管理应用程序，名为 **nDisplayLauncher**。您在网络的一台计算机上运行该应用程序，以自动在网络中的所有计算机上部署和启动您的项目。 
+* 一个独立的侦听器应用程序，名为 **nDisplayListener**，在每一台计算机上运行。该应用程序侦听从nDisplayLauncher传入的请求，并在本地计算机上处理这些请求。
+* 一个包含所有设置的共享配置文件，nDisplay需要这些设置才能在正确的计算机上启动正确数量的实例，这些计算机各自渲染游戏3D世界中的正确视点，以产生在所有显示屏或投影仪上无缝渲染的错觉。请参阅下文[关于nDisplay配置文件](#aboutthendisplayconfigurationfile)。
 
-## Getting Started
+(#gettingstarted)
+## 入门
 
-This section describes how to get up and running with nDisplay for the first time. Before you begin:
+本节介绍如何首次启动和运行nDisplay。准备工作：
 
-* Make sure you have your physical equipment — screens, projectors, etc. — set up and working correctly.
-* Make sure that the Windows account you intend to use on the master computer has administrative rights on *all* computers you intend to use in the nDisplay network.
-* Make sure that all computers you want to use in the nDisplay network can receive TCP/IP communications over ports 41000, 41001, and 41002. (You can use different ports instead; see [Changing Communication Ports](#changingcommunicationports) below.) 
+* 确保您的物理设备（屏幕、投影仪等）已正确设置并能正常工作。
+* 确保您打算在主计算机上使用的Windows帐户在您打算在nDisplay网络中使用的 *所有* 计算机上都有管理权限。
+* 确保您想要在nDisplay网络中使用的所有计算机能够通过端口41000、41001和41002接收TCP/IP通信。(您可以使用不同的端口；请参阅下文[更改通信端口](#changingcommunicationports)。) 
 
-### Step 1. Set up Your Project for nDisplay
+### 第1步. 设置项目以便使用nDisplay
 
-The easiest way to get a Project set up to use nDisplay is to create it from the nDisplay Template Project:
+设置项目以使用nDisplay的最简单方法是根据nDisplay模板项目创建项目：
 
-![Create an nDisplay Project from the Template](ndisplay-create-from-template.png "Create an nDisplay Project from the Template")
+![根据模板创建nDisplay项目](ndisplay-create-from-template.png "Create an nDisplay Project from the Template")
 
-This automatically enables the nDisplay plugin, adds some sample configuration files to your Project, and provides a default Level that is already configured with default settings.
+这样会自动启用nDisplay插件，向项目添加一些样本配置文件，并提供已经配置有默认设置的默认关卡。
 
-If you have an existing Project that you want to use with nDisplay, you can do the same configuration by hand. See [Add nDisplay to an Existing Project](#addingndisplaytoanexistingproject) below.
+如果您有现成的项目想要使用nDisplay，可以手动进行相同配置。请参阅下文[向现有项目添加nDisplay](#addingndisplaytoanexistingproject)。
 
-### Step 2. Set up the Configuration File
+### 第2步. 设置配置文件
 
-You need to tell nDisplay about the different computers you want to use in your network, the size and resolution of the screens or projectors those computers will render to, the spatial relationships between those screens in the 3D space of your Level, and more. To do this, you create a configuration file that expresses all of this information in a series of settings.
+您需要将以下信息告知nDisplay：想要在网络中使用的不同计算机、这些计算机将渲染到的屏幕或投影仪的尺寸和分辨率、关卡3D空间中这些屏幕之间的空间关系等。为此，需要创建一个配置文件，用一系列设置表达所有这些信息。
 
-Creating this configuration file is likely to be the trickiest part of your nDisplay setup, so you should approach it with care. For details, see [About the nDisplay Configuration File](#aboutthendisplayconfigurationfile) below.
+创建该配置文件可能是nDisplay设置中最棘手的部分，因此需谨慎操作。有关详细信息，请参阅下文[关于nDisplay配置文件](#aboutthendisplayconfigurationfile)。
 
-Typically, once your configuration file is set up, you only have to modify it when the topology of your network changes: for example, when you need to change the computers you are rendering to, or if you change the physical arrangement of your screens and displays in the real world.
+通常，设置好配置文件后，您只需在网络拓扑发生变化时修改配置文件即可：例如，当您需要更改想要渲染到的计算机时，或者如果您更改真实世界中的屏幕和显示屏的物理布局。
 
-Save your configuration file inside your Project's Content folder. You'll use it in the next step.  
+将配置文件保存到项目的内容文件夹中。您将在下一步中用到该文件。  
 
-### Step 3. Package and Deploy
+### 第3步. 封装和部署
 
-Every time you change the content in your Project, you'll need to package your game and deploy it to all of the computers that you've identified in your configuration file.
+每次更改项目中的内容时，都需要封装游戏并部署到已在配置文件中标识的所有计算机。
 
-1. In the Unreal Editor, cook and package your game for Windows. For details, see [Build Operations: Cook, Package, Deploy & Run](https://docs.unrealengine.com/en-us/Engine/Deployment/BuildOperations).  
-   Later, when you deploy the application to the slave computers, nDisplay will copy it to the same location on each of the target computers. So it's a good idea to package your project now to a location that exists on all machines.
-1. Find the*Engine\\Binaries\\DotNET\\nDisplayListener.exe *application under your Unreal Engine installation folder. Copy this application to the folder that contains the *.exe* file you've packaged for your game.
-1. Copy your nDisplay configuration file to the same folder.  
-   You should have your packaged Project *.exe* file, the *nDisplayListener.exe *application, and your configuration file all side-by-side in the same folder.
-1. Run the *Engine\\Binaries\\DotNET\\nDisplayLauncher.exe *application under your Unreal Engine installation folder.
+1. 在虚幻编辑器中，为Windows烘焙和封装游戏。有关详细信息，请参阅[构建操作：烘焙、封装、部署和运行](https://docs.unrealengine.com/en-us/Engine/Deployment/BuildOperations)。  
+   然后，在将应用程序部署到从属计算机时，nDisplay会将其复制到每个目标计算机上的相同位置。因此，最好将项目封装到所有机器上都存在的位置。
+1. 在虚幻引擎安装文件夹下面找到 *Engine\\Binaries\\DotNET\\nDisplayListener.exe* 应用程序。将该应用程序复制到包含您已为游戏封装的  *.exe* 文件的文件夹。
+1. 将nDisplay配置文件复制到相同文件夹。  
+   您应将封装项目的 *.exe* 文件、*nDisplayListener.exe* 应用程序和配置文件全部并排放在同一个文件夹中。
+1. 运行虚幻引擎安装文件夹下面的 *Engine\\Binaries\\DotNET\\nDisplayLauncher.exe* 应用程序。
    [REGION:lightbox]
-   [![Deploy in the nDisplay Launcher](ndisplay_launcher_config-1.png "Deploy in the nDisplay Launcher")](ndisplay_launcher_config-1.png) *Click for full image.*
+   [![在nDisplay Launcher中部署](ndisplay_launcher_config-1.png "Deploy in the nDisplay Launcher")](ndisplay_launcher_config-1.png)  *单击查看大图。*
    [/REGION]
-1. Add your packaged Project *.exe* file to the Applications list.  
-   Click **Add** under the **Applications** list, then browse to and select the *.exe* file you packaged for your Project.
-1. Specify your configuration file.  
-   Click **Add** to the right of the **Config Files** control, then browse to and select your configuration file.
-1. Click **Deploy application**.  
-   nDisplay copies the entire contents of the folder that contains your Project's executable file to the same location on each other computer that you've identified in your configuration file.
+1. 将封装项目的 *.exe* 文件添加到“应用程序（Applications）”列表。  
+   单击 **应用程序（Applications）** 列表下面的 **添加（Add）**，然后浏览并选择您为项目封装的 *.exe* 文件。
+1. 指定配置文件。  
+   单击 **配置文件（Config Files）** 控件右侧的 **添加（Add）**，然后浏览并选择您的配置文件。
+1. 单击 **部署应用程序（Deploy application）**。  
+   nDisplay将包含项目可执行文件的文件夹的所有内容复制到您在配置文件中标识的所有其他计算机上的相同位置。
     
 
-### Step 4. Launch all Nodes
+### 第4步. 启动所有节点
 
-Once you have your Project deployed successfully to all the computers you've identified in your configuration file, you can use the **nDisplayLauncher** application to start the Project on all computers simultaneously.
+当您将项目成功部署到已在配置文件中标识的所有计算机后，可以使用 **nDisplayLauncher** 应用程序同时在所有计算机上启动该项目。
 
-1. If you don't already have the **nDisplayLauncher** application running, start it and set the Application and Config File as instructed in the previous section.  
+1. 如果您尚未运行 **nDisplayLauncher** 应用程序，请启动该程序并按上一节所述设置应用程序和配置文件。  
    [REGION:lightbox]
-   [![Run with the nDisplay Launcher](ndisplay_launcher_launch.png "Run with the nDisplay Launcher")](ndisplay_launcher_launch.png) *Click for full image.*
+   [![使用nDisplay Launcher运行](ndisplay_launcher_launch.png "Run with the nDisplay Launcher")](ndisplay_launcher_launch.png) *单击查看大图。*
    [/REGION]
-1. Click **Start listeners**. This runs the nDisplayListener application on each computer you've identified in your nDisplay configuration file.
-1. When nDisplay confirms that all listeners have been started on all computers, click **Run** to launch all instances.
+1. 单击 **启动侦听器（Start listeners）**。这样会在您已在nDisplay配置文件中标识的每台计算机上运行nDisplayListener应用程序。
+1. 当nDisplay确认已在所有计算机上启动所有侦听器后，单击 **运行（Run）** 以启动所有实例。
 
-When you're done:
+完成后：
 
-1. Click **Kill** to automatically shut down all instances of the Unreal Engine on all computers, or simply shut down the instance of Unreal Engine that is running on the master computer.
-1. Click **Stop listeners** to shut down the nDisplayListener application on all computers. 
+1. 单击 **终止（Kill）** 会自动关闭所有计算机上的所有虚幻引擎实例，或者直接关闭主计算机上运行的虚幻引擎实例即可。
+1. 单击 **停止侦听器（Stop listeners）** 以关闭所有计算机上的nDisplayListener应用程序。 
 
-## About the nDisplay Configuration File
+(#aboutthendisplayconfigurationfile)
+## 关于nDisplay配置文件
 
 [REGION:tip]
-The best way to get started understanding the nDisplay configuration file, and creating your own, is to start from the example configurations provided by the nDisplay plugin. If you've created your Project from the nDisplay template, you'll find these files in your Project folder, under *Content/ConfigExamples*. If not, you can find these files in the Unreal Engine installation folder, under *Templates/TP_nDisplayBP/Content/ConfigExamples*.
+开始了解并创建自己的nDisplay配置文件的最佳方法是从nDisplay插件提供的示例配置入手。如果您已根据nDisplay模板创建了项目，会在项目文件夹 *Content/ConfigExamples* 中找到这些文件。如果还未创建，可以在虚幻引擎安装文件夹中的 *Templates/TP_nDisplayBP/Content/ConfigExamples* 下面找到这些文件。
 [/REGION]
 
-The structure of the nDisplay configuration file is directly tied to the different types of components it uses to render the visualization.
+nDisplay配置文件的结构与它用来渲染视觉化的不同类型组件有直接关系。
 
-* Each different type of component that you configure has its own line in the file, and is identified by a string ID that you assign. You use these string IDs when one configuration section needs to refer to another.
-* Many of the components that you configure in this file have defined positions (and often rotations) in virtual 3D space. Each object's position and rotation is relative to that object's *parent*. By default, the parent of all objects is the VR space origin: an arbitrary point in 3D world space where VR space is considered to start. You can also configure specific named transforms in 3D space, called scene_nodes, which can act as parents for one or more components. This can help simplify the spatial layout of your screens, cameras and other components.
-* All parameters expect values in meters and degrees, unless otherwise indicated.
+* 您配置的每种不同类型的组件在该文件中都有自己的行，并以您指定的字符串ID标识。当一个配置节需要引用另一个配置节时，使用这些字符串ID。
+* 在该文件中配置的许多组件已在3D空间中定义了位置（通常也定义了旋转）。每个对象的位置和旋转都相对于该对象的 *父代*。默认情况下，所有对象的父代都是VR空间原点：VR空间中被视为起点的3D场景空间中的任意点。您还可以配置3D空间中特定的命名变换，称为scene_node，它们可以充当一个或多个组件的父代。这有助于简化屏幕、摄像机和其他组件的空间布局。
+* 除非另有说明，否则所有参数都需使用以米和度为单位的值。
 
-### Camera Configurations
+### 摄像机配置
 
-nDisplay renders the scene from a single viewpoint at a time. Each of these potential viewpoints is defined by a **camera **configuration line.  
+nDisplay一次从一个视点渲染场景。每个潜在的视点都由一个 **camera** 配置文件定义。  
 
-You can switch between these viewpoints at runtime. Each viewpoint can also be driven by a tracking device.
+您可以在运行时切换这些视点。每个视点也都可以由跟踪设备驱动。
 
-#### Example configuration:
+#### 示例配置：
 
 	[camera] id=camera_static loc="X=0.Y=0,Z=1.7" tracker_id=VRPNTracking tracker_ch=0
 
-#### Parameters:
+#### 参数：
 
-| Parameter | Description |
+| 参数 | 说明 |
 | --- | --- |
-| **id** | A unique name for this camera configuration. |
-| **loc** | The location of this camera in VR space, relative to its parent. |
-| **tracker_id** | The name of the **input** configuration that defines the VR device you want to drive the position of the camera over time. Optional. If you omit this parameter, the camera's position will be static in VR space. |
-| **tracker_ch** | When you provide a **tracker_id**, this parameter specifies the channel of that device that nDisplay will read tracking data from. |
-| **parent** | The name of a **scene_node** configuration that you want to act as the parent for this object. This parameter is optional. If you specify a parent, the values you set in the loc parameter will be relative to the position of that parent. If you omit the parent, the values you set in the loc parameter will be relative to the VR root. |
+| **id** | 该摄像机配置的唯一名称。|
+| **loc** | 该摄像机在VR空间中相对于其父代的位置。|
+| **tracker_id** | **input** 配置的名称，该配置定义您需要用于随着时间驱动摄像机位置的VR设备。可选参数。如果省略该参数，摄像机位置在VR空间中将保持不变。|
+| **tracker_ch** | 当您提供 **tracker_id** 时，该参数指定nDisplay将从中读取跟踪数据的设备信道。|
+| **parent** | 您希望用作该对象父代的 **scene_node** 配置的名称。该参数是可选的。如果指定父代，您在loc参数中设置的值将相对于该父代的位置。如果省略父代，您在loc参数中设置的值将相对于VR根。|
 
-### Screen Configurations
+### 屏幕配置
 
-Each different output display renders the scene from the current camera's position, using a frustum that is defined by a rectangle of with a defined size and placement in the 3D VR space. Each of these rectangles is defined by a **screen **configuration. Usually, each of these projection screens has the same dimensions in VR space as the physical screen that you'll use to render it.  
+每个不同的输出显示屏都使用在3D VR空间中定义了大小和位置的矩形所定义的视锥体，从当前摄像机位置渲染场景。每个矩形都由一个 **screen** 配置定义。通常，每个投影屏在VR空间中都有与您用来渲染的物理屏幕相同的尺寸。  
 
-The pivot point of a screen is always in its exact midpoint.
+屏幕轴心点始终是最中心点。
 
-#### Example configuration:
+#### 示例配置：
 
-This definition describes a screen that is 3 meters by 3 meters screen, directly in front of its parent. Because the pivot point of the screen is at the center of the rectangle defined by the size parameter, we add a 1.5 meter offset on the Z axis to move the screen upward by half its height.
+该定义描述的是3*3米并直接位于其父代前面的屏幕。由于屏幕轴心点位于size参数定义的矩形中心，因此我们在Z轴上添加1.5米的偏移，以将屏幕向上移动一半高度。
 
 	[screen] id=screen_front loc="X=1.5.Y=0,Z=1.5" rot="P=0,Y=0,R=0" size="X=3,Y=3" parent=screens
 
-To define a screen on the left side of the viewer, we move it to the left (negative values on the Y axis), and rotate it around its local Y axis (yaw), 
+要将屏幕定义在观众左侧，将其向左移动（Y轴用负值），并围绕着局部Y轴旋转（yaw）。 
 
 	[screen] id=screen_left loc="X=0,y=-1.5,Z=1.5" rot="P=0,Y=-90,R=0" size="X=3,Y=3" parent=screens
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **id** | A unique name for this screen configuration. |
-| **loc** | The location of the center of this screen in VR space, relative to its parent. |
-| **rot** | The pitch (P), yaw (Y) and roll (R) angles of the screen's facing direction, in degrees. |
-| **size** | The total size of the screen rectangle along its local X and Y axes, in meters. |
-| **parent** | The name of a **scene_node configuration** that you want to act as the parent for this object. This parameter is optional. If you specify a parent, the values you set in the loc and rot parameters will be relative to the position of that parent. If you omit the parent, the values you set in the loc and rot parameters will be relative to the VR root. |
+| **id** | 该屏幕配置的唯一名称。|
+| **loc** | 该屏幕中心在VR空间中相对于其父代的位置。|
+| **rot** | 屏幕所面向方向的Pitch（P）、Yaw（Y）和Roll（R）角度，以度为单位。|
+| **size** | 屏幕矩形的局部X和Y轴的总大小，以米为单位。|
+| **parent** | 您希望用作该对象父代的 **scene_node** 配置的名称。该参数是可选的。如果指定父代，您在loc和rot参数中设置的值将相对于该父代的位置。如果省略父代，您在loc和rot参数中设置的值将相对于VR根。|
 
 
-### Cluster Node Configurations
+### 集群节点配置
 
-Each of the projection screens defined above is typically rendered by a different instance of your Unreal Engine application. For each of these instances, you need to define a **cluster_node **configuration. Each cluster node refers to the projection screen configuration that it should render. 
+上述定义的每个投影屏通常都由虚幻引擎应用程序的不同实例渲染。对于每个实例，您需要定义一个 **cluster_node** 配置。每个集群节点都引用它应该渲染的投影屏配置。 
 
-The cluster_node configuration also defines the hostname or IP address of the computer that will run that application instance. You may set up a different physical computer for each cluster_node configuration, or you may have multiple cluster_node configurations that run on the same host.
+cluster_node 配置还定义将运行该应用程序实例的计算机的主机名或IP地址。您可以为每个cluster_node配置设置不同的物理计算机，也可以让多个cluster_node配置在同一个主机上运行。
 
-#### Example configuration:
+#### 示例配置：
 
-This example configures a master node (one per network):
+该示例配置主节点（每个网络一个）：
 
 	[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front sound=true port_cs=41001 port_ss=41002 master=true
 
-This example shows a non-master cluster node:
+该示例显示非主集群节点：
 
 	[cluster_node] id=node_left addr=192.168.0.2 screen=screen_left viewport=vp sound=false
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **id** | A unique name for this cluster node configuration. |
-| **addr** | The IP address of the computer that will run this instance of Unreal Engine. This must be an IPv4 address. IPv6 is not supported. |
-| **screen** | The name of the **screen** configuration that defines the projection screen that this instance of Unreal should be in charge of rendering. |
-| **viewport** | The name of the **viewport** configuration that defines the position of the rendered frame within the application window run by this instance of Unreal Engine. |
-| **sound** | Determines whether this instance of Unreal Engine plays sound. Optional; default value is `false`. |
-| **Winx WinY** | Specifies the position of the top left corner of the application window on the desktop, in pixels of screen space. |
-| **ResX ResY**	| Specifies the size of the application window in pixels of screen space. Make sure that the viewport definition you use for this cluster node does not exceed the size of this window. |
-| **port_cs port_ss** | port_ss	Cluster synchronization ports that the master node uses to communicate with other nodes in the cluster. Optional; default values are `14001` and `14002`. |
-| **master** | Determines whether this instance of Unreal Engine is the master node of the cluster. Only one cluster_node section can have this parameter set to true. Optional; default value is `false`. |
+| **id** | 该集群节点配置的唯一名称。|
+| **addr** | 将运行该虚幻引擎实例的计算机的IP地址。这必须是IPv4地址。不支持IPv6。|
+| **screen** | **screen** 配置的名称，该配置定义应该由该虚幻实例负责渲染的投影屏。|
+| **viewport** | **viewport** 配置的名称，该配置定义该虚幻引擎实例运行的应用程序窗口中的渲染框架位置。|
+| **sound** | 确定该虚幻引擎实例是否应播放声音。这是可选参数，默认值为`false`。|
+| **Winx WinY** | 指定应用程序窗口左上角在桌面上的位置，以屏幕空间像素为单位。|
+| **ResX ResY**	| 指定应用程序窗口的大小，以屏幕空间像素为单位。确保您用于该集群节点的视口定义不会超过该窗口的大小。|
+| **port_cs port_ss** | port_ss	集群同步端口，主节点必须使用这些端口来与集群中的其他节点通信。这是可选参数：默认值为`14001`和`14002`。|
+| **master** | 确定该虚幻引擎实例是否是集群的主节点。只有一个cluster_node节可以将该参数设置为true。这是可选参数，默认值为`false`。|
 
-### Viewport Configurations
+### 视口配置
 
-Each **cluster_node** configuration described above refers to a **viewport **configuration, which defines the rectangular area of the game window where the rendered frame is mapped. 
+以上所述的每个 **cluster_node** 配置都引用 **viewport** 配置，视口配置定义游戏窗口中将映射渲染框架的矩形区域。 
 
-You'll typically need a different viewport configuration for each display device that you have with a different set of resolution settings. For example, if all your display screens are identical, you only need one viewport configuration, which you can refer to from all of your cluster node configurations.
+通常，每个具有不同分辨率设置的显示设备都需要一个不同的视口配置。例如，如果所有显示屏都相同，则只需一个视口配置，您可以从所有集群节点配置引用该视口配置。
 
-Usually, a viewport starts at the upper left corner of the application window, and its width and height are set so that they fill the parent window. However, in some cases you may need to offset the viewport within its parent application window. For example, you might want to do this if you need to set up two projectors that partially overlap.  
+一般而言，视口从应用程序窗口左上角算起，宽度和高度已经设定好，这样就可以填充父窗口。但是，在某些情况下，您可能需要在父应用程序窗口中偏移视口。例如，如果需要设置两个部分重叠的投影仪，就需要这样操作。  
 
-#### Example configuration:
+#### 示例配置：
 
 	[viewport] id=vp_left X=0 Y=0 width=1920 height=1080
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **id** | 	A unique name for this viewport configuration. |
-| **X Y** | The coordinates of the top left corner of the viewport, in pixels, within the screen space of the main application window. |
-| **width height** | The width and height of the rendered frame, in pixels. This should not be larger than the size of the game window that is set by the size parameter of any **cluster_node** configuration using this viewport. |
+| **id** | 该视口配置的唯一名称。|
+| **X Y** | 视口左上角在主应用程序窗口的屏幕空间中的坐标，以像素为单位。|
+| **width height** | 渲染框架的高度和宽度，以像素为单位。该尺寸不应该大于使用该视口的任何 **cluster_node** 配置的size参数所定义的游戏窗口大小。|
 
-### Scene Node Configurations
+### 场景节点配置
 
-In your configuration file, you can define a hierarchy of scene nodes, each of which represents a transform in 3D space. Anything that you set up in the configuration file that requires a position and rotation in 3D space, such as a camera or a projection screen, can use one of these *scene_node *configurations as its parent. This can help you to define the spatial relationships between all of the different components of the visualization system.
+在配置文件中，您可以定义场景节点的层级，每个场景节点表示3D空间中的一个变换。如果您在配置文件中设置的任何对象在3D空间中需要有位置和旋转，例如摄像机或投影屏，可以使用其中一个 *scene_node* 配置作为其父代。这样可以帮助您定义视觉化系统所有不同组件之间的空间关系。
 
-Like cameras, scene nodes can also be driven by VR tracking devices.
+像摄像机一样，场景节点也可以由VR跟踪设备驱动。
 
-#### Example configuration:
+#### 示例配置：
 
-The following lines define a hierarchy of two nodes, where the child node has an offset of 2 meters in front of its parent.
+以下代码行定义两个节点的层级，其中子节点在其父代前面有2米偏移。
 
 	[scene_node] id=vr_space_root loc="X=0.Y=0,Z=0" rot="P=0,Y=0,R=0"
 	[scene_node] id=walls_front_group loc="X=2.Y=0,Z=0" rot="P=0,Y=0,R=0" parent= vr_space_root
 
-The following line shows a scene node that is configured to be driven by a VR tracking device:
+以下代码行显示了配置为由VR跟踪设备驱动的场景节点：
 
 	[scene_node] id=cave_wand loc="X=0, Y=0,Z=1" tracker_id=CaveTracking tracker_ch=1
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **id** | A unique name for this scene node configuration. |
-| **loc** | The location of this scene node in VR space, relative to its parent. |
-| **rot** | The pitch (P), yaw (Y) and roll (R) angles of the scene node's facing direction, in degrees. |
-| **parent** | The name of another **scene_node** configuration that you want to act as the parent for this scene node. This parameter is optional. If you specify a parent, the values you set in the **loc** and **rot** parameters will be relative to the position of that parent. If you omit the parent, the values you set in the **loc** and **rot** parameters will be relative to the VR root. |
-| **tracker_id** | The name of the **input** configuration that defines the VR device you want to drive the position of the scene node over time. Optional. If you omit this parameter, the scene node's position and rotation will be static in VR space with respect to its parent. |
-| **tracker_ch** | When you provide a **tracker_id**, this parameter specifies the channel of that device that nDisplay will read tracking data from. |
+| **id** | 该场景节点配置的唯一名称。|
+| **loc** | 该场景节点在VR空间中相对于其父代的位置。|
+| **rot** | 场景节点所面向方向的Pitch（P）、Yaw（Y）和Roll（R）角度，以度为单位。|
+| **parent** | 您希望用作该场景节点父代的另一个 **scene_node** 配置的名称。该参数是可选的。如果指定父代，您在 **loc** 和 **rot** 参数中设置的值将相对于该父代的位置。如果省略父代，您在 **loc** 和 **rot** 参数中设置的值将相对于VR根。|
+| **tracker_id** | **input** 配置的名称，该配置定义您需要用于随着时间驱动场景节点位置的VR设备。可选参数。如果省略该参数，场景节点位置和旋转将在VR空间中相对于其父代保持不变。|
+| **tracker_ch** | 当您提供 **tracker_id** 时，该参数指定nDisplay将从中读取跟踪数据的设备信道。|
 
-### Input Configurations
+### 输入配置
 
-Each **camera** and each **scene_node** may optionally be driven by a VR tracking device. To do this, you define an **input** section for each VR device, and refer to it in the **camera** or **scene_node** configuration.
+每个 **camera** 和每个 **scene_node** 可以选择性由VR跟踪设备驱动。为此，您为每个VR设备定义一个 **input** 节，并在 **camera** 或 **scene_node** 配置中引用该节。
 
-#### Example configuration:
+#### 示例配置：
 
 	[input] id=CaveTracking type=tracker addr=Tracker0@192.168.0.1 loc="X=-1.5,Y=0,Z=3.4" rot="P-0,Y=0,R=0" front=X right=Y up=-Z
 
-#### Parameters:
+#### 参数：
 
-| Parameter | Description |
+| 参数 | 说明 |
 | --- | --- |
-| **id** | A unique name for this input device configuration. |
+| **id** | 该输入设备配置的唯一名称。|
 | **type** | [INCLUDE:#Excerpt_2] |
 | **addr** | [INCLUDE:#Excerpt_3] |
 | **remap** | [INCLUDE:#Excerpt_4] |
@@ -263,248 +265,250 @@ Each **camera** and each **scene_node** may optionally be driven by a VR tracki
 [COMMENT:none]
 
 [EXCERPT:Excerpt_2]
-The type of this VRPN input device:
-* `tracker` for a tracking device.
-* `analog` for a device that produces axis data.
-* `button` for a device that produces Boolean button data.
+该VRPN输入设备的类型：
+* `tracker`表示跟踪设备。
+* `analog`表示产生轴数据的设备。
+* `button`表示产生布尔按钮数据的设备。
 [/EXCERPT]
 
 [EXCERPT:Excerpt_3]
-The type of this VRPN input device:	The address of the VRPN server that handles this particular device. The value must match the following format:
+该VRPN输入设备的类型：	负责处理该特定设备的VRPN服务器的地址。该值必须采用以下格式：
 `DEVICENAME@SERVER_ADDRESS`
-`where:`
-* `DEVICENAME` is the VRPN name for this device.
-* `SERVER_ADDRESS` is the IPv4 address of the VRPN server.
+`其中：`
+* `DEVICENAME`是该设备的VRPN名称。
+* `SERVER_ADDRESS`是VRPN服务器的IPv4地址。
 [/EXCERPT]
 
 [EXCERPT:Excerpt_4]
-This parameter remaps channel numbers from the tracking device so that their input can be read from different channels in Unreal. For example, some controllers use channel 0 for head tracking and channel 1 for the controller; others use channel 1 for the head and channel 5 for the controller. Switching between these two devices might require you to change your configuration and your runtime code to match. To avoid having to make any other changes in this case, you can use this parameter to remap the channels.
-For example, the value:
+该参数重新映射跟踪设备的信道编号，以便在虚幻中可以从不同信道读取其输入。例如，某些控制器使用信道0进行头部跟踪，信道1用于控制器，其他则将信道1用于头部跟踪，信道5用于控制器。来回切换这两类设备可能需要更改配置和运行时代码以便匹配。为避免在此类情况下进行任何其他更改，可以使用该参数来重新映射信道。
+例如，值：
 `remap[0:1, 5:2]`
-forwards the data from channel 1 in the tracking device to channel 0 in Unreal, and forwards the data from channel 2 in the tracking device to channel 5 in Unreal.
+会将跟踪设备信道1的数据转发到虚幻中的信道0，将跟踪设备信道2的数据转发到虚幻中的信道5。
 [/EXCERPT]
 
 [/COMMENT]
 
-Devices where `type=tracker` also accept the following additional parameters:
+`type=tracker`的设备还接受以下附加参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **loc rot** | Similar to other configuration sections, the **loc** and **rot** parameters specify position and rotation offsets in local space for this input device. However, for an input device, you typically use these offsets to adjust the root position of a tracking device in VR space to match the location you expect it to be in your scene node hierarchy. |
+| **loc rot** | 类似于其他配置节，**loc** 和 **rot** 参数指定该输入设备在局部空间中的位置和旋转偏移。但是，对于输入设备，通常使用这些偏移来调整跟踪设备在VR空间中的根位置，以匹配您希望它在场景节点层级中应该具有的位置。|
 | **front right up** | [INCLUDE:#Excerpt_5] |
 
 
 [COMMENT:none]
 [EXCERPT:Excerpt_5]
-These parameters match each local axis of the tracker in Unreal (front, right, and up) with the corresponding axis in the tracker's coordinate system. Unreal uses a right-handed, Z-up coordinate system. If your tracker uses a different coordinate system, you can use these parameters to map the tracker's coordinate system to Unreal's.
-For example, the following line maps the Y axis of the tracker to the front (X) axis in Unreal; the X axis of the tracker to the right (Y) axis in Unreal, and the negative Z axis of the tracker to the up (Z) axis in Unreal:
+这些参数将虚幻中跟踪器的每个局部轴（前、右和上）与跟踪器坐标系中的相应轴匹配。虚幻使用右手惯用Z轴向上的坐标系。如果您的跟踪器使用其他坐标系，可以使用这些参数将跟踪器坐标系映射到虚幻坐标系。
+例如，以下代码行将跟踪器Y轴映射到虚幻前（X）轴，将跟踪器X轴映射到虚幻右（Y）轴，将跟踪器负Z轴映射到虚幻上（Z）轴：
 `front=Y right=X up=-Z`
 [/EXCERPT]
 [/COMMENT]
 
-### General Configuration
+### 常规配置
 
-The **general** configuration line contains parameters that control the overall operation of the nDisplay cluster.
+**general** 配置行包含用于控制nDisplay集群总体运行的参数。
 
-#### Example configuration:
+#### 示例配置：
 
 	[general] swap_sync_policy=1
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
 | **swap_sync_policy** | [INCLUDE:#Excerpt_6] |
 
 [COMMENT:none]
 [EXCERPT:Excerpt_6]
-Determines how output is synchronized over the network.
-* 0: no synchronization.
-* 1: Software swap synchronization
-* 2: NV swap lock (only for NVIDIA cards rendering with OpenGL)
+确定输出在网络中的同步方式。
+* 0：不同步。
+* 1：软件交换同步
+* 2：NV交换锁定（仅适用于使用OpenGL的NVIDIA卡渲染）
 [/EXCERPT]
 [/COMMENT]
 
-### Stereo Configuration
+### 立体声配置
 
-The **stereo** configuration line sets optional global parameters for stereoscopic rendering.
+**stereo** 配置行设置立体声渲染的可选全局参数。
 
-#### Example configuration:
+#### 示例配置：
 
 \[stereo\] eye\_swap=True eye\_dist=0.064
 
-#### Parameters:
+#### 参数：
 
-| **Parameter** | **Description** |
+| **参数** | **说明** |
 | --- | --- |
-| **eye_swap** | Determines whether or not the images generated for the left and right eye are swapped. Optional. Default value is false. |
-| **eye_dist** | The inter-ocular distance to use for offsetting the images generated for the left and right eyes, in meters. |
+| **eye_swap** | 确定是否交换为左右眼生成的图像。可选参数。默认值为false。|
+| **eye_dist** | 用于调整为左右眼生成的图像偏移的瞳距值，以米为单位。|
 
-### Structure
+### 结构
 
-The references between the different configuration types outlined above imply the following structure, where red arrows are mandatory references and green arrows are optional references:
+以上概述的不同配置类型之间的引用即暗含了结构，红色箭头是必须存在的引用，绿色箭头是可选引用：
 
-![Configuration reference structure](ndisplay-configuration-references.png "Configuration reference structure")
+![配置引用结构](ndisplay-configuration-references.png "Configuration reference structure")
 
-### Example
+### 示例
 
-To take a specific example, open the *wall_flat_3x2.cfg* sample file. This file defines six projection screens, each of which is to be rendered by a separate physical computer.
+为了举一个具体示例，打开 *wall_flat_3x2.cfg* 样本文件。该文件定义了六个投影屏，每个屏幕将由单独的物理计算机渲染。
 
-It also defines several scene_nodes, which taken together create the following hierarchy:
+它还定义了多个scene_node，它们共同形成了以下层级：
 
-![nDisplay example scene hierarchy](ndisplay-scene-hierarchy.png "nDisplay example scene hierarchy")
+![nDisplay示例场景层级](ndisplay-scene-hierarchy.png "nDisplay example scene hierarchy")
 
-The relative positions and rotations of the nodes in this hierarchy lay out the arrangement of the camera and the six screens in VR space so that the six projection screens are side-by-side, at a distance of 1 meter from the camera. 
+该层级中节点的相对位置和旋转决定了摄像机的布局和VR空间中的六个屏幕的布局，因此六个投影屏是并排放置的，距离摄像机1米。 
 
 [REGION:lightbox]
-[![nDisplay example layout](ndisplay-example-layout.png)](ndisplay-example-layout.png)
+[![nDisplay示例布局](ndisplay-example-layout.png)](ndisplay-example-layout.png)
 [/REGION]
 
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-Note that the configuration implies a small space in between each adjacent pair of projection screens, to account for the edges of the monitors rendering the scene.
+请注意，该配置暗示着每对相邻的投影屏之间存在一小块间隙，以便容纳渲染场景的显示器边缘。
 
-## Blueprint API
+## 蓝图API
 
-You can control the behavior of the nDisplay system in your game's runtime logic using its Blueprint API.
+您可以使用蓝图API控制nDisplay系统在游戏运行时逻辑中的行为。
 
-To get to the functions exposed in this API for managing clusters, input and rendering:
+要在该API中公开用于管理集群、输入和渲染的函数：
 
-1.  Create a new **Display Cluster > Get Plugin API** node in your Blueprint.
-2.  Drag from the **Out API** pin, and look under the **Display Cluster** category:  
-    ![nDisplay Get Plugin API](ndisplay-get-plugin-api.png "nDisplay Get Plugin API")
+1. 在蓝图中创建新的 **显示集群（Display Cluster）>获取插件API（Get Plugin API）** 节点。
+2. 从 **输出API（Out API）** 引脚拖出一根引线，并在 **显示集群（Display Cluster）** 类别下查找所需选项：  
+    ![nDisplay获取插件API](ndisplay-get-plugin-api.png "nDisplay Get Plugin API")
 
-## Actor Replication
+## Actor复制
 
-All inputs to the nDisplay system are handled only by the master node. Without any replication, only the master node would see changes in the scene. Therefore, the master node needs to be able to replicate changes to all other parts of the nDisplay network.
+所有nDisplay系统输入都只有主节点处理。如果不进行复制，则只有主节点会看到场景变化。因此，主节点需要能够将更改复制到nDisplay网络的所有其他部分。
 
-To accomplish this, nDisplay offers two different kinds of Components that you can attach to your Actors:
+为此，nDisplay提供了两种可以连接到Actor的不同组件：
 
-*   The **DisplayClusterSceneComponentSyncParent** Component tracks changes in the 3D transforms of its parent Component, and pushes those changes to the other cluster nodes in the network.  
-    The default DisplayClusterPawn used by the nDisplay system uses this Component.  
+*   **DisplayClusterSceneComponentSyncParent** 组件跟踪其父组件的3D变换更改，并将这些更改推送到网络中的其他集群节点。  
+    nDisplay系统使用的默认DisplayClusterPawn使用该组件。  
     
-*   The **DisplayClusterSceneComponentSyncParent **Component tracks changes to the 3D transforms of its child components, and pushes those changes to the other cluster nodes in the network.
+*   **DisplayClusterSceneComponentSyncParent** 组件跟踪其子组件的3D变换更改，并将这些更改推送到网络中的其他集群节点。
 
-For example, in the Actor shown below, the **DisplayClusterSceneComponentSyncParent_DefaultSceneRoot** Component tracks and replicates changes to the 3D transforms of its parent Actor as the Actor moves around the Level. The **DisplayClusterSceneComponentSyncThis** Component tracks and synchronizes movements of its child Cube component as it moves relative to the scene graph root.
+例如，在下面显示的Actor中，**DisplayClusterSceneComponentSyncParent_DefaultSceneRoot** 组件跟踪并复制其父Actor在关卡中四处移动时它的3D变换的更改。**DisplayClusterSceneComponentSyncThis** 组件跟踪并同步其子立方体组件相对于场景图形根移动时的运动。
 
 ![DisplayClusterSceneComponentSyncParent ](ndisplay-actor-replication.png "DisplayClusterSceneComponentSyncParent ")
 
-If you have other Actors in your scene that can be affected during gameplay, you must use one of these two Components to replicate those changes to all nodes. To do this:
+如果您的场景中包含可能在游戏期间受到影响的其他Actor，必须使用上述两个组件之一来将这些更改复制到所有节点。为此：
 
-1.  Select the Actor you need to replicate in the Level viewport or the **World Outliner** panel.
-2.  In the **Details** panel, click **\+ Add Component**. Search for either **DisplayClusterSceneComponentSyncParent** or **DisplayClusterSceneComponentSyncThis**, and select it from the list.  
-    ![Add an nDisplay sync Component](ndisplay-actor-replication-selection.png "Add an nDisplay sync Component")
+1. 在关卡视口或 **世界大纲视图** 面板中选择需要复制的Actor。
+2. 在 **细节（Details）** 面板中，单击 **添加组件（\+ Add Component）**。搜索 **DisplayClusterSceneComponentSyncParent** 或 **DisplayClusterSceneComponentSyncThis** 并从列表中选择它。  
+    ![添加nDisplay同步组件](ndisplay-actor-replication-selection.png "Add an nDisplay sync Component")
 
 [REGION:note]
-These components do not carry out a full replication. Only the transforms of the parent Actor or of child Components are sent to the cluster.
+这些组件不执行完全复制。只会将父Actor或子组件的变换发送到集群。
 [/REGION]
 
-## Using VRPN Inputs
+## 使用VRPN输入
 
-To use a [VRPN](https://en.wikipedia.org/wiki/VRPN) input device with nDisplay:
+要将[VRPN](https://en.wikipedia.org/wiki/VRPN)输入设备与nDisplay一起使用：
 
-1. Install a VRPN server on your network.  
-   This version of nDisplay requires VRPN **version 33**.
-1. In the server’s *vrpn.cfg* file, which you'll find located next to the server's executable file, enable your input device and give itone a name.
-1. In your nDisplay configuration file, add an entry to set up your VRPN input device, adjust its coordinate system, and attach it to a camera.
+1. 在网络中安装VRPN服务器。  
+   当前版本的nDisplay需要VRPN **版本33**。
+1. 在服务器的 *vrpn.cfg* 文件中（该文件位于服务器可执行文件附近），启用输入设备并指定名称。
+1. 在nDisplay配置文件中，添加一个条目来设置VRPN输入设备，调整它的坐标系并将其连接到摄像机。
 
-The following example shows one way to set up the ART DTrack tracking system:
+以下示例演示了设置ART DTrack跟踪系统的一种方法：
 
-* In Vrpn.cfg, located next to the vrpn server exe, add the following line:
+* 在vrpn服务器exe附近的Vrpn.cfg中，添加以下行：
 		vrpn_Tracker_DTrack DTrack  5000	
-  This makes VRPN receive the DTrack inputs from port 5000, and maps them to the VRPN device named DTrack. (Make sure DTrack is configured to output its tracking data on port 5000.)
-* In the nDisplay config file, add the following lines:
+  这样会让VRPN接收来自于端口5000的DTrack输入，并将它们映射到名为DTrack的VRPN设备。(确保将DTrack配置为在端口5000上输出其跟踪数据。)
+* 在nDisplay配置文件中，添加以下行：
 		[input] id=CaveTracking type=tracker addr=DTrack@127.0.0.1 loc="X=1.32,Y=0,Z=0.93735" rot="P=0,Y=0,R=0" front=Z right=-X up=Y
 		[camera] id=camera_dynamic loc="X=0,Y=0,Z=0" tracker_id=CaveTracking tracker_ch=0
-  The first line creates an nDisplay input device named CaveTracking, which fetches data from VRPN address DTrack@127.0.01. You have to adapt your coordinate system here to fit with your tracking system and offset. The second line tells nDisplay to fetch camera positions from the CaveTracking input on channel 0.
+  第一行创建名为CaveTracking的nDisplay输入设备，它从VRPN地址DTrack@127.0.01获取数据。您必须在这里调整坐标系以适应您的跟踪系统和偏移。第二行告知nDisplay在信道0上从CaveTracking输入获取摄像机位置。
 
-To manage the state of your VRPN devices from your gameplay code, and to detect input events such as button presses:
+要从游戏代码管理VRPN设备的状态，并检测按按钮等输入事件：
 
-* In C++, use the `IDisplayClusterInputManager` class.
-* In Blueprints, use the nodes under **DisplayCluster > Input**. Make sure that the ID you set in the nodes matches the ID value you have set in your configuration file. For example:  
+* 在C++中，使用`IDisplayClusterInputManager`类。
+* 在蓝图中，使用 **显示集群（DisplayCluster）>输入（Input）** 下面的节点。确保您在节点中设置的ID与配置文件中设置的ID值相匹配。例如：  
   ![](ndisplay_vrpn_api.png "ndisplay_vrpn_api.png")
 
-## Changing Communication Ports
+(#changingcommunicationports)
+## 更改通信端口
 
-The nDisplay system communicates between hosts over three TCP/IP ports: 14000, 14001, and 14002. You need to make sure you have these hosts open on all computers.
+nDisplay系统主机之间通过三个TCP/IP端口通信：14000、14001和14002。您需要确保在所有计算机上打开这些端口。
 
-If you want to change the port numbers yourself, you can do so in the following places.
+如果想要自己更改端口号，可以在以下位置进行更改。
 
-* **Runtime synchronization ports**. The master node uses two ports to synchronize data with the other nodes in the cluster. To set these two ports, include the **port_cs** and **port_ss** configuration parameters in your configuration file, on the **cluster_node **line that defines your master node. For example:
+* **运行时同步端口**。主节点使用两个端口与集群中的其他节点同步数据。要设置这两个端口，在配置文件中用于定义主节点的 **cluster_node** 行上包含 **port_cs** 和 **port_ss** 配置参数。例如：
 		[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front port_cs=42001 port_ss=42002 master=true
 
-* **nDisplay Launcher and nDisplay listener ports**. The nDisplay Launcher and nDisplay Listener both need to be configured to use the same communication port. You can specify this on the command line when you start up these applications.  
-  When you start the nDisplay Launcher, use the `listener_port` argument. For example:
+* **nDisplay Launcher和nDisplay Listener端口**。nDisplay Launcher和nDisplay Listener都需要配置为使用相同的通信端口。您可以在启动这些应用程序时，在命令行上进行指定。  
+  当您启动nDisplay Launcher时，使用`listener_port`参数。例如：
 	nDisplayLauncher.exe listener_port=15003
 
-  In addition, you'll have to start the nDisplayListener application on each host yourself, with the `port` argument. For example:
+  此外，您还需要在每个主机上使用`port`参数自行启动nDisplayListener应用程序。例如：
 	nDisplayListener.exe port=15003
 
-## Adding nDisplay to an Existing Project
+(#addingndisplaytoanexistingproject)
+## 向现有项目添加nDisplay
 
-To set up an existing Project to use nDisplay:
+将现有项目设置为使用nDisplay：
 
-1.  Enable the nDisplay plugin.  
-    In the Unreal Editor, choose **Edit > Plugins** from the main menu. Search for "nDisplay", and check the **Enabled **checkbox.  
+1. 启用nDisplay插件。  
+    在虚幻编辑器中，从主菜单中选择 **编辑（Edit）>插件（Plugins）**。搜索“nDisplay”，选中 **启用（Enabled）** 复选框。  
 	[REGION:lightbox]
-    [![Enable the nDisplay Plugin](ndisplay-enable-plugin.png "Enable the nDisplay Plugin")](ndisplay-enable-plugin.png)  
-	*Click for full image.*
+    [![启用nDisplay插件](ndisplay-enable-plugin.png "Enable the nDisplay Plugin")](ndisplay-enable-plugin.png)  
+	*单击查看大图。*
     [/REGION]
-2.  Enable nDisplay for your Project.  
-    Choose **Edit > Project Settings** from the main menu, and find the **Plugins > nDisplay** section. Check the **Enabled** checkbox.  
+2. 为项目启用nDisplay。  
+    从主菜单中选择 **编辑（Edit）>项目设置（Project Settings）**，找到 **插件（Plugins）> nDisplay** 部分。选中 **启用（Enabled）** 复选框。  
     [REGION:lightbox]
-    [![nDisplay Project Settings](ndisplay-project-settings.png "nDisplay Project Settings")](ndisplay-project-settings.png)  
-	*Click for full image.*
+    [![nDisplay项目设置](ndisplay-project-settings.png "nDisplay Project Settings")](ndisplay-project-settings.png)  
+	*单击查看大图。*
     [/REGION]
-3.  Still in the **Project Settings** window, go to the **Project > Description** section, and check the **Settings > Use Borderless Window** checkbox.  
+3. 还是在 **项目设置（Project Settings）** 窗口中，转至 **项目（Project）>说明（Description）** 部分，选中 **设置（Settings）>使用无边框窗口（Use Borderless Window）** 复选框。  
     [REGION:lightbox]
-    [![Use Borderless Window](ndisplay-project-settings-borderless.png "Use Borderless Window")](ndisplay-project-settings-borderless.png)  
-	*Click for full image.*
+    [![使用无边框窗口](ndisplay-project-settings-borderless.png "Use Borderless Window")](ndisplay-project-settings-borderless.png)  
+	*单击查看大图。*
     [/REGION]
-4.  Restart the Unreal Editor, reopen your Project, and open your Project's default Level.
-5.  In the **World Settings** panel, set the **Game Mode > GameMode Override** setting to **DisplayClusterGameModeDefault**.  
+4. 重新启动虚幻编辑器，重新打开项目，然后打开项目的默认关卡。
+5. 在 **场景设置（World Settings）** 面板中，将 **游戏模式（Game Mode）>游戏模式覆盖（GameMode Override）** 设置为 **DisplayClusterGameModeDefault**。  
     [REGION:lightbox]
-    [![nDisplay World Settings](ndisplay-world-settings.png "nDisplay World Settings")](ndisplay-world-settings.png)  
-	*Click for full image.*
+    [![nDisplay场景设置](ndisplay-world-settings.png "nDisplay World Settings")](ndisplay-world-settings.png)  
+	*单击查看大图。*
     [/REGION]    
-6.  Add a new **DisplayClusterSettings** Actor to your Level.  
-    You can find this Actor in the **Modes** panel, on the **All Classes** list.
-7.  Continue on with the rest of the setup instructions under [Getting Started](#gettingstarted) above.
+6. 向关卡添加新的 **DisplayClusterSettings** Actor。  
+    您可以在 **模式（Modes）** 面板上的 **所有类（All Classes）** 列表中找到这个Actor。
+7. 继续完成上文[入门](#gettingstarted)中所述的其余设置操作。
 
-## nDisplay Launcher UI Reference
+## nDisplay Launcher UI参考
 
-This section describes all of the settings and options available in the user interface of the nDisplay Launcher.
+本节介绍nDisplay Launcher用户界面中提供的所有设置和选项。
 
 [REGION:lightbox]
 [![nDisplay Launcher UI](ndisplay-launcher-ui.png)](ndisplay-launcher-ui.png) 
 [/REGION]
 
-| **Control** | **Description** |
+| **控件** | **描述** |
 | --- | --- |
-| **Render API** | Specifies the rendering API to use the next time you click Run. |
-| **Render mode** | [INCLUDE:#excerpt_9] |
-| **Use All Available Cores** | Forces each Unreal instance to use all available processors on its host. When this option is selected, the nDisplay Launcher adds the USEALLAVAILABLECORES option to the command line it uses to launch each instance. |
-| **No Texture Streaming** | Disables texture streaming for each Unreal instance. Highest quality textures are always loaded. When this option is selected, the nDisplay Launcher adds the NOTEXTURESTREAMING option to the command line it uses to launch each instance. |
-| **Custom command line arguments** | If you want the nDisplay Launcher to pass any additional arguments on the command line it uses to launch each Unreal instance, include them here. For details, see the [Command-Line Arguments]("Programming/Basics/CommandLineArguments") reference. |
-| **Applications** | Lists all packaged Unreal applications that you can run with the nDisplay Launcher. Use the Add and Delete buttons to edit the list. For more, see [Step 3. Package and Deploy]("Engine/Rendering/nDisplay#step3packageanddeploy") above. |
-| **Config Files** | Lists all configuration files that you've set up for the nDisplay Launcher. Use the Add and Delete buttons to edit the list. For more, see [Step 3. Package and Deploy]("Engine/Rendering/nDisplay#step3packageanddeploy") above. |
-| **Run** | Launches the application that you've selected in the **Applications** list on all hosts that are configured in the file that you've selected in the **Config Files** list. |
-| **Kill** | Shuts down all instances of the Unreal Engine that the nDisplay Launcher started up. |
-| **Start listeners** | Starts an instance of the nDisplay Listener application on each host configured in the file that you've selected in the **Config Files** list.  |
-| **Stop listeners** | Shuts down all instances of the nDisplay Listener application that this nDisplay Launcher started up. |
-| **Deploy application** | Copies the application that you've selected in the **Applications** list to each host configured in the file that you've selected in the **Config Files** list. |
-| **Copy** | Copies to the clipboard all messages listed in the log window to the left. |
-| **Clean** | Clears all messages from the log window to the left. |
+| **渲染API（Render API）** | 指定下次单击“运行（Run）”时使用的渲染API。|
+| **渲染模式（Render mode）** | [INCLUDE:#excerpt_9] |
+| **使用所有可用核心（Use All Available Cores）** | 强制每个虚幻实例使用其主机上所有可用的处理器。选择该选项时，nDisplay Launcher会在用于启动每个实例的命令行中添加USEALLAVAILABLECORES选项。|
+| **无纹理流送（No Texture Streaming）** | 禁用每个虚幻实例的纹理流送。始终加载最高质量的纹理。选择该选项时，nDisplay Launcher会在用于启动每个实例的命令行中添加NOTEXTURESTREAMING选项。|
+| **自定义命令行参数（Custom command line arguments）** | 如果想要nDisplay Launcher在用来启动每个虚幻实例的命令行上传递任何其他参数，请在此注明这些参数。有关详细信息，请参阅[命令行参数]("Programming/Basics/CommandLineArguments")参考。|
+| **应用程序（Applications）** | 列出通过nDisplay Launcher运行的所有封装的虚幻应用程序。使用“添加（Add）”和“删除（Delete）”按钮编辑该列表。有关更多信息，请参见上文[第3步. 封装和部署]("Engine/Rendering/nDisplay#step3packageanddeploy")。|
+| **配置文件（Config Files）** | 列出您已经为nDisplay Launcher设置的所有配置文件。使用“添加（Add）”和“删除（Delete）”按钮编辑该列表。有关更多信息，请参见上文[第3步. 封装和部署]("Engine/Rendering/nDisplay#step3packageanddeploy")。|
+| **运行（Run）** | 在您已从 **配置文件（Config Files）** 列表中选择的文件中配置的所有主机上，启动您从 **应用程序（Applications）** 列表中选择的应用程序。|
+| **终止（Kill）** | 关闭nDisplay Launcher启动的所有虚幻引擎实例。|
+| **启动侦听器（Start listeners）** | 在您从 **配置文件（Config Files）** 列表中选择的文件中配置的每台主机上启动一个nDisplay Listener应用程序实例。|
+| **停止侦听器（Stop listeners）** | 关闭该nDisplay Launcher启动的所有nDisplay Listener应用程序实例。|
+| **部署应用程序（Deploy application）** | 将您从 **应用程序（Applications）** 列表中选择的应用程序复制到您从 **配置文件（Config Files）** 列表中选择的文件中配置的每台主机。|
+| **复制（Copy）** | 将左侧日志窗口中列出的所有消息复制到剪贴板。|
+| **清理（Clean）** | 从左侧日志窗口中清除所有消息。|
 [COMMENT:none]
 [EXCERPT:Excerpt_9]
-Specifies the type of output nDisplay produces:
-* Monoscopic: no stereo rendering
-* Frame sequential: active quad buffer stereo
-* Side-by-side: passive horizontally aligned stereo
-* Top-bottom: passive vertically aligned stereo
+指定nDisplay产生的输出类型：
+* 单视场（Monoscopic）：无立体声渲染
+* 帧连续（Frame sequential）：有源四缓冲立体声
+* 并排（Side-by-side）：无源水平一致立体声
+* 自顶向下（Top-bottom）：无源垂直一致立体声
 
-Monoscopic does not require any specific hardware features, but frame sequential does. Make sure your display device, GPU and diver settings are compatible with the render mode you choose.
+单视场（Monoscopic）不需要任何特定的硬件功能，但帧连续（Frame sequential）需要。确保您的显示设备、GPU和驱动程序设置与您选择的渲染模式兼容。
 [/EXCERPT]
 [/COMMENT]

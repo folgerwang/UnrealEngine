@@ -1,82 +1,83 @@
+﻿INTSourceChangelist:3807090
 Availability: Licensee
-Title:将Perfroce和虚幻引擎结合使用
+Title:将Perforce与虚幻引擎配合使用
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
-Description: 使用虚幻引擎来进行Perforce源代码控制的指南。
+Description:将Perforce源码控制与虚幻引擎配合使用的指南。
+version: 4.9
 
 [TOC(start:2)]
 
+虚幻引擎是通过一个Perforce库提供的，授权用户必须连接该库才能下载虚幻引擎。由于虚幻引擎定期更新，作为一个项目的授权用户，您可以选择在开发周期期间一次或多次将引擎版本更新为新的版本。从一开始就正确设置Perforce，以便尽可能轻松地同步和集成引擎的版本，这一点非常重要。
 
-
-## 概述
-
-虚幻引擎是通过Perfroce库提供的，授权用户要想下载引擎就必须连接到Perforce库。因为虚幻引擎会定期地更新，所以作为正在设计一个项目的授权用户，在开发循环周期内您可能要一次或多次地将引擎版本更新为较新的版本。所以从一开始就可以正确地设置Perforce对于轻松地同步及集成引擎版本是非常重要的。
-
-Epic在 **美国东部时间每月的第二个星期日和第四个星期日的早上8点到中午** 之间执行定期维护。当在进行规划时，请考虑到这一点，因为在这段时间内任何或所有支持途径都可能受到影响，尤其是 网络/服务器 资源。
+Epic预留了 **北美东部标准时间每月第 2 个和第 4 个周日的上午 8 点至中午（2nd and 4th Sunday of the month from 8am-Noon EST）** 时间段，以进行定期维护。在规划时请记住这一点，因为在这些时间段期间任何或所有的支持机构都可能会受到影响，特别是网络/服务器资源。
 
 
 
+(#connectingtoepic’sdepot)
 ## 连接到Epic的库
 
-连接到Epic的公开Perfroce库的第一步是设置一个连接到Epic Games的安全的虚拟专用网络。这要求安装Cisco的VPN客户端（或者手动安装或者通过基于网络的自动过程安装），并使用您的 VPN/Perforce证书登录。关于创建VPN连接的过程如下所示：
+能够连接到Epic的公共Perforce库的第一步是设置虚拟专用网(VPN)安全连接到Epic Games。这需要安装Cisco的VPN客户端（手动或通过基于Web的自动流程）并使用VPN/Perforce凭证登录。下面概述了创建VPN连接的过程：
 
-**基于网络的连接**
-
-
-1. 在您的网络浏览器中跳转到 **[https://vpn.epicgames.com](https://vpn.epicgames.com)**  (出于稳定性考虑推荐使用IE)。
-1. 使用您的技术联系人提供的VPN证书登录。
-1. 按照屏幕的指示和提示操作。
-1. 安装了VPN客户端并建立了连接。
+ **基于Web的连接**
 
 
-**手动连接**
+1. 在Web浏览器（出于稳定性考虑推荐IE）中前往[https://vpn.epicgames.com](https://vpn.epicgames.com)。
+1. 使用技术联系人提供的VPN凭证登录。
+1. 按照屏幕上的所有指示和提示操作。
+1. 已安装VPN客户端并已建立连接。
 
 
-1. 从以下网址下载Cisco AnyConnect VPN客户端： [AnyConnect VPN客户端下载](http://www.cisco.com/cisco/software/navigator.html?mdfid=281268793&i=rm)。
-1. 安装该客户端并运行它。
-1. 设置 **vpn.epicgames.com** 为要连接到的地址。
-1. 使用您的技术联系人提供的VPN证书登录。
-1. 建立连接。
+ **手动连接**
 
 
-在[](GettingStarted/DownloadingUnrealEngine/VPNSetup)页面详细介绍了设置及建立到Epic Games专用网络的连接的完整过程。
-
-一旦建立了这个VPN连接，您将可以使用Perforce客户端安全地从您的机器上访问该库了。需要安装客户端并进行正确的配置才能连接。关于安装P4V客户端的及使用其进行连接Perfroce库的过程如下所示：
-
-
-1. 从以下地址下载Perfroce Windows客户端： [Perforce下载: 精简版本](http://www.perforce.com/downloads/complete_list).
-1. 安装该客户端并运行它。
-1. 在 **Connection Dialog(连接对话框)** 中填写正确的 **Server(服务器)** 、 **User（用户）** 和 **Workspace（工作区）** ，然后按下 **OK(确定)** 。
-1. 客户端打开并连接到Epic的公共Perforce库。
+1. 从以下位置下载Cisco AnyConnect VPN客户端：[AnyConnect VPN客户端下载](http://www.cisco.com/cisco/software/navigator.html?mdfid=281268793&i=rm)。
+1. 安装并运行此客户端。
+1. 将 **vpn.epicgames.com** 设置为要连接到的地址。
+1. 使用技术联系人提供的VPN凭证登录。
+1. 已建立连接。
 
 
-[设置Perforce连接](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)页面详细介绍了设置Perforce客户端连接到Epic的Perforce库的完整过程。
+有关设置并建立VPN到Epic Games专用网的连接的完整过程在[](GettingStarted/DownloadingUnrealEngine/VPNSetup)页面上有详细的说明。
+
+建立此VPN连接后，您将能够使用Perforce客户端从您的位置安全地访问此库。需要正确地安装和配置此客户端才能进行连接。下面概述了安装和连接P4V客户端的过程：
 
 
-
-## 下载版本或修订版本
-
-通过标签和变更列表编号是识别文件修订版本的两个主要方法。从高层次来开，标签标识了构成某个特定引擎版本的所有修改，比如经过QA验证的版本，而变更列表编号标识了一组特定的修改。这两个改变间的真正区别在Perforce网站的[代码行和分支](http://www.perforce.com/perforce/doc.current/manuals/p4guide/06_codemgmt.html) 页面进行了详细的解释。要想同步到Epic的Perforce库，您需要知道以下内容：
-
-
-* **Labels** - 要想更新到一个新的经过QA验证的版本，那么您应该同步到一个标签。
-* **Changelists** - 要想同步到针对引擎某个特定方面的特定修改，那么您将需要同步到一个变更列表。
+1. 从以下位置下载Perforce Windows客户端：[Perforce下载：必备软件](http://www.perforce.com/downloads/complete_list)。
+1. 安装并运行此客户端。
+1. 在 **连接对话框（Connection Dialog）** 中填写相应的 **服务器（Server）**、**用户（User）** 和 **工作区（Workspace）** 信息，然后按下 **确定（OK）**。
+1. 此客户端打开，并连接到Epic的公共Perforce库。
 
 
-要想进行虚幻引擎4入门学习，您将需要同步到Perforce库中的标签指定的最新QA版本。这个过程可能需要一段时间，尤其是第一次同步时，因为他必须下载构成整个引擎的所有文件。后续的同步将会更快些，因为仅需要下载新的文件或者更改的文件。
-
- [使用Perforce同步版本](GettingStarted/DownloadingUnrealEngine/Perforce/Syncing) 页面详细介绍了从Epic的Perforce库下载虚幻引擎4的版本或修订版本的完整过程。
-
-以下部分包含了关于如何设置Perforce库并在本地维护版本的信息，以便使得同步到新版本变得尽可能的简单。
+有关设置Perforce客户端以连接到Epic的Perforce库的完整过程在[Setting Up Perforce Connection](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)页面上有详细的说明。
 
 
 
+(#downloadingbuildsorrevisions)
+## 下载版本或修订版
+
+标识文件修订集的两种主要方法是通过标签和变更列表。在较高的级别上，标签标识构成引擎特定构建的所有更改，例如QA批准的构建，而变更列表标识特定的变更集。这两个概念之间的实际区别在Perforce网站的[代码线和分支](http://www.perforce.com/perforce/doc.current/manuals/p4guide/06_codemgmt.html)页面上有更详细的解释。要同步到Epic的Perforce库，您需要了解以下内容：
+
+
+* **标签（Labels）** - 要更新到经过QA批准的新版本，您需要同步到一个标签。
+* **变更列表（Changelists）** - 要更新到对引擎的特定方面所做更改的特定集合，您将同步到变更列表。
+
+
+要开始使用虚幻引擎4，您需要同步到由Perforce库中的标签指定的最新QA版本。此过程可能需要一些时间，尤其是在第一次时，因为它必须下载组成整个引擎的所有文件。后续的同步会更快，因为只需要下载新文件或更改文件。
+
+有关从Epic的Perforce库下载虚幻引擎4的版本或修订版的完整过程在[同步版本和Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Syncing)页面上有详细的说明。
+
+下一部分包含有关如何在本地设置Perforce库和维护版本，以便尽可能轻松地更新为新版本信息。
+
+
+
+(#maintainingthelocaldepot)
 ## 维护本地库
 
-当我们向我们的库中添加认为是“自动生成”（比如. .exe / .u）的新文件时，如果该文件不包含在“屏蔽掉的文件集合”中，那么我们将告诉所有程序员更新它们的客户端规格说明来屏蔽掉那个文件。
+当我们将一个新的文件添加到库，且此文件被视为“自动生成”的新文件时（例如.exe / .u），我们将告知所有程序员更新他们的客户端规范，以便在“屏蔽文件集”中尚未包含此文件时屏蔽掉此文件。
 
-一般，程序员都有一个比较复杂的客户端规格说明来处理将创建的自动生成的文件。内容团队不需要有任何特殊的映射。
+基本上，程序员有一个更复杂的客户端规范来处理他们将要创建的自动生成文件。内容团队不需要任何专门的映射。
 
-示例： 添加了一个新的包。这将在Script 和ScriptFinalRelease中生成一个新的.u文件。在我们的客户端规格说明中我们有：
+示例：添加了一个新的包。这将在脚本（Script）和脚本最终版本（ScriptFinalRelease）中生成一个新的.u。在我们的客户端规范中，我们有：
 
 
     
@@ -85,61 +86,62 @@ Epic在 **美国东部时间每月的第二个星期日和第四个星期日的�
 
 
 
-这样做是为了使得我们不必在每次添加一个新的脚本包时都更新客户端规格说明。另外，上面的处理使得当您在另一个分支上工作时不必担心更新您的客户端规格说明。
+这使得我们不需要在每次添加新脚本包时都更新客户端规范。此外，这还使得您在另一个分支工作时无需担心更新客户端规范问题。
 
-您应该可以制作一个和上面的客户端规格说明映射类似的分支规格说明。这样，每次您集成时您将不会集成已知的自动生成的文件。那样您便可以看到什么时候有新添加的文件，并确定在集成时如何处理它们。
+您应该能够制定一个分支规范，它可以执行类似于上述客户端规范映射的操作。这样，每次当您集成时，就不会集成已知的自动生成文件。这样，您就可以看到何时添加了新内容以及决定在集成时如何处理它们。
 
-类似地，内容团队可以屏蔽掉Development目录的内容，因为他们将不需要任何源码、工具或外部库进行编译和连接。
-
-
-
-## 集成、融合和分支
-
-在游戏开发周期中，您的团队可能需要定期地更新到某些包含新功能和bug修复内容的较新的版本。这个过程和最初的同步过程及从Perforce库上获得版本的过程一样。但是，有很多需要考虑的事项，包括如何在本地维护引擎、 这如何影响您轻松地集成及融合新版本到您的基本代码中，以便保持您的所有本地修改和其他代码的完整性。
-
-您可以在您的库中使用分支来使得集成和融合过程更加简单；类似于以下的东西：
+同样，内容创建者可以屏蔽开发（Development）目录的内容，因为他们不需要任何源代码、工具或外部库来构建和链接。
 
 
-* **//depot/Epic** - 每个QA版本，未改变。
-* **//depot/MergeTest** - 融合/测试 区域。
-* **//depot/Devel** - 您的开发部分的树结构。
+
+(#integration,merging,andbranching)
+## 集成、合并和创建分支
+
+在游戏的制作周期中，您的团队可能会决定定期更新为包含新功能和bug修复的新版本。就从Perforce库获得版本而言，此过程与初始同步过程相同。然而，就如何在本地维护引擎，以及其如何影响将新版本轻松集成并合并到基本代码中的能力，并在同时保持所有本地更改和附加代码不变，需要考虑很多方面。
+
+您可以在库中使用分支来简化集成和合并过程；类似于：
 
 
-![Perforce_33.jpg](Perforce_33.jpg)(w:640 h:443)
+* **//depot/Epic** - 每个QA版本，保持不变
+* **//depot/MergeTest** - 合并/测试区域
+* **//depot/Devel** - 开发结构树
 
-将您的引擎版本升级到新的QA版本的过程简单概述如下：
+
+![Perforce_33.jpg](Perforce_33.jpg)(w:640)
+
+下面简单概述了将引擎版本升级为新的QA版本的过程：
 
 
-1. 从Epic获得经过QA验证的版本的内容。获得新的QA版本的一个很好的方法是：
+1. 从Epic获取获得QA批准的版本的内容。采用新的QA版本的一个好方法是：
     * 删除Epic分支中的所有内容。
-    * 在它的位置处复制新的QA版本。
-    * 使用P4V*的"Reconcile Offline Work（重新编译离线任务）" 制作一个代表Epic所做的修改的CL。将该CL迁入。现在，Epic分支就是一个QA版本的副本了，但是您没有丢失您的集成历史记录。这使得融合工具充分地了解到底改了哪些内容，并降低了冲突数量。
-1. 使用MergeTest分支作为测试区域从那个Epic分支集成到您的主要开发分支目录。
+    * 复制新的QA版本。
+    * 使用P4V的“协调离线工作（Reconcile Offline Work）”来创建一个CL，它表示Epic所做的更改。选中它。现在Epic分支是QA版本的副本，但您没有丢失集成历史记录。这使得合并工具能够更好地了解到底发生了哪些更改，同时应该会减少冲突的数量。
+1. 使用MergeTest分支作为测试区域，从Epic分支集成到您的主开发分支。
 
 
-您可以参照这个例子看一下处理流程：
+您可以在下面看到此流程的示例：
 
-![Perforce_34.jpg](Perforce_34.jpg)(w:665 h:443)
+![Perforce_34.jpg](Perforce_34.jpg)(w:665)
 
-您更新的越频繁，融合时遇到严重冲突的几率就越小。当冲突出现时，使用类似于Araxis 这样的融合程序来帮助解决冲突是非常有用的。
+更新越频繁，在合并时遇到严重冲突的可能性就越小。当冲突出现时，使用Araxi等合并程序来帮助解决冲突是非常有用的。
 
-这里是准备融合一个新的QA版本的一些技巧：
-
-
-* 保持一个"融合记录"。我不断地记录整个周期中每次融合，并指出哪些是有争议的选择、哪些是关键决定，并记录时间。当以后发生问题时这是非常方便的，以便使它运行。
-* 给QA制作一个测试计划，从QA部门获得支持，给出一段时间让他们测试融合分支及trunk（主干）。
-* 记录下随同引擎要一同升级的中间件。确保满足了所有的中间件版本。
-* 如果可能，将您的主干目录中的平台SDK版本升级为和新分支中一样的版本，从而使得对于游戏机平台来说更加方便  - 并更新固件。
-* 和IT确认下您是否可以在Perforce中使用大量空间。
-* 通过使用UDK针对当前目标平台和QA版本针对您的所有目标平台进行测试，检查一下新版本的在性能和内存应用方面是否能达到和UDK一样好，或者是否能达到更好的效果。如果性能变坏了，那么您需要理解为什么。有时候，比如，Epic会使得某个版本在一个平台上性能下降，但是却有利于另一个平台的质量。
-* 确保让其他部门理解进行升级的动机，您可以有一系列很好的理由，它使得项目能够更好地从团队获得支持。
+下面是用于准备合并新的QA版本的一些技巧：
 
 
-关于集成、融合和分支方面的术语及最佳实践，请参照[Perforce集成](GettingStarted/DownloadingUnrealEngine/Perforce/Integration)页面。
+* 保留一份“合并日志”。在合并的周期中，我保留一份每日记录，重点说明任何有争议的选择、关键的决定等，并追踪时间轴。随后当出现问题时，它可以派上用场，保持正常运行。
+* 为QA制定一个全面的测试计划，并获得部门的支持，以便抽出时间对合并分支和主干进行一段时间的测试。
+* 记录您需要随引擎一起升级的任何中间件。确保所有中间件版本都已生成。
+* 如果可能的话，将您的主干平台SDK版本升级为与新的合并分支相同的版本，使其更简单（控制台），并更新固件。
+* 与IT一起确认他们是否接受您使用Perforce的更多空间。
+* 对比所有目标平台，为当前版本与使用目标QA版本使用UDK，检查性能和内存使用情况是一样好还是变得更好。如果性能变差，您需要了解原因。例如，有时，Epic会在一个平台上降低性能，以在另一个平台上获得更高质量。
+* 确保其他部门了解升级的动机，并且您建立了一个良好的理由列表，说明获得团队的理解和支持将对项目有益。
 
-关于自动融合工具脚本的信息，请参照 [Perforce自动融合](GettingStarted/DownloadingUnrealEngine/Perforce/AutoMerge) 页面。
 
-关于融合虚幻引擎版本的技巧和策略，请参照[融合](GettingStarted/DownloadingUnrealEngine/Perforce/CommonMergeProblems) 页面。
+有关集成、合并和创建分支的术语和最佳实践，请参阅[Perforce集成](GettingStarted/DownloadingUnrealEngine/Perforce/Integration)页面。
+
+有关自动合并工具脚本，请参阅[Perforce自动合并](GettingStarted/DownloadingUnrealEngine/Perforce/AutoMerge)页面。
+
+有关合并虚幻引擎版本的提示和策略，请参阅[合并](GettingStarted/DownloadingUnrealEngine/Perforce/CommonMergeProblems)页面。
 
  
 

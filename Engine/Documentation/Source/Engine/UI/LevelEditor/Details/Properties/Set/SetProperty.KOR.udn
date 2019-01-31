@@ -5,7 +5,7 @@ Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/
 Description:다른 프로퍼티 유형에 대해 동적인 비순서 목록입니다.
 Version:4.14
 
-Set (세트)는 빠른 컨테이너 클래스로, (보통) 순서가 관계 없는 맥락 내 고유 요소를 저장하는 데 쓰입니다.
+Set (세트)는 빠른 컨테이너 클래스로, (보통) 순서가 관계 없는 컨텍스트 내 고유 요소를 저장하는 데 쓰입니다.
 
 ![](FruitSetEmpty.png)
 

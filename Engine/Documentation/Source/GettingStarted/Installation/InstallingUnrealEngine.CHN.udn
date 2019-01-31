@@ -28,9 +28,10 @@ _Epic Games启动程序让我们的订购者们可以方便地下载并安装虚
 [/REGION]
 
 (#Bookmark1)
-
+(#creatinganepicgamesaccount)
 [INCLUDE:GettingStarted/AccountSetup#epicAccount]
 
+(#downloadingandrunningtheinstaller)
 ## 下载并运行安装程序
 
 (#Bookmark2)
@@ -105,6 +106,8 @@ _Epic Games启动程序让我们的订购者们可以方便地下载并安装虚
 	[/PARAM]
 [/OBJECT]
 
+
+(#signingintotheepiclauncher)
 ## 登录到Epic启动程序
 
 (#Bookmark3)

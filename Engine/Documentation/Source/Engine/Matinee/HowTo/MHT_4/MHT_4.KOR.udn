@@ -80,7 +80,7 @@ SkillLevel: Intermediate
 
 	![](MHT4_IncreaseLength.png)
 
-1. **Camera1** 그룹에 **우클릭** 한 다음 맥락 메뉴에서 **새 Float Property Track 추가** 를 선택합니다.
+1. **Camera1** 그룹에 **우클릭** 한 다음 컨텍스트 메뉴에서 **새 Float Property Track 추가** 를 선택합니다.
 
 	![](MHT4_Camera1FloatProperty.png)
 
@@ -96,7 +96,7 @@ SkillLevel: Intermediate
 
 	![](MHT4_Camera1PropertiesComplete.png)
 
-1. **Camera2** 그룹에 **우클릭** 한 다음 맥락 메뉴에서 **새 Float Property Track 추가** 를 선택합니다.
+1. **Camera2** 그룹에 **우클릭** 한 다음 컨텍스트 메뉴에서 **새 Float Property Track 추가** 를 선택합니다.
 
 1. **프로퍼티 선택** 드롭다운 메뉴에서, **CameraComponent.PostProcessSettings.DepthOfFieldScale** 옵션을 선택한 다음 **OK** 를 누릅니다.
 
@@ -301,7 +301,7 @@ SkillLevel: Intermediate
 
 여기서는, **Director** 그룹을 통해 카메라 컷을 추가하고 페이드를 적용하여 씬을 마무리하겠습니다.
 
-1. **마티네 에디터** 에서 **Camera2** 의 마지막 트랙 아래 빈 공간에 **우클릭** 한 다음 맥락 메뉴에서 **새 Director 그룹 추가** 를 선택합니다.
+1. **마티네 에디터** 에서 **Camera2** 의 마지막 트랙 아래 빈 공간에 **우클릭** 한 다음 컨텍스트 메뉴에서 **새 Director 그룹 추가** 를 선택합니다.
 
 	![](MHT4_AddDirectorGroup.png)(h:400)
 
@@ -319,7 +319,7 @@ SkillLevel: Intermediate
 
 	![](MHT4_AllCutsAdded.png)(w:800)
 	
-1. **DirGroup** 에 **우클릭** 하여 맥락 메뉴에서 **새 Fade Track 추가** 를 선택합니다.
+1. **DirGroup** 에 **우클릭** 하여 컨텍스트 메뉴에서 **새 Fade Track 추가** 를 선택합니다.
 
 	![](MHT4_AddFadeTrack.png)(h:400)
 

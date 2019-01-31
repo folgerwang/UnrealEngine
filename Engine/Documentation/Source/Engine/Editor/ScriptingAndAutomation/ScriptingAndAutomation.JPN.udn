@@ -1,0 +1,35 @@
+﻿INTSourceChangelist:4284468
+Availability: Public
+Crumbs: 
+Title: エディタのスクリプティングと自動化
+Description: ブループリントと Python を使って、アンリアル エディタをプログラム的に制御する方法の紹介です。
+type: landing
+Version: 4.20
+Parent: Engine/Editor
+Order: 1
+Tags: Blueprints, Python, scripting
+
+
+Unreal Editor のユーザーインターフェースからは、プロジェクトの設定、レベルの設計と構築、ゲームプレイのインタラクションの作成など、さまざまなビジュアル ツールにアクセスすることができます。ただ、一度エディタ上で行うべき操作は何かがわかったら、再利用可能なスクリプトで、プログラム的にツールとコマンドを呼び出したいと思うかもしれません。
+
+これは、次のようなときに役立ちます。
+
+* 一連の同じタスクを何度も繰り返す必要があり、その手間を最小限にするか、なくしたい場合
+* レベルにあるアクタの配置、レイアウト、設定を自動化またはランダム化したいとき
+* 独自のアセット インポートやパイプライン管理 を作成したいとき
+* 他のサードパーティのアプリケーションやパイプライン スクリプトと、相互運用をしたいとき
+* プロジェクトやコンテンツのニーズに合わせてカスタマイズした追加のツールや UI で、エディタを拡張したいとき
+
+このセクションでは、エディタ スクリプトを[ブループリント](Engine/Editor/ScriptingAndAutomation/Blueprints)および[ Python ](Engine/Editor/ScriptingAndAutomation/Python)を使用して、プロジェクトの作業中に実行する方法を説明します。
+
+## Editor Scripting Utilities プラグインのインストール
+
+ブループリント、Python、またはその他言語の使用の有無に関係なく、エディタの自動化を行う予定がある場合は、ほぼ必ず **Editor Scripting Utilities** プラグインをインストールすることになるでしょう。このプラグインは、エディタで行う一般的操作の大部分をシンプルにしたり、特殊なエッジケースに対応します。そのため、概念的に単純な操作を行うためにエディターの動作の詳細をすべて把握する必要がありません。
+
+プラグインのインストール方法は以下になります。
+
+1. メインメニューから、** [Editor] > [Plugins] **を選択して** [Plugins] **ウィンドウを開きます。
+2. ** [Scripting] **カテゴリの下で、** [Editor Scripting Utilities] **のエントリを探し、** [Enabled] **にチェックを入れます。
+    ![Editor Scripting Utilities プラグインを有効にする](install-editor-scripting.png "Editor Scripting Utilities プラグインを有効にする")
+3. Python を使用する場合、この時に Python プラグインの** [Enabled] **にチェックを入れます。詳細は、[「Python を使用したエディタのスクリプティング」](Engine/Editor/ScriptingAndAutomation/Python)を参照してください。
+4. エディタを再起動し、プロジェクトをリロードしてください。

@@ -1,0 +1,87 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: 4.21 Physics Technical Notes
+Description: Describes the technical changes made to the Physics Interface in the 4.21 engine release. 
+Type: 
+Version: 4.21
+Parent: Engine/Physics
+Order: 
+Tags: 
+
+
+[REGION:note]
+This page outlines some of the refactoring that has been done to the Physics system for the 4.21 Unreal Engine Release.
+[/REGION]
+
+With the 4.21 Engine Release, we have refactored the Physics Interface to support an increased ownership of physics objects from a high level perspective as opposed to a more granular level. As a consequence of these changes, we have deprecated the **Async Scene** which was only recommended for use with APEX Destruction. You can still achieve the same visual results using the **Sync Scene**.
+
+Another consequence of these changes is that much of the physics related C++ code API has been refactored. Functionally, the API is the same and you should be able to use it very similarly to how you currently use it. This page outlines what has been refactored and where you can locate the files for reference. 
+
+## Async Scene Deprecation
+
+The Async Scene is something that has been around for a while and was used to store Apex Destruction bodies. Those bodies would run up to a frame behind and the engine would get the results when the next frame came around.
+
+The problem with this is that there is a lot of code that handles just the management (for example, if Async do this, if not Async do that) and if you have a lot of bodies in the destruction scene, this could impact your game thread. Additionally, bodies in the Async Scene could not interact with gameplay or other bodies from the sync scene. Removing the Async Scene means all bodies can interact with each other and with gameplay.
+
+With the Async Scene being depreciated, it doesn’t mean that destruction won’t work, it just means the Async Scene part of it is no longer supported. Destruction will work perfectly fine, however, it will now work as part of the main physics scene.
+
+## Physics Interface
+
+The Physics Interface serves two primary functions:
+
+1.  **Reorganize Dependencies** - The Engine no longer makes all calls directly to PhysX. Instead, all physics-related calls now go through the Physics Interface.
+2.  **Create a Common Model for Physics Interactions** \- The Physics Interface enables physics solutions a common approach to interacting with Unreal.
+
+In your installation folder under **Engine/Source/Runtime/Engine/Public/Physics** there are several Physics Interface files you can review for the code changes. The **Engine/Source/Runtime/Engine/Public/Physics**/**PhysicsInterfacePhysX** file contains the entire definition of every function you could possibly need for Unreal to call related to PhysX.
+
+This will not have any adverse effects if a project isn’t directly manipulating the PhysX objects inside of an `FBodyInstance`. The methods exposed on `FBodyinstance` have all been re-implemented using the new interface and are used in the same manner as in previous releases.
+
+Code that directly (manipulates PhysX data/interacts with PhysX types/etc.) will need some refactoring to use the new API. An example is illustrated here using `FBodyInstance::SetLinearVelocity`:  
+
+4.20:
+
+~~~
+ void FBodyInstance::SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent)
+ {
+ #if WITH_PHYSX
+    ExecuteOnPxRigidBodyReadWrite(this, [&](PxRigidBody* PRigidBody)
+    {
+        PxVec3 PNewVel = U2PVector(NewVel);
+        if (bAddToCurrent)
+        {
+            const PxVec3 POldVel = PRigidBody->getLinearVelocity();
+            PNewVel += POldVel;
+        }
+        PRigidBody->setLinearVelocity(PNewVel);
+    });
+ #endif // WITH_PHYSX
+ }
+~~~
+
+4.21:
+
+~~~
+ void FBodyInstance::SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent, bool bAutoWake)
+ {
+    FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
+    {
+        if(FPhysicsInterface::IsRigidBody(Actor))
+        {
+            FVector FinalVelocity = NewVel;
+            if(bAddToCurrent)
+            {
+                FinalVelocity += FPhysicsInterface::GetLinearVelocity_AssumesLocked(Actor);
+            }
+            FPhysicsInterface::SetLinearVelocity_AssumesLocked(Actor, FinalVelocity);
+        }
+    });
+ }
+~~~
+
+In the new version, the logic is identical, but the code uses agnostic handles instead of PhysX types.
+
+The **Engine/Source/Runtime/Engine/Public/Physics/PhysicsInterfaceCore** file builds all the different interfaces that we support while the **Engine/Source/Runtime/Engine/Public/Physics/PhysicsInterfaceDeclares** file contains the types that are used to communicate. You can use the simple types, for example, `FPhysicsActorHandle`to communicate with Actors while under the hood the Engine understands the derived types.  
+[REGION:warning]
+Only PhysicsInterfacePhysX is supported and working at the moment. Everything else is considered highly experimental and may not function as expected.
+[/REGION]

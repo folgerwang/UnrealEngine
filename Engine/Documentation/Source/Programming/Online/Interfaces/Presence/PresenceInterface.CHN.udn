@@ -1,0 +1,55 @@
+﻿INTSourceChangelist:4675766
+Availability: Public
+Crumbs: 
+Title: 使用者状态接口
+Description: 状态接口总览。
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: presence
+
+
+登入在线服务后，使用者通常能看到好友以及其他在线用户的相关信息，例如这些用户是否在线、其正在进行的行为、其是否能够加入比赛等。在线子系统通过 **使用者状态接口** 访问这些功能。
+
+(#presencestatus)
+## 使用者状态
+
+多数在线服务均可识别每个使用者的数种基础状态，例如“在线”、“离线”和“离开”，以及游戏特定的状态（如“在大厅中”或“在（地图）上进行一场比赛”）。然而这些设置并非固定可见，或者因服务特定的隐私政策和账户设置而仅对部分使用者（并非所有）可见。在线子系统不会与这些政策或设置进行交互，但其获取的信息将受到它们影响。
+
+(#definingpresence)
+### 定义使用者状态
+
+[`FOnlineUserPresence`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresence/index.html)类包含与使用者状态相关的所有信息。除使用者是否在线、使用者是否正在进行游戏之类的基础信息外，使用者状态（使用[`FOnlineUserPresenceStatus`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresenceStatus/index.html)类）还保存了更多深入信息。通常包括要显示的本地化字符串、一个描述使用者基础状态的列举值（类型为[`EOnlinePresenceState`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/EOnlinePresenceState__Type/index.html)），以及保存任意游戏特定自定义数据的一套键值对（其可在构建准确使用者状态显示消息时使用）。
+
+(#presencedataonxboxlive)
+#### Xbox Live上的使用者状态数据
+
+在微软的Xbox Live服务上（针对Xbox One），开发者可通过Xbox开发者门户网站的“使用者状态字符串（Rich Presence Strings）”部分来设置本地化的状态字符串并获取这些字符串的键。如要将已设置的字符串用作使用者状态，向其他在线用户进行展示，则将此键放入 `SetPresence` 函数接受的 `FOnlineUserPresence` 参数中的 `StatusStr` 变量。这些字符串支持变量插入，由大括号表示。举例而言，字符串的英文版本可以是“Playing a match on {current\_map}”，其中“current\_map”是在设置使用者状态时游戏能够进行更新的一个变量。如需设置一个变量，将一个元素添加到传至 `SetPresence` 的 `FOnlinePresence` 的 `Properties` 数组。在此例中，元素将包含键“Event\_current\_map”和一个代表地图英文名的值，其将以此显示在消息中（例如“Forest Map”）。
+
+(#presencedataonplaystationnetwork)
+#### PlayStation Network上的使用者状态数据
+
+在索尼的Playstation Network上，开发者可将一个非本地化字符串放入 `SetPresence` 函数所接受的 `FOnlineUserPresence` 参数中的 `StatusStr` 变量。如果此变量留空，则会对 `Properties` 变量检查一个带键值“DefaultPresenceKey”的条目，并将其使用。其他用户成功查询到您的使用者状态时便会看到此字符串。还存在一个隐藏字符串，用“CustomData”键（或 `CustomPresenceDataKey` 常量）在 `FOnlineUserPresenceStatus` 参数中设置自定义属性即可获得；运行相同游戏的其他使用者将接收到此字符串。此字符串不会被显示，但能用于开发者所选择的任意目的。
+
+[REGION:note]
+无论状态字符串是通过变量发送，还是通过 `Properties` 变量中的“DefaultPresenceKey”条目发送，其都将被保存在其他使用者机器上 `Properties` 变量的“DefaultPresenceKey”条目中。
+[/REGION]
+[REGION:tip]
+[好友接口](Programming/Online/Interfaces/Friends)可访问部分使用者状态信息，如会话ID键，其无法通过PlayStation Network上的使用者状态接口来获取。
+[/REGION]
+
+(#retrievinginformationaboutotherusers)
+### 获取其他使用者的相关信息
+
+收集特定用户使用者状态信息的基础流程是通过 `QueryPresence` 对在线服务进行请求，用 `FUniqueNetId` 指定该用户。该操作完成后，提供的 `FOnPresenceTaskCompleteDelegate` 将被调用，指出用户以及请求成功或失败。如成功，本地使用者状态信息缓存将包含最新使用者状态信息，其可通过 `GetCachedPresence` 函数获得。
+
+[REGION:tip]
+部分在线服务将主动通知在线子服务关于使用者状态的信息。在这些服务上，虽然并不一定需要调用 `QueryPresence` 或等候其委托，但常规的代码流程应保持不变，使其在多个服务上均可通用。
+[/REGION]
+
+(#settingauser'spresence)
+### 设置使用者状态
+
+`SetPresence` 函数通过在线服务来设置本地使用者的状态。由于需要验证在线服务的新状态，因此这是一个异步调用，完成时将调用一个类型为 `FOnPresenceTaskCompleteDelegate` 的委托。使用者状态自身由FOnlineUserPresenceStatus类进行描述。

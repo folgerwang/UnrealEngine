@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2804994
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Unreal Match 3
 Crumbs:%ROOT%, Resources
@@ -8,54 +8,10 @@ related:Platforms/Mobile
 related:Engine/Paper2D
 related:Engine/UMG
 related:Engine/Blueprints/TechnicalGuide
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/SampleGames/UnrealMatch3:title%](Resources/SampleGames/UnrealMatch3/unrealmatch3_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/UnrealMatch3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/UnrealMatch3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/UnrealMatch3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/SampleGames/UnrealMatch3:title%](Resources/SampleGames/UnrealMatch3/unrealmatch3_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/UnrealMatch3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/UnrealMatch3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/UnrealMatch3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:unrealmatch3_topic.png
 
 ![](match3_banner.png)(convert:false)
 
-[COMMENT:none]
-
-[OBJECT:SampleDownload]
-	[PARAMLITERAL:url]
-	[/PARAMLITERAL]
-	[PARAMLITERAL:title]
-	Unreal Match 3
-	[/PARAMLITERAL]
-[/OBJECT]
-
-[/COMMENT]
 
 **Unreal Match 3** 用于展示虚幻引擎 4（UE4）的多样性和灵活性。 
 Unreal Match 3 为 UE4 开发者展示：如何打造针对中低端智能手机的移动游戏、如何在 UE4 项目中应用社交和盈利功能（如成就和内购）。
@@ -76,6 +32,7 @@ Unreal Match 3 为 UE4 开发者展示：如何打造针对中低端智能手机
 
 Unreal Match 3 项目使用了 UE4 工具集中的多种不同工具，在此介绍该项目中的部分要点。
 
+(#PlatformServices)
 ## 平台服务
 
 [REGION:topics third]
@@ -85,12 +42,14 @@ Unreal Match 3 项目使用了 UE4 工具集中的多种不同工具，在此介
 %Platforms/Mobile/Achievements:topic%
 [/REGION]
 
+(#Gameplay)
 ## 游戏性
 
 [REGION:topics third]
 %Gameplay/ForceFeedback:topic%
 [/REGION]
 
+(#UserInterface)
 ## 用户界面
 
 [REGION:topics third]
@@ -100,6 +59,7 @@ Unreal Match 3 项目使用了 UE4 工具集中的多种不同工具，在此介
 %Engine/UMG/HowTo/ScalingUI:topic%
 [/REGION]
 
+(#PerformanceandOptimization)
 ## 性能与优化
 
 [REGION:topics third]
@@ -107,6 +67,7 @@ Unreal Match 3 项目使用了 UE4 工具集中的多种不同工具，在此介
 %Engine/Performance/ReducingPackageSize:topic%
 [/REGION]
 
+(#TrainingStreams)
 ## 培训视频
 
 [REGION:topics third]
@@ -145,30 +106,3 @@ Unreal Match 3 项目使用了 UE4 工具集中的多种不同工具，在此介
 [/OBJECT]
 [/REGION]
 
-[COMMENT:none]
-
-## 在项目中使用 C++ 和蓝图
-
-
-## 如何设置并使用菜单系统 UMG
-
-
-## 如何设置内购
-
-
-## 如何设置 iOS 和 Android 广告
-
-
-## 如何设置 iOS 和 Android 成就
-
-
-## 如何设置高分系统
-
-
-## 如何缩小项目打包容量
-
-
-## 项目上架 iOS App Store 和 Google Play
-
-
-[/COMMENT]

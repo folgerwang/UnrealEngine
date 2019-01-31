@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735432
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图类
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/Anatomy
@@ -7,45 +7,9 @@ Version: 4.9
 SkillLevel: Beginner
 Parent:Engine/Blueprints/Anatomy
 Tags:Class Blueprints
+tags:Blueprints
 order:1
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%](Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\ClassBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%](Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\ClassBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png
 
 [TOC(start:2)]
 
@@ -57,7 +21,8 @@ _蓝图_ 是在虚幻编辑器中可视化地创建的，不需要书写代码�
 就和其他类型的Actor的行为一样。
 [/EXCERPT:Intro]
 
-## Parent Classes
+(#ParentClasses)
+## 父类
 
 你可以创建多种不同类型的蓝图，当然在你做这些之前，你需要指定该蓝图的**Parent Class(父类)** 
 选择继承父类，允许你在自己的蓝图里面调用父类创建的属性。 
@@ -66,20 +31,21 @@ _蓝图_ 是在虚幻编辑器中可视化地创建的，不需要书写代码�
 
 | 类型 | 描述 |
 | ------- | ---------- |
-| **Actor** | 一个可以在世界中摆放，或者生成的Actor。
-| **Pawn** | Pawn是一个可以从控制器获得输入信息处理的Actor. |
-| **Character** | 角色是一个包含了行走，跑步，跳跃以及更多动作的Pawn. |
-| **PlayerController** | A Player Controller is an Actor responsible for controlling a Pawn used by the player. |
+| **Actor** | 一个可以在世界中摆放，或者生成的Actor。 |
+| **Pawn** | Pawn是一个可以从控制器获得输入信息处理的Actor。 |
+| **Character** | 角色是一个包含了行走，跑步，跳跃以及更多动作的Pawn。 |
+| **PlayerController** | PlayerController一种的Actor，负责控制玩家所使用的Pawn。|
 | **Game Mode** | 一个Game Mode 定义了游戏是如何被执行的，游戏规则，如何的分以及其他方面的内容。 |
 
 上面的是最常用的内容，所有的类都可以为一个新建的蓝图用作父类 (甚至其他的蓝图类). 
 
-例如, 你创建了一个叫做 _Animals_ 的 **Actor Blueprint** 在它里面实现了所有动物的共享属性，例如__Hunger_, _Thirst_, _Energy_, 或者是其他你想实现的脚本。然后你从_Animals_作为父类，创建了另外一个叫做_Dog_的蓝图 ; 你在这个 _Dogs_里定义了例如_Play Fetch_ or _Roll Over_ 之类特别的功能，那么这个_Dogs_除了独享自己的功能之外，还继承了_Animals_ 里定义的其他功能. 
+例如, 你创建了一个叫做 _Animals_ 的 **Actor Blueprint** 在它里面实现了所有动物的共享属性，例如 _Hunger_, _Thirst_, _Energy_, 或者是其他你想实现的脚本。然后你从 _Animals_ 作为父类，创建了另外一个叫做 _Dog_ 的蓝图 ; 你在这个 _Dogs_ 里定义了例如 _Play Fetch_ 或 _Roll Over_ 之类特别的功能，那么这个 _Dogs_ 除了独享自己的功能之外，还继承了 _Animals_ 里定义的其他功能. 
 
 [REGION:note]
-根据所用的方法 [create a Blueprint Class](Engine\Blueprints\UserGuide\Types\ClassBlueprint\Creation), 一个父类将在被创建时分配。 
+根据所用的方法 [创建一个蓝图类](Engine\Blueprints\UserGuide\Types\ClassBlueprint\Creation), 一个父类将在被创建时分配。 
 [/REGION]
 
+(#WorkingwithBlueprintClasses)
 ## 用蓝图类工作
 
 参考下面的信息 **蓝图类**: 
@@ -135,18 +101,19 @@ _蓝图_ 是在虚幻编辑器中可视化地创建的，不需要书写代码�
 [/REGION]
 
 
+(#Data-OnlyBlueprint)
 ## 仅包含数据的蓝图
 [EXCERPT:DataBlueprint]
-**Data-Only Blueprint（仅包含数据的蓝图）** 是指仅包含代码(以节点图表的形式)、变量及从其 _父类_ 继承的组件  
+**Data-Only Blueprint（仅包含数据的蓝图）** 是指仅包含代码(以节点图表的形式)、变量及从其父类继承的组件  
 的类蓝图。仅包含数据的蓝图允许您调整及修改继承的属性，但是不能添加新元素。
 从本质上讲，这些蓝图是原型的替代物，设计人员可以使用它们来调整属性或者设置具有变种的项目。
 		
-_Data-Only Blueprints(仅包含数据的蓝图)_ 是在合并的属性编辑器中进行编辑的，但是也可以通过使用完整的 **蓝图编辑器** 来添加代码、 
-变量或组件，来将其转换为完整的 _蓝图_ 。
+Data-Only Blueprints(仅包含数据的蓝图) 是在合并的属性编辑器中进行编辑的，但是也可以通过使用完整的 **蓝图编辑器** 来添加代码、 
+变量或组件，来将其转换为完整的蓝图 。
 
 [/EXCERPT:DataBlueprint]
 [REGION:note]
-Class Defaults can be accessed at runtime for data-only Blueprints through the **GetClassDefaults** Blueprint node. Please see the [Get Class Defaults](Engine\Blueprints\Editor\Modes\Defaults\DefaultsTab) for more information. 
+Data-Only Blueprints(仅包含数据的蓝图)在运行时，可通过蓝图节点 **GetClassDefaults** 访问类默认值。请查看[获取类默认值](Engine\Blueprints\Editor\Modes\Defaults\DefaultsTab)以了解详情。 
 [/REGION]
 
 

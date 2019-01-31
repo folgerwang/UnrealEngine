@@ -41,7 +41,7 @@ version: 4.9
 VPN 연결이 이루어지고 나면 퍼포스 클라이언트를 사용하여 현재 위치에서 안전히 디포에 접근할 수 있게 됩니다. 클라이언트 설치와 환경설정도 제대로 해 줘야 연결됩니다. P4V 클라이언트를 설치하고 연결하는 절차는 개략적으로 다음과 같습니다:
 
 
-1. 퍼포스 윈도우 클라이언트를 내려받습니다: [Perforce Downloads: The Essentials](http://www.perforce.com/downloads/complete_list)
+1. 퍼포스 Windows 클라이언트를 내려받습니다: [Perforce Downloads: The Essentials](http://www.perforce.com/downloads/complete_list)
 1. 클라이언트를 설치하고 실행합니다.
 1. **Connection Dialog** 의 **Server**, **User**, **Workspace** 정보를 알맞게 채워넣고 **OK** 를 클릭합니다.
 1. 클라이언트가 열리고 에픽의 공개 퍼포스 디포에 연결됩니다.

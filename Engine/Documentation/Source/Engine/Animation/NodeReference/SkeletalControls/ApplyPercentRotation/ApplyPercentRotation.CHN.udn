@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:应用旋转百分比（Apply a Percentage of Rotation）
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:说明 Apply a Percentage of Rotation 如何通过骨架中另一块骨骼旋转的指定百分比形成目标骨骼的旋转。
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:title%](Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation\node_applypercent.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:title%](Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation\node_applypercent.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:node_applypercent.png
 
 
 
@@ -76,4 +43,6 @@ yEmsKOXBGyg
 | [REGION:tablesection]**输入引脚**[/REGION] ||
 | **Multiplier** | 一个浮点值，代表应用到目标骨骼的源骨骼旋转百分比。**Multiplier** 为 0 时，源骨骼的旋转不会被应用至目标骨骼；为 1 时，将应用源骨骼的全部旋转。|
 
+**Apply a Percentage of Rotation** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Apply a Percentage of Rotation** 节点的 **细节面板** 上找到其设置。
 
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]

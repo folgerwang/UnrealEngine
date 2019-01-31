@@ -1,0 +1,53 @@
+Availability: Public
+Crumbs: 
+Title: Importing Datasmith Content into Unreal Engine 4
+Description: Detailed instructions on how to use Datasmith to bring files that you've created in supported 3D design applications into Unreal.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+SkillLevel:Beginner
+Order: 3
+Tags: Getting Started
+Tags:how to
+Tags: Datasmith
+Tags: overview
+Tags: beginner
+topic-image:datasmith-import-topic.png
+
+
+![](datasmith-setup-import.png)
+
+This page describes how to use Datasmith to import content from a supported 3D design application or file format into Unreal.
+
+[REGION:tip]
+You can also use Python to automate the process of importing *.udatasmith* and CAD files. For details, see [Customizing the Datasmith Import Process](Enterprise/Datasmith/Overview/CustomizingImportProcess).
+[/REGION]
+
+1.  In the Unreal Editor, open the Project that you want to import your Datasmith content into.
+    [REGION:note]
+    Note that you must be working in an Unreal Studio project in order for Datasmith to import your content. See [Setting Up an Unreal Project to Use Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject).
+    [/REGION]
+1.  If you want to bring your content into an existing Level in your Project, open it now. Otherwise, create a new Level or just use the default one.
+1.  From the main toolbar, find the **Import Datasmith** button:  
+    ![Import Datasmith in the Toolbar](DS_Import_1.png "Import Datasmith in the Toolbar")
+1.  Use the drop-down arrow to choose the type of Datasmith importer you need to use:  
+    ![List of Datasmith importers](datasmith-importers-list.png "List of Datasmith importers")  
+    This choice depends on the type of source file you are importing.  
+    
+    *   If you have a *.udatasmith* file that you exported from 3ds Max or SketchUp, choose **Import Datasmith**.
+    *   If you have a *.MDL* or *.AxF* file, choose **Import MDL**.
+    *   If you have an *.fbx* file that you exported from VRED or Deltagen, choose **Import VRED Fbx** or **Import Deltagen Fbx**.
+    *   For most other file formats, choose **Import CAD**.
+    
+    For a complete list, see [Datasmith Supported Software and File Types](Enterprise/Datasmith/SupportedSoftwareAndFileTypes).
+1.  In the **Import** window, browse to and select the file you want to import. Click **Open**.  
+    ![Choose a file to import](DS_Import_2.png "Choose a file to import")
+1.  Choose a folder in your Project content for Datasmith to put the newly imported assets.  
+    ![Choose a content folder](DS_Import_3.png "Choose a content folder")
+    [REGION:tip]
+    If you want to create a new folder for your Datasmith content, right-click an existing folder in this window.
+    [/REGION]
+1.  Use the **Datasmith Import Options** window to select the types of content that you want to import from your source file, and set optional additional parameters that control the import process.
+1.  ![Set import options](UnrealDSImportOptions-1.png "Set import options")  
+    The options that you can set here depend on the type of file you're importing. For details, see [Datasmith Import Options](Enterprise/Datasmith/ImportOptions).
+1.  Click **Import**. Datasmith reads your source file, creates new assets in your Project, and places the Datasmith Scene into your current Level. For details on this process, see the [Datasmith Overview](Enterprise/Datasmith/Overview).

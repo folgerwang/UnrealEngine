@@ -84,7 +84,7 @@ _인터페이스_ 의 함수는 **Interface Message** (인터페이스 메시지
 * 호출하는 블루프린트에서 다른 블루프린트의 게임내 인스턴스 이름을 알고 있는 경우.
 
 
-이벤트 그래프에 Interface Function 노드 생성시, 맥락 메뉴에 두 가지 버전의 함수가 뜨는 것을 종종 보게 됩니다.
+이벤트 그래프에 Interface Function 노드 생성시, 컨텍스트 메뉴에 두 가지 버전의 함수가 뜨는 것을 종종 보게 됩니다.
 
 ![](MyFunctionInMenu.png)
 
@@ -134,6 +134,6 @@ Interface Message Function 을 호출하려면 함수를 호출하려는 적합�
 
 ![](ComparisonFunction.png)(w:600)
 
-이제 로컬에서 함수가 호출되면, 플로트 값을 받아 숫자 10 과 비교한 다음 화면에 불리언 결과값을 출력합니다.
+이제 로컬에서 함수가 호출되면, 플로트 값을 받아 숫자 10 과 비교한 다음 화면에 부울 결과값을 출력합니다.
 
 ![](FunctionLogging.png)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3013212
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:关卡序列编辑器首选项
 Crumbs:%ROOT%, Engine
@@ -10,6 +10,7 @@ Version:4.12
 Related:Engine\Sequencer\Overview
 Related:Engine\Sequencer\ReferenceEditor
 Related:Engine\Sequencer\HowTo
+tags:Sequencer
 
 ![](EditorPrefs.png)
 
@@ -18,6 +19,7 @@ Related:Engine\Sequencer\HowTo
 
 [TOC(start:2 end:2)]
 
+(#Keyframing)
 ## 建立关键帧
 
 以下部分定义在 Sequencer 中使用自动建立关键帧功能的方式。 
@@ -64,6 +66,7 @@ Related:Engine\Sequencer\HowTo
 [/COMMENT]
 
 
+(#General)
 ## 常规
 
 下列设置可用来确定处理新添加的关卡序列的方式，如何创建从工具栏添加的摄像机，或者是否打开“标签浏览器”（Label Browser）窗口。 
@@ -88,6 +91,7 @@ Related:Engine\Sequencer\HowTo
 [/COMMENT]
 
 
+(#Timeline)
 ## 时间轴
 
 此部分定义 Sequencer 中时间轴的显示或工作方式。 
@@ -117,6 +121,7 @@ Related:Engine\Sequencer\HowTo
 
 [/COMMENT]
 
+(#Snapping)
 ## 对齐
 
 下列选项可用来处理 Sequencer 中使用“网格对齐”功能的方式。 
@@ -135,6 +140,7 @@ Related:Engine\Sequencer\HowTo
 | **曲线值对齐间隔（Curve Value Snap Interval）** | 定义网格对齐应用于曲线编辑器的间隔。|
 | **将曲线值与间隔对齐（Snap Curve Value to Interval）** | 是否将曲线与指定的间隔值对齐。|
 
+(#CurveEditor)
 ## 曲线编辑器
 
 此部分提供 Sequencer 中的曲线编辑器的设置。 

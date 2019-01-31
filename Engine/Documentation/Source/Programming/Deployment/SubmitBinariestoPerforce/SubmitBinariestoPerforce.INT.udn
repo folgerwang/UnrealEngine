@@ -1,0 +1,22 @@
+Availability: Public
+Crumbs: 
+Title: Submitting Binaries to Perforce
+Description: This page describes how users can submit binaries to Perforce.
+Type: 
+Version: 4.19
+Parent: Programming/Deployment
+Order: 4
+Tags: 
+
+
+If you’d like to have your build system submit editor binaries to Perforce for your artists to use, we have an example [BuildGraph](Programming/Development/BuildGraph) script in `Engine\Build\Graph\Examples\BuildEditorAndTools.xml` demonstrating the process of compiling binaries, copying them to a staging directory, and (optionally) submitting them to Perforce.
+
+Example usage and documentation of the various options available using it are shown at the top of the script.
+
+## History at Epic
+
+We used to use this deployment method at Epic, but moved away from it for the following reasons:
+
+*   Typically, engineers don’t want precompiled binaries because they’re large, often causing slow sync times, which can be particularly painful for off-site developers and remote studios. 
+*   Submitting binaries to a stream that’s inline with the content and engine stream can cause errors caused by having a mix of locally built and non-locally built binaries due to timestamps being updated during a sync. The operating system will fail to find the right imports and exports between the mismatched DLLs. 
+*   If a module is removed, a stale binary can still be submitted to Perforce, and the Engine may still try to load it (for example, `UE4Editor-*ShaderFormat.dll`

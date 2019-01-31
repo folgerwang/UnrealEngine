@@ -23,7 +23,7 @@ topic-image:topic.png
 1. **Enable Game Center Support** (게임 센터 지원 활성화)를 **True** 로 설정합니다.
 
 [REGION:note]
-게임을 안드로이드와 iOS 디바이스 양쪽에서 출시하려는 경우, [](Platforms/Android/Leaderboards) 에서 순위표 구성 관련 부가 정보를 참고해 주시기 바랍니다.
+게임을 Android와 iOS 디바이스 양쪽에서 출시하려는 경우, [](Platforms/Android/Leaderboards) 에서 순위표 구성 관련 부가 정보를 참고해 주시기 바랍니다.
 [/REGION]
 
 [INCLUDE:Platforms/Mobile/Leaderboards#usage]

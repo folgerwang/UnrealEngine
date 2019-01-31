@@ -1,72 +1,233 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4642517
 Availability: Public
-Crumbs: %ROOT%
-Title: 눈 순응 (자동 노출)
-Description: 밝기의 변화에 눈이 순응하는 현상 시뮬레이션을 위해 씬 노출을 자동 보정해 주는 기능입니다.
-Type: Overview
-SkillLevel: Beginnner
-Version:4.16
-Parent:Engine/Rendering/PostProcessEffects
-Order:2
-Tags:Post Process
-Topic-image:EyeAdap_Topic.png
+Crumbs: 
+Title: 시각 순응 (자동 노출)
+Description: 밝기의 변화에 눈이 순응하는 현상 시뮬레이션을 위해 씬 노출을 자동 보정하는 기능입니다.
+Type:
+Version:
+Parent: Engine/Rendering/PostProcessEffects
+Order: 1
+Tags: Post Process
 
+**Eye Adaptation** (시각 순응), 또는 automatic exposure (자동 노출)은, 어두운 환경에서 밝은 환경으로 또는 그 반대로 이동할 때 인간의 눈이 순응하면서 느껴지는 효과를 재현하기 위해 씬의 노출을 자동으로 조절하는 것을 말합니다.
 
-[EXCERPT:EyeAdaptation_Desc]
-**Eye Adaptation** (눈 순응), 또는 automatic exposure (자동 노출)은, 어두운 환경에서 밝은 환경으로 또는 그 반대로 이동할 때 인간의 눈이 순응하면서 느껴지는 효과를 재현하기 위해 씬의 노출을 자동으로 조절하는 것을 말합니다.
-[/EXCERPT:EyeAdaptation_Desc]
+## 카메라 노출
 
-[REGION:fullwidth]
-![Eye Adaption](eye_adaptation.png)
+#### 에디터 세팅
+
+레벨 에에디터 노출 컨트롤은 **뷰 모드** 드롭다운 메뉴에서 **EV100** 슬라이더와 게임 설정 체크박스를 사용합니다.
+
+[REGION:lightbox]
+[![](EA_CameraExposure_01.png)(w:200px)](EA_CameraExposure_01.png)
+[/REGION]
+[REGION:caption]
+*이미지를 클릭하면 원본을 확인합니다.*
 [/REGION]
 
-| 프로퍼티 | 설명 |
-| -------- | ---- |
-| **Low Percent** | 낮은 비율 - 눈 순응은 씬 컬러의 휘도 히스토그램에서 추출한 값으로 순응됩니다. 이 값은 평균 씬 휘도를 찾는 데 사용되는 히스토그램의 하위 비율을 정의합니다. 밝은 이미지 부분이 제한되는 것을 방지하고 싶기에 대부분의 어두운 부분은 무시하는 것이 최선입니다. 예로 80 은 어두운 부분의 80% 를 피합니다. 값의 범위는 [0, 100] 이며, 70-80 정도가 최적의 결과를 냅니다. |
-| **High Percent** | 높은 비율 - 눈 순응은 씬 컬러의 휘도 히스토그램에서 추출한 값으로 순응됩니다. 이 값은 평균 씬 휘도를 찾는 데 사용되는 막대그래프 상위 비율을 정의합니다. 너무 밝은 픽셀 약간은 잘라버려도 (태양같은 경우엔) 괜찮습니다. 값의 범위는 [0, 100] 이며, 80-98 정도가 최적의 결과를 냅니다. |
-| **Min Brightness** | 최소 밝기 - 이 값은 눈 순응이 일어나는 최저 밝기를 제한합니다. 이 값은 0 보다 크고 **EyeAdaptationMaxBrightness** 이하여야 합니다. 실제 값은 콘텐츠가 사용중인 HDR 범위에 따라 달라집니다. |
-| **Max Brightness** | 최대 밝기 - 이 값은 눈 순응이 일어나는 최고 밝기를 제한합니다. 이 값은 0 보다 크고 **EyeAdaptationMinBrightness** 이상이어야 합니다. 실제 값은 콘텐츠가 사용중인 HDR 범위에 따라 달라집니다. |
-| **Speed Up** | 명순응 속도 - 어두운 환경에서 밝은 환경으로의 순응이 일어나는 속도입니다. |
-| **Speed Down** | 암순응 속도 - 밝은 환경에서 어두운 환경으로의 순응이 일어나는 속도입니다. |
-| **Auto Exposure Bias** | 자동 노출 편향 - 노출 세팅 편향을 조절합니다. 이 값은 지수적 의미를 지닙니다: [INCLUDE:#ExposureOffset] 1.5 같은 분수나 예제 범위 밖으 수치도 잘 됩니다. 눈 순응이 활성 상태일 때 이 값이 자동 노출에 더해집니다. |
+**게임 세팅** 이 활성화되면 레벨 뷰포트는 노출 동작에 대한 게임 내 세팅 구성을 사용합니다 (아래 섹션 참고). 그렇지 않으면 **EV100** 슬라이더로 **-10** 에서 **20** 까지 범위로 사용자 정의할 수 있어 사실적인 매우 어두운 부분과 밝은 부분이 같이 들어간 사실적인 씬 조명을 지원합니다.
+
+[REGION:note]
+레벨 뷰포트 이외의 다른 뷰포트의 경우 "게임 세팅" 체크박스가 "자동" 체크박스로 바뀌면서 자동 노출 동작이 구현됩니다.
+[/REGION]
+
+#### 게임 세팅
+
+[REGION:note]
+4.19 이후 버전에서는 일부 세팅의 이름이 변경되었으며, 기존 사용했던 세팅이 호환됩니다.
+[/REGION]
+
+게임 내 노출 세팅은 포스트 프로세스 세팅으로 제어합니다. 여러 **Metering Mode** (측광 모드)를 선택하면 선택한 메서드 관련 세팅은 편집가능한 반면 나머지는 회색으로 비활성화됩니다. 
+
+![](EA_CameraExposure_02.png)
+
+선택할 수 있는 측광 모드는 다음과 같습니다.   
+
+*   **Auto Exposure Histogram** (자동 노출 히스토그램)은 64 빈 히스토그램을 구성하여 고급 세팅으로 자동 노출을 미세하게 제어할 수 있습니다. 
+*   **Auto Exposure Basic** (자동 노출 기본)은 다운 샘플링으로 단일 값을 계산하는 빠른 메서드입니다.
+*   **Manual** (수동)은 노출 제어에 Exposure (노출) 세팅 대신 포스트 프로세스 볼륨 내 **Camera** (카메라) 세팅을 사용합니다.
+
+#### 수동 측광 모드
+
+**Manual** (수동) 측광 모드는 포스트 프로세스 **Camera** (카메라) 세팅 중 **Shutter Speed (1/t)**, **ISO (S)**, **Aperture (N)** (셔터 속도 (1/t), ISO (S), 조리개 (N))에 정의된 카메라 노출 값을 사용합니다.
+
+카메라 노출 스케일 계산 공식은 다음과 같습니다.    
+
+*   Exposure = 1 / (1.2 * 2^EV100)
+
+여기서:  
+
+*   EV100 = log2( N²/t * 100/S )
+
+여기서 **Exposure** (노출)은 톤 매퍼와 노출 보정을 적용하기 전 (아래 참고) 씬 표면 휘도(cd/m² 단위 L) 및 픽셀 밝기(B) 사이 관계를 정의합니다.  
+
+*   B = Exposure * L
+
+이 부분은 표시 옵션에서 톤매퍼를 비활성화하고 픽셀 조사 툴로 씬 밝기를 조사해 보면 확인할 수 있습니다. 참고로 EV100 에디터 오버라이드는 이 공식으로 EV100 을 직접 설정합니다.
+
+[REGION:lightbox]
+[![](EA_CameraExposure_03.png)(w:200px)](EA_CameraExposure_03.png)
+[/REGION]
+[REGION:caption]
+*이미지를 클릭하면 원본을 확인합니다.*
+[/REGION]
+
+[REGION:note]
+**Exposure Compensation** (노출 보정, ExpComp) 는 현재 측광 모드로 계산한 노출 값 위에 2^ExpComp 의 추가 스케일을 정의하며, EV100 에디터 오버라이드를 사용할 때는 예외입니다.
+[/REGION]
+
+## 사전 노출
+
+이전 프레임의 씬 노출은 셰이더 안에서 적용한 뒤 씬 컬러에 쓰는 방식으로, 엔진은 (노출 이후) 최종 색 중 하나와 비슷한 범위 안에서 씬을 렌더할 수 있습니다. 그러면 매우 밝은 라이트를 사용할 때 정밀도가 낮은 렌더 타겟 포맷에 대한 연산 오버플로 위험을 줄입니다. **Auto Exposure Basic** (자동 노출 기본) 측광 모드의 퀄리티를 높여주기도 합니다. 
+
+셰이더에 적용된 노출 양을 **pre-exposure** (사전 노출)이라 하며, 활성화 방법은 프로젝트 세팅 중 **Apply Pre-exposure before writing to the scene color** (씬 컬러에 쓰기 전 사전 노출 적용) 옵션 또는 콘솔 변수 **r.UsePreExposure**. The pre-exposure can be overridden through **r.EyeAdaptation.PreExposureOverride**.
+
+[REGION:note]
+현재 **Apply Pre-exposure before writing to the scene color** (씬 컬러에 쓰기 전 사전 노출 적용) 옵션은 Windows 만 지원합니다.
+[/REGION]
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![어두운 곳에서](AutoExposure_Dark1.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![밝은 곳으로](AutoExposure_Bright1.png) 
+    [/PARAM]
+[/OBJECT]
+
+[REGION:caption]
+위의 비교는 어두운 환경에서 밝은 환경으로 이동하는 예를 보여줍니다.
+[/REGION]
+
+시각 순응은 [히스토그램](Engine/Rendering/PostProcessEffects/AutomaticExposure#히스토그램) 기반이며 사용하는 메서드는 다음과 같습니다.
+
+*   노출 **Low Percent** (하한 퍼센트)가 80%, **High Percent** (상한 퍼센트)가 95% 라 합시다.
+*   히스토그램에서 두 값을 검색합니다. 
+    *   화면 픽셀의 80% 는 휘도 값 A 보다 어둡습니다.
+    *   화면 픽셀의 95% 는 휘도 값 B 보다 어둡습니다.
+    *   A 와 B 의 평균이 현재 휘도 (C) 입니다.
+*   시간이 지남에 따라 눈은 현재 씬 휘도에 순응합니다. 어두운 환경으로의 순응은 보통 천천히 일어나므로 두 값을 통해 전환 시간을 조절합니다. **Speed Up** (명순응) 및 **Speed Down** (암순응) 입니다.
+*   매우 어둡거나 매우 밝은 환경에는 순응하지 못하도록 하기 위해 순응 범위를 제한하는 옵션은 **Min Brightness** (최소 밝기)와 **Max Brightness** (최대 밝기)입니다 (또는 프로젝트 세팅에서 자동 노출에 확장 휘도 범위를 활성화한 경우 **EV100 Min** 및 **EV100 Max** 입니다).
+
+## 히스토그램
+
+**Histogram** (히스토그램) 프로퍼티는 **Auto Exposure Histogram** (자동 노출 히스토그램)에서 카메라 또는 눈을 씬에 순응시킬 씬 컬러 히스토그램 값을 검색할 때 사용합니다. 레벨 뷰포트의 **표시 > 시각화 > HDR (시각 순응)** 으로 활성화할 수 있습니다.
+
+[REGION:lightbox]
+[![](HDR_Visualization1.png)](HDR_Visualization1.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+1.  Post Process Exposure (포스트 프로세스 노출) 세팅 및 그 설정 값 또는 범위입니다.
+1.  Min (최소) 및 Max (최대) 범위로 설정된 히스토그램입니다.
+1.  화면 속 화면 HDR 씬 표현입니다.
+
+씬의 히스토그램 **최소** 및 **최대** 범위를 정의하는 세팅은 **Histogram Log Min / Max** 또는 (프로젝트 세팅에서 활성화한 경우) **Histogram EV100 Min / Max** 입니다.
+
+![](HDRSceneRepresentation1.png)
+
+여기 HDR 씬 표현에서는 색을 통해 히스토그램 휘도 범위를 나타냅니다. 파랑은 히스토그램의 휘도 레벨 최저, 빨강은 최고를 나타냅니다.
+
+## 측광 모드 세팅
+
+사용가능한 **Metering Modes** (측광 모드)를 선택하면 자동 노출에 사용할 휘도 계산 메서드를 설정합니다. 이 세팅은 포스트 프로세스 볼륨 세팅 중 **Lens > Exposure** (렌즈 > 노출) 및 **Camera** (카메라)에서 사용할 수 있습니다.
+
+#### 자동 노출 히스토그램
+
+**Metering Mode** (측광 모드)가 **Auto Exposure Histogram** (자동 노출 히스토그램)일 때 사용할 수 있는 세팅은 다음과 같습니다.
+
+![](Exposure_Histogram.png)
 
 [COMMENT:none]
+| 프로퍼티 | 설명 |
+| --- | --- |
+| Exposure | 노출 |
+| **Exposure Compensation** | 노출 보정 - 노출에 대한 로그 조정입니다. 톤매퍼가 지정된 경우에만 사용됩니다. 0: 조정 없음, -1: 2배 어두움, -2: 4배 어두움, 1: 2배 밝음, 2: 4배 밝음. |
+| **Min EV100** | 최소 EV100 - [INCLUDE:#minEV100] |
+| **Max EV100** | 최대 EV100 - [INCLUDE:#maxEV100] |
+| **Min Brightness** | 최소 밝기 - 눈이 순응할 수 있는 밝기 낮은 값을 제한하는 자동 노출 최소 밝기입니다. 값은 0 초과 **Max Brightness** 이하여야 합니다. 0 근처 양수 값이 좋으며, 라이팅이 어두운 상황에서 조정해야 합니다. 값이 너무 작으면 이미지가 너무 밝아 보이고, 너무 크면 너무 어두워 보입니다. 실제 값은 사용 중인 콘텐츠의 HDR 범위에 따라 달라집니다. Min Brightness = Max Brightness 인 경우 자동 노출은 비활성화됩니다. |
+| **Max Brightness** | 최대 밝기 - [INCLUDE:#MaxBrightness] |
+| **Speed Up** | 명순응 - 어두운 환경에서 밝은 환경으로 이동할 때의 순응 속도입니다. |
+| **Speed Down** | 암순응 - 밝은 환경에서 어두운 환경으로 이동할 때의 순응 속도입니다. |
+| **Calibration Constant** | 보정 상수 - 18% 알베도 보정 상수입니다. |
+| **Low Precent** | 하한 퍼센트 - [INCLUDE:#LowPercent] |
+| **High Percent** | 상한 퍼센트 - [INCLUDE:#HighPercent] |
+| **Histogram Min EV100** | 히스토그램 최소 EV100 - [INCLUDE:#HistoMinEV100] |
+| **Histogram Max EV100** | 히스토그램 최대 EV100 - [INCLUDE:#HistoMaxEV100] |
+| **Histogram Log Min** | 히스토그램 로그 최소 - **HDR (시각 순응)** 시각화 모드를 사용할 때 생성되는 히스토그램 밝기 범위 하한을 정의합니다. |
+| **Histogram Log Max** | 히스토그램 지수 최대 - **HDR (시각 순응)** 시각화 모드를 사용할 때 생성되는 히스토그램의 밝기 밤위 상한을 정의합니다. |
 
-[EXCERPT:ExposureOffset]
-[REGION:simpletable]
-| 값 | 효과 |
-| ----- | ------ |
-| 0 | 변화 없음 |
-| -1 | 1/2 밝기 |
-| -2 | 1/4 밝기 |
-| 1 | 2 배 밝기 |
-| 2 | 4 배 밝기 |
+[COMMENT:none]
+[EXCERPT:minEV100]
+[REGION:note]
+프로젝트 세팅 중 **Extend default luminance range in Auto Exposure settings** (자동 노출 세팅의 기본 휘도 범위 확장) 옵션을 활성화했을 때 **Min Brightness** (최소 밝기) 대신 사용됩니다.
 [/REGION]
-[/EXCERPT:ExposureOffset]
-
+평균 휘도에 대한 노출 값을 선택하여 구현되는 최소 자동 노출 순응 값은 **Constant Calibration** (상수 보정) 값과 같은 픽셀 밝기 를 생성합니다. 값 표현 단위는 픽셀 휘도 (cd/m2) 입니다.
+Min EV100 = Max EV100 이면 자동 노출은 비활성화됩니다.
+[/EXCERPT:minEV100]
 [/COMMENT]
 
-눈 순응은 [Histogram](#Histogram) (막대그래프)를 기반으로, 다음과 같은 방법을 사용합니다:
-
-* **EyeAdaptationLowPercent** 는 `80%` 이고 **EyeAdaptationHighPercent** 는 `95%` 라 칩시다.
-* 이제 두 값의 막대그래프를 검색합니다:
-    * 화면 픽셀의 80% 는 휘도값 A 보다 어둡습니다.
-    * 화면 픽셀의 95% 는 휘도값 B 보다 어둡습니다.
-    * A 와 B 의 평균이 현재 씬 휘도 (C) 입니다.
-* 시간이 지나면서 눈이 이 값으로 순응합니다. 암순응은 보통 더디게 일어나므로, **EyeAdaptionSpeedUp** 과 **EyeAdaptionSpeedDown** 로 그 속도를 조절할 수 있도록 했습니다.
-* 너무 어둡거나 밝은 환경에는 완벽히 순응하지 못하도록 하기 위해, **EyeAdaptationMinBrightness** 와 **EyeAdaptationMaxBrightness** 로 일정한 범위 내에서만 순응되도록 했습니다.
-
-
-## Histogram
-
-**Histogram** (막대그래프) 프로퍼티는 카메라나 눈을 씬에 적용시킬 값을 씬 컬러 막대그래프에서 찾아보는 자동 눈 순응 기능에 사용됩니다. 이 막대그래프는 `ShowFlag.VisualizeHDR 1` 콘솔 명령으로 확인할 수 있습니다.
-
-[REGION:fullwidth]
-![Histogram](histogram.png)
+[COMMENT:none]
+[EXCERPT:maxEV100]
+[REGION:note]
+프로젝트 세팅 중 **Extend default luminance range in Auto Exposure settings** (자동 노출 세팅의 기본 휘도 범위 확장) 옵션을 활성화했을 때 **Max Brightness** (최대 밝기) 대신 사용됩니다.
 [/REGION]
+평균 휘도에 대한 노출 값을 선택하여 구현되는 최대 자동 노출 순응 값은 **Constant Calibration** (상수 보정) 값과 같은 픽셀 밝기를 생성합니다. 값 표현 단위는 픽셀 휘도 (cd/m2) 입니다. Max EV100 = Min EV100 이면 자동 노출은 비활성화됩니다.
+[/EXCERPT:maxEV100]
+[/COMMENT]
 
-| 프로퍼티 | 설명 |
-| -------- | ---- |
-| **Histogram Log Min** | 막대그래프 로그 최소 - 생성되는 막대그래프 밝기 범위 하한선을 정의합니다. |
-| **Histogram Log Max** | 막대그래프 로그 최대 - 생성되는 막대그래프 밝기 범위 상한선을 정의합니다. |
+[COMMENT:none]
+[EXCERPT:MaxBrightness]
+눈이 순응할 수 있는 밝기 높은 값을 제한하는 자동 노출 최대 밝기입니다. 값은 0 초과 **Min Brightness** 이상이어야 합니다. 양수 (2 정도) 값이 좋으며 밝은 라이팅 상황에서 조정해야 합니다. 값이 너무 작으면 이미지가 너무 밝아 보이고, 너무 크면 이미지가 너무 어두워 보입니다. 실제 값은 사용 중인 콘텐츠의 HDR 범위에 따라 다릅니다. 
+Max Brightness = Min Brightness 인 경우, 자동 노출이 비활성화됩니다.
+[/EXCERPT:MaxBrightness]
+[/COMMENT]
 
+[COMMENT:none]
+[EXCERPT:LowPercent]
+시각 순응은 씬 컬러의 휘도 히스토그램에서 추출한 값으로 일어납니다. 이 값은 평균 씬 휘도를 찾는 데 사용되는 히스토그램의 하한 퍼센트를 정의합니다. 이미지의 밝은 부분이 잘리는 않는 것이 좋으므로 어두운 곳 대부분을 무시하는 것이 가장 좋습니다. 예를 들어 80 은 어두운 부분 80% 를 버립니다. 값 범위는 [0, 100] 입니다.
+[REGION:note]
+최적의 결과를 내는 값은 70-80 사이입니다.
+[/REGION]
+[/EXCERPT:LowPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HighPercent]
+시각 순응은 씬 컬러의 휘도 히스토그램에서 추출한 값으로 일어납니다. 이 값은 평균 씬 휘도를 찾는 데 사용되는 히스토그램의 상한 퍼센트를 정의합니다. 조금 밝은 픽셀은 있어도 괜찮으니 (보통 태양) 상한 퍼센트 약간은 잘라내도 됩니다. 값 범위는 [0, 100] 입니다.
+[REGION:note]
+최적의 결과를 내는 값은 70-80 사이입니다.
+[/REGION]
+[/EXCERPT:HighPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMinEV100]
+프로젝트 세팅 중 **Extend default luminance range in Auto Exposure settings** (자동 노출 세팅의 기본 휘도 범위 확장) 옵션이 활성화되면 **Histogram Log Min** (히스토그램 로그 최소) 대신 사용됩니다.
+HDR (시각 순응) 시각화 모드를 사용할 때 생성되는 히스토그램 밝기 범위의 하한을 정의합니다.
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMaxEV100]
+프로젝트 세팅 중 **Extend default luminance range in Auto Exposure settings** (자동 노출 세팅의 기본 휘도 범위 확장) 옵션이 활성화되면 **Histogram Log Max** (히스토그램 로그 최대) 대신 사용됩니다.
+HDR (시각 순응) 시각화 모드를 사용할 때 생성되는 히스토그램 밝기 범위의 상한을 정의합니다.
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+
+#### 자동 노출 기본
+
+**측광 모드** 가 **Auto Exposure Basic** (자동 노출 기본)일 때 사용할 수 있는 세팅은 다음과 같습니다.
+
+![](Exposure_Basic.png "Exposure_Basic.png") 
+
+
+#### 수동
+
+**측광 모드** 가 **Manual** (수동)일 때 사용할 수 있는 세팅은 다음과 같습니다.
+
+![](Exposure_Manual.png)
+
+[/COMMENT]

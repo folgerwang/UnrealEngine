@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750629
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Color 模块
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Color 模块影响发射粒子的颜色。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

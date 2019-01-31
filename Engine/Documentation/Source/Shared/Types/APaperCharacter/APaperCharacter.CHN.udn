@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2246990
+﻿INTSourceChangelist:3782314
 Availability:NoPublish
 Title:APaperCharacter
 Crumbs:
@@ -6,7 +6,7 @@ Description:PaperCharacter类的概述
 
 [EXCERPT:APaperCharacter]
 
-APaperCharacter类似于ACharacter，但使用的是UPaperFlipbookComponent而不是USkeletalMeshComponent来作为可视化表示。注意：名称为Mesh（网格物体）的变量不会在Actor上进行设置！
+APaperCharacter类似于ACharacter，但使用的是UPaperFlipbookComponent而不是USkeletalMeshComponent来作为可视化表示。注意：名称为Mesh（网格体）的变量不会在Actor上进行设置！
 
 [VAR:ToolTipFullLink]
 
@@ -14,5 +14,5 @@ APaperCharacter类似于ACharacter，但使用的是UPaperFlipbookComponent而�
 [/EXCERPT:APaperCharacter]
 
 [COMMENT:none]
- ToDo: 纸张角色链接。 -
+ ToDo: Paper Character link. -
 [/COMMENT]

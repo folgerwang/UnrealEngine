@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3807090
-Title: 안드로이드 OpenGL ES 3.1 모바일 렌더러
-Description:UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 모바일 렌더러를 사용하도록 구성하는 방법입니다.
+Title: Android OpenGL ES 3.1 모바일 렌더러
+Description:UE4 Android 프로젝트에서 OpenGL ES 3.1 모바일 렌더러를 사용하도록 구성하는 방법입니다.
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/OpenGLES31MobileRenderer/
 Availability:Public
 version:4.16
@@ -17,7 +17,7 @@ Related:Programming/Development/BuildingUnrealEngine
 
 [TOC(start:2 end:3)]
 
-언리얼 엔진 4 (UE4) 가 안드로이드에서 여러 OpenGL ES 3.0 와 3.1 기능을 지원한 것은 오래된 일이지만, 이제 UE4 안드로이드 프로젝트를 빌드할 때 ES 3.1 을 대상으로 지정할 수 있습니다. 그러면 고사양 안드로이드 디바이스에 Metal 및 Vulkan 급 기능을 지원하도록 해 주며, 텍스처 샘플러도 16 개까지 접근할 수 있고, 유니폼 버퍼 사용을 통한 퍼포먼스 향상도 가능합니다. 다음 문서에서는 OpenGL ES 3.1 을 지원하는 안드로이드 디바이스에서 실행되는 UE4 프로젝트를 구성하는 법을 살펴보겠습니다.
+언리얼 엔진 4 (UE4) 가 Android에서 여러 OpenGL ES 3.0 와 3.1 기능을 지원한 것은 오래된 일이지만, 이제 UE4 Android 프로젝트를 빌드할 때 ES 3.1 을 대상으로 지정할 수 있습니다. 그러면 고사양 Android 디바이스에 Metal 및 Vulkan 급 기능을 지원하도록 해 주며, 텍스처 샘플러도 16 개까지 접근할 수 있고, 유니폼 버퍼 사용을 통한 퍼포먼스 향상도 가능합니다. 다음 문서에서는 OpenGL ES 3.1 을 지원하는 Android 디바이스에서 실행되는 UE4 프로젝트를 구성하는 법을 살펴보겠습니다.
 
 
 ## OpenGL ES 3.1 UE4 에디터 미리보기 켜기
@@ -46,7 +46,7 @@ UE4 에디터에서 OpenGL ES 3.1 이 어때 보이는지 미리보기 위해서
 
 ## OpenGL ES 3.1 지원 UE4 프로젝트 구성
 
-UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 프로젝트에 다음과 같은 옵션이 설정되었는지 확인해 줘야 합니다:
+UE4 Android 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 프로젝트에 다음과 같은 옵션이 설정되었는지 확인해 줘야 합니다:
 
 [region:warning]
 참고로 OpenGL ES 3.1 지원은 GitHub 에서 다운로드 및 컴파일한 코드 기반 프로젝트에서만 작동합니다. 그 방법이 익숙치 않으신 경우, [](GettingStarted/DownloadingUnrealEngine) 문서를 참고하세요.
@@ -56,7 +56,7 @@ UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 �
 
 	![](OGL3_03.png)
 
-1. **프로젝트 세팅** 메뉴에서 **플랫폼** 섹션으로 가 **Android** (안드로이드) 섹션을 클릭합니다.
+1. **프로젝트 세팅** 메뉴에서 **플랫폼** 섹션으로 가 **Android** 섹션을 클릭합니다.
 
 	[REGION:lightbox]
 	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
@@ -89,7 +89,7 @@ UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 �
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. **Android SDK** (안드로이드 SDK) 섹션을 클릭하고 **SDK API Level** 및 **NDK API Level** 을 다음과 같이 설정합니다.
+1. **Android SDK** (Android SDK) 섹션을 클릭하고 **SDK API Level** 및 **NDK API Level** 을 다음과 같이 설정합니다.
 
 	* SDK API Level = matchndk
 	* NDK API Level = android-21
@@ -104,10 +104,10 @@ UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 �
 
 ## OpenGL ES 3.1 지원 UE4 프로젝트 빌드 및 디플로이
 
-OpenGL ES 3.1 작업이 가능하도록 프로젝트 구성이 되었으니, 프로젝트를 빌드하여 안드로이드 기반 스마트폰에 디플로이할 차례입니다. OpenGL ES 3.1 지원 프로젝트를 빌드하는 방법은 다음과 같습니다:
+OpenGL ES 3.1 작업이 가능하도록 프로젝트 구성이 되었으니, 프로젝트를 빌드하여 Android 기반 스마트폰에 디플로이할 차례입니다. OpenGL ES 3.1 지원 프로젝트를 빌드하는 방법은 다음과 같습니다:
 
 [region:note]
-다음 부분을 시작하기 전, 개발 PC 에 USB 케이블을 통해 안드로이드 스마트폰이 연결되었는지 확인하세요. 연결되어 있지 않으면 프로젝트가 디플로이되지 않습니다.
+다음 부분을 시작하기 전, 개발 PC 에 USB 케이블을 통해 Android 스마트폰이 연결되었는지 확인하세요. 연결되어 있지 않으면 프로젝트가 디플로이되지 않습니다.
 [/region]
 
 
@@ -121,7 +121,7 @@ OpenGL ES 3.1 작업이 가능하도록 프로젝트 구성이 되었으니, 프
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. **실행** 버튼 왼편의 작은 흰색 트라이앵글을 클릭하고 프로젝트를 실행시킬 수 있는 디바이스 창을 띄운 뒤, 안드로이드 디바이스를 클릭하면 빌드 프로세스가 시작됩니다.
+1. **실행** 버튼 왼편의 작은 흰색 트라이앵글을 클릭하고 프로젝트를 실행시킬 수 있는 디바이스 창을 띄운 뒤, Android 디바이스를 클릭하면 빌드 프로세스가 시작됩니다.
 
 	![](OGL3_08.png)
 

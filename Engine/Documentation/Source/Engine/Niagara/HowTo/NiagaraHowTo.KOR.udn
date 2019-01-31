@@ -1,10 +1,11 @@
-INTSourceChangelist:3721928
-Availability:Docs
+INTSourceChangelist:4703316
+Availability:Public
 Title: 나이아가라 - 하우투
 Crumbs: %ROOT%, Engine, Engine\Niagara
-Description: 나이아가라로 비주얼 이펙트를 만드는 법을 알려드리는 하우투 가이드입니다. 
+Parent: Engine/Niagara
+Description: 나이아가라로 비주얼 이펙트를 만드는 법입니다.
 Version: 4.17
-tags: Niagara
+Tags: Niagara
 
 **나이아가라 - 하우투** 페이지에서는 언리얼 엔진 4 의 **나이아가라** 에디터로 할 수 있는 여러가지 작업을 단계별 예제를 통해 살펴봅니다.  
 배경의 단순한 배경 효과를 만드는 법이든, 복잡한 파티클 상호작용 구성 방법이든, 여기서 단계별로 확인하실 수 있을 것입니다.  각 단계에서 개괄적으로 다루는 내용이나 시스템 관련 보다 자세한 문서를 확인할 수 있는 참고 링크도 포함되어 있습니다.   아래 표에서 자세한 정보를, 링크를 클릭하면 내용을 확인할 수 있습니다.  
@@ -12,7 +13,7 @@ tags: Niagara
 
 ## 초급
 
-[DIR(output:"fancy" type:"how-to" parent:"Engine/Niagara/HowTo" skill_level:"Beginner")]
+[DIR(output:"fancy" parent:"Engine/Niagara/HowTo")]
 
 
 

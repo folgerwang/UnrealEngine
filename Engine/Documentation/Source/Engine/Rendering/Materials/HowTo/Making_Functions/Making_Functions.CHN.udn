@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2707725
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何构造材质函数
+Title:创建材质函数
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:有关在材质中创建和使用材质函数的操作指南 
+Description:有关在材质中创建和使用材质函数的指南 
 Related:Engine/Rendering/Materials/Functions
 Related:Engine/Rendering/Materials/Functions/Creating
 Related:Engine/Rendering/Materials/Functions/Editing
@@ -11,7 +11,7 @@ Related:Engine/Rendering/Materials/ExpressionReference
 Related:Engine/Rendering/Materials
 Version:4.9
 SkillLevel:Intermediate
-
+tags:Materials
 
 [TOC(start:2)]
 
@@ -25,11 +25,13 @@ SkillLevel:Intermediate
 务请参阅 [创建材质函数]( Engine/Rendering/Materials/Functions/Creating) 文档，其中也包含有关如何创建和使用材质函数的大量有价值信息。
 [/region]
 
+(#MaterialFunctions)
 ## 材质函数
 
 [INCLUDE:Engine/Rendering/Materials/Functions#functionsintro] 
 
 
+(#CreatingMaterialFunctions)
 ## 创建材质函数
 
 以下是创建材质函数的步骤。 
@@ -66,6 +68,7 @@ SkillLevel:Intermediate
 	[/PARAMLITERAL]
 	[/OBJECT]
 
+(#BuildingtheMaterialFunction)
 ## 构建材质函数
 
 1. 现在，材质函数已创建并重命名，请在 **内容浏览器** 中使用 **鼠标左键双击** 将其打开。
@@ -156,6 +159,7 @@ SkillLevel:Intermediate
 	![](Material_Function_Completed_Material.png)
 
 	
+(#UsingMaterialFunctions)
 ## 使用材质函数 
 
 1. 完成材质函数之后，请关闭材质函数编辑器，并在 **内容浏览器** 中创建新材质。要创建新材质，请在 **内容浏览器** 中 **右键单击**，从 **基本资产列表（Basic Assets List）**中选择 **材质（Material）**，并将新创建的材质命名为 **Fresnel_Material**。
@@ -223,6 +227,7 @@ SkillLevel:Intermediate
 	![](Material_Function_Final_Results.png)
 
 
+(#Conclusion)
 ## 结论
 
 材质函数是功能非常强大的工具，可以帮助您加快并统一材质的创建与重复使用。 

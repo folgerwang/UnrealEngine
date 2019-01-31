@@ -1,29 +1,10 @@
-﻿INTSourceChangelist:2677173
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:无需切线空间应用凹凸贴图
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:如何从无法使用经典切线空间的 3D 程序化着色器中实现凹凸贴图。
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![%Engine/Rendering/LightingAndShadows/BumpMappingWithoutTangentSpace:title%](%ROOT%/Engine/Rendering/LightingAndShadows/BumpMappingWithoutTangentSpace/bump_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/BumpMappingWithoutTangentSpace:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/BumpMappingWithoutTangentSpace:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine/Rendering/LightingAndShadows/BumpMappingWithoutTangentSpace]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:bump_topic.png
 
 **凹凸贴图（Bump mapping）** 最早由一名图形程序员发明（1978 James Blinn），它通过调整后的着色计算 
 来创建凹凸表面的假象，无需增加几何体。一个新法线取代了 

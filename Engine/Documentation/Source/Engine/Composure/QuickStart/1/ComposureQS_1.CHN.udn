@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3587677
-Availability:Docs
+﻿INTSourceChangelist:3810467
+Availability:Public
 Title:1 - Composure 的必要设置
 Crumbs:%ROOT%
 Description:在这一步中，我们将设置 Composure 的项目和编辑器布局。 
@@ -66,7 +66,7 @@ tags:Composure
 
 1. 打开之前保存的 ComposureQS 关卡，然后按下 **CTRL+V** 将复制的 Actor 粘贴到关卡中。 
 
-1. 在 **World Outliner** 中点击 **Sky Light**，然后在 **Details** 面板下的 **Light** 部分将 **Source Type ** 改为 **SLS Specified Cubemap**，然后在 **Cubemap** 输入中选择 **3D5A2486_Panorama_hdr_orient_CC** .HDR 立方体贴图。
+1. 在 **World Outliner** 中点击 **Sky Light**，然后在 **Details** 面板下的 **Light** 部分将 **Source Type** 改为 **SLS Specified Cubemap**，然后在 **Cubemap** 输入中选择 **3D5A2486_Panorama_hdr_orient_CC** .HDR 立方体贴图。
 
     ![](ComposureQS_S1_4.png)
 

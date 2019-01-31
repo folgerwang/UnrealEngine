@@ -1,63 +1,27 @@
-﻿Availability: Public
-Title:2.4 - 生成带事件和接收器的粒子
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.4 - 使用事件和接收器生成粒子
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
-Description:特效库示例关卡概述。
+Description:概述效果库示例关卡。
 Related: Engine/Rendering/ParticleSystems/Overview
 Related: Engine/Rendering/ParticleSystems/Reference
 Related: Engine/Rendering/ParticleSystems/Optimization
 Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
 Related: Engine/Rendering/ParticleSystems/ParticleLights
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_D:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_D\2_DTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_D:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_D:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_D]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_D:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_D\2_DTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_D:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_D:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_D]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:2_DTopic.png
 
 [REGION:fullwidth]
 ![](image060.png)
 [/REGION]
 
-复杂粒子特效中较为有用的特性之一是Event Generator（事件生成器）模块。此模块可以让您在粒子生命周期中定义所发生的不同类型的事件，并使用这些事件来生成完全不同的粒子特效。这些事件包括了粒子的生成，死亡，碰撞，爆炸，甚至关卡蓝图生成的事件！
+对于复杂的粒子效果，**事件生成器（Event Generator）** 模块是更加实用的功能之一。此模块允许您指定粒子生命周期中可能发生的各种类型的事件，并使用这些事件生成完全不同的粒子效果。可用的事件包括粒子产生、消亡、碰撞、爆炸，甚至关卡蓝图生成的事件。
 
-本例中我们使用粒子的销毁来创建其它粒子。为制作烟花，我们从下拉列表中选择事件类型并对其命名。
+在这种情况下，我们用粒子的消亡来创建其他粒子。为了制作烟花效果，我们从下拉列表中选择事件类型并为其命名。
  
 ![](image062.png)
 
-随后您可以使用另一个名称为EventReceiver Spawn的模块（在第二个发射器中），它可以让您基于先前生成的事件来生成粒子：
+然后使用（位于第二个发射器中）名为 **事件接收器生成（EventReceiver Spawn）** 的另一个模块，该模块允许根据之前生成的事件生成粒子：
  
 ![](image064.png)

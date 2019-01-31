@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2699735
+﻿INTSourceChangelist:3429254
 Availability:Public
 Title:Pawn
 Crumbs:%ROOT%, Gameplay, Gameplay/Framework
@@ -7,15 +7,16 @@ Related: Gameplay/Framework\Pawn\Character
 Related: Gameplay/Framework/Controller
 Related: Gameplay/Framework/GameMode
 Version: 4.9
-type:reference
+type:overview
 parent:Gameplay/Framework
 order:3
 tags:Gameplay Framework
+topic-image:Gameplay/Framework/pawn_lander.png
 
 ![](pawn_ball.png)(w:300)
 
 
-**Pawn**类是可由玩家或 AI 控制的所有 Actors 的基础类。Pawn 是玩家或 AI 实体在世界中的物理象征。 
+**Pawn** 类是可由玩家或 AI 控制的所有 Actors 的基础类。Pawn 是玩家或 AI 实体在世界中的物理象征。 
 这不仅意味着 Pawn 决定玩家或 AI 实体的外表，而且决定其在冲突和其它物理互动方面 
 如何与世界交互。由于某些类型的游戏可能在游戏中没有可见的玩家网格或形象，这在某些情况下可能会令人困惑。无论如何，Pawn 仍 
 代表玩家或实体在游戏中的物理位置、转动等。[**Character**](Gameplay/Framework\Pawn\Character) 是一种特殊类型的能走动的 Pawn。  
@@ -28,6 +29,7 @@ tags:Gameplay Framework
 
 
 
+(#DefaultPawn)
 ## 默认 Pawn
 
 尽管 Pawn 类只提供创建玩家或 AI 实体在世界中的物理象征的基础，但_DefaultPawn_子类附带一些额外的组件和功能。
@@ -41,6 +43,7 @@ DefaultPawn 类中也有用来添加默认运动约束的 Boolean，且被默认
 DefaultPawnMovementComponent 的运动风格被设置为无重力飞行风格。除通常的 MovementComponent 变量外，它还包括“MaxSpeed​​”、“Acceleration”和“Deceleration”浮点值。这
 三个变量也可在 DefaultPawn 派生 Blueprints 中访问。
 
+(#SpectatorPawn)
 ### 观众 Pawn
 
 _SpectatorPawn_类是 DefaultPawn 的子类。GameMode中，可将不同的类指定为 Pawn 和 SpectatorPawn 的默认值，而该类提供非常适合

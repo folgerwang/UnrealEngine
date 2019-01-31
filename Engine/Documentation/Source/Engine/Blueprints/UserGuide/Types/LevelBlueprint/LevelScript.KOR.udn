@@ -62,7 +62,7 @@ _레벨 블루프린트_ 는 이 클래스를 기반으로 생성되며, 여기�
 	![Level Blueprint Button](toolbar_level_editor.png)
 
 1. 그래프에서 노드를 추가하려는 곳에 우클릭합니다.
-1. 나타나는 맥락 메뉴에서 **Add Reference to [SelectedActor]** ([선택된 액터]에 대한 레퍼런스 추가)를 선택합니다.
+1. 나타나는 컨텍스트 메뉴에서 **Add Reference to [SelectedActor]** ([선택된 액터]에 대한 레퍼런스 추가)를 선택합니다.
 
 	![](add_reference_to.png)
 	
@@ -100,7 +100,7 @@ _레벨 블루프린트_ 에 특정 액터에 대한 [](Engine/Blueprints/UserGu
 
 1. 그래프에서 노드를 추가하고자 하는 곳에 우클릭합니다.
 
-1. 나타나는 맥락 메뉴에서 **Add Event for [ActorName]** ([액터명]에 대한 이벤트 추가)를 펼칩니다.  
+1. 나타나는 컨텍스트 메뉴에서 **Add Event for [ActorName]** ([액터명]에 대한 이벤트 추가)를 펼칩니다.  
 
 	![](add_event_for_actor.png)
 

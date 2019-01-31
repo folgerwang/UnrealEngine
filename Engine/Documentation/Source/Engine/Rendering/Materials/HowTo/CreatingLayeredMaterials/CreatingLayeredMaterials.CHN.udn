@@ -1,50 +1,12 @@
-﻿INTSourceChangelist:2754094
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:创建分层材质
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/LayeredMaterials
 Description:有关 UE4 中分层材质技术的介绍文档。
 Version:4.9
 SkillLevel:Intermediate
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](%ROOT%/Resources/Tutorials/Materials/CreatingLayeredMaterials/layered_tutorial_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Tutorials/Materials/CreatingLayeredMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](%ROOT%/Resources/Tutorials/Materials/CreatingLayeredMaterials/layered_tutorial_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Tutorials/Materials/CreatingLayeredMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Tutorials/Materials/CreatingLayeredMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Materials
+topic-image:layered_tutorial_topic.png
 
 [REGION:fullwidth]
 ![](SnowyStuff.png)
@@ -60,6 +22,7 @@ SkillLevel:Intermediate
 [/REGION]
 
 
+(#SimpleChrome)
 ## 简单铬合金
 
 
@@ -95,6 +58,7 @@ SkillLevel:Intermediate
 	![](ConnectedMMA.png)
 
 
+(#ChromeLayerNetwork)
 ### 铬合金层网络
 
 此材质层的网络相当简单。为了加快构建速度，它已进行拆分。使用的两个纹理分别是 **T_ExampleLayers_Metal_1_BC.png**（用于底色及粗糙度）和 **T_ExampleLayers_Metal01_N.png**（用于法线贴图），这两个纹理均可从本页顶部下载。
@@ -114,6 +78,7 @@ SkillLevel:Intermediate
 
 完成后，务请保存材质层函数。
 
+(#SimpleSnow)
 ## 简单的雪
 
 
@@ -149,6 +114,7 @@ SkillLevel:Intermediate
 	![](ConnectedMMA.png)
 
 
+(#SnowLayerNetwork)
 ### 雪层网络
 
 下图是雪材质层的简单明细。这个层使用 **T_Cave_Ice_Tiling_D.png** 和 **T_Cave_Ice_Noise_N.png**，这两个纹理均可从本页顶部下载。 
@@ -172,6 +138,7 @@ SkillLevel:Intermediate
 
 完成后，请保存结果！
 
+(#LayeredMaterial)
 ## 分层材质
 
 现在，我们可以使用目前为止生成的层来创建分层材质。我们将稍微增大空间以进行实例定制，使得雪总是出现在表面的顶部。
@@ -201,7 +168,8 @@ SkillLevel:Intermediate
 1. 在“函数”（Functions）面板中，拖入 **MatLayerBlend_Simple** 函数和 **World_Aligned_Blend** 函数。我们将使用 MatLayerBlend_Simple 来处理从铬合金到雪的过渡，并使用 World_Aligned_Blend 根据表面的方向加强层混合效果。 
 
 
-## 分层材质网络
+(#LayeredMaterialNetwork)
+### 分层材质网络
 
 以下是 Mat_SnowyChrome 网络的明细以及每个注释区域的说明。
 
@@ -223,6 +191,7 @@ SkillLevel:Intermediate
 完成后，请记得保存材质！
 
 
+(#InstancingaLayeredMaterial)
 ## 分层材质实例化
 
 我们已使用参数来设置此材质，这些参数进而驱动材质层的各个方面，现在，我们可以将此材质实例化并进行编辑。此过程在 UE4 中非常简单。

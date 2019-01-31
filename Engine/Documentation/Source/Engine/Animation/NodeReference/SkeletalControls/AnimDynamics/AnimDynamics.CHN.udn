@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: AnimDynamics
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description: 说明 AnimDynamics 如何基于物理实现次要动画。 
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:title%](Engine\Animation\NodeReference\SkeletalControls\AnimDynamics\AnimDynamicsNode.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\AnimDynamics]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:title%](Engine\Animation\NodeReference\SkeletalControls\AnimDynamics\AnimDynamicsNode.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\AnimDynamics]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\AnimDynamics:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:AnimDynamicsNode.png
 
 
 **AnimDynamics** 节点是一个小型解算器，可基于物理实现骨骼网格体资源的次要动画。此节点可实现角色移动时项链、手镯、背包、丝线、头发、布料或其他物体的反弹或移动。 
@@ -109,6 +76,10 @@ AnimDynamics 支持线性、角和平面约束。线性和角约束可由弹簧�
 | **Alpha** | 在 [0.0, 1.0] 范围中的浮点值，用作 alpha 值，确定 SkeletalControl 应用的转换权重。数值 0.0 将为输入姿态赋予完整权重，数值 1.0 为控制器计算的转换赋予完整权重。|
 | [REGION:tablesection]**输出引脚**[/REGION] ||
 | Pose (Blank) | 应用转换后的最终姿态。|
+
+**AnimDynamics** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **AnimDynamics** 节点的 **细节面板** 上找到其设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 
 [REGION:note]
 在 [**创建动态动画**](Engine\Animation\AnimHowTo\AnimDynamics) 指导页面中可查阅 AnimDyamics 使用的逐步实例。 

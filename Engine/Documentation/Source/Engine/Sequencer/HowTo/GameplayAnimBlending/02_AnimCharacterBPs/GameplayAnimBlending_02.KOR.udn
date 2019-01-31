@@ -15,7 +15,7 @@ type:how-to
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전](Engine\Sequencer\HowTo\GameplayAnimBlending\01_SequenceSetup)
+		[이전](Engine\Sequencer\HowTo\GameplayAnimBlending\01_SequenceSetup)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -74,7 +74,7 @@ type:how-to
 
 	![](GameBlend_10.png)
 
-	**Set (Property Value Name)** 라는 함수를 만드는 것으로 연관된 프로퍼티 값이 바뀔 때마다 시퀀서가 호출하는 **프록시** 함수를 만들었습니다.
+	**Set (Property Value Name)** 라는 함수를 만드는 것으로 연관된 프로퍼티 값이 바뀔 때마다 시퀀서가 호출하는 **프락시** 함수를 만들었습니다.
 	이 함수는 프로퍼티 값이 바뀔 때만 호출되므로 **Event Tick** 또는 **Custom Event** 와 **Timeline** 을 통해 **DefaultSlotInterp** 프로퍼티 값의 변화를 반영하는 것보다 효율적입니다.
 	
 1.	**컴포넌트** 창에서 **Mesh** 를 끌어 놓고 **Get Anim Instance** 를 사용하여 **Cast to UE4ASP_HeroTPP_AnimBlueprint** 합니다. 
@@ -85,7 +85,7 @@ type:how-to
 
 	![](GameBlend_12.png)
 
-	시퀀서를 통해 **DefaultSlotInterp** 값이 바뀔 때마다, **SetDefaultSlotInterp** 프록시 함수가 호출되며 플로트 값이 애니메이션 블루프린트의 **Blend Interp** 값을 통과합니다. 여기서 포즈 블렌딩에 영향을 줍니다.
+	시퀀서를 통해 **DefaultSlotInterp** 값이 바뀔 때마다, **SetDefaultSlotInterp** 프락시 함수가 호출되며 플로트 값이 애니메이션 블루프린트의 **Blend Interp** 값을 통과합니다. 여기서 포즈 블렌딩에 영향을 줍니다.
 
 다음 단계에서는 레벨 시퀀스에 **Default Slot Interp** 프로퍼티를 추가하여 애니메이션 블루프린트에서 **Blend Interp** 를 제어할 수 있도록 하겠습니다.
 또 레벨에 트리거 박스를 추가하여 레벨 시퀀스를 발동시켜 플레이어가 트리거 박스 볼륨에 들어서면 재생시키도록 하겠습니다.

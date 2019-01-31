@@ -1,51 +1,46 @@
-﻿INTSourceChangelist:0
-Availability:Docs
+﻿INTSourceChangelist:3801260
+Availability:Public
 Crumbs:%ROOT%
-Title: Clipping
-Description: An overview of using the Clipping properties within the UMG UI Designer.
+Title: 裁剪
+Description: 概述了UMG界面设计器中的裁剪属性。
 Type: Reference
 Version:4.17
-Parent:Editor/UMG/UserGuide
-Related:Engine/UMG
+Parent:Engine/UMG/UserGuide
 Related:Programming\Slate\ClippingSystem
-Order:100
+Order:3
 Tags:UMG UI Designer
 Topic-image:Clipping_Topic.png
 
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:30 convert:false)[/VAR]
-
-[TOC(start:2 end:2)]
-
-
 [REGION:warning]
-With Unreal Engine 4.17, the clipping system has been overhauled and in some cases may break backwards compatibility. For additional information about these changes see the [Slate Clipping System](Programming\Slate\ClippingSystem) page.
+在虚幻引擎4.17中，我们对裁剪系统进行了全面修改，在某些情况下可能会破坏向后兼容性。有关这些更改的更多信息，请参阅此处的 
+[Slate裁剪系统](Programming\Slate\ClippingSystem) 细节。 
 [/REGION]
 
 
-The clipping system in UMG uses [Slate's Clipping System](Programming/Slate/ClippingSystem) to control how clipping is handled for your Widgets (as well as the rest of the Editor).
-**Clipping** works by restricting rendered objects (graphics and text) to a region using a bounding box so that anything outside of it does not render. 
+UMG中的裁剪系统使用 [Slate 裁剪系统](Programming/Slate/ClippingSystem) 作为框架来控制为控件（或编辑器的其他部分）
+显示文本、图像或内容的方式。**裁剪** 的工作原理是使用边界框将渲染对象（图形和文本）限制在某个区域中，以使超出边界框的任何内容都不显示。裁剪系统现在为轴对齐裁剪，
+这意味着它可以裁剪任何旋转，在这之前，由于变形处理方式的缘故，这是不可能的。 
 
 ![](Programming\Slate\ClippingSystem\ClippingExamples.png)(w:500)
 
-* Left - No clipping is enabled on the button or the text.
-* Center - Clipping is enabled on the text
-* Right - Clipping is enabled on the button.
+在本示例中，每个按钮都是显示的文本的父项。这些示例将展示是由按钮还是文本控制裁剪。  
 
-In this example, a Button Widget (the parent) and a Text Widget (the child) are used to show who is responsible for clipping. By default, the system clips to the bounds of a given Widget, so the button and text act independently to clip at their own bounds (left). If you enable clipping on the Text Widget, the system will use the bounds of the text to show only what is within its bounds (center). If you set the Button Widget to enable clipping, the text will cut off at the edge of the button for its bounds (right).
+* 左图 - 按钮或文本上都未启用裁剪。
+* 中图 - 文本上启用裁剪。
+* 右图 - 按钮上启用裁剪。
 
-The Canvas Panel (or clipping zone) represents your game screen and will clip anything outside of this area for your game. 
+**画布（Canvas）** 面板（又称裁剪区）的轮廓为蓝色，代表游戏屏幕，它将会裁剪（即不绘制）游戏超出该区域的任何内容。 
 
 [REGION:fullwidth]
 ![](UMGDesigner.png)
 [/REGION]
-[REGION:caption] In the UMG Designer graph, the Canvas Panel (blue) represents the clipping zone for your game screen. [/REGION]
+[REGION:caption] 在UMG设计器图形中，“画布（Canvas）面板”（蓝色）代表游戏屏幕的裁剪区。[/REGION]
 
-Prior to Unreal Engine 4.17, clipping was handled differently that prevented anything from rendering outside of the canvas panel and Widgets only provided clipping in layout space. This presented a problem
-with widgets that would have their bounding boxes partially outside of the canvas panel. If they were rotated, the part of the bounding box outside of the clipping zone would not rotate and leave parts of the 
-Widget clipped. 
+在虚幻引擎4.16及更早版本中，控件的裁剪是使用布局空间处理的，它将阻止超出“画布（Canvas）”面板的内容渲染。因此，如果控件边界框的某部分 
+位于“画布（Canvas）”面板外面，它将不会被渲染，就算旋转了控件，控件边界框也不会使部分图像或文本被裁剪掉，即使它位于
+“画布（Canvas）”面板中也不例外。
 
-Take for instance these examples: 
+下面的示例展示了更改前后的对比：
 
 [REGION:imagetable]
 | --- | --- | 
@@ -61,10 +56,10 @@ Take for instance these examples:
 [EXCERPT:comparison]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Render Transform clipping | in 4.16 and earlier.](Clipping2.png)(w:500)
+	![渲染变形裁剪 | 在4.16及更低版本中。](Clipping2.png)(w:500)
 	[/PARAM]
 	[PARAM:after]
-	![Render Transform clipping | in 4.17 and later.](Clipping3.png)(w:500)
+	![渲染变形裁剪 | 在4.17及更高版本中。](Clipping3.png)(w:500)
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:comparison]
@@ -72,33 +67,28 @@ Take for instance these examples:
 -
 [/COMMENT]
 
-In this example, the Image Widget (left) has been placed at the edge of the Canvas Panel so that part of it is outside of the clipping zone. The clipping system now uses axis-aligned clipping, which resolves artifacts and issues as seen in the comparison image (right). In 4.16, if a Widget was rotated with part of its bounds outside of the Canvas Panel, you would get clipped edges inside of the Canvas Panel. Now with 4.17, when you rotate a Widget, the bounds also rotate with it to clip properly. 
+图像控件（左侧）被放置在“画布（Canvas）”面板的边缘处，因此其部分边界框位于“画布（Canvas）”面板的外面。裁剪系统现在为轴对齐裁剪（而非使用布局空间），
+如对比（右侧）中所示，这种裁剪可以消除瑕疵和问题。  
 
+## 裁剪属性
 
-## Accessing Clipping
-
-The clipping properties for the currently-selected Widget can be found under the **Clipping** section of the **Details** panel.
+可以在UMG **细节（Details）** 面板的 **裁剪（Clipping）** 部分下更改基于所选的控件处理裁剪的方式。 
 
 ![](ClippingProperties.png)
 
-
-
-## Setting Clipping Properties
-
-The following clipping methods can be selected for your Widgets in UMG UI Designer:
-
 [REGION:raw]
-| Property | %spacer2% | Description |
-| --- | --- | --- |
-| **Inherit** || This widget does not clip children and obeys whatever clipping / culling it was passed in from a parent widget. |
-| **Clip to Bounds** || This widget clips content to the bounds of the widget. It intersects those bounds with any previous clipping area. |
-| **Clip to Bounds - Without Intersecting** || This widget clips to its bounds. It does not intersect with any existing clipping geometry, it pushes a new clipping state. Effectively allowing it to render outside the bounds of hierarchy that does clip. [REGION:note] This will not allow you to ignore the clipping zone that is set to **Clip to Bounds - Always** [/REGION] |
-| **Clip to Bounds - Always** || This widget clips to its bounds. It intersects those bounds with any previous clipping area. [REGION:note] This clipping area cannot be ignored, it will always clip children. This is useful for hard barriers in the UI where you never want animations or other effects to break this region. [/REGION] |
-| **On Demand** || This widget clips to its bound when it's Desired Size is larger than the allocated geometry the widget is given. If that occurs, it will work like **Clip to Bounds**.  [REGION:note] This mode was primarily added for **Text**, which is often placed into containers that eventually are resized to not be able to support the length of the text. So rather than needing to tag every container that could contain text with [YES], which would result in almost no batching, this mode was added to dynamically adjust the clipping if needed. The reason not every is not set to **On Demand** is because not every panel returns a Desired Size that matches what it plans to render at. [/REGION] |
+| 属性 | 说明 |
+| --- | --- |
+| **继承（Inherit）** | 该控件不裁剪子项，并且将遵循从父控件传入的任何裁剪/剔除。|
+| **裁剪至边界（Clip to Bounds）** | 该控件裁剪控件边界外的内容。它将边界与先前的裁剪区域相交。|
+| **裁剪至边界 - 不相交（Clip to Bounds - Without Intersecting）** | 该控件裁剪其边界外的内容。它不与任何现有裁剪几何体相交，它推送新的裁剪状态。因此它事实上可渲染层级边界外未裁剪的内容。[REGION:note] 该属性不允许你忽略设置为 **裁剪至边界 - 始终（Clip to Bounds - Always）** 的裁剪区[/REGION] |
+| **裁剪至边界 - 始终（Clip to Bounds - Always）** | 该控件裁剪其边界外的内容。它将边界与先前的裁剪区域相交。[REGION:note] 无法忽略该裁剪区域，它将始终裁剪子项。对于UI中的硬障碍（决不希望动画或其他效果干扰的区域），这非常有用。[/REGION] |
+| **按需（On Demand）** | 当所需的大小比分配给控件的几何体大时，该控件裁剪其边界外的内容。当出现这种情况时，它的作用与 **裁剪至边界（Clip to Bounds）** 相同。[REGION:note] 该模式主要是为 **文本** 添加的，文本通常放置在容器中，而容器大小最终调整后无法支持文本的长度。因此，添加该模式之后，不需要为每个可以包含文本的容器添加[YES]标记（这将导致几乎无法进行批处理），而是可以按照需要动态调整裁剪。只将部分裁剪方式设置为 **按需（On Demand）** 的原因是，并非每个面板返回的所需大小都与它计划渲染的大小匹配。[/REGION] |
 [/REGION]
 
 
-## Additional Considerations
+## 其他注意事项
 
-* In most cases, you should not need to adjust the clipping method except in instances where you can't control the length of the text and need to clip it. An example of this would be Scroll Box and Editable Text Widgets, which are set to **Clip to Bounds** instead of **Inherit**.
-* Elements in different clipping spaces cannot be batched together, so there is a performance cost that comes with clipping. For this reason, do not enable clipping unless a panel actually needs to prevent content from showing up outside of its bounds. 
+* 在大部分情况下，都无需调整裁剪方法，除非你因无法控制文本的长度而需要裁剪它。例如，滚动框和可编辑文本控件就符合这种情况，它们被设置为 **裁剪至边界（Clip to Bounds）** 而非“继承（Inherit）”。
+* 不同裁剪空间中的元素无法一起进行批处理，因此裁剪会带来性能成本。因此，除非面板真的需要阻止内容在其边界之外显示，否则请勿启用裁剪。 
+

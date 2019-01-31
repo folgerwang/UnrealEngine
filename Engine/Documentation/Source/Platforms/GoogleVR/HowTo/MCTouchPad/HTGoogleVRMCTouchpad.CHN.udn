@@ -1,42 +1,46 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title: Use the Google VR Touchpad 
-Description: Setting up the Google VR Motion Controller Touchpad 
+Title: 使用GoogleVR触控板 
+Description: 设置GoogleVR运动控制器触控板 
 Type: how-to
-SkillLevel: Intermidate
+SkillLevel: Intermediate
 Version: 4.16
-Parent: Platforms/GoogleVR
+Parent:Platforms/GoogleVR
 Order: 3
-Tags:Google VR
+Tags:GoogleVR
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
 prereq: Platforms\GoogleVR\QuickStart
 prereq: Platforms\GoogleVR\HowTo\CameraSetup
 prereq: Platforms\GoogleVR\HowTo\MotionController
 
-Due to the highly accurate nature of the Google VR Motion Controller (MC) Touchpad, it can be used to perform all kinds of different interactions that require high precision. From scrolling through a series of menu options or trying to plot your precise location on a map, there is an almost endless amount of ways to use the Touchpad to interact with the virtual world. In the following How - To we will take a look at how to get and then display the current location that is being touched on the Google VR Motion Controller Touchpad.
+![](HTGVRMCTouchpad_Hero_Image.png)
+
+GoogleVR运动控制器（MC）触控板具有极其精准的控制能力，因此可以用于执行需要高精准度的各种类型的不同互动。无论是滚动浏览菜单选项，还是尝试在地图上精确绘制地点，总是有千百种方法使用该触控板与虚拟世界互动。在以下操作指南中，我们将介绍如何获取并显示当前在GoogleVR运动控制器触控板上触摸的位置。
 
 [region:note]
-In this How - To we will be starting with a Pawn that already has a VR Camera and Motion Controller support added to it. If you do not have this setup, please check out the documents listed in the **Prerequisite Topics** list at the top of this page.
+在本操作指南中，我们事先已经准备好一个添加了VR摄像机和运动控制器支持的Pawn。如果您尚未完成该设置，请查看本页顶部 **必读主题** 中所列的文档。
 [/region]
 
-## Google VR Touchpad Setup
+## 步骤
 
-1. First, open up your player Pawn Blueprint and from the **Component** tab, add two new **Text Render** component, called **X_Position** and **Y_Position**.  Make sure that both are parented to the **GoogleVRMotion Controller** component like in the image below.
+在下面的部分中，我们将介绍如何在Google Daydream运动控制器上设置触控板。
+
+1. 首先，打开玩家Pawn蓝图。从 **组件（Component）** 选项卡，添加两个新的 **文本渲染器（Text Render）** 组件，分别名为 **X_Position** 和 **Y_Position**。确保这两个组件都是 **GoogleVRMotionController** 组件的子代，如下图所示。
 
     ![](HTGVRMCTouchpad_00.png)
 
-1. Click on the Text Component and then in the **Details** panel set the following properties with the following values for both the X and Y text. 
+1. 单击“文本”（Text）组件，然后在 **细节（Details）面板** 中，为以下属性设置以下值：
     
     [REGION:lightbox]
     [![](HTGVRMCTouchpad_01.png)(w:757)](HTGVRMCTouchpad_01.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image. Note that this is only showing the Y_Position properties. See table below for X_Position properties.
+    单击查看大图。请注意，该图仅显示了Y_Position属性。请参阅下表，了解X_Position属性。
     [/REGION]
 
-    |Property Name| Value|
+    | 属性名称| 值|
     |------|-----|
     |**Location X Text**| X = 20, Y = 0, Z = 0|
     |**Location Y Text**| X = 20, Y = 0, Z = 5|
@@ -45,21 +49,21 @@ In this How - To we will be starting with a Pawn that already has a VR Camera an
     |**Vertical Alignment X & Y**| Text Center|
     |**World Size X & Y** |5|
 
-1. Before we can build the logic for the Blueprint, we first need to create two variables to hold and display the X and Y input location on the Touchpad.  Go to the **Variables** section, add two new **Text Variables** called **XPositionText** and **YPositionText**. 
+1. 在构建蓝图逻辑之前，首先需要创建两个变量来存放和显示触控板上的X和Y输入位置。转至 **变量（Variables）** 部分，添加两个新 **文本变量（Text Variables）**，分别名为 **XPositionText** 和 **YPositionText**。 
 
     ![](HTGVRMCTouchpad_02.png)
 
-1. To display the current location that is being pressed on the Touchpad, we will first need to get and then store the X and Y  **Axis Value** of the current touch input. Then, using the **Set Text** node we can display that information via the Text Render Component that we added to our Google VR Motion Controller. To do this in our Blueprint first, add the following nodes and variables to the Event Graph.
+1. 要显示当前在触控板上按住的位置，我们首先需要获取当前触控输入的X和Y **轴值**，然后存储这两个值。接下来，我们可以使用 **设置文本（Set Text）** 节点，通过之前添加到GoogleVR运动控制器的文本渲染器组件来显示该信息。为了在蓝图中完成这项操作，请将以下节点和变量添加到事件图表：
 
     [REGION:lightbox]
     [![](HTGVRMCTouchpad_03.png)(w:713)](HTGVRMCTouchpad_03.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image. 
+    单击查看大图。 
     [/REGION]
 
-    |Node / Variable Name| Value|
+    |节点/变量名字城| 值|
     |------|-----|
     |**MotionController(R)Thumbstick X**|N/A|
     |**ToText(Float)**|N/A|
@@ -67,32 +71,32 @@ In this How - To we will be starting with a Pawn that already has a VR Camera an
     |**Set Text**|N/A|
     |**X_Positiont**|N/A|
     |**XPositionText**|N/A|
-    |**Append**|A Input: X:|
+    |**Append**|A Input:X:|
     |**ToText(string)**|N/A|
 
-1. Next, we need to build the logic that will display the input location using the text that was attached to the Motion Controller. To do this, we will need to first get the **Axis Value** of the MotionController (R)Thumbstick X  and store that in the XPositionText variable. Once we have that information, we can then display this value using the X_Postion text. When completed, your Blueprint should look like the following image.
+1. 接下来，我们需要构建一个逻辑，以使用与运动控制器相连的文本显示输入位置。为此，我们需要获取MotionController (R)Thumbstick X的 **轴值** 并将该数据存储在XPositionText变量中。获得该信息后，便可以使用X_Postion文本来显示该值。完成后，您的蓝图应该如下图所示：
 
     [REGION:fullwidth]
     [INCLUDE:#MCInput01]
     [/REGION]
 
     [REGION:caption]
-    Click image to copy Blueprint code. 
+    单击图片以复制蓝图代码。 
     [/REGION]
 
-1. Now that we have the X axis input value, to get the Y axis input value, we can use the same logic, we just need to change the MotionController(R)Thumbstick and variables to use the Y axis. When completed your entire Blueprint should look like the following image.
+1. 现在，我们已经有了X轴输入值，为获取Y轴输入值，可以使用相同的逻辑，但需要将MotionController(R)Thumbstick和各个变量更改为使用Y轴。完成后，您的整个蓝图应该如下图所示：
 
     [REGION:fullwidth]
     [INCLUDE:#MCInput02]
     [/REGION]
 
     [REGION:caption]
-    Click image to copy Blueprint code. 
+    单击图片以复制蓝图代码。 
     [/REGION]
     
-1. Next, we need to attach the two Text Render Components to Google VR MC so that they will follow it when moved. To do this in our Blueprint, add the following nodes to the Event Graph and then connect them to match the following image: 
+1. 接下来，我们需要将两个文本渲染器组件连接到GoogleVR MC，以便它们在运动时跟随移动。为在蓝图中实现这一点，将以下节点添加到事件图表，然后按下图所示进行连接： 
 
-    |Node / Variable Name| Value|
+    |节点/变量名字城| 值|
     |------|-----|
     |**AttachToComponent**|N/A|
     |**X_Position**|N/A|
@@ -100,31 +104,33 @@ In this How - To we will be starting with a Pawn that already has a VR Camera an
     |**Get Motion Controller**|N/A|
     |**Google Motion Controller**|N/A|
 
-1. Once the Blueprint has been compiled and saved, deployed the project to your smartphone, and pick up your Google VR HMD and Motion Controller. Now, when you touch the Touchpad, you should see the numbers update with the location that you are currently touching like in the following video.
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        sr43LB7wSJ8
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+蓝图编译并保存，并且项目已部署到您的智能手机后，可拿起您的GoogleVR HMD和运动控制器。现在，当您触摸触控板时，应该看到随着您当前触摸的位置，数字会实时更新，如以下视频所示：
 
-## UE4 Project Downloads
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    sr43LB7wSJ8
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-Below you will find a link to where you can download the UE4 project that was used to create this example. 
+## 虚幻引擎项目下载
 
-* [**Google VR Motion Controller Touchpad Input Example Project**](https://epicgames.box.com/s/9024yg9aldpvpckncw1c80876ztoxhf9)
+下面提供了一个链接，供您下载用来创建该示例的虚幻引擎项目。
+
+* [**GoogleVR运动控制器触控板输入示例项目**](https://epicgames.box.com/s/9024yg9aldpvpckncw1c80876ztoxhf9)
 
 [COMMENT:none]
 

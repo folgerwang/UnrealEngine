@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2679100
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:使用接口
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -8,6 +8,7 @@ Related:Engine/Blueprints/UserGuide/BlueprintCommsUsage
 Related:Engine/Blueprints/UserGuide
 version:4.8
 skilllevel:Advanced
+tags:Blueprints
 
 在此指南中，我们将设置一个 [蓝图接口](Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces)，将其调用后可在多个蓝图中执行不同脚本。 
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3075228
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:应用自定义烧入内容
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,6 +10,8 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
 
 渲染过场动画时，在 [默认烧入](Engine\Sequencer\HowTo\BurnIns) 设置外可能还需要提供额外信息或功能，包括时间、镜头和帧信息。通过 [虚幻动态图形](Engine/UMG) 和 [](Engine/Blueprints) 即可创建自定义烧入和覆层功能。 
 
@@ -19,6 +21,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 此指南中，我们使用 **蓝图第三人称模板（Blueprint Third Person Template）** 创建了一个小型过场动画范例。
 [/REGION]
 
+(#Steps)
 ## 步骤
 
 1.	在 **Content Browser** 中点击 **View Options** 和 **Show Engine Content**。进行此操作后即可查看和使用随引擎内容提供的字体选项。 
@@ -100,6 +103,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 1.	点击 **Capture Movie** 按钮渲染影片。 
 
 
+(#EndResult)
 ## 最终结果
 
 影片采集完成后，进行播放时便会发现覆层已应用到过场。此例讲述自定义文本的输入和字体风格的调整，您也可以在 **Level Sequence Burn In Init Settings** 类中公开诸多属性，生成所需的效果。在 UMG 控件中可对烧入内容拥有的功能编写脚本，甚至通过 **Event Construct** 对它们设置动画。

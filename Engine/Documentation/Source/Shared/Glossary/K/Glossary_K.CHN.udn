@@ -1,50 +1,48 @@
-﻿Title:K
+﻿INTSourceChangelist:3810557
+Title:K
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_K]
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-key, keyframe（关键帧）
+键，关键帧
 	[/PARAM]
 	[PARAM:Definition]
-
-[EXCERPT:Glossary_Key]
-在动画处理中，**key** 或 **keyframe** 表示的是给定值的记录或特定时间的值的记录。 曲线随后被用来在这些关键帧间进行插值，导致动画处理随时间发生变化。
-[/EXCERPT:Glossary_Key]
-
+		[INCLUDE:#Glossary_Key]
 	[/PARAM]
 [/OBJECT]
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-keybindings（按键绑定）
+键绑定
 	[/PARAM]
 	[PARAM:Definition]
-
-[EXCERPT:Glossary_keybindings]
-**Keybindings** （按键绑定）是自定义的键盘快捷方式。 在虚幻引擎中，您可以绑定特定键值或按键组合以执行特定命令或行为。
-[/EXCERPT:Glossary_keybindings]
-
+		[INCLUDE:#Glossary_keybindings]
 	[/PARAM]
 [/OBJECT]
-
-
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-	Kill Z
+	终止Z
 	[/PARAM]
 	[PARAM:Definition]
-
-[EXCERPT:Glossary_Kill_Z]
-**Kill Z** 是沿Z轴的坐标，是Actor被自动销毁或玩家被销毁的位置。 设置Kill Z可帮助防止玩家角色卡住并且在掉下边缘时无法再生。
-[/EXCERPT:Glossary_Kill_Z]
-
+		[INCLUDE:#Glossary_Kill_Z]
 	[/PARAM]
 [/OBJECT]
-
 
 [/EXCERPT:Glossary_K]
+
+[COMMENT:none]
+[EXCERPT:Glossary_Key]
+在动画中，**键（key）** 或 **关键帧（keyframe）** 是指一个或多个给定值在特定时间的记录。然后使用曲线在这些关键帧之间进行插值，从而产生随时间变化的动画效果。
+[/EXCERPT:Glossary_Key]
+[EXCERPT:Glossary_keybindings]
+ **键绑定（Keybindings）** 是自定义的键盘快捷键。在虚幻引擎中，您可以绑定特定的键或键组合来执行特定的命令或操作。
+[/EXCERPT:Glossary_keybindings]
+[EXCERPT:Glossary_Kill_Z]
+ **终止Z（Kill Z）** 是沿Z轴方向的坐标，在此处Actor会被自动销毁或者玩家会被消灭。设置终止Z（Kill Z）可以避免玩家角色在掉下边缘时被卡住并无法重生。
+[/EXCERPT:Glossary_Kill_Z]
+[/COMMENT]

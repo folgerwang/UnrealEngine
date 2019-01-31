@@ -1,27 +1,38 @@
-﻿INTSourceChangelist:2940199
-Title:SteamVR 快速入门
-Crumbs:%ROOT%, Platforms
-Description:SteamVR 的设置指南，以便结合 UE4 使用
-Availability:public
+﻿INTSourceChangelist:3729054
+Availability:Public
+Title:SteamVR快速入门
+Crumbs:%ROOT%
+Description:如何快速设置和部署用于SteamVR的项目
 Navigation:platform
-Platform:SteamVR
-type:quickstart
-parent:Platforms/SteamVR
+Platform:Steam VR
+Skilllevel: Beginner
+Version:4.17
+type:quick start
+type:landing
 tags:VR
 tags:SteamVR
+tags:Getting Started
+order:2
+Checkpoint:SteamVRQS
 
 ![](Platforms\SteamVR\T_Vive_HMD.png)
 
-该“快速入门”系列阅读讲述如何对 SteamVR 进行设置，以便结合 UE4 使用。
-完成该系列阅读之后，您将创建出一个在 SteamVR 上使用的项目。
+(#Goals)
+## 目的
 
+Steam VR快速入门指南将带您了解如何设置您的开发用PC和SteamVR，从而配合Vive头戴式显示(HMD)头盔使用。
+
+(#Objectives)
+## 目标
+* 创建一个以SteamVR开发为目标的全新UE4项目。
+* 进行必要的项目设置，以便您的项目可用于SteamVR。
+
+(#Steps)
 ## 步骤
+[DIR(output:"checkpoint" parent:"Platforms/SteamVR/QuickStart" tags:"SteamVR")]
 
-[REGION:buttonlist]
-
-	* [](Platforms/SteamVR/QuickStart/1 "%Platforms/SteamVR/QuickStart/1:description%")
-	* [](Platforms/SteamVR/QuickStart/2 "%Platforms/SteamVR/QuickStart/2:description%")
-	
+[REGION:call_to_action]
+ [点击开始](Platforms/SteamVR/QuickStart/1 "%Platforms/SteamVR/QuickStart/1:title%")
 [/REGION]
 
 

@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:0
-title:Getting Started for Unreal Studio Users 
-description:An overview of the Unreal Engine 4 (UE4) with the intent to help Unreal Studio users translate their existing experience into the world of Unreal Engine 4
+﻿INTSourceChangelist:4476116
+title:虚幻工作室用户新手指南 
+description:概述了虚幻引擎4（UE4）以帮助虚幻工作室用户将现有经验带入虚幻引擎4的世界。
 crumbs:
 availability:Public
 parent:Enterprise
@@ -8,50 +8,50 @@ order:1
 type:overview
 tags:Getting Started
 version:4.19
-topic-image:Enterprise/Start_topic.png
+topic-image:GettingStarted_topic.jpg
 
 [TOC]
 
-This guide provides an overview of the Unreal Engine 4 (UE4) with the intent to help Unreal Studios users translate their existing experience into the world of Unreal Engine 4. The information contained in this page points out common areas of the Unreal Editor and its tools, points out existing documentation that can best help you adjust to the tools UE4 offers, workflows that best fit real-time engine development, and much more. 
+本指南概括介绍虚幻引擎4（UE4），旨在帮助虚幻工作室用户将现有经验转换到虚幻引擎4环境中。本页包含的信息指出了虚幻编辑器及其工具的常见知识领域，并说明了尽量帮助您自我调整来使用UE4所提供工具的文档、最合适实时引擎开发的工作流程等内容。 
 
-As part of the Unreal Studio offering, [Datasmith](DatasmithOverview.pdf) is a collection of tools and plugins designed to import scenes and assets created in offline rendering applications into a real-time engine. Whether you're an Unreal Studio user using Datasmith for the first time or have experience with it, the information contained within this page can help you improve your workflows while working in a real-time engine. Even if you're not using Datasmith currently, the best practices and suggestions referenced here can benefit anyone using UE4 coming from an Enterprise background.
+[Datasmith](DatasmithOverview.pdf)是虚幻工作室产品的一部分，包含了一系列工具和插件，作用是将离线渲染应用程序中创建的场景和资源导入到实时引擎。无论您是首次使用Datasmith的虚幻工作室用户，还是已经有使用经验的用户，本页所含信息都可以帮助您改善使用实时引擎时的工作流程。即使您目前没有使用Datasmith，本文引用的最佳实践和建议也对有企业背景的UE4用户有所帮助。
 
-## Creating Projects for Unreal Engine 4
+## 为虚幻引擎4创建项目
 
-When you create a project for Unreal Engine 4, you will use the [Project Browser](Engine/Basics/Projects/Browser/) to do so when you launch the Engine after installation. The Project Browser enables you to select an existing project or create a new one that can be a Blueprint, C++, or Unreal Studio project. 
+在为虚幻引擎4创建项目时，安装后启动引擎时，您将使用[项目浏览器](Engine/Basics/Projects/Browser/)来创建。项目浏览器使您能够选择现有项目或创建一个新项目，这可以是蓝图、C++或虚幻工作室项目。 
 
 ![image alt text](image_0.png)(w:617 h:429 convert:false)
 
-In the New Project tab, you'll select the type of project you'll want to create. For Unreal Studio users, you'll want to use the **Unreal Studio** tab so that plugins available as part of the Unreal Studio offering (such as Datasmith) are automatically enabled for use. 
+在“新建项目（New Project）”选项卡中，选择想要创建的项目类型。对于虚幻工作室用户，您需要使用 **虚幻工作室（Unreal Studio）** 选项卡，这样就会自动启用作为虚幻工作室产品一部分提供的插件（如Datasmith），供您使用。 
 
 [REGION:note]
-If you are not able to see the Unreal Studio tab because your Unreal Studio Entitlements have not yet been activated or you're having trouble with them, that's OK. You can still create a project from one of the **Blueprint** or **C++** tabs and later convert it to an Unreal Studio Project. For Entitlement issues, see the **Entitlements** section of the [Datasmith](DatasmithOverview.pdf) page. To learn how you can convert your existing project or one you've previously created that is not an Unreal Studio project into one, see the **Converting a Project to an Unreal Studio Project** section of the [Download and Installing Datasmith](DownloadingUnrealEngineandInstallingDatasmith.pdf) page.
+如果因为您的虚幻工作室授权尚未激活或激活遇到了困难，您看不到“虚幻工作室（Unreal Studio）”选项卡，也没关系。您仍可以从 **蓝图（Blueprint）** 或 **C++** 选项卡创建项目，稍后将其转换为虚幻工作室项目。对于授权问题，请参阅[Datasmith](DatasmithOverview.pdf)页面的 **授权** 部分。要了解如何将现有项目或之前创建的非虚幻工作室项目转换为虚幻工作室项目，请参阅[下载和安装Datasmith](DownloadingUnrealEngineandInstallingDatasmith.pdf)页面的 **将项目转换为虚幻工作室项目** 部分。
 [/REGION]
 
 ![image alt text](image_1.png)(w:616 h:429 convert:false)
 
-In the Unreal Studio tab, you'll select from the available templates to create your Project from. Currently, Unreal Studio offers two types of templates:
+在“虚幻工作室（Unreal Studio）”选项卡中，您可以选择可用模板来创建项目。目前，虚幻工作室提供两类模板：
 
-* **Blank** - A clean empty project with no additional content added. 
+* **空白（Blank）**——干净的空项目，没有添加任何其他内容。 
 
-* **Product Viewer** - A template that enables you to view individual assets with pre-built interaction and navigation to display objects.
+* **产品查看器（Product Viewer）**——这个模板使您能够查看单个资源，其中预先构建了互动和导航，能够显示对象。
 
-For additional information about templates, see the of the [Unreal Studio Project Templates](UnrealStudioProjectTemplate_DRAFT.pdf) page.
+有关模板的更多信息，请参阅[虚幻工作室项目模板](UnrealStudioProjectTemplate_DRAFT.pdf)页面。
 
-For additional information about creating projects for Unreal Studio, see the [Download and Installing Datasmith](DownloadingUnrealEngineandInstallingDatasmith.pdf) page.
+有关为虚幻工作室创建项目的更多信息，请参阅[下载和安装Datasmith](DownloadingUnrealEngineandInstallingDatasmith.pdf)页面。
 
-## The Editor
+## 编辑器
 
 [REGION:note]
-Autodesk 3ds Max has been chosen for the interface comparison since the majority of current users are using it.
+本文选择的是Autodesk 3ds Max来对比界面，因为目前大部分用户使用的都是Autodesk 3ds Max。
 [/REGION]
 
-Below are pictures of Autodesk 3ds Max and the Unreal Editor, color-coded to indicate common functionality. Each block is labeled to show the equivalent UE4 terminology. Unreal Editor's layout is fully customizable by dragging and dropping any of the tabs in the Editor around. 
+下面是Autodesk 3ds Max和虚幻编辑器的对比图，以颜色编码指示常用功能。每个区域进行了标注来说明对等的UE4术语。虚幻编辑器布局是完全可以自定义的，所有选项卡都可以在编辑器中自由拖放。 
 
 [REGION:imagetable]
 | [INCLUDE:#image1] | [INCLUDE:#image2] |
 | --- | --- |
-|Click image for full size.| Click image for full size. |
+|单击查看大图。| 单击查看大图。|
 [/REGION]
 
 <!---
@@ -70,189 +70,189 @@ Below are pictures of Autodesk 3ds Max and the Unreal Editor, color-coded to ind
 --->
 
 | --- | --- | --- |
-| 1 | Placement Panel | Create Panel |
-| 2 | Main Toolbar | Main Toolbar |
-| 3 | World Outliner | Scene Explorer |
-| 4 | Details Panel | Command Panel |
-| 5 | Viewport | Viewport |
-| 6 | Content Browser | -- |
+| 1 | 放置面板 | 创建面板 |
+| 2 | 主工具栏 | 主工具栏 |
+| 3 | 世界大纲视图 | 场景浏览器 |
+| 4 | 细节面板 | 命令面板 |
+| 5 | 视口 | 视口 |
+| 6 | 内容浏览器 | -- |
 
 
-### Editing Assets
+### 编辑资源
 
-In Autodesk 3ds Max the Command Panel exposes properties of selected objects. In UE4, the **Details** panel exposes the properties of selected objects, while larger editing tasks lead to a dedicated Editor that has its own window or tab. Examples of these can be found while opening a Texture, Materials, or Static Mesh. New tabbed windows will open for each edited asset, similar to a web browser.
+在Autodesk 3ds Max中，命令面板公开所选对象的属性。在UE4中，**细节（Details）** 面板公开所选对象的属性，同时包含更多编辑任务，这些任务作用于有其自己窗口或选项卡的专用编辑器。打开纹理、材质或静态网格体时可以找到相关示例。针对每个编辑的资源，将打开新的选项卡式窗口，类似于网页浏览器。
 
 ![image alt text](image_4.jpg)(w:1013 h:570 convert:false)
 
-*The Material Editor docked in the main Unreal Editor tabs. *
+*停靠在主虚幻编辑器选项卡中的材质编辑器。*
 
-When Editor windows are docked, you can select the tab to bring it to the foreground, or when another tab is selected, it will move to the background (like the example above). All tabs, except the Main Editor tab, can be dragged as a freestanding window or docked with other freestanding windows or tabs inside the Editor. 
+当编辑器窗口停靠时，您可以选择相应选项卡让它显示在前景，或者选择另一个选项卡时，将它移到后台（如以上示例所示）。除了主编辑器选项卡，所有其他选项卡都可以作为独立式窗口自由拖拽，或者在编辑器中与其他独立式窗口或选项卡并排停靠。 
 
-### The Main Toolbar
+### 主工具栏
 
-The Main Toolbar (or Level Editor Toolbar), like in most applications, is a group of commands providing quick access to commonly used tools and operations. 
+像大多数应用程序一样，主工具栏（或关卡编辑器工具栏）是一组命令，让用户可以快速访问常用工具和操作。 
 
 ![image alt text](image_5.png)(w:952 h:64 convert:false)
 
-### Scene Navigation
+### 场景导航
 
-Unreal Engine 4 has a few ways that enable you to navigate your scene, select and manipulate Actors, and ones that enable you to change how content is displayed in the viewport (even while working in virtual reality (VR)).
+虚幻引擎4提供了一些方法，让您可以浏览场景，选择和操控Actor，以及更改内容在视口中的显示方式（甚至在虚拟现实（VR）中工作时）。
 
-For **Desktop **users using a Mouse and Keyboard, see the [Viewport Controls](Engine/UI/LevelEditor/Viewports/ViewportControls) page for the controls used to navigate the viewport scene. There you will learn about the controls that UE4 uses for Selecting and Transforming Actors, panning, orbiting, and zooming the Camera and navigation. 
+对于使用鼠标和键盘的 **桌面** 用户，请参阅[视口控制](Engine/UI/LevelEditor/Viewports/ViewportControls)页面，了解用来浏览视口场景的控制。在该页面中，您将了解UE4用来选择和变换Actor、平移、环绕和缩放摄像机和导航的控制。 
 
-For those using **Virtual Reality (VR)** with controllers, see the [VR Mode Controls](Engine/Editor/VR/Controls) and the [Navigating the World in VR Mode](Engine/Editor/VR/WorldInteraction) pages to learn about the controls available. Also learn how you can use them to grab objects to manipulate them, move around the world, and scale yourself in the world to achieve something closer to real-world scale for scene visualization.
+对于使用带控制器的 **虚拟现实（VR）** 用户，请参阅[VR模式控制](Engine/Editor/VR/Controls)和[在VR模式下浏览场景](Engine/Editor/VR/WorldInteraction)页面，了解可用控制。同时学习如何使用它们来抓取物体进行操控，在场景中四处移动，在场景中自我缩放来实现类似于场景可视化真实世界比例的效果。
 
-## Quick Glossary
+## 术语简表
 
-The following section contains common Enterprise or Autodesk 3ds Max terms and their UE4 equivalents (or rough equivalent). Unreal Engine 4 keywords link directly to the more in-depth information contained inside of the UE4 Documentation.
+以下部分包含一些常见的企业或Autodesk 3ds Max术语及其UE4对等术语（或大致对等）。虚幻引擎4关键词直接链接到UE4文档包含的更详细信息。
 
 
-| Category | Autodesk 3ds Max | UE4 | Notes |
+| 类别 | Autodesk 3ds Max | UE4 | 备注 |
 | --- | --- | --- | --- |
-| [REGION:tablesection]Meshes[/REGION] ||||
-|  | Mesh or mesh object | [Static Mesh](Engine/Actors/StaticMeshActor) |  |
-|   | Rigged and skinned mesh | [Skeletal Mesh](Engine/Content/Types/SkeletalMeshes) |  |
-|  | Object/Node | [Level Actor](Engine/Actors/StaticMeshActor) |  |
-|  | Modifier Stack Result/Base Object | [Static Mesh](Engine/Actors/Types) |  |
-| [REGION:tablesection]Editor UI[/REGION] ||||
-|  | Scene Explorer | [World Outliner](Engine/UI/LevelEditor#worldoutliner) |  |
-|   | Modify Panel | [Details Panel](Engine/UI/LevelEditor#details) |  |
-|   | Layers Panel | [Layers Panel](Engine/UI/LevelEditor/Layers) |  |
-|   | Asset Browser Utility | [Content Browser](Engine/Content/Browser) |  |
-|  | Viewport | [Viewport](Engine/UI/LevelEditor/Viewports) |  |
-| [REGION:tablesection]Materials[/REGION] ||||
-|  | Material | [Material](Engine/Rendering/Materials) |  |
-|   | Material with instanced textures | [Material Instance](Engine/Rendering/Materials/MaterialInstances) |  |
-|   | Material Editor | [Material Editor](Engine/Rendering/Materials/Editor) |  |
-| [REGION:tablesection]Effects[/REGION] ||||
-|  | Particle Systems | [Effect, Particle System, Cascade](Engine/Rendering/ParticleSystems) |  |
-|   | Particle View | [Cascade](Engine/Rendering/ParticleSystems) |  |
-| [REGION:tablesection]Animation[/REGION] ||||
-|  | Biped animation | [Skeletal Animation System](Engine/Animation) | These are not exactly the same but can be a good resource to see comparisons and how Unreal works with imported animations. |
-|   | Animation at the vertex sub-object level | [Vertex Animation](Engine/Animation/Tools/VertexAnimationTool/) | There is not a dedicated tool for applying vertex animation to an asset, but you can use this plugin for Autodesk 3ds Max to bring them into UE4 and apply them using the Material Editor.  |
-| [REGION:tablesection]Programming[/REGION] ||||
+| [REGION:tablesection]网格体[/REGION] ||||
+|  | 网格体或网格体对象 | [静态网格体](Engine/Actors/StaticMeshActor) |  |
+|   | 有结构和有皮肤的网格体 | [骨架网格体](Engine/Content/Types/SkeletalMeshes) |  |
+|  | 对象/节点 | [关卡Actor](Engine/Actors/StaticMeshActor) |  |
+|  | 修饰符堆栈结果/基本对象 | [静态网格体](Engine/Actors/Types) |  |
+| [REGION:tablesection]编辑器UI[/REGION] ||||
+|  | 场景浏览器 | [世界大纲视图](Engine/UI/LevelEditor#worldoutliner) |  |
+|   | 修改面板 | [细节面板](Engine/UI/LevelEditor#details) |  |
+|   | 层面板 | [层面板](Engine/UI/LevelEditor/Layers) |  |
+|   | 资源浏览器实用程序 | [内容浏览器](Engine/Content/Browser) |  |
+|  | 视口 | [视口](Engine/UI/LevelEditor/Viewports) |  |
+| [REGION:tablesection]材质[/REGION] ||||
+|  | 材质 | [材质](Engine/Rendering/Materials) |  |
+|   | 具有实例化纹理的材质 | [材质实例](Engine/Rendering/Materials/MaterialInstances) |  |
+|   | 材质编辑器 | [材质编辑器](Engine/Rendering/Materials/Editor) |  |
+| [REGION:tablesection]效果[/REGION] ||||
+|  | 粒子系统 | [效果，粒子系统，级联](Engine/Rendering/ParticleSystems) |  |
+|   | 粒子视图 | [级联](Engine/Rendering/ParticleSystems) |  |
+| [REGION:tablesection]动画[/REGION] ||||
+|  | 双足动画 | [骨骼动画系统](Engine/Animation) | 这二者并非完全相同，但可以作为二者对比的好例子，并说明虚幻如何处理导入的动画。|
+|   | 顶点子对象级别的动画 | [顶点动画](Engine/Animation/Tools/VertexAnimationTool/) | 来对资源应用顶点动画并没有专用的工具，但您可以使用Autodesk 3ds Max的这个插件将这些动画导入到UE4中，并使用材质编辑器进行应用。|
+| [REGION:tablesection]编程[/REGION] ||||
 |  | MAXScript | Python |  |
-|   | MAXScript scripts | [Blueprint](Engine/Blueprints) |  |
-| [REGION:tablesection]Physics[/REGION] ||||
-|  | -- | [Line Trace, Shape Trace](Engine/Physics/Tracing) |  |
-|   | MassFX | [Collision, Physics](Engine/Physics) |  |
-| [REGION:tablesection]Lights[/REGION] ||||
-|  | Directional Light | [Directional Light](Engine/Rendering/LightingAndShadows/LightTypes/Directional) |  |
-|   |  Point Light | [Point Light](Engine/Rendering/LightingAndShadows/LightTypes/Point) |  |
-|   |  Spot Light | [Spot Light](Engine/Rendering/LightingAndShadows/LightTypes/Spot) |  |
-|   |  Sky Light | [Sky Light](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) |  |
-|   | Light Portal | Lightmass Portals, [Lightmass Importance Volume](Engine/Rendering/LightingAndShadows/Lightmass/Basics/#lightmassimportancevolume) | |
-|   | Photometric Lights | [IES Profile](Engine/Rendering/LightingAndShadows/IESLightProfiles/), Physical Light Units |  |
-| [REGION:tablesection]Post Processing[/REGION] ||||
-|  | Environment Exposure Control, Camera Exposure Control | [Post Process Volume](Engine/Rendering/PostProcessEffects) |  |
-| [REGION:tablesection]Rendering[/REGION] ||||
-|  | Global Illumination | [Lightmass](Engine/Rendering/LightingAndShadows/Lightmass/) |  |
-| [REGION:tablesection]Cinematics[/REGION] ||||
-|  | Track View | [Sequence Editor](Engine/Sequencer) |  |
-| [REGION:tablesection]Textures[/REGION] ||||
-|  | UV Map Channel | UV Channel of a Static/Skeletal Mesh |  |
-| [REGION:tablesection]Unreal Engine Architecture[/REGION] ||||
-|  | -- | [Level (Map)](Engine/Levels/) | Each scene file is self-contained, whereas in Unreal Engine 4, you can have multiple levels (or scenes) that can be opened individually or combined all within the Unreal Editor. |
+|   | MAXScript脚本 | [蓝图](Engine/Blueprints) |  |
+| [REGION:tablesection]物理[/REGION] ||||
+|  | -- | [线迹追踪，形状追踪](Engine/Physics/Tracing) |  |
+|   | MassFX | [碰撞，物理](Engine/Physics) |  |
+| [REGION:tablesection]光源[/REGION] ||||
+|  | 定向光源 | [定向光源](Engine/Rendering/LightingAndShadows/LightTypes/Directional) |  |
+|   |  点光源 | [点光源](Engine/Rendering/LightingAndShadows/LightTypes/Point) |  |
+|   |  聚光源 | [聚光源](Engine/Rendering/LightingAndShadows/LightTypes/Spot) |  |
+|   |  天空光照 | [天空光照](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) |  |
+|   | 光入口 | Lightmass入口，[Lightmass重要体积](Engine/Rendering/LightingAndShadows/Lightmass/Basics/#lightmassimportancevolume) | |
+|   | 光度学光源 | [IES描述文件](Engine/Rendering/LightingAndShadows/IESLightProfiles/)，物理光源单位 |  |
+| [REGION:tablesection]后期处理[/REGION] ||||
+|  | 环境曝光控制，摄像机曝光控制 | [后期处理体积](Engine/Rendering/PostProcessEffects) |  |
+| [REGION:tablesection]渲染[/REGION] ||||
+|  | 全局光照 | [Lightmass](Engine/Rendering/LightingAndShadows/Lightmass/) |  |
+| [REGION:tablesection]过场动画[/REGION] ||||
+|  | 跟踪视图 | [序列编辑器](Engine/Sequencer) |  |
+| [REGION:tablesection]纹理[/REGION] ||||
+|  | UV贴图通道 | 静态/骨架网格体的UV通道 |  |
+| [REGION:tablesection]虚幻引擎架构[/REGION] ||||
+|  | -- | [关卡（贴图）](Engine/Levels/) | 每个场景文件都是自包含文件，在虚幻引擎4中，您可以有多个关卡（或场景），它们可以单独打开，也可以在虚幻编辑器中全部合并。|
 
 
 
-## Project and Files
+## 项目和文件
 
-**So what are all these directories and files?**
+**具体目录和文件**
 
-For projects created in the Enterprise space, you may have to maintain your own folder to manage your source files for textures and meshes that make up your scene project file. In Unreal, projects always exist in their own directory and have their own project file that references a specific version of the Unreal Engine Editor and looks at a set of folders where its content is stored. 
+对于企业空间中创建的项目，您可能需要维护自己的文件夹来管理构成场景项目文件的纹理和网格体的源文件。在虚幻中，项目始终存在于自己的目录中，并有自己的项目文件，项目文件引用特定版本的虚幻引擎编辑器，并读取用来存储项目内容的一组文件夹。 
 
 ![image alt text](image_6.jpg)(w:693 h:349 convert:false)
 
-*An example of the Content Browser in Unreal and the Folder Structure maintained in Windows Explorer.*
+*示例：虚幻中的内容浏览器和Windows资源管理器中维护的文件夹结构。*
 
-To open your project, you can use the Epic Games Launcher to search your **Library** for the project. 
+要打开项目，可以使用Epic Games启动程序搜索项目的 **库（Library）**。 
 
 ![image alt text](image_7.png)(w:941 h:609 convert:false)   
 
-Alternatively, navigate to its folder in Windows and double-click on the ***.uproject** file to load the project into the Unreal Editor. 
+或者，在Windows中导航到项目的文件夹，双击 ***.uproject** 文件以将项目加载到虚幻编辑器中。 
 
 ![image alt text](image_8.png)(w:613 h:293 convert:false)
 
-The project folder has various sub-folders that contain your project's content and source code as well as various configuration files and binaries when deploying to multiple platforms. The two most important folders here are the **Content**, which holds all your assets that can be referenced and opened inside of the Content Browser, and the **Source** folder, which contains any C++ files or edits that you have made if you're using a source version of the Engine. 
+项目文件夹包含多个子文件夹，子文件夹包含项目内容和源代码以及部署到多个平台所用的配置文件和二进制文件。这里最重要的两个文件夹是 **Content** 和 **Source** 文件夹，前者包含可以在内容浏览器中引用和打开的所有资源，后者包含任何C++文件或使用源版本引擎时所做的编辑。 
 
-**Where do I put my assets?**
+**资源的存放位置**
 
-In UE4, each project has a **Content **folder, which is the same as the Content Browser when you open the Unreal Editor. This is where all your project's assets are stored. 
+在UE4中，每个项目都有 **Content** 文件夹，这等同于打开虚幻编辑器时的内容浏览器。这是存储所有项目资源的地方。 
 
 ![image alt text](image_9.png)(w:1026 h:462 convert:false)
 
-The assets contained within these folders are ***.uasset** files. These are files that Unreal creates when you import any supported file types. The source file is no longer required to maintain the asset imported into Unreal, but it is recommended to save these files in the event you need them later for editing purposes. 
+这些文件夹包含的资源为 ***.uasset** 文件。这些文件是您导入任何受支持的文件类型时由虚幻创建的文件。不再需要源文件来维护导入到虚幻中的资源，但建议保存这类文件，以防将来需要编辑时使用。 
 
 [REGION:warning]
-You should not attempt to reorganize your assets found in the Content folder of your project outside of the Unreal Editor. This has the potentital to break your content or worse corrupt your project. Moving content like this will break references to the assets in the Unreal Editor. For example, if you moved a texture asset through the project's Windows folder, the Material that references that texture will be lost meaning it will not display correctly for the Material that is assigned to your Static Mesh in your level. 
+不应尝试在虚幻编辑器外部，重新组织位于项目Content文件夹中的资源。这样可能会破坏内容，更糟糕的是可能会损坏项目。这样移动内容可能会破坏虚幻编辑器中对资源的引用。例如，如果在项目的Windows文件夹中移动了某个纹理资源，则引用该纹理的材质将变得没有意义，在关卡中，分配了这个材质的静态网格体将不会正确显示这个材质。 
 
-Make sure to use the Unreal Editor when moving assets since it maintains references without breaking your content.
+确保在移动资源时使用虚幻编辑器，因为这样会保持引用关系，而不会破坏内容。
 [/REGION]
 
-**Importing Assets into Unreal Engine 4**
+**将资源导入到虚幻引擎4中**
 
-To import assets into your project, there are a couple of ways to go about doing that: 
+要将资源导入到项目中，有两种方法： 
 
-1. [Using Datasmith to import Unreal Datasmith and support CAD file types.](ImportingDatasmithContentintoUnrealEngine4.pdf)
+1. [使用Datasmith导入虚幻Datasmith和支持CAD文件类型。](ImportingDatasmithContentintoUnrealEngine4.pdf)
 
-2. [Using the Content Browser to import support asset types not associated with Datasmith.](Engine/Content/ImportingContent/ContentBrowserImport)
+2. [使用内容浏览器导入与Datasmith无关联的支持资源类型。](Engine/Content/ImportingContent/ContentBrowserImport)
 
-When assets are imported using either of these methods, they will be stored in your Content Browser, which mirrors the project's folder structure in Windows. Use the Content Browser to open and edit your assets in their own editors through the Content Browser. Any edits you make will automatically update the asset in real-time in the Editor and the level if it's referenced there.
+使用上述任一方法导入资源时，它们都会存储在内容浏览器中，内容浏览器镜像的是Windows中的项目文件夹结构。使用内容浏览器打开资源，并通过内容浏览器在资源自己的编辑器中编辑资源。您所做的任何编辑都会实时自动更新编辑器和关卡（如果在这里进行了引用）中的资源。
 
 ![image alt text](image_10.jpg)(w:582 h:293 convert:false)
 
 [REGION:note]
 
-When importing content that is not part of Datasmith Import process, like when using the Content Browser import button, assets will be imported directly into the Content folder for the selected folder. When using the Datasmith Importer, it will bring in a lot of different assets types (meshes, materials, and textures) in a collection of subdirectories to keep your scene clean. The Datasmith scene and its sub-directories will be imported to a folder named for the Datasmith file that you import. 
+如果不通过Datasmith导入流程来导入内容，如使用内容浏览器中的导入按钮，资源会直接导入到所选文件夹的Content文件夹中。使用Datasmith导入工具时，它会将大量不同的资源类型（网格体、材质和纹理）导入到一个子目录集合中，保持场景整洁。Datasmith场景及其子目录将导入到根据您导入的Datasmith文件命名的文件夹。 
 [/REGION]
 
-**What common file formats are supported?**
+**支持的常见文件格式**
 
-Other software applications support a wide variety of file formats. Unreal Engine 4 supports the most common file types natively. 
+其他软件应用程序支持广泛的文件格式。虚幻引擎4本身支持大多数常见文件类型。 
 
 
-| Native Asset Type | Supported Formats |
+| 原生资源类型 | 支持的格式 |
 | --- | --- |
-| 3D | .fbx, .obj, .abc, .srt |
-| Texture | .png, .jpeg, .jpg, .bmp ,.tga, .dds, .exr, .psd, .hdr, .ies, .float, .pcx |
-| Sound | .wav, .wave, .wmv, .caf, .aif, .aiff, .au, .adts, .as, .ac3, .amr, .bwf, .cdda, .acc, .mp3, .snd |
-| Fonts | .ttf, .otf |
-| Videos | .mov, .mp4, .m4v, .m4a, .wmv, .avi, .asf, .3gp, .3g2, .sdv |
+| 3D | .fbx、.obj、.abc、.srt |
+| 纹理 | .png、.jpeg、.jpg、.bmp ,.tga、.dds、.exr、.psd、.hdr、.ies、.float、.pcx |
+| 声音 | .wav、.wave、.wmv、.caf、.aif、.aiff、.au、.adts、.as、.ac3、.amr、.bwf、.cdda、.acc、.mp3、.snd |
+| 字体 | .ttf、.otf |
+| 视频 | .mov、.mp4、.m4v、.m4a、.wmv、.avi、.asf、.3gp、.3g2、.sdv |
 
 
-Through plugins, like [Datasmith](DatasmithOverview.pdf) for Unreal Engine 4, support for additional file types can be added. For a comprehensive list of supported file types, see the [Datasmith Supported Software and File Types](DatasmithSupportedSoftwareandFileTypes.pdf) page.
+通过一些插件（如面向虚幻引擎4的[Datasmith](DatasmithOverview.pdf)），可以添加对更多文件类型的支持。有关受支持文件类型的综合列表，请参阅[Datasmith支持的软件和文件类型](DatasmithSupportedSoftwareandFileTypes.pdf)页面。
 
-**How is my Scene stored?**
+**场景的存储方式**
 
-In your software applications, the assets that make up your scene make up a single scene file. Unreal uses a different concept by using what we call a Level or Map file. These are individual "scenes" that have their own assets placed in them. They can be opened individually or even combined to break a larger level up into smaller ones. Map files store data about your Level and the objects that it contains as well as certain level-specific settings. 
+在软件应用程序中，构成场景的资源会构成一个场景文件。虚幻使用不同的概念，即我们所说的“关卡”或“贴图”文件。这些是独立的“场景”，它们当中放置了自己的资源。它们可以单独打开，甚至进行组合，将一个较大的关卡拆分为较小关卡。贴图文件存储有关关卡及其所含对象的数据以及某些特定于关卡的设置。 
 
-If you'd like to learn more about Levels and how Unreal Editor works and stores these, see the [Working with Level Assets](Engine/Levels/HowTo/WorkWithLevelAssets) page.
+如果您想要进一步了解关卡和虚幻编辑器如何使用和存储这些文件，请参阅[使用关卡资源](Engine/Levels/HowTo/WorkWithLevelAssets)页面。
 
 <!---
-**How do I change my Editor's and Project's settings?**
+**如何更改编辑器和项目设置**
 
-All the settings can be found in the main menu under **Edit > Editor Preferences** or **Project Settings**. Like the preferences or settings in your software application, these allow you to customize and change parts of how your project works. 
+所有设置都可以在主菜单中 **编辑（Edit）>编辑器首选项（Editor Preferences）** 或 **项目设置（Project Settings）** 下面找到。与软件应用程序中的首选项和设置一样，这些菜单选项让您可以自定义和更改项目的部分工作方式。 
 
-In Unreal Engine 4, the [Editor Preferences](Engine/UI/EditorSettings) contains settings that enable you to alter how the Editor functions by setting things like color correction for common color blindness deficiencies, enabling experimental features in the Editor, changing the units of measure from centimeters to something more familiar. 
+在虚幻引擎4中，[编辑器首选项（Editor Preferences）](Engine/UI/EditorSettings)包含的设置让您可以更改编辑器的工作方式，您可以为常见色盲缺陷设置颜色校正，在编辑器中启用试验性功能，将计量单位从厘米更改为更熟悉的单位。 
 
-The [Project Settings](Engine/UI/ProjectSettings) enables you to specify information about your project (such as project name and icons), configure game input bindings, and define how the Engine behaves when running your project. 
+[项目设置（Project Settings）](Engine/UI/ProjectSettings)让您能够指定有关项目的信息（如项目名称和图标），配置游戏输入绑定，以及定义运行项目时引擎的行为方式。 
 
 --->
 
-##Art Source Auto-Reimport
+##艺术源自动重新导入
 
 [REGION:note]
-Currently with Datasmith, it is recommended not to use Auto-Reimport as part of your workflow. However, for any other assets you are creating and importing that are natively supported, you can set up auto-reimport monitoring.
+目前在使用Datasmith时，不建议在工作流程中使用自动重新导入。但是，对于您创建和导入并具有原生支持的任何其他资源，您可以设置自动重新导入监控。
 [/REGION]
 
-For projects, where you'll be using additional content that you import aside from just that used with the [Datasmith](DatasmithOverview.pdf) plugin, you can set up Unreal to use [Auto Reimport](Engine/Content/AutoReImport). It monitors a source assets folder where you store assets like FBX, OBJ, PSD, Texture, Audio, and any other native file that UE4 supports for import. When the source asset is updated, the monitored folder will automatically reimport or prompt you to reimport the file and reflect the changes inside of the Engine. Unlike, Datasmith, these assets are not placed directly in your level and takes an approach to get content in the Editor but not set it up for you. 
+在项目中，如果除了仅通过[Datasmith](DatasmithOverview.pdf)插件导入的内容外，您还将使用其他内容，则可以设置虚幻来使用[自动重新导入](Engine/Content/AutoReImport)。它将监控您用来存储资源的源资源文件夹，如FBX、OBJ、PSD、纹理、音频和UE4支持导入的任何其他原生文件。当源资源发生更新时，受监控文件夹将自动重新导入，或者提示您重新导入文件并在引擎中体现变化。Datasmith则不同，这些资源不会直接放置在关卡中，它通过某种方法在编辑器中获取内容，但不会为您设置内容。 
 
-**From Objects (Scene Entities) to Actors**
+**从Object（场景实体）到Actor**
 
-**Where is my Object?**
+**我的Object在哪里？**
 
-In software applications, like Autodesk 3ds Max, an asset in your scene may be referred to as a scene entity, geometry object, or some other familiar term for all the objects that make up your scene. In UE4, the equivalent is an Actor. Actors are objects added to a level, referencing other assets such as Static Meshes and Materials. 
+在Autodesk 3ds Max等软件应用程序中，场景中的资源可能被称作场景实体、几何结构对象或其他熟悉的术语，指代的是构成场景的所有对象。在UE4中，等效的术语是Actor。Actor是添加到关卡的对象，引用静态网格体和材质等其他资源。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -269,29 +269,29 @@ In software applications, like Autodesk 3ds Max, an asset in your scene may be r
 	[/PARAMLITERAL]
 [/OBJECT]
 
-You could build a project out of Empty Actors (like the one in the video), but UE4 also includes special types of Actors with built-in features, such as a [Pawn](Gameplay/Framework/Pawn) (for players or Artificial Intelligence (AI) objects), an Exponential Height Fog Volume, or Lights. These Actors in your level can have their properties customized and even have additional components added to them using their Details panel. The same applies to assets from the Content Browser that you reference from Actors, Materials, or Blueprints. They, too, can have their own properties set and components added to them. 
+您可以用空Actor（如视频中的Actor）构建一个项目，但UE4也会包含一些有内置功能的特殊类型的Actor，如[Pawn](Gameplay/Framework/Pawn)（指代玩家或人工智能（AI）对象）、指数高度雾或光源。对于关卡中的这些Actor，您可以自定义它们的属性，甚至可以使用它们的“细节（Details）”面板添加额外组件。这同样适用于内容浏览器中您从Actor、材质或蓝图引用的资源。它们也可以设置自己的属性和添加组件。 
 
-**So, is everything an Actor?**
+**那么，是不是所有资源都是Actor？**
 
-No, not everything. **Actors **are the most common class used for gameplay in UE4 and the only type that can be Spawned into the Level. So everything you place in your level will be an Actor. 
+不是。**Actor** 是UE4中最常用的游戏类，也是可以在关卡中产生的唯一类型。因此，您放置在关卡的一切内容都是Actor。 
 
-The other important type to know about is **Object**. An Object is the base class of all Unreal classes, including Actor and many others. This is a much lower-level construct than Actor but still has features that you will expect from an Unreal class, such as Reflection and Serialization. An Object is a class we use when we need to define a new type that just does not fit the mold of Actor. For example,** Actor Component** is the base class for all Components and derives from Object instead of Actor. 
+另外一个需要知道的重要类型是 **对象（Object）**。Object是所有虚幻类的基类，包括Actor和许多其他类。这是比Actor级别更低的构造函数，但仍具有一些虚幻类的功能，如反射或序列化。当我们需要定义不适合归类为Actor的新类型时，Object就是此时使用的类。例如，**Actor组件** 是所有组件的基类，是从Object派生而来，而非Actor。 
 
-All that said, you should not have to worry about how this functions for you, but it can help clarify why you may sometimes hear the terms Actor and Object mentioned in close proximity or potentially in place of Actor. 
+话虽如此，但您不必担心二者使用对您有何影响，只是为了帮助澄清，为何有时会在提到Actor时提及Actor和Object，甚至Object会用来代替Actor。 
 
-**What are Components?**
+**什么是组件？**
 
-In software applications, like Autodesk 3ds Max, you add functionality or extend properties to objects by using the Modifier stack.
+在Autodesk 3ds Max等软件应用程序中，您使用修饰符堆栈为对象添加功能或扩展属性。
 
-PF Notes: This can be effectively become a mini-scene within a scene and it's where a lot o fpower and felxibility of Unreal is. 
-Give an example of typical application: a stove actor would have a door and a drawer component and a Light or something along those lines. 
+PF注：这实际上会成为一个场景中的迷你场景，这也正是体现虚幻的功能和灵活性的时候。 
+以典型应用为例：一个火炉Actor会有一个门和一个抽屉组件，以及一个光源或相关的其他资源。 
 
 
-In UE4, [Components](Engine/Components/) are a piece of functionality that can be added to an Actor in your level or in a Blueprint. These components cannot exist by themselves, however, when added to an Actor will have access to and can use functionality provided by the Component. You can think of these as a way of creating a mini-scene or a grouping of Actors that belong together which are treated as a single object. This process enables you to have a lot of flexibility and control over your scene in a manageable way in Unreal.  
+在UE4中，[组件](Engine/Components/)是一个功能，可以在关卡或蓝图中添加到Actor。这些组件不能独自存在，但是添加到Actor后，就能够访问和使用组件提供的功能。您可以将它们视为一种创建迷你场景或构成一个整体的一组Actor（被视为一个对象）的方法。该过程让您能够拥有极大的灵活性，并在虚幻中以一种易于掌控的方式控制场景。  
 
-For example, if you have a stove asset, you can add different componenst that make up other parts of that base asset, like a door, a bottom drawer, and maybe a light. 
+例如，如果您有一个火炉资源，可以添加不同的组件来构成这个基本资源的其他部分，如门、底层抽屉和光源。 
 
-There are many different types of components that can be added to your Actors that reference many different types of assets, like Static Meshes, Particle Systems, Lights, and so on. To add these to your Actor, use the **Details** panel and choose a component from the list to add. 
+您可以向Actor添加许多不同类型的组件来引用许多不同类型的资源，如静态网格体、粒子系统、光源灯。要向Actor添加组件，使用 **细节（Details）** 面板并从列表中选择要添加的组件。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -308,284 +308,284 @@ There are many different types of components that can be added to your Actors th
 	[/PARAMLITERAL]
 [/OBJECT]
 
-In this example, Static Mesh, Point Light, and Particle System components have been added to an Empty Actor placed in the scene. This Actor exists only in this level unless it's converted to a Blueprint Actor, which can exist as a single asset in your Content Browser.
+在该示例中，向场景中放置的空Actor添加了静态网格体、点光源和粒子系统组件。该Actor仅存在于该关卡中，除非转换为蓝图Actor，蓝图Actor可以作为一个资源存在于内容浏览器中。
 
-For additional information, see the [Components](Engine/Components/) page. 
+有关更多信息，请参阅[组件](Engine/Components/)页面。 
 
-**How do I load my last project automatically?**
+**如何自动加载上次的项目？**
 
-When opening a scene file in your software application, you immediately get access to your content for that scene. However, in Unreal Engine 4, when you open just the Editor from the Epic Games Launcher, you will be taken to the [Unreal Project Browser](Engine/Basics/Projects/Browser/) where you can select your project (if it's already created). There are two ways you can enable your last project loaded to be used when opening the Unreal Editor:
+在软件应用程序中打开场景文件时，您立即就可以访问该场景的内容。但是，在虚幻引擎4中，从Epic Games启动程序仅打开编辑器时，您将转至[虚幻项目浏览器](Engine/Basics/Projects/Browser/)，在这里您可以选择项目（如果已经创建项目）。您可以通过两种方法，在打开虚幻编辑器时加载要使用的最近项目：
 
-In the Project Browser, enable **Always load last project on Startup** when selecting a project to open. 
+在项目浏览器中，选择要打开的项目时启用 **在启动时始终加载上次的项目**。 
 
 ![image alt text](image_28.png)(w:965 h:398 convert:false)
 
-**Where do I Define the Keyboard Inputs or Game Pad Inputs for my Project?**
+**在哪里可以定义项目的键盘输入或游戏手柄输入？**
 
-In UE4, you can add various buttons (actions) and analog controls (axes) to get callbacks to your game's character (Pawn) when input events are triggered. The Input Bindings can be found in the Project Settings under the **Input** section. Here you will give each control a name and a default binding to a key on your keyboard or a button on a controller. The names of these input bindings can be used in Blueprint to perform actions when pressed, and it allows you to set multiple inputs to a single name. For example, if you have a player character that you want to move forward in your level, you could call the Input Binding "Forward" and then bind the "W" key from the keyboard and the "Up" position on a joystick of a controller to this "Forward" event.
+在UE4中，您可以添加多种按钮（操作）和模拟控制（轴），以在触发输入事件时获取对游戏角色（Pawn）的回调。“输入绑定（Input Bindings）”位于“项目设置（Project Settings）”中的 **输入（Input）** 部分下面。这里，您将为每个控制指定一个名称以及与键盘按键或控制器按钮的默认绑定。这些输入绑定的名称可以在蓝图中用来执行按下按键或按钮时的操作，并且您可以将多个输入设置为一个名称。例如，如果您的关卡中有一个想要向前移动的玩家角色，您可以调用输入绑定“Forward”，然后将键盘上的“W”键和控制器操纵杆的“Up”位置与这个“Forward”事件绑定。
 
-For additional information, see the [Input ](Gameplay/Input) page learn more.
+有关更多信息，请参阅[输入](Gameplay/Input)页面了解更多信息。
 
-**How do I change the starting level (map) in my project?**
+**如何更改项目中的起始关卡（贴图）？**
 
-You can change the startup map of your project from the **Project Settings**. From the main menu, select **Edit > Project Settings** and then under **Maps & Modes** change the **Startup Map** to the one you'd like in the Content Browser. 
+您可以从 **项目设置（Project Settings）** 更改项目的起始贴图。从主菜单，选择 **编辑（Edit）>项目设置（Project Settings）**，然后在 **贴图和模式（Maps & Modes）** 下面，将 **启动贴图（Startup Map）** 更改为内容浏览器中您想要使用的内容。 
 
 ![image alt text](image_29.png)(w:1026 h:400 convert:false)
 
-**How do I run my game?**
+**如何运行游戏？**
 
-The easiest way to run your game is to click the **Play** button on the main toolbar. It will run the game inside of the Editor's viewport with all functionality and the currently selected Gamemode. If you want to run it as a standalone application, click the drop-down next to **Play** and choose **Standalone Game**. Finally, if you want to run on a mobile device or in a web browser, you will use the **Launch** button on the toolbar and select from the available platforms. Some platforms require additional set up and can only be used after installing any prerequisites that are needed. 
+运行游戏最简单的方法是单击主工具栏上的 **播放（Play）** 按钮。它将在编辑器视口中使用所有功能和当前选定的游戏模式运行游戏。如果您想要作为独立应用程序运行，单击 **播放（Play）** 旁边的下拉按钮，并选择 **独立游戏（Standalone Game）**。最后，如果您想要在移动设备或网页浏览器中运行，将使用工具栏上的 **启动（Launch）** 按钮，并选择可用平台。某些平台需要进行额外设置，并且只能在安装所需的任何必备软件之后才能使用。 
 
 ![image alt text](image_30.png)(w:506 h:220 convert:false)
 
-For additional information about the various platforms supported, see the [Platform Development](Platforms) page to learn more.
+有关支持的各种平台的额外信息，请参阅[平台开发](Platforms)页面以了解更多信息。
 
-**What units are used in Unreal Engine 4?**
+**虚幻引擎4中使用哪些单位？**
 
-In your software application, you can adjust the primary unit of measure from your preferences or settings. In UE4, the primary unit of measure if one centimeter. For this reason, it is recommended to change your primary units of measure to match those used in Unreal.
+在软件应用程序中，您可以从首选项或设置中调整主要计量单位。在UE4中，主要计量单位是一厘米。因此，建议更改您的主要计量单位以与虚幻中使用的匹配。
 
-**What is the coordinate system? Which way is up?**
+**坐标系是什么？哪个方向是朝上的？**
 
-Unreal Engine 4 uses a left-handed coordinate system. In UE4, positive X is "Forward," positive Y is "Right," and positive Z is "Up." 
+虚幻引擎4使用左手惯用坐标系。在UE4中，正X为“前”，正Y为“右”，正Z为“上”。 
 
-**How do I see the Log Output from my project?**
+**如何查看项目的日志输出？**
 
-In the Editor, you can open the **Output Log** by using the file menu to select **Window > Developer Tools**. 
+在编辑器中，要打开 **输出日志（Output Log）**，可以使用文件菜单来选择 **窗口（Window）>开发者工具（Developer Tools）**。 
 
 ![image alt text](image_31.png)(w:421 h:613 convert:false)
 
 
 
-##Rendering with a Traditional Raytracer versus Real-time
+##传统光线追踪渲染与实时渲染
 
-The lighting system in Unreal Engine 4 is designed to be flexible and provide different levels of lighting features that fit your project and a real-time game engine. This means that you can have fully static (or pre-baked) lighting or fully dynamic lighting for your world. For the purpose of Enterprise Architectural Visualization, static lighting will be used and leverage the Lightmass Global Illumination system in UE4. 
+虚幻引擎4中的光照系统设计灵活，提供适合您项目的不同级别的光照功能和实时游戏引擎。这意味着，您可以在场景中使用完全静态（或预先烘焙）的光照，也可以使用完全动态的光照。对于企业建筑可视化用途，将使用静态光照，并利用UE4中的Lightmass全局光照系统。 
 
 ![image alt text](Datasmith_HFB.jpg)
 [REGION:caption]
-_Image provided courtesy of HFB Visuals._
+_图片由HFB Visuals提供。_
 [/REGION]
 
-To get the most out of UE4's lighting system, below are a few concepts to help you get your level lighting built and improve the quality with some minimal effort. First, understanding that you need to build lighting after any changes to see the results is key and additionally that shadowing information is stored in a Lightmap texture that may need its resolution increased to capture beautiful detail.    
+为充分利用UE4光照系统，下文介绍了一些概念，帮助您构建关卡光照，轻松地提高质量。首先，必须知道的是您需要在所有更改完成后构建光照来查看最终结果，此外，阴影信息存储在光照贴图纹理中，可能需要提高它的分辨率来捕捉精美的细节。    
 
-###Building Lighting for your Level and what that means
+###为关卡构建光照及其意义所在
 
-In Unreal, especially with Enterprise Architectural work, there is a focus on beautifually lit scenes that match your renders in your software application. The Unreal [Lightmass Global Illumination](Engine/Rendering/LightingAndShadows/Lightmass) system is used to generate lighting for your levels. Before that can happen, you're asset will need a proper Lightmap UV generated for it to store this light and 
-shadow information properly. Unreal Engine 4 does a lot of the heavy-lifting to create lightmaps for you by auto-generating them on import so that you don't have any overlapping faces and that the UV charts are nicely packed in the 0,1 space of the UV. For Unreal Studio users, Datasmith streamlines this further by actually unwrapping the UVs for the mesh during import before repacking them. This leads to fewer issues since the out-of-the-box version of UE4 is limited to only repacking an existing UV. This is process is further explained in detail in the Lightmap UV section below. 
+在虚幻中，尤其是企业建筑工作，打造与软件应用程序中的渲染器相匹配的拥有精美光线的场景始终是核心所在。虚幻[Lightmass全局光照](Engine/Rendering/LightingAndShadows/Lightmass)系统用于为关卡生成光照。在此之前，需要为资源生成一个合适的光照贴图UV来正确存储该光照和 
+阴影信息。虚幻引擎4会完成大部分繁重工作为您创造光照贴图，它会在导入时自动生成光照贴图，这样您就不会有任何重叠面，而且UV图已经正确地打包到UV的0,1空间中。对于虚幻工作室用户，Datasmith会进一步简化这个过程，它会在导入期间解包网格体的UV，然后再重新打包。这样会减少问题，因为开箱即用版本的UE4只会重新打包现有UV。该过程在下文光照贴图UV部分中有详细说明。 
 
-When you import your Datasmith Scene, it will import directly into the level with lights placed where they were in your application scene file. Here, you will see what is referred to a "Preview" lighting to give you an idea of what the scene will look like. 
+导入Datasmith场景时，它将直接导入到关卡中，并按照应用程序场景文件中的方式放置光源。这里，您将看到“预览”光照，让您大致了解场景将会有怎样的效果。 
 
 ![image alt text](image_12.png)(w:569 h:364 convert:false)
 
-When you see the "Preview" label in shadowed areas this indicates a couple of things. First, that the light source you are using requires lighting to be built for the level because you are using a light source that is set to Static or Stationary. Secondly, it means that the shadows shown are using a dynamic shadow to give you an idea of what lighting will look like when you build it. When this happens, you aren't getting accurate lighting from GI bounces or completely accurate shadowing for the level. 
+当您在阴影区域看到“预览（Preview）”标签时，这代表几个含义。第一，您使用的光源要求为关卡构建光照，因为您使用的是设置为静态或静止的光源。第二，所示阴影使用动态阴影，便于您了解构建光照时的效果。出现这种情况时，您获得的不是来自GI反射的准确光照或关卡的完全准确的阴影。 
 
-To kick off a light build, you can click the **Build** button in the main toolbar.
+要开始构建光照，可以单击主工具栏中的 **构建（Build）** 按钮。
 
 ![image alt text](image_13.png)(w:248 h:64 convert:false)
 
-The **Build** button will kick off a series of tasks, such as rebuilding lighting, recapturing reflections for reflection capture Actors, and other game-related tasks. 
-For Unreal Studio users, there is a level lighting quality setting that must be set. It can be found under the Build drop-down and select **Lighting Quality**.
+**构建（Build）** 按钮将开始一系列任务，如重新构建光照，重新捕捉反射捕捉Actor的反射信息和其他游戏相关的任务。 
+对于虚幻工作室用户，必须设置一个关卡光照质量设置。它位于“构建（Build）”下拉菜单下面，选择 **光照质量（Lighting Quality）**。
 
 ![image alt text](image_14.png)(w:489 h:261 convert:false)
 
-The Lighting Quality levels can be set from **Preview** to **Production**. Quality levels determine how accurate the lighting will be when generating it for the level. Preview will be quicker to build for a lot of scene but less accurate. Production quality will take longer but will be much more accurate and representative of your final light build for the level settings. 
+光照质量（Lighting Quality）级别可以从 **预览（Preview）** 到 **产品级（Production）**。质量级别决定了为关卡生成光照时光照能够达到的准确程度。对于许多场景来说，“预览（Preview）”构建时间更短，但准确性较低。“产品级（Production）”需要更长时间，但准确定却高得多，并且能够代表关卡设置的最终光照构建。 
 
 [REGION:note]
-For a comparison of quality, visit the [Lighting Quality Comparison](https://wiki.unrealengine.com/LightingTroubleshootingGuide#Lighting_Quality_comparison.2C_or_Production_.3E_Preview) example on the [Lighting Troubleshooting Guide](https://wiki.unrealengine.com/LightingTroubleshootingGuide) created and curated by our community.
+要查看质量对比，访问由社区创建和维护的[光照故障诊断指南](https://wiki.unrealengine.com/LightingTroubleshootingGuide)上的[光照质量比较](https://wiki.unrealengine.com/LightingTroubleshootingGuide#Lighting_Quality_comparison.2C_or_Production_.3E_Preview)示例。
 [/REGION] 
 
-When lighting is being built, you will have a percentage pop-up in the corner of the screen indicating that lighitng is currently being built for the level. If the percentage appears to be "stuck" for a while, you may just need to wait for a bit while lighting is generated. Depending on the complexity of your level and the lighting quality level chosen, it could take a little while to generate.
+在构建光照时，屏幕角落会有一个百分比弹出窗口，指示当前正在为关卡构建光照。如果该百分比“卡住”一段时间，您可能只需要等待光照生成。根据项目复杂程度和所选光照级别，可能需要一段时间才会生成。
 
 ![](BuildLighting1.png)
 
-Once lighting is built and applied to the scene, you'll no longer see the "preview" label. However, you may see that maybe the quality of the shadows generated are not what you expected. Keep in mind that Lighting Quality set in the level only tells Unreal Lightmass how accurate it should be, not how much texture resolution should be used to capture shadowing information for your lightmap UV. For this reason, you'll want to read the next section where we discuss the importance of Lightmap UVs and how you can control their resolution. 
+光照构建完成并应用于场景后，您不会再看到“预览（preview）”标签。但是，您或许会看到，生成的阴影质量并不是您期待的效果。需要记住的是，关卡中设置的光照质量只是告诉虚幻Lightmass光照的准确程度，而没有告诉它应该使用多少纹理分辨率来捕捉光照贴图UV的阴影信息。因此，您需要阅读下一节，我们将讨论光照贴图UV的重要性以及如何控制它们的分辨率。 
 
 ![image alt text](image_15.png)(w:600 h:397 convert:false)
 
 
-###Lightmap UVs
+### 光照贴图UV
 
-During import, a lightmap UV is generated for each Static Mesh automatically based off a UV channel. By default, UE4 uses Channel 0 for lightmap UV generation. As previously mentioned for Unreal Studio users, Datasmith takes this a step further and streamlines the process by unwrapping and repacking in a single go so that there is no overlapping faces and all the UV charts are contained within the 0,1 UV space. This process is needed for applications, like CAD ones, where you don't have access to a UV Editor to create a proper unwrap or even when you just want to get your scene in UE4 but don't need to worry about the time consuming process of manually creating a proper Lightmap UV. Datasmith handles all this under-the-hood for you. 
+在导入期间，将根据UV通道自动为每个静态网格体生成光照贴图UV。默认情况下，UE4使用通道0来生成光照贴图UV。如前所述，对于虚幻工作室用户，Datasmith更进一步简化了这个过程，它一步式完成解包并重新打包，这样就不会有重叠面，所有UV图都包含在0,1 UV空间中。某些应用程序（如CAD应用程序）需要这个过程，因为您无法访问UV编辑器来创建正确的解包，甚至有时您只想将场景导入到UE4中，但无需担忧需要自己手动创建正确光照贴图UV的耗时过程。Datasmith会在后台为您完成所有这些工作。 
 
 ![image alt text](image_16.png)(w:1026 h:602 convert:false)
-*Left, an asset brought in from a CAD file using Datasmith; Right, the resulting UV unwrap and repack.*
+*左图是用Datasmith从CAD文件导入的资源；右图是产生的UV解包和重新打包。*
 
-In this example, this is a complex object that has many different faces that have been broken apart and packed into the lightmap UV so that there is no overlapping faces and they're all contained within the 0,1 UV space. This ensures that when lighting is built for this mesh, there won't be any lightmap errors that necessarily require editing the UV charts outside of the Unreal Editor. 
+在该示例中，这是一个包含许多不同面的复杂对象，这些面已经被分解并打包到光照贴图UV中，这样就不会有重叠面，它们全部包含在0,1 UV空间中。这样可以确保，为该网格体构建光照时，不会发生任何需要在虚幻编辑器外部编辑UV图的光照贴图错误。 
 
-To inspect your lightmap UV, you can start by opening your Static Mesh by selecting it in the Content Browser and double-clicking. 
+要检查光照贴图UV，您首先可以在内容浏览器中选择静态网格体并双击，以将其打开。 
 
 ![](StaticMeshEditor.png) 
 
-In the toolbar, click the **UV** button and select a UV channel to display. 
+在工具栏中，单击 **UV** 按钮并选择要显示的UV通道。 
 
 ![](StaticMeshEditor2.png) 
 
-Next, the selected UV channel will be displayed in the Static Mesh Editor veiwport.
+接下来，所选UV通道将显示在静态网格体编辑器视口中。
 
 ![](StaticMeshEditor3.png)
 
 [REGION:tip]
-If you're not sure which UV channel is your Lightmap UV, you can click through them to see which one looks similar to the example above, or to be absolutely sure, you can use the **Details** panel and see what UV channel is assigned as the **Lightmap Coordinate Index**.
+如果您不确定哪个UV通道是您的光照贴图UV，可以依次单击以查看哪个类似于上图示例，或者为了完全确定，可以使用 **细节（Details）** 面板并查看哪个UV通道指定为 **光照贴图坐标索引（Lightmap Coordinate Index）**。
 [/REGION]
 
-One thing to note about this mesh in particular is that since this is a large mesh which has many faces that end up being very tiny within the lightmap UV, you can still get errors related to quality when lighting is built for the level. You can solve these issuses by using one of the following methods:
+关于该网格体需要特别注意的一点是，由于这是一个包含许多面的大网格体，这些面最终在光照贴图UV中变得非常小，因此为关卡构建光照时，仍由可能遇到与质量有关的错误。您可以使用以下方法解决这些问题：
 
-* Increase the Lightmap Resolution of the Static Mesh.
-* Manually unwrap and Reimport your Mesh
-* In your software application, break the model into smaller chunks.
+* 提高静态网格体的光照贴图分辨率。
+* 手动解包并重新导入网格体。
+* 在软件应用程序中，将模型细分为多个更小的数据块。
 
-###Lightmap Resolution
+### 光照贴图分辨率
 
-The lightmap resolution increases the texture resolution. It improves the quality of the lightmap generated during the light build. Sometimes, this can help when you've got a lightmap UV that contains really small UV charts but ones that aren't so small that increasing the texture resolution still cause issues with quality. 
+光照贴图分辨率会提高纹理分辨率。它提高光照构建期间生成的光照贴图质量。有时这样会很有帮助，比如您有一个光照贴图UV，其中包含的UV图非常小，但又没到足够小的程度，因此增大纹理分辨率仍会导致与质量有关的问题。 
 
-You can adjust the **Lightmap Resolution** of a mesh in the Static Mesh Editor's Details panel under the **General** section. Look for **Lightmap Resolution** and set it to a power of two value (64, 128, 256, 512, etc).
+您可以在静态网格体编辑器的“细节（Details）”面板的 **常规（General）** 部分下面，调整网格体的 **光照贴图分辨率（Lightmap Resolution）**。查找 **光照贴图分辨率（Lightmap Resolution）** 并将其设置为2的幂次方值（64、128、256、512等）。
 
 ![](LightmapResolution.png)
 
-So if we take this single mesh with all its UV charts scaled to fit within a single lightmap UV, the lightmap resolution can greatly impact the quality of the baked light and shadow information. Even using a high lightmap resolution like a 2048 texture resolution can still have issues because some faces in the UV chart will still be too small to store proper lighting information at an acceptable resolution.  
+因此，如果使用这个网格体，并让其所有UV图缩放以适应单个光照贴图UV，那么光照贴图分辨率会极大地影响烘焙光照和阴影信息的质量。即使使用高光照贴图分辨率（如2048纹理分辨率）仍会存在问题，因为UV图中的某些面仍然太小，无法以可接受的分辨率存储正确的光照信息。  
 
 ![image alt text](image_17.png)(w:437 h:437 convert:false)![image alt text](image_18.png)(w:470 h:437 convert:false)
 
-Increasing the lightmap resolution can help decrease artifacts from the light build related to quality. However, it also increases the amount of texture memory overall and increases the time it takes to generate lighting for the level.
+增大光照贴图分辨率可以帮助减少因为光照构建导致的与质量有关的瑕疵。但是，也会增大总体纹理内存量，延长为关卡生成光照所需的时间。
 
 ![image alt text](image_19.png)(w:488 h:453 convert:false)
 
-*Single mesh with an increased lightmap resolution of 2048.*
+*光照贴图分辨率增加到2048的单个网格体。*
 
-**Breaking The Mesh Into Smaller Chunks**
+**将网格体拆解成更小数据块**
 
-Instead of trying to increase the lightmap resolution, it can be more efficient to break the model up into smaller chunks. This affords you the ability to use lower lightmap resolutions, have parts that are removed from memory when they are not within the camera's view, and will ultimately provide higher quality lighting since the UV charts can use more of the lightmap UV space efficiently. 
+不要尝试增加光照贴图分辨率，而是将模型拆解成更小的数据块，这是一种更为高效的做法。这样您就能够使用较低光照贴图分辨率，从内存中移除不在摄像机视野里的部分，最终提供更高质量的光照效果，因为UV图可以高效地使用更多光照贴图UV空间。 
 
-Take, for example, the original UV layout for the single mesh (left). It had so much geometry crammed into a single lightmap UV that lighting detail can easily get lost and cause your light build to not look correct, even with an increased lightmap resolution. Breaking the model up into smaller chunks (middle), they now have their own lightmaps (right), but use more of the UV space to store lighting information properly and with better quality at a lower lightmap resolution. 
+以单个网格体的原始UV布局为例（左）。它包含大量几何结构，塞满了一个光照贴图UV，这样很容易丢失光照细节，导致光照构建效果不准确，即使提高了光照贴图分辨率也于事无补。将模型拆解为更小的数据块（中间），它们现在有自己的光照贴图（右），但可以使用更多UV空间来正确存储光照信息，以更低的光照贴图分辨率提供更好的质量。 
 
 ![image alt text](image_20.png)(w:977 h:933 convert:false)
 
 [REGION:tip]
-Try to break the model into smaller pieces where it makes sense, like at the edge of a seam or inset. This can help hide any baking issues or resolution differences between the pieces.
+尽量在合理的地方（如接缝或插页边缘位置）将模型拆解为更小的部分。这样有助于隐藏各部分之间的任何烘焙问题或分辨率差异。
 [/REGION]
 
 ![image alt text](image_21.png)(w:505 h:468 convert:false)![image alt text](image_22.png)(w:502 h:466 convert:false)
 
-*Left, a single mesh with a lightmap resolution of 2048; Right, is the broken up model chunks with lightmap resolutions of 512.*
+*左侧是光照贴图分辨率为2048的单个网格体；右侧是光照贴图分辨率为512的拆解后模型数据块。*
 
-You'll notice in the image above, that the single mesh (left) is still dark but has better quality shadows, even after increasing the lightmap resolution. However, you don't get as much bounce light retained since the UV charts don't use enough of the UV space to store that information. On the right, the quality is similar, but because the UV charts use more of the lightmap UV space, it captures GI information much more accurately. 
+在上图中，您会注意到，单个网格体（左）仍为暗色，但阴影质量更好，即使增大了光照贴图分辨率也是如此。但不能保留很多反射光，因为UV图不能使用足够的UV空间来存储该信息。而在右侧，质量差不多，但由于UV图可以使用更多光照贴图UV空间，因此能够更准确地捕捉GI信息。 
 
-For additional information about lighting and build issues, you can visit the community maintained [Lighting Troubleshooting Guide](https://wiki.unrealengine.com/LightingTroubleshootingGuide) that has many good examples and solutions to common light build issues. 
+有关光照和构建问题的更多信息，可以访问由社区维护的[光照故障诊断指南](https://wiki.unrealengine.com/LightingTroubleshootingGuide)，其中包含许多优秀示例和常见光照构建问题的解决方案。 
 
-Below are some links to get you started with Lighting in UE4:
+以下是帮助您开始使用UE4光照的链接：
 
-* [Lighting Basics](Engine/Rendering/LightingAndShadows/Basics) - An overview of the basics of placing lights into levels and setting them up. 
-* [Lightmass Global Illumination](Engine/Rendering/LightingAndShadows/Lightmass) - A rundown of the all the features and settings of Lightmass uses for generating precomputed lighting in UE4.
-* [Static Lighting](Engine/Rendering/LightingAndShadows/LightMobility/StaticLights) - An overview of Static Lights.
-* [Lighting And Shadows Topics](Engine/Rendering/LightingAndShadows) - A listing of all available lighting features documentation broken up into key areas of focus.
+* [光照基本知识](Engine/Rendering/LightingAndShadows/Basics)——概括介绍了将光源放入关卡并进行设置的基本知识。 
+* [Lightmass全局光照](Engine/Rendering/LightingAndShadows/Lightmass)——在UE4中用于生成预先计算光照的所有Lightmass功能和设置的大纲。
+* [静态光照](Engine/Rendering/LightingAndShadows/LightMobility/StaticLights)——静态光源概述。
+* [光照和阴影主题](Engine/Rendering/LightingAndShadows)——细分为多个重点领域的所有可用光照功能文档列表。
 [COMMENT:none]
-* [Shadow Casting](Engine/Rendering/LightingAndShadows/Shadows) - A high-level overview of shadowing in UE4.
+* [阴影投射](Engine/Rendering/LightingAndShadows/Shadows)——UE4中阴影的高级概述。
 [/COMMENT]
 
-##Materials and Textures
+## 材质和纹理
 
-In UE4, textures are applied to Materials that can be edited in the Material Editor. The Material Editor, like some other applications, uses a node-based graph interface that enables you to create shaders that can be applied to your geometry, such as Static and Skeletal Meshes, or with systems such as Cascade to create interesting materials. 
+在UE4中，纹理将应用于可以在材质编辑器中编辑的材质。像许多其他应用程序一样，材质编辑器使用一个基于节点的图表界面，它可以创建用于几何结构（如静态和骨架网格体）的着色器，或用于其他系统（如级联）的着色器，从而实现有趣的材质效果。 
 
 ![image alt text](image_23.jpg)(w:709 h:260 convert:false)
 
-Unreal Engine 4 uses a physically-based shading model, which is similar to the [Disney "Principled" BRDF Physically-Based Rendering model](https://disney-animation.s3.amazonaws.com/library/s2012_pbs_disney_brdf_notes_v2.pdf).
-It means that rather than defining a Material using arbitrary properties (such as diffuse color and specular power), you instead use properties more easily relatable to the real world. These include Base Color, Metallic, Specular, and Roughness. 
+虚幻引擎4使用基于物理的着色模型，这类似于[迪士尼“原则式”BRDF基于物理的渲染模型](https://disney-animation.s3.amazonaws.com/library/s2012_pbs_disney_brdf_notes_v2.pdf)。
+这意味着使用与现实世界关联度更高的属性而非任意属性（例如，漫射颜色和高光度）来定义材质。这包括底色、金属感、高光度和粗糙度。 
 
-###Quick Tips for Material Assignments to Static Meshes
+### 有关静态网格体的材质分配的小技巧
 
-There are a couple of things you can do to quickly locate and assign your Materials to your Static Mesh from the Content Browser. 
+您可以通过一些小技巧，在内容浏览器中，快速找到材质并分配给静态网格体。 
 
-* **Assign a Material from your Content Browser** - Select your Material in the Content Browser and then in the Details panel, click the **arrow** next to the Material slot to assign the selected Material. 
+* **从内容浏览器分配材质**——在内容浏览器中选择材质，然后在“细节（Details）”面板中，单击“材质（Material）”槽旁边的 **箭头** 来指定所选材质。 
 
 	![image alt text](image_24.png)(w:445 h:256 convert:false)
 
-* **Locate a Material from a Mesh in your Level** - Click the **Search** (magnifying glass) next to the Material Slot to instantly navigate to that Material's location in the Content Browser.
+* **从关卡中的网格体查找材质**——单击“材质（Material）”槽旁边的 **搜索（Search）**（放大镜），会立即导航到该材质在内容浏览器中的位置。
 	
 	![image alt text](image_25.png)(w:446 h:257 convert:false)
 
-* **Reset to Default** - Click the **Reset to Default** (yellow) arrow next to the Material Slot to set the Material back to the one assigned to the mesh as the default one. 
+* **重置为默认值**——单击“材质（Material）”槽旁边的 **重置为默认值（Reset to Default）**（黄色），将材质恢复为指定给网格体的默认材质。 
 
 
-Below are some links to get you started with using Materials and Textures in UE4:
+以下是帮助您开始使用UE4材质和纹理的链接：
 
-* [Texture Editor](Engine/Content/Types/Textures/Properties/Interface) - A reference guide for the Texture Editor.
+* [纹理编辑器](Engine/Content/Types/Textures/Properties/Interface)——纹理编辑器参考指南。
 
-* [Material Editor](Engine/Rendering/Materials/Editor) - A reference guide to the Material Editor used in Unreal Engine 4.
+* [材质编辑器](Engine/Rendering/Materials/Editor)——虚幻引擎4中使用的材质编辑器的参考指南。
 
-* [Essential Material Concepts](Engine/Rendering/Materials/IntroductionToMaterials) - An introductory overview of Unreal Engine 4 Materials and how they work.
+* [基本材质概念](Engine/Rendering/Materials/IntroductionToMaterials)——概括介绍虚幻引擎4材质及其工作原理。
 
-* [Using the Main Material Node](Engine/Rendering/Materials/HowTo/Main_Material_Node) - An overview of the Main Material Node used to create your Shaders in Unreal Engine 4.
+* [使用主材质节点](Engine/Rendering/Materials/HowTo/Main_Material_Node)——概括介绍在虚幻引擎4中用来创建着色器的主材质节点。
 
-* [Material How-To's](Engine/Rendering/Materials/HowTo) - A list of topics related to Materials using different aspects of the Material Editor.
+* [材质操作方法](Engine/Rendering/Materials/HowTo)——与使用材质编辑器不同方面的材质有关的一系列主题。
 
-* [Physically Based Materials](Engine/Rendering/Materials/PhysicallyBased) - An overview of the primary Material inputs and how best to use them using a physically based shading model.
+* [基于物理的材质](Engine/Rendering/Materials/PhysicallyBased)——概括介绍主要材质输入，以及如何通过基于物理的着色模型充分利用材质。
 
-##Blueprints and Scripting
+## 蓝图和脚本
 
-The **Blueprint Visual Scripting** system in Unreal Engine is a complete gameplay scripting system based on the concept of using a node-based interface to create gameplay elements from within the Unreal Editor. As with many common scripting languages, it is used to define object-oriented classes or objects in the Engine. As you use UE4, you'll often find that objects defined as using Blueprint are colloquially referred to as just "Blueprints."
+虚幻引擎中的 **蓝图视觉脚本** 系统是一个完整的游戏脚本系统，其依据的理念是在虚幻编辑器中使用基于节点的界面创建游戏Gameplay元素。和其他常见脚本语言一样，蓝图也是用于定义引擎中面向对象的类或者对象。在使用虚幻引擎4的过程中同样也会发现用蓝图定义的对象，其通常也被称为“蓝图”。
 
-The System is extremely flexible and powerful as it provides the ability for designers to use virtually the full range of concepts and tools only available to programmers. 
+该系统极其灵活和强大，它让设计者能够使用几乎只有程序员可以使用的各种概念和工具。 
 
 ![image alt text](image_26.png)(w:786 h:441 convert:false)
 
-Below are some links to get your started with using Blueprints:
+以下是帮助您开始使用蓝图的链接：
 
-*  [Introduction to Blueprints](Engine/Blueprints/GettingStarted) - If you are just getting started with Blueprints, this provides a high-level overview of what they are and what they can do.
+*  [蓝图介绍](Engine/Blueprints/GettingStarted)——如果您刚开始接触蓝图，该链接提供了对蓝图定义和蓝图功能的高级概述。
 
-* [Blueprint Quick Start](Engine/Blueprints/QuickStart) - A guide to help you get up and running by creating your first Blueprint. 
+* [蓝图快速入门](Engine/Blueprints/QuickStart)——该指南可以帮助您通过创建第一个蓝图来快速入门和运行。 
 
-* [Blueprint How-To's ](Engine/Blueprints/BP_HowTo) and [Video Tutorials](https://docs.unrealengine.com/latest/INT/Videos/Blueprints) - A collection of tutorials written and in video form that can help you learn more about visual scripting.
+* [蓝图操作方法](Engine/Blueprints/BP_HowTo)和[视频教程](https://docs.unrealengine.com/latest/INT/Videos/Blueprints)——精编教程专辑和视频格式资料，可以帮助您进一步了解视觉脚本。
 
 ##Sequencer
 
-The **Sequencer** Editor gives users the ability to create in-game cinematics with a specialized multi-track editor. It is the primary means of authoring cinematics using tracks which are used to define the makeup of your cinematic scenes. For example, Sequencer could be used to have multiple cameras slowly panning across an architectural visualization scene, or you could use [Composure](Engine/Composure) with Sequencer for compositing. 
+**Sequencer** 编辑器使用户能够通过专用多轨迹编辑器创建游戏中的过场动画。这是使用轨迹来创作过场动画的主要方法，轨迹用来定义过程动画场景的构成方式。例如，Sequencer可以用来让多个摄像机慢慢地平移穿过一个建筑可视化场景，或者您可以将[Composure](Engine/Composure)和Sequencer配合使用来处理合成工作。 
 
-Similar to other video editing software, you can create camera tracks that can be dragged and rearranged as needed to quickly edit your scene together.
+与其他视频编辑软件类型，您可以创建一些摄像机轨道，然后根据需要拖拽和重新安排来快速编辑场景。
 
 ![image alt text](Col05.jpg)(w:781 h:433 convert:false)
 [REGION:caption]
-_"Church of Light" scene created by Fabrice Bourrelly._
+_Fabrice Bourrelly创建的“光之教堂”场景。_
 [/REGION]
 
-Below are some links to get you started with using Sequencer: 
+以下是帮助您开始使用Sequencer的链接： 
 
-* [Sequencer](Engine/Sequencer/Overview) -  An overview of the Sequencer Editor
+* [Sequencer](Engine/Sequencer/Overview)——Sequencer编辑器概述。
 
-* [Sequencer Quick Start](Engine/Sequencer/QuickStart) - A guide to quickly get up and running with the Sequencer Editor.
+* [Sequencer快速入门](Engine/Sequencer/QuickStart)——快速启动和运行Sequencer编辑器的指南。
 
-* [Composure Editor](Engine/Composure) - A compositing editor used for compositing digital and real-world footage together in real-time in UE4.
+* [Composure编辑器](Engine/Composure)——一个合成编辑器，用于在UE4中实时合成数字和真实世界影片。
 
-##Building and Publishing your Project
+## 构建和发布项目
 
-When you're ready to start testing or even ready for creating a final release of your project to hand off to anyone to open on their machines, you'll want to use the Unreal Build System to Cook and Package up your project into a standalone executable. This process enables you to easily share a project with other people in a way that is manageable and doesn't require them to have  Unreal Engine 4 already installed on their machine. It also protects your content by storing all your assets in a Pak file uses by Unreal to reference your assets when the executable is launched. 
+当您准备好开始测试，甚至准备好创建项目的最终版，以分发给任何人在他们的机器上打开项目时，需要使用虚幻构建系统来烘焙和封装项目，创建一个独立的可执行文件。该过程让您能够轻松地与他人分享文件，而他人无需在自己的机器上安装虚幻引擎4即可打开项目。此外还会保护您的内容，将所有资源存储在Pak文件中，当启动可执行文件时，虚幻使用该文件来引用您的资源。 
 
-The process to Cook and Package your project performs the following actions: 
+烘焙和封装项目的过程会执行以下操作： 
 
-1. When you select a target platform from the** File > Package Project** menu, the Cook and Package process will be kicked off. 
+1.  当您从 **文件（File）>封装项目（Package Project）** 菜单中选择目标平台时，将启动“烘焙和封装（Cook and Package）”流程。 
 
-2. The maps in your project will grab any referenced assets from the Content Browser and make copies of them in a staging directory. 
+2.  项目中的贴图将从内容浏览器抓取任何引用的资源，并在预编译目录中创建这些资源的副本。 
 
-3. Once the Cook process finishes, the Unreal Build Tool will start packaging those files and necessary Engine files into an executable that can be run without having to have Unreal Engine 4 installed. 
+3.  当烘焙过程完成时，虚幻构建工具将开始封装这些文件和必要的引擎文件，以创建一个不必安装虚幻引擎4即可运行的可执行文件。 
 
-4. Once finished, the project executable that is created can be run to load your a packaged version of your project. Assets are stored in a single Pak file, and any source code or Blueprint scripting has been take out and turned into machine code that is no longer accessible. 
+4.  完成后，即可运行所创建的项目可执行文件以加载项目的封装版本。资源存储在单个Pak文件中，任何源代码或蓝图脚本已经被剔除并转换为不再可访问的机器代码。 
 
-This is a very high-level view of what happens when you package a project. For a more detailed walkthrough and explanation of the process, see the [Packaging Projects](Engine/Basics/Projects/Packaging) page.
+这是对封装项目过程的笼统概括。有关更详细的逐步过程和解释，请参阅[封装项目](Engine/Basics/Projects/Packaging)页面。
 
 [REGION:note]
-Cooking and Packaging content for some platforms, like Android or iOS, will require certain prerequisite SDKs or hardware to be present to package the project appropriately.
+针对Android或iOS等某些平台烘焙和封装内容需要存在特定的必备SDK或硬件，才能正确地封装项目。
 [/REGION]
 
 
 
 
-##Where to go from here?
+## 额外参考资料
 
-Thanks for reading this guide! This was created for the Enterprise community with the help of Unreal Developers, and we very much appreciate any feedback and corrections you can offer. We will try to keep improving this document as we learn more about what is most helpful when transitioning to UE4.
+感谢您阅读本指南！本指南是在虚幻开发者的帮助下专为企业社区创建的，欢迎您提供任何反馈或更正意见。我们将继续努力改进本文档，进一步介绍过渡到UE4的过程中最有帮助的信息。
 
-We have many additional Unreal Engine 4 learning resources available that you can use. These are linked below: 
+我们还有一些额外的虚幻引擎4学习资源供您使用。请参考以下链接： 
 
-* [Documentation](%ROOT%)
-    *  [Getting Started ](GettingStarted)
-* [Tutorial and Training Videos](https://docs.unrealengine.com/latest/INT/Videos)
-    *  [Learning Management System](https://www.unrealengine.com/video-tutorials) 
-* API Reference - [\[C++\]](https://docs.unrealengine.com/latest/INT/API) [\[Blueprint\]](https://docs.unrealengine.com/latest/INT/BlueprintAPI)
+* [文档](%ROOT%)
+    *  [入门](GettingStarted)
+* [教程和培训视频](https://docs.unrealengine.com/latest/INT/Videos)
+    *  [学习管理系统](https://www.unrealengine.com/video-tutorials) 
+* API参考——[\[C++\]](https://docs.unrealengine.com/latest/INT/API) [\[蓝图\]](https://docs.unrealengine.com/latest/INT/BlueprintAPI)
 

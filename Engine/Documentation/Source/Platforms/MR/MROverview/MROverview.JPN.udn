@@ -1,0 +1,26 @@
+﻿INTSourceChangelist:4320499
+Availability: Public
+Crumbs:
+Title: Mixed Reality Capture の概要
+Description: Unreal Engine 4 向け製品ドキュメント (リファレンスおよびガイドを含む)
+Version: 4.20
+Parent: Platforms/MR
+Order:1
+Tags: GettingStarted
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_RoboRecall.png
+reference-image:MR_RoboRecall.gif
+
+Mixed Reality Capture (MRC) フレームワークを使用すると、ユーザーは現実世界のプレイヤーをバーチャル ゲーム空間に簡単にコンポジットできます。これにより、目に見える XR 体験はさらに説得力のあるものになります。
+
+[REGION:asyncgif]
+![image alt text](MR_RoboRecall.gif)(w:653)
+[/REGION]
+
+Mixed Reality Capture は次の 3 つのコンポーネント、ビデオ入力、キャリブレーション、ゲーム内コンポジットをサポートします。サポート対象の[ウェブカメラおよび HDMI キャプチャ デバイス](Platforms/MR/MRSupportedVideoDevices)のリストがあります。これらにより、現実世界のグリーン スクリーンで撮影したビデオを多様なソースから Unreal Engine に取り込むことができます。個別のトラッキング デバイスがある場合、Mixed Reality Capture は、現実のカメラの位置とゲーム内のカメラの位置を一致させて、さらにダイナミックで面白いショットを作成できます。セットアップとキャリブレーションはスタンドアロンのキャリブレーション ツールで実行します。撮影場所のセットアップとキャリブレーションが完了したら、これらのキャリブレーション設定を Unreal アプリケーション全体で再利用できます。
+
+この機能のサポートはアーリー アクセス段階ですが、フレームワークを引き続き改善するためにご意見やご要望をお待ちしています。 
+
+[『Mixed Reality クイック スタート』](Platforms/MR/MRQuickStart)に従って、Mixed Reality Capture の使用を開始しましょう。

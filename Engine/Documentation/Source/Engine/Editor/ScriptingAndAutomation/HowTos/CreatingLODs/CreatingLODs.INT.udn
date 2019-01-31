@@ -16,20 +16,20 @@ In general, the more triangles your meshes have, and the smaller those triangles
 
 Unreal Engine 4 offers a built-in LOD management system that automatically chooses the most appropriate version of a mesh to show at runtime, based on the amount of screen space the mesh is currently occupying in each frame. This system relies on you setting up these different alternative versions of your meshes in the Editor ahead of time.  
 
-The Editor is capable of generating these Levels of Detail for your Static Mesh assets automatically, by progressively simplifying the mesh to thresholds that you specify. For more information about how this system works and how to set it up in the Static Mesh Editor, see [Automatic LOD Generation](https://docs.unrealengine.com/en-us/Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration).
+The Editor is capable of generating these Levels of Detail for your Static Mesh assets automatically, by progressively simplifying the mesh to thresholds that you specify. For more information about how this system works and how to set it up in the Static Mesh Editor, see [Automatic LOD Generation](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration).
 
 [REGION:lightbox]
 [![Level of Detail settings in the Static Mesh Editor](ALC_PM_00.png "Level of detail settings in the static mesh editor data-verified=")](ALC_PM_00.png)
-[/REGION]
+[/REGION:lightbox]
 [REGION:caption]
 Click image for full size.
-[/REGION]
+[/REGION:caption]
 
 However, even though the Editor can generate these LODs automatically, it may not be feasible for you to open every Static Mesh Asset in your project one-by-one in order to set them all up. You could bulk edit the Assets, but this doesn't help if you want to apply different settings to different Static Mesh Assets based on their characteristics — for example, to apply different reduction settings based on the number of existing triangles in the mesh, or based on an Asset naming convention. It also doesn't help if you want to create your LODs as a sub-step within a larger custom Asset pipeline that you've scripted. For these kinds of cases, you can use Blueprints or Python to script the automatic LOD creation system.
 
 [REGION:note]
 You'll need to install the **Editor Scripting Utilities** plugin, if you haven't already. For details, see [Scripting and Automating the Editor](Engine/Editor/ScriptingAndAutomation).
-[/REGION]
+[/REGION:note]
 
 %Globals:BlueprintOrPythonSelectVar%
 
@@ -41,30 +41,10 @@ You'll need to install the **Editor Scripting Utilities** plugin, if you haven't
 	blueprintimplementation
 	[/PARAMLITERAL]
 	[PARAMLITERAL:active]
+	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	You'll find the nodes you'll need to manage LODs under the **Editor Scripting > Static Mesh** category.
-
-	[REGION:note]
-	To use these nodes, your Blueprint class must be derived from an Editor-only class, such as the **PlacedEditorUtilityBase** class. For details, see [Scripting the Editor using Blueprints](Engine/Editor/ScriptingAndAutomation/Blueprints).
-	[/REGION]
-
-	*   The key node is **Set Lods**, which automatically creates levels of detail for the Static Mesh Asset you pass in. To use this node, you'll need to provide it with a set of reduction settings that define the screen size threshold and relative triangle percentage for each level of detail you want to create. See the example below.
-		[REGION:note]
-		The first **EditorScriptingMeshReductionSettings** item that you pass to the **Reduction Settings** input of the **EditorScriptingMeshReductionOptions** node has no effect, as LOD 0 is always considered to show the mesh at its most detailed level, with all of its triangles in place.
-		[/REGION]
-	*   You can use **Get Lod Count** and **Get Lod Screen Sizes** to get information about the Levels of Detail that are currently set up for a Static Mesh.
-	*   You can also use **Remove Lods** to remove all existing LODs (except LOD 0, which is always the fully detailed mesh).
-	*   Setting up LODs modifies the Static Mesh Asset. Assuming you want to keep the changes you make, you'll also need to use a node like **Save Asset** or **Save Loaded Asset** afterward.
-
-	The following example loads each Static Mesh Asset in an input path in turn. Whenever it finds one that has more vertices than a minimum threshold, it sets up three additional LODs for the Static Mesh, and saves it afterward.
-
-	[REGION:lightbox]
-	[![Set LODs in Blueprints Example](set_lods_example.png "Set LODs in Blueprints Example")](set_lods_example.png)
-	[/REGION]
-	[REGION:caption]
-	Click image for full size.
-	[/REGION]
+		[INCLUDE:#blueprintSection1]
 	[/PARAM]
 [/OBJECT]
 
@@ -78,76 +58,109 @@ You'll need to install the **Editor Scripting Utilities** plugin, if you haven't
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	You'll find the LOD management functions in the `unreal.EditorStaticMeshLibrary` class.
-
-	*   The key function is `unreal.EditorStaticMeshLibrary.set_lods()`, which automatically creates levels of detail for the Static Mesh Asset you pass in. To use this function, you'll need to pass in an `EditorScriptingMeshReductionOptions` object, which contains a set of `EditorScriptingMeshReductionSettings` that define the screen size threshold and relative triangle percentage for each level of detail you want to create. See the example below.
-		[REGION:note]
-		The first `EditorScriptingMeshReductionSettings` item that you set in the `EditorScriptingMeshReductionOptions.reduction_settings` array has no effect, as LOD 0 is always considered to show the mesh at its most detailed level, with all of its triangles in place.
-		[/REGION]
-	*   You can use `unreal.EditorStaticMeshLibrary.get_lod_count()` and `unreal.EditorStaticMeshLibrary.get_lod_screen_sizes` to get information about the Levels of Detail that are currently set up for a Static Mesh.
-	*   You can also use `unreal.EditorStaticMeshLibrary.remove_lods()` to remove all existing LODs (except LOD 0, which is always the fully detailed mesh).
-	*   Setting up LODs modifies the Static Mesh Asset. Assuming you want to keep the changes you make, you'll also need to use a function like `unreal.EditorAssetLibrary.save_asset()` or  `unreal.EditorAssetLibrary.save_loaded_asset()` afterward.
-
-	The following example loads each Static Mesh Asset in an input path in turn. Whenever it finds one that has more vertices than a minimum threshold, it sets up three additional LODs for the Static Mesh, and saves it afterward.
-
-		import unrealasset_path = "/Game/studio"
-		# we define a function that generates new LODs for a specified Static Mesh Asset.
-		def apply_lods(static_mesh):
-		# check if the mesh is complex enough.
-		number_of_vertices = unreal.EditorStaticMeshLibrary.get_number_verts(static_mesh, 0)
-		if number_of_vertices < 10:
-			return
-		print("treating asset: " + static_mesh.get_name())
-		print("existing LOD count: " + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
-		# set up options for auto-generating the levels of detail.
-		options = unreal.EditorScriptingMeshReductionOptions()
-		# we request three new levels of detail. Each has:
-		# - a screen space threshold at which this level of detail appears.
-		# - the percentage of the triangles in LOD 0 that should be retained at this level/
-		options.reduction_settings = [ unreal.EditorScriptingMeshReductionSettings(1.0, 1.0),
-			unreal.EditorScriptingMeshReductionSettings(0.8, 0.75),
-			unreal.EditorScriptingMeshReductionSettings(0.6, 0.5),
-			unreal.EditorScriptingMeshReductionSettings(0.4, 0.25)
-		]
-		# use the screen space thresholds set above, rather than auto-computing them.
-		options.auto_compute_lod_screen_size = False
-		# set the options on the Static Mesh Asset.
-		unreal.EditorStaticMeshLibrary.set_lods(static_mesh, options)
-		# save the changes.
-		unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
-		print("new LOD count: " + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
-		# get a list of all Assets in the path.
-		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
-		# load them all into memory.
-		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
-		# filter the list to include only Static Meshes.
-		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
-		# run the function above on each Static Mesh in the list.
-		map(apply_lods, static_mesh_assets)
-
-	An alternative approach is to set the **LOD Group** option for each Static Mesh Asset. This option makes the mesh use one of the pre-set LOD reduction settings that are defined in the `[StaticMeshLODSettings]` section of your project's **BaseEngine.ini** file, such as `LevelArchitecture`, `SmallProp`, `LargeProp`, or `HighDetail`.
-
-	For example:
-
-		import unreal
-		asset_path = "/Game/studio/"
-		def set_high_detail(static_mesh):
-		# Set the LOD group.
-		static_mesh.set_editor_property("lod_group", "HighDetail")
-		# Save the Asset.
-		unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
-		# get a list of all Assets in the path.
-		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
-		# load them all into memory.
-		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
-		# filter the list to include only Static Meshes.
-		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
-		# run the function above on each Static Mesh in the list.
-		map(set_high_detail, static_mesh_assets)
-
-	[REGION:tip]
-	For more information about how this system works and how to use it in the Editor, see [Automatic LOD Generation](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration#usinglodgroups).
-	[/REGION]
+		[INCLUDE:#pythonSection1]
 	[/PARAM]
 [/OBJECT]
 
+
+[COMMENT:none]
+[EXCERPT:blueprintSection1]
+You'll find the nodes you'll need to manage LODs under the **Editor Scripting > Static Mesh** category.
+
+[REGION:note]
+To use these nodes, your Blueprint class must be derived from an Editor-only class, such as the **PlacedEditorUtilityBase** class. For details, see [Scripting the Editor using Blueprints](Engine/Editor/ScriptingAndAutomation/Blueprints).
+[/REGION:note]
+
+*   The key node is **Set Lods**, which automatically creates levels of detail for the Static Mesh Asset you pass in. To use this node, you'll need to provide it with a set of reduction settings that define the screen size threshold and relative triangle percentage for each level of detail you want to create. See the example below.
+	[REGION:note]
+	The first **EditorScriptingMeshReductionSettings** item that you pass to the **Reduction Settings** input of the **EditorScriptingMeshReductionOptions** node has no effect, as LOD 0 is always considered to show the mesh at its most detailed level, with all of its triangles in place.
+	[/REGION:note]
+*   You can use **Get Lod Count** and **Get Lod Screen Sizes** to get information about the Levels of Detail that are currently set up for a Static Mesh.
+*   You can also use **Remove Lods** to remove all existing LODs (except LOD 0, which is always the fully detailed mesh).
+*   Setting up LODs modifies the Static Mesh Asset. Assuming you want to keep the changes you make, you'll also need to use a node like **Save Asset** or **Save Loaded Asset** afterward.
+
+The following example loads each Static Mesh Asset in an input path in turn. Whenever it finds one that has more vertices than a minimum threshold, it sets up three additional LODs for the Static Mesh, and saves it afterward.
+
+[REGION:lightbox]
+[![Set LODs in Blueprints Example](set_lods_example.png "Set LODs in Blueprints Example")](set_lods_example.png)
+[/REGION:lightbox]
+[REGION:caption]
+Click image for full size.
+[/REGION:caption]
+[/EXCERPT:blueprintSection1]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonSection1]
+You'll find the LOD management functions in the `unreal.EditorStaticMeshLibrary` class.
+
+*   The key function is `unreal.EditorStaticMeshLibrary.set_lods()`, which automatically creates levels of detail for the Static Mesh Asset you pass in. To use this function, you'll need to pass in an `EditorScriptingMeshReductionOptions` object, which contains a set of `EditorScriptingMeshReductionSettings` that define the screen size threshold and relative triangle percentage for each level of detail you want to create. See the example below.
+	[REGION:note]
+	The first `EditorScriptingMeshReductionSettings` item that you set in the `EditorScriptingMeshReductionOptions.reduction_settings` array has no effect, as LOD 0 is always considered to show the mesh at its most detailed level, with all of its triangles in place.
+	[/REGION:Note]
+*   You can use `unreal.EditorStaticMeshLibrary.get_lod_count()` and `unreal.EditorStaticMeshLibrary.get_lod_screen_sizes` to get information about the Levels of Detail that are currently set up for a Static Mesh.
+*   You can also use `unreal.EditorStaticMeshLibrary.remove_lods()` to remove all existing LODs (except LOD 0, which is always the fully detailed mesh).
+*   Setting up LODs modifies the Static Mesh Asset. Assuming you want to keep the changes you make, you'll also need to use a function like `unreal.EditorAssetLibrary.save_asset()` or  `unreal.EditorAssetLibrary.save_loaded_asset()` afterward.
+
+The following example loads each Static Mesh Asset in an input path in turn. Whenever it finds one that has more vertices than a minimum threshold, it sets up three additional LODs for the Static Mesh, and saves it afterward.
+
+	import unrealasset_path = "/Game/studio"
+	# we define a function that generates new LODs for a specified Static Mesh Asset.
+	def apply_lods(static_mesh):
+	# check if the mesh is complex enough.
+	number_of_vertices = unreal.EditorStaticMeshLibrary.get_number_verts(static_mesh, 0)
+	if number_of_vertices < 10:
+		return
+	print("treating asset: " + static_mesh.get_name())
+	print("existing LOD count: " + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
+	# set up options for auto-generating the levels of detail.
+	options = unreal.EditorScriptingMeshReductionOptions()
+	# we request three new levels of detail. Each has:
+	# - a screen space threshold at which this level of detail appears.
+	# - the percentage of the triangles in LOD 0 that should be retained at this level/
+	options.reduction_settings = [ unreal.EditorScriptingMeshReductionSettings(1.0, 1.0),
+		unreal.EditorScriptingMeshReductionSettings(0.8, 0.75),
+		unreal.EditorScriptingMeshReductionSettings(0.6, 0.5),
+		unreal.EditorScriptingMeshReductionSettings(0.4, 0.25)
+	]
+	# use the screen space thresholds set above, rather than auto-computing them.
+	options.auto_compute_lod_screen_size = False
+	# set the options on the Static Mesh Asset.
+	unreal.EditorStaticMeshLibrary.set_lods(static_mesh, options)
+	# save the changes.
+	unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+	print("new LOD count: " + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
+	# get a list of all Assets in the path.
+	all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+	# load them all into memory.
+	all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+	# filter the list to include only Static Meshes.
+	static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+	# run the function above on each Static Mesh in the list.
+	map(apply_lods, static_mesh_assets)
+
+An alternative approach is to set the **LOD Group** option for each Static Mesh Asset. This option makes the mesh use one of the pre-set LOD reduction settings that are defined in the `[StaticMeshLODSettings]` section of your project's **BaseEngine.ini** file, such as `LevelArchitecture`, `SmallProp`, `LargeProp`, or `HighDetail`.
+
+For example:
+
+	import unreal
+	asset_path = "/Game/studio/"
+	def set_high_detail(static_mesh):
+	# Set the LOD group.
+	static_mesh.set_editor_property("lod_group", "HighDetail")
+	# Save the Asset.
+	unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+	# get a list of all Assets in the path.
+	all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+	# load them all into memory.
+	all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+	# filter the list to include only Static Meshes.
+	static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+	# run the function above on each Static Mesh in the list.
+	map(set_high_detail, static_mesh_assets)
+
+[REGION:tip]
+For more information about how this system works and how to use it in the Editor, see [Automatic LOD Generation](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration#usinglodgroups).
+[/REGION:tip]
+[/EXCERPT:pythonSection1]
+[/COMMENT:none]

@@ -56,7 +56,7 @@ QA-승인 빌드로 동기화하려면 다음 단계를 따르십시오:
 
 	![p4v_small.jpg](p4v_small.jpg)(w:800)
 
-1. Depot 트리에서 UnrealEngine3 디렉터리에 우클릭하여 뜨는 맥락 메뉴에서 _Get Revision..._ 을 선택합니다. 또는 그냥 _Actions_ 메뉴에서 _UnrealEngine3_ 디렉터리를 선택하고 _Get Revision..._ 을 선택해도 됩니다. 
+1. Depot 트리에서 UnrealEngine3 디렉터리에 우클릭하여 뜨는 컨텍스트 메뉴에서 _Get Revision..._ 을 선택합니다. 또는 그냥 _Actions_ 메뉴에서 _UnrealEngine3_ 디렉터리를 선택하고 _Get Revision..._ 을 선택해도 됩니다. 
 
 	![p4v_depot_menu.jpg](p4v_depot_menu.jpg)(w:304)
 

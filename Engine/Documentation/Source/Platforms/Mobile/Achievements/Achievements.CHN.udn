@@ -1,46 +1,13 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Title:使用移动服务成就
 Description:通过移动平台成就提升玩家粘着度。
 Crumbs:
 Availability:Public
 Parent:Platforms/Mobile
 order:2
-type:howto
+type:how-to
 tags:mobile
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:topic.png
 
 **成就** 可设定为努力达成的目标、荣誉的徽章，或只是单纯的游戏进度标志。无论如何，它们都能让玩家对游戏更为入迷。
 
@@ -56,9 +23,10 @@ tags:mobile
 	[/PARAMLITERAL]
 [/OBJECT]
 
+(#Configuration)
 ## 配置
 
-在下方页面中查看在每个平台上进行游戏内购配置的详细内容：
+在下方页面中查看在每个平台上进行成就配置的详细内容：
 
 [REGION:buttonlist]
 * [](Platforms/Android/Achievements)
@@ -67,6 +35,7 @@ tags:mobile
 
 
 [EXCERPT:Usage]
+(#CachingyourAchievements)
 ## 缓存成就
 
 **Cache Achievements** 将从平台游戏服务请求成就列表，以及玩家拥有的成就数值。如此节点成功返回，即可使用 **Get Cached Achievement Value**。
@@ -79,6 +48,7 @@ tags:mobile
 
 ![](cacheAchievements.png)
 
+(#ReadingValuesfromyourAchievements)
 ## 从成就读取数值
 
 **Get Cached Achievement Progress** 将返回特定 **Player Controller** 特定 **Achievement ID** 的进度，前提是之前已运行 **Cache Achievements** 节点并成功返回。
@@ -91,6 +61,7 @@ tags:mobile
 
 ![](readAchievement.png)
 
+(#WritingValuestoyourAchievements)
 ## 向成就写入数值
 
 **Write Achievement Progress** 将从平台的成就系统发出消息，向特定用户的特定成就（**Player Controller** 和 **User Tag**）写入以百分比（0.0% - 100.0%）为基础的 **Progress**。对于“一次性解锁”的成就而言，**Progress** 传入的固定数值为 `100.0`；对于递增的成就而言，传入的百分比较低，直至数值达到 `100.0`。
@@ -109,6 +80,7 @@ tags:mobile
 执行此操作的原因是隐藏节点无法用于函数之中。
 [/REGION]
 
+(#ShowingthePlatformSpecificAchievementScreen)
 ## 显示平台特有的成就画面
 
 **Show Platform Specific Achievement Screen** 将显示当前平台特定 **Player Controller** 的成就。

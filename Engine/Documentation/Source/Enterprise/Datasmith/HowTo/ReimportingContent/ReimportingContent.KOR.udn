@@ -1,0 +1,93 @@
+﻿INTSourceChangelist:4506246
+Availability: Public
+Crumbs: 
+Title: 데이터스미스 콘텐츠를 언리얼 엔진 4 에 리임포트
+Description: 언리얼 엔진으로 이미 임포트한 데이터스미스 콘텐츠가 소스 머티리얼의 변경사항을 반영하도록 업데이트하는 여러가지 방법을 자세히 설명합니다.
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 4
+Tags: Enterprise, how to, Unreal Studio, Datasmith, beginner
+
+
+언리얼 에디터에 데이터스미스 콘텐츠를 리임포트하는 방법, 레벨의 액터에 동기화할 업데이트 제어 방법을 설명합니다.
+
+리임포트가 프로젝트의 애셋과 레벨의 액터에 어떤 작업을 하는지에 대한 개요를 비롯한 배경 정보는 [](Enterprise/Datasmith/Overview/ReimportWorkflow) 문서를 참고하세요.
+
+## 소스 파일 익스포트 및 저장
+
+이미 임포트한 데이터스미스 씬을 부드럽게 업데이트하기 위해서는, 데이터스미스 씬 애셋을 생성했을 때 파일을 원래 임포트했던 컴퓨터 상의 위치와 **똑같은** 곳에 소스 파일 새 버전을 넣어야 합니다.
+
+리임포트하려는 데이터스미스 씬 애셋의 원본 소스 경로를 모르는 경우, 디테일 패널에서 찾을 수 있습니다.
+
+1.  콘텐츠 브라우저에서 **데이터스미스 씬** 애셋을 더블클릭하여 **애셋 에디터** 에서 엽니다.
+2.  **디테일** 패널이 숨겨져 있으면, 메인 메뉴의 **창 > 디테일** 을 선택하여 표시합니다.
+3.  **File Path > Source File** (파일 경로 > 소스 파일) 세팅을 찾습니다.  
+    ![데이터스미스 씬 소스 파일](datasmith-reimport-scene-asset-details.png "Datasmith Scene source file")
+
+추가로 저장 또는 익스포트한 파일에는, 소스에서 최근 수정한 오브젝트뿐만 아니라, 언리얼 에디터의 데이터스미스 씬에 들어갈 모든 것이 들어있는지 확인해야 합니다. 씬의 선택 부분만 익스포트하는 옵션은 사용하지 마세요. 만약 사용하고 리임포트하면 언리얼 에디터의 데이터스미스 콘텐츠에는 그 오브젝트만 존재합니다.
+
+## 데이터스미스 씬 애셋 리임포트
+
+소스 파일 새 버전에서 데이터스미스 씬 애셋을 리임포트하는 방법은 다음과 같습니다.
+
+1.  콘텐츠 브라우저에서 **데이터스미스 씬** 애셋을 우클릭하고 컨텍스트 메뉴에서 **리임포트** 를 선택합니다.  
+    ![데이터스미스 씬 애셋 리임포트](datasmith-reimport-datasmith-scene.png "Reimport the Datasmith Scene Asset")
+2.  리임포트 옵션을 지정하라는 창이 뜹니다. 처음 임포트할 때 설정한 것에 몇 가지 추가되어 있습니다.  
+    **Sync Current Level Actors** (현재 레벨 액터 동기화) 아래 새 옵션은, 데이터스미스 씬 애셋에 대한 업데이트를 지금 업데이트 중인 애셋에서 만든 현재 레벨의 데이터스미스 씬 액터에도 적용할지 결정합니다.  
+    ![리임포트 옵션](datasmith-reimport-sync-level-actors.png "Reimport options")  
+    액터를 지금 동기화하고 싶지 않다면 나중에 할 수 있습니다. 아래 [데이터스미스 씬 액터를 그 애셋과 동기화](#데이터스미스씬액터를그애셋과동기화) 섹션을 참고하세요.  
+    다른 임포트 옵션 관련 자세한 정보는 [](Enterprise/Datasmith/ImportOptions) 문서를 참고하세요.
+3.  임포터에 사용할 옵션을 설정하고 **임포트** 를 클릭합니다. 
+
+[REGION:warning]
+리임포트 프로세스가 콘텐츠 브라우저의 지오메트리, 머티리얼, 텍스처를 덮어쓸 수 있습니다. 자세한 내용은 [](Enterprise/Datasmith/Overview/ReimportWorkflow) 문서를 참고하세요.
+[/REGION]
+
+## 데이터스미스 씬 액터를 그 애셋과 동기화
+
+레벨의 데이터스미스 씬 액터를 그에 해당하는 데이터스미스 씬 애셋과 다시 동기화하는 방법은 두 가지입니다.
+
+**옵션 1.**
+
+데이터스미스 씬 애셋을 리임포트할 때:
+
+1.  데이터스미스 씬 액터가 들어있는 레벨을 엽니다.
+2.  위 [데이터스미스 씬 애셋 리임포트](#데이터스미스씬애셋리임포트) 부분의 설명대로 데이터스미스 씬 애셋을 리임포트합니다.
+3.  **임포트 옵션** 대화창에서 **Sync Current Level Actors** (현재 레벨 액터 동기화) 섹션을 찾습니다. **Datasmith Scene Actors** (데이터스미스 씬 액터) 박스 체크를 확인합니다.  
+    기존에 삭제한 액터를 레벨에 다시 추가하려면, **Re-Spawn Deleted Actors** (삭제된 액셋 리스폰) 옵션도 체크해야 합니다.  
+    ![레벨 액터 동기화](datasmith-reimport-sync-level-actors.png "Sync Level Actors")
+4.  **Import** (임포트)를 클릭합니다.
+
+**옵션 2.**
+
+애셋을 리임포트한 이후 언제든지:
+
+1.  데이터스미스 씬 액터가 들어있는 레벨을 엽니다.
+2.  **월드 아웃라이너** 에서 DatasmithSceneActor 를 선택합니다.  
+    ![데이터스미스 씬 액터 선택](datasmith-reimport-select-scene-actor.png "Select Datasmith Scene Actor")
+3.  **디테일** 패널에서 **Datasmith** 섹션을 찾습니다.  
+    ![씬에서 액터 업데이트](datasmith-reimport-sync-details.png "Update Actors from Scene")
+4.  기존에 삭제한 액터를 레벨에 다시 추가하려면, **Respawn deleted actors** (삭제된 액터 리스폰) 옵션을 체크하세요.
+5.  **Update actors from Scene** (씬에서 액터 업데이트)를 클릭합니다.
+
+## 개별 애셋 리임포트
+
+전체 데이터스미스 씬 애셋을 리임포트하는 대신, 업데이트할 개별 스태틱 메시, 머티리얼, 텍스처 애셋을 선택할 수 있습니다.
+
+단일 애셋을 리임포트하려면:
+
+1.  콘텐츠 브라우저에서 애셋에 우클릭하고 컨텍스트 메뉴에서 **리임포트** 를 선택합니다.  
+    ![스태틱 메시 애셋 리임포트](datasmith-reimport-asset.png "Reimport Static Mesh Asset")  
+    머티리얼 애셋의 경우, **Datasmith > Reimport Material** (데이터스미스 > 머티리얼 리임포트)를 선택합니다.  
+    ![머티리얼 애셋 리임포트](datasmith-reimport-material.png "Reimport Material Asset")
+    [REGION:note]
+    **Datasmith > Reimport Material** (데이터스미스 > 머티리얼 리임포트) 옵션은 처음부터 데이터스미스로 생성한 머티리얼 애셋에 대해서만 보이는데, 보통 3ds Max 에서 임포트한 머티리얼의 경우입니다. 하지만 이 옵션은 데이터스미스에 내장된 머티리얼의 인스턴스인 머티리얼 애셋에는 나타나지 않는데, 보통 CAD 파일이나 SketchUp 에서 임포트한 머티리얼의 경우입니다.
+    [/REGION]
+2.  애셋의 리임포트 옵션을 몇 가지 지정하는 창이 뜹니다.  
+    처음 임포트할 때 설정한 것과 같은 옵션입니다. 이 모든 옵션에 대한 자세한 내용은 [](Enterprise/Datasmith/ImportOptions) 문서를 참고하세요.
+
+[REGION:note]
+개별 애셋을 리임포트할 때 레벨 액터를 동기화하는 옵션은 없습니다. 프로젝트에서 그 애셋으로의 모든 레퍼런스는 자동으로 애셋 업데이트 버전을 사용합니다. [](Enterprise/Datasmith/Overview/ReimportWorkflow) 문서를 참고하세요.
+[/REGION]

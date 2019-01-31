@@ -1,0 +1,341 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith Metadata
+Description: Describes how you can get custom metadata about your assets into Unreal, and how you can use Blueprint and Python scripting to work with that metadata both in the Editor and at runtime.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 6
+Tags: Metadata
+Tags: Datasmith
+Tags: Guides
+topic-image:datasmith-metadata-topic.png
+
+
+![Using Datasmith Metadata](datasmith_metadata_banner.png "Using Datasmith Metadata")
+
+The Datasmith importer can automatically bring in *metadata* about the objects it handles: information that you set up for those objects in your 3D design or CAD application. Metadata is most often used to store real-world information about the mechanical part or architectural element that the asset represents, such as the cost of the piece, the material it's made of, physical properties like its weight or insulation efficiency, or usage information like the maximum torque to apply to a part. You can also use metadata to store any other kind of information about an asset that you might need for your Project.
+
+Having this metadata available in the Unreal Engine and Unreal Editor can help you in two ways:
+
+*   **In your asset pipeline** - You can use metadata when you're importing assets and setting up your levels, in order to help distinguish different kinds of assets and actors that need different processing. For example:  
+    *   You could use metadata during the Datasmith import process in order to identify certain kinds of assets that you won't need in your final scene, so that you can skip importing them.
+    *   After import, you could use it to identify Actors in your level that you want to merge, join, or replace, or whose materials you want to replace.
+*   **At runtime in your game** - You can use metadata at runtime, in order to show users selected information about your Actors that comes from your source design tool. For example:
+    *   If the objects in your Level have BIM data that contains information about their structural properties, you might want to visualize that information in your interactive experience when the player selects those objects in the scene.
+    *   Or, if your project is a product configurator that allows the player to choose between different design options, you might want your gameplay logic to calculate and show a running total of the cost of the player's current choices based on the cost metadata assigned to the visible assets.
+
+This page describes how to get metadata into Unreal through the Datasmith import process, and how access it in your scripts both in the Editor and at runtime.
+
+## Metadata Sources
+
+Datasmith currently imports metadata from the following design tools:  
+
+*   [Autodesk 3ds Max](#autodesk3dsmax)
+*   [Dassault Systèmes Solidworks](#dassaultsystèmessolidworks)
+*   [Trimble SketchUp Pro](#trimblesketchuppro)
+
+[REGION:note]
+Datasmith currently only handles metadata on geometry, not other kinds of scene objects like lights or cameras.
+[/REGION]
+
+### Autodesk 3ds Max
+
+Add your metadata to your 3ds Max objects on the **User Defined** tab of the **Object Properties** window.
+
+![Metadata in 3ds Max User Defined Properties](3ds_max_user_defined_properties.png "Metadata in 3ds Max User Defined Properties")
+
+To get to this panel for a mesh in 3ds Max:
+
+1.  Select the mesh in the outliner or the viewport.
+2.  Right-click and choose either **Properties** or **Object Properties** from the contextual menu, or select **Edit > Properties** from the main menu.
+3.  Enter your metadata into this panel as `key = value` pairs, as shown above.
+    [REGION:note]
+    **Be certain to leave a space on both sides of the `=` sign**. If you don't, Datasmith won't recognize your metadata, and won't import it as expected.
+    [/REGION]
+
+[REGION:tip]
+You can also set up user-defined properties [using MAXScript](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=__files_GUID_AF1F51D4_449B_4C4D_9F58_85DB145BC0B9_htm).
+[/REGION]
+[REGION:tip]
+If your model was originally created in Revit and then imported into 3ds Max, the user-defined properties should already be pre-set by the 3ds Max importer with the model's BIM information.
+[/REGION]
+
+### Dassault Systèmes SolidWorks
+
+When you import a SolidWorks file, Datasmith adds a minimal amount of pre-set metadata to each Static Mesh Actor it creates, to indicate the part name and assembly of that mesh in the original SolidWorks design. However, Datasmith does not currently carry over any custom metadata properties that you add to your parts and assemblies.
+
+### Trimble SketchUp Pro
+
+For each component you create in SketchUp, you can set [Advanced Attributes](https://help.sketchup.com/es/article/3000124#advanced-attributes) such as price, size and status:
+
+![Metadata in SketchUp Pro Advanced Attributes](sketchup-advaned-attributes.png "Metadata in SketchUp Pro Advanced Attributes")
+
+Datasmith imports all of these Advanced Attributes, including the Type value if any, into metadata.
+
+[REGION:note]
+The Datasmith metadata may be attached to the Actor that represents your component in the scene hierarchy, not to any of the individual Static Mesh Actors that represent the geometry of that component. If this is the case in your scene, you will need to adjust the Blueprint and Python examples shown below on this page.
+[/REGION]
+
+## Viewing Metadata in Unreal Editor
+
+After the Datasmith import process is complete, you can view the metadata for any Static Mesh Actor in your Level in its **Details** panel, under the **Asset User Data** section:
+
+![Viewing Datasmith metadata in Unreal](datasmith_metadata_in_editor.png "Viewing Datasmith metadata in Unreal")
+
+Datasmith metadata is currently read-only in the Editor.
+
+## Accessing Metadata in Blueprints and Python
+
+There are multiple different ways to access the metadata associated with your scene objects. Which one you should use depends on whether you need to access the metadata during the Datasmith import process, or after the import has finished.
+
+[REGION:note]
+All metadata keys and values are stored as strings in Unreal Engine, regardless of their original type in your design or CAD application. For example, if you set a metadata value in 3ds Max as a Boolean value like `true` or as a number like `312`, they will be strings when you read them back in a script within Unreal. If you need the values to be Booleans or numbers, use a Blueprint conversion node like **Utilities > String > String to Int** or **String to Float**, or built-in Python string parsing functions like `int()` or `float()`.
+[/REGION]
+
+### Accessing Metadata During Import
+
+If you need to access your metadata *during* the Datasmith import process — for example, to identify certain meshes that you want to filter out before generating Unreal assets for your scene — you can read the metadata from the Datasmith Scene or Datasmith CAD Scene. For background information on how to run a script during the input process, see [Customizing the Datasmith Import Process](Enterprise/Datasmith/Overview/CustomizingImportProcess).
+
+You'll find the metadata attached to *mesh actor elements* in the Datasmith Scene.
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent1]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent1]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent1]
+The nodes you'll need are under **Datasmith > Scene** and **Datasmith > Element**.
+
+[REGION:note]
+To reach these nodes, you need to disable the **Context Sensitive** checkbox in the contextual menu, or find the nodes you need in the Palette.
+[/REGION]
+
+*   You can retrieve an array of all metadata objects recorded for all objects in the Datasmith Scene:  
+    ![Get All Metadata](pre_import_get_all_metadata.png "Get All Metadata")
+*   You can start from a key name, and retrieve a list of all objects in the Datasmith Scene that have that key. You'll also get a list of all values recorded for that key across all those objects.  
+    ![Get All Objects and Values for Key](pre_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   Starting from a specific object, you can get an array of all its metadata objects:  
+    ![Get Metadata for Object](pre_import_get_for_object.png "Get Metadata for Object")
+*   If you know both the object and the name of the key you want, you can retrieve the value:  
+    ![Get Metadata Value For Key](pre_import_get_for_key.png "Get Metadata Value For Key")
+*   If you know the object and the *value*, but not the name of the key, you can get all keys on the object that have that value:  
+    ![Get Metadata Keys and Values for Value](pre_import_get_keys_and_values_for_value.png "Get Metadata Keys and Values for Value")
+
+For the nodes above that return a Datasmith Metadata Element object, you can get the keys and values from the metadata object by using **Datasmith > Element > Get Properties**, **Get Property** and **Get Property Count**:
+
+![Datasmith Metadata Element](pre_import_get_properties_from_md.png "Datasmith Metadata Element")
+
+**Example usage**
+
+This example shows how you could use the values assigned to a metadata key in order to identify geometry that you know you won't need in your Project, and remove it from your Datasmith Scene before creating Static Mesh assets for them:
+
+[REGION:lightbox]
+[![Datasmith metadata usage example](pre_import_remove_by_key.png "Datasmith metadata usage example")](pre_import_remove_by_key.png)
+
+*Click for full image.*
+[/REGION]
+[/EXCERPT:blueprintContent1]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent1]
+During the Datasmith import process, you can get to the metadata about your scene objects through the `unreal.DatasmithSceneElement` or `unreal.DatasmithCADSceneElement` object. For details on the following functions, see the [Python API Reference](https://api.unrealengine.com/INT/PythonAPI/).
+
+*   You can retrieve an array of all metadata objects recorded for all objects in the Datasmith Scene:  
+    `get_all_metadata(object_class)`
+*   You can start from a key name, and retrieve a list of all objects in the Datasmith Scene that have that key. You'll also get a list of all values recorded for that key across all those objects.  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   Starting from a specific object, you can get an array of all its metadata objects:  
+    `get_metadata_for_object(object)`
+*   If you know both the object and the name of the key you want, you can retrieve the value:  
+    `get_metadata_value_for_key(object, key)`
+*   If you know the object and the *value*, but not the name of the key, you can get all keys on the object that have that value:  
+    `get_metadata_keys_and_values_for_value(object, string_to_match)`
+
+**Usage example**
+
+This example shows how you could use the values assigned to a metadata key in order to identify geometry that you know you won't need in your Project, and remove it from your Datasmith Scene before creating Static Mesh assets for them:
+
+
+    key_name = "name"
+    remove_keyword = "Clutch"
+    meshes_to_skip = set([])
+    # Get all scene elements that have the "name" key.
+    objects_and_values = ds_scene_in_memory.get_all_objects_and_values_for_key(key_name, unreal.DatasmithMeshActorElement)
+    objects = objects_and_values[0]
+    values = objects_and_values[1]
+    # Iterate through them looking for ones whose value matches a keyword
+    for index, value in enumerate(values):
+        if remove_keyword in value:
+            print("removing actor named: " + value)
+            # Remove the mesh actor element from the scene, and put the mesh element in a list to remove later
+            mesh_actor = objects[index]
+            mesh = mesh_actor.get_mesh_element()
+            meshes_to_skip.add(mesh)
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+    # Remove all the meshes we don't need to import.
+    for mesh in meshes_to_skip:
+        mesh_name = mesh.get_element_name()
+        print("removing mesh named " + mesh_name)
+        ds_scene_in_memory.remove_mesh(mesh)
+[/EXCERPT:pythonContent1]
+[/COMMENT]
+
+### Accessing Metadata After Import
+
+When the import process finalizes your Datasmith or CAD scene into Unreal assets and Actors, it also applies the metadata from each mesh element in the Datasmith scene to all the Actors in the Level that represent instances of that Static Mesh asset. You can then use Blueprints or Python to retrieve the metadata for any or all of the Static Mesh Actors in your Level.
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent2]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent2]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent2]
+The following nodes access metadata for one specific Actor. These have very little impact on performance, so you can use them anytime, even at runtime in your project. If you want to visualize the imported metadata for one or more selected objects in your scene — say, in a callout or a menu in your project's runtime UI — these are the nodes you'll want to use in your runtime Blueprints.
+
+You'll find them under the **Datasmith User Data** category. 
+
+*   If you know the name of the key whose value you want to get:  
+    ![Get Datasmith User Data Value for Key](post_import_get_for_key.png "Get Datasmith User Data Value for Key")
+*   If you know the *value* you're looking for, but not the name of the key, you can get all keys on the Actor that have that value:  
+    ![Get Datasmith User Data Keys and Values for Value](post_import_get_keys_and_values_for_value.png "Get Datasmith User Data Keys and Values for Value")
+*   Or, you can retrieve a metadata object that contains *all* key-value pairs recorded for the Actor, so that you can iterate through them yourself:  
+    ![Get Datasmith User Data](post_import_get_user_data.png "Get Datasmith User Data")
+
+The following nodes, by contrast, access the metadata for all Static Mesh Actors in the current Level (or all that share a given class). Since your Level can potentially contain a large number of Actors, each with many properties, these functions may be expensive in CPU resources and could cause poor performance when used in runtime gameplay. Therefore, you can only use them in graphs that you create on Editor-only Blueprint classes.
+
+You'll find these nodes under the **Editor Scripting > Datasmith User Data** category.
+
+*   You can start from a key name, and retrieve a list of all Actors in the current Level that have that key in their Datasmith metadata. You'll also get a list of all values recorded for that key across all those objects.  
+    ![Get All Objects and Values for Key](post_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   You can retrieve the full list of all metadata objects for all Actors in the current Level:  
+    ![Get All Datasmith User Data](post_import_get_all_user_data.png "Get All Datasmith User Data")
+
+The **Get Datasmith User Data** and **Get All Datasmith User Data** nodes above return Datasmith User Data Object References. This object has one variable you can access, called Metadata, which is a map of all the key-value pairs that make up the object's Datasmith metadata. To work with this kind of object, drag off the output pin and select **Variables > Get Metadata**:
+
+![Datasmith User Data Object References](post_import_get_metadata_node.png "Datasmith User Data Object References")
+
+This gives you the keys and values as a map. You can then use the utility nodes in the **Utilities > Map** category to work with the data. For example, this graph iterates through all the keys one by one, and retrieves the value associated with each key:
+
+[REGION:lightbox]
+[![Iterate through the Map](post_import_iterate_userdata.png "Iterate through the Map")](post_import_iterate_userdata.png)
+
+*Click for full image.*
+[/REGION]
+
+For more information about working with Maps in Blueprints, see [Blueprint Maps](Engine/Blueprints/UserGuide/Maps).
+
+**Example usage**
+
+This section shows a simplified example of how you could visualize your asset metadata at runtime for an object that the player selects in the Level.
+
+![Metadata in a UMG widget](post_import_bp_result.png "Metadata in a UMG widget")
+
+The text is written by a UMG widget that contains two text fields, each bound to a string variable. In the Blueprint graph for the widget, a custom action extracts two items of Datasmith metadata from an Actor that you pass in a custom event, and saves those items to the bound variables.
+
+![UMG widget Event Graph](post_import_bp_ui.png "UMG widget Event Graph")
+
+The following Level Blueprint shows an example of how to add a widget like this when play begins, and how to feed it with the Actor under the cursor every time the user presses a mouse button.
+
+[REGION:lightbox]
+[![Set up and update the UMG widget](post_import_bp_level.png "Set up and update the UMG widget")](post_import_bp_level.png)
+
+*Click for full image.*
+[/REGION]
+
+For more information about building user interfaces in UMG, see [the UMG UI Designer Quick Start Guide](Engine/UMG/QuickStart) and the surrounding sections.
+[/EXCERPT:blueprintContent2]
+[/COMMENT]
+[COMMENT:none]
+[EXCERPT:pythonContent2]
+After the Datasmith import process is done, you can access metadata for all Actors or selected Actors using the `unreal.DatasmithContentLibrary` class. For details on the following functions, see the [Python API Reference](https://api.unrealengine.com/INT/PythonAPI/).
+
+*   You can retrieve the full list of all metadata objects for all Actors in the current Level:  
+    `get_all_datasmith_user_data(object_class)`
+*   You can start from a key name, and retrieve a list of all Actors in the current Level that have that key in their Datasmith metadata. You'll also get a list of all values recorded for that key across all those objects.  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   If you already know the Actor whose metadata you want to retrieve, you can get the value of a specific key:  
+    `get_datasmith_user_data(object)`
+*   If you know the *value* you're looking for, but not the name of the key, you can get all keys on the Actor that have that value:  
+    `get_datasmith_user_data_keys_and_values_for_value(object, string_to_match)`
+*   If you know the object and the *value*, but not the name of the key, you can get all keys on the object that have that value:  
+    `get_datasmith_user_data_value_for_key(object, key)`
+
+**Example usage**
+
+In Python scripts that you run inside the Unreal Editor, you can use Datasmith metadata after import in order to identify Static Mesh Actors in your Level that you want to apply certain special processing to.
+
+
+    import unreal
+    new_actor_name = "Exterior Walls"
+    metadata_key = "Type"
+    metadata_value = "Wall: Exterior"
+    meshes_to_join = set([])
+    # Iterate through the Actors in the current Level
+    all_actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    for actor in all_actors:
+        # Retrieve the value of this Actor's Datasmith metadata for the key set above, if any
+        actor_value = unreal.DatasmithContentLibrary.get_datasmith_user_data_value_for_key(actor, metadata_key)
+        # If the key exists, and its value contains a keyword set above, add the Actor to a list
+        if actor_value and metadata_value in actor_value:
+            print("found a matching actor: " + actor_value)
+            meshes_to_join.add(actor)
+    # Join all Actors that were found above into a single Actor with many components
+    options = unreal.EditorScriptingJoinStaticMeshActorsOptions(destroy_source_actors=True, new_actor_label=new_actor_name, rename_components_from_source=True)
+    unreal.EditorLevelLibrary.join_static_mesh_actors(meshes_to_join, options)
+    print "Merged all actors!"
+[/EXCERPT:pythonContent2]
+[/COMMENT]

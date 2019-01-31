@@ -1,28 +1,15 @@
-﻿INTSourceChangelist:2774060
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:3.创建基础资源
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第三步。创建基础资源
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:3
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/2 "%Engine/AI/BehaviorTrees/QuickStart/2:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/4 "%Engine/AI/BehaviorTrees/QuickStart/4:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
+[NAV]
 
 开始前，需要在 **内容浏览器** 中创建 4 个资源：一个 AI 控制器蓝图、一个角色蓝图、一个行为树资源，以及一个黑板资源。
 
@@ -30,6 +17,7 @@ version:4.9
 ![](ContentBrowser.jpg)
 [/REGION]
 
+(#Steps)
 ## 步骤
 
 1. **New** -> **Blueprint** -> **AI Controller**
@@ -62,7 +50,7 @@ version:4.9
 
 	将 **黑板** 命名为 “FollowerBlackboard”。
 
-
+[NAV]
 
 
 

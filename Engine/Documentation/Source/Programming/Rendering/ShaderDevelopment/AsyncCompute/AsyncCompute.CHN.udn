@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3151855
 Availability:Public
 Title:异步计算（AsyncCompute）
 Crumbs:%ROOT%, Programming, Programming/Rendering, Programming/Rendering/ShaderDevelopment
 Description:异步计算（AsyncCompute） 是交错不同 GPU 工作、提高效率的硬件功能。
 Version:4.9
+tags:Rendering
 
 渲染硬件接口（RHI）现支持 Xbox One 的异步计算（**AsyncCompute**）。此法可运行与渲染异步的 **dispatch()** 调用，有效利用未使用的 GPU 资源（计算单元（CU）、寄存器和带宽）。异步计算使用单独的上下文，我们通过 RHI 函数同步渲染和计算上下文。Dr PIX 可用于识别从异步计算获益的区域。例如，特定渲染通道中半数 CU 均未使用，这些 CU 则可能被异步计算任务所利用。异步计算存在一些限制：
 
@@ -28,6 +29,7 @@ Version:4.9
 在 RHIBeginAsyncComputeJob_DrawThread 和 RHIEndAsyncComputeJob_DrawThread 调用之间，RHI 处于异步计算状态。
 这段时间中，支持的 RHI 命令将通过异步计算上下文执行。不支持的 RHI 函数将断言。
 
+(#Disabling/Enabling)
 ## 启用/禁用
 
 编译时可通过 #define USE_ASYNC_COMPUTE_CONTEXT 启用或禁用异步计算。运行时可通过 r.AsyncCompute 控制台变量禁用。异步计算禁用后，异步计算块中的调度将在图形命令缓冲上同步执行。PC 上的 USE_ASYNC_COMPUTE_CONTEXT 被定义为 0，因 D3D11.1 不支持。
@@ -38,6 +40,7 @@ Version:4.9
 
 ![](PixTimingCapture.png)
 
+(#ThanksandFuture)
 ## 鸣谢和未来更新
 
 此功能由 Lionhead Studios 实现。我们将其整合并用作 Xbox One 渲染的优化工具。

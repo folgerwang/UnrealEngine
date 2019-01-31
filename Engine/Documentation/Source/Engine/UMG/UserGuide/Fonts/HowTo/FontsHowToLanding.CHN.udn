@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3399451
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
 Title:字体指南
@@ -16,6 +16,7 @@ Topic-Image:FontHowTo_Topic.png
 
 以下指南将说明在项目中创建和使用字体的要点。
 
+(#Beginner)
 ## 初级
 
 [DIR(output:"fancy" parent:"Engine/UMG/UserGuide/Fonts/HowTo" skill_level:"Beginner")]
@@ -24,10 +25,12 @@ Topic-Image:FontHowTo_Topic.png
 [COMMENT:none]
 - For future addition of tutorials in these skill levels ---
 
+(#DoingMorewithMaterials)
 ## 充分利用材质
 
 [DIR(output:"fancy" parent:"Engine/UMG/UserGuide/Fonts/HowTo" skill_level:"Intermediate")]
 
+(#PuttingItAllTogether)
 ## 汇总
 
 [DIR(output:"fancy" parent:"Engine/UMG/UserGuide/Fonts/HowTo" skill_level:"Advanced")]

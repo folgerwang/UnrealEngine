@@ -1,0 +1,66 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: SketchUp Pro 用 Datasmith Exporter プラグインをインストールする
+Description: SketchUp Pro 用 Datasmith Exporter プラグインのインストール方法について説明します。
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 3
+Tags: Enterprise
+Tags:how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-install-skp.png)
+
+Unreal Engine で SketchUp のコンテンツを使用した作業を開始する前に、SketchUp 用の Unreal Datasmith Exporter プラグインをインストールする必要があります。
+
+Exporter プラグインが現在サポートしている SketchUp Pro のバージョンについては、 [「Datasmith Supported Software and File Types」](Enterprise/Datasmith/SupportedSoftwareAndFileTypes) を参照してください。
+
+[REGION:tip]
+Datasmith Exporter プラグインのダウンロード リンクは、所属している組織の内外を問わず不特定多数のユーザーと共有していただけます。Datasmith Exporter プラグインのダウンロードおよび使用に際して Unreal Studio の利用資格は要求されません。ただし、Datasmith Exporter プラグインを自ら配布することは許可されません。
+[/REGION]
+
+## SketchUp 用 Datasmith Exporter のインストール
+
+次の手順に従って、コンピュータにインストールした、サポートされているバージョンの SketchUp の Datasmith Exporter プラグインをインストールしてください。
+
+1. マシン上で実行中の SketchUp のインスタンスをすべて終了します。起動しているインスタンスがあると、インストールは失敗します。
+1. 古いバージョンの Datasmith Exporter プラグインが既にインストールされている場合は、あらかじめアンインストールしておくことを推奨します。詳細については、 [SketchUp 用 Datasmith Exporter の削除](#SketchUp用DatasmithExporterの削除) を参照してください。
+1. Exporter プラグインを [「Datasmith Export Plugins」](https://www.unrealengine.com/studio/downloads) ページまたは Epic Games Launcher からダウンロードします。
+1. ダウンロードが完了したら、インストーラーを実行して使用許諾契約に同意し、プロンプトに従います。
+    ![Datasmith Exporter のインストーラー ウィザード](sketchup_installer.png "Datasmith Exporter のインストーラー ウィザード")
+1. プラグインがまだ Microsoft に登録されていないことが原因のセキュリティ警告が表示される場合があります。**[More info (詳細)]** をクリックします。
+    ![More info (詳細)](unnamed-image-resize546x189.png "More info （詳細）")  
+    **[Run Anyway (このまま実行)]** をクリックします。
+    ![Run anyway (このまま実行)](unnamed-image-resize549x190.png "Run anyway （このまま実行）")
+1. インストーラーは、お使いのシステムにインストールされている SketchUp Pro のバージョンを自動検出します。Datasmith 経由でエクスポートできるようにするバージョンのボックスをオンにして、 **[Install (インストール)]** をクリックします。
+    ![SketchUp のインストーラーのバージョン](sketchup_installer_versions.png "SketchUp のインストーラーのバージョン")
+
+### 最終結果
+
+Datasmith Exporter プラグインがインストールされたので、シーンを SketchUp から *「.udatasmith」* ファイルとしてエクスポートできるようになりました。[「Exporting Datasmith Content from SketchUp Pro」](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp) を参照してください。
+
+## SketchUp 用 Datasmith Exporter の削除
+
+**Unreal Datasmith Exporter for SketchUp** アプリケーションをお使いのシステムで検出して削除するには、Windows の標準のコントロール パネル ユーティリティを使用してください。
+
+例えば、Windows 10 の場合は **[アプリと機能]** コントロール パネルを使用します。リストにある Datasmith Exporter プラグインのエントリをクリックして、 **[アンインストール]** をクリックします。
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png)](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png) 
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+または、コントロール パネルの **[プログラムのアンインストールまたは変更]** を使用します。Datasmith Exporter プラグインのエントリを右クリックして、コンテキスト メニューから **[アンインストール]** を選択します。
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-uninstallchange.png "uninstall-datasmith-sketchup-plugin-uninstallchange.png")](uninstall-datasmith-sketchup-plugin-uninstallchange.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]

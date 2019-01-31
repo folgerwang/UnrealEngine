@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4649792
 Availability: Public
 Title:피지컬 머티리얼 사용 안내서
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/PhysicalMaterials
@@ -14,7 +14,7 @@ SkillLevel: Intermediate
 
 ## 생성
 
-1. **콘텐츠 브라우저** 에서 ![](Engine/Audio\SoundCues\Editor\button_CB_NewAsset.png) **추가** -> **피직스** -> **피지컬 머티리얼** 을 클릭하거나, **콘텐츠 브라우저** 우클릭 맥락메뉴 -> **새 애셋** -> **피직스** -> **피지컬 머티리얼** 을 선택합니다.
+1. **콘텐츠 브라우저** 에서 ![](Engine/Audio\SoundCues\Editor\button_CB_NewAsset.png) **추가** -> **피직스** -> **피지컬 머티리얼** 을 클릭하거나, **콘텐츠 브라우저** 우클릭 컨텍스트 메뉴 -> **새 애셋** -> **피직스** -> **피지컬 머티리얼** 을 선택합니다.
 
 	![](PhysMatCreate.jpg)
 

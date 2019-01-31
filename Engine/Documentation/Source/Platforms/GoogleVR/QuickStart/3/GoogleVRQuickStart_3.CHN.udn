@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:3484583
+﻿INTSourceChangelist:3723511
 Availability:Public
 Title:3.Google VR 项目打包和部署
 Crumbs:%ROOT%, Platforms/GoogleVR
 Description:打包和部署用于 Google VR 的 UE4 项目。
 Navigation:platform
 Skilllevel:Intermediate
-Version:4.16
+Version:4.17
 Parent:Platforms/GoogleVR/QuickStart
 order:3
 type:multi-step
 tags:VR
 tags:Google VR
-
+Checkpoint: GoogleVRQS
 [NAV]
 
 此部分讲解如何打包 UE4 项目，以便其在 Google VR 设备上运行。
@@ -20,11 +20,14 @@ tags:Google VR
 执行进一步操作前，请先确保用于测试的智能手机已通过 USB 线连接到开发电脑，且 ADB 已将手机识别为授权设备。如您不确定操作方法，或 ADB 无法识别设备，请查看此页面 [Android 指南-设置 Android 设备](https://docs.unrealengine.com/latest/INT/Platforms/Android/GettingStarted/2/) 中的详细内容。
 [/region]
 
-1. 前往 **主工具栏** 的 **File** 菜单，选择 **Package Project** > **Android** > **Android (ATC)** 开始打包。
+(#Steps)
+## 步骤
+
+1. 前往 **主工具栏** 的 **File** 菜单，选择 **Package Project** > **Android** > **Android (ASTC)** 开始打包。
 
     ![](GVRQS_Package_Project_00.png)
 
-1. 选择 Android(ATC) 后将出现一个 Windows 对话框。选择此对话框中的 **Make New Folder** 选项，将文件夹命名为 **Androids_Builds**。文件夹创建后，按下 **Okay** 键开始打包。
+1. 选择 Android(ASTC) 后将出现一个 Windows 对话框。选择此对话框中的 **Make New Folder** 选项，将文件夹命名为 **Androids_Builds**。文件夹创建后，按下 **Okay** 键开始打包。
 
     ![](GVRQS_Package_Project_Location_00.png)
 
@@ -73,5 +76,10 @@ tags:Google VR
 
     在出现的菜单中，扫描 VR 设备侧面的 QR 码，确保 UE4 输出与 VR 设备兼容的图像。
     [/region]
+
+(#EndResult)
+## 最终结果
+
+完成后，您就可以浏览使用 Google VR 的 UE4 项目了。
 
 [NAV]

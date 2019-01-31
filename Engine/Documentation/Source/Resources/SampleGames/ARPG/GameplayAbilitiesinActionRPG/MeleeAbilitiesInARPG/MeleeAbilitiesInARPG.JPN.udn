@@ -1,0 +1,36 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: ARPG のメレー アビリティ
+Description: ARPG でのメレー アビリティの設定方法を説明します。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 2
+Tags: 
+
+
+Action RPG (ARPG) には、 **メレー** と **スキル** という 2 つの主なアビリティ タイプがあります。これらのアビリティは類似していますが、異なる点がいくつかあります。例えば、メレー アビリティはキャラクターの武器が敵とオーバーラップした際に有効になり、スキル アビリティではスキル特有のライン トレース チェックを使用します。下の図では、すべてのメレー アビリティのベースである **GA_MeleeBase** のブループリント グラフが示されています。
+
+[REGION:lightbox]
+[![](ARPG_Melee20_Abilities_01.png)(w:800px)](ARPG_Melee20_Abilities_01.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]
+
+アビリティの開始時に **ActivateAbility** が呼び出され、アビリティに対する **Cost** (ARPG の一般的なマナ) および **Cooldown** のコミットに **CommitAbility** が使用されます。 **EndAbility** が呼び出されて、アビリティの実行が完了したことをシステムに伝えます。その他 2 つのノードは ARPG に特有なものです。ゲームには必要に応じて新しい関数およびノードが追加されることを想定しています。
+
+**PlayMontageandWaitForEvent** は **AbilityTask** ノードであり、 **URPGAbilityTask_PlayMontageAndWaitForEvent** に対応します。AbilityTasks は、タスク (この場合は PlayMontageAndWaitForEvent) と、タスクの実行に使用される変数と関数を作成するために、一連の静的な関数を定義する特別なオブジェクトです。また、タスクからアクティベートされる一連の動的またはブループリントのデリゲートもあります。それぞれの出力実行ピン (上部横にあり、常にすぐアクティベートされます) はこれらのデリゲートの 1 つに対応し、その出力データ ピンはデリゲートのシグネチャに一致します。この特定のタスクは **UAbilityTask_PlayMontageAndWait** および **UAbilityTask_WaitGameplayEvent** の組み合わせであり、ゲーム特有の微調整とコメントが含まれます。ゲームにはいくつかの新しいゲームプレイ タスクを実装する必要があると想定されるので、このタスクはこの設定方法を示す良い例です。
+
+これらのタスクは、最初にモンタージュを再生して、次に **AbilitySystemComponent** から放出されるべきゲームプレイ イベントをリッスンすることで機能します。放出されたゲームプレイ イベントが、渡された **EventTags** と一致する場合は、タグを含む **EventReceived** 実行ピンと、後に **ApplyEffectContainer** 関数を呼び出すペイロードがアクティベートされます。モンタージュがブレンド、中断またはキャンセルされると、アビリティが終了します。実際のゲームプレイ イベントは、次のロジックを使用して **WeaponActor** ブループリントから放出されます。
+
+![ARPG_Melee_Abilities_02.png](ARPG_Melee20_Abilities_02.png "ARPG_Melee_Abilities_02.png")
+
+武器アクタがキャラクターとオーバーラップした際にこれがトリガーされます。トリガーされると、 **GameplayEventData** ペイロードを構築して、 **Target Actor + Instigator** を渡します。次に、モンタージュに含まれる **Anim Notify** ステートによって設定されるタグを使用して、ゲームプレイを送信します。イベントがトリガーされると、アビリティ グラフでは **EventReceived** 実行ピンがアクティベートされます。**ApplyEffectContainer** ノードは **URPGGameplayAbility::ApplyEffectContainer** に対応し、一連のゲームプレイ エフェクトを適用します。それぞれの URPGGameplayAbility には **FRPGGameplayEffectContainer** 構造に対するタグのマップが含まれており、これにはターゲット情報および適用するゲームプレイ エフェクトのリストが含まれています。次の例では、 **GA_PlayerAxeMelee** からのマップを示しています。
+
+![ARPG_Melee_Abilities_03.png](ARPG_Melee20_Abilities_03.png "ARPG_Melee_Abilities_03.png")
+
+ **AM_Attack_Axe** モンタージュが実行されると、 **Event.Montage.Shared.WeaponHit GameplayEvent** が放出された際に、ターゲット クラスである **RPGTargetType_UseEventData** を使用して **GE_PlayerAxeMelee** エフェクトを実行することを示しています。このターゲット タイプは **「RPGTargetType.cpp」** ファイルにあるネイティブ C++ で実装され、渡された **EventData** からターゲット アクタおよびヒット結果を抽出します。このマップの 2 番目のエレメントは **BurstPound** 特別攻撃を実行します。このスキルについては後述します。
+
+**ApplyEffectContainer** では 2 つの処理が行われます。最初に、渡されたタグと一致するマップ内で **FRPGGameplayEffectContainer** を探します。見つけた場合は、 **TargetData** と **EffectSpecs** のリストを含む **FRPGGameplayEffectContainerSpec** を作成します。次に、その **ContainerSpec** を適用します。これにより、ターゲットに実際のダメージが与えられます。ターゲット データは、ヒット結果、アクタまたはその他のゲーム特有のものを含むポリモーフィック ターゲット構造の配列をポイントする **FGameplayAbilityTargetDataHandle** です。EffectSpecs は、適用するエフェクトとキャプチャ済みの属性値のリストをポイントする **FGameplayEffectSpecHandle** の配列です。エフェクトおよびターゲット データをキャプチャすると、後にそれらを提供、変更、実行することができます。ただし、メレーの場合はキャプチャされた直後に実行されます。アビリティ システムを採用するゲームには **ApplyEffectContainer** と同様のシステムを実装することをお勧めします。こうすることで、親アビリティにブループリント ロジックを設定し、実行するエフェクトのリストを子のブループリントに含める作業が容易になります。ただし、ゲームはそれぞれ異なっており、ゲームにクライアント予測ターゲティングが含まれる場合は、ARPG で使用しているバージョンよりも大幅に複雑になります。

@@ -1,27 +1,15 @@
-﻿INTSourceChangelist:2757188
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:7.AI 控制器蓝图：初始黑板值
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第七步。AI 控制器蓝图：初始黑板值
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:7
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/6 "%Engine/AI/BehaviorTrees/QuickStart/6:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/8 "%Engine/AI/BehaviorTrees/QuickStart/8:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 [REGION:lightbox]
 [![](fullEG.png)(w:940 convert:false)](fullEG.png)
@@ -29,6 +17,7 @@ version:4.9
 
 现在我们需要在 **黑板** 上设置 “HomeLocation” 键。该步骤内容较多。
 
+(#Steps)
 ## 步骤
 
 1. 需要一个 **Get Blackboard** 节点和一个 **Get Controlled Pawn** 节点。
@@ -75,7 +64,7 @@ version:4.9
 
 在下一步中，我们将继续对此图表进行编辑，并将其添加至这个图表中，使 AI 控制器运行指定的行为树。
 
-
+[NAV]
 
 
 

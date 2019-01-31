@@ -1,52 +1,19 @@
-﻿INTSourceChangelist:3032506
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:状态机总览
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/StateMachines
 Description:解析状态机的工作原理和其内部使用的核心系统。
-version:4.12
+version:4.14
 related:Engine/Animation/StateMachines/CreatingStateMachines
 related:Engine/Animation/StateMachines/EditingStateMachines
 related:Engine/Animation/StateMachines/TransitionRules
 related:Engine/Animation/AnimBlueprints
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\StateMachines\Overview:title%](Engine\Animation\StateMachines\Overview\StateMachineImage.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\StateMachines\Overview:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\StateMachines\Overview]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\StateMachines\Overview:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\StateMachines\Overview:title%](Engine\Animation\StateMachines\Overview\StateMachineImage.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\StateMachines\Overview:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\StateMachines\Overview]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\StateMachines\Overview:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:overview
+topic-image:StateMachineImage.png
 
 [TOC (start:2)]
 
-动画 **状态机（State Machines）** 可助您以更模块化的方式理解 [**动画蓝图**](Engine/Animation/AnimBlueprints/)。用户可定义角色或骨架网格体将拥有的诸多状态。此外还可定义角色或骨架网格体进入和退出每种状态的时机，与流程图相似。 
+动画 **状态机（State Machines）** 可助您以更模块化的方式理解 [动画蓝图](Engine/Animation/AnimBlueprints/)。用户可定义角色或骨架网格体将拥有的诸多状态。此外还可定义角色或骨架网格体进入和退出每种状态的时机，与流程图相似。 
 
 例如，您可能拥有如下定义角色动画流程的流程图：
 
@@ -61,7 +28,7 @@ related:Engine/Animation/AnimBlueprints
 
 ## 剖析状态机
 
-状态机的主要构成部分有二：各种状态的网络、以及定义状态转入转出的规则。每种状态和每条规则设置都是其自身浓缩的 [**蓝图**](Engine/Blueprints) 网络。这易于处理复杂动画混合，无需使用过于复杂的 **AnimGraph**。 
+状态机的主要构成部分有二：各种状态的网络、以及定义状态转入转出的规则。每种状态和每条规则设置都是其自身浓缩的 [蓝图](Engine/Blueprints) 网络。这易于处理复杂动画混合，无需使用过于复杂的 **AnimGraph**。 
 
 ### 状态
 
@@ -79,7 +46,7 @@ related:Engine/Animation/AnimBlueprints
 
 ![](MoveState.png)
 
-此状态中可能包含一个由角色速度和移动方向定义的 [**混合空间**](Engine/Animation/Blendspaces)。
+此状态中可能包含一个由角色速度和移动方向定义的 [混合空间](Engine/Animation/Blendspaces)。
 
 ![](MovementInside.png)
 

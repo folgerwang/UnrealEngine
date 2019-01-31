@@ -1,11 +1,12 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:查找 Actor
 Crumbs: %ROOT%, Gameplay
 Description:在虚幻引擎 4 的场景中查找 Actor 的操作指南。 
 Version: 4.9
 Parent:Gameplay
-type:how-to
+SkillLevel: Intermediate
+type:overview
 order:11
 
 开始构建游戏及其关卡时，您可能会发现在场景中定位单个 Actor 十分困难。从关卡背景或几何体、NPC 或敌人到交互对象或道具，您的场景中包含数百个 Actor 并不罕见，而要从中定位某个 Actor 就好比“大海捞针”。 
@@ -27,20 +28,7 @@ order:11
 您可以使用这些方法依据各种标准在场景中搜索 Actor，同时还可根据需要进行访问或修改。 
 
 
-## 设置
+(#ImplementationGuides)
+## 实现指南
 
-关于使用蓝图查找 Actor 的详细信息，请访问以下链接：
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\FindingActors\Blueprints)
-[COMMENT:none]
- When Code is Ready we will re-enable this link.
-* [](Gameplay\HowTo\FindingActors\Code)
-
-[/COMMENT]
-[/REGION]
-
-
-
-
-
+[DIR(output:"role" parent:"Gameplay/HowTo/FindingActors" org:"hierarchy" end:"1")]

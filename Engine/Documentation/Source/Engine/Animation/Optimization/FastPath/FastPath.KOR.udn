@@ -17,7 +17,7 @@ parent:Engine/Animation/Optimization
 
 ![](DirectMemberAccess.png)
 
-## 부정 불리언 멤버 변수 접근
+## 부정 부울 멤버 변수 접근
 
 ![](NegatedBooleanAccess.png)
 

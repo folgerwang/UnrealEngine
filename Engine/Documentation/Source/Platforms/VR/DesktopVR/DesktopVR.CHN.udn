@@ -1,27 +1,29 @@
-﻿INTSourceChangelist:0
-Availability: Public
+﻿INTSourceChangelist:3692730
+Availability: NoPublish
 Crumbs: %ROOT%
-Title: Desktop Virtual Reality Development
-Description: Information over developing for desktop based virtual reality platforms.
+Title: 台式机的虚拟现实开发
+Description: 为基于台式机的虚拟现实平台进行开发的相关信息。
 Type: Landing
 Version: 4.16
-Parent: Platforms
+Parent: Platforms/VR
 Order: 1
+tags:Platform
+tags:VR
 topic-icon:%ROOT%/platform_icon.png
 
 ![](Header_00.png)
 
-Unreal Engine 4 (UE4) supports a wide range of desktop based Virtual Reality (VR) Head Mounted Displays (HMD's), Motion Controllers and their corresponding Software Development kits. Contained with the pages linked below you will find a multitude of different documents that can help you get any of the supported VR HMD's working with your UE4 project.
+虚幻引擎4（UE4）支持多种基于台式机的虚拟现实（VR）头盔显示器（HMD）、运动控制器及其相应的软件开发套件。在下面所链接的各个页面中，你将找到大量不同的文档，它们可帮助你使任何受支持的VR HMD可用于UE4项目。
 
-## Supported Desktop VR Head Mounted Displays
+## 受支持的台式机VR头盔显示器
 
-UE4 natively supports the following desktop based VR HMD's: 
+UE4本身支持以下基于桌面的VR HMD： 
 
 * **Oculus Rift**
 * **HTC Vive** 
 
 
-The fact that UE4 natively supports the above desktop HMD's means that you do not need to do any additional downloading or compiling to view your UE4 project in VR.  Below you will find links to documentation that will explain how to get your UE4 project to work with the supported HMD of your choice.
+事实上，UE4本身支持上述桌面HMD意味着你无需额外进行下载或编译就可在VR模式下查看UE4项目。下面所链接的文档介绍了如何使UE4项目可使用你选择的受支持的HMD。
 
 ## Oculus Rift
 

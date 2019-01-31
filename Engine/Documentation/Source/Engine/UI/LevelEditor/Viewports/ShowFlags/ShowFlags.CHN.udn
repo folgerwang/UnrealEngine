@@ -1,252 +1,260 @@
-﻿INTSourceChangelist:1950181
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:视口显示标志
-Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Viewports
-Description:可以在视口中显示及隐藏的各种对象。
+Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor/Viewports
+Description:所有可用于视口的显示标志的描述。
+Version: 4.9
+topic-image:ShowFlags_Topic.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ShowFlags_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		显示标志
-	[/PARAM]
-	[PARAM:description]
-		关于视口中所有可用Show Flags（显示标志）的介绍。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ShowFlags]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ViewportPIP_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		视口显示标志
-	[/PARAM]
-	[PARAM:description]
-		关于视口中所有可用Show Flags（显示标志）的介绍。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/UserGuide/LevelEditor/Viewports/ShowFlags]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
-![](ShowFlags_Topic.png)
+![](ShowFlagHeader.png)
 [/REGION]
 
 [TOC(start:2 end:2)]
 
 
-## 概述
-
-Show Flags（显示标志）选项位于视口的 **Show（显示）** 菜单下。这些显示标志使您可以显示及隐藏很多从视口中看到的项目。比如，您可以隐藏所有粒子、所有地貌对象、或一些更高级的内容（比如关闭所有精灵图标）。
 
 
-## 一般
+显示标志可在视口的 **显示（Show）** 菜单下找到。它们是你可以用来显示和隐藏在视口中查看的许多项目的手段。例如，你可以隐藏所有粒子，隐藏所有地形Object，或是进行关闭所有Sprite图标之类的更高级操作。
 
-|**一般**||
+
+(#common)
+## 普通
+
+|**普通**||
 |---|---|
-|[REGION:tablesection]名称[/REGION]|[REGION:tablesection]Description[/REGION]|
-|**Anti-aliasing（抗锯齿）**| 显示/隐藏 抗锯齿效果。|
-|**Atmosphere（大气）**|显示/隐藏 关卡中的任何大气雾层。|
-|**BSP** |显示/隐藏 关卡中所有的BSP表面。_(Alt + Q)_ |
-|**Collision(碰撞)**|显示/隐藏 关卡中的碰撞对象。_(Alt + C)_ |
-|**Decals（贴花）**|显示/隐藏 场景中的贴花。|
-|**Fog（雾）**|显示/隐藏 高度雾效果。_(Alt + F)_ |
-|**Grid（网格）**|显示/隐藏 网格。|
-|**Landscape（地貌）**|显示/隐藏 所有地貌对象。 _(T)_ |
-|**Navigation（导航）**|显示/隐藏 所有导航网格物体或其他导航actor。_(P)_|
-|**Particles Sprite（粒子精灵图标）**|显示/隐藏 场景中的所有粒子。|
-|**Skeletal Meshes（骨架网格物体）**|显示/隐藏 场景中的所有骨架网格物体。|
-|**Static Meshes（静态网格物体）**|显示/隐藏 场景中的 静态网格物体。_(Alt + W)_|
-|**Translucency（半透明物体）**|显示/隐藏 所有具有半透明材质的物体。 顺便说一下，这包含所有的精灵图标。|
+|[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
+|**抗锯齿（Anti-aliasing）**|显示/隐藏抗锯齿效果。|
+|**BSP** |显示/隐藏关卡中的任何笔刷。_（**Alt + Q**）_ |
+|**碰撞（Collision）** |显示/隐藏关卡中的碰撞Object。_（**Alt + C**）_ |
+|**贴花（Decals）**|显示/隐藏场景中的贴花。|
+|**雾（Fog）**|显示/隐藏高度雾效果。_（**Alt + F**）_ |
+|**网格（Grid）**|显示/隐藏网格。|
+|**地形（Landscape）**|显示/隐藏任何地形Object。_（**T**）_ |
+|**寻路（Navigation）**|显示/隐藏任何寻路网格体或其他寻路Actor。_（**P**）_|
+|**粒子Sprite（Particles Sprite）**|显示/隐藏场景中的任何粒子。|
+|**骨架网格体（Skeletal Meshes）**|显示/隐藏场景中的任何骨架网格体。|
+|**静态网格体（Static Meshes）**|显示/隐藏场景中的任何静态网格体。_（**Alt + W**）_ |
+|**半透明（Translucency）**|显示/隐藏所有具备半透明材质的Object。顺便说一下，这也包括所有公告板图标。|
 
 
+(postprocessing)
 ## 后期处理
 
 
 |后期处理||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Bloom（光溢出）**|显示/隐藏 光溢出效果。|
-|**Camera Imperfections（相机缺陷）**|显示/隐藏 相机缺陷的效果。|
-|**Color Grading（颜色分级）** |显示/隐藏 颜色分级的效果。|
-|**Depth of Field（景深）**|显示/隐藏 景深的效果。|
-|**Eye Adaptation（眼适应）**|显示/隐藏 眼适应效果。|
-|**Grain（颗粒）**|显示/隐藏 颗粒效果。|
-|**HMD Distortion（头戴显示器变形）**|显示/隐藏 头戴显示器变形的效果，就像Oculus Rift所使用的效果一样。
-|**Lens Flares（镜头眩光）**|显示/隐藏 镜头眩光效果。|
-|**Motion Blur（运动模糊）**|显示/隐藏 运动模糊效果。|
-|**Post Process Material（后期处理材质）**|显示/隐藏 场景中任何可混合的后期处理材质的效果。
-|**Scene Color Fringe（场景彩色边纹）**|显示/隐藏 任何场景彩色条纹特效的结果。|
-|**Screen Percentage（屏幕百分比）**|显示/隐藏 屏幕百分比后期处理特效的结果。|
-|**Tonemapper**|显示/隐藏 色调映射器的效果。|
-|**Vignette（装饰图案）**|显示/隐藏 装饰图案的效果。|
+|**泛光（Bloom）**|显示/隐藏效果泛光。|
+|**摄像机缺陷（Camera Imperfections）**|显示/隐藏摄像机缺陷效果。|
+|**颜色分级（Color Grading）** |显示/隐藏颜色分级效果。|
+|**景深（Depth of Field）**|显示/隐藏景深效果。|
+|**眼部适应（Eye Adaptation）**|显示/隐藏眼部适应效果。|
+|**颗粒（Grain）**|显示/隐藏颗粒效果。|
+|**HMD畸变（HMD Distortion）**|显示/隐藏头戴式显示器（例如用于Oculus Rift的显示器）的畸变效果。|
+|**镜头光斑（Lens Flares）**|显示/隐藏镜头光斑效果。|
+|**动态模糊（Motion Blur）**|显示/隐藏动态模糊效果。|
+|**材质后期处理（Post Process Material）**|显示/隐藏场景中任何可混合的材质后期处理的效果。|
+|**场景彩色边纹（Scene Color Fringe）**|显示/隐藏任何场景彩色边纹效果的结果。|
+|**屏幕百分比（Screen Percentage）**|显示/隐藏屏幕百分比后期处理效果的结果。|
+|**色调映射器（Tonemapper）**|显示/隐藏色调映射器效果。|
+|**晕映（Vignette）**|显示/隐藏晕映效果。|
 
+(#lighttypes)
+## 光源类型
+|光源类型||
+|---|---|
+|[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
+|**定向光源（Directional Lights）**|显示/隐藏来自场景中的定向光源Actor的光照结果。|
+|**点光源（Point Lights）**|显示/隐藏来自场景中的点光源Actor的光照结果。|
+|**天空光照（Sky Lighting）**|显示/隐藏来自场景中的天空光源Actor的光照结果。|
+|**聚光源（Spot Lights）**|显示/隐藏来自场景中的聚光源Actor的光照结果。|
+
+(#lightingcomponents)
 ## 光照组件
 
 |光照组件||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Ambient Occlusion（环境遮挡）**|显示/隐藏 场景中的环境遮挡。|
-|**Diffuse（漫反射）**|显示/隐藏 场景中的漫反射光照的效果，这包括了大部分场景颜色。|
-|**Direct Lighting（直接光照）**|显示/隐藏场景的直接光照，这包括了大部分的场景高光。|
-|**Dynamic Shadows（动态阴影）**|显示/隐藏 场景中的动态阴影。|
-|**Global Illumination（全局光照）**|显示/隐藏 场景中的全局光照的效果。|
-|**Specular（高光）**|显示/隐藏 场景中的高光效果。|
+|**环境光遮蔽（Ambient Occlusion）**|显示/隐藏场景中的任何环境光遮蔽。|
+|**漫射（Diffuse）**|显示/隐藏场景中的漫射光照结果，这包含了大部分场景颜色。|
+|**直接光照（Direct Lighting）**|显示/隐藏直接光照结果，这包含了大部分场景高光。|
+|**动态阴影（Dynamic Shadows）**|显示/隐藏场景中的动态阴影。|
+|**全局光照（Global Illumination）**|显示/隐藏场景中的全局光照结果。|
+|**高光度（Specular）**|显示/隐藏场景中的高光度结果。|
 
-
-##光照功能
+(#lightingfeatures)
+## 光照功能部件
 
 |光照组件||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Ambient Cubemap(环境立方体贴图)**|显示/隐藏 环境立方体贴图的效果。|
-|**Indirect Lighting Cache（间接光照缓存）**|显示/隐藏 动态对象上的间接光照的效果。
-|**Light Functions（光照函数）**|显示/隐藏 光源上的光照函数材质的效果。|
-|**Light Shafts（光束）**|显示/隐藏 光束效果。|
-|**Reflection Environment（反射环境）**|显示/隐藏 反射环境的效果。|
-|**Reflection Environment Lightmap Mixing（反射环境光照贴图混合）**|显示/隐藏 反射环境效果的任何光照贴图数据。|
-|**Screen Space Reflections（屏幕空间反射）**|显示/隐藏 屏幕空间反射的效果。|
-|**Textured Light Profiles (IES 贴图)**|显示/隐藏 IES光照概述文件的效果。|
+|**环境立方体贴图（Ambient Cubemap）**|显示/隐藏环境立方体贴图的结果。|
+|**距离场环境光遮蔽（Distance Field Ambient Occlusion）**|显示/隐藏从距离场网格体生成的环境光遮蔽的结果。|
+|**距离场全局光照（Distance Field Global Illumination）**|显示/隐藏从距离场网格体生成的全局光照的结果。|
+|**间接光照缓存（Indirect Lighting Cache）**|显示/隐藏间接光照在动态Object上的结果。|
+|**光源函数（Light Functions）**|显示/隐藏光源函数材质在光源上的结果。|
+|**光束（Light Shafts）**|显示/隐藏光束的结果。|
+|**反射环境（Reflection Environment）**|显示/隐藏反射环境的结果。|
+|**屏幕空间环境光遮蔽（Screen Space Ambient Occlusion）**|显示/隐藏任何屏幕空间环境光遮蔽的结果。|
+|**屏幕空间反射（Screen Space Reflections）**|显示/隐藏任何屏幕空间反射的结果。|
+|**次表面散射（Subsurface Scattering）**| 显示/隐藏屏幕空间中任何次表面散射的结果。|
+|**纹理光源配置文件（IES纹理）（Textured Light Profiles (IES Textures)）**|显示/隐藏IES光照配置文件的结果。|
 
 
-##开发者
+(#developer)
+## 开发人员
 
-|开发者||
+|开发人员||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**AI Debug（AI调试）**|这显示了一个AI驱动的pawn沿着一个Nav Mesh导航时所使用的路径。|
-|**Blur GBuffer**|显示/隐藏  **Blue GBuffer Intensity** 的效果,  **Blue GBuffer Intensity** 是后期处理体积上一个属性。这个功能会模糊GBuffer的法线，调整GBuffer的粗糙度，来降低高光效果失真。但是，要获得这个效果会有很高的性能消耗，所以一般您应该考虑仅使用 Temporal AA。 |
-|**GBuffer Hints (材指数型)**|给具有不正确的材质对象着色。黄色用于不反光的对象；红色，用于发射出的光比其接受的光更多的对象。
-|**Hit Proxies（点击代理）**|显示/隐藏 点击检测所使用的代理形状。|
-|**Log Visualizer（日志查看器）**|日志查看器系统要求描画到屏幕上的任何数据。
-|**On Screen Debug（在屏幕上调试）**|这项用于隐藏类似于VisualizeTexture 或统计数据输出这样的内容。|
-|**Refraction（折射）**|显示/隐藏 材质上的折射效果。|
-|**Shadows of Editor-Hidden Actors（编辑中隐藏的Actor的阴影）**|显示编辑器中隐藏的对象的动态阴影，比如那些通过按下H键隐藏的对象。|
-|**Test Image（测试图片）**|显示一张测试图片，用于配置显示器及图形设置。|
-|**Vector Fields（向量域）**|显示/隐藏 场景中的任何向量场。|
+|**AI调试（AI Debug）**|这会显示AI驱动的Pawn用于沿寻路网格体寻路的路径。|
+|**复合编辑器Primitives（Composite Editor Primitives）**|显示/隐藏场景中的编辑器Primitives。|
+|**Gameplay调试（Gameplay Debug）**|这会显示AI驱动的Pawn用于沿寻路网格体寻路的路径。|
+|**GBuffer提示（材质属性）（GBuffer Hints (material attributes)）**|对具有不恰当材质的Object上色。黄色表示Object不可能是不反光的，红色表示Object发出的光比其接收的还多。|
+|**命中代理（Hit Proxies）**|显示/隐藏命中检测所使用的代理形状。|
+|**Log Visualizer**|将Log Visualizer系统需要的任何数据拖到屏幕中。|
+|**屏幕调试（On Screen Debug）**|这用于隐藏VisualizeTexture或统计输出等信息。|
+|**折射（Refraction）**|显示/隐藏材质上的折射结果。|
+|**编辑器隐藏的Actor的阴影（Shadows of Editor-Hidden Actors）**|显示在编辑器中隐藏的Object（例如通过按 **H** 键隐藏的Object）的动态阴影。|
+|**测试图像（Test Image）**|显示用于显示器配置和图形设置的测试图像。|
+|**矢量场（Vector Fields）**|显示/隐藏场景中的任何矢量场。|
 
 
+(#visualize)
 ## 可视化
 
 |可视化||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Adaptive Depth of Field（自适应的景深）**|给视图应用一个颜色编码过滤器，以便把通过景深模糊的对象涂为绿色，仅聚焦的区域接收正常的颜色。|
-|**Depth of Field Layers（景深图层）**|给视图应用一个颜色编码过滤器，以便使通过近景深变模糊的对象呈现为绿色，通过远景深变模糊的对象呈现为蓝色。聚焦的对象呈现为黑色。|
-|**HDR（高清渲染）**|显示一个可视化查看窗口，展示了场景柱状图、及所暴露的设置是如何影响亮度的。|
-|**Motion Blur(运动模糊)**|当启用运动模糊时，该项将视图改为一个运动模糊查看器，允许您查看用于计算模糊效果的运动向量。|
-| [**Out of Bounds Pixels（超出边界的像素）**](Engine/Performance/Visualizers/OutOfBoundsPixels) | 如果一个对象的像素存在于那个对象的边界体积的外面，那么当边界体积(而不是那个网格物体)离开相机时，会导致闪烁或对象消失。这个可视化查看器把这些像素着色为蓝色、红色及白色。|
+|**自适应景深（Adaptive Depth of Field）**|对视图应用颜色编码过滤器，使被景深模糊的Object染上绿色，只有聚焦的区域才显示正常颜色。|
+|**泛光（Bloom）**| 显示一个可视化窗口，其中显示场景直方图以及各种设置如何影响泛光。|
+|**景深图层（Depth of Field Layers）**|对视图应用颜色编码过滤器，使被近景深模糊的Object显示为绿色，被远景深模糊的Object显示为蓝色。被聚焦的Object显示为黑色。|
+|**距离场环境光遮蔽（Distance Field Ambient Occlusion）**| 显示根据网格距离场生成的环境光遮蔽的可视化表示。|
+|**距离场全局光照（Distance Field Global Illumination）**| 显示根据网格距离场生成的全局光照的可视化表示。|
+|**HDR**| 显示一个可视化窗口，其中显示场景直方图以及曝光设置如何影响亮度。|
+|**光线传播体积（Light Propagation Volumes）**| 显示用于光纤传播体积的体积可视化表示。|
+|**网格体距离场（Mesh Distance Fields）**| 显示为场景中的静态网格体生成的网格体距离场的可视化表示。|
+|**动态模糊（Motion Blur）**|如果打开了动态模糊，此标志会将视图更改为动态模糊可视化查看器，让你看到用于计算模糊的动态矢量。|
+| [越界像素（Out of Bounds Pixels）](Engine/Performance/Visualizers/OutOfBoundsPixels) | 如果Object的某个像素存在于该Object的包围体之外，可能在包围体（而非网格体）位于画外时导致闪烁或Object消失。此可视化查看器会用蓝色、黄色和白色对这类像素上色。|
+|**预计算的可视性单元（Precomputed Visibility Cells）**|在配合预计算的可视性体积使用时显示预计算的可视性单元的可视化表示。|
+|**预览阴影指示器（Preview Shadows Indicator）**| 如果没有为静态/静止光源构建光照，将会在未构建的阴影中显示“预览（Preview）”字样。|
+|**屏幕空间反射（Screen Space Reflections）**| 屏幕空间反射的可视化表示。|
+|**次表面散射（屏幕空间）（Subsurface Scattering (Screen Space)）**| 让你可以在屏幕空间中看到次表面散射的可视化模式。|
+|**体积光照样本（Volume Lighting Samples）**| 在构建了静态光照的情况下，显示放置在Lightmass重要体积内部的体积光照样本的可视化表示。|
+
+
+
+(#advanced)
+## 高级
 
 |高级||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Audio Radius（音频半径）**|显示/隐藏 场景中任何音频actor的半径。|
-|**BSP Split（BSP分割）**|显示世界几何体上的BSP分割。|
-|**Bounds(边界)**|显示/隐藏 选中对象的边界。|
-|**Builder Brush(构建画刷)**|显示/隐藏 构建画刷。|
-|**Camera Frustums（相机平头截体）**|显示/隐藏 场景中的任何相机的视图平头截体。|
-|**Constraints(约束)**|显示/隐藏 刚体约束。稍后完成|
-|**High Res Screenshot Mask（高分辨率屏幕截图蒙板）**|稍后完成|
-|**Instanced Static Meshes（实例化的静态网格物体）**|显示/隐藏 场景中的任何实例化的静态网格物体。|
-|**Large Vertices（较大的顶点）**|显示/隐藏 任何选中的BSP画刷或静态网格物体上比正常顶点大的顶点。|
-|**Level Coloration（关卡着色）**|给场景进行颜色编码，使得每个动态载入的关卡具有不同的颜色。如果没有使用关卡动态载入，则该项无效。|
-|**Light Influences（光源影响范围）**|显示橘黄色的线，指出正在影响选中对象的光源。|
-|**Light Radius（光源半径）**|显示/隐藏 光源半径形状。|
-|**LOD Parenting（LOD父项设置）**|使用LOD父项设置、MinDrawDistance等。如果禁用该项，则显示LOD的父项序列。|
-|**Mesh Edges(网格物体边缘)**|该项会在视图上覆盖网格物体线框。|
-|**Mode Widgets（模式控件）**|显示/隐藏 变换控件，比如移动工具。|
-|**Render (3D) Text（渲染文本）**|是否渲染场景中可能存在的任何文本 Actors或Components（组件） 。|
-|**Safe Frames（安全框）**|当我们透过相机actor向外看时，这项会显示那个相机的安全框。安全框是指距离屏幕边缘指定距离处的区域，在那里您可以确保图片是可见的。|
-|**Selection（选中项）**|显示/隐藏 选中项突出显示的效果。|
-|**Separate Translucency(单独的半透明)**|这项 显示/隐藏 任何在其材质中使用了Separate Translucency的对象。|
-|**Shadow Frustums（阴影平头截体）**|显示/隐藏 一组颜色编码的方框，这些方框代表了每个光源投射阴影使用的阴影平头截体。|
-|**Splines(样条曲线)**|显示/隐藏 关卡中存在的样条曲线actor。|
-|**Sprites（精灵图标）**|显示/隐藏 关卡中的任何精灵图标。这不是指平面粒子，仅值Actor中的Sprite Component。|
-|**Streaming Bounds(动态载入关卡的边界)**|显示/隐藏 每个动态载入关卡的球体半径。|
-|**Temporal AA (而不是FXAA)**|激活/禁用 Temporal抗锯齿。当取消选中该项时，视口将显示快速近似抗锯齿(FXAA)效果。|
-|**Tessellation（多边形细分）**|显示/隐藏 材质中的多边形细分效果。|
-|**Vertex Colors(顶点颜色)**|显示/隐藏 应用到场景中的网格物体的任何顶点颜色。|
-|**Volumes（体积）**|显示/隐藏场景中的任何体积。(Alt-O)|
+|**大气雾（Atmospheric Fog）**|显示/隐藏场景中的大气雾Actor。|
+|**音频半径（Audio Radius）**|显示/隐藏场景中的任何音频Actor的半径。|
+|**公告板Sprite（Billboard Sprites）**|显示/隐藏关卡中的任何公告板Sprite。这不涉及Sprite粒子，只涉及公告板组件。|
+|**边界（Bounds）**|显示/隐藏选定Object上的边界。|
+|**BSP拆分（BSP Split）**|显示/隐藏世界场景几何体上的刷表面拆分。|
+|**摄像机宽高比条（Camera Aspect Ratio Bars）**|显示/隐藏用于摄像机Actor中设置的特定宽高比的条形。|
+|**摄像机视锥体（Camera Frustums）**|显示/隐藏场景中任何摄像机的视锥体。|
+|**摄像机安全框（Camera Safe Frames）**| 当通过摄像机Actor观察时，此标志显示该摄像机的安全框。安全框是距离屏幕边缘有一定距离的区域，在该区域中可以保证图像可见。|
+|**约束（Constraints）**|显示/隐藏刚体约束。TODO|
+|**延迟光照（Deferred Lighting）**|显示/隐藏场景中的延迟光照。|
+|**植物叶子（Foliage）**| 显示/隐藏场景中的任何植物叶子Actor。|
+|**青草（Grass）**| 显示/隐藏场景中的任何青草类Actor。|
+|**实例化静态网格体（Instanced Static Meshes）**|显示/隐藏场景中的任何实例化静态网格体。|
+|**大型顶点（Large Vertices）**|显示/隐藏任何选定笔刷或静态网格体上大于通常水平的顶点。|
+|**关卡着色（Level Coloration）**|用颜色对场景进行编码，使每个流送的关卡都得到不同的颜色。如果不使用关卡流送则无关紧要。|
+|**光源影响（Light Influences）**|显示橙色线条，指出哪些光源影响到选定的Object。|
+|**光源半径（Light Radius）**|显示/隐藏光源半径形状。|
+|**LOD父子关系（LOD Parenting）**|使用LOD父子关系、MinDrawDistance等。如果禁用，将会显示LOD父子关系线条。|
+|**网格体边缘（Mesh Edges）**|这会叠加于视图的网格体线框上。|
+|**模式小部件（Mode Widgets）**|显示/隐藏变换小部件，例如移动工具。|
+|**纸2DSprite（Paper 2D Sprites）**|显示/隐藏场景中的任何纸2DSprite Actor的半径。|
+|**预计算可视性（Precomputed Visibility）**|显示/隐藏场景中的任何预计算可视性体积的半径。|
+|**渲染（3D）文本（Render (3D) Text）**|是否渲染场景中可能存在的任何文本Actor或组件。|
+|**选择（Selection）**|显示/隐藏选择突出显示的结果。|
+|**分隔半透明（Separate Translucency）**|此标志显示/隐藏任何在其材质中运用了分隔半透明的Object。|
+|**阴影视锥体（Shadow Frustums）**|显示/隐藏一些选择的颜色编码框，它们代表用于从每个光源投射阴影的阴影视锥体。|
+|**样条（Splines）**|显示/隐藏关卡中存在的任何样条Actor。|
+|**流送边界（Streaming Bounds）**|显示/隐藏每个流送关卡的球体半径。|
+|**时空AA（代替FXAA）（Temporal AA (instead FXAA)）**|激活/停用时空抗锯齿。如果不选中该标志，视口会显示快速近似抗锯齿（FXAA）。|
+|**曲面细分（Tessellation）**|显示/隐藏材质中的曲面细分结果。||
+|**顶点颜色（Vertex Colors）**|显示/隐藏应用到场景中的网格体的任何顶点颜色。|
+|**体积（Volumes）**|显示/隐藏场景中的任何体积。（**Alt-O**）|
 
 
 
+(#volumes)
 ## 体积
 
 |体积||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Show All（显示所有）**|显示场景中所有类型的体积。|
-|**Hide All（隐藏所有）**|隐藏场景中所有类型的体积。|
-|**Blocking（阻挡体积）**|显示/隐藏 阻挡体积。|
-|**Cull Distance（剔除距离体积）**|显示/隐藏 剔除距离体积。|
-|**Level Grid（关卡网格体积）**|显示/隐藏 关卡网格体积。|
-|**Level Streaming（关卡动态载入）**|显示/隐藏 关卡动态载入体积。|
-|**Lightmass Character Indirect Detail（Lightmass角色间接细节体积）**|显示/隐藏 Lightmass角色间接细节体积。|
-|**Lightmass Importance(Lightmass重要体积)**|显示/隐藏 Lightmass重要体积。|
-|**Massive LOD Override（巨大LOD覆盖体积）**|显示/隐藏 巨大LOD覆盖体积。|
-|**NavMesh Bounds（导航网格物体边界体积）**|显示/隐藏 导航网格物体边界体积。|
-|**Nav Modifier(导航修改器体积)**|显示/隐藏 导航修改器体积。|
-|**Pain Causing（引起疼痛的体积）**|显示或隐藏 Pain Causing Volumes（引起疼痛的体积）。|
-|**Physics(物理体积)**|显示或隐藏 物理体积。|
-|**Post Process(后期处理体积)**|显示/隐藏 后期处理体积。|
-|**Precomputed Visibility Override（预计算可见性覆盖体积）**|显示/隐藏 预计算可见性覆盖体积。|
-|**Precomputed Visibility(预计算可见性体积)**|显示/隐藏 预计算可见性体积。|
-|**Reverb（混响体积）**|显示/隐藏 混响体积。|
-|**Trigger（触发器体积）**|显示/隐藏 触发器体积。|
+|**全部显示（Show All）**|显示场景中所有类型的体积。|
+|**全部隐藏（Hide All）**|隐藏场景中所有类型的体积。|
+|**音频（Audio）**|显示/隐藏音频体积。|
+|**阻挡（Blocking）**|显示/隐藏阻挡体积。|
+|**摄像机阻挡体积（Camera Blocking Volume）**| 显示/隐藏摄像机阻挡体积。|
+|**剔除距离（Cull Distance）**|显示/隐藏剔除距离体积。|
+|**层级LOD体积（Hierarchical LOD Volume）**| 显示/隐藏层级LOD体积。|
+|**Kill Z体积（Kill Z Volume）**| 显示/隐藏Kill Z体积。|
+|**关卡流送（Level Streaming）**|显示/隐藏关卡流送体积。|
+|**Lightmass角色间接细节（Lightmass Character Indirect Detail）**|显示/隐藏Lightmass角色间接细节体积。|
+|**Lightmass重要体积（Lightmass Importance）**|显示/隐藏Lightmass重要体积。|
+|**寻路网格体边界（NavMesh Bounds）**|显示/隐藏寻路网格体边界体积。|
+|**寻路修饰符（Nav Modifier）**|显示/隐藏寻路修饰符体积。|
+|**Pain Causing**|显示/隐藏Pain Causing体积。|
+|**物理（Physics）**|显示/隐藏物理体积。|
+|**后期处理（Post Process）**|显示/隐藏后期处理体积。|
+|**预计算可视性覆盖（Precomputed Visibility Override）**|显示/隐藏预计算可视性覆盖体积。|
+|**预计算可视性（Precomputed Visibility）**|显示/隐藏预计算可视性体积。|
+|**过程植物阻挡体积（Procedural Foliage Blocking Volume）**| 显示/隐藏过程植物阻挡体积。|
+|**过程植物体积（Procedural Foliage Volume）**| 显示/隐藏过程植物体积。|
+|**触发器（Trigger）**|显示/隐藏触发器体积。|
 
 
+(#layers)
 ## 图层
 
 |图层||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Show All（显示所有）**|设置场景中的所有图层都是可见的。|
-|**Hide All（隐藏所有）**|隐藏场景中的所有图层。|
-|**Layer Names（图层名称）**|这里将包括您在场景中创建的所有图层的名称，以便您可以单独地 显示/隐藏 每个图层。|
+|**全部显示（Show All）**|将场景中的所有图层设置为可见。|
+|**全部隐藏（Hide All）**|隐藏场景中所有图层。|
+|**图层名称（Layer Names）**|此标志将填充你在场景中已创建的所有图层的名称，以便你个别地显示/隐藏每个图层。|
 
 
-## 精灵图标
+(#sprite)
+## Sprite
 
 [REGION:note]
-精灵图标一般是指编辑器中用于放置各种对象类型所使用的图标。在这里，它们不是指平面粒子。
+公告板Sprite通常是在编辑器中用于放置各种Object类型的图标。在这种情况下，它们不指代Sprite粒子。
 [/REGION]
 
-|精灵图标||
+|公告板Sprite||
 |---|---|
 |[REGION:tablesection]名称[/REGION]|[REGION:tablesection]描述[/REGION]|
-|**Show All（显示所有）**|显示所有类型的精灵图标。|
-|**Hide All（隐藏所有）**|隐藏所有类型的精灵图标。|
-|**Decals（贴花）**|显示/隐藏 贴花的精灵图标。|
-|**Effects（特效）**|显示/隐藏 特效的精灵图标，代表了发射器Actor的位置。|
-|**Fog(雾)**|显示/隐藏 雾Actor的精灵图标。|
-|**Info（信息）**|显示/隐藏 信息的精灵图标。|
-|**Landscape(地貌)**|显示/隐藏 地貌的精灵图标。|
-|**Lighting（光照）**|显示/隐藏 光源Actor的精灵图标。|
-|**Materials（材质）**|显示/隐藏 材质的精灵图标。
-|**Misc(其他)**|显示/隐藏 不能归于其他类别的精灵图标。|
-|**Navigation（导航）**|显示/隐藏 导航精灵图标。|
-|**Notes（笔记）**|显示/隐藏 笔记精灵图标。|
-|**Physics（物理）**|显示/隐藏 物理精灵图标。|
-|**Player Start（玩家起点）**|显示/隐藏 玩家起点的精灵图标。|
-|**Sounds（音效）**|显示/隐藏 音效精灵图标。|
-|**Target Points（目标点）**|显示/隐藏 目标点精灵图标。|
-|**Triggers（触发器）**|显示/隐藏 触发器精灵图标。|
-|**Unreal Matinee**|显示/隐藏 Unreal Matinee精灵图标。|
-|**Wind（风）**|显示/隐藏 风的精灵图标。|
+|**全部显示（Show All）**|显示所有类型的公告板Sprite。|
+|**全部隐藏（Hide All）**|隐藏所有类型的公告板Sprite。|
+|**角色（Characters）**|显示/隐藏角色公告板Sprite。|
+|**贴花（Decals）**|显示/隐藏贴花公告板Sprite。|
+|**效果（Effects）**|显示/隐藏效果公告板Sprite，它们表示发射器Actor的位置。|
+|**雾（Fog）**|显示/隐藏雾Actor公告板Sprite。|
+|**FTests**|显示/隐藏FTest公告板Sprite。|
+|**信息（Info）**|显示/隐藏信息公告板Sprite。|
+|**光照（Lighting）**|显示/隐藏光源Actor公告板Sprite。|
+|**材质（Materials）**|显示/隐藏材质公告板Sprite。|
+|**Matinee**|显示/隐藏Matinee公告板Sprite。|
+|**杂项（Misc）**|显示/隐藏不属于其他类别的杂项公告板Sprite。|
+|**寻路（Navigation）**|显示/隐藏寻路公告板Sprite。|
+|**注释（Notes）**|显示/隐藏注释公告板Sprite。|
+|**物理（Physics）**|显示/隐藏物理公告板Sprite。|
+|**玩家出生点（Player Start）**|显示/隐藏玩家出生点公告板Sprite。|
+|**天空（Sky）**|显示/隐藏天空公告板Sprite。|
+|**声音（Sounds）**|显示/隐藏声音公告板Sprite。|
+|**目标点（Target Points）**|显示/隐藏目标点公告板Sprite。|
+|**触发器（Triggers）**|显示/隐藏触发器公告板Sprite。|
+|**风（Wind）**|显示/隐藏风公告板Sprite。|

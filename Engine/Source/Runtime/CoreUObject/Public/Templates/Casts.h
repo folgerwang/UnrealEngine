@@ -18,7 +18,9 @@ class USceneComponent;
 class USkeletalMeshComponent;
 class USkinnedMeshComponent;
 class UStaticMeshComponent;
+/// @cond DOXYGEN_WARNINGS
 template<class TClass> class TSubclassOf;
+/// @endcond
 
 FUNCTION_NO_RETURN_START
 	COREUOBJECT_API void CastLogError(const TCHAR* FromType, const TCHAR* ToType)

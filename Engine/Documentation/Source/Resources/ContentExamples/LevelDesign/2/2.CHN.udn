@@ -1,11 +1,30 @@
-﻿Availability: Public
-Title:2 - 网格物体环节
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2 - 建模阶段
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/LevelDesign
-Description:关卡设计用关卡概述，示例2： 网格物体环节
+Description:关卡设计实例2概览：建模阶段
 Related: Engine/Content/Types/StaticMeshes
 Related: Engine/Rendering/Materials
 Related:Engine/UI/LevelEditor
 Related: Engine/UI/LevelEditor/Modes
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/LevelDesign/1 "%Resources/ContentExamples/LevelDesign/1:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[关卡设计主页](Resources/ContentExamples/LevelDesign)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/LevelDesign/3 "%Resources/ContentExamples/LevelDesign/3:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -30,5 +49,6 @@ Related: Engine/UI/LevelEditor/Modes
 
 ![](leveldesign_2.png)
 
-在网格物体环节中，使用BSP画刷设置的几何结构或原型环节中的简单静态网格物体由已完成或即将完成的网格物体资源所取代。  此环节可随艺术资源的完善，通过重新导入资源来完善。  在关卡设计过程的这个阶段中，光照依然简单。 
+在建模阶段中，将在原型阶段用 **笔刷** 或简单 **静态网格体** 设置的几何体中放置已完成或几近完成的网格体资源。可以在之后重新导入经强化的美术资源，获得更佳的美术效果。
+此阶段中的灯光仍十分简单。 
 [/REGION]

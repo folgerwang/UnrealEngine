@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:材质编辑器-如何设置人体皮肤 
+Title:创建人体皮肤 
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:人体皮肤设置指南 
 Related:Resources/Showcases/RealisticRendering
@@ -11,6 +11,7 @@ Related:Engine/Rendering/Materials/LightingModels/SubSurface
 Related:Resources/ContentExamples/MaterialNodes/1_7
 Version:4.9
 SkillLevel:Advanced
+tags:Materials
 
 [TOC(start:2)]
 
@@ -38,6 +39,7 @@ SkillLevel:Advanced
 这是因为我们的眼睛经过非常良好的训练，能够探测到人体面部很细微的细节。 
 正确做到这一点非常具有挑战性，但一旦精通了工具，就可以将它们应用于许多其他情况。
 
+(#Setup)
 ## 设置
 在开始制作材质之前，我们应该先收集一些参考资料。 
 这是因为通常最好从多个具有不同光照情况的照片参考资料着手，以便您可以验证材质在不同光照情况下的外观。 
@@ -71,6 +73,7 @@ SkillLevel:Advanced
 
 * 在查看您的工作时，您可能会注意到流系统不考虑缩放，并且可能会让您的纹理变得模糊不清（当您并不希望如此时）。这是针对 3D 游戏做出的一个设计上的决策，但在将来某个时间可能会更改。为了防止发生这种情况，您可以在网格实例中更改“流距离乘数”（Streaming Distance Multiplier）。
 
+(#Material)
 ## 材质（Material） 
 
 下面是“内容示例”图中一个完整材质的图像。 
@@ -90,6 +93,7 @@ SkillLevel:Advanced
 
 
 
+(#Roughness)
 ### 粗糙度 
 ![](HS_Roughness.png)
 
@@ -104,6 +108,7 @@ SkillLevel:Advanced
 理想情况下，此纹理应该与法线贴图纹理具有相同的分辨率。
 
 
+(#Specular)
 ### 高光
 ![](HS_Spec.png)
 
@@ -111,6 +116,7 @@ SkillLevel:Advanced
 使用数字 0.35 是因为此数字是从真实世界测量出的高光值转换为我们使用的范围后得出的。 
 
 
+(#Normal)
 ### 法线
 ![](HS_Normal.png)
 
@@ -124,6 +130,7 @@ SkillLevel:Advanced
 * 现代的实时渲染技术使用基于像素的光照计算来产生阴影。通常，这会得到十分高质量的结果，但适用于非常精细的法线贴图。使用 Mip 贴图可以避免闪光并得到较好的性能，但 Mip 贴图对于法线贴图表现不佳，这是因为较低的 MIP 中的细节根本不存在，并且表面会显得比应有效果明亮得多。为了抵消这种效果，我们可以相应地调整粗糙度。这并不会捕获屈光参差的细节，但对于无方向的特性，这是一个不错的近似值。 
 
 
+(#Opacity)
 ### 透明度
 ![](HS_Opacity.png)
 
@@ -131,6 +138,7 @@ SkillLevel:Advanced
  值 1 或纯白意味着应全力进行次表面散射。
  值 0 或纯黑意味着不应发生次表面散射。 
 
+(#Pores)
 ### 毛孔
 
 ![](HS_Pores.png)
@@ -151,6 +159,7 @@ SkillLevel:Advanced
 
 ![](Engine\Rendering\Materials\LightingModels\SubSurfaceProfile\FresnelMask.png)
 
+(#UsingaSubsurfaceProfile)
 ## 使用次表面概况
 
 次表面概况用来使皮肤显得逼真。 
@@ -168,11 +177,13 @@ SkillLevel:Advanced
 [/REGION]
 
 
+(#Usefullinks)
 ## 有用的链接
 下列链接指向一些外部站点，其中包含有关如何创建非常逼真的游戏角色的丰富信息。 
 
 [下一代角色渲染技术]( http://www.iryoku.com/stare-into-the-future)
 
+(#Conclusion)
 ## 总结
 
 设置皮肤并使其正确渲染是一个较长的复杂过程，需要花一些时间才能获得满意的结果。 

@@ -49,7 +49,7 @@ tags:Input
 ![Windows Device Settings](WindowsSettings.png)
 
 [REGION:caption]
-위는 윈도우 제어판 (디바이스 매니저 아래) Logitech G920 에 대한 하드웨어 ID 정보입니다. Vendor ID 는 "VID\_" 뒤의 네 글자이고 (046D), Product ID 는 "PID\_" 뒤의 네 글자입니다 (C262). 이 정보는 RawInput 에서 디바이스 환경설정을 할 때 필요합니다.
+위는 Windows 제어판 (장치 관리자 아래) Logitech G920 에 대한 하드웨어 ID 정보입니다. Vendor ID 는 "VID\_" 뒤의 네 글자이고 (046D), Product ID 는 "PID\_" 뒤의 네 글자입니다 (C262). 이 정보는 RawInput 에서 디바이스 환경설정을 할 때 필요합니다.
 [/REGION]
 
 ## 예제 (비히클 템플릿)

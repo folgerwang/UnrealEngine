@@ -1,7 +1,7 @@
 ﻿INTSourceChangelist:3769005
 Availability: Public
 Crumbs: %ROOT%
-Title: 오큘러스 사전 요구사항
+Title: Oculus 사전 요구사항
 Description: UE4 에서 Oculus Rift 를 사용하도록 구성하는 데 관련된 정보입니다.
 Type: Reference
 Version: 4.16
@@ -16,7 +16,7 @@ topic-image:PreRecProfiling_Topic_Image.png
 
 ## 알려지지 않은 소스 활성화
 
-언리얼 엔진 4 (UE4) 가상 현실(VR) 프로젝트를 개발할 때는, **Unknown Sources** (알려지지 않은 소스) 옵션을 켜야 오큘러스의 등록 또는 검토 절차를 거치지 않은 어플리케이션을 실행시킬 수 있습니다. **Unknown Sources** 옵션을 켜는 방법은 다음과 같습니다:
+언리얼 엔진 4 (UE4) 가상 현실(VR) 프로젝트를 개발할 때는, **Unknown Sources** (알려지지 않은 소스) 옵션을 켜야 Oculus의 등록 또는 검토 절차를 거치지 않은 어플리케이션을 실행시킬 수 있습니다. **Unknown Sources** 옵션을 켜는 방법은 다음과 같습니다:
 
 1. Oculus Store 를 열고 우상단 구석에 있는 **톱니** 아이콘을 클릭하여 **Settings** 메뉴 옵션을 띄우고, **Settings** 단어를 클릭합니다.
 

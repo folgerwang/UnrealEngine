@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:4381169
+Availability: Public
+Crumbs: 
+Title: ARPG に含まれるアトリビュートおよびエフェクト
+Description: ARPG でアトリビュートとエフェクトがどのように使用されるかを説明します。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 1
+Tags: 
+
+
+Action RPG (ARPG) でアビリティ システムを使用するための最初のステップとして、 **GameplayAbilities** プラグインを有効にして **Attribute Set** クラスを作成します。Attribute Sets は **UAttributeSet** の C++ サブクラスである必要があるため、アビリティは C++ ゲームでのみサポートされています。**URPGAttributeSet** では、 **current/max health** および **mana** 、 **attack** および **defense** **buffs** 、 **movement** **speed** のアトリビュート、およびダメージ計算式で使用される **temporary** **damage** アトリビュートを定義します。これらのアトリビュートはそれぞれ **FGameplayAttributeData** 構造として定義されます。ここには、永続的な変更によってのみ変更される **Base value** と、一時的なバフ/デバフによって変更される **Current value** が保存されます。このクラスでは、これらのアトリビュートの変更と複製を処理するためのボイラープレート コードを追加するいくつかのマクロが使用されます。ARPG は比較的シンプルであるため AttributeSet を 1 つだけ使用しますが、その他の一部のゲームについては、プレイヤーと敵で共有される Core セットと、 **Core** から継承し、プレイヤーのみが使用する追加のアトリビュートを含む Player セットを使用することをお勧めします。
+
+アトリビュートが変更される前には、 **PreAttributeChange** 関数によって現在の health/mana の最大値でのスケーリングが処理されます。アトリビュートが変更されると、 **PostGameplayEffectExecute** 関数によって、変更に関する他のオブジェクトのクランプと通知が処理されます。ARPG では、すべてのキャラクターは、ダメージを受けるなどの処理を行うブループリント イベントを提供する **RPGCharacterBase** クラスから継承します。**RPGCharacterBase** のコンストラクタは、ゲームプレイ エフェクトを機能させる **URPGAbilitySystemComponent** および **URPGAttributeSet** サブオブジェクトを作成します。ゲームによっては、この処理をゲーム特有の **AbilitySystemComponent** サブクラスまたはコントローラーで行ったほうがよい場合があります。また、アクタの最初のインタラクション時にオブジェクトのオーバーヘッドを避けるために、 **AttributeSets** または **AbilitySystemComponents** をスポーンすることもお勧めします。
+
+ダメージが適用される際、キャラクターは **Health > 0** の状態である必要があります。アトリビュートのデフォルト値を初期化する方法はいくつかありますが、ARPG では **Stats GameplayEffect** を使用してそれらを初期化します。Stats ゲームプレイ エフェクトは **ARPGCharacterBase::AddStartupGameplayAbilities** で適用されます。ここでは現在の **CharacterLevel** で、キャラクター ブループリントから **PassiveGameplayEffects** のリストを読み取り、それらを適用します。 **CharacterLevel** が変更された場合は、エフェクトが削除されて、新しいレベルで再び追加されます。下の図では、Unreal Engine 4 (UE4) Editor で、NPC に使用される **GE_StatsBase** ゲームプレイ エフェクトが表示されています。   
+
+![](ARPG_AttributesAndEffects_01.png "ARPG_AttributesAndEffects_01.png")
+
+ **Instant** 持続時間は、これが正確に一度だけ永続的に適用されることを意味します。主要な各統計には、 **CurveTable** に基づいて値をオーバーライドする **Attribute Modifier** があります。**StartingStats** は **「 Abilities/DataTables 」** にある **CSV** からインポートされ、各統計の行と各レベルのカラムが含まれます。この場合、 **DefaultMaxHealth** 行が参照され、カラムは **CharacterLevel** となります。**GE_PlayerStats** エフェクトはこの汎用エフェクトから継承し、すべての行を **PlayerMaxHealth** にするなどの変更を行います。カーブ テーブルをこのように使用することで、手動で個別のエフェクトを変更する必要なしに、ゲーム全体のアトリビュートのバランスを一度に調整し直すことが容易になります。また、 **Excel** などの外部データ ソースから **CSV** または **JSON** ファイルを作成し、必要に応じてこれらをインポートするスクリプトをゲーム外で設定することもできます。
+
+マナはシンプルな **Modifiers** と **Add** 操作で変更されますが、ダメージについては **RPGDamageExecution** クラスが使用されます。実行計算は、一連のキャプチャ宣言と実行関数の 2 つの要素で構成されます。情報はキャプチャ宣言マクロによって UE4 Editor に提供されるため、ゲームプレイ エフェクトはプロジェクト内で実行関数を使用できます。キャプチャされた各アトリビュートについては、現在アクティブな一時的なモディファイアのリストとそれらのゲームプレイ タグがキャプチャされます。**URPGDamageExecution::Execute_Implementation** 内では、エフェクト実行時に渡されたゲームプレイ タグと一致するモディファイアのみが適用されます。これらのモディファイアを組み合わせて **Damage**、 **AttackPower** および **DefensePower** の「計算」数値を得ると、 **SourceDamage * AttackPower / DefensePower** 式によってその値が「最終的な」ダメージとして算出されます。次に、この最終的なダメージが **URPGAttributeSet::PostGameplayEffectExecute** 内の Health モディファイアとなります。**GE_DamageBase** は次のようになります。
+
+![](ARPG_AttributesAndEffects_02.png "ARPG_AttributesAndEffects_02.png")
+
+発生済みのダメージは **AttackDamage** の **DefaultAttack** 行で設定されますが、「 1.0 」のスケールを [Curve Table] 参照の左側に変更することで、攻撃ごとの乗数を適用することもできます。フィルタリングのために **Source/Target** タグでは **Require/Ignore** タグの設定を許可しており、この場合、 **Status.DamageImmune** タグを持つターゲットに対してダメージは適用されません。それぞれの個別の攻撃により **GE_DamageBase** がサブクラス化され、必要に応じてタグまたはモディファイアが変更されます。

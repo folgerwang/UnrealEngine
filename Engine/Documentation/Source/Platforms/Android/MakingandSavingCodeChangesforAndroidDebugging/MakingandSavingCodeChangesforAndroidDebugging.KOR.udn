@@ -1,0 +1,24 @@
+﻿INTSourceChangelist:4681606
+Availability: Public
+Crumbs: 
+Title: Android 디버깅의 코드 변경 및 저장
+Description: Android Studio 및 Visual Studio 에서 Android 코드를 변경하는 법입니다.
+Type: 
+Version: 
+Parent: Platforms/Android
+Order: 
+Tags: Android
+Tags: Reference
+
+
+Android 프로젝트를 디버깅할 때 Android Studio 또는 Visual Studio 를 사용할 수 있습니다. 여기서는 그 자세한 방법 및 주의해야 하는 워크플로 조정 사항을 살펴보겠습니다.
+
+## Android Studio
+
+Android Studio 를 사용하여 Android 프로젝트 CPP 파일을 편집 및 디버깅할 수는 있지만, Android Studio 에서 프로젝트를 리컴파일할 수는 없습니다.
+
+## Visual Studio
+
+Visual Studio 를 사용하여 프로젝트 CPP 파일의 모든 코드를 변경할 수 있습니다. Visual Studio 를 사용하면 언리얼 빌드 툴(UBT)로 APK 를 리컴파일할 수 있다는 장점이 있습니다.
+
+참고로 UBT 의 app.iml 파일을 삭제해서 Gradle 호출로 돌아가 APK 를 만들거나, Intermediate/Android/APK 를 지워도 됩니다. 이렇게 하면 에디터의 '-에서 실행' 옵션이 정상 작동하지 않으니, 그러기로 결정한 경우 디바이스에 이미 디버깅하려는 콘텐츠가 있는지 확인해야 합니다.

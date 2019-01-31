@@ -1,10 +1,12 @@
-﻿INTSourceChangelist:2711570
+﻿INTSourceChangelist:3606403
 Availability:Public
 Title: 数据驱动游戏性元素
-Crumbs:%ROOT%, Gameplay
+Crumbs:%ROOT%
 Description:使用外部存储数据驱动游戏性元素
+type:reference
+tags:Gameplay
 
-[TOC(start:2)]
+[toc(start:2 end:2)]
 
 对于延长寿命远远超出典型盒装游戏并 
 要求根据玩家反馈不断调整和平衡数据的游戏而言， 
@@ -37,6 +39,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 具有标题的变量名，而且同一列的下方为行/列交叉点的数据。鉴于此格式， 
 每一行将与继承自 FTableRowBase 的结构一一对应。
 
+(#Example)
 ### 示例
 
 例如，以下显示了升级经验数据的定义和向游戏提供数据的 CSV 文档：
@@ -66,7 +69,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 
 		/** Icon to use for Achivement */
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelUp)
-		TAssetPtr<UTexture> AchievementIcon;
+		TSoftObjectPtr<UTexture> AchievementIcon;
 	};
 
 **CSV Document:**
@@ -84,6 +87,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 资产类型前后的双引号对属性导入途径十分重要。若没有双引号，则文本将导入为 Texture2d'。 
 [/REGION]
 
+(#DataCurves)
 ## 数据曲线
 
 数据曲线的工作方式与数据表相似， 
@@ -92,6 +96,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 用于绘制曲线的 X 轴变量。该标题下的数据为给定行的 Y 轴值。鉴于此格式， 
 每一行将与一个代码可访问并沿其插入数据的曲线相应。
 
+(#Example)
 ### 示例
 
 以下为伤害进程的示例表格：
@@ -105,6 +110,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 | Melee_StunTime       | 0   | 0   | 0   | 0   |
 [/REGION]
 
+(#ImportingProcess)
 ## 导入过程
 
 导入 CSV 文件的过程非常简单：
@@ -125,6 +131,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 	
 	![](datatableview.jpg)
 
+(#DataHookup)
 ## 数据连接
 
 通过这些表格连接数据非常简单。从程序员的角度来看，必须执行的操作是 
@@ -136,6 +143,7 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 2.	行名称 - 这是您要从中获取数据的行的首列名称。
 
 
+(#DataUsage_ProgrammersOnly_)
 ## 数据使用（仅限程序员）
 
 连接数据后，使用数据十分简单。句柄结构将提供 
@@ -148,5 +156,5 @@ CSV 文件导入数据表前，程序员必须创建行容器以指示引擎如�
 超出函数的本地范围外缓存。其目的是确保若通过重新导入刷新表格， 
 数据更改将立即生效且无法访问无效的指针。
 
-在上述数据表示例中，引用的资产为延迟加载资产（TAssetPtr 处理此事项）。 
+在上述数据表示例中，引用的资产为延迟加载资产（TSoftObjectPtr 处理此事项）。 
 如果资产字段类型设置为 UTexture，则将在加载数据表时加载所有资产。

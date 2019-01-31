@@ -1,164 +1,186 @@
-﻿INTSourceChangelist:2975314
-Availability:Public
-Title:蓝图基础用户指南
+﻿INTSourceChangelist:4305416
+Availability: Public
+Title:蓝图基本用户指南
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
-Description:使用蓝图所需元素的快速指南。 
+Description:开始使用蓝图所需元素快速指南。 
 Related: Engine/Blueprints
 Related: Engine/Blueprints/GettingStarted
 Related: Engine/Blueprints/UserGuide
 Related: Engine/Blueprints/UserGuide/CheatSheet
 Related: Gameplay
-Version:4.9
+Version: 4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Class Blueprints
+tags:Blueprints
+
 
 [TOC(start:2 end:2)]
 
 
-本页含 **蓝图** 基础使用案例和常用操作，助您快速上手。 
+本页面包含 **蓝图** 的最基本用例和常用操作，帮助你快速上手。 
 
-如需了解有关蓝图的详细内容，请查阅 [](Engine/Blueprints) 文档。 
+有关蓝图的更多详细信息，请参阅 [](Engine/Blueprints) 文档。 
+
+(#creatingblueprints)
 
 ## 创建蓝图
 
-有数种创建蓝图的方法，第一种是使用 **Content Browser** 中的 **Add New** 按钮： 
+可通过多种方法创建蓝图，第一种是通过使用 **内容浏览器** 中的 **添加（Add New）** 按钮： 
 
 [INCLUDE:Engine/Blueprints/UserGuide/Types/ClassBlueprint/Creation#CreateBP1]
 
 
-选择类后，一个新的蓝图资源将被添加至 **Content Browser**，然后可为其指定一个名称。 
+选择类之后，新的蓝图资源将添加到 **内容浏览器** 中，你可以为它指定名称。 
 
 ![](Basic4.png)
 
 [COMMENT:none]
 
-1.	输入名称后，蓝图创建完毕。 
+1.	输入名称后，蓝图创建过程就完成了。 
 
 	![](Basic5.png)
 
-	**Content Browser** 的蓝图上有一个星号，表示蓝图尚未保存。 
+	在 **内容浏览器** 中，你会看到此蓝图上具有星号，指示蓝图尚未保存。 
 
-1.	点击 **Content Browser** 窗口顶部的 **Save All** 按钮保存蓝图。 
+1.	单击位于 **内容浏览器** 窗口顶部的 **全部保存（Save All）** 按钮保存蓝图。 
 
 	![](Basic6.png)
 
-1.	**Save Content** 窗口出现时，蓝图将在窗口中显示。点击 **Save Selected** 键保存。 
+1.	**保存内容（Save Content）** 窗口显示时，你创建的蓝图将显示在窗口中。单击 **保存所选项（Save Selected）** 按钮进行保存。 
 
 	![](Basic7.png)
 
 [/COMMENT]
 
-### 创建蓝图使用资源
+(#createblueprintusingassets)
 
-可在 **Content Browser** 中的资源上 **单击右键** 创建一个蓝图，然后在 _Asset Actions_ 下选择 **Create Blueprint Using This...** 选项。 
+### 使用资源创建蓝图
+
+也可以通过在 **内容浏览器** 中 **右键单击** 资源，然后在 _资源操作（Asset Actions）_ 下选择 **使用此资源创建蓝图...（Create Blueprint Using This...）** 选项的方法创建蓝图。 
 
 ![](Basic8.png)
 
 [REGION:note]
-该选项仅可用支持的资源 - 静止网格物体、骨骼网格物体、粒子效果、声音提示或声波等。如该项为灰色，则表示它在所选资源上不可用。 
+只能针对支持该选项的资源——静态网格体、骨架网格体、粒子效果、声音提示或声波等——使用该选项。如果所选择的资源不支持该选项，该选项将显示为灰色。 
 [/REGION]
 
-选择 **Create Blueprint Using This...** 选项后，将弹出提示让您选择蓝图的保存位置。确认保存位置后，蓝图将在蓝图编辑器中自动打开。
+选择 **使用此资源创建蓝图...（Create Blueprint Using This...）** 选项之后，你将收到选择保存位置的提示。确认保存位置之后，蓝图将自动在蓝图编辑器中打开。
 
 [COMMENT:none]
 
-### 用合成蓝图替代资源
+(#replaceassetswithcompositedblueprint)
 
-和使用资源创建蓝图的方法相同，合成蓝图代替资源选项将基于放置在关卡中的资源自动添加组件并创建蓝图。 
+### 使用合成蓝图替换资源
 
-在关卡中选定对象后，靠近窗口底部对象的 **Details** 面板中有一个 **Replace With Composited Blueprint** 选项。 
+与使用资源创建蓝图的方法相似，使用合成蓝图替换资源选项将自动添加组件并基于已放置到关卡中的资源创建蓝图。 
+
+选中关卡中的对象之后，该对象的 **细节（Details）** 面板中（靠近窗口底部）具有 **使用合成蓝图替换（Replace With Composited Blueprint）** 选项。 
 
 ![](Basic9.png)
 
 [REGION:note]
-该选项无法与 [几何体笔刷 Actors](Engine/Actors/Brushes) 共用，因为它们无法被加入蓝图。 
+该选项不适用于 [几何体笔刷Actor](Engine/Actors/Brushes)，因为它们不能包含在蓝图中。 
 [/REGION]
 
-在需要将关卡中数个对象转变成单个蓝图的事件中，该选项十分实用。举例而言，可以将光源、光源固定物、光源切换和触发盒全部选中，转换为一个蓝图。该蓝图将这些所有对象视为一个单独的蓝图 Actor。
+当关卡中具有多个对象而你要将它们全部转换到单个蓝图中时，此选项非常有用。例如，你可以选择灯、灯具固定零部件、电灯开关和触发框并将它们转换到将所有这些对象作为单个蓝图Actor包含在内的蓝图中。
 
 [REGION:tip]
-在使用来自 **Content Browser** 的资源创建蓝图，或用合成蓝图替代关卡中的资源时，无需为图表提供任何逻辑即可使蓝图在关卡中正常工作。如上例所述，可选取数个组件并在蓝图中组合，在关卡中创建一个新的单一资源。 
+使用 **内容浏览器** 中的资源或通过使用合成蓝图替换关卡中的资源的方法创建蓝图时，无需在其图表中提供任何逻辑就可使蓝图在关卡中正常工作。如以上示例所述，你可以选择多个组件并将它们合并在一个蓝图中，在关卡中创建新的单一资源。 
 [/REGION]
 
 [/COMMENT]
 
+(#placingblueprintsinlevels)
+
 ## 在关卡中放置蓝图
 
-在关卡中放置蓝图有以下方法：
+要在关卡中放置蓝图，你可以...
 
-从 **Content Browser** 将其 **拖放** 进关卡。 
+将它从 **内容浏览器** 中 **拖放到** 关卡中。 
 
 ![](DragAndDropBP.png)
 
-或在 **Content Brower** 中选择蓝图后，在关卡中 **单击右键** 并从快捷菜单中选择 **Place Actor**。 
+或者在 **内容浏览器** 中选中蓝图，然后在关卡中 **右键单击** 并从上下文菜单中选择 **放置Actor（Place Actor）**。 
 
 ![](RightClickMethod.png)
 
 [COMMENT:none]
 
+(#editingablueprint)
+
 ## 编辑蓝图
 
-根据使用蓝图类型的不同，可用的 **蓝图模式** 也不同。其决定着蓝图的功能和工作方式。本章节着重讲述用以上方法创建的蓝图。如需了解其他类型蓝图的更多内容，请查阅以下链接。 
+取决于处理的蓝图的类型，可以使用不同的 **蓝图模式** 确定蓝图的作用或它的功能。本部分主要关注使用上述的方法创建的蓝图，要获取有关不同蓝图类型的更多信息，请参阅下面的链接。 
 
-* 关于动画蓝图，请查阅 [](Engine/Animation/AnimBlueprints) 文档。 
-* 关于结合 UMG UI 编辑器使用的控件蓝图，请查阅 [](Engine/UMG/UserGuide/WidgetBlueprints) 文档。 
-* 关于关卡蓝图、蓝图接口、宏库或其他类型，请查阅 [](Engine/Blueprints/UserGuide) 文档。 
+* 有关动画蓝图，请参阅 [](Engine/Animation/AnimBlueprints) 文档。 
+* 有关与UMG界面编辑器配合使用的小部件蓝图，请参阅 [](Engine/UMG/UserGuide/WidgetBlueprints) 文档。 
+* 有关关卡蓝图、蓝图接口、宏库或其他类型，请参阅 [](Engine/Blueprints/UserGuide) 来查看更多文档。 
 
-创建蓝图之后，**双击** 将其在 **Blueprint Editor** 中打开。在这里可以在三种标签上执行操作：  
+蓝图创建好之后，**双击** 它以在 **蓝图编辑器** 中将其打开，你可以在其中的三个选项卡中的其中一个选项卡上进行处理：  
 
-### 组件模式
+(#componentsmode)
+
+### 组件模式（Components Mode）
 
 ![](ComponentsTab.png)(w:740)
 
-在 **组件模式** 中可以定义用于创建蓝图的各个组成部分。通过 **Components** 窗口可添加多种构成蓝图的 **组件**。组件可以是各种资源，如 **摄像机**、**静止网格物体**、**粒子效果**、或 **声音提示**。
+在 **组件模式（Components Mode）** 中，你可以定义使用哪些部分构造蓝图。通过 **组件（Components）** 窗口，你可以添加最终构成蓝图的各种类型的 **组件**。组件可以是从 **摄像机** 和 **静态网格体** 到 **粒子效果** 或 **声音提示** 的所有一切
 
-* 如需了解此模式中窗口和选项的详细内容，请查阅 [](Engine/Blueprints/Editor/Modes/Components)。 
-* 如需了解在此模式中使用 **组件** 的详细内容，请查阅 [](Engine/Blueprints/UserGuide/Components)。  
+* 请参阅 [](Engine/Blueprints/Editor/Modes/Components) 来了解此模式中的窗口和选项的更多信息。 
+* 另请参阅 [](Engine/Blueprints/UserGuide/Components) 了解在此模式中使用 **组件** 的信息。  
+ 
 
+(#defaultsmode)
 
-### 默认模式
+### 默认值模式（Defaults Mode）
 
 ![](DefaultsTab.png)(w:740)
 
-**默认模式** 是蓝图包含的所有默认设置和属性（以及所有变量）的“一站式服务点”。在此模式中可直接对所有选项进行修改，使用 **Search** 选项搜索需要进行修改的设置。 
+可以在 **默认值模式（Defaults Mode）** 中一站式设置蓝图包含的所有默认设置和属性以及任何变量。你可以在该模式下直接修改任何选项并使用 **搜索（Search）** 选项来搜索要修改的特定设置。 
 
-* 在 [](Engine/Blueprints/Editor/Modes/Defaults/DefaultsTab) 中查阅关于 **默认模式** 的详细内容。 
+* 请参阅 [](Engine/Blueprints/Editor/Modes/Defaults/DefaultsTab) 了解有关在 **默认值模式（Defaults Mode）** 下导航的更多信息。 
 
 [/COMMENT]
 
+(#placingblueprintnodes)
+
 ## 放置蓝图节点
 
-在 **图表模式** 中放置节点的方法有多种（详情请查阅 [](Engine\Blueprints\BP_HowTo\PlacingNodes)），该章节将讲述最常用的方法，以及如何连接节点。 
+在 **图表模式（Graph Mode）** 下放置节点的方法有多种（请参阅 [](Engine\Blueprints\BP_HowTo\PlacingNodes) 了解更多信息），本部分将介绍最常用的方法以及如何连接节点。 
 
 [INCLUDE:Engine\Blueprints\BP_HowTo\PlacingNodes#context]
 
 
+(#connectingblueprintnodes)
+
 ## 连接蓝图节点
 
-如需连接节点，拖动一个引脚并将其连接至另一个同类引脚（在某些情况下会创建一个转换节点。举例而言，将一个 Float 输出引脚与一个 Text 输入引脚相连，这两者间将创建一个转换节点并自动转换和连接两个节点）。 
+要连接节点,从一个引脚拖出引线并连接到同一类型的另一个引脚（在一些情况下将会创建转换节点，例如，将浮点输出连接到文本输入时将会在这两个引脚之间创建转换节点并自动转换和连接这两个节点）。 
 
-下图显示的是两个节点的基本连接，输入/输出引脚类型相同。 
+以下是两个节点间的基本连接，输入引脚和输出引脚的类型相同。 
 
 ![](BasicConnect.png)
 
-下图实例则是转换进行中的状态。 
+以下是正在进行的转换的示例。 
 
 ![](ConversionNode.png)
 
-* 在 [](Engine/Blueprints/UserGuide/CheatSheet) 中可查阅基于节点的更多操作和捷径。 
+* 请参阅 [](Engine/Blueprints/UserGuide/CheatSheet) 获取基于节点的更多操作和快捷键。 
 
+
+(#creatingvariables)
 
 ## 创建变量
 
 [INCLUDE:Engine/Blueprints/UserGuide/Variables#intro]
 
-可在 **MyBlueprint** 窗口中点击 **添加按钮** 为蓝图创建变量。 ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) on the variable list header ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_variable.png).
+你可以在 **MyBlueprint** 窗口中为蓝图创建变量，方法是单击变量列表标题 ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_variable.png) 上的 **“添加（Add）”按钮 ** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png)。
 
-创建变量后，需要定义变量的属性。 
+创建好变量之后，需要能够定义变量的属性。 
 
 [INCLUDE:Engine/Blueprints/UserGuide/Variables#addvariables]
 
-* 如需了解变量类型和使用方法的详细内容，请查阅 [](Engine/Blueprints/UserGuide/Variables)。 
+* 有关变量类型和使用变量的更多信息，请参阅 [](Engine/Blueprints/UserGuide/Variables)。 
 
 
 

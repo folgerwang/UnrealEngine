@@ -1,31 +1,18 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3 - 实现瞄准偏移
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:在这步中，我们将把瞄准偏移添加到动画蓝图，并将其和我们现有的动画图表衔接起来。 
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AimOffset
 type:how-to
+type:multi-step
+order:3
 tags:Animation
 tags:Aim Offset
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous](Engine\Animation\AnimHowTo\AimOffset\02_CreatingAimOffset\)
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Creating an Aim Offset - Home ](Engine\Animation\AnimHowTo\AimOffset)
-	[/PARAM]
-	[PARAM:next]
-		[Next](Engine\Animation\AnimHowTo\AimOffset\04_FinishingUp)
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在这步中，我们将把瞄准偏移添加到动画蓝图，并将其和我们现有的动画图表衔接起来。 
 
@@ -109,41 +96,4 @@ tags:Aim Offset
 我们的设置即将完成。下一步中我们将把所有内容连接起来，测试角色的瞄准能力。 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[NAV]

@@ -1,331 +1,332 @@
-﻿INTSourceChangelist:0
-Title: 2013年5月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年5月版本说明
 Availability:Licensee
 Crumbs:%ROOT%, Support/Builds
 Description:
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-9
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_05 |
-| **Changelist #** | 1652795 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2010 version 10.0.40219.1 SP1 Rel |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_05|
+| **变更列表编号**| 1652795|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2010 版本 10.0.40219.1 SP1 Rel|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * GDC Licensee Session Videos Available: [Licensee Videos](https://udn.unrealengine.com/questions/166995/gdc-2013-licensee-session-videos.html)
- * Changes to UE4 Build Targets: [UE4 Target Changes](https://udn.unrealengine.com/questions/166994/ue4-target-changes.html)
-
-
-## Major New Features
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * GDC 被许可人会议视频可用：[被许可人视频](https://udn.unrealengine.com/questions/166995/gdc-2013-licensee-session-videos.html)
+ * 虚幻引擎4 构建目标更改：[虚幻引擎4 目标更改](https://udn.unrealengine.com/questions/166994/ue4-target-changes.html)
 
 
-#### Editor Systems
+## 主要新功能
 
-* **SkeletalMesh Importing Now Creates Physics Assets**
-	* Import Dialogue now has an option to create a physics asset for a Skeletal Mesh automatically. 
-	* On by default, it can work one of three ways during the import process:
-	* It can create new assets for new meshes, 
-	* The user can choose to share the physics asset with other Skeletal Meshes, or
-	* The user can opt out, select nothing and unset **CreatePhysicsAsset**.
+
+#### 编辑器系统
+
+* **骨架网格体导入现在创建物理资源**
+	* 导入对话框现在可以选择自动为骨架网格体创建物理资源。
+	* 默认情况下，它可以在导入过程中使用以下三种方法之一：
+	* 它可以为新的网格体创建新的资源，
+	* 用户可以选择与其他骨架网格体共享物理资源，或者
+	* 用户可以选择退出，不选择任何内容并取消设置 **CreatePhysicsAsset**。
  	
 		![](importSkM1.png) ![](importSkM2.png)
-* **Collision System Interface Improvements**
-	* Collision Profile System with interface improvements has been added.  
-	* Current setup includes NavigationTestingActor, BlockingVolume, Character, InterpActor, StaticMeshComonent, and SkeletalMeshActor; a list of available profiles can be found in BaseEngine.ini.
-	* Custom editing UI  (below screenshot) now has new channel mapping feature.
-	* Custom engine/game channels can be renamed in the BaseEngine.ini.
-* **Color Picker**
-	* The Color picker now has eye-dropper functionality, allowing for faster color pickups from anywhere onscreen.
+* **碰撞系统界面改进**
+	* 添加了包含界面改进的碰撞配置文件系统。
+	* 当前设置包括 NavigationTestingActor、BlockingVolume、角色、InterpActor、StaticMeshComonent 和 SkeletalMeshActor；可以在 BaseEngine.ini 中找到可用配置文件列表。
+	* 自定义编辑 UI（下面屏幕截图）现在包含新通道映射功能。
+	* 可以在 BaseEngine.ini 中重命名自定义引擎/游戏通道。
+* **取色器**
+	* 取色器现在具有滴管功能，可在屏幕上任何位置更快实现颜色拾取。  
 		![](dropper1.png) ![](picker1.png)
-* **Source Control in Level Browser**
-	* The user is now able to access source control functionality from the Level Browser.
+* **关卡浏览器中的源码控制**
+	* 用户现在可以从关卡浏览器中访问源码控制功能。
 		
 		![](source.png)
-	* This has great potential for consolidating and speeding up workflow for anyone who regularly must switch back and forth between their source control application and the UE4 Editor.
+	* 对于经常必须在源码控制应用程序和 UE4 编辑器之间反复切换的任何用户，这具有强大的整合和加速工作流程的潜力。
 
 
-#### Blueprints
+#### 蓝图
 
-* **Input Binding Changes** 
-	* You no longer explicitly add an input component to the blueprint; instead, you can add bindings to any actor blueprint from the Input submenu.
-	* FYou can create Action and Key Events or place getters for the value of an Axis.  Key Events can specify the combination of Control, Alt, and Shift to use from the details panel.
+* **输入绑定更改**
+	* 不再将输入组件显式添加到蓝图；相反，可以从输入（Input）子菜单将绑定添加到任何 Actor 蓝图。
+	* 可以创建动作事件和按键事件，或为轴值放置取值器。按键事件可以指定要从详细信息面板中使用的 Ctrl、Alt 和 Shift 键组合。
 
 		![](bindings2.png) ![](bindings3.png)
-	* Actions and Axis are defined in Base/DefaultInput.ini, and each action can be mapped to multiple keys.
-	* Actors are no longer controlled; they can be possessed as a Pawn, or have inputs enabled upon them.
-	* Bindings in the Level Blueprint are always active, bindings in a Pawn are active whenever it is Possessed, and bindings in an Actor are activated/deactivated by calling Enable/Disable Input, with input stacks being ordered as follows:
+	* 动作事件和轴已在 Base/DefaultInput.ini 中定义，并且每个动作都可以映射到多个按键。
+	* Actor 不再受控制；他们可以作为 Pawn 拥有，或者对他们启用输入。
+	* 关卡蓝图中的绑定始终处于活动状态，Pawn 中的绑定在已拥有时处于活动状态，并且 Actor 中的绑定通过调用启用/禁用输入以激活/停用，输入堆栈按如下顺序排序：
 		
-		1. Actors with Enabled Input
-		1. Level Blueprint
-		1. Possessed Pawn
+		1.已启用输入的 Actor
+		1.关卡蓝图
+		1.已拥有的 Pawn
 
 
-#### Animation
+#### 动画
 
-* **Extended Socket Editing**
-	* Sockets are now added to the skeleton by default, and are even customizable!
-	* Mesh-only sockets can now be promoted to the skeleton as well.
-	* A filter has also been added to show different views of sockets, accessible via the viewport's "Show Sockets" mode.
-	* You can choose to view Skeleton Sockets, which appear in grey, or Mesh Sockets, which appear as red hit points onscreen, using the "Active Sockets" filter in the Skeleton Tree.
+* **扩展插槽编辑**
+	* 现在默认已将插槽添加到骨架，甚至可以自定义！
+	* 现在也可以仅将网格体插槽提升为骨架。
+	* 还添加了过滤器以显示插槽的不同视图，可通过视口的“显示插槽（Show Sockets）”模式访问。
+	* 可选择使用骨架树中的“活动插槽（Active Sockets）”过滤器查看灰色显示的骨架插槽或在屏幕上显示为红色命中点的网格体插槽。
 
 
-#### Rendering
+#### 渲染
 
-* **Post Process Materials**
-	* Custom post process effects can now be authored in the material editor!
-	* Multiple effects can be added to postprocess volumes.
-	* Postprocess volumes will blend material parameters if the same base material is used.
-	* Postprocess materials can access depth from a custom rendering pass, e.g. to mask off certain objects onscreen.
+* **后期处理材质**
+	* 现在可以在材质编辑器中创建自定义后期处理效果！
+	* 可以将多个效果添加到后期处理体积。
+	* 如果使用相同的基础材质，后期处理体积将与材质参数混合。
+	* 后期处理材质可以从自定义渲染通道访问深度，例如掩盖屏幕上的某些对象。  
 		![](Teaser3.png) ![](Teaser1.png)
 		![](Teaser0.png) ![](Teaser2.png)
-	* For more information, see [Post Process Materials](Engine/Rendering\PostProcessEffects\PostProcessMaterials) on UDN.
+	* 有关更多信息，请参阅 UDN 中的 [后期处理材质](Engine/Rendering\PostProcessEffects\PostProcessMaterials)。
 
 
-#### Audio
+#### 音频
 
-* **Sound Cue Editor**
-	* When previewing a sound cue in the editor it will now display the path through the cue similarly to the impulses through a blueprint, useful whether your cues are simple, complex, or beyond.
+* **Sound Cue 编辑器**
+	* 在编辑器中预览 Sound Cue 时，它现在将显示通过 Cue 的路径，类似于通过蓝图的脉冲，无论 Cue 是简单、复杂还是超出想像都会很有用。
 		
 		![](Car_Impact_Cue.jpg)(w:640)
-* **Attentuation Shapes**
-	* You may now choose from sphere (default), box, capsule or cone, each with its own shape properties.  
+* **衰减形状**
+	* 现在可以选择球体（默认）、盒体、胶囊体或圆锥体，其中每个形体都有自己的形状属性。  
 		![](attenuation1.png)(w:425)
-	* Each attenuation volume can now have its own dimensions and falloff distances.
+	* 每个衰减体积现在可以拥有自己的尺寸和衰减距离。
 
 
-#### Unreal Frontend
+#### 虚幻前端
 
-* **Unreal Console Shortcuts**
-	* Unreal Console/FrontEnd can now save often-used commands to a shortcut browser for easy reference and usage.
+* **虚幻控制台快捷键**
+	* 虚幻控制台/前端现在可以将常用命令保存到快捷键浏览器以便参考和使用。
 		
 		![](console4.png)(w:800)
 
 
-## New Additions
+## 新增内容
 
-#### Editor and Tools
+#### 编辑器和工具
 
-* **Slate and UI**
-	* All menus support vertical wrapping.
-		* Size of large menus is limited to fit inside the height of the work area.
-		* Vertical scrollbars appear on menus when needed.
-	* Added extensibility hooks to specific context menus (x17) in: Content Browser, Layers, Levels, LevelEditor, MaterialEditor, MaterialInstanceEditor, LevelBlueprint.
-* The Content Browser is now a "Nomad Tab" and up to 4 can be summoned. Nomad Tabs can be docked in any dock area or tab well.
-	* The Quick Browser and major tab Content Browser have been replaced with Content Browser 1 and Content Browser 2, respectively.
-	* Content Browser 3 and Content Browser 4 have been added.
-* MakeEditWidget metadata (vector widget editing) now works with vectors defined within struct/array data members of an Actor class.
-* The New Project dialog can now be used in non-rocket builds. Launching UE4Editor.exe (or double clicking it) with no arguments will show you this dialog.
-	* You can also access this dialog in the editor via File->New Project.
-	* You currently cannot create projects with code templates. Try again in a future release.
-* Added "Content Migration". This feature allows you to copy assets and all of their dependencies to another game.
-	* Right click a level in the Level Browser, a folder in the Content Browser, or an individual asset in the Content Browser and choose Migrate.
-* Added the ability to right click on a redirector and fix it up manually. This comes with a series of caveats.
-	* Redirectors referenced by unloaded maps will not be fixed up, but any references to it that can be fixed up will.
-	* Redirectors referenced by code will not be completely fixed up.
-	* Redirectors that are not at head revision or checked out by another user will not be completely fixed up. 
-	* Redirectors whose referencers are not at head revision, are checked out by another user, or are refused to be checked out will not be completely fixed up.
-* **Large Worlds Support**
-	* Added World browser feature (in development).
-	* To enable, use **Edit > Preferences > EpicLabs > WorldBrowser**.
-	* World can be opened by **File > Open World** command. Which opens a folder where all sublevels are stored.
-	* World browser allows you visually place sublevels in the world and manage streaming behavior between those sublevels.
-	* To run a world in a game use this command pattern:  `MyGame /Game/MyWorld/MyWorldPersistentMap?addmaps=Map01`
-	* Loaded world can shifted to the new origin (usually zero origin) during gameplay, not working automatically now but will be in the future, can be tested via `SetWorldOrigin` console command.
-* **Landscape**
-	* The "forward" axis can now be chosen for Landscape Spline Meshes, instead of only Z being available.
-	* Clicking on a Landscape Spline Mesh when in spline edit mode will now select that spline segment.
-	* Landscapes can now be exported to FBX format.
-	* Landscapes can now be exported at a reduced LOD, set in the Landscape actor's properties
-	* Added "reimport" feature for landscape heightmaps and layers, reimporting either from the originally imported file for that layer or the file the layer was most recently exported to.
-	* New "Interactive" property change type, used to fixed stalls when interactively editing landscape spline properties by deferring the collision data rebuild.
-	* Landscape splines now generate high-detail collision, so can now e.g. block bullet traces.
-	* "New Landscape" panel is now expanded by default if the landscape editor is open and there are no landscapes to edit.
-	* Added tooltips to the landscape tool/brush buttons and settings.
-* **Level editor viewport menu polish**
-	* Split up viewport View menu into two separate menus. 
-	* Camera types and View modes. 
-	* Cleaned up various menu labels and arrangement of items. 
-	* Added icons to the level viewport menu button labels! 
-	* Both camera type and view mode types are displayed.
-	* Toolbar menu item widgets now support optional label icons.
-* Module UI now has a Reload button.
-* Level Editor now has a Recompile Level Editor option.
-* Editor's modal windows flash when the user clicks other windows (currently Windows only).
-	* The active modal window (Programming/Slate windows only, not OS native) will flash when another Slate window attempts to activate.
-	* Removed modal windows from Windows taskbar.
-	* Background windows are now fully disabled background windows when a modal is shown.
-* Class comments are now visible as tooltips in the editor.
-* **Profiler**
-	* Added a new event graph widget (first iteration).
-	* Every time the user clicks on a data graph a new event graph will be opened as a new tabbed document.
-	* Added suport for the following view modes: 
-		* hierarchical
-		* flat based on inclusive time (coalesced)
-		* flat based on exlusive time (coalesced)
-	* Implemented basic "expand hot path" and color coding for hot path.
-	* Added context menu for the event graph (not fully implemented).  
-	* Added stats aggregates (first iteration).
-	* Data graph summary displays aggregated stat information along with the current stat value.
-* **Static mesh Editor**
-	* Sockets can be renamed in the Static Mesh Editor.
-	* Pressing Delete key now deletes the selected socket in the static mesh editor.
-
-
-#### Blueprints
-
-* Users can now double-click on the title area of a comment box in a Blueprint graph to edit comments.
-* Added Blueprint thumbnail rendering for all actor based blueprints that have visible primitive components.
-* Variables and functions in blueprint windows should now obey hidden categories.
-* Blueprint components will now use appropriate class icons.
-* GameplayStatics functions have been added to enable use of Push, Pop and Clear functions in Blueprints.
-* Blueprints now support non-unique latent actions such as loading level maps in a loop.
-* The Blueprint Editor now offers a diff button which enables users to diff against previous revision of the Blueprint held by source control.
-* Added support for editing defaults values directly in the details panel for properties selected from the My Blueprints tab (experimental; gated by an Epic Labs flag)
-* The Blueprint editor debugging toolbar now includes a PIE button.
-* Blueprints with infinite loops in them will now throw a blueprint exception, which will log, as well as break in the blueprint debugger, if active.
-* Newly-created Blueprints now open in Components mode instead of Graph mode.
-* Blueprint modal color picker has been parented to its SColorBlock so it doesn't appear as a top-level window.
-* Editor now allows users to advance paused simulations by one frame.
+* **Slate 和 UI**
+	* 所有菜单都支持垂直包装。
+		* 大菜单的大小仅限于工作区域的高度。
+		* 需要时菜单中会出现垂直滚动条。
+	* 在下列组件中添加了特定快捷菜单 (x17) 的可扩展性挂钩：内容浏览器、图层、关卡、关卡编辑器、材质编辑器、材质实例编辑器、关卡蓝图。
+* 内容浏览器现在是“Nomad Tab”，最多可以呼出 4 个。Nomad Tab 可以停靠在任何停靠区域或选项卡中。
+	* 已使用内容浏览器 1 和内容浏览器 2 分别替换快速浏览器和主要选项卡内容浏览器。
+	* 添加了内容浏览器 3 和内容浏览器 4。
+* MakeEditWidget 元数据（矢量控件编辑）现在适用于在 Actor 类的结构体/数组数据成员中定义的矢量。
+* 新建项目（New Project）对话框现在可以用于非火箭版本。启动不带参数的 UE4Editor.exe（或双击它）将显示此对话框。
+	* 还可以通过文件（File）->新建项目（New Project）在编辑器中访问此对话框。
+	* 目前无法使用代码模板创建项目。请在后续版本中再次尝试。
+* 添加了“内容迁移”。此功能允许将资源及其所有依赖关系复制到另一个游戏。
+	* 右键单击关卡浏览器中的关卡、内容浏览器中的文件夹或内容浏览器中的单个资源，然后选择迁移（Migrate）。
+* 添加了右键单击重定向器并手动修复的功能。该功能附带一系列警告。
+	* 将不会修复卸载地图引用的重定向器，但是可能会修复对它的任何引用。
+	* 将不会完全修复代码引用的重定向器。
+	* 将不会完全修复不是最新版本或由其他用户签出的重定向器。
+	* 将不会完全修复引用者不是最新版本、由其他用户签出或拒绝签出的重定向器。
+* **大世界场景支持**
+	* 添加了场景浏览器功能（开发中）。
+	* 要启用，使用 **编辑（Edit）>首选项（Preferences）> EpicLabs >场景浏览器（WorldBrowser）**。
+	* 场景可以通过 **文件（File）>打开场景（Open World）** 命令打开。这将打开存储所有子关卡的文件夹。
+	* 场景浏览器允许直观地在场景中放置子关卡，并管理这些子关卡之间的流送行为。
+	* 要在游戏中运行场景，使用以下命令模式：`MyGame /Game/MyWorld/MyWorldPersistentMap?addmaps=Map01`
+	* 在游戏过程中加载的场景可转移到新的原点（通常为零原点），现在不会自动工作，但以后可通过 `SetWorldOrigin` 控制台命令进行测试。
+* **地形**
+	* 现在可以为地形样条网格体选择“向前”轴，而非只有 Z 轴可用。
+	* 在样条编辑模式下单击地形样条网格体现在将会选择该样条段。
+	* 现在可以将地形导出为 FBX 格式。
+	* 现在可以按在地形 Actor 属性中设置的减少 LOD 导出地形。
+	* 已为地形高度图和图层添加“重新导入”功能，从该图层的原始导入文件或最近将图层导出到的文件重新导入。
+	* 新的“交互式”属性更改类型，用于通过延迟碰撞数据重建在以交互方式编辑地形样条属性时修复停转。
+	* 地形样条现在生成高细节碰撞，例如可以拦截子弹痕迹。
+	* 如果地形编辑器处于打开状态且没有要编辑的地形，则“新建地形（New Landscape）”面板现在默认展开。
+	* 已将工具提示添加到地形工具/笔刷按钮和设置。
+* **关卡编辑器视口菜单打磨**
+	* 将视口视图（View）菜单拆分成两个单独的菜单。
+	* 相机类型和视图模式。
+	* 已清理各种菜单标签和项目排列。
+	* 已将图标添加到关卡视口菜单按钮标签！
+	* 已显示相机类型和视图模式类型。
+	* 工具栏菜单项控件现在支持可选标签图标。
+* 模块 UI 现在包含重新加载（Reload）按钮。
+* 关卡编辑器现在包含重新编译关卡编辑器（Recompile Level Editor）选项。
+* 当用户单击其他窗口时编辑器的模态窗口会闪烁（目前仅限 Windows）。
+	* 当另一个 Slate 窗口尝试激活时活动模态窗口（仅限编程/Slate 窗口，而非 OS 本机）会闪烁。
+	* 已从 Windows 任务栏删除模态窗口。
+	* 当模态窗口显示时后台窗口现在会完全禁用。
+* 类注释现在编辑器中显示为工具提示。
+* **分析器**
+	* 添加了新事件图表控件（第一次迭代）。
+	* 用户每次单击数据图表时，新事件图表将作为新分页式文档打开。
+	* 添加了对以下视图模式的支持：
+		* 层级
+		* 基于包含时间的扁平（合并）
+		* 基于独占时间的扁平（合并）
+	* 已实现基本“展开热路径”和热路径的颜色编码。
+	* 添加了事件图表的快捷菜单（未完全实现）。
+	* 添加了统计数据聚合（第一次迭代）。
+	* 数据图表摘要显示聚合统计信息和当前统计值。
+* **静态网格体编辑器**
+	* 可在静态网格体编辑器中对插槽进行重命名。
+	* 现在按 Delete 键可删除静态网格体编辑器中的选定插槽。
 
 
-#### Analytics
+#### 蓝图
 
-* SwrveAnalytics now warns if event rate exceeds a set limit. 
-	* Swrve defines 60/minute, but that's an aggregate measure. We'll suggest you limit events if you exceed 70/minute. 
-* Analytics now select Release accounts when UE_BUILD_SHIPPING build setting or -RELEASEANALYTICS cmdline.
+* 用户现在可以双击蓝图图表中注释框的标题区域以编辑注释。
+* 已为具有可见图元组件的所有基于 Actor 的蓝图添加蓝图缩略图渲染。
+* 蓝图窗口中的变量和函数现在应遵循隐藏类别。
+* 蓝图组件现在将使用合适的类图标。
+* 添加了 GameplayStatics 函数以便在蓝图中使用 Push、Pop 和 Clear 函数。
+* 蓝图现在支持非唯一潜在动作，例如在循环中加载关卡地图。
+* 蓝图编辑器现在提供区分按钮，能让用户对源码控制持有蓝图的早前版本进行区分。
+* 已为从我的蓝图（My Blueprints）选项卡中选择的属性添加在详细信息面板中直接编辑默认值的支持（实验性；由 Epic Labs 标记选通）。
+* 蓝图编辑器调试工具栏现在包含 PIE 按钮。
+* 其中包含无限循环的蓝图现在将抛出蓝图异常，将会记录该异常，并在蓝图调试器中中断（如果处于活动状态）。
+* 现在，新创建的蓝图会在组件模式下打开，而非图表模式。
+* 蓝图模式取色器已成为 SColorBlock 的父级，因此它不会显示为顶层窗口。
+* 编辑器现在允许用户将暂停模拟向前推进一帧。
 
 
-#### Gameplay and Framework
+#### 分析
+
+* 如果事件率超过设定限制，SwrveAnalytics 现在会发出警告。
+	* Swrve 定义 60/分钟，但这是聚合衡量标准。如果超过 70/分钟，我们建议限制事件。
+* 当 UE_BUILD_SHIPPING 构建设置或 -RELEASEANALYTICS cmdline 时，分析现在选择发布帐户。
+
+
+#### Gameplay 和框架
   
-* `OnActorHit` delegate has been added to Actor.
-* **Replication**
-	* Component Replication: [](https://udn.unrealengine.com/questions/165062/component-replication.html)
-	* Fast TArray Replication: [](https://udn.unrealengine.com/questions/164217/how-can-i-improve-performance-of-tarray-replicatio.html)
-* **Navigation Mesh**
-	* Added a ini-configurable mechanism to control whether voxel filtering should be performed while generating navmesh (RecastNavMesh::bPerformVoxelFiltering). 
-	* Implemented generic mechanism to snap navigation links end to static geometry at navmesh build-time.
-	* Made max navigation query search nodes configurable via ini file (RecastNavMesh::DefaultMaxSearchNodes).
-* Structs can now contain protected or private reflected member variables.
-* New 'dumpticks' console command which dumps all tick functions to log.
-	* It can take optional 'enabled' and 'disabled' parameters which make it dump only enabled or disabled tick functions, respectively.
-* Added 'stats tree threadname (optional statname)' console command which toggles display of hierarchical tree of stats in the HUD.
-	* 'stats treeup' (optional number of lines)' console command moves the tree up.
-	* 'stats treedown' (optional number of lines)' console command moves the tree down.
-* IsRunningGame() and IsRunningServer() functions check to see if the executable is either MyGame.exe, MyGameServer.exe, or the editor running in game or server mode.
-* First pass support for writing transient output to a user save location, inside My Documents. Enable with -SaveToUserDir.
-* Removed multiple GetNetOwner type functions from Actor and replaced with GetNetConnection. 
-	* Added NetConnection variable to PlayerController and routed all GetNetConnection calls to it.
-	* NULL on SERVER -> LocalPlayer. 
-	* NULL on CLIENT -> Non Owner. 
-	* NOT NULL ON SERVER -> replication connection to client. 
-	* NOT NULL ON CLIENT -> replication owner. 
-	* hopefully simplifies a lot of the repowner checks in various code areas. 
-	* allows for actors without playercontrollers to overload GetNetConnection and use RPC/replication.
-* Console autocomplete
-	* Allow per-game configuration of map paths for console autocomplete searching. 
-	* Also search the current user's developer folders for autocomplete map names.
+* 已将 `OnActorHit` 委托添加到 Actor。
+* **复制**
+	* 组件复制：[](https://udn.unrealengine.com/questions/165062/component-replication.html)
+	* 快速 TArray 复制：[](https://udn.unrealengine.com/questions/164217/how-can-i-improve-performance-of-tarray-replicatio.html)
+* **导航网格体**
+	* 添加了可配置 ini 机制以控制是否应在正在生成寻路网格体时执行体素过滤 (RecastNavMesh::bPerformVoxelFiltering)。
+	* 已实现通用机制以便在构建寻路网格体时将导航链接端对齐到静态几何体。
+	* 可通过 ini 文件配置最大导航查询搜索节点数 (RecastNavMesh::DefaultMaxSearchNodes)。
+* 结构体现在可以包含受保护或私有反射成员变量。
+* 新“dumpticks”控制台命令可将所有 Tick 函数转储到日志中。
+	* 它可以采用可选“启用”和“禁用”参数，从而分别仅转储启用或禁用的 Tick 函数。
+* 添加了“stats tree threadname (optional statname)”控制台命令，以切换 HUD 中统计信息的层级树显示。
+	*“stats treeup (optional number of lines)”控制台命令将树向上移动。
+	*“stats treedown (optional number of lines)”控制台命令将树向下移动。
+* IsRunningGame() 和 IsRunningServer() 函数检查可执行文件是 MyGame.exe、MyGameServer.exe 还是正在游戏或服务器模式下运行的编辑器。
+* 首次支持将瞬态输出写入“我的文档”中的用户保存位置。使用 -SaveToUserDir 启用。
+* 已从 Actor 中删除多个 GetNetOwner 类型函数，并已使用 GetNetConnection 替换。
+	* 已将 NetConnection 变量添加到 PlayerController，并已路由所有 GetNetConnection 调用。
+	* 在服务器上为空 -> 本地玩家。
+	* 在客户端上为空 -> 非拥有者。
+	* 在服务器上不为空 -> 复制连接到客户端。
+	* 在客户端上不为空 -> 复制拥有者。
+	* 有望简化各种代码区域中的许多复制拥有者检查。
+	* 允许没有玩家控制器的 Actor 重载 GetNetConnection 并使用 RPC/复制。
+* 控制台自动完成
+	* 允许控制台按照地图路径的游戏配置自动完成搜索。
+	* 还可以在当前用户的开发者文件夹中搜索自动完成地图名称。
 
 
-#### Core
+#### 核心
 
-* **Plugins**
-	* Initial UE4 plugin support!  (work in progress, but usable.).
-		* You can create .uplugin files and declare modules to load. These uplugin files are in JSon format. 
-		* `.uplugin` files are discovered automatically by UBT and UE4.
-		* Plugin modules and C++ code is automatically added to generated project files.
-		* Engine plugins are discovered and loaded from the /Engine/Plugins directory. 
-		* Plugins can have Content sub-folders. Well detect these automatically. 
-		* Project-specific plugins are supported! You can create a <GameName>/Plugins directory. 
-		* Monolithic builds currently compile in all plugins for that project. 
-		* Plugins support multiple modules; each module can be categorized as either Editor, Runtime or Development. 
-		* Multiple plugin loading phases are supported (PreEngineInit, PreGameInit, Default). 
-		* Plugin files support basic versioning checks (engine version, file version). 
-* The bad '-' case (usually when pasting a command-line from an email) will now warn the user and exit.
-* Moved PhysX3Common* from the Engine/Binaries/Win<32/64> folder to the appropriate Engine/Binaries/ThirdParty/PhysX folder. 
-* Automation Window, Controller, and Worker modules are now reloadable DLLs. 
-* Module-specific version numbers can now be used when serializing to archives.
-	* A global variable of type FCustomVersionRegistration can be placed in the module to register the module's version when it's loaded.
-* Subobject redirectors can now be used to delete a subobject. For this, you need to add an subobj redirector to the .ini file and set the NewSubobjName to an empty string.
-* Support for struct redirects added. A struct redirect can be added to the .ini file in the format +ActiveStructRedirects=(OldStructName="Foo",NewStructName="Bar").
-
-
-#### Platforms
-
-* DependencyCache.bin is now per-platform to resolve some multiple platform build issues.
-* Platform-specific dlls suchs are IOSTargetPlatform will now go into subdirectories of the Binaries/Win<32/64> folder.
-	* Module rules can now specify a BinariesSubFolder that is used when building DLLs. 
-* Changes for cooking for new WindowsServer platform
-	* WindowsServer ignores SM4,SM5 shaders and all texture format handling. 
-	* Disabled **ENQUEUE*** macros for render thread commands. Always NOOPs when running UE_SERVER=1
-* Initial efforts for dedicated servers are in (NULLRHI, Forcing no render thread, etc).
-* Autologin for dedicated servers (-login/-pass on commandline will attempt to login to online service then call RegisterServer()).
-* Large IOS  update (Audio, Slate, UnrealConsole support)
-* Added PushDllDirectoty/PopDllDirectory to modify DLL search paths safely.
-* Added support for checking for valid platform DLLs before loading them (so checked in Win64 support DLLs, for say PS4 don't load if PS4 SDK is not installed, which could crash).
+* **插件**
+	* 初始 UE4 插件支持！（正在进行中，但可以使用）。
+		* 可以创建 .uplugin 文件并声明要加载的模块。这些 uplugin 文件采用 JSon 格式。
+		* `.uplugin` 文件由 UBT 和 UE4 自动发现。
+		* 插件模块和 C++ 代码已自动添加到生成的项目文件中。
+		* 已从 /Engine/Plugins 目录中发现并加载引擎插件。
+		* 插件可以包含内容（Content）子文件夹。将会自动仔细检测这些内容。
+		* 支持项目特定插件！可以创建 <GameName>/Plugins 目录。
+		* 单块构建当前在该项目的所有插件中编译。
+		* 插件支持多个模块；每个模块可以分类为编辑器、运行时或开发。
+		* 支持多个插件加载阶段（PreEngineInit、PreGameInit、Default）。
+		* 插件文件支持基本版本控制检查（引擎版本、文件版本）。
+* 糟糕的情况（通常在从电子邮件粘贴命令行时）现在将会警告用户并退出。
+* 已将 PhysX3Common* 从 Engine/Binaries/Win<32/64> 文件夹移动到相应的 Engine/Binaries/ThirdParty/PhysX 文件夹。
+* 自动化窗口、控制器和工作人员模块现在是可重新加载 DLL。
+* 在序列化为存档时，现在可以使用模块特定版本号。
+	* 可以将类型为 FCustomVersionRegistration 的全局变量放置在模块中，以便在加载模块时注册模块版本。
+* 子对象重定向器现在可以用于删除子对象。为此，需要将子对象重定向器添加到 .ini 文件，并将 NewSubobjName 设置为空字符串。
+* 添加了对结构体重定向的支持。可以将结构体重定向添加到 .ini 文件，格式为 +ActiveStructRedirects=(OldStructName="Foo",NewStructName="Bar")。
 
 
-#### Animation
+#### 平台
 
-* **Persona Viewport**
-	* Added other viewport types beyond Perspective (Ortho top, side and left)
-	* Added a key handler for 'F' in Persona viewports that focus on the preview mesh (or a bone or socket if one is selected).
-	* Removed 'Bone Thickness' option from Persona viewport menu.
-	* Added a new feature to specify bone axis display mode, controlled via the Persona viewport Show menu.
-	* Added ability to hide the preview mesh in Persona.
-	* Additive animation render mode has been added in Persona.
-	* Changed bone rendering in Persona to draw wireframe cones and spheres, colored based on the selected bone(s).
-* Added support for using AnimComposite both creating and editing in Persona and their use in Vim blueprints.
-* Changed target points for Camera lock and camera follow in Persona to be the centre of the preview mesh bounds, not actor location.
-* **Sync Groups**
-	* Sequence players and blend spaces can be declared as a member of a sync group, with the group leader controlling time advancement and notification generation for all other members
-	* Each group member has a role: leader when highest total blend weight (default), always the leader, never the leader.
-* Moved "Export FBX" functionality from Persona viewport menu to Asset Browser and added support for exporting multiple animations at a time.
-* Morph Target deletion is now handled via context menu.
+* DependencyCache.bin 现在是按平台解决一些多平台构建问题。
+* 平台特定 DLL（如 IOSTargetPlatform）现在将进入 Binaries/Win<32/64> 文件夹的子目录。
+	* 模块规则现在可以在构建 DLL 时指定使用的 BinariesSubFolder。
+* 新 WindowsServer 平台的烘焙更改
+	* WindowsServer 忽略 SM4 着色器、SM5 着色器和所有纹理格式处理。
+	* 已为渲染线程命令禁用 **ENQUEUE*** 宏。正在运行 UE_SERVER=1 时始终为 NOOP
+* 专属服务器的初始工作是（NULLRHI，强制没有渲染线程等）。
+* 专属服务器的自动登录（命令行中的 -login/-pass 将尝试登录在线服务，然后调用 RegisterServer()）。
+* 大型 IOS 更新（音频、Slate、虚幻控制台支持）
+* 添加了 PushDllDirectoty/PopDllDirectory 以便安全修改 DLL 搜索路径。
+* 已添加在加载之前检查有效平台 DLL 的支持（因此，在 Win64 支持 DLL 中进行检查，如果未安装 PS4 SDK，则 PS4 不会加载，这可能会导致崩溃）。
 
 
-#### Rendering 
+#### 动画
 
-* **Particle Systems**
-	* Global Vector Field tightness can be overriden from the Global Vector Field cascade module.
-	* ParticleSize material node is now available. This node returns the xy size of the particle in world space. 
-* **Materials**
-	* TextureObject expressions autoassign selected texture on creation.
-	* TextureObject expressions now have Use Current Texture menu option.
-	* TextureObjects and TextureSamples can be interchange with new menu option.
-	* The WorldPosition material expression now has a new setting which determines whether you want the world position to include any shader offsets or not. Shader offsets include the world position offset, and any tessellation.
-* **Post Process Effects**
-	* Replaced existing Motion Blur with new Motion Blur algorithm, similar to [](http://graphics.cs.williams.edu/papers/MotionBlurI3D12/McGuire12Blur.pdf) but still half res, minor further improvements upcoming.
-	* First Iteration of CustomDepth pass rendering, checkbox at primitive component, following Post Process needs to pick it up to make it visible (useful for silhouette rendering) can be enabled in editor checkbox on Mesh/PrimitiveComponent or game code.
-	* First Iteration of post processing through materials is available (can specify material in PostProcessVolume to be rendered in full screen pass, use SceneTexture material expression to input Postprocess0 or GBuffer properties), needs improvements for TemporalAA, support for multiple passes  and other changes.
-	* Temporal AA is now the default anti-aliasing solution. This produces far smoother, higher quality, images than FXAA.
-* Added **ShadowSharpen** property to lights.
-* Added compositing graph debug dump through r.CompositionGraphDebug.
-* The HighResShot command now works when using a resolution as well as a multiplier value. Example usage: HighResShot 1920x1080.
-
-
-#### Audio
-
-* A SoundNodeBranch has been added.  You can use named Boolean parameters on an AudioComponent to change SoundCue behavior.
-* SoundModes renamed to SoundMix.
-* Now have option to set a single Base SoundMix and push multiple SoundMix modifiers.
-* The singular CurrentMode and its fading amounts, as well as the idea of a BaseSoundMode, has been replaced with list of active SoundMixes and their current state.
-	* The 'STAT SOUNDMIXES' command now shows which SoundMixess are active (effectively replacing the ListSoundModes command), their fade-in levels, and which Mode is in control of EQ. 
-	* Audio Effect manager now checks priority of Sound Modes before applying EQ changes.
-	* EQ control can further be specified by the EQ Priority property, and there is a new function to clear the EQ effects when all Sound Modes are disabled. 
-* Exposed Reverb Settings via a new Reverb Effect asset type.
+* **角色编辑器视口**
+	* 添加了视角之外的其他视口类型（正交顶部、侧面和左侧）
+	* 已在角色编辑器视口为“F”添加键处理程序，以专注于预览网格体（或已选择的骨骼或插槽）。
+	* 已从角色编辑器视口菜单删除“骨骼厚度（Bone Thickness）”选项。
+	* 添加了新功能以指定骨骼轴显示模式，可通过角色编辑器视口显示（Show）菜单进行控制。
+	* 添加了在角色编辑器中隐藏预览网格体的功能。
+	* 已在角色编辑器中添加附加动画渲染模式。
+	* 已在角色编辑器中更改骨骼渲染以绘制线框骨骼和球体，并根据选定骨骼进行着色。
+* 添加了对使用 AnimComposite 在角色编辑器中创建和编辑，以及在 Vim 蓝图中使用它们的支持。
+* 已在角色编辑器中将相机锁定和相机跟随的目标点更改为预览网格体边界的中心，而非 Actor 位置。
+* **同步组**
+	* 可以将序列播放器和混合空间声明为同步组的成员，同步组领导者控制所有其他成员的时间推进和通知生成
+	* 每个同步组成员都拥有一个角色：最高总混合权重（默认）的领导者始终既是领导者，也永远不是领导者。
+* 已将“导出 FBX”功能从角色编辑器视口菜单移动到资源浏览器，并添加了对一次导出多个动画的支持。
+* 现在可通过快捷菜单处理顶点变形目标删除。
 
 
-## Upgrade Notes
+#### 渲染
+
+* **粒子系统**
+	* 全局矢量场厚度可以从全局矢量场级联模块中覆盖。
+	* 粒度材质节点现在可用。此节点返回世界场景空间中粒子的 xy 大小。
+* **材质**
+	* TextureObject 表达式在创建时自动分配选定纹理。
+	* TextureObject 表达式现在包含使用当前纹理（Use Current Texture）菜单选项。
+	* TextureObject 和 TextureSample 可以与新菜单选项互换。
+	* WorldPosition 材质表达式现在包含新设置，用于确定是否希望场景位置包含任何着色器偏移。着色器偏移包含场景位置偏移和任何曲面细分。
+* **后期处理效果**
+	* 已使用新的动态模糊算法替换现有的动态模糊算法，类似于 [](http://graphics.cs.williams.edu/papers/MotionBlurI3D12/McGuire12Blur.pdf)，但仍然保持一半分辨率，将进行进一步的细微改进。
+	* 可以在网格体/图元组件或游戏代码的编辑器复选框中，启用自定义深度通道渲染的第一次迭代和图元组件的复选框，然后启用需要拾取以使它可见的后期处理（对于轮廓渲染很有用）。
+	* 通过材质进行后期处理的第一次迭代可用（可指定要在全屏通道中渲染的 PostProcessVolume 中的材质，使用 SceneTexture 材质表达式输入 Postprocess0 或 GBuffer 属性），需要改进 TemporalAA，支持多个通道和其他更改。
+	* TemporalAA 现在是默认抗锯齿解决方案。这可以生成比 FXAA 更平滑且品质更高的图像。
+* 已将 **ShadowSharpen** 属性添加到光源。
+* 已通过 r.CompositionGraphDebug 添加合成图表调试转储。
+* 使用分辨率和乘数值时，HighResShot 命令现在可以正常使用。用法示例：HighResShot 1920x1080。
+
+
+#### 音频
+
+* 添加了 SoundNodeBranch。可以在 AudioComponent 上使用命名布尔参数更改 SoundCue 行为。
+* 已将 SoundMode 重命名为 SoundMix。
+* 现在可以选择设置单个 Base SoundMix 并推送多个 SoundMix 修改器。
+* 已使用活动 SoundMix 列表及其当前状态替换单个 CurrentMode 及其淡出量，以及 BaseSoundMode 的概念。
+	*“STAT SOUNDMIXES”命令现在显示处于活动状态的 SoundMix（有效替换 ListSoundMode 命令），及其淡入级别和控制 EQ 的模式。
+	* 音频效果管理器现在会在应用 EQ 更改之前检查声音模式的优先级。
+	* EQ 控制可以通过 EQ 优先级（EQ Priority）属性进一步指定，并且可以使用新功能在禁用所有声音模式后清除 EQ 效果。
+* 已通过新的混响效果资源类型公开混响设置。
+
+
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
  

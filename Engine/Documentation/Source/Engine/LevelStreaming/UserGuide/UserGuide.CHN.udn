@@ -1,142 +1,146 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title:Level Streaming User Guide
+Title:关卡流送用户指南
 Crumbs:
-Description:Guide to setting up real-time asynchronous streaming of levels.
+Description:设置关卡实时异步流送的指南。
+
+
+[COMMENT:none]
 
 [REGION:todo]
-	This page is converted from Unreal Engine 3 documentation and currently being reviewed. Information may be outdated.
+​	本页面是从虚幻引擎3文档转换的，当前处于接受审核的状态。信息可能已过时。
 [/REGION]
 
 [TOC(start:2)]
 
 
 
-## Overview
+## 概述
 
-By following the directions in this document, Unreal Engine 4 users should be able to successfully set up the realtime streaming of multiple levels together to create the illusion of one large, seamless world.
+遵循本文档中的指示操作之后，虚幻引擎4用户应能够成功地一次性设置多个关卡的实时流送，从而制造大型无缝世界场景的错觉。
 
-For information about volume-based level streaming, see the doc on [Level Streaming Volumes](Engine/LevelStreaming/StreamingVolumes).
+有关基于体积的关卡流送的更多信息，请参阅 [关卡流送体积](Engine/LevelStreaming/StreamingVolumes)。
 
 
 
-## The Persistent Level
+## 固定关卡
 
-The first step towards getting your levels to blend together seamlessly is creating the persistent level. This can be thought of as a master level that is primarily used to govern which levels will be streamed in and out. 
+要让关卡能够无缝混合，第一步是创建固定关卡。可以将其看作主要用于控制流式切入和切出的关卡的主关卡。 
 
-Creating a persistent level and adding streaming levels to it can be done in just a few simple steps: 
+只需简单几步，即可创建好固定关卡并向其添加流送关卡： 
 
-1. Create a new map, add a small cube of geometry out of sight somewhere (this simply validates it as a level as far as the engine is concerned, and will likely be a step that is done away with eventually)
-1. Place a playerstart wherever you would like the player to begin. Note that in the persistent level this playerstart will likely be floating in space, but once you have streamed a level in, it should be moved to wherever you want the player to begin in the first streamed level. We will be launching the persistent level when it's time to play the game, but the player will actually be moving through the geometry of one of your streamed levels, not the persistent level.  
-1. Save your map, giving it a name denoting it as the persistent level for your own organizational purposes. Headquarters_P, for example.
-1. Open the generic browser, and click on the "Level" tab. This is where you must list every level that you wish to stream in. If Headquarters consists of three maps, all three should be added here. Do so by selecting Level->New From File from the Level pull-down menu. The order in which you add the streaming levels is not important, but future versions of Editor/UserGuide will allow you to re-order the levels to keep things organized. You should end up with something like what is in the picture below. 
-1. _Note that you will be given the option to stream your levels in by distance or by Blueprint_:
-    * Distance streaming loads and unloads a level based on the player's distance from the level's origin. 
-    * Blueprint streaming allows the designer to load and unload the level at will via Blueprint scripting, and thus is the most common choice here.
+1. 新建一个地图，并在视野之外的某个位置添加一个立方体几何体（就引擎而言，这可以验证它是一个关卡，但是最终可能将去掉该步骤）
+1. 在你希望玩家开始游玩的地方放置一个玩家出生点。请注意，在固定关卡中该玩家出生点可能将浮动在空间中，但是在流式切入关卡之后，它应该移动到你希望玩家在首个流送的关卡中开始游玩的地方。固定关卡将在玩家游玩游戏时启动，但是玩家实际上将在你流送的一个关卡的几何体中移动，而非固定关卡。  
+1. 保存地图，并为其命名（其名称应能够指示它是固定关卡，以便于你组织）。例如，Headquarters_P。
+1. 打开泛型浏览器，并单击“关卡（Level）”选项卡。你必须在此处列出要流式切入的所有关卡。如果Headquarters包含三个地图，应在此处添加这三个地图。 
+  方法是，从“关卡（Level）”下拉菜单中选择“关卡（Level）”->“从文件中添加新关卡（New From File）”。你添加流送关卡的顺序并不重要，但是在未来版本的编辑器/用户指南中，你将能够对关卡进行重新排序，以使它们整齐有序。添加完之后的样子如下图所示。 
+1. _请注意，将为你提供按距离或按蓝图流式切入关卡的选项_：
+    * 按距离流送将基于玩家距离关卡原点的距离加载和卸载关卡。 
+    * 按蓝图流送使设计师能够通过蓝图脚本灵活地加载和卸载关卡，因此该方法比较常用。
 
 ![streamingImagenew1.jpg](streamingImagenew1.jpg)
 
-**Example 1: The level browser after three streamed levels have been added**
+**示例1：添加了三个流送关卡后的关卡浏览器**
 
-The level denoted as "CURRENT" is the level that will be modified if changes are made in the editor windows or Blueprints. This allows you to easily work on multiple maps, as long as they are all writeable. If you press the save button, it will save the CURRENT level (or you can save all maps listed here including the persistent by clicking the Save All Levels button).
+如果在编辑器窗口或蓝图中进行更改，标记为“当前（CURRENT）”的关卡将是你正在修改的关卡。这使你能够轻松处理多个关卡，只要这些关卡都是可写关卡。 
+如果你按下保存按钮，它将保存“当前（CURRENT）”关卡；如果希望保存此处列出的所有地图（包含固定关卡），可以单击“保存所有关卡（Save All Levels）”按钮。
 
-The visible checkbox allows you to hide and unhide the levels in the editor, although this is for visualization purposes only and has no bearing on whether or not a level will stream into the game when it is run. However, a level that is not visible here will not be affected if you rebuild the level, which can be a great timesaver if you have complicated levels. 
+通过“可见（Visible）”复选框，你可以在编辑器中隐藏和取消隐藏关卡，虽然它仅用于控制可见性，和游戏运行时关卡是否流式切入游戏无关。但是，如果未在此处将某个关卡设置为可见，重新构建关卡时，该关卡将不会受到影响，如果关卡非常复杂，这可以帮你节省大量时间。 
 
-In order to permanently remove a streamed level from your persistent level, select Remove level from world from the Level pulldown in the browser. If you need to change a level's streaming method, remove the level and then re-add it, selecting the method you would prefer it to stream in by. Currently "Load" and "Unload" are not functional, nor is the Lock/Unlock icon or the Draw Bounding Box flag. 
+要从固定关卡中永久移除某个流送关卡，从浏览器中的“关卡（Level）”下拉菜单中选择“从世界场景中移除关卡（Remove level from world）”。如果需要更改关卡的流送方法，移除关卡并重新添加它，然后选择希望使用的方法，以流式切入它。当前“加载（Load）”和“卸载（Unload）”无法工作，“锁定/解锁（Lock/Unlock）”图标或“绘制边界框（Draw Bounding Box）”标签也无法工作。 
 
 ![streamingImagenew2.jpg](streamingImagenew2.jpg)
 
-**Example 2: Right-click and choose "Make Current" to change which level you are working on**
+**示例2：右键单击并选择“设为当前关卡（Make Current）”，从而更改要处理的关卡**
 
 
-### Persistent Level Quick How-To
+### 固定关卡快速操作指南
 
 
-* Create a new map in Editor/UserGuide
-* Add a piece of simple BSP geometry, such as a cube
-* Add a playerstart
-* Add the levels you would like to stream in the Level Browser.
-* Save and name the map
+* 在编辑器/UserGuide中创建一个新地图
+* 添加一个简单的BSP几何体，例如，立方体
+* 添加玩家出生点
+* 添加要在关卡浏览器中流送的关卡。
+* 保存并命名地图
 
 
 
-## Distance-based Streaming
+## 基于距离的流送
 
-If you have chosen to stream your level in based on its distance from the player, there are some extra steps to take. First, make sure your persistent level is selected in the generic browser, and then expand the WorldSettings category on the far right-hand side. Right-click on the WorldSettings_# that you should now see and select "Edit Properties". Open the WorldSettings property in the property window and then open the StreamingLevels property. You should see each of the streaming levels listed here. You will now be able to set at what distance from the player the level will stream in at in the MaxDistance field. Think of this as a sphere that is centered at 0,0,0 in that level's world space by default. When the player enters this sphere, the level will stream in and when he leaves the sphere, the level will be unloaded. The location of this sphere can be changed, and most likely will have to be, since you'll in most cases want this sphere to completely surround the level you are streaming in, so that it is loaded when you are near the level, and unloaded when you leave the levels immediate area. We are planning on adding ways of visualizing where this sphere exists, but this has not yet been implemented. 
+如果选择基于关卡距玩家的距离流式切入关卡，你需要额外执行几个步骤。首先，确保已在泛型浏览器中选择了固定关卡，然后，展开位于最右侧的WorldSettings类别。现在你应能够看到WorldSettings_#，右键单击它并选择“编辑属性（Edit Properties）”。在属性窗口中打开WorldSettings属性，然后打开StreamingLevels属性。你将看到所有的流送关卡在此处列出。现在你可以在MaxDistance字段中设置距离，以便在关卡与玩家之间的距离为这么远时流式切入关卡。可以将此距离视作中心位于该关卡全局空间的0,0,0（默认）位置的球体。当玩家进入该球体时，将会流式切入关卡；当玩家离开球体时，将卸载关卡。可以更改而且很可能必须更改该球体的位置，因为在大部分情况下，你会希望该球体能够完全包围要流式切入的关卡，以便玩家靠近关卡时加载关卡，玩家一离开关卡区域便卸载关卡。我们计划添加使该球体的位置可见的方法，但是尚未实现它。 
 
-This method of streaming can be useful for situations where you want to load and unload a level numerous times, based on player distance from the level. Note that there may be a noticeable hitch as the level loads, if it is a large map, as the level is actually being streamed in and out, not being hidden and unhidden. 
+在你希望基于玩家距某个关卡的距离多次加载和卸载该关卡时，该流送方法非常有用。请注意，如果地图比较大，关卡加载时，可能将出现非常明显的卡顿，这是因为实际上是在流式切入和切出关卡，而非隐藏和取消隐藏关卡。 
 
 ![streamingImagenew4.jpg](streamingImagenew4.jpg)
 
-**Example 4: Setting up distance-based streaming**
+**示例4：设置基于距离的流送**
 
 
-### Distance Streaming Quick How-To
+### 按距离流送快速操作指南
 
 
-* Open the Generic Browser
-* Click the Level tab
-* Select Level->New From File from the Generic Browser file menu and select the level you would like to stream in
-* Choose "Distance" streaming
-* Making sure "Persistent Level" is selected, expand the WorldSettings property on the right-hand side. Right-click on the WorldSettings_# and select "Edit Properties"
-* In the property menu that should now be open, expand WorldSettings and then StreamingLevels.
-* Enter the distance from the player in game units at which you would like the level to be streamed into the world, and change the origin to the location in world space you would like that distance to be measured from. 
+* 打开泛型浏览器
+* 单击“关卡（Level）”选项卡
+* 从泛型浏览器文件菜单选择“关卡（Level）”->“从文件中添加新关卡（New From File）”，然后选择要流式切入的关卡
+* 选择“距离（Distance）”流送
+* 确保已选择了“固定关卡（Persistent Level）”之后，展开右侧的WorldSettings属性。右键单击WorldSettings_#并选择“编辑属性（Edit Properties）”
+* 在此时打开的属性菜单中，展开WorldSettings，然后展开StreamingLevels。
+* 以游戏单位为度量单位输入距玩家的距离（在距玩家的距离为这么远时，关卡将按照期望流式切入到世界场景中）并将原点更改为全局空间中以其作为起点开始度量该距离的位置。 
 
 
 
 
-## Working with the Streamed Levels
+## 处理流送关卡
 
 
-### Loading and Events
+### 加载和事件
 
-A new Kismet action was added to replace the Level Startup action that typically gets many events rolling when a level is loaded. This action is called Level Loaded And Visible. It basically functions in the same way as a Level Startup, but is designed to work in conjunction with the Change Level Visibility action. Whenever a level is made visible to the player, either by the CLV action or by streaming it in if the bMakeVisibleAfterLoad flag has been checked, this Loaded And Visible action will fire. This combined with Remote Events allows each streamed level to be its own self-contained entity that can be loaded and unloaded as necessary as well as receive and give events to other streamed levels. The example picture below has the player teleporting as soon as the subject level has been made visible, and also spawns a creature when a remote event from another level has been fired. 
+我们添加了新的Kismet操作，以取代关卡加载时通常会使很多事件开始的“关卡启动（Level Startup）”操作。该操作的名称为“加载关卡并使它可见（Level Loaded And Visible）”。它的工作原理与“关卡启动（Level Startup）”基本相同，但是需要与“更改关卡可视性（Change Level Visibility）”操作结合使用。通过CLV操作或在已选中bMakeVisibleAfterLoad标签的情况下通过流式切入关卡使关卡对于玩家可见时，将激活该“加载并使它可见（Loaded And Visible）”操作。与“远程事件（Remote Events）”结合使用时，它允许每个流送的关卡是它自己的自包含实体，可以根据需要进行加载和卸载，并且可以从其他流送的关卡接收事件或向其他流送的关卡发送事件。在下面的示例图片中，在主题关卡可见之后，将立即传送玩家，并且在来自另一个关卡的远程事件被激活时也生成一个生物。 
 
 ![streamingImagenew5.jpg](streamingImagenew5.jpg)
 
-**Example 5: Example script of a streamed level**
+**示例5：流送关卡的示例脚本**
 
 
-### Moving Actors Between Levels
+### 在关卡之间移动Actor
 
-As of the DEC 2007 QA-Approved build, you can move Actors between levels by simply copying them from one level (Ctrl + C), changing the current level and then pasting them (Ctrl + V). However, this uses a similar pathway to that of the _MoveSelectedActorsToCurrentLevel_ in that it has to serialize them out to a _scratch_ world in order to resolve potential references between the Actors. This functionality was introduced in changelist #203995 and #206418.
+自2007年12月经QA核准的构建版本起，你可以在关卡之间移动Actor，只需从一个关卡中复制（Ctrl + C）它们，更改当前关卡，然后粘贴（Ctrl + V）它们。但是，这会使用与 _MoveSelectedActorsToCurrentLevel_ 的路径相似的路径，相似之处在于，为了解决Actor之间的引用，它必须将它们序列化为 _scratch_ 世界场景。该功能在变更列表#203995和#206418中引入。
 
-In builds prior to the JAN 2007 QA-Approved build, you may have experiencd _out of memory_ problems when moving a large number of Actors at once; but this was fixed when we improved performance (and memory usage) of editor transaction buffers (changelist #206829).
+在2007年1月经QA核准的构建版本之前的构建版本中，一次性移动大量Actor时，你可能遇到过 _内存不足（out of memory）_ 问题；但是我们在提升编辑器事务缓存的性能（和内存使用率）时修复了该问题（变更列表#206829）。
 
-[COMMENT:none]
-
-Also in the JAN 2007 QA-Approved build, you can move Actors into a new level using the _New Level from Selected Actors_ button in the [Level Browser] (Editor/Browsers/Levels) (changelist #206324).
-
-[/COMMENT]
-
-### Optimization
-
-Most developers will find that the more streaming levels they have the better, both for performance and workflow reasons. However, this should be tempered by a limiting factor currently in the system, namely that actors that have been placed in one level cannot be directly referenced in kismet by another level. Remote events can be fired and received to trigger events across streaming levels, but it is not possible to directly reference actors across levels at this point. In the picture above, Pathnode_0 and Pathnode_1 must be located in the same level as this script, in this case Headquarters_2. If either of those nodes were in HQ_1 or 3, these actions would not function. 
-
-As of the December 2007 QA-Approved build, there is a feature that makes it easier to chop existing levels into streaming chunks.
+另外，在2007年1月经QA核准的构建版本中，你可以使用 [关卡浏览器](Editor/Browsers/Levels) 中的 _从选中的Actor新建关卡（New Level from Selected Actors）_ 按钮将Actor移动到新关卡中（变更列表#206324）。
 
 
-* Select a bunch of actors in the world.
-* Select _New Level from Selected Actors_ from the Level Browser's _Level_.
-* A new streaming level will be created on disk and added to the world, and the selected actors will then be moved to that new level.
+### 优化
+
+无论从性能角度还是工作流角度，大部分开发者都认为流送的关卡越多越好。但是，当前其效用会受到系统中一个限制因素的影响——一个关卡不能在kismet中直接引用已被放置在另一个关卡中的Actor。可以跨流送的关卡激活及接收远程事件以触发事件，但是，目前无法直接跨关卡引用Actor。在上图中，Pathnode_0和Pathnode_1必须位于与该脚本相同的关卡中，在该示例中为Headquarters_2. 如果其中任意一个节点位于HQ_1或3中，这些操作将无法正常工作。 
+
+自2007年12月经QA核准的构建版本起，我们提供一个将现有关卡分成流送块的简便功能。
 
 
-This should make it easier to create smaller streaming level sections!
+* 选择世界场景中的多个Actor。
+* 从关卡浏览器的 _关卡（Level）_ 选择 _从选中的Actor新建关卡（New Level from Selected Actors）_。
+* 将在磁盘上创建新的流送关卡并将其添加到世界场景中，然后选中的Actor将会被移动到新关卡中。
+
+
+这应该可以简化创建更小的流送关卡片段的过程！
 
 
 
-## Streaming Volumes
+## 流送体积
 
-For information about volume-based level streaming, see the [Level Streaming Volumes](Engine/LevelStreaming/StreamingVolumes) page.
+有关基于体积的关卡流送的信息，请参阅 [关卡流送体积](Engine/LevelStreaming/StreamingVolumes) 页面。
 
 
 
-## Conclusion
+## 总结
 
-That concludes our overview of how to dynamically stream levels in and out of your game world. Since many aspects of this feature are new and constantly being updated, expect this document to be updated regularly as new features and simplifications come online. 
+以上就是动态将关卡流式切入和切出游戏世界场景的概述的全部内容。由于该功能的很多方面都较新而且将持续更新，随着新功能和简化不断上线，我们将定期更新本文档。 
 
  
 
 
 
 
+
+[/COMMENT]

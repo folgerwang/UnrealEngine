@@ -1,174 +1,197 @@
-﻿INTSourceChangelist:100
-Availability:Public
-Title: 动画序列
-Crumbs: %ROOT%, Engine, Engine/Animation
-Description: 它是个包含了构成一个单独的动画的所有变换数据的独立资源。
-Related: Engine/Content/FBX/Animations
-Related: Engine/Content/Types/SkeletalMeshes
-Related: Engine/Animation/PhysicallyDrivenAnimation
-Related: Engine/Animation/StateMachines
-Related: Gameplay/AI
-Related: Engine/Content/Tools/MayaRiggingTool
-version: 4.9
+﻿INTSourceChangelist:4828051
+Availability: Public
+Crumbs: 
+Title:动画序列
+Description:包含构成单个动画的所有变换数据的单个资源
+Type: 
+Version: 4.14
+Parent: 
+Order: 
+Tags: Animation, Animation Assets
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Sequences:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Sequences:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Sequences:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Sequences]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[TOC(start:2 end:2)]
 
 [EXCERPT:Intro]
-**动画序列（AnimationSequence）** 是一个可以在骨架网格体上播放的独立的动画资源。它们包含了一些关键帧，这些关键帧可以及时地指出某个特定点处的一个骨骼的位置、旋转度及缩放比例。通过回放序列中的这些关键帧，并在将它们互相混合，使得骨架网格体可以产生平滑的动画效果。
-[/EXCERPT:Intro]
+**动画序列** 是可在骨架网格体上播放的单个动画资源。这些序列包含各个关键帧，而关键帧又规定了骨骼在特定时间点的位置、旋转和比例。依次回放这些关键帧（相互合成）可以顺利实现骨架网格体中的骨骼动画。
+[/EXCERPT]
 
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-Qo4hH0h9ZZA
-[/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    Qo4hH0h9ZZA
+    [/PARAMLITERAL]
 [/OBJECT]
 
-每个 _动画序列_ 资源指向一个特定的骨架，且仅可以在那个骨架上进行播放。这意味着，为了在多个骨架网格物体间共享动画，所有网格物体都必须使用同样的骨架资源。
+每个动画序列资源专门针对一个特定 [骨架](Engine/Animation/Skeleton)，且只能在该骨架上播放。换言之，为了能在多个骨架网格体之间共享动画，每个网格体必须使用相同的骨架资源。
 
 [REGION:tip]
-An example of a Skeleton using an Animation Sequence can also be found on the [Animation Content Examples](Resources\ContentExamples\Animation) page under section 1.1. 
+也可在 [动画内容示例](Resources/ContentExamples/Animation) 页面的1.1部分下找到使用动画序列的骨架的示例。
 [/REGION]
+
+(#editing)
 
 ## 编辑
 
-[INCLUDE:Engine/Animation/Sequences/Editor#overview]
+**动画编辑器** 提供预览和编辑单个 **动画序列** 资源的功能。可以设置包括压缩模式在内的动画序列属性，也可以添加动画通知事件（也称为通知）以便根据动画触发摄像机效果、粒子效果、声音，等等。
 
-请参照 [](Engine/Animation/Sequences/Editor) 页面获得更多信息。
+[REGION:note]
+要获取更多详细信息，请参阅 [动画序列编辑器](Engine/Animation/Sequences/Editor)。
+[/REGION]
+
+(#playback)
 
 ## 播放
 
-[INCLUDE:Engine/Animation/Sequences/UserGuide#Intro]
+可通过代码来执行 **动画序列** 播放，但通常在应用到骨架网格体组件的动画蓝图的实例中处理。从其创建动画蓝图的骨架的所有动画序列都可在 **AnimGraph** 中采样。可以将它们放置为序列播放器节点，其输出是通过从动画序列采样生成的姿势。
 
-请参照 [](Engine/Animation/Sequences/UserGuide) 获得关于在 _动画蓝图_ 中应用 _动画序列_ 的指南。
+[REGION:note]
+有关在动画蓝图中使用动画序列的说明，请参阅 [动画序列用户指南](Engine/Animation/Sequences/UserGuide)。
+[/REGION]
+
+(#notifies)
 
 ## 通知
 
-[INCLUDE:Engine/Animation/Sequences/Notifies#Intro]
+**动画通知**（**AnimNotifies** 或简称为 **通知**）为动画程序员提供了一种方法，使他们能够设置在 **动画序列** 的特定点发生的事件。通知常用于添加行走时的脚步声等效果，运行动画或在动画中生成粒子系统。但是，它们可以有很多种不同的用法，因为可以使用自定义通知类型来扩展系统，以满足任何类型的游戏的需求。
 
-请参照 [](Engine/Animation/Sequences/Notifies) 页面获得关于各种可用的通知的描述及应用信息。
+[REGION:note]
+请参阅 [动画通知（通知）](Engine/Animation/Sequences/Notifies) 来获取可用的各种类型的通知的说明和用法信息。
+[/REGION]
 
-通过使用角色编辑器中的 [动画序列编辑器](Engine/Animation/Sequences/Editor)，您可以创建及编辑通知。
+(#curves)
 
-## Curves
+## 曲线
 
-[INCLUDE:Engine/Animation/Sequences/Curves#Intro]
+**动画曲线** 提供了一种在动画播放期间更改材质参数或变形目标值的方法。这样便可指定要更改的资源（材质或变形目标），相应地命名曲线，并在动画持续时间内调整关键帧值。
 
-See [](Engine/Animation/Sequences/Curves) for descriptions and usage information on how to set up and apply curves in Persona. 
+[REGION:note]
+有关如何在动画编辑器中设置和应用曲线的说明和用法信息，请参阅 [动画曲线](Engine/Animation/Sequences/Curves)。
+[/REGION]
 
+(#compression)
 
-## Compression
+## 压缩
 
-Animation Sequence assets when opened up in **Persona** can have compression applied to them. 
+在 **动画编辑器** 中打开动画序列资源时，可以向它们应用压缩。
 
-To do this, from the **Menu Bar** select **Asset** then select **Apply Compression** (as seen below). 
+要向它们应用压缩，在 **菜单栏** 中选择 **资源（Asset）**，然后选择 **应用压缩（Apply Compression）**（如下所示）。
 
 ![](ApplyCompression.png)
 
-When choosing to apply compression, the **Animation Compression** window will open. 
+选择“应用压缩（Apply Compression）”后，**动画压缩（Animation Compression）** 窗口将打开。
 
 ![](AnimationCompressionWindow.png)
 
-Each option provides a different compression method as outlined in the table below: 
+如下表中所示，每个选项都提供一种不同的压缩方法：
 
-| Compression Type | Description |
+| 压缩类型 | 说明 |
 | --- | --- |
-| **Automatic** | Animation compression algorithm that is just a shell for trying the range of other compression schemes and picking the smallest result within a configurable error threshold. |
-| **Bitwise Compress Only** | Bitwise animation compression only; performs no key reduction. |
-| **Least Destructive** | Reverts any animation compression, restoring the animation to the raw data. |
-| **Remove Every Second Key** | Keyframe reduction algorithm that simply removes every second key. |
-| **Remove Linear Keys** | Keyframe reduction algorithm that simply removes keys which are linear interpolations of surrounding keys. |
-| **Compress each track independently** | Keyframe reduction algorithm that removes keys which are linear interpolations of surrounding keys, as well as choosing the best bitwise compression for each track independently. |
-| **Remove Trivial Keys** | Removes trivial frames of tracks when position or orientation is constant over the entire animation from the raw animation data. |
+| **自动（Automatic）** | 动画压缩算法，它只是一个外壳，用于尝试其他压缩模式并挑选可配置错误阈值中最小的结果。|
+| **仅按位压缩（Bitwise Compress Only）** | 仅按位的动画压缩；不减少关键帧。|
+| **无损（Least Destructive）** | 还原所有动画压缩，将动画还原为原始数据。|
+| **隔帧移除（Remove Every Second Key）** | 仅隔帧移除的关键帧减少算法。|
+| **线性帧移除（Remove Linear Keys）** | 移除作为周围键的线性插值的键的关键帧减少算法。|
+| **轨道独立压缩（Compress each track independently）** | 移除作为周围键的线性插值的键并为每个轨道独立选择最佳按位压缩的关键帧减少算法。|
+| **移除琐碎帧（Remove Trivial Keys）** | 从原始动画数据中移除那些在整个动画中位置或方向始终保持不变的不重要的轨道帧。|
 
+[REGION:note]
+AnimCompression使用最佳编码解码器白名单来避免尝试不可能会选择的置换。这大大减少了我们在压缩时尝试使用的编码解码器的数量，从而大大提高了压缩速度。在多核系统上，大部分编码解码器现在在自动压缩时会并行求值，进一步缩短了压缩动画序列花费的时间。
+[/REGION]
 
-## Anim Asset Details
+(#assetdetails)
 
-When an Animation Sequence asset is opened in **Persona**, there are several properties that can be adjusted inside the **Anim Asset Details** panel which can determine how the asset is handled. These properties include things such as tweaking playback speed, enabling/disabling Root Motion, assigning any Meta Data to the asset and others which are outlined in the tables below. 
+## 资源细节（Asset Details）
+
+动画序列资源在 **动画编辑器** 中打开时，可以在 **资源细节（Asset Details）** 面板中调整多个属性，它们会确定资源的处理方式。这些属性包括调整播放速度，启用/禁用“根运动（Root Motion）”，为资源指定任意元数据以及下表中列出的其他属性。
 
 ![](AnimAssetDetails.png)
 
-### Linear Key Removal
+(#animation)
 
-|---|---|
-|**Max Pos Diff**| Max position difference to use when testing if an animation key may be removed. Lower values retain more keys, but yield less compression.|
-|**Max Angle Diff**| Max angle difference to use when testing if an animation key may be removed. Lower values retain more keys, but yield less compression. |
-|**Max Scale Diff**| Max scale difference to use when testing if an animation key may be removed. Lower values retain more keys, but yield less compression. |
-|**Max Effector Diff**| As keys are tested for removal, we monitor the effects all the way down to the end effectors. If their position changes by more than this amount as a result of removing a key, the key will be retained. This value is used for all bones except the end-effectors parent. |
-|**Min Effector Diff**| Similar to Max Effector Diff, however this value is used for the end-effectors parent, allowing tighter restrictions near the end of a skeletal chain. |
-|**Effector Diff Socket**| Error threshold for End Effectors with Sockets attached to them. Typically for more important bones where we want to be less aggressive with compression. |
-|**Parent Key Scale**| A scale value which increases the likelihood that a bone will retain a key if its parent also had a key at the same time position. Higher values can remove shaking artifacts from the animation at the cost of compression. |
-|**Retarget**| If true, as the animation is compressed, adjust animated nodes to compensate for compression error. If false, do not adjust animated nodes. |
-|**Actually Filter Linear Keys**| Controls whether the final filtering step will occur, or only the retargeting after bitwise compression. If both this and **Retarget** are false, then the linear compressor will do no better than the underlying bitwise compressor, extremely slowly.|
+### 动画（Animation）
 
+| --- | --- |
+| **重定向源（Retarget Source）** | 重定向时，用作动画的基础的姿势。|
+| **预览姿势资源（Preview Pose Asset）** | 预览此资源时使用的默认骨架网格体——仅在使用此资源打开动画编辑器时适用。|
+| **插值（Interpolation）** | 它将定义不同键的值的计算方式。|
+| **速度比例（Rate Scale）** | 用于全局调整此动画的播放速率的数字。|
+|**骨架（Skeleton）** | 包含与此蒙太奇关联的骨架。不能在编辑器中更改。|
+|**父资源（Parent Asset）** | 在烘焙过程中，此数据用于烘焙到法线资源。不能在编辑器中更改。|
+|**资源映射表（Asset Mapping Table）** | 用于设置父资源，可以配合资源用户数据映射表使用。不能在编辑器中更改。|
+|**资源用户数据（Asset User Data）** | 随资源存储的用户定义数据数组。|
 
-### Animation
+(#additivesettings)
 
-|---|---|
-|**Retarget Source**| When retargeting, this pose will be used as a base of animation.|
-|**Rate Scale**| Number for tweaking playback rate of this animation globally. |
-|**Skeleton**| Contains the skeleton associated with this Montage. Cannot be changed in the editor.|
+### Additive设置（Additive Settings）
 
-### Compression
+| --- | --- |
+| **Additive动画类型（Additive Anim Type）** | 要使用的Additive动画类型的类型：无Additive（No Additive）、局部空间（Local Space）或网格体空间（Mesh Space）。局部空间是Additive，时间差由局部空间计算。网格体空间是Additive，时间差将在组件空间中应用。|
+| **基本姿势类型（Base Pose Type）** | 决定Additive时间差的计算方法：无（None）（无基本姿势）、参考姿势（Reference Pose）（网格体的默认参考姿势）、按所选择的动画缩放（Selected Animation Scaled）（选择其他动画并缩放此动画）、基于所选择的动画帧（Selected Animation Frame）（选择其他动画并仅基于帧号）。“基本姿势类型（Base Pose Type）”仅在“Additive动画类型（Additive Anim Type）”设置为“局部空间（Local Space）”或“网格体空间（Mesh Space）”时可用。|
 
-|---|---|
-|**Description**| Name of Compression Scheme used for this asset.|
-|**Do Not Override Compression**| Do not attempt to override compression scheme when running Compress Animations commandlet. Some high frequency animations are too sensitive and shouldn't be changed. |
+(#compression)
 
-### Additive Settings
+### 压缩（Compression）
 
-|---|---|
-|**Additive Anim Type**| The type of additive animation type to use: No Additive, Local Space or Mesh Space. Local space is additive and delta is calculated by local space. Mesh Space is additive and delta will be applied in component space. |
-|**Base Pose Type**| Decides how the additive delta is to be calculated: None (No Base Pose), Reference Pose (The mesh's default reference pose), Selected Animation Scaled (choose another animation and scale the animation), Selected Animation Frame (choose another animation and only based on the frame number). Base Pose Type is only available if Additive Anim Type is set to Local or Mesh Space. |
+| --- | --- |
+| **压缩模式（Compression Scheme）** | 用于此资源的压缩模式的名称。|
+| **不覆盖压缩（Do Not Override Compression）** | 运行“压缩动画（Compress Animations）”命令行开关时不尝试覆盖压缩模式。某些高频动画过于敏感，不应更改。|
+| **编辑压缩设置（Edit Compression Settings）** | 单击此按钮可查看并编辑此动画的当前压缩设置。作用与从 **菜单栏** 单击 **资源（Asset）** 然后选择 **应用压缩（Apply Compression）** 相同。|
 
-### Root Motion
+(#rootmotion)
+### 根运动（Root Motion）
 
-|---|---|
-|**Enable Root Motion**| If this is on, it will allow extracting of [Root Motion](Engine/Animation/RootMotion). |
-|**RootMotion Root Lock**| Root Bone will be locked to that position specified when extracting root motion. |
+| --- | --- |
+| **启用根运动（Enable Root Motion）** | 如启用，将允许提取 [根运动（Root Motion）](Engine/Animation/RootMotion)。|
+| **根运动根锁定（Root Motion Root Lock）** | “根骨骼（Root Bone）”将锁定到提取根运动时指定的位置。|
+| **强制根锁定（Force Root Lock）** | 即使未启用“根运动（Root Motion）”，它也将强制“根骨骼（Root Bone）”锁定。|
 
-### Import Settings
+[REGION:note]
+关于“根运动（Root Motion）”，可能需要进行诸多考虑，例如，是否需要在联网游戏中复制“根运动（Root Motion）”。如果需要复制“根运动（Root Motion）”，则需要使用 [动画蒙太奇](Engine/Animation/AnimMontage)。要了解更多信息，请参阅 [启用根运动](Engine/Animation/RootMotion#enablingrootmotion)。
+[/REGION]
 
-|---|---|
-|**Asset Import Data**| The importing data and options used for the mesh. |
+(#importsettings)
 
+### 导入设置（Import Settings）
 
-### Meta Data
+| --- | --- |
+| **动画长度（Animation Length）** | 要导入的动画范围。在“导出时间（Exported Time）”时、在“动画时间（Aniamted Time）”时定义的范围或使用手动设置的范围。|
+| **源文件（Source File）** | 浏览至在导入时使用的资源的源文件。|
+| **在骨骼层级中导入网格体（Import Meshes in Bone Hierarchy）** | 如果选中此选项，嵌套在骨骼层级中的网格体将被导入而不是转换为骨骼。|
+| **帧导入范围（Frame Import Range）** | 当在“动画长度（Animation Length）”中使用“设置范围（Set Range）”时使用的帧范围。|
+| **使用默认采样速率（Use Default Sample Rate）** | 将所有的动画曲线的采用速率设置为30 fps。|
+| **导入自定义属性（Import Custom Attribute）** | 将自定义属性导入为动画曲线。|
+| **设置材质曲线类型（Set Material Curve Type）** | 为存在的所有自定义属性设置材质曲线类型。|
+| **材质曲线后缀（Material Curve Suffixes）** | 为具有以下后缀的自定义属性设置材质曲线类型。这与“设置材质曲线类型（Set Material Curve Type）”是否为true无关。|
+| **移除冗余关键帧（Remove Redundant Keys）** | 将自定义属性作为曲线导入时，移除冗余关键帧。|
+| **删除现有变形目标曲线（Delete Existing Morph Target Curves）** | 这将在导入时从FBX删除所有现有变形目标曲线。|
+| **不导入值仅为0的曲线（Do not import curves with only 0 values）** | 将自定义属性或变形目标作为曲线导入时，如果值为0，则不导入。这可以避免添加额外曲线进行求值。|
+| **保留局部变换（Preserve Local Transform）** | 这将会在动画中导入曲线。|
 
-|---|---|
-|**Meta Data**| This is Meta Data that can be saved with the asset. The meta data is a Blueprintable class derived from the Anim Meta Data class. This allows you to add custom meta data to animation assets (Anim Sequence, Anim Montage, Anim Composite, and Blendspace are all supported). You can query the data from an animation asset in C++ by calling the `GetMetaData()` method, or by using `GetSectionMetaData()` on Anim Montages. |
+(#transform)
 
-### Thumbnail
+### 变换（Transform）
 
+| --- | --- |
+| **导入平移（Import Translation)** | 从FBX导入平移数据。|
+| **导入旋转（Import Rotation）** | 从FBX导入旋转数据。|
+| **导入统一比例（Import Uniform Scale）** | 从FBX导入统一比例数据。|
 
-|---|---|
-|**Orbit Pitch**| The pitch of the orbit camera around the asset. |
-|**Orbit Yaw**| The yaw of the orbit camera around the asset. |
-|**Orbit Zoom**| The offset from the bounds sphere distance from the asset.|
+(#metadata)
 
+### 元数据（Meta Data）
 
+| --- | --- |
+|**元数据（Meta Data）** | 这是可以随资源保存的元数据。元数据是从Anim Meta Data类衍生的Blueprintable类。这允许您将自定义元数据添加到动画资产（动画序列、动画蒙太奇、动画合成和混合空间都受到支持）。在C++中可以通过调用`GetMetaData()`方法或对动画蒙太奇使用`GetSectionMetaData()`来查询动画资源中的数据。|
+
+(#thumbnail)
+
+### 缩略图（Thumbnail）
+
+| --- | --- |
+|**轨迹俯仰角（Orbit Pitch）** | 摄像机围绕资源的轨迹的俯仰角。|
+|**轨迹偏航角（Orbit Yaw）** | 摄像机围绕资源的轨迹的偏航角。|
+|**轨迹缩放（Orbit Zoom）** | 相对于资源的界限球体距离的偏移。|

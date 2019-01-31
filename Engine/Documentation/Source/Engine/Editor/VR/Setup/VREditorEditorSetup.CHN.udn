@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3360829
+﻿INTSourceChangelist:3746532
 Title:从 GitHub 设置 VR 编辑器
 Description:从 GitHub 下载并配置虚幻引擎 VR 编辑器预览
 Crumbs:
-Availability: public
+Availability: docs
 parent:Engine/Editor/VR
 type:how-to
 order: 2

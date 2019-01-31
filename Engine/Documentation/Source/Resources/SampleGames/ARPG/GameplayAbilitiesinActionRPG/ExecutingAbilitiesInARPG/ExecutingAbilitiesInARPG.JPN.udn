@@ -1,0 +1,24 @@
+﻿INTSourceChangelist:4381199
+Availability: Public
+Crumbs: 
+Title: ARPG でアビリティを実行する
+Description: このセクションでは、作成したアビリティの実行方法を説明します。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 4
+Tags: 
+
+
+ここまでですべてのアビリティを作成しました。最後のステップは、これらを実際に実行することです。この部分はゲームによって大幅に異なるため、 Action RPG (ARPG) での実装はやり方を説明するための一例に過ぎないことに留意してください。ARPG では、**タグ** および **アイテム スロット** の 2 つの方法を使用します。**スキル** は、一般的な Engine の関数である **ActivateAbilitiesWithTags** でタグを通じて有効になります。各スキル アビリティには **AbilityTags** 内に **Ability.Skill** があるため、このように機能します。スキル アイテムを装備する際は **AddSlottedGameplayAbilities** が呼び出され、そのスキルのアビリティを **AbilitySystemComponent** に追加します。 **ActivateAbilitiesWithTags** を呼び出すと、 **Ability.Skill** でタグ付けされたアビリティが検出されて実行されます。
+
+武器とポーションのアビリティは、ARPG 固有の関数である **ActivateAbilitiesWithItemSlot** を使用して実行されます。アビリティが **AddSlottedGameplayAbilities** に追加されると、アイテム スロットによってインデックス化されたマップにその **FGameplayAbilitySpecHandle** が保存されます。アビリティは、敵かプレイヤーかによって 2 つの異なる方法でアイテム スロットに収まります。敵の場合は **DefaultSlottedAbilities** 配列から追加され、プレイヤーの場合はプレイヤーの実際のインベントリから入力されます。**ARPGCharacterBase** には、インベントリまたはキャラクター レベルの変更後に適切なアビリティの追加または削除を処理するための、適度に複雑なロジックが組み込まれています。ただし、敵に「偽のインベントリ」を与えることで、敵およびプレイヤー キャラクターの両方で共有されるベース クラスにほとんどのアビリティ ロジックを取り入れることができます。ベース クラスで任意のソースからスロット情報を取得できるよう許可する際には **IRPGInventoryInterface** ネイティブ インターフェースが使用されるため、前に戻って NPC に「本物のインベントリ」を与える場合は、 **ARPGCharacterBase** コードを変更する必要はありません。
+
+アビリティの実行に関するもう一つの部分は、残りのすべての動きとゲームプレイ システムとの相互作用です。ARPG では、 **BP_Character** ブループリントの **CanUseAnyAbility** などの一連の関数を通じてこの大部分が処理されます。これらの関数はグローバル ステートまたは現在アクティブなアビリティを確認し、プレイヤーまたは AI がビジーであるかロックダウンされている場合には、新しいアビリティを実行したり、他の作業を行ったりすることを防ぎます。すべてのゲームではアビリティの実行を許可する独自のルールを実装する必要があり、これに関してはアビリティの **ActivationRequiredTags** および **ActivationBlockedTags** が役に立ちます。最後に、UI では実行情報を得るためにアビリティ システムに対してクエリを実行する必要があります。下の図は **WB_OnSCreenControls** からの例で、スキル使用後のクールダウン タイマーの表示に **GetCooldownRemainingForTag** が使用されています。
+
+[REGION:lightbox]
+[![](ExecutingAbilitiesIn20ARPG_01.png)(w:900px)](ExecutingAbilitiesIn20ARPG_01.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]

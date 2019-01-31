@@ -1,12 +1,18 @@
-﻿INTSourceChangelist:2621990
+﻿INTSourceChangelist:3681055
 Availability:Public
 Title:虚幻智能指针库
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture
 Description:智能指针的自定义实现，包括弱指针和不能设置为NULL的共享引用。
 Version: 4.9
+Parent:Programming/UnrealArchitecture
+Order:
+Type:landing
+Tags:Programming
+Related:Programming/UnrealArchitecture/Objects
 
 [TOC(start:2)]
 
+(#SmartPointers)
 ## 智能指针
 
 [EXCERPT:Overview]
@@ -14,11 +20,12 @@ Version: 4.9
 
 | 类型 | 描述 |
 | --- | --- |
-| [](Programming/UnrealArchitecture/SmartPointerLibrary/SharedPointer) (`TSharedPtr`) | 引用计数的非侵入式的权威智能指针。|
-| [](Programming/UnrealArchitecture/SmartPointerLibrary/SharedReference) (`TSharedRef`) | 不能设置为null值的、引用计数的、非侵入式权威智能指针。|
-| [](Programming/UnrealArchitecture/SmartPointerLibrary/WeakPointer) (`TWeakPtr`) | 引用计数的、非侵入式弱指针引用。|
+| **[](Programming/UnrealArchitecture/SmartPointerLibrary/SharedPointer)** (`TSharedPtr`) | 引用计数的非侵入式的权威智能指针。|
+| **[](Programming/UnrealArchitecture/SmartPointerLibrary/SharedReference)** (`TSharedRef`) | 不能设置为null值的、引用计数的、非侵入式权威智能指针。|
+| **[](Programming/UnrealArchitecture/SmartPointerLibrary/WeakPointer)** (`TWeakPtr`) | 引用计数的、非侵入式弱指针引用。|
 [/EXCERPT:Overview]
 
+(#BenefitsofSharedReferencesandPointers)
 ### 共享引用和共享指针的优点
 
 | 优点| 描述|
@@ -36,6 +43,7 @@ Version: 4.9
 | 内存| 所占内存大小是C++指针在64-位系统中所占内存的二倍 (外加了一个共享的16字节的引用控制器。) |
 
 
+(#ReasonsforCreatingaCustomLibrary)
 ### 创建自定义库的原因
 
 * std::shared_ptr (and even tr1::shared_ptr)不是在所有平台上都可用。
@@ -50,6 +58,7 @@ Version: 4.9
 * 在不需要的时候倾向于不引入新的第三方依赖。
 
 
+(#HelperClassesandFunctions)
 ### 辅助类和函数
 
 在库中，以类和函数的形式提供了几个辅助功能，以便使得应用智能指针变得更加容易、更加直观。
@@ -67,10 +76,12 @@ Version: 4.9
 | ConstCastSharedPtr() | 将一个'const(常量的)'引用转换为'mutable（可变的）'智能指针。|
 | DynamicCastSharedPtr() | 动态类型转换效用函数，一般用于向下类型转换为派生类型。|
 
+(#SmartPointerImplementationDetails)
 ## 智能指针实现细节
 
 虚幻智能指针库中的各种智能指针类型的实现在性能、内存等方面都具有一些共有的特性。
 
+(#Performance)
 ### 性能
 
 当考虑使用共享指针时要时刻记住性能问题。共享指针的执行速度一般是非常快的；然而，这并不意味着任何地方都使用它。它们非常适用于某些高层系统或者工具编程，但不是很适合底层的引擎/路径渲染。
@@ -94,6 +105,7 @@ Version: 4.9
 * 弱指针访问速度比共享指针访问速度略慢。
 
 
+(#MemoryUsage)
 ### 内存使用量
 
 所有的共享指针 (`TSharedPtr`, `TSharedRef`, `TWeakPtr`)都占8个字节(当针对32-位系统编译时)，包括：
@@ -117,6 +129,7 @@ Version: 4.9
 无论有多少个 共享指针/弱指针 引用一个对象，都仅为每个对象创建一个引用控制器。
 [/REGION]
 
+(#Reflection)
 ### 反射
 
 共享指针是非侵入式的，这意味着该类本身不知道它是否属于另一个共享指针（或引用）。一般，这是可以的，但有时候您想把当前实例作为共享引用访问。这种情况的解决方法是让该类继承于 `TSharedFromThis<>` 。
@@ -135,6 +148,7 @@ Version: 4.9
 		}
 	}
 
+(#Casting)
 ### 类型转换
 
 您可以轻松地对共享指针(及引用)进行类型转换。和C++中的指针一样，向上类型转换是隐式的。
@@ -151,6 +165,7 @@ Version: 4.9
 不支持动态类型转换(没有运行时类型信息)。 此时，您可以使用上面的静态类型转换。
 [/REGION]
 
+(#ThreadSafety)
 ### 线程安全性
 
 常规的共享指针仅在单线程上访问是安全的。如果您需要多线程访问共享指针，那么请使用指针类的线程安全版本：
@@ -171,10 +186,12 @@ Version: 4.9
 如果您知道永远不会有多个线程访问您的指针，那么请不要使用线程安全版本。
 [/REGION]
 
+(#UsageDetails)
 ## 应用详情
 
 `SharedPointerTesting.h` 文件  (位于 `[UE4RootLocation]/Engine/Source/Runtime/Core/Public/Templates/`) 包含了使用共享指针和共享引用的各种示例。
 
+(#Tips)
 ### 技巧
 
 * 一般，当向一个新共享指针中传入一个C++指针时，您应该使用操作符“new”。
@@ -192,14 +209,15 @@ Version: 4.9
 * 和C++指针不同，共享指针不能进行内存复制，所以在使用共享指针数组时一定要考虑到这个问题。
 
 
+(#Limitations)
 ### 限制
 
 * 共享指针和虚幻对象(UObject类)不兼容 !
-* 目前仅是具有正常析构器的类型 (没有自定义的删除功能)。
 * 还不支持动态分配的数组 (比如 `MakeSharable( new int32[20] )`)。
 * 不支持将 `TSharedPtr`/`TSharedRef` 隐式地转换为布尔值。
 
 
+(#DifferencesfromOtherImplementations)
 ### 和其他实现的区别
 
 * 类型名称和方法名称和虚幻引擎的基础代码保持了更好的一致性。
@@ -207,7 +225,6 @@ Version: 4.9
 * `TSharedFromThis` 返回一个共享 **引用**，而不是共享 **指针** 。
 * 略掉了某些功能 (比如 `use_count()` 、 `unique()`, 等)。
 * 不允许异常 (略掉了所有的相关功能)。
-* 还不支持自定义分配器和自定义的删除功能。
 * 我们的实现支持不能为null的共享指针(`TSharedRef`)。
 * 添加了一些其他功能，比如 `MakeShareable` 和 `NULL` 赋值。
 

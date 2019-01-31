@@ -1,23 +1,26 @@
-﻿INTSourceChangelist:2565283
-Title:6. iOS信息提供 - 创建和导入信息提供
+﻿INTSourceChangelist:4300533
+Title:6. iOS设置 - 创建和导入设置
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
-Description:创建您的信息提供概述文件并将其导入到虚幻引擎中。
+Description:创建您的设置配置文件并将其导入虚幻引擎。
 Availability:Public
-
+Version: 4.18
+SkillLevel:Intermediate
+Checkpoint:iOSQS
+order:6
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-		[上一步](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[快速入门主页](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[下一步](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:title%")
-	[/PARAM]
+    [PARAM:previous]
+        [Previous Step](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [Quick Start Home](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [Next Step](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
@@ -25,141 +28,56 @@ Availability:Public
 
 %Globals:OSSelect%
 
-您必须具有信息提供概述文件才能安装应用程序到您的iOS设备上。 它们是通过[苹果iOS开发者网站](https://developer.apple.com/devcenter/ios/index.action)来进行创建和下载的。 您的信息提供概述文件包括了您的签名凭证、设备以及应用程序ID。它们都属于开发信息提供概述文件，可用于在开发周期内编译并安装您的游戏，并发布提交您游戏到应用程序商店时所需的信息提供概述文件。
+(#steps)
 
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#windows]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#macos]
-	[/PARAM]
-[/OBJECT]
+## 步骤
 
-[COMMENT:none]
-
-[EXCERPT:windows]
-[REGION:note]
-如果您之前在Mac上开发过iOS应用程序，但想要在一台Windows PC上使用虚幻引擎来开发iOS游戏，您可以跳过此步骤，然后从苹果iOS开发者网站下载已存的信息提供概述文件，从而与虚幻引擎iOS配置向导共同使用。
-[/REGION]
-[/EXCERPT:windows]
-[EXCERPT:macos]
-[REGION:note]
-如果您在之前开发过iOS应用程序，您可以跳过这个步骤并从苹果的iOS开发者网站中下载已存的信息提供概述文件，从而与虚幻引擎共同使用。
-[/REGION]
-[/EXCERPT:macos]
-
-[/COMMENT]
-
-**如需创建移动平台的信息提供概述文件：**
-
-1. 请转到苹果 iOS 开发者网站的[iOS信息提供概述文件](https://developer.apple.com/account/ios/profile/profileList.action) 页面。
-
-1. 点击![Add](button_add.png)按钮来添加新的概述文件。
-
-1. 在Development（开发）菜单下，选择iOS App Development（iOS应用程序开发）并点击 **继续** 。
-
-	![](provision_development.png)
-
-1. 选择您之前创建的应用程序ID，然后点击 **继续** 。
-
-	![](provision_app_id.png)
-
-1. 选择您之前创建的凭证文件，然后点击 **继续** 。
-
-	![](provision_certificate.png)
-
-1. 选择您想要与此概述文件关联的所有设备。 只有在此处选择的设备才能启动您的游戏。
-
-	![](provision_device.png)
-
-1. 为概述文件输入名称并点击 **生成** 。
-
-	![](provision_name.png)
-
-1. 下载概述文件(`.mobileprovision`文件 )到您的电脑。
-
-	![](provision_download.png)
+您必须拥有设置配置文件才能将应用程序安装到您的iOS设备上。您可以通过 
+[Apple iOS开发者网站](https://developer.apple.com/devcenter/ios/index.action)创建和下载它们。您的设置配置文件包括您的签名证书、 
+设备和应用程序ID。设置配置文件分为用于在开发周期中构建和安装游戏的开发设置配置文件，以及将您的游戏提交到应用商店（App Store）时使用的分配设置配置文件。
 
 
-**如需导入您的移动平台信息提供文件：**
+1. 前往Apple iOS开发者（Apple iOS Developer）网站上的[iOS配置文件](https://developer.apple.com/account/ios/profile/profileList.action)页面。
 
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#windowsimport]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#macosimport]
-	[/PARAM]
-[/OBJECT]
+1. 单击 **添加（Add）**（加号）按钮添加新配置文件。
 
-[COMMENT:none]
+1. 在开发（Development）下，选择iOS应用程序开发（iOS App Development）并单击 **继续（Continue）**。
 
-[EXCERPT:windowsimport]
-1. 浏览到`Engine\Binaries\DotNET\IOS\`目录，并运行`iPhonePackager.exe`。
+    ![](provision_development.png)
 
-1. 当提示时，选择您项目的.uproject文件，将其与iPhonePackager应用程序关联，然后点击 **打开** 。
+1. 选择之前创建的应用程序ID（App ID），并单击 **继续（Continue）**。
 
-1. 点击 **Import a mobile provision（导入移动平台信息提供）** 并选择您下载的信息提供概述文件。 此时显示的绿色勾表明信息提供文件被成功导入。
+    ![](provision_app_id.png)
 
-	![](import_provision.png)
+1. 选择之前创建的证书，并单击 **继续（Continue）**。
 
-1. 点击 **Import a certificate（导入凭证）** 并选择您的凭证(如果您是从苹果的开发者网站下载的，则为`.cer`文件，如果您是从Mac导出的，则为`.p12`文件）。 此时显示的绿色勾表明凭证文件被成功导入。
-	
-	![](import_certificate.png)
+    ![](provision_certificate.png)
 
-	[REGION:note]
-	在导入凭证时，您可能还会被要求导入用于生成凭证的密钥对。
+	[region:note]
+	如果创建了新证书，请务必将其添加到您现有的移动设备设置（mobileprovision）。
+	[/region]
 
-	![](import_keypair.png)
+1. 选择所有要与配置文件关联的设备。您的游戏将只能在此处所选择的设备上启动。
 
-	选择由虚幻引擎iOS配置向导先前生成的`.key`文件或从Mac导出的`.p12`文件。
-	[/REGION]
-	
-[/EXCERPT:windowsimport]
-[EXCERPT:macosimport]
-1. 复制您下载的信息提供概述文件(`.mobileprovision` 文件) 到`[ProjectDirectory]/Build/iOS` 目录中。
-[/EXCERPT:macosimport]
+    ![](provision_device.png)
 
-[/COMMENT]
+1. 输入配置文件的名称，并单击 **生成（Generate）**。
+
+    ![](provision_name.png)
+
+1. 将配置文件（`.mobileprovision`文件）下载到您的计算机。
+
+    ![](provision_download.png)
+
+
+
+(#endresult)
+
+## 最终结果
+
+创建并下载所需文件后，在下一部分中，我们将介绍如何导入和设置UE4以使用您创建的设置。
+
+
 
 
 %Steps%

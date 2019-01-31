@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3721525
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title:使用 Gear VR 头戴显示器触控板 
@@ -80,8 +80,8 @@ Gear VR 头戴显示器侧面有触控板，以便用户与当前查看的 VR �
     |**Touch**  | N/A |
     |**Set Touch Start**  | N/A |
     |**Set Touch End**  | N/A |
-    |**Get Player Controller ** | N/A |
-    |**Get Input Touch State ** | N/A |
+    |**Get Player Controller** | N/A |
+    |**Get Input Touch State** | N/A |
     |**Make Vector 2D** | N/A |
 
 1. 接下来需要记录并保存首次和最后触摸的位置，我们将用这两者之间的距离来判定点按和滑动。完成此操作的方法是：首先将 Get Player Controller 节点连接到 Get Input Touch Start，以便在用户首次触摸时便开始追踪。为使操作更加便捷，将 Location X 和 Y 连接到 Make Vector 2D 节点，然后将 Make Vector 2D 节点输出连接到 Touch Start 和 Touch End 变量上的输入，便于保存触摸的开始点和结束点。最后将 Input Touch Pressed 连接到 Touch Start 变量，然后将 Input Touch Released 连接到 Touch End 变量。这部分完成后，蓝图应与下图相似。
@@ -107,13 +107,13 @@ Gear VR 头戴显示器侧面有触控板，以便用户与当前查看的 VR �
     |节点名 | 默认值|
     |----------|--------------|
     |**Touch Start  **| N/A |
-    |**Touch End ** | N/A |
-    |**Vector2d - Vector2d ** | N/A |
-    |**Vector 2d  Length ** | N/A |
-    |**Break Vector 2D ** | N/A |
+    |**Touch End** | N/A |
+    |**Vector2d - Vector2d** | N/A |
+    |**Vector 2d  Length** | N/A |
+    |**Break Vector 2D** | N/A |
     |**Absolute (Float)** | N/A |
-    |**float < float **| N/A |
-    |**float > float ** | N/A |
+    |**float < float**| N/A |
+    |**float > float** | N/A |
 
 1. 在确定点按或滑动发生之前，首先需要将 Touch Start 和 Touch End 变量相减，得出两者之间的距离。在蓝图中实现此操作的方法是将 Touch Start 和 Touch End 变量连接到 Vector2d - Vector2d 节点上的输入。 
 

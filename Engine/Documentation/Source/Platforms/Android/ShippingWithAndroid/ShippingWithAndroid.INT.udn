@@ -1,0 +1,97 @@
+Availability: Public
+Crumbs: 
+Title: Shipping With Android
+Description: Getting your UE4 powered game setup on the Google Play store.
+Type: 
+Version: 4.20
+Parent: Platforms/Android/
+Order: 
+Tags: mobile
+Tags: Android
+
+
+Once you have completed building your Unreal Engine 4 (UE4) powered mobile project, the next step is getting it ready to be distributed through the [Google Play](https://developer.android.com/distribute/google-play/) store. In the following document, we will take a look at some of the various items that could cause issues when getting your UE4 project on the Google Play store.
+
+[REGION:note]
+The Google Play store changes its look, layout, and workflows on a regular basis without any prior notification. Because of this, some of the information in this guide might be in a different location, use a different name or been removed completely. Make sure to check the official [Google Play Store help pages](https://support.google.com/googleplay/android-developer/?hl=en#topic=3450769) should you not be able to find the information you are looking for, or if the information you found is out of date.
+[/REGION]
+
+## Google Play Console
+
+The [Google Play Console](https://developer.android.com/distribute/console/) is the web portal that is used to upload, manage and release your UE4 project on the Google Play Store. From the Google Play Console, you can do a wide range of tasks, like configuring your project for release to running automated tests. You can track how you are acquiring new users or how well your UE4 project is performing across a wide range of Android capable hardware.
+
+## Google Play Store Listing
+
+Before your project can be displayed and downloaded from the Google Play Store, you will need to first fill out all of the various sections that have a grayed out checkmark box in the **Dashboard** section of the Google Play Console.
+
+![Shipping With Android_01.png](ShippingWithAndroid_01.png "Shipping With Android_01.png")
+
+[REGION:note]
+Make sure to read each section carefully and provide the needed information and files.
+[/REGION]
+Once you have successfully completed a section the grayed out checkmark box will change to green like in the following image:  
+
+![Shipping With Android_02.png](ShippingWithAndroid_02.png "Shipping With Android_02.png")
+
+Once each of the required sections in the Dashboard has a green checkmark next to it, your application is then ready to be reviewed by Google for release on the Google Play Store.  
+
+  
+  
+
+## Google Play Store APK Size
+
+The Google Play Store has a size limit of **100 MB** for any **APK** that is uploaded. If your application requires more data than can fit in the **100 MB** limit, you will have to place the rest of the content into an **Opaque binary blob**(OBB)file. The maximum size for an **OBB** is **2 GB**. Once you have uploaded your UE4 APK to the Google Play Console, it can take at least **45 minutes** or **more** until you will be able to push the APK into Alpha, Beta or Release. Because of this, it is common practice to complete **App Releases** section first and then fill out the rest of the needed information.
+
+## Google Play Console API Changes
+
+Google Play will require that new apps target at least Android 8.0 (API level 26) from August 1, 2018, and that app updates target Android 8.0 from November 1, 2018. The 4.21 version of UE4 will take this into account but any project made with previous versions of UE4 will have to be updated to accommodate for this new change.
+
+This new change will require that your UE4 project ask the user for permissions to utilize certain features of the OS, like writing a save file to disk, when it is time to do so. In the past, the user was asked to grant all needed permissions when the application was first to run.  To help you manage the requesting of permission in UE4, version  4.21 (and later), you will need to use the **Android Runtime Permission** Plugin that can be found in the **Android** section of the **Plugins** menu.
+
+[REGION:lightbox]
+[![](ShippingWithAndroid_03.png)(w:800px)](ShippingWithAndroid_03.png)
+[/REGION]
+
+Click for full image.
+
+## Project SDK Override
+
+The **Project SDK Override** enables you to change, on a per project basis, which version of the Android SDK's are used to compile your project. You can find these options by going to **Project Settings** \> **Android** \> **Project SDK Override**.
+
+[REGION:lightbox]
+[![](AndroidSDKOverride.png)(w:800px)](AndroidSDKOverride.png) 
+[/REGION]
+[REGION:caption]
+Click for full image.
+[/REGION]
+
+
+| **Android Setting** | **Description** |
+| --- | --- |
+| **SDK API Level** | Controls the Java API used to compile the Java portion of the engine code. |
+| **NDK API Level** | Controls the compiler toolchain that the C++ code complies with. This may restrict the version of Android your native code will be compatible with. |
+
+[REGION:note]
+Leaving the fields blank will use the global Android SDK project settings.
+[/REGION]
+
+
+## Android SDK Version
+
+The Android **Minimum SDK Version** input helps determine the minimum OS version that your app can be installed on. The **Target SDK Version** informs the Android OS of the expected behavior of the API. If you are not sure which SDK Version is used with which Android OS, check out the [Codenames, Tags, and Build Numbers](https://source.android.com/setup/start/build-numbers) page for more information.
+
+[REGION:lightbox]
+[![](AndroidSDKVersion.png)(w:800px)](AndroidSDKVersion.png)
+[/REGION]
+[REGION:caption]
+Click for full image.
+[/REGION]
+
+| **Setting**  |  **Description** |
+| --- | --- |
+| **Minimum SDK Version** | This controls the minimum OS version that an app can be installed on. This is also used by the Google Play Store to filter which devices your application is seen by in the store. |
+| **Target SDK Version** | This informs the Android OS of the expected behavior of the API.  Setting this to a particular API level is a promise that your code will work with the features and changes introduced by that Android release. |
+
+[REGION:note]
+If you have a project that is using an older version of UE4 and you want to ship to Google Play store, you will need to set your **Target SDK** to **26**. This will still allow your app to run on older devices that might not have Android SDK 26 as long as the Minimum SDK Version is sufficient.
+[/REGION]

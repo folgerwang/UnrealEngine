@@ -1,0 +1,36 @@
+Availability: Public
+Crumbs: 
+Title: ARKit Prerequisites 
+Description: Apple's ARKit prerequisites and setup for augmented reality.
+Type: 
+Version: 
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: mobile
+Tags: iOS
+Tags: AR
+
+
+Support for iOS devices is not new to the Unreal Engine. If you are already working with Unreal Engine and iOS devices, you may not require any additional configuration to start working with augmented reality and Unreal Engine.
+
+## General Prerequisites
+
+The basic configuration of Unreal Engine and iOS devices is covered in detail in the [iOS Game Development](Platforms/iOS) section of the Unreal Engine documentation.
+
+**ARKit 1.5 Prerequisites**
+
+*   A development machine that meets our [Recommended Specifications](GettingStarted/RecommendedSpecifications).
+*   Unreal Engine 4.20 or greater installed.
+*   Xcode 9 or greater installed.
+*   A supported, configured, and connected handheld iOS device.
+
+**ARKit 2.0 Prerequisites**
+
+*   A development machine that meets our [Recommended Specifications](GettingStarted/RecommendedSpecifications).
+*   Unreal Engine 4.20 or greater installed.
+*   Xcode 10 or greater installed.
+*   A supported, configured, and connected handheld iOS device.
+
+[REGION:note]
+**Supported: **Use the [Supported Devices](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html) link to identify the current list of iOS devices supported for ARKit (iOS 12 beta required).
+[/REGION]

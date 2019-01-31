@@ -1,50 +1,11 @@
-﻿INTSourceChangelist:2735504
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:光线传播体积
 Crumbs:%ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:动态生成全局照明系统。
 Version:4.9
 SkillLevel:Advanced
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](lpv_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightPropagationVolumes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](lpv_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightPropagationVolumes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:lpv_topic.png
 
 [REGION:todo]
 光线传播体积（Light Propagation Volumes）功能仍在开发中，不适用于生产。
@@ -58,6 +19,7 @@ SkillLevel:Advanced
 ![](lpv_scene.png)
 [/REGION]
 
+(#EnablingLightPropagationVolumes)
 ## 启用光线传播体积
 
 将此放入 `ConsoleVariables.ini` 并启动/重启引擎即可启用此功能。
@@ -66,6 +28,7 @@ SkillLevel:Advanced
 
 此时，该控制台变量在运行时无法进行更改。
 
+(#BasicSceneSetup)
 ## 基础场景设置
 
 * 添加一个 **Mobility** 设为 **Movable** 的定向光源。
@@ -77,6 +40,7 @@ SkillLevel:Advanced
 * 使用全局照明显示标识启用/禁用 GI。
                 
 
+(#LightPropagationVolumeSettings)
 ## 光线传播体积设置
 
 部分全局设置在后期处理设置中（添加后期处理体积、 
@@ -95,6 +59,7 @@ SkillLevel:Advanced
 
 应启用次要遮挡，同样应启用次要反射，因其消耗极低。 
 
+(#AdjustingtheLookandPerformance)
 ### 调整外观和性能
 
 此技术在低分辨率的体积网格中保存数据。为避免从比体积小的几何体 
@@ -114,6 +79,7 @@ SkillLevel:Advanced
 
 ![](LPV_disable_material.png)
 
+(#DirectionalLightSettings)
 ## 定向光源设置
 
 出于性能原因，光线传播体积只使用定向光源作为射入光线。此法 
@@ -141,12 +107,14 @@ SkillLevel:Advanced
 	[/PARAM]
 [/OBJECT]
 
+(#VisualizingLightPropagationVolumes)
 ## 显示光线传播体积
 
 可通过显示标识在视口中显示实际光线传播体积：
  
 [INCLUDE:#visualizeslider]
 
+(#GIReplaceMaterialSwitch)
 ## GI 替换材质切换
 [EXCERPT:GIReplaceExample]
 
@@ -163,6 +131,7 @@ SkillLevel:Advanced
 
 [/EXCERPT:GIReplaceExample]
 
+(#OtherNotes)
 ## 其他注意事项
 
 当前应用 LPV 的属性：

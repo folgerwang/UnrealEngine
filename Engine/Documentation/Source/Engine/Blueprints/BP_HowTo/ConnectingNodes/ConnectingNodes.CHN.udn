@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:2679279
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:连接节点
-Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
+Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\Scripting
 Description:蓝图中节点连接方式的范例。 
 Related:Engine/Blueprints/BP_HowTo/PlacingNodes
 Related:Engine/Blueprints/BP_HowTo/BasicUsage
@@ -9,14 +9,16 @@ Related:Engine/Blueprints/UserGuide
 Related:Engine/Blueprints/UserGuide/CheatSheet
 version:4.9
 skilllevel:Beginner
-parent:Engine/Blueprints/BP_HowTo
-order:2
-type:howto
+parent:Engine/Blueprints/Scripting
+tags:Execution Flow
+tags:Blueprints
+order:5
 
 本页讲述在蓝图中的图表上连接节点的多种方法。 
 
 [TOC(start:2 end:2)]
 
+(#PintoPinConnection)
 ## 引脚至引脚连接
 
 连接节点的最常用方法为 **引脚至引脚** 连接。 
@@ -68,11 +70,13 @@ type:howto
 此操作将把连接移至另一引脚而无需重新连接。
 
 
+(#PinActions)
 ### 引脚操作
 如下表所示，一些额外引脚相关操作可用于节点。 
 
 [INCLUDE:Engine\Blueprints\UserGuide\CheatSheet#pinactions]
 
+(#NodetoNodeConnection)
 ### 节点至节点连接
 
 使用变量时可选择一些 **节点至节点** 连接，以节约时间。 
@@ -92,6 +96,7 @@ type:howto
 ![](NodeToNode3.png)
 
 
+(#Drag-and-DropConnection)
 ## 拖放连接
 
 使用变量的另一个捷径是执行 **拖放** （节点至引脚）连接。 
@@ -106,6 +111,7 @@ type:howto
 
 此方法可避免添加节点至图表，然后执行引脚至引脚连接的过程。 
 
+(#RerouteConnections)
 ## 重设连接路线
 
 使用复杂或大型蓝图时，可能会出现连线杂乱无章的状况，需要在图表中改变其显示方式，以便清楚可见。可利用选项添加一个 **Reroute** 节点，新增一个“延长线”类型到输出引脚，以便移动线路。

@@ -90,13 +90,13 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.14.1-release](
 
 *  UE-38900	Paper2d 플러그인 콘텐츠가 콘텐츠 브라우저에 없던 것을 고쳤습니다.
 
-*  UE-39120	ETC2 안드로이드 디바이스가 4.14 이후 더이상 Google Play Store 에 지원되지 않던 것을 고쳤습니다.
+*  UE-39120	ETC2 Android 디바이스가 4.14 이후 더이상 Google Play Store 에 지원되지 않던 것을 고쳤습니다.
 
 *  UE-37101	Xbox One: 텍스처 서브리전 업데이트 관련 문제를 고쳤습니다.
 
 *  UE-35738	IPv6 구현이 iOS 에서 작동하지 않던 것을 고쳤습니다.
 
-*  UE-39420	QAGame 을 안드로이드에서 실행할 때 발생하던 크래시를 고쳤습니다.
+*  UE-39420	QAGame 을 Android에서 실행할 때 발생하던 크래시를 고쳤습니다.
 
 *  UE-38709	Dbuffer Decal 활성화된 디퍼드 데칼 머티리얼이 에디터 크래시를 내던 것을 고쳤습니다.
 
@@ -120,7 +120,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.14.1-release](
 
 *  UE-38353	씬 내 복제된 BSP 포함 UMG 애셋을 삭제한 것을 레퍼런싱하는 UMG 애니메이션 트랙 삭제 도중의 크래시를 고쳤습니다.
 
-*  UE-39067	오큘러스 터치 컨트롤러가 게임스레드를 빠르게 실행될 때 떨리던 것을 고쳤습니다.
+*  UE-39067	Oculus 터치 컨트롤러가 게임스레드를 빠르게 실행될 때 떨리던 것을 고쳤습니다.
 
 *  UE-39113	포스트 프로세스 머티리얼이 HMD 마스크로 풀 RT 클리어가 필요하던 것을 고쳤습니다.
 
@@ -140,7 +140,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.14.2-release](
 
 픽스:
 
-* UE-39970	Stat FPS 및 기타 텍스트가 안드로이드에서 블록으로 렌더링되던 문제를 고쳤습니다.
+* UE-39970	Stat FPS 및 기타 텍스트가 Android에서 블록으로 렌더링되던 문제를 고쳤습니다.
 
 * UE-39560	[CrashReport] UE4Editor_Engine!ACullDistanceVolume::CanBeAffectedByVolumes() [culldistancevolume.cpp:62]
 

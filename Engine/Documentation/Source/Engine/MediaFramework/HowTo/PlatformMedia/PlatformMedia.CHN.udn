@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3728406
 Availability:Public
-Title: Playing Platform Specific Media
+Title: 播放平台专用媒体
 Crumbs:%ROOT%, Engine
-Description:Shows how the Platform Media Source asset can be used to play platform specific media. 
+Description:展示如何使用平台媒体源资源播放平台专用媒体。 
 Type: how-to
 SkillLevel: Intermediate
 Version: 4.18
@@ -12,123 +12,124 @@ Tags: Media Framework
 Tags: Video Playback
 Related: Engine\MediaFramework
 
-If you are working on a multi-platform project, there may be instances where you want to play platform specific media. 
-For example, you may want a specific movie to play when playing on PS4 and a different movie to play when playing on Xbox 1. 
-Or you may be using the same type of media, but it is encoded differently for performance reasons and want those different formats to play on different platforms. 
+如果您在处理多平台项目，可能在某些情况下，需要播放特定于平台的媒体。 
+例如，您可能想要在PlayStation 4（PS4）上游戏时播放一段特定的影片，而在Xbox One上播放另一段影片。 
+或者，可能使用同类型的媒体，但由于性能原因而采用了不同的编码方式，您想要在不同的平台上播放不同的格式。 
 
-With the **Platform Media Source** asset, you can determine which Media Source assets should play based on the platform it is running on. 
-When you open/play the Platform Media Source, it will look at which platform you are currently on and play the assigned Media Source automatically. 
+通过 **平台媒体源（Platform Media Source）** 资源，您可以确定根据运行平台应播放哪个媒体源资源。 
+在打开/播放平台媒体源（Platform Media Source）时，它将检查您当前所在的平台，并自动播放指定的媒体源。 
 
-In this how-to, we create a Platform Media Source and assign two different Media Sources for Android and Windows platforms. 
+在本操作指南中，我们将创建平台媒体源（Platform Media Source），并针对Android和Windows平台指定两个不同的媒体源。 
 
 ![](PlatformHero.png)
 
-## Steps
+## 步骤
 
 [REGION:note]
-For this how-to we are using the **Blueprint Third Person Template** project with **Starter Content** enabled.
-We are also using two sample videos which you can download by right-clicking this [Platform Videos](PlatformVideos.rar) link and extracting the contents on your computer. 
+在本操作指南中，我们使用启用了 **初学者内容包** 的 **蓝图第三人称模板（Blueprint Third Person Template）** 项目。
+我们还将使用两个样本视频，您可以右键单击该[平台视频](PlatformVideos.rar)链接进行下载，然后将内容解压到您的电脑上。 
 [/REGION]
 
-1.	In the **Content Browser** expand the **Sources Panel** and add a new folder called **Movies** then right-click on it and **Show in Explorer**.
+1.	在 **内容浏览器** 中，展开 **源（Sources）** 面板，并添加名为 **电影（Movies）** 的新文件夹，然后在该文件夹上单击右键并选择 **在资源管理器中显示（Show in Explorer）**。
  
 	![](Platform_01.png)
 
-1.	Drag the sample videos or your desired media files into the **Content/Movies** folder of your project. 
+1.	将样本示例或所需媒体文件拖到项目的 **Content/Movies** 文件夹。 
 
 	![](Platform_02.png)
 
 	[REGION:warning]
-	If you want to package and deploy your project along with any media files, you will need to place them inside the **Content/Movies** folder of your project. 
+	如果您想要打包并部署包含任意媒体文件的项目，需要将它们放置在项目的 **Content/Movies** 文件夹中。 
 	[/REGION]
 
-1.	In your project under the **Content/Movies** folder of the **Content Browser**, right-click and under **Media** select **File Media Source** and name it **Android_Movie**. 
+1.	在 **内容浏览器** 中，在项目的 **Content/Movies** 文件夹下，单击右键并在 **媒体（Media）** 下选择 **文件媒体源（File Media Source）**，将其命名为 **Android_Movie**。 
 
 	![](Platform_03.png)
 
-	Here we are creating a Media Source asset that the **Platform Media Source** asset can point to and use if it is running on an Android device. 
+	这里我们创建 **平台媒体源（Platform Media Source）** 资源能够指向的媒体源资源，并在Android设备上运行时加以使用。 
 
-1.	Create another **File Media Source** asset and call it **Windows_Movie**. 
+1.	再创建一个 **文件媒体源（File Media Source）** 资源，并命名为 **Windows_Movie**。 
 
 	![](Platform_04.png)
 
-1.	Open the **Android_Movie** Media Source, then for the **File Path** use the **Gideon_720x480** (or your desired video) and select **Open**. 
+1.	打开 **Android_Movie** 媒体源，然后对于 **文件路径（File Path）**，使用 **Gideon_720x480**（或者您所需的视频），并选择 **打开（Open）**。 
 
 	![](Platform_05.png)
 
-	For our Android movie, we are using a .3GP video file which is better suited for playback on Android devices while our Windows movie is an .MP4 file. 
+	对于Android影片，我们使用 **.3GP** 视频文件，这类文件更适合于在Android设备上播放，而Windows影片则为 **.MP4** 文件。 
 
-1.	Open the **Windows_Movie** Media Source, then point the **File Path** to the **Infiltrator Demo** (or your desired video) and select **Open**. 
+1.	打开 **Windows_Movie** 媒体源，将 **文件路径（File Path）** 指向 **Infiltrator Demo**（或者您所需的视频），并选择 **打开（Open）**。 
 
-1.	Right-click in the **Content/Movies** folder then under **Media**, select **Platform Media Source** and call it **Platform_Source**.  
+1.	右键单击 **Content/Movies** 文件夹，然后在 **媒体（Media）** 下面，选择 **平台媒体源（Platform Media Source）**，并命名为 **Platform_Source**。  
 
 	![](Platform_06.png)
 
-	Now that we have multiple Media Source assets, we can define which Media Source is to be played on which Platform with the **Platform Media Source** asset. 
+	现在，我们已经有了多个媒体源资源，我们可以通过 **平台媒体源（Platform Media Source）** 资源定义要在哪个平台上播放哪个媒体源。 
 
-1.	Open the **Platform_Source**, then under **Android** select the **Android_Movie** and under **Windows** select the **Windows_Movie**. 
+1.	打开 **Platform_Source**，在 **Android** 下面选择 **Android_Movie**，在 **Windows** 下面选择 **Windows_Movie**。 
 
 	![](Platform_07.png)
 
-	In our example we are using two different videos, however, you can use the same video that is encoded differently or in a different format for use with different devices. 
-	You may also use different Media Source types, for example, on Windows you may elect to use a [Media Stream](Engine\MediaFramework\HowTo\StreamMediaSource\) to pull content from a website instead of using a file on disk. 
+	在我们的示例中，我们使用两个不同的视频。但是，您可以使用具有不同编码或不同格式的同一个视频以便用于不同的设备。 
+	您还可以使用不同的媒体源类型，例如，在Windows上，您可以选择使用[媒体流](Engine\MediaFramework\HowTo\StreamMediaSource\)从网站拉取内容，代替使用磁盘上的文件。 
 
-1.	Right-click in the **Content/Movies** folder then under **Media**, select **Media Player**. 
+1.	在 **Content/Movies** 文件夹中单击右键，然后在 **媒体（Media）** 下面选择 **媒体播放器（Media Player）**。 
 
 	![](Platform_08.png)
 
-	We still need to use a **Media Player** to open and play our **Platform Media Source** asset. 
+	我们仍需要使用 **媒体播放器（Media Player）** 来打开和播放 **平台媒体源（Platform Media Source）** 资源。 
 
-1.	In the **Create Media Player** window, enable the **Video output Media Texture asset** option then click **OK** and call the asset **Media Player**.
+1.	在 **创建媒体播放器（Create Media Player）** 窗口中，启用 **视频输出媒体纹理资源（Video output Media Texture asset）** 选项，然后单击 **确定（OK）** 并调用资源 **媒体播放器（Media Player）**。
 
 	![](Platform_09.png)
 
-	This will automatically create a **Media Texture** associated with this Media Player that we can use in a [Material](Engine/Rendering/Materials/) and apply to a mesh in our level to play our content on. 
+	这样会自动创建与这个媒体播放器关联的 **媒体纹理（Media Texture）**，然后我们可以在[材质](Engine/Rendering/Materials/)中加以使用。 
+	我们可以使用这个材质，并将其应用于关卡中的网格体来播放我们的内容。 
 
-1.	Inside the **Media Player** asset, double-click on the **Platform_Media** asset in the **Media Library** window. 
+1.	在 **媒体播放器（Media Player）** 资源内部，双击 **媒体库（Media Library）** 窗口中的 **Platform_Media** 资源。 
 
 	![](Platform_10.png)
 
-	Double-clicking on the **Platform_Source** asset will start playback of only the **Windows** assigned Platform Media Source (since we are running on the Windows platform). 
-	Through Blueprint or C++, we could open the **Android_Movie** Media Source for playback however when we open the Platform_Source, only the Media Source assigned to Windows will play. 
-	Also, the **Play on Open** option is enabled by default which will allow the Media Player to start playback of whatever Media Source is opened. 
+	双击 **Platform_Source** 资源将开始播放仅指定到 **Windows** 的平台媒体源（因为我们是在Windows平台上运行）。 
+	通过蓝图或C++，我们可以打开 **Android_Movie** 媒体源进行播放，但是，当打开Platform_Source时，仅播放指定到Windows的媒体源。 
+	此外，**打开时播放（Play on Open）** 选项默认是启用的，从而允许媒体播放器开始播放所打开的媒体源。 
 
-1.	In the Main Editor window, from the **Modes** panel under **Basic**, drag a **Plane** into the level and resize as desired then drag the **MediaPlayer_Video** texture onto it. 
+1.	在主编辑器窗口中，从 **模式（Modes）** 面板中的 **基本（Basic）** 下面，将 **平面（Plane）** 拖到关卡，根据需要调整大小，然后将 **MediaPlayer_Video** 纹理拖到它上面。 
 
 	![](Platform_11.png)
 
-	By dragging the **Media Texture** asset onto the Static Mesh in the level, a Material is created and applied and will playback our media. 
+	通过将 **媒体纹理（Media Texture）** 资源拖到关卡中的静态网格体上，会创建并应用材质，材质将播放我们的媒体。 
 
-1.	With the **Plane** selected, in the **Details** panel add a **Media Sound** component with the **Media Player** option set to use your **MediaPlayer** asset. 
+1.	选中 **平面（Plane）**，在 **细节（Details）** 面板中，添加 **媒体声音（Media Sound）** 组件，并将 **媒体播放器（Media Player）** 选项设置为使用您的 **MediaPlayer** 资源。 
 
 	![](Platform_11b.png)
 
-1.	From the Main Toolbar, click the **Blueprints** option then select **Open Level Blueprint**. 
+1.	从主工具栏，单击 **蓝图（Blueprints）** 选项，然后选择 **打开关卡蓝图（Open Level Blueprint）**。 
 
 	![](Platform_12.png)
 
-1.	In the **MyBlueprint** panel create a variable called **MediaPlayer** of the **Media Player Object Reference** type then assign your **MediaPlayer** as the **Media Player** to use. 
+1.	在 **我的蓝图（My Blueprint）** 面板中，创建一个 **媒体播放器对象引用（Media Player Object Reference）** 类型的变量并命名为 **媒体播放器（MediaPlayer）**，然后将您的 **媒体播放器（MediaPlayer）** 指定为要使用的 **媒体播放器**。 
 
 	![](Platform_13.png)
 
-	This creates a reference to your Media Player asset which you can then use within Blueprint and call actions on. 
+	这样会创建对您的媒体播放器资源的引用，然后您可以在蓝图中使用并对其调用操作。 
 
 	[REGION:note]
-	In order to set the **Default Value** for the variable, you may need to first click **Compile** to compile the Blueprint. 
+	为了设置变量的 **默认值（Default Value）**，需要先单击 **编译（Compile）** 来编译蓝图。 
 	[/REGION]
 
-1.	Hold **Ctrl** and drag the **MediaPlayer** variable into the graph, right-click and add a **1** keyboard event and connect to an **Open Source** node pointing to the **Platform_Source**. 
+1.	按住 **Ctrl** 键并将 **媒体播放器（MediaPlayer）** 变量拖到图形上，单击右键并添加 **1** 键盘事件，然后连接到指向 **Platform_Source** 的 **打开源（Open Source）** 节点。 
 
 	![](Platform_14.png)
 
-	Here we are telling our Media Player to open the **Platform Media Source** asset which is set to open other Media Source assets based on which platform it is being run on. 
+	这里我们告诉媒体播放器打开指定的 **平台媒体源（Platform Media Source）** 资源，这个资源设置为根据所运行的平台打开其他媒体源资源。 
 
-1.	Close the **Level Blueprint** then click the **Play** button to play in the editor. 
+1.	关闭 **关卡蓝图（Level Blueprint）**，然后单击 **播放（Play）** 按钮来在编辑器中播放。 
 
 
-## End Result
+## 最终结果
 
-When you play in the editor, pressing 1 will open the Windows-defined Media Source inside the Platform Media Source. 
+在编辑器中播放时，按 **1** 键将在平台媒体源中打开Windows定义的媒体源。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -148,7 +149,7 @@ When you play in the editor, pressing 1 will open the Windows-defined Media Sour
 	[/PARAMLITERAL]
 [/OBJECT]
 
-If you were to deploy this project to an Android Device, the Android assigned Media Source asset would play. 
+如果要将该项目部署到Android设备，则将播放指定到Android的媒体源资源。 
 
 
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3013199
+﻿INTSourceChangelist:3467293
 Availability: Public
 Title: 安卓游戏开发
 Crumbs:%ROOT%, Platforms
@@ -10,29 +10,21 @@ tags:Android
 tags:Mobile
 parent:Platforms/Mobile
 type:landing
+Topic-image:AndroidGameDevelopment_topic.png
 
+(#StartingOut)
 ## 开始
 
-[REGION:buttonlist]
+[DIR(output:"topiccompact" parent:"Platforms/Android" type:"quick start")]
 
-		[DIR(output:"topiccompact" parent:"Platforms/Android" type:"quickstart")]
+(#AndroidHow-Tos)
+## 安卓指南
 	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"how-to" parent:"Platforms/Android")]
 
-## 安卓 开发指南
+(#GeneralAndroidDevelopment)
+## 常规安卓开发
 
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"howto" parent:"Platforms/Android")]
-	
-[/REGION]
-
-## 安卓概要
-
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Android")]
-		[DIR(end:"1" output:"listbutton" type:"reference" parent:"Platforms/Android")]
-	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Android")]
+[DIR(end:"1" output:"listbutton" type:"reference" parent:"Platforms/Android")]
 

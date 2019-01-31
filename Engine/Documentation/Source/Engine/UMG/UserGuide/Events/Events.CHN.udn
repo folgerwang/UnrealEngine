@@ -1,12 +1,22 @@
-﻿INTSourceChangelist:2708410
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:事件
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
-Description:在 UMG 中使用事件的指南。 
+Description: 在 UMG 中使用事件的指南。 
 version:4.9
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:5
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/EventsTopic.png
+
+
 
 下面列出了几种可以在 **UMG** 中调用 **事件** 的方法。 
 
+(#BindableEvents)
 ## 可绑定事件
 **可绑定事件** 是 UMG 用于模仿目前平板正在使用的行为的方式，平板需要一个处理程序来判断事件是否已处理。可以在 **事件** 部分下的 **细节** 面板中，将 **控件蓝图** 中的功能绑定到事件（由下图中的黄色箭头表示）。 
 
@@ -16,6 +26,7 @@ version:4.9
 一些控件通过处理 **交互** 来协助 **事件**（由上图中的黄框表示）。对于上面的示例，除了按钮控件的 **OnClicked** 事件，也可以通过设置 **单击方式** 或 **触控方式** 来指定单击事件的处理方式。也可以通过 **可聚焦** 选项指定按钮是否仅可以使用鼠标点击，不可用键盘选择。 
 
 
+(#MulticastEvents)
 ### 多播事件
 **多播事件** 是事件在 **蓝图** 中的标准处理方式。 
 

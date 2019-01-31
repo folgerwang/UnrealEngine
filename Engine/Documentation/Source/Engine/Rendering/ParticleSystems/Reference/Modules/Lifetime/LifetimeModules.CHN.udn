@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750660
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Lifetime 模块
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Lifetime 模块用于粒子生成时设置其初始生命周期。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

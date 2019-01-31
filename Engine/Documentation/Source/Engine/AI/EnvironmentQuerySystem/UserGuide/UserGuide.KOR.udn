@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3750407
+INTSourceChangelist:3750407
 Availability:Public
 Title:인바이런먼트 쿼리 시스템 사용 안내서
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem
@@ -7,12 +7,12 @@ Version: 4.9
 SkillLevel: Advanced
 
 
-## 인바이런먼트 쿼리 시스템 켜기
+## 인바이런먼트 쿼리 시스템 활성화
 
 1. **편집 메뉴** -> **에디터 개인설정**
 1. **실험단계 기능**
-1. **AI** 로 화면 내리기
-1. **Environment Query System** 켜기
+1. **AI** 섹션을 찾습니다.
+1. **Environment Query System** 를 활성화합니다.
 
 
 ## 인바이런먼트 쿼리의 부속
@@ -221,7 +221,7 @@ Generator (생성기)는 **Item** (아이템)이라고도 하는 위치 또는 �
 
 ### 예제 제너레이터
 
-반경이 **Rad** 인 원의 에지에서 쿼리어(질의자) 쪽으로 트레이스합니다. 각 트레이스 사이 간격은 **Number of Spokes** 값에 따라 일정 각도가 (360/**Number of Spokes** 가) 되도록 합니다. 트레이스 위치는 환경에 맞았을 때만 저장하여, 본질적으로 호출하는 것을 볼 수 없는 표면을 찾는 것입니다.
+반경이 **Rad** 인 원의 에지에서 쿼리어(질의자) 쪽으로 트레이스합니다. 각 트레이스 사이 간격은 **Number of Spokes** 값에 따라 일정 각도가 (360 / **Number of Spokes** 가) 되도록 합니다. 트레이스 위치는 환경에 맞았을 때만 저장하여, 본질적으로 호출하는 것을 볼 수 없는 표면을 찾는 것입니다.
 
 [REGION:lightbox]
 [![](customGenExample.png)](customGenExample.png)

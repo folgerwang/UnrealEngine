@@ -1,27 +1,15 @@
-﻿INTSourceChangelist:2757202
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:10.行为树基础
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第十步。行为树基础
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:10
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/9 "%Engine/AI/BehaviorTrees/QuickStart/9:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/11 "%Engine/AI/BehaviorTrees/QuickStart/11:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 **Root** 节点是树的“根”，其他所有节点连于其下方。
 
@@ -34,6 +22,7 @@ version:4.9
 利用蓝图节点引脚可形成输出到输入，或输入到输出的连接；行为树节点则有所不同，它存在方向性，必须从“输出条”拖至“输入条”。
 
 
+(#Steps)
 ## 步骤
 
 ![](selAndSeq.png)
@@ -53,7 +42,7 @@ version:4.9
 
 ![](connected.png)
 
-
+[NAV]
 
 
 

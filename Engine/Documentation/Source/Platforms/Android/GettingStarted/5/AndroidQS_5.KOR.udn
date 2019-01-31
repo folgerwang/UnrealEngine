@@ -72,8 +72,8 @@ Checkpoint:AndroidQS
 현재 이 게임을 테스트중이기에 **Development** 로 패키징하고 있으나, 게임이 완성되면 **패키지 프로젝트** 메뉴에서 **빌드 환경설정** 옵션에 커서를 올려 **Shipping** 으로 패키징하면 됩니다.
 [/region]
 
-1.	**파일** 메뉴에서 **패키지 프로젝트 > 안드로이드** 로 가서 패키징하고자 하는 텍스처 포맷을 선택합니다.
-	이번 예제에서는 모든 디바이스에 지원되는 안드로이드 **ETC1** 을 선택하겠습니다.
+1.	**파일** 메뉴에서 **패키지 프로젝트 > Android** 로 가서 패키징하고자 하는 텍스처 포맷을 선택합니다.
+	이번 예제에서는 모든 디바이스에 지원되는 Android **ETC1** 을 선택하겠습니다.
 
 	[REGION:raw]  
 	![](package_menu.png)
@@ -100,14 +100,14 @@ Checkpoint:AndroidQS
 
 	![](Android_ECT1_Folder.png)
 
-1.	Android_ETC1 폴더를 열고 **Install_[ProjectName]_Development.bat** 뱃치 파일을 실행하여 프로젝트를 안드로이드 디바이스에 설치합니다.
+1.	Android_ETC1 폴더를 열고 **Install_[ProjectName]_Development.bat** 뱃치 파일을 실행하여 프로젝트를 Android 디바이스에 설치합니다.
 
 	![](Install_Bat.png)
 	[region:note]
-	안드로이드 디바이스는 USB 를 통해 개발 PC 에 연결되어 있어야 프로젝트가 디바이스에 디플로이됩니다. .BAT 파일 실행시 디바이스가 연결되지 않은 경우 아무런 작업도 하지 않습니다.
+	Android 디바이스는 USB 를 통해 개발 PC 에 연결되어 있어야 프로젝트가 디바이스에 디플로이됩니다. .BAT 파일 실행시 디바이스가 연결되지 않은 경우 아무런 작업도 하지 않습니다.
 	[/region]
 
-1.	.BAT 파일 작업이 완료되면 안드로이드 디바이스에서 프로젝트를 사용할 준비가 된 것이 보일 것입니다.
+1.	.BAT 파일 작업이 완료되면 Android 디바이스에서 프로젝트를 사용할 준비가 된 것이 보일 것입니다.
 
 	![](Game_On_Phone.png)(w:320)
 
@@ -120,8 +120,8 @@ Checkpoint:AndroidQS
 [/region]
 
 
-1.	**파일** 메뉴에서 **패키지 프로젝트 > 안드로이드** 로 가서 패키징하고자 하는 텍스처 포맷을 선택합니다.
-	이번 예제에서는 모든 디바이스에 지원되는 안드로이드 **ETC1** 을 선택하겠습니다.
+1.	**파일** 메뉴에서 **패키지 프로젝트 > Android** 로 가서 패키징하고자 하는 텍스처 포맷을 선택합니다.
+	이번 예제에서는 모든 디바이스에 지원되는 Android **ETC1** 을 선택하겠습니다.
 
 	![](AQS_Mac_01.png)
 
@@ -142,14 +142,14 @@ Checkpoint:AndroidQS
 
 	![](MAC_Install_Folder.png)
 
-1.	Android_ETC1 폴더를 열고 **Install_[ProjectName]_Development_armv7-es3.command** 파일을 실행하여 프로젝트를 안드로이드 디바이스에 설치합니다.
+1.	Android_ETC1 폴더를 열고 **Install_[ProjectName]_Development_armv7-es3.command** 파일을 실행하여 프로젝트를 Android 디바이스에 설치합니다.
 
 	![](MAC_Install_BAT.png)
 	[region:note]
-	안드로이드 디바이스는 USB 를 통해 개발 PC 에 연결되어 있어야 프로젝트가 디바이스에 디플로이됩니다. .command 파일 실행시 디바이스가 연결되지 않은 경우 아무런 작업도 하지 않습니다.
+	Android 디바이스는 USB 를 통해 개발 PC 에 연결되어 있어야 프로젝트가 디바이스에 디플로이됩니다. .command 파일 실행시 디바이스가 연결되지 않은 경우 아무런 작업도 하지 않습니다.
 	[/region]
 
-1.	.command 파일 작업이 완료되면 안드로이드 디바이스에서 프로젝트를 사용할 준비가 된 것이 보일 것입니다.
+1.	.command 파일 작업이 완료되면 Android 디바이스에서 프로젝트를 사용할 준비가 된 것이 보일 것입니다.
 
 	![](Game_On_Phone.png)(w:320)
 
@@ -162,5 +162,5 @@ Checkpoint:AndroidQS
 [/COMMENT]
 
 ## 최종 결과
-완료되면 .BAT 파일을 통해서 안드로이드 기반 스마트폰에 UE4 프로젝트를 설치하는 .APK 파일이 생겨있을 것입니다.
+완료되면 .BAT 파일을 통해서 Android 기반 스마트폰에 UE4 프로젝트를 설치하는 .APK 파일이 생겨있을 것입니다.
 [nav]

@@ -1,0 +1,138 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith で Rhino を使用する
+Description: Datasmith を使用して McNeel Rhinoceros 3D からシーンをインポートする際に特に考慮すべき事項を説明します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Datasmith
+Tags: overview
+Tags: studio
+Tags: interop
+topic-image:RhinoToUE_Topic_v2.png
+
+
+![Datasmith で Rhino を使用する](rhino-datasmith-banner.png "Datasmith で Rhino を使用する")
+
+Datasmith を使用して Autodesk 3ds Max から Unreal Editor にシーンを取り込むにあたり、Datasmith によるシーンの処理方法について、 [](Enterprise/Datasmith/Overview) および [](Enterprise/Datasmith/Overview/ImportProcess) で説明されている基本事項以外にも何点か追加で知っておくべきことがあります。
+
+## Rhino のワークフロー
+
+Datasmith は Rhino に **直接的な** ワークフローを使用します。つまり、Datasmith を使用して Rhino のコンテンツを Unreal に取り込むには、Rhino のシーンを *「.3dm」* ファイルに保存して、Datasmith CAD インポータでそのファイルを Unreal Editor に取り込みます。 [](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+## ジオメトリのスタティック メッシュへの変換
+
+Datasmith は、Rhino ファイルに含まれる各メッシュ、ソリッド、またはサーフェスに対して、個別のスタティック メッシュアセットを作成します。Rhino の **[Properties (プロパティ)]** パネルでオブジェクトに **[Name (名前)]** プロパティが設定されている場合 (左下の図を参照)、Datasmith はスタティック メッシュ アセットにその名前を使用します (右下の図を参照)。Datasmith によってレベルに作成された、スタティック メッシュ アセットを参照するアクタにも同じ名前を使用します。
+
+[REGION:lightbox]
+[![Rhino オブジェクトの命名規則](rhino-datasmith-object-name.png "Rhino オブジェクトの命名規則")](rhino-datasmith-object-name.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+### インスタンス化
+
+Datasmith が Rhino のシーンに同一ブロックの複数インスタンスを検出すると、そのブロックのジオメトリ用のスタティック メッシュ アセットを 1 セットのみ作成して、それらのスタティック メッシュの複数のインスタンスをシーンに配置します。通常、これによりランタイム メモリの要求とプロジェクトのパフォーマンスにおいて良い結果がもたらされます。また、 **コンテンツ ブラウザ** でのスタティック メッシュ数の管理が簡素化されます。
+
+この機能を可能な限り活用して、シーンに繰り返し登場するエレメント (窓、ドア、椅子など) を Rhino のブロックにすることを推奨します。詳細については、 [Rhino のドキュメント](https://wiki.mcneel.com/rhino/usingblocks) を参照してください。
+
+### テッセレーションとレンダー メッシュ
+
+他の多くの CAD ファイル形式とは異なり、Datasmith は Rhino ファイルのサーフェスをテッセレーションしません。
+
+インポート時にサーフェスをテッセレーションしない代わりに、インポートした Rhino ファイルにオブジェクトのレンダー メッシュが既に含まれている場合、Datasmith はそのメッシュを再利用して Unreal でそのスタティック メッシュを作成します。
+
+これにより、インポート時の時間を短縮し、サーフェスのテッセレーションを Rhino で制御することができます。詳細については、 [Rhino のドキュメント](https://wiki.mcneel.com/rhino/meshfaq) を参照してください。ただし、これは [［Datasmith Import Options (Datasmith インポート オプション)] ウィンドウ](Enterprise/Datasmith/ImportOptions) にあるテッセレーションのパラメータ値が、Rhino のシーンのインポートおよび再インポートに何も影響を及ぼさないことも意味しています。
+
+### 三角ポリゴンの面方向
+
+通常 Rhino は、サーフェス法線の方向にかかわらず、すべてのサーフェスを両面として表示します。しかし、Unreal Engine では、カメラから外方を向いている三角ポリゴンを自動的に間引きます。これにより、特定の角度から見たときに、シーンにある一部のジオメトリが消えることがあります。
+
+例えば、下の画像ではサーフェス法線を内側に向けてモデリングされた車輪格納部のカバーを確認できます。このシーンを Unreal にインポートすると、最初はその側面が欠落しているように見えます。この場合、オブジェクトの法線の方向を反転させると、その側面があるべきとおりに表示されるようになります。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![後ろ向き](rhino-datasmith-facing-dir-bad.png) 
+	[/PARAM]
+	[PARAM:after]
+	![前向き](rhino-datasmith-facing-dir-good.png) 
+	[/PARAM]
+[/OBJECT]
+
+詳細および推奨される解決方法については、 [](Enterprise/Datasmith/Overview/ImportProcess) を参照してください。
+
+## Rhino のマテリアル
+
+Datasmith が Rhino のシーンで検出した異なるサーフェスの色とマテリアルに対して、Datasmith により Unreal で [マテリアル アセット](Engine/Rendering/Materials) が別個に作成され、それが Datasmith シーン アセットの横の「Materials」フォルダに配置されます。
+
+*   Rhino のマテリアルを表す Unreal のマテリアルでは Rhino での名前が引き継がれます。これらの [マテリアル インスタンス](Engine/Rendering/Materials/MaterialInstances) では、親として **Datasmith_Material ** を使用します。詳細については、この後の [「Rhino のマテリアル プロパティ」](#rhinoのマテリアルプロパティ) を参照してください。
+*   Rhino の表示色を表す Unreal のマテリアルは、RGB チャンネルの値に基づいて自動生成された名前を保持しています。これらのマテリアル インスタンスでは、親マテリアルとして **Datasmith_Color** を使用します。詳細については、 [](Enterprise/Datasmith/Overview/ImportProcess) を参照してください。 
+
+[REGION:lightbox]
+[![Datasmith により作成されたマテリアル アセット](rhino-datasmith-material-name.png "Datasmith により作成されたマテリアル アセット")](rhino-datasmith-material-name.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+###マテリアルと色の割り当て
+
+Rhino では、オブジェクトのサーフェスを描くマテリアルまたは色をオブジェクト自体、そのレイヤ、またはその親に割り当てることができ、現在のビューポートのプロパティに依存させることもできます。しかし、Unreal では、スタティック メッシュ アセットのサーフェスを構成する各三角ポリゴンに対して、レンダリング プロパティを定義する単一のマテリアルが必要になります。したがって Datasmith では、オブジェクトのサーフェスを Unreal でレンダリングする単一の方法を決めるために、Rhino の各ジオメトリ オブジェクトに対してサーフェスの表示プロパティを解釈する必要があります。
+
+Datasmith では、このために以下のルールを使用します。
+
+*    最初に、サーフェスごとにマテリアルの検出を試みます。Rhino に含まれる各オブジェクトの **［Assign material by (マテリアルの割り当て方法)］** の設定から、そのサーフェスのシェーディングに使用するマテリアルのソースを判断します。
+    ![Assign material by (マテリアルの割り当て方法)](rhino-datasmith-assign-mat-by-layer.png "［Assign material by （マテリアルの割り当て方法）］")
+*   そのソースに割り当てられたマテリアルがない場合、Datasmith はそのオブジェクトに設定されている **［Display Color (表示カラー)］** プロパティを使用します。
+    ![Display Color (表示カラー)](rhino-datasmith-display_color.png "［Display Color （表示カラー）］")  
+    この設定は、その後オブジェクト自体で直接定義するか、オブジェクトのレイヤまたはオブジェクトの親ブロックをポイントさせることができます。
+
+### Rhino のマテリアル プロパティ
+
+Rhino のマテリアル変換処理の目標は、Rhino から馴染みのある設定を取得して、Unreal の物理ベースのレンダラーによって同等の結果を出力できるように変換することです。
+
+下の 2 つの設定を比べてわかるように、Datasmith により作成された各マテリアル アセットでは、Rhino で設定可能な同じ Basic プロパティと Texture タイプを提供します。
+
+[REGION:lightbox]
+[![Rhino と Datasmith のマテリアル設定](rhino-datasmith-material.png "Rhino と Datasmith のマテリアル設定")](rhino-datasmith-material.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+Datasmith のマテリアルには存在しない Rhino のプロパティは、アンビエント カラーと反射カラーの設定のみです。
+
+*   Unreal では、追加のアンビエント ライティングを加える作業は、個別のマテリアルにおいてではなく、レベルのライティングを設定する際に行うことができます。
+* Unreal のマテリアルの **[General (全般)] > [Material Property Override (マテリアル プロパティのオーバーライド)] > [Shading Model (シェーディング モデル)]** の設定を [Unlit (ライティングなし)] にすることで、Rhino の **［Enable Diffuse Lighting (ディフューズ ライティングを有効にする)]** チェックボックスをオフにしたのと同様の効果を得ることができます。
+
+[REGION:note]
+**注意：** ブレンド割合が設定されているテクスチャが Rhino のマテリアルで使用されている場合、そのパーセント値は自動的には Unreal のマテリアルに引き継がれません。ただし、アクティブなテクスチャと共に表示される、対応する **Percentage** を使用して設定することができます。
+
+![Color Percentage (カラー パーセンテージ)](datasmith-rhino-material-percentage.png "Color Percentage")
+[/REGION]
+
+## Datasmith のシーン階層を構築する
+
+Datasmith は、シーン階層を以下のように Rhino のモデルから構築します。
+
+*   Rhino のシーンに含まれる各レイヤに対して、Datasmith はレイヤのすべてのオブジェクトに対する親として動作するアクタを Unreal で作成します。
+    ただし、Unreal Editor の **[Layers (レイヤ)]** パネルで作成されたレイヤとは異なり、このアクタの階層はフラットではなく、Rhino のシーンにおけるレイヤと同様にネストされます。
+*   各レイヤを表すアクタの下では、対応するレイヤにあるインスタンス化された各ブロックが別のアクタにより表されています。
+    [REGION:warning]
+    **警告：**現時点では、Rhino のブロックにあるピボット ポイントはワールド空間の誤った位置にインポートされてしまいます。
+    [/REGION]
+*   最後に、各レイヤと各ブロックを表すアクタには、レイヤまたはブロックを構成する実際のジオメトリ オブジェクトを表すスタティック メッシュ アクタが含まれます。
+*   Rhino のグループは、シーン階層における重要なエレメントではなく、選択を補助するものとみなされるため、Unreal のシーン階層に影響を与えません。
+
+例えば下の画像では、Rhino の階層の各レイヤには、それぞれに対応する Unreal のアクタが存在することが確認できます。Rhino でジオメトリ オブジェクトのみを含む **lights > turn signals** のようなレイヤは、対応する Unreal のスタティック メッシュ アクタのみを保持しています。Rhino の **lights** レイヤも **left_headlight** と **right_headlight** と呼ばれる 2 つのブロック インスタンスを保持しています。Unreal では、これらがそれぞれネスト構造のアクタで表され、次にそれらのブロックを構成するジオメトリ オブジェクトを保持します。
+
+[REGION:lightbox]
+[![Rhino と Datasmith のシーン階層](rhino-datasmith-hierarchy.png "Rhino と Datasmith のシーン階層")](rhino-datasmith-hierarchy.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+[REGION:note]
+**資料提供：** このページで使用されたモデルは [Turbosquid](https://www.turbosquid.com/3d-models/3d-3dm-car-offroad-van/1137533) のユーザーである [tomashorin.design](https://www.turbosquid.com/Search/Artists/tomashorin.design) 氏のご厚意により提供されました。
+[/REGION]

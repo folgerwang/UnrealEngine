@@ -1,0 +1,63 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 设置虚幻项目以使用Datasmith
+Description: 为了使用Datasmith将内容导入虚幻编辑器，您的项目需要搭配一些虚幻工作室专用的特殊插件及内容。 
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: beginner
+
+
+![](datasmith-setup-create-project.png)
+
+Datasmith只能将内容导入到能够访问一组特殊内容和插件的项目。我们将这类项目称作 **虚幻工作室项目**，因为获得虚幻工作室授权后，才有权访问这类内容和插件。
+
+本页描述了两种创建虚幻工作室项目来使用Datasmith的方法：
+
+*   根据虚幻引擎附带的模板创建一个新项目；
+*   转换已经根据非虚幻工作室模板创建的现有项目。
+
+## 创建新虚幻工作室项目
+
+在从Epic Games启动程序启动虚幻引擎时，您的帐户将激活虚幻工作室授权，您在编辑器中创建的 **每个** 项目都将自动设置为虚幻工作室项目。 
+
+1.  单击启动程序左手边的 **启动（Launch）** 按钮来启动您安装的最新版本引擎。如果您在使用Datasmith，我们建议始终安装最新发布的虚幻引擎4版本。  
+    ![启动引擎版本](CreateProject_LaunchEngineVersion.png "Launch an Engine version")(w:500)  
+    如果您已经打开了虚幻编辑器，可以从主菜单中选择 **文件（File）>新建项目...（New Project...）**，然后跳到下面的第3步。
+2.  稍后您应该会看到[虚幻项目浏览器](Engine/Basics/Projects/Browser/)。如果 **新建项目（New Project）** 选项卡未打开，请单击该选项卡。  
+    ![新建项目（New Project）选项卡](CreateProject_SelectNewProjectTab-1.png "New Project tab")(w:500)
+3.  接下来，选择一个模板，并为其设置一些基本信息：  
+    ![选择模板](CreateProject_SetProjectProperties-1.png "Choose a Template")(w:500)
+    1.  选择一个模板以开始操作。  
+        如果您是从Epic Games启动程序启动虚幻引擎的，可以在任意选项卡上选择任意项目，新项目将自动设置为虚幻工作室项目。  
+        如果您没有想好用哪个模板，从“虚幻工作室（Unreal Studio）”选项卡选择一个 **空白** 模板是一个不错的开始。  
+        有关可用模板和各个模板的用途的更多信息，请参阅[虚幻工作室模板](Enterprise/UnrealStudioProjectTemplates)。
+    2.  输入您想要在电脑上保存项目的 **文件夹（Folder）**。
+    3.  输入项目的 **名称（Name）**。
+4.  单击 **创建项目（Create Project）**。  
+    ![创建项目](CreateProject_CreateProjectButton.png "Create Project")(w:500)
+
+您现在应该能够将Datasmith文件和CAD文件导入项目。请参阅[将Datasmith和CAD文件导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 将现有项目转换为虚幻工作室项目
+
+按照以下步骤操作，将现有项目转换为虚幻工作室项目。
+
+1.  用最新版本的虚幻编辑器打开项目。
+2.  项目打开后，从主菜单中选择 **编辑（Edit）>插件（Plugins）**，以打开 **插件（Plugins）** 窗口。  
+    ![编辑 | 插件](Convert_EditPluginsMenu.png "Edit | Plugins")
+3.  在 **插件（Plugins）** 窗口中，使用左面板选择 **虚幻工作室（Unreal Studio）**。  
+    ![虚幻工作室部分](Convert_PluginBrowserUnrealStudio.png "Unreal Studio section")  
+    [REGION:note]
+    您会注意到，“Datasmith CAD导入器（Datasmith CAD Importer）”和“Datasmith导入器（Datasmith Importer）”都显示为灰色：对于这个项目，二者都是禁用状态，因为这个项目暂时哈不是虚幻工作室项目。
+    [/REGION]
+4.  在 **插件（Plugins）** 窗口底部，单击 **转换项目并重启（Convert Project & Restart）** 按钮，以将项目转换为虚幻工作室项目。![转换项目并重启](Convert_ConverProjectButton.png "Convert Project and Restart")
+
+您现在应该能够使用Datasmith将Datasmith文件和CAD文件导入项目。请参阅[将Datasmith和CAD内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。

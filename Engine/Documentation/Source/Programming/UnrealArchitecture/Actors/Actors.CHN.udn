@@ -1,83 +1,98 @@
-﻿INTSourceChangelist:2123286
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title: Actor
+Title: Actors
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture
-Description:  介绍了基本的游戏元素：Actor和Object（对象）。
+Description:对基本gameplay元素、Actor和对象进行解释。
+version: 4.11
 
-[TOC(start:2 end:3)]
+[TOC (start:2 end:3)]
 
-## 概述
+
+[COMMENT:none]
+ Actor是可在场景中放置或[生成](Programming\UnrealArchitecture\Actors\Spawning)的对象基础类型。Actor可简单描述为：“能够tick的一套组件”。实际上，Actor可以执行很多操作；查看 `Actor.h` 了解包含的所有变量和函数。 
+
+[/COMMENT]
 
 [EXCERPT:Actors]
-
-Actor是一种基本类型的对象，您可以将它放到世界中或者可以在世界中[生成](Programming\UnrealArchitecture\Actors\Spawning) 它。关于Actor的一个很好的简介是“可以更新的一群组件”。实际上，Actor可以做很多 
-事情；请查看 `Actor.h` 获得其包含的所有变量及函数。
-
-
-一般，不会对Actor进行垃圾回收，因为World Object存放了一个Actor引用列表。通过调用  `Destroy()` ，可以显式地销毁Actor。这样会从关卡中删除该Actor，并将其标记为 
-“待销毁”状态，这意味着直到下一次垃圾回收清理它们之前，这些Actor仍然存在。
+[INCLUDE:Shared/Glossary/A#glossary_actor] 注意：Actor不直接保存变换（位置、旋转和缩放）数据；如Actor的根组件存在，则使用它的变换数据。
 
 [/EXCERPT:Actors]
 
-## Actor 创建
+(#creatingactors)
 
-创建新的 `AActor` 类实例的过程称为  **生成** 。这个处理可以通过使用通用的 `SpawnActor()`  函数或者其中一个专用的模板版本来完成。
+## 创建Actor
 
-请参照 [](Programming/UnrealArchitecture/Actors/Spawning)页面获得关于为游戏创建 `AActor` 类的实例的各种方法的详细信息。
+创建 `AActor` 类的新实例被称为 **生成**。可使用泛型 `SpawnActor()` 函数或它的一个特殊模板化版本进行操作。
+
+在 [](Programming/UnrealArchitecture/Actors/Spawning) 中可查阅gameplay `AActor` 类实例诸多创建方法的详细信息。
 
 
-##  组件
+(#components)
 
-在某种意义上，您可以把 **Actors** 想象成为一个容器，它存放了特殊类型的 **对象**  ,称为[组件](Programming/UnrealArchitecture/Actors/Components) 。您可以使用不同类型的组件来控制如何移动 **Actors** 、 
-如何渲染Actor等。**Actors** 的另一个主要功能是游戏过程中在网络上 [复制](#复制)  
-属性和函数调用。
+## 组件
 
-当创建组件时，组件和包含它们的Actor相关联。
+在某种意义上，**Actor** 可被视为包含特殊类型 **对象**（称作[组件](Programming/UnrealArchitecture/Actors/Components)）的容器。 
+不同类型的组件可用于控制Actor移动的方式及其被渲染的方式，等等。Actor的其他主要功能是在游戏进程中在网络上进行属性[复制](#Replication)和函数调用。
 
-几种主要类型的组件包括：
+组件被创建时与其包含的Actor相关联。
 
-$ UActorComponent : 这是组件基类。它可以作为Actor的一部分。如果您想更新它则可以更新它。
+组件的主要类型有：
 
-$ USceneComponent : 这个组件是“物理上实际存在”的东西，因为它可以存在于世界中。SceneComponents具有变换，这意味着它们可以到处移动及和世界中的其他东西 
-进行交互。在附加物层次结构中，它们也可以连接到一起。
+$ UActorComponent：这是基础组件。其可作为Actor的一部分被包含。如果需要，其可进行[Tick](#Ticking)。ActorComponents与特定的Actor相关联，但不存在于场景中的任意特定位置。它们通常用于概念上的功能，如AI或解译玩家输入。
 
-$ UPrimitiveComponent : 这个组件不仅可以存在于世界中，同时具有某种形式的表示(比如一个网格物体或粒子系统)。很多有趣的物理和碰撞设置 
-都在这里处理。
+$ USceneComponent：SceneComponents是拥有变换的ActorComponents。变换是场景中的位置，由位置、旋转和缩放定义。SceneComponents能以层级的方式相互附加。Actor的位置、旋转和缩放取自位于层级根部的SceneComponent。
 
-Actor可以具有层次结构化的SceneComponent。每个 **Actor** 也具有一个 `RootComponent` 属性，指出了哪个组件作为该 **Actor** 的根组件。**Actors** 本身没有变换，所以它们不具有位置、旋转度、 
-或缩放比例信息。但是，它们可以依赖于它们组件的变换；更确切地讲，是它们的根组件。如果这个组件是 **SceneComponent** ，那么它将为 
-该  **Actor** 提供变换信息。否则， **Actor** 将没有变换。其他的附加组件的变换是相对于它们所附加到的组件的。
+$ UPrimitiveComponent：PrimitiveComponent是拥有一类图像表达（如网格体或粒子系统）的SceneComponent。诸多有趣的物理和碰撞设置均在此处。
 
-Actor及其层次结构的示例可能如下所示：
+Actor支持拥有一个SceneComponent的层级。每个Actor也拥有一个 `RootComponent` 属性，将指定作为Actor根的组件。Actor自身不含变换，因此不带位置、旋转，或缩放。它们依赖于其组件的变换，具体来说是其根组件的变换。如果此组件是一个 **SceneComponent**，其将提供Actor的变换信息。否则Actor将不带变换。其他附加的组件拥有相对于其附加到的组件的变换。 
 
-| GoldPickup Actor | 层次结构| 
+Actor和层级的范例应类似于此：
+
+| GoldPickup Actor | 层级 | 
 | ------------------| -----------|
 | ![](GoldPickupExampleActor.png)(w:400) | [INCLUDE:#goldhierarchy] | 
 
 [COMMENT:none]
 
 [EXCERPT:GoldHierarchy]
-* **Root（根组件） - SceneComponent**: 设置Actor在世界中的基础位置的基本场景组件。
-	* **StaticMeshComponent（静态网格物体组件）**: 代表金矿石的网格物体。
-		* **ParticleSystemComponent（物理系统组件）**: 附加到金矿石上的火花粒子发射器。
-		* **AudioComponent（音频组件）**: 附加到金矿石上的金属敲击响声循环音频发射器。
-		* **BoxComponent（盒体组件）**: 碰撞盒体，用作为拾取金子时重叠事件的触发器。
+* **根 - SceneComponent**：在场景中设置Actor基础位置的基础场景组件。
+	* **StaticMeshComponent**：代表金矿石的网格体。 
+		* **ParticleSystemComponent**：附加到金矿石的闪烁粒子发射器。
+		* **AudioComponent**：循环附加到金矿石的金属声发射器。
+		* **BoxComponent**：碰撞盒体，用作拾取黄金重叠事件的触发器。 
 [/EXCERPT:GoldHierarchy]
 
-要了解更多信息，请参照[](Programming/UnrealArchitecture/Actors/Components) 页面。
+如需了解详情，请参阅[](Programming/UnrealArchitecture/Actors/Components)页面。
 
 [/COMMENT]
 
-## Ticking（更新）
+(#ticking)
 
-Ticking（更新） 是指在虚幻引擎中对象如何更新。所有对象每帧都可以更新，使您可以执行任何更新计算或者必要的动作。
+## Ticking
 
-默认情况下， **Actor** 都可以通过 `TickActor()` 函数进行更新。引擎每帧会执行一次该函数。
+(#Ticking) [Ticking](Programming/UnrealArchitecture/Actors/Ticking)代表Actor在虚幻引擎中的更新方式。所有Actor均能每帧tick，或以用户定义的最小间隔进行tick，以便执行必要的更新计算或操作。
 
-**ActorComponents** 默认也可以进行更新。请参照组件页面的[更新部分](Programming/UnrealArchitecture/Actors/Components#Updating)获得更多信息。
+所有Actor均可通过 `Tick()` 函数默认被tick。
 
+**ActorComponents** 能够默认被更新，但其使用的是 `TickComponent()` 函数进行操作。参见组件页面的[更新部分](Programming/UnrealArchitecture/Actors/Components#Updating)了解详情。
+
+
+(#lifecycle)
+
+## 生命周期
+
+查看[Actor生命周期](Programming/UnrealArchitecture/Actors/ActorLifecycle)文档，了解如何在游戏中创建和移除Actor的更多信息。
+
+
+(#replication)
 
 ## 复制
 
-**Replication（复制）** 在多玩家网络游戏中，用于保持世界中的玩家同步。属性值和调用都可以进行复制，从而可以完全地 
-控制所有客户端上的游戏的状态。
+(#Replication) **复制** 用于在处理联网多人游戏时对场景中的Actor进行同步。属性值和函数调用均可被复制，以便对客户端上游戏的状态进行完整控制。
+
+(#destroyingactors)
+
+## 销毁Actor
+
+Actor通常不会被垃圾回收，因为场景对象保存一个Actor引用的列表。调用 `Destroy()` 即可显式销毁Actor。这会将其从关卡中移除，并将其标记为“待销毁”，这说明其在下次垃圾回收中被清理之前都将存在。
+

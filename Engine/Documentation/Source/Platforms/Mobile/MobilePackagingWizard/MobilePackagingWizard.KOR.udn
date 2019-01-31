@@ -118,7 +118,7 @@ Related:Engine/Deployment/UnrealFrontend
 
 모바일 패키징 마법사를 사용하려면, 프로젝트 전용 프로파일을 새로 만들어야 합니다. 여기서는 UE4 모바일 프로젝트용 커스텀 실행 프로파일을 만드는 데 필요한 작업은 무엇이 있는지 살펴보도록 하겠습니다.
 
-1. **Custom Launch Profiles** (커스텀 실행 프로파일) 옆의 작은 흰색 삼각형을 클릭하고, 목록에서 **Minimal Android APK + DLC** (최소 안드로이드 APK + DLC) 옵션을 선택합니다.
+1. **Custom Launch Profiles** (커스텀 실행 프로파일) 옆의 작은 흰색 삼각형을 클릭하고, 목록에서 **Minimal Android APK + DLC** (최소 Android APK + DLC) 옵션을 선택합니다.
 	
 	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -244,7 +244,7 @@ Related:Engine/Deployment/UnrealFrontend
 	선택한 맵에 레퍼런싱된 콘텐츠만 플레이 스토어에 업로드할 어플리케이션에 패키징합니다. 전형적으로 다운로드 진행 (및 적용되는 오류) 상황을 표시하는 데 쓰이는 **UMG** 유저 인터페이스 포함 **BuildPatchServices** 코드가 실행용 레벨 블루프린트가 들어있는 맵 하나만 선택하게 됩니다.
 	[/region]
 
-1. **Downloadable Content** (다운로드가능 콘텐츠) 메뉴에서는, 다운로드해야 하는 맵과 함께 어플리케이션에서 지원하는 안드로이드 텍스처 포맷을 선택합니다. 완료되면 **Create Profile** (프로파일 생성) 버튼을 눌러 새로운 커스텀 실행 프로파일을 만듭니다.
+1. **Downloadable Content** (다운로드가능 콘텐츠) 메뉴에서는, 다운로드해야 하는 맵과 함께 어플리케이션에서 지원하는 Android 텍스처 포맷을 선택합니다. 완료되면 **Create Profile** (프로파일 생성) 버튼을 눌러 새로운 커스텀 실행 프로파일을 만듭니다.
 	
 	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]

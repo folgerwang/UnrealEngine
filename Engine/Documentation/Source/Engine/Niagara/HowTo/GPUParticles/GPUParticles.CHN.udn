@@ -1,47 +1,80 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:Create a GPU based effects
-Description:Describes how you can create use your GPU to spawn millions of particles.
-Type: how-to
+﻿INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title: 创建GPU粒子效果
+Description: 描述如何使用GPU生成数百万粒子。
+Type:how-to
 SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
-
-## Steps
-
-## End Result
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 2
+Tags: Niagara
+Tags: Early Access
 
 
+先决条件主题
 
+本页假定您已对以下主题有一定的了解。请先阅读这些主题，然后继续进行操作。
 
+*   [启用Niagara插件](Engine/Niagara/HowTo/EnableNiagara "描述如何启用Niagara插件。")
+    
 
+要获得某些效果，您可能需要生成数万个粒子。然而，使用标准的CPU生成这么多粒子会导致游戏变慢。在以下教程中，我们将演示如何使用GPU而非CPU生成粒子。
 
+![](GPU_Banner_01-1.png)
 
+(#steps)
 
+## 步骤
 
+1. 首先，在 **内容浏览器（Content Browser）** 中右键单击，创建一个Niagara发射器，并在显示的菜单中选择 **FX > Niagara发射器（FX > Niagara Emitter）**。将显示Niagara发射器（Niagara Emitter）向导。  
+    ![](SE_01.png)(w:400)
+2. 单击 **从发射器模板创建新发射器（Create a new emitter from an emitter template）** 旁边的单选按钮。选择 **喷泉（Fountain）** 模板。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新Niagara发射器。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3. 将新建的Niagara发射器命名为 **FX_GPU**，然后双击打开。  
+    ![](CreateGPU_Steps_Step2-CreateEmitter.png)(w:100)
+4. 展开 **发射器生成（Emitter Spawn）** 部分。找到 **发射器属性（Emitter Properties）** 并展开。单击 **模拟目标（Sim Target）** 旁边的下拉菜单。从显示的列表中，选择 **GPUCompute Sim** 选项。  
+    ![](CreateGPUParticle_Steps_Step06-ChangeToGPU.png)(w:500)
+[REGION:note]
+此设置将粒子模拟从CPU更改为GPU。这使得引擎能够在保持性能的同时产生更多的粒子。
+[/REGION]
+6.展开 **发射器更新（Emitter Update）** 部分。找到 **生成率（Spawn Rate）** 模块。
+7. 在生成率（Spawn Rate）模块中，将 **生成率（SpawnRate）** 的值设置为 **5000**。  
+    ![](CreateGPUParticle_Steps_Step07-SpawnRate.png)(w:500)
+8. 下一步，找到 **设置变量（Set Variables）** 模块。将 **Particles.SpriteSize** **X** 和 **Y** 值设置为 **5**。  
+    ![](CreateGPUParticle_SetVariablesParticleSpriteSize.png)(w:500)
+9. 在 **球体位置（Sphere Location）** 模块中，将 **球体半径（Sphere Radius）** 的值设置为 **100**。  
+    ![](CreateGPUParticle_Steps_Step04-SphereRadius.png)(w:500)
+10. 单击 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮以编译并保存您的作业。然后关闭 **FX_GPU** 发射器。  
+    ![](ME_09.png)(w:400)
+11. 在 **内容浏览器（Content Browser）** 中右键单击，并从显示的菜单中选择 **FX > Niagara系统（FX > Niagara System）**。将显示Niagara系统（Niagara System）向导。  
+    ![](SE_16.png)(w:400)
+12. 单击 **创建一个不带发射器的空系统（Create an empty system with no emitters）** 旁边的单选按钮。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新Niagara系统。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+13. 将新的Niagara系统命名为 **GPU**。   
+    ![](NiagaraSystem_GPUIcon.png)(w:100)
+14. 双击 **GPU Niagara系统（GPU Niagara System）** 以打开它，然后将 **FX_GPU** Niagara发射器从内容浏览器拖动到 **时间轴（Timeline）**。  
+    ![](CreateGPUParticle_Steps_Step10-AddEmitterToSystem.png)(w:400)
+15. 单击 **编译（Compile）** 和 **保存（Save）** 按钮以编译并保存您的作业，然后关闭GPU Niagara系统。在 **内容浏览器（Content Browser）** 中，将 **GPU Niagara系统（GPU Niagara System）** 拖动到关卡视口中。完成后，应可看到如下图所示的一些内容。  
+    ![](CreateGPUParticle_Steps_Step11-AddSystemToLevel.png)(w:600)
 
+(#endresult)
 
+## 最终结果
 
+当所有步骤都完成后，您看到的粒子效果会比使用CPU产生的相同粒子效果更大、更复杂。下面的视频展示了一个例子。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ zz3dFQzNQY8
+ [/PARAMLITERAL]
+[/OBJECT]
 
 
 

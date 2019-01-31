@@ -2,7 +2,7 @@
 Availability:Public
 Title:게임 프로젝트 컴파일하기
 Crumbs: %ROOT%, Programming, Programming/Development
-Description:윈도우에서는 Visual Studio, 맥에서는 Xcode 를 사용하여 개별 게임 프로젝트 컴파일하기 입니다.
+Description:Windows에서는 Visual Studio, Mac에서는 Xcode 를 사용하여 개별 게임 프로젝트 컴파일하기 입니다.
 Version: 4.16
 Parent:Programming/Development
 Order:
@@ -75,7 +75,7 @@ UnrealBuildTool 은 `*.Build.cs` 와 `*.Target.cs` 파일을 사용하여 게임
 
 UE4 에서 현재 지원하는 플랫폼은 다음과 같습니다:
 
-* **윈도우 64-비트**
+* **Windows 64-비트**
 
 ![Project - Platform Menu](rocket_platform_menu.png)
 ![UE4 Solution - Platform Menu](platform_menu.png)
@@ -83,8 +83,8 @@ UE4 에서 현재 지원하는 플랫폼은 다음과 같습니다:
 [/COMMENT]
 UE4 에서 지원하는 플랫폼은 다음과 같습니다:
 
-* **윈도우 32-비트**
-* **윈도우 64-비트**
+* **Windows 32-비트**
+* **Windows 64-비트**
 
 언리얼 엔진 4 작업을 할 때는 일반적으로 **Win64** 플랫폼을 사용합니다. 프로젝트 파일 생성시에도 기본적으로 이에 대한 것만 포함되어 있으며, 기타 플랫폼용 프로젝트 파일 생성을 위해서는 
 [](Programming/UnrealBuildSystem/ProjectFileGenerator) 페이지를 참고해 주시기 바랍니다.
@@ -92,7 +92,7 @@ UE4 에서 지원하는 플랫폼은 다음과 같습니다:
 ### 프로젝트 빌드하기
 
 [REGION:note]
-윈도우에서는 Visual Studio 2015 이상, 맥에서는 Xcode 8 이상 버전이 설치되었는지 확인해 주시기 바랍니다.
+Windows에서는 Visual Studio 2015 이상, Mac에서는 Xcode 8 이상 버전이 설치되었는지 확인해 주시기 바랍니다.
 [/REGION]
 
 [COMMENT:none]

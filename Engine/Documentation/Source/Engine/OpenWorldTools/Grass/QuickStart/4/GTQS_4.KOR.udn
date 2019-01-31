@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\Grass\QuickStart\3 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\3:title%") 
+	[이전 단계](Engine\OpenWorldTools\Grass\QuickStart\3 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\3:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -25,9 +25,9 @@ Version: 4.8
 
 
 
-실전에서의 그래스 시스템을 확인하기 위해, 예전 단계에서 생성했던 머티리얼을 랜드스케이프에 적용한 뒤 랜드스케이프 칠하기 툴을 사용하여 그래스 스폰 지역을 정의해야 합니다.
+실전에서의 그래스 시스템을 확인하기 위해, 이전 단계에서 생성했던 머티리얼을 랜드스케이프에 적용한 뒤 랜드스케이프 칠하기 툴을 사용하여 그래스 스폰 지역을 정의해야 합니다.
 여기서는 랜드스케이프 터레인에 머티리얼을 적용하고, 랜드스케이프 칠하기 툴을 사용해서 그래스 스폰 지역을 정의하는 법에 대해 다루겠습니다.
-예전 단계에서 만들었던 **GT_00** 레벨로 작업을 계속 하겠습니다.
+이전 단계에서 만들었던 **GT_00** 레벨로 작업을 계속 하겠습니다.
 
 1. 우선 레벨에 배치된 랜드스케이프 액터를 뷰포트에서 **좌클릭** 하여 선택합니다.
 

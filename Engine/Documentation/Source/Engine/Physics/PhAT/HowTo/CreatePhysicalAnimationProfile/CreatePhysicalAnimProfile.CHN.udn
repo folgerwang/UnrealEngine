@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3260663
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:如何创建物理动画配置文件
 Crumbs: %ROOT%, Engine
@@ -7,12 +7,12 @@ parent:Engine/Physics/PhAT/HowTo
 order:1
 Version:4.13
 skilllevel:Intermediate
-
 related:Engine/Physics/PhAT/HowTo/ApplyPhysicalAnimationProfile
 topic-image:Engine/Physics/physics_topic.png
 
 此指南将说明创建 **物理动画配置文件** 和添加 **物理形体** 的基本要点。
 
+(#Steps)
 ## 步骤
 
 1. 使用 **Content Browser** 为 **骨架网格体** 打开或 [创建](Engine/Physics/PhAT/HowTo/CreatePhysicsAsset) 一个 **物理资源**。
@@ -65,6 +65,7 @@ topic-image:Engine/Physics/physics_topic.png
 	![](saveButton.png)(convert:false)
 	[/REGION]
 
+(#Result)
 ## 结果
 
 **物理资源** 将拥有一个可从蓝图或 C++ 进行调用的配置文件，用以改变其 **物理形体** 的 **物理动画** 属性。

@@ -1,0 +1,189 @@
+Availability: Public
+Crumbs: 
+Title: Setting Up Your Android Device For Development
+Description: Going over what needs to be done to set your Android devices up for development with UE4.
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+In the following section we will go over all you need to know to set up your Android device so that it can be used to run your UE4 project.
+
+## Steps
+
+1.  First, connect your Android device to your development PC using a USB cable.
+
+2.  Once plugged into your PC, your device driver software should automatically install, but if not, visit [Android's OEM USB Drivers](http://developer.android.com/tools/extras/oem-usb.html) page to find more driver installation links and additional information.
+
+3.  Open the **Settings** Application on your Android device.
+
+4.  Tap **Developer Options** to open the Developer Options menu.
+
+    [REGION:tip]
+    If you do not see this item, you need to enable Developer Options on your device. For more about developer options, visit [Android's Using Hardware Devices](http://developer.android.com/tools/device.html) page.
+    [/REGION]
+
+5.  Scroll down and select **About Phone**. Depending on your Android device, you may have an About Device, About Tablet, or About Shield option instead.
+
+    [REGION:note]
+    This may be in a **More** section on newer Android versions.
+    [/REGION]
+
+6.  Tap the **Build Number** 7 times to activate developer mode.
+
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+
+7.  After the first few taps, you will see a message stating "You are now # steps away from becoming a developer".
+
+8.  Once developer mode has been activated, you will get a success message displayed on the screen similar to the one below.
+
+    ![](Dev_Mode_Active.png)
+
+9.  Navigate back to the Settings menu, and select **Developer Options** which should now available. 
+
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+
+10. In the Developer Options menu, enable **USB debugging** by tapping it. 
+
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+
+11. When prompted, tap the **OK** button.
+
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+
+12.  Disconnect your Android device from USB and then immediately plug it back in. After the device is recognized by the PC, the following message will appear on your Android device asking you if you want to allow this PC to talk to your device. A message box will ask what you want to use the USB connection to do. Tap the **checkmark box** that says **Always allow from this computer**, and then tap the **OK** button.
+
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+## End Result
+
+To verify that everything has been set up correctly, and that your Android device is ready for UE4 development, you can do the following:
+
+1.  First, open a **Windows Command Prompt** by pressing the **Windows + R** keys to open up the **Run** dialog box.
+
+2.  In the **Open** field, type **cmd **and then click the **OK** button to open the Windows Command Prompt.
+
+    ![](Windows_Run_Command.png)
+
+3.  At the Command Prompt, input **adb devices** and then press the **ENTER** key to display all connected Android devices.
+
+    ![](ADB_Devices.png)
+
+If you do not see your device after you use the `adb devices` command you can try the following:
+
+*   If the device is listed but shows **Unauthorized** next to the name, that indicates that you did not accept your development PC's computer's RSA key fingerprint. 
+*   If your device does not show up despite it being plugged in and set up, input the following commands in the following order into the Windows Command Prompt to restart the **Android Debug Bridge** or (ADB) service:
+[REGION:MyTableInList] 
+| **Property Name** | **Description** |
+| --- | --- |
+| **ADB kill - server** | This will stop the ADB service. |
+| **ADB start - server** | This will start the ADB service. |
+[/REGION]  
+*   In some cases, a correctly configured Android device might not show up if it is connected as a **Media Device (MTP)**. If this happens, try connecting as **Camera (PTP)** by selecting the Camera (PTP) option in your Use USB to options.
+
+When completed you will now have an Android-based smartphone that is ready for your UE4 project to be deployed to and run on.
+
+## Steps
+
+1.  Connect your Android device to your Mac using a USB cable.
+2.  Once plugged into your PC, your device driver software should automatically install, but if not, visit [Android's OEM USB Drivers](http://developer.android.com/tools/extras/oem-usb.html) page to find more driver installation links and additional information.
+3.  Open the **Settings** application on your Android device.
+4.  Tap **Developer Options** to open the Developer Options menu.
+    [REGION:tip]
+    If you do not see this item, you need to enable Developer Options on your device. For more about developer options, visit [Android's Using Hardware Devices](http://developer.android.com/tools/device.html) page.
+    [/REGION]
+5.  Scroll down and select **About Phone**. Depending on your Android device, you may have an About Device, About Tablet, or About Shield option instead.
+    [REGION:note]
+    This may be in a **More** section on newer Android versions.
+    [/REGION]
+6.  Tap the **Build Number** 7 times to activate developer mode.
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+7.  After the first few taps, you will see a message stating **You are now # steps away from becoming a developer**.
+8.  Once developer mode has been activated, you will see a success message displayed on the screen similar to the one below.  
+    ![](Dev_Mode_Active.png)
+9.  Navigate back to the Settings menu and select **Developer Options** which should now available.  
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+10. In the Developer Options menu, enable **USB debugging** by tapping it.  
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+11. When prompted, tap the **OK** button.  
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+12. Disconnect your Android device from USB and then immediately plug it back in. After the device is recognized by your Mac, the following message will appear on your Android device asking you if you want to allow this PC to talk to your device. A message box will ask what you want to use the USB connection to do. Tap the **checkmark box** that says **Always allow from this computer**, and the tap the **OK** button.  
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+## End Result
+
+*   To verify that your device is setup properly, open the Terminal app from /Applications/Utilities.  
+    ![](MAC_Terminal_Activate.png)
+
+Type "ADB devices" in the command prompt and you should see all devices that are connected to your Mac.  
+![](MAC_Checking_ADB_Devices.png)
+
+If you do not see your device after you input the `adb devices` command you can try the following items:
+
+*   If the device is listed but shows **Unauthorized** next to the name, that indicates that you did not accept your development computer's RSA key fingerprint.
+*   If your device does not show up despite it being plugged in and setup, input the following commands in the following order into the Command Prompt to restart the **Android Debug Bridge** or (ADB) service:
+
+[REGION:MyTableInList] 
+| **Property Name** | **Description** |
+| --- | --- |
+| **ADB kill - server** | This will stop the ADB service. |
+| **ADB start - server** | This will start the ADB service. |
+[/REGION]  
+ 
+*   In some cases, a correctly configured Android device might not show up if it is connected as a **Media Device (MTP)**. If this happens, try connecting as **Camera (PTP)** by selecting the Camera (PTP) option in your Use USB to options.
+
+When completed, you will now have an Android-based smartphone that is ready for your UE4 project to be deployed to and run on.
+
+## Steps
+
+1.  Connect the Android device to your Linux computer with a USB cable.
+2.  Open the Settings application on your Android device.  
+    [![](LinuxAndroid_Step17.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step17.png)
+3.  Tap Developer Options to open the Developer Options menu.  
+    [![](LinuxAndroid_Step18.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step18.png)
+    [REGION:note]
+    If you don't see this item, you'll need to enable Developer Options on your device. To enable Developer Options, open the Settings application, scroll to the bottom and select About phone. After selecting About phone scroll to the bottom and tap Build number seven (7) times. For additional instructions on how to enable Developer Options on Android devices, visit Android's User Guide.
+    [/REGION]
+
+## Enabling USB Debugging
+
+1.  From the **Developer Options** menu, enable **USB debugging**.  
+    [![](LinuxAndroid_Step19.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step19.png)
+2.  A window should appear, confirming your selection to enable USB debugging. After reading the prompt, tap the **OK** button.  
+    [![](LinuxAndroid_Step20.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step20.png)
+3.  USB debugging is now enabled.  
+    ![](LinuxAndroid_Step20Note.png)
+4.  Now, disconnect the Android device from its USB cable, plugging it back in after a few seconds. If you're connecting a device running Android 4.2.2 or higher, the following dialog will appear, asking whether you should accept an RSA key that allows debugging through your Linux computer. Select the checkbox next to **Always allow from this computer** before tapping the **OK** button.  
+    [![](LinuxAndroid_Step21.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step21.png)
+
+## End Result
+
+If you do not see your device after you input the `adb devices` command you can try the following items:
+*   If the device is listed but shows **Unauthorized** next to the name, that indicates that you did not accept your development PC's computer's RSA key fingerprint.
+*   If your device does not show up despite it being plugged in and setup, input the following commands in the following order into the Windows Command Prompt to restart the **Android Debug Bridge** or (ADB) service:
+
+[REGION:MyTableInList] 
+| **Property Name** | **Description** |
+| --- | --- |
+| **ADB kill - server** | This will stop the ADB service. |
+| **ADB start - server** | This will start the ADB service. |
+[/REGION] 
+
+*   In some cases, a correctly configured Android device might not show up if it is connected as a **Media Device (MTP)**. If this happens, try connecting as **Camera (PTP)** by selecting the Camera (PTP) option in your Use USB to options.
+When completed you will now have an Android-based smartphone that is ready for your UE4 project to be deployed to and run on.

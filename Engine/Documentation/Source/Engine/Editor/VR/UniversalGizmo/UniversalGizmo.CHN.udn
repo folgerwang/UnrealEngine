@@ -1,60 +1,108 @@
-﻿INTSourceChangelist:2911160
-Title:Universal Gizmo
-Description:用于在 VR 中移动、旋转和缩放 Actor 的变形控件。
+﻿INTSourceChangelist:3782314
+Title: VR中的变换Actor
+Description: 用于在VR中移动、旋转和缩放Actor的变换控件。
 Crumbs:
 Availability: public
-parent:Engine/Editor/VR
+parent: Engine/Editor/VR
 type: reference
-order:4
-tags:VR
-version:4.11
+order: 4
+tags: VR
+version: 4.15
 skilllevel: intermediate
+topic-image:universalgizmo_topic.png
+prereq:Engine/Editor/VR/ActivateVRMode
+related:Engine\Editor\VR\ActorInteraction\
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR/UniversalGizmo:title%](Engine/Editor/VR/UniversalGizmo/universalgizmo_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/UniversalGizmo:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/UniversalGizmo]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/UniversalGizmo:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR/UniversalGizmo:title%](Engine/Editor/VR/UniversalGizmo/universalgizmo_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/UniversalGizmo:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/UniversalGizmo]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/UniversalGizmo:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:1 end:4)]
 
-**Universal Gizmo** 是一个变形控件，用于在 VR 模式中工作时移动、旋转和缩放 Actor。 
+**通用小工具** 一个变换小工具，用于在VR模式中工作时移动、旋转和缩放actor。其有本地和场景空间的版本可用，使用[](Engine/Editor/VR/RadialMenu)即可进行切换。通用小工具的元素为红色、绿色和蓝色，分别代表X、Y和Z轴。和标准编辑器类似，有专用于平移、旋转和缩放actor的小工具。可从[](Engine/Editor/VR/RadialMenu)中访问其本地和场景空间版本。 
 
-![](universalgizmo.png)(w:400)
+(#gizmos)
 
-Universal Gizmo 的元素为红色、绿色和蓝色，分别代表 X、Y 和 Z 轴。
+##小工具
 
-| 操作 | 操作器 | 用法 |
+| 小工具 | 场景空间 | 本地空间 |
+| ---- |-------| -----|
+| **通用** | ![](GlobalUniversal.png)(w:350)[INCLUDE:#worlduniversal]|![](GlobalUniversal.png)(w:350) [INCLUDE:#localuniversal]  |
+| **平移** | ![](GlobalTranslate.png)(w:350)[INCLUDE:#worldtranslate]|![](GlobalTranslate.png)(w:350) [INCLUDE:#localtranslate] |
+| **旋转** | ![](GlobalRotate.png)(w:350) [INCLUDE:#worldrotate]|![](GlobalRotate.png)(w:350) [INCLUDE:#localrotate] |
+| **缩放** | ![](GlobalScale.png)(w:350) [INCLUDE:#worldscale]|![](GlobalScale.png)(w:350)[INCLUDE:#localscale] |
+
+[COMMENT:none]
+
+
+[EXCERPT:WorldUniversal]
+* [平移](#translate)
+* [平移平面](#translateplane)
+* [旋转](#rotate)
+* [等分缩放](#uniformscale)
+[/EXCERPT]
+
+[EXCERPT:LocalUniversal]
+* [平移](#translate)
+* [平移平面](#translateplane)
+* [旋转](#rotate)
+* [缩放](#scale)
+[/EXCERPT]
+
+[/COMMENT]
+[COMMENT:none]
+
+
+[EXCERPT:WorldTranslate]
+* [平移](#translate)
+* [平移平面](#translateplane)
+[/EXCERPT]
+
+[EXCERPT:LocalTranslate]
+* [平移](#translate)
+* [平移平面](#translateplane)
+[/EXCERPT]
+
+[/COMMENT]
+[COMMENT:none]
+
+
+[EXCERPT:WorldRotate]
+* [旋转](#rotate)
+[/EXCERPT]
+
+[EXCERPT:LocalRotate]
+* [旋转](#rotate)
+[/EXCERPT]
+
+[/COMMENT]
+[COMMENT:none]
+
+
+[EXCERPT:WorldScale]
+* [等分缩放](#uniformscale)
+[/EXCERPT]
+
+[EXCERPT:LocalScale]
+* [等分缩放](#uniformscale)
+* [缩放](#scale)
+* [拉伸](#stretch)
+[/EXCERPT]
+
+[/COMMENT]
+
+(#transformgizmoactions)
+
+## 变换小工具操作
+
+每个小工具均可访问不同的变换操作。用控制器瞄准下方高亮的操纵器（为清晰准确，通常会瞄准平移、旋转或缩放小工具）即可独立操纵actor的位置、旋转和缩放。
+
+| 操作 | 操纵器 | 用法 |
 | --- | --- | --- |
-| **平移** | ![](universalgizmo_move.png)(w:192) | 将控制器对准其中一个平移操作器，半按下 **扳机键** 进行抓取。移动控制器，使选中的 Actor(s) 沿轴移动。 |
-| **平移面** | ![](universalgizmo_moveplane.png)(w:192) | 将控制器对准其中一个平移面操作器，半按下 **扳机键** 进行抓取。移动控制器，使选中的 Actor(s) 沿平面（两轴）移动。 |
-| **旋转** | ![](universalgizmo_rotate.png)(w:192) | 将控制器对准其中一个旋转操作器，半按下 **扳机键** 进行抓取。移动控制器，沿轴旋转选中的 Actor(s)。 |
-| **缩放** | ![](universalgizmo_scale.png)(w:192) | 将控制器对准其中一个缩放操作器，半按下 **扳机键** 进行抓取。移动控制器，沿 Y 轴缩放选中的 Actor(s)。 |
-| **均匀缩放** | ![](universalgizmo_uniformscale.png)(w:192) | 将控制器对准其中一个拉伸操作器，半按下 **扳机键** 进行抓取。移动控制器，沿所有轴均匀缩放选中的 Actor(s)。 |
-| **拉伸** | ![](universalgizmo_stretch.png)(w:192) | 将控制器对准其中一个拉伸操作器，半按下 **扳机键** 进行抓取。移动控制器，沿所有轴对选中的 Actor(s) 进行非均匀缩放。同时保持固定朝向对角。 |
+|[REGION:none](#translate)[/REGION] **平移** | ![](TranslateBar.png)(w:300) | 将控制器瞄准一个平移操纵器并按下 **扳机键** 将其选中。移动控制器即可沿轴移动选中的actor。 |
+| [REGION:none](#translateplane)[/REGION]**平移平面** | ![](TranslatePlaneHighlight.png)(w:300) | 将控制器瞄准一个平移平面操纵器并按下 **扳机键** 将其选中。移动控制器即可沿平面（在2根轴间）移动选中的actor。 |
+|[REGION:none](#rotate)[/REGION] **旋转** | ![](RotateHighlight.png)(w:300) | 将控制器瞄准一个旋转操纵器并按下 **扳机键** 将其选中。移动控制器即可围绕轴旋转选中的actor。 |
+| [REGION:none](#uniformscale)[/REGION]**等分缩放** | ![](UniformScaleCube.png)(w:300) | 将控制器瞄准小工具中央的白色立方体并按下 **扳机键** 将其选中。移动控制器即可沿所有轴对选中的actor进行等分缩放。 |
+| [REGION:none](#scale)[/REGION]**缩放** | ![](ScaleCube.png)(w:300) | 用控制器瞄准一个缩放操纵器立方体并按下 **扳机键** 将其选中。移动控制器即可沿所选的轴来缩放选中的actor。 |
+| [REGION:none](#stretch)[/REGION]**拉伸** |![](StretchHandles.png)(w:300) | 用控制器瞄准一个拉伸操纵器并按下 **扳机键** 将其选中。移动控制器即可沿所有轴对选中的actor进行非等分缩放，与此同时仍锁定到对角。| 
+
+
+
+  

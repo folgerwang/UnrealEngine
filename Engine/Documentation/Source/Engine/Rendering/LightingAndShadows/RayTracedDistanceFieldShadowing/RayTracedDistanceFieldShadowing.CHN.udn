@@ -1,48 +1,23 @@
-﻿INTSourceChangelist:2685227
-Availability:Public
+﻿INTSourceChangelist:3807090
+Availability: Public
+Crumbs: %ROOT%
 Title:光线追踪距离场柔和阴影
-Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description:动态区域阴影
-Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%](DistanceFieldShadowing_Topic.jpg)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%](DistanceFieldShadowing_Topic.jpg)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Description:关于使用网格体距离场创建动态柔和区域阴影的概述。
+Type: Overview
+SkillLevel:Intermediate
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
+Order:1
+Tags:Lighting
+Tags:Distance Fields
+Tags:Getting Started
+Topic-image:DistanceFieldShadowing_Topic.jpg
+Social-Image:DirectionalLightAreaShadows.jpg
+ 
 
 [REGION:fullwidth raw]
 ![](DistanceFieldShadowing_Header.jpg)
@@ -50,113 +25,270 @@ Version:4.9
 
 [TOC(start:2 end:2)]
 
+可移动光源产生的阴影是使用每个刚性网格体的对象距离场，计算来自动态光源的有效区域阴影而得出的。在虚幻引擎4（UE4）中，有一个 
+**光线追踪距离场阴影**（RTDF）。为了计算阴影，从要计算阴影的点朝着每个光源，通过有向距离场（SDF）跟踪光线。
+使用到遮挡物的最近距离估算椎体追踪，所耗成本与光线追踪相同。它让球形光源形状能
+实现高质量区域阴影。
 
 
-光线追踪距离场阴影利用场景距离场展示的属性用于计算动态网格体的有效区域阴影。这使用的数据和 [**距离场环境遮挡**](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) 相同，因此许多限制也相同。
-
-为计算阴影，从场景定向距离场被遮挡的点到每个光源进行光线追踪。使用到遮挡物的最近距离使锥形追踪的消耗与光线追踪相近。可从球形光源生成高精度区域阴影。
+(#scenesetup)
+## 场景设置
 
 [REGION:note]
-距离场阴影要求启用项目设置 **'Generate Mesh Distance Fields'**（Rendering 下）。变更此设置的数值后，必须重启编辑器。
+该功能要求您在 **项目设置（Project Settings）** 的 **渲染（Rendering）** 部分中启用 **生成网格体距离场（Generate Mesh Distance Fields）**。有关更多信息，请参阅[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)页面。
 [/REGION]
 
-## 点光源和聚光源
+要启用光线追踪距离场阴影，首先将 **光源** 拖到场景中，将其“移动性”（Mobility）设置为 **可移动（Movable）**，然后从光源的 **细节（Details）** 面板， 
+启用 **光线追踪距离场阴影**。
 
-“源半径”用于确定点光源上的阴影半影的大小。区域阴影与明显接触面一同计算。接触面在较长的距离中将变得更柔和。注意：光源球体不应和场景相交，否则将导致穿帮。
+![](DirectionalLightDFSettings1.png)
 
-[![](LightSourceVis.jpg)(w:288)](LightSourceVis.jpg)
-[REGION:caption]
-编辑器以黄线绘制光源形状。
+
+[REGION:note]
+有关逐步介绍指南，请访问[使用光线追踪距离场阴影](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_1)操作指南，以了解更多信息。
 [/REGION]
 
-[REGION:fullwidth]
-	![](PointLightAreaShadows.jpg)
-[/REGION]
+(#areashadowingsettings)
+### 区域阴影设置
 
-[REGION:caption]
-源半径为 100，来自点光源光线的追踪柔和阴影。
-[/REGION]
-
-**[_Video of a moving point light using Ray Traced Distance Field shadowing._](https://www.youtube.com/watch?v=-xai0iBffUc&list=UUBobmJyzsJ6Ll7UbfhI4iwQ)**
-
-## 定向光源
-
-“光源角度”用于确定定向光源上的阴影半影的大小。光线追踪阴影出现自我相交的问题较少，因此能避免远处的泄露和过度偏移问题，而这正是传统阴影贴图存在的问题。
-
-[REGION:fullwidth]
-	![](DirectionalLightAreaShadows.jpg)
-[/REGION]
-[REGION:caption]
-光源角度为 2，来自定向光源光线的追踪柔和阴影。
-[/REGION]
-
-级联阴影贴图用于生成定向光源的动态阴影。它们要求将场景中的网格体渲染为数个级联阴影贴图。阴影的消耗在阴影距离较大时急剧上升，因为诸多网格体和三角面被渲染为阴影图。 
-
-光线追踪距离场阴影在远处时消耗较低，只为可见的像素产生阴影。级联阴影贴图可用于覆盖摄像机附近的区域，光线追踪阴影将覆盖到“距离场阴影距离”的区域。
+每个光源类型都可以使用距离场阴影来创建柔和区域阴影。这些阴影模拟真实世界的阴影，在接近于基部的地方保留明显的接触阴影，
+随着距离的增加，柔化处理延伸阴影
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![A foliage scene with CSM covering up to 100 meters.](CSM2.jpg)(w:800)
+	![传统阴影贴图](ShadowMap.png)(w:500)
 	[/PARAM]
 	[PARAM:after]
-	![A foliage scene with CSM covering up to 100 meters, and Ray Traced Distance Field shadows covering up to 1.2 kilometers.](RTDF2.jpg)(w:800)
+	![距离场阴影](DistanceFieldShadowPointLight.png)(w:500)
 	[/PARAM]
 [/OBJECT]
 
+[REGION:note]
+有关光源设置的更多信息以及更多示例，请参阅[网格体距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#LightComponents)页面。
+[/REGION]
 
-**[_Video of changing time of day using Ray Traced Distance Field shadowing._](https://www.youtube.com/watch?v=4249b94KtyA&list=UUBobmJyzsJ6Ll7UbfhI4iwQ)**
+(#pointandspotlightsourceradius)
+### 点光源和聚光源半径
 
-## 精度
+对于点光源和聚光源，使用 **源半径（Source Radius）** 来确定一个光源上的阴影半影范围。区域阴影使用清晰接触阴影计算，
+接触阴影随着距离的延长而变的柔和。在点光源和聚光源上，表示为黄色球体。
 
-距离场保真度对阴影的准确性有较大影响，比距离场环境遮挡大得多。在需要“Distance Field Resolution”（Build 设置下）的静态网格体上将其设置为更高的值。  
+![](LightSourceVis.jpg)
+[REGION:caption]
+编辑器用黄色线条绘制光源形状。
+[/REGION]
 
-这些阴影以一个知悉深度的上采样进行半分辨率计算。临时抗锯齿（AA）可有效降低半分辨率闪烁，但阴影中偶尔仍会出现锯齿。
+[REGION:note]
+光源半径不应与场景相交，否则会导致照明瑕疵。
+[/REGION]
 
-## 限制
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![光源半径：| 0 ](SourceRadius_0.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![光源半径：| 50 ](SourceRadius_100.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
 
-此技术的限制与 [**距离场环境遮挡**](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) 的限制相似。
+光线追踪距离场阴影来自于一个点光源，该光源使用光源半径
+柔化门道、长椅和钢琴对周围几何体产生的阴影投射。
 
-* 只有静态网格体组件、范例静态网格体组件和植物（启用“Affect Distance Field Lighting”后）能生成距离场并投射阴影。然而，骨骼网格体仍可使用“Cast Inset Shadow”合成阴影。地形的最佳处理方式是使用远级联（由“Far Shadow Cascade Count”启用）。
-* 只支持轻微的网格体非等分缩放（挤压）。半影中的穿帮带有更多的网格体挤压。
-* 世界位置偏移或曲面细分引起的变形无法被展示，还可能导致自身阴影穿帮。有效的做法是：使用 CSM 覆盖观察者附近的区域以支持顶点动画，同时在远处使用光线追踪阴影。
 
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	-xai0iBffUc
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:caption]
+演示：点光源在场景中移动，从各个阴影投射网格体投射区域阴影。 
+[/REGION]
+
+[REGION:note]
+有关点光源和聚光源设置的更多信息，请参阅[网格体距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference)页面。
+[/REGION]
+
+(#directionallightsourceangle)
+### 定向光源角度
+
+对于定向光源，使用 **光源角度（Light Source Angle）** 来确定一个光源上的阴影半影范围。光线追踪阴影几乎没有
+自交问题，因此能避免远处漏光和过度偏差问题，而传统阴影映射则很难避免。
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![光源角度：| 1 ](DF_LSA_1.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![光源角度：| 3 ](DF_LSA_3.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+[REGION:caption]
+ 
+[/REGION]
+[REGION:caption]
+光线追踪距离场阴影来自定向光源，为了实现更柔和阴影调整了其光源角度。 
+[/REGION]
+
+在大多数情况下，使用级联阴影贴图（CSM）提供定向光源的动态阴影。这要求将场景中的网格体渲染到
+多个级联阴影贴图中（用于实现阴影的细节层次）。阴影计算成本随着阴影距离增大而增加，因为
+要渲染到阴影贴图中的网格体和三角形数量较多。
+
+光线追踪距离场阴影在远处的性能更优异，它只针对可见像素完成阴影工作。级联阴影贴图可以用于对摄像机附近的区域计算阴影， 
+而RTDF阴影对更远的区域计算阴影，最远达到设置的 **距离场阴影距离（Distance Field Shadow Distance）**。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![仅级联阴影贴图](CSM2.jpg)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![级联阴影贴图和光线追踪距离场阴影](RTDF2.jpg)(w:1000)
+	[/PARAM]
+[/OBJECT]
+
+启用光线追踪距离场阴影后，超过 **级联阴影贴图距离（Cascaded Shadow Map Distance）** 设置值的区域将使用
+距离场计算阴影。在使用CSM和RTDF阴影的对比中，CSM阴影设置为1,000 CM（厘米），允许在 
+摄像机附近呈现清晰的阴影，并添加大量细节。在超过1,000 CM的阴影距离处，使用RTDF阴影，允许对 
+最远不超过1.2 KM（千米）的对象计算阴影。这样，远处的树木也可以投射阴影，而如果使用级联阴影贴图，则需要极高的计算成本。
+
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	4249b94KtyA
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:caption]
+演示：定向光源使用光线追踪距离场阴影在一天内随时间变化的效果。
+[/REGION]
+
+[REGION:note]
+有关定向光源设置的更多信息，请参阅[网格体距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference)页面。
+[/REGION]
+
+[COMMENT:none]
+- 摘自MeshDistanceFields.INT.udn的场景表示摘录 -
+[/COMMENT]
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#scenerepresentation]
+
+
+(#meshdistancefieldquality)
+### 网格体距离场质量
+
+距离场阴影保真度对阴影准确度有非常大的影响，超过了[距离场环境光遮蔽](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion)。 
+增大的网格体距离场分辨率将提高静态网格体的阴影投射。使用网格体距离场可视化可以检查质量。
+
+[REGION:imagetable]
+| [INCLUDE:#quality1] | [INCLUDE:#quality2] |
+| --- | --- |
+|       启用距离场阴影的场景视图           |        网格体距离场可视化         |
+[/REGION]
+
+网格体距离场阴影通过深度感知放大采样以半分辨率进行计算。**临时抗锯齿（Temporal Anti-Aliasing）**（TAA）非常有助于降低使用半分辨率时 
+可能出现的闪烁现象，但有时仍可能会出现锯齿边缘。
+
+[REGION:note]
+有关网格体距离场质量的更多信息，请参阅[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)页面。
+[/REGION]
+
+
+[COMMENT:none]
+-
+[INCLUDE:#quality2]
+[EXCERPT:quality1]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![距离场分辨率：| 1 ](DFQuality1a.png)(h:490)
+	[/PARAM]
+	[PARAM:after]
+	![距离场分辨率：| 5 ](DFQuality1b.png)(h:490)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:quality1]
+
+[EXCERPT:quality2]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![距离场分辨率：| 1 ](DFQuality2a.png)(h:490)
+	[/PARAM]
+	[PARAM:after]
+	![距离场分辨率：| 5 ](DFQuality2b.png)(h:490)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:quality2]
+-
+[/COMMENT]
+
+(#performance)
 ## 性能
 
-在定向光源上，较大的光源角度将增加消耗，因为每个被阴影遮挡的点上需要考虑更多物体。较大的“DistanceField Shadow Distance”数值将略微降低消隐效率。从设置“Generate Distance Field As If Two Sided”的网格体上生成阴影消耗更高，因为阴影效果不为完全不透明。
+以下GPU时间是在Radeon 7870、分辨率1920x1080、完整游戏场景中测得的：
 
-以下 GPU 时间以 Radeon 7870 显卡在 1920x1080 精度的完整游戏场景中进行计算。
+[REGION:simpletable]
+| 测试 | 级联/立方体贴图阴影成本（毫秒）| 距离场阴影成本（毫秒）| 提速百分比（%）|
+| --- | ---- | ---- | ---- |
+| 定向光源，距离10k个单位，3个级联阴影贴图 | 3.1 | 2.3 | 25% |
+| 定向光源，距离30k个单位，6个级联阴影贴图 | 4.9 | 2.8 | 43% |
+| 1个点光源，大半径 | 1.8 | 1.3 | 30% |
+| 5个点光源，小半径 | 3.2 | 1.8 | 45% |
+||||
+[/REGION]
 
-距离为 10k 的定向光源，3 级联
-* 级联阴影贴图 3.1ms
-* 距离场阴影 2.3ms（快 25%）
+(#optimizations)
+### 优化
 
-距离为 30k 的定向光源，6 级联
-* 级联阴影贴图 4.9ms
-* 距离场阴影 2.8ms（快 43%）
+下面是优化距离场阴影时可以使用或应该考虑的要点：
 
-一个大型点光源
-* 立方体贴图阴影贴图 1.8ms
-* 距离场阴影 1.3ms（快 30%）
+* 在定向光源上，**光源角度（Light Source Angle）** 越大，成本越高，因为每个要计算阴影的点都需要考虑更多的对象。 
+* **距离场阴影距离（Distance Field Shadow Distance）** 的值越大，剔除效率越低。 
+* 启用了 **双面距离场生成（Two-Sided Distance Field Generation）**（在 **构建设置（Build Settings）** 中启用）的网格体的阴影需要耗用更多成本，因为产生的阴影永远不会完全不透明。
 
-五个小型点光源
-* 立方体贴图阴影贴图 3.2ms
-* 距离场阴影 1.8ms（快 45%）
 
-## 设置
+在虚幻引擎4.16中，可以启用以下优化：
 
-### 光源
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Use RayTraced DistanceField Shadows** | 从阴影贴图技术切换到距离场阴影。|
-| **Ray Start Offset Depth Scale** | 确定摄像机离远时接收表面光线追踪阴影所拥有的偏移量。可用于隐藏巨型静态网格体上低分辨率距离场中的自身阴影穿帮。|
+[COMMENT:none]
+- 来自MeshDistanceFields.INT.udn的摘录 -
+[/COMMENT]
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#optimizations]
 
-### 点光源和聚光源
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Source Radius** | 光源球体的尺寸。更大的数值将生成更大的半影，但对性能的消耗也更大。|
 
-### 定向光源
-| 属性 | 描述 |
-| -------- | ----------- |
-| **DistanceField Shadow Distance** | 光线追踪阴影覆盖的距离。必须比级联阴影贴图使用的“Dynamic Shadow Distance”更远，以便使用光线追踪阴影。|
-| **Light Source Angle** | 定向光源从接收者角度覆盖的半角。更大的角度将形成更大的半影，但对性能的消耗也更大。|
+
+
+
+
+(#limitations)
+## 局限性
+
+[REGION:note]
+光线追踪距离场阴影与网格体距离场方法有着一样的常规限制。有关这些限制的更多信息， 
+请参阅[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)页面。
+[/REGION]
+
+
+
+

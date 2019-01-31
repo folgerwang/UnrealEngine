@@ -1,0 +1,21 @@
+INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: 증강 현실 개발
+Description: 증강 현실 개발
+Type: landing
+Version: 4.20
+Parent: Platforms
+Order: 1
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+언리얼 엔진 AR 프레임워크에는 언리얼 엔진으로 증강 현실 앱 제작을 위한 풍성한 통합 프레임워크가 제공됩니다.
+
+## 플랫폼
+
+%Platforms/AR/HandheldAR:topic%
+%Platforms/AR/MagicLeap:topic%

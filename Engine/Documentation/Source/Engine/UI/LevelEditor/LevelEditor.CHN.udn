@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 关卡编辑器
 Crumbs:%ROOT%, Engine, Engine/UI
@@ -6,70 +6,41 @@ Description: 本指南概述了如何设计及构建游戏关卡及场景。
 Version: 4.9
 parent:Engine/Editor
 order:3
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UI/LevelEditor:title%](Engine/UI/LevelEditor/Editor_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UI/LevelEditor:title%](Engine/UI/LevelEditor/Editor_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Feature]
-[OBJECT:Feature]
-	[PARAM:image]
-		![%Engine/UI/LevelEditor:title%](Engine/UI/LevelEditor/Editor.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:Editor_Topic.png
+topic-icon:%ROOT%/editor_icon.png
 
 [REGION:fullwidth]
-![](UE4Interface_5.png)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](LevelEditor_Windows.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](LevelEditor_Mac.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
 [/REGION]
 
 
@@ -87,17 +58,48 @@ order:3
 从最基本的层次来说，创建关卡可以归结为在虚幻编辑器中向地图中放置对象。这些对象可能是世界几何体、以画刷形式出现的装饰物、静态网格物体、光源、玩家起点、武器或载具。什么时候添加哪些对象通常是由关卡设计团队使用的特定工作流程规定的。
 [/EXCERPT:Actors]
 
+(#TheDefaultInterface)
 ##默认界面
 
 由于虚幻编辑器的界面可以进行高度化的自定义，所以可能您这次启动时看到的界面和下次启动时看到的界面是不一样的。以下，您可以看到默认的界面布局：
 
 [REGION:raw]
-![](UEDInterface.png)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](DefaultInterface_Windows.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](DefaultInterface_Mac.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
 [/REGION]
 
 
-1. 选卡条和菜单条
-1. 工具条
+1. 选卡栏和菜单栏
+1. 工具栏
 1. 模式
 1. 内容浏览器
 1. 视口 
@@ -105,24 +107,87 @@ order:3
 1. 详细信息
 
 
+(#TabBar)
 ### 选卡栏
 
 关卡编辑器的顶部有一个选卡，提供了当前正在编辑器的关卡的名称。其他编辑器窗口的选卡可以停靠在该选卡的旁边，以便快速地、方便地进行导航，这和网页浏览器类似。
 
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
 ![](TabBar.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](TabBar_Mac.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
 
 选卡名称本身将会反应出当前正在编辑的是哪个关卡。这种方式在整个编辑器中都是一致的 - 以当前正在编辑的资源命名编辑器选卡。
 
-选卡条的右侧是当前项目的名称。
+选卡栏的右侧是当前项目的名称。
 
 
 
 
+(#MenuBar)
 ### 菜单栏
 
 [INCLUDE:Engine/UI/LevelEditor/MenuBar#Intro]
 
-![Main Menu Bar](Engine/UI/LevelEditor/MenuBar/MainMenubar.png)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![Main Menu Bar](Engine/UI/LevelEditor/MenuBar/MenuBar_Windows.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![Main Menu Bar](Engine/UI/LevelEditor/MenuBar/Menubar_Mac.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
 
 请参照[菜单栏](Engine/UI/LevelEditor/MenuBar) 页面获得关于每个菜单及其内容的介绍。
 
@@ -142,14 +207,16 @@ order:3
 
 [/COMMENT]
 
+(#Toolbar)
 ### 工具栏
 
 ![Toolbar Panel](Engine/UI/LevelEditor/Toolbar/toolbar.png)(w:720)
 
 和大部分 **工具栏** 面板一样，这里提供了一组快速访问常用工具和操作的命令。
 
-请参照[工具栏](Engine/UI/LevelEditor/Toolbar)页面获得关于工具条上每项功能的介绍。
+请参照[工具栏](Engine/UI/LevelEditor/Toolbar)页面获得关于工具栏上每项功能的介绍。
 
+(#Viewport)
 ### 视口
 
 **Viewport（视口）** 面板是您进入到虚幻编辑器中创建的世界的窗口。
@@ -160,6 +227,7 @@ order:3
 
 请参照[视口](Engine/UI/LevelEditor\Viewports)页面获得关于应用视口的更多信息。
 
+(#details)
 ### 详细信息
 
 ![Details Panel](Engine/UI/LevelEditor/Details/details_panel.png)
@@ -168,10 +236,13 @@ order:3
 
 请参照 [详细信息](Engine/UI/LevelEditor/Details) 页面获得关于使用关卡编辑器中的 **详细信息** 面板的完整概述和指南。
 
+(#Modes)
 ### 模式
 
 [INCLUDE:Engine/UI/LevelEditor/Modes#main]
 
+
+(#worldoutliner)
 ### 世界大纲视图
 
 [REGION:raw]
@@ -183,6 +254,7 @@ order:3
 
 请参照[世界大纲视图](Engine/UI/LevelEditor/SceneOutliner)页面获得关于使用 **世界大纲视图** 的详细内容。
 
+(#Layers)
 ### 图层
 
 [INCLUDE:Engine/UI/LevelEditor/Layers#Overview]

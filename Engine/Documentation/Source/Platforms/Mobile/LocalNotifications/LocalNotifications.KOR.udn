@@ -1,0 +1,375 @@
+﻿INTSourceChangelist:4691578
+Availability: Public
+Crumbs: 
+Title: Android 및 iOS 용 로컬 알림
+Description: 언리얼 엔진 4 의 레퍼런스 및 가이드를 포함한 제품 문서입니다.
+Type: 
+Version: 4.21
+Parent: Platforms/Mobile
+Order: 
+Tags: mobileservices, Early Access, Landing Page
+
+
+Local Notification (로컬 알림)은 언리얼 엔진 4 (UE4) 응용 프로그램 외부에 표시할 수 있는 메시지로, 사용자에게 변경 또는 업데이트 사항을 알립니다.  여기서는 Android 및 iOS 기기 양쪽에 작동하는 로컬 알림 설정 방법을 살펴봅니다.
+[REGION:note]
+현재 Android 및 iOS 용 로컬 알림 구현은 설정과 실행이 매우 단순합니다. 이 시스템은 원격 서버를 통해 전송되는 알림이 아닌, 로컬 알림에만 작동합니다.
+[/REGION]
+
+%Globals:MobileSelect%
+
+## 단계
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    android
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#android]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    ios
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#ios]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:ios]
+1.  먼저 다음 옵션으로 C++ 기반 프로젝트를 만듭니다.
+    *   **Blank** 기본
+    *   **모바일 / 태블릿**
+    *   **스케일가능 3D 또는 2D**       
+    *   **시작용 콘텐츠 없음**
+        [REGION:lightbox]
+        [![](LocalNotification_Project_SettingsiOS.png)(w:500px)](LocalNotification_Project_SettingsiOS.png) 
+        [REGION:caption]
+        클릭하면 이미지 원본을 확인합니다.
+        [/REGION]
+        [/REGION]
+2.  프로젝트가 열리면 **편집** > **프로젝트 세팅** 을 선택합니다.
+3.  **프로젝트 세팅** 메뉴에서 **모든 세팅** 을 클릭하고 검색창에 **Enable Remote Notifications Support** (원격 알림 지원 활성화)를 입력합니다.  
+    [REGION:lightbox]
+    [![](LocalNotification_EnableRemoteNotiOS-1.png)(w:500px)](LocalNotification_EnableRemoteNotiOS-1.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+[REGION:note]
+이 기능은 C++ 기반 프로젝트에서만 사용할 수 있습니다. 블루프린트 기반 프로젝트를 사용하는 경우, 옵션이 회색으로 보입니다.
+[/REGION]
+5.  프로젝트가 열렸으면 **메인 툴바** 의 **블루프린트** - **레벨 블루프린트 열기** 를 선택하여 **레벨 블루프린트** 를 엽니다.  
+    [REGION:lightbox]
+    [![](Android&20OSLocalNotification_OpenLevelBlueprint.png)(w:500px)](Android&20OSLocalNotification_OpenLevelBlueprint.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    여기서는 따라하기 쉽도록 레벨 블루프린트를 사용해서 필요한 Local Notifications (로컬 알림) 블루프린트 노드를 설정 및 호출하고 있습니다. 로컬 알림 로직은 레벨 블루프린트에 설정해도 작동은 하지만, 보다 적합한 곳이 있을 것입니다.
+    [/REGION]
+6.  로컬 알림을 표시할 때 사용자에게 메시지를 표시할 수 있도록 **변수** 섹션에 다음의 **텍스트 변수** 셋을 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_StingVariables.png)(w:200px)](LocalNotifications_StingVariables.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+
+    | 변수 이름 | 값 |
+    | --- | --- |
+    | **Title** | Title: 제목입니다! |
+    | **Body** | Body: 본문입니다! |
+    | **Action** | Action: 이 동작을 취합니다! |
+
+7.  사용자가 로컬 알림을 표시하도록 호출했을 때 보이는지 확인하기 위해, **Event Begin Play** 및 **Register for Remote Notifications** 노드를 **이벤트 그래프** 에 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)(w:500px)](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    UE4 프로젝트에 추가할 때 프로젝트를 처음 로드하자마자 바로 Register for Remote Notifications 노드가 호출되는지 확인하세요. 그래야 알림을 표시할 때 다시 호출하지 않아도 됩니다.
+    [/REGION]
+8.  알림을 발동했을 때 사용자에게 보이도록 하기 위해, **Event Begin Play** 의 출력을 **Register for Remote Notifications** 의 입력에 연결합니다. 이렇게 하면 사용자가 운영 체제(OS)에 알림을 표시할 수 있는 권한을 부여합니다.
+    [REGION:lightbox]
+[![](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)(w:500px)](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+9.  OS 에 알림 표시 권한을 줬으니, 사용자가 알림을 클릭했을 때 벌어질 일을 설정해야 합니다. 이런 상호작용 유형을 처리하기 위해 **이벤트 그래프** 에 **Get Launch Notification**, **Print String**, **Branch** 노드를 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_LaucnBrankPrintNodes.png)(w:500px)](LocalNotifications_LaucnBrankPrintNodes.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+10.  **Get Launch Notification** 노드의 출력을 **Branch** 노드 입력에 연결하고 그 **True** 출력을 **Print String** 노드의 입력에 연결합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)(w:500px)](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+11.  **Notification Launched App** 을 Branch 노드의 **Condition** 입력에, **Activation Event** 를 **Print String** 노드의 **In String** 입력에 연결합니다.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectLaunchToBranch.png)(w:500px)](LocalNotifications_ConnectLaunchToBranch.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    프로젝트에 추가할 때 **Print String** 노드를 생략해도 됩니다. 올바른 Activation Event 가 사용되었는지 확인하기 위해 추가한 것입니다.
+    [/REGION]
+12.  이제 알림에 말할 내용과 알림을 표시할 때까지 기다려야 하는 시간을 설정해야 합니다. 그러기 위해 먼저 이벤트 그래프에 다음 블루프린트 노드를 추가해야 합니다.  
+    *   **Schedule Local Notifications from Now**
+    *   **Delay**
+    *   **Title, Body, Action Text Variables**  
+        [![](20OSLocalNotification_DelayVarsSchedule.png)(w:500px)](20OSLocalNotification_DelayVarsSchedule.png)  
+        [REGION:caption]
+        클릭하면 이미지 원본을 확인합니다.
+        [/REGION]
+13.  이벤트 노드에 필요한 노드를 추가했으면, Delay 노드의 **Completed** 출력을 **Schedule Local Notifications from Now** 의 입력에, 그리고 **Text** 변수 각각을 **Schedule Local Notifications from Now** 노드의 각 입력에 연결합니다. 완료된 이벤트 그래프는 다음 이미지와 같습니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayVarSetup.png)(w:500px)](LocalNotifications_DelayVarSetup.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+14.  Delay 노드의 **Duration** 에 **5** 초를 설정합니다. 로컬 알림을 호출하여 표시하기 전 앱을 닫거나 백그라운드드로 전환하기에 충분한 시간을 확보하는 데 도움이 됩니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayNodeSetup.png)(w:500px)](LocalNotifications_DelayNodeSetup.png) 
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [/REGION]
+    [REGION:note]
+    **Delay** 노드를 추가한 이유는 오직 알림을 해제하기 전 앱을 닫거나 백그라운드로 전환하기 충분한 시간을 확보하기 위해서입니다. 프로젝트에 추가할 때는 **Delay** 노드를 반드시 추가하지 않아도 됩니다.
+    [/REGION]
+15.  Schedule Local Notifications from Now 노드의 **Seconds from Now** 입력에 **30** 초를 설정합니다. 그러면 이 코드 조각을 실행한 지 30 초 후 알림을 표시합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetSchedualeTime.png)(w:500px)](LocalNotifications_SetSchedualeTime.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+16.  Schedule Local Notifications from Now 의 **Activation Event** 를 **42** 로 설정합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetActivationEvent.png)(w:500px)](LocalNotifications_SetActivationEvent.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    Activation Event 입력으로 특정 알림을 호출하는 데 사용할 수 있는 스트링 값을 연결할 수 있습니다. 이렇게 하면 특정한 조건이 충족되었을 때 다른 알림을 표시하도록 설정할 수 있습니다.
+    [/REGION]
+17.  로컬 알림에 필요한 모든 노드를 이벤트 그래프에 추가했으니, 마지막 남은 작업은 **Branch** 노드의 **False** 출력을 **Delay** 노드의 입력에 연결하는 것입니다. 완료된 이벤트 그래프 모습은 다음 이미지와 같습니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectFalseToDelay.png)(w:500px)](LocalNotifications_ConnectFalseToDelay.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+18.  컴파일 버튼을 눌러 레벨 블루프린트를 컴파일하고 저장 버튼을 눌러 레벨을 저장합니다.
+19.  마지막으로 **메인 툴바** 의 **실행** 버튼 옆 **고급 옵션** 드롭 다운을 클릭한 뒤 테스트할 기기를 선택합니다.  
+    ![](LocalNotifications_LaunchOnIOS.png "LocalNotifications_LaunchOnIOS.png")
+
+[/EXCERPT:ios]
+[EXCERPT:android]
+1.  먼저 다음 옵션으로 새 **블루프린트** 기반 프로젝트를 만듭니다.  
+    *   **Blank** 기본
+    *   **모바일 / 태블릿**
+    *   **스케일가능 3D 또는 2D**  
+    *   **시작용 콘텐츠 없음**
+        [REGION:lightbox]
+        [![](Android&20OSLocalNotification_Project_Settings.png)(w:500px)](Android&20OSLocalNotification_Project_Settings.png) 
+        [REGION:caption]
+        클릭하면 이미지 원본을 확인합니다.
+        [/REGION]
+        [/REGION]
+2.  프로젝트가 열렸으면 **메인 툴바** 의 **블루프린트** - **레벨 블루프린트 열기** 를 선택하여 **레벨 블루프린트** 를 엽니다.  
+    [REGION:lightbox]
+    [![](Android&20OSLocalNotification_OpenLevelBlueprint.png)(w:500px)](Android&20OSLocalNotification_OpenLevelBlueprint.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    여기서는 따라하기 쉽도록 레벨 블루프린트를 사용해서 필요한 Local Notifications (로컬 알림) 블루프린트 노드를 설정 및 호출하고 있습니다. 로컬 알림 로직은 레벨 블루프린트에 설정해도 작동은 하지만, 보다 적합한 곳이 있을 것입니다.
+    [/REGION]
+3.  로컬 알림을 표시할 때 사용자에게 메시지를 표시할 수 있도록 **변수** 섹션에 다음의 **텍스트 변수** 셋을 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_StingVariables.png)(w:200px)](LocalNotifications_StingVariables.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    
+    | 변수 이름 | 값 |
+    | --- | --- |
+    | **Title** | Title: 제목입니다! |
+    | **Body** | Body: 본문입니다! |
+    | **Action** | Action: 이 동작을 취합니다! |
+    
+4.  사용자가 로컬 알림을 표시하도록 호출했을 때 보이는지 확인하기 위해, **Event Begin Play** 및 **Register for Remote Notifications** 노드를 **이벤트 그래프** 에 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)(w:500px)](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    UE4 프로젝트에 추가할 때 프로젝트를 처음 로드하자마자 바로 Register for Remote Notifications 노드가 호출되는지 확인하세요. 그래야 알림을 표시할 때 다시 호출하지 않아도 됩니다.
+    [/REGION]
+5.  알림을 발동했을 때 사용자에게 보이도록 하기 위해, **Event Begin Play** 의 출력을 **Register for Remote Notifications** 의 입력에 연결합니다. 이렇게 하면 사용자가 운영 체제(OS)에 알림을 표시할 수 있는 권한을 부여합니다.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)(w:500px)](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+6.  OS 에 알림 표시 권한을 줬으니, 사용자가 알림을 클릭했을 때 벌어질 일을 설정해야 합니다. 이런 상호작용 유형을 처리하기 위해 **이벤트 그래프** 에 **Get Launch Notification**, **Print String**, **Branch** 노드를 추가합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_LaucnBrankPrintNodes.png)(w:500px)](LocalNotifications_LaucnBrankPrintNodes.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+7.  **Get Launch Notification** 노드의 출력을 **Branch** 노드 입력에 연결하고 그 **True** 출력을 **Print String** 노드의 입력에 연결합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)(w:500px)](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+8.  **Notification Launched App** 을 Branch 노드의 **Condition** 입력에, **Activation Event** 를 **Print String** 노드의 **In String** 입력에 연결합니다.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectLaunchToBranch.png)(w:500px)](LocalNotifications_ConnectLaunchToBranch.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    프로젝트에 추가할 때 **Print String** 노드를 생략해도 됩니다. 올바른 Activation Event 가 사용되었는지 확인하기 위해 추가한 것입니다.
+    [/REGION]
+9.  이제 알림에 말할 내용과 알림을 표시할 때까지 기다려야 하는 시간을 설정해야 합니다. 그러기 위해 먼저 이벤트 그래프에 다음 블루프린트 노드를 추가해야 합니다.  
+    *   **Schedule Local Notifications from Now**
+    *   **Delay**
+    *   **Title, Body, Action Text Variables**  
+        [![](20OSLocalNotification_DelayVarsSchedule.png)(w:500px)](20OSLocalNotification_DelayVarsSchedule.png)  
+        [REGION:caption]
+        클릭하면 이미지 원본을 확인합니다.
+        [/REGION]
+10.  이벤트 노드에 필요한 노드를 추가했으면, Delay 노드의 **Completed** 출력을 **Schedule Local Notifications from Now** 의 입력에, 그리고 **Text** 변수 각각을 **Schedule Local Notifications from Now** 노드의 각 입력에 연결합니다. 완료된 이벤트 그래프는 다음 이미지와 같습니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayVarSetup.png)(w:500px)](LocalNotifications_DelayVarSetup.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+11.  Delay 노드의 **Duration** 에 **5** 초를 설정합니다. 로컬 알림을 호출하여 표시하기 전 앱을 닫거나 백그라운드드로 전환하기에 충분한 시간을 확보하는 데 도움이 됩니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayNodeSetup.png)(w:500px)](LocalNotifications_DelayNodeSetup.png) 
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [/REGION]
+    [REGION:note]
+    **Delay** 노드를 추가한 이유는 오직 알림을 해제하기 전 앱을 닫거나 백그라운드로 전환하기 충분한 시간을 확보하기 위해서입니다. 프로젝트에 추가할 때는 **Delay** 노드를 반드시 추가하지 않아도 됩니다.
+    [/REGION]
+12.  Schedule Local Notifications from Now 노드의 **Seconds from Now** 입력에 **30** 초를 설정합니다. 그러면 이 코드 조각을 실행한 지 30 초 후 알림을 표시합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetSchedualeTime.png)(w:500px)](LocalNotifications_SetSchedualeTime.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+13.  Schedule Local Notifications from Now 의 **Activation Event** 를 **42** 로 설정합니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetActivationEvent.png)(w:500px)](LocalNotifications_SetActivationEvent.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    Activation Event 입력으로 특정 알림을 호출하는 데 사용할 수 있는 스트링 값을 연결할 수 있습니다. 이렇게 하면 특정한 조건이 충족되었을 때 다른 알림을 표시하도록 설정할 수 있습니다.
+    [/REGION]
+14.  로컬 알림에 필요한 모든 노드를 이벤트 그래프에 추가했으니, 마지막 남은 작업은 **Branch** 노드의 **False** 출력을 **Delay** 노드의 입력에 연결하는 것입니다. 완료된 이벤트 그래프 모습은 다음 이미지와 같습니다.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectFalseToDelay.png)(w:500px)](LocalNotifications_ConnectFalseToDelay.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+15.  컴파일 버튼을 눌러 레벨 블루프린트를 컴파일하고 저장 버튼을 눌러 레벨을 저장합니다.
+16.  마지막으로 **메인 툴바** 의 **실행** 버튼 옆 **고급 옵션** 드롭 다운을 클릭한 뒤 테스트할 기기를 선택합니다.  
+    ![](LocalNotifications_LaunchOneDevice.png "LocalNotifications_LaunchOneDevice.png")
+[/EXCERPT:android]
+[/COMMENT]
+## 최종 결과
+
+프로젝트를 모바일 디바이스에 설치하면, 다음 비디오처럼 앱을 연 뒤 5 초 후 알림 창이 뜨는 것을 볼 수 있습니다.
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    android
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        f31AOCHte1E
+        [/PARAMLITERAL]
+    [/OBJECT]
+    [/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    ios
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        ansRASXRbcQ
+        [/PARAMLITERAL]
+    [/OBJECT]
+    [/PARAM]
+[/OBJECT]

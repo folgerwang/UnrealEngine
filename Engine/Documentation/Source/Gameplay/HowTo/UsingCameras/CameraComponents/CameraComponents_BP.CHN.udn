@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2615116
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:使用摄像机组件
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UsingCameras
@@ -10,6 +10,7 @@ Related: Engine/Matinee
 Related: Engine/Blueprints
 SkillLevel: Beginner
 Version: 4.8
+type:how-to
 
 在这份操作指南中，我们要了解如何将 **Camera** 组件添加到 **Blueprint**，从而为您关卡中的可玩人物或非可玩人物创建第三人称视角。在本次教程结束时，您将完整体验向人物蓝图添加摄像机组件的过程，并能够切换两个不同的人物视角。 
 
@@ -134,6 +135,7 @@ Version: 4.8
 1.	在主工具栏中，单击 **Play** 按钮在编辑器中运行程序。 
 
 
+(#EndResult)
 ## 最终结果
 
 [OBJECT:EmbeddedVideo]

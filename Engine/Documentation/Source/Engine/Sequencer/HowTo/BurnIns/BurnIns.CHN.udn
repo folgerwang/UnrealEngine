@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3075953
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:应用烧入内容
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,19 +10,22 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine/Sequencer/ReferenceEditor
+tags:Sequencer
+type:how-to
 
 [EXCERPT:intro]
 创建并渲染过场动画时，可能需要包含正在查看的场景信息的覆层，如镜头名称、日期，时间或帧信息。这些覆层被称为 **烧入内容**，将在渲染时被烧入影片中。这在真实的电影制作中为导演、剪辑师或查看片段的人士提供片段的相关信息（一些片段甚至带有版权信息的水印）。 
 [/EXCERPT:intro]
 
 利用 **Sequencer** 可将烧入内容应用到渲出的影片，此外还提供包含镜头总体信息的默认烧入选项。在此指南中，我们将学习如何在渲出过场动画时启用默认烧入选项。 
-
+ 
 
 [REGION:note]
 此指南中，我们使用 **蓝图第三人称模板（Blueprint Third Person Template）** 创建了一个小型过场动画范例。
 [/REGION]
 
 
+(#Steps)
 ## 步骤
 
 1.	准备好渲染 **关卡序列** 后，在 **关卡序列** 中点击 **渲染影片** 按钮。 
@@ -44,6 +47,7 @@ Related:Engine/Sequencer/ReferenceEditor
 1.	沿用默认选项，点击 **Capture Movie**。 
 
 
+(#EndResult)
 ## 最终结果
 
 影片采集完成后，进行播放时便会发现相似的覆层已应用到过场。默认烧入在画面上方居中显示关卡序列的名称和当前日期。当前镜头名称显示在画面上面居左位置（如未使用镜头，则显示关卡序列名称）。画面下方居中显示 Master 序列的时间和帧数，画面右下显示当前镜头的帧。 

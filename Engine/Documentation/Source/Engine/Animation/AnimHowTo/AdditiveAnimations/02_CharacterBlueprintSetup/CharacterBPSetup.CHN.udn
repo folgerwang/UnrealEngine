@@ -1,30 +1,16 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2 - 更新角色蓝图
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:在这步中，我们将在角色蓝图中创建一些脚本，模拟武器开火。 
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AdditiveAnimations
 type:how-to
+order:2
 tags:Animation
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous](Engine\Animation\AnimHowTo\AdditiveAnimations\01_BlendSetup)
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Layered Animations - Home ](Engine\Animation\AnimHowTo\AdditiveAnimations)
-	[/PARAM]
-	[PARAM:next]
-		[Next](Engine\Animation\AnimHowTo\AdditiveAnimations\03_AnimGraphSetup)
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在这步中，我们将在角色蓝图中创建一些脚本，以便对动画蓝图发出武器开火的信号。 
 
@@ -67,4 +53,4 @@ tags:Animation
 角色现已设置完毕，蹲下或武器开火时将对动画蓝图发出信号。 
 在下一步中，我们将在动画蓝图中设置动画图表，处理动画蒙太奇和普通运动动画的混合，以实现两者之间的混合。 
 
-
+[NAV]

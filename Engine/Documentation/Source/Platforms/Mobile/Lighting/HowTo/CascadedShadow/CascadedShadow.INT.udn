@@ -8,105 +8,96 @@ Related: Platforms/Mobile/Textures
 Related: Engine/Rendering/Materials/CustomizedUVs
 Related: Engine/Rendering/Materials/MaterialProperties/BlendModes
 Related: Engine/Rendering/Materials/ExpressionReference/Utility
-version: 4.12
+version: 4.20
 parent:Platforms/Mobile
 order:3
 type:overview
 tags:mobile
 
-### Enabling Dynamic Cascaded Shadow Maps
+Stationary Directional lights can be used to cast Dynamic Cascade Shadow Maps (CSM) for the dynamic objects in your scene. When you use CSM shadows, the shadows on dynamic objects will blend correctly with the precomputed shadows cast by static objects in the scene.
 
-To use Dynamic Cascaded Shadow maps in your UE4 mobile project, you will need to perform the following steps.
+In this How To, we set the CSM for specific objects in a level.
 
-1. Open up the **Project Settings** and then go to the **Engine** > **Rendering** >  **Mobile** section and make sure that **Enable Combined Static and CSM Shadowing** is enabled. 
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
-	[/region]
+![](CascadedShadows_HeroImage.png)
 
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
+## Steps
 
+[REGION:note]
+**Required Setup:** CSM will only work if you have a Directional Light in your scene. If you do not have one, add one now and make sure it is selected. See the [Lighting Quick Start Guide](Engine/Rendering/LightingAndShadows/QuickStart) for steps on building a simple room and adding lighting to it.
+[/REGION]
 
-1. CSM will only work if you have a **Directional Light** in your scene. If you do not have one, add one now and make sure it is selected. Then under the **Transform** section ensure that the **Mobility** setting has been set to **Stationary**.
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
-	[/region]
+1. Select the Directional Light in your scene. Then under the **Transform** section, ensure that the **Mobility** setting has been set to **Stationary**.
+   [REGION:lightbox]
+   [![CSM_Setup_01](CSM_Setup_01.png)(w:640)](CSM_Setup_01.png)
+   [/REGION]
+   [REGION:caption]
+   Click image for full size.
+   [/REGION]
+1. With the Directional Light still selected, go to the **Details** panel and locate the **Cascaded Shadows Maps** section. Adjust the following properties on your Directional Light.
+   [REGION:lightbox]
+   [![CSM_Setup_02](CSM_Setup_02.png)(w:640)](CSM_Setup_02.png)
+   [/REGION]
+   [REGION:caption]
+   Click image for full size.
+   [/REGION]
 
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
+   | Property Name | Value |
+   |---|---|
+   | **Dynamic Shadow Distance Stationary Light** | 2,000 |
+   |** Num Dynamic Shadows Cascades** | 1 |
 
-1. With the Directional Light still selected, go to the **Details** panel and locate the **Cascaded Shadows Maps** section and adjust the following properties on your Directional Light.
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
-	[/region]
+[REGION:note]
+The above settings are only suggestions. Feel free to experiment with the values, to find a result that will best fit your project.
+[/REGION]
 
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
-
-	* **Dynamic Shadow Distance Stationary Light:** 2,000
-	* **Num Dynamic Shadows Cascades:** 1
-	* **Insert Shadows For Movable Objects:** False
-	[region:note]
-	The above settings are only suggestions so feel free to change and experiment with the values to find ones that will best fit your project. 
-	[/region]
-
-1. Inside of you project's level select any Static Meshes you want to receive CSM and in the **Details** panel under the **Mobile** section, enable the **Receive Combined Static and CSM Shadows from Stationary Lights** option.
-	
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
-	[/region]
-
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
-
-	[region:note]
-	The following video demonstrates what the Receive Combined Static and CSM Shadows from Stationary Lights option does. In this video the Receive Combined Static and CSM Shadows from Stationary Lights is turned on for the Static Mesh that makes up the floor but not on the Static Mesh that makes up the stairs. Notice how when the player is on the floor they have a shadow but not when they are on the stairs. This is because the floor has the  Receive Combined Static and CSM Shadows from Stationary Lights option enabled while the stairs do not.
-
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	nrGejxSnJwI
-	[/PARAMLITERAL]
-	[/OBJECT]
-
-	[/region]
+1. In the current release, the default setting is for all static meshes to have CSM enabled. However, you may want to turn off CSM for meshes that don't need them. To turn off CSM, select the mesh that doesn't need CSM enabled. In the **Details** panel under the **Mobile** section, click to uncheck the box for **Receive CSM Shadows**.
+   ![](CascadedShadows_Steps_MobileSectionReceiveCSMShadows.png)
 
 1. From the **Main Toolbar**, change the **Play Mode** to **Mobile Preview** and press the **Play** button to launch the level.
+   
+[REGION:tip]
+If you do not see the Mobile Preview window being displayed, make sure that it did not launch behind the Unreal Editor window.
+[/REGION]
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
-	[/region]
+[REGION:lightbox]
+[![](CSM_Setup_04.png)(w:640)](CSM_Setup_04.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
 
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
+[REGION:note]
+The following video demonstrates what the **Receive CSM Shadows** setting does. In this video, the **Receive CSM Shadows** setting is turned on for the Static Mesh that makes up the floor, but turned off for the Static Mesh that makes up the stairs. Notice that when the player character is on the floor, they have a shadow, but when they are on the stairs they do not have a shadow. This is because the floor has the **Receive CSM Shadows** setting enabled, while the setting is disabled on the stairs.
 
-	[region:tip]
-	If you do not see the Mobile Preview window being displayed, make sure to check that it did not launch behind the Unreal Editor window.
-	[/region]
+If you want shadows from Static Meshes placed in the environment to cast shadows on the character, you will need to change the **Mobility** settings on the Static Mesh from **Static** to **Movable**.
 
-1. Once your level successfully launches, position your character in a location that has static shadows and when you go in and out of the shadow, your character's Dynamic Shadows should now blend seamlessly with any baked shadows in the level like in the image below.
-	
-	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
-	[/REGION]
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    nrGejxSnJwI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-	[REGION:caption]
-	Click for full image.
-	[/REGION]
+[/REGION]
 
-	[region:note]
-	If you want shadows from Static Meshes placed in the environment to cast shadows on the character, you will need to change the **Mobility** settings on the Static Mesh from ***Static** to **Movable**.
-	[/region]
+## End Results
+
+Once your level successfully launches, position your character in a location that has static shadows and when you go in and out of the shadow, your character's Dynamic Shadows should now blend seamlessly with any baked shadows in the level, like in the image below.
+
+[REGION:lightbox]
+[![](CSM_Final_Result.png)(w:640)](CSM_Final_Result.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]

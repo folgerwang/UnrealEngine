@@ -1,40 +1,40 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title:Volumes Overview
+Title:体积概述
 Crumbs:%ROOT%, Engine, Engine/Actors, Engine/Actors/Volumes
-Description:Audio Volume reference details
+Description:音频体积参数详情
 version:4.16
 type:reference
 
 
-### Audio Volume
+### 音频体积（Audio Volumes）
 
-Several properties can be adjusted from the **Details** panel on this volume to allow for more control over its effects as seen below.
+可以从该体积的 **细节（Details）** 面板调整多个属性，来更好地控制其效果，如下所示。
 
 ![](audiovolume.png)
 
-|Property| Description |
+|属性 | 说明 |
 | ------- | ------------ |
-| **Priority** | In the event of overlapping volumes, the highest priority volume will be used. The order is undefined if two or more overlapping volumes have the same priority. |
-| **Apply Reverb** | Determines if the reverb settings should be used. |
-| **Reverb Effect** | This is the reverb asset to use for the volume. |
-| **Volume** | This is the overall volume level of the reverb effect. |
-| **Fade Time** | This is the time (in seconds) to fade from the current reverb settings into the volumes setting.  |
-| **Enabled** | Determines whether the volume is currently enabled and is able to affect sounds. |
+| **优先级（Priority）** | 体积重叠时，将使用优先级最高的体积。如果两个或多个重叠体积具有相同的优先级，将不定义顺序。|
+| **应用混响（Apply Reverb）** | 确定是否应该使用混响设置。|
+| **混响效果（Reverb Effect）** | 这是该体积要使用的混响资源。|
+| **体积（Volume）** | 这是混响效果的整体体积级别。|
+| **渐变时间（Fade Time）** | 这是从当前混响设置渐变到体积设置所需的时间（以秒为单位）。|
+| **启用（Enabled）** | 确定当前是否启用该体积，使其影响或不影响音效。|
 
-**Ambient Zone Settings** define how Sound Actors located inside the associated Audio Volume will be altered by the Player's location. The Ambient Zone Settings can be adjusted from the **Details** panel. 
+**环境区域设置（Ambient Zone Settings）** 定义位于相关音频体积中的声音Actor如何根据玩家位置发生改变。可在 **细节（Details）** 面板中调整“环境区域设置（Ambient Zone Settings）”。 
 
-|Property| Description |
+|属性 | 说明 |
 | ------- | ------------ |
-| **Exterior Volume** | The final volume of exterior sounds when the player is inside the volume.  |
-| **Exterior Time** | Time to fade to new exterior volme in seconds. |
-| **Exterior LPF** | Lowpass Filter multiplier applied to exterior sounds when inside (1.0 to apply the maximum LPF). |
-| **Exterior LPFTime** | Time to fade to new Lowpass Filter level in seconds. |
-| **Interior Volume** | The final volume of interior sounds when the player is outside the volume. |
-| **Interior Time** | Time to fade to new interior volume in seconds. |
-| **Interior LPF** | Lowpass Filter multiplier applied to interior sounds when outside (1.0 to apply the maximum LPF). |
-| **Interior LPFTime** | Time to fade to new Lowpass Filter level in seconds. |
+| **外部音量（Exterior Volume）** | 当玩家在该体积内部时，外部声音的最终音量。|
+| **外部淡入淡出时间（Exterior Time）** | 淡入淡出到一个新的外部音量所需的时间，以秒为单位。|
+| **外部LPF（Exterior LPF）** | 当玩家在环境区域内部时，应用到外部声音的低通滤波器乘数（使用1.0来应用最大的LPF）。|
+| **外部LPFTime（Exterior LPFTime）** | 淡入淡出到新的低通滤波器级别所需的时间，以秒为单位。|
+| **内部音量（Interior Volume）** | 当玩家在该体积外部时，内部声音的最终音量。|
+| **内部淡入淡出时间（Interior Time）** | 淡入淡出到一个新的内部音量所需的时间，以秒为单位。|
+| **内部LPF（Interior LPF）** | 当玩家在环境区域外部时，应用到内部声音的低通滤波器乘数（使用1.0来应用最大的LPF）。|
+| **内部LPFTime（Interior LPFTime）** | 淡入淡出到新的低通滤波器级别所需的时间，以秒为单位。|
 
 [COMMENT:none]
-For more information on Ambient Zones, please refer to the following documentation: [Ambient Zones Documentation](Engine/Audio/AmbientZones).
+有关“环境区域（Ambient Zones）”的更多信息，请参阅以下文档：[“环境区域（Ambient Zones）”文档](Engine/Audio/AmbientZones)。
 [/COMMENT]

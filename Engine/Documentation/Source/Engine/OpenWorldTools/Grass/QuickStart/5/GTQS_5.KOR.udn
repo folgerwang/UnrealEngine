@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
+	[이전 단계](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

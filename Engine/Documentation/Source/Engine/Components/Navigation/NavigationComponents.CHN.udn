@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2696099
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title: 寻路组件
 Crumbs:%ROOT%, Engine, Engine/Components
@@ -12,6 +12,7 @@ version: 4.9
 
 寻路组件是一种可在虚幻引擎 4 中修改或扩展 **NavMesh**(Pathfinding) 系统功能的组件。
 
+(#NavModifierComponent)
 ## Nav Modifier Component （导航修改器组件）
 
 **Nav Modifier Component** 本身没有任何功能，但是，如果您有一个基本形状组件作为 Actor 的根，该根组件的音量将根据导航修改器组件的 **Area Class** 属性来修改 Actor 内的 NavMesh 生成。每个 Actor 只能带有一个导航修改器组件，因为多个导航修改器组件无效。此外，这些组件将出现在“组件”选项卡的层级结构之外，不能作为其他组件的父组件，也不能包含任何子组件。

@@ -1,0 +1,134 @@
+Availability: Public
+Crumbs: 
+Title: Augmented Reality Quick Start
+Description: Getting up and running with the basics of Augmented Reality.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+prereq: Platforms/AR/HandheldAR/ARKitPrerequisites
+prereq: Platforms/AR/HandheldAR/ARCorePrerequisites
+
+![](AR_IntroShot.png "AR_IntroShot.png")
+
+After working through this tutorial, you'll know the following:
+
+*   How to create a basic augmented reality project in Unreal Engine 4 (UE4) using the Handheld AR Blueprint template.
+*   How to deploy a basic augmented reality project to your handheld device from UE4.
+*   How to run the augmented reality app. 
+
+## 1. Creating an AR Project
+
+The first thing we need to do to start developing for augmented reality devices in Unreal Engine is to create a new project.  
+
+1.  Open the **Unreal Project Browser **and create a new Blueprint project with the following options.
+    
+    *   Select the **Handheld AR **template.
+    *   Set the **Target Hardware** to be **Mobile / Tablet**.
+    *   Set **Graphics Level** to **Scalable 3D or 2D**.
+    *   Select **No Starter Content.**
+    
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png "AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png")
+2.  Give the project a name, setting the project's **Folder **location. For this tutorial, we are naming the project **ARProject**.  
+    ![](AR_NewProjectScreen_ARProject.png "AR_NewProjectScreen_ARProject.png")
+3.  After you've set up your project's settings, click the **Create Project **button.  
+    ![](AR_NewProjectScreen_CreateProject.png "AR_NewProjectScreen_CreateProject.png")
+4.  The result is a new UE4 project (**ARProject**), based on the **Handheld AR **blueprint template.  
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")
+
+## 2. Additional Project Configuration
+
+#### **iOS**
+
+The **HandheldAR** Blueprint template pre-configures many of the required project settings for using augmented reality with Unreal Engine. However, when creating a project for the iOS platform, you will need to manually configure some settings.  
+
+| Setting |  Value | Description |
+| --- | --- | --- |
+|  **Apple ARKit Plugin**  | Enabled | Configured by the HandheldAR template. |
+| **Support AR** | Enabled | Configured by the HandheldAR template. |
+| **Minimum iOS Version** | 11 | Not configured by the HandheldAR template. |
+| **Max. Metal Shader Standard to Target** | 1.2 | Not configured by the HandheldAR template. |
+| **Additional Plist Data** | UE4 needs permission to use the camera in order to use ARKit. | Not configured by the HandheldAR template. |
+
+Configured Settings in the Project Setup UI:  
+![](AR_ConfigureProject_MinimumiOSVersion_POST.png "AR_ConfigureProject_MinimumiOSVersion_POST.png")  
+![](AR_ConfigureProject_MaxMetalShader_POST.png "AR_ConfigureProject_MaxMetalShader_POST.png")  
+![](AR_ConfigureProject_ExtraPListData_POST.png "AR_ConfigureProject_ExtraPListData_POST.png")  
+
+#### **Android**
+
+The **HandheldAR** Blueprint template pre-configures most of the required project settings for using augmented reality with Unreal Engine. However, when creating a project for the Android platform, you will need to manually configure the project for the Android platform using the **Configure Now** button.  
+  
+
+| Setting | Value |
+| --- | --- |
+| **Configure Project for Android** | <manual configuration required> |
+
+Configured Settings in the Project Setup UI (before/after):  
+![](AR_ConfigureProject_ForAndroid_PRE.png "AR_ConfigureProject_ForAndroid_PRE.png")  
+![](AR_ConfigureProject_ForAndroid_POST.png "AR_ConfigureProject_ForAndroid_POST.png")
+
+## 3. Deploying the Default Level
+
+1.  To deploy the current Level to a device, you first need to make sure that you have have the Level that you want to test open. For this tutorial, we will use the **Handheld AR Blank Map **level that was created by the **Handheld AR **template.   
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")  
+    
+2.  With the **Handheld AR Blank Map **open, go to the **Main Toolbar **and next to the **Launch **icon click on the small triangle that displays more options.  
+    ![](AR_LaunchButton.png "AR_LaunchButton.png")  
+    
+3.  From the **Launch **menu under the **Devices, **select a device to target from the list by clicking on it.  
+    ![](LaunchMenu_Pixel.png "LaunchMenu_Pixel.png")
+4.  Once the deployment starts, status dialog boxes are displayed towards the bottom of the **Unreal Editor** screen showing progress. App deployment can take several minutes.   
+    ![](AR_DeviceInstallationMessages.png "AR_DeviceInstallationMessages.png")  
+
+## 4. Running the AR Application
+
+1.  On the device, start the application by selecting the **ARProject **icon.  
+    [REGION:lightbox]
+    [![](AR_DeviceScreenIcon.png "AR_DeviceScreenIcon.png")](AR_DeviceScreenIcon.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+2.  Selecting the **Start AR **button initializes an AR Session which activates the platform features required for AR.  
+    [REGION:lightbox]
+    [![](AR_DeviceStartButton.png "AR_DeviceStartButton.png")](AR_DeviceStartButton.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+3.  The application opens up with the pass-through camera active and a **Show Debug Menu **button in the corner.
+    [REGION:lightbox]
+    [![](AR_DeviceShowDebugMenu.png "AR_DeviceShowDebugMenu.png")](AR_DeviceShowDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+4.  Select the **Show Debug Menu **button to show additional details.  
+    [REGION:lightbox]
+    [![](AR_DeviceFullDebugMenu.png "AR_DeviceFullDebugMenu.png")](AR_DeviceFullDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+
+| Menu Item | Description |
+| --- | --- |
+| **Start/Stop AR Mode** |  Toggles the AR session on or off. |
+| **Show/Hide World Origin** | Toggles the world origin transform widget. |
+| **Show/Hide Planes** | Toggles debug drawing of planes detected by the hardware. |
+| **Show/Hide Pins** | Toggles any client-defined pins. |
+| **Show/Hide Light Info** | Toggles light estimation information, including light intensity (lm), temperature (K), and color (RGBA). |
+| **Last Hit Object** | Shows the last valid 'touched' item by the user, whether in tracked or world space. |
+| **Frames Per Second** | Shows the number of frames being processed per second. |
+| **Tracking Quality** | Shows the quality of the tracking, including Orientation, or Orientation and Position. |
+| **Show/Hide Debug Menu** | Toggles the Debug Menu. |
+
+## 5. On Your Own!
+
+Now that you have an example augmented reality app up and running, it's time to explore the app, and in particular, the debug menu functions. Use the **show planes **function to see what the device is discovering as horizontal planes, and spawn some objects by tapping on tracked geometry. Try different angles, lighting, and|or spawning some more objects. Have fun!

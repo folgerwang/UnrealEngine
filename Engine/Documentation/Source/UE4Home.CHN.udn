@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3151855
+﻿INTSourceChangelist:4300533
 Availability:Public
-Title: 虚幻引擎 4 文档
+Title: 虚幻引擎4文档
 Crumbs:
-Description: 学习、使用虚幻引擎 4 的完整资源集合
+Description: 学习、使用虚幻引擎4的完整资源集合
 Navigation:home
 social-image:home_social.png
 type:landing
@@ -58,6 +58,12 @@ type:landing
 		[/PARAMLITERAL]
 		[PARAMLITERAL:terms]
 			用户界面 UMG
+		[/PARAMLITERAL]
+                [PARAMLITERAL:terms]
+			Sequencer
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			VR
 		[/PARAMLITERAL]
 	[/OBJECT]
 [/REGION]

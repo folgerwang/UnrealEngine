@@ -1,17 +1,23 @@
-INTSourceChangelist:4301216
+INTSourceChangelist:4703316
 Availability: Public
 Crumbs: 
 Title: 나이아가라에서 메시 파티클 이펙트 생성
 Description: 나이아가라를 사용하여 스태틱 메시 파티클 이펙트를 만드는 법을 설명합니다.
 Type:how-to
-Version: 4.20
+SkillLeveL:Beginner
+Version: 4.21
 Parent: Engine/Niagara/HowTo
 Order: 3
 Tags: Niagara
 Tags: Early Access
-prereqs Engine/Niagara/HowTo/EnableNiagara
 
-카메라를 향하는 스프라이트 대신 스태틱 메시를 스폰하는 기능이 있으면 만드는 이펙트에 현실감과 사실성을 높일 수 있습니다. 이번 하우투에서는 스프라이트 대신 스태틱 메시를 스폰하는 나이아가라 이미터 설정 방법을 살펴보겠습니다.
+전제조건 주제
+
+이 문서는 다음 주제에 대한 사전 지식을 요합니다. 진행하기 전 확인하세요.
+
+*   [나이아가라 플러그인 활성화](Engine/Niagara/HowTo/EnableNiagara "나이아가라 플러그인 활성화 방법을 설명합니다.")
+
+[카메라를 향하는 스프라이트](Engine/Niagara/HowTo/SpriteEffect) 대신 스태틱 메시를 스폰하면 만드는 이펙트에 현실감과 사실성을 높일 수 있습니다. 여기서는 스프라이트 대신 스태틱 메시를 스폰하는 나이아가라 이미터 설정 방법을 살펴보겠습니다.
 
 ![](Mesh_Banner_01.png "Mesh_Banner_01.png")
 
@@ -21,51 +27,56 @@ prereqs Engine/Niagara/HowTo/EnableNiagara
 
 ## 단계
 
-1.  먼저 Niagara Emitter (나이아가라 이미터)를 만들어야 합니다. **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara Emitter** (나이아가라 이미터)를 선택합니다.  
-    ![](SE_01.png)
-1.  새로 만든 나이아가라 이미터 이름은 **FX_Mesh** 으로 한 뒤 더블클릭하여 엽니다.  
+1.  먼저 **Niagara Emitter** (나이아가라 이미터)를 만들어야 합니다. **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara Emitter** (나이아가라 이미터)를 선택합니다. 나이아가라 이미터 마법사가 표시됩니다.  
+    ![](SE_01.png)(w:400)
+2.  **Create a new emitter from an emitter template** (이미터 템플릿에서 새 이미터 생성) 옆 동글 버튼을 클릭한 뒤 **OK** (확인)을 누르면 콘텐츠 브라우저에 이미터가 새로 생깁니다.
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  새로 만든 나이아가라 이미터 이름은 **FX_Mesh** 으로 한 뒤 더블클릭하여 엽니다.  
     ![](ME_02.png)
-1.  나이아가라 에디터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.**Niagara Sprite Rendering** 컴포넌트 제거를 위해 **휴지통** 아이콘을 클릭합니다.  
-    ![](CreateMeshBasedEffect_Steps_Step03-RemoveSpriteRender.png)
-1.  **더하기** 부호 (**+**) 아이콘을 클릭하면 표시되는 목록에서 **Niagara Mesh Renderer Properties** (나이아가라 메시 렌더러 프로퍼티) 옵션을 선택합니다. **NiagaraMeshRendererProperties** 섹션이 추가됩니다.  
-    ![](CreateMeshBasedEffect_Steps_Step04-AddMeshRender.png)
-1.  **Mesh Rendering** (메시 렌더링) 섹션을 펼칩니다. **Particle Mesh** (파티클 메시) 옆 드롭다운을 클릭하고, **Shape_Sphere** 스태틱 메시를 선택합니다.  
-    ![](CreateMeshBasedEffect_Steps_Step05-AddShapeSphere.png)
-1.  렌더 섹션을 접고, **Particle Spawn** (파티클 스폰) 섹션을 펼칩니다.
-1.  **Add Velocity** (속도 추가) 섹션을 찾습니다.
-1.  속도 **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.�  
-    ![](CreateMeshBasedEffect_Steps_Step08-VelocityMinMax.png)   
-| 프로퍼티 이름 | 값 |
-| --- | --- |
-| **Minimum** | X:0, Y:0, Z: 400 |
-| **Maximum** | X: 1, Y: 1, Z: 980 |
-    
-1.  **Sphere Location** (구체 위치) 섹션에서 **Sphere Radius** (구체 반경)을 **100** 으로 설정합니다.  
-    ![](Mesh_Step9_01.png "Mesh_Step9_01.png")  
-    
-1.  **Set Variables** (변수 설정) 섹션을 찾습니다. **Particles.Lifetime** 변수를 펼쳐 **Minimum** (최소) 및 **Maximum** (최대) 칸을 표시합니다.
-1.  **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
-    ![](CreateMeshBasedEffect_Steps_Step11-ParticlesLifetimeMinMax.png)    
-| 프로퍼티 이름 | 값 |
-| --- | --- |
-| **Minimum** | 2.0 |
-| **Maximum** | 5.0 |
-    
-1.  **Particles.SpriteSize** 및 **Particles.SpriteRotation** 프로퍼티 오른쪽 작은 흰색 삼각형을 클릭하고 **Remove** (제거)를 선택합니다.  
-    ![](CreateMeshBasedEffect_Steps_Step12-RemoveSpriteVariables.png)
-1.  **Acceleration Force** (가속력) 섹션을 찾습니다.
-1.  **Z** 값을 **-500** 으로 설정합니다.  
-    ![](CreateMeshBasedEffect_Steps_Step14-AccelerationForce.png)
+4.  나이아가라 이미터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.**Niagara Sprite Renderer Properties** 모듈의 **휴지통** 아이콘을 클릭하여 제거합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step03-RemoveSpriteRender.png)(w:500)
+5.  **더하기 부호** (**+**) 아이콘을 클릭하면 표시되는 목록에서 **Niagara Mesh Renderer Properties** (나이아가라 메시 렌더러 프로퍼티) 옵션을 선택합니다. **Niagara Mesh Renderer Properties** 모듈이 추가됩니다.  
+    ![](CreateMeshBasedEffect_Steps_Step04-AddMeshRender.png)(w:500)
+6.  **Mesh Rendering** (메시 렌더링) 섹션을 펼칩니다. **Particle Mesh** (파티클 메시) 옆 드롭다운을 클릭하고, **Shape_Sphere** 스태틱 메시를 선택합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step05-AddShapeSphere.png)(w:500)
+7.  렌더 섹션을 접고, **Particle Spawn** (파티클 스폰) 섹션을 펼칩니다. **Add Velocity** (속도 추가) 섹션을 찾습니다.
+8.  속도 **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step08-VelocityMinMax.png)(w:500)
+
+    | **프로퍼티 이름** | **값** |
+    | --- | --- |
+    | **Minimum** | X: 0, Y: 0, Z: 400 |
+    | **Maximum** | X: 1, Y: 1, Z: 980 |
+
+9.  **Sphere Location** (구체 위치) 모듈에서 **Sphere Radius** (구체 반경)을 **100** 으로 설정합니다.  
+    ![](Mesh_Step9_01.png "Mesh_Step9_01.png")(w:500)
+10.  **Set Variables** (변수 설정) 모듈을 찾습니다. **Particles.Lifetime** 를 펼쳐 **Minimum** (최소) 및 **Maximum** (최대) 칸을 표시합니다.
+11.  **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step11-ParticlesLifetimeMinMax.png)(w:500)
+
+    | **프로퍼티 이름** | **값** |
+    | --- | --- |
+    | **Minimum** | 2.0 |
+    | **Maximum** | 5.0 |
+
+12.  **Particles.SpriteSize** 및 **Particles.SpriteRotation** 프로퍼티 옆 작은 흰색 삼각형을 클릭하고 각 프로퍼티에 대해 **Remove** (제거)를 선택합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step12-RemoveSpriteVariables.png)(w:500)
+13.  파티클 스폰 섹션을 접고, **Particle Update** (파티클 업데이트) 섹션을 펼쳐 **Acceleration Force** (가속력) 모듈을 찾습니다.
+14.  **Acceleration Z** (Z 가속도) 값을 **-500** 으로 설정합니다.  
+    ![](CreateMeshBasedEffect_Steps_Step14-AccelerationForce.png)(w:500)
     [REGION:note]
     음수 값을 지정하면 메시 파티클이 잠깐 올라갔다가 떨어집니다. 메시 파티클이 떨어지지 않고 올라가도록 하려면, 양수 Z 값을 사용하세요.
     [/REGION]
-1.  **컴파일**, **적용**, **저장** 버튼을 눌러 변경사항을 적용하고 저장한 뒤 **FX_Mesh** 나이아가라 이미터를 닫습니다.  
+15.  **컴파일**, **적용**, **저장** 버튼을 눌러 변경사항을 적용하고 저장한 뒤 **FX_Mesh** 나이아가라 이미터를 닫습니다.  
     ![](ME_09.png)
-1.  이제 **콘텐츠 브라우저** 로 돌아와 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 새 시스템 이름은 **Mesh** 라 합니다.  
-    ![](SE_16.png)
-1.  **Mesh** 나이아가라 시스템을 더블클릭하여 열고, 콘텐츠 브라우저에서 **FX_Mesh** 이미터를 끌어 **타임라인** 에 놓습니다.  
-    ![](CreateMeshBasedEffect_Steps_Step17_EmittertoSystem.png)
-1.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 Mesh 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Mesh** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
+16.  **콘텐츠 브라우저** 에 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 나이아가라 시스템 마법사가 표시됩니다.
+17.  **Create an empty system with no emitters** (이미터가 없는 빈 시스템 생성) 옆 동글 버튼을 클릭한 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 나이아가라 시스템이 새로 생깁니다.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+18.  새 나이아가라 시스템 이름은 **Mesh** 라 합니다.  
+    ![](NiagaraSystem_Icon.png)(w:100)
+19.  **Mesh** 나이아가라 시스템을 더블클릭하여 열고, 콘텐츠 브라우저에서 **FX_Mesh** 이미터를 끌어 **타임라인** 에 놓습니다.  
+    ![](CreateMeshBasedEffect_Steps_Step17_EmittertoSystem.png)(w:400)
+20.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 Mesh 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Mesh** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
     ![](CreateMeshParticle_Steps_Step18_AddToLevel.png)
 
 ## 최종 결과
@@ -73,19 +84,13 @@ prereqs Engine/Niagara/HowTo/EnableNiagara
 작업이 끝나면 레벨에 배치했을 때 (다음 비디오처럼) 나이아가라 이미터를 재생하는 나이아가라 시스템이 완성되었을 것입니다.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    cFgfGav5UjE
-    [/PARAMLITERAL]
     [PARAMLITERAL:width]
-    100
+    640
     [/PARAMLITERAL]
     [PARAMLITERAL:height]
-    56.25
+    360
     [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
+    [PARAMLITERAL:videoid]
+    cFgfGav5UjE
     [/PARAMLITERAL]
 [/OBJECT]

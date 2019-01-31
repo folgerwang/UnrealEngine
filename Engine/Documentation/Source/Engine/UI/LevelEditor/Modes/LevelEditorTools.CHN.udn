@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title: 关卡编辑器中的几个模式
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor
 Description: 一组用于控制关卡编辑器当前所处模式、调整画刷形状、创建画刷几何体及体积的工具集。
 Version: 4.9
-
+topic-image:LevelEditorModes_topic.png
 
 [EXCERPT:main]
 [INCLUDE:Shared/Glossary/M#glossary_modes_panel]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability: Public
 Title:5. 라이트 퀄리티와 리플렉션
 Crumbs:%ROOT%, GettingStarted, Engine\Rendering\LightingAndShadows\QuickStart
@@ -9,7 +9,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Rendering/LightingAndShadows/QuickStart/4 "%Engine/Rendering/LightingAndShadows/QuickStart/4:title%")
+		[이전 단계](Engine/Rendering/LightingAndShadows/QuickStart/4 "%Engine/Rendering/LightingAndShadows/QuickStart/4:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -30,13 +30,13 @@ Version: 4.9
 
 	![](BuildOptions.png)
 
-1. **Lighting Quality** (라이팅 퀄리티** 아래 **Production** (프로덕션) 퀄리티 레벨을 선택합니다.
+1. **Lighting Quality** (라이팅 퀄리티) 아래 **Production** (프로덕션) 퀄리티 레벨을 선택합니다.
 
 	![](productionLighting.png)
 
 1. **빌드** 아이콘을 클릭하여 게임을 빌드합니다.
 
-	라이팅 퀄리티가 향상되어 빌드 시간이 늘어난 것을 볼 수 있습니다. 빠른 반복처리를 위해서라면 프로젝트 완성 단계 전까지는 **Preview** (프리뷰) 세팅으로도 괜찮으며, 최종 또는 그 근처에 달해서 **프로덕션** 으로 전환하여 빌드하면 됩니다.
+	라이팅 퀄리티가 향상되어 빌드 시간이 길어진 것을 알 수 있습니다. 빠른 반복처리를 위해서라면 프로젝트 완성 단계 전까지는 **Preview** (프리뷰) 세팅으로도 괜찮으며, 마무리 단계 근처에서 **프로덕션** 으로 전환하여 빌드하면 됩니다.
 
 또 한가지 할 수 있는 작업은, 라이팅에 중요한 부분에 **Lightmass Importance Volume** 을 추가하여 집중시키는 것입니다.
 

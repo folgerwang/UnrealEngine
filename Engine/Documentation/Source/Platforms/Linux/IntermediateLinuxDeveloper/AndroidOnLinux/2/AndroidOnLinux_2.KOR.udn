@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3736300
 Availability: Public
-Title: 2 - 안드로이드 디바이스 구성
+Title: 2 - Android 디바이스 구성
 Crumbs:%ROOT%
-Description:안드로이드의 개발 환경을 활성화시키는 법입니다.
+Description:Android의 개발 환경을 활성화시키는 법입니다.
 Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
@@ -14,19 +14,19 @@ Contributor:yaakuro
 
 [nav]
 
-리눅스 컴퓨터에 Android SDK 를 설치했다면, 안드로이드 디바이스용 모바일 게임 개발을 시작할 준비가 거의 다 된 것입니다.
-하지만 언리얼 엔진 게임을 안드로이드 디바이스에서 실행하기 위해서는, 먼저 안드로이드의 개별 환경을 
+Linux 컴퓨터에 Android SDK 를 설치했다면, Android 디바이스용 모바일 게임 개발을 시작할 준비가 거의 다 된 것입니다.
+하지만 언리얼 엔진 게임을 Android 디바이스에서 실행하기 위해서는, 먼저 Android의 개별 환경을 
 활성화시켜야 합니다.
 
 [REGION:note]
 다음 단계로 넘어가기 전 USB 케이블이 있는지 확인하세요.
 [/REGION]
 
-## 안드로이드 개발 옵션 활성화
+## Android 개발 옵션 활성화
 [EXCERPT:AndroidLinux_2]
-1.	USB 케이블로 리눅스 컴퓨터와 안드로이드 디바이스를 연결합니다.
+1.	USB 케이블로 Linux 컴퓨터와 Android 디바이스를 연결합니다.
 
-1.	안드로이드 디바이스에서 **Settings** 어플리케이션을 실행합니다.
+1.	Android 디바이스에서 **Settings** 어플리케이션을 실행합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step17.png)(w:180)](LinuxAndroid_Step17.png)
@@ -49,7 +49,7 @@ Contributor:yaakuro
 	[REGION:note]
 	이 항목이 보이지 않는 경우, 디바이스에서 **Developer Options** (개발자 옵션)을 활성화시켜 줘야 합니다. **Settings** 어플리케이션을 열고, 화면을 아래로 내려 **About phone** 을 선택합니다. 
 	**About phone** 을 선택한 후 화면을 아래로 내려 **Build number** 부분을 일곱(7) 번 탭합니다.
-	안드로이드 디바이스에서 개발자 옵션을 활성화시키는 방법 관련 자세한 안내는 [Android's User Guide](https://developer.android.com/studio/debug/dev-options.html) 를 참고하세요.
+	Android 디바이스에서 개발자 옵션을 활성화시키는 방법 관련 자세한 안내는 [Android's User Guide](https://developer.android.com/studio/debug/dev-options.html) 를 참고하세요.
 	[/REGION]
 
 ## USB 디버깅 활성화
@@ -77,7 +77,7 @@ Contributor:yaakuro
 	USB 디버깅이 활성화되었습니다.
 	![](LinuxAndroid_Step20Note.png)
 
-1.	이제 안드로이드 디바이스에서 USB 케이블을 뽑은 뒤 몇 초 후 다시 연결합니다. Android 4.2.2 이상을 실행중인 디바이스를 연결했다면, RSA 키를 수락해야 리눅스 컴퓨터를 통한 디버깅이 가능하다는 창이 뜹니다. **Always allow from this computer** 옆 박스를 체크한 뒤 **OK** 버튼을 탭합니다.
+1.	이제 Android 디바이스에서 USB 케이블을 뽑은 뒤 몇 초 후 다시 연결합니다. Android 4.2.2 이상을 실행중인 디바이스를 연결했다면, RSA 키를 수락해야 Linux 컴퓨터를 통한 디버깅이 가능하다는 창이 뜹니다. **Always allow from this computer** 옆 박스를 체크한 뒤 **OK** 버튼을 탭합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step21.png)(w:180)](LinuxAndroid_Step21.png)
@@ -90,20 +90,20 @@ Contributor:yaakuro
 
 ## 최종 결과
 
-이제 리눅스 컴퓨터에서 디바이스 디버깅이 가능한지 확인할 준비가 되었습니다. 디바이스 구성이 잘 되었는지 확인하려면, 터미널을 열고 `adb devices` 라 입력합니다.
+이제 Linux 컴퓨터에서 디바이스 디버깅이 가능한지 확인할 준비가 되었습니다. 디바이스 구성이 잘 되었는지 확인하려면, 터미널을 열고 `adb devices` 라 입력합니다.
 
 ![](LinuxAndroid_Step22.png)(w:900)
 
-리눅스 컴퓨터에 연결된 디바이스 목록이 보일 것입니다. 언리얼 엔진 게임을 실행할 준비가 된 안드로이드 디바이스가 생겼다는 뜻입니다.
+Linux 컴퓨터에 연결된 디바이스 목록이 보일 것입니다. 언리얼 엔진 게임을 실행할 준비가 된 Android 디바이스가 생겼다는 뜻입니다.
 
 [REGION:note]
-	터미널에 `adb devices` 를 입력했는데도 디바이스가 보이지 않는 경우, 리눅스 컴퓨터에 adb 구성을 해줘야 할 수 있습니다. 
+	터미널에 `adb devices` 를 입력했는데도 디바이스가 보이지 않는 경우, Linux 컴퓨터에 adb 구성을 해줘야 할 수 있습니다. 
 	[Android Debug Bridge User Guide](https://developer.android.com/studio/command-line/adb.html) 에서 adb 관련 상세 정보 및 구성 방법을 참고하세요.
 	컴퓨터에 이미 adb 가 설치 및 환경설정된 것이 확실한 경우, 다음과 같은 문제해결 방법을 시도해 보세요:
 
-	* 컴퓨터에서 안드로이드 디바이스 연결을 해제한 뒤 다시 연결해야 할 수 있습니다.
+	* 컴퓨터에서 Android 디바이스 연결을 해제한 뒤 다시 연결해야 할 수 있습니다.
 	* **Always allow from this computer** 옆의 박스를 체크하지 않은 경우, 체크해 보세요.
-	* 디바이스가 허가되지 않은 것으로 나타나는 경우, 리눅스 컴퓨터에서 해당 안드로이드 디바이스를 USB 디버깅하도록 허가해야 할 수 있습니다.
+	* 디바이스가 허가되지 않은 것으로 나타나는 경우, Linux 컴퓨터에서 해당 Android 디바이스를 USB 디버깅하도록 허가해야 할 수 있습니다.
 	* 어떤 경우, 제대로 설정된 디바이스도 미디어 트랜스퍼 프로토콜(MTP)을 사용하는 미디어 디바이스로 연결된 경우 인식되지 않을 수 있습니다.
 	* 또한, 제대로 설정된 디바이스도 픽처 트랜스퍼 프로토콜(PTP)을 사용하는 카메라 디바이스로 연결된 경우 인식되지 않을 수 있습니다.
 [/REGION]

@@ -1,37 +1,36 @@
-﻿INTSourceChangelist:2940199
-Title:三星 Gear VR 开发
-Description:结合 UE4 使用三星 Gear VR 头戴设备的说明。
+﻿INTSourceChangelist:3782314
+Title:三星Gear VR开发
+Description:结合UE4使用三星Gear VR头戴设备的说明。
 Availability:Public
 Navigation:platform
 Platform:Gear VR
 Skilllevel:Intermediate
-Version:4.9
-prereq:Engine\Blueprints\GettingStarted
+Version: 4.17
 Crumbs:%ROOT%, Platforms
-type:landing
-parent:Platforms/VR
+type: landing
+Parent: Platforms/VR
 tags:VR
+Tags: Mobile VR
 tags:GearVR
+tags:Platform
+Topic-image:SamsungGearVRDevelopment_topic.png
 
-## 开始
+![](SamsungGearVR.png)(w:1000)
 
-[DIR(output:"listbutton" type:"quickstart" parent:"Platforms/GearVR")]
+(#StartingOut)
+## 开始 
 
-## GearVR 要点
+[DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/GearVR")]
 
-[DIR(output:"listbutton" type:"overview" parent:"Platforms/GearVR")]
+(#SamsungGearVRDevelopment)
+## 三星Gear VR开发
 
-## 培训视频
+[DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/GearVR")]
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-rNjDsNYvgfk
-[/PARAMLITERAL]
-[/OBJECT]
+(#Guides)
+## 指南
 
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/GearVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Intermediate" parent:"Platforms/GearVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Advanced" parent:"Platforms/GearVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Expert" parent:"Platforms/GearVR" org:"flat")]

@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title: 기어 VR 터치패드 사용
-Description: 기어 VR 모션 컨트롤러 터치패드 구성방법 안내입니다.
+Title: Gear VR 터치패드 사용
+Description: Gear VR 모션 컨트롤러 터치패드 구성방법 안내입니다.
 Type: how-to
 SkillLevel: Intermediate
 Version: 4.17
@@ -17,7 +17,7 @@ prereq: Platforms\GearVR\HowTo\MotionController
 
 ![](HTGVRMCTouchpad_Here_Image.png)
 
-기어 VR 모션 컨트롤러(MC) 터치패드의 높은 정밀도로 인해, 정확도를 요하는 여러가지 다양한 상호작용에 사용할 수 있습니다. 일련의 메뉴 옵션 스크롤에서부터 맵 상의 정확한 위치를 지정한 것까지, 터치패드를 사용하여 가상현실 세계와 상호작용하는 방법은 수도 없이 많습니다. 여기서는 기어 VR 모션 컨트롤러 터치패드에 터치중인 현재 위치를 구하고 표시하는 방법을 살펴보겠습니다.
+Gear VR 모션 컨트롤러(MC) 터치패드의 높은 정밀도로 인해, 정확도를 요하는 여러가지 다양한 상호작용에 사용할 수 있습니다. 일련의 메뉴 옵션 스크롤에서부터 맵 상의 정확한 위치를 지정한 것까지, 터치패드를 사용하여 가상현실 세계와 상호작용하는 방법은 수도 없이 많습니다. 여기서는 Gear VR 모션 컨트롤러 터치패드에 터치중인 현재 위치를 구하고 표시하는 방법을 살펴보겠습니다.
 
 [region:note]
 여기서는 이미 VR 카메라와 모션 컨트롤러 지원이 추가된 폰을 가지고 시작합니다. 이 구성이 없는 경우, 글 상단 **사전 필수 토픽** 의 문서를 참고하세요.
@@ -25,7 +25,7 @@ prereq: Platforms\GearVR\HowTo\MotionController
 
 ## 단계
 
-아래는 기어 VR 모션 컨트롤러 터치패드에서 사용자가 터치한 위치를 표시하기 위해 구성하는 방법 관련 정보입니다.
+아래는 Gear VR 모션 컨트롤러 터치패드에서 사용자가 터치한 위치를 표시하기 위해 구성하는 방법 관련 정보입니다.
 
 1. 플레이어 폰 블루프린트를 열고 **컴포넌트** 탭에서 새 **Text Render** 컴포넌트를 둘 추가한 뒤, **X_Position** 과 **Y_Position** 이라 합니다. 둘 다 아래 그림처럼 **Motion Controller** 컴포넌트를 부모 설정합니다.
 
@@ -54,7 +54,7 @@ prereq: Platforms\GearVR\HowTo\MotionController
 
     ![](HTGVRMCTouchpad_02.png)
 
-1. 터치패드에 눌린 현재 위치를 표시하기 위해, 먼저 현재 터치 입력의 X 및 Y **Axis Value** 를 구하여 저장해야 합니다. 그리고, **Set Text** 노드를 사용하여 기어 VR 모션 컨트롤러에 추가한 Text Render 컴포넌트를 통해 정보를 표시하면 됩니다. 그 작업을 블루프린트에서 하기 위해 먼저, 다음 노드와 변수를 이벤트 그래프에 추가합니다.
+1. 터치패드에 눌린 현재 위치를 표시하기 위해, 먼저 현재 터치 입력의 X 및 Y **Axis Value** 를 구하여 저장해야 합니다. 그리고, **Set Text** 노드를 사용하여 Gear VR 모션 컨트롤러에 추가한 Text Render 컴포넌트를 통해 정보를 표시하면 됩니다. 그 작업을 블루프린트에서 하기 위해 먼저, 다음 노드와 변수를 이벤트 그래프에 추가합니다.
 
     [REGION:lightbox]
     [![](HTGVRMCTouchpad_03.png)(w:713)](HTGVRMCTouchpad_03.png)
@@ -97,7 +97,7 @@ prereq: Platforms\GearVR\HowTo\MotionController
 
 ## 최종 결과
 
-블루프린트 컴파일 및 저장 후, 프로젝트를 스마트폰에 디플로이하고, 기어 VR HMD 와 모션 컨트롤러를 집어듭니다. 이제 터치패드를 터치하면, 다음 비디오처럼 숫자가 현재 터치한 위치로 업데이트되는 것이 보일 것입니다.
+블루프린트 컴파일 및 저장 후, 프로젝트를 스마트폰에 디플로이하고, Gear VR HMD 와 모션 컨트롤러를 집어듭니다. 이제 터치패드를 터치하면, 다음 비디오처럼 숫자가 현재 터치한 위치로 업데이트되는 것이 보일 것입니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

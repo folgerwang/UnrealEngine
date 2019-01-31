@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.8 - 为角色添加第一人称模型
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何将第一人称模型添加到第一人称射击游戏角色。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -26,6 +26,7 @@ Version:4.11
 
 构建 FPS 游戏的常见方法是使用两个单独的角色模型：一个是完整身体模型，另一个是“武器和手臂”模型。完整身体模型用于从第三人称视角查看角色，然而玩家以第一人称视角观察游戏时它处于隐藏状态。“武器和手臂”模型通常附加到摄像机，玩家以第一人称视角查看关卡时才能看到这个模型。在这步中，我们将为角色添加一个第一人称模型。
 
+(#AddingtheFirstPersonCharacterMesh)
 ## 添加第一人称角色模型
 
 1.	切回 Visual Studio，打开 `FPSCharacter.h` 添加以下代码：
@@ -41,7 +42,7 @@ Version:4.11
 		// 该模型仅对拥有玩家可见。
 		FPSMesh->SetOnlyOwnerSee(true);
 		// 将 FPS 模型添加到 FPS 摄像机。
-		FPSMesh->AttachTo(FPSCameraComponent);
+		FPSMesh->SetupAttachment(FPSCameraComponent);
 		// 禁用部分环境阴影，保留单一模型存在的假象。
 		FPSMesh->bCastDynamicShadow = false;
 		FPSMesh->CastShadow = false;
@@ -69,6 +70,7 @@ Version:4.11
 
 	此时，编辑器中便无法看到角色模型。
 	
+(#BuildingtheMeshBlueprint)
 ## 构建模型蓝图
 
 [REGION:note]
@@ -126,6 +128,7 @@ Version:4.11
 
 1.	 关闭 **蓝图编辑器** 之前须 **编译** 并 **保存** **BP_FPSCharacter** 蓝图。
 
+(#ViewingtheNewMeshIn-Game)
 ## 在游戏中查看新模型
 
 1.	点击 **关卡编辑器工具栏** 中的 **Play** 按钮在游戏中查看新模型。
@@ -134,163 +137,160 @@ Version:4.11
 
 1.	按下 Esc 键或点击关卡编辑器中的 **Stop** 按钮即可退出 Play in Editor（PIE）模式。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    完成分段代码
-    [/PARAM]
-    [PARAM:content]
-		**FPSCharacter.h**
-			// 在 Project Settings 的 Description 页面填入版权声明。
-			
-			#pragma once
-			
-			#include "GameFramework/Character.h"
-			#include "FPSCharacter.generated.h"
-			
-			UCLASS()
-			class FPSPROJECT_API AFPSCharacter : public ACharacter
-			{
-				GENERATED_BODY()
-			
-			public:
-				// 设置该角色属性的默认值
-				AFPSCharacter();
-			
-				// 游戏开始时或生成时调用
-				virtual void BeginPlay() override;
-				
-				// 每帧调用
-				virtual void Tick( float DeltaSeconds ) override;
-			
-				// 调用后将功能绑定到输入
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
-			
-				// 处理前后移动的输入。
-				UFUNCTION()
-				void MoveForward(float Value);
-			
-				// 处理左右移动的输入。
-				UFUNCTION()
-				void MoveRight(float Value);
-			
-				// 按下按键时设置跳跃标记。
-				UFUNCTION()
-				void StartJump();
-			
-				// 松开按键时清除跳跃标记。
-				UFUNCTION()
-				void StopJump();
-			
-				// FPS 摄像机。
-				UPROPERTY(VisibleAnywhere)
-				UCameraComponent* FPSCameraComponent;
-			
-				// 第一人称模型（手臂），仅对拥有玩家可见。
-				UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
-				USkeletalMeshComponent* FPSMesh;
-			};
+(#FinishedSectionCode)
+## 完成分段代码
 
-		**FPSCharacter.cpp**
-			// 在 Project Settings 的 Description 页面填入版权声明。
-			
-			#include "FPSProject.h"
-			#include "FPSCharacter.h"
-			
-			// 设置默认值
-			AFPSCharacter::AFPSCharacter()
-			{
-			 	// 设置此角色每帧调用 Tick()。不需要时可将此关闭，以提高性能。
-				PrimaryActorTick.bCanEverTick = true;
-			
-				// 创建一个第一人称摄像机组件。
-				FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-				// 将摄像机组件附加到胶囊体组件。
-				FPSCameraComponent->AttachTo(GetCapsuleComponent());
-				// 将摄像机放置在眼睛上方不远处。
-				FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
-				// 用 pawn 控制摄像机旋转。
-				FPSCameraComponent->bUsePawnControlRotation = true;
-			
-				// 为拥有玩家创建一个第一人称模型组件。
-				FPSMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
-				// 该模型仅对拥有玩家可见。
-				FPSMesh->SetOnlyOwnerSee(true);
-				// 将 FPS 模型添加到 FPS 摄像机。
-				FPSMesh->AttachTo(FPSCameraComponent);
-				// 禁用部分环境阴影，保留单一模型存在的假象。
-				FPSMesh->bCastDynamicShadow = false;
-				FPSMesh->CastShadow = false;
-			
-				// 拥有玩家无法看到普通（第三人称）身体模型。
-				GetMesh()->SetOwnerNoSee(true);
-			}
-			
-			// 游戏开始时或生成时调用
-			void AFPSCharacter::BeginPlay()
-			{
-				Super::BeginPlay();
-				
-				if (GEngine)
-				{
-					// 显示调试信息五秒。-1“键”值（首个参数）说明我们无需更新或刷新此消息。
-					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("We are using FPSCharacter."));
-				}
-			}
-			
-			// 每帧调用
-			void AFPSCharacter::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
-			
-			}
-			
-			// 调用后将功能绑定到输入
-			void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
-			
-				// 设置“移动”绑定。
-				InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-				InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
-			
-				// 设置“查看”绑定。
-				InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-				InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
-			
-				// 设置“动作”绑定。
-				InputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-				InputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
-			}
-			
-			void AFPSCharacter::MoveForward(float Value)
-			{
-				// 明确哪个方向是“前进”，并记录玩家试图向此方向移动。
-				FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X);
-				AddMovementInput(Direction, Value);
-			}
-			
-			void AFPSCharacter::MoveRight(float Value)
-			{
-				// 明确哪个方向是“向右”，并记录玩家试图向此方向移动。
-				FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
-				AddMovementInput(Direction, Value);
-			}
-			
-			void AFPSCharacter::StartJump()
-			{
-				bPressedJump = true;
-			}
-			
-			void AFPSCharacter::StopJump()
-			{
-				bPressedJump = false;
-			}
+**FPSCharacter.h**
 
-    [/PARAM]
-[/OBJECT]
+	// 在 Project Settings 的 Description 页面填入版权声明。
+			
+	#pragma once
+			
+	#include "GameFramework/Character.h"
+	#include "FPSCharacter.generated.h"
+			
+	UCLASS()
+	class FPSPROJECT_API AFPSCharacter : public ACharacter
+	{
+		GENERATED_BODY()
+			
+	public:
+		// 设置该角色属性的默认值
+		AFPSCharacter();
+
+	protected:			
+		// 游戏开始时或生成时调用
+		virtual void BeginPlay() override;
+				
+	public:	
+		// 每帧调用
+		virtual void Tick( float DeltaSeconds ) override;
+			
+		// 调用后将功能绑定到输入
+		virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+			
+		// 处理前后移动的输入。
+		UFUNCTION()
+		void MoveForward(float Value);
+	
+		// 处理左右移动的输入。
+		UFUNCTION()
+		void MoveRight(float Value);
+			
+		// 按下按键时设置跳跃标记。
+		UFUNCTION()
+		void StartJump();
+			
+		// 松开按键时清除跳跃标记。
+		UFUNCTION()
+		void StopJump();
+			
+		// FPS 摄像机。
+		UPROPERTY(VisibleAnywhere)
+		UCameraComponent* FPSCameraComponent;
+		
+		// 第一人称模型（手臂），仅对拥有玩家可见。
+		UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+		USkeletalMeshComponent* FPSMesh;
+	};
+
+**FPSCharacter.cpp**
+
+	// 在 Project Settings 的 Description 页面填入版权声明。
+			
+	#include "FPSProject.h"
+	#include "FPSCharacter.h"
+			
+	// 设置默认值
+	AFPSCharacter::AFPSCharacter()
+	{
+	 	// 设置此角色每帧调用 Tick()。不需要时可将此关闭，以提高性能。
+		PrimaryActorTick.bCanEverTick = true;
+			
+		// 创建一个第一人称摄像机组件。
+		FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+		// 将摄像机组件附加到胶囊体组件。
+		FPSCameraComponent->SetupAttachment(GetCapsuleComponent());
+		// 将摄像机放置在眼睛上方不远处。
+		FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
+		// 用 pawn 控制摄像机旋转。
+		FPSCameraComponent->bUsePawnControlRotation = true;
+	
+		// 为拥有玩家创建一个第一人称模型组件。
+		FPSMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
+		// 该模型仅对拥有玩家可见。
+		FPSMesh->SetOnlyOwnerSee(true);
+		// 将 FPS 模型添加到 FPS 摄像机。
+		FPSMesh->SetupAttachment(FPSCameraComponent);
+		// 禁用部分环境阴影，保留单一模型存在的假象。
+		FPSMesh->bCastDynamicShadow = false;
+		FPSMesh->CastShadow = false;
+	
+		// 拥有玩家无法看到普通（第三人称）身体模型。
+		GetMesh()->SetOwnerNoSee(true);
+	}
+			
+	// 游戏开始时或生成时调用
+	void AFPSCharacter::BeginPlay()
+	{
+		Super::BeginPlay();
+				
+		if (GEngine)
+		{
+			// 显示调试信息五秒。-1“键”值（首个参数）说明我们无需更新或刷新此消息。
+			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("We are using FPSCharacter."));
+		}
+	}
+			
+	// 每帧调用
+	void AFPSCharacter::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
+			
+	}
+			
+	// 调用后将功能绑定到输入
+	void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
+	{
+		Super::SetupPlayerInputComponent(PlayerInputComponent);
+			
+		// 设置“移动”绑定。
+		PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+		PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+	
+		// 设置“查看”绑定。
+		PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+		PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+			
+		// 设置“动作”绑定。
+		PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+		PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+	}
+			
+	void AFPSCharacter::MoveForward(float Value)
+	{
+		// 明确哪个方向是“前进”，并记录玩家试图向此方向移动。
+		FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X);
+		AddMovementInput(Direction, Value);
+	}
+			
+	void AFPSCharacter::MoveRight(float Value)
+	{
+		// 明确哪个方向是“向右”，并记录玩家试图向此方向移动。
+		FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
+		AddMovementInput(Direction, Value);
+	}
+			
+	void AFPSCharacter::StartJump()
+	{
+		bPressedJump = true;
+	}
+			
+	void AFPSCharacter::StopJump()
+	{
+		bPressedJump = false;
+	}
+
 
 恭喜！您已学会：
 

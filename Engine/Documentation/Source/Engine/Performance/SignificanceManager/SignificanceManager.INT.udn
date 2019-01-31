@@ -1,0 +1,141 @@
+Availability: Public
+Crumbs: 
+Title: The Significance Manager
+Description: Adjust performance in project-specific ways with the Significance Manager.
+Type: 
+Version: 4.20
+Parent: Performance
+Order: 1
+Tags: Performance
+Tags: Significance Manager
+Tags: CPU
+
+
+Meeting performance targets for a shipping game generally includes reducing scene complexity in order to meet the target resolution or frame rate. Level-of-detail systems for geometry, animation, and even audio are commonly used, but there are some cases where these distance-based, per-Actor methods are not sufficient. This is especially true in the case of multiplayer games with high numbers of players or AI-controlled characters that can converge in a single area.
+
+The **Significance Manager** provides a centralized framework that supports the ability to write flexible, project-specific code for evaluating and prioritizing Objects relative to one another. Using this evaluation, Objects can modify their behavior by doing things like shutting off Components like Particle Emitters, or by running complex AI code less frequently.
+
+[REGION:note]
+The Significance Manager itself does not actually improve performance; rather, it provides a system that can be overridden and customized to suit your project's specific needs.
+[/REGION]
+
+## Setup
+
+Because the Significance Manager exists within a Plugin, it must be enabled in the **Edit > Plugins** menu, and its Module must be added to your project's "Build.cs" file.
+
+![](SignificancePlugin.png "SignificancePlugin.png")
+
+*The Significance Manager is located in the Programming section of the Plugins menu.*
+
+[REGION:note]
+After enabling the Significance Manager Plugin, you may need to restart the Engine.
+[/REGION]
+
+With the Plugin enabled, add "SignficanceManager" to `PublicDependencyModuleNames` in your project's "Build.cs" file. The following example line comes from the "Basic C++" project template, modified to use the Significance Manager:
+
+
+	PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "SignificanceManager" });
+
+
+## Significance Manager Base Functionality
+
+The Significance Manager Plugin contains a single class, `USignificanceManager`, which acts as an extensible framework for evaluating the "significance" of managed Objects. These Objects can then adjust their behavior in custom ways to decrease their impact on performance based on their significance values. The specific behaviors that will result in improved performance are custom-defined by the Objects themselves in game code. For example, an Actor that plays a subtle audio cue or particle effect might opt not to do so in the event that it has a low significance value. A more advanced use case might involve grouping similar Actors together and enacting a per-Actor-type budget. One possible use for this would be to ensure that Player-controlled Pawns always run at high detail when they're close to the camera, and then compensating for cases where several players are clustered around the camera by limiting the number of AI-controlled Pawns running at high detail accordingly.
+
+### RegisterObject / UnregisterObject
+
+Objects can be registered with the Significance Manager and will be grouped together with other registered Objects based on a user-designated name. The registration process includes the ability for users to specify the functions used to evaluate the significance of the Object, and the optional function that will be run after the evaluation has been made. During registration, the Object's initial significance will be calculated with the Transforms used in the most recent call to the Significance Manager's Update function, if possible.This also provides an opportunity to perform higher-level processing, such as building internal data structures based on the list of known, registered Objects (perhaps different lists for different types), which can be helpful if your game implements category-based budgets for different types of Objects.
+
+[REGION:warning]
+In Engine versions prior to 4.20, Objects are stored by raw pointer. As a result, `UnregisterObject` must be called manually, or the Significance Manager will attempt to operate on invalid memory.
+[/REGION]
+
+### GetSignificance / QuerySignificance
+
+These functions report the cached significance value of an Object. If the Object is not registered with the Significance Manager, that value will be zero. The `QuerySignificance` function, unlike `GetSignificance`, will also indicate that the Object is not registered by returning `false`.
+
+### Update
+
+This function takes an array of Transforms and evaluates each managed Object for significance based on each Transform, using the significance function associated with the Object. The final result will be the highest value returned (lowest if `bSortSignificanceAscending` is set to `true`). This function can be overridden to suit the needs of the game, for example, by implementing new pre- or post-processing steps to the system. After evaluating an Object's significance, its Post Significance Function will be called, if one has been specified. This function will be called immediately if the Object's Post Significance Type is Concurrent. If its type is Sequential, it will be called in order, from most significant to least, with all other managed Objects using Sequential post-updates. If no Transforms are supplied, the significance value will be zero.
+
+Significance-evaluation and post-significance-evaluation functions run in parallel, which adds the requirement that these functions be thread-safe. Post-significance-evaulation functions can avoid this requirement by running sequentially (see the `FPostSignificanceFunction` section below for details).
+
+[REGION:note]
+The `Update` function does not run automatically. In most cases, developers will want to call it every frame, and only once per frame. A good place to call it might be in an overridden version of `UGameViewportClient`, as demonstrated in the following code:
+
+
+	#include "MyGameViewportClient.h"
+	#include "SignificanceManager.h"
+	#include "Kismet/GameplayStatics.h"
+	void UMyGameViewportClient::Tick(float DeltaTime)
+	{
+		// Call the superclass' Tick function.
+		Super::Tick(DeltaTime);
+		// Ensure that we have a valid World and Significance Manager instance.
+		if (UWorld* World = GetWorld())
+		{
+			if (USignificanceManager* SignificanceManager = FSignificanceManagerModule::Get(World))
+			{
+				// Update once per frame, using only Player 0's world transform.
+				if (APawn *PlayerPawn = UGameplayStatics::GetPlayerPawn(World, 0))
+				{
+					// The Significance Manager uses an ArrayView. Construct a one-element Array to hold the Transform.
+					TArray<FTransform> TransformArray;
+					TransformArray.Add(PlayerPawn->GetTransform());
+					// Update the Significance Manager with our one-element Array passed in through an ArrayView.
+					SignificanceManager->Update(TArrayView<FTransform>(TransformArray));
+				}
+			}
+		}
+	}
+
+[/REGION]
+
+## Project-Side Functionality
+
+The Significance Manager only provides the framework for determining the significance of an Object, leaving the actual calculation to be defined by the project. When you register an Object with the Significance Manager, you also register functions matching the following types:
+
+*   FSignificanceFunction
+*   FPostSignificanceFunction
+
+These functions will be called on the Object during Significance Manager updates.
+
+### FSignificanceFunction
+
+This is the primary evaluation function that you must write in order to use the Significance Manager. It takes an Object parameter and a single Transform, and calculates the significance of the Object, which it returns as a `float`. During the Significance Manager's update process, this function will be called once for each Transform that was passed in. The final result will be determined by the Significance Manager's Update function; by default, it will be the highest value. Each registered Object is required to be associated with a function of type `FSignificanceFunction` when it is registered.
+
+### FPostSignificanceFunction
+
+A function of this type will be supplied with the Object itself, its old significance value, its new significance value (unless the Object is being unregistered, in which case this value is one), and a `bool` indicating whether the Object is currently being unregistered. Unlike the significance-evaluation function, this has no return value. It is provided as a way for the game to handle changes to the Object’s significance or place in the overall order of managed Objects. The Significance Manager will call this function based on how the Object was registered, as follows:
+
+| Post Significance Type | Behavior |
+| --- | --- |
+| **None** | Function is expected to be null. No post-significance-evaluation callback. |
+| **Concurrent** | Function is expected not to be null, and will be called immediately upon evaluating the Object's significance. Functions called this way must be thread-safe, as they will run in parallel. |
+| **Sequential** | [INCLUDE:#excerpt_2] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_2]
+
+Function is expected not to be null, and will be called in sorted order with other Sequential Objects after all are evaluated for significance.
+
+[REGION:note]
+The requirement for thread-safe code is waived in this case.
+[/REGION]
+
+[/EXCERPT:excerpt_2]
+
+[/COMMENT]
+
+### Significance in Particle Systems
+
+[Particle System Components and Particle Emitters](Engine/Rendering/ParticleSystems/UserGuide) support the concept of significance and serve as a good implementation example. Each Emitter has its own Signficance Level (using the enumerated type `EParticleSignificanceLevel`), ranging from "Low" to "Critical", as seen below.
+
+![](ParticleEmitterSignificance.png "ParticleEmitterSignificance.png")  
+*Particle Emitters with different significance levels.*  
+
+The Particle System Component has a "Required Significance Level" (set by calling `SetRequiredSignificance`), which indicates how important any of its Emitters must be in order to be active. For example, a Particle Emitter with a "Medium" Significance Level will be active if the Required Significance Level of the Particle System Component that owns it is at "Medium" or "Low", but will stop spawning particles if that Required Significance Level reaches "High" or "Critical". The Particle System Component will even deactivate its own tick function if it detects that all of its Emitters are below the Required Significance Level, and will reactivate it when this is no longer the case. This design puts the implementation into the hands of the game systems (in this case, Particle System Components and Particle Emitters), leaving the Significance Manager with only the tasks of determining Significance Levels and making a function call to notify the Particle System Component when appropriate.
+
+[REGION:tip]
+Particle Emitters will temporarily deactivate their own tick functions the same way Particle System Components do if they are determined to be below the required significance level, but only if `bDisableWhenInsignficant` is set to `true`. Otherwise, they will simply stop spawning new particles, but will still tick.
+[/REGION]

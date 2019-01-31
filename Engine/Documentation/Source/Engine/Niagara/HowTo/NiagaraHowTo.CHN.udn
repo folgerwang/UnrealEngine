@@ -1,6 +1,5 @@
-﻿INTSourceChangelist:3721928
-
-Availability:Docs
+﻿INTSourceChangelist:4323617
+Availability:Public
 
 Title: Niagara - 使用指南
 
@@ -23,36 +22,4 @@ tags: Niagara
 ## 初级
 
 
-
-[REGION:wrapper transparent]
-[](FANCY:Engine\Niagara\HowTo\SpriteEffect "%Engine\Niagara\HowTo\SpriteEffect:description%")
-[](FANCY:Engine\Niagara\HowTo\MeshEffect "%Engine\Niagara\HowTo\MeshEffect:description%")
-[](FANCY:Engine\Niagara\HowTo\MeshEffect "%Engine\Niagara\HowTo\RibbonEffect:description%")
-[/REGION]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[DIR(output:"fancy" type:"how-to" parent:"Engine/Niagara/HowTo" skill_level:"Beginner")]

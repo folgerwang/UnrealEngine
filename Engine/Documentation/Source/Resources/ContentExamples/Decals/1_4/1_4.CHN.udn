@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:1954017
+INTSourceChangelist:3782314
 Availability: Public
-Title:1.4 -多表面投影
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Decals
-Description:贴花示例关卡概述，示例1.4： 多表面投影
+Title:1.4 - 多表面投射
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
+Description:贴花示例关卡概述，示例1.4：多表面投射
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -11,53 +11,14 @@ Related: Engine/Rendering/Materials/ExpressionReference
 Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_4:title%](Resources\ContentExamples\Decals\Decals_4
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_4:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_4:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_4]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_4:title%](Resources\ContentExamples\Decals\Decals_4.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_4:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_4:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_4]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:Resources/ContentExamples/Decals/Decals_4.png
 
 [REGION:fullwidth]
 
-![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_4.png)
-
-## 概述
-
-
-在本例中您可以看到贴花是如何在多个表面间进行投影的。请注意因为投影表面的朝向更为平行于投影的方向，因此阴影会产生一些拉伸。另外，请牢记，贴花将会同时对静态和动态网格物体投影，包括骨架网格物体。
-
+![%Resources/ContentExamples/Decals/1_1:title%](Resources/ContentExamples/Decals/Decals_4.png)
 
 [/REGION]
+
+在本示例中，你将了解贴花如何在多个表面上进行投射。请注意，如果表面朝向与投射方向较为平行，贴花投射到其上时必然会产生一些拉伸。另外，请记住，贴花可在包括骨架网格体在内的静态和动态网格体上进行投射。
+

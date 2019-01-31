@@ -76,6 +76,7 @@ The available options are:
 | `-set:WithIOS=[true/false]` | true | Include the iOS target platform [REGION:note]Enabling this option requires a Mac set up for remote building.[/REGION] |
 | `-set:WithTVOS=[true/false]` | true | Include the tvOS target platform [REGION:note]Enabling this option requires a Mac set up for remote building.[/REGION] |
 | `-set:WithLinux=[true/false]` | true | Include the Linux target platform |
+| `-set:WithLumin=[true/false]` | true | Include the Lumin target platform |
 | `-set:WithHTML5=[true/false]` | true | Include the HTML5 target platform |
 | `-set:WithPS4=[true/false]` | false | Include the PS4 target platform [REGION:note]Enabling this option requires the PS4 SDK.[/REGION] |
 | `-set:WithXboxOne=[true/false]` | false | Include the XboxOne target platform [REGION:note]Enabling this option requires the Xbox One SDK.[/REGION] |

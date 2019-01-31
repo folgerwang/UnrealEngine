@@ -1,0 +1,18 @@
+Availability: Public
+Crumbs: 
+Title: Datasmith How-Tos
+Description: How to carry out tasks in the Datasmith workflow.
+Type:landing
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 2
+Tags: Datasmith
+Tags: overview
+Tags: Guides
+
+
+## Beginner
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/HowTo" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/3dsMax" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/SketchUp" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED" org:"hierarchy" end:"1" skilllevel:"Beginner")]

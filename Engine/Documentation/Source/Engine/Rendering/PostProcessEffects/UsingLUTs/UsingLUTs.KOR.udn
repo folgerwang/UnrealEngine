@@ -1,7 +1,7 @@
 INTSourceChangelist:4308942
 Availability: Public
 Crumbs: %ROOT%
-Title: 컬러 그레이딩에 룩업 테이블(LUT) 사용
+Title: 컬러 그레이딩에 룩업 테이블 사용
 Description: 언리얼 엔진 4 에서 컬러 그레이딩에 별도의 룩업 테이블을 만들어 사용하는 방법입니다.
 Type:how-to
 SkillLevel:Beginner
@@ -18,7 +18,7 @@ Tags:Post Process
 
 [TOC(start:2 end:2)]
 
-룩업 테이블(LUT)은 Post Process Volume 에서 색 보정을 하는 데 사용할 수 있습니다. 1차원 (1D) 룩업 테이블을 셋 사용하는 대신, 3차원 (3D) 룩업 테이블을 하나 사용합니다. 
+룩업 테이블(LUT)은 포스트 프로세스 볼륨에서 색 보정을 하는 데 사용할 수 있습니다. 1차원 (1D) 룩업 테이블을 셋 사용하는 대신, 3차원 (3D) 룩업 테이블을 하나 사용합니다. 
 그래야 보다 세련된 (채도감소(desaturation)같은) 색 변환이 가능하기 때문입니다.
 
 [REGION:imagetable]
@@ -153,7 +153,7 @@ Vibrance 와 Brightness/Contrast 를 조정하여 캡처한 스크린샷에 채�
 	
 	![](LUT5.png)(w:850)
 
-1. Post Process Volume 에서 LUT 를 사용한 최적의 결과를 얻기 위해서는, 텍스처 에디터에서 LUT 이미지를 열고 다음과 같이 프로퍼티 설정을 해줍니다:
+1. 포스트 프로세스 볼륨에서 LUT 를 사용한 최적의 결과를 얻기 위해서는, 텍스처 에디터에서 LUT 이미지를 열고 다음과 같이 프로퍼티 설정을 해줍니다:
 
 	[REGION:imagetable]
 	| ![](LUT6.png)(w:450) | [INCLUDE:#textureproperties] |
@@ -161,7 +161,7 @@ Vibrance 와 Brightness/Contrast 를 조정하여 캡처한 스크린샷에 채�
 	||
 	[/REGION]
 
-1. 다음 Post Process Volume 에서 **디테일** 패널의 **Color Grading** > **Global** 섹션 아래 **Color Grading LUT** (컬러 그레이딩 LUT) 옵션을 켜고 LUT 를 적용합니다.
+1. 다음 포스트 프로세스 볼륨에서 **디테일** 패널의 **Color Grading** > **Global** 섹션 아래 **Color Grading LUT** (컬러 그레이딩 LUT) 옵션을 켜고 LUT 를 적용합니다.
 	
 	[REGION:imagetable]
 	| ![](LUT8.png)(h:400) | [INCLUDE:#finalcomparison] |
@@ -199,6 +199,6 @@ Vibrance 와 Brightness/Contrast 를 조정하여 캡처한 스크린샷에 채�
 
 * LUT 는 로우 다이내믹 레인지(LDR) 및 모니터에 출력된 sRGB 스페이스의 최종 이미지 컬러에서 일어납니다. 즉 당시 해당 디스플레이가 지원하는 데 대한 스냅샷일 뿐, 실제 출력되는 디스플레이에서 반드시 같아보이지는 않는다는 뜻입니다. 이 부분은 톤 매핑 전에 색 보정이 일어나도록 처리되는 [하이 다이내믹 레인지](Engine/Rendering/HDRDisplayOutput) (HDR) 와는 다릅니다. 그런 이유로, LUT 를 사용할 때는 언리얼 엔진 4.16 이상 버전에서 사용할 수 있는 최신 [컬러 그레이딩](Engine/Rendering/PostProcessEffects/ColorGrading) 색 보정 툴을 사용할 것을 추천합니다.
 
-* LUT 로 현재 디스플레이에서 프로젝트에 맞는 특정한 외양을 빠르게 타겟으로 삼고, 그 후 Post Process Volume 의 **Color Grading** 섹션에서 찾을 수 있는 색 보정 프로퍼티를 사용하여 최종 조정을 가해야 여러가지 유형의 디스플레이에서도 그 외양이 일관성있게 나옵니다.
+* LUT 로 현재 디스플레이에서 프로젝트에 맞는 특정한 외양을 빠르게 타겟으로 삼고, 그 후 포스트 프로세스 볼륨의 **Color Grading** 섹션에서 찾을 수 있는 색 보정 프로퍼티를 사용하여 최종 조정을 가해야 여러가지 유형의 디스플레이에서도 그 외양이 일관성있게 나옵니다.
 
-* LUT 를 사용하면 일관성이 손실되는데, 거기서 가해진 색 보정이 HDR 디스플레이에서 그대로 통하지 않기 때문입니다. Post Process Volume 의 컬러 그레이딩 프로퍼티 연산은 모두 **Scene Referred Linear Space** (씬 기준 선형 공간)에서 일어납니다. 즉 그 연산이 톤 매핑 이전에, 특정 디스플레이의 색 공간으로 변형되기 이전에 일어나기 때문에 색 일관성이 유지되는 것입니다. 예를 들어, sRGB 가 아닌 Rec709 를 사용하는 TV 로 출력하려는 경우, LUT 를 사용하면 색 보정이 넘어가지 않습니다. 이미지를 디스플레이에 출력한 이후 색 보정이 일어나기 때문입니다. 그런 이유로, LUT 는 색 보정 이미지 처리 방법 중 하나로써는 사용하지 않으려 하고 있습니다.
+* LUT 를 사용하면 일관성이 손실되는데, 거기서 가해진 색 보정이 HDR 디스플레이에서 그대로 통하지 않기 때문입니다. 포스트 프로세스 볼륨의 컬러 그레이딩 프로퍼티 연산은 모두 **Scene Referred Linear Space** (씬 기준 선형 공간)에서 일어납니다. 즉 그 연산이 톤 매핑 이전에, 특정 디스플레이의 색 공간으로 변형되기 이전에 일어나기 때문에 색 일관성이 유지되는 것입니다. 예를 들어, sRGB 가 아닌 Rec709 를 사용하는 TV 로 출력하려는 경우, LUT 를 사용하면 색 보정이 넘어가지 않습니다. 이미지를 디스플레이에 출력한 이후 색 보정이 일어나기 때문입니다. 그런 이유로, LUT 는 색 보정 이미지 처리 방법 중 하나로써는 사용하지 않으려 하고 있습니다.

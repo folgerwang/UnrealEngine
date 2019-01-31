@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 피직스 애셋 에디터 - 컨스트레인트 그래프
@@ -21,7 +21,7 @@ Tags:Animation
 **Constraints Graph** (컨스트레인트 그래프)는 피직스 애셋 내 선택된 바디 사이 컨스트레인트가 연결된 상태를 보여줍니다. 거기서 다음과 같은 작업을 할 수 있습니다:
 
 * 바디와 컨스트레인트를 스켈레탈 계층구조로 선택하고 확인합니다.
-* [우클릭 맥락 메뉴](Engine/Physics/PhAT/SkeletonTree) 를 사용하여 바디와 컨스트레인트를 만들고 편집합니다.
+* [우클릭 컨텍스트 메뉴](Engine/Physics/PhAT/SkeletonTree) 를 사용하여 바디와 컨스트레인트를 만들고 편집합니다.
 * 핀을 끄는 방식의 선택으로 컨스트레인트 링크를 생성합니다.
 * 피지컬 애니메이션 및 컨스트레인트에 프로파일을 할당 / 해제합니다.
 
@@ -53,7 +53,7 @@ Tags:Animation
 #### 그래프 핀 드래그 연결
 
 그래프의 노드 기반 표시를 통해 메인 바디(멀리 왼쪽의 **hand_l**) 출력 핀을 끌어 놓고 선택 메뉴를 사용하여 컨스트레인트를 만드는 데 사용할 바디를 선택합니다. 
-[스켈레톤 트리](Engine/Physics/PhAT/SkeletonTree) 우클릭 맥락 메뉴를 통해서도 같은 방식으로 작업할 수 있습니다.
+[스켈레톤 트리](Engine/Physics/PhAT/SkeletonTree) 우클릭 컨텍스트 메뉴를 통해서도 같은 방식으로 작업할 수 있습니다.
 
 [REGION:imagetable]
 | ![](PinDragging01.png)(h:500) | ![](PinDragging02.png)(h:500) |

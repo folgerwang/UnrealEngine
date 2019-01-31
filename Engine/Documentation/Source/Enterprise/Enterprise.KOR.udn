@@ -1,7 +1,7 @@
-INTSourceChangelist:4300533
+INTSourceChangelist:4540153
 Availability:Public
 Title: 언리얼 스튜디오
-Description:차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화 어플리케이션에 사용되는 언리얼 엔진입니다.
+Description:차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화 앱에 사용되는 언리얼 엔진입니다.
 Crumbs:%ROOT%,
 version:4.19
 Parent:%ROOT%
@@ -11,247 +11,36 @@ order:8
 topic-image:Enterprise_Topic.png
 topic-icon:%ROOT%/enterprise_icon.png
 
+
+[COMMENT:none]
+[](Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf)
+[](Enterprise/GettingStarted/DatasmithOverview.pdf)
+[](Enterprise/GettingStarted/DatasmithImportOptions.pdf)
+[](Enterprise/GettingStarted/DatasmithSupportedSoftwareandFileTypes.pdf)
+[](Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf)
+[](Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/UnrealStudioProjectTemplate_DRAFT.pdf)
+[/COMMENT]
+
 ![](Enterprise_Hero.png)
 
-언리얼 엔진과 그 실시간 상호작용 및 렌더링 능력은 차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화와 같은 폭넓은 분야의 다양한 엔터프라이즈 어플리케이션에 적합합니다.
-
-[REGION:note]
-빠른 시작을 돕기 위한 PDF 문서 형태의 일부 콘텐츠에 얼리 액세스를 제공해 드렸습니다. 업데이트와 발전된 기능이 있으면 알려드리겠습니다.
-[/REGION]
+언리얼 엔진과 그 **실시간** 상호작용 및 렌더링 능력은 차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화와 같은 폭넓은 분야의 다양한 엔터프라이즈 앱에 적합합니다.
 
 ## 시작하기
 
 [DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"Getting Started" end:"1")]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Download_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 다운로드 및 설치
-	[/PARAM]
-	[PARAM:description]
-	언리얼 엔진 4(UE4) 에 데이터스미스(Datasmith)를 사용할 수 있도록 구성하는 방법을 배웁니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
 
 ## 언리얼 스튜디오 툴
 
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Datasmith_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스
-	[/PARAM]
-	[PARAM:description]
-	Autodesk 3DS Max 와 CAD 소프트웨어같은 오프라인 렌더링 어플리케이션에서 만든 씬과 애셋을 언리얼 엔진 4 에 임포트할 수 있도록 디자인된 툴과 플러그인 모음입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithOverview.pdf]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Import_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 임포트 옵션
-	[/PARAM]
-	[PARAM:description]
-	언리얼 엔진 4 용 Datasmith Importer (데이터스미스 임포터) 플러그인을 사용하여 언리얼 데이터스미스 또는 네이티브 CAD 콘텐츠를 임포트할 때 사용할 수 있는 옵션입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithImportOptions.pdf]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Filetypes_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 지원 소프트웨어 및 파일 유형
-	[/PARAM]
-	[PARAM:description]
-	언리얼 엔진 4 용 데이터스미스에 지원되는 파일 유형과 소프트웨어 패키지 개요입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithSupportedSoftwareandFileTypes.pdf]
-	[/PARAM]
-[/OBJECT]
+%Enterprise/Datasmith:topic%
+%Engine/Editor/ScriptingAndAutomation/Python:topic%
 
-## 언리얼 스튜디오 가이드
+## 언리얼 스튜디오 릴리즈 노트
 
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	초급
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	데이터스미스용 3D 씬 준비
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	데이터스미스를 통해 언리얼로 콘텐츠를 옮겨오는 방법을 다루는 범용 안내서입니다.
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	초급
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	언리얼 엔진 4 용 데이터스미스 콘텐츠 익스포트
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	UE4 용 데이터스미스 임포터 플러그인에 지원되는 파일 유형을 사용하여 소프트웨어 패키지에서 콘텐츠를 임포트하는 방법입니다.
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	초급
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	언리얼 엔진 4 에 데이터스미스 콘텐츠 임포트
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	UE4 용 데이터스미스 임포터를 사용하여 소프트웨어 어플리케이션에서 콘텐츠를 임포트 및 리임포트하는 방법입니다.
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-
+%Enterprise/Builds/4_21:topic%
+%Enterprise/Builds/4_20:topic%
 
 ## 추가 콘텐츠 자료
 
-[DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"!Getting Started" end:"1")]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Template_topic.png)
-	[/PARAM]
-	[PARAMLITERAL:title]
-	언리얼 스튜디오 프로젝트 템플릿 - 초안
-	[/PARAMLITERAL]
-	[PARAMLITERAL:description]
-	언리얼을 디자인 리뷰 툴로 사용할 수 있도록 해주는 "프로덕트 뷰어" 프로젝트 템플릿 사용 안내서입니다.
-	[/PARAMLITERAL]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/UnrealStudioProjectTemplate_DRAFT.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[COMMENT:none]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스
-	[/PARAM]
-	[PARAM:description]
-	Autodesk 3DS Max 와 CAD 소프트웨어같은 오프라인 렌더링 어플리케이션에서 만든 씬과 애셋을 리얼타임 엔진으로 임포트할 수 있도록 디자인된 툴과 플러그인 모음입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithOverview.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 다운로드 및 설치
-	[/PARAM]
-	[PARAM:description]
-	UE4 에 데이터스미스를 사용하여 작업할 수 있도록 구성하는 방법입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스용 3D 씬 준비
-	[/PARAM]
-	[PARAM:description]
-	데이터스미스를 통해 언리얼로 콘텐츠를 옮겨오는 법에 대한 일반적인 안내서입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 콘텐츠 익스포트
-	[/PARAM]
-	[PARAM:description]
-	UE4 용 데이터스미스 임포터 플러그인에 지원되는 파일 유형을 사용하여 소프트웨어 패키지에서 콘텐츠를 익스포트하는 방법입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 콘텐츠 임포트
-	[/PARAM]
-	[PARAM:description]
-	UE4 용 데이터스미스 임포터를 사용하여 소프트웨어 어플리케이션에서 콘텐츠를 임포트 및 리임포트하는 방법입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	데이터스미스 임포트 옵션
-	[/PARAM]
-	[PARAM:description]
-	언리얼 엔진 4 용 데이터스미스 임포터 플러그인을 사용하여 네이티브 CAD 콘텐츠, 또는 언리얼 데이터스미스를 임포트할 때 사용할 수 있는 옵션입니다.
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithImportOptions.pdf]
-	[/PARAM]
-[/OBJECT]
-[/COMMENT]
+%Enterprise/Automotive/AutomotiveMaterialPack:topic%

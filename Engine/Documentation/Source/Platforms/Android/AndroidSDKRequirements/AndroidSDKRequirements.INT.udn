@@ -1,0 +1,161 @@
+Availability: Public
+Crumbs: 
+Title: Android Development Requirements
+Description: Product documentation including reference and guides for Unreal Engine 4
+Type: 
+Version: 4.21
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Reference
+Tags: SDK
+
+
+In this page you'll find hardware and software development kit (SDK) requirements needed to start developing for the [Android](Platforms/Android) platform.   
+
+## Unreal Engine 4.21
+
+| **Hardware Requirements** ||
+| --- |---|
+| **Recommended Desktop Hardware** |[INCLUDE:#excerpt_0]|
+| **Supported Device Hardware** |[INCLUDE:#excerpt_1]|
+| [REGION:tablesection] **Software Requirements** [/REGION]  ||
+| **Desktop Operating System** |[INCLUDE:#excerpt_2]|
+| **NDK Version** |[INCLUDE:#excerpt_3]|
+| **Codeworks SDK Version** |[INCLUDE:#excerpt_4]|
+| **Supported IDE Versions** |[INCLUDE:#excerpt_5]|
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_5]
+Visual Studio 2017 version 15.6 or later.  
+Visual Studio 2015 Update 3  
+Visual Studio 2013
+[/EXCERPT:excerpt_5]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_4]
+**Windows and Mac:** 1R7u1  
+**Linux:** 1R6u1
+[/EXCERPT:excerpt_4]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_3]
+Android NDK R14b  
+[REGION:note]
+Codeworks for Android 1R7u1 installer replaces the previous Codeworks on Windows and Mac. Linux uses 1R6u1.
+[/REGION]
+[/EXCERPT:excerpt_3]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_2]
+See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications).
+[/EXCERPT:excerpt_2]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_1]
+See [Android Device Compatibility](Platforms/android/DeviceCompatibility).
+[/EXCERPT:excerpt_1]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_0]
+See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications).
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+[REGION:note]
+The currently supported SDK version(s) can be found in `UEBuildAndroid.cs`. You can find it in your  
+`[UE4 Root Directory]/Engine/Source/Programs/UnrealBuildTool/Platforms/Android` folder.
+[/REGION]
+
+## Unreal Engine 4.20
+
+| **Hardware Requirements** ||
+| --- | --- |
+| **Recommended Desktop Hardware** | See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications). |
+| **Supported Device Hardware** | See [Android Device Compatibility](Platforms/android/DeviceCompatibility).  |
+| [REGION:tablesection] **Software Requirements** [/REGION]  ||
+| **Desktop Operating System** | See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications). |
+| **NDK Version** | [INCLUDE:#excerpt_6] |
+| **Codeworks SDK Version** | 1R6u1 |
+| **Supported IDE Versions** | [INCLUDE:#excerpt_7] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_7]
+Visual Studio 2017 version 15.6 or later.  
+Visual Studio 2015 Update 3  
+Visual Studio 2013
+[/EXCERPT:excerpt_7]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_6]
+Android NDK R12b  
+[REGION:note]
+Note: Codeworks for Android 1R6u1 installer replaces the previous Codeworks on Windows, Mac, and Linux.
+[/REGION]
+[/EXCERPT:excerpt_6]
+-
+[/COMMENT]
+
+[REGION:note]
+The currently supported SDK version(s) can be found in `UEBuildAndroid.cs`. You can find it in your  
+`[UE4 Root Directory]/Engine/Source/Programs/UnrealBuildTool/Platforms/Android` folder.
+[/REGION]
+
+## Unreal Engine 4.19
+
+| **Hardware Requirements** || 
+| --- | --- | 
+| **Recommended Desktop Hardware** | See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications). |
+| **Supported Device Hardware** | See [Android Device Compatibility](Platforms/android/DeviceCompatibility). |
+| [REGION:tablesection] **Software Requirements** [/REGION]  ||
+| **Desktop Operating System** | See [Hardware and Software Specifications](GettingStarted/RecommendedSpecifications). |
+| **NDK Version** | [INCLUDE:#excerpt_8] |
+| **Codeworks SDK Version** | 1R6u1 |
+| **Supported IDE Versions** | [INCLUDE:#excerpt_9] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_9]
+Visual Studio 2015 Update 3  
+Visual Studio 2013
+[/EXCERPT:excerpt_9]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_8]
+Android NDK R12b  
+[REGION:note]
+Codeworks for Android 1R6u1 installer replaces the previous Codeworks on Windows, Mac, and Linux.
+[/REGION]
+[/EXCERPT:excerpt_8]
+-
+[/COMMENT]
+
+[REGION:note]
+The currently supported SDK version(s) can be found in `UEBuildAndroid.cs`. You can find it in your  
+`[UE4 Root Directory]/Engine/Source/Programs/UnrealBuildTool/Platforms/Android` folder.
+[/REGION]

@@ -1,0 +1,191 @@
+﻿INTSourceChangelist:4530598
+Availability: Public
+Crumbs: 
+Title: 结合使用Datasmith与Deltagen/VRED
+Description: 描述在使用Datasmith将场景从3DExcite Deltagen或Autodesk VRE3DExcite Deltagen or Autodesk VREDD导入是需要特别考虑的因素。
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent:Enterprise/Datasmith/SoftwareInteropGuides
+Order: 1
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: Experimental
+Tags: interop
+Tags: Deltagen
+Tags: VRED
+Tags: Landing Page
+
+
+[REGION:note]
+为便于你启动和运行，我们提前发布了本内容的草稿版，仅供大家在试验阶段参考。后续更新将很快发布，敬请关注！
+[/REGION]
+
+如果计划使用Datasmith将场景从3DExcite Deltagen或Autodesk VRED导入到虚幻编辑器中，除了[Datasmith概述](Enterprise/Datasmith/Overview)和[Datasmith导入过程介绍](Enterprise/Datasmith/Overview/ImportProcess)中介绍的基础知识以外，你还需要了解一些与Datasmith处理场景的方式有关的额外知识。
+
+## 工作流
+
+[REGION:note]
+仅为具有Datasmith Plus授权的用户提供从Deltagen和VRED导入的功能。如果希望进一步了解，请通过[此处](https://www.unrealengine.com/en-US/enterprise/contact-us)联系我们。
+[/REGION]
+
+### Deltagen
+
+Datasmith使用适用于Deltagen的 **导出** 工作流。这意味着要使用Datasmith将Deltagen内容导入到虚幻中，你需要：
+
+1.  使用Deltagen中内置的导出功能将Deltagen场景导出为 *.fbx* 文件。
+2.  使用Datasmith Deltagen Fbx导入程序将该文件导入到虚幻编辑器中。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+### VRED
+
+Datasmith对VRED使用 **导出插件** 工作流。这意味着要使用Datasmith将VRED内容导入到虚幻中，你需要：
+
+1.  安装用于VRED的插件脚本，并使用它将VRED场景导出为 *.fbx* 文件。请参阅[从VRED导出Datasmith内容](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED/ExportingDatasmithContentfromVRED)。
+2.  使用Datasmith VRED Fbx导入程序将导出的 *.fbx* 文件导入到虚幻编辑器中。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 变体
+
+适用于Deltagen和VRED的Datasmith FBX导入程序将你在Deltagen或VRED场景中定义的变体和变体集导入到虚幻中。你可以使用一组专用的蓝图函数在运行时选择项目中的这些不同的变体和变体集。
+
+[REGION:note]
+你可以决定运行虚幻项目的玩家在运行时应该如何选择这些变体，并编写触发相应的蓝图函数的Gameplay代码。例如，你可能想要创建UI或一组菜单来供玩家选择变体，或将触发变体作为对玩家按下特定键或进行了其他输入的反应。Datasmith导入程序不会创建任何UI或菜单，它仅提供你自行创建它们所需的所有工具。
+[/REGION]
+
+### 变体数据介绍
+
+除了Datasmith场景资源以外，导入程序还会在项目中创建新的 **Variants** 文件夹。它会在该文件夹中创建数据表资源，用以存储它在源场景中找到的变体。
+
+该表中的每一行都是可在运行时激活的单个变体或变体集的记录。可以双击该数据表资源来查看它包含的数据。在要查看项目中可用的变体和变体集的名称或要验证这些变体分别控制哪些项这样的细节时，这非常有用。
+
+如下图所示，在数据表编辑器中，**“数据表（Data Table）”面板（1）** 会列出场景中的所有变体。**“行编辑器（Row Editor）”面板（2）**会显示有关当前在上面的面板中选中的变体的细节。
+
+[REGION:lightbox]
+[![变体“数据表（Data Table）”](datasmith-variants-datatable.png "Variants Data Table")](datasmith-variants-datatable.png)
+
+*单击查看大图。*
+[/REGION]
+[REGION:note]
+如果场景来自VRED，每个变体名称的后面都会具有指示其类型的附加后缀。`_GV` 表示几何体变体，`_MV` 表示材质变体，`_VS` 表示变体集等等。VRED允许类型不同的多个变体以相同的名称存在。在虚幻中工作时，该后缀有助于你区分这些变体。
+[/REGION]
+
+### 选择变体
+
+适用于Deltagen和VRED的Datasmith FBX导入程序会向关卡中添加以下类之一的新实例：  
+
+*   对于Deltagen，为 **BP_VariantSelector**。
+*   对于VRED，为 **VREDVariantsSelector**。
+
+该变体选择器Actor是自动设置的，它引用了变体数据表，因此能够访问Datasmith从源文件导入的所有变体数据。它也引用了位于导入的场景层级顶部（紧挨在Datasmith场景Actor的下面）的一个根Actor，因此在不同变体间切换时，它能够找到它需要修改的场景元素。这些设置位于“细节（Details）”面板的 **Deltagen** 或 **VRED** 部分：
+
+![“变体选择器（Variant selector）”细节](variant-selector-detail.png "Variant selector details")
+
+[REGION:tip]
+如果场景中包含摄像机变体，你也可以让变体选择器引用关卡中的摄像机Actor。选择新摄像机变体时，你在此处设置的摄像机Actor的3D变换将会得到更新。
+[/REGION]
+
+变体选择器类预设有多个蓝图函数。可在运行时调用这些函数来选择应在关卡中显示的变体。 
+
+如果编辑变体选择器Actor，可在 **我的蓝图（My Blueprint）** 面板中的函数列表中找到这些函数，然后将它们拖到事件图中以调用它们，作为对你创建的自定义事件的反应：
+
+![变体选择器（Variant selector）函数](variant-selector-functions.png "Variant selector functions")
+
+要在不同的蓝图类或你创建的UMG小部件中找到这些蓝图节点：  
+
+1.  创建新变量并将其类型设置为对 **BP_VariantSelector** 或 **VREDVariantsSelector** 类的对象引用。  
+    将该变量设置为指向已放置在关卡中的变体选择器对象。
+2.  在事件图中为该变量添加 **获取（Get）** 节点，然后从其输出引脚拖出引线来创建新节点。
+3.  在 **Deltagen** 或 **VRED** 类别中查找用于控制变体的函数：  
+    [REGION:lightbox]
+    [![变体蓝图函数](datasmith-variant-selectors.png "Variant Blueprint functions")](datasmith-variant-selectors.png) 
+    *单击查看大图。*
+    [/REGION]
+
+在看到节点列表之后，可以：
+
+*   使用其中一个 **选择变体（Select Variant）** 节点来指定要激活的特定变体的名称。
+*   使用 **获取（Get）** 节点从包含在数据表中的数据读取变体和变体集的名称和类型。如果要基于场景中可用的实际变体的名称来以编程方式创建UI，而非将特定变体名称硬编码到UI中，这非常有用。
+
+下图中展示了可通过哪些方式在UMG UI小部件中使用这些蓝图API函数。我们突出显示了变体节点。 
+
+[REGION:lightbox]
+[![UI小部件中的变体函数](variants_ui.png "Variant functions in a UI Widget")](variants_ui.png)
+
+*单击查看大图。*
+[/REGION]
+
+## 动画
+
+如果Deltagen或VRED场景中包含任何动画场景元素，Datasmith FBX导入程序会通过与导入变体完全相同的方式将这些动画导入到虚幻中。你可以在运行时使用一组由不同的辅助类公开的蓝图函数来播放、停止和重置项目中的这些动画。
+
+[REGION:note]
+和变体一样，你可以决定运行虚幻项目的玩家在运行时如何触发这些动画，并编写调用相应蓝图函数的Gameplay代码。例如，你可能想要创建UI或一组菜单来供玩家选择动画，或将触发动画作为对玩家按下特定键或进行了其他输入的反应。Datasmith导入程序不会创建任何UI或菜单，它仅提供你自行创建它们所需的工具。
+[/REGION]
+
+### 关于动画数据
+
+除了Datasmith场景资源以外，导入程序还会在项目中创建新的 **Animations** 文件夹。在该文件夹中，它将创建：
+
+*   包含动画曲线资源的 **Curves** 文件夹。每个动画曲线资源中都包含导入程序在源文件中找到的每个场景元素的原始动画曲线。
+*   记录导入程序在源场景中找到的动画的数据表资源。该表中的每一行都是可在运行时启用的单个动画的记录。如果要查看可用动画的名称或要验证这些动画分别控制哪些场景项这样的细节，可以双击该资源来将其打开。  
+    **“数据表（Data Table）”面板（1）**会列出场景中的所有动画。**“行编辑器（Row Editor）”面板（2）**会显示有关当前在上面的面板中选中的动画的细节。
+
+[REGION:lightbox]
+[![动画“数据表（Data Table）”](datasmith-vred-animtable.png "Animation Data Table")](datasmith-vred-animtable.png)
+
+*单击查看大图。*
+[/REGION]
+
+每个动画都由单独的轨迹构成，每个轨迹都引用导入程序在 **Curves** 文件夹中创建的曲线资源之一：
+
+![](vred-animation-curve-setting.png "vred-animation-curve-setting.png")
+
+### 控制动画
+
+如果FBX文件中包含任何动画，适用于Deltagen和VRED的Datasmith FBX导入程序会向关卡中添加以下类之一的新实例：  
+
+*   对于Deltagen，为 **BP_AnimationPlayer**。
+*   对于VRED，为 **VREDAnimationPlayer**。
+
+该动画播放器Actor是自动设置的，它引用了动画数据表，因此能够访问Datasmith从源文件导入的所有动画数据。它也引用了位于导入的场景层级顶部（紧挨在Datasmith场景Actor的下面）的一个根Actor，因此选择播放这些动画时，它能够找到它需要修改的场景元素。这些设置位于 **Deltagen** 或 **默认（Default）**（对于VRED）（**细节（Details）** 面板的）部分：  
+
+![“动画播放器（Animation player）”细节](animation-player-details.png "Animation player details")
+
+#### 动画蓝图API
+
+[REGION:tip]
+动画播放器类预设有多个可在运行时调用以选择要在关卡中播放的动画以及何时在关卡中播放动画的蓝图函数。
+[/REGION]
+
+如果编辑动画播放器Actor，可在 **我的蓝图（My Blueprint）** 面板中的函数列表中找到这些函数，然后将它们拖到事件图中以调用它们，作为对你创建的自定义事件的反应：
+
+![动画播放器（Animation player）函数](animation-player-functions.png "Animation player functions")
+
+要在不同的蓝图类或你创建的UMG小部件中找到这些蓝图节点：  
+
+1.  创建新变量并将其类型设置为对 **BP_AnimationPlayer** 或 **VREDAnimationPlayer** 类的对象引用。  
+    将该变量设置为指向已放置在关卡中的动画播放器对象。
+2.  在事件图中为该变量添加 **获取（Get）** 节点，然后从其输出引脚拖出引线来创建新节点。
+3.  在 **调用函数（Call Function）** 类别中查找（如果使用Deltagen，请也在 **Deltagen** 类别中查找）用于控制动画的函数：
+[REGION:lightbox]
+[![动画蓝图函数](datasmith-vreddgen-anim-blueprint-api.png "Animation Blueprint functions")](datasmith-vreddgen-anim-blueprint-api.png)
+
+*单击查看大图。*
+[/REGION]
+
+最常用的节点包括：
+
+| 名称 | 说明 |
+| --- | --- |
+| **播放动画（Play Animation）** | 	播放名称与传递到节点的名称匹配的动画。|
+| **重置（Reset）** | 将关卡中的所有可动画Actor重置为其默认变换。|
+| **设置动画（Set Animation）** | 切换该动画播放器当前正在播放的动画。|
+| **更新动画（Update Animation）** | 传递到节点时对当前动画进行求值并设置关卡中所有动画Actor的变换以匹配这些变换。|
+| **获取动画名称（Get Animation Names）** | 返回包含可以传递到 **播放动画（Play Animation）** 节点的所有动画的名称的数组。|
+
+下图中展示了可通过哪些方式在UMG UI小部件中使用这些蓝图API函数的一个示例。我们突出显示了动画节点。
+
+[![UI小部件中的动画函数](animation_ui.png "Animation functions in a UI widget")](animation_ui.png)
+
+*单击查看大图。*

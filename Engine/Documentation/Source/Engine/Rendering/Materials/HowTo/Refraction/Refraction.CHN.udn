@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2738751
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何使用折射
+Title:使用折射
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:有关在材质中使用折射的操作指南。
 Related:Resources/ContentExamples/MaterialNodes/1_14
@@ -8,6 +8,7 @@ Related:Resources/ContentExamples/MaterialProperties/1_11
 Related:Engine/Rendering/Materials/MaterialInputs
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 
 [TOC(start:2 end:3)]
@@ -18,6 +19,7 @@ SkillLevel:Intermediate
 这种照明现象称为“折射”，是因为光线所接触的不同类型材质会改变光线传播速度而发生。 
 在虚幻引擎 4 中，您可以使用“折射”在材质中模拟这种照明现象。 
 
+(#Refraction)
 ## 折射
 
 术语 **折射** 用于描述因传输媒介改变而使光波方向改变的现象。 
@@ -34,6 +36,7 @@ SkillLevel:Intermediate
 出现这种现象的原因是，光线传播速度在光线投射到水面时发生改变，而遇到空气时会再次改变。 
 
 
+(#IndexofRefractionorIOR)
 ## 折射率或 IOR
 
 光学测量值 **折射率**（简称 IOR）可用于准确说明光线从一种媒介传播到另一种媒介时的弯折程度。 
@@ -49,6 +52,7 @@ SkillLevel:Intermediate
 | **钻石**   | 2.42|
 
 
+(#UsingRefractioninMaterials)
 ## 在材质中使用折射
 
 通过遵循以下指示，可以设置使用折射的材质。 
@@ -116,10 +120,12 @@ SkillLevel:Intermediate
 	[/PARAMLITERAL]
 	[/OBJECT]
 
+(#RefractionTips&Tricks)
 ## 折射提示与技巧
 
 在下一节中，我们会说明将折射与材质编辑器的其他方面结合使用的一些其他方法，这些方法可产生一些非常有趣的结果。 
 
+(#Refraction&NormalMaps)
 ### 折射与法线贴图
 
 添加折射材质的选项以使用法线贴图，可产生一些非常有趣的结果，这在法线贴图中有大量有趣细节的区域尤其明显。 
@@ -165,6 +171,7 @@ SkillLevel:Intermediate
 
 	![](R_Reflection_&_Normal_Maps.png)
 
+(#RefractionandMovement)
 ### 折射和移动
 
 如果将 **平移（Panner）材质表达式** 节点添加到材质图，并将其连接到 UV 的法线贴图纹理的，那么将产生一些非常有趣的结果。 
@@ -184,6 +191,7 @@ SkillLevel:Intermediate
 [/PARAMLITERAL]
 [/OBJECT]
 
+(#RefractionDepthBias)
 ### 折射深度偏移
 
 **折射深度偏移** 方法用于防止距离较近的对象以锐视角渲染到扭曲的表面。
@@ -198,6 +206,7 @@ SkillLevel:Intermediate
 
 	![](R_RDB_Materail_Instance.png)
 
+(#Conclusion)
 ## 总结 
 
 向材质（特别是玻璃和水）添加折射可产生非常逼真的效果。 

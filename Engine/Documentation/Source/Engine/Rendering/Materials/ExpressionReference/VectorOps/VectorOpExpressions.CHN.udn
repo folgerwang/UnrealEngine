@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690274
+﻿INTSourceChangelist:3354806
 Availability:Public
 Title:矢量操作表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:对矢量输入值执行操作的表达式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
@@ -22,7 +23,7 @@ Version:4.9
 | **B** | 接收要追加的值。|
 
 
-**示例：**对 0.2 和 0.4 执行追加的结果是 (0.2,0.4)；对 (0.2,0.4) 和 (1.6) 执行追加的结果是 (0.2,0.4,1.6)。
+**示例：**对 0.2 和 0.4 执行追加的结果是 (0.2,0.4)；对 (0.2,0.4) 和 (1.0) 执行追加的结果是 (0.2,0.4,1.0)。
 
 ![AppendVectorExample.png](AppendVectorExample.png)
 
@@ -44,7 +45,7 @@ Version:4.9
 | **A** | 如果选中此项目，那么会将输入值的阿尔法通道（第四个通道）传递到输出。|
 
 
-**示例：**如果 ComponentMask（分量蒙版）的输入为 (0.2,0.8,1.4) 并选中 R 和 B 通道，那么将输出 (0.2,1.4)。
+**示例：如果** ComponentMask （分量蒙版）的输入为(0.2,0.4,1.0)，则 G 通道将输出 (0.4)，并在作为色彩矢量使用时显示40%亮度的灰度值。
 
 [REGION:fullwidth]
 ![ComponentMaskExample.png](ComponentMaskExample.png)
@@ -58,7 +59,7 @@ Version:4.9
 (#DeriveNormalZ)
 ## DeriveNormalZ（派生法线 Z）
 
-**DeriveNormalZ（派生法线 Z）**表达式在给定 X 和 Y 分量的情况下派生切线空间法线的 Z 分量，并输出所产生的三通道切线空间法线。Z 计算方法为：Z = sqrt(1 - (x * x + y * y))；
+**DeriveNormalZ（派生法线 Z）**表达式在给定 X 和 Y 分量的情况下派生切线空间法线的 Z 分量，并输出所产生的三通道切线空间法线。Z 计算方法为：Z = sqrt(1 - (x \* x + y \* y))；
 
 | 项目 | 说明 |
 | -------- | ----------- |

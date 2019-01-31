@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title: Use the Google Daydream Touchpad Buttons
-Description: Setting up the Google Daydream Motion Controller Touchpad buttons
+Title: 使用Google Daydream运动控制器触控板按钮
+Description: 设置Google Daydream运动控制器触控板按钮
 Type: how-to
-SkillLevel: Intermidate
+SkillLevel: Intermediate
 Version: 4.17
-Parent: Platforms/GoogleVR/HowTo
+Parent: Platforms/GoogleVR
 Order: 2
 Tags: GoogleVR
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
@@ -14,30 +14,34 @@ prereq: Platforms\GoogleVR\QuickStart
 prereq: Platforms\GoogleVR\HowTo\CameraSetup
 prereq: Platforms\GoogleVR\HowTo\MotionController
 
-The Google Daydream Motion Controller (MC) has a number of different buttons on the touch pad that can be setup to handle a wide variety of different input tasks in UE4. In the following How - To we will take a look at how to setup and use the Touchpad and the five different buttons that it offers.
+![](HTGVRTouchpad_Hero_Image.png)
+
+**Google Daydream运动控制器**（MC）的 **触控板** 上包含许多不同的按钮，可以在虚幻引擎中进行设置，以处理各种不同类别的输入任务。在以下操作指南中，我们将介绍如何设置和使用该触控板。
 
 [region:note]
-In this How - To we will be starting with a Pawn that already has a VR Camera and Motion Controller support added to it. If you do not have this setup, please check out the documents listed in the **Prerequisite Topics** list at the top of this page.
+在本操作指南中，我们事先已经准备好一个添加了 **VR摄像机** 和运动控制器支持的 **Pawn**。如果您尚未完成该设置，请查看本页顶部 **必读主题** 中所列的文档。
 [/region]
 
 
-## Google VR Motion Controller Touchpad Button Setup
+## 步骤
 
-1. First, open up your Player Pawn Blueprint and from the **Component** tab, add a new **Text Render** component, called **FaceButtonPressed** and make sure that it is parented to the **Motion Controller** component like in the image below.
+下文提供了有关如何使用Google Daydream运动控制器触控板的信息。
+
+1. 首先，打开玩家Pawn蓝图，转至 **组件（Component）** 选项卡，添加一个新的 **文本渲染器（Text Render）** 组件并命名为 **FaceButtonPressed**，然后确保该组件是该 **运动控制器** 组件的子代，如下图所示。
 
     ![](HTGVRTouchpad_00.png)
 
-1. Click on the Text Component and then in the **Details** panel set the following properties with the following values. 
+1. 单击文本渲染器组件，然后在 **细节（Details）** 面板中，为以下属性设置下表中的对应值。
     
     [REGION:lightbox]
     [![](HTGVRTouchpad_01.png)(w:231)](HTGVRTouchpad_01.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-    |Property Name| Value|
+    | 属性名称| 值|
     |------|-----|
     |**Location**| X = 20, Y = 0, Z = 0|
     |**Rotation**| X = 0, Y = 0, Z = -180|
@@ -45,21 +49,21 @@ In this How - To we will be starting with a Pawn that already has a VR Camera an
     |**Vertical Alignment**| Text Center|
     |**World Size** | 13.0|
 
-1. Next, we need to create a new Text variable that will store and display what button is currently being pressed on the Motion Controller Touchpad. To accomplish this go to the **Variables** list and create a new  **Text** variable called **ButtonText**. 
+1. 接下来，我们需要创建一个文本变量，用来存储和显示运动控制器触控板上当前正在按住的按钮。为此，请转至 **变量（Variables）** 列表，并创建一个新的 **文本（Text）** 变量，名为 **ButtonText**。
 
     ![](HTGVRTouchpad_02.png)
 
-1. The Google Daydream Motion Controller Touchpad has five buttons that can be used. Four of the five buttons are activated by pressing Up, Right, Down and Left on the Touchpad. The fifth button is triggered when a user touches the surface of the Touchpad. To set this up in our Blueprint, add the following five **Motion Controller (R) FaceButton** Event nodes to the Event Graph.
+1. Google Daydream运动控制器触控板包含五个可以使用的按钮。其中四个通过按触控板上的上、右、下和左方向可以激活。第五个按钮在用户触摸触控板表面时触发。要在蓝图中进行这项设置，请将以下五个 **运动控制器（R）表面按钮（Motion Controller (R) FaceButton）** 事件节点添加到事件图表。
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_03.png)(w:579)](HTGVRTouchpad_03.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-    |Node Name| Default Value|
+    |节点名称| 默认值|
     |------|-----|
     |**Motion Controller (R) FaceButton1**|N/A|
     |**Motion Controller (R) FaceButton2**|N/A|
@@ -67,102 +71,104 @@ In this How - To we will be starting with a Pawn that already has a VR Camera an
     |**Motion Controller (R) FaceButton4**|N/A|
     |**Steam Touch 0**|N/A|
 
-1. Now we are going to setup the logic for displaying which button on the Touchpad was pressed. To accomplish this, first, drag the **ButtonText** variable into the Event Graph and choose the **Set** option as we want to set the text that is displayed.
+1. 现在，我们将要设置逻辑，以便显示在触控板上按下了哪个按钮。为此，将 **ButtonText** 变量拖到事件图表，并选择 **设置（Set）** 选项，因为我们需要设置显示的文本。
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_04.png)(w:579)](HTGVRTouchpad_04.png)
     [/REGION]
 
- ,   [REGION:caption]
-    Click for full image.
+    [REGION:caption]
+    单击查看大图。
     [/REGION]
 
-1. Connect the **Pressed** output on the **Motion Controller (R) FaceButton1** Event node to the input on the **Set Button Text** node and then in the **Button Text** input the following text.
+1. 将 **Motion Controller (R) FaceButton1** 事件节点上的 **按下（Pressed）** 输出连接到 **设置按钮文本（Set Button Text）** 节点上的输入，然后在 **按钮文本（Button Text）** 字段中，输入以下文本：
 
-    * **Face Button 1 Touch Pad UP**
+    * **表面按钮1触控板上**
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_05.png)(w:528)](HTGVRTouchpad_05.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. If we pressed the Motion Controller Face Button 1 now, nothing would happen as we have the only setup the ability to input the text we want to display. To display the text, you will first need to right-click in the Event Graph and then search for the **Set Text** node as this will set the text to what we input in the Set Button Text variable. When searching for the Set Text node, make sure to select the **SetText(FaceButtonPressed)** option so that it will automatically add a reference to the Face Button Pressed text to render component.
+1. 如果我们现在按下“运动控制器表面按钮1”，不会发生任何事情，因为我们只是设置了能够输入我们希望显示的文本。要显示文本，您首先需要在事件图表中单击右键，然后搜索 **设置文本（Set Text）** 节点，这样会设置文本以显示“设置按钮文本”变量的值。在搜索“设置文本”节点时，确保选择 **SetText(FaceButtonPressed)** 选项，以便它会自动添加对“FaceButtonPressed”文本渲染器组件的引用。
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_06.png)(w:850)](HTGVRTouchpad_06.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Next, we need to connect the Set Button Text node to the Set Text node so that the text input in the Set Button Text node will be displayed when the Touchpad button is pressed. To accomplish this, connect both outputs on the Set Button Text node to the available inputs on the Set Text node and when completed your Blueprint should look like the following. 
+1. 接下来，我们需要将“设置按钮文本”节点连接到“设置文本”节点，以便在按下触控板按钮时显示“设置按钮文本”节点中输入的文本。为此，将“设置按钮文本”节点上的两个输出连接到“设置文本”节点上的两个可用输入，完成后，您的蓝图应如以下所示：
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_07.png)(w:850)](HTGVRTouchpad_07.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Repeat this process for the remaining button directions. When doing this, make sure to change the text input into the Set Face Button Text to reflect the button that is being pressed. When completed with this your Blueprint should look like the following image.
+1. 对其余按钮方向重复上述过程。在操作时，确保更改“设置表面按钮文本”中输入的文本，以反映当前按下的按钮。完成该步骤后，您的蓝图应该如下图所示：
 
     [REGION:fullwidth]
     [INCLUDE:#MCButtons]
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Finally, we need to attach the text that tells us which Motion Controller is pressed to the Motion Controller so that when the Motion Controller is moved, the text will move along with it. To get this working first add the following nodes to the Event Graph:
+1. 最后，我们需要将告知我们所按下的运动控制器按钮的文本连接到运动控制器，以便在运动控制器移动时，文本随之移动。为此，请将以下节点添加到事件图表：
 
-    |Node Name| Default Value|
+    |节点名称| 默认值|
     |------|-----|
     |**GoogleVRMotionController**|N/A|
     |**FaceButtonPressed**|N/A|
     |**Get Motion Controller**|N/A|
     |**AttachToComponent**|N/A|
 
-    Once the nodes have been added, connect the AttachToComponent node to the output of the SetRelativeLocation node. Then connect the FaceButtonPressed to the **Target** input on the AttachToComponent node. Finally, plug in the GoogleVRMotionController to the GetMotionController node and connect the output of that into the **Parent** input on the AttachToComponent node. When completed this part of your Blueprint should look like the following image.
+    节点添加完成后，将AttachToComponent节点连接到SetRelativeLocation节点的输出。然后，将FaceButtonPressed连接到AttachToComponent节点上的 **目标（Target）** 输入。最后，将GoogleVRMotionController插入到GetMotionController节点，并将其输出连接到AttachToComponent节点上的 **父代（Parent）** 输入。完成后，这一部分蓝图应该如下图所示：
 
     [REGION:fullwidth]
     [INCLUDE:#GMCButtonsF]
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
-    
-1. Compile and save your Blueprint and then use the Launch On button to deploy and launch the project to your smartphone. When the project is deployed to your phone, put your phone in the Google VR HMD and pick up the Daydream Motion Controller. Now when you press in any of the cardinal directions on the Touchpad, the button you pressed should be displayed like in the following video.
+  
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        ATwfS1e7FG4
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+编译并保存蓝图，然后使用“启动”（Launch On）按钮将项目部署并启动到智能手机。项目部署到手机后，将手机与GoogleVR HMD相连，拿起Daydream运动控制器。现在，当您按下触控板上任意基本方位时，应该会显示您所按下的按钮，如以下视频所示：
 
-## UE4 Project Downloads
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    ATwfS1e7FG4
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-Below you will find a link to where you can download the UE4 project that was used to create this example. 
+## 虚幻引擎项目下载
 
-* [**Google VR Daydream Motion Controller Touchpad Button Example Project**](https://epicgames.box.com/s/4mpu4ouwfpghkvrp5lm9pvlihn9drzoj)
+下面提供了一个链接，供您下载用来创建该示例的虚幻引擎项目。 
+
+* [**GoogleVR Daydream运动控制器触控板按钮示例项目**](https://epicgames.box.com/s/4mpu4ouwfpghkvrp5lm9pvlihn9drzoj)
 
 [COMMENT:none]
 
@@ -209,9 +215,9 @@ Below you will find a link to where you can download the UE4 project that was us
 			   CustomProperties Pin (PinId=1C7A9A54494AE23B7164B7B8725F5D52,PinName="then",PinToolTip="\nExec",Direction="EGPD_Output",PinType.PinCategory="exec",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_CallFunction_4529 B4D1BA9A4BD505C307FAD1BEFF3AE98B,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=0811E84B4E91F1030D8FE3BAC770A247,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\nScene Component Object Reference",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/Engine.SceneComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_VariableGet_23 14EFDA2C47FF2DF1F58E7A9BA401135E,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=C2D0A283497566CAFA793CB992D07158,PinName="NewLocation",PinToolTip="New Location\nVector \n\nNew location of the component relative to its parent.",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/CoreUObject.Vector',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="0, 0, 0",AutogeneratedDefaultValue="0, 0, 0",LinkedTo=(K2Node_VariableGet_24 7FE7B76D4888DB151FF54EAB9D25F826,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=3D1069744CC4C94F298F3980C2A0F289,PinName="bSweep",PinToolTip="Sweep\nBoolean\n\nWhether we sweep to the destination location, triggering overlaps along the way and stopping short of the target if blocked by something. Only the root component is swept and checked for blocking collision, child components move without sweeping. If collision is off, this has no effect.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=3D1069744CC4C94F298F3980C2A0F289,PinName="bSweep",PinToolTip="Sweep\nBoolean\n\nWhether we sweep to the destination location, triggering overlaps along the way and stopping short of the target if blocked by something.Only the root component is swept and checked for blocking collision, child components move without sweeping.If collision is off, this has no effect.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=63A901EA42073DA211529DBD9BDB4FF8,PinName="SweepHitResult",PinToolTip="Sweep Hit Result\nHit Result Structure\n\nHit result from any impact if sweep is true.",Direction="EGPD_Output",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/Engine.HitResult',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=03544D8C4FC9FC037BE82CB2780E14A1,PinName="bTeleport",PinToolTip="Teleport\nBoolean\n\nWhether we teleport the physics state (if physics collision is enabled for this object). If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location). If false, physics velocity is updated based on the change in position (affecting ragdoll parts). If CCD is on and not teleporting, this will affect objects along the entire sweep volume.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=03544D8C4FC9FC037BE82CB2780E14A1,PinName="bTeleport",PinToolTip="Teleport\nBoolean\n\nWhether we teleport the physics state (if physics collision is enabled for this object).If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).If false, physics velocity is updated based on the change in position (affecting ragdoll parts).If CCD is on and not teleporting, this will affect objects along the entire sweep volume.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			End Object
 			Begin Object Class=/Script/BlueprintGraph.K2Node_VariableGet Name="K2Node_VariableGet_23"
 			   VariableReference=(MemberName="VRCameraRoot",bSelfContext=True)
@@ -244,7 +250,7 @@ Below you will find a link to where you can download the UE4 project that was us
 			   NodePosX=896
 			   NodePosY=352
 			   NodeGuid=A3A3F3D54784ED6BC88AC8B59DD2B0D2
-			   CustomProperties Pin (PinId=53D2D36A43FC3D303A5AEC908C719807,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\nGoogle VRMotion Controller Component Object Reference",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/GoogleVRController.GoogleVRMotionControllerComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_VariableGet_64 9F6C35184E2D14C2FBC81680FE94E15C,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=53D2D36A43FC3D303A5AEC908C719807,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\nGoogleVRMotion Controller Component Object Reference",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/GoogleVRController.GoogleVRMotionControllerComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_VariableGet_64 9F6C35184E2D14C2FBC81680FE94E15C,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=90076FFD458A1867BB0123A08EE7E4F7,PinName="ReturnValue",PinToolTip="Return Value\nMotion Controller Component Object Reference\n\nmotion controller component",Direction="EGPD_Output",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/HeadMountedDisplay.MotionControllerComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_CallFunction_4529 97A00656447992549C625D8A329A3F4A,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			End Object
 			Begin Object Class=/Script/UnrealEd.EdGraphNode_Comment Name="EdGraphNode_Comment_1"
@@ -260,7 +266,7 @@ Below you will find a link to where you can download the UE4 project that was us
 			   NodePosY=144
 			   NodeWidth=848
 			   NodeHeight=416
-			   NodeComment="Attach Text Actors to Google VR Motion Controller"
+			   NodeComment="Attach Text Actors to GoogleVR Motion Controller"
 			   NodeGuid=3EAED41E435013CA9D1D26A2B20F28A3
 			End Object
 			Begin Object Class=/Script/BlueprintGraph.K2Node_CallFunction Name="K2Node_CallFunction_4529"

@@ -1,0 +1,147 @@
+﻿INTSourceChangelist:4687484
+Availability: Public
+Crumbs: 
+Title: Android 프로젝트 패키징
+Description: 최종 Android 프로젝트 패키징 방법을 살펴봅니다.
+Type: 
+Version: 4.19
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Guides
+
+
+## 단계
+
+여기서는 전체 UE4 Android 프로젝트를 Android 디바이스에 디플로이하기 위해 패키징하는 법을 살펴봅니다.
+
+[REGION:note]
+현재 이 게임을 테스트하는 중이라 **Development** 빌드로 패키징하고 있지만, 게임이 완료되면 **Package Project** (프로젝트 패키지) 메뉴의 **Build Configurations** (빌드 구성) 옵션에서 **Shipping** 으로 패키징할 수 있습니다.
+[/REGION]
+
+1.  **File** (파일) 메뉴에서 **Package Project > Android** (프로젝트 패키지 > Android) 로 이동하여 패키징하려는 텍스처 포맷을 선택합니다. 이 예제에서는 모든 디바이스에 지원되는 Android **ETC1** 을 선택합니다.
+    
+    [REGION:lightbox]
+    [![](package_menu.png)(w:300px data-verified=)](package_menu.png)
+    [/REGION]
+    [REGION:note]
+    디바이스의 실행되는 하드웨어에 따라 지원하는 텍스처 포맷이 다릅니다. 다양한 포맷의 자세한 분석은 [Android 개발 레퍼런스](Platforms/Android/Reference) 문서를 참조하세요.
+    [/REGION]
+    
+    | **포맷** | **설명** |
+    | --- | --- |
+    | **ETC1** | 모든 Android 기반 디바이스에 지원되지만 알파 텍스처를 압축할 수 없습니다 (미압축 저장됩니다). 압축률을 높이려면 RGB 와 별도의 알파 텍스처를 사용하는 것이 좋습니다. |
+    | **ETC2** | 모든 OpenGL 3.x 급 디바이스에 지원되며 알파 압축을 지원합니다. |
+    | **ATC** | Qualcomm Adreno GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **DXT** | Nvidia Tegra GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **PVRTC** | PowerVR GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **ASTC** | 최신 압축 포맷으로 블록 크기 지정과 같은 세밀한 퀄리티 제어가 가능하며 알파 압축을 지원합니다. 현재 일부 디바이스에서 사용할 수 있습니다. |
+    
+        
+2.  그런 다음 게임 패키지를 저장할 위치를 묻는 창이 뜹니다. 지금은 데스크톱에 새 폴더를 만든 다음 그 위치를 프로젝트 저장 위치로 선택합니다.  
+    [REGION:lightbox]
+    [![](package_folder.png)(w:200px)](package_folder.png)
+    [/REGION]
+3.  프로젝트 패키지를 만드는 도중 우하단에 진행 상태를 나타내는 메시지가 표시됩니다.  
+    ![](package_toast.png)
+4.  패키징이 완료되면 '패키징 완료' 메시지가 에디터 우하단에 표시됩니다.  
+    ![](Packageing_Completed.png)
+5.  2 단계에서 만든 폴더로 이동하면 패키징할 때 선택했던 텍스처 유형 이름으로 된 폴더가 생겼을 것입니다. 이 예제에서는 **Android_ETC1** 입니다.  
+    [REGION:lightbox]
+    [![](Android_ECT1_Folder.png)(w:300px)](Android_ECT1_Folder.png)
+    [/REGION]
+6.  Android_ETC1 폴더를 연 다음 **Install_\[ProjectName\]_Development.bat** 파일을 더블클릭하면 Android 디바이스에 프로젝트를 설치합니다.  
+    [REGION:lightbox]
+    [![](Install_Bat.png)(w:300)](Install_Bat.png)
+    [/REGION]
+    [REGION:note]
+    Android 디바이스가 USB 케이블로 개발 PC 에 연결되어 있어야 프로젝트가 설치됩니다. 디바이스가 연결되지 않은 경우 .BAT 파일을 실행해도 아무 일도 벌어지지 않습니다.
+    [/REGION]
+
+[REGION:note]
+현재 이 게임을 테스트하는 중이라 **Development** 빌드로 패키징하고 있지만, 게임이 완료되면 **Package Project** (프로젝트 패키지) 메뉴의 **Build Configurations** (빌드 구성) 옵션에서 **Shipping** 으로 패키징할 수 있습니다.
+[/REGION]
+
+1.  **File** (파일) 메뉴에서 **Package Project > Android** (프로젝트 패키지 > Android) 로 이동하여 패키징하려는 텍스처 포맷을 선택합니다. 이 예제에서는 모든 디바이스에 지원되는 Android **ETC1** 을 선택합니다.
+    [REGION:lightbox]
+    [![](AQS_Mac_01.png)(w:300px)](AQS_Mac_01.png)
+    [/REGION]
+    [REGION:note]
+    디바이스의 실행되는 하드웨어에 따라 지원하는 텍스처 포맷이 다릅니다. 다양한 포맷의 자세한 분석은 [Android 개발 레퍼런스](Platforms/Android/Reference) 문서를 참조하세요.
+    [/REGION]
+    
+  | **포맷** | **설명** |
+  | --- | --- |
+  | **ETC1** | 모든 Android 기반 디바이스에 지원되지만 알파 텍스처를 압축할 수 없습니다 (미압축 저장됩니다). 압축률을 높이려면 RGB 와 별도의 알파 텍스처를 사용하는 것이 좋습니다. |
+  | **ETC2** | 모든 OpenGL 3.x 급 디바이스에 지원되며 알파 압축을 지원합니다. |
+  | **ATC** | Qualcomm Adreno GPU 에 지원되며 알파 압축을 지원합니다. |
+  | **DXT** | Nvidia Tegra GPU 에 지원되며 알파 압축을 지원합니다. |
+  | **PVRTC** | PowerVR GPU 에 지원되며 알파 압축을 지원합니다. |
+  | **ASTC** | 최신 압축 포맷으로 블록 크기 지정과 같은 세밀한 퀄리티 제어가 가능하며 알파 압축을 지원합니다. 현재 일부 디바이스에서 사용할 수 있습니다.  |
+           
+2.  그런 다음 게임 패키지를 저장할 위치를 묻는 창이 뜹니다. 새 폴더를 만들고 **Android_Builds** 라 합니다.  
+    [REGION:lightbox]
+    [![](AQS_Mac_02.png)(w:300px)](AQS_Mac_02.png)
+    [/REGION]
+3.  프로젝트 패키지를 만드는 도중 우하단에 진행 상태를 나타내는 메시지가 표시됩니다.  
+    ![](package_toast.png)
+4.  패키징이 완료되면 '패키징 완료' 메시지가 에디터 우하단에 표시됩니다.  
+    ![](Packageing_Completed.png)
+5.  2 단계에서 만든 폴더로 이동하면 패키징할 때 선택했던 텍스처 유형 이름으로 된 폴더가 생겼을 것입니다. 이 예제에서는 **Android_ETC1** 입니다.
+    [REGION:lightbox]
+    [![](MAC_Install_Folder.png)(w:300px)](MAC_Install_Folder.png)
+    [/REGION]
+6.  Android_ETC1 폴더를 연 다음 **Install_\[ProjectName\]\_Development\_armv7-es3.command** 파일을 더블클릭하면 Android 디바이스에 프로젝트를 설치합니다.  
+    
+    [REGION:note]
+    Android 디바이스가 USB 케이블로 개발 PC 에 연결되어 있어야 프로젝트가 설치됩니다. 디바이스가 연결되지 않으면 .command 파일을 실행해도 아무 일도 벌어지지 않습니다.
+    [/REGION]
+
+1.  **File** (파일) 메뉴를 열고 **Package Project** (프로젝트 패키지) 에서 커서를 **Android** 위에 올린 다음 **Android (ETC1)** 를 선택합니다.  
+    [![](LinuxAndroid_Step31.png)(w:720)](LinuxAndroid_Step31.png)
+    [REGION:note]
+    디바이스의 실행되는 하드웨어에 따라 지원하는 텍스처 포맷이 다릅니다. 다양한 포맷의 자세한 분석은 [Android 개발 레퍼런스](Platforms/Android/Reference) 문서를 참조하세요.
+    [/REGION]
+    
+    | **포맷** | **설명** |
+    | --- | --- |
+    | **ETC1** | 모든 Android 기반 디바이스에 지원되지만 알파 텍스처를 압축할 수 없습니다 (미압축 저장됩니다). 압축률을 높이려면 RGB 와 별도의 알파 텍스처를 사용하는 것이 좋습니다. |
+    | **ETC2** | 모든 OpenGL 3.x 급 디바이스에 지원되며 알파 압축을 지원합니다. |
+    | **ATC** | Qualcomm Adreno GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **DXT** | Nvidia Tegra GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **PVRTC** | PowerVR GPU 에 지원되며 알파 압축을 지원합니다. |
+    | **ASTC** | 최신 압축 포맷으로 블록 크기 지정과 같은 세밀한 퀄리티 제어가 가능하며 알파 압축을 지원합니다. 현재 일부 디바이스에서 사용할 수 있습니다. |
+            
+2.  **디렉터리 열기** 메뉴가 나타나면 **New Folder** (새 폴더) 버튼으로 `Android_Builds` 폴더를 새로 만듭니다.  
+    [![](LinuxAndroid_Step32.png)(w:720)](LinuxAndroid_Step32.png)
+3.  이제 **Open** (열기) 버튼을 눌러 패키징 프로세스를 시작합니다.  
+    [![](LinuxAndroid_Step33.png)(w:720)](LinuxAndroid_Step33.png)
+4.  UE4 가 프로젝트를 패키징하는 동안 우하단 구석에 진행 상태가 표시됩니다.  
+    [![](LinuxAndroid_Step34.png)(w:720)](LinuxAndroid_Step34.png)
+5.  패키징 프로세스가 끝나면 완료 메시지가 보일 것입니다.  
+    [![](LinuxAndroid_Step35.png)(w:720)](LinuxAndroid_Step35.png)
+6.  **Android_Builds** 폴더로 이동하면 **Android_ETC1** 라는 폴더가 보일 것입니다.  
+    ![](LinuxAndroid_Step36.png)
+7.  **Android_ETC1** 폴더를 열면 패키징 프로세스 도중 생성된 파일을 찾을 수 있습니다.  
+    ![](LinuxAndroid_Step37.png)  
+    **Installation** 및 **Uninstallation** 셸 스크립트 (*.sh) 및 ETC1 압축 방식을 지원하는 Android 디바이스에 프로젝트를 설치하는 데 필요한 모든 파일이 들어있는 Android Application Package (*.apk) 파일이 보일 것입니다.
+8.  폴더에 우클릭하고 **Open in Terminal** 을 선택하여 이 폴더의 위치에서 터미널을 엽니다.  
+    ![](LinuxAndroid_Step38.png)
+9.  terminal 에 `./Install_LinuxAndroidProject_Development-arm64.es2.sh` 라 입력하여 프로젝트를 Android 디바이스에 설치합니다.  
+    [![](LinuxAndroid_Step39.png)(w:900)](LinuxAndroid_Step39.png)
+    [REGION:note]
+    셸 스크립트 실행에 문제가 있는 경우, 터미널에 `adb devices` 라 입력하여 디바이스가 실제로 컴퓨터에 연결되었는지 확인하세요.
+    [/REGION]
+10.  설치 프로세스 도중 셸 스크립트가 터미널에 다음과 같은 출력을 표시합니다.  
+    [![](LinuxAndroid_Step40.png)(w:900)](LinuxAndroid_Step40.png)
+    [REGION:note]
+    셸 스크립트가 설치 프로세스를 완료하면, **설치 성공** 메시지가 표시됩니다.
+    [/REGION]
+
+## 최종 결과
+
+완료되면 UE4 프로젝트가 들어있는 .APK 파일이 생겨, 다음 이미지처럼 .BAT 파일을 통해 Android 기반 스마트폰에 설치할 수 있습니다.  
+[REGION:lightbox]
+[![](Game_On_Phone.png)(w:200px)](Game_On_Phone.png)
+[/REGION]

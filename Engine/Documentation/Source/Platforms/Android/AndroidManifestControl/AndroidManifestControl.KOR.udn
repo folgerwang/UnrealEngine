@@ -14,11 +14,11 @@ type:overview
 
 [TOC(start:2)]
 
-**AndroidManifest.xml** 파일은 프로젝트 세팅의 **Advanced  APKPackaging** (고급 APK 패키징) 섹션에 설정된 다양한 안드로이드 시스템 권한과 세팅을 저장하는 데 사용됩니다. 여기서는 언리얼 엔진 4 (UE4) 프로젝트의 요구사항 충족을 위해 AndroidManifest.xml 파일에 추가시킬 명령을 입력하는 법을 다뤄보겠습니다.
+**AndroidManifest.xml** 파일은 프로젝트 세팅의 **Advanced  APKPackaging** (고급 APK 패키징) 섹션에 설정된 다양한 Android 시스템 권한과 세팅을 저장하는 데 사용됩니다. 여기서는 언리얼 엔진 4 (UE4) 프로젝트의 요구사항 충족을 위해 AndroidManifest.xml 파일에 추가시킬 명령을 입력하는 법을 다뤄보겠습니다.
 
 
 ## Android Manifest 위치
-프로젝트의 AndroidManifest.xml 파일을 찾기 전, 먼저 프로젝트를 패키징하거나 안드로이드 디바이스에 디플로이 해야합니다. 프로젝트 빌드 또는 디플로이가 완료되었으면, **(YourProjectName)\Intermediate\Android\APK** 에서 AndroidManifest.xml 파일을 찾을 수 있습니다.
+프로젝트의 AndroidManifest.xml 파일을 찾기 전, 먼저 프로젝트를 패키징하거나 Android 디바이스에 디플로이 해야합니다. 프로젝트 빌드 또는 디플로이가 완료되었으면, **(YourProjectName)\Intermediate\Android\APK** 에서 AndroidManifest.xml 파일을 찾을 수 있습니다.
 
 [REGION:lightbox]
 [![](AMC_File_Location.png)(w:430)](AMC_File_Location.png)

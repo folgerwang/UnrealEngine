@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3158648
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:基于物理的材质		
 Crumbs:%ROOT%, Engine
@@ -10,6 +10,7 @@ topic-image:physically_based_topic.png
 type:overview
 tags:Physically Based Shading
 tags:PBR
+tags:Materials
 
 [REGION:fullwidth]
 ![](PhysMatHeader.png)
@@ -24,6 +25,7 @@ tags:PBR
 即使是有先前虚幻引擎迭代经验的用户也可能会在这方面遇到困扰。我们仅将注意力放在
 基于物理的方法所涉及的材质方面。要获取可用输入的纲要，请参阅[](Engine/Rendering/Materials\MaterialInputs)。
 
+(#WhatDoesPhysicallyBasedMean?)
 ## “基于物理”有何含义？
 
 基于物理的明暗处理意味着我们估算光线的实际情况，而不是估算我们
@@ -35,6 +37,7 @@ tags:PBR
 由于这些及其他原因，虚幻引擎 4 已采用基于物理的新材质和明暗处理模型。要了解
 有关 UE4 中基于物理的材质和明暗处理模型的深入技术说明，请参阅我的 SIGGRAPH 演示稿 [[2]](#Karis)。
 
+(#MaterialParameters)
 ## 材质参数
 
 在材质系统的“基于物理”方面，只有 4 个您需要熟悉的不同属性。它们是：
@@ -53,6 +56,7 @@ tags:PBR
 
 基于物理的值可以从现实材质中测得。下面是一些示例。
 
+(#BaseColor)
 ### 底色
 
 [EXCERPT:BaseColor] 
@@ -97,6 +101,7 @@ tags:PBR
 | 铂     | (0.672, 0.637, 0.585) |
 [/EXCERPT:MeasuredBaseColor] 
 
+(#Roughness)
 ### 粗糙度
 
 [EXCERPT:Roughness]
@@ -114,6 +119,7 @@ tags:PBR
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#RoughnessSlider]
 
 
+(#MappingRoughness)
 #### 贴图粗糙度
 
 [EXCERPT:RoughnessMap]
@@ -131,6 +137,7 @@ tags:PBR
 [/EXCERPT:RoughnessTip]
 
 
+(#Metallic)
 ### 金属色
 
 [EXCERPT:Metallic]
@@ -154,6 +161,7 @@ tags:PBR
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#MetallicSlider]
 
 
+(#Specular)
 ### 高光
 
 [EXCERPT:Specular]
@@ -198,6 +206,7 @@ tags:PBR
 [/REGION]
 
 
+(#References)
 ## 参考
 
 (#Lagarde)

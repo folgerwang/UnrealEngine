@@ -102,7 +102,7 @@ SkillLevel: Intermediate
 
 	_새 그룹에 이름을 지어줍니다. 이 예제에서는 그냥 **Rock** 그룹이라 합니다._
 
-1.  그룹에 **우클릭** 하고 맥락 메뉴에서 **새 Event Track 추가** 를 선택합니다.
+1.  그룹에 **우클릭** 하고 컨텍스트 메뉴에서 **새 Event Track 추가** 를 선택합니다.
 
 	![](MHT8_AddEventTrack.png)
 

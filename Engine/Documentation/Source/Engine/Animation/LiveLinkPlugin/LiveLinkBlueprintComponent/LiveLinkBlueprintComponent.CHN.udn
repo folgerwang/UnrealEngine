@@ -1,0 +1,222 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: 蓝图中的Live Link
+Description: 描述如何在蓝图中使用Live Link组件工作，从而在运行中或在打包完成的项目中建立连接。 
+Type: 
+Version: 4.20
+Parent: 
+Order: 
+Tags: Live Link
+
+为了更方便地使用 **Live Link** 功能，您可以将一个 **Live Link组件** 添加到 **Actor蓝图（Actor Blueprint）**，让您在编辑器中和运行时都能自动查找和建立Live Link源。您也可以检索主题和与这些主题有关的信息，或通过蓝图执行很多其他函数。 
+
+此页面概述了如何添加和使用Live Link组件以及您可调用的可用函数。 
+
+## Live Link组件
+
+从 **组件（Components）** 面板将一个Live Link组件添加到Actor蓝图时，该组件不会成为其他组件的父级，它只是位于蓝图中，让您可以访问 **On Live Link Updated Event**。 
+
+![](OnLiveLinkUpdatedComponent.png)
+
+每次有新的Live Link数据可用时（包括编辑器内部），就会触发On Live Link Updated。
+
+![](LiveLinkUpdated.png)
+
+On Live Link Updated节点有效取代您的 **Tick Event**，但它也在编辑器内部运行。例如，如果您要驱动编辑器内的一些实时数据，此节点会支持您的操作。 
+
+以下我们会通过正在从Maya的编辑器活动摄像机流送的Live Link，在编辑器中驱动摄像机的变换。 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ uPG4MKaVyFU
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+对于在编辑器中执行的On Live Link Updated事件，在 **视口选项（Viewport Options）** 菜单中启用 **实时（Realtime）** 选项。  
+  
+![](ViewportOptions.png)
+[/REGION]
+
+使用包含骨架网格的Actor蓝图内Live Link组件时，该Live Link组件将自动将骨架网格体设置为在编辑器内进行评估。
+
+![](SkeletalMeshExample.png)
+
+上图中的骨架网格组件名为 **SK_Mannequin**，并指定了一个动画蓝图，该蓝图使用Live Link姿势（Live Link Pose）节点流送动画数据。通常，如果您有摄像机、光源或其他骨架网格或静态网格等项目，并想要从外部将该项目的属性动画化并流送数据，您可在蓝图内执行此操作。您要流送的任何动画数据最好通过动画蓝图和Live Link姿势（Live Link Pose）节点处理。 
+
+### 获取主题数据
+
+您可以使用Live Link组件调用 **获取主题数据（Get Subject Data）** 函数，此函数使您可以获取与提供的主题名称关联的Live Link数据。此函数将给您一个有关是否找到某个帧的布尔结果以及一个 **主题帧句柄（Subject Frame Handle）**。
+
+![](GetSubjectData.png)
+
+此主题帧句柄仅仅是该帧的一个句柄，而此帧仍存在于C++中。这只是围绕着该帧的蓝图包装物，包含您可以调用的其他函数，用于从该包装物中获取数据。   
+  
+
+![](SubjectHandleFunctions.png)
+
+#### 获取曲线
+
+此函数使您可以获取所有混合形状（Blend Shape）或动画曲线（Animated Curve），并将名称映射返回到各个条目的值。   
+
+![](GetCurves.png)
+
+您可以使用 **查找（Find）**，并输入一个名称（Name）以检索某个曲线的值（或使用布尔值确定是否找到了该值）。  
+
+![](FindMapLeftEyeOpen.png)
+
+#### 获取元数据
+
+此函数返回主题帧中存储的主题元数据结构，您可拆分该结构以检索信息： 
+
+![](GetMetadata.png "GetMetadata.png")
+
+字符串元数据是指定字符串在主题上的映射，例如您可能需要将某个要流送对象的类型作为一个指定字符串传递。元数据还包括场景时间码（Scene Timecode）和场景帧率（Scene Framerate），您可拆分结构以获取所需信息。   
+
+| 输出 | 说明 |
+| --- | --- |
+| **字符串元数据（String Metadata）**  | 指定字符串的映射，用于提供有关某个帧或主题的额外信息，例如“类型（Type）”：“摄像机（Camera）”。|
+| **场景时间码（Scene Timecode）** | 与当前帧关联的时间码值。[INCLUDE:#excerpt1]|
+| **场景帧率（Scene Framerate）** | 场景时间码对应的帧率。|
+
+[COMMENT: none]
+[EXCERPT:Excerpt1]
+[REGION:note]
+并不保证其唯一性，例如在MotionBuilder中编辑单个帧会导致为多个帧发送该帧的时间码。
+[/REGION]
+[/EXCERPT]
+[/COMMENT]
+#### 获取根变换
+
+此函数将主题帧的根变换以Live Link变换的形式返回（如果没有变换，则返回身份）。   
+
+![](RootTransformLiveLink.png)
+
+这将返回一个Live Link变换而非标准变换，因为您可以在其上调用其他函数（下文中介绍）： 
+
+| 函数 | 说明 |
+| --- | --- |
+| **子计数（Child Count）** | 返回给定Live Link变换的子项数。|
+| **组件空间变换（Component Space Transform）** | 返回给定Live Link变换（相对于您的型号的根）的根空间中的变换值。|
+| **获取子项（Get Children）** | 返回给定Live Link变换的子Live Link变换数组。|
+| **获取父项（Get Parent）** | 如果存在父项，返回父Live Link变换，如果不存在父项，返回身份变换。|
+| **有父项（Has Parent）** | 返回给定Live Link变换是否有父变换。|
+| **父骨骼空间变换（Parent Bone Space Transform）** | 返回给定Live Link变换的父空间中的变换值（它的内部存储方式，并无论父骨骼如何，均与之相关联）。|
+| **变换名称（Transform Name）** | 返回给定Live Link变换的名称。|
+
+#### 按索引获取变换
+
+返回指定索引处的某个主题帧中存储的Live Link变换（如果变换索引无效，返回一个身份变换）。   
+
+![](LiveLinkTransformIndex.png)  
+
+#### 变换数
+
+这将返回主题帧内的变换数。   
+
+![](LiveLinkNumOfTransforms.png)
+
+其中一种使用情况是与 **按索引获取变换（Get Transform By Index）** 结合使用，以循环并检索您的每个Live Link变换（类似于下文）：   
+  
+[REGION:lightbox]
+[![](LoopingThroughTransforms-1.png)(w:900)](LoopingThroughTransforms-1.png)
+[/REGION]
+[REGION:caption]
+单击图像显示全视图。
+[/REGION]
+
+#### 获取变换名称
+
+ **获取变换名称（Get Transform Names）** 函数返回某帧中所有变换的名称数组。 
+
+![](GetTransformNames.png)
+
+#### 按名称获取变换
+
+ **按名称获取变换（Get Transform by Name）** 函数类似于 **按索引获取变换（Get Transform by Index）**，但获取变化名称（Transform Name）数据。
+
+![](GetTransformByName.png)
+
+### 获取可用主题名称
+
+除了Live Link组件，您可以使用 **获取可用主题名称（Get Available Subject Names）** 函数返回一组名称，且使用这些名称调用 **获取主题数据（Get Subject Data）** 是有效的。 
+
+![](GetAvailableSubjectNames.png)
+
+## 消息总线查找器
+
+以下蓝图节点可用于通过消息总线源定位和建立连接。 
+
+### 构造消息总线查找器
+
+ **构造消息总线查找器（Construct Message Bus Finder）** 节点使您可以检测网络上的任何可用的消息总线提供程序。 
+
+![](ConstructMessageBusFinder.png)
+
+此函数返回一个 **Live Link消息总线查找器对象参考（Live Link Message Bus Finder Object Reference）** 类型，您可使用此类型调用 **获取可用提供程序（Get Available Providers）**。
+
+### 获取可用提供程序
+
+获取可用提供程序（Get Available Providers）节点向网络广播消息，然后返回在 **时长（Duration）** 下定义的指定时间内回复的所有 **可用提供程序（Available Providers）** 的数组。 
+
+![](GetAvailableProviders-1.png)
+
+[REGION:note]
+获取可用提供程序（Get Available Providers）的行为类似于 **延迟（Delay）** 节点，不会阻隔。
+[/REGION]
+
+它的目标是Live Link消息总线查找器（Live Link Message Bus Finde），下图中有示例： 
+
+![](ExampleGetAvailProviders.png "ExampleGetAvailProviders.png")
+
+上图中，在 **开始播放（Begin Play）** 上，我们使用 **构造消息总线查找器（Construct Message Bus Finder）** 并将其存储为变量，然后我们使用该变量调用 **获取可用提供程序（Get Available Providers）** 并检索可以连接的可用提供程序列表。 
+
+### 连接提供程序
+
+此节点使您可以连接到指定消息总线提供程序，并返回一个句柄到已创建的Live Link源。 
+
+![](ConnectToProvider.png)
+
+一旦您利用 **获取可用提供程序（Get Available Providers）** 函数调用检索了可用提供程序，您可以使用此节点定位并连接到所需的提供程序。 
+
+下例展示您可如何自动查找消息总线源，获取可用提供程序，以及在使用此节点找到提供程序后，连接到列表中的第一个提供程序。 
+
+[REGION:lightbox]
+[![](AutoConnectToProviders.png)(w:900)](AutoConnectToProviders.png)
+[/REGION]
+
+单击图像显示全视图。  
+  
+连接提供程序（Connect to Provider）节点返回一个 **源句柄（Source Handle）**，可用于查询有关已创建的Live Link源的信息。   
+
+![](ProviderSourceHandle-1.png)
+
+这些函数包括：   
+
+| 函数 | 说明 |
+| --- | --- |
+| **获取源机器名称（Get Source Machine Name）** | 通过对应句柄获取Live Link源的机器名称。|
+| **获取源状态（Get Source Status）** | 通过对应句柄获取Live Link源的文本状态。|
+| **获取源类型（Get Source Type）** | 通过对应句柄获取Live Link源的类型。|
+| **源是否仍有效（Is Source Still Valid）** | 通过对应句柄检查Live Link源是否有效（如否，可使用请求关闭（Request Shutdown）。|
+| **请求关闭（Request Shutdown）** | 通过对应句柄请求给定Live Link源关闭。|
+
+无论何时，一旦您使用连接提供程序（Connect to Provider）节点，缓存 **源句柄（Source Handle）** 都是良好的实践方法。发生 **事件结束播放（Event End Play）** 时，您可以使用 **请求关闭（Request Shutdown）** 终止连接（如下所示）。每次在未终止连接的情况下连接提供程序时，就会建立一个新连接，而旧连接保持不变（将显示在Live Link界面Live Link UI）窗口）
+
+![](RequestShutdown.png)
+
+## 打包项目中的Live Link
+
+使用蓝图函数 **构造消息总线查找器（Construct Message Bus Finder）、获取可用提供程序（Get Available Providers）** 和 **连接提供程序（Connect to Provider）** 不仅可以在运行时自动检测任何消息总线源并连接它们，还能连接到打包项目中的源。   
+  
+
+[REGION:warning]
+如果您将您的项目打包，并且您的节点网络在运行时工作但并不在您的打包项目中工作，为了让它在您的打包项目中工作，您可能需要输入命令行参数 **`- Messaging` ** 标记。这是使用消息总线的限制之一，因为没有此标记它就不会运行
+[/REGION]

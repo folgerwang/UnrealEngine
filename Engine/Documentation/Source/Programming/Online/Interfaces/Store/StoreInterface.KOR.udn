@@ -1,0 +1,34 @@
+﻿INTSourceChangelist:4675788
+Availability: Public
+Crumbs: 
+Title: 스토어 인터페이스
+Description: Store Interface, 게임 내 구매의 오퍼을 설명하고 필터를 적용하는 온라인 서브시스템입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: store interface
+Tags: in-game purchases
+Tags: store
+
+
+게임에서 사용자 구매를 지원하는 두 가지 인터페이스 중 **Store Interface** (스토어 인터페이스)는 사용자에게 특정 항목을 오퍼하며, **Purchase Interface** (구매 인터페이스)는 사용자가 그 오퍼을 수락할 수 있도록 해줍니다. 스토어 인터페이스를 통해 게임에서는 온라인 서비스에서 오퍼을 검색하여 카테고리 별로 분류하고 필터를 적용해 개별적으로 관리할 수 있습니다. 구매 실행을 위해서는 [Purchase Interface](Programming/Online/Interfaces/Purchase) (구매 인터페이스)를 사용합니다.
+
+오퍼 ([`FOnlineStoreOffer`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineStoreOffer/index.html) 클래스)에는 사용자가 게임을 통해 구매할 수 있는 모든 것에 대한 필수 정보가 전부 들어있습니다. 여기에는 설명, 가격, 시작 및 종료일과 같은 정보가 포함됩니다. 카테고리 ([`FOnlineStoreCategory`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineStoreCategory/index.html) 클래스)에는 훨씬 단순한 데이터가 저장되며, 하위 카테고리 이름과 목록만 들어갑니다. 온라인 서비스 자체에서 오퍼을 설정하고 관리하는 반면, 스토어 인터페이스는 해당 내용의 검색과 필터 적용을 처리합니다.
+
+## 제안 및 카테고리
+
+스토어 인터페이스는 온라인 서비스의 서버에서 제안 및 카테고리 데이터를 검색합니다. 이 작업에는 원격 시스템에 접속하는 작업이 포함되기 때문에 데이터 검색(retrieve) 및 캐시 저장 두 단계로 나뉘며, 이는 비동기 작업으로 로컬 캐시에 저장된 데이터에 액세스합니다. 스토어 인터페이스 자체는 요청이 완료될 때마다 캐시를 자동 업데이트하며, 가장 최근 쿼리의 결과만 유지합니다.
+
+### 제안 및 카테고리 검색
+
+제안 정보를 검색하는 첫 단계는 스토어에 포함된 카테고리 목록을 검색하는 것입니다. 이는 `QueryCategories` 함수에서 처리하며, 완료 시 제공된 `FOnQueryOnlineStoreCategoriesComplete` 유형 델리게이트를 호출합니다. 성공하면 스토어 인터페이스의 캐시에는 사용가능한 카테고리 ID 전부가 저장됩니다. 이 시점에서 개발자는 특정 카테고리만 포함하고 다른 카테고리는 제외된 (`FOnlineStoreFilter` 유형) 필터를 통해 제안에 대한 쿼리를 시작할 수 있습니다. 필터와 함께 `QueryOffersByFilter` 로 카테고리 멤버십에 따라 제안 ID 를 검색할 수 있습니다. 스토어 인터페이스가 제안 ID 의 검색 및 캐시 저장을 마친 후, 개발자는 `QueryOffersById` 함수로 특정 제안 관련 정보에 대한 쿼리를 할 수 있습니다. `QueryOffersByFilter` 및 `QueryOffersById` 둘 다 `FOnQueryOnlineStoreOffersComplete` 유형 제공된 델리게이트를 사용하여 성공 또는 실패를 나타내며, 둘 중 어느 작업이든 성공하면 스토어 인터페이스의 제안 캐시를 업데이트합니다.
+
+### 제안 데이터 검사
+
+"쿼리" 함수는 카테고리 및 제안 관련 정보를 검색하여 스토어 인터페이스의 캐시에 저장합니다. 이 데이터에 액세스하려면 카테고리 캐시에 대해 `GetCategories` 를 호출하거나, 제안 캐시에 대해 `GetOffers` 를 호출합니다. 제안 ID 를 아는 경우 `GetOffer` 함수는 해당 (캐시에 저장된) 제안 관련 정보를 반환합니다.
+
+[REGION:note]
+이 함수는 모두 로컬 캐시에서 작동하므로, 콜백이 없습니다. 하지만 캐시가 채워진 경우에만 유용합니다. 이 함수가 캐시를 업데이트하지는 않으므로, 온라인 서비스의 스토어의 카테고리 또는 제안이 라이브로 변경된 경우 반영되지 않습니다.
+[/REGION]

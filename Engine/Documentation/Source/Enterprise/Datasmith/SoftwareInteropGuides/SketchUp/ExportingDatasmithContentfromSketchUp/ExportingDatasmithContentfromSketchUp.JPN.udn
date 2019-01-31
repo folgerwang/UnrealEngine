@@ -1,0 +1,36 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: SketchUp Pro から Datasmith のコンテンツをエクスポートする
+Description: Unreal Engine にインポート可能な Datasmith ファイルに SketchUp Pro のシーンをエクスポートする方法について説明します。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 2
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-export-skp.png)
+
+SketchUp 用の Datasmith Exporter プラグインをインストールすると、シーンをエクスポートする際に、 *「.UDATASMITH」* ファイル タイプを新たに使用できるようになります。
+
+この新しいファイル タイプを使用してシーンをエクスポートするには、以下のステップに従います。
+
+1. SketchUp の **[File (ファイル)]** メニューから、 **[Export (エクスポート)] > [3D Model (3D モデル)]** を選択します。
+    ![3D モデルのエクスポート](sketchup_export_menu.png "3D モデルのエクスポート")
+2. **[Export Model (モデルのエクスポート)]** ウィンドウで、 **[Save as type (保存のタイプ)]** ドロップダウンリストから **[Unreal Datasmith]** を選択します。
+    ![フォルダ、ファイル名、タイプを設定](sketchup_export_model.png "フォルダ、ファイル名、タイプを設定")
+3. 新規ファイルを保存する場所を参照して、ファイル名を設定して **[Export (エクスポート)]** をクリックします。
+
+### 最終結果
+
+これで、新規の *「.udatasmith」* ファイルを Unreal Editor にインポートする準備が整いました。[「Importing Datasmith Content into Unreal Engine 4」](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+[REGION:note]
+新規の *「.udatasmith」* ファイルと共に、このファイルと同じ名前に *_Assets* サフィックスが付いたフォルダが作成されます。 *「.udatasmith」* ファイルを別の場所に移動する場合は、このフォルダも同じ場所に移動してください。
+[/REGION]

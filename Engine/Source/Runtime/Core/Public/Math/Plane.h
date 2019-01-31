@@ -89,7 +89,7 @@ public:
 	 * Calculates distance between plane and a point.
 	 *
 	 * @param P The other point.
-	 * @return >0: point is in front of the plane, <0: behind, =0: on the plane.
+	 * @return The distance from the plane to the point. 0: Point is on the plane. >0: Point is in front of the plane. <0: Point is behind the plane.
 	 */
 	FORCEINLINE float PlaneDot(const FVector &P) const;
 

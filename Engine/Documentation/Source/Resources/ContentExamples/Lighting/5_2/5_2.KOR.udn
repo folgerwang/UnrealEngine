@@ -17,7 +17,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Lighting/5_1 "%Resources/ContentExamples/Lighting/5_1:title%")
+		[이전 예제](Resources/ContentExamples/Lighting/5_1 "%Resources/ContentExamples/Lighting/5_1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

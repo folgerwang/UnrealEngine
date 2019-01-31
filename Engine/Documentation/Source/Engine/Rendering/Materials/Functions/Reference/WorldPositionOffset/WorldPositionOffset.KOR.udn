@@ -48,8 +48,8 @@ WorldPositionOffset 카테고리 아래 모든 함수 목록은 다음과 같습
 | **UVs for Thickness (Vector2)** | 두께용 UV (벡터2) - U 에서 투사하는 경우 두께 매퍼로 사용할 텍스처 좌표입니다. 두께 블렌딩에 지정된 UV 인덱스의 Y 컴포넌트를 사용합니다. |
 | **UVs for texturing (Vector2)** | 텍스처용 UV (벡터2) - 텍스처용 UV 채널입니다. 3D 시차 보정을 하고자 하는 UV 채널과 같아야 합니다. |
 | **Expand U or V UV Channel (StaticBool)** | U 또는 V UV 채널 확장 (스태틱 불) - 메시를 U 또는 V 어느 방향으로 확장할지 설정합니다. 기본값은 True, 즉 U 방향입니다. |
-| **DriveNormalZ (Boolean)** | 노멀 Z 구동 (불리언) - DeriveNormalZ 를 사용하여 완벽히 둥근 노멀 맵을 만듭니다. |
-| **AngleCorrectedNormal (Boolean)** | 각도 보정 노멀 (불리언) - DerivedNormalZ 를 사용하여 완벽히 둥근 노멀 맵을 만듭니다. 중앙 테셀레이션 버텍스를 요하는데, 없으면 전체 면의 Z 값이 0 이 되어 라이팅이 거칠어집니다. |
+| **DriveNormalZ (Boolean)** | 노멀 Z 구동 (부울) - DeriveNormalZ 를 사용하여 완벽히 둥근 노멀 맵을 만듭니다. |
+| **AngleCorrectedNormal (Boolean)** | 각도 보정 노멀 (부울) - DerivedNormalZ 를 사용하여 완벽히 둥근 노멀 맵을 만듭니다. 중앙 테셀레이션 버텍스를 요하는데, 없으면 전체 면의 Z 값이 0 이 되어 라이팅이 거칠어집니다. |
 | **AdditionalNormal (Vector3)** | 부가 노멀 (벡터3) - 노멀맵 트랜스폼에 텍스처 노멀을 추가합니다. |
 | **FlattenPixelNormal (Boolean)** |  |
 | **UVs For NormalShading (Vector2)** |  |

@@ -21,7 +21,7 @@ iOS 디바이스용 컴파일 개발 환경 셋업은 물론, iOS 플랫폼을 �
 
 [PUBLISH:Rocket]
 [REGION:note]
-현재 언리얼 엔진 런처 버전을 사용중이라면 블루프린트 기반 프로젝트의 경우 윈도우에서 iOS 로만 디플로이 가능합니다.
+현재 언리얼 엔진 런처 버전을 사용중이라면 블루프린트 기반 프로젝트의 경우 Windows에서 iOS 로만 디플로이 가능합니다.
 [/REGION]
 [/PUBLISH]
 
@@ -63,14 +63,14 @@ UE4 는 아이폰4/아이패드2 이상, iOS 6.0 이상에서 작동합니다.
 
 [EXCERPT:WindowsConfig]
 
-윈도우 시스템 사양 관련 상세 정보는 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
+Windows 시스템 사양 관련 상세 정보는 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
 
 [/EXCERPT:WindowsConfig]
 
 
 [EXCERPT:MacOSConfig]
 
-맥 시스템 요구사양 관련 상세 정보는 [](GettingStarted/RecommendedSpecifications) 문서를 확인하세요. 참고로 iOS 7.1 에 디플로이하려는 경우, XCode 5.1 을 설치해 줘야 합니다.
+Mac 시스템 요구사양 관련 상세 정보는 [](GettingStarted/RecommendedSpecifications) 문서를 확인하세요. 참고로 iOS 7.1 에 디플로이하려는 경우, XCode 5.1 을 설치해 줘야 합니다.
 XCode 는 App Store 에서 [무료로 다운로드 가능](https://itunes.apple.com/us/app/xcode/id497799835?mt=12) 합니다.
 
 [/EXCERPT:MacOSConfig]
@@ -132,7 +132,7 @@ XCode 는 App Store 에서 [무료로 다운로드 가능](https://itunes.apple.
 
 [EXCERPT:WindowsSetup]
 
-윈도우에서 Certificate 를 구하기 위해선, `Engine\Binaries\DotNET\IOS` 에 위치한 iPhone Packager 를 사용해야 합니다.
+Windows에서 Certificate 를 구하기 위해선, `Engine\Binaries\DotNET\IOS` 에 위치한 iPhone Packager 를 사용해야 합니다.
 
 iPhone Packager 에는 탭이 둘 있습니다:
 * New User, 신규 사용자
@@ -163,7 +163,7 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 [EXCERPT:MacOSSetup]
 
 
-이제 웹에서 설명한 대로 맥에다 Certificate 를 설치해야 합니다. 회사 내 어플리케이션 Signing 에 사용할 모든 맥에다가도 Certificate 를 설치해 줘야 합니다. 두 가지 방법이 있습니다:
+이제 웹에서 설명한 대로 Mac에다 Certificate 를 설치해야 합니다. 회사 내 어플리케이션 Signing 에 사용할 모든 Mac에다가도 Certificate 를 설치해 줘야 합니다. 두 가지 방법이 있습니다:
 
 
 * Keychain Access 어플리케이션 방법
@@ -204,11 +204,11 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 
 [PUBLISH:Licensee]
 
-## 코드 프로젝트에 대한 윈도우 기반 작업방식
+## 코드 프로젝트에 대한 Windows 기반 작업방식
 
-주로 윈도우에서 개발 및 코딩 작업을 하려는 경우 이 부분을 읽어 주시기 바랍니다.
+주로 Windows에서 개발 및 코딩 작업을 하려는 경우 이 부분을 읽어 주시기 바랍니다.
 
-### 맥 시스템 셋업
+### Mac 시스템 셋업
 
 * 앱 스토어에서 최신 Xcode 를 설치합니다.
 * Terminal 어플리케이션을 사용하여 필요한 디렉터리 구조를 만듭니다.
@@ -218,18 +218,18 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
     * 홈 디렉터리에도 만든 다음 링크를 걸 수도 있습니다:
         * ln -s ~/UE4 /UE4
 * UnrealRemoteTool (URT) 를 설치하고 실행합니다.
-    * 프로그램을 맥에 받아옵니다. A 또는 B 입니다:
+    * 프로그램을 Mac에 받아옵니다. A 또는 B 입니다:
         * A)
-            * UnrealRemoteTool 을 PC 에서 (//depot/UE4/Engine/Build/iOS/UnrealRemoteTool) 맥으로 복사
+            * UnrealRemoteTool 을 PC 에서 (//depot/UE4/Engine/Build/iOS/UnrealRemoteTool) Mac으로 복사
             * chmod a+x UnrealRemoteTool
         * B)
-            * p4v 에서 맥으로 직접 동기화
+            * p4v 에서 Mac으로 직접 동기화
     * Terminal 에서 UnrealRemoteTool 을 실행시킵니다 (디버거에 잡히지 않는 희귀한 버그가 URT 에 있어서, 루프로 실행시키고 있습니다).
         * for (( ;; )) ; do ./UnrealRemoteTool; done
     * 참고로 Mountain Lion 에서는, Terminal 이 작업 디렉터리와 명령 히스토리를 기억하므로, 리부팅한 경우 위 화살표를 누르면 기억된 명령이 나타날 것입니다.
 
-### 윈도우에서 컴파일하기
-위의 윈도우 및 맥 시스템 셋업 단계를 마치고 나면, 컴파일은 UnrealBuildTool 이 활용되니 간단해 질 것입니다:
+### Windows에서 컴파일하기
+위의 Windows 및 Mac 시스템 셋업 단계를 마치고 나면, 컴파일은 UnrealBuildTool 이 활용되니 간단해 질 것입니다:
 * //depot/UE4/GenerateProjectFiles_AllPlatforms.bat 를 실행합니다.
 * 거기서 생성되는 UE4.sln 을 엽니다.
 * 게임의 솔루션 폴더를 엽니다.
@@ -237,18 +237,18 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 * 선택한 (QAGame 등의) 게임에 우클릭한 다음 Build 를 선택합니다.
 * 이제 Development 환경설정과 IOS 플랫폼을 선택합니다.
 * 다시 한 번 게임을 빌드합니다.
-    * 그러면 UnrealRemoteTool 이 실행중인 맥에 접속, 거기에 파일을 복사한 다음 맥에서 원격 컴파일 명령을 실행합니다.
-	* 마지막에는 약간의 Signing 작업도 수행하니, 제대로 작동하는지 확인하세요. 작동하지 않는다면 맥에 설치된 Provision 파일과 Certificate 를 다시 한 번 확인하시기 바랍니다.
+    * 그러면 UnrealRemoteTool 이 실행중인 Mac에 접속, 거기에 파일을 복사한 다음 Mac에서 원격 컴파일 명령을 실행합니다.
+	* 마지막에는 약간의 Signing 작업도 수행하니, 제대로 작동하는지 확인하세요. 작동하지 않는다면 Mac에 설치된 Provision 파일과 Certificate 를 다시 한 번 확인하시기 바랍니다.
 * 쿠커를 시작합니다.
     * (cmd.exe 의) UE4/Engine/Binaries/Win64 디렉터리에서 이렇게 (QAGame 을 자신의 게임 이름으로 바꾸고) 실행합니다:
 	    * ue4editor-cmd QAGame -run=cook -targetplatform=ios -cookonthefly
 	* 그러면 IOS 디바이스가 쿠킹된 파일을 받기 위해 통신하는 네트워크 상의 쿠킹 서버가 시작됩니다.
 
-맥 드라이브의 /UE4/Builds 디렉터리를 살펴보면 자신의 PC 컴퓨터 이름으로 된 디렉터리를 발견할 수 있습니다. 그 디렉터리 구조는 자신의 PC 디렉터리 구조와 똑같이 미리렁된 구조입니다. 컴파일이 완료되면 실행파일은 게임의 Binaries (또는 게임 없이 UE4 프로젝트를 컴파일한 경우 Engine/Binaries) 디렉터리에 생기게 됩니다.
+Mac 드라이브의 /UE4/Builds 디렉터리를 살펴보면 자신의 PC 컴퓨터 이름으로 된 디렉터리를 발견할 수 있습니다. 그 디렉터리 구조는 자신의 PC 디렉터리 구조와 똑같이 미리렁된 구조입니다. 컴파일이 완료되면 실행파일은 게임의 Binaries (또는 게임 없이 UE4 프로젝트를 컴파일한 경우 Engine/Binaries) 디렉터리에 생기게 됩니다.
 
 ### Xcode 로 실행/디버깅하기
 
-이제 디바이스에서 실행하기 위해 맥으로 갑니다:
+이제 디바이스에서 실행하기 위해 Mac으로 갑니다:
 
 * /UE4/Builds/.../UE4/Engine/Binaries/IOS 에서 UE4_FromPC.xcodeproj 를 엽니다.
 * 게임의 타깃을 (QAGame_RunIOS 같은 것을) 선택합니다.
@@ -260,16 +260,16 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 * Run 을 클릭하면 게임을 디바이스에 설치한 다음 실행을 시작시키고, 게임은 PC 쿠커에 접속됩니다 (쿠커 출력창에 약간의 접속 메시지가 보일 것입니다).
 
 
-## 맥 기반 작업방식
+## Mac 기반 작업방식
 
-맥에서 IOS 용 컴파일이 가능합니다. 이 방법은 얼마 되지 않아서, 문제가 있을 수 있습니다:
+Mac에서 IOS 용 컴파일이 가능합니다. 이 방법은 얼마 되지 않아서, 문제가 있을 수 있습니다:
 
 ### 컴파일 및 실행하기
 
 * //depot/UE4/GenerateProjectFiles_AllPlatforms.command 를 실행합니다.
 * Xcode 에서 UE4/UE4.xcodeproj 를 엽니다.
 * QAGame - Mac 을 선택합니다.
-* 스키마에서 (Option-Command-R) Development 를 선택한 다음 Done 을 클릭합니다. Command-B 키로 맥 실행파일을 빌드합니다.
+* 스키마에서 (Option-Command-R) Development 를 선택한 다음 Done 을 클릭합니다. Command-B 키로 Mac 실행파일을 빌드합니다.
 * Terminal 에서 iOS 쿠커를 실행합니다.
     * Terminal.app 을 실행한 다음 UE4/Engine/Binaries/Mac 디렉터리로 cd 하고서 (QAGame 은 자신의 게임 이름으로 바꾸고) 이렇게 실행합니다:
 	    * open UE4Editor.app --args QAGame -run=cook -targetplatform=ios -cookonthefly
@@ -277,7 +277,7 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 * 스키마에서 (Option-Command-R), Info 에 Development 를 선택한 다음 Arguments 로 갑니다.
     * 게임에 필요한 명령줄 옵션과 아울러 다음 부분도 추가해 줍니다:
 	    * -filehostip=xx.xx.xx.xx
-		* xx.xx.xx.xx 는 쿠커를 실행중인 맥의 IP 주소입니다.
+		* xx.xx.xx.xx 는 쿠커를 실행중인 Mac의 IP 주소입니다.
 
 
 

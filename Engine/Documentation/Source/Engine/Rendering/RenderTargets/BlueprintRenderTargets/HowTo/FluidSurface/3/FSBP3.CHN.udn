@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:3.蓝图设置
 description:了解流体表面蓝图的设置。
@@ -17,6 +17,7 @@ checkpoint:FSB
 
 所需的材质和渲染目标创建和设置好后，即可创建新蓝图并对其进行配置，使其成为流体表面 Actor。 
 
+(#BlueprintCreation&VariableSetup)
 ## 蓝图创建和变量设置 
 1. 在 Content Browser 中点击右键，点击菜单 **Create Basic Asset** 部分的 **Blueprint Class** 选项。
 
@@ -45,6 +46,7 @@ checkpoint:FSB
 	|InteractionDistance|浮点数|1.0|
 	|MouseDown|布尔值|Un-Checked|
 
+(#BlueprintFunctionCreation&Setup)
 ## 蓝图函数创建和设置
 蓝图和所需的变量创建完成后，即可开始创建一些函数。在以下部分中，我们将了解这三个函数，以及如何对它们进行设置。
 
@@ -88,6 +90,7 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#CameraTrace]
 	[/REGION]
 
+(#BlueprintConstructionGraphSetup)
 ## 蓝图构建图表设置
 构建图表用于创建和设置静态网格体与材质。流体模拟需要这两者才能正常工作。在以下部分中，我们将了解这三个函数，以及如何对它们进行设置。
 
@@ -101,6 +104,7 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#ConScript]
 	[/REGION]
 
+(#BlueprintEventGraphSetup)
 ## 蓝图事件图表设置
 该效果所需要的一切内容均在事件图表中进行添加和连接。在以下部分中，我们将了解事件图表每个部分的作用，以及其会对放置在世界场景中的最终蓝图产生何种影响。
 

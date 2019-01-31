@@ -12,7 +12,7 @@ topic-image:FP_FirstPersonBP_Preview.png
 
 **First Person Template**, 일인칭 템플릿을 사용하여 새로운 게임을 막 만들기 시작하셨다면, 잘 된 일입니다! 구체적인 무언가를 이뤄내는 방법 안내서를 찾고 계신가요? 끝도 없이 펼쳐져 있는 빈 캔버스에서 무한한 가능성을 보고 계신가요? 이 문서에는 구현할 수 있는 아이디어를 참고해 보시기 바랍니다.
 
-* **블루프린트 비주얼 스크립트** 시스템에 대한 [문서](Engine/Blueprints) 와 [비디오](Videos) 를 확인하세요. 가끔 무엇을 할 것인가가 아니라 어떻게 할 것인가가 문제인데, 블루프린트에 대해 잘 알아두면 결국 C++ 로 작업을 하게 될지라도 아이디어의 빠른 프로토타입 작업이 가능합니다.
+* **블루프린트 비주얼 스크립트** 시스템에 대한 [문서](Engine/Blueprints) 와 [비디오](https://cafe.naver.com/unrealenginekr/735) 를 확인하세요. 가끔 무엇을 할 것인가가 아니라 어떻게 할 것인가가 문제인데, 블루프린트에 대해 잘 알아두면 결국 C++ 로 작업을 하게 될지라도 아이디어의 빠른 프로토타입 작업이 가능합니다.
 * [캐스케이드 파티클 에디터](Engine/Rendering/ParticleSystems/Cascade) 를 사용하여 총구 섬광을 나타내는 [파티클 이펙트](Engine/Rendering/ParticleSystems) 를 만듭니다. 그런 다음 [파티클 시스템 컴포넌트](Engine/Components/Rendering#파티클시스템컴포넌트) 를 사용하여 **FirstPersonCharacter** 블루프린트에 추가하고, **InputAction Fire** Event 에서 컴포넌트를 활성화(Activate)시킵니다.
 	* **보너스**: **FirstPersonProjectile** 에 파티클 시스템 컴포넌트를 추가하여 그 뒤에 연기자욱같은 것을 추가합니다. [여기서](Engine/Rendering/ParticleSystems/Reference/Modules/Required) **Use Local Space** 를 찾아봅니다.
 * 일인칭 게임에 쓸 [**HUD** 제작](Engine/UMG/QuickStart) 에 [**언리얼 모션 그래픽**](Engine/UMG) 을 사용합니다.

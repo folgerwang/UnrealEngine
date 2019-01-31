@@ -1,113 +1,119 @@
-﻿INTSourceChangelist:2730000
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title: 蓝图用户指南：变量
-Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
-Description: 存放一个值或引用世界中的一个Object或Actor的属性。
+Title:蓝图变量
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
+Description: 保存值或参考世界场景中的对象或Actor的属性。
 version: 4.9
 skilllevel:Intermediate
+Parent:Engine/Blueprints/Scripting
+tags:Data Types
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/variables_topic.png
+
 
 [TOC (start:2)]
 
-## 概述
-
 [EXCERPT:Intro]
-**Variables（变量）** 是存放一个值或引用世界中的一个Object或Actor的属性。这些用户界面 
-内部访问，或者通过设置使得可以在外部进行访问， 
-以便应用放置在关卡中的蓝图实例的设计人员可以修改它们的 
-值。
+ **Variables（变量）** 是保存值或参考世界场景中的对象或Actor的属性。这些 
+属性可以由包含它们的 **蓝图（Blueprint）** 通过内部方式访问，也可以 
+通过外部方式访问，以便设计人员使用放置在关卡中的蓝图实例 
+来修改它们的值。
 [/EXCERPT:Intro]
 
-变量显示为圆角方框，方框内包含了变量的名称：
+变量显示为包含变量名称的圆形框：
 
 ![Variable Nodes](k2_node_variables.png)
 
 
 [REGION:tip]
-关于使用Matinee修改特定类型的变量的信息,请惨重啊[](Engine/Matinee\UserGuide\BlueprintComponents)。
+有关使用Matinee修改特定类型变量的值的信息，请参阅[](Engine/Matinee/UserGuide/BlueprintComponents)。
 [/REGION]
 
 
+(#variabletypes)
+
 ## 变量类型
 
-您可以创建各种类型的变量，包括数据类型的变量（比如布尔型、整型及浮点型）及用于存放类似于Object、Actor及特定类的引用型变量。
-您还可以创建每种变量类型的[数组](Engine/Blueprints\UserGuide\Arrays)。每种变量类型都进行了颜色编码，以方便识别：
+变量能够以各种不同的类型创建，其中包括数据类型（例如布尔、整数和浮点），以及用于保存对象、Actor和特定类等对象的引用类型。 
+此外，您还可以创建每种变量类型的[阵列](Engine/Blueprints/UserGuide/Arrays)。每种类型都采用颜色编码，以便于识别：
 
 [EXCERPT:VarColor]
 
-
-| 变量类型 | 颜色| 示例| 应用|
+| 变量类型 | 颜色 | 示例 | 用途 |
 | -----------   | ------  | --- | --- |
-| **Boolean（布尔型）**   | 红色| ![](RedWire.png) |红色变量代表布尔型(true/false)数据。|
-| **Integer（整型）**   | 蓝绿色| ![](CyanWire.png) | 蓝绿色变量代表整型数据或者没有小数位的数值，比如0、152和 -226。
-| **Float(浮点型)**     | 绿色| ![](GreenWire.png) | 绿色变量代表浮点型数据或具有小数位的数值，比如 0.0553、101.2887和 -78.322。
-| **String（字符串）**    | 洋红色| ![](MagentaWire.png) | 洋红色变量代表字符串型数据或者一组字母数字字符，比如 _Hello World_ 。|
-| **Text(文本)**      | 粉色	  | ![](PinkWire.png) | 粉色变量代表显示的文本数据，尤其是在文本需要进行本地化的地方。|
-| **Vector(向量)**    | 金黄色| ![](GoldWire.png) | 金黄色变量代表向量型数据，或者说是代表由三个浮点型数值的元素或坐标轴构成的数值，比如XYZ 或 RGB 信息。|
-| **Rotator（旋转量）**   | 紫色| ![](PurpleWire.png) |紫色变量代表旋转量数据，这是一组在三维空间中定义了旋转度的数值。|
-| **Transform(变换)** | 橙色| ![](OrangeWire.png) | 橙色变量代表变换数据，它包括平移(三维位置)、旋转及缩放。|
-| **Object（对象）**	| 蓝色|  ![](BlueWire.png)	| 蓝色变量代表Objects（对象）, 包括  _Lights_ 、_Actors_ 、_StaticMeshes_ 、_Cameras_ 及  _SoundCues_ 。|
+| **布尔（Boolean）**   | 红色     | ![](RedWire.png) | 红色变量表示布尔（真/假）数据。|
+| **整数（Integer）**   | 青色    | ![](CyanWire.png) | 青色变量表示整数数据，或没有小数的数字，例如0、152、-226。
+| **浮点（Float）**     | 绿色   | ![](GreenWire.png) | 绿色变量表示浮点数据，或小数数字，例如0.0553、101.2887、-78.322。
+| **字符串（String）**    | Magenta | ![](MagentaWire.png) | 洋红色变量表示字符串数据，或一组字母数字字符，例如Hello World。|
+| **文本（Text）**      | Pink	  | ![](PinkWire.png) | 粉色变量表示显示的文本数据，特别是在该文本具有本地化识别能力的情况下。|
+| **矢量（Vector）**    | 金色    | ![](GoldWire.png) | 金色变量表示矢量数据、由3个元素的浮点数组成的数字、XYZ等轴或RGB信息。|
+| **旋转体（Rotator）**   | 紫色  | ![](PurpleWire.png) | 紫色变量表示旋转体数据，旋转体数据是一组定义三维空间中的旋转的数字。|
+| **变形（Transform）** | 橙色  | ![](OrangeWire.png) | 橙色变量表示变形数据，它结合了平移（三维位置）、旋转和缩放。|
+| **对象（Object）**	| 蓝色    |  ![](BlueWire.png)	| 蓝色变量表示对象，包括光源、Actor、静态网格体、摄像机和声音提示。|
+
 [/EXCERPT:VarColor]
 
-## 我的蓝图选卡中的变量
+(#variablesinthemyblueprinttab)
+
+## 我的蓝图（My Blueprint）选项卡中的变量
 
 [EXCERPT:Panel]
- **我的蓝图** 面板允许给 _蓝图_ 添加自定义的变量，且列出了所有的现有变量， 
-包括在 [组件列表](Engine/Blueprints/UserGuide/Components)中添加的组件实例变量 
-或通过在图表中通过把一个值提升为变量而创建的变量。
-[/EXCERPT:Panel]
 
+我的蓝图（My Blueprint）选项卡允许将自定义变量添加到蓝图，并列出所有现有变量， 
+包括在[组件列表](Engine/Blueprints/UserGuide/Components)中添加的组件实例变量， 
+或通过将值提升到图表中的变量而创建的变量。
+
+[/EXCERPT:Panel]
 
 ![My BLueprint Pane](Engine/Blueprints/Editor/UIComponents/MyBlueprint/MyBlueprintPane.png)
 
 [EXCERPT:CreatingVariables]
+
+(#creatingvariables)
+
 ## 创建变量
 
-在 **我的蓝图** 中，通过使用 ![New Variable](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_variable.png) 按钮可以直接添加新变量。
-您可以在 **我的蓝图** 选卡中命名该变量，并在 **详细信息** 选卡中设置其类型及其他属性。
+按照以下步骤操作即可实现在蓝图中创建变量。 
 
-![Variable Details Pane](new_variable_details.png)
+1. [创建蓝图](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Creation)并将其打开到 **图表（Graph）** 选项卡。 
 
+1. 通过单击变量列表标头![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_variable.png)上的by clicking on the **Add Button** ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png)上的 **添加按钮（Add Button）** ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png)，从 **我的蓝图（MyBlueprint）** 窗口创建一个新变量。
 
-**要想添加一个新变量:**
+	![](MyBlueprintPane_createVar.png)
 
-1. 在 **我的蓝图** 选卡内，在文本框中输入该变量的名称，并按下 **回车** 键。
+1. 一个新变量随即创建，同时提示您输入它的名称。 
 
-	![Variable Name](variable_name.png)
+	![](HT5.png)
 
-1. 在 **详细信息** 选卡中，从 **Variable Type(变量类型)** 菜单中选择您想添加的变量的类型。
+	输入蓝图的名称，然后进入 **细节（Details）** 面板以调整变量的属性。
 
-	![Set New Variable Type](new_variable_type.png)
+1. 在 **细节（Details）** 面板中，有几个设置可用于定义如何使用或访问变量。 
 
-	某些变量类型需要展开来查看需要的子菜单项，比如对象或结构体。
+	![](HT6.png)
 
-	![New Variable Type Submenu](variable_object_submenu.png)
+	[REGION:note]
+	若要为变量设置 **默认值（Default Value）**，您必须先 **编译（Compile）** 蓝图。 
+	[/REGION]
 
-1. 如果您正在创建这种变量类型的[数组](Engine/Blueprints\UserGuide\Arrays)，请点击 **Variable Type（变量类型）** 下拉框旁边的Array(数组)按钮。
+| 选项 | 说明 |
+|----------------------|----------------------|
+| **变量名称（Variable Name）** | 变量的名称。|
+| **变量类型（Variable Type）** | 通过下拉菜单设置[变量类型](Engine/Blueprints/UserGuide/Variables#variabletypes)，并确定变量是否是[阵列](Engine/Blueprints/BP_HowTo/WorkingWithArrays) 。|
+| **可编辑（Editable）** | 变量是否可在蓝图实例上公开编辑。|
+| **提示文本（Tooltip）** | 有关此变量的额外信息，当光标位于该变量上时显示。|
+| **生成时公开（Expose on Spawn）** | 在生成蓝图时，变量是否应作为引脚公开。|
+| **私有（Private）** | 变量是否应设置为私有（派生的蓝图不能修改它）。|
+| **公开到Matinee（Expose to Matinee）** | 变量是否应设置为公开以便 **Matinee** 可以修改它。|
+| **配置变量（Config Variable）** | 允许从配置文件设置变量。|
+| **类别（Category）** | 允许根据给定标签对变量进行分类。变量将按其标签排序。|
+| **复制（Replication）** | 此变量是否应在网络上[复制](Gameplay/HowTo/Networking/ReplicateVariable/Blueprints)。|
 
-	![](example_variable_array.png)
+还有一些序列化选项可以通过展开 **细节（Details）** 面板来定义。 
 
+![](HT37.png)
 
-**提升变量:**
-[EXCERPT:PromoteVariable]
-您可以把一个 _节点_ 上的任何输入或输出引脚提升为变量，除非该引脚是无类型的 [数组](Engine/Blueprints\UserGuide\Arrays)引脚。
+在这里，您可以使用 **临时（Transient）** 选项设置变量是否序列化以及在加载时是否以零填充。您还可以使用 **保存游戏（SaveGame）** 选项为保存的游戏设置变量是否序列化。
 
-![](set_light_color_node.png)
-
-1. 右击您想提升为变量的引脚，然后从弹出的菜单中选择 **Promote to Variable（提升为变量）** 。
-
-	![](promote_to_variable.png)
-
-1. 在  **新变量名称** 菜单中输入您的新变量的名称。
-
-	![](name_promoted_variable.png)
-
-
-图表上将会出现到那个新变量的引用。将一个输入引脚提升为变量将会创建一个Get节点，将一个输出引脚提升为变量将会创建一个Set节点。
-
-![](promoted_variable_reference.png)
-
-您的新变量将会列出在 **我的蓝图** 选卡中，在那里您可以选择它并在 **Details（详细信息）** 选卡中编辑它的详细信息。
-[/EXCERPT:PromoteVariable]
 [/EXCERPT:CreatingVariables]
 
 [COMMENT:none]
@@ -118,69 +124,223 @@ skilllevel:Intermediate
 
 [/COMMENT]
 
+(#editablevariables)
+
+### 可编辑变量
+
+[EXCERPT:editingvars]
+
+当变量被设置为 **可编辑（Editable）** 时，这允许从该变量所在的蓝图外部修改该变量。 
+
+[REGION:raw]
+![](HT21.png)
+[/REGION]
+
+您可以从 **细节（Details）** 面板的 **可编辑（ Editable）** 设置下将变量设置为可编辑（Editable），也可以单击 **我的蓝图（MyBlueprint）**窗口中变量旁边的 **闭眼（Closed Eye）**图标来进行此设置。当眼睛图标关闭时，变量当前被设置为不可编辑（这是默认设置）。当眼睛图标打开时，变量被设置为 **公开（Public）**（或 **不可编辑（Editable）**，如下所示）。 
+
+当变量被设置为可编辑（ Editable）时，您可以从主编辑器（Main Editor）窗口的 **细节（Details）** 面板设置变量的值。 
+
+![](HT23.png)
+
+上面，变量 **光源颜色（LightColor）** 已被设置为可编辑（ Editable），我们现在可以在关卡编辑器的 **细节（Details）** 面板中设置此值。 
+
+[/EXCERPT:editingvars]
+
+(#variabletooltips)
+
+### 变量提示文本
+
+您还可以为变量添加 **提示文本（Tooltip）**，当鼠标在编辑器中悬停于变量之上时，将显示此提示文本。 
+
+![](HT25.png)
+
+您可以从变量的 **细节（Details）** 面板中添加 **提示文本（Tooltip）**。当您执行此操作时，如果变量设置为 **公开（Public）**，那么眼睛（Eye）图标将从黄色变为绿色，表示已为该变量编写提示文本。
+
+[REGION:raw]
+![](HT24.png)
+[/REGION]
+
+(#exposeonspawn)
+
+### 生成时公开
+
+ **生成时公开（Expose on Spawn）** 选项允许您设置变量是否应在生成其所在的蓝图时可访问。 
+
+![](HT26.png)
+
+上面我们有一个名为 **光源颜色（LightColor）** 的变量，它是一个设置为 **生成时公开（Expose on Spawn）** 的线性颜色属性。该变量在点光源的蓝图中实现，点光源使用 **设置光源颜色（Set LightColor）** 节点和 **光源颜色（LightColor）** 变量来确定光源的颜色。 
+
+下面，在另一个蓝图中，使用一个脚本来生成点光蓝图，由于 **光源颜色（LightColor）** 变量设置为生成时公开（Expose on Spawn），所以 **从类生成Actor（Spawn Actor from Class）** 节点上提供了设置此值的选项，这使我们能够在游戏世界中生成光源时设置其颜色。 
+
+![](HT27.png)
+
+(#privatevariables)
+
+### 私有变量
+
+通过在变量上选中 **私有（Private）** 选项，可以防止从外部蓝图修改变量。 
+
+例如，下面有一个未设置为私有的变量： 
+
+![](HT42.png)
+
+在另一个蓝图中，我们生成包含此变量的蓝图，然后关闭 **返回值（Return Value）**，结果是我们可以访问此变量。 
+
+![](HT43.png)
+
+但如果我们将它设置为私有： 
+
+![](HT41.png)
+
+然后再次生成蓝图并尝试访问此变量，结果是我们无法访问。 
+
+![](HT44.png)
+
+
+(#exposetomatinee)
+
+### 公开到Matinee
+
+若要使变量受 **Matinee** 影响，您需要选中 **公开到Matinee（Expose to Matinee）**选项。 
+
+![](HT31.png)
+
+下面，我们创建了一个Matinee，并添加了包含蓝图的轨迹。然后，我们想要通过Matinee来修改此蓝图中的线性颜色（Linear Color）变量，并且可以通过添加 **线性颜色属性轨迹（LinearColor Property Track）** 来实现此目的。 
+
+![](HT32.png)
+
+然后，我们将收到提示，它要求我们选择线性颜色（LinearColor）变量，以从蓝图（**光源颜色（LightColor）**）属性进行修改。 
+
+![](HT33.png)
+
+一旦我们执行了此操作，我们就可以向轨迹添加键，以便随着时间的推移修改变量的值。 
+
+![](HT34.png)
+
+[REGION:note]
+有关使用 **Matinee** 的更多信息，请参阅[](Engine/Matinee)文档。 
+[/REGION]
+
+
+(#promotingtovariable)
+
+## 提升为变量
+
+[EXCERPT:PromoteVariable]
+
+您还可以使用 **提升为变量（Promote to Variable）** 选项创建变量。 
+
+ **右键单击** 蓝图节点上的任何输入或输出数据引脚，并选择 **提升为变量（Promote to Variable）** 选项。 
+
+![](HT38.png)
+
+通过在 **新光源颜色（New Light Color）** 引脚上 **单击右键** 并选择 **提升为变量（Promote to Variable）** 选项，我们可以将一个变量指定为 **新光源颜色（New Light Color）** 值。 
+
+![](HT40.png)
+
+或者，您可以拖出一个输入或输出引脚，并选择 **提升为变量（Promote to Variable）** 选项。 
+
+![](HT39.png)
+
+[/EXCERPT:PromoteVariable]
+
+(#accessingvariablesinblueprints)
+
+## 访问蓝图中的变量
+
+在使用蓝图中的变量时，您通常会通过以下两种方式之一访问它们：通过使用 **获取（Get）** （被称为Getter）来获取变量的值，或使用 **设置（Set）** 节点（被称为Setter）来设置变量的值。 
+
+![](HT45.png)
+
+您可以通过在图表中 **单击右键** 并键入 **Set (变量名) ** 或 **Get (变量名)**，为变量创建一个 **设置（Set）** 节点（上面1）或 **获取（Get）** 节点（上面2）。另一种方法是按住 **Ctrl** 键并将变量从 **我的蓝图（MyBlueprint）** 窗口拖动变量来创建一个 **获取（Get）** 节点，或者按住 **Alt** 键并从 **我的蓝图（MyBlueprint）** 窗口中拖动变量来创建一个 **设置（Set）** 节点。 
+
+
+
+
+
+
+
+
+
+
+
+(#editingvariables)
+
 ## 编辑变量
 
-变量值可设置为蓝图节点网络的一部分，或者在执行前设置为默认值。要想设置变量的默认值：
+您可以在执行之前将变量值设置为蓝图节点网络的一部分或默认值。若要设置变量默认值：
 
-1. 在蓝图编辑器中选择 **Defaults（默认）** 模式或在  **Components(组件)** 或 **Graph（图表）** 模式中的 **Window（窗口）** 菜单内打开   [**Blueprint Defaults（蓝图默认值）**](Engine/Blueprints/Editor/Modes/Defaults)  选卡。
+1. 单击蓝图编辑器工具栏上的 **类默认（Class Defaults）** 按钮，以在 **细节（Details）** 面板中打开默认设置（Defaults）。
 
-	![](Engine/Blueprints/UserGuide/Types/LevelBlueprint/defaults_window_menu.png)
-
-1. 在您的变量名称的右侧输入想使用的默认值。
+1. 在 **细节（Details）** 面板中，从变量名称右侧输入所需的默认值。
 
 	![](blueprint_details_variable_callout.png)
 
-	[REGION:note]
-	如果您在默认值列表中没有看到你的变量，那么请确定您点击了 ![Compile Needed（编译需要编译的内容）](Engine/Blueprints/Editor/UIComponents/Toolbar/bp_needs_compile.png) 按钮。
-	[/REGION]
+	上面我们突出显示了颜色（Color）变量，我们可以在其中设置其默认颜色。 
+
+[REGION:note]
+如果您没有看到变量在默认中列出，请确保单击了 **编译（Compile）** 按钮。 
+[/REGION]
+
+
+
+(#renamingvariables)
 
 ### 重命名变量
 
-要想重命名一个变量:
+若要重命名变量：
 
-1. 在 **我的蓝图** 选卡中右击变量名称，并在出现的菜单中选择 **Rename（重命名）** 。
+1. 在 **我的蓝图（My Blueprint）** 选项卡中 **右键单击** 变量名称，然后在出现的菜单中选择 **重命名（Rename）**。
 
 	![](rename_variable_menu.png)
 
-1. 在文本框中输入新变量的名称，并按下 **回车** 键来保存它。
+1. 在文本框中键入新的变量名称，然后按 **Enter** 进行保存。
 
 	![](rename_variable.png)
 
+(#variableproperties)
 
 ### 变量属性
 
-您可以在 **详细信息** 面板中设置一个变量的所有属性。某些变量的属性数量会比这里显示的属性数量更多，比如向量的 **Expose to Matinee（暴露给Matinee）** 属性或 像 _整型_ 或 _浮点型_ 这样的数值变量的 **Slider Range（滑块范围）** 属性。
+您可以在 **细节（Details）** 面板中为变量设置所有属性。有些变量可能具有比此处所示更多的属性，例如，对于矢量，有 **公开到Matinee（Expose to Matinee）**，对于整数或浮点数等数字变量，有 **滑块范围（Slider Range）**。
 
-|属性|描述|
+|属性|说明|
 |--------|-----------|
-| **Variable Type（变量类型）** | 设置下拉菜单中的变量类型，并决定该变量是否是个数组。| 
-|**Editable（可编辑）**| 设置是否可以在 **Blueprint Defaults(蓝图默认值)** 及 _蓝图_ 的 **详细信息** 面板中编辑该变量的值。|
-|**Tooltip（工具提示信息）**| 设置该变量的工具提示信息。|
-|**Private（私有）** | 设置该变量是否应该是私有变量，如果是私有的，则不能被该 _蓝图_ 的子类所修改。|
-|**Category （类目）**| 选择一个现有类目或者输入一个新类目的名称。设置类目决定了在 **蓝图默认值** 、**我的蓝图** 选卡及 _蓝图_ 的 **详细信息** 选卡中该变量出现的位置。
-|**Replication（复制）**|选择是否应该在客户端之间复制该变量的值、是否复制该值、是否应该通过调用函数产生一个通知。| 
+|**变量类型（Variable Type）** | 在下拉菜单中设置变量类型，并确定变量是否为阵列。| 
+|**可编辑（Editable）**| 设置可否在 **类默认（Class Defaults）** 和蓝图的 **细节（Details）** 选项卡中编辑变量的值。|
+|**提示文本（Tooltip）**| 为变量设置提示文本。|
+|**私有（Private）** | 设置该变量是否应为私有且是否不应由派生蓝图修改。|
+|**类别（Category）** | 从现有类别中选择，或键入一个新的类别（Category）名称。设置类别（Category）确定变量在 **类默认（Class Defaults）**、**我的蓝图（My Blueprint）**选项卡和蓝图的 **细节（Details）** 选项卡中所处的位置。| 
+|**复制（Replication）** | 选择变量的值是否应在客户端之间复制，以及如果复制该值，是否应通过回调函数发出通知。| 
 
-### 获取&设置变量值
+(#getting&settingvariablevalues)
 
-变量也可以作为您的蓝图网络的一部分来进行编辑，通过Get和Set节点来完成。创建这些节点的最简单的方法是，从变量选卡中直接拖拽变量到事件图表中， 将会出现一个小菜单，询问您是否要创建一个Get或Set节点。
+### 获取和设置变量值
+
+您还可以通过获取（Get）和设置（Set）节点的方式将变量作为蓝图网络的一部分进行编辑。最简单的创建方法是将变量直接从变量（Variables）选项卡拖至事件图表（Event Graph）中。一个小菜单随即出现，询问您是否要创建获取（Get）或设置（Set）节点。 
 
 
 ![](VariableGetSet.png)(w:600)
 
 
-#### Get 节点
+(#getnodes)
 
-Get节点向部分节点网络提供一个变量值。一旦创建这些节点，可以把它们连入到取入适当类型的任何节点中。
+#### 获取（Get）节点
+
+获取（Get）节点提供具有变量值的网络部分。完成创建后，您可以将这些节点插入任何具有适当类型的节点。
 
 ![](GetVariable.png)
 
-#### Set节点
+(#setnodes)
 
-Set节点允许您修改变量的值。注意，这些节点必须通过执行引脚连线进行调用才能执行。
+#### 设置（Set）节点
+
+设置（Set）节点允许更改变量的值。请注意，这些节点必须由执行线调用才能执行。
 
 ![](SetVariable.png)
 
-| **当从我的蓝图选卡中进行拖拽时可以使用的快捷方式** | |
+| **从我的蓝图选项卡拖动时的快捷方式（Shortcuts when dragging from the My Blueprint tab）** | |
 |--- | --- |
-|**Ctrl-拖拽** | 创建一个Get节点。|
-|**Alt-拖拽** |创建一个Set节点。|
+|**Ctrl-拖动** | 创建获取（Get）节点。|
+|**Alt-拖动** | 创建设置（Set）节点。|
+

@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3200408
+﻿INTSourceChangelist:4057278
 Availability:Public
-Title:Ansel 插件总览
-Description:Nvidia Ansel 游戏内摄影工具虚幻引擎集成的总览。此工具可从游戏中采集高精度图像并进行分享
+TItle:NVIDIA Ansel插件概览
+Description:NVIDIA Ansel游戏内摄影工具虚幻引擎4集成的概览。此工具可从游戏中采集高精度图像并进行分享。
 Crumbs:
 Parent:Engine/Plugins/Ansel
 Order:1
@@ -12,69 +12,85 @@ version:4.14
 topic-image:Engine/Plugins/Ansel/Ansel_topic.png
 
 [EXCERPT:intro]
-Nvidia 的 Ansel 工具使 PC 玩家能更便捷地从游戏中采集高精度图像并进行分享。将 Ansel UE4 插件整合到游戏中的方法简单而快捷。
+NVIDIA的Ansel技术使PC玩家能更便捷地从游戏中采集高精度图像并进行分享。将Ansel UE4插件集成到游戏中的方法简单而快捷。
 
-可在 [Nvidia Ansel 站点](http://www.geforce.com/hardware/technology/ansel) 查看 Ansel 终端用户总览。
+可在 [NVIDIA Ansel站点](http://www.geforce.com/hardware/technology/ansel) 上查看Ansel最终用户概览。
 
-虚幻引擎 4 中可用的 Ansel 功能有：
+虚幻引擎4中可用的Ansel功能有：
 
-* **Free Camera** - 在拍照前将摄像机调整到最佳角度
-* **Super Resolution** - 进行高于游戏分辨率的渲染，获得终极的图像质量 
-* **Post Processing** - 应用滤镜调整氛围。 
-* **360 Capture** - 采集可在 PC 或 VR 头戴设备上查看的 360 度全景图。 
+* **自由相机（Free Camera）** - 在拍照前将相机定位到最佳位置
+* **超级分辨率（Super Resolution）** - 进行高于游戏分辨率的渲染，获得终极的图像质量 
+* **后期处理（Post Processing）** - 应用滤镜调整氛围 
+* **360度截图（360 Capture）** - 采集可在PC或VR头盔上查看的360度全景图 
+
+(#hardwareandsoftwarerequirements)
 
 ## 硬件和软件要求
 
 | 项目 | 要求 |
 | ---- | ----------- |
-| 虚幻引擎版本 | 4.14 或更新版本 |
+| 虚幻引擎版本 | 4.14或更高版本 |
 | 操作系统 | Microsoft Windows |
-| GPU | NVIDIA GTX 780 或以上 [REGION:none]可在 [Ansel 支持 GPU 页面](http://www.geforce.com/hardware/technology/ansel/supported-gpus) 查看完整兼容列表[/REGION] |
-| 显示驱动 | Nvidia Geforce 372.90 或更新 |
+| GPU | NVIDIA GTX 780或以上 [REGION:none] 可在 [Ansel支持的GPU页面](http://www.geforce.com/hardware/technology/ansel/supported-gpus) 上查看完整兼容性列表[/REGION] |
+| 显卡驱动 | NVIDIA GeForce 372.90或更新 |
 [/EXCERPT:intro]
 
-## 在游戏用启用 Ansel Photography
+(#enablinganselphotographyforyourgame)
 
-**在游戏中启用 Ansel Photography 的方法：**
+## 为游戏启用Ansel Photography
 
-1.	在关卡编辑器工具栏的 **Settings** 下拉菜单中选择 **Use Plugins** 打开 **插件浏览器**。
+**在游戏中启用Ansel Photography功能的方法：**
+
+1.	在关卡编辑器工具栏的 **设置（Settings）** 下拉菜单中，选择使用 **插件（Plugins）** 打开 **插件浏览器**。
 
 	![](Settings_Menu.png)
 
-1.	选中 **Photography** 类目并找到 **Nvidia Ansel Photography Plugin**。启用 _Enabled_ 选项。
+1.	选择 **摄影（Photography）** 类别并找到 **NVIDIA Ansel摄影插件（NVIDIA Ansel Photography Plugin）**。启用 _启用（Enabled）_ 选项。
 
 	![](Plugin_Enabled.png)
 
 1.	重启虚幻编辑器。
 
-游戏中现在便拥有了一个可以正常调用的 Ansel Photography 模式。如需了解在游戏中测试 Ansel 集成的方法，请查阅 [](Engine/Plugins/Ansel/Testing) 页面。
+游戏中现在便拥有了一个玩家可以调用的有效Ansel摄影模式。有关在游戏中测试Ansel集成的说明，请参阅 [](Engine/Plugins/Ansel/Testing) 页面。
+
+(#capturetypes)
 
 ## 采集类型
 
-Ansel 提供以下采集类型：
+Ansel提供以下采集类型：
 
-| 采集类型 | 范例 | 描述 |
+| 采集类型 | 示例 | 说明 |
 | --- | --- | --- |
-| **Screenshot** | [REGION:lightbox][![](capture_normal.png)(w:320)](capture_normal.png)[/REGION] | 使用当前视口分辨率进行的标准截图 |
-| **Superresolution** | [REGION:lightbox][![](capture_super.jpg)(w:320)](capture_super.jpg)[/REGION] | 使用当前视口可配置的多个分辨率进行的高精度截图 |
-| **360** | [REGION:lightbox][![](capture_360.jpg)(w:320)](capture_360.jpg)[/REGION] | 使用可配置分辨率进行的 360 度全景截图 |
-| **Stereo** | [REGION:lightbox][![](capture_stereo.jpg)(w:320)](capture_stereo.jpg)[/REGION] | 在每个试点处使用当前视口分辨率进行的立体截图 |
-| **360 Stereo** | [REGION:lightbox][![](capture_360stereo.jpg)(w:320)](capture_360stereo.jpg)[/REGION] | 使用可配置分辨率进行的 360 度全景立体截图 |
+| **截图（Screenshot）** | [REGION:lightbox][![](capture_normal.png)(w:320)](capture_normal.png)[/REGION] | 使用当前视口分辨率的标准截图 |
+| **超级分辨率（Superresolution）** | [REGION:lightbox][![](capture_super.jpg)(w:320)](capture_super.jpg)[/REGION] | 使用当前视口分辨率的可配置倍数的高分辨率截图 |
+| **360** | [REGION:lightbox][![](capture_360.jpg)(w:320)](capture_360.jpg)[/REGION] | 使用可配置分辨率的360度全景截图 |
+| **立体（Stereo）** | [REGION:lightbox][![](capture_stereo.jpg)(w:320)](capture_stereo.jpg)[/REGION] | 为每个视口使用当前视口分辨率的立体截图 |
+| **360度立体（360 Stereo）** | [REGION:lightbox][![](capture_360stereo.jpg)(w:320)](capture_360stereo.jpg)[/REGION] | 使用可配置分辨率的360度全景立体截图  |
 
-使用 **Capture type** 滑条即可选择采集类型：
+要选择采集类型，可以使用 **采集类型（Capture type）** 滑块：
 
 ![](capture_select.png)(w:960)
 
 
 [REGION:note]
-并非所有滤镜均对多部分采集类型有效（如 360 和 Highres）。因此最终图像中可能不包含滤镜或滤镜的效果。
+并非所有Ansel滤镜均对多部分采集类型有效（例如 360 和 Highres）。因此最终图像中可能不包含滤镜或部分滤镜效果。
 
-同样，并非所有 UE4 后期处理效果均对多部分采集类型有效。因此，存在问题的标准 UE4 后期处理效果将自动从最终图像中移除。
+同样，并非所有UE4后期处理效果均对多部分采集类型有效。因此，存在问题的标准UE4后期处理效果将自动从最终图像中移除。
 [/REGION]
+
+(#cameraconstraints)
+
+## 相机约束
+
+拍照者可以自由移动相机，默认情况下具有两个约束：
+1. 相机不能离开其初始位置特定距离。
+1. 相机不能从可碰撞对象中通过，例如，墙和角色。
+
+(#filters)
 
 ## 滤镜
 
-可应用多个滤镜调整画面效果。
+可应用多个滤镜来调整场景效果。
 
 [REGION:fullwidth]
 [OBJECT:SliderSequence]
@@ -88,7 +104,7 @@ Ansel 提供以下采集类型：
 	jpg
 	[/PARAMLITERAL]
 	[PARAM:caption]
-	拖动查看可用的滤镜
+	拖动滑块可查看可用滤镜的效果
 	[/PARAM]
 	[PARAM:image_list]
 	![](filter_slider_1.png)
@@ -103,18 +119,24 @@ Ansel 提供以下采集类型：
 [/OBJECT]
 [/REGION]
 
-使用 **Filter** 滑条即可选择滤镜：
+要选择滤镜，可以使用 **滤镜（Filter）** 滑块：
 
 ![](filter_select.png)(w:960)
 
 [REGION:tip]
-使用部分滤镜（如 **Custom** 滤镜）拥有的附加设置可进行深入调整。
+可以使用 **自定义（Custom）** 滤镜等部分滤镜具有的附加设置来进一步调整滤镜。
 [/REGION]
 
+(#controllinggameeffectsfromtheanselui)
+
+## 从Ansel UI控制游戏效果
+
+Ansel插件将检测游戏是否使用了聚焦、泛光等特定图形效果并向Ansel UI添加“游戏设置（Game settings）”部分。摄影过程中展开此部分可控制这些选项。
+
+![](game_settings.png)(w:960)
+
+(#customizingtheplayerexperience)
 ## 自定义玩家体验
 
-Ansel 插件的默认配置旨在提供典型项目的常规体验。为达到最佳玩家体验，应根据游戏的需求进行配置并与游戏逻辑进行潜在整合。在 [](Engine/Plugins/Ansel/Reference/ConsoleVariables) 和 [](Engine/Plugins/Ansel/Reference/BlueprintAPI) 中查看可用选项和逻辑钩的信息。
+Ansel插件的默认配置旨在为典型项目提供健全的开箱即用体验。要打造最佳玩家体验，应根据游戏的需求进行配置并与游戏逻辑进行潜在整合。有关可用选项和逻辑连接的信息，请参阅 [](Engine/Plugins/Ansel/Reference/ConsoleVariables) 和 [](Engine/Plugins/Ansel/Reference/BlueprintAPI)。
 
-## 发布带 Ansel Photography 功能的游戏
-
-请游戏开发工作室联系 [NVIDIA Ansel 团队](mailto:ansel@nvidia.com)，使游戏的 Ansel 支持对所有玩家完全公开。

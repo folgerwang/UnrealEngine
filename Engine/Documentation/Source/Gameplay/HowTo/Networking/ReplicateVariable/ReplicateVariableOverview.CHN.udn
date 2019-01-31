@@ -1,11 +1,12 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:同步变量
 Crumbs: %ROOT%, Gameplay
 Description:在多人游戏中同步变量的指南。 
 Version: 4.9
 Parent:Gameplay
-type:how-to
+SkillLevel: Advanced
+type:overview
 order:17
 
 [EXCERPT:Overview]
@@ -17,13 +18,10 @@ order:17
 它不仅可以执行 Replicated 的所有操作，还将提供一个函数，该函数将在变量连接到更新时被调用并同时在服务器和客户端机器上执行。 
 [/EXCERPT:Overview]
 
-## 设置
+(#ImplementationGuides)
+## 实现指南
 
-关于使用蓝图设置同步变量的详细信息，请访问以下链接：
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\Networking\ReplicateVariable\Blueprints)
-[/REGION]
+[DIR(output:"role" parent:"Gameplay/HowTo/Networking/ReplicateVariable" org:"hierarchy" end:"1")]
 
 
 

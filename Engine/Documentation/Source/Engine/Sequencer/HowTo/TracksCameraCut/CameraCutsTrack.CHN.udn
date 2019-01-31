@@ -1,121 +1,118 @@
-﻿INTSourceChangelist:3009005
-Availability:Public
-Title:处理镜头切换
-Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:展示如何通过镜头切换轨道使用多台摄像机。 
-Version:4.12
-SkillLevel:Intermediate
+﻿INTSourceChangelist:4377326
+Availability: Public
+Title:使用摄像机镜头切换
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+Description:讲解如何使用镜头切换轨迹来使用多镜头拍摄。 
+Version: 4.20
+SkillLevel: Intermediate
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
-Related:Engine/Sequencer/Overview
-Related:Engine\Sequencer\ReferenceEditor\
+Related: Engine/Sequencer/Overview
+tags:Sequencer
+type:how-to
 
-在过场动画中有了内容之后，您可能想从不同的摄像机角度拍摄该内容。 
-在 Sequencer 中，这可以通过 **镜头切换轨道** 并选择要在场景中的给定时间使用的摄像机来实现。 
+在过场动画中有了内容之后，你可能想从不同的摄像机视角拍摄该内容。 
+在Sequencer中，这可以通过 **镜头切换轨迹** 以及选择给定时间要在场景中使用的摄像机来实现。 
 
-在本示例中，我们将使用镜头切换轨道在摄像机之间来回切换，就像两个角色在相互交谈一样。 
+在本示例中，我们将使用“镜头切换轨迹”在摄像机之间来回切换，就像两个角色在相互交谈一样。 
 
 ## 步骤
 
 [REGION:note]
-在本操作指南中，我们使用 **Blueprint Third Person Template** 项目，并 **启用了起步内容**。 
+在本操作指南中，我们使用 **启用初学者内容包** 的 **蓝图第三人称模板（Blueprint Third Person Template）** 项目。 
 [/REGION]
 
-1. 	在视口中，选择 **ThirdPersonCharacter** 并从关卡中将其 **删除**。 
+1.	在视口中，选择 **ThirdPersonCharacter** 并从关卡中将其 **删除**。 
 
 	![](cameras01.png)
 	
-	这是游戏过程中的可操纵角色，而本示例不需要此角色。 
+	这是游戏过程中的可操作角色，而本示例不需要此角色。 
 
-1. 	在 **内容浏览器** 中的 **Content/Mannequin/Character/Mesh** 下，将 **SK_Mannequin** 拖动到关卡中。
+1.	在 **内容浏览器** 中的 **内容（Content）>人体模型（Mannequin）>角色（Character）>网格体（Mesh）** 下，将 **SK_Mannequin** 拖动到关卡中。
 
-	![](cameras02.png)
+	![](CameraCuts_02.png)
 
-1. 	按住 **Alt** 键并拖动鼠标，以创建 **SK_Mannequin** 的副本。 
+1.	再向关卡中添加一个 **SK_Mannequin**，然后旋转它，使它与第一个人体模型面对面。 
 
-	![](cameras03.png)
+	![](SecondCharacter.png)
 
-1. 	按 **E** 键并旋转 SK_Mannequin，使它们彼此面对。 
+	我们将在这两个人体模型之间拍摄示例场景，并使摄像机视角在这两个人体模型之间交替。
 
-	![](cameras04.png)
+1.	在主工具栏中，单击 **过场动画（Cinematics）** 下拉菜单，然后选择 **添加关卡序列（Add Level Sequence）**。 
 
-	我们将在这两个模特之间拍摄示例场景，并使摄像机视角在这两个模特之间交替。 
+	![](CameraCuts_03.png)
 
-1. 	在主工具栏中单击 **过场动画（Cinematics）**下拉菜单，然后选择 **添加关卡序列（Add Level Sequence）**。 
+1.	按住 **Ctrl** 键并选中这两个人体模型，然后在Sequencer中单击 **+ 轨迹（Track）** 并选择 **添加当前选择（Add Current Selection）**。 
 
-	![](cameras05.png)
+	![](CameraCuts_04.png)
 
-1. 	按住 **Ctrl** 键并选中这两个模特，然后在 Sequencer 中单击 **添加（Add）**并选择 **添加当前选择（Add Current Selection）**。 
+	这样，两个骨架网格体Actor都将添加到Sequencer中，我们接着可以进行动画制作。 
 
-	![](cameras06.png)
+1.	单击每个动画轨迹上的 **+ 动画（Animation）** 按钮，为每个轨迹添加 **ThirdPersonIdle**。  
 
-	这样，两个骨骼网格 Actor 都将添加到 Sequencer 中，我们接着可以进行动画制作。 
+	![](CameraCuts_05.png)
 
-1. 	通过单击每个动画轨道上的 **添加动画（+ Animation）**按钮，为这两个 Actor 添加 **ThirdPersonIdle**。  
+	你可以选择将空闲动画拉伸至场景长度，使它们保持空闲。 
 
-	![](cameras07.png)
-
-	您可以选择将空闲动画拉伸至场景长度，使它们保持空闲。 
-
-	![](cameras18.png)
+	![](CameraCuts_06.png)
 	
-1. 	在 **过场动画（Cinematic）**下的 **模式（Modes）**面板中，将 **电影摄像机 Actor** 拖到关卡中。 
+1.	在 **模式（Modes）** 面板中的 **过场动画（Cinematic）** 下，将 **电影摄像机Actor（Cine Camera Actor）** 拖到关卡中。 
 
-	![](cameras08.png)
+	![](CameraCuts_07.png)
 
-1. 	按 **Ctrl+Shift+P** 以使该摄像机 **飞行**，并将其定位在某个模特的肩膀上。 
+1.	按 **Ctrl+Shift+P** 以使该摄像机 **飞行**，并将其定位在某个人体模型的肩膀上。 
 
-	![](cameras10.png)
+	![](CameraCuts_08.png)
 
-	通过按住 **鼠标右键** 并按 **WASD**，您可以在关卡内飞行并观察摄像机可以采用的视角。这样，您就可以更好地了解镜头画面，从而更轻松地将镜头定格在您期望的位置。 
+	通过按住 **鼠标右键** 并按 **WASD** 键，你可以在关卡内飞行并观察摄像机将采用的视角。这样，你就可以更好地了解镜头画面，从而更轻松地将镜头定格在你期望的位置。 
 
-	您可以通过单击 **退出（Eject）**按钮退出 **飞行** 模式。 
+	[REGION:note]
+	退出 **飞行（Pilot）** 模式的方法为单击 **退出（Eject）** 按钮。 
 
-	![](cameras11.png)
+	![](CameraCuts_09.png)
+	[/REGION]
 
-1. 	选择另一个摄像机并将其定位在另一个模特的肩膀上。 
+1.	再添加一个 **电影摄像机Actor（Cine Camera Actor）** 并将其定位在另一个人体模型的肩膀上。
 
-	![](cameras12.png)
+	![](CameraCuts_10.png)
 
-1. 	按住 **Ctrl** 键并同时选中这两个摄像机，然后将它们添加到 Sequencer 中。 
+1.	按住 **Ctrl** 键并同时选中这两个摄像机，然后将它们添加到Sequencer中。 
 
-	![](cameras13.png)
+	![](CameraCuts_11.png)
 
-1. 	单击 **添加（Add）**按钮，并选择 **镜头切换轨道（Camera Cut Track）**。 
+	向Sequencer中添加摄像机时，它会自动添加 **镜头切换** 轨迹并将添加的第一个摄像机指定为要使用的默认摄像机。
 
-	![](cameras14.png)
+	![](CameraCuts_12.png)
 
-1. 	单击 **添加摄像机（+ Camera）**按钮并选择其中一个摄像机。 
+	也可以从 **+ 轨迹（Track）** 选项菜单中手动添加镜头切换轨迹。
 
-	![](cameras15.png)
+	![](CameraCuts_13.png)
 
-	摄像机的名称可能与上图不同。 
+	在上图中，镜头切换轨迹显示为灰色，因为只能为每个序列指定一个镜头切换轨迹。
 
-1. 	将时间轴标记移动到第 **50** 帧，然后单击 **添加摄像机（+ Camera）**按钮并添加另一个摄像机。 
+1.	将时间轴标记移动到第 **50** 帧，然后单击 **+ 摄像机（Camera）** 按钮并添加另一个摄像机。 
 
-	![](cameras16.png)
+	![](CameraCuts_14.png)
 
-1. 	将时间轴标记移动到第 **100** 帧，然后单击 **添加摄像机（+ Camera）**按钮并添加步骤 13 中使用的摄像机。
+1.	将时间轴标记移动到第 **100** 帧，然后单击 **+ 摄像机（Camera）** 按钮并添加第一个摄像机。
 
-	![](cameras17.png)
+	![](CameraCuts_15.png)
 
-1. 	将 **视口类型（Viewport Type）**更改为 **过场动画视口（Cinematic Viewport）**。 
+	现在你拥有的序列应该是这样子的：从第一个摄像机开始，切换到第二个摄像机，然后再切换回第一个摄像机。
 
-	![](cameras20.png)
+1.	单击 **镜头切换轨迹** 上的 **将视口锁定为镜头切换（Lock Viewport to Camera Cuts）** 按钮。 
 
-1. 	单击 **镜头切换轨道** 上的 **将视口锁定为镜头切换（Lock Viewport to Camera Cuts）**按钮。 
+	![](CameraCuts_16b.png)
 
-	![](cameras19.png)
+	这将指示过场动画使用此轨迹及其摄像机来观察场景。
 
-	这将指示过场动画使用此轨道及其摄像机来观察场景。
-
-1. 	在视口中单击 **播放（Play）**按钮以预览场景。 
+1.	在视口中单击 **预览播放（Preview Play）** 按钮来预览该场景。 
 	
 
 ## 最终结果
 
-在播放期间，您将看到镜头视角更改为镜头切换轨道中使用的两个摄像机。 
+在播放期间，你将看到镜头视角更改为镜头切换轨迹中使用的两个摄像机。 
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
@@ -131,11 +128,11 @@ HrtO-_tpBJM
 
 在以上视频中，我们还进入了 **游戏视图**（在视口中按 **G** 键）以便在播放期间隐藏镜头。 
 
-您还可以使用 **添加摄像机（Add Camera）**快捷键，这样只需进行一次单击即可在镜头切换轨道中添加并指定摄像机。 
+你还可以使用 **添加摄像机（Add Camera）** 快捷按钮，这样只需进行一次单击即可在镜头切换轨迹中添加并指定摄像机。 
 
-![](cameras23.png)
+![](CameraCuts_17.png)
 
-并且，对于添加的摄像机，将自动进入“飞行”模式！ 
+并且，添加的摄像机将自动进入“飞行”模式！ 
 
 
 

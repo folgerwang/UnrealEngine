@@ -74,7 +74,7 @@ Tags:Pose Assets
 
 ![](PoseBlender.png)
 
-우클릭 맥락 메뉴를 통해 Pose Blender 를 Pose by Name (또는 Pose by Name 을 Pose Blender) 노드로 변환시킬 수 있습니다.
+우클릭 컨텍스트 메뉴를 통해 Pose Blender 를 Pose by Name (또는 Pose by Name 을 Pose Blender) 노드로 변환시킬 수 있습니다.
 
 ![](PoseByName.png)
 

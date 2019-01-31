@@ -1,0 +1,19 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 데이터스미스 안내서
+Description: 데이터스미스 워크플로에서 특정한 작업을 하는 방법 안내서입니다.
+Type:landing
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 2
+Tags: Datasmith
+Tags: overview
+Tags: Guides
+
+
+## 초급
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/HowTo" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/3dsMax" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/SketchUp" org:"hierarchy" end:"1" skilllevel:"Beginner")]
+[DIR(output:"fancy" parent:"Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED" org:"hierarchy" end:"1" skilllevel:"Beginner")]

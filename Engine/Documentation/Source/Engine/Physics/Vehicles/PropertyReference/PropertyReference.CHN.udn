@@ -1,145 +1,145 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability:NoPublish
-Title:Vehicles Properties Reference
+Title:载具属性参考
 Crumbs:%ROOT%
-Description:Vehicles Properties Reference
+Description:载具属性参考
 Navigation:topic
 
-## Mechanical Setup
+## 机械设置
 
-| Property | Description |
+| 属性 | 说明 |
 | --- | --- |
-| **Torque Curve** | %doxygen:FVehicleEngineData::TorqueCurve% |
-| [REGION:tablesection] **Engine Setup** [/REGION]||
-| **Max RPM** | %doxygen:FVehicleEngineData::MaxRPM% |
+| **扭矩曲线（Torque Curve）** | %doxygen:FVehicleEngineData::TorqueCurve% |
+| [REGION:tablesection] **引擎设置（Engine Setup）** [/REGION]||
+| **最大转速（Max RPM）** | %doxygen:FVehicleEngineData::MaxRPM% |
 | **MOI** | %doxygen:FVehicleEngineData::MOI% |
-| **Damping Rate Full Throttle** | %doxygen:FVehicleEngineData::DampingRateFullThrottle% |
-| **Damping Rate Zero Throttle Clutch Engaged** | %doxygen:FVehicleEngineData::DampingRateZeroThrottleClutchEngaged% |
-| **Damping Rate Zero Throttle Clutch Disengaged** | %doxygen:FVehicleEngineData::DampingRateZeroThrottleClutchDisengaged% |
-| [REGION:tablesection] **Differential Setup** [/REGION]||
-| **Differential Type** | %doxygen:FVehicleDifferential4WData::DifferentialType% |
-| **Front Rear Split** | %doxygen:FVehicleDifferential4WData::FrontRearSplit% |
-| **Front Left Right Split** | %doxygen:FVehicleDifferential4WData::FrontLeftRightSplit% |
-| **Rear Left Right Split** | %doxygen:FVehicleDifferential4WData::RearLeftRightSplit% |
-| **Centre Bias** | %doxygen:FVehicleDifferential4WData::CentreBias% |
-| **Front Bias** | %doxygen:FVehicleDifferential4WData::FrontBias% |
-| **Rear Bias** | %doxygen:FVehicleDifferential4WData::RearBias% |
-| [REGION:tablesection] **Transmission Setup** [/REGION]||
-| **Use Gear Auto Box** | %doxygen:FVehicleTransmissionData::bUseGearAutoBox% |
-| **Gear Switch Time** | %doxygen:FVehicleTransmissionData::GearSwitchTime% |
-| **Gear Auto Box Latency** | %doxygen:FVehicleTransmissionData::GearAutoBoxLatency% |
-| **Final Ratio** | %doxygen:FVehicleTransmissionData::FinalRatio% |
-| [REGION:tablesection] **Gears Setup** [/REGION]||
-| **Forward Gears** | %doxygen:FVehicleTransmissionData::ForwardGears% |
-| **Gears** | [INCLUDE:#geardata] |
-| **Reverse Gear Ratio** | %doxygen:FVehicleTransmissionData::ReverseGearRatio% |
-| **Neutral Gear Up Ratio** | %doxygen:FVehicleTransmissionData::NeutralGearUpRatio% |
-| **Clutch Strength** | %doxygen:FVehicleTransmissionData::ClutchStrength% |
+| **全油门阻尼率（Damping Rate Full Throttle）** | %doxygen:FVehicleEngineData::DampingRateFullThrottle% |
+| **离合器接合时零油门阻尼率（Damping Rate Zero Throttle Clutch Engaged）** | %doxygen:FVehicleEngineData::DampingRateZeroThrottleClutchEngaged% |
+| **离合器分离时零油门阻尼率（Damping Rate Zero Throttle Clutch Disengaged）** | %doxygen:FVehicleEngineData::DampingRateZeroThrottleClutchDisengaged% |
+| [REGION:tablesection] **差速器设置（Differential Setup）** [/REGION]||
+| **差速器类型（Differential Type）** | %doxygen:FVehicleDifferential4WData::DifferentialType% |
+| **前后分路（Front Rear Split）** | %doxygen:FVehicleDifferential4WData::FrontRearSplit% |
+| **前左右分路（Front Left Right Split）** | %doxygen:FVehicleDifferential4WData::FrontLeftRightSplit% |
+| **后左右分路（Rear Left Right Split）** | %doxygen:FVehicleDifferential4WData::RearLeftRightSplit% |
+| **中心偏差（Centre Bias）** | %doxygen:FVehicleDifferential4WData::CentreBias% |
+| **前偏差（Front Bias）** | %doxygen:FVehicleDifferential4WData::FrontBias% |
+| **后偏差（Rear Bias）** | %doxygen:FVehicleDifferential4WData::RearBias% |
+| [REGION:tablesection] **变速器设置（Transmission Setup）** [/REGION]||
+| **使用自动变速器（Use Gear Auto Box）** | %doxygen:FVehicleTransmissionData::bUseGearAutoBox% |
+| **换档时间（Gear Switch Time）** | %doxygen:FVehicleTransmissionData::GearSwitchTime% |
+| **自动变速器延迟（Gear Auto Box Latency）** | %doxygen:FVehicleTransmissionData::GearAutoBoxLatency% |
+| **主减速比（Final Ratio）** | %doxygen:FVehicleTransmissionData::FinalRatio% |
+| [REGION:tablesection] **档位设置（Gears Setup）** [/REGION]||
+| **前进档位（Forward Gears）** | %doxygen:FVehicleTransmissionData::ForwardGears% |
+| **档位（Gears）** | [INCLUDE:#geardata] |
+| **倒档比（Reverse Gear Ratio）** | %doxygen:FVehicleTransmissionData::ReverseGearRatio% |
+| **空档升比（Neutral Gear Up Ratio）** | %doxygen:FVehicleTransmissionData::NeutralGearUpRatio% |
+| **离合器强度（Clutch Strength）** | %doxygen:FVehicleTransmissionData::ClutchStrength% |
 
 
 [COMMENT:none]
 
 [EXCERPT:gearData]
 
-Each gear will have these 3 properties.
+每个档位都有以下3个属性。
 
 [REGION:simpletable]
-| Gear Property | Description |
+| 档位属性 | 说明 |
 | --- | --- |
-| **Ratio** | %doxygen:FVehicleGearData::Ratio% |
-| **Down Ratio** | %doxygen:FVehicleGearData::DownRatio% |
-| **Up Ratio** | %doxygen:FVehicleGearData::UpRatio% |
+| **比率（Ratio）** | %doxygen:FVehicleGearData::Ratio% |
+| **降比（Down Ratio）** | %doxygen:FVehicleGearData::DownRatio% |
+| **升比（Up Ratio）** | %doxygen:FVehicleGearData::UpRatio% |
 [/REGION]
 [/EXCERPT:gearData]
 
 [/COMMENT]
 
-## Steering Setup
+## 转向设置（Steering Setup）
 
-| Property | Description |
+| 属性 | 说明 |
 | --- | --- |
-| **Steering Curve** | %doxygen:UWheeledVehicleMovementComponent4W::SteeringCurve% |
-| **Ackermann Accuracy** | %doxygen:UWheeledVehicleMovementComponent4W::AckermannAccuracy% |
+| **转向曲线（Steering Curve）** | %doxygen:UWheeledVehicleMovementComponent4W::SteeringCurve% |
+| **阿克曼精确度（Ackermann Accuracy）** | %doxygen:UWheeledVehicleMovementComponent4W::AckermannAccuracy% |
 
-## Vehicle Setup
+## 载具设置
 
-| Property | Description |
+| 属性 | 说明 |
 | --- | --- |
-| **Wheel Setups** | [INCLUDE:#wheeltable] |
-| **Mass** | %doxygen:UWheeledVehicleMovementComponent::Mass% |
-| **DragCoefficient** | %doxygen:UWheeledVehicleMovementComponent::DragCoefficient% |
-| **ChassisWidth** | %doxygen:UWheeledVehicleMovementComponent::ChassisWidth% |
-| **ChassisHeight** | %doxygen:UWheeledVehicleMovementComponent::ChassisHeight% |
-| [REGION:tablesection] **Advanced** [/REGION]||
-| **COMOffset** | %doxygen:UWheeledVehicleMovementComponent::COMOffset% |
-| **InertiaTensorScale** | %doxygen:UWheeledVehicleMovementComponent::InertiaTensorScale% |
-| **MinNormalizedTireLoad** | %doxygen:UWheeledVehicleMovementComponent::MinNormalizedTireLoad% |
-| **MinNormalizedTireLoadFiltered** | %doxygen:UWheeledVehicleMovementComponent::MinNormalizedTireLoadFiltered% |
-| **MaxNormalizedTireLoad** | %doxygen:UWheeledVehicleMovementComponent::MaxNormalizedTireLoad% |
-| **MaxNormalizedTireLoadFiltered** | %doxygen:UWheeledVehicleMovementComponent::MaxNormalizedTireLoadFiltered% |
+| **车轮设置（Wheel Setups）** | [INCLUDE:#wheeltable] |
+| **质量（Mass）** | %doxygen:UWheeledVehicleMovementComponent::Mass% |
+| **风阻系数（DragCoefficient）** | %doxygen:UWheeledVehicleMovementComponent::DragCoefficient% |
+| **底盘宽度（ChassisWidth）** | %doxygen:UWheeledVehicleMovementComponent::ChassisWidth% |
+| **底盘高度（ChassisHeight）** | %doxygen:UWheeledVehicleMovementComponent::ChassisHeight% |
+| [REGION:tablesection] **高级（Advanced）** [/REGION]||
+| **COM偏移（COMOffset）** | %doxygen:UWheeledVehicleMovementComponent::COMOffset% |
+| **惯性张量标度（InertiaTensorScale）** | %doxygen:UWheeledVehicleMovementComponent::InertiaTensorScale% |
+| **最小标准化轮胎负载（MinNormalizedTireLoad）** | %doxygen:UWheeledVehicleMovementComponent::MinNormalizedTireLoad% |
+| **已过滤最小标准化轮胎负载（MinNormalizedTireLoadFiltered）** | %doxygen:UWheeledVehicleMovementComponent::MinNormalizedTireLoadFiltered% |
+| **最大标准化轮胎负载（MaxNormalizedTireLoad）** | %doxygen:UWheeledVehicleMovementComponent::MaxNormalizedTireLoad% |
+| **已过滤最大标准化轮胎负载（MaxNormalizedTireLoadFiltered）** | %doxygen:UWheeledVehicleMovementComponent::MaxNormalizedTireLoadFiltered% |
 
 
 [COMMENT:none]
 
 [EXCERPT:wheelTable]
 [REGION:simpletable]
-| Wheel Property | Description |
+| 车轮属性 | 说明 |
 | --- | ---- |
-| **WheelClass** | %doxygen:FWheelSetup::WheelClass% |
-| **BoneName** | %doxygen:FWheelSetup::BoneName% |
-| **AdditionalOffset** | %doxygen:FWheelSetup::AdditionalOffset% |
+| **车轮类（WheelClass）** | %doxygen:FWheelSetup::WheelClass% |
+| **骨骼名称（BoneName）** | %doxygen:FWheelSetup::BoneName% |
+| **额外偏移（AdditionalOffset）** | %doxygen:FWheelSetup::AdditionalOffset% |
 [/REGION]
 [/EXCERPT:wheelTable]
 
 [/COMMENT]
 
-## Vehicle Input
+## 载具输入
 
-| Property | Description |
+| 属性 | 说明 |
 | --- | --- |
-| **Idle Brake Input** | How much to press the brake when the player releases the throttle. |
-| **Stop Threshold** | Auto-brake when absolute vehicle forward speed is less that this (cm/s). |
-| **Wrong Direction Threshold** | Auto-brake when vehicle forward speed is opposite of player input by at least this much (cm/s). |
-| [REGION:tablesection] **Advanced** [/REGION]||
-| **Throttle Input** | %in1% [INCLUDE:#risefall] |
-| **Brake Input** | %in2% [INCLUDE:#risefall] |
-| **Handbrake Input** | %in3% [INCLUDE:#risefall] |
-| **Steering Input** | %in4% [INCLUDE:#risefall] |
+| **怠速制动装置输入（Idle Brake Input）** | 玩家释放油门时制动装置的按下程度。|
+| **停止阈值（Stop Threshold）** | 载具绝对前进速度小于此值（cm/s）时自动制动。|
+| **错误方向阈值（Wrong Direction Threshold）** | 载具前进速度与玩家输入相差至少为此值（cm / s）时自动制动。|
+| [REGION:tablesection] **高级（Advanced）** [/REGION]||
+| **油门输入（Throttle Input）** | %in1% [INCLUDE:#risefall] |
+| **制动装置输入（Brake Input）** | %in2% [INCLUDE:#risefall] |
+| **手刹输入（Handbrake Input）** | %in3% [INCLUDE:#risefall] |
+| **转向输入（Steering Input）** | %in4% [INCLUDE:#risefall] |
 
 
 [COMMENT:none]
 
 [EXCERPT:riseFall]
 [REGION:simpletable]
-| Input Property | Description |
+| 输入属性 | 说明 |
 | --- | --- |
-| **Rise Rate** | %doxygen:FVehicleInputRate::RiseRate% Rate at which the input value rises. |
-| **Fall Rate** | %doxygen:FVehicleInputRate::FallRate% Rate at which the input value falls. |
+| **上升速率（Rise Rate）** | %doxygen:FVehicleInputRate::RiseRate% 输入值上升的速率。|
+| **下降速率（Fall Rate）** | %doxygen:FVehicleInputRate::FallRate% 输入值下降的速率。|
 [/REGION]
 [/EXCERPT:riseFall]
 
 [VAR:in1]
-Rate at which input for the throttle can rise and fall.
+油门输入可以上升和下降的速率。
 [/VAR]
 
 [VAR:in2]
-Rate at which input for the break can rise and fall.
+制动装置输入可以上升和下降的速率。
 [/VAR]
 
 [VAR:in3]
-Rate at which input for the handbrake can rise and fall.
+手刹的输入可以上升和下降的速率。
 [/VAR]
 
 [VAR:in4]
-Rate at which input for steering can rise and fall.
+方向盘的输入可以上升和下降的速率。
 [/VAR]
 
 [/COMMENT]
 
 [COMMENT:none]
 
-| **FVehicle Input Rate** | %doxygen:FVehicleInputRate::FVehicleInputRate% |
-| **Interp Input Value** | %doxygen:FVehicleInputRate::InterpInputValue% |
+| **FVehicle输入速率（FVehicle Input Rate）** | %doxygen:FVehicleInputRate::FVehicleInputRate% |
+| **插值输入值（Interp Input Value）** | %doxygen:FVehicleInputRate::InterpInputValue% |
 
 [/COMMENT]
 

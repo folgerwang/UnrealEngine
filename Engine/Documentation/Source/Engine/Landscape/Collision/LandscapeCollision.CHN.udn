@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3053927
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:地形碰撞指南
 Crumbs: %ROOT%, Engine, Engine/Landscape
@@ -6,40 +6,12 @@ Description:地形碰撞设置。
 version:4.12
 parent:Engine/Landscape
 order:7
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](Engine/Landscape/Landscape_Collision_Banner.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Collision:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Collision]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](Engine/Landscape/Landscape_Collision_Banner.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Collision:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Collision:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Collision]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Landscape/Landscape_Collision_Banner.png
 
 [TOC(start:2 end:3)]
 
 
+(#LandscapeCollision)
 ## 地形碰撞 
 
 虚幻引擎 4（UE4）地形系统可指定几何体（这些几何体用于整个地形或单独组件的简单和复杂碰撞）的细节程度。在以下部分中，我们将说明如何使用该系统，以及在 UE4 项目中使用前须知的相关信息。
@@ -48,6 +20,7 @@ order:7
 在此例中我们使用的是在 UE4 Launcher Learn 标签下选择的 Landscape Mountains 项目。
 [/region]
 
+(#CollisionMipLevel)
 ### 碰撞 Mip 等级
 
 如选择已放置在关卡中的任意地形 Actor，可在 **Details** 面板的 **Collision** 部分下可找到两个设置：**Collision Mip Level** 和 **Simple Collision Mip Level**。
@@ -56,6 +29,7 @@ order:7
 | **Collision Mip Level** | Collision Mip Level 设置用于地形的 **复杂** 碰撞的复杂度。Collision Mip Level 默认设为 **0**，将获得准确的地形碰撞，但内存消耗较大。将此数值设为最高的 **5** 可控制地形碰撞的开销，但碰撞的准确性便会下降。[INCLUDE:Engine\Landscape\\Collision\#VC] |
 | **Simple Collision Mip Level** | Simple Collision Mip Level 设置用于地形的 **简单** 碰撞的复杂度。Simple Collision Mip Level 默认设为 **0**，将获得准确的地形碰撞，但内存消耗较大。将此数值设为最高的 **5** 可控制地形碰撞的开销，但碰撞的准确性便会下降。[INCLUDE:Engine\Landscape\\Collision\#PC] |
 
+(#ViewingCollisionMipLevel)
 ### 查看碰撞 Mip 等级 
 
 可通过碰撞查看模式显示地形碰撞几何体。前往编辑器视口工具栏中的 **View Mode** 菜单的 **Collision** 部分下，选择 **Player Collision** 或 **Visibility Collision** 即可启用碰撞查看模式。
@@ -66,6 +40,7 @@ order:7
 | **Player Collision** | **Player Collision** 查看模式显示简单碰撞 Mip 等级。 ![](CML_Player_Collision.png)(w:640) |
 | **Visibility Collision** | **Visibility Collision** 查看模式显示碰撞 Mip 等级。 ![](CML_Vis_Collision.png)(w:640) |
 
+(#AdjustingtheLandscapeCollisionMipLevel)
 ### 调整地形碰撞 Mip 等级
 
 如要对简单和复杂地形碰撞的复杂度进行设置，需要执行以下操作：
@@ -91,6 +66,7 @@ order:7
 	[/OBJECT]
 
 
+(#MixingCollisionMipLevelOptions)
 ### 混合碰撞 Mip 等级选项 
 
 可对简单和复杂地形碰撞网格体二者的复杂度进行设置，在性能和准确度上达到更好的平衡。如要在项目中独立设置简单和复杂碰撞等级，需要执行下列操作：
@@ -124,6 +100,7 @@ order:7
 [/region]
 
 
+(#SettingCollisionMipLevelPerLandscapeComponents)
 ### 设置每个地形组件的碰撞 Mip 等级
 
 可对单个地形组件的碰撞 Mip 等级进行设置，可降低关卡非操作区域的地形碰撞复杂度。

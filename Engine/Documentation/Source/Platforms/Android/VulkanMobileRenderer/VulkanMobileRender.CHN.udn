@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3068692
-Title:安卓 Vulkan 移动渲染器
-Description:对 UE4 安卓项目进行设置，以便使用 Vulkan 移动渲染
+﻿INTSourceChangelist:3807090
+Title: Android Vulkan移动渲染器
+Description:设置UE4 Android项目使用Vulkan移动渲染
 Crumbs:
 Availability:Public
 version:4.12
@@ -13,185 +13,256 @@ type:reference
 
 [TOC(start:2)]
 
-虚幻引擎 4（UE4）现已支持 **Vulkan** 图形 API。Vulkan 是开销较低的跨平台 3D 图形库，使开发者能更好地管控安卓移动项目中 GPU 和下层 CPU 的使用。以下文档将说明如何在 UE4 安卓项目中启用和使用 Vulkan。
+虚幻引擎4(UE4)已内置对 **Vulkan** 图形API的支持。Vulkan是一个低系统占用、跨平台的3D图形库，它为开发人员提供了对GPU的更多控制，并降低了基于Android的移动项目的CPU使用率。在下面的文档中，我们将介绍如何在UE4 Android项目中启用和使用Vulkan。
 
 [region:warning]
-Vulkan 当前仍处于紧锣密鼓的开发中，需将其视作 **实验性功能**。如要使用 Vulkan 构建并部署移动项目，须从 UE4 Github 分支下载并编译 UE 4.12 或更新版本。 
+Vulkan目前正处于积极开发阶段，目前应被视为一项 **实验性功能**。如果您希望使用Vulkan构建和部署移动项目，需要从UE4 Github分支下载并编译UE4版本4.12或更高版本。 
 [/region]
 
-## PC 开发 Vulkan 显卡驱动
-必须下载并安装最新版本的显卡驱动，方能在开发电脑上显示可用的 Vulkan 渲染选项。以下是在开发电脑上预览 Vulkan 所需要的最低驱动版本。
+(#vulkanvideodriversforpcdevelopment)
+## 用于PC开发的Vulkan视频驱动程序
+为了确保您可以可视化Vulkan在您的开发PC上提供的渲染选项，您需要确保为显卡下载并安装了最新版本的显卡驱动程序。下面，您将找到为了能够在您的开发PC上预览Vulkan的显示效果而需要使用的最低驱动程序版本。
 
-* **NVIDIA**：驱动 367.27 或更新版本
-* **AMD**：驱动 16.3 或更新版本  
+* **NVIDIA**：驱动程序版本367.27或更高版本
+* **AMD**：驱动程序版本16.3或更高版本  
 
-## 支持的 Vulkan 设备
-当前只有下列移动设备芯片组支持 Vulkan API。 
+(#supportedvulkandevices)
+## 支持的Vulkan设备
+目前，只有以下移动设备芯片组支持Vulkan API。 
 
-* **Nexus 6P**（安卓 N 设备）
-* **Galaxy S7**（Mali 和 Adreno 款型）
+* **Nexus 6P**（Android N设备）
+* **Galaxy S7**（Mali和Adreno变体）
 
 [region:note]
-请注意：能否使用 Vulkan API 取决于移动设备厂商是否已针对特定设备款型发布 Vulkan 更新。请联系移动设备厂商确定该支持是否已推送到您的移动设备。
+请注意，使用Vulkan API的能力取决于您的移动运营商是否为您的特定设备变体发布了Vulkain更新。要查看此支持是否已推送到您的移动设备，您需要联系您的移动运营商。
 [/region]
 
-## Vulkan 构建 
-执行下列步骤，构建支持 Vulkan API 的 UE4 项目。
+(#buildingforvulkan)
+## 为Vulkan构建 
+要构建支持Vulkan API的UE4项目，您需要执行以下操作：
 
-1. 开始之前，通过 USB 接口将安卓智能手机和开发电脑连接，并启用智能手机的开发者模式。 
+1. 开始前，请确保您的Android智能手机已通过USB连接到您的开发PC上，并且您的Android智能手机已启用开发人员模式。 
 
-1. 下一步，从 UE4 Github 分支下载并编译 UE4 最新版本。从 launcher 中获取的二进制版本无法进行 Vulkan 构建。
+1. 接下来，从UE4 Github分支下载并编译最新版本的UE4，因为从启动程序获得的二进制版本不允许您为Vulkan构建。
 
 	[region:note]
-	 如不了解操作方法，请查阅 [下载虚幻引擎源代码](GettingStarted/DownloadingUnrealEngine/) 页面中的详细操作说明。
+	 如果您不确定如何做到这一点，请查看[下载虚幻引擎源代码](GettingStarted/DownloadingUnrealEngine/)页面获取如何操作的详细说明。
 	[/region]
 
-1. 然后访问 [https://vulkan.lunarg.com/signin](https://vulkan.lunarg.com/signin)，点击下载部分中的 **Windows** 选项。
+1. 然后，前往[https://vulkan.lunarg.com/signin](https://vulkan.lunarg.com/signin)，在下载部分，单击 **Windows** 选项。
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_00.png)(w:469 h:577)](VMP_LunarG_00.png)
+	[![](VMP_LunarG_00.png)(w:469)](VMP_LunarG_00.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
 	[/REGION]
 
 	[region:note] 
-	下载 Vulkan SDK 不要求登录或创建账户。
+	下载Vulkan SDK无需登录或创建帐户。
 	[/region]
 
-1. 在 LunarG Vulkan SDK 授权协议页面中将版本改为 **Latest**，按下 **I Accept** 按钮开始下载。
+1. 在LunarG Vulkan SDK许可协议（License Agreement）页面，更改版本为 **最新（Latest）**，然后按下 **我接受（I Accept）** 按钮开始下载。
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_01.png)(w:463 h:224)](VMP_LunarG_01.png)
+	[![](VMP_LunarG_01.png)(w:463)](VMP_LunarG_01.png)
 	[/REGION]
 
-1. 下载完成后，运行 **VulkanSDK-1.0.17.0** 安装程序，根据提示安装 Vulkan SDK。Vulkan SDK 安装完成后重启电脑，确保环境变量正确设置。 
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
 
-1. 电脑重启完成后，打开系统的 **Environment Variables**，检查 **Variable** 部分的 **Vulkan_SDK**。 
+1. 下载完成后，运行 **VulkanSDK-1.0.17.0** 安装程序，并按照提示安装Vulkan SDK。当Vulkan SDK完成安装后，重新启动PC，以确保环境变量设置正确。 
+
+1. 当PC重新启动完成后，打开系统的 **环境变量（Environment Variables）**，并在 **变量（Variable）** 部分检查 **Vulkan SDK**。 
 
 	![](VMP_Env_Vars.png)
 
-1. UE4 构建完成后，运行 UE4 编辑器并使用下列设置新建项目：
+1. UE4完成构建后，启动UE4编辑器，并使用以下设置创建一个新项目：
 
-	* 蓝图项目
-	* 空白模板
-	* Mobile / Tablet
-	* Maximum Quality
-	* No Starter Content
-
-	[REGION:lightbox]
-	[![](VMP_New_Project_Settings.png)(w:555 h:387)](VMP_New_Project_Settings.png)
-	[/REGION]
-
-	完成设置后，按下 **Create** 按钮创建并加载新项目。
-
-1. 项目加载后，前往 **Edit** > **Project Settings**，然后在 **Engine** 的 **Rendering** 部分下启用 **Mobile HDR**。
+	* 蓝图项目（Blueprint Project）
+	* 空白模板（Blank Template）
+	* 手机/平板电脑（Mobile / Tablet）
+	* 最高质量（Maximum Quality）
+	* 无初学者内容包（No Starter Content）
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_04.png)(w:639 h:385)](VMP_Android_Settings_04.png)
+	[![](VMP_New_Project_Settings.png)(w:555)](VMP_New_Project_Settings.png)
 	[/REGION]
 
-1. 下一步前往 **Platforms** 的 **Android** 部分。
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+	完成后，按下 **创建（Create）** 按钮以创建并加载新项目。
+
+1. 加载项目后，转到 **编辑（Edit）** > **项目设置（Project Settings）**，然后在 **引擎（Engine）** 下转到 **渲染（Rendering）** 部分，确保 **移动HDR（Mobile HDR）** 已启用。
+
+	[REGION:lightbox]
+	[![](VMP_Android_Settings_04.png)(w:639)](VMP_Android_Settings_04.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 接下来，找到 **Android** 部分，它位于 **平台（Platforms）** 之下。
 	
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_00.png)(w:639 h:385)](VMP_Android_Settings_00.png)
+	[![](VMP_Android_Settings_00.png)(w:639)](VMP_Android_Settings_00.png)
 	[/REGION]
 
-1. 在 Android 的 **APKPackaging** 下，将 **Minimum SDK Version** 设为 **19**，将 **Target SDK Version** 设为 **19**。 
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 在Android部分中，在 **APK打包（APKPackaging）** 下将 **最低SDK版本（Minimum SDK Version）** 设置为 **19**，并将 **目标SDK版本（Target SDK Version）** 设置为 **19**。 
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_01.png)(w:639 h:385)](VMP_Android_Settings_01.png)
+	[![](VMP_Android_Settings_01.png)(w:639)](VMP_Android_Settings_01.png)
 	[/REGION]
 
-1. 在 APKPackaging 的 **Build** 部分中启用以下选项。
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
 
-	* **Support arm7[aka armebi-v7a]**
-	* **Support OpenGL ES2**
-	* **Support Vulkan[Experimental]**
+1. 在 **APK打包（APKPackaging）** 部分下的 **构建（Build）** 部分中，确保启用了以下选项。
+
+	* **支持arm7[aka armebi-v7a]（Support arm7[aka armebi-v7a]）**
+	* **支持OpenGL ES2（Support OpenGL ES2）**
+	* **支持Vulkan[Experimental]（Support Vulkan[Experimental]）**
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_02.png)(w:639 h:385)](VMP_Android_Settings_02.png)
+	[![](VMP_Android_Settings_02.png)(w:639)](VMP_Android_Settings_02.png)
 	[/REGION]
 
-1. 确保 **Android SDK** 部分中的 **SDKConfig** 路径指向开发电脑上正确的 SDK。
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 在 **Android SDK** 部分中，确保 **SDKConfig** 路径指向开发PC上的正确SDK。
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_03.png)(w:639 h:385)](VMP_Android_Settings_03.png)
+	[![](VMP_Android_Settings_03.png)(w:639)](VMP_Android_Settings_03.png)
 	[/REGION]
 
-1. 前往菜单栏中的 **File** > **Package Project** > **Android**，选择 **Android(ASTC)** 选项。 
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 在菜单栏中，转到 **文件（File）** > **打包项目（Package Project）** > **Android**，选择 **Android(ASTC)** 选项。 
 	
 	[REGION:lightbox]
-	[![](VMP_Package_Game.png)(w:329 h:266)](VMP_Package_Game.png)
+	[![](VMP_Package_Game.png)(w:329)](VMP_Package_Game.png)
 	[/REGION]
 
-1. 选择 UE4 保存安卓版本的位置，然后按下 **OK** 按钮开始打包。
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 为UE4选择一个位置来保存Android版本，然后按下 **确定（OK）** 按钮开始打包过程。
 
 	[REGION:lightbox]
-	[![](VMP_Save_Build_Location.png)(w:245 h:267)](VMP_Save_Build_Location.png)
+	[![](VMP_Save_Build_Location.png)(w:245)](VMP_Save_Build_Location.png)
 	[/REGION]
-	![]()
 
-1. 打包完成后，打开放置已打包版本的文件夹。此文件夹中应有两个 .BAT 文件，找到命名中带 **Install** 的 .BAT 文件，双击将其安装到设备上。
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 当打包过程完成时，打开打包版本所在的文件夹。在该文件夹中，您应该看到两个.BAT文件，找到名称中包含单词 **Install** 的.BAT文件，然后双击该文件以将其安装到设备上。
 	
 	[REGION:lightbox]
-	[![](VMP_Build_Files.png)(w:439 h:198)](VMP_Build_Files.png)
+	[![](VMP_Build_Files.png)(w:439)](VMP_Build_Files.png)
 	[/REGION]
 
-1. 安装完成后，点击带项目名称和 UE4 图标的项目在设备上运行。 
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+1. 安装在设备后，按下UE4图标以在设备上启动项目，该图标下有您的项目名称。 
 
 	[REGION:lightbox]
-	[![](VMP_On_Device.png)(w:818 h:320)](VMP_On_Device.png)
+	[![](VMP_On_Device.png)(w:818)](VMP_On_Device.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
 	[/REGION]
 
 (#enablingvulkanpreviewrenderingineditor)
-## 在编辑器中启用 Vulkan 预览渲染
-如要在 UE4 编辑器中启用 Vulkan 渲染，须在项目中执行下列操作：
+## 在编辑器中启用Vulkan预览渲染
+当在UE4编辑器中时，您可以启用使用Vulkan渲染的功能，您需要在项目中执行以下操作：
 
-1. 前往 **主工具栏** 的 **Edit** 选项，然后从菜单中选择 **Editor Preferences** 选项。
+1. 在 **主工具栏（Main Toolbar）** 中，转到 **编辑（Edit）** 选项，然后从菜单中选择 **编辑器首选项（Editor Preferences）** 选项。
 
 	![](VMP_00.png)
 
-1. 在 **Experimental** 类目的 **General** 部分中，展开 **Rendering** 部分，点击 **Enable Metal/Vulkan/High-end mobile Preview Rendering Level in editor** 旁的勾选框。
+1. 在 **一般（General）** 部分中，在 **实验性（Experimental）** 类别下展开 **渲染（Rendering）** 部分，并单击 **Enable Metal/Vulkan/High-end mobile Preview Rendering Level in editor** 旁边的复选框。
 
 	[REGION:lightbox]
-	[![](VMP_03.png)(w:447 h:308)](VMP_03.png)
+	[![](VMP_03.png)(w:447)](VMP_03.png)
+	[/REGION]
+	
+	[REGION:caption]
+	单击显示全图。
 	[/REGION]
 
 	[region:note]
-	执行此操作后，编辑器需要重新编译整个选色器缓存，以包含所需的 Vulkan 选项。完成此过程所需的时间取决于项目大小和开发电脑的配置，从数分钟到一小时不等（甚至可能更长）。
+	完成此操作后，编辑器需要重新编译整个着色器缓存，以包含所需的Vulkan选项。根据项目的大小和开发计算机的能力，此过程可能需要几分钟到一小时甚至更长时间才能完成。
 	[/region]
 
-1. 如看到以下两项 - **Feature Level:ES3_1** 和 **Level:Vulkan_Rendering(Persistent)** 显示在关卡预览的右下角，则意味着设置正确无误，即可在支持 Vulkan API 的设备上查看项目。
+1. 在 **主工具栏（Main Toolbar）** 上，单击 **设置（Settings）** 按钮，进入 *预览渲染级别（Preview Rendering Level）** 选项，并选择 **High-End Mobile / Metal** 选项以在UE4视口中启用OpenGL ES 3.1预览。
 
 	[REGION:lightbox]
-	[![](VMP_04.png)(w:447 h:308)](VMP_04.png)
+	[![](VMP_Android_Settings_05.png)(w:447)](VMP_Android_Settings_05.png)
 	[/REGION]
 
-## 启用 Vulkan 移动预览渲染
-如要结合移动预览渲染使用 Vulkan 渲染，须在项目中执行下列操作：
+1. 在UE4编辑器视口的右下角，您应该会看到文本 **功能级别：ES3_1（Feature Level: ES3_1）**。如果您看到了此文本，那么一切都已正确设置，现在您将看到项目在支持Vulkan API的设备上查看时的显示效果。
 
-1. 前往 **主工具栏** 的 **Edit** 选项，然后从菜单中选择 **Editor Preferences** 选项。
+	[REGION:lightbox]
+	[![](VMP_04.png)(w:447)](VMP_04.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+(#enablingthevulkanmobilepreviewrender)
+## 启用Vulkan移动预览渲染
+要能够结合移动预览渲染使用Vulkan渲染，您需要在项目中执行以下操作：
+
+1. 在 **主工具栏（Main Toolbar）** 中，转到 **编辑（Edit）** 选项，然后从菜单中选择 **编辑器首选项（Editor Preferences）** 选项。
 
 	![](VMP_00.png)
 
-1. 在 **Experimental** 类目的 **General** 部分中，展开 **PIE** 部分，然后点击 **Allow Vulkan Mobile Preview** 旁的勾选框。
+1. 在 **一般（General）** 部分中，在 **实验性（Experimental）** 类别下展开 **PIE** 部分，然后单击 **允许Vulkan移动预览（Allow Vulkan Mobile Preview）** 旁边的复选框。
 
 	[REGION:lightbox]
-	[![](VMP_01.png)(w:447 h:308)](VMP_01.png)
+	[![](VMP_01.png)(w:447)](VMP_01.png)
 	[/REGION]
 
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
 
-1. 返回主工具栏，点击 play 按钮旁的白色三角形，从下拉列表中选择 Vulkan Mobile Preview (PIE)，将 **Play Mode** 从 **Play this level in the selected viewport** 改为 **Vulkan Mobile Preview (PIE)** 选项。
+1. 在主工具栏上，通过单击播放按钮旁边的白色小三角形并从下拉列表中选择Vulkan移动预览 (PIE)（Vulkan Mobile Preview），将 **播放模式（Play Mode）** 从 **在选择的视口中播放此关卡（Play this level in the selected viewport）** 更改为 *Vulkan移动预览 (PIE)（Vulkan Mobile Preview）** 选项。
 
 	![](VMP_02.png)
 
-1. 点击主工具栏的 **Play** 按钮，在一个已启用 Vulkan 渲染的新预览窗口中运行 UE4 项目。如所有内容已正确设置，屏幕上的效果应与下图相似。
+1. 单击主工具栏上的 **播放（Play）** 按钮，以在一个新的预览窗口中启动UE4项目同时启用Vulkan渲染。如果一切都设置成功，您应该会看到类似下图的内容。
 
 	[REGION:lightbox]
-	[![](VMP_05.png)(w:447 h:308)](VMP_05.png)
+	[![](VMP_05.png)(w:447)](VMP_05.png)
 	[/REGION]
 
-	[region:note]
-	如预览窗口顶部的项目名称旁未显示 **(SF_VULKAN_ES31)**，则说明项目未使用 Vulkan API。
-	[/region]
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+	
+[region:note]
+如果在预览窗口顶部项目名称的旁边没有看到 **(SF_VULKAN_ES31)**，则意味着项目没有使用Vulkan API。
+[/region]
 
 
 

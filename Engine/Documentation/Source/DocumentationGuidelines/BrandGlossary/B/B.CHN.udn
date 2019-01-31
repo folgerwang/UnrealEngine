@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
 Version: 4.17
 Parent:BrandGlossary
 Order:2
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,22 +40,22 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Behavior Tree
+##行为树
 
-The Behavior Tree is an AI’s processor. It makes decisions, and then acts on those decisions. Behavior Trees are a powerful tool for creating Artificial Intelligence in Unreal Engine 4.
+行为树是一种人工智能处理器。它可做出决定，然后执行决定。行为树是在虚幻引擎4中创建人工智能的强大工具。
 
-##Behavior Tree Editor
+##行为树编辑器
 
-The Behavior Tree Editor enables you to script Artificial Intelligence through a visual node-based system (similar to Blueprints) for Actors in your game.
+在行为树编辑器中，可以通过一种可视化的基于节点脚本系统（类似于蓝图）来控制游戏中Actor的人工智能。
 
-##Blueprint
+##蓝图
 
-Blueprints are special assets that provide an intuitive, node-based interface that can be used to create new types of Actors and script level events; giving designers and gameplay programmers the tools to quickly create and iterate gameplay from within Unreal Editor without ever needing to write a line of C++ code.
+蓝图是一种特殊资源，可提供一种基于节点的直观界面，在此界面上可创建新的Actor类型和脚本关卡事件；设计人员和Gameplay程序员可利用蓝图所提供的工具在虚幻编辑器内快速创建和迭代Gameplay，而无需编写一行C++代码。
 
-##Blueprint Editor
+##蓝图编辑器
 
-The Blueprint Editor is a node-based graph editor that acts as your primary tool for creating and editing the visual scripting node networks that make-up Blueprints.
+蓝图编辑器是一款基于节点的图形编辑器，可用作创建和编辑构成蓝图的可视化脚本节点网络的主要工具。
 
-##Brush
+##笔刷
 
-A Brush is an Actor that describes a 3D volume that is placed in a level in order to define level geometry (referred to as BSPs) and gameplay volumes.
+笔刷是一种Actor，用于描述置于关卡中的三维体积，以便对关卡几何体（指BSP）和Gameplay体积进行定义。

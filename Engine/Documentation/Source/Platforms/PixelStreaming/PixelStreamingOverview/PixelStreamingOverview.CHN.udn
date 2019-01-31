@@ -1,0 +1,69 @@
+﻿INTSourceChangelist:4676967
+Availability: Public
+Crumbs: 
+Title:像素流送总览
+Description: 针对组成项目流送系统的组件及其工作方式进行的高阶讲解。
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:pixelstreaming-overview-topic.png
+Tags: Getting Started
+Tags: Early Access
+Tags: Pixel Streaming
+
+无论是针对电脑平台、移动操作系统或主机进行开发，使用者均会在一台设备上运行虚幻引擎应用程序。此设备既负责运行gameplay逻辑，又负责将游戏世界渲染到屏幕上。多人联网游戏可能会将gameplay逻辑的部分分布在应用程序的多个实例中，但每个个体实例仍然负责渲染其自身玩家的游戏世界。使用HTML5部署选项来创建一个可在网页浏览器中运行的项目版本时，游戏逻辑和渲染仍在每个使用者的网页浏览器中本地发生。
+
+利用像素流送可以在用户不可见的电脑上远程运行虚幻引擎应用程序。举例而言，这台电脑可以是机构中的一台实体电脑，也可以是云端服务提供的虚拟机。虚幻引擎将使用该电脑可用的资源（CPU、GPU、内存等）来运行游戏逻辑并渲染每一帧。它会不断将此渲染输出编码到一个媒体流送中，再通过一个轻量级的网页服务堆栈进行传递。用户即可在其他电脑和移动设备上运行的标准网页浏览器中查看直播流送。
+
+![Rendering in the cloud with Pixel Streaming](cloud-simplified-1.png "Rendering in the cloud with Pixel Streaming")
+
+对于用户而言，这种体验就像是在YouTube或Netflix上观看视频流送，但有2点例外：
+
+*   流送并非播放预先录制的视频片段，而是播放虚幻引擎实时生成的渲染帧和音频。
+*   用户可通过自己的浏览器对体验进行控制，将键盘、鼠标、触摸事件和播放器网页发出的自定义事件发送回虚幻引擎。
+
+(#benefits)
+
+## 优点
+
+使用像素流送系统有以下几个优点：
+
+*   移动设备和轻量级网页浏览器能借此显示原本无法显示的高质量画面。其能借助拥有强大GPU的本地桌面应用程序中可用的渲染功能，以高分辨率显示复杂场景。
+*   用户无需提前下载大型可执行文件或内容文件，也不需要安装任何内容。用户需要下载的唯一内容便是播放的媒体流送。
+*   无需创建并发布多个单独的包即可支持多平台。针对Windows打包应用程序后，用户使用任意平台均可体验项目。用户可在任意支持WebRTC连接模型的主流浏览器（如Google Chrome和Mozilla Firefox）中，在电脑、iOS和Android平台观看流送。详情参见[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)。
+*   像素流送系统所含的组件数极少，在本地网络中进行设置相对容易。然而，经验丰富的团队也完全可以将其用作基础来创建自定义云端平台，部署网页服务。
+*   像素流送使用WebRTC点对点通信框架，使用者和虚幻引擎应用程序之间的延迟很低。
+
+(#architecture)
+
+## 架构
+
+下图概括了简单像素流送设置的组件：
+
+![Pixel Streaming architecture](cloud-architecture.png "Pixel Streaming architecture")
+
+(#components)
+
+### 组件
+
+1.  **像素流送插件 -** 此插件在虚幻引擎中运行。其使用H.264视频压缩对每个渲染帧的最终结果进行编码，将这些视频帧随游戏音频一同打包到媒体流送中，并将该流送发送到WebRTC代理服务器。
+2.  **WebRTC代理服务器-** WebRTC代理服务器负责将像素流送插件生成的媒体流送通过直接点对点连接中继至一个或多个连线的浏览器。
+3.  **信令和Web服务器-** 信令和Web服务器负责交涉浏览器和WebRTC代理服务器之间的连接，将播放媒体流送的HTML和JavaScript环境提供给浏览器。
+
+(#connectionprocess)
+
+### 连接进程
+
+1.  启动所有像素流送组件时，在虚幻引擎中运行的像素流送插件首先将建立到WebRTC代理服务器的连接，并开始向其发送媒体流送。
+2.  WebRTC代理服务器则会连接到信令和Web服务器，确认其已准备好接受新连接。
+3.  客户端连接到信令服务器，服务器将对客户端提供一个HTML页面，其中包含播放器控件和以JavaScript编写的控制代码。
+4.  用户开始流送时，信令服务器将进行交涉，在客户端浏览器和WebRTC代理服务器之间建立直接连接。
+    [REGION:note]
+    浏览器和WebRTC代理服务器须了解相互的IP地址，此连接方能工作。如两者在同一网络中运行，通常它们可看到各自的IP地址。然而在两个端点之间运行的网络地址转换（NAT）服务可能对任意一方的外部可见IP地址进行修改。解决此问题的方法通常是是用STUN或TURN服务器，告知每个组件其自身的外部可见IP地址。欲知详情，请参阅[创建主机和网络连接指南](Platforms/PixelStreaming/Hosting)。
+    [/REGION]
+5.  客户端和WebRTC代理服务器之间的连接建立后，WebRTC代理便会直接开始将媒体流送到浏览器。来自客户端的输入由播放器页面的JavaScript环境直接发送到WebRTC代理服务器，以便中继回虚幻引擎中。
+6.  即使媒体流送已经开始播放，信令和Web服务器仍会维持其与浏览器和WebRTC代理服务器的连接，以便在必要时将用户从流送中移除，并处理浏览器造成的连接断开。
+[REGION:note]
+如需了解上述架构设置的详细说明，请参见[像素流送入门](Platforms/PixelStreaming/PixelStreamingIntro)。
+[/REGION]

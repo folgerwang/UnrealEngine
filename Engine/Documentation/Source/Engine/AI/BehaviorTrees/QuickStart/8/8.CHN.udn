@@ -1,27 +1,15 @@
-﻿INTSourceChangelist:2757191
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:8.控制器蓝图：运行行为树
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第八步。控制器蓝图：运行行为树
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:8
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/7 "%Engine/AI/BehaviorTrees/QuickStart/7:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/9 "%Engine/AI/BehaviorTrees/QuickStart/9:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 [REGION:lightbox]
 [![](fullEG.png)(w:940 convert:false)](fullEG.png)
@@ -29,6 +17,7 @@ version:4.9
 
 最后，我们只需要用一个节点来运行 **行为树**。
 
+(#Steps)
 ## 步骤
 
 1. 创建一个 **Run Behavior Tree** 节点。
@@ -48,7 +37,7 @@ version:4.9
 1. 保存 AI 控制器蓝图
 
 
-
+[NAV]
 
 
 

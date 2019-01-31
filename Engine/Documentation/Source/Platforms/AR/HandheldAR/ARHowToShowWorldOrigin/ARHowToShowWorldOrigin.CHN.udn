@@ -1,0 +1,60 @@
+﻿INTSourceChangelist:4400482
+Availability: Public
+Crumbs: 
+Title: 如何显示世界原点
+Description: 如何在增强现实中显示世界原点。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+先决条件主题  
+本页假定您已对以下主题有一定的了解。请先阅读这些主题，然后继续进行操作。
+
+*   [](Platforms/AR/HandheldAR/ARKitPrerequisites)
+*   [](Platforms/AR/HandheldAR/ARCorePrerequisites)
+*   [](Platforms/AR/HandheldAR/ARQuickStart)
+
+![](AR_WorldOriginGraphic.png)
+[REGION:note]
+对于本指南，我们使用 **手持式AR** 模板。
+[/REGION]
+
+在下列方法中，我们将看一下由 **手持式AR** 模板创建的示例项目如何演示世界原点的绘制。了解增强现实系统（ARKit/ARCore）将世界原点放在何处，这一信息在进行故障排除时非常有用。设备通常根据不可预测的因素来决定它们所认为的世界位置0,0,0（世界原点），因此当内容的位置、移动或生成出现问题，而该内容未参考被追踪的几何体变换信息时，调试这些问题就会变得困难。当使用烘焙照明时，问题会变得更严重，因为静态内容期望世界原点位于一个特定的地点。
+
+## 步骤
+
+### 打开AR项目
+
+1.  打开 **虚幻项目浏览器（Unreal Project Browser）** 并新建 **手持式AR** 蓝图项目，或打开现有增强现实项目。  
+    若在新建增强现实项目时需要协助，请参见[](Platforms/AR/HandheldAR/ARQuickStart) 文档。   
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png)
+2.  打开 **在蓝图中寻找** 菜单项。  
+    ![](AR_FindInBlueprintsMenu.png)
+3.  搜索 **调试绘制世界原点**。在结果中，双击 **调试绘制世界原点** 功能。  
+    ![](AR_BluePrintSearch_DebugDrawWorldOrigin.png)
+
+### 显示世界原点
+
+示例项目演示了绘制世界原点的一种简单方法。绘制世界原点是一种实用的调试练习，有助于确定增强现实系统将哪个位置确定为世界原点。  
+如下所示，世界原点始终从 **0.0, 0.0, 0.0** 开始。 
+
+**调试绘制世界原点***    **绘制调试字符串** - 此函数将文本字符串“WORLD ORIGIN”放在世界原点(0.0, 0.0, 0.0)的位置。 
+*    **绘制调试箭头** - 这些函数从世界原点(0.0, 0,0, 0,0)开始，分别沿着X、Y和Z轴绘制短箭头。
+
+[REGION:lightbox]
+![](AR_DebugDrawWorldOriginFunction.png)
+[/REGION]
+
+### 探索其他AR功能
+
+探索基于 **手持式AR** 蓝图模板的项目，可让您有机会检验各种增强现实功能在上下文中的实际用法。还有几十个新的增强现实功能，花些时间深入研究新项目，探索演示的实施细节。  
+
+[REGION:tip]
+要探索此项目和新的增强现实功能，可以通过以下方式开始：打开 **内容浏览器（Content Browser）**，导航至 **内容\\手持式ARBP\\蓝图\\UI**，然后在 **蓝图编辑器（Blueprint Editor）** 中打开 **BP_DebugMenu** 资源。
+[/REGION]

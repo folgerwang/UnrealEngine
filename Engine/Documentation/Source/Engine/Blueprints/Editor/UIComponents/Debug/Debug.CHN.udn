@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:2085864
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title: 调试面板
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
-Description:
-
-
-## 概述
+Description: 此面板列出了蓝图目前在使用的所有调试工具。
+version: 4.9
+tags:Blueprints
 
 **调试** 面板提供了目前可以用于调试蓝图的一系列调试工具，比如 Breakpoints（断点）及 Watch Values(查看值)。当处于Play In Editor（在编辑器中运行）时，它还允许您访问Execution Trace（执行追踪），向你展示了在给定蓝图中发生的每个节点的执行情况。
 
 关于调试蓝图的更多信息，请参照[](Engine/Blueprints/UserGuide\Debugging)。
 
-##界面
+(#Interface)
+## 界面
 
 调试面板的界面根据您是在编辑器中运行游戏还是在编辑器中模拟游戏的不同而有所变化。
 

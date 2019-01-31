@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2728232
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用多机位
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -6,12 +6,12 @@ Description:该部分讲述如何在多个摄像机之间切换并应用摄像�
 Version:4.9
 SkillLevel:Intermediate
 
-
 在以下步骤中我们将创建使用多个摄像机角度的简短序列。 
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
-添加 Matinee，摄像机和道具
+(#AddingtheMatinee,CameraandProps)
+## 添加 Matinee，摄像机和道具
 
 在这步中，我们将添加 **Matinee Actor**、**摄像机** 和作为镜头目标的道具。 
 
@@ -52,7 +52,8 @@ SkillLevel:Intermediate
 	![](MHT3_ChairRotated.png)
 		
 
-在 Matinee 中创建摄像机序列
+(#CreatingtheCameraSequencesinMatinee)
+## 在 Matinee 中创建摄像机序列
 
 在这步中我们将为每个 **摄像机** 指定运动，并将它们衔接到 **Matinee**。 
 
@@ -163,7 +164,8 @@ SkillLevel:Intermediate
 	![](MHT3_CamerasDone.png)
 
 
-利用导演轨迹创建镜头切换
+(#CreatingtheCameraCutswithaDirectorTrack)
+## 利用导演轨迹创建镜头切换
 
 在这步中我们将添加一个 **导演轨迹（Director Track）**，用于处理所有的镜头切换。 
 

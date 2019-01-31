@@ -1,22 +1,21 @@
-﻿INTSourceChangelist:3108692
-Availability:Public
-Title:디바이스 프로파일 설정하기
-Crumbs:%ROOT%, Platforms
-Description:플랫폼 전용 환경설정에 대한 디바이스 프로파일 설정하기 입니다.
-Version: 4.9
+﻿INTSourceChangelist:4636071
+Availability: Public
+Crumbs: 
+Title: 디바이스 프로파일 설정
+Description: 플랫폼별 구성을 위한 디바이스 프로파일 설정 방법입니다.
+Parent: Platforms
+Order: 1
 
 
-디바이스 전용 환경설정을 설정하는 가장 좋은 방법은, 프로젝트 안에 커스텀 `Config/DefaultDeviceProfiles.ini` 파일을 만드는 것입니다. 디바이스 프로파일에는 텍스처 풀 크기같은 프로퍼티를 여럿 
-설정할 수 있는데, 다양한 모바일 디바이스에서의 엔진 퀄리티(scalability) 설정이나 PC/Mac 에서의 엔진 퀄리티 세팅 버킷 처리에 추천할 만한 방식입니다.
+디바이스별 구성을 설정하는 가장 좋은 방법은, 프로젝트 안에 커스텀 `Config/DefaultDeviceProfiles.ini` 파일을 만드는 것입니다. 디바이스 프로파일에는 텍스처 풀 크기같은 프로퍼티를 여럿 설정할 수 있는데, 다양한 모바일 디바이스에서의 엔진 퀄리티(scalability) 설정이나 PC/Mac 에서의 엔진 퀄리티 세팅 버킷 처리에 추천할 만한 방식입니다.
 
- 
 	[iPhone5 DeviceProfile]
 	DeviceType=IOS
 	BaseProfileName=IOS
 	MeshLODSettings=
 	TextureLODSettings=
 	+CVars=r.RenderTargetSwitchWorkaround=1
- 
+
 	[iPhone5S DeviceProfile]
 	DeviceType=IOS
 	BaseProfileName=IOS
@@ -27,14 +26,11 @@ Version: 4.9
 	+CVars=r.DepthOfFieldQuality=1
 	+CVars=r.LightShaftQuality=1
 
-
-환경설정 파일 셋업 관련 상세 정보는, [환경설정 파일](Programming\Basics\ConfigurationFiles) 문서를 참고해 주시기 바랍니다.
+구성 파일 셋업 관련 상세 정보는, [구성 파일](Programming/Basics/ConfigurationFiles) 문서를 참고해 주시기 바랍니다.
 
 ### iOS
 
-디바이스 프로파일은 iOS 디바이스용 게임 해상도를 설정하는 데 사용할 수 있습니다. `r.MobileContentScaleFactor` 프로퍼티는 디바이스의 '명목상 iOS 해상도'에 상대적인 것입니다. 예를 들어 레티나 아이패드의 경우 
-실제 해상도는 2048x1536 이지만 명목상 해상도는 1024x768 이므로 2.0 을 사용해야 실제 해상도가 나옵니다. 실제 해상도로 실행시키는 만큼의 퍼포먼스 영향은 없으면서 해상도를 높이고자 하는 경우, 1.5 식의 
-실수값을 사용할 수도 있습니다.
+디바이스 프로파일은 iOS 디바이스용 게임 해상도를 설정하는 데 사용할 수 있습니다. `r.MobileContentScaleFactor` 프로퍼티는 디바이스의 '명목상 iOS 해상도'에 상대적인 것입니다. 예를 들어 레티나 아이패드의 경우 실제 해상도는 2048x1536 이지만 명목상 해상도는 1024x768 이므로 2.0 을 사용해야 실제 해상도가 나옵니다. 실제 해상도로 실행시키는 만큼의 퍼포먼스 영향은 없으면서 해상도를 높이고자 하는 경우, 1.5 식의 실수값을 사용할 수도 있습니다.
 
 	[iPad3 DeviceProfile]
 	+CVars=r.MobileContentScaleFactor=1
@@ -45,11 +41,33 @@ Version: 4.9
 	[iPadAir DeviceProfile]
 	+CVars=r.MobileContentScaleFactor=2
 
-iOS 디바이스 프로파일은 `Engine\Config` 의 `BaseDeviceProfiles` 에서 확인할 수 있습니다. 이 카테고리는 플러그인 시스템을 통해 설정되는 것으로,
-기본 플러그인은 **iOSDeviceProfileSelector** 가 됩니다. iOS 디바이스 카테고리는 단지 디바이스 이름이 됩니다.
+iOS 디바이스 프로파일은 `Engine/Config` 의 `BaseDeviceProfiles` 에서 확인할 수 있습니다. 이 카테고리는 플러그인 시스템을 통해 설정되는 것으로, 기본 플러그인은 **iOSDeviceProfileSelector** 가 됩니다. iOS 디바이스 카테고리는 단지 디바이스 이름이 됩니다.
 
-### 안드로이드
+### Android
 
-안드로이드에는 계층구조식 디바이스 프로파일 카테고리가 있습니다 (예제는 `Engine\Config` 의 `BaseDeviceProfiles.ini` 에서 확인할 수 있습니다). 이 카테고리는 플러그인 시스템을 통해 설정되는 것으로,
-기본 플러그인은 **AndroidDeviceProfileSelector** 가 됩니다.
+Android에는 계층구조식 디바이스 프로파일 카테고리가 있습니다 (예제는 `Engine/Config` 의 `BaseDeviceProfiles.ini` 에서 확인할 수 있습니다). 이 카테고리는 플러그인 시스템을 통해 설정되는 것으로, 기본 플러그인은 **AndroidDeviceProfileSelector** 가 됩니다.
 
+## 메모리 버킷
+
+메모리 용량이 다른 여러 플랫폼에서 언리얼 엔진 4 (UE4)를 실행하는 방법과 사용하는 옵션을 지정하는 법은, **Memory Buckets** (메모리 버킷)을 추가하면 됩니다. 이 기능을 추가하려면 먼저 프로젝트의 **Engine.ini** (, 즉 **Android/AndroidEngine.ini**, **IOS/IOSEngine.ini**, 또는 플랫폼별로 설정된 다른 **플랫폼이름Engine.ini**) 파일을 텍스트 에디터로 연 뒤 다음과 같이 추가합니다.
+
+	[PlatformMemoryBuckets]
+	LargestMemoryBucket_MinGB=8
+	LargerMemoryBucket_MinGB=6
+	DefaultMemoryBucket_MinGB=4
+	SmallerMemoryBucket_MinGB=3
+	SmallestMemoryBucket_MinGB=2
+	TiniestMemoryBucket_MinGB=1
+
+프로젝트의 Engine.ini 파일에 메모리 버킷을 설정했으면, 프로젝트의 **DeviceProfiles.ini** 파일을 열고 어떤 메모리 버킷에 어떤 설정을 연결할지 지정할 수 있습니다. 예를 들어 텍스처 스트리밍 풀이 사용할 메모리 양을 조정하려면, DeviceProfiles.ini 파일에 다음과 같이 추가합니다.
+
+	[Mobile DeviceProfile]
+	+CVars_Default=r.Streaming.PoolSize=180
+	+CVars_Smaller=r.Streaming.PoolSize=150
+	+CVars_Smallest=r.Streaming.PoolSize=70
+	+CVars_Tiniest=r.Streaming.PoolSize=16
+
+메모리 버킷을 사용하여 렌더링 세팅을 지정할 수도 있습니다. 다음 예제에서, **월드 세팅** 을 사용하는 텍스처용 **TextureLODGroup** 설정은 UE4 가 가장 작은(Tiniest) 메모리 버킷을 사용하는 디바이스를 감지한 경우 **MaxLODSize** 를 1024 에서 256 로 조정하여 월드에 텍스처의 LOD 그룹을 설정하는 데 드는 메모리를 줄입니다.
+
+	[Mobile DeviceProfile]
+	+TextureLODGroups=(Group=TEXTUREGROUP_World, MaxLODSize=1024, OptionalMaxLODSize=1024, OptionalLODBias=1, MaxLODSize_Smaller=1024, MaxLODSize_Smallest=1024, MaxLODSize_Tiniest=256, LODBias=0, LODBias_Smaller=0, LODBias_Smallest=1, MinMagFilter=aniso, MipFilter=point)

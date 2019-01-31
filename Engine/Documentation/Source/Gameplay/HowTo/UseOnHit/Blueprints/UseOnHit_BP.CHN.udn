@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2711665
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中使用 OnHit 事件
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UseOnHit
@@ -7,6 +7,8 @@ Related: Engine/Blueprints
 Related: Engine/Blueprints/UserGuide/Events
 Related: Engine/Blueprints/UserGuide/CastNodes
 version: 4.9
+type:how-to
+skilllevel:Intermediate
 
 
 在本页中，我们将使用 **OnComponentHit** 和 **Event Hit** [](Engine/Blueprints/UserGuide/Events) 以伤害和撕裂一个可破坏网格（Destructible Mesh），

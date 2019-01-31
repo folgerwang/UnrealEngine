@@ -13,7 +13,7 @@ checkpoint: editorqs
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/QuickStart/4 "%Engine/QuickStart/4:title%")
+		[이전 단계](Engine/QuickStart/4 "%Engine/QuickStart/4:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

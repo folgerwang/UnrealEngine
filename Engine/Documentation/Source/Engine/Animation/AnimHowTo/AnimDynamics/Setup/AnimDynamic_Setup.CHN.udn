@@ -1,28 +1,17 @@
-﻿INTSourceChangelist:2988432
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1 - 必要设置
-Crumbs:%ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo, Engine\Animation\AnimHowTo\AnimDynamics
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo, Engine/Animation/AnimHowTo/AnimDynamics
 Description:在这一步中，我们将设置要用来应用动态动画的角色。 
 SkillLevel:Advanced
 Version:4.11
 checkpoint: editorqs
+parent:Engine/Animation/AnimHowTo/AnimDynamics
+type:how-to
+type:multi-step
+Order: 1
  
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[AnimDynamics 操作指南](Engine\Animation\AnimHowTo\AnimDynamics)
-	[/PARAM]
-	[PARAM:next]
-		[下一步](Engine\Animation\AnimHowTo\AnimDynamics\ApplyDynamics "%Engine\Animation\AnimHowTo\AnimDynamics\ApplyDynamics:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在开始将动态动画应用到角色之前，我们需要先设置要使用的角色。 
 模板角色没有任何可供我们使用的动态骨骼，因此我们将把动画从模板角色重定位到一个《无尽之剑》（Infinity Blade）的角色，该角色具有我们可以通过 AnimDynamics 影响的骨骼。 
@@ -35,6 +24,7 @@ checkpoint: editorqs
 [/REGION]
 
 
+(#Steps)
 ## 步骤
 
 打开基于 **Blueprint Third Person** 的模板项目并添加 **Infinity Blade** 资产后：
@@ -126,6 +116,7 @@ checkpoint: editorqs
 1. **编译（Compile）**并 **保存（Save）**，然后关闭蓝图。 
 
 
+(#EndResult)
 ## 最终结果
 
 此时如果您在编辑器中运行，应该可以控制这个大兵角色，用 **WASD** 和 **空格** 键使他奔跑和跳跃。 
@@ -146,7 +137,4 @@ WEVotwqetOs
 
 在下一步我们将使用 AnimDynamics 节点使背带和炉子动起来，使它们对角色运动作出反应。 
 
-
-
-
-
+[NAV]

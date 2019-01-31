@@ -1,9 +1,17 @@
-﻿INTSourceChangelist:2708373
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:DPI 缩放
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
-Description:如何访问和调整 DPI 缩放规则。 
+Description: 如何访问和调整 DPI 缩放规则。 
 version:4.9
+ype: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:4
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/ScalingTopic.png
+
 
 [REGION:banner]
 ![](DPIscaling.png)(convert:false)

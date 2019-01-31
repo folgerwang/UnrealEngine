@@ -1,49 +1,70 @@
-﻿Availability:Public
-Title: 创建混合空间
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Blendspaces
-Description: 关于创建在动画蓝图资源的动画图表中使用的新型多输入动画混合资源BlendSpace（混合空间）的指南。
+Title:创建混合空间
+Description:针对创建混合空间和混合空间1D资源以在动画蓝图中使用的概述。 
+Type: how-to
+SkillLevel: Beginner
+version: 4.16
+Parent: Engine/Animation/Blendspaces
+Order: 1
+tags:Animation
+tags:Animation Blueprint
+tags:Blend Space
+topic-image:createblendspacetopic.png
+Related: Engine\Animation\AnimHowTo\BlendSpace
+Related: Engine/Animation/Blendspaces/Editor
+Related: Engine/Animation/StateMachines
+Related: Engine/Animation/AnimBlueprints
+Related: Engine/Animation/AnimBlueprints/AnimGraph
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Blendspaces/Creation:title%](Engine/Animation/Blendspaces/create.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Blendspaces/Creation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Blendspaces/Creation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Blendspaces/Creation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+本页介绍如何使用要与混合空间关联的[骨架](Engine/Animation/Skeleton)来创建 **混合空间（Blend Space）** 和 **混合空间1D（Blend Space 1D）** 资源。
 
+(#steps)
 
-_Blueprint（蓝图）_ 是一些常规的自愿，必须像创建任何其他资源一样通过内容浏览器来创建蓝图。
+## 步骤
 
-**要想创建一个新的 _混合空间_ :**
+[REGION:note]
+但是，根据要使用的资源，创建混合空间和混合空间1D通常[](Engine/Animation/Blendspaces/Editor)略有不同。 
+[/REGION]
 
-1. 在 **内容浏览器** 中，导航到您想创建您的新混合空间的文件夹，然后点击![](Shared/EditorButtons/button_NewAsset.png)或 **右击** 并选择 **_BlendSpace_**: 
+1.  在项目的 **内容浏览器** 中，单击 **新建（Add New）** 按钮（或在内容浏览器中单击右键）并选择 **动画（Animation）** >**混合空间（Blend Space）**。
 
 	![](NewBlendSpace.png)
 
-1. 在 **Choose Skeleton（选择骨架）** 对话框中，选择该 _混合空间_ 应该指向的骨架:
+	如果想要创建 **混合空间1D（Blend Space 1D）**，则选择“混合空间1D（Blend Space 1D）”选项。 
+
+	![](blendspace1dcreate.png)
+
+1.  在 **选取骨架（Pick Skeleton）** 对话框中，选择应作为混合空间目标的骨架。
 
 	![](SkeletonList.png)
 
-1. 新的 _BlendSpace_ 资源将在 **内容浏览器** 中显示在指定的位置处：
-
-	![Create Blueprint - Asset Created](bs_create_asset.png)
-
-	如果混合空间和动画蓝图的动画图表的目标骨骼相同，那么该混合空间也可以在该蓝图的动画图表中使用。
-
-	[REGION:imagetable]
-	| ![](AssetBrowserBlendList.png)(h:400) | ![](ContextMenuBlendList.png)(h:400) |
-	| :---: | :---: |
-	| **资源浏览器** | **关联菜单** |
+	[REGION:note]
+	根据项目中的骨架资源数量，您的资源列表可能有所不同。 
 	[/REGION]
+
+1.  输入新的混合空间资源的名称。 
+
+	![创建蓝图——创建的资源](bs_create_asset.png)
+
+	如果动画蓝图与混合空间具有相同的目标骨架，则该混合空间也可以在该动画蓝图的 **动画图（Anim Graph）** 中使用。
+
+	![](AssetBrowserBlendList.png)
+		
+(#endresult)
+
+## 最终结果
+
+在创建混合空间之后打开它时，它将显示为空（如下图所示）。 
+
+![](BlendSpaceAsset.png)
+
+从这里，您可以开始创建[](Engine/Animation/AnimHowTo/BlendSpace)或所需的混合效果。 
+
+
+
+
+
+
+

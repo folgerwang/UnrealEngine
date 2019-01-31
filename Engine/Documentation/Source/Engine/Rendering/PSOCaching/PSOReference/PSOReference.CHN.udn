@@ -1,0 +1,108 @@
+﻿INTSourceChangelist:4687638
+Availability: Public
+Crumbs: 
+Title:PSO参考
+Description: PSO缓存选项的完整参考。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:placeholder_topic.png
+Tags: 
+
+以下页面讲述了可用于 **管线状态对象（PSO）** 缓存系统的诸多命令和选项。
+
+(#properties)
+
+## 属性  
+
+| **属性** | **描述** |
+| --- | --- |
+| **SetBatchMode Background** | 应用在交互菜单之后。 |
+| **SetBatchMode Fast** | 应在加载画面或影片显示时使用，以便编译更多PSO。 |
+| **ResumeBatching** | 应用于重新启动批处理进程。 |
+| **NumPrecompilesRemaining** | 用于确定待编译PSO的总数。 |
+| **NumPrecompilesActive** | 返回被此帧活跃预编译的管线的数量。 |
+| **OpenPipelineFileCache** | 用上个打开的设置（如有）来打开着色器管线缓存文件，否则使用项目命名来打开。 |
+| **SavePipelineFileCache**  | 使用一种定义的保存模式将当前的着色器管线缓存保存到硬盘，“Fast”使用增量法，而“Slow”则将所有数据合并到文件中。 |
+| **ClosePipelineFileCache** | 关闭现有管线缓存，使其能用一个不同的文件和/或着色器平台重新打开。将隐式调用“Fast Save”。 |
+| **ShaderLibraryStateChanged** | 由FShaderCodeLibrary调用，通知着色器代码库状态已变化，需要重新评估着色器可用性。 |
+| **SetGameUsageMaskWithComparison** | 设置当前的PSO游戏使用遮罩和对比函数。如此遮罩与旧遮罩不同，则返回true，如相同则返回false。如缓存系统已禁用或遮罩功能已禁用，则返回false。所有新找到的PSO都应以此值记录，否则现有的PSO应更新其遮罩。参见FPipelineFileCache的更多详情。 |
+
+
+(#fshaderpipelinecache)
+
+## FShaderPipelineCache
+
+FShaderPipelineCache提供新PSO日志记录、序列化和预编译机制，替代FShaderCache。缓存管线状态对象并将初始器序列化到硬盘可在游戏下次运行时预编译这些状态，这样能减少卡顿。要达到此效果，FShaderPipelineCache依赖于FShaderCodeLibrary和“共享材质着色器代码”以及RHI级后端FPipelineFileCache。
+
+(#basicruntimeusage)
+
+## 基础运行时用法
+
+PSO缓存运行时可使用以下命令来确保PSO数据编译中时项目不会出现卡顿。
+
+*   可以 **r.ShaderPipelineCache.Enabled = 1** 启用缓存，其允许管线缓存从硬盘加载现有数据并对其进行预编译。 
+*   以 r**.ShaderPipelineCache.BatchSize = X** 设置默认批大小，其中X是在默认的 **Fast BatchMode** 中进行预编译时编译到单个批中的PSO的最大数量。
+*   以 **r.ShaderPipelineCache.BackgroundBatchSize = X** 设置后台批大小，其中X是在后台批模式中进行编译的PSO的最大数量。 
+*   指示游戏代码调用 **FShaderPipelineCache::SetBatchMode** 在Fast和后台模式之间切换批模式。 
+*   正在显示加载画面或影片时应使用 **BatchMode::Fast**，使更多PSO被编译，而后台应用于交互菜单之后。如有必要，调用 **NumPrecompilesRemaining** 来决定待编译PSO的总数，并持续显示加载画面或影片直到完成。 
+*   根据游戏和目标平台性能的不同，也可能需要调用 **PauseBatching** 来停止游戏进程中的预编译，然后在加载画面、菜单或影片后使用 **ResumeBatching** 来重新开始预编译。
+
+(#otherruntimeoptions)
+
+## 其他运行时选项
+
+以下命令可用于在PSO编译缓存时进一步进行控制。
+
+*   在 **GGameIni** 中（以及GGameUserSettingsIni中），着色器管线缓存使用 [**ShaderPipelineCache.CacheFile**] 部分来保存部分设置。
+*   **LastOpened** 设置将上个打开的缓存文件的命名保存为以Open指定。如其存在，将在 **FShaderPipelineCache::Initialize** 中用于打开现有的缓存。如未指定，这将默认为AppName。
+*   **SortMode** 设置保存PSO的理想排序模式，其为：  
+    
+    *   **Default**：按文件中指定的排序进行加载。
+    
+    *   **FirstToLatestUsed**：从使用最低第一帧的PSO开始，到使用最高第一帧的PSO。
+    
+    *   **MostToLeastUsed**：从最常使用的PSO开始，到最少使用的PSO。
+*   如未指定内容，将使用 **FShaderPipelineCache::Initialize** 和 **OpenPipelineFileCache** 中的“Default”。 
+*   **GameVersionKey** 是一个在 **GGameIni** 中指定的只读整数，其将游戏内容版本指定为游戏内容的消歧义不兼容版本。此项默认取自 **FEngineVersion** 修改列表。
+
+(#loggingusage)
+
+## 日志记录用法
+
+采集PSO数据时可使用以下命令。
+
+*   可使用 r**.ShaderPipelineCache.Enabled = 1** 命令启动PSO缓存，然后使用 **r.ShaderPipelineCache.LogPSO = 1** 命令开启运行时日志记录。 
+*   执行此操作时，需要确保已配置游戏在启动时打开正确的缓存并允许游戏运行。 
+*   PSO按照其被遭遇时进行记录，因为虚幻引擎未提供设备对其进行离线烘焙，因此该系统将只收集实际用于渲染的PSO。 
+*   照此，使用者必须手动进行游戏来收集日志或自动进行此代码范围之外的进程。 
+*   调用 **FShaderPipelineCache::SavePipelineFileCache** 即可随时保存数据。设置 **r.ShaderPipelineCache.SaveAfterPSOsLogged = X** 后，便会在给定数量的PSO之后保存数据。其中X是保存之前所要记录的PSO数量（为0则禁用自动保存）。
+*   日志文件是着色器平台所特有，可降低开销。
+
+(#filelocations&packaging)
+
+## 文件路径和打包
+
+以下信息提供了PSO数据保存之处的更多信息。
+
+*   可写入缓存文件固定保存在用户保存的目录中。
+*   游戏可在其游戏内容目录中提供一个不变副本，其将用作初始或种子数据。 
+*   获取开发中生成的日志并将其与 **UnrealEd.MergeShaderPipelineCaches** 合并，其应被打包在相关平台的游戏内容目录中。
+
+(#requirements)
+
+## 要求
+
+尝试设置项目中进行采集的PSO时，必须满足以下要求。
+
+*   通过 **项目设置（Project Settings）** \> **打包（Packaging）** \> **共享材质着色器代码（Share Material Shader Code）**
+*   启用 **本地着色器库（Native Shader Libraries）** 为可选项，建议选择 **Metal**。
+
+(#additionalnotes)
+
+## 额外讲解
+
+*   修改打开的缓存文件的方法是：以 **ClosePipelineFileCache**（其将隐式Fast保存）关闭现有文件，然后以 **OpenPipelineFileCache** 打开一个新文件。 
+*   记录日志时，如果切换文件，则只会记录切换之后的新条目。这意味着应在切换之前记录的PSO将丢失。这可防止意料之外的条目混入缓存。 
+*   **UnrealEd.MergeShaderPipelineCaches** 命令行可用于合并相同文件版本、着色器平台和游戏版本的缓存文件。

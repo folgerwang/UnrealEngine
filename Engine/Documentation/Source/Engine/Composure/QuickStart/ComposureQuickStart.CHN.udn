@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3580568
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
 Crumbs: %ROOT%
 Title:Composure 快速入门
 Description:准备在 UE4 中运行 Composure。
@@ -36,10 +36,12 @@ order:1
 请注意，为使用户快速进行基础总览，快速入门将讲述 Composure 最简单的使用范例。以上视频展示了在生产环境中使用 Composure 能够实现的质量与交互类型。  
 [/REGION]
 
+(#Goals)
 ## 目标
 
 Composure 快速入门指南将指导您在虚幻引擎 4 中快速准备，进行基础的影片合成。如您刚开始使用 Composure，那这篇指南便是一部宝典！
 
+(#Objectives)
 ## 目的
 
 在此教程的学习中，开发者将了解以下内容：
@@ -50,6 +52,7 @@ Composure 快速入门指南将指导您在虚幻引擎 4 中快速准备，进�
 *	如何创建使用 Composure 的镜头。 
 
 
+(#Steps)
 ## 步骤
 
 [DIR(output:"checkpoint" parent:"Engine/Composure/QuickStart" org:"hierarchy")]

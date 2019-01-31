@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3469520
+﻿INTSourceChangelist:4649792
 Availability: Public
 crumbs:%ROOT%
 Title: 3 - 비히클 애니메이션 블루프린트
@@ -54,13 +54,13 @@ Tags: Vehicles
 	올바른 **Parent Class** 에 설정하지 않으면, 나중에 필요한 노드에 접근할 수 없게 됩니다.
 	[/REGION]
 
-1. **애님 그래프** 에서 우클릭으로 맥락 메뉴를 띄운 뒤 **Mesh Space Ref Pose** 노드를 검색하는 것으로 시작합니다. 리스트에서 선택하면 그 자리에 생성됩니다.
+1. **애님 그래프** 에서 우클릭으로 컨텍스트 메뉴를 띄운 뒤 **Mesh Space Ref Pose** 노드를 검색하는 것으로 시작합니다. 리스트에서 선택하면 그 자리에 생성됩니다.
 
 	[REGION:raw]
 	![](meshSpace.png)
 	[/REGION]
 
-1. 다음, **애님 그래프** 에 우클릭하여 맥락 메뉴를 띄우고 **Whell Handler** 를 검색하여 선택하면 생성됩니다.
+1. 다음, **애님 그래프** 에 우클릭하여 컨텍스트 메뉴를 띄우고 **Whell Handler** 를 검색하여 선택하면 생성됩니다.
 
 	[REGION:raw]
 	![](wheelHandler01.png)
@@ -79,6 +79,6 @@ Tags: Vehicles
 ## 최종 결과
 
 애니메이션 블루프린트 구성 작업이 완료되었습니다! **Component to Local** 변환 노드가 자동 생성되어 이제 애니메이션 블루프린트가 비히클의 휠을 구동시킬 것입니다.
-계속해서 다음 단계에서는 예전 단계의 모든 것들을 조립하는 비히클 블루프린트를 만드는 법을 알아보겠습니다.
+계속해서 다음 단계에서는 이전 단계의 모든 것들을 조립하는 비히클 블루프린트를 만드는 법을 알아보겠습니다.
 
 [Nav]

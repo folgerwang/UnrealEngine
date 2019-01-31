@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title: 编译配置参考
-Description: 方案和项目的编译配置参考
+Description: 解决方案和项目编译配置的参考指南。
 Crumbs: %ROOT%, Programming, Programming/Development
 Prereq: GettingStarted/RecommendedSpecifications
 Related: GettingStarted/DownloadingUnrealEngine
@@ -12,34 +12,37 @@ Version: 4.9
 
 [TOC (start:2 end:3)]
 
+(#buildconfigurationdescriptions)
 ## 编译配置描述
 
-虚幻引擎 4 采用了一种自定义的编译方式，通过我们的 UnrealBuildTool 工具（UBT）。该工具通过处理一些必要的信息来构建引擎的反射体系，并将 C++ 的代码和蓝图、网络复制、序列化以及垃圾回收系统进行关联整合。
+虚幻引擎4通过UnrealBuildTool（UBT）来使用自定义编译方法。此工具负责处理引擎反射系统编译所必需的信息，将C++代码与蓝图、复制、序列化和垃圾回收进行整合。
 
 [INCLUDE:Programming/Development/CompilingProjects#winbuildconfig]
 
-### 虚幻引擎 4 Solution 的编译设置
+(#buildconfigurationforue4solution)
+### UE4解决方案编译配置
 
 (#bookmark1)
 
-当编译 UE4 的 Solution 的时候，会编译项目代码的同时也编译引擎代码，这时以下这些设置是可用的。
+编译UE4解决方案时，即是将引擎的源代码与项目的源代码一同编译。以此方式编译项目时可使用以下编译配置：
 
-|             | Debug    | DebugGame | Development | Shipping | Test     |
+|             | 调试    | DebugGame | 开发 | 发布 | 测试     |
 | ----------- | -----    | --------- | ----------- | -------- | ----     |
-| **[empty]** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
-| **Editor ** | &#x2713; | &#x2713;  | &#x2713;    |          |          |
-| **Client ** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
-| **Server ** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
+| **[空白]** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
+| **编辑器** | &#x2713; | &#x2713;  | &#x2713;    |          |          |
+| **客户端** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
+| **服务器** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
 													   
-### 虚幻引擎 4 的项目（Project）的编译配置
+(#buildconfigurationforue4project)
+### UE4项目编译配置
 
-在编译一个虚幻 4 项目的时候，可以仅编译项目的源代码，这时以下这些设置是可用的。
+编译UE4项目时，只会对项目的源代码进行编译。以此方式编译项目时可使用以下编译配置：
 
 %Globals:osselect_linux%
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -48,17 +51,17 @@ Version: 4.9
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	    |             | Debug | DebugGame | Development | Shipping | Test |
+	    |             | 调试 | DebugGame | 开发 | 发布 | 测试 |
         | ----------- | ----- | --------- | ----------- | -------- | ---- |
-        | **[empty]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
-        | **Editor ** |       | &#x2713;  | &#x2713;    |          |      |
-        | **Client ** |       |           |             |          |      |
-        | **Server ** |       |           |             |          |      |
+        | **[空白]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
+        | **编辑器** |       | &#x2713;  | &#x2713;    |          |      |
+        | **客户端** |       |           |             |          |      |
+        | **服务器** |       |           |             |          |      |
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -66,17 +69,17 @@ Version: 4.9
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	    |             | Debug | DebugGame | Development | Shipping | Test |
+	    |             | 调试 | DebugGame | 开发 | 发布 | 测试 |
         | ----------- | ----- | --------- | ----------- | -------- | ---- |
-        | **[empty]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
-        | **Editor ** |       | &#x2713;  | &#x2713;    |          |      |
-        | **Client ** |       |           |             |          |      |
-        | **Server ** |       |           |             |          |      |
+        | **[空白]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
+        | **编辑器** |       | &#x2713;  | &#x2713;    |          |      |
+        | **客户端** |       |           |             |          |      |
+        | **服务器** |       |           |             |          |      |
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	linux
@@ -85,9 +88,9 @@ Version: 4.9
 	[/PARAMLITERAL]
 	[PARAM:content]
 	    [REGION:warning]
-        当前我们并不提供 Linux 下的虚幻引擎的二进制安装版本。
-		Linux 用户请参考 [虚幻引擎 4 Solution 文件的编译配置](#bookmark1) 章节。
-        _同时也可以参考我们 [](GettingStarted/DownloadingUnrealEngine) 文档来了解更多如何从源代码构建虚幻引擎。_
+        我们当前未提供虚幻引擎Linux版本的二进制安装程序。  
+		Linux用户应参考[UE4解决方案编译配置](#bookmark1)部分。  
+        _参见[](GettingStarted/DownloadingUnrealEngine)文档，了解如何从源编译虚幻引擎。_
         [/REGION]
 	[/PARAM]
 [/OBJECT]

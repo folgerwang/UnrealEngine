@@ -1,49 +1,53 @@
-﻿Availability:Public
-Title:按键绑定编辑器
+INTSourceChangelist:3782314
+Availability:Public
+Title:键绑定编辑器
 Crumbs:%ROOT%, Engine, Engine/UI
-Description:虚幻编辑器中创建命令的可配置控制。
+Description:虚幻编辑器中的常用命令可配置功能按钮。
+Version: 4.9
+topic-image:Engine/UI/KeyBinding_topic.png
+
 
 [EXCERPT:Intro]
-**Keybindings Editor(按键绑定编辑器)** 用于把按键组合同一个动作或命令关联到一起。
-在虚幻编辑器中,常见命令及这些针对主机或其他应用程序的特定命令都是可配置的。
-每个用户都可以设定他们自己的一组自定义按键绑定来适应他们的工作流程和个人喜好。
+**键盘快捷键** 是键组合，如果在键盘上同时按下它们，特定命令或操作将会执行。可为常用命令以及主机或虚幻编辑器4中其他工具特定的命令配置快捷键。你可以在虚幻编辑器中自定义键盘快捷键，以满足工作流和个人偏好需求，方法是将特定键或键组合与特定命令绑定。 
+
+你可在 **编辑器首选项（Editor Preferences）** 窗口中设置自定义键盘快捷键。要修改键盘快捷键，单击 **编辑（Edit）** 菜单中的 **编辑器首选项（Editor Preferences）**，然后单击 **键盘快捷键（Keyboard Shortcuts）**。
 [/EXCERPT:Intro]
 
-![Key Bindings App](key_bindings.png)
 
-**Search(搜索)** 文本框允许您通过输入部分命令名称或整个命令名称来过滤已经显示的命令列表。
 
-![Key Bindings Filter](key_bindings_search.png)
+![键盘快捷键（Keyboard Shortcuts）](KeyboardShortcuts.png)
 
-## 绑定新命令
+你可以使用 **搜索（Search）** 字段对显示的命令的列表进行过滤，方法是输入部分或完整的词或命令。
 
-1. 单击您想绑定的命令对应的文本域。
+![键盘快捷键搜索](KeyboardShortcuts_Search.png)
 
-1. 按下您想使用的用于执行该命令的按键组合。 
+(#creatinganewkeyboardshortcut)
+## 创建新键盘快捷键
 
-	![Key Bindings - Set](key_bindings_set.png)
+1. 对于要绑定到某个键盘快捷键的命令，在 **文本字段** 中单击。
 
-1. 点击 ![Key Bindings - Accept](button_accept.png) 来设置按键绑定。
+1. 按下希望用于执行命令的键组合。
 
-	![Key Bindings - Finished](key_bindings_final.png)
+	![键盘快捷键绑定](KeyboardShortcuts_Bind.png)
+
+1. 要提交键绑定，在文本字段以外的任何位置单击。 
 
 	
 [REGION:tip]
-如果您按下的按键组合已经和其他命令相绑定，那么将会发出警告并提示如果需要可以
-覆盖那个按键绑定。
+如果你按下的键组合已与其他命令绑定，将会显示警告。
 	
-![Key Bindings - Override](key_bindings_existing.png)(w:720 convert:false)
+![键盘快捷键绑定错误](KeyboardShortcuts_BindError.png)
 
-点击 ![Key Bindings - Override](button_override.png) 按钮来为当前命令设置按键绑定并
-删除当前绑定到那组按键的命令中的按键绑定。
+如果希望移除现有绑定并将键盘快捷键指定给新命令，单击![键绑定 - 覆盖（Key Bindings - Override）](button_override.png)按钮。如果要保留现有绑定并取消新绑定，在文本字段之外的位置单击。
 [/REGION]
 
-## 删除已有按键绑定
+(#removinganexistingkeyboardshortcut)
+## 移除现有键盘快捷键
 
-1. 点击您想取消绑定的命令的当前按键绑定旁边的 ![Key Bindings - Delete](button_delete.png) 按钮。
+1. 单击要取消绑定的命令的当前键盘快捷键旁的![键绑定 - 删除（Key Bindings - Delete）](button_delete.png)按钮。
 
-	![Key Bindings - Remove](key_bindings_remove.png)
+	![键盘快捷键移除](KeyboardShortcuts_Remove.png)
 
-1. 该命令不再绑定到任何按键。
+1. 此命令将不再与任何键绑定。
 
-	![Key Bindings - Unbound](key_bindings_none.png)
+	![键盘快捷键已移除](KeyboardShortcuts_Removed.png)

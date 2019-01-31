@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2654627
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:12.创建 FindHidingSpot EQS
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
@@ -31,6 +31,7 @@ version:4.9
 * 测试中使用的项目通常与 Context 有关（项目 X 到 Context Y 有多远）
 * 基于测试结果对项目进行剔除和评分
 
+(#Steps)
 ## 步骤
 
 1. 首先，在 **内容浏览器** 中 **双击** FindHidingSpot 场景查询资源。

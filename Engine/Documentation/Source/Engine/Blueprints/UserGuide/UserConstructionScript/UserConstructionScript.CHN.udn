@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:构造脚本
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
@@ -6,44 +6,8 @@ Description:当创建一个蓝图实例来执行初始化动作时执行该构�
 version: 4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Graphs
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\UserConstructionScript:title%](Engine\Blueprints\UserGuide\UserConstructionScript\ucs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\UserConstructionScript]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\UserConstructionScript:title%](Engine\Blueprints\UserGuide\UserConstructionScript\ucs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\UserConstructionScript]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/UserConstructionScript/ucs_topic.png
 
 
 [REGION:banner]
@@ -67,8 +31,9 @@ Tags:Graphs
 
 ![](construction_script.png)
 
+(# WorkingwithGraphs)
 ## 应用图表
 
-[INCLUDE:Engine/Blueprints/Editor/Modes/GraphPanel#Intro]
+[INCLUDE:Shared/Glossary/G/#Glossary_Graph_Mode]
 
-请参照[](Engine/Blueprints/Editor/Modes/GraphPanel)获得关于在蓝图中应用 **ConstructionScript（构造脚本）** 和其他图表的详细指南。
+请参照[](Engine/Blueprints/Editor/UIComponents/GraphEditor)获得关于在蓝图中应用 **ConstructionScript（构造脚本）** 和其他图表的详细指南。

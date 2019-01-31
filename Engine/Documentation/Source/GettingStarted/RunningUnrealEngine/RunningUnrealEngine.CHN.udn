@@ -1,7 +1,8 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3810557
+Availability:Public
 Title:运行虚幻引擎
 Crumbs: %ROOT%, GettingStarted
-Description:将引擎作为游戏或编辑器来运行，包括如何启动一个特定地图及有用的游戏内命令。
+Description:将引擎作为游戏或编辑器运行，包括如何启动特定的地图和有用的游戏内命令。
 version: 4.9
 
 %Globals:OSSelect%
@@ -10,193 +11,85 @@ version: 4.9
 
 [EXCERPT:Main]
 
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+操作系统
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+本页上的说明用于对 **开发（Development）** 构建配置中编译的项目运行引擎。您可以替代在其他配置中打开项目构建所需的“UE4Editor-*.exe”或“UE4-*.exe”
+。有关二进制命名惯例的更多信息，可以在[构建虚幻引擎](Programming/Development/BuildingUnrealEngine)页面上找到。
+[/PARAM]
+[/OBJECT]
 
-本页面的指示是专门为在引擎中运行**Development** （开发）版本配置中进行编译的项目所写。  您可以替换打开其它设置中所构建项目所需的`UE4Editor-*.exe` 或 `UE4-*.exe`文件。 更多关于二进制命名规则的信息可以在[编译虚幻引擎](Programming/Development/BuildingUnrealEngine) 页面找到。
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+操作系统
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+本页上的说明用于对 **开发（Development）** 构建配置中编译的项目运行引擎。您可以替代在其他配置中打开项目构建所需的“UE4Editor-*.app”或“UE4-*.app”
+。有关二进制命名惯例的更多信息，可以在[构建虚幻引擎](Programming/Development/BuildingUnrealEngine)页面上找到。
+[/PARAM]
+[/OBJECT]
+
+
+(#runningtheeditor)
 
 ## 运行编辑器
-[EXCERPT:RunEditor]
-[PUBLISH:Licensee]
 
-这个过程将会启动虚幻编辑器的拷贝。
+[INCLUDE:#RunEditor]
 
-[/PUBLISH:Licensee]
+(#runninganuncookedgame)
 
-[PUBLISH:Rocket]
+## 运行未烘焙的游戏
 
-运行编辑器需要将项目名称作为可执行程序的参数。
-
-[REGION:tip]
-您可以通过添加 `-debug` 开关来强制可执行程序载入您项目模块的调试版本，而这其中包含了所有的调试符号。 即使在设置为 **Debug** 的情况下，通过Visual Studio来这样调试也是必需的，因为主程序总是在使用 **Development** （开发）设置的情况下进行编译。 当然，您必须首先使用 **Debug** （调试）设置来编译模块，这样它们可供可执行程序载入。
-[/REGION]
-
-[/PUBLISH:Rocket]
-
-### 从命令行运行编辑器
-
-[PUBLISH:Licensee]
-1.	在命令行提示符中，找到您`虚幻引擎4`目录下的`\Engine\Binaries\Win64`目录 。
-
-1.	运行 `UE4Editor.exe` 并向其传入游戏名称来运行:
-
-| 项目位置 | 命令提示符 |
-|----------------|--------------|
-| 虚幻4根目录| `UE4Editor.exe MyGame`|
-| 其它位置| `UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
+一旦在虚幻编辑器（Unreal Editor）中加载了项目，您便可通过 **运行方式（Play In）** 菜单在未烘焙游戏（Uncooked Game）模式下[测试您的游戏进程](Engine/UI/LevelEditor/InEditorTesting#modes)。 
+若要在其自带的窗口中运行未烘焙游戏，请在关卡编辑器（Level Editor）工具栏中使用[在下拉菜单中运行（Play In dropdown menu）](Engine/UI/LevelEditor/InEditorTesting#toolbar)选择[新窗口位于（New Window At）> 默认玩家出生点（Default Player Start）模式](Engine/UI/LevelEditor/InEditorTesting#modes) 
+。
 
 
-
-[/PUBLISH:Licensee]
-
-[PUBLISH:Rocket]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	在命令行提示符中，找到`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64`目录 。
-
-	1.	运行 `UE4Editor.exe`，并向其传入您的项目路径：
-
-			UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	在命令行提示符中，找到`[LauncherInstall]/[VersionNumber]/Engine/Binaries/Mac` 目录。
-
-	1.	运行 `UE4Editor.app`，并向其传入您的项目路径：
-
-			open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject"
-	[/PARAM]
-[/OBJECT]
-[/PUBLISH:Rocket]
-
-
-### 从可执行程序运行编辑器
-
-[PUBLISH:Licensee]
-
-
-1.	找到您`虚幻引擎4`目录下的`\Engine\Binaries\Win64`目录 。
-
-1.	**右键点击** `UE4Editor.exe`可执行文件并选择 **创建快捷方式** 。
-
-1.	重命名该快捷方式，使其能反映出您将要运行的游戏及其会启动编辑器的事实，比如  **MyGameEditor.exe** 。
-
-1.	**右键点击** 新建的快捷方式并选择 **Properties** （属性）。
-
-1.	在 **Target** 属性的末端添加游戏名称作为参数来运行:
-
-|项目位置| 目标|
-|----------------|--------------|
-| UE4根目录| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame`|
-|其它位置| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
-
-
-1. 然后按下 **OK(确认)** 来保存更改。
-
-1.	**双击** 快捷方式以打开该编辑器。
-
-[/PUBLISH:Licensee]
-
-[PUBLISH:Rocket]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	找到`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64`目录。
-
-	1.	**右键点击** `UE4Editor.exe`可执行文件并选择 **创建快捷方式** 。
-
-	1.	重命名该快捷方式，使其能反映出您将要运行的游戏及其会启动编辑器的事实，比如  **MyProject - Editor.exe** 。
-
-	1.	**右键点击** 新建的快捷方式并选择 **Properties** （属性）。
-
-	1.	在 **Target** 属性的末端添加游戏名称作为参数来运行:
-
-			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
-
-	1. 然后按下 **OK(确认)** 来保存更改。
-
-	1.	**双击** 快捷方式以打开该编辑器。
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	编辑器必须以[从命令行提示符中运行](#从命令行运行编辑器)方式运行以直接载入特定项目或[不带参数](#使用无参数_独立_的形式来运行编辑器 )以访问项目浏览器。
-	[/PARAM]
-[/OBJECT]
-[/PUBLISH:Rocket]
-
-### 使用无参数 (独立)的形式来运行编辑器
-
-如果编辑器没有设置为在启动时打开最近项目，则不带任何参数启动编辑器可执行程序将会启动项目浏览器。 在此处，您可以[创建新项目](Engine/Basics/Projects/Browser#创建新项目), [打开已存项目](Engine/Basics/Projects/Browser#打开项目),或者打开[内容示例和实例游戏](Resources)。
-
-[/EXCERPT:RunEditor]
-
-## 运行未烘焙游戏
-
-当一个项目在虚幻编辑器内载入后，您可以从 **Play In** 菜单中的未烘焙游戏模式中[测试游戏](Engine/UI/LevelEditor/InEditorTesting)。 如需在相应窗口游玩未烘焙游戏，请使用关卡编辑器工具栏内的[**Play In** 下拉菜单](Engine/UI/LevelEditor/InEditorTesting)来选择 [**新建窗口位置** > **默认玩家起始位置** 模式](Engine/UI/LevelEditor/InEditorTesting) 。
-
-**点击以查看完整尺寸图片:**
 
 [REGION:lightbox]
 [![](Engine/UI/LevelEditor/InEditorTesting/PIE_newwindow.png)(w:300)](Engine/UI/LevelEditor/InEditorTesting/PIE_newwindow.png)
 [/REGION:lightbox]
+_单击以查看全尺寸图像：_
 
-使用以下两种方式的任意一种，来运行引擎的未烘焙游戏版本的可执行文件，其结果相同。
+使用以下任一方法运行引擎可执行文件的未烘焙游戏版本将导致相同的行为。
 
-### 从命令行运行未烘焙的游戏
+(#runninganuncookedgamefromthecommandline)
+
+### 从命令行运行未烘焙游戏
 
 [PUBLISH:Licensee]
-当使用命令行方式来运行游戏时，您必须通过快捷方式的 **Target** （目标）属性来指定您想要作为`UE4Editor.exe`可执行文件参数来运行的游戏，同时指定`-game`参数以告知编辑器在游戏模式内运行，而非启动编辑器界面运行。
+当从命令行运行游戏时，必须通过快捷方式的 **目标（Target）** 属性指定要运行的游戏作为“UE4Editor.exe”可执行文件的参数， 
+以及指定“-game”参数来告诉编辑器在游戏模式下运行，而不是打开编辑器UI。
 
-1.	在命令行提示符中，找到您`虚幻引擎4`目录下的`\Engine\Binaries\Win64`目录 。
+1.	从命令提示符中，导航至您的“UE4”目录的“\Engine\Binaries\Win64”目录。
 
-1.	运行 `UE4Editor.exe -game` 并向其传入游戏名称来运行:
+1.	运行“UE4Editor.exe -game”，并向其传递给要运行的游戏的名称：
 
-| 项目位置 | 命令提示符 |
+|项目位置|命令提示符|
 |----------------|--------------|
-| 虚幻4根目录| `UE4Editor.exe MyGame -game`|
-| 其它位置| `UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" -game`|
+|UE4根 | “UE4Editor.exe MyGame -game”|
+|替代位置| “UE4Editor.exe “[ProjectPath]\[ProjectName].uproject” -game”|
 
 [/PUBLISH:Licensee]
 
 [PUBLISH:Rocket]
-当从命令行运行时，您必须将`-game`开关作为参数并传入您想要的项目名称来运行。
+当从命令行运行时，必须将要运行的项目名称以及“-game”开关一起作为参数传递。
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -205,16 +98,16 @@ version: 4.9
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	在命令行提示符中，找到`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64`目录 。
+	1.	从命令提示符中，导航至您的“[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64”目录。
 
-	1.	运行 **UE4Editor.exe** ，将其传递到项目路径以运行，并附上`-game`参数。 
+	1.	运行 **UE4Editor.exe**，并向其传递要运行的项目的路径以及“-game”参数。
 
-			UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" -game
+			UE4Editor.exe “[ProjectPath]\[ProjectName].uproject” -game
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -222,48 +115,51 @@ version: 4.9
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	在命令行提示符中，找到`[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac` 目录。
+	1.	从命令提示符中，并导航至您的“[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac”目录。
 
-	1.	运行 **UE4Editor.app** ，将其传递到项目路径以运行，并附上`-game`参数。 
+	1.	运行 **UE4Editor.app**，并向其传递要运行的项目的路径以及“-game”参数
 
-			open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject" -game
+			打开UE4Editor.app --args“[ProjectPath]/[ProjectName].uproject” -game
 	[/PARAM]
 [/OBJECT]
 [/PUBLISH:Rocket]
 
 
-### 从可执行程序运行未烘焙的游戏
+(#runninganuncookedgamefromtheexecutable)
+
+### 从可执行文件运行未烘焙游戏
 
 [PUBLISH:Licensee]
 
-当以可执行文件的方式来运行游戏时，您必须通过快捷方式的 **Target** （目标）属性来指定您想要作为`UE4Editor.exe`可执行文件的参数来运行的游戏，同时指定`-game`参数以告知编辑器在游戏模式内运行，而非启动编辑器界面运行。
+当从可执行文件运行时，必须通过快捷方式的 **目标（Target）** 属性指定要运行的游戏作为“UE4Editor.exe”可执行文件的参数， 
+以及指定“-game”参数来告诉编辑器在游戏模式下运行，而不是打开编辑器UI。
 
-1.	找到您`虚幻引擎4`目录下的`\Engine\Binaries\Win64`目录 。
+1.	导航至您的“UE4”目录的“\Engine\Binaries\Win64”目录。
 
-1.	**右键点击** `UE4Editor.exe`可执行文件并选择 **创建快捷方式** 。
+1.	**右键单击**“UE4Editor.exe”可执行文件并选择 **创建快捷方式（Create shortcut）**。
 
-1.	重命名该快捷方式，使其能反映出您将要运行的游戏及其会启动编辑器的事实，比如  **MyGameUncooked.exe** 。
+1.	重命名快捷方式以反映它将运行的游戏以及它将启动编辑器（即 **MyGameUncooked.exe**）的事实。
 
-1.	**右键点击** 新建的快捷方式并选择 **Properties** （属性）。
+1.	**右键单击** 新创建的快捷方式并选择 **属性（Properties）**。
 
-1.	在 **Target** 属性的末端添加游戏名称作为参数来运行:
+1.	在 **目标（Target）** 属性的末尾添加要作为参数运行的游戏的名称：
 
-|项目位置| 目标|
+|项目位置|目标|
 |----------------|--------------|
-| UE4根目录| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame -game`|
-|其它位置| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" -game`|
+|UE4根 | `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame -game`|
+|替代位置| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe “[ProjectPath]\[ProjectName].uproject" -game`|
 
 
-1. 然后按下 **OK(确认)** 来保存更改。
+1. 按下 **确定（OK）** 以保存更改。
 
-1.	**双击** 快捷方式以打开该编辑器。
+1.	**双击** 快捷方式以启动编辑器。
 [/PUBLISH:Licensee]
 
 
 [PUBLISH:Rocket]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -272,28 +168,29 @@ version: 4.9
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	当从可执行文件运行时，您必须通过快捷方式的 **Target** （目标）属性来指定您想要运行项目的路径并对可执行文件附带`-game`开关作为其参数。
+	当从可执行文件运行时，必须通过快捷方式的 **目标（Target）** 属性指定要运行的项目的路径以及“-game”开关作为 
+	可执行文件的参数。
 
-	1.	找到`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64`目录。
+	1.	导航至您的“[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64”目录。
 
-	1.	**右键点击** **UE4Editor.exe** 可执行文件并选择 **创建快捷方式** 。
+	1.	**右键单击** **UE4Editor.exe** 可执行文件并选择 **创建快捷方式（Create shortcut）**。
 
-	1.	重命名该快捷方式，使其能反映出您将要运行的游戏，例如 **MyProject.exe** 。
+	1.	重命名快捷方式以反映它将运行的游戏，即 **MyProject.exe**。
 
-	1.	**右键点击** 新建的快捷方式并选择 **Properties** （属性）以显示此快捷方式的属性。
+	1.	**右键单击** 新创建的快捷方式，并选择 **属性（Properties）** 以显示快捷方式的属性。
 
-	1.	添加完整路径到项目，使之在 **Target** （目标）属性的末端作为参数来运行，并指定  `-game` 参数作为游戏来运行：
+	1.	在 **目标（Target）** 属性的末尾添加要作为参数运行的项目的完整路径，并指定要作为游戏运行的“-game”参数：
 
-			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" -game
+			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe “[ProjectPath]\[ProjectName].uproject" -game
 
-		然后按下 **OK(确认)** 来保存更改。
+		按下 **确定（OK）** 以保存更改。
 
 	1.	**双击** 快捷方式以运行游戏。
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -301,68 +198,88 @@ version: 4.9
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	编辑器必须[以命令行方式](#从命令行运行编辑器 ) 运行以直接载入特定项目。
+	编辑器必须[从命令行](#RunningtheEditorfromtheCommandLine)运行，以直接加载特定项目。
 	[/PARAM]
 [/OBJECT]
 [/PUBLISH:Rocket]
 
-## 运行烘焙的游戏
+(#runningacookedgame)
 
-[INCLUDE:Engine/Basics/Projects/Packaging#runcooked]
+## 运行已烘焙游戏
 
-请参阅[](Engine/Basics/Projects/Packaging)以了解如何打包并运行烘焙的游戏版本的更多信息。
+有关如何打包和运行已烘焙游戏构建的信息，请参阅[](Engine/Basics/Projects/Packaging)。
 
-## 有用的游戏内命令
+(#usefulin-gamecommands)
 
-当您在运行游戏时，在游戏内的控制台您可以使用许多 **console commands** （控制台命令）。 您可以按下 **~ (波浪字符)** 或 **Tab** 键来调出控制台。 下方是最有用的命令列表。
+## 实用的游戏内命令
+
+当您运行游戏时，您可在游戏内的主机中使用大量 **主机命令（console commands）**。 
+按下 **~（波浪符）** 或 **Tab** 键可召唤主机。一些最实用的命令 
+如下所示。
 
 $ EXIT/QUIT : 
 退出游戏；关闭引擎。
 $ DISCONNECT : 
-退出游戏；返回到主菜单(若主菜单存在)。
+退出游戏；返回主菜单（如果存在）。
 $ OPEN [MapURL] : 
-使用指定URL及之前的所有设置加载一张新地图。 URL是地图名称(不需要文件扩展名)，后面有可选的参数列表，这些参数可以用来指定一些特定选项，比如游戏类型，玩家类别，玩家名称，团队编号等。
+使用指定URL加载新地图，并采用所有之前设置。URL是地图名称（无文件扩展名），后跟可选的参数列表，可用于指定特定选项，例如游戏类型、玩家类、玩家名称、团队编号等。
 $ TRAVEL [MapURL] : 
-使用指定URL加载一张新地图并重置所有设置。 请参照上方关于地图URL的描述。
+使用指定URL加载新地图，并重置所有设置。有关地图URL的说明，请参阅上文。
 $ VIEWMODE [Mode] : 
-设置游戏视口的渲染模式为指定模式。 可用的模式有：
-	| 模式 | 描述 |
+将游戏视口的渲染模式设置为指定模式。可用模式为：
+	| 模式 | 说明 |
 	| ---- | ----------- |
-	| WIREFRAME（线框）| 显示所有网格物体的线框。 |
-	| UNLIT（无光照） |仅使用材质的漫反射通道渲染网格物体。  |
-	| LIT（带光照） | 默认。 使用受到光照影响的材质渲染网格物体。 |
-	| DETAILLIGHTING（细节光照） | 使用中性色材质渲染网格物体，且材质的法线贴图受到光照影响。 |
-	| LIGHTINGONLY（仅光照） | 使用中性色材质渲染网格物体，且材质的法线贴图没有受到光照影响。   |
-	| **Light Complexity（光源复杂度）** |根据影响网格物体的动态光源的数量使用纯色渲染网格物体。 黑色意味着没有受到动态光源影响。 随着影响网格物体的光源变多，颜色从绿色变为红色。 |
-	| SHADERCOMPLEXITY（着色器复杂度） | 根据每个世界空间单位上的贴图像素密度使用纯色渲染网格物体。 颜色范围从绿色(0)变到红色(300)到粉色(600)再变化到白色(900)。 |
+	| 线框（WIREFRAME） | 显示所有网格体的线框。|
+	| 无光照（UNLIT） | 只使用材质的漫射信道渲染网格体。|
+	| 光照（LIT） | 默认。使用受光照影响的材质渲染网格体。|
+	| 细节光照（DETAILLIGHTING） | 使用受光照影响的中性颜色带法线材质渲染网格体。|
+	| 仅光照（LIGHTINGONLY） | 使用受光照影响的中性颜色不带法线材质渲染网格体。|
+	| 光源复杂性（LIGHTCOMPLEXITY） | 根据影响网格体的动态光源的数量，使用纯色渲染网格体。黑色表示没有动态光源影响网格体。随着更多光源影响网格体，颜色会由绿转红。|
+	| 着色器复杂性（SHADERCOMPLEXITY） | 根据应用于表面上的材质所执行之着色器指令的数量，使用纯色渲染网格体。颜色范围从绿色(0)到绿色(300)到粉色(600)到白色(900)。|
 
-## 载入地图
+(#loadingmaps)
 
-在运行编辑器或引擎，或是在运行引擎的同时来载入新地图时，可以尝试指定特定地图以载入。 这样的话，如果您想要快速进入所需地图进行测试而不必在一系列菜单中反复查找时，这就很有用了。
+## 加载地图
 
-### 在启动时载入地图
+可以在运行引擎或编辑器时指定要加载的特定地图，也可以在运行引擎时加载新的地图 
+。通过快速跳转到您想要测试的地图进行测试，而不需要使用一系列菜单， 
+因此这个方法对于测试非常有用。
 
-引擎在运行时，总会尝试载入默认地图。 该地图在您游戏项目的`Config`目录下的`DefaultEngine.ini`配置文件中被定义。 默认运行的地图是通过.ini文件的`[URL]` 部分的 **Map** 属性来设置的。 作为示例，VehicleGame在其`DefaultEngine.ini`文件中有如下内容：
+(#loadingmapsatstartup)
+
+### 在启动时加载地图
+
+引擎在运行时总是试图加载默认地图。该地图在位于您游戏项目的“Config”文件夹中的 
+“DefaultEngine.ini”配置文件中指定。默认情况下要运行的地图通过.ini文件“[URL]”部分 
+中的 **地图（Map）** 属性来设置。例如，VehicleGame的“DefaultEngine.ini” 
+文件中包含以下内容：
 
 	[URL]
 	...
 	Map=/Game/Maps/VehicleMenu
 	...
 
-除非被重载，这将会使得 `VehicleMenu.umap` (位置为 `[UE4Directory]\VehicleGame\Content\Maps`) 在启动时载入。 一般来说，您应该指定载入的地图，或是作为默认地图来成为您主菜单的背景所使用的地图。
+这将使得“VehicleMenu.umap”（位于“[UE4Directory]\VehicleGame\Content\Maps”）在启动时加载，但它在被覆盖时除外。通常，您需要 
+指定加载或用作主菜单背景的地图作为默认地图。
 
 [PUBLISH:Licensee]
-如需重载默认地图，您可以将地图名称（无文件扩展名）作为命令行参数传入。 之前我们谈到过，您必须在命令行中指定游戏名称。 因此，您也可以指定地图名称以强制引擎载入非默认地图。 例如，可以使用以下命令行以载入运行`ExampleMap` 地图的未烘焙游戏模式的引擎：
+若要覆盖默认地图，您可以将地图名称（不带文件扩展名）作为命令行参数传入。前面已经提到， 
+您必须在命令行上指定游戏名称。接下来，您还可以指定一个地图名称， 
+以强制引擎加载一个并非默认地图的地图。例如，以下命令行可用于 
+在未烘焙游戏模式下加载引擎，运行“ExampleMap”地图：
 
 	UE4Editor.exe [Gamename] ExampleMap -game
 [/PUBLISH:Licensee]
 
 [PUBLISH:Rocket]
-如需重载默认地图，您可以将地图名称（无文件扩展名）作为命令行参数传入。 之前我们谈到过，您必须在命令行中指定项目名称。 因此，您也可以指定地图名称以强制引擎载入非默认地图。 例如，可以使用以下命令行以载入运行`ExampleMap` 地图的引擎：
+若要覆盖默认地图，您可以将地图名称（不带文件扩展名）作为命令行参数传入。前面已经提到， 
+您必须在命令行上指定项目名称。接下来，您还可以指定一个地图名称， 
+以强制引擎加载一个并非默认地图的地图。例如，以下命令行可用于 
+加载引擎，运行“ExampleMap”地图：
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -372,13 +289,13 @@ $ VIEWMODE [Mode] :
 	[/PARAMLITERAL]
 	[PARAM:content]
 	~~~
-	UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" ExampleMap -game
+	UE4Editor.exe “[ProjectPath]\[ProjectName].uproject" ExampleMap -game
 	~~~
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -387,24 +304,28 @@ $ VIEWMODE [Mode] :
 	[/PARAMLITERAL]
 	[PARAM:content]
 	~~~
-	open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject" ExampleMap -game
+	打开UE4Editor.app --args“[ProjectPath]/[ProjectName].uproject” ExampleMap -game
 	~~~
 	[/PARAM]
 [/OBJECT]
 [/PUBLISH:Rocket]
 
 [PUBLISH:Licensee]
-在运行编辑器时也是如此。 在`editor`参数后定义需载入的地图名称，将会在编辑器打开时载入该地图而非默认或空白地图。 如需在`ExampleMap` 地图载入的情况下来载入编辑器，可使用以下命令行：
+上述概念在运行编辑器时也适用。在“editor”参数后面指定要加载的地图的名称，将在编辑器打开时加载该地图， 
+而不是默认或空白地图。若要加载已加载了“ExampleMap”地图的编辑器， 
+可以使用以下命令行：
 
 	UE4Editor.exe [GameName] ExampleMap
 [/PUBLISH:Licensee]
 
 [PUBLISH:Rocket]
-在运行编辑器时也是如此。 在定义需载入的地图名称时，将会在编辑器打开时载入该地图而非默认或空白地图。 如需在`ExampleMap` 地图载入的情况下来载入编辑器，可使用以下命令行：
+上述概念在运行编辑器时也适用。指定要加载的地图的名称，将在编辑器打开时加载该地图， 
+而不是默认或空白地图。若要加载已加载了“ExampleMap”地图的编辑器， 
+可以使用以下命令行：
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -414,13 +335,13 @@ $ VIEWMODE [Mode] :
 	[/PARAMLITERAL]
 	[PARAM:content]
 	~~~
-	UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" ExampleMap
+	UE4Editor.exe “[ProjectPath]\[ProjectName].uproject" ExampleMap
 	~~~
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -429,66 +350,199 @@ $ VIEWMODE [Mode] :
 	[/PARAMLITERAL]
 	[PARAM:content]
 	~~~
-	open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject" ExampleMap
+	打开UE4Editor.app --args “[ProjectPath]/[ProjectName].uproject" ExampleMap
 	~~~
 	[/PARAM]
 [/OBJECT]
 [/PUBLISH:Rocket]
 
 [REGION:tip]
-	地图名称也可以为定义额外设置的完整地图链接，例如GameMode（游戏模式）。 设置被作为由一个`?`区分的键值对被附加到地图名称上。 比如：
+	地图名称也可以是一个指定了其他设置（例如GameMode）的完整地图URL。设置作为键-值对附加到地图名称中， 
+	以“?”分隔。例如：
 	
 		DM-Deck?Game=CaptureTheFlag
 
 [/REGION]
 
-### 载入新建地图
+(#loadingnewmaps)
 
-如您想要在游戏时载入新地图，您可以通过使用`OPEN`（打开）或`TRAVEL`（移动）控制台命令加上地图名称（无文件扩展名）来载入，以在开发时进行测试，甚至在游戏时切换地图。 
+### 加载新地图
+
+如果要在游戏过程中加载一个新地图，以在开发过程中进行测试，甚至是在游戏过程中切换地图， 
+您可以使用“打开（OPEN）”或“穿越（TRAVEL）”主机命令，后面跟着要加载的地图的名称（不带文件扩展名） 
+。 
 
 [REGION:note]
-`OPEN`和`TRAVEL`命令的区别在[有用的游戏内命令](#有用的游戏内命令)章节的上方进行了描述。
+关于“打开（OPEN）”命令和“穿越（TRAVEL）”命令之间的区别，请参阅上文[有用的游戏内命令](#UsefulIn-GameCommands)部分中的说明。
 [/REGION]
 
-下方的命令分别在游戏时使用相同设置或重设设置来载入DM-Deck地图：
+下面的命令分别在使用相同的设置或重置的设置运行时加载DM-Deck地图：
 
 	open DM-Deck
 
-Or
+或
 
 	travel DM-Deck
 
+[/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:RunEditor]
+[PUBLISH:Licensee]
+
+此流程将启动一个虚幻编辑器（Unreal Editor）的副本。
+
+[/PUBLISH:Licensee]
+
+[PUBLISH:Rocket]
+
+运行编辑器的过程只需要将要运行的项目名称作为参数传递给可执行文件。
+
+[REGION:note]
+您可以添加“-debug”开关来强制可执行文件加载项目模块的调试版本， 
+这些模块包含所有调试符号。即使在配置设置为 **调试（Debug）** 的情况下通过Visual Studio进行调试时，这也是必要的， 
+因为主可执行文件总是使用 **开发（Development）** 配置编译的。当然，您 
+必须首先使用调试（Debug）配置编译模块，从而使可执行文件可以加载它们。
+[/REGION]
+
+[/PUBLISH:Rocket]
+
+(#runningtheeditorfromthecommandline)
+
+### 从命令行运行编辑器
 
 [PUBLISH:Licensee]
-## 使用烘焙的内容运行游戏
+1.	从命令提示符中，导航至您的“UE4”目录的“\Engine\Binaries\Win64”目录。
 
-您游戏的可执行文件需要烘焙的内容来运行。
+1.	运行“UE4Editor.exe”，并向其传递要运行的游戏的名称：
 
+|项目位置|命令提示符|
+|----------------|--------------|
+|UE4根 | “UE4Editor.exe MyGame”|
+|替代位置| `UE4Editor.exe “[ProjectPath]\[ProjectName].uproject”`|
 
-### 以命令行方式运行
-
-1.	从命令行提示符中，找到您游戏目录下的`\Binaries\Win32`目录 。
-
-1.	运行 **[GameName].exe**
-
-		[GameName].exe
-
-
-### 通过可执行文件来运行
-
-
-1.	找到您游戏目录下的`\Binaries\Win32`文件夹 。
-
-1.	**双击** **[GameName].exe** 以运行游戏。
 
 
 [/PUBLISH:Licensee]
 
+[PUBLISH:Rocket]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	从命令提示符中，导航至您的“[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64”目录。
+
+	1.	运行“UE4Editor.exe”，向其传递您的项目的路径：
+
+			UE4Editor.exe “[ProjectPath]\[ProjectName].uproject”
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	从命令提示符中，导航至您的“[LauncherInstall]/[VersionNumber]/Engine/Binaries/Mac”目录。
+
+	1.	运行“UE4Editor.app”，向其传递您的项目的路径：
+
+			打开UE4Editor.app --args “[ProjectPath]/[ProjectName].uproject”
+	[/PARAM]
+[/OBJECT]
+[/PUBLISH:Rocket]
+
+
+(#runningtheeditorfromtheexecutable)
+
+### 从可执行文件运行编辑器
+
+[PUBLISH:Licensee]
+
+
+1.	导航至您的“UE4”目录的“\Engine\Binaries\Win64”目录。
+
+1.	**右键单击**“UE4Editor.exe”可执行文件并选择 **创建快捷方式（Create shortcut）**。
+
+1.	重命名快捷方式以反映它将运行的游戏以及它将启动编辑器（即 **MyGameEditor.exe**）的事实。
+
+1.	**右键单击** 新创建的快捷方式并选择 **属性（Properties）**。
+
+1.	在 **目标（Target）** 属性的末尾添加要作为参数运行的游戏的名称：
+
+|项目位置|目标|
+|----------------|--------------|
+|UE4根 | `[UE4目录]\Engine\Binaries\Win64\UE4Editor.exe MyGame`|
+|替代位置| `[UE4目录]\Engine\Binaries\Win64\UE4Editor.exe “[ProjectPath]\[ProjectName].uproject”`|
+
+
+1. 按下 **确定（OK）** 以保存更改。
+
+1.	**双击** 快捷方式以启动编辑器。
+
+[/PUBLISH:Licensee]
+
+[PUBLISH:Rocket]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	导航至您的“[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64”目录。
+
+	1.	**右键单击**“UE4Editor.exe”可执行文件并选择 **创建快捷方式（Create shortcut）**。
+
+	1.	重命名快捷方式以反映它将运行的游戏以及它将启动编辑器（即 **MyProject - Editor.exe**）的事实。
+
+	1.	**右键单击** 新创建的快捷方式并选择 **属性（Properties）**。
+
+	1.	在 **目标（Target）** 属性的末尾添加要作为参数运行的游戏的名称：
+
+			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe “[ProjectPath]\[ProjectName].uproject”
+
+	1.按下 **确定（OK）** 以保存更改。
+
+	1.	**双击** 快捷方式以启动编辑器。
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	编辑器必须[从命令提示符](#RunningtheEditorFromtheCommandLine)运行，才能直接或[不使用参数](#RunningtheEditorwithNoArguments_Stand-Alone_)加载特定项目，以访问项目浏览器。
+	[/PARAM]
+[/OBJECT]
+[/PUBLISH:Rocket]
+
+(#RunningtheEditorwithNoArguments_Stand-Alone_)
+### 不使用参数（独立）运行编辑器
+
+如果编辑器没有被设置为在启动时打开最近的项目，那么在没有任何参数的情况下运行编辑器可执行文件将启动项目浏览器（Project Browser）。您可以从这里 
+[创建新项目](Engine/Basics/Projects/Browser#creatingnewprojects)，[打开现有项目](Engine/Basics/Projects/Browser#openingprojects)，
+或打开[内容示例和样本游戏](Resources)。
+
+[/EXCERPT:RunEditor]
 [/COMMENT]
-
-
-
-
-[/EXCERPT:Main]

@@ -1,0 +1,139 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 结合使用Datasmith与Rhino
+Description: 描述当使用Datasmit将场景从McNeel Rhinoceros 3D导入虚幻时需要考虑的特别因素。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Datasmith
+Tags: overview
+Tags: studio
+Tags: interop
+topic-image:RhinoToUE_Topic_v2.png
+
+
+![将Datasmith与Rhino一起使用](rhino-datasmith-banner.png "Using Datasmith with Rhino")
+
+如果您计划使用Datasmith将场景从McNeel Rhinoceros（Rhino）导入到虚幻编辑器中，那么除了了解[Datasmith概述](Enterprise/Datasmith/Overview)和[关于Datasmith导入流程](Enterprise/Datasmith/Overview/ImportProcess)中描述的基本知识，还需要了解一些有关Datasmith如何处理场景的事项。
+
+## Rhino工作流程
+
+Datasmith对Rhino使用 **直接** 工作流程。这意味着，要使用Datasmith将Rhino内容导入到虚幻中，只需将Rhino场景保存为 *.3dm* 文件，并使用Datasmith CAD导入工具将这个文件导入到虚幻编辑器中。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 将几何结构转换为静态网格体
+
+Datasmith为Rhino文件中的每个独立网格体、固体或表面创建一个单独的静态网格体资源。如果某个对象在Rhino中的 **属性（Properties）** 面板中设置了 **名称（Name）** 属性（下图左侧所示），则Datasmith会使用这个名称作为静态网格体的名称（下图右侧所示）。Datasmith在关卡中创建的引用该静态网格体资源的任何Actor也会使用这个名称。
+
+[REGION:lightbox]
+[![Rhino对象名称转换](rhino-datasmith-object-name.png "Rhino object name conversion")](rhino-datasmith-object-name.png)
+
+*单击查看大图。*
+[/REGION]
+
+### 实例化
+
+当Datasmith检测到，同一个块体在Rhino场景中有多个实例时，它只会为该块体中的几何结构创建一组静态网格体资源，并将这些静态网格体的多个实例放在场景中。这通常对运行时内存需求和项目性能更为有利，同时也更方便管理 **内容浏览器** 中的静态网格体数量。
+
+但如果可能，我们建议充分利用这个功能，在Rhino中，将场景中的重复元素（如窗户、门或椅子）创建为块体。有关详细信息，请参阅[Rhino文档](https://wiki.mcneel.com/rhino/usingblocks)。
+
+### 曲面细分和渲染网格体
+
+与大多数其他CAD文件格式不同，Datasmith不会对Rhino文件中的表面进行曲面细分。
+
+相反，如果您导入的Rhino文件已经包含了某个对象的渲染网格体，则Datasmith会再次使用这个网格体在虚幻中创建静态网格体，而不是在导入时对表面进行曲面细分。
+
+这样可以节省导入时间，让您控制Rhino中表面的曲面细分。有关详细信息，请参阅[Rhino文档](https://wiki.mcneel.com/rhino/meshfaq)。但是，这样也意味着，[Datasmith导入选项（Datasmith Import Options）窗口](Enterprise/Datasmith/ImportOptions)中的曲面细分参数在导入和重新导入Rhino场景时没有作用。
+
+### 三角形朝向
+
+Rhino通常会将所有表面显示为两面，无论表面法线如何。但是，虚幻引擎会自动剔除没有朝向摄像头的三角形。这可能会导致在从某些角度查看时，场景中的某些几何结构会消失。
+
+例如，下图显示了以表面法线朝内建模的车轮保护罩。在将这个场景导入到虚幻中后，这些表面起初似乎消失了。在这种情况下，翻转对象的法线反向就会看到这些表面原本的样子。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![backward-facing](rhino-datasmith-facing-dir-bad.png) 
+	[/PARAM]
+	[PARAM:after]
+	![forward-facing](rhino-datasmith-facing-dir-good.png) 
+	[/PARAM]
+[/OBJECT]
+
+有关完整的讨论和建议的解决方案，请参阅[关于Datasmith导入流程](Enterprise/Datasmith/Overview/ImportProcess)。
+
+## Rhino材质
+
+对于Datasmith在您的Rhino场景中找到的每种不同的表面颜色和材质，它会在虚幻中创建单独的[材质资源](Engine/Rendering/Materials)，并将它放在Datasmith场景资源旁边的“材质（Materials）”文件夹中。
+
+*   表示Rhino材质的虚幻材质将保留它们在Rhino中使用的名称。这些[材质实例](Engine/Rendering/Materials/MaterialInstances)使用 **Datasmith_Material** 作为它们的父代。有关详细信息，请参阅下面的[Rhino材质属性](#rhinomaterialproperties)。
+*   表示Rhino显示颜色的虚幻材质会根据RGB通道值自动生成名称。这些材质实例使用 **Datasmith_Color** 作为它们的父材质。有关详细信息，请参阅[关于Datasmith导入流程](Enterprise/Datasmith/Overview/ImportProcess)。 
+
+[REGION:lightbox]
+[![Datasmith创建的材质资源](rhino-datasmith-material-name.png "Material Assets created by Datasmith")](rhino-datasmith-material-name.png)
+
+*单击查看大图。*
+[/REGION]
+
+### 材质和颜色分配
+
+在Rhino中，用于绘制对象表面的材质或颜色可以分配给对象本身、它所在层或它的父代，可能取决于当前视口的属性。但是，在虚幻中，构成静态网格体资源表面的每个三角形都需要一个材质来定义它的渲染属性。因此，Datasmith需要解译Rhino中每个几何结构对象的表面显示属性，来确定一种在虚幻中渲染该对象表面的方式。
+
+为此，它使用以下规则：
+
+*   它首先尝试为每个表面查找一个材质。它使用每个对象在Rhino的 **分配材质的依据（Assign material by）** 设置来确定应用来对该表面着色的材质的来源。  
+    ![分配材质的依据（Assign material by）](rhino-datasmith-assign-mat-by-layer.png "Assign material by")
+*   如果该来源未指定有材质，则Datasmith会回退到使用为该对象设置的 **显示颜色（Display Color）** 属性。  
+    ![显示颜色（Display Color）](rhino-datasmith-display_color.png "Display Color")  
+    该设置继而直接定义到对象本身，或者可能指向对象层或对象父块体。
+
+(#rhinomaterialproperties)
+### Rhino材质属性
+
+Rhino材质转换流程的目的是从Rhino中获取您所熟悉的设置，然后以一种能够产生与虚幻基于物理的渲染结果类似的方法进行解译。
+
+从下面并排显示的设置中，您可以看出，Datasmith创建的每种材质资源都提供您可以在Rhino中设置的相同基本属性和相同纹理类型：
+
+[REGION:lightbox]
+[![Rhino Datasmith材质设置](rhino-datasmith-material.png "Rhino Datasmith Material settings")](rhino-datasmith-material.png)
+
+*单击查看大图。*
+[/REGION]
+
+Datasmith材质中唯一缺少的Rhino属性是环境色和漫射颜色设置：
+
+*   在虚幻中，要添加额外的环境照明，您可以为关卡设置照明，而不是在单独的材质中设置。
+*   您可以模拟取消选中Rhino的 **启用漫射照明（Enable Diffuse Lighting）** 复选框的效果，方法是将虚幻材质的 **常规（General）>材质属性覆盖（Material Property Override）> 着色模型（Shading Model）** 设置更改为“单元（Unlit）”。
+
+[REGION:note]
+**注：**如果您的Rhino材质使用具有混合百分比的纹理，则该百分比值不会自动继承到虚幻材质中。但是，您可以使用任何有效纹理旁边显示的相应 **百分比（Percentage）** 设置，在虚幻中设置这个属性。
+
+![颜色百分比（Color Percentage）](datasmith-rhino-material-percentage.png "Color Percentage")
+[/REGION]
+
+## 构建Datasmith场景层级
+
+Datasmith按如下所示从Rhino模型构建其场景层级：
+
+*   对于Rhino场景中的每一层，Datasmith会在虚幻中创建一个Actor来充当该层上所有对象的父代。  
+    与虚幻编辑器的 **层（Layers）** 面板中创建的层不同，该Actor层级不是扁平的。Actor就像Rhino场景中的层一样进行嵌套。
+*   在表示每一层的Actor下面，对应层上的每个实例化块体由另一个Actor表示。
+    [REGION:warning]
+    **警告：**Rhino块体上的支点目前在场景空间中会导入到错误位置。
+    [/REGION]
+*   最后，表示每一层和每个块体的Actor包含静态网格体Actor，而后者表示构成该层或块体的实际几何结构对象。
+*   Rhino中的群组不影响虚幻场景层级，因为它们被视为选择助手，而不是场景层级中的重要元素。
+
+例如，在下图中，您会看到Rhino层级中的每一层在虚幻中都有对应的Actor。在Rhino中，类似 **照明>转向灯** 等仅包含几何结构对象的层在虚幻中仅包含对应的静态网格体Actor。Rhino中的 **照明** 层还包含两个块体实例，名为 **left_headlight** 和 **right_headlight**。每个实例由虚幻中的一个嵌套Actor表示，这个Actor包含构成这些块体的几何结构对象。
+
+[REGION:lightbox]
+[![Rhino到Datasmith场景层级](rhino-datasmith-hierarchy.png "Rhino to Datasmith scene hierarchy")](rhino-datasmith-hierarchy.png)
+
+*单击查看大图。*
+[/REGION]
+
+[REGION:note]
+**特别鸣谢：**本页所用的模型由[Turbosquid](https://www.turbosquid.com/3d-models/3d-3dm-car-offroad-van/1137533)用户[tomashorin.design](https://www.turbosquid.com/Search/Artists/tomashorin.design)倾情贡献。
+[/REGION]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4284421
+﻿INTSourceChangelist:4476116
 Availability: Public
 Crumbs: 
 Title: 使用Python脚本化运行编辑器
@@ -16,6 +16,7 @@ Tags: Experimental
 Tags: scripting
 Tags: editor
 Tags: Landing Page
+topic-image:Python_Topic.png
 
 
 本页面介绍如何开始在虚幻编辑器中使用Python。

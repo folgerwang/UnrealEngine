@@ -19,7 +19,7 @@ checkpoint:CTUB
 ## 렌더 타깃 생성 & 구성
 UE4 콘텐츠 브라우저 안에서 **렌더 타깃** 을 생성하기 위한 방법은 다음과 같습니다:
 
-1. UE4 에디터를 열고 **콘텐츠 브라우저** 안에 우클릭합니다. 표시되는 맥락 메뉴에서 **고급 애셋 생성** 섹션을 찾습니다.
+1. UE4 에디터를 열고 **콘텐츠 브라우저** 안에 우클릭합니다. 표시되는 컨텍스트 메뉴에서 **고급 애셋 생성** 섹션을 찾습니다.
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\CreatingTextures\Create_RTT_01.png)
 

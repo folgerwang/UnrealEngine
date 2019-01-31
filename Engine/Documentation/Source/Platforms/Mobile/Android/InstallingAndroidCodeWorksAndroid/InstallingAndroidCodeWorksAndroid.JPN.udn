@@ -1,0 +1,252 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Installing CodeWorks for Android 1R6u1
+Description: Installing Android Code Works for Android 1R6u1
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+
+Unreal Engine 4 (UE4) uses a special version of the Android Software Development Kit (SDK), called CodeWorks for Android 1R6u1. This version of CodeWorks for Android is the easiest way to setup the SDK and Native Development Kit (NDK) needed to develop Android projects with UE4. Although we're currently using version 1R6u1, we intend to use subsequent releases of CodeWorks. If you have other versions of the Android SDK installed (or, older versions of CodeWorks for Android), we recommend that you uninstall them and install CodeWorks for Android, using the CodeWorks for Android installer that's being distributed with UE4. In the following section, we will cover how to get CodeWorks for Android 1R6u1 installed on a development PC.
+
+## Steps
+
+[REGION:note]
+If you already have CodeWorks for Android 1R6u1 installed, but your environment variables have been lost, you can skip all of this and simply point the Editor to the install locations using the **Edit Menu** \> **Project Settings** \> **Android SDK** properties in the Editor.
+[/REGION]
+[REGION:warning]
+It is highly recommended that you install CodeWorks for Android 1R6u1 while the Editor and Launcher are both closed to ensure that there are no problems with the install.
+[/REGION]
+
+1.  To install CodeWorks for Android 1R6u1, navigate to the **Engine** \> **Extras** \> **Android** folder.
+    
+    [REGION:note]
+    The CodeWorks for Android 1R6u1 installer requires an installation of Visual Studio to complete successfully. Supported versions are 2013, 2015, and 2017.
+    [/REGION]
+    
+    | Install Type | Location |
+    | --- | --- |
+    | Binary | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\Android |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\Android |
+    
+    [REGION:note]
+    If you downloaded Unreal Engine 4 from **Github**, you will need to perform the following steps before you can run the CodeWorks for Android 1R6u1 installer. Please note that this applies to both Windows and Mac based PCs that download the Unreal Engine 4 source code from Github. If you are using the binary build downloaded from the launcher, then you can skip this part and go right into installing CodeWorks for Android 1R6u1.
+    
+    1.  Once Unreal Engine 4 has been downloaded from Github and extracted, run the **Setup.bat** file to download the required files as well as the **CodeWorks for Android 1R6u1** installer.
+        
+    2.  After the **Setup.bat** has finished running, locate and run the CodeWorks for Android 1R6u1 installer, following the instructions below.
+    [/REGION]
+2.  Double-click on the **CodeWorksforAndroid-1R6u1-windows.exe** file to initiate the install process.
+    
+    ![](AndroidWorks_11.png)
+    
+3.  Click the **Next** button on the first window to begin the installation process.
+    
+    ![](AndroidWorks_00.png)
+    
+4.  Click the **Next** button to continue.
+    
+    ![](AndroidWorks_01.png)
+    
+5.  Set a location to download and install CodeWorks for Android 1R6u1 and then click the **Next** button.
+    
+    ![](AndroidWorks_02.png)
+    
+    [REGION:note]
+    It is perfectly fine to leave this set to the default location.
+    [/REGION]
+6.  Make sure that you are installing **CodeWorks for Android 1R6u1** and then click the **Next** button.
+    
+    ![](AndroidWorks_03.png)
+    
+7.  Click the check mark box labeled **Accept All** if you agree with the license terms and then click the **Accept** button.
+    
+    ![](AndroidWorks_04.png)
+    
+8.  A new window will be displayed that shows you the download and install progress of the required CodeWorks for Android 1R6u1 tools.
+    
+    [REGION:note]
+    You will need an Internet connection to complete this portion. Depending on the speed of your Internet connection, this could take anywhere from a few minutes to a few hours to complete.
+    [/REGION]
+    
+    ![](AndroidWorks_06.png)
+    
+9.  Now click the **Next** button to continue the CodeWorks for Android 1R6u1 install.
+    
+    ![](AndroidWorks_09.png)
+    
+10. Then click the **Finish** button to complete the install.
+    
+    ![](AndroidWorks_10.png)
+    
+11. Finally, click the **Yes** button to restart your PC.
+    
+    ![](AndroidWorks_12.png)
+    
+    [REGION:note]
+    If you downloaded Unreal Engine 4 from Github, when CodeWorks for Android 1R6u1 has finished installing, restart your PC or Mac so the environment variables are set and then run the **Setup.bat** file one more time to download the required Android Development files.
+    [/REGION]
+
+[REGION:note]
+If you already have CodeWorks for Android 1R6u1 installed, but your environment variables have been lost, you can skip all of this and simply point the Editor to the install locations using the **Edit Menu** \> **Project Settings** \> **Android SDK** properties in the Editor.
+[/REGION]
+[REGION:warning]
+It is highly recommended that you install CodeWorks for Android 1R6u1 while the Editor and Launcher are both closed to ensure that there are no problems with the install.
+[/REGION]
+
+Before you can install CodeWorks for Android 1R6u1 to your Mac you will need to make sure that Java 8 is installed. Use the link provided below to download and install Java 8.
+
+*   Java 8 can be downloaded from [here](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
+    
+
+1.  To install CodeWorks for Android 1R6u1 navigate to the **Engine** \> **Extras** \> **Android** folder.
+    
+    | Install Type | Location |
+    | --- | --- |
+    | Binary | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\AndroidWorks\\Mac |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\AndroidWorks\\Mac |
+    
+    [REGION:note]
+    If you downloaded Unreal Engine 4 from **Github** you will need to perform the following steps before you can run the CodeWorks for Android 1R6u1 installer. Please note that the following applies to both Windows- and Mac-based PCs that download the Unreal Engine 4 source code from Github. If you are using the binary build downloaded from the launcher, you can skip this part and go right into installing CodeWorks for Android 1R6u1.
+    
+    1.  Once Unreal Engine 4 has been downloaded from Github and extracted, run the **Setup.command** file to download the required files as well as the CodeWorks for Android 1R6u1 installer.
+        
+    2.  After **Setup.command** has finished running, locate and run the CodeWorks for Android 1R6u1 installer, following the instructions below.
+    [/REGION]
+2.  Double-click on the **CodeWorks for Android 1R6u1-osx.dmg** to load the CodeWorks for Android 1R6u1 installer.
+    
+    ![](AndroidWorks_Mac_00.png)
+    
+3.  Double-click the CodeWorks for Android 1R6u1 installer icon to start the installation process.
+    
+    ![](AndroidWorks_Mac_01.png)
+    
+4.  Click **Next**.
+    
+    ![](AndroidWorks_Mac_02.png)
+    
+5.  Click **Next**.
+    
+    ![](AndroidWorks_Mac_03.png)
+    
+6.  Specify a location where CodeWorks for Android 1R6u1 should be installed, then click the **Next** button.
+    
+    [REGION:note]
+    It is perfectly fine to leave this set to the default location.
+    [/REGION]
+    
+    ![](AndroidWorks_Mac_04.png)
+    
+7.  When the CodeWorks for Android 1R6u1 Component Manager is displayed, click the **Next** button to begin the download and install process.
+    
+    ![](AndroidWorks_Mac_05.png)
+    
+8.  Click the check mark box labeled **Accept All** if you agree with the license terms, and then click the **Accept** button.
+    
+    ![](AndroidWorks_Mac_06.png)
+    
+9.  The CodeWorks for Android 1R6u1 Component Manager will now begin to download and install the required tools.
+    
+    [REGION:note]
+    You will need an Internet connection to complete this portion. Depending on the speed of your Internet connection, this could take a few minute to a few hours to complete.
+    [/REGION]
+10. Once everything has been installed, the following window will be displayed. Click the **Next** button to continue.
+    
+    ![](AndroidWorks_Mac_08.png)
+    
+11. Click the **Finish** button to complete the CodeWorks for Android 1R6u1 install.
+    
+    ![](AndroidWorks_Mac_09.png)
+    
+    [REGION:note]
+    If you downloaded Unreal Engine 4 from Github, when CodeWorks for Android 1R6u1 has finished installing, restart your Mac so the environment variables are set and then run the **Setup.command** file one more time to download the required Android Development files.
+    [/REGION]
+
+Once CodeWorks for Android 1R6u1 has finished installing, you will need to edit your Bash file by doing the following:
+
+1.  Open up the Mac Terminal.
+    
+    ![](JH_01.png)
+    
+2.  In the Terminal type, **nano ~/.bash_profile**.
+    
+    ![](JH_02.png)
+    
+3.  Scroll down to the end of the file and add, **export JAVA\_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0\_121.jdk/Contents/Home**.
+    
+    ![](JH_03.png)
+    
+    [REGION:note]
+    The above is the default path, if you installed somewhere else you need to make sure that your path points to the **jdk1.8.0_121.jdk/Contents/Home**.
+    [/REGION]
+4.  Press **CTRL + X** on the keyboard to exit the bash, then press **Y** to save the changes, then press **ENTER** to confirm the changes and finally restart your Mac.
+    
+5.  When your Mac restarts, open up the Terminal and then type in **Monitor** and press **ENTER**. If everything has been set up correctly, you should see the Android Device Monitor splash screen.
+    
+    ![](JH_04.png)
+    
+
+For the purpose of showing you how to get started with Android on Linux, we will use CodeWorks for Android 1R6u1 while working with Unreal Engine version 4.14. The Engine should be closed before installing CodeWorks for Android 1R6u1. Also, please make sure that you have Java Development Kit 8 (JDK 8) installed, with your `JAVA_HOME` environment variable set to the correct version of the Java Development Kit (JDK). To verify that `JAVA_HOME` is set properly, enter `echo $JAVA_HOME` into the terminal. If you don't see the correct JDK version, [download JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html), and install it on your Linux computer, making sure to set the `JAVA_HOME` environment variable to the newly installed JDK.
+
+[REGION:warning]
+Before continuing, please note that Android Vulkan on Linux is not supported at this time.
+[/REGION]
+
+1.  Open the Terminal and navigate to the `[UE4Root]` folder that contains the compiled engine (using the `cd` command, changing the shell working directory). 
+    ![](LinuxAndroid_Step0.png)(w:900)
+2.  From inside of the `[UE4Root]` folder, navigate to the CodeWorks for Android 1R6u1 binary file (**CodeWorksforAndroid-1R6u1-linux-x64.run**) by entering the following string into the terminal: `cd Engine/Extras/AndroidWorks/Linux`. 
+    ![](LinuxAndroid_Step1.png)(w:900)
+3.  Now, enter `ls -l` into the terminal, displaying a long listing of the directory's contents. The file's permission settings tell you that **CodeWorksforAndroid-1R6u1-linux-x64.run** is not ready for execution. Before you can run the CodeWorks for Android 1R6u1 binary, you need to change the file's access rights to allow for "execute" permissions.
+    
+	![](LinuxAndroid_Step2.png)(w:900)
+	
+4.  To change the file permission settings of `CodeWorksforAndroid-1R6u1-linux-x64.run`, enabling it to run like a normal executable, enter `chmod +x CodeWorksforAndroid-1R6u1-linux-x64.run` into the terimal. 
+    ![](LinuxAndroid_Step3.png)(w:900)
+    [REGION:tip]
+    If you want to learn more about the `chmod` command, enter `man chmod` into the terminal to read the manual page covering how `chmod` works.
+    [/REGION]
+5.  Now, enter `ls -l` into the terminal. The file's permission settings highlighted in the image indicate that the CodeWorks for Android 1R6u1 binary file is ready for execution.
+    
+	![](LinuxAndroid_Step4.png)(w:900)
+	
+6.  To run the CodeWorks for Android binary, enter `./CodeWorksforAndroid-1R6u1-linux-x64.run` into the terminal. 
+    ![](LinuxAndroid_Step5.png)(w:900)
+    [REGION:warning]
+    Please make sure that your computer has a valid Internet connection prior to moving to the next step.
+    [/REGION]
+7.  After the CodeWorks for Android 1R6u1 binary unpacks the **NVIDIA CodeWorks for Android** installer, you'll see the **Installer Welcome** window, prompting you to click either **Next** or **Cancel**. 
+    
+	![](LinuxAndroid_Step6.png)(w:900)
+8.  From the **Installer Welcome** window, click the **Next** button to begin the installation process. 
+    ![](LinuxAndroid_Step7.png)(w:900)
+9.  Now, from the **Android Developer's Welcome Window**, click the **Next** button to continue the installation process. 
+    ![](LinuxAndroid_Step8.png)(w:900)
+10.  Specify the directory where CodeWorks for Android 1R6u1 should be installed and downloaded. 
+    ![](LinuxAndroid_Step9.png)(w:900)
+11.  Click the **Next** button to download CodeWorks for Android 1R6u1 from NVIDIA, ultimately installing CodeWorks on your computer. 
+    ![](LinuxAndroid_Step10.png)(w:900)
+12.  Now, verify that you're installing **CodeWorks for Android 1R6u1** before clicking the **Next** button from the **Android Component Manager** window. 
+    ![](LinuxAndroid_Step11.png)(w:900)
+13.  After the **Terms and Conditions** window appears, take some time to read through all of the **Terms and Conditions** before selecting the **Accept All** check box. 
+    ![](LinuxAndroid_Step12.png)(w:900)
+14.  Now, click the **Accept** button to begin the installation process. 
+    ![](LinuxAndroid_Step13.png)(w:900)
+15.  Once the installer completes the installation process, go ahead and click the **Next >** button to proceed. 
+    ![](LinuxAndroid_Step14.png)(w:900)
+16.  After the **Installation Complete** window opens, click the **Finish** button to complete the installation. 
+    ![](LinuxAndroid_Step15.png)(w:900)
+17.  Make sure to reboot your computer before moving onto the next step. 
+    ![](LinuxAndroid_Note16.png)(w:900)
+    [REGION:tip]
+    If you don't want to use Ubuntu's GUI, you can restart your computer by entering `sudo reboot` into the terminal.
+    [/REGION]
+
+## End Result
+
+When completed, you will have all of the required Android SDKs installed and ready for use in building an Unreal Engine 4 project that can work on Android devices.

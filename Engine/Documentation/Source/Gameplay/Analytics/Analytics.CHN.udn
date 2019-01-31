@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2709806
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:游戏运行的性能分析
 Crumbs: %ROOT%, Gameplay
@@ -14,22 +14,20 @@ version: 4.9
 
 随着时间的推移，我们将会提供更多软件的插件，如果需要，您还可以添加自己的软件支持。 
 
+(#ImplementingGameAnalytics)
 ## 实现游戏分析
 
 [REGION:buttonlist]
-
-		* [](Gameplay/Analytics/Instrumenting "%Gameplay/Analytics/Instrumenting:description%")
-		* [](Gameplay/Analytics/Blueprints "%Gameplay/Analytics/Blueprints:description%")
-	
+* [](Gameplay/Analytics/Instrumenting "%Gameplay/Analytics/Instrumenting:description%")
+* [](Gameplay/Analytics/Blueprints "%Gameplay/Analytics/Blueprints:description%")
 [/REGION]
 
+(#Providers)
 ## 外部分析软件
 
 [REGION:buttonlist]
-
-		* [](Gameplay/Analytics/Apsalar "%Gameplay/Analytics/Apsalar:description%")
-		* [](Gameplay/Analytics/FileLogging "%Gameplay/Analytics/FileLogging:description%")
-		* [](Gameplay/Analytics/Flurry "%Gameplay/Analytics/Flurry:description%")
-		* [](Gameplay/Analytics/Multicast "%Gameplay/Analytics/Multicast:description%")
-	
+* [](Gameplay/Analytics/Apsalar "%Gameplay/Analytics/Apsalar:description%")
+* [](Gameplay/Analytics/FileLogging "%Gameplay/Analytics/FileLogging:description%")
+* [](Gameplay/Analytics/Flurry "%Gameplay/Analytics/Flurry:description%")
+* [](Gameplay/Analytics/Multicast "%Gameplay/Analytics/Multicast:description%")	
 [/REGION]

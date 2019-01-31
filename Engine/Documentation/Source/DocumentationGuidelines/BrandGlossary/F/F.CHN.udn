@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3839686
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:6
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,10 +40,10 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Foliage Instanced Meshes
+##植物实例网格体
 
-The Foliage Instanced Mesh system allows you to quickly paint or erase sets of Static Meshes on Landscape Actors, other Static Mesh Actors, and BSP. These meshes are automatically grouped together into batches that are rendered using hardware instancing; meaning, that many instances can be rendered with only a single draw call.
+您可利用植物实例网格体系统快速绘制或擦除地形Actor、其他静态网格体Actor及BSP上的静态网格体集。这些网格体被自动成批分组，并使用硬件实例化渲染；意即，许多实例只能通过单个绘图调用进行渲染。
 
-##Foliage Mode
+##植物模式
 
-The Foliage Instanced Mesh system enables you to quickly paint or erase batched sets of Static Meshes that use hardware instancing for efficient rendering on Landscape Actors, other Static Mesh Actors, and BSP geometry.
+植物模式使您能够快速绘制或擦除静态网格体的批处理集，这些静态网格体使用硬件实例化来高效渲染地形Actor、其他静态网格体Actor及BSP几何体。

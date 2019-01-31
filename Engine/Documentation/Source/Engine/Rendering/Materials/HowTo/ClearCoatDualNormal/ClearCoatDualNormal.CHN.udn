@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3807090
 Availability:Public
-Title:材质编辑器 - 如何对透明涂层使用双法线
+Title:对透明涂层使用双法线
 Description:在透明涂层材质中使用双法线的指南。
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
 Version:4.12
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2)]
 
@@ -15,10 +16,10 @@ SkillLevel:Intermediate
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700 h:700)
+	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700 h:700)
+	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700)
 	[/PARAM]
 [/OBJECT]
 
@@ -67,7 +68,7 @@ SkillLevel:Intermediate
 	|Scalar Parameter| Clear Coat Roughness|0.1225|
 
 	[REGION:lightbox]
-	[![](Dual_CC_Base_Nodes_Setup.png)(w:200 h:250)](Dual_CC_Base_Nodes_Setup.png)
+	[![](Dual_CC_Base_Nodes_Setup.png)(w:200)](Dual_CC_Base_Nodes_Setup.png)
 	[/REGION]
 
 1. 接下来的设置：在 Material 的 **Roughness** 部分中，向材质图表添加下列材质表现节点，并为其赋予以下值和名称。添加材质表现节点后，按下图将其连接起来。
@@ -106,7 +107,7 @@ SkillLevel:Intermediate
 	|Texture Coordinate| N/A|N/A|
 	|Multiply| N/A|N/A|
 	|FlattenNormal| N/A|N/A|
-	|ClearCoatBottomNormal| N/A|N/A|
+	|ClearCoatBottomNormal (ClearCoatNormalCustomOutput)| N/A|N/A|
 
 	![](Dual_CC_Normal_ClearCoat_Setup.png)
 
@@ -117,7 +118,7 @@ SkillLevel:Intermediate
 1. 设置好材质的各个部分后，按下图将输出连接到主材质节点。
 	
 	[REGION:lightbox]
-	[![](Dual_CC_Final_Setup.png)(w:500 h:350)](Dual_CC_Final_Setup.png)
+	[![](Dual_CC_Final_Setup.png)(w:500)](Dual_CC_Final_Setup.png)
 	[/REGION]
 
 1. 最后，当材质的所有部分都连接到主材质节点的正确位置后，点击 **Apply** 按钮编译材质，然后关闭材质编辑器。 

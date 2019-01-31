@@ -1,23 +1,21 @@
-﻿INTSourceChange:3108692
+﻿INTSourceChangelist:4636071
 Availability:Public
-Title:デバイス プロファイルの設定
-Crumbs:%ROOT%, Platforms
-Description:プラットフォーム専用コンフィギュレーション用にデバイス プロファイルを設定する
-Version:4.9
+Title: デバイス プロファイルの設定
+Description: プラットフォーム専用コンフィギュレーション用にデバイス プロファイルを設定する
+Parent: Platforms
+Order: 1
 
 
-プラットフォーム専用コンフィギュレーションに設定する場合、プロジェクト内に Config/DefaultDeviceProfiles.ini をカスタマイズで作成するのが最適な方法です。デバイス プロファイルには、テクスチャ プール サイズを始めとする沢山のプロパティを設定することができますので、 
-異なるモバイル デバイスでのスケーリングや PC/Mac のスケーラビリティ設定バケットの処理に推奨します。
+プラットフォーム専用コンフィギュレーションに設定する場合、プロジェクト内に `Config/DefaultDeviceProfiles.ini` をカスタマイズして作成するのが最適な方法です。デバイス プロファイルにはテクスチャ プール サイズなど多くのプロパティを設定することができるため、異なるモバイル デバイスでのスケーリングや PC/Mac のスケーラビリティ設定バケットの処理を行う場合に、この方法が推奨されます。
 
- 
-	[iPhone5 DeviceProfile]
+	\[iPhone5 DeviceProfile]
 	DeviceType=IOS
 	BaseProfileName=IOS
 	MeshLODSettings=
 	TextureLODSettings=
 	+CVars=r.RenderTargetSwitchWorkaround=1
- 
-	[iPhone5S DeviceProfile]
+
+	\[iPhone5S DeviceProfile]
 	DeviceType=IOS
 	BaseProfileName=IOS
 	MeshLODSettings=
@@ -28,28 +26,50 @@ Version:4.9
 	+CVars=r.LightShaftQuality=1
 
 
-コンフィギュレーション ファイルの設定に関する詳細は、 [コンフィギュレーション ファイル](Programming\Basics\ConfigurationFiles) ドキュメントを参照してください。 
+コンフィギュレーション ファイルの設定に関する詳細は、 「[コンフィギュレーション ファイル](Programming/Basics/ConfigurationFiles)」ドキュメントを参照してください。
 
 ### iOS
 
-デバイス プロファイルを使って、iOS デバイス用にゲームの解像度を設定することができます。`r.MobileContentScaleFactor` プロパティは、デバイスの 'nominal iOS resolution' に相対します。例えば、  
-Retina iPad の実際の解像度は 2048x1536 ですが名目上は 1024x768 なので、 2.0 を使えばネイティブ解像度が分かります。ネイティブ解像度で実行した場合のパフォーマンス ヒットまでは必要ないけれども、もう少し解像度を上げたい場合は、 
-小数値を使うこともできます。
+デバイス プロファイルを使って、iOS デバイス用にゲームの解像度を設定することができます。`r.MobileContentScaleFactor` プロパティは、デバイスの「nominal iOS resolution」に対応します。例えば、Retina iPad の実解像度は 2048x1536 ですが公称解像度は 1024x768 なので、2.0 を使えばネイティブ解像度になります。ネイティブ解像度で実行した場合のフルパフォーマンスまでは必要ないけれども、もう少し解像度を上げたい場合は、1.5 など小数値を使うこともできます。
 
-	[iPad3 DeviceProfile]
+
+	\[iPad3 DeviceProfile]
 	+CVars=r.MobileContentScaleFactor=1
 
-	[iPad4 DeviceProfile]
+	\[iPad4 DeviceProfile]
 	+CVars=r.MobileContentScaleFactor=2
 
-	[iPadAir DeviceProfile]
+	\[iPadAir DeviceProfile]
 	+CVars=r.MobileContentScaleFactor=2
 
-iOS デバイスのプロファイルは `Engine\Config` の `BaseDeviceProfiles` iで確認することができます。これらのカテゴリは、デフォルト プラグインを **[AndroidDeviceProfileSelector]** にした状態で、
-プラグイン システムで設定します。IOS デバイス カテゴリは単にデバイス名です。
 
-### Android 
+iOS デバイスのプロファイルは、`Engine\Config` の `BaseDeviceProfiles` で確認することができます。これらのカテゴリは、デフォルトが **iOSDeviceProfileSelector** プラグインに設定されているプラグイン システムで設定します。iOS デバイス カテゴリは単にデバイス名です。
 
-Android のデバイス プロファイル カテゴリは階層的になっています (Engine\Config の BaseDeviceProfiles.ini を例に見てください)。これらのカテゴリは、デフォルト プラグインを **[AndroidDeviceProfileSelector]** にした状態で、
-プラグイン システムで設定します。
+### Android
 
+Android のデバイス プロファイル カテゴリは階層的になっています (`Engine\Config` の `BaseDeviceProfiles.ini` を例を参照)。これらのカテゴリは、デフォルトが **AndroidDeviceProfileSelector** プラグインに設定されているプラグイン システムで設定します。
+
+## メモリ バケット
+
+異なるメモリ機能を備えた異なるプラットフォームでどのように Unreal Engine 4 (UE4) プロジェクトを実行できるのか、 **メモリ バケット** を追加することでどのオプションを使用できるのかを指定できます。この機能を追加するには、まずプロジェクトの **Engine.ini** ファイル (プラットフォームに従って、 **Android/AndroidEngine.ini**、 **IOS/IOSEngine.ini** 、または **PlatformNameEngine.ini** のいずれかのファイル) をテキストエディタで開いてから、次の情報を追加します。
+
+	\[PlatformMemoryBuckets\]
+	LargestMemoryBucket_MinGB=8
+	LargerMemoryBucket_MinGB=6
+	DefaultMemoryBucket_MinGB=4
+	SmallerMemoryBucket_MinGB=3
+	SmallestMemoryBucket_MinGB=2
+	TiniestMemoryBucket_MinGB=1
+
+プロジェクトの Engine.ini ファイルでメモリ バケットの設定が完了したら、プロジェクトの **DeviceProfiles.ini** ファイルを開き、メモリ バケットを関連付ける設定の種類を指定できます。例えば、テクスチャ ストリーミング プールが使用するメモリ量を調整するために、DeviceProfiles.ini ファイルで次の情報を追加します。
+
+	\[Mobile DeviceProfile\]
+	+CVars_Default=r.Streaming.PoolSize=180
+	+CVars_Smaller=r.Streaming.PoolSize=150
+	+CVars_Smallest=r.Streaming.PoolSize=70
+	+CVars_Tiniest=r.Streaming.PoolSize=16
+
+使用するレンダリング設定を指定するためにメモリ バケットを使用することもできます。次の例は、**World 設定** を使用するテクスチャの **TextureLODGroup** です。それを UE4 が Tiniest Memory Bucket を使用するデバイスを検出するようにセットアップすると、 **MaxLODSize** が 1024 から 256 に調整されます。LOD グループを World に設定するテクスチャに関して必要なメモリが減少します。
+
+	\[Mobile DeviceProfile\]
+	+TextureLODGroups=(Group=TEXTUREGROUP\_World, MaxLODSize=1024, OptionalMaxLODSize=1024, OptionalLODBias=1, MaxLODSize\_Smaller=1024, MaxLODSize\_Smallest=1024, MaxLODSize\_Tiniest=256, LODBias=0, LODBias\_Smaller=0, LODBias\_Smallest=1, MinMagFilter=aniso, MipFilter=point)

@@ -1,50 +1,11 @@
-﻿INTSourceChangelist:2742006
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:视图模式
 Crumbs:%ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor/Viewports
 Description:本文提供视口内可用视图模式的说明。
 Version:4.9
+topic-image:ViewModes_Topic.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ViewModes_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor/Viewports/ViewModes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor/Viewports/ViewModes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ViewModes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ViewModes_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor/Viewports/ViewModes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor/Viewports/ViewModes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ViewModes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [VAR:WireSize]462[/VAR]
 
@@ -62,6 +23,7 @@ Version:4.9
 ![](ViewModeMenu.png) ![](ViewModes_SubMenu_button.png)(h:273)
 [/EXCERPT:Intro]
 
+(#Lit)
 ## 照亮
 
 [REGION:fullwidth]
@@ -73,6 +35,7 @@ Version:4.9
 
 **照亮** 视图模式显示应用所有材质和照明之后的场景最终结果。
 
+(#Unlit)
 ## 不照亮
 
 [REGION:fullwidth]
@@ -86,6 +49,7 @@ Version:4.9
 **不照亮** 视图模式从场景中移除所有照明，从而只显示底色。
 
 
+(#Wireframe)
 ## 线框
 
 [REGION:fullwidth]
@@ -97,6 +61,7 @@ Version:4.9
 
 **线框** 显示场景中的所有多边形边缘。对于“画刷”，您将看到所产生的几何体。
 
+(#DetailLighting)
 ## 细节照明
 
 [REGION:fullwidth]
@@ -108,6 +73,7 @@ Version:4.9
 
 **细节照明** 使用原始材质的法线贴图在整个场景内激活中性材质。这对于进行隔离而言非常有用，而无论底色是否因为过暗或噪声过高而遮蔽了光线。
 
+(#LightingOnly)
 ## 仅照明
 
 [REGION:fullwidth]
@@ -119,6 +85,7 @@ Version:4.9
 
 **仅照明** 显示仅受照明影响的中性材质。此模式与 _细节照明_ 模式的区别在于，您不会看到法线贴图。
 
+(#LightComplexity)
 ## 光线复杂性
 
 [REGION:fullwidth]
@@ -138,6 +105,7 @@ Version:4.9
 
 此颜色方案是在着色器代码中定义的。
 
+(#ShaderComplexity)
 ## 着色器复杂性
 
 
@@ -173,6 +141,7 @@ Version:4.9
 +ShaderComplexityColors=(R=1.0,G=0.9,B=0.9,A=1.0)  
 [/REGION]
 
+(#StationaryLightOverlap)
 ## 静止光线重叠
 
 [REGION:fullwidth]
@@ -182,6 +151,7 @@ Version:4.9
 * 视图模式热键：**无（默认情况下只能通过菜单进行访问）**
 
 
+(#LightmapDensity)
 ## 光照贴图密度
 
 [REGION:fullwidth]
@@ -211,6 +181,7 @@ Version:4.9
 
 **反射** 视图模式以平面法线和粗糙度 0（即镜面）覆盖所有材质。这对于诊断反射细节十分有用，还使您得以将更多反射捕获 Actor 放入需要更多细节的区域。
 
+(#LODColoration)
 ## LOD 着色
 
 [REGION:fullwidth]
@@ -241,12 +212,14 @@ Version:4.9
 默认情况下，引擎仅使用 4 个 LOD，但可在源代码中增加此数目。 
 [/Region]
 
+(#BufferVisualization)
 ## 缓冲区可视化
 
 ![](GBufferMenu.png)
 
 “缓冲区可视化”区域使您能够访问图形卡中的各个缓冲区，这可以帮助您诊断场景的外观问题。为了最大限度地利用缓冲区可视化模式，了解 [](Engine/Rendering/Materials\MaterialInputs) 和 [](Engine/Rendering/Materials\MaterialProperties) 的基本要点会有帮助。
 
+(#BufferOverview)
 ### 缓冲区概观
 
 [REGION:fullwidth]
@@ -256,6 +229,7 @@ Version:4.9
 **缓冲区概观** 可视化模式允许您查看图形卡 Gbuffer 中的多个图像。其中许多图像与材质上的输入相关，这意味着您可以在仅使用单个材质输入的情况下查看场景的外观。
 
 
+(#BaseColor)
 ### 底色
 
 
@@ -276,6 +250,7 @@ Not included until I can get an answer from Daniel
 [/COMMENT]
 
 
+(#DecalMask)
 ### 贴花蒙版
 
 [REGION:fullwidth]
@@ -286,6 +261,7 @@ Not included until I can get an answer from Daniel
 
 **贴花蒙版** 模式以白色显示任何可以接收延迟贴花的表面。无法显示的对象将显示为黑色。
 
+(#DiffuseColor)
 ### 漫射颜色
 
 
@@ -310,6 +286,7 @@ not sure why it’s in there
 
 [/COMMENT]
 
+(#ShadingModel)
 ### 明暗处理模型
 
 [REGION:fullwidth]
@@ -328,6 +305,7 @@ not sure why it’s in there
 |**材质的明暗处理模型**|**默认照亮**|**不照亮**|**次表面**|**预整合皮肤**|
 
 
+(#MaterialAO)
 ### 材质 AO
 
 [OBJECT:ComparisonSlider]
@@ -344,6 +322,7 @@ not sure why it’s in there
 **材质 AO** 可视化模式显示任何与材质 _环境光遮蔽（Ambient Occlusion）_输入相连接的纹理处理或材质表达式节点的结果。
 
 
+(#Metallic)
 ### 金属色
 
 
@@ -357,6 +336,7 @@ not sure why it’s in there
 
 注：通常，材质的“金属色”（Metallic）值为 0 或 1，而不是两者之间的值。介于 0 与 1 之间的值将会因为层混合而产生，但物理材质始终为金属或非金属。
 
+(#Opacity)
 ### 不透明
 
 [OBJECT:ComparisonSlider]
@@ -374,6 +354,7 @@ not sure why it’s in there
 
 “不透明”视图模式仅显示使用了“不透明”（Opacity）的不透明材质，这对于次表面散射材质来说十分重要，因为“不透明”（Opacity）控制着光线可以穿透的距离。
 
+(#Roughness)
 ### 粗糙度
 
 
@@ -386,6 +367,7 @@ not sure why it’s in there
 
 **粗糙度** 可视化模式显示任何与材质 _粗糙度（Roughness）_输入相连接的纹理处理或材质表达式节点的结果。粗糙度变化是许多反射变化的根源。
 
+(#SceneColor)
 ### 场景颜色
 
 [REGION:fullwidth]
@@ -399,6 +381,7 @@ not sure why it’s in there
 
 
 
+(#SceneDepth)
 ### 场景深度
 
 
@@ -412,6 +395,7 @@ not sure why it’s in there
 
 **场景深度** 以白色（最远）到黑色（最近）的恒定梯度显示场景的深度。 
 
+(#SeparateTranslucencyRGB)
 ### 单独半透明 RGB
 
 
@@ -425,6 +409,7 @@ not sure why it’s in there
 **单独半透明 RGB** 显示任何呈半透明且使用了“单独半透明”（Separate Translucency）的材质的颜色信息。
 
 
+(#SeparateTranslucencyA)
 ### 单独半透明 A
 
 
@@ -437,6 +422,7 @@ not sure why it’s in there
 
 **单独半透明 A** 仅显示任何呈半透明且使用了“单独半透明”（Separate Translucency）的材质的阿尔法信息。
 
+(#SpecularColor)
 ### 镜面反射颜色
 
 
@@ -448,6 +434,7 @@ not sure why it’s in there
 
 **镜面反射颜色** 显示向材质的镜面反射提供的颜色。通常，此颜色是根据底色和金属色值的组合来确定的。
 
+(#Specular)
 ### 镜面反射
 
 
@@ -459,6 +446,7 @@ not sure why it’s in there
 
 **镜面反射** 显示任何输送到材质 _镜面反射（Specular）_输入的纹理处理或材质表达式节点的结果。
 
+(#SubsurfaceColor)
 ### 次表面颜色
 
 
@@ -470,6 +458,7 @@ not sure why it’s in there
 
 **次表面颜色** 显示任何输送到材质 _次表面颜色（Subsurface Color）_输入的纹理处理或材质表达式节点的结果。
 
+(#WorldNormal)
 ### 全局法线
 
 [REGION:fullwidth]
@@ -482,6 +471,7 @@ not sure why it’s in there
 **全局法线** 显示任何不透明表面的全局空间法线。 
 
 
+(#AmbientOcclusion)
 ### 环境光遮蔽
 
 [REGION:fullwidth]
@@ -495,6 +485,7 @@ not sure why it’s in there
 (#LandscapeVisualizers)
 ## 地形可视化器
 
+(#Normal)
 ### 正常
 
 [REGION:fullwidth]
@@ -515,6 +506,7 @@ not sure why it’s in there
 
 
 
+(#LayerDensity)
 ### 层密度
 
 [REGION:fullwidth]
@@ -532,6 +524,7 @@ TODO
 
 [/COMMENT]
 
+(#Exposure)
 ## 曝光
 
 [REGION:fullwidth]
@@ -551,6 +544,7 @@ yhjRn9xZUTs
 曝光是一种后处理效果，用于控制场景的整体亮度。您可将其设置为固定值或保持自动调整。
 
 
+(#Automaticvs.FixedExposure)
 ### 自动曝光与固定曝光
 
 在后处理期间激活曝光的情况下游戏时，您会注意到从较亮区域移至较暗区域（反之亦然）会导致摄像机临时进行调整，这类似于我们的眼睛在注视不同光线环境时发生的调整。在大多数情况下，这是期望的结果。但是，如果特定关卡中不断变化会分散玩家的注意力，那么您可将视图设置为采用固定曝光。这将锁定曝光，使其不再随着您从较亮区域移至较暗区域或者从较暗区域移至较亮区域而自动变化，但也意味着很容易产生光线对于您需要完成的工作而言过亮或过暗的情况。

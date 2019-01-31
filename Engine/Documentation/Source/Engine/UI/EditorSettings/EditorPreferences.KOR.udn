@@ -58,7 +58,7 @@ topic-image:Engine/UI/EditorSettings_topic.png
 | **Use Selection Outline** | [INCLUDE:Shared/Types/ULevelEditorViewportSettings#buseselectionoutline] |
 | **Selection Highlight Intensity** | [INCLUDE:Shared/Types/ULevelEditorViewportSettings#selectionhighlightintensity] |
 | **Use Camera Location from Play-In-Viewport** | 뷰포트에서 플레이에 카메라 위치 사용 - 켜면 뷰포트에서 플레이 기능으로 게임에 들어가고 나올때 현재 카메라 위치를 사용합니다. |
-| **Use Absolute Translation** | 절대 트랜슬레이션 사용 - 켜면 이동 트랜스폼은 절대치로, 끄면 예전 위치에 상대치로 취급됩니다. |
+| **Use Absolute Translation** | 절대 트랜슬레이션 사용 - 켜면 이동 트랜스폼은 절대치로, 끄면 이전 위치에 상대치로 취급됩니다. |
 | **Preview Selected Cameras** | 선택된 카메라 미리보기 - 켜고서 카메라 액터를 선택하면, 현재 에디터 뷰포트 안에 그 카메라의 시점을 _화면 속 화면식_ 실황 미리보기로 표시합니다. 이 기능을 통해 카메라에 직접 들어가 볼 필요 없이 위치나 포스트 프로세싱이나 기타 세팅을 쉽게 조정할 수 있습니다. [REGION:warning]이 기능을 켜면 어플리케이션의 퍼포먼스가 떨어질 수 있습니다.[/REGION] |
 | **Background Drop Distance** | 배경 드롭 거리 - 뷰포트 아무것도 없는 곳에 액터를 떨궜을 때, 카메라에서 이 언리얼 유닛만큼의 거리에 액터를 놓습니다. |
 [/COMMENT]

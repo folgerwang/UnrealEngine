@@ -1,0 +1,159 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 关于Datasmith重新导入工作流程
+Description: 描述当您使用Datasmith重新导入已存在于虚幻中的内容时会发生什么，以及您该如何利用这一迭代流程。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 5
+Tags: Datasmith
+Tags: Guides
+topic-image:datasmith-reimport-topic.png
+
+
+Datasmith的作用是将各种源应用程序中的设计数据导入到虚幻引擎中，通常是为了依据这些数据构建实时可视化和体验。但通常，虽然您是在虚幻中构建这些可视化，但所处理的源场景或设计数据需要进行一些更改，才能满足新的需要或将项目干系人的反馈融入到项目中。为避免繁重且成本高昂的返工，您需要能够融入这些上游更改，而不会丢失已经在虚幻编辑器中完成的所有工作。
+
+本页介绍将Datasmith内容的更新拉取到虚幻项目中的不同方法，以及资源和Actor在这个过程中会经历哪些变化。可供选择的选项包括：
+
+*   重新导入整个Datasmith场景。这样会更新Datasmith场景资源，将源场景中所做的所有最新更改包含进去，并尝试将这些更改协调到您在虚幻编辑器中所完成的工作。请参见下文的[选项1.完整场景重新导入](#option1stopfullscenereimport)。
+*   重新导入Datasmith导入的单个资源，如静态网格体、材质或纹理。这样您可以处理对所选资源的更改，而不影响Datasmith场景的其他地方。请参见下文的[选项2.单个资源重新导入](#option2stopindividualassetreimport)。
+
+在上述两种情况下，重新导入流程都会保留您在虚幻中所做的大部分工作，包括：
+
+*   Datasmith作为覆盖跟踪的属性。请参见下文的[保留覆盖](#overridesarepreserved)。
+*   虚幻引擎独有的属性。请参见下文的[保留虚幻属性](#unrealpropertiesarepreserved)。
+
+有关如何在虚幻编辑器中使用这些导入工作流程的详细说明，请参见[将Datasmith内容重新导入到虚幻引擎4中](Enterprise/Datasmith/HowTo/ReimportingContent)。
+
+(#overridesarepreserved)
+## 保留覆盖
+
+无论您用哪种方法重新导入Datasmith内容，都不应该失去您对虚幻资源或Actor所做的任何更改，Datasmith会将这些更改识别为 *覆盖*。覆盖包括分配给静态网格体资源和Actor的材质，关卡中作为Datasmith场景的一部分而创建的Actor的3D变换。
+
+有关哪些更改会被视为覆盖的详细信息，请参阅[Datasmith概述](Enterprise/Datasmith/Overview)。
+
+下次在重新导入Datasmith场景后重设对资源或Actor的覆盖时，虚幻资源或Actor会重设为重新导入 *后* 的值，而不是 *原始* 值。例如：
+
+*   假设您的场景包含一个名为“椅子（Chair）”的静态网格体资源，在初始Datasmith导入后，为其分配了名为“Color_00000000”的材质。
+*   在虚幻编辑器中，您修改这个资源，让其使用一个新的基于物理的材质，名为“黑色皮革（Black Leather）”。Datasmith会将这个更改视为覆盖进行跟踪。
+*   现在，在您的源场景中，您更改了椅子的颜色属性，并重新导入相应资源或包含椅子的Datasmith场景。起初，您重新导入的资源分配到的仍然是您在虚幻中分配的“黑色皮革（Black Leather）”材质。
+*   如果您重设该资源的覆盖，它 *不会* 还原为使用原始的“Color_00000000”材质，而是还原为使用Datasmith新生成的材质资源来匹配椅子的新颜色属性。
+
+(#unrealpropertiesarepreserved)
+## 保留虚幻属性
+
+您不应失去对虚幻特有的资源和Actor属性所做的更改——即，并非Datasmith从源文件导入的属性。
+
+例如，假设您使用Datasmith导入场景，然后在虚幻编辑器中禁用了一个导入的静态网格体Actor的 **投射阴影（Cast Shadows）** 属性。在重新导入Datasmith场景资源并同步关卡中的Datasmith场景Actor时，该“投射阴影（Cast Shadows）”属性将保持禁用。
+
+(#option1stopfullscenereimport)
+## 选项1.完整场景重新导入
+
+![重新导入Datasmith场景资源](datasmith-reimport-datasmith-scene.png "Reimport the Datasmith Scene Asset")
+
+您可以一次性重新导入整个Datasmith场景。这种方法将更新Datasmith在内容浏览器中创建的所有资源，以匹配您在源应用程序或数据文件中所做的最新更改。从这里，您可以选择性更新关卡中的Datasmith场景Actor，以使它们与Datasmith场景资源保持的新场景层级同步。
+
+### 对场景层级的更改
+
+在重新导入Datasmith场景时，您在源场景中所做的所有最新更改会立即更新到Datasmith场景 **资源** 中包含的场景层级。导入后，Datasmith场景资源中的场景层级将包含所有相同的信息，就像第一次导入这个场景一样。
+
+但是，对场景层级的这些更改不一定会反映到包含Datasmith场景的虚幻关卡中。您放到项目关卡中的Datasmith场景实例在关卡中拥有过时的场景层级，直到您将它们与更新后的资源 **同步** 为止。
+
+同步会更新Datasmith场景Actor中的信息以及它在世界大纲视图中的子代，以便与更新后的资源匹配，如下所示：
+
+*   **修改的Actor。** 您 *没有* 在虚幻编辑器中修改的任何Actor都会立即更新，以与重新导入的Datasmith场景中的最新相关信息匹配。您 *已经* 在虚幻编辑器中修改的任何Actor会进行更新，以与重新导入的Datasmith场景中的最新信息匹配，但Datasmith作为覆盖跟踪的更改 *除外*。
+*   **新Actor。** 自上次导入以来添加到源文件的任何新对象都会在关卡中添加新的Actor来代表它们。
+*   **删除的Actor。** 您从源文件中删除的任何对象都会从虚幻关卡中 *删除* 其对应的Actor——除非这些Actor包含其他覆盖。如果与已删除对象对应的虚幻Actor包含覆盖，则除非特意删除，否则不会从关卡中删除这类Actor。  
+    在默认情况下，您已从虚幻关卡中删除但仍存在于源文件中的任何Actor *不会* 添加回关卡。但是，当您将关卡中的Datasmith场景Actor与重新导入的Datasmith场景资源同步时，可以启用这个选项。
+*   **父子关系。** 关卡中的Actor父子层级会进行更新，以与源文件中的更改匹配。
+
+例如，以下前后对比图像描述的是：
+
+1.  已从源场景中删除的对象（在本例中是Lift对象）会从Datasmith场景中删除。
+2.  在源场景中，对对象父子结构所做的更改（在本例中，光源分组到一个新的父代下面）会反映到Datasmith场景中。
+3.  已添加到源场景的对象（在本例中为工具箱）会添加到Datasmith场景。
+
+![重新导入前后的Datasmith场景层级](datasmith-reimport-scene-hierarchy.png "Datasmith Scene hierarchy before and after reimport")
+
+您可以通过两种方法将Datasmith场景Actor与其资源同步：
+
+*   在重新导入Datasmith场景资源时，可以自动更新当前打开关卡中从该资源创建的任何Datasmith场景Actor。这是一种简单的方法，适用于只在一个关卡中添加了Datasmith场景的情况。
+*   您可以随时根据需要，将关卡中的Datasmith场景Actor与其Datasmith场景资源同步。如果项目中有不同的关卡包含Datasmith场景的实例，并且您需要它们全部反映出源场景中的更改，则需要使用这种方法。
+
+有关详细信息，请参阅[将Datasmith内容重新导入到虚幻引擎4中](Enterprise/Datasmith/HowTo/ReimportingContent)。
+
+(#changestogeometry,materials,andtextures)
+### 对几何结构、材质和纹理的更改
+
+在重新导入Datasmith场景时：
+
+*   *仅当* 自上次导入场景以来在源文件中修改了静态网格体和纹理资源时，Datasmith才会重新创建这些资源。
+*   无论是否在源文件中进行了修改，Datasmith *始终* 重新创建所有材质资源。
+
+[REGION:warning]
+当Datasmith重新创建资源时，它可能会覆盖您在虚幻中对资源所做的更改！
+
+通常，您不应失去Datasmith作为覆盖跟踪的任何信息，或者特定于虚幻对场景对象的表示方法的任何信息。但是，您可能会失去您在虚幻中对Datasmith所导入、但Datasmith没有作为覆盖进行跟踪的信息的更改。例如，覆盖资源将覆盖您在虚幻中对材质图形内部属性、实例化材质属性或静态网格体资源几何结构所做的更改。
+[/REGION]
+
+为避免失去您在虚幻中对资源所做的更改，您有两种选择：
+
+*   重新导入时，在 **重新导入选项（Reimport Options）** 对话框中，取消选中对应资源类型的 **处理（Process）** 复选框，避免重新导入这类资源。例如，如果在虚幻中修改了某些材质属性，您不想失去这些更改，可以取消选中 **材质和纹理（Materials & Textures）** 选项。但是，如果源文件中包含一些其他 *想要* 更新的材质资源，则不能使用这种方法。在这种情况下，您 *可以* 选择仅重新导入想要更新的资源类型，请参见下文的[选项2.单个资源重新导入](#option2stopindividualassetreimport)。
+*   每当需要修改您通过Datasmith导入的资源时，将您想要修改的资源复制到其他文件夹，并修改副本。然后，将使用原始资源的地方更新为使用复制资源。重新导入时，原始资源将被覆盖，但复制资源保持不变。
+
+当您删除源文件中的对象或材质后重新导入场景时，Datasmith不会删除它之前为这些对象创建的资源。这些资源保留在内容浏览器中，因此您可以继续在虚幻编辑器中，脱离Datasmith场景将它们当做独立资源使用。但是，当您同步某个关卡中的Datasmith场景Actor来匹配重新导入的Datasmith场景资源时，这些已删除资源的实例也会被删除（除非它们包含任何覆盖）。  
+
+以下前后对比图像描述了重新导入场景时静态网格体资源的变化：
+
+1.  您在源文件中修改的对象（在本例中为球形灯罩）会在虚幻中重新创建，旧版本资源将被覆盖。
+2.  您从源场景中删除的对象（在本例中为黄色升举元素）不会从项目的内容浏览器中删除。
+3.  您添加到源场景的对象（在本例中为工具箱）作为新资源添加到内容浏览器。
+
+[REGION:lightbox]
+[![Datasmith资源重新导入](datasmith-reimport-assets.png "Datasmith Asset Reimport")](datasmith-reimport-assets.png)
+
+*单击查看大图。*
+[/REGION]
+
+请记住，在虚幻引擎中更改资源时，更改会立即反映到使用该资源的所有地方。Datasmith在重新导入期间重新创建或修改资源也会如此。例如，如果您更改源应用程序中某个对象的几何结构，您会看到重新导入对应静态网格体资源后，关卡中用来体现该静态网格体资源的所有Actor都会自动更新以显示新的几何结构。
+
+### 何时使用完整场景重新导入
+
+我们建议在大多数情况下使用完整场景重新导入。尤其是在以下情况下，更需要重新导入完整场景：
+
+*   您需要从源场景导入之前不存在于虚幻中的新对象或材质。
+*   3D空间中的场景对象布局发生了更改，或对象在场景层级中有了新的父子关系，您需要反映到虚幻中。
+*   您无法单独重新导入资源。这可能是因为，源文件中发生更改的对象过多，无法一一处理，或者因为您不知道哪些资源发生了更改。
+
+(#option2stopindividualassetreimport)
+## 选项2.单个资源重新导入
+
+![重新导入单个Datasmith资源](datasmith-reimport-asset.png "Reimport a single Datasmith Asset")
+
+如果不重新导入整个Datasmith场景，您可以重新导入Datasmith导入流程创建的所选虚幻引擎资源——例如，单个静态网格体资源、材质或纹理。
+
+在使用该选项时，整个过程几乎与上文[对几何结构、材质和纹理的更改](#changestogeometry,materials,andtextures)所述相同，但仅限于您选择的单个资源。唯一的差别是：
+
+*   资源始终是从头开始创建的，即使源场景中未进行修改也是如此。例如，以静态网格体资源为例，始终会重新构建静态网格体的几何结构，因此在虚幻中对几何结构所做的任何更改都会被覆盖。
+*   Datasmith场景资源不会更改，因此对于您放入场景的任何关卡，其中的场景层级也不会发生更改，无论是否重新同步这些关卡中的Datasmith场景Actor都是如此。
+*   由于Datasmith场景资源不会更改，它会继续跟踪上次导入整个场景以来对资源的覆盖。如果您重设重新导入资源上的覆盖，它会还原为上次导入整个Datasmith场景时的状态。
+
+### 何时使用单个资源重新导入
+
+在以下情况下，单个资源重新导入可能是合适的选择：
+
+*   您想要导入对少量资源的更改，但您知道整个Datasmith场景包含对其他资源或场景层级的更改，而您 *不想* 导入这些更改。
+*   您在导入整个Datasmith场景时对资源应用了一些设置，现在想对特定资源应用不同的Datasmith导入设置。
+
+[REGION:tip]
+该工作流程对导入时需要进行曲面细分的CAD模型尤其有用，因为您可以对Datasmith场景的不同部分应用不同的曲面细分设置。这可能会帮助您控制每个静态网格体资源中的三角形数量，从而优化场景性能。例如，您可以导入具有低分辨率设置的CAD文件，然后选择重新导入少量的高分辨率的重要静态网格体资源。
+[/REGION]
+
+## 自动重新导入
+
+您可以配置虚幻编辑器来监视所选文件夹中的资源是否发生了更改，然后自动重新导入这些资源。
+
+我们不建议将该系统用于Datasmith场景资源或用于Datasmith创建的单个资源。自动导入仅适用于您添加到项目的其他类别的模型或资源，例如，作为Datasmith模型的额外布景单独导入的FBX文件。
+
+有关为非Datasmith内容设置该系统的详细信息，请参阅[自动重新导入](Engine/Content/AutoReImport)。

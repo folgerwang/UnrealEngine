@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429257
+﻿INTSourceChangelist:4677050
 Availability:Public
 Title:플랫폼 개발
 Crumbs:%ROOT%
@@ -28,6 +28,10 @@ topic-icon:%ROOT%/platform_icon.png
 
 [DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Console" org:"hierarchy")]
 [/PUBLISH:licensee]
+
+## 클라우드 디플로이
+
+%Platforms/PixelStreaming:topic%
 
 ## 플랫폼 툴
 

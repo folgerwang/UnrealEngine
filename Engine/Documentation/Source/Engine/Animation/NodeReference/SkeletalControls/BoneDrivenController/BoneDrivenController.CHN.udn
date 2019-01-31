@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3016843
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Bone Driven Controller
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:对 Bone Driven Controller 节点进行描述。此节点使“驱动”骨骼对一个或多个“被驱动”骨骼的运动产生动态影响。
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:title%](Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController\BoneDrivenController.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:title%](Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController\BoneDrivenController.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\BoneDrivenController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:BoneDrivenController.png
 
 **Bone Driven Controller** 使“驱动”骨骼对一个或多个“被驱动”骨骼的运动产生动态影响。这对带有附件的角色较为实用，可避免动画中（甚至在使用大量混合时）出现几何体穿插。 
 
@@ -76,6 +43,9 @@ CDG4WcQ7cIY
 | **(As Pin) Alpha** | 启用/禁用节点上 Alpha 引脚的显示。|
 | **Alpha Scale Bias** | 设置最小和最大输入标度值。|
 
+**Bone Driven Controller** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Bone Driven Controller** 节点的 **细节面板** 上找到其设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 
 [COMMENT:none]
 

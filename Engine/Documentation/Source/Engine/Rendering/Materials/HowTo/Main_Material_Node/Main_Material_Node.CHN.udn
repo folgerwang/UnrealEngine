@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2707696
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何使用主材质节点
+Title:使用主材质节点
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:有关设置主材质节点的操作指南
+Description:有关设置主材质节点的指南
 Related:Engine/Rendering/Materials/Editor/Interface
 Related:Engine/Rendering/Materials/MaterialInputs
 Related:Engine/Rendering/Materials/Editor
@@ -19,6 +19,7 @@ SkillLevel:Beginner
 主材质节点的输入所产生的结果将在材质编译后应用于游戏中的对象时展现。 
 在以下操作指南中，我们将阐述您使用主材质节点时需要了解的所有内容。
 
+(#TheMainMaterialNode)
 ## 主材质节点
 
 **材质** 是使用一种称为 **高级着色语言** （简称 HLSL）的专用编码语言来创建的。
@@ -28,6 +29,7 @@ HLSL 使材质能够直接与图形硬件交互，让美工和程序员可以更
 您可以将主材质节点看作材质图中的终点站。
 无论材质表达式节点以什么样的组合插入到主材质节点的输入中，它们都会在材质经过编译后使用时显现。
 
+(#MainMaterialNodeBreakdown)
 ## 主材质节点明细
 
 ![](Material_Main_Node.png)
@@ -67,6 +69,7 @@ HLSL 使材质能够直接与图形硬件交互，让美工和程序员可以更
 
 ![](Material_Non-Grayed_Out_Connections.png)
 
+(#MainMaterialNodeDetailsPanelProperties)
 ### 主材质节点的“细节”（Details）面板属性
 
 在主材质节点的 **细节（Details）**面板中，您可以调节与材质使用方式相关的属性。 
@@ -91,6 +94,7 @@ HLSL 使材质能够直接与图形硬件交互，让美工和程序员可以更
 | **缩略图（Thumbnail）**|用于控制 **内容浏览器** 中缩略图的显示方式。|
 
 
+(#UsingtheMainMaterialNode)
 ## 使用主材质节点
 
 设置材质以使用主材质节点的步骤如下。
@@ -194,6 +198,7 @@ HLSL 使材质能够直接与图形硬件交互，让美工和程序员可以更
 	![](Engine\Rendering\Materials\HowTo\Refraction\R_Apply_&_Save.png)
 
 
+(#Conclusion)
 ## 结论 
 
 在决定材质显示方式和材质可使用哪些输入方面，主材质节点起到巨大的作用。

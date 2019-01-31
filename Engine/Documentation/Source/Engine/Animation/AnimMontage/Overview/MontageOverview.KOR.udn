@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3810467
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine\Animation\AnimMontage
 Title: 애니메이션 몽타주 개요
 Description:애니메이션 몽타주 애셋 작업 방식과 어디에 사용할 수 있는지에 대한 설명입니다.
@@ -210,7 +210,7 @@ Related: Engine/Animation/AnimBlueprints
 ## 자손 몽타주
 **자손 몽타주** 를 통해 게임플레이에 영향을 주지 않고, 다수의 애셋에 노티파이(나 기타 디테일)을 다시 만들어 유지할 필요 없이 애니메이션을 편리하게 다변화시킬 수 있습니다.
 예를 들어 실시간 전략(RTS) 게임에서 유닛들의 자동 공격 애니메이션을 다양하게 만든다든가, 롤플레잉(RPG) 또는 액션 게임에서 캐릭터가 장착 또는 착용중인 무기 또는 갑옷에 따라 대기 애니메이션에 변화를 준다던가 할 수 있습니다.
-자손 애니메이션 몽타주는 **콘텐츠 브라우저** 에서 기존 애니메이션 몽타주에 우클릭하여 뜨는 맥락 메뉴에서 **Create Child Montage** (자손 몽타주 생성)을 통해 생성할 수 있습니다.
+자손 애니메이션 몽타주는 **콘텐츠 브라우저** 에서 기존 애니메이션 몽타주에 우클릭하여 뜨는 컨텍스트 메뉴에서 **Create Child Montage** (자손 몽타주 생성)을 통해 생성할 수 있습니다.
 
 ![](ChildMontageOption.png)
 

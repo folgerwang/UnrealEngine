@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2755887
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:行为树节点参考：Services
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees
@@ -16,7 +16,7 @@ Default Focus 设置 AI 控制器的集中点，从而创建出访问蓝图和�
 
 | 属性 | 描述 |
 | -------- | ----------- |
-| **Blackboard Key**| 此属性接受 Actor Key（和基础类设为 Actor 的物体键），使其可被使用 `GetFocusActor` 的 AI 控制器快速参考。|
+| **Blackboard Key**| 此属性接受 Actor Key（一种基础类设为 Actor 的物体键），使其可被使用 `GetFocusActor` 的 AI 控制器快速参考。|
 | **Node Name** | 行为树图表中显示的节点名称。|
 
 [REGION:note]

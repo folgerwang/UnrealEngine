@@ -1,0 +1,138 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 데이터스미스에 Rhino 사용
+Description: 데이터스미스로 McNeel Rhinoceros 3D 에서 씬을 임포트할 때 적용되는 특수 사항을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Datasmith
+Tags: overview
+Tags: studio
+Tags: interop
+topic-image:RhinoToUE_Topic_v2.png
+
+
+![Using Datasmith with Rhino](rhino-datasmith-banner.png "Using Datasmith with Rhino")
+
+데이터스미스를 사용하여 McNeel Rhinoceros (Rhino) 에서 언리얼 에디터로 씬을 가져오려는 경우, 데이터스미스가 씬을 처리하는 방식에 대해 [](Enterprise/Datasmith/Overview), [](Enterprise/Datasmith/Overview/ImportProcess) 의 기본적인 부분 이외에도 몇 가지 알아야 할 것이 있습니다.
+
+## Rhino 워크플로
+
+데이터스미스는 Rhino 에 **Direct** (직접) 워크플로를 사용합니다. 즉 Rhino 씬을 *.3dm* 파일로 저장하기만 하면 그 파일을 데이터스미스 CAD 임포터로 언리얼 에디터에 가져올 수 있다는 뜻입니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+## 지오메트리를 스태틱 메시로 변환
+
+데이터스미스는 Rhino 파일의 메시, 입체, 표면 하나마다 별개의 스태틱 메시 애셋을 생성합니다. Rhino 의 (아래 이미지 왼편에 보이는) **Properties** 패널에서 **Name** 프로퍼티에 설정한 이름이 있는 오브젝트의 경우, 데이터스미스는 스태틱 메시 애셋에 그 이름을 사용합니다 (아래 이미지 오른편에 보입니다). 데이터스미스가 레벨에 생성한 액터 중 그 스태틱 메시 애셋을 참조하는 액터 역시 똑같은 이름을 사용합니다.
+
+[REGION:lightbox]
+[![Rhino object name conversion](rhino-datasmith-object-name.png "Rhino object name conversion")](rhino-datasmith-object-name.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+### 인스턴싱
+
+데이터스미스가 Rhino 씬에서 같은 블록의 인스턴스를 다수 발견한 경우, 그 블록에 대한 스태틱 메시 애셋 세트는 하나만 만들고, 씬에 그 스태틱 메시의 인스턴스를 다수 배치합니다. 보통 프로젝트의 런타임 메모리 요구량과 퍼포먼스 측면에서 더 좋을 뿐만 아니라, 콘텐츠 브라우저의 스태틱 메시 수를 관리하기도 쉬워집니다.
+
+가능하면 씬의 (창문, 문, 체인같은) 반복 요소를 Rhino 에서 재사용 가능 블록으로 만들어 이 기능을 활용하는 것이 좋습니다. 자세한 내용은 [Rhino documentation](https://wiki.mcneel.com/rhino/usingblocks) 을 참고하세요.
+
+### 테셀레이션 및 렌더 메시
+
+다른 CAD 파일 포맷과 달리 데이터스미스는 Rhino 파일의 표면에 테셀레이션을 적용하지 않습니다.
+
+그 대신 임포트한 Rhino 파일에 오브젝트의 렌더 메시가 이미 들어있는 경우, 데이터스미스는 임포트할 때 표면에 테셀레이션을 적용하는 대신 언리얼에서 그 메시를 재사용하여 스태틱 메시를 만듭니다.
+
+그러면 임포트할 때 시간이 절약되며, Rhino 에서 표면의 테셀레이션을 제어할 수 있습니다. 자세한 내용은 [Rhino documentation](https://wiki.mcneel.com/rhino/meshfaq) 을 참고하세요. 하지만 그렇다는 것은, Rhino 씬을 임포트 및 리임포트할 때 [데이터스미스 임포트 옵션 창](Enterprise/Datasmith/ImportOptions) 의 테셀레이션 파라미터의 효과가 없다는 뜻이기도 합니다.
+
+### 트라이앵글이 향하는 방향
+
+Rhino 는 보통 모든 표면을 양면으로 표시하며, 표면 노멀 방향과 상관 없습니다. 하지만 언리얼 엔진에서는 카메라를 향하지 않는 트라이앵글을 자동으로 컬링합니다. 그러면 특정 각도에서 봤을 때 씬의 지오메트리가 사라질 수 있습니다.
+
+예를 들어 아래 이미지는 표면 노멀이 안쪽을 향하도록 모델링된 바퀴집 커버입니다. 씬을 언리얼로 임포트한 후, 처음에는 면이 없는 것처럼 보입니다. 이 경우 오브젝트의 노멀 방향을 뒤집으면 면이 나타날 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![뒷면을 향한 경우](rhino-datasmith-facing-dir-bad.png) 
+[/PARAM]
+[PARAM:after]
+![앞면을 향한 경우](rhino-datasmith-facing-dir-good.png) 
+[/PARAM]
+[/OBJECT]
+
+자세한 내용과 추천 해법은 [](Enterprise/Datasmith/Overview/ImportProcess) 문서를 참고하세요.
+
+## Rhino 머티리얼
+
+데이터스미스가 Rhino 씬에서 찾은 머티리얼과 각기 다른 표면 색마다 언리얼에서 별도의 [머티리얼 애셋](Engine/Rendering/Materials) 을 생성하고, 데이터스미스 씬 애셋 옆 Materials 폴더에 배치합니다.
+
+*   Rhino 머티리얼을 나타내는 언리얼 머티리얼은 Rhino 에서의 이름을 유지합니다. 이 [머티리얼 인스턴스](Engine/Rendering/Materials/MaterialInstances) 는 부모가 **Datasmith_Material** 입니다. 자세한 내용은 아래 Rhino 머티리얼 프로퍼티 부분을 참고하세요.
+*   Rhino 디스플레이 색을 나타내는 언리얼 머티리얼에는 RGB 채널 값에 따라 이름을 자동 생성합니다. 이 머티리얼 인스턴스는 부모 머티리얼이 **Datasmith_Color** 입니다. 자세한 내용은 [](Enterprise/Datasmith/Overview/ImportProcess) 문서를 참고하세요. 
+
+[REGION:lightbox]
+[![Material Assets created by Datasmith](rhino-datasmith-material-name.png "Material Assets created by Datasmith")](rhino-datasmith-material-name.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+### 머티리얼 및 색 할당
+
+Rhino 에서 오브젝트의 표면을 그리는 데 사용되는 머티리얼 또는 색은 오브젝트 자체나 그 레이어나 그 부모에 할당할 수 있으며, 현재 뷰포트의 프로퍼티에 따라 달라질 수 있습니다. 하지만 언리얼에서, 스태틱 메시 애셋의 표면을 이루는 각 트라이앵글은 렌더링 프로퍼티를 정의하는 머티리얼이 하나 있어야 합니다. 그래서 데이터스미스는 Rhino 의 지오메트리 오브젝트 각각의 표면 디스플레이 프로퍼티를 해석하여 언리얼에서 그 오브젝트 표면을 렌더링하기 위한 하나의 방법을 결정해야 합니다.
+
+그러기 위해 다음과 같은 규칙을 사용합니다.
+
+*   먼저 각 표면에 대한 머티리얼을 찾아봅니다. 각 오브젝트에서 Rhino 의 **Assign material by** 세팅으로 그 표면 셰이딩에 사용할 머티리얼 소스를 결정합니다.  
+    ![Assign material by](rhino-datasmith-assign-mat-by-layer.png "Assign material by")
+*   그 소스에 할당된 머티리얼이 없으면, 데이터스미스는 오브젝트에 설정된 **Display Color** 프로퍼티를 예비로 사용합니다.  
+    ![Display Color](rhino-datasmith-display_color.png "Display Color")  
+    이어서 그 세팅을 오브젝트 자체에서 직접 정의하거나, 오브젝트의 레이어 또는 오브젝트의 부모 블록을 가리킬 수도 있습니다.
+
+### Rhino 머티리얼 프로퍼티
+
+Rhino 머티리얼 변환 프로세스의 목표는 Rhino 에서 익숙한 세팅을 가지고 언리얼의 물리 기반 렌더러에서 비슷한 결과를 내는 방식으로 해석하는 것입니다.
+
+세팅을 나란히 놓고 보면 알 수 있듯이 데이터스미스가 만든 머티리얼 애셋 각각은 Rhino 에서 설정할 수 있는 Basic 프로퍼티와 Texture 유형 그대로 제공합니다.
+
+[REGION:lightbox]
+[![Rhino Datasmith Material settings](rhino-datasmith-material.png "Rhino Datasmith Material settings")](rhino-datasmith-material.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+데이터스미스 머티리얼에 없는 유일한 Rhino 프로퍼티는 앰비언트 컬러와 디퓨즈 컬러 세팅입니다.
+
+*   언리얼에서 앰비언트 라이팅을 추가하는 작업은 레벨의 라이팅을 구성할 때 하지, 개별 머티리얼에서 하지 않습니다.
+*   Rhino 의 **Enable Diffuse Lighting** 체크박스 해제 효과 시뮬레이션은 언리얼 머티리얼의 **General > Material Property Override > Shading Model** 세팅을 Unlit 으로 설정하면 됩니다.
+
+[REGION:note]
+**참고:** Rhino 머티리얼이 블렌드 퍼센티지가 있는 텍스처를 사용하는 경우, 그 퍼센티지 값은 언리얼 머티리얼로 자동으로 넘어오지 않습니다. 하지만 언리얼에서 활성 텍스처 옆에 나타나는 해당 **Percentage** 세팅으로 설정할 수 있습니다.
+
+![Color Percentage](datasmith-rhino-material-percentage.png "Color Percentage")
+[/REGION]
+
+## 데이터스미스 씬 계층구조 만들기
+
+데이터스미스가 Rhino 모델에서 씬 계층구조를 만드는 방식은 다음과 같습니다.
+
+*   Rhino 씬의 각 레이어에 대해, 데이터스미스는 언리얼에 액터를 만들어 그 레이어의 모든 오브젝트에 대한 부모로 만듭니다.  
+    참고로 언리얼 에디터의 **Layers** (레이어) 패널에 생성된 레이어와 달리, 액터의 이 계층구조는 평탄화되지 않습니다. 액터는 Rhino 씬의 레이어와 똑같이 중첩됩니다.
+*   각 레이어를 나타내는 액터 아래, 해당 레이어의 모든 인스턴스 블록은 다른 액터로 나타납니다.
+    [REGION:warning]
+    **경고:** Rhino 블록의 피벗 포인트는 현재 월드 스페이스에 잘못된 위치로 임포트됩니다.
+    [/REGION]
+*   마지막으로 각 레이어와 각 블록을 나타내는 액터에는, 그 레이어 또는 블록을 이루는 실제 지오메트리 오브젝트를 나타내는 스태틱 메시 액터가 들어갑니다.
+*   Rhino 의 그룹은 언리얼 씬 계층구조에 영향을 주지 않는데, 씬 계층구조의 중요 요소라기 보단 선택 도우미로 간주하기 때문입니다.
+
+예를 들어 아래 이미지에서, Rhino 계층구조의 모든 레이어는 언리얼에 그에 해당하는 액터가 있는 것을 볼 수 있습니다. Rhino 의 지오메트리 오브젝트만 들어있는 **lights > turn signals** 같은 레이어에는 언리얼의 해당 스태틱 메시 액터만 들어갑니다. Rhino 의 **lights** 레이어에도  블록 인스턴스 둘, **left_headlight** 및 **right_headlight** 가 들어있습니다. 그 각각은 언리얼에서 중첩 액터로 나타나며, 여기에는 그 블록을 이루는 지오메트리 오브젝트가 들어갑니다.
+
+[REGION:lightbox]
+[![Rhino to Datasmith scene hierarchy](rhino-datasmith-hierarchy.png "Rhino to Datasmith scene hierarchy")](rhino-datasmith-hierarchy.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+[REGION:note]
+**크레딧:** 이 페이지에 사용된 모델은 [Turbosquid](https://www.turbosquid.com/3d-models/3d-3dm-car-offroad-van/1137533) 사용자 [tomashorin.design](https://www.turbosquid.com/Search/Artists/tomashorin.design) 님이 제공해 주셨습니다.
+[/REGION]

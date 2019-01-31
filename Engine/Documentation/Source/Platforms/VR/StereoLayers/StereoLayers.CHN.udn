@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3580774
+﻿INTSourceChangelist:3680097
 Availability:Public
 Title:VR 立体图层
 Crumbs:%ROOT%,
@@ -24,6 +24,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 
 [/EXCERPT:VRStereoLayersIntro]
 
+(#SupportedPlatforms)
 ## 支持平台 
 
 支持虚幻引擎 4（UE4）的所有 VR 平台均支持 VR 立体图层，包括：
@@ -33,8 +34,8 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 * [**Google VR**](https://vr.google.com/)
 * [**Steam VR**](http://store.steampowered.com/steamvr)
 * [**PSVR**](https://www.playstation.com/en-us/explore/playstation-vr/)
-* [**OSVR**](http://www.osvr.org/)
 
+(#PlatformDifferences)
 ## 平台差异
 
 原生 VR 平台公开的功能不同，因此立体图层的行为在不同平台之间也有所不同。该部分通过实现列出了大多数行为。
@@ -69,7 +70,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 
 * 支持世界锁定和追踪锁定图层上的 Support Depth 标记。
 
-* 但多个图层拥有相同优先级时，图层按未定义的排序进行渲染。如需要进行排序，则使用不同的优先级。
+* Oculus插件将所有的立体图层都视为与场景相交。这可使图层行为如同[**支持景深**](Engine/Basics/Screenshots/#customdepthmask)标记始终被设为True一样进行。要重新排序优先渲染的图层，您需要切实将想要优先渲染的图层移动到更靠近摄像机的位置。
 
 ### Gear VR 
 
@@ -77,8 +78,9 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 
 * 支持世界锁定和追踪锁定图层上的 Support Depth 标记。
 
-* 但多个图层拥有相同优先级时，图层按未定义的排序进行渲染。如需要进行排序，则使用不同的优先级。
+* 当多个图层拥有相同优先级时，图层按未定义的排序进行渲染。如需要进行排序，则使用不同的优先级。
 
+(#OtherVRPlatforms)
 ### 其他 VR 平台
 
 当前，所有其他 VR 平台共享一个默认图层实现，将提供以下支持。
@@ -91,10 +93,12 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 
 [EXCERPT:VRStereoLayers]
 
+(#LayerShapes)
 ## 图层形状
 
 只有所有平台上支持的图层形状为四线性图层。此外 Gear VR 支持圆柱体和立方体图层。
 
+(#LayerDrawOrder)
 ## 图层绘制排序
 
 立体图层存在于游戏世界之外，基于每层的优先级设置进行布层。高优先级的图层在低优先级的图层之前渲染。此外，面部锁定的图层固定在世界锁定或追踪锁定图层之前进行渲染（无视优先级）。这与 UE4 4.16 和更早版本有所不同，之前所有图层类型均混合在一起。将 **vr.StereoLayers.bMixLayerPriorities** 控制台变量设为 1 即可获得老版本中的行为。
@@ -103,6 +107,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 图层将固定在 3D 场景之前进行渲染，Oculus Rift 和 Gear VR 支持将世界锁定与追踪锁定图层和场景进行混合，开启/关闭 Supports Depth 标记即可。此标记在所有其他平台上均被无视。
 [/region]
 
+(#StereoLayerSetup)
 ## 立体图层设置
 
 如要结合 **VR Pawn** 使用立体图层，需要执行以下操作。
@@ -186,6 +191,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
     [/region]
 [/EXCERPT:VRStereoLayers]
 
+(#StereoLayersTextureCompressionSettings)
 ## 立体图层纹理压缩设置
 
 您需要根据不同的头戴显示器对用于所显示纹理的压缩设置进行调整。以下是各头戴显示器正确显示立体图层所需的纹理压缩设置。
@@ -205,6 +211,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 |**HTC Vive**| UserInterFace2D (RGBA)|
 |**PSVR**| 无|
 
+(#StereoLayerPropertiesBreakdown)
 ## 立体图层属性详解
 
 立体图层有部分属性会对其渲染的方式产生影响。下表详述了每个设置及其对立体图层的效果。

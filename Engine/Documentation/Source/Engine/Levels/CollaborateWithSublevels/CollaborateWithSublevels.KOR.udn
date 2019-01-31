@@ -24,7 +24,7 @@ order:5
 서브레벨의 레벨 블루프린트끼리 통신하도록 하여, 한 서브레벨의 스위치로 다른 서브레벨의 라이트를 켜고 끄도록 할 수도 있습니다.
 [/REGION]
 
-[**레벨** 창](Engine/Levels/HowTo/WorkWithLevelAssets) 에서, 항상 로드하려는 레벨에 우클릭한 뒤 맥락 메뉴에서 **Change Streaming Method** (스트리밍 메서드 변경)을 선택합니다. 그리고 **Always Loaded** (항상 로드됨)을 선택하면 됩니다. 
+[**레벨** 창](Engine/Levels/HowTo/WorkWithLevelAssets) 에서, 항상 로드하려는 레벨에 우클릭한 뒤 컨텍스트 메뉴에서 **Change Streaming Method** (스트리밍 메서드 변경)을 선택합니다. 그리고 **Always Loaded** (항상 로드됨)을 선택하면 됩니다. 
 
 ![](AlwaysLoaded.png)
 

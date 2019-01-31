@@ -1,0 +1,52 @@
+﻿INTSourceChangelist:4687491
+Availability: Public
+Crumbs: 
+Title:Android设备兼容性
+Description:使用Android进行开发的设备兼容性。
+Type: 
+Version: 4.21
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Reference
+
+
+虚幻引擎4（UE4）支持种类繁多的Android设备。虽然我们努力测试了许多最热门的设备，但并未针对所有设备开展内部测试。下列设备描述仅作指导之用。
+
+**基本Android设备描述** \- 是所有Android描述都使用的[设备描述](Platforms/DeviceProfiles)，除非每台设备另有规定。
+
+| **Android设备描述** | |
+| --- | |
+| **控制台变量** | **值** |
+| --- | --- |
+| r.MobileContentScaleFactor | 1 |
+| r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 0 |
+| r.RefractionQuality | 0 |
+| r.ShadowQuality | 0 |
+| slate.AbsoulteIndices | 1 |
+
+[REGION:note]
+我们将Android设备描述归为不同的桶，以更好地涵盖各种各样的Android GPU。这些桶被设计为默认设置，建议你根据项目需要创建自定义[设备描述](Platforms/DeviceProfiles)。
+[/REGION]  
+
+| **Android_High** | | **Android_Medium** | | **Android_Low** | |
+| --- | --- | --- | --- | --- | --- |
+| **控制台变量** | **值** | **控制台变量** | **值** | **控制台变量** | **值** |
+| --- | --- | --- | --- | --- | --- |
+| r.MobileContentScaleFactor | 1 | r.MobileContentScaleFactor | 0.8 | r.MobileContentScaleFactor | 0.5 |
+| r.BloomQuality | 1 | r.BloomQuality | 1 | r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 1 | r.DepthOfFieldQuality | 0 | r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 1 | r.LightShaftQuality | 0 | r.LightShaftQuality | 0 |
+| r.RefractionQuality | 1 | r.RefractionQuality | 0 | r.RefractionQuality | 0 |
+| r.ShadowQuality | 2 | r.ShadowQuality | 2 | r.ShadowQuality | 1 |
+
+  
+
+| **设备描述** | **GPU** |
+| --- | --- |
+| **Android_High** | Adreno 330-5xx、Mali T7xx、T8xx、Mali G76、Mali G72、Mali G71、Tegra K1 |
+| **Android_Medium** | Adreno 320、Power VR54x、Mali T6xx、Tegra 4 |
+| **Android_Low** | Adreno 2xx、IntelHD、Mali 4xx |

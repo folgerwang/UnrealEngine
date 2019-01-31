@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3661537
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:设置 Gear VR 的摄像机
@@ -6,7 +6,7 @@ Description:设置兼容 Gear VR 的 UE4 摄像机。
 Type: how-to
 SkillLevel:Beginner
 Version:4.17
-Parent:Platforms/GearVR
+Parent: Platforms/GearVR
 Order:2
 Tags:Basics
 topic-image:HT_GearVR_Camera_Setup_Topic_Image.png
@@ -18,7 +18,8 @@ prereq:Platforms\GearVR\QuickStart
 无论 Gear VR 项目是站立式或坐立式体验，用户摄像机的设置方式均相同。以下指南将讲述如何设置用于 Gear VR 头戴显示器的 UE4 摄像机。
 
 
-## Gear VR 体验的项目和基础摄像机设置 
+(#Steps)
+## 步骤 
 
 以下说明讲述项目设置要求，以及如何创建 Gear VR 所需的 Pawn 蓝图。
 
@@ -71,14 +72,7 @@ prereq:Platforms\GearVR\QuickStart
     无论您使用的是何种 VR 头戴显示器，Epic 都推荐以此方式设置 VR 摄像机。因为它能在不实际移动摄像机的情况下实现摄像机位置的偏移。
     [/region]
 
-VR 玩家的基础蓝图创建完毕后，下一部分我们将说明如何设置此蓝图，使其兼容 Gear VR。
-
-## 步骤
-
-以下讲述如何进行 Gear VR 体验的摄像机设置。
-
-
-1. 首先打开 **GearVR_Pawn** 蓝图，然后在 **事件图表** 中从 **Event Begin Play** 节点连出引线，显示 Executable Actions 列表，搜索 **Set Tracking Origin** 节点，点击并将其添加到事件图表。
+1. 现在打开 **GearVR_Pawn** 蓝图，然后在 **事件图表** 中从 **Event Begin Play** 节点连出引线，显示 Executable Actions 列表，搜索 **Set Tracking Origin** 节点，点击并将其添加到事件图表。
 
     [REGION:lightbox]
     [![](Platforms\Oculus\HowTo\SeatedCamera\HT_Rift_Camera_Setup_09.png)(w:555)](Platforms\Oculus\HowTo\SeatedCamera\HT_Rift_Camera_Setup_09.png)
@@ -150,6 +144,7 @@ VR 玩家的基础蓝图创建完毕后，下一部分我们将说明如何设�
 
     ![](HT_GearVR_Camera_Setup_08.png)
 
+(#EndResult)
 ## 最终结果 
 
 UE4 项目部署后，将智能手机放入 Gear VR 头戴显示器并移动头部，将会看到以下视频中的效果。 
@@ -172,6 +167,7 @@ UE4 项目部署后，将智能手机放入 Gear VR 头戴显示器并移动头�
     [/PARAMLITERAL]
 [/OBJECT]
 
+(#UE4ProjectDownloads)
 ## UE4 项目下载
 
 可使用以下链接下载用于创建此例的 UE4 项目。 

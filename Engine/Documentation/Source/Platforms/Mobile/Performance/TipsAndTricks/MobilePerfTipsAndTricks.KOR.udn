@@ -125,17 +125,17 @@ Android_Low Device Profile 섹션에서 다음 CVars 를 추가하고 1 로 설�
 
 	+CVars=r.ParticleLODBias=1
 	
-Android Device Profile 섹션의 중저사양 디바이스 항목을 살펴보니, 중저사양 안드로이드 모바일 디바이스 모두 파티클 이펙트에 LOD 를 사용하도록 되어있는 반면, 최고사양 안드로이드 디바이스는 LOD 가 아닌 원본 이펙트를 사용하도록 되어 있습니다. 아래 그림에서 어떻게 이러한 세팅들이 어우러져 중저사양 안드로이드 디바이스에서 각기 다른 LOD 의 파티클 이펙트를 표시하는지 알 수 있습니다.
+Android Device Profile 섹션의 중저사양 디바이스 항목을 살펴보니, 중저사양 Android 모바일 디바이스 모두 파티클 이펙트에 LOD 를 사용하도록 되어있는 반면, 최고사양 Android 디바이스는 LOD 가 아닌 원본 이펙트를 사용하도록 되어 있습니다. 아래 그림에서 어떻게 이러한 세팅들이 어우러져 중저사양 Android 디바이스에서 각기 다른 LOD 의 파티클 이펙트를 표시하는지 알 수 있습니다.
 
 ![](ULOD_Android_Effect_LOD_Settings.png)
 
 [region:note]
-이 예제에서는 안드로이드가 사용되었지만, iOS 섹션에도 같은 개념과 명령을 사용하면 됩니다.
+이 예제에서는 Android가 사용되었지만, iOS 섹션에도 같은 개념과 명령을 사용하면 됩니다.
 [/region]
 
-## 안드로이드 디바이스에서의 비디오 녹화
+## Android 디바이스에서의 비디오 녹화
 
-특정 안드로이드 디바이스에서는 콘솔 창을 열고 다음 명령을 입력하는 것으로 비디오 녹화가 가능합니다.
+특정 Android 디바이스에서는 콘솔 창을 열고 다음 명령을 입력하는 것으로 비디오 녹화가 가능합니다.
 
 	adb shell screenrecord /sdcard/(Insert Name Here).mp4 --bit-rate 8000000
 

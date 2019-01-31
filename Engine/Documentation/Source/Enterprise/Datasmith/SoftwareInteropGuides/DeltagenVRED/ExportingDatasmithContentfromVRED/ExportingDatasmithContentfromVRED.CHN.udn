@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4501274
+Availability: Public
+Crumbs: 
+Title: 从VRED导出Datasmith内容
+Description: 描述如何安装Autodesk VRED的导出器插件脚本，以及如何将VRED场景导出为FBX文件，并使用Datasmith将其导入虚幻。
+Type: 
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Experimental
+Tags: VRED
+
+
+![](datasmith-setup-vred.png)
+
+[TOC(start:2 end:2)]
+
+(#installingtheexporterpluginscript)
+## 安装导出器插件脚本
+
+需要先安装VRED插件脚本，然后才能开始在虚幻引擎中使用VRED内容。
+
+要了解导出器插件当前支持哪些版本的VRED Professional，请参阅[Datasmith支持的软件和文件类型](Enterprise/Datasmith/SupportedSoftwareandFileTypes)。
+
+请按照以下步骤为计算机上安装的任何受支持的VRED版本安装Datasmith导出器插件脚本。
+
+1.  在虚幻引擎安装文件夹中，找到在 *Enterprise\\Plugins\\Editor\\DatasmithFBXImporter\\Extras\\VREDPlugin* 文件夹中的 *vrDatasmithExporter.py* 脚本。
+2.  将此脚本复制到VRED安装用于搜索插件的文件夹中。  
+    有关细节，请参阅[VRED文档](http://help.autodesk.com/view/VREDPRODUCTS/2018/ENU/?guid=GUID-C085B3DC-A66C-48EB-8FE4-43E4383AC46E)。
+3.  重启VRED。
+
+(#exportingtodatasmith)
+## 导出到Datasmith
+
+在以希望的方式设置好VRED场景并注册好变体之后，将场景导出为FBX：
+
+1.  在VRED主菜单中，选择：
+    *   **文件（File） > 导出（Export） > 导出到Datasmith..（Export to Datasmith...）**（适用于VRED 2018）
+    *   **文件（File） > 导出场景数据（Export Scene Data） > 导出到Datasmith..（Export to Datasmith...）**（适用于VRED 2019）  
+        ![在VRED中进行的Datasmith导出](datasmith-vred-export.png "Datasmith export from VRED")
+2.  浏览至文件夹并选择文件名。
+
+导出器将在所选择的位置创建 *.FBX* 文件。
+
+### 最终结果
+
+现在你可以尝试将新的 *.FBX* 文件导入到虚幻编辑器中。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。  
+
+[REGION:note]
+除了 *.FBX* 文件以外，导出器还会创建附加文件：包含有关场景中的光源的额外信息的 *.lights* 文件和包含有关注册的变体的信息的 *.var* 文件。这些文件中包含Datasmith导入程序所需的信息。如果将 *.FBX* 文件移到新位置，请确保将这些附加文件放在相同的相对路径中。
+[/REGION]

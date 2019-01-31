@@ -1,0 +1,196 @@
+INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: 언리얼 엔진 4 를 라이브 링크로 Maya 에 연결
+Description: 언리얼 엔진 4 를 Maya 에 연결하여 Maya 의 콘텐츠를 UE4 안에서 실시간 미리보는 방법을 설명합니다. 
+Type:how-to
+Version: 4.19
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 2
+Tags: Animation, Maya, Live Link
+
+여기서는 Live Link (라이브 링크) 플러그인을 사용하여 언리얼 엔진 4 (UE4)를 Maya 에 연결, Maya 에서 스켈레탈 메시와 애니메이션을 제어하면서 UE4 에 렌더링되는 스켈레탈 메시를 실시간 미리보는 방법을 알아봅니다.
+
+라이브 링크 플러그인을 사용하면 콘텐츠를 익스포트하고 다시 UE4 로 임포트한 뒤 확인할 필요 없이, 라이브 링크를 통해 Maya 에서 하는 작업을 UE4 에서 실시간 미리볼 수 있어 애니메이션 워크플로 속도가 빨라집니다. 여기서는 Maya 용 라이브 링크를 구성한 뒤 UE4 에서 미리보면서 Maya 에서 스켈레탈 메시 애니메이션을 제어하는 과정을 살펴보겠습니다.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+이 가이드에서는 블루프린트 삼인칭 템플릿 프로젝트와 Maya 2017 을 사용합니다. Maya 다른 버전 및 다른 DDC 툴용 라이브 링크도 있습니다. 자세한 정보는 [(Engine/Animation/LiveLinkPlugin) 문서를 참고하세요.
+[/REGION]
+
+## 1 - 라이브 링크 플러그인 활성화
+
+1. 프로젝트에서 **메뉴** > **편집** > **플러그인** 을 선택합니다.
+
+![](Step_01-1.png)
+
+2. **Animation** (애니메이션) 섹션 아래 **Live Link** 옆의 **Enabled** 박스를 클릭하고 확인 창이 뜨면 **예** 를 눌러 에디터를 재시작합니다.
+
+![](Step_02-3.png)
+
+라이브 링크 플러그인이 활성화되어 외부 DDC 툴에 연결할 수 있습니다. DDC 툴을 UE4 에 연결하기 위해서는, 그에 맞는 플러그인을 활성화해야 합니다. 여기서는 Maya 에만 초점을 맞추며, 그 안에서 플러그인 활성화해야 합니다.
+
+Maya 라이브 링크 플러그인을 미리 빌드한 바이너리가 언리얼 엔진과 함께 제공되며, UE4 설치 폴더 아래에서 찾을 수 있습니다.
+
+3. UE4 설치 폴더로 이동한 다음 **Engine\Extras\MayaLiveLink** 폴더 아래 **LiveLinkMaya.zip** 파일 압축을 풉니다.
+
+[REGION:warning]
+4.19 출시 당시 Maya 라이브 링크 플러그인이 Engine\Extras\MayaLiveLink 폴더에 포함되지 않았습니다. 이 문제를 해결한 핫픽스는 [이 링크에서](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) 콘텐츠를 다운로드할 수 있습니다.
+[/REGION]
+
+![](Step_03-1.png)
+
+4. 사용하는 **Maya** 버전에 대한 폴더를 복사한 다음 **Maya** 설치 폴더로 이동한 뒤 **plug-ins** 폴더를 붙여넣습니다.
+
+![](Step_04-1.png)
+
+다음 단계에서는 Maya 안에서 라이브 링크 플러그인을 활성화하고 Maya Live Link UI 창을 열면 실행 중인 UE4 에디터 버전으로의 연결 상태를 확인할 수 있습니다.
+
+## 2 - Maya 라이브 링크 활성화
+
+1. **Maya** 를 연 다음 **Windows** 아래 **Settings/Preferences** 에서 **Plug-in Manager** 를 선택합니다.
+
+    ![](Step_05-1.png)
+
+1. **Browse** 버튼을 클릭하고 복사한 MayaLiveLink 폴더로 이동한 뒤 **.py** 파일을 추가합니다.
+
+    ![](Step_06-1.png)
+
+1. 이전 단계를 반복하여 **Plug-in Manager** 에서 **.mll** 파일을 추가합니다.
+
+    ![](Step_07-2.png)
+
+    추가된 이후 Plug-in Manager 안에 플러그인이 Loaded 로 표시됩니다.
+
+1. Maya 좌하단 **MEL** 콘솔에 **MayaLiveLinkUI** 라 입력한 뒤 **Enter** 를 칩니다.
+
+    ![](Step_08-2.png)
+
+Maya Live Link UI 연결 상태 창이 열립니다.
+
+![](Step_09-1.png)
+
+창 우상단 연결 상태 표시로 실행 중인 UE4 에디터 버전에 연결되었는지 알 수 있습니다. 아래 창에서는 UE4 에 스트리밍할 **서브젝트** 추가/제거 및 이름을 지을 수 있는데, 나중에 자세히 다룹니다.
+
+지금은 연결되어 있지 않지만, 다음 단계에서 UE4 에 연결하고, Maya 작업에 사용할 수 있는 애니메이션 애셋과 스켈레탈 메시를 익스포트한 뒤, 서브젝트로 추가하여 UE4 에서 다시 라이브로 미리보는 방법을 알아봅니다.
+
+## 3 - UE4 연결 설정
+
+1. UE4 에디터의 **메뉴** > **창** 아래 **Live Link** (라이브 링크)를 선택합니다.
+
+    ![](Step_10-1.png)
+
+1. **라이브 링크** 창에서 **추가** 버튼을 클릭한 뒤, **Message Bus Source** (메시지 버스 소스) 아래 **Maya Live Link** 소스를 선택하고 **Ok** 를 클릭합니다.
+
+    ![](Step_11-2.png)
+
+    Maya 로 돌아가면 Maya 라이브 링크 연결 상태 창에 새 연결 상태가 반영됩니다.
+
+    ![](Step_11b-1.png)
+
+    연결되었으니, 미리볼 서브젝트가 있어야 연결을 테스트할 수 있습니다.
+
+1. UE4 의 **Content/Mannequin/Animations** 폴더에서 **ThirdPersonRun** 애셋을 엽니다.
+
+1. 툴바에서 **애셋 익스포트** 를 클릭하고 **Preview Mesh** (프리뷰 메시)를 선택합니다.
+
+    ![](Step_12-1.png)
+
+1. **예** 를 선택하여 스켈레탈 메시를 익스포트하고 익스포트 위치를 선택한 다음 **FBX 익스포트 옵션** 창에서 **Export** (익스포트)를 선택합니다.
+
+    ![](Step_13-1.png)
+
+1. Maya 에서 **File** > **Import** 를 선택한 뒤 이전 단계의 FBX 애셋을 임포트합니다.
+
+    ![](Step_14-1.png)
+
+1. **Animation** 모드로 전환한 뒤 캐릭터의 **Root** 본을 선택합니다.
+
+    ![](Step_15-1.png)
+
+1. **Maya Live Link UI** 창에서 **Add Subject** 버튼을 클릭합니다.
+
+    ![](Step_16-2.png)
+
+    그러면 선택 항목을 UE4 로 스트리밍할 **서브젝트** 로 추가합니다.
+
+    ![](Step_17-1.png)
+
+    플러그인은 조인트 계층임을 인식하고 서브젝트에 Character 라벨을 붙입니다. **Maya** 라는 이름은 서브젝트의 이름으로 텍스트 입력칸에서 바꿀 수 있습니다. UE4 에서 Subject Name 에 지정해야 하므로 기억해야 합니다.
+
+이제 UE4 에디터로 서브젝트를 스트리밍하도록 Maya 구성을 마쳤으니, 다음 단계에서는 UE4 가 스트리밍 서브젝트를 받아 Maya 콘텐츠 라이브 프리뷰를 시작할 수 있도록 구성하겠습니다.
+
+## 4 - 라이브 링크 프리뷰 컨트롤러
+
+1. UE4 의 **Content/Mannequin/Character/Mesh** 폴더 안 **SK_Mannequin** 애셋을 엽니다.
+
+1. **Preview Scene Settings** (프리뷰 씬 세팅) 탭을 클릭한 다음 **Preview Controller** (프리뷰 컨트롤러) 아래 **Live Link Preview Controller** (라이브 링크 프리뷰 컨트롤러)를 선택합니다.
+
+    ![](Step_18-1.png)
+
+1. **Subject Name** (서브젝트 이름) 아래 **Maya** 이름을 입력하고 **Enter** 를 칩니다.
+
+    ![](Step_19-1.png)
+
+    기본 이름을 바꾼 경우 그 이름을 입력해야 합니다. 뷰포트에 Maya 의 캐릭터가 사용 중인 포즈가 적용됩니다.
+
+    예제의 캐릭터는 애초에 이 스켈레탈 메시를 엔진에 임포트하는 방식때문에 90 도 회전되었습니다. 잠시 후 Maya 에서 고치겠습니다.
+
+1. **Enable Camera Sync** (카메라 동기화 활성화) 옵션을 켭니다.
+
+    ![](Step_20-1.png)
+
+    UE4 의 카메라를 Maya 에 사용된 마지막 뷰포트 카메라와 동기화합니다. Maya 에서 카메라를 움직이면 UE4 의 카메라도 따라 움직입니다.
+
+1. **에디터 개인설정** > **Performance** (퍼포먼스) 아래 **Use Less CPU when in Background** (백그라운드에서 CPU 사용 감소) 옵션을 끕니다.
+
+    ![](DisableUseLessCPU-1.png)
+
+    끄지 않으면 에디터의 백그라운드 퍼포먼스를 조절하여 Maya 에 포커스가 있을 때 에디터 렌더링을 멈춰 실시간 업데이트가 보이지 않습니다.
+
+1. **Maya** 로 돌아와 애니메이션을 문질러 이동하거나 뷰포트의 카메라를 이동합니다.
+
+## 5 - 최종 결과
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    _ku41AVH16g
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Maya 에서 애니메이션을 문질러 이동하거나 카메라를 이동하면, UE4 의 캐릭터와 카메라 이동이 Maya 에 보이는 것과 일치하도록 업데이트됩니다. 앞서 언급했듯 이 예제의 스켈레탈 메시는 원래 UE4 로 임포트할 때 윗축이 달라 캐릭터가 회전되었습니다.
+
+테스트를 위해 Rotate X 값에 90 을 더해 애니메이션 시작 위치에 키프레임을 잡았습니다. 일반적인 워크플로는 Maya 에서 콘텐츠를 저작하고 스켈레탈 메시를 익스포트하여 UE4 로 임포트한 뒤, 위에 설명한 연결 구성 단계를 따라 연결 설정하면, Maya 에서 저작한 애니메이션을 UE4 에서 라이브 링크 서브젝트로 미리볼 수 있습니다.
+
+애니메이션을 변경하면 UE4 의 라이브 링크 서브젝트에 실시간 반영됩니다.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+위에서 캐릭터가 달릴 때 위를 보도록 머리 위치 키를 다시 잡아 UE4 에서 보는 모습과 비슷하게 만들었습니다. 라이브 링크 플러그인 사용법을 보여주는 간단한 예제를 살펴봤습니다. 그 외에도 라이브 링크 플러그인의 장점은 훨씬 많으니 문서를 참고하세요.

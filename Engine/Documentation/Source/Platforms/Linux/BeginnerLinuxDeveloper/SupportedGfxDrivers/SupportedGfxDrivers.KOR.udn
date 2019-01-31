@@ -2,7 +2,7 @@
 Availability: Public
 Title: 지원 그래픽 드라이버
 Crumbs:
-Description:리눅스 게임 개발자를 위한 지원 그래픽 드라이버입니다.
+Description:Linux 게임 개발자를 위한 지원 그래픽 드라이버입니다.
 version: 4.13
 parent:Platforms/Linux
 order: 4
@@ -15,7 +15,7 @@ topic-image:supportedgfxdrivers_topic.png
 
 
 언리얼 엔진의 부드러운 실행을 위해서는 호환 하드웨어 및 소프트웨어가 지원되어야 합니다. 이상적인 
-개발 환경 구축에 도움을 드리고자, 리눅스에서의 게임 개발용 지원 그래픽 드라이버 표를 다음과 같이 
+개발 환경 구축에 도움을 드리고자, Linux에서의 게임 개발용 지원 그래픽 드라이버 표를 다음과 같이 
 제공해 드립니다.
 
 [EXCERPT:SupportedGfxDrivers]

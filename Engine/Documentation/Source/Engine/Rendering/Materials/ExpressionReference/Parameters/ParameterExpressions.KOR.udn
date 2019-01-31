@@ -61,7 +61,7 @@ Scalar Parameter (스칼라 파라미터)는 머티리얼의 인스턴스나 코
 
 ## StaticBoolParameter
 
-StaticBoolParameter 는 StaticSwitchParameter 처럼 작동하나, 불리언 파라미터를 만들기만 하고 스위치를 구현하지는 않는다는 점이 다릅니다.
+StaticBoolParameter 는 StaticSwitchParameter 처럼 작동하나, 부울 파라미터를 만들기만 하고 스위치를 구현하지는 않는다는 점이 다릅니다.
 
 [REGION:note]
 이 파라미터는 실행시간에 바뀔 수 없어서 스태틱, 정적인 것이며, 머티리얼 인스턴스 에디터에서만 설정할 수 있습니다. 스태틱 스위치는 실행시간이 아니라 컴파일 시간에 적용됩니다. 즉 머티리얼의 분기에 뭐가 떨어졌건 절대 실행되지 않아, 스태틱 스위치는 사실상 실행시간에 자유로운 것입니다. 반면 머티리얼에 **사용된** 모든 스태틱 파라미터 조합에 대해 새로운 버전의 머티리얼을 컴파일해야 하기에, 남용하면 셰이더 폭발로 이어질 수 있습니다. 머티리얼의 스태틱 파라미터 수와 실제 사용되는 그 스태틱 파라미터의 순열(permutation) 수를 최소화시켜 보시기 바랍니다.
@@ -72,7 +72,7 @@ StaticBoolParameter 는 StaticSwitchParameter 처럼 작동하나, 불리언 파
 | [REGION:tablesection]프로퍼티[/REGION] ||
 | **Parameter Name** | [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#ParameterNameDefinition] |
 | **Group**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
-| **Default Value** | 파라미터의 불리언 기본값으로, _True_ (체크) 또는 _False_ 입니다. |
+| **Default Value** | 파라미터의 부울 기본값으로, _True_ (체크) 또는 _False_ 입니다. |
 
 
 이 노드는 [MaterialFunctions](Engine/Rendering/Materials/Functions) 와 함께 사용됩니다.

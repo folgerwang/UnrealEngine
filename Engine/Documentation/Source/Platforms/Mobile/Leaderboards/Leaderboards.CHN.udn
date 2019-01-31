@@ -1,46 +1,13 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Title:使用移动服务排行榜
 Description:在游戏中使用排行榜。
 Crumbs:
 Availability:Public
 parent:Platforms/Mobile
 order:4
-type:howto
+type:how-to
 tags:mobile
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:topic.png
 
 通过排行榜可追踪并显示平台上玩家的高分。排行榜将会形成玩家之间的竞争，有助于社区的构建。
 
@@ -56,6 +23,7 @@ tags:mobile
 	[/PARAMLITERAL]
 [/OBJECT]
 
+(#Configuration)
 ## 配置
 
 在下方页面中查看在每个平台上进行排行榜配置的详细内容：
@@ -66,6 +34,7 @@ tags:mobile
 [/REGION]
 
 [EXCERPT:Usage]
+(#ReadingfromaLeaderboard)
 ## 从排行榜读取
 
 **Read Leaderboard Integer** 节点将从平台的游戏服务（当前为 iOS Game Center 或 Google Play Services）请求存储在特定 **Player Controller** 的给定 **Stat Name** 上的数值。
@@ -78,6 +47,7 @@ tags:mobile
 
 ![](readLeaderboard.png)
 
+(#WritingtoaLeaderboard)
 ## 写入排行榜
 
 **Write Leaderboard Integer** 将把给定整数 **Stat Value** 发送到特定 **Player Controller** 的 **Stat Name** 中指定的排行榜。
@@ -88,6 +58,7 @@ tags:mobile
 
 ![](writeLeaderboard.PNG)
 
+(#ShowingthePlatformSpecificLeadboard)
 ## 显示平台特有的排行榜
 
 **Show Platform Specific Leaderboard Screen** 将在设备上显示由 **Category Name** 指定的排行榜。

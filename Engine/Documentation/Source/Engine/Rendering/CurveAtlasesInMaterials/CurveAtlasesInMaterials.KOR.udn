@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4285161
+INTSourceChangelist:4285161
 Availability: Public
 Crumbs: 
 Title: 머티리얼의 커브 아틀라스
@@ -36,7 +36,7 @@ Curve Atlas (커브 아틀라스)는 [커브](Engine/UI/CurveEditor) 애셋 조�
 콘텐츠 브라우저에 새로운 커브 리니어 컬러 애셋이 추가되고 그 현재 그레이디언트 프리뷰가 나타납니다. 커브 애셋 에디터를 열면, 그래프의 개별 RGBA 커브에 키를 추가, 조정, 제거할 수 있습니다.  
 ![](MyCurveAsset.png)
 
-커브를 그 애셋 에디터에서 열변, 개별 RGBA 커브 설정, 커브의 컬러 값 조정, 커브 그레이디언트 결과를 미리볼 수 있습니다.  
+커브를 그 애셋 에디터에서 열면, 개별 RGBA 커브 설정, 커브의 컬러 값 조정, 커브 그레이디언트 결과를 미리볼 수 있습니다.  
 
 [REGION:lightbox]
 [![](CurveAssetEditor.png)](CurveAssetEditor.png)

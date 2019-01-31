@@ -1,18 +1,21 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3782314
 Availability:Public
 title:粒子
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:这些专用函数用来帮助设置复杂粒子网络的外观。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
 粒子函数用来帮助完成粒子系统的复杂材质生成。
 
+(#ParticleFunctions)
 ## 粒子函数
 
 以下是“粒子”类别下所有函数的列表。
 
+(#3dParticleOpacity)
 ### 3dParticleOpacity（3D 粒子不透明度）
 
 此函数的用途是帮助设置粒子，以使其在远离摄像机时逐渐消失。
@@ -46,6 +49,7 @@ Version:4.9
 [/REGION]
 [COMMENT:none]
 -
+(#RandomUVs)
 ### RandomUVs（随机 UV）
 
 RandomUVs（随机 UV）函数提供了一种快捷方便的方法，在粒子系统中生成粒子时将这些粒子的纹理坐标随机化。此函数使用以 *U_Offset* 和 *V_Offset* 作为参数名称的“动态参数”来移动 UV 坐标。这设置为统一分布，仅在产生时进行计算，并且每个通道均采用 0-1 分布。

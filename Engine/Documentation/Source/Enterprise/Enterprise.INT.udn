@@ -10,247 +10,36 @@ order:8
 topic-image:Enterprise_Topic.png
 topic-icon:%ROOT%/enterprise_icon.png
 
+
+[COMMENT:none]
+[](Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf)
+[](Enterprise/GettingStarted/DatasmithOverview.pdf)
+[](Enterprise/GettingStarted/DatasmithImportOptions.pdf)
+[](Enterprise/GettingStarted/DatasmithSupportedSoftwareandFileTypes.pdf)
+[](Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf)
+[](Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/UnrealStudioProjectTemplate_DRAFT.pdf)
+[/COMMENT]
+
 ![](Enterprise_Hero.png)
 
-Unreal Engine and its real-time interaction and rendering capabilities are well-suited for a huge range of projects across all Enterprise applications, including automotive, aviation, architecture, consumer electronics and complex data visualization.
-
-[REGION:note]
-We have provided early access to some content in the form of PDF documents in order to get you up and running. Check back soon for updates and an improved experience!
-[/REGION]
+Unreal Engine and its **real-time** interaction and rendering capabilities are well-suited for a huge range of projects across all Enterprise applications, including automotive, aviation, architecture, consumer electronics and complex data visualization.
 
 ## Getting Started
 
 [DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"Getting Started" end:"1")]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Download_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Downloading and Installing Datasmith
-	[/PARAM]
-	[PARAM:description]
-	Learn now to get set up and start working With Datasmith for Unreal Engine 4 (UE4)
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
 
 ## Unreal Studio Tools
 
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Datasmith_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Datasmith
-	[/PARAM]
-	[PARAM:description]
-	A collection of tools and plugins designed to import scenes and assets created in offline rendering applications, like Autodesk 3DS Max and CAD software, into Unreal Engine 4
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithOverview.pdf]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Import_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Datasmith Import Options
-	[/PARAM]
-	[PARAM:description]
-	Options are available when importing Unreal Datasmith or native CAD content using tne Datasmith Importer plugin for Unreal Engine 4
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithImportOptions.pdf]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Filetypes_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Datasmith Supported Software and File Types
-	[/PARAM]
-	[PARAM:description]
-	Overview of the software packages and file types supported by Datasmith for Unreal Engine 4
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithSupportedSoftwareandFileTypes.pdf]
-	[/PARAM]
-[/OBJECT]
+%Enterprise/Datasmith:topic%
+%Engine/Editor/ScriptingAndAutomation/Python:topic%
 
-## Unreal Studio Guides
+## Unreal Studio Release Notes
 
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	Beginner
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	Preparing a 3D Scene for Datasmith
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	General guidelines covering how your content is translated to Unreal through Datasmith
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	Beginner
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	Exporting Datasmith Content for Unreal Engine 4
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	How to export content from your software package using file types are supported by the Datasmith Importer plugins for Unreal Engine 4 (UE4)
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-[OBJECT:Fancy]
-	[PARAMLITERAL:skillevel]
-	Beginner
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkText]
-	Importing Datasmith Content into Unreal Engine 4
-	[/PARAMLITERAL]
-	[PARAMLITERAL:linkTitle]
-	How to import and reimport your content from your software application using Datasmith Importer for Unreal Engine 4 (UE4)
-	[/PARAMLITERAL]
-	[PARAM:linkUrl]
-	[RELATIVE:Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf]
-	[/PARAM]
-	[PARAMLITERAL:version]
-	4.19
-	[/PARAMLITERAL]
-	[PARAMLITERAL:icon]
-	https://docs.unrealengine.com/latest/Include/Images/beginner_icon.png
-	[/PARAMLITERAL]
-[/OBJECT]
-
+%Enterprise/Builds/4_21:topic%
+%Enterprise/Builds/4_20:topic%
 
 ## Additional Content Resources
 
-[DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"!Getting Started" end:"1")]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Template_topic.png)
-	[/PARAM]
-	[PARAMLITERAL:title]
-	Unreal Studio Project Template - DRAFT
-	[/PARAMLITERAL]
-	[PARAMLITERAL:description]
-	Guide to using the "Product Viewer" project template designed to enable you to use Unreal as a design review tool
-	[/PARAMLITERAL]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/UnrealStudioProjectTemplate_DRAFT.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[COMMENT:none]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Datasmith
-	[/PARAM]
-	[PARAM:description]
-	A collection of tools and plugins designed to import scenes and assets created in offline rendering applications, like Autodesk 3DS Max and CAD software, into a real-time engine
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithOverview.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Downloading and Installing Datasmith
-	[/PARAM]
-	[PARAM:description]
-	Learn now to get set up and start working With Datasmith for Unreal Engine 4 (UE4)
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Preparing a 3D Scene for Datasmith
-	[/PARAM]
-	[PARAM:description]
-	General guidelines covering how your content is translated to Unreal through Datasmith
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Exporting Datasmith Content
-	[/PARAM]
-	[PARAM:description]
-	How to export content from your software package using file types are supported by tne Datasmith Importer plugins for Unreal Engine 4 (UE4)
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Importing Datasmith Content
-	[/PARAM]
-	[PARAM:description]
-	How to import and reimport your content from your software application using Datasmith Importer for Unreal Engine 4 (UE4)
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:Topic]
-	[PARAM:image]
-	![](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:title]
-	Datasmith Import Options
-	[/PARAM]
-	[PARAM:description]
-	Options are available when importing Unreal Datasmith or native CAD content using the Datasmith Importer plugin for Unreal Engine 4
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Enterprise/GettingStarted/DatasmithImportOptions.pdf]
-	[/PARAM]
-[/OBJECT]
-[/COMMENT]
+%Enterprise/Automotive/AutomotiveMaterialPack:topic%

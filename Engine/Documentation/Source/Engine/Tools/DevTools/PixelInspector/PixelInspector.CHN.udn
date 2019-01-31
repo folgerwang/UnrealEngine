@@ -1,70 +1,78 @@
-﻿INTSourceChangelist:3075229
-Availability:Public
+INTSourceChangelist:4652067
+Availability: Public
+Crumbs: 
 Title:像素检查器
-Crumbs: %ROOT%, Engine
-Description:像素检查器为您展示特定像素 Gbuffer 上诸多部分的种种。
-version:4.12
+Description:像素检查器可以显示给定像素的GBuffer的各部分情况。
+Type: 
+Version: 4.21
+Parent: Engine/Tools/DevTools
+Order: 
+Tags: 
 
 
-[REGION:raw]
 ![](PixelInspector.png)
-[/REGION]
 
-**像素检查器（Pixel Inspector）** 工具是一个开发者工具，可用于诊断构成场景色彩的像素。如您希望了解像素产生奇怪色彩的原因（或像素颜色由哪个材质输入决定），可使用像素检查器的 **Inspect 模式** 输出决定像素视觉效果的信息。 
+**像素检查器（Pixel Inspector）** 工具是一个开发者工具，用于诊断构成场景色彩的像素。如果你想了解像素产生不理想色彩的原因（或像素色彩由哪个材质输入决定），可以使用像素检查器的 **检查模式（Inspect Mode）** 输出决定像素视觉效果的信息。
 
+(#usingthepixelinspector)
 ## 使用像素检查器
 
-启动并使用像素检查器的步骤：
+启动并使用像素检查器：
 
-1. 前往主编辑器窗口中的 **Window** 菜单选项，选择 **Developer Tools** 下的 **Pixel Inspector**。  
+1.  在“主编辑器窗口”上转至 **窗口（Window）** 菜单，然后在 **开发者工具（Developer Tools）** 下选择 **像素检查器（Pixel Inspector）**。
 
-	![](EnablePixelInspector.png)
+    ![](EnablePixelInspector.png)
 
-	像素检查器窗口便会打开。 
+    像素检查器窗口就会打开。
 
-	![](PixelInspectorWindow.png)
+    ![](PixelInspectorWindow.png)
 
-1. 点击 ![](InspectIcon.png) 按钮开启像素检查器。
+2.  单击 **搜索（Search）**（放大镜）按钮开始像素检查。
+3.  将鼠标移至视口（例如关卡、材质或蓝图）上，在像素检查器数据字段中进行实时填充。
 
-1. 将鼠标移到任意视口上（关卡、材质、蓝图等），在像素检查器数据域中进行实时填充。 
+    ![](Inspecting.png)
 
-	![](Inspecting.png)
+4.  按下 **Esc** 键停止检查并使用最后检查的像素填充像素检查器数据字段。
 
-1. 按下 **Esc** 键停止检查并使用最后检查的像素填充像素检查器数据域。 
-
-
-
+(#pixelinspectordatareference)
 ## 像素检查器数据引用
 
-检查中以下数据域将被像素信息填充： 
+检查中以下数据字段将被像素信息填充：
 
-| 选项| 描述 |
+| 选项 | 说明 |
 | --- | --- |
-| **Viewport ID** | 显示像素检查器绘制来源的视口 ID。|
-| **Coordinate** | 显示当前检查的 X/Y 坐标（可手动设置）。|
-| [REGION:tablesection]**Final Color**[/REGION] ||
-| **Context Colors** | 显示当前检查相关的环境色彩。|
-| **Final Color** | 色调映射后的最终 RGBA 8 位色彩（默认为黑）。|
-| [REGION:tablesection]**Scene Color**[/REGION] ||
-| **Scene Color** | 应用自当前检查的 RGB 场景色彩。|
-| [REGION:tablesection]**HDR**[/REGION] ||
-| **Luminance** | 当前检查的 HDR 亮度值。|
-| **HDR Color** | 应用的 HDR RGB 色彩值。|
-| [REGION:tablesection]**GBuffer A**[/REGION] ||
-| **Normal** | 应用自 GBufferA 通道的 Normal。|
-| **Per Object GBuffer Data** | 来自 GBufferA 通道的每个对象数据的量。|
-| [REGION:tablesection]**GBuffer B**[/REGION] ||
-| **Metallic** | 应用自 GBufferB R 通道的金属感值。|
-| **Specular** | 应用自 GBufferB G 通道的镜面反射值。|
-| **Roughness** | 应用自 GBufferB B 通道的粗糙度。|
-| **Material Shading Model** | 以选择性输出遮罩（Selective Output Mask）编码，来自 GBufferB A 通道的着色模型。|
-| **Selective Output Mask** | 以着色模型编码，来自 GBufferB A 通道的选择性输出遮罩数值。|
-| [REGION:tablesection]**GBuffer C**[/REGION] ||
-| **Base Color** | 应用自 GBufferC RGB 通道的基础色彩值。|
-| **Indirect Irradiance** | 以环境遮挡（AO）编码，来自 GBufferC A 通道的间接辐照度值。|
-| **Ambient Occlusion** | 以间接辐照度编码，来自 GBufferC A 通道的 AO 值。|
+| **视口ID（Viewport ID）** | 显示从中绘制像素检查器的视口的ID。|
+| **坐标（Coordinate）** | 显示当前检查的X/Y坐标（可手动设置）。|
+| **最终色彩（Final Color）** ||
+| **情境色彩（Context Colors）** | 显示与当前检查相关的情境色彩。|
+| **最终色彩（Final Color）** | 色调映射后的最终RGBA 8位色彩（默认为黑）。|
+| **场景色彩（Scene Color）** ||
+| **场景色彩（Scene Color）** | 当前检查应用的RGB场景色彩。|
+| **预曝光（Pre-Exposure）** |[INCLUDE:#excerpt_0] |
+| **HDR**||
+| **亮度（Luminance）** | 当前检查的HDR亮度值。|
+| **HDR色彩（HDR Color）** | 应用的HDR RGB色彩值。|
+| **GBuffer A** ||
+| **法线（Normal）** | 从GBufferA信道应用的法线。|
+| **每对象GBuffer数据（Per Object GBuffer Data）** | 来自GBufferA信道的每对象数据量。|
+| **GBuffer B** ||
+| **金属感（Metallic）** | 从GBufferB R信道应用的金属感值。|
+| **高光度（Specular）** | 从GBufferB G信道应用的高光度值。|
+| **粗糙度（Roughness）** | 从GBufferB B信道应用的粗糙度。|
+| **材质着色模型（Material Shading Model）** | 以选择性输出遮罩（Selective Output Mask）编码的来自GBufferB A信道的着色模型。|
+| **选择性输出遮罩（Selective Output Mask）** | 以着色模型编码的来自GBufferB A信道的选择性输出遮罩数值。|
+| **GBuffer C** ||
+| **底色（Base Color）** | 从GBufferC RGB信道应用的底色值。|
+| **间接辐照度（Indirect Irradiance）** | 以环境光遮蔽（AO）编码的来自GBufferC A信道的间接辐照度值。|
+| **环境光遮蔽（Ambient Occlusion）** | [INCLUDE:#excerpt_1] |
 
-[REGION:note]
-可在 [**使用 GBuffer 属性**](Engine/Rendering/PostProcessEffects/PostProcessMaterials) 和 [**缓冲可视**](Engine/UI/LevelEditor/Viewports/ViewModes) 中查阅 GBuffer 的更多内容。  
-[/REGION]
-
+-
+[EXCERPT:excerpt_1]
+以间接辐照度编码的来自GBufferC A信道的AO值。
+[REGION:note] 要了解有关GBuffer的更多信息，请参阅[使用GBuffer属性](Engine/Rendering/PostProcessEffects/PostProcessMaterials)和[缓冲区可视化](Engine/UI/LevelEditor/Viewports/ViewModes)。[/REGION]
+[/EXCERPT:excerpt_1]
+-
+[EXCERPT:excerpt_0]
+定义生成的直方图的亮度范围上限。它重新映射摄像机曝光的场景色彩范围，限制了支持HDR照明值所需的渲染目标。
+[REGION:note] 必须启用 **渲染（Rendering）** 下的项目设置 **在写入到场景色彩前应用预曝光（Apply Pre-Exposure before writing to the scene color）**，才能使用该值。[/REGION]
+[/EXCERPT:excerpt_0]

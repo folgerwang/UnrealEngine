@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3332303
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2 - 在 Linux 上下载 UE4
 Crumbs:
@@ -30,6 +30,7 @@ SkillLevel:Beginner
 
 在 Linux 电脑上设置 Git 后，即可从 [GitHub 站点](http://github.com/EpicGames) 下载虚幻引擎源代码。下载 UE4 源代码的方式有很多，一种是使用 GitHub 页面的下载功能，另一种是用 Git 客户端复制虚幻引擎元库。此页面将讲述两种方式。
 
+(#DownloadingfromGitHub)
 ## 从 GitHub 下载
 
 如不希望使用 Git 复制虚幻引擎元库，可使用 [GitHub 站点](http://github.com/EpicGames) 上的 **Download ZIP** 按钮。
@@ -48,6 +49,7 @@ SkillLevel:Beginner
 
 1.	最后将 `UnrealEngine-(branch_name).zip` 解压到硬盘上。
 
+(#CloningwithGit)
 ## 使用 Git 复制
 
 如您是新使用 Git 复制，执行以下步骤前请参考 [GitHub 的复制指南](https://help.github.com/articles/cloning-a-repository/#platform-linux)。
@@ -74,6 +76,7 @@ SkillLevel:Beginner
 	如果需要重温从命令行使用 Git 的内容，请查阅 [GitHub 文档](https://help.github.com/articles/set-up-git/#platform-linux)。
 	[/REGION]
 
+(#EndResult)
 ## 最终结果
 
 ![](end_result.png)

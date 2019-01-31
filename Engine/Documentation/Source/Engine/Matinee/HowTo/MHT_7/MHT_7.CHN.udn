@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2782706
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:播放动画和音效
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -6,12 +6,12 @@ Description:在 Matinee 中实现骨骼网格体跳上平台的动画，并应�
 Version:4.9
 SkillLevel:Intermediate
 
- 
----
+
 在下列步骤中，我们将为一个 **骨骼网格体** 应用动画和移动，实现角色跳上平台的动作。此外还将使用 **Sound Track** 添加背景音乐和音效。 
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
+(#AddtheMatineeActorandProps)
 ## 添加 Matinee Actor 和道具
 
 在这步中，我们将添加 **Matinee Actor**，一个 **骨骼网格体 Actor**，并创建一个供角色跳跃的平台。
@@ -53,6 +53,7 @@ SkillLevel:Intermediate
 	![](BoxHeightGray.jpg)
 
 
+(#AddActortoMatineeandAddTracks)
 ## 为 Matinee 添加 Actor 并添加轨迹
 
 在这步中，我们将添加 **SK_Mannequin** 到 **Matinee**，并添加用于序列的轨迹。
@@ -78,6 +79,7 @@ SkillLevel:Intermediate
 	![](MHT7_MoveEndMarker.png)
 
 
+(#AddingMovementandAnimation)
 ## 添加运动和动画
 
 在这步中，我们将为角色设置运动和动画，使其跳到方块上方。
@@ -159,6 +161,7 @@ SkillLevel:Intermediate
 	_序列后部颜色较深的部分表明动画设为循环。_
 
 
+(#AddingSoundsandFinishingMatinee)
 ## 添加音效并完成 Matinee
 
 在这步中，我们将使用 sound tracks 添加音效并完成序列。
@@ -214,42 +217,4 @@ SkillLevel:Intermediate
 	_现在可以看到 **SK_Mannequin** Actor 伴随着爆炸声和音乐跳上方块顶部。_
 
 	_可将多个摄像机角度、视野、后期处理效果、或慢动作轨迹应用到 **导演轨迹** 中，使其效果更佳、独一无二。_
-
-
-
-	
-
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

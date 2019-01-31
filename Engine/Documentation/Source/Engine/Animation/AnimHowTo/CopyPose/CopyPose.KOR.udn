@@ -1,0 +1,85 @@
+INTSourceChangelist:4385367
+Availability: Public
+Crumbs: 
+Title: 다른 스켈레탈 메시에서 포즈 복사
+Description: Copy Pose From Mesh 애니메이션 블루프린트 노드를 사용하여 스켈레탈 메시의 포즈를 다른 스켈레탈 메시로 복사하는 법입니다. 
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/AnimHowTo
+Order: 2
+Tags: Animation, Animation Blueprint, Copy Pose
+
+
+애니메이션 캐릭터로 작업할 때, 완전 다른 캐릭터에 똑같은 애니메이션 데이터를 적용하고 싶을 때가 있습니다. **Copy Pose From Mesh** (메시에서 포즈 복사) 애니메이션 블루프린트 노드 및 약간의 블루프린트 비주얼 스크립트를 사용하면, 레퍼런싱한 스켈레탈 메시 컴포넌트에 사용 중인 포즈를 다른 스켈레탈 메시의 애니메이션 블루프린트에 복사할 수 있습니다.
+
+여기서는 Copy Pose From Mesh 노드를 사용하여 플레이어의 애니메이션을 다른 스켈레탈 메시로 복사하는 법을 살펴봅니다.
+
+![](CopyPoseFromMesh.png)
+
+## 단계
+
+1.  **Content/ThirdPersonBP/Blueprints** 폴더에서 **ThirdPersonCharacter** 블루프린트를 기본 이름으로 복제합니다.
+
+    ![](CopyPose_1.png)
+
+2.  **Content/Mannequin/Character/Mesh** 폴더에서 **SK_Mannequin** 에 우클릭하고 **생성** 아래 **애님 블루프린트** 를 선택하고 기본 명명 규칙을 사용합니다.
+
+    ![](CopyPose_2.png)
+
+3.  1 단계의 **ThirdPersonCharacter1** 블루프린트를 열고 **이벤트 그래프** 의 모든 노드를 지웁니다.
+
+4.  **컴포넌트** 창의 **Mesh** (메시)를 선택하고 **디테일** 패널에서 **Anim Class** (애님 클래스)를 **UE4\_Mannequin\_Skeleton_AnimBlueprint** 으로 설정합니다.
+
+    ![](CopyPose_3-1.png)
+
+5.  **UE4\_Mannequin\_Skeleton_AnimBlueprint** 를 열고 **애님 그래프** 에서 **Copy Pose From Mesh** 노드를 추가하고 **Final Animation Pose** 에 연결한 뒤 **Source Mesh Component** 를 변수로 승격하여 **Character Reference** 라 합니다.
+
+    ![](CopyPose_5.png)  
+
+    Character Reference 변수는 지정할 캐릭터의 스켈레탈 메시 컴포넌트를 가리킵니다. 
+
+6.  **ThirdPersonCharacter1** 블루프린트에서 **Character Reference** 라는 변수를 생성하고 **Variable Type** (변수 유형)을 **Third Person Character** 로 설정한 뒤 **Instance Editable** (인스턴스 편집가능) 옵션을 활성화합니다.  
+
+    ![](CopyPose_6.png)
+
+7.  **ThirdPersonCharacter1** 블루프린트를 끌어 레벨에 놓은 뒤 **디테일** 패널에서 레벨의 **ThirdPersonCharacter** 를 **Character Reference** 변수로 할당합니다. 
+
+    ![](CopyPose_7.png)  
+
+    여기에 값을 입력하면 복사하고자 하는 스켈레탈 메시 컴포넌트를 가진 캐릭터(, 이 경우 Player)로의 레퍼런스가 생깁니다. 
+
+8.  **UE4\_Mannequin\_Skeleton_AnimBlueprint** 를 열고 **이벤트 그래프** 에서 **Try Get Pawn Owner** 노드를 **Cast to ThirdPersonCharacter1** (형변환)한 뒤 **As Third Person Character 1** 핀을 끌어 놓고 **Character Reference** 변수를 구합니다.  
+    
+![](CopyPose_8.png)
+
+9.  **Character Reference** 노드에서 **Get Mesh** 노드를 추가하고 애니메이션 블루프린트 안에 **Character Reference** 변수를 설정합니다.  
+
+    ![](CopyPose_9.png)  
+
+    Player 의 스켈레탈 메시 사본이 애니메이션 블루프린트 안의 Character Reference 에 할당되어 캐릭터의 포즈를 구동합니다. 
+
+10.  메인 툴바에서 **에디터에서 플레이** 합니다. 
+
+## 최종 결과
+
+에디터에서 플레이하면 NPC 에 플레이어 캐릭터와 같은 애니메이션이 재생되는 것이 보입니다. 
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+5SVoMKr_X-4
+[/PARAMLITERAL]
+[/OBJECT]
+
+레벨을 돌아다녀 보면 있는 다른 캐릭터에도 별다른 포즈를 구동하는 스테이트 머신 또는 로직이 없지만 애니메이션 포즈가 똑같습니다. 이 예제는 플레이어를 복제하지만, NPC 에 애니메이션을 구동하는 스테이트 머신 및 AI 를 구성한 뒤, 로직이 없는 다른 NPC 도 Copy Pose From Mesh 노드를 통해 포즈를 복사하여 똑같은 작동방식과 로직을 흉내내도록 할 수 있습니다. 
+
+Copy Pose From Mesh 노드를 사용할 때 **디테일** 패널에서 **Use Attached Parent** (붙인 부모 사용) 옵션을 활성화하면 Source Mesh Component 가 유효하지 않은 경우 붙인 부모를 찾아 소스로 사용합니다. 
+
+![](CopyPoseDetails.png)
+
+또 Bone Transform (본 트랜스폼)에 추가로 **Copy Curves** (커브 복사)를 사용하면 현재 스켈레톤에 존재하는 커브를 복사할 수 있습니다. 커브 리스트가 변하면, 애니메이션 시스템을 다시 초기화해야 합니다.

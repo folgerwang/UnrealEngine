@@ -1,138 +1,141 @@
-﻿INTSourceChangelist:3317466
-Availability:Public
-Title:追踪总览
-Crumbs: %ROOT%
-Description:虚幻引擎 4 追踪系统总览。
-version:4.14
+INTSourceChangelist:4649792
+Availability: Public
+Title:追踪概述
+Crumbs:
+Description:虚幻引擎4追踪系统概述。
+version: 4.14
 type:overview
 Parent:Engine/Physics/Tracing
 order:1
 tags:Physics
 tags:Tracing
 tags:Raycast
-topic-image:trace_topic.png
+tags:Gameplay
+topic-image:trace_overview_topic.png
+related:Engine/Physics/Tracing/HowTo
+
+[TOC(start:1 end:4)]
 
 [COMMENT:none]
- 公共变量 
+ Common Variables 
 [/COMMENT]
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
 [COMMENT:none]
- 总览 
+ Overview 
 [/COMMENT]
 
 [REGION:fullwidth]
 ![](traceTitle.png)(convert:false)
 [/REGION]
 
-**追踪** 可在关卡中延伸，获得线条上现有内容的反馈。使用方法是提供两个端点（一个开始位置和一个结束位置），物理系统将“追踪”两个点之间的一条线，报告命中的 Actor（带碰撞）。本质上，追踪和其他软件包中的 **光线投射** 或 **光线追踪** 相同。
+**追踪** 提供了一种在关卡中获取有关线段上存在内容的反馈的方法。使用方法是提供两个端点（一个开始位置和一个结束位置），物理系统将“追踪”两个点之间的线段，报告它命中的任何Actor（带碰撞）。本质上，追踪和其他软件包中的 **光线投射** 或 **光线追踪** 相同。
 
-如果您需要知晓一个 **Actor** 是否能“看见”另一个 Actor、确定特定多边形的法线、模拟高速武器，或需要知晓 **Actor** 是否已进入一个空间，都可以使用追踪这种可靠而开销低的解决方案。此文档讲述了虚幻引擎 4 中 **追踪** 的基础功能集。
+无论你是需要知晓一个 **Actor** 是否能“看见”另一个Actor，确定特定多边形的法线，模拟高速武器，还是需要知晓 **Actor** 是否已进入一个空间，都可以使用追踪这种可靠而计算开销低的解决方案。本文档介绍虚幻引擎4（UE4）中追踪的基本功能集。
 
-## 按通道或物体类型追踪
+(#tracebychannelorobjecttype)
+## 按信道或对象类型追踪
 
-因为追踪使用物理系统，您可以定义需要进行追踪的物体类型。可在两个大类中进行选择：通道和物体类型。通道用于可视性和摄像机之类的对象，且几乎只和追踪相关。物体类型是场景中带碰撞的 Actor 物理类型，如 Pawn、载具、可破坏 Actor，等等...
+因为追踪使用物理系统，你可以定义需要进行追踪的对象类别。可在两个大类中进行选择：信道和对象类型。信道用于可视性和摄像机等事物，且几乎只和追踪相关。对象类型是场景中带碰撞的Actor物理类型，如Pawn、载具、可破坏物Actor等等。
 
-可根据需求添加更多通道和物体类型。可在 [](Engine/Physics/Collision/HowTo/AddCustomCollisionType) 中查看详细操作说明。
+可根据需要添加更多信道和对象类型。有关具体操作的更多信息，请参阅 [](Engine/Physics/Collision/HowTo/AddCustomCollisionType)。
 
-## 单次或多次返回
+(#returningsingleormultiplehits)
+## 返回单个或多个命中
 
-进行追踪时，您可以选择返回被追踪命中、匹配条件的首个物体，或者返回被追踪命中、匹配条件的所有物体。
+追踪时，你可以选择返回与条件匹配且被追踪命中的第一个项，也可返回与条件匹配且被追踪命中的所有项。
 
-还需要特殊考虑 **Multi Trace by Channel** 和 **Multi Trace by Object**。使用 **Multi Trace by Channel** 时，追踪将返回所有 **重叠**，直到出现首次 **阻挡**。可将其理解为开枪射击穿过草丛，然后击中墙壁。
+需要特别注意 **按信道多重追踪（Multi Trace by Channel）** 和 **按对象多重追踪（Multi Trace by Object）** 的区别。使用 **按信道多重追踪（Muli Trace by Channel）** 时，追踪将返回包含第一个 **阻挡** 在内的所有 **重叠**。想象射击的子弹穿过高高的草丛，然后击中墙壁。
 
-**Multi Trace by Object** 将返回与追踪查找的物体类型相同的全部物体，假定组件设为返回追踪查询。因此它很适合于计算追踪开始和结束之间的物体数量。
+**按对象多重追踪（Multi Trace by Object）** 将返回与追踪查找的对象类型匹配的所有对象，假定组件设置为返回追踪查询。因此它很适合于计算追踪开始和结束之间的对象数量。
 
 [REGION:fullwidth]
 ![](singleVSmulti.png)(convert:false)
 [/REGION]
 
-## 命中结果
+(#hitresults)
+### 命中结果（Hit Result）
 
-追踪命中时，它将返回一个“Hit Result”结构体。在蓝图中的分解如下：
+追踪命中某个对象时，它将返回“命中结果（Hit Result）”结构体。此结构体在蓝图和C++中都可用，其结构如下：
 
 | --- | --- |
 | ![](BP_HitStruct.png) | [INCLUDE:#ts1] |
-
-所有的这些数据也在 C++ 中。
-
-
 
 [COMMENT:none]
 
 [EXCERPT:ts1]
 | **成员** || **定义** |
 | --- | :---:| :--- |
-| **Blocking Hit** || 命中是否被阻挡。**Multi Tracing by Channel** 使追踪重叠而不停止追踪时使用此成员。|
-| **Initial Overlap** || 一系列结果中的首次重叠。|
-| **Time** || 这是沿追踪方向从 [0.0 到 1.0] 发生命中的时间。如未出现命中，将返回 1.0。|
-| **Location** || 基于追踪形状进行修改的命中世界空间位置。|
-| **Impact Point** || 命中的绝对位置。不包含追踪的形状，只包含命中的点。|
-| **Normal** || 追踪的方向。|
-| **Impact Normal** || 命中表面的法线。|
-| **Phys Mat** || 命中表面的 **物理材质**。|
-| **Hit Actor** || 命中的 **Actor**。|
-| **Hit Component** || 命中的特定 **组件**。|
-| **Hit Bone Name** || 如对 **骨架网格体** 进行追踪，这便是命中的骨骼名。|
-| **Hit Item** || 基元特定的数据，记录基元中命中的物体。|
-| **Face Index** || 如与三角网格图或地形发生碰撞，这便是命中面的索引。|
-| **Trace Start** || 追踪开始的位置。|
-| **Trace End** || 追踪结束的位置。|
+| **阻挡命中（Blocking Hit）** || 命中是否为阻挡命中。使用 **按信道多重追踪（Multi Tracing by Channel）** 时使用该成员，因为它具有使追踪重叠但不停止追踪的能力。|
+| **首次重叠（Initial Overlap）** || 此重叠是否为一系列结果中的首次重叠。|
+| **时间（Time）** || 这是沿追踪方向的命中“时间”，范围介于[0.0到1.0]之间。如未命中，将返回1.0。|
+| **位置（Location）** || 基于追踪形状进行修改的命中的全局空间位置。|
+| **命中点（Impact Point）** || 命中的绝对位置。不包含追踪的形状，只包含命中的点。|
+| **法线（Normal）** || 追踪的方向。|
+| **命中法线（Impact Normal）** || 命中表面的法线。|
+| **物理材质（Phys Mat）** || 命中表面的 **物理材质**。|
+| **命中Actor（Hit Actor）** || 命中 **Actor**。|
+| **命中组件（Hit Component）** || 命中的特定 **组件**。|
+| **命中的骨骼名称（Hit Bone Name）** || 如果追踪 **骨架网格体**，此为命中的骨骼的名称。|
+| **命中项（Hit Item）** || 特定于Primitive的数据，记录Primitive中的哪个项被命中。|
+| **表面索引（Face Index）** || 如果与三角网格图或地形碰撞，此为命中的表面的索引。|
+| **追踪起始（Trace Start）** || 此为追踪的起始位置。|
+| **追踪结束（Trace End）** || 此为追踪的结束位置。|
 [/EXCERPT]
 
 [/COMMENT]
 
-## 形体追踪
+(#usingshapetraces)
+## 使用形状追踪
 
 [REGION:fullwidth]
 ![](shapeTracesEX.png)(convert:false)
 [/REGION]
 
-线条追踪不足以达到效果时，可使用形体追踪。举例而言，可能您需要为敌人创建一个视锥，检测进入视锥的玩家。线条追踪可能有所不足，因为玩家可能会蹲下避开追踪。 
+当线迹追踪无法满足需求时，你可以使用形状追踪来获取想要的结果。例如，你为敌方创建了“视锥”，而且你希望检测进入视锥的玩家。线迹追踪可能无法满足需求，因为玩家可以通过躲在线迹追踪的下面来躲避检测。 
 
-在这样的情况下，可能就需要使用方块追踪、胶囊体追踪，或球体追踪。每个形体追踪函数就像一个线条追踪，从起点到终点清扫和检查碰撞。然而形体追踪添加了一层检查，因为形体在光线投射中拥有体积域的作用。 
-
-可将形体追踪用作单次追踪或多次追踪，每种的设置方式均与线条追踪相同。然而需要提供所用形体大小和朝向的额外细节。
+在这种情况下，你可以使用盒体追踪、胶囊体追踪或球体追踪。 
 
 [REGION:fullwidth]
 ![](TracesOverview_ShapeTraces.png)
 [/REGION]
 
-## 来自追踪的 UV 坐标（UV Coordinates from Trace）
+形状追踪的工作原理与线迹追踪相似，你以起始点和结束点为范围搜索并检查碰撞，但是形状追踪具有附加的检查层，因为你在光线投射中将形状用作体积（各种各样）。你可以将形状追踪用作单次追踪或多次追踪，每种追踪的设置方式都与线迹追踪相同，但是你需要提供与你使用的形状的大小（或方向）相关的额外细节。
 
-追踪能返回其命中 Actor 的 UV 坐标（假设使用了 trace complex）。从 4.14 版本起，这只能在 **静态网格体组件**、**过程网格体组件** 和 **BSP** 上使用。它无法在 **骨架网格体组件** 上使用，因为追踪的 **物理资源** 并不包含 UV 坐标（即使选择 trace complex）。
+(#gettinguvcoordinatesfromtrace)
+## 从追踪获取UV坐标
+
+如果使用Trace Complex，追踪可以返回它命中的Actor的UV坐标。从4.14版起，此功能仅在 **静态网格体组件**、**程序式网格体组件** 和 **BSP** 上有效。它 **无法** 在 **骨架网格体组件** 上正常工作，因为你追踪的是 **物理资源**，而物理资源不具备UV坐标（即使你选择Trace Complex）。
 
 [REGION:note]
-使用该功能将增加 CPU 内存消耗，因为虚幻引擎 4 需要在主内存中保存顶点位置和 UV 坐标的额外副本。
+使用此功能将增大CPU内存使用率，因为UE4需要在主内存中保留顶点位置和UV坐标的额外副本。
 [/REGION]
 
-## 启用来自追踪的 UV 坐标
+(#enablinguvcoordinatesfromtrace)
+### 启用来自追踪的UV坐标
 
-执行以下步骤即可启用此功能：
+要启用此功能，请按照下列步骤操作：
 
-1. 从 **Edit Menu** 访问 **Project Settings**。
+1. 从 **“编辑（Edit）”菜单** 中访问 **项目设置（Project Settings）**。
 
 	![](accessProj.png)
 
-1. 在 **Project Settings** 的 **Physics Section** 中启用 **Support UV From Hit Results** 功能。
+1. 在 **项目设置（Project Settings）** 的 **“物理（Physics）”部分** 中启用 **支持来自命中结果的UV（Support UV From Hit Results）** 功能。
 
 	![](ProjectSettings.png)
 
 1. 重启编辑器。
 
 	[REGION:note]
-	重启编辑器之前可以使用此功能查看蓝图 **Find Collisoin UV** 节点；然而，检查节点时其只会返回 `0.0, 0.0`。
-	如希望节点返回正确的 UV 数据，则必须重启编辑器。
+	重启编辑器之前可以使用此功能查看蓝图 **查找碰撞UV（Find Collision UV）** 节点，但是当你查看时，此节点仅返回 [0.0, 0.0]。
+	要让此节点返回正确的UV数据，你必须重启编辑器。
 	[/REGION]
 
 
+(#otherfeatures)
 ## 其他功能	
 
-此外追踪还拥有一些小功能，限制其范围的内容，以简化调试。如在静态网格体或过程网格体上启用，它们能对 **复杂碰撞** 进行追踪。如果从 **Actor** 调用这些功能，启用 **Actor** 通过自身进行追踪即可无视所有附加的组件。最后，它们拥有以红色或绿色线条代表追踪的选项，较大的框则代表命中。
+追踪还拥有一些小功能，可用于限制其返回的内容，这简化了调试它们的过程。它们能够追踪 **复杂碰撞（Complex Collision）**（如果静态网格体或程序式网格体启用了它）。如果从 **Actor** 调用它们，可以通过让 **Actor** 追踪自身来告知它们忽略所有连接的组件。最后，它们拥有以红色或绿色线条代表追踪的选项，较大的框则代表命中。
 
 [COMMENT:none]
- 绘制调试类型、Trace Complex、无视自身 
+ Draw Debug Type, Trace Complex, Ignore Self 
 [/COMMENT]

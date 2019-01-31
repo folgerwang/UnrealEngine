@@ -1,0 +1,78 @@
+﻿INTSourceChangelist:4687457
+Availability: Public
+Crumbs: 
+Title: iOS デバイスの互換性
+Description:iOS 向け開発でのデバイス互換性
+Type: 
+Version:4.21
+Parent:Platforms/iOS
+Order: 
+Tags: mobile
+Tags: iOS
+Tags:Reference
+
+
+Unreal Engine 4 (UE4) は現在 **iOS 10.0** 以上をサポートしています。エンジン機能の互換性をデバイス別に以下の表にまとめました。  
+
+[REGION:note]
+すべての iOS デバイスをテストしたわけではありませんが、それぞれのデバイスと相性よく動作すると思われる機能を以下の表にまとめてみました。新規デバイスのリリース時および社内テスト中のデバイスの追加に応じて、本ページに詳細な記載を追加する予定です。
+[/REGION]
+
+| **機能** | **コンソール変数** | **コンソール変数でデフォルトで有効になっているデバイス** |
+| --- | --- | --- |
+| Bloom | r.BloomQuality | [INCLUDE:#excerpt_0] |
+| Depth of Field | r.DepthOfFieldQuality | [INCLUDE:#excerpt_1] |
+| Light Shafts | r.LightShaftQuality | [INCLUDE:#excerpt_2] |
+| Refraction | r.RefractionQuality | [INCLUDE:#excerpt_3] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_3]
+iPhone 5s 以上  
+iPad Air 2 以上
+[/EXCERPT:excerpt_3]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_2]
+iPhone 5s 以上  
+iPad Air 2 以上
+[/EXCERPT:excerpt_2]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_1]
+iPhone 5s 以上  
+iPad Air 2 以上
+[/EXCERPT:excerpt_1]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_0]
+iPhone 5s 以上  
+iPad Air 2 以上
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+
+**モバイルコンテンツスケール係数** はプロジェクトを表示するモバイルデバイスのスクリーン改造に合うように解像度をスケーリングする方法の一つです。 **DefaultDeviceProfiles.ini** という名前の新しい設定(.ini)ファイルをプロジェクトの config フォルダに作成することで[複数のデバイスプロファイルを作成し保存する](Platforms/DeviceProfiles) ことができます。
+
+  
+
+| **デバイス** | **スケール係数** | **ネイティブ解像度** | **ゲーム解像度** |
+| --- | --- | --- | --- |
+| iPhone 5s, iPhone SE, iPod Touch 6 | 2 | 1136x640 | 1136x640 |
+| iPhone 6, iPhone 6s, iPhone 7, iPhone 8 | 2 | 1134x750 | 1136x750 |
+| iPhone 6 Plus, iPhone 7 Plus, iPhone 8 Plus | 2 | 1920x1080 | 1920x1080 |
+| iPhone X | 3 | 2436x1125 | 2436x1125 |
+| iPhone XR | 2 | 1792x828 | 1792x828 |
+| iPhone XS | 3 | 2436x1125 | 2436x1125 |
+| iPhone XS Max | 3 | 2688x1242 | 2688x1242 |
+| iPad Pro | 2 | 2732x2048 | 2732x2048 |

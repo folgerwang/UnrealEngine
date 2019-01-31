@@ -1,37 +1,37 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3452211
 Availability: NoPublish
-Title: Windows Instructions
+Title: Windows指南
 Crumbs: %ROOT%
-Description: Telling Windows users how to download the Unreal Engine source code from GitHub.
+Description: 指导Windows用户从GitHub下载虚幻引擎源代码。
 version: 4.16
 parent:GettingStarted
 Order:
 
 [REGION:note]
-Please make sure you are running Visual Studio 2015 or higher for Windows Desktop installed before proceeding.
+请确保您安装了Windows桌面版Visual Studio 2015或更高版本，然后再继续操作。
 [/REGION]
 
-1.	Install [GitHub for Windows](https://windows.github.com/) then [fork and clone our repository](https://guides.github.com/activities/forking/). 
+1.	安装[Windows版GitHub](https://windows.github.com/)，然后[抓取并克隆我们的元库](https://guides.github.com/activities/forking/)。 
 	
-	To use Git from the command line, see the [Setting up Git](https://help.github.com/articles/set-up-git/) and [Fork a Repo](https://help.github.com/articles/fork-a-repo/) articles.
+	要从命令行使用Git，请参阅[设置Git](https://help.github.com/articles/set-up-git/)并[抓取元库](https://help.github.com/articles/fork-a-repo/)文章。
 
-	If you'd prefer not to use Git, you can get the source with the 'Download ZIP' button on the right. The built-in Windows zip utility will mark the contents of zip files downloaded from the Internet as unsafe to execute, so right-click the zip file and select 'Properties...' and 'Unblock' before decompressing it. Third-party zip utilities don't normally do this.
+	如果您倾向于不使用Git，可以通过右侧的“下载ZIP”（Download ZIP）按钮获取源代码。内置Windows zip工具会将从网上下载的zip文件内容标记为不安全而不宜执行，因此右键单击zip文件，并选择“属性...”和“解锁”，然后再进行解压。第三方zip工具通常不需要进行这个操作。
 
-1. 	Install **Visual Studio 2015**. 
+1. 	安装 **Visual Studio 2015**。 
    
-	All desktop editions of Visual Studio 2015 can build UE4, including [Visual Studio Community 2015](http://www.visualstudio.com/products/visual-studio-community-vs), which is free for small teams and individual developers.
-	Be sure to include C++ support as part of the install, which is disabled by default.
+	所有桌面版Visual Studio 2015都可以构建UE4，包括[Visual Studio Community 2015](http://www.visualstudio.com/products/visual-studio-community-vs)，这是面向小型团队和个人开发者免费提供的工具。
+	请确保作为安装的一部分包含C++支持，这在默认情况下是禁用的。
   
-1.	Open your source folder in Explorer and run **Setup.bat**. 
+1.	在资源管理器中打开您的源代码文件夹，并运行 **Setup.bat**。 
 	
-	This will download binary content for the engine, as well as installing prerequisites and setting up Unreal file associations. 
-	On Windows 8, a warning from SmartScreen may appear.  Click "More info", then "Run anyway" to continue.
+	这样将下载引擎的二进制内容，以及安装必备软件并设置虚幻文件关联。 
+	在Windows 8上，可能会显示来自SmartScreen的警告。依次单击“更多信息”和“运行”以继续。
    
-	A clean download of the engine binaries is currently 3-4gb, which may take some time to complete.
-	Subsequent checkouts only require incremental downloads and will be much quicker.
+	引擎二进制文件的完整下载包目前是3-4GB，需要一些时间才能完成。
+	后续检出只需要下载增量部分，速度将会大幅提高。
  
-1.	Run **GenerateProjectFiles.bat** to create project files for the engine. It should take less than a minute to complete.  
+1.	 运行 **GenerateProjectFiles.bat** 来为引擎创建项目文件。这个过程应该不超过一分钟即可完成。  
 
-1.	Load the project into Visual Studio by double-clicking on the **UE4.sln** file. Set your solution configuration to **Development Editor** and your solution platform to **Win64**, then right click on the **UE4** target and select **Build**. It may take anywhere between 10 and 40 minutes to finish compiling, depending on your system specs.
+1.	 双击 **UE4.sln** 文件以将项目加载到Visual Studio中。将您的解决方案配置设置为 **开发编辑器**，将解决方案平台设置为 **Win64**，然后右键单击 **UE4** 目标并选择 **构建**。大概需要10-40分钟完成编译，具体取决于系统规格。
 
-1.	After compiling finishes, you can load the editor from Visual Studio by setting your startup project to **UE4** and pressing **F5** to debug.
+1.	 编译完成后，可以将启动项目设置为 **UE4** 并按 **F5** 进行调试，以从Visual Studio加载编辑器。

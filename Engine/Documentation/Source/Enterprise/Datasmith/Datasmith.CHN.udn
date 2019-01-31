@@ -1,0 +1,49 @@
+﻿INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: 虚幻Datasmith
+Description: Datasmith能将您的设计数据轻松快捷地导入虚幻。
+Type: 
+Version: 4.19
+Parent: Enterprise
+Order: 1
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Manufacturing
+Tags: landing
+topic-image:Datasmith_HFB_Topic-1.png
+
+
+**适用于虚幻引擎4的Datasmith（Datasmith for Unreal Engine 4）** 是一系列工具和插件的集合，专门用于将离线渲染应用程序（如3DS Autodesk和CAD软件）中创建的场景和资源导入实时引擎。 
+
+以下页面可帮助你将Datasmith与虚幻引擎配合使用。这些内容从不同视角进行了介绍，其中包含参考资料和特性概述，让你能使用Datasmith挖掘项目的最大价值。 
+
+## 入门
+
+![](datasmith-setup.png)
+
+%Enterprise/Datasmith/Overview:topic%
+%Enterprise/Datasmith/HowTo/DownloadandInstall:topic%
+%Enterprise/Datasmith/HowTo/ImportingContent:topic%
+
+## 指南
+
+%Enterprise/Datasmith/Overview/ImportProcess:topic%
+%Enterprise/Datasmith/Overview/ReimportWorkflow:topic%
+%Enterprise/Datasmith/HowTo:topic%
+%Enterprise/Datasmith/Overview/CustomizingImportProcess:topic%
+%Enterprise/Datasmith/Overview/UsingDatasmithMetadata:topic%
+
+## 软件互操作指南
+
+%Enterprise/Datasmith/SoftwareInteropGuides/3dsMax:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/SketchUp:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/CAD:topic%
+
+Studio/Datasmith/SoftwareInteropGuides/Rhino
+
+## 参考
+
+%Enterprise/Datasmith/SupportedSoftwareAndFileTypes:topic%
+%Enterprise/Datasmith/ImportOptions:topic%

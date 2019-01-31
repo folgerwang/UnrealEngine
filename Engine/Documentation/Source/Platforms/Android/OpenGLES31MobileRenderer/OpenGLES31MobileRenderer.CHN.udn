@@ -1,14 +1,14 @@
-﻿INTSourceChangelist:3095085
-Title:Android OpenGL ES 3.1 移动渲染器
-Description:设置 UE4 Android 项目使用 OpenGL ES 3.1 移动渲染
+﻿INTSourceChangelist:3807090
+Title: Android OpenGL ES 3.1移动渲染器
+Description:将UE4 Android项目设置为使用OpenGL ES 3.1移动渲染器
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/OpenGLES31MobileRenderer/
 Availability:Public
-version:4.12
+version:4.16
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
 type:reference
-SkillLevel:Intermediate
+SkillLevel: Intermediate
 Related:Platforms\Android\VulkanMobileRenderer
 Related:Platforms\Android\DeviceCompatibility
 Related:Engine/Basics/Projects/Packaging
@@ -17,133 +17,121 @@ Related:Programming/Development/BuildingUnrealEngine
 
 [TOC(start:2 end:3)]
 
-虚幻引擎 4（UE4）早已支持 Android 上的许多 OpenGL ES 3.0 和 3.1 功能，现在编译 UE4 Android 项目时可特别针对 ES 3.1。这将 Metal 和 Vulkan 的特性带到了高端安卓设备，带来了 16 种纹理采样器，并通过统一缓存增强性能。在此文档中我们将了解到如何设置 UE4 项目在支持的安卓设备上运行时使用 OpenGL ES 3.1。
+虽然虚幻引擎4(UE4)长期以来支持Android上的许多OpenGL ES 3.0和3.1功能，但在构建UE4 Android项目时，现在可以专门针对ES 3.1。这为高端Android设备带来了与Metal和Vulkan相同的特性，让您能够访问16个纹理采样器，并通过使用统一的缓冲区提高了性能。在下面的文档中，我们将了解如何在支持UE4的Android设备上运行UE4项目时设置UE4项目，以使用OpenGL ES 3.1。
 
 
-## 启用 OpenGL ES 3.1 UE4 编辑器预览 
+(#enablingtheopengles3.1ue4editorpreview)
 
-如需预览 OpenGL ES 3.1 在 UE4 编辑器中的效果，首先要执行以下步骤将其启动：
+## 启用OpenGL ES 3.1 UE4编辑器预览 
 
-1. 前往 **主工具栏** 的 **Edit**，然后选择 **Editor Preferences** 选项。
+为了在UE4编辑器中预览OpenGL ES 3.1的外观，您首先需要执行以下操作来启用它：
 
-	![](OGL3_01.png)
-
-1. 在 **General** 部分中找到 **Experimental** 类目，然后找到 **Rendering** 部分。点击 **Enable Metal/Vulkan/High-end mobile Preview Rendering Level in editor** 旁边的勾选框启用选项预览 OpenGL ES 3.1。 
+1. 转到 **主工具栏（Main Tool Bar）**，单击 **设置（Settings）** 选项，并转到 **预览渲染关卡（Preview Rendering Level）** 选项，选择 **高端移动/金属（High-End Mobile / Metal）**，最后选择 **高端移动（High-End Mobile）** 选项。
 
 	[REGION:lightbox]
-	[![](Platforms\Android\VulkanMobileRenderer\VMP_03.png)(w:447 h:308)](Platforms\Android\VulkanMobileRenderer\VMP_03.png)
+	[![](OGL3_10.png)(w:391)](OGL3_10.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-	[region:note]
-	如需了解在 UE4 编辑器中启用 Metal/Vulkan/高端预览的详细说明，请查阅 [在编辑器中启用 Vulkan 预览渲染](Platforms/Android/VulkanMobileRenderer/#enablingvulkanpreviewrenderingineditor) 文档。
-	[/region]
-
-1. 然后点击 **主工具栏** 上的 **Settings** 选项，前往 **Preview Rendering Level** 选项并选择 **High-End Mobile / Metal** 选项。
-
-	[REGION:lightbox]
-	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_05.png)(w:391)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_05.png)
-	[/REGION]
-
-	[REGION:caption]
-	点击查看全图。
-	[/REGION]
-
-1. 现在在 UE4 编辑器视口的右下角可看到文本 **Feature Level: ES3_1**，则意味着正在使用 OpenGL ES 3.1 预览关卡。
+1. 一旦重新编译完着色器，如果您查看UE4编辑器视口的右下角，您应该会看到文本 **功能级别：ES3_1（Feature Level: ES3_1）**，这表示您现在正在使用OpenGL ES 3.1的特性集预览该关卡。
 
 	[REGION:lightbox]
 	[![](OGL3_02.png)(w:404)](OGL3_02.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-## 使用 OpenGL ES 3.1 支持设置 UE4 项目
+(#settingupaue4projectwithopengles3.1support)
 
-如要在 UE4 Android 项目中使用 OpenGL ES 3.1，需要确保 UE4 项目已设置以下选项：
+## 使用OpenGL ES 3.1支持建立UE4项目
+
+要在UE4 Android项目中使用OpenGL ES 3.1，您需要确保您的UE4项目设置了以下选项：
 
 [region:warning]
-请注意：OpenGL ES 3.1 支持只能用于从 Github 下载和编译的代码项目。如您不确定操作方法，请查阅 [下载虚幻引擎源代码](GettingStarted/DownloadingUnrealEngine) 中的详细说明。
+请注意，OpenGL ES 3.1支持只适用于从Github下载和编译的基于代码的项目。如果您不熟悉如何做到这一点，请查看[下载虚幻引擎源代码](GettingStarted/DownloadingUnrealEngine)获取详细说明。
 [/region]
 
-1. 点击 **主工具栏** 中的 **Edit** 选项，然后选择 **Project Settings** 选项。 
+1. 转到 **主工具栏（Main Toolbar）**，单击 **编辑（Edit）** 选项，并选择 **项目设置（Project Settings）** 选项。 
 
 	![](OGL3_03.png)
 
-1. 前往 **Project Settings** 菜单中的 **Platforms** 部分，点击 **Android** 部分。
+1. 从 **项目设置（Project Settings）** 菜单中，转到 **平台（Platforms）** 部分，并单击 **Android** 部分。
 
 	[REGION:lightbox]
-	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639 h:385)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
+	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-1. 在 **APKPackaging** 部分中，将 **Minimum SDK** 和 **Target SDK** 版本设为 **21**。
+1. 现在在 **APKPackaging** 部分中，将 **最小SDK（Minimum SDK）** 和 **目标SDK（Target SDK）** 版本设置为 **21**。
 
 	[REGION:lightbox]
-	[![](OGL3_04.png)(w:639 h:385)](OGL3_04.png)
+	[![](OGL3_04.png)(w:639)](OGL3_04.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-1. 在 **APKPackaging** 的 **Build** 部分中勾选以下选项： 
+1. 在 **APKPackaging** 部分下，找到 **构建（Build）** 部分，并确保选中了以下选项： 
 	
-	* Support armv7
-	* Support OpenGL ES3.1
+	* 支持armv7（Support armv7）
+	* 支持OpenGL ES3.1（Support OpenGL ES3.1）
 
 	[REGION:lightbox]
 	[![](OGL3_05.png)(w:640)](OGL3_05.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-1. 点击 **Android SDK** 部分并将 **SDK API Level** 和 **NDK API Level** 进行如下设置。
+1. 单击 **Android SDK** 部分，并对 **SDK API级别（SDK API Level）** 和 **NDK API级别（NDK API Level）** 进行以下设置：
 
-	* SDK API Level = matchndk
-	* NDK API Level = android-21
+	* SDK API级别（SDK API Level）= matchndk
+	* NDK API级别（NDK API Level）= android-21
 
 	[REGION:lightbox]
 	[![](OGL3_06.png)(w:640)](OGL3_06.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-## 使用 OpenGL ES 3.1 支持编译和部署 UE4 项目
+(#buildinganddeployingaue4projectwithopengles3.1support)
 
-项目已设置好兼容 OpenGL ES 3.1后，即可编译项目并将其部署至安卓智能手机。执行下列步骤，编译拥有 OpenGL ES 3.1 支持的项目：
+## 使用OpenGL ES 3.1支持构建和部署UE4项目
+
+现在项目已经设置为使用OpenGL ES 3.1，是时候构建项目并将其部署到基于Android的智能手机上了。要构建具有OpenGL ES 3.1支持的项目，您需要执行以下操作：
 
 [region:note]
-开始下一部分前，将安卓智能手机通过 USB 线连接到开发电脑。否则将导致无法部署项目。
+在开始下一部分之前，请确保您的Android智能手机通过USB线连接到您的开发PC上。如果做不到这一点，将导致您的项目无法部署。
 [/region]
 
 
-1. 找到 **工具栏** 菜单最右侧的 **Launch** 选项。  
+1. 找到 **工具栏（Toolbar）** 菜单最右边的 **启动（Launch）** 选项。  
 
 	[REGION:lightbox]
 	[![](OGL3_07.png)(w:640)](OGL3_07.png)
 	[/REGION]
 
 	[REGION:caption]
-	点击查看全图。
+	单击显示全图。
 	[/REGION]
 
-1. 点击 **Launch** 按钮左侧的白色小三角形了解项目可运行的设备，然后点击安卓设备开始编译过程。
+1. 单击 **启动（Launch）** 按钮左侧的白色小三角形，以展示可以在其上启动项目的设备，然后单击Android设备以启动构建流程。
 
 	![](OGL3_08.png)
 
-1. 操作完成后，编译状态进度条将显示在 UE4 编辑器的右下角。点击 **Show Output Log** 可查看编译的详细分解。
+1. 完成此操作后，将在UE4编辑器的右下角显示构建状态进度条。单击 **显示输出日志（Show Output Log）**，可以查看构建流程中发生的更详细的情况。
 
 	![](OGL3_09.png)
 

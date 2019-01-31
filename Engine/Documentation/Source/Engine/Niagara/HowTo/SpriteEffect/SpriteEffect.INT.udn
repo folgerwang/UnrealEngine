@@ -1,121 +1,124 @@
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:Create a Sprite Based Effect with Niagara
-Description:Describes how you can create a sprite-based visual effect using Niagara.
-Type: how-to
-SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:2
-tags:Niagara
-topic-image:
-prereq: Engine/Niagara/HowTo/EnableNiagara
+Availability: Public
+Crumbs: 
+Title: Create a Sprite Particle Effect in Niagara
+Description: Describes how you can create a sprite particle effect using Niagara.
+Type:how-to
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 6
+Tags: Niagara
+Tags: Early Access
 
-One of the most used visual effects techniques is to render Texture and Materials to a 2D camera facing planes, called sprites. In the following How-To, we will take a look setting up a Niagara Emitter to work with sprites so that when the effect is placed in a level, it will work and be displayed correctly.
+Prerequisite Topics
+
+This page assumes you have prior knowledge of the following topics. Please read them before proceeding.
+
+*   [Enable the Niagara Plugin](Engine/Niagara/HowTo/EnableNiagara "Describes how you can enable the Niagara.")
+
+A commonly used visual effects techniqueÂ is rendering Texture and Materials to 2D camera-facing planes, which areÂ called *sprites*. In the following How-To, we will set up a Niagara Emitter to work with sprites. When you placeÂ the Niagara System containing the Niagara EmitterÂ into a level, you will see the effect displayed in that level.
 
 ![](Sprite_Banner_01.png "Sprite_Banner_01.png")
 
 [REGION:note]
 **Prerequisite Steps:**
-This How-To uses the **M_smoke_subUV** Material, which can be found with the **Starter Content**. If you have not done so already, make sure that this Material or the Starter Content has been added to your project.
+
+This How-To usesÂ the **M\_smoke\_subUV** Material, whichÂ can be found with the **Starter Content**. If you have not done so already, make sure that this Material or the Starter Content has been added to your project.
 [/REGION]
 
 ## Steps
 
-1.  First, we will need to create a **Niagara Emitter** by right-clicking in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter**.   
-	![](SE_01.png)
-2.  Name the newly created Niagara Emitter **FX_Smoke** and then double-click it to open it.   
+1.  First, create a **Niagara Emitter** by right-clicking in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter**. The Niagara Emitter wizard displays.  
+    ![](SE_01.png)(w:400)
+2.  Click the radio button next to **Create a new emitter from an emitter template**. Under **Select a Template Emitter**, select the **Fountain** template. Then click **OK** to create a new emitter in the Content Browser.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  Name the newly created Niagara Emitter **FX_Smoke,** and then double-click to open it.Â   
     ![](SE_02.png)
-3.  With the Niagara Editor now open, go to the **Selected Emitter** panel and locate the **Render** section.
-4.  Expand the **Sprite Rendering** section and set the following properties with the following values.  
-    ![](CreateSpriteBasedEffect_Steps_Step4-SpriteRender.png)  
+4.  With the Niagara Editor now open, go to the **Selected Emitter** panel and locate the **Render** section.
+5.  Expand the **Sprite Rendering** section, and set the following properties with the following values.  
+    ![](CreateSpriteBasedEffect_Steps_Step4-SpriteRender.png)(w:400)  
     
-    | Property Name | Value |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Material** | M_smoke_subUV |
-    | **Sub Image Size** | X: 8.0, Y: 8.0 |
-    | **Sub UV Blending Enabled** | Checked |
+    | Material | M_smoke_subUV |
+    | Sub Image Size | X: 8.0, Y: 8.0 |
+    | Sub UV Blending Enabled | Checked |
     
-5.  Collapse the Render section, then locate and expand the **Emitter Update** section.
-6.  In the **Spawn Rate** section, change the **Spawn Rate** to a value of **50.0**.  
-    ![](CreateSpriteBasedEffect_Steps_Step6-EmitterUpdate.png)
-7.  Collapse the Emitter Update section, then locate and expand the **Add Velocity** section. 
-8.  Set the **Minimum** and **Maximum** velocity to the following values.  
+6.  Collapse the Render section, then locate and expand the **Emitter Update** section. Locate the **Spawn Rate** module.
+7.  In the **Spawn Rate** module, change the **Spawn Rate** value to **50**.  
+    ![](CreateSpriteBasedEffect_Steps_Step6-EmitterUpdate.png)(w:400)
+8.  Collapse the Emitter Update section, then locate and expand the **Particle Spawn** section. Expand the **Add Velocity** module.
+9.  Set the **Minimum** and **Maximum** velocity to the following values.  
     ![](CreateSpriteBasedEffect_Steps_Step8-AddVelocityMinMax.png)
     
-    | Property Name | Value |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | X: 0.0, Y: 0.0, Z: 50.0 |
-    | **Maximum** | X: 0.0, Y: 0.0, Z: 200.0 |
-    
-9.  Locate the **Sphere Location** section.
-10.  Set the **Sphere Radius** value to **64.0**. Click the white arrow to expand the section, and make sure that the **Surface Only** box has been checked.  
+    | Minimum | X: 0.0, Y: 0.0, Z: 50.0 |
+    | Maximum | X: 0.0, Y: 0.0, Z: 200.0 |
+
+10.  Expand the **Sphere Location** module. Change the **Sphere Radius** value to **64.0**. Click the white arrow at the bottom of the module to expand it, and make sure that the **Surface Only** box has been checked.  
     ![](CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png "CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png")
-11.  Locate the **Set Variables** section.
-12.  Expand the **Particles.Lifetime** variable. This displays the **Minimum** and **Maximum **fields.  
-    
-13.  Set the **Minimum** and **Maximum** lifetime fields to the following values.  
+11.  Locate and expand the **Set Variables** section. Expand the **Particles.Lifetime** variable toÂ displayÂ the **Minimum** and **Maximum** fields.
+12.  Set the **Minimum** and **Maximum** fields to the following values.  
     ![](CreateSpriteBasedEffect_Steps_Step13-ParticlesLifetimeMinMax.png)
     
-    | Property Name | Value |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | 2.0 |
-    | **Maximum** | 3.0 |
+    | Minimum | 2.0 |
+    | Maximum | 3.0 |
     
-14.  Expand the **Particles.SpriteSize** variable to display the **Minimum** and **Maximum** fields.
-15.  Set the **Minimum** and **Maximum** fields to the following values.  
+13.  Expand the **Particles.SpriteSize** variable to display the **Minimum** and **Maximum** fields.
+14.  Set the **Minimum** and **Maximum** fields to the following values.  
     ![](CreateSpriteBasedEffect_Steps_Step15-ParticlesSpriteSizeMinMax.png)
     
-    | Property Name | Value |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | X: 200.0, Y: 200.0 |
-    | **Maximum** | X: 700.0, Y: 700.0 |
-    
-16.  Collapse the Particle Spawn section, then locate and expand the **Particle Update** section. 
-17. Locate the **Acceleration Force** section. Set the **Z** value to **500**.  
+    | Minimum | X: 200.0, Y: 200.0 |
+    | Maximum | X: 700.0, Y: 700.0 |
+
+15.  Collapse the Particle Spawn section, then locate and expand the **Particle Update** section.
+16.  Expand the **Acceleration Force** section. Change the **Acceleration Z** value to **500**.  
     ![](CreateSpriteBasedEffect_Steps_Step17_AccelerationForce.png)
     [REGION:note]
     If your particle flow is going up and then down (like a fountain), make sure your **Z** value is **positive** and not negative. Positive goes up, negative goes down.
     [/REGION]
-18. Click the **Plus** sign icon (**+**) next to **Particle Update** to display a list of options. Select **Set Specific Parameters > Particles.SubImageIndex**.  This adds a **Set Variables** section for Particles.SubImageIndex.  
+17.  Click the **Plus** sign icon (**+**) next to **Particle Update** to display a list of options. Select **Set Specific Parameters > Particles.SubImageIndex**. This adds a **Set Variables** section for Particles.SubImageIndex.  
     [REGION:imagetable]
-    | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex1.png) | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex2.png) |
+    | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex1.jpg)(w:555) | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex2.jpg)(w:550) |
     | --- | --- |
     [/REGION]
-19. In the **Particles.SubImageIndex** section, click the white triangle next to **Particle.SubImageIndex** to display a list of options. Select **Dynamic Inputs > Float From Curve**.  
+18.  In the **Particles.SubImageIndex** variable, click the white triangle across from **Particle.SubImageIndex** to display a list of options. Select **Dynamic Inputs > Float From Curve**.  
     ![](CreateSpriteBasedEffect_Steps_Step19-ParticlesSubImageIndexFloatCurve.png)
-20. In the **Curve** input window, click the first key on the left side of the curve. For this key, set its **Time** and **Value** to **0.0**.  
-    ![](CreateSpriteBasedEffect_Steps_Step20-FloatCurveFirstKey.png)
-21. Click the second key on the right side of the curve, and make sure that its **Time** is set to **1.0** and the **Value** is set to **0****.64**.  
+19.  In the **Curve** input window, click the first key on the left side of the curve. For this key, set its **Time** and **Value** to **0.0**.  
+    ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveFirstKey2.png)
+20.  Click the second key on the right side of the curve, and make sure that its **Time** is set to **1.0** and the **Value** is set to **.64**.  
     ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveSecondKey.png)
-22. In the **Particles.SubImageIndex** variable, press the small white triangle next to **CurveIndex** to display a list of options. Select **Link Inputs > Particle Attributes > Normalized Age**.  
-    ![](CreateSpriteBasedEffect_Steps_Step22-CurveIndexNormalizedAge.png)
-23. Then click the **Compile**, **Apply** and **Save** buttons to apply and save the changes, and close the **FX_Smoke** Niagara Emitter.  
+21.  In the **Particles.SubImageIndex** variable, press the small white triangle across from **CurveIndex** to display a list of options. Select **Link Inputs > Particle Attributes > Normalized Age**.  
+    ![](CreateSpriteBasedEffect_Steps_Step21-CurveIndexNormalizedAge.png)
+22.  Then click the **Compile**, **Apply** and **Save** buttons to apply and save the changes, and close the **FX_Smoke** Niagara Emitter.  
     ![](SE_15.png)
-24. Now over in the **Content Browser**, right-click and select **FX > Niagara System**. Name the new Niagara System **Smoke**.  
+23.  Right-click in the **Content Browser**, and from the displayed menu select **FX > Niagara System**. The Niagara System wizard displays.  
     ![](SE_16.png)
-25. Double-click the **Smoke** Niagara System to open it, and drag the **FX_Smoke** emitter from the Content Browser to the **Timeline**.  
-    ![](SE_17.png)
-26. Click the **Compile** and **Save** buttons to apply and save your changes, then close the Smoke Niagara System. In the Content Browser, drag the **Smoke** Niagara System into the level viewport.
+24.  Click the radio button next to **Create an empty system with no emitters**. Then click **OK**.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+25.  Name the new Niagara System **Smoke**.  
+    ![](NiagaraSystem_NewSmokeSystem.png)(w:75)
+26.  Double-click the **Smoke** Niagara System to open it, and drag the **FX_Smoke** emitter from the Content Browser to the **Timeline**.  
+    ![](SE_17.png)(w:400)
+27.  Click the **Compile** and **Save** buttons to apply and save your changes, then close the Smoke Niagara System.
+28.  In the Content Browser, drag the **Smoke** Niagara System into the Level Viewport.
 
 ## End Result
 
-When complete, you will have a Niagara System playing the Niagara Emitter when you place the Niagara System in a level (like in the following video).
+After following the steps in this How-To, theÂ Niagara System placed in the levelÂ playsÂ the Niagara Emitter, producing your effectÂ (like in the following video).
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    3mGxYRZDORY
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ 3mGxYRZDORY
+ [/PARAMLITERAL]
 [/OBJECT]

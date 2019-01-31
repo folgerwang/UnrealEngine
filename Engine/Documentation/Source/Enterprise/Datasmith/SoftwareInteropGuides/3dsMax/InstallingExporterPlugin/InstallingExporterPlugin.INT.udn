@@ -1,0 +1,65 @@
+Availability: Public
+Crumbs: 
+Title: Installing the Datasmith Exporter Plugin for 3ds Max
+Description: Describes how to install and uninstall the Datasmith Exporter plugin for 3ds Max.
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/3dsMax
+Order: 4
+Tags: Enterprise
+Tags: 3DS Max
+Tags: how to
+Tags: Datasmith
+Tags: studio
+
+
+![](datasmith-setup-install-max-2.png)
+
+Before you can get started working with your 3ds Max content in the Unreal Engine, you need to install the Unreal Datasmith Exporter plugin for 3ds Max.
+
+To see what versions of 3ds Max the exporter plugin currently supports, see [Datasmith Supported Software and File Types](Enterprise/Datasmith/SupportedSoftwareAndFileTypes).
+
+[REGION:tip]
+We encourage you to share the download link to the Datasmith Exporter plugins with any number of people, both inside and outside of your organization. An Unreal Studio entitlement is not required to download and use the Datasmith Exporter plugins. Please note, however, that you are not permitted to distribute the Datasmith Exporter plugins themselves.
+[/REGION]
+
+## Installing the Datasmith Exporter for 3ds Max
+
+Follow the steps below to install the Datasmith Exporter plugin for any supported version of 3ds Max that you have installed on your computer.
+
+1.  Close any instances of Autodesk 3ds Max that are running on your machine. If any instances are still running, the installation will fail.
+1.  If you have already installed an older version of the Datasmith Exporter plugin, we recommend uninstalling it first. For details, see [Removing the Datasmith Exporter for 3ds Max](#removingthedatasmithexporterfor3dsmax) below.
+1.  Download the Exporter plugin from the [Datasmith Export Plugins download](https://www.unrealengine.com/studio/downloads) page.
+1.  When the download has completed, run the installer, accept the license agreement, and follow the prompts.  
+    ![Datasmith Exporter installer wizard](3DS_Install_1.png "Datasmith Exporter installer wizard")
+1.  You may see a security warning due to the plugin installer not being registered with Microsoft yet. Click **More info**.  
+    ![More info](unnamed-image-resize546x189.png "More info")  
+    Then click **Run Anyway**.  
+    ![Run anyway](unnamed-image-resize549x190.png "Run anyway")
+1.  The installer automatically detects the versions of Autodesk 3ds Max installed on your system. Check the box for each version that you want to be able to export through Datasmith, and click **Install**.  
+    ![Choose a version of 3ds Max](3DS_Install_3.png "Choose a version of 3ds Max")
+
+### End Result
+
+Now that you have the Datasmith Exporter plugin installed, you can move on to export a scene from 3ds Max as a *.udatasmith* file. See [Exporting Datasmith Content from 3ds Max.](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/ExportingDatasmithContentfrom3dsMax)
+
+## Removing the Datasmith Exporter for 3ds Max
+
+Use the standard Windows control panel utilities to find and remove the **Unreal Datasmith Exporter for 3ds Max** application from your system.
+
+For example, on Windows 10, you can use the **Apps & features** control panel. Click the entry for your Datasmith exporter plugin in the list, then click **Uninstall**:
+
+[REGION:lightbox]
+[![](uninstall-datasmith-max-plugin-appsfeatures.png)](uninstall-datasmith-max-plugin-appsfeatures.png)
+
+*Click for full image.*
+[/REGION]
+
+Or, use the **Uninstall or change a program** control panel. Right-click the entry for your Datasmith exporter plugin, and choose **Uninstall** from the contextual menu:
+
+[REGION:lightbox]
+[![](uninstall-datasmith-max-plugin-uninstallchange.png)](uninstall-datasmith-max-plugin-uninstallchange.png)
+
+*Click for full image.*
+[/REGION]

@@ -111,7 +111,7 @@ SkillLevel: Beginner
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	현재 리눅스용으로는 언리얼 엔진 바이너리 인스톨러를 제공하지 않습니다.
+	현재 Linux용으로는 언리얼 엔진 바이너리 인스톨러를 제공하지 않습니다.
 	[REGION:tip]
 	소스에서 언리얼 엔진 빌드는 가능한데, [](GettingStarted/DownloadingUnrealEngine) 문서를 참고해 주시기 바랍니다.
 	[/REGION]

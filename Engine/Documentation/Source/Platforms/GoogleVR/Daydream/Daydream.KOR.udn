@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3721937
+INTSourceChangelist:3721937
 Availability: Public
 Crumbs: %ROOT%
-Title: 구글 VR 과 데이드림 디바이스
-Description: 데이드림 디바이스 전용 구글 VR 기능입니다.
+Title: Google VR 과 Daydream 디바이스
+Description: Daydream 디바이스 전용 Google VR 기능입니다.
 Type: Overview
 SkillLevel: Intermediate
 Version: 4.17
@@ -15,21 +15,21 @@ topic-image:Platforms\GoogleVR\GoogleVR_Topic_Image.png
 [TOC(start:2)]
 
 [region:note]
-Google (구글)에서는 Daydream (데이드림)을 최대한 활용하기 위해 알아야하는 것들이 총망라된 매우 자세한 문서를 제공하고 있습니다. [Official Google Daydream Unreal](https://developers.google.com/vr/unreal/) 도움말 사이트에서 문서를 찾아보실 수 있습니다.
+Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것들이 총망라된 매우 자세한 문서를 제공하고 있습니다. [Official Google Daydream Unreal](https://developers.google.com/vr/unreal/) 도움말 사이트에서 문서를 찾아보실 수 있습니다.
 [/region]
 
 
-구글 VR이 대부분의 안드로이드 기반 디바이스와 호환되기는 하지만, 데이드림 디바이스에서만 작동하는 기능도 있습니다. 여기서는 그러한 기능에는 어떤 것이 있는지, 프로젝트에서 사용하려면 어떻게 해야 하는지를 살펴보겠습니다.
+Google VR이 대부분의 Android 기반 디바이스와 호환되기는 하지만, Daydream 디바이스에서만 작동하는 기능도 있습니다. 여기서는 그러한 기능에는 어떤 것이 있는지, 프로젝트에서 사용하려면 어떻게 해야 하는지를 살펴보겠습니다.
 
 ## 언리얼 엔진용 Google Daydream 다운로드
 
-이제 구글 데이드림에는 에픽게임즈 런처에서 다운로드할 수 있는 언리얼 엔진 바이너리가 포함되어 나옵니다. GitHub 에서 다운로드하여 컴파일할 수 있는 언리얼 엔진 소스도 준비되어 있습니다.
+이제 Google Daydream에는 에픽게임즈 런처에서 다운로드할 수 있는 언리얼 엔진 바이너리가 포함되어 나옵니다. GitHub 에서 다운로드하여 컴파일할 수 있는 언리얼 엔진 소스도 준비되어 있습니다.
 * [에픽게임즈 런처](https://www.epicgames.com/unrealtournament/download)
 * [에픽게임즈 Github](https://github.com/EpicGames)
 
-## 안드로이드 NDK 12b
+## Android NDK 12b
 
-데이드림 전체 기능에 접근하기 위해서는, Android Works NDK 버전이 12b 로 업데이트되었는지 확인해야 합니다. Android Works 설치 관련 상세 정보는 아래 링크를 참고하세요.
+Daydream 전체 기능에 접근하기 위해서는, Android Works NDK 버전이 12b 로 업데이트되었는지 확인해야 합니다. Android Works 설치 관련 상세 정보는 아래 링크를 참고하세요.
 
 * [](Platforms/Android/GettingStarted/1)
 
@@ -45,9 +45,9 @@ Google (구글)에서는 Daydream (데이드림)을 최대한 활용하기 위�
 
 ## 스캔라인 레이싱 사용
 
-**Scanline Racing** (스캔라인 레이싱)은 VR 프로젝트의 지연시간을 감소시켜 주는 데이드림 전용 기능입니다. 데이드림 디바이스용 구글 VR 프로젝트에서 스캔라인 레이싱 기능을 켜는 방법은 다음과 같습니다:
+**Scanline Racing** (스캔라인 레이싱)은 VR 프로젝트의 지연시간을 감소시켜 주는 Daydream 전용 기능입니다. Daydream 디바이스용 Google VR 프로젝트에서 스캔라인 레이싱 기능을 켜는 방법은 다음과 같습니다:
 
-1. **프로젝트 세팅** 을 열고 **플랫폼** > **안드로이드** 로 갑니다. **APKPackaging** 섹션 아래 다음과 같이 설정합니다:
+1. **프로젝트 세팅** 을 열고 **플랫폼** > **Android** 로 갑니다. **APKPackaging** 섹션 아래 다음과 같이 설정합니다:
 
     * Minimum SDK Version: **24**
     * Target SDK Version: **24**
@@ -89,11 +89,11 @@ Google (구글)에서는 Daydream (데이드림)을 최대한 활용하기 위�
     [/REGION]
 
 
-다음 번 언리얼 엔진 프로젝트를 쿠킹하고 데이드림 디바이스에 설치하면 지연시간이 낮은 렌더링이 가능해질 것입니다.
+다음 번 언리얼 엔진 프로젝트를 쿠킹하고 Daydream 디바이스에 설치하면 지연시간이 낮은 렌더링이 가능해질 것입니다.
 
-## 데이드림 모션 컨트롤러
+## Daydream 모션 컨트롤러
 
-데이드림 디바이스 고유 기능 중 하나는, 자체 모션 컨트롤러 지원입니다. 데이드림 디바이스용 모션 컨트롤러 구성 방법은 다음 안내서를 참고하세요:
+Daydream 디바이스 고유 기능 중 하나는, 자체 모션 컨트롤러 지원입니다. Daydream 디바이스용 모션 컨트롤러 구성 방법은 다음 안내서를 참고하세요:
 
 * [](Platforms\GoogleVR\HowTo\MotionController)
 

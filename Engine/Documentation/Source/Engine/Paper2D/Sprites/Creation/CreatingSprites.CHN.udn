@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:0
-Title:Creating Sprites
+﻿INTSourceChangelist:3782314
+Title:创建Sprites
 Crumbs: %ROOT%, Engine, Engine/Paper2D, Engine/Paper2D/Sprites
 Description:
 Availability:Docs
@@ -7,64 +7,63 @@ Availability:Docs
 [TOC(start:2)]
 
 
-## Overview
 
-Sprites are created in the Content Browser, like other assets. They can be created from scratch as blank assets, generated from other existing assets, or created using imported data.
+和其他资源一样，**Sprite** 在内容浏览器中创建。可以空白资源的形式从头开始创建，从其他现有资源生成，或者使用导入的数据创建。
 
-## Blank Sprite Asset
+## 空白Sprite资源
 
-**To create a new blank Sprite asset:**
+**要创建新的空白Sprite资源：**
 
-1. Click the ![New](button_cb_new.png)(h:24) button in the Content Browser
+1. 单击 **内容浏览器** 中的 ![新建（New）](button_cb_new.png) 按钮。
 
-1. Under Miscellaneous, select Sprite.
+1. 在 _Miscellaneous_ 下，选择 **Sprite**。
 	
 	![](sprite_new_menu.png)
 
-1. Name the new Sprite asset.
+1. 为新Sprite资源命名。
 
 	![](sprite_new_name.png)
 
-1. Double-click the new Sprite asset to open it in the Sprite Editor
+1. **双击** 新Sprite资源，以在 **Sprite编辑器** 中将其打开。
 
-1. In the **Details** panel, you can assign a Texture to the Sprite asset using the **Source Texture** property.
+1. 在 **细节（Details）** 面板中，可以使用 **源纹理（Source Texture）** 属性为该Sprite资源指定纹理。
 	
 	![](sprite_new_details_texture.png)
 
-## Single Sprite from Texture
+## 从纹理创建单个Sprite
 
-**To create a sprite from an existing Texture asset:**
+**要从现有纹理资源创建Sprite：**
 
-1. In the Content Browser, right-click on the Texture asset and choose **Create Sprite**.
+1. 在内容浏览器中，**右键单击** 纹理资源并选择 **创建Sprite（Create Sprite）**。
 
 	![](sprite_create_menu.png)
 
-1. Name the new Sprite asset.
+1. 为新Sprite资源命名。
 
 	![](sprite_create_name.png)
 
 
-## Series of Sprites from Sprite Sheet Texture
+## 从Sprite表单纹理创建一系列Sprite
 
-1. In the Content browser, right-click on the sprite sheet Texture and choose **Extract Sprites**.
+1. 在内容浏览器中，**右键单击** Sprite表单纹理并选择 **提取Sprite（Extract Sprites）**。
 
 	![](sprite_extract_menu.png)
 
-1. Any Sprites in the image that are separated by transparency are automatically identified and created.
+1. 将自动辨识并创建按透明度分隔的图像中的Sprite。
 
 	![](sprite_extract_result.png)(convert:false)
 
 
 [REGION:tip]
-Select all of the new Sprite assets, Right-click on them, and choose **Create Flipbooks** to generate a Flipbook asset from the new Sprites.
+选择所有新的Sprite资源，**右键单击** 它们，然后选择 **创建图像序列视图（Create Flipbooks）**，以从新Sprite生成图像序列视图资源。
 
 ![](sprite_create_flipbook.gif)(convert:false)
 [/REGION]
 
 [COMMENT:none]
  
-## Series of Sprites from JSON Sprite Sheet
+## 从JSON Sprite表单创建一系列Sprite
 
-By importing a JSON formatted sprite sheet description, which will import associated textures and create sprites and a flipbook for the described frames.
+方法是导入JSON格式的Sprite表单描述，此操作会导入相关的纹理并为描述的帧创建Sprite和图像序列视图）。
 
 [/COMMENT]

@@ -1,19 +1,19 @@
-﻿INTSourceChangelist:3484583
+﻿INTSourceChangelist:4674424
 Title:Google VR 开发	
+Description:使用UE4进行Google VR开发的相关信息。
+Version: 4.17
 Crumbs:%ROOT%, Platforms
-Description:
-Availability:Public
-Navigation:platform
-Platform:GoogleVR
-Version:4.12
 type:landing
-parent:Platforms/VR
-tags:VR
+Parent: Platforms/VR
+Order: 1
 tags:Google VR
 tags:Platform
-prereq:Platforms/Android/GettingStarted/
+tags:VR
+Tags: Mobile VR
+prereq: Platforms/Android/GettingStarted
 social-image:googlevr_social.png
 topic-image:GoogleVR_Topic_Image.png
+
 
 ![](googlevr_social.png)
 
@@ -21,17 +21,26 @@ topic-image:GoogleVR_Topic_Image.png
 Google 已编写了一份详细文档，其中详述了如何充分利用 Daydream。访问 [官方 Google Daydream Unreal](https://developers.google.com/vr/unreal/) 帮助站点即可阅读此文档。
 [/region]
 
-## 开始
+(#StartingOut)
+## 开始 
 
 Google VR 快速入门讲述如何让电脑和安卓智能手机使用 UE4 和 Google VR。
 
-[DIR(output:"topic" type:"quick start" parent:"Platforms/GoogleVR")]
+[DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/GoogleVR")]
 
-## Google VR Daydream
+(#SamsungGearVRDevelopment)
+## 三星设备VR开发
 
-Google Daydream 可启用一些特定的渲染优化，并通过 Google VR SDK 针对 Daydream 设备使用运动控制器。
+[DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/GoogleVR")]
 
-[DIR(output:"topic" type:"overview" parent:"Platforms/GoogleVR")]
+(#Guides)
+## 指南
+
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Intermediate" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Advanced" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Expert" parent:"Platforms/GoogleVR" org:"flat")]
+
 
 
  

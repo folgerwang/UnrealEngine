@@ -1,0 +1,25 @@
+﻿INTSourceChangelist:4381297
+Availability: Public
+Crumbs: 
+Title: ARPG中的技能
+Description: 概述ARPG中的技能是如何设置与运作的。
+Type: 
+Version: 4.20
+Parent: Resrouces/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 3
+Tags: 
+
+
+动作RPG（ARPG）中的技能与近战技能的工作原理相似，但是所使用的目标选定和消耗逻辑不同。每个技能和除火球以外的武器次要攻击都使用和近战能力相似的蓝图逻辑，但是实际目标选定在蓝图中进行。**TargetTypes** 是支持碰撞追踪逻辑执行的 **非实例化的常量蓝图**（或原生类）。具体来说，它们使用 **TargetType_SphereTrace** 的蓝图子类，TargetType_SphereTrace使用球体碰撞形态进行一系列追踪。每个需要不同范围或半径的技能都会创建 **TargetType_SphereTrace** 的子类，并在它们的 **EffectContainerMap** 中使用其子类。**TargetTypes** 是ARPG中特有的类，是关于如何在非预测游戏中执行目标选定的示例。大部分游戏具有的目标选定要复杂得多，出于性能考虑，可能需要完全在原生代码中进行实现。  
+
+除伤害效果以外，技能还具有冷却和消耗。例如，**GA_PlayerSkillFireWave** 技能指向 **GE_PlayerSkillFireWave** 伤害效果，**GE_PlayerSkillManaCost** 效果用于处理法力使用，**GE_PlayerSkillCooldown** 效果用于管理冷却。消耗效果是可降低法力的简单瞬时修饰符，但是，如果不足以承担消耗，将无法执行技能。冷却是在激活时应用GameplayTag的时长Gameplay效果。只要该 **GameplayTag** 在技能系统组件中处于激活状态，就不允许激活任何使用其作为冷却标记的技能。这使得可在多个技能之间共享冷却以及从UI系统查询冷却。
+
+**GA_PlayerSkillFireball** 技能是一个更为复杂的技能，是如何使用技能系统实现发射物的示例。以下是 **GA_SpawnProjectileBase** 的技能蓝图逻辑：
+
+[REGION:lightbox]
+[![](ARPG_Skill_Abilities_01.png)(w:800px)](ARPG_Skill_Abilities_01.png)
+[/REGION]
+
+单击查看大图。
+
+大部分逻辑都与 **GA_MeleeBase** 相同，但是在接收到事件后，它不立即应用效果，而是创建 **EffectContainerSpec**，然后将其传入生成的 **BP_AbilityProjectileBase **蓝图。然后该发射物会移动并寻找重叠的Actor。当与某个Actor重叠时，它将使用新的目标选定信息修改传向它的 **EffectContainerSpec** 并进行应用。这也是之前的 **ApplyEffectContainer** 函数被一分为二的原因。这么做意味着发射物本身不需要具有其自己的技能系统组件或属性，而是可以使用运行原始技能的任何东西的属性。

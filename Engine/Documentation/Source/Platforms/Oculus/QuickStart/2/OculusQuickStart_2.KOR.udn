@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3718992
 Availability: Public
 Crumbs: %ROOT%
-Title: 2. 오큘러스 런타임 설치
-Description: 오큘러스 리프트에서의 게임 실행에 필요한 소프트웨어를 다운로드하고 설치합니다.
+Title: 2. Oculus 런타임 설치
+Description: Oculus 리프트에서의 게임 실행에 필요한 소프트웨어를 다운로드하고 설치합니다.
 Type: quick start
 SkillLevel: Beginner
 Version: 4.17
@@ -13,18 +13,18 @@ Checkpoint: RIFTQS
 
 [NAV]
 
-여기서는 오큘러스 런타임 설치 방법과 아울러 설치 프로세스 도중 벌어질 수 있는 문제 해결 방법을 알아보도록 하겠습니다.
+여기서는 Oculus 런타임 설치 방법과 아울러 설치 프로세스 도중 벌어질 수 있는 문제 해결 방법을 알아보도록 하겠습니다.
 
 [region:note]
-오큘러스 런타임 설치 도중 30 - 60 분 동안 인터넷 연결이 필요합니다.
+Oculus 런타임 설치 도중 30 - 60 분 동안 인터넷 연결이 필요합니다.
 [/region]
 
 
-1. 오큘러스 런타임 다운로드가 완료되면, **OculusSetup.exe** 를 찾아 더블클릭하여 설치를 시작합니다.
+1. Oculus 런타임 다운로드가 완료되면, **OculusSetup.exe** 를 찾아 더블클릭하여 설치를 시작합니다.
 
     ![](RIft_EXE_Download_00.png)
 
-1. 오큘러스 리프트 인스톨러가 열리면, **Let's Go** 버튼을 눌러 설치를 시작합니다.
+1. Oculus 리프트 인스톨러가 열리면, **Let's Go** 버튼을 눌러 설치를 시작합니다.
 
     ![](Rift_Install_Start_00.png)
 

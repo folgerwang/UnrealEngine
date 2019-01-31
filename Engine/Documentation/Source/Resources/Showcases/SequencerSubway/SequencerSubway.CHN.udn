@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3038067
+﻿INTSourceChangelist:3782314
 Title:Sequencer Subway
 Crumbs:
 Description:Sequencer 范例展示如何借助虚幻引擎 4 的 Sequencer 编辑器创建影片级别的过场动画。
@@ -7,46 +7,7 @@ Related:Engine/Sequencer
 Related:Engine/Sequencer/HowTo/TracksShot
 Related:Engine/Sequencer/HowTo/ViewportOptions
 tags:Sequencer
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/SequencerSubway:title%](SequencerSubway_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/SequencerSubway:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/SequencerSubway:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/SequencerSubway]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/SequencerSubway:title%](SequencerSubway_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/SequencerSubway:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/SequencerSubway:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/SequencerSubway]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:SequencerSubway_Topic.png
 
 [TOC]
 
@@ -58,6 +19,7 @@ Sequencer Subway 范例展示如何通过虚幻引擎 4 的 Sequencer 编辑器�
 
 此例包含使用 Matinee 编辑器创建的相同过场动画，以便您使用 Sequencer 是对比技术和工作流程。
 
+(#TheMasterSequence)
 ## Master 序列
 
 ![](Sequence_Master_Open.png)(convert:false)
@@ -66,12 +28,14 @@ _SubwaySequencerMASTER_ 序列包含组成过场动画的所有镜头和音轨�
 
 ![](Sequence_Viewport_Lock.png)(convert:false)
 
+(#InvididualShots)
 ## 单个镜头
 
 双击 master 序列中任意镜头预览将其在 Sequencer 编辑器中打开。
 
 ![](Sequence.png)(convert:false)
 
+(#ViewingtheCinematic)
 ## 查看过场
 
 点击 Sequencer 编辑器中的 **Lock Viewport to Shots** 按钮即可在启用的关卡编辑器视口中查看过场。
@@ -82,6 +46,7 @@ _SubwaySequencerMASTER_ 序列包含组成过场动画的所有镜头和音轨�
 
 ![](Sequence_Viewport.png)(convert:false)
 
+(#CinematicViewport)
 ## 过场视口
 
 可切换视口使用带完整传输功能按钮的高级过场视口和高级可视覆层。

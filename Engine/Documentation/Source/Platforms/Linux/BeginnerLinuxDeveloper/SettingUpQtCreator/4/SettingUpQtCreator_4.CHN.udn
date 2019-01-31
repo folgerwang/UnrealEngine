@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3719888
 Availability:Public
-Title: 4 - Running UE4 from Qt Creator
+Title: 4 - 从Qt Creator运行UE4
 Crumbs:%ROOT%
-Description:Learn how to run Unreal Engine from your IDE.
+Description:学习如何从您的集成开发环境（IDE）运行虚幻引擎。
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -12,38 +12,38 @@ SkillLevel:Beginner
 
 [NAV]
 
-Now that you've compiled the engine, you're ready to run the editor. During this step, you're going to use the IDE to run UE4.
+现在您已编译了引擎，接着可以运行编辑器了。在此步骤中，您将使用IDE来运行UE4。
 
-1.	If you want to view the status of your application while running UE4, you'll want to open the **Application Output** window pane. To open the **Application Output** window pane, press the **Alt+3** keyboard combination.
+1. 	如果要在运行UE4时查看应用程序的状态，需要打开 **应用程序输出（Application Output）** 窗口窗格。要打开 **应用程序输出（Application Output）** 窗口窗格，按 **Alt+3** 组合键。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step17a.png)(w:720)](SetupIDE_Step17a.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	To run UE4 from the IDE, click the **Run** button. Alternatively, you can press the **Ctrl+R** keyboard combination to run UE4 from the IDE.
+1. 	要从IDE中运行UE4，单击 **运行（Run）** 按钮。或者，可以按 **Ctrl+R** 组合键来从IDE运行UE4。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step17.png)(w:720)](SetupIDE_Step17.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-## End Result
+## 最终结果
 
 [REGION:lightbox]
 	[![](SetupIDE_Step18.png)(w:720)](SetupIDE_Step18.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	单击查看大图。
 [/REGION]
 
-Congratulations! You should now see UE4 running from your IDE.
+恭喜！现在您应该看到UE4在IDE中运行。
 
 [NAV]

@@ -1,0 +1,220 @@
+﻿INTSourceChangelist:4548908
+Availability: Public
+Crumbs: 
+Title: Unreal Studio 4.21版本说明
+Description: 介绍了Unreal Studio 4.21版的最新功能。
+Type: 
+Version: 4.21
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:product_viewer_explode.gif
+reference-image:product_viewer_parenting.gif
+
+
+该版本专为虚幻工作室订户提供了一些重要的新功能，包括根据您的反馈和建议做出的一些工作流程改进。本页介绍该版本中的新增功能。
+
+## 使用Datasmith从Autodesk Revit导入（抢先体验）
+
+您现在可以使用Datasmith将Revit中的整个场景快速且可重复地导入到虚幻中。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Revit](image2.png "Revit")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![虚幻引擎](image3.png "Unreal Engine")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+Revit用户现在可以体验Datasmith已经为其他格式（如3ds Max和SketchUp）提供的相同[导入](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview)和[重新导入](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow)工作流程的好处。
+
+1.  针对Revit[安装Datasmith导出工具](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit/InstallingExporterPlugin)插件。
+2.  从Revit[导出3D视图](https://docs.unrealengine.com/Studio/Datasmith/SoftwareInteropGuides/Revit/ExportingDatasmithContentfromRevit)。
+3.  然后[使用Datasmith导入工具](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ImportingContent)将3D视图内容导入到虚幻引擎项目中。
+
+该导入过程还包括实例属性，它们会自动转换为Datasmith元数据。您可以在虚幻编辑器中访问该元数据，这样有助于您编写脚本和自动化资源管理和关卡准备。您还可以在运行时UI小部件和蓝图游戏脚本中访问它，以将其呈现给查看者并在互动元素中使用。请参阅[使用Datasmith元数据](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/UsingDatasmithMetadata)。
+
+有关转换过程的更多信息，请参阅[将Datasmith与Revit搭配使用](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit)。
+
+*以上图片由Turbosquid提供*
+
+## 多用户设计审查模板
+
+将多个人员聚集起来，共享以您的设计内容为核心构建的单一互动体验。我们在该模板中设置了联网和在参与者之间复制数据所需的一切内容，因此您可以集中精力处理内容和视觉效果。
+
+![多用户查看器模板](image12.png)(convert:false)
+
+一个环节中的所有参与者都会看到其他人在关卡中四处移动时的彩色头像。您可以浏览场景，使用标准键盘和鼠标或VR头显和VR控制器指出感兴趣的功能。
+
+要开始使用，请参阅[多用户查看器模板](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/MultiUserViewer)。
+
+## 改进了3ds Max材质结果
+
+我们已经大幅改进了使用Datasmith从3ds Max导入场景时，用户在虚幻引擎中得到的现成材质保真度和视觉效果。
+
+*本部分中的图片由Neoscape提供*
+
+### 材质实例
+
+现在，Datasmit会尽可能为它从3ds Max导入的每一类表面创建父材质，并将放在“主（Master）”子文件夹中。它使用材质实例将每一个主材质应用于静态网格体。
+
+![主材质](image1.png)(convert:false)
+*Master文件夹中的父材质*
+
+![材质实例](image18.png)(convert:false)
+*Materials文件夹中的材质实例*
+
+### 改良了V-Ray材质转换
+
+从3ds Max导入V-Ray材质会在虚幻引擎中产生更易于预测和一致的结果，尤其是使用IOR、金属和凹凸贴图的表面。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20：注意雕像上的平面着色](image7.png "4.20: note the flat shading on the statue")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21：改进了凹凸贴图和反射](image9.png "4.21: improved bump maps and reflectance")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### 更加一致的材质图
+
+在之前的版本中，3ds Max中相对简单的属性通常会不必要地转换为虚幻引擎材质中复杂的节点链中。在本版本中，如果需要重现与3ds Max材质相似的复杂程度，则幻引擎材质图可能仍然很复杂，但应该更加一致并已优化。  
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20](image5.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21](image10.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### 更多贴图类型
+
+本版本引入了对更多3ds Max贴图的支持，如衰减、混合、色彩校正、合成、贴片等。
+
+## 简化了UE4中的网格体和组合体
+
+导入到虚幻引擎中的几何结构和组合体不会总是从头开始建模来满足实时渲染的严格性能需求——尤其是以支持制造流程所需的精度创建几何结构的情况。
+
+本版本提供两个新工具，供您从导入的几何结构中移除不必要的三角形，提高渲染速度和性能。[模型简化](https://docs.unrealengine.com/en-us/Studio/Builds/StudioRN421#defeaturing)和[包壳](https://docs.unrealengine.com/en-us/Studio/Builds/StudioRN421#jacketing)。
+
+### 模型简化
+
+模型简化会自动移除几何结构中的小凹凸、孔和缺口，保留较为光滑的表面，并从静态网格体中移除不必要的三角形。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![超过20,000个三角形](image14.png "Over 20,000 triangles")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![填充了孔，11,500个三角形](image11.png "With holes filled, 11,500 triangles")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+如果您不需要这些特征也能产生良好的对象渲染效果，尤其是几何结构包含数百个甚至数千个重复的特征（如扬声器网罩）时，该功能十分有用。通过在最高细节层次从几何结构移除可辨识的特征，您还可以将您为该几何结构生成的任何LOD变得更加简洁。
+
+有关详细信息，请参阅[通过模型简化来简化静态网格体](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Defeaturing)。
+
+### 包壳
+
+包壳识别始终被遮挡而无法看到的静态网格体Actor和个别三角形。您可以对这些被遮挡的Actor应用一个标记，将它们移到一个新层，从关卡中移除，甚至完全从静态网格体资源中移除所有被遮挡的三角形。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![包含542个Actor的完整引擎](image15.png "Full engine with 542 Actors")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![321个Actor完全被隐藏，可以移除](image19.png "321 Actors are completely hidden, and can be removed")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+这种情况通常发生于您导入了包含内部零部件的组合体——因为内部零部件在壳内部，永远不可见，从关卡中将它们移除通常可以提高渲染速度和性能。
+
+有关详细信息，请参阅[查找和移除完全被遮挡的网格体](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Jacketing)。
+
+## 在产品查看器中分解组合体
+
+产品查看器模板现在包含一个蓝图类，可用于使关卡中的Actor生成两种不同姿势之间的流畅动画。这个功能特别适合用于分解和组合一个组合体中的各个零件，展现各部分的组合方式：
+
+![](product_viewer_explode.gif)(convert:false)
+
+此外，在运行时应用程序中选择和移动静态网格体Actor现在遵从这些对象在关卡中的父代设置。移动父代Actor也会同时移动其所有子代Actor，让它们保持当前与父代的空间关系。您还可以单独移动子代Actor。
+
+![](product_viewer_parenting.gif)(convert:false)
+
+有关详细信息，请参阅[虚幻工作室产品查看器模板](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/Studio-Product-Viewer)。
+
+## 新增静态网格体编辑选项
+
+静态网格体编辑器中的网格体编辑控件现在移到了新工具栏，并增加了一些新控件来帮助您在虚幻编辑器中快速修改几何结构。
+
+*   您可以按平滑组选择三角形。
+*   现在您可以统一法线：这会翻转相邻三角形的朝向，以与当前所选三角形的方向一致。
+*   有用的新增键盘快捷键：**+** 和 **-** 用于扩大和缩小选择区域，**F** 用于让所有所选三角形适应视口，**Delete** 用于删除所选三角形。
+*   方框选择：单击左键并在视口中拖动以选择所有交叉面。
+
+![新增静态网格体编辑选项](image13.png)(convert:false)
+
+有关网格体编辑的更多信息，请参阅[修改静态网格体几何结构](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ModifyStaticMeshGeometry)。
+
+## Datasmith重新导入工作流程改进
+
+本版本通过以下改进，让[Datasmith重新导入工作流程](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow)变得更加流畅：
+
+*   您现在可以从电脑上的其他文件位置重新导入Datasmith场景，而不是总是要覆盖原始位置中的原始场景文件。这样更容易保留已导入场景的所有不同版本，可以更轻松地在最初导入电脑以外的其他电脑上重新导入场景。  
+    请参阅[设置源文件位置](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ReimportingContent#settingthesourcefilelocation)。
+*   Datasmith现在将Actor标记和层作为覆盖跟踪。例如，如果您更改了已经分配给静态网格体Actor的Actor标记，或者将静态网格体Actor移到另一个层，那么重新导入时不会失去这些更改。
+*   重新导入流程现在能够识别您已经移到子关卡的Actor，就像它们位于固定关卡一样。您现在可以在子关卡之间自由移动Actor，而不会在重新导入Datasmith场景资源时失去这些更改。
+
+## 新增Datasmith导入格式（试验阶段）
+
+我们引入了Datasmith CAD导入工具对以下格式的支持：
+
+*   Autodesk AutoCAD *.dwg*
+*   Autodesk Alias *.wire*
+
+这些格式的支持仍处于试验阶段，并不能正式用于生产工作流程。如果您尝试了这些格式，请[向我们提供反馈](http://forums.unrealengine.com/unreal-engine/unreal-studio)，让我们知道对您的项目和工作流程有利和不利的方面。
+
+有关我们所支持的所有格式的完整清单，请参阅[Datasmith支持的软件和文件类型](https://docs.unrealengine.com/en-us/Studio/Datasmith/SupportedSoftwareAndFileTypes)。
+
+## 变体管理（试验阶段）
+
+通常，实时设计可视化需要为观看者提供多个不同变体或方案选择。例如，汽车配置器可以提供带和不带遮阳棚顶的装饰方案、有和没有尾翼的方案、表面材料选择等。对于这些情况，我们引入了一种全新的试验性方法来设置和管理变体。
+
+![设置变体集和变体](image4.png)(convert:false)
+
+您创建一个 **关卡变体集（Level Variant Sets）** 资源（**创建高级资源（Create Advanced Asset）>其他（Miscellaneous）>关卡变体集（Level Variant Sets）**），并为其设置多个不同的变体。每个变体链接到一个或多个静态网格体Actor，并控制这些静态网格体Actor的一个或多个属性。例如，一个变体可以用来切换尾翼的可见性，另一个用来切换用于制动钳的材质。
+
+提前设置好所有变体后，就可以使用新的 **LevelVariantsSetsActor** 类提供的蓝图函数在运行时体验中打开和关闭这些变体。
+
+![使用蓝图来开/关变体](image17.png)(convert:false)
+
+## 简化了MDL/AxF导入
+
+MDL和AxF文件现在集成到了标准虚幻编辑器导入流程中。您现在不必像先前版本一样使用工具栏中的 **Datasmith导入（Datasmith Import）** 按钮，而是可以使用内容浏览器中的 **导入（Import）** 按钮来导入MDL和AxF文件：
+
+![在内容浏览器中导入MDL和AxF文件](image6.png)(convert:false)
+
+## Datasmith Plus现已公开！
+
+现在，安装了Datasmith插件的所有虚幻工作室订户可以使用之前仅向具有特殊“Datasmith Plus”授权的用户开放的所有功能，包括：
+
+*   从Autodesk VRED和Deltagen导入场景
+*   从AxF文件导入材质 
+
+## 核心引擎中的相关功能
+
+除了本页概述的特定于虚幻工作室订户的功能之外，该版本虚幻引擎还包含面向所有用户提供的功能，或许包括您特别感兴趣的功能：
+
+*   像素流送
+*   地理上精准的太阳光源位置
+*   烘焙程序性能改进
+*   静态网格体处理和编辑器脚本编写
+*   Windows混合现实支持和XR更新
+
+有关引擎中的所有新功能的详细信息，请参阅[虚幻引擎4.21发行说明](https://docs.unrealengine.com/en-us/Builds/4_21)。
+

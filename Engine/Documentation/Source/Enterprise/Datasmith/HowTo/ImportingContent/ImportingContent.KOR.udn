@@ -1,0 +1,54 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 데이터스미스 콘텐츠를 언리얼 엔진 4 에 임포트
+Description: 지원하는 3D 디자인 프로그램에서 만든 파일을 데이터스미스로 언리얼 엔진에 가져오는 법을 자세히 안내합니다.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+SkillLevel:Beginner
+Order: 3
+Tags: Getting Started
+Tags:how to
+Tags: Datasmith
+Tags: overview
+Tags: beginner
+topic-image:datasmith-import-topic.png
+
+
+![](datasmith-setup-import.png)
+
+지원하는 3D 디자인 프로그램에서 만든 콘텐츠 또는 파일 포맷을 데이터스미스로 언리얼 엔진에 가져오는 방법을 설명합니다.
+
+[REGION:tip]
+Python 을 사용하여 *.udatasmith* 및 CAD 파일을 임포트하는 프로세스를 자동화할 수 있습니다. 자세한 내용은 [](Enterprise/Datasmith/Overview/CustomizingImportProcess) 문서를 참고하세요.
+[/REGION]
+
+1.  언리얼 에디터에서 데이터스미스 콘텐츠를 임포트하려는 프로젝트를 엽니다.
+    [REGION:note]
+    데이터스미스로 콘텐츠를 임포트하려면 언리얼 스튜디오 프로젝트에서 작업해야 합니다. [](Enterprise/Datasmith/HowTo/SettingUpUnrealProject) 문서를 참고하세요.
+    [/REGION]
+1.  프로젝트의 기존 레벨에 콘텐츠를 가져오려면, 그 레벨을 엽니다. 아니면 새 레벨을 만들거나 그냥 기본 레벨을 사용합니다.
+1.  메인 툴바에서 **Import Datasmith** (데이터스미스 임포트) 버튼을 찾습니다.  
+    ![툴바의 데이터스미스 임포트](DS_Import_1.png "Import Datasmith in the Toolbar")
+1.  드롭다운 화살표를 통해 필요한 데이터스미스 임포터 유형을 선택합니다.  
+    ![데이터스미스 임포터 목록](datasmith-importers-list.png "List of Datasmith importers")  
+    선택은 임포트하려는 소스 파일 유형에 따라 달라집니다.  
+    
+    *   3ds Max 또는 SketchUp 에서 익스포트한 *.udatasmith* 파일이 있으면, **Import Datasmith** (데이터스미스 임포트)를 선택합니다.
+    *   *.MDL* 또는 *.AxF* 파일이 있으면 **Import MDL** (MDL 임포트)를 선택합니다.
+    *   VRED 또는 Deltagen 에서 익스포트한 *.fbx* 파일이 있으면, **Import VRED Fbx** (VRED Fbx 임포트) 또는 **Import Deltagen Fbx** (Deltagen Fbx 임포트)를 선택합니다.
+    *   다른 대부분 파일 포맷에는 **Import CAD** (CAD 임포트)를 선택합니다.
+    
+    전체 목록은 [](Enterprise/Datasmith/SupportedSoftwareAndFileTypes) 문서를 참고하세요.
+1.  **임포트** 창에서 임포트하려는 파일을 찾아 선택하세요. **Open** (열기)를 클릭합니다.  
+    ![임포트할 파일 선택](DS_Import_2.png "Choose a file to import")
+1.  프로젝트에서 새로 임포트한 애셋을 넣을 데이터스미스용 콘텐츠 폴더를 선택합니다.  
+    ![콘텐츠 폴더 선택](DS_Import_3.png "Choose a content folder")
+    [REGION:tip]
+    데이터스미스 콘텐츠 폴더를 새로 만들려면 이 창에서 기존 폴더를 우클릭합니다.
+    [/REGION]
+1.  **데이터스미스 임포트 옵션** 창에서 소스 파일을 임포트하려는 콘텐츠 유형을 선택하고, 임포트 프로세스를 제어하는 부가 옵션 파라미터를 설정합니다.
+1.임포트 옵션 설정](UnrealDSImportOptions-1.png "Set import options")  
+    여기서 설정할 수 있는 옵션은 임포트하려는 파일 유형에 따라 달라집니다. 자세한 내용은 [](Enterprise/Datasmith/ImportOptions) 문서를 참고하세요.
+1.  **Import** (임포트)를 클릭합니다. 데이터스미스가 소스 파일을 읽어 프로젝트에 새 애셋을 생성하고 현재 레벨에 데이터스미스 씬을 배치합니다. 이 프로세스 관련 자세한 내용은 [](Enterprise/Datasmith/Overview) 문서를 참고하세요.

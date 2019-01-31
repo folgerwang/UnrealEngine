@@ -1,43 +1,45 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability: Docs
-Title:Destructible Mesh Editor UI
+Title:可破坏物网格体编辑器界面
 Crumbs:%ROOT%, Engine, Engine/Content, Engine/Physics/Destructibles/Editor
-Description:Tool used to preview the look, preview depth levels, and materials of DestructibleMesh assets.
+Description:用于预览DestructibleMesh资源外观、深度级别及材质的工具。
 
 [TOC(start:2)]
 
 
-The **Destructible Mesh Editor** consists of six areas:
+ **可破坏物网格体编辑器（Destructible Mesh Editor）** 包含以下六个区域：
 
 [REGION:fullwidth]
 ![](DM_UI.png)
 [/REGION]
-1. [Menu Bar](#MenuBar)
-1. [Toolbar](#ToolBar)
-1. [Viewport Panel](#ViewportPanel)
-1. [Destructible Settings Panel](#DestructibleSettingsPanel)
-1. [Fracture Settings Panel](#FractureSettingsPanel)
-1. [Chunk Parameters Panel](#ChunkParametersPanel)
+1.[菜单栏](#MenuBar)
+1.[工具栏](#ToolBar)
+1.[视口面板](#ViewportPanel)
+1.[可破坏物设置面板](#DestructibleSettingsPanel)
+1.[破裂设置面板](#FractureSettingsPanel)
+1.[碎块参数面板](#ChunkParametersPanel)
+
 
 [Include:Shared/Editors/Common/EditorMenuItems/#UITabTips]
 
 [COMMENT:none]
- For more information about the Destructible Mesh Editor, see [](Engine/Content\Types\APEX\Editor). 
+ 有关可破坏物网格体编辑器的更多信息，请参阅[](Engine/Content\Types\APEX\Editor)。 
 [/COMMENT]
 
-## Menu Bar
+(#MenuBar)
+##菜单栏
 
-### File
+###文件
 
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuFileSave]
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuFileSaveOptions]
 
-### Edit
+###编辑
 
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuEditUndo]
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuEditSettings]
 
-### Asset
+###资源
 
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuAssetContentBrowser]
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuAssetViewReference]
@@ -45,7 +47,7 @@ The **Destructible Mesh Editor** consists of six areas:
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuAssetReimport]
 
 
-### Window
+###窗口
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuWindowToolbar]
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuWindowViewport]
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuWindowDetails]
@@ -55,74 +57,81 @@ The **Destructible Mesh Editor** consists of six areas:
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuWindow]
 
 
-### Help
+###帮助
 
 [INCLUDE:Shared/Editors/Common/EditorMenuItems/#MenuHelp]
 
 
-## Toolbar
 
-| Item | Description |
+
+
+(#ToolBar)
+##工具栏
+
+| 选项 | 说明 |
 | ---- | ----------- |
-| **![Fracture Mesh](DM_FractureMeshIcon.png)** | This will fracture the meshes root chunk(s) based upon the Fracture Settings. |
-| **![Refresh](DM_RefreshIcon.png)** | This will refresh the DestructibleMesh from the StaticMesh it was created from. |
-| **![Import FBX Chunks](DM_FBXChunksIcon.png)** | This will import a FBX as depth level 1 chunks. |
-| **![Preview Depth](DM_PreviewDepthIcon.png)** | This is a drop down selection to preview a specific depth level of destruction. |
-| **![Explode Amount](DM_ExplodeAmtIcon.png)** | This slider will push apart the chunks of the specified Preview Depth. |
+| **![破裂网格体](DM_FractureMeshIcon.png)** | 它将根据“破裂设置”使网格体根碎块破裂。|
+| **![刷新](DM_RefreshIcon.png)** | 它将从创建了可破坏物网格体（Destructible Mesh）的静态网格体（Static Mesh）中刷新前者。|
+| **![导入FBX碎块](DM_FBXChunksIcon.png)** | 它将把FBX导入为深度级别 1 碎块。|
+| **![预览深度](DM_PreviewDepthIcon.png)** | 它是预览具体破坏深度级别的下拉选项。|
+| **![展开量](DM_ExplodeAmtIcon.png)** | 此滚动条将推开指定预览深度的碎块。|
 
 
-## Viewport Panel
+(#ViewportPanel)
+##视口面板
 
-The **Viewport** panel shows a rendered view of the Destructible Mesh asset. This allows you to examine the Destructible Mesh as it would be rendered in-game. 
-The viewport will also allow you to use different Preview Depths to see your different levels of destruction. This will allow different chunks to be selected which can be used in conjunction with the Chunk Parameters panel settings as well.  
+此 **视口（Viewport）** 面板显示可破坏物网格体资源的渲染视图。它使您能够检查如游戏中那样渲染的可破坏物网格体。该视口还允许您使用不同的预览深度来查看不同级别的破坏。它允许您选择不同碎块，而这些碎块也可以与“碎块参数”面板设置一起使用。  
 
-![Destructible Mesh Editor Preview panel](DM_Preview.png)
-
-
-
-## Destructible Settings Panel
-
-The **Destructible Settings** panel shows specific properties pertaining to the Destructible Mesh Actor, such as the Materials applied to the surface and interior, Damage settings, and flags that can enable specific abilities. 
-
-For information about the basics of using this panel, see the [**Destructibles Properties Matrix**](Engine/Physics/Destructibles/DestructibleProperties) documentation.
-
-![Editor Destructible Settings Panel](DM_Settings.png)
+![可破坏物网格体编辑器预览面板](DM_Preview.png)
 
 
-## Fracture Settings Panel
 
-The **Fracture Settings** panel shows settings to control how the Destructible Mesh Actor is broken into chunks. There are properties that pertain to the number of chunks the fracture should contain, control for the interior material UVs, and the random pattern seed. 
+(#DestructibleSettingsPanel)
+##可破坏物设置面板
 
-For information about the basics of using this panel, see the [**Destructibles Properties Matrix**](Engine/Physics/Destructibles/DestructibleProperties) documentation.
+ **可破坏物设置** 面板显示与可破坏物网格体Actor有关的特定属性，例如应用于表面与内部的材质、伤害设置以及可以启用特定能力的标记。 
 
-![Fracture Settings Panel](DM_FractureSettings.png)
+有关使用此面板的基本信息，请参阅[可破坏物属性矩阵](Engine/Physics/Destructibles/DestructibleProperties) 文档。
 
-
-## Chunk Parameters Panel
-
-The **Chunk Parameters** panel contains settings that directly affect specific chunks that are selected in the preview panel when viewing Preview Depth 1 or higher. The settings here can control whether a chunk can be damaged, fractured, crumbled, or even considered as support.
-
-For information about the basics of using this panel, see the [**Destructibles Properties Matrix**](Engine/Physics/Destructibles/DestructibleProperties) documentation.
-
-![Chunk Parameters Panel](DM_ChunkParameters.png)
+![编辑器可破坏物设置面板](DM_Settings.png)
 
 
-## Controls
+(#FractureSettingsPanel)
+##破裂设置面板
+
+ **破裂设置** 面板显示控制如何将可破坏物网格体Actor分解为碎块的设置。有些属性与破裂应包含的碎块数量、内部材质UV的控制和随机模式种子有关。 
+
+有关使用此面板的基本信息，请参阅[可破坏物属性矩阵](Engine/Physics/Destructibles/DestructibleProperties) 文档。
+
+![破裂设置面板](DM_FractureSettings.png)
 
 
-### Mouse Controls
+(#ChunkParametersPanel)
+##碎块参数面板
 
-**Viewport Panel**
+ **碎块参数** 面板包含了在查看1级或更高预览深度时将直接影响预览面板中所选特定碎块的设置。此处的设置可以控制碎块是否可以被损坏，破碎，粉碎乃至视为支持。
+
+有关使用此面板的基本信息，请参阅[可破坏物属性矩阵](Engine/Physics/Destructibles/DestructibleProperties) 文档。
+
+![碎块参数面板](DM_ChunkParameters.png)
 
 
-* **LMB + Drag** - If the camera is locked, rotates the mesh around its Z axis and moves towards or away from the origin. Otherwise, rotates the camera around its Z axis and moves the camera along its local X axis.
-* **RMB + Drag** - If the camera is locked, rotates the mesh. Otherwise, rotates the camera.
-* **LMB + RMB + Drag** - If the camera is not locked, moves the camera along its local YZ plane.
+##功能按钮
 
 
-### Keyboard Controls
+###鼠标功能按钮
 
-* **L + Mouse Move** - Rotates the preview light in the **Preview** panel.
+ **视口面板**
+
+
+* **鼠标左键 + 拖曳** —— 如果摄像机已锁定，则绕其Z轴旋转网格体，并朝向或远离原点移动。否则，将摄像机绕其Z轴旋转，并沿其局部X轴移动摄像机。
+* **鼠标右键 + 拖曳** —— 如果摄像机已锁定，请旋转网格体。否则，请旋转摄像机。
+* **鼠标左键 + 鼠标右键 + 拖曳** ——- 如果摄像机未锁定，请沿其局部YZ平面移动摄像机。
+
+
+###键盘控制
+
+* **左侧 + 鼠标移动** —— 在 **预览** 面板中旋转预览灯。
 
 
 

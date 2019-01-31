@@ -1,29 +1,12 @@
-﻿INTSourceChangelist:2697291
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:创建地形
 Crumbs: %ROOT%, Engine, Engine/Landscape
 Description:新建地形地貌指南
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topiccompact]
-	[PARAM:image]
-		![%Engine/Landscape/Creation:title%](Engine/Landscape/Creation/landscape_create_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Creation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Creation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Creation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+parent:Engine/Landscape
+order:2
+topic-image:landscape_create_topic.png
 
 [TOC(start:2)]
 
@@ -32,8 +15,8 @@ version:4.9
 地形系统具有高度的灵活性，可通过以下方法创建地形。 
 
 * 使用引擎中的地形工具可从零开始新建地形高度图。
-* 可导入虚幻编辑器中创建的地形高度图或通过外部工具进行创建。如需了解操作的详细步骤，请查阅
-	[创建自定义高度图和图层](Engine/Landscape/Custom) 文档。
+* 可导入虚幻编辑器中创建的地形高度图或通过外部工具进行创建。如需了解操作的详细步骤，请查阅文档[](Engine/Landscape/Custom)。
+* 要为导入的地形创建您自己的格式，请查阅文档[](Engine/Landscape/Creation/Plugin)。
 
 [REGION:note]
 如需了解地形工具操作范例，请查阅 [](Resources\ContentExamples\Landscapes) 内容范例。
@@ -45,6 +28,7 @@ version:4.9
 
 [/COMMENT]
 
+(#OpeningtheLandscapeTool)
 ## 打开地形工具
 
 创建地形之前，须先在 **Modes** 面板中打开地形工具。 
@@ -69,6 +53,7 @@ version:4.9
 [/REGION]
 
 
+(#CreatinganewLandscapeusingtheLandscapeTool)
 ## 使用地形工具新建地形
 
 
@@ -153,11 +138,3 @@ og7fnKaqYdI
 ![Landscape_NewTerrain.png](Landscape_NewTerrain.png)(w:600)
 
 完成地形创建后，即可按您的喜好对地形进行 [造型](Engine/Landscape/Editing/SculptMode) 或 [绘制](Engine/Landscape/Editing/PaintMode)。 
-
-
-
-
-
-
-
-

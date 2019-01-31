@@ -1,31 +1,18 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2 - 创建瞄准偏移（Aim Offset）
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:在这步中，我们将获取每个动画动作并创建在每个动作之间进行混合的瞄准偏移。 
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AimOffset
 type:how-to
+type:multi-step
+order:2
 tags:Animation
 tags:Aim Offset
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous](Engine\Animation\AnimHowTo\AimOffset\01_CreatingAimPoses)
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Creating an Aim Offset - Home ](Engine\Animation\AnimHowTo\AimOffset)
-	[/PARAM]
-	[PARAM:next]
-		[Next](Engine\Animation\AnimHowTo\AimOffset\03_ImplementingAimOffset)
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在这步中，我们将获取每个动画动作并创建在每个动作之间进行混合的瞄准偏移。 
 
@@ -73,56 +60,4 @@ tags:Aim Offset
 	
 瞄准偏移先已设置完成，在下一步中，我们将把使其挂钩，以便在 **动画蓝图** 中使用，使游戏进程驱动混合。 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[NAV]

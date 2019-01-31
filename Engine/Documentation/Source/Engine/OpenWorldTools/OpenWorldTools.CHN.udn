@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:开放世界场景工具
 Crumbs:
@@ -7,7 +7,9 @@ Navigation:topic
 SkillLevel:Intermediate
 Version:4.8
 parent:Engine
-order:7
+order:9
+topic-image:Engine\OpenWorldTools\Overview\T_Kite_Demo_00.png
+
 
 ![](T_OWT_Header_00.png)
 
@@ -18,46 +20,6 @@ order:7
 请注意：开放世界场景工具仍在实验阶段，使用时可能遭遇 bug 或稳定性问题。
 [/region]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Engine\OpenWorldTools\Overview\T_Kite_Demo_00.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/OpenWorldTools:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/OpenWorldTools:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/OpenWorldTools]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![](Engine\OpenWorldTools\Overview\T_Kite_Demo_00.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/OpenWorldTools:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/OpenWorldTools:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/OpenWorldTools]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:topics third]
 [OBJECT:Topic]
 	[PARAM:image]
 		![Engine/OpenWorldTools/Overview:title%](Engine\OpenWorldTools\Overview\T_Kite_Demo_00.png)
@@ -130,7 +92,24 @@ order:7
 	[/PARAM]
 [/OBJECT]
 
-[/REGION]
+[OBJECT:Topic]
+	[PARAM:image]
+		![](Engine\OpenWorldTools\Reference\FT_Reference_Page_Image.png)
+	[/PARAM]
+	[PARAM:icon]
+		![](%ROOT%/blueprint_icon.png)(convert:false)
+	[/PARAM]
+	[PARAM:title]
+		%Engine\OpenWorldTools\Reference:title%
+	[/PARAM]
+	[PARAM:description]
+		%Engine\OpenWorldTools\Reference:description%
+	[/PARAM]
+	[PARAM:path]
+		[RELATIVE:Engine\OpenWorldTools\Reference]
+	[/PARAM]
+[/OBJECT]
+
 
 
 

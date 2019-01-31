@@ -1,0 +1,89 @@
+﻿INTSourceChangelist:4501284
+Availability: Public
+Crumbs: 
+Title: 下载虚幻引擎4并安装Datasmith
+Description: 注册Epic账号，在您的电脑上安装虚幻引擎与Datasmith并开始使用。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: Getting Started
+Tags: how to
+Tags: Datasmith
+Tags: Manufacturing
+Tags: overview
+Tags: beginner
+topic-image:datasmith-download-install-topic.png
+
+![](datasmith-setup-install-engine.png)
+
+[TOC]
+
+[REGION:note]
+如果已完成其中一些步骤，可跳到下面相关的部分。
+[/REGION]
+
+(#installingunrealengine4)
+## 安装虚幻引擎4
+
+1.  要开始安装虚幻引擎4，请首先按照本使用指南的介绍[安装虚幻引擎4](GettingStarted/Installation)。指南将展示如何执行以下操作：
+
+	1.  创建Epic Games帐户（如果还没有）
+	1.  下载并运行安装程序（Epic Games Launcher安装程序）
+	1.  登录Epic Games Launcher
+
+1.  如果已准备好安装虚幻引擎4，请转至Epic Games Launcher中的 **资源库（Library）** 选项卡。
+    ![](datasmith-launcher-learn-tab.png)
+1.  单击 **引擎版本（Engine Versions）** 标题旁边的 **+** 按钮：  
+    ![](datasmith-add-engine-version.png)
+1.  在 **引擎版本（Engine Versions）** 标题下，将显示新版本插槽，其中包含最新的虚幻引擎4主版本。  
+    ![](datasmith-new-version-slot.png)  
+    [REGION:tip]
+    内测版Datasmith并不要求使用虚幻引擎4的最新主版本，也可使用虚幻引擎 **预览（Preview）** 版本。单击引擎版本号旁边的箭头，然后选择最新的预览版，就可以安装了。
+    ![](datasmith-choose-version.png)
+    [/REGION]
+1.  单击 **安装（Install）** 并选择安装位置。
+    ![](datasmith-install-version.png)  
+    [REGION:tip]
+    如果存储空间紧张，在选择安装位置时，可以选择 **选项（Options）** 并取消选中不需要的引擎部分。例如，如果不打算单独为 **目标平台（Target Platforms）** 下的任何内容进行开发，可将其禁用来节省更多空间。
+    [REGION:lightbox]
+    [![](Install_OptionalTargetPlatforms.png)(w:300)](Install_OptionalTargetPlatforms.png)  
+    *单击查看大图。*
+    [/REGION]
+    [/REGION]
+
+(#checkingthatdatasmithentitlementsareactive)
+## 检查Datasmith授权是否有效
+
+从虚幻引擎4.19版开始，Datasmith插件的交付过程已改变。如果你的Unreal Studio授权“有效”（见下文），Datasmith可以并将会自动随引擎一起安装。
+
+Epic Games Launcher的左侧面板中，列出了Unreal Studio的订购状态：
+
+[REGION:lightbox]
+[![](UnrealStudioSubscriptionStatus.png)(w:100)](UnrealStudioSubscriptionStatus.png)   
+*单击查看大图。*
+[/REGION]
+
+如果高亮显示的区域未列出，那么该帐户可能未启用授权，因此请务必登录已启用Unreal Studio的帐户。如需了解关于Datasmith的更多信息，请参阅[Unreal Studio知识库](https://unrealstudiohelp.epicgames.com/s/article/What-are-Datasmith-Entitlements)。
+
+(#validatingthatdatasmithisinstalled)
+## 验证Datasmith是否已安装
+
+1.  安装虚幻引擎4后，单击引擎版本下的 **已安装插件（Installed Plugins）**，可以验证是否已安装Unreal Datasmith插件。  
+    ![](datasmith-verify-installed-plugin.png)
+
+(#manuallyinstallingthedatasmithplugin)
+## 手动安装Datasmith插件
+
+如果拥有Unreal Studio授权，Datasmith插件将自动随任何新安装的虚幻引擎4一起安装。但是，如果已安装引擎版本，或者你的UE4版本的 **已安装插件（Installed Plugins）** 下未列出该插件，请使用以下步骤从Epic Games Launcher的 **资源库（Library）** 中手动安装该插件：
+
+1.  在Epic Games Launcher中，若 **资源库（Library）** 选项卡未被选中，请将其选中。  
+    ![](datasmith-launcher-library-tab.png)
+2.  在页面中的 **内测版Unreal Studio（Unreal Studio Beta）** 部分，寻找 **Unreal Datasmith** 插件。单击 **安装到引擎（Install to Engine）**。  
+    ![](datasmith-launcher-unrealdatasmith.png)
+3.  选择要为其安装插件的引擎版本，然后单击 **安装（Install）**。
+    ![](datasmith-install-plugin-version.png)
+4.  安装完成后，单击引擎版本下的 **已安装插件（Installed Plugins）** 链接，可验证插件是否已正确安装：
+    ![](datasmith-verify-installed-plugin.png)

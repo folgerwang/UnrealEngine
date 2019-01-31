@@ -10,7 +10,7 @@ parent:Platforms/Android
 Order: 1
 Tags: Android
 
-개발 대상 안드로이드 디바이스 유형에 따라 언리얼 엔진 4 프로젝트의 실행을 위해 Android SDK 를 추가로 설치해야 할 수도 있습니다. 여기서는 Android SDK 를 추가 설치하는 법에 대해 살펴봅니다.
+개발 대상 Android 디바이스 유형에 따라 언리얼 엔진 4 프로젝트의 실행을 위해 Android SDK 를 추가로 설치해야 할 수도 있습니다. 여기서는 Android SDK 를 추가 설치하는 법에 대해 살펴봅니다.
 
 %Globals:osselect_linux%
 
@@ -101,7 +101,7 @@ Android SDK 를 추가 설치하려면, 먼저 **Android SDK Manager** 를 열�
 
 Android SDK 를 추가 설치하려면, 먼저 **Android SDK Manager** 를 열어야 합니다.
 
-1. 맥에서 **NVPACK\android-sdk-windows\tools** 폴더를 찾습니다.
+1. Mac에서 **NVPACK\android-sdk-windows\tools** 폴더를 찾습니다.
 
     ![](MACSDK_01.png)
 

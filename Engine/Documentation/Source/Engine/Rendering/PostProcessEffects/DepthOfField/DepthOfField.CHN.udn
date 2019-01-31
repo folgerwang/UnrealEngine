@@ -1,213 +1,89 @@
-﻿INTSourceChangelist:2832095
-Availability:Public
-Title:景深
-Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects
-Description:基于深度对场景进行模糊，模拟焦距。
-Version:4.9
+﻿INTSourceChangelist:4321754
+Availability: Public
+Crumbs: %ROOT%
+Title: 景深
+Description: 基于深度对场景进行模糊，模拟焦距。
+Type: Overview
+SkillLevel:Beginner
+Version:4.20
+Parent:Engine/Rendering/PostProcessEffects
+Order:5
+Tags:Post Process
+Topic-image:Engine\Rendering\PostProcessEffects/DepthOfField/Cinematic/DOF_Cine_Topic.png
 
-[REGION:fullwidth]
-![Depth of Field](dof.png)
-[/REGION]
+![image_0.png](image_0.png)
 
 [EXCERPT:DepthOfField_Desc]
-**景深（Depth of Field）**（DOF）基于焦点前后的距离对场景应用模糊。这是对现实摄像机功能的模拟。该效果可调动观察者的注意力，使
-渲染出现照片或电影相似的效果。
+**景深**（DOF）基于焦点前后的距离对场景应用模糊，与现实相机的原理类似。该效果可将观察者的注意力调动到基于深度的特定物体镜头上，同时添加美学观感，使渲染拥有照片或电影般的效果。 
 [/EXCERPT:DepthOfField_Desc]
 
-## 景深类型
 
-虚幻引擎 4 中有三种获得景深效果的方法：散景、高斯和圆圈。
+(#depthoffieldtypes)
+# 景深类型
 
-[REGION:imagetable]
-| ![Bokeh DoF](bokeh.png)(w:300) | ![Gaussian DoF](gaussian.png)(w:300) | ![Circle DoF](Circle.png)(w:300) |
-| :----:| :----:| :----:|
-| 散景景深 | 高斯景深 | 圆圈景深 |
-[/REGION]
+虚幻引擎4提供多种应用景深效果的方法。其主要分为两大类：
 
+* **影片** 法通常提供影像化的景深效果。此类方法的设置与照片拍摄与影片摄影中常用相机选项非常匹配。在移动平台上使用此方法的开销极高，但在电脑与主机平台上使用效果较好。
 
-### 高斯景深
+* **移动平台** 法提供适用于移动平台的最优化低开销景深选项。 
 
-[EXCERPT:DepthOfField_Gaussian]
-高斯景深通过标准高斯模糊对场景执行模糊。高斯法快捷，适合在游戏中使用，维持较好的性能。
-[/EXCERPT:DepthOfField_Gaussian]
+[DIR(output:"topic" parent:"Engine/Rendering/PostProcessEffects/DepthOfField" end:"1" org:"hierarchy")]
 
-### 散景景深
+(#depthoffieldimplementation)
+# 景深实现
 
-[EXCERPT:DepthOfField_Bokeh]
-散景是物体不在焦距中时在照片和影片中看到的效果。散景景深法为每个使用纹理的像素渲染带纹理的四边形，定义效果的形状，替代摄像机镜头产生的效果，为场景带来电影一般的画面感。 
-此效果对性能消耗较大，实际使用以一半的分辨率进行。它还会在不明显的区域中节约渲染性能消耗。查看 [自适应景深](#adaptivedof) 中的详细内容。
+景深分为3个层：近景、远景和焦距区。这3个层将被单独处理，之后再进行组合来获得最终效果。近景与远景层中的物体（未在焦距区的物体）固定将为完全模糊状态。这些层会与非模糊场景进行混合。 
 
-散景法的性能消耗较高，主要应用对象为过场动画和展示，因为在这些情形下漂亮的视觉效果比性能更重要。
-[/EXCERPT:DepthOfField_Bokeh]
+* 焦距区（黑色）中的物体使用非模糊场景的层。
 
-### 圆圈景深
+* 在近景（绿色）或远景（蓝色）层中、但处于过渡区之外的物体将和模糊图层进行完全混合。
 
-[EXCERPT:DepthOfField_Circle]
-圆圈景深是最新添加的功能，与真实摄像机接近。和散景景深相似，圆型散景常伴随锐化的 HDR 内容。此算法处理超大的
-散景时存在缺陷，效果噪点较多，不如散景景深法得出的效果清晰。
-此法性能（极大优于散景景深）与精度俱佳，在过渡区域中尤其如此。
+* 过渡区中的物体基于过渡区中的位置在非模糊场景层和其模糊层之间进行线性混合。
 
-圆圈景深的默认值较低，更便于使用。如需获得最高效果，可对设置进行调整。为大型散景使用低光圈，靠近物体将视野变低。
-调整焦距
+(#visualizingdepthoffield)
+## 可视化景深
 
-[/EXCERPT:DepthOfField_Circle]
-
-## 实现
-
-景深分为三层 - 近景、远景、焦距区 - 每层均单独进行处理，然后合成在一起获得最终效果。近景和远景层中的物体 - 即为不在焦距区中的物体 - 将始终处于完全模糊状态。这些层将和非模糊场景进行混合。 
-
-* 焦距区中的物体使用非模糊场景的图层。
-* 在近景或远景层中，但处于过渡区之外的物体将和模糊图层进行完全混合。 
-* 过渡区中的物体在非模糊场景图层和其模糊图层之间基于过渡区中的位置进行线性混合。
-
-
-可使用 **Depth of Field Layers** 显示标识（**Show > Visualize** 下）显示这些图层和过渡区。如下图所示，近景层显示为绿色，远景层显示为蓝色，焦距区显示为黑色。
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Scene](dof_layers.png)(w:700)
-	[/PARAM]
-	[PARAM:after]
-	![Layer Visualization](dof_layers_visualize.png)(w:700)
-	[/PARAM]
-[/OBJECT]
-
-我们进一步改善了显示，将许多有趣的信息包括在内：
-
-[REGION:imagetable]
-| ![Scene](NewVisualize.png) |
-| :----:|
-| 显示景深 |
-[/REGION]
-
-使用圆圈景深时鼠标指针上附有一个十字光标，显示计算出的弥散圆（散景尺寸），以及深度和像素尺寸的数字。
-需注意，圆的尺寸不一定能和实际效果完全重合，因为实现并不适合大型散景外形。我们之后将对此进行改善。
-
-## 属性
-
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Method** | 选择用于模糊场景的散景法、高斯法或圆圈法。|
-| **Depth Blur km for 50%** | 待添加 |
-| **Depth Blur Radius** | 景深虚化半径像素为1920x |
-| **Aperture** | 待添加 |
-| **Focal Distance** | 与作为区域中心的摄像机之间的距离（以虚幻引擎单位计）。在此距离内，场景完全处于焦距中，不会出现模糊。[INCLUDE:#FocalDistance] |
-| **Focal Region** | 焦距外的距离（以虚幻引擎单位计）。在此区域内，场景完全处于焦距中，不会出现模糊。[INCLUDE:#FocalRegion] |
-| **Near Transition Range** | 从焦距区较近一边到摄像机之间的距离（以虚幻引擎单位计）。此摄像机上使用的是高斯景深，场景将从聚焦状态过渡到模糊状态。[INCLUDE:#NearTransitionRange] |
-| **Far Transition Range** | 从焦距区较远一边到摄像机之间的距离（以虚幻引擎单位计）。此摄像机上使用的是高斯景深，场景将从聚焦状态过渡到模糊状态。[INCLUDE:#FarTransitionRange] |
-| **Scale** | 散景法模糊的整体比例因子。[INCLUDE:#Scale] |
-| **Max Bokeh Size** | 散景景深模糊的最大尺寸（以视图宽度的百分比计）（**注意：** 性能消耗按尺寸乘尺寸计算）。用于计算任意距离散景尺寸的函数近似表示如下图所示：[INCLUDE:#MaxBokehSize] |
-| **Near Blur Size** | 高斯景深近景模糊的最大尺寸（以视图宽度的百分比计）。（**注意：** 性能消耗按尺寸计算）[INCLUDE:#NearBlurSize] |
-| **Far Blur Size** | 高斯景深远景模糊的最大尺寸（以视图宽度的百分比计）。（**注意：** 性能消耗按尺寸计算）[INCLUDE:#FarBlurSize] |
-| **Shape** | 定义物体离开焦距时散景形状的纹理（无法进行混合）。[COMMENT:none]
-待处理：展示一些示例图
-[/COMMENT] |
-| **Occlusion** | 控制模糊几何体常规轮廓和不透明度的延伸量。将数值设为 0.18 即可获得十分自然的遮挡效果。将数值设为 0.4 可解决图层颜色泄露问题。设较小的数值（小于 0.18）通常会将模糊效果取消，物体十分靠近摄像机时十分有效。[INCLUDE:#Occlusion] |
-| **Color Threshold** | 设置阈值，使自适应景深基于颜色切换使用全分辨率。数值越小，使用全分辨率处理的场景部分越多。|
-| **Size Threshold** | 设置阈值，使自适应景深基于尺寸切换使用全分辨率。数值越大，使用全分辨率处理的场景部分越多。|
-| **Sky Distance** | 使天空方块处于焦距中的虚拟距离（如 200000）。如数值小于等于 0，此功能将关闭。只可用于高斯景深，对性能消耗较大。|
-
-[COMMENT:none]
-
-[EXCERPT:FocalDistance]
-[REGION:imagetable]
-| ![DoF Focal Distance - Near](dof_focaldist_0.png)(w:240) | ![DoF Focal Distance - Mid](dof_focaldist_1.png)(w:240) | ![DoF Focal Distance - Far](dof_focaldist_2.png)(w:240) |
-| --- | --- | --- |
-| 焦距 = 400.0 | 焦距 = 1000.0 | 焦距 = 2500.0 |
-[/REGION]
-[/EXCERPT:FocalDistance]
-
-[EXCERPT:FocalRegion]
-[REGION:imagetable]
-![Focal Region](dof_focalregion.png)
-[/REGION]
-[/EXCERPT:FocalRegion]
-
-[EXCERPT:NearTransitionRange]
-[REGION:imagetable]
-![Gaussian Near Layer](dof_gaussian_near.png)
-[/REGION]
-[/EXCERPT:NearTransitionRange]
-
-[EXCERPT:FarTransitionRange]
-[REGION:imagetable]
-![Gaussian Far Layer](dof_gaussian_far.png)
-[/REGION]
-[/EXCERPT:FarTransitionRange]
-
-[EXCERPT:MaxBokehSize]
-[REGION:imagetable]
-![Bokeh CoC](dof_bokeh_coc.png) 
-| ![DoF Bokeh Size - 2.5](dof_size_0.png)(w:240) | ![DoF Bokeh Size - 5.0](dof_size_1.png)(w:240) | ![DoF Bokeh Size - 10.0](dof_size_2.png)(w:240) |
-| --- | --- | --- |
-| 尺寸 = 2.5 | 尺寸 = 7.5 | 尺寸 = 15.0 |
-[/REGION]
-[/EXCERPT:MaxBokehSize]
-
-[EXCERPT:NearBlurSize]
-[REGION:imagetable]
-| ![DoF Near Blur Size - 2.5](dof_nearsize_0.png)(w:240) | ![DoF Near Blur Size - 5.0](dof_nearsize_1.png)(w:240) | ![DoF Near Blur Size - 10.0](dof_nearsize_2.png)(w:240) |
-| --- | --- | --- |
-| 尺寸 = 0.0 | 尺寸 = 0.25 | 尺寸 = 2.5 |
-[/REGION]
-[/EXCERPT:NearBlurSize]
-
-[EXCERPT:FarBlurSize]
-[REGION:imagetable]
-| ![DoF Far Blur Size - 2.5](dof_farsize_0.png)(w:240) | ![DoF Far Blur Size - 5.0](dof_farsize_1.png)(w:240) | ![DoF Far Blur Size - 10.0](dof_farsize_2.png)(w:240) |
-| --- | --- | --- |
-| 尺寸 = 0.0 | 尺寸 = 0.25 | 尺寸 = 2.5 |
-[/REGION]
-[/EXCERPT:FarBlurSize]
-
-[EXCERPT:Occlusion]
-[REGION:imagetable]
-| ![DoF Occlusion - 0.05](dof_occlusion_0.png)(w:240) | ![DoF Occlusion - 0.18](dof_occlusion_1.png)(w:240) | ![DoF Occlusion - 0.4](dof_occlusion_2.png)(w:240)
-| --- | --- | --- |
-| 遮挡 = 0.05 | 遮挡 = 0.18 | 遮挡 = 0.4 |
-[/REGION]
-[/EXCERPT:Occlusion]
-
-[EXCERPT:Scale]
-[REGION:imagetable]
-| ![DoF Scale - 0.0](dof_scale_0.png)(w:240) | ![DoF Scale - 0.375](dof_scale_1.png)(w:240) | ![DoF Scale - 1.0](dof_scale_2.png)(w:240) |
-| --- | --- | --- |
-| 比例 = 0.0 | 比例 = 0.375 | 比例 = 1.0 |
-[/REGION] 
-[/EXCERPT:Scale]
-
-[/COMMENT]
-
-(#adaptivedof)
-## 自适应景深
-
-出于性能方面的考虑，散景景深默认渲染四分之一的分辨率（每个方向均为一半分辨率）。多数情况下此下抽样不甚明显，完全可接受；然而在某些情形下可能出现穿帮和不正确的效果。
+可使用关卡视口（**显示Show > 可视化Visualize** 之下）中的 **景深图层** 显示标识显示这些图层和过渡区。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Adaptive Resolution - Off](dof_adaptive_0.png)(w:700)
+	![Scene View with Cinematic DoF](image_1.png)(w:998) 
 	[/PARAM]
 	[PARAM:after]
-	![Adaptive Reoslution - On](dof_adaptive_1.png)(w:700)
+    ![Depth of Field Layers Vis with Cinematic DoF Enabled](image_2.png)(w:998) 
 	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
 [/OBJECT]
 
+可视化 **景深图层** 还包括了与所用DOF方法有关的实用信息，例如当前设置的数值、或场景中四处移动鼠标时鼠标旁显示的相机与Actor之间的距离。 
 
-在上图中可以看到，使用下抽样景深技术时背景中被模糊的角色呈现出块状效果。此外，前景中角色的角附近出现了一些穿帮。使用自适应景深可消除穿帮，背景中的角色外观更加平滑。
+![image_3.png](image_3.png)
 
-可使用 **Adaptive Depth of Field** 显示标识（**Show > Visualize** 下）显示自适应景深。启用显示标识后，覆层将显示下抽样效果（绿色）和全分辨率效果（红色）的所在区域。未应用模糊的区域中将显示常规场景颜色。
+(#usingdofintheeditor)
+# 在编辑器中使用DOF
 
-[REGION:fullwidth]
-![Adaptive DoF Visualization](dof_adaptive_visualize.png)
-[/REGION]
+在虚幻编辑器中使用景深的方法有以下几种：放置[后期处理体积](https://docs.unrealengine.com/en-US/Engine/Rendering/PostProcessEffects)、使用[相机Actor](https://docs.unrealengine.com/en-us/Engine/Actors/CameraActors)，或使用[电影摄像机Actor](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors)。除电影相机Actor有某些额外的相机与镜头工业标准设定外，三种方法均使用相同[景深属性](http://www.linktopropertiesinpage.com)。 
 
-总体而言，绿色区域方为最佳。显示的红色区域越多，每帧的场景渲染消耗越大。
+可在 **景深（Depth of Field）** 和 **相机（Camera）** 部分的 **镜头（Lens）** 选项卡中找到所用的多数设置。选择DOF方法时，可以编辑影响该方法的属性，同时其他属性则变灰（即使在其旁边的勾选框中已勾选启用也同样如此）。 
 
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Adaptive Resolution - Optimized](dof_adaptive_good.png)(w:700)
-	[/PARAM]
-	[PARAM:after]
-	![Adaptive Resolution - Expensive](dof_adaptive_bad.png)(w:700)
-	[/PARAM]
-[/OBJECT]
+![image_4.png](image_4.png)
+
+使用[电影摄像机Actor](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors)时，须替换 **镜头设置（Lens Settings）** 部分中 **当前相机设置（Current Camera Settings）** 下影响景深的属性。 
+
+![image_5.png](image_5.png)
+
+使用相机或电影摄像机Actor时，选择 **视角（Perspective）** 并在场景中选择一个 **已放置相机（Placed Cameras）** 来使用关卡视口中的[Actor导航](https://docs.unrealengine.com/en-us/Engine/UI/LevelEditor/Viewports/ActorLocking)，将其占据。 
+
+![image_6.png](image_6.png)
+
+
+关卡视口将弹向相机视角，同时表明当前正以相机视角进行导航和浏览。
+
+![image_7.png](image_7.png)
+
+相机或后期处理体积（若相机位于其中）中发生变更的属性将在关卡视口中显示。 
+
+举例：要获取与之前镜头类似的镜头，关键在于使用小 **光圈（F-stop）** 获取大型散景，并将相机或视口移动到物体旁，同时降低 **视野**（FoV）。然后调整 **焦距**，使焦距区（又称焦平面）前后的部分场景内容失焦。 
 

@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2701189
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:在蓝图中查找 Actor
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\FindingActors
 Description:关于如何在蓝图中查找 Actor 的操作指南。 
 Version: 4.9
 SkillLevel: Intermediate
+type:how-to
 
 [TOC (start:2 end:2)]
 
@@ -12,12 +13,15 @@ SkillLevel: Intermediate
 您可根据所需的筛选标准从该数组中抽取所有 Actor 或单个 Actor。然后，您可以访问 Actor 的属性或基于当前 Actor 的类型以及您要实现的目标采用某种方式对其进行修改。 
  
 
+(#GetAllActorsofClass)
 ## Get All Actors of Class 节点
 [COMMENT:none]
 -
 以下步骤将展示如何使用 **Get All Actors of Class** 节点查找场景中特定类的所有 Actor。 
+
 -
 [/COMMENT]
+
  _在此示例中，我们使用的是 **带有起始资源的第三人称模板创建的项目中的蓝图** 。_
 
 1.	在 **Game/Blueprints** 下的 **Content Browser** 中，拖入三个 **Blueprint_Effect_Fire** 资源。 
@@ -70,6 +74,7 @@ SkillLevel: Intermediate
 然后在该类中查找某组或特定 Actor（而非该类的所有 Actor）并进行修改，则应如何操作？下一节将向您介绍一些方法，您可以使用这些方法对结果数组过滤，并只获取所需的 Actor，而非所有 Actor。 
 
 
+(#GetSpecificActors)
 ## Get Specific Actors 节点
 
 在上一节中，我们了解到使用 **Get All Actors of Class** 节点可生成指定类的 Actor 数组。本节将介绍如何根据不同标准筛选阵列结果，以从阵列中获取特定 Actor 或单个 Actor。 

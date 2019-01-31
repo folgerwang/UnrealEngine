@@ -1,0 +1,196 @@
+﻿Availability: Public
+Crumbs: 
+Title: Unreal Studio 4.20 Release Notes
+Description: Describes what's new in Unreal Studio and Datasmith in the 4.20 release.
+Type: 
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:mesh_editing.gif
+reference-image:dragdrop.gif
+
+
+This release brings several major new features that are available exclusively to Unreal Studio subscribers, including workflow improvements that come directly from your feedback and suggestions. This page introduces what's new in this release.
+
+## Import from SketchUp Pro Using Datasmith
+
+You can now use Datasmith to bring entire scenes from SketchUp Pro into Unreal quickly and repeatably.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![SketchUp](release-notes-sketchup-skp.png) 
+ [/PARAM]
+ [PARAM:after]
+ ![Unreal](release-notes-sketchup-unreal.png) 
+ [/PARAM]
+[/OBJECT]
+
+The workflow is exactly the same as for 3ds Max. You install the new Datasmith Exporter plugin for SketchUp, and use it to export your SketchUp scene to a Datasmith file on disk. When you import this Datasmith file into the Unreal Editor, the importer creates Static Mesh Assets for all the geometry in your SketchUp scene, and physically based Materials for their surface properties. It then places these Assets into the current Level, re-constructing your scene in Unreal exactly as it appears in SketchUp. The scene conversion respects the the way you’ve divided your scene into groups and instanced components, creating a matching hierarchy of Actors in your Unreal Level.  
+
+Download the exporter plugin from the [Unreal Studio downloads page](https://www.unrealengine.com/en-US/studio/downloads).
+
+For more information, see [Using Datasmith with SketchUp Pro](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp).
+
+## Iterative Workflow for Datasmith
+
+What do you do when your source scene changes after you’ve already made changes in Unreal?
+
+Now, you can re-import your Datasmith and CAD content without losing changes that you’ve made to the scene placement and material assignments of your Unreal Actors. Datasmith tracks these changes as *overrides* — you can selectively roll back the overrides you’ve made, choose how you want to handle Actors that you’ve deleted in Unreal, and more.
+
+[REGION:lightbox]
+[![Datasmith Reset Overrides](studio-relnotes-420-reset-overrides.png "Datasmith Reset Overrides")](studio-relnotes-420-reset-overrides.png)
+[/REGION]
+
+For details, see [About the Datasmith Reimport Workflow](Enterprise/Datasmith/Overview/ReimportWorkflow) and [Reimporting Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ReimportingContent).
+
+## Import Metadata with Datasmith
+
+Datasmith now imports custom metadata about the geometry assets you import.
+
+The metadata is stored on the Actors in your Level, and available to Blueprint and Python scripts. This can help you create your own custom asset management pipeline, or you can use the metadata in your runtime application to visualize information about selected parts of your scene — such as names, cost, or physical properties.
+
+![Datasmith Metadata at Runtime](release-notes-metadata.png "Datasmith Metadata at Runtime")
+
+For details, see [Using Datasmith Metadata](Enterprise/Datasmith/Overview/UsingDatasmithMetadata).
+
+## Modify Geometry in the Static Mesh Editor
+
+Sometimes, you find small issues with your Static Mesh geometry after you import it into Unreal — extra triangles that you don’t really need, or triangles that are facing the wrong direction and disappear at inopportune times due to back-face culling. In the past, fixing these kinds of small changes involved going back to a DCC tool, fixing the problem there, re-exporting, then re-importing the asset. When your assets originally come to Unreal from CAD formats, this may mean adding an entirely new design tool to your pipeline.
+
+Now, you can now make basic changes to the geometry of your Static Mesh assets directly in the Static Mesh Editor, using the new Edit Mesh tools in the toolbar.
+
+[REGION:asyncgif]
+![](mesh_editing.gif)(w:600 convert:false)
+[/REGION]
+
+You can:
+
+*   Flip selected triangles.
+*   Delete triangles.
+*   Assign new materials to selected triangles, creating new material slots on the fly.
+
+For details, see [Modifying Static Mesh Geometry](Enterprise/Datasmith/HowTo/ModifyStaticMeshGeometry).
+
+## Unreal Studio and Datasmith Workflow Improvements
+
+This release includes several improvements to the workflows for getting content into Unreal through Datasmith, and working with your Datasmith content after import. 
+
+### Simplified Unreal Studio Project Creation
+
+As long as you start the Unreal Editor from the Epic Games Launcher, any new Project you create will be automatically set up as an Unreal Studio Project, regardless of what template you start from. You no longer have to start from the templates listed on the Unreal Studio tab; you can use any Blueprint or C++ template.
+
+### Drag and Drop Datasmith Scene Assets
+
+You can now drag and drop Datasmith Scene assets from the Content Browser into a Level, which automatically re-creates the entire scene or assembly imported by Datasmith. In addition, you can have multiple instances of the same Datasmith Scene within a single Level if needed, each with its own 3D position and rotation.
+
+[REGION:asyncgif]
+![](dragdrop.gif "dragdrop.gif")(w:600 convert:false)
+[/REGION]
+
+For more information about the Datasmith Scene Asset, see the [Datasmith Overview](Enterprise/Datasmith/Overview).
+
+### Selective Reimport and Re-tessellation for CAD meshes
+
+You can now reimport selected Static Mesh Assets imported from CAD scenes.
+
+In addition, each time you reimport a Static Mesh Asset, you can set new tessellation parameters for it. This allows you to customize how detailed and dense the Static Mesh representation is for each different part or assembly in your scene.
+
+For example, you may be able to improve graphics performance by importing your main CAD file with low-resolution settings, and raising the detail level for specific parts that need a higher level of detail.
+
+### Import Custom Collision Meshes from 3ds Max using Datasmith
+
+When you import a *.datasmith* file that you exported from Autodesk 3ds Max, the Datasmith importer now follows the same naming convention as the FBX importer for automatically assigning custom collision meshes to the geometry it imports. If your Datasmith content contains a geometry element named `UCX_<name>`, that geometry is not imported into a Static Mesh Asset. Instead, that geometry is assigned to the corresponding Static Mesh Asset named `<name>` as its custom collision shape.
+
+### Customize your Datasmith Import using Blueprints or Python
+
+If you use Blueprint or Python scripts to launch a Datasmith import process, you can now run your own scripts during the process, before the importer creates your Assets and Actors in Unreal. You can use this to customize the way your source scene is turned into Unreal Assets — for example, you could filter out geometry that you know you won’t need to render at runtime in your Unreal Project, so that you don’t have to wait while Assets are created for those scene elements.
+
+For details, see [Customizing the Datasmith Import Process](Enterprise/Datasmith/Overview/CustomizingImportProcess).
+
+### Improved Rhino Import through Datasmith
+
+The Datasmith import process for Rhino now better respects your original design, especially in the way it chooses the Material to apply to your Static Mesh Assets.
+
+For details, see [Using Datasmith with Rhino](Enterprise/Datasmith/SoftwareInteropGuides/Rhino).
+
+### Better Static Mesh Naming
+
+Datasmith now uses the names of the geometry objects in your scene to label the Static Meshes it creates in the Content Browser.
+
+### Better Handling for Custom Pivots from 3ds Max
+
+When your 3ds Max scene contains meshes with custom pivot points, Datasmith now bakes those custom pivots into the Static Mesh Assets it creates. This tends to make the scene hierarchy clearer, by avoiding the need to create custom Actors just to handle the pivot offsets.
+
+Datasmith can do this even if your scene contains multiple instances of the mesh, as long as they all share the *same* custom pivot. 
+
+However, if any instance of the mesh has a pivot that does not match all the other instances, Datasmith does not bake any custom pivot information into the Static Mesh Asset. In this case, it falls back on the behavior from version 4.19. 
+
+### Datasmith Scenes Support Sub-Levels
+
+You can now move Actors created by Datasmith into different sublevels. The Actors you move are taken out of the parenting hierarchy under the Datasmith Scene Actor, but they retain their connection to the Datasmith Scene. Datasmith will continue to track overrides, and the Actors will be recognized if you reimport your Datasmith Scene.
+
+## Import MDL Files (Early Access)
+
+You can now use Datasmith to import files in the [NVIDIA Material Definition Library (MDL)](https://www.nvidia.com/en-us/design-visualization/technologies/material-definition-language/) format. Use the new **MDL** importer:
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+As with other kinds of Datasmith imports, you'll get a new Instanced Material Asset that is set up exactly like your imported file, and that exposes settings you can use to adjust the new Material in Unreal.
+
+## Improved Product Viewer Template
+
+We’ve revamped the Product Viewer template significantly to improve its visual design and usability.
+
+*   Use the new X-Ray mode to switch objects temporarily to a transparent material, so you can see and select the objects behind.
+*   Drag and reset Actors at runtime using the mouse or VR controller.
+*   You can now add the content from the Product Viewer content into another Project by using the **Add New > Add Feature or Content Pack** option in the Content Browser.
+
+![Product Viewer with X-Ray Mode](relnotes-prodviewer.png "Product Viewer with X-Ray Mode")
+
+For details, see the [Unreal Studio Product Viewer Template](Enterprise/UnrealStudioProjectTemplates/StudioProductViewer).
+
+## New Features for Datasmith Plus Licensees
+
+Interested in becoming a Datasmith Plus licensee? Contact us [here](https://www.unrealengine.com/en-US/enterprise/contact-us).
+
+### Import from Deltagen and VRED (Experimental)
+
+Users with Datasmith Plus licenses can now bring scenes into Unreal Editor from DeltaGen or VRED, preserving variant sets and animations. You can use Blueprint scripting to switch between different variants and play the animations at runtime.
+
+Use the new **VRED Fbx** and **Deltagen Fbx** importers:
+
+![](datasmith-import-vred-deltagen.png "datasmith-import-vred-deltagen.png")
+
+For details, see [Using Datasmith with Deltagen and VRED](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED).
+
+### Import AxF Files (Early Access)
+
+You can now use Datasmith to import files in the [Pantone X-RITE Appearance eXchange Format (AxF)](https://www.xrite.com/categories/formulation-and-quality-assurance-software/appearance-exchange-format-axf) format. Use the new **MDL** importer:
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+As with other kinds of Datasmith imports, you'll get a new Instanced Material Asset that is set up exactly like your imported file, and that exposes settings you can use to adjust the new Material in Unreal.
+
+## Features of Interest in the Core Engine
+
+In addition to the features specific to Unreal Studio subscribers that are outlined on this page, this release of Unreal Engine also contains many features available to all users that may be of particular interest to you:
+
+*   [nDisplay: Flexible, Multi-Display Rendering](Support/Builds/ReleaseNotes/4_20#新規：nDisplay柔軟なマルチディスプレイレンダリング)  
+    Ideal for using Unreal to render to Powerwall and CAVE virtual reality installations!
+*   [Autodesk Shotgun Integration](Support/Builds/ReleaseNotes/4_20#新規：Shotgunインテグレーション_アーリーアクセス_)
+*   [ProxyLOD improvements](Support/Builds/ReleaseNotes/4_20#新規：プロキシLODの改善)
+*   [Final Cut Pro 7 XML Import/Export for Sequencer](Support/Builds/ReleaseNotes/4_20#新規：シーケンサーでのFinalCutPro7XMLインポート/エクスポートサポート)
+*   [Rectangular Lights](Support/Builds/ReleaseNotes/4_20#新規：長方形型エリアライト)
+*   [Improved Script Access to Static Meshes for LODs and Collisions](Support/Builds/ReleaseNotes/4_20#新規：スタティックメッシュのLOD_LevelofDetail_とコリジョンについてのスクリプトアクセスの改善)
+*   [Asset Metadata Import through FBX](Support/Builds/ReleaseNotes/4_20#新規：FBXからのアセットメタデータのインポート)
+*   [Cinematic Depth of Field](Support/Builds/ReleaseNotes/4_20#新規：シネマティック被写界深度)
+
+For details on all new features in the Engine, see the full [Unreal Engine 4.20 Release Notes](Support/Builds/ReleaseNotes/4_20).
+
+## Updated Plugins
+
+To support some of the new features listed above and to fix other minor issues, we've also updated the Datasmith Exporter plugin for 3ds Max. Don't forget to update!
+
+Download the newest version [here](https://www.unrealengine.com/en-US/studio/downloads). For install instructions, see [Installing the Datasmith Exporter Plugin for 3ds Max](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/InstallingExporterPlugin).

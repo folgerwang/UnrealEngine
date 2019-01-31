@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.1 -混合模式
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.1 - 混合模式
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Materials
-Description:材质实例示例关卡概述，示例1.1： 混合模式
+Description:概述材质实例示例关卡，示例1.1：混合模式
 Related: Engine/Rendering/Materials/MaterialProperties/BlendModes
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -10,60 +11,22 @@ Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
 Related: Engine/Actors/DecalActor
+Version: 4.9
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_1:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_1:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 ![](MP_1_1_001.png)
 [/REGION]
 
-混合模式是材质的最基础内容。
+**混合模式（Blend Mode）** 正是材质的基础。
 
-| 混合模式 | 描述 |
+| 混合模式 | 说明 |
 | ---- | ----- |
-| **Opaque** （不透明） | 对于固体对象来说，**Opaque** （不透明）模式是占用系统性能最少的材质。但是正如名字所表示的那样，它并不支持半透明。这就表示它永远都不能创建过度描画，并且根据 **Node Graph** （节点图表）的复杂程度不同，渲染材质的每个像素所花的时间将总是相同。|
-| **Masked** （蒙板） | 如果您需要一些像素不在您的材质上进行描画，您应该选择这个模式。材质仅会对隐藏区域创建过度描画。但材质要么是100\%不透明，要么是100\%透明。隐藏的区域越大，创建的过度描画越多。这就意味着对系统的性能消耗更大。|
-| **Translucent** (半透明）|  这个 **BlendMode** （混合模式）对系统性能的消耗最大。它看起来和  **Opaque** （不透明）以及 **Masked** （蒙板）模式类似，但不管实际是否透明，它都会对性能产生额外影响。|
-| **Additive** （叠加）| 相比 **Translucent** （半透明）模式，这个取代模式消耗的性能要少。不必对像素进行排序，它们会被直接添加到场景中。但这意味着这个模式仅能提供亮度。材质上的黑色像素对场景不会产生效果。|
-| **Additive** （调制）| 相比 **Translucent** （半透明）模式，这个取代模式消耗的性能要比上一个模式略多,	但该模式会对场景中的像素进行相乘。这表示该模式仅能使场景变暗。|
+| **不透明（Opaque）** | 对于固体对象，不透明的材质是最便宜的材质。但是，顾名思义，它不支持半透明性。这意味着它永远不会产生过度绘制，并且根据节点图的复杂性，渲染材质的一个像素总是要花费相同的时间。|
+| **遮罩（Masked）** |  如果您要让一些像素不绘制在您的材质上，这个办法可行。材质只会对被遮罩的区域产生过度绘制。但材质为100\%不透明或100\%透明。遮罩的区域越大，产生的过度绘制就越多。也意味着更昂贵。|
+| **半透明（Translucent）** | 这是最昂贵的混合模式。它可以看起来像遮罩和不透明的材质，但将对性能有额外的影响，不管实际是否透明。|
+| **添加（Additive）** | 是半透明材质的一种较便宜的替代品。它不需要对像素排序，它们只是被添加到场景中。但这意味着它只能变亮。材质上的黑色像素对场景没有影响。|
+| **调制（Modulated）** | 是半透明材质的第二便宜的替代品，但它将其像素与场景相乘。但这意味着它只能使场景变暗。|
 
 
 

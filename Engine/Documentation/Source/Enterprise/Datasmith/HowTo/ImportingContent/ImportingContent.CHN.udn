@@ -1,0 +1,54 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 将Datasmith内容导入虚幻引擎4
+Description: 详细介绍了如何使用Datasmith将您在受支持的3D设计应用中创建的文件导入虚幻。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+SkillLevel:Beginner
+Order: 3
+Tags: Getting Started
+Tags:how to
+Tags: Datasmith
+Tags: overview
+Tags: beginner
+topic-image:datasmith-import-topic.png
+
+
+![](datasmith-setup-import.png)
+
+本页面介绍如何使用Datasmith将来自受支持的3D设计应用程序或文件格式的内容导入到虚幻中。
+
+[REGION:tip]
+也可以使用Python来自动执行 *.udatasmith* 和CAD文件导入过程。有关细节，请参阅[自定义Datasmith导入过程](Enterprise/Datasmith/Overview/CustomizingImportProcess)。
+[/REGION]
+
+1.  在虚幻编辑器中，打开要向其中导入Datasmith内容的项目。
+    [REGION:note]
+    请注意，要使Datasmith导入内容，你必须使用Unreal Studio项目。请参阅[设置虚幻项目以使用Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject)。
+    [/REGION]
+1.  要将内容导入到项目中的现有关卡中，现在就打开该关卡。否则，请创建新关卡或使用默认关卡。
+1.  在主工具栏中，找到 **导入Datasmith（Import Datasmith）** 按钮：  
+    ![工具栏中的“导入Datasmith（Import Datasmith）”按钮](DS_Import_1.png "Import Datasmith in the Toolbar")
+1.  使用下拉箭头来选择需要使用的Datasmith导入程序（Datasmith importer）类型：  
+    ![导入程序（Datasmith importer）列表](datasmith-importers-list.png "List of Datasmith importers")  
+    选择的类型取决于要导入的源文件的类型。  
+    
+    *   对于从3ds Max或SketchUp导出的 *.udatasmith* 文件，请选择 **导入Datasmith（Import Datasmith）**。
+    *   对于 *.MDL* 或 *.AxF* 文件，请选择 **导入MDL（Import MDL）**。
+    *   对于从VRED或Deltagen导出的 *.fbx* 文件，请选择 **导入VRED Fbx（Import VRED Fbx）** 或 **导入Deltagen Fbx（Import Deltagen Fbx）**。
+    *   对于大多数其他文件格式，请选择 **导入CAD（Import CAD）**。
+    
+    要获取完整列表，请参阅[Datasmith支持的软件和文件类型](Enterprise/Datasmith/SupportedSoftwareAndFileTypes)。
+1.  在 **导入（Import）** 窗口中，浏览至并选择要导入的文件。单击 **打开（Open）**。  
+    ![选择要导入的文件](DS_Import_2.png "Choose a file to import")
+1.  在项目内容中选择一个文件夹，以便Datasmith将新导入的资源放入其中。  
+    ![选择一个内容文件夹](DS_Import_3.png "Choose a content folder")
+    [REGION:tip]
+    要为Datasmith内容创建新文件夹，请在此窗口中右键单击现有文件夹。
+    [/REGION]
+1.  使用 **Datasmith导入选项（Datasmith Import Options）** 窗口来选择要从源文件导入的内容类型，并设置将控制导入过程的可选附加参数。
+    ![设置导入选项](UnrealDSImportOptions-1.png "Set import options")  
+    此处可供设置的选项因要导入的文件类型而异。有关细节，请参阅[Datasmith导入选项](Enterprise/Datasmith/ImportOptions)。
+1.  单击 **导入（Import)**。Datasmith将读取源文件，在项目中创建新资源，并将Datasmith场景放置到当前关卡中。有关此过程的细节，请参阅[Datasmith概述](Enterprise/Datasmith/Overview)。

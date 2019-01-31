@@ -1,58 +1,11 @@
-﻿INTSourceChangelist:2686729
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:后期处理材质范例
 Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects, Engine/Rendering/PostProcessEffects/PostProcessMaterials
 Description:视频扫描线后期处理材质总览。
 Version:4.9
 SkillLevel:Advanced
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview/ppm_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview/ppm_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Third]
-300
-[/VAR]
-
-[VAR:PostTest]
-w:450
-[/VAR]
+topic-image:ppm_topic.png
 
 ## 创建后期处理效果材质
 
@@ -89,7 +42,7 @@ w:450
 这是用于此效果的纹理。如需自行创建纹理变化，可在每个纹理上 **单击右键** 并进行保存。非常简单。
 
 [REGION:imagetable]
-|![](ScanDistort.png)(w:%Third% h:%Third% convert:false)|![](Noise.png)(w:%Third% h:%Third% convert:false) |![](Scanlines.png)(w:%Third% h:%Third% convert:false) |
+|![](ScanDistort.png)(w:300 convert:false)|![](Noise.png)(w:300 convert:false) |![](Scanlines.png)(w:300 convert:false) |
 |:---:|:---:|:---:|
 |ScanDistortion.png (2x128)|Noise.png (512x512)|Scanlines.png (4x4)|
 [/REGION]

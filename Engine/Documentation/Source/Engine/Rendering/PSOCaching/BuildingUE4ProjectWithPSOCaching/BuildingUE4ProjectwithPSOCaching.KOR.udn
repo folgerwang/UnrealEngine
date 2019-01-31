@@ -1,0 +1,35 @@
+﻿INTSourceChangelist:4687515
+Availability: Public
+Crumbs: 
+Title: PSO 캐시를 사용한 UE4 프로젝트 빌드
+Description: PSO 데이터를 UE4 프로젝트에 빌드해 넣는 법을 설명합니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:Building_PSO_Into_UE4_Project.png
+Tags: 
+
+
+언리얼 엔진 (UE4) 프로젝트가 stablepc.csv 파일에 들어있는 셰이더 데이터를 활용하려면, 먼저 stablepc.csv 파일을 사용하여 UE4 프로젝트를 빌드해야 합니다. 여기서는 UE4 프로젝트를 빌드할 때 **Pipeline State Object** (PSO) 캐시 데이터를 포함하도록 설정하는 법을 살펴봅니다.  
+
+## 단계
+
+1.  [PSO 캐시 빌드 하우투](Engine/Rendering/PSOCaching/BuildingPSOCache) 문서에서 생성한 stablepc.csv 파일을 찾습니다.
+[REGION:note]
+이 파일을 찾을 수 없으면 Engine\\Binaries\\Win64 폴더를 확인하세요.
+[/REGION]
+2.  프로젝트의 **Build** \> **플랫폼 이름** \> **PipelineCaches** 폴더에 있는 stablepc.csv 파일을 Pipeline Caches 폴더로 복사합니다.  
+    
+[REGION:note]
+PipelineCaches 폴더가 보이지 않으면 **PipelineCaches** 라는 폴더를 새로 만들고 그 안에 stablepc.csv 파일을 넣으세요.
+[/REGION]
+3.  완료되면 UE4 프로젝트를 지원하는 플랫폼 용으로 리빌드합니다.  
+    
+
+## 최종 결과
+
+UE4 가 프로젝트 빌드를 마치면, 생성된 PSO 캐시 데이터를 활용할 수 있는 UE4 프로젝트 버전이 생깁니다.
+[REGION:note]
+PSO 캐시 컴파일 방법과 시기를 제어하는 방법 관련 자세한 정보는 [PSO 캐시 데이터 컴파일 및 사용법](Engine/Rendering/PSOCaching/CompilingUsingPSOCachingData) 문서를 참조하세요.
+[/REGION]

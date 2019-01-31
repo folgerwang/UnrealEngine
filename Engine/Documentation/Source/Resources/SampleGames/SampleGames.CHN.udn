@@ -1,43 +1,9 @@
-﻿INTSourceChangelist:2803975
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title: 游戏示例项目
 Crumbs:%ROOT%, Resources
 Description: 用于展示各种不同类型游戏的完整示例项目。
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/SampleGames:title%](Resources/SampleGames/StrategyGame/StrategyGameTopic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/SampleGames:title%](Resources/SampleGames/StrategyGame/StrategyGameTopic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Resources/SampleGames/StrategyGame/StrategyGameTopic.png
 
 
 [EXCERPT:SampleGames]
@@ -52,8 +18,8 @@ Epic 的开发人员和美术人员制作了这些游戏示例项目，用于简
 我们希望用户们能够对这些示例分析后选取所需要的部分来使用。这些示例的文档都是为了这个目的来编写的，以帮助了解每个游戏是如何设计并制作的。用户可以自由选择在自己的游戏中使用哪些系统。
 [/Excerpt:SampleGames]
 
-[REGION:topics third]
+%Resources/SampleGames/UnrealMatch3:TopicCompact%
+%Resources/SampleGames/PlatformerGame:TopicCompact%
 %Resources/SampleGames/ShooterGame:TopicCompact%
 %Resources/SampleGames/StrategyGame:TopicCompact%
 %Resources/SampleGames/CardGame:TopicCompact%
-[/REGION]

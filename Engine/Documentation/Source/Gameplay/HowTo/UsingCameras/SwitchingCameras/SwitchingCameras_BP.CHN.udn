@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2615116
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在多个固定摄像机之间切换
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UsingCameras
@@ -9,6 +9,7 @@ Related: Engine/Matinee
 Related: Engine/Blueprints
 SkillLevel: Beginner
 Version: 4.8
+type:how-to
 
 在这份操作指南中，我们在关卡内添加了多个 **Camera** Actor，并在玩家进入我们放置好的 **Trigger** Volume 时在它们之间进行切换。完成本次教程后，您将可以设置您自己的多摄像机游戏，并定义在何时使用某一个摄像机。 
 
@@ -81,6 +82,7 @@ Version: 4.8
 
 	![](camera_10.png)
 
+(#EndResult)
 ## 最终结果
 
 [OBJECT:EmbeddedVideo]

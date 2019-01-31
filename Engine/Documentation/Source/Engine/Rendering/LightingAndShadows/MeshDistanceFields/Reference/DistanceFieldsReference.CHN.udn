@@ -42,6 +42,7 @@ Topic-image:DFRef_Topic.png
 | **压缩网格体距离场（Compress Mesh Distance Fields）** | 存储网格体距离场时是否使其在内存中保持压缩状态，这会减少它们占用的内存量，但是会在显示新关卡时引起严重卡顿。仅可在项目不在游戏内流送关卡时才可启用该选项。更改该设置后需要重启编辑器。 |
 [/REGION]
 
+(#LightComponents)
 ## 光源组件
 
 以下是可用的[网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields)设置和属性，可为每个可用的[光源类型](Engine/Rendering/LightingAndShadows/LightTypes)设置它们。 
@@ -220,6 +221,7 @@ Topic-image:DFRef_Topic.png
 
 
 
+(#OcclusionMaxDistance)
 #### 遮蔽最大距离（Occlusion Max Distance）
 
 **遮蔽最大距离（Occlusion Max Distance）** 在遮蔽一个点会影响另外一个点的情况下控制两点间的最大距离。调整最大距离时，就是调整对于场景中其他对象DFAO将拥有的精度，这意味着也会增加它的成本。

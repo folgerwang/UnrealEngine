@@ -1,0 +1,219 @@
+Availability: Public
+Crumbs: 
+Title: Connecting UE4 to Motionbuilder with Live Link
+Description: Describes the process for connecting UE4 to Motionbuilder with the Live Link Plugin
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 5
+Tags: Live Link, Motionbuilder
+
+In this how-to, we go through the setup process to connect Unreal Engine 4 (UE4) to Motionbuilder (Mobu) with the Live Link Plugin. Once you have established a connection, you can stream content from Motionbuilder into UE4 in real-time, enabling you to preview your content in UE4 without the need to export and then import your content into the Engine.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+**Prerequisite**: For this guide, we are using a new **Blueprint Thirdperson** template project and **Motionbuilder 2017**.
+[/REGION]
+
+## 1 - Project Setup
+
+1. Inside your UE4 project, from the **Menu Bar** under Edit, select **Plugins**.
+
+    ![](Step_01-1.png)
+
+1. Under the **Animation** section, click **Enabled** for **Live Link** and **Yes** on the confirmation window, then restart the Editor.
+
+   ![](Step_02-3.png)
+
+   This will enable the Live Link Plugin which can be used to connect to external Digital Content Creation (DCC) tools. In order for your DCC tool to connect to UE4, you will need to enable the corresponding plugin. In this how-to we are establishing a connection with Motionbuilder, however, you could connect to Maya or your own tool (provided that tool has an exposed source to Live Link). 
+
+1. In the **Content Browser** under the **Content > Mannequin > Animations** folder, open the **ThirdPersonWalk** animation.
+
+    ![](ThirdPersonWalkImage.png)
+
+1. From the Toolbar, click **Export Asset**, then select **Preview Mesh**. 
+
+    ![](MobuHowTo_03.png)
+
+    Also click **Yes** on the confirmation window. 
+
+    ![](MobuHowTo_03b.png)
+
+    And **Export** at the **FBX Export Options** window. 
+
+    ![](MobuHowTo_03c.png)
+
+1. Download the **Motionbuilder** Plugin from the [GitHub Repository](https://github.com/ue4plugins/MobuLiveLink) and extract the zip files to your computer.
+
+    ![](MobuFiles.png)
+
+    After extracting the zip file, you will find folders for different versions of Motionbuilder as well as the plugin files needed to set up the plugin inside Mobu.
+
+1. Inside **Motionbuilder**, under **Settings** select **Preferences...**
+
+    ![](MobuHowTo_04.png)
+
+1. Under **SDK** click the **Add** button and point to the extracted folder path and your version of Motionbuilder. 
+
+    ![](MobuHowTo_05.png)
+
+    Once you see the path in the window, click **Ok**. 
+
+    ![](MobuHowTo_05b.png)
+
+1. On the confirmation window, click **Ok**, then restart Motionbuilder for the changes to take effect. 
+
+    ![](MobuHowTo_05c.png)
+
+    In the **Asset Browser** under **Devices**, you will now see the **UE - LiveLink** asset. 
+
+    ![](MobuHowTo_05d.png)
+
+    When you drag this asset into the Viewport, it enables you to  define what from your scene you want to stream. 
+
+1. **Open** the **ThirdPersonWalk_PreviewMesh** exported from UE4, then click **Open** on the **Open Options** menu.
+
+    ![](MobuHowTo_06.png)
+
+    This will import the character mesh and animation into Motionbuilder. 
+
+    ![](MobuHowTo_06b.png)
+
+1. In the **Asset Browser** under **Elements**, drag a **Camera** into the viewport. 
+
+    ![](MobuHowTo_07.png)
+
+    Move the camera to any position desired as this will be an alternate camera we can switch to and preview inside UE4. 
+
+    ![](MobuHowTo_07b.png)
+
+    In the next step we will set up the UE - LiveLink asset to define what elements we want to stream over to UE4. 
+
+## 2 - Mobu Live Link Setup
+
+1. Inside Motionbuilder's **Asset Browser**, drag the **UE - LiveLink** asset into the viewport. 
+
+    ![](MobuHowTo_08.png)
+
+    This will open up the Live Link Connection window which you can find under the **Devices** section. 
+
+    [REGION:lightbox]
+    [![](MobuHowTo_08b.png)(w:900)](MobuHowTo_08b.png)
+    [/REGION]
+    [REGION:caption]
+    Click image for full view.
+    [/REGION]
+
+1. Click the **...** (selector) Button in the Connection Window, and select the **Root** bone and **Camera**, then click the **Add** button. 
+
+    ![](MobuHowTo_09.png)
+
+    This will add both as Subjects to stream over to UE4. Notice that the Stream Type is automatically detected based on the content that you are attempting to stream. 
+
+    ![](MobuHowTo_10.png)
+
+    * **Subject Name** is the name it will appears as in UE4.
+    * **Stream Type** is what sort of data gets sent.
+    * **Status** is whether or not the Subject is active for streaming. 
+
+    With Stream Type, this will be automatically detected based on the type of content you are streaming. However you can choose the stream type and you may see different options based on your content. 
+
+    Some examples include: 
+
+    | Stream Type | Description |
+    | --- | --- |
+    | **Root Only** | Will only stream the Root Transform. |
+    | **Full Hierarchy** | Will grab everything that is a child of the Subject and stream the Transform and whatever animatable properties it has. |
+    | **Skeleton Hierarchy** | Streams all child bones of the Subject and checks that they are actually bones (things parented under bones that aren't bones will be ignored). |
+    | **Camera** | Similar to Root Only, except this streams in Camera Properties (for example Filmback Settings). |
+
+1. In **Subject Name** field for the **Root** object, change the name from Root to **Character**.
+
+    ![](MobuHowTo_10b.png)
+
+1. Click the button next to **Online** to enable content streaming. 
+
+    ![](MobuHowTo_11.png)
+
+    The Online status button will change from Red (offline) to Green (Online). 
+
+1. In the Navigator window, under **System**, enable the **Always refresh viewer** option. 
+
+    ![](MobuHowTo_12.png)
+
+    When you are streaming content with Live Link, you will want to enable this option because when Motionbuilder becomes the background application, losing focus, it will throttle performance, which could lead to stuttering during the streaming process.
+
+## 3 - Streaming Content to UE4
+
+1. With Mobu running in the background, inside UE4 from the File Menu under **Window**, select **Live Link**. 
+
+    ![](MobuHowTo_13.png)
+
+    This will open the Live Link Streaming Manager which will enable you to connect to the running instance of Motionbuilder. 
+
+1. Click the **Add** button, then under **Message Bus Source**, select your instance of Mobu and click **Ok**. 
+
+    ![](MobuHowTo_14.png)
+
+    The Streaming Manager will update to show the connected Source Type and Subjects being streamed to UE4. 
+
+    ![](MobuHowTo_14b.png)
+
+1. In the **Content Browser** under **Content > Mannequin > Character > Mesh** open the **SK_Mannequin** asset. 
+
+    ![](SK_MannequinImage.png)
+
+1. On the **Preview Scene Settings** tab, use the following settings: 
+
+    ![](MobuHowTo_15.png)
+
+    * Preview Controller - **Live Link Preview Controller**
+    * Subject Name - **Character**
+    * Enable Camera Sync - **Enabled**
+
+    This enables us to take the Subject named Character in Mobu and stream it in to UE4, previewing it with the Live Link Controller. We are also streaming in the active camera from Mobu. 
+
+[REGION:note]
+You can alternatively use [Blueprint functions](Engine/Animation/LiveLinkPlugin/LiveLinkBlueprintComponent) to establish a connection instead of manually connecting through the Live Link UI window.
+[/REGION]
+
+## 4 - End Result
+
+With both Motionbuilder and UE4 up and connected with Live Link, you can now preview content from Mobu inside UE4 in real-time. In the video below, we are able to manipulate the camera in Mobu and it is reflected inside UE4, we are also able to change camera perspectives and it is updated as well. Scrubbing animations in Mobu is reflected in UE4 and we can adjust bone transforms or keyframe new poses and see those reflected as well. 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+You can also directly control Bones in Mobu and see the changes reflected in UE4. This gives you the ability to keyframe animations in Mobu while previewing what those keyframed animations will look like in UE4 in real-time. 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    iuFy3G5bQzE
+    [/PARAMLITERAL]
+[/OBJECT]

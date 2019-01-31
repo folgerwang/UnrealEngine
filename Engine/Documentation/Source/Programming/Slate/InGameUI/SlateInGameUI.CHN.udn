@@ -1,13 +1,13 @@
-﻿INTSourceChangelist:2216623
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 在游戏中使用Slate
 Crumbs:%ROOT%, Programming, Programming/Slate
 Description:使用Slate用户界面控件来制作游戏中的用户界面。
+Version:4.9
 
-## 概述
 
 Slate控件可以用于在游戏中创建平头显示信息(HUD)或其他用户界面(UI)元素， 
-比如菜单。您一般可以创建一个或多个 _容器_ 控件，每个容器可以包含几个其他类型的控件， 
+比如菜单。您一般可以创建一个或多个容器控件，每个容器可以包含几个其他类型的控件， 
 这些控件负责用户界面的特定方面。
 
 [COMMENT:none]
@@ -31,17 +31,20 @@ Slate控件可以用于在游戏中创建平头显示信息(HUD)或其他用户�
 * 当为玩家初始化了HUD时，将会添加HUD控件。
 
 
+(#ProjectSetup)
 ## 项目设置
 
 [INCLUDE:Programming/Slate/Setup#main(offset:1)]
 
+(#DisplayingWidgets)
 ## 显示控件
 
 为了在您的游戏中显示一个Slate控件，则必须将该控件添加到游戏视口中。重叠的控件 
 按照添加它们时指定的Z-排序进行排序，且较大的Z-排序值出现在较小的Z-排序值 
 的上面。
 
-**访问游戏视口**
+(#AccessingtheGameViewport)
+### 访问游戏视口
 
 游戏视口是  `GameViewportClient` 类的一个实例。到当前游戏视口的引用可以通过 
 UEngine 的 `GameViewport` 成员获得，该成员可以通过使用到游戏当前UEngine实例 
@@ -56,7 +59,8 @@ UEngine 的 `GameViewport` 成员获得，该成员可以通过使用到游戏�
 其任何成员时，总是应该判断它们的值。
 [/REGION]
 
-**向视口中添加控件**
+(#AddingtheWidgettotheViewport)
+### 向视口中添加控件
 
 Slate控件通过向 `GameViewportClient::AddViewportWidgetContent()` 传入一个到该控件的引用(确切地说是 `TSharedref<SWidget>`  ) 
 来添加到视口中。该函数取入一个控件和Z-排序，Z-排序 
@@ -82,10 +86,11 @@ Slate控件通过向 `GameViewportClient::AddViewportWidgetContent()` 传入一�
 或者使用 `SAssignNew()` 来创建控件，并将它分配给 `TSharedPtr` 成员，然后传入它：
 
 	GEngine->GameViewport->AddViewportWidgetContent(
-		SAssingNew(MyWidgetPtr, SWeakWidget)
+		SAssignNew(MyWidgetPtr, SWeakWidget)
 		.PossiblyNullContent(MyWidgetClass)
 	);
 
+(#RemovingWidgetsfromtheViewport)
 ### 从视口中删除控件
 
 通过向 `GameViewportClient::RemoveViewportWidgetContent()` 中传入到先前添加的控件的引用， 

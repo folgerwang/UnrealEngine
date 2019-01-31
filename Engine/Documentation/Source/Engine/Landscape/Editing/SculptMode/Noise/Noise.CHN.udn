@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482403
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:Noise
@@ -15,6 +15,7 @@ Topic-image:Noise_topic.png
 **Noise** 工具将应用一个 noise 过滤器，在地形高度图表面生成各种变化效果。 
 
 
+(#UsingtheNoiseTool)
 ## 使用 Noise 工具
 
 [OBJECT:EmbeddedVideo]
@@ -54,6 +55,7 @@ Topic-image:Noise_topic.png
 
 在此例中，Noise 被绘制到平滑的地形表面上，基于使用的强度和属性值形成不同高度上的多样性。 
 
+(#ToolSettings)
 ## 工具设置
 
 [REGION:imagetable]

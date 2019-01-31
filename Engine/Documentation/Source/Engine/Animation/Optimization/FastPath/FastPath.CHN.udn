@@ -1,32 +1,39 @@
-﻿INTSourceChangelist:2926677
+﻿INTSourceChangelist:3717037
 Availability:Public
 Title: 优化动画的一些捷径
 Crumbs: %ROOT%, Engine, Engine/Animation
 Description: 对动画蓝图的一些优化来获得更好的性能
 version: 4.11
+topic-image:AnimationFastPathOptimization_topic.png
+parent:Engine/Animation/Optimization
 
 [EXCERPT:Intro]
 动画蓝图是搭建动画系统的一种非常灵活的方法，然而随着蓝图节点变得越来越多，基于蓝图的运行效率有可能会变得开销很大。对于这些开销的改善，有以下几种方法可以用来优化动画蓝图。
 [/EXCERPT:Intro]
 
+(#AccessMemberVariablesDirectly)
 ## 直接访问成员变量
 
 ![](DirectMemberAccess.png)
 
+(#AccessNegatedBooleanMemberVariables)
 ## 访问取反的布尔量
 
 ![](NegatedBooleanAccess.png)
 
+(#AccessMembersofaNestedStruct)
 ## 访问结构中的变量
 
 ![](NestedStructAccess.png)
 
+(#AccessMembersUsing"BreakStruct"Nodes)
 ## 通过 "Break Struct" 节点访问成员变量
 
 ![](BreakStructAccess.png)
 
 请注意有些 "Break Struct" 的节点，比如 "Break Transform"，并不是一个快速有效的方式，因为它们并不是简单的数值拷贝，而是在内部做了一些转换运算。
 
+(#AuditingandMaintainingOptimizedAnimationBlueprints)
 ## 检查并保持对动画蓝图的优化
 
 ![](WarnAboutBlueprintUsage.png)

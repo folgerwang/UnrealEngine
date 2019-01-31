@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3580568
 Availability:Docs
 Crumbs:%ROOT%
-Title:Fake AO Blueprint
-Description:Show's how to use the Fake AO Blueprint to simulate soft contact shadows.
+Title:假AO蓝图
+Description:展示如何使用假AO蓝图模拟柔和接触阴影。
 Type:how-to
 SkillLevel:Beginner
 Version:4.17
@@ -12,103 +12,103 @@ Tags:Composure
 
 ![](HTCS_01.png)
 
-In Order to have the character's feet in the Composure sample look as though they are casting a very soft shadow when the feet come in close contact with a surface, a Fake AO Shadow Blueprint was created. This Blueprint works by adjusting the intensity of a Texture based on how far the character foot is away from a surface. The closer the foot is to the surface the more intense the fake AO shadow will be. The further away the foot is from the surface, the less intense the fake AO shadow will be. In the following How - To we will take a look at setting up the Fake AO Shadow Blueprint.
+为了使Composure样本中角色的脚在近距离接触某个表面时看起来会投射十分柔和的阴影，需要创建假AO阴影蓝图。此蓝图的工作原理是基于角色的脚距表面的距离调整纹理的强度。脚距表面越近，假AO阴影的强度越高。脚距表面越远，假AO阴影的强度越低。在以下操作指南中，我们将介绍如何设置假AO阴影蓝图。
 
 
 [region:note] 
-For this How - To we will be using content that comes with the Composure Sample project. If you have not done so already, make sure to download this content from the Epic Games Launcher. 
+在本操作指南中，我们将使用Composure样本项目随附的内容。如果尚未具有此内容，请确保从Epic Games启动程序下载此内容。 
 [/region]
 
 
-## Steps
+## 步骤
 
-1. Open up the Composure Sample project and from the main toolbar, go to **File** > **New Level** and from the New Level dialogue box, select the **Default** level option.
+1. 打开Composure样本项目，从主工具栏中转至 **文件（File）** > **新建关卡（New Level）**，然后从“新建关卡（New Level）”对话框中选择 **默认（Default）** 关卡选项。
 
 	![](HTCS_02.png)
 
-1. To make things easier to see, drag a **Sky Light** Actor from the Modes panel into the level.
+1. 为了便于查看，从“模式（Modes）”面板中将 **天空光照（Sky Light）** Actor拖到关卡中。
 
 	[REGION:lightbox]
 	[![](HTCS_03.png)(w:398)](HTCS_03.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-1. Next, over in the Content Browser, go to **Mannequin** > **Character** > **Mesh** and drag the **SK_Mannequin** into the level.
+1. 然后，在内容浏览器中，转至 **人体模型（Mannequin）** > **角色（Character）** > **网格体（Mesh）**，然后将 **SK_Mannequin** 拖到关卡中。
 
 	[REGION:lightbox]
 	[![](HTCS_04.png)(w:642)](HTCS_04.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-1. Select the SK_Mannequin that was added to the level and in the **Details** panel under the **Animation** tab set the following properties:
+1. 选中已添加到关卡中的 SK_Mannequin，然后在 **细节（Details）** 面板的 **动画（Animation）** 选项卡下，设置以下属性：
 
-	* **Animation Mode:** Use Animation Asset
-	* **Anim To Play:** mocap_patio_walk
-	* **Initial Position:**  7.5
+	* **动画模式：（Animation Mode:）**使用动画资源（Use Animation Asset）
+	* **要播放的动画：（Anim to Play:）** mocap_patio_walk
+	* **初始位置：（Initial Position:）**7.5
 
 	[REGION:lightbox]
 	[![](HTCS_05.png)(w:642)](HTCS_05.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-1. Now, in the Content Browser, go to **Blueprints** > **fakeAO** and drag the **Bp_fake_Ao** Blueprint from the Content Browser into the level.
+1. 现在，在内容浏览器中，转至 **蓝图（Blueprints）** > **假AO（fakeAO）**，然后将 **Bp_fake_Ao** 蓝图从内容浏览器拖到关卡中。
 
 	[REGION:lightbox]
 	[![](HTCS_06.png)(w:642)](HTCS_06.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-1. Select the Bp_fake_Ao Blueprint and in the Details panel, under the **Default** section, press the eyedropper icon in the **Actor** section and then select the SK_Mannequin mesh that was placed into the scene.
+1. 选中Bp_fake_Ao蓝图，然后在“细节（Details）”面板的 **默认（Default）** 部分下，按 **Actor** 部分中的滴管图标，然后选择已放置到场景中的SK_Mannequin网格体。
 
 	[REGION:lightbox]
 	[![](HTCS_07.png)(w:642)](HTCS_07.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-1. To better see the effect that the  Bp_fake_Ao Blueprint has, search for the **M_gray** Material in the Content Browser and when located, apply it to the **Floor** Static Mesh that is in the level.
+1. 为更好地查看Bp_fake_Ao蓝图具有的效果，在内容浏览器中搜索 **M_gray** 材质，找到之后，将它应用给关卡中的 **地板（Floor）** 静态网格体。
 
 	[REGION:lightbox]
 	[![](HTCS_08.png)(w:642)](HTCS_08.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 
-## End Result
+## 最终结果
 
-Now position the camera so that it is looking at the feet of the SK_Mannequin and then press the **Simulate** button and when you look at the  SK_Mannequin feet, they should look like they are casting very faint shadow on the Floor Static Mesh that is under the feet of the  SK_Mannequin like in the following image.
+现在，调整摄像机的位置，使它朝着SK_Mannequin的脚，然后按 **模拟（Simulate）** 按钮，当你看向SK_Mannequin的脚时，应该能够发现它们在SK_Mannequin脚下的“地板（Floor）”静态网格体上投射了十分暗淡的阴影，如下图所示。
 [region:note]
-	The only way to see the effect in action is to play or simulate the level the effect is placed in. 
+	查看效果的作用的唯一方法是运行或模拟效果所在的关卡。 
 [/region]
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![No AO Shadow](HTCS_No_Shadow.png)
+	![无AO阴影](HTCS_No_Shadow.png)
 	[/PARAM]
 	[PARAM:after]
-	![AO Shadow](HTCS_Shadow.png)
+	![AO阴影](HTCS_Shadow.png)
 	[/PARAM]
 [/OBJECT]
 
 [region:note]
-	In the above image, dynamic shadows have been disabled to allow of the AO shadow effect to be seen better.
+	在上图中，我们禁用了动态阴影，以便能够更好地查看AO阴影效果。
 [/region]
 
-With the Player now casting fake soft shadows when their feet come in contact with the floor, you can quickly see how this effect could be used for a wide range of objects to help them cast very cheap yet convincing soft shadows. 
+现在当玩家的脚接触地板时将会投射假柔和阴影，你可以快速明白如何针对各种对象使用此效果，以使它们可以投射成本低但是逼真的柔和阴影。 
 

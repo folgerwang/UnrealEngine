@@ -34,7 +34,7 @@ Related: Gameplay/Framework/Controller/PlayerController
 
 	![](Pawns3b.png)
 
-1. 그래프 영역에 **우클릭** 한 다음 맥락 메뉴에서 **선택된 액터로의 레퍼런스 생성** 옵션을 선택합니다.
+1. 그래프 영역에 **우클릭** 한 다음 컨텍스트 메뉴에서 **선택된 액터로의 레퍼런스 생성** 옵션을 선택합니다.
 
 	![](Pawns4b.png)(w:640)
 

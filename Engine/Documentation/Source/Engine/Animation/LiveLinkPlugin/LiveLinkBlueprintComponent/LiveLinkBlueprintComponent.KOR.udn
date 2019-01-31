@@ -1,0 +1,221 @@
+INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: 블루프린트의 라이브 링크
+Description: 블루프린트에서 Live Link Component 를 사용하여 실행시간 또는 패키지 프로젝트에 연결을 설정해 주는 기능을 설명합니다. 
+Type: 
+Version: 4.20
+Parent: 
+Order: 
+Tags: Live Link
+
+**Live Link** (라이브 링크) 기능의 접근성을 높이기 위해 **액터 블루프린트** 에 **Live Link Component** (라이브 링크 컴포넌트)를 추가하면 에디터와 실행시간 양쪽에 라이브 링크 소스 연결을 자동으로 찾아 설정하도록 할 수 있습니다. 블루프린트를 통해 서브젝트 자체 또는 그에 대한 정보를 구하거나 다른 여러 함수를 호출할 수도 있습니다. 
+
+여기서는 라이브 링크 컴포넌트를 추가하고 사용하는 법은 물론 호출할 수 있는 함수를 개괄적으로 알아봅니다. 
+
+## 라이브 링크 컴포넌트
+
+**컴포넌트** 패널에서 액터 블루프린트에 Live Link 컴포넌트를 추가하면, 다른 컴포넌트를 부모로 삼지 않고 그냥 블루프린트 안에서 **On Live Link Updated Event** (라이브 링크 업데이트 시 이벤트)를 액세스할 수 있습니다. 
+
+![](OnLiveLinkUpdatedComponent.png)
+
+On Live Link Updated 는 에디터 안을 포함해서 라이브 링크 데이터가 새로 등록될 때마다 발동됩니다.
+
+![](LiveLinkUpdated.png)
+
+On Live Link Updated 노드는 실제로 **Tick Event** (틱 이벤트)를 대체하지만 에디터 안에서도 실행됩니다. 예를 들어 에디터 안에서 어떤 데이터를 라이브 구동하려는 경우, 이 노드가 지원합니다. 
+
+아래는 에디터의 카메라 트랜스폼을 Maya 의 Editor Active Camera 의 스트리밍 데이터로 구동하고 있습니다. 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ uPG4MKaVyFU
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+에디터에서 On Live Link Updated 이벤트의 작동을 위해서는 **Viweport Options** (뷰포트 옵션) 메뉴 중 **Realtime** (실시간) 옵션을 켜야 합니다.
+
+![](ViewportOptions.png)
+[/REGION]
+
+스켈레탈 메시가 들어있는 액터 블루프린트 안에서 Live Link 컴포넌트를 사용하면, 그 스켈레탈 메시를 에디터에서 자동 평가하도록 컴포넌트가 설정해 줍니다.
+
+![](SkeletalMeshExample.png)
+
+위에서 **SK_Mannequin** 라는 스켈레탈 메시 컴포넌트에 할당된 애니메이션 블루프린트는 Live Link Pose 노드를 사용하여 애니메이션 데이터를 스트리밍하고 있습니다. 일반적으로 카메라나 라이트나 다른 스켈레탈/스태틱 메시에 외부 스트리밍을 통해 프로퍼티 애니메이션을 하려는 경우, 블루프린트 안에서 해야 합니다. 스트리밍하려는 애니메이션 데이터는 애니메이션 블루프린트와 Live Link Pose 노드를 통해 처리하는 것이 가장 좋습니다. 
+
+### 서브젝트 데이터 구하기
+
+라이브 링크 컴포넌트를 사용할 때 **Get Subject Data** (서브젝트 데이터 구하기) 함수를 호출하면 제공한 Subject Name 에 연결된 라이브 링크 데이터를 구할 수 있습니다. 이 함수는 프레임 발견 여부에 대한 부울 값과 **Subject Frame Handle** (서브젝트 프레임 핸들)을 반환합니다.
+
+![](GetSubjectData.png)
+
+프레임은 여전히 C++ 에 존재하므로 순전히 프레임의 핸들 역할만 합니다. 그 C++ 프레임을 감싸는 블루프린트 래퍼일 뿐이며, 그 안의 함수를 호출하여 데이터를 꺼낼 수 있습니다.
+
+![](SubjectHandleFunctions.png)
+
+#### 커브 구하기
+
+Get Curves 함수는 모든 Blend Shape (블렌드 셰이프)와 Animated Curve (애니메이션 커브)를 구하고, 각 항목에 대한 Name (이름)과 Value (값)으로 된 맵을 반환합니다.
+
+![](GetCurves.png)
+
+**Find** 에 Name 을 입력하면 커브 (또는 존재 여부를 나타내는 부울) 값을 구할 수 있습니다.  
+
+![](FindMapLeftEyeOpen.png)
+
+#### 메타데이터 구하기
+
+Get Metadata 함수는 서브젝트 프레임에 저장된 서브젝트 메타데이터 구조체를 반환하며, 이를 분해하여 정보를 구할 수 있습니다. 
+
+![](GetMetadata.png)
+
+String Metadata (스트링 메타데이터)는 서브젝트의 네임드 스트링에 대한 맵으로, 예를 들어 스트리밍 대상 오브젝트 유형을 네임드 스트링으로 전달할 수 있습니다. 추가로 Scene Timecode (씬 타임코드)와 Scene Framerate (씬 프레임 속도) 구조체도 포함되어 있는데, 분해하여 필요한 정보를 구할 수 있습니다.
+
+| 출력 | 설명 |
+| --- | --- |
+| **String Metadata** | 스트링 메타데이터 - 프레임 또는 서브젝트 관련 부가 정보를 제공하는 네임드 스트링 맵입니다. 예: “Type”: “Camera” |
+| **Scene Timecode** | 씬 타임코드 - 현재 프레임에 연관된 타임코드 값입니다. [INCLUDE:#excerpt1]|
+| **Scene Framerate** | 씬 프레임 속도 - Scene Timecode 에 해당하는 프레임 속도입니다. |
+
+[COMMENT: none]
+[EXCERPT:Excerpt1]
+[REGION:note]
+이 값은 고유하다는 보장이 없습니다. 예를 들어 MotionBuilder 에서 한 프레임을 편집했는데 그 프레임의 타임코드가 여러 프레임 동안 전송될 수 있습니다.
+[/REGION]
+[/EXCERPT]
+[/COMMENT]
+
+#### 루트 트랜스폼 구하기
+
+Get Root Transform 함수는 Subject Frame (서브젝트 프레임)의 Root Transform (루트 트랜스폼)을 Live Link Transform (존재하지 않으면 Identity Transform)을 반환합니다.
+
+![](RootTransformLiveLink.png)
+
+함수를 (아래 설명처럼) 추가 호출할 수 있으므로 표준 트랜스폼 대신 라이브 링크 트랜스폼을 반환합니다. 
+
+| 함수 | 설명 |
+| --- | --- |
+| **Child Count** | 자손 수 - 지정된 라이브 링크 트랜스폼의 자손 수를 반환합니다. |
+| **Component Space Transform** | 컴포넌트 스페이스 트랜스폼 - 지정된 라이브 링크 트랜스폼의 트랜스폼 값을 루트 스페이스(모델의 루트 기준으)로 반환합니다. |
+| **Get Children** | 자손 구하기 - 지정된 라이브 링크 트랜스폼의 자손 라이브 링크 트랜스폼 배열을 반환합니다. |
+| **Get Parent** | 부모 구하기 - 라이브 링크 트랜스폼 부모가 있으면 그것을, 없으면 Identity Transform 을 반환합니다. |
+| **Has Parent** | 부모 있는지 - 지정된 라이브 링크 트랜스폼에 Parent Transform 이 있는지를 반환합니다. |
+| **Parent Bone Space Transform** | 부모 본 스페이스 트랜스폼 - 지정된 라이브 링크 트랜스폼에 대해 부모 스페이스의 트랜스폼 값을 반환합니다 (내부적으로 저장되는 값이며 부모 본을 기준으로 합니다). |
+| **Transform Name** | 트랜스폼 이름 - 지정된 라이브 링크 트랜스폼의 이름을 반환합니다. |
+
+#### 인덱스로 트랜스폼 구하기
+
+Get Transform By Index 는 서브젝트 프레임의 지정된 인덱스에 저장된 라이브 링크 트랜스폼을 반환합니다 (인덱스가 유효하지 않은 경우 Identity Transform 을 반환합니다).
+
+![](LiveLinkTransformIndex.png)
+
+#### 트랜스폼 수
+
+Number of Transforms 는 서브젝트 프레임 내 트랜스폼 수를 반환합니다.
+
+![](LiveLinkNumOfTransforms.png)
+
+한 가지 사용법은 **Get Transform By Index** 와 함께 루프에서 라이브 링크 트랜스폼 각각을 구하는 것입니다 (아래 참고).
+
+[REGION:lightbox]
+[![](LoopingThroughTransforms-1.png)(w:900)](LoopingThroughTransforms-1.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+#### 트랜스폼 이름 구하기
+
+**Get Transform Names** 함수는 프레임의 모든 트랜스폼 이름 배열을 반환합니다. 
+
+![](GetTransformNames.png)
+
+#### 이름으로 트랜스폼 구하기
+
+**Get Transform by Name** 함수는 **Get Transform by Index** 와 비슷하지만 Transform Name 데이터를 받습니다.
+
+![](GetTransformByName.png)
+
+### 사용가능 서브젝트 이름 구하기
+
+**Get Available Subject Names** 함수는 Live Link Component 에서 이름 배열을 반환받고 그 이름이 유효하면 **Get Subject Data** 를 호출합니다. 
+
+![](GetAvailableSubjectNames.png)
+
+## 메시지 버스 파인더
+
+메시지 버스 소스를 통해 연결을 확인하고 설정하는 데 사용할 수 있는 블루프린트 노드는 다음과 같습니다. 
+
+### 메시지 버스 파인더 생성
+
+**Construct Message Bus Finder** 노드는 네트워크에 사용할 수 있는 Message Bus Provider (메시지 버스 프로바이더)를 감지할 수 있습니다. 
+
+![](ConstructMessageBusFinder.png)
+
+이 함수는 **Live Link Message Bus Finder Object Reference** 유형을 반환하며, **Get Available Providers** 호출에 사용할 수 있습니다.
+
+### 사용가능 프로바이더 구하기
+
+**Get Available Providers** 노드는 네트워크에 메시지를 브로드캐스트한 다음 **Duration** 에 정의된 시간 내 응답한 모든 **Available Providers** 배열을 반환합니다. 
+
+![](GetAvailableProviders-1.png)
+
+[REGION:note]
+Get Available Providers 는 **Delay** 노드처럼 작동하며 실행을 멈추지 않습니다.
+[/REGION]
+
+Live Link Message Bus Finder 를 타깃으로 삼으며, 예제는 아래 이미지와 같습니다. 
+
+![](ExampleGetAvailProviders.png)
+
+위의 **Begin Play** 에서 **Construct Message Bus Finder** 를 사용하여 결과를 변수로 저장한 뒤 **Get Available Providers** 를 호출할 때 사용하여 연결할 수 있는 프로바이더 목록을 구합니다. 
+
+### 프로바이더에 연결
+
+**Connect to Provider** 노드는 지정된 Message Bus Provider 에 연결하고 생성된 Live Link Source 에 대한 핸들을 반환합니다. 
+
+![](ConnectToProvider.png)
+
+**Get Available Providers** 함수 호출로 사용가능 프로바이더를 구한 이후, 이 노드를 사용하여 원하는 프로바이더를 타깃으로 연결할 수 있습니다. 
+
+아래 예제는 메시지 버스 소스를 자동으로 찾고 사용가능 프로바이더를 구한 뒤 찾았으면 이 노드를 사용해 목록의 첫 프로바이더로 연결합니다. 
+
+[REGION:lightbox]
+[![](AutoConnectToProviders.png)(w:900)](AutoConnectToProviders.png)
+[/REGION]
+
+이미지를 클릭하면 원본을 확인합니다.
+
+Connect to Provider 노드에서 반환하는 **Source Handle** (소스 핸들)은 생성된 라이브 링크 소스 관련 정보 쿼리에 사용할 수 있습니다.
+
+![](ProviderSourceHandle-1.png)
+
+이 함수는 다음과 같습니다.
+
+| 함수 | 설명 |
+| --- | --- |
+| **Get Source Machine Name** | 소스 머신 이름 구하기 - 라이브 링크 소스의 핸들을 통해 그 머신 이름을 구합니다. |
+| **Get Source Status** | 소스 상태 구하기 - 라이브 링크 소스의 핸들을 통해 그 텍스트 상태를 구합니다. |
+| **Get Source Type** | 소스 유형 구하기 - 라이브 링크 소스의 핸들을 통해 그 유형을 구합니다. |
+| **Is Source Still Valid** | 소스가 아직 유효한지 - 라이브 링크 소스의 핸들을 통해 유효성을 검사합니다 (유효하지 않으면 Request Shutdown 을 사용할 수 있습니다). |
+| **Request Shutdown** | 종료 요청 - 라이브 링크 소스의 핸들을 통해 그 소스를 종료 요청합니다. |
+
+Connect to Provider 노드를 사용할 때마다 **Source Handle** (소스 핸들)을 캐시에 저장하는 것이 좋습니다. **Event End Play** (플레이 끝 이벤트) 시 **Request Shutdown** (종료 요청)을 사용하여 연결을 끊을 수 있습니다 (아래 참고). 연결을 끊지 않고 프로바이더에 연결할 때마다, 기존 연결이 남아있는 상태에서 새 연결을 설정하게 됩니다 (Live Link UI 창에 나타납니다).
+
+![](RequestShutdown.png)
+
+## 패키지 프로젝트의 라이브 링크
+
+**Construct Message Bus Finder**, **Get Available Providers**, **Connect to Provider** 블루프린트 함수를 사용하면 메시지 버스 소스를 자동 감지하여 실행시간에 연결할 수 있을 뿐 아니라, 패키지 프로젝트에서도 그 소스에 연결할 수 있습니다.
+
+[REGION:warning]
+프로젝트를 패키지했더니 노드 망이 런타임에는 작동하는데 패키지 프로젝트에서는 작동하지 않는 경우, 정상 작동을 위해서는 `- Messaging` 명령줄 인수를 붙여줘야 합니다. 메시지 버스의 한계점 중 하나입니다.
+[/REGION]

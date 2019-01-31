@@ -1,9 +1,14 @@
-﻿INTSourceChangelist:2737400
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:分层材质
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:有关 UE4 中分层材质技术的介绍文档。
 Version:4.9
+parent:Engine/Rendering/Materials
+order:8
+topic-image:Engine/Rendering/Materials/LayeredMaterialsTopic.png
+type:overview
+tags:Materials
 
 [REGION:fullwidth]
 ![](LayeredMaterials.png)
@@ -35,6 +40,7 @@ Version:4.9
 
 现在，最终的对象在其表面上可以有多个明显混合的材质层。
 
+(#KeyBenefits)
 ## 重要的益处
 
 使用分层材质的好处之一是，它们使您能够创建不如此则非常复杂的材质，并就将来可编辑而言使其更容易管理。例如，_可以_ 使用普通的不分层材质来创建分层材质效果，但这需要使用复杂的网络在 _每个材质输入_ 的不同纹理和值之间进行混合。因为大部分材质使用多个输入，此类材质的复杂性会大大提高。
@@ -65,6 +71,7 @@ Version:4.9
 ![](CarrierBreakdown.png)(w:600)
 
 
+(#BlendTypes)
 ## 混合类型
 
 材质编辑器的材质函数列表包含各种材质层混合函数的列表。这些函数帮助您执行混合，其中，不同的类型支持特殊类型的混合，例如能够覆盖特定的材质特性。
@@ -79,7 +86,7 @@ Version:4.9
 |**MatLayerBlend_BreakBaseColor（材质层混合_中断底色）**|输出所传入的材质层中的底色。|
 |**MatLayerBlend_BreakNormal（材质层混合_中断法线）**|输出所传入的材质层中的法线纹理。|
 |**MatLayerBlend_Decal（材质层混合_贴花）**|使用第二个 UV 通道，将贴花片混合到材质上。|
-|**MatLayerBlend_Decal_UV3（材质层混合_贴花_UV3）**|使用第二个 UV 通道，将贴花片混合到材质层上。|
+|**MatLayerBlend_Decal_UV3（材质层混合_贴花_UV3）**|使用第三个 UV 通道，将贴花片混合到材质层上。|
 |**MatLayerBlend_Emissive（材质层混合_自发光）**|将自发光纹理混合到材质层上。|
 |**MatLayerBlend_GlobalNormal（材质层混合_全局法线）**|将法线纹理混合到材质层上。|
 |**MatLayerBlend_LightmassReplace（材质层混合_光照系统替换）**|替换光照系统中的底色，从而允许更改间接照明效果。|
@@ -97,6 +104,7 @@ Version:4.9
 
 
 
+(#InstancingLayeredMaterials)
 ## 分层材质实例化
 
 因为分层材质在本质上是材质函数，所以将其参数化以便实例化需要做一些额外的预先规划。为了更好地使用标量和矢量参数，您可创建函数输入表达式作为材质层的组成部分。然后，可将顶层材质的一个参数连接到此输入。有关更多信息，请参阅 [材质函数概述](Engine/Rendering/Materials\Functions)。
@@ -121,6 +129,7 @@ Version:4.9
 * 务必提供函数输入的默认值。这可加快不需要进行更改的用户的工作流程。
 
 
+(#Caveats)
 ## 警告
 
 虽然分层材质非常适合于处理多材质设置，但使用这些材质时务必小心谨慎。它们可能会对性能产生严重影响，当各个层中使用的材质本身较为复杂时尤其如此。 

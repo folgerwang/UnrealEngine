@@ -1,0 +1,108 @@
+Availability: Public
+Crumbs: 
+Title: Hosting and Networking Guide
+Description: Advanced networking configuration and other considerations for hosting the Pixel Streaming system.
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:hosting-topic.png
+Tags: Guide
+Tags: Early Access
+Tags: Pixel Streaming
+
+
+Even without prior experience developing or deploying web services, you should be able to get the Pixel Streaming setup described in the [Overview](Platforms/PixelStreaming/PixelStreamingOverview) and [Getting Started](Platforms/PixelStreaming/PixelStreamingIntro) pages to work within a simple local area network. However, if you try to deploy your service over more complex networks or over the open Internet, or if you want to redesign the user experience and connection flow, you might need to rethink your setup.
+
+This page provides a few examples of how you could set up the components of your Pixel Streaming architecture to achieve different goals.
+
+## STUN and TURN Servers
+
+In order for the Signaling and Web Server to be able to negotiate a direct connection between the WebRTC Proxy Server and the browser, each party needs to send the other its own IP address. The browser needs to be able to access the IP address sent by the WebRTC Proxy Server, and vice-versa.
+
+Within a simple local area network, each endpoint can usually assume that the other party can access it using the private IP address known to its own network card. Over the open Internet, across subnets, or when network address translation (NAT) services intervene between the browser and the WebRTC Proxy Server, this is not usually the case. Instead, each party needs to find out its own publicly visible IP address by querying a server that implements the STUN (Session Traversal Utilities for NAT) protocol. After the STUN server tells each endpoint its publicly visible IP address, the Signaling and Web Server can continue brokering their direct connection.
+
+![Pixel Streaming with STUN and TURN servers](cloud-stun-turn.png "Pixel Streaming with STUN and TURN servers")  
+
+Alternatively, you can use a TURN server to relay the media stream between the WebRTC Proxy Server and the browser. With the TURN protocol, the TURN server connects to the WebRTC Proxy Server on one hand, and connects to the browser on the other hand. The WebRTC Proxy Server sends all of its streamed data to the TURN server, which forwards the data on to the browser. In this case, there is no direct connection between the WebRTC Proxy Server and the browser. (If you need to support mobile devices over wireless carrier networks, you may have no choice but to use a TURN server. Mobile networks often prevent clients from successfully connecting via the WebRTC protocol.)
+
+The STUN and TURN protocols together, along with the ability to fall back from one server to another, make up the ICE (Interactive Connectivity Establishment) framework.
+
+You can find several [open-source implementations](https://github.com/coturn/coturn) of STUN and TURN servers on the Internet. There are even [public STUN servers](https://gist.github.com/mondain/b0ec1cf5f60ae726202e) that you can use for free instead of hosting your own, although you should exercise caution when using a service that you are not hosting yourself. (Because of the throughput and bandwidth involved in relaying media through the TURN protocol, public TURN services are rarely available for free.)
+
+[REGION:tip]
+For convenience, the Unreal Engine also ships with binary versions of the STUN and TURN reference servers that are defined in the C++ WebRTC SDK. You can find these in the `Engine/Source/ThirdParty/WebRTC/rev.23789/programs/Win64/VS2017/release` folder under your Unreal Engine install location. These implementations may not offer production-grade reliability, but they may help you get started.
+[/REGION]
+
+To set up Pixel Streaming to use ICE connections, you need to set the host names of the STUN and TURN servers you want to use in the **peerConnectionOptions** configuration parameter for the Signaling and Web Server. For details on how to format this parameter, and how to supply it, see the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference#signalingserverconfigurationparameters).
+
+In addition, if you're hosting your own STUN or TURN server, you must make sure that the IP address and port you specify for it in the **peerConnectionOptions** parameter are visible on the open Internet.
+
+## Multiple Player Endpoints
+
+You may want all users to be in the same Unreal Engine session, but not have exactly the same ability to control that session.
+
+For example, you might want to create an experience like a presentation, where the presenter has full control over the Unreal Engine from their browser, but other users are only able to view the stream. Or, you may want to create customized sets of controls for different users, so that they can cooperate to control different aspects of the experience in real time.
+
+For these kinds of scenarios, you can have one Unreal Engine instance running with one stack of web services, but create different player HTML pages on the Signaling and Web Server:
+
+![Multiple player pages](cloud-multi-player.png "Multiple player pages")
+
+In this scenario, you could customize each different HTML player page and its JavaScript environment to expose only the controls you want. Then, each class of users would need to request a different URL from the Signaling and Web Server. For example, maybe the presenter loads `http://yourhostname/presenter.html` and other users load `http://yourhostname/attendee.html`.
+
+For more details on how to customize the player page, see [Customizing the Player Web Page](Platforms/PixelStreaming/PixelStreamingReference).
+
+## Multiple Full Stacks with Matchmaking
+
+Instead of having all users connect to the same stream, you may want each person to end up in his or her own interactive experiences. To do this, you can run a separate stack of Pixel Streaming components for each user, and direct each user to a separate Signaling and Web Server to start a connection.
+
+You can set up each stack of Pixel Streaming components on a separate host, or you can put more than one stack on the same host as long as you configure the port settings for the components within each stack so that they all communicate over different ports. See the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference) for details on these port settings.
+
+[REGION:note]
+If you plan to run multiple instances of the Unreal Engine using Pixel Streaming on the same computer, note that many consumer-level graphics cards such as the NVIDIA GeForce line can only run a maximum of two encoders at the same time. Professional-grade cards such as the Quadro and Tesla do not have the same limitation.
+[/REGION]
+
+To help set up this kind of configuration, the Pixel Streaming system can use a matchmaker server that tracks which Signaling and Web Servers are available, and whether they are being used by a client connection.
+
+![Multiple full stacks with a Matchmaker Server](cloud-multi-server.png "Multiple full stacks with a Matchmaker Server")
+
+Instead of each client needing to connect to its own Signaling and Web Server URL, they first connect to the Matchmaker Server. The Matchmaker takes care of redirecting each requester to its own Signaling and Web Server, which sets up the peer-to-peer connection between the client and its WebRTC Proxy Server. As long as that connection is active, the Matchmaker Server will not redirect any new incoming browser connections to the same Signaling and Web Server.
+
+The Pixel Streaming system includes a reference implementation for a Matchmaker Server, under the `Engine/Source/Programs/PixelStreaming/WebServers/Matchmaker` folder. You can use this server as-is; or, you can customize the `matchmaker.js` file to fit your needs, as long as you handle the same messages from the Signaling and Web Server.
+
+To set up the Matchmaker Server:
+
+1.  Before you start your Signaling and Web Server, start the Matchmaker Server by running its `run.bat` file. By default, the server listens for HTTP connections from clients on port **90**, and it listens for connections from Signaling and Web Servers on port **9999**. You can override those settings by providing the following configuration parameters on the command line:
+    
+    | Parameter | Description |
+    | --- | --- |
+    | **--httpPort** |  Defines the port the Matchmaker Server listens to for incoming HTTP connections from browsers. |
+    | **--matchmakerPort** | Defines the port the Matchmaker Server listens to for incoming status messages from Signaling and Web Servers. |
+
+    For example:
+
+    \> run.bat --httpPort 88 --matchmakerPort 9988
+
+2.  Set the following configuration parameters for the Signaling and Web Server:
+    
+    | Parameter | Description |
+    | --- | --- |
+    | **UseMatchmaker** | Set this parameter to `true` to make the Signaling Web Server send its current status to the Matchmaker Server. |
+    | **matchmakerAddress** | The IP address of the Matchmaker Server that this Signaling and Web Server will connect to. |
+    | **matchmakerPort** | The port that this Signaling and Web Server will use when it needs to send messages to the Matchmaker Server. Make sure that this value matches the **--matchmakerPort** value you set for the Matchmaker Server. |
+    | **publicIp** | The publicly visible IP address of the Signaling and Web Server. When the Matchmaker Server redirects a user to this Signaling and Web Server, it sends them to this IP address. Therefore, it has to be visible to the connecting browser. |
+    | **httpPort** | The port that the Signaling and Web Server listens to for HTTP connections. When the Matchmaker Server redirects a user to this Signaling and Web Server, it sends them to this port. |
+
+    For instructions on how you can set these parameters, see the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference).
+
+## Scaling on Demand
+
+If you want to use a strategy like the one described above, where a separate full stack serves each incoming client connection, you might not want to have a preset number of Unreal Engine applications running. If you have fewer users than servers, you'll be wasting resources; conversely, if you have fewer servers than users, people may need to wait until a connection is free. Instead, you might want to spin up a new server instance each time a client tries to connect.
+
+With the components of the Pixel Streaming system and the optional Matchmaker Server, you should have all the pieces you need to set up a dynamically scaling hosting system like this. However, for now, this level of cloud deployment is up to you to set up on your own cloud service provider.
+
+## Host Machine Hardware Capabilities
+
+If you choose to use a service provider such as Amazon (AWS) or Microsoft Azure to host your Unreal Engine application and Pixel Streaming web services, you may have a choice between multiple different tiers of hosts with different hardware capabilities. Keep in mind that the capabilities of the host may affect the quality of the stream that you can offer.
+
+For example, AWS machines typically do not offer hardware sound cards. When you run your Unreal Engine application on such a host, your media stream will not contain any sound. Similarly, if you opt for hosts with less powerful GPUs or less memory, you may not be able to get the maximum video quality possible in your streams.

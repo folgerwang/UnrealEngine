@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2679100
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:设置和获取 Actor 引用
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -6,9 +6,11 @@ Description:使用 Actor 引用在关卡中移动不同的 Actors。
 Related:Gameplay/HowTo/ReferenceAssets/Blueprints
 version:4.9
 skilllevel:Intermediate
-type:howto
+type:how-to
 parent:Engine/Blueprints/BP_HowTo
 order:1
+tags:Data Types
+tags:Blueprints
 
 [INCLUDE:Gameplay\HowTo\ReferenceAssets#referenceoverview]
 

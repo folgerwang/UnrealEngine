@@ -38,17 +38,17 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.1-release](h
 
 * UE-10141 비히클 코드 프로젝트의 패키징된 게임에 기본 텍스처
 
-* UE-10143 안드로이드에서 SunTemple 의 모든 머티리얼이 반사성 높음
+* UE-10143 Android에서 SunTemple 의 모든 머티리얼이 반사성 높음
 
 * UE-10167 입력핀 없는 커스텀 이벤트 노드 붙여넣기를 되돌리면 크래시
 
 * UE-10169 에디터를 통해 VS 를 설치할 때, Microsoft 의 Telemetry 를 활성화시키는 명령줄 파라미터를 포함시켜 인스톨러 실행
 
-* UE-10257 Mac 에 안드로이드 디바이스를 처음 연결할 때, tadp 를 설치한 후에도 여전히 sdk 경로를 직접 입력해야 함
+* UE-10257 Mac 에 Android 디바이스를 처음 연결할 때, tadp 를 설치한 후에도 여전히 sdk 경로를 직접 입력해야 함
 
 * UE-10260 미리 존재하던 폴리지가 최고 LOD 에 유지
 
-* UE-10277 Mac 에서 에디터를 열 때까지 UFE 에서 안드로이드고 유효 플랫폼으로 표시되지 않음
+* UE-10277 Mac 에서 에디터를 열 때까지 UFE 에서 Android고 유효 플랫폼으로 표시되지 않음
 
 * UE-10283 PIE 가 아닌 독립형 모드로 플레이할 때 TargetArray 노드가 유효하지 않은 것으로 보고
 
@@ -72,7 +72,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.1-release](h
 
 * UE-10537 자손 컴포넌트에 피직스가 켜져 있는데 움직이면 에디터 크래시
 
-* UE-10562 셰이더에서 블록이 생성된 경우 공백이고, 안드로이드에서 드라이버 컴파일러 크래시 유발
+* UE-10562 셰이더에서 블록이 생성된 경우 공백이고, Android에서 드라이버 컴파일러 크래시 유발
 
 * UE-10646 컴포넌트 창에 씬 컴포넌트 이외의 것을 복사하면 크래시
 
@@ -152,7 +152,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.3-release](h
 
 * UE-11302 iPad 에 디플로이 불가
 
-* UE-11692 히트 프록시를 렌더링할 때 크래시
+* UE-11692 히트 프락시를 렌더링할 때 크래시
 
 * UE-11304 빠진 파일이 있어 CrossCompilerTools 컴파일 불가
 
@@ -202,11 +202,11 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.3-release](h
 
 * UE-11640 AI Move To 이슈가 4.7 에서 발생
 
-* UE-11360 프로젝트 이름에 ' - ' 를 넣으면 안드로이드 빌드 실패 유발
+* UE-11360 프로젝트 이름에 ' - ' 를 넣으면 Android 빌드 실패 유발
 
 * UE-11647 Denver Tegra K1 (Nexus 9) 에서 악성 퍼포먼스를 유발하는 렌더링 스레드 비활성화
 
-* UE-11383 안드로이드 디바이스에서 화면 오리엔테이션이 무시됨
+* UE-11383 Android 디바이스에서 화면 오리엔테이션이 무시됨
 
 * UE-11460 안에 이벤트 디스패처가 배치된 블루프린트 컴포넌트를 사용하는 블루프린트가 있는 경우 레벨이 저장되지 않음
 
@@ -214,7 +214,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.3-release](h
 
 * UE-11707 다수의 에디터 스트링 현지화가 깨지던 부분에 대한 우회법 구현
 
-* UE-11592 안드로이드 프로젝트의 cook-on-the-fly 가 디바이스에서 실행 이후 크래시
+* UE-11592 Android 프로젝트의 cook-on-the-fly 가 디바이스에서 실행 이후 크래시
 
 * UE-11739 특정 환경에서 CrowdManager 가 생성되지 않음
 
@@ -312,13 +312,13 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.4-release](h
 
 * UE-11302 iPad 에 디플로이 불가
 
-* UE-12063 리눅스에서 프로젝트 패키징 불가
+* UE-12063 Linux에서 프로젝트 패키징 불가
 
 * UE-12210 Morpheus IPD 가 잘못 적용
 
 * UE-13048 Xbox (코드 및 BP) 프로젝트가 검정 화면에 실행되지만 로그에는 성공이라 나옴
 
-* UE-12213 랜드스케이프 머티리얼을 안드로이드 디바이스에서 실행하면 기본값 복원
+* UE-12213 랜드스케이프 머티리얼을 Android 디바이스에서 실행하면 기본값 복원
 
 * UE-12542 MAC: 에디터에서 텍스처 압축 시간 매우 느림
 
@@ -348,7 +348,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.5-release](h
 
 * UE-13274 4.7.3 에서 4.7.4 로 프로젝트 변환 후 실행하면 크래시
 
-* UE-11828 리눅스에서 랜드스케이프 HydroErosion 크래시
+* UE-11828 Linux에서 랜드스케이프 HydroErosion 크래시
 
 ## 4.7.6 핫픽스
 

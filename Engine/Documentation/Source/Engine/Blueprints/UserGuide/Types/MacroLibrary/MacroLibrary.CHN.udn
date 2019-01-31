@@ -1,137 +1,102 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title:蓝图宏库
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types
-Description:声明及定义宏的蓝图，以便在其他蓝图中进行重用。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\MacroLibrary:title%](Engine/Blueprints/UserGuide/Types/macro_blueprint.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\MacroLibrary:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\MacroLibrary:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\MacroLibrary]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\MacroLibrary:title%](Engine/Blueprints/UserGuide/Types/macro_blueprint.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\MacroLibrary:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\MacroLibrary:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\MacroLibrary]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Description:声明和定义宏以便在其他蓝图中重复利用的蓝图。
+version: 4.9
+Parent:Engine/Blueprints
+type:overview
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Types/macro_blueprint.png
 
 [TOC(start:2)]
 
-## 概述
-
 [EXCERPT:Intro]
-**Blueprint Macro Library（蓝图宏库）** 是一个存放了一组 _宏_ 的容器，或者是可以像节点那样 
-放置到其他 _蓝图_ 中的自包含图表。这些蓝图宏库非常节约时间，因为它们存放了常用的节点序列、 
-及针对执行和数据变换的输入和输出。
+ **蓝图宏库（Blueprint Macro Library）** 是一个容器，它包含一组 **宏** 或自包含的图表，这些图表可以 
+作为节点放置在其他蓝图中。它们可以节省时间，因为它们可以存储常用的节点序列， 
+包括执行和数据传输所需的输入和输出。
 
-_宏_ 会在所有引用它们的图表间共享，但是如果它们在编译过程中是合并的节点，那么它们会自动地 
-展开为图表。这意味着 _蓝图宏库_ 不需要进行编译， 
-但是对 _宏_ 所做的修改，仅当重新编译了包含引用该 _宏_ 的图表的蓝图时，这些修改才会反应在 
-图表中。
+宏在引用它们的所有图表之间共享，但是它们会自动扩展到图表中， 
+就像它们在编译期间是一个折叠节点那样。这意味着蓝图宏库不需要编译。但是， 
+对宏的更改仅反映在重新编译包含这些图表的蓝图时 
+引用该宏的图表中。
 [/EXCERPT:Intro]
+
+(#creatingablueprintmacrolibrary)
 
 ## 创建蓝图宏库
 
-_Blueprint Macro Libraries（蓝图宏库）_ 存储在包中，可以像创建任何其他资源一样通过内容浏览器来创建蓝图宏库。
+蓝图宏库存储在包中，可以像任何其他资源一样通过 **内容浏览器（Content Browser）** 创建。
 
-1. 在内容浏览器中，点击 ![New Asset button](button_new_asset_blueprint.png) 。
+1. 在 **内容浏览器（Content Browser）** 中，单击![New Asset button](button_new_asset_blueprint.png)。
 
-1. 从出现的菜单中，选择 **New Asset（新建资源）** 下的 **Miscellaneous（其他） > Blueprint Macro Library（蓝图宏库）** 。
+1. 从显示的菜单中，选择 **创建高级资源（Create Advanced Asset）** 下的 **蓝图（Blueprints）> 蓝图宏库（Blueprint Macro Library）**。
 
 	![](new_asset_macrolib.png)
 
-1. 选择您的 _蓝图宏库_ 的 **Parent Class（父类）** 。
+1. 为您的蓝图宏库选择一个 **父类（Parent Class）**。
 
 	![Choose a Parent Class](new_asset_parent_class.png)
 
-1. 您的 _蓝图宏库_ 将会立即出现在内容浏览器中。在内容浏览器中您的 _蓝图宏库_ 图标的下面输入它的名称。
+1. 您的蓝图宏库现在将显示在 **内容浏览器（Content Browser）** 中。在 **内容浏览器** 中的蓝图宏库图标下键入该蓝图宏库的名称。
 
 	![](name_macro_library.png)
 
-	当您第一次创建 _蓝图宏库_ 或者当您在 **蓝图编辑器** 中修改它时，在内容浏览器中的 _蓝图宏库_ 的图标上将会添加一个星号。这意味着没有保存该 _蓝图宏库_ 。
+	首次创建您的蓝图宏库时，或者当您在 **蓝图编辑器（Blueprint Editor）** 中对其进行更改时，星号将添加到 **内容浏览器（Content Browser）** 中的蓝图宏库图标中。这表示蓝图宏库尚未保存。
 
 	![](unsaved_macro_library.png)
 
-1. 要想从内容浏览器中直接保存 _Blueprint Macro Library(蓝图宏库)_ ，请点击内容浏览器导航条中的 **Save（保存）...** 按钮。
+[COMMENT:none]
+
+1. 若要直接从 **内容浏览器（Content Browser）** 保存蓝图宏库，请单击 **内容浏览器（Content Browser）** 的导航条中的 **保存...（Save...）**。
 
 	![](save_macrolib_content_browser.png)
 
-1. 在出现的 **Save Content（保存内容）** 窗口中，请确保选中了您的新 _蓝图宏库_ 的复选框，然后点击![Save Selected](button_save_selected.png) 按钮。
+1. 在显示的 **保存内容（Save Content）** 窗口中，确保选择了新蓝图宏库的复选框，然后单击 ![Save Selected](button_save_selected.png)。
 	
 	![](save_selected_macrolib.png)
 
-1. 双击 _蓝图宏库_ 的图表来在 _蓝图编辑器_ 中打开它。
+1. **双击** 蓝图宏库的图标以在蓝图编辑器中打开它。
 
+[/COMMENT]
 
-还有两种可以从内容浏览器中访问 _蓝图宏库_ 创建菜单的其他方法。
+还有两种其他方法可以从 **内容浏览器（Content Browser）** 访问蓝图宏库创建（Blueprint Macro Library Creation）菜单。
 
-1. 右击内容浏览器的Asset View（资源视图）面板(右侧)。
+1. **右键单击** **内容浏览器（Content Browser）** 的资源视图（Asset View）（右侧）面板，或单击 **内容浏览器（Content Browser）** 的资源树（Asset Tree）（左侧）的文件夹。 
 
-1. 从出现的菜单中，选择 **New Asset（新建资源）** 下的 **Miscellaneous（其他） > Blueprint Macro Library（蓝图宏库）** 。
+1. 在显示的菜单中，选择 **创建高级资源（Create Advanced Asset）** 下的 **蓝图（Blueprints）> 蓝图宏库（Blueprint Macro Library）**。  
 
 	![](rt_click_content_browser_macrolib.png)
 
-1. **Pick Parent Class(选择父类)** 窗口将会出现，从这里开始， _蓝图宏库_ 的创建过程就和您使用 **新建资源** 按钮创建时一样了。
+1. **选取父类（Pick Parent Class）** 窗口随即显示，从这里开始，蓝图宏库创建过程与使用 **新资源（New Asset）** 按钮时相同。 
 
 
-另一种方法:
-
-1. 在 **Asset Tree（资源树）** 中的一个文件夹上右击鼠标，该资源树位于内容浏览器的左侧。
-
-1. 在出现的菜单中，将鼠标移动到 **New Asset(新建资源)** 项。
-
-	![](rtclick_content_browser_asset_tree.png)
-
-1. 在出现的子菜单中，选择 **New Asset（新建资源）** 下的 **Miscellaneous（其他） > Blueprint Macro Library（蓝图宏库）** 。
-
-	![](rtclick_content_browser_asset_tree_macrolib.png)
-
-1. **Pick Parent Class(选择父类)** 窗口将会出现，从这里开始， _蓝图宏库_ 的创建过程就和您使用 **新建资源** 按钮创建时一样了。
-
+(#blueprintmacros)
 
 ## 蓝图宏
 
 [INCLUDE:Engine/Blueprints/UserGuide/Macros#Intro]
+
+(#creatingblueprintmacros)
 
 ### 创建蓝图宏
 
 [INCLUDE:Engine/Blueprints/UserGuide/Macros#MacroCreationLib]
 
 
+(#buildingblueprintmacros)
+
 ### 构建蓝图宏
 
 [INCLUDE:Engine/Blueprints/UserGuide/Macros#BuildingMacros]
 
-### 应用存储在蓝图宏库中的宏
+(#usingmacrosstoredinblueprintmacrolibraries)
 
-在 _蓝图宏库_ 中存储宏，使得您可以在整个项目中的 _类蓝图_ 及 _关卡蓝图_ 中访问它们。
+### 使用存储在蓝图宏库中的宏
+
+将宏存储在蓝图宏库中可以让整个项目中的蓝图类和关卡蓝图都能够访问它们。  
 [INCLUDE:Engine/Blueprints/UserGuide/Macros#UniversalImplement]
 
-一旦将 _宏_ 节点添加到了图表中，它的处理就和其他任何节点一样，输入和输出引脚可以相应地进行连接。在任何 _蓝图_ 图表中 **双击** 一个 _宏_ 节点
- 将打开该 _宏_ 的图表。
+一旦您将宏节点添加到图表中，它会表现出像任何其他节点一样的行为，且输入和输出引脚可以相应地连接。**双击** 任何蓝图图表中的宏节点
+ 将打开该宏的图表。
+

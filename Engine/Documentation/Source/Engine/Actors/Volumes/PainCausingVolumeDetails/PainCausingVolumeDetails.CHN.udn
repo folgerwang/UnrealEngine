@@ -1,22 +1,20 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750352
 Availability: Docs
-Title:Volumes Overview
+Title:体积概述
 Crumbs:%ROOT%, Engine, Engine/Actors, Engine/Actors/Volumes
-Description:Pain-Causing Volume reference details
+Description:关于施加伤害的体积的参考细节
 version:4.16
 type:reference
 
 
-### Pain-Causing Volume
+### 施加伤害的体积
 
-In addition to the properties that can be assigned from a Physics Volume, the Pain Causing Volume also has its own set of specific propteries outlined below.
+除了从物理体积分配的属性之外，施加伤害的体积还具有下面概述的一组特定属性。
 
-![](paincausingvolume.png)
-
-| Property | Description |
+| 属性 | 说明 |
 | ------- | ------------ |
-| **Pain Causing** | Whether the volume currently causes damage or not. |
-| **Damage Per Sec** | Damage done per second to the Actors in the volume when Pain Causing is enabled. |
-| **Damage Type** | This determines the type of damage done to the Actor. |
-| **Pain Interval** | This is the amount of time, in seconds, between applied damage when Pain Causing is enabled. |
-| **Entry Pain** | Determines whether or not damage will be applied immediately upon entering the volume, assuming that **Pain Causing** is enabled. This damage is in addition to the recurring damage applied based on the **Pain Interval**. |
+| **施加伤害（Pain Causing）** | 体积当前是否施加伤害。|
+| **每秒钟伤害量（Damage Per Sec）** | 启用“施加伤害”时，体积对进入其内部的Actor每秒钟施加的伤害量。|
+| **伤害类型（Damage Type）** | 决定了给该Actor施加的伤害类型。|
+| **伤害时间间隔（Pain Interval）** | 当启用“施加伤害”时，应用伤害的时间间隔量，以秒为单位。|
+| **进入时伤害（Entry Pain）** | 如果启用了 **施加伤害（Pain Causing）**，此属性决定了是否在进入体积时立即施加伤害。它是基于 **伤害时间间隔（Pain Interval）** 所施加的伤害之外的伤害。|

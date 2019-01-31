@@ -1,115 +1,284 @@
-﻿INTSourceChangelist:3322057
-Availability:Public
-Title:录制到 Sequencer
+﻿INTSourceChangelist:4221223
+Availability: Public
+Title:记录到Sequencer
 Crumbs:
-Description:使用 Sequence Recorder 录制动作，然后在 Sequencer 中使用数据。
-Version:4.14
-SkillLevel:Advanced
+Description:用序列记录器记录您的操作，并在Sequencer中使用该数据。
+Version: 4.14
+SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
-Related:Engine/Sequencer/Overview
-Related:Engine/Sequencer/ReferenceEditor
+Related: Engine/Sequencer/Overview
+Related: Engine/Sequencer/ReferenceEditor
 tags:Sequencer
 type:how-to
 
-利用 **Sequence Recorder** 可捕捉关卡编辑或游戏进程中的特定 Actor，可另存为新的 **关卡序列**，并在 **Sequencer** 中进行编辑。 
-这可用于快速捕捉场景中的内容。可选取一个可操作角色，在游戏进程中执行一些操作，同时使用 Sequence Recorder 进行录制，然后将数据导入 Sequencer，以此创建动画。
+(#sequencerecorder)
 
-在此例中，我们将使用 Sequence Recorder 记录可操作角色的动作，然后进行对其进行编辑。
+# 序列记录器
 
-## 步骤
+ **序列记录器（Sequence Recorder）** 使您能够将游戏进程或关卡编辑中的Actor记录到关卡序列（Level Sequence）中骨架动画（Skeletal Animation）、变形（Transform）、事件（Event）和音频轨道（Audio Tracks）中。然后，您可以在 **Sequencer编辑器（Sequencer Editor）** 内编辑关卡序列（Level Sequence），以围绕您的记录创建一部过场动画。
 
-[REGION:note]
-在此指南中，我们使用的是启用 **Starter Content** 的 **Blueprint Third Person Template** 项目。 
-[/REGION]
+(#openingthesequencerecorder)
 
-1.	在 **窗口** 下的 **菜单栏** 中选中 **Sequence Recorder**。 
+## 打开序列记录器
 
-	![](RecorderStep1.png)
+您可以从 **窗口（Window）** 选项卡下的主 **Menu Bar（菜单栏）** 中打开 **Sequence Recorder（序列记录器）**。
 
-	Sequence Recorder 窗口将自动打开。**Sequence Recording** 有多个选项，将决定新关卡序列资源的保存方式和路径。可选择记录生成的 Actor（如粒子效果、其他角色等），确定命名规则和保存路径，并变更其他设置（如录制时长或开始录制前的延迟）。
-	
-1.	在主编辑器工具栏中，点击 **Play** 按钮开始一个编辑器中进行游戏（PIE）会话。 
+![image alt text](image_0.png)(w:270 h:300 convert:false)
 
-1.	在游戏中按下 **Shift+F1** 组合键进行鼠标控制。 
+选择 **Sequence Recorder（序列记录器）** 后，**Sequence Recorder（序列记录器）** 窗口将打开：
 
-1.	点击 **Sequence Recorder** 窗口上的 **Add** 按钮。 
-	
-	![](SequenceRecorderAdd.png)
+![image alt text](image_1.png)(w:586 h:709 convert:false)
 
-1.	点击新录制（为 **空**），然后点击 **Actor to Record** 的下拉菜单并选择 **ThirdPersonCharacter**。 
+(#trackingactorsforrecording)
 
-	![](ActorToRecord.png)
+## 跟踪Actor以进行记录
 
-	开始录制进程前，我们在此处指定设为目标的 Actor，如上图所示更新 UI。
+序列记录器的顶部有如下用来控制记录的按钮：记录（Record）、添加（Add）、添加玩家（Add Player）、移除（Remove）和全部移除（Remove All）。
 
-1.	此外可选择录制音频并沿录制片段设置音频增益级。 
+![image alt text](image_2.png)(w:322 h:64 convert:false)
 
-	![](RecordAudio.png)
 
-	音频录制需要附带麦克风，将在开始录制序列时同时进行录制。 
+| 按钮 | 说明 |
+| --- | --- |
+| 记录（Record） | 启动记录（影响所有记录）。|
+| 添加（Add） | 为选定Actor添加新记录。如果未选择任何对象，将添加空记录。|
+| 添加玩家（Add Player） | 为当前玩家添加一个新记录。|
+| 移除（Remove） | 移除选定记录。|
+| 全部移除（Remove All） | 移除所有记录。|
 
-1.	点击 **Record** 按钮。4 秒后（受 Sequence Recording 部分下的 **Record Delay** 选项影响），录制进程开始。 
 
-	![](RecordStart.png)
 
-	[REGION:note]
-	点击 **Record** 按钮，列表中所有设为被追踪的 Actor 也将被录制。 
-	[/REGION]
+单击 **添加（Add）** 按钮后，**记录（Record）** 选项和 **移除（Remove）** 选项将变为可访问状态。这还将把 **Actor记录（Actor Recording）** 字段添加到Actor跟踪（Actor Tracking）窗口中，并使要跟踪的Actor（Actor）列示为 **无（None）**（如下所示）。
 
-1.	使用 **WASD** 和**空格** 键移动角色并控制其跳跃，然后在完成时按下 **ESC**。
+![image alt text](image_3.png)(w:516 h:222 convert:false)
 
-	[OBJECT:EmbeddedVideo]
+选择Actor记录（Actor Recording）将用其他与该记录相关的选项填充序列记录器（Sequence Recorder）。
+
+![image alt text](image_4.png)(w:524 h:709 convert:false)
+
+利用这些选项，您可以定义记录期间要跟踪的Actor及其动画设置。您可以将多个Actor跟踪（Actor Tracking）字段添加到跟踪窗口（Tracking Window），并将各个 **要记录的Actor（Actor to Record）** 设置为跟踪不同的Actor。
+
+[REGION:note]有关使用序列记录器（Sequence Recorder）记录Actor的详细指南，请参阅[记录到Sequencer](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder)页面。[/REGION]
+
+(#sequencerecorderoptions)
+
+## 序列记录器选项
+
+一旦您打开了 **序列记录器（Sequence Recorder）**，您可调节几个属性以确定 **序列记录器（Sequence Recorder）** 记录其Actor的方式。首次打开 **序列记录器（Sequence Recorder）** 时，只会看到默认 **序列记录（Sequence Recording）** 选项。添加要跟踪的Actor进行记录后，**Actor记录（Actor Recording）** 和 **动画记录（Animation Recording）** 部分将按照各Actor可供使用。
+
+(#recordinggroups)
+
+### 记录组
+
+ **序列记录器（Sequence Recorder）** 支持存储在固定关卡（Persistent Level）中的配置文件系统。**记录配置文件（Recording Profiles）** 使您可以存储要记录的Actor及其设置，以及要将记录的数据存储到的输出路径。**序列记录器（Sequence Recorder）** 还支持为各个选定Actor记录多个取景镜头。 
+
+以下选项在 **序列记录器（Sequence Recorder）** 的 **记录组（Recording Groups）** 部分中可用：
+
+![image alt text](image_5.png)(w:502 h:257 convert:false)
+
+
+| 选项 | 说明 |
+| --- | --- |
+| 序列名称（Sequence Name） | 要记录到的序列的基本名称。此名称也将用于自动生成此记录所创建的任何资源。|
+| 序列记录基本路径（Sequence Recording Base Path） | 此记录的基本路径。子资源将创建在指定的子目录中。|
+| 指定目标关卡序列（Specify Target Level Sequence） | 我们应指定目标关卡序列（Level Sequence）还是自动创建它。|
+| 目标关卡序列（Target Level Sequence） | 要记录的关卡序列（Level Sequence）。|
+| 复制目标关卡（Duplicate Target Level） | 我们是否应复制目标关卡序列（Level Sequence）并记录到副本中。|
+|  |  |
+
+
+
+以下视频演示了使用 **序列记录器（Sequence Recorder）** 设置 **记录组（Recording Groups）** 的示例。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	QGO_jCrjTEI
+	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
-	640
+	78
 	[/PARAMLITERAL]
 	[PARAMLITERAL:height]
-	360
+	56.25
 	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	简单
+	[/PARAMLITERAL]
+[/OBJECT]
+
+(#sequencerecording)
+
+### 序列记录
+
+这些选项使您能够定义如何记录序列以及记录哪些Actor：
+
+![image alt text](image_6.png)(w:540 h:452 convert:false)
+
+
+| 选项 | 说明 |
+| --- | --- |
+| 创建关卡序列（Create Level Sequence） | 是否在记录时创建关卡序列（Level Sequence）。如果启用，Actor和动画将被插入到此序列中。|
+| 沉浸模式（Immersive Mode） | 是否在记录时最大化视口。|
+| 序列长度（Sequence Length） | 定义要记录的序列（Sequence）的最大长度（设置为0时，记录将一直持续，直至按下Esc或停止（Stop）按钮调用停止（Stop））。|
+| 记录延迟（Recording Delay） | 开始记录之前使用的延迟。|
+| 动画子目录（Animation Sub Directory） | 将容纳动画的子目录的名称。如将此选项留空，则会将动画放入与序列（Sequence）基本路径相同的目录下。|
+| 记录附近生成的Actor（Record Nearby Spawned Actors） | 是否记录附近生成的Actor作为此记录的一部分。|
+| 记录接近程度的附近Actor（Nearby Actor Recording Proximity） | 定义与当前已记录Actor的接近程度，以记录新生成的Actor。|
+| 记录世界场景设置Actor（Record World Settings Actor） | 是否在序列（Sequence）中记录世界场景设置Actor（World Settings Actor）（某些游戏用此选项附加世界场景音效）。|
+| 减少键（Reduce Keys） | 是否从记录的轨迹中移除公差范围内的关键帧。|
+| 自动保存资源（Auto Save Asset） | 是否在记录完成时自动保存资源。默认为假。|
+| Actor过滤器（Actor Filter） | 用于检查生成的Actor以查看是否应予以记录的过滤器。您可从可展开选项中指定要记录的Actor类。|
+| 要触发的关卡序列Actor（Level Sequence Actors to Trigger） | 开始记录时，要在其上触发播放的序列Actor（例如，这可用于记录同步的序列）。|
+| 默认动画设置（Default Animation Settings） | 应用于动画记录的默认设置。展开以查看用于在世界场景空间（World Space）中进行记录，移除根动画（Removing Root Animation），记录完成时是否自动保存（Auto Save）资源，以及调整采样速率（Sample Rate ）和长度（Length）的能力的选项。|
+| 要记录的类和属性（Classes and Properties to Record） | 要为指定类记录的属性。将记录此处指定的组件类。如果某个Actor不包含其中任何一类，则将被忽略。展开以定义类和关联属性。|
+| 记录Sequencer生成的Actor（Record Sequencer Spawned Actors） | 是否记录由Sequencer本身生成的Actor（通常禁用该功能，因为可能会得到意外结果）。|
+| 各Actor设置（Per Actor Settings） | 应用于指定类的Actor的设置。对于各个类，您可以定义记录到可拥有（Possessable）（关卡所有）还是可生成（Spawnable）（序列所有）。|
+
+
+
+(#actorrecording)
+
+### Actor记录
+
+本节使您可以为已记录的Actor定义设置： 
+
+![image alt text](image_7.png)(w:536 h:308 convert:false)
+
+
+| 选项 | 说明 |
+| --- | --- |
+| 记录可视性（Record Visibility） | 是否记录Actor可视性。|
+| 记录变形（Record Transforms） | 是否记录Actor变形。如果您想要Actor在序列完成之后于特定位置结束，此选项会很有用。默认情况下我们依赖动画来提供变形，但可以使用在世界场景空间中进行记录（Record in World Space）动画设置以作出更改。|
+| 活动（Active） | 此Actor是否处于活动状态并将在按下记录（Record）按钮后进行记录。|
+| 创建关卡序列（Create Level Sequence） | 是否为此Actor记录创建关卡序列（Level Sequence）。|
+| 目标关卡序列（Target Level Sequence） | 要记录的关卡序列（Level Sequence）。|
+| 目标名称（Target Name） | 要记录到的可选目标名称。如果未指定，将使用Actor标签。|
+| Take Number（取景镜头编号） | 指定新记录的取景镜头编号。|
+| 记录到可拥有（Record to Possessable） | 记录到可拥有（Possessable）（关卡所有）还是可生成（Spawnable）（序列所有）Actor。全局设置的默认值。|
+| 要记录的Actor（Actor to Record） | 此选项用于定义您要记录的Actor。|
+
+
+
+(#animationrecording)
+
+### 动画记录
+
+这些设置可用于定义动画的记录方式： 
+
+![image alt text](image_8.png)(w:536 h:165 convert:false)
+
+
+| 选项 | 说明 |
+| --- | --- |
+| 指定目标动画（Specify Target Animation） | 我们应指定目标动画还是自动创建它。|
+| 目标动画（Target Animation） | 启用指定目标动画（Specify Target Animation）后，此选项也会启用，并用于指定您要记录到的动画。|
+| 动画设置（Animation Settings） | 请参阅序列记录（Sequence Recording）下的默认动画设置（Default Animation Settings）。这些设置应用于要记录的Actor（Actor to Record）。|
+
+
+
+(#tipsandtricks)
+
+## 提示和技巧
+
+本节包含一些可在使用 **序列记录器（Sequence Recorder）** 时使用的工作流程提示和技巧。
+
+(#continuousrecording)
+
+### 连续记录
+
+在 **序列记录器（Sequence Recorder）** 窗口中，您可以将 **序列长度（Sequence Length）** 设置为 **0**，以执行连续记录。
+
+![image alt text](image_9.png)(w:530 h:778 convert:false)
+
+[REGION:tip]设置为0时，记录不会停止，除非您单击 **Esc** 键手动选择停止记录。[/REGION]
+
+(#right-clickrecording)
+
+### 右键单击记录
+
+如果您有一个活动的 **关卡序列** 处于打开状态，您可以右键单击您关卡（Level）中的Actor并从情境菜单开始记录Actor（或按 **Alt + R**），而不是单击 **序列记录器（Sequence Recorder）** 内的 **添加（Add）** 按钮。这将把Actor添加到 **序列记录器（Sequence Recorder）** 的 **Actor跟踪（Actor Tracking）** 窗口，并在设定的 **记录延迟（Recording Delay）** 到期后自动开始记录。
+
+![image alt text](image_10.png)(w:602 h:508 convert:false)
+
+[REGION:note]请注意，这将使用 **序列记录器（Sequence Recorder）** 启动编辑器记录（Editor Recording）而不是[游戏进程记录](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder)。[/REGION]
+
+(#subscenerecordinggameplay)
+
+### 子场景记录游戏进程
+
+使用 **序列记录器（Sequence Recorder）** 记录游戏进程将（默认情况下）自动创建一个要将内容记录到其中的新关卡序列（Level Sequence）。如果您已经有一个要添加已记录内容的关卡序列（Level Sequence），您可使用[子场景轨迹](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/TracksSub)执行此操作，并记录当前玩家角色（Player Pawn）。
+
+[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
-	9mZI75qBsx8
+	Wab8bB69TIo
 	[/PARAMLITERAL]
-	[/OBJECT] 
-
-	一个新文件夹将在 **Content Browser** 中被创建，其中包含与录制序列相关的资源。 
-
- 
-
-## 最终结果
-
-可打开 **RecordedSequence** 资源进行编辑，方法和普通关卡序列并无区别。下方即是我们录制的序列，我们可为其添加镜头和 [镜头切换](Engine/Sequencer/HowTo/TracksCameraCut) 轨迹，构成多个角度、音乐、效果，或需要添加的任意内容。甚至我们还能将此序列作为 [镜头轨迹](Engine/Sequencer/HowTo/TracksShot) 的一部分嵌入其他序列中。 
-
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-1nFX_bpWfy0
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	简单
+	[/PARAMLITERAL]
 [/OBJECT]
 
-除录制游戏进程外，还可指定一个需要录制的 Actor，录制关卡编辑中的操作。 
+上面我们创建了一个新的关卡序列（Level Sequence）和一个子场景轨迹（Subscene Track），然后在游戏进程中点击 **Shift + F1** 来获得鼠标控制，并基于我们当前的玩家角色（Player Pawn）添加一个准备好的记录序列（Recorded Sequence）。然后，我们可以在玩游戏时按下视口（Viewport）中的 **记录** 按钮以启动记录，以及按下 **Esc** 以结束记录。
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-fMzumqLk7IQ
-[/PARAMLITERAL]
-[/OBJECT]
+[REGION:note]这种记录方式与通过 **序列记录器（Sequence Recorder）** 窗口手动添加 **要记录的Actor（Actor to Record）** 并从 **序列记录器（Sequence Recorder）** 中启动记录（Record）是一样的。要记住的一点是，**序列记录器（Sequence Recorder）** 中定义的设置将在使用这种子场景记录（Subscene Recording）时使用。[/REGION]
 
-在上方的视频中，我们在关卡中放置了一个立方体，并指示 Sequence Recorder 对立方体进行录制。 
-然后四处移动立方体，Sequence Recorder 将通过新建关卡序列中的关键帧捕捉输入的动作。 
-回放关卡序列时，关卡序列中将创建一个新的立方体 Actor（作为可生成物），这是序列启动时为何存在第二个立方体的原因。
+(#recordingclassproperties)
 
-[REGION:note]
-仅限可在关卡编辑进行录制时设置关键帧、进行捕捉和录制的属性。 
-[/REGION]
+### 记录类属性
+
+如果您要在序列记录（Sequence Recording）期间记录Actor的某个特定属性值中的更改，您可以使用 **要记录的类和属性（Classes and Properties to Record）** 设置以指定您要跟踪记录的类及其关联属性。
+
+下面我们选择 **CineCameraComponent** 类，单击 **...** 按钮打开 **选择要记录的属性（Choose Properties to Be Recorded）** 菜单（右侧），可在其中启用各个突出显示的复选框以跟踪和记录该属性。 
+
+![image alt text](image_11.png)(w:624 h:380 convert:false)
+
+如果该属性在记录过程中发生任何更改，它将自动被设置为关键帧，以反映记录过程中的更改。如果您跟踪的Actor不包含已定义的类之一，则它将被忽略。 
+
+默认情况下，**序列记录器（Sequence Recorder）** 包括以下要跟踪以进行记录的类：
+
+* [SkeletalMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/SkeletalMesh)
+
+* [StaticMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/StaticMesh)
+
+* [ParticleSystemComponent](https://docs.unrealengine.com/en-us/Engine/Components/Rendering#particlesystemcomponent)
+
+* [LightComponent](https://docs.unrealengine.com/en-us/Engine/Components/Lights)
+
+* [CameraComponent](https://docs.unrealengine.com/en-us/Engine/Components/Camera)
+
+* [CineCameraComponent](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors)
+
+您可以在记录期间使用这些类并跟踪其中的属性，也可以删除它们并使用您自己的类。
+
+(#recordingtopossessable)
+
+### 记录到可拥有
+
+默认情况下，当您选择执行记录时，您标记为跟踪的Actor将自动创建该Actor的 **可生成（Spawnable）** 变体并添加到您的记录中。虽然可生成（Spawnable）变体仅在关卡Sequencer（Level Sequence）打开时才存在，但有时您需要直接“写入”到您关卡中的某个Actor而非创建新的可生成（Spawnable）变体。要达成这一目的，您可以在序列记录器（Sequence Recorder）中的 **Actor记录（Actor Recording）** 下选中 **记录到可拥有（Record to Possessable）** 选项。
+
+![image alt text](image_12.png)(w:508 h:309 convert:false)
+
+选中此选项将不再创建一个可生成（Spawnable）变体，而是使用一个要应用记录的可拥有Actor（Possessable Actor）。
+
+[REGION:note]有关更多信息，请参阅Sequencer概述（Sequencer Overview）中的[可拥有与可生成](https://docs.unrealengine.com/latest/INT/Engine/Sequencer/Overview/index.html#possessablesvsstopspawnables)部分。[/REGION]
+
+(#immersivemode)
+
+### 沉浸模式
+
+在记录您的游戏进程时，您可能需要在记录时用更大的视口（Viewport）“玩”游戏。当记录处于活动状态时，**序列记录器（Sequence Recorder）** 窗口中的 **沉浸模式（Immersive Mode）** 选项将自动为您最大化视口（Viewport）。一旦您停止记录，视口（Viewport）将恢复正常大小。
+
+![image alt text](image_13.png)(w:508 h:381 convert:false)
+

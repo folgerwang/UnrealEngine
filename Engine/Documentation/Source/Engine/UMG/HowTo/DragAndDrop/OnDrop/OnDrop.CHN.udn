@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3478014
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.On Drop
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -35,6 +35,7 @@ type:how-to
 
 此处我们将设置主 **HUD** 控件蓝图并覆盖执行 **OnDrop** 函数时发生的情况。 
 
+(#Steps)
 ## 步骤
 
 1.	打开 **HUD** 控件蓝图，然后在 **Canvas Panel** 的 **Details** 面板中将其 **Visibility** 设为 **Visible**。 

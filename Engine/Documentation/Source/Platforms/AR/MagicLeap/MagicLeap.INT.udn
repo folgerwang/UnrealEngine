@@ -1,0 +1,311 @@
+Availability: Public
+Crumbs: 
+Title: Magic Leap Development
+Description: Product documentation including reference and guides over developing for Magic Leap with Unreal Engine 4
+Type: 
+Version: 4.20
+Parent: Platforms/AR
+Order: 3
+Tags: AR
+topic-image:image12-crop700x225.jpg
+Tags: Early Access
+Tags: Landing Page
+
+
+[REGION:note]
+We have provided early access to this content in draft form in order to get you up and running. Check back soon for updates!
+[/REGION]
+
+Unreal Engine technical preview of support for the Magic Leap One, Creator Edition is available now! The custom editor with the integration is available both on the Epic Games launcher and GitHub for you to grab today.
+
+![image12](image12-crop700x225.jpg "image12")
+
+**Note:** As most early integrations go, our API for the SDK is expected to change before we move the tech into our fully supported release build of the engine (4.20.) Therefore, other 4.19 projects won’t be directly compatible with this custom version and projects built on this version that are upgraded to 4.20 will experience breakage. We encourage you to not use this build for production development of projects but rather to explore the possibilities of the new device.
+
+## Setup
+
+### Lumin SDK
+
+First, we’ll need to install the **Lumin SDK**.
+
+1.  Download, install, and then run **Magic Leap Package Manager** from [https://creator.magicleap.com](https://creator.magicleap.com/).
+2.  Sign in to Magic Leap Package Manager with your registered email address and 6-digit code.
+3.  The default destination for Magic Leap packages is **C:\\Users\\you\\MagicLeap**. To change this, click Settings and then specify a different path in Download/Install Directory.
+4.  Select **Lumin SDK under Common Packages**,and then click Download & Install.
+5.  In the confirmation message at the bottom of Package Manager, click **Apply** changes.
+
+### Unreal Editor for Magic Leap 0.16
+
+Grab the Magic Leap 0.16 editor from the Epic Games launcher by heading to to the Library tab and selecting "Magic Leap 0.16" from the "Add Versions" dropdown.
+
+![](ML_MagicLeapInstall.png "ML_MagicLeapInstall.png")
+
+Once installed, you’ll want to point to where you’ve installed the Lumin SDK. In the Project Settings menu, head over to **Platforms -> Magic Leap SDK** and set the path to your Lumin SDK folder. (Example: C:\Users\you\MagicLeap\mlsdk\v0.x)
+
+### System Configuration
+
+In order for UE4 to run commands from the SDK, you’ll need to set a few system variables (not user variables) in your computer’s Environment Variables. You can find this window in **Control Panel -> System -> Advanced System Settings -> Environment Variables...**
+
+![](image2_Add.png "image2_Add.png")
+
+First, you’ll need to add an entry called “MLSDK”, which contains the path to the folder containing /mlsdk you installed above.
+
+![](image3_Add.png "image3_Add.png")
+
+Second, you’ll want to add \%MLSDK%\tools\mldb to your PATH environment variable.
+
+![](image1_Add.png "image1_Add.png")
+
+Finally, reboot your machine.
+
+### Sample Project
+
+As part of our early support for the Magic Leap headset, we’ve put together a small sample project with examples of how many of the platform’s unique features are used in Unreal Engine.
+
+[Download the LuminSample project](http://epic.gm/psssample) for use with the custom editor to reference when reading through the following feature docs.
+
+Plug in the device and power it up. Note where it initially boots up, as the nose position will be what the device chooses as your world origin in Unreal Engine, with the X axis increasing as it moves away from the wearer. The *LuminSample* project assumes that the headset is started facing the user as all of the content is rotated 180 degrees. 
+
+Navigating the packaged *LuminSample* project requires the Controller. On the Main Menu, you’ll use the touchpad to highlight a specific example that you’d like to check out. Once highlighted, press down on the touchpad to load the level. You can hide and show the Main Menu at any time by holding down the trigger and pressing the shoulder button.
+
+Each sublevel is fully independent and can be loaded individually if desired.
+
+## Features
+
+### Player Location
+
+*Examples can be found in the PlayerLocationAndGaze map*
+
+Getting the player’s head location is often used when building mixed reality experiences. We can access this by grabbing calling *GetWorldTransform* on the *CameraComponent* in our *LuminSamplePawn* \- not unlike any other HMD in UE4.
+
+![image35](image35.png "image35")
+
+*If you’re building your own pawn from scratch, you’ll need to add a Camera Component.*
+
+In *LuminSample*, the Bot from Robo Recall will look, aim and shoot at you as you move around the scene. There is logic in as well that tell him to stop if you move behind him. The Drone also will follow you as you move around the space.
+
+[REGION:lightbox]
+[![image7](image7.png "image7")](image7.png)
+[/REGION]
+Have a look at the *Lumin_Biped*, *Lumin_Drone* and *LuminSamplePawn* Blueprints to see how these behaviors are hooked up. In short, we're driving *Actor* rotation or *Anim Blueprints* based on the result of *FindLookRotation* of the *Actor* that needs to face the player and the player position.
+[REGION:lightbox]
+[![image38](image38.png "image38")](image38.png)
+[/REGION]
+If you're not using eye tracking, you can use the *CameraCompoent's* forward vector to get an estimate of the player's gaze and trace from that direction. Using this technique, the Drone will emote when you focus your gaze on it.
+[REGION:lightbox]
+[![image2](image2.png "image2")](image2.png)
+[/REGION][](image2.png)
+
+### Displaying World Origin
+
+*Example Found in LuminSamplePawn*
+
+This one’s fairly simple, but useful for understanding where your content “is.”
+
+![image18](image18.png "image18")
+
+Knowing where the world origin is can help debug anything that you’re needing to update in world space. As mentioned above, the world origin is set when the device first boots up and is right around the location of the nose. The default forward vector of the world origin is facing away from the headset in the direction of what would be the user’s gaze.
+
+In *LuminSample*, we’ve added a boolean variable, bShowWorldOrigin, to *LuminSamplePawn* for you to toggle some simple debug information about where the world origin is. Set the default value of this variable in the pawn or toggle it at runtime to show the world origin.
+
+![image3](image3.png "image3")
+
+[REGION:lightbox]
+[![image15](image15.png "image15")](image15.png)
+[/REGION]
+
+### Gesture and Hand Tracking
+
+*Examples Found in LuminSamplePawn and GesturesAndTotem Map*
+
+The Magic Leap One supports numerous gestures and tracks the position of certain points on hands when they’re in view. By default, you have to enable the gestures that you want to look for.  You can set this at any time using the *SetConfiguration* node.  Selecting fewer gestures helps the device focus on recognizing only the gestures you care about more accurately. We’re doing this in *LuminSamplePawn*.
+
+![image9](image9.png "image9")
+
+You can get gestures from either or both hands by calling *GetCurrentGesture* and checking the enum return. This can also be found in*LuminSamplePawn.*
+
+![](image37.png)
+
+You can also get location information of the center of the hand as well as many "Keypoints" that are found representing different parts of the hand such as a fingertip or knuckle. Using Keypoints (*GetGestureKeypointTransform*) and hand center (*GetHandCenter*), you’ve got a lot of information about where parts of the user’s hands are and what they’re doing. In the *GesturesAndTotem* map, we’re toggling *bShowGestureDebug* on *LuminSamplePawn* to draw debug spheres on hand centers and keypoints every frame.
+
+![](image10.PNG "image10.PNG")
+
+![image19](image19.png "image19")
+
+Taking the above information, it’s possible to “touch” things in world space. In the *GesturesAndTotem* map, there’s an *InteractionSphere* that is looking for overlaps, and we’re toggling *bTryTouchOverlap* on *LuminPlayerPawn* to overlap on all Keypoints on both hands. There are probably many more performant ways to go about this, but we wanted to show all available options when touching virtual objects..
+
+[REGION:lightbox]
+[![image5](image5.png "image5")](image5.png)
+[/REGION]
+
+Looking for gestures comes at a performance cost, so keep that in mind as you plan out your content.
+
+### Controller Input
+
+![image14](image14.jpg "image14")
+
+*Examples found in LuminSamplePawn and GesturesAndTotem map*
+
+For the most part, the Controller works the same way as other VR motion controllers. The Touchpad can be polled by checking *GetMotionController (R) Thumbstick X*, for left and right, and *GetMotionController (R) Thumbstick Y* for up and down. Also the touchpad has a Z axis value for pressure sensitivity. This scales from 0-1 based on how hard the user is pushing down on the touchpad.
+
+![image8](image8.png "image8")
+
+The trigger operates the same way as well. You can poll the axis or grab the event. Look for *GetMotionController (R) TriggerAxis* and *MotionController (R) TriggerAxis*
+
+![image11](image11.png "image11")
+
+![image27](image27.png "image27")
+
+Like the others, the shoulder button uses the *MotionController (R) Shoulder* to get it’s pressed and release events.
+
+![image40](image40.png "image40")
+
+All of this can be seen hooked up in *LuminSamplePawn*. In the case of *LuminSample*, we call Event Dispatchers that other Blueprints can subscribe to to take action when input is received. This is how we’re controlling *MainMenuActor* and the *TotemInputActor* inside our *GesturesAndTotemContainer* in the *GesturesAndTotem* map.
+
+![image34](image34.png "image34")
+
+### Room Scanning and Meshing
+
+*Examples found in WorldMeshing map and LuminMeshActor.*
+
+The Magic Leap One has the ability to scan the room and provide geometric data about the environment. We’ve worked this into our existing *Mixed Reality Mesh (MRMesh)* system for the platform so developers can use query the area and dynamically add content in the space.
+
+What you’ll need is a Blueprint Actor with two components - *MRMeshComponent* and *MeshTrackerComponent*.
+
+![image39](image39.png "image39")
+
+When you want to start scanning the world to get mesh data, you’ll want to associate these two components with each other using the *ConnectMRMesh* function where the *MeshTracker*  is the Target and *MRMesh* is passed as the In MRMesh Ptr.
+
+![image30](image30.png "image30")
+
+In the *MeshTrackerComponent* on *LuminMeshActor*, we’ve toggled a few settings to ensure we’re looking for the right things in the tracked space. You’ll see that we’ve edited the following in the Meshing->MagicLeap section in the details panel:
+
+*   Scan World to **true**
+*   Mesh Type to **Blocks**
+*   Meshing Poll Time to **0.5**
+*   Bounding Volume as **Box Collision**
+*   Ignore Bounding Volume to **true** (to scan the whole room)
+*   Planarize to **true**
+
+![image20](image20.png "image20")
+
+The mesh reacts to physics the same way as any other collider. In the *WorldMeshing* map, a press of the shoulder button on the Controller will trace from the HMD’s forward vector into the world and draw debug information on the impact location and normal. We toggle *TestWorldHit* on our *LuminSamplePawn* to handle this.
+
+[REGION:lightbox]
+[![image24](image24.png "image24")](image24.png)
+[/REGION]
+
+### Microphone Input
+
+*Examples found in LuminSamplePawn and AudioExamples map*
+
+The Magic Leap One has a built in microphone that allows developers to capture the input for a variety of uses. In the *AudioExamples* map we are using an *AudioCaptureComponent* added into the *LuminSamplePawn* to monitor the microphone envelope values for a gameplay feature.
+
+![image41](image41.png "image41")
+
+When activated, the component sends an event with the microphone envelope value. You can add an event from the component by selecting in from the components list and clicking the Green Plus box at the bottom of the Details pane.
+
+![image6](image6.png "image6")
+
+In the example, players can blow to change the direction of the wind, the Kite and the Boy will then adapt to the new wind direction. We bind the Custom Event *MicInputAudioValue* to *OnAudioEnvelopeValue* to gather information from the device microphone only when we want to listen for it.
+
+[REGION:lightbox]
+[![image22](image22.png "image22")](image22.png)
+[/REGION]
+[REGION:lightbox]
+[![image29](image29.png "image29")](image29.png)
+[/REGION][]
+
+### Spatialized Audio
+
+*Examples found in AudioActor_SoundSpawn* *and AudioExamples map*
+
+When developing for the ML1 you can spatialize audio using the same techniques you would when authoring for other platforms. In addition to this workflow, we are using an actor specifically built for creating spatialized random sounds. This actor can be found in the sample content here:
+
+.../LuminSampleContent/AudioExample/AudioBlueprints/AudioActor_SoundSpawn
+
+The intent of this actor is to allow Sound Designers to shape a common ambient audio playback behavior through easy to understand parameters. The *AudioActor_SoundSpawn* actor can be configured to generate random sounds within a defined radius, or set to play a single sound in very specific location. In the *AudioExamples* sample we are using this actor for 2 unique purposes. In the scene two actors are set to create random call and response bird chirps. A third actor is being attached to the kite to create looping rustling sounds.
+
+The birds are set to *Auto Start* and immediately begin playing. They are also set to *Repeat*, meaning they will continue to play the same sound using the set configuration after they have completed playing. None of the actors are set to *Use Overlaps*. When this bool is checked the actor will turn on and off as the player enters and exits the defined radius.
+
+![image21](image21.png "image21")
+
+There are a number of settings to play with inside the actor. The settings allow you to control the time it takes between spawns of your sounds, the random number of sounds to spawn, volume, pitch, and most importantly the radius in which the sound will spawn. When this value is set the system will randomly select a location in X and Y coordinate space inside the radius. If you want to include random Z offsets, check *B Include Height*.
+
+![image32](image32.png "image32")
+
+Later in the scene, we deactivate the bird audio simply by setting the *Repeat* bool to false in the *Level Blueprint*.
+
+![image28](image28.png "image28")
+
+For the Kite idle audio we use a seperate actor, *AudioActor_KiteIdle,* that is being attached at *Begin Play*.
+
+![image31](image31.png "image31")
+
+*AudioActor_KiteIdle* is configured differently from the other audio actors. Here *Auto Start* is unchecked in the settings and we manually activate the audio using *Execute Timer* in the *Level Blueprint*.
+
+![image1](image1.png "image1")
+
+This actor also has the *Min and Max Timer* values set very low to create a quick rustling loop. The *Min* and *Max Spawns* are set to 1 so we don’t have overlapping sounds.
+
+![image4](image4.png "image4")
+
+The *Spawn Radius* is also set to 1, to make sure the sound is localized to the Kite’s location.
+
+![image23](image23.png "image23")
+
+Again, later in the scene the sound is turned off by setting *Repeat* to false in the *Level Blueprint.*
+
+## Engine Settings
+
+### Vulkan and OpenGL
+
+The Magic Leap One supports both OpenGL and Vulkan for rendering. You can toggle between these two options in Project Settings -> Platforms -> Magic Leap
+
+![image17](image17.png "image17")
+
+### Renderer - Desktop or Mobile
+
+You can also choose between the desktop and mobile rendering paths by choosing “Use Mobile Rendering” in **Project Settings -> Platforms -> Magic Leap**
+
+![image33](image33.png "image33")
+
+[REGION:note]
+Desktop rendering and Vulkan are currently *only* supported on source builds and not in the binary (launcher) build. We expect both to be fully supported in the 4.20 binary.
+[/REGION]
+
+## Package, Deploy, Simulate
+
+### Launch
+
+Like other platforms, you can launch directly to device from the editor by clicking the drop down next to Launch, then selecting your Magic Leap device.
+
+![image36](image36.png "image36")
+
+### Package
+
+You can also package up your .mpk via the toolbar under **File->Package Project**.
+
+![image26](image26.png "image26")
+
+Launch will run the application directly on the device as expected. To install your packaged project, open the command line and run *mldb install /yourproject.mpk*
+
+You can then launch your application from the menu in the headset or run *mldb launch* from the command line. Of course, you’ll replace com.yourcompany.yourproject with the identifier that you’ve set up in Project Settings.
+
+### Simulate
+
+Alternatively, you can use Magic Leap Remote to iterative in the simulator in the event that you don’t have a device. Head to **Project Settings->Plugins->Magic Leap Plugin** and check the **Enable Zero Iteration** checkbox. After an editor restart, you can play in VR Preview by selecting **Play->VR Preview**.
+
+![image16](image16.png "image16")
+
+## Terminal Commands
+
+Here are some other useful MLDK terminal commands that we’ve used regularly that may be helpful:
+
+*   *mldb devices* // shows list of recognized devices connected to your computer
+*   *mldb packages* // shows packages installed on the device
+*   *mldb uninstall* // uninstalls package from the device
+*   *mldb launch* // launches the package if it’s installed on device
+*   *mldb terminate* // kills the application if it’s running
+*   *mldb reboot* // reboots the devices attached
+*   *mldb shutdown* // shuts down the device

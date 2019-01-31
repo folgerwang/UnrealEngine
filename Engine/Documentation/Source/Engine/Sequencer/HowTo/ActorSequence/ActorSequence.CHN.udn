@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3477716
-Availability:Docs
+﻿INTSourceChangelist:3683933
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Title:在蓝图中使用嵌入的 Sequencer 动画
 Description:说明如何使用 Actor 序列组件在 Actor 蓝图中嵌入序列。
@@ -13,6 +13,7 @@ topic-image:ActorSequenceTopicCompact.png
 Related:Engine/Sequencer/Overview
 Related:Engine/Sequencer/ReferenceEditor
 Related:Engine/Blueprints
+type:how-to
 
 
 [REGION:warning]
@@ -30,6 +31,7 @@ Related:Engine/Blueprints
 
 蓝图即可放置在让任意关卡中或进行复制，嵌入的序列则会在调用时自动播放。 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -156,6 +158,7 @@ Related:Engine/Blueprints
 
 1.	点击 **Play** 按钮在编辑器中进行游戏。 
 
+(#EndResult)
 ## 最终结果
 
 在关卡中进行游戏时，您将看到播放嵌入的序列时放置的光照会开始旋转并变换色彩。 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2988432
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:创建动态动画
 Crumbs:%ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
@@ -12,15 +12,15 @@ skilllevel:Advanced
 在本操作指南中，我们将把 AnimDynamics 应用到一个角色来实现下面看到的效果： 
 
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-w7c3i2vpcUc
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	w7c3i2vpcUc
+	[/PARAMLITERAL]
 [/OBJECT]
 
 在上面的示例中，角色身上的背带和挂在他脖子上的炉子都应用了 AnimDynamics。当角色移动时，背带会轻微摆动，而炉子的前后摆动幅度还要更大一点。 
@@ -30,15 +30,14 @@ w7c3i2vpcUc
 如果您已经有一个角色具备随时可用 AnimDynamics 驱动的动画蓝图和骨骼，可以直接跳到第 2 步。 
 [/REGION]
 
+(#Steps)
 ## 步骤
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Engine\Animation\AnimHowTo\AnimDynamics")]
 
-	* [](Engine\Animation\AnimHowTo\AnimDynamics\Setup "%Engine\Animation\AnimHowTo\AnimDynamics\Setup:description%")
-	* [](Engine\Animation\AnimHowTo\AnimDynamics\ApplyDynamics "%Engine\Animation\AnimHowTo\AnimDynamics\ApplyDynamics:description%")
-	
+[REGION:call_to_action]
+[点击开始](Engine\Animation\AnimHowTo\AnimDynamics\Setup "%Engine\Animation\AnimHowTo\AnimDynamics\Setup:description%")
 [/REGION]
-
 
 
 

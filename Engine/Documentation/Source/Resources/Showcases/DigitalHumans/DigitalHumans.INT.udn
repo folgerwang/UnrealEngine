@@ -245,6 +245,9 @@ In the real world, hair tends to have multiple specular highlights: one represe
 
 The approximation algorithm used in UE4’s hair shader creates these effects similarly to how they are made in the real-world. As light strikes the surface of a hair, it does not simply bounce off. Hair is translucent, allowing some light to pass through it, to potentially bounce around inside it, then exit. The hair shader approximates this with three possible paths for the light to travel as it interacts with the hair, as shown in the diagram below:
 
+[INCLUDE:#DH_Hair_ImageSequenceSlider]
+
+[COMMENT:none]
 [EXCERPT:DH_Hair_ImageSequenceSlider]
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:max]
@@ -257,7 +260,8 @@ The approximation algorithm used in UE4’s hair shader creates these effects si
 	DH_Hair_ImageSequence
 	[/PARAMLITERAL]
     [PARAM:caption]
-    Cross section of single hair strand showing how the Hair shader approximates interaction with light, demonstrating the three primary types of paths light will take. See the table below for descriptions of each part of the process	[/PARAM]
+    Cross section of single hair strand showing how the Hair shader approximates interaction with light, demonstrating the three primary types of paths light will take. See the table below for descriptions of each part of the process.
+	[/PARAM]
     [PARAM:image_list]
     ![](HairDiagram_1.png)
     ![](HairDiagram_2.png)
@@ -265,7 +269,7 @@ The approximation algorithm used in UE4’s hair shader creates these effects si
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:DH_Hair_ImageSequenceSlider]
-
+[/COMMENT]
   
 | **Number** | **Description** |
 | --- | --- |

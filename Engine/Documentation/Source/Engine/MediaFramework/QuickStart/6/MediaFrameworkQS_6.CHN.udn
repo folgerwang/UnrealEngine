@@ -1,12 +1,13 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:6 - On Your Own!
+Title:6 - 自己动手！
 Crumbs:%ROOT%
-Description:This step offers some additional things to try with our example and links to more documentation. 
+Description:本节提供了一些本示例中可供尝试的额外内容以及更多相关文档的链接。 
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:6
 tags:Media Framework
@@ -14,14 +15,13 @@ tags:Blueprints
  
 [NAV]
 
-Here are some additional things to try with your project using the Media Framework tools: 
+下面是可以使用媒体框架工具尝试通过项目实现的一些其他效果： 
 
-* Allow the player to [fast-forward or rewind](Engine\MediaFramework\HowTo\ControllingPlayback) the Media Source. 
-* Allow the player to turn off the TV and [resume playback](Engine\MediaFramework\HowTo\ResumePlayback) when turning it back on instead of starting it over. 
-* Use a [Media Playlist](Engine\MediaFramework\HowTo\MediaPlaylists\) as a Media Source and allow the player to "change the channels" for the TV.
-* Add a third TV Blueprint to the level with its own Media Player, Media Sound and Media Source assets. 
+* 使玩家能够[控制播放](Engine/MediaFramework/HowTo/ControllingPlayback)（电视机）。
+* 使用[媒体播放列表](Engine\MediaFramework\HowTo\MediaPlaylists\)作为媒体源并允许玩家在电视机上“切换频道”。
+* 向关卡中添加第三个具有其自己的媒体播放器、媒体声音和媒体源资源的电视机蓝图。 
 
-Below is an example of expanding on our TV Blueprint and allowing the player to change channels, fast-forward and rewind, as well as resuming playback after turning the TV off. 
+以下是对电视机蓝图进行扩展的一个示例：使玩家能够更换频道、快进、倒退以及在关掉电视机以后再次恢复播放： 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]

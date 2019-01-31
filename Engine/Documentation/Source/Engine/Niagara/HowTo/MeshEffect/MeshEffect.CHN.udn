@@ -1,100 +1,100 @@
-﻿INTSourceChangelist:3716096
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:使用Niagara创作基于网格体的效果
-Description:描述如何使用Niagara创作基于静态网格体的视觉效果。
-Type: how-to
-SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:1
-tags:Niagara
-topic-image:
+﻿INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title: 在Niagara中创建网格体粒子效果
+Description: 描述如何使用Niagara创建静态网格体粒子效果。
+Type:how-to
+SkillLeveL:Beginner
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 3
+Tags: Niagara
+Tags: Early Access
 
-如果能够大量衍生静态网格体，从而取代面向镜头的Sprite，就能够帮助您提高所创建效果的可信性和真实感。在以下操作指南中，我们将介绍如何设置Niagara发射器来大量衍生静态网格体，而非Sprite。
+先决条件主题
 
-![](HeroImage_00.png)
+本页假定您已对以下主题有一定的了解。请先阅读这些主题，然后继续进行操作。
+
+*   [启用Niagara插件](Engine/Niagara/HowTo/EnableNiagara "描述如何启用Niagara插件。")
+    
+生成静态网格体而非[面向摄像机的sprite](Engine/Niagara/HowTo/SpriteEffect)可以增加您所创建的效果的真实感。在接下来的教程中，我们将展示如何设置一个Niagara发射器来产生静态网格体而不是sprite。
+
+![](Mesh_Banner_01.png "Mesh_Banner_01.png")
+
+[REGION:note]
+ **先决条件步骤（Prerequisite Step）：**本教程使用 **形状_球体（Shape_Sphere）** 静态网格体，可以在 **初学者内容包（No Starter Content）** 中找到。如果您还没有这样做，请确保这个静态网格体或初学者内容包已经添加到您的项目中。
+[/REGION]
+
+(#steps)
 
 ## 步骤
 
-[region:note]
-本操作指南利用 **初学者内容** 中包含的 **Shape_Sphere** 静态网格体。如果您尚未将该静态网格体或初学者内容添加到您的项目，请确保进行添加。
-[/region]
-
-1. 首先，我们需要在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara 发射器（Niagara Emitter）**，以创建 **Niagara 发射器（Niagara Emitter）**。 
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-2. 将新创建的Niagara发射器命名为 **FX_Mesh**，然后双击以将其打开。
-
+1. 首先，在 **内容浏览器（Content Browser）** 中右键单击，创建一个 **Niagara发射器（Niagara Emitter）**，并在显示的菜单中选择 **FX > Niagara发射器（FX > Niagara Emitter）**。将显示Niagara发射器（Niagara Emitter）向导。  
+    ![](SE_01.png)(w:400)
+2. 单击 **从发射器模板创建新发射器（Create a new emitter from an emitter template）** 旁边的单选按钮。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新发射器。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3. 将新建的Niagara发射器命名为 **FX_Mesh**，然后双击打开。  
     ![](ME_02.png)
-
-3. 现在，转至FX_Mesh 发射器的 **发射器产生（Emitter Spawn）** 部分，然后在 **渲染（Render）** 部分下，单击 **Niagara Sprite 渲染属性（Niagara Sprite Render Properties）**，然后从显示的列表中，选择 **Niagara网格体渲染属性（Niagara Mesh Render Properties）** 选项。
-
-    ![](ME_03.png)
-
-4. 然后，展开 **网格体渲染（Mesh Rendering）** 部分，在 **粒子网格体（Particle Mesh）** 部分中，将 **Shape_Sphere** 静态网格体输入到 **粒子网格体（Particle Mesh）** 中。
-
-    ![](ME_04.png)
-
-5. 接下来，转至 **粒子产生（Particle Spawn）** 部分，在 **添加速度（Add Velocity）** 部分中，将 **最小Z（Minimum Z）** 设置为 **400**，将 **最大Z（Maximum Z）** 设置为 **980**。 
-
-    ![](ME_05.png)
-
-6. 在 **球体位置（Sphere Location）** 中，将 **球体半径（Sphere Radius）** 设置为 **32**。
-
-    ![](ME_06.png)
-
-7. 然后，在 **设置Particles.Lifetime（Set Particles.Lifetime）** 部分中，将 **最短（Minimum）** 寿命设置为 **1.25**，将 **最长（Maximum）** 寿命设置为 **5.0**。 
-
-    ![](ME_07.png)
-
-8. 接下来，在 **设置Particles.SpriteSize（Set Particles.SpriteSize）** 和 **设置Particles.SpriteRotation（Set Particles.SpriteRotation）** 的最右侧，将有一个 **垃圾箱（Trash Can）** 图标。点击这个图标以从“粒子产生”（Particle Spawn）中删除“设置Particles.SpriteSize”（Set Particles.SpriteSize）和“设置Particles.SpriteRotation”（Set Particles.SpriteRotation），因为不再需要这两个选项。
-
-    ![](ME_08.png)
-
-9. 然后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Mesh** 发射器。
-
+4. 现在Niagara发射器（Niagara Emitter）已打开，转到 **选定发射器（Selected Emitter）** 面板并找到 **渲染（Render）** 部分。单击 **垃圾桶（Trashcan）** 图标以移除 **Niagara Sprite渲染器属性（Niagara Sprite Renderer Properties）** 模块。  
+    ![](CreateMeshBasedEffect_Steps_Step03-RemoveSpriteRender.png)(w:500)
+5. 单击 **加号** 图标 (**+**)，从显示的列表中选择 **Niagara网格体渲染器属性（Niagara Mesh Renderer Properties）** 选项。这会插入 **Niagara网格体渲染器属性（Niagara Mesh Renderer Properties）** 模块。  
+    ![](CreateMeshBasedEffect_Steps_Step04-AddMeshRender.png)(w:500)
+6. 展开 **网格体渲染（Mesh Rendering）** 部分。单击 **粒子网格体（Particle Mesh）** 旁边的下拉菜单，并选择 **形状_球体（Shape_Sphere）** 静态网格体。   
+    ![](CreateMeshBasedEffect_Steps_Step05-AddShapeSphere.png)(w:500)
+7. 折叠渲染（Render）部分，并展开 **粒子生成（Particle Spawn）** 部分。找到 **添加速度（Add Velocity）** 部分。
+8. 将 **最小值（Minimum）** 和 **最大值（Maximum）** 字段设置为以下值。  
+    ![](CreateMeshBasedEffect_Steps_Step08-VelocityMinMax.png)(w:500)
+    
+   | **属性名称** | **值** |
+   | --- | --- |
+   | **最小值（Minimum）** | X: 0, Y: 0, Z: 400 |
+   | **最大值（Maximum）** | X: 1, Y: 1, Z: 980 |
+    
+9. 在 **球体位置（Sphere Location）** 模块中，将 **球体半径（Sphere Radius）** 的值设置为 **100**。  
+    ![](Mesh_Step9_01.png "Mesh_Step9_01.png")(w:500)
+10. 找到 **设置变量（Set Variables）** 模块。展开 **Particles.Lifetime** 以显示 **最小值（Minimum）** 和 **最大值（Maximum）** 字段。
+11. 将 **最小值（Minimum）** 和 **最大值（Maximum）** 字段设置为以下值。  
+    ![](CreateMeshBasedEffect_Steps_Step11-ParticlesLifetimeMinMax.png)(w:500)
+      
+   | **属性名称** | **值** |
+   | --- | --- |
+   | **最小值（Minimum）** | 2.0 |
+   | **最大值（Maximum）** | 5.0 |
+    
+12. 下一步，单击 **Particles.SpriteSize** 和 **Particles.SpriteRotation** 属性对应的白色三角形，并为各个属性选择 **移除（Remove）**。  
+    ![](CreateMeshBasedEffect_Steps_Step12-RemoveSpriteVariables.png)(w:500)
+13. 折叠粒子生成（Particle Spawn）部分，并展开 **粒子更新（Particle Update）** 部分。找到 **加速力（Acceleration Force）** 模块。
+14. 将 **加速Z（Acceleration Z）** 值设为 **-500**。  
+    ![](CreateMeshBasedEffect_Steps_Step14-AccelerationForce.png)(w:500)
+    [REGION:note]
+    这个负值会导致网格体粒子短暂地上升，然后下降。要使网格体粒子上升而不下降，使用正的Z值。
+    [/REGION]
+15. 单击 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮以应用并保存更改，然后关闭 **FX_Mesh** 发射器。  
     ![](ME_09.png)
+16. 在 **内容浏览器（Content Browser）** 中右键单击，并从显示的菜单中选择 **FX > Niagara系统（FX > Niagara System）**。将显示Niagara系统（Niagara System）向导。
+17. 单击 **创建一个不带发射器的空系统（Create an empty system with no emitters）** 旁边的单选按钮。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新Niagara系统。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+18. 将新的Niagara系统命名为 **网格体（Mesh）**。  
+    ![](NiagaraSystem_Icon.png)(w:100)
+19. 双击 **网格体（Mesh）** Niagara系统以打开它，然后将 **FX_Mesh** 发射器从内容浏览器拖动到 **时间轴（Timeline）**。  
+    ![](CreateMeshBasedEffect_Steps_Step17_EmittertoSystem.png)(w:400)
+20. 单击 **编译（Compile）** 和 **保存（Save）** 按钮以编译并保存您的作业，然后关闭网格体Niagara系统。在 **内容浏览器（Content Browser）** 中，将 **网格体（Mesh）** Niagara系统拖动到关卡视口中。  
+    ![](CreateMeshParticle_Steps_Step18_AddToLevel.png)
 
-10. 现在移到“内容浏览器”（Content Browser），单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **Mesh**。
-
-   ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-11. 双击 Mesh Niagara 系统将其打开，打开后，将 **FX_Mesh** 从“内容浏览器”（Content Browser）拖到 **时间轴（Timeline）**。
-
-     ![](ME_10.png)
-
-12. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭 Mesh Niagara 系统，移至“内容浏览器”（Content Browser），将Mesh Niagara系统拖到关卡视口。
-
-     [REGION:lightbox]
-     [![](ME_11.png)(w:834)](ME_11.png)
-     [/REGION]
-
-     [REGION:caption]
-     单击查看大图。
-     [/REGION]
+(#endresult)
 
 ## 最终结果
 
-完成后，您现在拥有一个Niagara系统，将该Niagara系统放到关卡中时，将播放您的Niagara发射器，如以下视频所示。
+完成后，当您将一个Niagara系统放到关卡中，这个Niagara系统会播放Niagara发射器（如下面的视频中所示）。
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    SjCLcU67gcQ
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ cFgfGav5UjE
+ [/PARAMLITERAL]
 [/OBJECT]
-
-

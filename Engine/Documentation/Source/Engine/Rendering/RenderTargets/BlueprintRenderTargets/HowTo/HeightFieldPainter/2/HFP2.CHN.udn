@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:2.所需资源的创建和设置
 description:了解所需资源的创建和设置。
@@ -25,6 +25,7 @@ checkpoint:HFP
 * **材质**
 * **蓝图**（基于 Actor）
 
+(#RenderTargetCreation&Setup)
 ### 渲染目标创建和设置
 
 1. 在 **Content Browser** 中点击右键，在出现的菜单中选择 **Create Advanced Asset** > **Materials & Textures**，然后选择 **Render Target** 选项。
@@ -35,6 +36,7 @@ checkpoint:HFP
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_RT_Creation_01.png)
 
+(#MaterialCreation&Setup)
 ### 材质创建和设置
 
 1. 在 Content Browser 中点击右键，从 **Create Basic Asset** 列表中选择 **Material** 选项新建材质，将其命名为 `MAT_HeighfieldPainter`。

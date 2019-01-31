@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.1 - 时间轴动画
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.1——时间轴动画
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:高级蓝图示例关卡概述，示例2.1： 时间轴动画
+Description:高级蓝图关卡实例2.1概览：时间轴动画
 Related: Engine/Blueprints/UserGuide/Timelines
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Variables
@@ -10,6 +11,23 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[Blueprint Content Examples Home](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+		[Next Example](Resources/ContentExamples/Blueprints_Advanced/2_2 "%Resources/ContentExamples/Blueprints_Advanced/2_2:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -33,11 +51,13 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 
 ![](blueprint_advanced_2_1.png)
 
-## 概述
-
-**BP_Timeline_Ball** 蓝图展示了自动播放和循环的事件图表中一个基本的[时间轴](Engine/Blueprints/UserGuide/Timelines)，它会在特定点沿着生成粒子特效的时间轴触发一个事件。
 
 
+**BP_Timeline_Ball** 蓝图在事件图表中展示了一个基础[时间轴](Engine/Blueprints/UserGuide/Timelines)，其将自动播放和循环，在生成粒子效果的时间轴上的特定点处触发一个事件。
+
+
+
+(#eventgraph)
 
 ## 事件图表
 
@@ -46,10 +66,10 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 [![](AdvBP_2_1_EventGraph.png)](AdvBP_2_1_EventGraph.png)
 [/REGION]
 [REGION:caption]
-点击以查看完整尺寸图片或 **右键点击** 并另存。
+点击查看全图或 **点击右键** 并选择“另存为”。
 [/REGION]
 
--	时间轴节点并不会在实际上影响组件本身，但随着它们的播放会输出变化值，而这些值可以被填入连接到诸如 **Set Relative Location** 节点的 **Lerp** 节点，以对组件进行动画处理。
--	时间轴内的事件轨迹会造成在该事件轨迹存在关键帧时，触发 **Bounce** 时间轴节点匹配的执行引脚。本例中，事件轨迹被用来生成球体弹起时的粒子特效。
+-	时间轴节点不会实际影响组件本身，但其播放时会输出修改值，值可填入 **Lerp** 节点，而这些节点又能连接到 **Set Relative Location** 之类的节点，为组件添加动画。
+-	时间轴中的事件轨迹会在事件轨迹拥有一个键时导致 **Bounce** 时间轴节点上匹配的执行引脚被触发。在此情况下，事件轨迹用于在球反弹时生成一个粒子效果。
 
 [/REGION]

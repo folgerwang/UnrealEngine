@@ -1,0 +1,428 @@
+Availability: Public
+Crumbs: 
+Title: Supported Rendering Features
+Description: Detailing which rendering features are supported on which platforms.
+Type: 
+Version: 4.20
+Parent: 
+Order: 
+Tags: Rendering
+Tags: graphics
+
+On the following page you will find a detailed list of all the various rendering features Unreal Engine 4 (UE4) offers and the platforms that support them. 
+
+## Post Processing
+
+### Color Grading
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| White Balance - Temp | Yes | Yes | No | No | No | Yes |
+| White Balance - Tint | Yes | Yes | No | No | No | Yes |
+| Global - Saturation | Yes | Yes | No | No | No | Yes |
+| Global - Contrast | Yes | Yes | No | No | No | Yes |
+| Global - Gamma | Yes | Yes | No | No | No | Yes |
+| Global - Gain | Yes | Yes | No | No | No | Yes |
+| Global - Offset | Yes | Yes | No | No | No | Yes |
+| Shadows - Saturation | Yes | Yes | No | No | No | Yes |
+| Shadows - Contrast | Yes | Yes | No | No | No | Yes |
+| Shadows - Gamma | Yes | Yes | No | No | No | Yes |
+| Shadows - Gain | Yes | Yes | No | No | No | Yes |
+| Shadows - Offset | Yes | Yes | No | No | No | Yes |
+| Shadows - Shadows Max | Yes | Yes | No | No | No | Yes |
+| Midtones - Saturation | Yes | Yes | No | No | No | Yes |
+| Midtones - Contrast | Yes | Yes | No | No | No | Yes |
+| Midtones - Gamma | Yes | Yes | No | No | No | Yes |
+| Midtones - Offset | Yes | Yes | No | No | No | Yes |
+| Highlights - Saturation | Yes | Yes | No | No | No | Yes |
+| Highlights - Contrast | Yes | Yes | No | No | No | Yes |
+| Highlights - Gamma | Yes | Yes | No | No | No | Yes |
+| Highlights - Gain | Yes | Yes | No | No | No | Yes |
+| Highlights - Offset | Yes | Yes | No | No | No | Yes |
+| Highlights - Highlights Min | Yes | Yes | No | No | No | Yes |
+| Misc - Blue Correction | Yes | Yes | No | No | No | Yes |
+| Misc - Expand Gamut | Yes | Yes | No | No | No | Yes |
+| Misc - Scene Color Tint | Yes | Yes | No | No | No | Yes |
+| Misc - Color Grading LUT Intensity | Yes | Yes | No | No | No | Yes |
+| Misc - Color Grading LUT | Yes | Yes | No | No | No | Yes |
+
+### Film
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Slope | Yes | Yes | No | No | No | Yes |
+| Toe | Yes | Yes | No | No | No | Yes |
+| Shoulder | Yes | Yes | No | No | No | Yes |
+| Black Clip | Yes | Yes | No | No | No | Yes |
+| White Clip | Yes | Yes | No | No | No | Yes |
+
+### Mobile Tonemapper
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Tint | No | No | Yes | Yes | No | No |
+| Saturation | No | No | Yes | Yes | No | No |
+| Contrast | No | No | Yes | Yes | No | No |
+| Tint Shadow | No | No | Yes | Yes | No | No |
+| Tint Shadow Blend | No | No | Yes | Yes | No | No |
+| Tint Shadow Amount | No | No | Yes | Yes | No | No |
+| Channel Mixer Red | No | No | Yes | Yes | No | No |
+| Channel Mixer Green | No | No | Yes | Yes | No | No |
+| Channel Mixer Blue | No | No | Yes | Yes | No | No |
+| Crush Shadows | No | No | Yes | Yes | No | No |
+| Crush Highlights | No | No | Yes | Yes | No | No |
+| Dynamic Range | No | No | Yes | Yes | No | No |
+
+### Lens
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chromatic Aberration - Intensity | Yes | Yes | Yes | Yes | No | Yes |
+| Chromatic Aberration - Start Offset | Yes | Yes | No | No | No | Yes |
+| Bloom - Method Standard | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Methodconvolution | Yes | Yes | No | No | No | Yes |
+| Bloom - Intensity | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Threshold | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Convolution Kernel | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Size Scale | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 1 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 2 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 3 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 4 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 5 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 6 Size | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - # 1 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - # 2 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - # 3 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - # 4 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - # 5 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - # 6 Tint | Yes | Yes | Yes | Yes | No | Yes |
+| Bloom - Advanced - Convolution Scale | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Convolution Center | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Convolution Boost Min | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Convolution Boost Max | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Convolution Boost Mult | Yes | Yes | No | No | No | Yes |
+| Bloom - Advanced - Convolution Buffer | Yes | Yes | No | No | No | Yes |
+| Dirt Mask - Dirt Mask Texture | Yes | Yes | No | No | No | Yes |
+| Dirt Mask - Dirt Mask Intensity | Yes | Yes | No | No | No | Yes |
+| Dirt Mask - Dirt Mask Tint | Yes | Yes | No | No | No | Yes |
+| Camera - Shutter Speed (1/s) | No | No | No | No | No | No |
+| Camera - Aperture (F-stop) | No | No | No | No | No | No |
+| Camera - Maximum Aperture (min F-stop) | No | No | No | No | No | No |
+| Camera - Number of Diaphragm Blades | No | No | No | No | No | No |
+| Camera - Exposure Compensation | Yes | Yes | Yes | Yes | No | Yes |
+| Exposure - Metering Mode - Auto Exposure Histogram | Yes | Yes | No | No | No | Yes |
+| Exposure - Metering Mode - Auto Exposure Basic | Yes | Yes | No | No | No | Yes |
+| Exposure - Metering Mode - Manual | Yes | Yes | No | No | No | Yes |
+| Exposure - Min Brightness | Yes | Yes | No | No | No | Yes |
+| Exposure - Max Brightness | Yes | Yes | No | No | No | Yes |
+| Exposure - Speed Up | Yes | Yes | No | No | No | Yes |
+| Exposure - Speed Down | Yes | Yes | No | No | No | Yes |
+| Exposure - Advanced - Low Percent | Yes | Yes | No | No | No | Yes |
+| Exposure - Advanced - High Percent | Yes | Yes | No | No | No | Yes |
+| Exposure - Advanced - Histogram Log Min | Yes | Yes | No | No | No | Yes |
+| Exposure - Advanced - Histogram Log Max | Yes | Yes | No | No | No | Yes |
+| Exposure - Advanced -calibrationconstant | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Intensity | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Tint | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Bokeh Size | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Threshold | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Bokeh Shape | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Tints 0 to 7 | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Tints 0 to 7 | Yes | Yes | No | No | No | Yes |
+| Lens Flare - Tints 0 to 7 | Yes | Yes | No | No | No | Yes |
+| Image Effects - Vignette Intensity | Yes | Yes | Yes | Yes | No | Yes |
+| Image Effects - Grain Jitter | Yes | Yes | Yes | Yes | No | Yes |
+| Image Effects - Grain Intensity | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Method - Bokeh DOF | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Method - Gaussian DOF | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Method -circle DOF | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - High Quality Gaussian DOF on Mobile | No | No | Yes | Yes | No | No |
+| Depth Of Field - Focal Distance | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Depth Blur km for 50% | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Depth Blur Radius | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Focal Region | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Near Transition Region | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Far Transition Region | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Scale | Yes | Yes | Yes | Yes | No | Yes |
+| Depth Of Field - Max Bokeh Size | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Near Blur Size | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Far Blur Size | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced - Shape | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced - Occlusion | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced -color Threshold | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced - Size Threshold | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced - Sky Distance | Yes | Yes | No | No | No | Yes |
+| Depth Of Field - Advanced - Vignette Size | Yes | Yes | No | No | No | Yes |
+
+### Rendering Features
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Post Process Materials - Array | Yes | Yes | Yes | Yes | No | Yes |
+| Ambient Cubemap - Tint | Yes | Yes | No | No | No | No |
+| Ambient Cubemap - Intensity | Yes | Yes | No | No | No | No |
+| Ambient Cubemap - Cubemap Texture | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Intensity | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Radius | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Static Fraction | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Radius in WorldSpace | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Fade Out Distance | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Power | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Bias | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Quality | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Mip Blend | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Mip Scale | Yes | Yes | No | No | No | No |
+| Ambient Occlusion - Advanced - Mip Threshold | Yes | Yes | No | No | No | No |
+| Global Illumination - Indirect Lighting Color | Yes | Yes | No | No | No | Yes |
+| Global Illumination - Indirect Lighting Intensity | Yes | Yes | No | No | No | Yes |
+| Motion Blur - Amount | Yes | Yes | No | No | No | No |
+| Motion Blur - Max | Yes | Yes | No | No | No | No |
+| Motion Blur - Per Object Size | Yes | Yes | No | No | No | No |
+| Light Propagation Volume - Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Size | Yes | No | No | No | No | No |
+| Light Propagation Volume - Secondary Occlusion Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Occlusion Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Diffuse Occlusion Exponent | Yes | No | No | No | No | No |
+| Light Propagation Volume - Specular Occlusion Exponent | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Light Injection Bias | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Secondary Bounce Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Geometry Volume Bias | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Emissive Injection Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Occlusion Radius | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Diffuse Occlusion Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Specular Occlusion Intensity | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - Fade Range | Yes | No | No | No | No | No |
+| Light Propagation Volume - Advanced - DOF Fade Range | Yes | No | No | No | No | No |
+| Screen Space Reflections - Intensity | Yes | Yes | No | No | No | No |
+| Screen Space Reflections - Quality | Yes | Yes | No | No | No | No |
+| Screen Space Reflections - Max Roughness | Yes | Yes | No | No | No | No |
+| Misc - Screen Percentage | Yes | Yes | Yes | Yes | No | No |
+
+## Reflections
+
+### Reflections
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Reflection Capture - Box | Yes | Yes | Yes | Yes | Yes | Yes |
+| Reflection Capture - Sphere | Yes | Yes | Yes | Yes | Yes | Yes |
+| Scene Capture Cubemap | Yes | Yes | No | No | No | Yes |
+| Scene Capture 2D | Yes | Yes | Yes | Yes | Yes | Yes |
+| Planar Reflections | Yes | Yes | Yes | Yes | Yes | Yes |
+| Screen Space Reflections | Yes | Yes | No | No | No | No |
+| High Quality Reflections | Yes | Yes | Yes | Yes | Yes | Yes |
+| High Precision GBuffer Normal Encoding | Yes | Yes | No | No | No | No |
+| Reflection Capture Resolution | Yes | Yes | No | No | No | No |
+| HDR Cubemap | Yes | Yes | Yes | Yes | No | Yes |
+
+## Lights
+
+### Lights
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Static Point Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Static Spot Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Static Directional Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Static Skylight | Yes | Yes | Yes | Yes | Yes | Yes |
+| Static Rect Light | Yes | Yes | No | Yes | Yes | Yes |
+| Stationary Point Light | Yes | Yes | No | No | No | Yes |
+| Stationary Spot Light | Yes | Yes | No | No | No | Yes |
+| Stationary Directional Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Stationary Skylight | Yes | Yes | Yes | Yes | No | Yes |
+| Stationary Rect Light | Yes | Yes | Yes | Yes | No | No |
+| Movable Point Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Movable Spot Light | Yes | Yes | No | No | No | Yes |
+| Movable Directional Light | Yes | Yes | Yes | Yes | Yes | Yes |
+| Movable Skylight | Yes | Yes | Yes | Yes | No | Yes |
+| Movable Rect Light | Yes | Yes | No | No | No | No |
+| Light Shaft | Yes | Yes | Yes | Yes | Yes | Yes |
+| IES Light Profiles | Yes | Yes | Yes | Yes | Yes | No |
+| Light Functions | Yes | Yes | No | No | No | Yes |
+
+## General Rendering
+
+### General Rendering
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Dynamic Lighting | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lightmass/Baked Lighting | Yes | Yes | Yes | Yes | Yes | Yes |
+| Image Based Lighting | Yes | Yes | Yes | Yes | Yes | Yes |
+| Direct Specular | Yes | Yes | Yes | Yes | Yes | Yes |
+| GGX Specular | Yes | Yes | No | No | No | Yes |
+| Deferred Rendering | Yes | Yes | No | No | No | No |
+| Anti-Aliasing Method - FXAA | Yes | Yes | No | No | No | No |
+| Anti-Aliasing Method - Temporal AA | Yes | Yes | Yes | Yes | No | Yes |
+| Anti-Aliasing Method - MSAA | No | Yes | Yes | Yes | Yes | Yes |
+
+## Materials
+
+### Material Inputs
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Base Color | Yes | Yes | Yes | Yes | Yes | Yes |
+| Metallic | Yes | Yes | Yes | Yes | Yes | Yes |
+| Specular | Yes | Yes | Yes | Yes | Yes | Yes |
+| Roughness | Yes | Yes | Yes | Yes | Yes | Yes |
+| Emissive | Yes | Yes | Yes | Yes | Yes | Yes |
+| Opacity | Yes | Yes | Yes | Yes | Yes | Yes |
+| Opacity Mask | Yes | Yes | Yes | Yes | Yes | Yes |
+| Tangent | Yes | Yes | Yes | Yes | Yes | Yes |
+| Normal | Yes | Yes | Yes | Yes | Yes | Yes |
+| World Position Offset | Yes | Yes | Yes | Yes | Yes | Yes |
+| World Displacement | Yes | Yes | No | No | No | Yes |
+| Tessellation Multiplier | Yes | No | No | No | No | Yes |
+| Fuzz Color | Yes | Yes | No | No | No | No |
+| Cloth | Yes | Yes | No | No | No | No |
+| Subsurface Color | Yes | Yes | No | No | No | Yes |
+| Iris Mask | Yes | Yes | No | No | No | No |
+| Iris Distance | Yes | Yes | No | No | No | No |
+| Clear Coat | Yes | Yes | No | No | No | No |
+| Clear Coat Roughness | Yes | Yes | No | No | No | No |
+| Backlit | Yes | Yes | No | No | No | No |
+| Custom Data 0 to 7 | Yes | Yes | No | No | No | No |
+| Ambient Occlusion | Yes | Yes | No | No | No | Yes |
+| Refraction | Yes | Yes | Yes | Yes | No | Yes |
+| Customized UV 0 to 7 | Yes | Yes | Yes | Yes | Yes | Yes |
+
+### Material Domain
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Surface | Yes | Yes | Yes | Yes | Yes | Yes |
+| Deferred Decal | Yes | Yes | Yes | Yes | No | Yes |
+| Light Function | Yes | Yes | No | No | No | Yes |
+| Volume | Yes | Yes | No | No | No | No |
+| Post Process | Yes | Yes | No | No | No | No |
+| User Interface | Yes | Yes | Yes | Yes | Yes | Yes |
+
+### Blend Mode
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Opaque | Yes | Yes | Yes | Yes | Yes | Yes |
+| Masked | Yes | Yes | Yes | Yes | Yes | Yes |
+| Translucent | Yes | Yes | Yes | Yes | Yes | Yes |
+| Additive | Yes | Yes | Yes | Yes | Yes | Yes |
+| Modulate | Yes | Yes | Yes | Yes | Yes | Yes |
+| Alpha Composite (Premultiplied Alpha) | Yes | Yes | Yes | Yes | Yes | Yes |
+
+### Shading Model
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Unlit | Yes | Yes | Yes | Yes | Yes | Yes |
+| Default Lit | Yes | Yes | Yes | Yes | Yes | Yes |
+| Subsurface | Yes | Yes | No | No | No | Yes |
+| Pre Integrated Skin | Yes | Yes | No | No | No | Yes |
+| Clear Coat | Yes | Yes | No | No | No | No |
+| Subsurface Profile | Yes | Yes | No | No | No | No |
+| Two Sided Foliage | Yes | Yes | No | No | No | Yes |
+| Hair | Yes | Yes | No | No | No | No |
+| Cloth | Yes | Yes | No | No | No | No |
+| Eye | Yes | Yes | No | No | No | No |
+
+## Textures
+
+### Compression Settings
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Default (DXT 1/5, BC 1/3 on DX11) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Normalmap (DXT 5, BC5 on DX11) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Masks (no SRGB) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Grayscale (R8, RGB8 sRGB) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Displacement Map (8/16 bit) | Yes | Yes | No | No | No | No |
+| Vector Displacement Map (RGBA8) | Yes | Yes | No | No | No | No |
+| HDR (RGB, no SRGB) | Yes | Yes | Yes | Yes | Yes | Yes |
+| User Interface 2D (RGBA) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Alpha (no sRGB, BC4 on DX11) | Yes | Yes | Yes | Yes | Yes | Yes |
+| Distance Field Font (R8) | Yes | Yes | No | No | No | Yes |
+| HDR Compressed (RGB, BC6H, DX11) | Yes | Yes | No | No | No | Yes |
+| BC7 (DX11, optional A) | Yes | Yes | Yes | Yes | No | Yes |
+| Embed Alpha Support | Yes | Yes | Yes | Yes | Yes | Yes |
+
+## Decals
+
+### Decal
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Translucent | Yes | Yes | Yes | Yes | No | No |
+| Stain | Yes | Yes | Yes | Yes | No | No |
+| Normal | Yes | Yes | No | No | No | Yes |
+| Emissive | Yes | Yes | Yes | Yes | No | Yes |
+| DBuffer Translucent Color, Normal, Roughness | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent Color | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent Color, Normal | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent Color, Roughness | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent Normal | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent, Normal, Roughness | Yes | Yes | No | No | No | Yes |
+| DBuffer Translucent, Roughness | Yes | Yes | No | No | No | Yes |
+| Volumetric Distance Function (Experimental) | Yes | Yes | No | No | No | No |
+| Alpha Composite (Premultiplied Alpha) | Yes | Yes | No | No | No | No |
+| Ambient Occlusion | Yes | Yes | No | No | No | No |
+
+## Shadows
+
+### Shadows
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Static Shadow Map | Yes | Yes | Yes | Yes | Yes | Yes |
+| Dynamic Shadows | Yes | Yes | Yes | Yes | Yes | Yes |
+| Modulated Shadows | No | Yes | Yes | Yes | No | Yes |
+| Cascaded Shadow Maps | Yes | Yes | Yes | Yes | Yes | Yes |
+| Distance Field Shadows | Yes | Yes | Yes | Yes | No | Yes |
+| Ray Traced Distance Field Shadows | Yes | No | No | No | No | Yes |
+| Capsule Shadows | Yes | No | No | No | No | Yes |
+| Contact Shadows | Yes | Yes | No | No | No | No |
+
+## Fog
+
+### Fog
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Exponential Height Fog | Yes | Yes | Yes | Yes | Yes | Yes |
+| Atmospheric Fog | Yes | Yes | Yes | Yes | No | No |
+| Volumetric Fog | Yes | No | No | No | No | No |
+
+## Particles
+
+### Particles
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| CPU Particles | Yes | Yes | Yes | Yes | Yes | Yes |
+| CPU Particle Collision | Yes | Yes | Yes | Yes | No | Yes |
+| Mesh Particles | Yes | Yes | Yes | Yes | Yes | Yes |
+| GPU Particles | Yes | Yes | Yes | Yes | Yes | Yes |
+| Beam Emitter | Yes | Yes | Yes | Yes | Yes | Yes |
+| Ribbon Particles | Yes | Yes | Yes | Yes | Yes | Yes |
+| Anim Trail | Yes | Yes | Yes | Yes | Yes | Yes |
+| Vector Field | Yes | Yes | No | No | No | Yes |
+| Particle Lights | Yes | Yes | No | No | No | Yes |
+| Distance Field Collision | Yes | No | No | No | No | Yes |
+
+## Level Of Detail
+
+### Level Of Detail
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Dither Fading for LODs | Yes | Yes | Yes | No | No | No |
+
+## Visibility Culling
+
+### Visibility Culling
+
+| **Feature Name** | **SM5: DirectX 11, macOS Metal, Vulkan Desktop** | **SM4: DirectX 10, OpenGL 3.3+** | **OpenGLES 3.1, iOS Metal, Vulkan Mobile** | **OpenGLES 2.0 w HDR Enabled** | **OpenGLES 2.0 w HDR Disabled** | **VR Forward Rendering** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Cull Distance Volume | Yes | Yes | Yes | Yes | Yes | Yes |
+| Precomputed Visibility Volume | Yes | Yes | Yes | Yes | Yes | Yes |
+| GPU (Hardware) Occlusion Queries | Yes | Yes | Yes | No | No | Yes |
+| (Mobile) Sofware Occlusion Queries | Yes | Yes | Yes | Yes | Yes | Yes |

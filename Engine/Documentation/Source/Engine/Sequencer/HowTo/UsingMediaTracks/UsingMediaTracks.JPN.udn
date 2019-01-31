@@ -1,0 +1,101 @@
+﻿INTSourceChangelist:4385347
+Availability: Public
+Crumbs: 
+Title: メディア トラックを使用する
+Description: シーケンサーでメディア トラックを使用して、レベル内でムービーの再生を制御する方法を説明します。
+Type:how-to
+Version: 4.20
+Parent: Engine/Sequencer/HowTo
+Order: 5
+Tags: Sequencer
+
+
+シーケンサーでは、 **Media Track** と、割り当てられた **Media Source** および **Media Texture** アセットを使用することで、メディア ソースの再生を制御することができます。また、シーケンサーではメディア ソースの再生時に内部のメディア プレーヤーを作成するため、ユーザーがメディア プレーヤー アセットを作成する必要はありません。 
+
+この操作ガイドでは、新しいレベル シーケンスを作成し、メディア トラックを割り当てて、レベル内での再生時に再生を行う EXR 画像シーケンスにポイントします。 
+
+![UsingMediaHero.png](UsingMediaHero-resize839x385.png "UsingMediaHero.png")
+
+## ステップ
+
+[REGION:note]
+この操作ガイドでは、新しい **Blank Blueprint Project（空のブループリントプロジェクト）** を使用します。また、メディア ソースとして使用する一連の EXP または PNG 画像が必要です。使用する画像がない場合は、この操作ガイド用に準備したこちらの [UE4 Logo](https://epicgames.box.com/s/fsxw4c9llathxzk8dwof302d1tba4ow1) 画像をダウンロードしてください。
+[/REGION]
+
+1. プロジェクト内で、 **コンテンツ ブラウザ** で右クリックして、 **[Media]** の **[Img Media Source]** を選択し、名前を付けます。
+    ![](MediaTrack_02.png "MediaTrack_02.png")
+2. **Img Media Source** アセットを開いて、 **Sequence Path** をサンプルの EXR 画像にポイントし、最初の画像を開きます。   
+    ![](MediaTrack_03.png "MediaTrack_03.png")  
+    
+3. **コンテンツ ブラウザ** で右クリックし、 **[Media]** から **Media Texture** アセットを作成します。
+    ![](MediaTrack_04-1.png "MediaTrack_04-1.png")  
+    [REGION:note]
+    通常は、 **Media Player** アセットとそれに関連する **Media Texture** を作成します。 **シーケンサー** で **メディア トラック** を使用する際、各メディア トラックでは、オンデマンドの再生を処理するために内部のメディア プレーヤーが自動的に作成されます。
+    [/REGION]
+4. メイン ツールバーの **[Cinematics]** をクリックして **[Add Level Sequence]** を選択し、名前と保存場所を指定します。   
+    ![](MediaTrack_06.png "MediaTrack_06.png")  
+    
+5. レベル シーケンスを開いて、**[Track]** ボタンをクリックして**[Media Track]** オプションを選択します。   
+    ![](MediaTrack_07.png "MediaTrack_07.png")  
+    または、 **Media Source** アセットを **コンテンツ ブラウザ** から **シーケンサー** にドラッグし、 **メディア トラック** を作成することもできます。
+    ![MediaTrack_08-2.png](MediaTrack_08-resize1047x434.png "MediaTrack_08-2.png")
+6. **メディア トラック** で、 **[\+ Media]** ボタンをクリックして **Img Media Source** アセットを選択します。   
+    ![](MediaTrack_09.png "MediaTrack_09.png")
+7. メディアをフレーム **520** に設定し、エンド マーカーをシーケンスの最後に移動します。   
+    ![](MediaTrack_10.png "MediaTrack_10.png")  
+    [REGION:note]
+    現時点では、メディア セクションはメディアの長さに合わせて自動的にはサイズが変更されません。このため、メディア セクションを手動で伸縮してセクションを設定します。将来のリリースでは、自動的にサイズを変更できるよう改善する予定です。
+    [/REGION]
+8. メディアで右クリックし、 **[Properties]** の **[Media Texture]** を **Media Player** アセットに設定します。   
+    ![](MediaTrack_11-1.png "MediaTrack_11-1.png")  
+    メディア トラックを追加した際は、 **[Properties]** で、そのメディア トラックと関連付ける **Media Texture** を定義する必要があります。この Media Texture は再生中のビデオの出力を受け取ります。   
+    [REGION:tip]
+    複数のセクションで同じ Media Texture を再使用することはできますが、同時に 2 つのセクションで同じ Media Texture への書き込みが行われないように注意する必要があります。
+    [/REGION]
+9. レベル内でレベル シーケンスを選択して、**[Details]** パネルで **[Auto Play]** を有効にします。
+    ![](MediaTrack_12.png "MediaTrack_12.png")
+10. **[Modes]** パネルの **[Basic]** から **[Plane]** をレベルにドラッグし、必要に応じてサイズ変更および回転します。   
+    
+11. レベル内で、 **Media Texture** アセットを **コンテンツ ブラウザ** から **Plane** にドラッグします。
+
+	 ![](MediaTrack_13-1.png)
+
+     これにより、**Media Texture** を使用する新しい **Material** が自動的に作成され、割り当てられます。
+12. エディタで **[Play]** ボタンをクリックして再生します。 
+
+## 最終結果
+
+エディタで再生すると、レベル シーケンスで指定されている通りに再生が開始されます。ここでは自動再生に設定されています。また、シーケンサー エディタ内でメディアをスクラブすることもでき、これによってビデオの再生がスクラブされます。 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ gXT-d85cXvA
+ [/PARAMLITERAL]
+[/OBJECT]
+
+## 追加情報
+
+現時点では、画像シーケンス (特に EXR シーケンス) について、 **Media Track** は **Img Media Source** オブジェクトと最適に機能します。
+
+[REGION:warning]
+MP4 ムービーやその他のムービー形式はサポートされていますが、メディア トラックのレンダリングと同様、あくまでも実験段階です。
+[/REGION]
+
+メディアの再生を最適化するには、いくつかの設定を行う必要があります。
+  
+まず、 **[Project Settings] > [Plugins] > [IMG Media]** でグローバルな設定を行います。 **[Cache Size GB]** は、アクティブな各メディア プレーヤーでキャッシュされるギガバイト数を示します。同時にアクティブにするメディア プレーヤー数、およびビデオ フレームのメモリ使用量に応じて、妥当な数値を設定する必要があります。各ユーザーの状況で異なりますが、通常は 0.5 または 1.0 が適切な値として推奨されます。
+  
+
+![](MediaTracks_ProjectSettings.png "MediaTracks_ProjectSettings.png")  
+
+**[Cache Behind Percentage]** は、現在の再生位置でフレームのキャッシュにバックグラウンドで使用されるキャッシュの割合を示します。リアルタイム再生では前方のみのフレームのキャッシュが必要なため、この値を 0 に設定してください。
+  
+次に、各メディア トラック セクションで、プリロードされるフレームの **プリロール** 時間を設定する必要があります。ここでも上の設定と同様に、再生するビデオ数やフレームの大きさ、お使いのコンピュータの処理能力など、多くの要因に基づいて適切な値が決まります。
+  
+一般的には、必要な時に確実に利用できるようにビデオ フレームが十分な余裕をもって事前にプレロールされることが望ましいですが、プレロールが早すぎると、ビデオ フレームをロード中の再生中のその他のセクションのパフォーマンスに影響を及ぼす可能性があることに注意してください。キャッシュ サイズおよびプレロールは、必要な時にすべてのフレームが利用可能であることを保証できると同時に、任意の時間のポイントで最小限必要な数のビデオ フレームがプレロールされるように設定することを推奨します。

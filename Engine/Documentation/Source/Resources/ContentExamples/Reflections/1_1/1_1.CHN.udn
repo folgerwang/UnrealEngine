@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:1.1 - 金属材质的反射
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Reflections
@@ -10,63 +10,7 @@ Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Resources/Showcases/RealisticRendering
 Related: Engine/Rendering/PostProcessEffects
 Version: 4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Reflections Home](Resources/ContentExamples/Reflections)
-	[/PARAM]
-	[PARAM:next]
-		[Next Example](Resources/ContentExamples/Reflections/1_2 "%Resources/ContentExamples/Reflections/1_2:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_1:title%](Reflections_1_1_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_1:title%](Reflections_1_1_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:Reflections_1_1_Topic.png
 
 [REGION:fullwidth]
 

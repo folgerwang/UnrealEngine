@@ -1,0 +1,50 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: PSO 캐시 데이터 컴파일 및 사용
+Description: 런타임에서 PSO 데이터 컴파일 시점을 설정하는 법입니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:Compiling_&_Using_PSO_Caching_Data_Topic_Image.png
+Tags: 
+
+**Pipeline State Object** (PSO) 캐시 데이터를 UE4 프로젝트 런타임 버전에서 사용하려면, 컴파일을 해야 합니다. 여기서는 UE4 프로젝트 실행 도중 PSO 데이터를 언제 컴파일할지 제어하는 두 가지 방법을 살펴봅니다.
+
+## 로딩 화면
+프로젝트가 로딩 화면을 표시하는 동안에만 PSO 데이터를 빌드하도록 구성할 수 있습니다. 그러려면 PSO 캐시 컴파일이 끝날 때까지 기다렸다가 로딩 화면 표시를 멈추는 함수를 새로 만들어야 합니다. 그 방법을 보여주는 코드 예제는 다음과 같습니다.  
+
+    ~~~
+    if(FShaderPipelineCache::NumPrecompilesRemaining() > 0)
+    {
+        if (OutDebugReason != nullptr)
+        {
+            *OutDebugReason = FString(TEXT("PC: PSO cache still compiling"));
+        }
+        return true;
+    }
+~~~
+
+[REGION:note]
+모바일 프로젝트를 개발 중인 경우, 프로젝트의 PSO 캐시 컴파일은 이렇게 하는 것이 좋습니다.
+[/REGION]
+
+## UI, 컷씬, 일시정지 메뉴
+UI, 컷씬, 일시정지 메뉴가 열렸을 때만 PSO 캐시를 컴파일하도록 설정할 수 있습니다. 그러려면 PSO 캐시 시스템의 **ResumeBatching** 및 **SetBatchMode** 함수 기능을 사용하여 컴파일을 시작 및 중지해야 합니다. 거기에 사용할 수 있는 모든 함수는 아래에서 찾을 수 있습니다.
+
+**PSO 캐시 일시정지 - PSO 캐시 컴파일을 일시정지합니다.**
+
+    FShaderPipelineCache::PauseBatching();
+
+**일괄 모드 속도 설정 - PSO 캐시 처리 속도를 설정합니다.**
+
+    FShaderPipelineCache::SetBatchMode(FShaderPipelineCache::BatchMode::Background);
+
+**PSO 캐시 재개 - 중지 또는 일시정지된 PSO 캐시를 재개합니다.**
+
+    FShaderPipelineCache::ResumeBatching();
+
+[REGION:note]
+PSO 캐시용 함수 관련 자세한 정보는 [PSO 레퍼런스](Engine/Rendering/PSOCaching/PSOReference) 문서를 참조하세요.
+[/REGION]

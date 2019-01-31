@@ -1,350 +1,351 @@
-﻿INTSourceChangelist:0
-Title: 2013年12月份版本信息
+﻿INTSourceChangelist:3782314
+Title: 2013年12月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-3
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Labels** | [INCLUDE:#labels] |
-| **Built from Changelist #** | 1945305 (//depot/UE4-QA/Promotable-CL-1945305) |
-| **Branched from Changelist #** | 1923033 (//depot/UE4/Promoted-CL-1923033) |
-| **Visual Studio Version** | Microsoft Visual Studio 2012 Version 11.0.60610.01 Update 3 |
-| **DirectX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| [INCLUDE:#labels] |
+| **根据变更列表编号构建**| 1945305 (//depot/UE4-QA/Promotable-CL-1945305)|
+| **根据变更列表编号分支**| 1923033 (//depot/UE4/Promoted-CL-1923033)|
+| **Visual Studio 版本**| Microsoft Visual Studio 2012 版本 11.0.60610.01 更新 3|
+| **DirectX**| 2010 年 6 月|
 [/REGION]
 
 [COMMENT:none]
 
 [EXCERPT:Labels]
-QA_APPROVED_UE4_BUILD_2013_12  
-QA_APPROVED_UE4_BUILD_CURRENT  
+QA_APPROVED_UE4_BUILD_2013_12
+QA_APPROVED_UE4_BUILD_CURRENT
 QA_APPROVED_UE4_BUILD_MINIMUM
 [/EXCERPT:Labels]
 
 [/COMMENT]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Fixed Bugs: [UE4 Fixed Bugs December 2013](UE4_Fixed_2013_December.xlsx)
- * Known Issues: [UE4 Known Issues December 2013](UE4_Bugs_2013_December.xlsx)
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * 已修复的错误：[2013 年 12 月虚幻引擎4 中已修复的错误](UE4_Fixed_2013_December.xlsx)
+ * 已知问题：[2013 年 12 月虚幻引擎4 中的已知问题](UE4_Bugs_2013_December.xlsx)
  
 
-## Major New Features
+## 主要新功能
 
-####Editor and Tools
-* **New Material Editor Enabled by Default**
-	* The new Material Editor is now enabled by default!
+####编辑器和工具
+* **默认启用新材质编辑器**
+	* 新材质编辑器现在默认启用！
 
 		![](NewMaterialEditor2.png)
 
-	* If you still wish to use the old version for any reason then you will need to add "-oldme" to your commandline.
+	* 不管出于什么原因，如果您仍希望使用旧版本，则需要在命令行中添加“-oldme”。
 
-* **Scale Snapping: Preserve Non-Uniform Scale** 
-	* A new feature, Scale Snapping: Preserve Non Uniform Scale has been added to in-viewport scaling.
-	* You can find this new option in the scale snapping menu, accessed from the viewport's embedded toolbar:
+* **缩放对齐：维持非等分缩放**
+	* 一个新功能，缩放对齐：维持已添加到视口中缩放的非等分缩放。
+	* 您可以在缩放对齐菜单中找到此新选项，从视口的嵌入式工具栏中访问：
 
 		![](ScaleSnapping.png)
 
-	* When activated, scale snapping will behave slightly differently when interactively scaling objects with non-uniform scales (that is, differing scale factors for X, Y or Z components).
-	* Normally when snapping scaling, each of the components are snapped individually to the grid increment. This can cause an object to deform slightly when scaling. Enabling this option prevents this deformation by preserving the ratios between each component, while snapping the largest component to the scale snap grid.
+	* 激活时，以非等分缩放（即 X、Y 或 Z 组件的缩放系数不同）交互式缩放对象时，缩放对齐的行为略有不同。
+	* 通常，当执行缩放对齐时，每个组件会分别对齐到相应的网格增量。如果执行缩放，这会导致对象发生细微形变。在将最大的组件对齐到缩放对齐网格时，如果启用此选项，则可以让各组件保持适当比例，从而防止发生形变。
 
-* **Play-In-Editor: Multiple Worlds**
-	* This feature changes the way Play-In-Editor Networking works: instead of launching new instances of UE4 to connect to your Play-In-Editor game, the editor now spawns multiple worlds within the already loaded instance of UE4.
-		* **Shift-Tab and Ctrl-Tab** can be used to cycle which Play-In-Editor window has focus.
+* **在编辑器中运行：多个场景**
+	* 此功能用于更改“在编辑器中运行”联网工作方式：现在，编辑器不会启动新的虚幻引擎4实例来连接到“在编辑器中运行”游戏，而是在已加载的虚幻引擎4实例中生成多个场景。
+		* **Shift-Tab 和 Ctrl-Tab**可用于切换获得焦点的“在编辑器中运行”窗口。
 
-	* **Debugging**	
-		* When running under a multiple world scenario, there is now an additional drop down box in the blueprint editor to select the world to debug:
+	* **调试**	
+		* 现在，在多个场景下运行时，蓝图编辑器中增加了一个可选择调试场景的下拉框：
 
 			![](PIENetworking02.png)	
 
-		* Final screenshot of it in action:		
+		* 正在运行的对象的最终屏幕截图：		
 
 			![](PIENetworking04.png)
 
-* **Content Brower Folders**
-	* The ability to display folders has now been added to the 'Asset' view of the content browser.
+* **内容浏览器文件夹**
+	* 现在在内容浏览器的“资源（Asset）”视图中添加了显示文件夹的功能。
 
 		![](ContentBrowserFolders01.png)
 
-	* Note that enabling the folder display implies enabling "Show Only Assets In Selected Folders", so you won't see all your content displayed any more if you select the root in the tree view.
-	* Folders will be displayed as below. They are displayed in all view modes of the Content Browser:
+	* 请注意，启用文件夹显示意味着启用“只显示选中文件夹中的资源”（Show Only Assets In Selected Folders），所以如果在树视图中选中根节点，则不会显示所有内容。
+	* 文件夹按如下方式显示。在内容浏览器的所有视图模式下显示：
 
 		![](ContentBrowserFolders02.png)
 
-	* Folders behave much as they would do in Windows Explorer. Drag & drop, rename (F2) & delete are all functional.
-	* You can create new folders in the 'Asset View' as well.
-	* There is a new 'Up' button (to the left of the path 'breadcrumb trail'). Clicking this will take you up a directory, as will using Alt+Up.	
+	* 文件夹的行为与 Windows 资源管理器非常相似：拖放、重命名 (F2) 和删除操作均适用。
+	* 您还可以在“资源视图（Asset View）”中创建新文件夹。
+	* 添加了一个新的“向上”（Up）按钮（位于路径“浏览记录”左侧）。单击此按钮可打开一个目录，也可以使用 Alt+Up。	
 
 		![](ContentBrowserFolders03.png)
 
-	* When searching assets, folders are not displayed & assets are displayed recursively, so that workflow is the same as before.
+	* 搜索资源时，不会显示文件夹，且以递归方式显示资源，所以工作流程与以往相同。
 
-	* **Folder Colors**
-		* You can now color code Content Browser folders!	
+	* **文件夹颜色**
+		* 您现在可以为内容浏览器文件夹设置颜色编码！	
 
 			![](FolderColors03.png)
 
-* **Package Auto-Save Restoration**
-	* You can now restore packages from the previous editing session's auto-saves.
-	* If the editor detects that it did not shut-down cleanly, it will present you will a dialog on start-up to let you choose which packages you'd like to restore.
+* **包自动保存恢复**
+	* 您现在可以从之前自动保存的编辑会话恢复包。
+	* 如果编辑器检测到关闭时未完成保存，则会在启动时打开一个对话框，让您选择要恢复到哪一个包。
 
 		![](PackageAutoSaveRestoration.png)
 
-	* This feature is limited to restoring packages that are writable on disk; meaning that any packages that have not yet been saved to disk, such as newly created un-saved worlds, cannot be automatically restored via this method (however they do still produce auto-save files on disk that can be manually restored).
-	* Should you try and restore a package which is read-only due to source control, the restoration process will first attempt to check-out the package file before attempting to restore it.
-	* This feature is disabled entirely when running the editor under a debugger, or when running the editor in automation mode.
+	* 此功能仅限于恢复可写入磁盘的包，也就是说，对于未保存到磁盘的任何包（如新创建的未保存场景），将无法通过此方法自动恢复（不过确实会在磁盘上产生自动保存的文件，可手动恢复）。
+	* 如果您尝试恢复由于源码控制而设置为只读的包，恢复过程首先会尝试检查包文件，然后尝试恢复。
+	* 在调试器中运行编辑器时，或者在自动模式下运行编辑器时，会完全禁用此功能。
 
-* **Interactive Actor Picker**
-	* Properties that take an Actor-derived object can now be edited using an interactive picker.	
+* **交互式 Actor 拾取器**
+	* 现在可使用交互式拾取器编辑获取 Actor 派生对象的属性。	
 
 		![](InteractiveActorPicker01.png)
 			
-	* The cursor will display as an eyedropper when you hover over a 'pickable' actor:	
+	* 将鼠标悬停在“可拾取”Actor 上时，光标会变成滴管：	
 
 		![](InteractiveActorPicker02.png)
 
-* **Customized UVs**
-	* There's a new material editor feature which allows you to customize a material's UV channels in the vertex shader.  
-	* This can be a powerful optimization tool, since arbitrary computations can be moved out of the expensive pixel shader and into the vertex shader.
-	* On the left is a 'distance from center' calculation through CustomizedUVs on a mesh that has an 8x8 vertex grid, right is the same math in the pixel shader.  
+* **自定义 UV**
+	* 添加了一个新材质编辑器功能，可让您在顶点着色器中自定义材质的 UV 通道。
+	* 这是一个非常强大的优化工具，因为可将任意计算从开销巨大的像素着色器移到顶点着色器中。
+	* 左侧是通过 CustomizedUV 在具有 8x8 顶点网格的网格体上计算出来的“中心距离”，右侧是在像素着色器中执行相同数学结算的结果。
 
 		![](CustomizedUVs.png)
 
 
-####Blueprints
-* **Blueprint Communications**
-	* Blueprints can now access functions and variables on other Blueprints!
-	* Any variable of function that is publically exposed can now by default be accessed in any other Blueprint without the need for an interface.  
-	* There's no longer a difference between those that are defined by a code and those that are defined by a Blueprint:  They're simply all available now.
-	* The Blueprint below has a custom event called OpenTheDoor:
+####蓝图
+* **蓝图交流**
+	* 蓝图现在可访问其他蓝图的函数和变量！
+	* 现在，默认情况下，函数的任何公开变量均可供其他蓝图访问，无需接口。
+	* 不再区分代码定义的变量和蓝图定义的变量：现在可以直接使用所有这些变量。
+	* 下面的蓝图有一个称为 OpenTheDoor 的自定义事件：
 
 		![](BlueprintComms02.png)
 
-	* The OpenTheDoor event is now called with a regular function call node:
+	* OpenTheDoor 事件现在使用正则函数调用节点：
 
 		![](BlueprintComms03.png)
 
-	* **Migrating from Interfaces**
-		* Blueprint Interfaces were used to work around the fact that Blueprints couldn't call functions or access variables on other Blueprints previously.  Now that you don't need to use the workaround, you'll probably want to migrate away from using Interfaces in favor of using Blueprint Communications directly.  We've added a new feature that will let you remove an Interface from your Blueprint, but keep the functions around.
-		* You can use "Find in Blueprints" (Ctrl + F in the Blueprint Editor) to find all uses of your message functions, which should make migrating easier.
+	* **从接口迁移**
+		* 蓝图接口过去常用于解决蓝图以往无法调用函数或访问其他蓝图的变量的情况。现在既然不需要使用这种方法了，您可能想要从使用接口的方法迁移出来，直接使用蓝图交流。我们添加了一个新功能，可让您从蓝图移除接口，但保留相关函数。
+		* 您可以使用“在蓝图中寻找”（在蓝图编辑器中使用 Ctrl + F）找到消息函数的所有使用实例，这样可以简化迁移过程。
 
 
-####Animation
-* **Animation Retargeting**
-	* Recently support has been added for Animation Retargeting! 
-	* What is animation retargeting?
-		* Animation retargeting is the ability to use animations made for a specific character, and play them on a character of different proportions. This is important: the characters have to share a common Skeleton for this to work (same bone names and hierarchy); only the bind pose can be different.
-	* We have 3 different settings for bone translation retargeting which can be set on the Skeleton Tree window in Persona:
-		* **Skeleton**: Bone Translation comes from the Target Skeleton's bind pose.
-		* **Animation**: Bone Translation comes from the animation data, unchanged.
-		* **Animation Scale**: Bone translation comes from the animation data, but is scaled by the Skeleton's proportions. This is the ratio between the bone length of the Target Skeleton (the skeleton the animation is being played on), and the Source Skeleton (the skeleton the animation was authored for).				
+####动画
+* **动画重定向**
+	* 为动画重定向添加了最新支持！
+	* 什么是动画重定向？
+		* 动画重定向是一种使用为特定角色制作的动画，并为不同比例的角色播放的功能。此功能很重要：角色必须共享公共骨架才能让此功能发挥作用（骨骼名称和层次结构相同）；只有绑定姿势可以不同。
+	* 对于骨骼平移重定向，我们提供了 3 种不同的设置，可在角色编辑器的骨架树（Skeleton Tree）窗口中设置：
+		* **骨架**：骨骼平移来自目标骨架的绑定姿势。
+		* **动画**：骨骼平移来自于没有变动的动画数据。
+		* **动画缩放**：骨骼平移来自动画数据，但可按骨架的比例缩放。这是目标骨架（要播放动画的骨架）与源骨架（要创作动画的骨架）的骨骼长度之比。				
 
 			![](AnimationRetargeting01.png)		
 
-		* In the "Show" menu from the viewport, you can check "NonRetargeted Animation" and "Bones" to compare the original with the retargeted animation.		
+		* 在视口的“显示”（Show）菜单中，您可以选中“未重定向动画”（NonRetargeted Animation）和“骨骼”（Bones），从而对比原动画和重定向动画。		
 			
 			![](AnimationRetargeting02.png)		
 
-		* This visualization works on single assets but also on Animation Blueprints.	
+		* 该可视化用于单一资源，但也可以用于动画蓝图。	
 
 			![](AnimationRetargeting03.png)
 
 
 
-## New Additions
+## 新增内容
 
-#### Editor and Tools
-* Added easier way to check the type of DragDrop operation with DragDropEvent.GetOperationAs<FMyDragDrop>();
-* Added the OnVisualizeTooltip() event that allows for scoped, custom tooltip handling.
-* Added an editor user settings in option to prefix the project name watermark in the level editor for disambiguation when frequently switching between branches.
-* Added custom mesh previews for material thumbnails. Choose your preview mesh in the details panel of the material editor then in the Content Browser, enter thumbnail edit mode and change the material's preview primitive to the teapot.
-* Rocket users now have the ability to send quick feedback from the editor.
-* Added option to preserve non-uniform scaling when snapping.
-* Cooking paths are now in per-game Editor Preferences.
-* Added folders to Content Browser.
-* Added thin window border to Slate windows.
-* Added interactive actor 'eyedropper' picker for picking actors in the scene.
-* Clicking on a graph icon on a node, which it's already present, now exclusively shows it in the graph view.
-* Selected keys are now taken into account when doing a copy/cut, and pasting individual keys into existing track is now permitted.
-* New content browser option to set the color of the folder. 
-* ContentBrowser list and column view now also show colors.
-* You are now offered to restore from an auto-save when restarting the editor following a crash.
-* Slate Graph version of Material Editor now available for use.
-	* Enabled by default, old editor accessed by adding "-oldme" to the commandline.
-	* Temporarily flips positions of expressions and comments.
-	* Static Bool Expressions no longer show preview window.
-	* Can now move Material Input node.
-	* Can now ctrl+drag to move material connections.
-	* Pressing Enter now cycles through search results.
-	* Alternate search results for material expressions added, can now type 'lerp' to search for Linear Interpolation, '1-x' for One Minus and 'sqrt' for Square Root.
-	* Allow Blueprint style editing of parameter names from the title bar of nodes.
-* Can now shift-click pins in any Blueprint style editor to mark them for connection without dragging a line.
-* You can now add "-SCCProvider=ProviderPluginName" to the command line to override which SCC provider plugin is used.
-* Advanced grid snapping settings were added to EditorSettings->General->Preferences->Snap.
-* **UnrealDocTool** 
-	* Added NoPublish availability option to keep page from publishing.
-	* Added `[RELATIVE:path]` tag which is rendered into proper relative target path for given UDN document path.
-
-
-#### Blueprints
-* **Blueprint Communications**  
-	* Blueprints can now call fun ctions on and access public members of other Blueprints.  You can create variables of other Blueprint-generated classes, and access their members just as you would any other class.  With this feature, you are no longer required to use a Blueprint Interface to communicate between two Blueprints.  To help you remove unnecessary Blueprint Interfaces, when you remove the interface from a Blueprint in its "Blueprint Properties" tab, you will now be able to optionally preserve all the functions and events associated with that Interface.  If you do this, you can simply remove the interface from the implementing Blueprint, select the option to keep the functions and events associated with it, and then change your usage of Message nodes to that interface be direct function call nodes.  Once all instances are updated, you can remove the Blueprint Interface.  To make finding uses of the Message nodes easier, please use the "Find in Blueprints" feature.
-* Added Ctrl+Shift+F keybinding for 'find in any blueprint'
-* Added support for attaching a component via socket/bone to a native component in the Blueprint Components mode.
-* Enumeration can be converted to Name or String.
-* "Get number of entries in <Enum>" node added.
-* Added BlueprintCallable PawnMakeNoise function to APawn so that Behavior Tree blueprint nodes can makes noises.
-* Added blueprint-callable functions to SceneComponent: Get Num Children Components(), Get Child Component(Index), Get Children Components (with "Include All Descendants" checkbox), and Get Parent Components.
-* Added categories to blueprint tab.
-* Added support for BlueprintNativeEvents. These are similar to BlueprintImplementableEvents, except they can have a native implementation in the call chain.  Note that BPNEs are limited in functionality when used in interfaces.  This will be addressed in a future release.
+#### 编辑器和工具
+* 添加了一种使用 DragDropEvent.GetOperationAs<FMyDragDrop>(); 来检查 DragDrop 操作类型的简单方式。
+* 添加了 OnVisualizeTooltip() 事件，可用于确定作用域以及自定义工具提示处理。
+* 在选项中添加了编辑器用户设置，以便在关卡编辑器中为项目名称水印添加前缀，从而在频繁切换分支时消除歧义。
+* 为材质缩略图添加了自定义网格体预览。在材质编辑器的详细信息面板中选择预览网格体，然后在内容浏览器中进入缩略图编辑模式，并将材质的预览图元更改为茶壶。
+* 火箭用户现在可以从编辑器快速发送反馈。
+* 添加了在对齐时保留非等分缩放的选项。
+* 烘焙路径现在位于具体游戏的编辑器首选项中。
+* 在内容浏览器中添加了文件夹。
+* 在 Slate 窗口中添加了细窗口边框。
+* 在场景中为 Actor 选取添加了交互式 Actor“滴管”拾取器。
+* 单击节点中的“图标”按钮（已显示），现在可让其独立显示在图表视图中。
+* 现在，执行复制/剪切时会考虑选中的键，且现在允许将单个键粘贴到现有轨迹中。
+* 可设置文件夹颜色的新内容浏览器选项。
+* 内容浏览器的列表视图和列视图现在也会显示颜色。
+* 在发生崩溃后重新启动编辑器时，您现在可以从自动保存恢复。
+* 现已推出材质编辑器的 Slate Graph（@@@）版本。
+	* 默认启用，将“-oldme”添加到命令行中可访问旧版编辑器。
+	* 临时交换表达式和注释的位置。
+	* 静态布尔表达式不再显示预览窗口。
+	* 现在可以移动材质输入节点。
+	* 现在可以按住 ctrl 并拖动来移动材质连接。
+	* 现在按回车键可循环浏览搜索结果。
+	* 为材质表达式添加了备选搜索结果，现在可输入“lerp”来搜索线性插值，“1-x”表示用 1 减，“sqrt”表示平方根。
+	* 允许从节点的标题栏对参数名称执行蓝图样式编辑。
+* 现在可以在蓝图样式编辑器中按住 Shift 并单击图钉来建立连接，不需要拖动线条。
+* 现在可以在命令行中添加“-SCCProvider=ProviderPluginName”来覆盖使用的 SCC 提供方插件。
+* 在编辑器设置（EditorSettings）-> 常规（General）-> 首选项（Preferences）-> 对齐（Snap）中添加了高级网格对齐设置。
+* **UnrealDocTool**
+	* 添加了 NoPublish 可用性选项，以便保留不发布的页面。
+	* 添加了 `[RELATIVE:path]` 标记，用于渲染到指定 UDN 文档路径的正确相对目录路径。
 
 
-#### Gameplay and Framework
-* HUD HitBox now has Begin/End Cusor Over Events that can be bound.
-* Input events in blueprints can now specify in the properties for the event node whether it should override any bindings for that event in parent classes.
-* Blueprint variables, functions, and macros now store an internal GUID that will be used to find the referenced member if it was renamed while the class containing the reference is not loaded.  For this GUID based system to work on existing content assets must be resaved.
-* Play in Editor Multiplayer: Multiple worlds under one process.
-* Multiplayer play can take place under one instance of UE4 (instead of launching separate instances to connect).
-* Enable by selecting "Single Process" in the Multiplayer Options in Play In Settings.
-* Added preliminary support for Visual Studio 2013 (VC12).
-	* Set WindowsPlatform.Compiler to WindowsCompiler.VisualStudio2013 to use it (EXPERIMENTAL!).
-	* Pass "-2013" to GenerateProjectFiles.bat to get VS2013-native projects (optional).
-	* Windows SDK 8.1 will be used when compiling for Visual Studio 2013.
-	* Third party build scripts were updated with paths to VS2013 libraries.
-	* Windows XP can still be targeted, but this is experimental (WindowsPlatform.SupportWindowsXP=true).
-	* IMPORTANT: UE4 currently only supports Visual Studio 2012.  You need to have that installed in order to compile.  2013 support is only preliminary, for early testing.
-	* IMPORTANT: Third party libraries have not yet been compiled for VS2013, so you won't be able to link. 
-* Added a JsonUtilities module, which has utilities for converting Json objects to and from UStructs.
-* Added ability to override what floor normals are considered "walkable" on both the BodySetup and a per-instance basis. Allowable settings are:
-	* Default (behavior unchanged).
-	* Increase walkability (allow steeper normals than usual).
-	* Decrease walkability (disallow shallower normals than usual).
-	* Note: AI navmesh currently ignores these settings.
-* Custom AI navigation links, that can affect path following (doors, ladders, etc): USmartNavLinkComponent.
-* Added blueprint support for custom AI navigation links in ANavLinkProxy.
-* Added detailed path finding debug in ANavigationTestingActor.
-* Added a generic mechanism for locking AI resources (like movement and brain) indicating source of lock. See IAIResourceInterface for details.
-* Animation Retargeting Improvement: Skeleton supports multiple base poses for retargeting.
-	* Base pose is different reference poses of the skeleton i.e. from different size of meshes.
-	* When retargeting is used in your system, some animations need to have correct base pose (based on what mesh it was animated from) in order to retarget correctly.  
+#### 蓝图
+* **蓝图交流**
+	* 蓝图现在可以调用函数并访问其他蓝图的公开成员。您可以创建其他蓝图生成的类的变量，并像操作其他任何类一样访问其成员。利用此功能，两个蓝图之间不再需要使用蓝图接口进行交流。为了帮助您删除不必要的蓝图接口，从蓝图的“蓝图属性”（Blueprint Properties）选项卡中删除接口时，您现在可以选择保留与该接口相关联的所有函数和事件。如果要保留，只需从蓝图实现删除接口，选择保留与其相关联的函数和事件的相应选项，然后将该接口的消息节点的使用方法改成直接用函数调用节点。更新所有实例后，您可以删除蓝图接口。为了便于发现消息节点的使用实例，请使用“在蓝图中寻找”功能。
+* 为“在蓝图中寻找”添加了快捷键 Ctrl+Shift+F
+* 添加了在蓝图组件模式下通过插槽/骨骼将组件附加到原生组件的支持。
+* 列举可转换成名称或字符串。
+* 添加了“获取 <Enum> 中的条目数量”节点。
+* 为 APawn 添加了 BlueprintCallable PawnMakeNoise 函数，以便为行为树蓝图节点制造噪点。
+* 为 SceneComponent 添加了蓝图可调用函数：Get Num Children Components()、Get Child Component(索引)、Get Children Components (带“包括所有后代”复选框) 和 Get Parent Components。
+* 在蓝图选项卡中添加了类别。
+* 为 BlueprintNativeEvents 添加了支持。这与 BlueprintImplementableEvents 相似，只不过它们在调用链中可以有原生实现。请注意，BPNE 在接口中使用时功能会受到限制。后续版本中会解决此问题。
 
 
-#### Rendering
-* Added HZB occlusion culling. The new system scales better to high object counts than the previous HW occlusion query based system. Currently disabled by default. Set r.HZBOcclusion 1 to enable.
-* Added function GetRenderingDetailMode() to Blueprints for scalability.
-* Added debug export to the compositing/postprocessing graph (using yWorks)  r.CompositionGraphDebug exports the files to the screenshots folder.  
-* **Adaptive sampling lightmass GI solver**
-	* Reduces noise in difficult lighting cases and reduces leaking.
-	* Added new IndirectLightingQuality world setting which can be used to ramp up the solver quality in maps that exibit GI solver artifacts.
-* **Customized UVs**
-	* New material property NumCustomizedUVs exposes material inputs which are executed in the vertex shader.
-	* The Customized UV inputs can be used to optimize materials by moving math to the vertex shader.
-* CVars for each scalability group are now held in an INI file (BaseScalability.ini). 
-* Added BL_BeforeTranslucency as a post process material insertion point, for drawing materials before DOF and separate translucency are applied.
-* TextComponents can now have their (approx) size defined in world units as a more useful alternative to the x and y scale values.
-* Current EyeAdaptation value is now exposed in a material expression for post process materials. Utility->EyeAdaptation. Only supported in SM5.
-* OpacityClipMaskValue, BlendMode, TwoSided and LightingModel properties can now be override in material instances.
-* MaterialQualityLevel is now exposed in a material expression.
-* Rendering detail mode can now be specified per particle emitter.
-* The axis lock module is now supported for GPU particle emitters.
-* Particle sub emitters can now be enabled and disabled from a blueprint using the function 'SetEmitterEnable'.
-* Added  r.UpsampleQuality consolevariable.
-	* Range of 4 quality values when upscaling from smaller screen.
-* **Automatic Lightmass importance volumes**
-	* When no LightmassImportanceVolumes exist, a synthetic one that bounds your scene will be used.
-	* The intent is for the user to not need to place an ALightmassImportanceVolume for very simple scenes.
-	* The 'automatic volume' extent will be clamped to the 100m (MinimumImportanceVolumeExtentWithoutWarning).
-	* We still log a warning to the log when no importance volume exists, but only show a UI warning if the scene exceeds this threshold.
-	* Increased the extent value for MinimumImportanceVolumeExtentWithoutWarning from 50m to 100m.
+#### Gameplay 和框架
+* HUD HitBox 现在有可以绑定的开始/结束鼠标悬停事件。
+* 现在可以在事件节点的属性中指定蓝图中的输入事件，不管它是否应覆盖父类中该事件的任何绑定。
+* 蓝图变量、函数和宏现在会存储内部 GUID，当包含引用的类未加载时，如果被引用的成员已重命名，则可使用 GUID 来查找该成员。要让基于 GUID 的系统生效，必须重新保存现有内容资源。
+* 在编辑器中运行多玩家：一个进程下运行多个场景。
+* 在虚幻引擎4 的一个实例中可实现多玩家运行模式（而无需启动单独的实例进行连接）。
+* 在“运行于”（Play In）设置的多玩家选项（Multiplayer Options）中，选中“单进程”（Single Process）即可启用。
+* 为 Visual Studio 2013 (VC12) 添加了初期支持。
+	* 将 WindowsPlatform.Compiler 设置到了 WindowsCompiler.VisualStudio2013，以便使用（试验性功能！）
+	* 将“-2013”传递到 GenerateProjectFiles.bat，以获得 VS2013 原生项目（可选）。
+	* 为 Visual Studio 2013 编译时将使用 Windows SDK 8.1。
+	* 更新了第三方构建脚本中 VS2013 库的路径。
+	* Windows XP 仍可作为编译目标，但只是试验性功能 (WindowsPlatform.SupportWindowsXP=true)。
+	* 重要：虚幻引擎4 当前仅支持 Visual Studio 2012。您需要先安装该版本才能进行编译。支持 2013 只是初步尝试，仅供早期测试之用。
+	* 重要：尚未对 VS2013 编译第三方库，所以无法链接。
+* 添加了一个 JsonUtilities 模块，其中包含对 Json 对象和 UStructs 进行相互转换的工具。
+* 添加了在 BodySetup 上和逐实例基础覆盖视为“可行走”的地面法线的能力。允许的设置包括：
+	* 默认（行为不变）。
+	* 提高可行走性（允许比一般情况更陡峭的法线）。
+	* 降低可行走性（不允许比一般情况更平缓的法线）。
+	*注意：AI 寻路网格体当前会忽略这些设置。
+* 自定义 AI 导航链接，可影响路径跟随（门、扶梯等）：USmartNavLinkComponent。
+* 在 ANavLinkProxy 中为自定义 AI 导航链接添加了蓝图支持。
+* 在 ANavigationTestingActor 中添加了详细路径发现调试功能。
+* 添加了一种通用机制，以便锁定表示源锁定的 AI 资源（如运动和大脑）。请查看 IAIResourceInterface 以获取详细信息。
+* 动画重定向改进：骨架支持重定向多个基础姿势。
+	* 基础姿势参考骨架的不同姿势，即网格体的不同大小。
+	* 在系统中使用重定向时，某些动画需要有正确的基础姿势（基于用于为其创作动画的网格体）才能正确重定向。
 
 
-#### Animation
-* Copy-Paste added to Persona for Sockets via Ctrl-C/Ctrl-V or context menu items in the skeleton tree. Multiple sockets can be copied at once and pasted onto any bone.
-* Floor Height Offset box added to Viewport menu in Persona which moves the floor up and down. This is saved per-mesh.
+#### 渲染
+* 添加了 HZB 遮蔽剔除。新系统比之前基于 HW 遮蔽查询的系统能更好地处理高对象计数的缩放。当前默认禁用。将 r.HZBOcclusion 设置为 1 即可启用。
+* 为提高可延展性，为蓝图添加了函数 GetRenderingDetailMode()。
+* 添加了合成/后期处理图表（使用 yWorks）的调试导出，通过 r.CompositionGraphDebug 将文件导出至屏幕截图文件夹。
+* **自适应采样 Lightmass GI 解算器**
+	* 减少了不良光照情形下的噪点数，同时减少了漏光。
+	* 添加了新的 IndirectLightingQuality 场景设置，可用于提高能显示 GI 解算器瑕疵的贴图中解算器的质量。
+* **自定义 UV**
+	* 新的材质属性 NumCustomizedUVs 公开在顶点着色器中执行的材质输入。
+	* 自定义 UV 输入可通过将数学计算移到顶点着色器来优化材质。
+* 各可延展性组合的 CVars 现在存储在 INI 文件中 (BaseScalability.ini)。
+* 添加了 BL_BeforeTranslucency 作为材质后期处理插入点，以便在应用 DOF 和独立半透明度之前绘制材质。
+* 现在可以以场景单位定义 TextComponents 的大小（近似），作为 x 和 y 缩放值的更可靠备选。
+* 材质表达式中现在会公开当前 EyeAdaptation 值，以便对材质进行后期处理。Utility->EyeAdaptation。仅 SM5 中支持。
+* 现在可在材质实例中覆盖 OpacityClipMaskValue、BlendMode、TwoSided 和 LightingModel 属性。
+* 材质表达式中现在会公开 MaterialQualityLevel。
+* 渲染细节模式现在可以按离子发射器指定。
+* 轴锁定模块现在支持 GPU 粒子发生器。
+* 现在可以使用函数“SetEmitterEnable”从蓝图启用和禁用粒子子发射器。
+* 添加了 r.UpsampleQuality consolevariable。
+	* 从小屏幕放大时范围包括 4 个质量值。
+* **自动 Lightmass 重要体积**
+	* 如果没有 LightmassImportanceVolumes，将使用绑定场景的合成体积。
+	* 目的是为了让用户不必为每个简单场景都放置一个 ALightmassImportanceVolume。
+	* “自动体积”范围将限定为 100 米 (MinimumImportanceVolumeExtentWithoutWarning)。
+	* 如果没有重要体积，我们仍然会在日志中记录一条警告消息，但如果场景超出此阈值，只会显示 UI 警告。
+	* 将 MinimumImportanceVolumeExtentWithoutWarning 的范围值从 50 米提高到了 100 米。
 
 
-#### Core
-* Added automatic conversion on load from TAssetPtr -> UObject.
-* TMap and TArray now have limited emplacement support, so you can construct elements directly into the container without a copy.
-	* Use Map.Emplace and Array.Emplace instead of .Add to avoid a copy constructor call when dealing with classes with single-argument constructors.
-* TMap values can be retrieved using operator[].
+#### 动画
+* 为插槽添加了复制粘贴到角色管理器的功能，可使用 Ctrl-C/Ctrl-V 或通过骨架树中的上下文菜单项目进行复制粘贴。一次可将多个插槽复制粘贴到任何骨骼中。
+* 在角色管理器的视口菜单中添加了地面高度偏移框，可用于上下移动地面。此设置按网格体保存。
+
+
+#### 核心
+* 添加了从 TAssetPtr -> UObject 加载时自动转换的功能。
+* TMap 和 TArray 现在有有限的定位支持，所以不需要复制就可以直接将元素构建到容器中。
+	* 使用 Map.Emplace 和 Array.Emplace 代替 .Add，当使用单一参数构造函数处理类时，可避免调用复制构造函数。
+* 使用 operator[] 可检索 TMap 值。
 	* ValueType& Val = Map[Key];
-	* Unlike std::map, this can be used on const containers and will not insert a new element if the key doesn't exist.  Instead, it will assert.
-* FName and FString now support the string view dialog, for easier vizualisation of multiline strings.
-* New functor-based functions on TArray which can be used with lambdas.
-	* IndexOfByPredicate: find the index of an element by predicate.
-	* ContainsByPredicate: tests if any element matches a predicate.
-* Debugger visualisers are automatically installed by GenerateProjectFiles.bat.
-* UDELEGATE added to allow UFUNCTION specifiers to be passed to the delegate's UFunction.
-	* The old form without a UDELEGATE is still supported.
-	* e.g.:
+	* 与 std::map 不同，这可以用于常量容器，如果键不存在，也不会插入新元素。取而代之，它会断言。
+* FName 和 FString 现在支持字符串查看对话框，更便于多行字符串的可视化。
+* TArray 有基于仿函数的新函数，可与 Lambda 一起使用。
+	* IndexOfByPredicate：按断定查找元素的索引。
+	* ContainsByPredicate：测试是否有任何元素与断定匹配。
+* 调试器查看器通过 GenerateProjectFiles.bat 自动安装。
+* 添加了 UDELEGATE，以允许将 UFUNCTION 说明符传递给委托的 UFunction。
+	* 仍支持没有 UDELEGATE 的旧形式。
+	* 例如：
 	* UDELEGATE(<specifiers>)
 	* DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FDelegate, float, Var );
-* DOREPARRAY no longer works with TArrays.
-	* Use DOREPTARRAY instead.
-* FVector::Dot2D has been renamed.
-	* The name of this function did not accurately represent its behavior.
-	* Use FVector::CosineAngle2D instead.
-* Indexing into an empty TArray is now always an error.
-	* Some errors were not being reported due to a workaround for &Array[0].
-	* This kind of usage should be replaced with Array.GetTypedArray().
+* DOREPARRAY 不能再与 TArrays 一起使用。
+	* 改成使用 DOREPTARRAY。
+* 已重命名 FVector::Dot2D。
+	* 此函数的名称没有准确体现它的行为。
+	* 改成使用 FVector::CosineAngle2D。
+* 索引到空 TArray 现在始终会产生错误。
+	* 由于 &Array[0] 的解决方法，不会报告某些错误。
+	* 此类使用方法应使用 Array.GetTypedArray() 替换。
 
 
-#### Platforms
-* Added BuildThirdPartyLibs UAT script to make batch recompiling of libraries easier (not all libraries have been enabled, see the script for how to set up a batch file).
-* Added whitelisting and blacklisting to .uplugin files (see WindowsMoviePlayer.uplugin for an example).
+#### 平台
+* 添加了 BuildThirdPartyLibs UAT 脚本，更便于对库进行批处理重新编译（未对所有库启用，查看脚本了解如何设置批处理文件）。
+* 将白名单和黑名单添加到了 .uplugin 文件中（参阅 WindowsMoviePlayer.uplugin 中的示例）。
 * **Android**
-	* Early Android support in main branch, supports DXT and PVRTC devices.
-* Added Mac OS X Services integration for Unreal Project files, you can now launch the game or generate Xcode project files from the Services Menu or Finder's context menu when a .uproject file is selected. 
-* Implemented  LLDB data formatters for UE4's common containers and string types - add "command script import UE4/Engine/Extras/LLDBDataFormatters/UE4DataFormatters.py" to your ~/.lldbinit.
+	* 主分支中提供了早期 Android 支持，且支持 DXT 和 PVRTC 设备。
+* 为虚幻项目文件添加了 Mac OS X 服务集成，当选中 .uproject 文件时，现在可以从服务菜单或查找器的上下文菜单启动游戏或生成 Xcode 项目文件。
+* 为虚幻引擎4 的公共容器和字符串类型实现了 LLDB 数据格式化程序 - 将“command script import UE4/Engine/Extras/LLDBDataFormatters/UE4DataFormatters.py”添加到 ~/.lldbinit。
 
-#### Networking
-* **Network actor list**                                           
-	* A separate network actor list now tracks actors that are relevant for networking for increased performance.
-* **Replication optimizations**                           
-	* The low level property replication logic has been completely re-written for performance and security in mind.
-* **Work shared across connections**              
-	* Ability for replication logic to share work across connections.
-* **Lifetime properties**                                        
-	* A new way to register properties for increased performance.
-* **Lifetime property conditions**                     
-	* Ability to apply secondary conditions to lifetime replicated properties.
-* **Property checksums**                                       
-	* Ability to toggle property checksum to diagnose client/server getting out of sync.
-
-
-#### Online
-* OnlineSubsystemNULL is the fallback when another subsystem is unavailable or purposefully turned off.
-	* Game code can continue to call online functions and get callbacks without actual online communication.
-*  Added new OnlineMessage interface in the Online Subsystem.
-	* Allows for enumerating messages in user's inbox.
-	* Can download message by id.
-	* Can send a message from one user to another.
-	* Can delete individual messages.
-	* Message payloads are encoded as key value pairs of string to variant data type to allow for flexible payloads.
-	* Currenlty only implemented for the Mcp OSS.
-* Refactor of OnlineUser interface in the Online Subsystem.
-	* Added Mcp OSS implementation.
-* Refactored OnlineFriends interface in the Online Subsystem.
-	* Updated existing OSS implementations: Steam PC, PS4, Facebook iOS/PC, Gamecenter iOS, Amazon PC.
-	* Steam implementaion now caches a friends list for each read.
-	* Added new Mcp OSS implementation.
-		* Can operate on named friends lists.
-	* Added exec command "SENDINVITES" which takes a list of user ids to send invites to the default friends list.
-* Refactor OnlineSubsystem to remove Engine module dependency.
-	* All engine dependencies are in the OnlineSubsystemUtils module now.
-* Refactor Mcp configs out of source files.
+#### 连接网络
+* **网络 Actor 列表**
+	* 现在有一个单独的网络 Actor 列表来跟踪与联网相关的 Actor，从而提高性能。
+* **复制优化**
+	* 为了提高性能和安全性，全面重写了低级属性复制逻辑。
+* **工作通过连接共享**
+	* 复制逻辑可通过连接共享工作。
+* **生命周期属性**
+	* 一种注册属性的新方法，可提高性能。
+* **生命周期属性条件**
+	* 将次要条件应用到生命周期复制属性的功能。
+* **属性校验和**
+	* 切换属性校验和来诊断不同步的客户端/服务器的能力。
 
 
-## Upgrade Notes
+#### 在线
+* OnlineSubsystemNULL 是在另一个子系统不可用或有意将其关闭时的退却方案。
+	* 游戏代码仍可在没有实际在线通信的情况下调用在线函数和获得回调。
+* 在线子系统中添加了新的 OnlineMessage 接口。
+	* 允许在用户收件箱中列举消息。
+	* 可按 ID 下载消息。
+	* 可从一名用户将消息发送到另一名用户。
+	* 可删除单条消息。
+	* 将消息负载作为字符串键值对编码成变量数据类型，从而允许灵活负载。
+	* 当前仅针对 Mcp OSS 进行了实现。
+* 在线子系统中重构了 OnlineUser 接口。
+	* 添加了 Mcp OSS 实现。
+* 在线子系统中重构了 OnlineFriends 接口。
+	* 更新了现有 OSS 实现：Steam PC、PS4、Facebook iOS/PC、Gamecenter iOS、Amazon PC。
+	* Steam 实现现在可缓存好友列表，以便每次读取。
+	* 添加了新 Mcp OSS 实现。
+		* 可使用指定好友列表运行。
+	* 添加了执行命令“SENDINVITES”，使用用户 ID 列表将邀请发送给默认好友列表。
+* 重构了 OnlineSubsystem，从而删除了引擎模块依赖性。
+	* 所有引擎依赖性现在都位于 OnlineSubsystemUtils 模块中。
+* 在源文件外重构了 Mcp 配置。
+
+
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
 * The World Settings now have their own tab (separate from Details tab).

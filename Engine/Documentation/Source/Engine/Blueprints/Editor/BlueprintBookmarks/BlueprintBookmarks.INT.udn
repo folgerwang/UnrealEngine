@@ -1,0 +1,86 @@
+Availability: Public
+Crumbs: 
+Title: Blueprint Bookmarks
+Description: Product documentation including reference and guides for Unreal Engine 4
+Type: 
+Version: 4.21
+Parent: Blueprints/Editor
+Order: 
+Tags: Blueprint Bookmarks
+
+
+![](BookmarksHeroImage.png)
+
+  
+With **Blueprint Bookmarks** you can create named Bookmarks in any function graph in the Blueprint Editor. This bookmark will capture the position and zoom level of the Viewport and the active tab you were viewing when you created the bookmark. Bookmarks are stored locally on your machine, so they won’t affect the Blueprint itself, and syncing your content will not overwrite your Bookmarks with another user’s Bookmarks.
+
+## Creating Bookmarks
+
+  
+To create a Blueprint Bookmark: 
+
+1.  With the Graph and Zoom position you wish to Bookmark, click the **Star** icon in the upper-left of the graph.  
+    ![](BlueprintBookmarks_Creation_01.png "BlueprintBookmarks_Creation_01.png") 
+2.  In the **New Bookmark** dialog box, enter your desired name and click the **Add** button.   
+    ![](BlueprintBookmarks_Creation_02.png "BlueprintBookmarks_Creation_02.png")  
+      
+    
+
+## Viewing and Using Bookmarks
+
+To view or use a previously created Bookmark, select the **Bookmarks** option from the **Window** menu.
+
+![](BlueprintBookmarks_Using_01.png "BlueprintBookmarks_Using_01.png")  
+
+This will open the **Bookmarks** menu that displays all the Bookmarks for the current asset as well as any [Comment Nodes](Engine/Blueprints/UserGuide/Comments#commentboxes). 
+
+![](BlueprintBookmarks_Using_02.png "BlueprintBookmarks_Using_02.png")
+
+In the Bookmarks window, clicking the **Eye** icon in the upper-right corner will expand additional options. Disabling **Show Comment Blocks** removes Comment Nodes from being displayed in the menu. 
+
+![](BlueprintBookmarks_Using_03.png "BlueprintBookmarks_Using_03.png")
+
+Enabling **Show Bookmarks for Current Graph Only** will show Bookmarks for your active Graph, while disabling it will show all Bookmarks for the asset while on any Graph.    
+
+For Bookmarks displayed in the window, you can right-click on a Bookmark (or Comment) to expand additional options.  
+
+![](BlueprintBookmarks_Using_04.png)  
+The right-click context menu enables you to **Delete** or **Rename** Bookmarks, as well as to jump directly to the selected Bookmark (or Comment). 
+
+Double-click on a Bookmark or Comment Node block to jump to that section of your Graph.   
+
+![](BlueprintBookmarks_Using_05.png "BlueprintBookmarks_Using_05.png")
+
+[REGION:note]
+When jumping to a Bookmark, the **Star** icon in the upper-left of the Graph will also be filled indicating you are at the Bookmark.
+[/REGION]
+
+## Quick Jump Bookmarks
+
+In addition to creating **Bookmarks**, you can create a **Quick Jump Bookmark**, similarly to how Bookmarks work in the [Level Editor Viewport](Engine/UI/LevelEditor/Viewports/ViewportOptions). As with labeled Bookmarks in the Blueprint Editor, Quick Jump Bookmarks will persist across Editor sessions and are local to the user and machine where they were created. 
+
+  
+To assign and use a **Quick Jump Bookmark**:   
+
+1.  With a Graph open, press **Ctrl + 0-9** (any number key) to remember your current Blueprint, Graph location and Zoom level. 
+2.  Inside any Graph, press **Shift + 0-9** (the same number from previous step) to return to that Blueprint, Graph location and Zoom level. 
+
+[REGION:note]
+Quick Jump Bookmarks do not require you to have the asset open. They will automatically open the asset, Graph location and Zoom level (as shown in the example video below).
+[/REGION]
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ NsXnA9KqzQk
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:warning]
+As of 4.21, Quick Jump Bookmarks are currently not displayed in the Bookmarks window.
+[/REGION]

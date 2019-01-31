@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2701420
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中支配 Pawn
 Crumbs: %ROOT%, Gameplay, Gameplay/HowTo/PossessPawns
 Description:阐述如何在蓝图中使用 Possess 节点切换和控制多个人物。 
 Version: 4.8
 SkillLevel: Intermediate
+type:how-to
 Related: Engine/Blueprints
 Related: Gameplay/Framework/Pawn
 Related: Gameplay/Framework/Pawn/Character
@@ -17,6 +18,7 @@ Related: Gameplay/Framework/Controller/PlayerController
 对于此指南，我们使用的是 **Blueprint Side Scroller** 模板，但是，您可以随意使用自己的项目。如果您不知道如何创建项目或使用模板，请参阅[项目浏览器](Engine/Basics/Projects/Browser)页面了解更多信息。 
 [/REGION]
  
+(#Steps)
 ## 步骤
 
 1.	在 **Content Browser** 中，将您要控制的其他人物拖放入关卡中。 
@@ -81,6 +83,7 @@ Related: Gameplay/Framework/Controller/PlayerController
 
 	![](Pawns11b.png)
 	
+(#EndResult)
 ## 最终结果
 
 按下键盘上的 1、2 或 3 时，您将在关卡中的每个人物之间切换。 

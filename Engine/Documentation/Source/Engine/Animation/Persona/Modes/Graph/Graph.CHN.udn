@@ -1,41 +1,32 @@
-﻿Availability: Public
-Title:图表模式
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:动画蓝图编辑器
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
-Description: 关于角色动画编辑器中的图表模式的用户指南。
+Description:介绍虚幻引擎4中动画蓝图编辑器的核心功能。 
+Related: Engine/Animation/AnimBlueprints
+Related: Engine/Blueprints
+Related: Engine\Animation\Persona\Modes\Animation
+Related: Engine\Animation\Persona\Modes\Skeleton
+Related: Engine\Animation\Persona\Modes\Mesh
+version: 4.14
+type:landing
+topic-image:AnimGraphEditor_topic.png
+tags:Animation
+tags:Blueprints
+tags:Animation Tools
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/Modes/Graph:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/Modes/Graph:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/Modes/Graph:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/Modes/Graph]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-## 概述
 
 [REGION:fullwidth]
-![](AnimationGraph.png)
+![](AnimBPEditor.png)
 [/REGION]
 
-**Persona** 的 **Graph Mode** （图表模式）可供您指定其中的逻辑关系并绑定基于在 **AnimGraph** （动画图表）和 **EventGraph** （事件图表）中设置的变量和条件的动画和动画状态。 使用图表类似于使用 **Blueprint** （蓝图），然而 **Animation Blueprints** （动画蓝图）还有一些关键细节列于下方。 
+使用者可在 **动画蓝图编辑器** 中指定驱动角色动画的逻辑，从 **内容浏览器**（或 **编辑器工具栏**）打开任意 **动画蓝图** 即可进行访问。 
+此编辑器的使用方法与[蓝图编辑器](Engine/Blueprints)十分相似，其使用相同的、基于可视节点的脚本编辑系统，凸显动画功能，如管理动画[](Engine/Animation/StateMachines)、使用[](Engine/Animation/NodeReference/Blend)来控制[](Engine/Animation/AnimationBlending)、或通过脚本来直接进行[骨架控制](Engine/Animation/NodeReference/SkeletalControls)。 
 
-## 动画蓝图概述
+[REGION:note]
+如需了解使用 **动画蓝图** 和**动画蓝图编辑器** 的更多信息，请参阅[动画蓝图](Engine/Animation/AnimBlueprints)文档。 
+[/REGION]
 
-[INCLUDE:Engine/Animation/AnimBlueprints#Intro]
-
-关于使用 **Animation Blueprints** （动画蓝图）的更多信息，请参照[动画蓝图](Engine/Animation/AnimBlueprints)文档。 
 
 
 

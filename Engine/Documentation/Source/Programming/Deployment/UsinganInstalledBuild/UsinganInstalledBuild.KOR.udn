@@ -1,0 +1,111 @@
+INTSourceChangelist:4499768
+Availability: Public
+Crumbs: 
+Title: 설치 빌드 사용
+Description: Installed Build 프로세스와 그 스크립트를 작성하는 법에 대한 개요입니다.
+Type: 
+Version: 4.13
+Parent: Programming/Deployment
+Order: 2
+Tags: 
+
+
+개발자는 항상 다양한 하드웨어 프로파일과 운영 체제에 맞는 빌드 솔루션을 효율적으로 전달하기 위한 방법을 연구합니다. **Installed Build** (설치 빌드)는 모든 기능을 갖춘 엔진 빌드이며, 팀은 이를 배포받아 엔진 구성 작업이 빨라집니다. 기술적인 관점에서, 설치 빌드에는 언리얼 에디터를 미리 컴파일한 바이너리, 각 타깃 플랫폼에 대한 개발 및 출시 구성의 스태틱 라이브러리가 들어 있습니다.
+
+설치 빌드 프로세스는 언리얼 엔진 4 (UE4) 설치 빌드 버전을 만드는 데 필요한 빌드 패키지와 툴을 자동화합니다. 요약하면 설치 빌드를 만든다는 것은, 기본 타깃 플랫폼을 구성하고, 그 툴과 에디터로 UE4 를 컴파일하고, 테스트를 실행하고, 그 UE4 설치 빌드 버전을 타깃 플랫폼에 디플로이하는 프로세스입니다.
+
+[REGION:note]
+별도의 빌드를 만드는 것 외에도 런처에서 UE4 를 다운로드할 수 있습니다.
+[/REGION]
+
+## 설치 빌드 만들기
+
+[BuildGraph](Programming/Development/BuildGraph) 스크립트 시스템과 `[UE4Root]/Engine/Build/InstalledBuild.xml` 에 위치한 설치 빌드 스크립트를 사용하여 설치 빌드를 만들 수 있습니다.  
+
+**설치 빌드를 만드는 방법입니다.**
+
+1.  다음 명령으로 **AutomationTool** (자동화 툴)을 호출하여 설치 빌드 스크립트를 실행합니다. `[PLATFORM]` 은 `Win64` 또는 `Mac` 으로 대체합니다.  
+      
+    BuildGraph -target="Make Installed Build \[PLATFORM\]" -script=Engine/Build/InstalledEngineBuild.xml -clean  
+
+1.  언리얼 엔진 디렉터리의 `LocalBuilds/Engine/` 폴더로 이동하여 생성된 설치 빌드를 확인합니다. 퍼블리싱 디렉터리를 다른 곳으로 지정한 경우, 그 디렉터리로 이동합니다.
+
+다음 설치 빌드 스크립트 옵션으로 빌드를 구성합니다.
+
+## 설치 빌드 스크립트 옵션
+
+`InstalledEngineBuild.xml` 스크립트는 기본 옵션과 플랫폼을 전부 활성화한 채 설치 빌드를 만듭니다. 하지만 특정 옵션 세트를 사용하여 구성하면 포함할 타깃 플랫폼, 빌드를 퍼블리싱할 위치 등을 지정할 수 있습니다. 빌드 프로세스 사용자 정의를 위한 옵션(과 함께 빌드되는 노드) 목록은 스크립트에 `-listonly` 옵션을 붙여주면 됩니다.
+
+사용할 수 있는 옵션은 다음과 같습니다.
+
+| 옵션 | 기본 | 설명 |
+| --- | --- | --- |
+| `-set:HostPlatformOnly=[true/false]` | false | 호스트 플랫폼에 대해서만 설치 빌드를 만드는 헬퍼 옵션으로, 각 플랫폼을 개별적으로 비활성화하지 않아도 됩니다. |
+| `-set:WithWin64=[true/false]` | true | Win64 타깃 플랫폼을 포함합니다. |
+| `-set:WithWin32=[true/false]` | true | Win32 타깃 플랫폼을 포함합니다. |
+| `-set:WithMac=[true/false]` | true | Mac 타깃 플랫폼을 포함합니다. |
+| `-set:WithAndroid=[true/false]` | true | Android 타깃 플랫폼을 포함합니다. |
+| `-set:WithIOS=[true/false]` | true | [INCLUDE:#excerpt_0] |
+| `-set:WithTVOS=[true/false]` | true | [INCLUDE:#excerpt_1] |
+| `-set:WithLinux=[true/false]` | true | Linux 타깃 플랫폼을 포함합니다. |
+| `-set:WithHTML5=[true/false]` | true | HTML5 타깃 플랫폼을 포함합니다. |
+| `-set:WithPS4=[true/false]` | false | [INCLUDE:#excerpt_2] |
+| `-set:WithXboxOne=[true/false]` | false | [INCLUDE:#excerpt_3] |
+| `-set:WithDDC=[true/false]` | true | [INCLUDE:#excerpt_4] |
+| `-set:WithFullDebugInfo=[true/false]` | false | 바이너리 에디터와 패키지 응용 프로그램 빌드에 대한 전체 디버깅 정보를 생성합니다. |
+| `-set:SignExecutables=[true/false]` | false | 빌드 프로세스의 일부로 실행파일을 서명하도록 머신을 구성한 경우 생성된 실행파일을 서명합니다. |
+| `-set:AnalyticsTypeOverride=[ID]` | N/A | 전송할 분석 이벤트의 식별자입니다. |
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | 패키지 응용 프로그램의 구성을 지정합니다. |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+iOS 타깃 플랫폼을 포함합니다.
+[REGION:note]이 옵션을 활성화하면 원격 빌드 구성된 Mac 이 필요합니다.[/REGION]
+[/EXCERPT:excerpt_0]
+
+[EXCERPT:excerpt_1]
+tvOS 타깃 플랫폼을 포함합니다.
+[REGION:note]이 옵션을 활성화하면 원격 빌드 구성된 Mac 이 필요합니다.[/REGION]
+[/EXCERPT:excerpt_1]
+
+[EXCERPT:excerpt_2]
+PS4 타깃 플랫폼을 포함합니다.
+[REGION:note]이 옵션을 활성화하면 PS4 SDK 가 필요합니다.[/REGION]
+[/EXCERPT:excerpt_2]
+
+[EXCERPT:excerpt_3]
+XBoxOne 타깃 플랫폼을 포함합니다.
+[REGION:note]이 옵션을 활성화하면 Xbox One SDK 가 필요합니다.[/REGION]
+[/EXCERPT:excerpt_3]
+
+[EXCERPT:excerpt_4]
+엔진 콘텐츠와 템플릿에 대해 독립형 파생 데이터 캐시(DDC)를 만듭니다.
+[REGION:note]엔진과 템플릿 콘텐츠에 독립형 [파생 데이터 캐시(DDC)](Engine/Basics/DerivedDataCache) 를 만드는 것은 빌드의 가장 느린 작업 중 하나일 수 있습니다. 독립형 DDC 가 필요없는 경우 명령줄에 -set:WithDDC=false 를 붙이면 이 단계를 생략할 수 있습니다.[/REGION]
+[/EXCERPT:excerpt_4]
+
+[/COMMENT]
+### 부가 파일 포함
+
+(각 모듈에 대한 `build.cs` 파일에 설정된) RuntimeDependencies (런타임 종속성)은 설치 빌드를 자동 대조하여 어떤 파일이 포함되었는지 알아냅니다. 하지만 이런 식으로 포함할 수 없는 필수 파일은 `[UE4Root]/Engine/Build/InstalledEngineFilters.xml` 에 정의합니다. `InstalledEngineFilters` XML 파일에도 빌드에서 제외할 파일 패턴 목록이 있어, 벗겨내거나 서명을 해야 할 파일 유형을 알아내고, 최종적으로 DDC 를 만들 대상 프로젝트를 결정합니다. 설치 빌드에 부가 파일을 포함해야 하는 경우, `InstalledEngineFilters` XML 파일에서 시작하기 좋습니다.
+
+## 설치 빌드 등록
+
+UE4 에는 "외부"(foreign) 프로젝트와 "비외부" 프로젝트라는 개념이 있습니다. 외부 프로젝트는 엔진과 별도의 디렉터리 구조로 저장된 것을, 비외부 프로젝트는 엔진 루트의 서브 디렉터리에 저장되어 `UE4Games.uprojectdirs` 확장자로 레퍼런싱된 것을 말합니다.
+
+`.uproject` 파일의 "EngineAssociation" 칸은 프로젝트를 열 에디터 버전을 나타냅니다. 비외부 프로젝트의 경우 공백으로 남겨둡니다. 비외부라는 말이 프로젝트의 디렉터리 계층구조 위쪽 어딘가 (알려진) 위치에 에디터가 존재한다는 것을 암시하기 때문입니다. 런처에서 설치한 엔진 빌드를 사용하는 외부 프로젝트의 경우, 이 칸에는 ("4.19" 와 같은) 공식 버전 번호가 들어가며, 런처는 설치된 응용 프로그램 목록에 따라 (설치되었다 가정하고) 적합한 에디터 바이너리를 찾을 수 있습니다. 런처 이외의 수단으로 배포된 엔진 빌드를 사용하는 외부 프로젝트의 경우, 엔진 빌드의 무작위 고유 식별자를 사용하여 글로벌 액세스 가능한 데이터 저장소, 구체적으로 Windows 는 레지스트리, Mac 은 라이브러리 폴더의 파일을 통해 설치 디렉터리를 찾을 수 있습니다. 설치된 에디터 빌드와의 연관성을 찾을 수 없다면, 사용자에게 버전을 선택하도록 하고 `.uproject` 파일을 그 버전으로 업데이트합니다.
+
+팀에 설치 빌드를 배포할 때, 빌드의 식별자가 모두 똑같은지 확인하세요. 그래야 에디터에 버전 선택 창이 뜨고, `.uproject` 파일이 로컬 생성 고유 식별자로 업데이트되는 상황을 막을 수 있습니다. 식별자 사용자 정의 방법은 다음과 같습니다.
+
+*   **Windows** 의 경우 HKEY\_CURRENT\_USER\\\SOFTWARE\\\Epic Games\\UnrealEngine\\Builds 에 레지스트리 키를 추가하고, 키에 식별자, 값에 엔진 경로를 입력합니다. 예를 들어 키는 "MyCustom419", 값은 "D:\\CustomUE4" 식입니다.
+*   **Mac** 의 경우 /Users/MyName/Library/Application Support/Epic/UnrealEngine/Install.ini 파일을 열고 "\[Installations\]" 섹션에 항목을 추가하여 키에 식별자, 값에 엔진 경로를 입력합니다. 예:
+    
+    
+    [Installations]
+    MyCustom419 = /Users/MyName/CustomUE4
+
+## 디플로이 방법 선택
+
+엔진을 바꿀 일이 거의 없고, 다양한 하드웨어 프로파일과 운영 체제에 맞는 빌드 솔루션을 빠르(고 효과적이)게 전달하는 방법을 찾는다면, UE4 설치 빌드를 디플로이(, 또는 런처에서 엔진을 다운로드)하면 됩니다. 
+
+여기서 주의할 점은, (C:\\Program Files 에 설치할 수 있는) UE4 읽기 전용 배포판을 찾는 것이 아니라면, 이 방법은 적합하지 않습니다. 이 방법은 주로 독립형, 읽기 전용 엔진 콘텐츠, 소스 코드, 타사 라이브러리 제작을 위해 설계된 것이기 때문입니다. 편의상 에픽게임즈 런처를 통해 엔진 설치 빌드를 제공하기는 하지만, 에픽 게임 팀 내부에서는 이 방법을 사용하지 않습니다. 게다가 그 자체를 독립형 디플로이 제품으로 간주하고 있기도 합니다.

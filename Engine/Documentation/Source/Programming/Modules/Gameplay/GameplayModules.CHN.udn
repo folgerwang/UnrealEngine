@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3429264
 Availability:Public
 Title: 游戏模块
 Crumbs:%ROOT%, Programming
 Description: 编译成 DLL 的游戏项目的游戏性相关类的集合。
 Version: 4.9
+Parent:Programming/UnrealArchitecture/Reference
 
 [TOC(start:2)]
 
@@ -12,9 +13,10 @@ Version: 4.9
 [/EXCERPT:Intro]
 
 [REGION:note]
-如果您还没有创建游戏项目，那么请参照[创建游戏项目](Engine/Basics/Projects/Browser#创建新项目)页面获得关于如何创建及设置您的游戏项目的说明。
+如果您还没有创建游戏项目，那么请参照[创建游戏项目](Engine/Basics/Projects/Browser#creatingnewprojects)页面获得关于如何创建及设置您的游戏项目的说明。
 [/REGION]
 
+(#ModuleCreation)
 ## 模块创建
 
 游戏模块至少要包含一个头文件 (`.h`)、一个 C++ 文件 (`.cpp`) 和一个编译文件 (`*.Build.cs`)。头文件必须位于模块目录的 `Public` 文件夹中，也就是 `[GameName]\Source\[ModuleName]\Public` 目录。该文件包含了编译该模块中的类所需的所有头文件 - 包括模块自动生成的头文件。
@@ -46,6 +48,7 @@ C++ 文件必须位于模块目录的 `Private` 文件夹中，也就是 `[GameN
 		}
 	}
 
+(#INIFileSetup)
 ### INI 文件设置
 
 由于新的游戏性模块包含 UObject 代码，所以需进行一些必要的配置。
@@ -74,6 +77,7 @@ C++ 文件必须位于模块目录的 `Private` 文件夹中，也就是 `[GameN
 
 您可以创建一个主要的游戏模块，然后在创建多个额外的游戏相关的模块。您可以针对这些新模块创建 `*.Build.cs` 文件，然后把到这些模块的引用添加到您的游戏的 [`Target.cs` 文件](Programming/UnrealBuildSystem/TargetFiles) （OutExtraModuleNames 数组）中。在C++代码中，请确保为您的游戏模块使用适当的宏。至少有一个模块必须使用 `IMPLEMENT_PRIMARY_GAME_MODULE` 宏，而所有其他模块应该使用 `IMPLEMENT_GAME_MODULE` 宏。虚幻编译工具将会自动发现这些模块，并编译额外的游戏DLL文件。
 
+(#Limitations)
 ## 限制
 
 以下是设置游戏性模块的几点注意事项：

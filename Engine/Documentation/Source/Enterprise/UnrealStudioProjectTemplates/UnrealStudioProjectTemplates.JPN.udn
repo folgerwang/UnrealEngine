@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: Unreal Studio プロジェクト テンプレート
+Description: Unreal Studio ユーザー限定で使用可能なプロジェクト テンプレートについて説明します。
+Type:landing
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Getting Started
+Tags: Unreal Studio
+topic-image:studio-product-viewer-template-topic.png
+
+
+Unreal Studio にサインインすると、自身のプロジェクトの出発点として使用できるプロジェクト テンプレートにもアクセスできます。これらのテンプレートは、**[New Project (新規プロジェクト)]** ウィンドウと **Unreal Project Browser** の **[Unreal Studio]** タブにあります。
+
+![Unreal Studio テンプレート](unreal-studio-templates.png "Unreal Studio Templates")
+
+## Unreal Studio テンプレート
+
+%Enterprise/UnrealStudioProjectTemplates/StudioProductViewer:topic%
+
+*   プロジェクトをゼロからビルドする場合は、[Unreal Studio] タブにある **Blank (ブランク)** テンプレートを使用することもできます。このテンプレートは完全に空の開始シーンであり、ナビゲーションやインタラクションは一切ありません。このテンプレートは、Unreal Studio プロジェクトとしてセットアップされること以外は、基本的には「**ブランク**」ブループリント テンプレートと同じです。
+
+[REGION:tip]
+4.20 リリース以降、すべてのテンプレートを Unreal Studio プロジェクトにすることが可能となりました。Epic Games Launcher から Unreal Editor を起動していて、適切な Unreal Studio の資格がある限り、プロジェクトの開始に使用したすべてのテンプレートは自動的に Unreal Studio プロジェクトと見なされます。テンプレートを使用すると、すぐに Datasmith からコンテンツをインポートできるようになります。
+[/REGION]

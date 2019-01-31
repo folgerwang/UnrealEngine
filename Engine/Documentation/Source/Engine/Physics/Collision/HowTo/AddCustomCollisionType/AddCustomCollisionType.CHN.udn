@@ -1,29 +1,8 @@
-﻿INTSourceChangelist:2714891
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:为项目添加自定义物体类型
 Crumbs: %ROOT%
 Description:讲述如何在虚幻引擎 4 中添加自定义物理物品通道。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Collision/Reference:title%](Engine/Physics/Collision/Reference/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Collision:/Reference:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Collision/Reference:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Collision/Reference]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
 
 
 事实上存在这样的情况：6 个物体响应通道和 2 个轨迹响应通道的粒度不足，无法创建所需的效果。这时 Project Settings 中的碰撞编辑器就可以大显身手了。从 **Edit Menu** -> **Project Settings** -> **Collision** 菜单中进行访问：
@@ -40,6 +19,7 @@ Description:讲述如何在虚幻引擎 4 中添加自定义物理物品通道�
 
 最多可设 18 个自定义物体响应通道或轨迹响应通道。
 
+(#Presets)
 ### 预设
 
 打开 **Preset** 类目点击 **New...** 按钮可进行自定义预设。

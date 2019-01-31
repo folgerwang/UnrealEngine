@@ -1,174 +1,175 @@
-﻿INTSourceChangelist:0
-Title: 2013年7月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年7月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-7
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_07 |
-| **Changelist #** | 1735924 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2010 version 10.0.40219.1 SP1 Rel |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_07|
+| **变更列表编号**| 1735924|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2010 版本 10.0.40219.1 SP1 Rel|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Changes to QA Build Directory: [July 2013 QA Build Directory Changes](https://udn.unrealengine.com/questions/170530/qa-build-directory-changes-201307.html)
- * Fixed Bugs: [UE4 Fixed Bugs July 2013](UE4_Fixed_2013_July.xlsx)
- * Known Issues: [UE4 Outstanding Bugs July 2013](UE4_Bugs_2013_July.xlsx)
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * QA 版本目录更改：[2013 年 7 月 QA 版本目录更改](https://udn.unrealengine.com/questions/170530/qa-build-directory-changes-201307.html)
+ * 已修复的错误：[2013 年 7 月虚幻引擎4 已修复的错误](UE4_Fixed_2013_July.xlsx)
+ * 已知问题：[2013 年 7 月虚幻引擎4 突出问题](UE4_Bugs_2013_July.xlsx)
 
 
-## Major New Features
+## 主要新功能
 
-####Editor Tools
-* **Plugins Editor**
-	* There is now a new interface that lets you see, browse and maintain Plugins -  both built-in plugins as well as plugins installed into your game project     
+####编辑器工具
+* **插件编辑器**
+	* 现在，可以使用新界面查看、浏览和维护插件 —— 内置插件和已安装到游戏项目的插件。  
 		![](pluginsEd.png)
-	* You can browse categories and search/filter, and enable/disable or uninstall plugins, all from this interface
-* **New PlayerController and Mouse Interface Events**
-	* The new mouse interface /cursor system is implemented through the PlayerController.  
+	* 可以从此界面浏览类别和搜索/过滤，并启用/禁用或卸载插件。
+* **新的玩家控制器和鼠标接口事件**
+	* 新的鼠标接口/光标系统通过玩家控制器实现。  
 		![](nc1.png)
-	* ShowMouseCursor enables the system and will begin displaying the default mouse cursor when in-game.  NOTE: this does not work with Play in Viewport, you must use Play in New Window
-	* The interface uses a very simple set of input touch events and index in order to "touch" an object:  
+	* ShowMouseCursor 启用系统，并在玩游戏时开始显示默认鼠标光标。注意：此功能不适用于在视口中运行（Play in Viewport），必须使用在新窗口中运行（Play in New Window）
+	* 该界面使用一组非常简单的输入触摸事件和索引以“触摸”对象：  
 		![](mc2bpnode.png) ![](mc2bpnode2.png) ![](mc2bpnode3.png)
-* **Add Volumes Through Placement Browser**
-	* Different types of volumes can now be dropped in through the Placement Browser!  
+* **通过放置浏览器添加体积**
+	* 现在，可以通过放置浏览器删除不同类型的体积！  
 		![](PBVolume.png)(h:480)
-* **Play In Interface Improvements**
-	* The Play In button has been retreated to highlight the currently active Play mode
-	* The menus have also been reorganized, PlayInNewProcess being moved from PlayOn to Play In:  
+* **运行于（Play In）界面改进**
+	* 已撤消运行于（Play In）按钮以高亮显示当前活动运行（Play）模式
+	* 也已重新组织菜单，将 PlayInNewProcess 从运行在（PlayOn）移动到运行于（Play In）：  
 		![](playin.png)
 
-####Blueprints
-* **Bone Manipulation in Blueprints**
-	* Added new component (PoseableMeshComponent) that has blueprint functions for manipulating bones directly.  	 
+####蓝图
+* **蓝图中的骨骼操作**
+	* 添加了可直接操作骨骼的蓝图功能的新组件 (PoseableMeshComponent)。  	 
 		![](BPbones.png)(h:480)
-	* You can now directly get/set bones in a skeleton for location/rotation/scale + a reset function
+	* 现在，可以直接在骨骼中获取/设置骨骼，以实现位置/旋转/缩放 + 重置功能
 
 
-##New Additions
+##新增内容
 
-####Blueprints
-* Blueprint calls to functions that return no values will no longer generate an 'Access None' log error if called on an invalid target
-* Improved Blueprint debugging (execution sequences can now be debugged, fixed a regression on breakpoints of impure functions)
-* New blueprint warning when re-parenting a blueprint
-* Added a check when deleting actors to indicate when they are referenced from the level Blueprint or another actor's Blueprint and allow the user to take action
-* Added additional icons to differentiate graph types in the Blueprint editor and simplified rendering
-
-
-####Sound
-* Can now specify Reverb Settings without a reverb volume
+####蓝图
+* 如果调用目标无效，则蓝图调用不返回任何值的函数将不再生成“无访问”日志错误。
+* 改进了蓝图调试（现在，可以调试执行序列，修复非纯函数断点的回归）
+* 重新设置蓝图父项时的新蓝图警告
+* 添加了删除 Actor 时的检查，以指示从关卡蓝图或其他 Actor 蓝图引用它们的时间并允许用户采取操作。
+* 添加了其他图标以区分蓝图编辑器中的图表类型并简化了渲染
 
 
-####Core
-* UENUMs and their values will now display comments in tooltips - These need to be prefix comments
-* Added support for redistributable plugins
-	* In Monolithic builds, plugins now produce static libs that are linked into the main executable at build time
-	* If source code for these libs does not exist, it is assumed that the lib/dll file was already compiled and is linked in anyway
-* Added SCOPE_LOAD_TIME macro, which outputs how long a block of code takes to run to the log, to be used for monitoring load times
-* Move semantics on containers, strings and allocators, which will optimize the copying of temporary containers (e.g. functions returning them by value)
-	* There's also a `MoveTemp` function to explicitly trigger a move operation (equivalent to `std::move`)
-* Added notify function `UObject::LoadedFromAnotherClass` when an object is being loaded from another class (with class redirects)
-	* Added the ability to launch the engine with just one thread (`-singlethread` command line param)
-	* Added the ability to mount an arbitrary number of DDC paks (`DDC.MountPak` and `DDC.UnmountPak` console command)
-	* Removed 2GB limitation on DDC pak files
+####声音
+* 现在，可以指定没有混响音量的混响设置（Reverb Settings）
 
 
-####Editor Tools
-* **Slate and UI**
-	* Added text auto wrapping support to STextBlock (new **AutoWrapText** attribute) 
-		* This wraps the text to fit the available space for the widget automatically 
-		* Note that it has important caveats -- see the parameter comments for more info!
-	* Added Slate virtual joysticks (first pass) for touch screen platforms (or desktop with `-faketouches`/`-simmobile`)
-
-* **Editor**
-	* Active project name is now displayed in the title area, to the far right
-	* Added Close buttons to all tabs, not just major tabs
-	* "Select All Brushes" is now available in right click context menu
-	* Added a Scene Outliner filter to hide temporary Actors that are spawned at run-time in SIE/PIE 
-	* Added Scene Outliner view mode -- Show Only Selected 
-	* Refactored some Scene Outliner code to make the addition of other filters and features less intrusive 
-	* Scene Outliner now always displays Actor count when in standalone widget mode
-	* Clicking on a scrollbar's scroll area will now snap the view to that scroll location and allow you to continue to scroll by dragging
-	* Renaming actors is now done inline in the Scene Outliner
-	* Current streaming method now displays a tick next to those options that match the current level selection
-	* Open Project dialog is now suppressible
-	* Added a tooltip to class items when choosing the target class for "Convert" operation to better show which class is targeted
-	* Painted mesh vertex colors are preserved when using Replace Actor With and new actor has a mesh component with a compatible asset
-	* Added checks to ensure actors already part of a Matinee aren't added to subsequent Matinees
-
-* UnrealBuildTool: Added support for Visual Studio 2013 to project file generator 
-	* Use `GenerateProjectFiles.bat -2013` to create these projects.  Note that you cannot compile using VS 2013 yet
-
-* **Profiler**
-	* Added initial support for multiple instances, user can capture/preview several instances at once
-	* Minor improvement of the profiler's stability
-
-* **Landscape**
-	* `PDI->DrawLine()` now supports DepthBias
-	* Landscape Splines are now rendered with a simple plane mesh in the editor if no mesh is selected for them, to make them easier to see and select
-	* Can now drag/drop materials onto landscape
+####核心
+* UENUM 及其值现在将在工具提示中显示注释 —— 这些注释必须是前缀注释
+* 添加了对可再发布插件的支持
+	* 在单块构建中，插件现在生成构建时与主可执行文件链接的静态库
+	* 如果这些库的源代码不存在，则假定 lib/dll 文件已经编译且链接
+* 添加了 SCOPE_LOAD_TIME 宏，用于输出一段代码运行到日志所需的时间，以监控加载时间
+* 移动容器、字符串和分配器的语义，这将优化临时容器的复制（例如，按值返回它们的函数）
+	* 可以使用 `MoveTemp` 函数显式触发移动操作（相当于 `std::move`）
+* 添加了从另一个类加载对象时的通知函数 `UObject::LoadedFromAnotherClass`（带类重定向）
+	* 添加了仅使用一个线程启动引擎的功能（`-singlethread` 命令行参数）
+	* 添加了安装任意数量的 DDC pak 文件的功能（`DDC.MountPak` 和 `DDC.UnmountPak` 控制台命令）
+	* 删除了对 DDC pak 文件的 2GB 限制
 
 
-####Gameplay and Framework
-* **Physics**
-	* PhAT now has two distinct workflows for Bodies and Constraints. Toolbar buttons are used to switch modes
-	* SkeletalMesh Partial ragdoll is supported
-		* Each body defines Fixed/Unfixed/Default in the PhAT
-		* Simulation and Blending is a separate operation. You can stop simulate but still blending to physics
-		* For instances, you can modify **PhysicsBlendWeight** for each BodyInstance
+####编辑器工具
+* **Slate 和 UI**
+	* 为 STextBlock 添加了文本自动换行支持（新 **AutoWrapText** 属性）
+		* 这会根据控件的可用空间自动将文本换行
+		* 请注意，这会出现重要警告 —— 有关更多信息，请参阅参数注释！
+	* 为触摸平台（或带有 `-faketouches`/`-simmobile` 的桌面）添加了 Slate 虚拟摇杆（第一个通道）
 
-* **DisplayAllLocation** and **DisplayAllRotation** commands added 
-	* Used like `displayall [actorclass] location` and `displayall [actorclass] rotation` in UE3
-* Pawns can now be flagged for **AutoPossess** similar to the **AutoReceiveInput** for Actors
-* **Replication** RepNotify: Added ability to obtain previous local value of replicated properties:[link](https://udn.unrealengine.com/questions/168304/repnotify-how-can-i-find-the-previous-value-of-a-r.html)
+* **编辑器**
+	* 现在，活动项目名称显示在最右侧的标题区域中
+	* 为所有选项卡添加了关闭（Close）按钮，而不仅仅是主要选项卡
+	* 右键单击快捷菜单中现在提供“选择所有画刷（Select All Brushes）”选项
+	* 添加了场景大纲视图过滤器，用于在 SIE/PIE 中隐藏在运行时生成的临时 Actor
+	* 添加了场景大纲视图浏览模式 —— 仅显示选定内容
+	* 重构了一些场景大纲视图代码，以确保添加其他过滤器和功能不会产生很大影响
+	* 在独立控件模式下，场景大纲视图现在始终显示 Actor 数量
+	* 现在，单击滚动条的滚动区域会将视图对齐到该滚动位置，并允许通过拖动继续滚动
+	* 现在，重命名 Actor 在场景大纲视图中内联完成
+	* 现在，当前流送方法会在与当前关卡选择匹配的这些选项旁边显示 Tick
+	* 打开项目（Open Project）对话框现在可取消
+	* 在为“转换”操作选择目标类时，为类项目添加了工具提示以便更好地显示目标类
+	* 使用将 Actor 替换为（Replace Actor With）时将保留描画网格体顶点颜色，并且新 Actor 具有带兼容资源的网格体组件
+	* 添加了检查以确保 Actor 已经成为 Matinee 的一部分，不会添加到后续 Matinee
 
+* 虚幻编译工具：添加了对项目文件生成器的 Visual Studio 2013 支持
+	* 使用 `GenerateProjectFiles.bat -2013` 创建这些项目。请注意，还无法使用 VS 2013 进行编译
 
-####Platform
-* Added APEX Clothing support for most platforms
-* Added new function to Generic PlatformProperties:
-	* **SupportsFastVRAMMemory** - return true if the platform supports a fast VRAM path, false if not (default is false)
-* Added new TexCreate and BUF hint flags: `*_FastVRAM`
-	* Hint for the RHI to utilize FastVRAM if available for the Texture or Vertex/Constant buffer
-* Added default FFastVRAMAllocator class (Does nothing by default)
+* **分析器**
+	* 添加了对多个实例的初期支持，用户可以一次捕获/预览多个实例
+	* 小规模改进了分析器的稳定性
 
-
-####Rendering
-* Primitive uniform buffer now contains local space bounds
-* Added **ObjectLocalBounds** engine material function to provide Material system with access to local-space bounds
-* Added new Texture compression type of **Alpha**. (Single channel, not gamma corrected)
-* **Create Static Texture** from cube or 2D texture now supports HDR (float16) source textures
-* Enabled new shadow method from Microsoft by default (get back old: `r.shadow.method 0`)
-	* less draw calls 
-	* simpler code
-	* z-distance based (was radial) 
-	* smooth cascade transitions 
-	* Together with shadow bias improvements it improves the dynamic shadow quality quite a bit
-* Forward shading (ES2) path now supports HDR, exposure, and bloom
-* Added **MinRoughness** light parameter (very useful for fill lights)
+* **地形**
+	* `PDI->DrawLine()` 现在支持 DepthBias
+	* 现在，如果没有为地形样条选择网格体，则在编辑器中使用简单平面网格体对其渲染以便查看和选择
+	* 现在可以将材质拖放到地形
 
 
-####Animation/Persona
-* Can now create Animation Blueprint, Montage, Blendspace and AnimOffset assets directly from a Skeletal Mesh using the context menu in the Content Browser
-* AnimGraph support Export to Animation feature.
-	* You can export current anim graph to animation (Useful for lower/upper body split or spring).
-* Can duplicate sockets in the Static Mesh Editor
-* Socket selection now available for none StaticMesh/SkeletalMesh components
-* Carry over current playing animation between mode changes in Persona
-* Made sure viewport state is maintained for all options across mode switches
+####Gameplay 和框架
+* **物理**
+	* 现在，PhAT 具有两个适用于形体和约束的不同工作流程。工具栏按钮用于切换模式
+	* 支持骨架网格体部分布偶
+		* 每个形体在 PhAT 中定义固定/非固定/默认
+		* 模拟和混合是单独的操作。您可以停止模拟，但仍然混合到物理
+		* 例如，可以为每个 BodyInstance 修改 **PhysicsBlendWeight**
+
+* 添加了 **DisplayAllLocation** 和 **DisplayAllRotation** 命令
+	* 像虚幻引擎3 中的 `displayall [actorclass] location` 和 `displayall [actorclass] rotation` 一样使用
+* 现在可以为 **AutoPossess** 标记 Pawn，与为 Actor 标记 **AutoReceiveInput** 类似
+* **复制** RepNotify：添加了获取复制属性的上一个本地值的功能：[链接](https://udn.unrealengine.com/questions/168304/repnotify-how-can-i-find-the-previous-value-of-a-r.html)
+
+
+####平台
+* 添加了对大多数平台的 APEX 布料支持
+* 为通用平台属性添加了新功能：
+	* **SupportsFastVRAMMemory** —— 如果平台支持快速 VRAM 路径，则返回 True，否则返回 False（默认为 False）
+* 添加了新的 TexCreate 和 BUF 提示标记：`*_FastVRAM`
+	* 如果可用于纹理或顶点/常量缓冲区，则提示 RHI 使用 FastVRAM
+* 添加了默认 FFastVRAMAllocator 类（默认不执行任何操作）
+
+
+####渲染
+* 图元统一缓冲区现在包含局部空间边界
+* 添加了 **ObjectLocalBounds** 引擎材质函数，为材质系统提供对局部空间边界的访问
+* 添加了类型为 **Alpha** 的新纹理压缩（单通道，非伽玛校正）
+* 现在，根据立方体或 2D 纹理 **创建静态纹理（Create Static Texture）** 支持 HDR (float16) 源纹理
+* 默认从 Microsoft 启用新的阴影方法（返回旧值：`r.shadow.method 0`)
+	* 更少的绘制调用
+	* 更简单的代码
+	* 基于 z 距离（径向）
+	* 平滑的级联过渡
+	* 与阴影偏差同时改进，可显著提高动态阴影质量
+* 前向着色 (ES2) 路径现在支持 HDR、曝光和泛光
+* 添加了 **MinRoughness** 光源参数（对于辅助光非常有用）
+
+
+####动画/角色编辑器
+* 现在，可以使用内容浏览器中的快捷菜单直接从骨架网格体创建动画蓝图、蒙太奇、混合空间和动画偏移资源
+* 动画图表支持导出到动画功能。
+	* 可以将当前动画图表导出到动画（对于下边/上边形体分割或弹簧非常有用）。
+* 可以在静态网格体编辑器中复制插槽
+* 插槽选择现在不适用于任何静态网格体/骨架网格体组件
+* 在角色编辑器中，在更改模式之间继续播放当前正在播放的动画
+* 确保为模式切换的所有选项都保持视口状态
 
 
 
-##Upgrade Notes
+##Upgrade Notes （以下内容仅供参考，不作翻译）
 
 ####Blueprints
 * Blueprint inheritance (blueprints of blueprints) has been officially enabled!  You will now be able to create a blueprint of a blueprint, either by selecting the parent class in the class browser when creating a new blueprint, or by right clicking on a blueprint in the Content Browser, and selecting "Create child of this blueprint..."

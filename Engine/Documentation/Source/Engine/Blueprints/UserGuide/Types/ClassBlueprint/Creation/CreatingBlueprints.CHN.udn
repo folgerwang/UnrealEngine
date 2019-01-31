@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:创建蓝图类
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types/ClassBlueprint
@@ -10,12 +10,14 @@ Related: Engine/Blueprints/Editor
 version: 4.9
 skilllevel:Beginner
 parent:Engine/Blueprints/BP_HowTo
-type:howto
+type:how-to
 order:1
+tags:Blueprints
 
 
 [TOC(start:2 end:2)]
 
+(#CreationviaContentBrowser)
 ## 通过内容浏览器创建蓝图
 
 Blueprint（蓝图）存储在包中可以像创建任何其他资源一样通过内容浏览器来创建蓝图
@@ -38,12 +40,13 @@ Blueprint（蓝图）存储在包中可以像创建任何其他资源一样通�
 	![Choose a Parent Class](new_asset_parent_class.png)
 
 	[REGION:note]
-	查看 [Parent Classes](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses) 页面来了解如何选择父类。
+	查看[父类](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses)页面来了解如何选择父类。
 	[/REGION]
 	
 [/EXCERPT:CreateBP1]
 	
 
+(#Right-clickCreation)
 ## 右键点击创建
 
 在 **Content Browser** 中创建 **Blueprint** 有两种方法。
@@ -63,7 +66,7 @@ Blueprint（蓝图）存储在包中可以像创建任何其他资源一样通�
 	![Choose a Parent Class](new_asset_parent_class.png)
 
 	[REGION:note]
-	See [Parent Classes](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses) for info on selecting a Parent Class. 
+	查看[父类](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses)页面来了解如何选择父类。 
 	[/REGION]
 
 [/EXCERPT:CreateBP2]
@@ -85,7 +88,7 @@ Blueprint（蓝图）存储在包中可以像创建任何其他资源一样通�
 	![Choose a Parent Class](new_asset_parent_class.png)
 
 	[REGION:note]
-	See [Parent Classes](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses) for info on selecting a Parent Class. 
+	查看[父类](Engine\Blueprints\UserGuide\Types\ClassBlueprint#parentclasses)页面来了解如何选择父类。 
 	[/REGION]
 
 [/EXCERPT:CreateBP3]

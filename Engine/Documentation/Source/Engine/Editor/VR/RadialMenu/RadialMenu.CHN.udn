@@ -1,68 +1,258 @@
-﻿INTSourceChangelist:2911160
-Title:圆形菜单
-Description:在 VR 模式中可通过圆形菜单轻松访问复制、粘贴、撤销等常用功能。
+﻿INTSourceChangelist:3782314
+Title: 圆形菜单
+Description: 在VR模式中时，可通过圆形菜单轻松访问复制、粘贴、撤销等常用功能。
 Crumbs:
 Availability: public
-parent:Engine/Editor/VR
+parent: Engine/Editor/VR
 type: reference
-order:3
-tags:VR
-version:4.11
+order: 3
+tags: VR
+version: 4.17
 skilllevel: intermediate
+topic-image:radialmenu.png
+prereq:Engine/Editor/VR/ActivateVRMode
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR/RadialMenu:title%](Engine/Editor/VR/RadialMenu/radialmenu.png)(fill:#919293)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/RadialMenu:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/RadialMenu]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/RadialMenu:description%
-	[/PARAM]
+[TOC(start:1 end:4)]
+
+圆形菜单的界面可帮助用户快捷地访问VR模式中的所有功能，包括模式面板、资源编辑器、在VR中模拟和游戏，将旧圆形菜单和快捷菜单中的功能整合到一个直观的用户界面中。以下页面将讲述圆形菜单中每个选项的功能。  
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    UVM1nmnslSY
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
 [/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR/RadialMenu:title%](Engine/Editor/VR/RadialMenu/radialmenu.png)(fill:#919293)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/RadialMenu:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/RadialMenu]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/RadialMenu:description%
-	[/PARAM]
+(#editorwindows)
+
+## 编辑器窗口 
+
+编辑器窗口打开后不再停靠到控制器上。相反，其打开时会轻微地从左控制器偏移。关闭按钮现位于每个窗口下方的交互条旁。打开窗口时，长按扳机键即可看到窗口放置处的预览。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    JaDHuajGPoI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
 [/OBJECT]
-[/VAR]
 
-利用 **圆形菜单** 可执行撤销、重做、粘贴等常用操作。
+(#context-sensitiveoption)
 
-![%Engine/Editor/VR/RadialMenu:title%](Engine/Editor/VR/RadialMenu/radialmenu_world.png)(w:640)
+## 上下文相关的选项
+
+上下文相关的选项已被添加至圆形主菜单。通过此菜单选项能快速访问不同工具中可用的额外功能。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    fE3rY6dlhNM
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+(#radialmenuoptions)
+
+## 圆形菜单选项
+
+以下部分将详细介绍UE4编辑器中圆形菜单每个选项的作用。 
+
+[REGION:lightbox]
+[![](controllers.png)(w:594)](controllers.png)
+[/REGION]
+
+[REGION:caption]
+点击查看全图。
+[/REGION]
+
+(#snapping)
+
+### 对齐 
+
+![](T_Radial_Snapping.png)(w:128)
+
+按下此按钮将显示以下对齐选项。
+
+|图标|名称|描述|
+|------|----|----|
+|![](T_Radial_Translate_Snap.png)(w:64)|**平移对齐**|拖拽对象时启用或禁用将其对齐到网格。|
+|![](T_Radial_Snapping.png)(w:64)|**平移对齐值**|设置位置对齐网格值。|
+|![](T_Radial_Rotate_Snap.png)(w:64)|**旋转对齐**|启用或禁用将对象对齐旋转网格。|
+|![](T_Radial_Angle_Num.png)(w:64)|**旋转对齐值**|设置旋转对齐网格值。|
+|![](T_Radial_Translate_Snap.png)(w:64)|**缩放对齐值**|启用或禁用将对象对齐到一个缩放网格。|
+|![](T_Radial_Scale_Num.png)(w:64)|**缩放对齐值**|设置缩放对齐网格值。|
+|![](T_Radial_Align_Actors.png)(w:64)|**智能对齐**|智能对齐使用对象的边界来对齐到场景中的其他actor，以便使用者准确对其进行匹配，而不再需要凭空想象网格构建模块资源。|
+|![](T_Radial_Set_Targets.png)(w:64)|**设置目标**|设置用于智能对齐的actor。|
+(#gizmo)
+
+### 小工具
+
+![](T_Radial_Universal.png)(w:128)
+
+按下此按钮将显示以下小工具选项。
+
+|图标|名称|描述|
+|------|----|----|
+|![](T_Radial_Local_Space.png)(w:64)|**本地空间**|将变换小工具放入一个本地（对象）坐标系。|
+|![](T_Radial_World_Space.png)(w:64)|**场景空间**|将变换小工具放入场景坐标系。|
+|![](T_Radial_Universal.png)(w:64)|**通用**|使小工具来移动、旋转和缩放actor。|
+|![](T_Radial_Translate.png)(w:64)|**平移**|限制小工具只移动选中的actor。|
+|![](T_Radial_Gizmo.png)(w:64)|**旋转**|限制小工具只旋转选中的actor。|
+|![](T_Radial_Scale.png)(w:64)|**缩放**|限制小工具只缩放选中的actor。|
+
+(#windows)
+
+### Windows
+
+![](T_Radial_Windows.png)(w:128)
+
+按下此按钮将显示以下窗口。
+
+|图标|名称|描述|
+|------|----|----|
+|![](T_Radial_Details.png)(w:64)|**细节面板**|打开细节面板。|
+|![](T_Radial_Windows.png)(w:64)|**内容浏览器**|打开内容浏览器。|
+|![](T_Radial_Modes.png)(w:64)|**模式面板**|打开模式面板。|
+|![](T_Radial_World_Outliner.png)(w:64)|**世界大纲视图**|打开世界大纲视图。|
+|![](T_Radial_World_Space.png)(w:64)|**世界场景设置**|打开世界场景设置。|
+|![](T_Radial_Sequencer.png)(w:64)|**创建序列**|新建一个序列。|
+
+(#edit)
+
+### 编辑
+
+![](T_Radial_Edit.png)(w:128)
+
+按下此按钮将显示以下编辑选项。
+
+[region:note]
+只有在选中actor之后才能使用编辑模式中的选项。
+[/region]
+
+|图标|名称|描述|
+|------|----|----|
+|![](T_Radial_Deselect_All.png)(w:64)|**取消选择所有**|取消选择所有当前选中的actor。|
+|![](T_Radial_Delete.png)(w:64)|**删除**|删除当前选中的actor。|
+|![](T_Radial_Cut.png)(w:64)|**剪切**|剪切当前选中的actor。|
+|![](T_Radial_Copy.png)(w:64)|**拷贝**|拷贝当前选中的actor。|
+|![](T_Radial_Duplicate.png)(w:64)|**复制选中项**|复制当前选中的actor。|
+|![](T_Radial_Paste.png)(w:64)|**粘贴**|粘贴已复制的actor。|
+|![](T_Radial_Snaps.png)(w:64)|**对齐到地面**|将当前actor对齐到地面。|
+
+(#tools)
+
+### 工具
+
+![](T_Radial_Tools.png)(w:128)
+
+按下此按钮将显示以下工具。
+
+|图标|名称|描述|
+|------|----|----|
+|![](T_Radial_Simulate.png)(w:64)|**模拟**|开始模拟游戏。|
+|![](T_Radial_Save_Actors.png)(w:64)|**保存Actors**|将选中actor的模拟位置保存回编辑器中。|
+|![](T_Radial_Pause.png)(w:64)|**暂停**|暂停模拟。|
+|![](T_Radial_Resume.png)(w:64)|**恢复**|恢复暂停中的模拟。|
+|![](T_Radial_Seq_Play.png)(w:64)|**播放**|开始模拟。|
+|![](T_Radial_Screenshot.png)(w:64)|**截图**|采集当前视图的截图。|
+|![](T_Radial_Flashlight.png)(w:64)|**闪光灯**|启用/禁用照亮黑暗屏幕的闪光灯。|
+
+(#modes)
+
+### 模式
+
+![](T_Radial_Modes.png)(w:128)
+
+
+基于当前使用的工具启用新菜单。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[COMMENT:none]
+
+利用 **圆形菜单** 可执行撤销、重新执行、粘贴等常用操作。
+
+![%Engine/Editor/VR/RadialMenu:title%](Engine/Editor/VR/RadialMenu/radialmenu_world.png)(w:450)
+
+(#usingtheradialmenu)
 
 ## 使用圆形菜单
 
 1. 拇指轻触追踪板即可显示圆形菜单。
 1. 在追踪板上移动拇指可高亮选项。
-1. 按下追踪板选择高亮选项。
+1. 按下追踪板选择高亮的选项。
+
+(#radialmenuoptions)
 
 ## 圆形菜单选项
 
+在VR编辑器中打开圆形菜单后即可看到可用的选项。 
+
 | 选项 | 描述 |
 | ------ | ----------- |
-| Universal Gizmo | 开关 Universal Gizmo。|
-| Delete | 删除所选 Actor(s)。|
-| Duplicate | 创建所选 Actor(s) 的副本。|
-| Copy | 将所选 Actor(s) 复制到剪切板。|
-| Paste | 将剪切板的内容粘贴到世界场景中。|
-| Undo | 撤销执行的上步操作。|
-| Redo | 重新执行未完成的上步操作。|
-| Snap To Ground | 下移选定 Actor(s)，直到其与其他几何体发生接触。|
+| **将actor对齐到地面（Snap Actors to Ground）** | 下移选定Actor，直到其与其他几何体发生接触。 |
+| **撤销（Undo）** | 撤销执行的上步操作。 |
+| **粘贴（Paste）** | 将剪切板的内容粘贴到世界场景中。 |
+| **复制（Duplicate）** | 创建所选Actor的副本。 |
+| **拷贝（Copy）** | 将所选Actor复制到剪切板。 |
+| **重新执行（Redo）** | 重新执行未完成的上步操作。 |
+| **删除（Delete）** | 删除所选Actor。 |
+| **剪切（Cut）** | 将选中的actor复制到剪切板并将其从场景中移除。 |
+
+[/COMMENT]

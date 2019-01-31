@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.5 - 实现角色跳跃
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何实现第一人称射击游戏角色的跳跃。
 SkillLevel:Beginner
-Version:4.11
+Version: 4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -28,6 +28,7 @@ Version:4.11
 
 在这步中，我们将设置空格键的输入动作映射，实现角色的跳跃功能。
 
+(#JumpActionMapping)
 ## 跳跃动作映射
 
 1.	在 **Edit** 菜单中点击 **Project Settings**。
@@ -48,6 +49,7 @@ Version:4.11
 
 1.	关闭 **Project Settings** 菜单。
 
+(#ImplementInputHandling)
 ## 实现输入处理
 
 在 Character 基类的接口文件中查看时，会发现内置的角色跳跃支持。角色跳跃与 `bPressedJump` 变量绑定。因此需要执行的操作是在按下跳跃动作时将该布尔型设为 `true`，松开跳跃动作时设为 `false`。
@@ -85,15 +87,17 @@ Version:4.11
 		public:
 			// 设置该角色属性的默认值
 			AFPSCharacter();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
 			// 调用后将功能绑定到输入
-			virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+			virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 		
 			// 处理前后移动的输入。
 			UFUNCTION()
@@ -127,8 +131,8 @@ Version:4.11
 1.	将以下代码添加到 `SetupPlayerInputComponent`，将跳跃动作绑定到新编写的函数：
 
 		// 设置“动作”绑定。
-		InputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-		InputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+		PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+		PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
 
 1.	`FPSCharacter.cpp` 应与以下代码相似：
 
@@ -165,21 +169,21 @@ Version:4.11
 		}
 		
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 		
 			// 设置“查看”绑定。
-			InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-			InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+			PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+			PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 		
 			// 设置“动作”绑定。
-			InputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-			InputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+			PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+			PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
 		}
 		
 		void AFPSCharacter::MoveForward(float Value)
@@ -206,6 +210,7 @@ Version:4.11
 			bPressedJump = false;
 		}
 
+(#TestingCharacterJumping)
 ## 测试角色跳跃
 
 现在即可编译并测试新实现的角色移动函数。

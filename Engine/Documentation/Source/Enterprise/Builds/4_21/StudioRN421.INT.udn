@@ -1,0 +1,219 @@
+Availability: Public
+Crumbs: 
+Title: Unreal Studio 4.21 Release Notes
+Description: Describes what's new in the 4.21 release of Unreal Studio.
+Type: 
+Version: 4.21
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:product_viewer_explode.gif
+reference-image:product_viewer_parenting.gif
+
+
+This release brings several major new features that are available exclusively to Unreal Studio subscribers, including workflow improvements that come directly from your feedback and suggestions. This page introduces what's new in this release.
+
+## Import from Autodesk Revit using Datasmith (Early Access)
+
+You can now use Datasmith to bring entire scenes from Revit into Unreal quickly and repeatedly.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Revit](image2.png "Revit")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![Unreal Engine](image3.png "Unreal Engine")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+Revit users can now benefit from the same [import](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview) and [re-import](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow) workflows that Datasmith already provides for other formats such as 3ds Max and SketchUp.
+
+1.  [Install the Datasmith Exporter](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit/InstallingExporterPlugin) plugin for Revit.
+2.  [Export a 3D view](https://docs.unrealengine.com/Studio/Datasmith/SoftwareInteropGuides/Revit/ExportingDatasmithContentfromRevit) from Revit.
+3.  Then [use the Datasmith importer](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ImportingContent) to bring the contents of the 3D view into an Unreal Engine Project.
+
+The import process also includes instance properties, which are translated automatically into Datasmith metadata. You can access this metadata in the Unreal Editor, which can help you script and automate Asset management and Level preparation. You can also access it in runtime UI widgets and Blueprint gameplay scripts, to present it to viewers and use it in your interactive elements. See [Using Datasmith Metadata](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/UsingDatasmithMetadata).
+
+For more information about the conversion process, see [Using Datasmith with Revit](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit).
+
+*Images above courtesy of Turbosquid*
+
+## Multi-User Design Review Template
+
+Get multiple people together, sharing a single interactive experience built around your design content. We’ve set up the Template with everything you need to network and replicate data between players, so that you can concentrate on your content and visuals.
+
+![Multi-User Viewer Template](image12.png)(convert:false)
+
+Each participant in a session sees everyone else’s colored avatars as they move around the Level. You can navigate the scene and point out features of interest using either a standard keyboard and mouse, or a VR headset and VR controllers.
+
+To get started, see the [Multi-User Viewer Template](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/MultiUserViewer).
+
+## Improved Results for 3ds Max Materials
+
+We’ve dramatically improved the out-of-the-box fidelity and visual results you get from your Materials in Unreal Engine when you use Datasmith to import scenes from 3ds Max.
+
+*Images in this section courtesy of Neoscape*
+
+### Material Instances
+
+Wherever possible, Datasmith now creates a Parent Material for each type of surface it imports from 3ds Max, which it places in a Master sub-folder. It uses Material Instances to apply each of those master Materials to your Static Meshes.
+
+![Master Materials](image1.png)(convert:false)
+*Parent Materials in the Master folder*
+
+![Material Instances](image18.png)(convert:false)
+*Material Instances in the Materials folder*
+
+### Better Conversion of V-Ray Materials
+
+Importing V-Ray Materials from 3ds Max produces more predictable and consistent results in Unreal Engine, especially for surfaces with IOR, Metalness, and bump maps.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20: note the flat shading on the statue](image7.png "4.20: note the flat shading on the statue")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21: improved bump maps and reflectance](image9.png "4.21: improved bump maps and reflectance")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### More Consistent Material Graphs
+
+In previous releases, relatively simple properties in 3ds Max were often translated with unnecessarily complex chains of nodes in the Unreal Engine Material. With this release, Unreal Engine Material graphs can still be complex when they need to reproduce a similar complexity in the 3ds Max material, but they should be more consistent and better optimized.  
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20](image5.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21](image10.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### More Map Types
+
+This release introduces support for a wider variety of 3ds Max maps, such as falloff, mix, color correction, composite, tile, and more.
+
+## Simplify Meshes and Assemblies in UE4
+
+Geometry and assemblies that you import into Unreal Engine aren’t always modeled from the beginning to meet the intense performance demands of real-time rendering — especially when that geometry is created with the precision needed to drive manufacturing processes.
+
+This release provides two new tools for you to remove unnecessary triangles from your imported geometry, increasing rendering speed and performance: [defeaturing](https://docs.unrealengine.com/en-us/Studio/Builds/StudioRN421#defeaturing) and [jacketing](https://docs.unrealengine.com/en-us/Studio/Builds/StudioRN421#jacketing).
+
+### Defeaturing
+
+Defeaturing automatically removes small bumps, holes, and indentations in your geometry, leaving behind a smoother surface and removing unnecessary triangles from the Static Mesh.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Over 20,000 triangles](image14.png "Over 20,000 triangles")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![With holes filled, 11,500 triangles](image11.png "With holes filled, 11,500 triangles")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+It’s useful anytime you don’t need those features to produce a good rendering of the object, especially when your geometry contains hundreds or even thousands of repeated features like a speaker grille. By removing identifiable features from the geometry at its highest level of detail, you can also make any LODs you generate for that geometry much cleaner.
+
+For details, see [Simplifying Static Meshes by Defeaturing](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Defeaturing).
+
+### Jacketing
+
+Jacketing identifies Static Mesh Actors and individual triangles that are completely occluded from view at all times. You can apply a tag to these occluded Actors, move them to a new Layer, remove them from the Level, or even completely remove all the occluded triangles from their Static Mesh Assets.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Full engine with 542 Actors](image15.png "Full engine with 542 Actors")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![321 Actors are completely hidden, and can be removed](image19.png "321 Actors are completely hidden, and can be removed")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+This situation often occurs when you import assemblies that contain internal parts — because the internal parts are never visible inside the casings, you can often increase rendering speed and performance by removing them from your Level.
+
+For details, see [Finding and Removing Fully Occluded Meshes](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Jacketing).
+
+## Explode Assemblies in the Product Viewer
+
+The Product Viewer Template now contains a Blueprint class that you can use to smoothly animate Actors in your Level between two different positions. This is particularly useful for exploding and collapsing parts in an assembly, to show how the pieces fit together:
+
+![](product_viewer_explode.gif)(convert:false)
+
+In addition, selecting and moving Static Mesh Actors in the runtime application now respects the parenting of those objects in your Level. Moving a parent Actor also moves all child Actors along with it, keeping them in their current spatial relationship to the parent. You can also move the child Actors independently.
+
+![](product_viewer_parenting.gif)(convert:false)
+
+For details, see the [Unreal Studio Product Viewer Template](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/Studio-Product-Viewer).
+
+## New Static Mesh Editing Options
+
+The Mesh Editing controls in the Static Mesh Editor have moved to a new Toolbar, and have some new controls to help you make quick modifications to your geometry within the Unreal Editor:
+
+*   You can select triangles by smoothing group.
+*   You can unify normals: this flips the facing direction of adjacent triangles to match the orientation of the triangles that you currently have selected.
+*   Useful new keyboard shortcuts: **+** and **-** to grow and shrink the selection area, **F** to fit all selected triangles in the viewport, **Delete** to delete selected triangles.
+*   Box selection: left-click and drag in the viewport to select all intersecting faces.
+
+![New Static Mesh editing options](image13.png)(convert:false)
+
+For more information on mesh editing, see [Modifying Static Mesh Geometry](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ModifyStaticMeshGeometry).
+
+## Datasmith Reimport Workflow Improvements
+
+This release makes [the Datasmith reimport workflow](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow) a little smoother through the following improvements:
+
+*   You can now reimport a Datasmith scene from a different file location on your computer, instead of always needing to overwrite the original scene file in its original location. This makes it easier to keep all the different versions of the scene you’ve imported, and makes it easier to reimport a scene on a different computer from the one it was initially imported on.  
+    See [Setting the Source File Location](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ReimportingContent#settingthesourcefilelocation).
+*   Datasmith now tracks Actor Tags and Layers as overrides. For example, if you change the Actor Tags that you have assigned to a Static Mesh Actor, or move a Static Mesh Actor to another Layer, you won’t lose those changes when you reimport.
+*   The reimport process now recognizes Actors that you’ve moved to sublevels as if they were in the persistent Level. You can now move Actors freely between sublevels without losing those changes when you reimport the Datasmith Scene Asset.
+
+## New Datasmith Import Formats (Experimental)
+
+We’ve introduced support for the following formats through the Datasmith CAD importer:
+
+*   Autodesk AutoCAD *.dwg*
+*   Autodesk Alias *.wire*
+
+We consider these formats to be experimental, and not fully ready for production workflows. If you try these formats out, please [give us your feedback](http://forums.unrealengine.com/unreal-engine/unreal-studio) on what works well and what does not for your projects and workflows.
+
+For the complete matrix of all the formats we support, see [Datasmith Supported Software and File Types](https://docs.unrealengine.com/en-us/Studio/Datasmith/SupportedSoftwareAndFileTypes).
+
+## Variant Management (Experimental)
+
+Often, real-time design visualizations need to offer the viewer the choice between multiple different variants or options. For example, a car configurator might offer trims with and without a sunroof, with and without a spoiler, a choice of finishes, etc. For these cases, we’re introducing an experimental new way of setting up and managing variants.
+
+![Set up variant sets and variants](image4.png)(convert:false)
+
+You create a **Level Variant Sets** Asset (**Create Advanced Asset > Miscellaneous > Level Variant Sets**), and set it up with multiple different variants. Each variant is linked to one or more Static Mesh Actors, and controls one or more properties of those Static Mesh Actors. For example, one variant could swap the visibility of a spoiler, while another swaps the Materials used for the brake calipers.
+
+Once you’ve set up all your variants in advance, you can use Blueprint functions provided by the new **LevelVariantsSetsActor** class to turn those variants on and off in your runtime experience.
+
+![Use Blueprints to switch variants](image17.png)(convert:false)
+
+## Simplified MDL/AxF Import
+
+MDL and AxF files have now been integrated into the standard Unreal Editor import process. Instead of using the **Datasmith Import** button in the Toolbar as in previous releases, you can import MDL and AxF files using the **Import** button in the Content Browser:
+
+![Import MDL and AxF files in the Content Browser](image6.png)(convert:false)
+
+## Datasmith Plus for Everyone!
+
+All Unreal Studio subscribers with the Datasmith plugin installed can now use all the features that were formerly available only for users with the special “Datasmith Plus” entitlement, including:
+
+*   Importing scenes from Autodesk VRED and Deltagen
+*   Importing Materials from AxF files 
+
+## Features of Interest in the Core Engine
+
+In addition to the features specific to Unreal Studio subscribers that are outlined on this page, this release of Unreal Engine also contains many features available to all users that may be of particular interest to you:
+
+*   Pixel Streaming
+*   Geographically Accurate Sun Position
+*   Cooker Performance Improvements
+*   Static Mesh Processing and Editor Scripting
+*   Windows Mixed Reality support and XR updates
+
+For details on all new features in the Engine, see the [Unreal Engine 4.21 Release Notes](https://docs.unrealengine.com/en-us/Builds/4_21).
+

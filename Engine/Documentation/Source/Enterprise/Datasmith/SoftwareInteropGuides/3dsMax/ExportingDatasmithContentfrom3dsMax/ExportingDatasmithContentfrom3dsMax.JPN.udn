@@ -1,0 +1,47 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 3ds Max から Datasmith のコンテンツをエクスポートする
+Description: Unreal Engine にインポート可能な Datasmith ファイルに 3ds Max のシーンをエクスポートする方法について説明します。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/3dsMax
+Order: 3
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: 3DS Max
+Tags: how to
+Tags: Datasmith
+
+
+![](datasmith-setup-export-max.png)
+
+3ds Max 用の Datasmith Exporter プラグインをインストールすると、3ds Max からシーンをエクスポートする際に、 *.UDATASMITH* ファイル タイプを新たに使用できるようになります。
+
+この新しいファイル タイプを使用してシーンをエクスポートするには、3ds Max で以下のステップに従います。
+
+1. 3ds Max の **[File (ファイル)]** メニュー、またはメイン メニュー バーの一番左にある **[MAX]** メニューから **[Export (エクスポート)]** を選択します。
+    ![エクスポートするファイルを選択](3DS_Export_1.png "エクスポートするファイルを選択")
+1. 以下のように設定します。
+    ![フォルダ、タイプ、ファイル名を設定](3DS_Export_2.png "フォルダ、タイプ、ファイル名を設定")
+
+	1. **Save in (保存場所)：** 新規 Datasmith ファイルの場所を選択します。
+	1. **File Name (ファイル名)：** ファイル名を付けます。
+	1. **Save as type (保存のタイプ)：****[Unreal Datasmith (*.UDATASMITH)]** を選択します。
+
+1. **[Save (保存)]** をクリックします。
+1. **[Datasmith Export Options (Datasmith エクスポート オプション)]** ウィンドウで **[Visible objects (可視オブジェクト)]** を選択して、シーンのすべてのオブジェクトを Datasmith ファイルに含めるか、**[Selection (選択)]** を選択して、現在選択しているもののみを含めます。
+    ![可視オブジェクトまたは選択しているオブジェクトをエクスポート](3DS_Export_3.png "可視オブジェクトまたは選択しているオブジェクトをエクスポート")
+1. **[OK]** をクリックします。
+
+エクスポートが完了すると、エクスポータによってコンテンツに関連する問題のレポートが表示されます。典型的なものとしては、エクスポータの変換が不完全であったものや、3ds Max で表示されているように Unreal Engine では表示されない可能性があるものに関した通知です。
+
+![3ds Max の変換に関する注意事項と警告](3DS_Export_4a.png "3ds Max の変換に関する注意事項と警告")
+
+### 最終結果
+
+これで、新規の *「.udatasmith」* ファイルを Unreal Editor にインポートする準備が整いました。[「Importing Datasmith Content into Unreal Engine 4」](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+[REGION:note]
+新規の *「.udatasmith」*ファイルと共に、このファイルと同じ名前に *_Assets* サフィックスが付いたフォルダが作成されます。*「.udatasmith」* ファイルを別の場所に移動する場合は、このフォルダも同じ場所に移動してください。
+[/REGION]

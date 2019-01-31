@@ -28,6 +28,10 @@ topic-icon:%ROOT%/platform_icon.png
 [DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Console" org:"hierarchy")]
 [/PUBLISH:licensee]
 
+## Cloud Deployment
+
+%Platforms/PixelStreaming:topic%
+
 ## Platform Tools
 
 [REGION:buttonlist]

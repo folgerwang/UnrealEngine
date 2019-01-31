@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:2719415
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:工具和编辑器
 Crumbs: %ROOT%, Gameplay, GettingStarted
 Description:虚幻引擎4中包含很多不同类型的编辑器，本页面突出介绍了各个编辑器。 
 version: 4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](editortypes_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%GettingStarted\SubEditors:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:GettingStarted\SubEditors]
-	[/PARAM]
-	[PARAM:description]
-	%GettingStarted\SubEditors:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](editortypes_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%GettingStarted\SubEditors:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:GettingStarted\SubEditors]
-	[/PARAM]
-	[PARAM:description]
-	%GettingStarted\SubEditors:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:editortypes_topic.png
 
 
 本页面试图给大家一个编辑器的概念，在虚幻引擎 4 中有着多种不同类型的编辑器窗口。有可能是在 **Level Editor** 中设计关卡，也有可能是在 **Blueprint Editor** 下为某个 Actor 编写关卡中的脚本行为，又或者是在 **Cascade Editor** 中制作粒子特效，或者在 **Persona Editor** 内设置角色的动画逻辑。对每个 Editor 有较好的理解，并知道它们能够做些什么事情，以及如何在它们之间来回切换，将会对工作流程具有很好的改善，并能够在开发过程中避免无意义的障碍。
@@ -46,24 +13,57 @@ version: 4.9
 
 
 | ------- | ------------ |
-|![](LevelEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#leveleditor]| 
-|![](MaterialEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#materialeditor]| 
-|![](BlueprintEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#blueprinteditor]| 
-|![](BehaviorTreeImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#behavioreditor]| 
-|![](PersonaEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#personaeditor]| 
-|![](CascadeEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#cascadeeditor]| 
-|![](UMGUIEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#umguieditor]| 
-|![](MatineeEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#matineeeditor]| 
-|![](SoundCueEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#soundcueeditor]| 
-|![](SpriteEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#spriteeditor]| 
-|![](FlipbookEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#flipbookeditor]| 
-|![](PhatEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#phateditor]| 
-|![](StaticMeshEditorImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#staticmesheditor]| 
-|![](MediaFrameworkImage.png)(w:400 h:240)|[INCLUDE:GettingStarted\SubEditors#mediaeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#leveleditorimage]|[INCLUDE:GettingStarted\SubEditors#leveleditor]| 
+|[INCLUDE:GettingStarted\SubEditors#materialeditorimage]|[INCLUDE:GettingStarted\SubEditors#materialeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#blueprinteditorimage]|[INCLUDE:GettingStarted\SubEditors#blueprinteditor]| 
+|[INCLUDE:GettingStarted\SubEditors#behavioreditorimage]|[INCLUDE:GettingStarted\SubEditors#behavioreditor]| 
+|[INCLUDE:GettingStarted\SubEditors#personaeditorimage]|[INCLUDE:GettingStarted\SubEditors#personaeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#cascadeeditorimage]|[INCLUDE:GettingStarted\SubEditors#cascadeeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#umguieditorimage]|[INCLUDE:GettingStarted\SubEditors#umguieditor]| 
+|[INCLUDE:GettingStarted\SubEditors#matineeeditorimage]|[INCLUDE:GettingStarted\SubEditors#matineeeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#soundcueeditorimage]|[INCLUDE:GettingStarted\SubEditors#soundcueeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#spriteeditorimage]|[INCLUDE:GettingStarted\SubEditors#spriteeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#flipbookeditorimage]|[INCLUDE:GettingStarted\SubEditors#flipbookeditor]| 
+|[INCLUDE:GettingStarted\SubEditors#phateditorimage]|[INCLUDE:GettingStarted\SubEditors#phateditor]| 
+|[INCLUDE:GettingStarted\SubEditors#staticmesheditorimage]|[INCLUDE:GettingStarted\SubEditors#staticmesheditor]| 
+|[INCLUDE:GettingStarted\SubEditors#mediaeditorimage]|[INCLUDE:GettingStarted\SubEditors#mediaeditor]| 
 
 
 [COMMENT:none]
 -
+[EXCERPT:leveleditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](LevelEditor_Windows.png)(w:400)](LevelEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](LevelEditor_Mac.png)(w:400)](LevelEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:leveleditorimage]
 [EXCERPT:leveleditor]
 **关卡编辑器**
 
@@ -75,7 +75,39 @@ version: 4.9
 [/EXCERPT:leveleditor]
 
 ---
-
+[EXCERPT:materialeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MaterialEditor_Windows.png)(w:400)](MaterialEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MaterialEditor_Mac.png)(w:400)](MaterialEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:materialeditorimage]
 [EXCERPT:materialeditor]
 **材质编辑器**
 
@@ -86,7 +118,39 @@ version: 4.9
 [/EXCERPT:materialeditor]
 
 ---
-
+[EXCERPT:blueprinteditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](BlueprintEditor_Windows.png)(w:400)](BlueprintEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](BlueprintEditor_Mac.png)(w:400)](BlueprintEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:blueprinteditorimage]
 [EXCERPT:blueprinteditor]
 **蓝图编辑器**
 
@@ -97,7 +161,39 @@ version: 4.9
 [/EXCERPT:blueprinteditor]
 
 ---
-
+[EXCERPT:behavioreditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](BehaviorTree_Windows.png)(w:400)](BehaviorTree_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](BehaviorTree_Mac.png)(w:400)](BehaviorTree_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:behavioreditorimage]
 [EXCERPT:behavioreditor]
 **行为树编辑器**
 
@@ -109,6 +205,39 @@ version: 4.9
 
 ---
 
+[EXCERPT:personaeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](AnimEditors_Windows.png)(w:400)](AnimEditors_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](AnimEditors_Mac.png)(w:400)](AnimEditors_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:personaeditorimage]
 [EXCERPT:personaeditor]
 **Persona 编辑器**
 
@@ -119,7 +248,39 @@ Persona 编辑器是虚幻引擎 4 中的动画编辑工具集，可以用来编
 [/EXCERPT:personaeditor]
 
 ---
-
+[EXCERPT:cascadeeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](CascadeEditor_Windows.png)(w:400)](CascadeEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](CascadeEditor_Mac.png)(w:400)](CascadeEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:cascadeeditorimage]
 [EXCERPT:cascadeeditor]
 **级联粒子编辑器**
 
@@ -131,7 +292,39 @@ Persona 编辑器是虚幻引擎 4 中的动画编辑工具集，可以用来编
 [/EXCERPT:cascadeeditor]
 
 ---
-
+[EXCERPT:umguieditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](UMGEditor_Windows.png)(w:400)](UMGEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](UMGEditor_Mac.png)(w:400)](UMGEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:umguieditorimage]
 [EXCERPT:umguieditor]
 **UMG 界面编辑器**
 
@@ -141,7 +334,39 @@ UMG 界面编辑器是个可视化的 UI 编辑工具，可以用来创建 UI �
 [/EXCERPT:umguieditor]
 
 ---
-
+[EXCERPT:matineeeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MatineeEditor_Windows.png)(w:400)](MatineeEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MatineeEditor_Mac.png)(w:400)](MatineeEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:matineeeditorimage]
 [EXCERPT:matineeeditor]
 **Matinee 编辑器**
 
@@ -152,7 +377,39 @@ Matinee 编辑器专注于特殊的动画制作，在这里可以放置关键帧
 [/EXCERPT:matineeeditor]
 
 ---
-
+[EXCERPT:soundcueeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](SoundCueEditor_Windows.png)(w:400)](SoundCueEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](SoundCueEditor_Mac.png)(w:400)](SoundCueEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:soundcueeditorimage]
 [EXCERPT:soundcueeditor]
 **Sound Cue 编辑器**
 
@@ -162,7 +419,40 @@ Matinee 编辑器专注于特殊的动画制作，在这里可以放置关键帧
 更多内容请查看： [](Engine/Audio/SoundCues/Editor)
 [/EXCERPT:soundcueeditor]
 
-
+---
+[EXCERPT:spriteeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](SpriteEditor_Windows.png)(w:400)](SpriteEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](SpriteEditor_Mac.png)(w:400)](SpriteEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:spriteeditorimage]
 [EXCERPT:spriteeditor]
 **Paper2D 图片编辑器**
 
@@ -172,7 +462,39 @@ Matinee 编辑器专注于特殊的动画制作，在这里可以放置关键帧
 [/EXCERPT:spriteeditor]
 
 ---
-
+[EXCERPT:flipbookeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](FlipbookEditor_Windows.png)(w:400)](FlipbookEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](FlipbookEditor_Mac.png)(w:400)](FlipbookEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:flipbookeditorimage]
 [EXCERPT:flipbookeditor]
 **Paper2D Flipbook 编辑器**
 
@@ -184,7 +506,39 @@ Matinee 编辑器专注于特殊的动画制作，在这里可以放置关键帧
 [/EXCERPT:flipbookeditor]
 
 ---
-
+[EXCERPT:phateditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](PhysicsAssetEditor_Windows.png)(w:400)](PhysicsAssetEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](PhysicsAssetEditor_Mac.png)(w:400)](PhysicsAssetEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:phateditorimage]
 [EXCERPT:phateditor]
 **Physics Asset 工具编辑器**
 
@@ -196,7 +550,39 @@ Physics Asset 工具编辑器（简称 PhAT ）用来为 [](Engine/Content/Types
 [/EXCERPT:phateditor]
 
 ---
-
+[EXCERPT:staticmesheditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](StaticMeshEditor_Windows.png)(w:400)](StaticMeshEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](StaticMeshEditor_Mac.png)(w:400)](StaticMeshEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:staticmesheditorimage]
 [EXCERPT:staticmesheditor]
 **静态网格体编辑器**
 
@@ -207,7 +593,39 @@ Physics Asset 工具编辑器（简称 PhAT ）用来为 [](Engine/Content/Types
 [/EXCERPT:staticmesheditor]
 
 ---
-
+[EXCERPT:mediaeditorimage]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MediaPlayerEditor_Windows.png)(w:400)](MediaPlayerEditor_Windows.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](MediaPlayerEditor_Mac.png)(w:400)](MediaPlayerEditor_Mac.png)
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:mediaeditorimage]
 [EXCERPT:mediaeditor]
 **媒体播放编辑器**
 

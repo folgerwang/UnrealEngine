@@ -1,0 +1,51 @@
+Availability: Public
+Crumbs: 
+Title: Android Device Compatibility
+Description: Device compatibility for developing with Android.
+Type: 
+Version: 4.21
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Reference
+
+
+Unreal Engine 4 (UE4) supports a wide range of Android devices. While we try to test many of the most popular devices, not all devices are tested internally. The device profiles listed below are meant as a guideline.
+
+**Base Android Device Profile** \- Is the [device profile](Platforms/DeviceProfiles) used by all Android profiles unless otherwise specified per device.
+
+| **Android Device Profile** | |
+| --- | |
+| **Console Variable** | **Value** |
+| --- | --- |
+| r.MobileContentScaleFactor | 1 |
+| r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 0 |
+| r.RefractionQuality | 0 |
+| r.ShadowQuality | 0 |
+| slate.AbsoulteIndices | 1 |
+
+[REGION:note]
+Android device profiles are separated into buckets to help better cover the wide range of Android GPU's. These buckets are meant as defaults and it is recommended that you create custom [device profiles](Platforms/DeviceProfiles) to meet the needs of your project.
+[/REGION]  
+
+| **Android_High** | | **Android_Medium** | | **Android_Low** | |
+| --- | --- | --- | --- | --- | --- |
+| **Console Variable** | **Value** | **Console Variable** | **Value** | **Console Variable** | **Value** |
+| --- | --- | --- | --- | --- | --- |
+| r.MobileContentScaleFactor | 1 | r.MobileContentScaleFactor | 0.8 | r.MobileContentScaleFactor | 0.5 |
+| r.BloomQuality | 1 | r.BloomQuality | 1 | r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 1 | r.DepthOfFieldQuality | 0 | r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 1 | r.LightShaftQuality | 0 | r.LightShaftQuality | 0 |
+| r.RefractionQuality | 1 | r.RefractionQuality | 0 | r.RefractionQuality | 0 |
+| r.ShadowQuality | 2 | r.ShadowQuality | 2 | r.ShadowQuality | 1 |
+
+  
+
+| **Device Profile** | **GPU** |
+| --- | --- |
+| **Android_High** | Adreno 330-5xx, Mali T7xx, T8xx, Mali G76, Mali G72, Mali G71, Tegra K1 |
+| **Android_Medium** | Adreno 320, Power VR54x, Mali T6xx, Tegra 4 |
+| **Android_Low** | Adreno 2xx, IntelHD, Mali 4xx |

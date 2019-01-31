@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2659180
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:物理组件
 Crumbs:%ROOT%, Engine, Engine/Components
@@ -13,6 +13,7 @@ Version: 4.9
 
 这些物理组件用于影响那些在您的场景中以不同方式应用物理效果的任意对象。 
 
+(#DestructibleComponent)
 ## Destructible Component （可毁组件）
 
 **DestructibleComponent** 用于存放 Destructible Actor 的物理数据。在添加该组件作为子对象时，您必须指定要使用的 **Destructible Mesh** 资源。如果愿意，您也可以覆盖并指定 **Fracture Effects** 而非使用资源本身的 Fracture Effects。 
@@ -21,6 +22,7 @@ Version: 4.9
 
 ![](destructible_mesh.png)(w:400)
 
+(#PhysicsConstraintComponent)
 ## Physics Constraint Component （物理约束组件）
 
 **PhysicsConstraintComponent** 是一种能连接两个刚性物体的接合点。您可以借助该组件的各类参数来创建不同类型的接合点。 
@@ -29,12 +31,14 @@ Version: 4.9
 
 ![](constraint.png)(w:400)
 
+(#PhysicsHandleComponent)
 ## Physics Handle Component （物理句柄组件）
 
 **PhysicsHandleComponent** 用于“抓取”和移动物理对象，同时让您抓取的对象继续使用物理效果。这样的例子可能以“重力枪”的形式存在，此时您可以拾取和掉落物理对象（参见 [**Physics Content Examples**](Resources/ContentExamples/Physics) 了解详细信息）。
 
 ![](handle.png)(w:400)
 
+(#PhysicsThrusterComponent)
 ## Physics Thruster Component （物理推进器组件）
 
 **PhysicsThrusterComponent** 适用于沿着 X 轴负方向施加特定物理作用力的对象（例如，您所推动的方向上的 X 点）。推力组件使用连续作用力，而且能通过脚本来自动激活、一般激活或取消激活。 
@@ -43,6 +47,7 @@ Version: 4.9
 
 ![](thruster.png)(w:800)
 
+(#RadialForceComponent)
 ## Radial Force Component （径向力组件）
 
 **RadialForceComponent** 用于发出径向力或脉冲来影响物理对象或可摧毁对象。与 **PhysicsThrusterComponent** 不同，这类组件会施加“发射后不用管”类型的作用力，而且并不持续。 

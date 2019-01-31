@@ -1,0 +1,170 @@
+﻿INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: 关于Datasmith导入处理
+Description:包含Datasmith在场景转换过程中处理的特定问题进行详细介绍，以及您接下来可以在虚幻中对导入的资源进行操作的步骤。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 2
+Tags: Datasmith
+Tags: Guides
+Tags: importing
+topic-image:datasmith-about-import-topic.png
+
+
+我们将在下面各部分中对Datasmith在场景转换过程中处理的特定问题进行详细介绍。了解这些问题有助于理解Datasmith生成的结果以及在虚幻编辑器中处理内容。
+
+## 单位和标尺
+
+在虚幻引擎中，距离始终是以厘米度量的。但是，其他3D设计应用程序通常允许你选择度量单位。如果你在源应用程序中使用不同的度量单位，Datasmith会自动调整场景的标尺，使几何体以完全相等的真实大小出现在虚幻引擎3D空间中的正确位置。完全无需更改你在源应用程序中的工作方式。  
+
+例如，如果在源应用程序中使用英寸作为度量单位，原始场景中长度为十单位的对象在虚幻引擎中将变成25.4个世界场景单位长。
+
+![](datasmith-units-1.png)
+
+![](datasmith-units-2.png)
+
+## 名称和标签
+
+Datasmith会检测几何体在源应用程序中的命名信息，并尽可能为它创建的网格体和Actor重复使用该信息。对于每个不同的应用程序或文件格式，具体过程略微不同，在虚幻引擎中的结果也可能与在源应用程序中时稍有不同，但是最终目标是让你能够在导入之后找到并管理内容。
+
+对于静态网格体，你往往会发现资源在内容浏览器中的名称、资源在磁盘上的文件名以及Actor在关卡中的名称变得不一样了。
+
+*   **内容浏览器标签 -** Datasmith基于它在源文件中找到的命名信息（如有）在内容浏览器中为每个静态网格体资源生成标签。  
+    一些受支持的应用程序和文件格式允许多个对象以相同的名称存在。如果在场景中确实如此，你会发现在内容浏览器中有多个资源具有相同的标签。
+*   **文件名——** 但是，在磁盘上每个资源的文件名必须是唯一的。因此，Datasmith使用它从源应用程序提取的唯一辨识符为每个资源文件命名。
+*   **Actor名称——** 每次Datasmith将Actor放到关卡中时，它都会尝试给予该Actor与它曾作为对象存在在源文件中时的名称完全相同的名称（如有）。  
+    如果找不到唯一的名称，它将重复使用内容浏览器中的同一个标签来命名该Actor。如果在关卡中已存在另一个具有该名称的Actor，Datasmith会通过为该Actor名称增加数字后缀的方法来确保名称的唯一性。
+
+例如，在下图中，你会看到，除具有相同名称的多个对象以外，源场景中的所有名称都按原样导入到虚幻中。
+
+[REGION:lightbox]
+[![](datasmith-naming-before.png)](datasmith-naming-before.png)
+[/REGION]
+
+源文件中的层级
+
+[REGION:lightbox]
+[![](datasmith-naming-after.png)](datasmith-naming-after.png)
+[/REGION]
+
+虚幻中的层级
+
+[REGION:note]
+请注意，你在内容浏览器中看到的静态网格体资源的 *标签* 与Datasmith在磁盘上为这些资源生成的文件的 *名称* 之间存在差异。使用编辑器工作时，在很多情况下这应该是显而易见的。但是，在要通过蓝图或Python脚本使用资源或Datasmith场景时，需要注意到这一差异。
+[/REGION]
+
+## 三角形面向方向
+
+为了使模型在运行时具有最佳性能，虚幻引擎会剔除它认为无需显示的所有三角形，以避免耗费GPU周期渲染它们。特别是，引擎假定所有对象都具有厚度。背向摄像机的所有三角形都被假定是那个对象的背面，它们会因对象正面的遮挡而不可见。这被称为 *背面剔除*，是一种广泛用于3D渲染的优化方法。
+
+但是，一些设计应用程序不对表面进行这样的正面和背面区分，可能会在不考虑查看方向的情况下对表面进行渲染。在设计工具中工作时，你不一定了解特定表面的朝向。这可能会导致表面法线，即垂直于表面的方向，指向或背向需要查看表面的方向。或者，这可能导致你创建没有任何厚度的二维单面几何体。
+
+导入场景后在虚幻引擎中从特定角度查看时，这可能导致场景的某些部分不可见，甚至看起来就像模型的那些部分没有导入一样；然而，事实很可能是它们的表面法线背向查看场景时使用的摄像机。如果旋转模型，可能就会发现那些表面突然出现了。
+
+例如，在下面的场景（左侧）中，虽然几何体已正常导入，但天花板和管道的末端看起来丢失了。为这些材质启用“双面（Two Sided）”选项将使这些表面显示出来，请参阅下面的内容了解细节。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![单面](datasmith-two-sided-off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![双面](datasmith-two-sided-on.png) 
+	[/PARAM]
+[/OBJECT]
+
+处理这种情况的最佳方式是在源应用程序中执行以下操作：  
+
+*   当需要从各个方向查看对象时，我们强烈建议你在为对象建模时使它们具有厚度，并且确保法线的朝向是由内向外。
+*   如果你知道某个对象只需要从一个角度进行查看即可的话，可以通过在源应用程序中翻转表面的法线并重新导入场景来修复丢失的网格体。这将使表面处于单面状态，但是至少在翻转表面的朝向之后，当在虚幻引擎中从所需方向查看时，表面能够正确显示。
+
+但是，如果你希望在不必返回到源场景的情况下在虚幻编辑器中修复该问题，也可以考虑以下选项：
+
+*   可以在静态网格体编辑器中翻转三角形的方向，使它们朝向相反的方向。请参阅[修改静态网格体几何体](Enterprise/Datasmith/HowTo/ModifyStaticMeshGeometry)。  
+    但是，如果从相反的方向查看时这些三角形可见的话，仍然会存在相同的问题。对于天花板等仅会从内部进行查看的对象，这可能是良好的解决方案，但是对于会从两个方向进行查看的内墙，这并不可行。  
+    请注意，如果你在源场景中修改了该几何体并重新导入Datasmith场景资源，你在静态网格体编辑器中进行的更改将会丢失。因此，如果由于其他原因不得不返回并修改几何体的话，请确保同时返回并在SketchUp中修复几何面的方向。
+*   可以在材质编辑器中将材质设置为双面。这使得无论从哪个方向查看它，引擎都会渲染表面。虽然乍一听这像是不错的解决方案，但是当与静态或固定照明配合使用时，该方法会产生视觉效果瑕疵，因为表面的两个面将使用光照贴图纹理中的相同空间。  
+    如果材质是材质实例，请在材质编辑器的“细节（Details）”面板中找到 **常规（General） > 材质属性覆盖（Material Property Overrides） > 双面（Two Sided）**。  
+    ![双面材质属性覆盖](material-instance-two-sided.png "Two Sided Material Property Override")  
+    或者，在材质编辑器的 **细节（Details）** 面板中找到 **材质（Material） > 双面（Two Sided）**：  
+    ![双面材质属性](material-details-two-sided.png "Two Sided Material Property")
+*   如果问题的症结不在于几何面本身的可视性，而仅仅在于光线会穿过对象，例如，天花板没有正确阻挡上方的定向光源投射的光线，那么你可以将该静态网格体Actor配置为从两个方向投射阴影。  
+    在 **细节（Details）** 面板中找到 **照明（Lighting） > 在两面投射阴影（Shadow Two Sided）** 设置。  
+    ![在两面投射阴影（Shadow Two Sided）](staticmeshactor-shadowtwosided.png "Shadow Two Sided")
+
+## 光照贴图UV
+
+虚幻引擎提供多种设置场景照明的方法。可提供最佳运行时性能以及通常也是最平稳、最真实的间接照明传播的方法是 *烘焙* 光照。通过该方法，你可以使用Lightmass工具来在虚幻编辑器中构建照明。该方法会计算从静态和固定光源到达场景中的每个对象的光线，并将它存储在一种称为 *光照贴图* 的特殊纹理中。在运行时，该照明信息会从每个对象的光照贴图纹理应用到其表面。
+
+为了让该系统能够工作，需要将静态网格体中的每个顶点映射到其光照贴图纹理的2D空间中的唯一坐标。该映射称为UV集或UV通道。另外，需要按照这种方式对该2D坐标空间进行布局：网格体中的两个三角形在2D纹理空间中不能相互重叠。如果网格体中的两个三角形都映射到2D纹理的相同区域，那么Lightmass就不能为每个三角形存储唯一的明暗模式。这会造成在运行时出现奇怪的照明瑕疵。
+
+为确保所有静态网格体都能够接收静态照明，对于Datasmith导入的每个静态网格体，它都会自动调用虚幻编辑器的自动UV展开系统。该过程会向每个静态网格体添加两个新的UV集。
+
+*   一个是将构成网格体的三角形简单展开成2D空间中的平面表示。这会将网格体分成多个较小的“岛状区”，每个岛状区都代表网格体表面的相连片段。
+*   然后会重新排列并调整第一个光照贴图中的岛状区，以使它们融入避免重叠而且会大大减少岛状区周围的空间浪费的布局中。这就是为关卡构建照明时用于对象的光照贴图的最终布局。
+
+然后，Datasmith自动将静态网格体资源设置为使用第二个生成的UV来存储和应用光照贴图。
+
+[REGION:note]
+如果使用3ds Max，并且已经设置好了要用于光照贴图的UV通道，请参阅[将Datasmith与3ds Max配合使用](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax)。
+[/REGION]
+
+## 碰撞和物理
+
+默认情况下，Datasmith不会为它创建的静态网格体资源设置物理。你可以在导入之后在虚幻编辑器中为静态网格体设置物理，有关细节，请参阅[设置与静态网格体的碰撞](Engine/Content/Types/StaticMeshes/HowTo/SettingCollision)，或[在蓝图和Python中设置与静态网格体的碰撞](Engine/Editor/ScriptingAndAutomation/HowTos/CreatingLODs)。
+
+如果使用3ds Max，你可以在3ds Max中建立自定义的几何体，然后让Datasmith导入程序自动将该几何体指定给它创建的静态网格体资源。有关细节，请参阅[将Datasmith与3ds Max配合使用](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax#customcollisionshapes)。
+
+## 材质
+
+正如在[Datasmith概述](Enterprise/Datasmith/Overview)中说明的，Datasmith导入过程会在虚幻引擎项目中创建新的材质资源来代表它在导入的场景中识别的各组不同的几何体表面属性。虽然场景变换的目标是以尽可能高的保真度保留表面属性，但是可能需要在导入之后对这些材质进行微调。
+
+*   一些源材质，尤其是来自3ds Max的材质，以Datasmith可以理解和调整（调整之后对于虚幻引擎有效）的图为基础。在这种情况下，Datasmith创建的每个材质资源都具有其自己的内部着色器图，这些着色器图旨在在基于物理的虚幻渲染器中再现源材质的效果。  
+    双击这些材质资源进行编辑时，可以直接访问它们的着色器图：  
+    ![Datasmith转换后的材质](datasmith-material-translated.png "Material translated by Datasmith")  
+    这种方法很好，因为你可以完全控制材质解译纹理的方式及设置，从而为基于物理的渲染器创建最终表面着色参数。但是，这种方法可能不易于掌握，而且在进行更改之后通常需要重新编译着色器。  
+    有关更多信息，请参阅本文档[材质](Engine/Rendering/Materials)主题下的主题及[材质编辑器参考](Engine/Rendering/Materials/Editor)。
+*   在其他情况下，Datasmith创建的每个材质都是Datasmith插件随附的既有父材质的实例。这意味着，当你编辑这些材质时，可以随意修改这些实例化材质中公开的一组预定义设置：  
+    ![Datasmith创建的材质实例](datasmith-material-instance.png "Material Instance created by Datasmith")  
+    但是，不能更改材质用于根据这些属性确定表面的着色方式的图，除非深入内置在Datasmith中的父材质。  
+    有关使用这些种类的材质的更多信息，请参阅[实例化材质](Engine/Rendering/Materials/MaterialInstances)和[材质实例编辑器用户指南](Engine/Rendering/Materials/MaterialInstances/Editor)。  
+    [REGION:note]
+    要在内容浏览器中找到这些父材质，需要在 **查看选项（View Options）** 菜单中选中 **显示插件内容（Show Plugin Content）**。要修改父材质的图，需要将父材质复制到自己项目的“Content”文件夹中，然后修改副本。
+    [/REGION]
+
+另一个选择是，不使用Datasmith创建的材质，而始终完全使用其他基于物理的材质替换Datasmith创建的材质。这可以是你在虚幻编辑器中自己创建的材质，也可是来自第三方的材质。
+
+[REGION:tip]
+订阅Unreal Studio之后，你可以使用来自Allegorithmic的包含100个基于物理的物质材质的库。要开始使用，请参阅[此处](https://www.allegorithmic.com/substance-ue4)。
+[/REGION]
+
+### Datasmith颜色材质
+
+许多计算机辅助设计（CAD）应用程序都使用简单表面颜色来对几何体进行着色。Datasmith通常将这些表面作为 **Datasmith_Color** 材质的实例导入到虚幻中：
+
+![Datasmith_Color材质实例](datasmith-color-material.png "Datasmith_Color Material Instance")
+
+*   该材质的颜色通常预设为完全匹配源场景中的颜色。  
+    在虚幻引擎中使用这些材质时，需要格外注意颜色数值的亮度。设计工具有时允许使用自然界中不常见的非常明亮的表面颜色，甚至包括纯白色。你可能需要大幅调低这些数值才能使照明看起来具有真实感。
+*   Datasmith通常能够保持源材质的不透明度。如果在源场景中某个表面颜色被设置为半透明（例如，玻璃板），Datasmith会将其不透明度导入“颜色（Color）”设置的 **阿尔法（Alpha）** 通道。  
+    如果要在虚幻编辑器中使用“阿尔法（Alpha）”通道将原先非透明的材质变为半透明，还需要更改材质的混合模式。在 **常规（General）** 部分中，展开 **材质属性覆盖（Material Property Overrides）** 组，选中 **混合模式（Blend Mode）** 选项，并将其值设置为 **半透明（Translucent）**。 
+*   Datasmith_Color父材质还允许你使用三种不同的纹理贴图：提供表面底色的漫射贴图（会覆盖“颜色（Color）”设置）、提供精细表面细节的法线贴图和使同一表面的不同部分具有不同不透明度数值的透明度贴图。  
+    如果Datasmith能够从源应用程序导出这些种类的纹理贴图，它就可以使用这些纹理贴图设置。如果某个Datasmith_Color实例的颜色为单一颜色，而你要使用这类纹理贴图来增强表面的真实感，需要激活这些设置并为它们指定纹理资源。  
+    当你启用其中一个贴图设置时，“纹理参数值（Texture Parameter Values）”下就会出现一项新的设置，你可以在此处设置要使用的纹理。  
+    ![具有纹理贴图的Datasmith_Color实例](datasmith-color-map-active.png "Datasmith_Color Instance with a texture map")  
+    但是，如果知道如何从头创建你自己的材质，你将大大获益，因为这样你就可以利用Datasmith_Color父材质未公开的其他基于物理的虚幻引擎渲染器属性，例如，“粗糙度（Roughness）”和“金属感（Metallic）”属性。请参阅[基于物理的材质](Engine/Rendering/Materials/PhysicallyBased)。
+
+## 图层
+
+如果源应用程序提供将内容组织为图层或相似内容的功能，Datasmith会在虚幻编辑器中保留该组织。可以使用 **图层（Layers）** 窗口（**窗口（Window） > 图层（Layers）**）来显示和隐藏图层，或者快速查找并选择某个图层中的所有对象。
+
+![Datasmith导入的图层](datasmith_overview_layers.png "Layers imported by Datasmith")
+
+但是，虚幻编辑器不支持 *嵌套* 图层。如果源场景使用嵌套图层，Datasmith会自动将图层层级平整为单个列表。
+
+有关如何在虚幻编辑器中使用图层的更多信息，请参阅[“图层（Layers）”面板用户指南](Engine/UI/LevelEditor/Layers)。
+
+## 元数据
+
+对于某些种类的源文件格式，Datasmith会导入有关在源应用程序中设置的场景中的几何体对象的元数据。可以在虚幻编辑器中使用蓝图和Python脚本来访问该元数据。有关该系统的细节，请参阅[使用Datasmith元数据](Enterprise/Datasmith/Overview/UsingDatasmithMetadata)。

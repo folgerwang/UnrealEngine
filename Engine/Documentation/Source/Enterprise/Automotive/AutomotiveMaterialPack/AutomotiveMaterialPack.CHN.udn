@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3112291
+﻿INTSourceChangelist:4300533
 Availability:Public
 Title:汽车材质包
 Description:汽车材质包所含资源的详解和使用方法。
@@ -6,10 +6,10 @@ Crumbs:%ROOT%,
 version:4.13
 Parent:Enterprise/Automotive
 tags:Enterprise
-tags:Automotive
+tags:Studio
 tags:Materials
 type:overview
-order:1
+order:100
 Related:Engine/Rendering/Materials/PhysicallyBased/
 Related:Engine/Rendering/Materials/MaterialProperties/LightingModels
 Related:Engine/Rendering/Materials/HowTo/ClearCoatDualNormal
@@ -136,7 +136,7 @@ social-image:automotive_material_pack_social.png
 以下图片序列展示可通过以上所列参数实现的各种油漆颜色和表面效果。
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#CP]
+[INCLUDE:#CP]
 [/REGION]
 
 ### Orange Peel 材质参数
@@ -144,7 +144,7 @@ social-image:automotive_material_pack_social.png
 应用在车漆上的透明涂层表面常有些许不平，和橘皮类似。因此，透明涂层的凹陷/不平部分被称作 Orange Peel。可通过 **Orange Peel Strength** 和 **Orange Peel Scale** 参数控制 Orange Peel 的强度。将 **Orange Peel Strength** 设为 **0** 即可禁用 Orange Peel 效果。
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#OP]
+[INCLUDE:#OP]
 [/REGION]
 
 ### 碳纤维
@@ -197,7 +197,7 @@ social-image:automotive_material_pack_social.png
 [/region]
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RM]
+[INCLUDE:#RM]
 [/REGION]
 
 ### 刹车盘
@@ -333,7 +333,7 @@ social-image:automotive_material_pack_social.png
 * **Triangle**
 
 	[REGION:fullwidth]
-	[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RF]
+	[INCLUDE:#RF]
 	[/REGION]
 
 如需变更使用的反光片图案，打开 **Reflector** 材质实例，将 **Reflector(Bottom Layer) Normal** 改为需要使用的图案。

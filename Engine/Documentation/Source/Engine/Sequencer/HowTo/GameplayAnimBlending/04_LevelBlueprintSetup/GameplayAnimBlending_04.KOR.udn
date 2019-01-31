@@ -19,7 +19,7 @@ type:how-to
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전](Engine\Sequencer\HowTo\GameplayAnimBlending\03_LevelSetup)
+		[이전](Engine\Sequencer\HowTo\GameplayAnimBlending\03_LevelSetup)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

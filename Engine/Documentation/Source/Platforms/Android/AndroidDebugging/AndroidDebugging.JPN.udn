@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4499799
+Availability: Public
+Crumbs: 
+Title: Android でのデバッグ作業
+Description: UE4 プロジェクトを Android Studio を使用してデバッグする方法について説明します。
+Type: 
+Version: 4.20
+Parent: Platforms/Android
+Order: 1
+Tags: Android
+
+
+Unreal Engine 4 (UE4) と Android Studio により、UE4 プロジェクトで使用する C++ および Java コードをデバッグできます。以下の操作ガイドでは、UE4 Android プロジェクトをデバッグするために使用できる、Android Studio のセットアップを説明します。
+
+## ステップ
+
+次のセクションでは、Android Studio をダウンロードおよびセットアップして、UE4 プロジェクトで使用するための方法を説明します。
+
+1. まず、次のリンクから Android Studio version 3.0.1 をダウンロードしてインストールします。   
+      [https://developer.android.com/studio/archive](https://developer.android.com/studio/archive)
+2. 次に、デバッグ対象の apk をビルドしてから、デバッグに使用する Android デバイスにデプロイします。
+    ![](package_menu.png)
+3. Android Studio ランチャーを開き、表示されたオプションから、 **[Open an existing Android Studio Project]** を選択します。
+    ![](AndroidDebugging_01.png "AndroidDebugging_01.png")
+4. **[Open File or Project]** メニューで、**C:\\YourProjectName\\Intermediate\\Android\\APK\\Gradle** に移動し、「**Gradle**」ディレクトリを選択してから、**[OK]** ボタンをクリックします。
+    ![](AndroidDebugging_02.png "AndroidDebugging_02.png")
+5. Android Studio が開いたら、**[Run]** メニューに移動し、**[Edit Configurations]** オプションを選択します。
+    ![](AndroidDebugging_03.png "AndroidDebugging_03.png")
+6. **[Debugger]** タブをクリックして、デバッグ タイプを **[Dual]** に設定します。
+    ![](AndroidDebugging_04.png "AndroidDebugging_04.png")
+7. 次に、**[LLDB Startup Commands]** タブに移動し、 **プラス** アイコン (+) を押し、**[OK]** ボタンを押してプロセスを完了します。
+		command script import "C:\PathToYourUE4EngineInstall\Engine\Extras/LLDBDataFormatters\UE4DataFormatters_2ByteChars.py"
+	[REGION:note]
+	C++ コードでは TEXT("string") を使用し、L("string") を使用しないように注意してください。
+	[/REGION]
+	![](AndroidDebugging_05.png "AndroidDebugging_05.png")
+	[REGION:note]
+	**Enter** キーを必ず押してください。そうしないとコマンドが有効になりません。
+	[/REGION]
+
+8. この時点で、プロジェクトの .cpp ファイルを開き、デバッグ対象のアイテムにブレークポイントを追加します。
+    
+	![](AndroidDebugging_10.png)
+10. メイン メニューで、**[Run]** > **[Debug 'app-app'] を選択します。
+	![](AndroidDebugging_06.png "AndroidDebugging_06.png")
+11. **[Select Deployment Type]** ウィンドウが表示されたら、リストから使用するデバイスを選択し、**[OK]** ボタンを押します。
+    ![](AndroidDebugging_07.png "AndroidDebugging_07.png")
+
+## 最終結果
+
+これらの手順をすべて完了したら、デバッガがユーザーの使用する Android デバイスにアタッチするのを待ちます。
+![](AndroidDebugging_08.png)  
+
+[REGION:note]
+プロジェクトのサイズにより、デバッガがアタッチするのに時間が掛かる場合があります。また、 **[Package data inside APK]** オプションを使用しない場合、デバイスにデータはインストール **されません** 。これを実行する場合、APK のサイズが大きくなることから、デバッグの再デプロイは遅くなります。別のオプションとして、エディタで **起動** してから、デバッグ用 Android Studio を使用してデバイスに現在のレベルをインストールする方法があります。現在のレベルのデータ以外が必要な場合、OBB をパッケージ化してデバイスにインストールすることもできます。
+[/REGION]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3351642
+﻿INTSourceChangelist:3782314
 Availability:Licensee
 Title:使用 Perforce 下载虚幻引擎
 Crumbs:
@@ -7,6 +7,7 @@ Parent:GettingStarted/DownloadingUnrealEngine/Perforce
 
 [COMMENT:none]
 
+(#ConnecttoEpic'sVPN)
 ## 连接到 Epic 的 VPN
 
 [INCLUDE:GettingStarted/DownloadingUnrealEngine/VPNSetup#Browser]
@@ -16,6 +17,7 @@ Parent:GettingStarted/DownloadingUnrealEngine/Perforce
 [EXCERPT:main]
 要连入 Epic 的 perforce 需要用到 SSL 功能，并且必须要使用 2012.1 或以后的 perforce 客户端（P4V，p4，或 API）。通过善加利用全局的 DNS 名称及基于延迟的路由信息，便能自动的连入离你当地位置最近的 Perforce 代理服务器上。当然你也可以选择直接连入某个区域代理服务器，来确保你的连接总是最近的一个。
 
+(#ConnecttoEpic'sPerforceServer)
 ## 连接到 Epic 的 Perforce 服务器 
 
 1.	在 Windows 上安装 Perforce 的 P4V 客户端。可以从这里下载 [Perforce Downloads](http://www.perforce.com/downloads/complete_list)。
@@ -69,6 +71,7 @@ p4 命令行需要使用 p4 trust 命令。
 	Added trust for P4PORT 'ssl:p4-licensee-east.us.epicgames.com:1666' (52.23.106.194:1666)
 [/REGION]
 
+(#UsingaLocalProxyServer)
 ### 使用本地代理服务器
 
 如果你们在用本地代理服务器，那你们必须要连接一个 Broker 服务器而非区域代理服务器。可以通过以下地址来访问全球的 Broker 服务器：
@@ -83,7 +86,8 @@ p4 命令行需要使用 p4 trust 命令。
 	* **欧洲中部（法兰克福）**: _ssl:p4-licensee-central.eu.epicgames.com:1666_
 [/REGION]
 
-## 下载 虚幻引擎 4
+(#DownloadUnrealEngine4)
+## 下载虚幻引擎 4
 
 我们在 Perforce 的目录里，使用 _//UE4/Release-Latest_ 目录来向各位授权用户发放虚幻引擎 4 的版本。其中提供了一个完整的引擎版本，还有额外的几个项目，用于范例游戏、演示等用途。大家可以自行选择全部下载或者仅挑选需要的内容下载。为了便于更快的开始工作，我们的建议是先下载一个最小的内容来开启工作，然后再挑选其他部分按需下载。这样可以极大的减少由于下载过程而浪费的大量等待时间。
 
@@ -100,6 +104,7 @@ p4 命令行需要使用 p4 trust 命令。
 
 [/EXCERPT:main]
 
+(#MigratinganExistingWorkspace)
 ## 当前存在的 workspace 迁移
 
 为了避免再次重新同步整个 workspace 的文件，用户可以选择使用 p4 flush 命令来对现有的 workspace 本地文件的信息更新。这个过程比一次强制同步的过程要快得多，这样便能够高效的重新开始工作。

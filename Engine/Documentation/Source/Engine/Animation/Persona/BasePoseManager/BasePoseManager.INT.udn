@@ -1,4 +1,4 @@
-Availability: Docs
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
 Title:Retarget Manager
 Description:Breaks down the Retarget Manager options within the Skeleton Editor.
@@ -72,7 +72,7 @@ The **Clear Mapping** button will wipe all the currently assigned Bones from the
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
-    qna6b-kAN48  <!-- Insert the youtube video link here -->
+    qna6b-kAN48
     [/PARAMLITERAL]
     [PARAMLITERAL:width]
     78

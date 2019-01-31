@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2716263
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:虚幻项目和游戏性
 Crumbs: %ROOT%, Gameplay
 Description:介绍虚幻引擎中的项目、关卡、类和 Actor。
 version:4.9
 
-项目的所有内容均包含在项目目录中。可创建任意数量的项目，但每个均为自含式。使用虚幻引擎的 **项目浏览器（Project Browser）** 进行 [创建新项目](Engine/Basics/Projects/Browser#bookmarkcreatingnewprojects) 将设置必要的项目框架，如 [目录结构](Engine\Basics\DirectoryStructure) 和可 [在编辑器中打开](Engine/Basics/Projects/Browser#bookmarkopeningprojects) 的虚幻项目文件（`[ProjectName].uproject`）。  
+项目的所有内容均包含在项目目录中。可创建任意数量的项目，但每个均为自含式。使用虚幻引擎的 **项目浏览器（Project Browser）** 进行 [创建新项目](Engine/Basics/Projects/Browser#creatingnewprojects) 将设置必要的项目框架，如 [目录结构](Engine\Basics\DirectoryStructure) 和可 [在编辑器中打开](Engine/Basics/Projects/Browser#openingprojects) 的虚幻项目文件（`[ProjectName].uproject`）。  
 
 项目所包含的资源作为 `.uasset` 文件存储在 Content 文件夹中。这些资源包括材质、静态和骨骼网格体、蓝图、声音提示，以及纹理。它们是可重复使用的参考物质和模板，可被项目中的对象调用。
 

@@ -1,13 +1,12 @@
-﻿INTSourceChangelist:3264165
+﻿INTSourceChangelist:3580824
 availability:Public
 title:蓝图和渲染目标参考
 description:使用蓝图和渲染目标的属性和描述列表。
-crumbs:%ROOT%, Engine, Engine/Rendering, Engine/Rendering/RenderTargets, Engine/Rendering/RenderTargets/BlueprintRenderTargets
+crumbs:%ROOT%,
 version:4.13
 Type:reference
 parent:Engine/Rendering/RenderTargets/BlueprintRenderTargets
 order:2
-Navigation:Reference
 tags:Render Targets
 tags:Blueprints
 topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
@@ -28,10 +27,10 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Texture Render Target| 纹理渲染目标 2D 参考。|
-|Canvas| 对画布的参考。|
-|Size| 渲染目标的大小。|
-|Context| 绘制到渲染目标上下文结构。|
+|**Texture Render Target**| 纹理渲染目标 2D 参考。|
+|**Canvas**| 对画布的参考。|
+|**Size**| 渲染目标的大小。|
+|**Context**| 绘制到渲染目标上下文结构。|
 
 ## End Draw Canvas to Render Target
 
@@ -41,7 +40,7 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Context| 绘制到渲染目标上下文结构。|
+|**Context**| 绘制到渲染目标上下文结构。|
 
 
 ## Clear Render Target 2D
@@ -52,8 +51,8 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Texture Render Target| 纹理渲染目标 2D 参考。|
-|Clear Color| 用给定的 Clear Color 清除特定的渲染目标。|
+|**Texture Render Target**| 纹理渲染目标 2D 参考。|
+|**Clear Color**| 用给定的 Clear Color 清除特定的渲染目标。|
 
 
 ## Create Render Target 2D
@@ -64,9 +63,9 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Width| 渲染目标宽度尺寸。|
-|Height| 渲染目标高度尺寸。|
-|Return Value| 纹理渲染目标 2D 参考。|
+|**Width**| 渲染目标宽度尺寸。|
+|**Height**| 渲染目标高度尺寸。|
+|**Return Value**| 纹理渲染目标 2D 参考。|
 
 ## Draw Material to Render Target
 
@@ -77,8 +76,8 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Texture Render Target| 纹理渲染目标 2D 参考。|
-|Material| 保存渲染目标结果的材质。|
+|**Texture Render Target**| 纹理渲染目标 2D 参考。|
+|**Material**| 保存渲染目标结果的材质。|
 
 ## Export Render Target
 
@@ -88,9 +87,9 @@ topic-image:Engine/Rendering/RenderTargets/Render_Targets_Reference.png
 
 | 属性| 描述 |
 |----------|-----------------|
-|Texture Render Target| 纹理渲染目标 2D 参考。|
-|File Path| 渲染目标的保存路径。|
-|File Name| 保存渲染目标的命名。|
+|**Texture Render Target**| 纹理渲染目标 2D 参考。|
+|**File Path**| 渲染目标的保存路径。|
+|**File Name**| 保存渲染目标的命名。|
 
 
 

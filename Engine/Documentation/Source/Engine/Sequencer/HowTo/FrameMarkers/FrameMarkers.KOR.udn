@@ -1,0 +1,66 @@
+﻿INTSourceChangelist:4677954
+Availability: Public
+Crumbs: 
+Title: 시퀀서의 프레임 마커 사용법
+Description: 시퀀서에서 Frame Marker, 프레임 마커를 사용하여 시네마틱 시퀀스 내 특수 프레임을 나타내는 방법을 설명합니다. 
+Type: 
+Version: 4.21
+Parent: Engine/SEquencer/HowTo
+Order: 
+Tags: Sequencer
+Tags: Frame Markers
+
+
+가끔 시퀀서에서 작업할 때 시네마틱 안에서 변경사항을 추적하고자 하는 프레임이 있을 수 있습니다. 나중에 돌아와서 변경하거나 시네마틱 특정 시간에 다른 콘텐츠를 삽입하고 싶을 수도 있습니다. 어떤 경우든 **Frame Markers** (프레임 마커)를 사용하여 시퀀서의 원하는 시간에 마킹하면 정의한 "관심 지점"을 한 번에 확인할 수 있습니다.   
+
+여기서는 프레임 마커를 추가, 토글, 제거하는 법은 물론 마커 사이를 점프하는 바로 가기에 대해서도 알아봅니다. 
+
+## 단계
+
+1.  프로젝트 및 시퀀스 안에서 타임라인을 아무 위치로 옮기고 **M** 키를 눌러 마커를 추가합니다.   
+    [REGION:lightbox]
+    [![](MarkedFrame_01-2.png)(w:900)](MarkedFrame_01-2.png)
+    [/REGION]
+    [REGION:caption]
+    이미지를 클릭하면 원본을 확인합니다.
+    [/REGION]
+    마커를 추가한 곳에 청록색 마커가 표시됩니다 (위의 15 프레임 참고).
+2.  타임라인을 앞으로 이동하고 우클릭한 뒤 컨텍스트 메뉴에서 **Add Mark** (마크 추가)를 선택하여 마커를 추가합니다.  
+    [REGION:lightbox]
+    [![](MarkedFrame_01b.png)(w:900)](MarkedFrame_01b.png)
+    [/REGION]
+    [REGION:caption]
+    이미지를 클릭하면 원본을 확인합니다.
+    [/REGION]
+    마커 추가는 **M** 키를 누르거나 컨텍스트 메뉴에서 **Add Mark** (마크 추가) 옵션을 선택해도 됩니다.
+    [REGION:note]
+    **CTRL + SHIFT + , (쉼표)** 키를 누르면 이전 마커로 점프, **CTRL + SHIFT + . (마침표)** 키를 누르면 다음 마커로 점프합니다.
+    [/REGION]
+3.  타임라인에 우클릭하여 컨텍스트 메뉴를 띄우고 **Clear All Marks** (모든 마크 지우기)를 선택합니다.   
+    [REGION:lightbox]
+    [![](MarkedFrame_02.png)(w:900)](MarkedFrame_02.png)
+    [/REGION]
+    [REGION:caption]
+    이미지를 클릭하면 원본을 확인합니다.
+    [/REGION]
+    그러면 시퀀스에 추가한 모든 마커를 지웁니다. 특정 마커만 지우려면, 마커 위치로 이동한 뒤 **M** 키를 눌러 마커를 토글시키면 됩니다.   
+    
+5.  마커와 키프레임 설정한 프로퍼티를 추가한 뒤 키 설정한 프로퍼티를 마커로 슬라이드합니다. 
+
+## 최종 결과
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ yHKKtjxlGfk
+ [/PARAMLITERAL]
+[/OBJECT]
+
+위 비디오에서 키프레임을 둘 생성하여 카메라를 한 위치에서 다른 위치로 이동시킵니다. 마커를 이미 설정해 두었기에, 이상적인 카메라 이동 위치로 정의한 그 마커 위치로 키프레임을 이동합니다. 
+
+키를 드래그하여 위치를 조정할 때, 키와 섹션에 스냅 옵션이 활성화된 경우 키와 섹션은 지정한 간격 단위로 마커 프레임에 끌어 맞춥니다. **CTRL + SHIFT + , (쉼표)** 및 **CTRL + SHIFT + . (마침표)** 를 사용하여 마커 사이를 이동하면 시작 및 끝 마커 사이를 빠르게 이동할 수 있습니다.

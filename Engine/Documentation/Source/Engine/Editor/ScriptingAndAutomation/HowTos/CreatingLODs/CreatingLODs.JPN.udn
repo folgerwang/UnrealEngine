@@ -1,0 +1,154 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: ブループリントおよび Python で LOD を作成する
+Description: Unreal Editor で、ブループリントおよび Python を使用して LOD を自動設定する方法を説明します。
+Type:how-to
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation/HowTos
+SkillLevel:Intermediate
+Order: 1
+Tags: Blueprints, how-to, Python, scripting, editor, lods, levels of detail
+
+
+メッシュに LOD（詳細度）モデルを作成することは、ビジュアル クオリティを低下させることなくゲームのパフォーマンスおよびフレームレートを向上させるうえで有効な方法です。
+
+一般的には、メッシュに含まれるトライアングルの数が多く、これらの画面での表示が小さい場合に、GPU によるレンダリングがより困難になります。同時に多くの詳細なメッシュをレンダリングしようとすると、フレームレートが遅くなる場合があります。ただし、シーンに含まれるすべてのメッシュを同じ忠実度でレンダリングする必要は通常はありません。遠くにあるメッシュについては、ビジュアル クオリティの違いを気づかれることなく、少ない数のトライアングルによる詳細度の低いバージョンのメッシュに置き換えることができる場合が多くあります。
+
+Unreal Engine 4 には、各フレームでメッシュが現在使用している画面スペースの量に基づいて、ランタイム時での表示に最も適したバージョンのメッシュを自動的に選択する、ビルトインの LOD 管理システムが搭載されています。このシステムでは、メッシュの異なる代替バージョンを事前にエディタで設定しておく必要があります。
+
+エディタでは、指定したしきい値に向けてメッシュを徐々に単純化することで、スタティック メッシュ アセットのLODを自動的に生成することができます。このシステムの仕組みや、スタティック メッシュ エディタで自動生成を設定する方法については、「[LOD の自動生成をセットアップする](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration)」を参照してください。
+
+[REGION:lightbox]
+[![スタティック メッシュ エディタでのLOD設定](ALC_PM_00.png "データ検証済みのスタティック メッシュ エディタでのLOD設定")](ALC_PM_00.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]
+
+ただし、エディタでこれらのLODを自動生成できても、プロジェクトに含まれるスタティック メッシュ アセットを 1 つずつ開いて設定を行うことは困難な場合があります。アセットをまとめて編集することは可能ですが、異なるスタティック メッシュ アセットにそれらの性質に基づいて異なる設定を適用する場合は有効ではありません。例えば、メッシュ内にある既存のトライアングル数や、アセットの命名規則に基づいて異なる削減設定を適用する場合などがこれにあたります。また、スクリプティングした、より大きなカスタム アセット パイプライン内のサブステップとして LOD を作成する場合も、この方法は有効ではありません。このような場合は、ブループリントまたは Python を使用して、自動 LOD 作成システムをスクリプティングすることができます。
+
+[REGION:note]
+初めての場合、、**Editor Scripting Utilities** プラグインをインストールする必要があります。詳細については、[「エディタのスクリプティングと自動化」](Engine/Editor/ScriptingAndAutomation)を参照してください。
+[/REGION]
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	LOD の管理が必要なノードは、 **[Editor Scripting] > [Static Mesh]** カテゴリに表示されます。
+
+	[REGION:note]
+	これらのノードを使用するには、**PlacedEditorUtilityBase** クラスなど、エディタのみのクラスから派生したブループリント クラスである必要があります。詳細については、「ブループリントを使用したエディタのスクリプティング」(Engine/Editor/ScriptingAndAutomation/Blueprints) を参照してください。
+	[/REGION]
+
+	*   重要になるのは、渡したスタティック メッシュ アセットの詳細度を自動的に作成する **Set Lods** ノードです。これを使用するには、このノードと共に、画面サイズのしきい値、および作成する各LODの相対的なトライアングルの割合を定義する一連の削減設定を提供する必要があります。以下の例を見てみましょう。
+		[REGION:note]
+		**EditorScriptingMeshReductionOptions** ノードの [**Reduction Settings**] の入力値として渡す最初の **EditorScriptingMeshReductionSettings** アイテムには影響はありません。これは、LOD が 0 の場合は常に、設定されているすべてのトライアングルを含めて最も詳細なレベルでメッシュを表示するよう指定されるためです。
+		[/REGION]
+	*   スタティック メッシュに対して現在設定されている LOD に関する情報を取得するには、**Get Lod Count** および **Get Lod Screen Sizes** が使用できます。
+	*   また、既存の LOD をすべて削除するには **Remove Lods** が使用できます (メッシュの詳細度が最高であることを意味する LOD = 0 以外の場合)。
+	*   LOD を設定することで、スタティック メッシュ アセットに変更が加えられます。加える変更を維持する場合は、後から **Save Asset** または **Save Loaded Asset** などのノードも使用する必要があります。
+
+	以下の例では、各スタティック メッシュ アセットを入力パス内に順番にロードします。最小しきい値より多くの頂点が含まれるスタティック メッシュについては、追加の LOD が 3 つ設定されて、後に保存されます。
+
+	[REGION:lightbox]
+	[![ブループリントでの LOD 設定の例](set_lods_example.png "ブループリントでの LOD 設定の例")](set_lods_example.png)
+	[/REGION]
+	[REGION:caption]
+	クリックしてフルサイズ表示
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	LOD 管理関数は `unreal.EditorStaticMeshLibrary` クラスにあります。
+
+	*   重要になるのは、渡したスタティック メッシュ アセットの LOD を自動的に作成する `unreal.EditorStaticMeshLibrary.set_lods()` 関数です。この関数を使用するには、画面サイズのしきい値、および作成する各詳細度の相対的なトライアングル割合を定義する一連の `EditorScriptingMeshReductionSettings` を含む `EditorScriptingMeshReductionOptions` オブジェクトを渡す必要があります。以下の例を見てみましょう。
+		[REGION:note]
+		EditorScriptingMeshReductionOptions.reduction_settings 配列で設定した最初の EditorScriptingMeshReductionSettings アイテムには影響はありません。これは、LOD が 0 の場合は常に、設定されているすべてのトライアングルを含めて最も詳細なレベルでメッシュを表示するよう指定されるためです。
+		[/REGION]
+	*   `unreal.EditorStaticMeshLibrary.get_lod_count()` および `unreal.EditorStaticMeshLibrary.get_lod_screen_sizes` を使用して、スタティック メッシュに対して現在設定されている LOD に関する情報を取得することが可能です。
+	*   また、`unreal.EditorStaticMeshLibrary.remove_lods()` を使用して、既存の LOD をすべて削除することが可能です (メッシュの詳細度が最高であることを意味する LOD = 0 以外の場合)。
+	*   LOD を設定することで、スタティック メッシュ アセットに変更が加えられます。加える変更を維持する場合は、後から `unreal.EditorAssetLibrary.save_asset()` または `unreal.EditorAssetLibrary.save_loaded_asset()` などの関数も使用する必要があります。
+
+	以下の例では、各スタティック メッシュ アセットを入力パス内に順番にロードします。最小しきい値より多くの頂点が含まれるスタティック メッシュについては、追加の LOD が 3 つ設定されて、後に保存されます。
+
+		import unrealasset_path = "/Game/studio"
+		# 特定のスタティック メッシュ アセットに対する新しい LOD を生成する関数を定義します。
+		def apply_lods(static_mesh):
+		# メッシュが十分に複雑かどうかを確認します。
+		number_of_vertices = unreal.EditorStaticMeshLibrary.get_number_verts(static_mesh, 0)
+		if number_of_vertices < 10:
+			return
+		print("対象のアセット：" + static_mesh.get_name())
+		print("既存の LOD 数：" + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
+		# LOD の自動生成のためのオプションを設定します。
+		options = unreal.EditorScriptingMeshReductionOptions()
+		# 3 つの新しい LOD をリクエストします。各 LOD には次が含まれます：
+		# - この詳細度が表示される画面スペースのしきい値。
+		# - LOD = 0 と比べてこのレベルで維持されるべきトライアングルの割合/
+		options.reduction_settings = [ unreal.EditorScriptingMeshReductionSettings(1.0, 1.0),
+			unreal.EditorScriptingMeshReductionSettings(0.8, 0.75),
+			unreal.EditorScriptingMeshReductionSettings(0.6, 0.5),
+			unreal.EditorScriptingMeshReductionSettings(0.4, 0.25)
+		]
+		# 自動計算するのではなく、上で設定された画面スペースのしきい値を使用します。
+		options.auto_compute_lod_screen_size = False
+		# スタティック メッシュ アセットのオプションを設定します。
+		unreal.EditorStaticMeshLibrary.set_lods(static_mesh, options)
+		# 変更を保存します。
+		unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		print("新しい LOD 数：" + str(unreal.EditorStaticMeshLibrary.get_lod_count(static_mesh)))
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(apply_lods, static_mesh_assets)
+
+	別なアプローチとして、各スタティック メッシュ アセットに対して **LOD Group** オプションを設定する方法があります。このオプションでは、`LevelArchitecture`、`SmallProp`、`LargeProp`、または `HighDetail` など、プロジェクトの**「BaseEngine.ini」**ファイル内の `[StaticMeshLODSettings]` セクションで定義されている、事前設定済みの LOD 削減設定の 1 つをメッシュに使用させることができます。
+
+	例：
+
+		import unreal
+		asset_path = "/Game/studio/"
+		def set_high_detail(static_mesh):
+		# LOD グループを設定します。
+		static_mesh.set_editor_property("lod_group", "HighDetail")
+		# アセットを保存します。
+		unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(set_high_detail, static_mesh_assets)
+
+	[REGION:tip]
+	このシステムの仕組みやエディタで使用する方法については、「LOD の自動生成をセットアップする」(Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration#LODグループの使用) を参照してください。
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
+

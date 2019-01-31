@@ -1,0 +1,84 @@
+﻿INTSourceChangelist:4669081
+Availability: Public
+Crumbs: 
+Title: ブループリントのブックマーク
+Description: Unreal Engine 4 向け製品ドキュメント (リファレンスおよびガイドを含む)
+Type: 
+Version: 4.21
+Parent: Engine/Blueprints/Editor
+Order: 
+Tags: Blueprint Bookmarks
+
+
+![](BookmarksHeroImage.png)
+
+  
+**ブループリントのブックマーク** では、ブループリント エディタで関数グラフに名前付きのブックマークを作成できます。このブックマークはビューポートの位置とズーム レベル、さらにブックマークを作成したときに表示していたアクティブ タブを取得します。ブックマークは使用するマシンにローカルに保存されます。つまりブループリント自体には影響しません。コンテンツを同期してもブックマークが別のユーザーのブックマークに上書きされることはありません。
+
+## ブックマークの作成
+
+  
+ブループリントのブックマークを作成する方法 
+
+1. ブックマークを付けるグラフとズームの位置で、グラフの左上にある **星形** アイコンをクリックします。
+    ![](BlueprintBookmarks_Creation_01.png "BlueprintBookmarks_Creation_01.png") 
+1. **[New Bookmark]** ウィンドウで、希望する名前を入力し、**[Add]** ボタンを押します。   
+    ![](BlueprintBookmarks_Creation_02.png "BlueprintBookmarks_Creation_02.png")
+      
+    
+
+## ブックマークの表示と使用
+
+  
+前に作成したブックマークを表示または使用するには、**[Bookmarks]** ウィンドウを開きます。 
+
+1. **[Window]** メニュー オプションから **[Bookmarks]** を選択します。   
+    ![](BlueprintBookmarks_Using_01.png "BlueprintBookmarks_Using_01.png")
+      
+    これにより **[Bookmarks]** メニューが開き、現在のアセットに対するすべてのブックマークと [コメントブロック](Engine/Blueprints/UserGuide/Comments#コメントボックス) が表示されます。   
+      
+    ![](BlueprintBookmarks_Using_02.png "BlueprintBookmarks_Using_02.png")
+      
+    **[Bookmarks]** ウィンドウの右上隅にある、**目の形** のアイコンをクリックして、**[Comment Nodes]** または **[Show Bookmarks for Current Graph Only]** の表示を無効にします。![](BlueprintBookmarks_Using_03.png "BlueprintBookmarks_Using_03.png")
+      
+    **[Show Bookmarks for Current Graph Only]** を有効にすると、アクティブなグラフに対するブックマークが表示されます (無効にすると、どのグラフにあっても、アセットに対するすべてのブックマークが表示されます)。   
+      
+    ブックマーク (またはコメント) を右クリックすると、ブックマークの削除や名前変更、選択したブックマーク (またはコメント) への移動オプションが表示されます。   
+      
+    ![](BlueprintBookmarks_Using_04.png)  
+      
+    
+1. **[Bookmarks]** または **[Comment Nodes]** ブロックをダブルクリックして、グラフの対象セクションにジャンプします。   
+    ![](BlueprintBookmarks_Using_05.png "BlueprintBookmarks_Using_05.png")
+      
+    ブックマークにジャンプすると、グラフの左上にある **星形** アイコンが塗りつぶされ、ブックマークを作業していることを示します。 
+
+## クイック移動ブックマーク
+
+**ブックマーク** の作成のほかに、 **クイック移動ブックマーク** を作成できます。これは[レベル エディタのビューポート](Engine/UI/LevelEditor/Viewports/ViewportOptions)でのブックマークのしくみと同様です。ブループリント エディタのラベル付きブックマークの場合と同様に、ブックマークへのクイック移動は、エディタ セッションの間に維持され、それらを作成したユーザーとマシンのローカルに制限されます。 
+
+  
+**クイック移動ブックマーク** をアサインし使用する方法   
+
+1. グラフを開いて、 **Ctrl + 0-9** (数字キー) を押して、現在のブループリント、グラフの位置とズーム レベルを記憶します。 
+2. グラフ内で、 **Shift \+ 0-9** (前のステップの数字) を押して、対象のブループリント、グラフの位置とズーム レベルに戻ります。 
+
+[REGION:note]
+**クイック移動ブックマーク** ではアセットを開いておく必要はなく、アセット、グラフの位置とズーム レベル (次のサンプル動画を参照) は自動的に開きます。
+[/REGION]
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	NsXnA9KqzQk
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:warning]
+4.21 では、**クイック移動ブックマーク** は **[Bookmarks]** ウィンドウに表示されません。
+[/REGION]

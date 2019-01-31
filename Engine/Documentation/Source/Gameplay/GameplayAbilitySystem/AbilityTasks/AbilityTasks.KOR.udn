@@ -1,0 +1,25 @@
+﻿INTSourceChangelist:4357700
+Availability: Public
+Crumbs: 
+Title: 어빌리티 태스크
+Description: Ability Task 클래스에 대한 개요입니다.
+Version: 4.20   
+Parent: Gameplay/GameplayAbilitySystem
+Order: 4
+Tags: Gameplay Ability System, Abilities
+
+
+Ability Task (C++ 클래스 `UAbilityTask`, 어빌리티 태스크)는 보다 일반적인 Gameplay Task (게임플레이 태스크) 클래스에 Gameplay Abilities (게임플레이 어빌리티)를 사용할 수 있도록 한 특수한 형태입니다. 게임플레이 어빌리티 시스템을 사용하는 게임은 보통 저마다 고유한 게임플레이 피처를 구현하는 다양한 커스텀 어빌리티 태스크를 포함합니다. 게임플레이 어빌리티 실행 도중 비동기 작업을 할 수도, (네이티브 C++ 코드에서는) [델리게이트](Programming/UnrealArchitecture/Delegates) 를 호출하여 실행 흐름에 영향을 줄 수도, (블루프린트에서는) 하나 이상의 출력 실행 핀을 통해 움직일 수도 있습니다. 이로써 여러 프레임에 걸쳐 어빌리티를 실행할 수도, 같은 프레임에 여러가지 다른 함수를 실행할 수도 있습니다. 대부분의 어빌리티 태스크에는 즉시 발동하는 실행 핀이 있어, 태스크 시작 후 블루프린트 실행을 지속시킬 수 있습니다. 추가로 지연 후 발동되는 핀이나, 발생할 수도 안할 수도 있는 특정 이벤트를 따라가는 특정 태스크 핀도 있습니다.
+
+어빌리티 태스크는 `EndTask` 함수를 호출하여 자체 종료하거나, 자신을 실행한 게임플레이 어빌리티가 끝나 자동 종료될 때까지 기다릴 수도 있습니다. 어빌리티 태스크의 허상 실행을 방지하여, CPU 사이클 및 메모리 누수를 막습니다. 예를 들어 한 어빌리티 태스크가 마법을 시전하는 애니메이션을 재생하면서 다른 태스크가 플레이어가 조준하는 곳에 조준선을 그릴 수 있습니다. 플레이어가 Confirm (확인) 입력을 눌러 마법을 시전하거나, 하지 않아도 애니메이션이 끝날 때까지 기다리면 게임플레이 어빌리티는 끝날 수 있습니다. 언제든 자체 종료할 수 있기는 하지만, 어빌리티 태스크는 메인 어빌리티가 끝나면 결국 같이 끝나게 마련입니다.
+
+[REGION:note]
+어빌리티 태스크는 네트워크 연결이 있는 환경에서도 없는 환경에서도 사용할 수 있도록 설계되어 있습니다. 기본적으로 네트워크를 통해 자체 업데이트하지는 않습니다. (리플리케이트를 하는) 게임플레이 어빌리티가 생성하고, 플레이어 입력 또는 네트워크 변수처럼 리플리케이트되는 정보에 따라 실행 흐름을 결정하기 때문에, 보통 동기화 상태가 간접적으로 유지되기 때문입니다.
+[/REGION]
+
+![](SampleAbilityTaskBP.png "SampleAbilityTaskBP.png")
+
+*블루프린트로 구현한 근접 공격 게임플레이 어빌리티입니다. 중앙의 "Play Montage and Wait for Event" 어빌리티 태스크는 ActionRPG 샘플의 일부입니다.*
+[REGION:note]
+UE4 프로젝트에서의 구성 방법은 [](Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/MeleeAbilitiesInARPG) 문서를 참고하세요.
+[/REGION]

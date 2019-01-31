@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: 虚幻工作室项目模板
+Description: 描述了虚幻工作室用户专用的模板项目。
+Type:landing
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Getting Started
+Tags: Unreal Studio
+topic-image:studio-product-viewer-template-topic.png
+
+
+注册使用虚幻工作室时，您也将获得访问项目模板的权限并可以将它们用作您自己的项目的起始点。可在 **虚幻工作室** 选项卡（位于 **新建项目（New Project）** 窗口中）和 **虚幻项目浏览器（Unreal Project Browser）** 中找到这些模板：
+
+![虚幻工作室模板](unreal-studio-templates.png "Unreal Studio Templates")
+
+## 虚幻工作室模板
+
+%Enterprise/UnrealStudioProjectTemplates/StudioProductViewer:topic%
+
+*   如果要从零开始构建项目，也可以使用“虚幻工作室”选项卡上的 **空白（Blank）** 模板。它是完全空白的初始场景，没有导航也没有交互。除了是作为Unreal Studio项目设置以外，此模板本质上与 **空白（Blank）** 蓝图模板相同。
+
+[REGION:tip]
+从4.20发行版起，每个模板都可以作为虚幻工作室项目！只要您从Epic Games启动程序启动虚幻编辑器并具有虚幻工作室授权，您以任意模板为基础创建的项目都将自动被视作虚幻工作室项目。您将能够立即使用它通过Datasmith导入内容。
+[/REGION]

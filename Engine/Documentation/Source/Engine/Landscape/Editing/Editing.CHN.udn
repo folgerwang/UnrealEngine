@@ -1,29 +1,12 @@
-﻿INTSourceChangelist:2746137
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:编辑地形
 Crumbs: %ROOT%, Engine, Engine/Landscape
 Description:使用工具编辑地形地貌的指南。
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topiccompact]
-	[PARAM:image]
-		![%Engine/Landscape/Editing:title%](Engine/Landscape/Editing/landscape_editing_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Editing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Editing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Editing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+parent:Engine/Landscape
+order:3
+topic-image:Engine/Landscape/Editing/landscape_editing_topic.png
 
 
 创建地形之后，即可对其进行以下操作：
@@ -43,6 +26,9 @@ Version:4.9
 
 如需了解地形工具操作范例，请查阅 [](Resources\ContentExamples\Landscapes)。
 
+[REGION:tip]
+在VR编辑器中，同样可以使用地形工具。关于在VR中使用地形的操作方法，请查阅[](Engine/Editor/VR/Controls)。
+[/REGION]
 
 [REGION:topics third]
 [OBJECT:TopicCompact]

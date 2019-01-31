@@ -39,7 +39,7 @@ Version: 4.9
 	void UActorComponent::RegisterComponent()
 
 이 함수는 `UActorComponent::RegisterComponentWithScene()` 를 호출하여 소유중인 **액터** 의 `Components[]` 배열에 **액터 컴포넌트** 가 들어있는지 확인하고, 
-씬에 연관시킨 다음, **액터 컴포넌트** 에 대한 [렌더 프록시](#씬프록시) 와 [피직스 스테이트](#피직스스테이트) 를 만듭니다.
+씬에 연관시킨 다음, **액터 컴포넌트** 에 대한 [렌더 프락시](#씬프락시) 와 [피직스 스테이트](#피직스스테이트) 를 만듭니다.
 
 **액터 컴포넌트** 는 서브-오브젝트로 생성되고 **액터** 의 default properties 내 `Components[]` 배열에 추가된 경우, 소유중인 **액터** 가 스폰될 때 자동으로 등록됩니다. 
 플레이 도중 `UActorComponent::RegisterComponent()` 를 호출하여 언제든 등록시킬 수는 있지만, 컴포넌트 등록은 약간 무거운 작업이라 꼭 필요할 때만 해 줘야 한다는 점, 
@@ -129,7 +129,7 @@ Version: 4.9
 여지껏 가장 흔한 것은 **CapsuleComponent**, **StaticMeshComponent**, **SkeletalMeshComponent** 입니다. **CapsuleComponent** 는 충돌 감지에 쓰이나,
 렌더링되지는 않는 지오메트리를 생성하는 데 사용되는 반면, **StaticMeshComponent** 와 **SkeletalMeshComponent** 는 렌더링 되면서 충돌 감지에 쓸 수도 있는 미리 빌드된 지오메트리가 들어갑니다.
 
-### 씬 프록시
+### 씬 프락시
 
 **프리미티브 컴포넌트** 의 `SceneProxy` 는 `FPrimitiveSceneProxy` 인스턴스로, 프리미티브 렌더링을 게임 스레드와 병행시키기 위해 미러링되는 씬 데이터를 캡슐화시킨 것입니다. 
 각 프리미티브 유형마다 `FPrimitiveSceneProxy` 의 서브클래스를 생성, 해당 프리미티브 유형을 렌더링하는 데 필요한 렌더 데이터를 담습니다.

@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3108692
+INTSourceChangelist:3108692
 Availability:Public
-Title: 델리게이트 (Delegate)
+Title: 델리게이트
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference, Programming/UnrealArchitecture/Reference/Functions
 Description:C++ 오브젝트 상의 멤버 함수를 가리키고 실행시키는 데이터 유형입니다.
 Version: 4.9
@@ -8,7 +8,7 @@ Version: 4.9
 [TOC(start:2)]
 
 [EXCERPT:Overview]
-델리게이트로 C++ 오브젝트 상의 멤버 함수 호출을 일반적이고 유형적으로 안전한 방식으로 할 수 있습니다. 델리게이트를 사용하여 임의 오브젝트의 멤버 함수에 동적으로 바인딩시킬 수 있으며, 
+Delegate (델리게이트)로 C++ 오브젝트 상의 멤버 함수 호출을 일반적이고 유형적으로 안전한 방식으로 할 수 있습니다. 델리게이트를 사용하여 임의 오브젝트의 멤버 함수에 동적으로 바인딩시킬 수 있으며, 
 그런 다음 그 오브젝트에서 함수를 호출할 수 있습니다. 호출하는 곳에서 오브젝트의 유형을 몰라도 말이지요.
 
 델리게이트 오브젝트는 복사해도 완벽히 안전합니다. 델리게이트는 값으로 전달 가능하나 보통 추천할 만 하지는 않는데, 

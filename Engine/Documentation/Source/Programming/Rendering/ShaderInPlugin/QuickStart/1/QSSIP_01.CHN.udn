@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3567323
-Availability:Docs 
+﻿INTSourceChangelist:3967023
+Availability:Public 
 Crumbs: %ROOT%
 Title:在插件 - 代码设置中新建一个全局着色器
 Description:设置全局着色器插件的插件和代码
@@ -69,7 +69,7 @@ Checkpoint:shaderqs
     必须将文件扩展名改为 **.USF**，否则 UE4 无法将其识别为着色器文件。
     [/REGION]
 
-        // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+        // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
         /*=============================================================================
             LensDistortionUVGeneration.usf:将光学变形和不
@@ -261,7 +261,7 @@ Checkpoint:shaderqs
     您需要在此文件中 **四次** 用 FFooCameraModel 替换 FLensDistortionCameraModel。
     [/region]
 
-            // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+            // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
             #pragma once
 
@@ -368,7 +368,7 @@ Checkpoint:shaderqs
     您需要在此文件中 **六次** 用 FFooCameraModel 替换 FLensDistortionCameraModel。
     [/region]
 
-        // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+        // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
         #pragma once
 
@@ -441,7 +441,7 @@ Checkpoint:shaderqs
     您应该用 FFooCameraModel 替换 FLensDistortionCameraModel **两次**；用 UFooBlueprintLibrary 替换 ULensDistortionBlueprintLibrary **四次**。
     [/region]
 
-            // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+            // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
             #include "LensDistortionBlueprintLibrary.h"
 
@@ -482,7 +482,7 @@ Checkpoint:shaderqs
     [region:note]
     您需要在此文件中用 FFooCameraModel 替换 FLensDistortionCameraModel **六次**。
     [/region]
-            // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+            // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
             #include "LensDistortionAPI.h"
             #include "Classes/Engine/TextureRenderTarget2D.h"
@@ -869,7 +869,7 @@ Checkpoint:shaderqs
 
 1. 然后在 **Foo.Build.cs** 文件中的 **PrivateDependencyModuleNames.AddRange** 部分移除 **Slate** 和 **SlateCore**。操作完成后 Foo.Build.cs 应如下：
 
-        // 版权所有 1998-2017 Epic Games, Inc. 保留所有权利。
+        // 版权所有 1998-2018 Epic Games, Inc. 保留所有权利。
 
         using UnrealBuildTool;
 

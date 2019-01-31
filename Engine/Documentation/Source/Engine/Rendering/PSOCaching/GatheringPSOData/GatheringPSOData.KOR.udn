@@ -1,0 +1,131 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: PSO 데이터 수집
+Description: 컴파일된 UE4 프로젝트에서 PSO 데이터를 수집하는 방법입니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:GatheringPSOData_Topic_Image.png
+Tags: 
+
+
+**Pipeline State Object** (PSO) 캐시에 사용되는 데이터 일부는 프로젝트를 타깃 디바이스 중 하나에서 실행하는 도중 생성해야 합니다. 여기서는 [디바이스 프로파일](Platforms/DeviceProfiles) 및 [프로젝트 런처](Engine/Deployment/ProjectLauncher) 를 사용하여 PSO 데이터 생성 및 캡처가 활성화된 언리얼 엔진 4 (UE4) 프로젝트를 만들고 디플로이하는 법을 살펴봅니다.
+
+## 단계
+
+1.  **메인 툴바** 의 **Launch** (실행) 버튼 옆 작은 흰색 화살표를 클릭하고 **Project Launcher** (프로젝트 런처)를 선택합니다.  
+    [REGION:lightbox]
+    [![](Open_UE4_Project_Launcher.png)(w:400px)](Open_UE4_Project_Launcher.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+2.  프로젝트 런처에서 **Custom Launch Profiles** (커스텀 런치 프로파일) 섹션을 찾아 **더하기 부호 아이콘** 을 클릭하여 새 **커스텀 런치 프로파일** 을 추가합니다.   
+    [REGION:lightbox]
+    [![](Create_New_Custom_Launch_Profile.png)(w:800px)](Create_New_Custom_Launch_Profile.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    기존 프로파일 이름을 더블클릭하고 박스에 원하는 이름을 입력하여 프로파일의 이름을 변경할 수 있습니다.
+    [/REGION]
+3.  **Project** (프로젝트) 섹션의 **Project** (프로젝트) 드롭다운을 클릭하고 이 프로파일을 연결할 프로젝트를 선택하세요. 이 워크플로에서는 **ActionRPG** 를 사용하고 있으므로, **Project** 는 **ActionRPG** 로 설정했습니다.
+    [REGION:lightbox]
+    [![](Project_Launcher_Used_Project.png)(w:800px)](Project_Launcher_Used_Project.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+4.  Cook (쿠킹) 섹션 아래 **How would you like to cook the content** (콘텐츠 쿠킹을 어떻게 할까요) 옵션을 **By the Book** 으로 설정합니다.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Cook_Type.png)(w:800px)](Project_Launcher_Cook_Type.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    다양한 쿠킹 옵션에 대한 자세한 내용은 [빌드 작업: 쿠킹, 패키징, 디플로이, 실행](Engine/Deployment/BuildOperations) 문서를 참조하세요.
+    [/REGION]
+5.  **Cooked Platforms** (쿠킹 플랫폼) 섹션에서 이 프로파일이 사용할 플랫폼과 텍스처 포맷을 선택할 수 있습니다. 이 워크플로 데모에서는 **ActionRPG** 를 사용하므로, **Android** 및 **Android_ETC1** 체크를 확인합니다.
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Platforms.png)(w:800px)](Project_Launcher_Cooked_Platforms.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+6.  **Cooked Maps** (쿠킹된 맵) 섹션에서 **Show All** (모두 표시)가 선택되었는지, 이 프로파일에 연결할 맵이 전부 선택되었는지 확인합니다. 이 워크플로 데모에서는 **ActionRPG** 를 사용하므로, 가능한 모든 맵 옆에 체크 표시가 되었는지 확인합니다.
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Maps.png)(w:800px)](Project_Launcher_Cooked_Maps.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+7.  **Launch** (실행) 섹션 아래 **Initial Map** (초기 맵)을 프로젝트 로드 시 사용할 레벨로 설정합니다. 이 워크플로 데모에는 **ActionRPG** 를 사용하므로, 초기 맵은 시작 UI 화면이 들어있는 레벨인 **ActionRPG_Main** 로 설정했습니다.
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+8.  그런 다음 **Additional Command Line Parameters** (부가 명령줄 파라미터) 아래 **-logPSO** 를 입력하여 프로젝트가 실행되면 PSO 로깅이 활성화되록 합니다.
+    [REGION:note]
+    PSO 데이터를 수집할 때 프로젝트에 계속 크래시가 나면, 명령줄에 **-NoVerifyGC** 를 추가하여 가비지 컬렉션을 끄세요.
+    [/REGION]
+    [REGION:lightbox]
+    [![](Project_Launcher_AdditionalCommandLineParams.png)(w:800px)](Project_Launcher_AdditionalCommandLineParams.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+9.  프로젝트 런처 우상단의 **Back** (뒤로) 버튼을 클릭하여 **Custom Launch Profiles** (커스텀 실행 프로파일) 메뉴로 돌아갑니다.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+10.  **Custom Launch Profiles** (커스텀 실행 프로파일) 섹션에서 **Launch this Profile** (이 프로파일 실행) 버튼을 눌러 디플로이 프로세스를 시작합니다.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Start_Cook_And_Deploy.png)(w:800px)](Project_Launcher_Start_Cook_And_Deploy.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    **Launch this Profile** (이 프로파일 실행) 버튼을 누르기 전 타깃 디바이스 설정이 완료되고 개발 PC 에 연결되었는지 확인하세요. 이 프로세스는 프로젝트 빌드, 쿠킹 뿐 아니라 디플로이 및 시작까지도 합니다.
+    [/REGION]
+11.  쿠킹 및 디플로이 프로세스가 시작되면, 다음과 같은 창이 표시되어 빌드 진행 상태가, 발생한 경우 오류도 표시됩니다.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Completed.png)(w:800px)](Project_Launcher_Completed.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+    [REGION:note]
+    **출력 로그** 에 **BUILD SUCCESSFUL** 이라 나오면 프로세스가 성공한 것입니다.
+    [/REGION]
+12.  빌드가 끝나고 타깃 디바이스에 디플로이가 완료되면, 프로젝트의 레벨을 전부 돌아다녀야 합니다. 여기서의 목표는 게임에 사용되는 모든 콘텐츠가 로드되도록 하여 머티리얼이 사용하는 셰이더를 캡처하는 것입니다.  
+    [REGION:note]
+    이 프로세스를 몇 번 반복하여 사용된 모든 콘텐츠가 실제 로드되었는지 확인하는 것이 좋습니다.
+    [/REGION]
+13.  프로젝트를 몇 번 플레이하여 전부 돌아다닌 후 **rec.upipelinecache** 파일을 구할 수 있습니다. 타깃 디바이스의 **UE4Game\\NameOfProject\\NameOfProject\\Saved\\CollectedPSOs** 에서 이 파일을 찾을 수 있습니다.
+    [REGION:lightbox]
+    [![](PSO_FIle_On_Device.png)(w:800px)](PSO_FIle_On_Device.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]  
+    [REGION:note]
+    **Saved** 또는 **CollectedPSOs** 폴더가 보이지 않는 경우, 타깃 디바이스에 그 두 폴더를 수동 생성한 뒤 프로젝트에서 콘텐츠를 다시 실행시켜 올바른 파일이 생성되도록 해야 합니다.
+    [/REGION]
+
+## 최종 결과
+
+필수 PSO 데이터가 생성되었으면, 이제 생성된 다양한 rec.upipelinecache 파일을 전부 하나의 PSO 캐시로 합친 뒤 UE4 프로젝트를 빌드할 때 사용할 수 있습니다.
+
+[REGION:note]
+그 자세한 방법은 [PSO 캐시 빌드 하우투](Engine/Rendering/PSOCaching/BuildingPSOCache) 문서를 참조하세요.
+[/REGION]

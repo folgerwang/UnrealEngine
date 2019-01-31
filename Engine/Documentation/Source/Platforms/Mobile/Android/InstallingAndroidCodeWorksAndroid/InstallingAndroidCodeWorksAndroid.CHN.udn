@@ -1,0 +1,256 @@
+﻿INTSourceChangelist:4673046
+Availability: Public
+Crumbs: 
+Title: 安装Android 1R6u1的CodeWorks
+Description: 安装Android 1R6u1的Code Works
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+
+虚幻引擎4使用特殊版本的Android软件开发套件（SDK），名为CodeWorks for Android 1R6u1。设置用UE4开发Android项目所需的SDK和本地开发套件（NDK）时，使用这个版本的CodeWorks for Android最为简便。虽然当前使用的是1R6u1版本，但仍会使用CodeWorks更新的版本。如果已安装Android SDK的其他版本（或CodeWorks for Android的更早版本），建议您将其卸载，使用UE4自带的CodeWorks for Android安装程序来进行安装。以下部分将讲述如何在开发电脑上安装CodeWorks for Android 1R6u1。
+
+(#steps)
+
+## 步骤
+
+[REGION:note]
+如已安装CodeWorks for Android 1R6u1但环境变量已丢失，则可使用编辑器中的 **编辑菜单（Edit Menu）** -> **项目设置（Project Settings）** -> **Android SDK** 属性略过以下步骤并将编辑器直接指向安装路径。
+[/REGION]
+[REGION:warning]
+强烈建议在编辑器和Launcher两者皆关闭时安装CodeWorks for Android 1R6u1，确保安装不存在问题。
+[/REGION]
+
+1.  如要安装CodeWorks for Android 1R6u1，须导航至 **Engine** \> **Extras** \> **Android** 文件夹。
+    
+    [REGION:note]
+    CodeWorks for Android 1R6u1安装程序需要安装Visual Studio才能成功完成。支持的版本是2013、2015和2017。
+    [/REGION]
+    
+    | 安装类型 | 位置 |
+    | --- | --- |
+    | 二进制 | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\Android |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\Android |
+    
+    [REGION:note]
+    如果虚幻引擎4下载自 **Github**，在运行CodeWorks for Android 1R6u1安装程序前则需要执行以下步骤。注意：从Github上下载虚幻引擎4源代码的Windows和Mac系统电脑均需要执行此操作。如果使用的是从launcher下载的二进制版本，则可跳过此部分，直接安装CodeWorks for Android 1R6u1。
+    
+    1.  从Github下载虚幻引擎4并解压后，运行 **Setup.bat** 文件来下载必需的文件，以及 **CodeWorks for Android 1R6u1** 安装程序。
+        
+    2.  **Setup.bat** 完成运行后，找到并运行CodeWorks for Android 1R6u1安装程序，按以下步骤进行操作。
+    [/REGION]
+2.  双击 **CodeWorksforAndroid-1R6u1-windows.exe** 开始安装进程。
+    
+    ![](AndroidWorks_11.png)
+    
+3.  点击第一个窗口上的 **下一步（Next）** 按钮来开始安装进程。
+    
+    ![](AndroidWorks_00.png)
+    
+3.  点击 **下一步（Next）** 按钮继续。
+    
+    ![](AndroidWorks_01.png)
+    
+5.  设置CodeWorks for Android 1R6u1的下载和安装路径，然后点击 **下一步（Next）** 按钮。
+    
+    ![](AndroidWorks_02.png)
+    
+    [REGION:note]
+    可以沿用默认安装路径。
+    [/REGION]
+6.  确认安装的是 **CodeWorks for Android 1R6u1** 版本，然后点击 **下一步（Next）** 按钮。
+    
+    ![](AndroidWorks_03.png)
+    
+7.  如果同意授权条款，则点击标有 **接受所有（Accept All）** 的勾选框，然后点击 **接受** 按钮。
+    
+    ![](AndroidWorks_04.png)
+    
+8.  将出现一个新窗口，显示CodeWorks for Android 1R6u1工具的下载和安装进程。
+    
+    [REGION:note]
+    完成这部分操作需要网络连接。所花时间从数分钟到数小时不等，具体取决于网络连接速度。
+    [/REGION]
+    
+    ![](AndroidWorks_06.png)
+    
+9.  点击 **下一步（Next）** 按钮来继续CodeWorks for Android 1R6u1的安装。
+    
+    ![](AndroidWorks_09.png)
+    
+10. 然后点击 **完成** 按钮完成安装。
+    
+    ![](AndroidWorks_10.png)
+    
+11. 最后点击 **是** 按钮重新启动电脑。
+    
+    ![](AndroidWorks_12.png)
+    
+    [REGION:note]
+    从Github下载虚幻引擎4并完成CodeWorks for Android 1R6u1的安装后，重新启动PC或Mac设置环境变量，然后再次运行 **Setup.bat** 文件来下载所需的Android开发文件。
+    [/REGION]
+
+[REGION:note]
+如已安装CodeWorks for Android 1R6u1但环境变量已丢失，则可使用编辑器中的 **编辑菜单（Edit Menu）** -> **项目设置（Project Settings）** -> **Android SDK** 属性略过以下步骤并将编辑器直接指向安装路径。
+[/REGION]
+[REGION:warning]
+强烈建议在编辑器和Launcher两者皆关闭时安装CodeWorks for Android 1R6u1，以确保安装不存在问题。
+[/REGION]
+
+在将CodeWorks for Android 1R6u1安装到Mac之前，首先需要确保已安装Java 8。使用下方的链接来下载并安装Java 8。
+
+*   可从[此处](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)下载Java 8。
+    
+
+1.  如要安装CodeWorks for Android 1R6u1，须导航至 **Engine** \> **Extras** \> **Android** 文件夹。
+    
+    | 安装类型 | 位置 |
+    | --- | --- |
+    | 二进制 | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\AndroidWorks\\Mac |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\AndroidWorks\\Mac |
+    
+    [REGION:note]
+    如果虚幻引擎4下载自 **Github**，在运行CodeWorks for Android 1R6u1安装程序前则需要执行以下步骤。注意：从Github上下载虚幻引擎4源代码的Windows和Mac系统电脑均需要执行以下步骤。如果使用的是从launcher下载的二进制版本，则可跳过此部分，直接安装CodeWorks for Android 1R6u1。
+    
+    1.  从Github下载虚幻引擎4并解压后，运行 **Setup.command** 文件来下载必需的文件，以及CodeWorks for Android 1R6u1安装程序。
+        
+    2.  **Setup.command** 完成运行后，找到并运行CodeWorks for Android 1R6u1安装程序，按以下步骤进行操作。
+    [/REGION]
+2.  双击 **CodeWorks for Android 1R6u1-osx.dmg** 加载CodeWorks for Android 1R6u1安装程序。
+    
+    ![](AndroidWorks_Mac_00.png)
+    
+3.  双击CodeWorks for Android 1R6u1安装程序图标开始安装进程。
+    
+    ![](AndroidWorks_Mac_01.png)
+    
+4.  点击 **下一步（Next）**。
+    
+    ![](AndroidWorks_Mac_02.png)
+    
+5.  点击 **下一步（Next）**。
+    
+    ![](AndroidWorks_Mac_03.png)
+    
+6.  指定CodeWorks for Android 1R6u1的安装路径，然后点击 **下一步（Next）** 按钮。
+    
+    [REGION:note]
+    可以沿用默认安装路径。
+    [/REGION]
+    
+    ![](AndroidWorks_Mac_04.png)
+    
+7.  CodeWorks for Android 1R6u1 Component Manager出现后，点击 **下一步（Next）** 按钮开始下载和安装进程。
+    
+    ![](AndroidWorks_Mac_05.png)
+    
+8.  如果同意授权条款，则点击标有 **接受所有（Accept All）** 的勾选框，然后点击 **接受** 按钮。
+    
+    ![](AndroidWorks_Mac_06.png)
+    
+9.  CodeWorks for Android 1R6u1 Component Manager现在便会开始下载和安装必需的工具。
+    
+    [REGION:note]
+    完成这部分操作需要网络连接。所花时间从数分钟到数小时不等，具体取决于网络连接速度。
+    [/REGION]
+10. 一切内容安装完成后将出现以下窗口。点击 **下一步（Next）** 按钮继续。
+    
+    ![](AndroidWorks_Mac_08.png)
+    
+11.  点击 **完成** 按钮来完成CodeWorks for Android 1R6u1的安装。
+    
+    ![](AndroidWorks_Mac_09.png)
+    
+    [REGION:note]
+    从Github下载虚幻引擎4并完成CodeWorks for Android 1R6u1的安装后，重新启动Mac设置环境变量，然后再次运行 **Setup.command** 文件来下载所需的Android开发文件。
+    [/REGION]
+
+CodeWorks for Android 1R6u1安装完毕后，需要执行以下操作来编辑Bash文件：
+
+1.  打开Mac终端。
+    
+    ![](JH_01.png)
+    
+2.  在终端类型中选择 **nano ~/.bash_profile**。
+    
+    ![](JH_02.png)
+    
+3.  滚动到文件末尾并添加 **export JAVA\_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0\_121.jdk/Contents/Home**。
+    
+    ![](JH_03.png)
+    
+    [REGION:note]
+    以上为默认路径，如果在别处安装，须确保路径指向 **jdk1.8.0_121.jdk/Contents/Home**。
+    [/REGION]
+4.  按下 **CTRL + X** 组合键退出bash，然后按下 **Y** 保存修改，然后按下 **回车键** 确认修改并重启Mac。
+    
+5.  Mac重启后，打开终端并输入 **Monitor**，然后按下 **回车键**。如所有内容均已正确设置，Android设备监视器启动画面将出现。
+    
+    ![](JH_04.png)
+    
+
+为便于展示如何在Linux平台着手使用Android，我们将结合虚幻引擎4.14版本使用CodeWorks for Android 1R6u1。安装CodeWorks for Android 1R6u1之前应将引擎关闭。此外请安装Java开发套件8（JDK 8），并将 `JAVA_HOME` 环境变量设为Java开发套件（JDK）的正确版本。在终端中输入 `echo $JAVA_HOME` 即可验证 `JAVA_HOME` 的设置是否正确。如未看到正确的JDK版本，[下载 JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)，在装有Linux系统电脑上进行安装，并将 `JAVA_HOME` 环境变量设为新安装的JDK。
+
+[REGION:warning]
+继续之前须注意，此版本尚未包括Linux上的Android Vulkan支持。
+[/REGION]
+
+1.  打开终端并导航至包含已编译引擎的 `[UE4Root]` 文件夹（使用 `cd` 命令修改shell工作目录）。 
+    ![](LinuxAndroid_Step0.png)(w:900)
+2.  将以下字符串输入终端，在 `[UE4Root]` 文件夹中找到CodeWorks for Android 1R6u1二进制版本（CodeWorksforAndroid-1R6u1-linux-x64.run）：`cd Engine/Extras/AndroidWorks/Linux`。 
+    ![](LinuxAndroid_Step1.png)(w:900)
+3.  在终端中输入 `ls -l`，显示目录内容的长列表。文件的许可设置将告知 **CodeWorksforAndroid-1R6u1-linux-x64.run** 尚未准备好执行。运行CodeWorks for Android 1R6u1二进制版本之前，需要修改文件的访问权，获得“执行”许可。
+    
+	![](LinuxAndroid_Step2.png)(w:900)
+	
+4.  在终端中输入 `chmod +x CodeWorksforAndroid-1R6u1-linux-x64.run`，修改文件的 `CodeWorksforAndroid-1R6u1-linux-x64.run` 许可设置，使其能够像普通可执行文件一样运行。 
+    ![](LinuxAndroid_Step3.png)(w:900)
+    [REGION:tip]
+    如希望了解 `chmod` 命令的更多内容，可在终端中输入 `man chmod`，阅读包含 `chmod` 工作原理的操作页面。
+    [/REGION]
+5.  在终端中输入 `ls -l`。上图中框中文件的许可设置说明CodeWorks for Android 1R6u1二进制文件已可执行。
+    
+	![](LinuxAndroid_Step4.png)(w:900)
+	
+6.  在终端中输入 `./CodeWorksforAndroid-1R6u1-linux-x64.run` 即可运行CodeWorks for Android二进制版本。 
+    ![](LinuxAndroid_Step5.png)(w:900)
+    [REGION:warning]
+    请确保电脑的网络连接正常，然后继续下一步。
+    [/REGION]
+7.  CodeWorks for Android 1R6u1二进制文件解包 **NVIDIA CodeWorks for Android** 安装程序后便会出现 **Installer Welcome** 窗口，弹出点击 **下一步（Next）** > 或 **取消（Cancel）** 的提示。 
+    
+	![](LinuxAndroid_Step6.png)(w:900)
+8.  在 **Installer Welcome** 窗口中点击 **下一步（Next）** 按钮开始安装进程。 
+    ![](LinuxAndroid_Step7.png)(w:900)
+9.  现在在 **Android Developer's Welcome** 窗口中点击 **下一步（Next）** 按钮继续安装进程。 
+    ![](LinuxAndroid_Step8.png)(w:900)
+10.  指定CodeWorks for Android 1R6u1的下载和安装路径。 
+    ![](LinuxAndroid_Step9.png)(w:900)
+11.  点击 **下一步（Next）** 按钮从NVIDIA官网下载CodeWorks for Android 1R6u1，然后在电脑上安装CodeWorks。 
+    ![](LinuxAndroid_Step10.png)(w:900)
+12.  确认 **CodeWorks for Android 1R6u1** 正在安装，然后点击 **Android Component Manager** 窗口中的 **下一步（Next）** 按钮。 
+    ![](LinuxAndroid_Step11.png)(w:900)
+13.  **Terms and Conditions** 窗口出现后，请阅读所有 **条款及条件**，然后选择 **接受所有（Accept All）** 勾选框。 
+    ![](LinuxAndroid_Step12.png)(w:900)
+14.  点击 **接受（Accept）** 按钮开始安装进程。 
+    ![](LinuxAndroid_Step13.png)(w:900)
+15.  安装程序完成安装进程后，即可点击 **下一步（Next >）** 按钮继续。 
+    ![](LinuxAndroid_Step14.png)(w:900)
+16.  **Installation Complete** 窗口出现后，点击 **完成（Finish）** 按钮完成安装。 
+    ![](LinuxAndroid_Step15.png)(w:900)
+17.  进入下一步前必须重启电脑。 
+    ![](LinuxAndroid_Note16.png)(w:900)
+    [REGION:tip]
+    如不希望使用Ubuntu的GUI，可在终端中输入 `sudo reboot` 重启电脑。
+    [/REGION]
+
+(#endresult)
+
+## 最终结果
+
+所有操作完成后，所有的必需Android SDK便已安装，可用于构建在Android设备上运行的虚幻引擎4项目。

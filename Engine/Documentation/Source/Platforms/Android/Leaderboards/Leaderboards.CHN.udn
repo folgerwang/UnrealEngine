@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2945303
+﻿INTSourceChangelist:3782314
 Title:使用 Google Play Services 排行榜
 Description:在游戏中使用排行榜。
 Crumbs:
@@ -7,44 +7,12 @@ version:4.10
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
-type:howto
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Android/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Android/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:how-to
+topic-image:topic.png
 
 ![](Platforms\Mobile\Leaderboards\androidLeaderboard.png)(w:320 convert:false)
 
+(#Configuration)
 ## 配置
 
 在 [排行榜 | Play Game Services | Google 开发者](https://developers.google.com/games/services/common/concepts/leaderboards) 中可查阅应用程序 Google Play Game Services 设置的内容。

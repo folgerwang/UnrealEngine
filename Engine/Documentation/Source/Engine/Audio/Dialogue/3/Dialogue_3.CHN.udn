@@ -1,18 +1,19 @@
-﻿INTSourceChangelist:3218993
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.设置语境
 Crumbs: %ROOT%, Engine, Engine/Audio
 Description:设置一套语境，每个语境皆有其各自的说话者和听者
-version:4.13
+version: 4.13
 parent:Engine/Audio/Dialogue
 order:3
-type:quick start
+type:how-to
 checkpoint:dialogueqs
-prereq:Engine/Blueprints/QuickStart
+prereq: Engine/Blueprints/QuickStart
 related:Engine/Audio
 related:Engine/Audio/Overview
 related:Engine/Audio/SoundCues/Editor
 related:Engine/Audio/SoundCues/NodeReference
+skilllevel:Intermediate
 
 [NAV]
 

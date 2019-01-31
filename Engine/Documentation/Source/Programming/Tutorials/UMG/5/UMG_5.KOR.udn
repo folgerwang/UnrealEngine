@@ -8,7 +8,7 @@ version:4.14
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming\Tutorials\UMG\4 "%Programming\Tutorials\UMG\4:title%")
+		[이전 단계](Programming\Tutorials\UMG\4 "%Programming\Tutorials\UMG\4:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -38,7 +38,7 @@ version:4.14
 	
 	[![](TextBoxDetails.png)](TextBoxDetails.png)
 
-1. 예전 메뉴에서 **버튼** 을 만들었던 것과 같은 방식으로 **텍스트 블록** 라벨이 있는 게임 플레이 **버튼** 을 만들면 됩니다.
+1. 이전 메뉴에서 **버튼** 을 만들었던 것과 같은 방식으로 **텍스트 블록** 라벨이 있는 게임 플레이 **버튼** 을 만들면 됩니다.
 	* 버튼의 경우: 이름은 PlayGameButton, **Position** 은 200, 300, **Size** 는 200, 100 으로 변경합니다.
 	* 텍스트 블록의 경우: 이름을 PlayGameText 로, **Visibility** 를 Hit Test Visible 로 변경한 다음 PlayGameButton 위에 끌어놓습니다.
 

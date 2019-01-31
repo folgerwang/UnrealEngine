@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:9
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南 
+可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读 
+本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,30 +42,30 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Landscape
+##地形
 
-The Landscape system enables you to create terrain for your world - mountains, valleys, uneven or sloped ground, openings for caves - and easily modify both its shape and its appearance by using a range of tools.
+地形系统使您可以为世界场景创建地形——山脉、山谷、不平或倾斜的地面、洞口，且通过使用一系列工具可轻松修改其形状和外观。
 
-##Landscape Mode
+##地形模式
 
-The Landscape system enables you to create terrain for your world - mountains, valleys, uneven or sloped ground, openings for caves - and easily modify both its shape and its appearance by using a range of tools.
+地形系统使您可以为世界场景创建地形——山脉、山谷、不平或倾斜的地面、洞口，且通过使用一系列工具可轻松修改其形状和外观。
 
-##Level
+##关卡
 
-A Level is a user defined area of gameplay. Levels are created, viewed, and modified by placing, transforming, and editing the properties of the Actors it contains. In the Unreal Editor, each Level is saved as a separate .umap file, which is also why you will sometimes see them referred to as Maps.
+关卡是用户定义的Gameplay区。主要通过放置、变换及编辑Actor的属性来创建、查看及修改关卡。在虚幻编辑器中，每个关卡都被另存为单独的.umap文件，这也是您有时会看到将其称为Map的原因。
 
-##Level Editor
+##关卡编辑器
 
-Tools for viewing and editing levels. Container for many Editor functions.
+用于查看和编辑关卡的工具。容纳许多编辑器功能的容器。
 
-##Level Sequence
+##关卡序列
 
-The Level Sequence is the “container” for your cinematic scenes and must be created in order to begin working inside the Sequencer Editor.
+关卡序列是过场动画场景的“容器”，必须创建关卡序列才能在Sequencer编辑器内开始操作。
 
-##Level Streaming
+##关卡流送
 
-The Level Streaming feature makes it possible to load and unload map files into memory as well as toggle their visibility during play. This makes it possible to have worlds broken up into smaller chunks so that only the relevant parts of the world are taking up resources and being rendered at any point. If done properly, this allows for the creation of very large, seamless levels that can make the player feel as if they are playing within a world that dwarfs them in size.
+关卡流送功能可用于在内存中加载和卸载地图文件及在播放期间切换可视性。从而可以将世界场景分解成更小的数据块，这样只有世界场景的相关部分占用资源，并随时渲染。若操作适当，还可创建超大型无缝关卡，从而让玩家感觉好似在大人国的场景中玩游戏一样。
 
 ##Lightmass
 
-Lightmass is the static global illumination system which creates lightmaps with complex light interactions, such as area shadowing and diffuse interreflection from stationary and static lights.
+Lightmass是静态全局光照系统，可用于创建具有复杂光交互作用的光照图，例如区域阴影及静止和静态光的间接漫反射。

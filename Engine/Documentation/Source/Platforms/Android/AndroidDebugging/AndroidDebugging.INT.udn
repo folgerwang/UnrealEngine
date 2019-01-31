@@ -1,0 +1,55 @@
+Availability: Public
+Crumbs: 
+Title: Android Debugging
+Description: Taking a look at how to debug your UE4 project using Android Studio.
+Type: 
+Version: 4.20
+Parent: Platforms/Android
+Order: 1
+Tags: Android
+
+
+Unreal Engine 4 (UE4) enables you to use Android Studio to debug the C++ and Java code that is used in your UE4 project. In the following how-to, we will take a look at getting Android Studio set up so that it can be used to debug your UE4 Android projects.
+
+## Steps
+
+In the following section, we will go over how to download and set setup Android Studio so that it will work with a UE4 project.
+
+1.  First, download and install Android Studio version 3.0.1 using the following link:   
+      [https://developer.android.com/studio/archive](https://developer.android.com/studio/archive)
+2.  Next, build the apk that you want to debug and then deploy it to your Android device you will be using for debugging.  
+    ![](package_menu.png)
+3.  Open up the Android Studio Launcher and from the displayed options, select the **Open an existing Android Studio Project**.  
+    ![](AndroidDebugging_01.png "AndroidDebugging_01.png")
+4.  From the **Open File or Project** menu, navigate to **C:\\YourProjectName\\Intermediate\\Android\\APK\\Gradle** and select the **Gradle** directory, then press the **OK** button.  
+    ![](AndroidDebugging_02.png "AndroidDebugging_02.png")
+5.  Once Android Studio is open, go to the **Run Menu** and select the **Edit Configurations** option.  
+    ![](AndroidDebugging_03.png "AndroidDebugging_03.png")
+6.  Click on the **Debugger** tab and set the debug type to **Dual**.  
+    ![](AndroidDebugging_04.png "AndroidDebugging_04.png")
+7.  Next, go to the **LLDB Startup Command** tab, press **plus** icon (+) and then input the following line, pressing the **OK** button to complete the process.  
+		command script import "C:\PathToYourUE4EngineInstall\Engine\Extras/LLDBDataFormatters\UE4DataFormatters_2ByteChars.py"
+	[REGION:note]
+	Note that TEXT("string") should be used instead of L("string") in your C++ code.
+	[/REGION]
+	![](AndroidDebugging_05.png "AndroidDebugging_05.png")
+	[REGION:note]
+	Make sure to press the **Enter** key or the command will not take.
+	[/REGION]
+
+8.  Now, open up any of your project's .cpp files and add breakpoints to items you want to debug.  
+    
+	![](AndroidDebugging_10.png)
+10.  From the main menu, select **Run** > **Debug 'app-app'.  
+	![](AndroidDebugging_06.png "AndroidDebugging_06.png")
+11.  When the **Select Deployment Type** windows is displayed, select your device from the list and press the **OK** button.  
+    ![](AndroidDebugging_07.png "AndroidDebugging_07.png")
+
+## End Result
+
+Once all of that has been completed, wait for the debugger to attach to your Android Device.  
+![](AndroidDebugging_08.png)  
+
+[REGION:note]
+Depending on the size of your project, it could take some time for the debugger to attach. This also **does not** install the data on the device if you don't use the **Package data inside APK** option. Doing so will make the redeploying for debugging slower since the APK will be larger. Another option is to first do a **Launch **on in the editor before using Android Studio for debugging to install the current level on the device. Alternatively, you can package and install the OBB on the device if you need more than the current level data.
+[/REGION]

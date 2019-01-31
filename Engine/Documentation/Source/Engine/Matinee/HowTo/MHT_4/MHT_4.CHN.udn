@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2728318
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用相机效果
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -10,7 +10,8 @@ SkillLevel:Intermediate
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
-添加 Matinee，摄像机和道具
+(#AddingtheMatinee,Cameras,andProps)
+## 添加 Matinee，摄像机和道具
 
 在这步中我们将添加 **Matinee Actor**、**摄像机** 和一些作为镜头目标的道具。 
 
@@ -57,7 +58,8 @@ SkillLevel:Intermediate
 	![](MHT4_C2_CameraSettings.png)
 
 
-为 Matinee 添加摄像机并添加轨迹
+(#AddingtheCamerastoMatineeandAddingTracks)
+## 为 Matinee 添加摄像机并添加轨迹
 
 在这步中，我们将为 **Matinee** 添加 **摄像机** 并设置在场景中操作的后期处理轨道。
 
@@ -108,7 +110,8 @@ SkillLevel:Intermediate
 	![](MHT4_CameraGroupsComplete.png)
 
 
-Camera 1, Shot 1 - 移动以及后期处理效果
+(#Camera1,Shot1-MovementandPostProcessingEffects)
+## Camera 1, Shot 1 - 移动以及后期处理效果
 
 在这步中我们将为 Camera 1 添加摄像机运动和后期处理效果。Camera 1 也就是我们的第一个镜头。
 
@@ -163,7 +166,8 @@ Camera 1, Shot 1 - 移动以及后期处理效果
 	_此操作将使背景先处于焦距中，在摄像机聚焦于前景的灌木之后开始淡出焦距。_
 
 
-Camera 2, Shot 2 - 移动以及后期处理效果
+(#Camera2,Shot2-MovementandPostProcessingEffects)
+## Camera 2, Shot 2 - 移动以及后期处理效果
 
 在这步中我们将为 Camera 2 添加摄像机运动和后期处理效果。Camera 2 将用于我们的第二个镜头。 
 
@@ -217,7 +221,8 @@ Camera 2, Shot 2 - 移动以及后期处理效果
 	_此操作将在聚焦于岩石时使背景模糊，然后在追拍云朵时聚焦于云朵。_
 
 
-Camera 1, Shot 3 - 添加电影效果
+(#Camera1,Shot3-AddingaFilmEffect)
+## Camera 1, Shot 3 - 添加电影效果
 
 在这步中，我们将切换回 camera 1 为序列的第三个镜头添加电影后期处理效果。 
 
@@ -274,7 +279,8 @@ Camera 1, Shot 3 - 添加电影效果
 	_保持其默认设定，因其将通过 Matinee 更新。_
 
 
-Camera 2, Shot 4 - 添加场景色彩效果
+(#Camera2,Shot4-AddingaSceneColorEffect)
+## Camera 2, Shot 4 - 添加场景色彩效果
 
 在这步中，我们将切换回 camera 2 为最后镜头的场景添加噪点滤镜效果。 
 
@@ -303,7 +309,8 @@ Camera 2, Shot 4 - 添加场景色彩效果
 	_保持默认设定，因其将通过 Matinee 更新。_
 
 
-导演群组 - 添加镜头切换和淡化
+(#DirectorGroup-AddingCameraCutsandFading)
+## 导演群组 - 添加镜头切换和淡化
 
 在这步中，我们将通过 **导演（Director）** 轨迹添加镜头切换和淡化，完成片段。 
 

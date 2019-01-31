@@ -1,21 +1,30 @@
-﻿Availability: Public
+INTSourceChangelist:3782314
+Availability: Public
 Title:材质函数
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
-Description:材质函数是可以保存在包中并且在多个材质之间重复使用的材质图形的一小部分。
+Description:材质图的一些小片段，可以保存在包中，并在多个材质之间复用。
+Version: 4.9
+parent:Engine/Rendering/Materials
+order:10
+topic-image:Engine/Rendering/Materials/FunctionTopic.png
+type:overview
+tags:Materials
 
 [REGION:full_feature]
 [/REGION]
 
 [EXCERPT:FunctionsIntro]
-Material Function（材质函数）是可以保存在包中并且在多个材质之间重复使用的材质图表的一小部分。 它们可以让复杂的材质图表被存储在外部并在其它材质中快速重新使用，这可以让更为复杂的网络剥离为单个节点，这样可以让美术更方便地创建材质。
+**材质函数** 是材质图的一些小片段，它们可以保存在包中，并在 
+多个材质之间复用。材质函数允许将复杂的材质图网络保存下来，并快速复用于其他材质，同时又允许 
+将比较复杂的网络抽象成单个节点，从而方便美工创建材质。
 
 [/EXCERPT]
 
-最大的好处是，对单个函数的编辑会传递到使用它的整个网络。 所以，如果您想要对函数运行的方式进行修补或变更，您不必对可能使用该函数的诸多材质进行更多编辑。
+最妙的是，对单个函数的编辑会传遍使用该函数的所有网络。因此，如果 
+需要修正函数或改变函数的工作方式，你不必对 
+可能使用该函数的众多材质作进一步编辑。
 
 
-
-[REGION:topics half]
 [OBJECT:Topic]
 	[PARAM:image]
 		![%Engine/Rendering/Materials/Functions/Overview:title%](Engine/Rendering/Materials/Functions/matfunc_topic.png)
@@ -87,8 +96,8 @@ Material Function（材质函数）是可以保存在包中并且在多个材质
 		[RELATIVE:Engine/Rendering/Materials/Functions/Using]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
 
-## 函数引用
+(#functionsreference)
+## 函数参考
 
 [INCLUDE:Engine/Rendering/Materials/Functions/Reference#Categories]

@@ -1,0 +1,220 @@
+﻿INTSourceChangelist:4548908
+Availability: Public
+Crumbs: 
+Title: Unreal Studio 4.21 リリース ノート
+Description: Unreal Studio 4.21 リリースで導入された新機能について説明します。
+Type: 
+Version: 4.21
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:product_viewer_explode.gif
+reference-image:product_viewer_parenting.gif
+
+
+本リリースには、皆様からいただいたフィードバックや提案に基づいて改善されたワークフロー機能など、いくつかの主要な新機能が含まれています。これらの新機能や改善は、Unreal Studio ユーザー登録者の皆様のみご利用いただけます。このページには、本リリースで導入された新機能に関する説明が記載されています。
+
+## Datasmith を使用した Autodesk Revit からのインポート (アーリー アクセス)
+
+Datasmith を使用して、シーン全体を Revit から Unreal に迅速に、そして繰り返しインポートできるようになりました。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Revit](image2.png "Revit")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![Unreal Engine](image3.png "Unreal Engine")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+Revit ユーザーも、3ds Max や SketchUp などの他のフォーマットに対して Datasmith により既に提供されている[インポート](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview)および[再インポート](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow)ワークフローを利用できるようになりました。
+
+1. Revit 向けの [Datasmith Exporter プラグインをインストール](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit/InstallingExporterPlugin)します。
+2. Revit から [3D ビューをエクスポート](https://docs.unrealengine.com/Studio/Datasmith/SoftwareInteropGuides/Revit/ExportingDatasmithContentfromRevit)します。
+3. 次に、[Datasmith インポーターを使用して](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ImportingContent) 3D ビューのコンテンツを Unreal Engine プロジェクトにインポートします。
+
+インポート プロセスにはインスタンス プロパティも含まれ、これらは自動的に Datasmith メタデータに変換されます。このメタデータは Unreal Editor でアクセスできるため、アセット管理およびレベルの準備をスクリプティングおよび自動化する際に役立ちます。メタデータはランタイム UI ウィジェットおよびブループリント ゲームプレイ スクリプトでもアクセスでき、ユーザーに対する表示や、インタラクティブ要素としての使用ができます。[「Using Datasmith Metadata」](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/UsingDatasmithMetadata)を参照してください。
+
+変換プロセスの詳細については、[「Using Datasmith with Revit」](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit)を参照してください。
+
+*画像提供：Turbosquid*
+
+## マルチユーザー デザイン レビュー テンプレート
+
+デザインしたコンテンツを中心に構築されたインタラクティブ体験を、複数のプレイヤーと共有できるようになりました。このテンプレートにはプレイヤー間でのネットワーク構築とデータのレプリケーションに必要なすべてが含まれているため、ユーザーはコンテンツとビジュアルに注力できます。
+
+![Multi-User Viewer Template](image12.png)(convert:false)
+
+セッション内では、各プレイヤーはレベル内を歩き回る互いの色付きアバターを見ることができます。プレイヤーは、通常のキーボードおよびマウス、または VR ヘッドセットおよび VR コントローラーを使用して、シーン内を移動して興味深い特徴を指し示すことができます。
+
+使用方法については、[「Multi-User Viewer Template」](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/MultiUserViewer)を参照してください。
+
+## 3ds Max マテリアルの変換結果の改善
+
+Datasmith を使用してシーンを 3ds Max からインポートした際のUnreal Engine マテリアルについて、デフォルトの忠実度および視覚効果を大幅に改善しました。
+
+*このセクションで使用している画像提供：Neoscape*
+
+### マテリアル インスタンス
+
+可能な場合、Datasmith では 3ds Max からインポートする各タイプのサーフェスに対する親マテリアルを作成し、「Master」サブフォルダに保存します。Datasmith は、マテリアル インスタンスを使用して、これらの各マスター マテリアルをスタティック メッシュに適用します。
+
+![マスター マテリアル](image1.png)(convert:false)
+*「Master」フォルダ内の親マテリアル*
+
+![マテリアル インスタンス](image18.png)(convert:false)
+*「Materials」フォルダ内のマテリアル インスタンス*
+
+### V-Ray マテリアル変換の改善
+
+3ds Max から V-Ray マテリアルをインポートする際に、特に IOR、Metalness、バンプ マップを含むサーフェスに対して、より予測しやすく一貫性の高い結果を Unreal Engine で得ることができるようになりました。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20:置物のフラットなシェーディングに注目してください](image7.png "4.20:置物のフラットなシェーディングに注目してください")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21:バンプ マップと反射が向上しています](image9.png "4.21:バンプ マップと反射が向上しています")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### より一貫性の高いマテリアル グラフ
+
+以前のリリースでは、3ds Max の比較的単純なプロパティが、 Unreal Engine のマテリアルでは必要以上に複雑なノード チェインに変換されるよくありました。本リリースでは、3ds Max マテリアルの複雑性を再現する必要がある場合に Unreal Engine でもマテリアルのグラフが複雑になる可能性に変わりはありませんが、グラフはより一貫性が高く、さらに最適化されたものになります。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20](image5.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21](image10.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### より豊富になったマップ タイプ
+
+本リリースでは、フォールオフ、ミックス、色補正、コンポジット、タイルなど、多くのさまざまな 3ds Max マップをサポートします。
+
+## UE4 でのメッシュおよびアセンブリの単純化
+
+Unreal Engine にインポートするジオメトリおよびアセンブリについては、必ずしも最初からリアルタイム レンダリングに対する高いパフォーマンス要求に応じるようにデザインされたものばかりではありません。このことは特に、製造プロセスで必要となる精度を考慮して作成されたジオメトリの場合にあてはまります。
+
+本リリースでは、インポートされたジオメトリから不要な三角ポリゴンを取り除き、レンダリングの速度とパフォーマンスを向上させる[Defeaturing](#Defeaturing) および [Jacketing](#Jacketing) という 2 つの新しいツールを用意しました。
+
+### Defeaturing
+
+Defeaturing は、ジオメトリ内の小さなバンプ、穴およびくぼみを自動的に削除し、よりスムーズなサーフェスを残してスタティック メッシュから不要な三角ポリゴンを削除します。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![20,000 個以上の三角ポリゴン](image14.png "20,000 個以上の三角ポリゴン") (convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![穴がふさがれた状態で、11,500 個の三角ポリゴン](image11.png "穴がふさがれた状態で、11,500 個の三角ポリゴン")(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+特にスピーカー グリルなどの数百、数千もの繰り返されるディテールを持つジオメトリなど、これらの詳細がなくてもオブジェクトの高品質なレンダリングを制作できる場合には Defeaturing が便利です。最高の詳細度では目に見えるディテールをジオメトリから削除して、ジオメトリに対してよりクリーンな LOD を生成できます。
+
+詳細については、[「Simplifying Static Meshes by Defeaturing」](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Defeaturing)を参照してください。
+
+### Jacketing
+
+Jacketing では、常にビューから完全にオクルードされたスタティック メッシュ アクタと個別の三角ポリゴンを検出します。オクルードされたこれらのアクタにはタグを適用することができ、新しいレイヤに移動したり、レベルから削除したり、さらにはオクルードされた三角ポリゴンをスタティック メッシュ アセットからすべて完全に削除したりすることができます。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![542 個のアクタを含む完全なエンジン](image15.png "542 個のアクタを含む完全なエンジン")(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![321 個のアクタが完全に非表示な状態 (削除することも可能)](image19.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+内部パーツを含むアセンブリをインポートした際にこのような状況が発生することがよくあります。内部パーツはケーシング内に存在して外からは見えないため、これらをレベルから削除することで、レンダリングの速度とパフォーマンスを向上できる場合が多くあります。
+
+詳細については、[「Finding and Removing Fully Occluded Meshes」](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Jacketing)を参照してください。
+
+## Product Viewer でのアセンブリの展開
+
+Product Viewer Template に、ブループリント クラスが加わりました。このクラスは、レベル内の 2 つの異なる場所にいるアクタをスムーズにアニメートする際に使用できます。これは、それぞれのパーツがどのように一致するかを表示するために、アセンブリ内のパーツを展開および折りたたむ際に非常に便利です。
+
+![](product_viewer_explode.gif)(convert:false)
+
+さらに、スタティック メッシュ アクタをランタイム アプリケーションで選択および移動する際は、レベル内でこれらのオブジェクトの親子付けが維持されるようになりました。親のアクタを移動すると、親に対する現在の空間的な関係を維持して、すべての子のアクタも親に従って移動します。また、子のアクタを個別に移動することもできます。
+
+![](product_viewer_parenting.gif)(convert:false)
+
+詳細については、[「Unreal Studio Product Viewer Template」](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/Studio-Product-Viewer)を参照してください。
+
+## スタティック メッシュの新規編集オプション
+
+スタティック メッシュ エディタに装備されていた編集コントロールは新しいツールバーに移動され、Unreal Editor 内でジオメトリに素早く変更を加える際に役立つ新しいコントロールもいくつか追加されました。
+
+*   スムージング グループによって三角ポリゴンを選択できます。
+*   法線を統一できます。これにより、隣接した三角ポリゴンの面方向が反転され、現在選択している三角ポリゴンの方向と一致するようになります。
+*   便利な新しいキーボード ショートカット。選択しているエリアを拡大および縮小する **+** および **-** キー、選択しているすべての三角ポリゴンをビューポートに合わせて表示する **F** キー、選択した三角ポリゴンを削除する **Delete** キーが追加されました。
+*   矩形範囲指定。ビューポート内で左クリックしてドラッグすると、すべての交差する面を選択できます。
+
+![スタティック メッシュの新規編集オプション](image13.png)(convert:false)
+
+メッシュの編集の詳細については、[「Modifying Static Mesh Geometry」](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ModifyStaticMeshGeometry)を参照してください。
+
+## Datasmith の再インポート ワークフローの改善点
+
+本リリースでは、以下の改善により [Datasmith の再インポート ワークフロー](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow)をよりスムーズに行えるようになりました。
+
+*   Datasmith シーンをコンピュータ上の異なるファイルの場所から再インポートできるようになりました。元の場所で元のシーン ファイルを常に上書きする必要はなくなりました。これにより、インポートしたシーンのすべての異なるバージョンを維持しやすくなり、さらに最初にインポートされたコンピュータから異なるコンピュータへのシーンの再インポートもしやすくなりました。
+    [「Setting the Source File Location」](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ReimportingContent#settingthesourcefilelocation)を参照してください。
+*   Datasmith では、アクタ タグおよびレイヤをオーバーライドとして追跡するようになりました。例えば、スタティック メッシュ アクタに割り当てたアクタ タグを変更する場合や、スタティック メッシュ アクタを別のレイヤに移動する場合、再インポート時にこれらの変更は失われません。
+*   再インポート プロセスで、サブレベルに移動したアクタがパーシスタント レベルにあるかのように認識されるようになりました。これにより、Datasmith シーン アセットの再インポート時にこれらの変更を失うことなく、サブレベル間でアクタを自由に移動できるようになりました。
+
+## 新しい Datasmith インポート フォーマット (実験的機能)
+
+Datasmith CAD インポーターを介して以下のフォーマットをサポートできるようになりました。
+
+*   Autodesk AutoCAD *.dwg*
+*   Autodesk Alias *.wire*
+
+これらのフォーマットのサポートは実験段階であり、実制作ワークフローでの使用に対する準備は完全には整っていません。これらのフォーマットを試した場合は、プロジェクトおよびワークフローで良く機能した点や、機能しなかった点について、[ぜひ当社までフィードバックをお送りください](http://forums.unrealengine.com/unreal-engine/unreal-studio)。
+
+サポートされるすべてのフォーマットの完全なマトリックスについては、[「Datasmith Supported Software and File Types」](https://docs.unrealengine.com/en-us/Studio/Datasmith/SupportedSoftwareAndFileTypes)を参照してください。
+
+## バリアント管理 (実験的機能)
+
+リアルタイムでのデザインの視覚化において、視聴者が複数の異なるバリアントまたはオプションから選択できるように設定する必要があることがよくあります。例えば、車のコンフィギュレーターでは、サンルーフやスポイラーの有無、仕上がりなどを選択させることがあります。このような場合のために、バリアントを設定して管理する実験的な新しい方法を用意しました。
+
+![バリアント セットおよびバリアントの設定](image4.png "バリアント セットおよびバリアントの設定")
+
+**Level Variant Sets** アセットを作成し (**[Create Advanced Asset] > [Miscellaneous] > [Level Variant Sets]**)、異なる複数のバリアントをアセットに設定します。各バリアントは 1 つ以上のスタティック メッシュ アクタにリンクされ、これらのスタティック メッシュ アクタの 1 つ以上のプロパティを制御します。例えば、あるバリアントではスポイラーのビジュアルを入れ替え、別のバリアントではブレーキ キャリパーで使用されるマテリアルを入れ替えるよう設定できます。
+
+事前にすべてのバリアントを設定すると、新しい **LevelVariantsSetsActor** クラスで提供されるブループリント関数を使用して、ランタイム体験時にこれらのバリアントをオンまたはオフに切り替えることができます。
+
+![ブループリントを使用してバリアントを切り替える](image17.png)(convert:false)
+
+## 単純化された MDL/AxF インポート
+
+Unreal Editor の標準インポート プロセスに MDL および AxF ファイルが統合されました。以前のリリースではツールバーの **[Datasmith Import]** ボタンを使用しましたが、本リリースではコンテンツ ブラウザの **[Import]** ボタンを使用して MDL および AxF ファイルをインポートできます。
+
+![コンテンツ ブラウザで MDL および AxF ファイルをインポートする](image6.png "コンテンツ ブラウザで MDL および AxF ファイルをインポートする")
+
+## Datasmith Plus はすべてのユーザーにご利用いただけるようになりました
+
+Datasmith プラグインをインストール済みの Unreal Studio 登録者であれば、以前は「Datasmith Plus」の特別な利用資格を有するユーザーのみが利用できた機能もすべて使用することができます。次の機能が含まれます。
+
+*   Autodesk VRED および Deltagen からのシーンのインポート
+*   AxF ファイルからのマテリアルのインポート 
+
+## コアとなる Unreal Engine の興味深い機能
+
+このページに記載されている Unreal Studio 登録者専用の機能に加えて、Unreal Engine の本リリースにはすべてのユーザーが利用できる多くの興味深い機能が用意されています。
+
+*   Pixel Streaming
+*   地理的に正確な太陽位置
+*   クッカのパフォーマンス改善点
+*   スタティック メッシュ処理およびエディタ スクリプティング
+*   Windows Mixed Reality サポートおよび XR アップデート
+
+Engine のすべての新機能の詳細については、[『Unreal Engine 4.21 リリース ノート』](https://docs.unrealengine.com/en-us/Builds/4_21)を参照してください。
+

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3807090
 Availability:Public
 title:不透明度
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:这些函数用于处理材质网络中的不透明值。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -30,4 +31,4 @@ Version:4.9
 | **输出无深度偏离（OutputNoDepthBias）** | 此输出会导致对象在其到达摄像机时完全淡出，这表示没有偏移。此输出比 *输出使用深度偏离（OutputUsesDepthBias）* 少 12 条指令。|
 
 
-![软不透明度](SoftOpacity_Demo.png)(w:940 h:360)
+![软不透明度](SoftOpacity_Demo.png)(w:940)

@@ -19,7 +19,7 @@ topic-image: force_feedback_topic.png
 **Force Feedback** (가끔은 "럼블" 또는 컨트롤러 진동이라고도 하는 포스 피드백)은 게임에서 사용되는 디바이스(게임패드나 컨트롤러)의 진동을 통해 게임에서 일어나는 힘의 느낌을 플레이어에게 전달하는 것을 말합니다. 간단한 예제라면, 게임에서 폭발이 일어났을 때 포스 피드백을 사용하여 충격파 시뮬레이션을 하면, 한 층 더 높은 몰입감을 낼 수 있습니다.
 [/EXCERPT:WhatIsForceFeedback]
 
-구현하고 나면, 포스 피드백은 지원되는 모든 플랫폼에서 작동합니다. (4.10 이후로) iOS, 안드로이드, 컨트롤러가 포함됩니다.
+구현하고 나면, 포스 피드백은 지원되는 모든 플랫폼에서 작동합니다. (4.10 이후로) iOS, Android, 컨트롤러가 포함됩니다.
 
 ## 포스 피드백 이펙트 애셋
 
@@ -89,7 +89,7 @@ topic-image: force_feedback_topic.png
 
 	![](effect_controller.png)(w:640)
 
-1. 레퍼런스의 출력 핀을 끌어 놓은 다음, 맥락 메뉴에 `Play Force Feedback` 이라 입력하고 **Client Play Force Feedback** 을 선택합니다.
+1. 레퍼런스의 출력 핀을 끌어 놓은 다음, 컨텍스트 메뉴에 `Play Force Feedback` 이라 입력하고 **Client Play Force Feedback** 을 선택합니다.
 
 	![](effect_play.png)(w:640)
 

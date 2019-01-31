@@ -33,7 +33,7 @@ order:3
 
 	![](TwoNodesAdded.png)
 	[REGION:note]
-	**NOT Boolean** 노드는 엔진 예전 버전의 **!=** 노드를 가리킵니다.
+	**NOT Boolean** 노드는 엔진 이전 버전의 **!=** 노드를 가리킵니다.
 	[/REGION]
 
 1.	두 출력 모두 **And** 노드에 연결한 다음 **Branch** 의 **Condision** 에 물려줍니다.

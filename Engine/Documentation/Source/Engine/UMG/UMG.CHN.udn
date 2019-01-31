@@ -1,47 +1,13 @@
-﻿INTSourceChangelist:2373757
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: UMG UI Designer
 Crumbs:%ROOT%, Engine
 Description:本文是使用虚幻运动图形来创建UI元素的指南。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UMG:title%](UMG_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UMG:title%](UMG_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+parent:Engine
+order:2
+tags:UMG UI Designer
+topic-image:UMG_topic.png
 
 [REGION:fullwidth raw]
 ![](UMG_overview_banner_001.png)(convert:false)
@@ -50,33 +16,30 @@ Description:本文是使用虚幻运动图形来创建UI元素的指南。
 
 [INCLUDE:Engine/UMG/UserGuide#umgheader]
 
+(#Essentials)
 ## 必备知识
 
 [REGION:buttonlist]
-
-		* [](Engine/UMG/QuickStart)
-		* [](Engine/UMG/HowTo)
-		* [](Engine/UMG/UserGuide)
-			* [](Engine/UMG/UserGuide/WidgetBlueprints)
-			* [](Engine/UMG/UserGuide/CreatingWidgets)
-			* [](Engine/UMG/UserGuide/WidgetTypeReference)
-			* [](Engine/UMG/UserGuide/Anchors)
-			* [](Engine/UMG/UserGuide/Animation)
-			* [](Engine/UMG/UserGuide/Events)
-			* [](Engine/UMG/UserGuide/PropertyBinding)
-			* [](Engine/UMG/UserGuide/DPIScaling)
-			* [](Engine/UMG/UserGuide/Fonts)
-			* [](Engine/UMG/UserGuide/Styling)
-			* [](Engine/UMG/UserGuide/Slots)
-		
-	
+* [](Engine/UMG/QuickStart)
+* [](Engine/UMG/HowTo)
+* [](Engine/UMG/UserGuide)
+	* [](Engine/UMG/UserGuide/WidgetBlueprints)
+	* [](Engine/UMG/UserGuide/CreatingWidgets)
+	* [](Engine/UMG/UserGuide/WidgetTypeReference)
+	* [](Engine/UMG/UserGuide/Anchors)
+	* [](Engine/UMG/UserGuide/Animation)
+	* [](Engine/UMG/UserGuide/Events)
+	* [](Engine/UMG/UserGuide/PropertyBinding)
+	* [](Engine/UMG/UserGuide/DPIScaling)
+	* [](Engine/UMG/UserGuide/Fonts)
+	* [](Engine/UMG/UserGuide/Styling)
+	* [](Engine/UMG/UserGuide/Slots)
 [/REGION]
 
+(#RelatedLinks)
 ## 相关链接
 
 [REGION:buttonlist]
-
-		* [](Engine/Blueprints)
-	
+* [](Engine/Blueprints)
 [/REGION]
 

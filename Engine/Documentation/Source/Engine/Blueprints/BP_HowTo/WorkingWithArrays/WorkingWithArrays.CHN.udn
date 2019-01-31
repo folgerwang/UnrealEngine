@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2680849
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:使用阵列
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -7,6 +7,10 @@ Related:Engine/Blueprints/UserGuide/Arrays
 Related:Engine/Blueprints/UserGuide/Arrays/ArrayNodes
 version:4.9
 skilllevel:Intermediate
+parent:Engine/Blueprints/Scripting
+tags:Arrays and Structures
+tags:Blueprints
+order:3
 
 [TOC(start:2)]
 
@@ -18,6 +22,7 @@ skilllevel:Intermediate
 如需了解详细内容和用法，请查阅 [](Engine/Blueprints/UserGuide/Arrays) 和 [](Engine/Blueprints/UserGuide/Arrays/ArrayNodes) 文档。 
 [/REGION]
 
+(#ArrayVariables)
 ## 阵列变量
 
 可通过下列步骤创建阵列变量。 
@@ -51,6 +56,7 @@ skilllevel:Intermediate
 [/REGION]
 
 
+(#MakingArrays)
 ## 创建阵列
 
 创建阵列变量时，通过变量的默认值设置定义出现在阵列中的内容。存在阵列动态填充的情况，举例而言，使用关卡中存在的 Actors 填充阵列。在这种情况下，可使用 **Make Array** 节点以一系列内容创建一个阵列，无需创建阵列变量并指派默认值。 

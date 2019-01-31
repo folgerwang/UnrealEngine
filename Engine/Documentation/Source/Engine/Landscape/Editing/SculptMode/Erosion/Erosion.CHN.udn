@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482403
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:侵蚀
@@ -17,6 +17,7 @@ Topic-image:Erosion_Topic.png
 **侵蚀（Erosion）** 工具利用热力侵蚀模拟调整地形高度图的高度。它模拟土壤从高处向低处移动的效果。高低落差越大，产生的侵蚀效果越强。该工具还可在侵蚀上应用 noise 效果，呈现出自然真实的随机外貌。 
 
 
+(#UsingtheErosionTool)
 ## 使用侵蚀工具
 
 [OBJECT:EmbeddedVideo]
@@ -59,6 +60,7 @@ Topic-image:Erosion_Topic.png
 在不同的个高度形成效果的变化。 
 
 
+(#ToolSettings)
 ## 工具设置
 
 [REGION:imagetable]

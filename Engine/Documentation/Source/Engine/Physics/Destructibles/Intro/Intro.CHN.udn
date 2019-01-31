@@ -1,35 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability: Docs
-Title:Intro to Destructible Actors
+Title:可破坏物Actor简介
 Crumbs: %ROOT%, Engine
-Description:The basics on Destructible Actors
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/Intro:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/Intro:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/Intro:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/Intro
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+Description:可破坏物Actor的基础知识
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
 [/REGION]
 
-## Destructible Actors
+##可破坏物Actor
 
-These Actors are akin to **Static Mesh** and **Skeletal Mesh** Actors, actually **Destructible Actors** are a combination of both. Though they take in a **Static Mesh** as their foundation, the _fracturing_ process creates a **Skeletal Mesh** that controls all the fractured chunks, making the numerous fractured pieces all one draw call. You place **Destructible Actors** just like you would a **Static Actor**, and just like a Static Actor, you can set it to simulate physics, or it can be kinematic, following an animation or stuck to another moving object, until it receives enough damage to shatter.
+此类Actor类似于 **静态网格体** 和 **骨架网格体** Actor，但实际上 **可破坏物Actor** 为两者的组合。虽然它们以 **静态网格体** 为基础，但 _破裂_ 过程创建了 **骨架网格体**，它可以控制所有破裂的碎块，使得多个破裂的碎片都可以用于一次绘制调用。您可以像布置 **静态Actor** 一样布置 **可破坏物Actor**，而且正如静态Actor一样，您可以将它设为模拟物理过程，否则它可以处于运动状态，跟随动画或粘附在另一个移动对象上，直至它受到足够的伤害而粉碎。
 
-Intro in to what a destructible is, how it's used, a rough break down of creation.
+介绍可破坏物的定义、其使用方法以及粗略的创建步骤。

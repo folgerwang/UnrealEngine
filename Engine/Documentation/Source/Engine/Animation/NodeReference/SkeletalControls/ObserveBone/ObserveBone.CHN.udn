@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3016843
+﻿INTSourceChangelist:3782413
 Availability:Public
 Title:观察骨骼（Observe Bone）
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:说明如何通过 Observe Bone 节点对指定骨骼进行调试。
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\ObserveBone:title%](Engine\Animation\NodeReference\SkeletalControls\ObserveBone\ObserveBone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\ObserveBone:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\ObserveBone]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\ObserveBonedescription%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\ObserveBone:title%](Engine\Animation\NodeReference\SkeletalControls\ObserveBone\ObserveBone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\ObserveBone:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\ObserveBone]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\ObserveBonedescription%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:ObserveBone.png
 
 **Observe Bone** 节点可生成特定骨骼的调试转换信息。
 
@@ -59,4 +26,6 @@ version:4.12
 | [REGION:tablesection]**输入引脚**[/REGION] ||
 | **Component Pose** | 引入的姿态。|
 
+**Observe Bone** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Observe Bone** 节点的 **细节面板** 上找到其设置。
 
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]

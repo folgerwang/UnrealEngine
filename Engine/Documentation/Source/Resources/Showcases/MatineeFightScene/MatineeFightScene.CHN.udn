@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2726407
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Matinee
 Crumbs:%ROOT%, Resources, Resources/Showcases
@@ -12,48 +12,7 @@ Related:Engine/Rendering/ParticleSystems
 Related:Engine/Blueprints
 Related:Engine/Basics/Projects/CreatingTemplates
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/MatineeFightScene:title%](MatineeTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/MatineeFightScene:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/MatineeFightScene:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/MatineeFightScene]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/MatineeFightScene:title%](MatineeTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/MatineeFightScene:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/MatineeFightScene:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/MatineeFightScene]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:MatineeTopic.png
 
 
 [REGION:fullwidth]
@@ -69,6 +28,7 @@ Version:4.9
 如需了解 Matinee 使用的更多细节，可查阅 [](Engine\Matinee) 文档中的详细内容。 
 
 
+(#SceneBreakdown)
 ## 场景详解
 
 对场景进行解析前，可在此查看最终效果： 
@@ -97,6 +57,7 @@ E0L7pBBhwUo
 * 通过 **Event 轨迹** 对多个 **静态网格体**（用于模拟墙上掉落的瓷砖）进行设置/重设，模拟它们被调用时的物理效果。 
 
 
+(#OpeningtheMatineeActor)
 ## 打开 Matinee Actor
 
 阅读此页时，建议将项目设好并打开 Matinee，以便同步进行操作和即时调整数值。 
@@ -118,6 +79,7 @@ E0L7pBBhwUo
 _点击图片查看全图。_ 
 
 
+(#AdjustingtheViewport)
 ## 调整视口 
 
 **Matinee** 窗口打开后，视口中可能出现显各种颜色的点线，显得十分杂乱，屏幕背景为黑色。 
@@ -157,12 +119,14 @@ _点击图片查看全图。_
 如将 **时间条** 移动至 **Fade 轨迹** 第二个关键帧之上或之后的任意位置，场景便将出现在视口中。 
 
 
+(#DeconstructingtheMatineeActor)
 ## 解构 Matinee Actor
 
 以下部分中我们将解构生成打斗场景的 **Matinee**，并了解每个 **轨迹** 及其用法，讨论 Matinee 的构成方式。我们还将了解 **导演群组（Director Group）**及其相关 **轨迹**，并讨论 Epic 团队使用的部分技术。 
 
 首先我们将了解 Matinee 序列的核心 - 轨迹。从摄像机轨迹开始，逐个了解列表中的轨迹。 
 
+(#CameraTracks)
 ### 摄像机轨迹
 
 如“场景详解”部分所述，此场景的摄像机设置包含 3 个主摄像机和 3 个子摄像机。在 **World Outliner** 中搜索 **Camera**将得到下图中的结果。 
@@ -185,6 +149,7 @@ _点击图片查看全图。_
 
 在上图标记为 1 的部分中移动时间轴，将发现 **Director** 轨迹上的每个镜头均使用子摄像机（最后的镜头除外，因为并无 **摇晃** 效果应用到摄像机）。在标记为 2 的部分中，**Camera1** 有数个关键帧（红色三角形）被添加到 **Movement** 轨迹（此轨迹决定摄像机的主路径）。在标记为 3 的部分中，更多的关键帧被添加到 **Camera_Shake1** 的 **Movement** 轨迹中，使摄像机出现轻微移动，形成手持摄像机效果。 
 
+(#CameraProperties)
 #### 摄像机属性
 
 一个 **新摄像机群组** 被添加到 **Matinee** 后，可编辑的只有 **Movement** 和 **FOV Angle** 轨迹。 
@@ -233,6 +198,7 @@ _点击图片查看全图。_
 利用它可轻松修改每个摄像机在切换时的景深设置（以及 **运动** 和 **视野角度**），通过数值调整创建不同效果。 
 
 
+(#CharacterTracks)
 ### 角色轨迹
 
 **Matinee** 的 **Character** 轨迹非常简明：
@@ -251,6 +217,7 @@ _点击图片查看全图。_
 
 在 **Matinee** 窗口中，可点击 **Character** 轨迹或任意认定到角色的轨迹，使角色在编辑器视口中高亮。此操作便于在序列中的任意时间确定正在使用的角色。 
 
+(#CharacterAnimTracks)
 #### 角色动画轨迹
 
 每个角色均有其自身的动态捕捉 **动画序列**，此序列已被添加至 **Matinee** 中每个角色相应的 **Anim** 轨迹。 
@@ -277,6 +244,7 @@ _**Trooper_1 Animation Sequence** 在角色尚不可见时便已被添加（角�
 
 这些附加动画序列放置好后，即可根据需求对其进行编辑并重新整理较短的序列。因角色为不可见，且未设置每个动画的时机并，它们不会对整体场景形成阻碍，但可在最终序列合成混剪时拥有额外选项。 
 
+(#CharacterMovementTracks)
 #### 角色运动轨迹
 
 ![](CharacterMovementTrack.png)
@@ -289,6 +257,7 @@ _**Trooper_1 Animation Sequence** 在角色尚不可见时便已被添加（角�
 关键帧添加至 Movement 轨迹后，可指定该角色在此关键帧的位置 - 在 Matinee 窗口选择关键帧，然后将视口中的角色移至所需位置。 
 [/REGION]
 
+(#CharacterVisibilityTracks)
 #### 角色可见性轨迹
 
 ![](CharacterVisibilityTrack.png)
@@ -299,6 +268,7 @@ _**Trooper_1 Animation Sequence** 在角色尚不可见时便已被添加（角�
 在一个关键帧上 **单击右键**，从快捷菜单中选择 **Flip Toggle** 选项，即可“翻转”切换到与当前设置相反的设置。 
 [/REGION]
 
+(#CharacterLightingTracks)
 ### 角色灯光轨迹
 
 ![](CharacterLightTracks.png)
@@ -323,6 +293,7 @@ kfJeFFGuEPQ
 从视口选项中取消勾选 **Allow Matinee Preview** 即可禁用 Matinee Preview。 
 [/REGION]
 
+(#CharacterLightMovementTracks)
 #### 角色灯光运动轨迹
 
 ![](CharacterLightsMovement.png)
@@ -336,6 +307,7 @@ kfJeFFGuEPQ
 [/REGION]
 
 
+(#CharacterLightIntensity,LightColor,andRadius)
 #### 角色灯光强度、光色、半径
 
 ![](CharacterLightsOtherTracks.png)
@@ -351,6 +323,7 @@ kfJeFFGuEPQ
 [/REGION]
 
 
+(#FXTracks_Troopers_)
 ### FX 轨迹（战士）
 
 [REGION:fullwidth]
@@ -374,6 +347,7 @@ kfJeFFGuEPQ
 [/REGION]
 
 
+(#FXTracks_TakedowsandTileBreaks_)
 ### FX 轨迹（Takedowns 和 TileBreaks）
 
 [REGION:fullwidth]
@@ -386,6 +360,7 @@ kfJeFFGuEPQ
 因需要物理模拟，在编辑器中（而非通过 Matinee）运行游戏方能看到瓷砖破碎效果。 
 [/REGION]
 
+(#FXTakedowns_RelativeScale3DTrack_)
 #### FX Takedowns（相对比例 3D 轨迹）
 
 [REGION:fullwidth]
@@ -397,6 +372,7 @@ kfJeFFGuEPQ
 **Vector Property** 轨迹可随时间进程对 **Actor** 的矢量属性数值进行修改（在此例中 Actor 为粒子特效）。可使用 **曲线编辑器** 修改此特效的大小，以及出现在场景中的方式。 
 
 
+(#FXTileBreaks_EventTrack_)
 #### FX TileBreaks（Event 轨迹）
 该部分使用的 **Movement** 和 **Toggle** 轨迹决定着特效的发生时间和发生位置，但这部分中最重要的却是 **Event** 轨迹。 
 
@@ -423,6 +399,7 @@ kfJeFFGuEPQ
 [/REGION]
 
 
+(#AudioTracks)
 ### 声音轨迹
 
 [REGION:fullwidth]
@@ -450,6 +427,7 @@ kfJeFFGuEPQ
 如需 Matinee 中轨迹的更多内容（包括导演群组轨迹），请查阅 [](Engine/Matinee/TrackReference) 文档。
 [/REGION]
 
+(#DirectorGroup)
 #### 导演轨迹
 
 ![](DirectorTrack.png)
@@ -461,6 +439,7 @@ kfJeFFGuEPQ
 ![](DirectorTrackGroupSelect.png)
 
 
+(#SlomoTrack)
 #### 慢动作轨迹
 
 ![](SlomoTrack.png)
@@ -470,6 +449,7 @@ kfJeFFGuEPQ
 **数值** 1 为默认游戏速度，低于 1 的数值将使场景变慢，大于 1 的数值将使速度加快。在场景的多数时间内，数值在 1 和 1.2 之间变化，偶尔会出现出现速度较慢的序列（以上图的关键帧为例，游戏速度下降到 0.2）。 
 
 
+(#FadeTrack)
 #### 淡化轨迹
 
 ![](FadeTrack.png)
@@ -482,6 +462,7 @@ kfJeFFGuEPQ
 注意：可在关键帧上 **单击右键** 选择 **Interp Mode**，设置所使用关键帧之间的插值类型。 
 [/REGION]
 
+(#SoundTracks)
 #### 声音轨迹
 
 在导演群组中添加有数个额外的 **Sound 轨迹**，包括更多音效、音乐和环境音。 
@@ -494,6 +475,7 @@ kfJeFFGuEPQ
 
 
 
+(#AudioMasterTrack)
 #### 主音频轨迹
 
 ![](AudioMasterTrack.png)
@@ -504,6 +486,7 @@ kfJeFFGuEPQ
 可使用此轨迹淡出场景中的任意音频（如音乐、音效等） - 为 **音量** 设置添加两个在数值 1 和 0 之间插值的关键帧。 
 [/REGION]
 
+(#EventTrack)
 #### 事件轨迹
 
 ![](DirectorGroupEvent.png)
@@ -515,10 +498,12 @@ kfJeFFGuEPQ
 ![](EventResetBlueprint.png)(w:800)
 
 
+(#MatineeTipsandTricks)
 ## Matinee 提示和技巧
 
 在这部分中，我们将提及用于创建打斗场景的部分技术，并阐述一些提示和技巧，助您生成一流的场景。 
 
+(#CameraTransitions)
 ### 摄像机过渡
 
 在此 Matinee 序列中，使用较为频繁的 **摄像机** 技巧之一与摄像机运动相关。仔细观察 **Director** 轨迹：每当切至另外的摄像机时，摄像机的 **Movement** 轨迹上将出现一个关键帧（在切镜发生之前），详见下图。 
@@ -527,6 +512,7 @@ kfJeFFGuEPQ
 
 **Director** 轨迹调用 **Camera_Shake3** 时，其父摄像机（**Camera_3**）将指定主运动路径，同时视图和“摇晃”运动将被指定到 **Camera_Shake3**。在切镜前放置一个关键帧开始 **Camera_3** 的运动，使切换到的摄像机已处于运动状态，从而获得流畅的切镜过渡。先切换镜头，再开始摄像机运动则达不到效果。 
 
+(#LockingtheEditorViewtoaCamera)
 ### 将编辑器视图锁定到摄像机
 
 **Matinee 编辑器** 打开时点击任意轨迹，其将在编辑器视口中自动选择 **Actor**（如轨迹附着在 **Actor** 上）。选择 **Actor** 后，即可将视口视图锁定到此 **Actor** 上（以摄像机 **Actor** 为例） 
@@ -559,6 +545,7 @@ _点击图片查看全图。_
 
 为继续预览完整的 **Matinee** 序列，移动摄像机后需要重新启用 **Allow Matinee Preview**。将视口锁定到摄像机的这种方法可用于移动摄像机到所需位置。 
 
+(#Handheld"Shaky"CameraTips)
 ### 手持“摇晃”摄像机技巧
 
 为 **Movement** 轨迹添加关键帧形成摇晃手持效果的操作看上去会让人望而生畏，以下技巧将有助于减轻难度。 
@@ -575,6 +562,7 @@ _点击图片查看全图。_
 
 可视所需的手持效果适当增加运动量。总体而言轻微的移动效果更佳，较大的运动震动幅度过大（较大的运动可用于与墙壁或地板发生碰撞、击打角色等情况）。除摄像机位置移动外，运动还可以是简单的视图旋转。您需要进行试验、调试、对序列进行整理，获得最佳效果。 
 
+(#SlowMotionKeyframing)
 ### 慢动作关键帧
 
 有多种方法可在场景中添慢动作序列。 
@@ -592,6 +580,7 @@ _点击图片查看全图。_
 在此例中，第二帧和第三帧之间的速度不会发生变化，序列在分配的时间线进程中以相同速度播放。 
 
 
+(#HelpfulMatineeViewOptions)
 ### 实用的 Matinee 视图选项
 
 **Matinee 编辑器** 中文件菜单的 **View** 下方有两个十分使用的选项，需要启用。 
@@ -612,6 +601,7 @@ _点击图片查看全图。_
 
 在上图中点击紫色条的任意位置即可选中与此镜头相关的关键帧，如该选项未启用，则必须点击实际的关键帧方可选中。 
 
+(#PlaybackShortcuts)
 ### 播放捷径
 
 可使用以下快捷键控制 **Matinee** 序列的播放： 
@@ -623,14 +613,17 @@ _点击图片查看全图。_
 | **K** | 将序列 **停止** 在当前位置。|
 | **J** | 使序列从当前位置 **反转** 播放。|
 
+(#SceneComposition)
 ### 场景合成
 
 以下技巧有助于创建有趣而缜密的场景合成，请在设置镜头和完成序列时加以使用。 
 
+(#ScreenDirection)
 #### 屏幕方向
 
 请注意屏幕方向。如创建的角色出现在屏幕左侧，敌人出现在屏幕右侧，需维持保真度，镜头切换时请勿交换两者的位置。如要交换位置，则须在切镜前完成交换。 
 
+(#RuleofThirds)
 #### 三分法
 尝试在一些镜头中使用三分法。三分法是一种摄影技法，用两条等距水平线和两条等距垂直线将图像平均分为 9 块，再将重要的组成元素放置在线条或线条相交点上。 
 
@@ -658,6 +651,7 @@ xnuP2mepDjs
 
 [/COMMENT]
 
+(#FramingYourShots)
 #### 构建镜头
 
 构建镜头 - 通过场景中其他物品将镜头中的次要部分阻挡，突出镜头主题，可为镜头赋予前后内涵，增加深度感和层次感。 
@@ -672,6 +666,7 @@ xnuP2mepDjs
 
 ![](FramingShots2b.png)(w:640)
 
+(#LeadingLines)
 #### 引导线
 
 可在镜头中使用的另一种摄影技法是引导线，可将观众的注意力吸引到场景中的一个角色或物体上。 
@@ -691,10 +686,12 @@ xnuP2mepDjs
 ![](LeadingLines2b.png)(w:640)
 
 
+(#MakeItYourOwn_EditingtheMatinee_)
 ## 展现个性（编辑 Matinee）
 
 该部分通过数个范例向您展示如何对场景进行修改，使其独具个人风格。 
 
+(#GettingStarted)
 ### 准备开始
 
 首先需要将 **MatineeFightScene** 关卡保存为一个新关卡，保留原始版本。 
@@ -705,6 +702,7 @@ xnuP2mepDjs
 也可使用该项目为新项目创建一个 **模板**。如需更多内容，请查阅 [](Engine/Basics/Projects/CreatingTemplates) 文档。 
 [/REGION]
 
+(#EditingExample)
 ### 编辑范例
 
 以下是原始序列的重制版： 

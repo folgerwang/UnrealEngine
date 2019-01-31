@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2657979
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:顶点动画工具 - 关键帧网格
 Crumbs:%ROOT%, Engine, Engine/Animation
@@ -13,6 +13,7 @@ Version:4.9
 在本文中我们将介绍如何使用此方法，以及您需要了解的所有设置差异。
 
 
+(#3DsMaxContentCreation&SetupforKeyFramedMeshes)
 ## 3Ds Max 用于关键帧网格的内容创建和设置
 
 [region:note]
@@ -97,6 +98,7 @@ Version:4.9
 1. 现在位置数据已经保存到茶壶的 UV，应该导出茶壶网格，以便在 UE4 中使用了。在导出茶壶网格时，使用您会用于其他任何静态网格的相同设置，并确保启用 **平滑组（Smoothing Groups）**。在此示例中，我们给茶壶网格指定了名称 **SM_Teapot_PSS.FBX**。
 
 
+(#UE4ContentSetup&UseforKeyFramedMeshes)
 ## UE4 关键帧网格的内容设置和使用
 从 3Ds Max 导出茶壶网格后，现在该导入茶壶网格并设置，使其在 UE4 中也能产生相同的效果。
 

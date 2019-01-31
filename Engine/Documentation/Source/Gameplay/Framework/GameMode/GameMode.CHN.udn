@@ -1,14 +1,15 @@
-﻿INTSourceChangelist:3225556
+﻿INTSourceChangelist:3429254
 Availability:Public
 Title:Game Mode 和 Game State
 Crumbs:%ROOT%, Gameplay/Framework
 Description:Game Mode 和 Game State 总览
 Version:4.14
-type:reference
+type:overview
 parent:Gameplay/Framework
-order:5
+order:2
 tags:Gameplay Framework
 Related:Gameplay/Framework/Controller/PlayerController
+topic-image:Gameplay/Framework/gamemode_lander.png
 
 [TOC (start:2 end:2)]
 
@@ -66,6 +67,7 @@ Game Mode 不会复制到加入多人游戏的远程客户端；它只存在于�
 
 游戏状态将固定为 `InProgress`，因为这是调用 `BeginPlay`、actor 开始 tick 的状态。然而，个体游戏可能覆盖这些状态的行为，用更复杂的规则构建一个多人游戏，如在一款多人射击游戏中等待其他玩家加入时允许玩家在关卡中自由飞行。
 
+(#GameModeBlueprints)
 ### Game Mode 蓝图
 
 可创建派生自 Game Mode 类的蓝图，并将它们用作项目或关卡的默认 Game Mode。
@@ -80,6 +82,7 @@ Game Mode 不会复制到加入多人游戏的远程客户端；它只存在于�
 
 此外，Game Mode 的蓝图十分实用，因为它们无需调整代码即可启用变量调整。因此可用于使单一 Game Mode 适用到多个不同关卡，无需使用硬编码资源引用或为每次调整请求工程支持和代码修改。
 
+(#SettingtheGameMode)
 ### 设置 Game Mode
 
 设置关卡的 Game Mode 有多种，此处的排序从优先级最低到最高：

@@ -1,35 +1,24 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1 - 创建瞄准动作（Aim Pose）
-Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
+rumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo
 Description:在这步中，我们将更新默认可操作角色，并创建瞄准偏移所需的全部动作。 
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AimOffset
 type:how-to
+type:multi-step
+order:1
 tags:Animation
 tags:Aim Offset
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Creating an Aim Offset - Home ](Engine\Animation\AnimHowTo\AimOffset)
-	[/PARAM]
-	[PARAM:next]
-		[Next](Engine\Animation\AnimHowTo\AimOffset\02_CreatingAimOffset)
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在这步中，我们将更新默认可操作角色，并创建瞄准偏移所需的全部动作。 
 
-[INCLUDE:Engine\Animation\AnimHowTo\AdditiveAnimations\01_BlendSetup#intro]
+[INCLUDE:Engine/Animation/AnimHowTo/AdditiveAnimations/01_BlendSetup#intro]
 
+(#Steps)
 ## 步骤
 
 1. 在 **Content Browser** 中的 **Content/ThirdPersonBP/Blueprints** 文件夹下，打开 **ThirdPersonGameMode**。
@@ -138,4 +127,4 @@ tags:Aim Offset
 
 每个动作资源创建完成后，下一步我们将使用动作创建瞄准偏移。 
 
-
+[NAV]

@@ -1,39 +1,55 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3350143
 availability:Docs
-title:Scene Capture for Mobile
-description: Things to be aware of when using Scene Captures for Mobile devices.
-crumbs:%ROOT%, Engine, Engine/Rendering, Engine/Rendering/SceneCapture
+title:移动设备上的场景采集
+description: 在移动设备上使用场景采集的注意要点。
+crumbs:
 version:4.14
-Type:topic
+Type:reference
 SkillLevel:Intermediate
 parent:Engine/Rendering/SceneCapture
 order:2
 Navigation:topic
 topic-image:Scene_Capture_Mobile.png
+related: Resources/ContentExamples/Reflections/1_6/
+related: Resources/ContentExamples/Reflections/1_7
+tags:mobile
+tags:rendering
+tags:Daydream
+tags:iOS
+tags:Android
+tags:User Interface
+tags:UMG UI Designer
+tags:Materials
+prereq:Gameplay/HowTo/UsingCameras
+prereq:Engine/Rendering/RenderTargets
+prereq:Engine/UMG
 
-When using the Scene Capture Actor in project that are to be used on Mobile devices you will need to aware of the following information to make sure the Scene Capture Actors are as performant as possible when used on Mobile Devices.
 
 
+
+在将要配置到移动设备的项目中使用场景采集Actor时，您可能需要遵循一些指导原则，以确保它们在移动设备上运行时尽可能提高性能。
 
 ![](Scene_Capture_Mobile.png)
 
-
 [region:note]
-When rendering Scene Captures, the Scene Capture Source settings that output Inverse Opacity and Depth values are  supported on Mobile devices. 
+渲染场景采集时，移动设备支持输出 **Inverse Opacity** 和 **Depth Values** 的场景采集源设置。 
 [/region]
 
-* The **SceneColor (HDR) in RGB, Inv Opacity in A** option can be used to render objects with translucency into a Texture which can then be alpha-blended over a scene or widget Blueprint. 
+ **SceneColor (HDR) in RGB, Inv Opacity in A** 选项可用于将具有半透明度的对象渲染到纹理中，该纹理随后可以在场景或控件蓝图上进行阿尔法混合。 
 
-* Similarly, the depth value can be used as a mask when using the resulting Texture.
+* 同样，使用生成的纹理时，Depth Value可用作遮罩。
 
-* Generating the Ppacity data has some cost, so use **SceneColor (HDR) in RGB, 0 in A** for improved performance if you do not need Opacity.
+* 生成不透明度数据会产生一定成本，因此如果您不需要不透明度，请使用 **SceneColor (HDR) in RGB, 0 in A** 提高性能。
 
-* Scene captures now work correctly on devices that do not support floating point targets, such as Galaxy S6 prior to Android 6.
+**支持的采集源**
 
+以下是移动设备支持的采集源列表：
 
-
-
-
+* **RGB** 中的 **SceneColor**（HDR）、**A** 中的 **Inv Opacity**
+* **RGB** 中的 **SceneColor**（HDR）、**A** 中的 **0**
+* **RGB** 中的 **SceneColor**（HDR）、**A** 中的 **SceneDepth**
+* **RGB** 中的 **Final Color**（LDR）
+* **R** 中的 **SceneDepth**
 
 
 

@@ -7,7 +7,7 @@ version:4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming\Tutorials\VariablesTimersEvents\2 "%Programming\Tutorials\VariablesTimersEvents\2:title%")
+		[이전 단계](Programming\Tutorials\VariablesTimersEvents\2 "%Programming\Tutorials\VariablesTimersEvents\2:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -66,7 +66,7 @@ version:4.9
 
 	[![](Explosion_Zero.png)](Explosion_Zero.png)
 
-	그런데 카운트다운이 "0" 이 아닌 "GO!" 라고 하도록 프로그래밍을 해 놨었습니다. C++ 함수성을 **블루프린트** 비주얼 스크립트로 완전히 대체했기에 더이상 벌어지지 않습니다. 이 경우는 의도했던 바가 아닌데, 이 함수의 C++ 버전 호출을 추가해 주겠습니다. **Countdown Has Finished** 노드를 우클릭하고 맥락 메뉴에서 "Add call to parent function" 를 선택해 주면 됩니다.
+	그런데 카운트다운이 "0" 이 아닌 "GO!" 라고 하도록 프로그래밍을 해 놨었습니다. C++ 함수성을 **블루프린트** 비주얼 스크립트로 완전히 대체했기에 더이상 벌어지지 않습니다. 이 경우는 의도했던 바가 아닌데, 이 함수의 C++ 버전 호출을 추가해 주겠습니다. **Countdown Has Finished** 노드를 우클릭하고 컨텍스트 메뉴에서 "Add call to parent function" 를 선택해 주면 됩니다.
 
 	[![](CallToParent_Menu.png)](CallToParent_Menu.png)
 

@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.1 - 设置角色动画
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/4
 Description:学习如何设置第一人称射击游戏角色的动画。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -25,6 +25,7 @@ Version:4.11
 
 在这步中，我们将在游戏中设置一些动画。
 
+(#ImportingAnimations)
 ## 导入动画
 
 [REGION:note]
@@ -62,6 +63,7 @@ Version:4.11
 
 1.	点击 **Save** 按钮保存导入的文件。
 
+(#CreatingtheAnimationBlueprint)
 ## 创建动画蓝图
 
 1.	点击 **Add New** 按钮并选择 **Animation Blueprint**。
@@ -78,6 +80,7 @@ Version:4.11
 
 	![](DoubleClickAnimBP.png)
 
+(#AddingStateMachineTransitionVariables)
 ## 添加状态机转换变量
 
 1.	在 **My Blueprint** 标签中点击 **Add New** 按钮并选择 **Variable**。

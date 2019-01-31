@@ -1,49 +1,9 @@
-﻿INTSourceChangelist:2725215
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: Online Subsystem 概述
 Crumbs:%ROOT%, Programming
 Description: 在线平台相关的几个系统的概述
 Version: 4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Online:title%](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Online:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Online:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Online]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Programming/Online:title%](%ROOT%/placeholder_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Online:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Online:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Online]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [TOC(start:2)]
@@ -53,8 +13,10 @@ Version: 4.9
 **在线** 子系统（Online Subsystem）和它定义的接口提供了一套抽象并干净的通用网络接口，可用于多个在线平台。这里 **平台** 的意思是指诸如 Steam，Xbox Live，Facebook 等。这个系统的主要目的是为了较好的移植性。
 [/EXCERPT:Intro]
 
+(#OnlineSubsystemmodule)
 ## OnlineSubsystem 模块
 
+(#Basicdesign)
 ### 基础设计
 
 OnlineSubsystem 的基础模块时为了规范平台相关模块的定义，并将平台相关信息注册到引擎中。所有对在线平台服务的访问都应该通过这个模块来执行。在加载时，这个模块会尝试加载默认的在线平台服务模块，这在 engine.ini 文件中定义。
@@ -70,79 +32,68 @@ OnlineSubsystem 的基础模块时为了规范平台相关模块的定义，并�
 
 
 
+(#UseofDelegates)
 ### Delegate 的使用
 
 和虚幻引擎 3（UE3）一样，UE4 中的 Online Subsystem 仍将重度使用 delegate 的形式，这也是异步函数调用的副作用。在这个机制下，遵循 delegate 的规则，等待 delegate 的回调让后再进一步调用后续的流程是很重要的。如果不等待异步任务的回调而直接调用后续的函数，会导致无法预期，不被定义的行为。等待 deletage 的回调对于一些连接错误则更为重要，诸如网线插头松脱，或者其他连接失败的情况。不同的异步方法的等待时间差异也很大，有些可能在调用后立刻就能得到回调响应，而有些超时的情况下则可能需要一分钟的时间才会收到相应的回调。
 
-delegate 接口也比较简单明了，每个接口的前面都有一个 delegate 清晰的定义。每个 delegate 都有 Add，Clear 和 Trigger 函数（不过一般并不鼓励手动调用 Trigger ）。通常的用法是先使用 Add 增加一个 delegate 后再调用相关的函数逻辑，并在完成后使用 Clear 来对它进行清理。
+delegate 接口也比较简单明了，每个接口的前面都有一个 delegate 清晰的定义。每个 delegate 都有 `Add<DelegateName>`，`Add<DelegateName>` 和 `Add<DelegateName>` 函数（不过一般并不鼓励手动调用 Trigger ）。通常的用法是先使用 Add 增加一个 delegate 后再调用相关的函数逻辑，并在完成后使用 Clear 来对它进行清理。
 
+(#Interfaces)
 ### 接口
 
 并不是每个平台都会实现所有的接口功能，游戏代码需要对此有相应的计划。
 
+(#Profile)
 #### 用户信息
 
 在线服务平台的用户信息功能的接口。用户信息是用来对给定用户和相关的元数据（在线时长，访问权限等）服务的。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/Profile) page.
-[/COMMENT]
 
+(#Friends)
 #### 好友
 
 在线服务平台的好友功能的接口。好友服务是用来维护用户的好友关系以及好友列表的。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/Friends) page.
-[/COMMENT]
 
+(#Sessions)
 #### 会话
 
 在线服务平台的会话功能的接口。会话功能是用来管理任何和会话相关的信息，以及会话自身的状态。（译者：会话，Session，通常在网游中也被理解为“房间”）
 
 详细信息可以查看 [](Programming/Online/Interfaces/Session) 页面。
 
+(#SharedCloud)
 #### 共享云
 
 提供在云端共享文件的接口（和其他用户交互请查看 [用户云](#BookmarkUserCloud)）。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/SharedCloud) page.
-[/COMMENT]
 
 (#BookmarkUserCloud)
 #### 用户云
 
 提供基于每个用户云端文件存储接口。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/UserCloud) page.
-[/COMMENT]
 
+(#Leaderboards)
 #### 排行榜
 
 提供在线排行榜的接口
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/Leaderboards) page.
-[/COMMENT]
 
+(#Voice)
 #### 语音
 
 提供在游戏中通过网络语音交流的接口。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/Voice) page.
-[/COMMENT]
 
+(#Achievements)
 #### 成就
 
 提供 读/写/解锁 相关成就的接口。
 
-[COMMENT:none]
-Details can be found on the [](Programming/Online/Interfaces/Achievements) page.
-[/COMMENT]
 
+(#ExternalUI)
 #### 外部用户界面
 
 如果在线平台的外部界面可用的话，提供方位外部界面的接口。
@@ -152,42 +103,10 @@ Details can be found on the [](Programming/Online/Interfaces/ExternalUI) page.
 [/COMMENT]
 
 
-## Reference
+(#Reference)
+## 参考
 
 [REGION:buttonlist]
-
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Profile "%Programming/Online/Interfaces/Profile:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Friends "%Programming/Online/Interfaces/Friends:Description%")
-[/COMMENT]
-		* [](Programming/Online/Interfaces/Session "%Programming/Online/Interfaces/Session:Description%")
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/SharedCloud "%Programming/Online/Interfaces/SharedCloud:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/UserCloud "%Programming/Online/Interfaces/UserCloud:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Leaderboards "%Programming/Online/Interfaces/Leaderboards:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Voice "%Programming/Online/Interfaces/Voice:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/Achievements "%Programming/Online/Interfaces/Achievements:Description%")
-[/COMMENT]
-		[COMMENT:none]
-* [](Programming/Online/Interfaces/ExternalUI "%Programming/Online/Interfaces/ExternalUI:Description%")
-[/COMMENT]
-		* [](Programming/Online/Types/ "%Programming/Online/Types:Description%")
-		[COMMENT:none]
-* [](Programming/Online/AsyncManager/ "%Programming/Online/AsyncManager:Description%")
-[/COMMENT]
-	
+* [](Programming/Online/Interfaces/Session "%Programming/Online/Interfaces/Session:Description%")
+* [](Programming/Online/Types/ "%Programming/Online/Types:Description%")	
 [/REGION]
-
-
-   
-   

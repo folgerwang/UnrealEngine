@@ -19,13 +19,13 @@ topic-icon:%ROOT%/platform_icon.png
 
 UE4 에서 내장 지원하는 모바일 기반 VR HMD 는 다음과 같습니다:
 
-* **삼성 기어 VR**
+* **삼성 Gear VR**
 * **Google Cardboard & Daydream** 
 
 
 UE4 가 위 모바일 HMD 를 내장 지원한다는 것은, 위 디바이스에서 UE4 프로젝트를 VR 로 확인하는 데 별도로 다운로드하거나 컴파일하지 않아도 된다는 뜻입니다. 아래는 선택한 지원 모바일 HMD 이 작동하도록 UE4 프로젝트를 구성하는 방법에 대한 설명 문서입니다.
 
-## 삼성 기어 VR
+## 삼성 Gear VR
 
 [DIR(end:"1" output:"topic" type:"landing" tags:"GearVR" parent:"Platforms/GearVR")]
 

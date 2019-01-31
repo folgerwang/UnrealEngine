@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3340410
 Availability:Documents
-Title:Haptic Components
+Title:触感组件
 Crumbs:%ROOT%, Engine, Engine/Components
-Description:Description of the Force Feedback Component is provided.
+Description:提供了对力反馈组件的描述。
 Related: Gameplay/ForceFeedback
 version: 4.15
 
-The **Force Feedback Component** gives any **Actor** in the world the ability to act as a source of [Force Feedback](Gameplay/ForceFeedback).
+**力反馈组件** 让场景中的任意 **Actor** 都能够充当[力反馈](Gameplay/ForceFeedback)的来源。
 
-## Force Feedback Component
+## 力反馈组件
 
 [EXCERPT:WhatIsForceFeedbackComponent]
-The Force Feedback Component expands on the standard force feedback implementation by adding the concept of attenuation based on relative location in the world. Like sound or light, the intensity of the force experienced by the player will change with the player's distance from the source, according to a data-defined attenuation setting. The addition of attenuation makes it easy to create effects like explosions that feel more powerful at close range, trains that shake the ground with greater strength when the player is standing right next to the tracks, or even a character's "sixth sense" when passing close by to an object of interest.
+力反馈组件是对标准力反馈实现的扩展，它根据场景中的相对位置添加了衰减概念。就像声音或光线一样，玩家感受到的力强度根据用数据定义的衰减设置，随着玩家与来源的距离而变。添加衰减后可以轻松创造效果，例如，近距离感受更加强烈的爆炸，玩家站在轨道旁边时，火车对地面产生的更强烈的振动，甚至于玩家在经过相关物体时所体会到的“第六感”。
 [/EXCERPT:WhatIsForceFeedbackComponent]
 
-For usage information, including detail on Force Feedback assets, please see the [Force Feedback page](Gameplay/ForceFeedback).
+如需了解用法信息，包括力反馈资源的详细信息，请参阅[力反馈页面](Gameplay/ForceFeedback)。

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3151861
+﻿INTSourceChangelist:4615496
 Availability:NoPublish
 Title:
 Crumbs:
@@ -206,7 +206,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#lightmapuvs
 [/EXCERPT:UMaterialExpressionLightmapUVs]
 
 [EXCERPT:UMaterialExpressionObjectOrientation]
-ObjectOrientation 表达式输出物体的世界空间向上矢量。换言之，该方向是材质所应用物体的本地正 Z 轴朝向的方向。 
+ObjectOrientation 表达式输出物体的世界空间向上矢量。换言之，该方向是材质所应用物体的本地正 Z 轴朝向的方向。对于延迟贴花，材质域将返回贴花投射方向（X 轴）。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#objectorientation
@@ -607,7 +607,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#if
 [EXCERPT:UMaterialExpressionLinearInterpolate]
 LinearInterpolate 表达式基于用作遮罩的第三个输入值在两个输入值之间混合。这可被视为一个遮罩，定义两个纹理之间的过渡，和 Photoshop 中的层遮罩相似。遮罩 Alpha 的强度决定从两个输入值获取的颜色比率。 
 
-如 Alpha 为 0.0/黑，则使用第一个输入。如 Alpha 为 1.0/白，则使用第二个输入。如 Alpha 为灰（0.0 和 1.0 之间），输出则是两个输入之间的混合。注意：混合逐通道发生。因此，如果 Alpha 是一个 RGB 颜色，Alpha 的红色通道值定义 A 和 B 的红色通道之间的混合，独立于 Alpha 的绿色通道；绿色通道定义 A 和 B 的绿色通道之间的混合。
+如 Alpha 为 0.0，则使用第一个输入。如 Alpha 为 1.0，则使用第二个输入。如 Alpha 为灰（0.0 和 1.0 之间），输出则是两个输入之间的混合。注意：混合逐通道发生。因此，如果 Alpha 是一个 RGB 颜色，Alpha 的红色通道值定义 A 和 B 的红色通道之间的混合，独立于 Alpha 的绿色通道；绿色通道定义 A 和 B 的绿色通道之间的混合。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#linearinterpolate

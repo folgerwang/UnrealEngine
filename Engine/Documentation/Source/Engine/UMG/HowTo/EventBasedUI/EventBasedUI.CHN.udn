@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:通过事件驱动 UI 更新
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -9,47 +9,9 @@ Related:Engine/Blueprints
 Related:Resources\SampleGames\UnrealMatch3
 Version:4.10
 SkillLevel:Advanced
+tags:UMG UI Designer
+topic-image:EventUI.png
 
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/EventBasedUI:title%](EventUI.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/EventBasedUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/EventBasedUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/EventBasedUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/EventBasedUI:title%](EventUI.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/EventBasedUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/EventBasedUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/EventBasedUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:note]
 建议您先整体了解 [](Engine/UMG)，然后再阅读此指南。 
@@ -60,6 +22,7 @@ SkillLevel:Advanced
 在此指南中，我们将了解到信息通信到 HUD 的 3 个实例。这 3 个实例均可完成操作。第三个实例未使用 tick 事件进行更新，转而使用 [事件分配器](Engine/Blueprints/UserGuide/EventDispatcher) 进行手动信息更新，因此开销和性能之间最为平衡。 
 
 
+(#Example1.FunctionBinding)
 ## 实例 1.函数绑定（Function Binding）
 
 在此例中我们将了解使用 **函数绑定** 的角色的体力/能量更新。 
@@ -82,6 +45,7 @@ SkillLevel:Advanced
 
 
 
+(#Example2.PropertyBinding)
 ## 实例 2.属性绑定（Property Binding）
 
 除函数绑定外，还可以使用 **属性绑定**，达到稍好的开销和性能平衡。 
@@ -106,6 +70,7 @@ SkillLevel:Advanced
 
 
 
+(#Example3.EventDriven)
 ## 实例 3.事件驱动
 
 此例讲述使用事件在发生变化时更新 HUD。 

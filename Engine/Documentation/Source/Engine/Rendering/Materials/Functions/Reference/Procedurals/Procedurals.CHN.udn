@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3807090
 Availability:Public
 title:程序性
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:以程序方式生成的纹理和操作，例如根据现有的高度贴图来创建法线贴图。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -91,7 +92,7 @@ Version:4.9
 	编写本文时，没有高度贴图的对应输入。您可使用下列步骤来添加此类输入。但是，如果您看到高度贴图输入，那么表示此问题已更正，您不必执行下列步骤。
 [/REGION]
 
-![输入更正](NormalFromHeightMapChaos_Correction.png)(w:900 h:600)
+![输入更正](NormalFromHeightMapChaos_Correction.png)(w:900)
 
 1. **双击** NormalFromHeightmapChaos（根据高度贴图建立混乱法线贴图）函数节点，以便在新的材质编辑器中将其打开。
 

@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3769005
 Availability:Public
-Title:2. 기어 VR 프로젝트 구성
+Title:2. Gear VR 프로젝트 구성
 Crumbs:%ROOT%, Platforms, Platforms/GearVR
-Description:기어 VR 헤드셋에 사용할 프로젝트 구성 방법입니다.
+Description:Gear VR 헤드셋에 사용할 프로젝트 구성 방법입니다.
 Version: 4.17
 Skilllevel: Intermediate
 tags:VR
@@ -14,7 +14,7 @@ Checkpoint:GearVRQS
 
 [nav]
 
-기어 VR 퀵 스타트 이번에는 기어 VR HMD 에 사용할 수 있도록 언리얼 엔진 4 프로젝트를 구성하는 법을 알아보겠습니다.
+Gear VR 퀵 스타트 이번에는 Gear VR HMD 에 사용할 수 있도록 언리얼 엔진 4 프로젝트를 구성하는 법을 알아보겠습니다.
 
 ## 단계
 
@@ -29,7 +29,7 @@ Checkpoint:GearVRQS
     [/REGION]
 
     [region:note]
-    엔진 예전 버전에서는, 기어 VR 전용 플러그인을 켜줘야 했습니다. 현재 사용중인 언리얼 엔진 4 버전에서 기어 VR 을 사용할 수 없는 경우, VR Plugins 섹션에서 Gear VR 플러그인이 보이고 켜졌는지 확인하시기 바랍니다.
+    엔진 이전 버전에서는, Gear VR 전용 플러그인을 켜줘야 했습니다. 현재 사용중인 언리얼 엔진 4 버전에서 Gear VR 을 사용할 수 없는 경우, VR Plugins 섹션에서 Gear VR 플러그인이 보이고 켜졌는지 확인하시기 바랍니다.
     [/REGION]
 
 1. 언리얼 엔진 프로젝트를 디바이스에 디플로이했을 때 실행되도록 하기 위해서는, 레벨을 최소 하나 저장해야 합니다. 현재 레벨을 유지하려면, **툴바** 에서 **저장** 아이콘을 눌러 저장하고, 이름을 **GearVRQSMap** 이라 합니다.
@@ -62,7 +62,7 @@ Checkpoint:GearVRQS
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. **Platforms** (플랫폼)에서 **Android** (안드로이드) 아래 **ApkPackaging** 섹션에서 **Configure Now** (지금 환경설정) 버튼을 누른 뒤 다음과 같이 설정합니다:
+1. **Platforms** (플랫폼)에서 **Android** 아래 **ApkPackaging** 섹션에서 **Configure Now** (지금 환경설정) 버튼을 누른 뒤 다음과 같이 설정합니다:
 
     [REGION:lightbox]
     [![](GVR_Android_SDK_Version.png)(w:546)](GVR_Android_SDK_Version.png)
@@ -98,6 +98,6 @@ Checkpoint:GearVRQS
 
 ## 최종 결과
 
-완료되면, 기어 VR HMD 에 디플로이하여 볼 수 있는 언리얼 엔진 4 프로젝트가 생겼을 것입니다.
+완료되면, Gear VR HMD 에 디플로이하여 볼 수 있는 언리얼 엔진 4 프로젝트가 생겼을 것입니다.
 
 [nav]

@@ -1,0 +1,47 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 从3ds Max导出Datasmith内容
+Description: D描述如何将3ds Max场景导出为可导入虚幻引擎的Datasmith文件。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/3dsMax
+Order: 3
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: 3DS Max
+Tags: how to
+Tags: Datasmith
+
+
+![](datasmith-setup-export-max.png)
+
+安装针对3ds Max的Datasmith导出程序插件后，可在从3ds Max导出场景时使用新的 *.UDATASMITH* 文件类型。
+
+在3ds Max中按照以下步骤操作，使用此新文件类型导出场景。
+
+1.  从3ds Max **文件（File）** 菜单或主菜单栏最左侧的 **MAX** 菜单中，选择 **导出（Export）**。  
+    ![选择要导出的文件](3DS_Export_1.png "Select File to Export")
+1.  按以下所示进行设置：  
+    ![设置文件夹、类型和文件名](3DS_Export_2.png "Set folder, type and file name")
+
+	1.  **保存到：（Save in:）**选择新Datasmith文件的位置。
+	1.  **文件名：（File Name:）**指定文件名称。
+	1.  **保存类型：（Save as type:）**选择 **Unreal Datasmith (*.UDATASMITH)**
+
+1.  单击 **保存（Save）**。
+1.  在 **Datasmith导出选项（Datasmith Export Options）** 窗口中，选择 **可视对象（Visible objects）** 以在Datasmith文件中包含场景中的所有内容，或选择 **选择（Selection）** 以仅包括当前所选对象。  
+    ![导出可视对象或选择](3DS_Export_3.png "Export visible objects or selection")
+1.  单击 **确定（OK）**。
+
+完成导出后，导出程序会显示在内容中发现的所有问题的报告，通常它会指出导出程序无法完美转换的内容，或在虚幻引擎中的显示与3ds Max中不完全相同的内容。
+
+![3ds Max转换说明和警告](3DS_Export_4a.png "3ds Max conversion notes and warnings")
+
+### 最终结果
+
+现在，你应该已经可以将新的 *.udatasmith* 文件导入到虚幻编辑器了。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+[REGION:note]
+伴随新的 *.udatasmith* 文件，你还将看到一个文件夹，它的名称与之相同，但带有后缀 *_Assets*。如果将 *.udatasmith* 文件移至新的位置，请务必将该文件夹也移至相同的位置。
+[/REGION]

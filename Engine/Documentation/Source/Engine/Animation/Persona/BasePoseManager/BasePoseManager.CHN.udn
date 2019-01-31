@@ -1,39 +1,138 @@
-﻿INTSourceChangelist:1997499
-Availability:Public
-Title:角色基础姿势管理器
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Crumbs:%ROOT%, Engine, Engine/Animation/Persona
-Description: 关于Persona(角色)动画编辑器中基础姿势管理器的用户指南。
+Title:重定位管理器
+Description:详解骨架编辑器中的重定位管理器选项。
+Type: Overview
+SkillLevel: intermediate
+Version: 4.16
+Parent: Engine/Animation/Persona
+Order: 1
+Tags: Animation
+Tags: Skeleton
+Tags: Retargeting
+topic-image:RetargetTopic.png
+Related: Engine\Animation\AnimHowTo\Retargeting
+Related: Engine/Animation/Skeleton
+Related: Engine/Animation/Persona/Modes/Skeleton
+Related: Engine/Animation/AnimPose
+Related: Engine/Animation/Sequences
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/AssetBrowser:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/BasePoseManager:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/BasePoseManager:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/BasePoseManager]
-	[/PARAM]
+[TOC(start:2 end:2)]
+
+**骨架编辑器** 中的 **重定位管理器（Retarget Manager）**可用来管理重定位源，设置骨架绑定以及定义用于[动画重定位](Engine/Animation/AnimHowTo/Retargeting)的重定位后的基本姿势。
+
+## 管理重定位源
+
+因为重定位使用[骨架](Engine/Animation/Skeleton)资源，而骨架的原比例是由最初为之创建骨架的骨架网格体定义的，由此得出结论，在大多数情况下可以顺利地实现单向重定位。但是常常会有一些专为变体版本构建的特殊动画。例如，假设你的多个角色共用了同一个骨架资源（一个基本角色、一个矮小角色和一个高大角色）而你仅为角色的高大版本创建了特殊动画。
+
+如果你将这个新的仅包含高大角色的动画导入，仍然需要和以前一样使用从角色的基本版本创建的同一骨架资源。这将导致新动画的比例失真。解决方法就是使用 **重定位管理器（Retarget Manager）** 中的 **管理重定位源（Manage Retarget Source）** 选项，它使你能够将动画序列与为之设计了动画序列的实际骨架网格体关联。通过这种方法，任何特殊动画重定位问题都可以得到解决。
+
+### 添加重定位源
+
+1. 在 **骨架编辑器** 中，从 **工具栏** 中单击 **重定位源管理器（Retarget Source Manager）** 按钮。
+    
+    ![](RetargetManager.png)
+    
+2. 单击 **添加新重定位源（Add New Retarget Source）** 按钮。
+    
+    ![](AddSource.png)
+    
+3. 选择为之创建了特殊动画的 **骨架网格体**。
+    
+    ![](SelectSkeletalMesh.png)
+    
+    现在你可以看到该骨架网格体在 **重定位管理器（Retarget Manager）** 中列出。
+    
+    ![](Created.png)
+    
+4. 打开针对你的特定 **骨架网格体** 的特殊 **动画序列**。
+    
+5. 在 **资源细节（Asset Details）** 面板中，找到 **动画（Animation）** 类别，然后找到 **重定位源（Retarget Source）** 属性并从下拉菜单中选择你的特定 **骨架网格体**。
+    
+    ![](DropDownSelection.png)
+    
+    通过选择此网格体，你就指定了要使用该网格体的比例驱动此动画。
+    
+
+## 设置骨架绑定
+
+“重定位管理器（Retarget Manager）”的中间部分允许你为骨架指定 **骨架绑定**，可用它将动画数据传递给使用同一个骨架绑定的不同骨架。
+
+![Set up Rig-1.png](Set20up20Rig-1.png "Set up Rig-1.png")
+
+为使用不同骨架资源的角色执行任何动画重定位时，需要用到此流程。
+
+你可以从 **选择骨架绑定（Select Rig）** 下拉选项中选择要使用的骨架绑定，其中包含 **人形（Humanoid）** 选项，你将需要为大多数角色选择它。
+
+![](HumanoidSetup-1.png "HumanoidSetup-1.png")
+
+指定好人形骨架绑定后，你将需要指定骨架中与骨架绑定上的节点对应的相同（或相似）位置的骨骼。你可以使用下拉菜单来选择节点并手动从骨架指定相应的骨骼，或者你可以使用位于菜单顶部的 **自动映射（Auto Mapping）** 功能。此功能将对骨架进行翻查并尝试为骨架绑定上的每个节点找到最匹配的骨骼。
+
+**清除映射（Clear Mapping）** 按钮将从相应的节点指定中擦除所有当前已指定的骨骼。你也可以使用 *保存（Save）* 和 *加载（Load）* 按钮来保存当前映射指定或加载 *节点映射容器（Node Mapping Container）* 资源（如下所示）中以前保存的映射指定。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    qna6b-kAN48
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
 [/OBJECT]
-[/VAR]
 
-角色动画编辑器的基础姿势管理器使您可以为特定骨架创建一系列的潜在的基础姿势，这样可以辅助重定向骨架，使其和多个骨架网格物体结合使用。
+**显示高级（Show Advanced）** 按钮将允许你为手指、IK骨骼或扭转骨骼等指定额外的节点/骨骼关联。在为源骨架（驱动要重定位到另一个角色的动画的骨架资源）设置好骨架绑定后，你将需要前往目标骨架的骨架，并指定相同的骨架绑定及定义新骨架中与骨架绑定上的节点最匹配的骨骼。
 
-![](BasePoseManager.png)
+[REGION:note]
+请参阅“[使用重定位的动画](Engine/Animation/AnimHowTo/Retargeting)”来获取设置骨架绑定以在使用不同骨架的角色间重定位动画的分步指南。
+[/REGION]
 
-**要想添加一个新的基础姿势作为参考:**
+## 管理重定位基本姿势
 
-1. 右击基础姿势管理器，并点击  **Add（添加）** 。
-1. 从该列表中选择您要使用其基础姿势的骨架网格物体。
+有时你可能希望将动画重定位到基本姿势与源骨架不太一致的骨架。
 
-[region:note]
-当您在基础姿势管理器中添加完一个基础姿势后，您可以 **Anim Asset Details（动画资源详细信息）** 面板内 **Animation（动画）** 部分下的 **基础姿势** 下拉列表中，为某特定动画资源选择该基础姿势。
-[/region]
+以下图右侧的骨架为例尝试重定位动画：
+
+![](ManageBasePose1.png)(w:840)
+
+源骨架（左侧）呈A字姿势，而目标骨架呈T字姿势。如果我们就这样重定位动画，可能会遇到问题：
+
+![](TargetAnimation.png)(w:540)![](BadBasePose.png)(w:550)
+
+在左侧的目标动画中，角色手持散弹枪，然而，当我们将动画重定位到右侧的新角色时，（由于它们使用的基本姿势不同）手臂定位不正确。我们可以通过在 **重定位管理器（Retarget Manager）** 中重定位基本姿势来解决这一问题，重定位管理器（Retarget Manager）使我们能够定义基本姿势使其重定位，并使用重定位后的基本姿势来进行动画重定位，而非使用角色正常的基本姿势。
+
+我们可以选中角色的骨骼并旋转它们（在本示例中，旋转左肩和右肩），使角色呈A字姿势，然后单击 **修改姿势（Modify Pose）**：
+
+![](RetargetedBasePose.png)
+
+在上下文菜单中，选择 **使用当前姿势（Use Current Pose）**：
+
+![](UseCurrentPose.png)
+
+这样就可以把该姿势设置为在执行任何动画重定位时要使用的重定位后的基本姿势。
+
+现在当我们重定位动画时，将会看到经过更新的重定位后的基本姿势：
+
+![](NewBasePose.png)(w:840)
+
+当我们针对基本姿势相似度更高的骨架重定位动画时，我们将得到效果更好的结果：
+
+![](HoldingShotGun.png)
+
+### 从姿势资源导入重定位基本姿势
+
+在 **修改（Modify）** 上下文菜单中，你也可以选择从动画[姿势资源](Engine/Animation/AnimPose)导入姿势以将其用作重定位后的基本姿势。
+
+![](ImportPose.png)
+
+在上图中，在选择好要使用的姿势资源（1）之后，可用的姿势将显示在选择下拉菜单中（2）。从姿势资源中选择好要使用的姿势之后，单击 **导入（Import）** 按钮（3），系统将会将视口中的网格体更新为使用刚刚选择的姿势作为重定位后的基本姿势。下面（左图）展示了默认的姿势而且（右图）展示了我们从姿势资源中选择的作为重定位后基本姿势的姿势。
+
+![](DefaultPose.png)(w:540)![](NewRetargetPose.png)(w:540)

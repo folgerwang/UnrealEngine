@@ -1,0 +1,195 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith with CAD File Formats
+Description: Describes special considerations that apply when you use Datasmith to import content from CAD file formats.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 4
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+Tags: CAD
+topic-image:datasmith-cad-topic.png
+
+
+![Using Datasmith for CAD File Formats](datasmith-cad-banner.png "Using Datasmith for CAD File Formats")
+
+If you plan to use Datasmith to bring scenes into Unreal Editor from most supported CAD file formats, you'll need to know a few extra things about how Datasmith treats your scene, in addition to the basics that you'll find described in the [Datasmith Overview](Enterprise/Datasmith/Overview) and [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## CAD Workflow
+
+Datasmith uses a **Direct **workflow for most CAD file types. That means that to get your content into Unreal using Datasmith, you simply need to save your CAD scene to one of [the supported file types](Enterprise/), and use the Datasmith CAD importer to bring that file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Tessellation
+
+In CAD formats, you often use curves and mathematical functions to define surfaces and solids. The precision and smoothness of these surfaces is ideal for the manufacturing process. However, modern GPU chips are highly optimized for rendering surfaces that are made up of triangular meshes. Real-time renderers and game engines like Unreal, which need to push the limits of these GPUs in order to produce dozens of stunning photoreal quality images every second, typically only work with geometry that is made up of triangular meshes.
+
+Datasmith bridges this gap by automatically computing triangular meshes that closely approximate any curved surfaces in your CAD file that don't already have mesh representations. This process is called *tessellation*, and it is an essential step in preparing your CAD data for use in real time.
+
+For example, the image on the left shows a surface rendered in a native CAD viewer. The image on the right shows a wireframe of a triangular mesh that was generated for that surface.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Parametric Surface](cad-tessellation-example-surface.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Triangulated Mesh](cad-tessellation-example-wireframe.png) 
+	[/PARAM]
+[/OBJECT]
+
+Tessellating a surface for real-time rendering involves an implicit tradeoff between the accuracy of the surface and the speed that it can be rendered.
+
+By nature, a triangular mesh can never exactly match the mathematically precise surface it was generated from. Tessellation always implies sampling the original surface at some level of detail to create an approximation that allows the GPU to render the geometry more quickly. Typically, the closer your mesh is to the original surface, the more complex it will be — that is, it will contain more triangles, and those triangles will be smaller. This may look better when it's rendered, but places higher demands on the GPU. If you lower the accuracy of your tessellated mesh, so that it contains fewer, larger triangles, the GPU will be able to render it faster, but that rendering may not give you the visual fidelity you're looking for — it may look blocky or jagged.
+
+Therefore, your goal in the tessellation process is to minimize the number of triangles in your mesh, while maximizing its visual fidelity to the source. This usually means that you aim to have a relatively small number of larger triangles in places where the surface is smoother and flatter, and a relatively large number of smaller triangles in places where the surface is more complex and uneven.
+
+Datasmith offers three parameters that you can adjust when you import a CAD scene, described in the following sections. By tweaking these values, you can control the complexity and fidelity of the Static Mesh geometry that Datasmith creates for your curved surfaces.
+
+[REGION:tip]
+You can also set these same options when you reimport individual Static Mesh Assets. This allows you to set overall tessellation values for your scene, then override those settings for individual objects that need higher or lower levels of detail. See also [About the Datasmith Reimport Workflow](Enterprise/Datasmith/Overview/ReimportWorkflow).
+[/REGION]
+
+### Chord Tolerance
+
+The chord tolerance, sometimes called the chord error or sag error, defines the maximum distance that any point on the tessellated surface can be from the corresponding point on the original surface.
+
+![Chord tolerance examples](datasmith-cad-chordtolerance-whatis.png "Chord tolerance examples")
+
+Lowering the value of this parameter makes the tessellated surface stay closer to the original surface, producing more small triangles.
+
+The effect of this setting is most visible in areas with greater curvature: as the tolerance value increases, the generated triangles become larger and the surface smoothness is reduced.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#chordtolimage1] | [INCLUDE:#chordtolimage2] | [INCLUDE:#chordtolimage3] |
+| [INCLUDE:#chordtolimage1data] | [INCLUDE:#chordtolimage2data] | [INCLUDE:#chordtolimage3data] |
+[/REGION]
+[COMMENT:none]
+[EXCERPT:chordtolimage1]
+[REGION:lightbox]
+[![](chordtolerance-1-1.png)(w:320)](chordtolerance-1-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage1]
+
+[EXCERPT:chordtolimage1data]
+0.1mm: 134 000 triangles
+[/EXCERPT:chordtolimage1data]
+
+[EXCERPT:chordtolimage2]
+[REGION:lightbox]
+[![](chordtolerance-2-1.png)(w:320)](chordtolerance-2-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage2]
+
+[EXCERPT:chordtolimage2data]
+0.5mm: 37 500 triangles
+[/EXCERPT:chordtolimage2data]
+
+[EXCERPT:chordtolimage3]
+[REGION:lightbox]
+[![](chordtolerance-3-1.png)(w:320)](chordtolerance-3-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage3]
+
+[EXCERPT:chordtolimage3data]
+10mm: 13 500 triangles
+[/EXCERPT:chordtolimage3data]
+[/COMMENT]
+
+### Max Edge Length
+
+This setting limits the maximum length of any single edge in any triangle in the tessellated mesh. 
+
+![Max edge length examples](datasmith-cad-maxedgelength-whatis.png "Max edge length examples")
+
+The effect of this setting is most visible in flatter areas of the model. If you set this value too low, you may see that these flat areas have more small triangles than they really need. On the other hand, if you set this value too high or don't set a limit, you may sometimes get oddly shaped triangles that are extremely long and thin, which are also best avoided.
+
+If you set this value to 0, Datasmith does not limit edge lengths in its generated triangles.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#image1] | [INCLUDE:#image2] | [INCLUDE:#image3] |
+| [INCLUDE:#image1data] | [INCLUDE:#image2data] | [INCLUDE:#image3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:image1]
+[REGION:lightbox]
+[![](maxedgelength-1.png)(w:320)](maxedgelength-1.png)
+[/REGION]
+[/EXCERPT:image1]
+
+[EXCERPT:image1data]
+10mm: 128 000 triangles
+[/EXCERPT:image1data]
+
+[EXCERPT:image2]
+[REGION:lightbox]
+[![](maxedgelength-2.png)(w:320)](maxedgelength-2.png)
+[/REGION]
+[/EXCERPT:image2]
+
+[EXCERPT:image2data]
+20mm: 43 700 triangles
+[/EXCERPT:image2data]
+
+[EXCERPT:image3]
+[REGION:lightbox]
+[![](maxedgelength-3.png)(w:320)](maxedgelength-3.png)
+[/REGION]
+[/EXCERPT:image3]
+
+[EXCERPT:image3data]
+40mm: 21 000 triangles
+[/EXCERPT:image3data]
+[/COMMENT]
+
+
+### Normal Tolerance
+
+This setting defines the maximum angle, in degrees, between any two adjacent triangles in the tessellated mesh.
+
+![Normal tolerance example](datasmith-cad-normaltolerance-whatis.png "Normal tolerance example")
+
+Like the chord tolerance, the normal tolerance has an effect on how closely the tessellated mesh follows the original surface. However, it is particularly useful to preserve the level of detail in areas with high curvature, while having little effect on the triangles generated in flatter areas of the surface.
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#normtolimage1] | [INCLUDE:#normtolimage2] | [INCLUDE:#normtolimage3] |
+| [INCLUDE:#normtolimage1data] | [INCLUDE:#normtolimage2data] | [INCLUDE:#normtolimage3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:normtolimage1]
+[REGION:lightbox]
+[![](normaltolerance-1.png)(w:320)](normaltolerance-1.png)
+[/REGION]
+[/EXCERPT:normtolimage1]
+
+[EXCERPT:normtolimage1data]
+5°: 295 000 triangles
+[/EXCERPT:normtolimage1data]
+
+[EXCERPT:normtolimage2]
+[REGION:lightbox]
+[![](normaltolerance-2.png)(w:320)](normaltolerance-2.png)
+[/REGION]
+[/EXCERPT:normtolimage2]
+
+[EXCERPT:normtolimage2data]
+10°: 100 000 triangles
+[/EXCERPT:normtolimage2data]
+
+[EXCERPT:normtolimage3]
+[REGION:lightbox]
+[![](normaltolerance-3.png)(w:320)](normaltolerance-3.png)
+[/REGION]
+[/EXCERPT:normtolimage3]
+
+[EXCERPT:normtolimage3data]
+40°: 21 500 triangles
+[/EXCERPT:normtolimage3data]
+[/COMMENT]

@@ -1,28 +1,43 @@
-﻿INTSourceChangelist:3009005
+INTSourceChangelist:3782314
 Availability:Public
-Title:使用 Sequencer
-Crumbs:%ROOT%, Engine
-Description:有关使用 Sequencer 的提示、技巧及其他注意事项。
+Title:使用Sequencer
+Crumbs: %ROOT%, Engine
+Description:有关使用Sequencer的提示、技巧及其他注意事项。
+Type: Landing
 Navigation:topic
-parent:Engine\Sequencer
-order:1
-Version:4.12
+parent:Engine/Sequencer
+order:5
+Version: 4.18
+tags:Sequencer
 
-您可以使用多个内置的快捷键或键盘组合键来提高您在 Sequencer 中创建内容的速度。您可以根据团队的组成采用多个不同的工作流程。 
+![](Workflow_02.png)
 
-了解 Sequencer 的使用方法后，您可参考下列页面，以提高工作效率或改善工作流程： 
+
+除了可以使用几个内置的快捷键和键绑定来加快在Sequencer中创作内容的速度外，还可以使用一些Sequencer相关功能来生成过场动画的内容，例如 **序列记录器**。 
+本页将着重介绍与Sequencer相关的不同功能和工具，以及你可以在过场动画创建过程中使用的一些技巧、窍门和工作流程。 
 
 [REGION:note]
-如果您不熟悉 Sequencer，建议您先查看 [**概述**](Engine\Sequencer\Overview) 页面。 
+如果你不熟悉Sequencer，建议先查看[概述](Engine\Sequencer\Overview)页面。 
 [/REGION]
 
-## 
+(#features&tools)
+## 功能与工具
 
 [REGION:buttonlist]
-
-		* [](Engine\Sequencer\Workflow\CheatSheet "%Engine\Sequencer\Workflow\CheatSheet:description%")
-		* [](Engine\Sequencer\Workflow\EditorPrefs "%Engine\Sequencer\Workflow\EditorPrefs:description%")
-		* [](Engine\Sequencer\Workflow\ToolUsage "%Engine\Sequencer\Workflow\ToolUsage:description%")
-	
+*[](Engine\Sequencer\Workflow\SequenceRecorder "%Engine\Sequencer\Workflow\SequenceRecorder:description%")
+*[](Engine\Sequencer\Workflow\EditorPrefs "%Engine\Sequencer\Workflow\EditorPrefs:description%")
 [/REGION]
+
+(#tips&workflows)
+## 提示与工作流程
+
+[REGION:buttonlist]
+*[](Engine\Sequencer\Workflow\CheatSheet "%Engine\Sequencer\Workflow\CheatSheet:description%")
+*[](Engine\Sequencer\Workflow\ToolUsage "%Engine\Sequencer\Workflow\ToolUsage:description%")
+*[](Engine\Sequencer\Workflow\ImportExport "%Engine\Sequencer\Workflow\ImportExport:description%")
+*[](Engine\Sequencer\Workflow\CustomRenderPass "%Engine\Sequencer\Workflow\CustomRenderPass:description%")
+*[](Engine\Sequencer\Workflow\RenderingCmdLine "%Engine\Sequencer\Workflow\RenderingCmdLine:description%")	
+[/REGION]
+
+
 

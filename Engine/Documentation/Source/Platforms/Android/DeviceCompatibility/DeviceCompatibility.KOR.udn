@@ -1,0 +1,52 @@
+﻿INTSourceChangelist:4687491
+Availability: Public
+Crumbs: 
+Title: Android 디바이스 호환성
+Description: Android 로 개발할 때의 디바이스 호환성입니다.
+Type: 
+Version: 4.21
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Reference
+
+
+언리얼 엔진 4 (UE4)는 다양한 Android 디바이스를 지원합니다. 가장 대중적인 디바이스 다수를 테스트하려 노력하고 있지만, 내부적으로 모든 디바이스를 테스트하진 못했습니다. 아래 디바이스 프로파일은 지침으로 제공합니다.
+
+**Base Android Device Profile** (기본 Android 디바이스 프로파일) \- 디바이스 별로 지정하지 않은 경우 이 [디바이스 프로파일](Platforms/DeviceProfiles) 을 모든 Android 프로파일에서 사용할지 입니다.
+
+| **Android 디바이스 프로파일** | |
+| --- | |
+| **콘솔 변수** | **값** |
+| --- | --- |
+| r.MobileContentScaleFactor | 1 |
+| r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 0 |
+| r.RefractionQuality | 0 |
+| r.ShadowQuality | 0 |
+| slate.AbsoulteIndices | 1 |
+
+[REGION:note]
+Android 디바이스 프로파일은 버킷으로 나뉘어 있어 다양한 Android GPU 를 보다 효과적으로 지원할 수 있습니다. 이 버킷은 기본값으로 사용되며 프로젝트에 별도의 필요 사항 충족을 위해서는 커스텀 [디바이스 프로파일](Platforms/DeviceProfiles) 을 만드는 것이 좋습니다.
+[/REGION]  
+
+| **Android_High** | | **Android_Medium** | | **Android_Low** | |
+| --- | --- | --- | --- | --- | --- |
+| **콘솔 변수** | **값** | **콘솔 변수** | **값** | **콘솔 변수** | **값** |
+| --- | --- | --- | --- | --- | --- |
+| r.MobileContentScaleFactor | 1 | r.MobileContentScaleFactor | 0.8 | r.MobileContentScaleFactor | 0.5 |
+| r.BloomQuality | 1 | r.BloomQuality | 1 | r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 1 | r.DepthOfFieldQuality | 0 | r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 1 | r.LightShaftQuality | 0 | r.LightShaftQuality | 0 |
+| r.RefractionQuality | 1 | r.RefractionQuality | 0 | r.RefractionQuality | 0 |
+| r.ShadowQuality | 2 | r.ShadowQuality | 2 | r.ShadowQuality | 1 |
+
+  
+
+| **디바이스 프로파일** | **GPU** |
+| --- | --- |
+| **Android_High** | Adreno 330-5xx, Mali T7xx, T8xx, Mali G76, Mali G72, Mali G71, Tegra K1 |
+| **Android_Medium** | Adreno 320, Power VR54x, Mali T6xx, Tegra 4 |
+| **Android_Low** | Adreno 2xx, IntelHD, Mali 4xx |

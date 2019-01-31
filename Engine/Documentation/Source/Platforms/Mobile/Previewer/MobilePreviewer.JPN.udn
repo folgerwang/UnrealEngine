@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4261534
 Availability:Public
 Crumbs: %ROOT%
 Title:モバイル プレビュア
@@ -19,9 +19,7 @@ Social-Image:T_Rendering_Level_Examples.png
 
 ![](T_Rendering_Level_Examples.png)
 [region:caption]
-1:Mobile / HTML5 - Open GL ES2
-2:Shader Model 4.0 - DX10/ OpenGL 3.3+
-3:Shader Model 5.0 - DX11/ OpenGL 4.3+
+1:Mobile / HTML5 - Open GL ES2、 2:Shader Model 4.0 - DX10/ OpenGL 3.3+、 3:Shader Model 5.0 - DX11/ OpenGL 4.3+
 [/region]
 
 アンリアル エンジン (UE4) の **Mobile Previewer** を使うと、様々なモバイル デバイスでのシーンの見映えを UE4 エディタ ビューポートで直接プレビューすることができます。異なるプレビュー レンダリング レベルを有効にしておくと、
@@ -56,10 +54,10 @@ Social-Image:T_Rendering_Level_Examples.png
 
 	[OBJECT:ComparisonSlider]
 		[PARAM:before]
-		![Android Vulkan Preview](VulkanPreview.png)(w:700)
+		![Android Vulkan Preview](VulkanPreview.png)
 		[/PARAM]
 		[PARAM:after]
-		![Desktop Shader Model 5 (SM5) Preview](Sm5Preview.png)(w:700)
+		![Desktop Shader Model 5 (SM5) Preview](Sm5Preview.png)
 		[/PARAM]
 	[/OBJECT]
 
@@ -77,7 +75,8 @@ Social-Image:T_Rendering_Level_Examples.png
 Mobile Preview モードを有効にするには、以下の操作を行ってください。
 
 1. メイン ツールバー の **[Play (プレイ)]** ボタンの横にある三角をクリックして、別のプレイモードを展開します。 
-1. **[Mobile Preview (モバイル プレビュー)]** を選択すると、モバイル デバイス上のプロジェクトの外観をシミュレートするウィンドウが新しく開きます。 
+
+2. **[Mobile Preview (モバイル プレビュー)]** を選択すると、モバイル デバイス上のプロジェクトの外観をシミュレートするウィンドウが新しく開きます。 
 
 	![](T_Activate_Mobile_Preview.png)
 
@@ -93,7 +92,7 @@ Android OPENGLES 3.1、Android Vulkan、iOS Metal 向けハイエンド デバ�
 
 	![](OpenProjectSettings.png)(w:300)
 
-1. **[Project Settings]** の **[Platforms]** セクションから、**[Android]** または **[iOS]** セクションを選択します。 
+2. **[Project Settings]** の **[Platforms]** セクションから、**[Android]** または **[iOS]** セクションを選択します。 
 
 	[REGION:lightbox]
 	[![](PS_SelectPlatform.png)(w:900)](PS_SelectPlatform.png)
@@ -108,11 +107,10 @@ Android OPENGLES 3.1、Android Vulkan、iOS Metal 向けハイエンド デバ�
 
 	![](MetalTarget.png)(w:650)
 
-1. これらの設定が完了すると、[Preview Rendering Levels ] リストのサポート対象プラットフォームリストが更新されます。
+3. これらの設定が完了すると、[Preview Rendering Levels ] リストのサポート対象プラットフォームリストが更新されます。
 
-	[REGION:raw]
 	![](HighEndPreviewEnabled.png)
-	[/REGION]
+
 
 
 

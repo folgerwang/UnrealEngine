@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2690134
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:字体表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:对字体资产进行取样和输出的表达式。
 Version:4.9
 SkillLevel:
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

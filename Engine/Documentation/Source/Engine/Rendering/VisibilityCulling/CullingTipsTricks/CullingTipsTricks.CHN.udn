@@ -1,69 +1,27 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling Tips & Tricks
+Title: 可视性剔除的技巧与提示
 Crumbs: %ROOT%, Engine, 
-Description: Tips & Tricks you can use to troubleshoot your scenes.
+Description: 对场景进行故障排除时的实用技巧与提示。
 Version: 4.13
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+以下是一些提示和技巧，可用于帮助您在怀疑可视性或遮挡剔除问题时对场景进行故障排除和测试。
 
 
+##可视化基元
 
-The following are some Tips & Tricks you can use to help you troubleshoot and test your scene when you suspect problems with visibility or occlusion culling.
+这将使可视化模式能够绘制场景内在摄像机视图中被遮挡的任何Actor的边界框。使用[预计算可视性体积](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume)时，绿色边界框表示Actor被动态遮挡，红色边界框则表示Actor被静态遮挡。 
 
-
-## Visualize Occluded Primitives
-
-This will enable the visualization mode to draw the bounding boxes of any Actors in your scene that are occluded from the Camera view. A green bounding box indicates the Actor is 
-dynamically occluded and a red bounding box indicates that the Actor is statically occluded when using [Precomputed Visibility Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume). 
-
-Use the following console command to enable this visualization: 
+使用以下控制台命令启用此可视化： 
 
 	r.VisualizeOccludedPrimitives 1
 
 
 [REGION:note]
-This console command will only work while in the editor and not in PIE or Standalone games.
+此控制台命令仅在编辑器中有效，而在PIE或单机游戏中无效。
 [/REGION]
 
-In the example below, the visualization of occluded Actors blocked by the wall is compared to the placement of the Actor's with the wall removed. 
+在以下示例中，将墙体阻挡的遮挡Actor的可视化与墙体移除后Actor的放置进行比较。 
 
 [OBJECT:ComparisonSlider]
  [PARAM:before]
@@ -75,11 +33,11 @@ In the example below, the visualization of occluded Actors blocked by the wall i
 [/OBJECT]
 
 
-## Freeze Rendering
+##冻结渲染
 
-This will toggle the rendering state of the scene from the current Camera perspective while allowing you to freely move around the world.
+它将从当前的摄像机视角切换场景的渲染状态，同时允许您在世界场景中自由移动。
 
-Use the following console command to toggle this mode:
+使用以下控制台命令切换此模式：
 
 	FREEZERENDERING
 
@@ -97,24 +55,8 @@ Use the following console command to toggle this mode:
 [/OBJECT]
 
 
-## Game View Mode
+##游戏视图模式
 
-You can use the keyboard shortcut for **G** or use the main **Viewport Options** down-arrow to select **Game View** to be able to work in the editor and switch between what you would see in game. 
-This is helpful when you do not want to PIE or launch a game but need to check what the game would look like. This is ideal for checking [Cull Distance Volumes](Engine\Rendering\VisibilityCulling\CullDistanceVolume) 
-and [Precomputed Visibility Volumes](Engine\Rendering\VisibilityCulling\PrecomputedVisibilityVolume) since these do not work unless you are in game or using the Game View.
+您可以使用键盘快捷键 **G** 或使用主 **视口选项（Viewport Options）** 下方的箭头键选择 **游戏视图（Game View）**，以便在编辑器中工作并切换在游戏中所看到的内容。当您不想PIE或启动游戏但需要查看游戏的外观时，此模式非常有用。此模式非常适合用于检查[剔除距离体积](Engine\Rendering\VisibilityCulling\CullDistanceVolume) 和[预计算可视性体积](Engine\Rendering\VisibilityCulling\PrecomputedVisibilityVolume)，因为除非您正在游戏中或使用游戏视图，否则它们将不起作用。
 
-For more information on the [Game View](Engine\UI\LevelEditor\Viewports\Basics) mode, you can read about it in this page.
-
-
-[COMMENT:none]
--
-## Related Links
-
-[REGION:buttonlist]
-
-  * [](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume)
-  * [](1_TimH\2_IN_PROGRESS\VisibilityCulling\CullDistanceVolume)
- 
-[/REGION]
--
-[/COMMENT]
+有关[游戏视图](Engine\UI\LevelEditor\Viewports\Basics)模式的更多信息，您可以在此页面中阅读相关内容。

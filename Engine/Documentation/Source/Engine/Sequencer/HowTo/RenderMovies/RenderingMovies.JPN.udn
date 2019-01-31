@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3741733
+﻿INTSourceChangelist:4662417
 Availability:Docs
 Title:シネマティック ムービーの出力
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -30,7 +30,7 @@ type:how-to
 ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** を使います。 
 [/REGION]
 
-1.	プロジェクト内で、メイン ツールバーから **[Cinematics (シネマティックス)]** ボタンをクリックし、**[Add Level Sequence (レベル シーケンスを追加)]** を選択します。 
+1.	プロジェクト内で、 **メイン ツールバー** から **[Cinematics (シネマティックス)]** ボタンをクリックし、**[Add Level Sequence (レベル シーケンスを追加)]** を選択します。 
 
 	![](RenderMovie_01.png)
 
@@ -109,7 +109,7 @@ simple
 [/PARAMLITERAL]
 [/OBJECT]
 
-**[Use Burn In]** オプションを有効にして **Burn-ins** を含めたり、 [カスタムの Burn In](Engine/Sequencer/HowTo/CustomBurnIns) (動画に埋め込まれるオーバーレイ) を作成することもできます。 
+**Burn-ins** は動画に埋め込まれるオーバーレイで、フレームなどの内部状態を提供するために使用されます。**[Use Burn In]** オプションを有効にして **Burn-ins** を含めたり、 [カスタムの Burn In](Engine/Sequencer/HowTo/CustomBurnIns) を作成することもできます。 
 
 ![](BurnIns.png)
 

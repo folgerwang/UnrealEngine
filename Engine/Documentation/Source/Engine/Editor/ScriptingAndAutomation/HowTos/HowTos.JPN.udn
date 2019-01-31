@@ -1,0 +1,17 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: エディタのスクリプティングに関するHow Toシリーズ
+Description: ブループリントおよび Python を使用して、Unreal Editor でコンテンツ制作タスクをスクリプティングおよび自動化する方法の例を示すページを提供します。
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 0
+Tags: scripting
+Tags: editor
+
+
+このセクションに含まれるページでは、ブループリントおよび Python を使用して、Unreal Editor でよくあるコンテンツ制作タスクの一部を自動化する方法を紹介します。ここで紹介されている例は直接コピーすることができます。また、これらをモデルとして活用し、ユーザー独自のスクリプトに役立てることができます。
+
+## 中級者向け
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/Editor/ScriptingAndAutomation/HowTos" org:"hierarchy")]

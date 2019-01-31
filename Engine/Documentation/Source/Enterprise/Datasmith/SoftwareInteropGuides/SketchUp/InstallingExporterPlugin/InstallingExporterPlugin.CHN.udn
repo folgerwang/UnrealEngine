@@ -1,0 +1,67 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 安装面向SketchUp Pro的Datasmith导出器插件
+Description: 描述如何安装和卸载面向SketchUp Pro的Datasmith导出器插件。
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 3
+Tags: Enterprise
+Tags:how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-install-skp.png)
+
+需要先安装SketchUp虚幻Datasmith导出器插件，然后才能开始在虚幻引擎中使用SketchUp内容。
+
+要了解导出器插件当前支持哪些版本的SketchUp Pro，请参阅[Datasmith支持的软件和文件类型](Enterprise/Datasmith/SupportedSoftwareAndFileTypes)。
+
+[REGION:tip]
+你可与组织内外部任意数量的人员共享Datasmith导出器插件的下载链接。无需Unreal Studio授权就可下载和使用Datasmith导出器插件。但是请注意，不得分发Datasmith导出器插件本身。
+[/REGION]
+
+## 安装SketchUp Datasmith导出器
+
+请按照以下步骤为计算机上安装的任何受支持的SketchUp版本安装Datasmith导出器插件。
+
+1.  请关闭计算机上正在运行的所有SketchUp实例。如有实例仍在运行，安装将会失败。
+1.  如果已安装Datasmith导出器插件的较早版本，建议你先将其卸载。有关细节，请参阅下面的[删除SketchUp Datasmith导出器](#removingthedatasmithexporterforsketchup)。
+1.  从[Datasmith导出器插件下载](https://www.unrealengine.com/studio/downloads)页或从Epic Games启动程序下载导出器插件。
+1.  下载完成后，运行安装程序，接受许可协议，然后按照提示进行操作。  
+    ![Datasmith导出器安装程序向导](sketchup_installer.png "Datasmith Exporter installer wizard")
+1.  由于尚未向微软注册该插件安装程序，你可能会看到安全警告。单击 **更多信息**。  
+    ![更多信息](unnamed-image-resize546x189.png "More info")  
+    然后单击 **仍要运行**。  
+    ![仍要运行](unnamed-image-resize549x190.png "Run Anyway")
+1.  安装程序将自动检测系统上安装的SketchUp Pro的版本。选中要通过Datasmith导出的每个版本的复选框，然后单击 **安装**。  
+    ![SketchUp安装程序版本](sketchup_installer_versions.png "SketchUp installer versions")
+
+### 最终结果
+
+现在你已经安装好了Datasmith导出器插件，可以从SketchUp将场景导出为 *.udatasmith* 文件。请参阅[从SketchUp Pro导出Datasmith内容。](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp)
+
+(#removingthedatasmithexporterforsketchup)
+## 删除SketchUp Datasmith导出器
+
+使用标准的Windows控制面板实用程序在系统中查找并删除 **Unreal Datasmith Exporter for SketchUp** 应用程序。
+
+例如，在Windows 10中，可以使用 **应用和功能** 控制面板。单击列表中的Datasmith导出器插件条目，然后单击 **卸载**：
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png)](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png) 
+
+*单击查看大图。*
+[/REGION]
+
+或者，使用 **卸载或更改程序** 控制面板。右键单击Datasmith导出器插件条目，然后从情境菜单中选择 **卸载**：
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-uninstallchange.png "uninstall-datasmith-sketchup-plugin-uninstallchange.png")](uninstall-datasmith-sketchup-plugin-uninstallchange.png)
+
+*单击查看大图。*
+[/REGION]

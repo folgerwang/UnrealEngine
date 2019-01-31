@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3769005
 Availability:Public
-Title:1. 기어 VR 프로젝트 생성
+Title:1. Gear VR 프로젝트 생성
 Crumbs:%ROOT%, Platforms/GearVR
-Description: 기어 VR 헤드셋에 사용할 수 있는 UE4 C++ 기반 프로젝트 생성 방법 안내입니다.
+Description: Gear VR 헤드셋에 사용할 수 있는 UE4 C++ 기반 프로젝트 생성 방법 안내입니다.
 Navigation:platform
 Version: 4.17
 Skilllevel: Intermediate
@@ -16,7 +16,7 @@ Checkpoint:GearVRQS
 [nav]
 
 
-기어 VR 퀵 스타트 여기서는 기어 VR 에 사용할 수 있도록 새로운 UE4 프로젝트를 구성하는 법을 살펴보겠습니다.
+Gear VR 퀵 스타트 여기서는 Gear VR 에 사용할 수 있도록 새로운 UE4 프로젝트를 구성하는 법을 살펴보겠습니다.
 
 ## 단계
 
@@ -57,6 +57,6 @@ Checkpoint:GearVRQS
 
 ## 최종 결과
 
-완료되면 기어 VR 에 사용할 수 있는 공백 프로젝트가 새로 생성되었을 것입니다.
+완료되면 Gear VR 에 사용할 수 있는 공백 프로젝트가 새로 생성되었을 것입니다.
 
 [nav]

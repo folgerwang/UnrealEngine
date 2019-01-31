@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4220008
+﻿INTSourceChangelist:4605596
 Availability:Public
 Title: 虚幻引擎4.20版本说明
 Description: 虚幻引擎4.20版本说明
@@ -23,7 +23,7 @@ reference-image:image_18.gif
 
 我们在虚幻引擎 4.20 版本兑现了承诺，为广大开发者们带来众望所归的可扩展工具。赶紧来使用吧，创造前瞻性的移动游戏，探索Niagara的强大功能，用数字人类（digital humans）实现栩栩如生的角色，并充分利用各个平台的工作流优化。
 
-开发者 **可以利用虚幻引擎打造出美轮美奂的场景和栩栩如生的角色**，真实度将达到无可比拟的程度。全新的Niagara粒子编辑器能够为项目的各个方面添加令人惊叹的细节，让项目的整体视觉效果更上一层楼。深入了解由全新“数字人类（Digital Humans）”技术打造的“Meet Mike”和“Siren”演示，将角色的真实度大幅提升。此外，还可以利用全新的过场景深（Cinematic Depth of Field）功能来实时实现电影级别的摄像机效果。
+开发者 **可以利用虚幻引擎打造出美轮美奂的场景和栩栩如生的角色**，真实度将达到无可比拟的程度。全新的Niagara粒子编辑器能够为项目的各个方面添加令人惊叹的细节，让项目的整体视觉效果更上一层楼。深入了解由全新“数字人类（Digital Humans）”技术打造的“Meet Mike”和“Siren”演示，将角色的真实度大幅提升。此外，还可以利用全新的影视级景深（Cinematic Depth of Field）功能来实时实现电影级别的摄像机效果。
 
 虚幻引擎为您提供了各种工具，可以自定义您心仪风格和工作流的创建过程，**使您真正能够自由创作**。您可以使用全新的编辑器脚本和自动库来对工具和工作流进行完全的自定义。还可以对Actor和内容浏览器快捷菜单进行脚本延展，添加新操作来应用到Actor或资源，让设计师和美术师的工作更加轻松。
 
@@ -159,6 +159,7 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 * 以及诸多问题修复！
 
+(#new:proxylodimprovements)
 ## 全新内容：代理LOD改良
 
 全新的 **代理LOD工具** 已经从 **实验性功能** 转为 **正式功能，可用于开发工作**！此工具可减少多边形数量、绘制调用和材质复杂性造成的渲染开销，从而提升性能，**使移动和主机平台的开发更加容易**！此工具提供了第三方打包Simplygon之外的一个选项，可结合虚幻引擎中的 **细节级别（LOD）** 系统使用。
@@ -199,21 +200,22 @@ Fortnite的内存使用要求极为苛刻，因此需要高效地使用LOD。对
 
 上图显示了空隙填充的使用效果。所有图片皆受到约束，只能使用固定的少量纹理空间。图2是未使用空隙填充的代理LOD在建筑上的效果，其中LOD包含建筑的内部（代价则是存在看不到的三角形和纹素）。图3是同一个建筑使用空隙填充的效果，门窗皆已自动封闭，因此总三角形数量更少，有限的纹理资源也得到了更好的利用。
 
-## 全新内容：过场景深
+(#new:cinematicdepthoffield)
+## 全新内容：影视级景深
 
-全新的 **过场景深（Cinematic Depth of Field）** 功能可助您 **在实时环境中实现电影级别的场景渲染**！此方法能实现更高的画质，替代原有的循环景深（Circle DoF）法，运行速度也快于Bokeh之类的其他多数景深法。过场景深制作出的景深效果更加清晰，利用过程Bokeh模拟来提供过场效果。此方法同样支持透明度通道、动态分辨率稳定，也可通过设置来调低主机项目中的效果。  
+全新的 **影视级景深（Cinematic Depth of Field）** 功能可助您 **在实时环境中实现电影级别的场景渲染**！此方法能实现更高的画质，替代原有的循环景深（Circle DoF）法，运行速度也快于Bokeh之类的其他多数景深法。影视级景深制作出的景深效果更加清晰，利用过程Bokeh模拟来提供过场效果。此方法同样支持透明度通道、动态分辨率稳定，也可通过设置来调低主机项目中的效果。  
 
 ![image alt text](image_1.png)(w:930 convert:false)
 
 ![image alt text](image_2.png)(w:460 convert:false) ![image alt text](image_3.png)(w:461 convert:false)
 
-*左图 - 启用过场景深; 右图 - 禁用过场景深*
+*左图 - 启用影视级景深; 右图 - 禁用影视级景深*
 
-过场景深默认启用，替代旧版本中在 **摄像机（Camera）** 和 **和后期处理（Post Process）** 设置中选择的 **循环景深（Circle DoF）** 法。
+影视级景深默认启用，替代旧版本中在 **摄像机（Camera）** 和 **和后期处理（Post Process）** 设置中选择的 **循环景深（Circle DoF）** 法。
 
  
 
-* 过场景深支持以下平台 
+* 影视级景深支持以下平台 
 
     * D3D11 SM5、D3D12 SM5、Vulkan SM5、PlayStation 4、Xbox One和Mac。
 
@@ -344,6 +346,7 @@ Epic对数字人类的探索从[照片级角色](https://docs.unrealengine.com/e
 
 如需了解更多详情，请查阅[数字人类](https://docs.unrealengine.com/en-us/Resources/Showcases/DigitalHumans)。 
 
+(#new:rectangulararealights)
 ## 全新内容：矩形区域光源
 
 利用矩形区域光源可在包含大型光源的场景中实现更为真实的光源，如头顶荧光光照、电视机、光照标记等内容。可在模式（Modes）面板中访问矩形区域光源（Rectangular Area Lights）和其他各类光源。 
@@ -374,6 +377,7 @@ Epic对数字人类的探索从[照片级角色](https://docs.unrealengine.com/e
 
 该功能现在仍处于早期体验阶段，我们期待您多多提供使用反馈，帮助我们进行改进。如果希望了解混合现实采集设置的详细信息，请查阅混合现实开发[文档](https://docs.unrealengine.com/en-us/Platforms/MR)。
 
+(#new:ndisplayflexible,multi-displayrendering)
 ## 全新功能：nDisplay灵活多显示渲染
 
 使用全新的 **nDisplay** 系统，不费吹灰之力便能够 **创建大型视觉设备的视讯墙**！它能够在任意数量的主机电脑上自动启动任意数量的虚幻引擎实例，并将他们牢固地锁定在一起，内容确定，时间同步精确到每帧；每个实例都驱动其自身的投射器或显示器。还可以使用主动或被动立体渲染来增强观者的3D临场感；内置的VRPN则可以通过移动VR控制器来驱动系统。
@@ -627,6 +631,7 @@ Epic对数字人类的探索从[照片级角色](https://docs.unrealengine.com/e
 
 欲知详情，请查阅[内容浏览器过滤器](https://docs.unrealengine.com/en-US/Engine/Content/Browser/UserGuide/Filters)[s](https://docs.unrealengine.com/en-US/Engine/Content/Browser/UserGuide/Filters)。
 
+(#new:shotgunintegration_earlyaccess_)
 ## 全新内容：Shotgun整合（早期体验版）
 
 使用虚幻引擎4全新的Shotgun整合来简化生产流程吧！
@@ -653,12 +658,14 @@ Epic对数字人类的探索从[照片级角色](https://docs.unrealengine.com/e
 
 欲知详情，请查阅[编辑器脚本编写和自动化](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor)。
 
+(#new:importassetmetadatathroughfbx)
 ## 全新内容：通过FBX文件导入资源元数据
 
 将FBX文件导入虚幻引擎时，文件中保存的FbxProperty属性也将同时导入。您可以在蓝图、或在虚幻编辑器中运行的Python脚本中访问此元数据。这可以帮助您根据来自内容创建工具的资源信息来自定义虚幻引擎的资源管理流程。
 
 欲知详情，请查阅[FBX资源元数据流程](https://docs.unrealengine.com/en-us/Editor/Content/FBX/FBX-Asset-Metadata-Pipeline)。
 
+(#new:improvedscriptaccesstostaticmeshesforlodsandcollisions)
 ## 全新内容：改良脚本对静态网格体LOD和碰撞的访问
 
 在新版本中，您可以利用在虚幻编辑器中运行的蓝图和Python脚本来修改静态网格体资源的更多属性。因此您可以对静态网格体编辑器用户界面中的一些工具实现自动化。例如：
@@ -784,6 +791,7 @@ Sequencer拥有播放媒体源的新轨迹。它就像是用于影片的音频�
 
 欲知详情，请查阅[用Sequencer控制动画实例](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/ControlAnimInstances)页面。
 
+(#new:finalcutpro7xmlimport/exportinsequencer)
 ## 全新内容：Sequencer中的Final Cut Pro 7 XML导入/导出
 
 新版本中，Sequencer影片场景数据可被导出为Final Cut Pro 7 XML格式，也可从此格式进行导入。这可使数据在Adobe Premiere Pro和其他支持FCP 7 XML的其他编辑软件中来会传递。您可以在编辑软件中裁剪并偏移镜头，并在导入时自动将这些映射回Sequencer。
@@ -3565,424 +3573,6 @@ GDC时，我们公布了Magic Leap One™：创造者早期体验版。我们与
 * **Removed:** Disabled Global Clip Plane for Post Process and UI Material Domains.
 
 * **Removed:** Removed redundant divide by w during World Space decoding from Scene Depth.
-
-#### Tools
-
-* **Bug Fix:** Fixed editor preferred source code accessor parsing in the project file generator.
-
-* **Bug Fix:** Updated the Make Dile Generator.cs for CLion and added cleanup for the macro errors that result in FOO()= definitions.
-
-* **Bug Fix:** Capped the allowed number of "Waiting Packages" to avoid creating too many kernel objects in pathological load time cases. 
-
-* **New:** Added "List Static Meshes" and List Skeletal Meshes Console commands.
-
-* **New:** Data for Crash Report Client is now stored in a PAK file of its own which can be found under Engine/Programs/CrashReportClient/Content/Paks/CrashReportClient.pak. 
-
-* **New:** Added 'Build SCW' to the CMake build command lines for editors to match what XCode is doing on Mac.
-
-* **New:** Added a new break pad dump_syms tool to symbolicate elf files on Windows.
-
-* **New:** Added a CLion Generator for consistency. 
-
-* **New:** Added code to detect the bad assumption of the project name always being UE4 and stripped that off in the CLion Source Code Accessor.
-
-##### AutomationTool
-
-* **Bug Fix:** Fixed Editor targets not being rebuilt when packaging from an installed Engine build.
-
-* **Bug Fix:** Fixed a bug when building with chunk installs enabled to not generate the master manifest from each pak creation thread and instead just do it once after all pak files have been created. 
-
-* **Bug Fix:** Fixed platform groups (for example, "Apple", "Microsoft", "Sony") to now included in the list of restricted folder names when staging files for a project.
-
-* **Bug Fix:** Allowed the use of PDBCOPY.EXE to be installed as part of the Windows 10 SDK to strip symbols, and add a better message if it can't be found.
-
-* **Bug Fix:** While cooking on the fly a .pak file will no longer be produced. 
-
-* **Bug Fix:** Fixed incorrect console colors being restored after a warning or error on Mac or Linux.
-
-* **New:** Added a script to rewrite source files with public include paths relative to the 'Public' folder. 
-
-* **New:** Added a -SeparateDebugInfo argument to Build Cook Run, which allows staging debug files to a separate output directory (for example, WindowsClientDebug). 
-
-* **New:** Allow passing -Project<N>=Foo.uproject arguments to the MegaXGE commandlet so it can be used from an installed engine build. 
-
-* **New:** Added an automation script for the CryptoKeys plugin which allows the cycling of encryption and signing keys from UAT.
-
-* **New:** As a security measure, a warning will now be output when staging a project for any config files which are not whitelisted or blacklisted. 
-
-* **New:** Added a Whitelist Directories list under the [Staging] category in DefaultEngine.ini, which allows specifying folders that can be staged despite having restricted folder names.
-
-* **New:** Added Record Performance automation script for running demos multiple times, gathering performance stats and plotting results on charts.
-
-##### BuildGraph
-
-* **Bug Fix:** The Build Editor And Tools .xml script will no longer force copying files to a staging directory.
-
-* **Bug Fix:** When Build Graph is run with the -Preprocess=... argument, no steps will be executed.
-
-* **Bug Fix:** Fixed "copy local" files not being included in build products enumerated from C# projects. 
-
-* **Bug Fix:** Added a warning message when trying to use the <Submit> task without the -Submit argument being passed to UAT.
-
-* **New:** Added a <Trace> element, which allows logging messages after the string is parsed (as opposed to the Log task, which logs them at runtime). 
-
-* **New:** Added a -show diagnostics parameter, to have diagnostic messages output even when running with the -listonly option.
-
-* **New:** Added support for enumerating content copied by the "CsCompile" task and support for invoking methods on string properties.
-
-* **New:** When displaying an XML parse error it will now** **Include the path to the XML file. 
-
-* **New:** Added support for user-defined macros, which can contain a list of BuildGraph commands to be expanded within a node. An example script is located in Engine/Build/Graph/Examples/Macros.xml.
-
-* **Removed:** Files with "Embed Interop Types" from the output list have been removed.
-
-##### UnrealBuildTool
-
-* **Bug Fix:**  Exceptions are no longer thrown on a background thread while caching C++ includes which caused incorrect logging. It now captures exceptions and re-throws on the Main thread.
-
-* **Bug Fix:** Allowed link time code generation on any configurations where b Allow LTCG is set to true.
-
-* **Bug Fix:** When building with the UBT it will now explicitly query the number of logical processors in the system to fix Environment.Processor Count by returning the number available to the .NET framework. For machines with > 64 cores, processors in a different processor groups will not be included in this number.
-
-* **Bug Fix:** The UBT will now always determine whether a project is a foreign project or not from the valid .uprojectdirs entries, rather than relying on the user passing -game on the command line.
-
-* **Bug Fix:** Fixed errors during incremental builds if a build contains an exported symbol change, but the build fails after the source files have been compiled but before the import library is built.
-
-* **Bug Fix:** Fixed an incremental build issue caused by force-included files not being treated as dependencies. 
-
-* **Bug Fix:** Fixed issues caused by the tool chain assuming that the Editor target will be the name of the project with an "Editor" suffix. The launcher will allow you to instantiate a project with any name, and it will not rename the target files.
-
-* **Bug Fix:** Changed RPC toolchain to abort early, rather than continue to try to build even though SSH init failed.
-
-* **Bug Fix:** Fixed platforms not adding response files as dependencies, causing incremental builds to fail if input files/compile arguments change.
-
-* **Bug Fix:** Updated project file generator to support VS2017 solution options file; C# projects will no longer open by default when generating new project files.
-
-* **Bug Fix:** Fixed platforms overriding project generation.
-
-* **Bug Fix:** Fixed a build failure that occurs on the very first build after adding new files with reflected types.
-
-* **Bug Fix:** Fixed an issue where overlapping circular header dependencies would not be parsed correctly, preventing files not being rebuilt on header changes.
-
-* **New:** Warnings and errors will output when compiling module rules assembly in a way that allows them to be double-clicked in the Visual Studio output window.
-
-* **New:** Precompiled targets will now generate a separate manifest for each precompiled module. This fixes issues where object files from static libraries would not be linked into a target if a symbol in them was not referenced.
-
-* **New:** Targets may now opt-out of having public include paths added for every dependent module. This reduces the command line length when building a target. All engine modules are compiled with this enabled; games may opt into it by setting bLegacyPublicIncludePaths = false; from their .target.cs.
-
-* **New:** Unreal Build Tool now writes a log file to Engine/Programs/UnrealBuildTool/Log.txt, containing the regular console output and any reasons why actions are outdated and needed to be executed.
-
-* **New:** C# projects for unsupported platforms are now excluded when generating project files.
-
-* **New:** When building with Incredibuild, the agent executing the compile step is now shown by default.
-
-* **New:** Unreal Build Tool will now validate that targets don't modify properties that affect other targets. Warnings are output for any include paths added via a .build.cs file that do not exist.
-
-* **New:** Added a working directory setting to custom build steps.
-
-* **New:** Added a new Build Configuration .xml setting <bMasterProjectNameFromFolder> which allows setting the solution name based on the folder that it's in, making it easier to distinguish between multiple instances of Visual Studio.
-
-* **New:** The name of the UE4 solution can now be overridden on a branch-specific basis, making it easier to work with multiple open solutions at once. 
-
-* **New:** Added a better error if an XML config file is corrupt.
-
-* **New:** The engine will now use the Windows 10 SDK by default, if available. Projects can be configured to use older versions, if necessary.
-
-* **New:** Added warnings whenever a module adds an include path or library path that doesn't exist.
-
-* **New:** Only output a warning message if Build Configuration .xml schema validation fails; we may have settings that only apply to code in another branch.
-
-* **New:** An "Engine Directory" property has been added to the Module Rules base class, making it easier to find paths to files under the Engine folder.
-
-* **New:** Verbose timing information from the compiler frontend is now included with the bPrintToolChainTimingInfo option enabled if using VS2017 15.7 preview 2 or later.
-
-* **New: **The UnrealBuildTool** **now enumerates all Visual Studio 2017 install locations using the Visual Studio Setup interop SDK, and supports multiple simultaneous Visual Studio installations.
-
-* **New:** Additional compiler/linker arguments can now be set through properties on the TargetRules object again.
-
-* **New:** Added support for reading the local PVS-Studio settings file to the PVS toolchain.
-
-* **New:** Added a new executor for Windows which uses the Managed Process class, spawning child processes under a job object using P/Invoke to ensure that any child process is terminated if the build is canceled.
-
-* **New:** Added support for multiple debug extensions.
-
-##### UnrealGameSync(UGS)
-
-* **Bug Fix:** Fixed an issue where pop-up menus can create top level windows in the taskbar. 
-
-* **Bug Fix:** Fixed notification window not expanding to fit long captions.
-
-* **Bug Fix:** Pre compiled binaries no longer will not be shown as available for a change until scrolling the last submitted code change into the buffer. It now queries changes up to the last change for which zipped binaries are available.
-
-* **Bug Fix:** The application lifecycle now uses a custom application context to allow creating separate 'main' windows, and does not require any forms to be shown in order to be updating in the background. This fixed issues with scheduled syncs on background windows not activating, and window jumping to the front after auto-update.
-
-* **Bug Fix:** UnrealGameSync will now Detect if other programs are running before allowing a sync to start, show a dialog listing them, and give an option to ignore them if necessary.
-
-* **Bug Fix:** Do not create a modal dialog if a scheduled sync is unable to run because the editor is open, and do not run the editor after a scheduled sync.
-
-* **New:** Workspace sync filter categories are now able to re-enable categories that are disabled by the global filter.
-
-* **New:** UnrealGameSync Launcher now shows an error window allowing setting default P4 server settings if syncing UGS fails.
-
-* **New:** Files which are excluded by the sync filter will now be removed from the workspace when syncing. The user's config file stores a hash of the last sync filter. During syncing, if this hash doesn't not match the previous value, we enumerate all the files in the #have list and remove anything masked out by the filter.
-
-* **New:** Added an option to allow setting a tint color to be applied to the status panel, to allow identifying streams more easily. 
-
-* **New:** Columns are now automatically resized when the main window is resized, and default column widths for projects that have a large number of CIS badges can be specified in the project's UnrealGameSync.ini file.
-
-* **New:** The stream name is now in tab labels by default.
-
-* **New:** Added support for a per-branch "message of the day"-style feature. Messages can be specified in a project's config file in Perforce (eg. <ProjectDir>/Build/UnrealGameSync.ini).
-
-* **New:** Added an extensible method for adding arbitrary badges to the right of the "description" column, by running a regular expression over the changelist description. **New: **Added an option to show changes by build machines, and move the "only show reviewed" option in there too (Options > Show Changes).
-
-* **New:** UnrealGameSync now detects Perforce login tickets expiring, and allows entering login credentials.
-
-* **New:** Added an option to prompt for arguments prompting before launching the editor.
-
-* **New:** Added a "Bisect" mode for regressing bugs between a certain range of changes. 
-
-* **New:** Moved the prompt to close the editor before allowing the user to enter a changelist to sync to, when syncing to a specific changelist.
-
-* **New:** Added an error dialog when trying to clean the workspace before closing the editor.
-
-* **New:** You can now select which projects to sync on schedule. Any projects not already opened at the time the schedule is triggered will be opened first.
-
-* **New:** Added an option for syncing all projects in a branch. 
-
-* **New:** Added support for masking in additional paths to be synced (eg. one or two extra projects) via the sync filter.
-
-* **New:** The "clean workspace" functionality will now detect and force-sync files that have been deleted or made writable.
-
-* **New:** You can now use a select stream dialog instead of displaying a drop list unless there's a stream filter specified. Makes it easier to find streams in large depots.
-
-* **New:** Added UI to allow creating new workspaces and selecting projects from existing workspaces that are not currently synced.
-
-##### UnrealHeaderTool
-
-* **Bug Fix:** Fixed some cases where empty default values would be lost from UHT (eg, empty strings, null objects)
-
-##### UnrealPak
-
-* **New:** UnrealPak now logs the size of all encrypted data
-
-* **New:** The key generator now only generates a prime table when required, not all the time
-
-* **New:** Added a parameter for compression block size with -compressionblocksize=XXXX. Accepts arguments with MB/KB suffixes, as well as byte counts.
-
-* **New:** Added support for custom compressors implemented via modular features. 
-
-* **New:** Added an -overrideplatformcompressor argument that allows selecting compressor without using the default platform implementation.
-
-* **New:** Added an option that allows rebuilding a set of PAK files with different settings. 
-
-#### Tools
-
-* **Bug Fix:** Fixed editor preferred source code accessor parsing in the project file generator.
-
-* **Bug Fix:** Capped the allowed number of "Waiting Packages" to avoid creating too many kernel objects in pathological load time cases. 
-
-* **New:** Added "List Static Meshes" and List Skeletal Meshes Console commands.
-
-* **New:** Data for Crash Report Client is now stored in a PAK file of its own which can be found under Engine/Programs/CrashReportClient/Content/Paks/CrashReportClient.pak. 
-
-* **New:** Added 'Build SCW' to the CMake build command lines for editors to match what XCode is doing on Mac.
-
-* **New:** Added a new break pad dump_syms tool to symbolicate elf files on Windows.
-
-* **New:** Added a CLion Generator for consistency. 
-
-* **New:** Added code to detect the bad assumption of the project name always being UE4 and stripped that off in the CLion Source Code Accessor.
-
-##### AutomationTool
-
-* **Bug Fix:** Fixed Editor targets not being rebuilt when packaging from an installed Engine build.
-
-* **Bug Fix:** Fixed a bug when building with chunk installs enabled to not generate the master manifest from each pak creation thread and instead just do it once after all pak files have been created. 
-
-* **Bug Fix:** Fixed platform groups (for example, "Apple", "Microsoft", "Sony") to now included in the list of restricted folder names when staging files for a project.
-
-* **Bug Fix:** Allowed the use of PDBCOPY.EXE to be installed as part of the Windows 10 SDK to strip symbols, and add a better message if it can't be found.
-
-* **Bug Fix:** While cooking on the fly a .pak file will no longer be produced. 
-
-* **Bug Fix:** Fixed incorrect console colors being restored after a warning or error on Mac or Linux.
-
-* **New:** Added a script to rewrite source files with public include paths relative to the 'Public' folder. 
-
-* **New:** Added a -SeparateDebugInfo argument to Build Cook Run, which allows staging debug files to a separate output directory (for example, WindowsClientDebug). 
-
-* **New:** Allow passing -Project<N>=Foo.uproject arguments to the MegaXGE commandlet so it can be used from an installed engine build. 
-
-* **New:** Added an automation script for the CryptoKeys plugin which allows the cycling of encryption and signing keys from UAT.
-
-* **New:** As a security measure, a warning will now be output when staging a project for any config files which are not whitelisted or blacklisted. 
-
-* **New:** Added a Whitelist Directories list under the [Staging] category in DefaultEngine.ini, which allows specifying folders that can be staged despite having restricted folder names.
-
-* **New:** Added Record Performance automation script for running demos multiple times, gathering performance stats and plotting results on charts.
-
-##### BuildGraph
-
-* **Bug Fix:** The Build Editor And Tools .xml script will no longer force copying files to a staging directory.
-
-* **Bug Fix:** When Build Graph is run with the -Preprocess=... argument, no steps will be executed.
-
-* **Bug Fix:** Fixed "copy local" files not being included in build products enumerated from C# projects. 
-
-* **Bug Fix:** Added a warning message when trying to use the <Submit> task without the -Submit argument being passed to UAT.
-
-* **New:** Added a <Trace> element, which allows logging messages after the string is parsed (as opposed to the Log task, which logs them at runtime). 
-
-* **New:** Added a -show diagnostics parameter, to have diagnostic messages output even when running with the -listonly option.
-
-* **New:** Added support for enumerating content copied by the "CsCompile" task and support for invoking methods on string properties.
-
-* **New:** When displaying an XML parse error it will now** **Include the path to the XML file. 
-
-* **New:** Added support for user-defined macros, which can contain a list of BuildGraph commands to be expanded within a node. An example script is located in Engine/Build/Graph/Examples/Macros.xml.
-
-* **Removed:** Files with "Embed Interop Types" from the output list have been removed.
-
-##### UnrealBuildTool
-
-* **Bug Fix:**  Exceptions are no longer thrown on a background thread while caching C++ includes which caused incorrect logging. It now captures exceptions and re-throws on the Main thread.
-
-* **Bug Fix:** Allowed link time code generation on any configurations where b Allow LTCG is set to true.
-
-* **Bug Fix:** When building with the UBT it will now explicitly query the number of logical processors in the system to fix Environment.Processor Count by returning the number available to the .NET framework. For machines with > 64 cores, processors in a different processor groups will not be included in this number.
-
-* **Bug Fix:** The UBT will now always determine whether a project is a foreign project or not from the valid .uprojectdirs entries, rather than relying on the user passing -game on the command line.
-
-* **Bug Fix:** Fixed errors during incremental builds if a build contains an exported symbol change, but the build fails after the source files have been compiled but before the import library is built.
-
-* **Bug Fix:** Fixed an incremental build issue caused by force-included files not being treated as dependencies. 
-
-* **Bug Fix:** Fixed issues caused by the tool chain assuming that the Editor target will be the name of the project with an "Editor" suffix. The launcher will allow you to instantiate a project with any name, and it will not rename the target files.
-
-* **Bug Fix:** Changed RPC toolchain to abort early, rather than continue to try to build even though SSH init failed.
-
-* **Bug Fix:** Fixed platforms not adding response files as dependencies, causing incremental builds to fail if input files/compile arguments change.
-
-* **Bug Fix:** Updated project file generator to support VS2017 solution options file; C# projects will no longer open by default when generating new project files.
-
-* **Bug Fix:** Fixed platforms overriding project generation.
-
-* **Bug Fix:** Fixed a build failure that occurs on the very first build after adding new files with reflected types.
-
-* **Bug Fix:** Fixed an issue where overlapping circular header dependencies would not be parsed correctly, preventing files not being rebuilt on header changes.
-
-* **New:** Warnings and errors will output when compiling module rules assembly in a way that allows them to be double-clicked in the Visual Studio output window.
-
-* **New:** Precompiled targets will now generate a separate manifest for each precompiled module. This fixes issues where object files from static libraries would not be linked into a target if a symbol in them was not referenced.
-
-* **New:** Targets may now opt-out of having public include paths added for every dependent module. This reduces the command line length when building a target. All engine modules are compiled with this enabled; games may opt into it by setting bLegacyPublicIncludePaths = false; from their .target.cs.
-
-* **New:** Unreal Build Tool now writes a log file to Engine/Programs/UnrealBuildTool/Log.txt, containing the regular console output and any reasons why actions are outdated and needed to be executed.
-
-* **New:** C# projects for unsupported platforms are now excluded when generating project files.
-
-* **New:** When building with Incredibuild, the agent executing the compile step is now shown by default.
-
-* **New:** Unreal Build Tool will now validate that targets don't modify properties that affect other targets. Warnings are output for any include paths added via a .build.cs file that do not exist.
-
-* **New:** Added a working directory setting to custom build steps.
-
-* **New:** Added a new Build Configuration .xml setting <bMasterProjectNameFromFolder> which allows setting the solution name based on the folder that it's in, making it easier to distinguish between multiple instances of Visual Studio.
-
-* **New:** The name of the UE4 solution can now be overridden on a branch-specific basis, making it easier to work with multiple open solutions at once. 
-
-* **New:** Added a better error if an XML config file is corrupt.
-
-* **New:** The engine will now use the Windows 10 SDK by default, if available. Projects can be configured to use older versions, if necessary.
-
-* **New:** Added warnings whenever a module adds an include path or library path that doesn't exist.
-
-* **New:** Only output a warning message if Build Configuration .xml schema validation fails; we may have settings that only apply to code in another branch.
-
-* **New:** An "Engine Directory" property has been added to the Module Rules base class, making it easier to find paths to files under the Engine folder.
-
-* **New:** Verbose timing information from the compiler frontend is now included with the bPrintToolChainTimingInfo option enabled if using VS2017 15.7 preview 2 or later.
-
-* **New:** The UnrealBuildTool now enumerates all Visual Studio 2017 install locations using the Visual Studio Setup interop SDK, and supports multiple simultaneous Visual Studio installations.
-
-* **New:** Additional compiler/linker arguments can now be set through properties on the TargetRules object again.
-
-* **New:** Added support for reading the local PVS-Studio settings file to the PVS toolchain.
-
-* **New:** Added a new executor for Windows which uses the Managed Process class, spawning child processes under a job object using P/Invoke to ensure that any child process is terminated if the build is canceled.
-
-* **New:** Added support for multiple debug extensions.
-
-##### UnrealGameSync(UGS)
-
-* **Bug Fix:** Fixed an issue where pop-up menus can create top level windows in the taskbar. 
-
-* **Bug Fix:** Fixed notification window not expanding to fit long captions.
-
-* **Bug Fix:** Pre compiled binaries no longer will not be shown as available for a change until scrolling the last submitted code change into the buffer. It now queries changes up to the last change for which zipped binaries are available.
-
-* **Bug Fix:** The application lifecycle now uses a custom application context to allow creating separate 'main' windows, and does not require any forms to be shown in order to be updating in the background. This fixed issues with scheduled syncs on background windows not activating, and window jumping to the front after auto-update.
-
-* **Bug Fix:** UnrealGameSync will now Detect if other programs are running before allowing a sync to start, show a dialog listing them, and give an option to ignore them if necessary.
-
-* **Bug Fix:** Do not create a modal dialog if a scheduled sync is unable to run because the editor is open, and do not run the editor after a scheduled sync.
-
-* **New:** Workspace sync filter categories are now able to re-enable categories that are disabled by the global filter.
-
-* **New:** UnrealGameSync Launcher now shows an error window allowing setting default P4 server settings if syncing UGS fails.
-
-* **New:** Files which are excluded by the sync filter will now be removed from the workspace when syncing. The user's config file stores a hash of the last sync filter. During syncing, if this hash doesn't not match the previous value, we enumerate all the files in the #have list and remove anything masked out by the filter.
-
-* **New:** Added an option to allow setting a tint color to be applied to the status panel, to allow identifying streams more easily. 
-
-* **New:** Columns are now automatically resized when the main window is resized, and default column widths for projects that have a large number of CIS badges can be specified in the project's UnrealGameSync.ini file.
-
-* **New:** The stream name is now in tab labels by default.
-
-* **New:** Added support for a per-branch "message of the day"-style feature. Messages can be specified in a project's config file in Perforce (eg. <ProjectDir>/Build/UnrealGameSync.ini).
-
-* **New:** Added an extensible method for adding arbitrary badges to the right of the "description" column, by running a regular expression over the changelist description. **New: **Added an option to show changes by build machines, and move the "only show reviewed" option in there too (Options > Show Changes).
-
-* **New:** UnrealGameSync now detects Perforce login tickets expiring, and allows entering login credentials.
-
-* **New:** Added an option to prompt for arguments prompting before launching the editor.
-
-* **New:** Added a "Bisect" mode for regressing bugs between a certain range of changes. 
-
-* **New:** Moved the prompt to close the editor before allowing the user to enter a changelist to sync to, when syncing to a specific changelist.
-
-* **New:** Added an error dialog when trying to clean the workspace before closing the editor.
-
-* **New:** You can now select which projects to sync on schedule. Any projects not already opened at the time the schedule is triggered will be opened first.
-
-* **New:** Added an option for syncing all projects in a branch. 
-
-* **New:** Added support for masking in additional paths to be synced (eg. one or two extra projects) via the sync filter.
-
-* **New:** The "clean workspace" functionality will now detect and force-sync files that have been deleted or made writable.
-
-* **New:** You can now use a select stream dialog instead of displaying a drop list unless there's a stream filter specified. Makes it easier to find streams in large depots.
-
-* **New:** Added UI to allow creating new workspaces and selecting projects from existing workspaces that are not currently synced.
-
-##### UnrealHeaderTool
-
-* **Bug Fix:** Fixed some cases where empty default values would be lost from UHT (eg, empty strings, null objects)
-
-##### UnrealPak
-
-* **New:** UnrealPak now logs the size of all encrypted data
-
-* **New:** The key generator now only generates a prime table when required, not all the time
-
-* **New:** Added a parameter for compression block size with -compressionblocksize=XXXX. Accepts arguments with MB/KB suffixes, as well as byte counts.
-
-* **New:** Added support for custom compressors implemented via modular features. 
-
-* **New:** Added an -overrideplatformcompressor argument that allows selecting compressor without using the default platform implementation.
-
-* **New:** Added an option that allows rebuilding a set of PAK files with different settings. 
 
 #### UI
 

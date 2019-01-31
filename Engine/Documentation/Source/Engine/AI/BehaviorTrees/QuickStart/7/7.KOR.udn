@@ -23,7 +23,7 @@ order:7
 
 	![](getBBandCPnodes.png)
 
-1. **우클릭** 맥락 메뉴에서 **Reference to Self** 노드를 구해온 다음 **Get Blackboard** 노드에 연결합니다.
+1. **우클릭** 컨텍스트 메뉴에서 **Reference to Self** 노드를 구해온 다음 **Get Blackboard** 노드에 연결합니다.
 
 	![](addSelf.png)
 
@@ -41,13 +41,13 @@ order:7
 
 	![](connectedALtoSV.png)
 
-1. **Set Value as Vector** 노드의 **Key Name** 을 끌어놓은 다음 맥락 메뉴에서 **변수로 승격** 시킵니다.
+1. **Set Value as Vector** 노드의 **Key Name** 을 끌어놓은 다음 컨텍스트 메뉴에서 **변수로 승격** 시킵니다.
 
 	![](promoteText.png)
 	
 1. **내 블루프린트** 패널에 변수 이름을 입력해야 하는데, **HomeLocation** 라고 해 줍니다.
 	
-	* 변수 이름을 짓기 전 다른 곳을 클릭했다면, **내 블루프린트** 패널에서 **우클릭** 맥락 메뉴로 이름변경 가능합니다.
+	* 변수 이름을 짓기 전 다른 곳을 클릭했다면, **내 블루프린트** 패널에서 **우클릭** 컨텍스트 메뉴로 이름변경 가능합니다.
 
 	![](hlconnected.png)
 

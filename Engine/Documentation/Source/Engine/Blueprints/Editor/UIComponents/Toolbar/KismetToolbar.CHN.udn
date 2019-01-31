@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:工具栏
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor
 Description:该栏位于编辑器顶部，拥有控制多个函数的按钮。
 version:4.9
+tags:Blueprints
 
 
 [EXCERPT:Intro]
@@ -18,6 +19,7 @@ version:4.9
 * **工具栏选项** - 使用蓝图的工具。
 * **模式按钮** - 用于切换蓝图所在模式的按钮。
 
+(#ToolbarButtons)
 ## 工具栏按钮
 
 | 按钮																						| 描述														|
@@ -119,6 +121,7 @@ version:4.9
 | ![Simulation Button](Engine/Blueprints/Editor/UIComponents/Toolbar/bp_simulation.png)| 启用蓝图模拟和 tick。这和 **Graph Pane** 工具栏中的 **Simulate** 按钮不同，可逐句通过带断点的蓝图图表并模拟输入。  |
 
 
+(#Info）
 ## 信息
 
 蓝图编辑器标签中的菜单旁为 Info 面板。它显示编辑中蓝图的以下信息：

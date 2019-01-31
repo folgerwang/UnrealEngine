@@ -125,7 +125,7 @@ public:
 	 * Get the index that corresponds to the specified key handle
 	 *
 	 * @param KeyHandle		The key handle to retrieve an up to date index for
-	 * @retrun The index that corresponds to this key handle, or INDEX_NONE if the key handle is invalid
+	 * @return The index that corresponds to this key handle, or INDEX_NONE if the key handle is invalid
 	 */
 	ENGINE_API int32 GetIndex(FKeyHandle KeyHandle);
 
@@ -133,7 +133,7 @@ public:
 	 * Attempt to find the handle for the specified index, or allocate a new one if it doesn't have one
 	 *
 	 * @param Index			The index to find or allocate a handle for
-	 * @retrun A valid key handle for the specified index
+	 * @return A valid key handle for the specified index
 	 */
 	ENGINE_API FKeyHandle FindOrAddKeyHandle(int32 Index);
 

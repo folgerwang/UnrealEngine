@@ -1,0 +1,35 @@
+Availability: Public
+Crumbs: 
+Title: Exporting Datasmith Content from SketchUp Pro
+Description: Describes how to export a SketchUp Pro scene to a Datasmith file that you can import into Unreal Engine.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 2
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-export-skp.png)
+
+Once you've installed the Datasmith Exporter plugin for SketchUp, you'll have a new *.UDATASMITH* file type available to you when you export a scene.
+
+Follow the steps below in SketchUp to export your scene using this new file type.
+
+1.  From the SketchUp **File** menu, select **Export > 3D Model**.  
+    ![Export 3D Model](sketchup_export_menu.png "Export 3D Model")
+2.  In the **Export Model** window, select **Unreal Datasmith** from the **Save as type** drop-down list.  
+    ![Set the folder, file name, and type](sketchup_export_model.png "Set the folder, file name, and type")
+3.  Browse to the location where you want to save your new file, set its file name, and click **Export**.
+
+### End Result
+
+You should now be ready to try importing your new *.udatasmith* file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+[REGION:note]
+Along with your new *.udatasmith* file, you'll see a folder that has the same name but with the suffix *_Assets*. If you move your *.udatasmith* file to a new location, make sure that you also move this folder to the same location.
+[/REGION]

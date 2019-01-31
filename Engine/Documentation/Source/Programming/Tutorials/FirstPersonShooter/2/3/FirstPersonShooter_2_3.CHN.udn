@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.3 - 实现角色移动函数
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何实现第一人称射击游戏角色的移动函数。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -29,6 +29,7 @@ Version:4.11
 *	`MoveForward`
 *	`MoveRight`
 
+(#MovementFunctionInterfaces)
 ## 移动函数接口
 
 为 `FPSCharacter` 设置轴映射后，即可切换到 Visual Studio 的项目中。
@@ -62,15 +63,17 @@ Version:4.11
 		public:
 			// 设置该角色属性的默认值
 			AFPSCharacter();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
 			// 调用后将功能绑定到输入
-			virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+			virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 		
 			// 处理前进和后退的输入。
 			UFUNCTION()
@@ -82,20 +85,21 @@ Version:4.11
 			
 		};
 
+(#MovementFunctionImplementations)
 ## 移动函数实现
 
 在典型的 FPS 操作方案中，角色移动轴与摄像机相对应。“向前”移动代表“向摄像机朝向的方向移动”；“向右”代表“向摄像机朝向方向的右边移动”。将使用 `PlayerController` 获取角色的控制旋转。此外，`MoveForward` 函数将无视控制旋转绕 X 轴旋转的组件并限制对 XY 平面的输入，以保证向上/向下查看时角色仍保持在地面上行走。
 
-1.	在 `FPSCharacter.cpp` 中，将以下代码行添加到 `Super::SetupPlayerInputComponent(InputComponent)` 下的 `SetupPlayerInputComponent` 函数：
+1.	在 `FPSCharacter.cpp` 中，将以下代码行添加到 `Super::SetupPlayerInputComponent(PlayerInputComponent)` 下的 `SetupPlayerInputComponent` 函数：
 
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 			
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 		}
 
 	[REGION:note]
@@ -155,13 +159,13 @@ Version:4.11
 		}
 		
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 		}
 		
 		void AFPSCharacter::MoveForward(float Value)
@@ -178,6 +182,7 @@ Version:4.11
 			AddMovementInput(Direction, Value);
 		}
 
+(#TestingCharacterMovement)
 ## 测试角色移动
 
 现在即可编译并测试新实现的角色移动函数。

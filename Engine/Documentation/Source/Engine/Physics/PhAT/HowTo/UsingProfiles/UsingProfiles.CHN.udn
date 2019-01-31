@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3735117
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 为形体和约束使用配置文件
@@ -27,6 +27,7 @@ Social-image:
 阅读以下部分了解如何创建、删除、创建和取消指定配置文件：
 
 
+(#CreateandAssignaProfile)
 ## 创建和指定配置文件
 
 要 **创建和指定** 配置文件，请按照下列步骤操作：
@@ -70,6 +71,7 @@ Social-image:
 	[/REGION]
 
 
+(#UnassigningaProfile)
 ## 取消指定配置文件
 
 要对形体或约束 **取消指定（Unassign）** 配置文件，请按照下列步骤操作：
@@ -94,6 +96,7 @@ Social-image:
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03.png)
 
+(#DeletingaProfile)
 ## 删除配置文件
 
 要 **删除** 配置文件，请按照下列步骤操作：

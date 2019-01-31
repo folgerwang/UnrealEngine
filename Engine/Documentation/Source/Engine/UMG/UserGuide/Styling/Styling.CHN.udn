@@ -1,10 +1,19 @@
-﻿INTSourceChangelist:2709507
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:样式设置
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
 Description:在 UMG 中对控件蓝图进行样式设置的指南。 
-Related:Engine\UMG\UserGuide\Slots
-Related:Engine\UMG\UserGuide\WidgetTypeReference
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Related: Engine\UMG\UserGuide\Slots
+Related: Engine\UMG\UserGuide\WidgetTypeReference
+Order:9
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/StylingTopic.png
+
+
 
 
 [REGION:fullwidth raw]
@@ -31,6 +40,7 @@ Related:Engine\UMG\UserGuide\WidgetTypeReference
 * 可编辑的多行文本
 
 
+(#States)
 ## 状态
 
 在很多情况下，尤其对于交互式控件而言，您可能希望根据各个控件交互方式或所处条件的不同，需要它们具备不同的外观。例如，假设您的屏幕上有一个正常显示的按钮，当将鼠标悬停在此按钮上方时，按钮的颜色会发生变化或者按钮按一定规律闪烁，而点击按钮时又会执行完全不同的操作。我们将这种现象称为 **状态**，这是一种最常见的设定样式的形式，用于根据控件当前所处的状态来指定控件的显示方式。 
@@ -39,6 +49,7 @@ Related:Engine\UMG\UserGuide\WidgetTypeReference
 
 上图中，按钮控件会根据正常、按下、光标悬停或禁用这些不同的状态而发生变化。大部分控件都将使用正常、按下、光标悬停和禁用状态，但根据您使用的控件类型，也可能有更多选项可用。 
 
+(#SettingImageStates)
 ### 设置图像状态
 
 对于每种状态，您都可以为控件设置要使用的 **图像**（**纹理** 或 **材质** 资产）。**图像大小** 是指平板单元中资源的大小，而 **绘制为** 选项使用 9 个缩放框，用于指定以 **方框**、**边框** 或 **图像** 的形式绘制图像。 
@@ -58,7 +69,8 @@ Related:Engine\UMG\UserGuide\WidgetTypeReference
 	*	绿色箭头代表根据边距乘图像大小所得出的常数值。 
 * **图像** 将绘制图像并进行拉伸（橙色箭头所指），并且会忽略边距。
 
-### 基于纹理的图像
+(#TextureBasedImages)
+#### 基于纹理的图像
 您可以指定纹理作为图像资产，但也可以设置一些旗标，以便在每种设备上清晰地显示纹理并避免出现压缩失真。在“细节层次”下的“纹理编辑器”中，将 **Mip Gen 设置** 设为 **NoMipmaps**，并将 **LOD 组** 设为 **UI**。在“压缩”下，将 **压缩设置** 设为 **TC 编辑器图标**。  
 
 [REGION:lightbox]
@@ -67,7 +79,8 @@ Related:Engine\UMG\UserGuide\WidgetTypeReference
 
 _点击查看全图。_
 
-### 基于材质的图像
+(#MaterialBasedImages)
+#### 基于材质的图像
 针对图像状态，也可以将材质指定为图像资产，但您需要更改一些设置。在“材质”中，需要在 **详情** 面板的 **使用** 下勾选 **用于 UI** 复选框。这将会为平板专门编译另一个着色器。您还需要仅输出 **放射颜色**。
 
 [REGION:lightbox]
@@ -76,15 +89,18 @@ _点击查看全图。_
 
 _点击查看全图。_
 
+(#DynamicMaterials)
 #### 动态材质
 要修改材质参数，您需要一个 **动态材质实例**。只要图像控件具有带材质的平板刷功能，您可以向其请求动态图像（只需要创建一次，然后对其进行缓存即可），从而轻松实现这一目的。
 
 ![](UMG_Auto_Dynamic_Material_Image.png)(w:760)
 
+(#Tint/Margin)
 ### 着色/边距
 
 在每种状态下，还有为图像 **着色** 的选项，用于向与状态相关的图像应用着色颜色。还有一个 **边距** 选项，您可以使用该选项来输入 **方框** 和 **边框** 绘制模式的边距尺寸（在图像模式中，会忽略边距）。  
 
+(#Padding)
 ## 填充
 
 **填充** 样式选项是指围绕控件创建的边框。 
@@ -95,6 +111,7 @@ _点击查看全图。_
 
 根据您使用的控件类型，可能会提供不同的 **填充** 选项。
 
+(#Sounds)
 ## 音效
 
 可根据控件所处的状态为控件设置 **音效**。 
@@ -106,6 +123,7 @@ _点击查看全图。_
 根据您使用的控件类型，可能会提供不同的 **音效** 选项。
 
 
+(#RenderTransform)
 ## 渲染转换
 
 ![](RenderTransformMenu.png)

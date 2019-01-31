@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2974295
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图剖析
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -6,47 +6,10 @@ Description:通过此用户指南可学习蓝图的各个部分，以及蓝图�
 version:4.9
 parent:Engine/Blueprints
 order:3
+tags:Blueprints
+topic-image:Anatomy.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Anatomy:title%](Anatomy.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Anatomy:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Anatomy:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Anatomy]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/Anatomy:title%](Anatomy.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Anatomy:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Anatomy:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Anatomy]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+(#BlueprintClasses)
 ## 蓝图类
 
 [INCLUDE:Engine/Blueprints/UserGuide\Types\ClassBlueprint#Intro]
@@ -54,6 +17,7 @@ order:3
 [DIR(output:"listbutton" parent:"Engine/Blueprints/Anatomy" tags:"Class Blueprints")]
 
 
+(#Components)
 ## 组件
 
 _蓝图_ 并不固定包含脚本行为。例如，关卡中的灯柱为不可进行互动的物体，只需要一个网格体代表柱子和灯即可。
@@ -61,6 +25,7 @@ _蓝图_ 并不固定包含脚本行为。例如，关卡中的灯柱为不可�
 
 [DIR(output:"listbutton" parent:"Engine/Blueprints/Anatomy" tags:"Components")]
 
+(#Graphs)
 ## 图表
 
 **图表** 包含 _蓝图_ 的设计时行为和游戏时行为。_蓝图类_ 实例被创建时 **构建脚本** 按组件列表运行，
@@ -69,6 +34,7 @@ _蓝图_ 并不固定包含脚本行为。例如，关卡中的灯柱为不可�
 [DIR(output:"listbutton" parent:"Engine/Blueprints/Anatomy" tags:"Graphs")]
 
 
+(#OrganizingandReusingScript)
 ## 组织并重复使用脚本
 
 在 _蓝图_ 中创建更多脚本后，您会发现脚本的一些段存在经常重复使用的情况。利用 **函数** 和 **宏** 可对脚本段进行重复使用，但每种方法的优势和使用情况皆不相同。如需了解 _函数_ 和 _宏_ 之间的主要不同，请查阅 [蓝图最佳方法指南](Engine/Blueprints/BestPractices)。
@@ -83,11 +49,3 @@ _蓝图_ 并不固定包含脚本行为。例如，关卡中的灯柱为不可�
 * [](Engine/Blueprints/BP_HowTo/MakingMacros "%Engine/Blueprints/BP_HowTo/MakingMacros:description%")
 * [](Engine/Blueprints/BP_HowTo/CollapsingGraphs "%Engine/Blueprints/BP_HowTo/CollapsingGraphs:description%")
 [/REGION]
-
-
-[COMMENT:none]
-
-	纯数据蓝图
-	子蓝图
-
-[/COMMENT]

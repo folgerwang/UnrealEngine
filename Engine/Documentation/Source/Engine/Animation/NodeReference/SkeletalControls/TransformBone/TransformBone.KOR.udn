@@ -1,13 +1,13 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:본 트랜스폼
+Title:Transform Bone
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:지정된 본의 트랜스폼을 변경하는 데 사용되는 Transform Modify Bone 컨트롤에 대한 설명입니다.
 version: 4.12
 topic-image:node_modifybone.png
 
 
-**Transform (Modify) Bone** 컨트롤은 지정된 본의 트랜스폼을 변경하는 데 사용됩니다.
+**Transform (Modify) Bone** (본 트랜스폼) 컨트롤은 지정된 본의 트랜스폼을 변경하는 데 사용됩니다.
 
 ![](node_modifybone.png)
 

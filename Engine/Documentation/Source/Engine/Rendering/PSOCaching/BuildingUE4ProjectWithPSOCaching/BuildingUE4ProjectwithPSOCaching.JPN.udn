@@ -1,0 +1,33 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Building A UE4 Project with PSO Caching
+Description: Taking a look at  building the PSO data into your UE4 project.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSO-Caching
+Order: 
+Tags: 
+
+
+In order for your Unreal Engine 4 (UE4) project to utilize the shader data that is contained in the stablepc.csv file, you will first have to build your UE4 project using the stablepc.csv file. In the following How-To, we will take a look getting a UE4 project set up so that it will include the **Pipeline State Object** (PSO) cache data when the project is built.  
+
+## Steps
+
+1.  Locate the stablepc.csv file that was created in the [Building the PSO Cache](Engine/Rendering/PSO-Caching/Building-the-PSO-Cache) How - To.
+[REGION:note]
+If you are not able to locate this file, try checking in the Engine\\Binaries\\Win64 folder.
+[/REGION]
+2.  Next, go to your projects **Build** \> **Platform Name** \> **PipelineCaches** folder and copy the stablepc.csv file to the Pipeline Caches folder.    
+[REGION:note]
+If you do not see the PipelineCaches folder, make a folder called PipelineCaches and place the stablepc.csv file into that folder.
+[/REGION]
+3.  When that has been completed, rebuild your UE4 project for the platforms that it supports.  
+    
+
+## End Results
+
+When UE4 is finished building your project, you have a version of your UE4 project that can utilize the PSO caching data that was created.
+[REGION:note]
+For more information on ways to control how and when the PSO cache is compiled, check out the [Compiling & Using PSO Caching Data](Engine/Rendering/PSO-Caching/Compiling-UsingPSOCachingData).
+[/REGION]

@@ -1,0 +1,188 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Getting Started with Pixel Streaming
+Description: Get up and running streaming an Unreal Engine application from one computer to other computers and mobile devices on the same network. 
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:cloud-gs-topic.png
+Tags: Getting Started
+Tags: Early Access
+Tags: Pixel Streaming
+
+Follow the steps below to stream the rendered output from your Unreal Engine Project over your local network to browsers and mobile devices.
+
+![Getting Started with Pixel Streaming](pixelstreaming-gs-banner.png "Getting Started with Pixel Streaming")
+
+[REGION:note]
+The images for the steps on this page illustrate the procedure using a Project built from the **Third-Person Blueprint** template. However, the same steps should work for any Unreal Engine Project.
+[/REGION]
+
+## Prerequisites
+
+*   **Check your OS and hardware -** The Pixel Streaming Plugin can only encode video on computers running Windows operating systems, with certain specific types of GPU hardware. For details, see the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference).
+*   **Install node.js -** If you don't already have **node.js** installed on your computer, you'll need to [download and install it](https://nodejs.org/en/download/).
+*   **Open network ports -** Make sure you have the following network ports open for communication on your local network: 80, 8124, 8888. If you need to change these defaults, see the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference).
+*   **Stop other web servers -** If your computer is running any other Web servers, stop them for now.
+*   **IP addresses -** You'll need to know the IP address of your computer.  
+    It's a good idea to get started with Pixel Streaming within a LAN or VPN, which means that you'll need the *internal* IP address of your computer. You can get this by running the `ipconfig` command from a command prompt or console window, and finding the line that starts with `IPv4 Address`.  
+    If you're trying to connect from a computer or mobile device on a different network, you'll need your external IP address. To find this, you can try visiting [this helpful external page](http://net.ipcalf.com/).
+
+## 1 - Prepare Your Unreal Engine Application
+
+In this step, you'll create a standalone executable file for your Project.
+
+[REGION:note]
+*   The Pixel Streaming Plugin only works when you run your Project as a packaged application, or when you launch it from the Unreal Editor using the **Standalone Game** option.
+*   In order for the Pixel Streaming Plugin to extract and stream audio from your application, you need to start the Unreal Engine with a special command-line flag: `-AudioMixer`. The procedure below shows how to set this up for both scenarios.
+[/REGION]
+
+1.  Open your Project in the Unreal Editor.
+2.  From the main menu in the Unreal Editor, select **Edit > Plugins**.
+3.  Under the **Graphics** category, find the **Pixel Streaming** Plugin and check its **Enabled** box.  
+    ![Enable the Pixel Streaming plugin](pixelstreaming-gs-prepare-enable.png "Enable the Pixel Streaming plugin")
+4.  Click **Yes** to confirm.  
+    ![Confirm the install](pixelstreaming-gs-prepare-confirm.png "Confirm the install")
+5.  Click **Restart Now** to restart your Project and apply the change.  
+    ![Restart now](pixelstreaming-gs-prepare-restart.png "Restart now")
+6.  Back in the Unreal Editor, choose **Edit > Project Settings** from the main menu. 
+7.  If your Project involves a character, and you want to enable input from touch devices such as phones and tablets to move that character around the Level, you may want to show the on-screen touch controllers.  
+    Under the **Engine > Input category**, find and enable the **Always Show Touch Interface** setting.  
+    ![Always Show Touch Interface](pixelstreaming-gs-prepare-showtouch.png "Always Show Touch Interface")
+    This is optional, and not required for all Projects. However, for Projects like the Third-Person Template, this makes sure that users with touch devices can control the streamed application (as long as the Project's Player Controller supports touch input).
+8.  From the main menu, choose **Edit > Editor Preferences...**
+9.  Under the **Level Editor > Play** category, find the **Additional Launch Parameters** setting, and set its value to `-AudioMixer`.  
+    ![Additional Launch Parameters](pixelstreaming-gs-prepare-audiomixer.png "Additional Launch Parameters")
+10.  Package your Project for Windows. From the main menu in the Unreal Editor, choose **Files > Package Project > Windows > Windows (64-bit)**.  
+    ![Package for Windows 64-bit](pixelstreaming-gs-prepare-package.png "Package for Windows 64-bit")
+11.  Browse to the folder on your computer where you want the Unreal Editor to place the packaged version of your Project, and click **Select Folder**.  
+    ![Select a folder](pixelstreaming-gs-prepare-selectfolder.png "Select a folder")
+12.  The Unreal Editor begins the packaging process.  
+    ![Packaging progress indicator](multiuserviewer-packagestatus.png "Packaging progress indicator")
+13.  When the packaging process is finished, go to the folder that you selected in step 6 above. You'll find a folder called `WindowsNoEditor` with contents similar to the following:  
+    ![Packaged output](pixelstreaming-gs-package.png "Packaged output")
+14.  Every time you start your packaged application, you need to pass it the `-AudioMixer` command-line flag. One way to do this is to set up a shortcut:
+    1.  Press **Alt** and drag your *.exe* file to create a new shortcut in the same folder (or anywhere else you like on your computer).  
+        ![Create a shortcut](pixelstreaming-gs-prepare-shortcut.png "Create a shortcut")         
+    2.  Right-click the shortcut and choose **Properties** from the contextual menu.  
+        ![Shortcut properties](pixelstreaming-gs-prepare-shortcutprops.png "Shortcut properties")
+    3.  On the **Shortcut** tab of the **Shortcut Properties** window, append the text `-AudioMixer` at the end of the **Target** field, and click **OK**.  
+        ![-AudioMixer](pixelstreaming-gs-shortcut-target.png "-AudioMixer")
+
+[REGION:tip]
+Once you've gotten the Pixel Streaming system up and running, you may also want to add the `-RenderOffScreen` command-line parameter. If your Unreal Engine application window ever gets accidentally minimized, the Pixel Streaming video and input streams will stop working. `-RenderOffScreen` avoids this possibility by running the application in a headless mode without any visible window.
+[/REGION]
+
+### End Result
+
+You now have a packaged, standalone Unreal Engine application that has the Pixel Streaming Plugin enabled, ready to stream its rendered frames and audio.
+
+## 2 - Start the Servers
+
+In this step, you'll start the web services that will accept client connections and stream rendered frames and audio from your Unreal Engine application to the clients' browsers.
+
+1.  In your Unreal Engine installation folder, find the location of the Signaling Server under `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer`.  
+    ![Signaling and Web Server](pixelstreaming-gs-servers-signalling.png "Signaling and Web Server")
+2.  Start the Signaling Server by running the `run.bat` file. The first time you run the server, it will download all the dependencies it needs. When the server has started and is ready to accept connections, you'll see the following lines in the console window:
+
+    Listening to proxy connections on: 8888
+    Http listening on *: 80
+    
+3.  In your Unreal Engine installation folder, find the location of the WebRTC Proxy Server binaries under `Engine/Source/Programs/PixelStreaming/WebRTCProxy/bin`.  
+    ![WebRTC Proxy Server](pixelstreaming-gs-servers-proxy.png "WebRTC Proxy Server")
+4.  Start the WebRTC Proxy Server by running the `Start_WebRTCProxy.bat` file. When the server has started, you'll see the following line in the console window:
+
+    LOG: LogDefault     : Connecting to UE4 127.0.0.1:8124
+
+5.  Now, start the Unreal Engine application from the shortcut that you created in the previous step.
+
+[REGION:tip]
+For convenience, when you package your Unreal Engine application, these servers are also copied to the folder that contains your packaged executable. You'll find them under the *Engine* sub-folder, at the same paths indicated above. You can launch the servers from there instead of launching them from your Unreal Engine installation folder.  
+However, remember that if you need to modify any files in these folders, particularly the player page or configuration file for the Signaling and Web Server, you should modify them in the original location. If you modify them in your package folder, your changes may be overwritten the next time you package your application.
+[/REGION]
+
+### End Result
+
+When the WebRTC Proxy Server detects that the Unreal application is running, it connects to the Signaling Server to tell it that it is ready to stream content from the application.
+
+You should see the following lines of output in the console window for the WebRTC Proxy Server:
+
+    LOG: LogDefault     : Connected to UE4
+    LOG: LogDefault     : Connecting to Cirrus 127.0.0.1:8888
+    LOG: LogDefault     : Connected to Cirrus
+    LOG: LogDefault     : Cirrus config: {
+    "peerConnectionConfig" : {}
+    }
+
+And the following lines of output in the console window for the Signaling Server:
+
+    proxy connected
+    config to Proxy: {"peerConnectionConfig":{}}
+
+At this point, you have everything you need set up and working on your computer. All that's left is to connect a browser.
+
+## 3 - Connect!
+
+In this step, you'll connect Web browsers running on multiple different devices to your Pixel Streaming broadcast.
+
+1.  On the same computer that is running your Unreal Engine application, Alt-Tab to switch the focus away from the Unreal Engine application, and start a supported Web browser (Google Chrome and Mozilla Firefox are safe choices).
+2.  In the address bar, navigate to `http://127.0.0.1`. This IP address of the local machine, so the request should be served by the Signaling Server:  
+    ![Connect to the localhost](pixelstreaming-gs-connect-127001.png "Connect to the localhost")
+3.  Click the page to connect, then click again on the Play button to start the stream. 
+4.  You'll now be connected to your application, and you should see the rendered output streaming into the middle of the player Web page:  
+    ![Media streaming to localhost](pixelstreaming-gs-connect-streaming.png "Media streaming to localhost")
+    The default player page is already set up to forward keyboard, mouse, and touchscreen input to the Unreal Engine, so you can control the application and navigate around exactly the way you would if you were controlling the app directly. 
+5.  Click the **+** button at the right of the window to expand some built-in options for controlling the stream:
+    
+    | **Setting** | **Description** |
+    | --- | --- |
+    | **Kick all other players** | Causes the WebRTC Proxy Server to close all connections with all other browsers except for the current one. |
+    | **Enlarge Display to Fill Window** | Determines whether the media player should resize to fit the current size of the browser window, or whether it should remain at a fixed size and position. |
+    | **Quality control ownership** | [INCLUDE:#excerpt_7] |
+    | **Show Stats** | Visualizes statistics about the connection between the browser and the WebRTC Proxy Server. |
+    
+[COMMENT:none]
+[EXCERPT:excerpt_7]
+Makes the encoder of the Pixel Streaming Plugin use the current browser connection to determine the bandwidth available, and therefore the quality of the stream encoding.  
+Although Pixel Streaming adapts the quality of the stream to match the available bandwidth, the video frames are only encoded once by the Pixel Streaming Plugin. That one encoding is used for all clients. Therefore, only one client connection can "own" the quality used for adaptive streaming. If the other clients have a much better connection to the server, they may end up seeing a lower quality stream than necessary. On the other hand, if other clients have a much worse connection to the server, they may end up with lag or jitter.  
+By default, each time a new browser connects, it adopts the ownership of the stream. Use this checkbox from any other connected browser to retake ownership.
+[/EXCERPT:excerpt_7]
+[/COMMENT]
+    
+[REGION:tip]
+    See the contents of the `player.htm` and `app.js` files under the Signaling Web Server folder to find out how these controls are implemented.
+[/REGION]
+
+6.  Now, find other computers and/or mobile devices in your network. Repeat the same steps, but instead of using `127.0.0.1`, direct the browser to the IP address of the computer running the Unreal Engine application and the Signaling Server.  
+    ![Media streaming to remote host](pixelstreaming-gs-connect-others.png "Media streaming to remote host")
+
+### End Result
+
+You now have one instance of the Unreal Engine running on your computer, broadcasting a media stream to multiple devices over your local network. Each connected device sees the same view of the same Level, all rendered on the same original desktop PC.
+
+By default, all connected devices share control over the Unreal Engine application, forwarding all keyboard, mouse, and touchscreen inputs.
+
+![](pixelstreaming-endresult-chrome.png)
+
+Desktop
+
+![](pixelstreaming-endresult-iossafari.png)
+
+iPhone
+
+![](pixelstreaming-endresult-gpixel.png)
+
+Pixel
+
+## 4 - On Your Own
+
+The steps above walk you through a relatively simple setup that uses a single server host and a default player page. With a little more effort, you can take the Pixel Streaming system much farther. For example:
+
+*   You can completely redesign the player HTML page to meet the needs of your Project. Control who can send input to the Unreal Engine application, and even create HTML5 UI elements on the page that emit custom gameplay events to the Unreal Engine.  
+    For details, see [Customizing the Player Web Page](Platforms/PixelStreaming/CustomPlayer).
+*   If you need to provide pixel streaming services over the open Internet, or across subnets, you will likely need to do some more advanced network configuration.  Or, you may prefer to have each connecting client stream content from a separate instance of the Unreal Engine, or through a separate player page that offers different controls.  
+    For details on topics like these, see the [Hosting and Networking Guide](Platforms/PixelStreaming/Hosting).
+*   Each component of the Pixel Streaming system has a number of configuration properties that you can use to control encoding resolution, screen size, IP addresses and communication ports, and more.  
+    For information on all these properties and how to set them, see the [Pixel Streaming Reference](Platforms/PixelStreaming/PixelStreamingReference).

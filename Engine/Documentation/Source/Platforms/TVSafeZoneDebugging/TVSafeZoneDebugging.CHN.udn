@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3055464
+﻿INTSourceChangelist:3807090
 Availability:Docs
 Title:进行电视安全区调试
 Crumbs:%ROOT%, Platforms
@@ -83,7 +83,7 @@ UE4 有两种不同类型的电视安全区，称为标题安全区（Title Safe
 1. 输入命令后便会在整个播放窗口周边显示略微透明的红色边界（如下图所示）。
 
 	[REGION:lightbox]
-	[![](Safe_Zone_00.png)(w:645 h:377)](Safe_Zone_00.png)
+	[![](Safe_Zone_00.png)(w:645)](Safe_Zone_00.png)
 	[/REGION]
 	
 	[REGION:caption]

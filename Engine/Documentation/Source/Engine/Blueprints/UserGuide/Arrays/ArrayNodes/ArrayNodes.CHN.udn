@@ -1,8 +1,15 @@
-﻿INTSourceChangelist:1923473
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:数组节点
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/Arrays
 Description: 用于辅助蓝图数组应用而设计的节点。
+version: 4.9
+parent:Engine/Blueprints/Scripting
+tags:Arrays and Structures
+tags:Blueprints
+tags:Special Nodes
+order:2
+topic-image:Engine\Blueprints\UserGuide\ArrayNodes.png
 
 ## Add Item（添加项目）
  **Add Item(添加项目)** 取入一个数组和一个变量。它将该变量插入到数组的尾部，并相应地增加数组的大小。
@@ -17,13 +24,13 @@ Description: 用于辅助蓝图数组应用而设计的节点。
 
 ## Contains Item（包含项目）
 
-**Contains Item（包含项目）** 节点允许搜索一个数组来查找特定项目。如果找到了该项目，那么该节点则输出  _True_ ,否则会输出 _False_ 。它不会返回找到的该项目所处的索引值。
+**Contains Item（包含项目）** 节点允许搜索一个数组来查找特定项目。如果找到了该项目，那么该节点则输出True,否则会输出False。它不会返回找到的该项目所处的索引值。
 
 ![](Array_Contains.png)
 
 ## Filter Array（过滤数组）
 
-**Filter Array（过滤数组）** 节点取入一个类型为  _Actor（或其任何子项）_ 的数组，并基于输入的 _Class（类）_ 过滤该数组。所得结果是一个新数组，仅包含原始数组中和相连的类的类型相匹配的项目。
+**Filter Array（过滤数组）** 节点取入一个类型为Actor（或其任何子项）的数组，并基于输入的Class（类）过滤该数组。所得结果是一个新数组，仅包含原始数组中和相连的类的类型相匹配的项目。
 
 ![](Array_Filter.png)
 
@@ -41,7 +48,7 @@ Description: 用于辅助蓝图数组应用而设计的节点。
 
 ## Insert Item（插入项目）
 
-Insert Item（插入项目）节点取入一个数组、一个变量值和一个整型值(索引编号)。然后，它把该变量的值插入到数组中的该索引值指定的位置处。
+**Insert Item（插入项目）** 节点取入一个数组、一个变量值和一个整型值(索引编号)。然后，它把该变量的值插入到数组中的该索引值指定的位置处。
 
 ![](Array_Insert.png)
 
@@ -65,7 +72,7 @@ Insert Item（插入项目）节点取入一个数组、一个变量值和一个
 
 ## Remove Item（删除项目）
 
-**Remove Item（删除项目）** 将通过取入一个变量值来从数组中删除一个项目。如果在数组中找到了那个值，则删除它。所有其他的索引编号将会自动更新来弥补该空缺。这个节点具有布尔值输出，如果找到了该项目并将其删除了，则返回 _True_ 。
+**Remove Item（删除项目）** 将通过取入一个变量值来从数组中删除一个项目。如果在数组中找到了那个值，则删除它。所有其他的索引编号将会自动更新来弥补该空缺。这个节点具有布尔值输出，如果找到了该项目并将其删除了，则返回True。
 
 ![](Array_RemoveItem.png)
 

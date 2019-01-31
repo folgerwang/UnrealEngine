@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.3 - 可移动光源
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.3 - 可移动光源（2.3 - Movable Light）
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Lighting
-Description:光源示例关卡的概述,示例2_3: 可移动光源
+Description:光照示例关卡概述，示例 2_3：可移动光源（Movable Light）
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Point
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Spot
@@ -11,6 +12,24 @@ Related: Engine/Rendering/LightingAndShadows/Lightmass
 Related: Engine/Rendering/LightingAndShadows/Shadows
 Related: Engine/Rendering/LightingAndShadows/IndirectLightingCache
 Related: Engine/Rendering/LightingAndShadows/LightMobility
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/Lighting/2_2 "%Resources/ContentExamples/Lighting/2_2:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[光照主页](Resources/ContentExamples/Lighting)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 [VAR:Topic]
 [OBJECT:TopicCompact]
@@ -39,7 +58,7 @@ Related: Engine/Rendering/LightingAndShadows/LightMobility
 
 [INCLUDE:Shared/Glossary/M/#Glossary_Movable_Lights]
 
-可移动光源支持[示例 3.1](Resources\ContentExamples\Lighting\3_1)所描述的IES光源参数;以及[示例 3.2](Resources\ContentExamples\Lighting\3_2)所描述的光源函数。
+可移动光源支持 **[示例3.1](Resources\ContentExamples\Lighting\3_1)** 中说明的IES描述文件和 **[示例3.2](Resources\ContentExamples\Lighting\3_2)** 中说明的光源函数。
 
 
 

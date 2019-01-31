@@ -1,69 +1,38 @@
-﻿INTSourceChangelist:2740063
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图通信用法
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:蓝图通信不同用法的总览。 
-Related:Engine\Blueprints\UserGuide\BlueprintComms
-Related:Engine/Blueprints/UserGuide/EventDispatcher
-Related:Engine/Blueprints/UserGuide/CastNodes
-Related:Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces
-Version:4.9
+Related: Engine/Blueprints/UserGuide/BlueprintComms
+Related: Engine/Blueprints/UserGuide/EventDispatcher
+Related: Engine/Blueprints/UserGuide/CastNodes
+Related: Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces
+Version: 4.9
 parent:Engine/Blueprints
 order:4
-type:howto
+type:how-to
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/bp_comms_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%](Engine\Blueprints\UserGuide\bp_comms_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\BlueprintCommsUsage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%](Engine\Blueprints\UserGuide\bp_comms_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\BlueprintCommsUsage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
 
 
 [TOC(start:2 end:2)]
 
 使用蓝图时，如需在蓝图之间传递或共享信息，需要使用一种形式的 **蓝图通信**。可根据需求使用数种不同类型的通信。此页面讲述最常用的方法并提供帮助链接和使用情况范例。 
 
+(#DirectBlueprintCommunication)
 ## 直接蓝图通信
 
-![](Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo\2_9.png)
+![](Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo/2_9.png)
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintComms#intro]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintComms#intro]
 
 [REGION:note]
-可在 **[](Engine\Blueprints\UserGuide\BlueprintComms)** 中查阅详细内容。 
+请查看 **[](Engine/Blueprints/UserGuide/BlueprintComms)** 以了解详情。 
 [/REGION]
 
+(#WhentoUseIt...)
 ### 何时使用
 
 以下范例讲述何时使用 **直接蓝图通信**： 
@@ -72,10 +41,11 @@ type:howto
 	*	与关卡中的一个开关进行互动后打开特定的门或开启特定的灯（每个均为单独的蓝图）。 
 
 [REGION:note]
-在 [**设置直接蓝图交流**](Engine\Blueprints\BP_HowTo\DirectBlueprintComs) 中可查阅设置流程。 
+在 [**设置直接蓝图交流**](Engine/Blueprints/BP_HowTo/DirectBlueprintComs) 中可查阅设置流程。 
 [/REGION]
 
 	
+(#EventDispatchers)
 ## 事件分配器
 
 ![](OpenDoorEventDispatch.png)
@@ -88,6 +58,7 @@ type:howto
 可在 **[](Engine/Blueprints/UserGuide/EventDispatcher)** 中查阅详细内容。 
 [/REGION]
 
+(#WhentoUseIt...)
 ### 何时使用
  
 **事件分配器** 使用时机的例子： 
@@ -100,10 +71,11 @@ type:howto
 	*	在关卡中生成一个道具（武器、回复剂等）并在道具被拾起时告知道具和角色。
 
 [REGION:note]
-在 [**设置事件分配器**](Engine\Blueprints\BP_HowTo\EventDispatcher) 中可查阅设置流程。 
+在 [**设置事件分配器**](Engine/Blueprints/BP_HowTo/EventDispatcher) 中可查阅设置流程。 
 [/REGION]
 
 
+(#BlueprintInterfaces)
 ## 蓝图接口
 
 ![](InterfaceNodes.png)
@@ -118,6 +90,7 @@ type:howto
 可在 **[](Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces)** 中查阅详细内容。 
 [/REGION]
 
+(#WhentoUseIt...)
 ### 何时使用
 
 在以下情况实例中，**蓝图接口** 非常适合于通信： 
@@ -128,13 +101,14 @@ type:howto
 	*	敌人拥有特殊能力，可基于玩家的体力值完成变化，执行不同操作。 
 
 [REGION:note]
-在 [**设置蓝图接口**](Engine\Blueprints\BP_HowTo\Interfaces) 中可查阅设置流程。 
+在 [**设置蓝图接口**](Engine/Blueprints/BP_HowTo/Interfaces) 中可查阅设置流程。 
 [/REGION]
 
 
+(#BlueprintCasting)
 ## 蓝图投射
 
-![](Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo\Event6.png)
+![](Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo/Event6.png)
 
 [EXCERPT:CastDesc]
 蓝图通信的另一种常见形式是使用 **Cast** 节点。使用 Cast 节点时，便是在询问对象“你是否为该对象的特殊版本”。如果是，则进行访问；如否，则忽略请求。 
@@ -167,7 +141,7 @@ type:howto
 [/EXCERPT:Castusage]
 
 [REGION:note]
-在 [**设置蓝图投射**](Engine\Blueprints\BP_HowTo\Casting) 中可查阅设置流程。 
+在 [**设置蓝图投射**](Engine/Blueprints/BP_HowTo/Casting) 中可查阅设置流程。 
 [/REGION]
 
 

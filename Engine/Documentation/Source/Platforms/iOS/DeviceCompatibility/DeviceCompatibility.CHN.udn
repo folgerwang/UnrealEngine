@@ -1,0 +1,79 @@
+﻿INTSourceChangelist:4687457
+Availability: Public
+Crumbs: 
+Title: iOS设备兼容性
+Description:使用iOS进行开发的设备兼容性。
+Type: 
+Version: 4.21
+Parent: Platforms/iOS
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Reference
+
+
+虚幻引擎4（UE4）目前支持 **iOS 10.0** 及更高版本。下表提供了特定设备对引擎功能的兼容性信息。 
+
+[REGION:note]
+我们尚未测试所有iOS设备，但此表可帮助你大致了解每台设备上可以正常运行哪些功能。在发布新设备及对更多设备进行内部测试后，我们将修订此部分。
+[/REGION]
+
+| **功能** | **控制台变量** | **默认启用控制台变量的设备** |
+| --- | --- | --- |
+| 泛光 | r.BloomQuality | [INCLUDE:#excerpt_0] |
+| 景深 | r.DepthOfFieldQuality | [INCLUDE:#excerpt_1] |
+| 光束 | r.LightShaftQuality | [INCLUDE:#excerpt_2] |
+| 折射 | r.RefractionQuality | [INCLUDE:#excerpt_3] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_3]
+iPhone 5s及更高版本  
+iPad Air 2及更高版本
+[/EXCERPT:excerpt_3]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_2]
+iPhone 5s及更高版本  
+iPad Air 2及更高版本
+[/EXCERPT:excerpt_2]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_1]
+iPhone 5ss及更高版本  
+iPad Air 2及更高版本
+[/EXCERPT:excerpt_1]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_0]
+iPhone 5s及更高版本  
+iPad Air 2及更高版本
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+
+**移动内容缩放因子（Mobile Content Scale Factor）** 可以缩放项目的分辨率，以适应用于查看项目的移动设备的屏幕分辨率。你可以[创建和保存多个设备描述](Platforms/DeviceProfiles)，只需在项目的config文件夹中创建名为 **DefaultDeviceProfiles.ini** 的新配置（.ini）文件即可。
+
+  
+
+| **设备** | **缩放因子** | **本机分辨率** | **游戏内分辨率** |
+| --- | --- | --- | --- |
+| iPhone 5s、iPhone SE、iPod Touch 6 | 2 | 1136x640 | 1136x640 |
+| iPhone 6、iPhone 6s、iPhone 7、iPhone 8 | 2 | 1134x750 | 1136x750 |
+| iPhone 6 Plus、iPhone 7 Plus、iPhone 8 Plus | 2 | 1920x1080 | 1920x1080 |
+| iPhone X | 3 | 2436x1125 | 2436x1125 |
+| iPhone XR | 2 | 1792x828 | 1792x828 |
+| iPhone XS | 3 | 2436x1125 | 2436x1125 |
+| iPhone XS Max | 3 | 2688x1242 | 2688x1242 |
+| iPad Pro | 2 | 2732x2048 | 2732x2048 |
+

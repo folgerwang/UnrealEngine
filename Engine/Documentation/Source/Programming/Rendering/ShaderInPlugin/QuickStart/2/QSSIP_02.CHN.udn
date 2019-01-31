@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3568702
-Availability:Docs 
+﻿INTSourceChangelist:3810557
+Availability:Public 
 Crumbs: %ROOT%
 Title:在插件 - 蓝图设置中新建一个全局着色器
 Description:设置蓝图测试插件代码中的着色器。
@@ -111,7 +111,7 @@ Checkpoint:shaderqs
 
 [NAV]
 
-	[COMMENT:none]
+[COMMENT:none]
 
 [EXCERPT:DrawDIS]	
 [OBJECT:Snippet]
@@ -334,3 +334,4 @@ Checkpoint:shaderqs
 
 
 [/COMMENT]
+

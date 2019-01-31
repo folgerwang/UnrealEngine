@@ -52,16 +52,16 @@ Blend 노드는 여러 애니메이션을 블렌딩하는 데 쓰입니다. 이 
 
 ## Blend Poses by bool
 
-**Blend Poses by bool** 노드는 불리언 값을 키로 사용하여 두 포즈를 시간에 따라 블렌딩하는 노드입니다. 불리언 값이 _True_ 인 경우 True 입력에 연결된 포즈가, _False_ 인 경우 False 입력에 연결된 포즈가 사용됩니다. 각 포즈에는 플로트 값 Blend Time 이 있어, 해당 포즈로 블렌딩하는 데 걸리는 기간을 조절할 수 있습니다.
+**Blend Poses by bool** 노드는 부울 값을 키로 사용하여 두 포즈를 시간에 따라 블렌딩하는 노드입니다. 부울 값이 _True_ 인 경우 True 입력에 연결된 포즈가, _False_ 인 경우 False 입력에 연결된 포즈가 사용됩니다. 각 포즈에는 플로트 값 Blend Time 이 있어, 해당 포즈로 블렌딩하는 데 걸리는 기간을 조절할 수 있습니다.
 
 ![](BlendPosesByBool.png)
 
 | 핀 | 설명 |
 | --- | ----------- |
 | [REGION:tablesection]**입력 핀**[/REGION] ||
-| Active Value | 두 포즈 중 어느 것을 사용할지 결정하는 불리언 입력입니다. |
-| True Pose | 불리언이 _True_ 일 때 블렌딩할 포즈를 받습니다. |
-| False Pose | 불리언이 _False_ 일 때 블렌딩할 포즈를 받습니다. |
+| Active Value | 두 포즈 중 어느 것을 사용할지 결정하는 부울 입력입니다. |
+| True Pose | 부울이 _True_ 일 때 블렌딩할 포즈를 받습니다. |
+| False Pose | 부울이 _False_ 일 때 블렌딩할 포즈를 받습니다. |
 | True Blend Time | _True_ 포즈로 블렌딩해 들어가는 데 걸리는 기간을 결정합니다. |
 | False Blend Time | _False_ 포즈로 블렌딩해 들어가는 데 걸리는 기간을 결정합니다. |
 | [REGION:tablesection]**출력 핀**[/REGION] ||
@@ -73,7 +73,7 @@ Blend 노드는 여러 애니메이션을 블렌딩하는 데 쓰입니다. 이 
 
 ![](BlendPosesByInt.png)
 
-Blend Pose 입력을 추가하려면, 노드에 우클릭한 다음 맥락 메뉴에서 **Add Blend Pin** 을 선택하기만 하면 됩니다.
+Blend Pose 입력을 추가하려면, 노드에 우클릭한 다음 컨텍스트 메뉴에서 **Add Blend Pin** 을 선택하기만 하면 됩니다.
 
 ![](AddBlendInput.png)
 

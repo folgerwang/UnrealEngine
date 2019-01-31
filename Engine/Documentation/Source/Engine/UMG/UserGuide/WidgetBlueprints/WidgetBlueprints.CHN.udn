@@ -1,9 +1,17 @@
-﻿INTSourceChangelist:2709547
+﻿INTSourceChangelist:3807090
+Crumbs: %ROOT%
 Availability:Public
 Title:控件蓝图
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
-Description:如何创建控件蓝图以及控件蓝图界面的概述。
-Version:4.9
+Description: 如何创建控件蓝图以及控件蓝图界面的概述。
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:1
+Tags:UMG UI Designer
+Tags:Getting Started
+Topic-image:Engine/UMG/UserGuide/WidgetBlueprintTopic.png
 
 为了使用虚幻动态图形，您首先需要创建 **控件蓝图**，具体过程如下文所述。 
 
@@ -34,7 +42,7 @@ Version:4.9
 默认情况下，打开 **控件蓝图** 时，**控件蓝图编辑器** 会打开并显示 **设计器** 选项卡。设计器选项卡是布局的视觉呈现，并让您对屏幕在游戏中的外观有一个概念。  
 
 [REGION:lightbox]
-	[![](WidgetBlueprintNumbers.png)(w:840 h:480)](WidgetBlueprintNumbers.png)
+	[![](WidgetBlueprintNumbers.png)(w:840)](WidgetBlueprintNumbers.png)
 [/REGION]
 
 _点击查看全图。_

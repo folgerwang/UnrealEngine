@@ -1,162 +1,203 @@
-﻿INTSourceChangelist:3189768
-title:分层 LOD 参考
-description:Hierarchical LOD Outliner 中接口元素和属性的参考。
-crumbs:
-availability:Public
-version:4.13
-parent:Engine/HLOD
-order:2
-type:reference
-tags:HLOD
+INTSourceChangelist:3801260
+Availability: Licensee
+Crumbs: %ROOT%
+Title:层级LOD大纲视图参考
+Description:层级LOD大纲视图中的界面元素和属性的参考页面。
+Type: Reference
+Version: 4.17
+Parent:Engine/HLOD
+Order:2
+Tags:Static Mesh
+Tags:Level of Detail
+Tags:HLOD
 topic-image:Engine/HLOD/defaultHLOD_topic.png
 
-此页面包含 **Hierarchical LOD Outliner** 中按键与属性的详细说明。
 
-## 属性和接口参考
+本页详细介绍 **层级LOD大纲视图（Hierarchical LOD Outliner）**（HLOD）中可用的右键单击快捷菜单和层级LOD（细节层次）设置菜单。下文提供了有关如何访问这些菜单以及它们包含
+哪些选项的信息。
 
-![HLOD Outliner Fully Expanded](image_2.png)
+[REGION:raw]
+![image alt text](Engine/HLOD/Overview/image_1.png)
+[/REGION]
 
+要访问HLOD属性窗口，请执行以下操作： 
 
-### HLOD 操作
+* 从文件菜单，选择 **窗口（Window）** >**层级LOD大纲视图（Hierarchical LOD Outliner）**。
+
+(#propertyandinterfacereference)
+## 属性和界面参考
+
+![完全展开的HLOD大纲视图](image_2.png)
+
+(#hlodactions)
+### HLOD操作
 
 ![](InterfaceElements.png)
 
-以下是 **Hierarchical LOD Outliner** 中 3 个按钮和滑条的说明。
+下面是对 **层级LOD大纲视图（Hierarchical LOD Outliner）** 中的三个按钮和滑块的描述。
 
 [REGION:raw]
-| --- | :---:| :--- |
-| **Generate Clusters** || 此按钮可在场景中生成可进行分组的 **静态网格体 Actor** 球形集群。它的处理方式是：使用每个 LOD 设置的设置（这些 LOD 设置在 HLOD Outliner 的 LODSystem 部分下进行指定）。|
-| **Delete Clusters** || 此按钮将删除之前在此关卡中设置的所有 HLOD。将删除所有生成的代理模型以及已设置的集群。不会删除之前设置的 HLOD 关卡数值或属性。|
-| **Generate Proxy Meshes** || [INCLUDE:#gpm] |
-| **Forced Viewing Level** || 它将强制特定 LOD 等级显示在编辑器中。这有助于对存在的 LOD 问题进行调试。|
-| | %spacer%  | |
+| --- | :--- |
+| **生成集群（Generate Clusters）** | 该选项在场景中为可以分组到一起的 **静态网格体Actor** 生成球形集群。处理依据是使用HLOD大纲视图“LOD系统”（LODSystem）部分中指定的各个LOD设置。|
+| **删除集群（Delete Clusters）** | 该选项删除之前已经在该关卡中设置的所有HLOD。包括所有生成的代理模型和已经设置的集群。该操作不会清除先前为HLOD级别设置的值或属性。|
+| **生成代理模型（Generate Proxy Meshes）** | [INCLUDE:#gpm] |
+| **强制查看关卡（Forced Viewing Level）** | 该选项允许强制在编辑器中显示特定LOD关卡。这有助于调试遇到的任何LOD问题。|
 [/REGION]
 
-### Hierarchical LOD Outliner 快捷菜单
+(#hierarchicallodoutlinercontextmenus)
+### 层级LOD大纲视图快捷菜单
 
-Hierarchical LOD Outliner 拥有一些右键快捷菜单，以下是访问方法和它们所呈现的选项。
+在“层级LOD大纲视图”（Hierarchical LOD Outliner）中单击右键时，您会看到一些快捷菜单。使用下表来查找访问这些菜单的信息以及它们包含哪些选项。
 
-#### LOD Actor 快捷菜单
+(#lodactorcontextmenu)
+#### LOD Actor快捷菜单
+
+右键单击 **场景Actor名称（Scene Actor Name）** 列中列出的任意LOD Actor，会调出该菜单，供您操作该特定LODActor。
+
+![](ContextMenu1.png)(w:400)
 
 [REGION:raw]
-![](ContextMenu1.png)
+| 选项 | 说明 |
+| --- | :--- |
+| **选择LOD Actor（Select LOD Actor）** | 选择视口中的LOD Actor（效果与左键单击集群一样）。|
+| **选择包含的Actor（Select Contained Actors）** | 选择LOD集群中包含的所有Actor。|
+| **强制视图（ForceView）** | 切换视口中的HLOD Actor的视图。|
+| **重建代理模型（Rebuild Proxy Mesh）** | 强制右键单击的集群重建其代理模型。|
+| **创建包含层级体积（Create Containing Hierarchical Volume）** | 创建层级体积以及集群中包含的Actor，之后可以修改这些Actor来包含更多或更少Actor。|
+| **删除集群（Delete Cluster）** | 删除右键单击的集群。|
 [/REGION]
+
+(#actorcontextmenu)
+#### Actor快捷菜单
+
+使用任意LODActor旁边的箭头可展开所生成HLOD集群中包含的场景Actor。右键单击该展开列表中的任意Actor可将其从集群生成中移除或排除。
+
+![](ContextMenu2.png)(w:400)
 
 [REGION:raw]
-| 选项 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Select LOD Actor** || 在视口中选择 LOD Actor（和左键点击集群的效果相同）。|
-| **Select Contained Actors** || 选择包含在 **LOD Cluster** 中的所有 **Actor**。|
-| **ForceView** || 在视口中切换 **HLOD Actor** 的显示。|
-| **Rebuild Proxy Mesh** || 强制右键点击的集群重建其代理模型。|
-| **Create Containing Hierarchical Volume** || 在 **集群** 中包含的 **Actor** 周围创建 **分层体积域**。可修改此体积域的大小，包含更多或更少 **Actor**。|
-| **Delete Cluster** || 删除右键点击的集群。|
+| 选项 | 说明 |
+| --- | :--- |
+| **从集群移除（Remove From Cluster）** | 从集群中移除右键单击的Actor。|
+| **从集群生成中移除（Exclude From Cluster Generation）** | 从集群生成中排除右键单击的Actor。如果您想重新添加被排除的Actor，可在世界大纲视图中单击它并拖拽到层级LOD大纲视图中的集群。|
 [/REGION]
 
-#### Actor 快捷菜单
-
-[REGION:raw]
-![](ContextMenu2.png)
-[/REGION]
-
-[REGION:raw]
-| 选项 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Remove From Cluster** || 从 **集群** 中移除右键点击的 **Actor**。|
-| **Exclude From Cluster Generation** || 从生成的 **集群** 中排除右键点击的 **Actor**。如需要重新添加排除的 **Actor**，点击并将其从 **World Outliner** 中拖入 **Hierarchical LOD Outliner** 中的 **Cluster**。|
-[/REGION]
-
+(#properties)
 ### 属性
 
-以下由主要部分分开的属性可在 **LODSystem** 面板的 **Hierarchical LODSetup** 中找到。此面板位于 **Hierarchical LOD Outliner** 界面的下部。
+下面按主要部分划分，列出了 **层级LOD大纲视图（Hierarchical LOD Outliner）** 界面下方 **LOD系统（LODSystem）** 面板中的 **层级LOD设置（Hierarchical LODSetup）** 中的属性。
 
-### 集群生成设置
+(#clustergenerationsettings)
+### 集群生成属性
+
+**集群生成（Cluster Generation）** 设置使您可以控制如何生成HLOD集群以包含关卡中的Actor，具体设置包括设置集群的所需边界、集群应该达到何种容量水平、生成一个集群必须使用的最小Actor数量。
 
 ![](cluster.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Desired Bound Radius** || 此属性用于计算自动集群的填充系数（但并非一定）。|
-| **Desired Filling Percentage** || 此属性用于计算自动集群的填充系数（但并非一定）。|
-| **Min Number of Actors to Build** || 构建 LODActor 的最小 **Actor** 数量。|
+| 属性 | 说明 |
+| --- | :--- |
+| **所需边界半径（Desired Bound Radius）** | 这并非一定，但用于计算自动群集化的填充因子。|
+| **所需填充百分比（Desired Filling Percentage）** | 这并非一定，但用于计算自动集群化的填充因子。|
+| **要构建的最小Actor数量（Min Number of Actors to Build）** | 用于构建LODActor的最小Actor数量。|
 [/REGION]
 
-### 模型生成设置
+(#meshgenerationsettings)
+### 网格体生成属性
+
+**网格体生成（Mesh Generation）** 设置使您可以控制合并HLOD集群Actor时将会使用的特定属性，例如，生成光照贴图、合并材质、变换尺寸等。  
 
 ![](meshSettings.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Transition Screen Size** || 切换至 LOD **Actor** 前模型物体需要达到的屏幕半径。父 LOD 显示时，将不会显示其子项。|
-| [REGION:tablesection]**合并设置**[/REGION] |||
-| **Generate Light Map UV** || 是否生成合并模型的光照图 UV。|
-| **Target Light Map UVChannel** || 指定光照图 UV 的目标 UV 通道。|
-| **Target Light Map Resolution** || 为合并模型设置的光照图分辨率。|
-| **Pivot Point at Zero** || 合并模型是否在世界原点处（或生成集群中首个生成的 **Actor** 处）拥有枢轴。|
-| **合并物理数据：**|| 组合 **Actor** 时是否合并碰撞基元。|
-| **Merge Materials** || 是否将源材质合并为一个扁平材质。|
-| [REGION:tablesection]**[查阅下方的材质设置](#materialsettings)**[/REGION] |||
-| **Bake Vertex Data ** || 将绘制的顶点颜色合并为模型/烘焙材质。|
-| **Use Vertex Data for Baking Material** || 烘焙材质时是否应使用顶点数据（如顶点颜色）。|
-| **Use Landscape Culling** || 是否使用可用的地形几何体剔除不可见的三角面。|
+| 属性 | 说明 |
+| --- | :--- |
+| **变换屏幕尺寸（Transition Screen Size）** | 这是屏幕上网格体应该达到的尺寸（半径），达到后才能切换为HLOD Actor。当显示父LOD时，它不显示任何子代。|
+| [REGION:tablesection] 合并设置[/REGION] ||
+| **生成光照贴图UV（Generate Light Map UV）** | 启用时，这将生成合并网格体的光照贴图UV，并将光照贴图坐标索引指定为1。|
+| **目标光照贴图分辨率（Target Light Map Resolution）** | 您想要用于HLOD Actor的光照贴图分辨率。|
+| **枢轴点位于零（Pivot Point at Zero）** | 合并的网格体应该以场景原点（坐标0,0,0）为枢轴点，或者生成HLOD集群时，枢轴点应该位于第一个列出的Actor。|
+| **合并物理数据（Merge Physics Data）** | 启用时，将合并所组合Actor的碰撞Primitives。|
+| **合并材质（Merge Materials）** | 启用时，源材质将合并为单一扁平材质。|
+| **材质设置（Material Settings）** | 这里的设置使您可以控制在生成HLOD Actor，如何打包和组合材质。[INCLUDE:#materialsettings] |
+| **将顶点数据烘焙到网格体（Bake Vertex Data to Mesh）** | 启用时，所选网格体上绘制的任何顶点颜色将融入到生成的HLOD Actor和创建的材质。|
+| **使用顶点数据烘焙材质（Use Vertex Data for Baking Material）** | 启用时，烘焙材质时将使用顶点数据。|
+| **使用纹理分箱（Use Texture Binning）** | 在打包最终图谱纹理时，根据纹理重要性计算各种输出纹理大小。|
+| **使用地形剔除（Use Landscape Culling）** | 启用时，可以使用地形几何体剔除（或移除）任何看不到的网格体三角形部分。|
 [/REGION]
-
-(#materialsettings)
-### 材质设置
-
-![](material.png)
-
-[REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Texture Size** || 生成的 BaseColor 纹理图尺寸。|
-| **Texture Sizing Type** || [INCLUDE:#tst] |
-| **Normal Map** || 是否生成法线贴图。|
-| **Metallic Map** || 是否生成金属贴图。|
-| **Metallic Constant** || 允许设置粗糙度常量值代替纹理贴图。|
-| **Roughness Map** || 是否生成粗糙贴图。|
-| **Roughness Constant** || 允许设置粗糙度常量值代替纹理贴图。|
-| **Specular Map** || 是否生成反射贴图。|
-| **Specular Constant** || 允许设置粗糙度常量值代替纹理贴图。|
-| **Emissive Map** || 是否生成自发光贴图。|
-| **Diffuse Texture Size** || 覆盖弥散纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-| **Normal Texture Size** || 覆盖法线纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-| **Metallic Texture Size** || 覆盖金属纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-| **Roughness Texture Size** || 覆盖粗糙纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-| **Specular Texture Size** || 覆盖反射纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-| **Emissive Texture Size** || 覆盖自发光纹理尺寸。**Texture Sizing Type** 设为 **Use per property manually overriden texture sizes** 时启用。|
-[/REGION]
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
 
 [COMMENT:none]
 
 [EXCERPT:GPM]
-生成代理模型时，这将使用集群 LOD 将这些 **Actors** 合并为一个单一资源。静态网格体的生成将取决于变更了哪些 HLOD 等级的设置。这也会应该材质、光照图，和诸多其他属性。 
+在生成代理模型时，将使用集群化的LOD将这些 **Actor** 合并为单一资源。根据您针对HLOD关卡更改的设置，静态网格体可能会根据这些信息而生成。这可能会影响材质、光照贴图和各种其他属性。 
 
 [REGION:note]
-此过程的耗时取决于场景复杂度和 HLOD 等级的设置，可能 **耗时非常之长**。
+请注意，该过程可能会非常耗时，具体取决于场景复杂性和您为HLOD关卡选择的设置。
 [/REGION]
 [/EXCERPT]
 
 [EXCERPT:TST]
 
-纹理尺寸调整类型描述
+纹理大小类型描述
 
 [REGION:raw]
-| 类型 | %spacer2% | 描述 |
-| --- | :---:| :--- |	
-| **Use TextureSize for all material properties** || 使用 **纹理尺寸（Texture Size）** 中输入的值调整尺寸。|
-| **Use automatically biased texture sizes based on TextureSize** || 这将使用 **{1:0.5:0.25}** 的比例创建 **{normal:diffuse:otherproperties}** 纹理偏差集。因此如果纹理尺寸设为 512，它将输出一张 512 的法线贴图、256 的弥散贴图和 128 的贴图（粗糙反射等）（弥散被锁定为 32x32，粗糙反射等锁定为 16x16）|
-| **Use per property manually overridden texture sizes** || 启用每个纹理的覆盖，使用这些数值替代 **Texture Size**。|
-| **Use Simplygon’s automatic texture sizing** || 使用 **Simplygon** 的尺寸调整。|
+| 类型 | 说明 |
+| --- | :--- |	
+| **将纹理大小用于所有材质属性（Use TextureSize for all material properties）** | 将使用输入到纹理大小中的值来调节大小。|
+| **使用根据纹理大小自动进行偏差计算的纹理大小（Use automatically biased texture sizes based on TextureSize）** | 这样会使用比率{1:0.5:0.25}自动创建一组有偏差的{normal:diffuse:otherproperties}纹理，如果纹理大小设置为512，则会产生512法线贴图、256漫反射贴图和128粗糙高光贴图（漫反射限制为32x32，粗糙高光限制为16x16）|
+| **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** | 启用按纹理覆盖并使用这些值，而不是纹理大小。|
+| **使用Simplygon的自动纹理大小（Use Simplygon’s automatic texture sizing）** | 使用Simplygon的算法根据抽取设置来计算纹理大小。该选项仅应在您已在使用Simplygon时使用。|
 [/REGION]
-
 [/EXCERPT]
 
+[EXCERPT:blendmode]
+| 选项 | 说明 |
+| --- | --- |
+| **不透明（Opaque）** | 该混合模式定义了光线无法通过或穿透的表面。|
+| **已遮罩（Masked）** | 该混合模式通过将材质区域标记为是否应该可见，以二进制方式（开/关）定义可视性。|
+| **半透明（Translucent）** | 该混合模式使用不透明度值来定义材质可视性。|
+| **Additive** | 该混合模式获取材质的像素，并将其与背景的像素相加。|
+| **调制（Modulate）** | 该混合模式将材质的值与背景的像素相乘。|
+| **透明度合成（自左乘透明度）（Alpha Composite (Premultiplied Alpha)）** | 该混合模式用于已经有自左乘透明度的纹理。|
+[/EXCERPT:blendmode]
+
+
+
+[/COMMENT]
+
+
+[COMMENT:none]
+--
+[INCLUDE:#materialsettings]
+
+[EXCERPT:materialsettings]
+[REGION:raw]
+| 属性 | 说明 |
+| --- | :--- |
+| **纹理大小（Texture Size）** | 生成的底色纹理贴图的大小。|
+| **纹理大小类型（Texture Sizing Type）** | [INCLUDE:#tst] |
+| **法线贴图（Normal Map）** | 是否生成法线贴图。|
+| **金属贴图（Metallic Map）** | 是否生成金属贴图。|
+| **金属常量（Metallic Constant）** | 允许设置粗糙度常量值来取代纹理贴图。|
+| **粗糙度贴图（Roughness Map）** | 是否生成粗糙度贴图。|
+| **粗糙度常量（Roughness Constant）** | 允许设置粗糙度常量值来取代纹理贴图。|
+| **高光度贴图（Specular Map）** | 是否生成高光度贴图。|
+| **高光度常量（Specular Constant）** | 允许设置粗糙度常量值来取代纹理贴图。|
+| **自发光贴图（Emissive Map）** | 是否生成自发光贴图。|
+| **不透明度贴图（Opacity Map）** | 如果选中，将针对产生的合并Actor烘焙不透明度贴图。这样会使不透明度常量属性失效。还必须使用 **半透明（Translucent）****混合模式** 才能在生成的实例中正确显示。|
+| **不透明度常量（Opacity Constant）** | 仅在未选中“不透明度贴图”（Opacity Map）时启用，该属性为产生的合并Actor材质设置不透明度属性的常量值。|
+| **不透明蒙版贴图（Opacity Mask Map）** | 如果选中，将针对产生的合并Actor烘焙不透明蒙版贴图。这样会使不透明蒙版常量属性失效。还必须使用 **已遮罩（Masked）****混合模式** 才能在生成的实例中正确显示。|
+| **不透明蒙版常量（Opacity Mask Constant）** | 仅在未选中“不透明蒙版贴图”（Opacity Mask Map）时启用，该属性为产生的合并Actor材质设置不透明蒙版属性的常量值。|
+| **漫反射纹理大小（Diffuse Texture Size）** | 针对漫反射纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **法线纹理大小（Normal Texture Size）** | 针对法线纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **金属感纹理大小（Metallic Texture Size）** | 针对金属感纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **粗糙度纹理大小（Roughness Texture Size）** | 针对粗糙度纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **高光度纹理大小（Specular Texture Size）** | 针对高光度纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **自发光纹理大小（Emissive Texture Size）** | 针对自发光纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **不透明度纹理大小（Opacity Texture Size）** | 针对不透明度纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **不透明蒙版纹理大小（Opacity Mask Texture Size）** | 针对不透明蒙版纹理大小的覆盖。当 **纹理大小类型（Texture Sizing Type）** 设置为 **使用按属性手动覆盖的纹理大小（Use per property manually overridden texture sizes）** 时启用。|
+| **混合模式（Blend Mode）** | 确定材质颜色是否与背景色混合。[INCLUDE:#blendmode] |
+[/REGION]
+[/EXCERPT:materialsettings]
+
+-
 [/COMMENT]

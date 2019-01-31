@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3075226
+﻿INTSourceChangelist:3215926
 Availability:Public
 Title:使用关卡流送体积域流送关卡分段
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
@@ -14,6 +14,7 @@ tags:Level Streaming
 [INCLUDE:Engine/LevelStreaming/HowTo#levelstreamscenario]
 
 
+(#StreamingInLevelswithVolumes)
 ## 使用体积域流入关卡
 
 1. 在 **Modes** 面板中选择 **Volumes** 并将一个 **关卡流送体积域** 拖入关卡。
@@ -33,6 +34,8 @@ tags:Level Streaming
 	![](Engine/Levels/LevelsWindow/WindowLevels.png)
 	
 1. 选择 **SunTemple_Streaming**，然后点击 **Level Details** 图标。
+
+	![](LevelDetails.png)
 
 1. 点击 **Streaming Volumes** 旁边的加号（**+**）新添加一个体积域。然后使用下拉菜单或滴管选择放置在关卡中的 **关卡流送体积域**。
 	![](AddLSV.png)

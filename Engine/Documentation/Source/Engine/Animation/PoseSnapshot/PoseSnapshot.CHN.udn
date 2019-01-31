@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3492042
-Availability:Docs
+﻿INTSourceChangelist:3533392
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation
 Title:动画动作快照（Animation Pose Snapshot）
 Description:动画动作快照可在蓝图中捕捉运行时骨架网格体动作，可用于在动画蓝图中混入或混出额外动作。 
@@ -44,6 +44,7 @@ Related:Engine/Physics/PhAT
 在上方的视频中，用户按下键时角色便进入布娃娃状态。用户使用 [角色蓝图](Engine/Blueprints/UserGuide/Types/ClassBlueprint) 中的 **Pose Snapshot** 节点保存骨架网格体的动作。
 用户按下另一个键时，角色从该快照混入并播放一个“起身”[](Engine/Animation/AnimMontage)，然后继续常规运动状态。 这样用户便能将角色的最终动作视为物理结果，并从该动作顺畅地混入角色起身的动画。 
 
+(#SavePoseSnapshot)
 ## 保存动作快照
 
 为在运行时在 **角色蓝图** 中保存骨架网格体的动作，需要访问 [骨架网格体组件](Engine/Components/SkeletalMesh) 和其 **动画实例**。 
@@ -58,6 +59,7 @@ Related:Engine/Physics/PhAT
 调用 Save Pose Snapshot 时，快照在当前 LOD 中采集。举例而言，如果用户在 LOD1 采集快照，然后在 LOD0 使用，那么未在 LOD1 中的所有骨骼将使用模型的参考动作。 
 [/REGION]
 
+(#RetrievePoseSnapshot)
 ## 获取动作快照
 
 获取动作快照的方法是：在 **动画蓝图** 的 **AnimGraph** 中点击右键并添加 **Pose Snapshot** 节点，然后输入 **快照命名**。 
@@ -72,6 +74,7 @@ Related:Engine/Physics/PhAT
 我们使用 [Blend Poses by bool](https://docs.unrealengine.com/latest/INT/Engine/Animation/NodeReference/Blend/#blendposesbybool) 节点决定角色是否已停止移动，如为 **True** 则切换至动作快照。 
 如为 **False**，则从动作快照混入槽中的 AnimMontage，然后通过普通的默认状态机继续。 
 
+(#SnapshotPoseFunction)
 ## Snapshot Pose 函数
 
 使用动作快照功能的另一种方法是在蓝图中调用 **Snapshot Pose** 函数将快照保存到 **Pose Snapshot** 变量。 
@@ -88,6 +91,7 @@ Related:Engine/Physics/PhAT
 
 ![](SnapshotPoseAnimGraph.png)
 
+(#AdditionalResource)
 ## 附加资源
 
 此功能在以下视频教程中也有讲述： 

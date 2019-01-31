@@ -1,85 +1,80 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability:Docs
-Title:Destructible Meshes
-Description:Creating and using Destructible Mesh in UE4.
+Title:可破坏物网格体
+Description:在UE4中创建和使用可破坏物网格体。
 SkillLevel:Intermediate
 Version: 4.9
 
-This page covers how to create and use a Destructible Static Mesh Actors in Unreal Engine 4. 
-In this example we will first create a Destructible Static Mesh using a Static Mesh from  the Content Browser. 
-Once the Destructible Static Mesh has been created we will then bring it into a level so that when the level is played the Destructible Static Mesh will fall to the floor and "Fracture" into many smaller pieces.
-
+本页介绍了如何创建和使用可破坏物静态网格体Actor。 
+在本示例中，您将从静态网格体中创建一个可破坏物网格体，把可破坏物网格体添加至关卡中用作启用物理过程时的可破坏物网格体Actor， 
+然后测试关卡，以查看可破坏物网格体Actor是否会落到地面并破裂成更小的碎片。
 
 [REGION:note]
-For this tutorial we are using the **Blueprint First Person** template with **Starter Content** enabled. 
+在本教程中，我们将在启用 **初学者内容包（Starter Content）** 的情况下使用 **第一人称蓝图（Blueprint First Person）** 模板。 
 [/REGION]
 
-1. First inside of the **Content Browser** go to the **Geometry** folder and from the **Meshes** folder select the **1M_Cube** Static Mesh.
+1.  在 **内容浏览器（Content Browser）** 中转至 **Geometry** > **Meshes** 文件夹，然后选择 **1M_Cube** 静态网格体。
 
 	![](Pick_SM_For_Des.png)
 
-1. With the 1M_Cube selected, **Right-click** on the 1M_Cube and from the menu that is displayed select the **Create Destructible Mesh** option. 
+1.  选择1M_Cube后，**右击** 1M_Cube并选择 **创建可破坏物网格体（Create Destructible Mesh）** 选项，以从静态网格体中创建可破坏物网格体资源，并在可破坏物网格体编辑器中将其打开。 
 
 	![](Create_Des_Mesh.png)
 
-1. Once that has been completed the following two things will happen. 
-	First a new Destructible Mesh asset will be created and placed in the Content Browser using the same name as the Static Mesh that is was derived from but with a **_DM** added to the end of the name.
-	The second thing that will happen is the **Destructible Mesh Editor** window will be displayed.
-	The **Destructible Mesh Editor** tool allows you to affect many different aspects of how the Static Mesh that is used for destruction will be cut up and how those pieces will react when they are broken off from the rest of the Destructible Mesh.
-
-	![](DSM_Editor.png)
-
-1. Inside of the **Destructible Mesh Editor** tool locate the **Fracture Settings** and under the **[Voronoi](https://en.wikipedia.org/wiki/Voronoi_diagram)** section set the **Cell Site Count** from 25 to **50** and then set the **Random Seed** to **240**.
+1.  在 **可破坏物网格体编辑器（Destructible Mesh Editor）** 中，找到 **破裂设置（Fracture Settings）** 选项卡，然后在 **[Voronoi](https://en.wikipedia.org/wiki/Voronoi_diagram)** 分段下面将 **Cell Site Count** 从25更改为 **50** 
+以为我们提供更多破坏碎片，然后将 **Random Seed** 设为 **240** 以提供一些变化。
 
 	![](Setting_Up_Fracture.png)
 
-1. Now press the **Fracture Mesh** button to see how the mesh will look when it has been fractured.
+1.  按下 **破裂网格体（Fracture Mesh）** 按钮，以查看网格体破裂时的外观。
 
 	![](Applying_Fracture.png)
 
 	[region:tip]
-	You can use the **Explode Amount** slider to move the fractured pieces apart from one another making it easier to see what is going on. 
+	您可以使用 **爆破量（Explode Amount）** 滚动条将破裂碎片彼此分开，以便更容易查看发生的情况。 
 	[/region]
 
-1. Once the mesh has been fractured go back to the **Meshes*** folder in the Content Browser and create two new Materials named **MAT_Inside** and **MAT_Outside**. 
+1.  在 **网格体（Meshes）*** 文件夹中创建两个名为 ** MAT_Inside** 和 **MAT_Outside** 的新材质。 
 
 	![](Create_Two_New_Materails.png)
 
-1. Open up the **Mat_Outside** Material and add the following two Material Expression nodes to the Material Graph, **Constant 3 Vector** expression node and a **Constant** expression node.
+1.  双击 **Mat_Outside** 材质以将其打开，然后将以下两个材质表达式节点添加至材质图表中：**Constant 3 Vector** 表达式节点和 **Constant** 表达式节点。
 
 	![](Adding_MEN_To_Graph.png)
 
-1. Now plug the **Constant 3 Vector** into the **Base Color** input and set its color to be **Red** then plug the **Constant** into the **Roughness** input and set it's value to **.25** then press the **Apply** and **Save** buttons to compile and save your work. 
+1.  将 **Constant 3 Vector** 连接至 **底色（Base Color）** 输入，并将其颜色设为 **红色（Red）**，接着将 **Constant** 插入 **粗糙度（Roughness）** 输入，并将其值设为 **.25**，然后按下 **应用（Apply）** 和 **保存（Save）** 按钮以编译并保存您的工作。 
 
 	![](Connecting_And_SettingUp_MEN.png)
 
-1. Open up the **MAT_Inside** Material and set up in the same manner as the **Mat_Outside** but instead of making the color red make the color **green** and set it's **Roughness** to **0.5**.
+1.  双击 **MAT_Inside** 材质以将其打开，然后添加 **Constant 3 Vector** 和 **Constant** 表达式节点，并按照与Mat_Outside材质完全相同的方式连接。 
+但是，此时应将 **底色（Base Color）** 设为 **绿色（Green）**，并将 **粗糙度（Roughness）** 设为 **0.5**。
 
 	![](Setting_Up_Inside_Material.png)
 
 	[region:note]
-	Any Material that is used with Destructible Meshes will need to have the **Usage** flag, **Used with Skeletal Mesh** enabled. 
-	If you forget to enable this flag UE4 will enable it for you automatically and re-compile the Material when you put this Material on a Destructible Mesh.
+	当应用于可破坏物网格体时，材质必须在材质属性中的“Usage in the Material”与“Used with Skeletal Mesh”标记。
+	如果您忘记启用此标记，UE4将自动为您启用它，并在您将此材质应用在可破坏物网格体上时重新编译该材质。
 	
 	![](Enable_Usage_Flag.png)
 	[/region]
 
-1. Open up the **1M_Cube_DM** Destructible Mesh and then locate the **Skeletal Mesh** section. Expand the two **Materials** sections and then apply the **MAT_Inside** and **MAT_Outside Materials**.
+1.  双击内容浏览器（Content Browser）中的 **1M_Cube_DM** 可破坏物网格体（Destructible Mesh）以将其打开，接着找到 **可破坏物设置（Destructible Settings）** > **骨架网格体（Skeletal Mesh）** 设置，然后应用 **MAT_Inside** 和 **MAT_Outside Materials**。
 
 	![](Applied_Materials.png)
 
-1. Once the Materials have been applied expand the **Damage** section and then enable the **Enable Impact Damage** option by clicking on the checkmark box next to the name.
+1.  展开 **伤害（Damage）** 分段，然后通过单击复选标记框启用 **启用冲击伤害（Enable Impact Damage）**。
 
 	![](Enable_Impact_Damge.png)
 
-1. Close the Destructible Mesh editor and then from the Content Browser, add the Destructible Mesh to the level by dragging it from the Content Browser into the level.
+1.  将可破坏物网格体从内容浏览器（Content Browser）拖曳至关卡，从而将其添加至关卡中。
 
 	![](Adding_DM_To_Level.png)
 
-1. Select the Destructible Mesh that was just placed in the level and then in the **Details** panel under the **Physics** section turn on the **Simulate Physics** option.
+1.  选择新放置的可破坏物网格体Actor，并在 **物理（Physics）** 下的 **细节（Details）** 面板中启用 **模拟物理（Simulate Physics）**，以便玩游戏时使物理过程模拟驱动Actor。
 
-1. Now press the **Play** button and when the level starts you should see the Destructible Mesh that was added fall down to the ground. 
-	Once the Destructible Mesh makes contact with the ground it will fracture into many smaller pieces like in the video below.
+	![](Enable_Physics.png)
+
+1.  按下工具栏中的“运行（Play）”按钮以测试关卡。可破坏物网格体Actor落到地面并破裂成更小的碎片。
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:width]

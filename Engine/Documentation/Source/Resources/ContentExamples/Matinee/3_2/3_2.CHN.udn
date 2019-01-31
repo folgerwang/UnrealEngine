@@ -1,29 +1,11 @@
-﻿Availability: Docs
+﻿INTSourceChangelist:3782314
+Availability: Docs
 Title:3.2 - Matinee事件及事件轨迹
 Crumbs:%ROOT%, Resources, Resources/ContentExamples/Matinee
 Description: Matinee示例关卡概述，示例3.2： Matinee事件及事件轨迹
 
 [TOC(start:2 end:2)]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Matinee/3_2:title%](Resources\ContentExamples\Matinee\matinee_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Matinee/3_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Matinee/3_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Matinee/3_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 如果您需要使用Matinee完成一些无法从其内部进行控制的内容，您可以使用Event（事件）。 （本例中为调用actor的函数）
 

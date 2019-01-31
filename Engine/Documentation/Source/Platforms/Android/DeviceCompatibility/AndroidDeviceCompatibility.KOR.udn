@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3108692
 Availability:Public
-Title:안드로이드 디바이스 호환성
+Title:Android 디바이스 호환성
 Crumbs:%ROOT%, Platforms, Platforms/Android
-Description:안드로이드 개발에 있어서의 디바이스 호환성입니다.
+Description:Android 개발에 있어서의 디바이스 호환성입니다.
 Version: 4.9
 Parent:Platforms/Android
 tags:Mobile
@@ -22,7 +22,7 @@ type:reference
 [/VAR]
 
 
-안드로이드 지원은 아직 초기 단계로, 그 다양한 종류의 디바이스 테스트를 거치지 못했습니다. 앞으로 새 디바이스가 
+Android 지원은 아직 초기 단계로, 그 다양한 종류의 디바이스 테스트를 거치지 못했습니다. 앞으로 새 디바이스가 
 공개되면서 내부적으로 테스팅하는 디바이스의 폭을 넓혀감에 따라 이 부분을 확장해 다듬어 갈 계획입니다.
 
 커뮤니티의 알려진 디바이스 호환성 목록은, [Android Device Compatibility](https://wiki.unrealengine.com/Android_Device_Compatibility) 위키 페이지를 참고하시기 바랍니다.

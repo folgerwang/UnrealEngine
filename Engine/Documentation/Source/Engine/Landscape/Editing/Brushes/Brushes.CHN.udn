@@ -1,7 +1,9 @@
-﻿Availability: Public
-Title:地貌画刷
+﻿INTSourceChangelist:3810467
+Availability: Public
+Title:地形笔刷
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
-Description:关于用于修改地貌的画刷的指南。
+Description:用于修改地形的笔刷的指南。
+version: 4.9
 
 [VAR:Topic]
 [OBJECT:Topiccompact]
@@ -26,125 +28,139 @@ Description:关于用于修改地貌的画刷的指南。
 
 [TOC(start:2 end:2)]
 
-## 概述
+**地形** 工具的笔刷定义了地形区域（其将受雕刻或绘制的影响）的形状和大小。笔刷可拥有不同形状、大小和衰减。对曾经使用过Photoshop等图像编辑软件的人来说，笔刷工具并不会让他们感到陌生。 
 
-地貌工具的画刷定义了地貌区域的大小和形状，画刷通过塑造和描画操来影响地貌。画刷可以具有不同的形状、大小和衰减。对于曾经使用过Photoshop或类型图像编辑应用程序的人来说，画刷应该是个熟悉的概念。
-
-你可以在  **Sculpt（造型）** 或 **Paint（描画）** 中设置画刷的形状和衰减情形。
+可在 **雕刻** 或 **绘制** 模式中设置笔刷类型和衰减。
 
 ![Brush Settings](Landscape_BrushSettings.png)
 
 | 属性 | 描述 |
 | -------- | ----------- |
-| **Brush Size（画刷大小）** | 这决定了画刷的大小及衰减情况，以虚幻单位为单位。在该区域内，画刷至少会有某种效果。
-| **Brush Falloff（画刷衰减）** | 这定义了从画刷开始衰减的地方占画刷边界范围的百分比。从本质上讲，这决定了画刷边缘的尖锐度。衰减值0.0意味着画刷在整个范围内都具有完全效果，具有尖锐的边缘。衰减值1.0意味着画刷仅在其中心具有完全效果，在它的整个区域到达边缘的过程中影响将会衰减。|
-| **Use Clay Brush（使用粘土画刷）** | 如果选中该项，则使用粘土画刷。|
+| **笔刷尺寸** | 此属性决定着笔刷的尺寸（按虚幻单位计，含衰减）。在此区域中，笔刷将至少拥有一些效果。 |
+| **笔刷衰减** | 此属性决定了衰减开始处笔刷范围的百分比。本质上来说，它决定着笔刷边缘的硬度。0.0的衰减意味着笔刷拥有硬边，整体皆拥有完整的效果。1.0的衰减意味着笔刷只在中心拥有完整效果，效果将从其所在的整个区域到边缘逐渐减弱。 |
+| **使用泥浆笔刷** | 选中后将使用一个泥浆笔刷。 |
 
 
-当前画刷的尺寸和衰减值在视口中显示为闪光的浅紫色实心圆形，或成对的同心环。
+当前笔刷的尺寸和衰减在视口中显示为一个闪烁的淡紫色圆，或一对同心圆。
 
-![Landscape_Brush_Viewport.jpg](Landscape_Brush_Viewport.jpg)(w:900 h:184)
+[REGION:imagetable]
+| ![](Falloff00.jpg) | ![](Falloff05.jpg) | ![](Falloff10.jpg) |
+| -------- | ----------- | ------ |
+| 衰减：0.0 | 衰减：0.5 | 衰减：1.0 |
+[/REGION]
 
 
-## 圆形
+(#circle)
+## 圆
 
 ![Circle Brush](Landscape_CircleBrush.png)
 
-Circle（圆形）画刷在一个圆形区域应用当前工具，通过数值和类型来定义衰减情形。
+**圆** 笔刷在一个圆形区域中应用当前的工具，带数字和类型两者定义的衰减。
 
-![circle.jpg](circle.jpg)(w:486 h:486)
+![circle.jpg](circle.jpg)(w:486)
 
-### 圆形画刷衰减类型
+(#circlebrushfallofftype)
+### 圆笔刷衰减类型
 
 | 图标 | 类型 | 描述 |
 | ---- | ---- | ----------- |
-|![Smooth Falloff](Landscape_SmoothFalloff.png)| **Smooth（平滑）** | 平滑的线性衰减，在衰减的开始处和结束处的锐利边缘上都进行了平滑处理。|
-|![Linear Falloff](Landscape_LinearFalloff.png)| **Linear（线性）** | 锐利的线性衰减，没有圆滑的边缘。|
-|![Spherical Falloff](Landscape_SphericalFalloff.png)| **Sphere（球体）** | 半椭圆形的衰减，开始衰减时平滑，结束时有锐利边缘。|
-|![Tip Falloff](Landscape_TipFalloff.png)| **Tip（尖端）** | 衰减开始时非常生硬，结束时平滑的椭圆形。其相反的衰减类型是 **Sphere**  衰减。|
+|![Smooth Falloff](Landscape_SmoothFalloff.png)| **平滑** | 线性衰减已被平滑，磨圆衰减开始和结束的锐边。 |
+|![Linear Falloff](Landscape_LinearFalloff.png)| **线性** | 锐利的线性衰减，不带磨圆的边。 |
+|![Spherical Falloff](Landscape_SphericalFalloff.png)| **球形** | 头端平滑而末端锐利的半椭圆形衰减。|
+|![Tip Falloff](Landscape_TipFalloff.png)| **尖端** | 头端凸出而末端平滑椭圆的衰减。**球形** 衰减的反面。 |
 
-以下是在高度图上操作执行这些衰减类型时的示例，设置了半径和衰减类型：
+以下是这些衰减类型在高度图上呈现出的效果（半径和衰减量均相同）：
 
-![landscape_brush_falloff.png](landscape_brush_falloff.png)(w:789 h:416)
+[REGION:imagetable]
+| ![](Smooth.jpg)(w:200) | ![](Linear.jpg)(w:200) | ![](Sphere.jpg)(w:200) | ![](Tip.jpg)(w:200) |
+| -------- | ----------- | ------ | ----- |
+| **平滑**| **线性** | **球形** | **尖端** | 
+[/REGION]
 
-
-## Alpha
+(#alpha)
+## 透明度
 
 ![Alpha Brush](Landscape_AlphaBrush.png)
 
-Alpha 画刷和图案画刷类似，但随着您描画画刷它不会平铺贴图，而是让画刷贴图朝向你描画的方向，并随着你移动光标拖动贴图的形状。
+**透明度** 笔刷与图案笔刷相似，但绘制时它不会在地形上平铺纹理，它将把笔刷纹理对准绘制的方向并在移动鼠标时拖动形状。
 
-![brush_alpha_drag.jpg](brush_alpha_drag.jpg)(w:273 h:475)
+![brush_alpha_drag.jpg](brush_alpha_drag.jpg)(w:273)
 
 
-### Alpha 画刷设置
+(#alphabrushsettings)
+### 透明度笔刷设置
 
 ![Alpha Brush Settings](Landscape_AlphaSettings.png)
 
 | **设置** | **描述** |
 | --- | --- |
-| **Texture（贴图）** | 设置要使用的贴图，从 **Content Browser（内容浏览器）** 中设置。|
-| **Texture Channel（贴图通道）** |将Alpha画刷的内容设置为正在分配的贴图的对应通道的数据。|
-| **Brush Size（画刷大小） ** | 设置画刷的大小。|
-| **Use Clay Brush（使用粘土画刷）** | 如果选中该项，则使用粘土画刷。|
+| **纹理** | 设置要使用的纹理，从 **内容浏览器** 中进行指定。 |
+| **纹理通道** | 将透明度笔刷的内容设置为来自当前指定纹理的相应通道的数据。 |
+| **笔刷尺寸** | 设置笔刷的大小。 |
+| **使用泥浆笔刷** | 选中后将使用一个泥浆笔刷。 |
 
 
+(#pattern)
 ## 图案
 
 ![Pattern Brush](Landscape_PatternBrush.png)
 
-图案画刷允许您通过从贴图中采样一个单独颜色通道获得使用画刷的任意形状，并将其作为该画刷的alpha通道。随着画刷描画将会平铺贴图图案。
+**图案** 笔刷可使用任意的笔刷形状，其工作原理是从纹理采样单一色彩通道，用作笔刷的透明度。绘制笔刷时将平铺纹理图案。
 
-比如，以下贴图可以用作为alpha通道的内容：
+举例而言，以下纹理即可用作透明度：
 
-![alpha_tex.jpg](alpha_tex.jpg)(w:258 h:258) ![alpha_tex_checker.jpg](alpha_tex_checker.jpg)(w:258 h:258)
+![alpha_tex.jpg](alpha_tex.jpg)(w:258) ![alpha_tex_checker.jpg](alpha_tex_checker.jpg)(w:258)
 
-这将会产生以下画刷：
+它们可形成以下笔刷：
 
-![alpha_pattern.jpg](alpha_pattern.jpg)(w:425 h:425) ![alpha_applied.jpg](alpha_applied.jpg)(w:425 h:425)
+![alpha_pattern.jpg](alpha_pattern.jpg)(w:425) ![alpha_applied.jpg](alpha_applied.jpg)(w:425)
 
-![alpha_pattern_checker.jpg](alpha_pattern_checker.jpg)(w:425 h:425) ![alpha_default_checker.jpg](alpha_default_checker.jpg)(w:425 h:425)
+![alpha_pattern_checker.jpg](alpha_pattern_checker.jpg)(w:425) ![alpha_default_checker.jpg](alpha_default_checker.jpg)(w:425)
 
-###图案画刷设置
+(#patternbrushsettings)
+### 图案笔刷设置
 
 ![Pattern Brush Settings](Landscape_PatternSettings.png)
 
 | **设置** | **描述** |
 | --- | --- |
-| **Texture（贴图）** | 设置要使用的贴图，从 **Content Browser（内容浏览器）** 中设置。|
-| **Texture Channel（贴图通道）** |将Pattern (图案)画刷的内容设置为正在分配的贴图的对应通道的数据。|
-| **Brush Size（画刷大小） ** | 设置画刷的大小。|
-| **Brush Falloff（画刷衰减）** | 设置画刷衰减。|
-| **Use Clay Brush（使用粘土画刷）** | 如果选中该项，则使用粘土画刷。|
-| **Texture Scale(贴图比例)** | 设置采样的贴图相对于景观表面的尺寸。<br/>![alpha_default.jpg](alpha_default.jpg)(w:128 h:128) ![alpha_texscale.jpg](alpha_texscale.jpg)(w:128 h:128) |
-| **Texture Rotation（贴图旋转度）** | 设置采样贴图相对于贴图表面的旋转度。<br/>![alpha_texrot_default.jpg](alpha_texrot_default.jpg)(w:128 h:128) ![alpha_texrotation.jpg](alpha_texrotation.jpg)(w:128 h:128) |
-| **Texture Pan (贴图平移[U/V])[U/V]** | 设置采样的贴图在景观表面上的偏移量。<br/>![alpha_default.jpg](alpha_default.jpg)(w:128 h:128) ![alpha_texpan.jpg](alpha_texpan.jpg)(w:128 h:128) |
+| **纹理** | 设置要使用的纹理，从 **内容浏览器** 中进行指定。 |
+| **纹理通道** | 将图案笔刷的内容设置为来自当前指定纹理的相应通道的数据。 |
+| **笔刷尺寸** | 设置笔刷的大小。 |
+| **笔刷衰减** | 设置笔刷衰减。 |
+| **使用泥浆笔刷** | 选择后即可使用一个泥浆笔刷。 |
+| **纹理缩放** | 设置采样纹理相对于地形表面的大小。![alpha_default.jpg](alpha_default.jpg)(w:128) ![alpha_texscale.jpg](alpha_texscale.jpg)(w:128) |
+| **纹理旋转** | 设置采样纹理相对于地形表面的旋转。![alpha_texrot_default.jpg](alpha_texrot_default.jpg)(w:128) ![alpha_texrotation.jpg](alpha_texrotation.jpg)(w:128) |
+| **纹理平移[U/V]** | 设在地形表面上设置采样纹理的偏差。![alpha_default.jpg](alpha_default.jpg)(w:128) ![alpha_texpan.jpg](alpha_texpan.jpg)(w:128) |
 
 
 
-##  组件
+(#component)
+## 组件
 
 ![Component Brush](Landscape_ComponentBrush.png)
 
-组件画刷用于操作单独的组件。光标每次总是限定在一个单独组件上：
+**组件** 笔刷用于在单个组件上进行操作。光标一次将受限于一个单一组件：
 
-![selection_cursor.jpg](selection_cursor.jpg)(w:900 h:453)
+![selection_cursor.jpg](selection_cursor.jpg)(w:900)
 
 [REGION:note]
-仅当使用在单独组件级别上操作的工具时该画刷才可用。
+使用工具在个体组件关卡上进行操作时，组件笔刷是唯一可用的笔刷。
 [/REGION]
 
-## Gizmo
+(#gizmo)
+## 小工具
 
 ![Gizmo Brush](Landscape_GizmoBrush.png)
 
-Gizmo（小工具）画刷通过地貌小工具来修改您的地貌，这些工具针对地貌的某个特定区域执行操作。
+**小工具** 笔刷可使用地形小工具来修改地形。地形小工具可用于对地形的特定本地化区域执行操作。
 
 [REGION:note]
-仅当您在Sculpt模式中使用  Copy/Paste（复制/粘帖）工具时，Gizmo画刷才可用。
+只有在雕刻模式中使用复制/粘贴工具时才可以使用小工具笔刷。
 [/REGION]
 
-关于Gizmos的更多信息，请参照[](Engine/Landscape/Editing/Gizmos/)。
+如需了解小工具的更多信息，请参见 [](Engine/Landscape/Editing/Gizmos/)。
 
 
+[INCLUDE:Engine/Landscape#landscape002]
 

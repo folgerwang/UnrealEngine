@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4400408
+Availability: Public
+Crumbs: 
+Title: ARKit 전제 조건 
+Description: Apple 의 ARKit 전제 조건과 증강 현실용 구성 안내입니다.
+Type: 
+Version: 
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: mobile
+Tags: iOS
+Tags: AR
+
+
+언리얼 엔진은 예전부터 iOS 디바이스를 지원해 왔습니다. 이미 언리얼 엔진으로 iOS 앱을 제작중이라면, 별도의 추가 구성 없이 언리얼 엔진으로 증강 현실 앱 제작도 시작할 수 있을 것입니다.
+
+## 일반 전제 조건
+
+언리얼 엔진 및 iOS 디바이스 기본 구성 관련 자세한 내용은 [](Platforms/iOS) 문서를 참고하세요.
+
+**ARKit 1.5 전제 조건**
+
+*   개발 머신 추천 사양은 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
+*   언리얼 엔진 4.20 이상이 설치되어 있어야 합니다.
+*   Xcode 9 이상이 설치되어 있어야 합니다.
+*   지원되는 핸드헬드 iOS 디바이스를 구성 및 연결한 상태여야 합니다.
+
+**ARKit 2.0 전제 조건**
+
+*   개발 머신 추천 사양은 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
+*   언리얼 엔진 4.20 이상이 설치되어 있어야 합니다.
+*   Xcode 10 이상이 설치되어 있어야 합니다.
+*   지원되는 핸드헬드 iOS 디바이스를 구성 및 연결한 상태여야 합니다.
+
+[REGION:note]
+**지원 디바이스**: [Supported Devices](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html) 링크에서 ARKit 에 현재 지원되는 iOS 디바이스 목록을 확인하세요 (iOS 12 베타 필요).
+[/REGION]

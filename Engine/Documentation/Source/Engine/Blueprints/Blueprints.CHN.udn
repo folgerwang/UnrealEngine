@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 蓝图 - 可视化脚本
 Crumbs: %ROOT%, Engine
@@ -9,70 +9,8 @@ order:5
 social-image:bp_social_image.png
 type:landing
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-	[PARAMLITERAL:id]
-	蓝图
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
-
+topic-image:Engine/Blueprints/kismet_topic.png
+topic-icon:%ROOT%/blueprint_icon.png
 
 [REGION:banner]
 ![](k2_banner.gif)
@@ -89,6 +27,7 @@ tags:Blueprints
 通过这些标记，程序员能够很方便的创建一个基础系统，并交给策划进一步在蓝图中对这样的系统进行扩展。
 [/EXCERPT:Intro]
 
+(#GettingStarted)
 ## 新手入门
 
 [REGION:topics third]
@@ -102,7 +41,7 @@ tags:Blueprints
 		![](%ROOT%/blueprint_icon.png)(convert:false)
 	[/PARAM]
 	[PARAM:title]
-		Videos: Introduction to Blueprints (v4.8)
+		视频：蓝图简介 (v4.8)
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://docs.unrealengine.com/latest/INT/Videos/PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO/EFXMW_UEDco/index.html
@@ -110,7 +49,8 @@ tags:Blueprints
 [/OBJECT]
 [/REGION]
 
-## General Scripting
+(#GeneralScripting)
+## 常规脚本编写
 
 [REGION:topics third]
 %Engine/Blueprints/Scripting:TopicCompact%
@@ -122,7 +62,7 @@ tags:Blueprints
 		![](%ROOT%/blueprint_icon.png)(convert:false)
 	[/PARAM]
 	[PARAM:title]
-		Videos: Blueprint Essentials
+		视频：蓝图基础
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://docs.unrealengine.com/latest/INT/Videos/PLZlv_N0_O1ga2b_ZaJoaR5dLHOFw4-MMl/zaVY5A0hqiI/index.html
@@ -130,7 +70,8 @@ tags:Blueprints
 [/OBJECT]
 [/REGION]
 
-## Building Blueprints
+(#BuildingBlueprints)
+## 编译蓝图
 [REGION:topics third]
 %Engine/Blueprints/Anatomy:TopicCompact%
 %Engine/Blueprints/Workflow:TopicCompact%
@@ -145,7 +86,7 @@ tags:Blueprints
 		![](%ROOT%/blueprint_icon.png)(convert:false)
 	[/PARAM]
 	[PARAM:title]
-		Blueprint Video Tutorials
+		蓝图视频教程
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://docs.unrealengine.com/latest/INT/Videos/Blueprints/index.html
@@ -153,7 +94,8 @@ tags:Blueprints
 [/OBJECT]
 [/REGION]
 
-## Blueprint Communication
+(#BlueprintCommunication)
+## 蓝图通信
 [REGION:topics third]
 %Engine\Blueprints\UserGuide\BlueprintCommsUsage:topiccompact%
 %Engine/Blueprints\HowTo:topiccompact%
@@ -165,7 +107,7 @@ tags:Blueprints
 		![](%ROOT%/blueprint_icon.png)(convert:false)
 	[/PARAM]
 	[PARAM:title]
-		Livestream: Blueprint Communications
+		直播：蓝图通信
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://docs.unrealengine.com/latest/INT/Videos/PLZlv_N0_O1gYuWkyTSbfcuyPNOQsK_8bu/EM_HYqQdToE/index.html
@@ -176,7 +118,8 @@ tags:Blueprints
 %Engine/Blueprints/UserGuide/Types/Interface:topiccompact%
 [/REGION]
 
-## Doing More With Blueprints
+(#DoingMoreWithBlueprints)
+## 蓝图进阶
 
 [REGION:topics third]
 %BlueprintAPI:TopicCompact%
@@ -189,7 +132,7 @@ tags:Blueprints
 		![](%ROOT%/blueprint_icon.png)(convert:false)
 	[/PARAM]
 	[PARAM:title]
-		Live Training Streams: Blueprints
+		直播：蓝图
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://docs.unrealengine.com/latest/INT/Videos/PLZlv_N0_O1gYuWkyTSbfcuyPNOQsK_8bu/index.html
@@ -197,27 +140,4 @@ tags:Blueprints
 [/OBJECT]
 [/REGION]
 
-[DIR(output:"listbutton" parent:"Engine/Blueprints" type:"overview" org:"hierarchy")]
-
-
-[COMMENT:none]
-
-## Starting Out
-
-[DIR(end:"1" output:"topic" type:"quickstart" parent:"Engine/Blueprints")]
-
-## Reference
-
-[DIR(end:"1" output:"topic" type:"reference" parent:"Engine/Blueprints")]
-
-## Guides
-
-[DIR(end:"1" output:"topic" type:"howto" parent:"Engine/Blueprints")]
-
-## Video Tutorials
-
-[REGION:simplegallery]
-[VideoLink(videoid:"EFXMW_UEDco" playlistid:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" width:"275")]
-[/REGION]
-
-[/COMMENT]
+[DIR(output:"topic" parent:"Engine/Blueprints" type:"overview" org:"hierarchy")]

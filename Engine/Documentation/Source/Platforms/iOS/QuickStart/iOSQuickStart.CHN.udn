@@ -1,65 +1,39 @@
-﻿INTSourceChangelist:2940199
-Title:iOS 快速入门
+﻿INTSourceChangelist:3782314
+Title:iOS快速入门
 Crumbs:%ROOT%, Platforms, Platforms/iOS
-Description:在iOS设备上设置并启动游戏的指南。
+Description:在iOS设备上设置并运行游戏的说明。
 Availability:Public
-Version:4.9
+Version:4.18
 tags:iOS
 tags:mobile
 parent:Platforms/iOS
+Skilllevel:Intermediate
+type:quick start
+Checkpoint:iOSQS
 order:1
-type:quickstart
+topic-image:iOSQuickStart_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](iOSQuickStart_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/iOS/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+![](iOSQuickStart_topic.png)
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](iOSQuickStart_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/iOS/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+(#goals)
 
-本篇苹果iOS快速入门系列教程将带领您设置电脑和iOS设备以供部署，并同时使用启动和打包功能在您的设备上放置模板游戏。
+## 目标
 
-%Globals:OSSelect%
+这篇Apple iOS快速入门指南重在介绍如何对计算机进行设置，以便使用虚幻引擎4进行iOS开发。
+此指南还将说明如何利用虚幻编辑器的启动和打包功能将游戏模板导入iOS设备。
 
-## 步骤
+(#objectives)
 
-[REGION:buttonlist]
+## 任务
 
-	* [](Platforms/iOS/QuickStart/1 "%Platforms/iOS/QuickStart/1:description%")
-	* [](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:description%")
-	* [](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:description%")
-	* [](Platforms/iOS/QuickStart/4 "%Platforms/iOS/QuickStart/4:description%")
-	* [](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:description%")
-	* [](Platforms/iOS/QuickStart/6 "%Platforms/iOS/QuickStart/6:description%")
-	* [](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:description%")
-	* [](Platforms/iOS/QuickStart/8 "%Platforms/iOS/QuickStart/8:description%")
-	* [](Platforms/iOS/QuickStart/9 "%Platforms/iOS/QuickStart/9:description%")
-	
+* 安装并设置Apple必备条件。
+* 生成并设置必需的Apple开发证书。
+* 创建一个iOS移动开发项目。
+* 如何将关卡部署到Apple设备上。
+* 如何打包项目进行发布。
+
+[DIR(output:"checkpoint" parent:"Platforms/iOS/QuickStart")]
+
+[REGION:call_to_action]
+ [点击开始](Platforms/iOS/QuickStart/1"%Platforms/iOS/QuickStart/1:title%")
 [/REGION]

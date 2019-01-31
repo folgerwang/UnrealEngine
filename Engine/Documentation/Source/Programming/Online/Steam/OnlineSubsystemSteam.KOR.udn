@@ -128,7 +128,7 @@ Steam Subsystem 은 [Valve Steamworks](https://partner.steamgames.com/?goto=%2Fh
 
 ## Steam App ID
 
-Steam Online Subsystem 을 사용하는 모든 게임은 유효한 어플리케이션 ID 가 있어야 하는데, 어플리케이션의 Steam App ID 를 알지 못하면 Steamworks API 초기화가 되지 않기 떄문입니다.
+Steam Online Subsystem 을 사용하는 모든 게임은 유효한 어플리케이션 ID 가 있어야 하는데, 어플리케이션의 Steam App ID 를 알지 못하면 Steamworks API 초기화가 되지 않기 때문입니다.
 Steam 초기화 전, UE4 는 `steam_appid.txt` 를 생성합니다 (엔진 정상적인 종료 도중 UE4 는 이 파일을 삭제합니다).
 한 가지 중요한 점은 `steam_appid.txt` 가 실행파일과 같은 디렉터리에 있어야 합니다. Steam 에서는 현재 작업 디렉터리에서 그 텍스트 파일을 찾기 때문입니다.
 추가적으로, 이 파일을 Steam 이미지에 포함시켜서는 안됩니다.

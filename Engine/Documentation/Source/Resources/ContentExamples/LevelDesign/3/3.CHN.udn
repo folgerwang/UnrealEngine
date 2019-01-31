@@ -1,10 +1,29 @@
-﻿Availability: Public
-Title:3 - 光照环节
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:3 - 灯光阶段
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/LevelDesign
-Description:关卡设计用关卡概述，示例3： 光照环节
+Description:关卡设计实例3概览：灯光阶段
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/PostProcessEffects
 Related: Engine/Rendering/ParticleSystems
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/LevelDesign/2 "%Resources/ContentExamples/LevelDesign/2:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[关卡设计主页](Resources/ContentExamples/LevelDesign)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/LevelDesign/4 "%Resources/ContentExamples/LevelDesign/4:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -29,5 +48,5 @@ Related: Engine/Rendering/ParticleSystems
 
 ![](leveldesign_3.png)
 
-在光照环节，在整个关卡中都放置了最终光照效果。  这些光照的设置均进行了调整以匹配我们期望的最终关卡观感，而不是仅仅提供基础发光。  在此阶段，我们同时对后处理特效进行了调整，再次来匹配关卡的最终观感。 对光照和后处理特效的变更可能也同时意味着我们需要对整个关卡中的材质进行变更。  最后，我们可能会添加一些粒子特效到关卡中。 举例来说，如果关卡中的光照来自于火炬，则在此环节中可以对火炬的火焰添加粒子特效。
+在灯光阶段，最终的灯光将被放置到关卡中。需要对这些光源的设置进行调整，匹配关卡所需的最终效果，而不仅仅是作照明之用。在这个阶段中还将调整后期处理效果，实现关卡的最终效果。在修改灯光和后期处理效果时，也可能需要对关卡中应用的材质进行修改。最后可在关卡中添加一些粒子效果。举例而言，如果关卡中的光照来自火把，那么便可以在此阶段中添加火把火焰的粒子效果。
 [/REGION]

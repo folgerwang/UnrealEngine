@@ -1,0 +1,142 @@
+﻿INTSourceChangelist:4499937
+Availability: Public
+Crumbs: 
+Title: 시그니피컨스 매니저
+Description: Significance Manager 는 프로젝트에 맞는 방식으로 퍼포먼스를 조정할 수 있는 툴입니다.
+Type: 
+Version: 4.20
+Parent: Performance
+Order: 1
+Tags: Performance
+Tags: Significance Manager
+Tags: CPU
+
+
+출시 게임의 퍼포먼스 목표를 맞추는 작업에는 일반적으로 씬 복잡도 감소를 통해 목표 해상도나 프레임 속도에 맞추는 작업이 포함됩니다. 지오메트리나 애니메이션, 심지어 오디오에도 레벨 오브 디테일 시스템이 자주 사용되지만, 거리 기반 액터별 방법으로는 충분치 않은 경우도 있습니다. 다수의 플레이어 또는 AI 제어 캐릭터가 한 지역에 밀집될 수 있는 대규모 멀티플레이어 게임이면 특히 그렇습니다.
+
+**Significance Manager** (시그니피컨스 매니저)에 제공되는 중앙집중식 프레임워크를 통해 프로젝트별로 오브젝트 사이 연관성을 평가하고 우선순위를 결정하는 유연한 코드를 작성할 수 있습니다. 이 평가 방식을 사용하면, 파티클 이미터와 같은 컴포넌트를 차단하거나 복잡한 AI 코드 실행 빈도를 줄임으로써 오브젝트의 작동방식을 변경할 수 있습니다.
+
+[REGION:note]
+시그니피컨스 매니저 자체가 실체 퍼포먼스 향상 작업을 하기보단, 단순히 프로젝트별로 그 요구에 맞도록 오버라이드 및 사용자 정의할 수 있는 시스템을 제공할 뿐입니다.
+[/REGION]
+
+## 셋업
+
+시그니피컨스 매니저는 플러그인 안에 존재하며, **편집 > 플러그인** 메뉴에서 활성한 뒤 그 모듈을 프로젝트의 "Build.cs" 파일에 추가해야 합니다.
+
+![](SignificancePlugin.png "SignificancePlugin.png")
+
+*시그니피컨스 매니저는 플러그인 메뉴의 Programming 섹션에 있습니다.*
+
+[REGION:note]
+시그니피컨스 매니저 플러그인을 활성화한 이후, 엔진을 재시작해야 할 수 있습니다.
+[/REGION]
+
+플러그인을 활성화한 상태에서 프로젝트의 "Build.cs" 파일 `PublicDependencyModuleNames` 에 "SignficanceManager" 를 추가합니다. 다음 예제는 "기본 C++" 프로젝트 템플릿이 시그니피컨스 매니저를 사용하도록 수정한 것입니다.
+
+
+PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "SignificanceManager" });
+
+
+## 시그니피컨스 매니저 기본 함수 기능
+
+시그니피컨스 매니저 플러그인에는 `USignificanceManager` 라는 단일 클래스가 있으며, 매니지드 오브젝트의 "시그니피컨스" (중요도)를 평가하는 확장가능 프레임워크 역할을 합니다. 그런 다음 이 오브젝트는 시그니피컨스 값에 따라 퍼포먼스에 미치는 영향을 줄이는 방식으로 사용자 정의할 수 있습니다. 실제 퍼포먼스 향상으로 이어지는 구체적인 동작은 오브젝트 자체에 게임 코드로 사용자 정의합니다. 예를 들어 미묘한 오디오 큐 또는 파티클 이펙트를 재생하는 액터는 중요도 값이 낮은 경우 재생하지 않도록 할 수 있습니다. 고급 사용 사례라면 비슷한 액터를 그룹으로 묶어 액터 유형별 예산을 책정하는 것입니다. 생각해 볼 수 있는 한 가지 예라면, 플레이어 제어 폰은 카메라 가까이 있을 때 항상 높은 디테일을 유지하다, 카메라 주변에 플레이어가 여럿인 경우 높은 디테일의 폰 수를 제한하는 방법으로 보완하는 것입니다.
+
+### RegisterObject / UnregisterObject
+
+시그니피컨스 매니저로 등록(register)할 수 있는 오브젝트는 사용자 지정 이름에 따라 다른 등록 오브젝트와 그룹으로 묶습니다. 등록 프로세스에는 사용자가 오브젝트의 시그니피컨스를 평가하는 데 사용할 함수를 지정하는 기능과, 평가가 이루어진 후 실행할 옵션 함수가 포함됩니다. 등록 도중 오브젝트의 초기 시그니피컨스 계산에는, 가능한 경우 매니저의 Update 함수를 가장 최근 호출했을 때 사용한 Transform 을 사용합니다. 이 틈을 타 더욱 높은 수준의 처리도 가능합니다. 예를 들어 알려진 등록 오브젝트 목록에 따라 내부 데이터 구조체를 만들면 (아마도 유형별로 다양한 목록이 생기겠고), 게임에서 여러가지 오브젝트 유형에 따른 카테고리별 예산을 구현할 때 유용할 수 있습니다.
+
+[REGION:warning]
+엔진 4.20 이전, 오브젝트는 원시 포인터로 저장했습니다. 그래서 `UnregisterObject` 를 수동 호출하지 않으면 시그니피컨스 매니저는 유효하지 않은 메모리에 대해 연산을 시도하게 됩니다.
+[/REGION]
+
+### GetSignificance / QuerySignificance
+
+이 두 함수는 캐시에 저장된 오브젝트의 시그니피컨스 값을 보고합니다. 시그니피컨스 매니저로 오브젝트를 등록하지 않은 경우, 그 값은 0 이 됩니다. `QuerySignificance` 함수는 `GetSignificance` 와 달리 등록되지 않은 오브젝트에 대해 `false` 를 반환합니다.
+
+### Update
+
+이 함수는 트랜스폼 배열을 받아 매니지드 오브젝트 각각에 대해 각 트랜스폼에 따라 시그니피컨스를 평가하는데, 이 때 그 오브젝트에 연관된 시그니피컨스 함수를 사용합니다. 최종 결과는 가장 높은 (`bSortSignificanceAscending` 를 `true` 설정하면 낮은) 값을 반환합니다 . 게임의 요구에 맞게 이 함수를 오버라이드할 수 있는데, 예를 들어 시스템에 새로운 프리/포스트 프로세싱 단계를 구현하는 것입니다. 오브젝트의 시그니피컨스를 평가한 이후, Post Significance Function 지정한 것이 있으면 호출합니다. 이 함수는 오브젝트의 Post Significance Type (사후 시그니피컨스 유형)이 Concurrent (동시)인 경우 즉시 호출합니다. Sequential (순차)인 경우, 시그니피컨스 내림차순으로, 다른 모든 매니지드 오브젝트와 함께 순서대로 사후 업데이트합니다. 제공된 트랜스폼 정보가 없으면, 시그니피컨스 값은 0 이 됩니다.
+
+시그니피컨스 평가 및 사후 시그니피컨스 평가 함수는 병렬 실행되므로 함수의 스레드 안전성을 보장해야 한다는 요구사항이 추가됩니다. 사후 시그니피컨스 평가 함수는 순차 실행으로 이 요구사항을 피해갈 수 있습니다 (자세한 내용은 아래 `FPostSignificanceFunction` 섹션을 참고하세요).
+
+[REGION:note]
+`Update` 함수는 자동 실행되지 않습니다. 대부분의 경우 개발자는 매 프레임, 프레임당 한 번만 호출하고 싶어합니다. 그렇게 호출하기 좋은 장소는 `UGameViewportClient` 오버라이드 버전으로, 다음 코드와 같습니다.
+
+
+#include "MyGameViewportClient.h"
+#include "SignificanceManager.h"
+#include "Kismet/GameplayStatics.h"
+void UMyGameViewportClient::Tick(float DeltaTime)
+{
+// 상위 클래스의 Tick 함수를 호출합니다.
+Super::Tick(DeltaTime);
+// 유효한 월드 및 시그니피컨스 매니저 인스턴스가 있는지 확인합니다.
+if (UWorld* World = GetWorld())
+{
+if (USignificanceManager* SignificanceManager = FSignificanceManagerModule::Get(World))
+{
+// 프레임당 한 번 업데이트하며, 플레이어 0 의 월드 트랜스폼만 사용합니다.
+if (APawn *PlayerPawn = UGameplayStatics::GetPlayerPawn(World, 0))
+{
+// 시그니피컨스 매니저가 배열 뷰를 사용합니다. 엘리먼트가 하나인 배열을 생성하여 트랜스폼을 저장합니다.
+TArray<FTransform> TransformArray;
+TransformArray.Add(PlayerPawn->GetTransform());
+// 시그니피컨스 매니저를 배열 뷰를 통해 엘리먼트가 하나인 배열로 업데이트합니다.
+SignificanceManager->Update(TArrayView<FTransform>(TransformArray));
+}
+}
+}
+}
+
+[/REGION]
+
+## 프로젝트 측면 함수 기능
+
+시그니피컨스 매니저는 오브젝트의 시그니피컨스를 결정하는 프레임워크만 제공할 뿐, 실제 계산은 프로젝트에서 정의하도록 놔둡니다. 시그니피컨스 매니저로 오브젝트를 등록할 때, 다음 유형에 일치하는 함수도 등록합니다.
+
+*   FSignificanceFunction
+*   FPostSignificanceFunction
+
+시그니피컨스 매니저 업데이트 도중 오브젝트에서 호출되는 함수입니다.
+
+### FSignificanceFunction
+
+시그니피컨스 매니저 사용을 위해 반드시 작성해야 하는 주요 평가 함수입니다. 오브젝트 파라미터와 하나의 트랜스폼을 받아 오브젝트의 시그니피컨스를 계산한 뒤 `float` 로 반환합니다. 시그니피컨스 매니저의 업데이트 프로세스 도중, 전달된 각 트랜스폼에 대해 이 함수를 한 번씩 호출합니다. 최종 결과는 시그니피컨스 매니저의 Update 함수로 결정하며, 기본적으로 가장 높은 값입니다. 등록된 각 오브젝트는 등록할 때 `FSignificanceFunction` 유형 함수와 연관되어야 합니다.
+
+### FPostSignificanceFunction
+
+이 유형의 함수에는 오브젝트 자체, 이전의 시그니피컨스 값, 새로운 시그니피컨스 값 (오브젝트가 등록되지 않은 경우, 등록된 경우라면 1), 오브젝트의 현재 등록 해제 중임을 나타내는 `bool` 값이 제공됩니다. 시그니피컨스 평가 함수와 달리, 여기에는 반환 값이 없습니다. 게임이 오브젝트의 시그니피컨스에 대한 변경 사항을 처리하거나, 매니지드 오브젝트의 전반적인 순서대로 배치하기 위한 방법으로 제공됩니다. 시그니피컨스 매니저가 이 함수를 호출하는 기준이 되는 오브젝트 등록 방식은 다음과 같습니다.
+
+| 사후 시그니피컨스 유형 | 동작 |
+| --- | --- |
+| **None** | 없음 - 함수가 공백일 것으로 예상합니다. 사후 시그니피컨스 평가 콜백이 없습니다. |
+| **Concurrent** | 동시 - 함수가 공백이 아닐 것으로 예상하며, 오브젝트의 시그니피컨스 평가 즉시 호출합니다. 이 방식으로 호출되는 함수는 병렬 실행되므로 스레드 안전성이 있어야 합니다. |
+| **Sequential** | 순차 - [INCLUDE:#excerpt_2] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_2]
+
+함수가 공백이 아닐 것으로 예상하며, 다른 모든 순차 오브젝트의 시그니피컨스 평가 이후 정렬 순서대로 호출합니다.
+
+[REGION:note]
+이 경우 코드의 스레드 안전성은 필수가 아닙니다.
+[/REGION]
+
+[/EXCERPT:excerpt_2]
+
+[/COMMENT]
+
+### 파티클 시스템의 시그니피컨스
+
+[파티클 시스템 컴포넌트 및 파티클 이미터](Engine/Rendering/ParticleSystems/UserGuide) 는 시그니피컨스 개념을 지원하며, 좋은 구현 예제 역할을 합니다. 각 이미터는 별도의 (`EParticleSignificanceLevel` 열거형을 사용하는) Signficance Level (시그니피컨스 레벨)이 있으며, 그 범위는 아래처럼 "Low" (낮음)에서 "Critical" (치명적)까지 다양합니다.
+
+![](ParticleEmitterSignificance.png "ParticleEmitterSignificance.png")  
+*파티클 이미터의 다양한 시그니피컨스 레벨입니다.*  
+
+파티클 시스템 컴포넌트에는 (`SetRequiredSignificance` 호출로 설정하는) "Required Significance Level" (필수 시그니피컨스 레벨) 옵션이 있어, 이미터 활성화에 필요한 레벨을 나타냅니다. 예를 들어 시그니피컨스 레벨이 "Medium" (중간)인 파티클 이미터는 자신을 소유한 부모 파티클 시스템 컴포넌트의 필수 시그니피컨스 레벨이 "Medium" (중간) 또는 "Low" (낮음)일 때 활성화 상태를 유지하지만, "High" (높음) 또는 "Critical" (치명적)이면 파티클 스폰을 중지합니다. 파티클 시스템 컴포넌트는 자신의 이미터 전부가 필수 시그니피컨스 레벨 미만인 것으로 감지되면 자체 틱 함수를 비활성화했다가, 그 상황을 벗어나면 재화성화합니다. 이러한 설계로 구현은 게임 시스템(, 이 경우 파티클 시스템 컴포넌트와 파티클 이미터)의 손에 맡기고, 시그니피컨스 매니저는 시그니피컨스 레벨 결정 및 적시에 파티클 시스템 컴포넌트를 알리는 함수 호출 작업만 담당합니다.
+
+[REGION:tip]
+파티클 이미터 역시 필수 시그니피컨스 레벨 미달인 경우 파티클 시스템 컴포넌트와 마찬가지로 자체 틱 함수를 임시 비활성화하지만, `bDisableWhenInsignficant` 옵션이 `true` 설정된 경우만입니다. 아니면 새 파티클 스폰만 멈출 뿐 틱은 계속 합니다.
+[/REGION]

@@ -1,0 +1,45 @@
+INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: ARCore 전제 조건
+Description: 증강 현실용 Google 의 ARCore 전제 조건 안내입니다.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: mobile
+Tags: Android
+Tags: AR
+
+
+언리얼 엔진은 예전부터 Android 디바이스를 지원해 왔습니다. 하지만 언리얼에서 증강 현실 작업을 할 때 추가로 필요한 사항이 몇 가지 있습니다. Android 용 표준 언리얼 엔진 구성 이외에도 Android 디바이스에 ARCore 앱을 설치하기 위해 추가로 필요한 단계가 있습니다. 언리얼 엔진에서 이미 Android 디바이스용 앱을 제작중인 경우, 그 작업만 해 주면 바로 증강 현실 제작을 시작할 수 있을 것입니다.
+
+## 일반 전제 조건
+
+언리얼 엔진 및 Android 디바이스 기본 구성 관련 자세한 정보는 [](Platforms/Android) 문서를 참고하세요.
+
+**ARCore 1.1 전제 조건**  
+
+*   개발 머신 추천 사양은 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
+*   언리얼 엔진 4.19 이상이 설치되어 있어야 합니다.
+*   Codeworks for Android 가 설치되어 있어야 합니다.
+*   Android Version 24 이상이 설치되어 있어야 합니다.
+*   지원되는 핸드헬드 Android 디바이스가 구성 및 연결된 상태여야 합니다.
+
+**ARCore 1.2 전제 조건**  
+
+*   개발 머신 추천 사양은 [](GettingStarted/RecommendedSpecifications) 문서를 참고하세요.
+*   언리얼 엔진 4.20 이상이 설치되어 있어야 합니다.
+*   Codeworks for Android 가 설치되어 있어야 합니다.
+*   Android Version 24 이상이 설치되어 있어야 합니다.
+*   지원되는 핸드헬드 Android 디바이스가 구성 및 연결된 상태여야 합니다.
+
+[REGION:note]
+**지원 디바이스**: [Supported Devices](https://developers.google.com/ar/discover/#supported_devices) 링크에서 현재 ARCore 에 지원되는 Android 디바이스 목록을 확인하세요.
+[/REGION]
+[REGION:note]
+**구성**: 언리얼 엔진으로 증강 현실 작업을 하기 위해서는 디바이스에 ARCore 앱을 설치해야 합니다.
+
+*   ARCore 는 Google Play Store 에서 수동 다운로드할 수 있습니다.
+*   또는 핸드헬드 디바이스에 ARCore 가 감지되지 않는 경우, Google Play Store 에서 ARCore 를 다운로드하라는 창이 뜹니다.
+[/REGION]

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750753
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Rotation 模块
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Rotation 模块控制粒子在生命周期中多个点处的旋转方式。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

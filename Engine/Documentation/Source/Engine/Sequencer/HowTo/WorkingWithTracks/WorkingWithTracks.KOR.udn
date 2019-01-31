@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4221079
+INTSourceChangelist:4221079
 Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 title: 시퀀서에서 트랙 작업
@@ -11,7 +11,7 @@ Order: 2
 Tags: Sequencer
 Tags: how-to
 
-# 시퀀서에서 트랙 작업
+
 
 레벨 시퀀스를 만들 때마다 생성하려는 시네마틱 유형에 관계없이 트랙 창 안에 트랙을 추가하고 작업하게 됩니다. 시퀀서는 트랙과 트랙을 구성하고 시각화하는 데 사용할 수 있는 몇 가지 기능을 제공합니다. 
 

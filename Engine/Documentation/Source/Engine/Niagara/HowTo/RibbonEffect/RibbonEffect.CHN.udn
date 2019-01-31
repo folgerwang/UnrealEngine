@@ -1,148 +1,134 @@
-﻿INTSourceChangelist:3715974
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:使用Niagara创建基于条带的效果
-Description:描述如何使用使用Niagara创建基于条带的视觉效果。
-Type: how-to
+﻿INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title: 在Niagara中创建条带效果
+Description: 描述如何使用Niagara创建条带视觉效果。
+Type:how-to
 SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
+Version: 4.21
+Parent:Engine/Niagara/HowTo
+Order: 5
+Tags: Niagara
+Tags: Early Access
 
-尝试使用基于Sprite或网格体的粒子来模拟烟或蒸汽轨迹等自然现象颇具挑战性。模拟此类对象更好的方法是使用 **条带（Ribbon）** 发射器，在以下操作指南中，我们将介绍如何设置Niagara发射器向场景发出持续的条带状粒子效果。 
+先决条件主题
 
-![](HeroImage_00.png)
+本页假定您已对以下主题有一定的了解。请先阅读这些主题，然后继续进行操作。
+
+*   [启用Niagara插件](Engine/Niagara/HowTo/EnableNiagara "描述如何启用Niagara插件。")
+
+模拟自然现象是很有挑战性的，特别是当使用基于sprite或网格体的粒子来模拟烟雾或蒸汽轨迹时。**条带发射器（Ribbon Emitters）** 是模拟这些对象的优秀解决方案。在接下来的教程中，您将了解如何设置Niagara发射器以将连续的条带状粒子效果发射到世界场景中。
+
+![](Ribbon_Banner_01.png "Ribbon_Banner_01.png")
+
+(#steps)
 
 ## 步骤
 
-1. 首先，我们将需要创建新的材质来确定条带发射器的颜色。为此，在 **内容浏览器（Content Browser）** 中单击右键，然后从显示的列表中，选择 **材质（Material）** 选项，将其命名为Material **MAT_Ribbon**。
-
+1. 首先，我们将创建新材质以给我们的条带发射器上色。为此，右键单击 **内容浏览器（Content Browser）**，并选择 **创建基本资源（Create a Basic Asset）** > **材质（Material）**。将该材质命名为 **M_Ribbon**。  
     ![](RE_01.png)
+2. 双击 **M_Ribbon材质（M_Ribbon Material）** 打开它。按住 **3** 键，并左键单击 **材质（Material）** 网格以添加一个 **常量3矢量材质（Constant 3 Vector Material）** 表达式节点。  
+    
+3. 将光标悬停在节点右侧的小圆圈上，然后单击并拖动，以将 **常量3矢量（Constant 3 Vector）** 连接到右侧M_Ribbon框中的 **基本颜色（Base Color）** 和 **自发光颜色（Emissive Color）** 输入。  
+    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)(w:400)
+4. 双击 **常量3矢量（Constant 3 Vector）** 以打开颜色选择器。将 **R** 值设置为1，然后单击 **确定（OK）**。这会将材质变为红色。  
+    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)(w:400)
+5. 在网格中单击可以将焦点从常量3矢量（Constant 3 Vector）上移开。这将更改左侧的 **细节（Details）** 面板显示。在 **细节（Details）** 面板中，向下滚动，找到 **用途（Usage）**并展开。选中 **与Niagara条带配合使用（Used with Niagara Ribbons）** 方框。  
+    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)(w:300)
+6. 单击 **应用（Apply）** 和 **保存（Save）** 按钮以更改并保存您的作业。
+7. 在 **内容浏览器（Content Browser）** 中右键单击，从显示的菜单中选择 **FX > Niagara发射器（FX > Niagara Emitter）**。将显示Niagara发射器（Niagara Emitter）向导。  
+    ![](SE_01.png)(w:400)
+8. 单击 **从发射器模板创建新发射器（Create a new emitter from an emitter template）** 旁边的单选按钮。选择 **喷泉（Fountain）** 模板。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新发射器。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+9. 将新建的Niagara发射器命名为 **FX_Ribbon**，然后双击打开。  
+    ![](NiagaraEmitter_RibbonIcon.png)(w:100)
+10. 现在Niagara发射器已打开，找到 **FX_Ribbon** 发射器的 **渲染（Render）** 部分。单击 **垃圾桶（Trashcan）** 图标，删除 **Niagara Sprite渲染属性（Niagara Sprite Rendering Properties）** 模块。  
+    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)(w:500)
+11. 单击 **加号** 图标 (**+**)，从显示的列表中选择 **Niagara条带渲染器属性（Niagara Ribbon Renderer Properties）**。  
+    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)(w:500)
+12. 下一步，展开 **条带渲染（Ribbon Rendering）** 部分。在 **材质（Material）** 部分中，单击下拉列表以选择在步骤一到五中创建的 **M_Ribbon** 材质。  
+    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)(w:400)
+13. 找到并展开 **发射器更新（Emitter Update）** 部分。
+14.在 **生成率（Spawn Rate）** 模块中，将 **生成率（Spawn Rate）** 值设置为 **100**。
 
-2. 双击MAT_Ribbon Material以将其打开，然后按住 **3** 键的同时左键单击Material图形，以添加 **常量3矢量（Constant 3 Vector）** 材质表达式节点。
-
-    [REGION:lightbox]
-    [![](RE_02.png)(w:639)](RE_02.png)
+    [REGION:note]
+     **生成率（Spawn Rate）** 模块中的值默认设置为 **20.0**。**生成率（Spawn Rate）** 会影响产生条带效果的圆度或棱角。值越低，所创建的形状棱角或边角就越多。值越高，所创建的形状就越圆润。
     [/REGION]
 
-    [REGION:caption]
-    单击查看大图。
+    [OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![Low Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.jpg) 
+    [/PARAM]
+    [PARAM:after]
+    ![High Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.jpg) 
+    [/PARAM]
+    [/OBJECT]
+
+15. 找到并展开 **粒子生成（Particle Spawn）** 部分。
+16. 单击 **垃圾桶（Trashcan）** 图标以删除以下模块。  
+    
+    *   **添加速度（Add Velocity）**
+    *   **球体位置（Sphere Location）**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step13-RemoveSpriteVariables.png)
+17. 在 **设置变量（Set Variables）** 部分中，单击与以下变量所相对的白色箭头，并选择 **移除（Remove）**。
+    
+    *   **Particles.SpriteRotation**
+    *   **Particles.SpriteSize**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step14-RemoveSpriteVariables2.png)
+18. 删除这些变量后，单击 **粒子生成（Particle Spawn）** 旁边的 **加号** 图标 (**+**)，以显示选项列表。展开 **设置特定参数（Set Specific Parameters）**，并添加以下变量：
+    
+    *   **Particles.RibbonWidth**
+    *   **Particles.Velocity**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step15-AddParticlesParameters.png)
+19. 单击 **粒子生成（Particle Spawn）** 对面的 **加号** 图标 (**+**)，以再次显示选项列表。选择 **实验性（Experimental）>点螺旋位置（Point Spiral Location）**。
+    [REGION:note]
+    此变量的 **速度（Speed）** 值展开整体效果的底座直径。
+    [/REGION]![](CreateRibbonBasedEffect_Steps_Step16-AddPointSpiralLocation.png)
+20. 将变量添加到条带发射器后，将下列变量设置为以下值。
+    
+    | **变量名称** |  **值** |
+    | --- | --- |
+    | **Particles.RibbonWidth** | 35.0 |
+    | **Particles.Velocity** | X: 1.0, Y: 0.0, Z: 1.0 |
+    | **点螺旋位置（Point Spiral Location）** | 速度：500.0, RotSpeed: 4.0 |
+    | **粒子寿命（Particles.Lifetime）** | 5.0 |
+    
+21. 找到并展开 **加速力（Acceleration Force）** 模块。
+22. 将 **加速Z（Acceleration Z）** 值设置为 **-100.0**。  
+    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)(w:500)
+    [REGION:note]
+    **Z** 字段中的负值会生成锥形条带效果。如果在 **Z** 字段输入正值，将生成倒杯形状。
     [/REGION]
+23. 所有这些完成后，单击 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮以编译并保存您的作业。  
+    ![](ME_09.png)
+24. 在 **内容浏览器（Content Browser）** 中右键单击，并从显示的菜单中选择 **FX > Niagara系统（FX > Niagara System）**。将显示Niagara系统（Niagara System）向导。  
+    ![](SE_16.png)(w:500)
+25. 单击 **创建一个不带发射器的空系统（Create an empty system with no emitters）** 旁边的单选按钮。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新Niagara系统。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+26. 将新系统命名为 **条带（Ribbon）**。  
+    ![](NiagaraSystem_RibbonIcon.png)(w:100)
+27. 双击条带Niagara系统打开它，然后将 **FX_Ribbon** Niagara发射器从内容浏览器拖动到 **时间轴（Timeline）**。  
+    ![](CreateRibbonBasedEffect_Steps_Step22-AddtoSystem.png)
+28. 单击 **编译（Compile）** 和 **保存（Save）** 按钮以编译并保存您的作业，然后关闭条带Niagara系统。在 **内容浏览器（Content Browser）** 中，将 **条带Niagara系统（Ribbon Niagara System）** 拖动到关卡视口中。  
+    ![](CreateRibbonBasedEffect_Steps_Step23-AddToLevel.png)
 
-3. 将常量3矢量（Constant 3 Vector）连接到 **基本颜色（Base Color）** 和 **自发光色（Emissive Color）** 输入，然后将颜色设置为红色。
-
-    [REGION:lightbox]
-    [![](RE_03.png)(w:639)](RE_03.png)
-    [/REGION]
-
-    [REGION:caption]
-    单击查看大图。
-    [/REGION]
-
-4. 最后，在 **细节（Details）** 面板中的 **用途（Usage）** 下，确保选中 **用于Niagara条带（Used with Niagara Ribbons）**，然后按 **编译（Compile）** 和 **保存（Save）** 按钮来保存您的操作。
-
-    [REGION:lightbox]
-    [![](RE_04.png)(w:639)](RE_04.png)
-    [/REGION]
-
-    [REGION:caption]
-    单击查看大图。
-    [/REGION]
-
-5. 现在，在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara 发射器（Niagara Emitter）** 以创建新的 Niagara 发射器。
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-6. 将新创建的Niagara发射器命名为 **FX_Ribbon**，然后双击以将其打开。
-
-    ![](RE_05.png)
-
-7. 现在，转至 FX_Ribbon 发射器的 **发射器产生（Emitter Spawn）** 部分，然后在 **渲染（Render）** 部分下，单击 **Niagara Sprite渲染属性（Niagara Sprite Render Properties）**，然后从显示的列表中，选择 **Niagara条带渲染属性（Niagara Ribbon Render Properties）** 选项。
-
-    ![](RE_06.png)
-
-8. 接下来，单击白色小三角形以展开 **条带渲染（Ribbon Rendering）** 部分，然后在 **材质（Material）** 部分中，输入刚刚创建的MAT_Ribbon Material。
-
-    ![](RE_11.png)
-
-9. 然后前往 **发射器更新（Emitter Update）** 部分，转至 **产生率（Spawn Rate）** 部分，将 **产生率（Spawn Rate）** 设置为值 **20**。
-
-    ![](RE_07.png)
-
-10. 下一步，在 **粒子产生（Particle Spawn）** 部分中，按 **垃圾箱（Trash Can）** 图标以删除下列模块。 
-
-    ![](RE_08.png)
-
-    * **添加速度（Add Velocity）**
-    * **球体位置（Sphere Location）**
-    * **设置粒子Sprite大小（Set Particle Sprite Size）**
-    * **设置粒子Sprite旋转（Set Particle Sprite Rotation）**
-
-11. 现在，按粒子产生（Particle Spawn）底部的 **加号（Plus）** 图标，从显示的列表中添加以下模块 
-
-     ![](RE_09.png)
-
-     * **设置粒子条带宽度（Set Particle Ribbon Width）**
-     * **设置粒子速度（Set Particles Velocity）**
-     * **点螺旋位置（Point Spiral Location）** 
-
-12. 将所需模块添加到条带效果后，在以下模块中输入下列值。
-
-     ![](RE_09.png)
-
-     | 模块名称                                | 值             |
-     | ----------------------------------- | ------------- |
-     | 设置粒子寿命（Set Particle Lifetime）       | 将最小值和最大值设置为10 |
-     | 设置粒子条带宽度（Set Particle Ribbon Width） | 32            |
-     | 设置粒子速度（Set Particles Velocity）      | X：1，y：0，Z：1   |
-     | 点螺旋位置（Point Spiral Location）        | 速度：500，点速：1   |
-
-13. 现在前往 **粒子更新（Particle Update）** 部分，将 **加速力（Acceleration Force）** 的 **Z** 值设置为 **-100**。
-
-     ![](RE_12.png)
-
-14. 完成所有操作后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮来编译和保存您的工作。
-
-     ![](RE_13.png)
-
-15. 现在移到“内容浏览器”（Content Browser），单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **Ribbon**。
-
-     ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-16. 双击Ribbon Niagara系统将其打开，打开后，将 **FX_Ribbon** 从“内容浏览器”（Content Browser）拖到 **时间轴（Timeline）**。
-
-     ![](RE_14.png)
-
-17. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭Mesh Niagara系统，移至“内容浏览器”（Content Browser），将Mesh Niagara系统拖到关卡视口。
-
-     [REGION:lightbox]
-     [![](RE_15.png)(w:834)](RE_15.png)
-     [/REGION]
-
-     [REGION:caption]
-     单击查看大图。
-     [/REGION]
+(#endresult)
 
 ## 最终结果
 
-完成后，您现在拥有一个Niagara系统，将该Niagara系统放到关卡中时，将播放您的Niagara发射器，如以下视频所示。
+完成后，将一个Niagara系统放到关卡中时，这个Niagara系统会播放您的Niagara发射器，如下方视频所示。
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    wSRBBGirYig
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ pxQEQ4zWLWI
+ [/PARAMLITERAL]
 [/OBJECT]

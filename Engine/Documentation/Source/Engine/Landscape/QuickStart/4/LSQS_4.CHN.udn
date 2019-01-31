@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2702661
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.创建地形材质
 Crumbs:%ROOT%, GettingStarted, Engine/Landscape/QuickStart
@@ -24,6 +24,7 @@ version:4.9
 
 
 
+(#FolderSetup)
 ## 文件夹设置
 完成地形的造型后即可为其添加材质，使其与现实世界中的地形相似。 
 在执行操作之前应先对文件夹进行设置，以便存储创建和迁移的内容。 
@@ -33,15 +34,16 @@ version:4.9
 如需了解在虚幻引擎 4 中设置文件夹的更多内容，请查阅 [文件夹](Engine/Content/Browser/UserGuide/WorkingWithSources) 页面。
 [/REGION]
 
-1.Landscape 
-2.Materials
-3.Resources
-4.Textures
+1. Landscape 
+2. Materials
+3. Resources
+4. Textures
 
 完成后的效果与下图相似。
 
 ![](T_Landscape_Folders.png)
 
+(#MigratingTextures)
 ## 迁移纹理
 设置好文件夹后，即可开始从 **Landscape Content Example** 项目迁移纹理，以便使用。如需了解如何在项目间迁移内容的更多信息，请查阅 [迁移内容](Engine/Content/Browser/UserGuide/Migrate) 页面。  
 [REGION:note]
@@ -65,6 +67,7 @@ version:4.9
 须确保迁移的纹理存储在以上步骤中创建的 **Textures** 文件夹中。 
 操作完成之后即可开始创建地形材质。 
 
+(#CreatingtheLandscapeMaterial)
 ## 创建地形材质
 创建地形材质的步骤如下。
 

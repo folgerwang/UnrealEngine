@@ -1,0 +1,246 @@
+Availability: Public
+Crumbs: 
+Title: UGS Reference
+Description: Reference covering menus, systems, and options while using UGS.
+Type: 
+Version: 
+Parent: Programming/Deployment/UnrealGameSync
+Order: 2
+Tags: Unreal Game Sync
+
+
+If you’re a developer looking to make use of the precompiled binaries feature for creatives who don’t need to compile from source, this reference guide has some useful information, enabling you to set up your build system to periodically submit a zip file containing Editor binaries to Perforce for UGS to extract it to your creative's workspace.
+
+## Distributing UGS
+
+If you want to deploy UGS to your team, you can find the application's solution file in the following folder:
+
+`[UE4ROOT]\Engine\Source\Programs\UnrealGameSync`
+
+How you choose to distribute UGS is up to you, but there are a couple of things you should keep in mind:
+
+*   If you plan on building the installer, you’ll need to have Wix, Version 3.8, to build it.
+*   UnrealGameSyncLauncher is used to get the bootstrap launcher onto machines. After the bootstrap launcher is running on developer machines, it will automatically update and run UGS from Perforce.
+
+## Deployment Tools
+
+We use the following tools to deploy Unreal projects internally:
+
+| **Tool** | **Description** |
+| --- | --- |
+| **UnrealGameSync (UGS)** | Main tool to sync and build from **Perforce**. |
+| **UnrealGameSyncLauncher** | Launcher for **UGS**, which automatically updates the program executables from a path in **Perforce**. It doesn't require a **clientspec** with the path mapped. |
+| **UnrealGameSyncMetadataServer** | [INCLUDE:#excerpt_0] |
+| **Installer** | [INCLUDE:#excerpt_1] |
+| **PostBadgeStatus** | Small utility to poke CIS results into the database that UGS reads from. |
+
+[COMMENT:none]
+[EXCERPT:excerpt_1]
+
+MSI installer for **UnrealGameSyncLauncher**. This is typically used to get the bootstrap launcher onto developer machines, which can then automatically update and run the program from **Perforce**.
+
+[REGION:note]
+Requires Wix 3.8 to build.
+[/REGION]
+
+[/EXCERPT:excerpt_1]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_0]
+
+REST API that deploys alongside **UGS** to enable its full feature set, including commenting on builds, voting on build health and marking bad builds, and displaying CIS results submitted by PostBadgeStatus.  
+
+The Metadata Server must be deployed to Windows Server machine with IIS 7.0 or higher and .NET 4.0 installed. 
+
+[/EXCERPT:excerpt_0]
+
+[/COMMENT]
+
+## Site-Specific Configuration
+
+Several of our deployment tools require site-specific configuration for **Perforce** paths and database server connection settings. The defaults are left blank, being defined at the top of the `Program.cs` file in each tool. 
+
+Specifically, in:
+
+**UnrealGameSync:**
+
+`string` ApiUrl (String specifying the base URI where the UGSAPI is deployed)
+
+**UnrealGameSyncLauncher:**
+
+`string StableSyncPath` (Path to auto-update UnrealGameSync executables from.)
+
+`string UnstableSyncPath` (Path to update pre-release UnrealGameSync executables from. Hold down the SHIFT key when running UnrealGameSyncLauncher to use pre-release executables.) 
+
+Epic's settings are in a `NotForLicensees/ProgramSettings.cs` file under each tool, which are included by the project files (if present), but which we do not distribute. In each case, this file uses the 'partial class' feature of C# to implement a static constructor for the Program class, which initializes these settings.
+
+  
+Licensees may add their own version of these files, similar to the following:  
+
+
+	using System;
+	using System.Data.SqlClient;
+	namespace UnrealGameSync
+	{
+	  static partial class Program
+	  {
+		static Program()
+		{
+		  ApiUrl = "http://ugsapi-server.net";
+		}
+	  }
+	}
+
+
+## Zipped Editor Builds
+
+To allow users to download zipped Editor builds (instead of compiling locally), you can add a `Build\UnrealGameSync.ini` file under your project, which references a location in **Perforce** where zipped binaries are kept for each branch. 
+
+For example:
+
+`[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]`  
+`ZippedBinariesPath=//UE4/Dev-Binaries/++UE4+Main-Editor.zip`  
+
+This functionality does not require use of a database, but reads the matching corresponding changelist for each submitted zip file from the changelist description (it should start with the tag "\[CL 12345678\]"). 
+
+[REGION:note]
+The same restrictions are enforced with zipped editor binaries as with local builds, in that UGS won't allow you to sync any changelist (even a content changelist) after a code change unless there are matching binaries for it. It will allow you to sync content-only changes using previously submitted binaries as long as no `*.cpp`, `*.h`, `*.cs`, `*.usf`, `*.ush` files are modified.
+[/REGION]
+
+We've provided an example [BuildGraph](Programming/Development/BuildGraph) script that you're free to use, demonstrating how to create and submit editor binaries in the correct format from a build machine. You can find our sample script at the following location:  
+
+`Engine/Build/Graph/Examples/BuildEditorAndTools.xml`
+
+A typical command-line to run it is as follows:  
+
+
+	Engine\Build\BatchFiles\RunUAT.bat
+	  BuildGraph
+	  -Script=Engine/Build/Graph/Examples/BuildEditorAndTools.xml
+	  -Target="Submit To Perforce for UGS"
+	  -set:EditorTarget=ShooterGameEditor
+	  -set:ArchiveStream=//UE4/Dev-Binaries
+	  -p4
+	  -submit
+
+
+This will submit a zip file to //UE4/Dev-Binaries/++UE4+Main-Editor.zip, where ++UE4+Main is the name of the current branch with slashes escaped as '+' characters. The same path should be set as the value for ZippedBinariesPath in UnrealGameSync.ini.
+
+Additional information about using BuildEditorAndTools.xml can be found in the comments at the start of the file.
+
+## Project Config Files
+
+You can customize the way that a project is presented to users with a project-specific config file. Project config files should be submitted to Perforce as `<ProjectDir>/Build/<wbr>UnrealGameSync.ini`. The following settings are available:
+
+*   By default, UGS only displays build failure notifications resulting from changes to the project's source code. If your team is working on a project, where build failures might also result from content changes, add the following:
+    
+
+		[Notifications]
+		+ContentBadges=Content
+
+    
+*   Add clickable buttons to a CL's description column, buttons, when clicked, take users to a URL by running a regular expression over the CL description. For example, the following use case adds a badge next to every CL with a "#jira" tag with a link to the corresponding issue in Jira:
+		
+			[Badges]
+			+DescriptionBadges=(Pattern="(?i)#\\s*jira\\s*:?\\s+([A-Za-z]+-[0-9]+)", Name="$1", Group="Jira", Color="#c0c0c0", HoverColor="#e0e0e0", Url="https://jira.it.yourcompany.net/browse/$1")
+	
+	The following attributes were used in this example:
+    
+    | Attribute | Description |
+    | --- | --- |
+    | **Pattern** | Specifies a regex to match, it may capture portions of the matched text, which can be substituted later. |
+    | **Label** | 	Specifies a label appearing on the badge. |
+    | **Group** | 	Specifies an arbitrary identifier, grouping related badges rather than separating them with whitespace. |
+    | **Color** | Specifies hexadecimal RGB values for badges. |
+    | **HoverColor** | 	Specifies hexadecimal RGB values for badges on hover. |
+    | **Url** | Specifies the path to open with a C# Process.Open call when the badge is clicked. |
+    
+*   Add a "Message of the day" along with a status panel color corresponding to a particular branch:
+    
+		[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]
+		Message=:alert: Lock-down for fixes is **5 pm on Friday**. Only fixes for the 1.2.3 release should be submitted to this branch. 123 issues are remaining as of 1/23.
+		StatusPanelColor=#e20000
+
+	Using the `StatusPanelColor` option enables you to easily identify streams. Additionally, when using the `Message` option, a limited subset of Markdown is supported, including: 
+    
+    *   \[web links\](http://www.google.com)
+    *   \*italic\*
+    *   \_italic\_
+    *   \*\*bold\*\*
+    *   \_\_bold\_\_
+    
+    Finally, icons are supported using `:icon:` syntax; however, `:alert:` is the only icon that is currently available.
+
+*   Customize the CIS display column:
+    
+
+		[Default]
+		ColumnWidth_CIS=580
+		+BadgeGroups=Editor
+		+BadgeGroups=And, Lin, PS4, XB1, Win, IOS, Mac, Swi
+		+BadgeGroups=Content
+
+## Build System Integration
+
+UGS can surface build system results (and notifications that a build is "in progress") via **badges** shown in the list of submitted changelists, and if the build breaks, it will also show a toast pop-up to notify any developers that have submitted changes. Clicking on a **badge** opens a web browser at a URL containing the **build log**. This information is stored in a database, and entries are poked into it using the **PostBadgeStatus** utility.  
+  
+The command-line syntax for **PostBadgeStatus** is as follows:
+
+	PostBadgeStatus.exe
+		//(The badge name that will appear in UGS.)
+	  -Name=Editor
+		//(The changelist being compiled.)
+	  -Change=123456
+		//(The project to show the badge for. Note that this is the path to a folder, not the actual .uproject file.)
+	  -Project=//UE4/Main/Samples/StarterContent
+		//(The base URI where UGSAPI is deployed)
+	  -RestUrl="http://ugsapi-server.net"
+		//(The status of the build. Valid values are 'Starting', 'Failure', 'Warning', and 'Success'.)
+	  -Status=Success
+		//(If a user clicks on a badge, this is the link that takes the user to the build log.)
+	  -Url=http://link-to-build-log
+
+
+## Metadata Server Setup
+
+UGS communicates with a metadata server to store user feedback, compile results, telemetry, and the results of any external **CIS** results posted using the **PostBadgeStatus** utility. While it can run without this being set up, some of the more powerful features will not be available.
+
+The following environment setup is required to get the Metadata Server to deploy properly:
+
+1.  Ensure that ASP.NET Web Publishing tools are installed.  You can find this package in the Visual Studio installation.  If you don't have this package installed, building the project will fail with a "TransformXml task not found" error.
+2.  The project does not ship with a traditional web.config file, but instead comes with a web.template.config.xml, which is transformed against the .debug and .release XML files to dynamically produce a web.config.  You'll want to check the web.template.config into source control, not web.config.
+3.  In the .debug and .release XML files, you can specify the path for where the SQLite database will live via the "Connection String" property.  This will look like a standard SQLite connection string, something like the following:
+    
+    ~~~
+    <add key="ConnectionString" value="Data Source=C:\inetpub\wwwroot\UGSAPI\database.sqlite;Version=3;" xdt:Transform="Replace" xdt:Locator="Match(key)"/>
+    ~~~
+    
+4.  A database will be created automatically the first time the API is hit in the directory specified in the connection string. To get permissions with IIS, ensure that an application pool with the .NETv4.0 CLR is created on your IIS server. Have the UGSAPI utilize it, and give it full access permissions to the root of the directory the database will live in.
+
+[REGION:note]
+To ensure that the database is initialized properly, the site will terminate its own instance if it cannot be created or found. If you deploy your site and a GET to /api/cis 404s, this is likely the reason. To ensure that the database can be created, check your directory permissions.
+[/REGION]
+
+## Branding
+
+You can add a project logo to be displayed in UGS by placing a `Build\UnrealGameSync.png` file in the directory containing your project. The image will be scaled to a height of 126 pixels. 
+
+[REGION:tip]
+We recommend pixel dimensions of 200x126.
+
+![](BrandPxDim.png "BrandPxDim.png")
+
+*Feel free to download this reference image.*
+[/REGION]
+
+## Deploying to a Team
+
+To enable development on UGS out of band with different branches and game projects, we distribute UGS to internal developers via a self-patching mechanism that leverages [Perforce](https://www.perforce.com/) for distribution.
+
+A rarely-updated launcher application is manually installed on each developers machine (**UnrealGameSyncLauncher**) via an MSI (the 'Installer' project). Installing this creates a start-menu icon, and running it syncs the latest UGS executables from a path in **Perforce** and runs them. That path is monitored, and if new executables are submitted, the program restarts and re-syncs them.
+
+[REGION:tip]
+You may find it more convenient to distribute the UGS executable directly in **Perforce** (or by some other means).
+[/REGION]

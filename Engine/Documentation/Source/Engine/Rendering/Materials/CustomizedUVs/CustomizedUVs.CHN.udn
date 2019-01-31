@@ -1,48 +1,15 @@
-﻿INTSourceChangelist:2685309
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:定制 UV
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:此功能允许在顶点着色器中运行计算，与逐个像素地运行计算相比，这可以提高性能。
 Version:4.9
+parent:Engine/Rendering/Materials
+order:12
+topic-image:CUVs_topic.png
+type:overview
+tags:Materials
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/CustomizedUVs:title%](Engine/Rendering/Materials/CustomizedUVs/CUVs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/Materials/CustomizedUVs:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/Materials/CustomizedUVs:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/CustomizedUVs]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/CustomizedUVs:title%](Engine/Rendering/Materials/CustomizedUVs/CUVs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/Materials/CustomizedUVs:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/Materials/CustomizedUVs:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/CustomizedUVs]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2)]
 
@@ -51,6 +18,7 @@ Version:4.9
 
 注：目前，仅针对特定的元件类型实现了定制 UV：静态网格、骨骼网格、BSP、景观和网格粒子。尤其是，精灵粒子尚不支持定制 UV。
 
+(#Properties)
 ## 属性 
   
 在 **材质编辑器** 中，您可通过以下方法来设置 **定制 UV（CustomizedUVs）**输入引脚的数目：选中主材质节点，然后编辑 **材质（Material）**类别中的 **定制 UV 数目（Num Customized Uvs）**属性。如果 **定制 UV 数目（Num Customized Uvs）**设置为大于 0 的数目，那么主材质节点上会显示“定制 UV”（CustomizedUVs）引脚。
@@ -59,6 +27,7 @@ Version:4.9
 [![](CUVs_matEd.png)(h:250)](CUVs_matEd.png) [![](CUVs_propLocation.png)(h:250)](CUVs_propLocation.png) [![](CUVs_addedPins.png)(h:250)](CUVs_addedPins.png)
 [/REGION]
 
+(#Non-LinearMath)
 ## 非线性数学运算
   
 一般规则是，如果要执行的计算使用了常量（摄像机位置、时间、矢量参数，等等）或者随每个顶点的属性而线性变化，那么在顶点着色器中执行该工作的结果与在像素着色器中执行该工作相同。线性变化表示仅限将会产生直线（而非曲线）的运算，例如乘法和加法。使用正弦、余弦或 `length（长度）`之类的运算对变量进行开方将产生非线性方程式。
@@ -77,6 +46,7 @@ _左侧的网格是 9x9 多边形栅格，而右侧的网格是 4x4 多边形栅
 [![](CUVs_perPixel.png)(h:211)](CUVs_perPixel.png) [![](CUVs_LVSNL_02.png)(h:211)](CUVs_LVSNL_02.png)
 [/REGION]
 
+(#LinearMath)
 ## 线性数学运算
 
 按某个参数来调整 UV 比例（将 UV 与该参数相乘）在这两种数学运算中以相同方式工作。UV 是依赖于每个顶点的属性，而比例调整是线性运算。下列各图显示执行线性运算时，在顶点着色器中计算的“定制 UV”（CustomizedUV）将产生与在像素着色器中执行同一计算相同的效果。
@@ -87,6 +57,7 @@ _左侧的网格是 9x9 多边形栅格，而右侧的网格是 4x4 多边形栅
   
 
   
+(#Howitworks)
 ## 工作方式 
   
 在默认情况下，“定制 UV”（CustomizedUV）引脚传递网格中的纹理坐标 (UV)。然后，当您将“纹理坐标”（Texcoord）节点放入“底色”（BaseColor）等像素着色器输入时，您仍将获得网格的纹理坐标。但是，如果您在“定制 UV 0”（CustomizedUV0）中执行某些操作，然后在“底色”（BaseColor）输入中使用“纹理坐标 0”（Texcoord 0）时，您将获得修改后的 UV 值。请注意，在默认情况下，纹理取样（Texture Sample）节点使用“纹理坐标 0”（Texcoord 0）。 
@@ -105,10 +76,12 @@ PC 上的 **Shader Model 5** 可以使用 8 个定制 UV，而移动设备上的
 
 _“纹理取样”（Texture Sample）节点中包含隐式的“纹理坐标 0”（TexCoord0）节点。_
   
+(#GeneralPerformance)
 ## 一般性能 
   
 在大多数情况下，顶点数目显著少于像素数目，因此将数学运算移至顶点着色器可大幅提高性能。请注意，如果您要建立多边形数目非常高的网格，或者不将 LOD 用于多边形数目较高的网格，那么额外的顶点着色器工作可能会成为瓶颈。这是因为，无论网格是在 4 个像素的距离之外，还是填满屏幕，顶点着色器工作都相同。 
   
+(#Mobilespecific)
 ## 特定于移动设备 
   
 在移动设备上，**任何以任意方式处理纹理坐标的纹理取样都采用慢速路径**。这称为 _从属_ 纹理提取。通过使用定制 UV 输入，您仍可实现平铺或全局空间纹理贴图，同时保持所有的纹理提取 _独立_，这是快速路径。  

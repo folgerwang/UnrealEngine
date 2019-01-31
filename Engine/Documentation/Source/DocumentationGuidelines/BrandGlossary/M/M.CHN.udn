@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:10
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,38 +40,38 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Material
+##材质
 
-A Material is an asset that can be applied to a mesh to control the visual look of the scene. At a high level, it is easiest to think of a Material as the “paint” that’s applied to an object. But even that can be a bit misleading, since a Material literally defines the type of surface from which your object appears to be made. You can define its color, its shininess, its transparency, and much more.
+材质是可应用于网格体以控制场景视觉效果的资源。在高关卡中，最简单的方法是把材质想象为涂在对象上的“油漆”。但是即使这样也不完全准确，因为准确地说，材质定义的是对象的表面类型。您可定义表面的颜色、光泽、透明度等等。
 
-##Material Editor
+##材质编辑器
 
-The Material Editor provides the ability to create shaders for geometry, using a node-based graph interface.
+材质编辑器利用基于节点的图形界面，提供创建几何体着色器的功能。
 
-##Material Instance
+##材质实例
 
-Material Instances are child Materials that use parameters to change the appearance of a Material without incurring an expensive recompilation of the Material.
+材质实例是子材质，使用参数来改变材质的外观，而无需对材质进行繁琐的重新编译。
 
-##Matinee Editor
+##Matinee编辑器
 
-The Matinee animation tool provides the ability to animate the properties of Actors over time, to create either dynamic gameplay or cinematic in-game sequences. The system is based on the use of specialized animation tracks in which you can place keyframes to set the values of certain properties of the Actors in the level. The Matinee Editor is similar to the non-linear editors used for video editing, making it familiar to video professionals.
+Matinee动画工具提供了对Actor属性随时间进行动画处理的功能，也提供了创建动态的Gameplay体验或游戏中过场动画序列的功能。该系统基于专用的动画轨迹，您可以在该轨迹上放置关键帧来设置关卡中Actor某些属性的值。Matinee编辑器类似于用于视频编辑的非线性编辑器，这使得视频制作专业人员对它感觉很熟悉。
 
-##Media Framework
+##媒体框架
 
-The Media Framework enables playback of videos inside Unreal Engine.
+媒体框架用于在虚幻引擎内回放视频。
 
-##Media Player Window
+##媒体播放器窗口
 
-The Media Player Window provides playback and preview functionality for any Media Source asset.
+媒体播放器窗口为所有媒体源资源提供回放和预览功能。
 
-##Modes
+##模式
 
-Modes are tools that change the primary behavior of the Level Editor for a specialized task, such as placing new assets into the world, creating geometry brushes and volumes, painting on meshes, generating foliage, and sculpting landscapes.
+模式是针对特定任务更改关卡编辑器主要行为的工具，如将新资源放入世界场景、创建几何笔刷和体积、在网格体上绘图、生成植物以及塑造地形。
 
-##Modes Panel
+##模式面板
 
-The Modes panel provides access to the Editor Modes’s settings and tools.
+模式面板提供了对编辑器模式设置和工具的访问。
 
-##Module
+##模块
 
-Modules are containers for a collection of related classes that are compiled into a Dynamic-Link Library (DLL).
+模块是被编译成动态链接库（DLL）的相关类集合的容器。

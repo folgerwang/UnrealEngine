@@ -1,0 +1,267 @@
+﻿INTSourceChangelist:4523174
+Availability: Public
+Crumbs: 
+Title: Datasmith インポート プロセスのカスタマイズ
+Description: ブループリントまたは Python を使用して Datasmith ファイルおよび CAD ファイルをインポートする方法、シーンの Unreal アセットおよびアクタへの変換設定を変更する方法について説明します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 4
+Tags: Datasmith
+Tags: Guides
+Tags: importing
+topic-image:datasmith-customize-import-topic.png
+
+
+Datasmith インポート プロセスの目標は、コンテンツ作成ツールでセットアップした一連の 3D オブジェクトをスムーズに Unreal Editor に取り込むことです。これを実行するために、メッシュ、ライト、カメラ、サーフェス マテリアルなどのオブジェクトを、デザインの内容にできるだけ忠実に Unreal Engine の対応するオブジェクトに自動的に変換し、これらのアセットのインスタンスをレベルに自動的に入力します。詳細は、「[Datasmith の概要](Enterprise/Datasmith/Overview)」を参照してください。
+
+ただし、場合によりインポート プロセスを調べて、元のシーンを Unreal Engine アセットに変換する方法を変更したり、アセットに対する処理を変更したりする必要があります。例えば、元のシーンに、Unreal Engine プロジェクトでは必要ないとわかっているパーツがある場合、アセットを作成する前にそれらのオブジェクトを除外する必要があります。これによりコンテンツの異なるピースに対して、Unreal Editor で処理する必要がある数が減り、大規模なシーンのインポートを迅速化することができます。
+
+このページでは、ブループリントや Python スクリプティングを使用して Datasmith インポート プロセスを制御する方法を示します。
+
+## インポート プロセスについて
+
+ツールバーの **[Import (インポート)]** ボタンを使用して Datasmith でシーンをインポートするとき (「[UE4 に Datasmith コンテンツをインポートする](Enterprise/Datasmith/HowTo//ImportingContent)」を参照)、インポータは内部で 2 段階のプロセスを実行し、ディスクの  *.udatasmith*、CAD、他のソース ファイルからデータを取り込み、Unreal Editor のアセットおよびアクタに変換します。
+
+1. インポータは Datasmith シーンというインメモリ データ構造にファイルのコンテンツを読み取ります。これには、Datasmith が元のシーンから抽出できた、オブジェクトのすべてのプロパティ、シーンの 3D オブジェクトの表現、それらの関係が含まれます。
+2. Datasmith シーンがメモリへの読み込みを完了すると、インポート プロセスの第 2 段階でシーンのエレメントをファイナライズしてコンテンツ ブラウザの Unreal Engine アセットに変換します。Datasmith シーン アセットの準備ができると、インポート プロセスは現在のレベルにそのアセットをスポーンします。続いてすべての子、アクタ、スタティック メッシュ アクタ、ライト、カメラなどをスポーンします。
+
+![2 段階の Datasmith インポート プロセス](datasmith_import_process.png "2 段階の Datasmith インポート プロセス")
+
+## インポート プロセスのカスタマイズ オプション
+
+ツールバーの **[Import (インポート)]** ボタンではなく、ブループリントまたは Python スクリプトを使用して Datasmith インポート プロセスを開始する場合、上記のプロセスを分割して、2 段階のプロセスを別々に実行できます。これにより Datasmith シーンをメモリ上に構築した後から、アセットとアクタをシーンに追加するファイナライズが完了する前までに独自の処理を挿入できます。
+
+全体のプロセスは次に示すとおり、ブループリントと Python で同じです。
+
+1. ディスクの  *.udatasmith* ファイルや CAD ファイルの場所から新しいインメモリ Datasmith シーン表現を構築します。なお、使用するブループリント ノードおよび Python オブジェクトは  *.udatasmith* ファイルまたは CAD ファイルをインポートするかどうかにより若干異なります。ただし、両方のシーン表現にはシーンを変更するための同じ機能が用意されています。
+2. シーンを Unreal アセットに変換する方法に影響するようなシーンの変更を追加で実行します。
+    [REGION:tip]
+    変更が必要なオブジェクトの種類を簡単に特定する 1 つの方法は、シーンのオブジェクトに関するメタデータを活用することです。Datasmith シーンのメタデータにアクセスする方法については、「[Datasmith メタデータの使用](Enterprise/Datasmith/Overview/UsingDatasmithMetadata)」を参照してください。
+    [/REGION]
+3. インポート プロセスのオプションをセットアップします。これらのオプションは **[Import Datasmith (Datasmith のインポート)]** ボタンを使用してインポートを開始したときに、Unreal Editor UI でセットアップしたオプションと基本的に同じです。例えば、プロジェクトにインポートされたアセットをインポータが配置するパス、Datasmith シーンから作成するオブジェクトのタイプ、パラメトリック CAD 形式用のテッセレーション設定などを設定します。
+4. インポート プロセスを完了して Datasmith シーンを Unreal アセットにファイナライズします。
+5. 上記で構築した Datasmith シーンが不要になった場合は、使用するメモリ リソースをクリアするためにシーンを破棄してください。
+6. インポート プロセスが完了し、新しいアセットがコンテンツ ブラウザで、新しいアクタが現在のレベルで利用できるようになります (インポート オプションで追加するように要求した場合)。生成された Unreal アセットに追加の *後処理* を行ったり、コリジョン データまたは LOD を自動作成したりする場合は、ここで実行するのが適切です。「[エディタのスクリプティングと自動化](Engine/Editor/ScriptingAndAutomation)」も参照してください。
+
+[REGION:warning]
+インポート プロセスのカスタマイズは「[Datasmith の概要](Enterprise/Datasmith/Overview)」で説明している再インポート プロセスに影響がある可能性があります。例えば、インポート プロセスを完了する前に Datasmith シーンからメッシュやライトなどのエレメントを削除するスクリプトを使用し、Datasmith シーン アセットを再インポートする場合、再インポート中に前処理スクリプトはスキップされます。結果として元のシーンから除外されたオブジェクトが新しく追加されたものとして検出され、プロジェクトまたはレベルに追加されます。
+
+ここで、インポート *後* に、「[エディタのスクリプティングと自動化](Engine/Editor/ScriptingAndAutomation)」に記載されているツールやテクニックを使用して、多くの変更を実行することを推奨します。特定のアセットの作成を回避するなど、インポートのファイナライズ後にアセットやアクタを変更することによって実現できない特定のニーズがある場合にのみインポート中に Datasmith シーンを変更します。
+[/REGION]
+
+## 開始前に
+
+* エディタで Unreal Studio プロジェクトが開いていることを確認します。Datasmith インポータおよびシーン ユーティリティは Unreal Studio プロジェクトでのみ利用できます。詳細については、「[Datasmith を使用するための Unreal プロジェクトの設定](Enterprise/Datasmith/HowTo/SettingUpUnrealProject)」を参照してください。
+* エディタでブループリントおよび Python スクリプトを使用する方法の背景情報については、「[エディタのスクリプティングと自動化](Engine/Editor/ScriptingAndAutomation)」の各トピックを参照してください。
+
+## 例
+
+次の例では、 *.udatasmith* ファイルおよび CAD ファイルを Unreal Editor にインポートするプロセスをカスタマイズするため、ブループリントや Python を使用する方法を示します。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#blueprintContent]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#pythonContent]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+
+[EXCERPT:blueprintContent]
+
+ブループリントを使用してインポート プロセスをカスタマイズする場合は、主に **[Datasmith] > [Scene (シーン)]** および **[Datasmith] > [Element (エレメント)]** カテゴリのノードを使用します。
+
+[REGION:note]
+これらのノードに移動するには、コンテキスト メニューの [**Context Sensitive (状況依存)**] チェックボックスをオフにする、あるいはパレットで必要なノードを見つける必要があります。さらに、**PlacedActorUtilityBase** などの Editor-only のベースクラスから Blueprint クラスを派生させる必要があります。
+[/REGION]
+
+ブループリントで Datasmith ファイルおよび CAD ファイルを作業するときの主な違いを次に示します。
+
+* **Construct Datasmith Scene** および **Import Scene** など一部のノードには 2 つのバリアントがあり、名前は同じですが作用するオブジェクトのタイプが異なります。Datasmith ファイルを作業している場合は、**Datasmith Scene** オブジェクトに作用するシーン ノードを注意して使用する必要があります。CAD ファイルを作業している場合は、**Datasmith CAD Scene** オブジェクトに作用するノードを使用します。
+* CAD シーンでは、インポートをファイナライズするときではなく、シーンを構築するときに宛先ディレクトリを指定します。
+* インポート オプションを異なる方法でセットアップします。詳細は以下の例を参照してください。
+
+どちらの場合も、Datasmith シーンとシーン内のエレメントを処理するスクリプトの残りの部分はまったく同じです。
+
+[REGION:note]
+宛先フォルダは `/Game/` で始まる必要があります。
+[/REGION]
+
+**Datasmith シーン**
+
+[REGION:lightbox]
+[![カスタマイズされた Datasmith シーンのインポート例](customized-DS-import.png "カスタマイズされた Datasmith シーンのインポート例")](customized-DS-import.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+**Datasmith CAD シーン**
+
+[REGION:lightbox]
+[![カスタマイズされた Datasmith CAD シーンの例](customized-CAD-import.png "カスタマイズされた Datasmith CAD シーンの例")](customized-CAD-import.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+[/EXCERPT:blueprintContent]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent]
+Python を使用してインポート プロセスをカスタマイズする場合、主要な開始点は `unreal.DatasmithSceneElement` および `unreal.DatasmithCADSceneElement` クラスです。これらのクラスには、ファイルからシーンを構築し、共有のベース `unreal.DatasmithSceneElementBase` クラスで定義された関数を通じてそのシーンでエレメントを作業し、インポートをファイナライズするために必要なすべての関数が用意されています。
+
+Python で Datasmith ファイルおよび CAD ファイルを作業するときの主な違いを次に示します。
+
+* 開始点は `unreal.DatasmithSceneElement` または `unreal.DatasmithCADSceneElement` です。
+* `unreal.DatasmithCADSceneElement` では、インポートをファイナライズするときではなく、シーンを構築するときに宛先ディレクトリを指定します。
+* インポート オプションを異なる方法でセットアップします。詳細は以下の例を参照してください。
+
+どちらの場合も、Datasmith シーンとシーン内のエレメントを処理するための API はまったく同じです。
+
+**Datasmith シーン**
+
+    ds_file_on_disk = "C:\\scenes\\studio.udatasmith"
+    ds_scene_in_memory = unreal.DatasmithSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk)
+
+    if ds_scene_in_memory is None:
+        print "Scene loading failed."
+        quit()
+
+    # シーンのデータを変更し各エレメントを除外または結合する...
+
+    # 名前に特定のキーワードを含むメッシュを取り除く。
+    remove_keyword = "exterior"
+    for mesh in ds_scene_in_memory.get_meshes():
+        mesh_name = mesh.get_element_name()
+        if remove_keyword in mesh_name:
+            print("removing mesh named " + mesh_name)
+            ds_scene_in_memory.remove_mesh(mesh)
+
+    # 上記で取り除いたメッシュを参照するメッシュ アクタをシーンから取り除く。
+    for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+        mesh_reference = mesh_actor.get_mesh_element()
+        if mesh_reference is None:
+            print("removing an actor with a missing mesh:" + mesh_actor.get_element_name())
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+    # インポート オプションを設定する。
+    options = unreal.DatasmithImportBaseOptions()
+    options.scene_handling = unreal.DatasmithImportScene.NEW_LEVEL
+
+    # アセットとアクタを作成することでプロセスをファイナライズする。
+
+    # 宛先フォルダは /Game/ で始まる必要がある
+    ds_scene_in_memory.import_scene("/Game/MyStudioScene", options)
+
+    # Datasmith シーンをクリーン アップする。
+    ds_scene_in_memory.destroy_scene()
+    print "Custom import process complete!"
+
+**Datasmith CAD シーン**
+
+    import unreal
+
+    # Datasmith CAD シーンをディスクのファイルから構築する。
+    # 宛先フォルダは /Game/ で始まる必要がある
+    ds_file_on_disk = "C:\\designs\\Clutch assembly.SLDASM"
+    ds_scene_in_memory = unreal.DatasmithCADSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk, "/Game/MyCADScene")
+
+    if ds_scene_in_memory is None:
+        print "Scene loading failed."
+        quit()
+
+    # シーンのデータを変更し各エレメントを除外または結合する。
+    remove_keyword = "_BODY"         # 名前にこの文字列を含むアクタを取り除く。
+    meshes_to_skip = set([])         # 必要がないメッシュを一時的に格納するためこの set を使用する。
+
+    # 上記で設定した文字列に名前が一致するメッシュ アクタをシーンから取り除く。
+    for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+        actor_label = mesh_actor.get_label()
+        if remove_keyword in actor_label:
+            print("removing actor named: " + actor_label)
+            # アクタのメッシュ アセットをスキップするメッシュのリストに追加する
+            mesh = mesh_actor.get_mesh_element()
+            meshes_to_skip.add(mesh)
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+    # インポートする必要がないすべてのメッシュを取り除く。
+    for mesh in meshes_to_skip:
+        mesh_name = mesh.get_element_name()
+        print("removing mesh named " + mesh_name)
+        ds_scene_in_memory.remove_mesh(mesh)
+
+    # インポート オプションを設定する。
+    import_options = ds_scene_in_memory.get_import_options()
+    tessellation_options = import_options.tessellation_options
+    tessellation_options.chord_tolerance = 15
+    tessellation_options.max_edge_length = 40
+    tessellation_options.normal_tolerance = 45
+
+    # アセットとアクタを作成することでプロセスをファイナライズする。
+    ds_scene_in_memory.import_scene()
+
+    # Datasmith シーンをクリーン アップする。
+    ds_scene_in_memory.destroy_scene()
+    print "Custom import process complete!"
+
+[/EXCERPT:pythonContent]
+[/COMMENT]
+
+## Datasmith シーンについて
+
+インポート前段階に Datasmith シーンで実行できる内容を確認するには、シーンが構築される方法について多少理解しておくと便利です。
+
+### シーン コンテンツ
+
+Datasmith シーンの大部分は異なるタイプの *エレメント* のためのコンテナです。これらの各エレメントはインポート後にコンテンツ ブラウザに作成される *アセット* 、または個別に 3D 空間に変換されて、レベルにスポーンされる *アクタ* を表します。
+
+主なアセット エレメント タイプには以下のものがあります。
+
+* メッシュ：各メッシュ エレメントは 3D ジオメトリのブロックを表します。インポートが完了したとき、各メッシュ エレメントは「Geometry」フォルダの個別のスタティック メッシュ オブジェクトになります。各メッシュ エレメントには多数のマテリアル スロットがあり、それぞれが名前でマテリアル エレメントに関連付けられています。
+* マテリアル：各マテリアル エレメントはジオメトリに必要なサーフェスの異なるタイプを表します。インポートが完了したとき、各マテリアル エレメントは「Materials」フォルダの個別のマテリアル オブジェクトになります。
+* テクスチャ：各テクスチャ エレメントは少なくとも 1 つのマテリアルで使用される単一の 2D イメージを表します。インポートが完了したとき、各テクスチャ エレメントは「Textures」フォルダの個別のテクスチャ オブジェクトになります。
+
+主なアクタ エレメント タイプには以下のものがあります。
+
+* メッシュ アクタ：各メッシュ アクタ エレメントはレベルのメッシュ ジオメトリのインスタンスを表します。インポートが完了したとき、各メッシュ アクタ エレメントはワールド アウトライナーのスタティック メッシュ アクタになります。
+* ライト アクタ：各ライト アクタ エレメントはシーンの光源を表します。インポートが完了したとき、各ライト アクタ エレメントはレベルで、Point Light や Spot Light などのベース Unreal ライト タイプのインスタンス、あるいは面光源をシミュレートするカスタム Datasmith アクタになります。これらのライトの多数のプロパティ (強度、色、IES プロファイル テクスチャ ファイルなど) を取得し設定できます。
+* カメラ アクタ：各カメラはソース シーンでセットアップされた視点を表します。インポートが完了したとき、各カメラ アクタ エレメントはレベルで CineCameraActor になります。アスペクト比など、これらのカメラ アクタの基本プロパティのいくつかを取得し設定できます。
+
+[REGION:tip]
+メモリ上の Datasmith シーンに含まれるデータは、 *.udatasmith* ファイルを開いた場合に表示されるものとほとんど同じです。3ds Max や Sketchup を使用している場合、エクスポートされた *.udatasmith* ファイルを開いて、Datasmith シーン オブジェクトがどのように構成されているのかを理解できます。
+
+![Datasmith ファイル XML コンテンツ](datasmith_xml.png "Datasmith file XML contents")
+[/REGION]
+
+### Datasmith シーンでの作業
+
+上記で概要を説明したエレメントのリストを取得するため、主に Datasmith シーンでインタラクティブに作業します。これを実行するには、上記の例で示したように Python では `DatasmithSceneElementBase` を、ブループリントでは **[Datasmith] > [Scene (シーン)]** ノードを使用します。
+
+エレメントのリストを入手したら、特定のエレメントを取得するためにリストでイテレーションを実行できます。次に、そのエレメント用の Python API (`DatasmithMeshActorElement` など)、またはブループリントでは **[Datasmith] > [Element (エレメント)]** ノードを使用して、特定エレメントに関する情報を取得し設定します。エレメントがアクタ タイプである場合、シーン階層を下位に移動して、子アクタ エレメントを取得することもできます。
+
+既存のエレメントをシーンから削除する場合 (上記の例に示したとおり)、または新しいエレメントを追加する場合、Python では `DatasmithSceneElementBase` を、ブループリントでは **[Datasmith] > [Scene (シーン)]** ノードを通じて実行できます。例えば、アクタを削除し、異なる親に追加することで、アクタの階層を入れ替えることができます。

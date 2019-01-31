@@ -1,41 +1,28 @@
-﻿INTSourceChangelist:2690368
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:材质 - 操作指南
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:有关使用 Unreal Engine 4 中材质编辑器的各个方面的操作指南。 
-Related:Engine/Rendering/Materials/Editor/Interface
-Related:Engine/Rendering/Materials/MaterialInputs
-Related:Engine/Rendering/Materials/Editor
-Related:Engine/Rendering/Materials/IntroductionToMaterials
-Related:Engine/Rendering/Materials/MaterialProperties
-Version:4.9
+prereq: Engine/Rendering/Materials/Editor/Interface
+prereq: Engine/Rendering/Materials/MaterialInputs
+prereq: Engine/Rendering/Materials/Editor
+prereq: Engine/Rendering/Materials/IntroductionToMaterials
+prereq: Engine/Rendering/Materials/MaterialProperties
+Version: 4.15
+parent:Engine/Rendering/Materials
+order:3
+type:landing
+topic-image:Materail_How_To.png
+tags:Materials 
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/HowTo:title%](%ROOT%/Engine/Rendering/Materials/HowTo/Materail_How_To.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/Materials/HowTo:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/Materials/HowTo:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+![](materials_howto.png)
 
+下列分步指南涵盖了各种话题，将帮助您在自己的项目中创建和使用材质。
+[COMMENT:none]
 
-
-下列操作教程将演示如何充分利用虚幻引擎 4 (UE4) 中材质编辑器的潜能。
 从有关如何正确设置人体皮肤的提示，到分层材质使用技巧，操作教程对于想要进一步了解 UE4 材质编辑器的每个人都不可错过。
 
-
+(#CreatingaNewProject)
 ## 创建新项目
 
 如果您尚未创建新项目，请通过下列步骤创建新的 **Third Person** 项目。 
@@ -59,11 +46,30 @@ Version:4.9
 1. 定义上述每一项设置之后，单击 **创建项目（Create Project）**以创建新项目。 
 
 
+(#MaterialHow-To's)
 ## 材质操作指南 
 
 下面列出的操作指南涵盖有关材质的各种主题。 
 请阅读各个说明以了解操作指南所阐述的内容，然后单击打开各个操作指南并开始学习相应的操作。
 
+[/COMMENT]
+
+(#StartingOut)
+## 入门
+
+[DIR(output:"fancy" parent:"Engine/Rendering/Materials/HowTo" skill_level:"Beginner")]
+
+(#DoingMorewithMaterials)
+## 进一步运用材质
+
+[DIR(output:"fancy" parent:"Engine/Rendering/Materials/HowTo" skill_level:"Intermediate")]
+
+(#PuttingItAllTogether)
+## 通汇贯通
+
+[DIR(output:"fancy" parent:"Engine/Rendering/Materials/HowTo" skill_level:"Advanced")]
+
+[COMMENT:none]
 
 |操作指南...| 说明 |
 | ------- | ------------ |
@@ -88,7 +94,6 @@ Version:4.9
 | **[在材质中使用次表面轮廓](Engine/Rendering/Materials/HowTo/Subsurface_Profile)** |渲染逼真人体皮肤的能力，是所有现代电子游戏引擎的必备功能。在此操作指南中，您将了解什么是次表面轮廓，并学习如何在工作中使用它们。|
 | **[在材质中使用次表面散射](Engine/Rendering/Materials/HowTo/Subsurface_Scattering)** |此术语用来描述光线穿过透明/半透明表面时发生散射的照明现象。此操作指南阐述在材质中使用次表面散射所需了解的内容。|
 
-
-
+[/COMMENT]
 
 

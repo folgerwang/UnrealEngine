@@ -1,115 +1,253 @@
-﻿INTSourceChangelist:3683933
+﻿INTSourceChangelist:4221223
 Availability:Public
-Title:シーケンサーに記録する
+Title:シーケンサーでの記録
 Crumbs:
 Description:シーケンス レコーダーを使ってアクションを記録し、そのデータをシーケンサー内で使用します。
-Version:4.14
-SkillLevel:Advanced
+Version: 4.14
+SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
 order:1
-checkpoint: editorqs
+checkpoint:editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine/Sequencer/ReferenceEditor
 tags:Sequencer
 type:how-to
 
-**シーケンス レコーダー** を使ってレベル編集またはゲームプレイ中に指定したアクタをキャプチャし、新しい **レベル シーケンス** として保存して **シーケンサー** 内で編集することができます。 
-これはシーンのコンテンツを迅速にキャプチャするのに役立ちます。シーケンス レコーダーで記録しながらプレイ可能なキャラクターを使って、ゲームプレイ中に何らかのアクションを行います。次に、こうしたデータをシーケンサーに取り込み、シネマティックスを作成します。
+# シーケンス レコーダー
 
-この例では、シーケンス レコーダー を使ってプレイ可能なキャラクターの動きを記録し、それを編集することができます。
+** シーケンス レコーダー ** を使って、ゲームプレイやレベル編集からアクタをレベル シーケンス内のスケルタル アニメーション、トランスフォーム、イベント、オーディオトラックに記録することができます。その後、 ** シーケンス エディタ ** 内でレベル シーケンスを編集して、記録したものに基づきシネマティックスを作成できます。
 
-## ステップ
+## シーケンス レコーダーを開く
 
-[REGION:note]
-ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** プロジェクトを使います。 
-[/REGION]
+** [Window] ** タブにあるメインの ** メニュー バー ** からシーケンス レコーダーを開くことができます。
 
-1.	**メニューバー** の **[Window]** で [Sequence Recorder (シーケンス レコーダー)] を選択します。 
+![image alt text](image_0.png)(w:270 h:300 convert:false)
 
-	![](RecorderStep1.png)
+** [Sequence Recorder] ** を選択すると、 ** [シーケンス レコーダー] ** ウィンドウが開きます。
 
-	シーケンス レコーダー ウィンドウが自動的に開きます。**[Sequence Recording]** にはいくつかのオプションがあります。こうしたオプションで、どのように (およびどこに) レベル シーケンス アセットが保存されるかを決定します。スポーンされたアクタ (パーティクル エフェクト、その他のキャラクターなど) を記録したり、命名規則と保存場所を決めたり、記録時間や記録開始までの遅延などのその他の設定をすることができます。
+![image alt text](image_1.png)(w:586 h:709 convert:false)
 
-1.	メイン エディタ ツールバー で **[Play]** ボタンをクリックして Play in Editor (PIE) セッションを開始します。 
+## 記録のためにアクタを追跡する
 
-1.	ゲーム内に入った後、マウス制御を可能にするには、**Shift+F1** キーを押します。 
+シーケンス レコーダーのウィンドウ上部には、 [Record] 、 [Add] 、 [Add Player] 、 [Remove] 、 [Remove All] という、記録を制御するためのボタンが用意されています。
 
-1.	**[Sequence Recorder]** ウィンドウで、**[Add]** ボタンをクリックします。 
+![image alt text](image_2.png)(w:322 h:64 convert:false)
 
-	![](SequenceRecorderAdd.png)
 
-1.	新しい記録 (**None** と表記) をクリックして、**[Actor to Record]** でドロップダウンをクリックして **[ThirdPersonCharacter]** を選択します。 
+| ボタン | 説明 |
+| --- | --- |
+| [Record] | 記録を開始します (すべての記録に影響)。|
+| [Add] | 選択したアクタの新しい記録を追加します。何も選択されていない場合は、空の記録が追加されます。|
+| [Add Player] | 現在のプレーヤーの新しい記録を追加します。|
+| [Remove] | 選択した記録を削除します。|
+| [Remove All] | すべての記録を削除します。|
 
-	![](ActorToRecord.png)
 
-	ここで記録対象のアクタを指定してから記録プロセスを開始します。上図のように UI を更新します。
 
-1.	オプションでオーディオを記録することを選択し、記録したクリップにあわせてオーディオのゲイン レベルを設定することができます。 
+** [Add] ** ボタンをクリックすると、 ** [Record] ** オプションと ** [Remove] ** オプションの両方が利用できるようになります。これにより、[Actor Tracking] ウィンドウに ** [Actor Recording] ** フィールドが表示されます。この時点では追跡対象のアクタは ** 「 None 」 ** と表示されます (以下参照)。
 
-	![](RecordAudio.png)
+![image alt text](image_3.png)(w:516 h:222 convert:false)
 
-	オーディオの記録では、アタッチされたマイクロフォンが必要であり、シーケンスが記録を開始するとオーディオの記録が開始します。 
+[Actor Recording] を選択すると、対象の記録に関連する追加のオプションがシーケンス レコーダーに表示されます。
 
-1.	**[Record]** ボタンをクリックします。4 秒経過後 (これは [Sequence Recording] セクションの **[Record Delay]** オプションです) に記録プロセスが開始します。 
+![image alt text](image_4.png)(w:524 h:709 convert:false)
 
-	![](RecordStart.png)
+こうしたオプションを使って、記録中にどのアクタを追跡するかをアニメーション設定と共に定義することができます。[Tracking] ウィンドウには複数の [Actor Tracking] フィールドを追加することができ、それぞれの ** [Actor to Record] ** を異なるアクタを追跡するように設定できます。
 
-	[REGION:note]
-	**[Record]** ボタンをクリックすると、追跡管理するように設定されているリスト内のすべてのアクタも記録されます。 
-	[/REGION]
+[REGION:note]シーケンス レコーダーでアクタを記録する手順については、 [ 「シーケンサーに記録する」 ](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) ページを参照してください。[/REGION]
 
-1.	**WASD** キーと **スペースバー** キーを使ってキャラクターを動かしたり、ジャンプさせたりして、終了したら **ESC** を押します。
+## シーケンス レコーダーのオプション
 
-	[OBJECT:EmbeddedVideo]
+** シーケンス レコーダー ** を開くと、調整可能なプロパティがいくつかあります。それらで、アクタをどのように記録するか定義できます。** シーケンス レコーダー ** を開くのが初めての場合、デフォルトの ** Sequence Recording ** オプションのみが表示されます。記録のために追跡するアクタを追加すると、 ** [Actor Recording] ** および ** [Animation Recording] ** のセクションがアクタ単位で利用可能になります。
+
+### グループを記録する
+
+** シーケンス レコーダー ** では、パーシスタント レベルに保存されているプロファイル システムがサポートされます。** Recording Profiles ** では、記録対象のアクタとその設定、さらに記録されたデータを保存する場所への出力パスを保存することができます。また、 ** シーケンス レコーダー ** では選択した各アクタに対して複数のテイクの記録をサポートしています。
+
+** シーケンス レコーダー ** の ** [Recording Groups] ** では以下のオプションが利用可能です。
+
+![image alt text](image_5.png)(w:502 h:257 convert:false)
+
+
+| オプション | 説明 |
+| --- | --- |
+| [Sequence Name] | 記録するシーケンスの名前です。この名前は、この記録によって作成されるアセットがある場合はそれを自動生成するためにも使用されます。|
+| [Sequence Recording Base Path] | この記録のベース パスです。指定したパス内のサブディレクトリにサブアセットが作成されます。|
+| [Specify Target Level Sequence] | 対象のレベル シーケンスを指定するか、それを自動生成するかを設定します。|
+| [Target Level Sequence] | 記録先のレベル シーケンスです。|
+| [Duplicate Target Level] | 対象のレベル シーケンスを複製して、その複製を記録先として使用するかどうかを設定します。|
+|  |  |
+
+
+
+次の動画では、 ** Recording Groups ** と ** シーケンス レコーダー ** を設定する例を紹介します。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	QGO_jCrjTEI
+	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
-	640
+	78
 	[/PARAMLITERAL]
 	[PARAMLITERAL:height]
-	360
+	56.25
 	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### シーケンスの記録
+
+これらのオプションでは、シーケンスの記録方法および記録されるアクタを定義することができます。
+
+![image alt text](image_6.png)(w:540 h:452 convert:false)
+
+
+| オプション | 説明 |
+| --- | --- |
+| [Create Level Sequence] | 記録時にレベル シーケンスを作成するかどうかを設定します。有効に設定した場合、アクタとアニメーションがこのシーケンスに挿入されます。|
+| [Immersive Mode] | 記録時にビューポートを最大化するかどうかを設定します。|
+| [Sequence Length] | 記録するシーケンスの最大長を定義します (「 0 」に設定すると、Esc キーまたは [Stop] ボタンを押して Stop を呼び出さない限り記録は継続します)。|
+| [Recording Delay] | 記録を開始する前の遅延です。|
+| [Animation Sub Directory] | アニメーションが保存されるサブディレクトリの名前です。シーケンスのベース パスと同じディレクトリに保存する場合は空のままにします。|
+| [Record Nearby Spawned Actors] | 記録の一部として近くにスポーンされたアクタを記録するかどうかを設定します。|
+| [Nearby Actor Recording Proximity] | 新規にスポーンされたアクタを記録するための、現在記録されているアクタからの近さを定義します。|
+| [Record World Settings Actor] | シーケンスで World Settings アクタを記録するかどうかを設定します (一部のゲームはこれを使ってワールド サウンド エフェクトをアタッチします)。|
+| [Reduce Keys] | 記録したトラックから許容範囲内でキーフレームを削除するかどうかを設定します。|
+| [Auto Save Asset] | 記録完了時にアセットを自動保存するかどうかを設定します。デフォルトでは False に設定されます。|
+| [Actor Filter] | スポーンしたアクタを記録すべきかをチェックするためにフィルタリングします。展開可能なオプションから記録対象の Actor クラスを指定することができます。|
+| [Level Sequence Actors to Trigger] | 記録開始時に再生をトリガーするシーケンス アクタです (例えば、同期したシーケンスを記録するために使用することができます)。|
+| [Default Animation Settings] | アニメーションの記録に適用されるデフォルト設定です。展開すると、ワールド空間での記録、ルート アニメーションの削除、記録完了時にアセットを自動保存するかどうか、サンプル レートとその長さの調整に関するオプションが表示されます。|
+| [Classes and Properties to Record] | 指定したクラスを記録するためのプロパティです。ここで指定した Component クラスが記録されます。アクタにこうしたクラスが含まれていない場合は無視されます。展開すると、クラスと関連するプロパティを定義することができます。|
+| [Record Sequencer Spawned Actors] | シーケンサー自体によってスポーンされるアクタを記録するかどうかを設定します (結果が予測できないことがあるため通常は無効に設定します)。|
+| [Per Actor Settings] | 指定したクラスのアクタに適用される設定です。各クラスについて、所有可能なもの (レベル所有) またはスポーン可能なもの (シーケンス所有) を記録するかどうかを定義できます。|
+
+
+
+### アクタの記録
+
+このセクションでは、記録されるアクタの設定を定義することができます。
+
+![image alt text](image_7.png)(w:536 h:308 convert:false)
+
+
+| オプション | 説明 |
+| --- | --- |
+| [Record Visibility] | アクタの可視性を記録するかどうかを設定します。|
+| [Record Transforms] | アクタのトランスフォームを記録するかどうかを設定します。シーケンス後にアクタを特定の位置で終わるようにする場合に役立ちます。デフォルトではアニメーションがトランスフォームを提供するようになっていますが、[Record in World Space] アニメーション設定を使って変更することができます。|
+| [Active] | アクタがアクティブかどうか、および [Record] ボタンが押された際に記録すべきかどうかを設定します。|
+| [Create Level Sequence] | アクタの記録時にレベル シーケンスを作成するかどうかを設定します。|
+| [Target Level Sequence] | 記録先のレベル シーケンスです。|
+| [Target Name] | 記録先の名前です (オプション)。指定しない場合はアクタ ラベルが使用されます。|
+| [Take Number] | 新しい記録の Take Number を指定します。|
+| [Record to Possessable] | 所有可能なもの (レベル所有) またはスポーン可能なもの (シーケンス所有) を記録するかどうかを設定します。デフォルトではグローバル設定になります。|
+| [Actor to Record] | 記録するアクタの定義に使用するオプションです。|
+
+
+
+### アニメーションの記録
+
+アニメーションの記録方法の定義にはこれらの設定を使用できます。
+
+![image alt text](image_8.png)(w:536 h:165 convert:false)
+
+
+| オプション | 説明 |
+| --- | --- |
+| [Specify Target Animation] | ターゲット アニメーションを指定するか、それを自動作成するかを設定します。|
+| [Target Animation] | [Specify Target Animation] が有効に設定されている場合に有効になり、記録対象のアニメーションの指定に使用します。|
+| [Animation Settings] | [Sequence Recording] の [Default Animation Settings] を参照してください。これらは [Actor to Record] に適用されます。|
+
+
+
+## ヒントとコツ
+
+このセクションでは、 ** シーケンス レコーダー ** で作業する場合に有用なワークフローのヒントとコツをいくつか紹介します。
+
+### 連続して記録する
+
+**[Sequence Recorder] ** ウィンドウで ** [Sequence Length] ** を ** 「 0 」 ** に設定することで、連続して記録することができます。
+
+![image alt text](image_9.png)(w:530 h:778 convert:false)
+
+[REGION:tip]「 0 」に設定すると、 ** Esc ** キーを押して記録を手動で停止しない限り、記録は継続します。[/REGION]
+
+### 右クリックによる記録
+
+アクティブな ** レベル シーケンス ** を開いている場合は、 ** シーケンス レコーダー ** 内で ** [Add] ** ボタンをクリックする代わりに、レベル内でアクタを右クリックして、コンテキスト メニューからアクタの記録を開始することができます (または ** Alt + R ** キーを押します)。これで、 ** シーケンス レコーダー ** の ** [Actor Tracking] **  ウィンドウにアクタが追加され、設定した ** Recording Delay ** が過ぎた後に自動的に記録を開始します。
+
+![image alt text](image_10.png)(w:602 h:508 convert:false)
+
+[REGION:note]この操作はエディタでの記録を開始するものであり、 ** シーケンス レコーダー ** での [ [ゲームプレイの記録] ](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) を開始するものではないことに注意してください。[/REGION]
+
+### サブシーンでゲームプレイを記録する
+
+** シーケンス レコーダー ** を使ってゲームプレイを記録すると、デフォルトでそのコンテンツを記録するための新しいレベル シーケンスが自動的に作成されます。記録したコンテンツを追加するレベル シーケンスが既に存在する場合は、 [ [サブシーン トラック] ](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/TracksSub) を使用して、現在のプレイヤー ポーンを記録することができます。
+
+[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
-	9mZI75qBsx8
+	Wab8bB69TIo
 	[/PARAMLITERAL]
-	[/OBJECT] 
-
-	**コンテンツ ブラウザ** 内で、記録したシーケンスに関連するアセットを含む新規フォルダが作成されます。 
-
- 
-
-## 最終結果
-
-**RecordedSequence** アセットを開いて、通常のレベル シーケンスのように編集を開始します。下の画面は、記録したシーケンスです。これに、カメラや [カメラカット](Engine/Sequencer/HowTo/TracksCameraCut) のトラックを追加して、複数のアングル、音楽、エフェクトなど何でも必要なものを入れることができます。このシーケンスを取り出して他のシーケンスに [ショット トラック](Engine/Sequencer/HowTo/TracksShot) の一部として埋め込むこともできます。 
-
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-1nFX_bpWfy0
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
-ゲームプレイを記録する以外に、記録するアクタを割り当てることでレベル編集中に操作を記録することができます。 
+上の図では、新しいレベル シーケンスをサブシーン トラックと併せて作成しました。次に、ゲームプレイ中に ** Shift + F1 ** キーを押してマウス操作を可能にし、現在のプレイヤー ポーンに応じて、準備済みの記録されたシーケンスを追加します。これで、ゲームをプレイ中にビューポートで ** [Record] ** ボタンを押して記録を開始することができます。記録を終了するには ** Esc ** キーを押します。
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-fMzumqLk7IQ
-[/PARAMLITERAL]
-[/OBJECT]
+[REGION:note]この方法による記録は、 ** [Sequence Recorder] ** ウィンドウで ** Actor to Record ** を手動で追加して ** シーケンス レコーダー ** 内から記録を開始するのと同じです。Subscene Recording でこの方法を使用する際にも、 ** シーケンス レコーダー ** 内で定義した設定が同様に適用されることを留意してください。[/REGION]
 
-上の図ではレベルにキューブを配置し、シーケンス レコーダーに対してキューブを記録するように指示しています。 
-次に、キューブを動かすとシーケンス レコーダーは新規作成されたレベル シーケンスでキーフレームを通して入力した動きをキャプチャーします。 
-レベル シーケンスを再生すると、新しい Cube アクタが (スポーン可能なものとして) レベル シーケンスに作成されます。これがシーケンスがアクティブなときに 2 つめのキューブが表示される理由です。
+### クラスのプロパティを記録する
 
-[REGION:note]
-レベル編集を記録する場合、キーフレーム化できるプロパティだけをキャプチャおよび記録することができます。 
-[/REGION]
+シーケンスの記録中にアクタに対する特定のプロパティ値の変更を記録する場合は、 ** [Classes and Properties to Record] ** 設定を使用して、記録のために追跡するクラスとその関連プロパティを指定できます。
+
+以下では、 ** CineCameraComponent ** クラスを選択し、参照ボタン ( ** ... ** ) をクリックして ** [Choose Properties to Be Recorded] ** メニュー (右) を開きます。ここで、ハイライトされている各チェックボックスをオンにして、プロパティを追跡して記録します。
+
+![image alt text](image_11.png)(w:624 h:380 convert:false)
+
+記録中にそのプロパティが変更された場合は、自動的にキーフレーム化されて記録中にその変更が反映されます。追跡しているアクタに定義済みのクラスが含まれない場合は無視されます。
+
+** シーケンス レコーダー ** には、記録のために追跡する以下のクラスがデフォルトで含まれています。
+
+* [ SkeletalMeshComponent ](https://docs.unrealengine.com/en-us/Engine/Components/SkeletalMesh)
+
+* [ StaticMeshComponent ](https://docs.unrealengine.com/en-us/Engine/Components/StaticMesh)
+
+* [ ParticleSystemComponent ](https://docs.unrealengine.com/en-us/Engine/Components/Rendering#particlesystemcomponent)
+
+* [ LightComponent ](https://docs.unrealengine.com/en-us/Engine/Components/Lights)
+
+* [ CameraComponent ](https://docs.unrealengine.com/en-us/Engine/Components/Camera)
+
+* [ CineCameraComponent ](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors)
+
+これらのクラスを使って記録中にその中のプロパティを追跡したり、これらを削除して独自のクラスを使用したりすることができます。
+
+### Possessable (所有可能なもの)に記録する
+
+追跡することをタグ付けしたアクタを記録する場合、デフォルトでアクタの ** Spawnable(スポーン可能) ** なバージョンが自動的に作成されて、記録に追加されます。スポーン可能なバージョンはレベル シーケンスが開いているときにのみ存在しますが、新たにスポーン可能なバージョンを作成するのではなく、レベル内のアクタに直接書き込みたい場合もあります。その場合は、シーケンス レコーダーの ** [Actor Recording] ** セクションの ** [Record to Possessable] ** オプションをオンにします。
+
+![image alt text](image_12.png)(w:508 h:309 convert:false)
+
+このオプションをオンにするとスポーン可能なバージョンは作成されなくなり、記録を適用する所有可能なアクタが使用されます。
+
+[REGION:note]詳細については、『シーケンサーの概要』の [ 「所有可能なものとスポーン可能なもの」 ](https://docs.unrealengine.com/latest/INT/Engine/Sequencer/Overview/index.html#possessablesvsstopspawnables) セクションを参照してください。[/REGION]
+
+### 没入モード
+
+ゲームプレイを記録する際、記録中により大きなビューポートを使ってゲームをプレイしたい場合があります。** [シーケンス レコーダー] ** ウィンドウ内の ** [Immersive Mode] ** オプションにより、記録が有効な間はビューポートが自動的に最大化されます。記録を停止すると、ビューポートは通常のサイズに戻ります。
+
+![image alt text](image_13.png)(w:508 h:381 convert:false)

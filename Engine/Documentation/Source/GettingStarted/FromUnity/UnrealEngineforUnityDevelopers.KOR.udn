@@ -411,7 +411,7 @@ UE4 에서는 컴포넌트를 계층구조식으로 중첩시켜 복합 오브�
 
 ### MonoDevelop 프로그래밍에 익숙한 분들
 
-블루프린트 스크립트의 경우, 언리얼 에디터만 사용하면 됩니다. 모든것이 내장되어 있으니까요! C++ 코드를 작성하려면, 윈도에서는 [Visual Studio 무료 버전](http://go.microsoft.com/fwlink/?LinkId=525621) 또는 맥에서는 [Xcode](https://itunes.apple.com/us/app/xcode/id497799835?mt=12) 를 설치하면 됩니다. 새 프로젝트를 처음 생성( 또는 기존 프로젝트에 코드를 추가)할 때, UE4 가 **자동으로 Visual Studio 프로젝트 파일을 생성** 해 줍니다. **콘텐츠 브라우저** 에서 C++ 클래스에 **더블클릭** 하거나, 메인 파일 메뉴의 "Visual Studio 열기"를 클릭하면 Visual Studio 가 열립니다.
+블루프린트 스크립트의 경우, 언리얼 에디터만 사용하면 됩니다. 모든것이 내장되어 있으니까요! C++ 코드를 작성하려면, Windows에서는 [Visual Studio 무료 버전](http://go.microsoft.com/fwlink/?LinkId=525621) 또는 Mac에서는 [Xcode](https://itunes.apple.com/us/app/xcode/id497799835?mt=12) 를 설치하면 됩니다. 새 프로젝트를 처음 생성( 또는 기존 프로젝트에 코드를 추가)할 때, UE4 가 **자동으로 Visual Studio 프로젝트 파일을 생성** 해 줍니다. **콘텐츠 브라우저** 에서 C++ 클래스에 **더블클릭** 하거나, 메인 파일 메뉴의 "Visual Studio 열기"를 클릭하면 Visual Studio 가 열립니다.
 
 ![image alt text](image_12.png)
 

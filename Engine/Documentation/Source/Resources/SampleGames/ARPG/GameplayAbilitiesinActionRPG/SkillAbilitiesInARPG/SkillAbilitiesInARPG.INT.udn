@@ -1,0 +1,24 @@
+Availability: Public
+Crumbs: 
+Title: Skill Abilities In ARPG
+Description: Going over how skills are setup and work in ARPG.
+Type: 
+Version: 4.20
+Parent: Resrouces/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 3
+Tags: 
+
+
+Skills in Action RPG (ARPG) work similarly to Melee Abilities but use different logic for targeting and costs. Every Skill and Weapon secondary attack except for the fireball uses similar Blueprint logic to the Melee Ability, but the actual targeting takes place in Blueprint. **TargetTypes** are **non-instanced const Blueprints** (or native classes) that enable execution of collision trace logic. Specifically, they use Blueprint subclasses of **TargetType_SphereTrace** which does a series of traces using a sphere collision shape. Each skill that needs different ranges or radii creates a subclass of **TargetType_SphereTrace** and then use its subclass in their **EffectContainerMap**. **TargetTypes** are an ARPG specific class and are an example of how to perform targeting in a non-predicted game. Most games would have more complicated targeting and may want to implement it entirely in native code for performance reasons.  
+
+Skills also have Cooldowns and Costs in addition to damage effects. For instance, the **GA_PlayerSkillFireWave** ability points to the **GE_PlayerSkillFireWave** damage effect, the **GE_PlayerSkillManaCost** effect to handle mana use, and the **GE_PlayerSkillCooldown** effect to manage cooldowns. Cost effects are simple instant modifiers that decrease mana, but it will not let you execute an ability if the cost cannot be afforded. Cooldowns are duration gameplay effects that apply a GameplayTag while active. As long as this **GameplayTag** is active on the ability system component, it will not allow activating any abilities that use that as a cooldown tag. This allows sharing cooldowns across multiple abilities and querying for cooldowns from UI systems.
+
+The **GA_PlayerSkillFireball** ability is a more complicated ability and is an example of how to implement a projectile using the ability system. Here is the ability Blueprint logic from **GA_SpawnProjectileBase**:
+
+[REGION:lightbox]
+[![](ARPG_Skill_Abilities_01.png)(w:800px)](ARPG_Skill_Abilities_01.png)
+[/REGION]
+
+Click for full image.
+
+Most of the logic is the same as **GA_MeleeBase**, but when an event is received instead of applying an effect immediately, it creates an **EffectContainerSpec** and then passes it into a spawned **BP_AbilityProjectileBase **Blueprint. That projectile then moves and looks for overlapped Actors. When it overlaps with an Actor, it then modifies the **EffectContainerSpec** it was passed with the new targeting information and applies it. This is why the **ApplyEffectContainer **function from before was split in half. Doing it this way means that the projectile itself doesn’t need to have its own ability system component or attributes and can use the attributes of whatever ran the original ability.

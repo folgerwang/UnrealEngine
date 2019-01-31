@@ -1,13 +1,14 @@
-﻿INTSourceChangelist:3587677
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title:Composure 编辑器
 Crumbs: %ROOT%, Engine
 Description:Composure 是在虚幻引擎 4 中实时合成数字影像素材和真实影像素材的合成编辑器。 
-Type:Landing
-Version:4.17
+Type: Landing
+Version: 4.17
 parent:Engine
+order:4
 topic-image:ComposureTopic.png
-related:Engine/Sequencer
+related: Engine/Sequencer
 tags:Sequencer
 
 ![](ComposureBanner.png)
@@ -16,22 +17,26 @@ tags:Sequencer
 
 此页面包含大量文档链接，这些文档说明如何在虚幻引擎 4 中使用 Composure 的各个功能。如您刚开始使用 Composure，建议先阅读 Composure 快速入门，了解如何结合 Sequencer 使用 Composure。
 
+(#StartingOut)
 ## 开始
 
 [DIR(output:"topic" parent:"Engine/Composure" org:"hierarchy" end:"1" tags:"Getting Started")]
 
 [COMMENT:none]
 
+(#Essentials)
 ## 概要
 
 
 
+(#Guides)
 ## 指南
 
 [DIR(output:"fancy" parent:"Engine/Composure/HowTo" org:"hierarchy" skill_Level:"Beginner")]
 [DIR(output:"fancy" parent:"Engine/Composure/HowTo" org:"hierarchy" skill_Level:"Intermediate")]
 [DIR(output:"fancy" parent:"Engine/Composure/HowTo" org:"hierarchy" skill_Level:"Advanced")]
 
+(#Samples)
 ## 示例
 
 

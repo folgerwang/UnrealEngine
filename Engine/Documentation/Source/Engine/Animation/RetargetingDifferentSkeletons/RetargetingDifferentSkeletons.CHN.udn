@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2667949
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title:动画重定位（不同骨架）
 Crumbs:%ROOT%, Engine, Engine/Animation
 Description:重定位动画以在不同骨架之间使用。 
 Version:4.9
+Topic-image:AnimRetargetingDiffSkeleton_topic.png
 
 [REGION:fullwidth]
 ![](Retarget1_1.jpg)
@@ -22,6 +23,7 @@ Version:4.9
 
 一旦目标骨架中的所有骨骼都在结构中设置完毕，您就可以将源骨架使用的动画重定位到目标骨架。如果您希望快速将所有动画资产从一副骨架移动到另一副，甚至可以将整套动画蓝图连同其所有关联数据一起重定位，从而节省时间。 
 
+(#GettingStarted)
 ## 开始操作
 
 [EXCERPT:guide]
@@ -191,6 +193,7 @@ Version:4.9
 [/EXCERPT:guide]
 
 
+(#RetargetingAdjustments)
 ## 重定位调整
 
 设置要在骨架之间共享的结构时，您可能遇到一副骨架比另一副骨架多出一些骨骼的情况（在“开始操作”部分中，如果您使用了示例中指定的骨架，可能已经注意到 Mixamo 骨架在手部等处有更多骨骼）。有时这会引发问题，但可以通过递归地对骨架设置平移重定位来解决。
@@ -210,6 +213,7 @@ Version:4.9
 ![](Retarget14.png)
 
 
+(#RetargetinganAnimationBlueprint)
 ## 重定位动画蓝图
 
 在您完成设置两副骨架资产共享的结构的过程后，如果源骨架有关联的 **动画蓝图**，您就可以选择重定位它，以用于目标骨架。 
@@ -227,6 +231,7 @@ Version:4.9
 ![](Retarget17.png)
 
 
+(#RetargetingaBasePose)
 ## 重定位基本姿势
 
 有时您可能希望将动画重定位到基本姿势与源骨架不太一致的骨架。 

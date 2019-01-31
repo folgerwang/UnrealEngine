@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3481084
 Availability:Public
 Title:材质编辑器 UI
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/Editor
 Description:材质编辑器 UI 的使用指南。
 Version:4.9
+tags:Materials
 
 
 [TOC(start:2)]
@@ -12,7 +13,33 @@ Version:4.9
 
 材质编辑器 UI 由菜单栏、工具栏和默认的四个开启面板组成。
 
-![](UpdatedUI.jpg)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](MaterialEditor_Windows.png)
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](MaterialEditor_Mac.png)
+[/PARAM]
+[/OBJECT]
 
 1. [菜单栏](#MenuBar) - 列出当前材质的菜单选项。
 1. [工具栏](#Toolbar) - 含材质使用工具。
@@ -147,6 +174,7 @@ Version:4.9
 如需了解材质函数的更多内容，请查阅 [材质函数](Engine/Rendering/Materials/Functions)。
 
 
+(#StatsPanel)
 ## Stats 面板
 
 ![](StatsPanel.jpg)
@@ -165,11 +193,13 @@ Code View 面板默认不显示。在 **Window** 菜单中点击 **HLSL Code** �
 [/REGION]
 
 
+(#GraphControls)
 ## 图表功能键
 
 材质编辑器中的功能键通常和虚幻编辑器中其他工具的功能键相匹配。例如以其他连接对象编辑器的方式在材质表现图表中导航，材质预览网格体可根据其他网格体进行导向，等等。
 
 
+(#MouseControls)
 ### 鼠标功能键
 
 | **功能键** | **操作** |
@@ -191,6 +221,7 @@ Code View 面板默认不显示。在 **Window** 菜单中点击 **HLSL Code** �
 | **在接头上按下 Alt + 鼠标左键**  | 断开到接头的所有连接  |
 
 
+(#KeyboardControls)
 ### 键盘功能键
 
 | **功能键** | **操作** |
@@ -207,6 +238,7 @@ Code View 面板默认不显示。在 **Window** 菜单中点击 **HLSL Code** �
 | **Enter**  | （和点击应用相同） |
 
 
+(#Hotkeys)
 ### 热键
 
 可使用热键放置常用的材质表现类型。长按热键并 **单击左键** 在节点中进行放置。热键如下：

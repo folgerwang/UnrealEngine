@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4284888
 Availability: Public
 Crumbs: 
-Title: UMG Safe Zones
-Description: This page describes Safe Zones, which are designed to keep the UI from displaying somewhere the player can't see.
+Title: UMG安全区
+Description: 此页面介绍了安全区，它是设计用于防止UI显示在玩家看不到的地方的控件。
 Version: 4.20
 Parent: Engine/
 Order: 5 
@@ -10,72 +10,72 @@ Tags: UMG UI Designer
 Tags: UMG
 
 
-**Safe Zone** widgets are an essential part of developing a game user interface (UI) that can run on a lot of different devices. Safe zones are designed to keep the UI from displaying somewhere that it can technically use but the player can’t see, such as the edge of a TV display or under the notch and home bar of the iPhoneX. The UMG Designer enables you to test the resolution (or rotation) of the device with your UI and applied Safe Zone widgets.
+**安全区（Safe Zone）** 控件是开发能在许多不同设备上运行的游戏用户界面（UI）必不可少的组成部分。安全区的用途是避免在技术上能够使用但玩家看不到的地方显示UI，例如电视显示屏的边缘或iPhoneX上的黑色凹槽和主页栏下方的区域。UMG设计器让您可以测试您的UI和所应用的安全区控件在设备上的分辨率（或旋转）效果。
 
-When you add a **Safe Zone** widget to the **Designer** , the widget will scale any other widgets that are made children of it from the **Hierarchy** panel. These child widgets will scale and adjust anytime there is an “unsafe” zone.
+当您将 **安全区** 控件添加到 **设计器** 时，该控件将缩放 **层级（Hierarchy）** 面板中作为其子代的任何其他控件。这些子控件将在出现“不安全”区域时缩放和调整。
 
 [OBJECT:ComparisonSlider]
  [PARAM:before]
- ![Without Safe Zone widget](WithoutSafeZone_opt-1.png) 
+ ![没有安全区控件](WithoutSafeZone_opt-1.png) 
  [/PARAM]
  [PARAM:after]
- ![With Safe Zone widget](WithSafeZone_opt.png) 
+ ![有安全区控件](WithSafeZone_opt.png) 
  [/PARAM]
 [/OBJECT]
 
-In this example, a 1080p display has a **Uniform Safe Zone** area of 0.9 (red) for testing and debugging purposes. When the widgets are parented to a Safe Zone widget, the child widgets will scale to the safe zone area. This prevents widgets from being cut off at the screen edge deemed “unsafe”. This can be seen in the example, with the “My Menu” title text.
+在该示例中，1080p显示屏包含0.9（红色）的 **统一安全区（Uniform Safe Zone）**，用于测试和除错目的。当安全区控件有了子代控件后，子代控件就会根据安全区范围进行缩放。这样可防止被视为“不安全”的屏幕边缘处裁剪控件。正如示例中的“My Menu”标题文本所示。
 
-## Setting and Testing Safe Zone Resolutions
+## 设置和测试安全区分辨率
 
-In [UMG](Engine/UMG) (or for [Play-in-Editor](Engine/UI/LevelEditor/InEditorTesting) settings), the screen sizes chosen are now linked with [Device Profiles](Platforms/DeviceProfiles) which also takes into account the [Mobile Content Scale Factor](Platforms/Mobile/Performance#mobilecontentscalefactor), meaning that the final resolution and DPI scale will change based on the selected device.
+在[UMG](Engine/UMG)（或对于[在编辑器中播放（Play-in-Editor）](Engine/UI/LevelEditor/InEditorTesting)设置）中，所选屏幕大小现在与[设备配置文件](Platforms/DeviceProfiles)有关，配置文件还会考虑[移动内容缩放系数](Platforms/Mobile/Performance#mobilecontentscalefactor)，这意味着最终分辨率和DPI缩放将根据所选设备而变。
 
-To test the screen resolution of a device, use the UMG **Designer** viewport to select the **Screen Size** dropdown and select from the listed devices.  
+要测试设备的屏幕分辨率，请使用UMG **设计器（Designer）** 视口，选择 **屏幕大小（Screen Size）** 下拉菜单，并从所列设备中进行选择。  
 ![ScreenSizeSelection.png](ScreenSizeSelection_opt.png)
 
-If the device supports screen orientation, like a phone or tablet, use the **Portrait/Landscape** button to swap between the two view modes. This option will be grayed out when the device selected doesn’t support orientation shifting.  
+如果设备支持屏幕转向，例如手机或平板电脑，请使用 **纵向/横向（Portrait/Landscape）** 按钮在两种查看模式之间切换。如果所选设备不支持转向，该选项显示为灰色。  
   
 ![](OrientationButton.png)
 
-Here is an example of the two view modes: ![](iPhoneX_PortraitAndLandscape.png)
+以下是两种查看模式的示例：![](iPhoneX_PortraitAndLandscape.png)
 
 [REGION:caption]
-*Left: Landscape, Right: Portrait*
+*左：横向，右：纵向*
 [/REGION]
 
-When a device is selected, relevant information and marked “unsafe” zones will be displayed in the **Designer** graph.  
+当选择设备时，相关信息和标记为“不安全”的区域将显示在 **设计器（Designer）** 图形中。  
 ![](DeviceDetails.png)
 
 [REGION:caption]
-1.  Marked “Unsafe” Zones
-2.  Device Details for Mobile Content Scale Factor, Device Name or Uniform Safe Zone, and Screen Size
-3.  DPI Scale
+1. 标记为“不安全”的区域
+2. 设备详细信息：移动内容缩放系数、设备名称或统一安全区域和屏幕大小
+3. DPI缩放
 [/REGION]
 
-For non-uniform safe zones, you can use the **Flip** button to simulate device rotation for Landscape mode.  
+对于非统一安全区域，可以使用 **翻转（Flip）** 按钮来模拟横向模式的设备旋转。  
 ![](DeviceFlipButton.png)
 
 [REGION:note]
-This option is only available on some devices and only for Landscape view mode.
+该选项仅可在部分设备上使用，且仅用于横向查看模式。
 [/REGION]
 
-When previewing TVs and Monitors from the list, if you’ve set a [debug title safe zone](Platforms/TVSafeZoneDebugging) that is less than 1, the **Uniform Safe Zone** will display that size. The debug safe zone area is represented by the red area around the canvas widgets.  
+当从列表中预览电视和显示器效果时，如果设置的[除错标题安全区](Platforms/TVSafeZoneDebugging)小于1，则 **统一安全区** 将显示该大小。除错安全区由画布控件周围的红色区域表示。  
 ![](UniformSafeZone.png)
 
 [REGION:note]
-The **Debug Safe Zone** mode is on by default in UMG which enables the red “unsafe” zone area to be represented.
+UMG中的 **除错安全区** 模式默认为启用状态，这样就会呈现红色的“不安全”区域。
 [/REGION]
 
-For some devices, there are now custom “unsafe” zones represented within the Designer graph. These are used to represent hardware or software specific areas of the device that take up screen real estate, such as the iPhoneX where these zones represent the notch and home bar sections of the screen.  
+对于某些设备，现在设计器（Designer）图形中会显示一些自定义“不安全”区域。它们用于表示特定于硬件或软件且占据屏幕实际使用面积的设备区域，例如iPhoneX屏幕上表示黑色凹槽和主页栏的部分。  
 ![](iPhoneXUnsafeZones.png)
 
-In this example of the iPhoneX, the Safe Zone widget is parented to the section of the widget hierarchy where the menu and buttons are contained. When areas are “unsafe,” the encapsulated widgets scale to avoid these areas (see example above).
+在该iPhoneX示例中，安全区控件是控件层级中包含菜单和按钮的部分的子代。当区域为“不安全”区域时，封装的控件将缩放以避开这些区域（参见以上示例）。
 
 ![](SafeZoneHierarchyPanel.png)
 
-## Testing UI in PIE and Standalone Game
+## 在PIE和单机游戏中测试UI
 
-When testing your UI in the Editor, you can set the screen size based on a common device screen size when using PIE with a **New Editor Window** or when using **Standalone Game** without deploying content to a device. Use the **Editor Preferences** to set the device under **Level > Play > Game Viewport Settings** to choose a common device resolution.  
+在编辑器中测试UI时，您可以根据常用设备屏幕尺寸来设置屏幕大小，适用于将PIE与 **新编辑器窗口（New Editor Window）** 配合使用或使用 **单机游戏（Standalone Game）** 而不将内容部署到设备的情况。使用 **编辑器首选项（Editor Preferences）**，在 **关卡（Level）>播放（Play）>游戏视口设置（Game Viewport Settings）** 下面设置设备以选择常用设备分辨率。  
 ![](PIESettings.png)
 
-Use the **Landscape/Portrait Orientation** button to swap which orientation should be used.  
+使用 **横向/纵向（Landscape/Portrait Orientation）** 按钮以在应使用的方向之间切换。  
 ![](PIESettings_SwapOrientation.png)

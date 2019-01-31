@@ -1,0 +1,97 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith でサポートされているソフトウェアとファイル型式
+Description: Datasmith で使用できるすべてのサードパーティ ソフトウェア アプリケーションとデータ形式の詳細について説明します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 3
+Tags: Enterprise
+Tags:Unreal Studio
+Tags: Datasmith
+Tags: Manufacturing
+Tags: Reference
+topic-image:Filetypes_topic.jpg
+
+
+このページでは、Datasmith で使用できるすべてのサードパーティ ソフトウェア アプリケーションとデータ形式について説明します。
+
+次のそれぞれの **ワークフロー タイプ** は、どのようにデザイン アプリケーションの情報をパッケージ化するのかについて示しています。
+
+*   **直接** は、Datasmith がアプリケーションのファイル形式を直接読み取り可能であることを意味します。
+*   **エクスポート** は、Datasmith が Unreal にインポートするには、まずお使いのアプリケーションから特定のファイル形式にコンテンツをエクスポートする必要があることを意味します。アプリケーションに既に組み込まれている Exporter を使用します。
+*   **エクスポート プラグイン** は、Datasmith が Unreal にインポートする形式にデザイン データをエクスポートするためには、アプリケーションに新しいプラグインをインストールする必要があることを意味します。
+
+[REGION:note]
+すべての **エクスポート プラグイン** と Unreal Editor の Datasmith Importer は、Microsoft Windows プラットフォームでのみ使用できます。
+[/REGION]
+
+最後の列の **Importer** では、コンテンツの取り込みに使用する必要のある Datasmith Importer のタイプを示します。 このプロセスに関する詳細は、「[Datasmith コンテンツのインポート](Enterprise/Datasmith/HowTo/ImportingContent)」を参照してください。
+
+## 現在のソフトウェア アプリケーションのサポート
+
+Datasmith では、現在、次のソフトウェア アプリケーションとファイル形式を使用することができます。
+
+  
+| アプリケーションまたはファイル形式 | サポートされている拡張機能 | バージョン | ワークフロー タイプ | ファセット | 境界表現 (BREP) | アセンブリ | Importer |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **AxF \*** | 	.axf (固定車用塗料および SVBRDF モードのみ) | `--` | 直接 | `--` | `--` | `--` | MDL |
+| **3D ACIS** | .sat | R21 まで | 直接 | × | 〇 | 〇 | CAD |
+| **3DXML** | .3dxml | FS 2.0 | 直接 | × | × | × | CAD |
+| **Autodesk 3ds Max** | .udatasmith | 2016、2017、2018、2019 | エクスポート プラグイン| 〇 | × | 〇 | Datasmith |
+| **Autodesk Inventor** | .iam、.ipt | 2018 まで | 直接 | × | 〇 | × | CAD |
+| **Autodesk VRED \*** | .fbx | VRED Professional 2018 および 2019 | エクスポート プラグイン | 〇 | × | 〇 | VRED Fbx |
+| **CADDS** | .gbf |  4 & 5 | 直接 | × | 〇 | 〇 | CAD |
+| **CATIA V5** | .catpart、.catproduct、.cgr | R10～R24 | 直接 | × | 〇 | 〇 | CAD |
+| **Deltagen \*** | .fbx (CSB はサポートされていない) | 2017、2018 | エクスポート | 〇 | × | 〇 | 	Deltagen Fbx |
+| **ESRI CityEngine** | .udatasmith	 | `--` | 	エクスポート プラグイン | `--` | `--` | `--` | Datasmith |
+| **I-DEAS** | unv | NX6 まで | 直接 | × | 〇 | 〇 | CAD |
+| **Initial Graphics Exchange Specification (IGES)** | .iges、.igs	 | 5.2、5.3 | 直接 | × | 〇 | 〇 | CAD |
+| **JT Open** | .jt | 10 まで | 直接 | 〇 | 〇 | 〇 | CAD |
+| **MDL** | .mdl | 2018 | 直接 | `--` | `--` | `--` | MDL |
+| **Parasolid (x_t)** | .x_t | 20 まで | 直接 | × | 〇 | × | CAD |
+| **PTC Creo (Pro/ENGINEER)** | .asm.1、.neu、.prt.1 | V13 ～ Creo 4 | 直接 | 〇 | 〇 | 〇 | CAD |
+| **Rhinoceros** | .3dm | 	 6 まで | 直接 | × | 〇 | × | CAD |
+| **ROBCAD** | .rf | `--` | 直接 | 〇 | 〇 | 〇 | CAD |
+| **Siemens NX** | .prt | V11～NX9 | 直接 | × | 〇 | 〇 | CAD |
+| **Trimble SketchUp Pro** | .udatasmith | 2017、2018 | エクスポート プラグイン | 〇 | × | 〇 | Datasmith |
+| **SolidWorks** | .sldasm、.sldprt | 2017 まで | 直接 | × | 〇 | 〇| CAD |
+| **STEP** | .step | AP203、AP214、AP242 | 直接 | 〇 | 〇 | 〇 | CAD |
+
+[REGION:note]
+\* は、Datasmith Plus ライセンスでのみ使用できます。 詳細は、[こちら](https://www.unrealengine.com/en-US/enterprise/contact-us)までお問い合わせください。
+[/REGION]
+
+## 予定されているソフトウェア アプリケーションのサポート
+
+この表では、中長期的に Datasmith でのサポートを予定している追加のソフトウェア アプリケーションとデータ形式がリストされています。 通常通り、サポートの優先順位はコミュニティからのフィードバックやニーズによって決定されます。組織にとって重要なアプリケーションや形式がある場合は、是非[お知らせください。](https://forums.unrealengine.com/unreal-engine/unreal-studio) 
+
+  
+| ファイル形式 | サポートされている拡張機能 | バージョン | ワークフロー タイプ | ファセット | 	境界表現 (BREP) | アセンブリ |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Alias Wire \*** | .wire | `--` | 	直接 | 〇 | 〇 | 〇 |
+| **AutoCAD** | .dwg | `--` | 直接 | 〇 | × | 〇 |
+| **Autodesk Maya** | `--` | `--` | `--` | 〇 | × | 〇 |
+| **Autodesk Revit** | .udatasmith | 2016、2017、2018 | エクスポート プラグイン |  × | 〇 | 〇 |
+| **Cinema 4D** | .c4d | `--`| 	エクスポート プラグイン | 〇 | × | 〇 |
+| **STL** | 	.stl | `--` | 	直接 | 〇 | × | × |
+| **VRML** | .vrml | 97、97zip | 直接 | 〇 | 〇 | 〇 |
+
+## Unreal Engine で直接サポートされている形式
+
+Unreal Engine では、FBX ファイルのインポートおよびエクスポートのビルトイン サポートを提供しています。
+
+これらの FBX ベースのワークフローは、個々のオブジェクト操作に重点を置く事の多いゲームの要件をサポートできるように最適化されています。 一方、Datasmith はシーン全体に取り込みを行うため、数千のオブジェクトを含む可能性があり、各オブジェクトが幅広いソースのマテリアル、ピボット、スケール、階層、およびメタデータを含みます。 ただし、必要に応じて FBX インポート パイプラインを自由に使用できる必要があります。 たとえば、Unreal レベルで Datasmith コンテンツを補強するために使用する追加の装飾設定の一部をインポートするために使用する場合などがあります。
+
+詳細は、[「FBX コンテンツ パイプライン」](Engine/Content/FBX)を参照してください。  
+
+[REGION:note]
+Unreal Engine バージョン 4.19 では、glTF 形式のインポートについて、実験的なサポートを導入しています。 これもオブジェクト ベースのワークフローに最適化されており、Datasmith のシーン転送と比較するとさまざまな制限があるものの、一部のケースでは役に立つ可能性があります。 この機能を試すには、**[Edit (編集)] > [Plugins (プラグイン)] > [Importers]** に移動して、glTF Importer プラグインを有効にし、エディタを再起動します。
+[/REGION]
+
+## 後方互換性
+
+Unreal Studio はオープン ベータ段階です。そのため、新機能追加を目的として Datasmith ファイル形式や Importer プラグインの動作が随時変更される可能性があります。 この間は、Unreal のすべてのバージョンと Datasmith エクスポート プラグインのすべてのバージョンとの後方互換性が保証されません。 エクスポート プラグインの旧バージョンで生成された  *.udatasmith* ファイルを新しいバージョンの Unreal Engine にインポートすることはできるものの、バージョンによってはお勧めしません。 
+
+エクスポートされたファイルで使用する必要のある Unreal Engine および Datasmith プラグインのバージョンと一致するエクスポート プラグインを必ず使用してください。 Unreal Studio を最大限利用し、Datasmith の最新の修正プログラムと機能を活用するには、できる限り常に最新のバージョンのエクスポート プラグインと Unreal Engine を使用することをお勧めします。

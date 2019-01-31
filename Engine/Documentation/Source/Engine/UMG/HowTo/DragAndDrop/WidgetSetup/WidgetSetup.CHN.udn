@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3478014
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.控件设置
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -36,6 +36,7 @@ type:how-to
 在这步中，我们将决定何时按下鼠标左键，并保存其在屏幕空间中按下的位置。 
 我们还使用 **DetectDragIfPressed** 确定玩家是否通过特定的键进行拖动。 
 
+(#Steps)
 ## 步骤
 
 1.	打开 **HealthBar** 控件蓝图并删除 **Hierarchy** 窗口中的 **Canvas Panel**。 

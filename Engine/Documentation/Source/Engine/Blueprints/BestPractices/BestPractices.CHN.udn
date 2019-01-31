@@ -1,43 +1,12 @@
-﻿INTSourceChangelist:2974295
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:蓝图最佳方法
+Title:蓝图最佳实践
 Crumbs:%ROOT%, Engine/Blueprints
 Description:蓝图的使用时机、最佳设置方法的提示和技巧。
 version:4.9
 parent:Engine/Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Engine/Blueprints/BestPractices_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![](Engine/Blueprints/BestPractices_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:BestPractices_Topic.png
 
 [TOC(start:2)]
 
@@ -50,6 +19,7 @@ parent:Engine/Blueprints
 
 即使您的功能非常适合于蓝图，在实际的蓝图设置过程中仍然会面临一些决定，这些决定将使过程更加顺畅。此指南将讲述部分常见决定，以及对蓝图使用者的提示和技巧。
 
+(#LevelBlueprintsvs.BlueprintClasses)
 ## 关卡蓝图 vs. 蓝图类
 
 使用过 UE3 Kismet 的使用者不会关卡蓝图感到陌生，因为可在关卡中直接选择物体并进行操作。它们适合于创建一次性原型和熟悉蓝图系统，但只限定于它们使用中的关卡。这意味着关卡蓝图非常利于对关卡限定的功能，或其中的 Actor 进行设置。在一些范例中，触碰到特定开关时将启动过场，或在消灭所有敌人后打开一扇特定的门。
@@ -63,6 +33,7 @@ parent:Engine/Blueprints
 * [](Engine\Blueprints\UserGuide\Types\LevelBlueprint)
 * [](Engine\Blueprints\UserGuide\Types\ClassBlueprint)
 
+(#ClassVariablesvs.LocalVariables)
 ## 类变量 vs. 本地变量
 
 在蓝图中进行工作时，可使用 [](Engine\Blueprints\Editor\UIComponents\MyBlueprint) 标签添加 [变量](Engine\Blueprints\UserGuide\Variables)。在函数中可看到 **本地变量** **My Blueprint** 标签下的额外部分。
@@ -73,6 +44,7 @@ parent:Engine/Blueprints
 
 需要从蓝图中多处进行访问的内容即为类变量。因此，诸如对网格体或其他组件的引用，或需要公开以便从其他蓝图访问的变量等均为类变量。使用之后您便会对其留下深刻印象。
 
+(#Functionsvs.Macros)
 ## 函数 vs. 宏
 
 **函数** 和 **宏** 两者在外部完成相同目标：它们发送输入到节点，事件发生，然后进行输出。它们以两种不同方式进行，但也存在一些共性：
@@ -101,14 +73,17 @@ parent:Engine/Blueprints
 * [](Engine\Blueprints\UserGuide\Functions)
 * [](Engine\Blueprints\UserGuide\Macros)
 
+(#BlueprintCommunicationTypes)
 ## 蓝图通信类型
 
 两个蓝图之间存在几种不同通信方法。最常见的使用情况是直接蓝图通信，有时需要实现的功能意味着您将使用事件分配器或蓝图接口替代。如需了解每种通信类型的概览、使用情况范例，以及上手教程，请查阅 [](Engine\Blueprints\UserGuide\BlueprintCommsUsage)。如需创建使用三种类型的项目，请查阅 [](Engine/Blueprints/HowTo) 指南。
 
 
 
+(#GeneralTip)
 ## 常规提示
 
+(#WorkingintheBlueprintEditor)
 ### 在蓝图编辑器中工作
 
 在蓝图编辑器中工作时，可通过几种技巧寻找到需要使用的节点，以及已创建的节点和注释。
@@ -125,6 +100,7 @@ parent:Engine/Blueprints
 
 	![](search_rotate.png)
 
+(#SettingUpYourGraph)
 ### 设置图表
 
 每个人的图表设置偏好均不相同，以下提示可助您对内容进行组织，易于使用。

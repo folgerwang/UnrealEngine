@@ -1,79 +1,68 @@
-﻿INTSourceChangelist:2862698
+﻿INTSourceChangelist:4309130
 Availability:Public
-Title:力反馈
-Crumbs:
-Description:使用移动设备和控制器的震动功能将游戏中的力传达给玩家。
+Title: 力反馈与力反馈组件
+Crumbs:%ROOT%
+Description: 使用移动设备和控制器的震动功能将游戏中的力传达给玩家。
 Parent:Gameplay
+Order:
+Related: Engine/Blueprints/UserGuide/Components
+Related: Engine/UI/CurveEditor
+Related: Engine/Blueprints/UserGuide/Timelines/KeysAndCurves
+version: 4.15
+type:overview
+tags:Gameplay
+topic-image: force_feedback_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Gameplay/ForceFeedback:title%](Gameplay/ForceFeedback/force_feedback_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Gameplay/ForceFeedback:title%
-	[/PARAM]
-	[PARAM:description]
-		%Gameplay/ForceFeedback:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Gameplay/ForceFeedback]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[toc(start:1 end:2)]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Gameplay/ForceFeedback:title%](Gameplay/ForceFeedback/force_feedback_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Gameplay/ForceFeedback:title%
-	[/PARAM]
-	[PARAM:description]
-		%Gameplay/ForceFeedback:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Gameplay/ForceFeedback]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[EXCERPT:WhatIsForceFeedback]
+力反馈有时也被称作“轰隆声”或控制器震动，其表达的是设备（如游戏手柄或控制器）的震动。通常用于将游戏中的力传达给玩家。简单举例来说，游戏中发生爆炸时，力反馈将用于模拟冲击波，使玩家的体验更上一层楼。
+[/EXCERPT:WhatIsForceFeedback]
 
-[TOC]
+实现后，力反馈可在支持其的所有平台上使用。其中包含iOS（从4.10开始支持）、Android，以及控制器。
 
-**力反馈（Force Feedback）** 指的是游戏设备或控制器通过震动将游戏中的力传达给玩家。举一个简单的例子：游戏中发生爆炸，力反馈用于模拟冲击波，形成另一个层面的代入感。
-
-应用之后即可在支持的所有平台上实现力反馈。支持平台包括 iOS（从 4.10 起）、安卓，以及各种控制器。
-
+(#forcefeedbackeffectassets)
 ## 力反馈效果资源
 
-**力反馈效果资源（Force Feedback Effect Asset）** 包含用于定义特定力反馈效果的属性。设计师可通过它自定义不同状况下的力反馈。
+**力反馈效果资源** 包含用于定义特定力反馈效果的属性。这使得设计师能够针对不同的使用情况来自定义力反馈效果。
 
 ![image alt text](image_0.png)(w:640 convert:false)
 
-每个力反馈效果可拥有多个通道，每个通道可拥有不同效果。例如：一个通道是控制器右侧长时间的强烈震动，而另一个通道是控制器左侧短促的轻微震动。每个通道效果的模式由曲线进行控制。
+每个力反馈效果可拥有多个通道，每个通道可以播放不同效果。举例而言，一个通道可以在控制器右侧产生强烈而长时间的震动，而另一个通道可以在左侧产生轻微而短促的震动。每个通道的模式由曲线控制。在此处点击右键即可编辑此曲线，或在曲线的图表中双击打开内部曲线编辑器。
 
-力反馈效果的持续时间基于所有通道曲线中最后一个键的位置自动进行计算。例如三个通道中最后一个键的位置分别为 1.25、1.5 和 1.75，则整体效果的持续时间为 1.75。
+![Internal Curve Editor](CurveEditor.png)
 
+[REGION:tip]
+如需了解曲线、键、创建外部曲线资源和使用曲线编辑器的信息，请查阅[](Engine/UI/CurveEditor/)和[](Engine/Blueprints/UserGuide/Timelines/KeysAndCurves/)页面。
+[/REGION]
+
+力反馈效果的时长为自动计算，以所有通道曲线中上个键的位置为基础。举例而言，如存在3个通道，每个通道的上个键分别位于1.25、1.5和1.75，则整体效果的长度将是1.75。
+
+(#channelproperties)
 ### 通道属性
 
 以下通道属性控制通道效果的播放方式。
 
 | 项目 | 描述 |
 | ---- | ----------- |
-| **Affects Left Large** | 如为 true，将使用左侧大马达播放效果。|
-| **Affects Left Small** | 如为 true，将使用左侧小马达播放效果。|
-| **Affects Right Large** | 如为 true，将使用右侧大马达播放效果。|
-| **Affects Right Small** | 如为 true，将使用右侧小马达播放效果。|
-| **Curve** | 随时间控制效果强度的曲线。换言之，它定义震动的模式。数值高于 0.5，则出现震动；数值低于 0.5 时不会出现震动。|
+| **Affects Left Large** | 如为true，将使用左侧大马达产生效果。 |
+| **Affects Left Small** | 如为true，将使用左侧小马达产生效果。 |
+| **Affects Right Large** | 如为true，将使用右侧大马达产生效果。 |
+| **Affects Right Small** | 如为true，将使用右侧小马达产生效果。 |
+| **Curve** | 随时间控制效果强度的曲线。换言之，此项将定义震动的模式。值大于0.5将产生震动，值小于0.5则不震动。 |
 
+(#creatingaforcefeedbackeffectasset)
 ## 创建力反馈效果资源
 
 使用 **内容浏览器** 创建力反馈效果资源：
 
-1. 在 **内容浏览器** 中点击 **Add New** 并选择 **Miscellaneous > Force Feedback Effect**。资源默认包含一个通道，但可进行添加。
+1. 在 **内容浏览器中**，点击 **新增** 并选择 **杂项 > 力反馈效果**，并打开刚创建的资源。
 
-1. 选择力反馈效果影响设备的左侧和/或右侧，以及每侧的强弱。
+	![](CreateForceFeedbackEffect.png)
+
+1. 资源默认包含一个通道，但可以进行添加。可为每个通道选择其将影响的4个输出组合。
+
+	![](FFChannels.png)
 
 1. 长按 **Shift** 并在曲线上点击 **鼠标左键** 添加一个或多个键。
 
@@ -82,20 +71,32 @@ Parent:Gameplay
 1. 直接输入键的值，或将键拖入曲线编辑器中进行操作。
 
 	[REGION:note]
-	和其他曲线编辑器不同的是，此处的键只能以直线连接。 
+	如需调整键之间的曲线，在曲线片段上点击右键修改其曲线函数，然后以常规方法调整切线行。
 	[/REGION]
 
+(#playingforcefeedback)
 ## 播放力反馈
 
-力反馈在基础 PlayerController 类中实现。需要访问本地 Player Controller，以便在目标设备或控制器上播放力反馈。
+(#previewineditor)
+### 在编辑器中预览
 
-**在蓝图中播放力反馈：**
+将鼠标悬停在力反馈效果图标的中央时将出现“播放”按钮，点击即可在编辑器中预览力反馈效果。
+
+![](PreviewForceFeedbackEffect.png)
+
+(#directlytoaplayer)
+### 直接向玩家播放
+
+力反馈在。需要访问本地 `Player Controller` 类，以便在目标设备或控制器上播放力反馈。使用者需要访问到本地玩家控制器才能在目标设备或控制器上播放力反馈。
+
+(#playingforcefeedbackinblueprints)
+#### 在蓝图中播放力反馈
 
 1. 通过 **Get Player Controller** 节点或保存的引用为玩家控制器设置一个引用。
 
 	![](effect_controller.png)(w:640)
 
-1. 从引用的输出引脚引出连线，然后在快捷菜单中输入 _Play Force Feedback_，然后选择 **Client Play Force Feedback**。
+1. 从引用的输出引脚引出连线，然后在快捷菜单中输入 `播放力反馈`，然后选择 **客户端播放力反馈**。
 
 	![](effect_play.png)(w:640)
 
@@ -107,16 +108,22 @@ Parent:Gameplay
 
 	![](effect_select.png)(w:640)
 
-1. 如需循环效果，勾选 **Looping**。
+1. 如需循环效果，则勾选 **循环**。
 
 	![](effect_looping.png)(w:640)
 
-1. 还可为效果设置一个标签。通过标签可停止效果；如带有相同标签的效果已在播放，它将停止播放此效果并播放新的效果。
+1. 可选择通过“标签”域为效果设置一个特殊命名。可使用此功能停止播放效果；如拥有相同命名的效果已在播放，它将停止播放此效果并播放新效果。
 
 	![](effect_tag.png)(w:640)
 
-**在 C++ 中播放力反馈：**
+(#playingforcefeedbackinc++)
+#### 在C++中播放力反馈
 
-在本地 Player Controller 上调用 [](API:APlayerController::ClientPlayForceFeedback)、传递使用的力反馈效果、确定效果是否循环，并为效果选择一个标签。通过标签可停止效果；如带有相同标签的效果已在播放，它将停止播放此效果并播放新的效果。
+在本地玩家控制器上调用 `ClientPlayForceFeedback`，传递要使用的力反馈效果、效果是否循环，以及效果的可选命名。如果提供了命名，且拥有相同命名的另一个力反馈效果在原始效果结束之前播放，原始效果将立即停止播放，转而播放新效果。
 
+(#ataworldlocation)
+### 在场景位置处
 
+如需播放一个基于观察玩家距离改变强度的力反馈效果，则在场景中效果预期的源处放置一个 **力反馈组件**。其根据命令播放力反馈效果，但也在场景中拥有一个物理位置。与音效和光源类似，玩家感受到的力强度将随玩家和源之间的距离（根据数据定义的衰减设置）而改变。
+
+可通过常规代码或蓝图编辑器法将力反馈组件附加到任意actor，但实时游戏进程中需要时也可将其添加。操作方法为调用效用函数 `UGameplayStatics::SpawnForceFeedbackAtLocation`（在给定场景位置处生成）或 `UGameplayStatics::SpawnForceFeedbackAttached`（来附加到特定的预先存在组件）。这些函数将返回生成的力反馈组件，因此使用者可以继续进行操纵。然而，如果组件播放完效果后已无作用，则可使用“自动销毁（Auto Destroy）”选项来使其在效果结束后自动移除。

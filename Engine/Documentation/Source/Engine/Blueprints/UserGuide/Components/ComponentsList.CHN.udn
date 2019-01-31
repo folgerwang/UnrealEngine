@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2000000
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:组件
-Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide
-Description: 组件的可编辑层次结构，这些组件一创建就可以添加到蓝图中。
+Title:组件窗口
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
+Description:简述在蓝图中的组件窗口内使用组件。 
 Related: Engine/Blueprints/UserGuide/Graphs
 Related: Engine/Blueprints/UserGuide/Variables
 Related: Engine/Blueprints/UserGuide/Events
@@ -10,186 +10,250 @@ Related: Engine/Blueprints/UserGuide/Functions
 version: 4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Components
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Components/componentslist_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Components:title%](Engine/Blueprints/UserGuide/Components/componentslist_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Components:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Components:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Components]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Components:title%](Engine/Blueprints/UserGuide/Components/componentslist_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Components:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Components:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Components]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC (start:2 end:2)]
 
 [INCLUDE:Shared\Glossary\C#glossary_component]
 
 [REGION:note]
-For more information on Components, please see the [Components Overview](Engine\Components) documentation. 
+有关组件（Components）的更多信息，请参阅[组件概述](Engine\Components)文档。 
 [/REGION]
 
 
 
 
-## 组件窗口
+(#componentswindow)
+
+## 组件（Components）窗口
 
 [EXCERPT:Intro]
- **Components（组件）** 面板允许组件一创建就添加到 _蓝图_ 上。这提供了一种方法，使得可以通过 `CapsuleComponents` 、 `BoxComponents` 或 `SphereComponents` 来添加 
-碰撞几何体， 
-可以通过  `StaticMeshComponents` 或 `SkeletalMeshComponents` 的形式添加渲染几何体， 
-通过使用  `MovementComponents` 控制运动等。您还可以将添加到 **Components（组件）** 列表中的组件， 
-分配给这个蓝图或其他 _蓝图_ 中用于访问这些组件的实例变量。
+了解组件（Components）后，**蓝图编辑器（Blueprint Editor）** 中的 **组件（Components）** 窗口允许您将组件添加到蓝图。这提供了以下方法： 
+通过胶囊组件（CapsuleComponent）、盒体组件（BoxComponent）或球体组件（SphereComponent）添加碰撞几何体， 
+以静态网格体组件（StaticMeshComponent）或金属网格体组件（SkeletalMeshComponent）形式添加渲染几何体， 
+使用移动组件（MovementComponent）控制移动。还可以将组件（Components）列表中添加的组件 
+指定给实例变量，以便您在此蓝图或其他蓝图的图表中访问它们。
 [/EXCERPT:Intro]
-
 
 [EXCERPT:Main]
 
 ![](components_pane.png)
 
 
+
+(#addingcomponents)
+
 ## 添加组件
 
-要想在 **组件** 列表中向 _蓝图_ 添加一个组件：
+从 **组件（Components）** 窗口将组件添加到蓝图：
 
-1.	从该下拉列表中选择您想添加的组件类型，比如一个 **`CameraComponent（相机组件）`**  。
+1.	从下拉列表中选择要添加的组件类型，即_CameraComponent_。
 
-![](add_new_component_list.png)
+	![](add_new_component_list.png)
 
-1.	按下  ![Blueprint - Add Component Button](k2_button_component.png) 按钮来添加此新组件。
+1.	从列表中选择组件后，您将收到要求您输入组件名称的提示。 
 
-	![](add_new_component_button.png)
+	![](nameComponent.png)
+	
+您还可以通过从 **内容浏览器（Content Browser）** 将资源拖放到 **组件（Components）** 窗口来添加组件。 
 
-
-要想通过拖拽并放置方式来添加一个组件：
-
-组件也可以这样进行添加，即通过从内容浏览器中拖拽  _StaticMesh_ 、 _SoundCue_ 、 _SkeletalMesh_ 和 _ParticleSystem_ 资源并将其放置到 
-组件列表中。
-
-[REGION:fullwidth]
 ![](drag_asset_components_list.png)
+
+[REGION:note]
+此方法适用的资源包括：静态网格体（StaticMesh）、声音提示（SoundCue）、骨架网格体（SkeletalMesh）和粒子系统（ParticleSystem）。 
 [/REGION]
 
-## 删除组件
+(#removingcomponents)
 
-要想从 **Components（组件）** 列表中删除一个组件，仅需简单地右击该组件的名称并选择 **Delete（删除）** 即可。
+## 移除组件
+
+若要从 **组件（Components）** 窗口移除组件，请 **右键单击** 组件名称并选择 **删除（Delete）**。
 
 ![](delete_component.png)
 
+[REGION:tip]
+您还可以在窗口中选择组件并按 **删除（Delete）** 键来移除它。 
+[/REGION]
+
+
+(#transformingcomponents)
+
+## 变形组件
+
+当组件被添加到关卡中的实例时，它将被默认放置在该实例的位置。但是，它们可以根据需要在 **细节（Details）** 面板或 **视口（Viewport）** 中进行变形、旋转和缩放，其方法与您可以[变形actor](GettingStarted/HowTo/ManipulatingActors)的方法类似。 
+
+您可以通过在 **组件（Components）** 窗口中单击组件名称或在 **视口（Viewport）** 中之间单击组件来选择要变形的组件。在 **视口（Viewport）** 中变形、旋转和缩放组件时，按住 **Shift** 以启用捕捉。该捕捉要求 **关卡编辑器（Level Editor）** 中启用捕捉，并使用 **关卡编辑器（Level Editor）** 中的 **捕捉网格（Snap Grid）** 设置（请参阅[](Engine/UI/LevelEditor/Viewports/ViewportToolbar)了解有关网格捕捉（Grid Snapping）的更多信息）。
+
+您还可以在 **细节（Details）** 面板中为选定组件输入 **位置（Location）**、**旋转（Rotation）** 和 **缩放（Scale）**的精确值。
+
+![](transform_details.png)
+
+[REGION:note]
+变形、旋转或缩放父组件同样会将变形向下传播到所有子组件。
+[/REGION]
+
+(#componentassets)
+
 ## 组件资源
 
-要想把一个资源分配给 **组件列表** 中的一个组件：
-
-1.	在内容浏览器中，选择要分配的资源。该资源类型必须和组件类型 
-相兼容。
-
-![](selected_asset.png)
-
-1.	在 **组件** 面板中，选择您想将该资源赋予的组件。该组件的详细信息将会出现在 **详细信息** 面板中。
-
-按下 **详细信息** 面板的 **[Asset(资源)]** 部分中的   ![Blueprint - Use Asset Button](k2_button_use_scs.png)   
-按钮。这样该资源就分配给了该组件。
-
-![](copy_asset.png)
+添加组件后，您可能需要指定占用组件的资源（例如为静态网格体组件（StaticMeshComponent）指定一个静态网格体使用）。有几种不同的方法可以用来为组件类型指定资源，如下所述。 
 
 
-要想清除已分配给组件的资源：
+(#assigningcomponentassets)
 
-1. 点击 **详细信息** 面板的 **[资源]** 部分中的 **Current Asset（当前资源）** 下拉菜单。	
+### 指定组件资源
 
-	![Current Asset Dropdown](asset_dropdown.png)
+若要在**组件（Components）** 窗口中将资源指定给组件： 
 
-1. 在出现的菜单中选择 **Current Asset（当前资源）** 下的 **Clear（清除）** 选项。
+1. 选择组件（Component）后，在 **细节（Details）** 面板中找到组件类型对应的部分。 
+	
+	[REGION:raw]
+	![](emptyComponent.png)
+	[/REGION]
 
+	上面我们添加了一个静态网格体组件（StaticMeshComponent），我们将在 **静态网格体（StaticMesh）** 下指定要使用的资源。
+
+1. 单击 **静态网格体（Static Mesh）** 下拉框，然后从上下文菜单中选择要使用的资源。 
+
+	[REGION:raw]
+	![](selectComponentList.png)
+	[/REGION]
+
+另一种指定资源的方法可以使用 **内容浏览器（Content Browser）** 完成。 
+
+1.	在 **内容浏览器（Content Browser）** 中选择您想要指定为与组件一起使用的资源的资源。 
+
+	![](selected_asset.png)
+
+1. 选择 **组件（Component）** 后，在 **细节（Details）** 面板中找到组件类型对应的部分。 
+
+	[REGION:raw]
+	![](emptyComponent.png)
+	[/REGION]
+
+	上面我们添加了一个静态网格体组件（StaticMeshComponent），我们将在 **静态网格体（StaticMesh）** 下指定要使用的资源。 
+
+1.	因为在 **内容浏览器（Content Browser）** 中已有一个资源被选中，请勿单击 **静态网格体（Static Mesh）** 框，而应单击![](k2_button_use_scs.png)按钮。 
+
+	![](copy_asset.png)
+
+	这会将在 **内容浏览器（Content Browser）** 中选择的资源作为组件中要使用的资源。 
+
+(#removingcomponentassets)
+
+### 移除组件资源
+
+若要从组件中移除指定资源：
+
+1.	在组件的 **细节（Details）** 面板中，单击当前指定资源旁边的![](resetButtonIcon.png)按钮。 
+
+	[REGION:raw]
+	![](resetAssetButton.png)
+	[/REGION:raw]
+
+1.	或者，单击资源的 **当前资源（Current Asset）** 框，然后从上下文菜单中选择 **清除（Clear）**。 
+
+	[REGION:raw]
 	![Clear](clear_asset.png)
+	[/REGION:raw]
 
-该已分配的资源会被清除。
-
-![Blueprint - Asset Cleared](cleared_asset.png)
-
-
-要想在内容浏览器中浏览已分配的资源。
-
-1.	按下 **详细信息** 面板的 **[Asset(资源)]** 部分中的 ![Blueprint - Browse Asset Button](k2_button_browse_scs.png) 
-按钮。内容浏览器将会打开并显示了已分配的资源，且该资源处于选中状态。
-
-![](lookup_asset.png)
-
-![](opened_content_browser.png)
+	在这两种方法中，资源都将作为指定给组件的对象而被删除。 
 
 
+(#browsingtocomponentassets)
 
+### 浏览至组件资源
 
-## 重命名组件实例变量
+您还可以浏览至组件的当前指定资源，跳转至 **内容浏览器（Content Browser）** 并在其中进行定位： 
 
-**组件列表** 中创建的组件将会具有一个基于其类型自动生成的变量名称。要想修改这些变量的名称：
+1.	在组件的 **细节（Details）** 面板中，按下当前指定资源旁边的![Blueprint - Browse Asset Button](k2_button_browse_scs.png)按钮。 
 
-1. 在 **组件列表** 中选择该变量，其详细信息将出现在 **Details（详细信息）** 面板中。
+	![](lookup_asset.png)
 
+1.	打开 **内容浏览器（Content Browser）**，显示选定的指定资源。
+
+	[REGION:raw]
+	![](selected_asset.png)
+	[/REGION:raw]
+
+		
+(#renamingcomponentinstancevariables)
+
+## 重命名组件示例变量
+
+在 **组件（Components）** 窗口中创建的组件将根据其类型自动生成实例变量名称。  
+
+若要更改这些变量的名称：
+
+1. 在 **组件（Components）** 窗口中选择组件，其细节将随即显示在 **细节（Details）** 面板中。
+
+	[REGION:raw]
 	![](new_component_details.png)
+	[/REGION:raw]
 
-1. 在 **详细信息** 面板的 **组件** 部分的  **Variable Name（变量名称）** 文本域中，为该变量输入一个新名称。
+1. 在 **细节（Details）** 面板的 **变量名称（Variable Name）** 字段中输入组件的新名称，并按 **Enter** 确认。 
 
-	![](named_new_component.png)
+	[REGION:tip]
+	您可以通过在 **组件（Components）** 窗口中选择一个组件然后按下 **F2** 来快速重命名此组件。 
+	[/REGION]
 
 	
-## 组件事件和函数
+(#componenteventsandfunctions)
 
-根据组件类型的不同，您可以基于它们在事件图表中添加事件 和/或 函数。比如，另一个actor(比如一个Pawn)穿过 Box Component时,该Box Component可以有一个Overlap事件。以这种方式创建的任何事件或函数都是针对那个特定函数的，不必测试来确认它所涉及的组件。
+## 组件事件和功能
 
+您可以通过不同的方法将基于组件的事件和/或功能快速添加到蓝图的 **事件图表（Event Graph）** 中。以这种方式创建的任何事件或功能都是特定于该特定功能，不需要经过测试来验证所涉及的组件。
 
-创组件事件非常简单，如下所示：
-
-1. 创建一个可以为其创建事件的组件。在这个示例中，我们使用一个BoxComponent(盒体组件)。
+1. 添加可以为其创建事件的组件，例如盒体组件（BoxComponent）。
 
 	![](AddBoxComponent.png)
 
-1. 为您的组件提供一个名称 - 这会为其创建一个变量。
+1. 为您的组件提供一个名称，这里我们将其称为触发器（Trigger）。 
 
 	![](NamedBoxComponent.png)
 
-1. 在 **Variables(变量)** 选卡中，选择该新变量。
+1. 在 **细节（Details）** 面板中，单击 **添加事件（Add Event）** 按钮并选择所需的事件类型。 
 
-	![](SelectBoxComponent.png)
+	![](AddEventButton.png)
+
+	您还可以在 **组件（Components）** 窗口中 **右键单击** 组件，并从 **添加事件（Add event） ** 上下文菜单中选择事件。 
+
+	[REGION:raw]
+	![](RightClickAddEvent.png)
+	[/REGION:raw]
+
+1. 无论采用哪种方式，都会将一个新的事件节点（基于选定类型）添加到 **事件图表（Event Graph）**，该图表将自动打开。 
+
+	![](EventAdded.png)
+
+
+您还可以通过 **我的蓝图（My Blueprint）** 窗口从 **事件图表（Event Graph）** 为组件添加事件和功能： 
+
+1. 在 **我的蓝图（My Blueprint）** 窗口中，在 **组件（Components）** 下，选择您的组件。 
 	
-1. 在 **图表** 选卡中，右击弹出关联菜单。如果该组件有任何相关联的事件或函数，都会在顶部列出这些事件或函数。
+1. 在图表中 **右键单击** 以弹出上下文菜单。 
 
+	[REGION:raw]
 	![](EventsAndFunctionsArea.png)
+	[/REGION:raw]
 
-	在这个示例中，我们添加了一个 Overlap事件，每当有actor穿过这个Box Component体积时都会调用该事件。
+	如果组件有任何关联的事件或功能，它们将被列于顶部。
 
+	[REGION:note]
+		并非所有组件都有关联的事件。例如，点光源组件（PointLightComponent）只包含功能。
+	[/REGION]
 
+	您还可以在 **我的蓝图（My Blueprint）** 窗口中 **右键单击** 组件，以访问 **添加事件（Add Event）** 上下文菜单。 
 
-[REGION:note]
-	不是所有的组件都有相关联的事件。比如，一个Point Light Component(点光源组件)仅具有函数。
-[/REGION]
+	[REGION:raw]
+	![](RightClickMyBlueprint.png)
+	[/REGION:raw]
 
 [/EXCERPT:Main]
+
+
+
+
+

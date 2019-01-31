@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability: Public
-Title: 1 - Configuring Qt Creator to Build UE4
+Title: 1 - 配置Qt Creator以构建UE4
 Crumbs:%ROOT%
-Description:Learn how to configure your IDE to build UE4 in Debug and Release mode.
+Description:学习如何配置您的集成开发环境（IDE），在调试和发布模式中构建虚幻引擎4（UE4）。
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -12,152 +12,145 @@ SkillLevel:Beginner
 
 [NAV]
 
-While some developers like to use text editors and command line debuggers to modify their game's source code, most developers 
-prefer to use an Integrated Development Environment (IDE) to edit, debug, and compile their code. If you're a game developer looking to set up 
-an IDE to work with Unreal Engine 4 (UE4) in a Linux environment, this guide is for you. 
+尽管一部分开发者喜欢使用文本编辑器和命令行调试器来修改游戏源代码，但绝大多数开发者倾向于使用集成开发环境（IDE）来编辑、调试和编译代码。如果您从事游戏开发并希望设置IDE以在Linux环境中与虚幻引擎4（UE4）一起工作，本指南非常适合您。
 
-Although we recognize that chosing an IDE is a matter of individual preference, we've configured UE4 to interface with three IDEs in Linux; 
-specifically, Qt Creator, KDevelop, and Codelite. We don't endorse one IDE over another; however, as an example for learning purposes, we've chosen to 
-show you how to configure Qt Creator to build and run UE4. By the end of this guide, you'll know how to configure your IDE to build and run UE4. Finally, 
-you'll also learn how to set up the IDE to build and run new C++ (CPP) projects that you create from the Unreal Editor.
+尽管我们承认选择使用哪个IDE完全取决于个人偏好，但是我们还是对UE4进行了配置，使其可在Linux中与三款IDE交互，具体来说，即Qt Creator、KDevelop和Codelite。我们并不优先支持其中的任何一款，仅出于示例及便于学习的目的选择介绍如何配置Qt Creator以构建和运行UE4。学习完本指南之后，您将掌握如何配置IDE以构建和运行UE4。最后，您也将掌握如何设置IDE以构建和运行在虚幻编辑器中创建的新C++（CPP）项目。
 
 [REGION:note]
-Before we begin, please make sure that you've already set up your workflow using our [](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow). Also, please make sure that [Qt Creator](https://wiki.qt.io/Install_Qt_5_on_Ubuntu) is
- installed on your machine.
+开始之前，请确保您已按照[](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow)中的说明设置了工作流。另外，请确保已在计算机上安装了[Qt Creator](https://wiki.qt.io/Install_Qt_5_on_Ubuntu)。
+
 [/REGION]
 
-1.	Launch Qt Creator, opening the **Qt Welcome** menu.  
+1. 	启动Qt Creator，打开 **Qt欢迎（Welcome）** 菜单。  
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step1.png)(w:720)](SetupIDE_Step1.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Click the **Open Project** button to open the Qt Project file browser.  
+1. 	单击 **打开项目（Open Project）** 按钮以打开Qt项目文件浏览器。  
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step2.png)(w:720)](SetupIDE_Step2.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Navigate to the directory where you built UE4, select the UE4 Qt Project (**UE4.pro**) file, and click the **Open** button.
+1. 	导航至您构建UE4的目录，选择UE4 Qt项目（**UE4.pro**）文件，然后单击 **打开（Open）** 按钮。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step3.png)(w:720)](SetupIDE_Step3.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	At this point, Qt Creator hasn't been configured to build UE4 in Debug and Release Mode. Click the **Configure Project** button located in the **Configure Project** menu.
+1. 	到目前为止，还未将Qt Creator配置为在调试和发布模式下构建UE4。在 **配置项目（Configure Project）** 菜单中单击 **配置项目（Configure Project）** 按钮。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step4.png)(w:720)](SetupIDE_Step4.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Now, click the **Projects** button to enter into Projects mode, opening the **Build Settings** menu.
+1. 	现在，单击 **项目（Projects）** 按钮来进入项目模式，打开 **构建设置（Build Settings）** 菜单。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step5.png)(w:720)](SetupIDE_Step5.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
 	[REGION:note]
-	When you open the **Build Settings** menu, you'll notice that Qt Creator defaults its **Edit build configuration: ** to **Debug** mode.
+	打开 **构建设置（Build Settings）** 菜单时，您会发现Qt Creator将 **编辑构建配置：（Edit build configuration:）** 预置为 **调试（Debug）** 模式。
 	[region: lightbox]
-	[![](SetupIDE_Step5_Note.png)(w:347 h:249)](SetupIDE_Step5_Note.png)
+	[![](SetupIDE_Step5_Note.png)(w:347)](SetupIDE_Step5_Note.png)
 	[/region]
 	[REGION:caption]
-	Click for full image.
+	单击查看大图。
 	[/REGION]
 	[/REGION]
 
-1.	Under the **Build Steps** section, clear the **qmake** build step by clicking on the **X** button next to the **Details** drop down menu.
+1. 	在 **构建步骤（Build Steps）** 部分下面，单击位于 **详细信息（Details）** 下拉菜单旁边的 **X** 按钮，清除 **qmake** 构建步骤。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step6Alt.png)(w:720)](SetupIDE_Step6Alt.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Now, clear the **Shadow build** checkbox to cancel the selection. 
+1. 	现在，取消选中 **Shadow build** 复选框。 
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step7.png)(w:720)](SetupIDE_Step7.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
 	[REGION:note]
-	Shadow building allows you to build projects in a separate build directory with Qt Creator's qmake utility. Because UE4 is distributed with a custom Make file that makes use of 
-	[](Programming/UnrealBuildSystem), you don't need to use Qt Creator's qmake utility.
+	Shadow building使您能够在不同于Qt Creator的qmake实用程序的构建目录中构建项目。因为分发UE4时随附了自定义的Make文件，它使用 
+	[](Programming/UnrealBuildSystem)，因此无需使用Qt Creator的qmake实用程序。
 	[/REGION]
 
-1.	Now, click the **Details** drop down menu to open the input form for the **Make** build step.
+1. 	现在，单击 **详细信息（Details）** 下拉菜单来打开 **Make** 构建步骤的输入表单。
 
 	![](SetupIDE_Step8.png)
 
-1.	Enter `UE4Editor-Linux-Debug` into the **Make arguments:** text field.
+1. 	在 **Make参数：（Make arguments:）** 文本字段中，输入`UE4Editor-Linux-Debug`。
 
 	![](SetupIDE_Step9.png)
 
-1.	Under the **Clean Steps** section, click the **Details** drop down menu to open the input form for the **Make** clean step.
+1. 	在 **清除步骤（Clean Steps）** 部分下面，单击 **详细信息（Details）** 下拉菜单来打开 **Make** 清除步骤的输入表单。
 
 	![](SetupIDE_Step10.png)
 
-1.	Replace `clean` by entering `UE4Editor-Linux-Debug ARGS="-clean"` into the **Make arguments:** text field.
+1. 	在 **Make参数：（Make arguments:）** 文本字段中输入`UE4Editor-Linux-Debug ARGS="-clean"`，以替换`clean`。
 
 	![](SetupIDE_Step11.png)
 
-1.	Now, click the **Edit build configuration:** drop down menu and select **Release** to open the **Build Settings** for Release mode.
+1. 	现在，单击 **编辑构建配置：（Edit build configuration:）** 下拉菜单并选择 **发布（Release）** 来打开发布模式的 **构建设置（Build Settings）**。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step12.png)(w:720)](SetupIDE_Step12.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Repeat Steps 6 through 11 to edit the build configuration settings for Release mode. Please make sure that your settings match the following image:
+1. 	重复步骤6至11来编辑发布模式的构建配置。请确保按照下图所示进行设置：
 
 	![](SetupIDE_Step13.png)
 
 	[REGION:note]
-	If you'd like to set up additional build configurations for your project, please refer to the Qt Creator [Build Settings Documentation](http://doc.qt.io/qtcreator/creator-build-settings.html),
-	where they show you how to add as many build configurations as you might need.
+	如果希望为项目设置额外的构建配置，请参阅Qt Creator[构建设置文档](http://doc.qt.io/qtcreator/creator-build-settings.html)，它们将为您介绍如何添加所需数量的构建配置。
 	[/REGION]
 
-## End Result
+## 最终结果
 
 [REGION:lightbox]
 	[![](QtBuildSettings_UE4.png)(w:720)](QtBuildSettings_UE4.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	单击查看大图。
 [/REGION]
 
-At this point, you've configured UE4 to build in both Debug and Release mode. Depending on your system's specifications, you may notice that UE4 runs slower while in Debug mode. For more information 
-on the performance characteristics of available build configurations, please read through our [](Programming/Development/BuildConfigurations) page. With this in 
-mind, you're ready to configure Qt Creator to run UE4.
+此时，您已将UE4配置为在调试和发布模式下构建。根据系统配置，您可能会留意到处于调试模式时，UE4运行速度较慢。有关 
+可用构建配置的性能特性的更多信息，请通读我们的[](Programming/Development/BuildConfigurations)页面。如此一来，您就可以配置Qt Creator以运行UE4了。
 
 [NAV]

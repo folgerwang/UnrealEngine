@@ -1,4 +1,4 @@
-﻿INTSourceChangeList:3155346
+﻿INTSourceChangeList:3782314
 Availability:Public
 Title:蓝图样条指南
 Crumbs: %ROOT%, Engine
@@ -10,48 +10,11 @@ social-image:Splines_social.png
 version:4.13
 type:landing
 tags:Splines
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Splines:title%](Engine/Splines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Splines:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Splines:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Splines]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Splines:title%](Engine/Splines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Splines:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Splines:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Splines]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Splines/Splines_topic.png
 
 以下是蓝图样条组件和蓝图样条网格体组件的指南。
 
+(#How-To's)
 ## 指南
 
 [DIR(output:"fancy" parent:"Engine/BlueprintSplines/HowTo" org:"hierarchy" end:"1")]

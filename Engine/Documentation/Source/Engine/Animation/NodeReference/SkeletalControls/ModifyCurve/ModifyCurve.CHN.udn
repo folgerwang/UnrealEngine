@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3491718
-Availability:Docs
+﻿INTSourceChangelist:3533392
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Title:修改曲线（Modify Curve）
 Description:说明 Modify Curve 节点。该节点可用于在动画图表中用任意逻辑修改动画曲线。 

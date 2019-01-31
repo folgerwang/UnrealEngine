@@ -94,7 +94,7 @@ Order:-7
 * **에디터**
 	* 현재 프로젝트 이름이 제목줄 오른쪽 멀리에 표시됩니다.
 	* 주요 탭 뿐만 아니라 모든 탭에 닫기 버튼을 추가했습니다.
-	* 우클릭 맥락 메뉴에서 "Select All Brushes" (모든 브러시 선택)이 가능합니다.
+	* 우클릭 컨텍스트 메뉴에서 "Select All Brushes" (모든 브러시 선택)이 가능합니다.
 	* SIE/PIE 에서 실행시간에 스폰된 임시 액터를 숨기는 씬 아웃라이너 필터를 추가했습니다.
 	* 씬 아웃라이너에 'Show Only Selected' (선택만 표시) 뷰 모드가 추가되었습니다.
 	* 일부 씬 아웃라이너 코드를 리팩터링, 다른 필터와 기능의 추가로 인한 침입이 덜하도록 만들었습니다.
@@ -131,7 +131,7 @@ Order:-7
 * **DisplayAllLocation**, **DisplayAllRotation** 명령을 추가했습니다. 
 	* UE3 의 `displayall [actorclass] location` 과 `displayall [actorclass] rotation` 처럼 사용됩니다.
 * Pawn 에 **AutoPossess** 플래그가 가능합니다. Actor 의 **AutoReceiveInput** 과 비슷합니다.
-* **Replication** RepNotify: 리플리케이트된 프로퍼티의 예전 로컬 값을 구하는 기능이 추가되었습니다: [링크](https://udn.unrealengine.com/questions/168304/repnotify-how-can-i-find-the-previous-value-of-a-r.html)
+* **Replication** RepNotify: 리플리케이트된 프로퍼티의 이전 로컬 값을 구하는 기능이 추가되었습니다: [링크](https://udn.unrealengine.com/questions/168304/repnotify-how-can-i-find-the-previous-value-of-a-r.html)
 
 
 ####플랫폼
@@ -148,7 +148,7 @@ Order:-7
 * 'ObjectLocalBounds' 엔진 머티리얼 함수를 추가, 로컬 스페이스 바운드에 접근할 수 있는 머티리얼 시스템이 제공됩니다.
 * 'Alpha' 의 텍스처 압축 유형을 새로 추가했습니다 (싱글 채널, 감마 보정 없음).
 * 큐브나 2D 텍스처에서 'Create Static Texture' 를 할 때 HDR (float16) 소스 텍스처가 지원됩니다.
-* Microsoft 의 새로운 섀도잉 메서드를 기본으로 사용합니다 (예전 메서드는: r.shadow.method 0)
+* Microsoft 의 새로운 섀도잉 메서드를 기본으로 사용합니다 (이전 메서드는: r.shadow.method 0)
 	* 드로 콜 수가 적습니다.
 	* 코드가 단순합니다.
 	* z 거리 기반입니다 (전에는 방사형(radial) 이었습니다).
@@ -159,7 +159,7 @@ Order:-7
 
 
 ####애니메이션/페르소나
-* 이제 콘텐츠 브라우저의 맥락 메뉴를 통해 스켈레탈 메시에서 Animation Blueprint, Montage, Blendspace, AnimOffset 애셋을 바로 만들 수 있습니다.
+* 이제 콘텐츠 브라우저의 컨텍스트 메뉴를 통해 스켈레탈 메시에서 Animation Blueprint, Montage, Blendspace, AnimOffset 애셋을 바로 만들 수 있습니다.
 * AnimGraph 가 '애니메이션으로 익스포트' 기능을 지원합니다.
 	* 현재 애님 그래프를 애니메이션으로 익스포트할 수 있습니다 (상체/하체 분리 또는 스프링에 좋습니다).
 * 스태틱 메시 에디터에서 소켓을 복제할 수 있습니다.
@@ -192,7 +192,7 @@ Order:-7
 * FString 이 더이상 TArray 에서 상속되지 않습니다.
 * InStr 이 Find() 로 대체되고, Contains() 가 추가되었습니다 ( **주: 파라미터와 그 기본값이 변경되었습니다!!!** )
 * Split 함수의 파라미터가 변경되었습니다.
-* EndsWith, StartsWith, Replace, ReplaceInline, MatchesWildcard 는 이제 불리언 대신 ESearchCase 를 두 번째 인수로 받습니다.
+* EndsWith, StartsWith, Replace, ReplaceInline, MatchesWildcard 는 이제 부울 대신 ESearchCase 를 두 번째 인수로 받습니다.
 * 스트링 함수의 기본 동작이 대소문자를 구분하지 않도록 변경했습니다.
 * 모든 FFileName 함수를 FPaths 로 이동하고 스태틱으로 만들었습니다. 이제 스트링에도 바로 작동합니다.
 * FFilename 유형을 제거했습니다.
@@ -242,7 +242,7 @@ Order:-7
 * **짧은 패키지 이름에 대한 지원이 ini 파일에서 제거되었습니다. 섹션 이름도 포함됩니다.**
 	* `[Engine.GameEngine]` 같은 클래스 섹션 이름을 `[/Script/Engine.GameEngine]` 로 바꿔야 한다는 뜻입니다.
 * AEnvironmentVolume 가 제거되었습니다.
-* 이제 인풋 바인딩에 인풋을 컴포넌트 별로 바인딩하는 대신 바인딩 별로 소모되도록 지정할 수 있습니다. 컴포넌트에 ConsumeNone/Bound/All 를 지정하는 대신 각 바인딩에는 bConsumesInput 불리언으로 그 인풋을 소모시킬지 나타내고, 컴포넌트는 bBlocksInput 불리언으로 후속 컴포넌트가 입력을 받도록 할지를 나타냅(예전의 ConsumeAll 과 같습)니다.
+* 이제 인풋 바인딩에 인풋을 컴포넌트 별로 바인딩하는 대신 바인딩 별로 소모되도록 지정할 수 있습니다. 컴포넌트에 ConsumeNone/Bound/All 를 지정하는 대신 각 바인딩에는 bConsumesInput 부울으로 그 인풋을 소모시킬지 나타내고, 컴포넌트는 bBlocksInput 부울으로 후속 컴포넌트가 입력을 받도록 할지를 나타냅(이전의 ConsumeAll 과 같습)니다.
 * FGameWidgetWorldContext 가 FGameWorldContext 로 바뀌었습니다.
 * 여러가지 MovementComponents 이름을 작명 규칙에 맞도록 바꿨습니다:
 	* Character
@@ -423,7 +423,7 @@ Order:-7
 
 ####게임플레이와 프레임워크
 * **피직스**
-	* 바디에 대한 PhAT 맥락 메뉴를 깔끔히 정리했습니다. 단일 바디에 대해서는 고정해제(unfix)와 삭제 옵션이 추가되었습니다.
+	* 바디에 대한 PhAT 컨텍스트 메뉴를 깔끔히 정리했습니다. 단일 바디에 대해서는 고정해제(unfix)와 삭제 옵션이 추가되었습니다.
 	* bShouldSimulatePhysics 에 World 옵션을 추가, 켜고/끄고 할 수 있습니다.
 	* 시뮬레이션 허용치를 노출시켰습니다.
 	* 에디터 레벨 뷰포트에서 StaticMeshComponent, SkeletalMeshComponent, BrushComponent 에 대한 충돌을 기본으로 켭니다.
@@ -484,7 +484,7 @@ Order:-7
 * 페르소나 뷰포트에서 현재 선택된 본은 "선택된 항목" 색으로 렌더링됩니다.
 * 페르소나 뷰포트의 빈 공간을 클릭하면 소켓/본 선택이 해제됩니다.
 * 이제 애니메이션 타임라인 슬라이더를 문지르면, 마우스 클릭을 놓을 때만이 아니라 끄는 동안 애니메이션이 실시간 업데이트됩니다. 
-* .FBX 가 (예전에 페르소나 뿐만 아니라) 콘텐츠 브라우저에서도 AnimSequence 에 대한 익스포트 옵션이 되었습니다.
+* .FBX 가 (이전에 페르소나 뿐만 아니라) 콘텐츠 브라우저에서도 AnimSequence 에 대한 익스포트 옵션이 되었습니다.
 * 페르소나 스켈레톤 트리에서 Delete 키로 선택된 소켓과 어태치된 애셋을 삭제할 수 있게 되었습니다.
 * 씬 아웃라이너에서 스켈레톤 소켓을 어태치할 수 있게 되었습니다.
 * 페르소나 뷰포트에서 "Set Mesh Root Translation" (메시 루트 트랜슬레이션 설정) 옵션이 제거되었습니다.

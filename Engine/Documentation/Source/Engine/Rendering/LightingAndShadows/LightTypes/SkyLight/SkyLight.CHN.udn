@@ -1,48 +1,314 @@
-﻿INTSourceChangelist:2683548
+﻿INTSourceChangelist:4308120
 Availability: Public
-Title: 天空光照
-Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
-Description: 天空光照基础。
-Version: 4.9
+Crumbs: %ROOT%
+Title:天空光照
+Description:概述虚幻引擎4中的天空光照。
+Type: Overview
+SkillLevel:Beginner
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows
+Related:Engine/Rendering/LightingAndShadows/Lightmass
+Related:Engine/Rendering/LightingAndShadows/LightTypes
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Order:
+Tags:lighting
+Topic-Image:SkyLight_Topic.png
+Social-Image:SkyLight_1.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%](SkyLight_Topic.png)
+[REGION:fullwidth raw]
+![](Skylight_Header.png)
+[/REGION]
+
+[TOC(start:2 end:2)]
+
+
+
+天空光照（Sky Light）采集关卡的远处部分并将其作为光源应用于场景。这意味着，即使天空来自大气层、天空盒顶部的云层或者远山， 
+天空的外观及其光照/反射也会匹配。您还可以手动指定要使用的立方体贴图。 
+
+(#scenecapture)
+
+## 场景采集
+
+天空光照将仅在某些情况下才采集场景： 
+
+* 对于 **静态天空光照（Static Sky Lights）**，构建光照时会自动进行更新。
+* 对于 **静止（Stationary）** 或 **可移动天空光照（Movable Sky Lights）**，在加载时更新一次，只有调用 **重新采集天空（Recapture Sky）** 时才会进一步更新。这可以通过 **详细信息（Details）** 面板或通过游戏中的蓝图调用执行。
+
+[REGION:note]
+如果您更改了天空盒使用的纹理，天空盒不会自动知道要进行更新。您需要使用上述方法之一为其进行更新。
+[/REGION]
+
+应使用天空光照而不是环境立方体贴图来表示天空的光照，因为天空光照支持局部阴影，局部阴影可以防止室内区域被天空照亮。
+
+
+(#mobility)
+
+## 移动性
+
+与其他[光源类型](Engine/Rendering/LightingAndShadows/LightTypes)类似，天空光照可以设置为以下 **移动性** 之一：
+
+[REGION:raw]
+![](skylightIcon.png)
+[/REGION]
+
+[REGION:simpletable]
+| 移动性 | 说明 |
+| --- | --- |
+| **静态（Static）**  | 游戏中不能更改光照。这是最快的渲染方法，并且允许烘焙的光照。|
+| **静止（Stationary）**  | 构建光照时，将仅从静态几何体采集阴影和光照反射。所有其他光照都将为动态。该设置还允许光线在游戏中更改颜色、强度和立方体贴图，但它不会移动且允许局部烘焙光照。|
+| **可移动（Movable）**  | 可以根据需要在游戏中移动和更改光照。|
+[/REGION]
+
+
+(#staticskylight)
+
+### 静态天空光照
+
+设置为 **静态（Static）** 的天空光照将被完全烘焙到关卡中的静态对象的光照图中，因此不需要任何成本。在对该光源的属性进行编辑后，所做的更改将不可见，
+直至为关卡重新构建了光照。 
+
+ **对于移动开发，这是唯一一种受支持的天空光照。**
+
+[REGION:note]
+使用静态天空光照时，将仅采集关卡中移动性设置为 **静态（Static）** 或 **静止（Stationary）** 的Actor和光源，并且将仅使用它们进行照明。此外，为了避免反馈循环， 
+使用静态天空光照时，只能采集材质的自发光贡献部分。因此，请确保任何天空盒具有设置为 **无光照（Unlit）** 的材质。
+[/REGION]
+
+(#stationaryskylight)
+
+### 静止天空光照
+
+与设置为静态（Static）的天空光照一样，设置为 **静止（Stationary）** 的天空光照从[全局光照](Engine/Rendering/LightingAndShadows/Lightmass)获得烘焙阴影。您在关卡中放置了静止天空光照后， 
+您必须至少重新构建光照一次，才能生成和显示烘焙阴影。
+
+与其他[静止光源](Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights)一样，一些属性可以在运行时通过 **蓝图（Blueprint）** 或 **Sequencer** 进行更改。这意味着，您可以调整
+此天空光照的 **强度（Intensity）** 或 **颜色（Color）**，而无需重新构建整个关卡的照明。然而，间接光照将被烘焙到光照图中，并且无法在运行时进行修改。间接光照量 
+可以使用 **间接光照强度（Indirect Lighting Intensity）**来控制。
+
+[REGION:note]
+使用静止天空光照时，将仅采集关卡中移动性设置为 **静态（Static）** 或 **静止（Stationary）** 的Actor和光源，并且将仅使用它们进行照明。此外，为了避免反馈循环， 
+使用静止（Stationary）天空光照时，只能采集材质的自发光贡献部分。因此，请确保任何天空盒具有设置为 **无光照（Unlit）** 的材质。
+[/REGION]
+
+
+(#movableskylight)
+
+### 可移动天空光照
+
+设置为 **可移动（Movable）** 的天空光照不使用任何形式的预计算。当设置为采集场景时，它采集具有任何移动性的组件和光源。
+
+
+(#distancefieldambientocclusion)
+
+#### 距离场环境遮挡
+
+[REGION:warning]
+该功能在默认情况下未开启，但可使用[距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)功能启用。
+[/REGION]
+
+可移动天空光照的阴影由[距离场环境遮挡](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion)从每个刚性对象周围生成的
+有向距离场体积提供。距离场环境遮挡支持刚性网格体可以移动或隐藏的动态场景变化，同时它会影响遮挡。 
+
+[REGION:lightbox]
+[![](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)(w:550)](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)
+[/REGION]
+[REGION:caption] 单击图像以查看完整尺寸。[/REGION]
+
+
+[REGION:note]
+查看[如何使用距离场环境遮挡](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2)页面了解更多信息和示例。
+[/REGION]
+
+
+
+(#precomputedskylight)
+
+## 预计算天空光照
+
+使用烘焙光照和静态或静止天空光照时，照明和阴影数据将存储在光照图中。下面几个小节将讨论 
+[全局光照](Engine/Rendering/LightingAndShadows/Lightmass)支持的一些功能。
+
+
+(#improvedstaticskylightdirectionality)
+
+### 增强型静态天空光照方向性
+
+在虚幻引擎4.18之前，静态天光通常用带3阶球谐（3rd Order Spherical Harmonic）的全局光照来表示，它无法采集日出或日落时可能出现的细节。 
+现在使用经过过滤的立方体贴图，默认情况下会得到更高的分辨率。全局光照还会基于最终聚集光线的大小选择相应的[立方体贴图MIP](Engine/Content/Types/Textures/Properties#levelofdetail)， 
+以避免任何失真。
+
+[REGION:tip]
+要查看此类交互的示例，请前往 **引擎内容（Engine Content）** > **贴图模板（MapTemplates）** > **天空（Sky）**，并选择 **SunsetAmbientCubemap**，因为它将显示一个很好的示例。
+[/REGION]
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![3阶球谐 | (使用前) ](SkyLight_2.png)(w:1000)
 	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/SkyLight]
+	[PARAM:after]
+	![经过滤的立方体贴图 | (使用后)](SkyLight_1.png)(w:1000)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%](SkyLight_Topic.png)
+[REGION:caption]  [/REGION]
+[REGION:caption]
+使用Epic的[Robo Recall](Modding/RoboRecall)中的起始办公室关卡进行改进的示例 
+[/REGION]
+
+最大的区别可以在具有大量亮度和颜色变化之天空光照立方体贴图的严重遮挡场景中看到。 
+
+(#cameraobscura)
+
+#### 暗箱
+
+随着静态天空光照的方向性增强，现在可以利用一个足够小的开口重新创建针孔相机效果([暗箱](https://en.wikipedia.org/wiki/Camera_obscura))。 
+开口越小，天空光照就越有方向性。 
+
+[REGION:imagetable]
+| [REGION:lightbox] [![](CO_Cubemap.png)(h:265)](CO_Cubemap.png) [/REGION] | [REGION:lightbox] [![](CO_Result.png)(h:265)](CO_Result.png) [/REGION]  |
+| ---- | ---- |
+| 天空光照源立方体贴图 | 产生的光源构建 |
+| _单击图片以查看完整尺寸。_ | _单击图片以查看完整尺寸。_ |
+[/REGION]
+
+(#bentnormalforstationaryskylights)
+
+### 静止天空光照的环境法线
+
+对于各个光照分开烘焙的静止天空光照，全局光照烘焙的阴影将方向遮挡信息存储在所谓的 **环境法线（Bent Normal）** 中。这是 
+从纹素到最不被遮挡方向的方向。大部分被遮挡的区域将此方向而非表面法线用于天空光照，这样便提高了缝隙的质量。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![仅用环境遮挡的静态天空光照](1SkyLightAOOnly.png)(w:700)
 	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/SkyLight]
+	[PARAM:after]
+	![带环境法线的静止天空光照Stationary Sky Light with Bent Normal](1SkyLightBentNormal.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
+
+[REGION:note]
+有关更多信息，请访问[环境法线贴图](Engine/Rendering/LightingAndShadows/BentNormalMaps)页面。
+[/REGION]
+
+
+(#multi-bounce)
+
+### 多次反射
+
+通过在 **世界场景设置（World Settings）** > **全局光照（Lightmass）** 中调整 **天空光照反射次数（Num Sky Lighting Bounces） ** 设置，即可支持多次反射全局光照的间接光线。 
+
+![](LightmassSettings.png)
+
+[REGION:caption] 设置要使用的天空光照反射次数。[/REGION]
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Number of Bounces: 1](SkyLight_4.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Number of Bounces: 10](SkyLight_3.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+
+
+为了使天空光照的多次反射明显可见，在大多数情况下，您的材质需要具备高漫反射值。例如，如果漫射值为.18（18%灰色），第二次的天空光照反射将仅贡献
+18^3 = 0.006的光发射能量，这很难为肉眼所察觉。如果漫射值为0.5，第二次的天空光照反射将贡献0.125的光发射能量，并且显而易见。
+
+[REGION:warning]
+每增加一次反射都会增加非分布式的构建时间，因此当未使用密集（Swarm）分布时要谨慎使用。
+[/REGION]
+
+[COMMENT:none]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![反射次数：1](SkyLight_6.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![反射次数：10](SkyLight_5.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+[/COMMENT]
+
+(#properties)
+
+## 属性
+
+天空光照组件的属性分为两类：光源和天空光照。您可以从Actor **详细信息（Details）** 面板访问它们。
+
+![](SkyLightSettings.png)
+
+(#light)
+
+### 光源
+
+以下设置在所有[光源类型](Engine/Rendering/LightingAndShadows/LightTypes)之间通用。
+
+[REGION:raw]
+| 属性 | 说明 |
+| --- | --- |
+| **强度（Intensity）** | 光源发出的总能量。|
+| **光源颜色（Light Color）** | 指定光源发出的颜色。|
+| **影响世界场景（Affects World）** | 光源是否能影响世界场景，或者光源是否被禁用。|
+| **投射阴影（Cast Shadows）** | 光源是否应投射任何阴影。|
+| **投射静态阴影（Casts Static Shadows）** | 光源是否应从静态对象投射阴影。此外，要求将投射阴影（Cast Shadows）设置为真（True）。|
+| **投射动态阴影（Casts Static Shadows）** | 光源是否应从动态对象投射阴影。此外，要求将投射阴影（Cast Shadows）设置为真（True）。|
+| **间接光照强度（Indirect Lighting Intensity）** | 按比例缩放来自该光源的间接照明贡献。如果该值为0，将禁用来自该光源的任何全局照明(GI)。|
+| **体积散射强度（Volumetric Scattering Intensity）** | 该光源的体积散射的强度。它缩放强度（Intensity）和光源颜色（Light Color）。|
+| **投射体积阴影（Cast Volumetric Shadow）** | 光源是否投下体积雾（Volumetric Fog）阴影。|
+[/REGION]
+
+(#skylight)
+
+### 天空光照
+
+以下设置专门针对天空光照。
+
+[REGION:raw]
+| 属性 | 说明 |
+| --- | --- |
+| **源类型（Source Type）** | 是采集远处场景并将其作为光源还是使用指定的立方体贴图。采集场景时，任何与天空光照位置的距离超过SkyDistanceThreshold的部分都将被包括在内。[INCLUDE:#sourcetype] |
+| **立方体贴图（Cubemap）** | 如果源类型（Source Type）设置为SLS_SpecifiedCubemap，指定天空光照要使用的立方体贴图。|
+| **源立方体贴图角度（Source Cubemap Angle）** | 当源类型（Source Type）设置为SLS指定立方体贴图（SLS Specified Cubemap）时，为旋转源立方体贴图的角度。|
+| **立方体贴图分辨率（Cubemap Resolution）** | 经过最顶级处理的立方体贴图MIP的最大分辨率。它还必须是2次幂的纹理。|
+| **天空距离阈值（Sky Distance Threshold）** | 与天空光照的距离，在此处，任何几何体都应被视为天空的一部分（亦为反射采集所使用）。|
+| **仅采集自发光（Capture Emissive Only）** | 仅采集自发光材质。跳过所有照明，使采集更便宜。当使用采集每一帧（Capture Every Frame）时，建议使用此方法。|
+| **下半球为纯色（Lower Hemisphere is Solid Color）** | 是否所有来自下半球的照明都应设置为零。这有助于防止从下半球泄漏。|
+| **重新采集场景（Recapture Scene）** | 当天空光照Actor设置为SLS_CapturedScene时，这将重新采集天空光照用来照亮场景的图像。|
+[/REGION]
+
+
+[COMMENT:none]
+-
+
+[EXCERPT:sourcetype]
+| --- | --- |
+| **SLS采集场景（SLS Captured Scene）** | 从采集的场景构造天空光照。任何与天光位置的距离超过天空距离阈值（Sky Distance Threshold ）的部分都将被包括在内。|
+| **SLS指定立方体贴图场景（SLS Specified Cubemap）** | 从指定的立方体贴图构造天空光照。|
+[/EXCERPT:sourcetype]
+-
+[/COMMENT]
+
+
+(#shadowingfrommovableobjects)
+
+## 来自可移动对象的阴影
+
+使用[胶囊体阴影](Engine/Rendering/LightingAndShadows/CapsuleShadows)（对于骨架网格体）或 
+[距离场间接阴影](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_4)（对于刚性网格体），可实现从可移动对象到环境上的软阴影。它们需要单独设置才能正常工作。
+
+(#limitations)
+
+## 限制
+
+这些功能对天空光照很有用，但尚未实现： 
+
+* 为静态变体和可移动变体动态重新采集场景。天空光照组件上有一个名为RecaptureSky()的蓝图函数可以使用。然而，这会造成卡顿。
+	
+	![](RecaptureSkyLightBP.png)(w:700)
+
+[COMMENT:none]
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -52,45 +318,29 @@ Version: 4.9
 
 
 [EXCERPT:SL001]
-**天空光照** 会获取场景中一定距离以外的部分（`SkyDistanceThreshold` 距离以外的一切东西）并将他们作为光照应用于场景之上。
-这意味着天空的视觉效果和它产生的光照/反射将会匹配，无论是干净的大气层，或者在天空盒顶层有着一层层的云层，又或者是遥远的群山。
-同时也可以指定一个 cubemap 来使用。
+天空光照采集关卡的远处部分（任何超过`SkyDistanceThreshold`的部分）并将其作为光源应用于场景。这意味着，即使天空来自大气层、天空盒顶部的云层或者远山，天空的外观及其光照/反射也会匹配。您还可以手动指定要使用的立方体贴图。
 
-天光只会在重新构建光照时被重新捕获，或者在手动使用 **构建** -> **更新反射捕获体**，或者使用 _Sky Light Actor_ 上的 **重新捕获场景** 的按钮。
-**如果更改了天空球使用的贴图，这并不会被自动的更新到光照信息中**。
+当您使用 **构建（Build）** -> **更新反射采集（Update Reflection Captures）** 或_Sky Light Actor_上的 **重新采集（Recapture Scene）** 按钮重新构建光照或手动告知天空光照时，天空光照将仅重新采集场景。**如果您更改了天空盒使用的纹理，天空盒不会自动知道要进行更新。**
 
-要表达真实的天空光照效果，应该采用 Sky Light 而不是 **环境光照 Ambient Cubemap**，其原因在于 Sky Light 会造成局部的阴影，这样能避免诸如室内场景被天空光照照亮。
+应使用天空光照而不是 **环境立方体贴图（Ambient Cubemap）** 来表示天空的光照，因为天空光照支持局部阴影，局部阴影可以防止室内区域被天空照亮。
 [/EXCERPT:SL001]
 
-天光的 **移动性** 设置可以被设置为 **静态** 或者 **固定** 的属性。
+关于 **移动性（Mobility）**，天空光照可以设置为 **静态（Static）** 或 **静止（Stationary）**：
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](skylight_icon.png)(convert:false) 
-	[/PARAM]
-	[PARAM:description]
-	**静态** - （左侧的图片）意味着游戏时光照无法被修改。这是渲染效率最快的一种形式，并能采用烘培光照。
-	
-	**固定** - （同样是左侧图片）意味着光照产生的阴影以及由 **Lightmass** 计算的静态物体反弹的光线能够生成，其他的光照则是动态的。这个设置能让光照在游戏过程中修改光照的颜色或强度，但它无法移动位置，并允许使用一部分预烘培光照。
-	[/PARAM]
-[/OBJECT]
+* **静态（Static）** - （如左图所示）它意味着，不能在游戏中更改光源。这是最快的渲染方法，并且允许烘焙的光照。
+* 	**静止（Stationary）** - （亦如左图所示）它意味着，光源将仅有自己的阴影和来自 **全局光照（Lightmass）** 烘焙的静态几何体的反射光照，所有其他光照都将为动态。该设置还允许光源在游戏中更改颜色和强度，但它不会移动且允许局部烘焙光照。 
 
-[REGION:raw]
-![](spacer.png)
-[/REGION]
-
-下面是来自一个场景中采用 **天空光照** 的示例图片。
+下图是取自利用天空光照之场景的示例图像。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![有天空光照](Skylight.png)(w:800)
+	![天空光照](Skylight.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![无天空光照](NoSkylight.png)(w:800)
+	![无天空光照](NoSkyLight.png)(w:800)
 	[/PARAM]
 [/OBJECT]
 
-[COMMENT:none]
 
 [REGION:lightbox]
 
@@ -98,30 +348,32 @@ Version: 4.9
 
 [/REGION]
 
-_This scene was lit with only a Stationary Sky light, by specifying different HDR skybox cubemaps._
+_此场景通过指定不同的HDR天空盒立方体贴图，仅使用静止天空光照点亮。_
 
 [/COMMENT]
 
+(#staticskylight)
+
 ## 静态天空光照
 
-具有 **静态设置** 的天空光照会完全烘培到静态物体的光照贴图中，因此在运行时光照没有任何开销。
-这是移动平台上支持的唯一一种天光类型。对光照属性修改只有在重新构建光照后才能看到效果。
+具有 **静态移动性（Static Mobility）** 的天空光照将被完全烘焙到静态对象的光照图中，因此不需要任何成本。在移动设备上，这是唯一一种受支持的天空光照。在再次构建光照之前，对该光源所做的编辑将不可见。
 
-注意：只有那些光照设置为 **静态** 或者 **固定** 的组件，才会被捕获，并结合静态天空光照产生效果。
-另外，只有材质中自发光的属性才会被捕获并结合静态天空光照产生效果，这么做是为了避免循环反馈计算。要保证天空盒使用的是无光照材质。
+注：只有具有 **静态（Static）** 或 **静止移动性（Stationary Mobility）** 的组件和光源将被采集并用于采用静态天空光照的照明。此外，为了避免反馈循环，使用**静态天空光照**时，只能采集材质的自发光贡献部分。请确保天空盒具有无光照材质。
 
-## 固定天空光照
+(#stationaryskylight)
 
-具有 **固定设置** 的天空光照采用由 **Lightmass** 生成的烘培阴影。一旦在管卡中摆放一个固定天空关照，必须先构建一次光照才能看到烘培阴影的效果。之后就可以修改天空光照属性而不需要重新构建了。
+## 静止天空光照
 
-由 **Lightmass** 预计算的天空光照的阴影记录保存了方向遮挡信息，这被称为 **弯曲法线**。这个方向是一个纹素（单位纹理）面向最不被遮挡的朝向。那些被遮挡的区域，使用这个方向来计算天空光照效果，而不是使用原先的表面法线，这么做能改进一些裂缝处的效果。
+具有 **静止移动性（Stationary Mobility）** 的天空光照从 **全局光照（Lightmass）** 获得烘焙阴影。当您在关卡中放置了静止天空光照后，您必须至少重新构建光照一次，才能获得烘焙阴影。然后，您可以根据需要更改天空光照，而无需重新构建。  
+
+**全局光照（Lightmass）** 烘焙的天空光照阴影将方向遮挡信息存储在所谓的 **环境法线（Bent Normal）** 中。这是从纹素到最不被遮挡方向的方向。大部分被遮挡的区域将此方向而非表面法线用于天空光照，这样便这大大提高了缝隙的质量。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![仅使用 AO 的天空关照](skyLightEx_03.png)(w:500)
+	![只有AO的天空光照](skyLightEx_03.png)(w:500)
 	[/PARAM]
 	[PARAM:after]
-	![使用弯曲法线遮罩的天空光照](skyLightEx_04.png)(w:500)
+	![有环境法线遮挡的天空光照](skyLightEx_04.png)(w:500)
 	[/PARAM]
 [/OBJECT]
 
@@ -134,18 +386,18 @@ _This scene was lit with only a Stationary Sky light, by specifying different HD
 [/REGION]
 
 [/COMMENT]
-_第一张图片显示了仅有 AO 的天空光照效果。第二张图显示来使用弯曲法线遮罩的天空光照。请注意看在褶皱密集处表面光线对照射进来的光线趋于“一致”的效果。_
+_第一个图像仅显示了具有AO的天空光照。第二个图像则显示了具有环境法线遮挡的天空光照。注意缝隙中的表面如何针对光照的产生位置’达成一致’。_
 
-注意：只有那些光照设置为 **静态** 或者 **固定** 的组件，才会被捕获，并结合固定天空光照产生效果。
+注：只有具有 **静态（Static）** 或 **静止移动性（Stationary Mobility）** 的组件和光源将被采集并用于采用静止天空光照的照明。
 
-和其他的 **固定灯光** 类型一样，灯光的颜色可以在运行时被 **蓝图** 或者 **Matinee** 实时修改。然后间接光照已经被预烘培到光照贴图中就不能实时修改了。间接光照的程度可以由 `IndirectLightingIntensity` 数值控制。
+与所有类型的 **静止光源** 一样，在运行时可通过 **蓝图（Blueprint）** 或 **日场（Matinee）** 更改直接光照的颜色。然而，间接光照将被烘焙到光照图中，并且无法在运行时进行修改。间接光照量可以使用`IndirectLightingIntensity`来控制。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
 	![仅直接光照](0Original.jpg)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![直接光照以及由固定天空光照预计算的全局光照效果](0SkyLightGI.jpg)(w:800)
+	![直接光照及带散射GI计算的静止天空光照](0SkyLightGI.jpg)(w:800)
 	[/PARAM]
 [/OBJECT]
 
@@ -157,43 +409,53 @@ _第一张图片显示了仅有 AO 的天空光照效果。第二张图显示来
 
 [/REGION]
 
-_Top: Direct lighting only, Bottom: Direct lighting and Diffuse GI computed by Lightmass for a Stationary Skylight._
+_顶部：仅直接光照，底部：直接光照以及由全局光照为静止天空光照计算的漫射GI。_
 
 [/COMMENT]
 
-## 可移动的天空光照
+(#movableskylight)
 
-**可移动的天空光照** 并不适用任何形式的预计算。它会捕获任何光照设定的组件，并作为场景的天空光照来源。
+## 可移动天空光照
+
+ **可移动天空光照** 不使用任何形式的预计算。当设置为采集场景用作天空光照源时，它采集具有任何移动性的组件和光源。
+
+(#distancefieldambientocclusion)
 
 ### 距离场环境遮挡
 
-（以下这段需要 review）可移动的天空光照产生的阴影由一个叫做 [距离场环境遮挡](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) 的新功能来表现，它通过在物体周围预计算的 Signed Distance Field Volume 并生成环境遮挡。
-rigid 网格物体可以被移动或者隐藏，这将会影响遮挡效果。这个特性默认并没有开启，开启的话需要一些设置步骤。
+可移动天空光照的阴影由名为[**距离场环境遮挡（Distance Field Ambient Occlusion）**](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion)的新功能从每个刚性对象周围预计算的有向距离场体积提供，该功能生成环境遮挡。它支持动态场景变化 — 刚性网格体可以移动或隐藏，同时它会影响遮挡。该功能在默认情况下为关闭状态，并且有若干设置步骤。
 
-## 局限性
+(#limitations)
 
-以下特性配合 **天空光照** 将会有用，但目前尚未实现：
-* 可移动物体（比如角色）在环境上的软阴影效果。
-* 为固定的天空光照和可移动天空光照做场景动态捕获。在蓝图中，SkyLightComponent 有一个函数叫 RecaptureSky() 可以使用，但目前它还有点小问题。
+## 限制
+
+这些功能对天空光照很有用，但尚未实现：
+* 从可移动对象（字符）到环境上的软阴影。
+* 为 **静态** 变体和 **可移动** 变体动态重新采集场景。SkyLightComponent上有一个名为RecaptureSky()的蓝图函数可以使用，然而这会造成卡顿。
+
+(#skylightproperties)
 
 ## 天空光照属性
 
-天空光照的属性分为两类：光照 和 天空光照。
+天空光照组件的属性分为2类：光源和天空光照。 
 
-### 光照
-| 属性 | 描述 |
+(#light)
+
+### 光源
+| 属性 | 说明 |
 | -------- | ----------- |
-| **Intensity** | 发射光子的总能量 |
-| **Light Color** | 定义光照发射的颜色 |
-| **Affects World** | 光照是否对当前世界起效，或是禁用。 |
-| **Casts Shadows** | 这个光照是否要产生阴影。 |
+| **强度（Intensity）** | 光源发出的总能量。|
+| **光源颜色（Light Color）** | 指定光源发出的颜色。|
+| **影响世界场景（Affects World）** | 光源是否能影响世界场景，或者光源是否被禁用。|
+| **投射阴影（Casts Shadows）** | 光源是否应投射任何阴影。|
+
+(#skylight)
 
 ### 天空光照
-| 属性 | 描述 |
+| 属性 | 说明 |
 | -------- | ----------- |
-| **Source Type** | 是否获取远距离的场景并用作于光照来源，或是使用特定的 cubemap。当获取场景时，任何距离当前 **天空光照** 位置超过 `SkyDistanceThreshold` 的东西都将被包含。 |
-| **Cubemap** | 如果 **Source Type** 设置为 `SLS_SpecifiedCubemap` 时，定义要为天空光照使用的 **Cubemap**。 |
-| **Sky Distance Threshold** | 从 **天空光照** 位置算的距离，该数值下的任何东西都会被认为是天空的一部分（也会参与反射捕获）。 |
-| **Lower Hemisphere is Black** | 是否将来自下半球的光线设置为 0。这对防止下半球的光线溢出是有有用的。 |
-| **Recapture Scene** | 当 **天空光照 Actor** 设置为 `SLS_CapturedScene` 时，这将重新获取天空光照照亮场景用的图片 |
-
+| **源类型（Source Type）** | 是采集远处场景并将其作为光源还是使用指定的立方体贴图。采集场景时，任何与天光位置的距离超过`SkyDistanceThreshold`的部分都将被包括在内。|
+| **立方体贴图（Cubemap）** | 如果源类型（Source Type）设置为`SLS_SpecifiedCubemap`，指定天空光照要使用的立方体贴图。|
+| **天空距离阈值（Sky Distance Threshold）** | 与天空光照的距离，在此处，任何几何体都应被视为天空的一部分（亦为反射采集所使用）。|
+| **下半球为黑色（Lower Hemisphere is Black）** | 是否所有来自下半球的照明都应设置为零。这有助于防止从下半球泄漏。|
+| **重新采集场景（Recapture Scene）** | 当天空光照Actor设置为`SLS_CapturedScene`时，这将重新采集天空光照用来照亮场景的图像。|

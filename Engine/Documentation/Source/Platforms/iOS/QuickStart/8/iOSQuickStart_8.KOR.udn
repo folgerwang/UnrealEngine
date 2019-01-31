@@ -72,7 +72,7 @@ order:8
 
     ![](Platforms\iOS\QuickStart\7\open_project.png)
 
-1. **파일** 메뉴에서 **Package Project (패키지 프로젝트) > iOS** 를 선택합니다.
+1. **파일** 메뉴에서 **Package Project (프로젝트 패키지) > iOS** 를 선택합니다.
 
     ![](package_menu.png)
 

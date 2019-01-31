@@ -1,0 +1,271 @@
+﻿INTSourceChangelist:4684214
+Availability: Public
+Crumbs: 
+Title: 플레이어 웹 페이지 커스터마이징
+Description: 비디오 및 오디오 스트림을 재생하는 웹 페이지를 사용자 정의하는 방법, 페이지와 UE4 응용 프로그램 사이 이벤트를 교환하는 방법입니다.
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:pixelstreaming-custom-topic.png
+Tags: Guide
+Tags: Early Access
+Tags: Pixel Streaming
+
+픽셀 스트리밍 시그널링 및 웹 서버에는 언리얼 엔진 응용 프로그램에서 미디어를 스트리밍하고 마우스, 키보드, 터치 이벤트를 다시 전송받도록 설정된 샘플 플레이어 페이지가 제공되고 있습니다. (자세한 안내는 [픽셀 스트리밍 시작하기](Platforms/PixelStreaming/PixelStreamingIntro) 문서를 참조하세요.) 이 기본 플레이어 페이지는 별다른 필요가 없다면 그대로 사용해도 됩니다. 
+
+하지만 약간의 창의성과 JavaScript 및 HTML 등 조금의 웹 기술만 있으면, 플레이어 페이지를 완벽 제어하여 언리얼 엔진 콘텐츠와 원격 상호작용하는 별도의 커스텀 UI 를 만들 수 있습니다. 게임플레이 이벤트를 트리거 및 그에 반응하여 언리얼 엔진의 행위를 제어하는 콘솔 명령을 내리는 등의 작업을 할 수 있습니다.
+
+기본 플레이어 페이지를 토대로 자체 커스텀 플레이어 페이지를 만들 것을 권장합니다. 이 페이지는 언리얼 엔진 설치 폴더 아래 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/player.htm` 에서 찾을 수 있습니다. 여기서 배운 정보를 토대로 페이지를 확장하여 프로젝트의 게임플레이 로직에 연결하면 됩니다.  
+
+[REGION:lightbox]
+[![](pixelstreaming-customplayer-example-template.png)](pixelstreaming-customplayer-example-template.png)
+[/REGION]
+
+기본 플레이어 페이지
+
+[REGION:lightbox]
+[![](pixelstreaming-customplayer-example-mclaren.png)](pixelstreaming-customplayer-example-mclaren.png)
+[/REGION]
+
+HTML5 UI 로 커스터마이징한 플레이어
+
+## HTML 페이지 요구 사항
+
+커스텀 HTML 플레이어 페이지가 갖춰야 하는 최소 요구 사항은 다음과 같습니다.
+
+* `/scripts/webRtcPlayer.js` 파일을 포함해야 합니다. 이 파일은 브라우저 및 WebRTC 프록시 서버 사이 통신을 처리하여, 서버에서 미디어 스트림을 받아 표시합니다. 절대적으로 필요한 경우가 아니라면 이 JavaScript 파일은 수정하지 마세요.  
+
+        <script type="text/javascript" src="scripts/webRtcPlayer.js"></script>
+
+* */scripts/app.js* 파일도 포함할 것을 매우 권장합니다. 이 파일은 키보드, 마우스, 터치 이벤트를 처리하는 이벤트 리스너를 설정합니다. 플레이어 페이지를 활용하는 여러 함수와 후크도 들어있으며, 자세한 내용은 이 페이지 하단을 참조하세요.  JavaScript 지식이 약간 있는 경우, 얼마든지 이 파일의 코드를 파고들어 기본 작동 방식을 원하는 대로 수정해도 됩니다. 예를 들어 키보드 입력은 비활성화하고 마우스 및 터치 입력은 놔두려는 경우, 이 파일에서 키보드 이벤트를 처리하는 부분을 찾아 코멘트로 제거하면 됩니다.  
+
+        <script type="text/javascript" src="scripts/app.js"></script>
+
+* 페이지에 ID 가 `player` 인 `div` 요소가 있어야 합니다. 이 요소가 WebRTC 프록시 서버에서 스트리밍된 비디오 프레임으로 대체됩니다.
+
+        <div id="player"></div>
+
+* 페이지가 로드되면 `app.js` 파일에 제공된 `load` 함수를 호출해야 합니다. 예를 들어 `<body>` 태구에 `onload` 핸들러를 추가하면 됩니다.
+
+        <body onload="load()">
+
+## 플레이어 파일 위치 및 URL
+
+커스텀 플레이어 페이지를 어디에 넣을지, 클라이언트 브라우저에서 어떻게 액세스할지는 몇 가지 옵션이 있습니다.
+
+*   시그널링 및 웹 서버의 루트 폴더 아래 `custom_html` 라는 폴더를 만들고 그 안에 커스텀 HTML 플레이어 페이지를 넣습니다. 그런 다음 시그널링 및 웹 서버를 실행하는 컴퓨터의 IP 주소 또는 호스트명에 그 파일명을 덧붙여서 액세스할 수 있습니다.  
+    예를 들어 `custom_html/myplayerpage.html` 라는 파일은 `http://127.0.0.1/myplayerpage.html` 로 액세스할 수 있습니다.
+*   시그널링 및 웹 서버의 `HomepageFile` 파라미터를 커스터마이징하고, 시그널링 및 웹 서버의 루트 폴더 기준 커스텀 HTML 플레이어 페이지 파일의 상대 경로를 설정합니다. 그런 다음 시그널링 및 웹 서버를 실행하는 컴퓨터의 IP 주소 또는 호스트명으로 액세스하면 됩니다.  
+    예를 들어 파일을 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/myfolder/myplayerpage.html` 으로 저장하고 `HomepageFile` 파라미터를 `myfolder/myplayerpage.html` 로 설정하면, `http://127.0.0.1/` 처럼 URL 에 파일명을 넣지 않고도 액세스할 수 있습니다.
+*   시그널링 및 웹 서버의 **AdditionalRoutes** 파라미터를 사용하여 URL 경로 및 컴퓨터의 로컬 폴더 사이 매핑을 커스터마이징할 수도 있습니다.
+
+이 파라미터 관련 자세한 정보는 [픽셀 스트리밍 레퍼런스](Platforms/PixelStreaming/PixelStreamingReference) 문서를 참조하세요.
+
+## 플레이어 입력 옵션 커스터마이징
+
+`app.js` 파일에 제공되는 몇 가지 JavaScript 구성 파라미터를 커스텀 플레이어 페이지에서 덮어쓰면 플레이어 위젯이 사용자 상호작용에 반응하는 방식을 제어할 수 있습니다. `inputOptions` 오브젝트에 노출된 프로퍼티는 다음과 같습니다.
+
+| 프로퍼티 | 기본 | 설명 |
+| --- | --- | --- |
+| controlScheme | `ControlSchemeType.LockedMouse` | [INCLUDE:#excerpt_5] |
+| suppressBrowserKeys | true | [INCLUDE:#excerpt_8] |
+| fakeMouseWithTouches | false | 이 옵션을 활성화된 상태에서 사용자가 스마트폰이나 태블릿처럼 터치 스크린이 있는 디바이스에서 스트림을 보는 경우, 한 손가락 터치 이벤트를 언리얼 엔진 응용 프로그램이 마우스 클릭 및 드래그 이벤트로 해석하도록 합니다. 이 세팅을 활성화하면 응용 프로그램의 입력 컨트롤러가 터치 입력 이벤트를 별도로 처리하지 않는 경우에도 모바일 디바이스 사용자가 프로그램을 부분적으로 제어할 수 있습니다. |
+
+[COMMENT:none]
+[EXCERPT:excerpt_5]
+플레이어가 위젯과 상호작용할 때 플레이어 위젯이 마우스를 캡처하고 잠글지 여부를 결정합니다. 받는 값은 다음과 같습니다.
+* `ControlSchemeType.LockedMouse` - 이 컨트롤이 활성화된 경우, 플레이어 위젯을 클릭하면 마우스 커서를 캡처하여 잠급니다. 그 이후 마우스를 움직이면 언리얼 엔진 응용 프로그램의 입력 컨트롤러에 즉시 전달합니다. 사용자가 마우스 드래그만으로 카메라 이동 및 회전할 수 있습니다. 플레이어 위젯 컨트롤에서 커서를 해제하려면, 사용자는 **Esc** 키를 누르면 됩니다.
+* `ControlSchemeType.HoveringMouse` - 이 컨트롤 스키마가 활성화되면, 마우스 커서는 플레이어 위젯과 상호작용하지 않고 그 위에 떠있습니다. 언리얼 엔진 응용 프로그램의 입력 컨트롤러에 마우스 동작을 전송하려면, 사용자는 마우스 좌클릭을 유지하고 있어야 합니다.
+[/EXCERPT:excerpt_5]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_8]
+이 세팅이 활성화되면, 플레이어 위젯은 **F1** 에서 **F12** 키와 **Tab** 키를 가로채, 원래대로라면 그 키 눌림 이벤트를 브라우저에서 처리할 것을 언리얼 엔진 응용 프로그램에 전달합니다.
+예를 들어 이 세팅이 활성화된 상태에서는 **F5** 키를 눌러도 브라우저의 플레이어 페이지를 새로고치지 않습니다. 그 대신 그 이벤트를 언리얼 엔진 응용 프로그램에 전달하여 원래 기능인 셰이더 복잡도 뷰모드로 전환합니다.
+[/EXCERPT:excerpt_8]
+[/COMMENT]
+
+플레이어 페이지의 이와 같은 값 설정을 위한 코드 블록을 포함하는 방법은 다음과 같습니다. 이 코드 실행은 페이지에 `app.js` 파일을 로드한 이후, 그 `load` 함수를 호출하기 이전에 해야 합니다.
+
+    <script>
+    inputOptions.controlScheme = ControlSchemeType.HoveringMouse;
+    inputOptions.fakeMouseWithTouches = true; 
+    </script>
+
+### 사용자 입력 비활성화
+
+하나 이상의 입력 장치 전체에 대한 사용자 입력을 비활성화하려면, 플레이어 페이지에 대한 JavaScript 환경의 다음 함수 구현부를 공백으로 덮어쓰면 됩니다.
+
+*   **registerHoveringMouseEvents** - inputOptions.controlScheme 가 ControlSchemeType.HoveringMouse 로 설정된 경우 모든 입력 마우스 이벤트를 비활성화합니다.
+*   **registerLockedMouseEvents** - inputOptions.controlScheme 가 ControlSchemeType.LockedMouse 로 설정된 경우 모든 입력 마우스 이벤트를 비활성화합니다.
+*   **registerTouchEvents** - 모바일 디바이스와 태블릿의 터치 이벤트를 비활성화합니다.
+*   **registerKeyboardEvents** - 모든 키보드 이벤트를 비활성화합니다.
+
+예를 들어 플레이어 HTML 페이지에 이 JavaScript 블록을 포함하면 모든 입력을 비활성화합니다. 위와 마찬가지로 이 코드 실행은 페이지에 `app.js` 파일을 로드한 이후, 그 `load` 함수 호출 이전에 해야 합니다.
+
+    <script>
+    registerHoveringMouseEvents = function() {}
+    registerLockedMouseEvents = function() {}
+    registerTouchEvents = function() {}
+    registerKeyboardEvents = function() {} 
+    </script>
+
+하나 이상의 입력 유형을 활성화 상태로 유지하려면, 그에 해당하는 입력 유형 줄을 코멘트 처리하거나 제거하면 됩니다.
+
+## 플레이어 위젯 스타일 커스터마이징
+
+커스텀 HTML 플레이어 페이지에서 픽셀 스트리밍 플레이어 위젯의 정의는 `id="player"` 인 `<div>` 요소로 했을 것입니다. 표준 HTML 및 CSS 메서드를 사용하여 이 위젯에 스타일을 추가할 수 있습니다.
+
+하지만 위젯에 가끔 크기를 다시 초기화해야 할 수도 있습니다. 보통 (위젯이 가용 공간을 자동 채우도록 설정된 경우) 브라우저 창 크기를 변경하거나, 입력 비디오 스트림 해상도가 업데이트된 경우입니다. 그런 일이 발생하면, 플레이어 요소의 `style` 특성이 변경되므로, HTML 또는 JavaScript 에 설정한 값을 덮어쓰게 될 수 있습니다.
+
+이를 피하기 위해 `styleAdditional` 라는 특수한 전역 변수에 커스텀 CSS 값을 설정하면 됩니다. `app.js` 가 플레이어 크기를 조정하고 스타일을 초기화할 때마다, `styleAdditional` 변수에 설정한 값을 플레이어 요소에 할당된 새 스타일 특성 끝에 덧붙입니다. 예를 들어 사용자가 플레이어 위젯 위에 커서를 올리면 손 모양으로 바꾸는 값은 다음과 같습니다.
+
+    styleAdditional = 'cursor: grab; cursor: -moz-grab; cursor: -webkit-grab';
+
+## 픽셀 스트리밍 블루프린트 API 액세스
+
+언리얼 엔진 안에서 실행하는 픽셀 스트리밍 플러그인에 노출된 블루프린트 API 를 사용하면 게임플레이 로직에서 플레이어 HTML 페이지가 전송한 커스텀 UI 이벤트를 처리하고, 언리얼 엔진에서 플레이어 페이지로 이벤트를 발생시킬 수 있습니다.
+
+이 블루프린트 API 에 액세스하려면:
+
+1.  시작 시 픽셀 스트리밍 플러그인은 항상 현재 플레이어 컨트롤러에 컴포넌트를 추가합니다. **Actor > Get Component by Class** 노드를 사용하여 플레이어 컨트롤러에서 검색할 수 있습니다. **Component Class** 입력을 클릭하고 목록에서 **PixelStreamingInputComponent** 를 찾습니다.  
+    ![PixelStreamingInputComponent](pixelstreaming-getcomponentbyclass.png "PixelStreamingInputComponent")  
+    [REGION:tip]
+    현재 플레이어 컨트롤러에 대한 레퍼런스가 필요하면, 위와 같이 **Game > Get Player Controller** 노드를 사용합니다.
+    [/REGION]
+2.  **Get Component by Class** 노드의 출력을 오른쪽으로 드래그하고 **Pixel Streaming** 카테고리를 찾습니다.  
+    [REGION:lightbox]
+    [![Pixel Streaming Blueprint API](pixelstreaming-bpapi.png "Pixel Streaming Blueprint API")](pixelstreaming-bpapi.png)
+    [/REGION]
+    [REGION:caption]
+    *클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+
+## 플레이어 페이지에서 UE4 로 통신
+
+`app.js` 파일에 제공되는 JavaScript 함수 두 개를 HTML 플레이어 페이지에서 호출하면 사용자가 브라우저에서 이벤트와 명령을 언리얼 엔진 응용 프로그램에 전송할 수 있습니다.
+
+*   `emitCommand` 는 해상도 변경, 콘솔 명령 실행, 인코더 비트 전송률 감소 등 미리 설정된 명령 목록을 게임에 전송합니다. 자세한 내용은 [아래 emitCommand 함수 사용법](#emitcommand함수사용법) 부분을 참고하세요.
+*   `emitUIInteraction` 는 임의의 스트링 또는 JavaScript 오브젝트를 게임에 전송합니다. 이 함수를 사용하여 커스텀 명령을 플레이어 UI 에 전송하면, 응용 프로그램의 게임플레이 로직에서 그에 반응하여 필요한 효과를 낼 수 있습니다. [아래 emitUIInteraction 함수 사용법](#emituiinteraction함수사용법) 부분을 참고하세요.
+
+### emitCommand 함수 사용법
+
+`emitCommand` 함수를 호출할 때, JavaScript 오브젝트를 전달해야 합니다. 이 오브젝트에는 다음 스트링 중 하나에 일치하는 키가 있어야 합니다.
+
+*   `ConsoleCommand` \- 원격 언리얼 엔진 응용 프로그램에서 콘솔 명령을 실행합니다. 이 키의 값은 실행하고자 하는 명령과 거기에 필요한 파라미터가 들어있는 스트링이어야 합니다. 예:
+
+        let descriptor = {
+            ConsoleCommand: 'stat fps'
+        }
+        emitCommand(descriptor);
+
+*   `Resolution` \- 언리얼 엔진 응용 프로그램의 렌더링 해상도를 리셋합니다. 이 키의 값은 `Width` 및 `Height` 프로퍼티가 들어있는 오브젝트여야 합니다. 예:
+
+        let descriptor = {
+            Resolution: {
+                Width: 1024,
+                Height: 768
+            }
+        }
+        emitCommand(descriptor);
+
+*   `Encoder` \- 인코더에 미디어 스트림의 퀄리티를 제어하는 명령을 전송합니다. 현재 지원하는 명령은 `BitrateReduction` 하나입니다. 이 값은 비디오 인코더 비트 전송률에 할당할 측정 가용 대역폭의 퍼센트로 지정합니다. 이 값을 너무 높게 설정하면 네트워크 정체 및 패킷 드랍이 발생하여 결국 클라이언트의 비디오 부작용 및 지연시간 증가로 이어집니다. 기본값은 50 퍼센트로 설정되어 있습니다. 배포된 비디오의 부작용이나 지연시간 관련 문제가 발생하면, 이 값을 더욱 낮춰보면 됩니다. 예:
+
+        let descriptor = {
+            Encoder: {
+                BitrateReduction: 20
+            }
+        }
+        emitCommand(descriptor);
+
+[REGION:note]
+언리얼 엔진 콘솔 명령의 위력으로 인해 `emitCommand` 함수는 보안상 위험할 수 있습니다. 이 함수의 정상 작동을 위해서는 언리얼 엔진 응용 프로그램을 시작할 때 또는 언리얼 에디터에서 독립형 게임 옵션으로 시작할 때 명령줄에 `-AllowPixelStreamingCommands` 파라미터를 붙여야 합니다.
+[/REGION]
+
+### emitUIInteraction 함수 사용법
+
+`emitUIInteraction` 함수를 호출할 때, 단일 스트링 또는 JavaScript 오브젝트를 전달할 수 있습니다. 예:
+
+    emitUIInteraction("MyCustomCommand");
+
+또는
+
+    let descriptor = {
+        LoadLevel: "/Game/Maps/Level_2"
+        PlayerCharacter: {
+            Name: "Shinbi"
+            Skin: "Dynasty"
+        }
+    }
+    emitUIInteraction(descriptor);
+
+JavaScript 오브젝트를 전달하는 경우, `emitUIInteraction` 함수 내부적으로 그 오브젝트를 JSON 함수로 변환합니다. 그런 다음 그 결과를 언리얼 엔진 응용 프로그램의 픽셀 스트리밍 플러그인으로 다시 전송하여, 입력 컨트롤러에 이벤트를 발생시킵니다. 응용 프로그램의 게임플레이 로직에서, 자체 커스텀 이벤트를 바인딩하여 이 입력을 처리할 수 있습니다. **Bind Event to OnPixelStreamingInputEvent** 노드를 사용하면 됩니다. 예:
+
+[REGION:lightbox]
+[![Bind Event to OnPixelStreamingInputEvent](pixelstreaming-uiinteractionrespond.png "Bind Event to OnPixelStreamingInputEvent")](pixelstreaming-uiinteractionrespond.png) 
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+이 이벤트는 보통 게임 시작 시 한 번 바인딩해야 합니다. 언리얼 엔진 응용 프로그램 인스턴스에 연결된 플레이어 HTML 페이지가 `emitUIInteraction` 함수를 호출할 때마다, `emitUIInteraction` 에 전달된 입력과 무관하게 커스텀 이벤트가 자동 호출됩니다.  
+
+할당한 커스텀 이벤트(, 위 이미지의 예에서는 **UI Interaction** 노드)에는 **Descriptor** 라는 출력이 있는데, 이를 통해 `emitUIInteraction` 함수로 언리얼 엔진 응용 프로그램에 전송된 스트링을 검색할 수 있습니다. 그 값을 사용하면 `emitUIInteraction` 가 호출될 때마다 게임플레이 코드의 반응 방식을 결정할 수 있습니다.
+
+예를 들어 다음 블루프린트는 `emitUIInteraction` 의 입력에 "MyCustomCommand" 라는 스트링이 들어있는지 확인하고 커스텀 함수를 호출하여 이벤트를 처리하는 테스트입니다.
+
+[REGION:lightbox]
+[![Search for substring](pixelstreaming-respond-searchsubstring.png "Search for substring")](pixelstreaming-respond-searchsubstring.png) 
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+원래 JavaScript 오브젝트를 `emitUIInteraction` 에 전달한 경우, 그 JSON 오브젝트에서 키 값을 검색하는 방법은 **Pixel Streaming > Get Json String Value** 노드를 사용하면 됩니다. 예를 들어 다음 블루프린트는 LoadLevel 이라는 키에 대한 테스트입니다. 그 키가 존재하면 커스텀 함수를 호출하여 이벤트를 처리합니다.
+
+[REGION:lightbox]
+[![Get a JSON field value](pixelstreaming-respond-json.png "Get a JSON field value")](pixelstreaming-respond-json.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+[REGION:tip]
+중첩 키를 검색해야 하는 경우, JavaScript 의 키에 대한 일반적인  점 표기법을 사용하세요. 예를 들어 `PlayerCharacter.Name` 또는 `PlayerCharacter.Skin` 입니다.
+[/REGION]
+
+## UE4 에서 플레이어 페이지로 통신
+
+언리얼 엔진 응용 프로그램이 연결된 모든 플레이어 HTML 페이지에 커스텀 이벤트를 발생시켜, 플레이어의 JavaScript 환경에서 반응하도록 만들 수 있습니다. 이런 식으로 게임플레이 이벤트에 반응하여 웹 페이지 UI 를 변경할 수 있습니다.
+
+설정 방법은 다음과 같습니다.
+
+1.  언리얼 엔진 응용 프로그램에서 플레이어 페이지로 이벤트를 발생시키려 할 때, **Pixel Streaming > Send Pixel Streaming Response** 노드를 사용합니다. 커스텀 스트링 인수를 지정하여 노드에 플레이어 페이지에 어떤 이벤트가 발생했는지 알립니다.  
+    [REGION:lightbox]
+    [![](pixelstreaming-send-game-event.png "pixelstreaming-send-game-event.png")](pixelstreaming-send-game-event.png)
+
+    *이미지를 클릭하면 원본을 확인합니다.*
+    [/REGION]
+2.  플레이어 페이지의 JavaScript 에서 언리얼 엔진 응용 프로그램의 반응 이벤트를 페이지가 받을 때마다 호출할 커스텀 이벤트 핸들러 함수를 작성해야 합니다. **Send Pixel Streaming Response** 노드가 전송한 원본 스트링 인수를 전달합니다. 예:
+
+        function myHandleResponseFunction(data) {
+            console.warn("Response received!");
+            switch (data) {
+                case "MyCustomEvent":
+                    ... // handle one type of event
+                case "AnotherEvent":
+                    ... // handle another event
+            }
+        }
+
+3.  `app.js` 에 제공된 `addResponseEventListener` 함수를 호출하여 리스너 함수를 등록합니다. 이 함수에는 이벤트 리스너와 함수의 고유명을 전달합니다. 예:
+
+        addResponseEventListener("handle_responses", myHandleResponseFunction);
+
+4.  이벤트 리스너를 제거할 필요가 있는 경우, `removeResponseEventListener` 에 같은 이름을 전달합니다. 예:
+
+        removeResponseEventListener("handle_responses");
+
+[REGION:tip]
+보다 복잡한 데이터를 전달하려는 경우, **Send Pixel Streaming Response** 노드에 전달할 스트링 포맷을 JSON 으로 할 수 있습니다. 예:  
+![Send Pixel Streaming response using JSON](pixelstreaming-send-game-event-json.png "Send Pixel Streaming response using JSON")  
+그런 다음 JavaScript 이벤트 핸들러 함수에서 `JSON.parse(data)` 를 사용하여 스트링을 다시 JavaScript 오브젝트로 디코딩합니다.
+[/REGION]

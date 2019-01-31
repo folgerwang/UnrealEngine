@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4649792
 Availability: Public
 Title:피직스 바디
 Crumbs: %ROOT%, Engine, Engine/Physics
@@ -8,7 +8,7 @@ tags:physics
 tags:bodies
 
 
-갈수록 복잡해져 가기만 하는 3D 메시를 볼 때, 실시간 3D 렌더링 프로그램에서 물리 시뮬레이션을 돌리기 위해서는 프록시 형태를 사용해야만 합니다. Physics Body (피직스 바디, BodyInstance)는 언리얼 엔진 4 에서 물리 시뮬레이션에 사용하는 단순화된 형태의 3D 메시입니다. 박스, 구체, 캡슐, 컨벡스 헐 등의 모양이 가능합니다.
+갈수록 복잡해져 가기만 하는 3D 메시를 볼 때, 실시간 3D 렌더링 프로그램에서 물리 시뮬레이션을 돌리기 위해서는 프락시 형태를 사용해야만 합니다. Physics Body (피직스 바디, BodyInstance)는 언리얼 엔진 4 에서 물리 시뮬레이션에 사용하는 단순화된 형태의 3D 메시입니다. 박스, 구체, 캡슐, 컨벡스 헐 등의 모양이 가능합니다.
 
 피직스 바디 관련 정보 링크는 다음과 같습니다.
 

@@ -1,30 +1,32 @@
-﻿INTSourceChangelist:3574749
-Availability:Docs
+﻿INTSourceChangelist:4377382
+Availability:Public
 Crumbs: %ROOT%
 Title:刚体
-Description:解释刚体（Rigid Body）节点，以及如何在动画蓝图中将其用作轻量级的物理模拟。 
+Description:描述刚体节点以及如何在动画蓝图中将其作为轻量级物理模拟使用。 
 Type:reference
-Version:4.16
+Version: 4.20
 Parent:Engine/Animation/NodeReference/SkeletalControls
 Order:1
 tags:Animation
 tags:Animation Blueprint
 tags:Skeletal Controls
 topic-image:RigidBodyNode.png
-Related:Engine/Physics/PhAT
-Related:Engine/Physics/PhAT/Reference
-Related:Engine/Animation/AnimBlueprints/AnimGraph
-Related:Engine/Animation/NodeReference/Blend
+Related: Engine/Physics/PhAT
+Related: Engine/Physics/PhAT/Reference
+Related: Engine/Animation/AnimBlueprints/AnimGraph
+Related: Engine/Animation/NodeReference/Blend
 
-**刚体（Rigid Body）** 骨架控制节点可利用高性能 [Immediate Mode PhysX API](https://www.geforce.com/hardware/technology/physx) 创建大量物理模拟的角色。Rigid Body 节点（下图所示）可被添加到 [](Engine/Animation/AnimBlueprints) 的 **AnimGraph**，还可与任意 [](Engine/Animation/NodeReference/Blend) 共用，便于从一个动作切换到模拟物理状态。使用此模拟的角色也可与世界场景中的静态几何体产生碰撞。 
+通过 **刚体（Rigid Body）** 骨架控制节点（如下图所示），你可以使用高性能[立即模式PhysX API](https://www.geforce.com/hardware/technology/physx)对角色执行轻量级物理模拟。
+你可将此刚体节点添加到[](Engine/Animation/AnimBlueprints) 的 **AnimGraph** 中，甚至将其与[](Engine/Animation/NodeReference/Blend)一起使用，以便从动作切换到模拟物理状态。
+使用这种模拟的角色也可以与世界场景中的静态几何体产生碰撞。 
 
 ![](RigidBodyNode.png)
 
-使用此节点后，以下的数个模拟角色便可产生行为响应，从待机状态切换到物理模拟状态。 
+**刚体（Rigid Body）** 节点的典型用途是，用于具有马尾辫、链条和其他要应用物理的“摇动”骨骼的角色。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
-	VaxxVsv0Fak
+	RGTegdhUXWc
 	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
 	100
@@ -40,37 +42,83 @@ Related:Engine/Animation/NodeReference/Blend
 	[/PARAMLITERAL]
 [/OBJECT]
 
-## 设置
+[REGION:caption]
+在上图中，从角色头部延伸出来的软管具有物理资源，该资源与动画蓝图中的刚体节点一起使用。 
+[/REGION]
 
-使用此节点前，需要在 [物理资源（Physics Asset）](Engine/Physics/PhAT) 中将需要模拟的 [](Engine/Physics/PhysicsBodies) 设为 **Simulated**。 
+## 输入和输出引脚
+
+下表概述了可用的输入和输出引脚以及引脚用途的定义。 
+
+![](RigidBodyPins.png)
+
+| 引脚 | 说明 |
+| --- | --- |
+| **外力（External Force）** | 在世界空间中施加均匀的外力。例如，你可以轻松模拟运动惯量，同时继续在组件空间中进行模拟。|
+| **组件动作（Component Pose）** | 在组件空间中获取动作并在组件空间中输出动作。|
+| **Alpha** | 骨架控制器的当前强度。|
+
+## RigidBody节点设置示例
+
+在使用此节点之前，请在[物理资源](Engine/Physics/PhAT)中选择要模拟的[](Engine/Physics/PhysicsBodies)，并将其设置为 **Simulated**。 
 
 ![](RigidBody_02.png)
 
 [REGION:caption]
-点击上图中角色的 **Pelvis** 骨骼并将其下方的所有形体设为 **Simulated**，使角色完全模拟物理。 
+在上图中，我们设置了与角色头部的软管相关联的每个骨骼，以进行物理模拟。 
 [/REGION]
 
-物理资源设置完成后，在动画蓝图的 AnimGraph 中添加 Rigid Body 节点，以及定义何时使用的必要逻辑。 
+设置 **物理资源（Physics Asset）** 后，你可以在 **动画蓝图（Animation Blueprint）** 的 **AnimGraph** 中添加 **刚体（Rigid Body）** 节点和必要的逻辑，以定义何时对其进行使用。 
 
 ![](RigidBody_11.png)
 
 [REGION:caption]
-Rigid Body 上方连接的是一个混合节点，角色受到影响时则会切换到此节点，使其模拟物理。 
+在上图中，我们从另一个动画蓝图中获取数据，并通过 **刚体（Rigid Body）** 节点将其输入，然后创建最终动画动作。 
 [/REGION]
 
-选中 Rigid Body 节点后即可在 **Details** 面板中修改定义节点使用方式的属性。 
+通过AnimGraph中选择的刚体节点，你可在 **细节（Details）** 面板中更改定义节点使用方式的属性。 
 
-![](RigidBody_12.png)
+![](RigidBodyDetails.png)
 
-| 属性 | 描述 |
+| 属性 | 说明 |
 | -------- | ----------- |
-| **Override Physics Asset** | 使用的物理资源。如为空，则将使用骨架网格体的默认物理资源。|
-| **Override World Gravity** | 启用矢量值的规格来覆盖此形体的重力。|
-| **Overlap Channel** | 用于寻找碰撞静态几何体的通道。|
-| **Component Space Simulation** | 为 true 时，模拟在组件空间中进行。这意味着速度只会被动画形体所继承。|
-| **Cached Bounds Scale** | 缓存边界的大小（相对于实际边界的大小）。升高此项数值可能会提升性能，但重叠可能无法使用。数值设为 1.0 则会禁用缓存边界。|
-| **(As Pin) Alpha** | 在节点上或在 Details 面板中将 Alpha 属性显示为一个引脚。|
-| **Alpha Scale Bias** | 设置 Alpha 属性的最小和最大影响值。|
-
+| **覆盖物理资源（Override Physics Asset）** | 要使用的物理资源。如果为空，则使用骨架网格体的默认物理资源。|
+| **覆盖世界场景重力（Override World Gravity）** | 允许指定矢量值以覆盖该形体的重力。|
+| **外力（External Force）** | 在世界空间中施加均匀的外力。例如，你可以轻松模拟运动惯量，同时继续在组件空间中进行模拟。|
+| **重叠信道（Overlap Channel）** | 用于查找要碰撞的静态几何体的信道。|
+| **组件空间模拟（Component Space Simulation）** | 如果为True，则在组件空间中进行模拟。这意味着速度仅由动画形体继承。
+| **缓存边界比例（Cached Bounds Scale）** | 缓存边界的比例（相对于实际边界）。提高此值可以提高性能，但重叠可能无法正常运行。值为1.0将实际禁用缓存边界。|
+| **(As Pin) Alpha** | 在节点或“细节”面板中将Alpha属性显示为引脚。|
+| **阿尔法缩放偏移率（Alpha Scale Bias）** | 设置Alpha属性的最小和最大影响值。|
 
 [INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
+
+## 使用关节作为模拟基础
+
+从虚幻引擎4.20开始， **RigidBody** 节点支持将任何关节作为模拟基础，只需将 **模拟空间（Simulation Space）** 设置为 **基础骨骼空间（Base Bone Space）**，并选择要用作 **基础骨骼引用（Base Bone Ref）** 的骨骼。但需注意，移动整个“骨架网格体”并单独修改“基础骨骼”不会影响速度。 
+
+下面是使用 **RigidBody** 节点并模拟武器指定“基础骨骼”的示例。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	xjWqVQT3DoU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 重置动态效果
+
+**RigidBody** 节点还支持 **重置动态效果（Reset Dynamics）**。要使用该功能，请在蓝图中获取骨架网格体的动画实例，然后调用 **重置动态效果（Reset Dynamics）** 函数以重置模拟。 
+
+![ResetDynamics](ResetDynamics.png)

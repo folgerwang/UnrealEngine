@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2713167
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:载具美术设置
 Crumbs:%ROOT%
@@ -6,29 +6,7 @@ Description:如何在虚幻引擎 4 中为载具设置美术资源。
 Navigation:topic
 SkillLevel:Advanced
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Gameplay/Framework/Vehicle/Vehicle_Content:title%](vehicleArt_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Gameplay/Framework/Vehicle/Vehicle_Content:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Gameplay/Framework/Vehicle/Vehicle_Content:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Gameplay/Framework/Vehicle/Vehicle_Content]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
+topic-image:vehicleArt_topic.png
 
 载具最基础、最少量的美术设置即为 **骨骼网格体**。载具的类型决定所需美术设置的复杂程度，对于悬挂 
 部分可能需要进行特殊考量。坦克不需要进行精细的悬挂设置，因为其悬挂部分未不可见。 

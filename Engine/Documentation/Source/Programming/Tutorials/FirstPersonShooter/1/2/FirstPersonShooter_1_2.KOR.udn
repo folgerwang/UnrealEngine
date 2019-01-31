@@ -9,7 +9,7 @@ Version: 4.15
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming/Tutorials/FirstPersonShooter/1/1)
+		[이전 단계](Programming/Tutorials/FirstPersonShooter/1/1)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -24,7 +24,7 @@ Version: 4.15
 
 
 
-예전 단계에서 **Basic Code** 프로젝트를 구성할 때, 언리얼 엔진이 **Game Mode** 를 대신 만들어 줬습니다. Game Mode 는 게임의 규칙과 승리 조건을 정의합니다. 우리 Game Mode 는 기본 게임플레이 프레임워크 유형에 사용될 기본 클래스를, Pawn, PlayerController, HUD 를 포함해서 설정합니다. 이 글에서는 에디터를 사용하여 Visual Studio 에서 솔루션을 열어 프로젝트의 Game Mode 클래스를 확인할 수 있도록 하겠습니다.
+이전 단계에서 **Basic Code** 프로젝트를 구성할 때, 언리얼 엔진이 **Game Mode** 를 대신 만들어 줬습니다. Game Mode 는 게임의 규칙과 승리 조건을 정의합니다. 우리 Game Mode 는 기본 게임플레이 프레임워크 유형에 사용될 기본 클래스를, Pawn, PlayerController, HUD 를 포함해서 설정합니다. 이 글에서는 에디터를 사용하여 Visual Studio 에서 솔루션을 열어 프로젝트의 Game Mode 클래스를 확인할 수 있도록 하겠습니다.
 
 1.	Visual Studio 의 File 메뉴에서 **Open Visual Studio** 를 선택하여 C++ 코드를 엽니다.
 

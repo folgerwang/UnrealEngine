@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:3
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,46 +40,46 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Camera
+##摄像机
 
-The PlayerCameraManager is the player’s “eyeball”, managing how it behaves. Each PlayerController typically has one of these as well. For more, see the camera workflow page.
+玩家摄像机管理器是玩家的“眼睛”，并管理玩家“眼睛”的行为。通常情况下，每个玩家控制器也有一个此类型的摄像机。请参见摄像机工作流程页面，了解更多信息。
 
-##Cascade Particle Editor
+##级联粒子编辑器
 
-The Cascade Particle Editor is a fully integrated and modular particle effects editor that offers real-time feedback and modular effects editing, allowing fast and easy creation of even the most complex effects.
+级联粒子编辑器是完全集成的模块化效果粒子编辑器，可提供实时反馈和模块化效果编辑，即使最复杂的效果，也可轻松快速地创建。
 
-##Character
+##角色
 
-A Character is a subclass of a Pawn Actor that is intended to be used as a player character. The Character subclass includes a collision setup, input bindings for bipedal movement, and additional code for movement controlled by the player.
+角色是Pawn Actor的子类，被作为玩家角色使用。角色子类包括碰撞设置、双足运动的输入绑定，以及由玩家控制的运动附加代码。
 
-##Class
+##类
 
-A Class defines the behaviors and properties of a particular Actor or Object used in the creation of an Unreal Engine game. Classes are hierarchical, which means that a Class inherits information from its parent Classes (the Classes it was derived, or “sub-classed,” from) and passes that information to its children. Classes can be created in C++ code or in Blueprints.
+类用于定义在创建虚幻引擎游戏中使用的特定Actor或对象的行为和属性。类分为各个层级，这意味着某个类要从其父类（衍生或派生出该类的类）获得信息，然后再将信息传递给其子项。类可用C++代码或蓝图创建。
 
-##Class Viewer
+##类查看器
 
-Browser and picker functionality for C++ and Blueprint classes.
+C++和蓝图类的浏览器和选择器功能。
 
-##Color Picker
+##取色器
 
-The Color Picker allows you to easily adjust a color value for a color property in the Unreal Editor. You can adjust colors by the following values: RGBA (red, green, blue, alpha), HSV (hue, saturation, value), and Hex (ARGB). Alternatively you can select a color by clicking anywhere in the color wheel, by capturing the color under your mouse, or clicking anywhere on your monitor.
+取色器让您可以轻松地在虚幻编辑器中调整某个颜色属性的颜色值。您可通过以下值来调整颜色：RGBA（红色、绿色、蓝色、透明）、HSV（色调、饱和度、数值）和十六进制颜色码（ARGB）。您也可以单击色环中的任意位置或者在显示器上的任意位置采集鼠标下的颜色来选择颜色。
 
-##Component
+##组件
 
-A Component is a piece of functionality that can be added to an Actor. Components cannot exist by themselves, however when added to an Actor, the Actor will have access to functionality provided by the Component.
+组件是可添加到Actor中的一个功能对象。组件可独立存在，但在将其添加到Actor后，该Actor便具有了组件所提供的功能。
 
-##Content Browser
+##内容浏览器
 
-The Content Browser is the primary area of the Unreal Editor for creating, importing, organizing, viewing, and modifying content assets within Unreal Editor.
+内容浏览器是虚幻编辑器的主要区域，用于在虚幻编辑器中创建、导入、组织、查看及修改内容资源。
 
-##Content Cooking
+##内容烘焙
 
-Content Cooking is the process of converting content from the internal formats used by Unreal Editor, such as PNG for texture data or WAV for audio, to the formats used by each individual platform; either because the platform uses a proprietary format, does not support the format Unreal uses to store the asset, or a more memory/performance-effective format exists.
+内容烘焙是将内容转换为虚幻编辑器所使用的内部格式的过程，比如将纹理数据的PNG格式或音频的WAV格式转换为各个平台所使用的格式；这是因为平台使用专有的格式，不支持虚幻引擎使用的存储资源的格式，或是因为存在一种更加节约内存或提高性能的格式。
 
-##Controller
+##控制器
 
-Controllers are non-physical Actors that can possess a Pawn or Character to control its actions.
+控制器是非物理Actor，可以拥有Pawn或角色，以控制其操作。
 
-##Curve Editor
+##曲线编辑器
 
-The Curve Editor provides interactive editing and fine control of properties that change over time (for example, properties that make use of Distributions).
+曲线编辑器提供交互式编辑功能及可随时间变化的属性微调控制（例如，利用分布数据的属性）。

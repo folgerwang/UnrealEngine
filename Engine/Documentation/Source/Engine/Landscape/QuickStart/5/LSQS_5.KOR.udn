@@ -8,7 +8,7 @@ version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Landscape/QuickStart/4 "%Engine/Landscape/QuickStart/4:title%") 
+		[이전 단계](Engine/Landscape/QuickStart/4 "%Engine/Landscape/QuickStart/4:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -28,7 +28,7 @@ version: 4.9
 
 ## 랜드스케이프 칠하기 준비
 랜드스케이프에 칠하기 시작 전, 먼저 해 줘야 할 구성 작업이 있습니다. 먼저 랜드스케이프 머티리얼을 랜드스케이프에 적용해 줘야 합니다. 다음과 같이 간단하게 할 수 있습니다.
-1. 먼저 **콘텐츠 브라우저** 에서 머티리얼을 찾습니다. 예전 섹션에서 만들었던 **Materials** 라는 이름의 폴더 아래 있을 것입니다. 찾았으면 클릭하여 선택하도록 합니다.
+1. 먼저 **콘텐츠 브라우저** 에서 머티리얼을 찾습니다. 이전 섹션에서 만들었던 **Materials** 라는 이름의 폴더 아래 있을 것입니다. 찾았으면 클릭하여 선택하도록 합니다.
 
 	![](T_Landscape_Materail_In_CB.png)
 

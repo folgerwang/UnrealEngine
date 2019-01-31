@@ -46,11 +46,11 @@ related: Engine/Animation/AnimationRetargeting
 
 이 창에는 현재 선택된 스켈레톤 애셋에 사용되는 본, 소켓, 프리뷰 오브젝트가 전부 표시됩니다.
 이 창 안에서는 소켓이나 프리뷰 오브젝트를 추가하고 트랜슬레이션 리타기팅 옵션을 조절할 수 있습니다.
-본 계층구조 목록에 가한 조정사항 대부분은 어떤 오브젝트를 클릭했는가에 따라 달라지는 **우클릭** 맥락 메뉴를 통해 처리됩니다 (아래 맥락 메뉴 부분 참고).
+본 계층구조 목록에 가한 조정사항 대부분은 어떤 오브젝트를 클릭했는가에 따라 달라지는 **우클릭** 컨텍스트 메뉴를 통해 처리됩니다 (아래 컨텍스트 메뉴 부분 참고).
 
-#### 본 맥락 메뉴
+#### 본 컨텍스트 메뉴
 
-본에 우클릭하면, 다음과 같은 맥락 메뉴가 나타납니다:
+본에 우클릭하면, 다음과 같은 컨텍스트 메뉴가 나타납니다:
 
 ![](SkeletonContextMenu_Bone.png)
 
@@ -72,9 +72,9 @@ related: Engine/Animation/AnimationRetargeting
 | [REGION:tablesection]Attached Assets Actions (붙인 애셋 액션)[/REGION]||
 |**Add Preview Asset**| 프리뷰 애셋 추가 - 미리보기 목적으로 본에 임시로 붙일 수 있는 모든 후보 애셋이 들어있는 메뉴를 엽니다. 예를 들어 본에 어떤 갑옷 조각을 붙였을 때 어때 보이는지 확인하려는 경우에 좋습니다. 참고로 이는 미리보기 도중에만 보이는 일시적인 어태치먼트입니다. |
 
-### 소켓 맥락 메뉴
+### 소켓 컨텍스트 메뉴
 
-[소켓](Engine/Content\Types\SkeletalMeshes\Sockets) 에 우클릭하면 다음과 같은 맥락 메뉴가 나타납니다:
+[소켓](Engine/Content\Types\SkeletalMeshes\Sockets) 에 우클릭하면 다음과 같은 컨텍스트 메뉴가 나타납니다:
 
 ![](SkeletonContextMenu_Socket.png)
 
@@ -92,11 +92,11 @@ related: Engine/Animation/AnimationRetargeting
 |**Remove All Attached Assets**| 붙인 애셋 전부 제거 - 이 소켓에서 붙인 프리뷰 애셋을 전부 제거합니다. |
 
 
-### 프리뷰 애셋 맥락 메뉴
+### 프리뷰 애셋 컨텍스트 메뉴
 
 **Preview Asset** (프리뷰 애셋)은 스태틱 메시나 스켈레탈 메시와 같은 애셋으로, 미리보기 목적으로 본이나 소켓에 임시로 붙이는 것입니다.
 
-프리뷰 애셋에 우클릭하면, 다음과 같은 맥락 메뉴가 나타납니다:
+프리뷰 애셋에 우클릭하면, 다음과 같은 컨텍스트 메뉴가 나타납니다:
 
 
 ![](SkeletonContextMenu_PreviewAsset.png)
@@ -142,7 +142,7 @@ Blend Profile (블렌드 프로파일)은 본 단위의 스케일 세트로, 트
 각 버튼에는 다음의 세 가지 옵션이 있습니다. 
 
 [REGION:note]
-참고로 본의 우클릭 맥락 메뉴에서 재귀(recursive) 옵션을 선택하여 그 자손까지 이 세팅으로 바꿔줄 수 있습니다.
+참고로 본의 우클릭 컨텍스트 메뉴에서 재귀(recursive) 옵션을 선택하여 그 자손까지 이 세팅으로 바꿔줄 수 있습니다.
 [/REGION]
 
 |이름|설명|

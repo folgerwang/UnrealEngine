@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
 Crumbs: %ROOT%
-Title: Screen Percentage: Dynamic Resolution and Temporal Anti-Aliasing Upsample
+Title: 屏幕百分比：动态分辨率及基于时间的抗锯齿上采样
 Description: 
 Type: Overview
 SkillLevel: Intermediate
@@ -17,19 +17,17 @@ Tags:
 
 
 [REGION:note]
-The release of Unreal Engine 4.19 makes some significant changes to how Screen Percentage works. Most of this will directly affect those developing projects for Virtual Reality (VR) which will break backward comptability in some cases. 
+虚幻引擎4.19版本对屏幕百分比的工作方式作出了一些重大变更。其中大部分变更将直接影响正在开发的虚拟现实（VR）项目，在某些情况下，这些项目会打破向后兼容性。 
 [/REGION]
 
 
 
-**Screen Percentage** is a [Post Process](Engine/Rendering/PostProcessEffects) technique used to render a lower or higher resolution image than what it is actually being presented as. Being able to adjust the screen percentage can allow your games to maintain a balance between performance and image resolution quality. 
+ **屏幕百分比** 是一种[后期处理](Engine/Rendering/PostProcessEffects)技术，用于以低于或高于实际呈现分辨率的分辨率渲染图片。屏幕百分比调整功能可以让游戏在性能和图像分辨率质量之间保持平衡。 
 
-Prior to Unreal Engine 4(UE4) version 4.19, you only had to change the screen percentage, but it has now been split into two types of scaling during the rendering pipeline: Primary and Secondary Spatial Upscaling.
+在4.19版本之前的虚幻引擎4(UE4)中，只能更改屏幕百分比，但现在，它已在渲染通道的过程中分为以下两种类型的缩放：一级和二级空间分辨率修改。
 
-* **Primary Spatial Upscaling** is the same screen percentage that has been used previously. It is based on the idea of rendering a frame at a lower resolution and then upscaling it before the UI is drawn.
-* **Secondary Spatial Upscaling** does a second and final upscale pass, independently of the Primary upscaling pass. This pass can happen if the GPU is not able to keep up with a high DPI (Dots per Inch) monitor and makes Dynamic Resolution changes possible. 
-
-
+* **一级空间分辨率修改** 采用与之前相同的屏幕百分比。它依据的原理是，首先以较低分辨率渲染帧，然后在绘制 UI 之前对帧进行分辨率修改。
+* **二级空间分辨率修改** 进行二次和最终分辨率修改关卡，与主空间分辨率修改关卡无关。此关卡会在GPU无法匹配高DPI（每英寸点数）显示器时发生，并实现动态分辨率更改。 
 
 
 
@@ -37,31 +35,34 @@ Prior to Unreal Engine 4(UE4) version 4.19, you only had to change the screen pe
 
 
 
-## Primary Spatial Upscale
 
-The **Primary Spatial Upscale** (or primary screen percentage) works by rendering the screen resolution at a percentage of the screen and then scaling it to fit your current screen resolution. Using a lower screen percentage (or lower resolution) and then upscaling it is called **upsampling**. Or, when the screen percentage is increased (rendering at a higher resolution), it is scaled down to your current screens resolution, which is called **supersampling**. All of this takes place before the user interface (UI) is drawn and can have an impact on performance.
+
+(#primaryspatialupscale)
+## 一级空间分辨率修改
+
+**一级空间分辨率修改**（或一级屏幕百分比）的工作原理为：以一定的屏幕百分比渲染屏幕分辨率，然后将其进行缩放以符合当前屏幕分辨率。先选用较低的屏幕百分比（或较低的分辨率），然后进行分辨率修改，此过程称为 **上采样**。或者，在提高屏幕百分比后（以较高的分辨率进行渲染），将其缩小为当前的屏幕分辨率，此过程称为 **超级采样**。所有这些都在绘制用户界面（UI）之前发生，并且可能对性能产生影响。
 
 [COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
+-TODO修复PSD自定义图像，便于以后平移-
 [/COMMENT]
 
 ![](SpatialUpscalingPipelineComparison.png)(w:900)
 
-The conceptual idea of how screen percentage works for all the buffer render targets that make up the rendered image for a single GPU frame can be shown as follows:
+对于组成单个GPU帧渲染图像的所有缓冲区渲染目标，屏幕百分比工作方式的构想理念如下所示：
 
 [COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
+-TODO修复PSD自定义图像，便于以后平移-
 [/COMMENT]
 ![](NoUpscalingPipeline.png)(w:900)
 
-For each GPU frame, all the render targets use their full resolution throught out the pipeline.
+对于每个GPU帧，所有渲染目标均在整个通道中使用全分辨率。
 
 [COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
+-TODO修复PSD自定义图像，便于以后平移-
 [/COMMENT]
 ![](SpatialUpscalingPipeline.png)(w:900)
 
-With Spatial Upscaling, anything drawn before the UI is at a lower or higher resolution based on the Screen Percentage used. The screen percentage has been lowered (indicated by the narrower render targets before UI), creating a lower resolution image for the render targets. Spatial Scaling happens befor the UI to scale the image to the screen resolution it will be output to. For example, if the current resolution is set to 1920x1080 and a screen percentage of 83% is used, the render targets will be resized to an approximate resolution of 1600x900 before being upscaled back to 1920x1080. 
+通过空间分辨率修改（Spatial Upscaling），在UI之前绘制的任何内容都会根据所使用的屏幕百分比而采用更低或更高的分辨率。屏幕百分比已降低（由UI之前较窄的渲染目标表示），从而为渲染目标创建较低分辨率的图像。空间缩放（Spatial Scaling）在UI之前发生，从而将图像缩放至其输出时将采用的屏幕分辨率。比如，如果当前分辨率设为1920x1080，且使用的屏幕百分比为83%，则渲染目标会在其分辨率修改回1920x1080之前被调整到具有大约为1600x900的分辨率。 
 
 
 
@@ -69,30 +70,30 @@ With Spatial Upscaling, anything drawn before the UI is at a lower or higher res
 
 
 
-### Render Target Upscale Quality
+### 渲染目标分辨率修改质量
 
-When upscaling the render targets, the quality of the upscale can be defined by using the following console variable: 
+在对渲染目标进行分辨率修改时，可通过使用以下控制台变量确定分辨率修改的质量： 
 
 	r.Upscale.Quality
 
-It controls the quality in qhich screen percentage and Windowed FullScreen mode scales the 3D rendering.
+它控制屏幕百分比和窗口全屏（Windowed FullScreen）模式缩放3D渲染的质量。
 
-| Upsample Quality Value | Upsample Result |
+| 上采样质量值 | 上采样结果 |
 | --- | --- |
-| **0** | Nearest Filtering |
-| **1** | Simple Bilinear |
-| **2** | Directional blur with unsharp mask upsample |
-| **3** | 5-tap Catmull-Rom bicubic, approximating Lanczos 2 (default) |
-| **4** | 13-tap Lanczos 3 |
-| **5** | 36-tap Gaussian-filtered unsharp mask (very expensive, but good for extreme upsampling) |
+| **0** | 最近过滤 |
+| **1** | 简单双线性 |
+| **2** | 使用非锐化遮罩上采样的方向性模糊 |
+| **3** | 5-tap Catmull-Rom双三次，接近Lanczos 2（默认）|
+| **4** | 13-tap Lanczos 3|
+| **5** | 36-tap高斯滤波非锐化遮罩（成本非常高昂，但是对极限上采样效果很好）|
 
-Alternatively, you can change how the tonemapper pass is handled. The screen percentage upscale is integrated into the tonemapper pass and they are run separately by default. If they are run together, they can be run in the same pass, which is faster but will affect any post process passes that happen after the tonemapper, including post process materials. It can be enabled by using the following command: 
+或者，您可以更改色调映射器关卡的处理方式。屏幕百分比分辨率修改集成到色调映射器关卡中，默认情况下两者分开运行。如果一起运行，则它们可以在相同的关卡中运行，这样速度更快，但是会影响在色调映射器之后发生的后期处理关卡，包括材质后期处理。它可通过以下指令启用： 
 
 	r.Tonemapper.MergeWithUpscale.Mode
 	
 
 [COMMENT:none]
-- TODO IMAGE - Possible with an image demonstration? -
+- TODO图像 —— 是否可以进行图像演示? -
 [/COMMENT]	
 
 
@@ -103,31 +104,32 @@ Alternatively, you can change how the tonemapper pass is handled. The screen per
 
 
 
-### Temporal Anti-Aliasing Upsample
+(#temporalanti-aliasingupsample)
+###基于时间的抗锯齿上采样
 
-In addition to Primary Spatial Upscale, a second upscaling technique is also supported for the primary screen percentage: Temporal Upsample. Instead of performing temporal integration with the Temporal Anti-Aliasing (TAA) and then doing a primary spatial upscale, both happen at the same time in the Temporal Anti-Aliasing Upsample (TAAU) shader. It allows them to converge to sharper images than what a spatial-only upscale could provide but comes at a higher cost since a larger number of post processes run at a higher resolution.
+除了一级空间分辨率修改外，一级空间分辨率修改还支持第二种分辨率修改技术，即：基于时间的上采样。这种技术并非先执行与时间抗锯齿（TAA）的时间整合，然后进行一级空间分辨率修改，而是使两者在基于时间的抗锯齿上采样（TAAU）着色器中同时发生。它允许两者汇合到比纯空间分辨率修改所提供的图像更清晰的图像，但由于大量的后期处理以更高的分辨率运行，因此其成本也更高。
 
 ![](TAAUPipeline.png)(w:900)
 
 [REGION:caption]
-TAAU happens earlier in the pipeline causing the render targets that follow to render at a higher resolution, leading to higher costs with sharper images. 
+TAAU在通道中发生时间较早，使得后续的渲染目标以更高的分辨率渲染，进而使图像更清晰，但成本也更高。 
 [/REGION]
 
-It should be noted that with the temporal upsample, the ordering of the different post processes has not changed with the addition of TAAU, it simply replaced TAA. The difference now is that anything that runs after the temporal upsample is ready and aware of the different resolution than those before the upsample. Before 4.19, the resolution was assumed to be the same everywhere in the post processing.
+应注意的是，通过基于时间的上采样，不同后期处理的排列顺序并未随着TAAU的添加而改变，只是取代了TAA。当前的不同之处在于，在基于时间的上采样后运行的所有处理都已就绪，且认识到分辨率与上采样之前不同。在 4.19 版本之前，分辨率被假定为在后期处理过程中的各个阶段都相同。
 
-The benefit of moving the temporal upscale up in the pipeline means that arbitrary primary screen percentages can be used with TAAU with minimal user-perceivable changes on the final output sharpness. Before, you had to sometimes use a "magic" number that depended on the display it was being output. This  largely affected Virtual Reality (VR) Head Mounted Displays (HMD), where each one would use their own screen percentage to get the best result. With temporal upscaling, you no longer have to keep track or remember these values to achieve a similar result.
+在通道中上调时间分辨率修改的好处意味着，任意一级屏幕百分比均可与TAAU一起使用，从而最小化用户可感知的最终输出清晰度变化。此前，有时不得不使用一个依赖于输出显示器的“魔术”数字。这很大程度上影响了虚拟现实（VR）头戴式显示器（HMD），之前每个人都会通过该显示器来设定自己的屏幕百分比，以获得最佳效果。而通过时间分辨率修改，则不再需要通过跟踪或记住这些数值来取得类似效果。
 
 [REGION:note]
-The changes to the final output sharpness does not use a "magic" number, so as the primary screen percentage decreases, the convergence to a clean full-resolution output changes. Therefore, some existing TAA artifacts would be more noticeable. For example, aliasing can become an issue for very thin geometry increasing the probability to miss geometric detail as the primary screen percentage is lowering.
+对最终输出清晰度所作出的变更并未使用“魔术”数字，因此随着一级屏幕百分比减小，清晰全分辨率输出的收敛也会发生变化。由此，一些现有的TAA瑕疵会更加明显。比如，随着一级屏幕百分比减小，对于非常薄的几何体，锯齿可能会成为一个问题，增加无法满足几何细节的可能性。
 [/REGION]
 
-#### Enabling Temporal Upsample
+####启用基于时间的上采样
 
-To use Temporal Anti-Aliasing Upsample, you'll need to opt into it by using the following console variable: 
+若要使用基于时间的抗锯齿采样，需通过以下操作台变量来选择它： 
 
 	r.TemporalAA.Upsampling 1
 
-A lower primary screen percentage can lose significant detail when using lower resolutions. For example, for something like a chain-link fence or the grill on the front of a car, the detail can become harder to see at farther distances when Temporal Anti-Aliasing is used. Enabling TAAU, this can be reduced while still using a lower screen percentage.
+在使用较低的分辨率时，较低的一级屏幕百分比可能会导致重要细节丢失。比如，对于链式围栏或车前格栅之类的物体，在使用基于时间的抗锯齿时从远处更难看到细节。启用TAAU后，不仅可以减轻这种状况，同时还可以继续使用较小的屏幕百分比。
 
 [REGION:imagetable]
 | ![](FenceAsset.png)(w:560) | [INCLUDE:#taau] |
@@ -135,9 +137,9 @@ A lower primary screen percentage can lose significant detail when using lower r
 |||
 [/REGION]
 
-In the comparison, the primary screen percentage has been set to **50** and the camera has been moved to a far enough distance to effectively see how TAA affects high-frequency geometry and materials. The temporal upsample enables this detail to be seen, even when lower resolutions are used to maintain this detail as much as possible.
+在对比中，一级屏幕百分比已设定为 **50**，摄像机则移动到足够远的距离，以有效观察TAA如何影响高频几何体和材质。即使是使用更低的分别率来尽可能维持该细节时，基于时间的上采样也能够使我们看到该细节。
 
-In this comparison, the Primary Screen Percentage has been set to **50** and the camera has been moved to a far eough distance to see the effect. 
+在此对比中，一级屏幕百分比设为 **50**，摄像机则移动到足够远的距离，以观察效果。 
 
 [COMMENT:none]
 -
@@ -145,10 +147,10 @@ In this comparison, the Primary Screen Percentage has been set to **50** and the
 [EXCERPT:tAAU]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![TemporalAA Upsample | Disabled](TemporalUpsampleDisabled.png)(w:560)
+	![基于时间的AA上采样 | 已禁用](TemporalUpsampleDisabled.png)(w:560)
 	[/PARAM]
 	[PARAM:after]
-	![TemporalAA Upsample | Enabled](TemporalUpsampleEnabled.png)(w:560)
+	![基于时间的AA上采样 | 已启用](TemporalUpsampleEnabled.png)(w:560)
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:tAAU]
@@ -157,28 +159,28 @@ In this comparison, the Primary Screen Percentage has been set to **50** and the
 [/COMMENT]
 
 
-#### Additional Examples
+####其他示例
 
 
-In this first set of comparisons, a default scene that has only lowered the screen percentage is compared to one using the same screen percentage except it has the temporal upsample enabled. The difference may seem minute for these screenshots but on larger screens the areas with dense geometry or high-frequency textures can regain some lost detail, like with the fencing on the top of the house, or the tree fronds on the trees (close and far ones). 
+在第一组对比中，将仅降低了屏幕百分比的默认场景与使用相同屏幕百分比但启用了基于时间的上采样的场景进行比较。从截图上看，差别似乎微乎其微，但在较大的屏幕上则可以看到，具有密集几何体或高频纹理的区域可重新获得一些丢失的细节，比如房子顶部的栅栏或者树木上的树叶（远近都有）。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 70 | Temporal AA Upsample: Disabled](Shot3c.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已禁用](Shot3c.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled](Shot2c.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已启用](Shot2c.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
-In this one, the default screen percentage of 100 without any temporal upsample can be compared to the lower screen percentage that is using temporal upsample. While some specular highlights and some material detail is lost, the temporal upsample does a really good job of maintaining geometry detail even though the screen percentage has been lowered.
+在本例中，可以将未采用任何基于时间的上采样且值为100的默认屏幕百分比与使用基于时间的上采样的较低屏幕百分比进行比较。虽然有一些镜面高光和材质细节丢失，但是基于时间的上采样在维护几何体细节方面表现出色，即使在屏幕百分比已降低的情况下也是如此。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 100 | Temporal AA Upsample: Disabled ](Shot1c.png)(w:1100)
+	![屏幕百分比：100 | 时间AA上采样：已禁用 ](Shot1c.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled ](Shot2c.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已启用 ](Shot2c.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
@@ -188,19 +190,19 @@ In this one, the default screen percentage of 100 without any temporal upsample 
 -
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 70 | Temporal AA Upsample: Disabled](Shot3a.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已禁用](Shot3a.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled](Shot2a.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已启用](Shot2a.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 100 | Temporal AA Upsample: Disabled ](Shot1a.png)(w:1100)
+	![屏幕百分比：100 | 时间AA上采样：已禁用 ](Shot1a.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled ](Shot2a.png)(w:1100)
+	![屏幕百分比：70 | 时间AA上采样：已启用 ](Shot2a.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
@@ -208,13 +210,13 @@ In this one, the default screen percentage of 100 without any temporal upsample 
 [/COMMENT]
 
 [COMMENT:none]
----  EXAMPLES OF TAAU UPSCALES
+---  TAAU分辨率修改示例
 
-Take examples from Guillaume's pre-doc for comparison shots and add some context
+从Guillaume的预备文档中选取一些镜头示例作为对比镜头，并添加一些背景
 
-Shot 1 - Primary Screen Percentage = 100% with no extra frills, no TAAU upscaling.
-Shot 2 - Primary Screen Percentage = 70%  with TAA Upsampling enables (uses temporal and spatial upsampling)
-Shot 3 - Primary Screen Percentage = 70%  with TAA Upsampling disabled (default, so no temporal and spatial upsampling) but does use r.Upscale Quality 3 (default value)
+镜头1 —— 一级屏幕百分比=100%，无额外装饰，无TAAU分辨率修改。
+镜头2 —— 一级屏幕百分比=70%，启用TAA上采样（使用时间和空间上采样）
+镜头3 —— 一级屏幕百分比=70%，启用TAA上采样（默认值，因此没有时间和空间上采样），但使用r.Upscale Quality 3（默认值）
 
 --
 [/COMMENT]
@@ -223,28 +225,28 @@ Shot 3 - Primary Screen Percentage = 70%  with TAA Upsampling disabled (default,
 
 
 
-### Automatic View Texture Mip Bias
+###自动视图纹理Mip偏差
 
-Becasue screen percentage causes geometry to render at a lower pixel density, temporal upsample requires more texture information from the Material Domains using **Surface** and **Deferred Decal** to maintain the same output sharpness. For this purpose, the Texture Sample expression can use **Automatic View Mip Bias** 
+由于屏幕百分比导致几何体以较低的像素密度渲染，基于时间的上采样需要使用 **表面** 和 **延迟贴花** 从材质域获得更多的纹理信息，以保持相同的输出清晰度。为此，纹理取样表达式可以使用 **自动视图Mip偏差** 
 
-The Texture Sample expression can use **Automatic View Mip Bias** to toggle whether the texture should be sampled with per-view mip biasing for sharper output with Temporal Anti-Aliasing.
+纹理取样表达式可以使用 **自动视图Mip偏差** 来切换是否应使用每一视图Mip偏置对纹理采样，从而通过时间抗锯齿获得更清晰的输出。
 
 ![](AutomaticViewMipBias.png)
 
-For high-frequency textures (like the example below), the automatic mip bias can become problematic at lower screen percentages.
+对于高频纹理（如下例所示），自动Mip偏差在较低屏幕百分比下可能会出现问题。
 
 ![](HFtexture.png)(w:512)
 
 [COMMENT:none]
--TODO IMAGE - GRILL OR HIGH FREQUENCY TEXTURE FROM DISTANCE> SET THE IMAGE UP AND ZOOM INTO PART OF THE IMAGE TO SHOW THE GRILL LARGER FOR EASE OF VIEWING. 
+-TODO图像 —— 远距离的格栅或高频纹理>设置图像并放大图像的一部分来显示更大的格栅，以便查看。 
 [/COMMENT]
 
-However, if you need to access the mip map level accurately, Automatic View Mip Bias should be unchecked. 
+但是，如果需要准确地访问Mip映射级别，则应取消勾选自动视图Mip偏差。 
 
 ![](AutomaticViewMipBiasUnchecked.png)
 
 [REGION:note]
-Automatic View Mip Bias only happens when TAAU is enabled. Normal Anti-Aliasing methods (TAA, MSAA, and FXAA) won't be able to use this option. 
+自动视图Mip偏差只在TAAU启用时出现。普通抗锯齿方法方法（包括TAA、MSAA、FXAA）将无法使用此选项。 
 [/REGION]
 
 
@@ -254,87 +256,89 @@ Automatic View Mip Bias only happens when TAAU is enabled. Normal Anti-Aliasing 
 
 
 
-#### Performance Permutations  (TODO BASED ON NOTES FROM GUILLAUME)
+####性能置换（TODO基于GUILLAUME的注释）
 
-TODO REWRITE
+TODO重写
 
-The temporal upsample comes with a faster shader permutation that is traded against some quality to ship at 60Hz on consoles. This is similar to what is currently achieved with TAA.
-
-
+基于时间的上采样具有更快的着色器排列，后者依据某些质量进行交换以在控制台上以60Hz的频率传输。这和目前通过TAA实现的结果类似。
 
 
 
 
 
-Temporal Upsample comes with a faster shader permutation (traded against some quality) minded titles to ship at 60Hz on consoles, like we currently do with TAA (r.postprocessingQuality=3 or r.PostProcessAAQuality=4).
-
-More over, both quality also have their own shader permutations for primary screen percentage ranges: 
 
 
+基于时间的上采样（Temporal Upsample）具有更快的着色器排列（根据某些质量进行交换）思想标题，可在控制台上以60Hz的频率传输，与我们现在使用TAA（r.postprocessingQuality=3 或 r.PostProcessAAQuality=4）所做的一样。
 
-| r.PostProcessAAQuality 3 | r.PostProcessAAQuality 4 | Notes | 
+但是，对于一级屏幕百分比范围，这两种质量也有各自的着色器排列： 
+
+
+
+| r.PostProcessAAQuality 3 | r.PostProcessAAQuality 4 | 注释 | 
 | --- | --- | --- |
-| 50% | 71% | even faster version because uses smaller LDS tile in memory, targeting temporal upsampling to 4K on desktop and console use-cases. |
-| 71% | 100% | Useful for "normal" DPI rendering on desktop and base consoles.  |
-| 100% | 200% | For giving dynamic resolution the theoretic possibility to go over 100%, if not limited by the GPU memory for render targets.  |
+| 50% | 71% | 它是更快的版本，因为它在内存中使用更小的LDS磁贴，从而在桌面和控制台用例上将基于时间的上采样定位到4K。|
+| 71% | 100% | 有助于桌面和基本控制台上的“普通”DPI渲染。|
+| 100% | 200% | 在不受渲染目标GPU内存限制的情况下，为动态分辨率提供超过100%的理论可能性。|
 
 
 
-### Material Improvements
+###材质改进
 
 
-There have been some improvements with how Materials use the Scene Texture expression to sample the scene. It has been simplified so that the view size is always equal to that of the render target being used, a new output on the Screen Position expression enables accurate pixel position within the view size, and some things to consider when using post process materials after TAAU.
+关于材质如何使用场景纹理表达式来进行场景采样，目前已经有一些改进。它已经过简化，因此视图大小始终等于所使用的渲染目标大小，在屏幕位置表达式上的新输出可在视图大小内实现精确的像素位置，并实现在TAAU之后进行材质后期处理时需考虑的一些事情。
 
 
-#### View Size is now equal to Render Target Size
+####视图大小现在等于渲染目标大小
 
-The view size will now always equal the render target size in a material. Prior to UE4 4.19, when sampling a scene texture, the material had to work with the complexity of Scene Texture UV, which is different from the Viewport UV. For example, the Screen Position expression would output both of these values and View Property would also expose a Render Target Size that was not necessarily equal to the View Size. That was due to the renderer actually rendering the viewport in possibly larger render targets. 
+视图大小现在将始终等于材质中的渲染目标大小。在UE4 4.19之前，在对场景纹理进行采样时，材质必须配合场景纹理UV的复杂性，而该UV与视口UV不同。比如，屏幕位置表达式将输出这两个值，而视图属性也会显示不一定等于视图大小的渲染目标大小。这是因为渲染器实际上是在可能更大的渲染目标中渲染视口。 
 
 ![](ViewSizeInRT.png)
 [COMMENT:none]
--TODO IMAGE - Viewport of the view that is captured vs the actual render target size. -
+-TODO图像 —— 捕获的视图视口与实际渲染目标大小对比。-
 [/COMMENT]
 
-With that complexity removed, the Material will always behave as if the Render Target Size is equal to the View Size. The Screen Position expression will now always return the Viewport UV and the Scene Texture expression takes the Viewport UV as an input. 
+去掉这种复杂性后，材质的表现将始终与渲染目标大小等于视图大小时相同。屏幕位置表达式现在将总是返回视口UV，而场景纹理表达式则将视口UV视为输入端。 
 
 ![](ScreenPosViewportUVMat.png)
 [REGION:caption]
-An example setup of how Screen Position returning the ViewportUV size for a Scene Texture expression.
+屏幕位置如何为场景纹理表达式返回视口UV大小的设置示例。
 [/REGION]
 
 
 
-#### Screen Position's high-precision Pixel Position Output
+####屏幕位置的高精度像素位置输出
 
-The Screen Position expression now includes a second input for Pixel Position, which is the Viewport UV multiplied by the size of the pass. The size of the pass is always equal to the View Size as you would get with the View Property, unless it's taken from a [post process material running after TAAU](#postprocessmaterialsaftertaau).
+屏幕位置表达式现在包括像素位置（Pixel Position）的另一个输入，即视口UV与关卡大小相乘之积。除非取自[TAAU之后的材质后期处理](#postprocessmaterialsaftertaau)，否则关卡的大小始终等于使用视图属性时将获得的视图大小。
 
-Pixel Position is used to give the material the most accurate pixel position within the View Size, which is critical for effects such as custom pixel dithering that is synchronized with TAA. The follow is an example how the Viewport UV is computed: 
+像素位置用于为材质提供视图大小内最精确的像素位置，这对于与TAA同步的自定义像素抖动等效果来说至关重要。以下为如何计算视口UV的示例： 
 
 ![](ScreenPosPixelPosOutput.png)
 
 
-#### Post Process Materials After TAAU
+(#postprocessmaterialsaftertaau)
+#### TAAU后的材质后期处理
 
-When creating a Post Process Material, you can select the Blendable Location to use. The **After Tonemapping** and **Replacing the Tonemapper** locations are after TAAU in the pipeline, meaning that they are actually running at full resolution and are different from the View Size. 
+在创建材质后期处理时，可以选择要使用的可混合位置。在通道中，**色调映射器后面** 和 **替换色调映射器** 位置均位于TAAU之后，这意味着表示两者实际上是以全分辨率运行，并且与视图大小不同。 
 
 ![](BlendableLocation.png)
 
-The View Property expression's View Size and Render Target Size will still return the resolution of the view before TAAU, even though it's happening after that.To know what the view size and texel UV size are after TAAU, the Scene Texture expression using PostProcessInput0 can use the outputs for **Size** and **InvSize**.
+即使是发生在TAAU之后，视图属性表达式的视图大小和渲染目标大小仍将返回TAAU之前的视图分辨率。为了知道TAAU之后的视图大小和纹素UV大小，包含PostProcessInput0的场景纹理表达式可以使用 **大小（Size）** 和 **InvSize** 的输出值。
 
 ![](ViewProperty.png)
 
-Recomputing Viewport UV from Pixel Position can be done like so:
+根据像素位置重新计算视口UV可按照以下方式进行：
 
 ![](ViewportUVFromPixelPos.png)
 
-Now that Scene Texture expressions only accept Viewport UV, it's possible to sample in any arbitrary scene textures without possible errors while doing UV viewport conversion.
+既然场景纹理表达式只接受视口UV，那么我们可以在任意场景纹理中进行采样，而不会在执行UV视口转换时出现错误。
 
 
 
 
-## Secondary Spatial Upscale
+(#secondaryspatialupscale)
+##二级空间分辨率修改
 
-In addition to the [Primary Spatial Upscale](#primaryspatialupscale) there is the **Secondary Spatial Upscale** taking place after the [TAAU](#temporalanti-aliasingupsample) pass. For high DPI monitors, the GPU may not be able to keep up depending on scene complexity. For that purpose, the renderer supports using a secondary screen percentage that drives the second and final upscale pass that is independent of the primary screen percentage. 
+除[一级空间分辨率修改](#primaryspatialupscale)外，在 [TAAU](#temporalanti-aliasingupsample)关卡后还有 **二级空间分辨率修改** 发生。对于高DPI显示器，GPU可能无法与之匹配，具体取决于场景复杂度。为此，渲染器支持使用二级屏幕百分比，该比例驱动与一级屏幕百分比无关的二次和最终分辨率修改关卡。 
 
 ![](SecondarySpatialUpscale.png)(w:900)
 
@@ -347,17 +351,17 @@ In addition to the [Primary Spatial Upscale](#primaryspatialupscale) there is th
 
 
 
-### DPI Editor Viewport Scaling
+###DPI编辑器视口缩放
 
-In the Editor, all the viewports are rendered with a secondary screen percentage that is divided by the operating systems (OS) DPI scale setting. It adjusts the scene scaling (or quality) for high DPI monitors to ensure consistent performance with very large render targets. When it is enabled, the secondary screen percentage will render at the full resolution of the viewport. 
+在编辑器中，所有视口均通过除以操作系统（OS）DPI比例设置的二级屏幕百分比进行渲染。它可以调整高DPI显示器的场景缩放（或质量），以确保与非常大的渲染目标保持一致的性能。当它启用后，二级屏幕百分比将以视口的全分辨率进行渲染。 
 
 ![](DPIEditorViewportScaling.png)
 
-The following command is platform independent but will benefit those projects shipping on console with 4k resolution support more, you can use a static secondary upscale with the following console variable: 
+以下命令与平台无关，但对于在支持4K分辨率的控制台上传输的项目更有利，您可以使用以下控制台变量进行静态二级分辨率修改： 
 
 	r.SecondaryScreenPercentage.GameViewport
 
-When enabled, it will override the secondary screen percentage so that it is not dynamic, which would originally change the resolution of the TAAU. When the resolution would change, the scene would become blurier before reconverging after a couple of frames. 
+启用后，该变量会覆盖二级屏幕百分比以使其保持静态，而动态的二级屏幕百分比本来会改变TAAU的分辨率。当分辨率改变时，场景在几帧之后变得更模糊，然后重新收敛。 
 
 
 
@@ -368,26 +372,26 @@ When enabled, it will override the secondary screen percentage so that it is not
 
 
 
-## VR Pixel Density
+##VR像素密度
 
-TODO WRITE LATER
-
-
-(Link to whatever page SamD writes. This section will be very high-level and should probably just contain some snippets from his blog post here: https://docs.google.com/a/epicgames.com/document/d/12cpUby8Fgxuzet92emCtWVyKrXYvScRipDFDRJm1zFw/edit?usp=sharing)
+TODO稍后编写
 
 
+（链接到SamD所编写的任何页面。这部分将具有非常高的级别，而且可能只包含他在以下链接中的博客文章的部分片段：https://docs.google.com/a/epicgames.com/document/d/12cpUby8Fgxuzet92emCtWVyKrXYvScRipDFDRJm1zFw/edit?usp=sharing
 
 
 
 
 
 
-## Render Thread Dynamic Resolution
 
-Dynamic resolution enables a heuristic to choose the primary screen percentage according to the previous frames GPU workload. It enables the games resolution to adjust as needed, like when there are too many objects on screen or if an expensive effect enters the frame. Dyanmic Resolution functionality is supported for game builds and while Playing-in-Editor (PIE), but not while editing in the viewport. When dynamic resolution is used with PIE, keep in mind that all the additional cost of the Editor UI and processing must be taken into account for the work the GPU is doing. Game builds would give much more accurate results of what to expect.
+
+##渲染线程动态分辨率
+
+动态分辨率使启发法能够根据以前的帧GPU工作量选择一级屏幕百分比。它允许根据需要调整游戏分辨率，比如当屏幕上对象太多时或昂贵的特效进入帧内时。动态分辨率功能在构建游戏以及于编辑器中进行播放（PIE）时受支持，但于视口中进行编辑时则不受支持。当动态分辨率与PIE一并使用时，请注意，必须为GPU所执行的工作考虑编辑器UI和处理的所有额外成本。游戏构建将提供更精确的预期结果。
 
 [REGION:note]
-The **Stat Raw** command is helpful to see the results of dynamic resolution in your game. You can find more information in the [Using Stats](#usingstats) section of this page. 
+**Stat Raw** 命令用于在游戏中查看动态分辨率结果。本页的[使用统计信息](#usingstats)部分显示了更多相关信息。 
 [/REGION]
 
 
@@ -399,113 +403,114 @@ The **Stat Raw** command is helpful to see the results of dynamic resolution in 
 
 
 
-### Enabling Dynamic Resolution
+###启用动态分辨率
 
-Dynamic Resolution can be enabled by using a new boolean that has been added to **Game User Settings**. It can be set when using Blueprint or C++.
+动态分辨率可以通过使用已添加至 **游戏用户设置（Game User Settings）** 的新布尔值来启用。使用蓝图或C++时，可对其进行设置。
 
-In **Blueprint**, you can enaable dynamic resolution by using the **Game User Settings** node to opt into the feature like so:
+在 **蓝图** 中，可使用 **游戏用户设置（Game User Settings）** 节点选择以下特性，从而启用动态分辨率：
 
 ![](DynResBP.png)
 
-In **C++**, the boolean value can be set in `UGameUserSettings` like so:
+在 **C++** 中，可在‘UGameUserSettings’中设置布尔值，如下所示：
 
 	GEngine->GetDynamicResolutionState()->SetEnabled(true);
 
-Use **false** for `SetEnabled` to disable it.
+对‘SetEnabled’使用 **假（False）** 即可将其禁用。
 
 [REGION:note]
-Game thread logic has the final programmatic control when to actually enable/disable dynamic resolution, so if it's enabled at runtime using Blueprint that will take precedent over setting it in code.
+在实际启用/禁用动态分辨率时，游戏线程逻辑具有最终的程序控制，因此如果在运行时启用动态分辨率，那么使用蓝图将优先于在代码中设置动态分辨率。
 [/REGION]	
 
-To restore game user settings to its original state, use the following:
+若要将游戏用户设置恢复到原始状态，可使用以下方法：
 
 	GEngine->GameUserSettings->ApplyNonResolutionSettings();
 
-#### Controlloing Dynamic Resolution
+####控制动态分辨率
 
-Once dynamic resolution is enabled, the following console variables can be used to set the minimum and maximum screen percentages to be used and the maximum budget of any given frame before it lowers resolution:
+一旦启用动态分辨率，则可使用以下控制台变量来设置要使用的最小和最大屏幕百分比，以及任何帧在降低分辨率之前的最大预算：
 
-* **r.DynamicRes.MinScreenPercentage** sets the minimal primary screen percentage to use. 
-* **r.DynamicRes.MaxScreenPercentage** sets the maximum primary screen percentage that is used to allocate render targets.
-* **r.DynamicRes.FrameTimeBudget** sets the budget of the frame (in milliseconds).
+* **r.DynamicRes.MinScreenPercentage** 设置要使用的最小一级屏幕百分比。 
+* **r.DynamicRes.MaxScreenPercentage** 设置用于分配渲染目标的最大一级屏幕百分比。
+* **r.DynamicRes.FrameTimeBudget** 设置帧的预算（单位：毫秒）。
 
 [REGION:note]
-If you are debugging a scene, you can use the the console variable **r.Test.DynamicRes.EnableOverride** to enable/disable Dynamic Resolution for the scene. This is only available for use with non-Shipping builds.
+如果正在调试场景，可使用控制台变量 **r.Test.DynamicRes.EnableOverride** 来启用/禁用该场景的动态分辨率。该方法只适合与non-Shipping式构建一起使用。
 [/REGION]
 
 
 
-### Using Stats 
+(#usingstats)
+###使用统计信息 
 
-There are several stat screens that you can enable debugging performance with dynamic resolution:
+您可以在以下几个统计信息屏幕中通过动态分辨率启用调试性能：
 
-* **Stat Unit** is used to look at the overall frame time as well as the game thread, rendering thread, and GPU times.
-* **Stat UnitGraph** is used to see a graph with the Stat Unit data.
-* **Stat Raw** outputs unfiltered data using Stat UnitGraph.
+* **Stat Unit** 用于查看整体帧时间以及游戏线程、渲染线程和GPU时间。
+* **Stat UnitGraph** 用于查看包含了Stat Unit数据的图表。
+* **Stat Raw** 借助Stat UnitGraph输出未经过滤的数据。
 
-#### Stat Unit
+#### 统计信息单位
 
-When **Stat Unit** is called, you can immediately see if dynamic resolution is enabled for your scene by referencing the **DynRes:** line.
+在调用 **Stat Unit** 时，可以通过引用 **DynRes:** 行立即查看场景是否启用了动态分辨率。
 
 ![](DynResOFF.png)
 
-Dynamic resolution in the viewport can be enabled for testing and debugging by using the following command: 
+通过使用以下命令，可启用视口中的动态分辨率来进行测试和调试： 
 
 	r.Test.DynamicRes.EnableOverride 2
 
-Once enabled, the **DynRes:** label will show the [Primary Screen Percentage](#primaryspatialupscale) and the [Secondary Screen Percentage](#secondaryspatialupscale):	
+一旦启用，**DynRes:** 标签会显示[一级屏幕百分比](#primaryspatialupscale) 和[二级屏幕百分比](#secondaryspatialupscale)：	
 	
 ![](DynResON.png)
 
-There are two screen percentages used because it happens both on the X and Y axis. The number of pixels drawn by the GPU is actually represented by:
+由于它在X轴和Y轴上都有发生，因此使用了两个屏幕百分比。GPU绘制的像素数实际上可以表示为：
 
-	Screen Percentage x Screen Percentage
+	屏幕百分比x屏幕百分比
 	
-An example would be 1920x1080 or 1280x720.
+示例中将为1920x1080或1280x720。
 
 
 
 
 
 
-#### Stat UnitGraph and Stat Raw
+####统计信息单位图表Stat 和原始统计信息
 
-When **Stat UnitGraph** is called, a graph will be drawn to show the [Primary Screen Percentage](#primaryspatialupscale) chosen by dynamic resolution.
+在调用 **Stat UnitGraph** 时，GPU将绘制一个图表来显示动态分辨率选择的[一级屏幕百分比](#primaryspatialupscale)。
 
 ![](StatUnitGraph.png)
 
-1. Timings (Filtered or Raw) - 
-1. Target Frame Time Threshold - 
-1. Dynamic Resolution Maximum Screen Percentage - 
-1. Dynamic Primary Screen Percentage Curve - 
+1.计时（过滤或原始） - 
+1.目标帧时间阈值 - 
+1.动态分辨率最大屏幕百分比 - 
+1.动态分辨率最大屏幕百分比曲线 - 
 
-The UnitGraph can show the primary screen percentage that is chosen by Dynamic Resolution. However, that curve is proportional to the amount of pixels drawn by the GPU using Screen Percentage x Screen Percentage.
+UnitGraph可显示由动态分辨率选择的一级屏幕百分比。但是，该曲线与GPU使用屏幕百分比x屏幕百分比绘制的像素数量成正比。
 
-Additionaly, you can get unfiltered (raw) timings in the UnitGraph by using **Stat Raw** to toggle them on. It does require that the UnitGraph already have been enabled to work. The timings section of the graph will change to indicate that it's displaying raw timings.
+此外，通过使用 **Stat Raw** 来开启未过滤的（原始）计时，可以在UnitGraph中获取这些计时。但这要求已启用UnitGraph进行工作。图表的计时部分将发生变化，以表示其当前正在显示原始计时。
 
 ![](StatRaw.png)
 
 
 
-### Dynamic Resolution Cruising (?)
+### 动态分辨率巡航(?)
 
-When using your graph view for your scene, you want to adjust how dynamic resolution works for your project to get the most out of it. The following graph is a simplistic ideal scene model that indicates where each of these console variables work within it and how they can be used to achieve a desired result:
+当您为场景使用图形视图时，您需要调整动态分辨率对项目的工作方式，才能充分地利用它。下图是一个简单化的理想场景模型，它指明了每个控制台变量在场景中的工作位置，以及可以如何使用这些变量来达到预期效果：
 
 
 ![](DynResCruising.png)
 
 
 [COMMENT:none]
--TODO A BUNCH OF CONSOLE COMMANDS -
+-TODO一组控制台命令 -
 [/COMMENT]
 
-| Reference Number | Console Variable | Description |
+| 引用编号 | 控制台变量 | 说明 |
 | --- | --- | ---|
-| 1 | **r.DynamicRes.TargetedGPUHeadRoom** | The headroom left for the GPU to increase before going over budget (in percentages of the frame's budget). This will likely depend on the shipping platform or according to what rendering features are enabled. For example, motion blur needs additional room for cost to account for fast rotation of camera movements. |
-| 2 | **r.DynamicRes.MinResolutionChangePeriod** | The minimal number of frames before allowing any resolution changes. It has multiple purposes: better reliability of the heuristic to model the GPU consumption at a given primary screen percentage despite the measurements noise; and to avoid [Temporal Upsample's](#temporalanti-aliasingupsample) input sample offset interferences between per-frame offset jittering and changing resolution that can be responsible for anti-aliasing divergence. |
-| 3 | **r.DynamicRes.HistorySize** | The number of frames in the heuristic's frame history. If it's too short, the history may be too noisy for the heuristic to be reliable, or if it's too long there may be very delayed adaptations. |
-| 4 | **r.DynamicRes.ChangePercentageThreshold** | The minimal changes that are required in percentage to actually resize the allocation. It is useful to not constantly change between a very close resolution size. If the value is too small, it may end up constantly changing the resolution, and if it's too large, it may cause a higher risk to go over the GPU budget. |
-| 5 | **r.DynamicRes.CPUBoundScreenPercentage** | The primary screen percentage that should be targeted when you are bound by the CPU. It's useful to set a lower screen percentage to decrease the resolution on platforms where the CPU and GPU are sharing the same memory bandwidth. |
+| 1 | **r.DynamicRes.TargetedGPUHeadRoom** | 在超出预算（按帧预算的百分比计算）之前，预留给GPU增加的余量。该命令可能取决于传输平台或依据所启用的渲染功能。比如，动态模糊需要额外的成本空间以考虑相机运动的快速旋转。|
+| 2 | **r.DynamicRes.MinResolutionChangePeriod** | 允许更改任何分辨率之前的最小帧数。该命令有多种用途：尽管存在测量噪点，仍使启发法给定的一级屏幕百分比下更可靠地对GPU消耗进行建模；避免每帧偏移抖动与变化分辨率之间[基于时间的上采样的](#temporalanti-aliasingupsample)输入样本偏移干扰（该干扰可能导致抗锯齿偏差）。|
+| 3 | **r.DynamicRes.HistorySize** | 启发法帧历史记录中的帧数。如果帧数太少，则历史记录可能含有太多噪点而导致启发法不可靠，而如果帧数太多，则可能会有很长的适应延迟。|
+| 4 | **r.DynamicRes.ChangePercentageThreshold** | 实际调整分配大小所需的最小百分比更改值。此命令有助于在非常接近的分辨率大小之间进行非经常性更改。如果数值太小，则最后可能会不断改变分辨率，如果数值太大，则会加剧超过GPU预算的风险。|
+| 5 | **r.DynamicRes.CPUBoundScreenPercentage** | 受GPU限制时应考虑采用的一级屏幕百分比。在CPU和GPU共享相同内存带宽的平台上，该命令对设置较低的屏幕百分比以降低分辨率很有用。|
 
 
 
@@ -520,89 +525,89 @@ When using your graph view for your scene, you want to adjust how dynamic resolu
 
 
 
-### Screen Resolution Over Budget Panic Switch
+### 屏幕分辨率超预算应急开关
 
-There may be times when dynamic resolution will go over budget very quickly, like during a camera cut or when a very expensive viaul effect enters the scene. The heuristic that is used can't predict when this will happen, a "panic" switch is used to quickly lower the resolution when it does to reduce the number of frames that are over budget. If the heuristic finds that N (some number) consecutive frames with the available GPU timings is over budget, it is going to immediately adapt the resolution to combat the over budget GPU timings. It will also perform an automatic history reset so that previously less expensive frames timings do not influence the heuristic for the more expensive frames.
+在某些情况下，比如在镜头停止时，或非常昂贵的视觉特效出现在场景中时，动态分辨率会很快超出预算。使用的启发法无法预测此类情况何时发生，因此，使用“应急”开关可在确实需要减少超过预算的帧数时迅速降低分辨率。如果启发法发现N个（某一数量）带有有效GPU计时的连续帧超出预算，“应急”开关将立即调整分辨率，以应对预算超出预算的GPU计时。此外，“应急”开关还会执行自动历史记录重置，从而使之前相对便宜帧的计时不会影响昂贵帧的启发法。
 
-The following console command can be used to control the maximum number of consecutive frames the GPU can be over budget before flipping the "panic" switch to lower the resolution:
+以下控制台命令可用于控制在转动“应急”开关以降低分辨率之前GPU可以超过预算的最大连续帧数：
 
 	r.DynamicRes.MaxConsecutiveOverbudgetGPUFrameCount
 
 ![](OverBudgetPanicGraph.png)
 
-1. This spike represents the frame latency between detection and resolution change caused by the GPU not being synchronized wih the render thread.
-1. Frame ID
-1. Where the resolution change occurs
-1. Panic Detection happens
+1.这个峰值表示由于GPU没有与渲染线程同步而导致的检测和分辨率变化之间的帧延迟。
+1.帧ID
+1.发生分辨率变化的地方
+1.Panic Detection发生
 
-In this example, the frame jumps over the set budget of 33.3 ms (milliseconds) causing the over budget panic switch to quickly lower the resolution of the scene. 
+在本例中，帧超出了33.3ms（毫秒）的设定预算，导致超预算应急开关迅速降低场景的分辨率。 
 
 ![](OverBudgetPanicExample.png)
 
-The following captures are taken from the Infiltrator demo (available on the **Learn** tab of the Epic Games Launcher) using the **Stat Raw** command to identify scene behavior when there is a camera cut and when an expensive effect enters the frame.
+以下截图取自Infiltratory演示（可在Epic Games启动程序的 **学习** 选项卡上找到），当镜头停止以及昂贵特效进入帧时，使用 **Stat Raw** 命令识别场景行为。
 
 
 ![](CameraCut.png)
 
-1. After the camera cut, the frame becomes significantly more expensive to render.
-1. Dynamic resolution has a panic reaction and quickly lowers the resolution.
+1.镜头停止后，帧渲染的成本明显变得更加昂贵。
+1.动态分辨率产生了应急反应并迅速降低。
 
 
 ![](ExpensiveEffect.png)
 
-1. The frame becomes more expensive at the beginning of an expensive visual effect.
-1. Again, dynamic resolution has a panic reaction and lowers the resolution.
+1.当昂贵的视觉特效开始时，帧成本变得更加昂贵。
+1.同样，动态分辨率也产生了应急反应且分辨率有所降低。
 
 
 
 
 
-### VR Non-TAAU Dynamic Resolution (WIP: still needs to be implemented)
+### VR非TAAU 动态分辨率（WIP：仍有待实施）
 
-TODO WRITE THIS
+TODO编写此命令
 
-(This may just go in SamD's doc or at the very least high-level mention and then link to it.)
-
-
-
-For VR when not using TAAU, the renderer avoids making a spatial upscale pass of the eye views before handing this off to the HMD's compositor. The static vr.PixelDensity still defines the resolution of the views for primary screen percentage = 100% and dynamic resolution simply changes the primary screen percentage as normal. 
-
-TODO GRAPH
+（该命令可能只在SamD的文档中出现，或者只在极少数高级别提及中出现，然后链接到相应内容）。
 
 
+
+对于VR，在没有使用TAAU时，渲染器避免在将其移交给HMD的合成器之前制作目视视图的空间分辨率修改关卡。静态Vr.PixelDensity仍将一级屏幕百分比的视图分辨率定义为100%，而动态分辨率则是正常地改变一级屏幕百分比。 
+
+TODO图表
 
 
 
 
 
 
-### Testing Content at different Primary Screen Percentages in the Viewport
 
-If your project has enabled dynamic resolution, you'll need to test it and make sure that it doesn't look significantly different than intended when using a lower primary screen percentage. At lower resolutions, some details can be lost and your assets may not retain the look that you intend them to have. For this very reason, all Editor viewport can set a Screen Percentage using a slider for testing. 
+
+###在视口中以不同一级屏幕百分比测试内容
+
+如果项目已启用动态分辨率，则需对其进行测试，并确保其与使用较低一级屏幕百分比时所预期的效果相比没有明显区别。在分辨率较低的情况下，会丢失一些细节，且资源可能不会保留您想让它们保留的外观。鉴于此原因，所有编辑器视口均可以使用滚动条来设置屏幕百分比以进行测试。 
 
 ![](ScreenPercentageViewportSlider.png)
 
-Use the slider to apply a higher or lower screen percentage to the viewport and check your level content accordinly. Artists, particularly, should use the slider to check their content at the high and low ranges of the screen percentages that will be used for the project. 
+使用滚动条，在视口中应用较高或较低的屏幕百分比，并相应地检查关卡内容。艺术家尤其应使用滚动条检查其在屏幕百分比高低范围下将用于项目的内容。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 100](CompSP1.png)
+	![屏幕百分比：100](CompSP1.png)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 100](CompSP1.png)
+	![屏幕百分比：100](CompSP1.png)
 	[/PARAM]
 [/OBJECT]
 
-When adjusting the screen percentage slider, the viewport (lower-right) will display any slider value that is not equal to 100. This is meant as a reminder that the viewport screen percentage has been changed from it's default resolution.
+在调整屏幕百分比滚动条时，视口（右下方）会显示任何不等于100的滚动条数值。此举旨在提醒视口屏幕百分比已经不再使用默认的分辨率。
 
 ![](ViewportSPValue.png)
 
 
-When the value is higher than 100, it will be displayed in RED. This indicates that it is more expensive to use and if you are experiencing sluggishness or a decrease in performance, try reseting it to the the default value. 
+当该数值超过100时，它将显示为红色。这表示使用成本变得更高，如果遇到迟缓或性能下降情况，请尝试将分辨率重新设置为默认值。 
 
 ![](SPViewport_HIGH.png)
 
-When the value is lower than 100, the set screen percentage will be listed as an indicator that it's not the default value for the viewport.
+当该数值低于100时，设定的屏幕百分比将会列出，表明该数值不是视口的默认值。
 
 ![](SPViewport_LOW.png)
 
@@ -610,95 +615,95 @@ When the value is lower than 100, the set screen percentage will be listed as an
 
 
 
-### Supported Platforms
+###支持的平台
 
-Dynamic resolution relies on the RHI's (Rendering Hardware Interface) ability to do reliable timestamp queries. For that reason, dynamic resolution is supported for the following features and platforms while using PIE or while in game. 
+动态分辨率依赖于RHI（渲染硬件接口）执行可靠时间戳查询的能力。因此，在使用PIE时或在游戏过程中，下列功能和平台支持动态分辨率。 
 
 
 Windows D3D11
-|  | Editor PIE | Game |
+|  | 编辑器PIE | 游戏 |
 | --- | --- | --- |
-| **No Game Max FPS** | Yes | Yes |
-| **Game Thread Max FPS** | Yes | Yes |
-| **r.VSyncEditor 1** | No | Work-In-Progress |
+| **无游戏最大FPS** | 是 | 是 |
+| **游戏线程最大FPS** | 是 | 是 |
+| **r.VSyncEditor 1** | 否 | 半成品 |
 
 
-| RHI | Support |
+| RHI | 支持 |
 | --- | --- |
-| **Windows D3D12** | Same as Windows D3D11 with VSync. |
-| **PlayStation 4** | Yes |
-| **Xbox One D3D12** | Yes |
-| **Switch** | Currently Untested |
-| **Vulkan** | No: Timestamp queries are not yet implemented |
-| **Metal** | Currently Untested |
-| **OpenGL** | No Plans to Implement |
+| **Windows D3D12** | 与包含VSync的Windows D3D11相同。|
+| **PlayStation 4** | 是 |
+| **Xbox One D3D12** | 是 |
+| **Switch** | 目前未测试 |
+| **Vulkan** | 否：时间戳查询尚未实施 |
+| **金属** | 目前未测试 |
+| **OpenGL** | 没有待实施的计划 |
 
 
 
 
-### Replace Dynamic Resolution Heuristic in C++
+###替换C++中的动态分辨率启发法
 
-The engine-provided render thread heuristic is completely self-contained within **DynamicResolution.cpp**. It is architectured so that it allows the heuristic to be fully replaceable by plugins in game code. 
+本引擎自带的渲染线程启发法在 **DynamicResolution.cpp** 中是完全独立的。其架构特殊，使得启发法能够由游戏代码中的插件完全替代。 
 
-For example, if your project needs to replace the default heuristic because you want to do something like game play code giving hints of what is going to happen in the next frame, you can rewrite the entire heuristic to do just that. By reimplementing `IDynamicResolutionState` and `ISceneViewFamilyScreenPercentage`, you can replace the default dynamic resolution states, like the example below:
+比如，如果项目因为您想要执行某项操作（例如编写游戏代码，以提示下一帧将出现什么）而需要替换默认的启发法，那么您可以重写整个启发法来完成该项工作。通过重新执行‘IDynamicResolutionState’和‘ISceneViewFamilyScreenPercentage’，即可替换默认的动态分辨率状态，如下例所示：
 
 	GEngine->ChangeDynamicResolutionStateNextFrame(new FMyGameSpecificDynamicResolutionState());
 
 [REGION:note]
-The renderer will now work with **ResolutionFraction** to avoid the divide by 100 everywhere in the screen percentage math. It is named **fraction** instead of "scale" because the upscale ratio is done by the TAA upsample or the spatial upscale is actually represented by 1 divided by the Resolution Fraction, like so:
+此时，渲染器将使用 **ResolutionFraction**，以避免在屏幕百分比运算中的各处均除以100。该命令名为 **fraction** 而不是“scale”，因为分辨率修改比率是由TAA上采样实现的，或者空间分辨率修改实际上是通过1除以分辨率分数来表示，如下所示：
 	
-	Resolution Fraction = Screen Percentage/100 = 1/Upscaling Factor
+	分辨率分数=屏幕百分比/100=1/分辨率修改因数
 
 [/REGION]	
 
 
 
 
-### Frequently Asked Questions
+###常见问题解答
 
-The following are some general fequently asked questions regarding Dynamic Resolution:
+以下是一些关于动态分辨率的常见问题：
 
-* Can dynamic resolution be force enabled/disabled in the Editor using the console (**`**)?
+* 是否可以使用控制台以在编辑器中强制启用/禁用动态分辨率 (**`**)?
 	
-	* Yes. Use the console variable **r.Test.DynamicRes.EnableOverride 2**. 
+	* 是的。可使用控制台变量 **r.Test.DynamicRes.EnableOverride 2**。 
 	
-* Can the heuristic for dynamic resolution be replaced?
+* 动态分辨率的启发法是否可以被替换?
 	
-	* Yes, it was designed to be modular and pluggable in C++. Unreal Engine 4 will only maintain a single heuristic, but the architecture allows for the creation of a standalone custom heuristic with custom game thread events that could be triggered by gameplay code or Sequencer.
+	* 可以，在C++中，启发法已被设计成模块化且可插拔。虽然虚幻引擎4只会保留一个启发法，但是其架构允许创建一个独立的自定义启发法，其中包含可由游戏（Gameplay）代码或Sequencer触发的自定义游戏线程事件。
 	
-* Does dynamic resolution work with any arbitrary secondary screen percentage?
+* 动态分辨率是否适用于任意二级屏幕百分比?
 
-	* Yes. This can be achieved by using the console variable **r.SecondaryScreenPercentage.GameViewport 1**.
+	* 是的。这可以通过使用控制台变量 **r.SecondaryScreenPercentage.GameViewport 1** 实现。
 
-* Is it possible to control the dynamic resolution of the secondard screen percentage?
+* 是否可以控制二级屏幕百分比的动态分辨率?
 
-	* No, it's not possible. If you encounter this, please report to Epic as this is a bug that needs to be resolved.
+	* 不，不能。如果遇到这种情况，请上报Epic，因为这种情况属于错误，需要解决。
 	
-* Why is the function in **FPostProcessSettings** for `ScreenPercentage` ignored by dynamic resolution? 
+为什么动态分辨率会忽略‘ScreenPercentage’的 **FPostProcessSettings** 中的功能? 
 	
-	* This was part of the previous mechanism where screen percentage could be configured in the settings for a Post Process Volume to manually scale up or down. With dynamic resolution, there is no need to set that any longer since it is automatically handled according to the GPU's workload.
+	* 这属于先前机制的一部分，在这种机制中，屏幕百分比可在后期处理体积的设置中进行配置，以手动放大或缩小。有了动态分辨率，则无需再设置屏幕百分比，因为它会根据GPU的工作负荷自动处理。
 	
-* Why is there no showflag option for dynamic resolution? 
+* 为什么动态分辨率没有“显示标识”选项？ 
 		
-	* Because it happens globally and at game thread discretion. The screen percentage showflag will only toggle the [Primary Screen Percentage](#primaryspatialupscale). 
+	* 因为它发生在全局且由游戏线程自由处理。屏幕百分比显示标识将只切换[一级屏幕百分比](#primaryspatialupscale)。 
 	
-* Why is dynamic resolution not supported in Editor viewports?
+* 为什么编辑器视口不支持动态分辨率？
 
-	* While working in the Editor, it can be distracting to have the resolution shifting. While in PIE, dynamic resolution is supported for any viewport. 
+	* 在编辑器中工作时，转换分辨率可能会分散注意力。而在PIE中，任何视口都支持动态分辨率。 
 	
-* Can the Primary and Secondary Screen Percentages be accessed in Materials?
+* 是否可以在材质中访问一级屏幕和二级屏幕百分比?
 
-	* No they cannot. There shouldn't be a need to do this as the Material is rendering independently of the screen resolution.
+	* 不可以。没有必要这样做，因为材质的渲染与屏幕分辨率无关。
 
 
-### Limitations
+###限制
 
-The following are some limitations of Dynamic Resolution:
+以下是动态分辨率的一些限制：
 
-* It is not supported for multi-world Play-In-Editor by design. 
-* When TAAU is enabled, it will work with VR. MSAA support will follow in a future release.
-* The API is fully compatible with the mobile renderer. However, there hasn't been an effort to maintain the view size not being equal to the render target buffer size that is set by the primary screen percentage upper bound.
-* Guassian Depth of Field (DoF) and [Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) (DFAO) have issues with resolution changes.
+* 按照设计，动态分辨率不支持多场景Play-In-Editor。 
+* 启用TAAU时，动态分辨率将与VR一起工作。MSAA支持将在后续版本中发布。
+* API与移动渲染器完全兼容。但是，在保持视图大小不等于一级屏幕百分比上边界所设定之渲染目标缓冲区大小这一方面，目前尚无成果。
+* 高斯景深（DoF）和[距离场环境光遮蔽](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) (DFAO)存在分辨率变化问题。
 
 
 

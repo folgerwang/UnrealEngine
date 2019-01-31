@@ -1,113 +1,104 @@
-﻿INTSourceChangelist:3807090
+﻿INTSourceChangelist:4378815
 Availability:Public
-Title:カスケード シャドウの使用方法
+Title: カスケード シャドウの使用
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
-Description:モバイル ゲーム向けカスケード シャドウの設定方法
+Description:モバイル ゲーム向けのカスケード シャドウ設定
 Platform:Mobile
-Related:Platforms/Mobile/Performance
-Related:Platforms/Mobile/Textures
-Related:Engine/Rendering/Materials/CustomizedUVs
-Related:Engine/Rendering/Materials/MaterialProperties/BlendModes
-Related:Engine/Rendering/Materials/ExpressionReference/Utility
-version:4.12
+Related: Platforms/Mobile/Performance
+Related: Platforms/Mobile/Textures
+Related: Engine/Rendering/Materials/CustomizedUVs
+Related: Engine/Rendering/Materials/MaterialProperties/BlendModes
+Related: Engine/Rendering/Materials/ExpressionReference/Utility
+version: 4.20
 parent:Platforms/Mobile
 order:3
 type:overview
 tags:mobile
 
-### 動的カスケード シャドウ マップを有効にする
+固定指向性ライト (Stationary Directional Light) を使用して、シーン内にある動的オブジェクトに、カスケード シャドウ マップ (Cascade Shadow Maps: CSM) のシャドウをキャストできます。CSM のシャドウを使用すると、動的オブジェクトのシャドウがシーン内の静的オブジェクトによってキャストされ事前計算されたシャドウと正確にブレンドされます。
 
-UE4 モバイル プロジェクトでこの機能を使用するには、以下の手順を行います。
+この操作ガイドでは、レベルの特定オブジェクトに CSM を設定します。
 
-1. **[Project Settings (プロジェクト設定)]** で **[Engine]** > **[Rendering]** >  **[Mobile]** セクションの順に選択し、**[Enable Combined Static and CSM Shadowing (静的シャドウインと CSM シャドウイングの結合を有効にする)]** にチェックが入っていることを確認します。 
+![](CascadedShadows_HeroImage.png)
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
-	[/region]
+## ステップ
 
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
+[REGION:note]
+**必要な設定：** CSM はシーンに指向性ライトがある場合にのみ機能します。指向性ライトがない場合は、1 つ追加し、選択されていることを確認します。シンプルな部屋の構築と照明の追加に関するステップの詳細については、『[ライティングのクイック スタート ガイド](Engine/Rendering/LightingAndShadows/QuickStart)』を参照してください。
+[/REGION]
 
+1. シーン内の指向性ライトを選択します。続いて、 **[Transform]** セクションで、 **[Mobility]** が **[Stationary]** に設定されていることを確認します。
+   [REGION:lightbox]
+   [![CSM_Setup_01](CSM_Setup_01.png)(w:640)](CSM_Setup_01.png)
+   [/REGION]
+   [REGION:caption]
+   クリックしてフルサイズ表示
+   [/REGION]
+1. 指向性ライトが選択された状態で、**[Details (詳細)]** パネルの **[Cascaded Shadows Maps]** セクションを見つけます。使用する指向性ライトで次のプロパティを調整します。
+   [REGION:lightbox]
+   [![CSM_Setup_02](CSM_Setup_02.png)(w:640)](CSM_Setup_02.png)
+   [/REGION]
+   [REGION:caption]
+   クリックしてフルサイズ表示
+   [/REGION]
 
-1. CSM はシーンに **指向性ライト** がある場合のみ使用できます。指向性ライトがない場合は、1 つ追加し、それを選択してください。次に **[Transform (トランスフォーム)]** セクションの **[Mobility (可動性)]** 設定を **[Stationary (固定)]** にしてください。
+   | プロパティ名| 値|
+   |---|---|
+   | **Dynamic Shadow Distance Stationary Light**| 2,000|
+   |**Num Dynamic Shadows Cascades**| 1|
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
-	[/region]
+[REGION:note]
+上記の設定は一例にすぎません。数値を自由に変えて、プロジェクトに最適な結果を見つけてください。
+[/REGION]
 
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
+1. 現在のリリースでは、すべてのスタティック メッシュで CSM がデフォルトで有効になっています。もちろん必要がない場合に、メッシュの CSM を無効にすることができます。CSM を無効にするには、CSM の有効化が必要ないメッシュを選択します。**[Details (詳細)]** パネルの **[Mobile]** セクションで、**[Receive CSM Shadows]** のチェック ボックスをオフにします。
+   ![](CascadedShadows_Steps_MobileSectionReceiveCSMShadows.png)
 
-1. 指向性ライトを選択したまま、**[Details (詳細)]** パネルの **[Cascaded Shadows Maps]** セクションで、選択した指向性ライトの以下のプロパティを調節します。
+1. **メイン ツールバー**で、**[Play Mode]** を **[Mobile Preview]** に変更し、**[Play]** ボタンを押してレベルを起動します。
+   
+[REGION:tip]
+[Mobile Preview] ウィンドウが表示されない場合は、[Unreal Editor] ウィンドウの背後で起動していないか確認してください。
+[/REGION]
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
-	[/region]
+[REGION:lightbox]
+[![](CSM_Setup_04.png)(w:640)](CSM_Setup_04.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]
 
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
+[REGION:note]
+次の動画では **Receive CSM Shadows** 設定がどのように機能するのかを示します。この動画では、フロアを構成するスタティック メッシュに対して **Receive CSM Shadows** 設定が有効で、階段を構成するスタティック メッシュに対しては無効になっています。プレイヤー キャラクターがフロアにいるときはシャドウがありますが、階段にいるときはシャドウがないことに注意してください。これは **Receive CSM Shadows** 設定がフロアでは有効で、階段では無効なためです。
 
-	* **Dynamic Shadow Distance Stationary Light (動的シャドウ ディスタンス固定ライト):** 2,000
-	* **Num Dynamic Shadows Cascades (動的シャドウ カスケード数):** 1
-	* **Insert Shadows For Movable Objects (可動オブジェクトへのシャドウの挿入):** False
-	[region:note]
-	これは提案にすぎませんので、いろいろ変更して試してプロジェクトに一番合う設定を見つけてください。 
-	[/region]
+環境にあるスタティック メッシュのシャドウがキャラクターにシャドウをキャストするようにする場合、スタティック メッシュの **Mobility** 設定を **[Static]** から **[Movable]** に変更する必要があります。
 
-1. プロジェクトのレベル内で、CSM を受け取りたいスタティックメッシュを選択して **[Details (詳細)]** パネルの **[Mobile]** セクションの **[Receive Combined Static and CSM Shadows from Stationary Lights]** オプションを有効にします。
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    nrGejxSnJwI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
-	[/region]
+[/REGION]
 
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
+## 最終結果
 
-	[region:note]
-	以下の動画で [Receive Combined Static and CSM Shadows from Stationary Lights] の機能をご覧いただけます。この動画では、[Receive Combined Static and CSM Shadows from Stationary Lights] がフロアの構成要素であるスタティックメッシュに対してオンにされていますが、階段の構成要素であるスタティックメッシュにはオンにされていません。プレイヤーがフロア上にいる時はシャドウがありますが、階段に上がるとシャドウがないことに注目してください。これは、フロアは [Receive Combined Static and CSM Shadows from Stationary Lights] がオンにされていますが、階段はオンにされていないためです。
+レベルを正常に起動してから、静的なシャドウがある場所でキャラクターの位置を決めます。シャドウに出入りすると、キャラクターの動的シャドウは、以下の画像のようにレベル内にベイクされたシャドウと滑らかにブレンドされます。
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	nrGejxSnJwI
-	[/PARAMLITERAL]
-	[/OBJECT]
-
-	[/region]
-
-1. **メインツールバー** で **[Play Mode]** を **[Mobile Preview]** に変更し、**[Play]** ボタンを押してレベルを起動します。
-
-	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
-	[/region]
-
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
-
-	[region:tip]
-	[Mobile Preview (モバイル プレビュー)] ウィンドウが表示されない場合は、アンリアル エディタ ウィンドウの裏で起動していないか確認してください。
-	[/region]
-
-1. 正常に起動したら、静的シャドウのある場所にキャラクターを配置します。シャドウに出入りすると、キャラクターの動的シャドウは以下の画像のようにレベル内にベイクされたシャドウと滑らかにブレンドされます。
-
-	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
-	[/REGION]
-
-	[REGION:caption]
-	クリックしてフルサイズで表示
-	[/REGION]
-
-	[region:note]
-	背景に置いたスタティックメッシュのシャドウをキャラクターにキャストするには、スタティックメッシュの **[Mobility (可動性)]** を ***[Static (静的)]** から **[Movable (可動)]** に変更します。
-	[/region]
+[REGION:lightbox]
+[![](CSM_Final_Result.png)(w:640)](CSM_Final_Result.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]

@@ -17,7 +17,7 @@ Description:애니메이션 블루프린트에서 사용할 수 있는 여러가
 
 [EXCERPT:UAnimGraphNode_BlendListByBool]
 
-이 노드는 사실상 '분기'문으로, 불리언 입력 값에 따라 두 입력 포즈 중 하나를 선택하는 것입니다.
+이 노드는 사실상 '분기'문으로, 부울 입력 값에 따라 두 입력 포즈 중 하나를 선택하는 것입니다.
 
 [VAR:ToolTipFullLink]
 Engine/Animation/NodeReference/Blend#blendposesbybool
@@ -215,7 +215,7 @@ IK 본 체인의 리타기팅을 처리합니다. IK 본이 (어느 쪽이든 �
 
 애니메이션 노드에서는 약간 느린 블루프린트 사용 방법을 피하여 '빠른 경로' 사용이 가능한데, 그 방법은 다음과 같습니다:
 - 멤버 변수에 직접 접근합니다.
-- 부정 불리언 멤버 변수에 접근합니다.
+- 부정 부울 멤버 변수에 접근합니다.
 - 중첩 구조체의 멤버에 접근합니다.
 - 약간의 Break Struct 케이스에도 접근합니다 (Break Transform 은 한 가지 예외입니다).
 

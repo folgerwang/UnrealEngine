@@ -1,0 +1,21 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: 拡張現実 (AR) 開発
+Description: 拡張現実 (AR) 開発   
+Type: landing
+Version: 4.20
+Parent: Platforms
+Order: 1
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+Unreal Engine AR フレームワークは、 Unreal Engine を使用して AR アプリケーションを構築するための豊富で統一されたフレームワークを提供しています。
+
+## プラットフォーム
+
+%Platforms/AR/HandheldAR:topic%
+%Platforms/AR/MagicLeap:topic%

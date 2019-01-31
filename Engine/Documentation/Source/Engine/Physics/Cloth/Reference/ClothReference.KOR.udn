@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3891955
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs:%ROOT%
 Title: 클로딩 툴 프로퍼티 참고서
@@ -59,7 +59,7 @@ Tags:Cloth
 | [REGION:tablesection] Target [/REGION] ||
 | **Target Asset** | 타깃 애셋 - LOD 임포트 시 대상으로 삼을 타깃 애셋입니다. |
 | **LOD Index** | [INCLUDE:#lodindex] |
-| **Remap Parameters** | 리맵 파라미터 - 리임포트 시, 이 옵션은 예전 LOD 파라미터를 새로운 LOD 메시에 매핑시킵니다. 새 LOD 를 추가하는 경우, 선행 LOD 에서 파라미터를 매핑시킵니다. |
+| **Remap Parameters** | 리맵 파라미터 - 리임포트 시, 이 옵션은 이전 LOD 파라미터를 새로운 LOD 메시에 매핑시킵니다. 새 LOD 를 추가하는 경우, 선행 LOD 에서 파라미터를 매핑시킵니다. |
 | [REGION:tablesection] Basic [/REGION] ||
 | **Remove from Mesh** | 메시에서 제거 - (메시를 그 자체로 구동시키는 경우) 이 섹션을 남겨둘지 여부입니다. 이 옵션을 켜면 하이 폴리 메시를 로우 폴리 메시로 구동시키는 것입니다. |
 

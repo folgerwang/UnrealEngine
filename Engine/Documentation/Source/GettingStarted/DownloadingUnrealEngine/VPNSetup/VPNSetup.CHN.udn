@@ -1,130 +1,134 @@
-﻿Availability: Licensee
-Title: 建立VPN连接
+﻿INTSourceChangelist:3807090
+Availability: Licensee
+Title:设置VPN连接
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
-Description: 关于连接到Epic的虚拟专用网络(VPN) 来访问Perforce服务器并获得引擎的指南。
+Description:连接Epic的虚拟专用网(VPN)以访问Perforce服务器和获取引擎的指南。
+version: 4.9
 
 [TOC(start:2)]
 
+本文档将指导您设置虚拟专用网(VPN)安全连接到Epic Games的步骤，以便您能够连接到Perforce库。完成VPN连接设置后，您可以[设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
 
-
-## 概述
-
-本文将带领您学习建立到 Epic Games的安全虚拟专用网络(VPN)连接的步骤，以便您可以连接到Perforce库。 一旦您设立了VPN连接，您便可以 [设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
-
-Epic在 **美国东部时间每月的第二个星期日和第四个星期日的早上8点到中午** 之间执行定期维护。 当在进行规划时，请考虑到这一点，因为在这段时间内任何或所有支持途径都可能受到影响，尤其是 网络/服务器 资源。
+Epic预留了 **北美东部标准时间每月第 2 个和第 4 个周日的上午 8 点至中午（2nd and 4th Sunday of the month from 8am-Noon EST）** 时间段，以进行定期维护。在规划时请记住这一点，因为在这些时间段期间任何或所有的支持机构都可能会受到影响，特别是网络/服务器资源。
 
 [REGION:warning]
-您的VPN凭证和您的UDN凭证是不同的。 有一组VPN/P4凭证，它们是基于每个项目发行的。 您的技术联系人将会拥有这个信息。
+您的VPN凭证与您的UDN凭证不一样。有一组VPN/P4凭证，它们是基于每个项目发布的。您的技术联系人会有这些信息。
 [/REGION]
 
 
-## 连接策略
+(#connectivitypolicy)
+## 连接规则
 
-到Epic的VPN连接可以通过以下两种方式之一完成。 第一种方式是让工作室从内部工作站设置5个到Epic的代理服务器的公开VPN连接。 第二个方法允许工作室将它们自己的代理直接连接到Epic的库，这里工作室的开发人员将会连接到他们的本地代理。 允许从这个本地代理到库之间同时建立两个VPN连接，一个是主连接，一个是备用连接。 
+VPN有两种方法连接到Epic。第一种方法允许工作室从内部工作站最多建立5个从VPN到Epic的代理服务器的开放式直接连接。第二种方法允许工作室将自己的代理直接连接到Epic的库，工作室的开发人员将从此处连接到他们的本地代理。从该本地代理到库允许两个并发VPN连接，一个为主连接，一个为备份连接。 
 
-请注意这些方法之间彼此是独立的，一个工作室不能同时使用这两种连接类型。 无论哪种方法，一台机器上同时建立的Perforce 连接数量是没有限制的，仅从工作室到Epic的VPN连接数量有限制。
+请注意这两种方法是相互独立的，工作室不能同时拥有这两种连接类型。在这两种情况下，机器上的并发Perforce连接数量都不受限制，只限制来自工作室的VPN连接数量。
 
-针对您的本地代理的VPN设置是一样的，因为它是针对一个用户的设置。
-
-
-
-## 受支持的客户端
-
-目前创建VPN连接唯一支持的的客户端是[Cisco][http://www.cisco.com]的 AnyConnect VPN客户端。 该客户端已经经过测试和验证，它可以在所有Windows版本上运行。
+对于您的本地代理和用户，VPN设置是一样的。
 
 
+
+(#supportedclients)
+## 支持的客户端
+
+目前唯一支持用于创建VPN连接的客户端是是[Cisco](http://www.cisco.com)提供的AnyConnect VPN客户端。此客户端已经过测试和验证，可在所有版本的Windows上运行。
+
+
+(#requirements)
 ### 要求
 
-**通用要求**
+ **一般（General）**
 
-某些病毒防护程序及防火墙可能会给VPN连接造成一些问题。 请确保配置好它们，以便允许建立VPN连接。
+一些杀毒程序和防火墙可能会导致VPN连接出现问题。确保配置它们允许建立VPN连接。
 
-**网络安装**
+ **Web安装（Web Installation）**
 
-请注意以下是所支持的浏览器：
+请注意，支持以下浏览器：
 
 
 * Internet Explorer
 * Firefox
 
 
-不支持其他类似于Chrome和Safari的浏览器；这些浏览器可能可以正常工作，但是未经过测试。 这应该不是限制，因为浏览器仅在初次连接时需要使用。
+不支持Chrome、Safari等其他浏览器；它们可能有效，但尚未经过测试。这不应该是限制，因为浏览器只在初始连接时才需要。
 
-为了通过网络安装VPN客户端，您还需要安装Java。
+要通过Web安装VPN客户端，还需要安装Java。
 
 
 
+(#clientinstallationandconfiguration)
 ## 客户端安装和配置
 
-**注意:**  IPSEC/TCP VPN客户端已经淘汰。 请使用SSL客户端。  Linux客户端的系统需求可以在 [这里](http://www.cisco.com/en/US/docs/security/vpn_client/anyconnect/anyconnect25/release/notes/anyconnect25rn.html#wp949967)找到。
+ **注意：**IPSEC/TCP VPN客户端已被淘汰。请使用SSL客户端。Linux客户端的系统要求可在[此处](http://www.cisco.com/en/US/docs/security/vpn_client/anyconnect/anyconnect25/release/notes/anyconnect25rn.html#wp949967)找到。
 
 
-### 通过浏览器在Windows和Linux上进行安装
+(#windowsandlinuxinstallationviabrowser)
+### Windows和Linux通过浏览器安装
 
 [EXCERPT:Browser]
 
-注意： 这是个基于网络的VPN客户端。 有数据可以证实，当它在Internet Explorer中运行时会更加稳定。
+注意：这是一个基于Web的VPN客户端。据报道，它在Internet Explorer中运行时更加稳定。
 
 [REGION:warning]
-请确认断开当前您已经打开的任何已有VPN会话!
+请确保断开与任何已打开的现有VPN会话的连接！
 [/REGION]
 
-1. 要想开始Cisco AnyConnect VPN客户端的网络安装，请跳转到 **[https://vpn.epicgames.com](https://vpn.epicgames.com)** 页面。
+1. 要开始Cisco AnyConnect VPN客户端的安装，请前往[https://vpn.epicgames.com](https://vpn.epicgames.com)。
 
-	**区域VPN镜像站点:**
+	**区域VPN镜像网站（Regional VPN Mirror Sites）：**
 
 	* 亚太地区 - [](https://apacvpn.epicgames.com)
 	* 亚洲 - [](https://asiavpn.epicgames.com)
 	* 中国 - [](https://chinavpn.epicgames.com)
-	* 欧洲太平洋地区 - [](https://eurovpn.epicgames.com)
+	* 欧洲 - [](https://eurovpn.epicgames.com)
 
-	![vpn_webpage_login.jpg](vpn_webpage_login.jpg)(w:800 h:427)
+	![vpn_webpage_login.jpg](vpn_webpage_login.jpg)(w:800)
 
 	[REGION:note]
-	如果您使用旧的主机名称，那么您可能会接收到一个证书警告。  请使用vpn.epicgames.com作为主机名来避免这个警告。
+	如果您使用了一个旧主机名，可能会收到证书警告。请使用vpn.epicgames.com来避免这一警告。
 	[/REGION]
 
-1. 双击窗口底部的Internet（网络）或Internet zone（网络区域）部分，然后点击“Trusted(可信)”，并点击Add（添加）来把这个网站添加到您的可信区域。
+1. **双击** 窗口底部即Internet或Internet区域，然后单击“信任（Trusted）”，并单击添加（Add），将此网站添加到您的信任区域。
 
-	![vpn_ie_trusted.jpg](vpn_ie_trusted.jpg)(w:423 h:541)
+	![vpn_ie_trusted.jpg](vpn_ie_trusted.jpg)(w:423)
 
-1. 使用您的现有VPN账户信息进行登录。
+1. 使用您现有的VPN帐户信息登录。
 
-	![vpn_login_details.jpg](vpn_login_details.jpg)(w:350 h:175)
+	![vpn_login_details.jpg](vpn_login_details.jpg)(w:350)
 
-1. 安装过程应该可以是自动开始。
+1. 安装过程应自动开始。
 
-	如果您正在使用Internet Explorer，那么将需要安装ActiveX控件。 按照以下指示以进行安装。
+	如果使用Internet Explorer，需要安装ActiveX控件。按照说明进行安装。
 
-	![vpn_webpage_activex.jpg](vpn_webpage_activex.jpg)(w:500 h:373)
+	![vpn_webpage_activex.jpg](vpn_webpage_activex.jpg)(w:500)
 
-1. 一旦安装了ActiveX控件，向导将会继续整个过程。 在该过程中需要使用Java，所以必须安装它。
+1. 安装ActiveX控件后，向导将继续整个过程。Java用于完成安装，因此也必须安装。
 
-	![vpn_webpage_setup.jpg](vpn_webpage_setup.jpg)(w:500 h:373)
+	![vpn_webpage_setup.jpg](vpn_webpage_setup.jpg)(w:500)
 
-1. 安装包将会被下载。
+1. 将下载安装程序。
 
-	![vpn_webpage_download.jpg](vpn_webpage_download.jpg)(w:425 h:160)
+	![vpn_webpage_download.jpg](vpn_webpage_download.jpg)(w:425)
 
-	**注意:** 如果您正在使用Vista或Windows 7系统，那么将会提示您允许此次安装。
+	**注意：**如果使用Vista或Windows 7，系统会提示您允许安装。
 
-1. 一旦安装完成，它应该会自动连接；并且将有一个图标出现在您的任务栏中。
+1. 一旦安装完成，它应自动连接；任务托盘上将出现一个图标。
 
-	![vpn_webpage_connected.jpg](vpn_webpage_connected.jpg)(w:500 h:373)
+	![vpn_webpage_connected.jpg](vpn_webpage_connected.jpg)(w:500)
 
 	
 [/EXCERPT:Browser]
 
-这个过程在您的PC上安装了AnyConnect客户端。 这意味着您以后可以直接运行该应用程序来进行连接。 但是，它不会在您Windows的开始菜单中添加程序项。 关于使用AnyConnect手动连接到VPN的更多细节，请参照[通过AnyConnect连接到VPN](GettingStarted/DownloadingUnrealEngine/VPNSetup#AnyConnect)部分。
+此过程将在您的PC上安装AnyConnect客户端。这意味着将来您可以只需运行应用程序来进行连接。然而，它不会在Windows中的开始菜单（Start Menu）添加条目。有关使用AnyConnect手动连接到VPN的详细信息，请参阅[通过AnyConnect连接到VPN](GettingStarted/DownloadingUnrealEngine/VPNSetup#AnyConnect)部分。
 
-一旦设立了VPN连接，您就可以继续  [设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
+设置VPN连接后，您可以继续[设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
 
 
-#### 其他注意事项
+(#additionalnotes)
+#### 其他说明
 
-如果您正在运行 Windows Vista系统，所存在的允许您使用网络和其他本地资源的功能如果在VPN上（在您已经连接到VPN过程中）不存在，那么这些功能将不能正常工作。 一旦您断开连接，一切将会返回正常。 
+如果您运行的是Windows Vista，那么允许您使用Internet和在VPN以外的其他本地资源（连接时）的功能将无效。一旦断开连接，一切都应恢复正常。 
 
-如果您仍然存在这样的问题，那么您可以在MS_DOS命令行提示符中运行以下命令：
+即使如此，如果您仍遇到问题，您可以在MS-DOS命令提示符下运行以下命令：
 
 
     
@@ -133,68 +137,72 @@ Epic在 **美国东部时间每月的第二个星期日和第四个星期日的�
 
 
 
-(您必须以管理员身份运行该命令行提示符。)
+（您可能需要以管理员身份运行命令提示符。）
 
-请确保添加正确的本地组(“Users(用户)”和"Interactive(交互组)")来使得一切正常工作。
+确保添加正确的本地组（“用户（Users）”和“交互（Interactive）”)，使一切正常运行。
 
 
+(#windowsmanualinstallation)
 ### Windows手动安装
 
-可以通过以下URL从Cisco的网站下载AnyConnect VPN客户端：
+AnyConnect VPN客户端可以从思科网站下载，网址如下：
 
-[下载AnyConnect VPN客户端](ftp://ftp.epicgames.com/anyconnect/anyconnect-win-3.0.4235.exe)
+[AnyConnect VPN Client Download](ftp://ftp.epicgames.com/anyconnect/anyconnect-win-3.0.4235.exe)
 
-一旦完成下载，便可以直接安装该应用程序，然后继续到[通过AnyConnect连接到VPN] (#AnyConnect) 部分获得如何使用它来连接到VPN的更多信息。
+下载后，只需安装应用程序，然后继续前往[通过AnyConnect连接到VPN](#AnyConnect)了解有关如何使用它来连接到VPN的详细信息。
 
 
-### 通过控制台在Linux系统进行安装
+(#linuxinstallationviaconsole)
+### Linux通过控制台安装
 
-请使用本文底部附加的安装包。
+请使用本文底部所附的安装程序。
 
 (#AnyConnect)
 
 
 
+(#connectingtothevpnviaanyconnect)
 ## 通过AnyConnect连接到VPN
 
-使用AnyConnect连接到VPN是个非常简单的过程。
+使用AnyConnect连接到VPN是一个简单的过程。
 
 [EXCERPT:AnyConnect]
 1. 运行AnyConnect VPN客户端。
 
-	![vpn_anyconnect.jpg](vpn_anyconnect.jpg)(w:333 h:465)
+	![vpn_anyconnect.jpg](vpn_anyconnect.jpg)(w:333)
 
-1. 输入 _vpn.epicgames.com_  链接到 **Connect to(连接到):** 文本域中：
+1. 将_vpn.epicgames.com_ url输入 **连接到：（Connect to:）** 字段：
 
 	![vpn_anyconnect_url.png](vpn_anyconnect_url.png)
 
-1. 按下 **Enter(回车)** 键来显示认证文本域：
+1.按下 **回车（Enter）** 键以显示身份验证字段：
 
-	![vpn_anyconnect_login.jpg](vpn_anyconnect_login.jpg)(w:333 h:465)
+	![vpn_anyconnect_login.jpg](vpn_anyconnect_login.jpg)(w:333)
 
-1. 将您的VPN连接信息(用户名和密码)输入到这些文本域中：
+1. 在字段中输入您的VPN连接信息（用户名和密码）：
 
 	![username and password](usernamepassword.png)
 
-1. 按下![vpn_anyconnect_connect_button.jpg](vpn_anyconnect_connect_button.jpg)来连接到VPN。 当建立连接后，任务栏中将会出现 ![vpn_anyconnect_connected.jpg](vpn_anyconnect_connected.jpg) 图标。
+1. 按下 **连接（Connect）** 按钮以连接到VPN。建立连接后，任务栏中将显示![vpn_anyconnect_connected.jpg](vpn_anyconnect_connected.jpg)图标。
 [/EXCERPT:AnyConnect]
 
-一旦设立了VPN连接，您就可以继续  [设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
+设置VPN连接后，您可以继续[设置Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Setup)。
 
 
 
-## 通过OpenConnect连接到VPN (不支持)
+(#connectingtothevpnviaopenconnect(unsupported))
+## 通过OpenConnect连接到VPN（不支持）
 
-OpenConnect是AnyConnect客户端的开源可替换工具。  由于这个包是通过一些Linux发布进行维护的，所以很可能会使用Cisco不支持的发布包。  如果您安装了以下包，那么您应该可以通过OpenConnect进行连接：
+OpenConnect是AnyConnect的开源替代项。由于此包是使用许多Linux发行版本进行维护的，所以很可能使用的是Cisco不支持的发行版本。如果安装了以下包，您应该能够通过OpenConnect进行连接：
 
 
 * vpnc-script
 * openconnect
 
 
-这些包一般可以通过yum命令进行安装(比如 yum vpnc-script)。
+这些包通常可以通过yum（例如yum vpnc-script）安装。
 
-这是个可以进行批处理连接的简单连接命令：
+这是一个允许批量连接的连接命令示例：
 
     
     echo password > openconnect -u vpn_username --passwd-on-stdin --script /etc/vpnc/vpnc-script vpn.epicgames.com
@@ -204,65 +212,69 @@ OpenConnect是AnyConnect客户端的开源可替换工具。  由于这个包是
 
 
 
+(#eastasianvpnmirror)
 ## 东亚VPN镜像
 
-如果您还没有该镜像，那么请跳转到[https://asiavpn.epicgames.com](https://asiavpn.epicgames.com)页面并下载SSL VPN客户端。
+如果您还没有它，请前往[https://asiavpn.epicgames.com](https://asiavpn.epicgames.com)下载SSL VPN客户端。
 
-一旦安装好该客户端后，您可以在客户端中添加asiavpn.epicgames.com作为地址。
-
-
-
-## 问题解决
-
-**安装**
-
-安装VPN AnyConnect 客户端过程中的问题解决方案：
-
-有些情况下，Windows用户在尝试安装VPN客户端时会遇到和UTN_USERFirst_Hardware证书相关的错误信息。 这同现有认证及新的Cisco认证的信任问题有关。 为了解决这个问题，请使用以下步骤：
+安装后，您只需在客户端中添加asiavpn.epicgames.com作为地址。
 
 
-1. 打开运行提示符并深入certmgr.msc。
-1. 展开标签为Third-Party Root Certification [TOC(start:2)]ities的树结构
-1. 在右侧找到标签为UTN_UserFirst_Hardware的证书
-1. 从该位置剪切该证书并将其粘帖到 Trusted Publishers(可信任的发行商)中
+
+(#troubleshooting)
+
+## 故障排除
+
+ **安装（Installation）**
+
+安装VPN AnyConnect客户端的故障排除：
+
+在某些情况下，Windows用户在尝试安装VPN客户端时收到了与UTN_USERFirst_Hardware证书有关的错误消息。这与现有证书和新的Cisco证书的信任问题有关。要解决此问题，请使用以下步骤：
+
+
+1. 打开运行提示符并键入certmgr.msc。
+1. 展开被标记为第三方根证书颁发机构（Third-Party Root Certification Authorities）的结构树。
+1. 在右侧找到标记UTN_UserFirst_Hardware的证书。
+1. 从该位置剪切此证书并将其粘贴到受信任的发布者（受信任的发布者）中。
 1. 重新运行安装程序。
 
-**连接**
+ **正在连接（Connecting）**
 
-无论何时当您遇到以下错误信息时，一般重新安装客户端&重新引导机器将会解决这个问题：
-
-
-    
-    Reason 442: Failed to enable Virtual Adapter.（不能启动虚拟适配器）
-    
-
-
-
-以下信息预示服务器侧存在认证问题：
+每当您收到以下错误消息时，通常需要重新安装客户端并重新启动计算机：
 
 
     
-    Secure VPN Connection terminated by Peer.
-    Reason 427: Unknown Error Occurred at Peer.
+    原因442（Reason 442）：无法启用虚拟适配器。（Failed to enable Virtual Adapter.）
     
 
 
 
+以下消息表示服务器端存在身份验证问题：
 
 
-## 技术支持
-
-如果您有任何同连接到VPN相关的问题，请执行以下处理：
-
-
-* 在[虚幻开发者网络](http://udn.unrealengine.com)上填入以下信息: 
-    1. 您的地理位置 (大陆、国家、城市等)。
-    1. 您的网络服务提供商 (如果知道的话)。
-    1. 您看到该问题的次数，及持续时间。
-    1. 使用traceroute命令访问vpn.epicgames.com。
+    
+    安全VPN连接被对等终止。（Secure VPN Connection terminated by Peer.）
+    原因427（Reason 427）：对等处发生未知错误。（Unknown Error Occurred at Peer。）
+    
 
 
-我们的IT部门将会尽快地帮助您解决这些问题。
+
+
+
+(#directsupport)
+## 直接支持
+
+如果您在连接到VPN时遇到任何问题，请执行以下操作：
+
+
+* 在[虚幻开发者网络](http://udn.unrealengine.com)发帖，同时提供以下信息： 
+    1. 您的地理位置（洲、国家/地区、城市等）。
+    1. 您的Internet服务提供商（如已知）。
+    1. 您遇到此问题的次数；以及问题时长。
+    1. vpn.epicgames.com的跟踪路由。
+
+
+我们的IT部门将帮助您尽快解决问题。
 
  
 

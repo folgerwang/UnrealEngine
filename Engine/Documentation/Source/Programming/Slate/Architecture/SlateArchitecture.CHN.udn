@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3599948
 Availability:Public
 Title:Slate 构架
 Crumbs:%ROOT%, Programming, Programming/Slate
@@ -7,6 +7,7 @@ Version:4.9
 
 [TOC (start:2)]
 
+(#HowtoReadThisPage)
 ## 如何阅读此页
 此处有指导 **Slate** 设计的核心理念。它们未按特定顺序排序。
 此处不存在僵化结构或大理论，只是源自 UI 修补经验的一个原则合集。
@@ -15,6 +16,7 @@ Version:4.9
 对 Slate 的了解愈发深入后，重读此页会获得更多启发。
 [/REGION]
 
+(#Motivation)
 ## 动机
 
 Slate 的动机来自对现有可用 UI 解决方案的观察。
@@ -43,6 +45,7 @@ Slate 的动机来自对现有可用 UI 解决方案的观察。
 	* 支持动画和设计。
 
 
+(#CoreTenets)
 ## 核心原则
 
 设计旨在尽量提高开发效率。程序员的时间很宝贵；CPU 快速且开销较低。
@@ -115,6 +118,7 @@ UI 可见并操纵模型。Slate 使用委托作为控件（需要读写模型�
 
 下一帧中，SEditableText 将读取模型的数据。在上例中，`物体名` 将由 OnTextChanged 委托进行改变，并通过 Text 委托读取显示。
 
+(#AttributesandArguments)
 ### 属性和参数
 
 委托并非万能。取决于使用情况，Slate 控件的参数可能需要是常量值或函数。
@@ -132,6 +136,7 @@ UI 可见并操纵模型。Slate 使用委托作为控件（需要读写模型�
 * 假定：大屏幕用户的机器性能强劲，可处理大量控件。
 
 
+(#InvalidationvsPolling)
 ## 失效 vs 轮询
 
 有时轮询非性能，或功能不正常。非浅显值无法作为简单浅显值的组合进行表达时这种情况尤为常见。
@@ -144,6 +149,7 @@ UI 可见并操纵模型。Slate 使用委托作为控件（需要读写模型�
 请求一个更新后，所有 **Graph** 面板控件将被清除和重新创建。
 因其简单且易于维护，在细粒度失效中更为可取。
 
+(#ChildSlots)
 ## 子槽
 
 所有 Slate 控件均在子槽中存储子项。（并非存储子控件的纯阵列。）
@@ -153,6 +159,7 @@ UI 可见并操纵模型。Slate 使用委托作为控件（需要读写模型�
 槽使每种面板要求一套影响子项排列的子项设置。
 
 
+(#WidgetRoles)
 ## 控件类型
 
 控件有三种类型。
@@ -162,6 +169,7 @@ UI 可见并操纵模型。Slate 使用委托作为控件（需要读写模型�
 * **合成控件** - 子槽显式命名、数量固定的控件。如拥有一个名为 Content 的槽（包含按钮中所有控件）的 **SButton**。
 
 
+(#Layout)
 ## 布局
 
 Slate 布局在两个通道中完成。分解为两个通道是一种优化，但遗憾的是并非为透明。
@@ -172,6 +180,7 @@ Slate 布局在两个通道中完成。分解为两个通道是一种优化，�
 
 详细说明：
 
+(#Pass1:CacheDesiredSize)
 #### 通道 1：Cache Desired Size
 
 此通道的作用是明确每个控件需要占据的控件。
@@ -213,6 +222,7 @@ Slate 将确保 ComputeDesiredSize() 在控件上被调用时其子项已计算�
 
 STextBlock 控件将通过测量显示的字符串来计算其所需的大小。Simage 控件将基于其显示的图片数据确定大小。假定文本段中的文本需要 14 个 slate 空间单位，图片需要 8 个单位。水平面板水平排列控件，因此需要 22（14 + 8）个空间单位。
 
+(#Pass2:ArrangeChildren)
 #### 通道 2：ArrangeChildren
 
 ArrangeChildren 是自上而下的通道。Slate 从顶层窗口开始并要求每个窗口基于程序员所提供的约束对子项进行排列。为每个已知子项分配空间后，Slate 便会递归，排列子项的子项。递归将持续进行，直到所有子项均已排列。
@@ -250,6 +260,7 @@ ArrangeChildren 是自上而下的通道。Slate 从顶层窗口开始并要求�
 主要用于命中检测和绘制。
 [/REGION]
 
+(#DrawingSlate:OnPaint)
 ## 绘制 Slate：OnPaint
 
 在绘制通道中，Slate 在所有可见控件上迭代并生成一个绘制元素列表。这些元素将被渲染系统所消耗。
@@ -282,6 +293,7 @@ ArrangeChildren 是自上而下的通道。Slate 从顶层窗口开始并要求�
 .	}
 ~~~
 
+(#AnatomyofaSWidget)
 ## SWidget 剖析
 
 定义 Slate 中 SWidget 行为的关键函数为：
@@ -291,6 +303,7 @@ ArrangeChildren 是自上而下的通道。Slate 从顶层窗口开始并要求�
 * Event handlers - 它们的形式为 OnSomething。Slate 将在特定时机在控件上调用这些函数。
 
 
+(#Composition)
 ## 合成
 合成的概念是 — 任意槽均可包含任意控件内容。
 这可为 Slate 用户带来较大的灵活度。必要时，合成可在核心 Slate 控件中随时使用。
@@ -301,6 +314,7 @@ ArrangeChildren 是自上而下的通道。Slate 从顶层窗口开始并要求�
 
 特定的使用情况通常要求控件包含特定类型的子项，此时不再遵循合成的要求。它们不可成为 slate 核心中的控件，但应成为域特定的控件（无法在此域之外再使用）。
 
+(#DeclarativeSyntax)
 ## 声明式语法
 
 我们需要直接从代码访问 Slate。

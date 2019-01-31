@@ -1,9 +1,12 @@
-﻿INTSourceChangeList:3125294
+﻿INTSourceChangeList:3180166
 Title:TSet
 Crumbs:
-Description:存储项目集合的容器类
+Description:Tset是一快速容器类，（通常）用于存储在排序不重要的情境中的特殊元素。
 Availability:Public
-Version:4.12
+Version:4.14
+Related:Engine/UI/LevelEditor/Details/Properties/Set
+
+[TOC]
 
 **TSet** 类似于 **TMap** 和 **TMultiMap**，但具有一个重要区别：TSet 不会以单独提供的键来关联元素，而是通过评估元素的可覆盖函数将元素本身作为键使用。TSets 添加、查找和移除元素非常快速（恒时）。默认情况下，TSets 不允许重复的键，但如果需要，也可以支持这一行为。
 
@@ -19,6 +22,7 @@ TSet 使用散列，即如果提供了 **KeyFuncs** 模板参数，该参数会�
 
 与 TArray 不同，内存中 TSet 元素的相对排序不可被依赖，元素上迭代返回的顺序可能与它们的添加顺序不同。元素在内存中不太可能被持续排列。集合的备份数据结构是稀疏阵列，带有洞。将元素从集合中移除时，稀疏阵列中的洞将会出现。这些洞会在将来添加元素后填充。然而，即使 TSet 不移动元素填充洞穴，指向集合元素的指针仍然可能被无效化，因为整体存储为满时添加新元素会重新对整体存储进行分配。
 
+(#Creatingandfillingaset)
 ## 创建并填充集合
 
 可如此创建 TSet：
@@ -64,6 +68,17 @@ TSet 使用散列，即如果提供了 **KeyFuncs** 模板参数，该参数会�
 
 此处生成的集合和使用 Add/Emplace 进行单个添加相等，因此来自源映射的复制键会替代目标集合中的键。
 
+(#EditingUPROPERTYTSets)
+### 编辑UPROPERTY TSets
+
+如果您使用 `UPROPERTY()` 宏以及一个可编辑的关键词（`EditAnywhere`，`EditDefaultsOnly`，`EditInstanceOnly`）来标记 TSet ，您可以 [在虚幻编辑器中添加并编辑元素](Engine/UI/LevelEditor/Details/Properties/Set)。
+
+	UPROPERTY(Category = SetExample, EditAnywhere)
+	TSet<FString> FruitSet;
+
+
+
+(#Iteration)
 ## 迭代
 
 TSet 的迭代与 TArray 相似。可使用 C++ 的设置范围功能：
@@ -89,6 +104,7 @@ TSet 的迭代与 TArray 相似。可使用 C++ 的设置范围功能：
 
 集合还提供其自身的迭代器类型，以便对迭代进行更直接的控制。**CreateIterator** 函数提供对元素的读写访问，**CreateConstIterator** 函数提供只读访问。迭代器对象自身的元素类型被指定为 TSet 声明中的首个模板参数。
 
+(#Queries)
 ## 查询
 
 使用 **Num** 函数可询问集合保存的元素数量：
@@ -138,9 +154,10 @@ TSet 的迭代与 TArray 相似。可使用 C++ 的设置范围功能：
 	TArray<FString> FruitArray = FruitSet.Array();
 	// FruitArray == [ "Banana","Grapefruit","Pineapple","Pear","Orange","Kiwi","Melon","Mango" ] （排序可能不同）
 
+(#Removal)
 ## 移除
 
-可以通过 **RemoveAt** 函数来按索引移除元素，仅建议在通过元素迭代时使用：
+可以通过 **Remove** 函数来按索引移除元素，仅建议在通过元素迭代时使用：
 
 	FruitSet.Remove(0);
 	// FruitSet == [ "Grapefruit","Pineapple","Pear","Orange","Kiwi","Melon","Mango" ]
@@ -163,6 +180,7 @@ TSet 的迭代与 TArray 相似。可使用 C++ 的设置范围功能：
 
 与 TArray 中的一样，Empty 会使用一个可选的 slack 值（默认值为零），以用于在清空集合后调整内部存储阵列的大小。该值被用作阵列的新最大尺寸。如果阵列当前的最大尺寸与 slack 参数相同，则不会发生重新分配。
 
+(#Sorting)
 ## 排序
 
 TSets 可通过 **Sort** 函数临时排序。集合上的下次迭代将以排序顺序展示元素，之后对集合进行的修改可能导致集合重新排序。排序并不稳定，因此相等元素（允许重复键的 TSet 中）可能以各种排列方式出现。
@@ -179,6 +197,7 @@ Sort 函数使用指定排序顺序的二进制谓词：
 	});
 	// FruitSet == [ "Pear", "Kiwi", "Melon", "Mango", "Orange", "Grapefruit" ] (order is temporarily guaranteed)
 	
+(#Operators)
 ## 运算符
 
 和 TArray 一样，TSet 是常规值类型，可通过标准复制构建函数或赋值运算符进行复制。因集合严格拥有其元素，集合复制为深，因此新集合将拥有其自身的元素副本：
@@ -245,6 +264,7 @@ KeyInitType/ElementInitType 是键/元素类型普通传递惯例的 typedefs。
 
 提供自己的 DefaultKeyFuncs 时需注意：TSet 假定对比相等的两个项目使用 DefaultKeyFuncs::Matches 从 KeyFuncs::GetKeyHash 返回相同的值。此外，如修改现有元素的键时会改变任意一个这些函数的结果，则会被理解为未定义行为，因为这会无效化 TSet 的内部散列。使用 DefaultKeyFuncs 的默认实现时，这些规则还会应用到运算符 == 和 GetKeyHash 的重载。
 
+(#Misc)
 ## 杂项
 
 **CountBytes** 和 **GetAllocatedSize** 函数用于估计内部阵列当前应用的内存量。CountBytes 接受 FArchive，GetAllocatedSize 可被直接调用。它们常用于统计报告。

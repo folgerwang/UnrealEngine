@@ -1,0 +1,220 @@
+INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: 라이브 링크로 UE4 와 Motionbuilder 연결
+Description: Live Link 플러그인으로 UE4 와 Motionbuilder 를 연결하는 프로세스를 설명합니다.
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 5
+Tags: Live Link, Motionbuilder
+
+여기서는 Live Link (라이브 링크) 플러그인으로 언리얼 엔진 4 (UE4)를 Motionbuilder (Mobu)에 연결하는 셋업 프로세스를 살펴봅니다. 연결을 설정하면 Mobu 의 콘텐츠를 UE4 로 실시간 스트리밍하여 콘텐츠를 익스포트/임포트할 필요 없이 UE4 에서 미리볼 수 있습니다.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+**전제 조건**: 여기서는 **블루프린트 삼인칭** 템플릿 프로젝트와 **Motionbuilder 2017** 을 사용하고 있습니다.
+[/REGION]
+
+## 1 - 프로젝트 구성
+
+1. 프로젝트에서 **메뉴** > **편집** > **플러그인** 을 선택합니다.
+
+    ![](Step_01-1.png)
+
+1. **Animation** (애니메이션) 섹션 아래 **Live Link** 옆의 **Enabled** 박스를 클릭하고 확인 창이 뜨면 **예** 를 눌러 에디터를 재시작합니다.
+
+   ![](Step_02-3.png)
+
+   라이브 링크 플러그인이 활성화되어 외부 DDC 툴에 연결할 수 있습니다. DDC 툴을 UE4 에 연결하기 위해서는, 그에 맞는 플러그인을 활성화해야 합니다. 여기서는 Motionbuilder 와 연결을 설정하지만, Maya 나 다른 툴에 (라이브 링크로 소스를 노출한 경우) 연결할 수도 있습니다. 
+
+1. **콘텐츠 브라우저** 에서 **Content > Mannequin > Animations** 폴더의 **ThirdPersonWalk** 애니메이션을 엽니다.
+
+    ![](ThirdPersonWalkImage.png)
+
+1. 툴바에서 **애셋 익스포트** 를 클릭하고 **Preview Mesh** (프리뷰 메시)를 선택합니다. 
+
+    ![](MobuHowTo_03.png)
+
+    확인 창에서 **예** 를 클릭합니다. 
+
+    ![](MobuHowTo_03b.png)
+
+    그리고 **FBX 익스포트 옵션** 창의 **익스포트** 를 클릭합니다. 
+
+    ![](MobuHowTo_03c.png)
+
+1. [GitHub Repository](https://github.com/ue4plugins/MobuLiveLink) 에서 **Motionbuilder** 플러그인을 다운로드하고 컴퓨터에 zip 파일 압축을 풉니다.
+
+    ![](MobuFiles.png)
+
+    zip 파일 압축을 풀면 Motionbuilder 여러 버전의 폴더는 물론 Mobu 안의 플러그인 구성에 필요한 파일을 찾을 수 있습니다.
+
+1. **Motionbuilder** 에서 **Settings** 아래 **Preferences...** 를 선택합니다.
+
+    ![](MobuHowTo_04.png)
+
+1. **SDK** 아래 **Add** 버튼을 클릭하고 압축을 푼 경로와 Motionbuilder 버전을 지정합니다. 
+
+    ![](MobuHowTo_05.png)
+
+    창에 경로가 보이면 **Ok** 를 클릭합니다. 
+
+    ![](MobuHowTo_05b.png)
+
+1. 확인 창에서 **Ok** 를 클릭한 다음 Motionbuilder 를 재시작하여 변경사항을 적용합니다. 
+
+    ![](MobuHowTo_05c.png)
+
+    **Asset Browser** 의 **Devices** 아래 **UE - LiveLink** 애셋이 보입니다. 
+
+    ![](MobuHowTo_05d.png)
+
+    이 애셋을 뷰포트에 끌어 놓으면 씬에서 스트리밍할 것을 정할 수 있습니다. 
+
+1. UE4 에서 익스포트한 **ThirdPersonWalk_PreviewMesh** 를 연 다음 **Open Options** 메뉴에서 **Open** 을 클릭합니다.
+
+    ![](MobuHowTo_06.png)
+
+    그러면 캐릭터 메시와 애니메이션을 Motionbuilder 로 임포트합니다. 
+
+    ![](MobuHowTo_06b.png)
+
+1. **Asset Browser** 에서 **Elements** 아래 **Camera** 를 끌어 뷰포트에 놓습니다. 
+
+    ![](MobuHowTo_07.png)
+
+    카메라를 원하는 위치로 옮깁니다. UE4 안에서 전환하여 미리볼 수 있는 대체 카메라가 됩니다. 
+
+    ![](MobuHowTo_07b.png)
+
+    다음 단계에서는 UE - LiveLink 애셋을 구성하여 UE4 로 스트리밍할 요소를 정하는 법을 알아봅니다. 
+
+## 2 - Mobu 라이브 링크 구성
+
+1. Motionbuilder 의 **Asset Browser** 에서 **UE - LiveLink** 애셋을 뷰포트에 끌어 놓습니다. 
+
+    ![](MobuHowTo_08.png)
+
+    그러면 **Devices** 섹션에서 찾을 수 있는 Live Link Connection 창이 열립니다. 
+
+    [REGION:lightbox]
+    [![](MobuHowTo_08b.png)(w:900)](MobuHowTo_08b.png)
+    [/REGION]
+    [REGION:caption]
+    이미지를 클릭하면 원본을 확인합니다.
+    [/REGION]
+
+1. Connection Window 창의 **...** (선택) 버튼을 클릭하고 **Root** 본과 **Camera** 를 선택한 다음 **Add** 버튼을 클릭합니다. 
+
+    ![](MobuHowTo_09.png)
+
+    그러면 둘 다 서브젝트로 추가되어 UE4 로 스트리밍됩니다. Stream Type (스트림 유형)은 스트리밍하려는 콘텐츠에 따라 자동 감지됩니다. 
+
+    ![](MobuHowTo_10.png)
+
+    * **Subject Name** (서브젝트 이름)은 UE4 에 나타나는 이름입니다.
+    * **Stream Type** (스트림 유형)은 전송할 데이터 유형입니다.
+    * **Status** (상태)는 서브젝트의 스트리밍 활성화 여부입니다. 
+
+    Stream Type 으로 스트리밍하려는 콘텐츠 유형에 따라 자동 감지됩니다. 하지만 선택해 보면 콘텐츠에 따라 여러가지 옵션을 확인할 수 있습니다. 
+
+    몇 가지 예제입니다. 
+
+    | 스트림 유형 | 설명 |
+    | --- | --- |
+    | **Root Only** | 루트만 - 루트 트랜스폼만 스트리밍합니다. |
+    | **Full Hierarchy** | 전체 계층구조 - 서브젝트의 자손 전부를 모아 트랜스폼 및 애니메이션 가능 프로퍼티 전부를 스트리밍합니다. |
+    | **Skeleton Hierarchy** | 스켈레톤 계층구조 - 서브젝트의 모든 자손 본을 스트리밍하고 실제 본인지 확인합니다 (본이 아닌 본의 자손은 무시합니다). |
+    | **Camera** | 카메라 - Root Only 와 비슷하게 (필름백 세팅과 같은) 카메라 프로퍼티를 스트리밍합니다. |
+
+1. **Root** (루트) 오브젝트의 **Subject Name** (서브젝트 이름) 칸의 이름을 Root 에서 **Character** 로 변경합니다.
+
+    ![](MobuHowTo_10b.png)
+
+1. **Online** 옆 버튼을 클릭하여 콘텐츠 스트리밍을 활성화합니다. 
+
+    ![](MobuHowTo_11.png)
+
+    온라인 상태 버튼이 빨강(오프라인)에서 초록(온라인)으로 바뀝니다. 
+
+1. Navigator 창에서 **System** 아래 **Always refresh viewer** 옵션을 켭니다. 
+
+    ![](MobuHowTo_12.png)
+
+    이 옵션을 켜지 않으면 라이브 링크로 콘텐츠를 스트리밍할 때 Motionbuilder 가 백그라운드 전환되어 포커스를 잃으면서 퍼포먼스가 자동 조절되어 스트리밍 프로세스가 끊길 수 있습니다.
+
+## 3 - UE4 에 콘텐츠 스트리밍
+
+1. Mobu 의 백그라운드 실행 상태에서 UE4 메뉴의 **파일** > **창** > **Live Link** (라이브 링크)를 선택합니다. 
+
+    ![](MobuHowTo_13.png)
+
+    그러면 Live Link Streaming Manager (라이브 링크 스트리밍 매니저)가 열려 실행 중인 Motionbuilder 인스턴스에 연결할 수 있습니다. 
+
+1. **Add** (추가) 버튼을 클릭한 다음 **Message Bus Source** (메시지 버스 소스) 아래 Mobu 인스턴스를 선택하고 **Ok** (확인)을 클릭합니다. 
+
+    ![](MobuHowTo_14.png)
+
+    스트리밍 매니저가 업데이트되어 UE4 에 스트리밍 중인 연결된 Source Type (소스 유형) 및 서브젝트가 표시됩니다. 
+
+    ![](MobuHowTo_14b.png)
+
+1. **콘텐츠 브라우저** 의 **Content > Mannequin > Character > Mesh** 아래 **SK_Mannequin** 애셋을 엽니다. 
+
+    ![](SK_MannequinImage.png)
+
+1. **Preview Scene Settings** (프리뷰 씬 세팅) 탭에서 다음과 같이 설정합니다. 
+
+    ![](MobuHowTo_15.png)
+
+    * Preview Controller 프리뷰 컨트롤러 - **Live Link Preview Controller** (라이브 링크 프리뷰 컨트롤러)
+    * Subject Name 서브젝트 이름 - **Character** (캐릭터)
+    * Enable Camera Sync 카메라 동기화 활성화 - **Enabled** (활성화)
+
+    그러면 Mobu 의 Character 라는 서브젝트를 받아 UE4 에 스트리밍하여 라이브 링크 컨트롤러로 미리볼 수 있습니다. Mobu 의 active camera 도 스트리밍합니다. 
+
+[REGION:note]
+또는 [블루프린트 함수](Engine/Animation/LiveLinkPlugin/LiveLinkBlueprintComponent) 를 사용하여 연결을 설정하면 Live Link UI 창으로 수동 연결하지 않아도 됩니다.
+[/REGION]
+
+## 4 - 최종 결과
+
+Motionbuilder 와 UE4 모두 라이브 링크로 연결했으면 이제 Mobu 의 콘텐츠롤 UE4 에서 실시간 미리볼 수 있습니다. 아래 비디오에서 Mobu 의 카메라 조작이 UE4 안에 반영되고, 카메라 시점 변경까지도 업데이트되고 있습니다. Mobu 의 애니메이션을 문질러 이동하는 것은 물론 본 트랜스폼 조정이나 새 포즈 키프레임 설정까지도 UE4 에 반영되는 것이 보입니다. 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+심지어 Mobu 에서 본을 직접 제어하는 것도 UE4 에 반영됩니다. Mobu 에서 애니메이션 키프레임 작업을 하면서 UE4 에 어때 보이는지 실시간 미리볼 수 있습니다. 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    iuFy3G5bQzE
+    [/PARAMLITERAL]
+[/OBJECT]

@@ -1,18 +1,21 @@
-﻿INTSourceChangelist:2735597
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:数学
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:预先配置的数学函数，例如计算 π 以及将矢量分量相加等等。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
 数学函数对纹理中像素的值执行基本数学方程式。 
 
+(#MathFunctions)
 ## 数学函数
 
 以下是“数学”类别下所有函数的列表。
 
+(#AddComponents)
 ### 分量相加
 
 **AddComponents（分量相加）**函数接收一个“矢量 2”、“矢量 3”或“矢量 4”，将其分量合并到一起，然后输出结果。您必须使用适合于相应输入的输出。例如，如果将图像输入到 *f3（矢量 3）（f3 (Vector3)）*，那么必须使用 *f3* 输出。
@@ -35,6 +38,7 @@ Version:4.9
 	由于每个输入都针对其对应的输出单独计算，因此您可使用单个节点上的全部三个输入，前提是同时使用每个输入的对应输出。例如，您可使用一个 AddComponents（分量相加）函数节点对一个“矢量 2”的分量进行组合（利用 *f2* 输出），并使用同一节点对一个“矢量 3”的分量进行组合（利用 *f3* 输出）。
 [/REGION]
 
+(#Pi)
 ### Pi（π）
 
 **Pi（π）**函数用作 π 的常量，并精确到第 6 位小数 (3.141592)。此节点还附有乘数输入。
@@ -47,6 +51,7 @@ Version:4.9
 
 ![Pi（π）](Pi_Demo.png)
 
+(#LinearSine)
 ### LinearSine（线性正弦）
 
 **LinearSine（线性正弦）**函数接收一个标量值，并输出该值的线性正弦或圆形线性正弦（介于 0 与 1 之间）。如果您将 Time（时间）表达式连接到值输入，并使用 LinearSine（线性正弦），那么可在输出中查看符合线性正弦波的动画。 
@@ -65,6 +70,7 @@ Version:4.9
 
 ![线性正弦](LinearSine_Demo.png)
 
+(#VectorToRadialValue)
 ### VectorToRadialValue（矢量到径向值）
 
 **VectorToRadialValue（矢量到径向值）**函数将“矢量 2”矢量转换为角度，或者将 UV 坐标数据转换为径向坐标。对于矢量，角度将在一个通道中输出，而矢量长度在另一通道中输出。

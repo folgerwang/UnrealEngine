@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3782314
 Availability:Public
-Title:1. 필수 안드로이드 셋업
+Title:1. 필수 Android 셋업
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description: CodeWorks for Android 1R6u1 SDK 설치 방법 안내입니다.
 Version:4.17
@@ -16,7 +16,7 @@ Checkpoint:AndroidQS
 [nav]
 
 ## 단계
-안드로이드 개발을 시작하기에 앞서 먼저 CodeWorks for Android 1R6u1 을 설치해야 합니다. CodeWorks for Android 1R6u1 는 안드로이드 디바이스에 디플로이하기 위해 필요한 프로그램과 코드가 전부 설치되도록 도와줄 것입니다. 여기서는 개발 PC 에 CodeWorks for Android 1R6u1 를 설치하는 법에 대해 다루겠습니다.
+Android 개발을 시작하기에 앞서 먼저 CodeWorks for Android 1R6u1 을 설치해야 합니다. CodeWorks for Android 1R6u1 는 Android 디바이스에 디플로이하기 위해 필요한 프로그램과 코드가 전부 설치되도록 도와줄 것입니다. 여기서는 개발 PC 에 CodeWorks for Android 1R6u1 를 설치하는 법에 대해 다루겠습니다.
 
 
 %Globals:osselect_linux%
@@ -90,7 +90,7 @@ CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설
 	| GitHub | [EngineSyncLocation\UE4\Engine\Extras\Android |
 
 	[region:note]
-	UE4 를 **Github** 에서 다운로드한 경우, CodeWorks for Android 1R6u1 인스톨러 실행 전 다음과 같은 작업을 해 줘야 합니다. GitHub 에서 UE4 소스 코드를 다운로드했으면 윈도우 기반 PC 든 맥이든 양쪽에 적용된다는 점 참고 바랍니다. 런처에서 다운로드한 바이너리 빌드를 사용중이라면 이 부분은 건너뛰고 바로 CodeWorks for Android 1R6u1 설치로 들어가시면 됩니다.
+	UE4 를 **Github** 에서 다운로드한 경우, CodeWorks for Android 1R6u1 인스톨러 실행 전 다음과 같은 작업을 해 줘야 합니다. GitHub 에서 UE4 소스 코드를 다운로드했으면 Windows 기반 PC 든 Mac이든 양쪽에 적용된다는 점 참고 바랍니다. 런처에서 다운로드한 바이너리 빌드를 사용중이라면 이 부분은 건너뛰고 바로 CodeWorks for Android 1R6u1 설치로 들어가시면 됩니다.
 
 	1. GitHub 에서 UE4 다운로드를 마치고 압축을 풀었으면, **Setup.bat** 파일을 실행하여 필수 파일과 **CodeWorks for Android 1R6u1** 인스톨러를 다운로드합니다.
 
@@ -146,7 +146,7 @@ CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설
 	![](AndroidWorks_12.png)
 
 	[region:note]
-	GitHub 에서 UE4 를 다운로드한 경우, CodeWorks for Android 1R6u1 가 설치를 완료하면 환경 변수 설정을 위해 PC 또는 맥을 재시작하고 **Setup.bat** 파일을 한 번 더 실행하여 필수 안드로이드 파일을 다운로드합니다.
+	GitHub 에서 UE4 를 다운로드한 경우, CodeWorks for Android 1R6u1 가 설치를 완료하면 환경 변수 설정을 위해 PC 또는 Mac을 재시작하고 **Setup.bat** 파일을 한 번 더 실행하여 필수 Android 파일을 다운로드합니다.
 	[/region]
 [/EXCERPT:WindowsSetup]
 
@@ -159,7 +159,7 @@ CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설
 [region:warning]
 CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설치할 것을 강력 추천합니다. 그래야 설치에 문제가 없습니다.
 [/region]
-맥에 CodeWorks for Android 1R6u1 설치 전 Java 8 이 설치되어 있는지 확인해야 합니다. 아래 링크를 사용해서 Java 8 을 다운로드 및 설치하도록 하세요.
+Mac에 CodeWorks for Android 1R6u1 설치 전 Java 8 이 설치되어 있는지 확인해야 합니다. 아래 링크를 사용해서 Java 8 을 다운로드 및 설치하도록 하세요.
 
 * Java 8 은 [여기서]( http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) 다운로드할 수 있습니다.
 
@@ -170,7 +170,7 @@ CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설
 	| GitHub | [EngineSyncLocation\UE4\Engine\Extras\AndroidWorks\Mac |
 
 	[region:note]
-	UE4 를 **Github** 에서 다운로드한 경우, CodeWorks for Android 1R6u1 인스톨러 실행 전 다음과 같은 작업을 해 줘야 합니다. GitHub 에서 UE4 소스 코드를 다운로드했으면 윈도우 기반 PC 든 맥이든 양쪽에 적용된다는 점 참고 바랍니다. 런처에서 다운로드한 바이너리 빌드를 사용중이라면 이 부분은 건너뛰고 바로 CodeWorks for Android 1R6u1 설치로 들어가시면 됩니다.
+	UE4 를 **Github** 에서 다운로드한 경우, CodeWorks for Android 1R6u1 인스톨러 실행 전 다음과 같은 작업을 해 줘야 합니다. GitHub 에서 UE4 소스 코드를 다운로드했으면 Windows 기반 PC 든 Mac이든 양쪽에 적용된다는 점 참고 바랍니다. 런처에서 다운로드한 바이너리 빌드를 사용중이라면 이 부분은 건너뛰고 바로 CodeWorks for Android 1R6u1 설치로 들어가시면 됩니다.
 
 	1. GitHub 에서 UE4 다운로드를 마치고 압축을 풀었으면, **Setup.command** 파일을 실행하여 필수 파일과 **CodeWorks for Android 1R6** 인스톨러를 다운로드합니다.
 
@@ -224,7 +224,7 @@ CodeWorks for Android 1R6u1 는 에디터와 런처 둘 다 닫힌 상태로 설
 	![](AndroidWorks_Mac_09.png)
 
 	[region:note]
-	GitHub 에서 UE4 를 다운로드한 경우, CodeWorks for Android 1R6u1 가 설치를 완료하면 환경 변수 설정을 위해 PC 또는 맥을 재시작하고 **Setup.command** 파일을 한 번 더 실행하여 필수 안드로이드 파일을 다운로드합니다.
+	GitHub 에서 UE4 를 다운로드한 경우, CodeWorks for Android 1R6u1 가 설치를 완료하면 환경 변수 설정을 위해 PC 또는 Mac을 재시작하고 **Setup.command** 파일을 한 번 더 실행하여 필수 Android 파일을 다운로드합니다.
 	[/region]
 
 CodeWorks for Android 1R6u1 설치가 완료되면, 다음과 같이 Bash 파일을 편집해 줘야 합니다:
@@ -260,7 +260,7 @@ CodeWorks for Android 1R6u1 설치가 완료되면, 다음과 같이 Bash 파일
 [/COMMENT]
 
 ## 최종 결과
-완료되면 안드로이드 디바이스에서 작동되는 UE4 프로젝트 제작에 사용할 수 있는 필수 안드로이드 SDK 가 전부 설치되어 있을 것입니다.
+완료되면 Android 디바이스에서 작동되는 UE4 프로젝트 제작에 사용할 수 있는 필수 Android SDK 가 전부 설치되어 있을 것입니다.
 
 [nav]
 

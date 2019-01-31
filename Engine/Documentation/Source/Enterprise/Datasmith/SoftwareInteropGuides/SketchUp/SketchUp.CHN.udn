@@ -1,0 +1,195 @@
+﻿INTSourceChangelist:4531380
+Availability: Public
+Crumbs: 
+Title: 结合使用Datasmith与SketchUp Pro
+Description: 描述了在使用Datasmith将场景从Trimble SketchUp Pro导入虚幻编辑器时需要考虑的特别因素。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: SketchUp
+Tags: interop
+topic-image:sketchup_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_compare_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![UE4](sketchup_datasmith_compare_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+如果您计划使用Datasmith将场景从Trimble SketchUp Pro导入到虚幻编辑器中，那么除了了解[Datasmith概述](Enterprise/Datasmith/Overview)和[关于Datasmith导入流程](Enterprise/Datasmith/Overview/ImportProcess)中描述的基本知识，还需要了解一些有关Datasmith如何处理场景的事项。
+
+## SketchUp工作流程
+
+Datasmith对SketchUp使用 **导出插件（Export Plugin）** 工作流程。这意味着，要使用Datasmith将SketchUp内容导入到虚幻中，您需要：
+
+1.  为SketchUp安装插件。请参阅[为Sketchup Pro安装Datasmith导出工具插件](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/InstallingExporterPlugin)。
+2.  将SketchUp内容导出为 *.udatasmith* 文件。请参阅[从Sketchup Pro导出Datasmith内容](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp)。
+3.  使用Datasmith导入工具将导出的 *.udatasmith* 文件导入到虚幻编辑器中。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 将几何结构转换为静态网格体
+
+Datasmith将SketchUp几何结构划分为静态网格体资源，将位于同一组件或群组中的所有连接的多边形面组合起来，形成一个静态网格体。知道这种策略可以帮助您影响它所创建的静态网格体。
+
+如果虚幻中的静态网格体非常大，那么在为场景烘焙静态或静止照明时，可能难以实现好的效果。大网格体需要同样大的光照贴图纹理，这样才能确保模型的每个部分都有足够的纹理空间来记录其照明和阴影。您可以尝试增加大静态网格体上的光照贴图分辨率，但这样也会增加烘焙时间和运行时内存要求。根据光照贴图UV的布局方式，可能完全无法实现好的效果。如果发生这种情况，可以尝试在SketchUp中将大几何结构拆分成多个组件或层，减轻虚幻中要处理的静态网格体的工作量。
+
+### 实例化
+
+当Datasmith检测到，同一个组件在SketchUp场景中有多个副本时，它只会为该组件创建一组静态网格体资源，并将这些静态网格体的多个实例放在场景中。这通常对运行时内存需求和项目性能更为有利，同时也更方便管理内容浏览器中的静态网格体资源数量。
+
+但如果可能，我们建议充分利用这个功能，在SketchUp中，将场景中的重复元素（如窗户、门或椅子）创建为可重复使用的组件。
+
+### 公告板
+
+如果您的SketchUp场景中包含旋转公告板，则Datasmith会将它们导出为静态网格体，并根据从SketchUp导出时的摄像机视点将它们放置在场景中。
+
+### 三角形朝向
+
+SketchUp对几何结构的朝向没有严格要求。您可以创建“单面”几何结构（即，没有厚度的几何结构），然后从两面查看；甚至可以对每个平面的不同表面应用不同的材质。
+
+虚幻引擎使用不同的方法：它假设所有几何结构在建模时都是有厚度的。没有朝向摄像头的所有三角形都表示一个表面的背面，并可以假设为被该表面的正面遮挡而无法看到。为了在运行时实现最可能的最佳性能，它始终 *剔除* 这些背朝三角形，避免浪费GPU周期来渲染实际上看不到的三角形。
+
+我们建议始终构造有厚度的3D对象，这样它们就能在虚幻中正常使用。但是，如果您在SketchUp中确实使用单面几何结构，则Datasmith在静态网格体中为三角形分配材质和朝向时，会尽力以您的意图为先：
+
+*   如果SketchUp中的表面只有一面分配有材质，则在虚幻中，将选择该表面来指定三角形的朝向。
+*   否则，Datasmith将选择SketchUp中表面的正面作为虚幻中的朝向。
+*   如果您为*两面*都指定了材质，则Datasmith仅从正面导入材质。
+
+默认情况下，这意味着，当您从背面观察时，单面几何结构中的三角形不会出现在虚幻场景中。此外，背朝面不会投射阴影。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_single_side_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![虚幻](sketchup_datasmith_single_side_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+在以上示例中，每个箱体的侧面和底面朝外。在左侧，每一面的外朝面都指定有一种材质。在中间，每一面都指定有两种材质，一面一种。在右侧，为整个群组指定了红色材质，箱体的一个面专门指定了不同的材质。外朝面的颜色全部转换到虚幻，但未朝向镜头的面仅在从另一侧观察箱体时才能看到。
+
+解决这个问题的最佳方法是在SketchUp中解决，为对象指定厚度。但是，如果您想要在虚幻中解决，也有一些其他选项。有关完整的讨论，请参阅[关于Datasmith导入流程](Enterprise/Datasmith/Overview/ImportProcess#trianglefacingdirection)。
+
+## SketchUp材质
+
+对于SketchUp场景中的每种不同类型的表面，Datasmith会在虚幻中创建新材质资源，并将它放在Datasmith场景资源旁边的“材质（Materials）”文件夹中。这些材质的目的是遵从您在SketchUp中设置的表面效果，同时公开一些额外的属性来帮助您利用虚幻的基于物理的渲染。
+
+[REGION:lightbox]
+[![编辑SketchUp材质](sketchup_datasmith_material_editing.png "Editing a SketchUp material ")](sketchup_datasmith_material_editing.png)
+
+*单击查看大图。*
+[/REGION]
+
+要修改材质：
+
+1.  在内容浏览器中双击。或者，从关卡中选择使用您想要修改的材质的Actor，并在 **细节（Details）** 面板中双击该材质。
+2.  您将打开上图所示的材质编辑器，在这里，您可以在 **细节（Details）** 面板顶部的 **参数群组（Parameter Groups）** 部分中修改这些参数。您还可以修改虚幻渲染器公开的其他内置参数。
+3.  要覆盖任何属性的默认值，首先选中其名称左侧的框，在材质中激活该属性。然后，设置您希望属性使用的值。
+
+### 颜色和纹理图像
+
+默认情况下，导入的材质保持它们在SketchUp使用的纹理或颜色。您可以覆盖此设置，让您的材质使用某种纯色或纹理。
+
+*   激活 **颜色（Color）** 选项或 **使用纹理图像（Use Texture Image）** 选项。（如果您完全看不到 **颜色（Color）** 选项，请先取消激活 **使用纹理图像（Use Texture Image）** 选项。）
+*   要使用纯色，请设置 **RGB** 颜色值以产生您所需的颜色。   
+    ![](datasmith-sketchup-material-color.png "datasmith-sketchup-material-color.png")  
+    请注意，不使用A通道：透明混合由单独的不透明度（Opacity）选项控制（参见下文）。
+*   如果您选择使用纹理图像，您会看到 **纹理（Texture）** 属性，您可以设置该属性以引用想要使用的纹理资源。（如果您想要使用不在虚幻项目中的纹理，将其拖放到内容浏览器中以将其导入到项目中。）  
+    ![](datasmith-sketchup-material-usetexture.png "datasmith-sketchup-material-usetexture.png")  
+    如果您需要更改纹理在表面上的平铺方式，还可以使用 **纹理缩放（Texture Scale）** 控件。**R** 值控制水平缩放（UV空间中的U轴），**G** 值控制垂直缩放（UV空间中的V轴）。不使用 **B** 和 **A** 值。
+
+
+[INCLUDE:#datasmith-sketchup-texture-scale-sequenceslider]
+
+[COMMENT:none]
+[EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	datasmith-sketchup-texture-scale-sequence
+	[/PARAMLITERAL]
+    [PARAM:caption]
+    不同纹理缩放设置的效果。
+    [/PARAM]
+    [PARAM:image_list]
+    ![](datasmith-sketchup-material-scale-1.png)
+	![](datasmith-sketchup-material-scale-2.png)
+	![](datasmith-sketchup-material-scale-3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[/COMMENT]
+
+### 不透明度和混合模式
+
+当您使用某种纯色或纹理贴图作为材质的基色时，可以使用 **不透明度（Opacity）** 控件来确定您透过静态网格体能够看到多少背景。
+
+默认情况下，如果材质在SketchUp中的不透明度值低于100%，则该值应该会正确地转移到虚幻中的材质上。
+
+如果您想对虚幻中之前 *不透明的* 材质指定不透明度设置，则需要更改材质的混合模式。在 **常规（General）** 部分中，展开 **材质属性覆盖（Material Property Overrides）** 群组，选中 **混合模式（Blend Mode）** 选项，并将它的值设置为 **半透明（Translucent）**。
+
+[REGION:lightbox]
+[![SketchUp材质不透明度](sketchup_datasmith_material_opacity.png "SketchUp material opacity")](sketchup_datasmith_material_opacity.png)
+
+*单击查看大图。*
+[/REGION]
+
+### UE扩展属性
+
+在默认情况下，所有导入的材质都设置为非金属色，均衡粗糙度值为0.5。但是，您会发现，在虚幻中稍微调整不同材质的这些值可以轻松地提高场景的渲染真实度。这些值位于 **UE扩展** 属性组中：
+
+![](datasmith-sketchup-material-ueextended.png "datasmith-sketchup-material-ueextended.png")
+
+*   对于任何金属物体，请选择 **金属（Metallic）** 选项。这会让底色或纹理产生极其细微的差异，从而影响照射到表面的射入光线。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![默认](sketchup_datasmith_material_metallic_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![“金属”打开](sketchup_datasmith_material_metallic_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   如果物体表面特别粗糙或特别有光泽，选中 **粗糙度（Roughness）** 选项并增大或减小它的值。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![默认粗糙度0.5](sketchup_datasmith_material_roughness_default.png) 
+	[/PARAM]
+	[PARAM:after]
+	![粗糙度0.05](sketchup_datasmith_material_roughness_zero.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   如果物体的不同部分需要有不同的光泽度，您可以改用“粗糙度贴图”：这是一个灰度纹理图像，您可以将需要粗糙的部分涂成白色，需要显出光泽的部分涂成黑色。
+*   有关“粗糙度”和“金属”值如何相互作用以创造出光泽表面的更多信息，还可以参阅[创建光泽材质](Engine/Rendering/Materials/HowTo/ShinyMaterials)。
+*   此外，您可以为导入的材质设置法线贴图。这样会给渲染器一些提示，告诉它几何结构的小规模表面细节。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![无法线贴图](sketchup_datasmith_material_normal_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![有法线贴图](sketchup_datasmith_material_normal_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+您可以在Adobe Photoshop等2D图片创建软件中生成法线贴图和粗糙度贴图。在某些情况下，如以上所示纹理，您或许能够将这些法线贴图和粗糙度贴图用作材质的底色纹理。
+
+## 仅限SketchUp Pro
+
+Datasmith导入工具插件目前仅适用于SketchUp Pro。它不支持SketchUp Free和已经停用的SketchUp Make。

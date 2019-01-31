@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3206329
+﻿INTSourceChangelist:3808342
 Availability:Public
-Title:Ansel 采集测试
+Title:NVIDIA Ansel采集测试
 Description:Nvidia Ansel 游戏内摄影工具虚幻引擎集成的总览。此工具可从游戏中采集高精度图像并进行分享
 Crumbs:
 Parent:Engine/Plugins/Ansel
@@ -11,15 +11,11 @@ tags:Ansel
 version:4.14
 topic-image:Ansel_Testing_Topic.png
 
-**测试游戏中 Nvidia Ansel Photography 插件的方法：**
+**测试游戏中 NVIDIA Ansel Photography 插件的方法：**
 
 1. 运行 NvCameraConfiguration.exe 应用程序并确保 **NvCamera Status** 为 _Enable_（默认设置）。
 
 		C:\Program Files\NVIDIA Corporation\Ansel\Tools\NvCameraConfiguration.exe
-
-1. 运行 NvCameraEnable.exe 应用程序传递 `whitelisting-everything`，允许游戏使用 Ansel。该设置在重启后依然不变，输入 `whitelisting-default` 替代 `whitelisting-everything` 即可重设。
-
-		"C:\Program Files\NVIDIA Corporation\Ansel\Tools\NvCameraEnable.exe" whitelisting-everything
 
 1. 在虚幻编辑器中的关卡编辑器工具栏中选择 **Play > Standalone Game** 作为 Standalone 游戏运行。在编辑器中进行游戏时 Ansel 不会启动。
 

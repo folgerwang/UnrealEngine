@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.5 - 设置默认游戏模式
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/1
 Description:学习如何设置第一人称射击游戏项目的默认游戏模式。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -42,53 +42,47 @@ Version:4.11
 
 1.	按下 Esc 键或点击关卡编辑器中的 **Stop** 按钮即可退出 Play in Editor（PIE）模式。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    完成分段代码
-    [/PARAM]
-    [PARAM:content]
-		**FPSProjectGameMode.h**
-			// 在 Project Settings 的 Description 页面填入版权声明。
-			
-			#pragma once
-			
-			#include "GameFramework/GameMode.h"
-			#include "FPSGameMode.generated.h"
-			
-			/**
-			 * 
-			 */
-			UCLASS()
-			class FPSPROJECT_API AFPSProjectGameMode : public AGameMode
-			{
-				GENERATED_BODY()
+(#FinishedSectionCode)
+## 完成分段代码
 
-				virtual void StartPlay() override;
-			};
+**FPSProjectGameMode.h**
 
-		**FPSProjectGameMode.cpp**
-			// 在 Project Settings 的 Description 页面填入版权声明。
+	// 在 Project Settings 的 Description 页面填入版权声明。
 			
-			#include "FPSProject.h"
-			#include "FPSProjectGameMode.h"
+	#pragma once
+	
+	#include "GameFramework/GameModeBase.h"
+	#include "FPSProjectGameMode.generated.h"
 			
-			void AFPSProjectGameMode::StartPlay()
-			{
-				Super::StartPlay();
+	/**
+		 * 
+		 */
+	UCLASS()
+	class FPSPROJECT_API AFPSProjectGameMode : public AGameModeBase
+	{
+		GENERATED_BODY()
+
+		virtual void StartPlay() override;
+	};
+
+**FPSProjectGameMode.cpp**
+
+	// 在 Project Settings 的 Description 页面填入版权声明。
 			
-				if (GEngine)
-				{
-					// 显示调试信息五秒。 
-					// -1“键”值（首个参数）说明我们无需更新或刷新此消息。
+	#include "FPSProject.h"
+	#include "FPSProjectGameMode.h"
+			
+	void AFPSProjectGameMode::StartPlay()
+	{
+		Super::StartPlay();
+			
+		if (GEngine)
+		{
+			// 显示调试信息五秒。 
+			// -1“键”值（首个参数）说明我们无需更新或刷新此消息。
 					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, TEXT("Hello World, this is FPSGameMode!"));
-				}
-			}
-
-    [/PARAM]
-[/OBJECT]
+		}
+	}
 
 恭喜！您已学会：
 

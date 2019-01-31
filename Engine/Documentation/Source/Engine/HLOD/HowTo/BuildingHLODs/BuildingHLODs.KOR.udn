@@ -13,11 +13,11 @@ type:how-to
 tags:HLOD
 topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
-**Hierarchical Level of Detail** (계층형 레벨 오브 디테일, HLOD) 메시를 만드는 법은 크게 두 단계로 나뉩니다. 먼저 **Generate Clusters** (클러스터 생성) 인데, 레벨에 있는 **액터** 를 **Cluster Generation Settings** (클러스터 생성 세팅)에 따라 묶는 것입니다. 그런 다음 **Generate Proxy Meshes** (프록시 메시를 생성)해야 하는데, 이는 씬 복잡도와 **Mesh Generation Settings** (메시 생성 세팅)에 지정된 데 따라 매우 오래 걸릴 수 있습니다.
+**Hierarchical Level of Detail** (계층형 레벨 오브 디테일, HLOD) 메시를 만드는 법은 크게 두 단계로 나뉩니다. 먼저 **Generate Clusters** (클러스터 생성) 인데, 레벨에 있는 **액터** 를 **Cluster Generation Settings** (클러스터 생성 세팅)에 따라 묶는 것입니다. 그런 다음 **Generate Proxy Meshes** (프락시 메시를 생성)해야 하는데, 이는 씬 복잡도와 **Mesh Generation Settings** (메시 생성 세팅)에 지정된 데 따라 매우 오래 걸릴 수 있습니다.
 
 ## 단계
 
-아래는 **HLOD 메시** 생성 단계를 크게 **클러스터 생성** 과 **프록시 메시 생성**, 두 부분으로 나눈 것입니다.
+아래는 **HLOD 메시** 생성 단계를 크게 **클러스터 생성** 과 **프락시 메시 생성**, 두 부분으로 나눈 것입니다.
 
 ### 클러스터 생성
 
@@ -55,21 +55,21 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 ![image alt text](Engine/HLOD/Overview/image_11.png)(w:269 convert:false)
 
-HLOD 의 레벨 **Cluster Generation Settings** (클러스터 생성 세팅) 값을 조정하면서 생성되는 클러스터가 마음에 들 때까지 이 프로세스를 반복한 뒤 다음 단계로 넘어갑니다: [**프록시 메시 생성**](#프록시메시생성).
+HLOD 의 레벨 **Cluster Generation Settings** (클러스터 생성 세팅) 값을 조정하면서 생성되는 클러스터가 마음에 들 때까지 이 프로세스를 반복한 뒤 다음 단계로 넘어갑니다: [**프락시 메시 생성**](#프락시메시생성).
 
-### 프록시 메시 생성
+### 프락시 메시 생성
 
-생성된 클러스터 결과가 마음에 들면, 그 클러스터를 프록시 메시에 빌드해 넣는 옵션으로 넘어갈 차례입니다. 이 프록시 메시는 새로 생성되는 **스태틱 메시 액터** 로, (켜진 경우) 머티리얼을 합치고, 별도의 라이트맵과 스태틱 메시 에디터에서 열 수 있는 별도의 편집가능 스태틱 메시가 있습니다.
+생성된 클러스터 결과가 마음에 들면, 그 클러스터를 프락시 메시에 빌드해 넣는 옵션으로 넘어갈 차례입니다. 이 프락시 메시는 새로 생성되는 **스태틱 메시 액터** 로, (켜진 경우) 머티리얼을 합치고, 별도의 라이트맵과 스태틱 메시 에디터에서 열 수 있는 별도의 편집가능 스태틱 메시가 있습니다.
 
-1. 프록시 메시를 만들 준비가 되었으면, Generate Proxy Mesh (프록시 메시 생성) 버튼을 눌러 프로세스를 시작합니다.
+1. 프락시 메시를 만들 준비가 되었으면, Generate Proxy Mesh (프락시 메시 생성) 버튼을 눌러 프로세스를 시작합니다.
 
 	![image alt text](Engine/HLOD/Overview/image_13.png)(w:148 convert:false)
 
-	프로세스가 시작되면 작업중인 HLOD 레벨과 생성된 프록시 메시 수가 나타나는 진행상황 막대가 보입니다. 여기에는 생성되는 전체 HLOD 레벨과 프록시 메시 수 총합이 아닌, 해당 레벨에 대한 것만 표시됩니다.
+	프로세스가 시작되면 작업중인 HLOD 레벨과 생성된 프락시 메시 수가 나타나는 진행상황 막대가 보입니다. 여기에는 생성되는 전체 HLOD 레벨과 프락시 메시 수 총합이 아닌, 해당 레벨에 대한 것만 표시됩니다.
 
 	![image alt text](Engine/HLOD/Overview/image_14.png)(w:458 convert:false)
 
-	HLOD 레벨 세팅, 생성중인 프록시 메시 수, 시스템 사양에 따라 이 프로세스는 고사양 머신에서도 시간이 꽤 걸릴 수 있습니다!
+	HLOD 레벨 세팅, 생성중인 프락시 메시 수, 시스템 사양에 따라 이 프로세스는 고사양 머신에서도 시간이 꽤 걸릴 수 있습니다!
 
 	[REGION:note]
 	참고로 12 코어 i7 프로세서, GTX-980, 64GB 램 머신에서, 100 개 이상의 LOD 액터가 있는 두 개의 HLOD 레벨에 기본 세팅으로 이 프로세스를 돌리면 10 에서 12 분 정도 걸립니다.

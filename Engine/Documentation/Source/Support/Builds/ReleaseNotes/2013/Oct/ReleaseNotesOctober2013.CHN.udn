@@ -1,323 +1,325 @@
-﻿INTSourceChangelist:0
-Title: 2013年10月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年10月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
+Parent:Support/Builds
+Order:-4
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_10 |
-| **Changelist #** | 1897729 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2012 Version 11.0.60610.01 Update 3 |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_10|
+| **变更列表编号**| 1897729|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2012 版本 11.0.60610.01 更新 3|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Fixed Bugs: [UE4 Fixed Bugs October 2013](UE4_Fixed_2013_October.xlsx)
- * Known Issues: [UE4 Outstanding Bugs October 2013](UE4_Bugs_2013_October.xlsx)
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * 已修复的错误：[2013 年 10 月虚幻引擎4 已修复的错误](UE4_Fixed_2013_October.xlsx)
+ * 已知问题：[2013 年 10 月虚幻引擎4 突出问题](UE4_Bugs_2013_October.xlsx)
  
 
-## Major New Features
+## 主要新功能
 
-####Editor and Tools
-* **New Landscape Editor**
-	* The **Landscape Editor** UI has recently been completely rebuilt, with a number of improvements:
+####编辑器和工具
+* **新地形编辑器**
+	* **地形编辑器** UI 最近已完成重建，且有一些改进：
 
 		![](LandScapeEditor01.png)
 
-	* Tools are now divided between three distinct modes, based on use.
-		* **Manage** mode contains **New Landscape**, **Component** and **Spline** tools.
-		* **Sculpt** mode contains all the sculpting (heightmap) tools, along with region selection and copy/paste.
-		* **Paint** mode contains the painting (weightmap) tools.
-	* The UI is much more compact, gone is the window-filling tool selector in favor of a simple dropdown selector.
-	* The Landscape editor is now based on a details panel. This makes it consistent with the rest of the editor, and adds new features such as an adjustable splitter between settings' names and their values.
-	* Sculpting is now done with a tool called **Sculpt**, rather than _Paint_.	 
+	* 现在，工具根据用途分为三种不同的模式。
+		* **管理（Manage）** 模式包含 **新建地形（New Landscape）**、**组件（Component）** 和 **样条（Spline）** 工具。
+		* **造型（Sculpt）** 模式包含所有造型（高度图）工具，以及区域选择和复制/粘贴。
+		* **描画（Paint）** 模式包含描画（权重图）工具。
+	* UI 更加紧凑，不再是支持简单下拉选择器的窗口填充工具选择器。
+	* 地形编辑器现在基于详细信息（Details）面板。这使得它与编辑器的其余部分保持一致，并添加新功能，例如在设置名称及其值之间新增的可调节分隔条。
+	* 造型现在使用名为 **造型（Sculpt）** 的工具完成，而不是 _描画（Paint）_ 工具。	 
 
 		![](LandScapeEditor02.png)
 
-	* The target layer selector is now only visible when in layer painting mode and it now uses the same dropdown asset selector as from other parts of the editor.		
+	* 目标图层选择器现在仅在图层描画模式下可见，并且现在它使用与编辑器其他部分相同的下拉资源选择器。		
 
 		![](LandScapeEditor03.png)
 
-	* The **New Landscape** window has been improved, and now allows you to set the **Landscape** _Material_ and layer info's in **New** mode, as well as **Import** mode. 
+	* 改进了 **新建地形（New Landscape）** 窗口，现在允许在 **新建（New）** 模式和 **导入（Import）** 模式下设置 **地形（Landscape）** _材质_和图层信息。
 	
-		It will also remember your last chosen landscape material!
+		该窗口还会记住最后一次选择的地形材质！
 			
-	* The _Material_ selector now shows a thumbnail and uses the asset selector seen in other parts of the editor.
-	* The layer info list has been improved to match the target layers list, and also uses the new dropdown asset selector and styling.
+	* 现在，_材质_ 选择器可显示缩略图并使用在编辑器其他部分中显示的资源选择器。
+	* 改进了图层信息列表以匹配目标图层列表，并且还使用新的下拉资源选择器和样式。
 
 		![](LandScapeEditor004.png)
 
-	* The **Landscape** view modes have moved out of the landscape editor, and are now available via the viewport viewmode dropdown instead.
+	* 已将 **地形（Landscape）** 视图模式移出地形编辑器，并且现在可通过视口视图模式下拉列表使用。
 
-* **Viewport Layouts**
-	* The level viewports now support different layouts, accessible in the main menu of each viewport. 
+* **视口布局**
+	* 关卡视口现在支持不同的布局，可在每个视口的主菜单中访问。
 		
 		![](ViewportLayouts.png)
 
-	* Selecting a layout changes the viewport arrangement in the current tab. The current active layout is highlighted in orange.
-	* Layouts are also available as commands in the **Keyboard Shortcuts** window under **Level Viewports**.
-	* When switching layouts using the keyboard, the command will affect the tab of the viewport with keyboard input focus. If a viewport doesn't have focus it won't do anything.
+	* 选择布局会更改当前选项卡中的视口排列。当前活动布局以橙色高亮显示。
+	* 在 **关卡视口（Level Viewports）** 下的 **键盘快捷键（Keyboard Shortcuts）** 窗口中，也可以将布局用作命令。
+	* 使用键盘切换布局时，该命令将影响具有键盘输入焦点的视口选项卡。如果视口没有焦点，则不会执行任何操作。
 
-* **New Preference: Show Frame Rate and Memory**
-	* A new editor preference has been added that toggles the frame rate display in the main editor UI.
-	* This is under: **Editor Preferences > Developer Tools > Show Frame Rate and Memory** (defaults to on)
+* **新增首选项：显示帧率和内存**
+	* 添加了新的编辑器首选项，可切换主编辑器 UI 中的帧率显示。
+	* 此选项位于：**编辑器首选项（Editor Preferences）> 开发者工具（Developer Tools）> 显示帧率和内存（Show Frame Rate and Memory）** 下方（默认为开启）
 
 		![](ShowFrameRateandMemory01.png)
 
-	* Toggles this:		
+	* 切换此选项：		
 
 		![](ShowFrameRateandMemory02.png)
 
-	* To this:	
+	* 启用此选项：	
 		
 		![](ShowFrameRateandMemory03.png)
 
-* **Subversion Source Control Support**
-	* Support for Subversion has been added to UE4 as a Source Control option!
-	* To enable it, click on the **Source Control** indicator in the top-right corner of the editor:
+* **Subversion 源码控制支持**
+	* 已将对 Subversion 的支持添加到 UE4 作为源码控制（Source Control）选项！
+	* 单击编辑器右上角的 **源码控制（Source Control）** 指示器以启用：
 
 		![](Subversion01.png)
 
-	* Select Subversion from the Provider menu:
+	* 从提供方（Provider）菜单中选择 Subversion：
 
 		![](Subversion002.png)
 
-	* And enter your login information:
+	* 输入登录信息：
 
 		![](Subversion03.png)
 
-	* Your password will be stored securely outside of the Editor by Subversion.
-	* Subversion support in UE4 uses much the same workflow as Perforce. Slight differences are:
-		* As all assets are Binary, they are locked when _checking out_ (Subversion doesn't really have a concept of _checking out_ built-in).
-		* Files are not marked as read-only on disk.
-		* A _working copy_ of a Subversion repository should be in place before you start working with Subversion in UE4. Currently we don't set this up in-editor, so it has to be done via some other 3rd party tool (such as TortoiseSVN).
-	* For more information, consult the Subversion documentation, which can be found on the web at http://subversion.apache.org/docs/ .
+	* Subversion 会将您的密码安全存储在编辑器之外的位置。
+	* 在虚幻引擎4 中，Subversion 支持使用与 Perforce 大致相同的工作流程。细微区别是：
+		* 由于所有资源都是二进制，因此在 _签出_ 时会锁定它们（Subversion 实际上没有 _签出_ 内置的概念）。
+		* 磁盘上的文件未标记为只读。
+		* Subversion 元库的 _工作副本_ 应在 UE4 中开始使用 Subversion 之前到位。目前，我们没有在编辑器中设置此选项，因此必须通过某些其他第三方工具（例如 TortoiseSVN）进行设置。
+	* 有关更多信息，请参阅 Subversion 文档，该文档可在网站 http://subversion.apache.org/docs/ 上找到。
 
 
-#### Blueprints
-* **Editing Variable Default Values in the Details Panel**
-	* Users can now edit default values for variables in the **Details** panel of the Graph mode; the same place where other variable properties are edited.
+#### 蓝图
+* **在详细信息（Details）面板中编辑变量默认值**
+	* 现在，用户可以在图表（Graph）模式的 **详细信息（Details）** 面板中编辑变量默认值；其他变量属性也在此编辑。
 	
-		Either select a variable get/set node in the graph:
+		在图表中选择变量获取/设置节点：
 
 		![](EditingVariableDefaultValues01.png)		
-		Or select the variable in the **My Blueprint** list:	
+		或在 **我的蓝图（My Blueprint）** 列表中选择变量：	
 
 		![](EditingVariableDefaultValues02.png)
 
-* **Wildcards in Blueprint Macros and the ForEach Node**
-	* When editing the inputs and outputs of a macro, users will now have the option to create a _wildcard_ pin (or a _wildcard array_ pin).  
+* **蓝图宏和 ForEach 节点中的通配符**
+	* 编辑宏的输入和输出时，用户现在可以选择创建 _通配符_ 引脚（或 _通配符数组_ 引脚）。
 		
-		This is a gray pin that will automatically convert to the type you connect to it.
+		这是会自动转换为连接类型的灰色引脚。
 
 		![](WildcardBlueprint01.png)	
 	
-	* Previously, this feature was used to add the **ForEachLoop** and **ForEachLoopWithBreak** nodes to the **StandardMacros** library.	
+	* 以前，此功能用于将 **ForEachLoop** 和 **ForEachLoopWithBreak** 节点添加到 **StandardMacro** 库。	
 	
 		[REGION:caption]
-		**Before**
+		**之前**
 		[/REGION]
 		![](WildcardBlueprint02.png) 
 		[REGION:caption]
-		**After**
+		**之后**
 		[/REGION]
 		![](WildcardBlueprint03.png)
 
-* **Blueprint Editor UI Updates**
-	* The **[ROOT]** entry has now been consolidated into the actual scene root component node in **Components** mode.	 
-	Tooltips have also been updated during drag-and-drop to be a little more descriptive.
+* **蓝图编辑器 UI 更新**
+	* 已将 **[ROOT]** 条目合并到 **组件（Components）** 模式中的实际场景根组件节点。	 
+	也已在拖放过程中更新工具提示以使其更具描述性。
 
 		![](BlueprintEditorUpdates01.png)
 
-	* Object type description have been removed from the **Details** tab in **Components** and **Graph** modes. 
-	* The **Search** box is now hidden for variable selections in **Graph** mode.	 
+	* 已从 **组件（Components）** 和 **图表（Graph）** 模式中的 **详细信息（Details）** 选项卡删除对象类型描述。
+	* 现在，**搜索（Search）** 框对于 **图表（Graph）** 模式下的变量选择已隐藏。	 
 
 		![](BlueprintEditorUpdates02.png)
 
-	* The **Add Component** drop-down filter text in **Components** mode is now cleared after making a selection, so that the next time the drop-down is opened the full list is once again visible.
+	* 现在，选择后会清除 **组件（Components）** 模式下的 **添加组件（Add Component）** 下拉过滤器文本，以便下次打开下拉列表时再次显示完整列表。
 
-* **"Web Browser" Navigation in the Blueprint Editor**
-	* Instead of opening each new graph in a new tab, they now open in the last tab a user had focus on and navigates to the new graph like a link in a web browser does.	
+* **蓝图编辑器中的“Web 浏览器”导航**
+	* 现在，不再从新选项卡中打开每个新图表，而是在用户关注的最后一个选项卡中打开每个新图表，并且像 Web 浏览器中的链接一样导航到每个新图表。	
 		
 		![](WebBrowserNav01.png) 
 
-	* **Simple History Navigation**
-		* You can navigate using the buttons in the upper left or your mouse (buttons **4** and **5**, same as a web browser). 
-		* Your place and zoom in a graph will always be preserved when navigating, making it easy to jump back and forward.
-	* **Full History Navigation**
-		* **Right-click** on the back or forward button to view a list of the tab history, so you can jump to any point in it at your whim.
+	* **简单历史记录导航**
+		* 可以使用左上角的按钮或鼠标进行导航（按钮 **4** 和 **5**，与 Web 浏览器相同）。
+		* 导航时将会始终保留您的位置和图表的放大比例，从而可以轻松地前后跳转。
+	* **完整历史记录导航**
+		* **右键单击** 后退（Back）或前进（Forward）按钮可查看选项卡历史记录列表，因此可以随意跳转到任意点。
 		
 			![](WebBrowserNav02.png)
 
-	* **Opening New Tabs**
-		* Finally, to open a new tab, you can press **Ctrl + Double-click** a graph to open it in a new tab. 
-		* With this feature, you can also open the same graph in two separate tabs and pan around and navigate them separately. 
+	* **打开新选项卡**
+		* 最后，要打开新选项卡，可以按 **Ctrl + 双击** 图表在新选项卡中打开。
+		* 使用此功能，还可以在两个单独的选项卡中打开同一图表，以及平移并分别导航。
 
 
-#### Rendering
-* **Oculus Rift Support in UE4**
-	* UE4 now supports the Oculus Rift!  
-	* To use it, simply plug in your Rift, and launch the game.  
+#### 渲染
+* **在虚幻引擎4 中支持 Oculus Rift**
+	* 虚幻引擎4 现在支持 Oculus Rift！
+	* 要使用它，只需插入 Rift，然后启动游戏。
 	
-		The Rift should be detected automatically, and you'll see the game rendered in stereoscopic, with the lens distortions enabled:
+		自动检测到 Rift 后，便会看到立体渲染的游戏，且附带镜头扭曲变形效果。
 		
 		![](OculusSupportUE4_01.png)
 
-	* When enabled, the player camera's rotation will be locked to the orientation of the Rift. It is suggested to leave this setting **locked**.
-	* The only tested VR experience currently in main is the **ElementalVR** sample project.  This is the demo that we showed at GDC, and is tuned to hit 60 FPS. Recommended as a user's first VR experience !
-	* Notes for the best experience:
-		* If your card is running the demo at a solid 60FPS, it is suggested to **turn on vsync**.  This is especially true if you use the HD kit, as the screen orientation makes tearing very noticeable!
-		* **Turn off frame buffering**.  This option is available in the nVidia control panel.  Set this to 1 to decrease the latency of the device.
+	* 启用后，会将玩家摄像机的旋转锁定到 Rift 的方向。建议将此设置保留为 **锁定**。
+	* 目前，唯一测试的 VR 体验主要是 **ElementalVR** 示例项目。这是我们在 GDC 上展示的演示，并且已调整达到 60 FPS。推荐作为用户的第一次 VR 体验！
+	* 最佳体验注意事项：
+		* 如果显卡正在以固态 60 FPS 运行演示，则建议 **开启 Vsync**。如果使用高清套件，尤其需要开启该功能，因为屏幕方向会使撕裂变得非常明显！
+		* **关闭帧缓冲**。此选项在 NVIDIA 控制面板中可用。将此值设置为 1 可减少设备的延迟。
 
 			![](OculusSupportUE4_02.png)
 
-	* A few in-progress items that are worth mentioning:
-		* **Automatic full screen detection**:  Currently, if the Rift is not your primary monitor, you have to move the window manually to the Rift, and then toggle fullscreen in the console (type "fullscreen").
-		* **Some rendering features are not compatible with stereoscopic rendering**:  Currently, Environmental Reflections are not compatible with stereoscopic rendering, but there may be other features that fail to render as well!  If the right eye appears as a black square, then you've probably found an incompatible feature.  
-		* **Improved latency**:  We currently do a dual update, once on the game thread, and once again immediately before rendering, to orient the camera position to the Rift's current orientation, but there's still some optimizations that can be done.  The interface that the Rift plugin uses for last-minute updating on the render thread can also be used generically, so if games want to decrease their apparent latency even without the Rift, they can potentially do another input read and adjustment using the same interface.
+	* 一些值得注意的正在进行中的项目：
+		* **自动全屏检测**：目前，如果 Rift 不是主显示器，则必须手动将窗口移动到 Rift，然后在控制台切换全屏（键入“fullscreen”）。
+		* **某些渲染功能与立体渲染不兼容**：目前，环境反射与立体渲染不兼容，但可能还有其他功能无法渲染！如果右眼显示为黑色方块，则表示可能发现不兼容的功能。
+		* **已改进延迟**：目前，我们正在进行双重更新，一次更新是在游戏线程上进行，并且在渲染之前立即进行另一次更新，以将摄像机位置定向到 Rift 的当前方向，但仍然可以进行一些优化。一般也可以使用 Rift 插件在渲染线程上用于最后更新的界面，因此如果游戏要在不使用 Rift 的情况下减少明显的延迟，可以使用相同的界面进行另一次输入读取和调整。
 
-* **Screen Space Light Shafts for PC and Console**
-	* There are two different light shaft features � a **fog-occluding method** and an **additive/bloom method**. These cost separately, so it's best to only enable the one you want.
-	* **Occlusion**
-		* The occlusion method creates a mask from the depths of the objects on the screen, blurs it away from the light, and uses it to mask fog and atmosphere.  
-		* The sun can be slightly off the screen and still get occlusion light shafts, however they currently fade out as you approach a 90 degree angle from the sun.  Only _Directional Lights_ can use the occlusion method.
+* **PC 和控制台的屏幕空间光束**
+	* 可以选择两种不同的光束功能：**遮挡雾气方法** 和 **加色/泛光方法**。两种方法的成本是独立的，因此最好只启用所需的其中一种。
+	* **遮蔽**
+		* 遮蔽方法根据屏幕上对象的深度创建遮罩，将它远离光源变模糊，并用它来遮挡雾气和大气。
+		* 可以将太阳稍微偏离屏幕，仍然可以获得遮蔽光束，但目前接近太阳角度达到 90 度时它们会淡出。只有 _定向光源_ 才可以使用遮蔽方法。
 
 			![](Occlusion.png)
 
-	* **Bloom**
-		* The bloom method captures the scene's color (including translucency and fog inscattering) right around the light source in world space, and blurs it radially away from the light.  
-		* Light shaft bloom can be enabled on any type of _Light_ (_Point_, _Spot_, and _Directional_), however it can be tricky to get it to work on point and _Spot Lights_.  It only picks up color to bloom from opaque surfaces that are bright and near the light source.
+	* **泛光**
+		* 泛光方法在场景空间中的光源周围捕捉场景的颜色（包括半透明度和雾气散射），并使它径向远离光源变模糊。
+		* 可以在任何类型的 _光源_（_点光源_、_聚光源_ 和 _定向光源_）上启用光束泛光，但很难让它在点光源和 _聚光源_ 上工作。它只会从明亮且光源附近的不透明表面拾取要泛光的颜色。
 
 			![](Bloom.png)
 
-* **Mobile Rendering: Distance Field Shadows**
-	* The sun's lighting is now computed per-pixel with distance field shadows.	 
+* **移动渲染：距离场阴影**
+	* 现在，太阳的光照是通过距离场阴影以像素为单位进行计算。	 
 	
 		![](DistanceFieldShadows01.png)	![](DistanceFieldShadows02.png)
 
-* **Lightmass Quality Improvements**
-	* Adaptive sampling is now used to increase quality without a large increase in build time.
-	* Artists may now balance quality vs. build time by changing the **Indirect Lighting Quality** setting!  
+* **Lightmass 质量改进**
+	* 现在，使用自适应采样提高质量，而不会大幅增加构建时间。
+	* 现在，艺术家可以通过更改 **间接光照质量（Indirect Lighting Quality）** 设置平衡质量与构建时间！
 	
 		[REGION:imagetable]
 		| ![](LightmassQuality01.png) | ![](LightmassQuality02.png) |
-		| --- | --- |
-		| Before Improvements | After Improvements |
+		| ---| ---|
+		| 改进之前| 改进之后|
 		[/REGION]
 
-#### Animation
+#### 动画
 
-* **AnimNotifyState Notification**
-	* Similar to AnimNotifyEvents except this one defines a range of time, i.e. it has a duration. It triggers NotifyBegin, NotityTick, NotifyEnd in the AnimNotifyClass blueprint.
+* **AnimNotifyState 通知**
+	* 与 AnimNotifyEvent 类似，但它可以定义时间范围，即拥有持续时间。它可以在 AnimNotifyClass 蓝图中触发 NotifyBegin、NotityTick、NotifyEnd。
 
 		![](AnimNotifyState01.png)
 
-	* Events will be dispatched as the animation is ticked.
+	* tick 动画时将会调度事件。
 		
 		![](AnimNotifyState02.png)(convert:false)
 
 
-## New Additions
+## 新增内容
 
-#### Editor and Tools
-* **Open Project** now uses **Project Browser**.
-* Implemented packaging of code-based and non-code game projects (**Main Menu > File > Package Project**).
-* Editor child windows are now listed in the Windows task bar and can be minimized.
-* **New Landscape Editor UI**
-* Can now assign a static mesh to a _Landscape_ spline control point, using its sockets as connection points.
-* Implemented _Slate_ based loading screens.
-* Implemented color blindness filters in the editor for usability testing.
-* Added new preference to toggle frame rate and memory display in the editor UI HUD. 
-	* **Editor Preference > Developer Tools > Show Frame Rate and Memory** (defaults to on). 
-* **Viewport Layouts**
-	* New layouts with two, three and four viewport panes in addition to the existing four pane, 2x2 layout.
-	* Level viewports now support different layouts, accessible in the main menu of each viewport.
-	* Selecting a layout changes the viewport arrangement in the current tab.
-	* Layouts are also entered as commands in the **Keyboard Shortcuts** window under Level Viewports.
-* New triangle order optimization algorithm (Forsyth) for improved speeds when importing dense static meshes.
-	* NVTriStrip can still be used by setting the console variable `r.TriangleOrderOptimization` to `0`.
-* Added ability to import new LODs or replace existing LODs into StaticMeshes.
-* **Profiler**
-	* Improved event graph (added options to choose between Average and Maximum event graph).
-	* Added functionality to drag and drop ue4stats file from the explorer into the profiler.
-	* Improved profiler performance (mostly related to faster loading times of the captured stat files).
-
-
-#### Blueprints
-* Added editing of variable defaults in the **Details** panel when the variable is selected in the **My Blueprint** panel or a Get/Set node targeting it is selected. 
-* The IES profile texture for a light can now be set in a blueprint.
-* Added the mode/snap viewport widget into the Blueprint preview viewport in the **Blueprint Editor**.
-* Variables created in **Components** mode can now be assigned to a category in **Graph** mode within the **Blueprint Editor**.
-* Added variable name, tooltip and category editing features to the **Components** mode **Details** tab within the **Blueprint Editor**. Also restored variable name editing to the **Details** tab in **Graph** mode.
-* _Macros_ in _Blueprints_ can now take wildcard parameter types.  Any number of pins can be wildcards, but the current limitation is one wildcard type per _Macro_ instance.
-* **For Each Loop** node in the StandardMacros library to simplify array iteration in _Blueprints_.
-* Added **Received Destroyed** event for all _Blueprinted_ actors.
-* **Blueprint Editor** now supports a web-browser like experience.
-	* Navigate back, show all history, re-using tabs to open graphs.
-* Added ability to re-order variables/categories in **My Blueprint** tab using drag and drop.
-* Added **Get All Actors With Interface**.
+#### 编辑器和工具
+* **打开项目（Open Project）** 现在使用 **项目浏览器**。
+* 已实现基于代码和非代码游戏项目的打包（**主菜单（Main Menu）> 文件（File）> 打包项目（Package Project）**）。
+* 编辑器子窗口现在列在 Windows 任务栏中，且可以最小化。
+* **新地形编辑器 UI**
+* 现在，可以使用插槽作为连接点将静态网格体指定到 _地形_ 样条控制点。
+* 已实现基于 _Slate_ 的加载屏幕。
+* 已在编辑器中实现色盲过滤器以进行可用性测试。
+* 添加了新的首选项，可在编辑器 UI HUD 中切换帧率和内存显示。
+	* **编辑器首选项（Editor Preference）> 开发者工具（Developer Tools）> 显示帧率和内存（Show Frame Rate and Memory）**（默认为开启）。
+* **视口布局**
+	* 除现有的四个窗格，2x2 布局之外，新布局还包含两个、三个和四个视口窗格。
+	* 关卡视口现在支持不同的布局，可在每个视口的主菜单中访问。
+	* 选择布局会更改当前选项卡中的视口排列。
+	* 在关卡视口（Level Viewports）下的 **键盘快捷键（Keyboard Shortcuts）** 窗口中，也可以将布局作为命令输入。
+* 导入密集静态网格体时，新的三阶优化算法 (Forsyth) 可用于提高速度。
+	* 仍然可以通过将控制台变量 `r.TriangleOrderOptimization` 设置为 `0` 以使用 NVTriStrip。
+* 添加了将新 LOD 导入或将现有 LOD 放置到静态网格体的功能。
+* **分析器**
+	* 已改进事件图表（添加了用于选择平均事件图表和最大事件图表的选项）。
+	* 添加了将 ue4stats 文件从资源管理器拖放到分析器的功能。
+	* 已改进分析器性能（主要与缩短捕获统计数据文件的加载时间有关）。
 
 
-#### Gameplay and Framework
-* **Oculus Rift Support**  
-	* This build includes preliminary support for Oculus Rift hardware on supported platforms. If a device is plugged in on engine startup, the plugin should detect it, and enable stereoscopic rendering, HMD distortion, and read sensor data.  Note that this is in-development feature, so features like proper monitor detection are still being worked on.
-* `r.MaterialQualityLevel` can now be changed at runtime (easier art iteration when using material expression **QualitySwitch**). 
-* Added optimization for Gaussian blurring postprocessing passes using half res intermediate, can be adjusted with `r.FastBlurThreshold`, by default only used with larger blooms.
-* Added `ApplyRadialDamageWithFalloff()` function to `GameplayStatics`, with arguments for inner and outer radius, falloff exponent, and minimum damage.
-* Subversion support added.
-* Source control is now managed via plugins.
-* Combo boxes (and their contents) can now be controlled via the keyboard.
-* Increased camera component's maximum aspect ratio from 10 to 100.
-* Added **Render in main pass** option to primitives.
-	* This can prevent primitives from drawing in the main scene but still drawn in other passes (such as custom depth pass).
-* Added HDR exporting to texture cube assets.
-* Renamed `FQuat::Vector()` to `FQuat::GetRotationAxis()`, to not be confused with `FRotator::Vector()` which returns the direction vector. 
-* Added **AnimNotifyState**. Unlike AnimNotifyEvents, this one defines a range of time, it has a duration. It triggers NotifyBegin, NotityTick, NotifyEnd in the AnimNotifyClass blueprint. 
-* Improved AnimNotify drawing in editor. Highlight active Notify.  
-* Improved log warning if AnimMontage can't be played on current Skeleton. 
-* `FText` number/percent/currency formatting now offer improved formatting control over places and signage.
-* **PhAT** - Copy convex from selected static mesh to selected body.
+#### 蓝图
+* 在 **我的蓝图（My Blueprint）** 面板中选择变量或选择以它为目标的获取/设置节点时，添加了在 **详细信息（Details）** 面板中编辑变量默认值的功能。
+* 现在，可以在蓝图中设置光源的 IES 配置文件纹理。
+* 已将模式/对齐视口控件添加到 **蓝图编辑器（Blueprint Editor）** 中的蓝图预览视口。
+* 在 **蓝图编辑器（Blueprint Editor）** 中，现在可以在 **图表（Graph）** 模式下将在 **组件（Components）** 模式下创建的变量指定到类别。
+* 在 **蓝图编辑器（Blueprint Editor）** 中，已在 **组件（Components）** 模式下将变量名称、工具提示和类别编辑功能添加到 **详细信息（Details）** 选项卡。也已在 **图表（Graph）** 模式下将变量名称编辑功能恢复到 **详细信息（Details）** 选项卡。
+* _蓝图_ 中的 _宏_ 现在可以采用通配符参数类型。任意数量的引脚都可以使用通配符表示，但当前限制是一个 _宏_ 实例只能使用一个通配符类型。
+* StandardMacro 库中的 **ForEachLoop** 节点用于简化 _蓝图_ 中的数组迭代。
+* 已为所有 _蓝图_ Actor 添加 **已接收销毁（Received Destroyed）** 事件。
+* **蓝图编辑器（Blueprint Editor）** 现在支持类似 Web 浏览器的体验。
+	* 向后导航，显示所有历史记录并重新使用选项卡打开图表。
+* 添加了使用拖放功能在 **我的蓝图（My Blueprint）** 选项卡中对变量/类别进行重新排序的功能。
+* 添加了 **通过接口获取所有 Actor（Get All Actors With Interface）**。
 
 
-#### Rendering
-* Tube lights exposed. Use the **SourceLength** property on lights. 
-* Added fine film grain to post processing for PC. 
-* **Lightmass quality improvements**
-	* Significant quality improvement from using a new adaptive GI solver.
-	* Can selectively increase solver quality in levels that need it with **IndirectLightingQuality** in **WorldSettings**.
-	* Reduced dark texel artifacts where objects intersect.
-* **Rendering thread optimizations targeted around many moving objects**
-	* Overall RT time in a test scene with 1400 moving objects was reduced by ~40%
-* **Screen space light shafts**
-	* Uses Temporal AA for stability.
-	* Two separate features: more realistic fog occluding method and more controllable bloom / additive method.
-* **Mobile**
-	* Added distance field shadows.
-* Added **Min** and **Max** material expressions to the "Math" category.
+#### Gameplay 和框架
+* **Oculus Rift 支持**
+	* 此版本包括在支持平台上对 Oculus Rift 硬件的初期支持。如果在引擎启动时插入设备，插件会检测设备，并启用立体渲染、HMD 失真和读取传感器数据。请注意，该功能正在开发中，因此仍然可以使用适当监控检测等功能。
+* 现在，可以在运行时更改 `r.MaterialQualityLevel` （使用材质表达式 **QualitySwitch** 时更容易进行艺术迭代）。
+* 已使用一半分辨率媒介添加对高斯模糊后期处理的优化，可以使用 `r.FastBlurThreshold` 进行调整，默认仅与较大的泛光结合使用。
+* 已将 `ApplyRadialDamageWithFalloff()` 函数添加到 `GameplayStatics`，包含内半径和外半径、衰减指数和最小伤害的参数。
+* 添加了 Subversion 支持。
+* 现在通过插件管理源码控制。
+* 现在可通过键盘控制组合框（及其内容）。
+* 已将摄像机组件的最大宽高比从 10 增加到 100。
+* 已将 **在主通道中渲染（Render in main pass）** 选项添加到图元。
+	* 这可以防止图元在主场景中绘制，但仍然可在其他通道中绘制（例如自定义深度通道）。
+* 已将 HDR 导出添加到纹理立方体资源。
+* 已将 `FQuat::Vector()` 重命名为 `FQuat::GetRotationAxis()`，不要与返回方向矢量的 `FRotator::Vector()` 混淆。
+* 添加了 **AnimNotifyState**。与 AnimNotifyEvent 不同，它可以定义时间范围，也就是它拥有持续时间。它可以在 AnimNotifyClass 蓝图中触发 NotifyBegin、NotityTick、NotifyEnd。
+* 已在编辑器中改进 AnimNotify 绘制。高亮显示活动通知。
+* 如果动画蒙太奇无法在当前骨架上播放，则会改进日志警告。
+* `FText` 数字/百分比/货币格式现在可提供控制地点和标牌的改进格式。
+* **PhAT** —— 将凸包从选定静态网格体复制到选定形体。
 
 
-#### Platforms
-* PC now use the same cached texture streaming as consoles (texture pool with prioritized caching heuristics). Default pool size is `50%` of VRAM, but can be changed at any time.
-* Deployment to Linux machine is supported in **Unreal Automation Tool** (UAT).
+#### 渲染
+* 管道光源已公开。使用光源的 **源长度（SourceLength）** 属性。
+* 已为 PC 后期处理添加精细胶片颗粒。
+* **Lightmass 质量改进**
+	* 使用新的自适应 GI 解算器可显著提高质量。
+	* 可以使用 **场景设置（WorldSettings）** 中的 **间接光照质量（Indirect Lighting Quality）** 选择性提高所需关卡的解算器质量。
+	* 已减少对象相交位置的暗纹素瑕疵。
+* **正在渲染针对多个正在移动对象的线程优化**
+	* 使用 1400 个正在移动的对象可将测试场景中的整体 RT 时间缩短约 40%
+* **屏幕空间光束**
+	* 使用临时抗锯齿保持稳定性。
+	* 可选择两个独立的功能：更真实的遮蔽雾气方法和更可控的泛光/加色方法。
+* **移动平台**
+	* 添加了距离场阴影。
+* 已将 **最小（Min）** 和 **最大（Max）** 材质表达式添加到“数学（Math）”类别。
+
+
+#### 平台
+* 现在，PC 使用与控制台相同的缓存纹理流送（具有优先缓存启发法的纹理池）。默认池大小为 VRAM 的 `50%`，但可以随时更改。
+* 在 **虚幻自动化工具** (UAT) 中支持部署到 Linux 机器。
 * **IOS**
-	* Added support for IPhone5S (including 64-bit via fat binary), and some IOS7 fixes
+	* 添加了对 IPhone5S 的支持（包括通过胖二进制添加 64 位）和一些 IOS7 修复
 * **Mac**
-	* Added support for **Unreal Automation Tool** (RunUAT.command)
-* Added Facebook IOS support to the engine.
-* Added an online sharing interface for OSS to use for sharing status updates etc.
-* Adding Facebook IOS SDK to Third Party source.
+	* 添加了对 **虚幻自动化工具** (RunUAT.command) 的支持
+* 已将 Facebook IOS 支持添加到引擎。
+* 已为 OSS 添加用于共享状态更新等的在线共享接口。
+* 正在将 Facebook IOS SDK 添加到第三方源。
 
 
-## Upgrade Notes
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
 * **Landscape**
@@ -473,7 +475,7 @@ Availability:Licensee
 * Duplicate, via **Ctrl + W**, only requires 1 undo step again.
 * _SoundCue_ and _SoundWave_ no longer play when double clicked, instead opens **SoundCue Editor**.
 * _DecalActors_ marked as **Hidden In Game** will now draw properly in the editor.
-* Optimizations for Gaussian DOF effect. If **Near Blur Size** is less than the threshold defined by the console variable `r.DepthOfFieldNearBlurSizeThreshold`, the near blur effect will be disabled and cheaper shaders used instead.
+* Optimizations for Gaussian DOF effect. If **Near Blur Size** is less than the threshold defined by the console variable `r.DepthOfField.NearBlurSizeThreshold`, the near blur effect will be disabled and cheaper shaders used instead.
 * Buffer visualization system now works correctly in orthographic view modes.
 * New _Landscape_ doesn't try to resize during alt-drag view rotation any more.
 * Optimized _Landscape_ spline rendering in editor by reducing complexity of the lines and optimizing `DrawDashedLine()`.
@@ -599,3 +601,4 @@ Availability:Licensee
 
 
 
+	

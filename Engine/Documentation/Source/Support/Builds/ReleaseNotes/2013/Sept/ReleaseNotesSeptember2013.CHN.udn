@@ -1,317 +1,319 @@
-﻿INTSourceChangelist:0
-Title: 2013年9月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年9月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
+Parent:Support/Builds
+Order:-5
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_09 |
-| **Changelist #** | 1844454 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2012 Version 11.0.60610.01 Update 3  |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_09|
+| **变更列表编号**| 1844454|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2012 版本 11.0.60610.01 更新 3|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Fixed Bugs: [UE4 Fixed Bugs September 2013](UE4_Fixed_2013_September.xlsx)
- * Known Issues: [UE4 Outstanding Bugs September 2013](UE4_Bugs_2013_September.xlsx)
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * 已修复的错误：[2013 年 9 月虚幻引擎4 中已修复的错误](UE4_Fixed_2013_September.xlsx)
+ * 已知问题：[2013 年 9 月虚幻引擎4 突出问题](UE4_Bugs_2013_September.xlsx)
  
 
-## Major New Features
+## 主要新功能
 
-####Editor Tools
-* **Visualize Out-of-Bounds Pixels**
-	* A new show flag has been added to visualize pixels which are outside of the object's bounds. 
+####编辑器工具
+* **可视化越界像素**
+	* 为超出对象边界的可视化像素添加了一个新显示标记。  
 	![](OutofBoundsPixels04.png)
 
-####Blueprints
+####蓝图
 
-* **Linear Color Curves and Gradient Editor**
-	* Linear color curve support has been added to timelines and users now have a gradient editor for them (editing the curve directly is still supported though). These can be created in or imported to the content browser as well as created directly in the Blueprint timeline editor:
+* **线性颜色型曲线和梯度编辑器**
+	* 为时间轴添加了线性颜色型曲线支持，用户现在可以使用梯度编辑器来处理（仍然支持直接在其中编辑曲线）。您可以在内容浏览器中创建它们、将其导入内容浏览器、或者直接在蓝图时间轴编辑器中直接创建。
 	
 		![](LinearColor01.png)
-	* When users open a color curve by default they�ll see a gradient which can be used to add keys while visualizing how the color changes over time:
+	* 当用户打开颜色型曲线时，默认情况下，他们会看到梯度。对随时间改变的颜色进行可视化时，可以通过梯度来添加键。
 	
 		![](LinearColor02.png)
 	
-		(with opacity stops)
+		（使用不透明度停止点）
 
 		![](LinearColor03.png)
-	* The following functionality is available in the gradient editor:  
-		* Clicking in the darkened area above or below the gradient will add new color or opacity stops, respectively, and pressing delete will remove the selected stop.  
-		* Double clicking on a stop marker will open a color picker for the stop (or a slider for opacity).
-		* Left click and drag on a stop will move the stop along the timeline
+	* 梯度编辑器中可以使用以下功能：
+		* 单击梯度上方或下方的深色区域可添加新颜色或不透明度停止点，按删除可移除所选停止点。
+		* 双击停止点标记将打开该停止点的取色器（或不透明度滑块）。
+		* 在停止点上单击左键并拖动将沿时间轴移动停止点。
 
-		Note: This functionality is also available when right clicking on a stop:
-	* Users can still edit the curves manually and hide the gradient editor. 
+		注意：在停止点上单击右键也可以使用此功能：
+	* 用户仍可以手动编辑曲线和隐藏梯度编辑器。
 
-* **Support for Server and Client RPCs in Blueprints**
-	* Support for Server and Client RPCs for _Blueprints_ has been added. 
-	* Previously, all replicated Blueprint events were implicitly unreliable multicast. Anything that was previously checked **Replicated** will now show up as Multicast. 
-	No functionality will be different for these events.
+* **对蓝图中服务器和客户端 RPC 的支持**
+	* 为 _蓝图（Blueprint）_ 的服务器和客户端 RPC 添加了支持。
+	* 以前，所有复制的蓝图事件是隐式不可靠组播。以前选中了 **已复制** 的任何对象现在都会显示为组播。
+	这些事件的功能没有变化。
 
 		![](ServerBlueprints.png)
-	* The three settings mirror the C++ native keywords: NetMulticast, Server, Client. 
-		* From an implementation perspective, there is no difference between a Blueprint function / event that is tagged to replicate vs a C++ function that is tagged to replicate in its `UFUNCTION()` header.
-	* The Server RPC type is needed for Blueprints to communicate client to server. A Server RPC is only executed on the server. 
-	* Server RPCs can only be called by a client who owns the actor executing the event graph. 
-	* Client RPC can also be selected now, for completeness. A client RPC is only sent to the owning client. 
-	* Finally, Blueprint RPCs can also be checked for reliability. This is also being done for completeness, but comes with some hesitation. 
-		* By default, Blueprint RPCs are unreliable and should almost always be unreliable. 
-		* A user should only make a function reliable if they are sure it needs to be.
-		* The console var `net.Reliable.Debug 1` can be set to print out reliable net traffic.
+	* 这三个设置镜像 C++ 原生关键字：NetMulticast、Server、Client。
+		* 从实现角度看，标记为复制的蓝图函数/事件与 `UFUNCTION()` 标头中标记为复制的 C++ 函数没有区别。
+	* 蓝图需要服务器 RPC 类型才能让客户端与服务器通信。只有在服务器上才会执行服务器 RPC。
+	* 只有拥有执行事件图表的 Actor 的客户端可以调用服务器 RPC。
+	* 为了保证完整性，现在还可以选择客户端 RPC。只会将客户端 RPC 发送到所属的客户端。
+	* 最后，还可以检查蓝图 RPC 的可靠性。这样做也是为了保证完整性，但并非必须如此。
+		* 默认情况下，蓝图 RPC 不可靠，且几乎始终不可靠。
+		* 如果确定需要可靠性，用户也只能使函数可靠。
+		* 可以设置控制台变量 `net.Reliable.Debug 1`，以打印可靠网络流量。
 
-* **Apply/Reset Instance to Blueprint Defaults**
-	* When a _Blueprint Actor_ instance is selected, there are now 2 new buttons in the **Blueprint** section of the **Details** tab in the **Level Editor** - **Apply** and **Reset** - next to the **Edit** button. 
-		* **Apply** will be enabled once you've made any changes to the instance that differ from defaults; click **Apply** to update the _Blueprint_ defaults with changes from the instance, and they should in turn be propagated back down to all other instances of the _Blueprint_ if those instances have not themselves changed the value(s) away from the _Blueprint_ defaults. 
-		* Similarly, click **Reset** to revert the selected instance back to _Blueprint_ defaults.
+* **应用/重置实例为蓝图默认值**
+	* 当选定 _（蓝图 Actor）Blueprint Actor_ 实例时， **关卡编辑器** 的 **详细信息（Details）** 选项卡的 **蓝图（Blueprint）** 部分会显示两个新按钮 - **应用（Apply）** 和 **重置（Reset）** - 在 **编辑（Edit）** 按钮旁。
+		* 一旦更改实例，使其与默认值不同，则会启用 **应用（Apply）**；单击 **应用（Apply）** 可使用实例更改更新 _蓝图（Blueprint）_ 默认值，如有其他实例的值没有发生更改，仍使用 _蓝图（Blueprint）_ 默认值，继而将更新的默认值传播至所有这些 _蓝图（Blueprint）_ 实例。
+		* 与此类似，单击 **重置（Reset）** 可将所选实例恢复至 _蓝图（Blueprint）_ 默认值。
 
 		![](ApplyResetBlueprintDefaults.png)
 
-* **Mouse HitBoxes on HUD**
-	* You can now draw special _Hit Boxes_ inside a HUD, making it possible to build HUDs and menus that can have simple mouse interaction.
+* **HUD 上的鼠标 HitBox**
+	* 您现在可以在 HUD 中绘制特殊 _命中框（Hit Box）_，因此可以构建具有简单鼠标交互的 HUD 和菜单。
 
 		![](MouseHitBoxes.png)
 
-* **_Auto Insert_ Nodes**
-	* Adding a new node via the pin-drag menu will now insert it into the existing chain.
+* **_自动插入（Auto Insert）_ 节点**
+	* 现在通过引脚拖动添加新节点会将其插入现有链中。
 
 		![](AutoInsertNodes.png)
 
-* **Improved �Add Component� Dropdown**
-	* This now has a search box, _one-click_ add, icons, and categories.
+* **改进了“添加组件”（Add Component）下拉列表**
+	* 现在提供了一个搜索框，_一键（one-click）_ 添加、图标和类别。
 
 		![](AddComponentDropdown.png)             
 
-* **Change Actor Reference**
-	* You can now easily change an Actor reference in the _Level Blueprint_ to current selection.
+* **更改 Actor 引用**
+	* 现在可以轻松在 _关卡蓝图（Level Blueprint）_ 中将 Actor 引用更改为当前选择。
 
 		![](ChangeActorReference.png)
 
-* **Better Handling for Multiple Selected Actors**
-	* This now works like Kismet 1, adding one _call function_ node with multiple Actor references connected.
+* **改进了多个选中的 Actor 的处理**
+	* 现在就像处理 Kismet 1 一样，使用连接的多个 Actor 引用添加一个 _调用函数（Call Function）_ 节点。
 
 		![](BetterHandlingforMultipleSelectedActors.png)
 
-* **New Library Functions** 
-	* New Blueprint Library functions have ben added!
+* **新库函数**
+	* 添加了新蓝图库函数！
 
 		![](NewLibraryFunctions.png)
 	
 	[REGION:note]
-	Some functions are very expensive, and should be used with caution with regards to performance.
+	某些函数开销巨大，为了确保性能，应谨慎使用。
 	[/REGION]
 
-* **Latent Functions Outside Actors**
-	* Latent Functions (ie, Delay) can now be used inside any _Blueprint_!
+* **Actor 外的 Latent 函数**
+	* Latent 函数（如 Delay）现在可在任何 _蓝图（Blueprint）_ 中使用！
 
 		![](LatentFunctionsOutsideActors.png)
 
-* **Interface Editor Mode**
-	* There is now a special mode when editing interfaces that only includes what you need, called **Interface**.
+* **接口编辑器模式**
+	* 编辑接口时，现在提供了一种称为 **接口** 的特殊模式。在这种模式下，您可以仅包含需要的接口。
  
 		![](InterfaceEditorMode.png)
 
-* **Attach Created Components Anywhere**
-	* You can now drag-and-drop _Components_ that you create to attach them anywhere in the native scene Component hierarchy. 
-	* Additionally, you can also attach _Components_ that you create in a child _Blueprint_ to any part of the SceneComponent_ hierarchy that gets inherited from a parent _Blueprint_.
+* **在任何位置附加创建的组件**
+	* 您现在可以拖放创建的 _组件（Components）_，以便将其附加到原生场景组件层级中的任何位置。
+	* 此外，您还可以将在子 _蓝图（Blueprint）_ 中创建的 _组件（Component）_ 附加到从父蓝图继承的 _SceneComponent_ 层级的任何部分。
 
 		![](AttachCreatedComponentsAnywhere.png)
 
-* **Default Scene Root Component**
-	* Previously this Component was created implicitly when a _Blueprint_ without any _SceneComponents_ was instanced. 
-	* Now, when users create a new Actor-based _Blueprint_, if there are no _SceneComponents_ yet, this will appear in the **Components** mode list, so that you can set the defaults on it. 
+* **默认场景根组件**
+	* 以前，此组件在实例化没有任何 _SceneComponents_ 的 _蓝图（Blueprint）_ 时隐式创建。
+	* 现在，当用户创建基于 Actor 的新 _蓝图（Blueprint）_ 时，如果还没有 _SceneComponents_，它将显示在 **组件** 模式列表中，以便为其设置默认值。
 
 		![](DefaultSceneRoot.png)
-	* Once you add a _SceneComponent_, this will be swapped out for the new _Component_, which will then become the new root.
+	* 一旦添加 _SceneComponent_，则会将其交换成新 _组件（Component）_，而新组件随后会变成新的根组件。
 
-* **Shorcut keys for nodes**
-	* You can now hold a key and click to place nodes quickly!
+* **节点的快捷键**
+	* 您现在可以按住一个键并单击来快速放置节点！
 
 		![](ShortcutsforNodes.png)
 
-	* Here is a list of existing shortcuts. More can be added in the `UserSettings.ini` file; a **Keybindings** interface for _Blueprints_ is in the works!
+	* 下面是现有快键键的列表。在 `UserSettings.ini` 文件中可以添加更多快捷键，也可以使用 _（蓝图）Blueprints_ 的 **快捷键（Keybindings）** 接口设置！
 		
-		| Node | Key |
-		| --- | --- |
-		| **ReceiveBeginPlay** | P |
-		| **DoN** |	N |
-		| **DoOnce** | O |
-		| **Delay** | D |
-		| **Branch** | B |
-		| **Sequence** | S |
-		| **Gate** | G |
-		| **MultiGate** | M |
-		| **ForLoop** | F |
+		| 节点| 按键|
+		| ---| ---|
+		| **ReceiveBeginPlay**| P|
+		| **DoN**|	N|
+		| **DoOnce**| O|
+		| **Delay**| D|
+		| **Branch**| B|
+		| **Sequence**| S|
+		| **Gate**| G|
+		| **MultiGate**| M|
+		| **ForLoop**| F|
 
 
-* **3D Widgets on Transforms**
+* **变换的 3D 控件**
 
-	* You can now create a widget in the world for a Transform property as well as a Vector property, so you can interactively edit rotation & scale.
+	* 现在可以在场景中为变换属性和矢量属性创建控件，因此，您可以交互式编辑旋转和缩放。
 
 		![](3dwidgetsonTransforms.png)
 
 
-## New Additions
+## 新增内容
 
-#### Editor and Tools
-* **Play In Editor** viewports have an optional notification label when they take or relinquish mouse control.
-	* In the new preference section: **Editor Settings > Play In > Play in Editor**
-	* Enable **Show Mouse Control Label**.
-	* Select the desired position in the viewport from the drop down **Mouse Control Label Position**.
-* Re-import options now available from the Asset menu for those assets which support it.
-* Diff option is now available for assets in the save content window.
-* Empty maps now have a default light source and player start.
-* Removing levels now gives a context sensitive warning message, and is suppressible.
-* Actor selection now carries over into **Play In Editor**/**Simulate In Editor** session and back to the editor when it ends.
-* Asset Editor plugin extension points are now all context sensitive, and aware of which asset you are editing.
-* **Destructible Mesh Editor**: Importing of FBX files as depth 1 destructible chunks
-* Added support for Linear Color curves and added a gradient stop editor to the curve editor when working with linear color curves.  
-* **Slate** 
-	* Added text styles to `STableViewBase`, updated default styles, `FTableRowBrushes` are now called `FTableRowStyles`
-	* `SButton` without content will now size based on its style images.
-* Transform and Camera speed controls have been moved to a new toolbar displayed in the editors active viewport.   
+#### 编辑器和工具
+* 在获取或放弃鼠标控制时，**在编辑器中运行（Play In Editor）** 视口有一个可选通知标签。
+	* 在新的首选项部分：**编辑器设置（Editor Settings）> 运行于（Play In）> 在编辑器中运行（Play in Editor）**
+	* 启用 **显示鼠标控制标签（Show Mouse Control Label）**。
+	* 从下拉菜单 **鼠标控制标签位置（Mouse Control Label Position）** 中选择视口中的所需位置。
+* 对于支持的资源，现在可从资源（Asset）菜单中重新导入选项。
+* 在保存内容窗口中，现在为资源提供了区分（Diff）选项。
+* 空贴图现在有默认光源和玩家出生点。
+* 现在删除关卡时会显示一条上下文敏感警告消息，可将其取消。
+* Actor 选择现在会延续到 **在编辑器中运行（Play In Editor）**/**在编辑器中模拟（Simulate In Editor）** 会话，并在结束时返回编辑器。
+* 资源编辑器插件扩展点现在全部具有上下文敏感性，它会识别正在编辑的资源。
+* **可破坏物网格体编辑器**：将 FBX 文件作为深度 1 可破坏物块导入
+* 使用线性颜色型曲线时，为线性颜色型曲线添加了支持，并将梯度停止点编辑器添加到了曲线编辑器中。
+* **Slate**
+	* 为 `STableViewBase` 添加了文本样式，更新了默认样式，`FTableRowBrushes` 现在称为 `FTableRowStyles`
+	* 没有内容的 `SButton` 现在会根据其样式图像确定大小。
+* 将变换和摄像机速度功能按钮移到了显示在编辑器活动视口中的新工具栏上。
 
 
-#### Blueprints
-* Added `ExpandEnumAsExecs` metadata support. This allows an function enum param to be exposed as multiple exec inputs.
-* Added **GetAllActorsOfClass**, **GetActorArrayAverageLocation**, **GetActorArrayBounds**, **MoveActorToActor** to `GameplayStatics`
-* Added **MoveComponentTo** latent function to interpolate a components location/rotation over time
-* Additional support for `FText` in _Blueprints_
-* Added **GetVectorArrayAverage**, **GetMinElement**, **GetMaxElement** to `MathLibrary`
-* Added **RotateVector** and **UnrotateVector** functions to rotator. 
-* Components are now updated in real time in the preview window while editing (consistent with the level editor).
-* Added a feature to both allow changes to a Blueprint actor instance to be applied to the _Blueprint_ defaults for that asset as well as to reset a _Blueprint_ actor instance back to the _Blueprint_ defaults.
-* Transform defaults can now be edited for user-created root component nodes that are parented to either a native or inherited component node.
-* _Blueprint_ defaults can now be changed while a **Play In Editor**/**Simulate In Editor** session is active, and changes will propagate to the actors in the session.
-* Added support for exposing and editing transform defaults in the **Details** view in **Components** mode and **Defaults** mode in the **Blueprint Editor**.
-* _Blueprints_ can now be attached to _Blueprint_ instances.
-* Added `bTraceComplexOnMove` to `PrimitiveComponent`, allowing complex geometry collision in sweeps for primitive movement.
-* K2Nodes can now define their own expansion step and specify which node handler to use allowing plugins and game specific modules to define custom nodes without needing to modify `KismetCompiler.cpp`
-* New **OpenWorld** _Level Blueprint_ callable function to open another map
+#### 蓝图
+* 添加了 `ExpandEnumAsExecs` 元数据支持。因此，可将函数列举参数公开为多个执行输入。
+* 将 **GetAllActorsOfClass**、**GetActorArrayAverageLocation**、**GetActorArrayBounds**、**MoveActorToActor** 添加到了 `GameplayStatics`
+* 添加了 **MoveComponentTo** Latent 函数，以便按时间插入组件位置/旋转的值。
+* 为 _蓝图（Blueprint）_ 中的 `FText` 提供了额外支持
+* 将 **GetVectorArrayAverage**、**GetMinElement**、**GetMaxElement** 添加到了 `MathLibrary`
+* 将 **RotateVector** 和 **UnrotateVector** 函数添加到了旋转体。
+* 编辑时，预览窗口中的组件现在可以实时更新（与关卡编辑器一致）。
+* 为两者都添加了一个功能，以便允许将蓝图 Actor 实例更改应用到该资源的 _蓝图（Blueprint）_ 默认值，以及将 _蓝图（Blueprint）_ Actor 实例重置回 _蓝图（Blueprint）_ 默认值。
+* 对用户创建的根组件节点（作为原生或继承组件节点的父节点），现在可以编辑变换默认值。
+* 当 **在编辑器中运行**/**在编辑器中模拟** 会话活动时，现在可以更改 _蓝图（Blueprint）_ 默认值，且更改会传播至该会话中的 Actor。
+* 在 **蓝图编辑器** 中，为 **组件** 模式和 **默认值** 模式的 **详细信息（Details）** 视图中的公开和编辑变换默认值添加了支持。
+* 现在可以将 _蓝图（Blueprint）_ 附加到 _蓝图（Blueprint）_ 实例。
+* 将 `bTraceComplexOnMove` 添加到了 `PrimitiveComponent`，从而在图元移动扫描中允许复杂几何体碰撞。
+* K2Nodes 现在可以定义自己的扩展步骤，并指定要使用的节点处理程序，从而允许插件和游戏特定模块定义自定义节点，而不需要修改 `KismetCompiler.cpp`
+* 添加了新的 **OpenWorld** _关卡蓝图（Level Blueprint）_ 可调用函数，以便打开另一个贴图
 
  
-#### Gameplay and Framework
-* Introduced `UBrainComponent` as base class for AI logic techniques
-* Expanded `AIController`'s "move finished" muilticast delegate to send finished move request ID along with the result
-* `StaticMesh` now support `AssetUserData` objects to store project-specific data without modifying the engine
-* Add support for 3d widgets on `FTransform` properties 
-	* Make blue widget diamonds a fixed size in screen space
-* Simple save game system added. Not designed for capturing complete state of the world. _Blueprint_ accessible.
-* Screenshots now display notifications like videos.
-* Map Check now prints a summary so the user knows it has completed.
-* `PlayerController` and `GameInfo` are now default types in the New Asset dialog for _Blueprints_.
-* **Root Motion** 
-	* Added support for Root Motion provided by AnimMontages.
-	* Networked for simulated proxies. Supports position correction, smooth error fix up, non buffered smooth animation. 
-	* Implemented Client to Server networking, with client prediction and correction.
-		* Physics call animations `TickPose()` prior to running Physics, to ensure same timing is used when extracting root motion. 
-		* On server, animations `TickPose()` is called from `MoveAutonomous` to ensure client timing is used for states, notifies and events. 
-* **Player Movement Networking**
-	* Client calculates DeltaTime the same way as the Server, so physics simulation is accurate between both. Additionally TimeStamp on client is reset at regular interval to maintain high accuracy. Simulations would accumulate more errors over time and increase the number of position corrections and bandwidth use. 
-	* If multiple position corrections are needed in a single frame on the server, send the most recent instead of the oldest. 
-* Refactored `ReplicatedMovement` to be using a replicated event. Removed static variables to check if any change happened. 
-* Added `APawn::MoveIgnoreActorAdd` and `APawn::MoveIgnoreActorRemove` to add and remove Actors to ignore by Pawns movement collision. 
-* `UCharacterMovementComponent::InitCollisionParams` now takes into account `MoveIgnoreActors` list.
-* Package Project is now an option in the main File menu; only Windows is supported in this release
-* **Settings UI** 
-	* Added several new sections
-	* Most sections now support Reset-To-Default
-* Added a wrapper to the online platform FUniqueNetId called `FUniqueNetIdRepl`, use it for transport of the unique id via RPC/replication
-* All serialization is implemented (network/file) as is `ExportTextItem` so you can use `obj dump` and `displayall`
-* `AttachRootComponentToActor` will now replicate the attachment to clients and cease movement simulation for the duration of the attachment
-* `bAlwaysRelevant` is available to Blueprints to enable more replication control in Blueprint-only games
-* Integrated UDKRemote into UE4 and updated it to compile against iOS SDK 6.1
-* Orthographic gameplay camera improvements:
-	* Updated gameplay orthographic cameras to use the position of the camera as the near plane, instead of `-WORLD_MAX`
-	* Removed `OrthoZoom` from gameplay orthographic cameras and replaced it with an `OrthoWidth` (the horizontal size of the screen in Unreal units) 
-* FCanvasBorderItem, can draw 3x3 border with tiled frames and tiled background, supports scaling of frames and background 
-	* Requires separate textures for tiled assets as it does not use shader to calculate tiling 
-* Refactored a bunch of net code around determining owning actor and its setup/teardown
+#### Gameplay 和框架
+* 为 AI 逻辑技术引入了基类 `UBrainComponent`
+* 扩展了 `AIController` 的“移动完成”组播委托，以便发送完成的移动请求 ID 和结果。
+* `StaticMesh` 现在支持 `AssetUserData` 对象存储项目特定数据，而无需修改引擎。
+* 在 `FTransform` 属性中添加了 3D 控件支持
+	* 在屏幕控件中固定了蓝色菱形控件的大小。
+* 添加了简单保存游戏系统的功能。其目的不是为了捕获完整的场景状态。_蓝图（Blueprint）_ 可供访问。
+* 屏幕截图现在可以像视频一样显示通知。
+* 地图检查现在可以打印摘要，以便用户知道已完成检查。
+* `PlayerController` 和 `GameInfo` 现在是 _蓝图（Blueprint）_ 的新资源对话框默认类型。
+* **根运动**
+	* 为 AnimMontages 提供的根运动添加了支持。
+	* 为模拟代理进行联网。支持位置校正、平滑错误修复，非缓存平滑动画。
+	* 实现了客户端到服务器联网，且具有客户端预测和校正。
+		* 物理在运行物理之前调用动画 `TickPose()`，以确保在提取根运动时使用相同的时间。
+		* 在服务器上，从 `MoveAutonomous` 调用动画 `TickPose()`，从而确保为状态、通知和事件使用客户端时间。
+* **玩家移动联网**
+	* 客户端和服务器以同样的方式计算差量时间，以便在两者之间保持物理模拟准确。客户端上的其他时间戳以常规时间间隔重置，从而保持高度准确。模拟可能会累积越来越多的错误，并增加位置校正次数和使用的带宽。
+	* 如果服务器上的一帧需要执行多次位置校正，则发送最新的校正，而非最旧的。
+* 重构了 `ReplicatedMovement`，以使用复制的事件。删除了静态变量，以检查是否发生了任何更改。
+* 添加了 `APawn::MoveIgnoreActorAdd` 和 `APawn::MoveIgnoreActorRemove`，以便添加或删除 Pawn 运动碰撞要忽略的 Actor。
+* `UCharacterMovementComponent::InitCollisionParams` 现在会考虑 `MoveIgnoreActors` 列表。
+* 主文件（File）菜单中现有打包项目（Package Project）选项；本版本中仅支持 Windows。
+* **设置 UI**
+	* 添加了多个新部分
+	* 大多数部分现在支持重置为默认（Reset-To-Default）
+* 为调用 `FUniqueNetIdRepl` 的在线平台 FUniqueNetId 添加了一个封装器，使用它可通过 RPC/复制传送唯一 ID
+* 所有序列化按 `ExportTextItem` 原样实施（网络/文件），所以可以使用 `obj dump` 和 `displayall`
+* `AttachRootComponentToActor` 现在会将附件复制到客户端，并在附件持续期间停止移动模拟
+* 在仅蓝图游戏中，蓝图中可以使用 `bAlwaysRelevant` 来实现更多复制控制
+* 将 UDKRemote 集成到了虚幻引擎4 中，并针对 iOS SDK 6.1 编译进行了更新
+* 正交 Gameplay 摄像机改进：
+	* 更新了 Gameplay 正交摄像机，以便将摄像机位置用作近平面，而不是 `-WORLD_MAX`
+	* 从 Gameplay 正交摄像机删除了 `OrthoZoom`，并将其替换成 `OrthoWidth`（屏幕以虚幻单位计的水平尺寸）
+* FCanvasBorderItem，可使用平铺框和平铺背景绘制 3x3 边框、支持框和背景缩放
+	* 屏幕资源需要单独的纹理，因为它不使用着色器来计算平铺
+* 重构了许多与确定拥有 Actor 及其设置/拆卸相关的网络代码
 
 
-#### Rendering
-* Visualizetexture/vis now filters more items and slows sorting ("vis ?" for help)
-* Added multiple scalability console variables
-* Implemented Timer queries for DX11 and OpenGL RHI
-* Added experimental screen space subsurface scattering - only very basic function yet (r.SSSSS 1)
-* GPUBenchmark is now part of SynthBenchmark (known issue: timeout on very slow GPUs)
-* Screen space Light Shafts
-	* Two separate light shaft types: occlusion which only affects fog / atmosphere, and bloom which is not physically based
-* Added **VisualizeOutOfBoundsPixels** show flag, which colors pixels that are outside of their bounds in a striped pattern
-* Reflection environment cubemaps are cached in the DerivedDataCache, so that they don�t need to be recaptured every load
-* Cubemap data is cooked into packages
-	* Unfortunately there are some failure cases, as the derived data can only be generated by a GPU, so it can�t be generated during cooking
-* Diffuse GI on movable translucency � indirect lighting cache interpolates a single value per object
-* New translucency lighting mode � _TLM_Surface_, which gets the nearest reflection capture cubemap applied for indirect specular
-* UnrealBuildTool allows multiple instances to build separate branches concurrently
-	* Previously new instances of UnrealBuildTool would block until the running instance finished. You can now run multiple instances if they are in separate branches (different UE4 root folder paths).
-* **Film Post**
-	* This changes the tonemapper and adds in new film post processing controls into the post process volume.
-* Added `r.BloomQuality` console variable.
-	* Increase / Decrease the number of post process passes required for the bloom post process operation.
+#### 渲染
+* Visualizetexture/vis 现在可过滤更多项目并减缓了排序（输入“vis ?”获取帮助）
+* 添加了多个可延展性控制台变量
+* 为 DX11 和 OpenGL RHI 实现了定时器查询
+* 添加了试验性的屏幕空间次表面散射 - 目前只有最基本的功能 (r.SSSSS 1)
+* 现在将 GPUBenchmark 添加到了 SynthBenchmark 中（已知问题：在速度过于缓慢的 GPU 上会超时）
+* 屏幕空间光束
+	* 两种单独的光束类型：遮蔽仅影响雾气/大气的光照，且对不基于物理的对象泛光
+* 添加了 **VisualizeOutOfBoundsPixels** 显示标记，用于在剥离模式下可视化超出其边界的颜色像素
+* 反射环境立方体贴图缓存在 DerivedDataCache 中，所以不需要在每次加载时重新捕获这些贴图
+* 可将立方体贴图数据烘焙到包中
+	* 遗憾的是它在某些情况下会失败，因为派生的数据只能由 GPU 生成，所以在烘焙期间无法生成。
+* 可移动半透明间接光照缓存上的漫反射为每个对象插入单个值
+* 添加了新的半透明光照模式 _TLM_Surface_，可获取适用于间接高光度的最近的反射捕获立方体贴图
+* UnrealBuildTool 允许多个实例同时构建各自的分支
+	* 以前，在运行的实例完成之前，会阻止 UnrealBuildTool 的新实例。现在，如果多个实例位于各自的分支（不同的虚幻引擎4 根文件夹路径）中，您可以同时运行这些实例。
+* **电影后期**
+	* 这会更改色调映射器并将新电影后期处理控件添加到后期处理体积中。
+* 添加了 `r.BloomQuality` 控制台变量。
+	* 增加/减少了泛光后期处理操作所需要后期处理传递次数。
 
 
-#### Animation
-* Created a new type of _BlendSpace_ with 1 Parameter (_BlendSpace1D_, as opposed to the original _BlendSpace_ with is 2D)
-* Added a new tab to **Persona** to view/edit Skeleton Animation Notifies
-* Play Slot Node Animation
-	* You don't have to make a montage to play on slot node anymore. You can just use _AnimSequence_ or _AnimComposite_ to play on slot node. 
+#### 动画
+* 创建了带 1 个参数（_BlendSpace1D_，与 2D 的原始 _混合空间（BlendSpace）_ 相反）的新类型 _混合空间（BlendSpace）_
+*在 **角色管理器** 中添加了一个查看/编辑骨架动画通知的新选项卡
+* 播放插槽节点动画
+	* 在插槽节点上播放动画不再要求必须执行蒙太奇。只需使用 _AnimSequence_ 或 _AnimComposite_ 即可播放插槽节点动画。
 
 
-#### Audio
-* Added comment boxes to State Machine graphs and Sound Cues.
-* Enveloper Sound Node now allows visual curve editing and use of Curve Float assets.
+#### 音频
+* 为状态机图表和 Sound Cue 添加了注释框。
+* 包络线声音节点现在允许视觉效果曲线编辑和使用浮点型曲线资源。
 
 
-#### Core
-* Visual Studio 2012 can now compile 32-bit games. 
-* FText message formatting functionality now supports an array of arguments.
-* FText message formatting functionality now supports named arguments. IE: `"{PlayerScore}"`
-* Support for Linux platform added (game server only).
-* UProject files are now used determine module load order for your project's modules.
-	* Existing projects will still load the primary game module at the original time, but you now have the option to load your project's modules at different times during startup.
-	* The `.upluigin` file format is new very similar to the `.uplugin` file format. Use the `LoadingPhase` property on Module Descriptors to accomplish this.
-	* See the plugin documentation for help in writing your `.uproject` file: [Plugins](https://udn.unrealengine.com/docs/ue4/INT/Programming/Plugins/index.html)
-	* `.uproject` files are now required at runtime and included in pak files.
-* Implemented GEXF graph output for UnrealBuildTool 
-	* New `-graph` option emits an build dependency graph to ActionGraph.gexf 
-	* (The file is saved to the engine intermediate BuildData sub-directory) 
-	* By default, this also emits the C++ include dependency network 
-	* These files are loadable into Gephi, which can create interesting visualizations of the graph network 
-* Added `UE4PrereqSetup.msi` installer
-	* Replaces UE4Redist.exe and installs the prerequisites needed for running UE4
-* Behavior Trees was moved from game to engine level and it�s available for licensees
-* Basic editor for Behavior Trees was added to editor
-* Navigation data exporter (`ExportNavigation` console command) was added to engine, to export collision geometry (from navigation point of view) to OBJ file for navigation debugging purposes,
+#### 核心
+* Visual Studio 2012 现在可以编译 32 位游戏。
+* FText 消息格式化功能现在支持参数的数组。
+* FText 消息格式化功能现在支持命名参数。IE：`"{PlayerScore}"`
+* 添加了 Linux 平台支持（仅游戏服务器）
+* 现在使用 UProject 文件确定项目模块的模块加载顺序。
+	* 现在项目仍会在起始时间加载主游戏模块，但您现在可以使用选项在启动的不同时间加载项目的模块。
+	* 添加了新的文件格式 `.upluigin`，它与 `.uplugin` 文件格式非常相似。在模块描述符中使用 `LoadingPhase` 属性可实现此目的。
+	* 有关编写 `.uproject` 文件的帮助，请参阅插件文档：[插件](https://udn.unrealengine.com/docs/ue4/INT/Programming/Plugins/index.html)
+	* 运行时现在需要 `.uproject` 文件，且此文件包含在 pak 文件中。
+* 为虚幻编译工具实现了 GEXF 图表输出
+	* 新的 `-graph` 选项会将构建依赖性图表发送给 ActionGraph.gexf
+	* （该文件保存在引擎中间 BuildData 子目录中）
+	* 默认情况下，它还会发送 C++ 包含依赖性网络
+	* 这些文件可加载到 Gephi 中，从而为图表网络创建有趣的可视化
+* 添加了 `UE4PrereqSetup.msi` 安装程序
+	* 用于替换 UE4Redist.exe，并安装运行虚幻引擎4 所需要的先决条件
+* 将行为树从游戏移到了引擎关卡中，且可供被许可人使用
+* 将行为树的基本编辑器添加到了编辑器中
+* 将导航数据导出器（`ExportNavigation` 控制台命令）添加到了引擎中，从而将碰撞几何体（从视图导航点）导出至到 OBJ 文件，以便执行导航调试。
 
 
-#### Online
-* Added IOS implementation of a http request/response pair
-* Created the Online Achievements Interface and added an IOS implementation using Game Center 
-* Created a new `IOnlineAchievements` interface which all OSS will use to provide their achievement implementation
-	* Added the `OnlineSubSystem::GetAchievementsInterface` for all existing OnlineSubSystem. Atm, these all return NULL, except IOS 
-* Added a `TestAchievementsInterface` for online testing of achievements. This will Get achievements, get descriptions, write achievements and handle an achievement being unlocked.  
-* Added support for game Center session.
-* Added support for game Center friends. 
-* Added support for game Center leaderboards. 
-* Added support for a game Center identity/profile.
-* Added a Store interface to Online Subsystems to provide a platform to make microtransactions.
-* Added IOS in app purchase support
-* Added `GetResolvedConnectString` to grab connection given a search result
-* Changed `CreatePlayerUniqueId` to include size parameter for safety
+#### 在线
+* 添加了 http 请求/响应对的 IOS 实现
+* 使用游戏中心创建了在线成就界面并添加了 IOS 实现
+* 创建了新的 `IOnlineAchievements` 界面，其中所有 OSS 将用于提供其成就实现
+	* 为所有现有 OnlineSubSystem 添加了 `OnlineSubSystem::GetAchievementsInterface`。Atm，全部返回空值（IOS 除外）
+* 为在线成就测试添加了 `TestAchievementsInterface`。这会获取成就，获取描述，编写成就并处理解锁的成就。
+* 为游戏中心会话添加了支持。
+* 为游戏中心好友添加了支持。
+* 为游戏中心排行榜添加了支持。
+* 为游戏中心身份/配置文件添加了支持。
+* 为在线子系统添加了商店界面，以便在平台上执行小交易。
+* 为 IOS 添加了应用内购买支持
+* 添加了 `GetResolvedConnectString`，以便获取提供搜索结果的连接
+* 为了安全，更改了 `CreatePlayerUniqueId`，以便包含大小参数
 
 
 
-## Upgrade Notes
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
 * **Play In Editor** viewports will no longer immediately take focus from the editor on Play, but on first click.
@@ -424,15 +426,15 @@ Availability:Licensee
 	* We no longer include all platforms by default. Instead, you only get either Win64 or Mac. 
 	* If you need to build other platforms, there is a new `GenerateProjectFiles_AllPlatforms.bat` file for that. 
 	* Solution has flattened down to just four top-levels folders. 
-	* All code is now under your game�s project file, organized the same way it is on the disk. 
+	* All code is now under your game's project file, organized the same way it is on the disk. 
 	* Other notes 
 	* Shipping and Test configurations are omitted by default. Pass `-ShippingConfigs` to get those. 
-	* Rocket targets aren�t included in the project files by default. Pass `-RocketTargets` to get those. 
-	* Non-English UDN files are now omitted from project files. Pass �-AllLanguages� to get those. 
+	* Rocket targets aren't included in the project files by default. Pass `-RocketTargets` to get those. 
+	* Non-English UDN files are now omitted from project files. Pass '-AllLanguages' to get those. 
 	* Visual Studio no longer prompts you to overwrite `UE4.sln` every time you exit 
 	* You can now skip IntelliSense generation with `-NoIntelliSense` if you want. 
 	* WinRT is no longer considered a _desktop platform_ to UBT 
-	* We removed Shipping and Test configs for Editor from the UI, because they aren�t supported in UE4 
+	* We removed Shipping and Test configs for Editor from the UI, because they aren't supported in UE4 
 * Changed DestroyActor to only detach SceneComponents attached to SceneComponents on the deleted actor. 
 * Changed markdown process to leave variable and metadata refs in code blocks, spans and quotes ignored. 
 * Improved regex used to handle PUBLISH tags to allow whitespace on the same line after tags 
@@ -443,10 +445,10 @@ Availability:Licensee
 		* PlayerReplicationInfo is now PlayerState
 	* ReplicationInfo base class was removed.
 	* Redirectors are in place and all uses of these classes should update seamlessly.
-* Added exception check to error that shouldnt occur (but does) in CRU 
+* Added exception check to error that should not occur (but does) in CRU 
 * Added domain exception handler to help track down obscure crash
 * **UE4Redist has been replaced with UE4PrereqSetup**
-	* To install prerequisites for running UE4 on Windows platform, we�ll now use the new `UE4PrereqSetup.msi` program. `UE4Redist.exe` should no longer be used and has been deleted from P4.  
+	* To install prerequisites for running UE4 on Windows platform, we'll now use the new `UE4PrereqSetup.msi` program. `UE4Redist.exe` should no longer be used and has been deleted from P4.  
 	* In Perforce, UE4PrereqSetup is currently located in `//depot/UE4/Engine/Extras/Redist/en-us/UE4PrereqSetup.msi`
 	* You should never really need to uninstall it, but if you need to just use the Control Panel to remove it like any other program.
  
@@ -564,7 +566,7 @@ Availability:Licensee
 * Collapsed graphs can be renamed inside the graph node.
 * The **Component** tab viewport in the **Blueprint Editor** now ticks particles.
 * Added a right-click context menu to the **Timeline Editor** for improved usage.
-* The transform gizmo is no longer visible in the preview viewport when a root component node is selected in **Components** mode within the **Blueprint eEitor**.
+* The transform gizmo is no longer visible in the preview viewport when a root component node is selected in **Components** mode within the **Blueprint editor**.
 * Made access to the _Blueprint_ preview actor more efficient in **Components** mode of the **Blueprint Editor**.
 * Multifonts have been removed.
 * Improved debug instance selection when opening _Blueprints_. Editing a _Blueprint_ from the asset menu will find an instance to debug if there is one. Additionally the debug instance should now update correctly when editing subsequent _Blueprint_ instances.

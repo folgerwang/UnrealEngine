@@ -16,7 +16,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Blueprints/1_6 "%Resources/ContentExamples/Blueprints/1_6:title%")
+		[이전 예제](Resources/ContentExamples/Blueprints/1_6 "%Resources/ContentExamples/Blueprints/1_6:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -55,7 +55,7 @@ Version: 4.9
 
 이번 예제에서는 다양한 흐름 제어 유형을 선보입니다. 흐름 제어 노드는 블루프린트 스크립트 내에서의 실행 흐름을 명시적으로 제어하기 위해 존재합니다. 여러가지 흐름 제어 노드 유형은 다음과 같습니다:
 
-* Branch 분기 - 한 쌍의 스크립트 중 불리언 값의 결과에 따라 한 쪽을 실행합니다.
+* Branch 분기 - 한 쌍의 스크립트 중 부울 값의 결과에 따라 한 쪽을 실행합니다.
 * Sequence 시퀀스 - 다수의 스크립트를 지정된 순서대로 실행합니다.
 * Switch 스위치 - Enum 의 결과에 따라 지정된 실행 경로를 선택합니다.
 
@@ -63,7 +63,7 @@ Version: 4.9
 
 ## 컨스트럭션 스크립트
 
-이 예제의 컨스트럭션 스크립트에서는 다이내믹 머티리얼 인스턴스를 생성하고 설정한 다음, 분기 노드를 사용하여 다이내믹 머티리얼에 적용할 색을 결정합니다. 분기 노드를 돌리는 _Branch Condition_ (분기 조건)이라는 이름의 불리언 변수로, 퍼블릭 설정되어 디테일 패널에서 편집할 수 있도록 되어 있습니다.
+이 예제의 컨스트럭션 스크립트에서는 다이내믹 머티리얼 인스턴스를 생성하고 설정한 다음, 분기 노드를 사용하여 다이내믹 머티리얼에 적용할 색을 결정합니다. 분기 노드를 돌리는 _Branch Condition_ (분기 조건)이라는 이름의 부울 변수로, 퍼블릭 설정되어 디테일 패널에서 편집할 수 있도록 되어 있습니다.
 
 [REGION:lightbox]
 [![](1.7Construction.png)](1.7Construction.png)
@@ -86,7 +86,7 @@ Enum 은 각 항목마다 구체적인 이름을 줄 수 있는 옵션 목록입
 * Crouched (앉기)
 * Prone (엎드리기)
 
-Enum 의 생성은 콘텐츠 브라우저에서 우클릭한 다음 맥락 메뉴에서 **Blueprints > Enumeration** (블루프린트 > Enum)을 선택하면 됩니다. 그리고서 그 Enum 을 더블클릭하면 편집할 수 있습니다. 거기서 Enum 에 표시했으면 하는 여러가지 항목을 추가하면 됩니다.
+Enum 의 생성은 콘텐츠 브라우저에서 우클릭한 다음 컨텍스트 메뉴에서 **Blueprints > Enumeration** (블루프린트 > Enum)을 선택하면 됩니다. 그리고서 그 Enum 을 더블클릭하면 편집할 수 있습니다. 거기서 Enum 에 표시했으면 하는 여러가지 항목을 추가하면 됩니다.
 
 ![](EnumEditor.png)
 

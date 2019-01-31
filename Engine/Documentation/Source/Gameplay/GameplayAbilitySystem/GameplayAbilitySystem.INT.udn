@@ -1,0 +1,36 @@
+Availability: Public
+Crumbs: 
+Title: Gameplay Ability System
+Description: High-level view of the Gameplay Ability System
+Type: 
+Version: 4.20
+Parent: Gameplay
+Order: 1
+Tags: Gameplay Ability System
+
+
+![](GameplayAbilitySystemTopicImage_01.png "GameplayAbilitySystemTopicImage_01.png")
+
+The **Gameplay Ability System** is a highly-flexible framework for building abilities and attributes of the type you might find in an RPG or MOBA title. You can build actions or passive abilities for the characters in your games to use, status effects that can build up or wear down various attributes as a result of these actions, implement "cooldown" timers or resource costs to regulate the usage of these actions, change the level of the ability and its effects at each level, activate particle or sound effects, and more. Put simply, this system can help you to design, implement, and efficiently network in-game abilities as simple as jumping or as complex as your favorite character's ability set in any modern RPG or MOBA title.
+
+## System Setup
+
+Because the Gameplay Ability System exists as a Plugin, you will need to opt-in to use it. This is easy to do, and only requires two steps:
+
+*   Enable the Gameplay Ability System Plugin in the **Edit** -> **Plugins** window.  
+    ![](GameplayAbilitySystem_Plugin_00.png "GameplayAbilitySystem_Plugin_00.png")
+*   To get the full range of capabilities of this system, add "GameplayAbilities", "GameplayTags", and "GameplayTasks" to `PublicDependencyModuleNames` in your project's "(ProjectName).Build.cs" file. This is easy to do by finding the list of public modules:
+
+[COMMENT:none]
+[/COMMENT]
+
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+To use the Gameplay Ability System, add the three module names anywhere in the braced list, as follows:
+
+
+    PublicDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks", "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+The Ability System Component is the main interface through which your game's characters will access the Gameplay Ability System. This Component manages Gameplay Attributes, runs Gameplay Events, stores Gameplay Abilities, and even handles binding player input to Gameplay Ability activation, confirmation, and cancelation commands. Any Actor that is intended to interact with the Gameplay Ability System should have an Ability System Component.

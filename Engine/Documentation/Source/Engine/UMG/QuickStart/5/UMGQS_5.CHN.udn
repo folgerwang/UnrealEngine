@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2708150
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.创建/编写游戏内暂停菜单的脚本
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/QuickStart
 Description:在此，我们将创建游戏内的暂停菜单，以便暂停或退出游戏。 
 version:4.9
+tags:UMG UI Designer
 
 
 [VAR:Steps]
@@ -29,6 +30,7 @@ version:4.9
 我们最后要创建一个简单的暂停菜单，以允许玩家暂停或退出游戏。 
 
 
+(#Visual:PauseMenuLayout)
 ## 视觉：暂停菜单布局
 
 在本节中，我们将为基础暂停菜单创建视觉布局。 
@@ -78,6 +80,7 @@ version:4.9
 	![](Pause9.png)
 
 
+(#Script:PauseMenuFunctionality)
 ## 脚本：暂停菜单功能
 
 完成外观设置之后，接下来我们将为暂停菜单提供脚本功能。 

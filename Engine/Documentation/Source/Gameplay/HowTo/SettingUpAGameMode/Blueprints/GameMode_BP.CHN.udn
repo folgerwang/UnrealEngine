@@ -1,15 +1,17 @@
-﻿INTSourceChangelist:2697210
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中设置游戏模式
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\SettingUpAGameMode
 Description:关于如何在蓝图中设置游戏模式的操作指南
-Version: 4.9
+Version: 4.14
 SkillLevel: Advanced
+type:how-to
 
 [TOC (start:2 end:2)]
 
 本页说明了如何创建 GameMode 蓝图并设置其默认值，如何为游戏分配默认的 GameMode，以及如何借助 World Settings 和 GameMode Override 选项覆盖默认的 GameMode。 
 
+(#CreatingaGameModeBlueprint)
 ## 创建 Game Mode 蓝图
 
 以下步骤将指引您创建 **Game Mode** 蓝图并为其设置默认值。 
@@ -19,8 +21,9 @@ _在此示例中，我们使用的是 **第三人称模板的蓝图**；但是�
 [INCLUDE:Engine/Blueprints/UserGuide/Types/ClassBlueprint/Creation#CreateBP1]
 
 
-在 **Pick Parent Class** 窗口中选择 **Game Mode** 类。 
+在 **Pick Parent Class** 窗口中选择 **Game Mode** 类。 在 **Pick Parent Class** 窗口中，选择 **Game Mode Base** 类。这是所有 Game Mode 的父类。
 
+(#EditingtheGameModeDefaults)
 ## 编辑 Game Mode 默认设置
 
 1.	**Double-click** 蓝图将其打开，单击 **Class Defaults** ![](Engine\Blueprints\UserGuide\Variables\classDefaults_button.png) 按钮以在 **Details** 面板中打开蓝图默认设置。
@@ -36,6 +39,7 @@ _在此示例中，我们使用的是 **第三人称模板的蓝图**；但是�
 	[/REGION]
 
 
+(#AssigningaDefaultGameMode)
 ## 分配 Default Game Mode
 
 在上一节中，我们创建了一个 Game Mode 蓝图。拥有 Game Mode 蓝图后，您可以将其分配为游戏中使用的 Default Game Mode。以下步骤将指引您通过 Project Settings 选项分配 Default Game Mode。 
@@ -61,6 +65,7 @@ _在此示例中，我们使用的是 **第三人称模板的蓝图**；但是�
 	在这里，我们可以看到 **ThirdPersonCharacter** 正被用作 **Default Pawn Class**。 
 
 	
+(#OverridingtheDefaultGameMode)
 ## 覆写 Default Game Mode
 
 分配 Default Game Mode 后，您可以通过 GameMode Override 部分下的 World Settings 菜单并按关卡将其覆写。以下步骤将向您介绍如何覆写默认 Game Mode。 

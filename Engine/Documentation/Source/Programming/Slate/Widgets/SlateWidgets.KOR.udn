@@ -225,9 +225,9 @@ SWrapBox 는 줄바꿈 상자, 즉 일정 폭까지 위젯이 가로로 배치�
 		MenuBuilder.AddWidget(SNew(SVolumeControl), TEXT("Volume"));
 	}
 
-### 맥락 메뉴
+### 컨텍스트 메뉴
 	
-이 메뉴 중 하나를 맥락 메뉴로 불러오기 위해서는, FMenuBuilder 에서 생성된 위젯을 구한 다음, 그것을 PushMenu 함수에 다음과 같이 전해줍니다.
+이 메뉴 중 하나를 컨텍스트 메뉴로 불러오기 위해서는, FMenuBuilder 에서 생성된 위젯을 구한 다음, 그것을 PushMenu 함수에 다음과 같이 전해줍니다.
 
 	FSlateApplication::Get().PushMenu(
 		MenuBuilder.MakeWidget(),

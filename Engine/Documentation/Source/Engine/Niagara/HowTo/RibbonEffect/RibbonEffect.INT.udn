@@ -2,100 +2,114 @@ Availability: Public
 Crumbs: 
 Title: Create a Ribbon Effect in Niagara
 Description: Describes how you can create a ribbon visual effect using Niagara.
-Type: how-to
-Version: 4.20
-Parent: Engine/Niagara/HowTo
+Type:how-to
+SkillLevel:Beginner
+Version: 4.21
+Parent:Engine/Niagara/HowTo
 Order: 5
 Tags: Niagara
 Tags: Early Access
-prereqs:Engine/Niagara/HowTo/EnableNiagara
-    
 
-Simulating natural phenomena is challenging, especially when using sprite or mesh-based particles to simulate smoke or vapor trails. **Ribbon Emitters** are an excellent solution for simulating these objects, and in the following How-To, you will learn how to set up a Niagara Emitter to emit a continuous ribbon-style particle effect into the world.
+Prerequisite Topics
+
+This page assumes you have prior knowledge of the following topics. Please read them before proceeding.
+
+*   [Enable the Niagara Plugin](Engine/Niagara/HowTo/EnableNiagara "Describes how you can enable the Niagara Plugin.")
+
+Simulating natural phenomena is challenging, especially when using sprite or mesh-based particles to simulate smoke or vapor trails. **Ribbon Emitters** are an excellent solution for simulating these objects.Â In the following How-To, you will learn how to set up a Niagara Emitter to emit a continuous ribbon-style particle effect into the world.
 
 ![](Ribbon_Banner_01.png "Ribbon_Banner_01.png")
 
 ## Steps
 
-1.  First, we will need to create a new Material to color our Ribbon Emitter. To do this, right-click in the **Content Browser**, and under **Create a Basic Asset**, select the **Material** option from the displayed list. Name the Material **M_Ribbon**.  
+1.  First, we'll create a new Material to color our Ribbon Emitter. To do this, right-click in the **Content Browser**, and selectÂ **Create a Basic Asset** > **Material**.Â NameÂ the Material **M_Ribbon**.  
     ![](RE_01.png)
 2.  Double-click the **M_Ribbon Material** to open it. Press and hold the **3** key, and left-click in the **Material** grid to add a **Constant 3 Vector Material** Expression node.  
     
-3.  Hover the cursor over the small circle on the right side of the node, then click and drag to connect the **Constant 3 Vector** to the **Base Color** and **Emissive Color** inputs in the M_Ribbon box on the right.   
-    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)
+3.  Hover the cursor over the small circle on the right side of the node, then click and drag to connect the **Constant 3 Vector** to the **Base Color** and **Emissive Color** inputs in the M_Ribbon box on the right.  
+    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)(w:400)
 4.  Double-click the **Constant 3 Vector** to open the color picker. Set the **R** value to 1, then click **OK**. This turns the material red.  
-    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)
+    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)(w:400)
 5.  Click in the grid to take focus off the Constant 3 Vector. This changes the **Details** panel display on the left. In the **Details** panel, scroll down to locate **Usage**, and expand it. Check the box for **Used with Niagara Ribbons**.  
-    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)
+    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)(w:300)
 6.  Click the **Apply** and **Save** buttons to apply changes and save your work.
-7.  Now, right-click in the **Content Browser**, and select **FX > Niagara Emitter** to create a new Niagara Emitter.   
-    ![](SE_01.png)
-8.  Name the newly-created Niagara Emitter **FX_Ribbon**, and then double-click it to open it.  
-    ![](RE_05.png)
-9.  "Locate the **Render** section of the **FX_Ribbon** Emitter, and click the **Trash** icon to delete the **Sprite Rendering** module.  
-    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)
-10. Press the **Plus** sign icon **(+) **and from the displayed list, select the **Niagara Ribbon Renderer** Properties.  
-    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)
-11. Next, click the small white triangle to expand the **Ribbon Rendering** section. In the **Material** section, click the dropdown to select the **M_Ribbon** Material that was created in steps one through five.   
-    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)
-[REGION:note]
-The value in the **SpawnRate** module (found in the **Emitter Update** section) is set to **20.0** by default. The **Spawn Rate** affects the roundness or angularity of the resulting ribbon effect. Lower values create a more angular or polygonal effect shape. Higher values create a more round effect shape.
-[/REGION]
+7.  Right-click in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter**. The Niagara Emitter wizard displays.  
+    ![](SE_01.png)(w:400)
+8.  Click the radio button next to **Create a new emitter from an emitter template**. Select the **Fountain** template. Then click **OK** to create a new emitter in the Content Browser.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+9.  Name the newly-created Niagara Emitter **FX_Ribbon**, and then double-click it to open it.  
+    ![](NiagaraEmitter_RibbonIcon.png)(w:100)
+10.  With the Niagara Emitter now open, locate the **Render** section of the **FX_Ribbon** Emitter. Click the **Trashcan** icon to delete the **Naigara Sprite Rendering Properties** module.  
+    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)(w:500)
+11.  Click the **Plus sign** icon (**+**) and from the displayed list select **Niagara Ribbon Renderer Properties**.  
+    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)(w:500)
+12.  Next, expand the **Ribbon Rendering** section. In the **Material** section, click the dropdown to select the **M_Ribbon** Material that was created in steps one through five.  
+    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)(w:400)
+13.  Locate and expand the **Emitter Update** section.
+14.  In the **Spawn Rate** module, set the **Spawn Rate** value to **100**.
 
-[OBJECT:ComparisonSlider]
+    [REGION:note]
+    The value in the **Spawn Rate** module is set to **20.0** by default. The **Spawn Rate** affects the roundness or angularity of the resulting ribbon effect. Lower values create a more angular or polygonal effect shape. Higher values create a more round effect shape.
+    [/REGION]
+
+    [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Low Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.png) 
+    ![Low Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.jpg) 
     [/PARAM]
     [PARAM:after]
-    ![High Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.png) 
+    ![High Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.jpg) 
     [/PARAM]
-[/OBJECT]
+    [/OBJECT]
 
-1.  Locate and expand the **Particle Spawn** section.
-1.  Delete the following modules by clicking the **Trash** icon.  
+15.  Locate and expand the **Particle Spawn** section.
+16.  Delete the following modules by clicking the **Trashcan** icon.  
     
     *   **Add Velocity**
     *   **Sphere Location**
     
     ![](CreateRibbonBasedEffect_Steps_Step13-RemoveSpriteVariables.png)
-1.  In the **Set Variables** section, click the small white arrow next to the following variables and select **Remove**.
+17.  In the **Set Variables** section, click the white arrow across from the following variables and select **Remove**.
     
     *   **Particles.SpriteRotation**
     *   **Particles.SpriteSize**
     
     ![](CreateRibbonBasedEffect_Steps_Step14-RemoveSpriteVariables2.png)
-1.  When those variables have been deleted, click the **Plus** sign icon (**+**) next to **Particle Spawn** to display a list of options. Expand **Set Specific Parameters**, and add the following variables:
+18.  When those variables have been deleted, click the **Plus sign** icon (**+**) next to **Particle Spawn** to display a list of options. Expand **Set Specific Parameters**, and add the following variables:
     
     *   **Particles.RibbonWidth**
     *   **Particles.Velocity**
     
     ![](CreateRibbonBasedEffect_Steps_Step15-AddParticlesParameters.png)
-1.  Click the **Plus** sign icon (**+**) next to **Particle Spawn** to display a list of options again. Select **Experimental > Point Spiral Location**.
+19.  Click the **Plus sign** icon (**+**) across from **Particle Spawn** to display a list of options again. Select **Experimental > Point Spiral Location**.
     [REGION:note]
     The **Speed** value of this variable expands the base diameter of the overall effect.
     [/REGION]![](CreateRibbonBasedEffect_Steps_Step16-AddPointSpiralLocation.png)
-1.  With the variables now added to the Ribbon emitter, set the following Variables to the following values.
+20.  With the variables now added to the Ribbon emitter, set the following Variables to the following values.
     
-    | Variable Name | Value |
+    | **Variable Name** |  **Value** |
     | --- | --- |
     | **Particles.RibbonWidth** | 35.0 |
-    | **Particles.Velocity** | X:1.0, Y: 0, Z: 1.0 |
+    | **Particles.Velocity** | X: 1.0, Y: 0.0, Z: 1.0 |
     | **Point Spiral Location** | Speed: 500.0, RotSpeed: 4.0 |
     | **Particles.Lifetime** | 5.0 |
     
-1.  Locate and expand the **Acceleration Force** module.
-1.  Set the **Acceleration Z** value to **-100.0**.  
-    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)
+21.  Locate and expand the **Acceleration Force** module.
+22.  Set the **Acceleration Z** value to **-100.0**.  
+    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)(w:500)
     [REGION:note]
     A negative value in the **Z** field produces a cone-shaped ribbon effect. If you put a positive value in the **Z** field, an inverted cup-shape is produced.
     [/REGION]
-1.  Once all that has been completed, click the **Compile**, **Apply** and **Save** buttons to compile and save your work.  
+23.  Once all that has been completed, click the **Compile**, **Apply** and **Save** buttons to compile and save your work.  
     ![](ME_09.png)
-1.  Now right-click in the **Content Browser**, and select **FX > Niagara System**. Name the new system **Ribbon**.   
-    ![](SE_16.png)
-1.  Double-click on the Ribbon Niagara System to open it, then drag the **FX_Ribbon** Niagara Emitter from the Content Browser to the **Timeline**.  
+24.  Right-click in the **Content Browser**, and from the displayed menu selectÂ **FX > Niagara System**. The Niagara System wizard displays.  
+    ![](SE_16.png)(w:500)
+25.  Click the radio button next to **Create an empty system with no emitters**. Then click **OK** to create a new Niagara System in the Content Browser.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+26.  Name the new system **Ribbon**.  
+    ![](NiagaraSystem_RibbonIcon.png)(w:100)
+27.  Double-click the Ribbon Niagara System to open it, then drag the **FX_Ribbon**Â Niagara Emitter from the Content Browser to the **Timeline**.  
     ![](CreateRibbonBasedEffect_Steps_Step22-AddtoSystem.png)
-1.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Ribbon Niagara System. In the **Content Browser**, drag the **Ribbon Niagara System** into the level viewport.  
+28.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Ribbon Niagara System. In the **Content Browser**, drag the **Ribbon Niagara System** into the Level Viewport.  
     ![](CreateRibbonBasedEffect_Steps_Step23-AddToLevel.png)
 
 ## End Result
@@ -103,19 +117,13 @@ The value in the **SpawnRate** module (found in the **Emitter Update** section) 
 When completed, you have a Niagara System that plays your Niagara Emitter when the Niagara System is placed in a level, as shown in the following video.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    pxQEQ4zWLWI
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    78
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ pxQEQ4zWLWI
+ [/PARAMLITERAL]
 [/OBJECT]

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs:%ROOT%, Platforms
-Title:Set Up Cameras for Google VR
-Description:Setting up the UE4 camera to work with Google VR.
+Title:设置GoogleVR摄像机
+Description:设置适用于GoogleVR的摄像机。
 Type: how-to
 SkillLevel:Beginner
 Version:4.17
@@ -12,145 +12,140 @@ Tags:Basics
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
 prereq: Platforms\GoogleVR\QuickStart
 
-No matter if your Google VR project is a sitting or standing experience, the manner in which the user's camera is set up will be the same. In the following How - To we will go over how up the UE4 camera for use with Google VR experiences.
+![](Platforms\VR\ContentSetup\VR_Seated_Experiance.png)
 
-## Project & Basic Camera Setup for a Google VR Experience 
+无论您的GoogleVR项目是坐式还是站立体验，游戏摄像机的设置方法都是一样的。在以下操作指南中，我们将介绍如何设置摄像机以便用于实现GoogleVR体验。
 
-Below you will find instructions on project setup requirements as well as how to create and setup the needed Blueprints for a Google VR experience.
+## 步骤
 
-1. First, create a new UE4 project with the following settings and once completed press the **Create Project** button.
+下文提供了有关GoogleVR体验的项目说明和摄像机设置要求。
 
-    * Blueprint 
-    * Blank Project
-    * Mobile / Tablet
-    * Scalable 3D or 2D
-    * No Starter Content
-    * Location for the project to be saved
-    * Name for the project
+1. 首先，按照以下设置创建一个新的虚幻引擎项目：
+
+    * 蓝图 
+    * 空白项目
+    * 手机/平板电脑
+    * 可伸缩3D或2D
+    * 不包含起步内容
+    * 用于保存项目的位置
+    * 项目名称
 
     [REGION:lightbox]
     [![](HT_GoogleVR_Camera_Setup_00.png)(w:555)](HT_GoogleVR_Camera_Setup_00.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. When the UE4 Editor loads, from the Main Menu, open up the **Plugins** menu by going to **Edit** > **Plugins**.
+1. 在编辑器中，打开 **编辑（Edit）** >**插件（Plugins）** 来打开 **插件（Plugins）** 菜单。
     
     ![](HT_GoogleVR_Camera_Setup_01.png)
 
-1.  Inside the Plugins window, select the **Virtual Reality** section and then enable the **Google VR** option by clicking on the **Enabled** check mark box.
+1. 在“插件”窗口中，选择 **虚拟现实（Virtual Reality）** 部分，然后单击 **GoogleVR** 选项的 **启用（Enabled）** 复选框来启用该选项。
  
     [REGION:lightbox]
     [![](HT_GoogleVR_Camera_Setup_02.png)(w:547)](HT_GoogleVR_Camera_Setup_02.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
     [region:note]
-    You will need to re-start UE4 once you have enabled the plugin so that it will be loaded on the next UE4 Editor launch.
+    启用该插件后需要重启编辑器，这样才会在下次启动编辑器时装入该插件。
     [/region] 
 
-1. After the UE4 Editor has re-started, Right-click in the **Content Browser** and from the displayed menu, go to the **Create Basic Asset** section and select the **Blueprint Class** option.
+1. 在编辑器重启后，右键单击 **内容浏览器**，然后从显示的菜单中，转至 **创建基本资源（Create Basic Asset）** 部分并选择 **蓝图类（Blueprint Class）** 选项。
 
-    [![](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_01.png)(w:150)](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_01.png)
+    [![](Platforms\Oculus\HowTo\StandingCamera\HT_Rift_Camera_Setup_01.png)(w:150)](Platforms\Oculus\HowTo\StandingCamera\HT_Rift_Camera_Setup_01.png)
 
-1. From the **Pick Parent Class** window, select the **Pawn** option, giving it a name of **GoogleVR_Pawn** then double - click on the GoogleVRPawn to open it up in the Blueprint Editor.
+1. 从 **选择父类（Pick Parent Class）** 窗口，选择 **Pawn** 选项，将其命名为 **GoogleVR_Pawn**，然后双击该GoogleVRPawn以在蓝图编辑器中将其打开。
 
     [![](HT_GoogleVR_Camera_Setup_03.png)(w:691)](HT_GoogleVR_Camera_Setup_03.png)
 
-1. Open up the GoogleVR_Pawn Blueprint and go to the **Component** section of the **Viewport** tab. Using the **Add Component** button add the following two components with the following names and make sure that the Camera is a child of the Scene Component.
+1. 打开GoogleVR_Pawn蓝图并转至 **视口（Viewport）** 选项卡的 **组件（Component）** 部分。使用 **添加组件（Add Component）** 按钮，添加具有以下两个名称的两个组件，并确保Camera是Scene组件的子代。
     
-    * Scene - VRCameraRoot
-    * Camera - VRCamera
+    [REGION:simpletable]
+	| 组件名称| 值|
+    |--------|------------|
+    |**Scene**|VRCameraRoot|
+    |**Camera**|VRCamera|
+	[/region]
 
-    ![](HT_GoogleVR_Camera_Setup_03.png)
+    ![](HT_GoogleVR_Camera_Setup_08.png)
 
     [region:note]
-    No matter what VR HMD you are using, this is the Epic recommend way to set up a VR camera as it allows you to offset the position of the camera without having to move the actual camera.
+    无论使用哪种VR HMD，Epic都建议您按照这种方法设置VR摄像机，因为这样不必移动实际摄像机位置就可以移动镜头位置。
     [/region]
 
-Now that a basic Blueprint for the VR Camera has been set up, in the next section we will go through setting up this Blueprint to be used with Google VR.
+1. 首先，打开 **GoogleVR_Pawn** 蓝图，并在 **事件图表（Event Graph）** 中，移到 **事件开始播放（Event Begin Play）** 节点以显示“可执行操作”（Executable Actions）列表。在该列表中，搜索 **设置跟踪原点（Set Tracking Origin）** 节点，然后单击该节点以将其添加到事件图表。
 
-## Camera Setup for Google VR Experience 
+	![](HT_GoogleVR_Camera_Setup_06.png)
 
-Below you will find instructions on how to setup your camera for a Google VR experience.
-
-
-1. First, open up the **GoogleVR_Pawn** Blueprint and in the **Event Graph** drag off the **Event Begin Play** node to show the Executable Actions list. In the list search for the **Set Tracking Origin** node and click on it to add it to the Event Graph.
-
-    [REGION:lightbox]
-    [![](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_09.png)(w:555)](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_09.png)
-    [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
-
-1. Make sure the **Origin** of the Set Tracking Origin node is set to **Eye Level**.
+1. 确保将“设置跟踪原点”（Set Tracking Origin）节点的 **原点（Origin）** 设置为 **视平线（Eye Level）**。
     
     [REGION:lightbox]
-    [![](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_10.png)(w:555)](Platforms\Oculus\HowTo\Camera\HT_Rift_Camera_Setup_10.png)
+    [![](Platforms\Oculus\HowTo\SeatedCamera\HT_Rift_Camera_Setup_10.png)(w:555)](Platforms\Oculus\HowTo\SeatedCamera\HT_Rift_Camera_Setup_10.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Create a new **Vector** variable called **CameraHeight** and set the **Z** value to **180**.
+1. 创建一个新的 **矢量（Vector）** 变量并命名为 **CameraHeight**，然后将 **Z** 值设置为 **180**。
 
     ![](Platforms\GearVR\HowTo\CameraSetup\HT_GearVR_Camera_Setup_03.png)
 
     [region:note]
-    This number should be set to the real world standing height of the user in Centimeters.
+    该数字应该设置为用户在真实世界的站立高度，以厘米为单位。
     [/region]
 
-1. Drag off the output of the Set Tracking Origin node and search for the **Set Relative Location** node, selecting the **SetRelativeLocation(VRCameraRoot)** option.
+1. 移到“设置跟踪原点”（Set Tracking Origin）节点的输出并搜索 **设置相对位置（Set Relative Location）** 节点，选择 **SetRelativeLocation（VRCameraRoot）** 选项。
 
     [REGION:lightbox]
     [![](HT_GoogleVR_Camera_Setup_06.png)(w:342)](HT_GoogleVR_Camera_Setup_06.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Connect the **CameraHeight** variable to the **New Location** input on the Set Relative Location node and then press the Compile button. When completed your Event Graph should look like the following image.
+1. 将 **摄像机高度（Camera Height）** 变量连接到 **设置相对位置（Set Relative Location）** 节点上的 **新位置（New Location）** 输入，然后按 **编译（Compile）** 按钮。完成后，您的事件图表应该如下图所示：
 
     [REGION:fullwidth]
     [INCLUDE:Platforms\GoogleVR\HowTo\CameraSetup\#GoogleVRCamera]
     [/REGION]
 
     [region:tip]
-    You can copy the completed Blueprint by clicking on the upper left-hand corner of above and pressing CRTL + C to copy the graph. Once copied, go to your Blueprints event and press CTRL + V to paste it in. 
+    单击上图左上角并按CRTL + C复制图表，可以复制完成的蓝图。复制后，转至蓝图事件并按CTRL + V进行粘贴。
     [/region]
 
-1. Drag the **GoogleVR_Pawn** Blueprint from the Content Browser to a level, making sure that it is placed as close to the ground as possible.
+1. 将 **GoogleVR_Pawn** 蓝图从内容浏览器拖到关卡，确保尽量贴近地面放置。
 
     [REGION:lightbox]
     [![](HT_GoogleVR_Camera_Setup_09.png)(w:555)](HT_GoogleVR_Camera_Setup_09.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Select the GoogleVR_Pawn Blueprint and in the **Details** panel under the **Pawn** setting, set the **Auto Possess Player** from **Disabled** to **Player 0**.
+1. 选择GoogleVR_Pawn蓝图。在 **细节（Details）面板** 中的 **Pawn** 设置下，将 **自动控制玩家（Auto Possess Player）** 的值从 **禁用（Disabled）** 更改为 **玩家 0（Player 0）**。
 
     ![](HT_GoogleVR_Camera_Setup_05.png)
 
-1. Finally, go to the **Main Toolbar** and click on the small white triangle next to **Launch Options** and then select your Android device from the list to start the packaging and deployment to that device.
+## 最终结果
 
-    ![](Platforms\GearVR\HowTo\CameraSetup\HT_GearVR_Camera_Setup_08.png)
+最后，转至 **主工具栏（Main Toolbar）** 并单击 **启动选项（Launch Options）** 旁边的白色小三角，然后从列表中选择您的安卓设备，以针对该设备启动封装和部署流程。该过程完成后，将智能手机与HMD相连以允许您在VR中查看UE4项目。
 
-## UE4 Project Downloads
+ ![](Platforms\GearVR\HowTo\CameraSetup\HT_GearVR_Camera_Setup_08.png)
 
-Below you will find a link to where you can download the UE4 project that was used to create this example. 
+## 虚幻引擎项目下载
 
-* [**Google VR Camera Example Project**](https://epicgames.box.com/s/duniqrm3wl8u9lkq7igskq4fh7rl9e0f)
+下面提供了一个链接，供您下载用来创建该示例的虚幻引擎项目：
+
+* [**GoogleVR摄像机示例项目**](https://epicgames.box.com/s/duniqrm3wl8u9lkq7igskq4fh7rl9e0f)
 
 
 [COMMENT:none]

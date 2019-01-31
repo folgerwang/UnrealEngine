@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:4292193
-Availability: Docs
+INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
 Title:리타깃 매니저
 Description:스켈레톤 에디터 내 리타깃 매니저 옵션에 대한 분석입니다.
@@ -73,7 +73,7 @@ Related: Engine/Animation/Sequences
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
-    qna6b-kAN48  <!-- Insert the youtube video link here -->
+    qna6b-kAN48
     [/PARAMLITERAL]
     [PARAMLITERAL:width]
     78

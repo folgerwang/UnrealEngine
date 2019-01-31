@@ -1,13 +1,15 @@
-﻿INTSourceChangelist:2690302
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:编辑材质函数
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:阐述建立和更改材质函数的过程。
 Version:4.9
+tags:Materials
 
 
 本文档假定您掌握材质函数概念的应用知识。如需更多信息，请参阅[“材质函数概述”页面](Engine/Rendering/Materials/Functions/Overview)。
 
+(#EditingMaterialFunctions)
 ## 编辑材质函数
 
 有时，您可能需要更改某个材质函数的功能。这可以直接从 **内容浏览器** 中完成，或者从利用给定函数的材质中完成。

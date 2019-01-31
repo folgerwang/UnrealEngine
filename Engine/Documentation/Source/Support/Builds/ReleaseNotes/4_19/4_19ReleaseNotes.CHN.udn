@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3941748
+﻿INTSourceChangelist:4321362
 Availability:Public
 Title: 虚幻引擎4.19版本说明
 Description: 虚幻引擎4.19版本说明
@@ -13,7 +13,7 @@ reference-image:image_43.gif
 
 ![image alt text](419Banner.png)(w:1000 convert:false)
 
-# 新增内容
+## 新增内容
 
 虚幻引擎4.19版可帮助您 **潜心创意开发**——各种工具皆清晰明了，以便您专注打造内容。此版本对渲染、物理、地形地貌等诸多系统进行了改良，使您 **创建的世界场景运行得更加快捷**。工具的易用性始终是我们关注的重点，因此我们也继续推进了这方面的改良工作，**让开发者获得更多的自主性**。
 
@@ -29,9 +29,9 @@ reference-image:image_43.gif
 
 Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), alexformosoc, Andrew Armbruster (aarmbruster), Anton Rassadin (Antonrr) Austin Pukasamsombut (AustinPuk-Conffx), Bo Anderson (Bo98), Carlos (carloshellin), Carsten Neumann (cneumann), Celso Dantas (celsodantas), Chris Conway (Koderz), Chris Dietsch (cdietschrun), Chrispykins, Clinton Freeman (freemancw), cmheo, CuoXia (shrimpy56), Daniel Butum (leyyin), Daniel Neel (dneelyep), Daniel Sell (djsell), David Payne (dwrpayne), DavidNSilva, Deep Silver Dambuster Studios (DSDambuster), Derek van Vliet (derekvanvliet), DerelictHelmsman, dfb, Dorgon Chang (dorgonman), druhasu, Eddy Luten (EddyLuten), foollbar, GeorgeR, Giperionn, Hyuk Kim (Hybrid0), Ilya (ill), Jack Knobel (jackknobel), Jacob Nelson (JacobNelsonGames), James Horsley (mmdanggg2), Jared Taylor (Vaei), Javad Shafique (JavadSM), jessicafalk, John W. Ratcliff (jratcliff63367), Jørgen P. Tjernø (jorgenpt), Josef Gluyas (Josef-CL), Julien Le Corre (jlc-innerspace), konflictue, Kryofenix, Kyle Langley (Vawx), Marcin Gorzel (mgorzel), Matt Hoffman (LordNed), Matthew Davey (reapazor), Michael Allar (Allar), Michał Nowak (BibbitM), Mikael Hermansson (mihe), mkirzinger, Mustafa Top (MSTF), nakapon, nullbus, pfoote, phlknght, projectgheist, Richard Schubert (Hemofektik), Ron Radeztsky, rlefebvre, ruffenman, sangpan, Sébastien Rombauts (SRombauts), smt923, Stefan Zimecki (stefanzimecki), Stephen Swires (sswires), Tim Niederhausen (timniederhausen), Timothee Besset (TTimo), Tom Ward (tomwardio), tomari, TomFors, Toru Hisai (torus), Vikram Saran (vikhik), yaakuro, Yohann Martel (ymartel06), YuchenMei, Zeno Ahn (zenoengine)
 
-# 主要特性
+## 主要特性
 
-## 新增特性：临时上采样
+### 新增特性：临时上采样
 
 新版本中增加了名为临时上采样（Temporal Upsample）的分辨率修改法，它能执行低分辨率下帧数和主空间分辨率提升的临时累加，借此降低输出的模糊度。
 
@@ -65,11 +65,11 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 ![image alt text](image_1.png)(w:1000 convert:false)
 
-在临时抗锯齿（TAA）通道中发生的临时分辨率修改可在不同的主屏幕百分比（从50%到200%）中形成稳定的几何体锐度。实际上，即使屏幕百分比降低，启用TAAU后背景中的几何体也能保持细节和精细度（这些几何体在之前的版本中通常精度不高，且容易相互混入），如上例中的栅栏和电话线杆。
+在临时抗锯齿（TAA）通道中发生的临时分辨率修改可在不同的主屏幕百分比（从50\%到200\%）中形成稳定的几何体锐度。实际上，即使屏幕百分比降低，启用TAAU后背景中的几何体也能保持细节和精细度（这些几何体在之前的版本中通常精度不高，且容易相互混入），如上例中的栅栏和电话线杆。
 
 如需了解更多信息，请查阅[带临时上采样的屏幕百分比（Screen Percentage with Temporal Upsample）](https://docs.unrealengine.com/en-us/Engine/Rendering/ScreenPercentage)页面。
 
-## 新增特性：动态分辨率
+### 新增特性：动态分辨率
 
 新版本现支持动态分辨率（Dynamic Resolution），**根据需要调整分辨率，在PS4和Xbox One游戏达到理想的帧率**！它的工作原理是使用一个启发法，基于之前的帧GPU工作量来设置主屏幕百分比。
 
@@ -77,19 +77,19 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 未来版本更新将加入其他平台支持。如需了解更多信息，请查阅[动态分辨率（Dynamic Resolution）](https://docs.unrealengine.com/en-us/Engine/Rendering/DynamicResolution)页面。
 
-## 新增特性：统一虚幻AR框架
+### 新增特性：统一虚幻AR框架
 
 在这个全新的虚幻引擎版本中，统一虚幻增强现实框架（Unified Unreal Augmented Reality Framework）将为苹果和Google移动平台增强现实（AR）应用程序的开发提供丰富而统一的框架。此框架提供了单一开发路径，使开发者能使用单一代码路径开发两个平台的AR应用。统一虚幻增强现实框架包含支持对齐、光照估算、锁定、会话状态、追踪结果和跟踪的函数。
 
 ![image alt text](image_3.png)(w:1000 convert:false)
 
-## 新增特性：统一虚幻AR框架项目模板
+### 新增特性：统一虚幻AR框架项目模板
 
 我们还同时推出了全新的蓝图模板HandheldAR，它提供了一个展示新功能的完整范例项目。
 
 ![image alt text](image_4.png)(w:849 h:590 convert:false)
 
-## 新增特性：物理光照单位
+### 新增特性：物理光照单位
 
 在虚幻引擎4.19版中，所有光照单位均使用基于物理的单位定义。部分光照单位已妥善定义，但其他部分仍在使用未定义的、由引擎指定的单位。光照的单位选择可通过下拉菜单执行（在适用处）。出于兼容性考虑，默认光照单位将继续兼容之前的引擎版本。全新的光照单位属性可在每个光照上进行编辑，进而修改执行与光照相关的计算时引擎对“强度”属性的解译。
 
@@ -97,7 +97,7 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 *项目由Litrix提供*
 
-## 新增特性：Live Link插件改良
+### 新增特性：Live Link插件改良
 
 **Maya Live Link插件** 现已推出。它可以在Maya和UE4之间建立联系，以便用户 **在UE4编辑器中实时预览在Maya中进行的修改**。 
 
@@ -125,7 +125,7 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 在MEL控制台中使用命令 **MayaLiveLinkU** 即可启用Maya Live Link的UI窗口。右上角的显示说明此Maya实例是否连接到了虚幻引擎客户端。虚幻引擎Live Link的下方则是当前流送中所有主体的列表（上图中只有一个主体在流送），在下方窗口中则有添加和移除流送主体的功能按钮。
 
-### 动作捕捉Live Link插件
+#### 动作捕捉Live Link插件
 
 **
 **动作捕捉插件可提供与Maya插件相同的功能，并以相似的方式出现在编辑器中。它还具有管理流送的自定义界面：
@@ -136,7 +136,7 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 现在，在Maya中控制活动相机也将同时操作编辑器的活动相机。我们重新制作了编辑器更新钩，流送将更为稳定，面部绑定和叶状骨骼将正确更新。 
 
-### 将虚拟主体添加到Live Link
+#### 将虚拟主体添加到Live Link
 
 利用虚拟主体能将进入Live Link的多个主体整合为一个主体，以供编辑器使用。虚拟主体在客户端中创建，其中包含多个真实主体的骨骼，并全部连接在同一个根骨骼上。 
 
@@ -148,7 +148,7 @@ Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), a
 
 我们在此新建了一个虚拟主体（使用 **添加>添加虚拟主体（Add > Add Virtual Subject）**），并设置其从Maya Live Link源读取主体。设置后，虚拟主体包含了来自Maya的3个物品主体。
 
-### Live Link插件开发
+#### Live Link插件开发
 
 Live Link的作用是为UE4之外第三方来源的任意类型动画数据（例如DDC工具和动态捕捉服务器）提供一个通用的流送和使用接口。它被可通过虚幻插件进行延展，使第三方软件无需进行和维护引擎修改即可开发新功能。 
 
@@ -160,7 +160,7 @@ Live Link提供了两种整合方法：
 
 如需了解总体插件开发的概览，请查阅[插件](https://docs.unrealengine.com/latest/INT/Programming/Plugins/)文档页面。
 
-### Live Link运动控制器支持
+#### Live Link运动控制器支持
 
 现在，Live Link可以结合运动控制器使用了。运动控制器的运动源属性可以被设置到Live Link中的一个主体上。依此进行设置后，运动控制器组件的位置将由主体的首次变换所控制。
 
@@ -172,7 +172,7 @@ Live Link提供了两种整合方法：
 
 ![image alt text](image_8.png)(w:925 h:289 convert:false)
 
-### 其他改良
+#### 其他改良
 
 * **新增Live Link源定义自身自定义设置的功能** - 此功能由提供Live Link支持的合作伙伴（IKinema等）建议加入。
 
@@ -180,11 +180,11 @@ Live Link提供了两种整合方法：
 
 * **在Live Link重定向器API中新增了虚拟初始化函数和Update DeltaTime参数**
 
-## 新增特性：Sequencer改良
+### 新增特性：Sequencer改良
 
 我们仍在对Sequencer的功能和工作流程进行持续改进，使其更强大、更高效。
 
-### 拷贝/粘贴/复制Object轨迹
+#### 拷贝/粘贴/复制Object轨迹
 
 现在，您可以通过右键快捷菜单拷贝/粘贴/复制Object轨迹及其子轨迹了。您也可以将一个可生成项拷贝到相同的关卡序列或另一个序列，或将一个可拥有项从一个关卡序列复制到另一个；而且此object将绑定到其他关卡序列中相同的object上。您还可以从一个UMG动画拷贝到另一个。
 
@@ -206,7 +206,7 @@ Live Link提供了两种整合方法：
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### L关卡序列动态变换原点
+#### L关卡序列动态变换原点
 
 现在，您能通过运行时的全局偏移使Sequence Transform轨迹控制的actor产生偏移了。这可以让您在不同的坐标空间中重复使用一个关卡序列。如要使用此功能，须在关卡序列的详细信息（Details）面板中启用 **覆盖实例数据（Override Instance Data）**，然后指定一个 **变换原点（Transform Origin）Actor。**
 
@@ -232,7 +232,7 @@ Live Link提供了两种整合方法：
 
 按下按键后（如上所示），立方体开始移动，而我们的Actor从 **变换原点Actor** 的位置开始继续沿一条路径前行。
 
-### Sequencer动画蓝图权重控制
+#### Sequencer动画蓝图权重控制
 
 现在，Sequencer权重混合可对动画蓝图生效了。您可对动画使用相同的插槽，并根据曲线控制权重。在属性（Properties）下为每个动画指定相同的插槽名进行混合。然后对所需的权重值设置关键帧，并在动画蓝图中使用Slot节点。动画蓝图将使用混合时提供的任意权重值。
 
@@ -254,13 +254,13 @@ Live Link提供了两种整合方法：
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### Sequencer编辑器性能改良
+#### Sequencer编辑器性能改良
 
 * 编译即时逻辑 - 现在，Sequencer能够根据需要从源数据完整或部分编译过期的求值模板。这将使在编辑器中使用Sequencer进行编译的效率更高。
 
 * 详细信息面板更新 - 现在，在Sequencer编辑器内进行拖动或播放时详细信息面板将延迟更新。
 
-### 细微改良
+#### 细微改良
 
 * 对“When Finished”的默认行为进行了新的.ini设置。 
 
@@ -283,7 +283,7 @@ DefaultCompletionMode=RestoreState
 
 * 现在，您可以将分段上拖一排，而不是只能下拉了。
 
-## 新增特性：地形渲染优化
+### 新增特性：地形渲染优化
 
 地形细节级别（LOD）系统已经过修改。现在，它不再根据距离，而是根据屏幕大小决定组件的细节，与静态网格体LOD系统的工作原理相似。LOD分配将基于屏幕中的大小为远景三角形给出更一致的尺寸，从而达到前所未有的精细度。
 
@@ -299,7 +299,7 @@ DefaultCompletionMode=RestoreState
 
 ![image alt text](image_15.png)(w:441 convert:false)
 
-## 新增特性：代理LOD系统（实验性）
+### 新增特性：代理LOD系统（实验性）
 
 全新的代理LOD系统是一款实验性插件，可为多个网格体生成带烘焙材质的低多边形LOD。新系统由HLOD使用，将替代Simplygon。 
 
@@ -316,7 +316,7 @@ DefaultCompletionMode=RestoreState
 
 
 
-## 新增特性：材质参数编辑和保存
+### 新增特性：材质参数编辑和保存
 
 现在，您能够**将参数值保存到材质编辑器和材质实例编辑器内的新子实例或兄弟实例中了！**
 
@@ -330,7 +330,7 @@ DefaultCompletionMode=RestoreState
 
 ![image alt text](image_19.png)(w:1000 convert:false)
 
-## 新增特性：材质分层（实验性）
+### 新增特性：材质分层（实验性）
 
 材质分层可以让您使用新材质图层和材质图层混合资源，**将材质组合在一个堆栈中**！这使用户能构建起正确的材质图表，无需手动构建节点分段。此功能与材质函数相似，但支持创建子实例。
 
@@ -355,13 +355,13 @@ DefaultCompletionMode=RestoreState
 材质分层是实验性功能，在 **项目设置（Project Settings）** **>渲染（Rendering）>实验性（Experimental）** 中将 **支持材质图层（Support Material Layers）** 设为true即可启用。
 
 欲知更多详情，请查看[论坛](https://forums.unrealengine.com/development-discussion/rendering/1414193-material-layering-feedback-for-4-19)相关讨论帖。欢迎大家使用，并为我们提供宝贵反馈！
-## 新增特性：“自动凸包”工具更新
+### 新增特性：“自动凸包”工具更新
 
 现在，使用自动凸包工具（Auto Convex Tool）生成静态网格体的简单碰撞时可指定 **最大凸包**，而非精准度。计算在静态网格体编辑器后台进行。自动凸包工具还将使用较新版本的V-HACD库，这可提供更为精确的结果。
 
 ![image alt text](image_21.png)(w:1000 convert:false)
 
-## 新增特性：使用纯曲线动画改良面部动画共享
+### 新增特性：使用纯曲线动画改良面部动画共享
 
 现在，您可以对曲线设置动画驱动姿势即可在多个角色之间共享面部动画，而无需借助任何骨骼变形。任何骨骼变形（即使带模网格体的参考姿势）均无法用于其他网格体。因此，在不同网格体之间共享曲线时需要将骨骼变形移除，从网格体自身的参考姿势开始着手。这样您才能在不同面部上共享面部曲线。 
 
@@ -427,7 +427,7 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 * **布料创建菜单现在默认使用骨架网格体物理资源。**
 
-## 新增特性：动画蓝图改良
+### 新增特性：动画蓝图改良
 
 我们对动画蓝图系统进行了数项易用性改良：
 
@@ -439,7 +439,7 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 * **新增骨架网格体组件上的原生动画实例选择**** - **现在，您可以在骨架网格体组件上设置原生动画实例了。在旧版本中，骨架网格体组件上只能设置动画蓝图。
 
-## 新增特性：动画工具改良
+### 新增特性：动画工具改良
 
 **在动画编辑器中新增可锁定的命令列表**
 
@@ -577,7 +577,7 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 * **在弹簧动画节点（Spring AnimNode）上将阻尼（Damping）和刚性（Stiffness）公开为引脚** - 现在，弹簧动画节点可将弹簧阻尼和弹簧刚性公开为引脚。
 
-## 新增特性：运动控制器组件可视化
+### 新增特性：运动控制器组件可视化
 
 虚幻引擎4.19版中的运动控制器拥有了一个全新的可视化类目，能让您快速（且简便）地将显示模型静态网格体添加到运动控制器。系统将默认尝试加载一个与驱动运动控制器的设备相匹配的静态网格体模型。
 
@@ -611,13 +611,13 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
     * 实现IXRSystemAssets接口来区分支持此功能的XR系统——目前只有Oculus和SteamVR支持此功能。
 
-## 新增特性：Vive Pro支持
+### 新增特性：Vive Pro支持
 
 ![image alt text](image_32.jpg)(w:1000 convert:false)
 
 现在，所有目前支持SteamVR的UE4内容均兼容HTC新发布的Vive Pro了！虽然将现有UE4项目用于Vive Pro时不需要进行任何修改，但您仍需确认项目在Vive Pro上的运行性能并依此进行优化（因为Vive Pro会以更高的分辨率运行）。 
 
-## 新增特性：平台SDK升级
+### 新增特性：平台SDK升级
 
 在每个更新版本中我们都将更新引擎，以支持平台合作伙伴的最新SDK版本。
 
@@ -667,7 +667,7 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 * **tvOS:** SDK 11
 
-## 新增特性：低输入延迟帧同步（Xbox One和PS4）
+### 新增特性：低输入延迟帧同步（Xbox One和PS4）
 
 低延迟帧同步（Low-latency frame syncing）模式可修改游戏、渲染和RHI线程之间的线程同步方式，将极大降低G消耗并控制输入延迟。您可使用r.GTSyncType（游戏线程同步类型）控制台变量来控制低延迟帧同步的效果。此控制台变量驱动全新帧同步机制的工作方式，并允许以下数值：
 
@@ -679,7 +679,7 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 如需了解更多信息，请查阅[低延迟帧同步（Low Latency Frame Syncing）](https://docs.unrealengine.com/en-us/Platforms/LowLatencyFrameSyncing)页面。
 
-## 新增特性：加密/签名密钥生成器
+### 新增特性：加密/签名密钥生成器
 
 现在，您可以通过单独的统一设置面板<strong>完全从编辑器配置.pak文件签名和加密</strong>。您可以在“项目（Project）”>“项目设置（Project Settings）”>“加密（Crypto）”面板中对这些功能进行控制。
 
@@ -695,13 +695,13 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 
 * **加密资源（Encrypt Assets）** - 完整加密pak文件中的所有资源。注意：此设置将对运行时文件I/O性能产生重大影响，并增加最终打包数据中的熵数量，使发布补丁系统的工作效率降低。
 
-## 新增特性：显示蓝图调试调用堆栈
+### 新增特性：显示蓝图调试调用堆栈
 
 显示当前已添加到开发者工具（Developer Tools）菜单的蓝图调用堆栈。双击调用堆栈中的条目将聚焦蓝图编辑器中相应的节点。
 
 ![image alt text](image_35.png)(w:1000 convert:false)
 
-## 新增特性：对蓝图调试的单步改良
+### 新增特性：对蓝图调试的单步改良
 
 The Engine’s Blueprint Debugger now supports **Step Into (F11)**, **Step Over (F10)**, and **Step Out (Alt+Shift+F11)** operations when stopped at a Blueprint Breakpoint, making debugging sessions quicker and easier.引擎的蓝图调试器现支持停留在蓝图断点时进行 **进入（Step Into）（F11）**、**越过（Step Over）（F10）** 和 **跳出（Step Out）（Alt+Shift+F11）** 操作，使调试会话更简易快捷。
 
@@ -727,7 +727,7 @@ The Engine’s Blueprint Debugger now supports **Step Into (F11)**, **Step Over 
 	[/PARAMLITERAL]
 [/OBJECT]
 
-## 新增特性：改良磁盘空间优化工具
+### 新增特性：改良磁盘空间优化工具
 
 新版本中新增和改良了数个工具，可用于分析打包游戏的磁盘和下载容量。“资源审核（Asset Audit）”窗口新增了“添加文件块（Add Chunks）”选项，可显示所有打包的Chunk/Pak文件。您还可以在此视图中使用“参考查看器（Reference Viewer）”和“尺寸图（Size Map）”，分析资源被加入特定文件块的原因。
 
@@ -855,11 +855,11 @@ Oculus Audio插件已更新，将支持Android。
 
 * **引擎将脱离PhysX进行纯净编译** - 可将WITH_PHYSX指令设为0，进行无误编译。 
 
-## 新增特性：iOS上的自动代码签名
+### 新增特性：iOS上的自动代码签名
 
 使用Xcode时的自动代码签名（Automatic Code Signing）已加入虚幻引擎4.19版。ACS加上Team ID后即可创建包，并进行iOS项目签名。Mac上未预安装移动条款同样能够使用，但Mac必须含有认证。开发团队仍然需要将iOS设备添加到Apple账户才能部署app，但使用此功能时无需再将移动条款下载并安装到Mac上。 
 
-## 新增特性：4.19版Android改良
+### 新增特性：4.19版Android改良
 
 * 添加代理网络支持。
 
@@ -867,7 +867,7 @@ Oculus Audio插件已更新，将支持Android。
 
 * 新增编译和打包项目前的NDK和SDK平台验证，更早告知编译是否成功。
 
-## 新增特性：内容浏览器的文件夹收藏
+### 新增特性：内容浏览器的文件夹收藏
 
 现在，您可以 **将内容浏览器中的任意文件夹标记为“收藏”** ，以便于访问！文件夹被标为收藏后，它将存入文件夹树结构上方的“收藏夹”部分。点击右键即可在此处添加/移除文件夹。
 
@@ -879,11 +879,11 @@ Oculus Audio插件已更新，将支持Android。
 
 ## RELEASE NOTES （以下部分不作翻译）
 
-#### AI
+### AI
 
 * Bug Fix: Fixed the On Perception Updated delegate to be correctly bindable to AI Perception Component.
 
-##### Behavior Tree
+### Behavior Tree
 
 * Bug Fix: Changed the order of the Behavior Tree tick to allow Blueprint-based nodes to update before processing search data.
 
@@ -895,7 +895,7 @@ Oculus Audio插件已更新，将支持Android。
 
 * New: Added a simple mechanism for logging Behavior Tree** **nodes that reference empty or removed Blackboard keys.
 
-##### Debugging Tools
+### Debugging Tools
 
 * New: Extended the EQS Testing Pawn with an option to specify navigation agent properties to support navigation-related EQS tests and features.
 
@@ -903,7 +903,7 @@ Oculus Audio插件已更新，将支持Android。
 
 * Bug Fix: Fixed some existing Visual Logging Blueprint functions.
 
-##### Navigation
+### Navigation
 
 * Bug Fix: Fixed cases where changes to Nav Mesh Bounds Volumes properties were not causing Nav Mesh to rebuild.
 
@@ -911,7 +911,7 @@ Oculus Audio插件已更新，将支持Android。
 
 * New: Made updates to allow the proper use of Nav Link Component via Blueprints.
 
-#### Animation
+### Animation
 
 * Crash Fix: Fixed a crash when opening Animation Compression settings for newly imported Alembic File.
 
@@ -999,7 +999,7 @@ Oculus Audio插件已更新，将支持Android。
 
 * New: Skeletal Mesh Render Data Get Max Bones Per Section is now an ENGINE_API exported function.
 
-##### Animation Assets
+#### Animation Assets
 
 * Crash Fix: Fixed a crash with streaming if a montage is streamed out while an event is queued.
 

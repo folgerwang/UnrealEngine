@@ -1,56 +1,16 @@
-﻿INTSourceChangelist:1903667
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:材质节点
-Crumbs:%ROOT%, Resources, Resources/ContentExamples
-Description:材质节点示例关卡概述
+Crumbs:%ROOT%, Resources
+Description:材质节点示例关卡概述。
+Description:An overview of the Material Nodes example level.
+Related:Engine/Rendering/Materials
+Related:Engine/Rendering/Materials\MaterialInputs
+Version: 4.9
+topic-image:MaterialNodes.png
 
 [TOC(start:2 end:2)]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialNodes:title%](MaterialNodes.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialNodes:title%](MaterialNodes.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-## 概述
-
-[REGION:fullwidth]
-
-[/REGION]
 
 欢迎来到 **材质节点** 示例关卡！ 本内容示例的设计目的旨在让您熟悉材质的不同可用输入，展示如何使用每个输入。
 
@@ -58,16 +18,16 @@ Description:材质节点示例关卡概述
 
 [INCLUDE:Resources\ContentExamples\ExampleLevelOverview#ExampleLevel]
 
-本关卡的所有内容示例均可互动。 对任意材质实例，您都可以通过鼠标左键来选中它们，然后通过列于下图中的 **Element 0** （元素0）下的 _Details_ （细节）面板中的Material（材质）进行双击来预览其材质。
+本关卡的所有内容示例均可互动。 对任意材质实例，您都可以通过鼠标左键来选中它们，然后通过列于下图中的 **Element 0** （元素0）下的 **细节** 面板中的Material（材质）进行 **双击** 来预览其材质。
 
 [REGION:fullwidth]
 ![](PreviewingMaterialsInCE.png)
 [/REGION]
 
 [EXCERPT:Topics]
+(#Examples)
 ## 示例
 
-[REGION:topics third]
 %Resources/ContentExamples/MaterialNodes/1_1:TopicCompact%
 %Resources/ContentExamples/MaterialNodes/1_2:TopicCompact%
 %Resources/ContentExamples/MaterialNodes/1_3:TopicCompact%
@@ -82,11 +42,4 @@ Description:材质节点示例关卡概述
 %Resources/ContentExamples/MaterialNodes/1_12:TopicCompact%
 %Resources/ContentExamples/MaterialNodes/1_13:TopicCompact%
 %Resources/ContentExamples/MaterialNodes/1_14:TopicCompact%
-[/REGION]
 [/EXCERPT:Topics]
-
-
-## 相关主题及扩展阅读
-
-* [](Engine/Rendering/Materials)
-* [](Engine/Rendering/Materials\MaterialInputs)

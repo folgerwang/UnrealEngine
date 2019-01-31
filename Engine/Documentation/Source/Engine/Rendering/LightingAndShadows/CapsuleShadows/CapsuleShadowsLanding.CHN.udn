@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3455313
+﻿INTSourceChangelist:4307291
 availability:Public
 title:胶囊体阴影
 description:虚幻引擎 4 中胶囊体阴影的着陆页面。
@@ -6,7 +6,7 @@ crumbs:
 version:4.15
 parent:Engine/Rendering/LightingAndShadows
 order:
-related: Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_4
+related: Engine/Rendering/LightingAndShadows/DistanceFields/HowTo/DFHT_4
 type:landing
 tags: Lighting
 topic-image:CapsuleShadows_Topic.png

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3108692
 Availability:Docs
-Title:2. OSVR Project Creation 
+Title:2.OSVR项目的创建 
 Crumbs:%ROOT%, Platforms/OSVR
-Description:Creating a UE4 project that can be used with OSVR.
+Description:创建一个可用于OSVR的UE4项目。
 Navigation:platform
 Skilllevel: Intermediate
 Version: 4.12
@@ -14,33 +14,33 @@ tags:OSVR
 
 [NAV]
 
-In this part of the OSVR Quick Start, we will go over how to create a new UE4 project that has the best settings for OSVR development.
+在OSVR快速入门（OSVR Quick Start）的这一部分，我们将介绍如何创建新的UE4项目，使其拥有适用于OSVR开发的最佳设置。
 
-1. From the UE4 Launcher make sure that you have UE4 version **4.12** or later downloaded and installed then press the **Launch** button to open the **Unreal Project Browser**.
+1. 在UE4启动器（UE4 Launcher）中，确保您下载并安装了UE4 **4.12** 或更高版本，然后按 **启动（Launch）** 按钮打开 **虚幻项目浏览器（Unreal Project Browser）**。
 
 	![](Platforms\GoogleVR\QuickStart\1\GVRQS_Launcher_00.png)
 
-1. In the Unreal Project Browser, go to the **New Project** section and select the **Blueprint** base project option.
+1. 在虚幻项目浏览器（Unreal Project Browser）中，转到 **新建项目（New Project）** 部分，并选择 **蓝图（Blueprint）** 基本项目选项。
 
 	![](Platforms\GoogleVR\QuickStart\1\GVRQS_New_Project_Options_00.png)
 
-1. Due to the demanding rendering requirements of VR in general, it is best to start out any new UE4 VR project with the following settings to ensure that your project will run at the correct frame rate right from the start. 
+1. 一般来说，由于VR的渲染要求很高，所以最好用以下设置开始执行任何新的UE4 VR项目，以确保您的项目从一开始就以正确的帧速率运行： 
 
 	![](Platforms\GoogleVR\QuickStart\1\GVRQS_New_Project_Options_01.png)
-	* **Blank Project**
-	* **Mobile / Tablet**
-	* **Scalable 3D / 2D**
-	* **No Starter Content**
+	* **空白项目（Blank Project）**
+	* **手机/平板电脑（Mobile / Tablet）**
+	* **可扩展3D/2D（Scalable 3D/2D）**
+	* **无初学者内容包（No Starter Content）**
 
-1. Set the location where the project will be created and also give the project a name. 
+1. 设置要创建项目的位置，并为项目命名。 
 
 	![](OSVR_Project_Settings_00.png)
 
-1. Finally, press the **Create Project** button that is located in the lower right-hand corner to create the project.
+1. 最后，按右下角的 **创建项目（Create Project）** 按钮以创建项目。
 
 	![](OSVR_Project_Settings_01.png)
 
-In the next section of the OSVR Quick Start, we will go over how to enable the OSVR plugin in UE4.
+在OSVR快速入门的下一部分中，我们将介绍如何在UE4中启用OSVR插件。
 
 
 

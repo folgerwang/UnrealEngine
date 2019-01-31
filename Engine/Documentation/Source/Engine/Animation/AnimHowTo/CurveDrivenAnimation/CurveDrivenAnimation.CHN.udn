@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3169600
+﻿INTSourceChangelist:3200922
 Availability:Public
 Title:曲线驱动动画
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -6,7 +6,7 @@ Description:说明如何使用动作资源和曲线数据新建由动画曲线�
 Related:Engine\Animation\AnimHowTo\CreatePoseAsset
 Related:Engine\Animation\Persona\AnimCurves
 Related:Engine\Animation\AnimPose
-version:4.13
+version:4.14
 skilllevel:Advanced
 
 
@@ -49,7 +49,7 @@ skilllevel:Advanced
 
 	![](CreatePoseAsset_Add01.png)
 
-1. 在 **Persona 工具栏** 中点击 **Create Asset** 并选择 **Create Animation** / **From Reference Pose**。 
+1. 在 **主工具栏** 中点击 **Create Asset** 并选择 **Create Animation** / **From Reference Pose**。 
 
 	![](CreatePoseAsset_4.png)
 
@@ -64,17 +64,6 @@ skilllevel:Advanced
 	![](AddLeftCurve.png)
 
 	我们现在便拥有了两个需要用曲线数据驱动的动作。 
-
-	[REGION:warning]
-	添加变量曲线时可能出现不带图表的曲线（类似下图），这是 4.13 版本中的一个问题所致： 
-	![](AddLeftCurve_b.png)
-
-	点击向下箭头并选择 **Convert to Variable Curve** 添加图表。此操作也将在图表中添加一个键。
-
-	![](KeyAutoAdded.png)
-
-	选中此键并按下 **Delete**，我们此后将手动进行添加。
-	[/REGION]
 
 1.	点击 **l_foot_fwd** 和 **r_foot_fwd** 曲线的 **Expand Window** 复选框。 
 
@@ -97,11 +86,12 @@ skilllevel:Advanced
 	在动画的开头，角色的右脚将向前迈出半步，然后切换至左脚向前。 
 	动画接近结束时，我们使用曲线数据再次驱动右脚向前动作，循环即可生成行走动作循环。 
 
-1. 如需预览带动作资源的动画，在 **Anim Asset Details** 面板中将当前的 **Preview Pose Asset** 设为使用 **ThirdPersonWalk_PoseAsset** 即可。 
+1. 如需预览带动作资源的动画，在 **Asset Details** 面板中将当前的 **Preview Pose Asset** 设为使用 **ThirdPersonWalk_PoseAsset** 即可。 
 
 	![](CreatePoseAsset_7.png)
 
 
+(#EndResult)
 ## 最终结果
 
 现在即可播放动画，查看由曲线数据混合的两个动作。 
@@ -114,7 +104,7 @@ skilllevel:Advanced
 360
 [/PARAMLITERAL]
 [PARAMLITERAL:videoid]
-cx5c7ZfIGfY
+7PRGvePzB2g
 [/PARAMLITERAL]
 [/OBJECT]
 

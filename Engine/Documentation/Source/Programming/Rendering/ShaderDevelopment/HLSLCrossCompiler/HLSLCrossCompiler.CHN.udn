@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2726994
+﻿INTSourceChangelist:3151855
 Availability:Public
 Title:HLSL 交叉编译器
 Crumbs:%ROOT%, Programming, Programming/Rendering, Programming/Rendering/ShaderDevelopment
 Description:有关用来将 HLSL 转换为 GLSL 的 HLSLCC 工具的信息。
 Version:4.9
+tags:Rendering
 
 
 这个库将 **高级着色语言 (HLSL)** 着色器源代码编译成高级中间表示法，执行独立于设备的优化，并生成 **OpenGL 着色语言 (GLSL)** 兼容源代码。这个库在很大程度上基于 Mesa 的 GLSL 编译器。前端已进行大量重新编写，以解析 HLSL 并根据 HLSL **抽象语法树 (AST)** 生成 Mesa IR。这个库利用 Mesa 的 IR 优化来简化代码，并根据 Mesa IR 最终生成 GLSL 源代码。GLSL 生成是以 GLSL 优化器中的工作为基础。
@@ -28,6 +29,7 @@ UnrealBuildTool 不会检测对外部库（例如 HLSLCC）进行的更改。
 |最终优化| 打包一致变量之后，将对 IR 运行第二遍优化，以简化打包一致变量时生成的代码。|
 |生成 GLSL| 最后，将经过优化的 IR 转换为 GLSL 源代码。从 IR 到 GLSL 的转换相对简单。除了生成所有构造及一致变量缓冲区的定义以及源代码本身以外，还会在文件开头的注释中写入一个映射表。虚幻引擎将解析这个映射表，以便绑定参数。有关详细信息，请参阅“生成 GLSL”，尤其是参阅 **ir_gen_glsl_visitor** 类。|
 
+(#Parsing)
 ## 解析
 
 HLSL 解析器分为两部分：词法分析器和解析器。词法分析器通过使正则表达式与相应的标记匹配，将 HLSL 输入标记化。源文件是 hlsl_lexer.ll，并由 flex 处理以生成 C 代码。每一行都以一个正则表达式开头，后跟以 C 代码编写的语句。该正则表达式匹配时，将执行相应的 C 代码。状态存储在许多以 "yy" 为前缀的全局变量中。
@@ -38,6 +40,7 @@ $$ = 解析此规则的结果，这通常是抽象语法树中的节点
 $1、$2，等等 = 当前规则所匹配的子规则的输出
 
 对词法分析器或解析器进行更改后，必须使用 flex 和 bison 重新生成 C 代码。GenerateParsers 批处理文件可处理此任务，但您必须根据系统上 flex 和 bison 的安装位置来设置目录。README 文件中包含的信息说明了使用的版本，以及可以从什么位置下载用于 Windows 的二进制文件。
+(#Compilation)
 ## 编译
 
 在编译期间，将遍历 AST 并使用 AST 来生成 IR 指令。您应掌握的一个重要概念是，IR 是非常低级别的操作序列。因此，它不会执行隐式转换或任何具有隐式转换性质的操作：所有操作都必须显式地执行。
@@ -69,6 +72,7 @@ $1、$2，等等 = 当前规则所匹配的子规则的输出
 **gen_texture_op** - 处理内置 HLSL 纹理和取样对象的方法调用。
 
 **_mesa_glsl_initialize_functions** - 生成 HLSL 内部函数的内置函数。大部分函数（例如 sin 和 cos）会生成 IR 代码以执行操作，但某些函数（例如 transpose 和 determinant）会保留函数调用以推迟操作，使其由驱动程序的 GLSL 编译器执行。
+(#ExtendingtheCompiler)
 ## 扩展编译器
 
 下面是一些有关实现某些类型的功能的提示：

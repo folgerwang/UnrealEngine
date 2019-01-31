@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3587677
-Availability:Docs
+﻿INTSourceChangelist:3728507
+Availability:Public
 Title:2 - Composure Actor 设置
 Crumbs:%ROOT%
 Description:在这步中，我们将对必需的蓝图和 Actor 进行设置。 
@@ -15,6 +15,7 @@ tags:Composure
 
 上一部分中我们添加了需要的灯光资源，以照亮场景便于观察。在这部分中，我们将添加必需的 Actor 和蓝图，以便使用 Composure。
 
+(#Steps)
 ## 步骤
 
 1. 在 **Modes** 面板中找到 **Cine Camera Actor** 并将其拖入关卡，放置在世界场景中 0,0,0 的坐标位置。
@@ -60,6 +61,7 @@ tags:Composure
     点击查看全图。
     [/REGION]
 
+(#EndResult)
 ## 最终结果
 
 必需的蓝图和 Actor 放置到关卡中后，下一部分我们将进行设置，使 Sequencer 能够与 Composure 共用。

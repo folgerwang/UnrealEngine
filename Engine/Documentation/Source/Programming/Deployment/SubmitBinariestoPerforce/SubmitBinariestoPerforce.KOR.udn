@@ -1,0 +1,23 @@
+INTSourceChangelist:4499768
+Availability: Public
+Crumbs: 
+Title: Perforce 에 바이너리 제출
+Description: 사용자가 Perforce 에 바이너리를 제출하는 방법을 설명합니다.
+Type: 
+Version: 4.19
+Parent: Programming/Deployment
+Order: 4
+Tags: 
+
+
+빌드 시스템이 아티스트용 에디터 바이너리를 Perforce 에 올리도록 하려는 경우, `Engine\Build\Graph\Examples\BuildEditorAndTools.xml` 의 [BuildGraph](Programming/Development/BuildGraph) 스크립트 예제에서 바이너리를 컴파일하고 스테이징 디렉터리에 복사한 뒤 (옵션으로) Perforce 에 제출하는 데모를 확인할 수 있습니다.
+
+거기서 사용할 수 있는 여러가지 옵션에 대한 문서와 사용 예는 스크립트 상단에 표시되어 있습니다.
+
+## 에픽의 히스토리
+
+에픽에서도 이 디플로이 방법을 사용했었지만, 전환한 이유는 다음과 같습니다.
+
+*   보통 미리 컴파일한 바이너리는 크기가 커서 동기화 시간이 오래 걸리므로 엔지니어가 선호하지 않습니다. 현장에 없는 개발자나 원격 스튜디오라면 더욱 그렇습니다. 
+*   콘텐츠와 엔진 스트림이 엮인 스트림에 바이너리를 제출하면, 동기화 도중 업데이트되는 타임스탬프로 인해 로컬에서 빌드하지 않은 바이너리와 로컬에서 빌드한 바이너리가 섞여 오류가 생길 수 있습니다. 운영 체제는 일치하지 않는 DLL 사이에서 올바른 임포트와 익스포트를 찾지 못합니다. 
+*   모듈을 제거해도 구버전 바이너리가 그대로 Perforce 에 제출되고 엔진도 계속 로드 시도할 수 있습니다 (예: `UE4Editor-*ShaderFormat.dll`).

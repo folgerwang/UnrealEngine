@@ -9,17 +9,13 @@ Order:
 Tags:Materials
 Topic-image:Utility_topic.png
 
-
 [EXCERPT:TOC]
 [TOC(start:2 end:2)]
 [/EXCERPT:TOC]
 
-
 **Utility Expressions** nodes are nodes that can affect Materials in a number of different ways than one might be used to. For example the GIReplace node will Replace an objects indirect bounce color with a given value you input while the Linear Interpolate node will help blend between two Textures based on an Alpha input. On the following page you will find detailed descriptions for all of the Utility Expressions nodes that are available in the UE4 Material Editor.
 
-
 ## A - H
-
 
 [EXCERPT:AntialiasedTextureMask]
 ### AntialiasedTextureMask
@@ -34,7 +30,6 @@ The **AntialiasedTextureMask** expression allows you to create a material using 
 | **Texture** | Specifies the mask texture to use. |
 | [REGION:tablesection]Inputs[/REGION] ||
 | **UVs** | Takes in texture coordinates to apply to the texture mask. |
-
 
 **Pseudo code:**
 
@@ -55,12 +50,6 @@ The technique works best in magnification and with blurred input content. Compre
 
 [/EXCERPT:AntialiasedTextureMask]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### BlackBody
 
 The **BlackBody** expression simulates the effects of [black body radiation](http://en.wikipedia.org/wiki/Black-body_radiation) within your Material. The user inputs a temperature (in Kelvin) and the resulting color and intensity can be used to drive Base Color and Emissive values to get a physically accurate result. 
@@ -69,17 +58,11 @@ The **BlackBody** expression simulates the effects of [black body radiation](htt
 ![](BlackBody.png)
 [/REGION]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 ### BumpOffset
 
 [EXCERPT:BumpOffset]
 **BumpOffset** is the Unreal Engine 4 term for what is commonly known as 'Parallax Mapping'.  The Bump Offset expression allows a material to give the illusion of depth without the need for additional geometry.  BumpOffset materials use a grayscale _heightmap_ to give depth information.  The brighter the value in the heightmap, the more 'popped out' the material will be; these areas will parallax (shift) as a camera moves across the surface.  Darker areas in the heightmap are 'further away' and will shift the least.
 [/EXCERPT:BumpOffset]
-
 
 | Item | Description |
 | -------- | ----------- |
@@ -95,12 +78,6 @@ The **BlackBody** expression simulates the effects of [black body radiation](htt
 ![BumpOffsetExample.png](BumpOffsetExample.png)
 [/REGION]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### ConstantBiasScale
 
 The **ConstantBiasScale** expression takes an input value, adds a bias value to it, and then multiplies it by a scaling factor outputting the result.  So for example, to convert input data from [-1,1] to [0,1] you would use a bias of 1.0 and a scale of 0.5.
@@ -111,34 +88,15 @@ The **ConstantBiasScale** expression takes an input value, adds a bias value to 
 | **Bias** | Specifies the value to be added to the input. |
 | **Scale** | Specifies the multiplier for the biased result. |
 
-
 ![ConstantBiasScaleExample.png](ConstantBiasScaleExample.png)
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### DDX
 
 The **DDX** expression exposes DDX derivative calculation, a GPU hardware feature used in pixel shader calculation.
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### DDY
 
 The **DDY** expression exposes DDX derivative calculation, a GPU hardware feature used in pixel shader calculation.
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### DepthFade
 
@@ -168,12 +126,6 @@ The **DepthFade** expression is used to hide unsightly seams that take place whe
 Click image for full size view. 
 [/REGION]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### DepthOfFieldFunction
 
 The **Depth of Field Function** expression is designed to give artists control over what happens to a Material when it is being blurred by Depth of Field. It outputs a value between 0-1 such that 0 represents "in focus" and 1 represents "completely blurred." This is useful for interpolating between sharp and blurry versions of a texture, for instance. The Depth input allows for the existing results from the scene's Depth of Field calculations to be overridden by other calculations.
@@ -194,12 +146,6 @@ The **Depth of Field Function** expression is designed to give artists control o
 Click image for full size view. 
 [/REGION]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 [EXCERPT:Desaturation]
 ### Desaturation
 
@@ -212,19 +158,12 @@ The **Desaturation** expression desaturates its input, or converts the colors of
 | [REGION:tablesection]Inputs[/REGION] ||
 | **Fraction** | Specifies the amount of desaturation to apply to the input. Percent can range from 0.0 (fully desaturated) to 1.0 (full original color, no desaturation). |
 
-
 ![DesaturationExample.png](DesaturationExample.png)
 
 [REGION:note]
 **Programmers:** Define desaturated color `D`, input color `I` and luminance factor `L`.  The output will be `O = (1 - Percent)*( D.dot( I )) + Percent * I`
 [/REGION]
 [/EXCERPT:Desaturation]
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 [EXCERPT:Distance]
 ### Distance
@@ -250,12 +189,6 @@ The **Distance** expression computes the (Euclidian) distance between two points
 	float Result = sqrt (dot (A-B, A-B))
 	
 [/EXCERPT:Distance]
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### DistanceFieldGradient
 
@@ -292,23 +225,11 @@ The image below shows what data the DistanceFieldGradient will use when the vari
 Click image for full size view. 
 [/REGION]
 
-[COMMENT:none]
--
-![](DistanceFieldGradient_Example.png)
--
-[/COMMENT]
-
 | Number | Description |
 | -------- | ----------- |
 | **1**  | Enabling the R channel and disabling all other channels. |
 | **2**  | Enabling the G channel and disabling all other channels. |
 | **3**  | Enabling the B channel and disabling all other channels. |
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### DistanceToNearestSurface
 
@@ -325,7 +246,6 @@ This Material Expression works by outputting the signed distance in world space 
 
 Here is an example of the **Distance To Nearest Surface** Material Expression in action. 
 
-
 [Region:lightbox]
 [![](DistanceNearSurface_01.png)(w:960)](DistanceNearSurface_01.png)
 [/Region]
@@ -337,12 +257,6 @@ Click image for full size view.
 
 In this example the Distance To Nearest Surface was fed into the Opacity input on a Material and that Material was applied to a Static Mesh plane that was placed just above the levels floor. 
 What the Distance To Nearest Surface is doing is telling the Material to only color areas red were the Static Meshes plane will start to intersect other Static Meshes placed in the scene.
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 [EXCERPT:FeatureLevelSwitch]
 ### FeatureLevelSwitch
@@ -362,12 +276,6 @@ The **Feature Level Switch** node allows you to make simplified materials for lo
 
 [/EXCERPT:FeatureLevelSwitch]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### Fresnel
 
 The **Fresnel** expression calculates a falloff based on the dot product of the surface normal and the direction to the camera. When the surface normal points directly at the camera, a value of 0 is output. When the surface normal is perpendicular to the camera, a value of 1 is output. The result is clamped to [0,1] so you do not have any negative color in the center.
@@ -382,14 +290,7 @@ The **Fresnel** expression calculates a falloff based on the dot product of the 
 | **Base Reflect Fraction** | Specifies the fraction of specular reflection the surface is viewed from straight on. A value of 1 effectively disables the Fresnel effect. If used, value will always supersede the Exponent property value. |
 | **Normal** | Takes in a three-channel vector value representing the normal of the surface, in world space. To see the results of a normal map applied to the surface of the Fresnel object, connect the normal map to the Normal input of the material, then connect a (PixelNormalWS)[Engine/Rendering/Materials/ExpressionReference/Vector#PixelNormalWS] expression to this input on the Fresnel. If no normal is specified, the tangent normal of the mesh is used. |
 
-
 ![FresnelExample.png](FresnelExample.png)
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 [EXCERPT:GIReplace]
 ### GIReplace
@@ -407,22 +308,9 @@ The **Fresnel** expression calculates a falloff based on the dot product of the 
 
 [INCLUDE:Engine\Rendering\LightingAndShadows\LightPropagationVolumes#gireplaceexample]
 
-
 [/EXCERPT:GIReplace]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ## I - P
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### LightmassReplace
 
@@ -433,12 +321,6 @@ The **LightmassReplace** expression simply passes through the Realtime input whe
 | [REGION:tablesection]Inputs[/REGION] ||
 | **Realtime** | Takes in the value(s) to pass through for normal rendering. |
 | **Lightmass** | Takes in the value(s) to pass through when exporting the material to Lightmass. |
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 [EXCERPT:LinearInterpolate]
 ### LinearInterpolate
@@ -456,17 +338,10 @@ The **LinearInterpolate** expression blends between two input value(s) based on 
 | **B** | Takes in the value(s) mapped to white (1.0). |
 | **Alpha** | Takes in the value to use as the mask alpha. |
 
-
 **Programmers:** LinearInterpolate does a per-channel lerp between A and B based on the parametric value Alpha.
 
 ![LerpExample.png](LerpExample.png)(w:900)
 [/EXCERPT:LinearInterpolate]
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### Noise
 
@@ -506,12 +381,6 @@ The **Noise** expression creates a procedural noise field, giving you control ov
 [/EXCERPT]
 
 [/COMMENT]
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### Previous Frame Switch
 
@@ -555,19 +424,7 @@ In this example, the Previous Frame Switch is using a constant value to control 
 In this example, you can see how this is being used in Epic's own games, like Fortnite, to control the motion blur with a Vertex Animation that assembles on screen. 
 The animation on the right is using Previous Frame Switch to add some motion blur, while the animation on the left is not.
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ## Q - Z
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 ### QualitySwitch
 
@@ -579,12 +436,6 @@ The **QualitySwitch** expression allows for the use of different expression netw
 | Default | This input is used for networks designed for default visual quality. |
 | Low | This input is used for networks designed for lower visual quality. |
 | High | This input is used for networks designed for higher visual quality. |
-
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
 
 [EXCERPT:RotateAboutAxis]
 ### RotateAboutAxis
@@ -607,12 +458,6 @@ In the above example, the preview plane would appear to spin on its vertical axi
 
 [/EXCERPT:RotateAboutAxis]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### SphereMask
 
 The **SphereMask** expression outputs a mask value based on a distance calculation. If one input is the position of a point and the other input is the center of a sphere with some radius, the mask value is 0 outside and 1 inside with some transition area. This works on one, two, three, and four component vectors
@@ -631,16 +476,9 @@ The **SphereMask** expression outputs a mask value based on a distance calculati
 [/REGION]
 [REGION:caption] In this example, the preview object will smoothly fade to black as the camera exceeds 256 units away from it. [/REGION]
 
-
-[COMMENT:none]
------------------------------------------------------
-[/COMMENT]
-
-
 ### Vector Noise
 
 [INCLUDE:Engine\Rendering\Materials\ExpressionReference\Vector#VectorNoiseTest]
-
 
 [COMMENT:none]
 
@@ -656,66 +494,3 @@ The **SphereMask** expression outputs a mask value based on a distance calculati
 [/EXCERPT]
 
 [/COMMENT]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

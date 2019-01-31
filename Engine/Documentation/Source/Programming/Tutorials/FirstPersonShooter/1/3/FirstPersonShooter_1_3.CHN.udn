@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.3 - 添加日志消息
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/1
 Description:学习如何在游戏中添加日志消息。
 SkillLevel:Beginner
-Version:4.11
+Version: 4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -26,6 +26,7 @@ Version:4.11
 
 为 `FPSGameMode` 添加日志消息后即可开始在项目中添加代码。日志消息大有用处，可在开发中对代码进行验证和调试。此步骤中，我们将使用日志消息验证实际使用的是 `FPSGameMode`，而非虚幻引擎提供的默认 `Game Mode`。
 
+(#FPSProjectGameModeHeaderFile)
 ## FPSProjectGameMode 头文件
 
 1.	在 **Solution Explorer**，展开 **FPSProject > Source > FPSProject**。
@@ -37,7 +38,7 @@ Version:4.11
 1.	类声明应类似于以下代码：
 
 		UCLASS()
-		class FPSPROJECT_API AFPSGameMode : public AGameMode
+		class FPSPROJECT_API AFPSGameMode : public AGameModeBase
 		{
 			GENERATED_BODY()
 		};
@@ -54,14 +55,14 @@ Version:4.11
 		
 		#pragma once
 		
-		#include "GameFramework/GameMode.h"
-		#include "FPSGameMode.generated.h"
+		#include "GameFramework/GameModeBase.h"
+		#include "FPSProjectGameMode.generated.h"
 		
 		/**
 		 * 
 		 */
 		UCLASS()
-		class FPSPROJECT_API AFPSProjectGameMode : public AGameMode
+		class FPSPROJECT_API AFPSProjectGameMode : public AGameModeBase
 		{
 			GENERATED_BODY()
 
@@ -70,6 +71,7 @@ Version:4.11
 
 1.	在 Visual Studio 中保存头文件。
 
+(#FPSProjectGameModeCPPFile)
 ## FPSProjectGameMode CPP 文件
 
 1.	在 **Solution Explorer** 中找到 `FPSProjectGameMode.cpp`（**FPSProject > Source > FPSProject**）。

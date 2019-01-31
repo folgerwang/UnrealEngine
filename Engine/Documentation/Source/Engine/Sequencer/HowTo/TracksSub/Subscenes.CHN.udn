@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2999683
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:子场景和合成
 Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,6 +10,8 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
 
 在制作过场的过程中，经常会有好几个人同时处理一个场景的不同方面。 
 Sequencer 通过 **子场景轨道** 支持这种工作流程，它允许您使 **关卡序列** 相互分层叠加，产生一个最终序列。 
@@ -20,6 +22,7 @@ Sequencer 通过 **子场景轨道** 支持这种工作流程，它允许您使 
 在这个示例中，我们使用子场景轨道和多个关卡序列的合成生成一个小场景。 
 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -162,6 +165,7 @@ Sequencer 通过 **子场景轨道** 支持这种工作流程，它允许您使 
 
 1. 	单击 **播放（Play）**按钮在编辑器中播放。 
 
+(#EndResult)
 ## 最终结果
 
 在编辑器中播放时，你将看到角色向前行走，每一步都会产生一次爆炸。 

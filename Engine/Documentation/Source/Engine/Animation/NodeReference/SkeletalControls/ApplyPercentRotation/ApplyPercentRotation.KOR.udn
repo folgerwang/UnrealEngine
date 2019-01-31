@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:회전 백분율 적용
+Title:Apply a Percentage of Rotation
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:Apply a Percentage of Rotation 를 통해 타깃 본의 회전을 지정된 스켈레톤 내 다른 본의 회전 백분율로 구동시키는 법에 대한 설명입니다.
 version: 4.12
@@ -8,7 +8,7 @@ topic-image:node_applypercent.png
 
 
 
-**Apply a Percentage of Rotation** 컨트롤은 타깃 본의 회전을 지정된 스켈레톤 내 다른 본의 회전 백분율로 
+**Apply a Percentage of Rotation** (회전 백분율 적용) 컨트롤은 타깃 본의 회전을 지정된 스켈레톤 내 다른 본의 회전 백분율로 
 구동시켜 줍니다.
 
 ![Apply Percentage of Rotation](node_applypercent.png)

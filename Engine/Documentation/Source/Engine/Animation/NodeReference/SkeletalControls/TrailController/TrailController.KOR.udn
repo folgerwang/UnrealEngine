@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:트레일 컨트롤러
+Title:Trail Controller
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:본 체인에 영향을 끼치는데 사용되는 Trail Controller 노드 사용법입니다.
 version: 4.12

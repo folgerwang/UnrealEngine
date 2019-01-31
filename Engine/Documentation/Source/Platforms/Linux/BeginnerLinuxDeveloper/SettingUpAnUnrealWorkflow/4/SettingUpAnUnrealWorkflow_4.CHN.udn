@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3332303
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4 - 在 Linux 上运行 UE4
 Crumbs:
@@ -32,18 +32,21 @@ SkillLevel:Beginner
 
 [INCLUDE:Programming/Development/BuildingUnrealEngine#linuxrun]
 
+(#LaunchingUE4onLinux)
 ## 在 Linux 上启动 UE4
 
 因为您是从 Linux 的源代码编译引擎，因此启动 UE4 后引擎将进行数分钟的着色器编译。
 
 ![](howTo_compilingshaders.png)
 
+(#CreatingyourFirstProject)
 ## 创建首个项目
 
 如您尚未设置与 UE4 兼容的整合开发环境（IDE），建议先从创建 **蓝图** 项目开始。 
 
 ![](howTo_creatingprrjwithoutIDE.png)
 
+(#EndResult)
 ## 最终结果
 
 ![](howTo_endResult.png)

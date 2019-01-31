@@ -1,0 +1,151 @@
+﻿INTSourceChangelist:4687484
+Availability: Public
+Crumbs: 
+Title: 打包Android项目
+Description: 学习如何打包最终的Android项目。
+Type: 
+Version: 4.19
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Guides
+
+
+(#steps)
+
+## 步骤
+
+以下指南将说明如何打包整个UE4 Android项目，以便部署到Android设备。
+
+[REGION:note]
+当前我们是在 **开发（Development）** 下进行打包，因为需要对游戏进行测试。游戏完成后即可在 **打包项目（Package Project）** 菜单中选择 **编译配置（Build Configurations）**，在 **发布（Shipping）** 下进行打包。
+[/REGION]
+
+1.  在 **文件（File）** 菜单中，前往 **打包项目（Package Project） > Android** 并选择需要打包的纹理格式。在此例中，我们将选择所有设备支持的Android **ETC1**。
+    
+    [REGION:lightbox]
+    [![](package_menu.png)(w:300px data-verified=)](package_menu.png)
+    [/REGION]
+    [REGION:note]
+    取决于运行的硬件，不同设备支持不同的纹理格式。参阅[Android开发参考](Platforms/Android/Reference)了解诸多格式的详解。
+    [/REGION]
+    
+    | **格式** | **描述** |
+    | --- | --- |
+    | **ETC1** | 所有Android设备均支持，但无法压缩透明纹理（其保存为未压缩）。如果需要透明度来获得更好的压缩，建议使用RGB和单独的透明纹理。 |
+    | **ETC2** | 所有OpenGL 3.x类设备均支持，并支持透明度压缩。 |
+    | **ATC** | Qualcomm Adreno GPUs支持，并支持透明度压缩。 |
+    | **DXT** | Nvidia Tegra GPUs支持，并支持透明度压缩。 |
+    | **PVRTC** | PowerVR GPUs支持，并支持透明度压缩。 |
+    | **ASTC** | 最新的纹理压缩格式，可指定块大小来进行质量控制，支持透明度压缩。当前可在部分设备上使用。 |
+    
+        
+2.  此时将弹出提示选择保存打包游戏的路径。在桌面上新建一个文件夹，将其选为保存项目的位置。  
+    [REGION:lightbox]
+    [![](package_folder.png)(w:200px)](package_folder.png)
+    [/REGION]
+3.  项目正在被打包时，右下角将出现一条打包消息，显示打包的进度。  
+    ![](package_toast.png)
+4.  打包成功后，编辑器右下角将出现一条“打包完成”消息。  
+    ![](Packageing_Completed.png)
+5.  前往在第二步中创建的文件夹，此文件夹中应有一个新文件夹，其命名由打包时选择的纹理类型所决定。在此例中，文件夹的命名是 **Android_ETC1**。  
+    [REGION:lightbox]
+    [![](Android_ECT1_Folder.png)(w:300px)](Android_ECT1_Folder.png)
+    [/REGION]
+6.  打开Android_ETC1文件夹，然后 **双击** **Install_\[ProjectName\]_Development.bat** 批处理文件将项目安装到Android设备上。  
+    [REGION:lightbox]
+    [![](Install_Bat.png)(w:300)](Install_Bat.png)
+    [/REGION]
+    [REGION:note]
+    必须使用USB连接线将Android设备插入开发电脑，才能将项目部署到设备。如果未插入设备，运行.BAT文件没有任何作用。
+    [/REGION]
+
+[REGION:note]
+当前我们是在 **开发（Development）** 下进行打包，因为需要对游戏进行测试。游戏完成后即可在 **打包项目（Package Project）** 菜单中选择 **编译配置（Build Configurations）**，在 **发布（Shipping）** 下进行打包。
+[/REGION]
+
+1.  在 **文件（File）** 菜单中，前往 **打包项目（Package Project） > Android** 并选择需要打包的纹理格式。在此例中，我们将选择所有设备支持的Android **ETC1**。
+    [REGION:lightbox]
+    [![](AQS_Mac_01.png)(w:300px)](AQS_Mac_01.png)
+    [/REGION]
+    [REGION:note]
+    取决于运行的硬件，不同设备支持不同的纹理格式。参阅[Android开发参考](Platforms/Android/Reference)了解诸多格式的详解。
+    [/REGION]
+    
+  | **格式** | **描述** |
+  | --- | --- |
+  | **ETC1** | 所有Android设备均支持，但无法压缩透明纹理（其保存为未压缩）。如果需要透明度来获得更好的压缩，建议使用RGB和单独的透明纹理。 |
+  | **ETC2** | 所有OpenGL 3.x类设备均支持，并支持透明度压缩。 |
+  | **ATC** | Qualcomm Adreno GPUs支持，并支持透明度压缩。 |
+  | **DXT** | Nvidia Tegra GPUs支持，并支持透明度压缩。 |
+  | **PVRTC** | PowerVR GPUs支持，并支持透明度压缩。 |
+  | **ASTC** | 最新的纹理压缩格式，可指定块大小来进行质量控制，支持透明度压缩。当前可在部分设备上使用。 |
+           
+2.  此时将弹出提示选择保存打包游戏的路径，默认为项目文件夹。新建一个文件夹并命名为 **Android_Builds**。  
+    [REGION:lightbox]
+    [![](AQS_Mac_02.png)(w:300px)](AQS_Mac_02.png)
+    [/REGION]
+3.  项目正在被打包时，右下角将出现一条打包消息，显示打包的进度。  
+    ![](package_toast.png)
+4.  打包成功后，编辑器右下角将出现一条“打包完成”消息。  
+    ![](Packageing_Completed.png)
+5.  前往在第二步中创建的文件夹，此文件夹中应有一个新文件夹，其命名由打包时选择的纹理类型所决定。在此例中，文件夹的命名是 **Android_ETC1**。
+    [REGION:lightbox]
+    [![](MAC_Install_Folder.png)(w:300px)](MAC_Install_Folder.png)
+    [/REGION]
+6.  打开Android_ETC1文件夹，然后 **双击** **Install_\[ProjectName\]\_Development\_armv7-es3.command** 文件将项目安装到Android设备上。  
+    
+    [REGION:note]
+    必须通过USB将Android设备插入开发电脑，才能将项目部署到设备。如果未插入设备，运行.command文件没有任何作用。
+    [/REGION]
+
+1.  打开 **文件（File）** 菜单，下拉至 **打包项目（Package Project）**，将鼠标悬停在 **Android** 上，然后选择 **Android (ETC1)**。  
+    [![](LinuxAndroid_Step31.png)(w:720)](LinuxAndroid_Step31.png)
+    [REGION:note]
+    取决于运行的硬件，不同设备支持不同的纹理格式。参阅[Android开发参考](Platforms/Android/Reference)了解诸多格式的详解。
+    [/REGION]
+    
+    | **格式** | **描述** |
+    | --- | --- |
+    | **ETC1** | 所有Android设备均支持，但无法压缩透明纹理（其保存为未压缩）。如果需要透明度来获得更好的压缩，建议使用RGB和单独的透明纹理。 |
+    | **ETC2** | 所有OpenGL 3.x类设备均支持，并支持透明度压缩。 |
+    | **ATC** | Qualcomm Adreno GPUs支持，并支持透明度压缩。 |
+    | **DXT** | Nvidia Tegra GPUs支持，并支持透明度压缩。 |
+    | **PVRTC** | PowerVR GPUs支持，并支持透明度压缩。 |
+    | **ASTC** | 最新的纹理压缩格式，可指定块大小来进行质量控制，支持透明度压缩。当前可在部分设备上使用。 |
+            
+2.  **打开目录（Open Directory）** 菜单出现后，用 **新建文件夹（New Folder）** 按钮新建一个名为 `Android_Builds` 的文件夹。  
+    [![](LinuxAndroid_Step32.png)(w:720)](LinuxAndroid_Step32.png)
+3.  点击 **打开（Open）** 按钮开始打包进程。  
+    [![](LinuxAndroid_Step33.png)(w:720)](LinuxAndroid_Step33.png)
+4.  UE4打包项目时，右下角将出现一个进度显示。  
+    [![](LinuxAndroid_Step34.png)(w:720)](LinuxAndroid_Step34.png)
+5.  打包进程结束后将出现消息，提示打包进程已完成。  
+    [![](LinuxAndroid_Step35.png)(w:720)](LinuxAndroid_Step35.png)
+6.  导航至 **Android_Builds** 文件夹，可在此处看到一个名为 **Android_ETC1** 的文件夹。  
+    ![](LinuxAndroid_Step36.png)
+7.  打开 **Android_ETC1** 文件夹，其中便是打包过程中生成的文件。  
+    ![](LinuxAndroid_Step37.png)  
+    此处有 **Installation** 和 **Uninstallation** shell脚本（\*.sh），以及包含将项目安装到Android设备（支持ETC1压缩方案）所需全部文件的Android应用程序包（\*.apk）。
+8.  在文件夹中点击右键并选择 **在终端中打开（Open in Terminal）**，在此文件夹的路径中打开终端。  
+    ![](LinuxAndroid_Step38.png)
+9.  在终端中输入 `./Install_LinuxAndroidProject_Development-arm64.es2.sh`，将项目安装到Android设备上。  
+    [![](LinuxAndroid_Step39.png)(w:900)](LinuxAndroid_Step39.png)
+    [REGION:note]
+    如果运行shell脚本存在问题，尝试在终端中输入 `adb devices`，验证设备已连接到电脑。
+    [/REGION]
+10.  安装进程中，shell脚本将把以下输入发送至终端。  
+    [![](LinuxAndroid_Step40.png)(w:900)](LinuxAndroid_Step40.png)
+    [REGION:note]
+    Shell脚本完成安装进程后，将出现 **安装成功** 消息。
+    [/REGION]
+
+(#endresult)
+
+## 最终结果
+
+操作完成后，现在即可将包含UE4项目的.APK文件通过.BAT文件部署到任意基于Android的智能手机，如下图所示。  
+[REGION:lightbox]
+[![](Game_On_Phone.png)(w:200px)](Game_On_Phone.png)
+[/REGION]

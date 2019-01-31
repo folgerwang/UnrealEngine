@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 物理资源编辑器：工具与配置文件
@@ -22,6 +22,7 @@ Tags:Physics
 ![](ToolsAndProfiles.png)(w:450)
 
 
+(#Toolstab)
 ## 工具（Tools）选项卡
 
 **工具（Tools）** 选项卡使你能够对物理资源进行批量编辑。包括为整个骨架或[骨架树](Engine/Physics/PhAT/SkeletonTree)中的所选形体添加、生成或重新生成形体。
@@ -29,6 +30,7 @@ Tags:Physics
 ![](Tools.png)
 
 
+(#BodyCreationSettings)
 ### 形体创建（Body Creation）设置
 
 为形体创建或编辑基本形状、大小和执行更多操作时的可用选项如下：
@@ -69,6 +71,7 @@ Tags:Physics
 -
 [/COMMENT]
 
+(#ConstraintCreationSettings)
 ### 约束创建（Constraint Creation）设置
 
 创建或编辑形体的约束时的可用选项如下：
@@ -96,6 +99,7 @@ Tags:Physics
 [/COMMENT]
 
 
+(#BodyGenerationOptions)
 #### 形体生成（Body Generation）选项
 
 为 **形体创建（Body Creation）** 和 **约束创建（Constraint Creation）** 类别设置好属性后，任何选中的形体、约束或骨骼都将显示添加、生成或重新生成形体的操作。
@@ -111,6 +115,7 @@ Tags:Physics
 [/REGION]
 
 
+(#profilestab)
 ## 配置文件（Profiles）选项卡
 
 物理资源 **配置文件（Profiles）** 选项卡使你能够查看、选择和编辑 **物理动画** 和 **约束** 的一系列设置，这些设置可以保存到配置文件中，然后指定给[骨架树](Engine/Physics/PhAT/SkeletonTree)中的选中形体或约束。
@@ -124,6 +129,7 @@ Tags:Physics
 
 
 
+(#CurrentProfile)
 ### 当前配置文件（Current Profile）
 
 在 **当前配置文件（Current Profile）** 下拉菜单中你可以查找任何已创建的新配置文件或现有配置文件。选择好配置文件后，从配置文件列表中将其删除和为选中的形体或约束指定或取消指定配置文件的选项都将变为可用状态。
@@ -151,6 +157,7 @@ Tags:Physics
 [/REGION]
 
 
+(#currentprofileassignment)
 #### 当前配置文件（Current Profile）指定
 
 为形体或约束指定配置文件后，你可以在几个地方查看指定的状态：
@@ -181,6 +188,7 @@ Tags:Physics
 
 
 
+(#PhysicalAnimationProfiles)
 #### 物理动画（Physical Animation）配置文件
 
 当选中了形体并指定了“物理动画（Physical Animation）”配置文件时，以下选项将变为可用状态：
@@ -199,6 +207,7 @@ Tags:Physics
 | **Max Angular Force**         | 用于更正角度误差的最大力。           |
 [/REGION]
 
+(#ConstraintProfiles)
 #### 约束配置文件
 
 当选中了约束并指定了“约束配置文件（Constraints Profile）”时，以下选项将变为可用状态：  
@@ -213,6 +222,7 @@ Tags:Physics
 [/REGION]
 
 
+(#Thumbnail)
 ### 缩略图
 
 控制物理资源的缩略图像在 **内容浏览器（Content Browser）** 中的显示方式。你可以控制缩略图的Pitch、Yaw和缩放。 
@@ -223,6 +233,7 @@ Tags:Physics
 
 ![](CB_Thumbnail.png)
 
+(#Physics)
 ### 物理（Physics）
 
 以下选项将变为可用状态并将应用到所有已指定的配置文件。

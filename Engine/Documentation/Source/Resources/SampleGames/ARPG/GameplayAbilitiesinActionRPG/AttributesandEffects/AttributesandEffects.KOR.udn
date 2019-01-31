@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:4381169
+Availability: Public
+Crumbs: 
+Title: ARPG 의 어트리뷰트와 이펙트
+Description: ARPG 에서 어트리뷰트와 이펙트를 어떻게 사용했는지 살펴봅니다.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 1
+Tags: 
+
+
+Action RPG (ARPG)에서 어빌리티 시스템을 사용하기 위한 첫 단계는 **GameplayAbilities** (게임플레이 어빌리티) 플러그인을 활성화한 뒤 **Attribute Set** (어트리뷰트 세트) 클래스를 만드는 것입니다. 어빌리티는 C++ 게임에서만 지원되는데, 어트리뷰트 세트는 **UAttributeSet** 의 C++ 서브클래스여야 하기 때문입니다. **URPGAttributeSet** 는 **current/max health** (현재/최대 생명력), **mana** (마나), **attack** (공격) 및 **defense** (방어) **buffs** (버프), **movement speed** (이동 속도), 대미지 산출 공식에 사용되는 **temporary damage** (임시 대미지) 어트리뷰트를 정의합니다. 이 어트리뷰트 각각은 **FGameplayAttributeData** 구조체에 정의되며, 여기에는 영구적인 변경으로만 수정되는 **Base value** (기본 값)과 임시 버프/디버프로 수정되는 **Current value** (현재 값)을 저장합니다. 클래스는 몇 가지 매크로를 사용하여 이 어트리뷰트의 수정과 리플리케이트를 처리하는 상용구 코드를 추가합니다. ARPG 는 비교적 단순하여 어트리뷰트 세트가 하나뿐이지만, 다른 게임에서는 플레이어와 적에 공유되는 Core (코어)를 설정해 두고, Player 는 그 **코어** 를 상속한 뒤 다른 플레이어에 사용되는 부가 어트리뷰트를 포함시키면 됩니다.
+
+어트리뷰트를 수정하기 전, **PreAttributeChange** 함수는 현재 생명력/마나를 최대 값으로 스케일 조절합니다. 어트리뷰트를 수정한 후, **PostGameplayEffectExecute** 함수는 클램프 및 그 변화 관련 내용을 다른 오브젝트에 알립니다. ARPG 에서 모든 캐릭터는 **RPGCharacterBase** 클래스를 상속하여 대미지를 받을 때와 같은 상황을 처리하는 블루프린트 이벤트가 있습니다. **RPGCharacterBase** 의 생성자는 게임플레이 이펙트가 작동할 수 있도록 **URPGAbilitySystemComponent**, **URPGAttributeSet** 서브오브젝트 생성을 담당합니다. 게임에 따라 그 처리는 게임 전용 **AbilitySystemComponent** 서브클래스 또는 컨트롤러에서 하는 것이 나을 수 있습니다. 또한 액터와 처음 상호작용할 때 오브젝트 오버헤드를 피하기 위해 **AttributeSet** 또는 **AbilitySystemComponent** 를 스폰하는 것이 좋을 수 있습니다.
+
+대미지를 적용하기 전, 캐릭터는 **Health > 0** (생명력이 0 초과)여야 합니다. 어트리뷰트의 기본값을 초기화하는 방법은 여러가지 있지만, ARPG 의 경우 **Stats GameplayEffect** (스탯 게임플레이 이펙트)를 사용하기로 했습니다. 스탯 게임플레이 이펙트는 **ARPGCharacterBase::AddStartupGameplayAbilities** 에 적용되었는데, 캐릭터 블루프린트에서 **PassiveGameplayEffects** (패시브 게임플레이 이펙트) 목록을 읽은 뒤 현재 **CharacterLevel** (캐릭터 레벨)에 적용합니다. **CharacterLevel** (캐릭터 레벨)이 변하면, 제거한 뒤 새 레벨에 다시 추가합니다. 언리얼 엔진 4 (UE4) 에디터 안에서 NPC 에 **GE_StatsBase** 게임플레이 이펙트를 사용한 모습입니다.   
+
+![](ARPG_AttributesAndEffects_01.png "ARPG_AttributesAndEffects_01.png")
+
+**Instant duration** (순간)은 영구적으로 딱 한 번 적용된다는 뜻입니다. 그리고 각 주요 스탯에 대해 **CurveTable** (커브 테이블)에 따라 값을 오버라이드하는 **Attribute Modifier** (어트리뷰트 모디파이어)가 있습니다. **StartingStats** (시작 스탯)은 **CSV** 의 **Abilities/DataTables** (어빌리티/데이터테이블)에서 가져오며, 행에는 각 스탯이 열에는 각 레벨이 있습니다. 이 경우 **DefaultMaxHealth** (기본 최대 생명력) 행과 **CharacterLevel** (캐릭터 레벨) 열을 살펴봅니다. **GE_PlayerStats** 이펙트는 범용 이펙트를 상속하여 모든 행을 **PlayerMaxHealth** 식이 되도록 변경합니다. 이런 식으로 커브 테이블을 사용하면 개별 이펙트를 직접 수정할 필요 없이 전체 게임의 어트리뷰트 밸런스 조정 작업을 한꺼번에 쉽게 할 수 있습니다. 게임 외부에서 스크립트를 구성하여 **Excel** 같은 외부 데이터 소스에서 **CSV** 또는 **JSON** 파일을 만들고 필요에 따라 임포트할 수 있습니다.
+
+마나는 **Add** (더하기) 연산의 단순한 **Modifier** (모디파이어)로 변경하지만, 대미지를 입히기 위해서는 **RPGDamageExecution** 클래스를 사용합니다. 실행 계산은 두 부분으로 이루어집니다. 캡처 선언 집합과 실행 함수입니다. 캡처 선언 매크로는 UE4 에디터로 정보를 등록하여, 게임플레이 이펙트가 프로젝트의 실행을 사용할 수 있도록 합니다. 캡처한 어트리뷰트마다 현재 활성 임시 모디파이어 목록을 게임플레이 태그와 함께 캡처합니다. 그런 다음 **URPGDamageExecution::Execute_Implementation** 에서 이펙트 실행 시간에 전달된 게임플레이 태그에 일치하는 모디파이어만 적용합니다. 그 모디파이어를 합쳐 **Damage**, **AttackPower**, **DefensePower** 의 계산 값을 구한 후, **SourceDamage * AttackPower / DefensePower** 공식을 사용하여 최종 대미지를 계산합니다. 그러면 그 최종 대미지는 **URPGAttributeSet::PostGameplayEffectExecute** 의 Health 모디파이어가 됩니다. **GE_DamageBase** 는 이렇습니다.  
+
+![](ARPG_AttributesAndEffects_02.png "ARPG_AttributesAndEffects_02.png")
+
+입힌 대미지는 **AttackDamage** 의 **DefaultAttack** 행에서 오지만, 커브 테이블 레퍼런스 왼쪽의 1.0 스케일을 변경하여 공격당 배수를 적용할 수도 있습니다. **Source/Target** (소스/타깃) 태그로 필터링할 **Require/Ignore** (필수/무시) 태그를 설정할 수 있는데, 이 경우 타깃에 **Status.DamageImmune** 태그가 있으면 대미지를 적용하지 않습니다. 개별 공격마다 **GE_DamageBase** 서브클래스를 만들고 필요에 따라 태그 또는 모디파이어를 수정합니다.

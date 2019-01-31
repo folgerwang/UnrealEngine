@@ -1,0 +1,146 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Packaging Android Projects
+Description: Taking a look at packaging your final Android project.
+Type: 
+Version: 4.19
+Parent: Platforms/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: Guides
+
+
+## Steps
+
+In the following How To we will take a look how to package your entire UE4 Android project for deployment to an Android device.
+
+[REGION:note]
+We are currently packaging in **Development** because we are testing this game, but when your game is complete, you can package it in **Shipping** by hovering over the **Build Configurations** option in the **Package Project** menu.
+[/REGION]
+
+1.  In the **File** menu, go to **Package Project > Android** and select the Texture format you want to package. For this example, we will choose Android **ETC1** as it is supported by all devices.
+    
+	[REGION:lightbox]
+    [![](package_menu.png)(w:300px data-verified=)](package_menu.png)
+    [/REGION]
+    [REGION:note]
+    Different devices support different Texture formats depending on the hardware they run on. See, [Android Development Reference](Platforms/Android/Reference) for a detailed breakdown of the various formats.
+    [/REGION]
+    
+    | **Format** | **Description** |
+    | --- | --- |
+    | **ETC1** | Supported by all Android based devices but cannot compress alpha textures (they are stored uncompressed). Recommend using an RGB and a separate alpha texture if need alpha to get better compression. |
+    | **ETC2** | Supported by all OpenGL 3.x class devices and supports alpha compression. |
+    | **ATC** | Supported by Qualcomm Adreno GPUs and supports alpha compression. |
+    | **DXT** | Supported by Nvidia Tegra GPUs and supports alpha compression. |
+    | **PVRTC** | Supported by PowerVR GPUs and supports alpha compression. |
+    | **ASTC** | Latest Texture compression format allowing more quality control by specifying block size and supports alpha compression. Available on some devices at this point. |
+    
+        
+2.  You will then be prompted for a location to save your packaged game. For now create a new folder on the desktop and select that as the location to save your project to.  
+    [REGION:lightbox]
+    [![](package_folder.png)(w:200px)](package_folder.png)
+    [/REGION]
+3.  While your project is being packaged a packaging message will appear in the bottom right corner showing the progress of the packing.  
+    ![](package_toast.png)
+4.  Once packaging is successful, a Packaging Complete message will appear in the bottom right of the editor.  
+    ![](Packageing_Completed.png)
+5.  Navigate to the folder that was created in step two and in this folder you should have a new folder named specifically for the texture type you selected when packaging. In this example, the folder is named **Android_ETC1**.  
+    [REGION:lightbox]
+    [![](Android_ECT1_Folder.png)(w:300px)](Android_ECT1_Folder.png)
+    [/REGION]
+6.  Open up the Android_ETC1 folder and then **Double-click** on the **Install_\[ProjectName\]_Development.bat** batch file to install the project on your Android device.  
+    [REGION:lightbox]
+    [![](Install_Bat.png)(w:300)](Install_Bat.png)
+    [/REGION]
+    [REGION:note]
+    You must have your Android device plugged into your development PC using a USB cable to deploy the project to your device. If you do not have your device plugged in running the .BAT file will do nothing.
+    [/REGION]
+
+[REGION:note]
+We are currently packaging in **Development** because we are testing this game, but when your game is complete, you can package it in **Shipping** by hovering over the **Build Configurations** option in the **Package Project** menu.
+[/REGION]
+
+1.  In the **File** menu, go to **Package Project > Android** and select the Texture format you want to package. For this example, we will choose Android **ETC1** as it is supported by all devices.  
+    [REGION:lightbox]
+    [![](AQS_Mac_01.png)(w:300px)](AQS_Mac_01.png)
+    [REGION:note]
+    Different devices support different Texture formats depending on the hardware they run on. See, [Android Development Reference](Platforms/Android/Reference) for a detailed breakdown of the various formats.
+    [/REGION]
+    
+  | **Format** | **Description** |
+  | --- | --- |
+  | **ETC1** | Supported by all Android based devices but cannot compress alpha textures (they are stored uncompressed). Recommend using an RGB and a separate alpha texture if need alpha to get better compression. |
+  | **ETC2** | Supported by all OpenGL 3.x class devices and supports alpha compression. |
+  | **ATC** | Supported by Qualcomm Adreno GPUs and supports alpha compression. |
+  | **DXT** | Supported by Nvidia Tegra GPUs and supports alpha compression. |
+  | **PVRTC** | Supported by PowerVR GPUs and supports alpha compression. |
+  | **ASTC** | Latest Texture compression format allowing more quality control by specifying block size and supports alpha compression. Available on some devices at this point.  |
+           
+2.  You will be prompted for a save location for your packaged game, which should default to your project folder. Create a new folder and call it **Android_Builds**.  
+    [REGION:lightbox]
+    [![](AQS_Mac_02.png)(w:300px)](AQS_Mac_02.png)
+    [/REGION]
+3.  While your project is being packaged a packaging message will appear in the bottom right corner showing the progress of the packing.  
+    ![](package_toast.png)
+4.  Once packaging is successful, a Packaging Complete message will appear in the bottom right of the editor.  
+    ![](Packageing_Completed.png)
+5.  Navigate to the folder that was created in step two and in this folder you should have a new folder named specifically for the texture type you selected when packaging. In this example, the folder is named **Android_ETC1**.
+    [REGION:lightbox]
+    [![](MAC_Install_Folder.png)(w:300px)](MAC_Install_Folder.png)
+    [/REGION]
+6.  Open up the Android_ETC1 folder and then **Double-click** on the **Install_\[ProjectName\]\_Development\_armv7-es3.command** file to install the project on your Android device.  
+    
+    [REGION:note]
+    You must have your Android device plugged into your development PC via USB to deploy the project to your device. If you do not have your device plugged in running the .command file will do nothing.
+    [/REGION]
+
+1.  Opening the **File** menu, scroll down to **Package Project**, and hover your mouse curser over **Android** before selecting **Android (ETC1)**.  
+    [![](LinuxAndroid_Step31.png)(w:720)](LinuxAndroid_Step31.png)
+    [REGION:note]
+    Different devices support different Texture formats depending on the hardware they run on. See, [Android Development Reference](Platforms/Android/Reference) for a detailed breakdown of the various formats.
+    [/REGION]
+    
+    | **Format** | **Description** |
+    | --- | --- |
+    | **ETC1** | Supported by all Android based devices but cannot compress alpha textures (they are stored uncompressed). Recommend using an RGB and a separate alpha texture if need alpha to get better compression. |
+    | **ETC2** | Supported by all OpenGL 3.x class devices and supports alpha compression. |
+    | **ATC** | Supported by Qualcomm Adreno GPUs and supports alpha compression. |
+    | **DXT** | Supported by Nvidia Tegra GPUs and supports alpha compression. |
+    | **PVRTC** | Supported by PowerVR GPUs and supports alpha compression. |
+    | **ASTC** | Latest Texture compression format allowing more quality control by specifying block size and supports alpha compression. Available on some devices at this point. |
+            
+2.  After the **Open Directory** menu appears, create a new folder entitled `Android_Builds` using the **New Folder** button.  
+    [![](LinuxAndroid_Step32.png)(w:720)](LinuxAndroid_Step32.png)
+3.  Now, click the **Open** button to begin the packaging process.  
+    [![](LinuxAndroid_Step33.png)(w:720)](LinuxAndroid_Step33.png)
+4.  You should see a progress indicator in the bottom right corner while UE4 packages your project.  
+    [![](LinuxAndroid_Step34.png)(w:720)](LinuxAndroid_Step34.png)
+5.  At the end of the packaging process, you should see a message telling you that the packaging process has completed.  
+    [![](LinuxAndroid_Step35.png)(w:720)](LinuxAndroid_Step35.png)
+6.  Navigate to the **Android_Builds** folder, where you should see a folder entitled **Android_ETC1**.  
+    ![](LinuxAndroid_Step36.png)
+7.  Open the **Android_ETC1** folder, where you'll find the files that were created during the packaging process.  
+    ![](LinuxAndroid_Step37.png)  
+    You should see the **Installation** and **Uninstallation** shell scripts (*.sh) along with the Android Application Package (*.apk) that contains all of the files you need to install the project onto any Android device that supports the ETC1 compression scheme.
+8.  Now, open up the terminal from this folder's location by right-clicking inside of the folder and selecting **Open in Terminal**.  
+    ![](LinuxAndroid_Step38.png)
+9.  Enter `./Install_LinuxAndroidProject_Development-arm64.es2.sh` into the terminal to install the project onto your Android device.  
+    [![](LinuxAndroid_Step39.png)(w:900)](LinuxAndroid_Step39.png)
+    [REGION:note]
+    If you're having trouble running the shell script, try entering `adb devices` into the terminal to verify that your device is indeed, connected to your computer.
+    [/REGION]
+10.  During the installation process, the shell script should flush the following output to your terminal  
+    [![](LinuxAndroid_Step40.png)(w:900)](LinuxAndroid_Step40.png)
+    [REGION:note]
+    When the shell script has completed the installation process, you should see an **Installation successful** message.
+    [/REGION]
+
+## End Result
+
+When completed you will now have a .APK file that contains your UE4 project that can now be deployed via the .BAT file to any Android based smartphone like in the following image.  
+[REGION:lightbox]
+[![](Game_On_Phone.png)(w:200px)](Game_On_Phone.png)
+[/REGION]

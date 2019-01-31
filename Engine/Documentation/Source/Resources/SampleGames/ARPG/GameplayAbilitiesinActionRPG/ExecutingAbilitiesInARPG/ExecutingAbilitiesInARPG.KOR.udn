@@ -1,0 +1,25 @@
+﻿INTSourceChangelist:4381199
+Availability: Public
+Crumbs: 
+Title: ARPG 의 어빌리티 실행
+Description: 생성한 어빌리티를 실행하는 방법을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 4
+Tags: 
+
+
+모든 어빌리티를 생성했으면, 마지막은 실제 실행 단계입니다. 게임에 따라 매우 달라지는 부분이며, Action RPG (ARPG) 구현은 한 가지 예일 뿐입니다. ARPG 는 두 가지 메서드, **Tag** (태그) 및 **Item Slot** (아이템 슬롯)을 사용합니다. **Skill** (스킬)은 태그를 통해 시전하는데, 범용 엔진 함수 **ActivateAbilitiesWithTags** 가 쓰입니다. 작동하는 이유는 각 스킬마다 **AbilityTag** (어빌리티 태그)에 **Ability.Skill** 이 있기 때문입니다. 스킬 아이템을 장착하면 **AddSlottedGameplayAbilities** 를 호출하는데, 여기서 그 스킬의 어빌리티를 **AbilitySystemComponent** 에 추가합니다.**ActivateAbilitiesWithTags** 를 호출하면, 태그가 **Ability.Skill** 인 어빌리티를 찾아 실행합니다.  
+
+무기와 포션 어빌리티는 ARPG 전용 함수 **ActivateAbilitiesWithItemSlot** 으로 실행합니다. 어빌리티를 **AddSlottedGameplayAbilities** 에 추가하면, 그 **FGameplayAbilitySpecHandle** 에 Item Slot (아이템 슬롯) 인덱스를 붙여 맵에 저장합니다. 어빌리티가 아이템 슬롯에 들어가는 곳은 적과 플레이어에 따라 두 가지로 나뉩니다. 적의 경우, **DefaultSlottedAbilities** 배열에 추가하는 반면, 플레이어의 경우 플레이어의 실제 인벤토리에 채웁니다. 인벤토리 또는 캐릭터 레벨 변경 이후 올바른 어빌리티를 추가/제거하는 꽤나 복잡한 로직이 **ARPGCharacterBase** 에 있습니다. 하지만 적에게 "가짜 인벤토리"를 주면 적과 플레이어 캐릭터 모두 공유 베이스 클래스에 어빌리티 로직 대부분을 넣을 수 있습니다. **IRPGInventoryInterface** 네이티브 인터페이스로 베이스 클래스에서 어느 소스의 슬롯 정보도 구할 수 있으므로, 돌아가서 NPC 에게 “진짜 인벤토리”를 준다면 **ARPGCharacterBase** 코드를 전혀 바꿀 필요가 없을 것입니다.
+
+어빌리티 실행의 다른 부분은 나머지 이동 및 게임플레이 시스템과의 상호작용입니다. ARPG 의 경우 거의 **BP_Character** 블루프린트의 **CanUseAnyAbility** 같은 함수 세트를 통해 처리합니다. 이 함수는 글로벌 상태 또는 현재 활성 어빌리티를 확인하고, 플레이어 또는 AI 의 새 어빌리티 실행 또는 바쁘거나 잠긴 상태에서 다른 동작을 하지 못하도록 합니다. 모든 게임은 어빌리티 실행 허용 규칙을 별도로 구현해야 하는데, 종종 어빌리티의 **ActivationRequiredTags** 및 **ActivationBlockedTags** 가 제격입니다. 마지막으로 UI 에서 어빌리티 시스템에 실행 정보를 쿼리해야 합니다. **WB_OnSCreenControls** 에서 **GetCooldownRemainingForTag** 를 사용하여 스킬 사용 후 쿨다운을 표시하는 예제입니다.
+
+[REGION:lightbox]
+[![](ExecutingAbilitiesIn20ARPG_01.png)(w:900px)](ExecutingAbilitiesIn20ARPG_01.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+No search results.

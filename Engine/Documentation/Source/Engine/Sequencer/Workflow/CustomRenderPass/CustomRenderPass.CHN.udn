@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3149178
+﻿INTSourceChangelist:3244012
 Availability:Public
 Title:导出自定义渲染通道
 Crumbs: %ROOT%, Engine
@@ -9,6 +9,7 @@ order:1
 Version:4.13
 Related:Engine\Sequencer\Overview
 Related:Engine/Sequencer/HowTo
+tags:Sequencer
 
 此页面说明如何从 **Sequencer** 中的 **Render Movie Settings** 窗口渲染出自定义通道。 
 使用自定义渲染通道将基于指定的渲染通道，把序列输出为一系列的图片文件。 
@@ -16,6 +17,7 @@ Related:Engine/Sequencer/HowTo
 
 [TOC(start:2 end:2)]
 
+(#CustomRenderPasses)
 ## 自定义渲染通道
 
 参考以下步骤渲染出动画的自定义通道。 
@@ -56,6 +58,7 @@ Related:Engine/Sequencer/HowTo
 | **完整场景** | **导出的 Scene Depth** | 
 [/REGION]
 
+(#HDRExporting)
 ## HDR 导出
 
 **Sequencer** 还可在执行自定义渲染通道时将 HDR 数据导出为 [OpenEXR](http://www.openexr.com/) 文件。 

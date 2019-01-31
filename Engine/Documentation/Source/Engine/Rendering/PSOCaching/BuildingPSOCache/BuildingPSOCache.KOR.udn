@@ -1,0 +1,48 @@
+﻿INTSourceChangelist:4687538
+Availability: Public
+Crumbs: 
+Title: PSO 캐시 빌드
+Description: PSO 캐시에 필요한 stablepc.csv 파일을 생성하는 법을 설명합니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:BuildingPSOCache_Topic_Image.png
+Tags: 
+
+
+**Pipeline State Object** (PSO) 캐시 시스템의 정상 작동을 위해서는, 요청한 **셰이더** 를 요청된 **머티리얼** 에 매핑해야 합니다.  그 방법은 **ShaderPipelineCacheTools** 커맨드렛을 사용하여 이 매핑 정보가 들어있는 파일을 빌드하면 됩니다. 여기서는 ShaderPipelineCacheTools 커맨드렛을 사용하여 필요한 파일을 빌드하는 법을 살펴봅니다.
+
+  
+
+## 단계
+
+1.  먼저 C 드라이브 루트에 **PSOCaching** 이라는 새 폴더를 만듭니다.
+2.  다음 UE4 프로젝트 폴더를 열어 다음 위치에서 **scl.csv** 파일을 찾습니다.  
+        ProjectName\Saved\Cooked\PlatfourmYouCookedFor\ProjectName\Metadata\PipelineCaches  
+    ![](SCL_CSV_File_Location.png "SCL_CSV_File_Location.png")
+3.  프로젝트 이름이 있는 **scl.csv** 파일을 C 드라이브 루트에 생성한 **PSOCaching** 폴더에 복사합니다.
+4.  타깃 디바이스에서 프로젝트를 실행했을 때 생성된 **rec.upipelinecache** 파일을 C 드라이브 루트에 생성한 PSOCaching 폴더에 복사합니다.  
+    ![](Build_PSO_Needed_Files.png "Build_PSO_Needed_Files.png")
+5.  필수 파일을 생성하려면 UE4 커맨드렛 기능을 사용해야 합니다. 커맷드렛 기능을 사용하려면 먼저 **Engine\\Binaries\\Win64** 폴더를 열고 **UE4Editor-Cmd.exe** 파일을 찾습니다.  
+    ![](Locate_UE4Editor_CMD_EXE.png "Locate_UE4Editor_CMD_EXE.png")
+6.  **UE4Editor-Cmd.exe** 파일에 우클릭하여 표시되는 목록에서 **Create Shortcut** (바로 가기 생성)을 선택합니다.
+7.  새로 생성된 바로 가기를 C 드라이브 루트에 만든 **PSOCaching** 폴더로 이동합니다.
+8.  UE4Editor-Cmd.exe - 바로 가기에 우클릭하여 표시되는 메뉴에서 **Properties** (속성)을 선택합니다.
+9.  Target (대상) 칸의 **UE4Editor-Cmd.exe** 뒤에 다음 명령줄 인수를 추가합니다.  
+        ActionRPG -run=ShaderPipelineCacheTools expand C:\PSOCaching\*.rec.upipelinecache C:\PSOCaching\*.scl.csv ActionRPG_SF_ANDROID.stablepc.csv
+10.  **OK** (확인)을 눌러 바로 가기 속성 창을 닫고 **UE4Editor-Cmd.exe - 바로 가기** 를 더블클릭하여 커맨드렛을 실행합니다.
+11.  커맨드렛 실행이 완료되면, C 드라이브 루트에 만든 PSOCaching 폴더에 **stablepc.csv** 파일이 새로 생깁니다.  
+    ![](Stable_PC_File.png "Stable_PC_File.png")
+
+[REGION:note]
+이 파일을 찾을 수 없으면 Engine\\Binaries\\Win64 폴더를 확인하세요.
+[/REGION]
+
+## 최종 결과
+
+scl.csv 및 rec.upipelinecache 파일을 합쳐 **stablepc.csv** 파일을 만들었으니, UE4 프로젝트를 빌드할 때 사용될 수 있도록 특정 위치에 넣어야 합니다.
+
+[REGION:note]
+stablepc.csv 파일을 넣을 위치 관련 자세한 정보는 [PSO 캐시를 사용한 UE4 프로젝트 빌드 하우투](Engine/Rendering/PSOCaching/BuildingUE4ProjectwithPSOCaching) 문서를 참조하세요.
+[/REGION]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2395232
+﻿INTSourceChangelist:3429254
 Availability: Docs
 Title:如何在代码中为 Actor 设置输入
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\ActorInput
@@ -6,14 +6,19 @@ Description:关于如何在代码中为 Actor 设置输入的操作指南。
 
 [TOC (start:2 end:2)]
 
+(#Overview)
 ## 概述
 
+(#EnablingActorInput)
 ## 启用 Actor 输入
 
+(#DisablingActorInput)
 ## 禁用 Actor 输入
 
+(#Enable/DisableInputUsage)
 ## 启用/禁用输入用途
 
+(#InputDetails)
 ### 输入详情
 
 

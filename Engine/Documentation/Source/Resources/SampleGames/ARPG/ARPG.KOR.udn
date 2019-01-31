@@ -1,0 +1,24 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: 액션 RPG 게임
+Description: 어빌리티 시스템 플러그인 사용법을 보여주는 샘플 게임입니다.
+Type: landing
+Version: 4.20
+Parent: Resources/SampleGames
+Order: 1
+Tags: Sample Game
+
+
+![](ARPG_Banner_Image_00.png "ARPG_Banner_Image_00.png")  
+개발자를 위한 리소스로 설계된 Action RPG (액션 RPG)는 삼인칭 핵 앤 슬래시 게임을 처음부터 만들어 보면서 UE4 로 Android 및 iOS 용 고사양 모바일 게임 개발법을 자세히 배울 수 있는 자료입니다.
+
+## 구성
+
+%Resources/SampleGames/ARPG/BuildingGameplayinC-forActionRPG:topic%
+
+%Resources/SampleGames/ARPG/BalancingBlueprintandC-:topic%
+
+## 어빌리티 시스템 분석
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG:topic%

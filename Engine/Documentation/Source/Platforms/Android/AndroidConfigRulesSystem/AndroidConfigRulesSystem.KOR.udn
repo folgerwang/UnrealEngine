@@ -1,0 +1,371 @@
+﻿INTSourceChangelist:4687510
+Availability: Public
+Crumbs: 
+Title: Android 구성 규칙 시스템
+Description: UE4 프로젝트의 Android Configuration Rules, 구성 규칙 시스템 사용법을 안내합니다.
+Type: 
+Version: 4.21
+Parent: Platforms/Android
+Order: 
+Tags: Android
+Tags: Reference
+
+
+Android Configuration Rules, Android 구성 규칙 시스템은 언리얼 엔진 4 (UE4)를 사용하는 개발자가 특정 Android 기반 디바이스에 프로젝트 실행에 필요한 하드웨어와 소프트웨어가 있는지 확인할 수 있도록 합니다. 다음 정보와 단계별 안내를 통해 지원하고자 하는 디바이스와 소프트웨어에 맞는 UE4 프로젝트를 개발할 수 있습니다.
+
+## 구성 규칙 파일
+
+우선 텍스트 파일을 새로 만들어 **configrules.txt** 라 하고 프로젝트의 **Build/Android** 디렉터리에 넣습니다.
+
+[REGION:lightbox]
+[![](AndroidConfigRules_File_Loaction.png)(w:800px)](AndroidConfigRules_File_Loaction.png)
+[/REGION]
+[REGION:caption]
+클릭하면 이미지 원본을 확인합니다.
+[/REGION]
+
+configrules.txt 파일을 만들어 Build/Android 디렉터리에 넣었으면, 선택한 텍스트 에디터로 열어 파일의 첫 항목에 다음 텍스트를 추가합니다.
+    
+    // version:1
+    
+위 텍스트는 ConfigRulesTool 이 패키징 도중 파싱하는 버전 코드로, 반드시 이 양식이어야 합니다. ("//" 및 "version:" 사이 공백 한 칸, 콜론 이후는 공백 없음). 번호는 1 부터 시작하며 파일을 업데이트할 때마다 증가해야 합니다.  그러면 UE4 는 이 번호로 Android Package (APK) 에 현재 삽입된 것보다 새 버전을 사용할지 결정할 수 있습니다.
+
+[REGION:note]
+**//** 또는 **semicolon(;)** 으로 시작되는 줄은 코멘트로 간주되어 무시됩니다.
+[/REGION]
+
+명령을 통해 대소문자를 구별하는 변수를 조작하여 즉각적인 조치를 취하거나 엔진에 전달할 수도 있습니다.  구성 규칙 실행 이후에 정의된 변수도 여전히 C++ 에서 다음 함수로 쿼리할 수 있습니다.
+
+    FString* FAndroidMisc::GetConfigRulesVariable(const FString& Key);
+
+**예:**
+
+    #if PLATFORM_ANDROID
+    If (FAndroidMisc::GetConfigRulesVariable(TEXT(“myflag”) == TEXT(“true”))
+    {
+        UE_LOG(LogAndroid, Display, TEXT(“myflag was set!”));
+    }
+    #endif
+
+
+키/값 항목으로 된 TMap 을 액세스하여 반복처리할 수도 있습니다.
+
+    TMap<FString, FString> FAndroidMisc::GetConfigRulesTMap();
+
+**예:**
+
+    #if PLATFORM_ANDROID
+    TMap<FString, FString> ConfigRules = FAndroidMisc::GetConfigRulesTMap();
+    for (const TPair<FString, FString>& Pair : ConfigRules)
+    {
+        FString VarKey = Pair.Key;
+        if (VarKey.StartsWith("myvars_"))
+       {
+            FString VarValue = Pair.Value;
+            UE_LOG(LogAndroid, Log, TEXT("Found variable %s = %s"), *VarKey, *VarValue);
+       }
+    }
+    #endif
+
+## 구성 규칙 변수
+
+변수를 값에 사용하는 구문은 다음과 같습니다.  
+
+    $(varname)
+
+즉 다음은:
+
+    “$(SRC_DeviceMake) $(SRC_DeviceModel)”
+
+공백으로 구분된 **SRC_DeviceMake** 및 **SRC_DeviceModel** 의 값으로 대체됩니다.
+
+다음 변수는 configrules.txt 파싱 전 자동 정의됩니다.  
+
+  
+| **변수 이름** | **설명** | **예제 값** |
+| --- | --- | --- |
+| memory | 총 메모리입니다 (MB). | 3550 |
+| hardware | 칩셋입니다 ((/proc/cpuinfo 또는 getprop ro.hardware 의 하드웨어입니다). | Qualcomm Technologies, Inc SDM845 |
+| ro.hardware | "getprop ro.hardware" 결과입니다. | blueline |
+| processor | /proc/cpuinfo 의 프로세서 유형입니다. | AArch64 Processor rev 12 (aarch64) |
+| processorCount | /proc/cpuinfo 의 프로세서 수입니다. | 8 |
+| useAffinity | 일부 스레드의 리틀 코어에 스레드 연관성(affinity) 설정 여부입니다. | true |
+| hasNEON | 프로세서의 NEON 기능 (SIMD) 지원 여부를 나타냅니다. | true |
+| isARM64 | 프로세서의 ARM64 ABI 지원 여부를 나타냅니다. | true |
+| littleCoreMask | 리틀 코어를 나타내는 비트마스크입니다. | 0x0f |
+| bigCoreMask | 빅 코어를 나타내는 비트마스크입니다. | 0xf0 |
+| SRC_GpuVendor | GLES20.glGetString(GLES20.GL_VENDOR) 의 벤더입니다. | Qualcomm |
+| SRC_GpuFamily | GLES20.glGetString(GLES20.GL_RENDERER) 의 GPU 군입니다. | Adreno (TM) 630 |
+| SRC_GlVersion | GLES20.glGetString(GLES20.GL_VERSION) 의 GL 버전입니다. | OpenGL ES 3.2 V@313.0 (GIT@3f88ca2, I42f6fe38fb) (Date:07/13/18) |
+| SRC_AndroidVersion | android.os.Build.VERSION.RELEASE 의 Android 버전입니다. | 9 |
+| SRC_DeviceMake | android.os.Build.MANUFACTURER 의 디바이스 제조사입니다. | Google |
+| SRC_DeviceModel | android.os.Build.MODEL 의 디바이스 모델입니다. | Pixel 3 |
+| SRC_DeviceBuildNumber | android.os.Build.DISPLAY 의 디바이스 빌드 번호입니다. | PD1A.180720.030 |
+| SRC_VulkanVersion | Vulkan 지원 버전입니다. | 1.1.0 |
+| SRC_VulkanAvailable | 디바이스의 Vulkan 지원 여부입니다. | true |
+| SRC_UsingHoudini | Houdini 가 Intel 프로세서에서 에뮬레이션한 ARM 을 나타냅니다. | false |
+| SRC_SDKLevel | android.os.Build.VERSION.SDK_INT 의 SDK 레벨입니다. | 28 |
+| supportsFloatingPointRenderTargets | GPU 가 FP 렌더 타깃을 지원하는지 나타냅니다. | true |
+| TextureFormats | GPU 가 지원하는 텍스처 포맷의 쉼표 구분 목록입니다. | ASTC,ATC,ETC2,ETC1 |
+| navigationBarHeight | Android 탐색 바의 픽셀 단위 높이입니다. | 132 |
+| statusBarHeight | Android 상태 표시줄의 픽셀 단위 높이입니다. | 66 |
+| screenWidth | 픽셀 단위 화면 너비입니다. | 1080 |
+| screenHeight | 픽셀 단위 화면 높이입니다. | 2160 |
+
+
+## 구성 규칙 명령
+
+명령은 **action:argument** 포럼의 유효 인수와 함께 사용할 수 있습니다. 사용 예제와 함께 아래에 정의되어 있습니다.  
+  
+**Set** 는 하나 이상의 변수와 그 지정 값을 할당합니다.
+
+    set:(myvar=true)
+
+
+변수가 하나 이상인 경우, **쉼표** (**,**) 로 구분합니다.
+
+    set:(myvar=false,myvar2=”something”,myvar3=”else”)
+
+
+**clear** 는 변수에 할당된 값을 지웁니다.
+
+    clear:(myvar)
+
+한 번에 하나 이상의 변수를 지우는 법은 **쉼표**(**,**) 로 지우려는 값을 구분하면 됩니다.
+
+    clear:(myvar,myvar3)
+
+**condition** 은 조건 목록을 평가하고 모두 true 면 옵션으로 지정된 set 및 clear 명령을 적용합니다.  
+
+    condition:((comparison)[,(comparison)],[(set)],[(clear)]
+
+비교는 괄호에 쉼표로 구분된 세 부분으로 이루어집니다.  세 부분은 **SourceType**, **CompareType**, **MatchString** 입니다.
+
+    (SourceType=isARM64,CompareType=CMP_EQUAL,MatchString=”true”)
+
+**SourceType** 는 비교의 첫 인수를 나타내며, 보통 변수 이름이 됩니다. 사용할 수 있는 세 가지 특수 SourceType 값은 다음과 같습니다.
+
+  
+| **명령 이름** | **설명** |
+| --- | --- |
+| SRC_PreviousRegexMatch | 지난 regex 표현식 조건에서 반환된 그룹입니다. |
+| SRC_CommandLine | APK 에 포함된 명령줄입니다. |
+| \[EXIST\] | MatchString 과 사용하여 변수 존재 여부를 확인합니다. |
+
+
+**MatchString** 은 비교에 사용되는 스트링 값 또는 **\[EXIST\]** 의 경우 변수 이름입니다.
+
+**CompareType** 값이 될 수 있는 것은 다음과 같습니다.  
+
+  
+| **명령 이름** | **설명** |
+| --- | --- |
+| CMP_Exist | MatchString 의 변수 이름이 설졍된 경우 true 입니다. |
+| CMP_NotExist | MatchString 의 변수 이름이 설정되지 않은 경우 true 입니다. |
+| CMP_Equal | MatchString 의 변수 이름이 설정되지 않은 경우 true 입니다. |
+| CMP_NotEqual | SourceType 이 MatchString 과 같지 않으면 true 입니다. |
+| CMP_EqualIgnore | SourceType 이 MatchString 과 같으면 true 입니다. 대소문자를 무시합니다. |
+| CMP_NotEqualIgnore | SourceType 이 Matchstring 과 같지 않으면 true 입니다. 대소문자를 무시합니다. |
+| CMP_Less | SourceType 값이 MatchString 값 미만이면 true 입니다. |
+| CMP_LessEqual | SourceType 값이 MatchString 값 이하이면 true 입니다. |
+| CMP_Greater | SourceType 값이 MatchString 초과면 true 입니다. |
+| CMP_GreaterEqual | SourceType 값이 MatchString 값 이상이면 true 입니다. |
+| CMP_Regex | MatchString 의 regex 를 SourceType 에서 찾았으면 true 입니다 (SRC_PreviousRegexMatch 에서 사용할 수 있는 일치 그룹으로 부가 조건을 검사할 수 있습니다). |
+
+
+UE4 프로젝트에서 Android 구성 규칙 명령을 설정하고 사용하는 법을 보여주는 예제는 다음과 같습니다.
+
+다음 코드는 **isARM64** 가 **true** 인 경우 **myvar** 를 **arm64** 로 설정합니다.   
+
+    condition:((SourceType=isARM64,CompareType=CMP_EQUAL,MatchString=”true”)),(myvar=”arm64”)
+
+
+다음 코드는 **isARM64** 가 **true** 인 경우 **myvar** 를 **arm64** 로 설정하고 **notsupported** 를 지웁니다.  
+
+    set:(notsupported=true)
+    condition:((SourceType=isARM64,CompareType=CMP_EQUAL,MatchString=”true”)),(myvar=”arm64”),(notsupported)
+
+다음 코드는 **Regex** 를 사용하여 **Adreno (TM) 630** 에서 숫자를 추출하고 비교하여 **510** 미만이면 오류 플래그를 설정합니다.  
+
+    condition:((SourceType=SRC_GpuFamily,CompareType=CMP_Regex,MatchString="(?!Adreno \(TM\))([0-9][0-9]*)"),(SourceType=SRC_PreviousRegexMatch,CompareType=CMP_LessEqual,MatchString="510")), (error="CR_Info_UnsupportedGPU")
+
+**chipset** 은 하드웨어 스트링이 ro.hardware 또는 hardware 인 경우 변수 그룹을 설정하는 바로 가기입니다. useAffinity, chipset, GPU, processorCount, bigCoreMask, littleCoreMask 를 설정합니다. useAffinity 는 태스크 그룹 스레드를 littleCoreMask 로 리틀 코어에 제한할지 여부를 제어합니다.
+
+    chipset: hardware string, useAffinity, part name, GPU name, processor count, big core mask, little core mask
+
+예제입니다.
+
+~~~
+chipset:"Qualcomm Technologies, Inc MSM8929", true, "Snapdragon 415", "Adreno (TM) 405", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8937", true, "Snapdragon 435", "Adreno (TM) 505", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8940", true, "Snapdragon 435", "Adreno (TM) 505", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8952", true, "Snapdragon 617", "Adreno (TM) 405", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8953", true, "Snapdragon 625/626", "Adreno (TM) 506", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8956", true, "Snapdragon 650", "Adreno (TM) 510", 6, 0x03, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8976", true, "Snapdragon 652/653", "Adreno (TM) 510", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM630", true, "Snapdragon 630", "Adreno (TM) 508", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM636", true, "Snapdragon 636", "Adreno (TM) 509", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM660", true, "Snapdragon 660", "Adreno (TM) 512", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM640", true, "Snapdragon 640", "Adreno (TM) 610", 8, 0xc0, 0x3f
+chipset:"Qualcomm Technologies, Inc SDM670", true, "Snapdragon 670", "Adreno (TM) 620", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM710", true, "Snapdragon 710", "Adreno (TM) 616", 8, 0xc0, 0x3f
+chipset:"Qualcomm Technologies, Inc SDM730", true, "Snapdragon 730", "Adreno (TM) 615", 8, 0xc0, 0x3f
+chipset:"Qualcomm Technologies, Inc MSM8992", true, "Snapdragon 808", "Adreno (TM) 418", 6, 0x30, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8994", true, "Snapdragon 810", "Adreno (TM) 430", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc MSM8996", true, "Snapdragon 820/821", "Adreno (TM) 530", 4, 0x0c, 0x03
+chipset:"Qualcomm Technologies, Inc MSM8998", true, "Snapdragon 835", "Adreno (TM) 540", 8, 0xf0, 0x0f
+chipset:"Qualcomm Technologies, Inc SDM845", true, "Snapdragon 845", "Adreno (TM) 630", 8, 0xf0, 0x0f
+chipset:"samsungexynos9810", true, "Samsung Exynos 9 Series (9810)", "Mali-G72 MP18", 8, 0xf0, 0x0f
+chipset:"samsungexynos8895", true, "Samsung Exynos 9 Series (8895)", "Mali-G71 MP20", 8, 0xf0, 0x0f
+chipset:"samsungexynos9610", true, "Samsung Exynos 7 Series (9610)", "Mali-G72 MP3", 8, 0xf0, 0x0f
+chipset:"samsungexynos7885", true, "Samsung Exynos 7 Series (7885)", "Mali-G71 MP2", 8, 0xc0, 0x3f
+chipset:"samsungexynos7880", false, "Samsung Exynos 7 Series (7880)", "Mali-T830 MP3", 8, 0xff, 0x00
+chipset:"samsungexynos7882", true, "Samsung Exynos 5 Series (7872)", "Mali-G71 MP1", 6, 0x30, 0x0f
+~~~
+
+## 구성 규칙 특수 변수
+
+다음과 같이 설정된 경우 액션을 트리거하는 두 개의 특수 변수가 있습니다.
+
+    set:(log=”message for the logcat”)
+
+명령 평가 이후 log 값을 logcat output 에 쓰고 지웁니다.
+
+    set:(dumpvars=1)
+
+현재 설정된 모든 변수와 그 값을 logcat 에 덤프합니다.
+
+## 구성 규칙 프로파일
+
+**Profile** 변수를 설정하면 **DefaultDeviceProfiles**.ini 의 **AndroidDeviceProfileMatchingRules** 가 선택한 디바이스 프로파일 대신 사용할 것을 덮어쓸 수 있습니다. 이 값을 수정하지 않으면 읿반 규칙이 계속 적용됩니다. 다음 예제는 **SM-G965** 모델에 **Android\_Galaxy\_S9Plus_Adreno** 세팅을 강제 적용합니다.
+
+    condition:((SourceType=sammodel,CompareType=CMP_Regex,MatchString="SM\-G965")), (Profile="Android_Galaxy_S9Plus_Adreno")
+
+  
+
+## 구성 규칙 대화창
+
+대화창에 표시되는 오류 및 경고 메시지를 커스터마이징하는 변수는 다음과 같습니다.
+
+*   caption
+*   exitbutton
+*   continuebutton
+*   updatebutton
+*   helpbutton
+
+캡션 또는 버튼에 있는 값을 스트링 테이블에서 조회하여 대화창의 현지화 텍스트를 구합니다.  프로젝트가 지원하는 각 현지화 언어에 대해 이 스트링 이름을 고유하게 해서 프로젝트의 **Build/Android/res/values** 디렉터리 아래 **ConfigurationStrings.xml** 파일에 넣어야 합니다. (예를 들어 values-fr 은 프랑스어입니다).  
+
+[REGION:note]
+ConfigurationStrings.xml 파일을 어디에 넣을지에 대한 예제는 다음과 같습니다.
+[/REGION]
+
+[REGION:lightbox]
+[![](AndroidConfigRules_File_Location.png)(w:800px)](AndroidConfigRules_File_Location.png)
+[/REGION]
+[REGION:caption]
+클릭하면 이미지 원본을 확인합니다.
+[/REGION]
+
+*   **Error** - **error variable** 를 설정하여 **error** 를 알릴 수 있습니다. 대화창은 거기에 할당한 값의 스트링 테이블 항목을 표시합니다.  이 옵션이 설정되면 configrules.txt 모든 처리는 중단되고 사용자는 응용 프로그램을 계속할 수 없게 됩니다.
+*   **Warning** - **warning variable** 를 설정하면 **Warning** 대화창이 발동됩니다.  대화창에 계속 옵션이 제공되며, 선택적으로 해당 변수가 설정된 경우 업데이트 및/또는 도움말 버튼을 제공합니다.  도움말 버튼은 외부 브라우저를 실행하여 링크 변수로 지정된 URL 을 엽니다. configrules.txt 평가는 끝까지 또는 오류가 설정될 때까지 계속하다 대화장이 표시되면 필요한 경우 다른 조건으로 다시 변경할 수 있습니다.
+
+다음 예제 코드는 사용자가 ARM64 미지원 Android 디바이스를 사용하려 했을 때 오류를 표시하도록 설정한 것입니다.
+
+    set:(caption="CR_Caption_DeviceNotSupported", exitbutton="CR_Button_Quit", continuebutton="CR_Button_Continue", helpbutton="CR_Button_Help")
+    condition:((SourceType=isARM64,CompareType=CMP_EQUAL,MatchString=”false”)),(error=”CR_Info_RequiresARM64”)
+
+위 예제와 같은 부분을 만나면, 표시되는 오류 메시지는 다음 스트링 테이블에서 옵니다. 
+
+~~~
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<!-- Button text -->
+<string name="CR_Button_Quit">Quit</string>
+<string name="CR_Button_Help">More Info</string>
+<string name="CR_Button_Continue">Continue</string>
+<string name="CR_Button_Update">Check for Update</string>
+<!-- Dialog caption text -->
+<string name="CR_Caption_DeviceNotSupported">Device Not Supported</string>
+<!-- Dialog message text -->
+<string name="CR_Info_RequiresARM64">This game requires an ARM64-v8a processor.</string>
+</resources>
+~~~
+
+## 구성 규칙 빌드 파일
+
+configrules.txt 파일을 압축하고 선택적으로 암호화해서 APK 에 포함시키려면 프로젝트에 다음과 같이 추가해야 합니다. 프로젝트의 **Build.cs** 파일에 다음 **Unreal Plugin Language** (UPL) 코드를 등록하는 것으로 시작합니다.
+
+~~~
+    if (Target.Platform == UnrealTargetPlatform.Android)
+    {
+    // Add UPL to add configrules.txt to our APK
+    string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
+    AdditionalPropertiesForReceipt.Add("AndroidPlugin", System.IO.Path.Combine(PluginPath, "MyGame_UPL.xml"));
+    }
+~~~
+
+이제 **MyGame_UPL.xml** 라는 새 파일을 만들어 **Build.cs** 파일과 같은 디렉터리에 넣습니다.
+
+[REGION:lightbox]
+[![](AndroidConfigRules_MyGame_UPLLocation.png)(w:800px)](AndroidConfigRules_MyGame_UPLLocation.png)
+[/REGION]
+[REGION:caption]
+클릭하면 이미지 원본을 확인합니다.
+[/REGION]
+
+MyGame_UPL.xml 파일을 열고 다음 코드를 추가한 뒤 저장합니다. (ConfigRulesKey 가 고유 암호화 키를 포함하도록 변경합니다)
+
+~~~
+<?xml version="1.0" encoding="utf-8"?>
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- init section is always evaluated once per architecture -->
+    <init>
+        <!-- this is the key used for configrules encryption -->
+        <setString result="ConfigRulesKey" value="This is my encryption key"/>
+    </init>
+    <!-- Files to copy to gradle directory before Gradle runs -->
+    <gradleCopies>
+        <copyFile src="$S(BuildDir)/configrules.txt"
+                    dst="$S(BuildDir)/gradle/app/configrules.txt"/>
+    </gradleCopies>
+    <gradleProperties>
+        <insertValue value="CONFIGRULESTOOL_KEY=$S(ConfigRulesKey)"/>
+        <insertNewline/>
+        <insertValue value="CONFIGRULESTOOL_JAR=$S(AbsEngineDir)/Build/Android/Prebuilt/ConfigRulesTool/bin/ConfigRulesTool.jar"/>
+        <insertNewline/>
+    </gradleProperties>
+    <gameActivityClassAdditions>
+        <insertValue value="public String CONFIGRULES_KEY = "$S(ConfigRulesKey)";"/>
+        <insertNewline/>
+    </gameActivityClassAdditions>
+    <buildGradleAdditions>
+        <insert>
+        <![CDATA[
+task ProcessConfigRules(type: JavaExec) {
+    description 'Produces compressed and encrypted configules.bin.png in assets'
+    inputs.file file('configrules.txt')
+    outputs.file file('src/main/assets/configrules.bin.png')
+    main = "-jar"
+    args = [
+        "${CONFIGRULESTOOL_JAR}",
+        'c',
+        'configrules.txt',
+        'src/main/assets/configrules.bin.png',
+        "${CONFIGRULESTOOL_KEY}"
+    ]
+}
+tasks.whenTaskAdded { task ->
+    if (CONFIGRULESTOOL_JAR != null) {
+        if (task.name == 'assembleRelease') {
+            task.dependsOn 'ProcessConfigRules'
+           }
+        if (task.name == 'assembleDebug') {
+            task.dependsOn 'ProcessConfigRules'
+        }
+    }
+}
+        ]]>
+        </insert>
+    </buildGradleAdditions>
+</root>
+~~~

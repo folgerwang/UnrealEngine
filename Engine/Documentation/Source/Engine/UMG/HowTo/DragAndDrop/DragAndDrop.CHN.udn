@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3452142
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:创建拖放 UI
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -39,20 +39,19 @@ type:how-to
 
 _在此指南的最后，您将拥有一个可以在视口中进行四处拖动、并放置到新位置的 UI 控件。_
 
+(#Steps)
 ## 步骤
 
 [REGION:buttonlist]
-
-	* [](Engine\UMG\HowTo\DragAndDrop\ProjectSetup)
-	* [](Engine\UMG\HowTo\DragAndDrop\WidgetSetup)
-	* [](Engine\UMG\HowTo\DragAndDrop\OnDragDetected)
-	* [](Engine\UMG\HowTo\DragAndDrop\OnDrop)
-	* [](Engine\UMG\HowTo\DragAndDrop\FinishingUp)
-	
+* [](Engine\UMG\HowTo\DragAndDrop\ProjectSetup)
+* [](Engine\UMG\HowTo\DragAndDrop\WidgetSetup)
+* [](Engine\UMG\HowTo\DragAndDrop\OnDragDetected)
+* [](Engine\UMG\HowTo\DragAndDrop\OnDrop)
+* [](Engine\UMG\HowTo\DragAndDrop\FinishingUp)
 [/REGION]
 
 [REGION:call_to_action]
-	[Click to Start](Engine\UMG\HowTo\DragAndDrop\ProjectSetup "%Engine\UMG\HowTo\DragAndDrop\ProjectSetup:title%")
+	[点击开始](Engine\UMG\HowTo\DragAndDrop\ProjectSetup "%Engine\UMG\HowTo\DragAndDrop\ProjectSetup:title%")
 [/REGION]
 
 

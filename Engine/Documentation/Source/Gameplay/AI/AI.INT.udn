@@ -8,7 +8,7 @@ version: 4.9
  Q:\Daniel.Broder\BT Docs 
 [/COMMENT]
 
-## [](Engine/AI/BehaviorTrees "%Engine/AI/BehaviorTrees:description%")
+## Behavior Tree
 
 [REGION:buttonlist]
 * [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
@@ -17,7 +17,7 @@ version: 4.9
 * [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
 [/REGION]
 
-## [](Engine/AI/EnvironmentQuerySystem "Engine/AI/EnvironmentQuerySystem:description")
+## Environment Query System
 
 [REGION:buttonlist]
 * [](Engine/AI/EnvironmentQuerySystem/UserGuide "%Engine/AI/EnvironmentQuerySystem/UserGuide:description%")

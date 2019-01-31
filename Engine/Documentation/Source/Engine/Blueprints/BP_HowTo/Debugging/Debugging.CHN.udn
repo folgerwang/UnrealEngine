@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:蓝图调试
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\Workflow
@@ -8,6 +8,7 @@ Related: Engine/Blueprints
 version:4.9
 parent:Engine/Blueprints/Workflow
 order:6
+tags:Blueprints
 
 
 [TOC(start:2)]
@@ -22,6 +23,7 @@ order:6
 如需了解蓝图调试的更多内容，请查阅 [](Engine/Blueprints/UserGuide/Debugging) 文档。 
 [/REGION]
 
+(#EnableDebugging)
 ## 启用调试
 
 如需启用蓝图调试，首先必须规定需要进行调试的蓝图实例位于关卡中。 
@@ -52,6 +54,7 @@ UtS3wgltYgg
 
 游戏启动后（当跳动线条离开 Event Begin Play 节点，进入 Delay 节点时）可在左边窗口中看到脚本的执行。在指定时间后，跳动线条进入第三个节点，而该节点用于停止其中一个火焰效果。 
 
+(#Breakpoints)
 ## 断点
 
 在任意执行节点上 **单击右键** 选择 **Add Breakpoint**，可添加一个 **断点** 至蓝图脚本。 
@@ -95,6 +98,7 @@ UtS3wgltYgg
 
 调试的常规工作流是为节点添加一个断点，然后使用 **Step** 在脚本中前进，找到问题源头。放置断点需要注意的是在脚本中无法后退，需将其放置在问题发生之前，才能完整地看到问题的前后全貌。 
 
+(#WatchingValues)
 ## 观察数值
 
 在变量上 **单击右键** 并选择 **Watch this value** 选项即可观察变量值。 
@@ -114,6 +118,7 @@ UtS3wgltYgg
 ![](DebugHowTo18.png)
 
 
+(#BlueprintDebuggerTab)
 ## 蓝图调试器标签
 
 也可通过 **Blueprint Debugger** 对蓝图进行调试，该选项位于 **Window** / **Developer Tools** 部分。
@@ -135,6 +140,7 @@ UtS3wgltYgg
 到达断点时，可在蓝图调试器标签中直接访问本页中提及的 [调试控制](#bookmarkdebuggingcontrols)。 
 
 
+(#CompileErrors)
 ## 编译错误
 
 编译蓝图时出现 **编译错误** （下图黄色框所示）存在多种原因。  

@@ -1,54 +1,43 @@
-﻿Availability:Public
-Title:环境立方体贴图
+INTSourceChangelist:3810557
+Availability:Public
+Title:环境光立方体贴图
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description:用于高质量光照环境的场景光照的立方体贴图。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/AmbientCubemap:title%](cubemap2.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/AmbientCubemap:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/AmbientCubemap:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/AmbientCubemap]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Description:应用于场景照明以打造高质量照明环境的立方体贴图纹理。
+Version: 4.9
+topic-image:cubemap2.png
 
 [excerpt:AmbientCubemap]
-[EXCERPT:AmbientCubemap_Desc]
-**Ambient Cubemap** (环境立方体贴图)能从给定的图像中照亮场景。 图像被映射到远处的球体（作为立方体贴图来应用，该贴图的mip map存储了图像预模糊效果的版本）。模糊版本按照不同光泽度的高光进行运算（锐化反射 vs. 模糊反射），并且它们也可被用于漫反射。 此特效与材质获取光照的位置无关。 观察者位置，材质粗糙度（高光特效用到），以及材质表面法线均被考虑。 
+[INCLUDE:#AmbientCubemap_Desc]
 
-[REGION:note]
-环境立方体贴图具有非常有限的本地阴影（仅SSAO）。  在代表天空光照时，可以转而使用[天空光照](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) 。
-[/REGION]
-[/EXCERPT:AmbientCubemap_Desc]
+环境光立方体贴图仅用于细腻的平行环境光部分（在使用完全动态照明的游戏中十分有用）或模型查看器应用程序。
 
-环境立方体贴图仅用于细微的方向性环境条件（对于完全使用动态光照的游戏很有用），或用于模型查看程序。
+由于光线来自于许多方向，因此不能仅使用阴影贴图来表现这种照明类型。应用SSAO是为了从附近几何结构获取接触阴影（请参阅[环境光遮蔽](Engine/Rendering\LightingAndShadows\AmbientOcclusion)）。
 
-由于光照来自许多方向，我们不能简单地对这种光照类型使用阴影贴图。 SSAO被应用从而从附近的几何体中获取接触阴影(请参阅 [环境遮挡](Engine/Rendering\LightingAndShadows\AmbientOcclusion) )。
+可以使用显示标志“基于照明图像的照明”来切换环境光立方体贴图的渲染。
 
-可以采用显示标识"Lighting Image Based Lighting" （基于光照贴图的光照）来切换对环境立方体贴图的渲染。
-
-![Ambient Cubemap](AmbientCubemapDemo.png)(w:600)
+![环境光立方体贴图](AmbientCubemapDemo.png)(w:600)
 
 ![AmbientCubemapTexture.png](AmbientCubemapTexture.png)(w:600)
 
-此图中，立方体贴图的图像被自动布局为"longlat"格式。
+在该图像中，立方体贴图图像已经自动排列成“longlat”形式。
 
-| 属性 | 描述 |
+| 属性 | 说明 |
 | -------- | ----------- |
-| **Cubemap Texture** （立方体贴图）| 用于环境光照的立方体贴图。 贴图应通过在经度/纬度球体展开格式中导入.hdr图像来创建。 引擎会自动预计算贴图的模糊版本，并将计算结果存储在一个立方体贴图中。 贴图的较低分辨率mip存储了HDR环境的漫反射预卷积版本。
-| **Intensity** （强度）| 特效亮度的缩放因数。 可用于： 存在亮度调整的立方体贴图。
-| **Tint** （着色）| 应用到立方体贴图的过滤器颜色。 可用于： 对存在的立方体贴图进行上色，对天空颜色变化进行动画处理。
+| **立方体贴图纹理（Cubemap Texture）** | 用于环境照明的立方体贴图。纹理的创建方式是以经度/纬度球形展开格式导入.hdr图像。引擎自动预先计算模糊版本的纹理，并将结果存储在一个立方体贴图纹理中。纹理的较低分辨率mip存储漫射预卷积版本的HDR环境。
+| **强度（Intensity）** | 用于表示效果亮度的比例因子。可能的用法：亮度调整现有立方体贴图。
+| **色调（Tint）** | 应用于立方体贴图的滤色贴图。可能的用法：给现有立方体贴图着色，制作天空颜色变化动画。
 
-此图像的立方体贴图来源于Paul Debevec的光照探测器。 [http://gl.ict.usc.edu/Data/HighResProbes/](http://gl.ict.usc.edu/Data/HighResProbes/)
+该图像中的立方体贴图衍生自Paul Debevec的光照探针。[http://gl.ict.usc.edu/Data/HighResProbes/](http://gl.ict.usc.edu/Data/HighResProbes/)
 [/excerpt:AmbientCubemap]
+
+[COMMENT:none]
+[EXCERPT:AmbientCubemap_Desc]
+**环境光立方体贴图** 从提供的图像照亮场景。该图像映射到远距离处的球体（实现为立方体贴图纹理，用mip贴图存储预先模糊处理的图像版本）。
+模糊版本的计算方式让它们能够用于光泽度有所变化的高光照明（清晰与模糊反射），它们也可以用于漫射光线。 
+这种效果与从中照亮材质的位置无关。观看者位置、材质粗糙度（针对高光效果）和材质表面法线都会考虑在内。 
+
+[REGION:note]
+环境光立方体贴图具有非常有限的局部阴影（仅限SSAO）。表示天空照明时改为使用[天空光照](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight)。
+[/REGION]
+[/EXCERPT:AmbientCubemap_Desc]
+[/COMMENT]

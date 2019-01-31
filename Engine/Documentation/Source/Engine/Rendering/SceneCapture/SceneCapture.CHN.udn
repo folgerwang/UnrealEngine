@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3225648
 availability:docs
-title:Scene Capture
-description: Using Scene Capture Actors in Unreal Engine 4.
+title:场景采集
+description: 在虚幻引擎4中使用场景采集Actor。
 crumbs:
 version:4.14
 Type:landing
@@ -15,9 +15,35 @@ topic-image:Engine\Rendering\SceneCapture/Scene_Capture_Header.png
 ![](Scene_Capture_Header.png) 
 
 
-Unreal Engine 4  (UE4) offers a set of Actors, called Scene Capture Actors, that can be used to capture a real time, fully dynamic image of the scene it is placed in. In the following pages we will go over what Scene Capture Actors are and how you can use them inside your UE4 projects.
+虚幻引擎4（UE4）提供一组名为场景采集Actor的Actor，它们可用于采集布置到场景中的实时全动态图像。在接下来的几页中，我们将介绍什么是场景采集Actor以及如何在UE4项目中使用。
 
-[DIR(output:"topic" parent:"Engine/Rendering/SceneCapture")]
+[DIR(output:”topic” parent:”Engine/Rendering/SceneCapture”)]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

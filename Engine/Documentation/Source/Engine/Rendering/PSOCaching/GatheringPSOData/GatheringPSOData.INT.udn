@@ -1,0 +1,130 @@
+Availability: Public
+Crumbs: 
+Title: Gathering PSO Data
+Description: Taking a look at how to gather the PSO data from a compiled UE4 project.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:GatheringPSOData_Topic_Image.png
+Tags: 
+
+
+Part of the data that is used for **Pipeline State Object** (PSO) caching has to be generated while the project is running on one of its target devices. In the following How-To, we will take a look at how you can use [Device Profiles](Platforms/DeviceProfiles) and the [Project Launcher](Engine/Deployment/ProjectLauncher) to create and deploy a version of your Unreal Engine 4 (UE4) project that will enable PSO data to be generated and captured.
+
+## Steps
+
+1.  From the **Main Toolbar**, click the white arrow icon next to **Launch**, then select **Project Launcher**.  
+    [REGION:lightbox]
+    [![](Open_UE4_Project_Launcher.png)(w:400px)](Open_UE4_Project_Launcher.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+2.  In the Project Launcher, locate the **Custom Launch Profiles** section and press the **plus sign icon** to add a new **Custom Launch Profile**.   
+    [REGION:lightbox]
+    [![](Create_New_Custom_Launch_Profile.png)(w:800px)](Create_New_Custom_Launch_Profile.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    You can rename the profile by double-clicking on the existing profile name and inputting the name you want in the box.
+    [/REGION]
+3.  In the **Project** section, click on the **Project** dropdown and select the project that you want this profile to be associated with. Since we are using **ActionRPG** to demonstrate this workflow, the **Project** was set to **ActionRPG**.
+    [REGION:lightbox]
+    [![](Project_Launcher_Used_Project.png)(w:800px)](Project_Launcher_Used_Project.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+4.  Under the Cook section, set the **How would you like to cook the content** option, to **By the Book**.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Cook_Type.png)(w:800px)](Project_Launcher_Cook_Type.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    For more information on what the various cooking options do, check out the [Build Operations: Cook, Package, Deploy, and Run](Engine/Deployment/BuildOperations) documentation pages.
+    [/REGION]
+5.  In the **Cooked Platforms** section, you can select which platform and texture formats this profile should use. Since we are using **ActionRPG** to demonstrate this workflow, make sure that **Android** and **Android_ETC1** are checked.
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Platforms.png)(w:800px)](Project_Launcher_Cooked_Platforms.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+6.  In the **Cooked Maps** section, make sure that **Show All** is selected and then select all of the maps you want this profile to be associated with. Since we are using **ActionRPG** to demonstrate this workflow, make sure that all available maps have a checkmark next to them.
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Maps.png)(w:800px)](Project_Launcher_Cooked_Maps.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+7.  Under the **Launch** section, set the **Initial Map** to a level that is used when your project loads. Since we are using **ActionRPG** to demonstrate this workflow, the Initial Map was set to **ActionRPG_Main** which is the Level that has the starting UI screen in it.
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+8.  Then, under **Additional Command Line Parameters**, input **-logPSO** to make sure that PSO logging is enabled when the project is run.
+    [REGION:note]
+    If your project keeps crashing when trying to collect the PSO data, add **-NoVerifyGC** to the command line to disable garbage collection.
+    [/REGION]
+    [REGION:lightbox]
+    [![](Project_Launcher_AdditionalCommandLineParams.png)(w:800px)](Project_Launcher_AdditionalCommandLineParams.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+9.  Press the **Back** button on the top right of the Project Launcher to go back to the **Custom Launch Profiles** menu.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+10.  From the **Custom Launch Profiles** section, press the **Launch this Profile** button to start the cooking and deployment process.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Start_Cook_And_Deploy.png)(w:800px)](Project_Launcher_Start_Cook_And_Deploy.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    Before pressing the **Launch this Profile** button make sure that you have your target device setup and connected to your development PC as this process will not only build and cook your project, it will also deploy and start it.
+    [/REGION]
+11.  Once the cooking and deployment process is started, the following window will be displayed that will show the progress of the build and any error should they occur.  
+    [REGION:lightbox]
+    [![](Project_Launcher_Completed.png)(w:800px)](Project_Launcher_Completed.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    You will know the process was successful when the **Output Log** says **BUILD SUCCESSFUL**.
+    [/REGION]
+12.  Once the build has completed and been deployed to your target device, you will then need to play through all of your project's available Levels. The goal here is to try to load every single piece of content that is used in the game so that the Shaders that the Materials used are captured.  
+    [REGION:note]
+    You will want to repeat this process a few times to make sure that all of the used content is actually loaded.
+    [/REGION]
+13.  After you have played through your project a few times, you can retrieve the **rec.upipelinecache** file. You can find this file by going to the following location on your target device: **UE4Game\\NameOfProject\\NameOfProject\\Saved\\CollectedPSOs**
+    [REGION:lightbox]
+    [![](PSO_FIle_On_Device.png)(w:800px)](PSO_FIle_On_Device.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]  
+    [REGION:note]
+    If you do not see a **Saved** or **CollectedPSOs** folder, you will need to create both folders manually on your target device and then re-run through the content in your project so that the correct files are generated.
+    [/REGION]
+
+## End Results
+
+With the needed PSO data now generated, next we will need to combine all of the various rec.upipelinecache files that were generated into a single PSO cache that can then be used when your UE4 project is built.
+
+[REGION:note]
+For more information about how to do this , check out the [Building the PSO Cache How-To](Engine/Rendering/PSOCaching/BuildingPSOCache).
+[/REGION]

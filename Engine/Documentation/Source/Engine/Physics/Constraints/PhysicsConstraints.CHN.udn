@@ -1,19 +1,24 @@
-﻿INTSourceChangelist:2678576
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:物理约束
 Crumbs: %ROOT%, Engine, Engine/Physics
 Description:在物理对象相互之间和世界场景之间设置约束
 Version:4.9
+Type:landing
+tags:Physics
+tags:constraints
+topic-image:Engine\Physics\physics_topic.png
 
 
-## 概要
+
+(#Essentials)
+## 精选指南
 
 [REGION:buttonlist]
-
-		* [Physics Constraints User Guide](Engine/Physics/Constraints/ConstraintsUserGuide "%Engine/Physics/Constraints/ConstraintsUserGuide:description%")
-		* [](Engine/Physics/Constraints/ConstraintsBlueprints "%Engine/Physics/Constraints/ConstraintsBlueprints:description%")
-		* [](Engine/Physics/Constraints/ConstraintsReference "%Engine/Physics/Constraints/ConstraintsReference:description%")
-		* [](Engine/Physics/FrictionRestitutionAndDamping "%Engine/Physics/FrictionRestitutionAndDamping:description%")
-	
+* [Physics Constraints User Guide](Engine/Physics/Constraints/ConstraintsUserGuide "%Engine/Physics/Constraints/ConstraintsUserGuide:description%")
+* [](Engine/Physics/Constraints/ConstraintsBlueprints "%Engine/Physics/Constraints/ConstraintsBlueprints:description%")
+* [](Engine/Physics/Constraints/ConstraintsReference "%Engine/Physics/Constraints/ConstraintsReference:description%")
+* [](Engine/Physics/FrictionRestitutionAndDamping "%Engine/Physics/FrictionRestitutionAndDamping:description%")
 [/REGION]
+
 

@@ -72,7 +72,7 @@ type:overview
 
 	![](open_visual_studio.png)
 
-	프로젝트를 Visual Studio 에서 여는 것은 윈도우 탐색기나 Visual Studio 의 **File > Open > Project/Solution** 을 통해서도 가능합니다.
+	프로젝트를 Visual Studio 에서 여는 것은 Windows 탐색기나 Visual Studio 의 **File > Open > Project/Solution** 을 통해서도 가능합니다.
 
 	[PUBLISH:Licensee]
 	**프로젝트가 UE4 루트 디렉터리에 있는 경우:**
@@ -156,7 +156,7 @@ type:overview
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1. 윈도우 탐색기에서 `[ProjectName].uproject` 위치로 이동합니다.
+	1. Windows 탐색기에서 `[ProjectName].uproject` 위치로 이동합니다.
 	
 	1. `[ProjectName].uproject` 파일에 우클릭한 다음 **Generate Visual Studio Files** 를 선택합니다.
 	

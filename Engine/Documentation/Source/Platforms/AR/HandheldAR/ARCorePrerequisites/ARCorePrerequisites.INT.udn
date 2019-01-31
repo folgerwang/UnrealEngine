@@ -1,0 +1,44 @@
+Availability: Public
+Crumbs: 
+Title: ARCore Prerequisites
+Description: Google's ARCore prerequisites for augmented reality.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: mobile
+Tags: Android
+Tags: AR
+
+
+Support for Android devices is not new to the Unreal Engine; however, there are some additional requirements when working with augmented reality and Unreal. In addition to the standard Unreal Engine configuration for Android, there is an additional step of installing the ARCore app on the Android device. If you are already working with Unreal Engine and Android devices, this may be the only step that is required to start working with augmented reality and Unreal Engine.
+
+## General Prerequisites
+
+The basic configuration of Unreal Engine and Android devices is covered in detail in the [Android Game Development](Platforms/Android) section of the Unreal Engine documentation.  
+
+**ARCore 1.1 Prerequisites**  
+
+*   A development machine that meets our [Recommended Specifications](GettingStarted/RecommendedSpecifications).
+*   Unreal Engine 4.19 or greater installed.
+*   Codeworks for Android installed.
+*   Android Version 24 or greater installed.
+*   A supported, configured, and connected handheld Android device.
+
+**ARCore 1.2 Prerequisites**  
+
+*   A development machine that meets our [Recommended Specifications](GettingStarted/RecommendedSpecifications).
+*   Unreal Engine 4.20 or greater installed.
+*   Codeworks for Android installed.
+*   Android Version 24 or greater installed.
+*   A supported, configured, and connected handheld Android device.
+
+[REGION:note]
+**Supported: **Use the [Supported Devices](https://developers.google.com/ar/discover/#supported_devices) link to identify the current list of Android devices supported for ARCore.
+[/REGION]
+[REGION:note]
+**Configured: **Unique to augmented reality with Unreal Engine is the requirement to install the ARCore app on the device.
+
+*   ARCore can be downloaded from the Google Play Store manually.
+*   Or, if ARCore is not detected on the handheld device, the device will prompt to download ARCore from Google Play Store.
+[/REGION]

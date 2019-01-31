@@ -1,0 +1,28 @@
+﻿INTSourceChangelist:4320499
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: サポートされるビデオ デバイス
+Description: サポートされるビデオ デバイスのリスト
+Version: 4.20
+Parent: Platforms/MR
+Order: 4
+Tags: Reference
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_Camera.jpg
+
+Mixed Reality Capture (MRC) フレームワークのテストを行ったビデオ キャプチャ デバイスは限られています。テストをしていないビデオ キャプチャ デバイスが動作しないというわけではありませんが、以下がEpic Games でテストを実行したデバイスのリストになります。
+
+**ウェブカメラ**
+
+* [Logitech C920](https://www.logitech.com/en-us/product/hd-pro-webcam-c920)
+* [Logitech C930e](https://www.logitech.com/en-us/product/c930e-webcam)
+
+**USB キャプチャ ドングル**
+
+* [Magewell USB Capture HDMI Gen 2](http://www.magewell.com/usb-capture-hdmi)¹
+
+¹ テストを実行していませんが、[Plus モデル](http://www.magewell.com/usb-capture-hdmi-4k-plus) (4K 向け)、[SDI キャプチャ ドングル](http://www.magewell.com/usb-capture-sdi-4k-plus) (ブロードキャスト ハードウェア向け) など他の Magewell USB キャプチャ製品は MRC と互換性がある可能性があります。
+
+上級ユーザーは、独自のビデオ キャプチャ デバイスをサポートするために Media Framework プラグインを作成することができます。

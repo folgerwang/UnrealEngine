@@ -1,9 +1,19 @@
-﻿INTSourceChangelist:2709477
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:槽
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
 Description:概括介绍在 UMG 中如何应用各种槽。
 Version:4.9
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:8
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/SlotTopic.png
+
+
+
 
 [TOC(start:2 end:2)]
 
@@ -11,6 +21,7 @@ Version:4.9
 
 此外，每个槽都各不相同。例如，如果您将某个控件放在网格上，那么您可能希望能够设置诸如“行”和“列”之类的设置。但放置在画布上的控件则没有这些属性。这就是槽的意义所在。**网格槽** 只能理解“行”和“列”，而 **画布槽** 则完全理解如何通过锚来对内容进行布局。
 
+(#AccessingSlots)
 ## 访问槽 
 
 按照惯例，与槽相关的所有属性都位于 **详情** 面板中的 **布局** 类别下（如下图黄框所示）。 
@@ -19,6 +30,7 @@ Version:4.9
 
 您还会注意到，控件所用的槽类型以括号标识（上图中的黄色箭头）。 
 
+(#SettingLayoutProperties)
 ### 设置布局属性
 
 运行时，要修改“布局”下的属性，您可以访问蓝图或 C++ 控件的槽成员，然后将其 **投射** 到正确的 **槽类型**。如此一来，您将能够修改属性，下图给出了具体示例。 

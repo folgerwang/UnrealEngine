@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2697129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 工具和系统
 Crumbs:%ROOT%, Engine, Engine/UI
@@ -15,7 +15,7 @@ Version: 4.9
 	编辑器内的各系统
 	[/PARAM]
 	[PARAM:path]
-	[RELATIVE:#BookmarkSystems]
+	[RELATIVE:#Systems]
 	[/PARAM]
 [/OBJECT]
 
@@ -56,7 +56,7 @@ Version: 4.9
 [/OBJECT]
 [/REGION]
 
-(#BookmarkSystems)
+(#Systems)
 ## 系统
 
 [EXCERPT:Systems]
@@ -66,6 +66,7 @@ Version: 4.9
 [/REGION]
 [/EXCERPT:Systems]
 
+(#Tools)
 ## 工具
 
 [EXCERPT:Tools]
@@ -81,38 +82,26 @@ Version: 4.9
 ## 场景关卡编辑工具
 
 [REGION:buttonlist]
-
-	* [](Engine/UI/LevelEditor/Layers "%Engine/UI/LevelEditor/Layers:Description%")
-	* [](Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor "%Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor:Description%")
-	
+* [](Engine/UI/LevelEditor/Layers "%Engine/UI/LevelEditor/Layers:Description%")
+* [](Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor "%Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor:Description%")
 [/REGION]
 
 (#ContentCreation)
 ## 内容制作工具
 
 [REGION:buttonlist]
-
-	* [](Engine/Content/Types/StaticMeshes/Editor "%Engine/Content/Types/StaticMeshes/Editor:Description%")
-	[PUBLISH:Licensee]
-	* [](Engine/UI/Tools/Simplygon "%Engine/UI/Tools/Simplygon:Description%")
-	[/PUBLISH:Licensee]
-	* [](Engine/Animation/Persona "%Engine/Animation/Persona:Description%")
-	* [](Engine/Physics/PhAT "%Engine/Physics/PhAT:Description%")
-	* [](Engine/Rendering/Materials/Editor "%Engine/Rendering/Materials/Editor:Description%")
-	* [](Engine/Rendering/ParticleSystems/Cascade "%Engine/Rendering/ParticleSystems/Cascade:Description%")
-	
+* [](Engine/Content/Types/StaticMeshes/Editor "%Engine/Content/Types/StaticMeshes/Editor:Description%")
+* [](Engine/Animation/Persona "%Engine/Animation/Persona:Description%")
+* [](Engine/Physics/PhAT "%Engine/Physics/PhAT:Description%")
+* [](Engine/Rendering/Materials/Editor "%Engine/Rendering/Materials/Editor:Description%")
+* [](Engine/Rendering/ParticleSystems/Cascade "%Engine/Rendering/ParticleSystems/Cascade:Description%")
 [/REGION]
 
 (#ToolProgramming)
 ## 工具制作
 
 [REGION:buttonlist]
-
-	* [](Programming/Slate "%Programming/Slate:Description%")
-	[PUBLISH:Licensee]
-	* [](Programming/Slate/DetailsCustomization "%Programming/Slate/DetailsCustomization:Description%")
-	[/PUBLISH:Licensee]
-	
+* [](Programming/Slate "%Programming/Slate:Description%")
 [/REGION]
 
 

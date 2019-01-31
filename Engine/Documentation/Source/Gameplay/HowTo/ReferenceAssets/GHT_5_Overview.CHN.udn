@@ -1,11 +1,12 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:引用 Actor
 Crumbs: %ROOT%, Gameplay
 Description:关于如何在虚幻引擎 4 中引用 Actor 的操作指南。
 Version: 4.9
 Parent:Gameplay
-type:how-to
+SkillLevel: Advanced
+type:overview
 order:5
 
 [EXCERPT:ReferenceOverview]
@@ -20,14 +21,10 @@ order:5
 
 以下“设置”部分中的链接将通过示例介绍如何使用蓝图引用 Actor。
 
-## 设置
+(#ImplementationGuides)
+## 实现指南
 
-关于使用蓝图引用 Actor 的详细信息，请访问以下链接：
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\ReferenceAssets\Blueprints)
-
-[/REGION]
+[DIR(output:"role" parent:"Gameplay/HowTo/ReferenceAssets" org:"hierarchy" end:"1")]
 
 
 

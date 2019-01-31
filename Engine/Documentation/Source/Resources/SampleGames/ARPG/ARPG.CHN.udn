@@ -1,0 +1,24 @@
+﻿INTSourceChangelist:43577683
+Availability: Public
+Crumbs: 
+Title: 动作RPG游戏
+Description: 展示如何使用技能系统插件的示例游戏。
+Type: landing
+Version: 4.20
+Parent: Resources/SampleGames
+Order: 1
+Tags: Sample Game
+
+
+![](ARPG_Banner_Image_00.png "ARPG_Banner_Image_00.png")  
+作为专门面向开发者的资源，动作角色扮演游戏（简称“Action RPG”）是一款从零搭建的第三人称砍杀类游戏，旨在帮助开发者更好地学习如何使用UE4开发高端Android和iOS手机游戏。
+
+## 设置
+
+%Resources/SampleGames/ARPG/BuildingGameplayinC-forActionRPG:topic%
+
+%Resources/SampleGames/ARPG/BalancingBlueprintandC-:topic%
+
+## 能力系统分解
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG:topic%

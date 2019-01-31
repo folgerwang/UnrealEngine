@@ -1,0 +1,21 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith ソフトウェア相互運用ガイド
+Description: Datasmith を使用して、異なるソース アプリケーションからコンテンツをインポートする際に特に考慮すべき事項を解説します。
+Type:landing
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 2
+Tags: Unreal Studio
+Tags: Datasmith
+
+
+Datasmith の目標の 1 つは、アーキテクチャ、エンジニアリング、建設、製造といった産業にまたがり使用されている業界標準の 3D 設計アプリケーションを最大限にサポートすることです。[](Enterprise/Datasmith/Overview) で説明しているとおり、Datasmith は多くの場合において、サポートしているこれらのソフトウェア アプリケーションとファイル形式をすべて同様に処理して、同様の結果を出力します。
+
+しかし、サポートしているアプリケーションおよびファイル形式には、インポート処理に関してそれぞれに独自の課題と利点があります。以下のガイドでは、各々の異なるデータソースに特有の補足的に考慮すべき事項について解説しています。
+
+%Enterprise/Datasmith/SoftwareInteropGuides/3dsMax:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/SketchUp:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/CAD:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/Rhino:topic%

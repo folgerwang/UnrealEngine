@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.1 - 为游戏添加发射物
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/3
 Description:学习如何在第一人称射击游戏项目中添加发射物。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -25,6 +25,7 @@ Version:4.11
 
 设置好角色后，现在需要实现一个发射武器。开火时，类似于手雷的简单发射物将从屏幕中央射出、飞行，然后和世界场景发生碰撞。在这步中，我们将为发射物添加输入并创建新的代码类。
 
+(#AddingFireActionMapping)
 ## 添加开火动作映射
 
 1.	在 **Edit** 菜单中点击 **Project Settings**。
@@ -45,6 +46,7 @@ Version:4.11
 
 1.	关闭 **Project Settings** 菜单。
 
+(#AddingaProjectileClass)
 ## 添加发射物类
 
 1.	在 File 菜单中，选择 **New C++ Class...** 选择新的父类。
@@ -57,6 +59,7 @@ Version:4.11
 
 	![](CreateProjectileClass.png)
 
+(#AddingaUSphereComponent)
 ## 添加一个 USphere 组件
 
 1.	在 **Solution Explorer** 中找到 `FPSProjectile` 类头文件并打开 `FPSProjectile.h`。
@@ -85,9 +88,12 @@ Version:4.11
 			// 设置该 actor 属性的默认值
 			AFPSProjectile();
 		
+		
+		protected:
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
 			
+		public:
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
@@ -146,6 +152,7 @@ Version:4.11
 		
 		}
 
+(#AddingaProjectileMovementComponent)
 ## 添加发射物运动组件
 
 1.	在 **Solution Explorer** 中找到 `FPSProjectile` 类头文件并打开 `FPSProjectile.h`。
@@ -173,10 +180,12 @@ Version:4.11
 		public:	
 			// 设置该 actor 属性的默认值
 			AFPSProjectile();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
@@ -246,6 +255,7 @@ Version:4.11
 		
 		}
 
+(#SettingtheProjectile'sInitialVelocity)
 ## 设置发射物的初速度
 
 1.	在 **Solution Explorer** 中找到 `FPSProjectile` 类头文件并打开 `FPSProjectile.h`。
@@ -274,10 +284,12 @@ Version:4.11
 		public:	
 			// 设置该 actor 属性的默认值
 			AFPSProjectile();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
@@ -357,6 +369,7 @@ Version:4.11
 			ProjectileMovementComponent->Velocity = ShootDirection * ProjectileMovementComponent->InitialSpeed;
 		}
 
+(#BindingtheFireInputAction)
 ## 绑定开火输入操作
 
 1.	在 **Solution Explorer** 中找到 `FPSCharacter` 类头文件并打开 `FPSCharacter.h`。
@@ -384,15 +397,17 @@ Version:4.11
 		public:
 			// 设置该角色属性的默认值
 			AFPSCharacter();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
 			// 调用后将功能绑定到输入
-			virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+			virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 		
 			// 处理前后移动的输入。
 			UFUNCTION()
@@ -427,7 +442,7 @@ Version:4.11
 
 1.	在 `FPSCharacter.cpp` 中，将以下代码添加到 `SetupPlayerInputComponent`，绑定 `OnFire` 函数：
 
-		InputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
+		PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
 
 1.	将以下函数定义添加到 `FPSCharacter.cpp`：
 
@@ -451,7 +466,7 @@ Version:4.11
 			// 创建一个第一人称摄像机组件。
 			FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 			// 将摄像机组件附加到胶囊体组件。
-			FPSCameraComponent->AttachTo(GetCapsuleComponent());
+			FPSCameraComponent->SetupAttachment(GetCapsuleComponent());
 			// 将摄像机放置在眼睛上方不远处。
 			FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
 			// 用 pawn 控制摄像机旋转。
@@ -462,7 +477,7 @@ Version:4.11
 			// 该模型仅对拥有玩家可见。
 			FPSMesh->SetOnlyOwnerSee(true);
 			// 将 FPS 模型添加到 FPS 摄像机。
-			FPSMesh->AttachTo(FPSCameraComponent);
+			FPSMesh->SetupAttachment(FPSCameraComponent);
 			// 禁用部分环境阴影，保留单一模型存在的假象。
 			FPSMesh->bCastDynamicShadow = false;
 			FPSMesh->CastShadow = false;
@@ -491,22 +506,22 @@ Version:4.11
 		}
 		
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 		
 			// 设置“查看”绑定。
-			InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-			InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+			PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+			PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 		
 			// 设置“动作”绑定。
-			InputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-			InputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
-			InputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
+			PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+			PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+			PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
 		}
 		
 		void AFPSCharacter::MoveForward(float Value)
@@ -537,6 +552,7 @@ Version:4.11
 		{
 		}
 
+(#DefiningtheProjectile'sSpawnLocation)
 ## 定义发射物的生成位置
 
 1.	生成 `FPSProjectile` actor 时实现 `OnFire` 函数需考虑两点：
@@ -590,15 +606,17 @@ Version:4.11
 		public:
 			// 设置该角色属性的默认值
 			AFPSCharacter();
-		
+
+		protected:		
 			// 游戏开始时或生成时调用
 			virtual void BeginPlay() override;
-			
+
+		public:			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 		
 			// 调用后将功能绑定到输入
-			virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+			virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 		
 			// 处理前后移动的输入。
 			UFUNCTION()
@@ -637,6 +655,7 @@ Version:4.11
 			TSubclassOf<class AFPSProjectile> ProjectileClass;
 		};
 
+(#CompilingandCheckingYourCode)
 ## 编译并检查代码
 
 现在即可编译并检查新实现的发射物代码。

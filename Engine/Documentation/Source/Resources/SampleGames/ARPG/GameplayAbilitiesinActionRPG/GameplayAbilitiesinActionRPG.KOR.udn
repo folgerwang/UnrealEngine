@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: 액션 RPG 의 게임플레이 어빌리티 
+Description: ARPG 에서 Gameplay Abilities 를 사용한 방법에 대한 설명입니다.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+**Action RPG (ARPG)** 샘플은 **Gameplay Abilities** (게임플레이 어빌리티) 플러그인을 사용하여 플레이어와 적 공격 및 생명력과 마나같은 스탯 수정을 처리했습니다. 이 문서는 [](Gameplay/GameplayAbilitySystem) 을 사용한 이유와 ARPG 게임 전용 기능을 추가하기 위해 커스터마이징한 방법을 설명합니다. Ability System (어빌리티 시스템)을 이루는 각 부분을 세부적으로 설명하는 문서 링크도 첨부합니다. 이 글의 문서 목록 순서대로 읽으면 모든 시스템이 함께 작동하는 방식을 보다 잘 이해할 수 있습니다. 
+
+이 문서에서 다룬 몇 가지 기능을 보다 자세히 설명한 범용 [](Gameplay/GameplayAbilitySystem) 문서도 있습니다. 그 문서를 먼저 읽고 사용된 일반 개념을 먼저 이해한 뒤 이 문서를 통해 실전 사용법 예제를 확인하는 것이 좋습니다. ARPG 의 어빌리티 시스템을 사용하지 않는다 하더라도 개념과 코드 몇 가지는 비슷한 시스템을 만들 때 유용한 예제가 될 수 있습니다.
+
+## 액션 RPG 의 어빌리티
+
+어빌리티 시스템에는 여러가지 기능이 있지만, ARPG 에서는 다음 기능만 사용합니다.
+
+| **시스템** | **설명** |
+| --- | --- |
+| **Attributes** | 어트리뷰트 - Health (생명력), Damage (대미지)와 같은 값으로, 시스템 사용에 필수입니다. |
+| **Gameplay Effects** | 게임플레이 이펙트 - Attribute (어트리뷰트) 수정 방법으로, 시스템 사용에 필수입니다. |
+| **Ability System Component** | 어빌리티 시스템 컴포넌트 - 이펙트와 어빌리티를 실제 적용하는 데 쓰이는 컴포넌트입니다. 어트리뷰트를 가진 모든 액터는 이 컴포넌트가 있어야 합니다. ActionRPG 서브클래스에서 몇 가지 게임 전용 로직을 처리합니다. |
+| **Execution Calculations** | 실행 계산 - 어트리뷰트 변경 시 버프와 디버프 수학 연산을 적용하기 위해 게임플레이 이펙트에서 사용합니다. ARPG 에서는 대미지 산출 공식에 **Execution Calculations** 을 사용합니다. |
+| **Abilities** | 어빌리티 - 실행하면 게임플레이를 변경하는 특수 블루프린트로, 특정 어빌리티에 커스텀 로직이 필요한 게임에 좋습니다. 고도의 데이터 중심 게임은 블루프린트 이외의 것을 사용하여 이펙트를 실행할 수도 있지만, ARPG 같은 액션 게임에는 어빌리티 블루프린트가 잘 통합니다. ARPG 에는 모든 블루프린트 어빌리티가 상속해야 하는 **UGameplayAbility** 의 게임 전용 클래스가 있습니다. |
+| **Gameplay Events** | 게임플레이 이벤트 - 페이로드 데이터 옵션이 있는 게임플레이 태그로, 어빌리티 시스템 여러 부분과의 통신에 사용합니다. ARPG 에서는 몽타주와 어빌리티 사이 정보 전달에 사용합니다. |
+| **Gameplay Cues** | 게임플레이 큐 - [INCLUDE:#excerpt_0] |
+| **Targeting Actors** | 타기팅 액터 - 어빌리티 타깃을 모으고 리플리케이트하기 위해 스폰하는 블루프린트입니다. 기본적으로 이 액터는 비효율적이고 복잡하므로, ARPG 에서는 보다 단순한 커스텀 시스템을 사용합니다. 이 액터는 고도의 게임플레이 전용 커스터마이징 없이 사용해서는 안되지만, 여기서는 클라이언트-서버 게임에서 대상 예측 처리법 예제로 사용했습니다. |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+
+**게임플레이 태그** 를 스폰된 파티클 또는 사운드에 묶을 때 사용하는 애셋입니다. 클라이언트 예측 처리 또는 강도 스케일이 변하는 비주얼 생성에 좋습니다.
+
+[REGION:note]
+ARPG 초기 릴리즈에는 사용되지 않지만 나중에 추가될 수 있습니다.
+[/REGION]
+
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+## 액션 RPG 어빌리티 시스템 분석
+
+다음 섹션 각각은 ARPG 에서 어빌리티 시스템 특정 부분을 사용한 빙식에 대한 분석입니다. **ARPG 의 어트리뷰트와 이펙트** 부터 시작해서 **ARPG 의 밀리 어빌리티**, **ARPG 의 스킬 어빌리티**, 마지막으로 **ARPG 의 어빌리티 실행** 순서로 읽는 것이 좋습니다.
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/AttributesandEffects:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/MeleeAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/SkillAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/ExecutingAbilitiesInARPG:topic%

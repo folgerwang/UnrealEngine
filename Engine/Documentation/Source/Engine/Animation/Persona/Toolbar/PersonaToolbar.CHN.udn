@@ -1,212 +1,148 @@
-﻿INTSourceChangelist:1890913
-Availability:Public
-Title:角色编辑器工具条
+INTSourceChangelist:3810467
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Crumbs:%ROOT%, Engine, Engine/Animation/Persona
-Description: 关于角色动画编辑器中的工具条的用户指南。
+Title:动画工具栏
+Description:临时说明
+Type: Reference
+Version: 4.18
+Parent: Engine/Animation/Persona
+Related: Engine/Animation/Persona
+Related: Engine/Content/Types/SkeletalMeshes
+Related: Engine/Animation/AnimBlueprints
+Related: Engine/Physics/PhAT
+Order: 1
+Tags:animation
+topic-image:SkeletonToolbar.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/Toolbar:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/Toolbar:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/Toolbar:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/Toolbar]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[EXCERPT:Overview]
-默认情况下， **工具条** 显示在角色编辑器的左上角。它包含了一个菜单条、执行常用命令的按钮及同 _动画蓝图_ 相关的其他信息。
-[/EXCERPT:Overview]
 
 [TOC(start:2)]
 
-## 菜单
-
-菜单显示在工具条的顶部。
-
-#### 文件
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**加载及保存**[/REGION] ||
-| **Save(保存)** | 保存当前的粒子系统。|
-| **Save All（保存所有）** | 保存所有资源。|
-| **Choose Files to Save（选择文件进行保存）** | 打开一个具有资源保存选项的对话框。|
-| [REGION:tablesection]**蓝图**[/REGION] ||
-| **Compile（编译）** | 编译所有动画蓝图。|
-| **Refresh All Nodes（刷新所有节点）** | 刷新蓝图中的所有节点以考虑到外部改变。|
-| **Reparent Blueprint（重定义蓝图父项）** | 允许您修改该蓝图的父类。|
-| [REGION:tablesection]**应用程序**[/REGION] ||
-| **Switch Project（切换项目）** | 在任何可用的游戏项目间切换。|
-| **Exit(退出)** | 关闭编辑器。|
-
-#### 编辑
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**操作**[/REGION] ||
-| **Undo（取消）** | 取消上一次完成的操作。|
-| **Redo(重复)** |重复执行上一次取消的操作。|
-| [REGION:tablesection]**搜索**[/REGION] ||
-| **Find（查找）** | 打开浏览器，并将光标聚焦到搜索条中，以进行快速搜索。|
-| **Find in Blueprints（在蓝图中查找）** | 打开‘在蓝图中查找’对话框。这允许您输入关键字，并在该蓝图中进行查找。|
-| **Find Unused Variables（查找未使用的变量）** | 调出变量窗口，使用红色的球形图标![](button_Unused.png)突出显示所有未使用的变量。|
-| [REGION:tablesection]**视图**[/REGION] ||
-| **Zoom to Window（缩放到窗口）** | 缩放窗口以显示整个图表。|
-| **Zoom to Selection（缩放到选中项）** | 缩放到选中的节点。|
-| **Keybindings（按键绑定）** | 打开按键绑定编辑窗口。|
-| **Preferences（偏好设置）** | 打开偏好设置窗口。|
-
-[COMMENT:none]
---
-#### 调试
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**断点**[/REGION] ||
-| **Disable all Breakpoints（禁用所有断点）** | 禁用您的蓝图上的所有[断点](Engine/Blueprints\Editor\Debugging#断点)，这些断点将不会再中断执行过程。|
-| **Enable all Breakpoints（启用所有断点）** | 激活所有[断点](Engine/Blueprints\Editor\Debugging#断点)，以便它们可以再次中断执行过程，以进行调试。|
-| **Delete all Breakpoints（删除所有断点）** | 删除蓝图中的所有[断点](Engine/Blueprints\Editor\Debugging#断点)。|
-|| [REGION:tablesection]**变量值查看器**[/REGION] ||
-| **Delete all Watches（删除所有查看值）** | 删除蓝图中的所有[查看值](Engine/Blueprints\Editor\Debugging#查看值) 。|
---
-[/COMMENT]
-
-#### 资源
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**资源**[/REGION] ||
-| **Find in Content Browser（在内容浏览器中查找）** | 在内容浏览器中选中当前粒子系统。|
-
-[COMMENT:none]
---
-#### 窗口
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**资源编辑器选卡**[/REGION] ||
-| **Toolbar（工具条）** |打开工具条，它提供了一横排的常用操作的快捷按钮。|
-| **Details（详细信息）** | 显示‘详细信息’窗口，这里可以编辑各种节点的属性。|
-| **Variables（变量）** | 显示变量窗口。|
-| **Explorer（浏览器）** | 显示浏览器窗口，这里提供了蓝图中的所有对象的列表。|
-| **Debug（调试）** |打开调试窗口，该窗口显示了蓝图中的所有断点。|
-| **Blueprint Defaults（蓝图默认值）** |显示'蓝图默认值' 窗口，这里可以设置各种默认值。|
-| **Palette(面板)** | 打开面板窗口，它列出了所有可用节点。|
-| **My Blueprint（我的蓝图）** | 显示‘我的蓝图’窗口，该窗口和浏览器类似，但是它提供的是蓝图中所有节点、函数及变量的列表。|
-| **Compiler Results（编译器结果）** | 打开‘编译器结果’窗口，它显示了蓝图的所有编译错误。|
-| **Global Settings（全局设置）** | 打开全局设置窗口，允许您设置基础资源的属性。|
-| **Skeleton Tree（骨架树）** | 打开骨架树窗口，以层次结构列表的形式显示了角色的骨架。|
-| **Asset Browser（资源浏览器）** | 打开资源浏览器，它列出了和这个骨架网格物体相关的所有动画、混合空间及其他动画资源。|
-| **Viewport（视口）** | 打开视口，在这里您可以看到骨架网格物体的动画。|
-| [REGION:tablesection]**工具选卡**[/REGION] ||
-| **Developer Tools(开发者工具)** | 为使用引擎和编辑器的程序员提供了各种有用的工具。|
-| **Output Log(输出日志)** | 打开一个新的输出日志。任何给定时间，仅可以存在一个 **输出日志** 。|
-| **Class Viewer(类别查看器)** | 打开[](Engine/UI/UserGuide/ClassViewer)以便向地图中添加 **Actors** 实例及创建 **蓝图** 。|
-| **Input Editor(输入编辑器)** | 打开[](Engine/UI/UserGuide/KeyBindings)以便给按键绑定命令。|
-| **Blueprint Debugger(蓝图调试器)** | 打开[蓝图调试](Engine/Blueprints/Editor/Debugging)面板。|
-| **Preferences（偏好设置）** | 打开[编辑器设置](Engine/UI/UserGuide/EditorSettings)来设置控制编辑器行为的选项。|
-| [REGION:tablesection]**打开浏览器**[/REGION] ||
-| **Content Browser（内容浏览器）** | 打开[内容浏览器](Engine/Content/Browser)来应用内容资源。|
-| **Message Log（消息日志）** | 打开包含各种特定信息日志的 **消息日志** 。任何给定时间，仅可以存在一个 **消息日志** 。|
-| **Levels（关卡）** | 打开 关卡浏览器，将显示永久关卡及所有动态载入关卡。|
-| **Unreal Frontend（虚幻前端）** | 打开[](Engine/Deployment/UnrealFrontend)工具，使您可以访问[自动化系统](Engine/Subsystems/Automation)、[虚幻控制台](Engine/Tools/UnrealConsole)等。|
-| [REGION:tablesection]**布局**[/REGION] ||
-| **Save Layout(保存布局)** | 保存当前用户界面布局。|
-| **Enable Fullscreen（启用全屏）** | 在全屏和普通模式间切换编辑器。|
---
-[/COMMENT]
-
-#### 帮助
-
-| 命令 | 描述 |
-| ------- | ----------- |
-| [REGION:tablesection]**浏览**[/REGION] ||
-| **文档** |打开虚幻引擎4文档。|
-| [REGION:tablesection]**在线帮助**[/REGION] ||
-| 包含了到Epic Games和虚幻引擎支持网站的链接。||
-| [REGION:tablesection]**应用程序**[/REGION] ||
-| **关于虚幻编辑器** | 打开About（关于）对话框，显示引擎版本信息。|
+[EXCERPT:Overview]
+在每个[动画工具](Engine/Animation/Persona/Modes)中，编辑器窗口顶部都有一个 **工具栏**。 
+该工具栏中的选项根据您当前工作所在的编辑器类型而有所不同。 
+工具栏主要由两个区域构成，一个是 **资源工具栏**，这里包含与您工作所用的编辑器有关的选项，另一个是 **编辑器工具栏**，用于快速切换不同的动画工具。 
+[/EXCERPT:Overview]
 
 
-### 编辑
+(#assettoolbar)
+## 资源工具栏
 
-| 命令 | 描述 |
-| --- | --- |
-| Compile(编译) | 编译正在编辑的 _动画蓝图_ 。|
-| Refresh All Nodes（刷新所有节点） | 更新属于该 _动画蓝图_ 的所有图表中的节点，以考虑到影响这些节点的外部变化。|
-| **Undo（取消）** | 取消上一次操作。|
-| **Redo(重复)** |重复执行上一次取消的操作。|
+工具栏左侧是根据您工作所用的编辑器类型而提供的选项，具体请参阅下文： 
 
-### 设置
+(#skeletoneditortoolbar)
+### 骨架编辑器工具栏
 
-| 命令 | 描述 |
-| --- | --- |
-| Find（查找） | 使光标聚焦到 **浏览器面板** 的搜索框内，以便搜索图表。请参照[在浏览器面板中进行搜索](Engine/Animation/Persona/Explorer#在浏览器中进行搜索)来获得更多信息。|
-| Expert Mode（专家模式） | 在浸入式模式和常规模式之间切换当前可见的图表。目前尚不可用。|
+![](SkeletonToolbar.png)
 
-### 调试
+每当您打开[](Engine/Animation/Skeleton)时都会显示骨架编辑器工具栏，其中包含以下选项： 
 
-| 命令 | 描述 |
-| --- | --- |
-| [REGION:tablesection]断点[/REGION] ||
-| Disable All Breakpoints（禁用所有断点） | 禁用当前 _动画蓝图_ 的所有图表中的全部断点。|
-| Enable All Breakpoints（启用所有断点） | 启用当前 _动画蓝图_ 的所有图表中的全部断点。|
-| Delete All Breakpoints（删除所有断点） | 删除当前 _动画蓝图_ 的所有图表中的全部断点。|
-| [REGION:tablesection]查看器[/REGION] ||
-| Delete All Watches（删除所有查看值） | 删除当前 _动画蓝图_ 的所有图表中的全部查看值。|
+|选项 | 说明 |
+| ------- | ------------ |
+| ![](saveIcon.png) | 保存对当前骨架资源所做的任何更改。|
+| ![](findincbIcon.png) | 打开 **内容浏览器** 并自动导航到当前骨架资源。|
+| ![](animnotifiesIcon.png) | 打开[动画通知](Engine/Animation/Persona/AnimationNotifies)窗口，其中显示当前骨架的所有自定义动画通知。|
+| ![](retargetmanagerIcon.png) | 打开[](Engine/Animation/Persona/BasePoseManager)窗口，便于您管理重定向源，设置绑定，并定义重定向基本姿势以用于动画重定向。|
+| ![](importmeshIcon.png) | 启动[](Engine/Content/FBX/SkeletalMeshes)，使您能够为当前骨架导入新骨架网格体。|
+| ![](PreviewMesh.png) | 为当前资源（按动画或按骨架存储）设置新预览骨架网格体。|
+| ![](makestaticmeshIcon.png) | 使您能够根据当前预览姿势创建 **静态网格体**。|
 
-### 动画
+(#skeletalmesheditortoolbar)
+### 骨架网格体编辑器工具栏
 
-| 命令 | 描述 |
-| --- | --- |
-| Preview Setup（预览设置） | 打开[动画预览设置面板](Engine/Animation/Persona/Viewport)，该面板可以配置在视口中所使用的预览网格物体。|
+![](MeshToolbar.png)
 
-## 工具条按钮
+每当您打开[骨架网格体](Engine/Content/Types/SkeletalMeshes)资源时，都会显示骨架网格体编辑器工具栏，其中包含以下选项： 
 
-角色编辑器的工具条按钮提供了快速切换资源模式（比如骨架、网格物体及动画）的功能。它包含了编辑动画蓝图时所需的常见命令。
+|选项 | 说明 |
+| ------- | ------------ |
+| ![](saveIcon.png) | 保存对当前骨架网格体资源所做的任何更改。|
+| ![](findincbIcon.png) | 打开 **内容浏览器** 并自动导航到当前骨架网格体资源。|
+| ![](reimportmeshIcon.png) | 使您能够重新导入当前骨架网格体，并启动FBX导入流程。|
+| ![](SectionSelection.png) | 允许在视口中选择网格体分段（禁止使用物理形状选择骨骼）。|
+| ![](makestaticmeshIcon.png) | 使您能够根据当前预览姿势创建 **静态网格体**。|
 
-[REGION:fullwidth]
-![](Persona_Toolbar_Full.png)
+(#animationeditortoolbar)
+### 动画编辑器工具栏
+
+![](AnimationToolbar.png)
+
+每当您打开任意动画资源（动画序列、动画蒙太奇、混合空间等）时，都会显示动画编辑器工具栏，其中包含以下选项： 
+
+|选项 | 说明 |
+| ------- | ------------ |
+| ![](saveIcon.png) | 保存对当前动画资源所做的任何更改。|
+| ![](findincbIcon.png) | 打开 **内容浏览器** 并自动导航到当前动画资源。|
+| ![](createassetIcon.png) | 创建一个新动画资源。在创建动画时，动画可以基于 **参照姿势**、**当前姿势** 或当前动画的 **动画数据** 或 **预览网格体**。在使用预览网格体时，创建的动画将包含任何根据分配给骨架网格体的后期处理图生成的额外动画数据，如用于物理模拟的动态动画以及预览网格体上的重定位信息。|
+| ![](ReimportAnimation.png) | 重新导入当前动画。|
+| ![](compressionIcon.png) | 允许您对动画应用不同的[压缩](Engine/Animation/Sequences)设置（可用于动画序列）。|
+| ![](ExportAsset.png) | 导出当前预览网格体上的当前动画源数据或当前动画播放（包括重定位、后期处理图或其他应用于预览网格体的设置）。|
+| ![](keyIcon.png) | 允许将所选骨骼的当前骨骼变换添加到[叠加型图层轨迹](Engine/Animation/AnimHowTo/LayerEditing)。|
+| ![](applyIcon.png) | 对运行时动画数据应用[叠加型图层轨迹](Engine/Animation/AnimHowTo/LayerEditing)。|
+| ![](PreviewMesh.png) | 为当前资源（按动画或按骨架存储）设置新预览骨架网格体。|
+| ![](makestaticmeshIcon.png) | 使您能够根据当前预览姿势创建 **静态网格体**。|
+
+(#animationblueprinteditortoolbar)
+### 动画蓝图编辑器工具栏
+
+![](AnimBPToolbar.png)
+
+每当您打开任何[](Engine/Animation/AnimBlueprints)，都会显示动画蓝图编辑器工具栏，让您可以在内容浏览器中保存、查找动画蓝图，或从当前预览姿势创建静态网格体。 
+其余选项使用的功能与一般 **蓝图编辑器工具栏** 中相同。 
+
+[REGION:note]
+请参阅[蓝图编辑器工具栏](Engine/Blueprints/Editor/UIComponents/Toolbar)页面，以了解有关每个选项的更多信息。
 [/REGION]
 
-| 控件 | 描述|
-| -- | -- |
-| ![](Persona_Toolbar_Compile.png) |如果有任何修改则编译动画蓝图。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_Save.png) | 保存当前的动画资源。|
-| ![](Persona_Toolbar_FindInCB.png) | 在内容浏览器中查找的当前的动画资源。|
-| ![](Persona_Toolbar_Skeleton.png) | 切换角色编辑器到骨架编辑模式。|
-| ![](Persona_Toolbar_Mesh.png) | 切换角色编辑器到网格物体编辑模式。|
-| ![](Persona_Toolbar_Animation.png) | 切换角色编辑器到动画编辑模式。|
-| ![](Persona_Toolbar_Vim.png) | 切换角色编辑器到动画蓝图编辑模式。|
-| ![](Persona_Toolbar_NewVariable.png) | 创建一个新的变量。[INCLUDE:#OnlyInVim]  |
-| ![](Persona_Toolbar_NewFunction.png) | 创建一个新函数。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_NewMacro.png) | 创建一个新宏。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_NewEventGraph.png) | 创建一个新的事件图表。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_Interfaces.png) | 允许您选择您想让您的蓝图实现的任何界面。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_HidePins.png) | 隐藏事件图表中节点上所有未使用的引脚。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_Reparent.png) | 允许重新指定另一个类作为该蓝图的父类。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_Parent.png) | 显示蓝图的当前父类。[INCLUDE:#OnlyInVim] |
-| ![](Persona_Toolbar_PreviewViewport.png) |显示了视口中当前预览的动画资源。|
+
+(#physicseditortoolbar)
+### 物理编辑器工具栏
+
+![](PhATToolbar.png)
+
+每当您打开任何物理资源，都会显示物理编辑器工具栏，其中包含以下选项：
+
+|选项 | 说明 |
+| ------- | ------------ |
+| ![](saveIcon.png) | 保存对当前骨架网格体资源所做的任何更改。|
+| ![](findincbIcon.png) | 打开 **内容浏览器** 并自动导航到当前骨架网格体资源。|
+| ![](PhAT_PreviewMesh.png) | 为当前资源（按动画或按骨架存储）设置新预览骨架网格体。|
+| ![](PhAT_EnableCollision.png) | 在当前选中的物理形体间启用碰撞。|
+| ![](PhAT_DisableCollision.png) | 禁用当前选中的物理形体间的碰撞。|
+| ![](PhAT_PhysicalMaterial.png) | 对所有形体应用物理材质。|
+| ![](PhAT_ToBallAndSocket.png) | 将所选约束转换为球形和插槽。|
+| ![](PhAT_ToHinge.png) | 将所选约束转换为转轴。|
+| ![](PhAT_ToPrismatic.png) | 将所选约束转换为棱柱。|
+| ![](PhAT_ToSkeletal.png) | 将所选约束转换为骨架。|
+| ![](PhAT_Simulate.png) | 对所有对象运行物理模拟。|
 
 
-[COMMENT:none]
 
-[EXCERPT:OnlyInVim]
-该按钮仅当角色编辑器设置为编辑动画蓝图时可用。
-[/EXCERPT:OnlyInVim]
+(#editortoolbar)
+## 编辑器工具栏
 
+每个编辑器工具栏右侧都有一个 **编辑器工具栏**，用于切换各个动画工具编辑器。 
 
-[/COMMENT]
+当前打开的编辑器将高亮显示： 
+  
+ ![](SkeletonToolbar.png)
+ 
+ 当单击其他的某个编辑器时，将打开新选项卡，并高亮显示新编辑器： 
+
+ ![](MeshToolbar.png)
+
+ **动画编辑器** 在图标旁边有一个动画选择下拉按钮，用于快速更改预览动画： 
+
+![](animationdropdownmenu.png)
+
+图标左下角的 ***（星号）** 符号表示资源有未保存的更改。 
+
+![](unsavedasset.png)
+
+根据项目中的资源，某些编辑器可能不会出现在工具栏上。 
+
+例如，如果您导入了骨架网格体并创建了骨架，但没有动画或动画蓝图，则工具栏可能类似于下图。 
+
+![](limitedtoolbar.png)
+
+创建具有关联骨架的动画蓝图，并导入与该骨架相连的动画时，便可以访问该资源的其他编辑器。 
+

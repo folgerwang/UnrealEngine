@@ -1,25 +1,24 @@
-﻿Availability:Public
-Title:详细信息面板用户界面
+﻿INTSourceChangelist:3804170
+Availability:Public
+Title:细节面板界面
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
-Description:该面板为关卡编辑器中选中的Actor提供了详细信息和自定义的编辑工具。
+Description:用于面板的界面，为关卡编辑器中选定的Actor提供信息和自定义编辑工具。
 
 [TOC(start:2)]
-
-## 概述
 
 [INCLUDE:Engine/UI/LevelEditor/Details/#DetailsOverview]
 
 ![Level Editor Details Panel](LE_DetailsUI.png)
 
-| 编号 | 名称 | 描述 |
+| 编号 | 名称 | 说明 |
 | ------ | ---- | ------- |
-| **1** | **Lock Icon（锁定图标）** | 锁定 **详细信息** 面板，这样在面板中查看Actor的属性不会基于对Actor的不同选择而变更。 |
-| **2** | **Friendly Name Box（友好名称框）** | 显示选中Actor的友好名称，您可以修改该名称（当选中多个Actor时，该框呈现灰掉状态）。 |
-| **3** | **Search Filter Box（搜索过滤器框）** | 允许您输入文本来过滤所显示的详细信息。 |
-| **4** | **Property Matrix Icon（属性矩阵图标）** | 打开 **Property Matrix** （属性矩阵），它可以让您查看同时从属于多个Actors的属性值矩阵，而不是 **详细信息** 面板中的组合列表。 <br/> 如需获得更多关于 **Property Matrix（属性矩阵）** 的信息，请参阅[](Engine/UI/PropertyMatrix)。 |
-| **5** | **Display Filter Icon（显示过滤器图标）** | 显示选项来展开、合并或过量属性类别。 |
-| **6** | **Properties Area（属性区域）** | 显示Actor的属性，以便可以查看 和/或 修改它们。 |
+| **1** | **锁定图标（Lock Icon）** | 锁定 **细节（Details）** 面板，使在面板中被查看属性的Actor不会根据Actor的选择而改变。|
+| **2** | **友好名称框（Friendly Name Box）** | 显示所选Actor的友好名称，您可以修改该名称（在选择多个Actor时，该名称变为灰色）。|
+| **3** | **搜索筛选框（Search Filter Box）** | 允许您输入文本以筛选显示的详细信息。|
+| **4** | **属性矩阵图标（Property Matrix Icon）** | 打开属性矩阵（Property Matrix），它允许您同时查看属于多个Actor的属性值矩阵，而不是作为 **细节（Details）** 面板中的组合列表。有关属性矩阵（Property Matrix）的更多信息，请参阅[](Engine/UI/PropertyMatrix)。|
+| **5** | **显示筛选图标（Display Filter Icon）** | 显示用于展开、折叠或以其他方式筛选属性类别的选项。|
+| **6** | **属性区域（Properties Area）** | 显示Actor的属性，以便可以查看和/或修改它们。|
 
 [Include:Shared/Editors/Common/EditorMenuItems/#UITabTips]
 
-关于关卡编辑器的 **Details（详细信息）** 面板的更多信息，请参照  [](Engine/UI/LevelEditor\Details)。
+有关关卡编辑器的 **细节（Details）** 面板的更多信息，请参阅[](Engine/UI/LevelEditor\Details)。

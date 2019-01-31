@@ -12,7 +12,7 @@ tags:Blueprints
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Blueprints/QuickStart/2 "%Engine/Blueprints/QuickStart/2:title%")
+		[이전 단계](Engine/Blueprints/QuickStart/2 "%Engine/Blueprints/QuickStart/2:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

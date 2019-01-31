@@ -1,7 +1,31 @@
-﻿Availability: Public
-Title:1.2 - 检测蓝图中的网络权限和远程客户端
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Networking
-Description:网络特性示例关卡概述，示例1.2： 检测蓝图中的网络权限和远程客户端
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.2 - 在蓝图中检测网络权限和远程客户端
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Networking
+Description:概述网络功能示例关卡，示例1.2：在蓝图中检测网络权限和远程客户端。
+Related: Gameplay/Networking
+Related: Gameplay/Networking/Actors/Components
+Related: Gameplay/Networking/Actors
+Related: Gameplay/Networking/Actors/RPCs
+Related: Engine/UI/LevelEditor/InEditorTesting/NetworkedPlayInEditor
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/Networking/1_1 "%Resources/ContentExamples/Networking/1_1:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[网络主页](Resources/ContentExamples/Networking)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/Networking/1_3 "%Resources/ContentExamples/Networking/1_3:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -27,24 +51,25 @@ Description:网络特性示例关卡概述，示例1.2： 检测蓝图中的网�
 [/REGION]
 
 [REGION:tip]
-为能同时从 **服务器** 和 **客户端** 进行查看，请在 **Play** （运行）的下拉框中，设置 **Number of Clients** （客户端数量）区域为2。
+为了同时查看 **服务器（Server）** 和 **客户端（Client）** 视角，在 **运行（Play）** 下拉菜单中，将 **客户端数量（Number of Clients）** 字段设置为2。
 [/REGION]
 
 
-## 概述
 
-本示例展示了蓝图根据其是在网络权限(服务器）或是在远程机（客户端）运行而执行不同的逻辑。 
+此例演示根据蓝图是在网络权限（服务器）上运行还是在远程机器（客户端）上运行而执行不同逻辑的蓝图。 
 
-## 事件图表
-如下图的蓝图 **Event Graph** （事件图表）所示， **Switch Has Authority** 节点被用来检测脚本是否在具有网络权限的机器上被执行（在大多数情况下，指的是服务器）或者其是否在远程机器上被执行（在大多数情况下，指的是客户端）。 
-文本渲染器组件随后根据脚本是在服务器还是客户端执行来进行更新（客户端同时更新鬼魂的主体颜色到不同的材质中）。 
+(#eventgraph)
 
-**点击查看放大图片**
+## 事件图
+如下蓝图中的 **事件图（Event Graph）** 中所示， **Switch Has Authority（@@@）** 节点用于检查脚本是在具有网络权限的机器上执行（在大多数用例中，这意味着服务器），还是在远程机器上执行（在大多数用例中，这是客户端）。 
+然后根据脚本是在服务器还是客户端上执行来更新文本渲染组件（客户端还将ghost主体的颜色更新为不同的材质）。 
+
+ **单击显示全图**
 [REGION:lightbox]
 	[![](Resources/ContentExamples/Networking/1_2/1_2_Blueprint.png)(w:640)](Resources/ContentExamples/Networking/1_2/1_2_Blueprint.png)
 [/REGION]
 
-通过使用 **Switch Has Authority** 节点来执行此脚本，下图为从服务器和客户端所看到的的不同内容。 
+下面是使用Switch Has Authority（@@@）节点执行此脚本时，服务器和客户端将看到的结果。 
 
 [REGION:fullwidth]
 ![](1_2_Play.png)

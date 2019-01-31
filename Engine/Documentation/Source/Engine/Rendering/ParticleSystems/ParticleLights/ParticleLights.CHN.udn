@@ -1,114 +1,98 @@
-﻿INTSourceChangelist:1944055
+﻿INTSourceChangelist:4308189
 Availability:Public
 Title:粒子光源
-Crumbs: %ROOT%, Engine, Engine/Rendering, Engine/Rendering/LightingAndShadows
-Description:粒子光源是视觉特效美工人员的武器库中的另一个武器。
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/ParticleSystems/ParticleLights:title%](particleLights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/ParticleSystems/ParticleLights:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/ParticleSystems/ParticleLights:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/ParticleSystems/ParticleLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/ParticleSystems/ParticleLights:title%](particleLights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/ParticleSystems/ParticleLights:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/ParticleSystems/ParticleLights:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/ParticleSystems/ParticleLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
+Description:粒子光源是特效设计师工具库中的另一件得力武器。
+Version: 4.9
+tags:Particles
+parent:Engine/Rendering/ParticleSystems
+order:6
+type:overview
+topic-image:particleLights_topic.png
 
 [TOC(start:2 end:2)]
 
-## 概述
-
 [EXCERPT:PL001]
-有这样一种功能，它可以向场景中添加无数个光源，但是仅当把它添加到允许您生成上百个光源的系统中才有效，所以我们想为什么不把它们添加到粒子系统中哪？ 于是就创建了 **Particle Lights（粒子光源）** 。通过在 **Cascade** 中向粒子系统中添加一个单独的模块，您可以给无数个粒子相应地附加一个点光源。
+您可通过在 **级联（Cascade）** 中添加 **粒子光源模块（Particle Light Module）** 以使用附加到各个粒子的光源来渲染 _CPU粒子发射器（CPU Particle Emitters）_。这对火花或火焰等特效很有用，在这种情况下它可以发出足够的光，在周围环境中引人注目。
 [/EXCERPT:PL001]
 
-## 准备工作
+(#generalpreparation)
 
-在开始投入使用粒子光源之前，您应该考虑您正在尝试实现什么效果。尽管像虚幻引擎4中使用了这样不同的渲染器，它可以处理大量的光源，但是所处理的大部分光源都是固定光源，不需要像可移动光源或动态光源那样每帧进行重复计算。这是个需要技巧处理的工具，要想在视觉效果和其性能消耗之间达到很好地平衡，需要花一些功夫。
+## 一般准备
 
-![](PL_Sparks_2.gif)(convert:false) ![](PL_flow_2.gif)(convert:false)
+粒子光源的性能成本几乎完全取决于它们在屏幕上导致多少过度绘制。过度绘制得自于光源的数量乘以受影响的像素数量。  
 
-作为参考，这里是上面仅具有粒子光源发射器的动画的一些静态图片。
+设置粒子光源时的一般策略是，设置极少的大粒子光源以及大量的小粒子光源。请务必使用 _ProfileGPU_ 控制台命令进行微调和描画，因为粒子光源的成本很容易失控。成本显示在 _光源（Lights）_ 下方。
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+bJ1xiMPl71Y
+[/PARAMLITERAL]
+[/OBJECT]
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+nyGqpilZe08
+[/PARAMLITERAL]
+[/OBJECT]
+
+此处给出了仅使用粒子光源（Particle Light）发射器之上述动画的静止图像，以供参考之用。
 
 ![](PL_system_01_still.png)(h:407) ![](PL_system_02_still.png)(h:407)
 
-在第一章图片中，粒子光源用于加强一个已经稳定的粒子系统，使得火花和闪光感觉更加真实。进一步讲，在任何给定时刻仅存在少量粒子光源。在第二张图片中，光源向系统添加了体积和位置，但是使用了更多的粒子光源来达到这个效果(超过200个)。
+在第一张图像中，粒子光源用于突出显示已成固态的粒子系统，使火花和火焰更逼真有形。此外，在任何给定时刻都只存在极少的粒子光源。在第二张图像中，虽然光源为系统增加了体积和位置感，但使用了更多的粒子光源（超过200个）来达到该效果。
 
-尽管第二张图片中的系统看上去性能消耗非常高，但由于该张图片中的大部分粒子都是GPU粒子，且使用延迟渲染来处理所有的这些光源，所以它的性能消耗仅比第一张图片略高一点。
+(#usage)
 
+## 用途
 
-## 应用
+将光源添加到粒子系统是一个非常直接的过程：
 
-向粒子系统中添加光源是非常简单的：
-
-1. 在 Cascade 中打开粒子系统。
-1. **右击** 您想添加光源的发射器的任何地方。
-1. 在模块列表中鼠标向下移动到 **Lights（光源） -> Light（光照）**
+1. 在级联（Cascade）中打开一个粒子系统。
+1. **右键单击** 发射器上任何您想要布置光源的位置。
+1. 在模块列表中用鼠标下移到 **光源 -> 光源（Light -> Light）**。
 	[REGION:lightbox]
 	[![](PL_addLightModule.png)(w:830)](PL_addLightModule.png)
 	[/REGION]
-1. 设置您的新光照模型。
+1. 设置您的新光源模块。
 	[REGION:lightbox]
 	[![](PL_lightModuleAdded.png)(w:830)](PL_lightModuleAdded.png)
 	[/REGION]
 
 
 [REGION:note]
-记住:  **Light（光照）** 模型仅能用于CPU粒子上，所以GPU粒子不能和它协同使用。如果您向GPU发射器中添加模块，这并不会中断该系统，但是也不会起任何作用，您会在列表中的模块上看到一个大红差 _X_  。
+请记住：**光源（Light）** 模块仅可用于CPU粒子上，因此任何GPU粒子都无法使用该模块。将模块添加到GPU发射器不会破坏系统，但是它不会执行任何操作，并且在列表中模块上方会显示一个巨大的红色 _X_。
 [/REGION]
+
+(#properties)
 
 ### 属性
 
 ![](PL_lightModuleProperties.png)
 
-| 属性 | 描述 |
+| 属性 | 说明 |
 | -------- | ----------- |
-| **Use Inverse Squared Falloff（应用平方反比衰减）** | 如果启用该项， 将会忽略 **Light Exponent（光源指数）** ，以便获得基于光源半径的更加真实的衰减效果。|
-| **Preview Light Radius（预览光源半径）** | 在 **Preview（预览）** 窗口中，该项将会以线框球体形式显示光源半径。|
-| **Spawn Fraction(粒子光源生成百分比)** | 定义附加光源的粒子的百分比。1.0是指所有粒子， 0.5指一半粒子，0.1指10%的粒子。|
-| **Color Scale Over Life（在整个生命周期中颜色的缩放比例）** | 和Radius Scale一样，输入到这项中的值将会和光源颜色相乘，来基于粒子颜色调整光源颜色。|
-| **Brightness Over Life（在整个生命周期中的光源亮度）** | 允许您修改光源在其整个生命周期中的亮度。|
-| **Radius Scale（半径缩放比例）** | 这是一个乘数，基于粒子的大小定义了光源的范围。在X轴上使用乘数1来缩放粒子，将会使得光源半径等于 **Radius Scale** 的值；但是在X轴上使用乘数10来缩放粒子，粒子光源的半径将是 **Radius Scale** 的10倍。|
-| **Light Exponent（光源指数）** | 如果禁用了 **Use Inverse Squared Falloff（应用平方反比衰减）** ，那么则使用该项来控制光源的衰减情况，数值越高，随着光照接近于光源半径，会呈现出更加好的渐变衰减；数值越低，就会在光源半径附近产生突然地衰减效果。|
+| **使用平方反比衰减（Use Inverse Squared Falloff）** | 如果启用，**光源指数（Light Exponent）** 将被忽略，以便基于光源半径获得更逼真的衰减。|
+| **影响半透明度（Affects Translucency）** | 启用后，每个粒子光源都将影响照明半透明度。这可用于表现火箭穿过烟雾的发射轨迹。此属性会为以此方式渲染的每个粒子增加大量成本，因此建议仅对少数粒子启用此设置。|
+| **预览光源半径（Preview Light Radius）** | 在 **预览（Preview）** 窗口中，这将显示光源在线框球体内的半径。|
+| **生成分数（Spawn Fraction）** | 定义要附加光源的粒子的百分比。1.0表示所有粒子，0.5表示一半粒子，0.1为10%的粒子。优化时，可用此设置降低成本。|
+| **生命周期内颜色比例（Color Scale Over Life）** | 像半径比例（Radius Scale）一样，此设置用光源的颜色乘以此处输入的值，以根据粒子的颜色偏移光源的颜色。|
+| **生命周期内亮度（Brightness Over Life）** | 允许您在光源的整个生命周期内更改光源的亮度。|
+| **半径比例（Radius Scale）** | 这是一个乘数，它根据粒子的大小定义光源的范围。X轴上比例为1的粒子将具有与 **半径比例（Radius Scale）** 相等的半径，而X轴上比例为10的粒子则将具有10倍于 **半径比例（Radius Scale）** 的半径。|
+| **光源指数（Light Exponent）** | 如果禁用 **使用平方反比衰减（Use Inverse Squared Falloff）**，则这将控制光源的衰减，较大数值会导致更平缓的衰减，因为光源接近光源半径，而较小数值将导致接近光源半径的光源突然衰减。|
 
 
-## 和反射进行交互
 
-值得注意的是，具有可渲染的平面粒子的粒子光源可以和某些类型的反射进行交互。但是，由于反射返回的效果和光源返回的效果是不同的，所以这可能并不是期望的效果。也就是说，要想发生这种效果需要以下几点要求：
-
-1. 使用以下方法使反射体发生反射： **Screen Space Reflections** 、 **Scene Capture 2D** 或 **Scene Capture Cube** 。这三种方法是实时的，且可以捕获可渲染的粒子。
-	* 静态反射捕获不能反映任何动态的物体。
-1. 可渲染粒子的材质必须是Masked(蒙板材质)或Opaque(不透明的)。
-
-
-立方体捕获物和平面捕获物都将会显示可渲染的粒子，就像它们显示任何可渲染的对象(静态对象或动态对象)一样，但是它们的反射效果可能会和光源高光分离。
 

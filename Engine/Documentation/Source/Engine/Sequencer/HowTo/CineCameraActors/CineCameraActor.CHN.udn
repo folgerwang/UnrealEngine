@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3041709
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:使用电影摄像机 Actor
 Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,6 +10,8 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
 
 **电影摄像机 Actor** 是一种专用的 [**摄像机 Actor**](Engine/Actors/CameraActors/)，其附加的摄像机设置可在当今现实中的大多数摄像机上找到。 
 调整 **菲林板**、**透镜** 或 **聚焦** 设置的功能使内容创作者在制作更有电影感的镜头时拥有比标准摄像机 Actor 更多的手段。 
@@ -17,6 +19,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 
 在本操作指南中，我们启用 Actor 的观看跟踪，调整菲林板、透镜和聚焦设置来得到过场动画镜头。 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -124,6 +127,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 1. 	单击 **预览播放（Preview Play）**按钮。 
 
 	
+(#EndResult)
 ## 最终结果
 
 你应该得到类似下面示例的镜头，摄像机平移并升高来拍摄我们的角色。 

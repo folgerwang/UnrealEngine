@@ -2,13 +2,12 @@ Availability: Public
 Title:Working with Camera Cuts
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Description:Demonstrates how you can use multiple cameras with the Camera Cuts Track. 
-Version: 4.12
+Version: 4.20
 SkillLevel: Intermediate
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
 Related: Engine/Sequencer/Overview
-Related: Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
@@ -29,89 +28,85 @@ For this how-to, we are using the **Blueprint Third Person Template** project wi
 	
 	This is the playable character if we were playing the game which we will not need for this example. 
 
-1.	In the **Content Browser** under **Content/Mannequin/Character/Mesh**, drag the **SK_Mannequin** into the level.
+1.	In the **Content Browser** under **Content>Mannequin>Character>Mesh**, drag the **SK_Mannequin** into the level.
 
-	![](cameras02.png)
+	![](CameraCuts_02.png)
 
-1.	Hold **Alt** and drag out a copy of the **SK_Mannequin**. 
+1.	Add a second **SK_Mannequin** to the Level and rotate it to face the first Mannequin. 
 
-	![](cameras03.png)
+	![](SecondCharacter.png)
 
-1.	Press **E** and rotate the second SK_Mannequin so it is facing the first. 
-
-	![](cameras04.png)
-
-	We will shot an example scene between these two mannequins and alternate camera perspectives from each mannequin. 
+	We will shoot an example scene between these two mannequins and alternate camera perspectives from each mannequin.
 
 1.	From the Main Tool Bar, click the **Cinematics** drop-down menu and select **Add Level Sequence**. 
 
-	![](cameras05.png)
+	![](CameraCuts_03.png)
 
-1.	Hold **Ctrl** and select both mannequins, then in Sequencer click **Add** and select **Add Current Selection**. 
+1.	Hold **Ctrl** and select both mannequins, then in Sequencer click **+ Track** and select **Add Current Selection**. 
 
-	![](cameras06.png)
+	![](CameraCuts_04.png)
 
 	This will add both Skeletal Mesh Actors to Sequencer which we can then animate. 
 
 1.	Add the **ThirdPersonIdle** for each by clicking the **+ Animation** button on each Animation Track.  
 
-	![](cameras07.png)
+	![](CameraCuts_05.png)
 
 	Optionally, you can stretch out the idle animations to the length of the scene so they continue to idle. 
 
-	![](cameras18.png)
+	![](CameraCuts_06.png)
 	
 1.	From the **Modes** panel under **Cinematic**, drag a **Cine Camera Actor** into the level. 
 
-	![](cameras08.png)
+	![](CameraCuts_07.png)
 
 1.	Press **Ctrl+Shift+P** to **Pilot** the camera and position it over the shoulder of one mannequin. 
 
-	![](cameras10.png)
+	![](CameraCuts_08.png)
 
 	With **Right Mouse Button** held and **WASD** you can fly around the level and view the perspective the camera will take. This makes it easier to frame up your shots exactly as you wish as you get a better indication of what it will look like. 
 
+	[REGION:note]
 	You can exit **Pilot** mode by click the **Eject** button. 
 
-	![](cameras11.png)
+	![](CameraCuts_09.png)
+	[/REGION]
 
-1.	Select and Pilot the other camera over the other mannequin's shoulder. 
+1.	Add a second **Cine Camera Actor** and position it over the other Mannequin's shoulder.
 
-	![](cameras12.png)
+	![](CameraCuts_10.png)
 
 1.	Hold **Ctrl** and select both cameras, then add them to Sequencer. 
 
-	![](cameras13.png)
+	![](CameraCuts_11.png)
 
-1.	Click the **Add** button and select **Camera Cut Track**. 
+	When adding a camera to Sequencer, it will automatically add a **Camera Cuts** track and assign the first camera added as the default camera to use.
 
-	![](cameras14.png)
+	![](CameraCuts_12.png)
 
-1.	Click the **+ Camera** button and select one of the cameras. 
+	You can also add a Camera Cuts track manually from the **+ Track** option menu.
 
-	![](cameras15.png)
+	![](CameraCuts_13.png)
 
-	The names of your cameras may differ than the image above. 
+	Above the Camera Cuts track is grayed out as you can only have one Camera Cuts track assigned per Sequence.
 
 1.	Move the Timeline Marker to frame **50**, then click the **+ Camera** button and add the other camera. 
 
-	![](cameras16.png)
+	![](CameraCuts_14.png)
 
-1.	Move the Timeline Marker to frame **100**, then click the **+ Camera** button and add the camera used in step 13.
+1.	Move the Timeline Marker to frame **100**, then click the **+ Camera** button and add the first camera.
 
-	![](cameras17.png)
+	![](CameraCuts_15.png)
 
-1.	Change the **Viewport Type** to **Cinematic Viewport**. 
-
-	![](cameras20.png)
+	You should now have a sequence that starts with the first camera, switches to the second, then back to the first.
 
 1.	Click the **Lock Viewport to Camera Cuts** button on the **Camera Cuts Track**. 
 
-	![](cameras19.png)
+	![](CameraCuts_16b.png)
 
 	This will tell the cinematic to use this track and its cameras to view the scene.
 
-1.	Click the **Play** button in the viewport to preview the scene. 
+1.	Click the **Preview Play** button in the viewport to preview the scene. 
 	
 
 ## End Result
@@ -134,7 +129,7 @@ In the video above, we also entered **Game View** (**G** key in the viewport) to
 
 You can also use the **Add Camera** shortcut to add and assign a camera in a Camera Cuts Track in one click. 
 
-![](cameras23.png)
+![](CameraCuts_17.png)
 
 Also, you will automatically enter Pilot Mode for the camera you added! 
 

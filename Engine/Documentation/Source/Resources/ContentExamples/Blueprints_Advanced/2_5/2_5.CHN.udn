@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.5 -子蓝图
+INTSourceChangelist:3782314
+Availability: Public
+Title:2.5 - 子蓝图
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:高级蓝图示例关卡概述，示例2.5： 子蓝图
+Description:高级蓝图示例关卡概述，示例2.5：子蓝图
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Variables
 Related: Engine/Blueprints/UserGuide/BlueprintComms
@@ -9,6 +10,23 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[前一示例](Resources/ContentExamples/Blueprints_Advanced/2_4 "%Resources/ContentExamples/Blueprints_Advanced/2_4:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[蓝图内容示例主页](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -32,16 +50,17 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 
 ![](blueprint_advanced_2_5.png)
 
-## 概述
 
-我们可以基于父 _Blueprint_ （蓝图）来创建子 _Blueprint_ （蓝图），这类似于您对主要材质创建材质实例的方法。子蓝图会自动继承其父蓝图的功能，随后它们可被增加，添加到某处，或变更。本例中，三个可收集的拾取物品 _Blueprint_ （蓝图）均为通用拾取物品 _Blueprint_ （蓝图） 的子蓝图。
 
-父 _Blueprint_ （蓝图）为 **BP_Pickup_Parent_C** ，而三个子 _Blueprint_ （蓝图）分别为：
+与创建主材质的材质实例的方式相似，你可以基于父蓝图创建子蓝图。子项自动继承父项的功能，而你可以对子项的功能进行增强、增加或者更改。在本示例中，三个可收集的拾取物蓝图都是泛型拾取物蓝图的子项。 
 
-*  **BP_Pickup_Child_Health**
+父蓝图为 **BP_Pickup_Parent_C**，三个子蓝图为：
+
+* **BP_Pickup_Child_Health**
 * **BP_Pickup_Child_Coin**
 * **BP_Pickup_Child_Cupcake**
 
+(#parentblueprint'seventgraph)
 ## 父蓝图的事件图表
 
 [EXCERPT:CoinParent]
@@ -50,16 +69,20 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 [![](AdvBP_2_5_Parent_EventGraph.png)](AdvBP_2_5_Parent_EventGraph.png)
 [/REGION]
 [REGION:caption]
-点击以查看完整尺寸图片或 **右键点击** 并另存。
+单击查看大图，或者 **右键单击** 图片并选择“另存为”。
 [/REGION]
 
 
-父蓝图, **BP_Pickup_Parent**, 是包含了基本拾取行为的脚本，例如使得拾取物品旋转并漂浮的时间轴动画，以及收集拾取物品的序列。子蓝图继承此脚本的所有内容，但对收集拾取物品的时间设置了额外的脚本，这样基本功能与父蓝图相同，但每次拾取都会有所不同。这样非常有用，因为对父蓝图脚本的任何更新也会被应用到其所有的子蓝图上。
+父蓝图 **BP_Pickup_Parent** 包含基本拾取物行为脚本，例如，使拾取物旋转并浮动的时间轴动画和用于收集拾取物的序列。 
+各子蓝图完整继承了此脚本，但是它们都具有额外脚本，以便在它们被收集时，各拾取物都具有不同的行为，尽管它们的基本特性相同。 
+这非常有用，因为对父蓝图的脚本进行的任何更新也将应用给其所有子蓝图。
 
 
-当玩家控制的Pawn与 **Pickup Trigger** （拾取物品触发器）_SphereComponent_ 重叠时， **OnPickedUp** [事件调度器](Engine/Blueprints\UserGuide\EventDispatcher)被调用。每个子 _Blueprint_ （蓝图）都会绑定一个不同的事件到 **OnPickedUp** ，这样在玩家收集每个拾取物品以及在 **OnPickedUp** 被调用时，都会输出一个不同的字符串。
+当玩家Pawn与 **拾取物触发器** 球体组件重叠时，将调用 **OnPickedUp** [事件调度器](Engine/Blueprints\UserGuide\EventDispatcher)。每个子蓝图都将不同的事件绑定到 
+**OnPickedUp**，使得当玩家收集每个拾取物且 **OnPickedUp** 被调用时，输出的字符串各不相同。
 [/EXCERPT:CoinParent]
 
+(#childblueprints'eventgraph)
 ## 子蓝图的事件图表
 
 [EXCERPT:CoinChild]
@@ -67,12 +90,12 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 [![](AdvBP_2_5_Child1_EventGraph.png)](AdvBP_2_5_Child1_EventGraph.png)
 [/REGION]
 [REGION:caption]
-点击以查看完整尺寸图片或 **右键点击** 并另存。
+单击查看大图，或者 **右键单击** 图片并选择“另存为”。
 [/REGION]
 
 
 
-作为一种规则，蓝图图表不能包含同一事件的副本，这样如父脚本与子脚本都包含 **ReceiveBeginPlay** 事件，仅会执行父脚本的事件。您可以在子脚本中 **右键点击** 一个事件并选择 **Add call to parent function** （添加调用到父函数）来避免这个问题。这样在其被调用时，在父脚本中会创建一个触发相关事件的函数。
+一般来讲，蓝图图中不能包含同一事件的多个副本，因此，如果父脚本和子脚本中都包含有 **ReceiveBeginPlay** 事件，那么将仅触发父脚本中的该事件。要解决此问题，你可以在子脚本中 **右键单击** 某个事件并选择 **添加对父函数的调用（Add call to parent function）**。通过这种方法，你将创建一个函数，当它被调用时，将触发父脚本中的相应事件。
 
 [/EXCERPT:CoinChild]
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3590614
+﻿INTSourceChangelist:3810467
 Availability:Docs
 Crumbs: %ROOT%
 Title:利用插件写 Shader 总览
@@ -284,11 +284,11 @@ tags:Rendering
 |着色器域  | 后缀 |
 |-------------- |--------|
 |**顶点着色器**  |VS|
-|**凸包着色器 **   |HS|
+|**凸包着色器**   |HS|
 |**域着色器**  |DS|
 |**几何体着色器**|GS|
-|**像素着色器  ** |PS|
-|**计算着色器 **|CS|
+|**像素着色器** |PS|
+|**计算着色器**|CS|
 
 举例而言，在 C++ 文件中对 **FLensDistortionUVGenerationVS** 的调用中以 VS 结尾，则说明这是一个顶点着色器。在 USF 文件中 **void MainVS(...)** 以 VS 结尾，说明其将使用顶点着色器。在 HLSL 中处理结构体时，结构体命名应以 **F** 开头，如 FBasePassInterpolators。
 

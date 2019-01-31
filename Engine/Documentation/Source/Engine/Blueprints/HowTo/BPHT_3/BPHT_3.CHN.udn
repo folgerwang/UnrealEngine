@@ -1,113 +1,92 @@
-﻿INTSourceChangelist:2468103
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:3. 生成可射击的岩石
+Title:3.生成可射击岩石
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
-Description:在这个步骤中，我们会让玩家通过一个按钮在生成位置之一来生成可射击的岩石。 
+Description:在这一步中，我们将使玩家能够按下按钮以在生成地点之一生成可射击岩石。 
+version: 4.9
+tags:Blueprints
+parent:Engine\Blueprints\HowTo
+type:how-to
+type:multi-step
+order:3
+
+[NAV]
+
+在这一步中，我们将设置使玩家能够按下按钮以生成可射击岩石的逻辑（加入已满足其他条件）。在我们的关卡中，我们已定义了一些生成点，并且为了得到其中一个生成点的位置，我们将使用 **事件调度器（Event Dispatcher）**，它将在 **关卡蓝图（Level Blueprint）**（将在下一步中创建）中触发一个事件，以获取这些位置之一并将其发送给角色蓝图。 
 
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[Previous Step](Engine\Blueprints\HowTo\BPHT_2 "%Engine\Blueprints\HowTo\BPHT_2:title%") 
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[How-To Home](Engine\Blueprints\HowTo "%Engine\Blueprints\HowTo:Title%")
-	[/PARAM]
-	[PARAM:next]
-	[Next Step](Engine\Blueprints\HowTo\BPHT_4 "%Engine\Blueprints\HowTo\BPHT_4:title%") 
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+首先，让我们使玩家能够通过按键生成可射击岩石。 
 
-
-
-在这个步骤中，我们会设置让玩家通过按钮来生成可射击岩石的逻辑（假设其它条件都已满足）。 在关卡中，我们定义了一些生成点，并且为了获得这些位置之一，我们将会使用 **Event Dispatcher** （事件调度器），它会在我们的 **Level Blueprint** （关卡蓝图）中触发事件（我们会在下一步创建该事件），从而获得这些位置之一，并将其发送到我们的角色蓝图。 
-
-
-首先，让我们使角色可以通过按键来生成可射击的岩石。 
-
-1.	在 **FirstPersonCharacter** 蓝图中， **右键点击** 图表中的空白空间，然后添加一个 **F** 关键事件。 
+1.	在 **第一人称角色（FirstPersonCharacter）** 蓝图中，**右键单击** 图表中的一个空白位置并添加一个 **F** 键事件。 
 
 	![](FKeyEvent.png)
 
-1.	按住 **B** 不放，然后在图表中 **左键点击** ，从而创建 **Branch** （分支）节点。 
+1.	按住 **B** 并在图表中 **单击** 以创建 **分支（Branch）** 节点。 
 
-1.	在 **isActive** 变量中按住 **Alt** 键并拖曳，然后勾选框，并按下方显示内容进行连接。 
+1.	按住 **Alt** 并拖动到 **IsActive** 变量中，选中复选框，然后进行连接，如下所示。 
 
 	![](BranchAdded.png)
 
-1.	按住 **Control** 不放，并拖入 **isActive** 和 **Pulls** 变量。 
+1.	按住 **Control** 并拖动到 **IsActive** 和 **Pulls** 变量中。 
 
-1.	连接 **isActive** 到 **!=** 节点（已勾选），并连接 **Pulls** 到 **>** 节点（设置为0）。 
+1.	将 **IsActive** 连接到 **非布尔（NOT Boolean）** 节点（非真），并将 **Pulls** 连接到 **>** 节点（设置为0）。 
 
 	![](TwoNodesAdded.png)
+	[REGION:note]
+	在旧版本引擎中，**非布尔（NOT Boolean）** 节点指的是 **!=** 节点
+	[/REGION]
 
-1.	将两个输出都连接到 **And** 节点，并将其连接到 **Branch** （分支）的 **Condition** （条件）中。 
+1.	将两个输出连接到一个 **与（And）** 节点，并将其输入到 **分支（Branch）** 的 **条件（Condition）** 中。 
 
 	![](AndAdded.png)
 
-	在这里，我们设置了通过查看名称为 **isActive** 的变量是否为真，以及玩家的 **Pulls** 数量是否大于0来判断玩家是否可以生成岩石的逻辑。如果两者都为真，则我们会减少 **Branch** （分支）节点运算结果为真的数量并生成岩石（当然，这部分的脚本仍需要进行设置，请阅下文）。 
+	这里我们建立了逻辑，以通过检查名为 **IsActive** 的变量是否为真以及玩家的 **Pulls** 计数是否大于0来确定玩家是否可以生成岩石。如果这两个语句都为真，我们将继续处理 **分支（Branch）** 节点的 **真（True）** 侧，并生成岩石（脚本的这一部分仍然需要设置，我们将在下面进行设置）。 
 
-1.	按住 **Alt** 并拖入 **Pulls** 变量，然后在 **Set IsActive** 节点连接后进行连接。
+1.	按住 **Alt** 并拖动到 **Pulls** 变量中，并将其连接到 **设置IsActive（Set IsActive）** 节点。
 
-1.	在按住 **Control** 不放的情况下，再次拉入 **Pulls** 变量，并将其连接到 **Int - Int** 节点（设置为 **1** ）并连接到 **Set Pulls** 。 
+1.	按住 **Control** 并拖动到 **Pulls** 变量中，并将其连接到 **整型 - 整型（Int - Int）** 节点（设置为1）并连接到 **设置Pulls（Set Pulls）**。 
 
 	![](PullsSet.png)
 
-1.	点击 **Compile** （编译），然后关闭 **Set Pulls** 节点，添加 **ResetShots** 自定义事件。 
+1.	单击 **编译（Compile）**，然后从 **设置Pulls（Set Pulls）** 节点添加 **重置射击次数（ResetShots）** 自定义事件。 
 
 	![](CallCustomEvent.png)
 
-	您的设置应该看起来类似于以下内容。 
+	您的设置看上去应与下图类似。 
 
 	![](ScriptBeforeEventDispatcher.png)
 
-	我们这样就设置完成了在玩家生成岩石时的逻辑，现在我们需要与关卡进行通信，从而获得生成位置。 我们会使用 **Event Dispatcher** （事件调度器）来执行此操作，它会在按下 **F** 时进行调用。 **Level Blueprint** （关卡蓝图）会监听事件调度器，而且当它被调用时，会触发其事件，从而获得生成点之一的位置，并将其传回角色蓝图。 
+	有关玩家何时可以生成岩石的逻辑已经设置，现在我们需要与关卡通信以获取生成位置。我们将通过使用 **事件调度器（Event Dispatcher）** 来实现这一点，该调度器将在按下 **F** 时被调用。**关卡蓝图（Level Blueprint）** 将侦听事件调度器，当它被调用时，将触发它自己的事件，该事件将获取一个生成点的位置，并将其传递回角色蓝图。 
 
-1.	点击 **MyBlueprint** 窗口中的 **Add Event Dispatchers** （添加事件调度器）按钮。 
+1.	单击 **我的蓝图（My Blueprint）** 窗口中的 **+ 事件调度器（+ Event Dispatcher）** 按钮。 
 
 	![](AddEventDispatcher.png)
 
-1.	点击新事件调度器并在选择后按下 **F2** ，然后重命名为 **GetSpawnLocation** 。 
+1.	单击新的事件调度器，并按 **F2** 选中并将其重命名为 **GetSpawnLocation**。 
 
 	![](RenameEventDispatcher.png)
 
-1.	在 **Reset Shots** （重设射击次数）函数后的图表中，添加 **Call GetSpawnLocation** （调用GetSpawnLocation）节点。 
+1.	在图表中的 **重置射击次数（Reset Shots）** 函数后面，添加 **调用GetSpawnLocation（Call GetSpawnLocation）** 节点。 
 
 	![](CallEventDispatcher.png)
 
-	此时将会添加事件调度器，这是由节点右上角处的信封图标来表示的。 
+	事件调度器随即添加，并通过节点右上角的信封图标表示。 
 
 	![](NewNodeAdded.png)
 
-1.	在 **GetSpawnLocation** 节点下，添加 **Spawn Actor from Class** （从类中生成Actor）节点。 
+1.	关闭 **GetSpawnLocation** 节点，添加 **从类生成Actor（Spawn Actor from Class）** 节点。 
 
  	![](SpawnActorNode.png)
 
-1.	在 **Spawn Actor** （生成Actor）节点上，设置 **Class** （类）为 **BP_Rock** 。 
+1.	在 **生成Actor（Spawn Actor）** 节点上，将 **类（Class）** 设置为 **BP_Rock**。 
 
-1.	另外在 **Spawn Actor** 节点上，拖放 **SpawnLocation** 变量到 **SpawnTransform** 引脚。 
+1.	同时在 **生成Actor（Spawn Actor）** 节点上，将 **SpawnLocation** 变量拖放到 **SpawnTransform** 引脚上。 
 
 	![](SpawnActorComplete.png)
 
-	现在我们的角色蓝图已经设置完成，可以生成可射击的岩石并获得生成岩石的 **Transform** （变换）位置。 
+	我们的角色蓝图现在已被设置为生成可射击岩石，并将接收要生成岩石的 **变形（Transform）** 位置。 
 
-在下一步中，我们会使用 **Level Blueprint** （关卡蓝图）来获得生成点之一的位置，并在调用角色蓝图的事件调度器时传入该信息到角色蓝图（这样我们就可以在角色蓝图和关卡蓝图间传递信息了）。 
-
-
+在下一个步骤中，我们将使用 **关卡蓝图（Level Blueprint）** 获取我们的一个生成点的位置，并在我们的角色蓝图的事件调度器被调用时将该信息传递给我们的角色蓝图（因此我们将从角色蓝图转到关卡蓝图，并返回角色蓝图，在这两者之间传递信息）。 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+[NAV]

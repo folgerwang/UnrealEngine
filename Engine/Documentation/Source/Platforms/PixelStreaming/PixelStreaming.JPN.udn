@@ -1,0 +1,35 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Pixel Streaming
+Description: Run your Unreal Engine application on a server in the cloud, and stream its rendered frames and audio to browsers and mobile devices over WebRTC.
+Type: 
+Version: 4.21
+Parent: Platforms
+Order: 
+topic-image:PixelStreaming_Topic_01.png
+Tags: Early Access
+Tags: Landing Page
+Tags: Pixel Streaming
+Tags: Cloud Platform
+
+
+![](PixelStreaming_Banner_01.png "PixelStreaming_Banner_01.png")
+
+*Images courtesy of McLaren*
+
+With Pixel Streaming, you run a packaged Unreal Engine application on a desktop PC or a server in the cloud, along with a small stack of web services that are included with the Unreal Engine. People connect using any modern Web browser on their platform of choice, whether desktop or mobile, and stream the rendered frames and audio from the Unreal Engine application. There's no need for users to install or download anything. It's just like streaming a video from YouTube or Netflix — except that users can also interact with the application using keyboard, mouse, touch input, and even custom HTML5 UI that you create in your player Web page.
+
+## Getting Started
+
+%Platforms/PixelStreaming/PixelStreamingOverview:topic%
+%Platforms/PixelStreaming/PixelStreamingIntro:topic%
+
+## Guides
+
+%Platforms/PixelStreaming/CustomPlayer:topic%
+%Platforms/PixelStreaming/Hosting:topic%
+
+## Reference
+
+%Platforms/PixelStreaming/PixelStreamingReference:topic%

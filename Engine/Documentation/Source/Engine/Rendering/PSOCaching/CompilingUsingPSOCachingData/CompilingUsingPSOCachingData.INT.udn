@@ -1,0 +1,49 @@
+Availability: Public
+Crumbs: 
+Title: Compiling & Using PSO Caching Data
+Description: Going over setting up when PSO data will be compiled at run time.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:Compiling_&_Using_PSO_Caching_Data_Topic_Image.png
+Tags: 
+
+Before the **Pipeline State Object** (PSO) caching data can be used in the run-time version of your Unreal Engine 4 (UE4) project, it needs to be compiled. In the following How-To, we will take a look at two different ways to control when PSO data is being compiled while your UE4 project is running.
+
+## Loading Screens
+You can configure your project to build PSO data only while displaying a loading screen. To do this, you will need to create a new function that will wait for the PSO cache to finish being compiled before the loading screen will stop being displayed. The following code gives an example of how this could be accomplished:  
+
+    ~~~
+    if(FShaderPipelineCache::NumPrecompilesRemaining() > 0)
+    {
+        if (OutDebugReason != nullptr)
+        {
+            *OutDebugReason = FString(TEXT("PC: PSO cache still compiling"));
+        }
+        return true;
+    }
+~~~
+
+[REGION:note]
+If you are developing a mobile project, this is the recommended method for compiling the PSO cache for your project.
+[/REGION]
+
+## UI, Cutscenes, and Pause Menus
+You can setup the PSO cache compiling so that it will only happen when a UI, Cutscene or Pause Menu is opened. To do this, you will need to use the **ResumeBatching** and **SetBatchMode** functionality of the PSO caching system to start and stop when compiling will take place. Below you will find all of the functions that can be used to accomplish this.
+
+**Pause PSO Caching - Pauses the PSO Caching compilation.**
+
+    FShaderPipelineCache::PauseBatching();
+
+**Set Batch Mode Speed - Sets the speed at which the PSO Caching should be processed.**
+
+    FShaderPipelineCache::SetBatchMode(FShaderPipelineCache::BatchMode::Background);
+
+**Resume PSO Caching - Resumes the PSO Caching if it has been stopped or paused.**
+
+    FShaderPipelineCache::ResumeBatching();
+
+[REGION:note]
+For more information on functions for PSO Caching, see [PSO Reference](Engine/Rendering/PSOCaching/PSOReference).
+[/REGION]

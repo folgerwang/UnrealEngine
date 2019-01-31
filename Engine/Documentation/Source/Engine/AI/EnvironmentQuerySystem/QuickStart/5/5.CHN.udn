@@ -1,32 +1,21 @@
-﻿INTSourceChangelist:2654723
+﻿INTSourceChangelist:3717042
 Availability:Public
 Title:5.角色蓝图
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
 Description:设置 AI 的角色蓝图
 version:4.9
+parent:Engine/AI/EnvironmentQuerySystem/QuickStart
+type:quick start
+type:multi-step
+order:5
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/EnvironmentQuerySystem/QuickStart/4 "%Engine/AI/EnvironmentQuerySystem/QuickStart/4:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/EnvironmentQuerySystem/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/EnvironmentQuerySystem/QuickStart/6 "%Engine/AI/EnvironmentQuerySystem/QuickStart/6:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 创建已包含一个角色的项目之后，即可访问人形骨骼网格物体及其动画蓝图。我们将在教程中使用这些资源，您可自由使用自己的资源。
 
 该角色将成为新的 AI 角色。使角色成为 Pawn 的目的是便于访问角色运动组件的功能。
 
+(#Steps)
 ## 步骤
 
 1. 在 **内容浏览器中** **双击** 打开 AI_Character 蓝图进行编辑。
@@ -71,5 +60,5 @@ version:4.9
 
 1. **编译** ![](Engine\AI\BehaviorTrees\QuickStart\4\compile_button.png) 并 **保存**。![](Engine\AI\BehaviorTrees\QuickStart\4\save_button.png)
 
-
+[NAV]
 

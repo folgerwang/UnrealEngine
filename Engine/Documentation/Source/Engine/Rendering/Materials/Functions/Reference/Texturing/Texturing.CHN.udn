@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2730073
+﻿INTSourceChangelist:3807090
 Availability:Public
 title:纹理处理
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:各种用于帮助处理纹理的函数，例如重新投射 UV 以及裁切等等。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -274,7 +275,7 @@ SubUV_Function（子 Uv_函数）适合于处理精灵表或纹理上具有多�
 | **帧（标量）（Frame (Scalar)）** | 动画的当前帧。此值基于零，并且将根据小数值进行混合。例如，值 2.35 将在第三个与第四个帧之间产生 35% 的混合。|
 
 
-![SubUV_Function（子 UV_函数）](SubUV_Function_Demo.png)(w:800 h:375)
+![SubUV_Function（子 UV_函数）](SubUV_Function_Demo.png)(w:800)
 
 ### TwoSidedTexturing（双面纹理处理）
 
@@ -347,7 +348,7 @@ MF_TerrainHeightLerp（MF_地形高度插值）与 HeightLerp（高度插值）�
 | **无对比度插值阿尔法（Lerp Alpha No Contrast）** | 这是用于驱动插值的阿尔法通道（未提升对比度）。|
 
 
-![MF_TerrainHeightLerp（MF_地形高度插值）](MF_TerrainHeightLerp_Demo.png)(w:600 h:543)
+![MF_TerrainHeightLerp（MF_地形高度插值）](MF_TerrainHeightLerp_Demo.png)(w:600)
 
  TODO
 ### WorldAlignedStain（全局一致着色）

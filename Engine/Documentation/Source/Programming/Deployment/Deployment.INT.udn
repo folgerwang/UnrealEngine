@@ -1,0 +1,78 @@
+Availability: Public
+Crumbs: 
+Title: Deploying the Engine
+Description: Learn what it takes to to deploy UE4 to a team.
+Type: 
+Version: 4.20
+Parent: Programming
+Order: 1
+Tags: 
+
+
+[REGION:note]
+Although we hope that these deployment methods cover a majority of use cases, we understand that your choice of deployment method can depend on your team's workflow, the quality and quantity of your hardware, and other factors that may fall outside the scope of this guide.
+[/REGION]
+
+At the beginning of every project, teams need to decide how they want to deploy Unreal Engine 4 (UE4) to the developers and creatives contributing to their game. You can deploy the engine by **using an installed build**, **submitting binaries to Perforce**, or with **UnrealGameSync (UGS)**. 
+
+Advantages and disadvantages of each method are listed below.
+
+## Using an Installed Build
+
+**Advantages**  
+
+*   Fast compile times because the engine is distributed in a precompiled form.
+*   Easy to get started using ready-made binaries downloaded from the Epic Games launcher. 
+*   Patching and upgrading areeasy.
+
+**Disadvantages**
+
+*   Any engine changes require pushing a custom build to your team.
+*   Console platforms covered by custom licensing agreements are not available for download from the Epic launcher.
+*   If you make your own engine distribution without using the launcher, it's up to you to figure out how to distribute and install it. 
+*   Not all build options are available (installed builds do not support full debug configurations, client/server/program targets, or other engine customizations you may want to enable for your project).
+*   By default, limited debug information is available for target platforms.
+
+To learn more about using this deployment method, check out this [Reference](Programming/Deployment/UsinganInstalledBuild) guide.
+
+## Submitting Binaries to Perforce
+
+**Advantages**
+
+*   Only needs one tool to sync content and editor (Perforce).
+*   Allows your Quality Assurance (QA) department to vet builds before pushing out to content creators.
+
+**Disadvantages**
+
+*   High Perforce traffic causes slow sync times whenever binaries change - even for developers that don't need them.
+*   Prone to errors caused by developers having a mismatch of locally built binaries and binaries synced from Perforce.
+*   Having QA sign-off on changes by programmers and content creators can badly hurt iteration times.
+
+Read through this [Reference](Programming/Deployment/SubmitBinariestoPerforce) to learn more.
+
+## UnrealGameSync (UGS)
+
+**Advantages**
+
+*   Allows fast iteration times between content creators and programmers.
+*   Artists can sync precompiled binaries from zip files stored in another branch without polluting the development stream.
+*   Programmers can just sync source code and have their local version data automatically updated, so content they modify is correctly versioned.
+*   Artists on small teams can use the same workflow as programmers without having to use Visual Studio.
+*   Provides a large number of useful collaboration features and utilities - surfacing build system state and alerts, leaving comments on submitted changes, scheduling local nightly builds. customizing build processes, selectively syncing Perforce streams, and more.
+*   Used extensively at Epic, receiving frequent updates and improvements.
+
+**Disadvantages**
+
+*   Requires infrastructure setup for all features to work correctly (for example, a database for build metadata, and build system integration for precompiled binaries).
+*   Changes submitted by developers are not vetted by QA, and bad changes could corrupt data (this has not been a problem in practice for teams at Epic).
+*   Only supports Windows.
+
+To learn about UGS, check out this [Overview](Programming/Deployment/UnrealGameSync) guide.
+
+## Syncing from Epic's Development Streams
+
+If your project requires the very latest code from Epic, you can sync code directly from any of our streams.
+
+[REGION:note]
+To learn more about Syncing from Streams, read about [Using Perforce with Unreal Engine](GettingStarted/DownloadingUnrealEngine/Perforce).
+[/REGION]

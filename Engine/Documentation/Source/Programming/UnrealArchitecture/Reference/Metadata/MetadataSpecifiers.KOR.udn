@@ -44,14 +44,14 @@ topic-image:components_topic.png
 | `DeprecationMessage="Message Text"` | 클래스가 폐기되면, 그것을 사용하는 블루프린트를 컴파일하려 할 때 표준 폐기 경고에 이 메시지가 추가됩니다. |
 | `DisplayName="Blueprint Node Name"` | 블루프린트의 이 노드 이름은 코드 생성 이름이 아닌 여기 제공된 값으로 대체됩니다. |
 | `DontUseGenericSpawnObject` | 블루프린트의 Generic Create Object 노드를 사용하여 클래스의 오브젝트를 스폰하지 않습니다. 이 지정자는 Actor 도 ActorComponent 도 아닌 BlueprintType 클래스에만 의미가 있습니다. |
-| `ExposedAsyncProxy` | **Async Task** 노드에 이 클래스의 프록시 오브젝트를 노출시킵니다. |
+| `ExposedAsyncProxy` | **Async Task** 노드에 이 클래스의 프락시 오브젝트를 노출시킵니다. |
 | `IgnoreCategoryKeywordsInSubclasses` | 클래스의 첫 서브클래스가 상속된 `ShowCategories` 및 `HideCategories` 지정자 전부를 무시하도록 만듭니다. |
 | `IsBlueprintBase="true/false"` | 이 클래스가 블루프린트 생성을 위한 베이스 클래스로 적합한지( 또는 아닌지)를 나타냅니다. `UCLASS` 지정자, `Blueprintable` 또는 'NotBlueprintable` 과 비슷합니다. |
 | `KismetHideOverrides="Event1, Event2, .."` | 덮어쓰기를 허용하지 않을 블루프린트 이벤트 목록입니다. |
 | `ProhibitedInterfaces="Interface1, Interface2, .."` | 클래스와 호환되지 않는 인터페이스 목록입니다. |
 | `RestrictedToClasses="Class1, Class2, .."` | 블루프린트 함수 라이브러리 클래스에서 목록의 클래스 사용을 제한시킵니다. |
 | `ShortToolTip` | 부모 클래스 선택기 대화창처럼 전체 툴팁 표시가 버거운 상황에서 사용할 짧은 툴팁입니다. |
-| `ShowWorldContextPin` | 이 클래스 소유 그래프에 배치된 블루프린트 노드는 월드 맥락 핀을 반드시 표시해야 합니다. 이 클래스 오브젝트를 월드 맥락으로 사용할 수 없어서, 보통 숨겨진 경우에도 마찬가지입니다. |
+| `ShowWorldContextPin` | 이 클래스 소유 그래프에 배치된 블루프린트 노드는 월드 컨텍스트 핀을 반드시 표시해야 합니다. 이 클래스 오브젝트를 월드 컨텍스트로 사용할 수 없어서, 보통 숨겨진 경우에도 마찬가지입니다. |
 | `UsesHierarchy` | 클래스가 계층형 데이터를 사용함을 나타냅니다. 디테일 패널의 계층형 편집 기능 인스턴싱에 사용합니다. |
 | `ToolTip` | 코드 코멘트에서 자동 생성되는 툴팁을 덮어씁니다. |
 
@@ -148,7 +148,7 @@ topic-image:components_topic.png
 | `ContentDir` | `FDirectoryPath` 프로퍼티에 사용됩니다. Content 폴더 내 슬레이트 스타일 디렉터리 선택기를 사용하여 경로를 선택할 것임을 나타냅니다. |
 | `DisplayName="Property Name"` | 코드 생성 이름 대신 이 프로퍼티에 표시할 이름입니다. |
 | `DisplayThumbnail="true"` | 프로퍼티가 애셋 유형이며 선택된 애셋의 썸네일을 표시해야함을 나타냅니다. |
-| `EditCondition="BooleanPropertyName"` | 이 프로퍼티 편집 비활성화 여부를 나타내는 데 사용되는 불리언 프로퍼티 이름입니다. 프로퍼티 이름 앞에 "!" 를 붙이면 테스트가 반대로 됩니다. |
+| `EditCondition="BooleanPropertyName"` | 이 프로퍼티 편집 비활성화 여부를 나타내는 데 사용되는 부울 프로퍼티 이름입니다. 프로퍼티 이름 앞에 "!" 를 붙이면 테스트가 반대로 됩니다. |
 | `EditFixedOrder` | 배열 요소의 순서를 끌어 바꿀 수 없도록 합니다. |
 | `ExactClass="true"` | `FSoftObjectPath` 프로퍼티에 `AllowedClasses` 와 함께 사용됩니다. `AllowedClasses` 에 지정된 딱 그 클래스만 사용할지, 아니면 서브클래스도 포함시킬지를 나타냅니다. |
 | `ExposeFunctionCategories="Category1, Category2, .."` | 블루프린트 에디터에서 함수 목록을 만들 때 들어있는 함수를 노출시킬 카테고리 목록을 지정합니다. |
@@ -156,7 +156,7 @@ topic-image:components_topic.png
 | `FilePathFilter="filetype"` | `FFilePath` 프로퍼티에 사용됩니다. 파일 선택기에 표시할 경로 필터를 나타냅니다. 흔히 "uasset" 이나 "umap" 이 포함되지만, 다른 것도 가능합니다. |
 | `HideAlphaChannel` | `FColor` 및 `FLinearColor` 프로퍼티에 사용됩니다. 디테일에서 프로퍼티 위젯을 표시할 때 `Alpha` 프로퍼티를 숨길지를 나타냅니다. |
 | `HideViewOptions` | `Subclass` 및 `SoftClass` 프로퍼티에 사용됩니다. 클래스 선택기의 뷰 옵션을 바꾸는 기능을 숨깁니다. |
-| `InlineEditConditionToggle` | 이 불리언 프로퍼티는 다른 프로퍼티의 편집 조건 토글로써 인라인으로만 표시되며, 자체 행에는 표시되지 않음을 나타냅니다. |
+| `InlineEditConditionToggle` | 이 부울 프로퍼티는 다른 프로퍼티의 편집 조건 토글로써 인라인으로만 표시되며, 자체 행에는 표시되지 않음을 나타냅니다. |
 | `LongPackageName` | `FDirectoryPath` 프로퍼티에 사용됩니다. 경로를 긴 패키지 이름으로 변환합니다. |
 | `MakeEditWidget` | 트랜스폼 또는 로테이터, 아니면 그 배열에 사용됩니다. 프로퍼티를 뷰포트에 이동가능 위젯으로 노출시켜야 함을 나타냅니다. |
 

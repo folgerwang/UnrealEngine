@@ -1,15 +1,17 @@
-﻿INTSourceChangelist:2697187
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中重生玩家
 Crumbs: %ROOT%, Gameplay, Gameplay/HowTo/RespawnPlayer
 Description:关于如何在虚幻引擎 4 中通过蓝图重生玩家人物的操作指南。 
 Version: 4.9
 SkillLevel: Advanced
+type:how-to
 
 [TOC (start:2)]
 
  您将在此了解如何在蓝图中重生单人游戏中的玩家人物。 
 
+(#RespawningthePlayer_SinglePlayer_)
 ## 重生玩家（单人游戏）
 
 以下详述了单人游戏中玩家被杀死时重生所需执行的步骤。 

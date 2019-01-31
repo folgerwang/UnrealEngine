@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3600078
-Availability:Docs
+﻿INTSourceChangelist:3728507
+Availability:Public
 Title:4 - Composure 关卡序列设置
 Crumbs:%ROOT%
 Description:在这步中我们将对 Composure 使用的关卡序列进行设置。 
@@ -15,6 +15,7 @@ tags:Composure
 
 上一部分中我们创建了 Composure 所必需的关卡序列。下一部分中我们将对此关卡序列进行设置，使其在播放时与 Composure 兼容。
 
+(#Steps)
 ## 步骤
 
 1. 首先点击绿色的 **+Track** 按钮并从出现的列表中选择 **Camera Cut**，在 **Sequencer** 标签中添加一个新的 **Camera Cut** 轨道。
@@ -126,6 +127,7 @@ tags:Composure
     点击查看全图。
     [/REGION]
 
+(#EndResult)
 ## 最终结果
 
 设置好 Sequencer 和 Composure 的兼容后，下一部分将设置所需的游戏模式和关卡蓝图逻辑，按下 Play 或 Simulate 键后即可将所有内容串联起来。

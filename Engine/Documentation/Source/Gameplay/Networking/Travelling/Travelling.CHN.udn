@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2713631
+﻿INTSourceChangelist:3151861
 Availability:Public
 Title: 多人游戏中的关卡切换
 Crumbs:%ROOT%, Gameplay, Gameplay/Networking
@@ -9,6 +9,7 @@ version: 4.9
 
 [TOC (start:2 end:3)]
 
+(#Seamlessandnon-seamlesstravel)
 ## 无缝与非无缝切换
 
 UE4 中主要有两种转移方式：无缝和非无缝方式。两者的主要区别在于，无缝转移是一种非阻塞（non-blocking）操作，而非无缝转移则是一种阻塞（blocking）操作。 
@@ -51,6 +52,7 @@ UE4 中主要有两种转移方式：无缝和非无缝方式。两者的主要�
 
 * 如果从服务器调用，则要求特定客户端转移到新地图（但仍然连接到当前服务器）
 
+(#EnablingSeamlessTravel)
 ## 启用无缝切换
 
 要启用无缝切换，您需要设置一个过渡地图。这需要通过 `UGameMapsSettings::TransitionMap` 属性进行配置。该属性默认为空，如果您的游戏保持这一默认状态，就会为过渡地图创建一个空地图。 
@@ -59,8 +61,9 @@ UE4 中主要有两种转移方式：无缝和非无缝方式。两者的主要�
 
 现在，我们可以从当前地图转移到过渡地图，然后可以从那里转移到最终的地图。由于过渡地图非常小，因此在“中转”当前地图和最终地图时不会造成太大的资源消耗。
 
-设置好过渡地图后，您需要将 `AGameMode::bUseSeamlessTravel` 设置为 true，这样就可以实现无缝切换了！
+设置好过渡地图后，您需要将 `AGameModeBase::bUseSeamlessTravel` 设置为 true，这样就可以实现无缝切换了！
 
+(#SeamlessTravelFlow)
 ## 无缝切换流程
 
 下面是执行无缝切换时的一般流程：
@@ -69,13 +72,14 @@ UE4 中主要有两种转移方式：无缝和非无缝方式。两者的主要�
 3. 标记出要在最终关卡中存留的 actor（更多信息请见下面）
 4. 转移到最终关卡
 
+(#PersistingActorsacrossSeamlessTravel)
 ## 无缝切换中的存留 Actor
 
 在使用无缝切换时，可以将（存留） actor 从当前关卡带到新的关卡。这适用于一些特定的 actor，如道具栏物品和玩家等。
 
 默认情况下，这些 actor 将自动存留：
 * `GameMode` actor（仅限服务器）
-	* 通过 `AGameMode::GetSeamlessTravelActorList` 额外添加的任何 actor
+	* 通过 `AGameModeBase::GetSeamlessTravelActorList` 额外添加的任何 actor
 * 拥有一个有效的	 `PlayerState` （仅限服务器）的所有控制器
 * 所有 `PlayerControllers` （仅限服务器）
 * 所有本地 `PlayerControllers` （服务器和客户端）

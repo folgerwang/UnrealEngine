@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3188567
+﻿INTSourceChangelist:3807090
 title:构建分层细节级别模型
 Description:此指南说明如何在启用 HLOD 的虚幻引擎 4 项目中生成 HLOD 模型。
 crumbs:
@@ -25,27 +25,27 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 1. 完成对所需单个 HLOD 等级的特定设置后，点击 **Generate Clusters** 按钮。
 	
-	![image alt text](Engine/HLOD/Overview/image_3.png)(h:28 w:112 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_3.png)(w:112 convert:false)
 
 	进程开始后将出现一个进度条，显示生成的 LOD 等级。
 
-	![image alt text](Engine/HLOD/Overview/image_4.png)(h:58 w:398 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_4.png)w:398 convert:false)
 
 1. 进程完毕后，**HLOD Outliner** 将被所有集群 **Actor** 填充。 
 
-	![image alt text](Engine/HLOD/Overview/image_5.png)(h:350 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_5.png)(w:624 convert:false)
 
 1. 点击名称左边的箭头按钮可展开单个 **LODActors**，查看该集群由哪些 **静态网格体** 组成。
 
-	![image alt text](Engine/HLOD/Overview/image_6.png)(h:350 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_6.png)(w:624 convert:false)
 
 1. 从 **HLOD Outliner** 选择一个 **LODActor** 并在编辑器视口中将其找到，即可在关卡中显示集群。
 
-	![image alt text](Engine/HLOD/Overview/image_7.png)(h:481 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_7.png)(w:624 convert:false)
 
 如需查看生成的集群在编辑器中的效果，可使用 **Forced Viewing Level** 滑条查看使用中的 HLOD，无需转换到特定的屏幕尺寸。这有助于排解出现在屏幕上的问题（可能为生成集群的一部分）。
 
-![image alt text](Engine/HLOD/Overview/image_8.png)(h:17 w:624 convert:false)
+![image alt text](Engine/HLOD/Overview/image_8.png)(w:624 convert:false)
 
 如果生成的集群遇到问题，可展开特定集群并选择对立的 **静态网格体 Actor**。然后点击并将其拖至另一个集群，或右键点击列表中的 **Actor** 命名选择将其从集群的生成中 **移除** 或 **排除**。 
 
@@ -53,7 +53,7 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 此外，如果需要添加 **Actor** 到 **集群**，可点击并从 **World Outliner** 将其拖至需要纳入的 **集群**。
 
-![image alt text](Engine/HLOD/Overview/image_11.png)(h:236 w:269 convert:false)
+![image alt text](Engine/HLOD/Overview/image_11.png)(w:269 convert:false)
 
 重复此过程，同时调整 HLOD 等级 **Cluster Generation Settings** 中的数值，直到生成满意的集群，然后进入下一部分。[**生成代理模型**](#generateproxymeshes)。
 
@@ -64,11 +64,11 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 1. 如您已准备好构建代理模型，现在即可点击“Generate Proxy Mesh”按钮开始。 
 
-	![image alt text](Engine/HLOD/Overview/image_13.png)(h:28 w:148 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_13.png)(w:148 convert:false)
 
 	进程开始后将出现进度条，显示使用中的 HLOD 层级和生成中的代理模型数量。此进度条不显示全部 HLOD 层级和创建的代理模型总数，只显示特定层级的代理模型数。
 
-	![image alt text](Engine/HLOD/Overview/image_14.png)(h:94 w:458 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_14.png)(w:458 convert:false)
 
 	此进程耗时取决于 HLOD 等级设置、创建的代理模型数量和系统配置，高端机器也可能耗时较长！
 

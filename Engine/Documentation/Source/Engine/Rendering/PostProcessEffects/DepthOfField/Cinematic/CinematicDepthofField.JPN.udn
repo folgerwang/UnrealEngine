@@ -1,0 +1,477 @@
+﻿INTSourceChangelist:4314037
+title:シネマティック DOF
+description:次の DOF メソッドは、ディファード レンダリング パスを使用してデスクトップやコンソールのプラットフォームに写真やフィルムによく似た映画のような見栄えをもたらします。
+crumbs:
+availability:Public
+version:4.20
+parent:Engine/Rendering/PostProcessEffects/DepthOfField
+order:1
+type:overview
+tags:Post Process
+tags:Depth of Field
+topic-image:DOF_Cine_Topic.png
+
+次の DOF メソッドは、ディファード シェーディング レンダラーおよびクラスタード フォワード レンダラーを使用してデスクトップやコンソールのプラットフォームに写真やフィルムによく似た映画のような見栄えをもたらします。
+
+## シネマティック
+
+[REGION:note]
+この Circle DOFは、Cinematic DOF に代わって、UE4.20 においてデフォルトで使われるシネマティック メソッドとなりました。これは、サポート対象のハードウェアにおいてデフォルトで有効化されます。
+[/REGION]
+
+**シネマティック** DOF は、Circle DOF および Bokeh DOFと同様に現実世界のカメラとほぼ同等で、鮮やかな [ハイ ダイナミック レンジ](Engine/Rendering/HDRDisplayOutput) (HDR) コンテンツで円形のぼけを表示できます。このメソッドは、プロシージャルな Bokeh シミュレーションが使われているため、動的解像度が安定し、アルファ チャンネルのサポートが可能になるとともに、高速かつスケーラブルであり、デスクトップおよびコンソール向けに開発されるプロジェクトに最適化されています。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![DOF 無効](image_0.png)
+	[/PARAM]
+	[PARAM:after]
+	![シネマティック DOF](image_1.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### ショットの対象をフォーカス
+
+美的に優れた DOF エフェクトを達成するキーは、ショットの被写体をフォーカスする方法に尽きます。いかなるショットについても DOF を設定する際に影響する中核的な要素は次の 3 つです。
+
+* レンズの **焦点距離** の決定。
+
+* 適切な **開口** (F 値) の選択。
+
+* カメラから **被写体までの距離** の選択。
+
+これらの設定を調整するときに何が起こるかについて理解するために、カメラとキャプチャするシーンを構成する要素に分解してみます。
+
+![image_2.png](image_2.png)
+
+1.シーン内の点
+
+    1.赤 = 焦点から外れている。
+
+    2.青 = 完全に焦点が合っている
+
+    3.緑 = かろうじて焦点が合っている
+
+2.ショットの被写体までの撮影距離 (青点)
+
+3.カメラのレンズ
+
+4.レンズの絞り (値は F 値) 
+
+5.レンズの焦点距離
+
+6.フィルムバック / イメージ センサー
+
+7.レンダリングしたイメージの結果
+
+[REGION:note]
+右側のレンダリングしたイメージはカメラのレンズを通過して反転していることに注意してください。
+[/REGION]
+
+ここには、カメラがキャプチャした対象を表す複数の点 (1) があります。そのカメラには **撮影距離** (2) が定義されていて、ここでは青の被写体です。**開口** (4) は、焦点が合っていない前景および背景の対象物をどの程度ぼやかすかを定義します。最後に、レンズの **焦点距離** (5) は視野角を制御します。あるいは、像がどの程度ズームインされるかを制御します。
+
+#### 開口
+
+**開口** は、F 値で制御される **絞り** の直径に基づいて前景および背景の鮮明さまたはぼけを定義します。
+
+![image_3.png](image_3.png)
+
+1.カメラのレンズ
+
+2.レンズの開口の絞り (値は F 値) 
+
+この図は、レンズ (1) を通過する光をブロックする絞り (2) を示しています。開口のサイズ (または F 値) はレンズを通過する光の量を設定し、それによってショットの撮影距離に基づいて前景および背景のぼけの度合いも制御します。
+
+開口を構成する要素は、 **F 値** および **絞り** の 2 つです。
+
+![image_4.png](image_4.png)
+
+1.** 開口** は、光が通過する開口部の直径です。開口は、焦点距離を F 値で割った数値として規定されています。
+
+2.**絞り** は、光をブロックするために使用される複数のブレードから構成された機構です。これは、指定された F 値に基づいて開閉します。
+
+レンズの開口は、F 値を大きくすると小さくなる絞りの直径によって規定され、DOF エフェクトの浅さまたは広がりを制御します。このエフェクトを示している図の撮影距離を参照してください。
+
+開口の機能を表示するためには、下図のスライダーをドラッグして F 値を 1.4、2.8、および 5.6 の間で変えてみてください。F 値を小さくすると、DOF が浅くなり、背景と前景のぼけがきつくなります。F 値を大きくすると、DOF の深度が大きくなり、ぼけが小さくなります。ここでは、F 値のみを変化させ、撮影距離と焦点距離はそれぞれ 7m と 75mm のままにしています。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	aperture
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	スライダーをドラッグすると開口の F 値が変化します。
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![aperture_0.png](aperture_0.png)
+	![aperture_1.png](aperture_1.png)
+	![aperture_2.png](aperture_2.png)
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+通常、実際のカメラの開口設定を調整するとき、同時に露光設定も調整して、フィルムバック / イメージ センサーから受ける光の強度を同じに保つ必要があります。ただし UE4 では、これは実際のカメラではないため、F 値と絞りを調整しても光の強度は制御されません。
+[/REGION]
+
+#### 焦点距離
+
+**焦点距離** は、レンズの中心から **フィルムバック** (またはイメージ センサー) までの距離です。単位はミリメートル (mm) です。レンズの焦点距離のイメージ。フィルムバックが大きくなると、それにつれて視野角 (FOV) も広くなります。焦点距離を小さくしても、FOV は広くなります。
+
+![image_8.png](image_8.png)
+
+1.カメラのレンズ。
+
+2.焦点距離
+
+この機能を表示するためには、下図のスライダーをドラッグしてレンズの焦点距離を 50mm、75mm、および 100mm の間で変えてみてください。ショットの視野角 (FOV) の変化量がわかります。焦点距離を長くすると、FOV は狭くなります。焦点距離はズームと似たものとして考えることができます。ただし、ショットの焦点外の領域でもズームインされ、イメージの前景および背景のぼけが増す点が異なります。
+
+なお、ここでは、焦点距離のみを変化させ、撮影距離と F 値はそれぞれ 7m と f/2.8 のままにしています。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	focal
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![focal_0.png](focal_0.png)
+	![focal_1.png](focal_1.png)
+	![focal_2.png](focal_2.png)
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+カメラの FOV は、フィルムバックおよび焦点距離を通じて Cine Cameraアクターから制御できます。これは、物理的に正確なカメラであるからです。ただし、これは焦点距離設定がないため、Camera アクターから FOV 角度を度で直接制御できます。DOF に使用される焦点距離は、FOV 角度およびフィルムバック設定からレンダラーによって自動的に抽出されます。
+[/REGION]
+
+#### 撮影距離
+
+**撮影距離** は、カメラのレンズの中心から焦点に合ったショットの被写体までの距離のことで、焦点面を形成します。カメラが対象物に近づくと、ビンぼけになる背景が増えます。
+
+![image_12.png](image_12.png)
+
+1.シーン内の点
+
+    1.赤 = 焦点から外れている。
+
+    2.青 = 完全に焦点が合っている
+
+    3.緑 = かろうじて焦点が合っている
+
+2.被写体までの撮影距離 (青点)
+
+3.カメラのレンズ
+
+この図は、シーン (1)を構成する異なる対象物 (背景、対象物、および前景) を示しています。レンズ (3) から焦点が合っている対象物 (1) までの距離 (ここでは青点) が撮影距離です。背景と前景の領域は、使用される F 値およびカメラの焦点距離に応じてぼけます。
+
+DOF レイヤーは、ビューポートの **[表示]** ドロップダウンから、 **[Visualized] > [Depth of Field Layers]** を選択して表示できます。ここでは、緑が前景の対象物を表し、黒が対象物の焦点が合っている領域で、青が背景部です。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![レンダリングされたシーン](image_13.png)
+	[/PARAM]
+	[PARAM:after]
+	![DOF レイヤーの表示](image_14.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+この機能を表示するためには、下図のスライダーをドラッグして撮影距離を 4m、7m、および 10m の間で変えてみてください。撮影距離を調整すると、シーンの焦点面 (紫色の点線) が調整され、ショットの焦点が合っている領域を示します。図の青の参考点は、ここで焦点が合っている対象物としてキャラクターを使用しています。カメラと図の焦点を変えると、背景および前景の対象物の焦点も変化します。
+
+4m で始めると、前景のパトカーにはっきりと焦点が合っていて、背景のキャラクターには焦点が合っていません。図の青の参考点はこのことを示していて、フィルムバックの前方で焦点が交差しています。7m では、キャラクターに焦点が完全に合っていて、背景と前景の対象物には焦点が合っていません。10m では、建築工事の柵に焦点が合っていて、前景のキャラクターおよびパトカーには焦点が合っていません。図の青の参考点はこのことを示していて、フィルムバックの後方で焦点が交差しています。
+
+これらすべての撮影距離の変更を通じて、対象物が前景にあるかまたは背景にあるかに応じて DOF エフェクトは増減します。なお、ここでは、撮影距離を変化させ、F 値と焦点距離はそれぞれ f/1.4 と 75mm のままにしています。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	distance
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![distance_0.png](distance_0.png)
+	![distance_1.png](distance_1.png)
+	![distance_2.png](distance_2.png)
+	[/PARAM]
+[/OBJECT]
+
+### プロシージャルな絞りのシミュレーション
+
+DOF の役割は、被写体に焦点を当てることによって、シーン内におけるその重要度を上げることにあります。焦点の合っていない領域も同程度に重要となる場合があります。Unreal Engine 4 の DOF は、絞りブレードの数および曲率を調整してぼけ (焦点の合っていない領域) の形状を美的に制御することによってレンズの絞りをシミュレートします。
+
+![image_18.png](image_18.png)
+
+[REGION:note]
+パフォーマンス上の理由により、絞りのシミュレーションは、**エンジンの拡張機能設定** の設定のうち、 **エピック** と **シネマティック** の場合でのみサポートされています。これらより低品質の設定では、同じ領域のぼけは円形になり、自動露光機能と同様の動作を行い、その結果、絞りブレードのシミュレーションは無効になります。
+[/REGION]
+
+#### 絞りブレードの数
+
+**絞り** (またはアイリス) は、ぼけ形状の見た目を美的に伝えるために調整できるブレードから構成されるメカニズムです。使用するブレードの数を減らすと絞りの形状が多角形になり、ブレード数を増やすと絞りの曲率が向上し、焦点の合っていないぼけが丸みを帯びてより自然な見た目になります。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	blades
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![blades_0.png](blades_0.png)
+	![blades_1.png](blades_1.png)
+	![blades_2.png](blades_2.png)
+	![blades_3.png](blades_3.png)
+	[/PARAM]
+[/OBJECT]
+
+絞りブレードの数は、 **最大開口** を増やす (最小 F 値を減らす) と、ぼけの形状に直接影響します。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	blades_zoom
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![blades_zoom_0.png](blades_zoom_0.png)
+	![blades_zoom_1.png](blades_zoom_1.png)
+	![blades_zoom_2.png](blades_zoom_2.png)
+	![blades_zoom_3.png](blades_zoom_3.png)
+	[/PARAM]
+[/OBJECT]
+
+#### 開口および最大開口
+
+**開口** は、 **絞り** の直径 (値は **F 値** ) によって制御されるレンズの開口部です。レンズを通過できる光の量は開口のサイズによって制御されます。開口のサイズを調整すると、焦点面が設定され、焦点の合っている領域の外側の領域をどの程度焦点を合わせるかまたはぼかすかが調整されます。
+
+次のグラフは、開口部のサイズ (F 値)、最大開口 (最小 F 値) および DOF エフェクトの相関関係を示しています。
+
+![image_27.png](image_27.png)
+
+開口を大きくすると (F 値を小さくすると)、焦点の合っている領域が浅くなり、前景と背景のぼけがきつくなります。開口を小さくすると (F 値を大きくすると)、焦点の合っている領域が広くなり、前景と背景において焦点が合っている対象物が増えます。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	max_aperture
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	5
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	開口 F 値：1.4, 2.0, 2.8, 4.0, 5.6, 8.0
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![max_aperture_0.png](max_aperture_0.png)
+	![max_aperture_1.png](max_aperture_1.png)
+	![max_aperture_2.png](max_aperture_2.png)
+	![max_aperture_3.png](max_aperture_3.png)
+	![max_aperture_4.png](max_aperture_4.png)
+	![max_aperture_5.png](max_aperture_5.png)
+	[/PARAM]
+[/OBJECT]
+
+開口は好きなだけ小さくできますが、可能な範囲はレンズの最大サイズまでです。**最大開口** (値は F 値) はレンズの可能な大きさを規定します。これは、開口が開くことができるサイズを制限することによって絞りを構成するブレードの曲率も規定します。開口のサイズを制限すると、焦点の合っていない領域の大きさを制限できる実効焦点領域が小さくなります。
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	max_aperture_blades
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	5 つの絞りブレードとさまざまな最大開口値
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![max_aperture_blades_0.png](max_aperture_blades_0.png)
+	![max_aperture_blades_1.png](max_aperture_blades_1.png)
+	![max_aperture_blades_2.png](max_aperture_blades_2.png)
+	![max_aperture_blades_3.png](max_aperture_blades_3.png)
+	[/PARAM]
+[/OBJECT]
+
+この例では、 **絞りブレードの数** は 5 に設定されています。開口が小さいと、絞りのブレードがぼけの形状に現れやすくなります。開口を大きくすると (F 値 = 最小 F 値)、ぼけの形状が円形になっていきます。
+
+この例では、次の値を使用して Cine Camera アクターが使用されています。
+
+* **最小 F 値** ：1.4
+* **最大 F 値** ：4.0
+* **絞りブレードの数** ：5
+* **現在の開口** ：1.4 - 4.0
+
+これらの値の場合、F 値は **1.4** から **4.0** までの範囲にある値のみを受け入れます。F 値を大きくして (開口を小さくして) DOF エフェクトを広げると、絞りブレードがぼけの形状に現れやすくなります。
+
+[REGION:note]
+開口は光の強度を制御していないことに注意してください。実際のカメラのように同時に露出を調整し続ける必要がないようにこのような措置が取られています。
+[/REGION]
+
+### 可能な設定
+
+#### シネマティック カメラ
+
+次の設定は、Cinematic Camera アクター専用です。カメラの設定および DOF の設定にもアクセスできます。
+
+| プロパティ | 説明 |
+| --- | --- |
+| フィルムバックの設定 | |
+| Sensor Width | フィルムバックまたはデジタル センサーの水平方向のサイズを設定します (単位はmm)。|
+| レンズの設定 | |
+| Min Focal Length | レンズの最小焦点距離を設定します (単位はmm)。|
+| Max Focal Length | レンズの最大焦点距離を設定します (単位は mm)。|
+| Min FStop | このレンズの最大開口。たとえば、f/2.8 のレンズでは 2.8 です。絞りのブレードの曲率も指定します。|
+| Max FStop | このレンズの最小開口。たとえば、f/8.0 のレンズでは 8.0 です。|
+| Diaphragm Blade Count | 絞りの機構を構成するブレードの数。|
+| 焦点の設定 | |
+| Focus Method | カメラのフォーカスの制御に使用するフォーカス メソッドのタイプを選択します。None (なし)、Manual、または Tracking。|
+| Manual Focus Distance | マニュアル制御されている撮影距離を設定します。これは、フォーカス メソッドが Manual の場合のみ使用できます。|
+| Draw Debug Focus Plane | 有効にすると、現在の焦点深度に半透明の面が描画されます。これによって、ショットの焦点の位置を視覚的に把握できるようになります。|
+| Debug Focus Plane Color | デバッグ焦点面の描画が有効になっているときにデバッグ焦点面の色を設定します。|
+| Smooth Focus Changes | これを有効にすると、補間が使用されて撮影距離の変化がスムーズになります。無効にすると、焦点の変更はすぐに反映されます。|
+| Focus Smoothing Interp Speed | 撮影距離の変更をスムーズにするときに補間のスピードを制御します。このオプションは、 **Smooth Focus Changes** が有効になっていない場合には無視されます。|
+| Focus Offset |選択したフォーカス メソッドで調整が必要な場合にフォーカスを手動で微調整するために使用できるオフセットを焦点深度に追加します。|
+| Current Focal Length | 視野角 (FoV) およびズームを制御する、カメラの現在の焦点距離を制御します。|
+| Current Aperture | F 値に基づいて現在の開口サイズを設定します。この設定は、最小 F 値と最大 F 値の範囲内の値のみを受け入れます。|
+| Current Focal Distance | **焦点の設定** で使用される読み取り専用値を表示します。|
+| Current Horizontal FOV | **現在の焦点距離** および **フィルムバックの設定** で使用される読み取り専用値を表示します。|
+
+#### Post Process Volume およびカメラアクター
+
+次の設定項目は、Cine Camera、Camera、および Post Process Volumes で使用できます。
+
+| プロパティ | 説明 |
+| --- | --- |
+| カメラの設定 | |
+| Aperture (F-stop) | カメラのレンズの開口部を指定します。開口は、1/F 値で、標準的なレンズでは f/1.2 (大きい開口部) になります。値を大きくすると DoF エフェクトが小さくなります。|
+| Maximum Aperture (minimum f-stop) | カメラのレンズの最大開口を指定し、絞りの曲率を制御します。これを 0 に設定すると、直線的なブレードになります。|
+| Number of Diaphragm Blades | レンズ内の絞りのブレード数を指定します。4 ～ 16 の値を使用できます。|
+| Depth of Field の設定 | |
+| Focal Distance | DOF エフェクトを鮮明にする必要がある距離。値は Unreal Unit です (cm)。|
+| Depth Blur km for 50% |Depth Blur Radius の半分の半径をともなって、ピクセルがブラーする距離を指定します。大気散乱を安価にシミュレートする際に特に便利です。|
+| Depth Blur Radius | 大気散乱を模倣するためにカメラからの距離に応じて適用する 1080p 解像度における半径 (ピクセル)。|
+
+### 最適化する際に便利なコンソール変数
+
+DOFでやり甲斐のある部分は、コンテンツに応じて、また、 DOF がどの程度芸術的に使用されてきたかということに応じてさまざまな形態を取り得るという点にあります。そのため、DOF の実装では、プラットフォームごとにカスタマイズできるようになっているさまざまなコンソール変数が提供されています。それによって、パワーの弱いプラットフォームでは、優先度に応じて、プロジェクトに割り当てる予算をやり繰りすることが可能になります。
+
+シネマティック DoF のパフォーマンスをバインドする際に便利ないくつかのコンソール変数を次に示します。これらは手始めとして適しています。その他のコンソール変数は r.DOF.* の下にあります。
+
+* r.DOF.Kernel.MaxBackgroundRadius - 水平スクリーン空間のバックグラウンド ブラー半径の最大サイズ。
+* r.DOF.Kernel.MaxForegroundRadius - 水平スクリーン空間のフォアグラウンド ブラー半径の最大サイズ。
+* r.DOF.Scatter.MaxSpriteRatio - スプライトとしての散乱ピクセル クワッドの最大半径。DOF の散乱の上限を制御する際に便利です。
+
+## Bokeh DOF メソッド (レガシー)
+
+[REGION:warning]
+この DOF メソッドは今後のリリースで廃止されます。
+[/REGION]
+
+[EXCERPT:DepthOfField_Bokeh]
+**Bokeh** DOF とは、物体が焦点から外れている時に写真や映画で表示される形状のことです。このメソッドは、テクスチャが適用されたクアッドを各ピクセルにつき一つレンダリングします。その際、ユーザーが指定したテクスチャを使用して、カメラレンズのエフェクトを再現するための形状を定義します。
+
+使用される実装は、半分の解像度のみを使用し、この強力なエフェクトを実行します。これは、適応 DOF (Adaptive DOF) を使用してエフェクトが気付きにくい領域でレンダリング パフォーマンスを節約しようとします。Bokeh DOF は、UE4 で使用できるその他の DOF メソッドよりコストがかかるため、ビジュアルのアピールがパフォーマンスの問題よりも優先されることが多いシネマティックやショーケースの用途に最も適しています。
+[/EXCERPT:DepthOfField_Bokeh]
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![DOF 無効](image_38.png)
+	[/PARAM]
+	[PARAM:after]
+	![Bokeh DOF](image_39.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### Bokeh DOF 用の適応 DOF
+
+Bokeh DOF は、パフォーマンス上の理由から、デフォルトで 1/4 の解像度でレンダリングします (各方向で 1/2の解像度)。このために生じるダウンサンプリングは、ほとんどの場合目立つようなことはほぼなく、完全に容認できるレベルにあります。ただし、場合によってはアーティファクトなどの不都合な結果を招くことがあります。**適応 DOF** は可能な場合にはこの種のアーティファクトを解決します。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![ダウンサンプリングのない適応 DOF](image_40.png)
+	[/PARAM]
+	[PARAM:after]
+	![ダウンサンプリングのある適応 DOF](image_41.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+背景でぼけ処理されたキャラクターは、ダウンサンプリングした DOF 技法のみを使用した場合、輪郭がガタガタに表示されます。また、アーティファクトが、前景のキャラクターの角の周囲に表示されています。適応 DOF はこの種のアーティファクトを除去し、背景のキャラクターの見た目が大幅になめらかになります。
+
+適応 DOF は、 レベルビューポート内の **[表示] > [Visualize]** から**Adaptive Depth of Filed** 表示フラグを使用して表示できます。これを有効にすると、ダウンサンプリングしたエフェクトが使用されている場所 (緑) とフル解像度のエフェクトが使用されている場所 (赤) にオーバーレイが表示されます。ブラー処理が適用されない場所には通常のシーンの色が表示されます。
+
+![image_42.png](image_42.png)
+
+一般的に、適応 DOF はすべて緑にする必要があります。ビジュアライゼーションによって表示する赤が増えると、各フレームをレンダリングする際にシーンがより高価になります。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![ほぼ最適化された適応 DOF](image_43.png)
+	[/PARAM]
+	[PARAM:after]
+	![最適化されていない適応 DOF](image_44.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### 可能な設定
+
+次の設定項目は、Cine Camera、Camera、および Post Process Volumes で使用できます。これらは **[Lens]** タブ内の **[Depth of Field]** セクションに置かれています。
+
+| プロパティ | 説明 |
+| --- | --- |
+| Focal Distance | DOF エフェクトを鮮明にする必要がある距離。値は Unreal Unit (cm)。|
+| Near Transition Region | カメラに近い側の焦点域からの距離 (Unreal Unit)。Bokeh DOF またはGaussian DOF を使用したときに、焦点が合った状態からブラーへのシーンの変移がこの地点から行われます。|
+| Far Transition Region | カメラから遠い側の焦点領域からの距離 (Unreal Unit)。Bokeh DOF または Gaussian DOF を使用したときに、焦点が合った状態からブラーへのシーンの変移がこの地点から行われます。|
+| Scale | Bokeh ベースのブラー処理の全体的なスケーリング係数。|
+| Max Bokeh Size | Bokeh ベースの DOF で使われるブラーの最大サイズ (表示幅のパーセント)。パフォーマンスはこのサイズに影響を受けます。|
+| Shape Texture | 対象物が焦点から外れたときのぼけの形状を定義するテクスチャ。これらは他の Post Process Volume とブレンドできません。|
+| Occlusion | ブラー処理されたジオメトリが通常のシルエットおよびそのオパシティを超えて拡張される度合いを制御します。値が 0.18 の場合、かなり自然なオクルージョンが得られます。レイヤーの色漏れの問題を解決するには、値を 0.4 にする必要があります。非常に小さい値 (0.18 未満) では通常、ブラー エフェクトがなくなりますが、対象物がカメラに非常に近い場合には良く機能することがあります。|
+| Color Threshold | 色に基づいて適応 DOF がフル解像度の使用に切り替わるしきい値を制御します。値を小さくすると、フル解像度処理を使用するシーンが増えます。|
+| Size Threshold | サイズに基づいて適応 DOF がフル解像度の使用に切り替わるしきい値を制御します。値を大きくすると、フル解像度処理を使用するシーンが増えます。|
+
+## リソース
+
+* [絞り (光学)](http://en.wikipedia.org/wiki/Diaphragm_(optics%29)
+
+* [開口](http://en.wikipedia.org/wiki/Aperture)
+
+* [F 値](http://en.wikipedia.org/wiki/F-number)
+
+* [DOF に影響する要因の理解](http://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)

@@ -1,9 +1,16 @@
-﻿INTSourceChangelist:2708338
-Availability:Public
-Title:动画
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
-Description:如何在 UMG 中创建动画 UI 元素。 
+﻿INTSourceChangelist:3612551
+Crumbs: %ROOT%
+Availability: Public
+Title: 动画
+Description: 如何在 UMG 中创建动画 UI 元素。 
 version:4.9
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:2
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/AnimationTopic.png
 
 
 [REGION:fullwidth raw]
@@ -15,6 +22,7 @@ version:4.9
 **控件蓝图编辑器** 的底部有两个窗口，可用来实施和控制 UI 控件的动画。第一个是 **动画** 窗口，可以创建用来驱动控件动画的基础动画轨。第二个是 **时间轴** 窗口，用于指定动画如何随时间应用至控件，其方法是在指定的时间上放置 **关键帧** 并定义附加的控件在该关键帧如何显示（可以是尺寸、形状、位置甚至颜色选项）。 
 
 
+(#AddingAnimations)
 ## 添加动画
 
 为了开始在 UMG 中添加动画，您首先需要添加一个动画轨。可以在 **动画** 窗口中单击 **+动画** 按钮添加动画轨。添加动画后（下图中的黄框），会收到提示为动画轨输入一个名称。 
@@ -23,6 +31,7 @@ version:4.9
 
 添加动画轨后，**时间轴** 将会变为可用，并且您可以开始添加 **动画关键帧**，动画关键帧与控件随时间改变的值是相关的。同时也请注意每个控件可以有多个动画轨，例如使一个按钮在移过屏幕的同时进行闪烁。 
 
+(#AddingAnimationKeys)
 ## 添加动画关键帧
 
 有两种方法向动画轨中添加关键帧。第一种方法是使用 **时间轴** 窗口中的 **自动关键帧** 复选框（下图中的黄框）。通过这种方式，当对支持关键帧的值进行修改时，会自动向时间轴中添加关键帧。 
@@ -43,6 +52,7 @@ version:4.9
 
 ![](AnimationKeyframing2.png)
 
+(#ChangingKeyValues)
 ## 更改关键帧的值
 
 按住 **Ctrl** 键并单击关键帧，可以更改时间轴上某一特定时间的多个关键帧的值。 
@@ -51,6 +61,7 @@ version:4.9
 
 上图中，我们选择了与包含按钮的垂直框的位置相关联的所有关键帧，以此通过 **细节** 面板手动设置这些关键帧。例如，我们想使对象只沿着一个轴移动，那么可以通过手动输入值来更精确地控制控件的移动。 
 
+(#CallingAnimations)
 ## 调用动画
 
 创建动画的同时也会为其创建一个变量。在 **我的蓝图** 窗口中，可以在 **图表** 选项卡上的 **动画** 下拉菜单下，看到已经创建的所有动画轨。通过按住 **Ctrl** 并将动画拖动到图表中，就可以对其发布命令，如播放或停止。 
@@ -65,6 +76,7 @@ version:4.9
 
 ![](AnimationStop.png)
 
+(#Example:AnimatedMainMenu)
 ## 示例：带动画的主菜单
 
 下面是两个示例动画，用来模仿一个简单的 **主菜单** 屏幕，其中按钮从屏幕底部飞入，而 **开始** 按钮不断闪烁。完成这些步骤后，应看到与下图中的示例类似的情况。 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482403
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:水力侵蚀
@@ -14,6 +14,7 @@ Topic-image:HydroErosion_topic.png
 
 **水力侵蚀（Hydro Erosion）** 工具利用水力侵蚀模拟（由水流形成的侵蚀）调整地形高度图的高度。Noise 过滤器用于决定模拟中初始降雨的出现位置。计算出的模拟将确定初始降雨的水流，以及消融、水流迁移和蒸发。计算结果将产生实际用于降低高度图的数值。
 
+(#UsingtheHydroErosionTool)
 ## 使用水力侵蚀工具
 
 [OBJECT:EmbeddedVideo]
@@ -55,6 +56,7 @@ Topic-image:HydroErosion_topic.png
 在地形上形成有趣的外观和缝隙。
 
 
+(#ToolSettings)
 ## 工具设置
 
 [REGION:imagetable]

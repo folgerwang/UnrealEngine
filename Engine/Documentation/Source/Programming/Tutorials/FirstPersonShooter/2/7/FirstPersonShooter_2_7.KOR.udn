@@ -9,7 +9,7 @@ Version: 4.15
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming/Tutorials/FirstPersonShooter/2/6)
+		[이전 단계](Programming/Tutorials/FirstPersonShooter/2/6)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -24,7 +24,7 @@ Version: 4.15
 
 
 
-예전 단계 끝에서 기본 카메라 위치를 메시의 목 안쪽에 위치시켰었습니다. 이번 단계에서는 카메라 (위치나 시야같은) 프로퍼티 조정에 사용할 수 있는 적합한 FPS 카메라를 구성해 보도록 하겠습니다.
+이전 단계 끝에서 기본 카메라 위치를 메시의 목 안쪽에 위치시켰었습니다. 이번 단계에서는 카메라 (위치나 시야같은) 프로퍼티 조정에 사용할 수 있는 적합한 FPS 카메라를 구성해 보도록 하겠습니다.
 
 ## 카메라 컴포넌트 붙이기
 

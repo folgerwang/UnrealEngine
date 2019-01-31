@@ -1,0 +1,205 @@
+﻿INTSourceChangelist:4678085
+Availability: Public
+Crumbs: 
+Title: 像素流送入门
+Description: 学习如何将虚幻引擎应用程序从一台电脑上流送到相同网络中的另一台电脑或移动设备上。 
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:cloud-gs-topic.png
+Tags: Getting Started
+Tags: Early Access
+Tags: Pixel Streaming
+
+
+采用以下步骤将虚幻引擎项目渲染输出从本地网络流送到浏览器和移动设备。
+
+![Getting Started with Pixel Streaming](pixelstreaming-gs-banner.png "Getting Started with Pixel Streaming")
+
+[REGION:note]
+此页上的步骤图像展示流程中使用的项目 **第三人称蓝图** 模板构建。实际上该步骤可用于所有虚幻引擎项目。
+[/REGION]
+
+(#prerequisites)
+
+## 先决条件
+
+*   **检查操作系统和硬件-** 像素流送插件只能在运行Windows操作系统的电脑上编码视频，对电脑的GPU硬件还有一定要求。欲知详情，请查阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)。
+*   **安装node.js -** 如果电脑上尚未安装 **node.js**，则需要[下载并安装](https://nodejs.org/en/download/)。
+*   **打开网络端口-** 必须打开本地网络上的以下端口进行通信：80、8124、8888。如需修改默认端口，请查阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)。
+*   **停止其他web服务器 -** 如果电脑正在运行其他Web服务器，则将其停止。
+*   **IP地址-** 需要知悉电脑的IP地址。  
+    在一个LAN或VPN中开始像素流送为佳，这意味着需要电脑的 **内部** IP地址。在命令行或控制台窗口中运行 `ipconfig` 命令，找到开头为 `IPv4 Address` 的命令行即可获知此地址。  
+    如果尝试从不同网络的电脑或移动设备上进行连接，则需要外部IP地址。访问此[帮助页面](http://net.ipcalf.com/)了解操作方法。
+
+(#1-prepareyourunrealengineapplication)
+
+## 1 - 准备虚幻引擎应用程序
+
+在这个步骤中将为项目创建一个standalone可执行文件。
+
+[REGION:note]
+*   只有将项目作为打包应用程序运行时、或使用 **Standalone Game** 选项在虚幻引擎中启动时才能使用像素流送插件。
+*   要使像素流送插件从应用程序中提取并流送音频，需要用一条特殊的命令行标签启动虚幻引擎：`-AudioMixer`。以下步骤将解释如何在两种情况下进行设置。
+[/REGION]
+
+1.  在虚幻编辑器中打开项目。
+2.  在虚幻编辑器的主菜单中选择 **编辑（Edit） > 插件（Plugins）**。
+3.  在 **图像（Graphics）** 下找到 **像素流送（Pixel Streaming）** 插件并勾选 **启用（Enabled）** 框。  
+    ![Enable the Pixel Streaming plugin](pixelstreaming-gs-prepare-enable.png "Enable the Pixel Streaming plugin")
+4.  点击 **是（Yes）** 确认。  
+    ![Confirm the install](pixelstreaming-gs-prepare-confirm.png "Confirm the install")
+5.  点击 **立即重启（Restart Now）** 重启项目并应用修改。  
+    ![Restart now](pixelstreaming-gs-prepare-restart.png "Restart now")
+6.  返回虚幻编辑器，从主菜单中选择 **编辑（Edit） > 项目设置（Project Settings）**。 
+7.  如果项目中有角色，而您希望启用触控设备的输入（如手机和平板电脑）在关卡中移动此角色，则可能需要在屏幕上显示触摸控制器。  
+    在 **引擎（Engine） > 输入类型（Input category）** 下启用 **固定显示触控界面（Always Show Touch Interface）** 设置。  
+    ![Always Show Touch Interface](pixelstreaming-gs-prepare-showtouch.png "Always Show Touch Interface")
+    此项为任选，并非所有项目强制要求。然而，在第三人称面板之类的项目中，这能确保拥有触控设备的用户能对流送的应用程序进行控制（前提是项目的玩家控制器支持输入）。
+8.  在主菜单中选择 **编辑（Edit） > 编辑器偏好（Editor Preferences...）**
+9.  在 **关卡编辑器（Level Editor） > 播放（Play）** 中找到 **额外启动参数（Additional Launch Parameters）** 设置，并将其值设为 `-AudioMixer`。  
+    ![Additional Launch Parameters](pixelstreaming-gs-prepare-audiomixer.png "Additional Launch Parameters")
+10.  打包Windows项目。从虚幻编辑器的主菜单中选择 **文件（Files） > 打包项目（Package Project） > Windows > Windows (64-bit)**。  
+    ![Package for Windows 64-bit](pixelstreaming-gs-prepare-package.png "Package for Windows 64-bit")
+11.  在项目找打开虚幻引擎放置项目打包版本的文件夹，点击 **选择文件夹（Select Folder）**。  
+    ![Select a folder](pixelstreaming-gs-prepare-selectfolder.png "Select a folder")
+12.  虚幻编辑器将开始打包进程。  
+    ![Packaging progress indicator](multiuserviewer-packagestatus.png "Packaging progress indicator")
+13.  打包进程完毕后，前往上方第6步中选择的文件夹。将找到一个名为 `WindowsNoEditor` 的文件夹，其中的内容类似于下图：  
+    ![Packaged output](pixelstreaming-gs-package.png "Packaged output")
+14.  每次启动打包应用程序时，均需要传递 `-AudioMixer` 命令行标签。执行此操作的一种方法是设置一个快捷方式：
+    1.  按住 **Alt** 键并拖动 *.exe* 文件即可在相同文件夹中（或在其他任意处）新建一个快捷方式。  
+        ![Create a shortcut](pixelstreaming-gs-prepare-shortcut.png "Create a shortcut")         
+    2.  右键点击快捷方式并从上下文菜单中选择 **属性（Properties）**。  
+        ![Shortcut properties](pixelstreaming-gs-prepare-shortcutprops.png "Shortcut properties")
+    3.  在 *快捷方式属性（Shortcut Properties）** 窗口的 **快捷方式（Shortcut）** 选项卡中，在 **目标（Target）** 域的末尾附加文本 `-AudioMixer` 并点击 **确认**。  
+        ![-AudioMixer](pixelstreaming-gs-shortcut-target.png "-AudioMixer")
+
+[REGION:tip]
+让像素流送系统开始运行后，可能还需要添加 `-RenderOffScreen` 命令行参数。如果虚幻引擎应用程序窗口意外被最小化，像素流送视频和输入流送将停止工作。`-RenderOffScreen` 能以headless模式运行应用程序，不带可见窗口，避免意外发生。
+[/REGION]
+
+(#endresult)
+
+### 最终结果
+
+在打包的standalone虚幻引擎应用程序中启用像素流送插件后，即可开始流送渲染帧和音频。
+
+(#2-starttheservers)
+
+## 2 - 启动服务器
+
+在这个步骤中将开启网络服务，接受从虚幻引擎应用程序到客户端浏览器的客户端连接和流送渲染帧。
+
+1.  在虚幻引擎安装文件夹中，在 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer` 中找到信令服务器的路径。  
+    ![Signaling and Web Server](pixelstreaming-gs-servers-signalling.png "Signaling and Web Server")
+2.  运行 `run.bat` 文件开启信令服务器。首次运行服务器时其将下载需要的所有依赖性。服务器启动，能够接收连接后，控制台窗口中将出现以下命令行：
+
+    Listening to proxy connections on: 8888
+    Http listening on *: 80
+
+3.  在虚幻引擎安装文件夹中，在 `Engine/Source/Programs/PixelStreaming/WebRTCProxy/bin` 中找到WebRTC代理服务器二进制的路径。  
+    ![WebRTC Proxy Server](pixelstreaming-gs-servers-proxy.png "WebRTC Proxy Server")
+4.  运行 `Start_WebRTCProxy.bat` 文件，启动WebRTC代理服务器。服务器启动后即可在控制台窗口中看到以下命令行：
+
+    LOG: LogDefault     : Connecting to UE4 127.0.0.1:8124
+
+5.  现在用上一步中创建的快捷方式来启动虚幻引擎应用程序。
+
+[REGION:tip]
+为便于使用，打包虚幻引擎应用程序时这些服务器也会被复制到包含打包可执行文件的文件夹中。他们位于上述路径下的 **Engine** 子文件夹中。可从该处启动服务器，而非从虚幻引擎安装文件夹中启动。  
+须注意：如要修改这些文件夹中的任意文件（尤其是信令和Web服务器的播放器页面或配置文件），需要在原始位置中进行修改，如果在打包文件夹中进行修改，下次打包应用程序时修改可能会被覆盖。
+[/REGION]
+
+(#endresult)
+
+### 最终结果
+
+WebRTC代理服务器检测到虚幻应用程序运行时，其将连接到信令服务器，告知已准备好从应用程序中流送内容。
+
+WebRTC代理服务器的控制台窗口中将出现以下输出行：
+
+    LOG: LogDefault     : Connected to UE4
+    LOG: LogDefault     : Connecting to Cirrus 127.0.0.1:8888
+    LOG: LogDefault     : Connected to Cirrus
+    LOG: LogDefault     : Cirrus config: {
+    "peerConnectionConfig" : {}
+    }
+
+信令服务器的控制台窗口中则会出现以下输出行：
+
+    proxy connected
+    config to Proxy: {"peerConnectionConfig":{}}
+
+此时必要的设置均已在电脑上完成。现在只需连接到浏览器。
+
+(#3-connect!)
+
+## 3 - 连接！
+
+在该步骤中将把多个不同设备上运行的网络浏览器连接到像素流送播放。
+
+1.  在运行虚幻引擎应用程序的电脑上按下Alt+Tab组合键，将聚焦从虚幻引擎应用程序上移开，然后启动一个支持的Web浏览器（Google Chrome和Mozilla Firefox是不错的选择）。
+2.  在地址栏中导航至 `http://127.0.0.1`。这是本地机的IP地址，因此请求应由信令服务器进行处理：  
+    ![Connect to the localhost](pixelstreaming-gs-connect-127001.png "Connect to the localhost")
+3.  点击页面进行连接，然后再次点击“播放（Play）”按钮开始流送。 
+4.  现在便会连接到应用程序，渲染输出将流入播放器Web页面中：  
+    ![Media streaming to localhost](pixelstreaming-gs-connect-streaming.png "Media streaming to localhost")
+    默认的播放器页面已进行设置，将把键盘、鼠标和触控屏输入发送到虚幻引擎，以便控制应用程序并前往各处，就像直接在应用程序进行控制一样。 
+5.  点击窗口右侧的 **+** 按钮，展开流送控制的一些内置选项：
+    
+    | **设置** | **描述** |
+    | --- | --- |
+    | **踢除其他所有玩家（Kick all other players）** | 让WebRTC代理服务器断开除当前浏览器之外所有其他浏览器的连接。 |
+    | **扩大显示以填充窗口（Enlarge Display to Fill Window）** | 确认媒体播放器是否应调整大小来匹配浏览器窗口的当前大小，还是应维持固定大小和位置。 |
+    | **质量控制所有权（Quality control ownership）** | [INCLUDE:#excerpt_7] |
+    | **显示数据（Show Stats）** | 显示浏览器和WebRTC代理服务器之间连接的统计数据。 |
+     
+[COMMENT:none]
+[EXCERPT:excerpt_7]
+让像素流送插件的编码器使用当前的浏览器连接来确定可用的带宽，进而确定流送编码的质量。  
+虽然像素流送将使流送质量匹配可用的带宽，但像素流送插件只会对视频帧进行一次编码。此编码用于所有客户端。因此只有一个客户端连接可以“拥有”用于自适应流送的质量。如其他客户端与服务器之间的连接更优，则其显示的流送质量可能会低于预期。从另一方面来讲，如其他客户端与服务器之间的连接更差，则其可能会出现卡顿现象。  
+每次有新浏览器连接时，其将默认获得流送的所有权。使用此勾选框可以让其他连接的浏览器重新获得拥有权。
+[/EXCERPT:excerpt_7]
+[/COMMENT]
+          
+[REGION:tip]
+    查看信令Web服务器文件夹中 `player.htm` 和 `app.js` 文件的内容，了解这些控制方法的实现方式。
+[/REGION]
+
+6.  现在找到网络中的其他电脑和/或移动设备。重复相同步骤，但使用 `127.0.0.1` 来将浏览器指引到运行虚幻引擎应用程序与信令服务器的电脑的IP地址。  
+    ![Media streaming to remote host](pixelstreaming-gs-connect-others.png "Media streaming to remote host")
+
+(#endresult)
+
+### 最终结果
+
+在电脑上运行虚幻引擎的实例后，即可通过本地网络在多台设备上播放媒体流送。关卡的内容均在最初的电脑上进行渲染，但连接的每台设备均能看到相同的图像。
+
+连接的所有设备默认均通过虚幻引擎应用程序共享控制，发送所有键盘、鼠标和触控屏输入。
+
+![](pixelstreaming-endresult-chrome.png)
+
+电脑
+
+![](pixelstreaming-endresult-iossafari.png)
+
+iPhone
+
+![](pixelstreaming-endresult-gpixel.png)
+
+像素
+
+(#4-onyourown)
+
+## 4 - 自由发挥
+
+上述步骤讲述了使用单个服务器主机和默认播放器页面进行相对简单的设置。再做一些工作即可对像素流送系统进行拓展。举例而言：
+
+*   可对播放器HTML页面重新进行设计，满足项目的需求。控制谁能将输入发送给虚幻引擎应用程序，甚至在页面上创建HTML5 UI元素，将自定义gameplay事件发送到虚幻引擎。  
+    如需了解详情，请参阅[自定义播放器Web页面](Platforms/PixelStreaming/CustomPlayer)
+*   如果需要通过开放网络或子网络提供像素流送服务，则很可能需要进行一些高级网络配置。或者可以让每个连接的客户端从虚幻引擎的单独实例流送内容，或通过一个单独的播放器页面提供不同控制。  
+    如需了解详情，请参阅[创建主机和网络连接指南](Platforms/PixelStreaming/Hosting)。
+*   像素流送系统的每个组件均有多个配置属性，可用于控制编码分辨率、屏幕大小、IP地址和通信端口等。  
+    如需了解这些属性和设置方法，请参阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)。

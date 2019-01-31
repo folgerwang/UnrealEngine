@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3801260
 Availability:Docs
 Crumbs: %ROOT%
-Title: Project Launcher Reference
-Description: A reference for the Project Launcher used to deploy projects using in Unreal Engine 4.
+Title: Project启动器参考
+Description: 关于部署用于虚幻引擎4的项目所使用的项目启动器。
 Type: reference
 Version:4.18
 Parent:Engine/Deployment
@@ -12,81 +12,79 @@ Order:1
 Tags:Packaging
 Topic-image:ProjectLauncher_Topic.png
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
 [TOC(start:2 end:3)]
 
 
 
-The Project Launcher is used to cook and deploy builds of your projects to specified platforms for testing, debugging, and releasing your project. The following reference page breaks down the elements that make up the Project Launcher and the settings you can use when creating your own Custom Launch Profiles for deploying your content to different platforms.
+项目启动器用于转化项目的构建版并将其部署到指定的平台，以便测试、调试和发布项目。以下参考页面详细介绍了构成项目启动器的元素，以及在创建自定义启动配置文件以将内容部署到不同平台时可以使用的设置。
 
 ![](ProjectLauncher.png)(w:900)
 
 
 
-## Project Launcher interface
+## 项目启动器界面
 
-The Project Launcher interface can be broken up into two main areas:
+项目启动器界面可分为两个主要区域：
 
 ![](ProjectLauncherHighlights.png)(w:900)
 
 
-1. Default Launch Profiles
-1. Custom Launch Profiles
+1. 默认启动配置文件
+1. 自定义启动配置文件
 
 
-From the **Default Launch Profiles** window, you can see the available platforms and select from the devices that you want to deploy builds to. At the top of this window, you can specify a **Project** (if it's different than the current one you have opened) and a toggle for **Advanced** settings for these default launch profiles.
+在 **默认启动配置文件（Default Launch Profiles）** 窗口中，可以查看可用的平台，并选择构建要部署到的设备。在此窗口的顶部，可以指定 **项目（Project）** （如果不是已打开的当前项目）以及切换这些默认启动配置文件的 **高级（Advanced）** 设置。
 
-When you click the **Advanced** toggle button, you'll get additional options next to the default launch profiles that enables you to select a **Build Configuration** and a **Cook** method.
+单击 **高级（Advanced）** 切换按钮时，在默认启动配置文件旁边将显示更多选项，你可以从中选择 **构建配置（Build Configuration）** 和 **转化（Cook）** 方法。
 
 ![](AdvancedDefautlLaunchProfile.png)
 
-In the **Custom Launch Profiles** window, you can create your own profiles that enable you to specify many more options for how content is built and deployed, which is detailed more in the [Custom Launch Profiles](#customlaunchprofiles) section.
+在 **自定义启动配置文件（Custom Launch Profiles）** 窗口中，可以创建自己的配置文件，为内容的构建和部署指定更多选项，请参阅 [自定义启动配置文件](#customlaunchprofiles) 部分了解详细信息。
 
 
 
 
-## Custom Launch Profiles
+(#customlaunchprofiles)
+## 自定义启动配置文件
 
-From the Project Launcher, you can create a **Custom Launch Profile** that can be used with all platforms or even specific ones, like the Nintendo Switch. These profiles enable you to build your content in specific ways by setting how it is cooked, packaged, and even deployed using the available build operations.
+在项目启动器中，可以创建 **自定义启动配置文件（Custom Launch Profile）**，以便与所有平台甚至特定的平台（如Nintendo Switch）配合使用。借助这些配置文件，可以使用可用的构建操作设置内容的转化、打包甚至部署方式，从而以特定方式构建内容。
 
-To add your own Custom Launch Profile, click the **plus** (**+**) sign in the Custom Launch Profiles window.
+要添加自己的自定义启动配置文件，请单击“自定义启动配置文件”窗口中的 **加号** (**+**)。
 
 ![](AddCustomProfile.png)(w:950)
 
-After doing so, your Custom Launcher Profile will immediately open. Be sure to give it a name so that you can identify it later on.
+完成后，你的自定义启动器配置文件将立即打开。请确保为它命名，方便以后查找。
 
 ![](CustomLaunchProfile.png)(w:950)
 
 
 
-### Name and Description
+### 名称和说明
 
-In the header bar, you'll find the **Name** and **Description** that you can apply to this custom profile. To edit these, double-click on either section's text to start editing them.
+在标头栏中显示可应用于此自定义配置文件的 **名称（Name）** 和 **说明（Description）**。要对其进行编辑，双击任一部分的文本即可开始编辑。
 
 ![](NameDescription.png)
 
 
-### Project
+### 项目
 
-In the **Project** section, you can specify what project you want this profile to be associated with or if it can be used with any project. By default **Any Project** is set, but it can be set to a specific one. This can be useful when you are developing your project for multiple platforms, and those platforms require particular ways to deploy, test, debug, and even release them.
+在 **项目（Project）** 部分，可以指定要与此配置文件关联的项目，或者是否可以将其用于任何项目。默认情况下，设置为 **任何项目（Any Project）**，但也可以将其设置为特定项目。在为多个平台开发项目，并且这些平台需要特定的方式来部署、测试、调试甚至发布项目时，该功能非常有用。
 
 ![](Project.png)
 
 
-### Build
+### 构建
 
-The **Build** section enables you to specify the type of configuration you want to build and deploy against depending on your project's progression in development and how you need to test, debug, or release your project.
+在 **构建（Build）** 部分，可以根据项目的开发进度以及测试、调试或发布项目的方式来指定要构建和部署的配置类型。
 
 ![](Build.png)
 
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | --- | --- |
-| **Build Configuration** || Choose from the available configurations you want to build and test with your project. [INCLUDE:#buildconfig] |
-| **Build UAT** || When enabled, the [Unreal Automation Tool](Programming/Automation) will be built as part of the build. |
+| 设置 | 说明 |
+| --- | --- |
+| **构建配置（Build Configuration）** | 从要构建的可用配置中进行选择，并使用项目进行测试。[INCLUDE:#buildconfig] |
+| **构建UAT（Build UAT）** | 启用后，[虚幻自动化工具（Unreal Automation Tool）](Programming/Automation)将创建为构建版的组成部分。|
 [/REGION]
 
 [COMMENT:none]
@@ -96,13 +94,13 @@ The **Build** section enables you to specify the type of configuration you want 
 
 ![](BuildConfigSelection.png)
 
-| Configuration | Description |
+| 配置 | 说明 |
 | --- | --- |
-| **Debug** | This configuration contains symbols for debugging. This configuration builds both engine and game code, so if you compile your project using this configuration and want to open the project with the Editor, you must use the command line parameter "-debug" to see your code changes reflected in your project. |
-| **DebugGame** | This configuration builds the Engine as optimized but leaves the game code debuggable. It is ideal only for debugging game modules.  |
-| **Development** | This configuration is equivalent to a release build. Unreal Editor uses the Development configuration by default. When your project is compiled using this configuration, it enables you to see code changes made to your project reflected in the Editor. |
-| **Shipping** | This is the configuration for optimal performance and shipping your game. This configuration strips out console commands, stats, and profiling tools. This configuration should be used when you are ready to release your game. |
-| **Testing** | This configuration is the same as **Shipping** configuration, but with some console commands, stats, and profiling tools enabled.  |
+| **调试（Debug）** | 此配置包含各种调试符号。此配置可同时构建引擎和游戏代码，因此如果使用此配置编译项目并希望用编辑器打开项目，则必须使用命令行参数“-debug”查看项目中反映的代码更改。|
+| **调试游戏（DebugGame）** | 此配置按最优方式编译引擎，但游戏代码为可调试状态。它仅适用于调试各种游戏模块。|
+| **开发（Development）** | 此配置等同于发布构建版。虚幻编辑器默认采用开发配置。如采用此配置编译项目，可在编辑器中看到项目代码的变化情况。|
+| **交付（Shipping）** | 这是最佳性能配置，用于交付游戏。此配置剥离了控制台命令、统计数据和性能分析工具。此配置应在准备好发布游戏时使用。|
+| **测试（Testing）** | 此配置就是启用了一些控制台命令、统计数据和性能分析工具后的 **交付（Shipping）** 配置。|
 [/EXCERPT:buildconfig]
 
 
@@ -110,44 +108,44 @@ The **Build** section enables you to specify the type of configuration you want 
 [/COMMENT]
 
 
-### Cook
+### 转化
 
-In the **Cook** section, there are two ways you can cook content for your projects: **by the book** and **on the fly**.
+在 **转化（Cook）** 部分，可通过两种方式转化项目内容：**按常规（By the Book）** 和 **动态（on the fly）**。
 
-#### By the Book
+#### 按常规（By the Book）
 
-The Cook **by the book** option enables you to specify which content should be cooked and cooks everything in advance before launching the game.
+**按常规（By the Book）** 转化选项可指定应转化的内容，并在启动游戏之前转化所有内容。
 
 ![](bythebook.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | --- | --- |
-| **Cooked Platform** || Select from the available target platforms listed that you would like this custom launch profile to be able to cook content for. |
-| **Cooked Cultures** || Select from the available localization cultures you would like this content to be cooked for. |
-| **Cooked Maps** || Select from the available maps in your title that you would like to cook. |
-| [REGION:tablesection] Release/DLC/Patching Settings [/REGION] |||
-| **Create a release version of the game for distribution** || Enables you to create a release version of your title that will be used for distribution. |
-| **Name of the new release to create** || Give your release a new name that will be used during the cook. |
-| **Release version this is based on** || This is the release version to base the next release / DLC / patch on. |
-| **Generate Patch** || If enabled, content will be diffed against source content and only changed files will be included in the new pak file. |
-| **Build DLC** || If enabled, DLC will be built without the content released with the original game. |
-| **Name of the DLC to build** || Give a name to the DLC that is going to be built. |
-| **Include Engine Content** || If enabled, DLC will include Engine content which was not included in the original release. If it is not checked, an error will be produced when accessing content from the **Engine** directory. |
-| [REGION:tablesection] Advanced Settings [/REGION] |||
-| **Iterative Cooking: Only cook content modified from previous cook** || If enabled, only modified content will be cooked resulting in much faster cooking times. It is recommended to enable this option whenever possible. |
-| **Stage base release pak files** || If enabled, unchanged pak files present in the base release version will be staged. |
-| **Compress Content** || If enabled, content generated will be compressed. These will be smaller but potentially take longer to load as it decompresses. |
-| **Add a new patch tier** || If enabled, a new numbered pak file will be generated with the patch content. |
-| **Save Packages Without Versions** || If enabled, the version is assumed to be the current at load. This is potentially dangerous but results in smaller patch sizes. |
-| **Number of cookers to spawn** || The number of cookers to spawn when doing cook by the book. |
-| **Store all content in a single file (UnrealPak)** || If enabled, the content will be deployed as a single UnrealPak file instead of many separate files. |
-| **Encrypt INI files (only with Use Pak File enabled)** || If enabled, ini files stored inside the UnrealPak file will be encrypted. |
-| **Generate Chunks** || If enabled, the content will be deployed as multiple UnrealPak files instead of many separate files. |
-| **Don't include Editor content in the build** || If enabled, the cooker will skip Editor content and not include it in the build. |
-| **HTTP Chunk Install Data Path** || [INCLUDE:#httpchunks] |
-| **Cooker Build Configuration** || Sets the build configuration to use for the cooker commandlet. |
-| **Additional Cooker Options** || Additional cooker command line parameters can be specified here. |
+| 设置 | 说明 |
+| --- | --- |
+| **转化平台（Cooked Platform）** | 从列出的可用目标平台中选择希望此自定义启动配置文件针对哪个平台转化内容。|
+| **转化文化（Cooked Cultures）** | 从可用的本地化文化中选择希望此内容针对哪种文化进行转化。|
+| **转化贴图（Cooked Maps）** | 从作品的可用贴图中选择要转化的贴图。|
+| [REGION:tablesection] 发布/DLC/补丁设置 [/REGION] ||
+| **创建游戏的发行版以用于分发（Create a release version of the game for distribution）** | 你可以创建作品的发行版，以用于分发。|
+| **要创建的新发行版的名称（Name of the new release to create）** | 为发行版指定新的名称，以在转化期间使用。|
+| **作为基础的发行版（Release version this is based on）** | 这是作为下一版本/DLC/补丁基础的发行版。|
+| **生成补丁（Generate Patch）** | 如果启用，会将内容与原内容对比，只有更改的文件将包含在新的pak文件中。|
+| **构建DLC（Build DLC）** | 如果启用，构建的DLC将不包含原始游戏发布的内容。|
+| **要构建的DLC的名称（Name of the DLC to build）** | 为将要构建的DLC命名。|
+| **包含引擎内容（Include Engine Content）** | 如果启用，DLC将包含原始版本中未包含的引擎内容。如果未选中，从 **引擎（Engine）** 目录访问内容时将发生错误。|
+| [REGION:tablesection] 高级设置 [/REGION] ||
+| **迭代转化：仅转化根据上次转化更改的内容（Iterative Cooking: Only cook content modified from previous cook）** | 如果启用，则仅会转化更改的内容，从而缩短转化时间。建议尽可能启用此选项。|
+| **暂存基本发行版pak文件（Stage base release pak files）** | 如果启用，将暂存基本发行版中未更改的pak文件。|
+| **压缩内容（Compress Content）** | 如果启用，将压缩生成的内容。这些内容会变得更小，但在解压缩时可能需要较长时间才能加载。|
+| **添加新的补丁层（Add a new patch tier）** | 如果启用，将使用补丁内容生成新编号的pak文件。|
+| **保存软件包但没有版本号（Save Packages Without Versions）** | 如果启用，则在加载时假定版本为当前版本。这存在潜在危险，但会减小补丁大小。|
+| **要生成的转化程序数量（Number of cookers to spawn）** | 按常规执行转化时生成的转化程序的数量。|
+| **将所有内容存储到单个文件（UnrealPak）（Store all content in a single file (UnrealPak)）** | 如果启用，内容将部署为单个UnrealPak文件，而不是许多单独的文件。|
+| **加密INI文件（仅在启用了“使用Pak文件”时）（Encrypt INI files (only with Use Pak File enabled)）** | 如果启用，存储在UnrealPak文件中的ini文件将被加密。|
+| **生成文件块（Generate Chunks）** | 如果启用，内容将部署为多个UnrealPak文件，而不是许多单独的文件。|
+| **不要在构建版中包含编辑器内容（Don’t include Editor content in the build）** | 如果启用，转化程序将跳过编辑器内容，不将其包含在构建中。|
+| **HTTP文件块安装数据路径（HTTP Chunk Install Data Path）** | [INCLUDE:#httpchunks] |
+| **转化程序构建配置（Cooker Build Configuration）** | 设置用于转化程序命令行开关的构建配置。|
+| **更多转化程序选项（Additional Cooker Options）** | 可在此处指定更多转化程序命令行参数。|
 [/REGION]
 
 
@@ -156,10 +154,10 @@ The Cook **by the book** option enables you to specify which content should be c
 
 [INCLUDE:#httpchunks]
 [EXCERPT:httpchunks]
-| --- | --- | --- |
-| **Create HTTP Chunk Install Data** || If enabled, the content will be split into multiple Pak files and stored as data that can be downloaded. |
-| **HTTP Chunk Install Data Path** || Specify the file path for the Chunk Install Data. |
-| **HTTP Chunk Install Release Name** || Name of this version of the HTTP Chunk Install Data.  |
+| --- | --- |
+| **创建HTTP文件块安装数据（Create HTTP Chunk Install Data）** | 如果启用，内容将拆分成多个Pak文件并存储为可下载的数据。|
+| **创建HTTP文件块安装数据路径（HTTP Chunk Install Data Path）** | 指定文件块安装数据的文件路径。|
+| **HTTP文件块安装发行版名称（HTTP Chunk Install Release Name）** | 此版本HTTP文件块安装数据的名称。|
 [/EXCERPT:httpchunks]
 
 -
@@ -168,17 +166,17 @@ The Cook **by the book** option enables you to specify which content should be c
 
 
 
-#### On the Fly
+#### 动态
 
-The Cook **on the fly** option enables content to be cooked at runtime as needed before it is being sent to the device. 
+**动态（on the fly）** 转化选项允许在将内容发送到设备之前根据需要在运行时进行转化。 
 
 ![](onthefly.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | --- | --- |
-| **Only Cook Modified Content** || If enabled, only modified content will be cooked, resulting in much faster cooking times. It is recommended to use this option whenever possible. |
-| **Additional Cooker Options** || Additional cooker command line parameters can be specified here. |
+| 设置 | 说明 |
+| --- | --- |
+| **仅转化更改的内容（Only Cook Modified Content）** | 如果启用，则仅会转化更改的内容，从而缩短转化时间。建议尽可能使用此选项。|
+| **更多转化程序选项（Additional Cooker Options）** | 可在此处指定更多转化程序命令行参数。|
 [/REGION]
 
 
@@ -188,16 +186,16 @@ The Cook **on the fly** option enables content to be cooked at runtime as needed
 
 
 
-### Package
+### 打包
 
-In the **Package** section, you can choose how the build is packaged and whether it should be stored locally or in a shared repository that can be accessed.
+在 **打包（Package）** 部分，可选择构建版的打包方式以及将其存储在本地还是存储在可访问的共享元库中。
 
 ![](Package.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | --- | --- |
-| **Package Method** || [INCLUDE:#packagepath] |
+| 设置 | 说明 |
+| --- | --- |
+| **打包方式** | [INCLUDE:#packagepath] |
 [/REGION]
 
 
@@ -206,32 +204,32 @@ In the **Package** section, you can choose how the build is packaged and whether
 
 [INCLUDE:#packagepath]
 [EXCERPT:packagepath]
-| --- | --- | --- |
-| [REGION:tablesection] Package & Store Locally [/REGION] |||
-| **Local Directory Path** ||  |
-| **Is this build for distribution to the public** ||  |
-| [REGION:tablesection] Package & Store In Repository [/REGION] |||
-| **Repository Path** ||  |
+| --- | --- |
+| [REGION:tablesection] 打包并本地存储 [/REGION] ||
+| **本地目录路径（Local Directory Path）** |  |
+| **此构建版是否用于面向公众发布（Is this build for distribution to the public）** |  |
+| [REGION:tablesection] 打包并存储在元库中 [/REGION] ||
+| **元库路径（Repository Path）** |  |
 [/EXCERPT:packagepath]
 
 -
 [/COMMENT]
 
 
-### Archive
+### 归档
 
-In the **Archive** section, you can specify whether or not to archive the build and the directory path if it is going to be archived for later reference.
+在 **归档（Archive）** 部分，可指定是否归档构建版和目录路径（如果要将其归档以供以后参考）。
 
 ![](Archive.png)
 
 
 
-### Deploy
+### 部署
 
-In the **Deploy** section, you'll need to decide how you would like to deploy your current build to a device; using a **file server**, **copying to device**, or **copying from a repository to device**.
+在 **部署（Deploy）** 部分，需要决定将当前版本部署到设备的方式，是使用 **文件服务器**、**复制到设备**，还是 **从元库复制到设备**。
 
 
-Use the following selections to determine which deployment method to use:
+请使用以下选项确定要使用的部署方式：
 
 ![](DeploySelection.png)
 
@@ -239,63 +237,63 @@ Use the following selections to determine which deployment method to use:
 [INCLUDE:Engine/Deployment/BuildOperations#deployingabuild]
 
 
-#### File Server
+#### 文件服务器
 
-The available settings you can use when selecting File Server.
+选择文件服务器时可用的设置。
 
 ![](FileServer.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | ---  | --- |
-| **Default Deploy Platform** || Set the default target platform(s) you want to deploy content.|
-| [REGION:tablesection] Advanced Settings [/REGION] |||
-| **Hide the file server's console window** || If enabled, the file server's console window will be hidden from your desktop. |
-| **Streaming Server** || If enabled, the file server will use an experimental implementation that can serve multiple files simultaneously. |
+| 设置 | 说明 |
+| --- | --- |
+| **默认部署平台（Default Deploy Platform）** | 设置要对其部署内容的默认目标平台。|
+| [REGION:tablesection] 高级设置 [/REGION] ||
+| **隐藏文件服务器的控制台窗口（Hide the file server’s console window）** | 如果启用，文件服务器的控制台窗口将在桌面上隐藏。|
+| **流送服务器（Streaming Server）** | 如果启用，文件服务器将使用可同时提供多个文件的实验性实现方案。|
 [/REGION]
 
 
-#### Copy to Device
+#### 复制到设备
 
-The available settings you can use when selecting Copy to Device.
+选择“复制到设备”时可用的设置。
 
 ![](CopyToDevice.png)
 
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | ---  | --- |
-| **Default Deploy Platform** || Set the default target platform(s) you want to deploy content.|
-| [REGION:tablesection] Advanced Settings [/REGION] |||
-| **Only Cook Modified Content** || If enabled, only modified content will be cooked, resulting in much faster cooking times. It is recommended to use this option whenever possible. |
+| 设置 | 说明 |
+| --- | --- |
+| **默认部署平台（Default Deploy Platform）** | 设置要对其部署内容的默认目标平台。|
+| [REGION:tablesection] 高级设置 [/REGION] ||
+| **仅转化更改的内容（Only Cook Modified Content）** | 如果启用，则仅会转化更改的内容，从而缩短转化时间。建议尽可能使用此选项。|
 [/REGION]
 
 
-#### Copy Repository
+#### 复制元库
 
-The available settings you can use when selecting Copy Repository.
+选择“复制元库”时可用的设置。
 
 ![](CopyToRepository.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | ---  | --- |
-| **Repository Path** || Set the file path to the repository that you want to copy to device. |
-| **Default Deploy Platform** || Set the default target platform(s) you want to deploy content.|
+| 设置 | 说明 |
+| --- | --- |
+| **元库路径（Repository Path）** | 将文件路径设置到要复制到设备的元库。|
+| **默认部署平台（Default Deploy Platform）** | 设置要对其部署内容的默认目标平台。|
 [/REGION]
 
-### Launch
+### 启动
 
 ![](Launch.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --- | --- | --- |
-| **Launch As** || Select how you would like the launch this instance of your build. [INCLUDE:#launchas] |
-| **Initial Culture** || Select the culture that you're initially targeting to use when launching the build.  |
-| **Initial Map** || Select the initial map you want the project to use when launching the build. |
-| **Additional Command Line Parameters** || Enter any necessary command line parameters you want to use when launching the build. |
-| **Synchronize Screen Refresh Rate (VSync)** || Enable this for the build to attempt to run the project at the same refresh rate as the monitor it's being run on.  |
+| 设置 | 说明 |
+| --- | --- |
+| **启动为（Launch As）** | 选择如何启动此构建实例。[INCLUDE:#launchas] |
+| **初始文化（Initial Culture）** | 选择启动构建时最初要使用的目标文化。|
+| **初始贴图（Initial Map）** | 选择在启动构建时希望项目使用的初始贴图。|
+| **附加命令行参数（Additional Command Line Parameters）** | 输入启动构建版时要用的所有必需的命令行参数。|
+| **同步屏幕刷新率（VSync）（Synchronize Screen Refresh Rate (VSync)）** | 为构建版启用此设置，尝试以与正在运行项目的监视器相同的刷新率运行项目。|
 
 [/REGION]
 
@@ -308,11 +306,11 @@ The available settings you can use when selecting Copy Repository.
 
 ![](launchas.png)
 
-| --- | --- | --- |
-| **Standalone Client** || Launches this instance as a standalone game client. |
-| **Listen Server** || Launches this instances a game client that can accept connections from other clients. |
-| **Dedicated Server** || Launches this instance as a dedicated game server. |
-| **Unreal Editor** || Launches this instance as an Unreal Editor. |
+| --- | --- |
+| **独立客户端（Standalone Client）** | 将此实例作为独立游戏客户端启动。|
+| **侦听服务器（Listen Server）** | 将此实例作为可接受来自其他客户端连接的游戏客户端启动。|
+| **专用服务器（Dedicated Server）** | 将此实例作为专用游戏服务器启动。|
+| **虚幻编辑器（Unreal Editor）** | 将此实例作为虚幻编辑器启动。|
 [/EXCERPT:launchas]
 
 -

@@ -1,27 +1,15 @@
-﻿INTSourceChangelist:2757177
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:6.设置 AI 控制器蓝图
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第六步。设置 AI 控制器蓝图
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:6
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/5 "%Engine/AI/BehaviorTrees/QuickStart/5:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/7 "%Engine/AI/BehaviorTrees/QuickStart/7:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 [REGION:lightbox]
 [![](fullEG.png)(w:940 convert:false)](fullEG.png)
@@ -31,6 +19,7 @@ version:4.9
 
 以下是 **事件图表** 第一部分的创建步骤。第七步。AI 控制器蓝图：初始黑板数值和第八步。AI 控制器蓝图：运行行为树将涉及对该图表进行编辑。
 
+(#Steps)
 ## 步骤
 
 1. 在 **内容浏览器** 中 **双击** AI 控制器蓝图进行编辑。
@@ -59,7 +48,7 @@ version:4.9
 
 下一步中我们将继续对此图表进行编辑，为 AI 控制器设置初始黑板值。
 
-
+[NAV]
 
 
 

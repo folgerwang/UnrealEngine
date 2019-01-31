@@ -1,7 +1,7 @@
-﻿Availability: Public
+INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title: 비녜트 (Vignette)
+Title: 비녜트
 Description: 뷰포트 중심에서부터의 거리가 멀어져감에 따라 밝기를 감소시키는 이펙트입니다.
 Type: Overview
 SkillLevel:Beginner

@@ -1,0 +1,57 @@
+Availability: Public
+Crumbs: 
+Title: UnrealGameSync (UGS)
+Description: An overview of UnrealGameSync (UGS), an internal tool used by developers to sync their Workspace with a project's stream.
+Type: 
+Version: 4.19
+Parent: Programming/Deployment
+Order: 1
+Tags: 
+
+
+![](Deployment_Banner-1.png "Deployment_Banner-1.png")
+
+When a team is working on an Unreal Engine 4 (UE4) project, they’re working in an environment where code and content is continuously developed and integrated into the project. Oftentimes, while working in a collaborative development environment, success depends on a team’s ability to effectively collaborate and communicate on problems that might arise during the development and integration process.  
+
+This is where a sync tool can help.
+
+## What is UnrealGameSync (UGS)?
+
+Conceptually, **UGS** is a tool that promotes code and content integration in a collaborative development environment, enabling teammates distributed over time and distance to labor on the same project as it gets updated. Technically, UGS provides a graphical front-end to sync UE4 projects from **Perforce**, optionally building those projects with Microsoft’s [Visual Studio](https://www.visualstudio.com/) Compiler.
+
+  
+When they're using this tool, an **Artist's** workflow typically involves UGS syncing their project files, resolving merge conflicts, syncing editor binaries, updating version files, and optionally running their Unreal project.
+
+![](Artist_Workflow.png "Artist_Workflow.png")
+
+For **Programmers**, their workflow typically involves UGS syncing their project files, resolving merge conflicts, updating version files, generating project files, optionally building UE4, and optionally running their Unreal project.
+
+![](ProgrammerWorkflow.png "ProgrammerWorkflow.png")
+
+[REGION:note]
+Resolving merge conflicts is enabled by default; however, you can disable this service in the **Options** shortcut menu. Additionally, disabling UGS from building your project precludes UGS from running it.
+[/REGION]
+
+After installing UGS, members of any team will be able to quickly bootstrap and iterate on projects without the overhead that typically comes with using sync tools. 
+
+## Who Benefits from Using UGS?
+
+Anyone wanting to gain insight into or contribute to a UE4 game project, but more specifically; Developers, Designers, and Artists. In general, for all team members, it’s safe to submit changes containing assets and source code because UGS syncs both code and content with ease.
+
+### Developers
+
+*   Developers can sync to a changelist (CL) as soon as it’s submitted, thereby enabling them to locally compile the source code matching the CL. Additionally, they can add comments to each change, flagging builds as good or bad for other developers.
+*   When engineers are working on a fix for a broken build, they can notify the rest of the team that they’re working on the fix by setting a flag.
+*   Developers can safely make content changes from local builds without submitting unversioned assets because Engine version files (**Version.h** and **Build.version**) are updated to the synced CL.
+*   Because UGS includes custom build steps, UGS enables developers to set up tools and utilities that are specific to their project.
+
+[REGION:note]
+Note that build system results can be surfaced alongside a list of submitted CLs (along with a link to build logs).
+[/REGION]
+
+### Creatives
+
+*   If creatives, such as artists or designers, don’t have Visual Studio (or if they don’t need to compile the Editor), they can get a compressed Editor build of the project, which is compiled by CIS. 
+*   Getting a compressed Editor build of the project is particularly useful for artists because the compressed build can be synced and automatically decompressed.
+
+Finally, it’s important to note that other disciplines, such as Quality Assurance, Production, or Business units can also use UGS to gain insight into a project’s status or collaborate with developers and creatives. If you're new to UGS and you want to start using it, check out the [UGS Quick Start](Programming/Deployment/UnrealGameSync/QuickStart) guide.
