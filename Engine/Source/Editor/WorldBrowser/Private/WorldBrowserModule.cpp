@@ -15,11 +15,52 @@
 #include "SWorldHierarchy.h"
 #include "SWorldDetails.h"
 #include "Tiles/SWorldComposition.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "LevelEditor.h"
+#include "EditorLevelUtils.h"
 
 
 IMPLEMENT_MODULE( FWorldBrowserModule, WorldBrowser );
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
+
+/**
+ * Fills the level menu with extra options
+ */
+TSharedRef<FExtender> FWorldBrowserModule::BindLevelMenu(const TSharedRef<FUICommandList> CommandList)
+{
+	TSharedRef<FExtender> Extender(new FExtender());
+	Extender->AddMenuExtension("LevelListing", EExtensionHook::Before, CommandList, FMenuExtensionDelegate::CreateRaw(this, &FWorldBrowserModule::BuildLevelMenu));
+	return Extender;
+}
+
+
+void FWorldBrowserModule::BuildLevelMenu(FMenuBuilder& MenuBuilder)
+{
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+	TSharedPtr<FLevelCollectionModel> Model = SharedWorldModel(EditorWorld);
+	if (Model.IsValid())
+	{
+		FLevelModelList ModelList = Model->GetFilteredLevels();
+		for (TSharedPtr<FLevelModel> LevelModel : ModelList)
+		{
+			FUIAction Action(FExecuteAction::CreateRaw(this, &FWorldBrowserModule::SetCurrentSublevel, LevelModel->GetLevelObject()),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateRaw(this, &FWorldBrowserModule::IsCurrentSublevel, LevelModel->GetLevelObject()));
+			MenuBuilder.AddMenuEntry(FText::FromString(LevelModel->GetDisplayName()), FText::GetEmpty(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Button);
+		}
+	}
+}
+
+bool FWorldBrowserModule::IsCurrentSublevel(ULevel* InLevel)
+{
+	return InLevel->IsCurrentLevel();
+}
+
+void FWorldBrowserModule::SetCurrentSublevel(ULevel* InLevel)
+{
+	EditorLevelUtils::MakeLevelCurrent(InLevel);
+}
 
 void FWorldBrowserModule::StartupModule()
 {
@@ -37,6 +78,19 @@ void FWorldBrowserModule::StartupModule()
 	}
 
 	UWorldComposition::WorldCompositionChangedEvent.AddRaw(this, &FWorldBrowserModule::OnWorldCompositionChanged);
+
+	// Have to check GIsEditor because right now editor modules can be loaded by the game
+	// Once LoadModule is guaranteed to return NULL for editor modules in game, this can be removed
+	// Without this check, loading the level editor in the game will crash
+	if (GIsEditor)
+	{
+		// Extend the level viewport levels menu
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		LevelMenuExtender = FLevelEditorModule::FLevelEditorMenuExtender::CreateRaw(this, &FWorldBrowserModule::BindLevelMenu);
+		auto& MenuExtenders = LevelEditorModule.GetAllLevelEditorLevelMenuExtenders();
+		MenuExtenders.Add(LevelMenuExtender);
+		LevelMenuExtenderHandle = MenuExtenders.Last().GetHandle();
+	}
 
 	FLevelFolders::Init();
 }

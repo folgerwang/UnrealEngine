@@ -21,6 +21,7 @@
 #include "Templates/Greater.h"
 #include "Serialization/ArchiveProxy.h"
 #include "Misc/Base64.h"
+#include "HAL/PlatformFilemanager.h"
 #if !(IS_PROGRAM || WITH_EDITOR)
 #include "Misc/ConfigCacheIni.h"
 #endif
@@ -5885,6 +5886,15 @@ public:
 
 	virtual void ShutdownModule() override
 	{
+		// remove ourselves from the platform file chain (there can be late writes after the shutdown).
+		if (Singleton.IsValid())
+		{
+			if (FPlatformFileManager::Get().FindPlatformFile(Singleton.Get()->GetName()))
+			{
+				FPlatformFileManager::Get().RemovePlatformFile(Singleton.Get());
+			}
+		}
+
 		Singleton.Reset();
 	}
 

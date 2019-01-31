@@ -487,10 +487,10 @@ namespace Audio
 		{
 			check(!bIsUsingNullDevice);
 
-			AudioStreamInfo.NumOutputFrames = 512;
+			AudioStreamInfo.NumOutputFrames = OpenStreamParams.NumFrames;
 			AudioStreamInfo.DeviceInfo.OutputChannelArray = { EAudioMixerChannel::FrontLeft, EAudioMixerChannel::FrontRight };
 			AudioStreamInfo.DeviceInfo.NumChannels = 2;
-			AudioStreamInfo.DeviceInfo.SampleRate = 48000;
+			AudioStreamInfo.DeviceInfo.SampleRate = OpenStreamParams.SampleRate;
 			AudioStreamInfo.DeviceInfo.Format = EAudioMixerStreamDataFormat::Float;
 		}
 

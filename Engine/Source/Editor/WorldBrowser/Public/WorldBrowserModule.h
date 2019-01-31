@@ -3,6 +3,8 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "LevelEditor.h"
 
 class FLevelCollectionModel;
 
@@ -54,7 +56,21 @@ private:
 	void OnWorldCreated(UWorld* InWorld);
 	void OnWorldDestroyed(UWorld* InWorld);
 	void OnWorldCompositionChanged(UWorld* InWorld);
+
+	/** Bind world browser command delegate to the level viewport */
+	TSharedRef<FExtender> BindLevelMenu(const TSharedRef<FUICommandList> CommandList);
+
+	/** Fill out the level menu with entries for level operations */
+	void BuildLevelMenu(FMenuBuilder& MenuBuilder);
+
+	bool IsCurrentSublevel(ULevel* InLevel);
+	void SetCurrentSublevel(ULevel* InLevel);
 				
 private:
 	TWeakPtr<class FLevelCollectionModel>	WorldModel;
+
+	/** Extender for the level menu */
+	FLevelEditorModule::FLevelEditorMenuExtender LevelMenuExtender;
+	/** Delegate called when the menu is created */
+	FDelegateHandle LevelMenuExtenderHandle;
 };

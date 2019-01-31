@@ -120,7 +120,7 @@ namespace Gauntlet
 		/// <returns></returns>
 		public HtmlBuilder EnsureEndsWithRowClose()
 		{
-			if (SB.Length > 0 && !EndsWithNewLine)
+			if (SB.Length > 0 && !EndsWithRowClose)
 			{
 				SB.Append("</tr>");
 			}

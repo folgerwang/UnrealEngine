@@ -73,8 +73,6 @@ public:
 	 */
 	static FPlatformFileManager& Get( );
 
-private:
-
 	/**
 	* Removes the specified file wrapper from the platform file wrapper chain.
 	*
