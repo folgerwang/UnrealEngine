@@ -343,7 +343,10 @@ namespace Audio
 			InWave->DecompressionType = DTYPE_Invalid;
 			InWave->NumChannels = 0;
 
-			InWave->RemoveAudioResource();
+			InWave->RemoveAudioResource(); 
+
+			delete Buffer;
+			Buffer = nullptr;
 		}
 
 		return Buffer;
@@ -382,6 +385,9 @@ namespace Audio
 			InWave->NumChannels = 0;
 
 			InWave->RemoveAudioResource();
+
+			delete Buffer;
+			Buffer = nullptr;
 		}
 
 		return Buffer;

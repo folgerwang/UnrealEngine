@@ -508,6 +508,9 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 	}
 	else
 	{
+		Wave->DecompressionType = DTYPE_Invalid;
+		Wave->NumChannels = 0;
+
 		delete Buffer;
 		Buffer = nullptr;
 

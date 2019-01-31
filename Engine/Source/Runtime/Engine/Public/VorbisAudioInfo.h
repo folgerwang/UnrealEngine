@@ -113,5 +113,6 @@ private:
 	int32 CurrentStreamingChunkIndex;
 	int32 NextStreamingChunkIndex;
 	uint32 CurrentStreamingChunksSize;
+	bool bHeaderParsed;
 };
 #endif
