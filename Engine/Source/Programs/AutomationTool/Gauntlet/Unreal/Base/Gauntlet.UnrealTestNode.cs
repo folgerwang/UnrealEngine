@@ -536,21 +536,23 @@ namespace Gauntlet
 
 			try
 			{
-                // Basic pre-existing directory check.
-                if (!Globals.Params.ParseParam("dev") && Directory.Exists(OutputPath))
-                {
-                    string NewOutputPath = OutputPath;
-                    int i = 0;
-                    while (Directory.Exists(NewOutputPath))
-                    {
-                        i++;
-                        NewOutputPath = string.Format("{0}_{1}", OutputPath, i);
-                    }
-                    Log.Info("Directory already exists at {0}", OutputPath);
-                    OutputPath = NewOutputPath;
-                }
+				// Basic pre-existing directory check.
+				if (CommandUtils.IsBuildMachine && Directory.Exists(OutputPath))
+				{
+					string NewOutputPath = OutputPath;
+					int i = 0;
+					while (Directory.Exists(NewOutputPath))
+					{
+						i++;
+						NewOutputPath = string.Format("{0}_{1}", OutputPath, i);
+					}
+					Log.Info("Directory already exists at {0}", OutputPath);
+					OutputPath = NewOutputPath;
+				}
 				Log.Info("Saving artifacts to {0}", OutputPath);
 				Directory.CreateDirectory(OutputPath);
+				Utils.SystemHelpers.MarkDirectoryForCleanup(OutputPath);
+
 				SessionArtifacts = SaveRoleArtifacts(OutputPath);
 
 				// call legacy version
