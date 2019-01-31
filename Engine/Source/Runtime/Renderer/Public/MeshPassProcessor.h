@@ -228,7 +228,8 @@ public:
 		}
 
 		checkf(0, TEXT("Invalid shader binding frequency requested"));
-		return FMeshDrawSingleShaderBindings(FMeshDrawShaderBindingsLayout(nullptr), nullptr);
+		FShader Shader;
+		return FMeshDrawSingleShaderBindings(FMeshDrawShaderBindingsLayout(&Shader), nullptr);
 	}
 
 	/** Set shader bindings on the commandlist, filtered by state cache. */
