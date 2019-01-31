@@ -2,11 +2,18 @@
 
 #pragma once
 
+#include "Runtime/Core/Public/Misc/Build.h"
+#include "HAL/Platform.h"
+
 #if WITH_MLSDK
+#if PLATFORM_WINDOWS
 #pragma warning( push )
 #pragma warning( disable : 4201)
+#endif // PLATFORM_WINDOWS
 #include "ml_planes.h"
-#pragma warning( pop ) 
+#if PLATFORM_WINDOWS
+#pragma warning( pop )
+#endif //PLATFORM_WINDOWS
 #endif //WITH_MLSDK
 
 #include "Components/SceneComponent.h"

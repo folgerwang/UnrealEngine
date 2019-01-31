@@ -38,6 +38,7 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/ThreadSafeBool.h"
 #include "HAL/ThreadSafeCounter64.h"
+#include "HAL/Event.h"
 #include "Containers/Queue.h"
 #include "Containers/Array.h"
 #include "Misc/Variant.h"
