@@ -370,13 +370,10 @@ static void AdvanceRenderingThreadStats(int64 StatsFrame, int32 MasterDisableCha
  */
 void AdvanceRenderingThreadStatsGT( bool bDiscardCallstack, int64 StatsFrame, int32 MasterDisableChangeTagStartFrame )
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-	(
-		RenderingThreadTickCommand,
-		int64, SentStatsFrame, StatsFrame,
-		int32, SentMasterDisableChangeTagStartFrame, MasterDisableChangeTagStartFrame,
+	ENQUEUE_RENDER_COMMAND(RenderingThreadTickCommand)(
+		[StatsFrame, MasterDisableChangeTagStartFrame](FRHICommandList& RHICmdList)
 		{
-			AdvanceRenderingThreadStats( SentStatsFrame, SentMasterDisableChangeTagStartFrame );
+			AdvanceRenderingThreadStats(StatsFrame, MasterDisableChangeTagStartFrame );
 		}
 	);
 	if( bDiscardCallstack )
@@ -522,16 +519,16 @@ public:
 			if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed) && OutstandingHeartbeats.GetValue() < 4)
 			{
 				OutstandingHeartbeats.Increment();
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					HeartbeatTickTickables,
-				{
-					OutstandingHeartbeats.Decrement();
-					// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
-					if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+				ENQUEUE_RENDER_COMMAND(HeartbeatTickTickables)(
+					[](FRHICommandList& RHICmdList)
 					{
-						TickRenderingTickables();
-					}
-				});
+						OutstandingHeartbeats.Decrement();
+						// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
+						if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+						{
+							TickRenderingTickables();
+						}
+					});
 			}
 		}
 		return 0;
@@ -968,22 +965,21 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 			// Create a task graph event which we can pass to the render or RHI threads.
 			CompletionEvent = FGraphEvent::CreateGraphEvent();
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FSyncFrameCommand,
-				FGraphEventRef, CompletionEvent, CompletionEvent,
-				int32, GTSyncType, GTSyncType,
-			{
-				if (GRHIThread_InternalUseOnly)
+			FGraphEventRef InCompletionEvent = CompletionEvent;
+			ENQUEUE_RENDER_COMMAND(FSyncFrameCommand)(
+				[InCompletionEvent, GTSyncType](FRHICommandListImmediate& RHICmdList)
 				{
-					ALLOC_COMMAND_CL(RHICmdList, FRHISyncFrameCommand)(CompletionEvent, GTSyncType);
-					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-				}
-				else
-				{
-					FRHISyncFrameCommand Command(CompletionEvent, GTSyncType);
-					Command.Execute(RHICmdList);
-				}
-			});
+					if (GRHIThread_InternalUseOnly)
+					{
+						ALLOC_COMMAND_CL(RHICmdList, FRHISyncFrameCommand)(InCompletionEvent, GTSyncType);
+						RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+					}
+					else
+					{
+						FRHISyncFrameCommand Command(InCompletionEvent, GTSyncType);
+						Command.Execute(RHICmdList);
+					}
+				});
 		}
 		else
 		{
@@ -1240,12 +1236,11 @@ void FlushPendingDeleteRHIResources_GameThread()
 {
 	if (!IsRunningRHIInSeparateThread())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			FlushPendingDeleteRHIResources,
-		{
-			FlushPendingDeleteRHIResources_RenderThread();
-		}
-		);
+		ENQUEUE_RENDER_COMMAND(FlushPendingDeleteRHIResources)(
+			[](FRHICommandList& RHICmdList)
+			{
+				FlushPendingDeleteRHIResources_RenderThread();
+			});
 	}
 }
 void FlushPendingDeleteRHIResources_RenderThread()

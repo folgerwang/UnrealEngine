@@ -8,9 +8,10 @@
 
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
+#include "MeshPassProcessor.h"
 
 class FPrimitiveSceneProxy;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 /** 
 * Set of distortion scene prims  
@@ -25,7 +26,7 @@ public:
 	* @param DPGIndex - current DPG used to draw items
 	* @return true if anything was drawn
 	*/
-	bool DrawAccumulatedOffsets(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, bool bInitializeOffsets);
+	bool DrawAccumulatedOffsets(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, bool bInitializeOffsets);
 
 	/**
 	* Adds a new primitives to the list of distortion prims
@@ -56,4 +57,39 @@ public:
 private:
 	/** list of distortion prims added from the scene */
 	TArray<FPrimitiveSceneProxy*, SceneRenderingAllocator> Prims;
+};
+
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FDistortionPassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FVector4, DistortionParams)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileDistortionPassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FVector4, DistortionParams)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+extern void SetupMobileDistortionPassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMobileDistortionPassUniformParameters& DistortionPassParameters);
+
+class FDistortionMeshProcessor : public FMeshPassProcessor
+{
+public:
+
+	FDistortionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
+
+	FMeshPassProcessorRenderState PassDrawRenderState;
+
+private:
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		int32 StaticMeshId,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
 };

@@ -74,6 +74,7 @@ struct ENGINE_API FMaterialRelevance
 	uint8 bTranslucentSurfaceLighting : 1;
 	uint8 bUsesSceneDepth : 1;
 	uint8 bHasVolumeMaterialDomain : 1;
+	uint8 bUsesDistanceCullFade : 1;
 
 	/** Default constructor */
 	FMaterialRelevance()
@@ -341,7 +342,7 @@ public:
 	*						@note: only valid in the editor!
 	* @return	The resource to use for rendering this material instance.
 	*/
-	virtual class FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const PURE_VIRTUAL(UMaterialInterface::GetRenderProxy,return NULL;);
+	virtual class FMaterialRenderProxy* GetRenderProxy() const PURE_VIRTUAL(UMaterialInterface::GetRenderProxy,return NULL;);
 
 	/**
 	* Return a pointer to the physical material used by this material instance.

@@ -6,6 +6,7 @@
 #include "Shader.h"
 #include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
+#include "RenderUtils.h"
 
 class FMemsetBufferCS : public FGlobalShader
 {
@@ -15,8 +16,7 @@ class FMemsetBufferCS : public FGlobalShader
 	
 	static bool ShouldCompilePermutation( const FGlobalShaderPermutationParameters& Parameters )
 	{
-		return /*IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 )*/
-			Parameters.Platform == SP_PS4 || Parameters.Platform == SP_PCD3D_SM5 || Parameters.Platform == SP_XBOXONE_D3D12;
+		return IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 );
 	}
 
 	static void ModifyCompilationEnvironment( const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment )
@@ -56,12 +56,9 @@ public:
 IMPLEMENT_SHADER_TYPE(, FMemsetBufferCS, TEXT("/Engine/Private/ByteBuffer.usf"), TEXT("MemsetBufferCS"), SF_Compute );
 
 
-// Must be aligned to 4 bytes
-void MemsetBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, uint32 Value, uint32 NumBytes, uint32 DstOffset )
-{
-	check( (NumBytes & 3) == 0 );
-	check( (DstOffset & 3) == 0 );
 
+void MemsetBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& DstBuffer, const FVector4& Value, uint32 NumFloat4s, uint32 DstOffsetInFloat4s)
+{
 	auto ShaderMap = GetGlobalShaderMap( GMaxRHIFeatureLevel );
 
 	TShaderMapRef< FMemsetBufferCS > ComputeShader( ShaderMap );
@@ -70,11 +67,11 @@ void MemsetBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstB
 	RHICmdList.SetComputeShader( ShaderRHI );
 
 	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Value, Value );
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumBytes / 4 );
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffset / 4 );
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumFloat4s );
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffsetInFloat4s );
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV );
 
-	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumBytes / 4, FMemsetBufferCS::ThreadGroupSize * 4 ), 1, 1 );
+	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumFloat4s, FMemsetBufferCS::ThreadGroupSize ), 1, 1 );
 
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
 }
@@ -88,8 +85,7 @@ class FMemcpyBufferCS : public FGlobalShader
 	
 	static bool ShouldCompilePermutation( const FGlobalShaderPermutationParameters& Parameters )
 	{
-		return /*IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 )*/
-			Parameters.Platform == SP_PS4 || Parameters.Platform == SP_PCD3D_SM5 || Parameters.Platform == SP_XBOXONE_D3D12;
+		return IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 );
 	}
 
 	static void ModifyCompilationEnvironment( const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment )
@@ -131,14 +127,8 @@ public:
 
 IMPLEMENT_SHADER_TYPE(, FMemcpyBufferCS, TEXT("/Engine/Private/ByteBuffer.usf"), TEXT("MemcpyBufferCS"), SF_Compute );
 
-
-// Must be aligned to 4 bytes
-void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, const FRWByteAddressBuffer& SrcBuffer, uint32 NumBytes, uint32 DstOffset, uint32 SrcOffset )
+void MemcpyBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& SrcBuffer, const FRWBufferStructured& DstBuffer, uint32 NumFloat4s, uint32 SrcOffset, uint32 DstOffset)
 {
-	check( (NumBytes & 3) == 0 );
-	check( (SrcOffset & 3) == 0 );
-	check( (DstOffset & 3) == 0 );
-
 	auto ShaderMap = GetGlobalShaderMap( GMaxRHIFeatureLevel );
 
 	TShaderMapRef< FMemcpyBufferCS > ComputeShader( ShaderMap );
@@ -146,53 +136,45 @@ void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstB
 	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
 	RHICmdList.SetComputeShader( ShaderRHI );
 
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumBytes / 4 );
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->SrcOffset, SrcOffset / 4 );
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffset / 4 );
+	RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, DstBuffer.UAV);
+
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->SrcOffset, SrcOffset);
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffset);
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumFloat4s);
 	SetSRVParameter( RHICmdList, ShaderRHI, ComputeShader->SrcBuffer, SrcBuffer.SRV );
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV );
 
-	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumBytes / 4, FMemcpyBufferCS::ThreadGroupSize * 4 ), 1, 1 );
+	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumFloat4s, FMemcpyBufferCS::ThreadGroupSize), 1, 1 );
 
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
 
-#if 0
-	void* SrcBufferCopy = RHILockStructuredBuffer( SrcBuffer.Buffer, SrcOffset, NumBytes, RLM_ReadOnly );
-	void* DstBufferCopy = RHILockStructuredBuffer( DstBuffer.Buffer, DstOffset, NumBytes, RLM_ReadOnly );
-
-	check( FMemory::Memcmp( SrcBufferCopy, DstBufferCopy, NumBytes ) == 0 );
-
-	RHIUnlockStructuredBuffer( SrcBuffer.Buffer );
-	RHIUnlockStructuredBuffer( DstBuffer.Buffer );
-#endif
+	RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, DstBuffer.UAV);
 }
 
-
-void ResizeBuffer( FRHICommandList& RHICmdList, FRWByteAddressBuffer& Buffer, uint32 NumBytes )
+bool ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buffer, uint32 NumFloat4s)
 {
-	if( Buffer.NumBytes == 0 )
+	EPixelFormat BufferFormat = PF_A32B32G32R32F;
+	uint32 BytesPerElement = GPixelFormats[BufferFormat].BlockBytes;
+
+	if (Buffer.NumBytes == 0)
 	{
-		Buffer.Initialize( NumBytes );
+		Buffer.Initialize(BytesPerElement, NumFloat4s);
 	}
-	else if( NumBytes != Buffer.NumBytes )
+	else if (NumFloat4s * BytesPerElement != Buffer.NumBytes)
 	{
-		FRWByteAddressBuffer NewBuffer;
-		NewBuffer.Initialize( NumBytes );
+		FRWBufferStructured NewBuffer;
+		NewBuffer.Initialize(BytesPerElement, NumFloat4s);
 
 		// Copy data to new buffer
-		uint32 CopyBytes = FMath::Min( NumBytes, Buffer.NumBytes );
-		MemcpyBuffer( RHICmdList, NewBuffer, Buffer, CopyBytes );
+		uint32 CopyFloat4s = FMath::Min(NumFloat4s, Buffer.NumBytes / BytesPerElement);
+		MemcpyBuffer(RHICmdList, Buffer, NewBuffer, CopyFloat4s);
 
-		Buffer.Buffer	= NewBuffer.Buffer;
-		Buffer.UAV		= NewBuffer.UAV;
-		Buffer.SRV		= NewBuffer.SRV;
+		Buffer = NewBuffer;
+		return true;
 	}
+
+	return false;
 }
-
-
-
-
-
 
 class FScatterCopyCS : public FGlobalShader
 {
@@ -202,8 +184,7 @@ class FScatterCopyCS : public FGlobalShader
 	
 	static bool ShouldCompilePermutation( const FGlobalShaderPermutationParameters& Parameters )
 	{
-		return /*IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 )*/
-			Parameters.Platform == SP_PS4 || Parameters.Platform == SP_PCD3D_SM5 || Parameters.Platform == SP_XBOXONE_D3D12;
+		return IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 );
 	}
 
 	static void ModifyCompilationEnvironment( const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment )
@@ -217,16 +198,16 @@ public:
 
 	FShaderParameter			NumScatters;
 	FShaderResourceParameter	ScatterBuffer;
-	FShaderResourceParameter	SrcBuffer;
+	FShaderResourceParameter	UploadBuffer;
 	FShaderResourceParameter	DstBuffer;
 	
 	FScatterCopyCS( const ShaderMetaType::CompiledShaderInitializerType& Initializer )
 		: FGlobalShader(Initializer)
 	{
-		NumScatters.Bind(	Initializer.ParameterMap, TEXT("NumScatters") );
-		ScatterBuffer.Bind(	Initializer.ParameterMap, TEXT("ScatterBuffer") );
-		SrcBuffer.Bind(		Initializer.ParameterMap, TEXT("SrcBuffer") );
-		DstBuffer.Bind(		Initializer.ParameterMap, TEXT("DstBuffer") );
+		NumScatters.Bind(Initializer.ParameterMap, TEXT("NumScatters") );
+		ScatterBuffer.Bind(Initializer.ParameterMap, TEXT("ScatterBuffer") );
+		UploadBuffer.Bind(Initializer.ParameterMap, TEXT("UploadBuffer") );
+		DstBuffer.Bind(Initializer.ParameterMap, TEXT("DstBuffer") );
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -234,7 +215,7 @@ public:
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << NumScatters;
 		Ar << ScatterBuffer;
-		Ar << SrcBuffer;
+		Ar << UploadBuffer;
 		Ar << DstBuffer;
 		return bShaderHasOutdatedParameters;
 	}
@@ -242,71 +223,95 @@ public:
 
 IMPLEMENT_SHADER_TYPE(, FScatterCopyCS, TEXT("/Engine/Private/ByteBuffer.usf"), TEXT("ScatterCopyCS"), SF_Compute );
 
-
-
-FScatterUploadBuffer::FScatterUploadBuffer()
-	: ScatterData( nullptr )
-	, UploadData( nullptr )
-{}
-
-void FScatterUploadBuffer::Init( uint32 NumUploads, uint32 Stride )
+FScatterUploadBuilder::FScatterUploadBuilder(uint32 NumUploads, uint32 InStrideInFloat4s, FReadBuffer& InScatterBuffer, FReadBuffer& InUploadBuffer)
+	: ScatterBuffer(InScatterBuffer)
+	, UploadBuffer(InUploadBuffer)
 {
-	check( (Stride & 3) == 0 );
+	StrideInFloat4s = InStrideInFloat4s;
+	AllocatedNumScatters = NumUploads * StrideInFloat4s;
 
-	// uint4 copies if aligned
-	//CopySize = (Stride & 15) == 0 ? 4 : 1;
-	CopySize = 1;
-	CopyNum = Stride / ( 4 * CopySize );
+	EPixelFormat ScatterIndexFormat = PF_R32_UINT;
+	uint32 ScatterBytes = AllocatedNumScatters * GPixelFormats[ScatterIndexFormat].BlockBytes;
 
-	NumScatters = NumUploads * CopyNum;
-
-	uint32 ScatterBytes = NumScatters * 4;
-	if( ScatterBytes > ScatterBuffer.NumBytes )
+	if (ScatterBytes > ScatterBuffer.NumBytes)
 	{
+		const uint32 BytesPerElement = GPixelFormats[ScatterIndexFormat].BlockBytes;
+		const uint32 NumElements = FMath::RoundUpToPowerOfTwo(FMath::Max(ScatterBytes, 256u)) / BytesPerElement;
+
 		// Resize Scatter Buffer
 		ScatterBuffer.Release();
-		ScatterBuffer.Initialize( FMath::RoundUpToPowerOfTwo( FMath::Max( ScatterBytes, 256u ) ), BUF_Volatile );
+		ScatterBuffer.Initialize(BytesPerElement, NumElements, ScatterIndexFormat, BUF_Volatile);
 	}
 
-	uint32 UploadBytes = NumUploads * Stride;
-	if( UploadBytes > UploadBuffer.NumBytes )
+	EPixelFormat UploadDataFormat = PF_A32B32G32R32F;
+	uint32 UploadBytes = NumUploads * StrideInFloat4s * GPixelFormats[UploadDataFormat].BlockBytes;
+
+	if (UploadBytes > UploadBuffer.NumBytes)
 	{
 		// Resize Upload Buffer
+
+		const uint32 BytesPerElement = GPixelFormats[UploadDataFormat].BlockBytes;
+		const uint32 NumElements = FMath::RoundUpToPowerOfTwo(FMath::Max(UploadBytes, 256u)) / BytesPerElement;
+
 		UploadBuffer.Release();
-		UploadBuffer.Initialize( FMath::RoundUpToPowerOfTwo( FMath::Max( UploadBytes, 256u ) ), BUF_Volatile );
+		UploadBuffer.Initialize(BytesPerElement, NumElements, UploadDataFormat, BUF_Volatile);
 	}
 	
-	// This flushes the RHI thread!
-	ScatterData = (uint32*)RHILockStructuredBuffer( ScatterBuffer.Buffer, 0, ScatterBytes, RLM_WriteOnly );
-	UploadData  = (uint32*)RHILockStructuredBuffer( UploadBuffer.Buffer, 0, UploadBytes, RLM_WriteOnly );
+	ScatterData = (uint32*)RHILockVertexBuffer(ScatterBuffer.Buffer, 0, ScatterBytes, RLM_WriteOnly);
+	UploadData  = (FVector4*)RHILockVertexBuffer(UploadBuffer.Buffer, 0, UploadBytes, RLM_WriteOnly);
 
 	// Track the actual number of scatters added
 	NumScatters = 0;
 }
 
-void FScatterUploadBuffer::UploadTo( FRHICommandList& RHICmdList, FRWByteAddressBuffer& DstBuffer )
+void FScatterUploadBuilder::UploadTo(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer)
 {
-	RHIUnlockStructuredBuffer( ScatterBuffer.Buffer );
-	RHIUnlockStructuredBuffer( UploadBuffer.Buffer );
-
+	RHIUnlockVertexBuffer(ScatterBuffer.Buffer);
+	RHIUnlockVertexBuffer(UploadBuffer.Buffer);
+	
 	ScatterData = nullptr;
-	UploadData  = nullptr;
+	UploadData = nullptr;
 
-	auto ShaderMap = GetGlobalShaderMap( GMaxRHIFeatureLevel );
+	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 
-	TShaderMapRef< FScatterCopyCS > ComputeShader( ShaderMap );
+	TShaderMapRef<FScatterCopyCS> ComputeShader(ShaderMap);
 		
 	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
-	RHICmdList.SetComputeShader( ShaderRHI );
+	RHICmdList.SetComputeShader(ShaderRHI);
 
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->NumScatters, NumScatters );
-	SetSRVParameter( RHICmdList, ShaderRHI, ComputeShader->ScatterBuffer, ScatterBuffer.SRV );
-	SetSRVParameter( RHICmdList, ShaderRHI, ComputeShader->SrcBuffer, UploadBuffer.SRV );
-	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV );
+	SetShaderValue(RHICmdList, ShaderRHI, ComputeShader->NumScatters, NumScatters);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->ScatterBuffer, ScatterBuffer.SRV);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->UploadBuffer, UploadBuffer.SRV);
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV);
 
-	// 4 scatters per thread
-	//RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumScatters, FScatterCopyCS::ThreadGroupSize * 4 ), 1, 1 );
-	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumScatters, FScatterCopyCS::ThreadGroupSize ), 1, 1 );
+	RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(NumScatters, FScatterCopyCS::ThreadGroupSize), 1, 1);
 
-	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef());
+}
+
+void FScatterUploadBuilder::UploadTo_Flush(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer)
+{
+	RHIUnlockVertexBuffer(ScatterBuffer.Buffer);
+	RHIUnlockVertexBuffer(UploadBuffer.Buffer);
+
+	ScatterData = nullptr;
+	UploadData = nullptr;
+
+	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+
+	TShaderMapRef<FScatterCopyCS> ComputeShader(ShaderMap);
+
+	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
+	RHICmdList.SetComputeShader(ShaderRHI);
+
+	SetShaderValue(RHICmdList, ShaderRHI, ComputeShader->NumScatters, NumScatters);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->ScatterBuffer, ScatterBuffer.SRV);
+	SetSRVParameter(RHICmdList, ShaderRHI, ComputeShader->UploadBuffer, UploadBuffer.SRV);
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV);
+
+	RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(NumScatters, FScatterCopyCS::ThreadGroupSize), 1, 1);
+
+	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+
+	SetUAVParameter(RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef());
 }

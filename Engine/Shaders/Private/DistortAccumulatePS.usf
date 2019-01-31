@@ -5,6 +5,16 @@
 =============================================================================*/
 
 #include "Common.ush"
+
+// Reroute distortion pass uniform buffer.
+#if SHADING_PATH_MOBILE
+	#define MobileSceneTextures MobileDistortionPass.SceneTextures
+	#define DistortionParams MobileDistortionPass.DistortionParams
+#else
+	#define SceneTexturesStruct DistortionPass.SceneTextures
+	#define DistortionParams DistortionPass.DistortionParams
+#endif
+
 #include "SceneTexturesCommon.ush"
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
@@ -13,7 +23,6 @@
 static const float OffsetFudgeFactor = 0.00023;
 
 static const half DistortionScaleBias = 4.0f;
-float4 DistortionParams;
 
 /** output distortion offsets as color so they can be accumulated (via blending) */
 void Main(

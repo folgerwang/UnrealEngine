@@ -13,21 +13,16 @@ struct FTranslucencyShadowDepthVSToPS
 {
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
 	float ShadowDepth : TEXCOORD6;
-	float4 PixelPosition	: TEXCOORD7;
+	float4 PixelPosition : TEXCOORD7;
 };
-
-float4x4 ProjectionMatrix;
-
-//@todo - make this a bool, bool shader parameters currently do not work in vertex shaders on Xbox 360 (TTP 125134)
-float bClampToNearPlane;
 
 void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out float ShadowDepth)
 {
-	OutPosition = mul(WorldPosition,ProjectionMatrix);
+	OutPosition = mul(WorldPosition, TranslucentDepthPass.ProjectionMatrix);
 
 	// Clamp the vertex to the near plane if it is in front of the near plane
 	// This has problems if some vertices of a triangle get clamped and others do not, also causes artifacts with non-ortho projections
-	if (bClampToNearPlane && OutPosition.z < 0)
+	if (TranslucentDepthPass.bClampToNearPlane && OutPosition.z < 0)
 	{
 		OutPosition.z = 0.000001f;
 		OutPosition.w = 1.0f;
@@ -36,7 +31,7 @@ void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out flo
 	#if PERSPECTIVE_CORRECT_DEPTH
 		ShadowDepth = OutPosition.z;
 	#else
-		float InvMaxSubjectDepth = ShadowParams.y;
+		float InvMaxSubjectDepth = TranslucentDepthPass.InvMaxSubjectDepth;
 
 		// Output linear, normalized depth
 		ShadowDepth = OutPosition.z * InvMaxSubjectDepth;
@@ -70,8 +65,6 @@ void MainVS(
 }
 
 float TranslucentShadowStartOffset;
-/** Used to normalize the outputted depth */
-float TranslInvMaxSubjectDepth;
 
 /** Pixel shader used to accumulate layer opacities in different channels based on the first translucent layer's depth. */
 void MainOpacityPS( 
@@ -93,7 +86,8 @@ void MainOpacityPS(
 	float Density = GetMaterialOpacity(PixelMaterialInputs) * GetMaterialTranslucentShadowDensityScale();
 
 #if PERSPECTIVE_CORRECT_DEPTH
-	Inputs.ShadowDepth *= TranslInvMaxSubjectDepth;
+	/** Used to normalize the outputted depth */
+	Inputs.ShadowDepth *= TranslucentDepthPass.InvMaxSubjectDepth;
 #endif
 
 	Inputs.ShadowDepth += TranslucentShadowStartOffset;

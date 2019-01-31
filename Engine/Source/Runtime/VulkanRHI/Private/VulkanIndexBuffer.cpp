@@ -76,11 +76,13 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		const bool bIsUniformBuffer = (InBufferUsageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0;
 		const bool bUAV = (InUEUsage & BUF_UnorderedAccess) != 0;
 		const bool bIndirect = (InUEUsage & BUF_DrawIndirect) == BUF_DrawIndirect;
+		const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
 
 		BufferUsageFlags |= bVolatile ? 0 : VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		BufferUsageFlags |= (bShaderResource && !bIsUniformBuffer) ? VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bIndirect ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0;
+		BufferUsageFlags |= bCPUReadable ? (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT) : 0;
 
 		if (bVolatile)
 		{
@@ -157,6 +159,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
 	const bool bUAV = (UEUsage & BUF_UnorderedAccess) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -177,7 +180,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 	}
 	else
 	{
-		check(bStatic || bDynamic || bUAV);
+		check(bStatic || bDynamic || bUAV || bSR);
 
 		if (LockMode == RLM_ReadOnly)
 		{
@@ -279,6 +282,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	const bool bDynamic = (UEUsage & BUF_Dynamic) != 0;
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -288,7 +292,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	}
 	else
 	{
-		check(bStatic || bDynamic);
+		check(bStatic || bDynamic || bSR);
 
 		const bool bUnifiedMem = Device->HasUnifiedMemory();
 		if (bUnifiedMem)

@@ -130,7 +130,7 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 			D3D_FEATURE_LEVEL MaxFeatureLevel = MinFeatureLevel;
 			D3D12_FEATURE_DATA_FEATURE_LEVELS FeatureLevelCaps = {};
 			FeatureLevelCaps.pFeatureLevelsRequested = FeatureLevels;
-			FeatureLevelCaps.NumFeatureLevels = _countof(FeatureLevels);	
+			FeatureLevelCaps.NumFeatureLevels = ARRAY_COUNT(FeatureLevels);	
 			if (SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &FeatureLevelCaps, sizeof(FeatureLevelCaps))))
 			{
 				MaxFeatureLevel = FeatureLevelCaps.MaxSupportedFeatureLevel;
@@ -663,12 +663,24 @@ void FD3D12DynamicRHI::Init()
 	// - Standalones are added to the deferred deletion queue of its parent FD3D12Adapter
 	GRHIForceNoDeletionLatencyForStreamingTextures = !!PLATFORM_WINDOWS;
 
+#if D3D12_RHI_RAYTRACING
+	GRHISupportsRayTracing = GetAdapter().GetD3DRayTracingDevice() != nullptr;
+#endif
+
 	// Set the RHI initialized flag.
 	GIsRHIInitialized = true;
 }
 
 void FD3D12DynamicRHI::PostInit()
 {
+	if (GRHISupportsRayTracing)
+	{
+		for (FD3D12Adapter*& Adapter : ChosenAdapters)
+		{
+			Adapter->InitializeRayTracing();
+		}
+	}
+
 	if (GRHISupportsRHIThread)
 	{
 		SetupRecursiveResources();

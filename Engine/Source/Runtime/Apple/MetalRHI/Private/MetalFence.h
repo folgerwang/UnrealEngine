@@ -69,6 +69,7 @@ class FMetalFence
 	};
 public:
 	FMetalFence()
+	: NumRefs(0)
 	{
 		for (uint32 i = 0; i < NumFenceStages; i++)
 		{
@@ -78,12 +79,24 @@ public:
 	}
 	
 	explicit FMetalFence(FMetalFence const& Other)
+	: NumRefs(0)
 	{
 		operator=(Other);
 	}
 	
 	~FMetalFence()
 	{
+		check(!NumRefs);
+	}
+	
+	uint32 AddRef() const
+	{
+		return uint32(FPlatformAtomics::InterlockedIncrement(&NumRefs));
+	}
+	uint32 Release() const;
+	uint32 GetRefCount() const
+	{
+		return uint32(FPlatformAtomics::AtomicRead(&NumRefs));
 	}
 	
 	FMetalFence& operator=(FMetalFence const& Other)
@@ -157,6 +170,7 @@ private:
 	mtlpp::Fence Fences[NumFenceStages];
 	int8 Writes[NumFenceStages];
 	int8 Waits[NumFenceStages];
+	mutable int32 NumRefs;	
 };
 
 class FMetalFencePool
@@ -170,6 +184,7 @@ public:
 	
 	static FMetalFencePool& Get()
 	{
+		static FMetalFencePool sSelf;
 		return sSelf;
 	}
 	
@@ -178,14 +193,16 @@ public:
 	FMetalFence* AllocateFence();
 	void ReleaseFence(FMetalFence* const InFence);
 	
+	int32 Max() const { return Count; }
+	int32 Num() const { return Allocated; }
+	
 private:
 	int32 Count;
+	int32 Allocated;
 	mtlpp::Device Device;
 #if METAL_DEBUG_OPTIONS
 	TSet<FMetalFence*> Fences;
 	FCriticalSection Mutex;
-    int32 Allocated;
 #endif
-	TLockFreePointerListLIFO<FMetalFence> Lifo;
-	static FMetalFencePool sSelf;
+	TLockFreePointerListFIFO<FMetalFence, PLATFORM_CACHE_LINE_SIZE> Lifo;
 };

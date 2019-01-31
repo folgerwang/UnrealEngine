@@ -41,6 +41,17 @@ static inline uint32 GetTypeHash(const FGraphicsPipelineStateInitializer& Initia
 		^ Initializer.RenderTargetsEnabled ^ GetTypeHash(Initializer.RasterizerState) ^ GetTypeHash(Initializer.DepthStencilState);
 }
 
+#if RHI_RAYTRACING
+static inline uint32 GetTypeHash(const FRayTracingPipelineStateInitializer& Initializer)
+{
+	return GetTypeHash(Initializer.MaxPayloadSizeInBytes) ^
+		GetTypeHash(Initializer.RayGenShaderRHI) ^
+		GetTypeHash(Initializer.MissShaderRHI) ^
+		GetTypeHash(Initializer.DefaultClosestHitShaderRHI) ^ 
+		GetTypeHash(Initializer.GetHitGroupHash());
+}
+#endif
+
 static TAutoConsoleVariable<int32> GCVarAsyncPipelineCompile(
 	TEXT("r.AsyncPipelineCompile"),
 	1,
@@ -104,7 +115,7 @@ static void HandlePipelineCreationFailure(const FGraphicsPipelineStateInitialize
 	for(int32 i = 0; i < Init.RenderTargetFormats.Num(); ++i)
 	{
 		//#todo-mattc GetPixelFormatString is not available in scw. Need to move it so we can print more info here.
-		UE_LOG(LogRHI, Error, TEXT("0x%x"), Init.RenderTargetFormats[i]);
+		UE_LOG(LogRHI, Error, TEXT("0x%x"), (uint32)Init.RenderTargetFormats[i]);
 	}
 	
 	UE_LOG(LogRHI, Error, TEXT("Depth Stencil Format:"));
@@ -231,6 +242,28 @@ public:
 	FThreadSafeCounter InUseCount;
 #endif
 };
+
+#if RHI_RAYTRACING
+/* State for ray tracing */
+class FRayTracingPipelineState : public FPipelineState
+{
+public:
+	FRayTracingPipelineState()
+	{
+	}
+
+	virtual bool IsCompute() const
+	{
+		return false;
+	}
+
+	FRayTracingPipelineStateRHIRef RHIPipeline;
+#if PIPELINESTATECACHE_VERIFYTHREADSAFE
+	FThreadSafeCounter InUseCount;
+#endif
+};
+
+#endif // RHI_RAYTRACING
 
 void SetGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& Initializer, EApplyRendertargetOption ApplyFlags)
 {
@@ -377,6 +410,7 @@ public:
 
 		check( LocalCache.Contains(InKey) == false );
 		LocalCache.Add(InKey, InValue);
+		checkfSlow(LocalCache.Contains(InKey), TEXT("PSO not found immediately after adding.  Likely cause is an uninitialized field in a constructor or copy constructor"));
 		return true;
 	}
 
@@ -523,66 +557,9 @@ private:
 
 };
 
-class FGraphicsPipelineStateKey
-{
-public:
-	explicit FGraphicsPipelineStateKey(const FGraphicsPipelineStateInitializer& InInitializer)
-	{
-		FMemory::Memcpy(Initializer, InInitializer);
-		
-		if (InInitializer.BoundShaderState.VertexShaderRHI)
-		{
-			VertexShaderHash = InInitializer.BoundShaderState.VertexShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.PixelShaderRHI)
-		{
-			PixelShaderHash = InInitializer.BoundShaderState.PixelShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.GeometryShaderRHI)
-		{
-			GeometryShaderHash = InInitializer.BoundShaderState.GeometryShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.HullShaderRHI)
-		{
-			HullShaderHash = InInitializer.BoundShaderState.HullShaderRHI->GetHash();
-		}
-		if (InInitializer.BoundShaderState.DomainShaderRHI)
-		{
-			DomainShaderHash = InInitializer.BoundShaderState.DomainShaderRHI->GetHash();
-		}
-	}
-	
-	bool operator==(const FGraphicsPipelineStateKey& rhs) const
-	{
-		if (Initializer == rhs.Initializer && 
-			VertexShaderHash == rhs.VertexShaderHash &&
-			PixelShaderHash == rhs.PixelShaderHash &&
-			GeometryShaderHash == rhs.GeometryShaderHash &&
-			HullShaderHash == rhs.HullShaderHash &&
-			DomainShaderHash == rhs.DomainShaderHash)
-		{
-			return true;
-		}
-
-		return false;
-	}
-
-	FGraphicsPipelineStateInitializer Initializer;
-	FSHAHash VertexShaderHash;
-	FSHAHash PixelShaderHash;
-	FSHAHash GeometryShaderHash;
-	FSHAHash HullShaderHash;
-	FSHAHash DomainShaderHash;
-};
-
-static inline uint32 GetTypeHash(const FGraphicsPipelineStateKey& PipelineStateKey)
-{
-	return GetTypeHash(PipelineStateKey.Initializer);
-}
-
 // Typed caches for compute and graphics
 typedef TDiscardableKeyValueCache< FRHIComputeShader*, FComputePipelineState*> FComputePipelineCache;
-typedef TSharedPipelineStateCache<FGraphicsPipelineStateKey, FGraphicsPipelineState*> FGraphicsPipelineCache;
+typedef TSharedPipelineStateCache<FGraphicsPipelineStateInitializer, FGraphicsPipelineState*> FGraphicsPipelineCache;
 
 // These are the actual caches for both pipelines
 FComputePipelineCache GComputePipelineCache;
@@ -596,6 +573,64 @@ FAutoConsoleTaskPriority CPrio_FCompilePipelineStateTask(
 	ENamedThreads::HighTaskPriority,		// if we don't have hi pri threads, then use normal priority threads at high task priority instead
 	EPowerSavingEligibility::NotEligible	// Not eligible for downgrade when power saving is requested.
 );
+#if RHI_RAYTRACING
+
+// Simple thread-safe pipeline state cache that's designed for low-frequency pipeline creation operations.
+// The expected use case is a very infrequent (i.e. startup / load / streaming time) creation of ray tracing PSOs.
+// This cache uses a single internal lock and therefore is not designed for highly concurrent operations.
+class FRayTracingPipelineCache
+{
+	// #dxr_todo: This needs to support fully asynchronous, non-blocking pipeline creation with explicit completion query mechanism.
+	// #dxr_todo: Could move this to a separate cpp file.
+	// #dxr_todo: Should support eviction of stale pipelines.
+	// #dxr_todo: we will likely also need an explicit ray tracing pipeline sub-object cache to hold closest hit shaders
+
+public:
+	FRayTracingPipelineCache()
+	{}
+
+	~FRayTracingPipelineCache()
+	{}
+
+	bool Find(const FRayTracingPipelineStateInitializer& Initializer, FRayTracingPipelineState*& OutCachedState) const
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+
+		FRayTracingPipelineState* const* FoundState = Cache.Find(Initializer);
+		if (FoundState)
+		{
+			OutCachedState = *FoundState;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	void Add(const FRayTracingPipelineStateInitializer& Initializer, FRayTracingPipelineState* State)
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+		Cache.Add(Initializer, State);
+	}
+
+	void Shutdown()
+	{
+		FScopeLock ScopeLock(&CriticalSection);
+		for (auto& It : Cache)
+		{
+			delete It.Value;
+		}
+	}
+
+private:
+
+	mutable FCriticalSection CriticalSection;
+	TMap<FRayTracingPipelineStateInitializer, FRayTracingPipelineState*> Cache;
+};
+
+FRayTracingPipelineCache GRayTracingPipelineCache;
+#endif
 
 /**
  *  Compile task
@@ -694,6 +729,7 @@ void PipelineStateCache::FlushResources()
 	GGraphicsPipelineCache.ConsolidateThreadedCaches();
 	GGraphicsPipelineCache.ProcessDelayedCleanup();
 
+
 	static double LastEvictionTime = FPlatformTime::Seconds();
 	double CurrentTime = FPlatformTime::Seconds();
 
@@ -766,7 +802,7 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 		if (DoAsyncCompile)
 		{
 			OutCachedState->CompletionEvent = TGraphTask<FCompilePipelineStateTask>::CreateTask().ConstructAndDispatchWhenReady(OutCachedState, FGraphicsPipelineStateInitializer());
-			RHICmdList.QueueAsyncPipelineStateCompile(OutCachedState->CompletionEvent);
+			RHICmdList.AddDispatchPrerequisite(OutCachedState->CompletionEvent);
 		}
 		else
 		{
@@ -782,7 +818,7 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 			FGraphEventRef& CompletionEvent = OutCachedState->CompletionEvent;
 			if ( CompletionEvent.IsValid() && !CompletionEvent->IsComplete() )
 			{
-				RHICmdList.QueueAsyncPipelineStateCompile(CompletionEvent);
+				RHICmdList.AddDispatchPrerequisite(CompletionEvent);
 			}
 		}
 
@@ -842,6 +878,40 @@ FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FR
 	// return the state pointer
 	return OutCachedState;
 }
+
+#if RHI_RAYTRACING
+FRHIRayTracingPipelineState* PipelineStateCache::GetAndOrCreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer)
+{
+	LLM_SCOPE(ELLMTag::PSO);
+
+	check(IsInRenderingThread() || IsInParallelRenderingThread());
+
+	FRayTracingPipelineState* OutCachedState = nullptr;
+
+	bool bWasFound = GRayTracingPipelineCache.Find(Initializer, OutCachedState);
+
+	if (bWasFound == false)
+	{
+		// #dxr_todo: RT PSO disk caching
+		// #dxr_todo: asynchronous PSO creation
+
+		OutCachedState = new FRayTracingPipelineState();
+
+		OutCachedState->RHIPipeline = RHICreateRayTracingPipelineState(Initializer);
+
+		GRayTracingPipelineCache.Add(Initializer, OutCachedState);
+	}
+	else
+	{
+#if PSO_TRACK_CACHE_STATS
+		OutCachedState->AddHit();
+#endif
+	}
+
+	// return the state pointer
+	return OutCachedState->RHIPipeline;
+}
+#endif // RHI_RAYTRACING
 
 FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* ComputePipelineState)
 {
@@ -924,8 +994,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 
 	FGraphicsPipelineState* OutCachedState = nullptr;
 
-	FGraphicsPipelineStateKey PipelineStateKey(*Initializer);
-	bool bWasFound = GGraphicsPipelineCache.Find(PipelineStateKey, OutCachedState);
+	bool bWasFound = GGraphicsPipelineCache.Find(*Initializer, OutCachedState);
 
 	if (bWasFound == false)
 	{
@@ -939,7 +1008,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 		if (DoAsyncCompile)
 		{
 			OutCachedState->CompletionEvent = TGraphTask<FCompilePipelineStateTask>::CreateTask().ConstructAndDispatchWhenReady(OutCachedState, *Initializer);
-			RHICmdList.QueueAsyncPipelineStateCompile(OutCachedState->CompletionEvent);
+			RHICmdList.AddDispatchPrerequisite(OutCachedState->CompletionEvent);
 		}
 		else
 		{
@@ -951,7 +1020,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 		}
 
 		// GGraphicsPipelineCache.Add(*Initializer, OutCachedState, LockFlags);
-		GGraphicsPipelineCache.Add(PipelineStateKey, OutCachedState);
+		GGraphicsPipelineCache.Add(*Initializer, OutCachedState);
 	}
 	else
 	{
@@ -960,7 +1029,7 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 			FGraphEventRef& CompletionEvent = OutCachedState->CompletionEvent;
 			if ( CompletionEvent.IsValid() && !CompletionEvent->IsComplete() )
 			{
-				RHICmdList.QueueAsyncPipelineStateCompile(CompletionEvent);
+				RHICmdList.AddDispatchPrerequisite(CompletionEvent);
 			}
 		}
 
@@ -1057,6 +1126,9 @@ void DumpPipelineCacheStats()
 void PipelineStateCache::Shutdown()
 {
 	GGraphicsPipelineCache.WaitTasksComplete();
+#if RHI_RAYTRACING
+	GRayTracingPipelineCache.Shutdown();
+#endif
 
 	// call discard twice to clear both the backing and main caches
 	for (int i = 0; i < 2; i++)

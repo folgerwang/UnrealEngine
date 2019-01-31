@@ -13,11 +13,6 @@
 #include "BasePassTessellationShaders.usf"
 #endif
 
-#if WRITES_VELOCITY_TO_GBUFFER
-//@todo-rco: Move to pixel shader
-float SkipOutputVelocity;
-#endif
-
 #if TRANSLUCENCY_PERVERTEX_FORWARD_SHADING
 #include "ReflectionEnvironmentShared.ush"
 #include "ForwardLightingCommon.ush"
@@ -42,7 +37,7 @@ void Main(
 	)
 {	
 #if INSTANCED_STEREO
-	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
+	const uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 	#if !MULTI_VIEW
 		OutClipDistance = 0.0;
@@ -85,14 +80,14 @@ void Main(
 		float3 ODS = OffsetODS(RasterizedWorldPosition.xyz, ResolvedView.TranslatedWorldCameraOrigin.xyz, ResolvedView.StereoIPD);
 		ClipSpacePosition = mul(float4(RasterizedWorldPosition.xyz + ODS, 1.0), ResolvedView.TranslatedWorldToClip);
 	#else
-		ClipSpacePosition = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
+		ClipSpacePosition = INVARIANT(mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip));
 	#endif
 		Output.Position = INVARIANT(ClipSpacePosition);
 	}
 
 	#if INSTANCED_STEREO && !MULTI_VIEW
 	BRANCH
-	if (bIsInstancedStereo)
+	if (IsInstancedStereo())
 	{
 		// Clip at the center of the screen
 		OutClipDistance = dot(Output.Position, EyeClipEdge[EyeIndex]);
@@ -117,9 +112,9 @@ void Main(
 
 #if INSTANCED_STEREO
 	#if USING_TESSELLATION	
-		Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		Output.FactoryInterpolants.InterpolantsVSToPS.EyeIndex = EyeIndex;
 	#else
-		Output.FactoryInterpolants.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		Output.FactoryInterpolants.EyeIndex = EyeIndex;
 	#endif
 #endif
 
@@ -192,16 +187,12 @@ void Main(
 		#if USING_TESSELLATION
 			// We let the Domain Shader convert to post projection when tessellating
 			Output.BasePassInterpolants.VelocityPrevScreenPosition = PrevTranslatedWorldPosition;
-			// Store the mask in .w when doing tessellation as we need the world space Z
-			Output.BasePassInterpolants.VelocityPrevScreenPosition.w = 1 - SkipOutputVelocity;
 			#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
 			Output.BasePassInterpolants.VelocityScreenPosition = WorldPosition;
 			#endif
 		#else
 			// compute the old screen pos with the old world position and the old camera matrix
 			Output.BasePassInterpolants.VelocityPrevScreenPosition = mul(float4(PrevTranslatedWorldPosition.xyz, 1), ResolvedView.PrevTranslatedWorldToClip);		
-			// Store the mask in .z when as we don't need the clip space Z
-			Output.BasePassInterpolants.VelocityPrevScreenPosition.z = 1 - SkipOutputVelocity;
 			#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
 			Output.BasePassInterpolants.VelocityScreenPosition = ClipSpacePosition;
 			#endif

@@ -1081,8 +1081,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -1131,8 +1131,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -2046,6 +2046,10 @@ void FSceneView::SetupViewRectUniformBufferParameters(FViewUniformShaderParamete
 		InvBufferSizeX * (EffectiveViewRect.Max.X - 0.5),
 		InvBufferSizeY * (EffectiveViewRect.Max.Y - 0.5));
 
+	/* Texture Level-of-Detail Strategies for Real-Time Ray Tracing https://developer.nvidia.com/raytracinggems Equation 20 */
+	float RadFOV = (PI / 180.0f) * FOV;
+	ViewUniformShaderParameters.EyeToPixelSpreadAngle = FPlatformMath::Atan((2.0f * FPlatformMath::Tan(RadFOV * 0.5f)) / BufferSize.Y);
+
 	ViewUniformShaderParameters.MotionBlurNormalizedToPixel = FinalPostProcessSettings.MotionBlurMax * EffectiveViewRect.Width() / 100.0f;
 
 	{
@@ -2214,6 +2218,7 @@ void FSceneView::SetupCommonViewUniformBufferParameters(
 
 	ViewUniformShaderParameters.GameTime = Family->CurrentWorldTime;
 	ViewUniformShaderParameters.RealTime = Family->CurrentRealTime;
+	ViewUniformShaderParameters.DeltaTime = Family->DeltaWorldTime;
 	ViewUniformShaderParameters.Random = FMath::Rand();
 	ViewUniformShaderParameters.FrameNumber = Family->FrameNumber;
 
@@ -2362,9 +2367,6 @@ bool FSceneViewFamily::SupportsScreenPercentage() const
 
 bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 {
-	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessing.PropagateAlpha"));
-	const bool bPostProcessAlphaChannel = CVar ? (CVar->GetInt() != 0) : false;
-
 	static IConsoleVariable* CVarMobileMSAA = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileMSAA"));
 	const bool bMobileMSAA = CVarMobileMSAA ? (CVarMobileMSAA->GetInt() > 1) : false;
 
@@ -2372,8 +2374,7 @@ bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 		&& (GetFeatureLevel() > ERHIFeatureLevel::ES3_1 || (IsMobileHDR() && !bMobileMSAA)) // on <= ES3_1 separate translucency requires HDR on and MSAA off
 	&& EngineShowFlags.PostProcessing // Used for reflection captures.
 	&& !UseDebugViewPS()
-	&& EngineShowFlags.SeparateTranslucency
-	&& !bPostProcessAlphaChannel;
+	&& EngineShowFlags.SeparateTranslucency;
 	// If not, translucency after DOF will be rendered in standard translucency.
 }
 
@@ -2386,6 +2387,29 @@ FSceneViewFamilyContext::~FSceneViewFamilyContext()
 		delete Views[ViewIndex];
 	}
 }
+
+#if RHI_RAYTRACING
+void FSceneView::SetupRayTracedRendering()
+{
+	RayTracingRenderMode = ERayTracingRenderMode::Disabled;
+
+	if (!IsRayTracingEnabled())
+	{
+		return;
+	}
+
+	const FEngineShowFlags& ShowFlags = Family->EngineShowFlags;
+
+	if (ShowFlags.PathTracing)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::PathTracing;
+	}	
+	else if (ShowFlags.RayTracingDebug)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::RayTracingDebug;
+	}
+}
+#endif // RHI_RAYTRACING
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

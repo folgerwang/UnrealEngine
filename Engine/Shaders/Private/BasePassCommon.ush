@@ -8,11 +8,13 @@
 #if MATERIALBLENDING_ANY_TRANSLUCENT
 	#define ForwardLightData TranslucentBasePass.Shared.Forward
 	#define ReflectionStruct TranslucentBasePass.Shared.Reflection
+	#define PlanarReflectionStruct TranslucentBasePass.Shared.PlanarReflection
 	#define FogStruct TranslucentBasePass.Shared.Fog
 	#define ActualSSProfilesTexture TranslucentBasePass.Shared.SSProfilesTexture
 #else
 	#define ForwardLightData OpaqueBasePass.Shared.Forward
 	#define ReflectionStruct OpaqueBasePass.Shared.Reflection
+	#define PlanarReflectionStruct OpaqueBasePass.Shared.PlanarReflection
 	#define FogStruct OpaqueBasePass.Shared.Fog
 	#define ActualSSProfilesTexture OpaqueBasePass.Shared.SSProfilesTexture
 #endif 

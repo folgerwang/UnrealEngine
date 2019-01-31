@@ -223,7 +223,7 @@ void FAnimNode_LookAt::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkele
 		{
 			float Angle = FMath::DegreesToRadians(LookAtClamp);
 			float ConeSize = 30.f;
-			DrawCone(PDI, FScaleMatrix(ConeSize) * CalculateLookAtMatrixFromTransform(ComponentTransform), Angle, Angle, 20, false, FLinearColor::Green, GEngine->DebugEditorMaterial->GetRenderProxy(false), SDPG_World);
+			DrawCone(PDI, FScaleMatrix(ConeSize) * CalculateLookAtMatrixFromTransform(ComponentTransform), Angle, Angle, 20, false, FLinearColor::Green, GEngine->DebugEditorMaterial->GetRenderProxy(), SDPG_World);
 		}
 
 		// draw directional  - lookat and look up

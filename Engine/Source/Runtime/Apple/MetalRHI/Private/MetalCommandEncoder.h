@@ -112,6 +112,9 @@ public:
 	/** @returns True if and only if there is valid render pass descriptor set on the encoder, otherwise false. */
 	bool IsRenderPassDescriptorValid(void) const;
 	
+	/** @returns The current render pass descriptor. */
+	mtlpp::RenderPassDescriptor const& GetRenderPassDescriptor(void) const;
+	
 	/** @returns The active render command encoder or nil if there isn't one. */
 	mtlpp::ParallelRenderCommandEncoder& GetParallelRenderCommandEncoder(void);
 	
@@ -128,7 +131,10 @@ public:
 	mtlpp::BlitCommandEncoder& GetBlitCommandEncoder(void);
 	
 	/** @returns The MTLFence for the current encoder or nil if there isn't one. */
-	FMetalFence* GetEncoderFence(void) const;
+	TRefCountPtr<FMetalFence> const& GetEncoderFence(void) const;
+	
+	/** @returns The number of encoded passes in the command buffer. */
+	uint32 NumEncodedPasses(void) const { return EncoderNum; }
 	
 #pragma mark - Public Command Encoder Mutators -
 
@@ -150,7 +156,7 @@ public:
 	void BeginBlitCommandEncoding(void);
 	
 	/** Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer if there is an encoder active or does nothing if there isn't. */
-	FMetalFence* EndEncoding(void);
+	TRefCountPtr<FMetalFence> EndEncoding(void);
 	
 	/** Initialises a fence for the current command-buffer optionally adding a command-buffer completion handler to the command-buffer */
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
@@ -455,7 +461,6 @@ private:
 	FMetalSubBufferRing RingBuffer;
 	
 	mtlpp::RenderPassDescriptor RenderPassDesc;
-	NSUInteger RenderPassDescApplied;
 	
 	mtlpp::CommandBuffer CommandBuffer;
 	mtlpp::ParallelRenderCommandEncoder ParallelRenderCommandEncoder;
@@ -470,7 +475,7 @@ private:
 	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
 	METAL_DEBUG_ONLY(FMetalParallelRenderCommandEncoderDebugging ParallelEncoderDebug);
 	
-	FMetalFence* EncoderFence;
+	TRefCountPtr<FMetalFence> EncoderFence;
 #if ENABLE_METAL_GPUPROFILE
 	FMetalCommandBufferStats* CommandBufferStats;
 #endif
@@ -492,7 +497,7 @@ private:
 	TSet<mtlpp::Resource::Type> TransitionedResources;
 	TSet<mtlpp::Resource::Type> FenceResources;
 	
-	TSet<FMetalFence*> FragmentFences;
+	TSet<TRefCountPtr<FMetalFence>> FragmentFences;
 	
 	mtlpp::RenderStages FenceStage;
 	uint32 EncoderNum;

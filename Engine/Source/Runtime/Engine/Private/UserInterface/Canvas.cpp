@@ -19,11 +19,10 @@
 #include "EngineFontServices.h"
 #include "Internationalization/BreakIterator.h"
 #include "Misc/CoreDelegates.h"
-#include "DrawingPolicy.h"
 #include "OneColorShader.h"
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
-
+#include "MeshPassProcessor.h"
 #include "StereoRendering.h"
 #include "Debug/ReporterGraph.h"
 #include "Fonts/FontMeasure.h"
@@ -376,7 +375,7 @@ FMatrix FCanvas::CalcProjectionMatrix(uint32 ViewSizeX, uint32 ViewSizeY, float 
 	}
 }
 
-bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 {
 	checkSlow(Data);
 	bool bDirty = false;
@@ -463,7 +462,7 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas, F
 		{
 			FSceneView SceneView = FBatchedElements::CreateProxySceneView(DrawParameters.RenderData->Transform.GetMatrix(), FIntRect(0, 0, DrawParameters.ViewportSizeX, DrawParameters.ViewportSizeY));
 
-			FDrawingPolicyRenderState DrawRenderState(SceneView);
+			FMeshPassProcessorRenderState DrawRenderState(SceneView);
 
 			// disable depth test & writes
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
@@ -691,7 +690,7 @@ void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bFor
 	
 	RHICmdList.BeginRenderPass(RPInfo, TEXT("CanvasRenderThread"));
 	{
-		FDrawingPolicyRenderState DrawRenderState;
+		FMeshPassProcessorRenderState DrawRenderState;
 		// disable depth test & writes
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
@@ -1947,7 +1946,7 @@ void UCanvas::K2_DrawMaterial(UMaterialInterface* RenderMaterial, FVector2D Scre
 		// Canvas can be NULL if the user tried to draw after EndDrawCanvasToRenderTarget
 		&& Canvas)
 	{
-		FCanvasTileItem TileItem(ScreenPosition, RenderMaterial->GetRenderProxy(0), ScreenSize, CoordinatePosition, CoordinatePosition + CoordinateSize);
+		FCanvasTileItem TileItem(ScreenPosition, RenderMaterial->GetRenderProxy(), ScreenSize, CoordinatePosition, CoordinatePosition + CoordinateSize);
 		TileItem.Rotation = FRotator(0, Rotation, 0);
 		TileItem.PivotPoint = PivotPoint;
 		TileItem.SetColor(DrawColor);
@@ -2015,7 +2014,7 @@ void UCanvas::K2_DrawMaterialTriangle(UMaterialInterface* RenderMaterial, TArray
 	if (RenderMaterial && Triangles.Num() > 0 && Canvas)
 	{
 		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, NULL);
-		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy(0);
+		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy();
 		TriangleItem.TriangleList = MoveTemp(Triangles);
 		DrawItem(TriangleItem);
 	}

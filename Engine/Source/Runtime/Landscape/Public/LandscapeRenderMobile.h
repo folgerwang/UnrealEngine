@@ -58,9 +58,9 @@ public:
 			(Material->IsUsedWithLandscape() || Material->IsSpecialEngineMaterial());
 	}
 
-	static void ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
+	static void ModifyCompilationEnvironment( const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 	{
-		FVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("NUM_VF_PACKED_INTERPOLANTS"), TEXT("1"));
 	}
 

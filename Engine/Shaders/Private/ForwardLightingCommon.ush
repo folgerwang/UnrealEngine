@@ -101,7 +101,7 @@ float GetIndirectOcclusion(float2 ScreenUV, FGBufferData GBufferData)
 	return IndirectOcclusion;
 }
 
-float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData, float2 ScreenUV, uint EyeIndex, float Dither)
+float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData, float2 ScreenUV, uint PrimitiveId, uint EyeIndex, float Dither)
 {
 	float4 DynamicShadowFactors = 1;
 
@@ -117,14 +117,17 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 	SpecularScale = 0;
 #endif
 
+	uint LightingChannelMask = GetPrimitiveData(PrimitiveId).LightingChannelMask;
+
 	const FDirectionalLightData DirectionalLightData = GetDirectionalLightData(EyeIndex);
 
 	BRANCH
 	if (DirectionalLightData.HasDirectionalLight)
 	{
 		FDeferredLightData LightData = (FDeferredLightData)0;
-		LightData.LightColorAndFalloffExponent = float4(DirectionalLightData.DirectionalLightColor, 0);
-		LightData.LightDirection = DirectionalLightData.DirectionalLightDirection;
+		LightData.Color = DirectionalLightData.DirectionalLightColor;
+		LightData.FalloffExponent = 0;
+		LightData.Direction = DirectionalLightData.DirectionalLightDirection;
 		LightData.DistanceFadeMAD = DirectionalLightData.DirectionalLightDistanceFadeMAD;
 		LightData.bRadialLight = false;
 		LightData.SpecularScale = SpecularScale;
@@ -155,10 +158,10 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 			float4 LightAttenuation = float4(DynamicShadowFactor.x, DynamicShadowFactor.x, 1, 1);
 		#endif
 
-		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0)).xyz;
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), DeferredLightUniforms.SourceTexture).xyz;
 
 		FLATTEN
-		if ((DirectionalLightData.DirectionalLightShadowMapChannelMask >> 8) & Primitive.LightingChannelMask)
+		if ((DirectionalLightData.DirectionalLightShadowMapChannelMask >> 8) & LightingChannelMask)
 		{
 			DirectLighting += NewLighting;
 		}
@@ -177,16 +180,19 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 		const FLocalLightData LocalLight = GetLocalLightData(CulledLightsGrid.DataStartIndex + LocalLightListIndex, EyeIndex);
 		 
 		FDeferredLightData LightData = (FDeferredLightData)0;
-		LightData.LightPositionAndInvRadius = LocalLight.LightPositionAndInvRadius;
-		LightData.LightColorAndFalloffExponent = LocalLight.LightColorAndFalloffExponent;
-		LightData.LightDirection = LocalLight.LightDirectionAndShadowMask.xyz;
-		float SourceLength = f16tof32(asuint(LocalLight.SpotAnglesAndSourceRadiusPacked.w));
-		LightData.SpotAnglesAndSourceRadius = float4(LocalLight.SpotAnglesAndSourceRadiusPacked.xyz, SourceLength);
-        LightData.LightTangent = LocalLight.LightTangentAndSoftSourceRadius.xyz;
+		LightData.Position = LocalLight.LightPositionAndInvRadius.xyz;
+		LightData.InvRadius = LocalLight.LightPositionAndInvRadius.w;
+		LightData.Color = LocalLight.LightColorAndFalloffExponent.xyz;
+		LightData.FalloffExponent = LocalLight.LightColorAndFalloffExponent.w;
+		LightData.Direction = LocalLight.LightDirectionAndShadowMask.xyz;
+		LightData.SpotAngles = LocalLight.SpotAnglesAndSourceRadiusPacked.xy;
+		LightData.SourceRadius = LocalLight.SpotAnglesAndSourceRadiusPacked.z;
+		LightData.SourceLength = f16tof32(asuint(LocalLight.SpotAnglesAndSourceRadiusPacked.w));
+        LightData.Tangent = LocalLight.LightTangentAndSoftSourceRadius.xyz;
         LightData.SoftSourceRadius = LocalLight.LightTangentAndSoftSourceRadius.w;
-		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+		LightData.bInverseSquared = LightData.FalloffExponent == 0;
 		LightData.bRadialLight = true;
-		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
+		LightData.bSpotLight = LightData.SpotAngles.x > -2.0f;
 		LightData.SpecularScale = SpecularScale;
 
 		uint PackedShadowMapChannelMask = asuint(LocalLight.LightDirectionAndShadowMask.w);
@@ -196,10 +202,10 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask >> 4);
 		float DynamicShadowing = dot(PreviewShadowMapChannelMask, DynamicShadowFactors);
 		float4 LightAttenuation = float4(1, 1, DynamicShadowing.x, DynamicShadowing.x);
-		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0)).xyz;
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), DeferredLightUniforms.SourceTexture).xyz;
 
 		FLATTEN
-		if ((PackedShadowMapChannelMask >> 8) & Primitive.LightingChannelMask)
+		if ((PackedShadowMapChannelMask >> 8) & LightingChannelMask)
 		{
 			DirectLighting += NewLighting;
 		}
@@ -251,9 +257,11 @@ float3 GetForwardDirectLightingForVertexLighting(uint GridIndex, float3 WorldPos
 		const FLocalLightData LocalLight = GetLocalLightData(CulledLightsGrid.DataStartIndex + LocalLightListIndex, EyeIndex);
 		 
 		FSimpleDeferredLightData LightData = (FSimpleDeferredLightData)0;
-		LightData.LightPositionAndInvRadius = LocalLight.LightPositionAndInvRadius;
-		LightData.LightColorAndFalloffExponent = LocalLight.LightColorAndFalloffExponent;
-		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+		LightData.Position = LocalLight.LightPositionAndInvRadius.xyz;
+		LightData.InvRadius = LocalLight.LightPositionAndInvRadius.w;
+		LightData.Color = LocalLight.LightColorAndFalloffExponent.xyz;
+		LightData.FalloffExponent = LocalLight.LightColorAndFalloffExponent.w;
+		LightData.bInverseSquared = LightData.FalloffExponent == 0;
 						
 		// No specular for vertex lighting
 		float3 CameraVector = 0;
@@ -284,7 +292,7 @@ uint MortonCode( uint x )
 #define REFLECTION_COMPOSITE_HAS_SPHERE_CAPTURES 1
 #include "ReflectionEnvironmentComposite.ush"
 
-half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex, uint EyeIndex)
+half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex, int SingleCaptureIndex, uint EyeIndex)
 {
 	float3 N = MaterialParameters.WorldNormal;
 	float3 V = MaterialParameters.CameraVector;
@@ -317,7 +325,18 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 	#endif
 #endif
 
-	float3 SpecularIBL = CompositeReflectionCapturesAndSkylight(1.0f, MaterialParameters.AbsoluteWorldPosition, RayDirection, Roughness, IndirectIrradiance, 1.0f, 0.0f, NumLocalReflectionCaptures, DataStartIndex, EyeIndex);
+	float3 SpecularIBL = CompositeReflectionCapturesAndSkylight(
+		1.0f, 
+		MaterialParameters.AbsoluteWorldPosition, 
+		RayDirection, 
+		Roughness, 
+		IndirectIrradiance, 
+		1.0f, 
+		0.0f, 
+		NumLocalReflectionCaptures, 
+		DataStartIndex, 
+		SingleCaptureIndex,
+		EyeIndex);
 
 	// Factors derived from EnvBRDFApprox( SpecularColor, 1, 1 ) == SpecularColor * 0.4524 - 0.0024
 	float3 SpecularBounce = 0.45f * SpecularColor * IndirectIrradiance;
@@ -372,7 +391,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 #if !FORWARD_SHADING || MATERIAL_PLANAR_FORWARD_REFLECTIONS
 	// Plane normal will be zero if the feature is disabled
 	BRANCH
-	if (abs(dot(ReflectionPlane.xyz, 1)) > .0001f)
+	if (abs(dot(PlanarReflectionStruct.ReflectionPlane.xyz, 1)) > .0001f)
 	{
 		// Reuse ReflectionCubemapSampler to avoid reducing the sampler count available to artists
 		float4 PlanarReflection = ComputePlanarReflections(MaterialParameters.AbsoluteWorldPosition, MaterialParameters.WorldNormal, Roughness, ReflectionStruct.ReflectionCubemapSampler);
@@ -384,7 +403,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 	return SpecularLighting * SpecularColor;
 }
 
-half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex)
+half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex, int SingleCaptureIndex)
 {
-	return GetImageBasedReflectionLighting(MaterialParameters, Roughness, SpecularColor, IndirectIrradiance, GridIndex, 0);
+	return GetImageBasedReflectionLighting(MaterialParameters, Roughness, SpecularColor, IndirectIrradiance, GridIndex, SingleCaptureIndex, 0);
 }

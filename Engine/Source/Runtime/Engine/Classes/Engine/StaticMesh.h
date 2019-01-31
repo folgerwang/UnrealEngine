@@ -642,7 +642,7 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	int32 LightMapResolution;
 
 	/** The light map coordinate index */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh, meta=(ToolTip="The light map coordinate index"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh, meta=(ToolTip="The light map coordinate index", UIMin = "0", UIMax = "3"))
 	int32 LightMapCoordinateIndex;
 
 	/** Useful for reducing self shadowing from distance field methods when using world position offset to animate the mesh's vertices. */

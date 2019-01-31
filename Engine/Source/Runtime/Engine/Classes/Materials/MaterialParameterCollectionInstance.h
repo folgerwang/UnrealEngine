@@ -51,7 +51,7 @@ class ENGINE_API UMaterialParameterCollectionInstance : public UObject
 
 	void UpdateRenderState();
 
-	void DeferredUpdateRenderState();
+	void DeferredUpdateRenderState(bool bUpdateScene = false);
 
 	/** Tracks whether this instance has ever issued a missing parameter warning, to reduce log spam. */
 	bool bLoggedMissingParameterWarning;

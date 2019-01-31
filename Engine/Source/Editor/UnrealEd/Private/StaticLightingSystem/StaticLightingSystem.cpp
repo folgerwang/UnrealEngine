@@ -760,6 +760,7 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 void FStaticLightingSystem::InvalidateStaticLighting()
 {
 	FLightmassStatistics::FScopedGather InvalidationScopeStat(LightmassStatistics.InvalidationTime);
+	FGlobalComponentRecreateRenderStateContext Context;
 
 	for( int32 LevelIndex=0; LevelIndex<World->GetNumLevels(); LevelIndex++ )
 	{
@@ -781,7 +782,7 @@ void FStaticLightingSystem::InvalidateStaticLighting()
 
 				if (Level->MapBuildData)
 				{
-					Level->MapBuildData->InvalidateStaticLighting(World, &BuildDataResourcesToKeep);
+					Level->MapBuildData->InvalidateStaticLighting(World, false, &BuildDataResourcesToKeep);
 				}
 			}
 			if (Level == World->PersistentLevel)
@@ -1244,8 +1245,6 @@ void FStaticLightingSystem::ApplyNewLightingData(bool bLightingSuccessful)
 			// Notify level about new lighting data
 			Level->OnApplyNewLightingData(bLightingSuccessful);
 
-			Level->InitializeRenderingResources();
-
 			if (World->PersistentLevel == Level)
 			{
 				Level->PrecomputedVisibilityHandler.UpdateScene(World->Scene);
@@ -1286,6 +1285,25 @@ void FStaticLightingSystem::ApplyNewLightingData(bool bLightingSuccessful)
 				Registry->LevelLightingQuality = Options.QualityLevel;
 				Registry->MarkPackageDirty();
 			}
+
+			Registry->SetupLightmapResourceClusters();
+
+			{
+				int32 NumMeshes = 0;
+				int32 NumClusters = 0;
+				Registry->GetLightmapResourceClusterStats(NumMeshes, NumClusters);
+
+				if (NumMeshes > 1)
+				{
+					const float Ratio = (float)NumMeshes / (float)NumClusters;
+					const FString StatsString = FString::Printf(TEXT("%s storing lightmap data for %u meshes in %u LightmapResourceClusters (%.1f Meshes per cluster)."),
+						*Registry->GetName(), NumMeshes, NumClusters, Ratio);
+
+					UE_LOG(LogStaticLightingSystem, Log, TEXT("%s"), *StatsString);
+				}
+			}
+
+			Level->InitializeRenderingResources();
 		}
 
 		// Ensure all primitives which were marked dirty by the lighting build are updated.

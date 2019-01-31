@@ -217,6 +217,9 @@ FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* V
 			Relevance |= Renderer->GetViewRelevance(View, this);
 		}
 	}
+
+	Relevance.bVelocityRelevance = IsMovable() && Relevance.bOpaqueRelevance && Relevance.bRenderInMainPass;
+
 	return Relevance;
 }
 
@@ -276,7 +279,18 @@ void FNiagaraSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 	}
 }
 
-
+#if RHI_RAYTRACING
+void FNiagaraSceneProxy::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
+{
+	for (NiagaraRenderer* Renderer : EmitterRenderers)
+	{
+		if (Renderer)
+		{
+			Renderer->GetRayTracingGeometryInstances(OutInstanceCollections);
+		}
+	}
+}
+#endif
 
 void FNiagaraSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const
 {

@@ -123,7 +123,7 @@ public:
 	TRefCountPtr<ID3D11DomainShader> DomainShader;
 	TRefCountPtr<ID3D11GeometryShader> GeometryShader;
 
-	bool bShaderNeedsGlobalConstantBuffer[SF_NumFrequencies];
+	bool bShaderNeedsGlobalConstantBuffer[SF_NumStandardFrequencies];
 
 
 	/** Initialization constructor. */

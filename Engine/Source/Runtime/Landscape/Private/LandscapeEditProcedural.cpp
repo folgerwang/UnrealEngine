@@ -1781,15 +1781,15 @@ void ALandscape::ResolveProceduralHeightmapTexture(bool InUpdateDDC)
 				Flags.SetMip(MipIndex);
 				FIntRect Rect(0, 0, MipSizeU, MipSizeV);
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-					ReadSurfaceCommand,
-					FTextureRHIRef, SourceTextureRHI, HeightmapRenderData.HeightmapsCPUReadBack->TextureRHI,
-					FIntRect, Rect, Rect,
-					TArray<FColor>*, OutData, &MipData[MipIndex],
-					FReadSurfaceDataFlags, ReadFlags, Flags,
-					{
-						RHICmdList.ReadSurfaceData(SourceTextureRHI, Rect, *OutData, ReadFlags);
-					});
+				{
+					TArray<FColor>* OutData = &MipData[MipIndex];
+					FTextureRHIRef SourceTextureRHI = HeightmapRenderData.HeightmapsCPUReadBack->TextureRHI;
+					ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+						[SourceTextureRHI, Rect, OutData, Flags](FRHICommandListImmediate& RHICmdList)
+						{
+							RHICmdList.ReadSurfaceData(SourceTextureRHI, Rect, *OutData, Flags);
+						});
+				}
 
 				MipSizeU >>= 1;
 				MipSizeV >>= 1;

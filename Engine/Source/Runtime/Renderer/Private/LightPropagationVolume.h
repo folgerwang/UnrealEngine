@@ -183,7 +183,7 @@ public:
 	const FIntVector& GetGridOffset() const { return mGridOffset; }
 
 	const FLpvReadUniformBufferParameters& GetReadUniformBufferParams()		{ return LpvReadUniformBufferParams; }
-	const FLpvWriteUniformBufferParameters& GetWriteUniformBufferParams()	{ return *LpvWriteUniformBufferParams; }
+	const FLpvWriteUniformBufferParameters& GetWriteUniformBufferParams() const	{ return *LpvWriteUniformBufferParams; }
 
 	FLpvWriteUniformBufferRef GetWriteUniformBuffer() const				{ return LpvWriteUniformBuffer.GetUniformBufferRef(); }
 	FLpvWriteUniformBufferRef GetRsmUniformBuffer() const				{ return RsmRenderUniformBuffer.GetUniformBufferRef(); }

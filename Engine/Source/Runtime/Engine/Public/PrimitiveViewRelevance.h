@@ -45,6 +45,8 @@ struct FPrimitiveViewRelevance
 	uint32 bDrawRelevance : 1;
 	/** The primitive is casting a shadow. */
 	uint32 bShadowRelevance : 1;
+	/** The primitive should render velocity. */
+	uint32 bVelocityRelevance : 1;
 	/** The primitive should render to the custom depth pass. */
 	uint32 bRenderCustomDepth : 1;
 	/** The primitive should render to the base pass / normal depth / velocity rendering. */
@@ -65,8 +67,10 @@ struct FPrimitiveViewRelevance
 	uint32 bUsesLightingChannels : 1;
 	/** */
 	uint32 bDecal : 1;
-	/** Whether the primitive has materals that use translucent surface lighting. */
+	/** Whether the primitive has materials that use translucent surface lighting. */
 	uint32 bTranslucentSurfaceLighting : 1;
+	/** Whether the primitive has materials that use volumetric translucent self shadow. */
+	uint32 bTranslucentSelfShadow : 1;
 	/** Whether the primitive has materials that read the scene depth. */
 	uint32 bUsesSceneDepth : 1;
 	/** Whether the view use custom data. */

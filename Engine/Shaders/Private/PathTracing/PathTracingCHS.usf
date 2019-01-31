@@ -1,0 +1,41 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "PathTracingDefinitions.ush"
+#include "../RayTracing/RayTracingCommon.ush"
+#include "../RayTracing/RayTracingHitGroupCommon.ush"
+
+struct FAttributes
+{
+	float2 Barycentrics;
+};
+
+[shader("closesthit")]
+void PathTracingMainCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FAttributes Attributes)
+{
+	FMaterialClosestHitPayload Payload = (FMaterialClosestHitPayload)0;
+
+	Payload.HitT			= 0.0;
+
+	Payload.Radiance		= float3(0.87, 0.21, 0.5);
+	Payload.WorldNormal		= float3(0.0, 0.0, 1.0);
+	Payload.BaseColor		= float3(0.87, 0.21, 0.5);
+	Payload.DiffuseColor	= float3(0.87, 0.21, 0.5);
+	Payload.SpecularColor	= float3(0.87, 0.21, 0.5);
+	Payload.Opacity			= 1.0;
+	Payload.Metallic		= 0.0;
+	Payload.Specular		= 0.0;
+	Payload.Roughness		= 1.0;
+	Payload.Ior				= 1.0;
+
+	Payload.ShadingModelID	= 0;
+	Payload.BlendingMode	= 0;
+	Payload.PrimitiveLightingChannelMask = 0;
+	Payload.CustomData		= float4(0.0, 0.0, 0.0, 0.0);
+	Payload.GBufferAO = 0.0;
+	Payload.IndirectIrradiance = 0.0;
+
+	Payload.WorldPos = float3(0.0, 0.0, 0.0);
+	Payload.HitKind = 0;
+
+    PackedPayload = PackRayTracingPayload(Payload, PackedPayload.RayCone);
+}

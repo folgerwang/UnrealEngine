@@ -534,6 +534,9 @@ FShadowMap2D::FShadowMap2D(TArray<FGuid> LightGuids)
 	}
 }
 
+UTexture2D* FShadowMap2D::GetTexture() { check(IsValid()); return Texture; }
+const UTexture2D* FShadowMap2D::GetTexture() const { check(IsValid()); return Texture; }
+
 void FShadowMap2D::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(Texture);
@@ -750,6 +753,10 @@ void FShadowMap2D::EncodeTextures(UWorld* InWorld, ULevel* LightingScenario, boo
 				MaxWidth = FMath::Max(MaxWidth, Allocation->MappedRect.Width());
 				MaxHeight = FMath::Max(MaxHeight, Allocation->MappedRect.Height());
 			}
+
+			// Assume bAlignByFour (see FTextureLayout::AddElement)
+			MaxWidth = (MaxWidth + 3) & ~3;
+			MaxHeight = (MaxHeight + 3) & ~3;
 
 			FShadowMapPendingTexture* Texture = nullptr;
 

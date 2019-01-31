@@ -82,9 +82,17 @@ public:
 
 
 
-	void ProcessES2(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bViewRectSource);
+	void ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, bool bViewRectSource);
 
 	void ProcessPlanarReflection(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT, TRefCountPtr<IPooledRenderTarget>& OutFilteredSceneColor);
+
+#if WITH_EDITOR
+	void AddSelectionOutline(FPostprocessContext& Context);
+#endif // WITH_EDITOR
+
+	void AddGammaOnlyTonemapper(FPostprocessContext& Context);
+
+	void OverrideRenderTarget(FRenderingCompositeOutputRef It, TRefCountPtr<IPooledRenderTarget>& RT, FPooledRenderTargetDesc& Desc);
 
 	// Returns whether the scene color's alpha channel is supported within the post processing.
 	static bool HasAlphaChannelSupport();

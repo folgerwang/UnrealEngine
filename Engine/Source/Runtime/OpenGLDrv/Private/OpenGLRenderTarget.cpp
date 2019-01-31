@@ -894,6 +894,47 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
+void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRect Rect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+{
+	VERIFY_GL_SCOPE();
+
+	// Verify requirements, but don't crash
+	if (!ensure(FOpenGL::SupportsFloatReadSurface()) || !ensure(TextureRHI) || !ensure(TextureRHI->GetFormat() == PF_A32B32G32R32F))
+	{
+		return;
+	}
+
+	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
+	if (!ensure(Texture))
+	{
+		return;
+	}
+
+	// Get framebuffer for texture
+	uint32 MipmapLevel = 0;
+	GLuint SourceFramebuffer = GetOpenGLFramebuffer(1, &Texture, NULL, &MipmapLevel, NULL);
+
+	uint32 SizeX = Rect.Width();
+	uint32 SizeY = Rect.Height();
+
+	// Initialize output
+	OutData.Empty(SizeX * SizeY);
+	OutData.AddUninitialized(SizeX * SizeY);
+
+	// Bind the framebuffer
+	// @TODO: Do we need to worry about multisampling?
+	glBindFramebuffer(UGL_READ_FRAMEBUFFER, SourceFramebuffer);
+	FOpenGL::ReadBuffer(SourceFramebuffer == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0);
+
+	// Read the float data from the buffer directly into the output data
+	// @TODO: Do we need to support BGRA?
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(Rect.Min.X, Rect.Min.Y, SizeX, SizeY, GL_RGBA, GL_FLOAT, OutData.GetData());
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+	GetContextStateForCurrentContext().Framebuffer = (GLuint)-1;
+}
+
 void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();

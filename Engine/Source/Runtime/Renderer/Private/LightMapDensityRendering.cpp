@@ -8,8 +8,7 @@
 #include "DeferredShadingRenderer.h"
 #include "LightMapRendering.h"
 #include "ScenePrivate.h"
-
-//-----------------------------------------------------------------------------
+#include "MeshPassProcessor.inl"
 
 #if !UE_BUILD_DOCS
 // Typedef is necessary because the C preprocessor thinks the comma in the template parameter list is a comma in the macro parameter list.
@@ -30,16 +29,38 @@
 	IMPLEMENT_DENSITY_VERTEXSHADER_TYPE(LightMapPolicyType,LightMapPolicyName) \
 	IMPLEMENT_DENSITY_PIXELSHADER_TYPE(LightMapPolicyType,LightMapPolicyName);
 
-IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, FNoLightMapPolicy );
-IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_DUMMY>, FDummyLightMapPolicy);
-IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>, TLightMapPolicyLQ );
-IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE( TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>, TLightMapPolicyHQ );
+IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, FNoLightMapPolicy);
+IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_DUMMY>, FDummyLightMapPolicy);
+IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>, TLightMapPolicyLQ);
+IMPLEMENT_DENSITY_LIGHTMAPPED_SHADER_TYPE(TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>, TLightMapPolicyHQ);
 
 #endif
 
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapDensityPassUniformParameters, "LightmapDensityPass");
+
+void SetupLightmapDensityPassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FLightmapDensityPassUniformParameters& LightmapDensityPassParameters)
+{
+	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
+	SetupSceneTextureUniformParameters(SceneRenderTargets, View.FeatureLevel, ESceneTextureSetupMode::None, LightmapDensityPassParameters.SceneTextures);
+	
+	LightmapDensityPassParameters.GridTexture = GEngine->LightMapDensityTexture->Resource->TextureRHI;
+	LightmapDensityPassParameters.GridTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+
+	LightmapDensityPassParameters.LightMapDensity = FVector4(
+			1.0f,
+			GEngine->MinLightMapDensity * GEngine->MinLightMapDensity,
+			GEngine->IdealLightMapDensity * GEngine->IdealLightMapDensity,
+			GEngine->MaxLightMapDensity * GEngine->MaxLightMapDensity);
+
+	LightmapDensityPassParameters.DensitySelectedColor = GEngine->LightMapDensitySelectedColor;
+
+	LightmapDensityPassParameters.VertexMappedColor = GEngine->LightMapDensityVertexMappedColor;
+}
+
 bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmediate& RHICmdList)
 {
-	bool bDirty=0;
+	bool bDirty = false;
+
 	if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, LightMapDensity);
@@ -51,152 +72,281 @@ bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmed
 
 			FViewInfo& View = Views[ViewIndex];
 
-			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-			FSceneTexturesUniformParameters SceneTextureParameters;
-			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+			Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
-			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+			FLightmapDensityPassUniformParameters LightmapDensityPassParameters;
+			SetupLightmapDensityPassUniformBuffer(RHICmdList, View, LightmapDensityPassParameters);
+			Scene->UniformBuffers.LightmapDensityPassUniformBuffer.UpdateUniformBufferImmediate(LightmapDensityPassParameters);
+
+			FMeshPassProcessorRenderState DrawRenderState(View, Scene->UniformBuffers.LightmapDensityPassUniformBuffer);
 
 			// Opaque blending, depth tests and writes.
 			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true,CF_DepthNearOrEqual>::GetRHI());
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 
-			{
-				SCOPED_DRAW_EVENT(RHICmdList, Dynamic);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::LightmapDensity].DispatchDraw(nullptr, RHICmdList);
 
-				FLightMapDensityDrawingPolicyFactory::ContextType Context;
-
-				for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
-				{
-					const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-					if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial() || ViewFamily.EngineShowFlags.Wireframe)
-					{
-						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-						FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-					}
-				}
-			}
+			bDirty = bDirty && View.ParallelMeshDrawCommandPasses[EMeshPass::LightmapDensity].HasAnyDraw();
 		}
 	}
 
 	return bDirty;
 }
 
-bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
-	FRHICommandList& RHICmdList, 
-	const FViewInfo& View,
-	ContextType DrawingContext,
-	const FMeshBatch& Mesh,
-	bool bPreFog,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	FHitProxyId HitProxyId
-	)
+
+template<typename LightMapPolicyType>
+void FLightmapDensityMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	int32 StaticMeshId,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	const LightMapPolicyType& RESTRICT LightMapPolicy,
+	const typename LightMapPolicyType::ElementDataType& RESTRICT LightMapElementData,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
 {
-	bool bDirty = false;
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 
-	const auto FeatureLevel = View.GetFeatureLevel();
-	const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
-	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
-	const EBlendMode BlendMode = Material->GetBlendMode();
-	FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-	DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
-	DrawRenderStateLocal.SetBlendState(TStaticBlendState<>::GetRHI());
+	TMeshProcessorShaders<
+		TLightMapDensityVS<LightMapPolicyType>,
+		TLightMapDensityHS<LightMapPolicyType>,
+		TLightMapDensityDS<LightMapPolicyType>,
+		TLightMapDensityPS<LightMapPolicyType>> LightmapDensityPassShaders;
 
-	const bool bMaterialMasked = Material->IsMasked();
-	const bool bMaterialModifiesMesh = Material->MaterialModifiesMeshPosition_RenderThread();
-	if (!bMaterialMasked && !bMaterialModifiesMesh)
+	const EMaterialTessellationMode MaterialTessellationMode = MaterialResource.GetTessellationMode();
+
+	const bool bNeedsHSDS = RHISupportsTessellation(GShaderPlatformForFeatureLevel[FeatureLevel])
+		&& VertexFactoryType->SupportsTessellationShaders()
+		&& MaterialTessellationMode != MTM_NoTessellation;
+
+	if (bNeedsHSDS)
 	{
-		// Override with the default material for opaque materials that are not two sided
-		MaterialRenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy(false);
+		LightmapDensityPassShaders.DomainShader = MaterialResource.GetShader<TLightMapDensityDS<LightMapPolicyType>>(VertexFactoryType);
+		LightmapDensityPassShaders.HullShader = MaterialResource.GetShader<TLightMapDensityHS<LightMapPolicyType>>(VertexFactoryType);
 	}
 
-	bool bIsLitMaterial = (Material->GetShadingModel() != MSM_Unlit);
-	/*const */FLightMapInteraction LightMapInteraction = (Mesh.LCI && bIsLitMaterial) ? Mesh.LCI->GetLightMapInteraction(FeatureLevel) : FLightMapInteraction();
-	// force simple lightmaps based on system settings
-	bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel) && LightMapInteraction.AllowsHighQualityLightmaps();
+	LightmapDensityPassShaders.VertexShader = MaterialResource.GetShader<TLightMapDensityVS<LightMapPolicyType>>(VertexFactoryType);
+	LightmapDensityPassShaders.PixelShader = MaterialResource.GetShader<TLightMapDensityPS<LightMapPolicyType>>(VertexFactoryType);
 
-	static const auto CVarSupportLowQualityLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportLowQualityLightmaps"));
-	const bool bAllowLowQualityLightMaps = (!CVarSupportLowQualityLightmaps) || (CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0);
+	TLightMapDensityElementData<LightMapPolicyType> ShaderElementData(LightMapElementData);
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
 
-	if (bIsLitMaterial && PrimitiveSceneProxy && (LightMapInteraction.GetType() == LMIT_Texture || (PrimitiveSceneProxy->IsStatic() && PrimitiveSceneProxy->GetLightMapResolution() > 0)))
-	{
-		// Should this object be texture lightmapped? Ie, is lighting not built for it??
-		bool bUseDummyLightMapPolicy = Mesh.LCI == NULL || Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetType() != LMIT_Texture;
+	{		
+		// BuiltLightingAndSelectedFlags informs the shader is lighting is built or not for this primitive
+		ShaderElementData.BuiltLightingAndSelectedFlags = FVector(0.0f, 0.0f, 0.0f);
+		// LightMapResolutionScale is the physical resolution of the lightmap texture
+		ShaderElementData.LightMapResolutionScale = FVector2D(1.0f, 1.0f);
 
-		//use dummy if we don't support either lightmap quality.
-		bUseDummyLightMapPolicy |= (!bAllowHighQualityLightMaps && !bAllowLowQualityLightMaps);
-		if (!bUseDummyLightMapPolicy)
+		bool bHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel);
+
+		ShaderElementData.bTextureMapped = false;
+
+		if (MeshBatch.LCI &&
+			MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetType() == LMIT_Texture &&
+			(MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps) || MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetVirtualTexture()))
 		{
-			if (bAllowHighQualityLightMaps)
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+			if (CVar->GetValueOnRenderThread() == 1)
 			{
-				TLightMapDensityDrawingPolicy< TUniformLightMapPolicy<LMP_HQ_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
-				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
-				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
+				const ULightMapVirtualTexture* VT = MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetVirtualTexture();
+				if (VT && VT->Space)
 				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderStateLocal,
-						Mesh.LCI,
-						TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
-						);
-					DrawingPolicy.DrawMesh(RHICmdList,View,Mesh,BatchElementIndex);
+					// We use the total Space size here as the Lightmap Scale/Bias is transformed to VT space
+					ShaderElementData.LightMapResolutionScale.X = VT->Space->Size * VT->Space->TileSize;
+					ShaderElementData.LightMapResolutionScale.Y = (VT->Space->Size * VT->Space->TileSize) * 2.0f; // Compensates the VT specific math in GetLightMapCoordinates (used to pack more coefficients per texture)
 				}
-				bDirty = true;
 			}
 			else
 			{
-				TLightMapDensityDrawingPolicy< TUniformLightMapPolicy<LMP_LQ_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
-				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
-				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderStateLocal,
-						Mesh.LCI,
-						TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
-						);
-					DrawingPolicy.DrawMesh(RHICmdList,View,Mesh,BatchElementIndex);
-				}
-				bDirty = true;
+				ShaderElementData.LightMapResolutionScale.X = MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeX();
+				ShaderElementData.LightMapResolutionScale.Y = MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeY();
 			}
+
+			ShaderElementData.bTextureMapped = true;
+
+			ShaderElementData.BuiltLightingAndSelectedFlags.X = 1.0f;
+			ShaderElementData.BuiltLightingAndSelectedFlags.Y = 0.0f;
+		}
+		else if (PrimitiveSceneProxy)
+		{
+			int32 LightMapResolution = PrimitiveSceneProxy->GetLightMapResolution();
+			if (PrimitiveSceneProxy->IsStatic() && LightMapResolution > 0)
+			{
+				ShaderElementData.bTextureMapped = true;
+				ShaderElementData.LightMapResolutionScale = FVector2D(LightMapResolution, LightMapResolution);
+				if (bHighQualityLightMaps)
+				{	// Compensates the math in GetLightMapCoordinates (used to pack more coefficients per texture)
+					ShaderElementData.LightMapResolutionScale.Y *= 2.f;
+				}
+				ShaderElementData.BuiltLightingAndSelectedFlags.X = 1.0f;
+				ShaderElementData.BuiltLightingAndSelectedFlags.Y = 0.0f;
+			}
+			else
+			{
+				ShaderElementData.LightMapResolutionScale = FVector2D(0, 0);
+				ShaderElementData.BuiltLightingAndSelectedFlags.X = 0.0f;
+				ShaderElementData.BuiltLightingAndSelectedFlags.Y = 1.0f;
+			}
+		}
+
+		if (PrimitiveSceneProxy && PrimitiveSceneProxy->IsSelected())
+		{
+			ShaderElementData.BuiltLightingAndSelectedFlags.Z = 1.0f;
 		}
 		else
 		{
-			TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_DUMMY> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_DUMMY>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
-			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy<FUniformLightMapPolicy >::ContextDataType());
-			for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-			{
-				DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderStateLocal,
-					Mesh.LCI,
-					TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
-					);
-				DrawingPolicy.DrawMesh(RHICmdList,View,Mesh,BatchElementIndex);
-			}
-			bDirty = true;
+			ShaderElementData.BuiltLightingAndSelectedFlags.Z = 0.0f;
 		}
-	}
-	else
-	{
-		TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_NO_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_NO_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
-		DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_NO_LIGHTMAP> >::ContextDataType());
-		for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-		{
-			DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderStateLocal,
-				Mesh.LCI,
-				TLightMapDensityDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
-				);
-			DrawingPolicy.DrawMesh(RHICmdList,View,Mesh,BatchElementIndex);
-		}
-		bDirty = true;
+
+		// Adjust for the grid texture being 2x2 repeating pattern...
+		ShaderElementData.LightMapResolutionScale *= 0.5f;
 	}
 
-	return bDirty;
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
+
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(LightmapDensityPassShaders.VertexShader, LightmapDensityPassShaders.PixelShader);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		MaterialRenderProxy,
+		MaterialResource,
+		PassDrawRenderState,
+		LightmapDensityPassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		1,
+		SortKey,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
 }
+
+void FLightmapDensityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
+{
+	if (FeatureLevel >= ERHIFeatureLevel::SM4 && ViewIfDynamicMeshCommand->Family->EngineShowFlags.LightMapDensity && AllowDebugViewmodes() && MeshBatch.bUseForMaterial)
+	{
+		// Determine the mesh's material and blend mode.
+		const FMaterialRenderProxy* MaterialRenderProxy = nullptr;
+		const FMaterial* Material = &MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, MaterialRenderProxy);
+		const bool bMaterialMasked = Material->IsMasked();
+		const bool bTranslucentBlendMode = IsTranslucentBlendMode(Material->GetBlendMode());
+		const bool bIsLitMaterial = Material->GetShadingModel() != MSM_Unlit;
+		const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *Material);
+		const ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, *Material);
+		const FLightMapInteraction LightMapInteraction = (MeshBatch.LCI && bIsLitMaterial) ? MeshBatch.LCI->GetLightMapInteraction(FeatureLevel) : FLightMapInteraction();
+
+		// Force simple lightmaps based on system settings.
+		bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel) && LightMapInteraction.AllowsHighQualityLightmaps();
+
+		static const auto CVarSupportLowQualityLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportLowQualityLightmaps"));
+		const bool bAllowLowQualityLightMaps = (!CVarSupportLowQualityLightmaps) || (CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0);
+
+		if (!bTranslucentBlendMode || ViewIfDynamicMeshCommand->Family->EngineShowFlags.Wireframe)
+		{
+			if (!bMaterialMasked && !Material->MaterialModifiesMeshPosition_RenderThread())
+			{
+				// Override with the default material for opaque materials that are not two sided
+				MaterialRenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy();
+				Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+			}
+
+			if (!MaterialRenderProxy)
+			{
+				MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
+			}
+
+			check(Material && MaterialRenderProxy);
+
+			if (bIsLitMaterial && PrimitiveSceneProxy && (LightMapInteraction.GetType() == LMIT_Texture || (PrimitiveSceneProxy->IsStatic() && PrimitiveSceneProxy->GetLightMapResolution() > 0)))
+			{
+				// Should this object be texture lightmapped? Ie, is lighting not built for it?
+				bool bUseDummyLightMapPolicy = MeshBatch.LCI == nullptr || MeshBatch.LCI->GetLightMapInteraction(FeatureLevel).GetType() != LMIT_Texture;
+
+				// Use dummy if we don't support either lightmap quality.
+				bUseDummyLightMapPolicy |= (!bAllowHighQualityLightMaps && !bAllowLowQualityLightMaps);
+				if (!bUseDummyLightMapPolicy)
+				{
+					if (bAllowHighQualityLightMaps)
+					{
+						Process<TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>>(
+							MeshBatch, 
+							BatchElementMask, 
+							PrimitiveSceneProxy, 
+							StaticMeshId,
+							*MaterialRenderProxy, 
+							*Material, 
+							TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>(), 
+							MeshBatch.LCI, 
+							MeshFillMode, 
+							MeshCullMode);
+					}
+					else
+					{
+						Process<TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>>(
+							MeshBatch, 
+							BatchElementMask, 
+							PrimitiveSceneProxy, 
+							StaticMeshId,
+							*MaterialRenderProxy, 
+							*Material, 
+							TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>(), 
+							MeshBatch.LCI, 
+							MeshFillMode, 
+							MeshCullMode);
+					}
+				}
+				else
+				{
+					Process<TUniformLightMapPolicy<LMP_DUMMY>>(
+						MeshBatch, 
+						BatchElementMask, 
+						PrimitiveSceneProxy, 
+						StaticMeshId,
+						*MaterialRenderProxy, 
+						*Material, 
+						TUniformLightMapPolicy<LMP_DUMMY>(), 
+						MeshBatch.LCI, 
+						MeshFillMode, 
+						MeshCullMode);
+				}
+			}
+			else
+			{
+				Process<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>>(
+					MeshBatch, 
+					BatchElementMask, 
+					PrimitiveSceneProxy, 
+					StaticMeshId,
+					*MaterialRenderProxy, 
+					*Material, 
+					TUniformLightMapPolicy<LMP_NO_LIGHTMAP>(), 
+					MeshBatch.LCI, 
+					MeshFillMode, 
+					MeshCullMode);
+			}
+		}
+	}
+}
+
+FLightmapDensityMeshProcessor::FLightmapDensityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+{
+	// Opaque blending, depth tests and writes.
+	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
+
+	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.LightmapDensityPassUniformBuffer);
+}
+
+FMeshPassProcessor* CreateLightmapDensityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
+{
+	return new(FMemStack::Get()) FLightmapDensityMeshProcessor(Scene, InViewIfDynamicMeshCommand, InDrawListContext);
+}
+
+FRegisterPassProcessorCreateFunction RegisterLightmapDensityPass(&CreateLightmapDensityPassProcessor, EShadingPath::Deferred, EMeshPass::LightmapDensity, EMeshPassFlags::MainView);

@@ -40,7 +40,7 @@ DECLARE_ISBOUNDSHADER(DomainShader)
 DECLARE_ISBOUNDSHADER(ComputeShader)
 
 
-#if DO_CHECK
+#if DO_GUARD_SLOW
 #define VALIDATE_BOUND_SHADER(s) ValidateBoundShader(StateCache, s)
 #else
 #define VALIDATE_BOUND_SHADER(s)
@@ -317,7 +317,7 @@ void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Boun
 	// Shader changed.  All UB's must be reset by high level code to match other platforms anway.
 	// Clear to catch those bugs, and bugs with stale UB's causing layout mismatches.
 	// Release references to bound uniform buffers.
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 	{
 		for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 		{
@@ -1521,7 +1521,7 @@ void FD3D11DynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader)
 				FString ResourcesString;
 				for (int32 Index = 0; Index < BufferLayout.Resources.Num(); ++Index)
 				{
-					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index]);
+					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index].MemberType);
 				}
 				UE_LOG(LogD3D11RHI, Error, TEXT("Layout CB Size %d %d Resources: %s"), BufferLayout.ConstantBufferSize, BufferLayout.Resources.Num(), *ResourcesString);
 #else
@@ -1926,27 +1926,41 @@ void FD3D11DynamicRHI::EnableDepthBoundsTest(bool bEnable,float MinDepth,float M
 
 	if (IsRHIDeviceNVIDIA())
 	{
-		auto result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
-		if(result != NVAPI_OK)
+		auto Result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
+		if (Result != NVAPI_OK)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}
 	else if (IsRHIDeviceAMD())
 	{
-		auto result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
-		if(result != AGS_SUCCESS)
+		auto Result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
+		if(Result != AGS_SUCCESS)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("AGS is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}

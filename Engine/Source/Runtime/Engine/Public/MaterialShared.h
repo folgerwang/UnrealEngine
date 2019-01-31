@@ -266,7 +266,7 @@ public:
 
 	FMaterialUniformExpressionTexture();
 
-	FMaterialUniformExpressionTexture(int32 InTextureIndex, ESamplerSourceMode InSamplerSource);
+	FMaterialUniformExpressionTexture(int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSamplerSource);
 
 	// FMaterialUniformExpression interface.
 	virtual void Serialize(FArchive& Ar);
@@ -274,6 +274,7 @@ public:
 	/** Accesses the texture used for rendering this uniform expression. */
 	virtual void GetGameThreadTextureValue(const class UMaterialInterface* MaterialInterface,const FMaterial& Material,UTexture*& OutValue,bool bAllowOverride=true) const;
 	virtual class FMaterialUniformExpressionTexture* GetTextureUniformExpression() { return this; }
+	virtual class FMaterialUniformExpressionTextureParameter* GetTextureParameterUniformExpression() { return nullptr; }
 	void SetTransientOverrideTextureValue( UTexture* InOverrideTexture );
 
 	virtual bool IsConstant() const
@@ -286,9 +287,17 @@ public:
 
 	int32 GetTextureIndex() const { return TextureIndex; }
 
+#if WITH_EDITORONLY_DATA
+	EMaterialSamplerType GetSamplerType() const { return SamplerType; }
+#endif
+
 protected:
 	/** Index into FMaterial::GetReferencedTextures */
 	int32 TextureIndex;
+#if WITH_EDITORONLY_DATA
+	/** Sampler type of the expression that generated this */
+	EMaterialSamplerType SamplerType;
+#endif
 	ESamplerSourceMode SamplerSource;
 	/** Texture that may be used in the editor for overriding the texture but never saved to disk, accessible only by the game thread! */
 	UTexture* TransientOverrideValue_GameThread;
@@ -307,6 +316,8 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual bool IsConstant() const override { return false; }
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override;
+
+	int32 GetSourceTextureIndex() const { return SourceTextureIndex; }
 
 protected:
 
@@ -332,6 +343,7 @@ public:
 
 	// FMaterialUniformExpression interface.
 	virtual FMaterialUniformExpressionExternalTexture* GetExternalTextureUniformExpression() override { return this; }
+	virtual class FMaterialUniformExpressionExternalTextureParameter* GetExternalTextureParameterUniformExpression() { return nullptr; }
 
 	// Lookup the external texture if it is set
 	virtual bool GetExternalTexture(const FMaterialRenderContext& Context, FTextureRHIRef& OutTextureRHI, FSamplerStateRHIRef& OutSamplerStateRHI) const;
@@ -358,7 +370,7 @@ public:
 	void CreateBufferStruct();
 	ENGINE_API const FShaderParametersMetadata& GetUniformBufferStruct() const;
 
-	ENGINE_API FUniformBufferRHIRef CreateUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, FRHICommandList* CommandListIfLocalMode, struct FLocalUniformBuffer* OutLocalUniformBuffer) const;
+	ENGINE_API void FillUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, void* TempBuffer) const;
 
 	uint32 GetAllocatedSize() const
 	{
@@ -413,7 +425,8 @@ public:
 		bUsesGlobalDistanceField(false),
 		bUsesPixelDepthOffset(false),
 		bUsesSceneDepthLookup(false),
-		bUsesVelocitySceneTexture(false)
+		bUsesVelocitySceneTexture(false),
+		bUsesDistanceCullFade(false)
 	{}
 
 	ENGINE_API void Serialize(FArchive& Ar);
@@ -459,6 +472,8 @@ public:
 
 	/** true if the material uses the Velocity SceneTexture lookup */
 	bool bUsesVelocitySceneTexture;
+	/** true if the material uses distance cull fade */
+	bool bUsesDistanceCullFade;
 };
 
 /** 
@@ -487,8 +502,7 @@ namespace EMaterialShaderMapUsage
 		MaterialExportOpacity,
 		MaterialExportOpacityMask,
 		MaterialExportSubSurfaceColor,
-		DebugViewModeTexCoordScale,
-		DebugViewModeRequiredTextureResolution
+		DebugViewMode,
 	};
 }
 
@@ -872,6 +886,7 @@ public:
 	bool UsesPixelDepthOffset() const { return MaterialCompilationOutput.bUsesPixelDepthOffset; }
 	bool UsesSceneDepthLookup() const { return MaterialCompilationOutput.bUsesSceneDepthLookup; }
 	bool UsesVelocitySceneTexture() const { return MaterialCompilationOutput.bUsesVelocitySceneTexture; }
+	bool UsesDistanceCullFade() const { return MaterialCompilationOutput.bUsesDistanceCullFade; }
 	uint32 GetNumUsedUVScalars() const { return MaterialCompilationOutput.NumUsedUVScalars; }
 	uint32 GetNumUsedCustomInterpolatorScalars() const { return MaterialCompilationOutput.NumUsedCustomInterpolatorScalars; }
 	void GetEstimatedNumTextureSamples(uint32& VSSamples, uint32& PSSamples) const { VSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesVS; PSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesPS; }
@@ -1352,6 +1367,9 @@ public:
 	/** Does the material use a pixel depth offset. */
 	ENGINE_API bool MaterialUsesPixelDepthOffset() const;
 
+	/** Does the material use a distance cull fade. */
+	ENGINE_API bool MaterialUsesDistanceCullFade_GameThread() const;
+
 	/** Does the material use a SceneDepth lookup. */
 	ENGINE_API bool MaterialUsesSceneDepthLookup_RenderThread() const;
 	ENGINE_API bool MaterialUsesSceneDepthLookup_GameThread() const;
@@ -1654,9 +1672,6 @@ public:
 	/** Default constructor. */
 	ENGINE_API FMaterialRenderProxy();
 
-	/** Initialization constructor. */
-	ENGINE_API FMaterialRenderProxy(bool bInSelected, bool bInHovered);
-
 	/** Destructor. */
 	ENGINE_API virtual ~FMaterialRenderProxy();
 
@@ -1670,37 +1685,42 @@ public:
 	/**
 	 * Caches uniform expressions for efficient runtime evaluation.
 	 */
-	void ENGINE_API CacheUniformExpressions();
+	void ENGINE_API CacheUniformExpressions(bool bRecreateUniformBuffer);
 
 	/**
 	 * Enqueues a rendering command to cache uniform expressions for efficient runtime evaluation.
+	 * bRecreateUniformBuffer - whether to recreate the material uniform buffer.  
+	 *		This is required if the FMaterial is being recompiled (the uniform buffer layout will change).
+	 *		This should only be done if the calling code is using FMaterialUpdateContext to recreate the rendering state of primitives using this material, since cached mesh commands also cache uniform buffer pointers.
 	 */
-	void ENGINE_API CacheUniformExpressions_GameThread();
+	void ENGINE_API CacheUniformExpressions_GameThread(bool bRecreateUniformBuffer);
 
 	/**
 	 * Invalidates the uniform expression cache.
 	 */
-	void ENGINE_API InvalidateUniformExpressionCache();
+	void ENGINE_API InvalidateUniformExpressionCache(bool bRecreateUniformBuffer);
+
+	void ENGINE_API UpdateUniformExpressionCacheIfNeeded(ERHIFeatureLevel::Type InFeatureLevel) const;
 
 	// These functions should only be called by the rendering thread.
 	/** Returns the effective FMaterial, which can be a fallback if this material's shader map is invalid.  Always returns a valid material pointer. */
 	const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
 	{
-		const FMaterialRenderProxy* Unused;
-		const FMaterial* OutMaterial = nullptr;
-		GetMaterialWithFallback(InFeatureLevel, Unused, OutMaterial);
-		return OutMaterial;
+		const FMaterialRenderProxy* Unused = nullptr;
+		return &GetMaterialWithFallback(InFeatureLevel, Unused);
 	}
 	
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const = 0;
+	/** 
+	 * Finds the FMaterial to use for rendering this FMaterialRenderProxy.  Will fall back to a default material if needed due to a content error, or async compilation.
+	 * OutFallbackMaterialRenderProxy - if valid, the default material had to be used and OutFallbackMaterialRenderProxy should be used for rendering.
+	 */
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const = 0;
 	/** Returns the FMaterial, without using a fallback if the FMaterial doesn't have a valid shader map. Can return NULL. */
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const { return NULL; }
 	virtual UMaterialInterface* GetMaterialInterface() const { return NULL; }
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const = 0;
 	virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const = 0;
 	virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const = 0;
-	bool IsSelected() const { return bSelected; }
-	bool IsHovered() const { return bHovered; }
 	bool IsDeleted() const
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1723,29 +1743,6 @@ public:
 	void SetSubsurfaceProfileRT(const USubsurfaceProfile* Ptr) { SubsurfaceProfileRT = Ptr; }
 	const USubsurfaceProfile* GetSubsurfaceProfileRT() const { return SubsurfaceProfileRT; }
 
-	void SetReferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		bIsStaticDrawListReferenced = 1;
-#endif
-	}
-
-	void SetUnreferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		bIsStaticDrawListReferenced = 0;
-#endif
-	}
-
-	bool IsReferencedInDrawList() const
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		return bIsStaticDrawListReferenced != 0;
-#else
-		return false;
-#endif
-	}
-
 	ENGINE_API static void UpdateDeferredCachedUniformExpressions();
 
 	static inline bool HasDeferredUniformExpressionCacheRequests() 
@@ -1755,17 +1752,12 @@ public:
 
 private:
 
-	/** true if the material is selected. */
-	bool bSelected : 1;
-	/** true if the material is hovered. */
-	bool bHovered : 1;
 	/** 0 if not set, game thread pointer, do not dereference, only for comparison */
 	const USubsurfaceProfile* SubsurfaceProfileRT;
 
 	/** For tracking down a bug accessing a deleted proxy. */
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	mutable int32 DeletedFlag : 1;
-	mutable int32 bIsStaticDrawListReferenced : 1;
 #endif
 
 	/** 
@@ -1796,7 +1788,7 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	ENGINE_API virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const;
+	ENGINE_API virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const;
 	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
 	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
@@ -1819,36 +1811,6 @@ public:
 	// FMaterialRenderProxy interface.
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
 };
-
-
-/**
- * A material render proxy which overrides the selection color
- */
-class FOverrideSelectionColorMaterialRenderProxy : public FMaterialRenderProxy
-{
-public:
-
-	const FMaterialRenderProxy* const Parent;
-	const FLinearColor SelectionColor;
-
-	/** Initialization constructor. */
-	FOverrideSelectionColorMaterialRenderProxy(const FMaterialRenderProxy* InParent,const FLinearColor& InSelectionColor) :
-		Parent(InParent), 
-		SelectionColor(InSelectionColor)
-	{}
-
-	// FMaterialRenderProxy interface.
-	ENGINE_API virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const;
-	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
-};
-
-
-
-
-
-
 
 /**
  * @return True if BlendMode is translucent (should be part of the translucent rendering).
@@ -2408,6 +2370,9 @@ private:
 		EMaterialQualityLevel::Type QualityLevel,
 		bool bSeekToEnd = false);
 };
+
+/** Sets shader maps on the specified materials without blocking. */
+extern ENGINE_API void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate);
 
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 bool HasMaterialResource(

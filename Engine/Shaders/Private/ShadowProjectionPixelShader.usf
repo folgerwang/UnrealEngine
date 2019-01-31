@@ -154,7 +154,7 @@ void Main(
 		#if SPOT_LIGHT_PCSS
 		{
 			float CotanOuterCone = DeferredLightUniforms.SpotAngles.x * rsqrt(1. - DeferredLightUniforms.SpotAngles.x * DeferredLightUniforms.SpotAngles.x);
-			float WorldLightDistance = dot(DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.LightPosition - WorldPosition);
+			float WorldLightDistance = dot(DeferredLightUniforms.Direction, DeferredLightUniforms.Position - WorldPosition);
 			Settings.ProjectedSourceRadius = 0.5 * DeferredLightUniforms.SourceRadius * CotanOuterCone / WorldLightDistance;
 			Settings.TanLightSourceAngle = 0;
 		}

@@ -25,6 +25,11 @@ class FResourceBulkDataInterface;
 /** The alignment in bytes between elements of array shader parameters. */
 #define SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT 16
 
+// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
+// Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
+#define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
+static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
+
 
 /** RHI Logging. */
 RHI_API DECLARE_LOG_CATEGORY_EXTERN(LogRHI,Log,VeryVerbose);
@@ -125,7 +130,7 @@ inline bool RHISupportsInstancedStereo(const EShaderPlatform Platform)
 inline bool RHISupportsMultiView(const EShaderPlatform Platform)
 {
 	// Only PS4 and Metal SM5 from 10.13 onward supports Multi-View
-	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS) && RHIGetShaderLanguageVersion(Platform) >= 3);
+	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS));
 }
 
 inline bool RHISupportsMSAA(EShaderPlatform Platform)
@@ -145,12 +150,7 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
 {
-#if PLATFORM_MAC || PLATFORM_IOS
-	// Fixed from Metal v.2.0 onward.
-	return !IsMetalPlatform(Platform) || RHIGetShaderLanguageVersion(Platform) >= 3;
-#else
 	return true;
-#endif
 }
 
 /** Whether the platform supports reading from volume textures (does not cover rendering to volume textures). */
@@ -175,8 +175,34 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 	Shader Platform must not use the mobile renderer, and for Metal, the shader language must be at least 2. */
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
-	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
+	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform);
 }
+
+/** 
+ * Returns true if SV_VertexID contains BaseVertexIndex passed to the draw call, false if shaders must manually construct an absolute VertexID.
+ */
+inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
+{
+	return IsVulkanPlatform(InShaderPlatform) || IsVulkanMobilePlatform(InShaderPlatform);
+}
+
+/** Can this platform compile ray tracing shaders (regardless of project settings).
+ *  To use at runtime, also check GRHISupportsRayTracing and r.RayTracing CVar (see IsRayTracingEnabled() helper).
+ **/
+inline RHI_API bool RHISupportsRayTracingShaders(EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5;
+}
+
+/** Can this platform compile shaders that use shader model 6.0 wave intrinsics.
+ *  To use such shaders at runtime, also check GRHISupportsWaveOperations.
+ **/
+inline RHI_API bool RHISupportsWaveOperations(EShaderPlatform Platform)
+{
+	// Currently SM6 shaders are treated as an extension of SM5.
+	return Platform == SP_PCD3D_SM5;
+}
+
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
@@ -436,11 +462,17 @@ extern RHI_API TRHIGlobal<bool> GRHISupportsInstancing;
 /** True if the RHI supports copying cubemap faces using CopyToResolveTarget */
 extern RHI_API bool GRHISupportsResolveCubemapFaces;
 
-/** Whether or not the RHI can handle a non-zero FirstInstance - extra SetStreamSource calls will be needed if this is false */
+/** Whether or not the RHI can handle a non-zero FirstInstance to DrawIndexedPrimitive and friends - extra SetStreamSource calls will be needed if this is false */
 extern RHI_API bool GRHISupportsFirstInstance;
 
 /** Whether or not the RHI can handle dynamic resolution or not. */
 extern RHI_API bool GRHISupportsDynamicResolution;
+
+/** Whether or not the RHI supports ray tracing on current hardware (acceleration structure building and new ray tracing-specific shader types). */
+extern RHI_API bool GRHISupportsRayTracing;
+
+/** Whether or not the RHI supports shader wave operations (shader model 6.0). */
+extern RHI_API bool GRHISupportsWaveOperations;
 
 /** Whether or not the RHI supports an RHI thread.
 Requirements for RHI thread
@@ -1544,6 +1576,7 @@ extern RHI_API void RHIExit();
 #define GETSAFERHISHADER_DOMAIN(Shader) ((Shader) ? (Shader)->GetDomainShader() : (FDomainShaderRHIParamRef)FDomainShaderRHIRef())
 #define GETSAFERHISHADER_GEOMETRY(Shader) ((Shader) ? (Shader)->GetGeometryShader() : (FGeometryShaderRHIParamRef)FGeometryShaderRHIRef())
 #define GETSAFERHISHADER_COMPUTE(Shader) ((Shader) ? (Shader)->GetComputeShader() : (FComputeShaderRHIParamRef)FComputeShaderRHIRef())
+#define GETSAFERHISHADER_RAYTRACING(Shader) ((Shader) ? (Shader)->GetRayTracingShader() : (FRayTracingShaderRHIParamRef)FRayTracingShaderRHIRef())
 
 
 // Panic delegate is called when when a fatal condition is encountered within RHI function.

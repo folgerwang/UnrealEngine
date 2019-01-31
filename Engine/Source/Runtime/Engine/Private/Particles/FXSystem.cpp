@@ -26,12 +26,11 @@ FFXSystemInterface* FFXSystemInterface::Create(ERHIFeatureLevel::Type InFeatureL
 
 void FFXSystemInterface::Destroy( FFXSystemInterface* FXSystem )
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FDestroyFXSystemCommand,
-		FFXSystemInterface*, FXSystem, FXSystem,
-	{
-		delete FXSystem;
-	});
+	ENQUEUE_RENDER_COMMAND(FDestroyFXSystemCommand)(
+		[FXSystem](FRHICommandList& RHICmdList)
+		{
+			delete FXSystem;
+		});
 }
 
 FFXSystemInterface::~FFXSystemInterface()

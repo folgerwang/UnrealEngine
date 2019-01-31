@@ -177,7 +177,7 @@ public:
 					}
 					else if (IsHovered())
 					{
-						ColorToUse = FLinearColor::White + (GEngine->GetHoveredMaterialColor() * GEngine->HoverHighlightIntensity * 10);
+						ColorToUse = FLinearColor::White + (GEngine->GetHoveredMaterialColor() * GEngine->SelectionHighlightIntensityBillboards * 10);
 					}
 
 					// Sprites of locked actors draw in red.

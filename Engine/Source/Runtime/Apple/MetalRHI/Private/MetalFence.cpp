@@ -97,6 +97,29 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugFence)
 @end
 
 #if METAL_DEBUG_OPTIONS
+extern int32 GMetalRuntimeDebugLevel;
+#endif
+
+uint32 FMetalFence::Release() const
+{
+	uint32 Refs = uint32(FPlatformAtomics::InterlockedDecrement(&NumRefs));
+	if(Refs == 0)
+	{
+#if METAL_DEBUG_OPTIONS // When using validation we need to use fences only once per-frame in order to make it tractable
+		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
+		{
+			SafeReleaseMetalFence(const_cast<FMetalFence*>(this));
+		}
+		else // However in a final game, we need to reuse fences aggressively so that we don't run out when loading into projects
+#endif
+		{
+			FMetalFencePool::Get().ReleaseFence(const_cast<FMetalFence*>(this));
+		}
+	}
+	return Refs;
+}
+
+#if METAL_DEBUG_OPTIONS
 void FMetalFence::Validate(void) const
 {
 	if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation && Get(mtlpp::RenderStages::Vertex))
@@ -108,11 +131,6 @@ void FMetalFence::Validate(void) const
 		}
 	}
 }
-#endif
-
-FMetalFencePool FMetalFencePool::sSelf;
-#if METAL_DEBUG_OPTIONS
-extern int32 GMetalRuntimeDebugLevel;
 #endif
 
 void FMetalFencePool::Initialise(mtlpp::Device const& InDevice)
@@ -149,9 +167,7 @@ void FMetalFencePool::Initialise(mtlpp::Device const& InDevice)
 		}
 	}
 	Count = FMetalFencePool::NumFences;
-#if METAL_DEBUG_OPTIONS
     Allocated = 0;
-#endif
 }
 
 FMetalFence* FMetalFencePool::AllocateFence()
@@ -161,8 +177,8 @@ FMetalFence* FMetalFencePool::AllocateFence()
 	{
         INC_DWORD_STAT(STAT_MetalFenceCount);
         FPlatformAtomics::InterlockedDecrement(&Count);
-#if METAL_DEBUG_OPTIONS
         FPlatformAtomics::InterlockedIncrement(&Allocated);
+#if METAL_DEBUG_OPTIONS
 		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);
@@ -196,8 +212,8 @@ void FMetalFencePool::ReleaseFence(FMetalFence* const InFence)
 	if (InFence)
 	{
         DEC_DWORD_STAT(STAT_MetalFenceCount);
-#if METAL_DEBUG_OPTIONS
         FPlatformAtomics::InterlockedDecrement(&Allocated);
+#if METAL_DEBUG_OPTIONS
 		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);

@@ -181,8 +181,9 @@ void UMediaTexture::BeginDestroy()
 
 	if (CurrentGuid.IsValid())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MediaTextureUnregisterGuid,
-			FGuid, Guid, CurrentGuid,
+		FGuid Guid = CurrentGuid;
+		ENQUEUE_RENDER_COMMAND(MediaTextureUnregisterGuid)(
+			[Guid](FRHICommandList& RHICmdList)
 			{
 				FExternalTextureRegistry::Get().UnregisterExternalTexture(Guid);
 			});

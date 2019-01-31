@@ -9,123 +9,67 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 #include "HitProxies.h"
-#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 class FPrimitiveSceneProxy;
 class FScene;
-class FStaticMesh;
-
-/**
- * Outputs no color, but can be used to write the mesh's depth values to the depth buffer.
- */
-class FHitProxyDrawingPolicy : public FMeshDrawingPolicy
-{
-public:
-
-	typedef FHitProxyId ElementDataType;
-
-	FHitProxyDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		ERHIFeatureLevel::Type InFeatureLevel,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
-		);
-
-	// FMeshDrawingPolicy interface.
-	FDrawingPolicyMatchResult Matches(const FHitProxyDrawingPolicy& Other, bool bForReals = false) const
-	{
-		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-			DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
-			DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
-			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-		DRAWING_POLICY_MATCH_END
-	}
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const;
-
-	/** 
-	* Create bound shader state using the vertex decl from the mesh draw policy
-	* as well as the shaders needed to draw the mesh
-	* @return new bound shader state object
-	*/
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const;
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FHitProxyId HitProxyId,
-		const ContextDataType PolicyContext
-		) const;
-
-private:
-	class FHitProxyVS* VertexShader;
-	class FHitProxyPS* PixelShader;
-	class FHitProxyHS* HullShader;
-	class FHitProxyDS* DomainShader;
-};
+class FStaticMeshBatch;
 
 #if WITH_EDITOR
-class FEditorSelectionDrawingPolicy : public FHitProxyDrawingPolicy
+
+class FHitProxyMeshProcessor : public FMeshPassProcessor
 {
 public:
-	FEditorSelectionDrawingPolicy(const FVertexFactory* InVertexFactory, const FMaterialRenderProxy* InMaterialRenderProxy, ERHIFeatureLevel::Type InFeatureLevel, const FMeshDrawingPolicyOverrideSettings& InOverrideSettings)
-		: FHitProxyDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InFeatureLevel, InOverrideSettings)
-	{}
 
-	// FMeshDrawingPolicy interface.
-	void SetMeshRenderState( FRHICommandList& RHICmdList, const FSceneView& View, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh, int32 BatchElementIndex, const FDrawingPolicyRenderState& DrawRenderState, const FHitProxyId HitProxyId, const ContextDataType PolicyContext );
-	
-	void SetupPipelineState(FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View) const;
+	FHitProxyMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, bool InbAllowTranslucentPrimitivesInHitProxy, const FMeshPassProcessorRenderState& InRenderState, FMeshPassDrawListContext* InDrawListContext);
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext) const;
-	
-	/**
-	 * Gets the value that should be written into the editor selection stencil buffer for a given primitive
-	 * There will be a unique stencil value for each primitive until the max stencil buffer value is written and then the values will repeat
-	 *
-	 * @param View					The view being rendered
-	 * @param PrimitiveSceneProxy	The scene proxy for the primitive being rendered
-	 * @return the stencil value that should be written
-	 */
-	static int32 GetStencilValue(const FSceneView& View, const FPrimitiveSceneProxy* PrimitiveSceneProxy);
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 
-	/**
-	 * Resets all unique stencil values
-	 */
-	static void ResetStencilValues();
+	FMeshPassProcessorRenderState PassDrawRenderState;
+
 
 private:
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		int32 StaticMeshId,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
+
+	const bool bAllowTranslucentPrimitivesInHitProxy;
+};
+
+
+class FEditorSelectionMeshProcessor : public FMeshPassProcessor
+{
+public:
+
+	FEditorSelectionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
+
+	FMeshPassProcessorRenderState PassDrawRenderState;
+
+private:
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		int32 StaticMeshId,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
+
+	int32 GetStencilValue(const FSceneView* View, const FPrimitiveSceneProxy* PrimitiveSceneProxy);
+
 	/** This map is needed to ensure that individually selected proxies rendered more than once a frame (if they have multiple sections) share a common outline */
 	static TMap<const FPrimitiveSceneProxy*, int32> ProxyToStencilIndex;
 	/** This map is needed to ensure that proxies rendered more than once a frame (if they have multiple sections) share a common outline */
 	static TMap<FName, int32> ActorNameToStencilIndex;
 };
+
 #endif
-
-/**
- * A drawing policy factory for the hit proxy drawing policy.
- */
-class FHitProxyDrawingPolicyFactory
-{
-public:
-
-	enum { bAllowSimpleElements = true };
-	struct ContextType {};
-
-	static void AddStaticMesh(FScene* Scene,FStaticMesh* StaticMesh,ContextType DrawingContext = ContextType());
-	static bool DrawDynamicMesh(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-		);
-};

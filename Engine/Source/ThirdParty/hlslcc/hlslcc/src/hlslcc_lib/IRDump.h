@@ -48,8 +48,9 @@ public:
    /*@}*/
 
 private:
-   void PrintID( ir_instruction* ir );
-   void PrintType( const glsl_type* Type );
+   static void PrintID( ir_instruction* ir );
+   static void PrintIDVar(ir_instruction* ir, ir_variable* Var);
+   static void PrintType( const glsl_type* Type );
    std::string GetVarName( ir_variable* var );
    void PrintBlockWithScope( exec_list& ir );
    typedef std::map<ir_variable*, std::string, ir_variable_compare> TNameMap;

@@ -294,12 +294,14 @@ public:
 
 	FMaterialUniformExpressionTextureParameter() {}
 
-	FMaterialUniformExpressionTextureParameter(const FMaterialParameterInfo& InParameterInfo, int32 InTextureIndex, ESamplerSourceMode InSourceMode) :
-		Super(InTextureIndex, InSourceMode),
+	FMaterialUniformExpressionTextureParameter(const FMaterialParameterInfo& InParameterInfo, int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSourceMode) :
+		Super(InTextureIndex, InSamplerType, InSourceMode),
 		ParameterInfo(InParameterInfo)
 	{}
 
 	// FMaterialUniformExpression interface.
+	virtual class FMaterialUniformExpressionTextureParameter* GetTextureParameterUniformExpression() override { return this; }
+
 	virtual void Serialize(FArchive& Ar)
 	{
 		Ar << ParameterInfo;
@@ -416,6 +418,12 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override;
 	virtual bool GetExternalTexture(const FMaterialRenderContext& Context, FTextureRHIRef& OutTextureRHI, FSamplerStateRHIRef& OutSamplerStateRHI) const override;
+	virtual FMaterialUniformExpressionExternalTextureParameter* GetExternalTextureParameterUniformExpression() override { return this; }
+
+	FName GetParameterName() const
+	{
+		return ParameterName;
+	}
 
 private:
 	FName ParameterName;
@@ -1206,15 +1214,6 @@ public:
 		// At least one proper index
 		check(InR >= 0 && InR <= 3);
 		++NumElements;
-
-		if (NumElements == 1)
-		{
-			// Replicate scalar
-			IndexG = IndexR;
-			IndexB = IndexR;
-			IndexA = IndexR;
-			NumElements = 4;
-		}
 	}
 
 	// FMaterialUniformExpression interface.
@@ -1235,6 +1234,10 @@ public:
 		OutValue *= 0;
 		switch (NumElements)
 		{
+		case 1:
+			// Replicate scalar
+			OutValue.R = OutValue.G = OutValue.B = OutValue.A = Temp.Component(IndexR);
+			break;
 		case 4:
 			OutValue.A = Temp.Component(IndexA);
 			// Fallthrough...
@@ -1243,8 +1246,6 @@ public:
 			// Fallthrough...
 		case 2:
 			OutValue.G = Temp.Component(IndexG);
-			// Fallthrough...
-		case 1:
 			OutValue.R = Temp.Component(IndexR);
 			break;
 		default: UE_LOG(LogMaterial, Fatal, TEXT("Invalid number of swizzle elements: %d"), NumElements);

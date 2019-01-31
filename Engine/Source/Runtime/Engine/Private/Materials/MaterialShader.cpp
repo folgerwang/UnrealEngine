@@ -1580,7 +1580,7 @@ void FMaterialShaderMap::Compile(
 				}
 			}
 
-			UE_LOG(LogShaders, Warning, TEXT("		%u Shaders among %u VertexFactories"), NumShaders, NumVertexFactories);
+			UE_LOG(LogShaders, Log, TEXT("		%u Shaders among %u VertexFactories"), NumShaders, NumVertexFactories);
 
 			// Register this shader map in the global map with the material's ID.
 			Register(InPlatform);

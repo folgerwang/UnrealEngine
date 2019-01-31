@@ -78,10 +78,6 @@ struct FVertexFactoryInput
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	float4 Position: ATTRIBUTE0;
-	/** Optional instance ID for vertex layered rendering */
-#if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 #else
 	float4 PackedPosition: ATTRIBUTE0; 
 	float4 LODHeights[2]: ATTRIBUTE1;  
@@ -113,7 +109,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -457,7 +453,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 }
 
 #if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
+void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1, out uint LightmapDataIndex)
 {
 #if (ES2_PROFILE || ES3_1_PROFILE)
 	LightmapUV0 = Interpolants.LightMapCoordinate[0].xy;
@@ -466,15 +462,17 @@ void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out f
 	LightmapUV0 = Interpolants.LightMapCoordinate.xy * float2( 1, 0.5 );
 	LightmapUV1 = LightmapUV0 + float2( 0, 0.5 );
 #endif
+	LightmapDataIndex = 0;
 }
 
-float2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
+void GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 ShadowMapCoordinate, out uint LightmapDataIndex)
 {
 #if (ES2_PROFILE || ES3_1_PROFILE)
-	return Interpolants.ShadowMapCoordinate.xy;
+	ShadowMapCoordinate = Interpolants.ShadowMapCoordinate.xy;
 #else
-	return Interpolants.LightMapCoordinate.zw;
+	ShadowMapCoordinate = Interpolants.LightMapCoordinate.zw;
 #endif
+	LightmapDataIndex = 0;
 }
 #endif
 
@@ -797,7 +795,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 	
 	return Interpolants;
@@ -879,14 +877,12 @@ void VertexFactoryUnpackInterpolants(FVertexFactoryInterpolantsVSToPS Interpolan
 }
 #endif // NUM_VF_PACKED_INTERPOLANTS > 0
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstanceId & 1;
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

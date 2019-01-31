@@ -105,7 +105,7 @@ void FD3D12Adapter::AllocateBuffer(FD3D12Device* Device,
 	}
 	else
 	{
-		VERIFYD3D12RESULT(Device->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, ResourceLocation, Alignment));
+		VERIFYD3D12RESULT(Device->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, InUsage, ResourceLocation, Alignment));
 		check(ResourceLocation.GetSize() == Size);
 	}
 }
@@ -237,6 +237,8 @@ BufferType* FD3D12Adapter::CreateRHIBuffer(FRHICommandListImmediate* RHICmdList,
 		CreateInfo.ResourceArray->Discard();
 	}
 
+	UpdateBufferStats<BufferType>(&BufferOut->ResourceLocation, true);
+
 	return BufferOut;
 }
 
@@ -307,7 +309,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 					FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 
 					FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
-					FScopeResourceBarrier ScopeResourceBarrierSource(hCommandList, pResource, pResource->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+					FConditionalScopeResourceBarrier ScopeResourceBarrierSource(hCommandList, pResource, D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
 					// Don't need to transition upload heaps
 
 					uint64 SubAllocOffset = Buffer->ResourceLocation.GetOffsetFromBaseOfResource();

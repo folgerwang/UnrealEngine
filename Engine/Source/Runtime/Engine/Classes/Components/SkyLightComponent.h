@@ -12,6 +12,10 @@
 #include "Math/SHMath.h"
 #include "SkyLightComponent.generated.h"
 
+#ifndef ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND // RHI_RAYTRACING
+#define ENVIRONMENT_TEXTURE_ARRAY_WORKAROUND	1
+#endif
+
 class FSkyLightSceneProxy;
 class UTextureCube;
 

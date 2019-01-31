@@ -6,22 +6,15 @@
 
 #include "VertexFactoryCommon.ush"
 #include "LocalVertexFactoryCommon.ush"
+#include "LightmapData.ush"
 
 #if GPUSKIN_PASS_THROUGH
 #include "GpuSkinCommon.ush"
 #endif
 
-float4x4 PreviousLocalToWorld;
-
 #include "/Engine/Generated/UniformBuffers/PrecomputedLightingBuffer.ush"
 
 #if USE_INSTANCING
-
-	// Instanced stereo sets the eye index explicitly for instanced geometry
-	#if INSTANCED_STEREO
-		uint InstancedEyeIndex;
-	#endif
-
 	#ifndef USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED
 		#error "USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED should have been defined"
 	#endif
@@ -94,24 +87,24 @@ float3 SplineMeshY;
 #define MANUAL_VERTEX_FETCH 0
 #endif
 
-#if GPUSKIN_PASS_THROUGH
-#undef MANUAL_VERTEX_FETCH
-#define MANUAL_VERTEX_FETCH 0
-#endif
+
 
 #if MANUAL_VERTEX_FETCH
 	Buffer<float4> VertexFetch_InstanceOriginBuffer;
 	Buffer<float4> VertexFetch_InstanceTransformBuffer;
 	Buffer<float4> VertexFetch_InstanceLightmapBuffer;
 
-	uint InstanceOffset;
-	uint VertexOffset;
+	uint InstanceOffset; 
 
 	#define VF_ColorIndexMask_Index 0
 	#define VF_NumTexcoords_Index 1
 	#define FV_LightMapIndex_Index 2
+	#define VF_VertexOffset 3
 #endif
 
+/**
+ * Per-vertex inputs from bound vertex buffers
+ */
 struct FVertexFactoryInput
 {
 	float4	Position	: ATTRIBUTE0;
@@ -167,12 +160,16 @@ struct FVertexFactoryInput
 	float4 InstanceLightmapAndShadowMapUVBias : ATTRIBUTE12; 
 #endif //USE_INSTANCING && !USE_INSTANCING_EMULATED
 
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	uint PrimitiveId : ATTRIBUTE13;
+#endif
+
 #if NEEDS_LIGHTMAP_COORDINATE && !MANUAL_VERTEX_FETCH
 	float2	LightMapCoordinate : ATTRIBUTE15;
 #endif
 
 /** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1 && ((ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER) || (MANUAL_VERTEX_FETCH && (USE_INSTANCING && !USE_INSTANCING_EMULATED)))
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1 && (MANUAL_VERTEX_FETCH && (USE_INSTANCING && !USE_INSTANCING_EMULATED))
 	uint InstanceId	: SV_InstanceID;
 #endif
 
@@ -181,6 +178,24 @@ struct FVertexFactoryInput
 #endif
 };
 
+#if RAYHITGROUPSHADER
+FVertexFactoryInput LoadVertexFactoryInput(uint TriangleIndex, int VertexIndex)
+{
+	FTriangleBaseAttributes Triangle = LoadTriangleBaseAttributes(TriangleIndex);
+
+	FVertexFactoryInput Input;
+	Input.Position = float4(Triangle.LocalPositions[VertexIndex], 1.0f);
+	Input.VertexId = Triangle.Indices[VertexIndex];
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	Input.PrimitiveId = GetInstanceUserData();
+#endif
+	return Input;
+}
+#endif
+
+/** 
+ * Per-vertex inputs from bound vertex buffers.  Used by passes with a trimmed down position-only shader.
+ */
 struct FPositionOnlyVertexFactoryInput
 {
 	float4	Position	: ATTRIBUTE0;
@@ -192,8 +207,12 @@ struct FPositionOnlyVertexFactoryInput
 	half4 InstanceTransform3 : ATTRIBUTE11; // hitproxy.b in .w
 #endif	// USE_INSTANCING && !USE_INSTANCING_EMULATED
 
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	uint PrimitiveId : ATTRIBUTE1;
+#endif
+
 /** Optional instance ID for vertex layered rendering */
-#if (FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1) && ((ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER) || (MANUAL_VERTEX_FETCH && (USE_INSTANCING && !USE_INSTANCING_EMULATED)))
+#if (FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1) && (MANUAL_VERTEX_FETCH && (USE_INSTANCING && !USE_INSTANCING_EMULATED))
 	uint InstanceId	: SV_InstanceID;
 #endif
 
@@ -202,6 +221,9 @@ struct FPositionOnlyVertexFactoryInput
 #endif
 };
 
+/** 
+ * Caches intermediates that would otherwise have to be computed multiple times.  Avoids relying on the compiler to optimize out redundant operations.
+ */
 struct FVertexFactoryIntermediates
 {
 	half3x3 TangentToLocal;
@@ -220,6 +242,7 @@ struct FVertexFactoryIntermediates
 	// x = per-instance random, y = per-instance fade out amount, z = hide/show flag, w dither fade cutoff
 	float4 PerInstanceParams;
 #endif	// USE_INSTANCING
+	uint PrimitiveId;
 };
 
 #if USE_INSTANCING
@@ -243,11 +266,12 @@ float4x4 GetInstanceTransform(FVertexFactoryIntermediates Intermediates)
 float4x4 GetInstanceTransform(FPositionOnlyVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED && MANUAL_VERTEX_FETCH
+	uint InstanceId = GetInstanceId(Input.InstanceId);
 	return float4x4(
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 0].xyz, 0.0f),
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 1].xyz, 0.0f),
-		float4(VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 2].xyz, 0.0f),
-		float4(VertexFetch_InstanceOriginBuffer[(Input.InstanceId + InstanceOffset)].xyz, 1.0f));
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 0].xyz, 0.0f),
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 1].xyz, 0.0f),
+		float4(VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 2].xyz, 0.0f),
+		float4(VertexFetch_InstanceOriginBuffer[(InstanceId + InstanceOffset)].xyz, 1.0f));
 	#elif !USE_INSTANCING_EMULATED
 	return float4x4(
 		float4(Input.InstanceTransform1.xyz, 0.0f),
@@ -371,13 +395,19 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #endif	// LIGHTMAP_UV_ACCESS
 
 	Result.TwoSidedSign = 1;
+	Result.PrimitiveId = GetPrimitiveId(Interpolants);
+
+#if COMPILER_SUPPORTS_TO_SCALAR_MEMORY
+	Result.PrimitiveId = ToScalarMemory(Result.PrimitiveId);
+#endif
+
 	return Result;
 }
 
-half3x3 CalcTangentToWorldNoScale(in half3x3 TangentToLocal)
+half3x3 CalcTangentToWorldNoScale(FVertexFactoryIntermediates Intermediates, half3x3 TangentToLocal)
 {
-	half3x3 LocalToWorld = GetLocalToWorld3x3();
-	half3 InvScale = Primitive.InvNonUniformScaleAndDeterminantSign.xyz;
+	half3x3 LocalToWorld = GetLocalToWorld3x3(Intermediates.PrimitiveId);
+	half3 InvScale = GetPrimitiveData(Intermediates.PrimitiveId).InvNonUniformScaleAndDeterminantSign.xyz;
 	LocalToWorld[0] *= InvScale.x;
 	LocalToWorld[1] *= InvScale.y;
 	LocalToWorld[2] *= InvScale.z;
@@ -395,15 +425,15 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.TangentToWorld = Intermediates.TangentToWorld;
 
 #if USE_INSTANCING
-	Result.InstanceLocalToWorld = mul(GetInstanceTransform(Intermediates), Primitive.LocalToWorld);
+	Result.InstanceLocalToWorld = mul(GetInstanceTransform(Intermediates), GetPrimitiveData(Intermediates.PrimitiveId).LocalToWorld);
 	Result.InstanceLocalPosition = Input.Position.xyz;
 	Result.PerInstanceParams = Intermediates.PerInstanceParams;
 
 	// Assumes instance transform never change, which means per-instance
 	// motion will cause TAA and motion blur artifacts
-	Result.PrevFrameLocalToWorld = mul(GetInstanceTransform(Intermediates), PreviousLocalToWorld);
+	Result.PrevFrameLocalToWorld = mul(GetInstanceTransform(Intermediates), GetPrimitiveData(Intermediates.PrimitiveId).PreviousLocalToWorld);
 #else
-	Result.PrevFrameLocalToWorld = PreviousLocalToWorld;
+	Result.PrevFrameLocalToWorld = GetPrimitiveData(Intermediates.PrimitiveId).PreviousLocalToWorld;
 #endif	// USE_INSTANCING
 
 	Result.PreSkinnedPosition = Input.Position.xyz;
@@ -416,7 +446,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		{
 			// Clamp coordinates to mesh's maximum as materials can request more than are available
 			uint ClampedCoordinateIndex = min(CoordinateIndex, NumFetchTexCoords-1);
-			Result.TexCoords[CoordinateIndex] = LocalVF.VertexFetch_TexCoordBuffer[NumFetchTexCoords * (VertexOffset + Input.VertexId) + ClampedCoordinateIndex];
+			Result.TexCoords[CoordinateIndex] = LocalVF.VertexFetch_TexCoordBuffer[NumFetchTexCoords * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId) + ClampedCoordinateIndex];
 		}
 #elif NUM_MATERIAL_TEXCOORDS_VERTEX
 		#if GPUSKIN_PASS_THROUGH
@@ -442,6 +472,8 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 			#endif	// NUM_MATERIAL_TEXCOORDS_VERTEX % 2 == 1
 		#endif
 #endif  //MANUAL_VERTEX_FETCH && NUM_MATERIAL_TEXCOORDS_VERTEX
+
+	Result.PrimitiveId = Intermediates.PrimitiveId;
 	return Result;
 }
 
@@ -544,13 +576,13 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #endif	// USE_SPLINEDEFORM
 
 #if USE_INSTANCING
-float4 CalcWorldPosition(float4 Position, float4x4 InstanceTransform)
+float4 CalcWorldPosition(float4 Position, float4x4 InstanceTransform, uint PrimitiveId)
 #else
-float4 CalcWorldPosition(float4 Position)
+float4 CalcWorldPosition(float4 Position, uint PrimitiveId)
 #endif	// USE_INSTANCING
 {
 #if USE_INSTANCING
-	return TransformLocalToTranslatedWorld(mul(Position, InstanceTransform).xyz);
+	return TransformLocalToTranslatedWorld(mul(Position, InstanceTransform).xyz, PrimitiveId);
 #elif USE_SPLINEDEFORM
 /*
 	// Make transform for this point along spline
@@ -561,9 +593,9 @@ float4 CalcWorldPosition(float4 Position)
 	// Transform from mesh to world space
 	return TransformLocalToTranslatedWorld(LocalPos.xyz);
 	*/
-	return INVARIANT(TransformLocalToTranslatedWorld(float3(mul(Position, CalcSliceTransform(dot(Position.xyz, SplineMeshDir))).xyz)));
+	return INVARIANT(TransformLocalToTranslatedWorld(float3(mul(Position, CalcSliceTransform(dot(Position.xyz, SplineMeshDir))).xyz), PrimitiveId));
 #else
-	return TransformLocalToTranslatedWorld(Position.xyz);
+	return TransformLocalToTranslatedWorld(Position.xyz, PrimitiveId);
 #endif
 }
 
@@ -572,8 +604,8 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, out float TangentSign)
 	half3x3 Result;
 	
 #if MANUAL_VERTEX_FETCH
-	half3 TangentInputX = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 0].xyz;
-	half4 TangentInputZ = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (VertexOffset + Input.VertexId) + 1].xyzw;
+	half3 TangentInputX = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId) + 0].xyz;
+	half4 TangentInputZ = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId) + 1].xyzw;
 #else
 	half3 TangentInputX = Input.TangentX;
 	half4 TangentInputZ = Input.TangentZ;
@@ -613,14 +645,14 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, out float TangentSign)
 half3x3 CalcTangentToWorld(FVertexFactoryIntermediates Intermediates, half3x3 TangentToLocal)
 {
 #if USE_INSTANCING
-	half3x3 InstanceToWorld = mul(GetInstanceToLocal3x3(Intermediates), GetLocalToWorld3x3());
+	half3x3 InstanceToWorld = mul(GetInstanceToLocal3x3(Intermediates), GetLocalToWorld3x3(Intermediates.PrimitiveId));
 	// remove scaling
 	InstanceToWorld[0] = normalize(InstanceToWorld[0]);
 	InstanceToWorld[1] = normalize(InstanceToWorld[1]);
 	InstanceToWorld[2] = normalize(InstanceToWorld[2]);
 	half3x3 TangentToWorld = mul(TangentToLocal, InstanceToWorld);
 #else
-	half3x3 TangentToWorld = CalcTangentToWorldNoScale(TangentToLocal);
+	half3x3 TangentToWorld = CalcTangentToWorldNoScale(Intermediates, TangentToLocal);
 #endif	// USE_INSTANCING
 	return TangentToWorld;
 }
@@ -629,18 +661,25 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 {
 	FVertexFactoryIntermediates Intermediates;
 
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	Intermediates.PrimitiveId = Input.PrimitiveId;
+#else
+	Intermediates.PrimitiveId = 0;
+#endif
+
 #if MANUAL_VERTEX_FETCH
-	Intermediates.Color = LocalVF.VertexFetch_ColorComponentsBuffer[(VertexOffset + Input.VertexId) & LocalVF.VertexFetch_Parameters[VF_ColorIndexMask_Index]] FMANUALFETCH_COLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
+	Intermediates.Color = LocalVF.VertexFetch_ColorComponentsBuffer[(LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId) & LocalVF.VertexFetch_Parameters[VF_ColorIndexMask_Index]] FMANUALFETCH_COLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
 #else
 	Intermediates.Color = Input.Color FCOLOR_COMPONENT_SWIZZLE; // Swizzle vertex color.
 #endif
 
 #if USE_INSTANCING && !USE_INSTANCING_EMULATED && MANUAL_VERTEX_FETCH
-	Intermediates.InstanceTransform1 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 0];
-	Intermediates.InstanceTransform2 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 1];
-	Intermediates.InstanceTransform3 = VertexFetch_InstanceTransformBuffer[3 * (Input.InstanceId + InstanceOffset) + 2];
-	Intermediates.InstanceOrigin = VertexFetch_InstanceOriginBuffer[(Input.InstanceId + InstanceOffset)];
-	Intermediates.InstanceLightmapAndShadowMapUVBias = VertexFetch_InstanceLightmapBuffer[(Input.InstanceId + InstanceOffset)];
+	uint InstanceId = GetInstanceId(Input.InstanceId);
+	Intermediates.InstanceTransform1 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 0];
+	Intermediates.InstanceTransform2 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 1];
+	Intermediates.InstanceTransform3 = VertexFetch_InstanceTransformBuffer[3 * (InstanceId + InstanceOffset) + 2];
+	Intermediates.InstanceOrigin = VertexFetch_InstanceOriginBuffer[(InstanceId + InstanceOffset)];
+	Intermediates.InstanceLightmapAndShadowMapUVBias = VertexFetch_InstanceLightmapBuffer[(InstanceId + InstanceOffset)];
 #elif USE_INSTANCING && !USE_INSTANCING_EMULATED
 	Intermediates.InstanceTransform1 = Input.InstanceTransform1;
 	Intermediates.InstanceTransform2 = Input.InstanceTransform2;
@@ -652,7 +691,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float TangentSign;
 	Intermediates.TangentToLocal = CalcTangentToLocal(Input, TangentSign);
 	Intermediates.TangentToWorld = CalcTangentToWorld(Intermediates,Intermediates.TangentToLocal);
-	Intermediates.TangentToWorldSign = TangentSign * Primitive.InvNonUniformScaleAndDeterminantSign.w;
+	Intermediates.TangentToWorldSign = TangentSign * GetPrimitiveData(Intermediates.PrimitiveId).InvNonUniformScaleAndDeterminantSign.w;
 
 #if USE_INSTANCING
 	// x = per-instance random, y = per-instance fade out factor, z = zero or one depending of if it is shown at all, w is dither cutoff 
@@ -660,7 +699,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	// PerInstanceParams.z stores a hide/show flag for this instance
 	float SelectedValue = GetInstanceSelected(Intermediates);
 	Intermediates.PerInstanceParams.x = GetInstanceRandom(Intermediates);
-	float3 InstanceLocation = TransformLocalToWorld(GetInstanceOrigin(Intermediates)).xyz;
+	float3 InstanceLocation = TransformLocalToWorld(GetInstanceOrigin(Intermediates), Intermediates.PrimitiveId).xyz;
 	Intermediates.PerInstanceParams.y = 1.0 - saturate((length(InstanceLocation + ResolvedView.PreViewTranslation.xyz) - InstancingFadeOutParams.x) * InstancingFadeOutParams.y);
 	// InstancingFadeOutParams.z,w are RenderSelected and RenderDeselected respectively.
 	Intermediates.PerInstanceParams.z = InstancingFadeOutParams.z * SelectedValue + InstancingFadeOutParams.w * (1-SelectedValue);
@@ -702,9 +741,9 @@ float4 VertexFactoryGetWorldPosition(FVertexFactoryInput Input, FVertexFactoryIn
     #else
         float4 Position = Input.Position;
     #endif
-	return CalcWorldPosition(Position, GetInstanceTransform(Intermediates)) * Intermediates.PerInstanceParams.z;
+	return CalcWorldPosition(Position, GetInstanceTransform(Intermediates), Intermediates.PrimitiveId) * Intermediates.PerInstanceParams.z;
 #else
-	return CalcWorldPosition(Input.Position);
+	return CalcWorldPosition(Input.Position, Intermediates.PrimitiveId);
 #endif	// USE_INSTANCING
 }
 
@@ -739,7 +778,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 #elif NUM_MATERIAL_TEXCOORDS_VERTEX == 0 && USE_PARTICLE_SUBUVS
 	#if MANUAL_VERTEX_FETCH
-		SetUV(Interpolants, 0, LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId)]);
+		SetUV(Interpolants, 0, LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId)]);
 	#else
 		SetUV(Interpolants, 0, Input.TexCoords[0]);
 	#endif
@@ -749,25 +788,36 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	float2 LightMapCoordinate = 0;
 	float2 ShadowMapCoordinate = 0;
 	#if MANUAL_VERTEX_FETCH
-		float2 LightMapCoordinateInput = LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (VertexOffset + Input.VertexId) + LocalVF.VertexFetch_Parameters[FV_LightMapIndex_Index]];
+		float2 LightMapCoordinateInput = LocalVF.VertexFetch_TexCoordBuffer[LocalVF.VertexFetch_Parameters[VF_NumTexcoords_Index] * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId) + LocalVF.VertexFetch_Parameters[FV_LightMapIndex_Index]];
 	#else
 		float2 LightMapCoordinateInput = Input.LightMapCoordinate;
 	#endif
 
+	uint LightmapDataIndex = 0;
+
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	LightmapDataIndex = GetPrimitiveData(Intermediates.PrimitiveId).LightmapDataIndex + LocalVF.LODLightmapDataIndex;
+#endif
+
+	float4 LightMapCoordinateScaleBias = GetLightmapData(LightmapDataIndex).LightMapCoordinateScaleBias;
+
 	#if USE_INSTANCING
-		LightMapCoordinate = LightMapCoordinateInput * PrecomputedLightingBuffer.LightMapCoordinateScaleBias.xy + GetInstanceLightMapBias(Intermediates);
+		LightMapCoordinate = LightMapCoordinateInput * LightMapCoordinateScaleBias.xy + GetInstanceLightMapBias(Intermediates);
 	#else
-		LightMapCoordinate = LightMapCoordinateInput * PrecomputedLightingBuffer.LightMapCoordinateScaleBias.xy + PrecomputedLightingBuffer.LightMapCoordinateScaleBias.zw;
+		LightMapCoordinate = LightMapCoordinateInput * LightMapCoordinateScaleBias.xy + LightMapCoordinateScaleBias.zw;
 	#endif
 	#if STATICLIGHTING_TEXTUREMASK
+		float4 ShadowMapCoordinateScaleBias = GetLightmapData(LightmapDataIndex).ShadowMapCoordinateScaleBias;
+
 		#if USE_INSTANCING
-			ShadowMapCoordinate = LightMapCoordinateInput * PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Intermediates);
+			ShadowMapCoordinate = LightMapCoordinateInput * ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Intermediates);
 		#else
-			ShadowMapCoordinate = LightMapCoordinateInput * PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.xy + PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.zw;
+			ShadowMapCoordinate = LightMapCoordinateInput * ShadowMapCoordinateScaleBias.xy + ShadowMapCoordinateScaleBias.zw;
 		#endif
 	#endif	// STATICLIGHTING_TEXTUREMASK
 
 	SetLightMapCoordinate(Interpolants, LightMapCoordinate, ShadowMapCoordinate);
+	SetLightmapDataIndex(Interpolants, LightmapDataIndex);
 #endif	// NEEDS_LIGHTMAP_COORDINATE
 
 	SetTangents(Interpolants, Intermediates.TangentToWorld[0], Intermediates.TangentToWorld[2], Intermediates.TangentToWorldSign);
@@ -777,8 +827,10 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
+
+	SetPrimitiveId(Interpolants, Intermediates.PrimitiveId);
 
 	return Interpolants;
 }
@@ -787,11 +839,17 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 float4 VertexFactoryGetWorldPosition(FPositionOnlyVertexFactoryInput Input)
 {
 	float4 Position = Input.Position;
+	
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	uint PrimitiveId = Input.PrimitiveId;
+#else
+	uint PrimitiveId = 0;
+#endif
 
 #if USE_INSTANCING
-	return CalcWorldPosition(Position, GetInstanceTransform(Input));
+	return CalcWorldPosition(Position, GetInstanceTransform(Input), PrimitiveId);
 #else
-	return CalcWorldPosition(Position);
+	return CalcWorldPosition(Position, PrimitiveId);
 #endif	// USE_INSTANCING
 }
 
@@ -803,7 +861,7 @@ Buffer<float> GPUSkinCachePreviousPositionBuffer;
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-	float4x4 PreviousLocalToWorldTranslated = PreviousLocalToWorld;
+	float4x4 PreviousLocalToWorldTranslated = GetPrimitiveData(Intermediates.PrimitiveId).PreviousLocalToWorld;
 	PreviousLocalToWorldTranslated[3][0] += ResolvedView.PrevPreViewTranslation.x;
 	PreviousLocalToWorldTranslated[3][1] += ResolvedView.PrevPreViewTranslation.y;
 	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
@@ -879,7 +937,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 		Result.TangentToWorldPreScale = 1;
 
 		Result.WorldPosition = CameraLocalWorldPosition + ResolvedView.WorldCameraOrigin;
-
+		Result.PrimitiveId = GetPrimitiveId(Interpolants.InterpolantsVSToPS);
 		return Result;
 	}
 
@@ -893,7 +951,13 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpolantsVSToDS a, float aInterp, FVertexFactoryInterpolantsVSToDS b, float bInterp)
 	{
 		FVertexFactoryInterpolantsVSToDS O;
-	
+
+#if VF_USE_PRIMITIVE_SCENE_DATA
+		O.InterpolantsVSToPS.PrimitiveId = a.InterpolantsVSToPS.PrimitiveId;
+    #if NEEDS_LIGHTMAP_COORDINATE
+        O.InterpolantsVSToPS.LightmapDataIndex = a.InterpolantsVSToPS.LightmapDataIndex;
+    #endif
+#endif	
 		// Do we really need to interpolate TangentToWorld2 here? It should be replaced by the
 		// interpolated normal from 'whatever' interpolation scheme we're using
 	
@@ -949,18 +1013,13 @@ float4 VertexFactoryGetInstanceHitProxyId(FVertexFactoryInput Input, FVertexFact
 }
 #endif	// USE_INSTANCING
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	#if USE_INSTANCING
-		return InstancedEyeIndex;
-	#else
-		return InstanceId & 1;
-	#endif
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
-	return float4(Primitive.ObjectWorldPositionAndRadius.xyz + ResolvedView.PreViewTranslation.xyz, Primitive.ObjectWorldPositionAndRadius.w);
+	float4 ObjectWorldPositionAndRadius = GetPrimitiveData(GetPrimitiveId(Interpolants)).ObjectWorldPositionAndRadius;
+	return float4(ObjectWorldPositionAndRadius.xyz + ResolvedView.PreViewTranslation.xyz, ObjectWorldPositionAndRadius.w);
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return GetPrimitiveId(Interpolants);
 }

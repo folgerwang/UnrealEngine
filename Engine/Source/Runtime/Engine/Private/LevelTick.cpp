@@ -60,6 +60,7 @@
 #include "InGamePerformanceTracker.h"
 #include "Streaming/TextureStreamingHelpers.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "GPUSkinCache.h"
 
 #if WITH_EDITOR
 	#include "Editor.h"
@@ -928,40 +929,47 @@ bool UWorld::HasEndOfFrameUpdates() const
 	return ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Num() > 0 || ComponentsThatNeedEndOfFrameUpdate.Num() > 0 || bMaterialParameterCollectionInstanceNeedsDeferredUpdate;
 }
 
-TDrawEvent<FRHICommandList>* BeginSendEndOfFrameUpdatesDrawEvent()
+struct FSendAllEndOfFrameUpdates
 {
-	TDrawEvent<FRHICommandList>* DrawEvent = nullptr;
+	FGPUSkinCache* GPUSkinCache;
+#if WANTS_DRAW_MESH_EVENTS
+	TDrawEvent<FRHICommandList> DrawEvent;
+#endif
+};
+
+FSendAllEndOfFrameUpdates* BeginSendEndOfFrameUpdatesDrawEvent(FGPUSkinCache* GPUSkinCache)
+{
+	FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates = new FSendAllEndOfFrameUpdates;
+	SendAllEndOfFrameUpdates->GPUSkinCache = GPUSkinCache;
 
 #if WANTS_DRAW_MESH_EVENTS
-	DrawEvent = new TDrawEvent<FRHICommandList>();
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		BeginDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,DrawEvent,DrawEvent,
-	{
-		BEGIN_DRAW_EVENTF(
-			RHICmdList, 
-			SendAllEndOfFrameUpdates, 
-			(*DrawEvent),
-			TEXT("SendAllEndOfFrameUpdates"));
-	});
-
+	ENQUEUE_RENDER_COMMAND(BeginDrawEventCommand)(
+		[SendAllEndOfFrameUpdates](FRHICommandList& RHICmdList)
+		{
+			BEGIN_DRAW_EVENTF(
+				RHICmdList, 
+				SendAllEndOfFrameUpdates, 
+				SendAllEndOfFrameUpdates->DrawEvent,
+				TEXT("SendAllEndOfFrameUpdates"));
+		});
 #endif
 
-	return DrawEvent;
+	return SendAllEndOfFrameUpdates;
 }
 
-void EndSendEndOfFrameUpdatesDrawEvent(TDrawEvent<FRHICommandList>* DrawEvent)
+void EndSendEndOfFrameUpdatesDrawEvent(FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates)
 {
-#if WANTS_DRAW_MESH_EVENTS
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		EndDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,DrawEvent,DrawEvent,
+	ENQUEUE_RENDER_COMMAND(EndDrawEventCommand)(
+		[SendAllEndOfFrameUpdates](FRHICommandList& RHICmdList)
 	{
-		STOP_DRAW_EVENT((*DrawEvent));
-		delete DrawEvent;
-	});
+#if RHI_RAYTRACING
+		if (SendAllEndOfFrameUpdates->GPUSkinCache)
+		{
+			SendAllEndOfFrameUpdates->GPUSkinCache->CommitRayTracingGeometryUpdates(RHICmdList);
+		}
 #endif
+		delete SendAllEndOfFrameUpdates;
+	});
 }
 
 /**
@@ -978,7 +986,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 	}
 
 	// Issue a GPU event to wrap GPU work done during SendAllEndOfFrameUpdates, like skin cache updates
-	TDrawEvent<FRHICommandList>* DrawEvent = BeginSendEndOfFrameUpdatesDrawEvent();
+	FSendAllEndOfFrameUpdates* SendAllEndOfFrameUpdates = BeginSendEndOfFrameUpdatesDrawEvent(Scene ? Scene->GetGPUSkinCache() : nullptr);
 
 	// update all dirty components. 
 	FGuardValue_Bitfield(bPostTickComponentUpdate, true); 
@@ -1050,7 +1058,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 			
 	LocalComponentsThatNeedEndOfFrameUpdate.Reset();
 
-	EndSendEndOfFrameUpdatesDrawEvent(DrawEvent);
+	EndSendEndOfFrameUpdatesDrawEvent(SendAllEndOfFrameUpdates);
 }
 
 
@@ -1281,30 +1289,29 @@ DECLARE_CYCLE_STAT(TEXT("TG_LastDemotable"), STAT_TG_LastDemotable, STATGROUP_Ti
 TDrawEvent<FRHICommandList>* BeginTickDrawEvent()
 {
 	TDrawEvent<FRHICommandList>* TickDrawEvent = new TDrawEvent<FRHICommandList>();
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		BeginDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,TickDrawEvent,TickDrawEvent,
-	{
-		BEGIN_DRAW_EVENTF(
-			RHICmdList, 
-			WorldTick, 
-			(*TickDrawEvent),
-			TEXT("WorldTick"));
-	});
+	TDrawEvent<FRHICommandList>* InTickDrawEvent = TickDrawEvent;
+	ENQUEUE_RENDER_COMMAND(BeginDrawEventCommand)(
+		[InTickDrawEvent](FRHICommandList& RHICmdList)
+		{
+			BEGIN_DRAW_EVENTF(
+				RHICmdList, 
+				WorldTick, 
+				(*InTickDrawEvent),
+				TEXT("WorldTick"));
+		});
 
 	return TickDrawEvent;
 }
 
 void EndTickDrawEvent(TDrawEvent<FRHICommandList>* TickDrawEvent)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		EndDrawEventCommand,
-		TDrawEvent<FRHICommandList>*,TickDrawEvent,TickDrawEvent,
-	{
-		STOP_DRAW_EVENT((*TickDrawEvent));
-		delete TickDrawEvent;
-	});
+	TDrawEvent<FRHICommandList>* InTickDrawEvent = TickDrawEvent;
+	ENQUEUE_RENDER_COMMAND(EndDrawEventCommand)(
+		[InTickDrawEvent](FRHICommandList& RHICmdList)
+		{
+			STOP_DRAW_EVENT((*InTickDrawEvent));
+			delete InTickDrawEvent;
+		});
 }
 
 
@@ -1807,17 +1814,16 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		GEngine->XRSystem->OnEndGameFrame( GEngine->GetWorldContextFromWorldChecked( this ) );
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		TickInGamePerfTrackersRT,
-		UWorld*, WorldParam, this,
+	UWorld* WorldParam = this;
+	ENQUEUE_RENDER_COMMAND(TickInGamePerfTrackersRT)(
+		[WorldParam](FRHICommandList& RHICmdList)
 		{
-		//Tick game and other thread trackers.
-		for (int32 Tracker = 0; Tracker < (int32)EInGamePerfTrackers::Num; ++Tracker)
-		{
-			WorldParam->PerfTrackers->GetInGamePerformanceTracker((EInGamePerfTrackers)Tracker, EInGamePerfTrackerThreads::RenderThread).Tick();
-		}
-	}
-	);
+			//Tick game and other thread trackers.
+			for (int32 Tracker = 0; Tracker < (int32)EInGamePerfTrackers::Num; ++Tracker)
+			{
+				WorldParam->PerfTrackers->GetInGamePerformanceTracker((EInGamePerfTrackers)Tracker, EInGamePerfTrackerThreads::RenderThread).Tick();
+			}
+		});
 
 	EndTickDrawEvent(TickDrawEvent);
 }

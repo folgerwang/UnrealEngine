@@ -40,21 +40,21 @@ public:
     
     void DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexBuffer* VertexBuffer, uint32 ArgumentOffset);
     
-    void DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uint32 IndexStride, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
+    void DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, FMetalTexture const& IndexTexture, uint32 IndexStride, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
                          uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances);
     
     void DrawIndexedIndirect(FMetalIndexBuffer* IndexBufferRHI, uint32 PrimitiveType, FMetalStructuredBuffer* VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances);
     
     void DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalIndexBuffer* IndexBufferRHI,FMetalVertexBuffer* VertexBufferRHI,uint32 ArgumentOffset);
     
-    void DrawPatches(uint32 PrimitiveType, FMetalBuffer const& IndexBuffer, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
+    void DrawPatches(uint32 PrimitiveType, FMetalBuffer const& IndexBuffer, FMetalTexture const& IndexTexture, uint32 IndexBufferStride, int32 BaseVertexIndex, uint32 FirstInstance, uint32 StartIndex,
                      uint32 NumPrimitives, uint32 NumInstances);
     
     void Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ);
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    FMetalFence* EndRenderPass(void);
+    TRefCountPtr<FMetalFence> const& EndRenderPass(void);
     
     void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
@@ -80,9 +80,9 @@ public:
 	
 	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    FMetalFence* Submit(EMetalSubmitFlags SubmissionFlags);
+    TRefCountPtr<FMetalFence> const& Submit(EMetalSubmitFlags SubmissionFlags);
     
-    FMetalFence* End(void);
+    TRefCountPtr<FMetalFence> const& End(void);
 	
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
@@ -148,14 +148,17 @@ private:
     void ConditionalSwitchToCompute(void);
 	void ConditionalSwitchToBlit(void);
 	void ConditionalSwitchToAsyncBlit(void);
+	void ConditionalSwitchToAsyncCompute(void);
 	
     void PrepareToRender(uint32 PrimType);
     void PrepareToTessellate(uint32 PrimType);
     void PrepareToDispatch(void);
+	void PrepareToAsyncDispatch(void);
 
     void CommitRenderResourceTables(void);
     void CommitTessellationResourceTables(void);
     void CommitDispatchResourceTables(void);
+	void CommitAsyncDispatchResourceTables(void);
     
     void ConditionalSubmit();
 private:
@@ -165,9 +168,9 @@ private:
     
     // Which of the buffers/textures/sampler slots are bound
     // The state cache is responsible for ensuring we bind the correct 
-    FMetalTextureMask BoundTextures[SF_NumFrequencies];
-    uint32 BoundBuffers[SF_NumFrequencies];
-    uint16 BoundSamplers[SF_NumFrequencies];
+    FMetalTextureMask BoundTextures[SF_NumStandardFrequencies];
+    uint32 BoundBuffers[SF_NumStandardFrequencies];
+    uint16 BoundSamplers[SF_NumStandardFrequencies];
     
     FMetalCommandEncoder CurrentEncoder;
     FMetalCommandEncoder PrologueEncoder;
@@ -175,12 +178,15 @@ private:
 	// To ensure that buffer uploads aren't overwritten before they are used track what is in flight
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
-    
-    FMetalFence* PassStartFence;
-    FMetalFence* ParallelPassEndFence;
-	FMetalFence* CurrentEncoderFence;
-    FMetalFence* PrologueEncoderFence;
-	FMetalFence* LastPrologueEncoderFence;
+
+	// Fences for the current command encoder chain
+	TRefCountPtr<FMetalFence> PassStartFence;
+	TRefCountPtr<FMetalFence> CurrentEncoderFence;
+	TRefCountPtr<FMetalFence> ParallelPassEndFence;
+
+	// Fences for the prologue command encoder chain
+	TRefCountPtr<FMetalFence> PrologueStartEncoderFence;
+	TRefCountPtr<FMetalFence> PrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     

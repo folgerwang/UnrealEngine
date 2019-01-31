@@ -1,5 +1,8 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
+
 //------------------------------------------------------------------
 // LMS
 // https://en.wikipedia.org/wiki/LMS_color_space
@@ -131,4 +134,57 @@ float3 LAB_2_LinearRGB( float3 LAB, float3 ReferenceWhite)
 	float Z = ReferenceWhite.z * f_z;
 
 	return XYZ_2_LinearRGB(float3(X, Y, Z));
+}
+
+//------------------------------------------------------------------
+// YCoCg and LCoCg color space for luma / chroma orthogonal processing
+//------------------------------------------------------------------
+
+// Multiplier that get applied for ALU optimisation purposes on the luma, when converting LinearRGB to YCoCg.
+#define LINEARRGB_2_YCOCG_LUMA_MULTIPLIER 4.0
+
+float3 LinearRGB_2_YCoCg(float3 RGB)
+{
+	float Y = dot(RGB, float3(1, 2, 1));
+	float Co = dot(RGB, float3(2, 0, -2));
+	float Cg = dot(RGB, float3(-1, 2, -1));
+
+	float3 YCoCg = float3(Y, Co, Cg);
+	return YCoCg;
+}
+
+float3 YCoCg_2_LinearRGB(float3 YCoCg)
+{
+	float Y = YCoCg.x * 0.25;
+	float Co = YCoCg.y * 0.25;
+	float Cg = YCoCg.z * 0.25;
+
+	float R = Y + Co - Cg;
+	float G = Y + Cg;
+	float B = Y - Co - Cg;
+
+	float3 RGB = float3(R, G, B);
+	return RGB;
+}
+
+float3 YCoCg_2_LCoCg(float3 YCoCg)
+{
+	return float3(
+		YCoCg.x,
+		YCoCg.yz * (YCoCg.x > 0 ? rcp(YCoCg.x) : 0));
+}
+
+float3 LCoCg_2_YCoCg(float3 LCoCg)
+{
+	return float3(LCoCg.x, LCoCg.x * LCoCg.yz);
+}
+
+float3 LinearRGB_2_LCoCg(float3 RGB)
+{
+	return YCoCg_2_LCoCg(LinearRGB_2_YCoCg(RGB));
+}
+
+float3 LCoCg_2_LinearRGB(float3 LCoCg)
+{
+	return YCoCg_2_LinearRGB(LCoCg_2_YCoCg(LCoCg));
 }

@@ -1,0 +1,104 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "SSDSignalCore.ush"
+#include "../MonteCarlo.ush"
+
+
+//------------------------------------------------------- CONFIGS
+
+#define TILE_PIXEL_SIZE 8
+
+
+//------------------------------------------------------- PARAMETERS
+
+RWTexture2D<uint>	TileClassificationOutputMip0;
+RWTexture2D<uint>	TileClassificationOutputMip1;
+RWTexture2D<uint>	TileClassificationOutputMip2;
+RWTexture2D<uint>	TileClassificationOutputMip3;
+
+
+//------------------------------------------------------- LDS
+
+#define GROUP_SIZE ((TILE_PIXEL_SIZE) * (TILE_PIXEL_SIZE))
+
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA && 0
+
+groupshared uint SharedMipMask;
+groupshared uint SharedMissedRayCount;
+groupshared uint SharedInvalidRayCount;
+
+groupshared float4 SharedGroupSize[GROUP_SIZE];
+
+#endif // CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+
+
+//------------------------------------------------------- FUNCTIONS
+
+/** Output signal to a mip level. */
+void OutputSignalMip(const uint MipLevel, const uint2 TilePos, FSSFTileInfos TileInfos)
+{
+	if (MipLevel == 0)
+	{
+		WriteTileInfos(TileClassificationOutputMip0, TilePos, TileInfos);
+	}
+	else if (MipLevel == 1)
+	{
+		WriteTileInfos(TileClassificationOutputMip1, TilePos, TileInfos);
+	}
+	else if (MipLevel == 2)
+	{
+		WriteTileInfos(TileClassificationOutputMip2, TilePos, TileInfos);
+	}
+	else if (MipLevel == 3)
+	{
+		WriteTileInfos(TileClassificationOutputMip3, TilePos, TileInfos);
+	}
+}
+
+
+//------------------------------------------------------- ENTRY POINTS
+
+[numthreads(TILE_PIXEL_SIZE, TILE_PIXEL_SIZE, 1)]
+void MainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID,
+	uint2 GroupThreadId : SV_GroupThreadID,
+	uint GroupThreadIndex : SV_GroupIndex)
+{
+	FSSFTileInfos TileInfos = LoadTileInfos(DispatchThreadId);
+
+	// Dilate the information about the tiles.
+	const int NeighborSize = 1;
+	UNROLL for (int x = -NeighborSize; x <= NeighborSize; x++)
+	UNROLL for (int y = -NeighborSize; y <= NeighborSize; y++)
+	{
+		// Only + dilation, to limit dilate on brute force aliased edges.
+		// TODO: need to take bilateral into account.
+		if (x == 0 && y == 0 || abs(x) + abs(y) > 1)
+		{
+			continue;
+		}
+
+		FSSFTileInfos NeighborTileInfos = LoadTileInfos(DispatchThreadId + uint2(x, y));
+
+		// Dilate the fast mode tile over early return ones.
+		if (TileInfos.TileMode != TILE_MODE_BRUTE_FORCE && NeighborTileInfos.TileMode == TILE_MODE_FAST)
+		{
+			TileInfos.TileMode = TILE_MODE_FAST;
+		}
+
+		// Dilate the mip level processing.
+		// TODO: maybe can be a bit smarter here.
+		UNROLL
+		for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+		{
+			TileInfos.bProcessMipLevel[MipLevel] = TileInfos.bProcessMipLevel[MipLevel] || NeighborTileInfos.bProcessMipLevel[MipLevel];
+		}
+	}
+
+	// Output mip 0 of the tile classification.
+	OutputSignalMip(/* MipLevel = */ 0, DispatchThreadId, TileInfos);
+
+	// TODO: output other mip levels?
+}

@@ -71,7 +71,7 @@ protected:
 
 #if D3D11_ALLOW_STATE_CACHE
 	// Shader Resource Views Cache
-	ID3D11ShaderResourceView* CurrentShaderResourceViews[SF_NumFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
+	ID3D11ShaderResourceView* CurrentShaderResourceViews[SF_NumStandardFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
 
 	// Rasterizer State Cache
 	ID3D11RasterizerState* CurrentRasterizerState;
@@ -120,7 +120,7 @@ protected:
 	uint16 StreamStrides[MaxVertexElementCount];
 
 	// Sampler State
-	ID3D11SamplerState* CurrentSamplerStates[SF_NumFrequencies][D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];
+	ID3D11SamplerState* CurrentSamplerStates[SF_NumStandardFrequencies][D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];
 
 	// Constant Buffer State
 	struct FD3D11ConstantBufferState
@@ -128,7 +128,7 @@ protected:
 		ID3D11Buffer* Buffer;
 		uint32 FirstConstant;
 		uint32 NumConstants;
-	} CurrentConstantBuffers[SF_NumFrequencies][D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT];
+	} CurrentConstantBuffers[SF_NumStandardFrequencies][D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT];
 
 	bool bAlwaysSetIndexBuffers;
 

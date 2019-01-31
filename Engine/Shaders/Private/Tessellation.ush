@@ -51,9 +51,9 @@ float3 GetTangentDS( float3x3 TangentToWorld )
 
 #if HULLSHADER
 // Converts the Local space scales to tangent space (note flipped order on mul)
-float3 GetTangentSpaceNonUniformScales(float3x3 TangentToLocal)
+float3 GetTangentSpaceNonUniformScales(float3x3 TangentToLocal, uint PrimitiveId)
 {
-	return mul(TangentToLocal, Primitive.NonUniformScale.xyz);
+	return mul(TangentToLocal, GetPrimitiveData(PrimitiveId).NonUniformScale.xyz);
 }
 
 float GetTessellationMultiplier(FPassSpecificVSToDS I)

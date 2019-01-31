@@ -72,9 +72,8 @@ void FDebugCanvasDrawer::ReleaseResources()
 {
 	FDebugCanvasDrawer* const ReleaseMe = this;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FDebugCanvasDrawer*, ReleaseMe, ReleaseMe,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[ReleaseMe](FRHICommandList& RHICmdList)
 		{
 			ReleaseMe->ReleaseTexture();
 		});

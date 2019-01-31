@@ -20,38 +20,30 @@ static FAutoConsoleVariableRef CVarAllowPointLightCubemapShadows(
 
 void FLocalLightSceneProxy::UpdateRadius_GameThread(float ComponentRadius)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateRadius,
-		FLocalLightSceneProxy*,LightSceneInfo,this,
-		float,ComponentRadius,ComponentRadius,
-	{
-		LightSceneInfo->UpdateRadius(ComponentRadius);
-	});
+	FLocalLightSceneProxy* InLightSceneInfo = this;
+	ENQUEUE_RENDER_COMMAND(UpdateRadius)(
+		[InLightSceneInfo, ComponentRadius](FRHICommandList& RHICmdList)
+		{
+			InLightSceneInfo->UpdateRadius(ComponentRadius);
+		});
 }
 
 /** Accesses parameters needed for rendering the light. */
-void FPointLightSceneProxy::GetParameters(FLightParameters& LightParameters) const
+void FPointLightSceneProxy::GetLightShaderParameters(FLightShaderParameters& LightParameters) const
 {
-	LightParameters.LightPositionAndInvRadius = FVector4(
-		GetOrigin(),
-		InvRadius);
+	LightParameters.Position = GetOrigin();
+	LightParameters.InvRadius = InvRadius;
+	LightParameters.Color = FVector(GetColor());
+	LightParameters.FalloffExponent = FalloffExponent;
 
-	LightParameters.LightColorAndFalloffExponent = FVector4(
-		GetColor().R,
-		GetColor().G,
-		GetColor().B,
-		FalloffExponent);
-
-	const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
-
-	LightParameters.NormalizedLightDirection = -GetDirection();
-	LightParameters.NormalizedLightTangent = ZAxis;
+	LightParameters.Direction = -GetDirection();
+	LightParameters.Tangent = FVector(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
 	LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
 	LightParameters.SpecularScale = SpecularScale;
-	LightParameters.LightSourceRadius = SourceRadius;
-	LightParameters.LightSoftSourceRadius = SoftSourceRadius;
-	LightParameters.LightSourceLength = SourceLength;
-	LightParameters.SourceTexture = GWhiteTexture;
+	LightParameters.SourceRadius = SourceRadius;
+	LightParameters.SoftSourceRadius = SoftSourceRadius;
+	LightParameters.SourceLength = SourceLength;
+	LightParameters.SourceTexture = GWhiteTexture->TextureRHI;
 }
 
 /**

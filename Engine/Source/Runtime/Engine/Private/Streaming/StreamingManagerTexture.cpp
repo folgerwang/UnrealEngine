@@ -268,11 +268,12 @@ bool FStreamingManagerTexture::StreamOutTextureData( int64 RequiredMemorySize )
 			if (TempMemoryUsed >= MaxTempMemoryAllowed)
 			{
 				// Queue up the process on the render thread and wait for everything to complete.
-				ENQUEUE_UNIQUE_RENDER_COMMAND(FlushResourceCommand,
-				{				
-					FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-					RHIFlushResources();
-				});
+				ENQUEUE_RENDER_COMMAND(FlushResourceCommand)(
+					[](FRHICommandList& RHICmdList)
+					{				
+						FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+						RHIFlushResources();
+					});
 				FlushRenderingCommands();
 				TempMemoryUsed = 0;
 			}

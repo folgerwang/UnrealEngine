@@ -331,7 +331,7 @@ private:
 struct AGSContext;
 
 /** The interface which is implemented by the dynamically bound RHI. */
-class D3D11RHI_API FD3D11DynamicRHI : public FDynamicRHI, public IRHICommandContext
+class D3D11RHI_API FD3D11DynamicRHI : public FDynamicRHI, public IRHICommandContextPSOFallback
 {
 public:
 
@@ -400,7 +400,8 @@ public:
 	virtual void* RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI) final override;
     virtual void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer) final override;
 	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader) final override;
-	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) final override;
+	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation) final override;
+	virtual void RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents) final override;
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override;
 	virtual void* RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 Size, EResourceLockMode LockMode) final override;
 	virtual void RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer) final override;
@@ -512,7 +513,7 @@ public:
 	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) final override
 	{
 		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
-		IRHICommandContext::RHISetGraphicsPipelineState(GraphicsState);
+		IRHICommandContextPSOFallback::RHISetGraphicsPipelineState(GraphicsState);
 		// Store the PSO's primitive (after since IRHICommandContext::RHISetGraphicsPipelineState sets the BSS)
 		PrimitiveType = FallbackGraphicsState->Initializer.PrimitiveType;
 	}
@@ -767,10 +768,10 @@ protected:
 	TRefCountPtr<ID3D11UnorderedAccessView> CurrentUAVs[D3D11_PS_CS_UAV_REGISTER_COUNT];
 	TRefCountPtr<ID3D11DepthStencilView> CurrentDepthStencilTarget;
 	TRefCountPtr<FD3D11TextureBase> CurrentDepthTexture;
-	FD3D11BaseShaderResource* CurrentResourcesBoundAsSRVs[SF_NumFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
+	FD3D11BaseShaderResource* CurrentResourcesBoundAsSRVs[SF_NumStandardFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
 	FD3D11BaseShaderResource* CurrentResourcesBoundAsVBs[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
 	FD3D11BaseShaderResource* CurrentResourceBoundAsIB;
-	int32 MaxBoundShaderResourcesIndex[SF_NumFrequencies];
+	int32 MaxBoundShaderResourcesIndex[SF_NumStandardFrequencies];
 	int32 MaxBoundVertexBufferIndex;
 	uint32 NumSimultaneousRenderTargets;
 	uint32 NumUAVs;
@@ -794,10 +795,10 @@ protected:
 	enum { MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE = 14 };
 
 	/** Track the currently bound uniform buffers. */
-	FUniformBufferRHIRef BoundUniformBuffers[SF_NumFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE];
+	FUniformBufferRHIRef BoundUniformBuffers[SF_NumStandardFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE];
 
 	/** Bit array to track which uniform buffers have changed since the last draw call. */
-	uint16 DirtyUniformBuffers[SF_NumFrequencies];
+	uint16 DirtyUniformBuffers[SF_NumStandardFrequencies];
 
 	/** Tracks the current depth stencil access type. */
 	FExclusiveDepthStencil CurrentDSVAccessType;
@@ -836,6 +837,7 @@ protected:
 	uint32 HDRDetectedDisplayIndex;
 	uint32 HDRDetectedDisplayIHVIndex;
 
+	bool bRenderDoc = false;
 #if CHECK_SRV_TRANSITIONS
 	/*
 	 * Rendertargets must be explicitly 'resolved' to manage their transition to an SRV on some platforms and DX12
@@ -1059,10 +1061,8 @@ inline DXGI_FORMAT FindShaderResourceDXGIFormat(DXGI_FORMAT InFormat,bool bSRGB)
 		case DXGI_FORMAT_R24G8_TYPELESS: return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 		case DXGI_FORMAT_R32_TYPELESS: return DXGI_FORMAT_R32_FLOAT;
 		case DXGI_FORMAT_R16_TYPELESS: return DXGI_FORMAT_R16_UNORM;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 		case DXGI_FORMAT_R32G8X24_TYPELESS: return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS; 
-#endif
 	}
 	return InFormat;
 }
@@ -1085,11 +1085,9 @@ inline DXGI_FORMAT FindDepthStencilDXGIFormat(DXGI_FORMAT InFormat)
 	{
 		case DXGI_FORMAT_R24G8_TYPELESS:
 			return DXGI_FORMAT_D24_UNORM_S8_UINT;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 		case DXGI_FORMAT_R32G8X24_TYPELESS:
 			return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-#endif
 		case DXGI_FORMAT_R32_TYPELESS:
 			return DXGI_FORMAT_D32_FLOAT;
 		case DXGI_FORMAT_R16_TYPELESS:
@@ -1108,11 +1106,9 @@ inline bool HasStencilBits(DXGI_FORMAT InFormat)
 	{
 	case DXGI_FORMAT_D24_UNORM_S8_UINT:
 		return true;
-#if  DEPTH_32_BIT_CONVERSION
 	// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 		return true;
-#endif
 	};
 	return false;
 }

@@ -329,7 +329,7 @@ public:
 	{
 		QUICK_SCOPE_CYCLE_COUNTER( STAT_WireframeMeshSceneProxy_GetDynamicMeshElements );
 
-		FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy( IsSelected() );
+		FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy();
 
 		for( int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++ )
 		{
@@ -342,7 +342,11 @@ public:
 				Mesh.bWireframe = false;
 				Mesh.VertexFactory = &VertexFactory;
 				Mesh.MaterialRenderProxy = MaterialProxy;
-				BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate( GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest() );
+
+				FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+				DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+				BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 				BatchElement.FirstIndex = 0;
 				BatchElement.NumPrimitives = IndexBuffer->Indices.Num() / 3;
 				BatchElement.MinVertexIndex = 0;
@@ -365,7 +369,9 @@ public:
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
 		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
+		Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 		MaterialRelevance.SetPrimitiveViewRelevance( Result );
+		Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
 		return Result;
 	}
 

@@ -15,11 +15,15 @@ FDeferredLightData SetupLightDataForStandardDeferred()
 	// Build the light data struct using the DeferredLightUniforms and light defines
 	// We are heavily relying on the shader compiler to optimize out constant subexpressions in GetDynamicLighting()
 	FDeferredLightData LightData;
-	LightData.LightPositionAndInvRadius = float4(DeferredLightUniforms.LightPosition, DeferredLightUniforms.LightInvRadius);
-	LightData.LightColorAndFalloffExponent = float4(DeferredLightUniforms.LightColor, DeferredLightUniforms.LightFalloffExponent);
-	LightData.LightDirection = DeferredLightUniforms.NormalizedLightDirection;
-	LightData.LightTangent = DeferredLightUniforms.NormalizedLightTangent;
-	LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
+	LightData.Position = DeferredLightUniforms.Position;
+	LightData.InvRadius = DeferredLightUniforms.InvRadius;
+	LightData.Color = DeferredLightUniforms.Color;
+	LightData.FalloffExponent = DeferredLightUniforms.FalloffExponent;
+	LightData.Direction = DeferredLightUniforms.Direction;
+	LightData.Tangent = DeferredLightUniforms.Tangent;
+	LightData.SpotAngles = DeferredLightUniforms.SpotAngles;
+	LightData.SourceRadius = DeferredLightUniforms.SourceRadius,
+	LightData.SourceLength = DeferredLightUniforms.SourceLength;
     LightData.SoftSourceRadius = DeferredLightUniforms.SoftSourceRadius;
 	LightData.SpecularScale = DeferredLightUniforms.SpecularScale;
 	LightData.ContactShadowLength = abs(DeferredLightUniforms.ContactShadowLength);
@@ -90,8 +94,8 @@ void DeferredLightPixelMain(
 
 		float Dither = InterleavedGradientNoise( SVPos.xy, View.StateFrameIndexMod8 );
 
-		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, uint2( SVPos.xy ));
-		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.LightPosition, -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.NormalizedLightTangent);
+		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, uint2( SVPos.xy ), DeferredLightUniforms.SourceTexture);
+		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.Position, -DeferredLightUniforms.Direction, DeferredLightUniforms.Tangent);
 
 #if USE_PREEXPOSURE
 		OutColor *= View.PreExposure;

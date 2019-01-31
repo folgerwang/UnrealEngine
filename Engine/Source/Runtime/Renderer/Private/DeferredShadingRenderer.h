@@ -55,57 +55,31 @@ public:
 	void UpdateLPVs(FRHICommandListImmediate& RHICmdList);
 
 	/**
-	 * Renders the dynamic scene's prepass for a particular view
-	 * @return true if anything was rendered
-	 */
-	bool RenderPrePassViewDynamic(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
-
-	/**
 	 * Renders the scene's prepass for a particular view
 	 * @return true if anything was rendered
 	 */
-	bool RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
+	void RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState);
 
 	/**
 	 * Renders the scene's prepass for a particular view in parallel
 	 * @return true if the depth was cleared
 	 */
-	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FDrawingPolicyRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
+	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FMeshPassProcessorRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
 
 	/** Culls local lights to a grid in frustum space.  Needed for forward shading or translucency using the Surface lighting mode. */
 	void ComputeLightGrid(FRHICommandListImmediate& RHICmdList, bool bNeedLightGrid);
 
-	/** Renders the basepass for the static data of a given View. */
-	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
-	bool RenderBasePassStaticDataType(FRHICommandList& RHICmdList, FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const EBasePassDrawListType DrawType);
-
-	/** Renders the basepass for the static data of a given View. Parallel versions.*/
-	void RenderBasePassStaticDataParallel(FParallelCommandListSet& ParallelCommandListSet);
-	void RenderBasePassStaticDataTypeParallel(FParallelCommandListSet& ParallelCommandListSet, const EBasePassDrawListType DrawType);
-
-	/** Asynchronously sorts base pass draw lists front to back for improved GPU culling. */
-	void AsyncSortBasePassStaticData(const FVector ViewPosition, FGraphEventArray &SortEvents);
-
-	/** Sorts base pass draw lists front to back for improved GPU culling. */
-	void SortBasePassStaticData(FVector ViewPosition);
-
-	/** Renders the basepass for the dynamic data of a given View. */
-	void RenderBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, bool& bOutDirty);
-
-	/** Renders the basepass for the dynamic data of a given View, in parallel. */
-	void RenderBasePassDynamicDataParallel(FParallelCommandListSet& ParallelCommandListSet);
-
 	/** Renders the basepass for a given View, in parallel */
-	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState);
+	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandListImmediate& ParentCmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FMeshPassProcessorRenderState& InDrawRenderState);
 
 	/** Renders the basepass for a given View. */
-	bool RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& InDrawRenderState);
+	bool RenderBasePassView(FRHICommandListImmediate& RHICmdList, FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FMeshPassProcessorRenderState& InDrawRenderState);
 
 	/** Renders editor primitives for a given View. */
-	void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& DrawRenderState, bool& bOutDirty);
+	void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FMeshPassProcessorRenderState& DrawRenderState, bool& bOutDirty);
 
 	/** Renders editor primitives for a given View. */
-	void RenderEditorPrimitivesForDPG(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FDrawingPolicyRenderState& DrawRenderState, ESceneDepthPriorityGroup DepthPriorityGroup, bool& bOutDirty);
+	void RenderEditorPrimitivesForDPG(FRHICommandList& RHICmdList, const FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, const FMeshPassProcessorRenderState& DrawRenderState, ESceneDepthPriorityGroup DepthPriorityGroup, bool& bOutDirty);
 
 	/** 
 	* Renders the scene's base pass 
@@ -129,7 +103,10 @@ public:
 	virtual void RenderHitProxies(FRHICommandListImmediate& RHICmdList) override;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	void DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 	void RenderVisualizeTexturePool(FRHICommandListImmediate& RHICmdList);
+#else
+	FORCEINLINE void DoDebugViewModePostProcessing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT) {}
 #endif
 
 private:
@@ -153,12 +130,17 @@ private:
 	*/
 	bool CheckForLightFunction(const FLightSceneInfo* LightSceneInfo) const;
 
+	/**
+	* Performs once per frame setup prior to visibility determination.
+	*/
+	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
+
 	/** Determines which primitives are visible for each view. */
-	bool InitViews(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
+	bool InitViews(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents);
 
-	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents, FGraphEventArray& UpdateViewCustomDataEvents);
+	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& UpdateViewCustomDataEvents);
 
-	void SetupReflectionCaptureBuffers(FViewInfo& View, FRHICommandListImmediate& RHICmdList);
+	void SetupSceneReflectionCaptureBuffer(FRHICommandListImmediate& RHICmdList);
 
 	/**
 	Updates auto-downsampling of separate translucency and sets FSceneRenderTargets::SeparateTranslucencyBufferSize.
@@ -174,7 +156,7 @@ private:
 	*/
 	bool PreRenderPrePass(FRHICommandListImmediate& RHICmdList);
 
-	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, FDepthDrawingPolicyFactory::ContextType Context);
+	void RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, EDepthDrawingMode DepthDrawingMode, bool bRespectUseAsOccluderFlag);
 
 	/**
 	 * Renders the scene's prepass and occlusion queries.
@@ -268,17 +250,10 @@ private:
 
 	void RenderLightShaftBloom(FRHICommandListImmediate& RHICmdList);
 
-	/** Returns an existing translucent shadow map for a given primitive. */
-	const FProjectedShadowInfo* GetTranslucentShadowMap(FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPass::Type TranslucenyPassType);
-
 	bool ShouldRenderVelocities() const;
 
 	/** Renders the velocities of movable objects for the motion blur effect. */
 	void RenderVelocities(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
-
-	/** Renders the velocities for a subset of movable objects for the motion blur effect. */
-	friend class FRenderVelocityDynamicThreadTask;
-	void RenderDynamicVelocitiesMeshElementsInner(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, int32 FirstIndex, int32 LastIndex);
 
 	/** Renders the velocities of movable objects for the motion blur effect. */
 	void RenderVelocitiesInner(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
@@ -286,6 +261,9 @@ private:
 
 	/** Renders world-space lightmap density instead of the normal color. */
 	bool RenderLightMapDensities(FRHICommandListImmediate& RHICmdList);
+
+	/** Renders one of the EDebugViewShaderMode instead of the normal color. */
+	bool RenderDebugViewMode(FRHICommandListImmediate& RHICmdList);
 
 	/** Updates the downsized depth buffer with the current full resolution depth buffer. */
 	void UpdateDownsampledDepthSurface(FRHICommandList& RHICmdList);
@@ -394,9 +372,6 @@ private:
 
 	void SetupVolumetricFog();
 
-	/** Will update the view specific custom data. */
-	void PostInitViewCustomData(FGraphEventArray& OutUpdateEvents);
-
 	void RenderLocalLightsForVolumetricFog(
 		FRDGBuilder& GraphBuilder,
 		FViewInfo& View,
@@ -449,13 +424,81 @@ private:
 	void UpdateGlobalDistanceFieldObjectBuffers(FRHICommandListImmediate& RHICmdList);
 	void PrepareDistanceFieldScene(FRHICommandListImmediate& RHICmdList, bool bSplitDispatch);
 
-	void RenderViewTranslucency(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucenyPass);
-	void RenderViewTranslucencyParallel(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass);
+	void RenderViewTranslucency(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, ETranslucencyPass::Type TranslucenyPass);
+	void RenderViewTranslucencyParallel(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState, ETranslucencyPass::Type TranslucencyPass);
 
 	void CopySceneCaptureComponentToTarget(FRHICommandListImmediate& RHICmdList);
 
-	friend class FTranslucentPrimSet;
+	bool CanOverlayRayTracingOutput(void) const;
+
+	void RayTraceReflections(
+		FRDGBuilder& GraphBuilder,
+		const FViewInfo& View,
+		FRDGTextureRef* OutColorTexture,
+		FRDGTextureRef* OutRayHitDistanceTexture,
+		int32 SamplePerPixel,
+		float ResolutionFraction);
+
+#if RHI_RAYTRACING
+	bool ShouldRenderRayTracingAmbientOcclusion() const;
+
+	void RenderRayTracingOcclusion(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture);
+
+	void VisualizeRectLightMipTree(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FRWBuffer& RectLightMipTree, const FIntVector& RectLightMipTreeDimensions);
+	void RenderRayTracingRectLight(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& RectLightSceneInfo, TRefCountPtr<IPooledRenderTarget>& RectLightRT, TRefCountPtr<IPooledRenderTarget>& HitDistanceRT);
+	void RenderRayTracingOcclusionForRectLight(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& RectLightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture);
+	template <int CalcDirectLighting, int EncodeVisibility, int TextureImportanceSampling> void RenderRayTracingRectLightInternal(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& RectLightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture, TRefCountPtr<IPooledRenderTarget>& RayDistanceTexture);
+
+	void RenderRayTracingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT);
+	void CompositeRayTracingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT);
+
+	void BuildSkyLightMipTree(FRHICommandListImmediate& RHICmdList, FTextureRHIRef SkyLightTexture, FRWBuffer& SkyLightMipTreePosX, FRWBuffer& SkyLightMipTreePosY, FRWBuffer& SkyLightMipTreePosZ, FRWBuffer& SkyLightMipTreeNegX, FRWBuffer& SkyLightMipTreeNegY, FRWBuffer& SkyLightMipTreeNegZ, FIntVector& SkyLightMipTreeDimensions);
+	void BuildSkyLightMipTreePdf(
+		FRHICommandListImmediate& RHICmdList,
+		const FRWBuffer& SkyLightMipTreePosX,
+		const FRWBuffer& SkyLightMipTreeNegX,
+		const FRWBuffer& SkyLightMipTreePosY,
+		const FRWBuffer& SkyLightMipTreeNegY,
+		const FRWBuffer& SkyLightMipTreePosZ,
+		const FRWBuffer& SkyLightMipTreeNegZ,
+		const FIntVector& SkyLightMipTreeDimensions,
+		FRWBuffer& SkyLightMipTreePdfPosX,
+		FRWBuffer& SkyLightMipTreePdfNegX,
+		FRWBuffer& SkyLightMipTreePdfPosY,
+		FRWBuffer& SkyLightMipTreePdfNegY,
+		FRWBuffer& SkyLightMipTreePdfPosZ,
+		FRWBuffer& SkyLightMipTreePdfNegZ
+	);
+	void BuildSolidAnglePdf(FRHICommandListImmediate& RHICmdList, const FIntVector& Dimensions, FRWBuffer& SolidAnglePdf);
+
+	void VisualizeSkyLightMipTree(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FRWBuffer& SkyLightMipTreePosX, FRWBuffer& SkyLightMipTreePosY, FRWBuffer& SkyLightMipTreePosZ, FRWBuffer& SkyLightMipTreeNegX, FRWBuffer& SkyLightMipTreeNegY, FRWBuffer& SkyLightMipTreeNegZ, const FIntVector& SkyLightMipDimensions);
+	void RenderRayTracingSkyLight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& SkyLightRT, TRefCountPtr<IPooledRenderTarget>& HitDistanceRT);
+	void CompositeRayTracingSkyLight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& SkyLightRT, TRefCountPtr<IPooledRenderTarget>& HitDistanceRT);
+
+	/** Path tracing functions. */
+	void RenderPathTracing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	void BuildVarianceMipTree(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FTextureRHIRef MeanAndDeviationTexture,
+		FRWBuffer& VarianceMipTree, FIntVector& VarianceMipTreeDimensions);
+
+	void VisualizeVarianceMipTree(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FRWBuffer& VarianceMipTree, FIntVector VarianceMipTreeDimensions);
+
+	void ComputePathCompaction(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FTextureRHIParamRef RadianceTexture, FTextureRHIParamRef SampleCountTexture, FTextureRHIParamRef PixelPositionTexture,
+		FUnorderedAccessViewRHIParamRef RadianceSortedRedUAV, FUnorderedAccessViewRHIParamRef RadianceSortedGreenUAV, FUnorderedAccessViewRHIParamRef RadianceSortedBlueUAV, FUnorderedAccessViewRHIParamRef RadianceSortedAlphaUAV, FUnorderedAccessViewRHIParamRef SampleCountSortedUAV);
+
+	void BuildSkyLightCdf(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FTexture& SkyLightTextureCube, FRWBuffer& RowCdf, FRWBuffer& ColumnCdf, FRWBuffer& CubeFaceCdf);
+	void VisualizeSkyLightCdf(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FIntVector Dimensions, const FRWBuffer& RowCdf, const FRWBuffer& ColumnCdf, const FRWBuffer& CubeFaceCdf);
+
+	void ComputeRayCount(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FTextureRHIParamRef RayCountPerPixelTexture);
+
+	/** Debug ray tracing functions. */
+	void RenderRayTracedDebug(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+	void RenderRayTracedBarycentrics(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	bool GatherRayTracingWorldInstances(FRHICommandListImmediate& RHICmdList);
+	bool DispatchRayTracingWorldUpdates(FRHICommandListImmediate& RHICmdList);
+	FRHIRayTracingPipelineState* BindRayTracingPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader, FRayTracingShaderRHIParamRef MissShader, FRayTracingShaderRHIParamRef DefaultChsShader);
+#endif // RHI_RAYTRACING
 };
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("DeferredShadingSceneRenderer AsyncSortBasePassStaticData"), STAT_FDeferredShadingSceneRenderer_AsyncSortBasePassStaticData, STATGROUP_SceneRendering, );

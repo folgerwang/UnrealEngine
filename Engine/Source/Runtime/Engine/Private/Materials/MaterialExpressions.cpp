@@ -126,6 +126,7 @@
 #include "Materials/MaterialExpressionReroute.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionSetMaterialAttributes.h"
+#include "Materials/MaterialExpressionShadowReplace.h"
 #include "Materials/MaterialExpressionSign.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
@@ -186,6 +187,7 @@
 #include "Materials/MaterialExpressionTextureSampleParameterVolume.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionTime.h"
+#include "Materials/MaterialExpressionDeltaTime.h"
 #include "Materials/MaterialExpressionTransform.h"
 #include "Materials/MaterialExpressionTransformPosition.h"
 #include "Materials/MaterialExpressionTruncate.h"
@@ -205,6 +207,7 @@
 #include "Materials/MaterialExpressionAtmosphericLightColor.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
 #include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
+#include "Materials/MaterialUniformExpressions.h"
 #include "EditorSupportDelegates.h"
 #include "MaterialCompiler.h"
 #if WITH_EDITOR
@@ -507,7 +510,7 @@ int32 CompileTextureSample(
 	}
 	else
 	{
-		TextureCodeIndex = ParameterName.IsSet() ? Compiler->TextureParameter(ParameterName.GetValue(), Texture, TextureReferenceIndex, SamplerSource) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
+		TextureCodeIndex = ParameterName.IsSet() ? Compiler->TextureParameter(ParameterName.GetValue(), Texture, TextureReferenceIndex, SamplerType, SamplerSource) : Compiler->Texture(Texture, TextureReferenceIndex, SamplerType, SamplerSource, MipValueMode);
 	}
 
 	return Compiler->TextureSample(
@@ -1654,7 +1657,13 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 		}
 		else
 		{
-			TextureCodeIndex = Compiler->Texture(Texture, TextureReferenceIndex, SamplerSource, MipValueMode);
+			TextureCodeIndex = Compiler->Texture(Texture, TextureReferenceIndex, SamplerType, SamplerSource, MipValueMode);
+		}
+
+		if (TextureCodeIndex == INDEX_NONE)
+		{
+			// Can't continue without a texture to sample
+			return INDEX_NONE;
 		}
 
 		UTexture* EffectiveTexture = Texture;
@@ -1662,42 +1671,37 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 		TOptional<FName> EffectiveParameterName;
 		if (InputExpression)
 		{
-			UMaterialExpressionFunctionInput* FunctionInput = Cast<UMaterialExpressionFunctionInput>(InputExpression);
-			if (FunctionInput)
-			{	
-				UMaterialExpressionFunctionInput* NestedFunctionInput = FunctionInput;
+			const EMaterialValueType TexInputType = Compiler->GetParameterType(TextureCodeIndex);
+			if (!(TexInputType & MCT_Texture))
+			{
+				return CompilerError(Compiler, TEXT("Tex input requires a texture value"));
+			}
 
-				// Walk the input chain to find the last node in the chain
-				while (true)
+			// If 'InputExpression' is connected, we use need to find the texture object that was passed in
+			// In this case, the texture/sampler assigned on this expression node are not used
+			FMaterialUniformExpression* TextureUniformBase = Compiler->GetParameterUniformExpression(TextureCodeIndex);
+			checkf(TextureUniformBase, TEXT("TexInputType is %d, but missing FMaterialUniformExpression"), TexInputType);
+
+			if (FMaterialUniformExpressionTexture* TextureUniform = TextureUniformBase->GetTextureUniformExpression())
+			{
+				EffectiveSamplerType = TextureUniform->GetSamplerType();
+				TextureReferenceIndex = TextureUniform->GetTextureIndex();
+				EffectiveTexture = Compiler->GetReferencedTexture(TextureReferenceIndex);
+				if (FMaterialUniformExpressionTextureParameter* TextureParameterUniform = TextureUniform->GetTextureParameterUniformExpression())
 				{
-					UMaterialExpression* PreviewExpression = NestedFunctionInput->GetEffectivePreviewExpression();
-					if (PreviewExpression && PreviewExpression->IsA(UMaterialExpressionFunctionInput::StaticClass()))
-					{
-						NestedFunctionInput = CastChecked<UMaterialExpressionFunctionInput>(PreviewExpression);
-					}
-					else
-					{
-						break;
-					}
+					EffectiveParameterName = TextureParameterUniform->GetParameterName();
 				}
-				InputExpression = NestedFunctionInput->GetEffectivePreviewExpression();
 			}
-
-			UMaterialExpressionTextureObject* TextureObjectExpression = Cast<UMaterialExpressionTextureObject>(InputExpression);
-			UMaterialExpressionTextureObjectParameter* TextureObjectParameter = Cast<UMaterialExpressionTextureObjectParameter>(InputExpression);
-			if (TextureObjectExpression)
+			else if (FMaterialUniformExpressionExternalTexture* ExternalTextureUniform = TextureUniformBase->GetExternalTextureUniformExpression())
 			{
-				EffectiveTexture = TextureObjectExpression->Texture;
-				EffectiveSamplerType = TextureObjectExpression->SamplerType;
+				TextureReferenceIndex = ExternalTextureUniform->GetSourceTextureIndex();
+				EffectiveTexture = Compiler->GetReferencedTexture(TextureReferenceIndex);
+				EffectiveSamplerType = SAMPLERTYPE_External;
+				if (FMaterialUniformExpressionExternalTextureParameter* ExternalTextureParameterUniform = ExternalTextureUniform->GetExternalTextureParameterUniformExpression())
+				{
+					EffectiveParameterName = ExternalTextureParameterUniform->GetParameterName();
+				}
 			}
-			else if (TextureObjectParameter)
-			{
-				EffectiveTexture = TextureObjectParameter->Texture;
-				EffectiveSamplerType = TextureObjectParameter->SamplerType;
-				EffectiveParameterName = TextureObjectParameter->ParameterName;
-			}
-
-			TextureReferenceIndex = Compiler->GetTextureReferenceIndex(EffectiveTexture);
 		}
 
 		if (EffectiveTexture && VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureSample")), EffectiveTexture, EffectiveSamplerType))
@@ -2045,7 +2049,13 @@ int32 UMaterialExpressionTextureObjectParameter::Compile(class FMaterialCompiler
 		return CompilerError(Compiler, GetRequirements());
 	}
 
-	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTextureParameter(ParameterName, Texture) : Compiler->TextureParameter(ParameterName, Texture);
+	// It seems like this error should be checked here, but this can break existing materials, see https://jira.it.epicgames.net/browse/UE-68862
+	/*if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObjectParameter")), Texture, SamplerType))
+	{
+		return INDEX_NONE;
+	}*/
+
+	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTextureParameter(ParameterName, Texture) : Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 }
 
 int32 UMaterialExpressionTextureObjectParameter::CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex)
@@ -2121,7 +2131,14 @@ int32 UMaterialExpressionTextureObject::Compile(class FMaterialCompiler* Compile
 	{
 		return CompilerError(Compiler, TEXT("Requires valid texture"));
 	}
-	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTexture(Texture) : Compiler->Texture(Texture);
+
+	// It seems like this error should be checked here, but this can break existing materials, see https://jira.it.epicgames.net/browse/UE-68862
+	/*if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureObject")), Texture, SamplerType))
+	{
+		return INDEX_NONE;
+	}*/
+
+	return SamplerType == SAMPLERTYPE_External ? Compiler->ExternalTexture(Texture) : Compiler->Texture(Texture, SamplerType);
 }
 
 int32 UMaterialExpressionTextureObject::CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex)
@@ -2546,7 +2563,7 @@ int32 UMaterialExpressionTextureSampleParameterSubUV::Compile(class FMaterialCom
 		return INDEX_NONE;
 	}
 
-	int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture);
+	int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 	return ParticleSubUV(Compiler, TextureCodeIndex, Texture, SamplerType, Coordinates, bBlend);
 }
 
@@ -7664,7 +7681,7 @@ int32 UMaterialExpressionParticleSubUV::Compile(class FMaterialCompiler* Compile
 		{
 			return INDEX_NONE;
 		}
-		int32 TextureCodeIndex = Compiler->Texture(Texture);
+		int32 TextureCodeIndex = Compiler->Texture(Texture, SamplerType);
 		return ParticleSubUV(Compiler, TextureCodeIndex, Texture, SamplerType, Coordinates, bBlend);
 	}
 	else
@@ -7882,6 +7899,39 @@ int32 UMaterialExpressionViewSize::Compile(class FMaterialCompiler* Compiler, in
 void UMaterialExpressionViewSize::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("ViewSize"));
+}
+#endif // WITH_EDITOR
+
+UMaterialExpressionDeltaTime::UMaterialExpressionDeltaTime(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+#if WITH_EDITORONLY_DATA
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Constants;
+		FConstructorStatics()
+			: NAME_Constants(LOCTEXT("Constants", "Constants"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	MenuCategories.Add(ConstructorStatics.NAME_Constants);
+
+	bShaderInputData = true;
+#endif
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionDeltaTime::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	return Compiler->DeltaTime();
+}
+
+void UMaterialExpressionDeltaTime::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("DeltaTime"));
 }
 #endif // WITH_EDITOR
 
@@ -8966,7 +9016,7 @@ int32 UMaterialExpressionFontSample::Compile(class FMaterialCompiler* Compiler, 
 			return INDEX_NONE;
 		}
 
-		int32 TextureCodeIndex = Compiler->Texture(Texture);
+		int32 TextureCodeIndex = Compiler->Texture(Texture, ExpectedSamplerType);
 		Result = Compiler->TextureSample(
 			TextureCodeIndex,
 			Compiler->TextureCoordinate(0, false, false),
@@ -9070,7 +9120,7 @@ int32 UMaterialExpressionFontSampleParameter::Compile(class FMaterialCompiler* C
 		{
 			return INDEX_NONE;
 		}
-		int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName,Texture);
+		int32 TextureCodeIndex = Compiler->TextureParameter(ParameterName,Texture, ExpectedSamplerType);
 		Result = Compiler->TextureSample(
 			TextureCodeIndex,
 			Compiler->TextureCoordinate(0, false, false),
@@ -12462,6 +12512,53 @@ void UMaterialExpressionLightmassReplace::GetCaption(TArray<FString>& OutCaption
 }
 #endif // WITH_EDITOR
 
+//
+//	UMaterialExpressionShadowReplace
+//
+UMaterialExpressionShadowReplace::UMaterialExpressionShadowReplace(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+#endif
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionShadowReplace::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	if (!Default.GetTracedInput().Expression)
+	{
+		return Compiler->Errorf(TEXT("Missing ShadowReplace input Default"));
+	}
+	else if (!Shadow.GetTracedInput().Expression)
+	{
+		return Compiler->Errorf(TEXT("Missing ShadowReplace input Shadow"));
+	}
+	else
+	{
+		const int32 Arg1 = Default.Compile(Compiler);
+		const int32 Arg2 = Shadow.Compile(Compiler);
+		return Compiler->ShadowReplace(Arg1, Arg2);
+	}
+}
+
+void UMaterialExpressionShadowReplace::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("ShadowReplace"));
+}
+#endif // WITH_EDITOR
+
 
 //
 //	UMaterialExpressionMaterialProxy
@@ -13592,11 +13689,11 @@ int32 UMaterialExpressionAntialiasedTextureMask::Compile(class FMaterialCompiler
 
 	if (!ParameterName.IsValid() || ParameterName.IsNone())
 	{
-		TextureCodeIndex = Compiler->Texture(Texture);
+		TextureCodeIndex = Compiler->Texture(Texture, SamplerType);
 	}
 	else
 	{
-		TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture);
+		TextureCodeIndex = Compiler->TextureParameter(ParameterName, Texture, SamplerType);
 	}
 
 	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("AntialiasedTextureMask")), Texture, SamplerType))

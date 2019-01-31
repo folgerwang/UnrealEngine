@@ -17,7 +17,7 @@
 #include "RendererInterface.h"
 #include "SceneUtils.h"
 #include "EngineModule.h"
-#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 /** 
 * Vertex buffer
@@ -216,7 +216,6 @@ void FCanvasTriangleRendererItem::FTriangleMesh::InitRHI()
 	
 void FCanvasTriangleRendererItem::FTriangleMesh::ReleaseRHI()
 {
-	TriMeshElement.Elements[0].PrimitiveUniformBuffer.SafeRelease();
 }
 
 void FCanvasTriangleRendererItem::InitTriangleBuffers(FLocalVertexFactory* VertexFactory, TArray<FTriangleInst>& Triangles, const FSceneView& View, bool bNeedsToSwitchVerticalAxis)
@@ -277,7 +276,7 @@ void FCanvasTriangleRendererItem::InitTriangleBuffers(FLocalVertexFactory* Verte
 	});
 };
 
-bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 {
 	float CurrentRealTime = 0.f;
 	float CurrentWorldTime = 0.f;
@@ -408,7 +407,7 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas, FRend
 	RenderScope.EnqueueRenderCommand(
 		[Parameters](FRHICommandListImmediate& RHICmdList)	
 	{
-		FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+		FMeshPassProcessorRenderState DrawRenderState(*Parameters.View);
 
 		// disable depth test & writes
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());

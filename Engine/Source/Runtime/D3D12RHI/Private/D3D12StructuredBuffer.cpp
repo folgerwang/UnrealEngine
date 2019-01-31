@@ -44,8 +44,6 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::CreateStructuredBuffer_RenderThread(FR
 		NewBuffer->SetCommitted(false);
 	}
 
-	UpdateBufferStats(&NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_STRUCTURED);
-
 	return NewBuffer;
 }
 
@@ -67,14 +65,12 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 		NewBuffer->SetCommitted(false);
 	}
 
-	UpdateBufferStats(&NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_STRUCTURED);
-
 	return NewBuffer;
 }
 
 FD3D12StructuredBuffer::~FD3D12StructuredBuffer()
 {
-	UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_STRUCTURED);
+	UpdateBufferStats<FD3D12StructuredBuffer>(&ResourceLocation, false);
 }
 
 void FD3D12StructuredBuffer::Rename(FD3D12ResourceLocation& NewLocation)

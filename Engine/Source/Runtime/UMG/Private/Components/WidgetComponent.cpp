@@ -306,7 +306,7 @@ public:
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
 
 		auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr,
+			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
 			FLinearColor(0, 0.5f, 1.f)
 			);
 
@@ -319,10 +319,10 @@ public:
 		}
 		else
 		{
-			ParentMaterialProxy = MaterialInstance->GetRenderProxy(IsSelected());
+			ParentMaterialProxy = MaterialInstance->GetRenderProxy();
 		}
 #else
-		FMaterialRenderProxy* ParentMaterialProxy = MaterialInstance->GetRenderProxy(IsSelected());
+		FMaterialRenderProxy* ParentMaterialProxy = MaterialInstance->GetRenderProxy();
 #endif
 
 		//FSpriteTextureOverrideRenderProxy* TextureOverrideMaterialProxy = new FSpriteTextureOverrideRenderProxy(ParentMaterialProxy,
@@ -479,7 +479,7 @@ public:
 					{
 						// Make a material for drawing solid collision stuff
 						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
-							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(),
 							GetWireframeColor()
 							);
 
@@ -514,7 +514,9 @@ public:
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
 		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bShadowRelevance = IsShadowCast(View);
+		Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 		Result.bEditorPrimitiveRelevance = false;
+		Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
 
 		return Result;
 	}

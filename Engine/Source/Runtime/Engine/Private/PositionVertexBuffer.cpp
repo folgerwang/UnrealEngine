@@ -47,13 +47,13 @@ void FPositionVertexBuffer::CleanUp()
 	}
 }
 
-void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bNeedsCPUAccess)
+void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bInNeedsCPUAccess)
 {
 	NumVertices = InNumVertices;
-	NeedsCPUAccess = bNeedsCPUAccess;
+	bNeedsCPUAccess = bInNeedsCPUAccess;
 
 	// Allocate the vertex data storage type.
-	AllocateData(bNeedsCPUAccess);
+	AllocateData(bInNeedsCPUAccess);
 
 	// Allocate the vertex data buffer.
 	VertexData->ResizeBuffer(NumVertices);
@@ -64,9 +64,9 @@ void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bNeedsCPUAccess)
 * Initializes the buffer with the given vertices, used to convert legacy layouts.
 * @param InVertices - The vertices to initialize the buffer with.
 */
-void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bNeedsCPUAccess)
+void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bInNeedsCPUAccess)
 {
-	Init(InVertices.Num(), bNeedsCPUAccess);
+	Init(InVertices.Num(), bInNeedsCPUAccess);
 
 	// Copy the vertices into the buffer.
 	for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
@@ -81,12 +81,12 @@ void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertice
 * Initializes this vertex buffer with the contents of the given vertex buffer.
 * @param InVertexBuffer - The vertex buffer to initialize from.
 */
-void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess)
+void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer, bool bInNeedsCPUAccess)
 {
-	NeedsCPUAccess = bNeedsCPUAccess;
+	bNeedsCPUAccess = bInNeedsCPUAccess;
 	if ( InVertexBuffer.GetNumVertices() )
 	{
-		Init(InVertexBuffer.GetNumVertices(), bNeedsCPUAccess);
+		Init(InVertexBuffer.GetNumVertices(), bInNeedsCPUAccess);
 
 		check( Stride == InVertexBuffer.GetStride() );
 
@@ -95,13 +95,13 @@ void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer, bo
 	}
 }
 
-void FPositionVertexBuffer::Init(const TArray<FVector>& InPositions, bool bNeedsCPUAccess)
+void FPositionVertexBuffer::Init(const TArray<FVector>& InPositions, bool bInNeedsCPUAccess)
 {
 	NumVertices = InPositions.Num();
-	NeedsCPUAccess = bNeedsCPUAccess;
+	bNeedsCPUAccess = bInNeedsCPUAccess;
 	if ( NumVertices )
 	{
-		AllocateData(bNeedsCPUAccess);
+		AllocateData(bInNeedsCPUAccess);
 		check( Stride == InPositions.GetTypeSize() );
 		VertexData->ResizeBuffer(NumVertices);
 		Data = VertexData->GetDataPointer();
@@ -114,7 +114,7 @@ void FPositionVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertic
 	if (VertexData == nullptr && NumVerticesToAppend > 0)
 	{
 		// Allocate the vertex data storage type if the buffer was never allocated before
-		AllocateData(NeedsCPUAccess);
+		AllocateData(bNeedsCPUAccess);
 	}
 
 	if( NumVerticesToAppend > 0 )
@@ -144,19 +144,19 @@ void FPositionVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertic
 /**
  * Serializer
  *
- * @param	Ar				Archive to serialize with
- * @param	bNeedsCPUAccess	Whether the elements need to be accessed by the CPU
+ * @param	Ar					Archive to serialize with
+ * @param	bInNeedsCPUAccess	Whether the elements need to be accessed by the CPU
  */
-void FPositionVertexBuffer::Serialize( FArchive& Ar, bool bNeedsCPUAccess )
+void FPositionVertexBuffer::Serialize( FArchive& Ar, bool bInNeedsCPUAccess )
 {
-	NeedsCPUAccess = bNeedsCPUAccess;
+	bNeedsCPUAccess = bInNeedsCPUAccess;
 
 	Ar << Stride << NumVertices;
 
 	if(Ar.IsLoading())
 	{
 		// Allocate the vertex data storage type.
-		AllocateData( bNeedsCPUAccess );
+		AllocateData( bInNeedsCPUAccess );
 	}
 
 	if(VertexData != NULL)
@@ -203,12 +203,12 @@ void FPositionVertexBuffer::ReleaseRHI()
 	FVertexBuffer::ReleaseRHI();
 }
 
-void FPositionVertexBuffer::AllocateData( bool bNeedsCPUAccess /*= true*/ )
+void FPositionVertexBuffer::AllocateData( bool bInNeedsCPUAccess /*= true*/ )
 {
 	// Clear any old VertexData before allocating.
 	CleanUp();
 
-	VertexData = new FPositionVertexData(bNeedsCPUAccess);
+	VertexData = new FPositionVertexData(bInNeedsCPUAccess);
 	// Calculate the vertex stride.
 	Stride = VertexData->GetStride();
 }

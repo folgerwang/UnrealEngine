@@ -3,6 +3,7 @@
 #include "/Engine/Generated/UniformBuffers/PrecomputedLightingBuffer.ush"
 #include "VolumetricLightmapShared.ush"
 #include "VirtualTextureCommon.ush"
+#include "LightmapData.ush"
 
 #if HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP
  
@@ -48,13 +49,13 @@ half4 SampleLightmapVT(float2 UV, Texture2D CacheTexture, SamplerState CacheSamp
 #endif
 }
 
-half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNormal )
+half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, uint LightmapDataIndex, half3 WorldNormal )
 {
-	half4 Lightmap0 = Texture2DSample( PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV0 );
-	half4 Lightmap1 = Texture2DSample( PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV1 );
+	half4 Lightmap0 = Texture2DSample( LightmapResourceCluster.LightMapTexture, LightmapResourceCluster.LightMapSampler, LightmapUV0 );
+	half4 Lightmap1 = Texture2DSample( LightmapResourceCluster.LightMapTexture, LightmapResourceCluster.LightMapSampler, LightmapUV1 );
 		
 	// Range scale
-	half3 LogRGB = Lightmap0.rgb * PrecomputedLightingBuffer.LightMapScale[0].xyz + PrecomputedLightingBuffer.LightMapAdd[0].xyz;	// 1 vmad
+	half3 LogRGB = Lightmap0.rgb * GetLightmapData(LightmapDataIndex).LightMapScale[0].xyz + GetLightmapData(LightmapDataIndex).LightMapAdd[0].xyz;	// 1 vmad
 
 	half LogL = Luminance( LogRGB );					// 1 dot
 
@@ -64,7 +65,7 @@ half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNor
 
 #if USE_LM_DIRECTIONALITY
 	// Alpha doesn't matter, will scaled by zero
-	float4 SH = Lightmap1 * PrecomputedLightingBuffer.LightMapScale[1] + PrecomputedLightingBuffer.LightMapAdd[1];	// 1 vmad
+	float4 SH = Lightmap1 * GetLightmapData(LightmapDataIndex).LightMapScale[1] + GetLightmapData(LightmapDataIndex).LightMapAdd[1];	// 1 vmad
 
 	// Sample SH with normal
 	half Directionality = max( 0.0, dot( SH, float4(WorldNormal.yzx, 1) ) );	// 1 dot, 1 smax
@@ -78,7 +79,7 @@ half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNor
 	return half4( Color, Luma );
 }
 
-void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNormal, float2 SvPositionXY, out half3 OutDiffuseLighting, out half3 OutSubsurfaceLighting, out uint VTRequest )
+void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, uint LightmapDataIndex, half3 WorldNormal, float2 SvPositionXY, out half3 OutDiffuseLighting, out half3 OutSubsurfaceLighting, out uint VTRequest )
 {
 	OutSubsurfaceLighting = 0;
 
@@ -86,16 +87,16 @@ void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNorm
 	LightmapUV0 *= float2(1, 2);
 #endif
 
-	half4 Lightmap0 = SampleLightmapVT( LightmapUV0 , PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest); 
+	half4 Lightmap0 = SampleLightmapVT( LightmapUV0 , LightmapResourceCluster.LightMapTexture, LightmapResourceCluster.LightMapSampler, SvPositionXY, VTRequest); 
 
 	uint VTRequest_notused = 0;
 	half4 Lightmap1 = SampleLightmapVT(
 #if LIGHTMAP_VT_ENABLED
-		LightmapUV0, PrecomputedLightingBuffer.LightMapTexture_1, 
+		LightmapUV0, LightmapResourceCluster.LightMapTexture_1, 
 #else
-		LightmapUV1, PrecomputedLightingBuffer.LightMapTexture,
+		LightmapUV1, LightmapResourceCluster.LightMapTexture,
 #endif
-		PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused); 
+		LightmapResourceCluster.LightMapSampler, SvPositionXY, VTRequest_notused); 
 
 
 
@@ -105,10 +106,10 @@ void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNorm
 	LogL += Lightmap1.w * (1.0 / 255) - (0.5 / 255);
 
 	// Range scale LogL
-	LogL = LogL * PrecomputedLightingBuffer.LightMapScale[0].w + PrecomputedLightingBuffer.LightMapAdd[0].w;
+	LogL = LogL * GetLightmapData(LightmapDataIndex).LightMapScale[0].w + GetLightmapData(LightmapDataIndex).LightMapAdd[0].w;
 		
 	// Range scale UVW
-	half3 UVW = Lightmap0.rgb * Lightmap0.rgb * PrecomputedLightingBuffer.LightMapScale[0].rgb + PrecomputedLightingBuffer.LightMapAdd[0].rgb;
+	half3 UVW = Lightmap0.rgb * Lightmap0.rgb * GetLightmapData(LightmapDataIndex).LightMapScale[0].rgb + GetLightmapData(LightmapDataIndex).LightMapAdd[0].rgb;
 
 	// LogL -> L
 	const half LogBlackPoint = 0.01858136;
@@ -116,7 +117,7 @@ void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNorm
 
 #if USE_LM_DIRECTIONALITY
 	// Range scale SH. Alpha doesn't matter, will scale with zero
-	float4 SH = Lightmap1 * PrecomputedLightingBuffer.LightMapScale[1] + PrecomputedLightingBuffer.LightMapAdd[1];
+	float4 SH = Lightmap1 * GetLightmapData(LightmapDataIndex).LightMapScale[1] + GetLightmapData(LightmapDataIndex).LightMapAdd[1];
 
 	// Sample SH with normal
 	half Directionality = max( 0.0, dot( SH, float4(WorldNormal.yzx, 1) ) );
@@ -144,9 +145,9 @@ float4 GetSkyBentNormalAndOcclusion(float2 LightmapUV, float2 SvPositionXY)
 	uint VTRequest_notused;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	// Share sampler with lightmaps to give artists more available
-	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused); 
+	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , LightmapResourceCluster.SkyOcclusionTexture, LightmapResourceCluster.LightMapSampler, SvPositionXY, VTRequest_notused); 
 #else
-	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.SkyOcclusionSampler, SvPositionXY, VTRequest_notused); 
+	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , LightmapResourceCluster.SkyOcclusionTexture, LightmapResourceCluster.SkyOcclusionSampler, SvPositionXY, VTRequest_notused); 
 #endif
 	// Unpack vector
 	TextureValue.rgb = TextureValue.rgb * 2 - 1;
@@ -160,9 +161,9 @@ float GetAOMaterialMask(float2 LightmapUV, float2 SvPositionXY)
 	uint VTRequest_notused;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	// Share sampler with lightmaps to give artists more available
-	float TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused).x; 
+	float TextureValue = SampleLightmapVT( LightmapUV.xy , LightmapResourceCluster.AOMaterialMaskTexture, LightmapResourceCluster.LightMapSampler, SvPositionXY, VTRequest_notused).x; 
 #else
-	float TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.AOMaterialMaskSampler, SvPositionXY, VTRequest_notused).x; 
+	float TextureValue = SampleLightmapVT( LightmapUV.xy , LightmapResourceCluster.AOMaterialMaskTexture, LightmapResourceCluster.AOMaterialMaskSampler, SvPositionXY, VTRequest_notused).x; 
 #endif
 	// Undo sqrt which allocated more precision toward 0
 	return TextureValue * TextureValue;
@@ -171,18 +172,23 @@ float GetAOMaterialMask(float2 LightmapUV, float2 SvPositionXY)
 #endif
 
 // Used by deferred renderer only
-half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants, float3 WorldPosition, float3 VolumetricLightmapBrickTextureUVs)
+half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants, uint PrimitiveId, float3 WorldPosition, float3 VolumetricLightmapBrickTextureUVs)
 {
 	// Note: WRITES_PRECSHADOWFACTOR_ZERO have to match the logic here
 	#if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
 
+		float2 ShadowMapCoordinate;
+		uint LightmapDataIndex;
+		GetShadowMapCoordinate(Interpolants, ShadowMapCoordinate, LightmapDataIndex);
+
 		// Fetch the 4 channels of distance field data
-		half4 DistanceField = Texture2DSample(PrecomputedLightingBuffer.StaticShadowTexture, PrecomputedLightingBuffer.StaticShadowTextureSampler, GetShadowMapCoordinate(Interpolants));
-		float4 DistanceFieldBias = -.5f * PrecomputedLightingBuffer.InvUniformPenumbraSizes + .5f;
+		half4 DistanceField = Texture2DSample(LightmapResourceCluster.StaticShadowTexture, LightmapResourceCluster.StaticShadowTextureSampler, ShadowMapCoordinate);
+		float4 InvUniformPenumbraSizes = GetLightmapData(LightmapDataIndex).InvUniformPenumbraSizes;
+		float4 DistanceFieldBias = -.5f * InvUniformPenumbraSizes + .5f;
 
 		// Compute shadow factors by scaling and biasing the distance
-		half4 ShadowFactors = saturate(DistanceField * PrecomputedLightingBuffer.InvUniformPenumbraSizes + DistanceFieldBias);
-		return PrecomputedLightingBuffer.StaticShadowMapMasks * ShadowFactors * ShadowFactors;
+		half4 ShadowFactors = saturate(DistanceField * InvUniformPenumbraSizes + DistanceFieldBias);
+		return GetLightmapData(LightmapDataIndex).StaticShadowMapMasks * ShadowFactors * ShadowFactors;
 
 	#elif HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP
 
@@ -192,10 +198,17 @@ half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants, f
 
 	#else
 
-		float DirectionalLightShadowing = Primitive.UseSingleSampleShadowFromStationaryLights > 0 ? PrecomputedLightingBuffer.DirectionalLightShadowing : 1;
+		float DirectionalLightShadowing = 1.0f;
+
+	#if CACHED_POINT_INDIRECT_LIGHTING || CACHED_VOLUME_INDIRECT_LIGHTING
+		if (GetPrimitiveData(PrimitiveId).UseSingleSampleShadowFromStationaryLights > 0 && View.IndirectLightingCacheShowFlag > 0.0f)
+		{
+			DirectionalLightShadowing = IndirectLightingCache.DirectionalLightShadowing;
+		}
+	#endif
 
 		BRANCH
-		if (Primitive.UseVolumetricLightmapShadowFromStationaryLights > 0)
+		if (GetPrimitiveData(PrimitiveId).UseVolumetricLightmapShadowFromStationaryLights > 0)
 		{
 			#if !PRECOMPUTED_IRRADIANCE_VOLUME_LIGHTING
 				// Compute brick UVs if we haven't already
@@ -216,12 +229,17 @@ half GetPrimaryPrecomputedShadowMask(FVertexFactoryInterpolantsVSToPS Interpolan
 {
 	#if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
 
+		float2 ShadowMapCoordinate;
+		uint LightmapDataIndex;
+		GetShadowMapCoordinate(Interpolants, ShadowMapCoordinate, LightmapDataIndex);
+
 		// Fetch the distance field data
-		half DistanceField = Texture2DSample(PrecomputedLightingBuffer.StaticShadowTexture, PrecomputedLightingBuffer.StaticShadowTextureSampler, GetShadowMapCoordinate(Interpolants)).r;
-		float DistanceFieldBias = -.5f * PrecomputedLightingBuffer.InvUniformPenumbraSizes.x + .5f;
+		half DistanceField = Texture2DSample(LightmapResourceCluster.StaticShadowTexture, LightmapResourceCluster.StaticShadowTextureSampler, ShadowMapCoordinate).r;
+		float4 InvUniformPenumbraSizes = GetLightmapData(LightmapDataIndex).InvUniformPenumbraSizes;
+		float DistanceFieldBias = -.5f * InvUniformPenumbraSizes.x + .5f;
 		// Compute shadow factors by scaling and biasing the distance
-		half ShadowFactor = saturate( DistanceField * PrecomputedLightingBuffer.InvUniformPenumbraSizes.x + DistanceFieldBias );
-		return PrecomputedLightingBuffer.StaticShadowMapMasks.r * ShadowFactor * ShadowFactor;
+		half ShadowFactor = saturate( DistanceField * InvUniformPenumbraSizes.x + DistanceFieldBias );
+		return GetLightmapData(LightmapDataIndex).StaticShadowMapMasks.r * ShadowFactor * ShadowFactor;
 
 	#elif MOVABLE_DIRECTIONAL_LIGHT
 		// Do this before checking for lightmaps as we might have a lightmap + directional light
@@ -236,9 +254,14 @@ half GetPrimaryPrecomputedShadowMask(FVertexFactoryInterpolantsVSToPS Interpolan
 		return 0;
 
 	#else
+		#if CACHED_POINT_INDIRECT_LIGHTING || CACHED_VOLUME_INDIRECT_LIGHTING
+			// output per-primitive directional light shadowing if requested
+			if (GetPrimitiveData(Interpolants.PrimitiveId).UseSingleSampleShadowFromStationaryLights > 0 && ResolvedView.IndirectLightingCacheShowFlag > 0.0f)
+			{
+				return IndirectLightingCache.DirectionalLightShadowing;
+			}
+		#endif
 
-		// output per-primitive directional light shadowing if requested
-		return Primitive.UseSingleSampleShadowFromStationaryLights > 0 ? PrecomputedLightingBuffer.DirectionalLightShadowing : 1;
-
+		return 1;
 	#endif
 }

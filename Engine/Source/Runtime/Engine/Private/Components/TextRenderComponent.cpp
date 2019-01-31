@@ -584,6 +584,7 @@ public:
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
+	virtual bool IsUsingDistanceCullFade() const override;
 	virtual uint32 GetMemoryFootprint() const override;
 	uint32 GetAllocatedSize() const;
 	// End FPrimitiveSceneProxy interface
@@ -726,7 +727,6 @@ void FTextRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 					FMeshBatchElement& BatchElement = Mesh.Elements[0];
 					BatchElement.IndexBuffer = &IndexBuffer;
 					Mesh.VertexFactory = &VertexFactory;
-					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 					BatchElement.FirstIndex = TextBatch.IndexBufferOffset;
 					BatchElement.NumPrimitives = TextBatch.IndexBufferCount / 3;
 					BatchElement.MinVertexIndex = TextBatch.VertexBufferOffset;
@@ -735,8 +735,7 @@ void FTextRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 					Mesh.bDisableBackfaceCulling = false;
 					Mesh.Type = PT_TriangleList;
 					Mesh.DepthPriorityGroup = SDPG_World;
-					const bool bUseSelectedMaterial = GIsEditor && (View->Family->EngineShowFlags.Selection) ? IsSelected() : false;
-					Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy(bUseSelectedMaterial);
+					Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy();
 					Mesh.bCanApplyViewModeOverrides = !bAlwaysRenderAsText;
 					Mesh.LODIndex = 0;
 
@@ -756,6 +755,8 @@ void FTextRenderSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 	// Vertex factory will not been initialized when the font is invalid or the text string is empty.
 	if(VertexFactory.IsInitialized())
 	{
+		PDI->ReserveMemoryForMeshes(TextBatches.Num());
+
 		for (const FTextBatch& TextBatch : TextBatches)
 		{
 			// Draw the mesh.
@@ -763,8 +764,7 @@ void FTextRenderSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 			FMeshBatchElement& BatchElement = Mesh.Elements[0];
 			BatchElement.IndexBuffer = &IndexBuffer;
 			Mesh.VertexFactory = &VertexFactory;
-			Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy(false);
-			BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+			Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy();
 			BatchElement.FirstIndex = TextBatch.IndexBufferOffset;
 			BatchElement.NumPrimitives = TextBatch.IndexBufferCount / 3;
 			BatchElement.MinVertexIndex = TextBatch.VertexBufferOffset;
@@ -784,6 +784,11 @@ bool FTextRenderSceneProxy::CanBeOccluded() const
 	return !MaterialRelevance.bDisableDepthTest;
 }
 
+bool FTextRenderSceneProxy::IsUsingDistanceCullFade() const
+{
+	return MaterialRelevance.bUsesDistanceCullFade;
+}
+
 FPrimitiveViewRelevance FTextRenderSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	FPrimitiveViewRelevance Result;
@@ -792,6 +797,7 @@ FPrimitiveViewRelevance FTextRenderSceneProxy::GetViewRelevance(const FSceneView
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 
 	if( IsRichView(*View->Family) 
 		|| View->Family->EngineShowFlags.Bounds 
@@ -808,6 +814,7 @@ FPrimitiveViewRelevance FTextRenderSceneProxy::GetViewRelevance(const FSceneView
 	}
 
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
+	Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
 	return Result;
 }
 

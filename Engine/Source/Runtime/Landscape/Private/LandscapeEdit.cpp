@@ -5866,7 +5866,7 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 	for (auto& TriangleList : TrianglesPerHeightmap)
 	{
 		FCanvasTriangleItem TriItemList(MoveTemp(TriangleList.Value.TriangleList), nullptr);
-		TriItemList.MaterialRenderProxy = TriangleList.Value.HeightmapMID->GetRenderProxy(false);
+		TriItemList.MaterialRenderProxy = TriangleList.Value.HeightmapMID->GetRenderProxy();
 		TriItemList.BlendMode = SE_BLEND_Opaque;
 		TriItemList.SetColor(FLinearColor::White);
 

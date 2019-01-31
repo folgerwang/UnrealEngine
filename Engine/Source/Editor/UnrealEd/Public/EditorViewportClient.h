@@ -1112,7 +1112,22 @@ public:
 	 * @return	true if the supplied buffer visualization mode is checked
 	 */
 	bool IsBufferVisualizationModeSelected( FName InName ) const;
-	
+
+	/**
+	 * Changes the ray tracing debug visualization mode for this viewport
+	 *
+	 * @param InName	The ID of the required ray tracing debug visualization mode
+	 */
+	void ChangeRayTracingDebugVisualizationMode(FName InName);
+
+	/**
+	 * Checks if a ray tracing debug visualization mode is selected
+	 *
+	 * @param InName	The ID of the required ray tracing debug visualization mode
+	 * @return	true if the supplied ray tracing debug visualization mode is checked
+	 */
+	bool IsRayTracingDebugVisualizationModeSelected(FName InName) const;
+
 	/** @return True if PreviewResolutionFraction is supported. */
 	bool SupportsPreviewResolutionFraction() const;
 
@@ -1398,6 +1413,8 @@ public:
 	FExposureSettings		ExposureSettings;
 
 	FName CurrentBufferVisualizationMode;
+
+	FName CurrentRayTracingDebugVisualizationMode;
 
 	/** The number of frames since this viewport was last drawn.  Only applies to linked orthographic movement. */
 	int32 FramesSinceLastDraw;

@@ -63,7 +63,7 @@ void FPaperSpriteSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 							? GEngine->ShadedLevelColorationLitMaterial : GEngine->ShadedLevelColorationUnlitMaterial;
 
 						auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
-							LevelColorationMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+							LevelColorationMaterial->GetRenderProxy(),
 							GetWireframeColor()
 							);
 

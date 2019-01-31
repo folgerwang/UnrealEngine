@@ -488,6 +488,11 @@ static int32 RenderCounterHeadings( class FCanvas* Canvas, const int32 X, const 
 
 	// Draw the max column label.
 	RightJustify(Canvas, CurrX, Y, TEXT("Max"), Globals.HeadingColor);
+	CurrX += Globals.InterColumnOffset;
+
+	// Draw the max column label.
+	RightJustify(Canvas, CurrX, Y, TEXT("Min"), Globals.HeadingColor);
+
 	return Globals.GetFontHeight() + (Globals.GetFontHeight() / 3);
 }
 
@@ -628,6 +633,22 @@ static int32 RenderCounter( const FGameThreadStatsData& ViewData, const FComplex
 		const FString ValueFormatted = FormatStatValueInt64( All.GetValue_int64( EComplexStatField::IncMax ) );
 		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
 	}
+
+	CurrX += Globals.InterColumnOffset;
+
+	// Append the minimum.
+	if (All.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
+	{
+		const FString ValueFormatted = FormatStatValueFloat(All.GetValue_double(EComplexStatField::IncMin));
+		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
+	}
+	else if (All.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
+	{
+		const FString ValueFormatted = FormatStatValueInt64(All.GetValue_int64(EComplexStatField::IncMin));
+		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
+	}
+
+
 	return Globals.GetFontHeight();
 }
 

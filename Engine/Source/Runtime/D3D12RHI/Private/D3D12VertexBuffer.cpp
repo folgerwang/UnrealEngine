@@ -40,7 +40,7 @@ FD3D12VertexBuffer::~FD3D12VertexBuffer()
 {
 	if (ResourceLocation.GetResource() != nullptr)
 	{
-		UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_VERTEX);
+		UpdateBufferStats<FD3D12VertexBuffer>(&ResourceLocation, false);
 	}
 }
 
@@ -91,8 +91,6 @@ FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 		Buffer->SetCommitted(false);
 	}
 
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
-
 	return Buffer;
 }
 
@@ -117,7 +115,6 @@ FVertexBufferRHIRef FD3D12DynamicRHI::CreateVertexBuffer_RenderThread(FRHIComman
 		// TODO: this should ideally be set in platform-independent code, since this tracking is for the high level
 		Buffer->SetCommitted(false);
 	}
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
 
 	return Buffer;
 }
@@ -186,8 +183,6 @@ FVertexBufferRHIRef FD3D12DynamicRHI::CreateAndLockVertexBuffer_RenderThread(FRH
 		Buffer->SetCommitted(false);
 	}
 	OutDataBuffer = LockVertexBuffer_RenderThread(RHICmdList, Buffer, 0, Size, RLM_WriteOnly);
-
-	UpdateBufferStats(&Buffer->ResourceLocation, true, D3D12_BUFFER_TYPE_VERTEX);
 
 	return Buffer;
 }

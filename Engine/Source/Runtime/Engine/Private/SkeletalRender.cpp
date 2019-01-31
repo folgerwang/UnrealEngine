@@ -29,6 +29,9 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 ,	WorkingMinDesiredLODLevel(0)
 ,	WorkingMaxDistanceFactor(0.f)
 ,   bHasBeenUpdatedAtLeastOnce(false)
+#if RHI_RAYTRACING
+, bRequireRecreatingRayTracingGeometry(false)
+#endif
 #if WITH_EDITORONLY_DATA
 ,   SectionIndexPreview(InMeshComponent->GetSectionPreview())
 ,   MaterialIndexPreview(InMeshComponent->GetMaterialPreview())

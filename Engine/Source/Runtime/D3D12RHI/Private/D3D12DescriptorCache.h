@@ -87,8 +87,8 @@ struct FD3D12SamplerArrayDesc
 	uint16 SamplerID[16];
 	inline bool operator==(const FD3D12SamplerArrayDesc& rhs) const
 	{
-		check(Count <= _countof(SamplerID));
-		check(rhs.Count <= _countof(rhs.SamplerID));
+		check(Count <= ARRAY_COUNT(SamplerID));
+		check(rhs.Count <= ARRAY_COUNT(rhs.SamplerID));
 
 		if (Count != rhs.Count)
 		{
@@ -566,19 +566,19 @@ public:
 	void SetRenderTargets(FD3D12RenderTargetView** RenderTargetViewArray, uint32 Count, FD3D12DepthStencilView* DepthStencilTarget);
 
 	template <EShaderFrequency ShaderStage>
-	void SetUAVs(FD3D12UnorderedAccessViewCache& Cache, const UAVSlotMask& SlotsNeededMask, uint32 Count, uint32 &HeapSlot);
+	void SetUAVs(const FD3D12RootSignature* RootSignature, FD3D12UnorderedAccessViewCache& Cache, const UAVSlotMask& SlotsNeededMask, uint32 Count, uint32 &HeapSlot);
 
 	template <EShaderFrequency ShaderStage>
-	void SetSamplers(FD3D12SamplerStateCache& Cache, const SamplerSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
+	void SetSamplers(const FD3D12RootSignature* RootSignature, FD3D12SamplerStateCache& Cache, const SamplerSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
 
 	template <EShaderFrequency ShaderStage>
-	void SetSRVs(FD3D12ShaderResourceViewCache& Cache, const SRVSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
+	void SetSRVs(const FD3D12RootSignature* RootSignature, FD3D12ShaderResourceViewCache& Cache, const SRVSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
 
 	template <EShaderFrequency ShaderStage> 
 #if USE_STATIC_ROOT_SIGNATURE
-	void SetConstantBuffers(FD3D12ConstantBufferCache& Cache, const CBVSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
+	void SetConstantBuffers(const FD3D12RootSignature* RootSignature, FD3D12ConstantBufferCache& Cache, const CBVSlotMask& SlotsNeededMask, uint32 Count, uint32& HeapSlot);
 #else
-	void SetConstantBuffers(FD3D12ConstantBufferCache& Cache, const CBVSlotMask& SlotsNeededMask);
+	void SetConstantBuffers(const FD3D12RootSignature* RootSignature, FD3D12ConstantBufferCache& Cache, const CBVSlotMask& SlotsNeededMask);
 #endif
 
 	void SetStreamOutTargets(FD3D12Resource **Buffers, uint32 Count, const uint32* Offsets);

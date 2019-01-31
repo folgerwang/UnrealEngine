@@ -8,10 +8,6 @@
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 
-#if INSTANCED_STEREO
-bool bIsInstancedStereoEmulated;
-#endif
-
 void Main(
 	FPositionOnlyVertexFactoryInput Input,
 	out float4 OutPosition : SV_POSITION
@@ -29,17 +25,7 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	uint EyeIndex;
-	BRANCH
-	if (bIsInstancedStereoEmulated)
-	{
-		EyeIndex = View.StereoPassIndex;
-	}
-	else
-	{
-		EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
-	}
-
+	uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 
 	#if !MULTI_VIEW
@@ -65,7 +51,7 @@ void Main(
 
 	#if INSTANCED_STEREO && !MULTI_VIEW
 	BRANCH 
-	if (bIsInstancedStereo || bIsInstancedStereoEmulated)  
+	if (IsInstancedStereo())  
 	{
 		// Clip at the center of the screen
 		OutClipDistance = dot(OutPosition, EyeClipEdge[EyeIndex]);

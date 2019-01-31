@@ -285,7 +285,7 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 
 	IRendererModule& RendererModule = GetRendererModule();
 
-	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy()->GetMaterial(FeatureLevel);
 	const FMaterialShaderMap* const MaterialShaderMap = CameraMaterial->GetRenderingThreadShaderMap();
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -316,7 +316,7 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 
 	SetUniformBufferParameterImmediate(RHICmdList, VertexShader->GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
 	VertexShader->SetParameters(RHICmdList, InView);
-	PixelShader->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
+	PixelShader->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy());
 
 	if (VertexBufferRHI && IndexBufferRHI.IsValid())
 	{

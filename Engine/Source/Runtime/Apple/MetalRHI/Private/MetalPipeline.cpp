@@ -15,6 +15,13 @@
 #include "Misc/ScopeRWLock.h"
 #include <objc/runtime.h>
 
+static int32 GMetalCacheShaderPipelines = 1;
+static FAutoConsoleVariableRef CVarMetalCacheShaderPipelines(
+	TEXT("rhi.Metal.CacheShaderPipelines"),
+	GMetalCacheShaderPipelines,
+	TEXT("When enabled (1, default) cache all graphics pipeline state objects created in MetalRHI for the life of the program, this trades memory for performance as creating PSOs is expensive in Metal.\n")
+	TEXT("Disable in the project configuration to allow PSOs to be released to save memory at the expense of reduced performance and increased hitching in-game\n. (On by default (1))"), ECVF_ReadOnly);
+
 static int32 GMetalTessellationForcePartitionMode = 0;
 static FAutoConsoleVariableRef CVarMetalTessellationForcePartitionMode(
 	TEXT("rhi.Metal.TessellationForcePartitionMode"),
@@ -49,12 +56,253 @@ static float RoundTessLevel(float TessFactor, mtlpp::TessellationPartitionMode P
 	}
 }
 
+struct FMetalGraphicsPipelineKey
+{
+	FMetalRenderPipelineHash RenderPipelineHash;
+	FMetalHashedVertexDescriptor VertexDescriptorHash;
+	FSHAHash VertexFunction;
+	FSHAHash DomainFunction;
+	FSHAHash PixelFunction;
+
+	template<typename Type>
+	inline void SetHashValue(uint32 Offset, uint32 NumBits, Type Value)
+	{
+		if (Offset < Offset_RasterEnd)
+		{
+			uint64 BitMask = ((((uint64)1ULL) << NumBits) - 1) << Offset;
+			RenderPipelineHash.RasterBits = (RenderPipelineHash.RasterBits & ~BitMask) | (((uint64)Value << Offset) & BitMask);
+		}
+		else
+		{
+			Offset -= Offset_RenderTargetFormat0;
+			uint64 BitMask = ((((uint64)1ULL) << NumBits) - 1) << Offset;
+			RenderPipelineHash.TargetBits = (RenderPipelineHash.TargetBits & ~BitMask) | (((uint64)Value << Offset) & BitMask);
+		}
+	}
+
+	bool operator==(FMetalGraphicsPipelineKey const& Other) const
+	{
+		return (RenderPipelineHash == Other.RenderPipelineHash
+		&& VertexDescriptorHash == Other.VertexDescriptorHash
+		&& VertexFunction == Other.VertexFunction
+		&& DomainFunction == Other.DomainFunction
+		&& PixelFunction == Other.PixelFunction);
+	}
+	
+	friend uint32 GetTypeHash(FMetalGraphicsPipelineKey const& Key)
+	{
+		uint32 H = FCrc::MemCrc32(&Key.RenderPipelineHash, sizeof(Key.RenderPipelineHash), GetTypeHash(Key.VertexDescriptorHash));
+		H = FCrc::MemCrc32(Key.VertexFunction.Hash, sizeof(Key.VertexFunction.Hash), H);
+		H = FCrc::MemCrc32(Key.DomainFunction.Hash, sizeof(Key.DomainFunction.Hash), H);
+		H = FCrc::MemCrc32(Key.PixelFunction.Hash, sizeof(Key.PixelFunction.Hash), H);
+		return H;
+	}
+	
+	friend void InitMetalGraphicsPipelineKey(FMetalGraphicsPipelineKey& Key, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType)
+	{
+		uint32 const NumActiveTargets = Init.ComputeNumValidRenderTargets();
+		check(NumActiveTargets <= MaxSimultaneousRenderTargets);
+	
+		FMetalBlendState* BlendState = (FMetalBlendState*)Init.BlendState;
+		
+		FMemory::Memzero(Key.RenderPipelineHash);
+		
+		bool bHasActiveTargets = false;
+		for (uint32 i = 0; i < NumActiveTargets; i++)
+		{
+			EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
+			if (TargetFormat == PF_Unknown) { continue; }
+
+			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
+			uint32 Flags = Init.RenderTargetFlags[i];
+			if (Flags & TexCreate_SRGB)
+			{
+#if PLATFORM_MAC // Expand as R8_sRGB is iOS only.
+				if (MetalFormat == mtlpp::PixelFormat::R8Unorm)
+				{
+					MetalFormat = mtlpp::PixelFormat::RGBA8Unorm;
+				}
+#endif
+				MetalFormat = ToSRGBFormat(MetalFormat);
+			}
+			
+			uint8 FormatKey = GetMetalPixelFormatKey(MetalFormat);;
+			Key.SetHashValue(RTBitOffsets[i], NumBits_RenderTargetFormat, FormatKey);
+			Key.SetHashValue(BlendBitOffsets[i], NumBits_BlendState, BlendState->RenderTargetStates[i].BlendStateKey);
+			
+			bHasActiveTargets |= true;
+		}
+		
+		uint8 DepthFormatKey = 0;
+		uint8 StencilFormatKey = 0;
+		switch(Init.DepthStencilTargetFormat)
+		{
+			case PF_DepthStencil:
+			{
+				mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+				if (Init.DepthTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.DepthTargetStoreAction != ERenderTargetStoreAction::ENoAction)
+				{
+					DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
+				}
+				if (Init.StencilTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.StencilTargetStoreAction != ERenderTargetStoreAction::ENoAction)
+				{
+					StencilFormatKey = GetMetalPixelFormatKey(mtlpp::PixelFormat::Stencil8);
+				}
+				bHasActiveTargets |= true;
+				break;
+			}
+			case PF_ShadowDepth:
+			{
+				DepthFormatKey = GetMetalPixelFormatKey((mtlpp::PixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat);
+				bHasActiveTargets |= true;
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+		
+		// If the pixel shader writes depth then we must compile with depth access, so we may bind the dummy depth.
+		// If the pixel shader writes to UAVs but not target is bound we must also bind the dummy depth.
+		FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
+		if (PixelShader && (((PixelShader->Bindings.InOutMask & 0x8000) && (DepthFormatKey == 0)) || (bHasActiveTargets == false && PixelShader->Bindings.NumUAVs > 0)))
+		{
+			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+			DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
+		}
+		
+		Key.SetHashValue(Offset_DepthFormat, NumBits_DepthFormat, DepthFormatKey);
+		Key.SetHashValue(Offset_StencilFormat, NumBits_StencilFormat, StencilFormatKey);
+
+		Key.SetHashValue(Offset_SampleCount, NumBits_SampleCount, Init.NumSamples);
+		
+#if PLATFORM_MAC
+		Key.SetHashValue(Offset_PrimitiveTopology, NumBits_PrimitiveTopology, TranslatePrimitiveTopology(Init.PrimitiveType));
+#endif
+
+		FMetalVertexDeclaration* VertexDecl = (FMetalVertexDeclaration*)Init.BoundShaderState.VertexDeclarationRHI;
+		Key.VertexDescriptorHash = VertexDecl->Layout;
+		
+		FMetalVertexShader* VertexShader = (FMetalVertexShader*)Init.BoundShaderState.VertexShaderRHI;
+		FMetalDomainShader* DomainShader = (FMetalDomainShader*)Init.BoundShaderState.DomainShaderRHI;
+		
+        Key.VertexFunction = VertexShader->GetHash();
+		if (DomainShader)
+		{
+			Key.DomainFunction = DomainShader->GetHash();
+			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, IndexType);
+		}
+		else
+		{
+			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, EMetalIndexType_None);
+		}
+		if (PixelShader)
+		{
+			Key.PixelFunction = PixelShader->GetHash();
+		}
+	}
+};
+
+static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGraphicsPipelineKey const& Key, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType);
+
+class FMetalShaderPipelineCache
+{
+public:
+	static FMetalShaderPipelineCache& Get()
+	{
+		static FMetalShaderPipelineCache sSelf;
+		return sSelf;
+	}
+	
+	FMetalShaderPipeline* GetRenderPipeline(bool const bSync, FMetalGraphicsPipelineState const* State, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_MetalPipelineStateTime);
+		
+		FMetalGraphicsPipelineKey Key;
+		InitMetalGraphicsPipelineKey(Key, Init, IndexType);
+		
+		// By default there'll be more threads trying to read this than to write it.
+		FRWScopeLock Lock(PipelineMutex, SLT_ReadOnly);
+		
+		// Try to find the entry in the cache.
+		FMetalShaderPipeline* Desc = Pipelines.FindRef(Key);
+		if (Desc == nil)
+		{
+			Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType);
+			
+			// Bail cleanly if compilation fails.
+			if(!Desc)
+			{
+				return nil;
+			}
+			
+			// Now we are a writer as we want to create & add the new pipeline
+			Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
+			
+			// Retest to ensure no-one beat us here!
+			if (Pipelines.FindRef(Key) == nil)
+			{
+				Pipelines.Add(Key, Desc);
+				ReverseLookup.Add(Desc, Key);
+				
+				if (GMetalCacheShaderPipelines == 0)
+				{
+					// When we aren't caching for program lifetime we autorelease so that the PSO is released to the OS once all RHI references are released.
+					[Desc autorelease];
+				}
+			}
+		}
+		check(Desc);
+		
+		return Desc;
+	}
+	
+	void ReleaseRenderPipeline(FMetalShaderPipeline* Pipeline)
+	{
+		if (GMetalCacheShaderPipelines)
+		{
+			[Pipeline release];
+		}
+		else
+		{
+			// We take a mutex here to prevent anyone from acquiring a reference to the state which might just be about to return memory to the OS.
+			FRWScopeLock Lock(PipelineMutex, SLT_Write);
+			[Pipeline release];
+		}
+	}
+	
+	void RemoveRenderPipeline(FMetalShaderPipeline* Pipeline)
+	{
+		check (GMetalCacheShaderPipelines == 0);
+		{
+			FMetalGraphicsPipelineKey* Desc = ReverseLookup.Find(Pipeline);
+			if (Desc)
+			{
+				Pipelines.Remove(*Desc);
+				ReverseLookup.Remove(Pipeline);
+			}
+		}
+	}
+	
+	
+private:
+	FRWLock PipelineMutex;
+	TMap<FMetalGraphicsPipelineKey, FMetalShaderPipeline*> Pipelines;
+	TMap<FMetalShaderPipeline*, FMetalGraphicsPipelineKey> ReverseLookup;
+};
+
 @implementation FMetalShaderPipeline
 
 APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 
 - (void)dealloc
 {
+	// For render pipeline states we might need to remove the PSO from the cache when we aren't caching them for program lifetime
+	if (GMetalCacheShaderPipelines == 0 && RenderPipelineState)
+	{
+		FMetalShaderPipelineCache::Get().RemoveRenderPipeline(self);
+	}
 	[super dealloc];
 }
 
@@ -155,171 +403,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 #endif
 @end
 
-struct FMetalGraphicsPipelineKey
-{
-	FMetalRenderPipelineHash RenderPipelineHash;
-	FMetalHashedVertexDescriptor VertexDescriptorHash;
-	FSHAHash VertexFunction;
-	FSHAHash DomainFunction;
-	FSHAHash PixelFunction;
-	uint32 VertexBufferHash;
-	uint32 DomainBufferHash;
-	uint32 PixelBufferHash;
-
-	template<typename Type>
-	inline void SetHashValue(uint32 Offset, uint32 NumBits, Type Value)
-	{
-		if (Offset < Offset_RasterEnd)
-		{
-			uint64 BitMask = ((((uint64)1ULL) << NumBits) - 1) << Offset;
-			RenderPipelineHash.RasterBits = (RenderPipelineHash.RasterBits & ~BitMask) | (((uint64)Value << Offset) & BitMask);
-		}
-		else
-		{
-			Offset -= Offset_RenderTargetFormat0;
-			uint64 BitMask = ((((uint64)1ULL) << NumBits) - 1) << Offset;
-			RenderPipelineHash.TargetBits = (RenderPipelineHash.TargetBits & ~BitMask) | (((uint64)Value << Offset) & BitMask);
-		}
-	}
-
-	bool operator==(FMetalGraphicsPipelineKey const& Other) const
-	{
-		return (RenderPipelineHash == Other.RenderPipelineHash
-		&& VertexDescriptorHash == Other.VertexDescriptorHash
-		&& VertexFunction == Other.VertexFunction
-		&& DomainFunction == Other.DomainFunction
-		&& PixelFunction == Other.PixelFunction
-		&& VertexBufferHash == Other.VertexBufferHash
-		&& DomainBufferHash == Other.DomainBufferHash
-		&& PixelBufferHash == Other.PixelBufferHash);
-	}
-	
-	friend uint32 GetTypeHash(FMetalGraphicsPipelineKey const& Key)
-	{
-		uint32 H = FCrc::MemCrc32(&Key.RenderPipelineHash, sizeof(Key.RenderPipelineHash), GetTypeHash(Key.VertexDescriptorHash));
-		H = FCrc::MemCrc32(Key.VertexFunction.Hash, sizeof(Key.VertexFunction.Hash), H);
-		H = FCrc::MemCrc32(Key.DomainFunction.Hash, sizeof(Key.DomainFunction.Hash), H);
-		H = FCrc::MemCrc32(Key.PixelFunction.Hash, sizeof(Key.PixelFunction.Hash), H);
-		H = HashCombine(H, GetTypeHash(Key.VertexBufferHash));
-		H = HashCombine(H, GetTypeHash(Key.DomainBufferHash));
-		H = HashCombine(H, GetTypeHash(Key.PixelBufferHash));
-		return H;
-	}
-	
-	friend void InitMetalGraphicsPipelineKey(FMetalGraphicsPipelineKey& Key, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType, EPixelFormat const* const VertexBufferTypes, EPixelFormat const* const PixelBufferTypes, EPixelFormat const* const DomainBufferTypes)
-	{
-		uint32 const NumActiveTargets = Init.ComputeNumValidRenderTargets();
-		check(NumActiveTargets <= MaxSimultaneousRenderTargets);
-	
-		FMetalBlendState* BlendState = (FMetalBlendState*)Init.BlendState;
-		
-		FMemory::Memzero(Key.RenderPipelineHash);
-		
-		bool bHasActiveTargets = false;
-		for (uint32 i = 0; i < NumActiveTargets; i++)
-		{
-			EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
-			if (TargetFormat == PF_Unknown) { continue; }
-
-			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[TargetFormat].PlatformFormat;
-			uint32 Flags = Init.RenderTargetFlags[i];
-			if (Flags & TexCreate_SRGB)
-			{
-#if PLATFORM_MAC // Expand as R8_sRGB is iOS only.
-				if (MetalFormat == mtlpp::PixelFormat::R8Unorm)
-				{
-					MetalFormat = mtlpp::PixelFormat::RGBA8Unorm;
-				}
-#endif
-				MetalFormat = ToSRGBFormat(MetalFormat);
-			}
-			
-			uint8 FormatKey = GetMetalPixelFormatKey(MetalFormat);;
-			Key.SetHashValue(RTBitOffsets[i], NumBits_RenderTargetFormat, FormatKey);
-			Key.SetHashValue(BlendBitOffsets[i], NumBits_BlendState, BlendState->RenderTargetStates[i].BlendStateKey);
-			
-			bHasActiveTargets |= true;
-		}
-		
-		uint8 DepthFormatKey = 0;
-		uint8 StencilFormatKey = 0;
-		switch(Init.DepthStencilTargetFormat)
-		{
-			case PF_DepthStencil:
-			{
-				mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
-				if (Init.DepthTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.DepthTargetStoreAction != ERenderTargetStoreAction::ENoAction)
-				{
-					DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
-				}
-				if (Init.StencilTargetLoadAction != ERenderTargetLoadAction::ENoAction || Init.StencilTargetStoreAction != ERenderTargetStoreAction::ENoAction)
-				{
-					StencilFormatKey = GetMetalPixelFormatKey(mtlpp::PixelFormat::Stencil8);
-				}
-				bHasActiveTargets |= true;
-				break;
-			}
-			case PF_ShadowDepth:
-			{
-				DepthFormatKey = GetMetalPixelFormatKey((mtlpp::PixelFormat)GPixelFormats[PF_ShadowDepth].PlatformFormat);
-				bHasActiveTargets |= true;
-				break;
-			}
-			default:
-			{
-				break;
-			}
-		}
-		
-		// If the pixel shader writes depth then we must compile with depth access, so we may bind the dummy depth.
-		// If the pixel shader writes to UAVs but not target is bound we must also bind the dummy depth.
-		FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
-		if (PixelShader && (((PixelShader->Bindings.InOutMask & 0x8000) && (DepthFormatKey == 0)) || (bHasActiveTargets == false && PixelShader->Bindings.NumUAVs > 0)))
-		{
-			mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
-			DepthFormatKey = GetMetalPixelFormatKey(MetalFormat);
-		}
-			
-		Key.SetHashValue(Offset_DepthFormat, NumBits_DepthFormat, DepthFormatKey);
-		Key.SetHashValue(Offset_StencilFormat, NumBits_StencilFormat, StencilFormatKey);
-
-		Key.SetHashValue(Offset_SampleCount, NumBits_SampleCount, Init.NumSamples);
-		
-#if PLATFORM_MAC		
-		Key.SetHashValue(Offset_PrimitiveTopology, NumBits_PrimitiveTopology, TranslatePrimitiveTopology(Init.PrimitiveType));
-#endif
-
-		FMetalVertexDeclaration* VertexDecl = (FMetalVertexDeclaration*)Init.BoundShaderState.VertexDeclarationRHI;
-		Key.VertexDescriptorHash = VertexDecl->Layout;
-		
-		FMetalVertexShader* VertexShader = (FMetalVertexShader*)Init.BoundShaderState.VertexShaderRHI;
-		FMetalDomainShader* DomainShader = (FMetalDomainShader*)Init.BoundShaderState.DomainShaderRHI;
-		
-        Key.VertexFunction = VertexShader->GetHash();
-		Key.VertexBufferHash = VertexShader->GetBindingHash(VertexBufferTypes);
-		if (DomainShader)
-		{
-			Key.DomainFunction = DomainShader->GetHash();
-			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, IndexType);
-			Key.DomainBufferHash = DomainShader->GetBindingHash(DomainBufferTypes);
-		}
-		else
-		{
-			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, EMetalIndexType_None);
-			Key.DomainBufferHash = 0;
-		}
-		if (PixelShader)
-		{
-			Key.PixelFunction = PixelShader->GetHash();
-			Key.PixelBufferHash = PixelShader->GetBindingHash(PixelBufferTypes);
-		}
-		else
-		{
-			Key.PixelBufferHash = 0;
-		}
-	}
-};
-
 static MTLVertexDescriptor* GetMaskedVertexDescriptor(MTLVertexDescriptor* InputDesc, uint32 InOutMask)
 {
 	for (uint32 Attr = 0; Attr < MaxMetalStreams; Attr++)
@@ -353,15 +436,15 @@ static MTLVertexDescriptor* GetMaskedVertexDescriptor(MTLVertexDescriptor* Input
 	return InputDesc;
 }
 
-static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGraphicsPipelineKey const& Key, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType, EPixelFormat const* const VertexBufferTypes, EPixelFormat const* const PixelBufferTypes, EPixelFormat const* const DomainBufferTypes)
+static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGraphicsPipelineKey const& Key, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType)
 {
     FMetalVertexShader* VertexShader = (FMetalVertexShader*)Init.BoundShaderState.VertexShaderRHI;
     FMetalDomainShader* DomainShader = (FMetalDomainShader*)Init.BoundShaderState.DomainShaderRHI;
     FMetalPixelShader* PixelShader = (FMetalPixelShader*)Init.BoundShaderState.PixelShaderRHI;
     
-    mtlpp::Function vertexFunction = VertexShader->GetFunction(IndexType, VertexBufferTypes, Key.VertexBufferHash);
-    mtlpp::Function fragmentFunction = PixelShader ? PixelShader->GetFunction(EMetalIndexType_None, PixelBufferTypes, Key.PixelBufferHash) : nil;
-    mtlpp::Function domainFunction = DomainShader ? DomainShader->GetFunction(EMetalIndexType_None, DomainBufferTypes, Key.DomainBufferHash) : nil;
+    mtlpp::Function vertexFunction = VertexShader->GetFunction();
+    mtlpp::Function fragmentFunction = PixelShader ? PixelShader->GetFunction() : nil;
+    mtlpp::Function domainFunction = DomainShader ? DomainShader->GetFunction() : nil;
     
     FMetalShaderPipeline* Pipeline = nil;
     if (vertexFunction && ((PixelShader != nullptr) == (fragmentFunction != nil)) && ((DomainShader != nullptr) == (domainFunction != nil)))
@@ -764,7 +847,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), *FString(HullShader->GetSourceCode()));
 				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), *FString(DomainShader->GetSourceCode()));
 				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(ComputePipelineDesc.GetPtr().description));
-				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a hull pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
+				UE_CLOG((Pipeline->ComputePipelineState == nil), LogMetal, Error, TEXT("Failed to generate a hull pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
 				
 #if METAL_DEBUG_OPTIONS
 				if (Pipeline->ComputePipelineReflection)
@@ -945,43 +1028,14 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
     return !bSync ? nil : Pipeline;
 }
 
-static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphicsPipelineState const* State, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType, EPixelFormat const* const VertexBufferTypes, EPixelFormat const* const PixelBufferTypes, EPixelFormat const* const DomainBufferTypes)
+static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphicsPipelineState const* State, const FGraphicsPipelineStateInitializer& Init, EMetalIndexType const IndexType)
 {
-	static FRWLock PipelineMutex;
-	static TMap<FMetalGraphicsPipelineKey, FMetalShaderPipeline*> Pipelines;
-	
-	SCOPE_CYCLE_COUNTER(STAT_MetalPipelineStateTime);
-	
-	FMetalGraphicsPipelineKey Key;
-	InitMetalGraphicsPipelineKey(Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
+	return FMetalShaderPipelineCache::Get().GetRenderPipeline(bSync, State, Init, IndexType);
+}
 
-	// By default there'll be more threads trying to read this than to write it.
-	FRWScopeLock Lock(PipelineMutex, SLT_ReadOnly);
-
-	// Try to find the entry in the cache.
-	FMetalShaderPipeline* Desc = Pipelines.FindRef(Key);
-	if (Desc == nil)
-	{
-		Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
-		
-		// Bail cleanly if compilation fails.
-		if(!Desc)
-		{
-			return nil;
-		}
-
-		// Now we are a writer as we want to create & add the new pipeline
-		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
-		
-		// Retest to ensure no-one beat us here!
-		if (Pipelines.FindRef(Key) == nil)
-		{
-			Pipelines.Add(Key, Desc);
-		}
-	}
-	check(Desc);
-	
-	return Desc;
+static void ReleaseMTLRenderPipeline(FMetalShaderPipeline* Pipeline)
+{
+	FMetalShaderPipelineCache::Get().ReleaseRenderPipeline(Pipeline);
 }
 
 bool FMetalGraphicsPipelineState::Compile()
@@ -989,8 +1043,8 @@ bool FMetalGraphicsPipelineState::Compile()
 	FMemory::Memzero(PipelineStates);
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-		PipelineStates[i][0][0][0] = [GetMTLRenderPipeline(true, this, Initializer, (EMetalIndexType)i, nullptr, nullptr, nullptr) retain];
-		if(!PipelineStates[i][0][0][0])
+		PipelineStates[i] = [GetMTLRenderPipeline(true, this, Initializer, (EMetalIndexType)i) retain];
+		if(!PipelineStates[i])
 		{
 			return false;
 		}
@@ -1001,47 +1055,23 @@ bool FMetalGraphicsPipelineState::Compile()
 
 FMetalGraphicsPipelineState::~FMetalGraphicsPipelineState()
 {
-    static uint32 MaxBufferNum = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? EMetalBufferType_Num : 1u;
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-        for (uint32 v = 0; v < MaxBufferNum; v++)
-        {
-            for (uint32 f = 0; f < MaxBufferNum; f++)
-            {
-                for (uint32 c = 0; c < MaxBufferNum; c++)
-                {
-                	if (PipelineStates[i][v][f][c])
-                	{
-	                    [PipelineStates[i][v][f][c] release];
-	                    PipelineStates[i][v][f][c] = nil;
-                    }
-                }
-            }
-        }
+		ReleaseMTLRenderPipeline(PipelineStates[i]);
+		PipelineStates[i] = nil;
 	}
 }
 
-FMetalShaderPipeline* FMetalGraphicsPipelineState::GetPipeline(EMetalIndexType IndexType, uint32 VertexBufferHash, uint32 PixelBufferHash, uint32 DomainBufferHash, EPixelFormat const* const VertexBufferTypes, EPixelFormat const* const PixelBufferTypes, EPixelFormat const* const DomainBufferTypes)
+FMetalShaderPipeline* FMetalGraphicsPipelineState::GetPipeline(EMetalIndexType IndexType)
 {
 	check(IndexType < EMetalIndexType_Num);
 
-	EMetalBufferType Vertex = VertexShader && (VertexShader->BufferTypeHash && VertexShader->BufferTypeHash == VertexBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
-	EMetalBufferType Fragment = PixelShader && (PixelShader->BufferTypeHash && PixelShader->BufferTypeHash == PixelBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
-	EMetalBufferType Compute = DomainShader && (DomainShader->BufferTypeHash && DomainShader->BufferTypeHash == DomainBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
-
-    FMetalShaderPipeline* Pipe = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? PipelineStates[IndexType][Vertex][Fragment][Compute] : nullptr;
-	if ((GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) && !Pipe)
+	if(!PipelineStates[IndexType])
 	{
-		Pipe = PipelineStates[IndexType][Vertex][Fragment][Compute] = [GetMTLRenderPipeline(true, this, Initializer, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes) retain];
+		PipelineStates[IndexType] = [GetMTLRenderPipeline(true, this, Initializer, IndexType) retain];
 	}
-    if (!Pipe)
-    {
-    	if(!PipelineStates[IndexType][0][0][0])
-    	{
-    		PipelineStates[IndexType][0][0][0] = [GetMTLRenderPipeline(true, this, Initializer, IndexType, nullptr, nullptr, nullptr) retain];
-    	}
-        Pipe = PipelineStates[IndexType][0][0][0];
-    }
+	FMetalShaderPipeline* Pipe = PipelineStates[IndexType];
+
 	check(Pipe);
     return Pipe;
 }

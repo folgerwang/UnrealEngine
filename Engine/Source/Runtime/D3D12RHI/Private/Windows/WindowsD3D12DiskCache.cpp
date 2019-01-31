@@ -108,9 +108,9 @@ void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 	if (fileSize == 0)
 	{
 		byte data[64];
-		FMemory::Memset(data, NULL, _countof(data));
+		FMemory::Memzero(data);
 		//It's invalide to map a zero sized file so write some junk data in that case
-		WriteFile(mFile, data, _countof(data), NULL, NULL);
+		WriteFile(mFile, data, sizeof(data), NULL, NULL);
 	}
 	else if (firstrun)
 	{

@@ -30,7 +30,17 @@ float3 GatherRadiance(float CompositeAlpha, float3 WorldPosition, float3 RayDire
 	IndirectIrradiance *= IndirectDiffuseOcclusion;
 #endif
 
-	return CompositeReflectionCapturesAndSkylight(CompositeAlpha, WorldPosition, RayDirection, Roughness, IndirectIrradiance, IndirectSpecularOcclusion, ExtraIndirectSpecular, NumCulledReflectionCaptures, CaptureDataStartIndex);
+	return CompositeReflectionCapturesAndSkylight(
+		CompositeAlpha, 
+		WorldPosition, 
+		RayDirection, 
+		Roughness, 
+		IndirectIrradiance, 
+		IndirectSpecularOcclusion, 
+		ExtraIndirectSpecular, 
+		NumCulledReflectionCaptures, 
+		CaptureDataStartIndex, 
+		0);
 }
 
 

@@ -496,9 +496,10 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 {
 	@autoreleasepool {
 	FMetalUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
-	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer)
+	FMetalSurface* Surface = UnorderedAccessView->SourceView->SourceTexture ? GetMetalSurfaceFromRHITexture(UnorderedAccessView->SourceView->SourceTexture) : nullptr;
+	if (UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer || (Surface && Surface->Texture.GetBuffer()))
 	{
-		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer);
+		check(UnorderedAccessView->SourceView->SourceStructuredBuffer || UnorderedAccessView->SourceView->SourceVertexBuffer || UnorderedAccessView->SourceView->SourceIndexBuffer || (Surface && Surface->Texture.GetBuffer()));
 		
 		FMetalBuffer Buffer;
 		uint32 Size = 0;
@@ -516,6 +517,10 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 		{
 			Buffer = UnorderedAccessView->SourceView->SourceIndexBuffer->Buffer;
 			Size = UnorderedAccessView->SourceView->SourceIndexBuffer->GetSize();
+		}
+		else if (Surface && Surface->Texture.GetBuffer())
+		{
+			Buffer = FMetalBuffer(Surface->Texture.GetBuffer(), false);
 		}
 		
 		uint32 NumComponents = 1;
@@ -768,10 +773,24 @@ FComputeFenceRHIRef FMetalDynamicRHI::RHICreateComputeFence(const FName& Name)
 	}
 }
 
+FMetalComputeFence::FMetalComputeFence(FName InName)
+: FRHIComputeFence(InName)
+, Fence(nullptr)
+{}
+
+FMetalComputeFence::~FMetalComputeFence()
+{
+	if (Fence)
+		Fence->Release();
+}
+
 void FMetalComputeFence::Write(FMetalFence* InFence)
 {
 	check(!Fence);
 	Fence = InFence;
+	if (Fence)
+		Fence->AddRef();
+	
 	FRHIComputeFence::WriteFence();
 }
 
@@ -782,12 +801,19 @@ void FMetalComputeFence::Wait(FMetalContext& Context)
 		Context.SubmitCommandsHint(EMetalSubmitFlagsNone);
 	}
 	Context.GetCurrentRenderPass().Begin(Fence);
+	
+	if (Fence)
+		Fence->Release();
+	
 	Fence = nullptr;
 }
 
 void FMetalComputeFence::Reset()
 {
 	FRHIComputeFence::Reset();
+	if (Fence)
+		Fence->Release();
+
 	Fence = nullptr;
 }
 
@@ -801,8 +827,15 @@ void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess T
 		}
 		if (WriteComputeFence)
 		{
+			// Get the current render pass fence.
+			TRefCountPtr<FMetalFence> const& MetalFence = Context->GetCurrentRenderPass().End();
+			
+			// Write it again as we may wait on this fence in two different encoders
+			Context->GetCurrentRenderPass().Update(MetalFence);
+
+			// Write it into the RHI object
 			FMetalComputeFence* Fence = ResourceCast(WriteComputeFence);
-			Fence->Write(Context->GetCurrentRenderPass().End());
+			Fence->Write(MetalFence);
 			if (GSupportsEfficientAsyncCompute)
 			{
 				this->RHISubmitCommandsHint();

@@ -8,13 +8,17 @@
 class FRCDistortionAccumulatePassES2 : public TRenderingCompositePassBase<1, 1>
 {
 public:
-	FRCDistortionAccumulatePassES2(FIntPoint InPrePostSourceViewportSize) : PrePostSourceViewportSize(InPrePostSourceViewportSize) { }
+	FRCDistortionAccumulatePassES2(FIntPoint InPrePostSourceViewportSize, FScene* InScene) 
+		: PrePostSourceViewportSize(InPrePostSourceViewportSize) 
+		, Scene(InScene)
+	{ }
 	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 	virtual void Release() override { delete this; }
 	virtual const TCHAR* GetDebugName() { return TEXT("FRCDistortionAccumulatePassES2"); }
 private:
 	FIntPoint PrePostSourceViewportSize;
+	FScene* Scene; 
 };
 
 class FRCDistortionMergePassES2 : public TRenderingCompositePassBase<2, 1>

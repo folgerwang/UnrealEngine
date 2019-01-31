@@ -573,6 +573,20 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 			}
 		}
 	}
+	else
+	{
+		if (bIsInRenderingThread && CmdList.RTTasks.Num())
+		{
+			ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
+			if (FTaskGraphInterface::Get().IsThreadProcessingTasks(RenderThread_Local))
+			{
+				// this is a deadlock. RT tasks must be done by now or they won't be done. We could add a third queue...
+				UE_LOG(LogRHI, Fatal, TEXT("Deadlock in FRHICommandListExecutor::ExecuteInner (RTTasks)."));
+			}
+			FTaskGraphInterface::Get().WaitUntilTasksComplete(CmdList.RTTasks, RenderThread_Local);
+			CmdList.RTTasks.Reset();
+		}
+	}
 
 	ExecuteInner_DoExecute(CmdList);
 }
@@ -1404,11 +1418,11 @@ void FRHICommandListBase::QueueRenderThreadCommandListSubmit(FGraphEventRef& Ren
 	ALLOC_COMMAND(FRHICommandWaitForAndSubmitRTSubList)(RenderThreadCompletionEvent, CmdList);
 }
 
-void FRHICommandListBase::QueueAsyncPipelineStateCompile(FGraphEventRef& AsyncCompileCompletionEvent)
+void FRHICommandListBase::AddDispatchPrerequisite(const FGraphEventRef& Prereq)
 {
-	if (AsyncCompileCompletionEvent.GetReference())
+	if (Prereq.GetReference())
 	{
-		RTTasks.AddUnique(AsyncCompileCompletionEvent);
+		RTTasks.AddUnique(Prereq);
 	}
 }
 
@@ -1441,7 +1455,7 @@ void FRHICommandList::BeginScene()
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIBeginScene)();
+		GetContext().RHIBeginScene();
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandBeginScene)();
@@ -1457,7 +1471,7 @@ void FRHICommandList::EndScene()
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIEndScene)();
+		GetContext().RHIEndScene();
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandEndScene)();
@@ -1475,7 +1489,7 @@ void FRHICommandList::BeginDrawingViewport(FViewportRHIParamRef Viewport, FTextu
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIBeginDrawingViewport)(Viewport, RenderTargetRHI);
+		GetContext().RHIBeginDrawingViewport(Viewport, RenderTargetRHI);
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandBeginDrawingViewport)(Viewport, RenderTargetRHI);
@@ -1492,7 +1506,7 @@ void FRHICommandList::EndDrawingViewport(FViewportRHIParamRef Viewport, bool bPr
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIEndDrawingViewport)(Viewport, bPresent, bLockToVsync);
+		GetContext().RHIEndDrawingViewport(Viewport, bPresent, bLockToVsync);
 	}
 	else
 	{
@@ -1528,7 +1542,7 @@ void FRHICommandList::BeginFrame()
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIBeginFrame)();
+		GetContext().RHIBeginFrame();
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandBeginFrame)();
@@ -1546,7 +1560,7 @@ void FRHICommandList::EndFrame()
 	check(IsImmediate() && IsInRenderingThread());
 	if (Bypass())
 	{
-		CMD_CONTEXT(RHIEndFrame)();
+		GetContext().RHIEndFrame();
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandEndFrame)();
@@ -2471,7 +2485,7 @@ void FRHICommandListImmediate::UpdateTextureReference(FTextureReferenceRHIParamR
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UpdateTextureReference_FlushRHI);
 			ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		}
-		CMD_CONTEXT(RHIUpdateTextureReference)(TextureRef, NewTexture);
+		GetContext().RHIUpdateTextureReference(TextureRef, NewTexture);
 		return;
 	}
 	ALLOC_COMMAND(FRHICommandUpdateTextureReference)(TextureRef, NewTexture);

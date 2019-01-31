@@ -189,7 +189,7 @@ namespace
 			{
 				FMeshBatch Mesh;
 				Mesh.VertexFactory           = &VertexFactory;
-				Mesh.MaterialRenderProxy     = Material->GetRenderProxy(false);
+				Mesh.MaterialRenderProxy     = Material->GetRenderProxy();
 				Mesh.ReverseCulling          = IsLocalToWorldDeterminantNegative();
 				Mesh.CastShadow              = false;
 				Mesh.DepthPriorityGroup      = SDPG_World;
@@ -203,7 +203,6 @@ namespace
 				BatchElement.MinVertexIndex         = 0;
 				BatchElement.MaxVertexIndex         = 3;
 				BatchElement.NumPrimitives          = 2;
-				BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 
 				PDI->DrawMesh(Mesh, 1.f);
 			}
@@ -236,7 +235,7 @@ namespace
 				Mesh.Type = PT_TriangleList;
 				Mesh.DepthPriorityGroup = (ESceneDepthPriorityGroup)GetDepthPriorityGroup(View);
 				Mesh.bCanApplyViewModeOverrides = true;
-				Mesh.MaterialRenderProxy = Material->GetRenderProxy(View->Family->EngineShowFlags.Selection && IsSelected(), IsHovered());
+				Mesh.MaterialRenderProxy = Material->GetRenderProxy();
 
 				FMeshBatchElement& BatchElement = Mesh.Elements[0];
 				BatchElement.IndexBuffer = &IndexBuffer;
@@ -244,7 +243,6 @@ namespace
 				BatchElement.MinVertexIndex		= 0;
 				BatchElement.MaxVertexIndex		= 3;
 				BatchElement.NumPrimitives		= 2;
-				BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 
 				Collector.AddMesh(ViewIndex, Mesh);
 
@@ -261,6 +259,7 @@ namespace
 			Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 			Result.bRenderInMainPass = ShouldRenderInMainPass();
 			Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+			Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 
 			Result.bShadowRelevance = IsShadowCast(View);
 			if( IsRichView(*View->Family) ||
@@ -277,6 +276,9 @@ namespace
 			}
 			
 			MaterialRelevance.SetPrimitiveViewRelevance(Result);
+
+			Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
+
 			return Result;
 		}
 		virtual bool CanBeOccluded() const override { return !MaterialRelevance.bDisableDepthTest; }

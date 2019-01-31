@@ -253,3 +253,91 @@ void FOpenGLDynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBuffe
 	glBindBuffer(GL_COPY_WRITE_BUFFER,0);
 }
 
+FStagingBufferRHIRef FOpenGLDynamicRHI::RHICreateStagingBuffer()
+{
+#if OPENGL_GL3
+	return new FOpenGLStagingBuffer();
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Staging Buffers are only available in OpenGL3 or later"));
+	return nullptr;
+#endif
+}
+
+void FOpenGLStagingBuffer::Initialize()
+{
+	ShadowBuffer = 0;
+	ShadowSize = 0;
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	VERIFY_GL_SCOPE();
+	glGenBuffers(1, &ShadowBuffer);
+	RHITHREAD_GLCOMMAND_EPILOGUE();
+}
+
+FOpenGLStagingBuffer::~FOpenGLStagingBuffer()
+{
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	VERIFY_GL_SCOPE();
+	glDeleteBuffers(1, &ShadowBuffer);
+	RHITHREAD_GLCOMMAND_EPILOGUE_NORETURN();
+}
+
+// I don't see a way to do this without stalling the RHI thread.
+void* FOpenGLStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
+{
+#if OPENGL_GL3
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	VERIFY_GL_SCOPE();
+
+	check(ShadowBuffer != 0);
+	glBindBuffer(GL_COPY_WRITE_BUFFER, ShadowBuffer);
+	void* Mapping = glMapBuffer(GL_COPY_WRITE_BUFFER, GL_READ_ONLY);
+	check(Mapping);
+	return reinterpret_cast<uint8*>(Mapping) + Offset;
+
+	RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(void*);
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Staging Buffers are only available in OpenGL3 or later"));
+	return nullptr;
+#endif
+}
+
+// Unfortunately I think we have to stall the RHI thread here as well to play nice with OpenGL.
+// Since this will probably be close to a call to lock we've probably paid most of the cost already.
+void FOpenGLStagingBuffer::Unlock()
+{
+#if OPENGL_GL3
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	glUnmapBuffer(GL_COPY_WRITE_BUFFER);
+	glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+	RHITHREAD_GLCOMMAND_EPILOGUE();
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Staging Buffers are only available in OpenGL3 or later"));
+#endif
+}
+
+void* FOpenGLDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
+{
+	FOpenGLStagingBuffer* Buffer = ResourceCast(StagingBuffer);
+	return Buffer->Lock(Offset, SizeRHI);	
+}
+
+void FOpenGLDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer)
+{
+	FOpenGLStagingBuffer* Buffer = ResourceCast(StagingBuffer);
+	Buffer->Unlock();
+}
+
+void* FOpenGLDynamicRHI::LockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
+{
+	return RHILockStagingBuffer(StagingBuffer, Offset, SizeRHI);
+}
+
+void FOpenGLDynamicRHI::UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer)
+{
+	RHIUnlockStagingBuffer(StagingBuffer);
+}

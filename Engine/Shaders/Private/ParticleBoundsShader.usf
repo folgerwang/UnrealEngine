@@ -22,13 +22,7 @@
 #define MIN_FLT (-3.402823466e+38f)
 
 /** Input buffer containing particle indices. */
-#if COMPILER_METAL
-#undef half2
-#define vec2 half2
-#else
-#define vec2 float2
-#endif
-Buffer<vec2> InParticleIndices;
+Buffer<float2> InParticleIndices;
 /** Texture containing particle positions. */
 Texture2D PositionTexture;
 

@@ -123,7 +123,10 @@ bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View)
 			&& !IsSimpleForwardShadingEnabled(View.GetShaderPlatform());
 	}
 
-	return bEnabled;
+	// #dxr_todo: hard-coded FindConsoleVariable is a bad hack. The current variable is hidden behind DeferredShadingRenderer
+	static IConsoleVariable* UseRayTracingAmbientOcclusionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing.AmbientOcclusion"));
+	bool bUseRayTracingAmbientOcclusion = IsRayTracingEnabled() && UseRayTracingAmbientOcclusionCVar && UseRayTracingAmbientOcclusionCVar->GetInt() > 0;
+	return bEnabled && !bUseRayTracingAmbientOcclusion;
 }
 
 static void AddPostProcessingAmbientCubemap(FPostprocessContext& Context, FRenderingCompositeOutputRef AmbientOcclusion)
@@ -281,7 +284,7 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferC);
 	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferD);
 	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferE);
-	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferVelocity);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.SceneVelocity);
 	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.ScreenSpaceAO);
 	
 	// so that the passes can register themselves to the graph

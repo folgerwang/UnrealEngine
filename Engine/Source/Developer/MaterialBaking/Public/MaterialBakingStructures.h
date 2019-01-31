@@ -28,7 +28,7 @@ struct FMaterialData
 struct FMeshData
 {
 	FMeshData()
-		: RawMeshDescription(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
+		: RawMeshDescription(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr), LightmapResourceCluster(nullptr)
 	{}
 
 	/** Ptr to raw mesh data to use for baking out the material data, if nullptr a standard quad is used */
@@ -60,6 +60,9 @@ struct FMeshData
 
 	/** Reference to the lightmap texture part of the level in the currently being baked out mesh instance data is resident */
 	FLightMapRef LightMap;
+
+	/** Pointer to the LightmapResourceCluster to be passed on the the LightCacheInterface when baking */
+	const FLightmapResourceCluster* LightmapResourceCluster;
 };
 
 /** Structure containing data being processed while baking out materials*/

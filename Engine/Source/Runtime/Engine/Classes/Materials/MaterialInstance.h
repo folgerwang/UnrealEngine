@@ -360,10 +360,9 @@ class UMaterialInstance : public UMaterialInterface
 	float OpacityMaskClipValue;
 
 	/** 
-	 * FMaterialRenderProxy derivatives that represent this material instance to the renderer, when the renderer needs to fetch parameter values. 
-	 * Second instance is used when selected, third when hovered.
+	 * FMaterialRenderProxy derivative that represent this material instance to the renderer, when the renderer needs to fetch parameter values. 
 	 */
-	class FMaterialInstanceResource* Resources[3];
+	class FMaterialInstanceResource* Resource;
 
 	/** 
 	 * Cached texture references from all expressions in the material (including nested functions). 
@@ -436,7 +435,7 @@ public:
 	virtual ENGINE_API bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid &OutExpressionGuid, bool bCheckParent = true) const override;
 			ENGINE_API bool UpdateMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, const FMaterialLayersFunctions& LayersValue, const bool bOverridden, const FGuid& GUID);
 	virtual ENGINE_API bool IsDependent(UMaterialInterface* TestDependency) override;
-	virtual ENGINE_API FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered = false) const override;
+	virtual ENGINE_API FMaterialRenderProxy* GetRenderProxy() const override;
 	virtual ENGINE_API UPhysicalMaterial* GetPhysicalMaterial() const override;
 	virtual ENGINE_API bool UpdateLightmassTextureTracking() override;
 	virtual ENGINE_API bool GetCastShadowAsMasked() const override;

@@ -19,6 +19,7 @@ public class Landscape : ModuleRules
 				"TargetPlatform",
 				"DerivedDataCache",
 				"Foliage",
+				"Renderer",
 			}
 		);
 

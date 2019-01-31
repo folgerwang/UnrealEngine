@@ -1046,8 +1046,7 @@ bool UWidget::Modify(bool bAlwaysMarkDirty)
 
 	if ( Slot )
 	{
-		Slot->SetFlags(RF_Transactional);
-		Modified |= Slot->Modify(bAlwaysMarkDirty);
+		Modified &= Slot->Modify(bAlwaysMarkDirty);
 	}
 
 	return Modified;

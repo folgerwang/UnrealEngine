@@ -826,11 +826,13 @@ void UPrimitiveComponent::SendRenderDebugPhysics(FPrimitiveSceneProxy* OverrideS
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			PrimitiveComponent_SendRenderDebugPhysics, FPrimitiveSceneProxy*, PassedSceneProxy, UseSceneProxy, TArray<FPrimitiveSceneProxy::FDebugMassData>, UseDebugMassData, DebugMassData,
-		{
-				PassedSceneProxy->SetDebugMassData(UseDebugMassData);
-		});
+		FPrimitiveSceneProxy* PassedSceneProxy = UseSceneProxy;
+		TArray<FPrimitiveSceneProxy::FDebugMassData> UseDebugMassData = DebugMassData;
+		ENQUEUE_RENDER_COMMAND(PrimitiveComponent_SendRenderDebugPhysics)(
+			[UseSceneProxy, DebugMassData](FRHICommandList& RHICmdList)
+			{
+					UseSceneProxy->SetDebugMassData(DebugMassData);
+			});
 	}
 }
 #endif

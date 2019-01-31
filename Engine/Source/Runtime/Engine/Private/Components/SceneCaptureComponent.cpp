@@ -851,14 +851,14 @@ void UPlanarReflectionComponent::DestroyRenderState_Concurrent()
 	{
 		GetWorld()->Scene->RemovePlanarReflection(this);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyPlanarReflectionCommand,
-			FPlanarReflectionSceneProxy*,SceneProxy,SceneProxy,
-		{
-			delete SceneProxy;
-		});
+		FPlanarReflectionSceneProxy* InSceneProxy = SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FDestroyPlanarReflectionCommand)(
+			[InSceneProxy](FRHICommandList& RHICmdList)
+			{
+				delete InSceneProxy;
+			});
 
-		SceneProxy = NULL;
+		SceneProxy = nullptr;
 	}
 }
 

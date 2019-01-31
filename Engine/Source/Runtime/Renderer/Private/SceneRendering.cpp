@@ -14,7 +14,6 @@
 #include "Components/ReflectionCaptureComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SceneCaptureComponentCube.h"
-#include "StaticMeshDrawList.h"
 #include "DeferredShadingRenderer.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "RenderTargetTemp.h"
@@ -45,10 +44,46 @@
 #include "SceneSoftwareOcclusion.h"
 #include "VirtualTexturing.h"
 #include "VisualizeTexturePresent.h"
+#include "GPUScene.h"
+#include "TranslucentRendering.h"
+#include "VisualizeTexture.h"
+#include "VisualizeTexturePresent.h"
+#include "MeshDrawCommands.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
 -----------------------------------------------------------------------------*/
+
+static TAutoConsoleVariable<int32> CVarCachedMeshDrawCommands(
+	TEXT("r.MeshDrawCommands.UseCachedCommands"),
+	1,
+	TEXT("Whether to render from cached mesh draw commands (on vertex factories that support it), or to generate draw commands every frame."),
+	ECVF_RenderThreadSafe);
+
+bool UseCachedMeshDrawCommands()
+{
+	return CVarCachedMeshDrawCommands.GetValueOnRenderThread() > 0;
+}
+
+static TAutoConsoleVariable<int32> CVarMeshDrawCommandsDynamicInstancing(
+	TEXT("r.MeshDrawCommands.DynamicInstancing"),
+	1,
+	TEXT("Whether to dynamically combine multiple compatible visible Mesh Draw Commands into one instanced draw on vertex factories that support it."),
+	ECVF_RenderThreadSafe);
+
+bool IsDynamicInstancingEnabled(ERHIFeatureLevel::Type FeatureLevel)
+{
+	return CVarMeshDrawCommandsDynamicInstancing.GetValueOnRenderThread() > 0
+		&& UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
+}
+
+int32 GDumpInstancingStats = 0;
+FAutoConsoleVariableRef CVarDumpInstancingStats(
+	TEXT("r.MeshDrawCommands.LogDynamicInstancingStats"),
+	GDumpInstancingStats,
+	TEXT("Whether to log dynamic instancing stats on the next frame"),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
 
 extern ENGINE_API FLightMap2D* GDebugSelectedLightmap;
 extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
@@ -314,7 +349,6 @@ static FParallelCommandListSet* GOutstandingParallelCommandListSet = nullptr;
 FGraphEventRef FSceneRenderer::OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 
 
-DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer UpdateMotionBlurCache"), STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache, STATGROUP_SceneRendering);
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer ViewExtensionPostRenderView"), STAT_FDeferredShadingSceneRenderer_ViewExtensionPostRenderView, STATGROUP_SceneRendering);
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer ViewExtensionPreRenderView"), STAT_FDeferredShadingSceneRenderer_ViewExtensionPreRenderView, STATGROUP_SceneRendering);
 
@@ -420,7 +454,14 @@ public:
 			return;
 		}
 
-		uint32 FrameId = ViewFamily.Views[0]->State->GetFrameIndexMod8();
+		uint32 FrameId = 0;
+
+		const FSceneViewState* ViewState = static_cast<const FSceneViewState*>(ViewFamily.Views[0]->State);
+		if (ViewState)
+		{
+			FrameId = ViewState->GetFrameIndex(8);
+		}
+
 		float ResolutionFraction = FrameId == 0 ? 1.f : (FMath::Cos((FrameId + 0.25) * PI / 8) * 0.25f + 0.75f);
 
 		for (int32 i = 0; i < ViewFamily.Views.Num(); i++)
@@ -536,7 +577,7 @@ FParallelCommandListSet::FParallelCommandListSet(
 	FRHICommandListImmediate& InParentCmdList, 
 	bool bInParallelExecute, 
 	bool bInCreateSceneContext,
-	const FDrawingPolicyRenderState& InDrawRenderState)
+	const FMeshPassProcessorRenderState& InDrawRenderState)
 	: View(InView)
 	, SceneRenderer(InSceneRenderer)
 	, DrawRenderState(InDrawRenderState)
@@ -553,7 +594,6 @@ FParallelCommandListSet::FParallelCommandListSet(
 	bSpewBalance = !!CVarRHICmdSpewParallelListBalance.GetValueOnRenderThread();
 	int32 IntBalance = CVarRHICmdBalanceParallelLists.GetValueOnRenderThread();
 	bBalanceCommands = !!IntBalance;
-	bBalanceCommandsWithLastFrame = IntBalance > 1;
 	CommandLists.Reserve(Width * 8);
 	Events.Reserve(Width * 8);
 	NumDrawsIfKnown.Reserve(Width * 8);
@@ -802,7 +842,8 @@ void FViewInfo::Init()
 
 	ViewState = (FSceneViewState*)State;
 	bIsSnapshot = false;
-
+	bHasCustomDepthPrimitives = false;
+	bHasDistortionPrimitives = false;
 	bAllowStencilDither = false;
 
 	ForwardLightingResources = nullptr;
@@ -829,6 +870,20 @@ void FViewInfo::Init()
 	{
 		bIsValidWorldTextureGroupSamplerFilter = false;
 	}
+
+	PrimitiveSceneDataOverrideSRV = nullptr;
+	LightmapSceneDataOverrideSRV = nullptr;
+
+	DitherFadeInUniformBuffer = nullptr;
+	DitherFadeOutUniformBuffer = nullptr;
+
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+	{
+		NumVisibleDynamicMeshElements[PassIndex] = 0;
+	}
+
+	NumVisibleDynamicPrimitives = 0;
+	NumVisibleDynamicEditorPrimitives = 0;
 }
 
 FViewInfo::~FViewInfo()
@@ -841,6 +896,9 @@ FViewInfo::~FViewInfo()
 	{
 		CustomVisibilityQuery->Release();
 	}
+
+	//this uses memstack allocation for strongrefs, so we need to manually empty to get the destructor called to not leak the uniformbuffers stored here.
+	TranslucentSelfShadowUniformBufferMap.Empty();
 }
 
 #if DO_CHECK
@@ -956,9 +1014,9 @@ void UpdateNoiseTextureParameters(FViewUniformShaderParameters& ViewUniformShade
 	check(ViewUniformShaderParameters.SobolSamplingTexture);
 }
 
-void SetupPrecomputedVolumetricLightmapUniformBufferParameters(const FScene* Scene, FViewUniformShaderParameters& ViewUniformShaderParameters)
+void SetupPrecomputedVolumetricLightmapUniformBufferParameters(const FScene* Scene, FEngineShowFlags EngineShowFlags, FViewUniformShaderParameters& ViewUniformShaderParameters)
 {
-	if (Scene && Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap())
+	if (Scene && Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap() && EngineShowFlags.VolumetricLightmap)
 	{
 		const FPrecomputedVolumetricLightmapData* VolumetricLightmapData = Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap()->Data;
 
@@ -1030,6 +1088,8 @@ void FViewInfo::SetupUniformBufferParameters(
 	const bool bCheckerboardSubsurfaceRendering = FRCPassPostProcessSubsurface::RequiresCheckerboardSubsurfaceRendering(SceneContext.GetSceneColorFormat());
 	ViewUniformShaderParameters.bCheckerboardSubsurfaceProfileRendering = bCheckerboardSubsurfaceRendering ? 1.0f : 0.0f;
 
+	ViewUniformShaderParameters.IndirectLightingCacheShowFlag = Family->EngineShowFlags.IndirectLightingCache;
+
 	FScene* Scene = nullptr;
 
 	if (Family->Scene)
@@ -1079,7 +1139,7 @@ void FViewInfo::SetupUniformBufferParameters(
 			ViewUniformShaderParameters.AtmosphericFogDistanceScale = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogAltitudeScale = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogHeightScaleRayleigh = 0.f;
-			ViewUniformShaderParameters.AtmosphericFogStartDistance = 0.f;
+			ViewUniformShaderParameters.AtmosphericFogStartDistance = FLT_MAX;
 			ViewUniformShaderParameters.AtmosphericFogDistanceOffset = 0.f;
 			ViewUniformShaderParameters.AtmosphericFogSunDiscScale = 1.f;
 			//Added check so atmospheric light color and vector can use a directional light without needing an atmospheric fog actor in the scene
@@ -1100,7 +1160,7 @@ void FViewInfo::SetupUniformBufferParameters(
 		ViewUniformShaderParameters.AtmosphericFogDistanceScale = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogAltitudeScale = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogHeightScaleRayleigh = 0.f;
-		ViewUniformShaderParameters.AtmosphericFogStartDistance = 0.f;
+		ViewUniformShaderParameters.AtmosphericFogStartDistance = FLT_MAX;
 		ViewUniformShaderParameters.AtmosphericFogDistanceOffset = 0.f;
 		ViewUniformShaderParameters.AtmosphericFogSunDiscScale = 1.f;
 		ViewUniformShaderParameters.AtmosphericFogSunColor = FLinearColor::Black;
@@ -1124,7 +1184,7 @@ void FViewInfo::SetupUniformBufferParameters(
 
 	SetupVolumetricFogUniformBufferParameters(ViewUniformShaderParameters);
 
-	SetupPrecomputedVolumetricLightmapUniformBufferParameters(Scene, ViewUniformShaderParameters);
+	SetupPrecomputedVolumetricLightmapUniformBufferParameters(Scene, Family->EngineShowFlags, ViewUniformShaderParameters);
 
 	// Setup view's shared sampler for material texture sampling.
 	{
@@ -1177,7 +1237,7 @@ void FViewInfo::SetupUniformBufferParameters(
 		}
 	}
 
-	uint32 StateFrameIndexMod8 = 0;
+	uint32 FrameIndex = 0;
 
 	if(State)
 	{
@@ -1187,14 +1247,16 @@ void FViewInfo::SetupUniformBufferParameters(
 			TemporalJitterPixels.X,
 			TemporalJitterPixels.Y);
 
-		StateFrameIndexMod8 = ViewState->GetFrameIndexMod8();
+		FrameIndex = ViewState->GetFrameIndex();
 	}
 	else
 	{
 		ViewUniformShaderParameters.TemporalAAParams = FVector4(0, 1, 0, 0);
 	}
 
-	ViewUniformShaderParameters.StateFrameIndexMod8 = StateFrameIndexMod8;
+	// TODO(GA): kill StateFrameIndexMod8 because this is only a scalar bit mask with StateFrameIndex anyway.
+	ViewUniformShaderParameters.StateFrameIndexMod8 = FrameIndex % 8;
+	ViewUniformShaderParameters.StateFrameIndex = FrameIndex;
 
 	{
 		// If rendering in stereo, the other stereo passes uses the left eye's translucency lighting volume.
@@ -1294,11 +1356,6 @@ void FViewInfo::SetupUniformBufferParameters(
 
 	ViewUniformShaderParameters.CircleDOFParams = CircleDofHalfCoc(*this);
 
-	if (Family->Scene)
-	{
-		Scene = Family->Scene->GetRenderScene();
-	}
-
 	ERHIFeatureLevel::Type RHIFeatureLevel = Scene == nullptr ? GMaxRHIFeatureLevel : Scene->GetFeatureLevel();
 
 	if (Scene && Scene->SkyLight)
@@ -1362,6 +1419,32 @@ void FViewInfo::SetupUniformBufferParameters(
 	ViewUniformShaderParameters.StereoIPD = StereoIPD;
 	
 	ViewUniformShaderParameters.PreIntegratedBRDF = GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI;
+
+	if (UseGPUScene(GMaxRHIShaderPlatform, RHIFeatureLevel))
+	{
+		if (PrimitiveSceneDataOverrideSRV)
+		{
+			ViewUniformShaderParameters.PrimitiveSceneData = PrimitiveSceneDataOverrideSRV;
+		}
+		else
+		{
+			const FRWBufferStructured& ViewPrimitiveShaderDataBuffer = ViewState ? ViewState->PrimitiveShaderDataBuffer : OneFramePrimitiveShaderDataBuffer;
+
+			if (ViewPrimitiveShaderDataBuffer.SRV)
+			{
+				ViewUniformShaderParameters.PrimitiveSceneData = ViewPrimitiveShaderDataBuffer.SRV;
+			}
+		}
+
+		if (LightmapSceneDataOverrideSRV)
+		{
+			ViewUniformShaderParameters.LightmapSceneData = LightmapSceneDataOverrideSRV;
+		}
+		else if (Scene && Scene->GPUScene.LightmapDataBuffer.SRV)
+		{
+			ViewUniformShaderParameters.LightmapSceneData = Scene->GPUScene.LightmapDataBuffer.SRV;
+		}
+	}
 }
 
 void FViewInfo::InitRHIResources()
@@ -1384,20 +1467,19 @@ void FViewInfo::InitRHIResources()
 
 	const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
 
+	// Reset CachedView when CachedViewUniformShaderParameters change.
+	FScene* Scene = Family->Scene ? Family->Scene->GetRenderScene() : nullptr;
+	if (Scene)
+	{
+		Scene->UniformBuffers.CachedView = nullptr;
+	}
+
 	for (int32 CascadeIndex = 0; CascadeIndex < TVC_MAX; CascadeIndex++)
 	{
 		TranslucencyLightingVolumeMin[CascadeIndex] = VolumeBounds[CascadeIndex].Min;
 		TranslucencyVolumeVoxelSize[CascadeIndex] = (VolumeBounds[CascadeIndex].Max.X - VolumeBounds[CascadeIndex].Min.X) / TranslucencyLightingVolumeDim;
 		TranslucencyLightingVolumeSize[CascadeIndex] = VolumeBounds[CascadeIndex].Max - VolumeBounds[CascadeIndex].Min;
 	}
-
-	// Initialize the dynamic resources used by the view's FViewElementDrawer.
-	for(int32 ResourceIndex = 0;ResourceIndex < DynamicResources.Num();ResourceIndex++)
-	{
-		DynamicResources[ResourceIndex]->InitPrimitiveResource();
-	}
-
-
 }
 
 // These are not real view infos, just dumb memory blocks
@@ -1439,6 +1521,17 @@ FViewInfo* FViewInfo::CreateSnapshot() const
 
 	TUniquePtr<FViewUniformShaderParameters> NullViewParameters;
 	FMemory::Memcpy(Result->CachedViewUniformShaderParameters, NullViewParameters); 
+
+	TArray<FPrimitiveUniformShaderParameters> NullDynamicPrimitiveShaderData;
+	FMemory::Memcpy(Result->DynamicPrimitiveShaderData, NullDynamicPrimitiveShaderData);
+	Result->DynamicPrimitiveShaderData = DynamicPrimitiveShaderData;
+
+	FRWBufferStructured NullOneFramePrimitiveShaderDataBuffer;
+	FMemory::Memcpy(Result->OneFramePrimitiveShaderDataBuffer, NullOneFramePrimitiveShaderDataBuffer);
+
+	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> NullParallelMeshDrawCommandPasses;
+	FMemory::Memcpy(Result->ParallelMeshDrawCommandPasses, NullParallelMeshDrawCommandPasses);
+
 	Result->bIsSnapshot = true;
 	ViewInfoSnapshots.Add(Result);
 	return Result;
@@ -1463,6 +1556,14 @@ void FViewInfo::DestroyAllSnapshots()
 	{
 		Snapshot->ViewUniformBuffer.SafeRelease();
 		Snapshot->CachedViewUniformShaderParameters.Reset();
+		Snapshot->DynamicPrimitiveShaderData.Empty();
+		Snapshot->OneFramePrimitiveShaderDataBuffer.Release();
+
+		for (int32 Index = 0; Index < Snapshot->ParallelMeshDrawCommandPasses.Num(); ++Index)
+		{
+			Snapshot->ParallelMeshDrawCommandPasses[Index].Empty();
+		}
+
 		FreeViewInfoSnapshots.Add(Snapshot);
 	}
 	ViewInfoSnapshots.Reset();
@@ -1679,6 +1780,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 :	Scene(InViewFamily->Scene ? InViewFamily->Scene->GetRenderScene() : NULL)
 ,	ViewFamily(*InViewFamily)
 ,	MeshCollector(InViewFamily->GetFeatureLevel())
+,	RayTracingCollector(InViewFamily->GetFeatureLevel())
 ,	bUsedPrecomputedVisibility(false)
 ,	InstancedStereoWidth(0)
 ,	RootMark(nullptr)
@@ -1722,7 +1824,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 		// Batch the view's elements for later rendering.
 		if(ViewInfo->Drawer)
 		{
-			FViewElementPDI ViewElementPDI(ViewInfo,HitProxyConsumer);
+			FViewElementPDI ViewElementPDI(ViewInfo,HitProxyConsumer,&ViewInfo->DynamicPrimitiveShaderData);
 			ViewInfo->Drawer->Draw(ViewInfo,&ViewElementPDI);
 		}
 
@@ -1799,6 +1901,9 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 
 	FeatureLevel = Scene->GetFeatureLevel();
 	ShaderPlatform = Scene->GetShaderPlatform();
+
+	bDumpMeshDrawCommandInstancingStats = !!GDumpInstancingStats;
+	GDumpInstancingStats = 0;
 }
 
 // static
@@ -2209,7 +2314,7 @@ bool FSceneRenderer::DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) c
 FSceneRenderer::~FSceneRenderer()
 {
 	// To prevent keeping persistent references to single frame buffers, clear any such reference at this point.
-	ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+	ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 
 	if(Scene)
 	{
@@ -2231,6 +2336,8 @@ FSceneRenderer::~FSceneRenderer()
 
 	// Manually release references to TRefCountPtrs that are allocated on the mem stack, which doesn't call dtors
 	SortedShadowsForShadowDepthPass.Release();
+
+	Views.Empty();
 }
 
 /** 
@@ -2469,7 +2576,7 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		INC_DWORD_STAT_BY(STAT_VisibleStaticMeshElements,View.NumVisibleStaticMeshElements);
-		INC_DWORD_STAT_BY(STAT_VisibleDynamicPrimitives,View.VisibleDynamicPrimitives.Num());
+		INC_DWORD_STAT_BY(STAT_VisibleDynamicPrimitives,View.NumVisibleDynamicPrimitives);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// update freezing info
@@ -2534,6 +2641,50 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 	RHICmdList.EndScene();
 }
 
+void FSceneRenderer::SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewCommands& ViewCommands)
+{
+	SCOPE_CYCLE_COUNTER(STAT_SetupMeshPass);
+
+	const EShadingPath ShadingPath = Scene->GetShadingPath();
+
+	for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+	{
+		const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+
+		if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None)
+		{
+			// Mobile: BasePass and MobileBasePassCSM lists need to be merged and sorted after shadow pass.
+			if (ShadingPath == EShadingPath::Mobile && (PassType == EMeshPass::BasePass || PassType == EMeshPass::MobileBasePassCSM))
+			{
+				continue;
+			}
+
+			PassProcessorCreateFunction CreateFunction = FPassProcessorManager::GetCreateFunction(ShadingPath, PassType);
+			FMeshPassProcessor* MeshPassProcessor = CreateFunction(Scene, &View, nullptr);
+
+			FParallelMeshDrawCommandPass& Pass = View.ParallelMeshDrawCommandPasses[PassIndex];
+
+			if (ShouldDumpMeshDrawCommandInstancingStats())
+			{
+				Pass.SetDumpInstancingStats(GetMeshPassName(PassType));
+			}
+
+			Pass.DispatchPassSetup(
+				Scene,
+				View,
+				PassType,
+				BasePassDepthStencilAccess,
+				MeshPassProcessor,
+				View.DynamicMeshElements,
+				&View.DynamicMeshElementsPassRelevance,
+				View.NumVisibleDynamicMeshElements[PassType],
+				ViewCommands.DynamicMeshCommandBuildRequests[PassType],
+				ViewCommands.NumDynamicMeshCommandBuildRequestElements[PassType],
+				ViewCommands.MeshCommands[PassIndex]);
+		}
+	}
+}
+
 FSceneRenderer* FSceneRenderer::CreateSceneRenderer(const FSceneViewFamily* InViewFamily, FHitProxyConsumer* HitProxyConsumer)
 {
 	EShadingPath ShadingPath = InViewFamily->Scene->GetShadingPath();
@@ -2577,7 +2728,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 		for(int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 		{
 			const FViewInfo& View = Views[ViewIndex];
-			if(View.CustomDepthSet.NumPrims())
+			if (View.bHasCustomDepthPrimitives)
 			{
 				bPrimitives = true;
 				break;
@@ -2600,28 +2751,25 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 
 			if (View.ShouldRenderView())
 			{
-				TUniformBufferRef<FSceneTexturesUniformParameters> DeferredPassUniformBuffer;
-				TUniformBufferRef<FMobileSceneTextureUniformParameters> MobilePassUniformBuffer;
-				FUniformBufferRHIParamRef PassUniformBuffer = nullptr;
+				Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
-				if (FSceneInterface::GetShadingPath(View.FeatureLevel) == EShadingPath::Deferred)
-				{
-					FSceneTexturesUniformParameters SceneTextureParameters;
-					SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-					DeferredPassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-					PassUniformBuffer = DeferredPassUniformBuffer;
-				}
+				FUniformBufferRHIParamRef PassUniformBuffer = nullptr;
 
 				if (FSceneInterface::GetShadingPath(View.FeatureLevel) == EShadingPath::Mobile)
 				{
 					FMobileSceneTextureUniformParameters SceneTextureParameters;
 					SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, false, SceneTextureParameters);
-					MobilePassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-					PassUniformBuffer = MobilePassUniformBuffer;
+					Scene->UniformBuffers.MobileCustomDepthPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
+					PassUniformBuffer = Scene->UniformBuffers.MobileCustomDepthPassUniformBuffer;
+				}
+				else
+				{
+					FSceneTexturesUniformParameters SceneTextureParameters;
+					SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+					Scene->UniformBuffers.CustomDepthPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
+					PassUniformBuffer = Scene->UniformBuffers.CustomDepthPassUniformBuffer;
 				}
 				
-				FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
-
 				if (!View.IsInstancedStereoPass())
 				{
 					RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
@@ -2644,36 +2792,28 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 					}
 				}
 
-				DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 
-				const bool bWriteCustomStencilValues = SceneContext.IsCustomDepthPassWritingStencil();
-	
-				if (!bWriteCustomStencilValues)
-				{
-					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
-				}
-	
-				if ((CVarCustomDepthTemporalAAJitter.GetValueOnRenderThread() == 0) && (View.AntiAliasingMethod == AAM_TemporalAA))
+				FViewUniformShaderParameters CustomDepthViewUniformBufferParameters = *View.CachedViewUniformShaderParameters;
+
+				if (CVarCustomDepthTemporalAAJitter.GetValueOnRenderThread() == 0 && View.AntiAliasingMethod == AAM_TemporalAA)
 				{
 					FBox VolumeBounds[TVC_MAX];
-	
+
 					FViewMatrices ModifiedViewMatricies = View.ViewMatrices;
 					ModifiedViewMatricies.HackRemoveTemporalAAProjectionJitter();
-					FViewUniformShaderParameters OverriddenViewUniformShaderParameters;
+
 					View.SetupUniformBufferParameters(
 						SceneContext,
 						ModifiedViewMatricies,
 						ModifiedViewMatricies,
 						VolumeBounds,
 						TVC_MAX,
-						OverriddenViewUniformShaderParameters);
-					DrawRenderState.SetViewUniformBuffer(TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(OverriddenViewUniformShaderParameters, UniformBuffer_SingleFrame));
-					View.CustomDepthSet.DrawPrims(RHICmdList, View, DrawRenderState, bWriteCustomStencilValues);
+						CustomDepthViewUniformBufferParameters);
 				}
-				else
-				{
-					View.CustomDepthSet.DrawPrims(RHICmdList, View, DrawRenderState, bWriteCustomStencilValues);
-				}
+
+				Scene->UniformBuffers.CustomDepthViewUniformBuffer.UpdateUniformBufferImmediate(CustomDepthViewUniformBufferParameters);
+	
+				View.ParallelMeshDrawCommandPasses[EMeshPass::CustomDepth].DispatchDraw(nullptr, RHICmdList);
 			}
 		}
 
@@ -2682,7 +2822,7 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 	}
 }
 
-void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderer::OnStartRender(FRHICommandListImmediate& RHICmdList)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -2691,11 +2831,11 @@ void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
 	SceneContext.bScreenSpaceAOIsValid = false;
 	SceneContext.bCustomDepthIsValid = false;
 
-	for(FViewInfo& View : Views)
+	for (FViewInfo& View : Views)
 	{
-		if(View.ViewState)
+		if (View.ViewState)
 		{
-			View.ViewState->OnStartFrame(View, ViewFamily);
+			View.ViewState->OnStartRender(View, ViewFamily);
 		}
 	}
 }
@@ -2721,7 +2861,11 @@ bool FSceneRenderer::ShouldCompositeEditorPrimitives(const FViewInfo& View)
 	}
 
 	// Any elements that needed compositing were drawn then compositing should be done
-	if (View.ViewMeshElements.Num() || View.TopViewMeshElements.Num() || View.BatchedViewElements.HasPrimsToDraw() || View.TopBatchedViewElements.HasPrimsToDraw() || View.VisibleEditorPrimitives.Num())
+	if (View.ViewMeshElements.Num() 
+		|| View.TopViewMeshElements.Num() 
+		|| View.BatchedViewElements.HasPrimsToDraw() 
+		|| View.TopBatchedViewElements.HasPrimsToDraw() 
+		|| View.NumVisibleDynamicEditorPrimitives > 0)
 	{
 		return true;
 	}
@@ -2737,6 +2881,9 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_DeleteSceneRenderer_WaitForTasks);
 		RHICmdList.ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
 	}
+
+	GPrimitiveIdVertexBufferPool.DiscardAll();
+
 	FViewInfo::DestroyAllSnapshots(); // this destroys viewinfo snapshots
 	FSceneRenderTargets::GetGlobalUnsafe().DestroyAllSnapshots(); // this will destroy the render target snapshots
 	static const IConsoleVariable* AsyncDispatch	= IConsoleManager::Get().FindConsoleVariable(TEXT("r.RHICmdAsyncRHIThreadDispatch"));
@@ -2799,7 +2946,7 @@ void FSceneRenderer::DelayWaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIC
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GetRenderThread_Local()); 
 }
 
-void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
+void FSceneRenderer::UpdatePrimitiveIndirectLightingCacheBuffers()
 {
 	// Use a bit array to prevent primitives from being updated more than once.
 	FSceneBitArray UpdatedPrimitiveMap;
@@ -2809,20 +2956,20 @@ void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
 	{		
 		FViewInfo& View = Views[ViewIndex];
 
-		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		for (int32 Index = 0; Index < View.DirtyIndirectLightingCacheBufferPrimitives.Num(); ++Index)
 		{
-			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyIndirectLightingCacheBufferPrimitives[Index];
 
 			FBitReference bInserted = UpdatedPrimitiveMap[PrimitiveSceneInfo->GetIndex()];
 			if (!bInserted)
 			{
-				PrimitiveSceneInfo->UpdatePrecomputedLightingBuffer();
+				PrimitiveSceneInfo->UpdateIndirectLightingCacheBuffer();
 				bInserted = true;
 			}
 			else
 			{
 				// This will prevent clearing it twice.
-				View.DirtyPrecomputedLightingBufferPrimitives[Index] = nullptr;
+				View.DirtyIndirectLightingCacheBufferPrimitives[Index] = nullptr;
 			}
 		}
 	}
@@ -2844,19 +2991,19 @@ void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
 	}
 }
 
-void FSceneRenderer::ClearPrimitiveSingleFramePrecomputedLightingBuffers()
+void FSceneRenderer::ClearPrimitiveSingleFrameIndirectLightingCacheBuffers()
 {
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{		
 		FViewInfo& View = Views[ViewIndex];
 
-		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		for (int32 Index = 0; Index < View.DirtyIndirectLightingCacheBufferPrimitives.Num(); ++Index)
 		{
-			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyIndirectLightingCacheBufferPrimitives[Index];
 	
 			if (PrimitiveSceneInfo) // Could be null if it was a duplicate.
 			{
-				PrimitiveSceneInfo->ClearPrecomputedLightingBuffer(true);
+				PrimitiveSceneInfo->ClearIndirectLightingCacheBuffer(true);
 			}
 		}
 	}
@@ -2955,17 +3102,11 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 			SceneRenderer->Scene->DistanceFieldSceneData.PrimitiveModifiedBounds[CacheType].Reset();
 		}
 
-		{
-			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache);
-			SceneRenderer->Scene->MotionBlurInfoData.UpdateMotionBlurCache(SceneRenderer->Scene);
-		}
-
 #if STATS
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_RenderViewFamily_RenderThread_MemStats);
 
 			// Update scene memory stats that couldn't be tracked continuously
-			SET_MEMORY_STAT(STAT_StaticDrawListMemory, FStaticMeshDrawListBase::TotalBytesUsed);
 			SET_MEMORY_STAT(STAT_RenderingSceneMemory, SceneRenderer->Scene->GetSizeBytes());
 
 			SIZE_T ViewStateMemory = 0;
@@ -2992,8 +3133,8 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 		}
 		else
 		{
-		FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
-	}
+			FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
+		}
 	}
 
 #if STATS
@@ -3063,6 +3204,11 @@ FRendererModule::FRendererModule()
 
 	static auto CVarEarlyZPassMovable = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPassMovable"));
 	CVarEarlyZPassMovable->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeCVarRequiringRecreateRenderState));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	void InitDebugViewModeInterfaces();
+	InitDebugViewModeInterfaces();
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 void FRendererModule::CreateAndInitSingleView(FRHICommandListImmediate& RHICmdList, class FSceneViewFamily* ViewFamily, const struct FSceneViewInitOptions* ViewInitOptions)
@@ -3146,8 +3292,6 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 		// Construct the scene renderer.  This copies the view family attributes into its own structures.
 		FSceneRenderer* SceneRenderer = FSceneRenderer::CreateSceneRenderer(ViewFamily, Canvas->GetHitProxyConsumer());
 
-		Scene->EnsureMotionBlurCacheIsUpToDate(SceneRenderer->ViewFamily.bWorldIsPaused);
-
 		if (!SceneRenderer->ViewFamily.EngineShowFlags.HitProxies)
 		{
 			USceneCaptureComponent::UpdateDeferredCaptures(Scene);
@@ -3180,8 +3324,6 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 			RenderViewFamily_RenderThread(RHICmdList, SceneRenderer);
 			FlushPendingDeleteRHIResources_RenderThread();
 		});
-
-		Scene->ResetMotionBlurCacheTracking();
 	}
 }
 
@@ -3332,7 +3474,7 @@ static uint32 ComputeScalabilityCVarHash()
 	return Ret;
 }
 
-static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
+static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FViewInfo& InView)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	auto Family = InView.Family;
@@ -3340,7 +3482,7 @@ static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& I
 	if(Family->EngineShowFlags.OnScreenDebug && Family->DisplayInternalsData.IsValid())
 	{
 		// could be 0
-		auto State = InView.State;
+		auto State = InView.ViewState;
 
 		FCanvas Canvas((FRenderTarget*)Family->RenderTarget, NULL, Family->CurrentRealTime, Family->CurrentWorldTime, Family->DeltaWorldTime, InView.GetFeatureLevel());
 		Canvas.SetRenderTargetRect(FIntRect(0, 0, Family->RenderTarget->GetSizeXY().X, Family->RenderTarget->GetSizeXY().Y));
@@ -3409,7 +3551,7 @@ static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& I
 		{
 			CANVAS_HEADER(TEXT("State:"))
 			CANVAS_LINE(false, TEXT("  TemporalAASample: %u"), State->GetCurrentTemporalAASampleIndex())
-			CANVAS_LINE(false, TEXT("  FrameIndexMod8: %u"), State->GetFrameIndexMod8())
+			CANVAS_LINE(false, TEXT("  FrameIndexMod8: %u"), State->GetFrameIndex(8))
 			CANVAS_LINE(false, TEXT("  LODTransition: %.2f"), State->GetTemporalLODTransition())
 		}
 
@@ -3427,7 +3569,7 @@ static void DisplayInternals(FRHICommandListImmediate& RHICmdList, FSceneView& I
 		CANVAS_LINE(false, TEXT("  ViewRotation: %s"), *InView.ViewRotation.ToString())
 		CANVAS_LINE(false, TEXT("  ViewRect: %s"), *ViewInfo.ViewRect.ToString())
 
-		CANVAS_LINE(false, TEXT("  DynMeshElements/TranslPrim: %d/%d"), ViewInfo.DynamicMeshElements.Num(), ViewInfo.TranslucentPrimSet.NumPrims())
+		CANVAS_LINE(false, TEXT("  DynMeshElements/TranslPrim: %d/%d"), ViewInfo.DynamicMeshElements.Num(), ViewInfo.TranslucentPrimCount.NumPrims())
 
 #undef CANVAS_LINE
 #undef CANVAS_HEADER
@@ -3450,7 +3592,8 @@ TSharedRef<ISceneViewExtension, ESPMode::ThreadSafe> GetRendererViewExtension()
 		virtual int32 GetPriority() const { return 0; }
 		virtual void PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
 		{
-			DisplayInternals(RHICmdList, InView);
+			FViewInfo& View = static_cast<FViewInfo&>(InView);
+			DisplayInternals(RHICmdList, View);
 		}
 	};
 	TSharedRef<FRendererViewExtension, ESPMode::ThreadSafe> ref(new FRendererViewExtension);
@@ -3631,4 +3774,3 @@ FTextureRHIParamRef FSceneRenderer::GetMultiViewSceneColor(const FSceneRenderTar
 		return static_cast<FTextureRHIRef>(ViewFamily.RenderTarget->GetRenderTargetTexture());
 	}
 }
-

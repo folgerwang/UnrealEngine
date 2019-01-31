@@ -177,6 +177,93 @@ public:
 	int32 SpecificPermutationId;
 };
 
+class FShaderParameterInfo
+{
+public:
+	uint16 BaseIndex;
+	uint16 Size;
+
+	FShaderParameterInfo() {}
+
+	FShaderParameterInfo(uint16 InBaseIndex, uint16 InSize)
+	{
+		BaseIndex = InBaseIndex;
+		Size = InSize;
+		checkf(BaseIndex == InBaseIndex && Size == InSize, TEXT("Tweak FShaderParameterInfo type sizes"));
+	}
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderParameterInfo& Info)
+	{
+		Ar << Info.BaseIndex;
+		Ar << Info.Size;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderParameterInfo& Rhs) const
+	{
+		return BaseIndex == Rhs.BaseIndex
+			&& Size == Rhs.Size;
+	}
+};
+
+class FShaderLooseParameterBufferInfo
+{
+public:
+	uint16 BufferIndex;
+	uint16 BufferSize;
+	TArray<FShaderParameterInfo> Parameters;
+
+	FShaderLooseParameterBufferInfo() {}
+
+	FShaderLooseParameterBufferInfo(uint16 InBufferIndex, uint16 InBufferSize)
+	{
+		BufferIndex = InBufferIndex;
+		BufferSize = InBufferSize;
+		checkf(BufferIndex == InBufferIndex, TEXT("Tweak FShaderLooseParameterBufferInfo type sizes"));
+	}
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderLooseParameterBufferInfo& Info)
+	{
+		Ar << Info.BufferIndex;
+		Ar << Info.BufferSize;
+		Ar << Info.Parameters;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderLooseParameterBufferInfo& Rhs) const
+	{
+		return BufferIndex == Rhs.BufferIndex
+			&& BufferSize == Rhs.BufferSize
+			&& Parameters == Rhs.Parameters;
+	}
+};
+
+class FShaderParameterMapInfo
+{
+public:
+	TArray<FShaderParameterInfo> UniformBuffers;
+	TArray<FShaderParameterInfo> TextureSamplers;
+	TArray<FShaderParameterInfo> SRVs;
+	TArray<FShaderLooseParameterBufferInfo> LooseParameterBuffers;
+
+	friend FArchive& operator<<(FArchive& Ar,FShaderParameterMapInfo& Info)
+	{
+		Ar << Info.UniformBuffers;
+		Ar << Info.TextureSamplers;
+		Ar << Info.SRVs;
+		Ar << Info.LooseParameterBuffers;
+		return Ar;
+	}
+
+	inline bool operator==(const FShaderParameterMapInfo& Rhs) const
+	{
+		return UniformBuffers == Rhs.UniformBuffers
+			&& TextureSamplers == Rhs.TextureSamplers
+			&& SRVs == Rhs.SRVs
+			&& LooseParameterBuffers == Rhs.LooseParameterBuffers;
+	}
+};
+
 /** 
  * Compiled shader bytecode and its corresponding RHI resource. 
  * This can be shared by multiple FShaders with identical compiled output.
@@ -263,6 +350,47 @@ public:
 		return (FRHIComputeShader*)Shader.GetReference();
 	}
 
+#if RHI_RAYTRACING
+	inline const FRayTracingShaderRHIParamRef GetRayTracingShader()
+	{
+		checkSlow(Target.Frequency == SF_RayGen
+			   || Target.Frequency == SF_RayMiss
+			   || Target.Frequency == SF_RayHitGroup);
+
+		if (!IsInitialized())
+		{
+			InitializeShaderRHI();
+		}
+		return RayTracingShader;
+	}
+
+	inline uint32 GetRayTracingMaterialLibraryIndex()
+	{
+		checkSlow(Target.Frequency == SF_RayGen
+			|| Target.Frequency == SF_RayMiss
+			|| Target.Frequency == SF_RayHitGroup);
+
+		if (!IsInitialized())
+		{
+			InitializeShaderRHI();
+		}
+		return RayTracingMaterialLibraryIndex;
+	}
+
+	RENDERCORE_API static void GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials);
+
+private:
+	RENDERCORE_API static uint32 AddToRayTracingLibrary(FRHIRayTracingShader* Shader);
+	RENDERCORE_API static void RemoveFromRayTracingLibrary(uint32 Index);
+
+	static uint32 GlobalMaxIndex;
+	static TArray<uint32> GlobalUnusedIndicies;
+	static TMap<uint32, FRHIRayTracingShader*> GlobalRayTracingMaterialLibrary;
+	static FCriticalSection GlobalRayTracingMaterialLibraryCS;
+
+public:
+#endif // RHI_RAYTRACING
+
 	RENDERCORE_API FShaderResourceId GetId() const;
 
 	uint32 GetSizeBytes() const
@@ -298,7 +426,7 @@ public:
 	* Passes back a zeroed out hash to serialize when saving out cooked data.
 	* The goal here is to ensure that source hash changes do not cause widespread binary differences in cooked data, resulting in bloated patch diffs.
 	*/
-	RENDERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
+	RENDERCORE_API static FSHAHash& FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
 
 private:
 	// compression functions
@@ -329,6 +457,11 @@ private:
 	/** Reference to the RHI shader. References the matching shader type of Target.Frequency. */
 	TRefCountPtr<FRHIShader> Shader;
 
+#if RHI_RAYTRACING
+	FRayTracingShaderRHIRef RayTracingShader;
+	uint32 RayTracingMaterialLibraryIndex = UINT_MAX;
+#endif // RHI_RAYTRACING
+
 #if WITH_EDITORONLY_DATA
 	/** Platform specific debug data output by the shader compiler. Discarded in cooked builds. */
 	TArray<uint8> PlatformDebugData;
@@ -354,6 +487,7 @@ private:
 	uint32 NumTextureSamplers;
 #endif
 
+	FShaderParameterMapInfo ParameterMapInfo;
 	/** Whether the shader code is stored in a shader library. */
 	bool bCodeInSharedLocation;
 	/** Whether the shader code was requested (and hence if we need to drop the ref later). */
@@ -361,6 +495,8 @@ private:
 
 	/** Initialize the shader RHI resources. */
 	RENDERCORE_API void InitializeShaderRHI();
+
+	void BuildParameterMapInfo(const TMap<FString, FParameterAllocation>& ParameterMap);
 
 	/** Tracks loaded shader resources by id. */
 	static TMap<FShaderResourceId, FShaderResource*> ShaderResourceIdMap;
@@ -774,6 +910,18 @@ public:
 		return Resource->GetComputeShader();
 	}
 
+#if RHI_RAYTRACING
+	inline const FRayTracingShaderRHIParamRef GetRayTracingShader() const
+	{
+		return Resource->GetRayTracingShader();
+	}
+
+	inline uint32 GetRayTracingMaterialLibraryIndex() const
+	{
+		return Resource->GetRayTracingMaterialLibraryIndex();
+	}
+#endif // RHI_RAYTRACING
+
 	// Accessors.
 	inline FShaderType* GetType() const { return Type; }
 	inline int32 GetPermutationId() const { return PermutationId; }
@@ -788,6 +936,7 @@ public:
 	FShaderId GetId() const;
 	inline FVertexFactoryType* GetVertexFactoryType() const { return VFType; }
 	inline int32 GetNumRefs() const { return NumRefs; }
+	const FShaderParameterMapInfo& GetParameterMapInfo() const { return Resource->ParameterMapInfo; }
 
 	inline FShaderResourceId GetResourceId() const
 	{
@@ -888,6 +1037,19 @@ public:
 		}
 	}
 
+	const FShaderParametersMetadata* FindAutomaticallyBoundUniformBufferStruct(int32 BaseIndex) const
+	{
+		for (int32 i = 0; i < UniformBufferParameters.Num(); i++)
+		{
+			if (UniformBufferParameters[i]->GetBaseIndex() == BaseIndex)
+			{
+				return UniformBufferParameterStructs[i];
+			}
+		}
+
+		return nullptr;
+	}
+
 	/** Gets the shader. */
 	inline FShader* GetShader()
 	{
@@ -913,7 +1075,7 @@ public:
 protected:
 
 	/** Indexed the same as UniformBufferParameters.  Packed densely for coherent traversal. */
-	TArray<FShaderParametersMetadata*> UniformBufferParameterStructs;
+	TArray<const FShaderParametersMetadata*> UniformBufferParameterStructs;
 	TArray<FShaderUniformBufferParameter*> UniformBufferParameters;
 
 private:

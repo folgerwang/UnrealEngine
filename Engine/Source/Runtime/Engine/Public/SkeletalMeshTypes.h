@@ -222,8 +222,20 @@ public:
 #endif
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
+
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const override final { return true; }
+
+	virtual bool IsRayTracingStaticRelevant() const override
+	{
+		return bRenderStatic;
+	}
+	FRayTracingGeometryRHIRef GetDynamicRayTracingGeometryInstance() const final override;
+#endif // RHI_RAYTRACING
+
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
+	virtual bool IsUsingDistanceCullFade() const override;
 	
 	virtual bool HasDynamicIndirectShadowCasterRepresentation() const override;
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const override;

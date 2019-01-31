@@ -585,16 +585,19 @@ void FProjectedShadowInfo::SetupFrustumForProjection(const FViewInfo* View, TArr
 void FProjectedShadowInfo::SetupProjectionStencilMask(
 	FRHICommandListImmediate& RHICmdList, 
 	const FViewInfo* View, 
+	int32 ViewIndex, 
 	const FSceneRenderer* SceneRender,
 	const TArray<FVector4, TInlineAllocator<8>>& FrustumVertices,
 	bool bMobileModulatedProjections, 
 	bool bCameraInsideShadowFrustum) const
 {
-	FDrawingPolicyRenderState DrawRenderState(*View);
+	FMeshPassProcessorRenderState DrawRenderState(*View);
 
 	// Depth test wo/ writes, no color writing.
 	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 	DrawRenderState.SetBlendState(TStaticBlendState<CW_NONE>::GetRHI());
+
+	const bool bDynamicInstancing = IsDynamicInstancingEnabled(View->FeatureLevel);
 
 	// If this is a preshadow, mask the projection by the receiver primitives.
 	if (bPreShadow || bSelfShadowOnly)
@@ -608,88 +611,10 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 			RHICmdList.SetViewport(0, 0, 0, SceneRender->InstancedStereoWidth, View->ViewRect.Max.Y, 1);
 		}
 
-		// Set stencil to one.
-		DrawRenderState.SetDepthStencilState(
-			TStaticDepthStencilState<
-			false, CF_DepthNearOrEqual,
-			true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-			false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-			0xff, 0xff
-			>::GetRHI());
-		DrawRenderState.SetStencilRef(1);
-
-		// Pre-shadows mask by receiver elements, self-shadow mask by subject elements.
-		// Note that self-shadow pre-shadows still mask by receiver elements.
-		const TArray<FMeshBatchAndRelevance, SceneRenderingAllocator>& DynamicMeshElements = bPreShadow ? DynamicReceiverMeshElements : DynamicSubjectMeshElements;
-
-		FDepthDrawingPolicyFactory::ContextType Context(DDM_AllOccluders, false);
-
-		for (int32 MeshBatchIndex = 0; MeshBatchIndex < DynamicMeshElements.Num(); MeshBatchIndex++)
+		const FShadowMeshDrawCommandPass& ProjectionStencilingPass = ProjectionStencilingPasses[ViewIndex];
+		if (ProjectionStencilingPass.VisibleMeshDrawCommands.Num() > 0)
 		{
-			const FMeshBatchAndRelevance& MeshBatchAndRelevance = DynamicMeshElements[MeshBatchIndex];
-			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-
-			FDepthDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, *View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId, false, bIsInstancedStereoEmulated);
-		}
-
-		// Pre-shadows mask by receiver elements, self-shadow mask by subject elements.
-		// Note that self-shadow pre-shadows still mask by receiver elements.
-		const PrimitiveArrayType& MaskPrimitives = bPreShadow ? ReceiverPrimitives : DynamicSubjectPrimitives;
-
-		for (int32 PrimitiveIndex = 0, PrimitiveCount = MaskPrimitives.Num(); PrimitiveIndex < PrimitiveCount; PrimitiveIndex++)
-		{
-			const FPrimitiveSceneInfo* ReceiverPrimitiveSceneInfo = MaskPrimitives[PrimitiveIndex];
-
-			if (View->PrimitiveVisibilityMap[ReceiverPrimitiveSceneInfo->GetIndex()])
-			{
-				const FPrimitiveViewRelevance& ViewRelevance = View->PrimitiveViewRelevanceMap[ReceiverPrimitiveSceneInfo->GetIndex()];
-
-				if (ViewRelevance.bRenderInMainPass && ViewRelevance.bStaticRelevance)
-				{
-					for (int32 StaticMeshIdx = 0; StaticMeshIdx < ReceiverPrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-					{
-						const FStaticMesh& StaticMesh = ReceiverPrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-						if (View->StaticMeshVisibilityMap[StaticMesh.Id])
-						{
-							FDepthDrawingPolicyFactory::DrawStaticMesh(
-								RHICmdList, 
-								*View,
-								FDepthDrawingPolicyFactory::ContextType(DDM_AllOccluders, false),
-								StaticMesh,
-								StaticMesh.bRequiresPerElementVisibility ? View->StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] : ((1ull << StaticMesh.Elements.Num() )- 1),
-								true,
-								DrawRenderState,
-								ReceiverPrimitiveSceneInfo->Proxy,
-								StaticMesh.BatchHitProxyId, 
-								false, 
-								bIsInstancedStereoEmulated
-								);
-						}
-					}
-				}
-			}
-		}
-
-		if (bSelfShadowOnly && !bPreShadow)
-		{
-			for (int32 ElementIndex = 0; ElementIndex < StaticSubjectMeshElements.Num(); ++ElementIndex)
-			{
-				const FStaticMesh& StaticMesh = *StaticSubjectMeshElements[ElementIndex].Mesh;
-				FDepthDrawingPolicyFactory::DrawStaticMesh(
-					RHICmdList, 
-					*View,
-					FDepthDrawingPolicyFactory::ContextType(DDM_AllOccluders, false),
-					StaticMesh,
-					StaticMesh.bRequiresPerElementVisibility ? View->StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] : ((1ull << StaticMesh.Elements.Num() )- 1),
-					true,
-					DrawRenderState,
-					StaticMesh.PrimitiveSceneInfo->Proxy,
-					StaticMesh.BatchHitProxyId, 
-					false, 
-					bIsInstancedStereoEmulated
-					);
-			}
+			SubmitMeshDrawCommands(ProjectionStencilingPass.VisibleMeshDrawCommands, ProjectionStencilingPass.PrimitiveIdVertexBuffer, 0, bDynamicInstancing, RHICmdList);
 		}
 
 		// Restore viewport
@@ -826,38 +751,10 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 		// if rendering modulated shadows mask out subject mesh elements to prevent self shadowing.
 		if (bMobileModulatedProjections && !CVarEnableModulatedSelfShadow.GetValueOnRenderThread())
 		{
-			DrawRenderState.SetDepthStencilState(
-				TStaticDepthStencilState<
-				false, CF_DepthNearOrEqual,
-				true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-				true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-				0xff, 0xff
-				>::GetRHI());
-			DrawRenderState.SetStencilRef(0);
-
-			FDepthDrawingPolicyFactory::ContextType Context(DDM_AllOccluders, false);
-			for (int32 MeshBatchIndex = 0; MeshBatchIndex < DynamicSubjectMeshElements.Num(); MeshBatchIndex++)
+			const FShadowMeshDrawCommandPass& ProjectionStencilingPass = ProjectionStencilingPasses[ViewIndex];
+			if (ProjectionStencilingPass.VisibleMeshDrawCommands.Num() > 0)
 			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = DynamicSubjectMeshElements[MeshBatchIndex];
-				const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-				FDepthDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, *View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-			}
-
-			for (int32 ElementIndex = 0; ElementIndex < StaticSubjectMeshElements.Num(); ++ElementIndex)
-			{
-				const FStaticMesh& StaticMesh = *StaticSubjectMeshElements[ElementIndex].Mesh;
-				FDepthDrawingPolicyFactory::DrawStaticMesh(
-					RHICmdList,
-					*View,
-					FDepthDrawingPolicyFactory::ContextType(DDM_AllOccluders, false),
-					StaticMesh,
-					StaticMesh.bRequiresPerElementVisibility ? View->StaticMeshBatchVisibility[StaticMesh.Id] : ((1ull << StaticMesh.Elements.Num()) - 1),
-					true,
-					DrawRenderState,
-					StaticMesh.PrimitiveSceneInfo->Proxy,
-					StaticMesh.BatchHitProxyId,
-					false
-				);
+				SubmitMeshDrawCommands(ProjectionStencilingPass.VisibleMeshDrawCommands, ProjectionStencilingPass.PrimitiveIdVertexBuffer, 0, bDynamicInstancing, RHICmdList);
 			}
 		}
 	}
@@ -867,7 +764,11 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 {
 #if WANTS_DRAW_MESH_EVENTS
 	FString EventName;
-	GetShadowTypeNameForDrawEvent(EventName);
+
+	if (GetEmitDrawEvents())
+	{
+		GetShadowTypeNameForDrawEvent(EventName);
+	}
 	SCOPED_DRAW_EVENTF(RHICmdList, EventShadowProjectionActor, *EventName);
 #endif
 
@@ -896,7 +797,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 
 	if (!bDepthBoundsTestEnabled)
 	{
-		SetupProjectionStencilMask(RHICmdList, View, SceneRender, FrustumVertices, bMobileModulatedProjections, bCameraInsideShadowFrustum);
+		SetupProjectionStencilMask(RHICmdList, View, ViewIndex, SceneRender, FrustumVertices, bMobileModulatedProjections, bCameraInsideShadowFrustum);
 	}
 
 	// solid rasterization w/ back-face culling.
@@ -1483,6 +1384,8 @@ bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdLis
 			// Set the light's scissor rectangle.
 			LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View, View.ViewRect);
 
+		    Scene->UniformBuffers.UpdateViewUniformBuffer(View);
+
 			// Project the shadow depth buffers onto the scene.
 			for (int32 ShadowIndex = 0; ShadowIndex < NormalShadows.Num(); ShadowIndex++)
 			{
@@ -1619,3 +1522,51 @@ void FMobileSceneRenderer::RenderModulatedShadowProjections(FRHICommandListImmed
 		}
 	}
 }
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTranslucentSelfShadowUniformParameters, "TranslucentSelfShadow");
+
+void SetupTranslucentSelfShadowUniformParameters(const FProjectedShadowInfo* ShadowInfo, FTranslucentSelfShadowUniformParameters& OutParameters)
+{
+	if (ShadowInfo)
+	{
+		FVector4 ShadowmapMinMax;
+		FMatrix WorldToShadowMatrixValue = ShadowInfo->GetWorldToShadowMatrix(ShadowmapMinMax);
+
+		OutParameters.WorldToShadowMatrix = WorldToShadowMatrixValue;
+		OutParameters.ShadowUVMinMax = ShadowmapMinMax;
+
+		const FLightSceneProxy* const LightProxy = ShadowInfo->GetLightSceneInfo().Proxy;
+		OutParameters.DirectionalLightDirection = LightProxy->GetDirection();
+
+		//@todo - support fading from both views
+		const float FadeAlpha = ShadowInfo->FadeAlphas[0];
+		// Incorporate the diffuse scale of 1 / PI into the light color
+		OutParameters.DirectionalLightColor = FVector4(FVector(LightProxy->GetColor() * FadeAlpha / PI), FadeAlpha);
+
+		OutParameters.Transmission0 = ShadowInfo->RenderTargets.ColorTargets[0]->GetRenderTargetItem().ShaderResourceTexture.GetReference();
+		OutParameters.Transmission1 = ShadowInfo->RenderTargets.ColorTargets[1]->GetRenderTargetItem().ShaderResourceTexture.GetReference();
+		OutParameters.Transmission0Sampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+		OutParameters.Transmission1Sampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	}
+	else
+	{
+		OutParameters.Transmission0 = GBlackTexture->TextureRHI;
+		OutParameters.Transmission1 = GBlackTexture->TextureRHI;
+		OutParameters.Transmission0Sampler = GBlackTexture->SamplerStateRHI;
+		OutParameters.Transmission1Sampler = GBlackTexture->SamplerStateRHI;
+		
+		OutParameters.DirectionalLightColor = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+}
+
+void FEmptyTranslucentSelfShadowUniformBuffer::InitDynamicRHI()
+{
+	FTranslucentSelfShadowUniformParameters Parameters;
+	SetupTranslucentSelfShadowUniformParameters(nullptr, Parameters);
+	SetContentsNoUpdate(Parameters);
+
+	Super::InitDynamicRHI();
+}
+
+/** */
+TGlobalResource< FEmptyTranslucentSelfShadowUniformBuffer > GEmptyTranslucentSelfShadowUniformBuffer;

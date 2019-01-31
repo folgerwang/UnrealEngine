@@ -2755,13 +2755,13 @@ ir_rvalue* gen_image_op(
 			case '4':
 			{
 				ir_dereference_image* index3 = new(ctx) ir_dereference_image(image, new(ctx) ir_expression(ir_binop_add, new(ctx) ir_dereference_variable(base_index), new (ctx) ir_constant(3)), ir_image_access);
-				ir_assignment* assign3 = new(ctx) ir_assignment(index3, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 1, 2, 3, 0, 1)); // .w
+				ir_assignment* assign3 = new(ctx) ir_assignment(index3, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 3, 3, 3, 3, 1)); // .w
 				instructions->push_tail(assign3);
 			}
 			case '3':
 			{
 				ir_dereference_image* index2 = new(ctx) ir_dereference_image(image, new(ctx) ir_expression(ir_binop_add, new(ctx) ir_dereference_variable(base_index), new (ctx) ir_constant(2)), ir_image_access);
-				ir_assignment* assign2 = new(ctx) ir_assignment(index2, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 1, 2, 0, 3, 1)); // .z
+				ir_assignment* assign2 = new(ctx) ir_assignment(index2, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 2, 2, 2, 2, 1)); // .z
 				instructions->push_tail(assign2);
 			}
 			case '2':
@@ -2769,10 +2769,10 @@ ir_rvalue* gen_image_op(
 				ir_dereference_image* index0 = new(ctx) ir_dereference_image(image, new(ctx) ir_dereference_variable(base_index), ir_image_access);
 				ir_dereference_image* index1 = new(ctx) ir_dereference_image(image, new(ctx) ir_expression(ir_binop_add, new(ctx) ir_dereference_variable(base_index), new (ctx) ir_constant(1)), ir_image_access);
 				
-				ir_assignment* assign1 = new(ctx) ir_assignment(index1, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 1, 0, 2, 3, 1)); // .y
+				ir_assignment* assign1 = new(ctx) ir_assignment(index1, new(ctx) ir_swizzle(((ir_rvalue*)param_list.head->next)->clone(ctx, nullptr), 1, 1, 1, 1, 1)); // .y
 				instructions->push_tail(assign1);
 				
-				ir_assignment* assign0 = new(ctx) ir_assignment(index0, new(ctx) ir_swizzle((ir_rvalue*)param_list.head->next, 0, 1, 2, 3, 1));  // .x
+				ir_assignment* assign0 = new(ctx) ir_assignment(index0, new(ctx) ir_swizzle((ir_rvalue*)param_list.head->next, 0, 0, 0, 0, 1));  // .x
 				instructions->push_tail(assign0);
 				break;
 			}
@@ -2782,7 +2782,7 @@ ir_rvalue* gen_image_op(
 			}
 		}
 	}
-	else if(bIsRWByteBuffer && ((num_params == 3 && (strcmp(method, "InterlockedAdd") == 0 || strcmp(method, "InterlockedAnd") == 0 || strcmp(method, "InterlockedMax") == 0 || strcmp(method, "InterlockedMin") == 0 || strcmp(method, "InterlockedOr") == 0 || strcmp(method, "InterlockedXor") == 0 || strcmp(method, "InterlockedExchange") == 0)) || (num_params == 4 && (strcmp(method, "InterlockedCompareStore") == 0 || strcmp(method, "InterlockedCompareExchange") == 0))))
+	else if(bIsRWByteBuffer && ((((num_params == 2 || num_params == 3) && (strcmp(method, "InterlockedAdd") == 0 || strcmp(method, "InterlockedAnd") == 0 || strcmp(method, "InterlockedMax") == 0 || strcmp(method, "InterlockedMin") == 0 || strcmp(method, "InterlockedOr") == 0 || strcmp(method, "InterlockedXor") == 0)) || (num_params == 3 && strcmp(method, "InterlockedExchange") == 0)) || (num_params == 4 && (strcmp(method, "InterlockedCompareStore") == 0 || strcmp(method, "InterlockedCompareExchange") == 0))))
 	{
 		bool bFound = false;
 		ir_function * func = state->symbols->get_function(method);

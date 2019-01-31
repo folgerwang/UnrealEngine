@@ -2050,6 +2050,8 @@ void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 				Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
 				Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
 			}
+		
+			CFRelease(ArrDisplay);
 
 			Info.DisplayRect = FPlatformRect(Screen->FramePixels.origin.x, Screen->FramePixels.origin.y, Screen->FramePixels.origin.x + Screen->FramePixels.size.width, Screen->FramePixels.origin.y + Screen->FramePixels.size.height);
 			Info.WorkArea = FPlatformRect(Screen->VisibleFramePixels.origin.x, Screen->VisibleFramePixels.origin.y, Screen->VisibleFramePixels.origin.x + Screen->VisibleFramePixels.size.width, Screen->VisibleFramePixels.origin.y + Screen->VisibleFramePixels.size.height);
@@ -2099,8 +2101,6 @@ void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 			}
 
 			OutDisplayMetrics.MonitorInfo.Add(Info);
-
-			CFRelease(ArrDisplay);
 		}
 	}
 

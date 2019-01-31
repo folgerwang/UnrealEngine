@@ -196,11 +196,11 @@ void FCanvasItemTestbed::Draw( class FViewport* Viewport, class FCanvas* Canvas 
 
 		if (TestMaterial)
 		{
-			FCanvasTileItem TileItemMat(FVector2D(256.0f, 256.0f), TestMaterial->GetRenderProxy(false), FVector2D(128.0f, 128.0f));
+			FCanvasTileItem TileItemMat(FVector2D(256.0f, 256.0f), TestMaterial->GetRenderProxy(), FVector2D(128.0f, 128.0f));
 			//TileItemMat.Draw(Canvas);
 
 			FCanvasTriangleItem TriItem(FVector2D(512.0f, 256.0f), FVector2D(512.0f, 256.0f), FVector2D(640.0f, 384.0f), FVector2D::ZeroVector, FVector2D(1.0f, 0.0f), FVector2D(1.0f, 1.0f), nullptr);
-			TriItem.MaterialRenderProxy = TestMaterial->GetRenderProxy(false);
+			TriItem.MaterialRenderProxy = TestMaterial->GetRenderProxy();
 			//TriItem.Draw(Canvas);
 
 			SingleTri.V0_Pos = FVector2D(228.0f, 228.0f);
@@ -218,7 +218,7 @@ void FCanvasItemTestbed::Draw( class FViewport* Viewport, class FCanvas* Canvas 
 			SingleTri.V2_UV = FVector2D(1.0f, 0.0f);
 			TriangleList.Add(SingleTri);
 			FCanvasTriangleItem TriItemList(TriangleList, nullptr);
-			TriItemList.MaterialRenderProxy = TestMaterial->GetRenderProxy(false);
+			TriItemList.MaterialRenderProxy = TestMaterial->GetRenderProxy();
 			TriItemList.Draw(Canvas);
 		}
 	}
@@ -878,7 +878,7 @@ void FCanvasTextItemBase::Draw( class FCanvas* InCanvas )
 		if( CorrectStereo )
 		{
 			const FVector2D StereoOutlineBoxSize( 2.0f, 2.0f );
-			TileItem.MaterialRenderProxy = GEngine->RemoveSurfaceMaterial->GetRenderProxy( false );
+			TileItem.MaterialRenderProxy = GEngine->RemoveSurfaceMaterial->GetRenderProxy();
 			TileItem.Position = DrawPos - StereoOutlineBoxSize;
 			const FVector2D CorrectionSize = MeasuredTextSize + StereoOutlineBoxSize + StereoOutlineBoxSize;
 			TileItem.Size = CorrectionSize;

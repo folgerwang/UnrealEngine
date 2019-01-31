@@ -27,6 +27,14 @@ class ISceneViewExtension;
 class FSceneViewFamily;
 class FVolumetricFogViewResources;
 
+// #dxr_todo: share this enum with ray tracing shader code via RayTracingDefinitions.ush
+enum class ERayTracingRenderMode
+{
+	Disabled			= 0,
+	PathTracing			= 1,
+	RayTracingDebug		= 2,
+};
+
 // Projection data for a FSceneView
 struct FSceneViewProjectionData
 {
@@ -617,11 +625,13 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(float, AdaptiveTessellationFactor) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, GameTime) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, RealTime) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, DeltaTime) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, MaterialTextureMipBias) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, MaterialTextureDerivativeMultiply) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, Random) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, FrameNumber) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, StateFrameIndexMod8) \
+	VIEW_UNIFORM_BUFFER_MEMBER(uint32, StateFrameIndex) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(float, CameraCut, EShaderPrecisionModifier::Half) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(float, UnlitViewmodeMask, EShaderPrecisionModifier::Half) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half) \
@@ -688,7 +698,9 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapIndirectionTextureSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
-	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
+	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectLightingCacheShowFlag) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, EyeToPixelSpreadAngle)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
 	SHADER_PARAMETER(type, identifier)
@@ -757,6 +769,8 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParamete
 	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
 	SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedBRDF)
 	SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, PrimitiveSceneData)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, LightmapSceneData)
 
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
@@ -1137,7 +1151,7 @@ public:
 	 */
 	uint32 GetOcclusionFrameCounter() const;
 
-  void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
+	void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
 
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();
@@ -1189,6 +1203,17 @@ public:
 		const FIntRect& InEffectiveViewRect,
 		const FViewMatrices& InViewMatrices,
 		const FViewMatrices& InPrevViewMatrices) const;
+
+#if RHI_RAYTRACING
+	/** Setup ray tracing based rendering */
+	void SetupRayTracedRendering();
+
+	ERayTracingRenderMode RayTracingRenderMode = ERayTracingRenderMode::Disabled;
+
+	/** Current ray tracing debug visualization mode */
+	FName CurrentRayTracingDebugVisualizationMode;
+
+#endif
 
 	/** Will return custom data associated with the specified primitive index.	*/
 	FORCEINLINE void* GetCustomData(int32 InPrimitiveSceneInfoIndex) const { return PrimitivesCustomData.IsValidIndex(InPrimitiveSceneInfoIndex) ? PrimitivesCustomData[InPrimitiveSceneInfoIndex] : nullptr; }

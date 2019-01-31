@@ -7,7 +7,7 @@
 #include "Common.ush"
 
 // float3(PS/ShaderBudget, VS/ShaderBudget, overdraw)
-float3 NormalizedComplexity;
+float4 NormalizedComplexity;
 bool bShowQuadOverdraw;
 
 #include "QuadOverdraw.ush"
@@ -22,7 +22,7 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
-	float3 FinalComplexity = NormalizedComplexity;
+	float3 FinalComplexity = NormalizedComplexity.xyz;
 
 	[branch]
 	if (bShowQuadOverdraw && NormalizedComplexity.x > 0)

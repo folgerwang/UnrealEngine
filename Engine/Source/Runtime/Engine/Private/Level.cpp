@@ -706,15 +706,6 @@ void ULevel::ClearLevelComponents()
 			Actor->UnregisterAllComponents();
 		}
 	}
-
-	if (IsPersistentLevel())
-	{
-		FSceneInterface* WorldScene = GetWorld()->Scene;
-		if (WorldScene)
-		{
-			WorldScene->SetClearMotionBlurInfoGameThread();
-		}
-	}
 }
 
 void ULevel::BeginDestroy()
@@ -1362,6 +1353,14 @@ void ULevel::UpdateModelComponents()
 		}
 	}
 
+	// Initialize the model's index buffers.
+	for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+		IndexBufferIt;
+		++IndexBufferIt)
+	{
+		BeginInitResource(IndexBufferIt->Value.Get());
+	}
+
 	if (ModelComponents.Num() > 0)
 	{
 		check( OwningWorld );
@@ -1373,14 +1372,6 @@ void ULevel::UpdateModelComponents()
 				ModelComponents[ComponentIndex]->RegisterComponentWithWorld(OwningWorld);
 			}
 		}
-	}
-
-	// Initialize the model's index buffers.
-	for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
-		IndexBufferIt;
-		++IndexBufferIt)
-	{
-		BeginInitResource(IndexBufferIt->Value.Get());
 	}
 
 	Model->bInvalidForStaticLighting = true;
@@ -1569,6 +1560,14 @@ void ULevel::CommitModelSurfaces()
 		}
 		Model->InvalidSurfaces = false;
 
+		// Initialize the model's index buffers.
+		for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+			IndexBufferIt;
+			++IndexBufferIt)
+		{
+			BeginInitResource(IndexBufferIt->Value.Get());
+		}
+
 		// Register model components before init'ing index buffer so collision has access to index buffer data
 		// This matches the order of operation in ULevel::UpdateModelComponents
 		if (ModelComponents.Num() > 0)
@@ -1589,14 +1588,6 @@ void ULevel::CommitModelSurfaces()
 					}
 				}
 			}
-		}
-
-		// Initialize the model's index buffers.
-		for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
-			IndexBufferIt;
-			++IndexBufferIt)
-		{
-			BeginInitResource(IndexBufferIt->Value.Get());
 		}
 
 		Model->bOnlyRebuildMaterialIndexBuffers = false;
@@ -1802,6 +1793,11 @@ void ULevel::InitializeRenderingResources()
 		{
 			PrecomputedVolumetricLightmap->AddToScene(OwningWorld->Scene, EffectiveMapBuildData, LevelBuildDataId);
 		}
+
+		if (OwningWorld->Scene && EffectiveMapBuildData)
+		{
+			EffectiveMapBuildData->InitializeClusterRenderingResources(OwningWorld->Scene->GetFeatureLevel());
+		}
 	}
 }
 
@@ -1891,7 +1887,7 @@ UMapBuildDataRegistry* ULevel::GetOrCreateMapBuildData()
 		if (MapBuildData)
 		{
 			// Release rendering data depending on MapBuildData, before we destroy MapBuildData
-			MapBuildData->InvalidateStaticLighting(GetWorld(), nullptr);
+			MapBuildData->InvalidateStaticLighting(GetWorld(), true, nullptr);
 
 			// Allow the legacy registry to be GC'ed
 			MapBuildData->ClearFlags(RF_Standalone);

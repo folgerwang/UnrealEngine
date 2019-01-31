@@ -114,8 +114,19 @@ void FShaderParametersMetadata::InitializeLayout()
 		MemberStack.Push(FUniformBufferMemberAndOffset(*this, Members[MemberIndex], 0));
 	}
 
-	// TODO(RDG): Render graph tracked resources in GlobalShaderParameterStruct could technically be possible if the creation is deferred.
+	/** The point of RDG is to track resources that have deferred allocation. Could deffer the creation of uniform buffer,
+	 * but there is a risk where it create more resource dependency than necessary on passes that reference this deferred
+	 * uniform buffers. Therefore only allow graph resources in shader parameter structures.
+	 */
 	bool bAllowGraphResources = UseCase == EUseCase::ShaderParameterStruct;
+
+	/** Uniform buffer references are only allowed in shader parameter structures that may be used as a root shader parameter
+	 * structure.
+	 */
+	bool bAllowUniformBufferReferences = UseCase == EUseCase::ShaderParameterStruct;
+
+	/** White list all use cases that inline a structure within another. Data driven are not known to inline structures. */
+	bool bAllowStructureInlining = UseCase == EUseCase::ShaderParameterStruct || UseCase == EUseCase::GlobalShaderParameterStruct;
 
 	for (int32 i = 0; i < MemberStack.Num(); ++i)
 	{
@@ -129,45 +140,40 @@ void FShaderParametersMetadata::InitializeLayout()
 		{
 			const FString CppName = FString::Printf(TEXT("%s::%s"), CurrentStruct.GetStructTypeName(), CurrentMember.GetName());
 
-			if (!bAllowGraphResources && (
-				BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
-				BaseType == UBMT_GRAPH_TRACKED_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_UAV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
-				BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS))
+			if (IsRDGResourceReferenceShaderParameterType(BaseType) || BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS)
 			{
-				UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Graph resources are only allowed in shader parameter structs."), *CppName);
+				if (!bAllowGraphResources)
+				{
+					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Graph resources are only allowed in shader parameter structs."), *CppName);
+				}
 			}
-
-			if (BaseType == UBMT_REFERENCED_STRUCT)
+			else if (BaseType == UBMT_REFERENCED_STRUCT)
 			{
-				if (UseCase != EUseCase::ShaderParameterStruct)
+				if (!bAllowUniformBufferReferences)
 				{
 					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Shader parameter struct reference can only be done in shader parameter structs."), *CppName);
 				}
 			}
-
-			if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
+			else if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
 			{
 				check(ChildStruct);
-			}
 
-			if (UseCase == EUseCase::ShaderParameterStruct &&
-				(BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT) &&
-				ChildStruct->GetUseCase() != EUseCase::ShaderParameterStruct && 0)
-			{
-				UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: shader parameter structs can only nests or include shader parameter struct, but %s is not."), *CppName, ChildStruct->GetStructTypeName());
+				if (!bAllowStructureInlining)
+				{
+					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Shader parameter struct is not known inline other structures."), *CppName);
+				}
+				else if (ChildStruct->GetUseCase() != EUseCase::ShaderParameterStruct && UseCase == EUseCase::ShaderParameterStruct)
+				{
+					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: can only nests or include shader parameter struct define with BEGIN_SHADER_PARAMETER_STRUCT(), but %s is not."), *CppName, ChildStruct->GetStructTypeName());
+				}
 			}
 		}
 
-		if (IsUniformBufferResourceType(BaseType))
+		if (IsShaderParameterTypeForUniformBufferLayout(BaseType))
 		{
-			Layout.Resources.Add(BaseType);
 			const uint32 AbsoluteMemberOffset = CurrentMember.GetOffset() + MemberStack[i].StructOffset;
-			check(AbsoluteMemberOffset < (1u << (Layout.ResourceOffsets.GetTypeSize() * 8)));
-			Layout.ResourceOffsets.Add(AbsoluteMemberOffset);
+			check(AbsoluteMemberOffset < (1u << (sizeof(FRHIUniformBufferLayout::FResourceParameter::MemberOffset) * 8)));
+			Layout.Resources.Add(FRHIUniformBufferLayout::FResourceParameter{ uint16(AbsoluteMemberOffset), BaseType });
 		}
 
 		if (ChildStruct && BaseType != UBMT_REFERENCED_STRUCT)
@@ -181,6 +187,22 @@ void FShaderParametersMetadata::InitializeLayout()
 			}
 		}
 	}
+
+#if 0
+	/** Sort the resource on MemberType first to avoid CPU miss predictions when iterating over the resources. Then based on ascending offset
+	 * to still allow O(N) complexity on offset cross referencing such as done in ClearUnusedGraphResourcesImpl().
+	 */
+	Layout.Resources.Sort([](
+		const FRHIUniformBufferLayout::FResourceParameter& A,
+		const FRHIUniformBufferLayout::FResourceParameter& B)
+	{
+		if (A.MemberType == B.MemberType)
+		{
+			return A.MemberOffset < B.MemberOffset;
+		}
+		return A.MemberType < B.MemberType;
+	});
+#endif
 
 	Layout.ComputeHash();
 
@@ -216,7 +238,7 @@ void FShaderParametersMetadata::AddResourceTableEntriesRecursive(const TCHAR* Un
 	for (int32 MemberIndex = 0; MemberIndex < Members.Num(); ++MemberIndex)
 	{
 		const FMember& Member = Members[MemberIndex];
-		if (IsUniformBufferResourceType(Member.GetBaseType()))
+		if (IsShaderParameterTypeForUniformBufferLayout(Member.GetBaseType()))
 		{
 			FResourceTableEntry& Entry = ResourceTableMap.FindOrAdd(FString::Printf(TEXT("%s%s"), Prefix, Member.GetName()));
 			if (Entry.UniformBufferName.IsEmpty())

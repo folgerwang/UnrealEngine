@@ -180,7 +180,7 @@ static void CreateHLSLUniformBufferStructMembersDeclaration(
 			Decl.Initializer += TEXT(",");
 			CreateHLSLUniformBufferStructMembersDeclaration(*Member.GetStructMetadata(), NamePrefix, StructOffset + Member.GetOffset(), Decl, HLSLBaseOffset);
 		}
-		else if (IsUniformBufferResourceType(Member.GetBaseType()))
+		else if (IsShaderParameterTypeForUniformBufferLayout(Member.GetBaseType()))
 		{
 			// Skip resources, they will be replaced with padding by the next member in the constant buffer.
 			// This padding will cause gaps in the constant buffer.  Alternatively we could compact the constant buffer during RHICreateUniformBuffer.
@@ -262,9 +262,9 @@ static void CreateHLSLUniformBufferStructMembersDeclaration(
 	{
 		const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 
-		if (IsUniformBufferResourceType(Member.GetBaseType()))
+		if (IsShaderParameterTypeForUniformBufferLayout(Member.GetBaseType()))
 		{
-			check(Member.GetBaseType() != UBMT_GRAPH_TRACKED_SRV && Member.GetBaseType() != UBMT_GRAPH_TRACKED_UAV);
+			check(Member.GetBaseType() != UBMT_RDG_TEXTURE_SRV && Member.GetBaseType() != UBMT_RDG_TEXTURE_UAV);
 			if (Member.GetBaseType() == UBMT_SRV)
 			{
 				// TODO: handle arrays?

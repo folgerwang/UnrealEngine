@@ -8,6 +8,7 @@
 #include "PostProcessCommon.ush"
 #include "Random.ush"
 #include "EyeAdaptationCommon.ush"
+#include "TextureSampling.ush"
 
 
 //------------------------------------------------------- COMPILER CONFIG
@@ -1649,9 +1650,9 @@ void ComputeNeighborhoodBoundingbox(
 		m1 *= (1.0 / AA_SAMPLES);
 		m2 *= (1.0 / AA_SAMPLES);
 
-		float4 Variance = sqrt( abs(m2 - m1 * m1) );
-		NeighborMin = m1 - 1.25 * Variance;
-		NeighborMax = m1 + 1.25 * Variance;
+		float4 StdDev = sqrt( abs(m2 - m1 * m1) );
+		NeighborMin = m1 - 1.25 * StdDev;
+		NeighborMax = m1 + 1.25 * StdDev;
 
 		NeighborMin = min( NeighborMin, IntermediaryResult.Filtered );
 		NeighborMax = max( NeighborMax, IntermediaryResult.Filtered );

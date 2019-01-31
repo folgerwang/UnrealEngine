@@ -155,6 +155,7 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 			MaterialRelevance.bTranslucentSurfaceLighting = bIsTranslucent && (TranslucencyLightingMode == TLM_SurfacePerPixelLighting || TranslucencyLightingMode == TLM_Surface);
 			MaterialRelevance.bUsesSceneDepth = MaterialResource->MaterialUsesSceneDepthLookup_GameThread();
 			MaterialRelevance.bHasVolumeMaterialDomain = MaterialResource->IsVolumetricPrimitive();
+			MaterialRelevance.bUsesDistanceCullFade = MaterialResource->MaterialUsesDistanceCullFade_GameThread();
 		}
 		return MaterialRelevance;
 	}
@@ -228,6 +229,10 @@ bool UMaterialInterface::IsReadyForFinishDestroy()
 void UMaterialInterface::BeginDestroy()
 {
 	ParentRefFence.BeginFence();
+
+	// If the material changes, then the debug view material must reset to prevent parameters mismatch
+	void ClearDebugViewMaterials(UMaterialInterface*);
+	ClearDebugViewMaterials(this);
 
 	Super::BeginDestroy();
 }

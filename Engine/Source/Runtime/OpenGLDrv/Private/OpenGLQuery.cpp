@@ -1135,3 +1135,93 @@ void FOpenGLDisjointTimeStampQuery::ReleaseResources()
 		PlatformReleaseRenderQuery(DisjointQuery, Context);
 	}
 }
+
+
+
+// Fence implementation
+
+FGPUFenceRHIRef FOpenGLDynamicRHI::RHICreateGPUFence(const FName &Name)
+{
+#if OPENGL_GL3
+	return new FOpenGLGPUFence(Name);
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+	return nullptr;
+#endif
+}
+
+FOpenGLGPUFence::~FOpenGLGPUFence()
+{
+#if OPENGL_GL3
+	if (bValidSync)
+	{
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		VERIFY_GL_SCOPE();
+		FOpenGL::DeleteSync(Fence);
+		RHITHREAD_GLCOMMAND_EPILOGUE_NORETURN();
+	}
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+#endif
+}
+
+void FOpenGLGPUFence::Clear()
+{
+#if OPENGL_GL3
+
+	if (bValidSync)
+	{
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		VERIFY_GL_SCOPE();
+		FOpenGL::DeleteSync(Fence);
+		bValidSync = false;
+		RHITHREAD_GLCOMMAND_EPILOGUE();
+	}
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+#endif
+}
+bool FOpenGLGPUFence::Poll() const
+{
+#if OPENGL_GL3
+	if (!bValidSync)
+	{
+		return false;
+	}
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	VERIFY_GL_SCOPE();
+
+	FOpenGLBase::EFenceResult Result = FOpenGL::ClientWaitSync(Fence, 0, 0);
+	return (Result == FOpenGLBase::FR_AlreadySignaled || Result == FOpenGLBase::FR_ConditionSatisfied);
+
+	RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(bool);
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+	return false;
+#endif
+}
+
+void FOpenGLGPUFence::WriteInternal()
+{
+#if OPENGL_GL3
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+	VERIFY_GL_SCOPE();
+
+	if (bValidSync)
+	{
+		FOpenGL::DeleteSync(Fence);
+		bValidSync = false;
+	}
+
+	Fence = FOpenGL::FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	bValidSync = true;
+	RHITHREAD_GLCOMMAND_EPILOGUE();
+#else
+	UE_LOG(LogRHI, Fatal, TEXT("Fences are only available in OpenGL3 or later"));
+#endif
+}

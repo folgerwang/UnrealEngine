@@ -12,6 +12,8 @@
 
 void UpdateShaderDevelopmentMode();
 
+void InitRenderGraph();
+
 class FRenderCoreModule : public FDefaultModuleImpl
 {
 public:
@@ -20,6 +22,8 @@ public:
 	{
 		// TODO(RDG): Why is this not getting called?!
 		IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&UpdateShaderDevelopmentMode));
+
+		InitRenderGraph();
 	}
 };
 
@@ -56,6 +60,8 @@ DEFINE_STAT(STAT_DynamicShadowSetupTime);
 DEFINE_STAT(STAT_RenderQueryResultTime);
 // Use 'stat initviews' to get more detail
 DEFINE_STAT(STAT_InitViewsTime);
+DEFINE_STAT(STAT_RayTracedMeshCommands);
+DEFINE_STAT(STAT_RayTracedBvhBuilding);
 DEFINE_STAT(STAT_InitViewsPossiblyAfterPrepass);
 // Measures the time spent in RenderViewFamily_RenderThread
 // Note that this is not the total rendering thread time, any other rendering commands will not be counted here
@@ -65,8 +71,6 @@ DEFINE_STAT(STAT_PresentTime);
 
 DEFINE_STAT(STAT_SceneLights);
 DEFINE_STAT(STAT_MeshDrawCalls);
-DEFINE_STAT(STAT_DynamicPathMeshDrawCalls);
-DEFINE_STAT(STAT_StaticDrawListMeshDrawCalls);
 
 DEFINE_STAT(STAT_SceneDecals);
 DEFINE_STAT(STAT_Decals);
@@ -77,7 +81,6 @@ DEFINE_STAT(STAT_DecalsDrawTime);
 // Not to track all of the allocations, and not to track resource memory (index buffers, vertex buffers, etc).
 
 
-DEFINE_STAT(STAT_StaticDrawListMemory);
 DEFINE_STAT(STAT_PrimitiveInfoMemory);
 DEFINE_STAT(STAT_RenderingSceneMemory);
 DEFINE_STAT(STAT_ViewStateMemory);
@@ -102,6 +105,7 @@ DEFINE_STAT(STAT_CreateWholeSceneProjectedShadow);
 DEFINE_STAT(STAT_AddViewDependentWholeSceneShadowsForView);
 DEFINE_STAT(STAT_SetupInteractionShadows);
 DEFINE_STAT(STAT_GetDynamicMeshElements);
+DEFINE_STAT(STAT_SetupMeshPass);
 DEFINE_STAT(STAT_UpdateStaticMeshesTime);
 DEFINE_STAT(STAT_StaticRelevance);
 DEFINE_STAT(STAT_ViewRelevance);
@@ -113,6 +117,7 @@ DEFINE_STAT(STAT_FrustumCull);
 DEFINE_STAT(STAT_DecompressPrecomputedOcclusion);
 DEFINE_STAT(STAT_ViewVisibilityTime);
 
+DEFINE_STAT(STAT_RayTracingInstances);
 DEFINE_STAT(STAT_ProcessedPrimitives);
 DEFINE_STAT(STAT_CulledPrimitives);
 DEFINE_STAT(STAT_StaticallyOccludedPrimitives);
@@ -126,13 +131,12 @@ DEFINE_STAT(STAT_CSMSubjects);
 DEFINE_STAT(STAT_CSMStaticMeshReceivers);
 DEFINE_STAT(STAT_CSMStaticPrimitiveReceivers);
 
+DEFINE_STAT(STAT_BindRayTracingPipeline);
+
 // The ShadowRendering stats group shows what kind of shadows are taking a lot of rendering thread time to render
 // Shadow setup is tracked in the InitViews group
 
 DEFINE_STAT(STAT_RenderWholeSceneShadowProjectionsTime);
-DEFINE_STAT(STAT_WholeSceneDynamicShadowDepthsTime);
-DEFINE_STAT(STAT_WholeSceneStaticShadowDepthsTime);
-DEFINE_STAT(STAT_WholeSceneStaticDrawListShadowDepthsTime);
 DEFINE_STAT(STAT_RenderWholeSceneShadowDepthsTime);
 DEFINE_STAT(STAT_RenderPerObjectShadowProjectionsTime);
 DEFINE_STAT(STAT_RenderPerObjectShadowDepthsTime);
@@ -176,6 +180,7 @@ DEFINE_STAT(STAT_AddScenePrimitiveGT);
 DEFINE_STAT(STAT_UpdatePrimitiveTransformGT);
 
 DEFINE_STAT(STAT_Scene_SetShaderMapsOnMaterialResources_RT);
+DEFINE_STAT(STAT_Scene_UpdateStaticDrawLists_RT);
 DEFINE_STAT(STAT_Scene_UpdateStaticDrawListsForMaterials_RT);
 DEFINE_STAT(STAT_GameToRendererMallocTotal);
 
@@ -183,7 +188,6 @@ DEFINE_STAT(STAT_UpdateLPVs);
 DEFINE_STAT(STAT_ReflectiveShadowMaps);
 DEFINE_STAT(STAT_ReflectiveShadowMapDrawTime);
 DEFINE_STAT(STAT_NumReflectiveShadowMapLights);
-DEFINE_STAT(STAT_RenderWholeSceneReflectiveShadowMapsTime);
 
 DEFINE_STAT(STAT_ShadowmapAtlasMemory);
 DEFINE_STAT(STAT_CachedShadowmapMemory);

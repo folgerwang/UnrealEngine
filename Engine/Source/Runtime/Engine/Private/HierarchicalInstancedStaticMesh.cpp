@@ -115,6 +115,11 @@ static TAutoConsoleVariable<float> CVarFoliageDensityScale(
 	TEXT("Controls the amount of foliage to render. Foliage must opt-in to density scaling through the foliage type."),
 	ECVF_Scalability);
 
+static TAutoConsoleVariable<int32> CVarFoliageUseInstanceRuns(
+	TEXT("foliage.InstanceRuns"),
+	0,
+	TEXT("Whether to use the InstanceRuns feature of FMeshBatch to compress foliage draw call data sent to the renderer.  Not supported by the Mesh Draw Command pipeline."));
+
 DECLARE_CYCLE_STAT(TEXT("Traversal Time"),STAT_FoliageTraversalTime,STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Build Time"), STAT_FoliageBuildTime, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Batch Time"),STAT_FoliageBatchTime,STATGROUP_Foliage);
@@ -915,6 +920,13 @@ public:
 		return Result;
 	}
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingStaticRelevant() const override
+	{
+		return false;
+	}
+#endif
+
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 	virtual const TArray<FBoxSphereBounds>* GetOcclusionQueries(const FSceneView* View) const override;
@@ -1226,6 +1238,7 @@ struct FFoliageElementParams
 	bool bIsWireframe;
 	bool bUseHoveredMaterial;
 	bool bInstanced;
+	bool bUseInstanceRuns;
 	bool bBlendLODs;
 	ERHIFeatureLevel::Type FeatureLevel;
 	bool ShadowFrustum;
@@ -1264,6 +1277,7 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 				int32 CurrentRun = 0;
 				int32 CurrentInstance = 0;
 				int32 RemainingInstances = bDitherLODEnabled ? Params.TotalMultipleLODInstances[LODIndex] : Params.TotalSingleLODInstances[LODIndex];
+				int32 RemainingRuns = RunArray.Num() / 2;
 
 				if (!ElementParams.bInstanced)
 				{
@@ -1273,6 +1287,10 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 						check(RunArray.Num());
 						CurrentInstance = RunArray[CurrentRun];
 					}
+				}
+				else if (!ElementParams.bUseInstanceRuns)
+				{
+					NumBatches = FMath::DivideAndRoundUp(RemainingRuns, (int32)FInstancedStaticMeshVertexFactory::NumBitsForVisibilityMask());
 				}
 
 #if STATS
@@ -1288,7 +1306,7 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 					FMeshBatch& MeshElement = Collector.AllocateMesh();
 					INC_DWORD_STAT(STAT_FoliageMeshBatches);
 
-					if (!FStaticMeshSceneProxy::GetMeshElement(LODIndex, 0, SectionIndex, GetDepthPriorityGroup(ElementParams.View), ElementParams.BatchRenderSelection[SelectionGroupIndex], ElementParams.bUseHoveredMaterial, true, MeshElement))
+					if (!FStaticMeshSceneProxy::GetMeshElement(LODIndex, 0, SectionIndex, GetDepthPriorityGroup(ElementParams.View), ElementParams.BatchRenderSelection[SelectionGroupIndex], true, MeshElement))
 					{
 						continue;
 					}
@@ -1304,6 +1322,7 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 					BatchElement0.InstancedLODIndex = LODIndex;
 					BatchElement0.InstancedLODRange = bDitherLODEnabled ? 1 : 0;
 					BatchElement0.bIsInstancedMesh = true;
+					BatchElement0.PrimitiveUniformBuffer = GetUniformBuffer();
 					MeshElement.bCanApplyViewModeOverrides = true;
 					MeshElement.bUseSelectionOutline = ElementParams.BatchRenderSelection[SelectionGroupIndex];
 					MeshElement.bUseWireframeSelectionColoring = ElementParams.BatchRenderSelection[SelectionGroupIndex];
@@ -1338,12 +1357,47 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 					}
 					if (ElementParams.bInstanced)
 					{
-						BatchElement0.NumInstances = RunArray.Num() / 2;
-						BatchElement0.InstanceRuns = &RunArray[0];
-						BatchElement0.bIsInstanceRuns = true;
+						if (ElementParams.bUseInstanceRuns)
+						{
+							BatchElement0.NumInstances = RunArray.Num() / 2;
+							BatchElement0.InstanceRuns = &RunArray[0];
+							BatchElement0.bIsInstanceRuns = true;
 #if STATS
-						INC_DWORD_STAT_BY(STAT_FoliageRuns, BatchElement0.NumInstances);
+							INC_DWORD_STAT_BY(STAT_FoliageRuns, BatchElement0.NumInstances);
 #endif
+						}
+						else
+						{
+							const uint32 NumElementsThisBatch = FMath::Min(RemainingRuns, (int32)FInstancedStaticMeshVertexFactory::NumBitsForVisibilityMask());
+
+							MeshElement.Elements.Reserve(NumElementsThisBatch);
+							check(NumElementsThisBatch);
+
+							for (uint32 InstanceRun = 0; InstanceRun < NumElementsThisBatch; ++InstanceRun)
+							{
+								FMeshBatchElement* NewBatchElement; 
+
+								if (InstanceRun == 0)
+								{
+									NewBatchElement = &MeshElement.Elements[0];
+								}
+								else
+								{
+									NewBatchElement = new(MeshElement.Elements) FMeshBatchElement();
+									*NewBatchElement = MeshElement.Elements[0];
+								}
+
+								const int32 InstanceOffset = RunArray[CurrentRun];
+								NewBatchElement->UserIndex = InstanceOffset;
+								NewBatchElement->NumInstances = 1 + RunArray[CurrentRun + 1] - InstanceOffset;
+
+								if (--RemainingRuns)
+								{
+									CurrentRun += 2;
+									check(CurrentRun + 1 < RunArray.Num());
+								}
+							}
+						}
 					}
 					else
 					{
@@ -1430,6 +1484,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 			ElementParams.bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
 			ElementParams.bUseHoveredMaterial = IsHovered();
 			ElementParams.bInstanced = GRHISupportsInstancing;
+			ElementParams.bUseInstanceRuns = ElementParams.bInstanced && (CVarFoliageUseInstanceRuns.GetValueOnRenderThread() > 0);
 			ElementParams.FeatureLevel = InstancedRenderData.FeatureLevel;
 			ElementParams.ViewIndex = ViewIndex;
 			ElementParams.View = View;

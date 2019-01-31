@@ -3439,10 +3439,6 @@ void FEngineLoop::Exit()
 	MALLOC_PROFILER( GMalloc->Exec(nullptr, TEXT("MPROF STOP"), *GLog);	);
 #endif // !ANDROID
 
-#if WITH_PROFILEGPU
-	ClearLongGPUTaskQueries();
-#endif
-
 	// Stop the rendering thread.
 	StopRenderingThread();
 
@@ -3779,8 +3775,8 @@ void FEngineLoop::Tick()
 			{
 				FlushRenderingCommands();
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					MeasureLongGPUTaskExecutionTimeCmd,
+				ENQUEUE_RENDER_COMMAND(MeasureLongGPUTaskExecutionTimeCmd)(
+					[](FRHICommandListImmediate& RHICmdList)
 					{
 						MeasureLongGPUTaskExecutionTime(RHICmdList);
 					});
@@ -3814,7 +3810,18 @@ void FEngineLoop::Tick()
 			BeginFrameRenderThread(RHICmdList, CurrentFrameCounter);
 		});
 
-		#if !UE_SERVER && WITH_ENGINE
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			UWorld* CurrentWorld = Context.World();
+			FSceneInterface* Scene = CurrentWorld->Scene;
+
+			ENQUEUE_RENDER_COMMAND(SceneStartFrame)([Scene](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->StartFrame();
+			});
+		}
+
+#if !UE_SERVER && WITH_ENGINE
 		if (!GIsEditor && GEngine->GameViewport && GEngine->GameViewport->GetWorld() && GEngine->GameViewport->GetWorld()->IsCameraMoveable())
 		{
 			// When not in editor, we emit dynamic resolution's begin frame right after RHI's.
@@ -3850,8 +3857,8 @@ void FEngineLoop::Tick()
 		MALLOC_PROFILER(GMalloc->Exec(nullptr, *FString::Printf(TEXT("SNAPSHOTMEMORYFRAME")),*GLog));
 
 		// handle some per-frame tasks on the rendering thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			ResetDeferredUpdates,
+		ENQUEUE_RENDER_COMMAND(ResetDeferredUpdates)(
+			[](FRHICommandList& RHICmdList)
 			{
 				FDeferredUpdateResource::ResetNeedsUpdate();
 				FlushPendingDeleteRHIResources_RenderThread();
@@ -4066,11 +4073,12 @@ void FEngineLoop::Tick()
 			ConcurrentTask = nullptr;
 		}
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND(WaitForOutstandingTasksOnly_for_DelaySceneRenderCompletion,
-			{
-				QUICK_SCOPE_CYCLE_COUNTER(STAT_DelaySceneRenderCompletion_TaskWait);
-				FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
-			});
+			ENQUEUE_RENDER_COMMAND(WaitForOutstandingTasksOnly_for_DelaySceneRenderCompletion)(
+				[](FRHICommandList& RHICmdList)
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_DelaySceneRenderCompletion_TaskWait);
+					FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
+				});
 		}
 #endif
 
@@ -4166,10 +4174,11 @@ void FEngineLoop::Tick()
 		#endif
 
 		// end of RHI frame
-		ENQUEUE_UNIQUE_RENDER_COMMAND(EndFrame,
-		{
-			EndFrameRenderThread(RHICmdList);
-		});
+		ENQUEUE_RENDER_COMMAND(EndFrame)(
+			[](FRHICommandListImmediate& RHICmdList)
+			{
+				EndFrameRenderThread(RHICmdList);
+			});
 
 		// Set CPU utilization stats.
 		const FCPUTime CPUTime = FPlatformTime::GetCPUTime();

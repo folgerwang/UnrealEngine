@@ -16,13 +16,18 @@ struct FMeshBatchElement;
 =============================================================================*/
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLocalVertexFactoryUniformShaderParameters,ENGINE_API)
-	SHADER_PARAMETER(FIntVector,VertexFetch_Parameters)
+	SHADER_PARAMETER(FIntVector4,VertexFetch_Parameters)
+	SHADER_PARAMETER(uint32,LODLightmapDataIndex)
 	SHADER_PARAMETER_SRV(Buffer<float2>, VertexFetch_TexCoordBuffer)
 	SHADER_PARAMETER_SRV(Buffer<float4>, VertexFetch_PackedTangentsBuffer)
 	SHADER_PARAMETER_SRV(Buffer<float4>, VertexFetch_ColorComponentsBuffer)
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-extern TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(const class FLocalVertexFactory* VertexFactory, class FColorVertexBuffer* OverrideColorVertexBuffer);
+extern TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(
+	const class FLocalVertexFactory* VertexFactory, 
+	uint32 LODLightmapDataIndex, 
+	class FColorVertexBuffer* OverrideColorVertexBuffer, 
+	int32 BaseVertexIndex);
 
 /**
  * A vertex factory which simply transforms explicit vertex attributes from local to world space.
@@ -49,16 +54,9 @@ public:
 	 */
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType);
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_SPEEDTREE_WIND"),TEXT("1"));
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 
-		const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
-		if (!ContainsManualVertexFetch && RHISupportsManualVertexFetch(Platform))
-		{
-			OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
-		}
-	}
+	static void ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors);
 
 	/**
 	 * An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
@@ -73,7 +71,7 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual void ReleaseRHI()
+	virtual void ReleaseRHI() override
 	{
 		UniformBuffer.SafeRelease();
 		FVertexFactory::ReleaseRHI();
@@ -88,6 +86,14 @@ public:
 		checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
 		checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0, TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
 		RHICmdList.SetStreamSource(ColorStreamIndex, ColorVertexBuffer->VertexBufferRHI, 0);
+	}
+
+	void GetColorOverrideStream(const FVertexBuffer* ColorVertexBuffer, FVertexInputStreamArray& VertexStreams) const
+	{
+		checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+		checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0, TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+
+		VertexStreams.Add(FVertexInputStream(ColorStreamIndex, 0, ColorVertexBuffer->VertexBufferRHI));
 	}
 
 	inline const FShaderResourceViewRHIParamRef GetPositionsSRV() const
@@ -153,16 +159,28 @@ protected:
 };
 
 /**
- * Shader parameters for LocalVertexFactory.
+ * Shader parameters for all LocalVertexFactory derived classes.
  */
-class FLocalVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
+class FLocalVertexFactoryShaderParametersBase : public FVertexFactoryShaderParameters
 {
 public:
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override;
 
-	FLocalVertexFactoryShaderParameters()
+	void GetElementShaderBindingsBase(
+		const class FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		FUniformBufferRHIParamRef VertexFactoryUniformBuffer,
+		FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+		) const;
+
+	FLocalVertexFactoryShaderParametersBase()
 		: bAnySpeedTreeParamIsBound(false)
 	{
 	}
@@ -170,6 +188,24 @@ public:
 	// SpeedTree LOD parameter
 	FShaderParameter LODParameter;
 
-	// True if LODParameter is bound, which puts us on the slow path in SetMesh
+	// True if LODParameter is bound, which puts us on the slow path in GetElementShaderBindings
 	bool bAnySpeedTreeParamIsBound;
+};
+
+/** Shader parameter class used by FLocalVertexFactory only - no derived classes. */
+class FLocalVertexFactoryShaderParameters : public FLocalVertexFactoryShaderParametersBase
+{
+public:
+
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+	) const override; 
 };

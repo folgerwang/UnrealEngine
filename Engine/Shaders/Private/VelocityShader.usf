@@ -29,8 +29,8 @@ struct FVelocityInterpsVSToPS
 
 struct FVelocityVSToPS
 {
-	FVelocityInterpsVSToPS Interps;
 	float4 Position : SV_POSITION;
+	FVelocityInterpsVSToPS Interps;
 };
 
 #if USING_TESSELLATION
@@ -123,7 +123,7 @@ void MainVertexShader(
 	)
 {
 #if INSTANCED_STEREO
-	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
+	const uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 	#if !MULTI_VIEW
 		OutClipDistance = 0.0;
@@ -190,7 +190,7 @@ void MainVertexShader(
 
 	#if INSTANCED_STEREO && !MULTI_VIEW
 	BRANCH
-	if (bIsInstancedStereo)
+	if (IsInstancedStereo())
 	{
 		// Clip at the center of the screen
 		OutClipDistance = dot(Output.Position, EyeClipEdge[EyeIndex]);
@@ -222,9 +222,9 @@ void MainVertexShader(
 
 #if INSTANCED_STEREO
 	#if USING_TESSELLATION	
-		Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		Output.FactoryInterpolants.InterpolantsVSToPS.EyeIndex = EyeIndex;
 	#else
-		Output.Interps.FactoryInterpolants.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		Output.Interps.FactoryInterpolants.EyeIndex = EyeIndex;
 	#endif
 #endif
 }
@@ -232,14 +232,10 @@ void MainVertexShader(
 /*=============================================================================
  * Pixel Shader
  *============================================================================*/
-
-// set by C++
-// xy for the instance scale, zw for the camera scale (includes y flip for both scale)
-float4 IndividualVelocityScale;
  
 void MainPixelShader(
-	FVelocityInterpsVSToPS Input,
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
+	FVelocityInterpsVSToPS Input
 	OPTIONAL_IsFrontFace
 	OPTIONAL_OutDepthConservative
 	,out float4 OutColor : SV_Target0
@@ -249,7 +245,7 @@ void MainPixelShader(
 	)
 {
 #if INSTANCED_STEREO
-	ResolvedView = ResolveView(GetEyeIndex(Input.FactoryInterpolants.PackedEyeIndex));
+	ResolvedView = ResolveView(Input.FactoryInterpolants.EyeIndex);
 #else
 	ResolvedView = ResolveView();
 #endif

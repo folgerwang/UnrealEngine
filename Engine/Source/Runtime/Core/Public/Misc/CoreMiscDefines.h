@@ -259,3 +259,22 @@ struct TStaticDeprecateExpression
 		static constexpr int condition(TStaticDeprecateExpression<false>) { return 1; } \
 	}; \
 	enum class PREPROCESSOR_JOIN(EDeprecationMsg_, __LINE__) { Value = PREPROCESSOR_JOIN(FDeprecationMsg_, __LINE__)::condition(TStaticDeprecateExpression<!!(bExpression)>()) }
+
+/**
+* Makes a type non-copyable and non-movable by deleting copy/move constructors and assignment/move operators.
+* The macro should be placed in the public section of the type for better compiler diagnostic messages.
+* Example usage:
+*
+*	class FMyClassName
+*	{
+*	public:
+*		UE_NONCOPYABLE(FMyClassName)
+*		FMyClassName() = default;
+*	};
+*/
+#define UE_NONCOPYABLE(TypeName) \
+	TypeName(TypeName&&) = delete; \
+	TypeName(const TypeName&) = delete; \
+	TypeName& operator=(const TypeName&) = delete; \
+	TypeName& operator=(TypeName&&) = delete;
+

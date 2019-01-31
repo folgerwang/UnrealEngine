@@ -107,7 +107,7 @@ public:
 		}
 
 		auto ArrowMaterialRenderProxy = new FColoredMaterialRenderProxy(
-			GEngine->ArrowMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+			GEngine->ArrowMaterial->GetRenderProxy(),
 			ArrowColor,
 			"GizmoColor"
 			);
@@ -146,7 +146,11 @@ public:
 				Mesh.bWireframe = false;
 				Mesh.VertexFactory = &VertexFactory;
 				Mesh.MaterialRenderProxy = ArrowMaterialRenderProxy;
-				BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(FScaleMatrix(ViewScale) * EffectiveLocalToWorld, GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+
+				FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+				DynamicPrimitiveUniformBuffer.Set(FScaleMatrix(ViewScale) * EffectiveLocalToWorld, FScaleMatrix(ViewScale) * EffectiveLocalToWorld, GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+				BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 				BatchElement.FirstIndex = 0;
 				BatchElement.NumPrimitives = IndexBuffer.Indices.Num() / 3;
 				BatchElement.MinVertexIndex = 0;
@@ -176,6 +180,7 @@ public:
 #endif
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);
+		Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
 		return Result;
 	}
 

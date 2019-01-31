@@ -16,11 +16,6 @@ struct FVertexFactoryInput
 #if USE_DYNAMIC_PARAMETERS
 	float4 DynamicParameter0		: ATTRIBUTE5;
 #endif	//USE_DYNAMIC_PARAMETERS
-
-/** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 };
 
 struct FVertexFactoryInterpolantsVSToPS
@@ -41,7 +36,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif	//USE_DYNAMIC_PARAMETERS
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -118,16 +113,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	}
 #endif
 	return Result;
-}
-
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
 }
 
 float3 SafeNormalize(float3 V)
@@ -222,7 +207,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.TangentToWorld2 = float4(TangentToWorld[2], sign(determinant(TangentToLocal)));
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -244,14 +229,12 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 	return CalcTangentBasis(Input);
 }
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstanceId & 1;
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

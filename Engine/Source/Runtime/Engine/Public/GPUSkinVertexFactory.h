@@ -16,71 +16,9 @@
 #include "VertexFactory.h"
 #include "LocalVertexFactory.h"
 #include "ResourcePool.h"
+#include "Matrix3x4.h"
 
 template <class T> class TConsoleVariableData;
-
-/** for final bone matrices - this needs to move out of ifdef due to APEX using it*/
-MS_ALIGN(16) struct FSkinMatrix3x4
-{
-	float M[3][4];
-	FORCEINLINE void SetMatrix(const FMatrix& Mat)
-	{
-		const float* RESTRICT Src = &(Mat.M[0][0]);
-		float* RESTRICT Dest = &(M[0][0]);
-
-		Dest[0] = Src[0];   // [0][0]
-		Dest[1] = Src[1];   // [0][1]
-		Dest[2] = Src[2];   // [0][2]
-		Dest[3] = Src[3];   // [0][3]
-
-		Dest[4] = Src[4];   // [1][0]
-		Dest[5] = Src[5];   // [1][1]
-		Dest[6] = Src[6];   // [1][2]
-		Dest[7] = Src[7];   // [1][3]
-
-		Dest[8] = Src[8];   // [2][0]
-		Dest[9] = Src[9];   // [2][1]
-		Dest[10] = Src[10]; // [2][2]
-		Dest[11] = Src[11]; // [2][3]
-	}
-
-	FORCEINLINE void SetMatrixTranspose(const FMatrix& Mat)
-	{
-
-		const float* RESTRICT Src = &(Mat.M[0][0]);
-		float* RESTRICT Dest = &(M[0][0]);
-
-		Dest[0] = Src[0];   // [0][0]
-		Dest[1] = Src[4];   // [1][0]
-		Dest[2] = Src[8];   // [2][0]
-		Dest[3] = Src[12];  // [3][0]
-
-		Dest[4] = Src[1];   // [0][1]
-		Dest[5] = Src[5];   // [1][1]
-		Dest[6] = Src[9];   // [2][1]
-		Dest[7] = Src[13];  // [3][1]
-
-		Dest[8] = Src[2];   // [0][2]
-		Dest[9] = Src[6];   // [1][2]
-		Dest[10] = Src[10]; // [2][2]
-		Dest[11] = Src[14]; // [3][2]
-	}
-} GCC_ALIGN(16);
-
-template<>
-struct TShaderParameterTypeInfo<FSkinMatrix3x4>
-{
-	static constexpr EUniformBufferBaseType BaseType = UBMT_FLOAT32;
-	static constexpr int32 NumRows = 3;
-	static constexpr int32 NumColumns = 4;
-	static constexpr int32 NumElements = 0;
-	static constexpr int32 Alignment = 16;
-	static constexpr bool bIsStoredInConstantBuffer = true;
-
-	using TAlignedType = TAlignedTypedef<FSkinMatrix3x4, Alignment>::Type;
-
-	static const FShaderParametersMetadata* GetStructMetadata() { return NULL; }
-};
 
 // Uniform buffer for APEX cloth
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FAPEXClothUniformShaderParameters,)
@@ -92,7 +30,7 @@ enum
 };
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FBoneMatricesUniformShaderParameters,)
-	SHADER_PARAMETER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
+	SHADER_PARAMETER_ARRAY(FMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 #define SET_BONE_DATA(B, X) B.SetMatrixTranspose(X)
@@ -434,7 +372,7 @@ public:
 		return bExtraBoneInfluencesT;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 	
 	/**
@@ -517,10 +455,10 @@ public:
 	FGPUSkinPassthroughVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 		: FLocalVertexFactory(InFeatureLevel, "FGPUSkinPassthroughVertexFactory"), PositionStreamIndex(-1), TangentStreamIndex(-1)
 	{
-		bSupportsManualVertexFetch = false;
+		bSupportsManualVertexFetch = true;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 
 	inline void UpdateVertexDeclaration(FGPUBaseSkinVertexFactory* SourceVertexFactory, struct FRWBuffer* PositionRWBuffer, struct FRWBuffer* TangentRWBuffer)
@@ -542,6 +480,8 @@ public:
 		return TangentStreamIndex;
 	}
 
+	void SetData(const FDataType& InData);
+
 	// FRenderResource interface.
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
 
@@ -552,6 +492,15 @@ public:
 	{
 		PositionStreamIndex = -1;
 		TangentStreamIndex = -1;
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		FLocalVertexFactory::ReleaseRHI();
+
+		//when adding anything else to this function be aware of the bypassing code in InternalUpdateVertexDeclaration
+		PositionVBAlias.ReleaseRHI();
+		TangentVBAlias.ReleaseRHI();
 	}
 
 protected:
@@ -590,7 +539,7 @@ public:
 	: TGPUSkinVertexFactory<bExtraBoneInfluencesT>(InFeatureLevel, InNumVertices)
 	{}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 	
 	/**
@@ -916,7 +865,7 @@ public:
 		: TGPUSkinVertexFactory<bExtraBoneInfluencesT>(InFeatureLevel, InNumVertices)
 	{}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 
 	/**

@@ -175,7 +175,7 @@ FGuid const& FBlueprintNodeSignature::AsGuid() const
 		for (int32 GuidIndex = 0; GuidIndex < MembersPerGuid; ++GuidIndex)
 		{
 			int32 const Md5UpperIndex = (GuidIndex + 1) * BytesPerGuidVal - 1;
-			int32 const Md5LowerIndex = Md5UpperIndex - BytesPerGuidVal;
+			int32 const Md5LowerIndex = (Md5UpperIndex - BytesPerGuidVal) + 1;
 
 			int32 GuidValue = 0;
 

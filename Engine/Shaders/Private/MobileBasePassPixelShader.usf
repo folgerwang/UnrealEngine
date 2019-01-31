@@ -32,7 +32,7 @@ int NumDynamicPointLights;
 float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
 float4 SpotLightAngles[MAX_DYNAMIC_POINT_LIGHTS];
-float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS]; 
 #endif
 
 #ifndef PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
@@ -67,8 +67,8 @@ float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS];
 #if !FULLY_ROUGH
 	TextureCube ReflectionCubemap;
 	SamplerState ReflectionCubemapSampler;
-	float3 InvReflectionCubemapAverageBrightness;
-	float4 MobileSkyReflectionParams;
+	// x,y,z - inverted average brightness, w - max sky cube mip
+	float4 MobileReflectionParams;
 	#if HQ_REFLECTIONS
 	#define MAX_HQ_REFLECTIONS 3
 
@@ -227,9 +227,9 @@ half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half 
 	half3 SpecularIBL = half3(0, 0, 0);
 	half BlendFactor = 1;
 
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap, ReflectionCubemapSampler, AbsoluteSpecularMip, 0, InvReflectionCubemapAverageBrightness.x, BlendFactor);
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap1, ReflectionCubemapSampler1, AbsoluteSpecularMip, 1, InvReflectionCubemapAverageBrightness.y, BlendFactor);
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap2, ReflectionCubemapSampler2, AbsoluteSpecularMip, 2, InvReflectionCubemapAverageBrightness.z, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap, ReflectionCubemapSampler, AbsoluteSpecularMip, 0, MobileReflectionParams.x, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap1, ReflectionCubemapSampler1, AbsoluteSpecularMip, 1, MobileReflectionParams.y, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap2, ReflectionCubemapSampler2, AbsoluteSpecularMip, 2, MobileReflectionParams.z, BlendFactor);
 
 	return SpecularIBL;
 }
@@ -237,7 +237,7 @@ half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half 
 
 float4 GetPlanarReflection(float3 WorldPosition, float3 WorldNormal, float Roughness)
 {
-	float4 PlanarReflection = ComputePlanarReflections(WorldPosition, WorldNormal, Roughness, PlanarReflectionSampler);
+	float4 PlanarReflection = ComputePlanarReflections(WorldPosition, WorldNormal, Roughness, PlanarReflectionStruct.PlanarReflectionSampler);
 #if OUTPUT_GAMMA_SPACE
 	// the capture will also be in gamma space, convert to linear:
 	PlanarReflection.rgb *= PlanarReflection.rgb;
@@ -257,8 +257,8 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 
 	half3 ProjectedCaptureVector = MaterialParameters.ReflectionVector;	
 
-	half UsingSkyReflection = MobileSkyReflectionParams.x > 0;
-	half CubemapMaxMip = UsingSkyReflection ? MobileSkyReflectionParams.x : ResolvedView.ReflectionCubemapMaxMip;
+	half UsingSkyReflection = MobileReflectionParams.w > 0;
+	half CubemapMaxMip = UsingSkyReflection ? MobileReflectionParams.w : ResolvedView.ReflectionCubemapMaxMip;
 
 	// Compute fractional mip from roughness
 	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, CubemapMaxMip);
@@ -277,7 +277,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 		SpecularIBL = SpecularIBL * SpecularIBL;
 		#if LQ_TEXTURE_LIGHTMAP || CACHED_POINT_INDIRECT_LIGHTING
 			// divide by average brightness for lightmap use cases only.
-			SpecularIBL *= InvReflectionCubemapAverageBrightness.x;
+			SpecularIBL *= MobileReflectionParams.x;
 		#endif
 	}
 
@@ -429,9 +429,10 @@ void Main(
 
 	#if LQ_TEXTURE_LIGHTMAP
 		float2 LightmapUV0, LightmapUV1;
-		GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1);
+		uint LightmapDataIndex;
+		GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1, LightmapDataIndex);
 
-		half4 LightmapColor = GetLightMapColorLQ( LightmapUV0, LightmapUV1, MaterialParameters.WorldNormal );
+		half4 LightmapColor = GetLightMapColorLQ( LightmapUV0, LightmapUV1, LightmapDataIndex, MaterialParameters.WorldNormal );
 		Color += LightmapColor.rgb * DiffuseColor;
 		IndirectIrradiance = LightmapColor.a;
 	#elif CACHED_POINT_INDIRECT_LIGHTING
@@ -439,17 +440,17 @@ void Main(
 
 			// Take the normal into account for opaque
 			FThreeBandSHVectorRGB PointIndirectLighting;
-			PointIndirectLighting.R.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[0];
-			PointIndirectLighting.R.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[0];
-			PointIndirectLighting.R.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[0];
+			PointIndirectLighting.R.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[0];
+			PointIndirectLighting.R.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[0];
+			PointIndirectLighting.R.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[0];
 
-			PointIndirectLighting.G.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[1];
-			PointIndirectLighting.G.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[1];
-			PointIndirectLighting.G.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[1];
+			PointIndirectLighting.G.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[1];
+			PointIndirectLighting.G.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[1];
+			PointIndirectLighting.G.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[1];
 
-			PointIndirectLighting.B.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[2];
-			PointIndirectLighting.B.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[2];
-			PointIndirectLighting.B.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[2];
+			PointIndirectLighting.B.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[2];
+			PointIndirectLighting.B.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[2];
+			PointIndirectLighting.B.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[2];
 
 			FThreeBandSHVector DiffuseTransferSH = CalcDiffuseTransferSH3(MaterialParameters.WorldNormal, 1);
 
@@ -465,7 +466,7 @@ void Main(
 			// Non-directional for translucency
 			// Ambient terms packed in xyz
 			// Already divided by PI and SH ambient on CPU
-			half3 PointIndirectLighting = PrecomputedLightingBuffer.IndirectLightingSHSingleCoefficient;
+			half3 PointIndirectLighting = IndirectLightingCache.IndirectLightingSHSingleCoefficient;
 			half3 DiffuseGI = PointIndirectLighting;
 
 			IndirectIrradiance = Luminance(DiffuseGI);
@@ -552,7 +553,7 @@ void Main(
 
 			#if MATERIAL_PLANAR_FORWARD_REFLECTIONS
 				BRANCH
-				if (abs(dot(ReflectionPlane.xyz, 1)) > .0001f)
+				if (abs(dot(PlanarReflectionStruct.ReflectionPlane.xyz, 1)) > .0001f)
 				{
 					half4 PlanarReflection = GetPlanarReflection(MaterialParameters.AbsoluteWorldPosition, MaterialParameters.WorldNormal, Roughness);
 					// Planar reflections win over reflection environment

@@ -1,0 +1,60 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PointLight.usf: Light sampling functions for Point light implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+void PointLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	float3 LightDir = GetPosition(LightId) - Ray.Origin;
+	float Length = length(LightDir);
+	OutLightRay.Direction = LightDir / Length;
+	OutLightRay.TMax = Length;
+}
+
+void PointLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+	OutPdf = 0.0;
+}
+
+void PointLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	float3 Color = GetColor(LightId);
+	float3 LightDir = GetPosition(LightId) - Ray.Origin;
+	float DistanceSquared = dot(LightDir, LightDir);
+	OutRadiance = Color / DistanceSquared;
+}
+
+void PointLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+	OutLightUV = 0;
+	OutPdf = 1.0;
+}

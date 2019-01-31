@@ -268,7 +268,10 @@ FLinearColor FilteredVolumeLookup(FVector Coordinate, FIntVector DataDimensions,
 					FilterWeight.X = (X == 0 ? 1.0f - CoordinateFraction.X : CoordinateFraction.X);
 				}
 
-				const FIntVector CoordinateInt = CoordinateInt000 + FIntVector(X, Y, Z);
+				FIntVector CoordinateInt = CoordinateInt000 + FIntVector(X, Y, Z);
+				CoordinateInt.X = FMath::Clamp(CoordinateInt.X, 0, DataDimensions.X - 1);
+				CoordinateInt.Y = FMath::Clamp(CoordinateInt.Y, 0, DataDimensions.Y - 1);
+				CoordinateInt.Z = FMath::Clamp(CoordinateInt.Z, 0, DataDimensions.Z - 1);
 				const int32 LinearIndex = ((CoordinateInt.Z * DataDimensions.Y) + CoordinateInt.Y) * DataDimensions.X + CoordinateInt.X;
 
 				FilteredValue += ConvertToLinearColor<VoxelDataType>(Data[LinearIndex]) * FilterWeight.X * FilterWeight.Y * FilterWeight.Z;

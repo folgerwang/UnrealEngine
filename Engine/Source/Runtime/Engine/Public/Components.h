@@ -58,6 +58,7 @@ struct FStaticMeshDataType
 	int LightMapCoordinateIndex = -1;
 	int NumTexCoords = -1;
 	uint32 ColorIndexMask = ~0u;
+	uint32 LODLightmapDataIndex = 0;
 };
 
 /** The world size for each texcoord mapping. Used by the texture streaming. */

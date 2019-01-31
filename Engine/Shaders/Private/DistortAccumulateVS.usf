@@ -5,6 +5,16 @@
 =============================================================================*/
 
 #include "Common.ush"
+
+// Reroute distortion pass uniform buffer.
+#if SHADING_PATH_MOBILE
+	#define MobileSceneTextures MobileDistortionPass.SceneTextures
+	#define DistortionParams MobileDistortionPass.DistortionParams
+#else
+	#define SceneTexturesStruct DistortionPass.SceneTextures
+	#define DistortionParams DistortionPass.DistortionParams
+#endif
+
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 

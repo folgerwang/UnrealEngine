@@ -20,6 +20,15 @@
 
 DEFINE_LOG_CATEGORY(LogD3D12RHI);
 
+
+static TAutoConsoleVariable<int32> CVarD3D12UseD24(
+	TEXT("r.D3D12.Depth24Bit"),
+	1,
+	TEXT("0: Use 32-bit float depth buffer\n1: Use 24-bit fixed point depth buffer(default)\n"),
+	ECVF_ReadOnly
+);
+
+
 TAutoConsoleVariable<int32> CVarD3D12ZeroBufferSizeInMB(
 	TEXT("D3D12.ZeroBufferSizeInMB"),
 	4,
@@ -83,19 +92,22 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GPixelFormats[PF_DXT5			].PlatformFormat = DXGI_FORMAT_BC3_TYPELESS;
 	GPixelFormats[PF_BC4			].PlatformFormat = DXGI_FORMAT_BC4_UNORM;
 	GPixelFormats[PF_UYVY			].PlatformFormat = DXGI_FORMAT_UNKNOWN;		// TODO: Not supported in D3D11
-#if DEPTH_32_BIT_CONVERSION
-	GPixelFormats[PF_DepthStencil	].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
-	GPixelFormats[PF_DepthStencil	].BlockBytes = 5;
-	GPixelFormats[PF_DepthStencil	].Supported = true;
-	GPixelFormats[PF_X24_G8			].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
-	GPixelFormats[PF_X24_G8			].BlockBytes = 5;
-#else
-	GPixelFormats[PF_DepthStencil	].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
-	GPixelFormats[PF_DepthStencil	].BlockBytes = 4;
-	GPixelFormats[PF_DepthStencil	].Supported = true;
-	GPixelFormats[PF_X24_G8			].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
-	GPixelFormats[PF_X24_G8			].BlockBytes = 4;
-#endif
+	if (CVarD3D12UseD24.GetValueOnAnyThread())
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 4;
+		GPixelFormats[PF_DepthStencil].Supported = true;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 4;
+	}
+	else
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 5;
+		GPixelFormats[PF_DepthStencil].Supported = true;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 5;
+	}
 	GPixelFormats[PF_ShadowDepth	].PlatformFormat = DXGI_FORMAT_R16_TYPELESS;
 	GPixelFormats[PF_ShadowDepth	].BlockBytes = 2;
 	GPixelFormats[PF_ShadowDepth	].Supported = true;

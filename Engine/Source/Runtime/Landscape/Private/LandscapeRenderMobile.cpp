@@ -10,6 +10,7 @@ LandscapeRenderMobile.cpp: Landscape Rendering without using vertex texture fetc
 #include "Serialization/MemoryReader.h"
 #include "PrimitiveSceneInfo.h"
 #include "LandscapeLayerInfoObject.h"
+#include "MeshMaterialShader.h"
 
 void FLandscapeVertexFactoryMobile::InitRHI()
 {
@@ -61,10 +62,18 @@ public:
 		Ar << LodBiasParameter;
 		Ar << SectionLodsParameter;
 	}
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* VertexShader,const class FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const override
+	
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* InView,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+	) const override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_LandscapeVFDrawTimeVS);
 
@@ -72,7 +81,7 @@ public:
 		check(BatchElementParams);
 
 		const FLandscapeComponentSceneProxyMobile* SceneProxy = (const FLandscapeComponentSceneProxyMobile*)BatchElementParams->SceneProxy;
-		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(),VertexShader->GetUniformBufferParameter<FLandscapeUniformShaderParameters>(),*BatchElementParams->LandscapeUniformShaderParametersResource);
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FLandscapeUniformShaderParameters>(),*BatchElementParams->LandscapeUniformShaderParametersResource);
 
 		if (LodValuesParameter.IsBound())
 		{
@@ -82,12 +91,12 @@ public:
 				(float)SceneProxy->SubsectionSizeQuads,
 				1.f / (float)SceneProxy->SubsectionSizeQuads);
 
-			SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), LodValuesParameter, LodValues);
+			ShaderBindings.Add(LodValuesParameter, LodValues);
 		}
 
 		if (LodBiasParameter.IsBound())
 		{
-			FVector CameraLocalPos3D = SceneProxy->WorldToLocal.TransformPosition(View.ViewMatrices.GetViewOrigin());
+			FVector CameraLocalPos3D = SceneProxy->WorldToLocal.TransformPosition(InView->ViewMatrices.GetViewOrigin());
 
 			FVector4 LodBias(
 				0.0f, // unused
@@ -95,24 +104,26 @@ public:
 				CameraLocalPos3D.X + SceneProxy->SectionBase.X,
 				CameraLocalPos3D.Y + SceneProxy->SectionBase.Y
 			);
-			SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), LodBiasParameter, LodBias);
+			ShaderBindings.Add(LodBiasParameter, LodBias);
 		}
 
-		FLandscapeComponentSceneProxy::FViewCustomDataLOD* LODData = (FLandscapeComponentSceneProxy::FViewCustomDataLOD*)View.GetCustomData(SceneProxy->GetPrimitiveSceneInfo()->GetIndex());
+		FLandscapeComponentSceneProxy::FViewCustomDataLOD* LODData = (FLandscapeComponentSceneProxy::FViewCustomDataLOD*)InView->GetCustomData(SceneProxy->GetPrimitiveSceneInfo()->GetIndex());
 		int32 SubSectionIndex = BatchElementParams->SubX + BatchElementParams->SubY * SceneProxy->NumSubsections;
 
 		if (LODData != nullptr)
 		{
+			SceneProxy->PostInitViewCustomData(*InView, LODData);
+
 			if (LodTessellationParameter.IsBound())
 			{
-				SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), LodTessellationParameter, LODData->LodTessellationParams);
+				ShaderBindings.Add(LodTessellationParameter, LODData->LodTessellationParams);
 			}
 
 			if (SectionLodsParameter.IsBound())
 			{
 				if (LODData->UseCombinedMeshBatch)
 				{
-					SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), SectionLodsParameter, LODData->ShaderCurrentLOD);
+					ShaderBindings.Add(SectionLodsParameter, LODData->ShaderCurrentLOD);
 				}
 				else // in non combined, only the one representing us as we'll be called 4 times (once per sub section)
 				{
@@ -120,7 +131,7 @@ public:
 					FVector4 ShaderCurrentLOD(ForceInitToZero);
 					ShaderCurrentLOD.Component(SubSectionIndex) = LODData->ShaderCurrentLOD.Component(SubSectionIndex);
 
-					SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), SectionLodsParameter, ShaderCurrentLOD);
+					ShaderBindings.Add(SectionLodsParameter, ShaderCurrentLOD);
 				}
 			}
 
@@ -138,7 +149,7 @@ public:
 						check(ShaderCurrentNeighborLOD[NeighborSubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
 					}
 
-					SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
+					ShaderBindings.Add(NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
 				}
 				else // in non combined, only the one representing us as we'll be called 4 times (once per sub section)
 				{
@@ -146,10 +157,10 @@ public:
 					ShaderCurrentNeighborLOD[SubSectionIndex] = LODData->SubSections[SubSectionIndex].ShaderCurrentNeighborLOD;
 					check(ShaderCurrentNeighborLOD[SubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
 
-					SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
+					ShaderBindings.Add(NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
 				}
 			}
-		}	
+		}
 	}
 protected:
 	FShaderParameter LodValuesParameter;
@@ -183,29 +194,37 @@ public:
 		FLandscapeVertexFactoryPixelShaderParameters::Serialize(Ar);
 		Ar << BlendableLayerMaskParameter;
 	}
-	/**
-	* Set any shader data specific to this vertex factory
-	*/
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override
+
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* InView,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+	) const override final
 	{
 		SCOPE_CYCLE_COUNTER(STAT_LandscapeVFDrawTimePS);
-
-		FLandscapeVertexFactoryPixelShaderParameters::SetMesh(RHICmdList, PixelShader, VertexFactory, View, BatchElement, DataFlags);
-
-		const FLandscapeBatchElementParams* BatchElementParams = (const FLandscapeBatchElementParams*)BatchElement.UserData;
-		check(BatchElementParams);
-
-		const FLandscapeComponentSceneProxyMobile* SceneProxy = (const FLandscapeComponentSceneProxyMobile*)BatchElementParams->SceneProxy;
+		
+		FLandscapeVertexFactoryPixelShaderParameters::GetElementShaderBindings(Scene, InView, Shader, bShaderRequiresPositionOnlyStream, FeatureLevel, VertexFactory, BatchElement, ShaderBindings, VertexStreams);
 
 		if (BlendableLayerMaskParameter.IsBound())
 		{
+			const FLandscapeBatchElementParams* BatchElementParams = (const FLandscapeBatchElementParams*)BatchElement.UserData;
+			check(BatchElementParams);
+			const FLandscapeComponentSceneProxyMobile* SceneProxy = (const FLandscapeComponentSceneProxyMobile*)BatchElementParams->SceneProxy;
+			
 			FVector MaskVector;
 			MaskVector[0] = (SceneProxy->BlendableLayerMask & (1 << 0)) ? 1 : 0;
 			MaskVector[1] = (SceneProxy->BlendableLayerMask & (1 << 1)) ? 1 : 0;
 			MaskVector[2] = (SceneProxy->BlendableLayerMask & (1 << 2)) ? 1 : 0;
-			SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), BlendableLayerMaskParameter, MaskVector);
+			ShaderBindings.Add(BlendableLayerMaskParameter, MaskVector);
 		}
 	}
+
 protected:
 	FShaderParameter BlendableLayerMaskParameter;
 };

@@ -77,13 +77,6 @@ enum EMetalIndexType
 	EMetalIndexType_Num	   = 3
 };
 
-enum EMetalBufferType
-{
-	EMetalBufferType_Dynamic = 0,
-	EMetalBufferType_Static = 1,
-	EMetalBufferType_Num = 2
-};
-
 /** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */
 template<typename BaseResourceType, int32 ShaderType>
 class TMetalBaseShader : public BaseResourceType, public IRefCountedObject
@@ -96,12 +89,10 @@ public:
 	: SideTableBinding(-1)
 	, SourceLen(0)
 	, SourceCRC(0)
-    , BufferTypeHash(0)
 	, GlslCodeNSString(nil)
 	, CodeSize(0)
 	{
-		Function[EMetalIndexType_None][EMetalBufferType_Dynamic] = Function[EMetalIndexType_UInt16][EMetalBufferType_Dynamic] = Function[EMetalIndexType_UInt32][EMetalBufferType_Dynamic] = nil;
-		Function[EMetalIndexType_None][EMetalBufferType_Static] = Function[EMetalIndexType_UInt16][EMetalBufferType_Static] = Function[EMetalIndexType_UInt32][EMetalBufferType_Static] = nil;
+		Function = nil;
 	}
 	
 	void Init(const TArray<uint8>& InCode, FMetalCodeHeader& Header, mtlpp::Library InLibrary = nil);
@@ -152,16 +143,12 @@ public:
 	
 	/** Hash for the shader/material permutation constants */
 	uint32 ConstantValueHash;
-
-	/** Hash of the typed_buffer format types */
-    uint32 BufferTypeHash;
     
 protected:
-	mtlpp::Function GetCompiledFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash, bool const bAsync = false);
-	uint32 GetBufferBindingHash(EPixelFormat const* const BufferTypes) const;
+	mtlpp::Function GetCompiledFunction(bool const bAsync = false);
 
     // this is the compiler shader
-	mtlpp::Function Function[EMetalIndexType_Num][EMetalBufferType_Num];
+	mtlpp::Function Function;
     
 private:
 	// This is the MTLLibrary for the shader so we can dynamically refine the MTLFunction
@@ -178,7 +165,6 @@ private:
     
     // Function constant states
     bool bHasFunctionConstants;
-    bool bTessFunctionConstants;
     bool bDeviceFunctionConstants;
 };
 
@@ -188,8 +174,7 @@ public:
 	FMetalVertexShader(const TArray<uint8>& InCode);
 	FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction();
 	
 	// for VSHS
 	FMetalTessellationOutputs TessellationOutputAttribs;
@@ -212,8 +197,7 @@ public:
 	FMetalPixelShader(const TArray<uint8>& InCode);
 	FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction();
 };
 
 class FMetalHullShader : public TMetalBaseShader<FRHIHullShader, SF_Hull>
@@ -222,8 +206,7 @@ public:
 	FMetalHullShader(const TArray<uint8>& InCode);
 	FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction();
 };
 
 class FMetalDomainShader : public TMetalBaseShader<FRHIDomainShader, SF_Domain>
@@ -232,8 +215,7 @@ public:
 	FMetalDomainShader(const TArray<uint8>& InCode);
 	FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary);
 	
-	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	mtlpp::Function GetFunction(EMetalIndexType IndexType, EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	mtlpp::Function GetFunction();
 	
 	mtlpp::Winding TessellationOutputWinding;
 	mtlpp::TessellationPartitionMode TessellationPartitioning;
@@ -249,8 +231,7 @@ public:
 	FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary = nil);
 	virtual ~FMetalComputeShader();
 	
-	uint32 GetBindingHash(EPixelFormat const* const BufferTypes) const;
-	FMetalShaderPipeline* GetPipeline(EPixelFormat const* const BufferTypes, uint32 BufferTypeHash);
+	FMetalShaderPipeline* GetPipeline();
 	
 	// thread group counts
 	int32 NumThreadsX;
@@ -259,7 +240,7 @@ public:
     
 private:
     // the state object for a compute shader
-    FMetalShaderPipeline* Pipeline[EMetalBufferType_Num];
+    FMetalShaderPipeline* Pipeline;
 };
 
 struct FMetalRenderPipelineHash
@@ -287,7 +268,7 @@ class FMetalGraphicsPipelineState : public FRHIGraphicsPipelineState
 public:
 	virtual ~FMetalGraphicsPipelineState();
 
-	FMetalShaderPipeline* GetPipeline(EMetalIndexType IndexType, uint32 VertexBufferHash, uint32 PixelBufferHash, uint32 DomainBufferHash, EPixelFormat const* const VertexBufferTypes = nullptr, EPixelFormat const* const PixelBufferTypes = nullptr, EPixelFormat const* const DomainBufferTypes = nullptr);
+	FMetalShaderPipeline* GetPipeline(EMetalIndexType IndexType);
 	
 	/** Cached vertex structure */
 	TRefCountPtr<FMetalVertexDeclaration> VertexDeclaration;
@@ -315,7 +296,7 @@ private:
 	// Needed to runtime refine shaders currently.
 	FGraphicsPipelineStateInitializer Initializer;
 	// Tessellation pipelines have three different variations for the indexing-style.
-	FMetalShaderPipeline* PipelineStates[EMetalIndexType_Num][EMetalBufferType_Num][EMetalBufferType_Num][EMetalBufferType_Num];
+	FMetalShaderPipeline* PipelineStates[EMetalIndexType_Num];
 };
 
 class FMetalComputePipelineState : public FRHIComputePipelineState
@@ -850,7 +831,7 @@ class FMetalUniformBuffer : public FRHIUniformBuffer, public FMetalRHIBuffer
 public:
 
 	// Constructor
-	FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage);
+	FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation);
 
 	// Destructor 
 	virtual ~FMetalUniformBuffer();
@@ -858,6 +839,8 @@ public:
 	void const* GetData();
 
 	void InitIAB();
+
+	void Update(const void* Contents, EUniformBufferValidation Validation);
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
@@ -1002,14 +985,9 @@ class FMetalComputeFence : public FRHIComputeFence
 {
 public:
 	
-	FMetalComputeFence(FName InName)
-	: FRHIComputeFence(InName)
-	, Fence(nullptr)
-	{}
+	FMetalComputeFence(FName InName);
 	
-	virtual ~FMetalComputeFence()
-	{
-	}
+	virtual ~FMetalComputeFence();
 	
 	virtual void Reset() final override;
 	

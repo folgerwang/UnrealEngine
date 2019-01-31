@@ -11,13 +11,23 @@
 #include "VertexFactory.h"
 #include "MeshMaterialShaderType.h"
 #include "MaterialShader.h"
+#include "MeshDrawShaderBindings.h"
 
 class FPrimitiveSceneProxy;
 struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
-struct FDrawingPolicyRenderState;
+struct FMeshPassProcessorRenderState;
 
 template<typename TBufferStruct> class TUniformBufferRef;
+
+class FMeshMaterialShaderElementData
+{
+public:
+	FUniformBufferRHIParamRef FadeUniformBuffer = nullptr;
+	FUniformBufferRHIParamRef DitherUniformBuffer = nullptr;
+
+	RENDERER_API void InitializeMeshMaterialData(const FSceneView* SceneView, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMeshBatch& RESTRICT MeshBatch, int32 StaticMeshId, bool bAllowStencilDither);
+};
 
 /** Base class of all shaders that need material and vertex factory parameters. */
 class RENDERER_API FMeshMaterialShader : public FMaterialShader
@@ -29,7 +39,6 @@ public:
 		:	FMaterialShader(Initializer)
 		,	VertexFactoryParameters(Initializer.VertexFactoryType, Initializer.ParameterMap, Initializer.Target.GetFrequency(), Initializer.Target.GetPlatform())
 	{
-		NonInstancedDitherLODFactorParameter.Bind(Initializer.ParameterMap, TEXT("NonInstancedDitherLODFactor"));
 	}
 
 	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FVertexFactoryType* VertexFactoryType, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
@@ -47,50 +56,28 @@ public:
 	}
 #endif
 
-	template< typename ShaderRHIParamRef >
-	void SetPassUniformBuffer(
-		FRHICommandList& RHICmdList,
-		const ShaderRHIParamRef ShaderRHI,
-		FUniformBufferRHIParamRef PassUniformBufferValue)
-	{
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
-	}
-
-	template< typename ShaderRHIParamRef >
-	void SetParameters(
-		FRHICommandList& RHICmdList,
-		const ShaderRHIParamRef ShaderRHI,
-		const FMaterialRenderProxy* MaterialRenderProxy,
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
 		const FMaterial& Material,
-		const FSceneView& View,
-		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-		FUniformBufferRHIParamRef PassUniformBufferValue)
-	{
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
+		const FMeshPassProcessorRenderState& DrawRenderState,
+		const FMeshMaterialShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const;
 
-		checkfSlow(!(PassUniformBuffer.IsBound() && SceneTextureParameters.IsBound()) || SceneTextureParameters.IsSameUniformParameter(PassUniformBuffer), TEXT("If the pass uniform buffer is bound, it should contain SceneTexturesStruct: %s"), GetType()->GetName());
-
-		SetViewParameters(RHICmdList, ShaderRHI, View, ViewUniformBuffer);
-		FMaterialShader::SetParametersInner(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
-	}
-
-	template< typename ShaderRHIParamRef >
-	void SetMesh(
-		FRHICommandList& RHICmdList,
-		const ShaderRHIParamRef ShaderRHI,
+	void GetElementShaderBindings(
+		const FScene* Scene, 
+		const FSceneView* ViewIfDynamicMeshCommand, 
 		const FVertexFactory* VertexFactory,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* Proxy,
-		const FMeshBatchElement& BatchElement,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		uint32 DataFlags = 0
-	);
-
-	/**
-	 * Retrieves the fade uniform buffer parameter from a FSceneViewState for the primitive
-	 * This code was moved from SetMesh() to work around the template first-use vs first-seen differences between MSVC and others
-	 */
-	FUniformBufferRHIParamRef GetPrimitiveFadeUniformBufferParameter(const FSceneView& View, const FPrimitiveSceneProxy* Proxy);
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMeshBatch& MeshBatch,
+		const FMeshBatchElement& BatchElement, 
+		const FMeshMaterialShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const;
 
 	// FShader interface.
 	virtual const FVertexFactoryParameterRef* GetVertexFactoryParameterRef() const override { return &VertexFactoryParameters; }
@@ -102,5 +89,4 @@ protected:
 
 private:
 	FVertexFactoryParameterRef VertexFactoryParameters;
-	FShaderParameter NonInstancedDitherLODFactorParameter;
 };

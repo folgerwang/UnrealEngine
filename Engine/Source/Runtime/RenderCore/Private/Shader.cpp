@@ -390,6 +390,59 @@ void FShaderType::Uninitialize()
 
 TMap<FShaderResourceId, FShaderResource*> FShaderResource::ShaderResourceIdMap;
 
+#if RHI_RAYTRACING
+uint32 FShaderResource::GlobalMaxIndex = 0;
+TArray<uint32> FShaderResource::GlobalUnusedIndicies;
+TMap<uint32, FRHIRayTracingShader*> FShaderResource::GlobalRayTracingMaterialLibrary;
+FCriticalSection FShaderResource::GlobalRayTracingMaterialLibraryCS;
+
+void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+	RayTracingMaterials.Reset();
+	RayTracingMaterials.AddUninitialized(GlobalMaxIndex);
+
+	for (const auto Entry : GlobalRayTracingMaterialLibrary)
+	{
+		FRayTracingHitGroupInitializer HitGroupInitializer;
+		HitGroupInitializer.ShaderRHI = Entry.Value;
+		RayTracingMaterials[Entry.Key] = HitGroupInitializer;
+	}
+
+	for (uint32 Index : GlobalUnusedIndicies)
+	{
+		RayTracingMaterials[Index] = FRayTracingHitGroupInitializer();
+	}
+}
+
+uint32 FShaderResource::AddToRayTracingLibrary(FRHIRayTracingShader* Shader)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+
+	if (GlobalUnusedIndicies.Num() != 0)
+	{
+		uint32 Index = GlobalUnusedIndicies.Pop(false);
+		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
+		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
+		return Index;
+	}
+	else
+	{
+		uint32 Index = GlobalMaxIndex++;
+		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
+		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
+		return Index;
+	}
+}
+
+void FShaderResource::RemoveFromRayTracingLibrary(uint32 Index)
+{
+	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
+	GlobalUnusedIndicies.Push(Index);
+	GlobalRayTracingMaterialLibrary.Remove(Index);
+}
+#endif
+
 FShaderResource::FShaderResource()
 	: SpecificType(NULL)
 	, SpecificPermutationId(0)
@@ -404,7 +457,6 @@ FShaderResource::FShaderResource()
 	INC_DWORD_STAT_BY(STAT_Shaders_NumShaderResourcesLoaded, 1);
 }
 
-
 FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderType* InSpecificType, int32 InSpecificPermutationId) 
 	: SpecificType(InSpecificType)
 	, SpecificPermutationId(InSpecificPermutationId)
@@ -417,6 +469,8 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 	, bCodeInSharedLocationRequested(false)
 	
 {
+	BuildParameterMapInfo(Output.ParameterMap.GetParameterMap());
+
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
 
 	Target = Output.Target;
@@ -451,6 +505,92 @@ FShaderResource::~FShaderResource()
 	DEC_DWORD_STAT_BY(STAT_Shaders_NumShaderResourcesLoaded, 1);
 }
 
+void FShaderResource::BuildParameterMapInfo(const TMap<FString, FParameterAllocation>& ParameterMap)
+{
+	for (int32 ParameterTypeIndex = 0; ParameterTypeIndex < (int32)EShaderParameterType::Num; ParameterTypeIndex++)
+	{
+		EShaderParameterType CurrentParameterType = (EShaderParameterType)ParameterTypeIndex;
+
+		if (CurrentParameterType == EShaderParameterType::LooseData)
+		{
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					bool bAddedToExistingBuffer = false;
+
+					for (int32 LooseParameterBufferIndex = 0; LooseParameterBufferIndex < ParameterMapInfo.LooseParameterBuffers.Num(); LooseParameterBufferIndex++)
+					{
+						FShaderLooseParameterBufferInfo& LooseParameterBufferInfo = ParameterMapInfo.LooseParameterBuffers[LooseParameterBufferIndex];
+
+						if (LooseParameterBufferInfo.BufferIndex == ParamValue.BufferIndex)
+						{
+							FShaderParameterInfo ParameterInfo(ParamValue.BaseIndex, ParamValue.Size);
+							LooseParameterBufferInfo.Parameters.Add(ParameterInfo);
+							LooseParameterBufferInfo.BufferSize += ParamValue.Size;
+							bAddedToExistingBuffer = true;
+						}
+					}
+
+					if (!bAddedToExistingBuffer)
+					{
+						FShaderLooseParameterBufferInfo NewParameterBufferInfo(ParamValue.BufferIndex, ParamValue.Size);
+
+						FShaderParameterInfo ParameterInfo(ParamValue.BaseIndex, ParamValue.Size);
+						NewParameterBufferInfo.Parameters.Add(ParameterInfo);
+
+						ParameterMapInfo.LooseParameterBuffers.Add(NewParameterBufferInfo);
+					}
+				}
+			}
+		}
+		else if (CurrentParameterType != EShaderParameterType::UAV)
+		{
+			int32 NumParameters = 0;
+
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					NumParameters++;
+				}
+			}
+
+			TArray<FShaderParameterInfo>* ParameterInfoArray = &ParameterMapInfo.UniformBuffers;
+
+			if (CurrentParameterType == EShaderParameterType::Sampler)
+			{
+				ParameterInfoArray = &ParameterMapInfo.TextureSamplers;
+			}
+			else if (CurrentParameterType == EShaderParameterType::SRV)
+			{
+				ParameterInfoArray = &ParameterMapInfo.SRVs;
+			}
+			else
+			{
+				check(CurrentParameterType == EShaderParameterType::UniformBuffer);
+			}
+
+			ParameterInfoArray->Empty(NumParameters);
+		
+			for (TMap<FString, FParameterAllocation>::TConstIterator ParameterIt(ParameterMap); ParameterIt; ++ParameterIt)
+			{
+				const FParameterAllocation& ParamValue = ParameterIt.Value();
+
+				if (ParamValue.Type == CurrentParameterType)
+				{
+					const uint16 BaseIndex = CurrentParameterType == EShaderParameterType::UniformBuffer ? ParamValue.BufferIndex : ParamValue.BaseIndex;
+					FShaderParameterInfo ParameterInfo(BaseIndex, ParamValue.Size);
+					ParameterInfoArray->Add(ParameterInfo);
+				}
+			}
+		}
+	}
+}
 
 void FShaderResource::UncompressCode(TArray<uint8>& UncompressedCode) const
 {
@@ -484,7 +624,7 @@ void FShaderResource::Register()
 	ShaderResourceIdMap.Add(GetId(), this);
 }
 
-
+// Note: this is derived data.  Bump guid in ShaderVersion.ush if changing the format, no backwards compat is necessary
 void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 {
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
@@ -504,13 +644,16 @@ void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 	}
 	Ar << OutputHash;
 	Ar << NumInstructions;
+
 #if WITH_EDITORONLY_DATA
-	Ar << NumTextureSamplers;
-#else
-	uint32 Temp = 0;
-	Ar << Temp;
-#endif
-	
+	if (!Ar.IsCooking() || Ar.CookingTarget()->HasEditorOnlyData())
+	{
+		Ar << NumTextureSamplers;
+	}
+#endif // WITH_EDITORONLY_DATA
+
+	Ar << ParameterMapInfo;
+
 	if (Ar.UE4Ver() >= VER_UE4_COMPRESSED_SHADER_RESOURCES)
 	{
 		Ar << UncompressedCodeSize;
@@ -657,7 +800,7 @@ FShaderResource* FShaderResource::FindOrCreateShaderResource(const FShaderCompil
 	{
 		Resource = new FShaderResource(Output, SpecificType, SpecificPermutationId);
 	}
-
+	
 	return Resource;
 }
 
@@ -784,6 +927,25 @@ void FShaderResource::InitRHI()
 		Shader = FShaderCodeLibrary::CreateComputeShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		UE_CLOG((bCodeInSharedLocation && !IsValidRef(Shader)), LogShaders, Fatal, TEXT("FShaderResource::SerializeShaderCode can't find shader code for: [%s]"), *LegacyShaderPlatformToShaderFormat((EShaderPlatform)Target.Platform).ToString());
 	}
+#if RHI_RAYTRACING
+	else if (Target.Frequency == SF_RayGen || Target.Frequency == SF_RayMiss || Target.Frequency == SF_RayHitGroup)
+	{
+		if (GRHISupportsRayTracing)
+		{
+			RayTracingShader = RHICreateRayTracingShader(UncompressedCode, Target.GetFrequency());
+			UE_CLOG((bCodeInSharedLocation && !IsValidRef(RayTracingShader)), LogShaders, Fatal, TEXT("FShaderResource::SerializeShaderCode can't find shader code for: [%s]"), *LegacyShaderPlatformToShaderFormat((EShaderPlatform)Target.Platform).ToString());
+
+			if (Target.Frequency == SF_RayHitGroup)
+			{
+				RayTracingMaterialLibraryIndex = AddToRayTracingLibrary(RayTracingShader);
+			}
+		}
+	}
+#endif // RHI_RAYTRACING
+	else
+	{
+		checkNoEntry(); // Unexpected shader target frequency
+	}
 
 	if (Target.Frequency != SF_Geometry)
 	{
@@ -817,7 +979,19 @@ void FShaderResource::ReleaseRHI()
 {
 	DEC_DWORD_STAT_BY(STAT_Shaders_NumShadersUsedForRendering, 1);
 
+#if RHI_RAYTRACING
+	if (IsInitialized() && Target.Frequency == SF_RayHitGroup)
+	{
+		RemoveFromRayTracingLibrary(RayTracingMaterialLibraryIndex);
+		RayTracingMaterialLibraryIndex = UINT_MAX;
+	}
+#endif
+
 	Shader.SafeRelease();
+
+#if RHI_RAYTRACING
+	RayTracingShader.SafeRelease();
+#endif // RHI_RAYTRACING
 }
 
 void FShaderResource::InitializeShaderRHI() 
@@ -2056,15 +2230,18 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		
 		bool bAllowFastIntrinsics = false;
 		bool bEnableMathOptimisations = true;
+		bool bForceFloats = false;
 		if (IsPCPlatform(Platform))
 		{
 			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
 			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("ForceFloats"), bForceFloats, GEngineIni);
 		}
 		else
 		{
 			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
 			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("ForceFloats"), bForceFloats, GEngineIni);
 		}
 		
 		if (bAllowFastIntrinsics)
@@ -2076,6 +2253,11 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		if (!bEnableMathOptimisations)
 		{
 			KeyString += TEXT("_NoFastMath");
+		}
+		
+		if (bForceFloats)
+		{
+			KeyString += TEXT("_FP32");
 		}
 		
 		// Shaders built for archiving - for Metal that requires compiling the code in a different way so that we can strip it later

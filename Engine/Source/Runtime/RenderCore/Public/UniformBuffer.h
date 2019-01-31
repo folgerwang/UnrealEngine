@@ -14,12 +14,12 @@
 class FShaderUniformBufferParameter;
 template<typename TBufferStruct> class TShaderUniformBufferParameter;
 
-/** Creates a 
+/** Creates a
 uniform buffer with the given value, and returns a structured reference to it. */
 template<typename TBufferStruct>
-TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage)
+TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 {
-	return TUniformBufferRef<TBufferStruct>::CreateUniformBufferImmediate(Value, Usage);
+	return TUniformBufferRef<TBufferStruct>::CreateUniformBufferImmediate(Value, Usage, Validation);
 }
 
 
@@ -60,6 +60,11 @@ public:
 		UpdateRHI();
 	}
 
+	const uint8* GetContents() const 
+	{
+		return Contents;
+	}
+
 	// FRenderResource interface.
 	virtual void InitDynamicRHI() override
 	{
@@ -78,6 +83,8 @@ public:
 	// Accessors.
 	FUniformBufferRHIParamRef GetUniformBufferRHI() const 
 	{ 
+		checkSlow(IsInRenderingThread() || IsInParallelRenderingThread());
+		checkf(UniformBufferRHI.GetReference(), TEXT("Attempted to access UniformBufferRHI on a TUniformBuffer that was never filled in with anything")); 
 		check(UniformBufferRHI.GetReference()); // you are trying to use a UB that was never filled with anything
 		return UniformBufferRHI; 
 	}

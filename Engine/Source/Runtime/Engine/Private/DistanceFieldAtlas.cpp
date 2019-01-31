@@ -538,13 +538,12 @@ void FDistanceFieldVolumeTexture::Initialize(UStaticMesh* InStaticMesh)
 
 		bReferencedByAtlas = true;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			AddAllocation,
-			FDistanceFieldVolumeTexture*, DistanceFieldVolumeTexture, this,
+		FDistanceFieldVolumeTexture* DistanceFieldVolumeTexture = this;
+		ENQUEUE_RENDER_COMMAND(AddAllocation)(
+			[DistanceFieldVolumeTexture](FRHICommandList& RHICmdList)
 			{
 				GDistanceFieldVolumeTextureAtlas.AddAllocation(DistanceFieldVolumeTexture);
-			}
-		);
+			});
 	}
 }
 
@@ -556,13 +555,12 @@ void FDistanceFieldVolumeTexture::Release()
 
 		bReferencedByAtlas = false;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseAllocation,
-			FDistanceFieldVolumeTexture*, DistanceFieldVolumeTexture, this,
+		FDistanceFieldVolumeTexture* DistanceFieldVolumeTexture = this;
+		ENQUEUE_RENDER_COMMAND(ReleaseAllocation)(
+			[DistanceFieldVolumeTexture](FRHICommandList& RHICmdList)
 			{
 				GDistanceFieldVolumeTextureAtlas.RemoveAllocation(DistanceFieldVolumeTexture);
-			}
-		);
+			});
 	}
 }
 

@@ -12,8 +12,6 @@
 #define GPUSKIN_MORPH_BLEND 0
 #endif
 
-float4x4 PreviousLocalToWorld;
-
 #ifndef GPUSKIN_APEX_CLOTH
 #define GPUSKIN_APEX_CLOTH 0
 #endif
@@ -33,7 +31,7 @@ float4x4 PreviousLocalToWorld;
 #define FIXED_VERTEX_INDEX 0xFFFF
 
 // if the per bone motion blur is enabled for this draw call
-bool PerBoneMotionBlur;
+uint PerBoneMotionBlur;
 
 #if GPUSKIN_APEX_CLOTH
 /** Vertex buffer from which to read simulated positions of clothing. */
@@ -96,11 +94,6 @@ struct FVertexFactoryInput
 
 	/** Per vertex color */
 	float4 Color : ATTRIBUTE13;
-
-	/** Optional instance ID for vertex layered rendering */
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-#endif
 };
 
 #if !GPUSKIN_MORPH_BLEND && GPUSKIN_APEX_CLOTH
@@ -157,7 +150,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -195,18 +188,6 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.TwoSidedSign = 1;
 	return Result;
 }
-
-#if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-#endif
 
 #define FBoneMatrix float3x4
 
@@ -254,7 +235,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedNormal = Input.TangentZ.xyz;
 
 	// Assumes no instacing
-	Result.PrevFrameLocalToWorld = PreviousLocalToWorld;
+	Result.PrevFrameLocalToWorld = Primitive.PreviousLocalToWorld;
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
@@ -633,7 +614,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -642,7 +623,8 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-	float4x4 PreviousLocalToWorldTranslated = PreviousLocalToWorld;
+	float4x4 PreviousLocalToWorldTranslated = Primitive.PreviousLocalToWorld;
+
 	PreviousLocalToWorldTranslated[3][0] += ResolvedView.PrevPreViewTranslation.x;
 	PreviousLocalToWorldTranslated[3][1] += ResolvedView.PrevPreViewTranslation.y;
 	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
@@ -750,14 +732,12 @@ float3x3 VertexFactoryGetTangentToLocalDS(FVertexFactoryInterpolantsVSToDS Inter
 
 #endif // #if USING_TESSELLATION
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstanceId & 1;
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

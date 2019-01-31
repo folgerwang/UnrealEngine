@@ -18,8 +18,6 @@
 //#define USE_PREVIOUS_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
 #define USE_PREVIOUS_TRANSFORM 0
 
-float4x4 PreviousLocalToWorld;
-
 uint MeshFacingMode;
 
 #if USE_PREVIOUS_TRANSFORM
@@ -116,7 +114,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -181,7 +179,7 @@ float4x4 GetParticleTransform(FVertexFactoryIntermediates Inters)
 #if USE_PREVIOUS_TRANSFORM
 float4x4 GetParticlePrevTransform(FVertexFactoryInput Input)
 {
-	uint TransformBaseIdx = GetLayerInstanceID(Input.InstanceId) * 3;
+	uint TransformBaseIdx = Input.InstanceId * 3;
 
 	float4x4 PrevTransform4x4 = float4x4(
 		PrevTransformBuffer[TransformBaseIdx + 0],
@@ -367,19 +365,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	return Result;
 }
-
-#if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-#endif
-
 
 float4 CalcWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
@@ -798,7 +783,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -915,14 +900,3 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 		return TangentToWorld;
 	}
 #endif // #if USING_TESSELLATION
-
-#if INSTANCED_STEREO
-
-// Instanced stereo sets the eye index explicitly for instanced geometry
-uint InstancedEyeIndex;
-
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstancedEyeIndex & bIsInstancedStereo;
-}
-#endif

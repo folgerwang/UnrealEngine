@@ -11,34 +11,6 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "Misc/ScopeRWLock.h"
 
-struct FMetalRHICommandInitialiseUniformdBuffer : public FRHICommand<FMetalRHICommandInitialiseUniformdBuffer>
-{
-	TRefCountPtr<FMetalUniformBuffer> Buffer;
-	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandInitialiseUniformdBuffer(FMetalUniformBuffer* InBuffer)
-	: Buffer(InBuffer)
-	{
-	}
-	
-	virtual ~FMetalRHICommandInitialiseUniformdBuffer()
-	{
-	}
-	
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		if (Buffer->CPUBuffer)
-		{
-			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
-			LLM_SCOPE(ELLMTag::VertexBuffer);
-			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
-		}
-		else if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
-		{
-			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
-		}
-	}
-};
-
 struct FMetalRHICommandInitialiseUniformBufferIAB : public FRHICommand<FMetalRHICommandInitialiseUniformBufferIAB>
 {
 	TRefCountPtr<FMetalUniformBuffer> Buffer;
@@ -203,95 +175,25 @@ private:
 	TMap<TArray<FMetalArgumentDesc>, mtlpp::ArgumentEncoder, FDefaultSetAllocator, FMetalArgumentEncoderMapFuncs> Encoders;
 };
 
-FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage)
+FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage, EUniformBufferValidation Validation)
 	: FRHIUniformBuffer(Layout)
     , FMetalRHIBuffer(Layout.ConstantBufferSize, (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs) && Layout.Resources.Num() ? (EMetalBufferUsage_GPUOnly|BUF_Volatile) : BUF_Volatile), RRT_UniformBuffer)
 	, UniformUsage(InUsage)
 	, IAB(nullptr)
 {
-	if (Layout.ConstantBufferSize > 0)
+	uint32 NumResources = Layout.Resources.Num();
+	if (NumResources)
 	{
-		UE_CLOG(Layout.ConstantBufferSize > 65536, LogMetal, Fatal, TEXT("Trying to allocated a uniform layout of size %d that is greater than the maximum permitted 64k."), Layout.ConstantBufferSize);
-		
-		void* Data = Lock(RLM_WriteOnly, 0);
-		FMemory::Memcpy(Data, Contents, Layout.ConstantBufferSize);
-		Unlock();
-	}
-
-	// set up an SRT-style uniform buffer
-	if (Layout.Resources.Num())
-	{
-		int32 NumResources = Layout.Resources.Num();
 		ResourceTable.Empty(NumResources);
 		ResourceTable.AddZeroed(NumResources);
-		for (int32 i = 0; i < NumResources; ++i)
-		{
-			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
-			
-			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
-			{
-				check(Resource);
-			}
-			ResourceTable[i] = Resource;
-			
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
-			{
-				switch(Layout.Resources[i])
-				{
-					case UBMT_GRAPH_TRACKED_SRV:
-					case UBMT_GRAPH_TRACKED_BUFFER_SRV:
-					case UBMT_SRV:
-					{
-						FMetalShaderResourceView* SRV = (FMetalShaderResourceView*)Resource;
-						FRHITexture* Texture = SRV->SourceTexture.GetReference();
-						if (Texture && Texture->GetTextureReference())
-						{
-							TextureReferences.Add(Texture->GetTextureReference());
-						}
-						break;
-					}
-					case UBMT_GRAPH_TRACKED_UAV:
-					case UBMT_GRAPH_TRACKED_BUFFER_UAV:
-					{
-						FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)Resource;
-						FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
-						if (Texture && Texture->GetTextureReference())
-						{
-							TextureReferences.Add(Texture->GetTextureReference());
-						}
-						break;
-					}
-					case UBMT_GRAPH_TRACKED_TEXTURE:
-					case UBMT_TEXTURE:
-					{
-						FRHITexture* Texture = (FRHITexture*)Resource;
-						if (Texture && Texture->GetTextureReference())
-						{
-							TextureReferences.Add(Texture->GetTextureReference());
-						}
-						break;
-					}
-					default:
-					{
-						break;
-					}
-				}
-			}
-		}
-		
-		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
-		{
-			GetMetalDeviceContext().RegisterUB(this);
-			
-			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-			if (!(UniformUsage & UniformBuffer_SingleDraw) && IsRunningRHIInSeparateThread() && !RHICmdList.Bypass() && IsInRenderingThread())
-			{
-				new (RHICmdList.AllocCommand<FMetalRHICommandInitialiseUniformBufferIAB>()) FMetalRHICommandInitialiseUniformBufferIAB(this);
-				RHICmdList.RHIThreadFence(true);
-			}
-		}
 	}
+	
+    Update(Contents, Validation);
+	
+    if (NumResources && FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
+    {
+        GetMetalDeviceContext().RegisterUB(this);
+    }
 }
 
 FMetalUniformBuffer::~FMetalUniformBuffer()
@@ -344,10 +246,10 @@ void FMetalUniformBuffer::InitIAB()
 		{
 			FRHIResource* Resource = ResourceTable[i].GetReference();
 			
-			switch(GetLayout().Resources[i])
+			switch(GetLayout().Resources[i].MemberType)
 			{
-				case UBMT_GRAPH_TRACKED_SRV:
-				case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+				case UBMT_RDG_TEXTURE_SRV:
+				case UBMT_RDG_BUFFER_SRV:
 				case UBMT_SRV:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
@@ -410,8 +312,8 @@ void FMetalUniformBuffer::InitIAB()
 					}
 					break;
 				}
-				case UBMT_GRAPH_TRACKED_UAV:
-				case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+				case UBMT_RDG_TEXTURE_UAV:
+				case UBMT_RDG_BUFFER_UAV:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
 					Desc.SetIndex(Index);
@@ -489,7 +391,7 @@ void FMetalUniformBuffer::InitIAB()
 					NewIAB->IndirectArgumentResources.Add(Argument(Sampler->State));
 					break;
 				}
-				case UBMT_GRAPH_TRACKED_TEXTURE:
+				case UBMT_RDG_TEXTURE:
 				case UBMT_TEXTURE:
 				{
 					FMetalArgumentDesc& Desc = Arguments.Emplace_GetRef();
@@ -601,10 +503,143 @@ void const* FMetalUniformBuffer::GetData()
 	}
 }
 
-FUniformBufferRHIRef FMetalDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+void FMetalUniformBuffer::Update(const void* Contents, EUniformBufferValidation Validation)
+{
+    const FRHIUniformBufferLayout Layout = GetLayout();
+    if (Layout.ConstantBufferSize > 0)
+    {
+        UE_CLOG(Layout.ConstantBufferSize > 65536, LogMetal, Fatal, TEXT("Trying to allocated a uniform layout of size %d that is greater than the maximum permitted 64k."), Layout.ConstantBufferSize);
+        
+        void* Data = Lock(RLM_WriteOnly, 0);
+        FMemory::Memcpy(Data, Contents, Layout.ConstantBufferSize);
+        Unlock();
+    }
+    
+    // set up an SRT-style uniform buffer
+    if (Layout.Resources.Num())
+    {
+        int32 NumResources = Layout.Resources.Num();
+        for (int32 i = 0; i < NumResources; ++i)
+        {
+            FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[i].MemberOffset);
+            
+            // Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+            if (Validation == EUniformBufferValidation::ValidateResources && !(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i].MemberType == UBMT_SRV))
+            {
+                check(Resource);
+            }
+            
+            ResourceTable[i] = Resource;
+            
+            if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs) && Resource)
+            {
+                switch(Layout.Resources[i].MemberType)
+                {
+                    case UBMT_RDG_TEXTURE_SRV:
+                    case UBMT_RDG_BUFFER_SRV:
+                    case UBMT_SRV:
+                    {
+                        FMetalShaderResourceView* SRV = (FMetalShaderResourceView*)Resource;
+                        FRHITexture* Texture = SRV->SourceTexture.GetReference();
+                        if (Texture && Texture->GetTextureReference())
+                        {
+                            TextureReferences.Add(Texture->GetTextureReference());
+                        }
+                        break;
+                    }
+                    case UBMT_RDG_TEXTURE_UAV:
+                    case UBMT_RDG_BUFFER_UAV:
+                    {
+                        FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)Resource;
+                        FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
+                        if (Texture && Texture->GetTextureReference())
+                        {
+                            TextureReferences.Add(Texture->GetTextureReference());
+                        }
+                        break;
+                    }
+                    case UBMT_RDG_TEXTURE:
+                    case UBMT_TEXTURE:
+                    {
+                        FRHITexture* Texture = (FRHITexture*)Resource;
+                        if (Texture && Texture->GetTextureReference())
+                        {
+                            TextureReferences.Add(Texture->GetTextureReference());
+                        }
+                        break;
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
+        {
+            FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+            if (!(UniformUsage & UniformBuffer_SingleDraw) && IsRunningRHIInSeparateThread() && !RHICmdList.Bypass() && IsInRenderingThread())
+            {
+                new (RHICmdList.AllocCommand<FMetalRHICommandInitialiseUniformBufferIAB>()) FMetalRHICommandInitialiseUniformBufferIAB(this);
+            }
+        }
+    }
+}
+
+FUniformBufferRHIRef FMetalDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	@autoreleasepool {
 	check(IsInRenderingThread() || IsInParallelRenderingThread() || IsInRHIThread());
-	return new FMetalUniformBuffer(Contents, Layout, Usage);
+		return new FMetalUniformBuffer(Contents, Layout, Usage, Validation);
+	}
+}
+
+struct FMetalRHICommandUpateUniformBuffer : public FRHICommand<FMetalRHICommandUpateUniformBuffer>
+{
+	TRefCountPtr<FMetalUniformBuffer> Buffer;
+	char* Contents;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpateUniformBuffer(FMetalUniformBuffer* InBuffer, void const* Data)
+	: Buffer(InBuffer)
+	, Contents(nullptr)
+	{
+		const FRHIUniformBufferLayout Layout = Buffer->GetLayout();
+		uint32 MaxLayoutSize = Layout.ConstantBufferSize;
+		for (int32 i = 0; i < Layout.Resources.Num(); ++i)
+		{
+			MaxLayoutSize = FMath::Max(MaxLayoutSize, (uint32)(Layout.Resources[i].MemberOffset + sizeof(FRHIResource*)));
+		}
+		Contents = new char[MaxLayoutSize];
+		FMemory::Memcpy(Contents, Data, MaxLayoutSize);
+	}
+	
+	virtual ~FMetalRHICommandUpateUniformBuffer()
+	{
+		delete [] Contents;
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		Buffer->Update(Contents, EUniformBufferValidation::None);
+	}
+};
+
+void FMetalDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents)
+{
+	@autoreleasepool {
+	// check((IsInRenderingThread() || IsInRHIThread()) && !IsInParallelRenderingThread());
+
+	FMetalUniformBuffer* UniformBuffer = ResourceCast(UniformBufferRHI);
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		UniformBuffer->Update(Contents, EUniformBufferValidation::None);
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandUpateUniformBuffer>()) FMetalRHICommandUpateUniformBuffer(UniformBuffer, Contents);
+		RHICmdList.RHIThreadFence(true);
+	}
 	}
 }

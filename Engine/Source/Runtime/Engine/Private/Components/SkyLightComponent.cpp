@@ -20,6 +20,14 @@
 #include "ShaderCompiler.h"
 #include "Components/BillboardComponent.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "Modules/ModuleManager.h"
+
+#if RHI_RAYTRACING
+#include "GlobalShader.h"
+#include "ShaderParameterUtils.h"
+#include "ScreenRendering.h"
+#include "PipelineStateCache.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "SkyLightComponent"
 
@@ -131,6 +139,10 @@ void FSkyLightSceneProxy::Initialize(
 		AverageBrightness = *InAverageBrightness;
 		BlendFraction = 0;
 	}
+
+#if RHI_RAYTRACING
+	IsDirtyImportanceSamplingData = true;
+#endif
 }
 
 FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightComponent)
@@ -151,20 +163,23 @@ FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightCompon
 	, OcclusionExponent(FMath::Clamp(InLightComponent->OcclusionExponent, .1f, 10.0f))
 	, MinOcclusion(FMath::Clamp(InLightComponent->MinOcclusion, 0.0f, 1.0f))
 	, OcclusionTint(InLightComponent->OcclusionTint)
+#if RHI_RAYTRACING
+	, IsDirtyImportanceSamplingData(true)
+#endif
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
-		FInitSkyProxy,
-		const FSHVectorRGB3*,InIrradianceEnvironmentMap,&InLightComponent->IrradianceEnvironmentMap,
-		const FSHVectorRGB3*,BlendDestinationIrradianceEnvironmentMap,&InLightComponent->BlendDestinationIrradianceEnvironmentMap,
-		const float*,InAverageBrightness,&InLightComponent->AverageBrightness,
-		const float*,BlendDestinationAverageBrightness,&InLightComponent->BlendDestinationAverageBrightness,
-		float,InBlendFraction,InLightComponent->BlendFraction,
-		FSkyLightSceneProxy*,LightSceneProxy,this,
-	{
-		// Only access the irradiance maps on the RT, even though they belong to the USkyLightComponent, 
-		// Because FScene::UpdateSkyCaptureContents does not block the RT so the writes could still be in flight
-		LightSceneProxy->Initialize(InBlendFraction, InIrradianceEnvironmentMap, BlendDestinationIrradianceEnvironmentMap, InAverageBrightness, BlendDestinationAverageBrightness);
-	});
+	const FSHVectorRGB3* InIrradianceEnvironmentMap = &InLightComponent->IrradianceEnvironmentMap;
+	const FSHVectorRGB3* BlendDestinationIrradianceEnvironmentMap = &InLightComponent->BlendDestinationIrradianceEnvironmentMap;
+	const float* InAverageBrightness = &InLightComponent->AverageBrightness;
+	const float* BlendDestinationAverageBrightness = &InLightComponent->BlendDestinationAverageBrightness;
+	float InBlendFraction = InLightComponent->BlendFraction;
+	FSkyLightSceneProxy* LightSceneProxy = this;
+	ENQUEUE_RENDER_COMMAND(FInitSkyProxy)(
+		[InIrradianceEnvironmentMap, BlendDestinationIrradianceEnvironmentMap, InAverageBrightness, BlendDestinationAverageBrightness, InBlendFraction, LightSceneProxy](FRHICommandList& RHICmdList)
+		{
+			// Only access the irradiance maps on the RT, even though they belong to the USkyLightComponent, 
+			// Because FScene::UpdateSkyCaptureContents does not block the RT so the writes could still be in flight
+			LightSceneProxy->Initialize(InBlendFraction, InIrradianceEnvironmentMap, BlendDestinationIrradianceEnvironmentMap, InAverageBrightness, BlendDestinationAverageBrightness);
+		});
 }
 
 USkyLightComponent::USkyLightComponent(const FObjectInitializer& ObjectInitializer)
@@ -199,6 +214,13 @@ USkyLightComponent::USkyLightComponent(const FObjectInitializer& ObjectInitializ
 	BlendDestinationAverageBrightness = 1.0f;
 	bCastVolumetricShadow = true;
 }
+
+#if RHI_RAYTRACING
+bool FSkyLightSceneProxy::ShouldRebuildCdf() const
+{
+	return IsDirtyImportanceSamplingData;
+}
+#endif
 
 FSkyLightSceneProxy* USkyLightComponent::CreateSceneProxy() const
 {
@@ -310,17 +332,17 @@ void USkyLightComponent::UpdateLimitedRenderingStateFast()
 {
 	if (SceneProxy)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-			FFastUpdateSkyLightCommand,
-			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
-			FLinearColor,LightColor,FLinearColor(LightColor) * Intensity,
-			float,IndirectLightingIntensity,IndirectLightingIntensity,
-			float,VolumetricScatteringIntensity,VolumetricScatteringIntensity,
-		{
-			LightSceneProxy->LightColor = LightColor;
-			LightSceneProxy->IndirectLightingIntensity = IndirectLightingIntensity;
-			LightSceneProxy->VolumetricScatteringIntensity = VolumetricScatteringIntensity;
-		});
+		FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+		FLinearColor InLightColor = FLinearColor(LightColor) * Intensity;
+		float InIndirectLightingIntensity = IndirectLightingIntensity;
+		float InVolumetricScatteringIntensity = VolumetricScatteringIntensity;
+		ENQUEUE_RENDER_COMMAND(FFastUpdateSkyLightCommand)(
+			[LightSceneProxy, InLightColor, InIndirectLightingIntensity, InVolumetricScatteringIntensity](FRHICommandList& RHICmdList)
+			{
+				LightSceneProxy->LightColor = InLightColor;
+				LightSceneProxy->IndirectLightingIntensity = InIndirectLightingIntensity;
+				LightSceneProxy->VolumetricScatteringIntensity = InVolumetricScatteringIntensity;
+			});
 	}
 }
 
@@ -328,19 +350,19 @@ void USkyLightComponent::UpdateOcclusionRenderingStateFast()
 {
 	if (SceneProxy && IsOcclusionSupported())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
-			FFastUpdateSkyLightOcclusionCommand,
-			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
-			float, Contrast, Contrast,
-			float, OcclusionExponent, OcclusionExponent,
-			float, MinOcclusion, MinOcclusion,
-			FColor, OcclusionTint, OcclusionTint,
-		{
-			LightSceneProxy->Contrast = Contrast;
-			LightSceneProxy->OcclusionExponent = OcclusionExponent;
-			LightSceneProxy->MinOcclusion = MinOcclusion;
-			LightSceneProxy->OcclusionTint = OcclusionTint;
-		});
+		FSkyLightSceneProxy* InLightSceneProxy = SceneProxy;
+		float InContrast = Contrast;
+		float InOcclusionExponent = OcclusionExponent;
+		float InMinOcclusion = MinOcclusion;
+		FColor InOcclusionTint = OcclusionTint;
+		ENQUEUE_RENDER_COMMAND(FFastUpdateSkyLightOcclusionCommand)(
+			[InLightSceneProxy, InContrast, InOcclusionExponent, InMinOcclusion, InOcclusionTint](FRHICommandList& RHICmdList)
+			{
+				InLightSceneProxy->Contrast = InContrast;
+				InLightSceneProxy->OcclusionExponent = InOcclusionExponent;
+				InLightSceneProxy->MinOcclusion = InMinOcclusion;
+				InLightSceneProxy->OcclusionTint = InOcclusionTint;
+			});
 	}
 
 }
@@ -379,14 +401,14 @@ void USkyLightComponent::DestroyRenderState_Concurrent()
 	{
 		GetWorld()->Scene->DisableSkyLight(SceneProxy);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroySkyLightCommand,
-			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
-		{
-			delete LightSceneProxy;
-		});
+		FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FDestroySkyLightCommand)(
+			[LightSceneProxy](FRHICommandList& RHICmdList)
+			{
+				delete LightSceneProxy;
+			});
 
-		SceneProxy = NULL;
+		SceneProxy = nullptr;
 	}
 }
 
@@ -506,7 +528,7 @@ TStructOnScope<FActorComponentInstanceData> USkyLightComponent::GetComponentInst
 	IrradianceMapFence.Wait();
 	SkyLightInstanceData->IrradianceEnvironmentMap = IrradianceEnvironmentMap;
 	SkyLightInstanceData->AverageBrightness = AverageBrightness;
-
+	// RHI_RAYTRACING #SkyLightIS @todo:
 	return InstanceData;
 }
 
@@ -691,6 +713,18 @@ void USkyLightComponent::SetCubemap(UTextureCube* NewCubemap)
 		MarkRenderStateDirty();
 		// Note: this will cause the cubemap to be reprocessed including readback from the GPU
 		SetCaptureIsDirty();
+
+#if RHI_RAYTRACING
+		if (SceneProxy)
+		{
+			FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+			ENQUEUE_RENDER_COMMAND(SetLightProxyDirty)(
+				[LightSceneProxy](FRHICommandList& RHICmdList)
+				{
+					LightSceneProxy->IsDirtyImportanceSamplingData = true;
+				});
+		}
+#endif
 	}
 }
 
@@ -718,19 +752,18 @@ void USkyLightComponent::SetCubemapBlend(UTextureCube* SourceCubemap, UTextureCu
 
 			if (SceneProxy)
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
-					FUpdateSkyProxy,
-					const FSHVectorRGB3*,InIrradianceEnvironmentMap,&IrradianceEnvironmentMap,
-					const FSHVectorRGB3*,BlendDestinationIrradianceEnvironmentMap,&BlendDestinationIrradianceEnvironmentMap,
-					const float*,InAverageBrightness,&AverageBrightness,
-					const float*,BlendDestinationAverageBrightness,&BlendDestinationAverageBrightness,
-					float,InBlendFraction,BlendFraction,
-					FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
-				{
-					// Only access the irradiance maps on the RT, even though they belong to the USkyLightComponent, 
-					// Because FScene::UpdateSkyCaptureContents does not block the RT so the writes could still be in flight
-					LightSceneProxy->Initialize(InBlendFraction, InIrradianceEnvironmentMap, BlendDestinationIrradianceEnvironmentMap, InAverageBrightness, BlendDestinationAverageBrightness);
-				});
+				const FSHVectorRGB3* InIrradianceEnvironmentMap = &IrradianceEnvironmentMap;
+				const FSHVectorRGB3* InBlendDestinationIrradianceEnvironmentMap = &BlendDestinationIrradianceEnvironmentMap;
+				const float* InAverageBrightness = &AverageBrightness;
+				const float* InBlendDestinationAverageBrightness = &BlendDestinationAverageBrightness;
+				FSkyLightSceneProxy* LightSceneProxy = SceneProxy;
+				ENQUEUE_RENDER_COMMAND(FUpdateSkyProxy)(
+					[InIrradianceEnvironmentMap, InBlendDestinationIrradianceEnvironmentMap, InAverageBrightness, InBlendDestinationAverageBrightness, InBlendFraction, LightSceneProxy](FRHICommandList& RHICmdList)
+					{
+						// Only access the irradiance maps on the RT, even though they belong to the USkyLightComponent, 
+						// Because FScene::UpdateSkyCaptureContents does not block the RT so the writes could still be in flight
+						LightSceneProxy->Initialize(InBlendFraction, InIrradianceEnvironmentMap, InBlendDestinationIrradianceEnvironmentMap, InAverageBrightness, InBlendDestinationAverageBrightness);
+					});
 			}
 		}
 	}
@@ -880,5 +913,6 @@ void ASkyLight::OnRep_bEnabled()
 {
 	LightComponent->SetVisibility(bEnabled);
 }
+
 
 #undef LOCTEXT_NAMESPACE

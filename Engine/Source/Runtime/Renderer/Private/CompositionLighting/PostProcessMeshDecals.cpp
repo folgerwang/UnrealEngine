@@ -13,7 +13,6 @@
 #include "RHIStaticStates.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "MaterialShaderType.h"
-#include "DrawingPolicy.h"
 #include "MeshMaterialShader.h"
 #include "ShaderBaseClasses.h"
 #include "DepthRendering.h"
@@ -23,6 +22,7 @@
 #include "SceneRendering.h"
 #include "UnrealEngine.h"
 #include "DebugViewModeRendering.h"
+#include "MeshPassProcessor.inl"
 
 
 /**
@@ -40,19 +40,19 @@ public:
 /**
 * A vertex shader for rendering mesh decals
 */
-class FMeshDecalVS : public FMeshMaterialShader
+class FMeshDecalsVS : public FMeshMaterialShader
 {
-	DECLARE_SHADER_TYPE(FMeshDecalVS, MeshMaterial);
+	DECLARE_SHADER_TYPE(FMeshDecalsVS, MeshMaterial);
 
 protected:
 
-	FMeshDecalVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FMeshDecalsVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
-	FMeshDecalVS()
+	FMeshDecalsVS()
 	{
 	}
 
@@ -60,37 +60,25 @@ protected:
 	{
 		return FMeshDecalAccumulatePolicy::ShouldCompilePermutation(Platform,Material,VertexFactoryType);
 	}
-
-public:
-	
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
-	}
 };
 
 
 /**
  * A hull shader for rendering mesh decals
  */
-class FMeshDecalHS : public FBaseHS
+class FMeshDecalsHS : public FBaseHS
 {
-	DECLARE_SHADER_TYPE(FMeshDecalHS, MeshMaterial);
+	DECLARE_SHADER_TYPE(FMeshDecalsHS, MeshMaterial);
 
 protected:
 
-	FMeshDecalHS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FMeshDecalsHS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FBaseHS(Initializer)
 	{
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
-	FMeshDecalHS() {}
+	FMeshDecalsHS() {}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
@@ -102,17 +90,17 @@ protected:
 /**
  * A domain shader for rendering mesh decals
  */
-class FMeshDecalDS : public FBaseDS
+class FMeshDecalsDS : public FBaseDS
 {
-	DECLARE_SHADER_TYPE(FMeshDecalDS, MeshMaterial);
+	DECLARE_SHADER_TYPE(FMeshDecalsDS, MeshMaterial);
 
 protected:
 
-	FMeshDecalDS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	FMeshDecalsDS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FBaseDS(Initializer)
 	{}
 
-	FMeshDecalDS() {}
+	FMeshDecalsDS() {}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
@@ -121,9 +109,9 @@ protected:
 	}
 };
 
-IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalVS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainVS"),SF_Vertex); 
-IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalHS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainHull"),SF_Hull); 
-IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalDS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainDomain"),SF_Domain);
+IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalsVS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainVS"),SF_Vertex); 
+IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalsHS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainHull"),SF_Hull); 
+IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalsDS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainDomain"),SF_Domain);
 
 
 /**
@@ -152,21 +140,6 @@ public:
 
 	FMeshDecalsPS()
 	{
-	}
-
-	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView& View,
-		const FDrawingPolicyRenderState& DrawRenderState
-		)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -203,371 +176,55 @@ public:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FMeshDecalsEmissivePS, TEXT("/Engine/Private/MeshDecals.usf"), TEXT("MainPS"), SF_Pixel);
 
-/*-----------------------------------------------------------------------------
-FMeshDecalsDrawingPolicy
------------------------------------------------------------------------------*/
 
-/**
-* Mesh decals drawing policy
-*/
-class FMeshDecalsDrawingPolicy : public FMeshDrawingPolicy
+class FMeshDecalMeshProcessor : public FMeshPassProcessor
 {
 public:
-	/** context type */
-	typedef FMeshDrawingPolicy::ElementDataType ElementDataType;
+	FMeshDecalMeshProcessor(const FScene* Scene, 
+		const FSceneView* InViewIfDynamicMeshCommand, 
+		EDecalRenderStage InPassDecalStage, 
+		FDecalRenderingCommon::ERenderTargetMode InRenderTargetMode,
+		FMeshPassDrawListContext* InDrawListContext);
 
-	/**
-	* Constructor
-	* @param InIndexBuffer - index buffer for rendering
-	* @param InVertexFactory - vertex factory for rendering
-	* @param InMaterialRenderProxy - material instance for rendering
-	*/
-	FMeshDecalsDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& MaterialResouce,
-		ERHIFeatureLevel::Type InFeatureLevel,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		EDebugViewShaderMode InDebugViewShaderMode,
-		EDecalRenderStage CurrentDecalStage);
-
-	// FMeshDrawingPolicy interface.
-
-	/**
-	* Match two draw policies
-	* @param Other - draw policy to compare
-	* @return true if the draw policies are a match
-	*/
-	FDrawingPolicyMatchResult Matches(const FMeshDecalsDrawingPolicy& Other, bool bForReals = false) const;
-
-	// Override blend state, depth stencil state, etc.
-	void SetupPipelineState(FDrawingPolicyRenderState& OutDrawRenderState, const FSceneView& InView) const;
-
-	/**
-	* Executes the draw commands which can be shared between any meshes using this drawer.
-	* @param CI - The command interface to execute the draw commands on.
-	* @param View - The view of the scene being drawn.
-	*/
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext) const;
-	
-	/** 
-	* Create bound shader state using the vertex decl from the mesh draw policy
-	* as well as the shaders needed to draw the mesh
-	* @return new bound shader state object
-	*/
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const;
-
-	/**
-	* Sets the render states for drawing a mesh.
-	* @param PrimitiveSceneProxy - The primitive drawing the dynamic mesh.  If this is a view element, this will be NULL.
-	* @param Mesh - mesh element with data needed for rendering
-	* @param ElementData - context specific data for mesh rendering
-	*/
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData,
-		const ContextDataType PolicyContext
-		) const;
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
 
 private:
-	FMeshDecalVS* VertexShader;
-	FMeshDecalHS* HullShader;
-	FMeshDecalDS* DomainShader;
-	FMeshDecalsPS* PixelShader;
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		int32 StaticMeshId,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
+
+	FMeshPassProcessorRenderState PassDrawRenderState;
+	const EDecalRenderStage PassDecalStage;
+	const FDecalRenderingCommon::ERenderTargetMode RenderTargetMode;
 };
 
-FMeshDecalsDrawingPolicy::FMeshDecalsDrawingPolicy(
-	const FVertexFactory* InVertexFactory,
-	const FMaterialRenderProxy* InMaterialRenderProxy,
-	const FMaterial& InMaterialResource,
-	ERHIFeatureLevel::Type InFeatureLevel,
-	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-	EDebugViewShaderMode InDebugViewShaderMode,
-	EDecalRenderStage CurrentDecalStage)
-	: FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode)
+
+FMeshDecalMeshProcessor::FMeshDecalMeshProcessor(const FScene* Scene, 
+	const FSceneView* InViewIfDynamicMeshCommand, 
+	EDecalRenderStage InPassDecalStage, 
+	FDecalRenderingCommon::ERenderTargetMode InRenderTargetMode,
+	FMeshPassDrawListContext* InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+	, PassDecalStage(InPassDecalStage)
+	, RenderTargetMode(InRenderTargetMode)
 {
-	HullShader = NULL;
-	DomainShader = NULL;
-
-	const EMaterialTessellationMode MaterialTessellationMode = MaterialResource->GetTessellationMode();
-	if (RHISupportsTessellation(GShaderPlatformForFeatureLevel[InFeatureLevel])
-		&& InVertexFactory->GetType()->SupportsTessellationShaders() 
-		&& MaterialTessellationMode != MTM_NoTessellation)
-	{
-		HullShader = InMaterialResource.GetShader<FMeshDecalHS>(VertexFactory->GetType());
-		DomainShader = InMaterialResource.GetShader<FMeshDecalDS>(VertexFactory->GetType());
-	}
-
-	VertexShader = InMaterialResource.GetShader<FMeshDecalVS>(InVertexFactory->GetType());
-
-	PixelShader = CurrentDecalStage == DRS_Emissive
-		? InMaterialResource.GetShader<FMeshDecalsEmissivePS>(InVertexFactory->GetType())
-		: InMaterialResource.GetShader<FMeshDecalsPS>(InVertexFactory->GetType());
-
-	BaseVertexShader = VertexShader;
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
+	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
+	PassDrawRenderState.SetInstancedViewUniformBuffer(Scene->UniformBuffers.InstancedViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.MeshDecalPassUniformBuffer);
 }
 
-FDrawingPolicyMatchResult FMeshDecalsDrawingPolicy::Matches(
-	const FMeshDecalsDrawingPolicy& Other, bool bForReals
-	) const
+void FMeshDecalMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
-	DRAWING_POLICY_MATCH_BEGIN
-		DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-		DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-		DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
-		DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
-		DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-	DRAWING_POLICY_MATCH_END
-}
-
-void FMeshDecalsDrawingPolicy::SetupPipelineState(FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View) const
-{
-	if (UseDebugViewPS())
+	if (MeshBatch.bUseForMaterial)
 	{
-		// Deferred decals can only use translucent blend mode
-		if (View.Family->EngineShowFlags.ShaderComplexity)
-		{
-			// If we are in the translucent pass then override the blend mode, otherwise maintain additive blending.
-			DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_One>::GetRHI());
-		}
-		else if (View.Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
-		{
-			// Otherwise, force translucent blend mode (shaders will use an hardcoded alpha).
-			DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
-		}
-	}
-}
-
-void FMeshDecalsDrawingPolicy::SetSharedState(
-	FRHICommandList& RHICmdList, 
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FViewInfo* View,
-	const ContextDataType PolicyContext
-	) const
-{
-
-	if (View->Family->UseDebugViewVSDSHS())
-	{
-		FDebugViewMode::SetParametersVSHSDS(RHICmdList, MaterialRenderProxy, MaterialResource, *View, VertexFactory, HullShader && DomainShader, DrawRenderState);
-	}
-	else
-	{
-		// Set shared mesh resources
-		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-
-		// Set the translucent shader parameters for the material instance
-		VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View, DrawRenderState);
-
-		if (HullShader && DomainShader)
-		{
-			HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-			DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-		}
-	}
-
-	if (UseDebugViewPS())
-	{
-		FDebugViewMode::GetPSInterface(View->ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState);
-	}
-	else
-	{
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState);
-	}
-}
-
-FBoundShaderStateInput FMeshDecalsDrawingPolicy::GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const
-{
-	FBoundShaderStateInput BoundShaderStateInput(
-		FMeshDrawingPolicy::GetVertexDeclaration(), 
-		VertexShader->GetVertexShader(),
-		GETSAFERHISHADER_HULL(HullShader), 
-		GETSAFERHISHADER_DOMAIN(DomainShader),
-		PixelShader->GetPixelShader(),
-		FGeometryShaderRHIRef());
-
-	if (UseDebugViewPS())
-	{
-		FDebugViewMode::PatchBoundShaderState(BoundShaderStateInput, MaterialResource, VertexFactory, InFeatureLevel, GetDebugViewShaderMode());
-	}
-	return BoundShaderStateInput;
-}
-
-void FMeshDecalsDrawingPolicy::SetMeshRenderState(
-	FRHICommandList& RHICmdList, 
-	const FSceneView& View,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	const FMeshBatch& Mesh,
-	int32 BatchElementIndex,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const ElementDataType& ElementData,
-	const ContextDataType PolicyContext
-	) const
-{
-	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-
-	// If debug view shader mode are allowed, different VS/DS/HS must be used (with only SV_POSITION as PS interpolant).
-	if (View.Family->UseDebugViewVSDSHS())
-	{
-		FDebugViewMode::SetMeshVSHSDS(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState, MaterialResource, HullShader && DomainShader);
-	}
-	else
-	{
-		// Set transforms
-		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-
-		if (HullShader && DomainShader)
-		{
-			HullShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-			DomainShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-		}
-	}
-}
-
-
-/**
- * A drawing policy factory for the decal drawing policy.
- */
-class FDecalDrawingPolicyFactory
-{
-public:
-	struct ContextType
-	{
-		// context for this pass
-		FRenderingCompositePassContext& Context; 
-		const EDecalRenderStage CurrentDecalStage;
-		
-		FDecalRenderingCommon::ERenderTargetMode LastRenderTargetMode;
-		EDecalBlendMode LastDecalBlendMode;
-
-		FDecalRenderTargetManager RenderTargetManager;
-
-		ContextType(FRenderingCompositePassContext& InContext, EDecalRenderStage InCurrentDecalStage)
-			: Context(InContext)
-			, CurrentDecalStage(InCurrentDecalStage)
-			, LastRenderTargetMode(FDecalRenderingCommon::RTM_Unknown)
-			, LastDecalBlendMode(EDecalBlendMode::DBM_MAX)
-			, RenderTargetManager(Context.RHICmdList, Context.GetShaderPlatform(), CurrentDecalStage)
-		{
-		}
-
-		void SetState(const FMaterial* Material, FDrawingPolicyRenderState& DrawRenderState)
-		{
-			FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
-			const FViewInfo& View = Context.View;
-
-			const bool bHasNormal = Material->HasNormalConnected();
-			const bool bPerPixelDBufferMask = IsUsingPerPixelDBufferMask(View.GetShaderPlatform());
-
-			const EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeDecalBlendModeForRenderStage(
-				FDecalRenderingCommon::ComputeFinalDecalBlendMode(Context.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode(), bHasNormal),
-				CurrentDecalStage);
-
-			FDecalRenderingCommon::ERenderTargetMode RenderTargetMode = FDecalRenderingCommon::ComputeRenderTargetMode(
-				View.GetShaderPlatform(), DecalBlendMode, RenderTargetManager.bGufferADirty);
-
-			if(LastRenderTargetMode != RenderTargetMode)
-			{
-				LastRenderTargetMode = RenderTargetMode;
-				RenderTargetManager.SetRenderTargetMode(RenderTargetMode, bHasNormal, bPerPixelDBufferMask);
-
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
-
-				Context.SetViewportAndCallRHI(View.ViewRect);
-			}
-
-			if(LastDecalBlendMode != DecalBlendMode)
-			{
-				LastDecalBlendMode = DecalBlendMode;
-	
-				const ERHIFeatureLevel::Type FeatureLevel = View.GetFeatureLevel();
-
-				DrawRenderState.SetBlendState(GetDecalBlendState(FeatureLevel, CurrentDecalStage, DecalBlendMode, bHasNormal));
-			}
-		}
-	};
-
-	static bool DrawDynamicMesh(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId, 
-		const bool bIsInstancedStereo = false, 
-		const bool bNeedsInstancedStereoBias = false)
-	{
-		return DrawMesh(
-			RHICmdList, 
-			View,
-			DrawingContext,
-			Mesh,
-			Mesh.Elements.Num()==1 ? 1 : (1<<Mesh.Elements.Num())-1,	// 1 bit set for each mesh element
-			bPreFog,
-			DrawRenderState,
-			PrimitiveSceneProxy,
-			HitProxyId, 
-			bIsInstancedStereo, 
-			bNeedsInstancedStereoBias);
-	}
-
-	
-	static bool DrawStaticMesh(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FStaticMesh& StaticMesh,
-		const uint64& BatchElementMask,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId, 
-		const bool bNeedsInstancedStereoBias = false
-		)
-	{
-		return DrawMesh(
-			RHICmdList, 
-			View,
-			DrawingContext,
-			StaticMesh,
-			BatchElementMask,
-			bPreFog,
-			DrawRenderState,
-			PrimitiveSceneProxy,
-			HitProxyId, 
-			false, 
-			bNeedsInstancedStereoBias);
-	}
-
-private:
-	/**
-	* Render a dynamic or static mesh using a decal draw policy
-	* @return true if the mesh rendered
-	*/
-	static bool DrawMesh(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		const uint64& BatchElementMask,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId, 
-		const bool bIsInstancedStereo = false, 
-		const bool bNeedsInstancedStereoBias = false
-		)
-	{
-		bool bDirty = false;
-		const auto FeatureLevel = View.GetFeatureLevel();
-
-		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
+		const FMaterialRenderProxy* MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
 		const FMaterial* Material = MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
 
 		if (Material && Material->IsDeferredDecal())
@@ -575,125 +232,192 @@ private:
 			// We have no special engine material for decals since we don't want to eat the compilation & memory cost, so just skip if it failed to compile
 			if (Material->GetRenderingThreadShaderMap())
 			{
-				const EDecalBlendMode FinalDecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(View.GetShaderPlatform(), Material);
-				const EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), FinalDecalBlendMode);
+				const EShaderPlatform ShaderPlatform = ViewIfDynamicMeshCommand->GetShaderPlatform();
+				const EDecalBlendMode FinalDecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(ShaderPlatform, Material);
+				const EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(ShaderPlatform, FinalDecalBlendMode);
+				const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *Material);
+				const ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, *Material);
 
-				// can be optimized (ranges for different decal stages or separate lists)
-				const bool bShouldRender = FDecalRenderingCommon::IsCompatibleWithRenderStage(
-					DrawingContext.CurrentDecalStage,
+				bool bShouldRender = FDecalRenderingCommon::IsCompatibleWithRenderStage(
+					PassDecalStage,
 					LocalDecalRenderStage,
 					FinalDecalBlendMode,
 					Material);
 
+				if (FinalDecalBlendMode == DBM_Normal)
+				{
+					bShouldRender = bShouldRender && RenderTargetMode == FDecalRenderingCommon::RTM_GBufferNormal;
+				}
+				else
+				{
+					bShouldRender = bShouldRender && RenderTargetMode != FDecalRenderingCommon::RTM_GBufferNormal;
+				}
+
 				if (bShouldRender)
 				{
-					FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-					DrawingContext.SetState(Material, DrawRenderStateLocal);
+					const bool bHasNormal = Material->HasNormalConnected();
 
-					FMeshDecalsDrawingPolicy DrawingPolicy(
-						Mesh.VertexFactory,
-						MaterialRenderProxy,
-						*Material,
-						View.GetFeatureLevel(),
-						ComputeMeshOverrideSettings(Mesh),
-						View.Family->GetDebugViewShaderMode(),
-						DrawingContext.CurrentDecalStage);
-					DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-					CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-					DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));
+					const EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeDecalBlendModeForRenderStage(
+						FDecalRenderingCommon::ComputeFinalDecalBlendMode(ShaderPlatform, (EDecalBlendMode)Material->GetDecalBlendMode(), bHasNormal),
+						PassDecalStage);
 
-					int32 BatchElementIndex = 0;
-					uint64 Mask = BatchElementMask;
-					do
+					if (ViewIfDynamicMeshCommand->Family->UseDebugViewPS())
 					{
-						if (Mask & 1)
+						// Deferred decals can only use translucent blend mode
+						if (ViewIfDynamicMeshCommand->Family->EngineShowFlags.ShaderComplexity)
 						{
-							TDrawEvent<FRHICommandList> MeshEvent;
-							BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::CompositionLighting));
-
-							DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FMeshDrawingPolicy::ElementDataType(), FDepthDrawingPolicy::ContextDataType());
-							DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex, bIsInstancedStereo);
+							// If we are in the translucent pass then override the blend mode, otherwise maintain additive blending.
+							PassDrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_One>::GetRHI());
 						}
-						Mask >>= 1;
-						BatchElementIndex++;
+						else if (ViewIfDynamicMeshCommand->Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
+						{
+							// Otherwise, force translucent blend mode (shaders will use an hardcoded alpha).
+							PassDrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
+						}
 					}
-					while (Mask);
+					else
+					{
+						PassDrawRenderState.SetBlendState(GetDecalBlendState(FeatureLevel, PassDecalStage, DecalBlendMode, bHasNormal));
+					}
 
-					bDirty = true;
+					Process(MeshBatch, BatchElementMask, StaticMeshId, PrimitiveSceneProxy, *MaterialRenderProxy, *Material, MeshFillMode, MeshCullMode);
 				}
 			}
 		}
-
-		return bDirty;
 	}
-};
+}
+
+void FMeshDecalMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	int32 StaticMeshId,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+	FVertexFactoryType* VertexFactoryType = VertexFactory->GetType();
 
 
-static void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolicyFactory::ContextType& DrawContext, const FDrawingPolicyRenderState& DrawRenderState, FPrimitiveSceneInfo* PrimitiveSceneInfo)
+	TMeshProcessorShaders<
+		FMeshDecalsVS,
+		FMeshDecalsHS,
+		FMeshDecalsDS,
+		FMeshDecalsPS> MeshDecalPassShaders;
+
+	const EMaterialTessellationMode MaterialTessellationMode = MaterialResource.GetTessellationMode();
+
+	const bool bNeedsHSDS = RHISupportsTessellation(GShaderPlatformForFeatureLevel[FeatureLevel])
+		&& VertexFactoryType->SupportsTessellationShaders()
+		&& MaterialTessellationMode != MTM_NoTessellation;
+
+	if (bNeedsHSDS)
+	{
+		MeshDecalPassShaders.DomainShader = MaterialResource.GetShader<FMeshDecalsDS>(VertexFactoryType);
+		MeshDecalPassShaders.HullShader = MaterialResource.GetShader<FMeshDecalsHS>(VertexFactoryType);
+	}
+
+	MeshDecalPassShaders.VertexShader = MaterialResource.GetShader<FMeshDecalsVS>(VertexFactoryType);
+
+	MeshDecalPassShaders.PixelShader = PassDecalStage == DRS_Emissive
+		? MaterialResource.GetShader<FMeshDecalsEmissivePS>(VertexFactoryType)
+		: MaterialResource.GetShader<FMeshDecalsPS>(VertexFactoryType);
+
+
+	FMeshMaterialShaderElementData ShaderElementData;
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
+
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(MeshDecalPassShaders.VertexShader, MeshDecalPassShaders.PixelShader);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		MaterialRenderProxy,
+		MaterialResource,
+		PassDrawRenderState,
+		MeshDecalPassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		1,
+		SortKey,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
+}
+
+
+void DrawDecalMeshCommands(FRenderingCompositePassContext& Context, EDecalRenderStage CurrentDecalStage, FDecalRenderingCommon::ERenderTargetMode RenderTargetMode)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	const FViewInfo& View = Context.View;
 
-	uint32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
-	const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
+	const bool bPerPixelDBufferMask = IsUsingPerPixelDBufferMask(View.GetShaderPlatform());
 
-	if (ViewRelevance.bDrawRelevance)
+	FGraphicsPipelineStateInitializer GraphicsPSOInit;
+	FDecalRenderTargetManager RenderTargetManager(Context.RHICmdList, Context.GetShaderPlatform(), CurrentDecalStage);
+	RenderTargetManager.SetRenderTargetMode(RenderTargetMode, true, bPerPixelDBufferMask);
+	Context.SetViewportAndCallRHI(Context.View.ViewRect);
+	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+
+	DrawDynamicMeshPass(View, RHICmdList,
+		[&View, CurrentDecalStage, RenderTargetMode](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 	{
-		// Render dynamic scene prim
-		{	
-			// range in View.DynamicMeshElements[]
-			FInt32Range range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
+		FMeshDecalMeshProcessor PassMeshProcessor(
+			View.Family->Scene->GetRenderScene(),
+			&View,
+			CurrentDecalStage,
+			RenderTargetMode,
+			DynamicMeshPassContext);
 
-			for (int32 MeshBatchIndex = range.GetLowerBoundValue(); MeshBatchIndex < range.GetUpperBoundValue(); MeshBatchIndex++)
-			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-				checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
-
-				const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-
-				FDecalDrawingPolicyFactory::DrawDynamicMesh(
-					RHICmdList,
-					View,
-					DrawContext,
-					MeshBatch,
-					false,
-					DrawRenderState,
-					MeshBatchAndRelevance.PrimitiveSceneProxy,
-					MeshBatch.BatchHitProxyId);
-			}
-		}
-
-		// Render static scene prim
-		if (ViewRelevance.bStaticRelevance)
+		const int32 PrimitiveNum = View.MeshDecalPrimSet.NumPrims();
+		for (int32 PrimitiveIndex = 0; PrimitiveIndex < PrimitiveNum; ++PrimitiveIndex)
 		{
-			// Render static meshes from static scene prim
-			for (int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++)
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.MeshDecalPrimSet.Prims[PrimitiveIndex].PrimitiveSceneInfo;
+
+			const uint32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
+			const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
+			if (ViewRelevance.bDrawRelevance)
 			{
-				FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+				const uint64 DefaultBatchElementMask = ~0ull;
 
-				// Only render static mesh elements using decal materials
-				if (View.StaticMeshVisibilityMap[StaticMesh.Id]
-					&& StaticMesh.IsDecal(View.FeatureLevel))
+				// Render dynamic scene prim
 				{
-					FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-					FMeshDrawingPolicy::OnlyApplyDitheredLODTransitionState(DrawRenderStateLocal, View, StaticMesh, false);
+					// range in View.DynamicMeshElements[]
+					FInt32Range range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
 
-					FDecalDrawingPolicyFactory::DrawStaticMesh(
-						RHICmdList,
-						View,
-						DrawContext,
-						StaticMesh,
-						StaticMesh.bRequiresPerElementVisibility ? View.StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] : ((1ull << StaticMesh.Elements.Num()) - 1),
-						false,
-						DrawRenderStateLocal,
-						PrimitiveSceneInfo->Proxy,
-						StaticMesh.BatchHitProxyId);
+					for (int32 MeshBatchIndex = range.GetLowerBoundValue(); MeshBatchIndex < range.GetUpperBoundValue(); MeshBatchIndex++)
+					{
+						const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
+
+						checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
+
+						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
+
+						PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, PrimitiveSceneInfo->Proxy);
+					}
+				}
+
+				// Render static scene prim
+				if (ViewRelevance.bStaticRelevance)
+				{
+					// Render static meshes from static scene prim
+					for (int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++)
+					{
+						const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+
+						// Only render static mesh elements using decal materials
+						if (View.StaticMeshVisibilityMap[StaticMesh.Id] && StaticMesh.IsDecal(View.FeatureLevel))
+						{
+							PassMeshProcessor.AddMeshBatch(StaticMesh, DefaultBatchElementMask, PrimitiveSceneInfo->Proxy);
+						}
+					}
 				}
 			}
 		}
-	}
+	});
 }
 
 void RenderMeshDecals(FRenderingCompositePassContext& Context, EDecalRenderStage CurrentDecalStage)
@@ -701,21 +425,43 @@ void RenderMeshDecals(FRenderingCompositePassContext& Context, EDecalRenderStage
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	const FViewInfo& View = Context.View;
+	FScene* Scene = (FScene*)View.Family->Scene;
 
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FSceneRenderer_RenderMeshDecals);
 	SCOPED_DRAW_EVENT(RHICmdList, MeshDecals);
-	
-	FDecalDrawingPolicyFactory::ContextType DrawContext(Context, CurrentDecalStage);
 
 	FSceneTexturesUniformParameters SceneTextureParameters;
 	SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::All, SceneTextureParameters);
-	TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+	Scene->UniformBuffers.MeshDecalPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
 
-	FDrawingPolicyRenderState DrawRenderState(Context.View, PassUniformBuffer);
-	for(int32 PrimIdx = 0, Count = View.MeshDecalPrimSet.NumPrims(); PrimIdx < Count; PrimIdx++ )
+	if (View.MeshDecalPrimSet.NumPrims() > 0)
 	{
-		FPrimitiveSceneInfo* PrimitiveSceneInfo = View.MeshDecalPrimSet.Prims[PrimIdx].PrimitiveSceneInfo;
+		switch (CurrentDecalStage)
+		{
+		case DRS_BeforeBasePass:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_DBuffer);
+			break;
 
-		RenderPrimitive(Context,  DrawContext, DrawRenderState, PrimitiveSceneInfo);
+		case DRS_AfterBasePass:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_SceneColorAndGBufferDepthWriteWithNormal);
+			break;
+
+		case DRS_BeforeLighting:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_GBufferNormal);
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_SceneColorAndGBufferWithNormal);
+			break;
+
+		case DRS_Mobile:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_SceneColor);
+			break;
+
+		case DRS_AmbientOcclusion:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_AmbientOcclusion);
+			break;
+
+		case DRS_Emissive:
+			DrawDecalMeshCommands(Context, CurrentDecalStage, FDecalRenderingCommon::RTM_SceneColor);
+			break;
+		}
 	}
 }

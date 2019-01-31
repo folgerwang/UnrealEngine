@@ -1,5 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
-// .
+// ..
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -439,7 +439,10 @@ GLenum GLFrequencyTable[] =
 	GL_FRAGMENT_SHADER, // SF_Pixel
 	GL_GEOMETRY_SHADER,	// SF_Geometry
 	GL_COMPUTE_SHADER,  // SF_Compute
-
+	// Ray tracing shaders are not supported in OpenGL
+	GLenum(0), // SF_RayGen
+	GLenum(0), // SF_RayMiss
+	GLenum(0), // SF_RayHitGroup (closest hit, any hit, intersection)
 };
 
 static_assert(ARRAY_COUNT(GLFrequencyTable) == SF_NumFrequencies, "Frequency table size mismatch.");
@@ -690,7 +693,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 	}
@@ -705,7 +708,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*PackedGlobal.Name,
 			PackedGlobal.PackedType,
 			PackedGlobal.Offset * BytesPerComponent,
-			PackedGlobal.Count * BytesPerComponent
+			PackedGlobal.Count * BytesPerComponent,
+			EShaderParameterType::LooseData
 			);
 
 		uint16& Size = PackedGlobalArraySize.FindOrAdd(PackedGlobal.PackedType);
@@ -727,7 +731,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 
@@ -840,7 +844,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*Sampler.Name,
 			0,
 			Sampler.Offset,
-			Sampler.Count
+			Sampler.Count,
+			EShaderParameterType::SRV
 			);
 		}
 
@@ -862,7 +867,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 					*SamplerState,
 					0,
 					Sampler.Offset,
-					Sampler.Count
+					Sampler.Count,
+					EShaderParameterType::Sampler
 					);
 			}
 		}
@@ -884,7 +890,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*UAV.Name,
 			0,
 			UAV.Offset,
-			UAV.Count
+			UAV.Count,
+			EShaderParameterType::UAV
 			);
 		}
 
@@ -1346,7 +1353,7 @@ uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
 
 uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, const TArray<uint32>& CompilerFlags)
 {
-	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
+	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace | HLSLCC_RetainSizes;
 	if (IsES2Platform(Version) && !IsPCES2Platform(Version))
 	{
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
@@ -1365,7 +1372,8 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, const T
 		CompilerFlags.Contains(CFLAG_UseEmulatedUB))
 	{
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-		CCFlags |= HLSLCC_GroupFlattenedUniformBuffers;
+		// Do not use this flag as it adds too many uniforms.
+		//CCFlags |= HLSLCC_GroupFlattenedUniformBuffers;
 		CCFlags |= HLSLCC_ExpandUBMemberArrays;
 	}
 

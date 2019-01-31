@@ -22,6 +22,7 @@
 #include "Widgets/Input/SCheckBox.h"
 #include "MaterialShaderQualitySettings.h"
 #include "RHIShaderPlatformDefinitions.inl"
+#include "RayTracingDebugVisualizationMenuCommands.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewport"
 
@@ -359,6 +360,16 @@ void SEditorViewport::BindCommands()
 	MAP_VIEWMODE_ACTION( Commands.WireframeMode, VMI_BrushWireframe );
 	MAP_VIEWMODE_ACTION( Commands.UnlitMode, VMI_Unlit );
 	MAP_VIEWMODE_ACTION( Commands.LitMode, VMI_Lit );
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		MAP_VIEWMODE_ACTION(Commands.PathTracingMode, VMI_PathTracing);
+		MAP_VIEWMODE_ACTION(Commands.RayTracingDebugMode, VMI_RayTracingDebug);
+
+		const FRayTracingDebugVisualizationMenuCommands& RtDebugCommands = FRayTracingDebugVisualizationMenuCommands::Get();
+		RtDebugCommands.BindCommands(CommandListRef, Client);
+	}
+#endif
 	MAP_VIEWMODE_ACTION( Commands.DetailLightingMode, VMI_Lit_DetailLighting );
 	MAP_VIEWMODE_ACTION( Commands.LightingOnlyMode, VMI_LightingOnly );
 	MAP_VIEWMODE_ACTION( Commands.LightComplexityMode, VMI_LightComplexity );

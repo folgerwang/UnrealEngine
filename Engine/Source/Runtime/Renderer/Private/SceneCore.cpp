@@ -17,6 +17,7 @@
 #include "RendererModule.h"
 #include "ScenePrivate.h"
 #include "Containers/AllocatorFixedSizeFreeList.h"
+#include "MaterialShared.h"
 
 int32 GUnbuiltPreviewShadowsInGame = 1;
 FAutoConsoleVariableRef CVarUnbuiltPreviewShadowsInGame(
@@ -239,6 +240,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 			{
 				bMobileDynamicPointLight = true;
 				PrimitiveSceneInfo->NumMobileMovablePointLights++;
+				// enable dynamic path for primitives affected by dynamic point lights
+				PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
 				// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
 				PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 			} 
@@ -286,6 +289,8 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 	if (bMobileDynamicPointLight)
 	{
 		PrimitiveSceneInfo->NumMobileMovablePointLights--;
+		// enable dynamic path for primitives affected by dynamic point lights
+		PrimitiveSceneInfo->Proxy->bHasMobileMovablePointLightInteraction = (PrimitiveSceneInfo->NumMobileMovablePointLights != 0);
 		// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
 		PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 	}
@@ -321,130 +326,39 @@ void FLightPrimitiveInteraction::FlushCachedShadowMapData()
 	}
 }
 
+int32 FStaticMeshBatchRelevance::GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const
+{
+	int32 CommandInfoIndex = CommandInfosBase;
+
+	if (!CommandInfosMask.Get(MeshPass))
+	{
+		return -1;
+	}
+
+	for (int32 MeshPassIndex = 0; MeshPassIndex < MeshPass; ++MeshPassIndex)
+	{
+		if (CommandInfosMask.Get((EMeshPass::Type) MeshPassIndex))
+		{
+			++CommandInfoIndex;
+		}
+	}
+
+	return CommandInfoIndex;
+}
+
 /*-----------------------------------------------------------------------------
-	FStaticMesh
+	FStaticMeshBatch
 -----------------------------------------------------------------------------*/
 
-void FStaticMesh::LinkDrawList(FStaticMesh::FDrawListElementLink* Link)
+FStaticMeshBatch::~FStaticMeshBatch()
 {
-	check(IsInRenderingThread());
-	check(!DrawListLinks.Contains(Link));
-	DrawListLinks.Add(Link);
-}
-
-void FStaticMesh::UnlinkDrawList(FStaticMesh::FDrawListElementLink* Link)
-{
-	check(IsInRenderingThread());
-	verify(DrawListLinks.RemoveSingleSwap(Link) == 1);
-}
-
-void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene)
-{
-	const auto FeatureLevel = Scene->GetFeatureLevel();
-
-	if (bUseForMaterial && Scene->RequiresHitProxies() && PrimitiveSceneInfo->Proxy->IsSelectable())
-	{
-		// Add the static mesh to the DPG's hit proxy draw list.
-		FHitProxyDrawingPolicyFactory::AddStaticMesh(Scene, this);
-	}
-
-	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass() || !ShouldIncludeDomainInMeshPass(MaterialRenderProxy->GetMaterial(FeatureLevel)->GetMaterialDomain()))
-	{
-		return;
-	}
-
-	if (CastShadow)
-	{
-		FShadowDepthDrawingPolicyFactory::AddStaticMesh(Scene, this);
-	}
-
-	if (IsTranslucent(FeatureLevel))
-	{
-		return;
-	}
-
-	if (Scene->GetShadingPath() == EShadingPath::Deferred)
-	{
-		extern void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
-
-		EDepthDrawingMode EarlyZPassMode;
-		bool bEarlyZPassMovable;
-		GetEarlyZPassMode(Scene->GetShaderPlatform(), EarlyZPassMode, bEarlyZPassMovable);
-
-		if (bUseAsOccluder || EarlyZPassMode == DDM_AllOpaque)
-		{
-			// WARNING : If you change this condition, also change the logic in FStaticMeshSceneProxy::DrawStaticElements.
-			// Warning: also mirrored in FDeferredShadingSceneRenderer::FDeferredShadingSceneRenderer
-			if ((PrimitiveSceneInfo->Proxy->ShouldUseAsOccluder() || EarlyZPassMode == DDM_AllOpaque)
-				&& (!IsMasked(FeatureLevel) || EarlyZPassMode >= DDM_AllOccluders)
-				&& (!PrimitiveSceneInfo->Proxy->IsMovable() || bEarlyZPassMovable))
-			{
-				FDepthDrawingPolicyFactory::AddStaticMesh(Scene,this);
-			}
-		}
-
-		if (bUseForMaterial)
-		{
-			// Add the static mesh to the DPG's base pass draw list.
-			FBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-			FVelocityDrawingPolicyFactory::AddStaticMesh(Scene, this);
-		}
-	}
-	else if (Scene->GetShadingPath() == EShadingPath::Mobile)
-	{
-		if (bUseForMaterial)
-		{
-			// Add the static mesh to the DPG's base pass draw list.
-			FMobileBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-		}
-	}
-}
-
-void FStaticMesh::RemoveFromDrawLists()
-{
-	// Remove the mesh from all draw lists.
-	while(DrawListLinks.Num())
-	{
-		TRefCountPtr<FStaticMesh::FDrawListElementLink> Link = DrawListLinks[0];
-		const int32 OriginalNumLinks = DrawListLinks.Num();
-		// This will call UnlinkDrawList.
-		Link->Remove(true);
-		check(DrawListLinks.Num() == OriginalNumLinks - 1);
-		if(DrawListLinks.Num())
-		{
-			check(DrawListLinks[0] != Link);
-		}
-	}
-}
-
-/** Returns true if the mesh is linked to the given draw list. */
-bool FStaticMesh::IsLinkedToDrawList(const FStaticMeshDrawListBase* DrawList) const
-{
-	for (int32 i = 0; i < DrawListLinks.Num(); i++)
-	{
-		if (DrawListLinks[i]->IsInDrawList(DrawList))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-FStaticMesh::~FStaticMesh()
-{
+	FScene* Scene = PrimitiveSceneInfo->Scene;
 	// Remove this static mesh from the scene's list.
-	PrimitiveSceneInfo->Scene->StaticMeshes.RemoveAt(Id);
+	Scene->StaticMeshes.RemoveAt(Id);
 
 	if (BatchVisibilityId != INDEX_NONE)
 	{
-		PrimitiveSceneInfo->Scene->StaticMeshBatchVisibility.RemoveAt(BatchVisibilityId);
-	}
-
-	// This is cheaper than calling RemoveFromDrawLists, since it 
-	// doesn't unlink meshes which are about to be destroyed
-	for (int32 i = 0; i < DrawListLinks.Num(); i++)
-	{
-		DrawListLinks[i]->Remove(false);
+		Scene->StaticMeshBatchVisibility.RemoveAt(BatchVisibilityId);
 	}
 }
 

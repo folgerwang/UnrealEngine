@@ -1,0 +1,221 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SSDCommon.ush: All the code commonly shared between uniform buffers.
+=============================================================================*/
+
+#pragma once
+
+#include "../Common.ush"
+#include "../DataStructures/SceneViewFamilyBlackboard.ush"
+#include "../ColorSpace.ush"
+#include "../SphericalGaussian.ush"
+#include "SSDDefinitions.ush"
+
+
+
+//------------------------------------------------------- SHARED FUNCTION
+
+float SafeRcp(float x)
+{
+	if (x > 0)
+		return rcp(x);
+	return 0;
+}
+
+//------------------------------------------------------- COMMON SCENE INFOS
+
+/** olds commonly used information of the scene of a given sample. */
+struct FSSFSampleSceneInfos
+{
+	/** Normal of the pixel in world space. */
+	float3 WorldNormal;
+
+	/** The position of the pixel in the translated world frame. */
+	float3 TranslatedWorldPosition;
+
+	/** Pixel depth in world space. */
+	float WorldDepth;
+
+	/** Roughness of the pixel. */
+	float Roughness;
+};
+
+FSSFSampleSceneInfos CreateSampleSceneInfos()
+{
+	FSSFSampleSceneInfos Infos;
+	Infos.WorldNormal             = 0;
+	Infos.TranslatedWorldPosition = 0;
+	Infos.WorldDepth              = 0;
+	Infos.Roughness               = 0;
+	return Infos;
+}
+
+FSSFSampleSceneInfos InitSampleSceneInfos(
+	float4x4 ScreenToTranslatedWorld,
+	float2 ScreenPosition, float WorldDepth, float3 WorldNormal, float Roughness)
+{
+	FSSFSampleSceneInfos Infos;
+
+	float2 ClipPosition = ScreenPosition * (View.ViewToClip[3][3] < 1.0f ? WorldDepth : 1.0f);
+	Infos.TranslatedWorldPosition = mul(float4(ClipPosition, WorldDepth, 1), ScreenToTranslatedWorld).xyz;
+	Infos.WorldDepth = WorldDepth;
+	Infos.WorldNormal = WorldNormal;
+	Infos.Roughness = Roughness;
+	return Infos;
+}
+
+FSSFSampleSceneInfos FetchCurrentSceneInfos(float2 ScreenPosition, float2 BufferUV)
+{
+	FGBufferData GBufferData = GetGBufferDataFromSceneBlackboard(BufferUV);
+	return InitSampleSceneInfos(
+		View.ScreenToTranslatedWorld,
+		ScreenPosition, GBufferData.Depth, GBufferData.WorldNormal, GBufferData.Roughness);
+}
+
+float ProjectWorldDistanceToScreenDistance(FSSFSampleSceneInfos SceneMetadata, float WorldDistance)
+{
+	float4 ClipDistance = mul(View.ViewToClipNoAA, float4(WorldDistance, 0, SceneMetadata.WorldDepth, 1));
+	return ClipDistance.x / ClipDistance.w;
+}
+
+float ProjectWorldDistanceToPixelDistance(FSSFSampleSceneInfos SceneMetadata, float WorldDistance)
+{
+	return WorldDistance * View.ViewSizeAndInvSize.x * 0.5 / (SceneMetadata.WorldDepth * GetTanHalfFieldOfView().x);
+}
+
+/** Compute the anisotropy value. The lower the value is, the more anysotropic the sample is. */
+float ComputeAnisotropyInvFactor(FSSFSampleSceneInfos SceneMetadata)
+{
+	if (!CONFIG_NORMAL_ANISOTROPY)
+	{
+		return 1;
+	}
+
+	float Anysotropy = abs(dot(SceneMetadata.WorldNormal, View.ViewForward));
+
+	return max(Anysotropy, rcp(8));
+}
+
+/** Return whether this signal should store in given mip level. */
+float ComputeSignalMipLevel(FSSFSampleSceneInfos SceneMetadata, float WorldBluringRadius)
+{
+	if (WorldBluringRadius == WORLD_RADIUS_INVALID)
+	{
+		return MIP_LEVEL_INVALID;
+	}
+	else if (WorldBluringRadius == WORLD_RADIUS_MISS)
+	{
+		return MIP_LEVEL_MISS;
+	}
+	else if (DEBUG_MIP_LEVEL != MIP_LEVEL_INVALID)
+	{
+		return DEBUG_MIP_LEVEL;
+	}
+
+	// Compute how much the pixel can be blured on screen
+	// TODO: anysotopy with scene bent normals?
+	float SmallestPixelBlurRadius = ProjectWorldDistanceToPixelDistance(SceneMetadata, WorldBluringRadius);
+
+	// Take into account the spatial bluring radius that may also happen when not enough temporal samples.
+	SmallestPixelBlurRadius *= rcp(BLURING_ESTIMATION_MULTIPLIER);
+
+	// Compute on what mip level this signal can be denoised.
+	return clamp(log2(SmallestPixelBlurRadius), 0, MAX_MIP_LEVEL_COUNT - 1);
+}
+
+/** Returns the radius of a pixel in world space. */
+// TODO: move that to CPU
+float ComputePixelWorldRadius(FSSFSampleSceneInfos SceneMetadata)
+{
+	// Should be multiplied 0.5* for the diameter to radius, and by 2.0 because GetTanHalfFieldOfView() cover only half of the pixels.
+	return (View.ViewSizeAndInvSize.z * GetTanHalfFieldOfView().x) * SceneMetadata.WorldDepth;
+}
+
+/** Convert to bilateral world distance. */
+float WorldBluringRadiusToBilateralWorldDistance(float WorldBluringRadius)
+{
+	float Multiplier = 1;
+
+	// The distance between two pixel is 2 times the radius of the pixel.
+	Multiplier *= 2;
+
+	// Need to take into account the furthearest pixel of 3x3 neighborhood.
+	Multiplier *= sqrt(2);
+
+	// Can take into account how much the signal is getting stored into higher resolution.
+	Multiplier *= BLURING_ESTIMATION_MULTIPLIER;
+
+	return WorldBluringRadius * Multiplier;
+}
+
+
+//------------------------------------------------------- COMMON TILE CLASSIFICATION
+
+Texture2D<uint> TileClassificationTexture;
+
+#define TILE_MODE_BRUTE_FORCE 0
+#define TILE_MODE_FAST 1
+#define TILE_MODE_FULLY_OCCLUDED 2
+#define TILE_MODE_FULLY_LIGHTED 3
+#define TILE_MODE_FULLY_INVALID 4
+
+#define TILE_MODE_FULLY_UNSURE 5
+
+
+/** Contains all the information for tile classification. */
+struct FSSFTileInfos
+{
+	// Mode of the tile
+	uint TileMode;
+
+	// Whether a mip level should be procesed.
+	bool bProcessMipLevel[MAX_MIP_LEVEL_COUNT];
+};
+
+FSSFTileInfos CreateTileInfos()
+{
+	FSSFTileInfos TileInfos;
+	TileInfos.TileMode = TILE_MODE_BRUTE_FORCE;
+	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		TileInfos.bProcessMipLevel[MipLevel] = 0;
+	}
+	return TileInfos;
+}
+
+FSSFTileInfos DecodeTileInfos(uint Content)
+{
+	FSSFTileInfos TileInfos;
+	if (!DEBUG_ENABLE_TILE_CLASSIFICATION)
+	{
+		Content = 0x78 | TILE_MODE_FAST;
+	}
+
+	TileInfos.TileMode = Content & 0x7;
+
+	UNROLL
+	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		TileInfos.bProcessMipLevel[MipLevel] = (Content & (8 << MipLevel)) != 0;
+	}
+	return TileInfos;
+}
+
+FSSFTileInfos LoadTileInfos(uint2 TilePos)
+{
+	return DecodeTileInfos(TileClassificationTexture[TilePos]);
+}
+
+void WriteTileInfos(RWTexture2D<uint> TileClassificationOutput, uint2 TilePos, FSSFTileInfos TileInfos)
+{
+	uint Content = TileInfos.TileMode;
+
+	UNROLL
+	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
+	{
+		Content |= TileInfos.bProcessMipLevel[MipLevel] ? (8 << MipLevel) : 0;
+	}
+
+	TileClassificationOutput[TilePos] = Content;
+}

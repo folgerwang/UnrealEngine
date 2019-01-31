@@ -71,6 +71,7 @@ FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStati
 	EngineShowFlags.SetSeparateTranslucency(true);
 	EngineShowFlags.SetSnap(0);
 	EngineShowFlags.SetCompositeEditorPrimitives(true);
+	EngineShowFlags.SetSelectionOutline(GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
 	OverrideNearClipPlane(1.0f);
 	bUsingOrbitCamera = true;
 

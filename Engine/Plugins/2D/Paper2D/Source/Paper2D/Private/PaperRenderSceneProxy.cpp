@@ -65,9 +65,9 @@ public:
 	}
 
 	// FMaterialRenderProxy interface.
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override
 	{
-		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
+		return Parent->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
 	}
 
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const override
@@ -169,7 +169,7 @@ void FPaperRenderSceneProxy::DebugDrawBodySetup(const FSceneView* View, int32 Vi
 		{
 			// Make a material for drawing solid collision stuff
 			auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+				GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(),
 				GetWireframeColor()
 				);
 
@@ -279,7 +279,7 @@ void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, int32 Vie
 		{
 			if (Batch.IsValid())
 			{
-				FMaterialRenderProxy* ParentMaterialProxy = Batch.Material->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
+				FMaterialRenderProxy* ParentMaterialProxy = Batch.Material->GetRenderProxy();
 
 				FDynamicMeshBuilderSettings Settings;
 				Settings.bCanApplyViewModeOverrides = true;
@@ -291,7 +291,7 @@ void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, int32 Vie
 					const FLinearColor EffectiveWireframeColor = (Batch.Material->GetBlendMode() != BLEND_Opaque) ? GetWireframeColor() : FLinearColor::Green;
 
 					auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-						GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+						GEngine->WireframeMaterial->GetRenderProxy(),
 						GetSelectionColor(EffectiveWireframeColor, IsSelected(), IsHovered(), false)
 					);
 
@@ -363,7 +363,7 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, class UMateria
 			Settings.bCanApplyViewModeOverrides = true;
 			Settings.bUseWireframeSelectionColoring = IsSelected();
 
-			FMaterialRenderProxy* ParentMaterialProxy = BatchMaterial->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
+			FMaterialRenderProxy* ParentMaterialProxy = BatchMaterial->GetRenderProxy();
 
 			// Implementing our own wireframe coloring as the automatic one (controlled by Mesh.bCanApplyViewModeOverrides) only supports per-FPrimitiveSceneProxy WireframeColor
 			if (bIsWireframeView)
@@ -371,7 +371,7 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, class UMateria
 				const FLinearColor EffectiveWireframeColor = (BatchMaterial->GetBlendMode() != BLEND_Opaque) ? GetWireframeColor() : FLinearColor::Green;
 
 				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-					GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+					GEngine->WireframeMaterial->GetRenderProxy(),
 					GetSelectionColor(EffectiveWireframeColor, IsSelected(), IsHovered(), false)
 					);
 
@@ -409,6 +409,7 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	Result.bShadowRelevance = IsShadowCast(View);
+	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
 
@@ -433,6 +434,8 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 		Result.bOpaqueRelevance = true;
 	}
 
+	Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
+
 	return Result;
 }
 
@@ -444,6 +447,11 @@ uint32 FPaperRenderSceneProxy::GetMemoryFootprint() const
 bool FPaperRenderSceneProxy::CanBeOccluded() const
 {
 	return !MaterialRelevance.bDisableDepthTest;
+}
+
+bool FPaperRenderSceneProxy::IsUsingDistanceCullFade() const
+{
+	return MaterialRelevance.bUsesDistanceCullFade;
 }
 
 void FPaperRenderSceneProxy::SetDrawCall_RenderThread(const FSpriteDrawCallRecord& NewDynamicData)

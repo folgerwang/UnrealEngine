@@ -360,7 +360,7 @@ void FSpriteGeometryEditingHelper::DrawGeometry(const FSceneView& View, FPrimiti
 
 		FColor BackgroundColor(( bIsShapeSelected ? SpriteEditingConstantsEX::GeometrySelectedColor : LineColor ).ToFColor(true));
 		BackgroundColor.A = 4;
-		FMaterialRenderProxy* ShapeMaterialProxy = WidgetVertexColorMaterial->GetRenderProxy(bIsShapeSelected);
+		FMaterialRenderProxy* ShapeMaterialProxy = WidgetVertexColorMaterial->GetRenderProxy();
 
 		if (Shape.ShapeType == ESpriteShapeType::Circle)
 		{

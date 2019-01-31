@@ -55,7 +55,14 @@ CORE_API bool IsInRenderingThread()
 
 CORE_API bool IsInParallelRenderingThread()
 {
-	return !GRenderingThread || GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed) || (FPlatformTLS::GetCurrentThreadId() != GGameThreadId);
+	if (!GRenderingThread || GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+	{
+		return FPlatformTLS::GetCurrentThreadId() == GGameThreadId;
+	}
+	else
+	{
+		return FPlatformTLS::GetCurrentThreadId() != GGameThreadId;
+	}
 }
 
 CORE_API uint32 GRHIThreadId = 0;

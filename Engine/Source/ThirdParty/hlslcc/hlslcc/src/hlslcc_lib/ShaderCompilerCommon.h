@@ -51,6 +51,11 @@ public:
 		Vector.push_back(Element);
 	}
 
+	void PushFront(const ElementType& Element)
+	{
+		Vector.insert(Vector.begin(), Element);
+	}
+
 	int Num() const
 	{
 		return (int)Vector.size();

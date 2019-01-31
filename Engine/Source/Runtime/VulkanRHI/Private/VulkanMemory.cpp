@@ -237,11 +237,15 @@ namespace VulkanRHI
 				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Device Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 				return nullptr;
 			}
-			UE_LOG(LogVulkanRHI, Error, TEXT("Out of Device Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+			auto Callback = [=]()
+			{
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-			DumpMemory();
-			GLog->PanicFlushThreadedLogs();
+				DumpMemory();
+				GLog->PanicFlushThreadedLogs();
 #endif
+				return FString::Printf(TEXT("Out of Device Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+			};
+			UE_LOG(LogVulkanRHI, Fatal, TEXT("%s"), *(Callback()));
 		}
 		else if (Result == VK_ERROR_OUT_OF_HOST_MEMORY)
 		{
@@ -250,11 +254,15 @@ namespace VulkanRHI
 				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Host Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 				return nullptr;
 			}
-			UE_LOG(LogVulkanRHI, Error, TEXT("Out of Host Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+			auto Callback = [=]()
+			{
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-			DumpMemory();
-			GLog->PanicFlushThreadedLogs();
+				DumpMemory();
+				GLog->PanicFlushThreadedLogs();
 #endif
+				return FString::Printf(TEXT("Out of Host Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+			};
+			UE_LOG(LogVulkanRHI, Error, TEXT("%s"), *(Callback()));
 		}
 		else
 		{
@@ -887,10 +895,14 @@ namespace VulkanRHI
 		uint32 AllocationSize = FMath::Max(Size, TargetDefaultPageSize);
 #endif
 		FDeviceMemoryAllocation* DeviceMemoryAllocation = Owner->GetParent()->GetMemoryManager().Alloc(true, AllocationSize, MemoryTypeIndex, nullptr, File, Line);
-		if (!DeviceMemoryAllocation && Size < AllocationSize)
+		if (!DeviceMemoryAllocation)
 		{
 			// Retry with a smaller size
 			DeviceMemoryAllocation = Owner->GetParent()->GetMemoryManager().Alloc(false, Size, MemoryTypeIndex, nullptr, File, Line);
+			if (!DeviceMemoryAllocation)
+			{
+				UE_LOG(LogVulkanRHI, Fatal, TEXT("Out of memory on Vulkan; MemoryTypeIndex=%d, AllocSize=%0.3fMB"), MemoryTypeIndex, (float)AllocationSize / 1048576.0f);
+			}
 		}
 		++PageIDCounter;
 		FOldResourceHeapPage* NewPage = new FOldResourceHeapPage(this, DeviceMemoryAllocation, PageIDCounter);

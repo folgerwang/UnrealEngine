@@ -411,6 +411,11 @@ public:
 	/** Sets whether or not this scene proxy should be rendered. */
 	void SetRenderingEnabled(bool bInRenderingEnabled);
 
+#if RHI_RAYTRACING
+	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+	virtual bool IsRayTracingRelevant() const override { return true; }
+#endif
+
 private:
 	void ReleaseRenderThreadResources();
 

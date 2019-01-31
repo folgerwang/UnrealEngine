@@ -248,6 +248,12 @@ void FEngineModule::StartupModule()
 	static IConsoleVariable* CacheWPOPrimitivesVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.CacheWPOPrimitives"));
 	CacheWPOPrimitivesVar->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
 
+	static auto CVARShowMaterialDrawEvents = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShowMaterialDrawEvents"));
+	if (CVARShowMaterialDrawEvents)
+	{
+		CVARShowMaterialDrawEvents->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEngineCVarRequiringRecreateRenderState));
+	}
+
 	SuspendTextureStreamingRenderTasks = &SuspendTextureStreamingRenderTasksInternal;
 	ResumeTextureStreamingRenderTasks = &ResumeTextureStreamingRenderTasksInternal;
 
@@ -276,7 +282,7 @@ ENGINE_API UEngine*	GEngine = NULL;
 */
 ENGINE_API bool GShowDebugSelectedLightmap = false;
 
-int32 GShowMaterialDrawEventTypes = 0;
+int32 GShowMaterialDrawEvents = 0;
 
 #if WANTS_DRAW_MESH_EVENTS
 /**
@@ -284,29 +290,8 @@ int32 GShowMaterialDrawEventTypes = 0;
 */
 static FAutoConsoleVariableRef CVARShowMaterialDrawEvents(
 	TEXT("r.ShowMaterialDrawEvents"),
-	GShowMaterialDrawEventTypes,
-	TEXT("Uses a flags array to enable a draw event around specific material draw types if supported by the platform.\n")
-	TEXT("Set to -1 to enable everything. \n")
-	TEXT("Otherwise sum up these flags:   \n")
-	TEXT("None						0	  \n")
-	TEXT("CompositionLighting		1	  \n")
-	TEXT("BasePass					2	  \n")
-	TEXT("DepthPositionOnly			4	  \n")
-	TEXT("Depth						8	  \n")
-	TEXT("DistortionDynamic			16	  \n")
-	TEXT("DistortionStatic			32	  \n")
-	TEXT("MobileBasePass			64	  \n")
-	TEXT("MobileTranslucent			128	  \n")
-	TEXT("MobileTranslucentOpacity	256	  \n")
-	TEXT("ShadowDepth				512	  \n")
-	TEXT("ShadowDepthRsm			1024  \n")
-	TEXT("ShadowDepthStatic			2048  \n")
-	TEXT("StaticDraw				4096  \n")
-	TEXT("StaticDrawStereo			8192  \n")
-	TEXT("TranslucentLighting		16384 \n")
-	TEXT("Translucent				32768 \n")
-	TEXT("Velocity					65536 \n")
-	TEXT("FogVoxelization			131072\n"),
+	GShowMaterialDrawEvents,
+	TEXT("Whether to emit a draw event around every mesh draw call with information about the assets used.  Introduces severe CPU and GPU overhead when enabled, but useful for debugging."),
 	ECVF_Default
 );
 #endif
@@ -385,6 +370,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 // We expose these variables to everyone as we need to access them in other files via an extern
 ENGINE_API float GAverageFPS = 0.0f;
 ENGINE_API float GAverageMS = 0.0f;
+ENGINE_API float GAveragePathTracedMRays = 0.0f;
 ENGINE_API double GLastMemoryWarningTime = 0.f;
 
 static FCachedSystemScalabilityCVars GCachedScalabilityCVars;
@@ -784,6 +770,9 @@ void RefreshSamplerStatesCallback()
 		}
 
 		UMaterialInterface::RecacheAllMaterialUniformExpressions();
+
+		// Need to recache all cached mesh draw commands, as they store pointers to material uniform buffers which we just invalidated.
+		GetRendererModule().UpdateStaticDrawLists();
 	}
 }
 
@@ -2353,6 +2342,9 @@ void UEngine::InitializeObjectReferences()
 	LoadSpecialMaterial(TEXT("ArrowMaterialName"), ArrowMaterialName.ToString(), ArrowMaterial, false);
 
 #if !UE_BUILD_SHIPPING
+	ArrowMaterialYellow = UMaterialInstanceDynamic::Create(ArrowMaterial, nullptr);
+	ArrowMaterialYellow->SetVectorParameterValue("GizmoColor", FLinearColor::Yellow);
+
 	LoadSpecialMaterial(TEXT("ConstraintLimitMaterialName"), TEXT("/Engine/EngineMaterials/PhAT_JointLimitMaterial.PhAT_JointLimitMaterial"), ConstraintLimitMaterial, false);
 
 	ConstraintLimitMaterialX = UMaterialInstanceDynamic::Create(ConstraintLimitMaterial, NULL);
@@ -7819,7 +7811,13 @@ bool UEngine::PerformError(const TCHAR* Cmd, FOutputDevice& Ar)
 #if !UE_BUILD_SHIPPING
 	if (FParse::Command(&Cmd, TEXT("RENDERCRASH")))
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CauseRenderThreadCrash, { UE_LOG(LogEngine, Warning, TEXT("Printed warning to log.")); SetCrashType(ECrashType::Debug); UE_LOG(LogEngine, Fatal, TEXT("Crashing the renderthread at your request")); });
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadCrash)(
+			[](FRHICommandList& RHICmdList)
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
+				SetCrashType(ECrashType::Debug);
+				UE_LOG(LogEngine, Fatal, TEXT("Crashing the renderthread at your request"));
+			});
 		return true;
 	}
 	if (FParse::Command(&Cmd, TEXT("RENDERCHECK")))
@@ -7833,34 +7831,46 @@ bool UEngine::PerformError(const TCHAR* Cmd, FOutputDevice& Ar)
 				check(!"Crashing the renderthread via check(0) at your request");
 			}
 		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CauseRenderThreadCrash, { FRender::Check(); });
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadCrash)(
+			[](FRHICommandList& RHICmdList)
+			{
+				FRender::Check();
+			});
 		return true;
 	}
 	if (FParse::Command(&Cmd, TEXT("RENDERGPF")))
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CauseRenderThreadCrash, { UE_LOG(LogEngine, Warning, TEXT("Printed warning to log.")); SetCrashType(ECrashType::Debug); *(int32 *)3 = 123; });
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadCrash)(
+			[](FRHICommandList& RHICmdList)
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
+				SetCrashType(ECrashType::Debug);
+				*(int32 *)3 = 123;
+			});
 		return true;
 	}
 	if (FParse::Command(&Cmd, TEXT("RENDERFATAL")))
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CauseRenderThreadCrash,
-		{
-			UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
-		SetCrashType(ECrashType::Debug);
-		LowLevelFatalError(TEXT("FError::LowLevelFatal test"));
-		});
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadCrash)(
+			[](FRHICommandList& RHICmdList)
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
+			SetCrashType(ECrashType::Debug);
+			LowLevelFatalError(TEXT("FError::LowLevelFatal test"));
+			});
 		return true;
 	}
 	if (FParse::Command(&Cmd, TEXT("RENDERENSURE")))
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(CauseRenderThreadEnsure,
-		{
-			UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
-		if (!ensure(0))
-		{
-			UE_LOG(LogEngine, Warning, TEXT("Ensure condition failed (this is the expected behavior)."));
-		}
-		});
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadEnsure)(
+			[](FRHICommandList& RHICmdList)
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Printed warning to log."));
+			if (!ensure(0))
+			{
+				UE_LOG(LogEngine, Warning, TEXT("Ensure condition failed (this is the expected behavior)."));
+			}
+			});
 		return true;
 	}
 	if (FParse::Command(&Cmd, TEXT("THREADCRASH")))
@@ -12412,13 +12422,13 @@ void UEngine::TrimMemory()
 	// For platforms which manage GPU memory directly we must Enqueue a flush, and wait for it to be processed
 	// so that any pending frees that depend on the GPU will be processed.  Otherwise a whole map's worth of GPU memory
 	// may be unavailable to load the next one.
-	ENQUEUE_UNIQUE_RENDER_COMMAND(FlushCommand,
-	{
-		GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-	RHIFlushResources();
-	GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-	}
-	);
+	ENQUEUE_RENDER_COMMAND(FlushCommand)(
+		[](FRHICommandList& RHICmdList)
+		{
+			GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+			RHIFlushResources();
+			GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+		});
 	FlushRenderingCommands();
 
 	// Ask systems to trim memory where possible
@@ -14202,6 +14212,31 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 		FPSColor
 	);
 	Y += RowHeight;
+
+#if RHI_RAYTRACING
+	if (GAveragePathTracedMRays > 0.0)
+	{
+		// Draw the MRays/frame counter.
+		Canvas->DrawShadowedString(
+			X,
+			Y,
+			*FString::Printf(TEXT("%5.2f MRays/fr"), GAveragePathTracedMRays),
+			Font,
+			FPSColor
+		);
+		Y += RowHeight;
+
+		// Draw the MRays/s counter.
+		Canvas->DrawShadowedString(
+			X,
+			Y,
+			*FString::Printf(TEXT("%5.2f MRays/s"), GAveragePathTracedMRays*GAverageFPS),
+			Font,
+			FPSColor
+		);
+		Y += RowHeight;
+	}
+#endif
 	return Y;
 }
 

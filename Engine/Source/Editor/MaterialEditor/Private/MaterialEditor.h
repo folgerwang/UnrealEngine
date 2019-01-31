@@ -96,16 +96,16 @@ public:
 	////////////////
 	// FMaterialRenderProxy interface.
 
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			OutMaterialRenderProxy = this;
-			OutMaterial = this;
+			return *this;
 		}
 		else
 		{
-			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
+			OutFallbackMaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, OutFallbackMaterialRenderProxy);
 		}
 	}
 
@@ -113,7 +113,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetVectorValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetVectorValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}
@@ -122,7 +122,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetScalarValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetScalarValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}
@@ -131,7 +131,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetTextureValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetTextureValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}

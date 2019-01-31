@@ -824,7 +824,15 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 						);
 					}
 				}
-				RHICmdList.EndRenderPass();
+
+				// @todo Could really use a refactor.
+				// Kind of gross but we don't want to restart renderpasses for no reason.
+				// If the color deficiency shaders are active within DrawElements there will not be a renderpass here.
+				// In the general case there will be a RenderPass active at this point.
+				if (RHICmdList.IsInsideRenderPass())
+				{
+					RHICmdList.EndRenderPass();
+				}
 			}
 
 			if (bCompositeUI)

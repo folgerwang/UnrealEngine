@@ -79,12 +79,13 @@ void FTrackEditorThumbnail::DestroyTexture()
 {
 	if (Texture)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(DestroyTexture,
-			FSlateTexture2DRHIRef*, Texture, Texture,
-		{
-			Texture->ReleaseResource();
-			delete Texture;
-		});
+		FSlateTexture2DRHIRef* InTexture = Texture;
+		ENQUEUE_RENDER_COMMAND(DestroyTexture)(
+			[InTexture](FRHICommandList& RHICmdList)
+			{
+				InTexture->ReleaseResource();
+				delete InTexture;
+			});
 
 		Texture = nullptr;
 	}
@@ -191,12 +192,12 @@ void FTrackEditorThumbnail::CopyTextureIn(FTexture2DRHIRef SourceTexture)
 		*bHasFinishedDrawingPtr = true;
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ResolveCaptureFrameTexture,
-		TFunction<void(FRHICommandListImmediate&)>, InRenderCommand, RenderCommand,
-	{
-		InRenderCommand(RHICmdList);
-	});
+	TFunction<void(FRHICommandListImmediate&)> InRenderCommand = RenderCommand;
+	ENQUEUE_RENDER_COMMAND(ResolveCaptureFrameTexture)(
+		[InRenderCommand](FRHICommandListImmediate& RHICmdList)
+		{
+			InRenderCommand(RHICmdList);
+		});
 }
 
 

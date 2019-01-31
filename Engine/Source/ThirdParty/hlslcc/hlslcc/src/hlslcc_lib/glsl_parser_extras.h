@@ -398,6 +398,8 @@ struct _mesa_glsl_parse_state
 	TStringToSetMap TextureToSamplerMap;
 
 	bool conservative_propagation;
+
+	bool bInBackEnd = false;
 };
 
 typedef struct YYLTYPE

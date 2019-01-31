@@ -112,7 +112,7 @@ const uint8* FSceneViewState::GetPrecomputedVisibilityData(FViewInfo& View, cons
 	if (Scene->PrecomputedVisibilityHandler && GAllowPrecomputedVisibility && View.Family->EngineShowFlags.PrecomputedVisibility)
 	{
 		const FPrecomputedVisibilityHandler& Handler = *Scene->PrecomputedVisibilityHandler;
-		FViewElementPDI VisibilityCellsPDI(&View, NULL);
+		FViewElementPDI VisibilityCellsPDI(&View, nullptr, nullptr);
 
 		// Draw visibility cell bounds for debugging if enabled
 		if ((GShowPrecomputedVisibilityCells || View.Family->EngineShowFlags.PrecomputedVisibilityCells) && !GShowRelevantPrecomputedVisibilityCells)

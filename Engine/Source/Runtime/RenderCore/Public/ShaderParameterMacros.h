@@ -18,12 +18,6 @@ class FRDGBufferSRV;
 class FRDGBufferUAV;
 
 
-// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
-// Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
-#define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
-static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
-
-
 /** Alignements tools because alignas() does not work on type in clang. */
 template<typename T, int32 Alignment>
 class TAlignedTypedef;
@@ -114,15 +108,21 @@ public:
 	{}
 
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
-	static TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage)
+	static TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage, EUniformBufferValidation Validation = EUniformBufferValidation::ValidateResources)
 	{
 		check(IsInRenderingThread() || IsInRHIThread());
-		return TUniformBufferRef<TBufferStruct>(RHICreateUniformBuffer(&Value,TBufferStruct::StaticStructMetadata.GetLayout(),Usage));
+		return TUniformBufferRef<TBufferStruct>(RHICreateUniformBuffer(&Value, TBufferStruct::FTypeInfo::GetStructMetadata()->GetLayout(), Usage, Validation));
 	}
+
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
 	static FLocalUniformBuffer CreateLocalUniformBuffer(FRHICommandList& RHICmdList, const TBufferStruct& Value, EUniformBufferUsage Usage)
 	{
-		return RHICmdList.BuildLocalUniformBuffer(&Value, sizeof(TBufferStruct), TBufferStruct::StaticStructMetadata.GetLayout());
+		return RHICmdList.BuildLocalUniformBuffer(&Value, sizeof(TBufferStruct), TBufferStruct::FTypeInfo::GetStructMetadata()->GetLayout());
+	}
+
+	void UpdateUniformBufferImmediate(const TBufferStruct& Value)
+	{
+		RHIUpdateUniformBuffer(GetReference(), &Value);
 	}
 
 private:
@@ -156,18 +156,22 @@ struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FRenderTargetBinding
 		, MipIndex(InMipIndex)
 	{}
 
-	inline const FRDGTexture* GetTexture() const {
+	inline const FRDGTexture* GetTexture() const
+	{
 		return Texture;
-	};
-	inline ERenderTargetLoadAction GetLoadAction() const {
+	}
+	inline ERenderTargetLoadAction GetLoadAction() const
+	{
 		return LoadAction;
-	};
-	inline ERenderTargetStoreAction GetStoreAction() const {
+	}
+	inline ERenderTargetStoreAction GetStoreAction() const
+	{
 		return StoreAction;
-	};
-	inline uint8 GetMipIndex() const {
+	}
+	inline uint8 GetMipIndex() const
+	{
 		return MipIndex;
-	};
+	}
 
 private:
 	/** All parameters required to bind a render target deferred. This are purposefully private to
@@ -219,7 +223,8 @@ struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FRenderTargetBindingSlots
 		return Output[Index];
 	}
 
-	struct FTypeInfo {
+	struct FTypeInfo
+	{
 		static constexpr int32 NumRows = 1;
 		static constexpr int32 NumColumns = 1;
 		static constexpr int32 NumElements = 0;
@@ -540,9 +545,12 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 		StructTypeName::zzGetMembers()); \
 	return &StaticStructMetadata;
 
+#define INTERNAL_LOCAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER return nullptr;
+
+#define INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER return RHICreateUniformBuffer(&InContents, StaticStructMetadata.GetLayout(), InUsage);
 
 /** Begins a uniform buffer struct declaration. */
-#define INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,ConstructorSuffix,GetStructMetadataScope) \
+#define INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,ConstructorSuffix,GetStructMetadataScope,CreateUniformBufferImpl) \
 	MS_ALIGN(SHADER_PARAMETER_STRUCT_ALIGNMENT) class PrefixKeywords StructTypeName \
 	{ \
 	public: \
@@ -556,6 +564,10 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 			using TAlignedType = StructTypeName; \
 			static inline const FShaderParametersMetadata* GetStructMetadata() { GetStructMetadataScope } \
 		}; \
+		static FUniformBufferRHIRef CreateUniformBuffer(const StructTypeName& InContents, EUniformBufferUsage InUsage) \
+		{ \
+			CreateUniformBufferImpl \
+		} \
 	private: \
 		typedef StructTypeName zzTThisStruct; \
 		struct zzFirstMemberId { enum { HasDeclaredResource = 0 }; }; \
@@ -566,10 +578,10 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 		typedef zzFirstMemberId
 
 /** Declares a member of a uniform buffer struct. */
-#define DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(BaseType,TypeInfo,MemberType,MemberName,ArrayDecl,Precision,OptionalShaderType,IsMemberStruct) \
+#define INTERNAL_SHADER_PARAMETER_EXPLICIT(BaseType,TypeInfo,MemberType,MemberName,ArrayDecl,DefaultValue,Precision,OptionalShaderType,IsMemberStruct) \
 		zzMemberId##MemberName; \
 	public: \
-		TypeInfo::TAlignedType MemberName; \
+		TypeInfo::TAlignedType MemberName DefaultValue; \
 		static_assert(BaseType != UBMT_INVALID, "Invalid type " #MemberType " of member " #MemberName "."); \
 	private: \
 		struct zzNextMemberId##MemberName { enum { HasDeclaredResource = zzMemberId##MemberName::HasDeclaredResource || !TypeInfo::bIsStoredInConstantBuffer }; }; \
@@ -610,7 +622,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	END_SHADER_PARAMETER_STRUCT()
  */
 #define BEGIN_SHADER_PARAMETER_STRUCT(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName, PrefixKeywords, {}, INTERNAL_LOCAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName, PrefixKeywords, {}, INTERNAL_LOCAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_LOCAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define END_SHADER_PARAMETER_STRUCT() \
 		zzLastMemberId; \
@@ -628,10 +640,10 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMyParameterStruct, "MyShaderBindingName");
  */
 #define BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,{} INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,{} INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(StructTypeName, PrefixKeywords) \
-	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,; INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName))
+	INTERNAL_SHADER_PARAMETER_STRUCT_BEGIN(StructTypeName,PrefixKeywords,; INTERNAL_BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT, INTERNAL_GLOBAL_SHADER_PARAMETER_GET_STRUCT_METADATA(StructTypeName), INTERNAL_GLOBAL_SHADER_PARAMETER_CREATE_UNIFORM_BUFFER)
 
 #define END_GLOBAL_SHADER_PARAMETER_STRUCT() \
 	END_SHADER_PARAMETER_STRUCT()
@@ -656,7 +668,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
 	SHADER_PARAMETER_EX(MemberType,MemberName,EShaderPrecisionModifier::Float)
 
 #define SHADER_PARAMETER_EX(MemberType,MemberName,Precision) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(TShaderParameterTypeInfo<MemberType>::BaseType, TShaderParameterTypeInfo<MemberType>, MemberType,MemberName,,Precision,TEXT(""),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(TShaderParameterTypeInfo<MemberType>::BaseType, TShaderParameterTypeInfo<MemberType>, MemberType,MemberName,,,Precision,TEXT(""),false)
 
 /** Adds a constant-buffer stored array of values.
  *
@@ -668,7 +680,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
 	SHADER_PARAMETER_ARRAY_EX(MemberType,MemberName,ArrayDecl,EShaderPrecisionModifier::Float)
 
 #define SHADER_PARAMETER_ARRAY_EX(MemberType,MemberName,ArrayDecl,Precision) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(TShaderParameterTypeInfo<MemberType ArrayDecl>::BaseType, TShaderParameterTypeInfo<MemberType ArrayDecl>, MemberType,MemberName,ArrayDecl,Precision,TEXT(""),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(TShaderParameterTypeInfo<MemberType ArrayDecl>::BaseType, TShaderParameterTypeInfo<MemberType ArrayDecl>, MemberType,MemberName,ArrayDecl,,Precision,TEXT(""),false)
 
 /** Adds a texture.
  *
@@ -676,7 +688,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_TEXTURE(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_TEXTURE(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_TEXTURE, TShaderResourceParameterTypeInfo<FTextureRHIParamRef>, FTextureRHIParamRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_TEXTURE, TShaderResourceParameterTypeInfo<FTextureRHIParamRef>, FTextureRHIParamRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a shader resource view.
  *
@@ -684,7 +696,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_SRV(Texture2D, MySRV)
  */
 #define SHADER_PARAMETER_SRV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_SRV, TShaderResourceParameterTypeInfo<FShaderResourceViewRHIParamRef>, FShaderResourceViewRHIParamRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_SRV, TShaderResourceParameterTypeInfo<FShaderResourceViewRHIParamRef>, FShaderResourceViewRHIParamRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a sampler.
  *
@@ -692,7 +704,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_SAMPLER(SamplerState, MySampler)
  */
 #define SHADER_PARAMETER_SAMPLER(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_SAMPLER, TShaderResourceParameterTypeInfo<FSamplerStateRHIParamRef>, FSamplerStateRHIParamRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_SAMPLER, TShaderResourceParameterTypeInfo<FSamplerStateRHIParamRef>, FSamplerStateRHIParamRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a render graph tracked texture.
  *
@@ -700,7 +712,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_TEXTURE, TShaderResourceParameterTypeInfo<FRDGTextureRef>, FRDGTextureRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE, TShaderResourceParameterTypeInfo<FRDGTextureRef>, FRDGTextureRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a shader resource view for a render graph tracked texture.
  *
@@ -708,7 +720,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE_SRV(Texture2D, MySRV)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE_SRV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_SRV, TShaderResourceParameterTypeInfo<FRDGTextureSRVRef>, FRDGTextureSRVRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE_SRV, TShaderResourceParameterTypeInfo<FRDGTextureSRVRef>, FRDGTextureSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a unordered access view for a render graph tracked texture.
  *
@@ -716,7 +728,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, MyUAV)
  */
 #define SHADER_PARAMETER_RDG_TEXTURE_UAV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_UAV, TShaderResourceParameterTypeInfo<FRDGTextureUAVRef>, FRDGTextureUAVRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_TEXTURE_UAV, TShaderResourceParameterTypeInfo<FRDGTextureUAVRef>, FRDGTextureUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a render graph tracked buffer.
  *
@@ -724,7 +736,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_RDG_BUFFER(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER, TShaderResourceParameterTypeInfo<FRDGBufferRef>, FRDGBufferRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER, TShaderResourceParameterTypeInfo<FRDGBufferRef>, FRDGBufferRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a shader resource view for a render graph tracked buffer.
  *
@@ -732,7 +744,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<float4>, MySRV)
  */
 #define SHADER_PARAMETER_RDG_BUFFER_SRV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_SRV, TShaderResourceParameterTypeInfo<FRDGBufferSRVRef>, FRDGBufferSRVRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER_SRV, TShaderResourceParameterTypeInfo<FRDGBufferSRVRef>, FRDGBufferSRVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a unordered access view for a render graph tracked buffer.
  *
@@ -740,7 +752,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<float4>, MyUAV)
  */
 #define SHADER_PARAMETER_RDG_BUFFER_UAV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_UAV, TShaderResourceParameterTypeInfo<FRDGBufferUAVRef>, FRDGBufferUAVRef,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RDG_BUFFER_UAV, TShaderResourceParameterTypeInfo<FRDGBufferUAVRef>, FRDGBufferUAVRef,MemberName,, = nullptr,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Nests a shader parameter structure into another one, in C++ and shader code.
  *
@@ -764,7 +776,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	float MyScalar = MyStruct_MyScalar;
  */
 #define SHADER_PARAMETER_STRUCT(StructType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_NESTED_STRUCT, StructType::FTypeInfo, StructType, MemberName,,EShaderPrecisionModifier::Float,TEXT(#StructType),true)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_NESTED_STRUCT, StructType::FTypeInfo, StructType, MemberName,,,EShaderPrecisionModifier::Float,TEXT(#StructType),true)
 
 /** Include a shader parameter structure into another one in shader code.
  *
@@ -788,7 +800,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	float MyScalarValue = MyScalar;
  */
 #define SHADER_PARAMETER_STRUCT_INCLUDE(StructType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_INCLUDED_STRUCT, StructType::FTypeInfo, StructType, MemberName,,EShaderPrecisionModifier::Float,TEXT(#StructType),true)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_INCLUDED_STRUCT, StructType::FTypeInfo, StructType, MemberName,,,EShaderPrecisionModifier::Float,TEXT(#StructType),true)
 
 /** Include a binding slot for a globally named shader parameter structure
  *
@@ -802,7 +814,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *		SHADER_PARAMETER_STRUCT_REF(FMyNestedStruct, MyStruct)
  */
 #define SHADER_PARAMETER_STRUCT_REF(StructType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_REFERENCED_STRUCT, TShaderParameterTypeInfo<TUniformBufferRef<StructType>>, TUniformBufferRef<StructType>,MemberName,,EShaderPrecisionModifier::Float,TEXT(#StructType),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_REFERENCED_STRUCT, TShaderParameterTypeInfo<TUniformBufferRef<StructType>>, TUniformBufferRef<StructType>,MemberName,,,EShaderPrecisionModifier::Float,TEXT(#StructType),false)
 
 /** Adds bindings slots for render targets on the structure. This is important for rasterizer based pass bind the
  * render target at the RHI pass creation. The name of the struct member will forced to RenderTargets, and
@@ -818,4 +830,4 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	Parameters.RenderTargets.DepthStencil = FDepthStencilBinding( //... );
  */
 #define RENDER_TARGET_BINDING_SLOTS() \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_RENDER_TARGET_BINDING_SLOTS, FRenderTargetBindingSlots::FTypeInfo, FRenderTargetBindingSlots,RenderTargets,,EShaderPrecisionModifier::Float,TEXT(""),false)
+	INTERNAL_SHADER_PARAMETER_EXPLICIT(UBMT_RENDER_TARGET_BINDING_SLOTS, FRenderTargetBindingSlots::FTypeInfo, FRenderTargetBindingSlots,RenderTargets,,,EShaderPrecisionModifier::Float,TEXT(""),false)

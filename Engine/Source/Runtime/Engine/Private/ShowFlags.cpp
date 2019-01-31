@@ -225,8 +225,6 @@ void FEngineShowFlags::AddNameByIndex(uint32 InIndex, FString& Out)
 	}
 }
 
-RENDERER_API void BuildDebugViewModeShader(EViewModeIndex);
-
 void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowFlags& EngineShowFlags)
 {
 	bool bPostProcessing = true;
@@ -322,7 +320,7 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 	EngineShowFlags.SetHLODColoration(ViewModeIndex == VMI_HLODColoration);
 }
 
-void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode)
+void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, bool bCanDisableTonemapper)
 {
 	if(ShowFlagInitMode == ESFIM_Game)
 	{
@@ -466,15 +464,25 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			EngineShowFlags.Particles = 0; // FX are fully streamed.
 			EngineShowFlags.Fog = 0;
 		}
+
+		if (ViewModeIndex == VMI_PathTracing)
+		{
+			EngineShowFlags.SetPathTracing(true);
+		}
+
+		if (ViewModeIndex == VMI_RayTracingDebug)
+		{
+			EngineShowFlags.SetRayTracingDebug(true);
+		}
 	}
 
 	// disable AA in full screen GBuffer visualization
-	if(EngineShowFlags.VisualizeBuffer && CurrentBufferVisualizationMode != NAME_None)
+	if (bCanDisableTonemapper && (EngineShowFlags.VisualizeBuffer || ViewModeIndex == VMI_RayTracingDebug ))
 	{
 		EngineShowFlags.SetTonemapper(false);
 	}
 
-	if(EngineShowFlags.Bones)
+	if (EngineShowFlags.Bones)
 	{
 		// Disabling some post processing effects when debug rendering bones as they dont work properly together
 		EngineShowFlags.TemporalAA = 0;
@@ -640,6 +648,14 @@ EViewModeIndex FindViewMode(const FEngineShowFlags& EngineShowFlags)
 	else if (EngineShowFlags.HLODColoration)
 	{
 		return VMI_HLODColoration;
+	}
+	else if (EngineShowFlags.PathTracing)
+	{
+		return VMI_PathTracing;
+	}
+	else if (EngineShowFlags.RayTracingDebug)
+	{
+		return VMI_RayTracingDebug;
 	}
 
 	return EngineShowFlags.Lighting ? VMI_Lit : VMI_Unlit;

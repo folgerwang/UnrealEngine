@@ -8,7 +8,6 @@
 
 #include "DebugViewModeCommon.ush"
 
-float4 AccuracyColors[5];
 float4 CPUTexelFactor; // In world space units.
 float PrimitiveAlpha;
 int TexCoordAnalysisIndex;
@@ -72,7 +71,7 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	ResolvedView = ResolveView(GetEyeIndex(DebugInputs.PackedEyeIndex));
+	ResolvedView = ResolveView(DebugInputs.EyeIndex);
 #else
 	ResolvedView = ResolveView();
 #endif
@@ -86,7 +85,7 @@ void Main(
 		{
 			float Accuracy = GetTexCoordSizeAccuracy(DebugInputs, TexCoordAnalysisIndex, CPUSize);
 			int ColorIndex = floor(Accuracy) + 2;
-			Result = lerp(AccuracyColors[ColorIndex].rgb, AccuracyColors[ColorIndex + 1].rgb, frac(Accuracy));
+			Result = lerp(DebugViewModePass.AccuracyColors[ColorIndex].rgb, DebugViewModePass.AccuracyColors[ColorIndex + 1].rgb, frac(Accuracy));
 		}
 	}
 	else
@@ -112,7 +111,7 @@ void Main(
 		if (abs(Accuracy) != UNDEF_ACCURACY)
 		{
 			int ColorIndex = floor(Accuracy) + 2;
-			Result = lerp(AccuracyColors[ColorIndex].rgb, AccuracyColors[ColorIndex + 1].rgb, frac(Accuracy));
+			Result = lerp(DebugViewModePass.AccuracyColors[ColorIndex].rgb, DebugViewModePass.AccuracyColors[ColorIndex + 1].rgb, frac(Accuracy));
 		}
 	}
 

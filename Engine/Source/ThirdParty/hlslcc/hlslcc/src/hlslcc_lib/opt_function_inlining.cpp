@@ -41,15 +41,9 @@
 #include "glsl_types.h"
 #include "hash_table.h"
 
-static void
-do_sampler_replacement(exec_list *instructions,
-ir_variable *sampler,
-ir_dereference *deref);
+static void do_sampler_replacement(exec_list *instructions, ir_variable *sampler, ir_dereference *deref);
 
-static void
-do_ref_replacement(exec_list *instructions,
-ir_variable *ref,
-ir_dereference *deref);
+static void do_ref_replacement(exec_list *instructions, ir_variable *ref, ir_dereference *deref);
 
 class ir_function_inlining_visitor : public ir_hierarchical_visitor
 {
@@ -64,18 +58,22 @@ public:
 		/* empty */
 	}
 
-	virtual ir_visitor_status visit_enter(ir_expression *);
-	virtual ir_visitor_status visit_enter(ir_call *);
-	virtual ir_visitor_status visit_enter(ir_return *);
-	virtual ir_visitor_status visit_enter(ir_texture *);
-	virtual ir_visitor_status visit_enter(ir_swizzle *);
+	virtual ir_visitor_status visit_enter(ir_expression*) override;
+	virtual ir_visitor_status visit_enter(ir_call*) override;
+	virtual ir_visitor_status visit_enter(ir_return*) override;
+	virtual ir_visitor_status visit_enter(ir_texture*) override;
+	virtual ir_visitor_status visit_enter(ir_swizzle*) override;
+	virtual ir_visitor_status visit_enter(ir_function_signature*) override;
+	virtual ir_visitor_status visit_leave(ir_function_signature*) override;
 
 	bool progress;
+
+	// Only used for debugging purposes
+	ir_function_signature* DebugOuterFunction = nullptr;
 };
 
 
-bool
-do_function_inlining(exec_list *instructions)
+bool do_function_inlining(exec_list *instructions)
 {
 	ir_function_inlining_visitor v;
 
@@ -109,8 +107,7 @@ replace_return_with_assignment(ir_instruction *ir, void *data)
 	}
 }
 
-void
-ir_call::generate_inline(ir_instruction *next_ir)
+void ir_call::generate_inline(ir_instruction* next_ir)
 {
 	void *ctx = ralloc_parent(this);
 	ir_variable **parameters;
@@ -122,7 +119,9 @@ ir_call::generate_inline(ir_instruction *next_ir)
 
 	num_parameters = 0;
 	foreach_iter(exec_list_iterator, iter_sig, this->callee->parameters)
+	{
 		num_parameters++;
+	}
 
 	parameters = new ir_variable *[num_parameters];
 
@@ -296,6 +295,18 @@ ir_visitor_status ir_function_inlining_visitor::visit_enter(ir_call *ir)
 	return visit_continue;
 }
 
+ir_visitor_status ir_function_inlining_visitor::visit_enter(ir_function_signature* ir)
+{
+	DebugOuterFunction = ir;
+	return ir_hierarchical_visitor::visit_enter(ir);
+}
+
+ir_visitor_status ir_function_inlining_visitor::visit_leave(ir_function_signature* ir)
+{
+	DebugOuterFunction = nullptr;
+	return ir_hierarchical_visitor::visit_leave(ir);
+}
+
 
 /**
 * Replaces references to the "sampler" variable with a clone of "deref."
@@ -319,11 +330,12 @@ public:
 	{
 	}
 
-	virtual ir_visitor_status visit_leave(ir_call *);
-	virtual ir_visitor_status visit_leave(ir_dereference_array *);
-	virtual ir_visitor_status visit_leave(ir_dereference_record *);
-	virtual ir_visitor_status visit_leave(ir_texture *);
-	virtual ir_visitor_status visit_leave(ir_dereference_image *);
+	virtual ir_visitor_status visit_leave(ir_call*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_array*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_record*) override;
+	virtual ir_visitor_status visit_leave(ir_texture*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_image*) override;
+	virtual ir_visitor_status visit_leave(ir_assignment*) override;
 
 	void replace_deref(ir_dereference **deref);
 	void replace_rvalue(ir_rvalue **rvalue);
@@ -378,6 +390,12 @@ ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_texture *ir)
 	return visit_continue;
 }
 
+ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_assignment* ir)
+{
+	replace_rvalue(&ir->rhs);
+	return visit_continue;
+}
+
 ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_dereference_array *ir)
 {
 	replace_rvalue(&ir->array);
@@ -413,10 +431,7 @@ ir_visitor_status ir_sampler_replacement_visitor::visit_leave(ir_dereference_ima
 	return visit_continue;
 }
 
-static void
-do_sampler_replacement(exec_list *instructions,
-ir_variable *sampler,
-ir_dereference *deref)
+static void do_sampler_replacement(exec_list *instructions, ir_variable *sampler, ir_dereference *deref)
 {
 	ir_sampler_replacement_visitor v(sampler, deref);
 
@@ -442,10 +457,10 @@ public:
 	{
 	}
 
-	virtual ir_visitor_status visit_leave(ir_call *);
-	virtual ir_visitor_status visit_leave(ir_dereference_array *);
-	virtual ir_visitor_status visit_leave(ir_dereference_record *);
-	virtual ir_visitor_status visit_leave(ir_atomic *);
+	virtual ir_visitor_status visit_leave(ir_call*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_array*) override;
+	virtual ir_visitor_status visit_leave(ir_dereference_record*) override;
+	virtual ir_visitor_status visit_leave(ir_atomic*) override;
 
 	void replace_deref(ir_dereference **deref);
 	void replace_rvalue(ir_rvalue **rvalue);

@@ -330,6 +330,14 @@ bool FMetalDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,
 		uint64 WaitMS = (Query->Type == RQT_AbsoluteTime) ? 2000 : 500;
 		if (bWait)
 		{
+			// RHI thread *must* be flushed at this point if the internal handles we rely upon are not yet valid.
+			// We *CANNOT* have one event per query as it consumes too many pthread objects.
+			if (!FRHICommandListExecutor::GetImmediateCommandList().Bypass() && IsRunningRHIInSeparateThread() && !Query->Buffer.CommandBufferFence.IsValid())
+			{
+				FRHICommandListExecutor::GetImmediateCommandList().RHIThreadFence(true);
+				FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+			}
+			
 			uint32 IdleStart = FPlatformTime::Cycles();
 		
 			bOK = Query->Buffer.Wait(WaitMS);

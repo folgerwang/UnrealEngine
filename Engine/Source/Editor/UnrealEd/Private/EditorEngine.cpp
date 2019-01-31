@@ -634,7 +634,6 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	GEngine->SetSubduedSelectionOutlineColor(StyleSettings->GetSubduedSelectionColor());
 	GEngine->SelectionHighlightIntensity = ViewportSettings->SelectionHighlightIntensity;
 	GEngine->BSPSelectionHighlightIntensity = ViewportSettings->BSPSelectionHighlightIntensity;
-	GEngine->HoverHighlightIntensity = ViewportSettings->HoverHighlightIntensity;
 
 	// Set navigation system property indicating whether navigation is supposed to rebuild automatically 
 	FWorldContext &EditorContext = GetEditorWorldContext();
@@ -3836,19 +3835,23 @@ void UEditorEngine::BuildReflectionCaptures(UWorld* World)
 		}
 	}
 
-	for (ULevel* Level : World->GetLevels())
 	{
-		if (Level->bIsVisible)
-		{
-			if (Level->MapBuildData)
-			{
-				// Remove all existing reflection capture data from visible levels before the build
-				Level->MapBuildData->InvalidateReflectionCaptures(Level->bIsLightingScenario ? &ResourcesToKeep : nullptr);
-			}
+		FGlobalComponentRecreateRenderStateContext Context;
 
-			if (Level->bIsLightingScenario)
+		for (ULevel* Level : World->GetLevels())
+		{
+			if (Level->bIsVisible)
 			{
-				LightingScenarios.Add(Level);
+				if (Level->MapBuildData)
+				{
+					// Remove all existing reflection capture data from visible levels before the build
+					Level->MapBuildData->InvalidateReflectionCaptures(Level->bIsLightingScenario ? &ResourcesToKeep : nullptr);
+				}
+
+				if (Level->bIsLightingScenario)
+				{
+					LightingScenarios.Add(Level);
+				}
 			}
 		}
 	}
@@ -7348,6 +7351,8 @@ void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeat
 
 	SlowTask.EnterProgressFrame(15.0f, NSLOCTEXT("Engine", "SlowTaskFinalizingMessage", "Finalizing"));
 	GShaderCompilingManager->ProcessAsyncResults(false, true);
+
+	PreviewFeatureLevelChanged.Broadcast(InFeatureLevel);
 }
 
 void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
@@ -7362,16 +7367,27 @@ void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPrevie
 	}
 }
 
-void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
+void UEditorEngine::AllMaterialsCacheResourceShadersForRendering(ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
 	FGlobalComponentRecreateRenderStateContext Recreate;
 	FlushRenderingCommands();
 	UMaterial::AllMaterialsCacheResourceShadersForRendering(true);
 	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering(true);
+	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
 }
 
-void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings/* = true*/)
 {
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		if (PreviewFeatureLevel != ERHIFeatureLevel::SM5)
+		{
+			UE_LOG(LogEditor, Warning, TEXT("Preview feature level is incompatible with ray tracing, defaulting to Shader Model 5"));
+			PreviewFeatureLevel = ERHIFeatureLevel::SM5;
+		}
+	}
+#endif
 	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
 	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == InPreviewFeatureLevel);
 
@@ -7387,10 +7403,8 @@ void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, cons
 	else if (InitialPreviewPlatform != MaterialQualityPlatform)
 	{
 		// Rebuild materials if we have the same feature level but a different 'material quality platform'
-		AllMaterialsCacheResourceShadersForRendering();
+		AllMaterialsCacheResourceShadersForRendering(InPreviewFeatureLevel);
 	}
-
-	PreviewFeatureLevelChanged.Broadcast(InPreviewFeatureLevel);
 
 	if (bSaveSettings)
 	{

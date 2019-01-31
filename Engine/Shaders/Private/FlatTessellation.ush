@@ -49,7 +49,7 @@ struct FFlatTessellationHSToDS
 		FHullShaderConstantOutput O = (FHullShaderConstantOutput)0;
 
 		#if INSTANCED_STEREO
-			ResolvedView = ResolveView(GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+			ResolvedView = ResolveView(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.EyeIndex);
 		#else
 			ResolvedView = ResolveView();
 		#endif
@@ -91,7 +91,7 @@ struct FFlatTessellationHSToDS
 	FFlatTessellationHSToDS MainHull( InputPatch<FPassSpecificVSToDS, IN_CONTROL_POINTS> I, uint ControlPointID : SV_OutputControlPointID )
 	{
 		#if INSTANCED_STEREO
-			ResolvedView = ResolveView(GetEyeIndex(I[0].FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+			ResolvedView = ResolveView(I[0].FactoryInterpolants.InterpolantsVSToPS.EyeIndex);
 		#else
 			ResolvedView = ResolveView();
 		#endif
@@ -99,7 +99,7 @@ struct FFlatTessellationHSToDS
 		FFlatTessellationHSToDS O = (FFlatTessellationHSToDS) 0;
 		
 		float3x3 TangentToLocal = VertexFactoryGetTangentToLocalDS(I[ControlPointID].FactoryInterpolants);
-		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal);
+		O.DisplacementScale = GetTangentSpaceNonUniformScales(TangentToLocal, VertexFactoryGetPrimitiveId(I[ControlPointID].FactoryInterpolants.InterpolantsVSToPS));
 
 		const uint NextControlPointID = ControlPointID < 2 ? ControlPointID + 1 : 0; // (ControlPointID + 1) % 3
 
@@ -144,7 +144,7 @@ struct FFlatTessellationHSToDS
 		)
 	{
 		#if INSTANCED_STEREO
-			ResolvedView = ResolveView(GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
+			ResolvedView = ResolveView(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.EyeIndex);
 			#if !MULTI_VIEW
 				OutClipDistance = 0.0;
 			#endif
@@ -168,7 +168,7 @@ struct FFlatTessellationHSToDS
 							
 		// Forward the eye index along	
 		#if INSTANCED_STEREO
-		Interp.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex;
+		Interp.FactoryInterpolants.InterpolantsVSToPS.EyeIndex = I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.EyeIndex;
 		#endif
 																		
 		FMaterialTessellationParameters MaterialParameters = GetMaterialTessellationParameters(Interp.FactoryInterpolants, WorldPosition.xyz);
@@ -221,9 +221,9 @@ struct FFlatTessellationHSToDS
 
 		#if INSTANCED_STEREO && !MULTI_VIEW
 		BRANCH
-		if (IsInstancedStereo(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex))
+		if (IsInstancedStereo())
 		{
-			const uint EyeIndex = GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex);
+			const uint EyeIndex = I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.EyeIndex;
 
 			// Clip at the center of the screen
 			OutClipDistance = dot(Result.Position, EyeClipEdge[EyeIndex]);

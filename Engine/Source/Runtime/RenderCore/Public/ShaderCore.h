@@ -64,11 +64,15 @@ DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader MapMemory"),STAT_Shaders_ShaderMapMemory
 
 inline TStatId GetMemoryStatType(EShaderFrequency ShaderFrequency)
 {
-	static_assert(6 == SF_NumFrequencies, "EShaderFrequency has a bad size.");
+	static_assert(9 == SF_NumFrequencies, "EShaderFrequency has a bad size.");
+
 	switch(ShaderFrequency)
 	{
-		case SF_Pixel:		return GET_STATID(STAT_PixelShaderMemory);
-		case SF_Compute:	return GET_STATID(STAT_PixelShaderMemory);
+		case SF_Pixel:				return GET_STATID(STAT_PixelShaderMemory);
+		case SF_Compute:			return GET_STATID(STAT_PixelShaderMemory);
+		case SF_RayGen:				return GET_STATID(STAT_PixelShaderMemory);
+		case SF_RayMiss:			return GET_STATID(STAT_PixelShaderMemory);
+		case SF_RayHitGroup:		return GET_STATID(STAT_PixelShaderMemory);
 	}
 	return GET_STATID(STAT_VertexShaderMemory);
 }
@@ -138,6 +142,8 @@ struct FShaderTarget
 	}
 };
 
+static_assert(sizeof(FShaderTarget) == sizeof(uint32), "FShaderTarget is expected to be bit-packed into a single uint32.");
+
 enum ECompilerFlags
 {
 	CFLAG_PreferFlowControl = 0,
@@ -168,7 +174,43 @@ enum ECompilerFlags
 	// Shaders uses external texture so may need special runtime handling
 	CFLAG_UsesExternalTexture,
 	// Use emulated uniform buffers on supported platforms
-	CFLAG_UseEmulatedUB
+	CFLAG_UseEmulatedUB,
+	// Enable wave operation intrinsics (requires DX12 and DXC/DXIL on PC).
+	// Check GRHISupportsWaveOperations before using shaders compiled with this flag at runtime.
+	// https://github.com/Microsoft/DirectXShaderCompiler/wiki/Wave-Intrinsics
+	CFLAG_WaveOperations,
+};
+
+enum class EShaderParameterType : uint8
+{
+	LooseData,
+	UniformBuffer,
+	Sampler,
+	SRV,
+	UAV,
+
+	Num
+};
+
+struct FParameterAllocation
+{
+	uint16 BufferIndex;
+	uint16 BaseIndex;
+	uint16 Size;
+	EShaderParameterType Type;
+	mutable bool bBound;
+
+	FParameterAllocation() :
+		Type(EShaderParameterType::Num),
+		bBound(false)
+	{}
+
+	friend FArchive& operator<<(FArchive& Ar,FParameterAllocation& Allocation)
+	{
+		Ar << Allocation.BufferIndex << Allocation.BaseIndex << Allocation.Size << Allocation.bBound;
+		Ar << Allocation.Type;
+		return Ar;
+	}
 };
 
 /**
@@ -183,7 +225,7 @@ public:
 
 	RENDERCORE_API bool FindParameterAllocation(const TCHAR* ParameterName,uint16& OutBufferIndex,uint16& OutBaseIndex,uint16& OutSize) const;
 	RENDERCORE_API bool ContainsParameterAllocation(const TCHAR* ParameterName) const;
-	RENDERCORE_API void AddParameterAllocation(const TCHAR* ParameterName, uint16 BufferIndex, uint16 BaseIndex, uint16 Size);
+	RENDERCORE_API void AddParameterAllocation(const TCHAR* ParameterName,uint16 BufferIndex,uint16 BaseIndex,uint16 Size,EShaderParameterType ParameterType);
 	RENDERCORE_API void RemoveParameterAllocation(const TCHAR* ParameterName);
 	/** Checks that all parameters are bound and asserts if any aren't in a debug build
 	* @param InVertexFactoryType can be 0
@@ -196,7 +238,8 @@ public:
 	friend FArchive& operator<<(FArchive& Ar,FShaderParameterMap& InParameterMap)
 	{
 		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
-		return Ar << InParameterMap.ParameterMap;
+		Ar << InParameterMap.ParameterMap;
+		return Ar;
 	}
 
 	inline void GetAllParameterNames(TArray<FString>& OutNames) const
@@ -204,23 +247,7 @@ public:
 		ParameterMap.GenerateKeyArray(OutNames);
 	}
 
-private:
-	struct FParameterAllocation
-	{
-		uint16 BufferIndex;
-		uint16 BaseIndex;
-		uint16 Size;
-		mutable bool bBound;
-
-		FParameterAllocation() :
-			bBound(false)
-		{}
-
-		friend FArchive& operator<<(FArchive& Ar, FParameterAllocation& Allocation)
-		{
-			return Ar << Allocation.BufferIndex << Allocation.BaseIndex << Allocation.Size << Allocation.bBound;
-		}
-	};
+	inline const TMap<FString, FParameterAllocation>& GetParameterMap() const { return ParameterMap; }
 
 	TMap<FString,FParameterAllocation> ParameterMap;
 };
@@ -683,6 +710,12 @@ struct FShaderCompilerError
 	:	ErrorVirtualFilePath(TEXT(""))
 	,	ErrorLineString(TEXT(""))
 	,	StrippedErrorMessage(InStrippedErrorMessage)
+	{}
+
+	FShaderCompilerError(const TCHAR* InVirtualFilePath, const TCHAR* InLineString, const TCHAR* InStrippedErrorMessage)
+		: ErrorVirtualFilePath(InVirtualFilePath)
+		, ErrorLineString(InLineString)
+		, StrippedErrorMessage(InStrippedErrorMessage)
 	{}
 
 	FString ErrorVirtualFilePath;

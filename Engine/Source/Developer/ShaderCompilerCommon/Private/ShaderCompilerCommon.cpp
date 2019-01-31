@@ -107,7 +107,7 @@ bool BuildResourceTableMapping(
 			if (!ParameterMap.FindParameterAllocation(*Entry.UniformBufferName, UniformBufferIndex, UBBaseIndex, UBSize))
 			{
 				UniformBufferIndex = UsedUniformBufferSlots.FindAndSetFirstZeroBit();
-				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0);
+				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0,EShaderParameterType::UniformBuffer);
 			}
 
 			// Mark used UB index
@@ -131,19 +131,19 @@ bool BuildResourceTableMapping(
 			switch( Entry.Type )
 			{
 			case UBMT_TEXTURE:
-			case UBMT_GRAPH_TRACKED_TEXTURE:
+			case UBMT_RDG_TEXTURE:
 				OutSRT.TextureMap.Add(ResourceMap);
 				break;
 			case UBMT_SAMPLER:
 				OutSRT.SamplerMap.Add(ResourceMap);
 				break;
 			case UBMT_SRV:
-			case UBMT_GRAPH_TRACKED_SRV:
-			case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+			case UBMT_RDG_TEXTURE_SRV:
+			case UBMT_RDG_BUFFER_SRV:
 				OutSRT.ShaderResourceViewMap.Add(ResourceMap);
 				break;
-			case UBMT_GRAPH_TRACKED_UAV:
-			case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+			case UBMT_RDG_TEXTURE_UAV:
+			case UBMT_RDG_BUFFER_UAV:
 				OutSRT.UnorderedAccessViewMap.Add(ResourceMap);
 				break;
 			default:
@@ -513,7 +513,7 @@ void MoveShaderParametersToRootConstantBuffer(const FShaderCompilerInput& Compil
 			if ((Char >= 'a' && Char <= 'z') ||
 				(Char >= 'A' && Char <= 'Z') ||
 				(Char >= '0' && Char <= '9') ||
-				Char == '<' || Char == '>')
+				Char == '<' || Char == '>' || Char == '_')
 			{
 				if (TypeStartPos == -1)
 				{
@@ -763,7 +763,7 @@ void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environmen
 	}
 }
 
-FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
+FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input, uint32 CCFlags)
 {
 	FString Text(TEXT("-directcompile -format="));
 	Text += Input.ShaderFormat.GetPlainNameString();
@@ -777,6 +777,11 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	case SF_Geometry:	Text += TEXT(" -gs"); break;
 	case SF_Pixel:		Text += TEXT(" -ps"); break;
 	case SF_Compute:	Text += TEXT(" -cs"); break;
+#if RHI_RAYTRACING
+	case SF_RayGen:			Text += TEXT(" -rgs"); break;
+	case SF_RayMiss:		Text += TEXT(" -rms"); break;
+	case SF_RayHitGroup:	Text += TEXT(" -rhs"); break;
+#endif // RHI_RAYTRACING
 	default: break;
 	}
 	if (Input.bCompilingForShaderPipeline)
@@ -808,6 +813,11 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	{
 		Text += TEXT(" -cflags=");
 		Text += FString::Printf(TEXT("%llu"), CFlags);
+	}
+	if (CCFlags)
+	{
+		Text += TEXT(" -hlslccflags=");
+		Text += FString::Printf(TEXT("%llu"), CCFlags);
 	}
 	// When we're running in directcompile mode, we don't to spam the crash reporter
 	Text += TEXT(" -nocrashreports");
@@ -1181,7 +1191,10 @@ namespace CrossCompiler
 		TEXT("Domain"),
 		TEXT("Pixel"),
 		TEXT("Geometry"),
-		TEXT("Compute")
+		TEXT("Compute"),
+		TEXT("RayGen"),
+		TEXT("RayMiss"),
+		TEXT("RayHitGroup"),
 	};
 
 	/** Compile time check to verify that the GL mapping tables are up-to-date. */

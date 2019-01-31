@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -150,6 +150,9 @@ private:
 
 	/** Callback for updating preview socket meshes if the static mesh or socket has been modified. */
 	void OnObjectPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
+
+	/** Override for preview component selection to inform the editor we consider it selected. */
+	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 private:
 	
 	/** The parent tab where this viewport resides */

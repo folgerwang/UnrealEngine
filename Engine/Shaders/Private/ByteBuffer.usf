@@ -2,128 +2,50 @@
 
 #include "Common.ush"
 
-uint Value;
+float4 Value;
 uint Size;
 uint SrcOffset;
 uint DstOffset;
 
-ByteAddressBuffer	SrcBuffer;
-RWByteAddressBuffer	DstBuffer;
+StructuredBuffer<float4> SrcBuffer;
+RWStructuredBuffer<float4> DstBuffer;
 
 [numthreads(THREADGROUP_SIZE, 1, 1)]
 void MemsetBufferCS( uint3 DispatchThreadId : SV_DispatchThreadID ) 
 {
-	uint DstIndex = DstOffset + DispatchThreadId.x * 4;
+	uint DestIndex = DstOffset + DispatchThreadId.x;
 
-	if( ( DispatchThreadId.x + 3 ) * 4 < Size )
+	if (DispatchThreadId.x < Size)
 	{
-		DstBuffer.Store4( DstIndex * 4, Value );
-	}
-	else if( ( DispatchThreadId.x + 2 ) * 4 < Size )
-	{
-		DstBuffer.Store3( DstIndex * 4, Value );
-	}
-	else if( ( DispatchThreadId.x + 1 ) * 4 < Size )
-	{
-		DstBuffer.Store2( DstIndex * 4, Value );
-	}
-	else if( ( DispatchThreadId.x + 0 ) * 4 < Size )
-	{
-		DstBuffer.Store( DstIndex * 4, Value );
+		DstBuffer[DestIndex] = Value;
 	}
 }
 
 [numthreads(THREADGROUP_SIZE, 1, 1)]
-void MemcpyBufferCS( uint3 DispatchThreadId : SV_DispatchThreadID ) 
+void MemcpyBufferCS(uint3 DispatchThreadId : SV_DispatchThreadID) 
 {
-	uint SrcIndex = SrcOffset + DispatchThreadId.x * 4;
-	uint DstIndex = DstOffset + DispatchThreadId.x * 4;
+	uint SrcIndex = SrcOffset + DispatchThreadId.x;
+	uint DestIndex = DstOffset + DispatchThreadId.x;
 
-	if( ( DispatchThreadId.x + 3 ) * 4 < Size )
+	if (DispatchThreadId.x < Size)
 	{
-		uint4 SrcData = SrcBuffer.Load4( SrcIndex * 4 );
-		DstBuffer.Store4( DstIndex * 4, SrcData );
-	}
-	else if( ( DispatchThreadId.x + 2 ) * 4 < Size )
-	{
-		uint3 SrcData = SrcBuffer.Load3( SrcIndex * 4 );
-		DstBuffer.Store3( DstIndex * 4, SrcData );
-	}
-	else if( ( DispatchThreadId.x + 1 ) * 4 < Size )
-	{
-		uint2 SrcData = SrcBuffer.Load2( SrcIndex * 4 );
-		DstBuffer.Store2( DstIndex * 4, SrcData );
-	}
-	else if( ( DispatchThreadId.x + 0 ) * 4 < Size )
-	{
-		uint SrcData = SrcBuffer.Load( SrcIndex * 4 );
-		DstBuffer.Store( DstIndex * 4, SrcData );
+		DstBuffer[DestIndex] = SrcBuffer[SrcIndex];
 	}
 }
 
-
-#ifndef UINT_COPY_SIZE
-#define UINT_COPY_SIZE	1
-#endif
-
 uint NumScatters;
-
-ByteAddressBuffer	ScatterBuffer;
+Buffer<float4> UploadBuffer;
+Buffer<uint> ScatterBuffer;
 
 [numthreads(THREADGROUP_SIZE, 1, 1)]
 void ScatterCopyCS( uint3 DispatchThreadId : SV_DispatchThreadID ) 
 {
-#if 1
 	uint ScatterIndex = DispatchThreadId.x;
 	
-	if( ScatterIndex < NumScatters )
+	if (ScatterIndex < NumScatters)
 	{
-		uint DstIndex = ScatterBuffer.Load( ScatterIndex * 4 );
+		uint DestIndex = ScatterBuffer.Load(ScatterIndex);
 		uint SrcIndex = ScatterIndex;
-		uint SrcData = SrcBuffer.Load( SrcIndex * 4 );
-		DstBuffer.Store( DstIndex * 4, SrcData );
-		//DstBuffer.Store( DstIndex * 4, DispatchThreadId.x );
-		//DstBuffer.Store( SrcIndex, DstIndex );
+		DstBuffer[DestIndex] = UploadBuffer.Load(SrcIndex);
 	}
-#else
-	uint ScatterIndex = DispatchThreadId.x * 4;
-	
-	if( ScatterIndex < NumScatters )
-	{
-		uint4 DstIndex = ScatterBuffer.Load4( ScatterIndex * 4 );
-		
-#if UINT_COPY_SIZE == 1
-		// uint copy, 4 per thread
-		uint  SrcIndex = ScatterIndex;
-		uint4 SrcData = SrcBuffer.Load4( SrcIndex * 4 );
-
-		UNROLL
-		for( uint i = 0; i < 4; i++ )
-		{
-			if( ScatterIndex + i < NumScatters )
-			{
-				DstBuffer.Store( DstIndex[i] * 4, SrcData[i] );
-				//DstBuffer.Store( DstIndex[i] * 4, DispatchThreadId.x );
-				//DstBuffer.Store( DstIndex[i] * 4, DstIndex[i] );
-				//DstBuffer.Store( (SrcIndex +  i) * 4, DstIndex[i] );
-			}
-		}
-#elif UINT_COPY_SIZE == 4
-		// uint4 copy, 4 per thread
-		UNROLL
-		for( uint i = 0; i < 4; i++ )
-		{
-			if( ScatterIndex + i < NumScatters )
-			{
-				uint  SrcIndex = ScatterIndex + i;
-				uint4 SrcData = SrcBuffer.Load4( SrcIndex * 4 );
-
-				DstBuffer.Store4( DstIndex[i] * 16, SrcData );
-			}
-		}
-#else
-#error Bad copy size
-#endif
-	}
-#endif
 }

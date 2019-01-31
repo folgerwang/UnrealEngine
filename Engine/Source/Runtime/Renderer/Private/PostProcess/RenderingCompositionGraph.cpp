@@ -138,28 +138,26 @@ void Test()
 
 void ExecuteCompositionGraphDebug()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		StartDebugCompositionGraph,
-	{
-		GDebugCompositionGraphFrames = 1;
-		Test();
-	}
-	);
+	ENQUEUE_RENDER_COMMAND(StartDebugCompositionGraph)(
+		[](FRHICommandList& RHICmdList)
+		{
+			GDebugCompositionGraphFrames = 1;
+			Test();
+		});
 }
 
 // main thread
 void CompositionGraph_OnStartFrame()
 {
 #if !UE_BUILD_SHIPPING
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		DebugCompositionGraphDec,
-	{
-		if(GDebugCompositionGraphFrames)
+	ENQUEUE_RENDER_COMMAND(DebugCompositionGraphDec)(
+		[](FRHICommandList& RHICmdList)
 		{
-			--GDebugCompositionGraphFrames;
-		}
-	}
-	);		
+			if(GDebugCompositionGraphFrames)
+			{
+				--GDebugCompositionGraphFrames;
+			}
+		});		
 #endif
 }
 

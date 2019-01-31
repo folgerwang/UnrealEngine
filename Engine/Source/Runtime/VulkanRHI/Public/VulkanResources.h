@@ -38,7 +38,7 @@ enum
 {
 	NUM_OCCLUSION_QUERIES_PER_POOL = 4096,
 
-	NUM_TIMESTAMP_QUERIES_PER_POOL = 10240,
+	NUM_TIMESTAMP_QUERIES_PER_POOL = 1024,
 };
 
 struct FSamplerYcbcrConversionInitializer
@@ -1259,11 +1259,17 @@ public:
 class FVulkanUniformBuffer : public FRHIUniformBuffer
 {
 public:
-	FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage, bool bCopyIntoConstantData);
+	FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage InUsage, EUniformBufferValidation Validation, bool bCopyIntoConstantData);
 
 	TArray<uint8> ConstantData;
 
 	const TArray<TRefCountPtr<FRHIResource>>& GetResourceTable() const { return ResourceTable; }
+
+	void UpdateResourceTable(const FRHIUniformBufferLayout& InLayout, const void* Contents, int32 ResourceNum);
+	void UpdateResourceTable(FRHIResource** Resources, int32 ResourceNum);
+
+	virtual void Update(const void* Contents, int32 ContentsSize);
+
 
 private:
 	TArray<TRefCountPtr<FRHIResource>> ResourceTable;
@@ -1272,7 +1278,9 @@ private:
 class FVulkanRealUniformBuffer : public FVulkanUniformBuffer, public FVulkanResourceMultiBuffer
 {
 public:
-	FVulkanRealUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage);
+	FVulkanRealUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage, EUniformBufferValidation Validation);
+
+	virtual void Update(const void* Contents, int32 ContentsSize);
 
 private:
 	TArray<TRefCountPtr<FRHIResource>> ResourceTable;

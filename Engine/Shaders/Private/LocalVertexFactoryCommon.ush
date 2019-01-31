@@ -32,7 +32,13 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
+#endif
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	nointerpolation uint PrimitiveId : PRIMITIVE_ID;
+	#if NEEDS_LIGHTMAP_COORDINATE
+		nointerpolation uint LightmapDataIndex : LIGHTMAP_ID;
+	#endif
 #endif
 };
 
@@ -74,15 +80,26 @@ void SetColor(inout FVertexFactoryInterpolantsVSToPS Interpolants, float4 InValu
 }
 
 #if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
+void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1, out uint LightmapDataIndex)
 {
 	LightmapUV0 = Interpolants.LightMapCoordinate.xy * float2( 1, 0.5 );
 	LightmapUV1 = LightmapUV0 + float2( 0, 0.5 );
+
+#if VF_USE_PRIMITIVE_SCENE_DATA && NEEDS_LIGHTMAP_COORDINATE
+	LightmapDataIndex = Interpolants.LightmapDataIndex;
+#else
+	LightmapDataIndex = 0;
+#endif
 }
 
-float2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
+void GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 ShadowMapCoordinate, out uint LightmapDataIndex)
 {
-	return Interpolants.LightMapCoordinate.zw;
+#if VF_USE_PRIMITIVE_SCENE_DATA && NEEDS_LIGHTMAP_COORDINATE
+	LightmapDataIndex = Interpolants.LightmapDataIndex;
+#else
+	LightmapDataIndex = 0;
+#endif
+	ShadowMapCoordinate = Interpolants.LightMapCoordinate.zw;
 }
 
 void SetLightMapCoordinate(inout FVertexFactoryInterpolantsVSToPS Interpolants, float2 InLightMapCoordinate, float2 InShadowMapCoordinate)
@@ -111,6 +128,28 @@ void SetTangents(inout FVertexFactoryInterpolantsVSToPS Interpolants, float3 InT
 #endif
 }
 
+uint GetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	return Interpolants.PrimitiveId;
+#else
+	return 0;
+#endif
+}
+
+void SetPrimitiveId(inout FVertexFactoryInterpolantsVSToPS Interpolants, uint PrimitiveId)
+{
+#if VF_USE_PRIMITIVE_SCENE_DATA
+	Interpolants.PrimitiveId = PrimitiveId;
+#endif
+}
+
+void SetLightmapDataIndex(inout FVertexFactoryInterpolantsVSToPS Interpolants, uint LightmapDataIndex)
+{
+#if VF_USE_PRIMITIVE_SCENE_DATA && NEEDS_LIGHTMAP_COORDINATE
+	Interpolants.LightmapDataIndex = LightmapDataIndex;
+#endif
+}
 
 #else // #if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 
@@ -154,7 +193,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -193,7 +232,7 @@ void SetColor(inout FVertexFactoryInterpolantsVSToPS Interpolants, float4 InValu
 	#endif
 }
 
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
+void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1, out uint LightmapDataIndex)
 {
 	#if USE_INTERPOLATOR_345 
 		LightmapUV0 = Interpolants.PackedInterpolator3.xy;
@@ -201,14 +240,17 @@ void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out f
 	#else
 		LightmapUV0 = LightmapUV1 = 0;
 	#endif
+
+	LightmapDataIndex = 0;
 }
 
-float2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
+void GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 ShadowMapCoordinate, out uint LightmapDataIndex)
 {
+	LightmapDataIndex = 0;
 	#if USE_INTERPOLATOR_345 
-		return Interpolants.PackedInterpolator5.xy;
+		ShadowMapCoordinate = Interpolants.PackedInterpolator5.xy;
 	#else
-		return float2(0, 0);
+		ShadowMapCoordinate = float2(0, 0);
 	#endif
 }
 
@@ -250,5 +292,14 @@ void SetTangents(inout FVertexFactoryInterpolantsVSToPS Interpolants, float3 InT
 		Interpolants.PackedUVs[0].zw = 0;
 	#endif
 }
+
+uint GetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+void SetPrimitiveId(inout FVertexFactoryInterpolantsVSToPS Interpolants, uint PrimitiveId) {}
+
+void SetLightmapDataIndex(inout FVertexFactoryInterpolantsVSToPS Interpolants, uint LightmapDataIndex) {}
 
 #endif

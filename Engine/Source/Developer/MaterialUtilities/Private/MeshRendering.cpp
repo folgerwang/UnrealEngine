@@ -26,9 +26,8 @@
 #include "CanvasItem.h"
 #include "CanvasTypes.h"
 #include "LocalVertexFactory.h"
-#include "DrawingPolicy.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
-
+#include "MeshPassProcessor.h"
 #include "RendererInterface.h"
 #include "EngineModule.h"
 #include "LightMapHelpers.h"
@@ -43,8 +42,10 @@ class FMeshRenderInfo : public FLightCacheInterface
 {
 public:
 	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer)
-		: FLightCacheInterface(InLightMap, InShadowMap)
+		: FLightCacheInterface()
 	{
+		SetLightMap(InLightMap);
+		SetShadowMap(InShadowMap);
 		SetPrecomputedLightingBuffer(Buffer);
 	}
 
@@ -471,7 +472,7 @@ public:
 		return 2;
 	}
 
-	static void RenderMaterial(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const class FSceneView& View, FRenderData& Data)
+	static void RenderMaterial(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const class FSceneView& View, FRenderData& Data)
 	{
 		// Check if material is TwoSided - single-sided materials should be rendered with normal and reverse
 		// triangle corner orders, to avoid problems with inside-out meshes or mesh parts. Note:
@@ -516,7 +517,7 @@ public:
 
 		check(OneFrameResource.IsValidForRendering());
 
-		Data.LCI->SetPrecomputedLightingBuffer(LightMapHelpers::CreateDummyPrecomputedLightingUniformBuffer(UniformBuffer_SingleFrame, GMaxRHIFeatureLevel, Data.LCI));
+		Data.LCI->CreatePrecomputedLightingUniformBuffer_RenderingThread(View.GetFeatureLevel());
 		MeshElement.LCI = Data.LCI;
 		MeshElement.ReverseCulling = false;
 
@@ -527,7 +528,7 @@ public:
 		GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, View, MeshElement, false /*bIsHitTesting*/, FHitProxyId());
 	}
 
-	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 	{
 		checkSlow(Data);
 		// current render target set for the canvas
@@ -601,7 +602,7 @@ public:
 		RenderScope.EnqueueRenderCommand(
 			[Parameters](FRHICommandListImmediate& RHICmdList)
 		{
-			FDrawingPolicyRenderState DrawRenderState(*Parameters.View);
+			FMeshPassProcessorRenderState DrawRenderState(*Parameters.View);
 
 			// disable depth test & writes
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());

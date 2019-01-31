@@ -190,7 +190,7 @@ FMetalStateCache::~FMetalStateCache()
 		VertexBuffers[i].Length = 0;
 		VertexBuffers[i].Offset = 0;
 	}
-	for (uint32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
+	for (uint32 Frequency = 0; Frequency < SF_NumStandardFrequencies; Frequency++)
 	{
 		ShaderSamplers[Frequency].Bound = 0;
 		for (uint32 i = 0; i < ML_MaxSamplers; i++)
@@ -208,7 +208,6 @@ FMetalStateCache::~FMetalStateCache()
 			ShaderBuffers[Frequency].Formats[i] = PF_Unknown;
 		}
 		ShaderBuffers[Frequency].Bound = 0;
-		ShaderBuffers[Frequency].FormatHash = 0;
 		for (uint32 i = 0; i < ML_MaxTextures; i++)
 		{
 			ShaderTextures[Frequency].Textures[i] = nil;
@@ -248,7 +247,7 @@ void FMetalStateCache::Reset(void)
 		VertexBuffers[i].Length = 0;
 		VertexBuffers[i].Offset = 0;
 	}
-	for (uint32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
+	for (uint32 Frequency = 0; Frequency < SF_NumStandardFrequencies; Frequency++)
 	{
 		ShaderSamplers[Frequency].Bound = 0;
 		for (uint32 i = 0; i < ML_MaxSamplers; i++)
@@ -264,7 +263,6 @@ void FMetalStateCache::Reset(void)
 			ShaderBuffers[Frequency].Formats[i] = PF_Unknown;
 		}
 		ShaderBuffers[Frequency].Bound = 0;
-		ShaderBuffers[Frequency].FormatHash = 0;
 		for (uint32 i = 0; i < ML_MaxTextures; i++)
 		{
 			ShaderTextures[Frequency].Textures[i] = nil;
@@ -339,7 +337,7 @@ void FMetalStateCache::SetScissorRect(bool const bEnable, mtlpp::ScissorRect con
 
 void FMetalStateCache::SetBlendFactor(FLinearColor const& InBlendFactor)
 {
-	if(BlendFactor != InBlendFactor) // @todo zebra
+	if(BlendFactor != InBlendFactor)
 	{
 		BlendFactor = InBlendFactor;
 		RasterBits |= EMetalRenderFlagBlendColor;
@@ -348,7 +346,7 @@ void FMetalStateCache::SetBlendFactor(FLinearColor const& InBlendFactor)
 
 void FMetalStateCache::SetStencilRef(uint32 const InStencilRef)
 {
-	if(StencilRef != InStencilRef) // @todo zebra
+	if(StencilRef != InStencilRef)
 	{
 		StencilRef = InStencilRef;
 		RasterBits |= EMetalRenderFlagStencilReferenceValue;
@@ -357,7 +355,7 @@ void FMetalStateCache::SetStencilRef(uint32 const InStencilRef)
 
 void FMetalStateCache::SetDepthStencilState(FMetalDepthStencilState* InDepthStencilState)
 {
-	if(DepthStencilState != InDepthStencilState) // @todo zebra
+	if(DepthStencilState != InDepthStencilState)
 	{
 		DepthStencilState = InDepthStencilState;
 		RasterBits |= EMetalRenderFlagDepthStencilState;
@@ -366,7 +364,7 @@ void FMetalStateCache::SetDepthStencilState(FMetalDepthStencilState* InDepthSten
 
 void FMetalStateCache::SetRasterizerState(FMetalRasterizerState* InRasterizerState)
 {
-	if(RasterizerState != InRasterizerState) // @todo zebra
+	if(RasterizerState != InRasterizerState)
 	{
 		RasterizerState = InRasterizerState;
 		RasterBits |= EMetalRenderFlagFrontFacingWinding|EMetalRenderFlagCullMode|EMetalRenderFlagDepthBias|EMetalRenderFlagTriangleFillMode;
@@ -375,7 +373,7 @@ void FMetalStateCache::SetRasterizerState(FMetalRasterizerState* InRasterizerSta
 
 void FMetalStateCache::SetComputeShader(FMetalComputeShader* InComputeShader)
 {
-	if(ComputeShader != InComputeShader) // @todo zebra
+	if(ComputeShader != InComputeShader)
 	{
 		ComputeShader = InComputeShader;
 		
@@ -1066,10 +1064,10 @@ void FMetalStateCache::SetGraphicsPipelineState(FMetalGraphicsPipelineState* Sta
 	{
 		GraphicsPSO = State;
 		
-		bool bNewUsingTessellation = (State && State->GetPipeline(IndexType, EMetalBufferType_Dynamic, EMetalBufferType_Dynamic, EMetalBufferType_Dynamic)->TessellationPipelineDesc.DomainVertexDescriptor);
+		bool bNewUsingTessellation = (State && State->GetPipeline(IndexType)->TessellationPipelineDesc.DomainVertexDescriptor);
 		if (bNewUsingTessellation != bUsingTessellation)
 		{
-			for (uint32 i = 0; i < SF_NumFrequencies; i++)
+			for (uint32 i = 0; i < SF_NumStandardFrequencies; i++)
 			{
 				ShaderBuffers[i].Bound = UINT32_MAX;
 #if PLATFORM_MAC
@@ -1094,7 +1092,6 @@ void FMetalStateCache::SetGraphicsPipelineState(FMetalGraphicsPipelineState* Sta
 			ShaderTextures[SF_Hull].Bound = UINT32_MAX;
 #endif
 			ShaderSamplers[SF_Hull].Bound = UINT16_MAX;
-			ShaderBuffers[SF_Hull].FormatHash = 0;
 			
 			for (uint32 i = 0; i < ML_MaxBuffers; i++)
 			{
@@ -1351,19 +1348,9 @@ bool FMetalStateCache::NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& In
 	return bAllChecksPassed == false;
 }
 
-static uint8 GMetalShaderFreqFormat[SF_NumFrequencies] =
-{
-	EMetalPipelineFlagVertexBuffers,
-	0,
-	EMetalPipelineFlagDomainBuffers,
-	EMetalPipelineFlagPixelBuffers,
-	0,
-	EMetalPipelineFlagComputeBuffers
-};
-
 void FMetalStateCache::SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, mtlpp::ResourceUsage const Usage, EPixelFormat const Format)
 {
-	check(Frequency < SF_NumFrequencies);
+	check(Frequency < SF_NumStandardFrequencies);
 	check(Index < ML_MaxBuffers);
 	
 	if (ShaderBuffers[Frequency].Buffers[Index].Buffer != Buffer ||
@@ -1379,7 +1366,6 @@ void FMetalStateCache::SetShaderBuffer(EShaderFrequency const Frequency, FMetalB
 		ShaderBuffers[Frequency].Buffers[Index].Length = Length;
 		ShaderBuffers[Frequency].Buffers[Index].Usage = Usage;
 		
-		PipelineBits |= (ShaderBuffers[Frequency].Formats[Index] != Format) ? GMetalShaderFreqFormat[Frequency] : 0;
 		ShaderBuffers[Frequency].Formats[Index] = Format;
 		
 		if (Buffer || Bytes)
@@ -1395,7 +1381,7 @@ void FMetalStateCache::SetShaderBuffer(EShaderFrequency const Frequency, FMetalB
 
 void FMetalStateCache::SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index, mtlpp::ResourceUsage const Usage)
 {
-	check(Frequency < SF_NumFrequencies);
+	check(Frequency < SF_NumStandardFrequencies);
 	check(Index < ML_MaxTextures);
 	
 	if (ShaderTextures[Frequency].Textures[Index] != Texture
@@ -1422,7 +1408,7 @@ void FMetalStateCache::SetShaderTexture(EShaderFrequency const Frequency, FMetal
 
 void FMetalStateCache::SetShaderSamplerState(EShaderFrequency const Frequency, FMetalSamplerState* const Sampler, NSUInteger const Index)
 {
-	check(Frequency < SF_NumFrequencies);
+	check(Frequency < SF_NumStandardFrequencies);
 	check(Index < ML_MaxSamplers);
 	
 	if (ShaderSamplers[Frequency].Samplers[Index].GetPtr() != (Sampler ? Sampler->State.GetPtr() : nil))
@@ -1522,12 +1508,10 @@ void FMetalStateCache::SetShaderResourceView(FMetalContext* Context, EShaderFreq
 		}
 		else if (VB)
 		{
-			checkf(ValidateBufferFormat(ShaderStage, BindIndex, (EPixelFormat)SRV->Format), TEXT("Invalid buffer format %d for index %d, shader %d"), SRV->Format, BindIndex, ShaderStage);
 			SetShaderBuffer(ShaderStage, VB->Buffer, VB->Data, 0, VB->GetSize(), BindIndex, mtlpp::ResourceUsage::Read, (EPixelFormat)SRV->Format);
 		}
 		else if (IB)
 		{
-			checkf(ValidateBufferFormat(ShaderStage, BindIndex, (EPixelFormat)SRV->Format), TEXT("Invalid buffer format %d for index %d, shader %d"), SRV->Format, BindIndex, ShaderStage);
 			SetShaderBuffer(ShaderStage, IB->Buffer, nil, 0, IB->GetSize(), BindIndex, mtlpp::ResourceUsage::Read, (EPixelFormat)SRV->Format);
 		}
 		else if (SB)
@@ -1573,42 +1557,6 @@ bool FMetalStateCache::IsLinearBuffer(EShaderFrequency ShaderStage, uint32 BindI
     }
 }
 
-bool FMetalStateCache::ValidateBufferFormat(EShaderFrequency ShaderStage, uint32 BindIndex, EPixelFormat Format)
-{
-	switch (ShaderStage)
-	{
-		case SF_Vertex:
-		{
-			return (GraphicsPSO->VertexShader->Bindings.InvariantBuffers & (1 << BindIndex)) == 0 || (GMetalBufferFormats[Format].DataFormat == GraphicsPSO->VertexShader->Bindings.TypedBufferFormats[BindIndex]);
-			break;
-		}
-		case SF_Pixel:
-		{
-			return (GraphicsPSO->PixelShader->Bindings.InvariantBuffers & (1 << BindIndex)) == 0 || (GMetalBufferFormats[Format].DataFormat == GraphicsPSO->PixelShader->Bindings.TypedBufferFormats[BindIndex]);
-			break;
-		}
-		case SF_Hull:
-		{
-			return (GraphicsPSO->HullShader->Bindings.InvariantBuffers & (1 << BindIndex)) == 0 || (GMetalBufferFormats[Format].DataFormat == GraphicsPSO->HullShader->Bindings.TypedBufferFormats[BindIndex]);
-			break;
-		}
-		case SF_Domain:
-		{
-			return (GraphicsPSO->DomainShader->Bindings.InvariantBuffers & (1 << BindIndex)) == 0 || (GMetalBufferFormats[Format].DataFormat == GraphicsPSO->DomainShader->Bindings.TypedBufferFormats[BindIndex]);
-			break;
-		}
-		case SF_Compute:
-		{
-			return (ComputeShader->Bindings.InvariantBuffers & (1 << BindIndex)) == 0 || (GMetalBufferFormats[Format].DataFormat == ComputeShader->Bindings.TypedBufferFormats[BindIndex]);
-		}
-		default:
-		{
-			check(false);
-			return false;
-		}
-	}
-}
-
 void FMetalStateCache::SetShaderUnorderedAccessView(EShaderFrequency ShaderStage, uint32 BindIndex, FMetalUnorderedAccessView* RESTRICT UAV)
 {
 	if (UAV)
@@ -1637,7 +1585,6 @@ void FMetalStateCache::SetShaderUnorderedAccessView(EShaderFrequency ShaderStage
 			}
 			else
 			{
-				checkf(ValidateBufferFormat(ShaderStage, BindIndex, (EPixelFormat)UAV->SourceView->Format), TEXT("Invalid buffer format %d for index %d, shader %d"), UAV->SourceView->Format, BindIndex, ShaderStage);
 				SetShaderBuffer(ShaderStage, VertexBuffer->Buffer, VertexBuffer->Data, 0, VertexBuffer->GetSize(), BindIndex, mtlpp::ResourceUsage(mtlpp::ResourceUsage::Read | mtlpp::ResourceUsage::Write), (EPixelFormat)UAV->SourceView->Format);
 			}
 		}
@@ -1655,7 +1602,6 @@ void FMetalStateCache::SetShaderUnorderedAccessView(EShaderFrequency ShaderStage
 			}
 			else
 			{
-				checkf(ValidateBufferFormat(ShaderStage, BindIndex, (EPixelFormat)UAV->SourceView->Format), TEXT("Invalid buffer format %d for index %d, shader %d"), UAV->SourceView->Format, BindIndex, ShaderStage);
 				SetShaderBuffer(ShaderStage, IndexBuffer->Buffer, nullptr, 0, IndexBuffer->GetSize(), BindIndex, mtlpp::ResourceUsage(mtlpp::ResourceUsage::Read | mtlpp::ResourceUsage::Write), (EPixelFormat)UAV->SourceView->Format);
 			}
 		}
@@ -1673,6 +1619,11 @@ void FMetalStateCache::SetShaderUnorderedAccessView(EShaderFrequency ShaderStage
 				FPlatformAtomics::InterlockedExchange(&Source->Written, 1);
 				
 				SetShaderTexture(ShaderStage, Surface->Texture, BindIndex, mtlpp::ResourceUsage(mtlpp::ResourceUsage::Read | mtlpp::ResourceUsage::Write));
+				if ((Source->Flags & (TexCreate_UAV|TexCreate_NoTiling)) == (TexCreate_UAV|TexCreate_NoTiling))
+				{
+					FMetalBuffer Buffer(Surface->Texture.GetBuffer(), false);
+					SetShaderBuffer(ShaderStage, Buffer, nullptr, 0, Surface->Texture.GetBuffer().GetLength(), BindIndex, mtlpp::ResourceUsage(mtlpp::ResourceUsage::Read | mtlpp::ResourceUsage::Write), PF_MAX);
+				}
 			}
 			else
 			{
@@ -1886,7 +1837,6 @@ void FMetalStateCache::CommitTessellationResources(FMetalCommandEncoder* Raster,
     }
     
     SetResourcesFromTables(GraphicsPSO->HullShader, CrossCompiler::SHADER_STAGE_HULL);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).CommitPackedGlobals(this, Compute, SF_Hull, GraphicsPSO->HullShader->Bindings);
 	
 	SetResourcesFromTables(GraphicsPSO->DomainShader, CrossCompiler::SHADER_STAGE_DOMAIN);
    	GetShaderParameters(CrossCompiler::SHADER_STAGE_DOMAIN).CommitPackedGlobals(this, Raster, SF_Domain, GraphicsPSO->DomainShader->Bindings);
@@ -1900,7 +1850,7 @@ void FMetalStateCache::CommitComputeResources(FMetalCommandEncoder* Compute)
 	GetShaderParameters(CrossCompiler::SHADER_STAGE_COMPUTE).CommitPackedGlobals(this, Compute, SF_Compute, ComputeShader->Bindings);
 }
 
-bool FMetalStateCache::PrepareToRestart(void)
+bool FMetalStateCache::PrepareToRestart(bool const bCurrentApplied)
 {
 	if(CanRestartRenderPass())
 	{
@@ -1914,25 +1864,54 @@ bool FMetalStateCache::PrepareToRestart(void)
 			static bool bSupportsDeferredStore = GetMetalDeviceContext().GetCommandQueue().SupportsFeature(EMetalFeaturesDeferredStoreActions);
 			
 			FRHISetRenderTargetsInfo Info = GetRenderTargetsInfo();
+			
+			ERenderTargetLoadAction DepthLoadAction = Info.DepthStencilRenderTarget.DepthLoadAction;
+			ERenderTargetStoreAction DepthStoreAction = Info.DepthStencilRenderTarget.DepthStoreAction;
+			ERenderTargetLoadAction StencilLoadAction = Info.DepthStencilRenderTarget.StencilLoadAction;
+			ERenderTargetStoreAction StencilStoreAction = Info.DepthStencilRenderTarget.GetStencilStoreAction();
+			bool bClearDepth = Info.bClearDepth;
+			bool bClearStencil = Info.bClearStencil;
+
+			if (Info.DepthStencilRenderTarget.Texture)
+			{
+				if (bCurrentApplied || Info.DepthStencilRenderTarget.DepthLoadAction != ERenderTargetLoadAction::EClear)
+				{
+					DepthLoadAction = ERenderTargetLoadAction::ELoad;
+					bClearDepth = false;
+				}
+				if (Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsDepthWrite())
+				{
+					DepthStoreAction = ERenderTargetStoreAction::EStore;
+				}
+
+				if (bCurrentApplied || Info.DepthStencilRenderTarget.StencilLoadAction != ERenderTargetLoadAction::EClear)
+				{
+					StencilLoadAction = ERenderTargetLoadAction::ELoad;
+					bClearStencil = false;
+				}
+				if (Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsStencilWrite())
+				{
+					StencilStoreAction = ERenderTargetStoreAction::EStore;
+				}
+				
+				Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(Info.DepthStencilRenderTarget.Texture, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, Info.DepthStencilRenderTarget.GetDepthStencilAccess());
+				Info.bClearDepth = bClearDepth;
+				Info.bClearStencil = bClearStencil;
+			}
+			
 			for (int32 RenderTargetIndex = 0; RenderTargetIndex < Info.NumColorRenderTargets; RenderTargetIndex++)
 			{
 				FRHIRenderTargetView& RenderTargetView = Info.ColorRenderTarget[RenderTargetIndex];
-				RenderTargetView.LoadAction = ERenderTargetLoadAction::ELoad;
+				if (!bCurrentApplied && RenderTargetView.LoadAction == ERenderTargetLoadAction::EClear)
+				{
+					RenderTargetView.StoreAction == ERenderTargetStoreAction::EStore;
+				}
+				else
+				{
+					RenderTargetView.LoadAction = ERenderTargetLoadAction::ELoad;
+					Info.bClearColor = false;
+				}
 				check(RenderTargetView.Texture == nil || RenderTargetView.StoreAction == ERenderTargetStoreAction::EStore);
-			}
-			Info.bClearColor = false;
-			
-			if (Info.DepthStencilRenderTarget.Texture)
-			{
-				Info.DepthStencilRenderTarget.DepthLoadAction = ERenderTargetLoadAction::ELoad;
-				check(bSupportsDeferredStore || !Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsDepthWrite() || Info.DepthStencilRenderTarget.DepthStoreAction == ERenderTargetStoreAction::EStore);
-				Info.bClearDepth = false;
-				
-				Info.DepthStencilRenderTarget.StencilLoadAction = ERenderTargetLoadAction::ELoad;
-				// @todo Stencil writes that need to persist must use ERenderTargetStoreAction::EStore on iOS.
-				// We should probably be using deferred store actions so that we can safely lazily instantiate encoders.
-				check(bSupportsDeferredStore || !Info.DepthStencilRenderTarget.GetDepthStencilAccess().IsStencilWrite() || Info.DepthStencilRenderTarget.GetStencilStoreAction() == ERenderTargetStoreAction::EStore);
-				Info.bClearStencil = false;
 			}
 			
 			InvalidateRenderTargets();
@@ -1949,7 +1928,7 @@ void FMetalStateCache::SetStateDirty(void)
 {	
 	RasterBits = UINT32_MAX;
     PipelineBits = EMetalPipelineFlagMask;
-	for (uint32 i = 0; i < SF_NumFrequencies; i++)
+	for (uint32 i = 0; i < SF_NumStandardFrequencies; i++)
 	{
 		ShaderBuffers[i].Bound = UINT32_MAX;
 #if PLATFORM_MAC
@@ -1999,7 +1978,7 @@ void FMetalStateCache::FlushVisibilityResults(FMetalCommandEncoder& CommandEncod
 #if PLATFORM_MAC
 	if(VisibilityResults && VisibilityResults->Buffer && VisibilityResults->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed && VisibilityWritten && CommandEncoder.IsRenderCommandEncoderActive())
 	{
-		FMetalFence* Fence = CommandEncoder.EndEncoding();
+		TRefCountPtr<FMetalFence> Fence = CommandEncoder.EndEncoding();
 		
         CommandEncoder.BeginBlitCommandEncoding();
 		CommandEncoder.WaitForFence(Fence);
@@ -2079,36 +2058,10 @@ void FMetalStateCache::SetRenderPipelineState(FMetalCommandEncoder& CommandEncod
 	
     if ((PipelineBits & EMetalPipelineFlagRasterMask) != 0)
     {
-    	// @todo Could optimise it so that we only re-evaluate the buffer hashes if the shader buffer binding mask changes when changing the PSO
-        if (PipelineBits & EMetalPipelineFlagPipelineState)
-        {
-        	PipelineBits |= (EMetalPipelineFlagVertexBuffers|EMetalPipelineFlagPixelBuffers|EMetalPipelineFlagDomainBuffers);
-        }
-    	
-    	if (PipelineBits & EMetalPipelineFlagVertexBuffers)
-    	{
-    		ShaderBuffers[SF_Vertex].FormatHash = GraphicsPSO->VertexShader->GetBindingHash(ShaderBuffers[SF_Vertex].Formats);
-    	}
-    	
-    	if (PipelineBits & EMetalPipelineFlagPixelBuffers)
-    	{
-   			ShaderBuffers[SF_Pixel].FormatHash = (IsValidRef(GraphicsPSO->PixelShader)) ? GraphicsPSO->PixelShader->GetBindingHash(ShaderBuffers[SF_Pixel].Formats) : 0;
-    	}
-    	
-    	if (PipelineBits & EMetalPipelineFlagDomainBuffers)
-    	{
-   			ShaderBuffers[SF_Domain].FormatHash = (IsValidRef(GraphicsPSO->DomainShader)) ? GraphicsPSO->DomainShader->GetBindingHash(ShaderBuffers[SF_Domain].Formats) : 0;
-    	}
-    
-    	EPixelFormat const* const VertexFormats = ShaderBuffers[SF_Vertex].Formats;
-    	EPixelFormat const* const PixelFormats = (IsValidRef(GraphicsPSO->PixelShader)) ? ShaderBuffers[SF_Pixel].Formats : nullptr;
-    	EPixelFormat const* const DomainFormats = (IsValidRef(GraphicsPSO->DomainShader)) ? ShaderBuffers[SF_Domain].Formats : nullptr;
-    
-        // Some Intel drivers need RenderPipeline state to be set after DepthStencil state to work properly
-        // As it happens, in order to use function constants to emulate Buffer<T>/RWBuffer<T> implicit typing we'll do that anyway.
-    	FMetalShaderPipeline* Pipeline = GetPipelineState(ShaderBuffers[SF_Vertex].FormatHash, ShaderBuffers[SF_Pixel].FormatHash, ShaderBuffers[SF_Domain].FormatHash, VertexFormats, PixelFormats, DomainFormats);
-        // FMetalShaderPipeline* Pipeline = GetPipelineState(0, 0, 0, nullptr, nullptr, nullptr);
-        check(Pipeline);
+    	// Some Intel drivers need RenderPipeline state to be set after DepthStencil state to work properly
+    	FMetalShaderPipeline* Pipeline = GetPipelineState();
+
+		check(Pipeline);
         CommandEncoder.SetRenderPipelineState(Pipeline);
         if (Pipeline->ComputePipelineState)
         {
@@ -2124,17 +2077,7 @@ void FMetalStateCache::SetComputePipelineState(FMetalCommandEncoder& CommandEnco
 {
 	if ((PipelineBits & EMetalPipelineFlagComputeMask) != 0)
 	{
-		if (PipelineBits & EMetalPipelineFlagComputeShader)
-		{
-			PipelineBits |= EMetalPipelineFlagComputeBuffers;
-		}
-	
-		if (PipelineBits & EMetalPipelineFlagComputeBuffers)
-		{
-			ShaderBuffers[SF_Compute].FormatHash = ComputeShader->GetBindingHash(ShaderBuffers[SF_Compute].Formats);
-		}
-	    
-	    FMetalShaderPipeline* Pipeline = ComputeShader->GetPipeline(ShaderBuffers[SF_Compute].Formats, ShaderBuffers[SF_Compute].FormatHash);
+		FMetalShaderPipeline* Pipeline = ComputeShader->GetPipeline();
 	    check(Pipeline);
 	    CommandEncoder.SetComputePipelineState(Pipeline);
         

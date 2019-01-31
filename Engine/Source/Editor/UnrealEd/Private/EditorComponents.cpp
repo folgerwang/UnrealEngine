@@ -308,7 +308,7 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 	FVector2D UVMax = UVMid + FVector2D(UVRadi, UVRadi);
 
 	// vertex pos is in -1..1 range
-	DrawPlane10x10(PDI, ObjectToWorld, Radii, UVMin, UVMax, MaterialInst->GetRenderProxy(false), SDPG_World );
+	DrawPlane10x10(PDI, ObjectToWorld, Radii, UVMin, UVMax, MaterialInst->GetRenderProxy(), SDPG_World );
 }
 
 

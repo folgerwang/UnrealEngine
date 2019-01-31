@@ -212,7 +212,7 @@ public:
 
 	void SetQuadOverdrawUAV(FRHICommandList& RHICmdList, bool bBindQuadOverdrawBuffers, FRHISetRenderTargetsInfo& Info);
 	void SetQuadOverdrawUAV(FRHICommandList& RHICmdList, bool bBindQuadOverdrawBuffers, bool bClearQuadOverdrawBuffers, FRHIRenderPassInfo& Info);
-	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, FExclusiveDepthStencil::Type DepthStencilAccess, bool bBindQuadOverdrawBuffers, bool bClearQuadOverdrawBuffers = false, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1));
+	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, FExclusiveDepthStencil::Type DepthStencilAccess, bool bBindQuadOverdrawBuffers, bool bClearQuadOverdrawBuffers = false, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1), bool bIsWireframe=false);
 	void FinishGBufferPassAndResolve(FRHICommandListImmediate& RHICmdList);
 
 	/**
@@ -337,6 +337,8 @@ public:
 	// Texture Accessors -----------
 
 	const FTextureRHIRef& GetSceneColorTexture() const;
+	const FUnorderedAccessViewRHIRef& GetSceneColorTextureUAV() const;
+
 	const FTexture2DRHIRef& GetSceneAlphaCopyTexture() const { return (const FTexture2DRHIRef&)SceneAlphaCopy->GetRenderTargetItem().ShaderResourceTexture; }
 	bool HasSceneAlphaCopyTexture() const { return SceneAlphaCopy.GetReference() != 0; }
 	const FTexture2DRHIRef& GetSceneDepthTexture() const { return (const FTexture2DRHIRef&)SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture; }
@@ -353,7 +355,7 @@ public:
 	const FTexture2DRHIRef& GetGBufferCTexture() const { return (const FTexture2DRHIRef&)GBufferC->GetRenderTargetItem().ShaderResourceTexture; }
 	const FTexture2DRHIRef& GetGBufferDTexture() const { return (const FTexture2DRHIRef&)GBufferD->GetRenderTargetItem().ShaderResourceTexture; }
 	const FTexture2DRHIRef& GetGBufferETexture() const { return (const FTexture2DRHIRef&)GBufferE->GetRenderTargetItem().ShaderResourceTexture; }
-	const FTexture2DRHIRef& GetGBufferVelocityTexture() const { return (const FTexture2DRHIRef&)GBufferVelocity->GetRenderTargetItem().ShaderResourceTexture; }
+	const FTexture2DRHIRef& GetGBufferVelocityTexture() const { return (const FTexture2DRHIRef&)SceneVelocity->GetRenderTargetItem().ShaderResourceTexture; }
 
 	const FTextureRHIRef& GetLightAttenuationTexture() const
 	{
@@ -377,14 +379,12 @@ public:
 		return (const FTexture2DRHIRef&)DirectionalOcclusion->GetRenderTargetItem().TargetableTexture; 
 	}
 
-	IPooledRenderTarget* GetGBufferVelocityRT();
-
 	int32 GetQuadOverdrawIndex() const { return QuadOverdrawIndex; }
 
 	// @return can be 0 if the feature is disabled
 	IPooledRenderTarget* RequestCustomDepth(FRHICommandListImmediate& RHICmdList, bool bPrimitives);
 
-	bool IsCustomDepthPassWritingStencil() const;
+	static bool IsCustomDepthPassWritingStencil();
 
 	// ---
 
@@ -498,9 +498,13 @@ public:
 
 	// Reflection Environment: Bringing back light accumulation buffer to apply indirect reflections
 	TRefCountPtr<IPooledRenderTarget> DirectionalOcclusion;
-	//
+	
+	// Scene depth and stencil.
 	TRefCountPtr<IPooledRenderTarget> SceneDepthZ;
 	TRefCountPtr<FRHIShaderResourceView> SceneStencilSRV;
+	// Scene velocity.
+	TRefCountPtr<IPooledRenderTarget> SceneVelocity;
+
 	TRefCountPtr<IPooledRenderTarget> LightingChannels;
 	// Mobile without frame buffer fetch (to get depth from alpha).
 	TRefCountPtr<IPooledRenderTarget> SceneAlphaCopy;
@@ -515,8 +519,6 @@ public:
 	TRefCountPtr<IPooledRenderTarget> GBufferC;
 	TRefCountPtr<IPooledRenderTarget> GBufferD;
 	TRefCountPtr<IPooledRenderTarget> GBufferE;
-
-	TRefCountPtr<IPooledRenderTarget> GBufferVelocity;
 
 	// DBuffer: For decals before base pass (only temporarily available after early z pass and until base pass)
 	TRefCountPtr<IPooledRenderTarget> DBufferA;

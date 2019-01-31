@@ -88,11 +88,10 @@ void ExpandUniformBufferArrays(exec_list* Instructions, _mesa_glsl_parse_state* 
  * Pack uniforms in to typed arrays.
  * @param Instructions - The IR for which to pack uniforms.
  * @param ParseState - Parse state.
- * @param bFlattenStructure - True if we want all structs flattened into members (FlattenUniformBufferStructures() was called)
- * @param bGroupFlattenedUBs - 
+ * @param HLSLCCFlags - Bitfield of EHlslCompileFlag.
  * @param OutUniformMap - Mapping table used during backend code gen for cross referencing source/packed uniforms
  */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, bool bKeepNames, TVarVarMap& OutUniformMap);
+void PackUniforms(uint32 HLSLCCFlags, exec_list* Instructions, _mesa_glsl_parse_state* ParseState, TVarVarMap& OutUniformMap);
 
 // Expand any full assignments (a = b) to per element (a[0] = b[0]; a[1] = b[1]; etc) so the array can be split
 bool ExpandArrayAssignments(exec_list* ir, _mesa_glsl_parse_state* State);

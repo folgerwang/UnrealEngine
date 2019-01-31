@@ -29,7 +29,7 @@ extern const uint32 UpdateObjectsGroupSize;
 inline bool DoesPlatformSupportDistanceFieldAO(EShaderPlatform Platform)
 {
 	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12
-		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| IsMetalSM5Platform(Platform)
 		|| IsVulkanSM5Platform(Platform);
 }
 
@@ -522,6 +522,7 @@ private:
 extern void TrackGPUProgress(FRHICommandListImmediate& RHICmdList, uint32 DebugId);
 
 extern bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
+extern bool ShouldRenderRayTracingDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
 
 extern void CullObjectsToView(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, const FDistanceFieldAOParameters& Parameters, FDistanceFieldObjectBufferResource& CulledObjectBuffers);
 extern void BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);

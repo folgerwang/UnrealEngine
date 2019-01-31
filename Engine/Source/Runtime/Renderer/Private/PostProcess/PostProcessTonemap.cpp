@@ -832,7 +832,7 @@ public:
 			uint8 FrameIndexMod8 = 0;
 			if (Context.View.State)
 			{
-				FrameIndexMod8 = Context.View.State->GetFrameIndexMod8();
+				FrameIndexMod8 = Context.View.ViewState->GetFrameIndex(8);
 			}
 			GrainRandomFromFrame(&GrainRandomFullValue, FrameIndexMod8);
 		}
@@ -1594,7 +1594,7 @@ public:
 			uint8 FrameIndexMod8 = 0;
 			if (Context.View.State)
 			{
-				FrameIndexMod8 = Context.View.State->GetFrameIndexMod8();
+				FrameIndexMod8 = Context.View.ViewState->GetFrameIndex(8);
 			}
 			GrainRandomFromFrame(&GrainRandomFullValue, FrameIndexMod8);
 		}

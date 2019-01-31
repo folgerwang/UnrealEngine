@@ -106,11 +106,6 @@ void FMetalDynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBu
 
 }
 
-void FMetalRHICommandContext::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
-{
-	NOT_SUPPORTED("RHISetRasterizerState");
-}
-
 void FMetalRHICommandContext::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
 	@autoreleasepool {
@@ -232,11 +227,6 @@ void FMetalRHICommandContext::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 
 	}
 	Context->GetCurrentState().SetScissorRect(bEnable, Scissor);
 	}
-}
-
-void FMetalRHICommandContext::RHISetBoundShaderState( FBoundShaderStateRHIParamRef BoundShaderStateRHI)
-{
-	NOT_SUPPORTED("RHISetBoundShaderState");
 }
 
 void FMetalRHICommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
@@ -494,9 +484,8 @@ void FMetalRHICommandContext::RHISetShaderParameter(FVertexShaderRHIParamRef Ver
 
 void FMetalRHICommandContext::RHISetShaderParameter(FHullShaderRHIParamRef HullShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
-	@autoreleasepool {
-	Context->GetCurrentState().GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).Set(BufferIndex, BaseIndex, NumBytes, NewValue);
-	}
+	// Just ignore Hull shader parameter sets - none of our Hull shaders have any loose parameters to bind.
+	// @todo Whenever we do put a shader parameter into a hull shader we'll need to map it into the vertex-shader parameter buffer so that it can be set on the device.
 }
 
 void FMetalRHICommandContext::RHISetShaderParameter(FPixelShaderRHIParamRef PixelShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
@@ -611,19 +600,9 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRe
 }
 
 
-void FMetalRHICommandContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
-{
-	NOT_SUPPORTED("RHISetDepthStencilState");
-}
-
 void FMetalRHICommandContext::RHISetStencilRef(uint32 StencilRef)
 {
 	Context->GetCurrentState().SetStencilRef(StencilRef);
-}
-
-void FMetalRHICommandContext::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
-{
-	NOT_SUPPORTED("RHISetBlendState");
 }
 
 void FMetalRHICommandContext::RHISetBlendFactor(const FLinearColor& BlendFactor)
@@ -757,7 +736,8 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 
 	FMetalIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 	
-	Context->DrawIndexedPrimitive(IndexBuffer->Buffer, IndexBuffer->GetStride(), IndexBuffer->IndexType, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
+	EPixelFormat Format = IndexBuffer->IndexType == mtlpp::IndexType::UInt16 ? PF_R16_UINT : PF_R32_UINT;
+	Context->DrawIndexedPrimitive(IndexBuffer->Buffer, IndexBuffer->GetLinearTexture(Format), IndexBuffer->GetStride(), IndexBuffer->IndexType, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
 	}
 }
 
@@ -899,7 +879,7 @@ void FMetalRHICommandContext::RHIEndDrawIndexedPrimitiveUP()
 	// how many to draw
 	uint32 NumIndices = GetVertexCountForPrimitiveCount(PendingNumPrimitives, PendingPrimitiveType);
 	
-	Context->DrawIndexedPrimitive(PendingIndexBuffer, PendingIndexDataStride, (PendingIndexDataStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32, PendingPrimitiveType, 0, 0, NumIndices, 0, PendingNumPrimitives, 1);
+	Context->DrawIndexedPrimitive(PendingIndexBuffer, FMetalTexture(), PendingIndexDataStride, (PendingIndexDataStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32, PendingPrimitiveType, 0, 0, NumIndices, 0, PendingNumPrimitives, 1);
 	
 	// mark temp memory as usable
 	PendingVertexBuffer = nil;
@@ -1016,11 +996,6 @@ void FMetalRHICommandContext::RHIFlushComputeShaderCache()
 void FMetalDynamicRHI::RHIExecuteCommandList(FRHICommandList* RHICmdList)
 {
 	NOT_SUPPORTED("RHIExecuteCommandList");
-}
-
-void FMetalRHICommandContext::RHIEnableDepthBoundsTest(bool bEnable)
-{
-	// Nothing required here
 }
 
 void FMetalRHICommandContext::RHISetDepthBounds(float MinDepth, float MaxDepth)

@@ -1014,6 +1014,7 @@ static void ComputeUpdateRegionsAndUpdateViewState(
 				|| ClipmapViewState.CachedMaxOcclusionDistance != MaxOcclusionDistance
 				|| ClipmapViewState.CachedGlobalDistanceFieldViewDistance != Scene->GlobalDistanceFieldViewDistance
 				|| ClipmapViewState.CacheMostlyStaticSeparately != GAOGlobalDistanceFieldCacheMostlyStaticSeparately
+				|| ClipmapViewState.LastUsedSceneDataForFullUpdate != &Scene->DistanceFieldSceneData
 				|| GAOGlobalDistanceFieldForceFullUpdate;
 
 			if (ShouldUpdateClipmapThisFrame(ClipmapIndex, View.ViewState->GlobalDistanceFieldUpdateIndex)
@@ -1036,6 +1037,7 @@ static void ComputeUpdateRegionsAndUpdateViewState(
 					// Store the location of the full update
 					ClipmapViewState.FullUpdateOrigin = GridCenter;
 					View.ViewState->bInitializedGlobalDistanceFieldOrigins = true;
+					ClipmapViewState.LastUsedSceneDataForFullUpdate = &Scene->DistanceFieldSceneData;
 				}
 
 				const FGlobalDFCacheType StartCacheType = GAOGlobalDistanceFieldCacheMostlyStaticSeparately ? GDF_MostlyStatic : GDF_Full;

@@ -810,11 +810,11 @@ void USceneCapturer::Tick( float DeltaTime )
         else if (CaptureStep == ECaptureStep::SetStartPosition)
         {
             //SetStartPosition();
-            ENQUEUE_UNIQUE_RENDER_COMMAND(
-                SceneCapturer_HeartbeatTickTickables,
-            {
-                TickRenderingTickables();
-            });
+            ENQUEUE_RENDER_COMMAND(SceneCapturer_HeartbeatTickTickables)(
+				[](FRHICommandList& RHICmdList)
+				{
+					TickRenderingTickables();
+				});
 
             FlushRenderingCommands();
             

@@ -10,6 +10,13 @@
 #include "SceneView.h"
 #include "SceneRendering.h"
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FVoxelizeVolumePassUniformParameters, )
+	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)
+	SHADER_PARAMETER(FMatrix, ViewToVolumeClip)
+	SHADER_PARAMETER(FVector4, FrameJitterOffset0)
+	SHADER_PARAMETER_STRUCT(FVolumetricFogGlobalData, VolumetricFog)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
 extern FVector VolumetricFogTemporalRandom(uint32 FrameNumber);
 
 struct FVolumetricFogIntegrationParameterData

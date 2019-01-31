@@ -53,10 +53,6 @@ struct FShaderParameterStructBindingContext
 				RenderTargetBindingSlotCppName = CppName;
 				continue;
 			}
-			else if (BaseType == UBMT_GRAPH_TRACKED_BUFFER)
-			{
-				continue;
-			}
 
 			// Compute the shader member name to look for according to nesting.
 			FString ShaderBindingName = FString::Printf(TEXT("%s%s"), MemberPrefix, Member.GetName());
@@ -77,6 +73,14 @@ struct FShaderParameterStructBindingContext
 			{
 				// The member name of a globally referenced struct is the not name on the struct.
 				ShaderBindingName = Member.GetStructMetadata()->GetShaderVariableName();
+			}
+			else if (BaseType == UBMT_RDG_BUFFER)
+			{
+				if( ParametersMap->ContainsParameterAllocation(*ShaderBindingName) )
+				{
+					UE_LOG(LogShaders, Fatal, TEXT("%s can't bind shader parameter %s as buffer. Use buffer SRV for reading in shader."), *CppName, *ShaderBindingName);
+				}
+				continue;
 			}
 			else if (bUseRootShaderParameters && (BaseType == UBMT_INT32 || BaseType == UBMT_UINT32 || BaseType == UBMT_FLOAT32))
 			{
@@ -108,17 +112,9 @@ struct FShaderParameterStructBindingContext
 
 				if (uint32(BoundSize) > ByteSize)
 				{
-					if (IsHlslccShaderPlatform(Shader->GetShaderPlatform()) && BoundSize == 16 && ByteSize == 12)
-					{
-						UE_LOG(LogShaders, Fatal, TEXT("Shader %s's (Permutation Id %d) struct %s parameter %s is a float3; hlslcc will pad float3 to float4, so please adjust the parameter from a float3 to a float4"),
-							Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(), *ShaderBindingName);
-					}
-					else
-					{
-						UE_LOG(LogShaders, Fatal, TEXT("The size required to bind shader %s's (Permutation Id %d) struct %s parameter %s is %i bytes, smaller than %s's %i bytes."),
-							Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(),
-							*ShaderBindingName, BoundSize, *CppName, ByteSize);
-					}
+					UE_LOG(LogShaders, Fatal, TEXT("The size required to bind shader %s's (Permutation Id %d) struct %s parameter %s is %i bytes, smaller than %s's %i bytes."),
+						Shader->GetType()->GetName(), Shader->GetPermutationId(), StructMetaData.GetStructTypeName(),
+						*ShaderBindingName, BoundSize, *CppName, ByteSize);
 				}
 
 				Bindings->Parameters.Add(Parameter);
@@ -135,11 +131,11 @@ struct FShaderParameterStructBindingContext
 				BaseType == UBMT_TEXTURE ||
 				BaseType == UBMT_SRV ||
 				BaseType == UBMT_SAMPLER ||
-				BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
-				BaseType == UBMT_GRAPH_TRACKED_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_UAV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+				BaseType == UBMT_RDG_TEXTURE ||
+				BaseType == UBMT_RDG_TEXTURE_SRV ||
+				BaseType == UBMT_RDG_TEXTURE_UAV ||
+				BaseType == UBMT_RDG_BUFFER_SRV ||
+				BaseType == UBMT_RDG_BUFFER_UAV)
 			{
 				FShaderParameterBindings::FResourceParameter Parameter;
 				Parameter.BaseIndex = BaseIndex;
@@ -154,11 +150,11 @@ struct FShaderParameterStructBindingContext
 					Bindings->SRVs.Add(Parameter);
 				else if (BaseType == UBMT_SAMPLER)
 					Bindings->Samplers.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_TEXTURE)
+				else if (BaseType == UBMT_RDG_TEXTURE)
 					Bindings->GraphTextures.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_SRV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV)
+				else if (BaseType == UBMT_RDG_TEXTURE_SRV || BaseType == UBMT_RDG_BUFFER_SRV)
 					Bindings->GraphSRVs.Add(Parameter);
-				else // if (BaseType == UBMT_GRAPH_TRACKED_UAV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+				else // if (BaseType == UBMT_RDG_TEXTURE_UAV || BaseType == UBMT_RDG_BUFFER_UAV)
 					Bindings->GraphUAVs.Add(Parameter);
 			}
 			else

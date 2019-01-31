@@ -385,14 +385,14 @@ public:
 			
 			const FLightSceneProxy& LightProxy = *LightSceneInfo->Proxy;
 
-			FLightParameters LightParameters;
+			FLightShaderParameters LightParameters;
+			LightProxy.GetLightShaderParameters(LightParameters);
 
-			LightProxy.GetParameters(LightParameters);
-
-			SetShaderValue(RHICmdList, ShaderRHI, LightDirection, LightParameters.NormalizedLightDirection);
-			SetShaderValue(RHICmdList, ShaderRHI, LightPositionAndInvRadius, LightParameters.LightPositionAndInvRadius);
+			SetShaderValue(RHICmdList, ShaderRHI, LightDirection, LightParameters.Direction);
+			FVector4 LightPositionAndInvRadiusValue(LightParameters.Position, LightParameters.InvRadius);
+			SetShaderValue(RHICmdList, ShaderRHI, LightPositionAndInvRadius, LightPositionAndInvRadiusValue);
 			// Default light source radius of 0 gives poor results
-			SetShaderValue(RHICmdList, ShaderRHI, LightSourceRadius, LightParameters.LightSourceRadius == 0 ? 20 : FMath::Clamp(LightParameters.LightSourceRadius, .001f, 1.0f / (4 * LightParameters.LightPositionAndInvRadius.W)));
+			SetShaderValue(RHICmdList, ShaderRHI, LightSourceRadius, LightParameters.SourceRadius == 0 ? 20 : FMath::Clamp(LightParameters.SourceRadius, .001f, 1.0f / (4 * LightParameters.InvRadius)));
 
 			SetShaderValue(RHICmdList, ShaderRHI, RayStartOffsetDepthScale, LightProxy.GetRayStartOffsetDepthScale());
 

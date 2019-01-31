@@ -610,7 +610,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 		default:
 		case SCWErrorCode::GeneralCrash:
 			{
-				if (GDumpSCWJobInfoOnCrash != 0)
+				if (GDumpSCWJobInfoOnCrash != 0 || GIsBuildMachine)
 				{
 					auto DumpSingleJob = [](FShaderCompileJob* SingleJob) -> FString
 					{
@@ -811,6 +811,19 @@ static bool CheckSingleJob(FShaderCompileJob* SingleJob, const TArray<FMaterial*
 				SingleJob->Output.ParameterMap,
 				Errors);
 			bSucceeded = bValidationResult && bSucceeded;
+		}
+	}
+
+	if (SingleJob->VFType)
+	{
+		const int32 OriginalNumErrors = Errors.Num();
+
+		// Allow the vertex factory to fail the compile if it sees any parameters bound that aren't supported
+		SingleJob->VFType->ValidateCompiledResult((EShaderPlatform)SingleJob->Input.Target.Platform, SingleJob->Output.ParameterMap, Errors);
+
+		if (Errors.Num() > OriginalNumErrors)
+		{
+			bSucceeded = false;
 		}
 	}
 
@@ -1931,7 +1944,6 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 			for (int32 JobIndex = 0; JobIndex < ResultArray.Num(); JobIndex++)
 			{
 				FShaderCommonCompileJob& CurrentJob = *ResultArray[JobIndex];
-				bSuccess = bSuccess && CurrentJob.bSucceeded;
 
 				auto* SingleJob = CurrentJob.GetSingleShaderJob();
 				if (SingleJob)
@@ -2093,10 +2105,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 
 		const TSet<FSceneInterface*>& AllocatedScenes = GetRendererModule().GetAllocatedScenes();
 
-		for (TSet<FSceneInterface*>::TConstIterator SceneIt(AllocatedScenes); SceneIt; ++SceneIt)
-		{
-			(*SceneIt)->SetShaderMapsOnMaterialResources(MaterialsToApplyToScene);
-		}
+		SetShaderMapsOnMaterialResources(MaterialsToApplyToScene);
 
 #if WITH_EDITOR
 		for (TMap<FMaterial*, FMaterialShaderMap*>::TIterator It(MaterialsToUpdate); It; ++It)
@@ -2736,16 +2745,21 @@ void ValidateShaderFilePath(const FString& VirtualShaderFilePath, const FString&
 		*VirtualShaderFilePath);
 }
 
-static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, const FShaderParametersMetadata& ParametersMetadata, uint16 ByteOffset)
+static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, const FShaderParametersMetadata& ParametersMetadata, uint16 ByteOffset, const FString& Prefix)
 {
 	for (const FShaderParametersMetadata::FMember& Member : ParametersMetadata.GetMembers())
 	{
 		EUniformBufferBaseType BaseType = Member.GetBaseType();
 		uint16 MemberOffset = ByteOffset + uint16(Member.GetOffset());
 
-		if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
+		if (BaseType == UBMT_INCLUDED_STRUCT)
 		{
-			PullRootShaderParametersLayout(CompileInput, *Member.GetStructMetadata(), MemberOffset);
+			PullRootShaderParametersLayout(CompileInput, *Member.GetStructMetadata(), MemberOffset, Prefix);
+		}
+		else if (BaseType == UBMT_NESTED_STRUCT)
+		{
+			FString NewPrefix = FString::Printf(TEXT("%s%s_"), *Prefix, Member.GetName());
+			PullRootShaderParametersLayout(CompileInput, *Member.GetStructMetadata(), MemberOffset, NewPrefix);
 		}
 		else if (
 			BaseType == UBMT_BOOL ||
@@ -2754,7 +2768,7 @@ static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, c
 			BaseType == UBMT_FLOAT32)
 		{
 			FShaderCompilerInput::FRootParameterBinding RootParameterBinding;
-			RootParameterBinding.Name = Member.GetName();
+			RootParameterBinding.Name = FString::Printf(TEXT("%s%s"), *Prefix, Member.GetName());
 			RootParameterBinding.ByteOffset = MemberOffset;
 			CompileInput.RootParameterBindings.Add(RootParameterBinding);
 		}
@@ -2769,8 +2783,8 @@ static void PullRootShaderParametersLayout(FShaderCompilerInput& CompileInput, c
 			// RHI don't need to care about render target bindings slot anyway.
 		}
 		else if (
-			BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
-			BaseType == UBMT_GRAPH_TRACKED_UAV)
+			BaseType == UBMT_RDG_BUFFER_UAV ||
+			BaseType == UBMT_RDG_TEXTURE_UAV)
 		{
 			// UAV are ignored on purpose because not supported in uniform buffers.
 		}
@@ -2814,7 +2828,7 @@ void GlobalBeginCompileShader(
 
 	if (ShaderType->GetRootParametersMetadata())
 	{
-		PullRootShaderParametersLayout(Input, *ShaderType->GetRootParametersMetadata(), /* ByteOffset = */ 0);
+		PullRootShaderParametersLayout(Input, *ShaderType->GetRootParametersMetadata(), /* ByteOffset = */ 0, FString());
 	}
 
 	// Verify FShaderCompilerInput's file paths are consistent. 
@@ -2921,11 +2935,9 @@ void GlobalBeginCompileShader(
 			Input.DebugGroupName.ReplaceInline(TEXT("EAtmRenderFlag==E_"), TEXT(""));
 		}
 	}
-	
-	static const auto CVarShaderDevelopmentMode = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShaderDevelopmentMode"));
 
 	// Setup the debug info path if requested, or if this is a global shader and shader development mode is enabled
-	if (GDumpShaderDebugInfo != 0 || (ShaderType->GetGlobalShaderType() != NULL && CVarShaderDevelopmentMode->GetInt() != 0))
+	if (GDumpShaderDebugInfo != 0)
 	{
 		Input.DumpDebugInfoPath = Input.DumpDebugInfoRootPath / Input.DebugGroupName;
 		
@@ -2953,6 +2965,9 @@ void GlobalBeginCompileShader(
 		Input.Environment.SetDefine(TEXT("VERTEXSHADER"), Target.Frequency == SF_Vertex);
 		Input.Environment.SetDefine(TEXT("GEOMETRYSHADER"), Target.Frequency == SF_Geometry);
 		Input.Environment.SetDefine(TEXT("COMPUTESHADER"), Target.Frequency == SF_Compute);
+#if RHI_RAYTRACING
+		Input.Environment.SetDefine(TEXT("RAYHITGROUPSHADER"), Target.Frequency == SF_RayHitGroup);
+#endif
 	}
 
 	// #defines get stripped out by the preprocessor without this. We can override with this
@@ -3127,20 +3142,24 @@ void GlobalBeginCompileShader(
 			Input.Environment.SetDefine(TEXT("MAX_SHADER_LANGUAGE_VERSION"), ShaderVersion);
 			
 			FString AllowFastIntrinsics;
+			FString ForceFloats;
 			bool bEnableMathOptimisations = true;
 			if (IsPCPlatform(EShaderPlatform(Target.Platform)))
 			{
 				GConfig->GetString(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("UseFastIntrinsics"), AllowFastIntrinsics, GEngineIni);
 				GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+				GConfig->GetString(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("ForceFloats"), ForceFloats, GEngineIni);
 			}
 			else
 			{
 				GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("UseFastIntrinsics"), AllowFastIntrinsics, GEngineIni);
 				GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+				GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("ForceFloats"), ForceFloats, GEngineIni);
 				// Force no development shaders on iOS
 				bAllowDevelopmentShaderCompile = false;
 			}
 			Input.Environment.SetDefine(TEXT("METAL_USE_FAST_INTRINSICS"), *AllowFastIntrinsics);
+			Input.Environment.SetDefine(TEXT("FORCE_FLOATS"), *ForceFloats);
 			
 			// Same as console-variable above, but that's global and this is per-platform, per-project
 			if (!bEnableMathOptimisations)
@@ -3438,13 +3457,10 @@ public:
 
 			// fixup uniform expressions
 			UMaterialInterface::RecacheAllMaterialUniformExpressions();
-		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			FRecreateBoundShaderStates,
-		{
-			RHIRecreateRecursiveBoundShaderStates();
-		});
+			// Need to recache all cached mesh draw commands, as they store pointers to material uniform buffers which we just invalidated.
+			GetRendererModule().UpdateStaticDrawLists();
+		}
 	}
 
 private:
@@ -3749,7 +3765,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 	const bool bEmptyMap = GlobalShaderMap->IsEmpty();
 	if (bEmptyMap)
 	{
-		UE_LOG(LogShaders, Warning, TEXT("	Empty global shader map, recompiling all global shaders"));
+		UE_LOG(LogShaders, Log, TEXT("	Empty global shader map, recompiling all global shaders"));
 	}
 
 	bool bErrorOnMissing = bLoadedFromCacheFile;
@@ -3794,14 +3810,13 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 		}
 
 		ensureMsgf(
-			PermutationCountToCompile < 200 ||
-			FCString::Strcmp(GlobalShaderType->GetName(), TEXT("FPostProcessTonemapPS_ES2")) == 0, // TODO: UE-58014
+			PermutationCountToCompile < 200,
 			TEXT("Global shader %s has %i permutation: probably more that it needs."),
 			GlobalShaderType->GetName(), PermutationCountToCompile);
 
 		if (!bEmptyMap && PermutationCountToCompile > 0)
 		{
-			UE_LOG(LogShaders, Warning, TEXT("	%s (%i out of %i)"),
+			UE_LOG(LogShaders, Log, TEXT("	%s (%i out of %i)"),
 				GlobalShaderType->GetName(), PermutationCountToCompile, GlobalShaderType->GetPermutationCount());
 		}
 	}
@@ -3838,7 +3853,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 
 					if (!bEmptyMap)
 					{
-						UE_LOG(LogShaders, Warning, TEXT("	%s"), Pipeline->GetName());
+						UE_LOG(LogShaders, Log, TEXT("	%s"), Pipeline->GetName());
 					}
 
 					if (Pipeline->ShouldOptimizeUnusedOutputs())
@@ -3878,6 +3893,9 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			// Metal also needs this when using RHI thread because it uses TOneColorVS very early in RHIPostInit()
 			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
 			!IsMetalPlatform(GMaxRHIShaderPlatform) && !IsSwitchPlatform(GMaxRHIShaderPlatform) &&
+#if RHI_RAYTRACING
+			!GRHISupportsRayTracing && //This is here because DXR is caching its BuiltIn Shaders in PostInit (see FD3D12Device::InitRayTracing)
+#endif // RHI_RAYTRACING
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
 		if (!bAllowAsynchronousGlobalShaderCompiling)

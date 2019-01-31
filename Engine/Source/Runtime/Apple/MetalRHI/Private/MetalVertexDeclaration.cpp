@@ -7,6 +7,8 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 
+mtlpp::VertexFormat GMetalFColorVertexFormat = mtlpp::VertexFormat::UChar4Normalized;
+
 static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
 {
 	switch (Type)
@@ -18,7 +20,7 @@ static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type
 		case VET_PackedNormal:	return mtlpp::VertexFormat::Char4Normalized;
 		case VET_UByte4:		return mtlpp::VertexFormat::UChar4;
 		case VET_UByte4N:		return mtlpp::VertexFormat::UChar4Normalized;
-		case VET_Color:			return mtlpp::VertexFormat::UChar4Normalized;
+		case VET_Color:			return GMetalFColorVertexFormat;
 		case VET_Short2:		return mtlpp::VertexFormat::Short2;
 		case VET_Short4:		return mtlpp::VertexFormat::Short4;
 		case VET_Short2N:		return mtlpp::VertexFormat::Short2Normalized;
@@ -30,6 +32,7 @@ static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type
 		case VET_UShort2N:		return mtlpp::VertexFormat::UShort2Normalized;
 		case VET_UShort4N:		return mtlpp::VertexFormat::UShort4Normalized;
 		case VET_URGB10A2N:		return mtlpp::VertexFormat::UInt1010102Normalized;
+		case VET_UInt:			return mtlpp::VertexFormat::UInt;
 		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return mtlpp::VertexFormat::Float;
 	};
 
@@ -58,6 +61,7 @@ uint32 TranslateElementTypeToSize(EVertexElementType Type)
 		case VET_Short4N:		return 8;
 		case VET_UShort4N:		return 8;
 		case VET_URGB10A2N:		return 4;
+		case VET_UInt:			return 4;
 		default:				UE_LOG(LogMetal, Fatal, TEXT("Unknown vertex element type!")); return 0;
 	};
 }

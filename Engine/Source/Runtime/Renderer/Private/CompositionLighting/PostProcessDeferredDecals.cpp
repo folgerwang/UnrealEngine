@@ -635,7 +635,8 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 	bool bHasValidDBufferMask = false;
 
-	if (ViewFamily.EngineShowFlags.Decals)
+	// Debug view framework does not yet support decals.
+	if (ViewFamily.EngineShowFlags.Decals && !ViewFamily.UseDebugViewPS())
 	{
 		bool bShouldResolveTargets = false;
 

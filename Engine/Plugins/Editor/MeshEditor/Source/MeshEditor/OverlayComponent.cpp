@@ -76,7 +76,7 @@ public:
 			MeshBatchData.MaxVertexIndex = VertexBufferIndex + NumLineVertices - 1;
 			MeshBatchData.StartIndex = IndexBufferIndex;
 			MeshBatchData.NumPrimitives = Component->Lines.Num() * 2;
-			MeshBatchData.MaterialProxy = Component->GetMaterial( 0 )->GetRenderProxy( IsSelected() );
+			MeshBatchData.MaterialProxy = Component->GetMaterial( 0 )->GetRenderProxy();
 
 			for( const FOverlayLine& OverlayLine : Component->Lines )
 			{
@@ -127,7 +127,7 @@ public:
 			MeshBatchData.MaxVertexIndex = VertexBufferIndex + NumPointVertices - 1;
 			MeshBatchData.StartIndex = IndexBufferIndex;
 			MeshBatchData.NumPrimitives = Component->Points.Num() * 2;
-			MeshBatchData.MaterialProxy = Component->GetMaterial( 1 )->GetRenderProxy( IsSelected() );
+			MeshBatchData.MaterialProxy = Component->GetMaterial( 1 )->GetRenderProxy();
 
 			for( const FOverlayPoint& OverlayPoint : Component->Points )
 			{
@@ -175,7 +175,7 @@ public:
 			MeshBatchData.MaxVertexIndex = VertexBufferIndex + MaterialTriangles.Num() * 3 - 1;
 			MeshBatchData.StartIndex = IndexBufferIndex;
 			MeshBatchData.NumPrimitives = MaterialTriangles.Num();
-			MeshBatchData.MaterialProxy = Component->GetMaterial( MaterialIndex )->GetRenderProxy( IsSelected() );
+			MeshBatchData.MaterialProxy = Component->GetMaterial( MaterialIndex )->GetRenderProxy();
 
 			for( const FOverlayTriangle& Triangle : MaterialTriangles )
 			{
@@ -251,7 +251,11 @@ public:
 					Mesh.bWireframe = false;
 					Mesh.VertexFactory = &VertexFactory;
 					Mesh.MaterialRenderProxy = MeshBatchData.MaterialProxy;
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate( GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest() );
+
+					FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+					DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+					BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 					BatchElement.FirstIndex = MeshBatchData.StartIndex;
 					BatchElement.NumPrimitives = MeshBatchData.NumPrimitives;
 					BatchElement.MinVertexIndex = MeshBatchData.MinVertexIndex;
@@ -275,7 +279,9 @@ public:
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
 		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
+		Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 		MaterialRelevance.SetPrimitiveViewRelevance( Result );
+		Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
 		return Result;
 	}
 

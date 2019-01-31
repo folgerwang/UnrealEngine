@@ -132,7 +132,6 @@ void MainVertexShader(
 	Pixel Shader
 =============================================================================*/
 
-float4		LightMapDensityParameters;
 float2		LightMapResolutionScale;
 
 /**
@@ -158,23 +157,6 @@ float3		BuiltLightingAndSelectedFlags;
 float4		LightMapDensityDisplayOptions;
 
 /**
- *	The color to apply to vertex mapped objects
- */
-float4		VertexMappedColor;
-
-/**
- *	The color to apply to selected objects
- */
-float4		DensitySelectedColor;
-
-/** The 'Grid' texture to show resolution */
-Texture2D 	GridTexture;
-SamplerState	GridTextureSampler;
-/** The 'Grid' texture normal map texture */
-Texture2D 	GridNormalTexture;
-SamplerState	GridNormalTextureSampler;
-
-/**
  *	The 'main' for the PixelShader
  */
 void MainPixelShader(
@@ -194,7 +176,8 @@ void MainPixelShader(
 
 	float2 LightMapUV,LightMapUV1;
 #if HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP
-	GetLightMapCoordinates(FactoryInterpolants,LightMapUV,LightMapUV1);
+	uint LightmapDataIndex;
+	GetLightMapCoordinates(FactoryInterpolants,LightMapUV,LightMapUV1,LightmapDataIndex);
 #else
 	LightMapUV = LightMapUV1 = float2(0.1,0.1);
 #endif
@@ -203,9 +186,9 @@ void MainPixelShader(
 	float WorldSpaceArea = length( cross( ddx(WorldPosition.xyz), ddy(WorldPosition.xyz) ) );
 	WorldSpaceArea = max( WorldSpaceArea, 0.00000001f );
 
-	float MinDensity = LightMapDensityParameters.y;
-	float IdealDensity = LightMapDensityParameters.z;
-	float MaxDensity = LightMapDensityParameters.w;
+	float MinDensity = LightmapDensityPass.LightMapDensity.y;
+	float IdealDensity = LightmapDensityPass.LightMapDensity.z;
+	float MaxDensity = LightmapDensityPass.LightMapDensity.w;
 
 	float Density = MinDensity;
 
@@ -246,11 +229,12 @@ void MainPixelShader(
  	TintColor += BuiltLightingAndSelectedFlags.yyyy;
 	// Override the coloring if vertex mapped
  	TintColor *= LightMapDensityDisplayOptions.z;
- 	TintColor += (VertexMappedColor * LightMapDensityDisplayOptions.w);
+ 	TintColor += (LightmapDensityPass.VertexMappedColor * LightMapDensityDisplayOptions.w);
  	// Override the coloring if selected...
  	TintColor *= (1.0f - BuiltLightingAndSelectedFlags.z);
- 	TintColor += (DensitySelectedColor * BuiltLightingAndSelectedFlags.z);
+ 	TintColor += (LightmapDensityPass.DensitySelectedColor * BuiltLightingAndSelectedFlags.z);
 
 	LightMapUV *= LightMapResolutionScale.xy;
-	OutColor = Texture2DSample(GridTexture, GridTextureSampler,LightMapUV) * TintColor;
+
+	OutColor = Texture2DSample(LightmapDensityPass.GridTexture, LightmapDensityPass.GridTextureSampler,LightMapUV) * TintColor;
 }

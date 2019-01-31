@@ -363,14 +363,19 @@ static void SuballocateUBO( uint32 Size, GLuint& Resource, uint32& Offset, uint8
 	UE_LOG(LogRHI,Log,TEXT("Allocated new buffer for uniform Pool %d buffers with %d bytes"),UBOPool.Num(), UBOPool.Num()*GetUBOPoolSize());
 }
 
-static uint32 GUniqueUniformBufferID = 0;
+static uint32 UniqueUniformBufferID()
+{
+	// make it atomic?
+	static uint32 GUniqueUniformBufferID = 0;
+	return ++GUniqueUniformBufferID;
+}
 
 FOpenGLUniformBuffer::FOpenGLUniformBuffer(const FRHIUniformBufferLayout& InLayout)
 	: FRHIUniformBuffer(InLayout)
 	, Resource(0)
 	, Offset(0)
 	, PersistentlyMappedBuffer(nullptr)
-	, UniqueID(++GUniqueUniformBufferID)
+	, UniqueID(UniqueUniformBufferID())
 	, AllocatedSize(0)
 	, bStreamDraw(false)
 {
@@ -432,7 +437,7 @@ FOpenGLUniformBuffer::~FOpenGLUniformBuffer()
 }
 
 
-static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* Contents,const FRHIUniformBufferLayout &Layout)
+static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* Contents,const FRHIUniformBufferLayout &Layout, EUniformBufferValidation Validation)
 {
 	if (Layout.Resources.Num())
 	{
@@ -441,10 +446,10 @@ static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* C
 		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
 		for (int32 i = 0; i < NumResources; ++i)
 		{
-			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[i].MemberOffset);
 
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i].MemberType == UBMT_SRV) && Validation == EUniformBufferValidation::ValidateResources)
 			{
 				check(Resource);
 			}
@@ -497,7 +502,7 @@ void CopyDataToUniformBuffer(const bool bCanRunOnThisThread, FOpenGLUniformBuffe
 	}
 }
 
-static FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+static FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	// This should really be synchronized, if there's a chance it'll be used from more than one buffer. Luckily, uniform buffers
 	// are only used for drawing/shader usage, not for loading resources or framebuffer blitting, so no synchronization primitives for now.
@@ -588,12 +593,12 @@ static FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHI
 	CopyDataToUniformBuffer(bCanCreateOnThisThread, NewUniformBuffer,Contents, Layout.ConstantBufferSize);
 
 	// Initialize the resource table for this uniform buffer.
-	SetLayoutTable(NewUniformBuffer, Contents, Layout);
+	SetLayoutTable(NewUniformBuffer, Contents, Layout, Validation);
 
 	return NewUniformBuffer;
 }	
 
-FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 	// This should really be synchronized, if there's a chance it'll be used from more than one buffer. Luckily, uniform buffers
@@ -674,7 +679,7 @@ FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Conte
 
 	if (AllocatedSize == 0)
 	{
-		return CreateUniformBuffer(Contents, Layout, Usage);
+		return CreateUniformBuffer(Contents, Layout, Usage, Validation);
 	}
 
 	FOpenGLUniformBuffer* NewUniformBuffer = new FOpenGLUniformBuffer(Layout);
@@ -684,7 +689,108 @@ FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Conte
 	CopyDataToUniformBuffer(bCanCreateOnThisThread, NewUniformBuffer, Contents, Layout.ConstantBufferSize);
 
 	// Initialize the resource table for this uniform buffer.
-	SetLayoutTable(NewUniformBuffer, Contents, Layout);
+	SetLayoutTable(NewUniformBuffer, Contents, Layout, Validation);
 
 	return NewUniformBuffer;
+}
+
+void UpdateUniformBufferContents(FOpenGLUniformBuffer* UniformBuffer, const void* Contents, uint32 ConstantBufferSize)
+{
+	if (ConstantBufferSize > 0)
+	{
+		FOpenGLEUniformBufferDataRef EmulatedUniformDataRef = UniformBuffer->EmulatedBufferData;
+		uint8* PersistentlyMappedBuffer = UniformBuffer->PersistentlyMappedBuffer;
+
+		if (IsValidRef(EmulatedUniformDataRef))
+		{
+			FMemory::Memcpy(EmulatedUniformDataRef->Data.GetData(), Contents, ConstantBufferSize);
+		}
+		else if (PersistentlyMappedBuffer)
+		{
+			UE_LOG(LogRHI, Fatal, TEXT("RHIUpdateUniformBuffer doesn't support PersistentlyMappedBuffer yet!"));
+		}
+		else
+		{
+			::CachedBindUniformBuffer(UniformBuffer->Resource);
+			FOpenGL::BufferSubData(GL_UNIFORM_BUFFER, 0, ConstantBufferSize, Contents);
+		}
+	}
+}
+
+void FOpenGLDynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents)
+{
+	FOpenGLUniformBuffer* UniformBuffer = ResourceCast(UniformBufferRHI);
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	const FRHIUniformBufferLayout& Layout = UniformBufferRHI->GetLayout();
+
+	const int32 ConstantBufferSize = Layout.ConstantBufferSize;
+	const int32 NumResources = Layout.Resources.Num();
+
+	check(UniformBuffer->ResourceTable.Num() == NumResources);
+
+	uint32 NextUniqueID = UniqueUniformBufferID();
+
+	if (RHICmdList.Bypass())
+	{
+		UpdateUniformBufferContents(UniformBuffer, Contents, ConstantBufferSize);
+
+		for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+		{
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
+
+#if 0
+			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+				*Layout.GetDebugName().ToString(),
+				ResourceIndex,
+				Layout.Resources[ResourceIndex].MemberType);
+#endif
+			check(Resource);
+
+			UniformBuffer->ResourceTable[ResourceIndex] = Resource;
+		}
+		
+		UniformBuffer->UniqueID = NextUniqueID;
+	}
+	else
+	{
+		FRHIResource** CmdListResources = nullptr;
+		void* CmdListConstantBufferData = nullptr;
+
+		if (NumResources > 0)
+		{
+			CmdListResources = (FRHIResource**)RHICmdList.Alloc(sizeof(FRHIResource*) * NumResources, alignof(FRHIResource*));
+
+			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+			{
+				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
+
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+					*Layout.GetDebugName().ToString(),
+					ResourceIndex,
+					(uint8)Layout.Resources[ResourceIndex].MemberType);
+
+				CmdListResources[ResourceIndex] = Resource;
+			}
+		}
+
+		if (ConstantBufferSize > 0)
+		{
+			CmdListConstantBufferData = (void*)RHICmdList.Alloc(ConstantBufferSize, 16);
+			FMemory::Memcpy(CmdListConstantBufferData, Contents, ConstantBufferSize);
+		}
+
+		RHICmdList.EnqueueLambda([UniformBuffer, CmdListResources, NumResources, CmdListConstantBufferData, ConstantBufferSize, NextUniqueID](FRHICommandList&)
+		{
+			UpdateUniformBufferContents(UniformBuffer, CmdListConstantBufferData, ConstantBufferSize);
+
+			// Update resource table.
+			for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+			{
+				UniformBuffer->ResourceTable[ResourceIndex] = CmdListResources[ResourceIndex];
+			}
+			UniformBuffer->UniqueID = NextUniqueID;
+		});
+		RHICmdList.RHIThreadFence(true);
+	}
 }

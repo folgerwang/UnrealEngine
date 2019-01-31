@@ -59,7 +59,7 @@ public:
 
 	/** Gathers all the widgets in the tree recursively */
 	void GetAllWidgets(TArray<UWidget*>& Widgets) const;
-	
+
 	/** Gathers descendant child widgets of a parent widget. */
 	static void GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets);
 

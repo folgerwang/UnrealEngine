@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 #include "SceneTypes.h"
+#include "SceneUtils.h"
 #include "Math/SHMath.h"
 
 class AWorldSettings;
@@ -31,13 +32,6 @@ enum EBasePassDrawListType
 	EBasePass_Default=0,
 	EBasePass_Masked,
 	EBasePass_MAX
-};
-
-enum class EShadingPath
-{
-	Mobile,
-	Deferred,
-	Num,
 };
 
 /**
@@ -169,6 +163,11 @@ public:
 	virtual void RemovePrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) {}
 
 	/** 
+	 * Retrieves primitive uniform shader parameters that are internal to the renderer.
+	 */
+	virtual void GetPrimitiveUniformShaderParameters_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool& bHasPrecomputedVolumetricLightmap, FMatrix& PreviousLocalToWorld, int32& SingleCaptureIndex) const {}
+	 
+	/** 
 	 * Updates the transform of a light which has already been added to the scene. 
 	 *
 	 * @param Light - light component to update
@@ -187,11 +186,8 @@ public:
 	/** Sets the precomputed volume distance field for the scene, or NULL to clear the current one. */
 	virtual void SetPrecomputedVolumeDistanceField(const class FPrecomputedVolumeDistanceField* PrecomputedVolumeDistanceField) {}
 
-	/** Sets shader maps on the specified materials without blocking. */
-	virtual void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate) {}
-
-	/** Updates static draw lists for the given set of materials. */
-	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) {}
+	/** Updates all static draw lists. */
+	virtual void UpdateStaticDrawLists() {}
 
 	/** 
 	 * Adds a new exponential height fog component to the scene
@@ -276,7 +272,7 @@ public:
 	 * Looks up the SpeedTree uniform buffer for the passed in vertex factory.
 	 * @param VertexFactory - The vertex factory registered for SpeedTree.
 	 */
-	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) = 0;
+	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const = 0;
 
 	/**
 	 * Release this scene and remove it from the rendering thread
@@ -331,16 +327,6 @@ public:
 	virtual class FFXSystemInterface* GetFXSystem() = 0;
 
 	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const { }
-
-	/**
-	 * Dumps static mesh draw list stats to the log.
-	 */
-	virtual void DumpStaticMeshDrawListStats() const {}
-
-	/**
-	 * Request to clear the MB info. Game thread only
-	 */
-	virtual void SetClearMotionBlurInfoGameThread() {}
 
 	/** Updates the scene's list of parameter collection id's and their uniform buffers. */
 	virtual void UpdateParameterCollections(const TArray<class FMaterialParameterCollectionInstanceResource*>& InParameterCollections) {}
@@ -423,8 +409,13 @@ public:
 	 */
 	virtual ENGINE_API TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const;
 
+	virtual void StartFrame() {}
 	virtual uint32 GetFrameNumber() const { return 0; }
 	virtual void IncrementFrameNumber() {}
+
+#if RHI_RAYTRACING
+	virtual class FRayTracingDynamicGeometryCollection* GetRayTracingDynamicGeometryCollection() { return nullptr; }
+#endif
 
 protected:
 	virtual ~FSceneInterface() {}

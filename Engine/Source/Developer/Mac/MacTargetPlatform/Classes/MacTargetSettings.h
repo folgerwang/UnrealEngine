@@ -13,17 +13,11 @@
 UENUM()
 enum class EMacMetalShaderStandard : uint8
 {
-    /** Metal Shaders, supporting Tessellation Shaders & Fragment Shader UAVs, Compatible With macOS Sierra 10.12.0 or later (std=osx-metal1.2) */
-    MacMetalSLStandard_1_2 = 2 UMETA(DisplayName="Metal v1.2 (10.12.0+)"),
-    
     /** Metal Shaders, supporting multiple viewports, Compatible With macOS 10.13.0 or later (std=osx-metal2.0) */
     MacMetalSLStandard_2_0 = 3 UMETA(DisplayName="Metal v2.0 (10.13.0+)"),
     
     /** Metal Shaders, supporting indirect command buffers, Compatible With macOS 10.14.0 or later (std=osx-metal2.1) */
     MacMetalSLStandard_2_1 = 4 UMETA(DisplayName="Metal v2.1 (10.14.0+)"),
-	
-	/** Metal Shaders, using indirect argument buffers to reduce CPU cost, Compatible With macOS 10.14.0 or later (std=osx-metal2.1) */
-	MacMetalSLStandard_2_1_IABs = 5 UMETA(DisplayName="Metal v2.1 w/Indirect Argument Buffers (10.14.0+)"),
 };
 
 /**
@@ -59,6 +53,14 @@ public:
      */
     UPROPERTY(EditAnywhere, config, Category=Rendering, meta = (DisplayName = "Use Fast-Math intrinsics", ConfigRestartRequired = true))
 	bool UseFastIntrinsics;
+	
+	/**
+	 * Whether to force Metal shaders to use 32bit floating point precision even when the shader uses half floats.
+	 * Half floats are much more efficient when they are availble but have less accuracy over large ranges,
+	 * as such some projects may need to use 32bit floats to ensure correct rendering.
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Rendering, meta = (DisplayName = "Force 32bit Floating Point Precision", ConfigRestartRequired = true))
+	bool ForceFloats;
 	
 	/**
 	 * Whether to use of Metal shader-compiler's -ffast-math optimisations.

@@ -2580,6 +2580,7 @@ void FMeshMaterialsLayout::OnMaterialHighlightedChanged(ECheckBoxState NewState,
 			Component->SelectedEditorMaterial = INDEX_NONE;
 		}
 		Component->MarkRenderStateDirty();
+		Component->PushSelectionToProxy();
 		StaticMeshEditor.RefreshViewport();
 	}
 }

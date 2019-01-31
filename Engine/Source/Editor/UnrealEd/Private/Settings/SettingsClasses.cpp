@@ -679,10 +679,6 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 			? FLinearColor::Black
 			: GetDefault<UEditorStyleSettings>()->SelectionColor);
 	}
-	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, HoverHighlightIntensity))
-	{
-		GEngine->HoverHighlightIntensity = HoverHighlightIntensity;
-	}
 	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, SelectionHighlightIntensity))
 	{
 		GEngine->SelectionHighlightIntensity = SelectionHighlightIntensity;

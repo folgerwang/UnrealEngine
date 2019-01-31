@@ -12,8 +12,9 @@
 #include "LightMap.h"
 #include "ShadowMap.h"
 #include "Engine/Engine.h"
-
-ENGINE_API bool GDrawListsLocked = false;
+#include "Engine/LightMapTexture2D.h"
+#include "Engine/ShadowMapTexture2D.h"
+#include "UnrealEngine.h"
 
 static TAutoConsoleVariable<float> CVarLODTemporalLag(
 	TEXT("lod.TemporalLag"),
@@ -167,7 +168,7 @@ void FSimpleElementCollector::RegisterDynamicResource(FDynamicPrimitiveResource*
 	DynamicResource->InitPrimitiveResource();
 }
 
-void FSimpleElementCollector::DrawBatchedElements(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter, ESceneDepthPriorityGroup DepthPriorityGroup) const
+void FSimpleElementCollector::DrawBatchedElements(FRHICommandList& RHICmdList, const FMeshPassProcessorRenderState& DrawRenderState, const FSceneView& InView, EBlendModeFilter::Type Filter, ESceneDepthPriorityGroup DepthPriorityGroup) const
 {
 	// Mobile HDR does not execute post process, so does not need to render flipped
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(InView.GetShaderPlatform()) && !bIsMobileHDR;
@@ -233,7 +234,6 @@ void FMeshElementCollector::ProcessTasks()
 	}
 }
 
-
 void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 {
 	DEFINE_LOG_CATEGORY_STATIC(FMeshElementCollector_AddMesh, Warning, All);
@@ -258,16 +258,58 @@ void FMeshElementCollector::AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch)
 			*this);
 	}
 
+	MeshBatch.PreparePrimitiveUniformBuffer(PrimitiveSceneProxy, FeatureLevel);
+
 	for (int32 Index = 0; Index < MeshBatch.Elements.Num(); ++Index)
 	{
-		checkf(MeshBatch.Elements[Index].PrimitiveUniformBuffer || MeshBatch.Elements[Index].PrimitiveUniformBufferResource, TEXT("Missing PrimitiveUniformBuffer on MeshBatchElement %d, Material '%s'"), Index, *MeshBatch.MaterialRenderProxy->GetFriendlyName());
 		UE_CLOG(MeshBatch.Elements[Index].IndexBuffer && !MeshBatch.Elements[Index].IndexBuffer->IndexBufferRHI, FMeshElementCollector_AddMesh, Fatal,
 			TEXT("FMeshElementCollector::AddMesh - On MeshBatchElement %d, Material '%s', index buffer object has null RHI resource"),
 			Index, MeshBatch.MaterialRenderProxy ? *MeshBatch.MaterialRenderProxy->GetFriendlyName() : TEXT("null"));
 	}
 
+	// If we are maintaining primitive scene data on the GPU, copy the primitive uniform buffer data to a unified array so it can be uploaded later
+	if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && MeshBatch.VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0)
+	{
+		for (int32 Index = 0; Index < MeshBatch.Elements.Num(); ++Index)
+		{
+			const TUniformBuffer<FPrimitiveUniformShaderParameters>* PrimitiveUniformBufferResource = MeshBatch.Elements[Index].PrimitiveUniformBufferResource;
+
+			if (PrimitiveUniformBufferResource)
+			{
+				TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderData = DynamicPrimitiveShaderDataPerView[ViewIndex];
+
+				const int32 DataIndex = DynamicPrimitiveShaderData->AddUninitialized(1);
+				MeshBatch.Elements[Index].PrimitiveIdMode = PrimID_DynamicPrimitiveShaderData;
+				MeshBatch.Elements[Index].DynamicPrimitiveShaderDataIndex = DataIndex;
+				FPlatformMemory::Memcpy(&(*DynamicPrimitiveShaderData)[DataIndex], PrimitiveUniformBufferResource->GetContents(), sizeof(FPrimitiveUniformShaderParameters));
+			}
+		}
+	}
+
+	MeshBatch.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(Views[ViewIndex]->GetFeatureLevel());
+
+	MeshBatch.MeshIdInPrimitive = MeshIdInPrimitivePerView[ViewIndex];
+	++MeshIdInPrimitivePerView[ViewIndex];
+
+	NumMeshBatchElementsPerView[ViewIndex] += MeshBatch.Elements.Num();
+
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& ViewMeshBatches = *MeshBatches[ViewIndex];
 	new (ViewMeshBatches) FMeshBatchAndRelevance(MeshBatch, PrimitiveSceneProxy, FeatureLevel);	
+}
+
+void FDynamicPrimitiveUniformBuffer::Set(
+	const FMatrix& LocalToWorld,
+	const FMatrix& PreviousLocalToWorld,
+	const FBoxSphereBounds& WorldBounds,
+	const FBoxSphereBounds& LocalBounds,
+	bool bReceivesDecals,
+	bool bHasPrecomputedVolumetricLightmap,
+	bool bUseEditorDepthTest)
+{
+	check(IsInRenderingThread());
+	UniformBuffer.SetContents(
+		GetPrimitiveUniformShaderParameters(LocalToWorld, PreviousLocalToWorld, WorldBounds.Origin, WorldBounds, LocalBounds, bReceivesDecals, false, false, false, bHasPrecomputedVolumetricLightmap, bUseEditorDepthTest, GetDefaultLightingChannelMask(), 1.0f, INDEX_NONE, INDEX_NONE));
+	UniformBuffer.InitResource();
 }
 
 FLightMapInteraction FLightMapInteraction::Texture(
@@ -496,30 +538,33 @@ int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVecto
 	return MinLOD;
 }
 
-FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale)
+FLODMask ComputeLODForMeshes(const TArray<class FStaticMeshBatchRelevance>& StaticMeshRelevances, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float& OutScreenRadiusSquared, float ScreenSizeScale, bool bDitheredLODTransition)
 {
 	FLODMask LODToRender;
 	const FSceneView& LODView = GetLODView(View);
 
-	const int32 NumMeshes = StaticMeshes.Num();
+	const int32 NumMeshes = StaticMeshRelevances.Num();
 
 	// Handle forced LOD level first
 	if (ForcedLODLevel >= 0)
 	{
 		OutScreenRadiusSquared = 0.0f;
 
-		int8 MinLOD = 127, MaxLOD = 0;
-		for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); ++MeshIndex)
+		int32 MinLOD = 127, MaxLOD = 0;
+		for (int32 MeshIndex = 0; MeshIndex < StaticMeshRelevances.Num(); ++MeshIndex)
 		{
-			const FStaticMesh&  Mesh = StaticMeshes[MeshIndex];
-			MinLOD = FMath::Min(MinLOD, Mesh.LODIndex);
-			MaxLOD = FMath::Max(MaxLOD, Mesh.LODIndex);
+			const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
+			if (Mesh.ScreenSize > 0.0f)
+			{
+				MinLOD = FMath::Min(MinLOD, (int32)Mesh.LODIndex);
+				MaxLOD = FMath::Max(MaxLOD, (int32)Mesh.LODIndex);
+			}
 		}
-		LODToRender.SetLOD(FMath::Clamp<int8>(ForcedLODLevel, MinLOD, MaxLOD));
+		LODToRender.SetLOD(FMath::Clamp(ForcedLODLevel, MinLOD, MaxLOD));
 	}
 	else if (LODView.Family->EngineShowFlags.LOD && NumMeshes)
 	{
-		if (StaticMeshes[0].bDitheredLODTransition)
+		if (bDitheredLODTransition && StaticMeshRelevances[0].bDitheredLODTransition)
 		{
 			for (int32 SampleIndex = 0; SampleIndex < 2; SampleIndex++)
 			{
@@ -527,20 +572,22 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 				bool bFoundLOD = false;
 				OutScreenRadiusSquared = ComputeTemporalLODBoundsScreenRadiusSquared(Origin, SphereRadius, LODView, SampleIndex);
 
-				for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
+				for (int32 MeshIndex = NumMeshes - 1; MeshIndex >= 0; --MeshIndex)
 				{
-					const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
-
-					float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
-
-					if(FMath::Square(MeshScreenSize * 0.5f) >= OutScreenRadiusSquared)
+					const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
+					if (Mesh.ScreenSize > 0.0f)
 					{
-						LODToRender.SetLODSample(Mesh.LODIndex, SampleIndex);
-						bFoundLOD = true;
-						break;
-					}
+						float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 
-					MinLODFound = FMath::Min<int32>(MinLODFound, Mesh.LODIndex);
+						if (FMath::Square(MeshScreenSize * 0.5f) >= OutScreenRadiusSquared)
+						{
+							LODToRender.SetLODSample(Mesh.LODIndex, SampleIndex);
+							bFoundLOD = true;
+							break;
+						}
+
+						MinLODFound = FMath::Min<int32>(MinLODFound, Mesh.LODIndex);
+					}
 				}
 				// If no LOD was found matching the screen size, use the lowest in the array instead of LOD 0, to handle non-zero MinLOD
 				if (!bFoundLOD)
@@ -555,13 +602,13 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 			bool bFoundLOD = false;
 			OutScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, LODView);
 
-			for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
+			for (int32 MeshIndex = NumMeshes - 1; MeshIndex >= 0; --MeshIndex)
 			{
-				const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+				const FStaticMeshBatchRelevance& Mesh = StaticMeshRelevances[MeshIndex];
 
 				float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 
-				if(FMath::Square(MeshScreenSize * 0.5f) >= OutScreenRadiusSquared)
+				if (FMath::Square(MeshScreenSize * 0.5f) >= OutScreenRadiusSquared)
 				{
 					LODToRender.SetLOD(Mesh.LODIndex);
 					bFoundLOD = true;
@@ -665,6 +712,9 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 
 	PreIntegratedBRDF = GWhiteTexture->TextureRHI;
 	PreIntegratedBRDFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	PrimitiveSceneData = GIdentityPrimitiveBuffer.PrimitiveSceneDataBufferSRV;
+	LightmapSceneData = GIdentityPrimitiveBuffer.LightmapSceneDataBufferSRV;
 }
 
 FInstancedViewUniformShaderParameters::FInstancedViewUniformShaderParameters()
@@ -701,6 +751,48 @@ void InitializeSharedSamplerStates()
 	}
 }
 
+void FLightCacheInterface::CreatePrecomputedLightingUniformBuffer_RenderingThread(ERHIFeatureLevel::Type FeatureLevel)
+{
+	if (LightMap || ShadowMap)
+	{
+		FPrecomputedLightingUniformParameters Parameters;
+		GetPrecomputedLightingParameters(FeatureLevel, Parameters, this);
+		PrecomputedLightingUniformBuffer = FPrecomputedLightingUniformParameters::CreateUniformBuffer(Parameters, UniformBuffer_MultiFrame);
+	}
+}
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapResourceClusterShaderParameters, "LightmapResourceCluster");
+
+void GetLightmapClusterResourceParameters(
+	ERHIFeatureLevel::Type FeatureLevel, 
+	const FLightmapClusterResourceInput& Input,
+	FLightmapResourceClusterShaderParameters& Parameters)
+{
+	const bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel);
+	const UTexture2D* LightMapTexture = Input.LightMapTextures[bAllowHighQualityLightMaps ? 0 : 1];
+
+	Parameters.LightMapTexture = LightMapTexture ? LightMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+	Parameters.SkyOcclusionTexture = Input.SkyOcclusionTexture ? Input.SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
+	Parameters.AOMaterialMaskTexture = Input.AOMaterialMaskTexture ? Input.AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+
+	Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+	Parameters.SkyOcclusionSampler = (Input.SkyOcclusionTexture && Input.SkyOcclusionTexture->Resource) ? Input.SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+	Parameters.AOMaterialMaskSampler = (Input.AOMaterialMaskTexture && Input.AOMaterialMaskTexture->Resource) ? Input.AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+
+	Parameters.StaticShadowTexture = Input.ShadowMapTexture ? Input.ShadowMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
+	Parameters.StaticShadowTextureSampler = (Input.ShadowMapTexture && Input.ShadowMapTexture->Resource) ? Input.ShadowMapTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+}
+
+void FDefaultLightmapResourceClusterUniformBuffer::InitDynamicRHI()
+{
+	FLightmapResourceClusterShaderParameters Parameters;
+	GetLightmapClusterResourceParameters(GMaxRHIFeatureLevel, FLightmapClusterResourceInput(), Parameters);
+	SetContents(Parameters);
+	Super::InitDynamicRHI();
+}
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+TGlobalResource< FDefaultLightmapResourceClusterUniformBuffer > GDefaultLightmapResourceClusterUniformBuffer;
 
 FLightMapInteraction FLightCacheInterface::GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
 {
@@ -814,4 +906,32 @@ void FReadOnlyCVARCache::Init()
 	}
 
 	bInitialized = true;
+}
+
+void FMeshBatch::PreparePrimitiveUniformBuffer(const FPrimitiveSceneProxy* PrimitiveSceneProxy, ERHIFeatureLevel::Type FeatureLevel)
+{
+	const bool bVFSupportsPrimitiveIdStream = VertexFactory->GetType()->SupportsPrimitiveIdStream();
+	checkf((PrimitiveSceneProxy->DoesVFRequirePrimitiveUniformBuffer() || bVFSupportsPrimitiveIdStream), TEXT("PrimitiveSceneProxy has bVFRequiresPrimitiveUniformBuffer disabled yet tried to draw with a vertex factory (%s) that did not support PrimitiveIdStream."), VertexFactory->GetType()->GetName());
+
+	const bool bPrimitiveShaderDataComesFromSceneBuffer = VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0;
+
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+	{
+		FMeshBatchElement& MeshElement = Elements[ElementIndex];
+
+		if (bPrimitiveShaderDataComesFromSceneBuffer)
+		{
+			checkf(!Elements[ElementIndex].PrimitiveUniformBuffer, 
+				TEXT("FMeshBatch was assigned a PrimitiveUniformBuffer even though Vertex Factory %s fetches primitive shader data through a Scene buffer.  The assigned PrimitiveUniformBuffer cannot be respected.  Use PrimitiveUniformBufferResource instead for dynamic primitive data, or leave both null to get FPrimitiveSceneProxy->UniformBuffer."), VertexFactory->GetType()->GetName());
+		}
+
+		// If we are not using GPU Scene, draws using vertex factories that do not support an explicit PrimitiveUniformBuffer on the FMeshBatch need to be setup with the FPrimitiveSceneProxy's uniform buffer
+		if (!MeshElement.PrimitiveUniformBufferResource && !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && bVFSupportsPrimitiveIdStream)
+		{
+			MeshElement.PrimitiveUniformBuffer = PrimitiveSceneProxy->GetUniformBuffer();
+		}
+
+		checkf(bPrimitiveShaderDataComesFromSceneBuffer || Elements[ElementIndex].PrimitiveUniformBuffer || Elements[ElementIndex].PrimitiveUniformBufferResource != NULL,
+			TEXT("FMeshBatch was not properly setup.  The primitive uniform buffer must be specified."));
+	}
 }

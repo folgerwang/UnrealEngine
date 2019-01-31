@@ -4,6 +4,8 @@
 	CommonViewUniformBuffer.usf: Common view uniform buffer specifics
 =============================================================================*/
 
+#pragma once
+
 /*
 * @return tan(View.FieldOfViewWideAngles * .5)
 */
@@ -29,4 +31,11 @@ float2 GetCotanHalfFieldOfView()
 float2 GetPrevCotanHalfFieldOfView()
 {
 	return float2(View.PrevViewToClip[0][0], View.PrevViewToClip[1][1]);
+}
+
+// Return the index of the frame.
+uint GetPowerOfTwoModulatedFrameIndex(uint Pow2Modulus)
+{
+	// Bit masking of an uniform parameter is a scalar operation on modern hardware.
+	return View.StateFrameIndex & uint(Pow2Modulus - 1);
 }

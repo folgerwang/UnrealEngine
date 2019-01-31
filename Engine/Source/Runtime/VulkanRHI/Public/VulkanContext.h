@@ -22,7 +22,6 @@ class FTransitionAndLayoutManagerData
 public:
 	void TempCopy(const FTransitionAndLayoutManagerData& In)
 	{
-		FScopeLock Lock(&LayoutLock);
 		Framebuffers = In.Framebuffers;
 		RenderPasses = In.RenderPasses;
 		Layouts = In.Layouts;
@@ -36,8 +35,6 @@ protected:
 	};
 	TMap<uint32, FFramebufferList*> Framebuffers;
 	TMap<VkImage, VkImageLayout> Layouts;
-
-	mutable FCriticalSection LayoutLock;
 };
 
 class FTransitionAndLayoutManager : public FTransitionAndLayoutManagerData
@@ -127,19 +124,16 @@ public:
 
 	inline void NotifyDeletedImage(VkImage Image)
 	{
-		FScopeLock Lock(&LayoutLock);
 		Layouts.Remove(Image);
 	}
 
 	VkImageLayout FindLayoutChecked(VkImage Image) const
 	{
-		FScopeLock Lock(&LayoutLock);
 		return Layouts.FindChecked(Image);
 	}
 
 	VkImageLayout FindOrAddLayout(VkImage Image, VkImageLayout LayoutIfNotFound)
 	{
-		FScopeLock Lock(&LayoutLock);
 		VkImageLayout* Found = Layouts.Find(Image);
 		if (Found)
 		{
@@ -152,7 +146,6 @@ public:
 
 	VkImageLayout& FindOrAddLayoutRW(VkImage Image, VkImageLayout LayoutIfNotFound)
 	{
-		FScopeLock Lock(&LayoutLock);
 		VkImageLayout* Found = Layouts.Find(Image);
 		if (Found)
 		{
@@ -177,10 +170,8 @@ public:
 	}
 
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset) final override;
-	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) final override;
 	virtual void RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ) final override;
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) final override;
-	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) final override;
 	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) final override;
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
 	virtual void RHISetShaderTexture(FHullShaderRHIParamRef HullShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
@@ -214,9 +205,7 @@ public:
 	virtual void RHISetShaderParameter(FGeometryShaderRHIParamRef GeometryShader, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue) final override;
 	virtual void RHISetShaderParameter(FPixelShaderRHIParamRef PixelShader, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue) final override;
 	virtual void RHISetShaderParameter(FComputeShaderRHIParamRef ComputeShader, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue) final override;
-	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) final override;
 	virtual void RHISetStencilRef(uint32 StencilRef) final override;
-	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) final override;
 	virtual void RHISetRenderTargets(uint32 NumSimultaneousRenderTargets, const FRHIRenderTargetView* NewRenderTargets, const FRHIDepthRenderTargetView* NewDepthStencilTarget, uint32 NumUAVs, const FUnorderedAccessViewRHIParamRef* UAVs) final override;
 	virtual void RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo) final override;
 	virtual void RHIDrawPrimitive(uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances) final override;
@@ -228,7 +217,6 @@ public:
 	virtual void RHIEndDrawPrimitiveUP() final override;
 	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override;
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
-	virtual void RHIEnableDepthBoundsTest(bool bEnable) final override;
 	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override;
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	virtual void RHIPopEvent() final override;

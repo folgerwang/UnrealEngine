@@ -4,6 +4,8 @@
 #include "Containers/ResourceArray.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "RenderResource.h"
+#include "RHIStaticStates.h"
+#include "RenderGraphUtils.h"
 
 #if WITH_EDITOR
 #include "Misc/CoreMisc.h"
@@ -1034,8 +1036,10 @@ RENDERCORE_API FIndexBufferRHIRef& GetUnitCubeIndexBuffer()
 
 RENDERCORE_API void QuantizeSceneBufferSize(const FIntPoint& InBufferSize, FIntPoint& OutBufferSize)
 {
-	// Ensure sizes are dividable by DividableBy to get post processing effects with lower resolution working well
-	const uint32 DividableBy = 4;
+	// Ensure sizes are dividable by the ideal group size for 2d tiles to make it more convenient.
+	const uint32 DividableBy = FComputeShaderUtils::kGolden2DGroupSize;
+
+	check(DividableBy % 4 == 0); // A lot of graphic algorithms where previously assuming DividableBy == 4.
 
 	const uint32 Mask = ~(DividableBy - 1);
 	OutBufferSize.X = (InBufferSize.X + DividableBy - 1) & Mask;

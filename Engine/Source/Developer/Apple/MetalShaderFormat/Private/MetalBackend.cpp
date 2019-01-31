@@ -1,5 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
-// .....
+// .
 
 #include "MetalBackend.h"
 #include "MetalShaderFormat.h"
@@ -52,11 +52,6 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #define WAVE_ALL_MAX "WaveAllMax"
 #define WAVE_PREFIX_SUM "WavePrefixSum"
 #define WAVE_PREFIX_PRODUCT "WavePrefixProduct"
-
-// NOTE: a lot of the comments refer to running out OUTPUT_CP rate -- not all comments were fixed...
-#define EXEC_AT_INPUT_CP_RATE 1 // exec at input CP rate
-
-#define MULTI_PATCH 1
 
 /**
  * This table must match the ir_expression_operation enum.
@@ -587,7 +582,6 @@ protected:
 	bool bInsertSideTable;
 
 	bool bRequiresWave;
-	bool bInsertUnknownFormat;
 	bool bNeedsDeviceIndex;
 	
     const char *shaderPrefix()
@@ -704,20 +698,27 @@ protected:
 		{
 			if (t->sampler_buffer)
 			{
-				if (!strncmp(t->name, "RWBuffer<", 9))
+				if (Backend.Version > 2)
 				{
-					ralloc_asprintf_append(buffer, "buffer_argument<");
-					print_type_pre(t->inner_type);
-					ralloc_asprintf_append(buffer, ", access::read_write>");
+					if (!strncmp(t->name, "RWBuffer<", 9))
+					{
+						ralloc_asprintf_append(buffer, "buffer_argument<");
+						print_type_pre(t->inner_type);
+						ralloc_asprintf_append(buffer, ", access::read_write>");
+					}
+					else
+					{
+						if (strncmp(t->HlslName, "RW", 2))
+						{
+							ralloc_asprintf_append(buffer, "const ");
+						}
+						print_type_pre(t->inner_type);
+						ralloc_asprintf_append(buffer, "*");
+					}
 				}
 				else
 				{
-					if (strncmp(t->HlslName, "RW", 2))
-					{
-						ralloc_asprintf_append(buffer, "const ");
-					}
 					print_type_pre(t->inner_type);
-					ralloc_asprintf_append(buffer, "*");
 				}
 			}
 			else
@@ -808,9 +809,16 @@ protected:
 					case GLSL_SAMPLER_DIM_BUF:
 						// Typed buffer read
 						check(t->inner_type);
-						ralloc_asprintf_append(buffer, "buffer_argument<");
-						print_base_type(t->inner_type);
-						ralloc_asprintf_append(buffer, ">");
+						if (Backend.Version > 2)
+						{
+							ralloc_asprintf_append(buffer, "buffer_argument<");
+							print_base_type(t->inner_type);
+							ralloc_asprintf_append(buffer, ">");
+						}
+						else
+						{
+							print_base_type(t->inner_type);
+						}
 						break;
 					case GLSL_SAMPLER_DIM_RECT:
 					case GLSL_SAMPLER_DIM_EXTERNAL:
@@ -1024,6 +1032,14 @@ protected:
 					bool bIsAtomic = Buffers.AtomicVariables.find(var) != Buffers.AtomicVariables.end();
                     if (bIsStructuredBuffer || bIsByteAddressBuffer || bIsInvariantType || bIsAtomic)
 					{
+						if (var->type->inner_type->is_record())
+						{
+							if (hash_table_find(used_structures, var->type->inner_type) == NULL)
+							{
+								hash_table_insert(used_structures, (void*)var->type->inner_type, var->type->inner_type);
+							}
+						}
+						
 						check(BufferIndex <= 30);
                         
                         if (Buffers.AtomicVariables.find(var) == Buffers.AtomicVariables.end())
@@ -1132,12 +1148,20 @@ protected:
 							bool bIsAtomic = Buffers.AtomicVariables.find(var) != Buffers.AtomicVariables.end();
 							if (bIsStructuredBuffer || bIsByteAddressBuffer || bIsInvariantType || bIsAtomic)
 							{
+								if (var->type->inner_type->is_record())
+								{
+									if (hash_table_find(used_structures, var->type->inner_type) == NULL)
+									{
+										hash_table_insert(used_structures, (void*)var->type->inner_type, var->type->inner_type);
+									}
+								}
+								
 								check(BufferIndex >= 0 && BufferIndex <= 30);
 								ralloc_asprintf_append(
 													   buffer,
 													   "const device "
 													   );
-								print_type_pre(PtrType);
+								print_base_type(PtrType->inner_type);
 								ralloc_asprintf_append(buffer, " *%s", unique_name(var));
 								print_type_post(PtrType);
 								ralloc_asprintf_append(
@@ -1423,7 +1447,7 @@ protected:
 		scope_depth++;
 		IsMain = sig->is_main;
 
-		if (sig->is_main && sig->is_early_depth_stencil && Frequency == fragment_shader && Backend.Version >= 2)
+		if (sig->is_main && sig->is_early_depth_stencil && Frequency == fragment_shader)
 		{
 			bExplicitEarlyFragTests = true;
 		}
@@ -1466,9 +1490,9 @@ protected:
             int32 patchIndex = Buffers.GetIndex(patchCount);
             check(patchIndex >= 0 && patchIndex < 30);
             
-            ir_variable* indexBuffer = new(ParseState)ir_variable(glsl_type::void_type, "indexBuffer", ir_var_in);
+            ir_variable* indexBuffer = new(ParseState)ir_variable(glsl_type::uint_type, "indexBuffer", ir_var_in);
             indexBuffer->semantic = "";
-            Buffers.Buffers.Add(indexBuffer);
+            Buffers.Textures.Add(indexBuffer);
             
             int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
             check(IndexBufferIndex >= 0 && IndexBufferIndex < 30);
@@ -1479,7 +1503,8 @@ protected:
 				"ushort2 thread_position_in_threadgroup [[thread_position_in_threadgroup]],\n"
 				"uint2 threadgroup_position_in_grid [[threadgroup_position_in_grid]],\n"
 				"constant uint *patchCount [[ buffer(%d) ]],\n"
-				"const device void *indexBuffer [[ buffer(%d) ]]", // indexBufferType == 0 means not indexed (and will strip) 1 means uint16_t* and 2 means uint32_t*
+				"#define METAL_INDEX_BUFFER_ID %d\n"
+				"typedBuffer1_read(uint, indexBuffer, METAL_INDEX_BUFFER_ID)",
                 patchIndex, IndexBufferIndex
 			);
 			bPrintComma = true;
@@ -1502,20 +1527,51 @@ protected:
 			);
 			bPrintComma = true;
 		}
-
+		
+		TArray<TArray<ir_variable *>> SortedParams;
 		foreach_iter(exec_list_iterator, iter, sig->parameters)
 		{
 			ir_variable *const inst = (ir_variable *) iter.get();
-			if (bPrintComma)
+			int32 index = Buffers.GetIndex(inst);
+			if (index > 0)
 			{
-				ralloc_asprintf_append(buffer, ",\n");
-				++indentation;
-				indent();
-				--indentation;
+				if (index >= SortedParams.Num())
+				{
+					SortedParams.AddDefaulted((index + 1) - SortedParams.Num());
+				}
+				TArray<ir_variable *>& Set = SortedParams[index];
+				Set.Add(inst);
 			}
-			inst->accept(this);
-			bPrintComma = true;
+			else
+			{
+				if (bPrintComma)
+				{
+					ralloc_asprintf_append(buffer, ",\n");
+					++indentation;
+					indent();
+					--indentation;
+				}
+				inst->accept(this);
+				bPrintComma = true;
+			}
 		}
+		
+		for (auto Pair : SortedParams)
+		{
+			for (auto inst : Pair)
+			{
+				if (bPrintComma)
+				{
+					ralloc_asprintf_append(buffer, ",\n");
+					++indentation;
+					indent();
+					--indentation;
+				}
+				inst->accept(this);
+				bPrintComma = true;
+			}
+		}
+		
 		check(sig->is_main);
 		ralloc_asprintf_append(buffer, ")\n");
 
@@ -1578,7 +1634,6 @@ protected:
 				{
 					if (Backend.bIsTessellationVSHS)
 					{
-						check(EXEC_AT_INPUT_CP_RATE);
 						ralloc_asprintf_append(buffer, "#define GET_PATCH_COUNT() patchCount[0]\n");
 						ralloc_asprintf_append(buffer, "#define GET_PATCH_ID() (thread_position_in_grid.x / TessellationInputControlPoints)\n");
 						ralloc_asprintf_append(buffer, "#define GET_PATCH_VALID() (GET_PATCH_ID() < GET_PATCH_COUNT())\n");
@@ -1586,19 +1641,12 @@ protected:
 						ralloc_asprintf_append(buffer, "#define GET_INTERNAL_PATCH_ID() (GET_INSTANCE_ID() * GET_PATCH_COUNT() + GET_PATCH_ID())\n");
 						ralloc_asprintf_append(buffer, "#define GET_PATCH_ID_IN_THREADGROUP() (GET_PATCH_ID() %% TessellationPatchesPerThreadGroup)\n");
 						ralloc_asprintf_append(buffer, "#define GET_INPUT_CP_ID() (thread_position_in_grid.x %% TessellationInputControlPoints)\n");
-						/* NOTE: relies upon
-						enum EMetalIndexType
-						{
-							EMetalIndexType_None   = 0,
-							EMetalIndexType_UInt16 = 1,
-							EMetalIndexType_UInt32 = 2
-						};*/
-						ralloc_asprintf_append(buffer, "constant uint indexBufferType [[ function_constant(32) ]];\n");
+
+						ir_variable* indexBuffer = ParseState->symbols->get_variable("indexBuffer");
+						int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
 						ralloc_asprintf_append(buffer, "#define GET_VERTEX_ID() \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 0) ? thread_position_in_grid.x : \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 1) ? ((const device ushort *)indexBuffer)[thread_position_in_grid.x] : \\\n");
-						ralloc_asprintf_append(buffer, "	(indexBufferType == 2) ? ((const device uint   *)indexBuffer)[thread_position_in_grid.x] : \\\n");
-						ralloc_asprintf_append(buffer, "	thread_position_in_grid.x\n");
+						ralloc_asprintf_append(buffer, "	(is_null_texture(indexBuffer)) ? thread_position_in_grid.x : \\\n");
+						ralloc_asprintf_append(buffer, "	buffer::load<uint, METAL_INDEX_BUFFER_ID>(indexBuffer, thread_position_in_grid.x + patchCount[1])\n");
 						ralloc_asprintf_append(buffer, "/* optionally vertex_id = GET_VERTEX_ID() + grid_origin.x */\n");
 					}
 
@@ -2212,15 +2260,6 @@ protected:
 					tex->sampler->accept(this);
 					ralloc_asprintf_append(buffer, ", ");
 					tex->coordinate->accept(this);
-					if (FormatIndex >= 0)
-					{
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-					}
-					else
-					{
-						ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-						bInsertUnknownFormat = true;
-					}
 					if (bSideTable)
 					{
 						ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
@@ -2232,8 +2271,6 @@ protected:
 				}
 				else if (Backend.bBoundsChecks)
 				{
-					check(Index <= 30);
-					
 					if (!bIsAtomic && (!bIsStructuredBuffer || !Texture->type->inner_type->is_record()))
 					{
 						ralloc_asprintf_append(buffer, "buffer::load<");
@@ -2279,6 +2316,11 @@ protected:
 				{
 					ralloc_asprintf_append(buffer, ",");
 					tex->lod_info.sample_index->accept(this);
+				}
+				else if (tex->lod_info.lod && !tex->lod_info.lod->is_zero())
+				{
+					ralloc_asprintf_append(buffer, ",");
+					tex->lod_info.lod->accept(this);
 				}
 			}
 		}
@@ -2383,6 +2425,31 @@ protected:
 			{
 				ralloc_asprintf_append(buffer, ", ");
 				tex->offset->accept(this);
+			}
+			else if(tex->channel > ir_channel_none)
+			{
+				ralloc_asprintf_append(buffer, ", int2(0)");
+			}
+
+			// Emit channel selection for gather
+			check(tex->channel < ir_channel_unknown);
+			switch(tex->channel)
+			{
+				case ir_channel_red:
+					ralloc_asprintf_append(buffer, ", component::x");
+					break;
+				case ir_channel_green:
+					ralloc_asprintf_append(buffer, ", component::y");
+					break;
+				case ir_channel_blue:
+					ralloc_asprintf_append(buffer, ", component::z");
+					break;
+				case ir_channel_alpha:
+					ralloc_asprintf_append(buffer, ", component::w");
+					break;
+				case ir_channel_none:
+				default:
+					break;
 			}
 		}
 			break;
@@ -2586,19 +2653,8 @@ protected:
 			ralloc_asprintf_append(buffer, "[");
 		}
 		
-		bool bIsVectorArrayIndex = deref->array->type->is_vector() && (Backend.Version < 3 && Backend.bIsDesktop == EMetalGPUSemanticsImmediateDesktop);
-		if (bIsVectorArrayIndex)
-		{
-			ralloc_asprintf_append(buffer, "vector_array_deref(");
-		}
-
 		deref->array_index->accept(this);
 		should_print_uint_literals_as_ints = false;
-
-		if (bIsVectorArrayIndex)
-		{
-			ralloc_asprintf_append(buffer, ")");
-		}
 
 		if (enforceInt)
 		{
@@ -2693,15 +2749,6 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (FormatIndex >= 0)
-						{
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-						}
-						else
-						{
-							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-							bInsertUnknownFormat = true;
-						}
 						if (bSideTable)
 						{
 							ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
@@ -2891,15 +2938,6 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (FormatIndex >= 0)
-						{
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
-						}
-						else
-						{
-							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
-							bInsertUnknownFormat = true;
-						}
 						if (bSideTable)
 						{
 							ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
@@ -2940,9 +2978,32 @@ protected:
 		}
 		else if ( deref->op == ir_image_dimensions)
 		{
-			ralloc_asprintf_append( buffer, "imageSize( " );
+			// Convert from:
+			//	HLSL
+			//		int w, h;
+			//		T.GetDimensions({lod, }w, h);
+			// GLSL
+			//		ivec2 Temp;
+			//		Temp = textureSize(T{, lod});
+			// Metal
+			//		int2 Temp = int2((int)T.get_width({lod}), (int)T.get_height({lod}));
+			ralloc_asprintf_append(buffer, "int2(");
 			deref->image->accept(this);
-			ralloc_asprintf_append(buffer, ")");
+			ralloc_asprintf_append(buffer, ".get_width(");
+			
+			if (deref->image_index)
+			{
+				deref->image_index->accept(this);
+			}
+			ralloc_asprintf_append(buffer, "), (int)");
+			
+			deref->image->accept(this);
+			ralloc_asprintf_append(buffer, ".get_height(");
+			if (deref->image_index)
+			{
+				deref->image_index->accept(this);
+			}
+			ralloc_asprintf_append(buffer, "))");
 		}
 		else
 		{
@@ -2999,18 +3060,27 @@ protected:
 		{
 			char mask[6];
 			unsigned j = 1;
+			
 			if (assign->lhs->type->is_scalar() == false ||
 				assign->write_mask != 0x1)
 			{
-				for (unsigned i = 0; i < 4; i++)
+				auto* DerefRecord = assign->lhs->as_dereference_record();
+				bool bPackableRecord = (assign->lhs->as_dereference_record() && DerefRecord->record->type->HlslName && !strcmp(DerefRecord->record->type->HlslName, "__PACKED__"));
+				bool bPackableVector = assign->lhs->type->is_vector() && assign->lhs->type->vector_elements < 4;
+				if (!bPackableRecord || !bPackableVector)
+				
 				{
-					if ((assign->write_mask & (1 << i)) != 0)
+					for (unsigned i = 0; i < 4; i++)
 					{
-						mask[j] = "xyzw"[i];
-						j++;
+						if ((assign->write_mask & (1 << i)) != 0)
+						{
+							mask[j] = "xyzw"[i];
+							j++;
+						}
 					}
 				}
 			}
+			
 			mask[j] = '\0';
 
 			mask[0] = (j == 1) ? '\0' : '.';
@@ -3554,7 +3624,7 @@ protected:
 		};
 */
 		check(scope_depth > 0);
-		const bool is_image = ir->memory_ref->as_dereference_image() != NULL;
+		const bool is_image = ir->memory_ref->as_dereference_image() != NULL || ir->memory_ref->type->is_image();
 
 		if (ir->lhs)
 		{
@@ -3577,13 +3647,31 @@ protected:
 				"store_atomic",
 			};
 			static_assert(sizeof(SharedAtomicFunctions) / sizeof(SharedAtomicFunctions[0]) == ir_atomic_count, "Mismatched entries!");
-
-			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
-
 			int BufferIndex = 0;
 			char const* BufferSizesName = "BufferSizes";
-
-			ir_variable* image_var = atomic->image->variable_referenced();
+			
+			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
+			ir_dereference_variable* deref = ir->memory_ref->as_dereference_variable();
+			ir_variable* image_var = nullptr;
+			
+			ir_rvalue *image = nullptr;
+			ir_rvalue *image_index = nullptr;
+			ir_rvalue *operands[2] = {nullptr, nullptr};
+			if (atomic)
+			{
+				image_var = atomic->image->variable_referenced();
+				image = atomic->image;
+				image_index = atomic->image_index;
+				operands[0] = ir->operands[0];
+				operands[1] = ir->operands[1];
+			}
+			else
+			{
+				check(deref);
+				image_var = deref->variable_referenced();
+				image = deref;
+				image_index = ir->operands[0];
+			}
 			if (image_var->mode == ir_var_temporary)
 			{
 				// IAB sampling path
@@ -3607,20 +3695,20 @@ protected:
 			check(BufferIndex >= 0 && BufferIndex <= 30);
 
 			ralloc_asprintf_append(buffer, "buffer_atomic<memory_order_relaxed>::%s<", SharedAtomicFunctions[ir->operation]);
-			print_type_pre(ir->memory_ref->type);
+			print_type_pre(image_var->type->inner_type);
 			ralloc_asprintf_append(buffer, ", %d>(", BufferIndex);
-			atomic->image->accept(this);
+			image->accept(this);
 			ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
-			atomic->image_index->accept(this);
-			if (ir->operands[0])
+			image_index->accept(this);
+			if (operands[0])
 			{
 				ralloc_asprintf_append(buffer, ", ");
-				ir->operands[0]->accept(this);
+				operands[0]->accept(this);
 			}
-			if (ir->operands[1])
+			if (operands[1])
 			{
 				ralloc_asprintf_append(buffer, ", ");
-				ir->operands[1]->accept(this);
+				operands[1]->accept(this);
 			}
 			ralloc_asprintf_append(buffer, ")");
 		}
@@ -4529,10 +4617,9 @@ public:
 		, bUsePacked(false)
 		, bNeedsComputeInclude(false)
 		, bExplicitEarlyFragTests(false)
-		, bImplicitEarlyFragTests(InBackend.Version >= 2)
+		, bImplicitEarlyFragTests(true)
 		, bInsertSideTable(false)
 		, bRequiresWave(false)
-		, bInsertUnknownFormat(false)
 		, bNeedsDeviceIndex(false)
 	{
 		printable_names = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
@@ -4569,50 +4656,14 @@ public:
 		char* decl_buffer = ralloc_asprintf(mem_ctx, "");
 		buffer = &decl_buffer;
 		declare_structs(ParseState);
-        
-        if (Backend.TypedBuffers)
-        {
-            ralloc_asprintf_append(buffer, "\n");
-            for (uint32 i = 0; i < (uint32)Backend.TypedBufferFormats.Num(); i++)
-            {
-                if ((Backend.TypedBuffers & (1 << i)) != 0)
-                {
-                    if ((Backend.TypedUAVs & (1 << i)) != 0)
-                    {
-                        ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
-                        ralloc_asprintf_append(buffer, "#else\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#endif\n");
-                    }
-                    else
-                    {
-                        ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
-                        ralloc_asprintf_append(buffer, "#else\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#endif\n");
-                    }
-                }
-            }
-        }
 		
-        if ((bExplicitEarlyFragTests || bImplicitEarlyFragTests) && !Backend.bExplicitDepthWrites && Frequency == fragment_shader && Backend.Version >= 2)
+        if ((bExplicitEarlyFragTests || bImplicitEarlyFragTests) && !Backend.bExplicitDepthWrites && Frequency == fragment_shader)
 		{
 			ralloc_asprintf_append(buffer, "\n#define FUNC_ATTRIBS [[early_fragment_tests]]\n\n");
 		}
 		else
 		{
 			ralloc_asprintf_append(buffer, "\n#define FUNC_ATTRIBS \n\n");
-		}
-		
-		if (bInsertUnknownFormat)
-		{
-			ralloc_asprintf_append(buffer, "\nconstant uint GMetalUnknownFormat = ue4::Unknown;\n\n");
 		}
 
 		// These should work in fragment shaders but Apple are behind the curve on SM6.
@@ -4696,21 +4747,13 @@ public:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 0\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 0\n");
                 break;
-            case EMetalTypeBufferModeSRV:
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 1\n");
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 2\n");
-                break;
-            case EMetalTypeBufferModeUAV:
+            case EMetalTypeBufferMode2D:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 1\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 1\n");
                 break;
-            case EMetalTypeBufferModeTex:
+            case EMetalTypeBufferModeTB:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 3\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 3\n");
-                break;
-            case EMetalTypeBufferModeFun:
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 2\n");
-                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 2\n");
                 break;
             default:
                 break;
@@ -4760,6 +4803,103 @@ public:
 	}
 };
 
+struct FMetalAtomicTexture2DVisitor : public ir_hierarchical_visitor
+{
+	exec_list* Instructions;
+	_mesa_glsl_parse_state* ParseState;
+	
+	FMetalAtomicTexture2DVisitor(exec_list* ir, _mesa_glsl_parse_state* state)
+	: Instructions(ir)
+	, ParseState(state)
+	{
+		
+	}
+	
+	~FMetalAtomicTexture2DVisitor()
+	{
+		
+	}
+	
+	virtual ir_visitor_status visit_leave(class ir_atomic * ir) override final
+	{
+		const bool is_image = ir->memory_ref->as_dereference_image() != NULL;
+		if (is_image)
+		{
+			ir_dereference_image* atomic = ir->memory_ref->as_dereference_image();
+			ir_variable* image_var = atomic->image->variable_referenced();
+			switch (image_var->type->sampler_dimensionality)
+			{
+				case GLSL_SAMPLER_DIM_BUF:
+					break;
+				case GLSL_SAMPLER_DIM_2D:
+				{
+					// Not handling IABs yet
+					check(image_var->mode == ir_var_uniform);
+					
+					char const* newName = ralloc_asprintf(ParseState, "%s_atomic", image_var->name);
+					ir_variable* newVar = ParseState->symbols->get_variable(newName);
+					if (!newVar)
+					{
+						glsl_type const* BufferType = glsl_type::GetStructuredBufferInstance("RWStructuredBuffer", image_var->type->inner_type);
+						newVar = new(ParseState)ir_variable(BufferType, newName, ir_var_uniform);
+						newVar->used = 1;
+						
+						image_var->constant_value = (ir_constant*)newVar;
+						
+						Instructions->push_head(newVar);
+						
+						ParseState->symbols->add_variable(newVar);
+					}
+					check(newVar);
+					
+					ir_dereference_variable* DerefVar = new(ParseState)ir_dereference_variable(newVar);
+					
+					const glsl_type *res_type = glsl_type::get_instance(GLSL_TYPE_INT, 2, 1);
+					ir_variable* temp = new(ParseState)ir_variable(res_type, nullptr, ir_var_temporary);
+					
+					ir_dereference_image* DerefOld = new(ParseState)ir_dereference_image(atomic->image->clone(ParseState, nullptr), new(ParseState) ir_constant(0.0f), ir_image_dimensions);
+					DerefOld->type = res_type;
+					
+					ir_assignment* Assign = new(ParseState)ir_assignment(new(ParseState)ir_dereference_variable(temp), DerefOld);
+					
+					ir->insert_before(temp);
+					ir->insert_before(Assign);
+					
+					unsigned int XSwizzle[] = { 0 };
+					ir_swizzle* Width = new(ParseState)ir_swizzle(new(ParseState)ir_dereference_variable(temp), XSwizzle, 1);
+					
+					ir_swizzle* XCoord = new(ParseState)ir_swizzle(atomic->image_index->clone(ParseState, nullptr), XSwizzle, 1);
+					
+					unsigned int YSwizzle[] = { 1 };
+					ir_swizzle* YCoord = new(ParseState)ir_swizzle(atomic->image_index->clone(ParseState, nullptr), YSwizzle, 1);
+					
+					ir_expression* Mul = new (ParseState)ir_expression(ir_binop_mul, Width, XCoord);
+					ir_expression* Add = new (ParseState)ir_expression(ir_binop_add, Mul, YCoord);
+					
+					ir_dereference_image* DerefImage = new(ParseState)ir_dereference_image(DerefVar, Add, ir_image_access);
+					
+					ir->memory_ref = DerefImage;
+					break;
+				}
+				default:
+					if (!image_var->type->sampler_buffer)
+					{
+						_mesa_glsl_error(ParseState, "Metal doesn't allow atommic operations on RWTexture %s", image_var->name);
+					}
+					break;
+			}
+		}
+		
+		return ir_hierarchical_visitor::visit_leave(ir);
+	}
+};
+
+void FMetalCodeBackend::FixupTextureAtomics(exec_list* ir, _mesa_glsl_parse_state* state)
+{
+	FMetalAtomicTexture2DVisitor Visitor(ir, state);
+	Visitor.run(ir);
+}
+
 char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency)
 {
 	// We'll need this Buffers info for the [[buffer()]] index
@@ -4783,6 +4923,8 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 	
 	// Move all inputs & outputs to structs for Metal
 	PackInputsAndOutputs(ir, state, Frequency, visitor.input_variables);
+	
+	FixupTextureAtomics(ir, state);
 	
 	FindAtomicVariables(ir, Buffers.AtomicVariables);
 	
@@ -4875,12 +5017,6 @@ struct FMetalCheckComputeRestrictionsVisitor : public ir_rvalue_visitor
 			{
 				ImageRW[Var] |= EMetalAccessRead;
 			}
-
-			if (ImageRW[Var] == EMetalAccessReadWrite && Version < 2 && (!Var->type->sampler_buffer || TypeMode == EMetalTypeBufferModeUAV))
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow simultaneous read & write on RWTexture(s) %s%s%s", Var->name ? "(" : "", Var->name ? Var->name : "", Var->name ? ")" : "");
-				bErrors = true;
-			}
 		}
 	}
 
@@ -4920,19 +5056,6 @@ struct FMetalCheckNonComputeRestrictionsVisitor : public FMetalCheckComputeRestr
 	
 	virtual ir_visitor_status visit(ir_variable* IR) override
 	{
-		if (IR->type && IR->type->is_image() && (Version < 2))
-		{
-			if (IR->name)
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV '%s' on non-compute shader stage %d.", IR->name, (unsigned)ParseState->target);
-			}
-			else
-			{
-				_mesa_glsl_error(ParseState, "Metal doesn't allow UAV on non-compute shader stage %d.", (unsigned)ParseState->target);
-			}
-			bErrors = true;
-			return visit_stop;
-		}
 		// @todo validate that GLSL_OUTPUTTOPOLOGY_POINT, GLSL_OUTPUTTOPOLOGY_LINE are not used
 		
 		return FMetalCheckComputeRestrictionsVisitor::visit(IR);
@@ -5079,7 +5202,6 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 		check(patchesPerThreadgroup != 0);
 		check(patchesPerThreadgroup <= METAL_TESS_MAX_THREADS_PER_THREADGROUP);
 
-#if EXEC_AT_INPUT_CP_RATE
 		// create and call GET_INPUT_CP_ID
 		ir_variable* SV_InputControlPointIDVar = NULL; // @todo it would be better to do this under GenerateInputFromSemantic (also this is ... should never be used by anything in the USF... only internal)
 		{
@@ -5125,35 +5247,6 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 				);
 			PrePreCallInstructions.push_tail(Assign);
 		}
-#else // EXEC_AT_INPUT_CP_RATE
-		// create and call GET_OUTPUT_CP_ID
-		ir_variable* SV_OutputControlPointIDVar = NULL; // @todo it would be better to do this under GenerateInputFromSemantic
-		{
-			ir_function *Function = NULL;
-			// create GET_OUTPUT_CP_ID
-			{
-				const glsl_type* retType = glsl_type::get_instance(GLSL_TYPE_UINT, 1, 1);
-				ir_function_signature* sig = new(ParseState)ir_function_signature(retType);
-				sig->is_builtin = true;
-				Function = new(ParseState)ir_function("GET_OUTPUT_CP_ID");
-				Function->add_signature(sig);
-			}
-			check(Function);
-
-			exec_list VoidParameter;
-			ir_function_signature * FunctionSig = Function->matching_signature(&VoidParameter);
-
-			ir_variable* TempVariable = new(ParseState) ir_variable(glsl_type::get_instance(GLSL_TYPE_UINT, 1, 1), "SV_OutputControlPointID", ir_var_temporary);
-			ir_dereference_variable* TempVariableDeref = new(ParseState) ir_dereference_variable(TempVariable);
-			PrePreCallInstructions.push_tail(TempVariable);
-
-			auto* Call = new(ParseState)ir_call(FunctionSig, TempVariableDeref, &VoidParameter);
-			PrePreCallInstructions.push_tail(Call);
-
-			SV_OutputControlPointIDVar = TempVariable;
-			ParseState->symbols->add_variable(SV_OutputControlPointIDVar);
-		}
-#endif // EXEC_AT_INPUT_CP_RATE
 		// create and call GET_PATCH_VALID
 		{
 			ir_function *Function = NULL;
@@ -5306,6 +5399,9 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 		}
 		else if (Variable->semantic != NULL || Variable->type->is_record())
 		{
+			Qualifier.Fields.bCentroid = Variable->centroid;
+			Qualifier.Fields.InterpolationMode = Variable->interpolation;
+			
 			ir_dereference_variable* ArgVarDeref = NULL;
 			switch (Variable->mode)
 			{
@@ -5315,6 +5411,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 					ParseState,
 					Variable->name,
 					Variable->semantic,
+					Qualifier,
 					Variable->type,
 					&DeclInstructions,
 					&PreCallInstructions
@@ -5465,6 +5562,9 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 				const ir_variable* Variable = (ir_variable*)Iter.get();
 				if (Variable->semantic != NULL || Variable->type->is_record())
 				{
+					Qualifier.Fields.bCentroid = Variable->centroid;
+					Qualifier.Fields.InterpolationMode = Variable->interpolation;
+					
 					ir_dereference_variable* ArgVarDeref = NULL;
 					switch (Variable->mode)
 					{
@@ -5474,6 +5574,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 							ParseState,
 							Variable->name,
 							Variable->semantic,
+							Qualifier,
 							Variable->type,
 							&VertexDeclInstructions,
 							&VertexPreCallInstructions
@@ -5669,7 +5770,6 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 
 
 			// optimization if inputcontrolpoints == outputcontrolpoints -- no need for a loop
-			if(EXEC_AT_INPUT_CP_RATE || inputcontrolpoints == ParseState->tessellation.outputcontrolpoints)
 			{
 				// add ... if(isPatchValid)
 				ir_if* pv_if = new(ParseState)ir_if(new(ParseState)ir_dereference_variable(ParseState->symbols->get_variable("isPatchValid")));
@@ -5687,113 +5787,9 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 						InputPatchVar,
 						new (ParseState)ir_dereference_variable(ParseState->symbols->get_variable("patchIDInThreadgroup"))
 					),
-#if EXEC_AT_INPUT_CP_RATE
 					new (ParseState)ir_dereference_variable(ParseState->symbols->get_variable("SV_InputControlPointID"))
-#else // EXEC_AT_INPUT_CP_RATE
-					new (ParseState)ir_dereference_variable(ParseState->symbols->get_variable("SV_OutputControlPointID"))
-#endif // EXEC_AT_INPUT_CP_RATE
 					);
 				pv_if->then_instructions.push_tail(
-					new (ParseState)ir_assignment(
-						InputPatchElementIndex,
-						new (ParseState)ir_dereference_variable(OutputVertexVar)
-					)
-					);
-			}
-			else
-			{
-				check(0); // not currently a supported combination with compute stageIn attributes
-				check(!EXEC_AT_INPUT_CP_RATE); // this will never happen if EXEC_AT_INPUT_CP_RATE
-				// add ...	for(uint baseCPID = 0; baseCPID < TessellationInputControlPoints; baseCPID += TessellationOutputControlPoints)
-				ir_variable* baseCPIDVar = new(ParseState)ir_variable(glsl_type::get_instance(GLSL_TYPE_UINT, 1, 1), "baseCPIDVar", ir_var_temporary);
-				PrePreCallInstructions.push_tail(baseCPIDVar);
-				// add ... uint baseCPID = 0
-				PrePreCallInstructions.push_tail(
-					new(ParseState)ir_assignment(
-						new(ParseState)ir_dereference_variable(baseCPIDVar),
-						new(ParseState)ir_constant((unsigned)0)
-					)
-					);
-				ir_loop* vf_loop = new(ParseState)ir_loop();
-				PrePreCallInstructions.push_tail(vf_loop);
-
-				// NOTE: cannot use from/to/increment/counter/cmp because that is used during optimizations
-				// add ... baseCPID < TessellationInputControlPoints (to break from the for loop)
-				ir_if* vf_loop_break = new(ParseState)ir_if(
-					new(ParseState)ir_expression(ir_binop_gequal,
-						new(ParseState)ir_dereference_variable(baseCPIDVar),
-						new(ParseState)ir_constant((unsigned)inputcontrolpoints)
-					)
-					);
-				vf_loop->body_instructions.push_tail(vf_loop_break);
-				vf_loop_break->then_instructions.push_tail(
-						new(ParseState)ir_loop_jump(ir_loop_jump::jump_break)
-					);
-				vf_loop->mode = ir_loop::loop_dont_care;
-
-				// add ... const uint inputCPID = baseCPID + SV_OutputControlPointID; // baseCPID + GET_OUTPUT_CP_ID()
-				ir_variable* inputCPIDVar = new(ParseState)ir_variable(glsl_type::get_instance(GLSL_TYPE_UINT, 1, 1), "inputCPIDVar", ir_var_temporary);
-				vf_loop->body_instructions.push_tail(inputCPIDVar);
-				vf_loop->body_instructions.push_tail(
-					new(ParseState)ir_assignment(
-						new(ParseState)ir_dereference_variable(inputCPIDVar),
-						new(ParseState)ir_expression(ir_binop_add,
-							new(ParseState)ir_dereference_variable(baseCPIDVar),
-							new(ParseState)ir_dereference_variable(ParseState->symbols->get_variable("SV_OutputControlPointID"))
-						)
-					)
-					);
-
-				// add ... if(inputCPID < TessellationInputControlPoints)
-				ir_if* vf_if = new(ParseState)ir_if(
-					new(ParseState)ir_expression(ir_binop_less,
-						new(ParseState)ir_dereference_variable(inputCPIDVar),
-						new(ParseState)ir_constant((unsigned)inputcontrolpoints)
-					)
-					);
-				vf_loop->body_instructions.push_tail(vf_if);
-				// add ... baseCPID += TessellationOutputControlPoints
-				vf_loop->body_instructions.push_tail(
-					new(ParseState)ir_assignment(
-						new(ParseState)ir_dereference_variable(baseCPIDVar),
-						new(ParseState)ir_expression(ir_binop_add,
-							new(ParseState)ir_dereference_variable(baseCPIDVar),
-							new(ParseState)ir_constant((unsigned)ParseState->tessellation.outputcontrolpoints)
-						)
-					)
-					);
-
-				// add ...	const uint vertex_id = threadgroup_position_in_grid * TessellationInputControlPoints + inputCPID;
-				ir_variable* vertex_idVar = new(ParseState)ir_variable(glsl_type::get_instance(GLSL_TYPE_UINT, 1, 1), "vertex_idVar", ir_var_temporary);
-				vf_if->then_instructions.push_tail(vertex_idVar);
-				vf_if->then_instructions.push_tail(
-					new (ParseState)ir_assignment(
-						new(ParseState)ir_dereference_variable(vertex_idVar),
-						new(ParseState)ir_expression(ir_binop_add,
-							new(ParseState)ir_expression(ir_binop_mul,
-								new(ParseState)ir_dereference_variable(internalPatchIDVar),
-								new(ParseState)ir_constant((unsigned)inputcontrolpoints)
-							),
-							new(ParseState)ir_dereference_variable(inputCPIDVar)
-						)
-					)
-					);
-
-				check(0);
-				vf_if->then_instructions.append_list(&VertexPreCallInstructions);
-
-				// call VertexMain
-				vf_if->then_instructions.push_tail(new(ParseState) ir_call(VertexEntryPointSig, NULL, &VertexArgInstructions));
-
-				// assign OutputVertexVar to InputPatchVar[patchIDInThreadgroup][inputCPID]
-				ir_dereference_array* InputPatchElementIndex = new(ParseState)ir_dereference_array(
-					new(ParseState)ir_dereference_array(
-						InputPatchVar,
-						new (ParseState)ir_dereference_variable(ParseState->symbols->get_variable("patchIDInThreadgroup"))
-					),
-					new (ParseState)ir_dereference_variable(inputCPIDVar)
-					);
-				vf_if->then_instructions.push_tail(
 					new (ParseState)ir_assignment(
 						InputPatchElementIndex,
 						new (ParseState)ir_dereference_variable(OutputVertexVar)
@@ -5858,7 +5854,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 					);
 
 				ir_dereference* deref = nullptr;
-				if(!EXEC_AT_INPUT_CP_RATE || inputcontrolpoints == ParseState->tessellation.outputcontrolpoints)
+				if(inputcontrolpoints == ParseState->tessellation.outputcontrolpoints)
 				{
 					deref = EntryPointReturn;
 				}
@@ -5992,7 +5988,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 			pv_if->then_instructions.append_list(&PostMainHullCallInstructions);
 			
 			DeclInstructions.append_list(&MainHullDeclInstructions);
-			if(!EXEC_AT_INPUT_CP_RATE || inputcontrolpoints == ParseState->tessellation.outputcontrolpoints)
+			if(inputcontrolpoints == ParseState->tessellation.outputcontrolpoints)
 			{
 				PostPostCallInstructions.push_tail(pv_if);
 			}
@@ -6067,7 +6063,6 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 	MainSig->is_defined = true;
 	MainSig->is_main = true;
 	MainSig->body.append_list(&PrePreCallInstructions);
-#if EXEC_AT_INPUT_CP_RATE
 	if(!bIsTessellationVSHS)
 	{
 		MainSig->body.append_list(&PreCallInstructions);
@@ -6151,12 +6146,6 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 			vf_if->then_instructions.push_tail(pv_if);
 		}
 	}
-#else // EXEC_AT_INPUT_CP_RATE
-	MainSig->body.append_list(&PreCallInstructions);
-	// Call the original EntryPoint
-	MainSig->body.push_tail(new(ParseState) ir_call(EntryPointSig, EntryPointReturn, &ArgInstructions));
-	MainSig->body.append_list(&PostCallInstructions);
-#endif // EXEC_AT_INPUT_CP_RATE
 	MainSig->body.append_list(&PostPostCallInstructions);
 	MainSig->wg_size_x = EntryPointSig->wg_size_x;
 	MainSig->wg_size_y = EntryPointSig->wg_size_y;
@@ -6196,11 +6185,7 @@ void FMetalCodeBackend::CallPatchConstantFunction(_mesa_glsl_parse_state* ParseS
 		0u
 		),
 		new (ParseState)ir_dereference_variable(
-#if EXEC_AT_INPUT_CP_RATE
 		ParseState->symbols->get_variable("SV_InputControlPointID")
-#else // EXEC_AT_INPUT_CP_RATE
-		ParseState->symbols->get_variable("SV_OutputControlPointID")
-#endif // EXEC_AT_INPUT_CP_RATE
 		)
 		)
 		);

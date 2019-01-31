@@ -218,7 +218,7 @@ FMaterialRenderProxy* FGeometryCollectionSceneProxy::GetMaterial(FMeshElementCol
 {
 	// material for wireframe
 	auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-		GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr,
+		GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
 		FLinearColor(0, 0.5f, 1.f)
 	);
 	Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
@@ -226,7 +226,7 @@ FMaterialRenderProxy* FGeometryCollectionSceneProxy::GetMaterial(FMeshElementCol
 	// material for colored bones
 	UMaterial* VertexColorVisualizationMaterial = GEngine->VertexColorMaterial;
 	auto VertexColorVisualizationMaterialInstance = new FColoredMaterialRenderProxy(
-		VertexColorVisualizationMaterial->GetRenderProxy(false, false),
+		VertexColorVisualizationMaterial->GetRenderProxy(),
 		GetSelectionColor(FLinearColor::White, false, false)
 	);
 	Collector.RegisterOneFrameMaterialProxy(VertexColorVisualizationMaterialInstance);
@@ -239,12 +239,12 @@ FMaterialRenderProxy* FGeometryCollectionSceneProxy::GetMaterial(FMeshElementCol
 	}
 	else
 	{
-		MaterialProxy = Materials[MaterialIndex]->GetRenderProxy(IsSelected());
+		MaterialProxy = Materials[MaterialIndex]->GetRenderProxy();
 	}
 
 	if (MaterialProxy == nullptr)
 	{
-		MaterialProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(IsSelected(), IsHovered());
+		MaterialProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 	}
 
 	return MaterialProxy;
@@ -283,7 +283,12 @@ void FGeometryCollectionSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					Mesh.bWireframe = bWireframe;
 					Mesh.VertexFactory = &VertexFactory;
 					Mesh.MaterialRenderProxy = MaterialProxies[SectionIndex];
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+                    
+                    // Collector owns the uniform buffer
+                    FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+                    DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+                    BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+                    
 					BatchElement.FirstIndex = Section.FirstIndex;
 					BatchElement.NumPrimitives = Section.NumTriangles;
 					BatchElement.MinVertexIndex = Section.MinVertexIndex;
@@ -300,7 +305,7 @@ void FGeometryCollectionSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			// bone selection is already contained in the rendered colors
 			if (ShowBoneColors||ShowSelectedBones)
 			{
-				FMaterialRenderProxy* MaterialRenderProxy = Materials[BoneSelectionMaterialID]->GetRenderProxy(IsSelected());
+				FMaterialRenderProxy* MaterialRenderProxy = Materials[BoneSelectionMaterialID]->GetRenderProxy();
 
 				if (VisibilityMap & (1 << ViewIndex))
 				{
@@ -311,7 +316,11 @@ void FGeometryCollectionSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					Mesh.bWireframe = bWireframe;
 					Mesh.VertexFactory = &VertexFactory;
 					Mesh.MaterialRenderProxy = MaterialRenderProxy;
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+                    
+                    FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+                    DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+                    BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+                    
 					BatchElement.FirstIndex = 0;
 					BatchElement.NumPrimitives = GetRequiredIndexCount() / 3;
 					BatchElement.MinVertexIndex = 0;

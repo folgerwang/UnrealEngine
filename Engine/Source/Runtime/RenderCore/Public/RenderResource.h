@@ -21,6 +21,8 @@ public:
 	/** @return The global initialized resource list. */
 	static TLinkedList<FRenderResource*>*& GetResourceList();
 
+	static void ChangeFeatureLevel(ERHIFeatureLevel::Type NewFeatureLevel);
+
 	/** Default constructor. */
 	FRenderResource()
 		: FeatureLevel(ERHIFeatureLevel::Num)
@@ -98,9 +100,9 @@ protected:
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel == ERHIFeatureLevel::Num ? GMaxRHIFeatureLevel : FeatureLevel; }
 	FORCEINLINE bool HasValidFeatureLevel() const { return FeatureLevel < ERHIFeatureLevel::Num; }
 
-private:
-
 	ERHIFeatureLevel::Type FeatureLevel;
+
+private:
 
 	/** True if the resource has been initialized. */
 	bool bInitialized;
@@ -500,6 +502,117 @@ public:
 	}
 	virtual FString GetFriendlyName() const override { return TEXT("FIndexBuffer"); }
 };
+
+
+FORCEINLINE bool ShouldCompileRayTracingShadersForProject(EShaderPlatform ShaderPlatform)
+{
+	if (RHISupportsRayTracingShaders(ShaderPlatform))
+	{
+		// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
+		auto GetRayTracingCVarValue = []()
+		{
+			auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"));
+			return CVar && CVar->GetInt() > 0;
+		};
+		static const bool bRayTracingEnabled = GetRayTracingCVarValue();
+		return bRayTracingEnabled;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+// Returns `true` when running on RT-capable machine and RT support is enabled for the project.
+// This function is a runtime only function!
+FORCEINLINE bool IsRayTracingEnabled()
+{
+	if (GRHISupportsRayTracing)
+	{
+		// r.RayTracing is a read-only CVar. UE needs to be restarted to effectively change it
+		auto GetRayTracingCVarValue = []()
+		{
+			auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"));
+			return CVar && CVar->GetInt() > 0;
+		};
+		static const bool bRayTracingEnabled = GetRayTracingCVarValue();
+		return bRayTracingEnabled;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+#if RHI_RAYTRACING
+
+/** A ray tracing geometry resource */
+class RENDERCORE_API FRayTracingGeometry : public FRenderResource
+{
+public:
+	FRayTracingGeometryRHIRef RayTracingGeometryRHI;
+	FRayTracingGeometryInitializer Initializer;
+
+	/** Default constructor. */
+	FRayTracingGeometry()
+		: RayTracingGeometryRHI(NULL)
+	{}
+
+	/** Destructor. */
+	virtual ~FRayTracingGeometry() {}
+
+	// FRenderResource interface.
+	virtual void ReleaseRHI() override
+	{
+		RayTracingGeometryRHI.SafeRelease();
+	}
+	virtual FString GetFriendlyName() const override { return TEXT("FRayTracingGeometry"); }
+
+	void SetInitializer(const FRayTracingGeometryInitializer& InInitializer)
+	{
+		Initializer = InInitializer;
+	}
+
+	virtual void InitRHI() override
+	{
+		if (Initializer.IndexBuffer && Initializer.PositionVertexBuffer && IsRayTracingEnabled())
+		{
+			RayTracingGeometryRHI = RHICreateRayTracingGeometry(Initializer);
+			FRHICommandListExecutor::GetImmediateCommandList().BuildAccelerationStructure(RayTracingGeometryRHI);
+		}
+	}
+};
+
+struct FRayTracingGeometryInstanceCollection
+{
+	enum class TransformMode
+	{
+		InheritFromSceneProxy,
+		Identity,
+		CustomInstances
+	};
+
+	FRayTracingGeometry* Geometry = nullptr;
+	FRWBuffer* DynamicVertexPositionBuffer = nullptr;
+	TransformMode InstanceTransformMode;
+	TArray<FMatrix> CustomTransforms;
+};
+
+class RENDERCORE_API FRayTracingScene : public FRenderResource
+{
+public:
+	FRayTracingSceneRHIRef RayTracingSceneRHI = nullptr;
+
+	virtual FString GetFriendlyName() const override { return TEXT("FRayTracingScene"); }
+
+	
+
+	virtual void ReleaseRHI()
+	{
+		RayTracingSceneRHI.SafeRelease();
+	}
+};
+#endif // RHI_RAYTRACING
 
 /**
  * A system for dynamically allocating GPU memory for vertices.

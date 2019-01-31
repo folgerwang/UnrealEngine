@@ -7,7 +7,7 @@
 #include "D3D12RHIPrivate.h"
 #include "UniformBuffer.h"
 
-FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	SCOPE_CYCLE_COUNTER(STAT_D3D12UpdateUniformBufferTime);
 
@@ -17,7 +17,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 	FD3D12UniformBuffer* UniformBufferOut = GetAdapter().CreateLinkedObject<FD3D12UniformBuffer>(FRHIGPUMask::All(), [&](FD3D12Device* Device) -> FD3D12UniformBuffer*
 	{
 		// If NumBytesActualData == 0, this uniform buffer contains no constants, only a resource table.
-		FD3D12UniformBuffer* NewUniformBuffer = new FD3D12UniformBuffer(Device, Layout);
+		FD3D12UniformBuffer* NewUniformBuffer = new FD3D12UniformBuffer(Device, Layout, Usage);
 		check(nullptr != NewUniformBuffer);
 
 		const uint32 NumBytesActualData = Layout.ConstantBufferSize;
@@ -67,6 +67,8 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		return NewUniformBuffer;
 	});
 
+	check(UniformBufferOut);
+
 	if (Layout.Resources.Num())
 	{
 		const int32 NumResources = Layout.Resources.Num();
@@ -79,10 +81,25 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 			CurrentBuffer->ResourceTable.AddZeroed(NumResources);
 			for (int32 i = 0; i < NumResources; ++i)
 			{
-				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+				EUniformBufferBaseType ResourceType = Layout.Resources[i].MemberType;
+
+				FRHIResource* Resource;
+				if (IsShaderParameterTypeIgnoredByRHI(ResourceType))
+				{
+					continue;
+				}
+				else if (IsRDGResourceReferenceShaderParameterType(ResourceType))
+				{
+					FRHIResource** ResourcePtr = *(FRHIResource***)((uint8*)Contents + Layout.Resources[i].MemberOffset);
+					Resource = ResourcePtr ? *ResourcePtr : nullptr;
+				}
+				else
+				{
+					Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[i].MemberOffset);
+				}
 
 				// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && (ResourceType == UBMT_SRV || ResourceType == UBMT_RDG_TEXTURE_SRV)) && Validation == EUniformBufferValidation::ValidateResources)
 				{
 					check(Resource);
 				}
@@ -94,12 +111,146 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		}
 	}
 
+	if (UniformBufferOut)
+	{
+		UpdateBufferStats<FD3D12UniformBuffer>(&UniformBufferOut->ResourceLocation, true);
+	}
+
 	return UniformBufferOut;
+}
+
+struct FRHICommandD3D12UpdateUniformBuffer final : public FRHICommand<FRHICommandD3D12UpdateUniformBuffer>
+{
+	FD3D12UniformBuffer* UniformBuffer;
+	FD3D12ResourceLocation* UpdatedLocation;
+	FRHIResource** UpdatedResources;
+	int32 NumResources;
+	FORCEINLINE_DEBUGGABLE FRHICommandD3D12UpdateUniformBuffer(FD3D12UniformBuffer* InUniformBuffer, FD3D12ResourceLocation* InUpdatedLocation, FRHIResource** InUpdatedResources, int32 InNumResources)
+		: UniformBuffer(InUniformBuffer)
+		, UpdatedLocation(InUpdatedLocation)
+		, UpdatedResources(InUpdatedResources)
+		, NumResources(InNumResources)
+	{
+	}
+
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		for (int32 i = 0; i < NumResources; ++i)
+		{
+			//check(UniformBuffer->ResourceTable[i]);
+			UniformBuffer->ResourceTable[i] = UpdatedResources[i];
+			check(UniformBuffer->ResourceTable[i]);
+		}
+		FD3D12ResourceLocation::TransferOwnership(UniformBuffer->ResourceLocation, *UpdatedLocation);
+#if USE_STATIC_ROOT_SIGNATURE
+		const uint32 NumBytes = Align(UniformBuffer->GetLayout().ConstantBufferSize, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		UniformBuffer->View->Create(UniformBuffer->ResourceLocation.GetGPUVirtualAddress(), NumBytes);
+#endif
+	}
+};
+
+void FD3D12DynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents)
+{
+	check(IsInRenderingThread());
+	check(UniformBufferRHI);
+
+	checkf(GNumExplicitGPUsForRendering == 1, TEXT("mGPU is support is not implemented for FD3D12DynamicRHI::RHIUpdateUniformBuffer"));
+
+	FD3D12UniformBuffer* UniformBuffer = ResourceCast(UniformBufferRHI);
+	const FRHIUniformBufferLayout& Layout = UniformBufferRHI->GetLayout();
+
+	const uint32 NumBytes = Layout.ConstantBufferSize;
+	const int32 NumResources = Layout.Resources.Num();
+
+	check(UniformBuffer->ResourceTable.Num() == NumResources);
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	const bool bBypass = RHICmdList.Bypass();
+	FD3D12Device* Device = UniformBuffer->GetParentDevice();
+	//FD3D12ResourceLocation is non-copyable, so placement new one on the stack for bypass, or out of the commandlist memory if available. avoids dynamic alloc either way.
+	FD3D12ResourceLocation* UpdatedResourceLocation = bBypass	? new (FMemory_Alloca(sizeof(FD3D12ResourceLocation)))FD3D12ResourceLocation(Device)
+																: new(RHICmdList.Alloc<FD3D12ResourceLocation>()) FD3D12ResourceLocation(Device);
+
+	if (NumBytes > 0)
+	{				
+		void* MappedData = nullptr;
+
+		if (UniformBuffer->UniformBufferUsage == UniformBuffer_MultiFrame)
+		{
+			FD3D12DynamicHeapAllocator& Allocator = GetAdapter().GetUploadHeapAllocator(Device->GetGPUIndex());
+			MappedData = Allocator.AllocUploadResource(NumBytes, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, *UpdatedResourceLocation);
+		}
+		else
+		{
+			FD3D12FastConstantAllocator& Allocator = GetAdapter().GetTransientUniformBufferAllocator();
+
+#if USE_STATIC_ROOT_SIGNATURE
+			MappedData = Allocator.Allocate(NumBytes, *UpdatedResourceLocation, nullptr);
+#else
+			MappedData = Allocator.Allocate(NumBytes, *UpdatedResourceLocation);
+#endif
+		}
+
+		check(MappedData != nullptr);
+		FMemory::Memcpy(MappedData, Contents, NumBytes);
+	}
+
+	
+
+	FRHIResource** CmdListResources = nullptr;
+	
+	if (NumResources)
+	{
+		CmdListResources = bBypass ? (FRHIResource**)FMemory_Alloca(sizeof(FRHIResource*) * NumResources) : (FRHIResource**)RHICmdList.Alloc(sizeof(FRHIResource*) * NumResources, alignof(FRHIResource*));
+		for (int32 ResourceIndex = 0; ResourceIndex < NumResources; ++ResourceIndex)
+		{
+			EUniformBufferBaseType ResourceType = Layout.Resources[ResourceIndex].MemberType;
+
+			FRHIResource* Resource;
+			if (IsShaderParameterTypeIgnoredByRHI(ResourceType))
+			{
+				continue;
+			}
+			else if (IsRDGResourceReferenceShaderParameterType(ResourceType))
+			{
+				FRHIResource** ResourcePtr = *(FRHIResource***)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
+				Resource = ResourcePtr ? *ResourcePtr : nullptr;
+			}
+			else
+			{
+				Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
+			}
+
+			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+				*Layout.GetDebugName().ToString(),
+				ResourceIndex,
+				Layout.Resources[ResourceIndex].MemberType);
+
+			CmdListResources[ResourceIndex] = Resource;
+		}
+	}
+	
+	if (bBypass)
+	{
+		FRHICommandD3D12UpdateUniformBuffer Cmd(UniformBuffer, UpdatedResourceLocation, CmdListResources, NumResources);
+		Cmd.Execute(RHICmdList);
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FRHICommandD3D12UpdateUniformBuffer>()) FRHICommandD3D12UpdateUniformBuffer(UniformBuffer, UpdatedResourceLocation, CmdListResources, NumResources);
+
+		//fence is required to stop parallel recording threads from recording with the old bad state of the uniformbuffer resource table.  This command MUST execute before dependent recording starts.
+		RHICmdList.RHIThreadFence(true);
+	}
 }
 
 FD3D12UniformBuffer::~FD3D12UniformBuffer()
 {
 	check(!GRHISupportsRHIThread || IsInRenderingThread());
+
+	UpdateBufferStats<FD3D12UniformBuffer>(&ResourceLocation, false);
+
 #if USE_STATIC_ROOT_SIGNATURE
 	delete View;
 #endif

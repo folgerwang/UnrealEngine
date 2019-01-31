@@ -21,6 +21,7 @@ class FReflectionCaptureProxy;
 class FScene;
 class FViewInfo;
 class UPrimitiveComponent;
+class FIndirectLightingCacheUniformParameters;
 template<typename ElementType,typename OctreeSemantics> class TOctree;
 
 /** Data used to track a primitive's allocation in the volume texture atlas that stores indirect lighting. */
@@ -210,8 +211,14 @@ public:
 	 */
 	FPrimitiveComponentId LODParentComponentId;
 
+	/** The primitive's cached mesh draw commands infos for all static meshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
+	TArray<class FCachedMeshDrawCommandInfo> StaticMeshCommandInfos;
+
+	/** The primitive's static mesh relevances. Must be in sync with StaticMeshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
+	TArray<class FStaticMeshBatchRelevance> StaticMeshRelevances;
+
 	/** The primitive's static meshes. */
-	TIndirectArray<class FStaticMesh> StaticMeshes;
+	TArray<class FStaticMeshBatch> StaticMeshes;
 
 	/** The identifier for the primitive in Scene->PrimitiveOctree. */
 	FOctreeElementId OctreeId;
@@ -225,9 +232,9 @@ public:
 	/** 
 	 * The uniform buffer holding precomputed lighting parameters for the indirect lighting cache allocation.
 	 * WARNING : This can hold buffer valid for a single frame only, don't cache anywhere. 
-	 * See FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
+	 * See FPrimitiveSceneInfo::UpdateIndirectLightingCacheBuffer()
 	 */
-	FUniformBufferRHIRef IndirectLightingCacheUniformBuffer;
+	TUniformBufferRef<FIndirectLightingCacheUniformParameters> IndirectLightingCacheUniformBuffer;
 
 	/** 
 	 * Planar reflection that was closest to this primitive, used for forward reflections.
@@ -263,9 +270,6 @@ public:
 	/** Last render time in seconds since level started play. */
 	float LastRenderTime;
 
-	/** Last time that the primitive became visible in seconds since level started play. */
-	float LastVisibilityChangeTime;
-
 	/** The scene the primitive is in. */
 	FScene* Scene;
 
@@ -277,6 +281,21 @@ public:
 	
 	/** This indicate that we should call the GetCustomWholeSceneShadowLOD function on the proxy instead of the generic implementation. */
 	bool bIsUsingCustomWholeSceneShadowLODRules : 1;
+
+#if RHI_RAYTRACING
+	bool bDrawInGame : 1;
+	bool bShouldRenderInMainPass : 1;
+	bool bIsVisibleInReflectionCaptures : 1;
+	bool bIsRayTracingRelevant : 1;
+	bool bIsRayTracingStaticRelevant : 1;
+
+	struct FStaticMeshOrCommandIndex
+	{
+		int32 StaticMeshIndex;
+		int32 CommandIndex;
+	};
+	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
+#endif
 
 	/** Initialization constructor. */
 	FPrimitiveSceneInfo(UPrimitiveComponent* InPrimitive,FScene* InScene);
@@ -303,15 +322,9 @@ public:
 	}
 
 	/** return true if we need to call LazyUpdateForRendering */
-	FORCEINLINE bool NeedsPrecomputedLightingBufferUpdate()
+	FORCEINLINE bool NeedsIndirectLightingCacheBufferUpdate()
 	{
-		return bPrecomputedLightingBufferDirty;
-	}
-
-	/** return true if we need to call ConditionalLazyUpdateForRendering */
-	FORCEINLINE bool NeedsLazyUpdateForRendering()
-	{
-		return NeedsUniformBufferUpdate() || NeedsUpdateStaticMeshes();
+		return bIndirectLightingCacheBufferDirty;
 	}
 
 	/** Updates the primitive's static meshes in the scene. */
@@ -336,13 +349,6 @@ public:
 		{
 			UpdateUniformBuffer(RHICmdList);
 		}
-	}
-
-	/** Updates all lazy data for the rendering. */
-	FORCEINLINE void ConditionalLazyUpdateForRendering(FRHICommandListImmediate& RHICmdList)
-	{
-		ConditionalUpdateUniformBuffer(RHICmdList);
-		ConditionalUpdateStaticMeshes(RHICmdList);
 	}
 
 	/** Sets a flag to update the primitive's static meshes before it is next rendered. */
@@ -396,9 +402,6 @@ public:
 
 	/** Simple comparison against the invalid values used before/after scene add/remove. */
 	FORCEINLINE bool IsIndexValid() const { return PackedIndex != INDEX_NONE && PackedIndex != MAX_int32; }
-
-	/* @return true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA) */
-	bool ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility = true) const;
 	
 	/**
 	 * Shifts primitive position and all relevant data by an arbitrary delta.
@@ -412,19 +415,30 @@ public:
 		bNeedsUniformBufferUpdate = bInNeedsUniformBufferUpdate;
 	}
 
-	FORCEINLINE void MarkPrecomputedLightingBufferDirty()
+	FORCEINLINE void MarkIndirectLightingCacheBufferDirty()
 	{
-		bPrecomputedLightingBufferDirty = true;
+		bIndirectLightingCacheBufferDirty = true;
 	}
 
-	void UpdatePrecomputedLightingBuffer();
-	void ClearPrecomputedLightingBuffer(bool bSingleFrameOnly);
+	void UpdateIndirectLightingCacheBuffer();
+	void ClearIndirectLightingCacheBuffer(bool bSingleFrameOnly);
 
 	/** Will output the LOD ranges of the static meshes used with this primitive. */
 	RENDERER_API void GetStaticMeshesLODRange(int8& OutMinLOD, int8& OutMaxLOD) const;
 
 	/** Will output the FMeshBatch associated with the specified LODIndex. */
 	RENDERER_API const FMeshBatch* GetMeshBatch(int8 InLODIndex) const;
+
+	int32 GetLightmapDataOffset() const { return LightmapDataOffset; }
+	int32 GetNumLightmapDataEntries() const { return NumLightmapDataEntries; }
+
+	bool NeedsReflectionCaptureUpdate() const;
+	/** Cache per-primitive reflection captures used for mobile/forward rendering */
+	void CacheReflectionCaptures();
+
+#if RHI_RAYTRACING
+	RENDERER_API FRayTracingGeometryRHIRef GetStaticRayTracingGeometryInstance(int LodLevel);
+#endif
 
 private:
 
@@ -450,11 +464,30 @@ private:
 	/** If this is TRUE, this primitive's uniform buffer needs to be updated before it can be rendered. */
 	bool bNeedsUniformBufferUpdate;
 
-	/** If this is TRUE, this primitive's precomputed lighting buffer needs to be updated before it can be rendered. */
-	bool bPrecomputedLightingBufferDirty;
+	/** If this is TRUE, this primitive's indirect lighting cache buffer needs to be updated before it can be rendered. */
+	bool bIndirectLightingCacheBufferDirty;
 
-	/** If this is TRUE, this primitive's proxy LCIs have had a precomputed lighting buffer allocated. */
-	bool bPrecomputedLightingBufferAssignedToProxyLCIs;
+	/** Offset into the scene's lightmap data buffer, when GPUScene is enabled. */
+	int32 LightmapDataOffset;
+	/** Number of entries in the scene's lightmap data buffer. */
+	int32 NumLightmapDataEntries;
+
+	void UpdateIndirectLightingCacheBuffer(
+		const class FIndirectLightingCache* LightingCache,
+		const class FIndirectLightingCacheAllocation* LightingAllocation,
+		FVector VolumetricLightmapLookupPosition,
+		uint32 SceneFrameNumber,
+		class FVolumetricLightmapSceneData* VolumetricLightmapSceneData);
+
+	/** Creates cached mesh draw commands for all meshes. */
+	void CacheMeshDrawCommands(FRHICommandListImmediate& RHICmdList);
+
+	/** Removes cached mesh draw commands for all meshes. */
+	void RemoveCachedMeshDrawCommands();
+
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
+#endif
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

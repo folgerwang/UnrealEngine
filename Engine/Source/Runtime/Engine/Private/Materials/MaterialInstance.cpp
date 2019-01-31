@@ -47,11 +47,9 @@ DECLARE_CYCLE_STAT(TEXT("MaterialInstance CopyUniformParamsInternal"), STAT_Mate
  */
 void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance)
 {
-	// Only cache the unselected + unhovered material instance. Selection color
-	// can change at runtime and would invalidate the parameter cache.
-	if (MaterialInstance->Resources[0])
+	if (MaterialInstance->Resource)
 	{
-		MaterialInstance->Resources[0]->CacheUniformExpressions_GameThread();
+		MaterialInstance->Resource->CacheUniformExpressions_GameThread(false);
 	}
 }
 
@@ -98,39 +96,97 @@ FFontParameterValue::ValueType FFontParameterValue::GetValue(const FFontParamete
 	return Value;
 }
 
-FMaterialInstanceResource::FMaterialInstanceResource(UMaterialInstance* InOwner,bool bInSelected,bool bInHovered)
-	: FMaterialRenderProxy(bInSelected, bInHovered)
-	, Parent(NULL)
+FMaterialInstanceResource::FMaterialInstanceResource(UMaterialInstance* InOwner)
+	: Parent(NULL)
 	, Owner(InOwner)
 	, GameThreadParent(NULL)
 {
 }
 
-void FMaterialInstanceResource::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const
+const FMaterial& FMaterialInstanceResource::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const
 {
 	checkSlow(IsInParallelRenderingThread());
 
-	FMaterialResource* MaterialResource = Owner->GetMaterialResource(InFeatureLevel);
-	if (MaterialResource && MaterialResource->GetRenderingThreadShaderMap())
+	if (Parent)
 	{
-		// Verify that compilation has been finalized, the rendering thread shouldn't be touching it otherwise
-		checkSlow(MaterialResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
-		// The shader map reference should have been NULL'ed if it did not compile successfully
-		checkSlow(MaterialResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
-		OutMaterialRenderProxy = this;
-		OutMaterial = MaterialResource;
-		return;
+		if (Owner->bHasStaticPermutationResource)
+		{
+			EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+
+			FMaterialResource* StaticPermutationResource;
+
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel] ?
+				Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel] :
+				Owner->StaticPermutationMaterialResources[EMaterialQualityLevel::High][InFeatureLevel];
+#else
+			StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel];
+#endif
+
+			if (StaticPermutationResource)
+			{
+				if (StaticPermutationResource->GetRenderingThreadShaderMap())
+				{
+					// Verify that compilation has been finalized, the rendering thread shouldn't be touching it otherwise
+					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
+					// The shader map reference should have been NULL'ed if it did not compile successfully
+					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
+					return *StaticPermutationResource;
+				}
+				else
+				{
+					EMaterialDomain Domain = (EMaterialDomain)StaticPermutationResource->GetMaterialDomain();
+					UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(Domain);
+					//there was an error, use the default material's resource
+					OutFallbackMaterialRenderProxy = FallbackMaterial->GetRenderProxy();
+					return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
+				}
+			}
+		}
+		else
+		{
+			//use the parent's material resource
+			return Parent->GetRenderProxy()->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
+		}
 	}
 
 	// No Parent, or no StaticPermutationResource. This seems to happen if the parent is in the process of using the default material since it's being recompiled or failed to do so.
-	UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(MaterialResource ? MaterialResource->GetMaterialDomain() : MD_Surface);
-	FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
+	UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+	OutFallbackMaterialRenderProxy = FallbackMaterial->GetRenderProxy();
+	return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
 }
 
 FMaterial* FMaterialInstanceResource::GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
 {
 	checkSlow(IsInParallelRenderingThread());
-	return Owner->GetMaterialResource(InFeatureLevel);
+
+	if (Parent)
+	{
+		if (Owner->bHasStaticPermutationResource)
+		{
+			EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+			FMaterialResource* StaticPermutationResource;
+
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel] ?
+				Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel] :
+				Owner->StaticPermutationMaterialResources[EMaterialQualityLevel::High][InFeatureLevel];
+#else
+			StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel];
+#endif
+			return StaticPermutationResource;
+		}
+		else
+		{
+			FMaterialRenderProxy* ParentProxy = Parent->GetRenderProxy();
+
+			if (ParentProxy)
+			{
+				return ParentProxy->GetMaterialNoFallback(InFeatureLevel);
+			}
+		}
+	}
+	return NULL;
 }
 
 UMaterialInterface* FMaterialInstanceResource::GetMaterialInterface() const
@@ -176,7 +232,7 @@ bool FMaterialInstanceResource::GetScalarValue(
 	}
 	else if (Parent)
 	{
-		return Parent->GetRenderProxy(IsSelected(), IsHovered())->GetScalarValue(ParameterInfo, OutValue, Context);
+		return Parent->GetRenderProxy()->GetScalarValue(ParameterInfo, OutValue, Context);
 	}
 	else
 	{
@@ -199,7 +255,7 @@ bool FMaterialInstanceResource::GetVectorValue(
 	}
 	else if(Parent)
 	{
-		return Parent->GetRenderProxy(IsSelected(), IsHovered())->GetVectorValue(ParameterInfo, OutValue, Context);
+		return Parent->GetRenderProxy()->GetVectorValue(ParameterInfo, OutValue, Context);
 	}
 	else
 	{
@@ -222,7 +278,7 @@ bool FMaterialInstanceResource::GetTextureValue(
 	}
 	else if(Parent)
 	{
-		return Parent->GetRenderProxy(IsSelected(), IsHovered())->GetTextureValue(ParameterInfo, OutValue, Context);
+		return Parent->GetRenderProxy()->GetTextureValue(ParameterInfo, OutValue, Context);
 	}
 	else
 	{
@@ -232,12 +288,9 @@ bool FMaterialInstanceResource::GetTextureValue(
 
 void UMaterialInstance::PropagateDataToMaterialProxy()
 {
-	for (int32 i = 0; i < ARRAY_COUNT(Resources); i++)
+	if (Resource)
 	{
-		if (Resources[i])
-		{
-			UpdateMaterialRenderProxy(*Resources[i]);
-		}
+		UpdateMaterialRenderProxy(*Resource);
 	}
 }
 
@@ -259,7 +312,7 @@ void FMaterialInstanceResource::GameThread_SetParent(UMaterialInterface* ParentM
 			UMaterialInterface*, Parent, ParentMaterialInterface,
 			{
 			Resource->Parent = Parent;
-			Resource->InvalidateUniformExpressionCache();
+			Resource->InvalidateUniformExpressionCache(false);
 		});
 
 		if (OldParent)
@@ -270,23 +323,13 @@ void FMaterialInstanceResource::GameThread_SetParent(UMaterialInterface* ParentM
 	}
 }
 
-ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER_DECLARE_TEMPLATE(
+ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER_DECLARE_TEMPLATE(
 	SetMIParameterValue, ParameterType,
-	FMaterialInstanceResource*, Resource0, Resource0,
-	FMaterialInstanceResource*, Resource1, Resource1,
-	FMaterialInstanceResource*, Resource2, Resource2,
+	FMaterialInstanceResource*, Resource, Resource,
 	FMaterialParameterInfo, ParameterInfo, Parameter.ParameterInfo,
 	typename ParameterType::ValueType, Value, ParameterType::GetValue(Parameter),
 	{
-		Resource0->RenderThread_UpdateParameter(ParameterInfo, Value);
-		if (Resource1)
-		{
-			Resource1->RenderThread_UpdateParameter(ParameterInfo, Value);
-		}
-		if (Resource2)
-		{
-			Resource2->RenderThread_UpdateParameter(ParameterInfo, Value);
-		}
+		Resource->RenderThread_UpdateParameter(ParameterInfo, Value);
 	});
 
 /**
@@ -295,11 +338,9 @@ ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER_DECLARE_TEMPLATE(
 template <typename ParameterType>
 void GameThread_UpdateMIParameter(const UMaterialInstance* Instance, const ParameterType& Parameter)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER_CREATE_TEMPLATE(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER_CREATE_TEMPLATE(
 		SetMIParameterValue, ParameterType,
-		FMaterialInstanceResource*, Instance->Resources[0],
-		FMaterialInstanceResource*, Instance->Resources[1],
-		FMaterialInstanceResource*, Instance->Resources[2],
+		FMaterialInstanceResource*, Instance->Resource,
 		FMaterialParameterInfo, Parameter.ParameterInfo,
 		typename ParameterType::ValueType, ParameterType::GetValue(Parameter)
 		);
@@ -377,12 +418,7 @@ void UMaterialInstance::PostInitProperties()
 
 	if(!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		Resources[0] = new FMaterialInstanceResource(this,false,false);
-		if(GIsEditor)
-		{
-			Resources[1] = new FMaterialInstanceResource(this,true,false);
-			Resources[2] = new FMaterialInstanceResource(this,false,true);
-		}
+		Resource = new FMaterialInstanceResource(this);
 	}
 }
 
@@ -431,12 +467,9 @@ void UMaterialInstance::InitResources()
 	checkf(SafeParent, TEXT("Invalid parent on %s"), *GetFullName());
 
 	// Set the material instance's parent on its resources.
-	for (int32 CurResourceIndex = 0; CurResourceIndex < ARRAY_COUNT(Resources); ++CurResourceIndex)
+	if (Resource != nullptr)
 	{
-		if (Resources[CurResourceIndex] != NULL)
-		{
-			Resources[CurResourceIndex]->GameThread_SetParent(SafeParent);
-		}
+		Resource->GameThread_SetParent(SafeParent);
 	}
 
 	GameThread_InitMIParameters(this, ScalarParameterValues);
@@ -1629,10 +1662,9 @@ const FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel
 	return Parent ? Parent->GetMaterialResource(InFeatureLevel, QualityLevel) : nullptr;
 }
 
-FMaterialRenderProxy* UMaterialInstance::GetRenderProxy(bool Selected, bool bHovered) const
+FMaterialRenderProxy* UMaterialInstance::GetRenderProxy() const
 {
-	check(!( Selected || bHovered ) || GIsEditor);
-	return Resources[Selected ? 1 : ( bHovered ? 2 : 0 )];
+	return Resource;
 }
 
 UPhysicalMaterial* UMaterialInstance::GetPhysicalMaterial() const
@@ -2466,19 +2498,19 @@ void UMaterialInstance::UpdatePermutationAllocations()
 		{
 			for (int32 Quality = 0; Quality < EMaterialQualityLevel::Num; ++Quality)
 			{
-				FMaterialResource*& Resource = StaticPermutationMaterialResources[Quality][Feature];
+				FMaterialResource*& StaticPermResource = StaticPermutationMaterialResources[Quality][Feature];
 				if (Feature != ActiveFeatureLevel || Quality != ActiveQualityLevel)
 				{
-					delete Resource;
-					Resource = nullptr;
+					delete StaticPermResource;
+					StaticPermResource = nullptr;
 				}
 				else
 				{
-					if (!Resource)
+					if (!StaticPermResource)
 					{
-						Resource = AllocatePermutationResource();
+						StaticPermResource = AllocatePermutationResource();
 					}
-					Resource->SetMaterial(BaseMaterial, ActiveQualityLevel, true, ActiveFeatureLevel, this);
+					StaticPermResource->SetMaterial(BaseMaterial, ActiveQualityLevel, true, ActiveFeatureLevel, this);
 				}
 			}
 		}
@@ -3069,9 +3101,9 @@ void UMaterialInstance::PostLoad()
 	else
 	{
 		// Discard all loaded material resources
-		for (FMaterialResource& Resource : LoadedMaterialResources)
+		for (FMaterialResource& LoadedResource : LoadedMaterialResources)
 		{
-			Resource.DiscardShaderMap();
+			LoadedResource.DiscardShaderMap();
 		}
 	}
 	// Empty the list of loaded resources, we don't need it anymore
@@ -3184,13 +3216,7 @@ void UMaterialInstance::BeginDestroy()
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		BeginReleaseResource(Resources[0]);
-
-		if(GIsEditor)
-		{
-			BeginReleaseResource(Resources[1]);
-			BeginReleaseResource(Resources[2]);
-		}
+		BeginReleaseResource(Resource);
 	}
 
 	ReleaseFence.BeginFence();
@@ -3207,16 +3233,8 @@ void UMaterialInstance::FinishDestroy()
 {
 	if(!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		Resources[0]->GameThread_Destroy();
-		Resources[0] = NULL;
-
-		if(GIsEditor)
-		{
-			Resources[1]->GameThread_Destroy();
-			Resources[1] = NULL;
-			Resources[2]->GameThread_Destroy();
-			Resources[2] = NULL;
-		}
+		Resource->GameThread_Destroy();
+		Resource = nullptr;
 	}
 
 	for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
@@ -3498,17 +3516,14 @@ void UMaterialInstance::ClearParameterValuesInternal(const bool bAllParameters)
 		FontParameterValues.Empty();
 	}
 
-	for (int32 ResourceIndex = 0; ResourceIndex < ARRAY_COUNT(Resources); ++ResourceIndex)
+	if (Resource)
 	{
-		if (Resources[ResourceIndex])
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				FClearMIParametersCommand,
-				FMaterialInstanceResource*,Resource,Resources[ResourceIndex],
+		FMaterialInstanceResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(FClearMIParametersCommand)(
+			[InResource](FRHICommandList& RHICmdList)
 			{
-				Resource->RenderThread_ClearParameters();
+				InResource->RenderThread_ClearParameters();
 			});
-		}
 	}
 
 	InitResources();
@@ -3800,16 +3815,13 @@ void UMaterialInstance::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSiz
 		}
 	}
 
-	for (int32 ResourceIndex = 0; ResourceIndex < 3; ++ResourceIndex)
+	if (Resource)
 	{
-		if (Resources[ResourceIndex])
-		{
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FMaterialInstanceResource));
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(ScalarParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<float>));
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(VectorParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<FLinearColor>));
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(TextureParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<const UTexture*>));
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FontParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<const UTexture*>));
-		}
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FMaterialInstanceResource));
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(ScalarParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<float>));
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(VectorParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<FLinearColor>));
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(TextureParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<const UTexture*>));
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FontParameterValues.Num() * sizeof(FMaterialInstanceResource::TNamedParameter<const UTexture*>));
 	}
 }
 
@@ -4336,21 +4348,21 @@ void UMaterialInstance::CopyMaterialUniformParametersInternal(UMaterialInterface
 				checkSlow(VectorParameterValues.Num() == 0);
 				checkSlow(TextureParameterValues.Num() == 0);
 
-				const FMaterialResource* Resource = nullptr;
+				const FMaterialResource* MaterialResource = nullptr;
 				if (UWorld* World = AsMaterial->GetWorld())
 				{
-					Resource = AsMaterial->GetMaterialResource(World->FeatureLevel);
+					MaterialResource = AsMaterial->GetMaterialResource(World->FeatureLevel);
 				}
 
-				if (!Resource)
+				if (!MaterialResource)
 				{
-					Resource = AsMaterial->GetMaterialResource(GMaxRHIFeatureLevel);
+					MaterialResource = AsMaterial->GetMaterialResource(GMaxRHIFeatureLevel);
 				}
 
-				if (Resource)
+				if (MaterialResource)
 				{
 					// Scalars
-					const TArray<TRefCountPtr<FMaterialUniformExpression>>& ScalarExpressions = Resource->GetUniformScalarParameterExpressions();
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& ScalarExpressions = MaterialResource->GetUniformScalarParameterExpressions();
 					for (FMaterialUniformExpression* ScalarExpression : ScalarExpressions)
 					{
 						if (ScalarExpression->GetType() == &FMaterialUniformExpressionScalarParameter::StaticType)
@@ -4364,7 +4376,7 @@ void UMaterialInstance::CopyMaterialUniformParametersInternal(UMaterialInterface
 					}
 
 					// Vectors
-					const TArray<TRefCountPtr<FMaterialUniformExpression>>& VectorExpressions = Resource->GetUniformVectorParameterExpressions();
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& VectorExpressions = MaterialResource->GetUniformVectorParameterExpressions();
 					for (FMaterialUniformExpression* VectorExpression : VectorExpressions)
 					{
 						if (VectorExpression->GetType() == &FMaterialUniformExpressionVectorParameter::StaticType)
@@ -4380,8 +4392,8 @@ void UMaterialInstance::CopyMaterialUniformParametersInternal(UMaterialInterface
 					// Textures
 					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture>>* TextureExpressions[2] =
 					{
-						&Resource->GetUniform2DTextureExpressions(),
-						&Resource->GetUniformCubeTextureExpressions()
+						&MaterialResource->GetUniform2DTextureExpressions(),
+						&MaterialResource->GetUniformCubeTextureExpressions()
 					};
 
 					for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(TextureExpressions); TypeIndex++)
@@ -4394,7 +4406,7 @@ void UMaterialInstance::CopyMaterialUniformParametersInternal(UMaterialInterface
 
 								FTextureParameterValue* ParameterValue = new(TextureParameterValues) FTextureParameterValue;
 								ParameterValue->ParameterInfo.Name = TextureParameter->GetParameterName();
-								TextureParameter->GetGameThreadTextureValue(AsMaterial, *Resource, ParameterValue->ParameterValue, false);
+								TextureParameter->GetGameThreadTextureValue(AsMaterial, *MaterialResource, ParameterValue->ParameterValue, false);
 							}
 						}
 					}

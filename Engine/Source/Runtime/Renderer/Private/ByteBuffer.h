@@ -5,45 +5,45 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 
-// Must be aligned to 4 bytes
-void MemsetBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, uint32 Value, uint32 NumBytes, uint32 DstOffset = 0 );
-void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, const FRWByteAddressBuffer& SrcBuffer, uint32 NumBytes, uint32 DstOffset = 0, uint32 SrcOffset = 0 );
-void ResizeBuffer( FRHICommandList& RHICmdList, FRWByteAddressBuffer& Buffer, uint32 NumBytes );
+void MemsetBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& DstBuffer, const FVector4& Value, uint32 NumFloat4s, uint32 DstOffsetInFloat4s);
+void MemcpyBuffer(FRHICommandList& RHICmdList, const FRWBufferStructured& SrcBuffer, const FRWBufferStructured& DstBuffer, uint32 NumFloat4s, uint32 SrcOffset = 0, uint32 DstOffset = 0);
+bool ResizeBufferIfNeeded(FRHICommandList& RHICmdList, FRWBufferStructured& Buffer, uint32 NumFloat4s);
 
-
-class FScatterUploadBuffer
+class FScatterUploadBuilder
 {
 public:
-	FByteAddressBuffer	ScatterBuffer;
-	FByteAddressBuffer	UploadBuffer;
-	
-	uint32*				ScatterData;
-	uint32*				UploadData;
 
-	uint32				NumScatters;
-	uint32				CopyNum;
-	uint32				CopySize;
+	FReadBuffer& ScatterBuffer;
+	FReadBuffer& UploadBuffer;
+
+	uint32* ScatterData;
+	FVector4* UploadData;
+
+	uint32 AllocatedNumScatters;
+	uint32 NumScatters;
+	uint32 StrideInFloat4s;
 
 public:
-			FScatterUploadBuffer();
+	FScatterUploadBuilder(uint32 NumUploads, uint32 InStrideInFloat4s, FReadBuffer& InScatterBuffer, FReadBuffer& InUploadBuffer);
 
-	void	Init( uint32 NumUploads, uint32 Stride );
-	void	UploadTo( FRHICommandList& RHICmdList, FRWByteAddressBuffer& DstBuffer );
+	void UploadTo(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer);
 
-	void	Add( uint32 Index, const uint32* Data )
+	void UploadTo_Flush(FRHICommandList& RHICmdList, FRWBufferStructured& DstBuffer);
+
+	void Add(uint32 Index, const FVector4* Data)
 	{
+		checkSlow(NumScatters < AllocatedNumScatters);
 		checkSlow( ScatterData != nullptr );
 		checkSlow( UploadData != nullptr );
 
-		for( uint32 i = 0; i < CopyNum; i++ )
+		for (uint32 i = 0; i < StrideInFloat4s; i++)
 		{
-			ScatterData[i] = Index * CopyNum + i;
-			for( uint32 c = 0; c < CopySize; c++ )
-				UploadData[ i * CopySize + c ] = Data[ i * CopySize + c ];
+			ScatterData[i] = Index * StrideInFloat4s + i;
+			UploadData[i] = Data[i];
 		}
 
-		ScatterData += CopyNum;
-		UploadData += CopyNum * CopySize;
-		NumScatters += CopyNum;
+		ScatterData += StrideInFloat4s;
+		UploadData += StrideInFloat4s;
+		NumScatters += StrideInFloat4s;
 	}
 };

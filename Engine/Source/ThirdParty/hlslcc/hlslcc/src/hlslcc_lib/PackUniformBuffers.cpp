@@ -8,6 +8,7 @@
 #include "PackUniformBuffers.h"
 #include "IRDump.h"
 #include "ast.h"
+#include "HlslccDefinitions.h"
 #include "LanguageSpec.h"
 //@todo-rco: Remove STL!
 #include <algorithm>
@@ -832,8 +833,14 @@ static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
 	return (TotalElements < STotalElements);
 }
 
-static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, TVarVarMap& OutUniformMap)
+static int ProcessPackedUniformArrays(uint32 HLSLCCFlags, exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, TVarVarMap& OutUniformMap)
 {
+	const bool bPackUniformsIntoUniformBufferWithNames = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
+	const bool bPackGlobalArraysIntoUniformBuffers = ((HLSLCCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
+	const bool bGroupFlattenedUBs = (HLSLCCFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers;
+	const bool bFlattenStructure = (HLSLCCFlags & HLSLCC_FlattenUniformBufferStructures) == HLSLCC_FlattenUniformBufferStructures;
+	const bool bRetainSizes = (HLSLCCFlags & HLSLCC_RetainSizes) == HLSLCC_RetainSizes;
+
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
 	TIRVarVector PackedVariables;
@@ -855,7 +862,7 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			return -1;
 		}
 		
-		if (!bFlattenStructure && !bGroupFlattenedUBs && bPackGlobalArraysIntoUniformBuffers && PackUniformsIntoUniformBufferWithNames)
+		if (!bFlattenStructure && !bGroupFlattenedUBs && bPackGlobalArraysIntoUniformBuffers && bPackUniformsIntoUniformBufferWithNames)
 		{
 			PackedVariables.Add(var);
 		}
@@ -869,7 +876,15 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			{
 				ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, VarInfo.CB_OffsetInFloats, VarInfo.CB_SizeInFloats);
 			}
-			OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(VarInfo);
+
+			if (bRetainSizes)
+			{
+				OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].PushFront(VarInfo);
+			}
+			else
+			{
+				OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(VarInfo);
+			}
 		}
 	}
 	
@@ -1062,6 +1077,7 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			check(OrganizedVars.find(SourceCB) != OrganizedVars.end());
 			for (auto& VarSetPair : OrganizedVars[SourceCB])
 			{
+				// Current packed array we're working on (eg pu_h)
 				ir_variable* UniformArrayVar = nullptr;
 				char ArrayType = VarSetPair.first;
 				TCBVarInfoVector& VarInfos = VarSetPair.second;
@@ -1078,10 +1094,12 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 					const glsl_base_type array_base_type = (type->base_type == GLSL_TYPE_BOOL) ? GLSL_TYPE_UINT : type->base_type;
 					if (!UniformArrayVar)
 					{
+						// Obtain current packed array
 						std::string UniformArrayName = GetUniformArrayName(ParseState->target, type->base_type, CBIndices[DestCB]);
 						auto IterFound = UniformArrayVarMap.find(UniformArrayName);
 						if (IterFound == UniformArrayVarMap.end())
 						{
+							// We haven't created current packed array, do so
 							const glsl_type* ArrayElementType = glsl_type::get_instance(array_base_type, 4, 1);
 							int SizeInFloats = ComputePackedArraySizeFloats(OrganizedVars, DestCB, ArrayType, bGroupFlattenedUBs);
 							int NumElementsAligned = (SizeInFloats + 3) / 4;
@@ -1107,7 +1125,7 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 					}
 					
 					int& NumElements = NumElementsMap[DestCB][ArrayType];
-					int Stride = (type->vector_elements > 2 || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
+					int Stride = ((type->vector_elements > 2) || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
 					int NumRows = var->type->is_array() ? var->type->length : 1;
 					NumRows = NumRows * MAX2(type->matrix_columns, 1u);
 					
@@ -1115,7 +1133,8 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 					check(var->name);
 					PackedUniform.Name = var->name;
 					PackedUniform.offset = NumElements;
-					PackedUniform.num_components = Stride * NumRows;
+					PackedUniform.num_components = (bRetainSizes && !var->type->is_array()) ? MAX2(type->vector_elements, 1u) : Stride;
+					PackedUniform.num_components *= NumRows;
 					if (!SourceCB.empty())
 					{
 						PackedUniform.CB_PackedSampler = SourceCB;
@@ -1609,8 +1628,10 @@ namespace DebugPackUniforms
 * @param Instructions - The IR for which to pack uniforms.
 * @param ParseState - Parse state.
 */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, bool bKeepNames, TVarVarMap& OutUniformMap)
+void PackUniforms(uint32 HLSLCCFlags, exec_list* Instructions, _mesa_glsl_parse_state* ParseState, TVarVarMap& OutUniformMap)
 {
+	const bool bKeepNames = (HLSLCCFlags & HLSLCC_KeepSamplerAndImageNames) == HLSLCC_KeepSamplerAndImageNames;
+
 	//IRDump(Instructions);
 	void* ctx = ParseState;
 	void* tmp_ctx = ralloc_context(NULL);
@@ -1622,7 +1643,7 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	if (MainSig && UniformVariables.Num())
 	{
 		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
-		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, OutUniformMap);
+		int UniformIndex = ProcessPackedUniformArrays(HLSLCCFlags, Instructions, ctx, ParseState, UniformVariables,  OutUniformMap);
 		if (UniformIndex == -1)
 		{
 			goto done;
@@ -2252,7 +2273,11 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 			auto* RHSVar = ir->rhs->variable_referenced();
 			if (RHSVar && (RHSVar->mode == ir_var_shared || RHSVar->mode == ir_var_uniform) && AtomicVariables.find(RHSVar) != AtomicVariables.end())
 			{
-				auto* DeRefVar = ir->rhs->as_dereference_variable();
+				auto* Swizzle = ir->rhs->as_swizzle();
+				ir_rvalue*& rhs = Swizzle ? Swizzle->val : ir->rhs;
+				auto* DeRefVar = rhs->as_dereference_variable();
+				auto* DeRefVarImage = rhs->as_dereference_image();
+				auto* DeRefVarArray = rhs->as_dereference_array();
 				if (DeRefVar)
 				{
 					check(ir == base_ir);
@@ -2262,7 +2287,7 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 						auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), new(State) ir_dereference_variable(RHSVar), nullptr, nullptr);
 						base_ir->insert_before(ResultVar);
 						base_ir->insert_before(NewAtomic);
-						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+						rhs = new(State) ir_dereference_variable(ResultVar);
 					}
 					else
 					{
@@ -2273,16 +2298,32 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 						base_ir->insert_before(ResultVar);
 						base_ir->insert_before(DummyVar);
 						base_ir->insert_before(NewAtomic);
-						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+						rhs = new(State) ir_dereference_variable(ResultVar);
 					}
 					//#todo-rco: Won't handle the case of two atomic rvalues!
 					return visit_continue_with_parent;
 				}
+				else if (DeRefVarImage && State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* ResultVar = new(State)ir_variable(LHSVar->type->inner_type ? LHSVar->type->inner_type : LHSVar->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), DeRefVarImage, nullptr, nullptr);
+					base_ir->insert_before(ResultVar);
+					base_ir->insert_before(NewAtomic);
+					rhs = new(State) ir_dereference_variable(ResultVar);
+				}
+				else if (DeRefVarArray && State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* ResultVar = new(State)ir_variable(DeRefVarArray->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), DeRefVarArray, nullptr, nullptr);
+					base_ir->insert_before(ResultVar);
+					base_ir->insert_before(NewAtomic);
+					rhs = new(State) ir_dereference_variable(ResultVar);
+				}
 			}
 		}
-
+		
 		ir->rhs->accept(this);
-
+		
 		return visit_continue_with_parent;
 	}
 

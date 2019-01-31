@@ -17,7 +17,7 @@
 #include "RendererInterface.h"
 #include "SceneUtils.h"
 #include "EngineModule.h"
-#include "DrawingPolicy.h"
+#include "MeshPassProcessor.h"
 
 #define NUM_MATERIAL_TILE_VERTS	6
 
@@ -200,7 +200,6 @@ void FCanvasTileRendererItem::FTileMesh::InitRHI()
 
 void FCanvasTileRendererItem::FTileMesh::ReleaseRHI()
 {
-	MeshElement.Elements[0].PrimitiveUniformBuffer.SafeRelease();
 }
 
 FCanvasTileRendererItem::FRenderData::FRenderData(ERHIFeatureLevel::Type InFeatureLevel,
@@ -349,7 +348,7 @@ void FCanvasTileRendererItem::InitTileBuffers(FLocalVertexFactory* VertexFactory
 	});
 }
 
-bool FCanvasTileRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FCanvas* Canvas)
+bool FCanvasTileRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FCanvas* Canvas)
 {
 	float CurrentRealTime = 0.f;
 	float CurrentWorldTime = 0.f;
@@ -480,7 +479,7 @@ bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas, FRenderTh
 	{
 		SCOPED_DRAW_EVENTF(RHICmdList, CanvasDrawTile, *DrawTileParameters.RenderData->MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel)->GetFriendlyName());
 
-		FDrawingPolicyRenderState DrawRenderState(*DrawTileParameters.View);
+		FMeshPassProcessorRenderState DrawRenderState(*DrawTileParameters.View);
 
 		// disable depth test & writes
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());

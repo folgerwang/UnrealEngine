@@ -76,6 +76,11 @@ FStructuredBufferRHIRef FD3D11DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 	TRefCountPtr<ID3D11Buffer> StructuredBufferResource;
 	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&Desc,pInitData,StructuredBufferResource.GetInitReference()), Direct3DDevice);
 
+	if( CreateInfo.DebugName )
+	{
+		StructuredBufferResource->SetPrivateData(WKPDID_D3DDebugObjectName, FCString::Strlen(CreateInfo.DebugName) + 1, TCHAR_TO_ANSI(CreateInfo.DebugName));
+	}
+
 	UpdateBufferStats(StructuredBufferResource, true);
 
 	if(CreateInfo.ResourceArray)

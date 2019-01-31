@@ -1645,6 +1645,17 @@ public:
 };
 
 
+// Mask		NumComponents	x	y	z	w
+//.x			1			0	0	0	0
+//.w			1			3	0	0	0
+//.xy			2			0	1	0	0
+//.xx			2			0	0	0	0
+//.yx			2			1	0	0	0
+//.xyw			3			0	1	3	0
+//.yyy			3			1	1	1	0
+//.zyx			3			2	1	0	0
+//.xyzw			4			0	1	2	3
+//.wzyx			4			3	2	1	0
 struct ir_swizzle_mask
 {
 	unsigned x : 4;

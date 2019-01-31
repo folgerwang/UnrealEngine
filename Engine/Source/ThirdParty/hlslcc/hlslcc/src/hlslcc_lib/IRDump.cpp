@@ -39,10 +39,10 @@
 #include "IRDump.h"
 #include "hlslcc_private.h"
 
-#if !defined(_MSC_VER)
+#if !defined(_MSC_VER) && !defined(dprintf)
 #define dprintf(...) printf(__VA_ARGS__)
 #endif
-#define irdump_printf(...)  dprintf(0, __VA_ARGS__)
+#define irdump_printf(...)  dprintf(__VA_ARGS__)
 
 static inline void irdump_flush()
 {
@@ -144,7 +144,11 @@ void DebugPrintVisitor::visit(ir_function_signature* ir)
 	{
 		ir_instruction *const inst = (ir_instruction *) iter.get();
 		Indent();
+
+		bool bPrevEOL = bIRVarEOL;
+		bIRVarEOL = true;
 		inst->accept(this);
+		bIRVarEOL = bPrevEOL;
 	}
 	Indentation--;
 	irdump_printf("}\n");
@@ -393,8 +397,8 @@ void DebugPrintVisitor::visit(ir_swizzle* ir)
 
 void DebugPrintVisitor::visit(ir_dereference_variable* ir)
 {
-	PrintID(ir);
 	ir_variable *var = ir->variable_referenced();
+	PrintIDVar(ir, var);
 	irdump_printf("%s", GetVarName(var).c_str());
 }
 
@@ -684,6 +688,11 @@ void DebugPrintVisitor::visit(ir_atomic* ir)
 void DebugPrintVisitor::PrintID(ir_instruction * ir)
 {
 	irdump_printf("/*%d*/", ir ? ir->id : -1);
+}
+
+void DebugPrintVisitor::PrintIDVar(ir_instruction* ir, ir_variable* Var)
+{
+	irdump_printf("/*%d[%d]*/", ir ? ir->id : -1, Var ? Var->id : -1);
 }
 
 void DebugPrintVisitor::Indent()

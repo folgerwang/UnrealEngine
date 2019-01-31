@@ -3041,7 +3041,7 @@ public:
 	void OnSceneMaterialsModified();
 
 	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
-	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings = true);
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings = true);
 
 	/** Toggle the feature level preview */
 	void ToggleFeatureLevelPreview();
@@ -3060,10 +3060,10 @@ protected:
 	void SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** call this function to change the feature level for all materials */
-	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel);
+	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** call this to recompile the materials */
-	void AllMaterialsCacheResourceShadersForRendering();
+	void AllMaterialsCacheResourceShadersForRendering(ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** Function pair used to save and restore the global feature level */
 	void LoadEditorFeatureLevel();

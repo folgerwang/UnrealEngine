@@ -64,6 +64,7 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	bSupportMaterialLayers = false;
 	GPUSimulationTextureSizeX = 1024;
 	GPUSimulationTextureSizeY = 1024;
+	bEnableRayTracing = 0;
 }
 
 void URendererSettings::PostInitProperties()
@@ -78,6 +79,8 @@ void URendererSettings::PostInitProperties()
 		ImportConsoleVariableValues();
 	}
 #endif // #if WITH_EDITOR
+
+	ensureMsgf(!bEnableRayTracing || (bEnableRayTracing && bSupportSkinCacheShaders), TEXT("Raytracing enabled, but skin cache is not.  Disable raytracing, or enable r.SkinCache.CompileShaders"));
 }
 
 #if WITH_EDITOR
@@ -107,6 +110,25 @@ void URendererSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 			GEditor->BuildReflectionCaptures();
 		}
 	}
+}
+
+bool URendererSettings::CanEditChange(const UProperty* InProperty) const
+{
+	const bool ParentVal = Super::CanEditChange(InProperty);
+
+	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, bEnableRayTracing)))
+	{
+		//only allow enabling raytracing if skin cache is on, but allow disable of raytracing no matter what.
+		return ParentVal && (bSupportSkinCacheShaders || bEnableRayTracing);
+	}
+
+	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, bSupportSkinCacheShaders)))
+	{
+		//only allow DISABLE of skincache shaders if raytracing is also disabled as skincache is a dependency of raytracing.
+		return ParentVal && (!bSupportSkinCacheShaders || !bEnableRayTracing);
+	}
+
+	return ParentVal;
 }
 #endif // #if WITH_EDITOR
 

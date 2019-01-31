@@ -13,6 +13,7 @@
 #include "Materials/Material.h"
 #include "ShaderParameterUtils.h"
 #include "FXSystem.h"
+#include "MeshMaterialShader.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FVectorFieldVisualizationParameters,"VectorFieldVis");
 
@@ -38,7 +39,16 @@ public:
 		Ar << VectorFieldTextureSampler;
 	}
 
-	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override;
+	virtual void GetElementShaderBindings(
+		const FSceneInterface* Scene,
+		const FSceneView* View,
+		const FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams) const override;
 
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
@@ -137,9 +147,9 @@ bool FVectorFieldVisualizationVertexFactory::ShouldCompilePermutation(EShaderPla
 /**
  * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
  */
-void FVectorFieldVisualizationVertexFactory::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+void FVectorFieldVisualizationVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
-	FVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	FVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 }
 
 /**
@@ -161,16 +171,21 @@ void FVectorFieldVisualizationVertexFactory::SetParameters(
 	VectorFieldTextureRHI = InVectorFieldTextureRHI;
 }
 
-/**
- * Set vertex factory shader parameters.
- */
-void FVectorFieldVisualizationVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* InVertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const
+void FVectorFieldVisualizationVertexFactoryShaderParameters::GetElementShaderBindings(
+	const FSceneInterface* Scene,
+	const FSceneView* View,
+	const FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* InVertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams) const
 {
 	FVectorFieldVisualizationVertexFactory* VertexFactory = (FVectorFieldVisualizationVertexFactory*)InVertexFactory;
-	FVertexShaderRHIParamRef VertexShaderRHI = Shader->GetVertexShader();
 	FSamplerStateRHIParamRef SamplerStatePoint = TStaticSamplerState<SF_Point>::GetRHI();
-	SetUniformBufferParameter(RHICmdList, VertexShaderRHI, Shader->GetUniformBufferParameter<FVectorFieldVisualizationParameters>(), VertexFactory->UniformBuffer);
-	SetTextureParameter(RHICmdList, VertexShaderRHI, VectorFieldTexture, VectorFieldTextureSampler, SamplerStatePoint, VertexFactory->VectorFieldTextureRHI);
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FVectorFieldVisualizationParameters>(), VertexFactory->UniformBuffer);
+	ShaderBindings.AddTexture(VectorFieldTexture, VectorFieldTextureSampler, SamplerStatePoint, VertexFactory->VectorFieldTextureRHI);
 }
 
 IMPLEMENT_VERTEX_FACTORY_TYPE(FVectorFieldVisualizationVertexFactory,"/Engine/Private/VectorFieldVisualizationVertexFactory.ush",true,false,true,false,false);
@@ -246,7 +261,7 @@ void GetVectorFieldMesh(
 		MeshBatch.CastShadow = false;
 		MeshBatch.bUseAsOccluder = false;
 		MeshBatch.VertexFactory = VertexFactory;
-		MeshBatch.MaterialRenderProxy = GEngine->LevelColorationUnlitMaterial->GetRenderProxy(false);
+		MeshBatch.MaterialRenderProxy = GEngine->LevelColorationUnlitMaterial->GetRenderProxy();
 		MeshBatch.Type = PT_LineList;
 
 		// A single mesh element.
@@ -256,7 +271,7 @@ void GetVectorFieldMesh(
 		MeshElement.FirstIndex = 0;
 		MeshElement.MinVertexIndex = 0;
 		MeshElement.MaxVertexIndex = 1;
-		MeshElement.PrimitiveUniformBufferResource = &GIdentityPrimitiveUniformBuffer;
+		MeshElement.PrimitiveUniformBuffer = GIdentityPrimitiveUniformBuffer.GetUniformBufferRHI();
 
 		MeshBatch.bCanApplyViewModeOverrides = false;
 		Collector.AddMesh(ViewIndex, MeshBatch);

@@ -9,7 +9,7 @@
 struct Rect;
 
 /** A null implementation of the dynamically bound RHI. */
-class FNullDynamicRHI : public FDynamicRHI , public IRHICommandContext
+class FNullDynamicRHI : public FDynamicRHI , public IRHICommandContextPSOFallback
 {
 public:
 
@@ -113,9 +113,14 @@ public:
 
 	}
 
-	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) final override
+	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation) final override
 	{ 
 		return new FRHIUniformBuffer(Layout); 
+	}
+
+	virtual void RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformBufferRHI, const void* Contents) final override
+	{
+
 	}
 
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override

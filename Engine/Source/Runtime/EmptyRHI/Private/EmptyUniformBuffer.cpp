@@ -63,7 +63,7 @@ FEmptyUniformBuffer::~FEmptyUniformBuffer()
 {
 }
 
-FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	check(IsInRenderingThread());
 	return nullptr;//new FEmptyUniformBuffer(Contents, NumBytes, Usage);

@@ -1,9 +1,13 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderGraphUtils.h"
+#include <initializer_list>
 
-
-void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBindings, const FShaderParametersMetadata* ParametersMetadata, void* InoutParameters)
+void ClearUnusedGraphResourcesImpl(
+	const FShaderParameterBindings& ShaderBindings,
+	const FShaderParametersMetadata* ParametersMetadata,
+	void* InoutParameters,
+	std::initializer_list< FRDGResourceRef > ExcludeList)
 {
 	int32 GraphTextureId = 0;
 	int32 GraphSRVId = 0;
@@ -13,10 +17,10 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 
 	for (int32 ResourceIndex = 0, Num = ParametersMetadata->GetLayout().Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
-		EUniformBufferBaseType Type = EUniformBufferBaseType(ParametersMetadata->GetLayout().Resources[ResourceIndex]);
-		uint16 ByteOffset = ParametersMetadata->GetLayout().ResourceOffsets[ResourceIndex];
+		EUniformBufferBaseType Type = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberType;
+		uint16 ByteOffset = ParametersMetadata->GetLayout().Resources[ResourceIndex].MemberOffset;
 
-		if (Type == UBMT_GRAPH_TRACKED_TEXTURE)
+		if (Type == UBMT_RDG_TEXTURE)
 		{
 			if (GraphTextureId < ShaderBindings.GraphTextures.Num() && ByteOffset == ShaderBindings.GraphTextures[GraphTextureId].ByteOffset)
 			{
@@ -24,7 +28,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_SRV || Type == UBMT_GRAPH_TRACKED_BUFFER_SRV)
+		else if (Type == UBMT_RDG_TEXTURE_SRV || Type == UBMT_RDG_BUFFER_SRV)
 		{
 			if (GraphSRVId < ShaderBindings.GraphSRVs.Num() && ByteOffset == ShaderBindings.GraphSRVs[GraphSRVId].ByteOffset)
 			{
@@ -32,7 +36,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_UAV || Type == UBMT_GRAPH_TRACKED_BUFFER_UAV)
+		else if (Type == UBMT_RDG_TEXTURE_UAV || Type == UBMT_RDG_BUFFER_UAV)
 		{
 			if (GraphUAVId < ShaderBindings.GraphUAVs.Num() && ByteOffset == ShaderBindings.GraphUAVs[GraphUAVId].ByteOffset)
 			{
@@ -45,7 +49,35 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 			continue;
 		}
 
+		for( FRDGResourceRef ExcludeResource : ExcludeList )
+		{
+			auto Resource = *reinterpret_cast<const FRDGResource* const*>(Base + ByteOffset);
+			if( Resource == ExcludeResource )
+			{
+				continue;
+			}
+		}
+
 		void** ResourcePointerAddress = reinterpret_cast<void**>(Base + ByteOffset);
 		*ResourcePointerAddress = nullptr;
 	}
 }
+
+
+FRDGTextureRef RegisterExternalTextureWithFallback(
+	FRDGBuilder& GraphBuilder,
+	const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture,
+	const TRefCountPtr<IPooledRenderTarget>& FallbackPooledTexture,
+	const TCHAR* ExternalPooledTextureName)
+{
+	ensureMsgf(FallbackPooledTexture.IsValid(), TEXT("RegisterExternalTextureWithDummyFallback() requires a valid fallback pooled texture."));
+	if (ExternalPooledTexture.IsValid())
+	{
+		return GraphBuilder.RegisterExternalTexture(ExternalPooledTexture, ExternalPooledTextureName);
+	}
+	else
+	{
+		return GraphBuilder.RegisterExternalTexture(FallbackPooledTexture);
+	}
+}
+

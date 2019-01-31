@@ -13,7 +13,6 @@
 #include "MeshMaterialShader.h"
 #include "ShaderBaseClasses.h"
 #include "SceneRendering.h"
-#include "StaticMeshDrawList.h"
 #include "DeferredShadingRenderer.h"
 #include "ScenePrivate.h"
 #include "PostProcess/ScreenSpaceReflections.h"
@@ -24,6 +23,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
 #include "VisualizeTexture.h"
+#include "MeshPassProcessor.inl"
 
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarBasePassOutputsVelocity(
@@ -66,42 +66,13 @@ class FVelocityVS : public FMeshMaterialShader
 
 public:
 
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMaterialRenderProxy* MaterialRenderProxy, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const bool bIsInstancedStereo)
-	{
-		if (IsInstancedStereoParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), IsInstancedStereoParameter, bIsInstancedStereo);
-		}
-
-		if (InstancedEyeIndexParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, 0);
-		}
-
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMeshBatch& Mesh, int32 BatchElementIndex, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& View, const FPrimitiveSceneProxy* Proxy, const FMatrix& InPreviousLocalToWorld)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, Mesh.Elements[BatchElementIndex], DrawRenderState);
-
-		SetShaderValue(RHICmdList, GetVertexShader(), PreviousLocalToWorld, InPreviousLocalToWorld);
-	}
-
-	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
-	{
-		if (InstancedEyeIndexParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, EyeIndex);
-		}
-	}
-
 	bool SupportsVelocity() const
 	{
-		return PreviousLocalToWorld.IsBound() || 
-			GPUSkinCachePreviousPositionBuffer.IsBound() ||
+		return GPUSkinCachePreviousPositionBuffer.IsBound() ||
 			PrevTransformBuffer.IsBound() || 
-			(PrevTransform0.IsBound() && PrevTransform1.IsBound() && PrevTransform2.IsBound());
+			(PrevTransform0.IsBound() && PrevTransform1.IsBound() && PrevTransform2.IsBound()) ||
+			//@todo MeshCommandPipeline - now that PreviousLocalToWorld is in the primitive uniform buffer, we can't look at whether the shader bound it to cull what gets rendered in velocity pass
+			true;
 	}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
@@ -120,14 +91,11 @@ protected:
 	FVelocityVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FMeshMaterialShader(Initializer)
 	{
-		PreviousLocalToWorld.Bind(Initializer.ParameterMap,TEXT("PreviousLocalToWorld"));
 		GPUSkinCachePreviousPositionBuffer.Bind(Initializer.ParameterMap, TEXT("GPUSkinCachePreviousPositionBuffer"));
 		PrevTransform0.Bind(Initializer.ParameterMap, TEXT("PrevTransform0"));
 		PrevTransform1.Bind(Initializer.ParameterMap, TEXT("PrevTransform1"));
 		PrevTransform2.Bind(Initializer.ParameterMap, TEXT("PrevTransform2"));
 		PrevTransformBuffer.Bind(Initializer.ParameterMap, TEXT("PrevTransformBuffer"));
-		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
-		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
@@ -137,27 +105,21 @@ protected:
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 
-		Ar << PreviousLocalToWorld;
 		Ar << GPUSkinCachePreviousPositionBuffer;
 		Ar << PrevTransform0;
 		Ar << PrevTransform1;
 		Ar << PrevTransform2;
 		Ar << PrevTransformBuffer;
-		Ar << InstancedEyeIndexParameter;
-		Ar << IsInstancedStereoParameter;
 
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
-	FShaderParameter PreviousLocalToWorld;
 	FShaderResourceParameter GPUSkinCachePreviousPositionBuffer;
 	FShaderParameter PrevTransform0;
 	FShaderParameter PrevTransform1;
 	FShaderParameter PrevTransform2;
 	FShaderResourceParameter PrevTransformBuffer;
-	FShaderParameter InstancedEyeIndexParameter;
-	FShaderParameter IsInstancedStereoParameter;
 };
 
 
@@ -186,13 +148,6 @@ protected:
 class FVelocityDS : public FBaseDS
 {
 	DECLARE_SHADER_TYPE(FVelocityDS,MeshMaterial);
-
-public:
-
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, (FDomainShaderRHIParamRef)GetDomainShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
 
 protected:
 	FVelocityDS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
@@ -243,354 +198,11 @@ public:
 	{
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FMaterialRenderProxy* MaterialRenderProxy,const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-	}
-
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FMeshBatch& Mesh,int32 BatchElementIndex,const FDrawingPolicyRenderState& DrawRenderState,const FViewInfo& View, const FPrimitiveSceneProxy* Proxy)
-	{
-		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-		
-		FMeshMaterialShader::SetMesh(RHICmdList, ShaderRHI, VertexFactory, View, Proxy, Mesh.Elements[BatchElementIndex], DrawRenderState);
-	}
-
-	virtual bool Serialize(FArchive& Ar) override
-	{
-		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
-		return bShaderHasOutdatedParameters;
-	}
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FVelocityPS,TEXT("/Engine/Private/VelocityShader.usf"),TEXT("MainPixelShader"),SF_Pixel);
 
 IMPLEMENT_SHADERPIPELINE_TYPE_VSPS(VelocityPipeline, FVelocityVS, FVelocityPS, true);
-
-//=============================================================================
-/** FVelocityDrawingPolicy - Policy to wrap FMeshDrawingPolicy with new shaders. */
-
-FVelocityDrawingPolicy::FVelocityDrawingPolicy(
-	const FVertexFactory* InVertexFactory,
-	const FMaterialRenderProxy* InMaterialRenderProxy,
-	const FMaterial& InMaterialResource,
-	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-	ERHIFeatureLevel::Type InFeatureLevel
-	)
-	:	FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,InOverrideSettings)	
-{
-	const FMaterialShaderMap* MaterialShaderIndex = InMaterialResource.GetRenderingThreadShaderMap();
-	const FMeshMaterialShaderMap* MeshShaderIndex = MaterialShaderIndex->GetMeshShaderMap(InVertexFactory->GetType());
-
-	ShaderPipeline = nullptr;
-	HullShader = nullptr;
-	DomainShader = nullptr;
-	VertexShader = nullptr;
-	PixelShader = nullptr;
-
-	const EMaterialTessellationMode MaterialTessellationMode = InMaterialResource.GetTessellationMode();
-	if (RHISupportsTessellation(GShaderPlatformForFeatureLevel[InFeatureLevel])
-		&& InVertexFactory->GetType()->SupportsTessellationShaders() 
-		&& MaterialTessellationMode != MTM_NoTessellation)
-	{
-		bool HasHullShader = MeshShaderIndex->HasShader(&FVelocityHS::StaticType, /* PermutationId = */ 0);
-		bool HasDomainShader = MeshShaderIndex->HasShader(&FVelocityDS::StaticType, /* PermutationId = */ 0);
-
-		HullShader = HasHullShader ? MeshShaderIndex->GetShader<FVelocityHS>() : NULL;
-		DomainShader = HasDomainShader ? MeshShaderIndex->GetShader<FVelocityDS>() : NULL;
-	}
-	else
-	{
-		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
-		ShaderPipeline = (CVar && CVar->GetValueOnAnyThread()) ? MeshShaderIndex->GetShaderPipeline(&VelocityPipeline) : nullptr;
-		if (ShaderPipeline)
-		{
-			VertexShader = ShaderPipeline->GetShader<FVelocityVS>();
-			PixelShader = ShaderPipeline->GetShader<FVelocityPS>();
-			check(VertexShader && PixelShader);
-		}
-	}
-
-	if (!VertexShader)
-	{
-		check(!PixelShader);
-		bool bHasVertexShader = MeshShaderIndex->HasShader(&FVelocityVS::StaticType, /* PermutationId = */ 0);
-		bool bHasPixelShader = MeshShaderIndex->HasShader(&FVelocityPS::StaticType, /* PermutationId = */ 0);
-
-		check((bHasVertexShader && bHasPixelShader) || (!bHasVertexShader && !bHasPixelShader));
-		VertexShader = bHasVertexShader ? MeshShaderIndex->GetShader<FVelocityVS>() : nullptr;
-		PixelShader = bHasPixelShader ? MeshShaderIndex->GetShader<FVelocityPS>() : nullptr;
-	}
-	BaseVertexShader = VertexShader;
-}
-
-bool FVelocityDrawingPolicy::SupportsVelocity() const
-{
-	if (VertexShader && PixelShader && VertexShader->SupportsVelocity() && GPixelFormats[PF_G16R16].Supported)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-void FVelocityDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* SceneView, FVelocityDrawingPolicy::ContextDataType PolicyContext) const
-{
-	// NOTE: Assuming this cast is always safe!
-	FViewInfo* View = (FViewInfo*)SceneView;
-
-	VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View, DrawRenderState, PolicyContext.bIsInstancedStereo);
-	PixelShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, *View, DrawRenderState);
-
-	if(HullShader && DomainShader)
-	{
-		HullShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
-		DomainShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, DrawRenderState);
-	}
-
-	// Set the shared mesh resources.
-	FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-}
-
-void FVelocityDrawingPolicy::SetMeshRenderState(
-	FRHICommandList& RHICmdList, 
-	const FSceneView& SceneView,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	const FMeshBatch& Mesh,
-	int32 BatchElementIndex,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const ElementDataType& ElementData,
-	const ContextDataType PolicyContext
-	) const
-{
-	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-	FMatrix PreviousLocalToWorld;
-	
-	FViewInfo& View = (FViewInfo&)SceneView;	// NOTE: Assuming this cast is always safe!
-
-	// hack
-	FScene* Scene = (FScene*)&PrimitiveSceneProxy->GetScene();
-
-	// previous transform can be stored in the scene for each primitive
-	if(Scene->MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneProxy->GetPrimitiveSceneInfo(), PreviousLocalToWorld))
-	{
-		VertexShader->SetMesh(RHICmdList, VertexFactory, Mesh, BatchElementIndex, DrawRenderState, View, PrimitiveSceneProxy, PreviousLocalToWorld);
-	}	
-	else
-	{
-		const FMatrix& LocalToWorld = PrimitiveSceneProxy->GetLocalToWorld();		// different implementation from UE4
-		VertexShader->SetMesh(RHICmdList, VertexFactory, Mesh, BatchElementIndex, DrawRenderState, View, PrimitiveSceneProxy, LocalToWorld);
-	}
-
-	if (HullShader && DomainShader)
-	{
-		DomainShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, Mesh.Elements[BatchElementIndex], DrawRenderState);
-		HullShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, Mesh.Elements[BatchElementIndex], DrawRenderState);
-	}
-
-	PixelShader->SetMesh(RHICmdList, VertexFactory, Mesh, BatchElementIndex, DrawRenderState, View, PrimitiveSceneProxy);	
-}
-
-void FVelocityDrawingPolicy::SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex) const {
-	VertexShader->SetInstancedEyeIndex(RHICmdList, EyeIndex);
-}
-
-bool FVelocityDrawingPolicy::HasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
-{
-	checkSlow(IsInParallelRenderingThread());
-	check(PrimitiveSceneInfo->Proxy);
-
-	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case)
-	if (View.bCameraCut || !PrimitiveSceneInfo->Proxy->IsMovable())
-	{
-		return false;
-	}
-
-	if (PrimitiveSceneInfo->Proxy->AlwaysHasVelocity())
-	{
-		return true;
-	}
-
-	// check if the primitive has moved
-	{
-		FMatrix PreviousLocalToWorld;
-
-		// hack
-		FScene* Scene = PrimitiveSceneInfo->Scene;
-
-		if (Scene->MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneInfo, PreviousLocalToWorld))
-		{
-			const FMatrix& LocalToWorld = PrimitiveSceneInfo->Proxy->GetLocalToWorld();
-
-			// Hasn't moved (treat as background by not rendering any special velocities)?
-			if (LocalToWorld.Equals(PreviousLocalToWorld, 0.0001f))
-			{
-				return false;
-			}
-		}
-		else 
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool FVelocityDrawingPolicy::HasVelocityOnBasePass(const FViewInfo& View,const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FPrimitiveSceneInfo* PrimitiveSceneInfo, const FMeshBatch& Mesh, bool& bOutHasTransform, FMatrix& OutTransform)
-{
-	checkSlow(IsInParallelRenderingThread());
-	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case)
-	if (View.bCameraCut)
-	{
-		return false;
-	}
-
-	// hack
-	FScene* Scene = PrimitiveSceneInfo->Scene;
-	if (Scene->MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneInfo, OutTransform))
-	{
-		bOutHasTransform = true;
-/*
-		const FMatrix& LocalToWorld = PrimitiveSceneProxy->GetLocalToWorld();
-		// Hasn't moved (treat as background by not rendering any special velocities)?
-		if (LocalToWorld.Equals(OutTransform, 0.0001f))
-		{
-			return false;
-		}
-*/
-		return true;
-	}
-
-	bOutHasTransform = false;
-	if (PrimitiveSceneProxy->IsMovable())
-	{
-		return true;
-	}
-
-	//@todo-rco: Optimize finding WPO!
-	auto* Material = Mesh.MaterialRenderProxy->GetMaterial(Scene->GetFeatureLevel());
-	return Material->MaterialModifiesMeshPosition_RenderThread() && Material->OutputsVelocityOnBasePass();
-}
-
-FBoundShaderStateInput FVelocityDrawingPolicy::GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const
-{
-	return FBoundShaderStateInput(
-		FMeshDrawingPolicy::GetVertexDeclaration(), 
-		VertexShader->GetVertexShader(),
-		GETSAFERHISHADER_HULL(HullShader), 
-		GETSAFERHISHADER_DOMAIN(DomainShader),
-		PixelShader->GetPixelShader(),
-		FGeometryShaderRHIRef());
-}
-
-int32 Compare(const FVelocityDrawingPolicy& A,const FVelocityDrawingPolicy& B)
-{
-	COMPAREDRAWINGPOLICYMEMBERS(VertexShader);
-	COMPAREDRAWINGPOLICYMEMBERS(PixelShader);
-	COMPAREDRAWINGPOLICYMEMBERS(HullShader);
-	COMPAREDRAWINGPOLICYMEMBERS(DomainShader);
-	COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
-	COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-	return 0;
-}
-
-
-//=============================================================================
-/** Policy to wrap FMeshDrawingPolicy with new shaders. */
-
-void FVelocityDrawingPolicyFactory::AddStaticMesh(FScene* Scene, FStaticMesh* StaticMesh)
-{
-	const auto FeatureLevel = Scene->GetFeatureLevel();
-	const FMaterialRenderProxy* MaterialRenderProxy = StaticMesh->MaterialRenderProxy;
-	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
-
-	// When selective outputs are enable, only primitive with no static lighting output velocity in GBuffer.
-	const bool bVelocityInGBuffer = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel) && !(UseSelectiveBasePassOutputs() && StaticMesh->PrimitiveSceneInfo->Proxy->HasStaticLighting());
-
-	// Velocity only needs to be directly rendered for movable meshes
-	if (StaticMesh->PrimitiveSceneInfo->Proxy->IsMovable() && !bVelocityInGBuffer)
-	{
-	    EBlendMode BlendMode = Material->GetBlendMode();
-	    if(BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
-	    {
-			if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
-		    {
-			    // Default material doesn't handle masked or mesh-mod, and doesn't have the correct bIsTwoSided setting.
-			    MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false);
-		    }
-
-			FVelocityDrawingPolicy DrawingPolicy(StaticMesh->VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), ComputeMeshOverrideSettings(*StaticMesh), FeatureLevel);
-
-			if (DrawingPolicy.SupportsVelocity())
-			{
-				// Add the static mesh to the depth-only draw list.
-				Scene->VelocityDrawList.AddMesh(StaticMesh, FVelocityDrawingPolicy::ElementDataType(), DrawingPolicy, FeatureLevel);
-			}
-	    }
-	}
-}
-
-bool FVelocityDrawingPolicyFactory::DrawDynamicMesh(
-	FRHICommandList& RHICmdList, 
-	const FViewInfo& View,
-	ContextType DrawingContext,
-	const FMeshBatch& Mesh,
-	bool bPreFog,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-	FHitProxyId HitProxyId, 
-	const bool bIsInstancedStereo
-	)
-{
-	// Only draw opaque materials in the depth pass.
-	const auto FeatureLevel = View.GetFeatureLevel();
-	const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
-	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
-	EBlendMode BlendMode = Material->GetBlendMode();
-
-	if ((BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked) && ShouldIncludeDomainInMeshPass(Material->GetMaterialDomain()))
-	{
-		// This should be enforced at a higher level
-		//@todo - figure out why this is failing and re-enable
-		//check(FVelocityDrawingPolicy::HasVelocity(View, PrimitiveSceneInfo));
-		if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
-		{
-			// Default material doesn't handle masked, and doesn't have the correct bIsTwoSided setting.
-			MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false);
-		}
-		FVelocityDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), ComputeMeshOverrideSettings(Mesh), FeatureLevel);
-		if(DrawingPolicy.SupportsVelocity())
-		{			
-			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-			DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
-			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FVelocityDrawingPolicy::ContextDataType(bIsInstancedStereo));
-			for (int32 BatchElementIndex = 0, BatchElementCount = Mesh.Elements.Num(); BatchElementIndex < BatchElementCount; ++BatchElementIndex)
-			{
-				// We draw instanced static meshes twice when rendering with instanced stereo. Once for each eye.
-				const bool bIsInstancedMesh = Mesh.Elements[BatchElementIndex].bIsInstancedMesh;
-				const uint32 InstancedStereoDrawCount = (bIsInstancedStereo && bIsInstancedMesh) ? 2 : 1;
-				for (uint32 DrawCountIter = 0; DrawCountIter < InstancedStereoDrawCount; ++DrawCountIter)
-				{
-					DrawingPolicy.SetInstancedEyeIndex(RHICmdList, DrawCountIter);
-
-					TDrawEvent<FRHICommandList> MeshEvent;
-					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::Velocity));
-
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FMeshDrawingPolicy::ElementDataType(), FVelocityDrawingPolicy::ContextDataType());
-					DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex, bIsInstancedStereo);
-				}
-			}
-			return true;
-		}
-	}
-
-	return false;
-}
 
 
 int32 GetMotionBlurQualityFromCVar()
@@ -622,67 +234,6 @@ bool IsMotionBlurEnabled(const FViewInfo& View)
 		&& (CVarAllowMotionBlurInVR->GetInt() != 0 || !(View.Family->Views.Num() > 1));
 }
 
-void FDeferredShadingSceneRenderer::RenderDynamicVelocitiesMeshElementsInner(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, int32 FirstIndex, int32 LastIndex)
-{
-	check(RHICmdList.IsInsideRenderPass());
-	FVelocityDrawingPolicyFactory::ContextType Context(DDM_AllOccluders, false);
-
-	for (int32 MeshBatchIndex = FirstIndex; MeshBatchIndex <= LastIndex; MeshBatchIndex++)
-	{
-		const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-		if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial()
-			&& MeshBatchAndRelevance.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->ShouldRenderVelocity(View))
-		{
-			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-			FVelocityDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId, View.IsInstancedStereoPass());
-		}
-	}
-}
-
-class FRenderVelocityDynamicThreadTask : public FRenderTask
-{
-	FDeferredShadingSceneRenderer& ThisRenderer;
-	FRHICommandList& RHICmdList;
-	const FViewInfo& View;
-	FDrawingPolicyRenderState DrawRenderState;
-	int32 FirstIndex;
-	int32 LastIndex;
-
-public:
-
-	FRenderVelocityDynamicThreadTask(
-		FDeferredShadingSceneRenderer& InThisRenderer,
-		FRHICommandList& InRHICmdList,
-		const FViewInfo& InView,
-		const FDrawingPolicyRenderState& InDrawRenderState,
-		int32 InFirstIndex, int32 InLastIndex
-		)
-		: ThisRenderer(InThisRenderer)
-		, RHICmdList(InRHICmdList)
-		, View(InView)
-		, DrawRenderState(InDrawRenderState)
-		, FirstIndex(InFirstIndex)
-		, LastIndex(InLastIndex)
-	{
-	}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FRenderVelocityDynamicThreadTask, STATGROUP_TaskGraphTasks);
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		check(RHICmdList.IsInsideRenderPass());
-		ThisRenderer.RenderDynamicVelocitiesMeshElementsInner(RHICmdList, View, DrawRenderState, FirstIndex, LastIndex);
-		RHICmdList.EndRenderPass();
-		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
-	}
-};
-
 static void BeginVelocityRendering(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT, bool bPerformClear)
 {
 	check(RHICmdList.IsOutsideRenderPass());
@@ -710,7 +261,7 @@ static void BeginVelocityRendering(FRHICommandList& RHICmdList, TRefCountPtr<IPo
 	}
 }
 
-static void SetVelocitiesState(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRender, FDrawingPolicyRenderState& DrawRenderState, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
+static void SetVelocitiesState(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRender, FMeshPassProcessorRenderState& DrawRenderState, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
 	const FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
 	const FIntPoint VelocityBufferSize = BufferSize;		// full resolution so we can reuse the existing full res z buffer
@@ -765,7 +316,7 @@ public:
 		FRHICommandListImmediate& InParentCmdList,
 		bool bInParallelExecute,
 		bool bInCreateSceneContext,
-		const FDrawingPolicyRenderState& InDrawRenderState,
+		const FMeshPassProcessorRenderState& InDrawRenderState,
 		TRefCountPtr<IPooledRenderTarget>& InVelocityRT)
 		: FParallelCommandListSet(GET_STATID(STAT_CLP_Velocity), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext, InDrawRenderState)
 		, VelocityRT(InVelocityRT)
@@ -805,12 +356,14 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 		{
 			SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
+			Scene->UniformBuffers.UpdateViewUniformBuffer(View);
+
 			FSceneTexturesUniformParameters SceneTextureParameters;
 			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
+			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
 
-			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+			FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
 			FVelocityPassParallelCommandListSet ParallelCommandListSet(View,
 				this,
@@ -820,35 +373,8 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 				DrawRenderState,
 				VelocityRT);
 
-			Scene->VelocityDrawList.DrawVisibleParallel(View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-			
-			int32 NumPrims = View.DynamicMeshElements.Num();
-			int32 EffectiveThreads = FMath::Min<int32>(FMath::DivideAndRoundUp(NumPrims, ParallelCommandListSet.MinDrawsPerCommandList), ParallelCommandListSet.Width);
-
-			int32 Start = 0;
-			if (EffectiveThreads)
-			{
-				check(IsInRenderingThread());
-
-				int32 NumPer = NumPrims / EffectiveThreads;
-				int32 Extra = NumPrims - NumPer * EffectiveThreads;
-
-
-				for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
-				{
-					int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
-					check(Last >= Start);
-
-					FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
-
-					FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderVelocityDynamicThreadTask>::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::GetRenderThread())
-						.ConstructAndDispatchWhenReady(*this, *CmdList, View, ParallelCommandListSet.DrawRenderState, Start, Last);
-
-					ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
-
-					Start = Last + 1;
-				}
-			} 
+			// Draw velocities.
+			View.ParallelMeshDrawCommandPasses[EMeshPass::Velocity].DispatchDraw(&ParallelCommandListSet, RHICmdList);
 		}
 	}
 }
@@ -865,18 +391,17 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 		SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
 		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);	
 
-		FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
+		FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
 		if (View.ShouldRenderView())
 		{
 			SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
+			Scene->UniformBuffers.UpdateViewUniformBuffer(View);
+
 			SetVelocitiesState(RHICmdList, View, this, DrawRenderState, VelocityRT);
 
-			// Draw velocities for movable static meshes.
-			Scene->VelocityDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility);
-
-			RenderDynamicVelocitiesMeshElementsInner(RHICmdList, View, DrawRenderState, 0, View.DynamicMeshElements.Num() - 1);
+			View.ParallelMeshDrawCommandPasses[EMeshPass::Velocity].DispatchDraw(nullptr, RHICmdList);
 		}
 	}
 }
@@ -977,9 +502,229 @@ bool FVelocityRendering::BasePassCanOutputVelocity(ERHIFeatureLevel::Type Featur
 	return BasePassCanOutputVelocity(ShaderPlatform);
 }
 
-
-
 bool FVelocityRendering::VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatform ShaderPlatform, bool bVertexFactorySupportsStaticLighting)
 {
 	return BasePassCanOutputVelocity(ShaderPlatform) && !(UseSelectiveBasePassOutputs() && bVertexFactorySupportsStaticLighting);;
 }
+
+bool FVelocityRendering::PrimitiveHasVelocity(ERHIFeatureLevel::Type FeatureLevel, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
+{
+	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case).
+	if (!GPixelFormats[PF_G16R16].Supported || !PrimitiveSceneInfo->Proxy->IsMovable())
+	{
+		return false;
+	}
+
+	// If the base pass is allowed to render velocity in the GBuffer, only mesh with static lighting need the velocity pass.
+	const bool bVelocityInGBuffer = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel) 
+		&& !(UseSelectiveBasePassOutputs() && (PrimitiveSceneInfo->Proxy->HasStaticLighting()));
+
+	if (bVelocityInGBuffer)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool FVelocityRendering::PrimitiveHasVelocityForView(const FViewInfo& View, const FBoxSphereBounds& Bounds, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
+{
+	if (View.bCameraCut)
+	{
+		return false;
+	}
+
+	const float LODFactorDistanceSquared = (Bounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared() * FMath::Square(View.LODDistanceFactor);
+
+	// The minimum projected screen radius for a primitive to be drawn in the velocity pass, as a fraction of half the horizontal screen width (likely to be 0.08f)
+	float MinScreenRadiusForVelocityPass = View.FinalPostProcessSettings.MotionBlurPerObjectSize * (2.0f / 100.0f);
+	float MinScreenRadiusForVelocityPassSquared = FMath::Square(MinScreenRadiusForVelocityPass);
+
+	// Skip primitives that only cover a small amount of screenspace, motion blur on them won't be noticeable.
+	if (FMath::Square(Bounds.SphereRadius) <= MinScreenRadiusForVelocityPassSquared * LODFactorDistanceSquared)
+	{
+		return false;
+	}
+
+	if (PrimitiveSceneInfo->Proxy->AlwaysHasVelocity())
+	{
+		return true;
+	}
+
+	// check if the primitive has moved
+	{
+		const FScene* Scene = PrimitiveSceneInfo->Scene;
+
+		const FMatrix& LocalToWorld = PrimitiveSceneInfo->Proxy->GetLocalToWorld();
+		FMatrix PreviousLocalToWorld = LocalToWorld;
+		Scene->VelocityData.GetComponentPreviousLocalToWorld(PrimitiveSceneInfo->PrimitiveComponentId, PreviousLocalToWorld);
+
+		if (LocalToWorld.Equals(PreviousLocalToWorld, 0.0001f))
+		{
+			// Hasn't moved (treat as background by not rendering any special velocities)
+			return false;
+		}
+	}
+
+	return true;
+}
+
+
+void FVelocityMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
+{
+	bool bRequiresSeparateVelocity = false;
+
+	if (FVelocityRendering::PrimitiveHasVelocity(FeatureLevel, PrimitiveSceneProxy->GetPrimitiveSceneInfo()))
+	{
+		bRequiresSeparateVelocity = true;
+
+		// Cached mesh commands have identical check inside MarkRelevant.
+		if (ViewIfDynamicMeshCommand)
+		{
+			checkSlow(ViewIfDynamicMeshCommand->bIsViewInfo);
+			FViewInfo* ViewInfo = (FViewInfo*)ViewIfDynamicMeshCommand;
+
+			bRequiresSeparateVelocity = FVelocityRendering::PrimitiveHasVelocityForView(*ViewInfo, PrimitiveSceneProxy->GetBounds(), PrimitiveSceneProxy->GetPrimitiveSceneInfo());
+		}
+	}
+
+	if (MeshBatch.bUseForMaterial && bRequiresSeparateVelocity)
+	{
+		// Determine the mesh's material and blend mode.
+		const FMaterialRenderProxy* MaterialRenderProxy = nullptr;
+		const FMaterial* Material = &MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, MaterialRenderProxy);
+		const EBlendMode BlendMode = Material->GetBlendMode();
+		const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, *Material);
+		const ERasterizerCullMode MeshCullMode = ComputeMeshCullMode(MeshBatch, *Material);
+
+		if (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
+		{
+			if (Material->WritesEveryPixel() && !Material->IsTwoSided() && !Material->MaterialModifiesMeshPosition_RenderThread())
+			{
+				// Default material doesn't handle masked or mesh-mod, and doesn't have the correct bIsTwoSided setting.
+				MaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+				Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+			}
+
+			if (!MaterialRenderProxy)
+			{
+				MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
+			}
+
+			check(Material && MaterialRenderProxy);
+
+			Process(MeshBatch, BatchElementMask, StaticMeshId, PrimitiveSceneProxy, *MaterialRenderProxy, *Material, MeshFillMode, MeshCullMode);
+		}
+	}
+}
+
+void GetVelocityPassShaders(
+	const FMaterial& Material,
+	FVertexFactoryType* VertexFactoryType,
+	ERHIFeatureLevel::Type FeatureLevel,
+	FVelocityHS*& HullShader,
+	FVelocityDS*& DomainShader,
+	FVelocityVS*& VertexShader,
+	FVelocityPS*& PixelShader)
+{
+	const EMaterialTessellationMode MaterialTessellationMode = Material.GetTessellationMode();
+
+	const bool bNeedsHSDS = RHISupportsTessellation(GShaderPlatformForFeatureLevel[FeatureLevel])
+		&& VertexFactoryType->SupportsTessellationShaders()
+		&& MaterialTessellationMode != MTM_NoTessellation;
+
+	if (bNeedsHSDS)
+	{
+		DomainShader = Material.GetShader<FVelocityDS>(VertexFactoryType);
+		HullShader = Material.GetShader<FVelocityHS>(VertexFactoryType);
+	}
+
+	static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
+	const bool bUseShaderPipelines = !bNeedsHSDS && CVar && CVar->GetValueOnAnyThread() != 0;
+
+	FShaderPipeline* ShaderPipeline = bUseShaderPipelines ? Material.GetShaderPipeline(&VelocityPipeline, VertexFactoryType, false) : nullptr;
+	if (ShaderPipeline)
+	{
+		VertexShader = ShaderPipeline->GetShader<FVelocityVS>();
+		PixelShader = ShaderPipeline->GetShader<FVelocityPS>();
+		check(VertexShader && PixelShader);
+	}
+	else
+	{
+		VertexShader = Material.GetShader<FVelocityVS>(VertexFactoryType);
+		PixelShader = Material.GetShader<FVelocityPS>(VertexFactoryType);
+		check(VertexShader && PixelShader);
+	}
+}
+
+void FVelocityMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	int32 StaticMeshId,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	ERasterizerFillMode MeshFillMode,
+	ERasterizerCullMode MeshCullMode)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+
+	TMeshProcessorShaders<
+		FVelocityVS,
+		FVelocityHS,
+		FVelocityDS,
+		FVelocityPS> VelocityPassShaders;
+
+	GetVelocityPassShaders(
+		MaterialResource,
+		VertexFactory->GetType(),
+		FeatureLevel,
+		VelocityPassShaders.HullShader,
+		VelocityPassShaders.DomainShader,
+		VelocityPassShaders.VertexShader,
+		VelocityPassShaders.PixelShader
+	);
+
+	FMeshMaterialShaderElementData ShaderElementData;
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, false);
+
+	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : Scene->bStaticDrawInstancedStereo;
+	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
+
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(VelocityPassShaders.VertexShader, VelocityPassShaders.PixelShader);
+
+	BuildMeshDrawCommands(
+		MeshBatch,
+		BatchElementMask,
+		PrimitiveSceneProxy,
+		MaterialRenderProxy,
+		MaterialResource,
+		PassDrawRenderState,
+		VelocityPassShaders,
+		MeshFillMode,
+		MeshCullMode,
+		InstanceFactor,
+		SortKey,
+		EMeshPassFeatures::Default,
+		ShaderElementData);
+}
+
+FVelocityMeshProcessor::FVelocityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext)
+	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+{
+	PassDrawRenderState = InPassDrawRenderState;
+	PassDrawRenderState.SetViewUniformBuffer(Scene->UniformBuffers.ViewUniformBuffer);
+	PassDrawRenderState.SetInstancedViewUniformBuffer(Scene->UniformBuffers.InstancedViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(Scene->UniformBuffers.VelocityPassUniformBuffer);
+}
+
+FMeshPassProcessor* CreateVelocityPassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
+{
+	FMeshPassProcessorRenderState VelocityPassState;
+	VelocityPassState.SetBlendState(TStaticBlendState<CW_RGBA>::GetRHI());
+	VelocityPassState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
+
+	return new(FMemStack::Get()) FVelocityMeshProcessor(Scene, InViewIfDynamicMeshCommand, VelocityPassState, InDrawListContext);
+}
+
+FRegisterPassProcessorCreateFunction RegisterVelocityPass(&CreateVelocityPassProcessor, EShadingPath::Deferred,  EMeshPass::Velocity, EMeshPassFlags::CachedMeshCommands | EMeshPassFlags::MainView);

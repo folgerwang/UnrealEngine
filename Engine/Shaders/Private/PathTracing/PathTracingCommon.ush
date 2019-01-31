@@ -1,0 +1,25 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PathTracingCommon.ush: common header used in multiple ray generation shaders
+=============================================================================*/
+
+#pragma once
+
+#ifndef PATHTRACINGCOMMON_USH_INCLUDED
+#define PATHTRACINGCOMMON_USH_INCLUDED // Workarround for UE-66460
+
+#include "../RayTracing/RayTracingCommon.ush"
+#include "PathTracingDefinitions.ush"
+
+float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
+{
+	float2 ScreenPosition = (UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * Depth, Depth, 1), View.ScreenToWorld);
+	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	return WorldPosition;
+}
+
+#endif // PATHTRACINGCOMMON_USH_INCLUDED // Workarround for UE-66460
+

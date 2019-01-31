@@ -14,6 +14,7 @@ public class VulkanRHI : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Windows");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "AMD_AGS");
 		}
 		else
 		{

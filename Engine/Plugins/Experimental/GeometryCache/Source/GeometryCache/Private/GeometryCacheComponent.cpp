@@ -125,15 +125,15 @@ void UGeometryCacheComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 		// Schedule an update on the render thread
 		if (FGeometryCacheSceneProxy* CastedProxy = static_cast<FGeometryCacheSceneProxy*>(SceneProxy))
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
-				FGeometryCacheUpdateAnimation,
-				FGeometryCacheSceneProxy*, SceneProxy, CastedProxy,
-				float, AnimationTime, GetAnimationTime(),
-				bool, bLooping, IsLooping(),
-				bool, bIsPlayingBackwards, IsPlayingReversed(),
-				float, PlaybackSpeed, ActualPlaybackSpeed,
+			FGeometryCacheSceneProxy* InSceneProxy = CastedProxy;
+			float AnimationTime = GetAnimationTime();
+			bool bInLooping = IsLooping();
+			bool bIsPlayingBackwards = IsPlayingReversed();
+			float InPlaybackSpeed = ActualPlaybackSpeed;
+			ENQUEUE_RENDER_COMMAND(FGeometryCacheUpdateAnimation)(
+				[InSceneProxy, AnimationTime, bInLooping, bIsPlayingBackwards, InPlaybackSpeed, ActualPlaybackSpeed](FRHICommandList& RHICmdList)
 				{
-					SceneProxy->UpdateAnimation(AnimationTime, bLooping, bIsPlayingBackwards,PlaybackSpeed);
+					InSceneProxy->UpdateAnimation(AnimationTime, bInLooping, bIsPlayingBackwards, InPlaybackSpeed);
 				});
 		}
 	}
@@ -178,15 +178,13 @@ void UGeometryCacheComponent::TickAtThisTime(const float Time, bool bInIsRunning
 		// Schedule an update on the render thread
 		if (FGeometryCacheSceneProxy* CastedProxy = static_cast<FGeometryCacheSceneProxy*>(SceneProxy))
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
-				FGeometryCacheUpdateAnimation,
-				FGeometryCacheSceneProxy*, SceneProxy, CastedProxy,
-				float, AnimationTime, Time,
-				bool, bLooping, bInIsLooping,
-				bool, bIsPlayingBackwards, bInBackwards,
-				float, PlaybackSpeed, ActualPlaybackSpeed,
+			FGeometryCacheSceneProxy* InSceneProxy = CastedProxy;
+			float AnimationTime = Time;
+			float InPlaybackSpeed = ActualPlaybackSpeed;
+			ENQUEUE_RENDER_COMMAND(FGeometryCacheUpdateAnimation)(
+				[InSceneProxy, AnimationTime, bInIsLooping, bInBackwards, InPlaybackSpeed](FRHICommandList& RHICmdList)
 				{
-					SceneProxy->UpdateAnimation(AnimationTime, bLooping, bIsPlayingBackwards,PlaybackSpeed);
+					InSceneProxy->UpdateAnimation(AnimationTime, bInIsLooping, bInBackwards, InPlaybackSpeed);
 				});
 		}
 	}

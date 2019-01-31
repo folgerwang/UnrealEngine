@@ -6,6 +6,16 @@
 
 #include "D3D12RHIPrivate.h"
 #include "D3D12RootSignatureDefinitions.h"
+#include "CommonRayTracingBuiltInResources.ush"
+
+namespace
+{
+	// Root parameter costs in DWORDs as described here: https://docs.microsoft.com/en-us/windows/desktop/direct3d12/root-signature-limits
+	static const uint32 RootDescriptorTableCostGlobal = 1; // Descriptor tables cost 1 DWORD
+	static const uint32 RootDescriptorTableCostLocal = 2; // Local root signature descriptor tables cost 2 DWORDs -- undocumented as of 2018-11-12
+	static const uint32 RootConstantCost = 1; // Each root constant is 1 DWORD
+	static const uint32 RootDescriptorCost = 2; // Root descriptor is 64-bit GPU virtual address, 2 DWORDs
+}
 
 FORCEINLINE D3D12_SHADER_VISIBILITY GetD3D12ShaderVisibility(EShaderVisibility Visibility)
 {
@@ -81,13 +91,64 @@ FD3D12RootSignatureDesc::FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShade
 
 	const D3D12_ROOT_DESCRIPTOR_FLAGS CBVRootDescriptorFlags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;	// We always set the data in an upload heap before calling Set*RootConstantBufferView.
 
+	uint32 BindingSpace = 0; // Default binding space for D3D 11 & 12 shaders
+
+#if D3D12_RHI_RAYTRACING
+	if (QBSS.RootSignatureType == RS_RayTracingLocal)
+	{
+		BindingSpace = RAY_TRACING_REGISTER_SPACE_LOCAL;
+
+		// Add standard root parameters for hit groups, as per FHitGroupSystemParameters declaration in D3D12RayTracing.cpp and RayTracingHitGroupCommon.ush:
+		// - index buffer as root SRV (raw buffer)
+		// - vertex buffer as root SRV (raw buffer)
+		// - index/vertex fetch configuration as root constant (1 DWORD, defining index and vertex formats)
+
+		// #dxr_todo: Root parameters for hit shaders should be added in the shader pipeline, so that regular root parameter generation code can be used without hard-coding anything.
+
+		check(RootParameterCount == 0 && RootParametersSize == 0); // We expect system RT parameters to come first
+
+		// Index buffer descriptor
+		{
+			check(RootParameterCount < MaxRootParameters);
+			TableSlots[RootParameterCount].InitAsShaderResourceView(RAY_TRACING_SYSTEM_INDEXBUFFER_REGISTER, RAY_TRACING_REGISTER_SPACE_SYSTEM);
+			RootParameterCount++;
+			RootParametersSize += RootDescriptorCost;
+		}
+
+		// Vertex buffer descriptor
+		{
+			check(RootParameterCount < MaxRootParameters);
+			TableSlots[RootParameterCount].InitAsShaderResourceView(RAY_TRACING_SYSTEM_VERTEXBUFFER_REGISTER, RAY_TRACING_REGISTER_SPACE_SYSTEM);
+			RootParameterCount++;
+			RootParametersSize += RootDescriptorCost;
+		}
+
+		// Configuration structure (b0, space1)
+		{
+			check(RootParameterCount < MaxRootParameters);
+			// 1 DWORD as defined by FHitGroupSystemParameters::Config
+			// 1 DWORD padding to ensure that the next parameter is aligned to 8-byte boundary
+			const uint32 NumConstants = 2;
+			TableSlots[RootParameterCount].InitAsConstants(NumConstants, RAY_TRACING_SYSTEM_ROOTCONSTANT_REGISTER, RAY_TRACING_REGISTER_SPACE_SYSTEM);
+			RootParameterCount++;
+			RootParametersSize += NumConstants * RootConstantCost;
+		}
+	}
+	else if (QBSS.RootSignatureType == RS_RayTracingGlobal)
+	{
+		BindingSpace = RAY_TRACING_REGISTER_SPACE_GLOBAL;
+	}
+#endif //D3D12_RHI_RAYTRACING
+
+	const uint32 RootDescriptorTableCost = QBSS.RootSignatureType == RS_RayTracingLocal ? RootDescriptorTableCostLocal : RootDescriptorTableCostGlobal;
+
 	// For each root parameter type...
-	for (uint32 RootParameterTypeIndex = 0; RootParameterTypeIndex < _countof(RootParameterTypePriorityOrder); RootParameterTypeIndex++)
+	for (uint32 RootParameterTypeIndex = 0; RootParameterTypeIndex < ARRAY_COUNT(RootParameterTypePriorityOrder); RootParameterTypeIndex++)
 	{
 		const D3D12_ROOT_PARAMETER_TYPE& RootParameterType = RootParameterTypePriorityOrder[RootParameterTypeIndex];
 
 		// ... and each shader stage visibility ...
-		for (uint32 ShaderVisibilityIndex = 0; ShaderVisibilityIndex < _countof(ShaderVisibilityPriorityOrder); ShaderVisibilityIndex++)
+		for (uint32 ShaderVisibilityIndex = 0; ShaderVisibilityIndex < ARRAY_COUNT(ShaderVisibilityPriorityOrder); ShaderVisibilityIndex++)
 		{
 			const EShaderVisibility& Visibility = ShaderVisibilityPriorityOrder[ShaderVisibilityIndex];
 			const FShaderRegisterCounts& Shader = QBSS.RegisterCounts[Visibility];
@@ -96,55 +157,55 @@ FD3D12RootSignatureDesc::FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShade
 			{
 			case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
 			{
-				static const uint32 DescriptorTableCost = 1; // Descriptor tables cost 1 DWORD
 				if (Shader.ShaderResourceCount > 0)
 				{
 					check(RootParameterCount < MaxRootParameters);
-					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, Shader.ShaderResourceCount, 0u, 0u, SRVDescriptorRangeFlags);
+					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, Shader.ShaderResourceCount, 0u, BindingSpace, SRVDescriptorRangeFlags);
 					TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
 					RootParameterCount++;
-					RootParametersSize += DescriptorTableCost;
+					RootParametersSize += RootDescriptorTableCost;
 				}
 
 				if (Shader.ConstantBufferCount > MAX_ROOT_CBVS)
 				{
+					checkf(QBSS.RootSignatureType != RS_RayTracingLocal, TEXT("CBV descriptor tables are not implemented for local root signatures"));
+
 					// Use a descriptor table for the 'excess' CBVs
 					check(RootParameterCount < MaxRootParameters);
-					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, Shader.ConstantBufferCount - MAX_ROOT_CBVS, MAX_ROOT_CBVS, 0u, CBVDescriptorRangeFlags);
+					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, Shader.ConstantBufferCount - MAX_ROOT_CBVS, MAX_ROOT_CBVS, BindingSpace, CBVDescriptorRangeFlags);
 					TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
 					RootParameterCount++;
-					RootParametersSize += DescriptorTableCost;
+					RootParametersSize += RootDescriptorTableCost;
 				}
 
 				if (Shader.SamplerCount > 0)
 				{
 					check(RootParameterCount < MaxRootParameters);
-					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, Shader.SamplerCount, 0u, 0u, SamplerDescriptorRangeFlags);
+					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, Shader.SamplerCount, 0u, BindingSpace, SamplerDescriptorRangeFlags);
 					TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
 					RootParameterCount++;
-					RootParametersSize += DescriptorTableCost;
+					RootParametersSize += RootDescriptorTableCost;
 				}
 
 				if (Shader.UnorderedAccessCount > 0)
 				{
 					check(RootParameterCount < MaxRootParameters);
-					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, Shader.UnorderedAccessCount, 0u, 0u, UAVDescriptorRangeFlags);
+					DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, Shader.UnorderedAccessCount, 0u, BindingSpace, UAVDescriptorRangeFlags);
 					TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
 					RootParameterCount++;
-					RootParametersSize += DescriptorTableCost;
+					RootParametersSize += RootDescriptorTableCost;
 				}
 				break;
 			}
 
 			case D3D12_ROOT_PARAMETER_TYPE_CBV:
 			{
-				static const uint32 RootCBVCost = 2; // Root CBVs cost 2 DWORDs
 				for (uint32 ShaderRegister = 0; (ShaderRegister < Shader.ConstantBufferCount) && (ShaderRegister < MAX_ROOT_CBVS); ShaderRegister++)
 				{
 					check(RootParameterCount < MaxRootParameters);
-					TableSlots[RootParameterCount].InitAsConstantBufferView(ShaderRegister, 0u, CBVRootDescriptorFlags, GetD3D12ShaderVisibility(Visibility));
+					TableSlots[RootParameterCount].InitAsConstantBufferView(ShaderRegister, BindingSpace, CBVRootDescriptorFlags, GetD3D12ShaderVisibility(Visibility));
 					RootParameterCount++;
-					RootParametersSize += RootCBVCost;
+					RootParametersSize += RootDescriptorCost;
 				}
 				break;
 			}
@@ -156,19 +217,35 @@ FD3D12RootSignatureDesc::FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShade
 		}
 	}
 
-	// Determine what shader stages need access in the root signature.
-	D3D12_ROOT_SIGNATURE_FLAGS Flags = QBSS.bAllowIAInputLayout ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
-	for (uint32 ShaderVisibilityIndex = 0; ShaderVisibilityIndex < _countof(ShaderVisibilityPriorityOrder); ShaderVisibilityIndex++)
+	D3D12_ROOT_SIGNATURE_FLAGS Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+#if D3D12_RHI_RAYTRACING
+	if (QBSS.RootSignatureType == RS_RayTracingLocal)
 	{
-		const EShaderVisibility& Visibility = ShaderVisibilityPriorityOrder[ShaderVisibilityIndex];
-		const FShaderRegisterCounts& Shader = QBSS.RegisterCounts[Visibility];
-		if ((Shader.ShaderResourceCount == 0) &&
-			(Shader.ConstantBufferCount == 0) &&
-			(Shader.UnorderedAccessCount == 0) &&
-			(Shader.SamplerCount == 0))
+		Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
+	}
+	else if (QBSS.RootSignatureType == RS_Raster)
+#endif // D3D12_RHI_RAYTRACING
+	{
+		// Determine what shader stages need access in the root signature.
+
+		if (QBSS.bAllowIAInputLayout)
 		{
-			// This shader stage doesn't use any descriptors, deny access to the shader stage in the root signature.
-			Flags = (Flags | GetD3D12RootSignatureDenyFlag(Visibility));
+			Flags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		}
+
+		for (uint32 ShaderVisibilityIndex = 0; ShaderVisibilityIndex < ARRAY_COUNT(ShaderVisibilityPriorityOrder); ShaderVisibilityIndex++)
+		{
+			const EShaderVisibility& Visibility = ShaderVisibilityPriorityOrder[ShaderVisibilityIndex];
+			const FShaderRegisterCounts& Shader = QBSS.RegisterCounts[Visibility];
+			if ((Shader.ShaderResourceCount == 0) &&
+				(Shader.ConstantBufferCount == 0) &&
+				(Shader.UnorderedAccessCount == 0) &&
+				(Shader.SamplerCount == 0))
+			{
+				// This shader stage doesn't use any descriptors, deny access to the shader stage in the root signature.
+				Flags = (Flags | GetD3D12RootSignatureDenyFlag(Visibility));
+			}
 		}
 	}
 
@@ -267,10 +344,22 @@ void FD3D12RootSignature::Init(const FD3D12QuantizedBoundShaderState& InQBSS)
 	// Create a root signature desc from the quantized bound shader state.
 	const D3D12_RESOURCE_BINDING_TIER ResourceBindingTier = GetParentAdapter()->GetResourceBindingTier();
 	FD3D12RootSignatureDesc Desc(InQBSS, ResourceBindingTier);
-	Init(Desc.GetDesc());
+
+	uint32 BindingSpace = 0; // Default binding space for D3D 11 & 12 shaders
+
+	if (InQBSS.RootSignatureType == RS_RayTracingGlobal)
+	{
+		BindingSpace = RAY_TRACING_REGISTER_SPACE_GLOBAL;
+	}
+	else if (InQBSS.RootSignatureType == RS_RayTracingLocal)
+	{
+		BindingSpace = RAY_TRACING_REGISTER_SPACE_LOCAL;
+	}
+
+	Init(Desc.GetDesc(), BindingSpace);
 }
 
-void FD3D12RootSignature::Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc)
+void FD3D12RootSignature::Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc, uint32 BindingSpace)
 {
 	ID3D12Device* Device = GetParentAdapter()->GetD3DDevice();
 	
@@ -290,10 +379,10 @@ void FD3D12RootSignature::Init(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& InDesc
 		RootSignatureBlob->GetBufferSize(),
 		IID_PPV_ARGS(RootSignature.GetInitReference())));
 
-	AnalyzeSignature(InDesc);
+	AnalyzeSignature(InDesc, BindingSpace);
 }
 
-void FD3D12RootSignature::Init(ID3DBlob* const InBlob)
+void FD3D12RootSignature::Init(ID3DBlob* const InBlob, uint32 BindingSpace)
 {
 	ID3D12Device* Device = GetParentAdapter()->GetD3DDevice();
 
@@ -310,19 +399,19 @@ void FD3D12RootSignature::Init(ID3DBlob* const InBlob)
 		RootSignatureBlob->GetBufferSize(),
 		IID_PPV_ARGS(RootSignature.GetInitReference())));
 
-	AnalyzeSignature(*Deserializer->GetUnconvertedRootSignatureDesc());
+	AnalyzeSignature(*Deserializer->GetUnconvertedRootSignatureDesc(), BindingSpace);
 }
 
-void FD3D12RootSignature::AnalyzeSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& Desc)
+void FD3D12RootSignature::AnalyzeSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& Desc, uint32 BindingSpace)
 {
 	switch (Desc.Version)
 	{
 	case D3D_ROOT_SIGNATURE_VERSION_1_0:
-		InternalAnalyzeSignature(Desc.Desc_1_0);
+		InternalAnalyzeSignature(Desc.Desc_1_0, BindingSpace);
 		break;
 
 	case D3D_ROOT_SIGNATURE_VERSION_1_1:
-		InternalAnalyzeSignature(Desc.Desc_1_1);
+		InternalAnalyzeSignature(Desc.Desc_1_1, BindingSpace);
 		break;
 
 	default:
@@ -332,7 +421,7 @@ void FD3D12RootSignature::AnalyzeSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_
 }
 
 template<typename RootSignatureDescType>
-void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& Desc)
+void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& Desc, uint32 BindingSpace)
 {
 	// Reset members to default values.
 	{
@@ -343,6 +432,9 @@ void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& 
 		bHasRDTCBVs = false;
 		bHasRDCBVs = false;
 		bHasSamplers = false;
+
+		FMemory::Memset(BindSlotOffsetsInDWORDs, 0, sizeof(BindSlotOffsetsInDWORDs));
+		TotalRootSignatureSizeInDWORDs = 0;
 	}
 
 	const bool bDenyVS = (Desc.Flags & D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS) != 0;
@@ -351,10 +443,49 @@ void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& 
 	const bool bDenyGS = (Desc.Flags & D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS) != 0;
 	const bool bDenyPS = (Desc.Flags & D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS) != 0;
 
+#if D3D12_RHI_RAYTRACING
+	const uint32 RootDescriptorTableCost = (Desc.Flags & D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE) ? RootDescriptorTableCostLocal : RootDescriptorTableCostGlobal;
+#else
+	const uint32 RootDescriptorTableCost = RootDescriptorTableCostGlobal;
+#endif
+
 	// Go through each root parameter.
 	for (uint32 i = 0; i < Desc.NumParameters; i++)
 	{
 		const auto& CurrentParameter = Desc.pParameters[i];
+
+		uint32 ParameterBindingSpace = ~0u;
+
+		switch (CurrentParameter.ParameterType)
+		{
+		case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+			check(CurrentParameter.DescriptorTable.NumDescriptorRanges == 1); // Code currently assumes a single descriptor range.
+			ParameterBindingSpace = CurrentParameter.DescriptorTable.pDescriptorRanges[0].RegisterSpace;
+			BindSlotOffsetsInDWORDs[i] = TotalRootSignatureSizeInDWORDs;
+			TotalRootSignatureSizeInDWORDs += RootDescriptorTableCost;
+			break;
+		case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+			ParameterBindingSpace = CurrentParameter.Constants.RegisterSpace;
+			BindSlotOffsetsInDWORDs[i] = TotalRootSignatureSizeInDWORDs;
+			TotalRootSignatureSizeInDWORDs += RootConstantCost * CurrentParameter.Constants.Num32BitValues;
+			break;
+		case D3D12_ROOT_PARAMETER_TYPE_CBV:
+		case D3D12_ROOT_PARAMETER_TYPE_SRV:
+		case D3D12_ROOT_PARAMETER_TYPE_UAV:
+			ParameterBindingSpace = CurrentParameter.Descriptor.RegisterSpace;
+			BindSlotOffsetsInDWORDs[i] = TotalRootSignatureSizeInDWORDs;
+			TotalRootSignatureSizeInDWORDs += RootDescriptorCost;
+			break;
+		default:
+			checkNoEntry();
+			break;
+		}
+
+		if (ParameterBindingSpace != BindingSpace)
+		{
+			// Only consider parameters in the requested binding space.
+			continue;
+		}
 
 		EShaderFrequency CurrentVisibleSF = SF_NumFrequencies;
 		switch (CurrentParameter.ShaderVisibility)
@@ -405,6 +536,8 @@ void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& 
 				{
 					const auto& CurrentRange = CurrentParameter.DescriptorTable.pDescriptorRanges[0];
 					check(CurrentRange.BaseShaderRegister == 0);	// Code currently assumes always starting at register 0.
+					check(CurrentRange.RegisterSpace == BindingSpace); // Parameters in other binding spaces are expected to be filtered out at this point
+
 					switch (CurrentRange.RangeType)
 					{
 					case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
@@ -432,6 +565,8 @@ void FD3D12RootSignature::InternalAnalyzeSignature(const RootSignatureDescType& 
 
 			case D3D12_ROOT_PARAMETER_TYPE_CBV:
 			{
+				check(CurrentParameter.Descriptor.RegisterSpace == BindingSpace); // Parameters in other binding spaces are expected to be filtered out at this point
+
 				IncrementMaxCBVCount(CurrentVisibleSF, 1);
 				if (CurrentParameter.Descriptor.ShaderRegister == 0)
 				{

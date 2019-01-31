@@ -1,0 +1,322 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+SkyLight.usf: Light sampling functions for SkyLight implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+
+/**
+* Cube texel solid angle computation based on formula from Manne Öhrström's
+* thesis - "Spherical Harmonics, Precomputed Radiance Transfer and Realtime Radiosity in Computer Games".
+*/
+float AreaElement(float x, float y)
+{
+	// Equation 7.12
+	return atan2(x * y, sqrt(x * x + y * y + 1));
+}
+
+float TexelCoordSolidAngle(uint2 TextureCoord, uint2 TextureRes)
+{
+	float2 InvResolution = 1.0f / TextureRes;
+
+	// Convert texture coordinate to [-1, 1] range, offset to texel center.
+	float U = (2.0f * ((float)TextureCoord.x + 0.5f) * InvResolution.x) - 1.0f;
+	float V = (2.0f * ((float)TextureCoord.y + 0.5f) * InvResolution.y) - 1.0f;
+
+	// Projected area
+	float x0 = U - InvResolution.x;
+	float y0 = V - InvResolution.y;
+	float x1 = U + InvResolution.x;
+	float y1 = V + InvResolution.y;
+
+	// Equation 7.12
+	float SolidAngle = AreaElement(x0, y0) - AreaElement(x0, y1) - AreaElement(x1, y0) + AreaElement(x1, y1);
+	return SolidAngle;
+}
+
+uint GetMaximumComponentIndex(float3 Vector)
+{
+	float AbsX = abs(Vector.x);
+	float AbsY = abs(Vector.y);
+	float AbsZ = abs(Vector.z);
+	if (AbsX > AbsY)
+	{
+		return AbsX > AbsZ ? 0 : 2;
+	}
+	else
+	{
+		return AbsY > AbsZ ? 1 : 2;
+	}
+}
+
+float3 GetTextureCubeVector(uint3 TexelCoord, uint2 TextureRes)
+{
+	float3 Vector;
+
+	float2 UV = TexelCoord.xy / float2(TextureRes.xy);
+	UV = UV * 2.0 - 1.0;
+
+	uint Cubeface = TexelCoord.z;
+	if (Cubeface == 0)
+	{
+		Vector = float3(1, -UV.y, -UV.x);
+	}
+	else if (Cubeface == 1)
+	{
+		Vector = float3(-1, -UV.y, UV.x);
+	}
+	else if (Cubeface == 2)
+	{
+		Vector = float3(UV.x, 1, UV.y);
+	}
+	else if (Cubeface == 3)
+	{
+		Vector = float3(UV.x, -1, -UV.y);
+	}
+	else if (Cubeface == 4)
+	{
+		Vector = float3(UV.x, -UV.y, 1);
+	}
+	else if (Cubeface == 5)
+	{
+		Vector = float3(-UV.x, -UV.y, -1);
+	}
+
+	return Vector;
+}
+
+uint3 GetTextureCubeCoordinate(float3 Vector, uint2 TextureRes)
+{
+	// Strongest coordinate determines cube face
+	uint MaxComponent = GetMaximumComponentIndex(Vector);
+	Vector /= abs(Vector[MaxComponent]);
+	float3 TextureCubeCoordinate;
+	if (MaxComponent == 0)
+	{
+		if (Vector[MaxComponent] > 0)
+		{
+			TextureCubeCoordinate = float3(-Vector.z, -Vector.y, 0);
+		}
+		else
+		{
+			TextureCubeCoordinate = float3(Vector.z, -Vector.y, 1);
+		}
+	}
+	else if (MaxComponent == 1)
+	{
+		if (Vector[MaxComponent] > 0)
+		{
+			TextureCubeCoordinate = float3(Vector.x, Vector.z, 2);
+		}
+		else
+		{
+			TextureCubeCoordinate = float3(Vector.x, -Vector.z, 3);
+		}
+	}
+	else if (MaxComponent == 2)
+	{
+		if (Vector[MaxComponent] > 0)
+		{
+			TextureCubeCoordinate = float3(Vector.x, -Vector.y, 4);
+		}
+		else
+		{
+			TextureCubeCoordinate = float3(-Vector.x, -Vector.y, 5);
+		}
+	}
+
+	TextureCubeCoordinate.xy = (TextureCubeCoordinate.xy + 1.0) / 2.0;
+	TextureCubeCoordinate.xy *= TextureRes;
+	return TextureCubeCoordinate;
+}
+
+uint LinearCoordinate(uint2 Coordinate)
+{
+	uint2 Dimensions;
+	SkyLightData.SkyLightTexture.GetDimensions(Dimensions.x, Dimensions.y);
+	return Coordinate.y * Dimensions.x + Coordinate.x;
+}
+
+void SkyLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	OutLightRay.Direction = normalize(LightUV);
+	OutLightRay.TMax = 1e6;
+}
+
+void SkyLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+#if 1
+	// Uniform spherical distribution
+	float SolidAnglePdf = 1.0 / (4.0 * PI);
+	OutPdf = SolidAnglePdf;
+#else
+	// Convert direction to cubemap coord
+	uint2 TextureRes;
+	SkyLightData.SkyLightTexture.GetDimensions(TextureRes.x, TextureRes.y);
+	uint3 TextureCubeCoordinate = GetTextureCubeCoordinate(LightUV, TextureRes);
+	uint CubeFace = TextureCubeCoordinate.z;
+
+	// Select cube face
+	float CubeFacePdf = SkyLightData.SkyLightCubeFaceCdf[CubeFace];
+	if (CubeFace > 0)
+	{
+		CubeFacePdf -= SkyLightData.SkyLightCubeFaceCdf[CubeFace - 1];
+	}
+
+	// Select column
+	uint CubeFaceIndex = CubeFace * TextureRes.y;
+	float ColumnPdf = SkyLightData.SkyLightColumnCdf[CubeFaceIndex + TextureCubeCoordinate.y];
+	if (TextureCubeCoordinate.y > 0)
+	{
+		ColumnPdf -= SkyLightData.SkyLightColumnCdf[CubeFaceIndex + TextureCubeCoordinate.y - 1];
+	}
+
+	// Select row
+	CubeFaceIndex = CubeFace * TextureRes.x * TextureRes.y;
+	float RowPdf = SkyLightData.SkyLightRowCdf[CubeFaceIndex + LinearCoordinate(TextureCubeCoordinate.xy)];
+	if (TextureCubeCoordinate.x > 0)
+	{
+		RowPdf -= SkyLightData.SkyLightRowCdf[CubeFaceIndex + LinearCoordinate(TextureCubeCoordinate.xy - uint2(1, 0))];
+	}
+
+	// Apply solid angle
+	float SolidAnglePdf = 1.0 / TexelCoordSolidAngle(TextureCubeCoordinate.xy, TextureRes);
+	OutPdf = CubeFacePdf * RowPdf * ColumnPdf * SolidAnglePdf;
+	OutPdf = max(OutPdf, 0.0);
+#endif
+}
+
+void SkyLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	OutRadiance = GetColor(LightId) * TextureCubeSampleLevel(SkyLightData.SkyLightTexture, SkyLightData.SkyLightTextureSampler, LightUV, 0).rgb;
+}
+
+void SkyLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+#if 1
+	// Uniform spherical distribution
+	float theta = 2.0 * PI * RandSample.y;
+	float phi = acos(2.0 * RandSample.z - 1.0);
+	OutLightUV = float3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
+	OutPdf = 1.0 / (4.0 * PI);
+#else
+	uint2 TextureRes;
+	SkyLightData.SkyLightTexture.GetDimensions(TextureRes.x, TextureRes.y);
+
+	// TODO: Split random variable for reuse
+
+	// Sample from cube face Cdf
+	uint Left = 0;
+	uint Right = 5;
+	while (Left < Right)
+	{
+		uint Mid = (Left + Right) / 2;
+		if (RandSample.y <= SkyLightData.SkyLightCubeFaceCdf[Mid])
+		{
+			Right = Mid;
+		}
+		else
+		{
+			Left = Mid + 1;
+		}
+	}
+	uint CubeFace = Left;
+	uint CubeFaceIndex = CubeFace * TextureRes.y;
+
+	// Sample from column Cdf
+	Left = 0;
+	Right = TextureRes.y - 1;
+	while (Left < Right)
+	{
+		uint Mid = (Left + Right) / 2;
+		if (RandSample.z <= SkyLightData.SkyLightColumnCdf[CubeFaceIndex + Mid])
+		{
+			Right = Mid;
+		}
+		else
+		{
+			Left = Mid + 1;
+		}
+	}
+	uint RowIndex = Left;
+	CubeFaceIndex = CubeFace * TextureRes.x * TextureRes.y;
+
+	// Sample from row Cdf
+	Left = 0;
+	Right = TextureRes.x - 1;
+	while (Left < Right)
+	{
+		uint Mid = (Left + Right) / 2;
+		if (RandSample.w <= SkyLightData.SkyLightRowCdf[CubeFaceIndex + LinearCoordinate(uint2(Mid, RowIndex))])
+		{
+			Right = Mid;
+		}
+		else
+		{
+			Left = Mid + 1;
+		}
+	}
+	uint ColumnIndex = Left;
+
+	// Convert (column, row, face) to appropriate lighting direction
+	float3 TextureCubeCoordinate = float3(ColumnIndex, RowIndex, CubeFace);
+	float3 Direction = GetTextureCubeVector(TextureCubeCoordinate, TextureRes);
+	// DEBUG: The pdf is not invertible because of redundant mapping at TextureCube borders
+	//TextureCubeCoordinate = GetTextureCubeCoordinate(Direction, TextureRes);
+	OutLightUV = Direction;
+
+	// Compute cube face Pdf
+	CubeFace = TextureCubeCoordinate.z;
+	float CubeFacePdf = SkyLightData.SkyLightCubeFaceCdf[CubeFace];
+	if (CubeFace > 0)
+	{
+		CubeFacePdf -= SkyLightData.SkyLightCubeFaceCdf[CubeFace - 1];
+	}
+
+	// Compute column pdf
+	CubeFaceIndex = CubeFace * TextureRes.y;
+	float ColumnPdf = SkyLightData.SkyLightColumnCdf[CubeFaceIndex + TextureCubeCoordinate.y];
+	if (TextureCubeCoordinate.y > 0)
+	{
+		ColumnPdf -= SkyLightData.SkyLightColumnCdf[CubeFaceIndex + TextureCubeCoordinate.y - 1];
+	}
+
+	// Compute row pdf
+	CubeFaceIndex = CubeFace * TextureRes.x * TextureRes.y;
+	float RowPdf = SkyLightData.SkyLightRowCdf[CubeFaceIndex + LinearCoordinate(TextureCubeCoordinate.xy)];
+	if (TextureCubeCoordinate.x > 0)
+	{
+		RowPdf -= SkyLightData.SkyLightRowCdf[CubeFaceIndex + LinearCoordinate(TextureCubeCoordinate.xy - uint2(1, 0))];
+	}
+	float SolidAnglePdf = 1.0 / TexelCoordSolidAngle(TextureCubeCoordinate.xy, TextureRes);
+	OutPdf = CubeFacePdf * RowPdf * ColumnPdf * SolidAnglePdf;
+#endif
+}

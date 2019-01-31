@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SStaticMeshEditorViewport.h"
 #include "SStaticMeshEditorViewportToolBar.h"
@@ -181,6 +181,17 @@ void SStaticMeshEditorViewport::OnObjectPropertyChanged(UObject* ObjectBeingModi
 	}
 }
 
+bool SStaticMeshEditorViewport::PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const
+{
+	if (InComponent == PreviewMeshComponent)
+	{
+		const UStaticMeshComponent* Component = CastChecked<UStaticMeshComponent>(InComponent);
+		return (Component->SelectedEditorSection != INDEX_NONE || Component->SelectedEditorMaterial != INDEX_NONE);
+	}
+
+	return false;
+}
+
 void SStaticMeshEditorViewport::UpdatePreviewSocketMeshes()
 {
 	UStaticMesh* const PreviewStaticMesh = PreviewMeshComponent ? PreviewMeshComponent->GetStaticMesh() : nullptr;
@@ -294,6 +305,9 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh, boo
 	}
 
 	EditorViewportClient->SetPreviewMesh(InStaticMesh, PreviewMeshComponent, bResetCamera);
+
+	PreviewMeshComponent->SelectionOverrideDelegate = UPrimitiveComponent::FSelectionOverride::CreateRaw(this, &SStaticMeshEditorViewport::PreviewComponentSelectionOverride);
+	PreviewMeshComponent->PushSelectionToProxy();
 }
 
 bool SStaticMeshEditorViewport::IsVisible() const

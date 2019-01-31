@@ -2479,6 +2479,17 @@ bool FEditorViewportClient::IsBufferVisualizationModeSelected( FName InName ) co
 	return IsViewModeEnabled( VMI_VisualizeBuffer ) && CurrentBufferVisualizationMode == InName;	
 }
 
+void FEditorViewportClient::ChangeRayTracingDebugVisualizationMode(FName InName)
+{
+	SetViewMode(VMI_RayTracingDebug);
+	CurrentRayTracingDebugVisualizationMode = InName;
+}
+
+bool FEditorViewportClient::IsRayTracingDebugVisualizationModeSelected(FName InName) const
+{
+	return IsViewModeEnabled(VMI_RayTracingDebug) && CurrentRayTracingDebugVisualizationMode == InName;
+}
+
 bool FEditorViewportClient::SupportsPreviewResolutionFraction() const
 {
 	// Don't do preview screen percentage for some view mode.
@@ -3511,6 +3522,9 @@ void FEditorViewportClient::SetupViewForRendering(FSceneViewFamily& ViewFamily, 
 	}
 
 	View.CurrentBufferVisualizationMode = CurrentBufferVisualizationMode;
+#if RHI_RAYTRACING
+	View.CurrentRayTracingDebugVisualizationMode = CurrentRayTracingDebugVisualizationMode;
+#endif
 
 	//Look if the pixel inspector tool is on
 	View.bUsePixelInspector = false;
@@ -3634,8 +3648,12 @@ void FEditorViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 		ViewExt->SetupViewFamily(ViewFamily);
 	}
 
-	ViewFamily.ViewMode = GetViewMode();
-	EngineShowFlagOverride(ESFIM_Editor, ViewFamily.ViewMode, ViewFamily.EngineShowFlags, CurrentBufferVisualizationMode);
+	EViewModeIndex CurrentViewMode = GetViewMode();
+	ViewFamily.ViewMode = CurrentViewMode;
+	bool bCanDisableTonemapper = (CurrentViewMode == VMI_VisualizeBuffer && CurrentBufferVisualizationMode != NAME_None) 
+								|| (CurrentViewMode == VMI_RayTracingDebug && CurrentRayTracingDebugVisualizationMode != NAME_None);
+
+	EngineShowFlagOverride(ESFIM_Editor, ViewFamily.ViewMode, ViewFamily.EngineShowFlags, bCanDisableTonemapper);
 	EngineShowFlagOrthographicOverride(IsPerspective(), ViewFamily.EngineShowFlags);
 
 	UpdateLightingShowFlags( ViewFamily.EngineShowFlags );
@@ -5054,15 +5072,11 @@ void FEditorViewportClient::SetViewMode(EViewModeIndex InViewModeIndex)
 
 	if (IsPerspective())
 	{
-
 		if (InViewModeIndex == VMI_PrimitiveDistanceAccuracy || InViewModeIndex == VMI_MeshUVDensityAccuracy || InViewModeIndex == VMI_MaterialTextureScaleAccuracy)
 		{
 			FEditorBuildUtils::EditorBuildTextureStreaming(GetWorld(), InViewModeIndex);
 		}
-		else // Otherwise compile any required shader if needed.
-		{
-			FEditorBuildUtils::CompileViewModeShaders(GetWorld(), InViewModeIndex);
-		}
+		FEditorBuildUtils::CompileViewModeShaders(GetWorld(), InViewModeIndex);
 			 
 		PerspViewModeIndex = InViewModeIndex;
 		ApplyViewMode(PerspViewModeIndex, true, EngineShowFlags);

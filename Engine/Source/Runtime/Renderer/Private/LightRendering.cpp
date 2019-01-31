@@ -14,6 +14,7 @@
 #include "Engine/SubsurfaceProfile.h"
 #include "ShowFlags.h"
 #include "VisualizeTexture.h"
+#include "RayTracing/RaytracingOptions.h"
 
 DECLARE_GPU_STAT(Lights);
 
@@ -37,6 +38,13 @@ static FAutoConsoleVariableRef CVarAllowSimpleLights(
 	TEXT("If true, we allow simple (ie particle) lights")
 );
 
+static int32 GRayTracingOcclusion = 1;
+static FAutoConsoleVariableRef CVarRayTracingOcclusion(
+	TEXT("r.RayTracing.Occlusion"),
+	GRayTracingOcclusion,
+	TEXT("0: use traditional rasterized shadow map\n")
+	TEXT("1: use ray gen shader (default)")
+);
 
 float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
 {
@@ -409,17 +417,12 @@ void FSceneRenderer::GatherSimpleLights(const FSceneViewFamily& ViewFamily, cons
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
-		for (int32 PrimitiveIndex = 0; PrimitiveIndex < View.VisibleDynamicPrimitives.Num(); PrimitiveIndex++)
+		for (int32 PrimitiveIndex = 0; PrimitiveIndex < View.VisibleDynamicPrimitivesWithSimpleLights.Num(); PrimitiveIndex++)
 		{
-			const FPrimitiveSceneInfo* PrimitiveSceneInfo = View.VisibleDynamicPrimitives[PrimitiveIndex];
-			const int32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
-			const FPrimitiveViewRelevance& PrimitiveViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
+			const FPrimitiveSceneInfo* PrimitiveSceneInfo = View.VisibleDynamicPrimitivesWithSimpleLights[PrimitiveIndex];
 
-			if (PrimitiveViewRelevance.bHasSimpleLights)
-			{
-				// TArray::AddUnique is slow, but not expecting many entries in PrimitivesWithSimpleLights
-				PrimitivesWithSimpleLights.AddUnique(PrimitiveSceneInfo);
-			}
+			// TArray::AddUnique is slow, but not expecting many entries in PrimitivesWithSimpleLights
+			PrimitivesWithSimpleLights.AddUnique(PrimitiveSceneInfo);
 		}
 	}
 
@@ -749,16 +752,30 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				{
 					INC_DWORD_STAT(STAT_NumShadowedLights);
 
-					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+#if RHI_RAYTRACING
+					// #dxr_todo: Clean up this dispatch mess after removing specific rect light dispatches
+					if (ShouldRenderRayTracingStaticOrStationaryRectLight(LightSceneInfo))
 					{
-						const FViewInfo& View = Views[ViewIndex];
-						View.HeightfieldLightingViewInfo.ClearShadowing(View, RHICmdList, LightSceneInfo);
+						RenderRayTracingOcclusionForRectLight(RHICmdList, LightSceneInfo, ScreenShadowMaskTexture);
 					}
+					// #dxr_todo: ShouldRenderRayTracingOcclusion()
+					else if (IsRayTracingEnabled() && GRayTracingOcclusion == 1)
+					{
+						RenderRayTracingOcclusion(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture);
+					}
+					else
+					{
+#endif
+						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+						{
+							const FViewInfo& View = Views[ViewIndex];
+							View.HeightfieldLightingViewInfo.ClearShadowing(View, RHICmdList, LightSceneInfo);
+						}
 
-					// Clear light attenuation for local lights with a quad covering their extents
-					const bool bClearLightScreenExtentsOnly = SortedLightInfo.SortKey.Fields.LightType != LightType_Directional;
-					// All shadows render with min blending
-					bool bClearToWhite = !bClearLightScreenExtentsOnly;
+						// Clear light attenuation for local lights with a quad covering their extents
+						const bool bClearLightScreenExtentsOnly = SortedLightInfo.SortKey.Fields.LightType != LightType_Directional;
+						// All shadows render with min blending
+						bool bClearToWhite = !bClearLightScreenExtentsOnly;
 
 					FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
 					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
@@ -771,7 +788,6 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 					TransitionRenderPassTargets(RHICmdList, RPInfo);
 					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearScreenShadowMask"));
-					{
 						if (bClearLightScreenExtentsOnly)
 						{
 							SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
@@ -797,11 +813,15 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 								}
 							}
 						}
-					}
-					RHICmdList.EndRenderPass();
 
-					RenderShadowProjections(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, bInjectedTranslucentVolume);
-					
+						RHICmdList.EndRenderPass();
+
+						RenderShadowProjections(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, bInjectedTranslucentVolume);
+
+#if RHI_RAYTRACING
+					}
+#endif
+
 					bUsedShadowMaskTexture = true;					
 				}
 
@@ -848,15 +868,30 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 				GVisualizeTexture.SetCheckPoint(RHICmdList, ScreenShadowMaskTexture);
 
-				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
-
-				// Render the light to the scene color buffer, conditionally using the attenuation buffer or a 1x1 white texture as input 
-				if(bDirectLighting)
+#if RHI_RAYTRACING
+				if (ShouldRenderRayTracingDynamicRectLight(LightSceneInfo))
 				{
-					RenderLight(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, false, true);
+					TRefCountPtr<IPooledRenderTarget> RectLightRT;
+					TRefCountPtr<IPooledRenderTarget> HitDistanceRT;
+					RenderRayTracingRectLight(RHICmdList, LightSceneInfo, RectLightRT, HitDistanceRT);
+					// #dxr_todo: Denoise RectLight
+					CompositeRayTracingSkyLight(RHICmdList, RectLightRT, HitDistanceRT);
 				}
+				else
+				{
+#endif
+					SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
-				SceneContext.FinishRenderingSceneColor(RHICmdList);
+					// Render the light to the scene color buffer, conditionally using the attenuation buffer or a 1x1 white texture as input 
+					if (bDirectLighting)
+					{
+						RenderLight(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, false, true);
+					}
+
+					SceneContext.FinishRenderingSceneColor(RHICmdList);
+#if RHI_RAYTRACING
+				}
+#endif
 			}
 		}
 	}

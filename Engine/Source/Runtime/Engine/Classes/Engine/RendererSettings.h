@@ -567,6 +567,15 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	float WireframeCullThreshold;
 
 	/**
+	"Ray Tracing settings."
+	*/
+	UPROPERTY(config, EditAnywhere, Category = RayTracing, meta = (
+		ConsoleVariable = "r.RayTracing", DisplayName = "Ray Tracing",
+		ToolTip = "Enable Ray Tracing capabilities.  Requires 'Support Compute Skincache' before project is allowed to set this.",
+		ConfigRestartRequired = true))
+		uint32 bEnableRayTracing : 1;
+
+	/**
 	"Stationary skylight requires permutations of the basepass shaders.  Disabling will reduce the number of shader permutations required per material. Changing this setting requires restarting the editor."
 	*/
 	UPROPERTY(config, EditAnywhere, Category = ShaderPermutationReduction, meta = (
@@ -603,6 +612,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	*/
 	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
 		ConsoleVariable = "r.SkinCache.CompileShaders", DisplayName = "Support Compute Skincache",
+		ToolTip = "Cannot be disabled while Ray Tracing is enabled as it is then required.",
 		ConfigRestartRequired = true))
 		uint32 bSupportSkinCacheShaders : 1;
 
@@ -687,6 +697,7 @@ public:
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif
 
 	//~ End UObject Interface

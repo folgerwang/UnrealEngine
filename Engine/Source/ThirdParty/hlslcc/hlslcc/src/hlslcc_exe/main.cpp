@@ -3,55 +3,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <Windows.h>
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
 #include "LanguageSpec.h"
-//#include "glsl/ir_gen_glsl.h"
-
-/** Debug output. */
-static char* DebugBuffer = 0;
-static void dprintf(const char* Format, ...)
-{
-	const int BufSize = (1 << 20);
-	va_list Args;
-	int Count;
-
-	if (DebugBuffer == nullptr)
-	{
-		DebugBuffer = (char*)malloc(BufSize);
-	}
-
-	va_start(Args, Format);
-#if WIN32
-	Count = vsnprintf_s(DebugBuffer, BufSize, _TRUNCATE, Format, Args);
-#else
-	Count = vsnprintf(DebugBuffer, BufSize, Format, Args);
-#endif
-	va_end(Args);
-
-	if (Count < -1)
-	{
-		// Overflow, add a line feed and null terminate the string.
-		DebugBuffer[BufSize - 2] = '\n';
-		DebugBuffer[BufSize - 1] = 0;
-	}
-	else
-	{
-		// Make sure the string is null terminated.
-		DebugBuffer[Count] = 0;
-	}
-	
-#if WIN32
-	OutputDebugStringA(DebugBuffer);
-#elif __APPLE__
-	syslog(LOG_DEBUG, "%s", DebugBuffer);
-#endif
-	fprintf(stdout, "%s", DebugBuffer);
-}
-
 #include "ir.h"
 #include "irDump.h"
+#include "hlslcc_private.h"
 
 struct FGlslCodeBackend : public FCodeBackend
 {
@@ -191,6 +148,7 @@ struct SCmdOptions
 	bool bUseFullPrecision;
 	bool bUsesExternalTexture;
 	bool bExpandUBMemberArrays;
+	uint32 CFlags = 0;
 	const char* OutFile;
 
 	SCmdOptions() 
@@ -265,6 +223,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			else if (!strcmp(*argv, "-es2"))
 			{
 				OutOptions.Target = HCT_FeatureLevelES2;
+			}
+			else if (!strncmp(*argv, "-hlslccflags=", 13))
+			{
+				OutOptions.CFlags = atoi((*argv) + 13);
 			}
 			else if (!strncmp(*argv, "-entry=", 7))
 			{
@@ -449,6 +411,8 @@ int main( int argc, char** argv)
 	Flags |= Options.bUsesExternalTexture ? HLSLCC_UsesExternalTexture : 0;
 	Flags |= Options.bExpandUBMemberArrays ? HLSLCC_ExpandUBMemberArrays : 0;
 
+	Flags |= Options.CFlags;
+
 	FGlslCodeBackend GlslCodeBackend(Flags, Options.Target);
 	FGlslLanguageSpec GlslLanguageSpec;//(Options.Target == HCT_FeatureLevelES2);
 
@@ -501,11 +465,7 @@ int main( int argc, char** argv)
 			free(GLSLShaderSource);
 			free(ErrorLog);
 
-			if (DebugBuffer)
-			{
-				free(DebugBuffer);
-				DebugBuffer = nullptr;
-			}
+			dprintf_free();
 		}
 	}
 

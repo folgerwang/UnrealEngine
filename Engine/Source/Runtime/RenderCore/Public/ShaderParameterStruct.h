@@ -241,3 +241,148 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 		RHICmdList.SetShaderUniformBuffer(ShadeRHI, ParameterBinding.BufferIndex, ShaderParameterRef);
 	}
 }
+
+
+#if RHI_RAYTRACING
+
+/** Set shader's parameters from its parameters struct. */
+template<typename TShaderClass>
+void SetShaderParameters(FRayTracingShaderBindingsWriter& RTBindingsWriter, const TShaderClass* Shader, const typename TShaderClass::FParameters& Parameters)
+{
+	const FShaderParameterBindings& Bindings = Shader->Bindings;
+
+	checkf(Bindings.Parameters.Num() == 0, TEXT("Ray tracing shader should use SHADER_USE_ROOT_PARAMETER_STRUCT() to passdown the cbuffer layout to the shader compiler."));
+
+	const typename TShaderClass::FParameters* ParametersPtr = &Parameters;
+	const uint8* Base = reinterpret_cast<const uint8*>(ParametersPtr);
+
+	// Textures
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.Textures)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FTextureRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK && !ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+		}
+
+		RTBindingsWriter.SetTexture(ParameterBinding.BaseIndex, ShaderParameterRef);
+	}
+
+	// SRVs
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.SRVs)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FShaderResourceViewRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK && !ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+		}
+
+		RTBindingsWriter.SetSRV(ParameterBinding.BaseIndex, ShaderParameterRef);
+	}
+
+	// Samplers
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.Samplers)
+	{
+		auto ShaderParameterRef = *reinterpret_cast<const FSamplerStateRHIParamRef*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK && !ShaderParameterRef)
+		{
+			EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+		}
+
+		RTBindingsWriter.SetSampler(ParameterBinding.BaseIndex, ShaderParameterRef);
+	}
+
+	// Graph Textures
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphTextures)
+	{
+		auto GraphTexture = *reinterpret_cast<const FRDGTexture* const*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK)
+		{
+			if (!GraphTexture)
+			{
+				EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+			}
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				GraphTexture->bIsActuallyUsedByPass = true;
+			}
+		}
+
+		checkSlow(GraphTexture);
+		RTBindingsWriter.SetTexture(ParameterBinding.BaseIndex, GraphTexture->GetRHITexture());
+	}
+
+	// Graph SRVs
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphSRVs)
+	{
+		auto GraphSRV = *reinterpret_cast<const FRDGResource* const*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK)
+		{
+			if (!GraphSRV)
+			{
+				EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+			}
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				GraphSRV->bIsActuallyUsedByPass = true;
+			}
+		}
+
+		checkSlow(GraphSRV);
+		RTBindingsWriter.SetSRV(ParameterBinding.BaseIndex, GraphSRV->CachedRHI.SRV);
+	}
+
+	// Render graph UAVs
+	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphUAVs)
+	{
+		auto UAV = *reinterpret_cast<const FRDGResource* const*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK)
+		{
+			if (!UAV)
+			{
+				EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+			}
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				UAV->bIsActuallyUsedByPass = true;
+			}
+		}
+
+		checkSlow(UAV);
+		RTBindingsWriter.SetUAV(ParameterBinding.BaseIndex, UAV->CachedRHI.UAV);
+	}
+
+	// Referenced uniform buffers
+	for (const FShaderParameterBindings::FParameterStructReference& ParameterBinding : Bindings.ParameterReferences)
+	{
+		const TRefCountPtr<FRHIUniformBuffer>& ShaderParameterRef = *reinterpret_cast<const TRefCountPtr<FRHIUniformBuffer>*>(Base + ParameterBinding.ByteOffset);
+
+		if (DO_CHECK && !ShaderParameterRef.IsValid())
+		{
+			EmitNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
+		}
+
+		RTBindingsWriter.SetUniformBuffer(ParameterBinding.BufferIndex, ShaderParameterRef);
+	}
+
+	// Root uniform buffer.
+	if (Bindings.RootParameterBufferIndex != FShaderParameterBindings::kInvalidBufferIndex)
+	{
+		// Do not do any validation at some resources may have been removed from the structure because known to not be used by the shader.
+		EUniformBufferValidation Validation = EUniformBufferValidation::None;
+
+		FUniformBufferRHIParamRef RootUniformBuffer = CreateUniformBufferImmediate(Parameters, UniformBuffer_SingleDraw, Validation);
+		RTBindingsWriter.SetUniformBuffer(Bindings.RootParameterBufferIndex, RootUniformBuffer);
+	}
+}
+
+#endif // RHI_RAYTRACING

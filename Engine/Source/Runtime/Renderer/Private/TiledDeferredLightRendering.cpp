@@ -196,12 +196,11 @@ public:
 				const FSortedLightSceneInfo& SortedLightInfo = SortedLights[StartIndex + LightIndex];
 				const FLightSceneInfo* const LightSceneInfo = SortedLightInfo.LightSceneInfo;
 
-				FLightParameters LightParameters;
+				FLightShaderParameters LightParameters;
+				LightSceneInfo->Proxy->GetLightShaderParameters(LightParameters);
 
-				LightSceneInfo->Proxy->GetParameters(LightParameters);
-
-				LightData.LightPositionAndInvRadius[LightIndex] = LightParameters.LightPositionAndInvRadius;
-				LightData.LightColorAndFalloffExponent[LightIndex] = LightParameters.LightColorAndFalloffExponent;
+				LightData.LightPositionAndInvRadius[LightIndex] = FVector4(LightParameters.Position, LightParameters.InvRadius);
+				LightData.LightColorAndFalloffExponent[LightIndex] = FVector4(LightParameters.Color, LightParameters.FalloffExponent);
 
 				if (LightSceneInfo->Proxy->IsInverseSquared())
 				{
@@ -220,16 +219,16 @@ public:
 					// SignBit:Spotlight, SpecularScale = abs();
 					float W = LightParameters.SpecularScale * ((LightSceneInfo->Proxy->GetLightType() == LightType_Spot) ? 1 : -1);
 
-					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
+					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.Direction, W);
 				}
 
 				// Lights with non-0 length don't support tiled deferred pass, should not have gotten into this list
-				ensure(LightParameters.LightSourceLength==0.0f);
+				ensure(LightParameters.SourceLength==0.0f);
 
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(
 						LightParameters.SpotAngles.X,
 						LightParameters.SpotAngles.Y,
-						LightParameters.LightSourceRadius,
+						LightParameters.SourceRadius,
 						0.0f);
 
 				int32 ShadowMapChannel = LightSceneInfo->Proxy->GetShadowMapChannel();

@@ -8,10 +8,6 @@
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 
-#if OUTPUT_PIXEL_DEPTH_OFFSET
-bool bApplyDepthOffset;
-#endif
-
 #if (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
 // used to write custom stencil values to color target
 float MobileColorValue;
@@ -19,12 +15,12 @@ float MobileColorValue;
 
 void Main(
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
-	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
-	float4 PixelPosition : TEXCOORD6,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
 #if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 	float3 PixelPositionExcludingWPO : TEXCOORD7,
 #endif
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position
+	FVertexFactoryInterpolantsVSToPS FactoryInterpolants
+	// float4 PixelPosition : TEXCOORD6 -- Not used currently
 	OPTIONAL_IsFrontFace
 	OPTIONAL_OutDepthConservative,
 #endif
@@ -36,7 +32,7 @@ void Main(
 {
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 	#if INSTANCED_STEREO
-		ResolvedView = ResolveView(GetEyeIndex(FactoryInterpolants.PackedEyeIndex));
+		ResolvedView = ResolveView(FactoryInterpolants.EyeIndex);
 	#else
 		ResolvedView = ResolveView();
 	#endif
@@ -54,7 +50,6 @@ void Main(
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
 	ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
-	OutDepth = bApplyDepthOffset ? OutDepth : SvPosition.z;
 	#endif
 
 	#if MATERIALBLENDING_TRANSLUCENT

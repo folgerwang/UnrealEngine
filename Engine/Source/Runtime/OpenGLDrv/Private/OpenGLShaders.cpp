@@ -3874,7 +3874,9 @@ void FOpenGLDynamicRHI::BindPendingShaderState( FOpenGLContextState& ContextStat
 	{
 		int32 NextUniformBufferIndex = OGL_FIRST_UNIFORM_BUFFER;
 
-		static_assert(SF_Compute == 5 && SF_NumFrequencies == 6, "Unexpected SF_ ordering");
+		static_assert(SF_Compute == 5 && SF_NumFrequencies == 9, "Unexpected SF_ ordering");
+		static_assert(SF_RayGen > SF_Compute, "SF_Compute must be at the end of the list of frequencies supported in OpenGL");
+
 		int32 NumUniformBuffers[SF_Compute];
 
 		PendingState.BoundShaderState->GetNumUniformBuffers(NumUniformBuffers);

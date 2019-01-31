@@ -14,6 +14,7 @@
 #include "SceneTypes.h"
 #include "UObject/UObjectAnnotation.h"
 #include "RenderCommandFence.h"
+#include "LightMap.h"
 #include "MapBuildDataRegistry.generated.h"
 
 class FPrecomputedLightVolumeData;
@@ -45,6 +46,7 @@ public:
 	FShadowMapRef ShadowMap;
 	TArray<FGuid> IrrelevantLights;
 	TArray<FPerInstanceLightmapData> PerInstanceLightmapData;
+	const FLightmapResourceCluster* ResourceCluster;
 
 	ENGINE_API FMeshMapBuildData();
 
@@ -331,13 +333,21 @@ public:
 	ENGINE_API const FReflectionCaptureMapBuildData* GetReflectionCaptureBuildData(FGuid CaptureId) const;
 	ENGINE_API FReflectionCaptureMapBuildData* GetReflectionCaptureBuildData(FGuid CaptureId);
 
-	ENGINE_API void InvalidateStaticLighting(UWorld* World, const TSet<FGuid>* ResourcesToKeep = nullptr);
+	ENGINE_API void InvalidateStaticLighting(UWorld* World, bool bRecreateRenderState = true, const TSet<FGuid>* ResourcesToKeep = nullptr);
 	ENGINE_API void InvalidateReflectionCaptures(const TSet<FGuid>* ResourcesToKeep = nullptr);
 
 	ENGINE_API bool IsLegacyBuildData() const;
 
 	ENGINE_API bool IsVTLightingValid() const;
 
+	/** Must be called once MeshBuildData is done being modified, to build resource clusters. */
+	ENGINE_API void SetupLightmapResourceClusters();
+
+	ENGINE_API void GetLightmapResourceClusterStats(int32& NumMeshes, int32& NumClusters) const;
+
+	/** Initializes rendering resources for all lightmap resource clusters. */
+	ENGINE_API void InitializeClusterRenderingResources(ERHIFeatureLevel::Type InFeatureLevel);
+	
 private:
 
 	ENGINE_API void ReleaseResources(const TSet<FGuid>* ResourcesToKeep = nullptr);
@@ -348,6 +358,9 @@ private:
 	TMap<FGuid, FPrecomputedVolumetricLightmapData*> LevelPrecomputedVolumetricLightmapBuildData;
 	TMap<FGuid, FLightComponentMapBuildData> LightBuildData;
 	TMap<FGuid, FReflectionCaptureMapBuildData> ReflectionCaptureBuildData;
+
+	bool bSetupResourceClusters;
+	TArray<FLightmapResourceCluster> LightmapResourceClusters;
 
 	FRenderCommandFence DestroyFence;
 };

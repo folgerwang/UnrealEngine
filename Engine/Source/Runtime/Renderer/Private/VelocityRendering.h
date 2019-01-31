@@ -10,92 +10,13 @@
 #include "RHI.h"
 #include "HitProxies.h"
 #include "RendererInterface.h"
-#include "DrawingPolicy.h"
 #include "DepthRendering.h"
 
 class FPrimitiveSceneInfo;
 class FPrimitiveSceneProxy;
 class FScene;
-class FStaticMesh;
+class FStaticMeshBatch;
 class FViewInfo;
-
-/**
- * Outputs a 2d velocity vector.
- */
-class FVelocityDrawingPolicy : public FMeshDrawingPolicy
-{
-public:
-	FVelocityDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& InMaterialResource,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		ERHIFeatureLevel::Type InFeatureLevel
-		);
-
-	// FMeshDrawingPolicy interface.
-	FDrawingPolicyMatchResult Matches(const FVelocityDrawingPolicy& Other, bool bForReals = false) const
-	{
-		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-			DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
-			DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
-			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-		DRAWING_POLICY_MATCH_END
-	}
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* SceneView, const FVelocityDrawingPolicy::ContextDataType PolicyContext) const;
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData, 
-		const ContextDataType PolicyContext
-		) const;
-
-	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex) const;
-
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const;
-
-	friend int32 Compare(const FVelocityDrawingPolicy& A, const FVelocityDrawingPolicy& B);
-
-	bool SupportsVelocity( ) const;
-
-	/** Determines whether this primitive has motionblur velocity to render */
-	static bool HasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
-	static bool HasVelocityOnBasePass(const FViewInfo& View,const FPrimitiveSceneProxy* Proxy, const FPrimitiveSceneInfo* PrimitiveSceneInfo, const FMeshBatch& Mesh, bool& bOutHasTransform, FMatrix& OutTransform);
-
-private:
-	class FVelocityVS* VertexShader;
-	class FVelocityPS* PixelShader;
-	class FVelocityHS* HullShader;
-	class FVelocityDS* DomainShader;
-	class FShaderPipeline* ShaderPipeline;
-};
-
-/**
- * A drawing policy factory for rendering motion velocity.
- */
-class FVelocityDrawingPolicyFactory : public FDepthDrawingPolicyFactory
-{
-public:
-	static void AddStaticMesh(FScene* Scene, FStaticMesh* StaticMesh);
-	static bool DrawDynamicMesh(	
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FMeshBatch& Mesh,
-		bool bPreFog,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId, 
-		const bool bIsInstancedStereo = false
-		);
-};
 
 /** Get the cvar clamped state */
 int32 GetMotionBlurQualityFromCVar();
@@ -116,4 +37,33 @@ struct FVelocityRendering
 
 	/** Returns true the velocity is output in the BasePass. */
 	static bool VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatform ShaderPlatform, bool bVertexFactorySupportsStaticLighting);
+
+	/** Returns true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA). */
+	static bool PrimitiveHasVelocity(ERHIFeatureLevel::Type FeatureLevel, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
+
+	/** Returns true if the object needs to be rendered in the velocity pass for a given view. */
+	static bool PrimitiveHasVelocityForView(const FViewInfo& View, const FBoxSphereBounds& Bounds, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
+};
+
+
+class FVelocityMeshProcessor : public FMeshPassProcessor
+{
+public:
+
+	FVelocityMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, const FMeshPassProcessorRenderState& InPassDrawRenderState, FMeshPassDrawListContext* InDrawListContext);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final;
+
+	FMeshPassProcessorRenderState PassDrawRenderState;
+
+private:
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		int32 StaticMeshId,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		ERasterizerFillMode MeshFillMode,
+		ERasterizerCullMode MeshCullMode);
 };

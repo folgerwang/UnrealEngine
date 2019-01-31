@@ -9,6 +9,8 @@ D3D12Device.h: D3D12 Device Interfaces
 #include "CoreMinimal.h"
 
 class FD3D12DynamicRHI;
+class FD3D12BasicRayTracingPipeline;
+class FD3D12RayTracingDescriptorHeapCache;
 
 class FD3D12Device : public FD3D12SingleNodeGPUObject, public FNoncopyable, public FD3D12AdapterChild
 {
@@ -17,7 +19,7 @@ public:
 	FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter);
 	virtual ~FD3D12Device();
 
-	/** Intialized members*/
+	/** Initialized members*/
 	void Initialize();
 
 	void CreateCommandContexts();
@@ -38,6 +40,15 @@ public:
 	bool GetQueryData(FD3D12RenderQuery& Query, bool bWait);
 
 	ID3D12Device* GetDevice();
+
+#if D3D12_RHI_RAYTRACING
+	void									InitRayTracing();
+	void									CleanupRayTracing();
+	ID3D12Device5*							GetRayTracingDevice();
+	const FD3D12BasicRayTracingPipeline*	GetBasicRayTracingPipeline() const { return BasicRayTracingPipeline; }
+	FD3D12RayTracingDescriptorHeapCache*	GetRayTracingDescriptorHeapCache() { return RayTracingDescriptorHeapCache; }
+#endif // D3D12_RHI_RAYTRACING
+
 	FD3D12DynamicRHI* GetOwningRHI();
 
 	inline FD3D12QueryHeap* GetOcclusionQueryHeap() { return &OcclusionQueryHeap; }
@@ -165,4 +176,12 @@ protected:
 	FD3D12TextureAllocatorPool TextureAllocator;
 
 	FD3D12ResidencyManager ResidencyManager;
+
+#if D3D12_RHI_RAYTRACING
+	FD3D12BasicRayTracingPipeline* BasicRayTracingPipeline = nullptr;
+
+	// #dxr_todo: unify RT descriptor cache with main FD3D12DescriptorCache
+	FD3D12RayTracingDescriptorHeapCache* RayTracingDescriptorHeapCache = nullptr;
+	void DestroyRayTracingDescriptorCache();
+#endif
 };

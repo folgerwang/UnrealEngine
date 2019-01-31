@@ -308,7 +308,7 @@ private:
 			if (Section != nullptr)
 			{
 				const bool bIsSelected = false;
-				FMaterialRenderProxy* MaterialProxy = MaterialToUse->GetRenderProxy(bIsSelected);
+				FMaterialRenderProxy* MaterialProxy = MaterialToUse->GetRenderProxy();
 
 				// For each view..
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -323,7 +323,11 @@ private:
 						Mesh.bWireframe = false;
 						Mesh.VertexFactory = &Section->VertexFactory;
 						Mesh.MaterialRenderProxy = MaterialProxy;
-						BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), InfiniteBounds, InfiniteBounds, true, UseEditorDepthTest());
+
+						FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+						DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), InfiniteBounds, InfiniteBounds, true, false, UseEditorDepthTest());
+						BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 						BatchElement.FirstIndex = 0;
 						BatchElement.NumPrimitives = Section->IndexBuffer.NumIndices / 3;
 						BatchElement.MinVertexIndex = 0;

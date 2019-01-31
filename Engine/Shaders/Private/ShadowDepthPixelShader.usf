@@ -9,6 +9,16 @@
 #define USE_STENCIL_LOD_DITHER	0
 
 #include "Common.ush"
+
+// Reroute SceneTexturesStruct uniform buffer references to the shadow depth pass uniform buffer
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#define PassStruct ShadowDepthPass
+#define SceneTexturesStruct ShadowDepthPass.SceneTextures 
+#else
+#define PassStruct MobileShadowDepthPass
+#define SceneTexturesStruct MobileShadowDepthPass.SceneTextures 
+#endif
+
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 #include "ShadowDepthCommon.ush"
@@ -22,12 +32,9 @@
 #define LPV_GV_BOOST				1
 
 #if REFLECTIVE_SHADOW_MAP && !NO_LPV
+	// Reroute LpvWrite uniform buffer references to the shadow depth pass uniform buffer
+	#define LpvWrite PassStruct.LPV
 	#include "LPVWriteVplCommon.ush"
-
-	#if RSM_TRANSMISSION
-		float2 ReflectiveShadowMapTextureResolution;
-		row_major float4x4 ProjectionMatrix;
-	#endif
 #endif
 
 
@@ -76,8 +83,8 @@ void Main(
 #endif
 
 #if PERSPECTIVE_CORRECT_DEPTH
-	float DepthBias = ShadowParams.x;
-	float InvMaxSubjectDepth = ShadowParams.y;
+	float DepthBias = PassStruct.ShadowParams.x;
+	float InvMaxSubjectDepth = PassStruct.ShadowParams.y;
 
 	Inputs.ShadowDepth *= InvMaxSubjectDepth;
 	Inputs.ShadowDepth += DepthBias;
@@ -115,7 +122,7 @@ void Main(
 #if SECONDARY_OCCLUSION && (MATERIALBLENDING_MASKED || MATERIALBLENDING_SOLID) && !MATERIAL_BLOCK_GI
 		float3 GvInjectPosition = MaterialParameters.AbsoluteWorldPosition - normal * LpvWrite.GeometryVolumeInjectionBias;
 #if LPV_GV_BOOST
-		if ( Primitive.LpvBiasMultiplier < 0.25 ) 
+		if ( GetPrimitiveData(MaterialParameters.PrimitiveId).LpvBiasMultiplier < 0.25 ) 
 		{
 			// Add an additional layer of GV cells facing the opposite direction to improve AO contribution
 			// TODO: add per-primitive AO-boost tickbox instead of hijacking LpvBiasMultiplier like this
@@ -149,7 +156,7 @@ void Main(
 	clip(-1.0);
 #else
 	// Pass the LPV bias multiplier in the alpha channel of the normal
-	OutColor = float4(normal * .5 + .5, Primitive.LpvBiasMultiplier / 32.0f );
+	OutColor = float4(normal * .5 + .5, GetPrimitiveData(MaterialParameters.PrimitiveId).LpvBiasMultiplier / 32.0f );
 	OutReflectiveShadowMapDiffuse = float4(flux, 0);
 #endif
 

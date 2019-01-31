@@ -9,10 +9,6 @@
 enum EMetalPipelineFlags
 {
 	EMetalPipelineFlagPipelineState = 1 << 0,
-    EMetalPipelineFlagVertexBuffers = 1 << 1,
-    EMetalPipelineFlagPixelBuffers = 1 << 2,
-    EMetalPipelineFlagDomainBuffers = 1 << 3,
-    EMetalPipelineFlagComputeBuffers = 1 << 4,
     EMetalPipelineFlagComputeShader = 1 << 5,
     EMetalPipelineFlagRasterMask = 0xF,
     EMetalPipelineFlagComputeMask = 0x30,
@@ -114,7 +110,7 @@ public:
 	
 	void CommitResourceTable(EShaderFrequency const Frequency, mtlpp::FunctionType const Type, FMetalCommandEncoder& CommandEncoder);
 	
-	bool PrepareToRestart(void);
+	bool PrepareToRestart(bool const bCurrentApplied);
 	
 	FMetalShaderParameterCache& GetShaderParameters(uint32 const Stage) { return ShaderParameters[Stage]; }
 	FLinearColor const& GetBlendFactor() const { return BlendFactor; }
@@ -143,9 +139,7 @@ public:
 	mtlpp::RenderPassDescriptor GetRenderPassDescriptor(void) const { return RenderPassDesc; }
 	uint32 GetSampleCount(void) const { return SampleCount; }
     bool IsLinearBuffer(EShaderFrequency ShaderStage, uint32 BindIndex);
-	bool ValidateBufferFormat(EShaderFrequency ShaderStage, uint32 BindIndex, EPixelFormat Format);
-    FMetalShaderPipeline* GetPipelineState(uint32 V, uint32 F, uint32 C, EPixelFormat const* const VS, EPixelFormat const* const PS, EPixelFormat const* const DS) const { return GraphicsPSO->GetPipeline(GetIndexType(), V, F, C, VS, PS, DS); }
-    FMetalShaderPipeline* GetPipelineState(void) const { return GraphicsPSO->GetPipeline(GetIndexType(), ShaderBuffers[SF_Vertex].FormatHash, ShaderBuffers[SF_Pixel].FormatHash, ShaderBuffers[SF_Domain].FormatHash, nullptr, nullptr, nullptr); }
+    FMetalShaderPipeline* GetPipelineState(void) const { return GraphicsPSO->GetPipeline(GetIndexType()); }
 	EPrimitiveType GetPrimitiveType() { check(IsValidRef(GraphicsPSO)); return GraphicsPSO->GetPrimitiveType(); }
 	
 	FTexture2DRHIRef CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height);
@@ -199,13 +193,11 @@ private:
 	/** A structure of arrays for the current buffer binding settings. */
 	struct FMetalBufferBindings
 	{
-		FMetalBufferBindings() : FormatHash(0), Bound(0) {}
+		FMetalBufferBindings() : Bound(0) {}
 		/** The bound buffers/bytes or nil. */
 		FMetalBufferBinding Buffers[ML_MaxBuffers];
 		/** The pixel formats for buffers bound so that we emulate [RW]Buffer<T> type conversion */
 		EPixelFormat Formats[ML_MaxBuffers];
-		/** The hash of the pixel formats for the formats above */
-		uint32 FormatHash;
 		/** A bitmask for which buffers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint32 Bound;
 	};
@@ -231,8 +223,6 @@ private:
 		/** A bitmask for which samplers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint16 Bound;
 	};
-	
-    EMetalBufferType GetShaderBufferBindingType(FMetalBufferBindings& BufferBindings, uint32 BoundBuffers, uint32 ShaderBindingHash);
     
 private:
 	FMetalShaderParameterCache ShaderParameters[CrossCompiler::NUM_SHADER_STAGES];
@@ -241,18 +231,18 @@ private:
 	uint32 SampleCount;
 
 	TSet<TRefCountPtr<FRHIUniformBuffer>> ActiveUniformBuffers;
-	FRHIUniformBuffer* BoundUniformBuffers[SF_NumFrequencies][ML_MaxBuffers];
+	FRHIUniformBuffer* BoundUniformBuffers[SF_NumStandardFrequencies][ML_MaxBuffers];
 	
 	/** Bitfield for which uniform buffers are dirty */
-	uint32 DirtyUniformBuffers[SF_NumFrequencies];
+	uint32 DirtyUniformBuffers[SF_NumStandardFrequencies];
 	
 	/** Vertex attribute buffers */
 	FMetalBufferBinding VertexBuffers[MaxVertexElementCount];
 	
 	/** Bound shader resource tables. */
-	FMetalBufferBindings ShaderBuffers[SF_NumFrequencies];
-	FMetalTextureBindings ShaderTextures[SF_NumFrequencies];
-	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
+	FMetalBufferBindings ShaderBuffers[SF_NumStandardFrequencies];
+	FMetalTextureBindings ShaderTextures[SF_NumStandardFrequencies];
+	FMetalSamplerBindings ShaderSamplers[SF_NumStandardFrequencies];
 	
 	mtlpp::StoreAction ColorStore[MaxSimultaneousRenderTargets];
 	mtlpp::StoreAction DepthStore;

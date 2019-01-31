@@ -632,7 +632,7 @@ static void AddUniformBuffer(FOLDVulkanCodeHeader& OLDHeader,
 	check(LayoutHash || UBInfo.ResourceEntries.Num() == 0);
 
 	InOutParameterMap.RemoveParameterAllocation(*UBName);
-	InOutParameterMap.AddParameterAllocation(*UBName, HeaderUBIndex, (uint16)FVulkanShaderHeader::UniformBuffer, 1);
+	InOutParameterMap.AddParameterAllocation(*UBName, HeaderUBIndex, (uint16)FVulkanShaderHeader::UniformBuffer, 1, EShaderParameterType::UniformBuffer);
 }
 
 static int32 DoAddGlobal(const FString& Name, FVulkanShaderHeader& OutHeader, TArray<FString>& OutGlobalNames)
@@ -898,8 +898,13 @@ static void ConvertToNEWHeader(FOLDVulkanCodeHeader& OLDHeader,
 			case FVulkanShaderHeader::Global:
 				{
 					int32 HeaderGlobalIndex = AddGlobal(OLDHeader, BindingTable, CCHeader, ParameterName, BaseIndex, Spirv, OutHeader, GlobalNames, TypePatchList, UINT16_MAX);
+
+					const FParameterAllocation* ParameterAllocation = InOutParameterMap.GetParameterMap().Find(*ParameterName);
+					check(ParameterAllocation);
+					const EShaderParameterType ParamType = ParameterAllocation->Type;
+
 					InOutParameterMap.RemoveParameterAllocation(*ParameterName);
-					InOutParameterMap.AddParameterAllocation(*ParameterName, (uint16)FVulkanShaderHeader::Global, HeaderGlobalIndex, Size);
+					InOutParameterMap.AddParameterAllocation(*ParameterName, (uint16)FVulkanShaderHeader::Global, HeaderGlobalIndex, Size, ParamType);
 				}
 				break;
 			case FVulkanShaderHeader::PackedGlobal:
@@ -1136,7 +1141,7 @@ static void BuildShaderOutput(
 			check(VulkanBindingIndex != -1);
 			check(!UsedUniformBufferSlots[VulkanBindingIndex]);
 			UsedUniformBufferSlots[VulkanBindingIndex] = true;
-			ParameterMap.AddParameterAllocation(*UniformBlock.Name, VulkanBindingIndex, 0, 0);
+			ParameterMap.AddParameterAllocation(*UniformBlock.Name, VulkanBindingIndex, 0, 0, EShaderParameterType::UniformBuffer);
 			++OLDHeader.SerializedBindings.NumUniformBuffers;
 			NEWEntryTypes.Add(*UniformBlock.Name, FVulkanShaderHeader::UniformBuffer);
 		}
@@ -1202,7 +1207,8 @@ static void BuildShaderOutput(
 			*PackedGlobal.Name,
 			Found,
 			PackedGlobal.Offset * BytesPerComponent,
-			PackedGlobal.Count * BytesPerComponent
+			PackedGlobal.Count * BytesPerComponent,
+			EShaderParameterType::LooseData
 			);
 		NEWEntryTypes.Add(*PackedGlobal.Name, FVulkanShaderHeader::PackedGlobal);
 
@@ -1218,7 +1224,7 @@ static void BuildShaderOutput(
 		//check(PackedUB.Attribute.Index == Header.SerializedBindings.NumUniformBuffers);
 		check(!UsedUniformBufferSlots[OLDHeader.UNUSED_NumNonGlobalUBs]);
 		UsedUniformBufferSlots[OLDHeader.UNUSED_NumNonGlobalUBs] = true;
-		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, OLDHeader.UNUSED_NumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
+		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, OLDHeader.UNUSED_NumNonGlobalUBs++, PackedUB.Attribute.Index, 0, EShaderParameterType::UniformBuffer);
 		NEWEntryTypes.Add(PackedUB.Attribute.Name, FVulkanShaderHeader::PackedGlobal);
 	}
 
@@ -1350,7 +1356,8 @@ static void BuildShaderOutput(
 			*Name,
 			0,
 			BindingIndex,
-			1
+			1,
+			EShaderParameterType::Sampler
 		);
 		NEWEntryTypes.Add(Name, FVulkanShaderHeader::Global);
 	}
@@ -1363,7 +1370,8 @@ static void BuildShaderOutput(
 			*Sampler.Name,
 			Sampler.Offset,
 			VulkanBindingIndex,
-			Sampler.Count
+			Sampler.Count,
+			EShaderParameterType::SRV
 			);
 		NEWEntryTypes.Add(Sampler.Name, FVulkanShaderHeader::Global);
 
@@ -1382,7 +1390,8 @@ static void BuildShaderOutput(
 					*SamplerState,
 					Sampler.Offset,
 					VulkanBindingIndex,
-					Sampler.Count
+					Sampler.Count,
+					EShaderParameterType::Sampler
 				);
 				NEWEntryTypes.Add(SamplerState, FVulkanShaderHeader::Global);
 			}
@@ -1398,7 +1407,8 @@ static void BuildShaderOutput(
 			*UAV.Name,
 			UAV.Offset,
 			VulkanBindingIndex,
-			UAV.Count
+			UAV.Count,
+			EShaderParameterType::UAV
 			);
 		NEWEntryTypes.Add(UAV.Name, FVulkanShaderHeader::Global);
 
@@ -1899,7 +1909,8 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 
 	// Preprocess the shader.
 	FString PreprocessedShaderSource;
-	if (Input.bSkipPreprocessedCache)
+	const bool bDirectCompile = FParse::Param(FCommandLine::Get(), TEXT("directcompile"));
+	if (bDirectCompile)
 	{
 		if (!FFileHelper::LoadFileToString(PreprocessedShaderSource, *Input.VirtualSourceFilePath))
 		{
@@ -1948,11 +1959,19 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 	CompilerInfo.CCFlags |= HLSLCC_SeparateShaderObjects;
 	CompilerInfo.CCFlags |= HLSLCC_KeepSamplerAndImageNames;
 
+	CompilerInfo.CCFlags |= HLSLCC_RetainSizes;
+
 	// ES doesn't support origin layout
 	CompilerInfo.CCFlags |= HLSLCC_DX11ClipSpace;
 
 	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
 	CompilerInfo.CCFlags &= ~HLSLCC_NoPreprocess;
+
+	if (!bDirectCompile || UE_BUILD_DEBUG)
+	{
+		// Validation is expensive - only do it when compiling directly for debugging
+		CompilerInfo.CCFlags |= HLSLCC_NoValidation;
+	}
 
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (CompilerInfo.bDebugDump)
@@ -1967,7 +1986,7 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
 
 				Line += TEXT("#if 0 /*DIRECT COMPILE*/\n");
-				Line += CreateShaderCompilerWorkerDirectCommandLine(Input);
+				Line += CreateShaderCompilerWorkerDirectCommandLine(Input, CompilerInfo.CCFlags);
 				Line += TEXT("\n#endif /*DIRECT COMPILE*/\n");
 
 				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
@@ -1995,14 +2014,14 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 			auto* SourceWithHeader = GeneratedGlslSource.GetData();
 			char* SourceNoHeader = strstr(SourceWithHeader, "#version");
 			bool bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output, bHasRealUBs);
-			if (Input.bSkipPreprocessedCache)
+			if (bDirectCompile)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Success: %d\n%s\n"), bSuccess, ANSI_TO_TCHAR(SourceWithHeader));
 			}
 		}
 	}
 	
-	if (Input.bSkipPreprocessedCache)
+	if (bDirectCompile)
 	{
 		for (const auto& Error : Output.Errors)
 		{
