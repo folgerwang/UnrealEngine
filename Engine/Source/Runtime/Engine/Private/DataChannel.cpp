@@ -2977,11 +2977,8 @@ void UActorChannel::Serialize(FArchive& Ar)
 
 		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ReplicationMap",
 			ReplicationMap.CountBytes(Ar);
-			for (const auto& MapPair : ReplicationMap)
-			{
-				Ar.CountBytes(sizeof(*MapPair.Value), sizeof(*MapPair.Value));
-				MapPair.Value->Serialize(Ar);
-			}
+
+			// ObjectReplicators are going to be counted by UNetDriver::Serialize AllOwnedReplicators.
 		);
 		
 		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("QueudBunches",	

@@ -5119,6 +5119,9 @@ void FRepLayout::CountBytes(FArchive& Ar) const
 
 void FRepState::CountBytes(FArchive& Ar) const
 {
+	const SIZE_T SizeOfThis = sizeof(FRepState);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
 	StaticBuffer.CountBytes(Ar);
 	GuidReferencesMap.CountBytes(Ar);
 	for (const auto& GuidRefPair : GuidReferencesMap)

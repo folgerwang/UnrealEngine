@@ -322,7 +322,8 @@ struct FRollbackNetStartupActorInfo
 			
 			if (FRepState const * const LocalRepState = SubObjRepStatePair.Value.Get())
 			{
-				Ar.CountBytes(sizeof(FRepState), sizeof(FRepState));
+				const SIZE_T SizeOfRepState = sizeof(FRepState);
+				Ar.CountBytes(SizeOfRepState, SizeOfRepState);
 				LocalRepState->CountBytes(Ar);
 			}
 		}

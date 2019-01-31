@@ -1485,59 +1485,66 @@ void FObjectReplicator::Serialize(FArchive& Ar)
 {
 	if (Ar.IsCountingMemory())
 	{
-		Retirement.CountBytes(Ar);
-		RecentCustomDeltaState.CountBytes(Ar);
-		for (const auto& RecentCustomDeltaStatePair : RecentCustomDeltaState)
+		CountBytes(Ar);
+	}
+}
+
+void FObjectReplicator::CountBytes(FArchive& Ar) const
+{
+	Retirement.CountBytes(Ar);
+	RecentCustomDeltaState.CountBytes(Ar);
+	for (const auto& RecentCustomDeltaStatePair : RecentCustomDeltaState)
+	{
+		if (INetDeltaBaseState const * const BaseState = RecentCustomDeltaStatePair.Value.Get())
 		{
-			if (INetDeltaBaseState const * const BaseState = RecentCustomDeltaStatePair.Value.Get())
-			{
-				BaseState->CountBytes(Ar);
-			}
+			BaseState->CountBytes(Ar);
 		}
+	}
 
-		CDOCustomDeltaState.CountBytes(Ar);
-		for (const auto& CDOCustomDeltaStatePair : CDOCustomDeltaState)
+	CDOCustomDeltaState.CountBytes(Ar);
+	for (const auto& CDOCustomDeltaStatePair : CDOCustomDeltaState)
+	{
+		if (INetDeltaBaseState const * const BaseState = CDOCustomDeltaStatePair.Value.Get())
 		{
-			if (INetDeltaBaseState const * const BaseState = CDOCustomDeltaStatePair.Value.Get())
-			{
-				BaseState->CountBytes(Ar);
-			}
+			BaseState->CountBytes(Ar);
 		}
+	}
 
-		LifetimeCustomDeltaProperties.CountBytes(Ar);
-		LifetimeCustomDeltaPropertyConditions.CountBytes(Ar);
-		UnmappedCustomProperties.CountBytes(Ar);
-		RepNotifies.CountBytes(Ar);
-		RepNotifyMetaData.CountBytes(Ar);
-		for (const auto& MetaDataPair : RepNotifyMetaData)
-		{
-			MetaDataPair.Value.CountBytes(Ar);
-		}
+	LifetimeCustomDeltaProperties.CountBytes(Ar);
+	LifetimeCustomDeltaPropertyConditions.CountBytes(Ar);
+	UnmappedCustomProperties.CountBytes(Ar);
+	RepNotifies.CountBytes(Ar);
+	RepNotifyMetaData.CountBytes(Ar);
+	for (const auto& MetaDataPair : RepNotifyMetaData)
+	{
+		MetaDataPair.Value.CountBytes(Ar);
+	}
 
-		// FObjectReplicator has a shared pointer to an FRepLayout, but since it's shared with
-		// the UNetDriver, the memory isn't tracked here.
+	// FObjectReplicator has a shared pointer to an FRepLayout, but since it's shared with
+	// the UNetDriver, the memory isn't tracked here.
 
-		if (RepState.IsValid())
-		{
-			RepState->CountBytes(Ar);
-		}
+	if (RepState.IsValid())
+	{
+		const SIZE_T SizeOfRepState = sizeof(FRepState);
+		Ar.CountBytes(SizeOfRepState, SizeOfRepState);
+		RepState->CountBytes(Ar);
+	}
 
-		ReferencedGuids.CountBytes(Ar);
+	ReferencedGuids.CountBytes(Ar);
 
-		// ChangelistMgr points to a ReplicationChangelistMgr managed by the UNetDriver, so it's not tracked here
+	// ChangelistMgr points to a ReplicationChangelistMgr managed by the UNetDriver, so it's not tracked here
 
-		RemoteFuncInfo.CountBytes(Ar);
-		if (RemoteFunctions)
-		{
-			RemoteFunctions->CountMemory(Ar);
-		}
+	RemoteFuncInfo.CountBytes(Ar);
+	if (RemoteFunctions)
+	{
+		RemoteFunctions->CountMemory(Ar);
+	}
 
-		PendingLocalRPCs.CountBytes(Ar);
-		for (const FRPCPendingLocalCall& PendingRPC : PendingLocalRPCs)
-		{
-			PendingRPC.Buffer.CountBytes(Ar);
-			PendingRPC.UnmappedGuids.CountBytes(Ar);
-		}
+	PendingLocalRPCs.CountBytes(Ar);
+	for (const FRPCPendingLocalCall& PendingRPC : PendingLocalRPCs)
+	{
+		PendingRPC.Buffer.CountBytes(Ar);
+		PendingRPC.UnmappedGuids.CountBytes(Ar);
 	}
 }
 

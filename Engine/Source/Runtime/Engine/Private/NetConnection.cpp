@@ -529,13 +529,8 @@ void UNetConnection::Serialize( FArchive& Ar )
 			}
 		);
 
-		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DormantReplicatorMap",
-			DormantReplicatorMap.CountBytes(Ar);
-			for (auto& DormantReplicatorPair : DormantReplicatorMap)
-			{
-				DormantReplicatorPair.Value->Serialize(Ar);
-			}
-		);
+		// ObjectReplicators are going to be counted by UNetDriver::Serialize AllOwnedReplicators.
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DormantReplicatorMap", DormantReplicatorMap.CountBytes(Ar));
 
 		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ClientVisibleLevelNames", ClientVisibleLevelNames.CountBytes(Ar));
 		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ClientVisibileActorOuters", ClientVisibileActorOuters.CountBytes(Ar));

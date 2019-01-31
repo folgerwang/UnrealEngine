@@ -194,7 +194,10 @@ public:
 	/** Packet was dropped */
 	void	ReceivedNak( int32 NakPacketId );
 
-	void	Serialize(FArchive& Ar);
+	UE_DEPRECATED(4.23, "Use CountBytes instead")
+	void Serialize(FArchive& Ar);
+
+	void CountBytes(FArchive& Ar) const;
 
 	/** Writes dirty properties to bunch */
 	void	ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, FReplicationFlags RepFlags );
