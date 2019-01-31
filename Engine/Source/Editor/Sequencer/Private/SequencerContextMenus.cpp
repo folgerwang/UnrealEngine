@@ -397,8 +397,8 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 		if (CanSetSectionToKey())
 		{
 			MenuBuilder.AddMenuEntry(
-				LOCTEXT("SetSectionToKey", "Key This Section"),
-				LOCTEXT("SetSectionToKey_ToolTip", "This section will get changed when we modify the property externally"),
+				LOCTEXT("KeySection", "Key This Section"),
+				LOCTEXT("KeySection_ToolTip", "This section will get changed when we modify the property externally"),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateLambda([=] { return Shared->SetSectionToKey(); }))
 			);
