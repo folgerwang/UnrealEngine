@@ -1127,9 +1127,7 @@ void FProjectedShadowInfo::RenderDepthInner(FRHICommandListImmediate& RHICmdList
 
 		// parallel version
 		bool bFlush = CVarRHICmdFlushRenderThreadTasksShadowPass.GetValueOnRenderThread() > 0
-			|| CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() > 0
-			// Scene uniform buffers are reused between cascades
-			|| GetShadowDepthType() == CSMShadowDepthType;
+			|| CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() > 0;
 		FScopedCommandListWaitForTasks Flusher(bFlush);
 
 		// Dispatch commands
