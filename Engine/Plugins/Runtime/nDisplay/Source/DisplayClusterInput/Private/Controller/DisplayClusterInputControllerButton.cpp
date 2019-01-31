@@ -24,11 +24,7 @@ void FButtonController::Initialize()
 	// Register all names in UE4 namespace by macros. Purpose: easy add new channels and reduce code size
 	for (int32 idx = 0; idx < FButtonKey::TotalCount; ++idx)
 	{
-		const FName& Key = FButtonKey::ButtonKeys[idx]->GetFName();
-		FString Hint = FString::Printf(TEXT("nDisplay Button %i"), idx);
-
-		FText ButtonLocaleText = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*Hint, TEXT(LOCTEXT_NAMESPACE), *Key.ToString());
-
+		FText ButtonLocaleText = FText::Format(LOCTEXT("nDisplayButtonHintFmt", "nDisplay Button {0}"), idx);
 		UE_LOG(LogDisplayClusterInputButton, Verbose, TEXT("Registering %s%d..."), *nDisplayClusterInputCategoryName.ToString(), idx);
 		EKeys::AddKey(FKeyDetails(*FButtonKey::ButtonKeys[idx], ButtonLocaleText, FKeyDetails::GamepadKey, nDisplayClusterInputCategoryName));
 	}

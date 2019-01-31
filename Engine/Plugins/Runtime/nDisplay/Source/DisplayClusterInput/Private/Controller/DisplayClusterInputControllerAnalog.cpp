@@ -24,12 +24,8 @@ void FAnalogController::Initialize()
 
 	for (int32 idx = 0; idx < FAnalogKey::TotalCount; ++idx)
 	{
-		const FName& Key = FAnalogKey::AnalogKeys[idx]->GetFName();
-		FString Hint = FString::Printf(TEXT("nDisplay Analog %i"), idx);
-		FText AnalogLocaleText = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*Hint, TEXT(LOCTEXT_NAMESPACE), *Key.ToString());
-
+		FText AnalogLocaleText = FText::Format(LOCTEXT("nDisplayAnalogHintFmt", "nDisplay Analog {0}"), idx);
 		UE_LOG(LogDisplayClusterInputAnalog, Verbose, TEXT("Registering %s%d..."), *nDisplayClusterInputCategoryName.ToString(), idx);
-
 		EKeys::AddKey(FKeyDetails(*FAnalogKey::AnalogKeys[idx], AnalogLocaleText, Flags, nDisplayClusterInputCategoryName));
 	}
 

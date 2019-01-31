@@ -7,8 +7,6 @@
 #include "BodyStateHMDDevice.h"
 #include "Modules/ModuleManager.h"
 
-#undef LOCTEXT_NAMESPACE
-
 #define LOCTEXT_NAMESPACE "BodyState"
 
 void FBodyState::StartupModule()
