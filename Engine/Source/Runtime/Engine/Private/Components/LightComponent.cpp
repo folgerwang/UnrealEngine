@@ -1060,32 +1060,10 @@ void ULightComponent::InvalidateLightingCacheInner(bool bRecreateLightGuids)
 	}
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FPrecomputedLightInstanceData : public FSceneComponentInstanceData
-{
-public:
-	FPrecomputedLightInstanceData(const ULightComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-		, Transform(SourceComponent->GetComponentTransform())
-		, LightGuid(SourceComponent->LightGuid)
-		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<ULightComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	FTransform Transform;
-	FGuid LightGuid;
-	int32 PreviewShadowMapChannel;
-};
-
-FActorComponentInstanceData* ULightComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> ULightComponent::GetComponentInstanceData() const
 {
 	// Allocate new struct for holding light map data
-	return new FPrecomputedLightInstanceData(this);
+	return MakeStructOnScope<FActorComponentInstanceData, FPrecomputedLightInstanceData>(this);
 }
 
 void ULightComponent::ApplyComponentInstanceData(FPrecomputedLightInstanceData* LightMapData)

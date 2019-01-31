@@ -16,6 +16,7 @@ UScrollBox::UScrollBox(const FObjectInitializer& ObjectInitializer)
 	, ConsumeMouseWheel(EConsumeMouseWheel::WhenScrollingPossible)
 	, ScrollbarThickness(5.0f, 5.0f)
 	, AlwaysShowScrollbar(false)
+	, AlwaysShowScrollbarTrack(false)
 	, AllowOverscroll(true)
 	, NavigationDestination(EDescendantScrollDestination::IntoView)
 	, NavigationScrollPadding(0.0f)
@@ -97,8 +98,10 @@ void UScrollBox::SynchronizeProperties()
 	MyScrollBox->SetScrollBarVisibility(UWidget::ConvertSerializedVisibilityToRuntime(ScrollBarVisibility));
 	MyScrollBox->SetScrollBarThickness(ScrollbarThickness);
 	MyScrollBox->SetScrollBarAlwaysVisible(AlwaysShowScrollbar);
+	MyScrollBox->SetScrollBarTrackAlwaysVisible(AlwaysShowScrollbarTrack);
 	MyScrollBox->SetAllowOverscroll(AllowOverscroll ? EAllowOverscroll::Yes : EAllowOverscroll::No);
 	MyScrollBox->SetScrollBarRightClickDragAllowed(bAllowRightClickDragScrolling);
+	MyScrollBox->SetConsumeMouseWheel(ConsumeMouseWheel);
 }
 
 float UScrollBox::GetScrollOffset() const
@@ -190,6 +193,16 @@ void UScrollBox::PostLoad()
 
 			BarStyle_DEPRECATED = nullptr;
 		}
+	}
+}
+
+void UScrollBox::SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel)
+{
+	ConsumeMouseWheel = NewConsumeMouseWheel;
+
+	if (MyScrollBox.IsValid())
+	{
+		MyScrollBox->SetConsumeMouseWheel(NewConsumeMouseWheel);
 	}
 }
 

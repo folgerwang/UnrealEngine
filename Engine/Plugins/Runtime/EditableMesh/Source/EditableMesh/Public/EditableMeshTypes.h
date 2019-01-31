@@ -680,30 +680,6 @@ struct FVertexAndAttributes
 };
 
 
-USTRUCT( BlueprintType )
-struct FPolygonHoleVertices
-{
-	GENERATED_BODY()
-
-	/** Ordered list of vertices that defines the hole's contour, along with the polygon vertex attributes to set for each vertex */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	TArray<FVertexAndAttributes> HoleVertices;
-
-	/** Default constructor */
-	FPolygonHoleVertices()
-		: HoleVertices()
-	{
-	}
-
-	FString ToString() const
-	{
-		return FString::Printf(
-			TEXT( "HoleVertices:%s" ),
-			*LogHelpers::ArrayToString( HoleVertices ) );
-	}
-};
-
-
 UENUM( BlueprintType )
 enum class EPolygonEdgeHardness : uint8
 {
@@ -734,10 +710,6 @@ struct FPolygonToCreate
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	TArray<FVertexAndAttributes> PerimeterVertices;
 	
-	/** For each hole in the polygon, an ordered list of vertices that defines that hole's boundary */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	TArray<FPolygonHoleVertices> PolygonHoles;
-
 	/** The original ID of the polygon.  Should only be used by the undo system. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FPolygonID OriginalPolygonID;
@@ -750,7 +722,6 @@ struct FPolygonToCreate
 	FPolygonToCreate()
 		: PolygonGroupID( FPolygonGroupID::Invalid ),
 		  PerimeterVertices(),
-		  PolygonHoles(),
 		  OriginalPolygonID( FPolygonID::Invalid ),
 		  PolygonEdgeHardness( EPolygonEdgeHardness::NewEdgesSoft )
 	{
@@ -759,10 +730,9 @@ struct FPolygonToCreate
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "PolygonGroupID:%s, PerimeterVertices:%s, PolygonHoles:%s, OriginalPolygonID:%s" ),
+			TEXT( "PolygonGroupID:%s, PerimeterVertices:%s, OriginalPolygonID:%s" ),
 			*PolygonGroupID.ToString(),
 			*LogHelpers::ArrayToString( PerimeterVertices ),
-			*LogHelpers::ArrayToString( PolygonHoles ),
 			*OriginalPolygonID.ToString() );
 	}
 };

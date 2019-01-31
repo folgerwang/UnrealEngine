@@ -160,7 +160,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, FileType);
 
 	// The return value
 	UDestructibleMesh* DestructibleMesh = nullptr;
@@ -173,7 +173,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 		DestructibleMesh = ImportDestructibleMeshFromApexDestructibleAsset(InParent, *ApexDestructibleAsset, Name, Flags, nullptr);
 		if (DestructibleMesh != nullptr)
 		{
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, DestructibleMesh);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, DestructibleMesh);
 
 			// Success
 			DestructibleMesh->PostEditChange();

@@ -238,6 +238,7 @@ public:
 		if( TListTypeTraits<OptionType>::IsPtrValid( SelectedItem ) )
 		{
 			ComboListView->Private_SetItemSelection( SelectedItem, true);
+			ComboListView->RequestScrollIntoView(SelectedItem, 0);
 		}
 
 	}

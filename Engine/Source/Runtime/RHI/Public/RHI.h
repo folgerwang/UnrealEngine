@@ -1303,6 +1303,7 @@ struct FRHICopyTextureInfo
 	// Mips to copy and destination mips
 	uint32 SourceMipIndex = 0;
 	uint32 DestMipIndex = 0;
+	uint32 NumMips = 1;
 };
 
 enum class EResourceTransitionAccess

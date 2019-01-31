@@ -2171,7 +2171,7 @@ void SClassViewer::Construct(const FArguments& InArgs, const FClassViewerInitial
 	.MaxDesiredHeight(800.0f)
 	[
 		SNew(SBorder)
-		.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+		.BorderImage(FEditorStyle::GetBrush(InitOptions.bShowBackgroundBorder ? "ToolPanel.GroupBorder" : "NoBorder"))
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()

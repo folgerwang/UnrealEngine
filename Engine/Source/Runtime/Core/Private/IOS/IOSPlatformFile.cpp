@@ -11,6 +11,9 @@
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 
+#include "Async/MappedFileHandle.h"
+#include <sys/mman.h>
+
 //#if PLATFORM_IOS
 //#include "IPlatformFileSandboxWrapper.h"
 //#endif
@@ -392,6 +395,119 @@ int32 FIOSFileHandle::ManagedFilesTlsSlot = FPlatformTLS::AllocTlsSlot();
 #endif
 
 
+class FIOSMappedFileRegion final : public IMappedFileRegion
+{
+public:
+	class FIOSMappedFileHandle* Parent;
+	const uint8* AlignedPtr;
+	uint64 AlignedSize;
+	
+	FIOSMappedFileRegion(const uint8* InMappedPtr, const uint8* InAlignedPtr, size_t InMappedSize, uint64 InAlignedSize, const FString& InDebugFilename, size_t InDebugOffsetIntoFile, class FIOSMappedFileHandle* InParent)
+		: IMappedFileRegion(InMappedPtr, InMappedSize, InDebugFilename, InDebugOffsetIntoFile)
+		, Parent(InParent)
+		, AlignedPtr(InAlignedPtr)
+		, AlignedSize(InAlignedSize)
+	{
+	}
+	
+	~FIOSMappedFileRegion();
+	
+	virtual void PreloadHint(int64 PreloadOffset = 0, int64 BytesToPreload = MAX_int64) override
+	{
+		int64 Size = GetMappedSize();
+		const uint8* Ptr = GetMappedPtr();
+		int32 FoolTheOptimizer = 0;
+		while (Size > 0)
+		{
+			FoolTheOptimizer += Ptr[0];
+			Size -= 4096;
+			Ptr += 4096;
+		}
+		if (FoolTheOptimizer == 0xbadf00d)
+		{
+			FPlatformProcess::Sleep(0.0f); // this will more or less never happen, but we can't let the optimizer strip these reads
+		}
+	}
+	
+};
+
+class FIOSMappedFileHandle final : public IMappedFileHandle
+{
+	const uint8* MappedPtr;
+	FString Filename;
+	int32 NumOutstandingRegions;
+	int32 Alignment;
+	int FileHandle;
+	
+public:
+	
+	FIOSMappedFileHandle(int InFileHandle, int64 FileSize, const FString& InFilename)
+		: IMappedFileHandle(FileSize)
+		, MappedPtr(nullptr)
+#if !UE_BUILD_SHIPPING
+		, Filename(InFilename)
+#endif
+		, NumOutstandingRegions(0)
+		, FileHandle(InFileHandle)
+	{
+		Alignment = sysconf(_SC_PAGE_SIZE);
+	}
+
+	~FIOSMappedFileHandle()
+	{
+		check(!NumOutstandingRegions); // can't delete the file before you delete all outstanding regions
+		close(FileHandle);
+	}
+	
+	virtual IMappedFileRegion* MapRegion(int64 Offset = 0, int64 BytesToMap = MAX_int64, bool bPreloadHint = false) override
+	{
+		check(Offset < GetFileSize()); // don't map zero bytes and don't map off the end of the file
+		BytesToMap = FMath::Min<int64>(BytesToMap, GetFileSize() - Offset);
+		check(BytesToMap > 0); // don't map zero bytes
+
+		
+		// const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_PRIVATE | (bPreloadHint ? MAP_POPULATE : 0), FileHandle, Offset);
+		// const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_PRIVATE, FileHandle, Offset);
+		//		const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_SHARED, FileHandle, Offset);
+		
+		int64 AlignedOffset = AlignDown(Offset, Alignment);
+		int64 AlignedSize = Align(BytesToMap + Offset - AlignedOffset, Alignment);
+		
+		// if we are about to go off the end, let's not
+		if (AlignedOffset + AlignedSize > GetFileSize())
+		{
+			UE_LOG(LogIOS, Warning, TEXT("Mapping fell off the end, did we need to actually abort? [%lld + %lld > %lld]"), AlignedOffset, AlignedSize, GetFileSize());
+			return nullptr;
+		}
+		
+		const uint8* AlignedMapPtr = (const uint8 *)mmap(NULL, AlignedSize, PROT_READ, MAP_PRIVATE, FileHandle, AlignedOffset);
+		if (AlignedMapPtr == (const uint8*)-1 || AlignedMapPtr == nullptr)
+		{
+			UE_LOG(LogIOS, Warning, TEXT("Failed to map memory %s, error is %d"), *Filename, errno);
+			return nullptr;
+		}
+
+		// create a mapping for this range
+		const uint8* MapPtr = AlignedMapPtr + Offset - AlignedOffset;
+		FIOSMappedFileRegion* Result = new FIOSMappedFileRegion(MapPtr, AlignedMapPtr, BytesToMap, AlignedSize, Filename, Offset, this);
+		NumOutstandingRegions++;
+		return Result;
+	}
+	
+	void UnMap(FIOSMappedFileRegion* Region)
+	{
+		check(NumOutstandingRegions > 0);
+		NumOutstandingRegions--;
+		
+		int Res = munmap((void*)Region->AlignedPtr, Region->AlignedSize);
+		checkf(Res == 0, TEXT("Failed to unmap, error is %d, errno is %d [params: %x, %d]"), Res, errno, MappedPtr, GetFileSize());
+	}
+};
+
+FIOSMappedFileRegion::~FIOSMappedFileRegion()
+{
+	Parent->UnMap(this);
+}
 
 
 
@@ -730,6 +846,42 @@ IFileHandle* FIOSPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, bo
 			FileHandleIOS->SeekFromEnd(0);
 		}
 		return FileHandleIOS;
+	}
+	return NULL;
+}
+
+IMappedFileHandle* FIOSPlatformFile::OpenMapped(const TCHAR* Filename)
+{
+	FString NormalizedFilename = NormalizeFilename(Filename);
+	
+	// check the read path
+	FString FinalPath = ConvertToIOSPath(NormalizedFilename, false, false);
+	FILE* FP;
+	FP = fopen(TCHAR_TO_UTF8(*FinalPath), "r");
+//	if(Handle == -1)
+//	{
+//		// if not in the read path, check the private write path
+//		FinalPath = ConvertToIOSPath(NormalizedFilename, true, false);
+//		Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+//
+//		if(Handle == -1)
+//		{
+//			// if not in the private write path, check the public write path
+//			FinalPath = ConvertToIOSPath(NormalizedFilename, true, true);
+//			Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+//		}
+//	}
+	int32 Handle = fileno(FP);
+	
+	if (Handle != -1)
+	{
+		struct stat FileInfo;
+		FileInfo.st_size = -1;
+		// check the read path
+		fstat(Handle, &FileInfo);
+		uint64 FileSize = FileInfo.st_size;
+
+		return new FIOSMappedFileHandle(Handle, FileSize, FinalPath);
 	}
 	return NULL;
 }

@@ -224,13 +224,11 @@ void F3DTransformTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, 
 			FText(), true, false);
 	};
 
-	const bool bInOpenSubMenuOnClick = true;
-
 	MenuBuilder.AddSubMenu(
 		NSLOCTEXT( "Sequencer", "ImportTransforms", "Import From Animation Root" ),
 		NSLOCTEXT( "Sequencer", "ImportTransformsTooltip", "Import transform keys from an animation sequence's root motion." ),
-		FNewMenuDelegate::CreateLambda(AnimSubMenuDelegate, GetSequencer().ToSharedRef(), TransformTrack), 
-		bInOpenSubMenuOnClick);
+		FNewMenuDelegate::CreateLambda(AnimSubMenuDelegate, GetSequencer().ToSharedRef(), TransformTrack)
+	);
 
 	MenuBuilder.AddMenuSeparator();
 	FKeyframeTrackEditor::BuildTrackContextMenu(MenuBuilder, Track);

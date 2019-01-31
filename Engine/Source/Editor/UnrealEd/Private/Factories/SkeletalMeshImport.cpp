@@ -430,7 +430,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 			
 			FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo(ReimportSpecificLOD);
 			ExistingMeshDataPtr->bIsReimportLODReduced = (LODInfo && LODInfo->bHasBeenSimplified);
-			if (LODInfo && ExistingMeshDataPtr->bIsReimportLODReduced)
+			if (ExistingMeshDataPtr->bIsReimportLODReduced)
 			{
 				//Save the imported LOD reduction settings
 				ExistingMeshDataPtr->ExistingReimportLODReductionSettings = LODInfo->ReductionSettings;

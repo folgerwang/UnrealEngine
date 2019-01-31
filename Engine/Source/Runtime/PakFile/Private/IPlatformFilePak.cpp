@@ -26,6 +26,8 @@
 #endif
 #include "ProfilingDebugging/CsvProfiler.h"
 
+#include "Async/MappedFileHandle.h"
+
 DEFINE_LOG_CATEGORY(LogPakFile);
 
 DEFINE_STAT(STAT_PakFile_Read);
@@ -3733,6 +3735,101 @@ void FPakPlatformFile::Tick()
 #endif
 }
 
+class FMappedFilePakProxy final : public IMappedFileHandle
+{
+	IMappedFileHandle* LowerLevel;
+	int64 OffsetInPak;
+	int64 PakSize;
+	FString DebugFilename;
+public:
+	FMappedFilePakProxy(IMappedFileHandle* InLowerLevel, int64 InOffset, int64 InSize, int64 InPakSize, const TCHAR* InDebugFilename)
+		: IMappedFileHandle(InSize)
+		, LowerLevel(InLowerLevel)
+		, OffsetInPak(InOffset)
+		, PakSize(InPakSize)
+		, DebugFilename(InDebugFilename)
+	{
+		check(PakSize >= 0);
+	}
+	virtual ~FMappedFilePakProxy()
+	{
+		// we don't own lower level, it is shared
+	}
+	virtual IMappedFileRegion* MapRegion(int64 Offset = 0, int64 BytesToMap = MAX_int64, bool bPreloadHint = false) override
+	{
+		check(Offset + OffsetInPak < PakSize); // don't map zero bytes and don't map off the end of the (real) file
+		check(Offset < GetFileSize()); // don't map zero bytes and don't map off the end of the (virtual) file
+		BytesToMap = FMath::Min<int64>(BytesToMap, GetFileSize() - Offset);
+		check(BytesToMap > 0); // don't map zero bytes
+		check(Offset + BytesToMap <= GetFileSize()); // don't map zero bytes and don't map off the end of the (virtual) file
+		check(Offset + OffsetInPak + BytesToMap <= PakSize); // don't map zero bytes and don't map off the end of the (real) file
+		return LowerLevel->MapRegion(Offset + OffsetInPak, BytesToMap, bPreloadHint);
+	}
+};
+
+
+#if !UE_BUILD_SHIPPING
+
+static void MappedFileTest(const TArray<FString>& Args)
+{
+	FString TestFile(TEXT("../../../Engine/Config/BaseDeviceProfiles.ini"));
+	if (Args.Num() > 0)
+	{
+		TestFile = Args[0];
+	}
+
+	while (true)
+	{
+		IMappedFileHandle* Handle = FPlatformFileManager::Get().GetPlatformFile().OpenMapped(*TestFile);
+		IMappedFileRegion *Region = Handle->MapRegion();
+
+		int64 Size = Region->GetMappedSize();
+		const char* Data = (const char *)Region->GetMappedPtr();
+
+		delete Region;
+		delete Handle;
+	}
+
+
+}
+
+static FAutoConsoleCommand MappedFileTestCmd(
+	TEXT("MappedFileTest"),
+	TEXT("Tests the file mappings through the low level."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MappedFileTest)
+);
+#endif
+
+IMappedFileHandle* FPakPlatformFile::OpenMapped(const TCHAR* Filename)
+{
+	// Check pak files first
+	FPakEntry FileEntry;
+	FPakFile* PakEntry = nullptr;
+	if (FindFileInPakFiles(Filename, &PakEntry, &FileEntry) && PakEntry)
+	{
+		if (FileEntry.CompressionMethodIndex != 0)
+		{
+			// can't map compressed files
+			return nullptr;
+		}
+		FScopeLock Lock(&PakEntry->MappedFileHandleCriticalSection);
+		if (!PakEntry->MappedFileHandle)
+		{
+			PakEntry->MappedFileHandle = LowerLevel->OpenMapped(*PakEntry->GetFilename());
+		}
+		if (!PakEntry->MappedFileHandle)
+		{
+			return nullptr;
+		}
+		return new FMappedFilePakProxy(PakEntry->MappedFileHandle, FileEntry.Offset + FileEntry.GetSerializedSize(PakEntry->GetInfo().Version), FileEntry.UncompressedSize, PakEntry->TotalSize(), Filename);
+	}
+	if (IsNonPakFilenameAllowed(Filename))
+	{
+		return LowerLevel->OpenMapped(Filename);
+	}
+	return nullptr;
+}
+
 
 /**
  * Class to handle correctly reading from a compressed file within a compressed package
@@ -4020,6 +4117,7 @@ FPakFile::FPakFile(const TCHAR* Filename, bool bIsSigned)
 	, bIsValid(false)
 	, bFilenamesRemoved(false)
 	, ChunkID(ParseChunkIDFromFilename(Filename))
+	, MappedFileHandle(nullptr)
 {
 	FArchive* Reader = GetSharedReader(NULL);
 	if (Reader)
@@ -4044,6 +4142,7 @@ FPakFile::FPakFile(IPlatformFile* LowerLevel, const TCHAR* Filename, bool bIsSig
 	, bIsValid(false)
 	, bFilenamesRemoved(false)
 	, ChunkID(ParseChunkIDFromFilename(Filename))
+	, MappedFileHandle(nullptr)
 {
 	FArchive* Reader = GetSharedReader(LowerLevel);
 	if (Reader)
@@ -4065,6 +4164,7 @@ FPakFile::FPakFile(FArchive* Archive)
 	, bIsValid(false)
 	, bFilenamesRemoved(false)
 	, ChunkID(INDEX_NONE)
+	, MappedFileHandle(nullptr)
 {
 	Initialize(Archive);
 }
@@ -4072,6 +4172,7 @@ FPakFile::FPakFile(FArchive* Archive)
 
 FPakFile::~FPakFile()
 {
+	delete MappedFileHandle;
 	delete[] MiniPakEntries;
 	delete[] MiniPakEntriesOffsets;
 	delete[] FilenameHashes;

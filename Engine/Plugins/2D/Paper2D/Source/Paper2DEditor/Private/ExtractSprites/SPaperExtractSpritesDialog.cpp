@@ -438,8 +438,7 @@ FReply SPaperExtractSpritesDialog::CancelClicked()
 
 void SPaperExtractSpritesDialog::CloseContainingWindow()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 	if (ContainingWindow.IsValid())
 	{
 		ContainingWindow->RequestDestroyWindow();

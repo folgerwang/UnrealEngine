@@ -186,6 +186,9 @@ void FWidgetRenderer::DrawWindow(
 		FRenderThreadUpdateContext Context =
 		{
 			&DrawBuffer,
+			static_cast<float>(FApp::GetCurrentTime() - GStartTime),
+			static_cast<float>(FApp::GetDeltaTime()),
+			static_cast<float>(FPlatformTime::Seconds() - GStartTime),
 			RenderTarget->GameThread_GetRenderTargetResource(),
 			Renderer.Get(),
 			bClearTarget

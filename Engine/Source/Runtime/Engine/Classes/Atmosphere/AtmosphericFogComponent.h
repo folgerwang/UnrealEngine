@@ -269,10 +269,10 @@ public:
 	ENGINE_API void ReleaseResource();
 
 	//~ Begin UActorComponent Interface.
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface.
 
-	void ApplyComponentInstanceData(class FAtmospherePrecomputeInstanceData* ComponentInstanceData);
+	void ApplyComponentInstanceData(struct FAtmospherePrecomputeInstanceData* ComponentInstanceData);
 	const FAtmospherePrecomputeParameters& GetPrecomputeParameters() const { return PrecomputeParams;  }
 
 private:
@@ -283,3 +283,33 @@ private:
 	friend class FAtmosphericFogSceneInfo;
 };
 
+/** Used to store lightmap data during RerunConstructionScripts */
+USTRUCT()
+struct FAtmospherePrecomputeInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FAtmospherePrecomputeInstanceData() = default;
+	FAtmospherePrecomputeInstanceData(const UAtmosphericFogComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+	{}
+
+	virtual ~FAtmospherePrecomputeInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<UAtmosphericFogComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	struct FAtmospherePrecomputeParameters PrecomputeParameter;
+
+	FByteBulkData TransmittanceData;
+	FByteBulkData IrradianceData;
+	FByteBulkData InscatterData;
+};

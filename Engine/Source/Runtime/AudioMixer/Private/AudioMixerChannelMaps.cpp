@@ -192,7 +192,7 @@ namespace Audio
 	static TArray<TArray<float>> ChannelMapCache;
 	static TArray<TArray<float>> VorbisChannelMapCache;
 
-	int32 FMixerDevice::GetChannelMapCacheId(const int32 NumSourceChannels, const int32 NumOutputChannels, const bool bIsCenterChannelOnly) const
+	int32 FMixerDevice::GetChannelMapCacheId(const int32 NumSourceChannels, const int32 NumOutputChannels, const bool bIsCenterChannelOnly)
 	{
 		int32 Index = (NumSourceChannels - 1) + AUDIO_MIXER_MAX_OUTPUT_CHANNELS * (NumOutputChannels - 1);
 		if (bIsCenterChannelOnly)
@@ -205,6 +205,11 @@ namespace Audio
 	void FMixerDevice::Get2DChannelMap(bool bIsVorbis, const ESubmixChannelFormat InSubmixChannelType, const int32 NumSourceChannels, const bool bIsCenterChannelOnly, Audio::AlignedFloatBuffer& OutChannelMap) const
 	{
 		int32 NumOutputChannels = GetNumChannelsForSubmixFormat(InSubmixChannelType);
+		Get2DChannelMap(bIsVorbis, NumSourceChannels, NumOutputChannels, bIsCenterChannelOnly, OutChannelMap);
+	}
+
+	void FMixerDevice::Get2DChannelMap(bool bIsVorbis, const int32 NumSourceChannels, const int32 NumOutputChannels, const bool bIsCenterChannelOnly, Audio::AlignedFloatBuffer& OutChannelMap)
+	{
 		if (NumSourceChannels > 8 || NumOutputChannels > 8)
 		{
 			// Return a zero'd channel map buffer in the case of an unsupported channel configuration
@@ -230,7 +235,7 @@ namespace Audio
 		const int32 OutputChannelMapIndex = NumOutputChannels - 1;
 		check(OutputChannelMapIndex < ARRAY_COUNT(OutputChannelMaps));
 
-		float* Matrix = OutputChannelMaps[OutputChannelMapIndex];
+		float* RESTRICT Matrix = OutputChannelMaps[OutputChannelMapIndex];
 		check(Matrix != nullptr);
 
 		// Mono input sources have some special cases to take into account

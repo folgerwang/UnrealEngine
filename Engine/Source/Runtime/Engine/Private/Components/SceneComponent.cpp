@@ -2226,13 +2226,18 @@ FSceneComponentInstanceData::FSceneComponentInstanceData(const USceneComponent* 
 	}
 }
 
+bool FSceneComponentInstanceData::ContainsData() const
+{
+	return AttachedInstanceComponents.Num() > 0 || Super::ContainsData();
+}
+
 void FSceneComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
 {
-	FActorComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+	Super::ApplyToComponent(Component, CacheApplyPhase);
 
 	USceneComponent* SceneComponent = CastChecked<USceneComponent>(Component);
 
-	if (ContainsSavedProperties())
+	if (SavedProperties.Num() > 0)
 	{
 		SceneComponent->UpdateComponentToWorld();
 	}
@@ -2263,34 +2268,28 @@ void FSceneComponentInstanceData::AddReferencedObjects(FReferenceCollector& Coll
 
 void FSceneComponentInstanceData::FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
 {
-	for (TPair<USceneComponent*, FTransform>& ChildComponentPair : AttachedInstanceComponents)
+	TArray<USceneComponent*> SceneComponents;
+	AttachedInstanceComponents.GenerateKeyArray(SceneComponents);
+
+	for (USceneComponent* SceneComponent : SceneComponents)
 	{
-		if (UObject* const* NewChildComponent = OldToNewInstanceMap.Find(ChildComponentPair.Key))
+		if (UObject* const* NewChildComponent = OldToNewInstanceMap.Find(SceneComponent))
 		{
-			ChildComponentPair.Key = CastChecked<USceneComponent>(*NewChildComponent, ECastCheckedType::NullAllowed);
+			if (*NewChildComponent)
+			{
+				AttachedInstanceComponents.Add(CastChecked<USceneComponent>(*NewChildComponent), AttachedInstanceComponents.FindAndRemoveChecked(SceneComponent));
+			}
+			else
+			{
+				AttachedInstanceComponents.Remove(SceneComponent);
+			}
 		}
 	}
 }
 
-FActorComponentInstanceData* USceneComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> USceneComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = nullptr;
-
-	for (USceneComponent* Child : GetAttachChildren())
-	{
-		if (Child && !Child->IsCreatedByConstructionScript() && !Child->HasAnyFlags(RF_DefaultSubObject))
-		{
-			InstanceData = new FSceneComponentInstanceData(this);
-			break;
-		}
-	}
-
-	if (InstanceData == nullptr)
-	{
-		InstanceData = Super::GetComponentInstanceData();
-	}
-
-	return InstanceData;
+	return MakeStructOnScope<FActorComponentInstanceData, FSceneComponentInstanceData>(this);;
 }
 
 void USceneComponent::UpdateChildTransforms(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)

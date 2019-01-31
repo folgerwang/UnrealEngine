@@ -4,172 +4,215 @@ using System.Collections.Generic;
 using System.IO;
 using AutomationTool;
 using UnrealBuildTool;
+using Tools.DotNETCommon;
 
 namespace EpicGames.Localization
 {
-
-public struct ProjectImportExportInfo
-{
-	/** The destination path for the files containing the gathered data for this project (extracted from its config file - relative to the root working directory for the commandlet) */
-	public string DestinationPath;
-
-	/** The name to use for this projects manifest file (extracted from its config file) */
-	public string ManifestName;
-
-	/** The name to use for this projects archive file (extracted from its config file) */
-	public string ArchiveName;
-
-	/** The name to use for this projects portable object file (extracted from its config file) */
-	public string PortableObjectName;
-
-	/** The native culture for this project (extracted from its config file) */
-	public string NativeCulture;
-
-	/** The cultures to generate for this project (extracted from its config file) */
-	public List<string> CulturesToGenerate;
-
-	/** True if we should use a per-culture directly when importing/exporting */
-	public bool bUseCultureDirectory;
-};
-
-public struct ProjectStepInfo
-{
-	public ProjectStepInfo(string InName, string InLocalizationConfigFile)
+	public class ProjectImportExportInfo
 	{
-		Name = InName;
-		LocalizationConfigFile = InLocalizationConfigFile;
-	}
-	
-	/** The name of this localization step */
-	public string Name;
-
-	/** Absolute path to this steps localization config file */
-	public string LocalizationConfigFile;
-};
-
-public struct ProjectInfo
-{
-	/** The name of this project */
-	public string ProjectName;
-
-	/** Path to this projects localization step data - ordered so that iterating them runs in the correct order */
-	public List<ProjectStepInfo> LocalizationSteps;
-
-	/** Config data used by the PO file import process */
-	public ProjectImportExportInfo ImportInfo;
-
-	/** Config data used by the PO file export process */
-	public ProjectImportExportInfo ExportInfo;
-};
-
-public abstract class LocalizationProvider
-{
-	public struct LocalizationProviderArgs
-	{
-		public string RootWorkingDirectory;
-		public string RootLocalizationTargetDirectory;
-		public string RemoteFilenamePrefix;
-		public BuildCommand Command;
-		public int PendingChangeList;
-	};
-
-	public LocalizationProvider(LocalizationProviderArgs InArgs)
-	{
-		RootWorkingDirectory = InArgs.RootWorkingDirectory;
-		RemoteFilenamePrefix = InArgs.RemoteFilenamePrefix;
-		Command = InArgs.Command;
-		PendingChangeList = InArgs.PendingChangeList;
-
-		LocalizationBranchName = Command.ParseParamValue("LocalizationBranch");
-		bUploadAllCultures = Command.ParseParam("UploadAllCultures");
-	}
-
-	public virtual string GetLocalizationProviderId()
-	{
-		throw new AutomationException("Unimplemented GetLocalizationProviderId.");
-	}
-
-	public virtual void DownloadProjectFromLocalizationProvider(string ProjectName, ProjectImportExportInfo ProjectImportInfo)
-	{
-		throw new AutomationException("Unimplemented DownloadProjectFromLocalizationProvider.");
-	}
-
-	public virtual void UploadProjectToLocalizationProvider(string ProjectName, ProjectImportExportInfo ProjectExportInfo)
-	{
-		throw new AutomationException("Unimplemented UploadProjectToLocalizationProvider.");
-	}
-
-	public static LocalizationProvider GetLocalizationProvider(string InLocalizationProviderId, LocalizationProvider.LocalizationProviderArgs InLocalizationProviderArgs)
-	{
-		if (String.IsNullOrEmpty(InLocalizationProviderId))
+		public ProjectImportExportInfo(string InDestinationPath, string InManifestName, string InArchiveName, string InPortableObjectName, string InNativeCulture, IReadOnlyList<string> InCulturesToGenerate, bool InUseCultureDirectory)
 		{
-			return null;
+			DestinationPath = InDestinationPath;
+			ManifestName = InManifestName;
+			ArchiveName = InArchiveName;
+			PortableObjectName = InPortableObjectName;
+			NativeCulture = InNativeCulture;
+			CulturesToGenerate = InCulturesToGenerate;
+			bUseCultureDirectory = InUseCultureDirectory;
 		}
 
-		if (CachedLocalizationProviderTypes == null)
+		/** The destination path for the files containing the gathered data for this project (extracted from its config file - relative to the root working directory for the commandlet) */
+		public string DestinationPath { get; private set; }
+
+		/** The name to use for this projects manifest file (extracted from its config file) */
+		public string ManifestName { get; private set; }
+
+		/** The name to use for this projects archive file (extracted from its config file) */
+		public string ArchiveName { get; private set; }
+
+		/** The name to use for this projects portable object file (extracted from its config file) */
+		public string PortableObjectName { get; private set; }
+
+		/** The native culture for this project (extracted from its config file) */
+		public string NativeCulture { get; private set; }
+
+		/** The cultures to generate for this project (extracted from its config file) */
+		public IReadOnlyList<string> CulturesToGenerate { get; private set; }
+
+		/** True if we should use a per-culture directly when importing/exporting */
+		public bool bUseCultureDirectory { get; private set; }
+
+		/** The platform names that we have split into sub-folders */
+		public IReadOnlyList<string> SplitPlatformNames { get; private set; }
+
+		/** The platforms sub-folder */
+		public const string PlatformLocalizationFolderName = "Platforms";
+
+		public void CalculateSplitPlatformNames(string RootWorkingDirectory)
 		{
-			// Find all types that derive from LocalizationProvider in any of our DLLs
-			CachedLocalizationProviderTypes = new Dictionary<string, Type>();
-			var LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-			foreach (var Dll in LoadedAssemblies)
+			// Is this isn't a single culture import/export, then also check for split platform sub-folders
+			var NewSplitPlatformNames = new List<string>();
+			if (bUseCultureDirectory)
 			{
-				var AllTypes = Dll.GetTypes();
-				foreach (var PotentialLocalizationNodeType in AllTypes)
+				var PlatformSourceDirectory = new DirectoryReference(CommandUtils.CombinePaths(RootWorkingDirectory, DestinationPath, PlatformLocalizationFolderName));
+				if (DirectoryReference.Exists(PlatformSourceDirectory))
 				{
-					if (PotentialLocalizationNodeType != typeof(LocalizationProvider) && !PotentialLocalizationNodeType.IsAbstract && !PotentialLocalizationNodeType.IsInterface && typeof(LocalizationProvider).IsAssignableFrom(PotentialLocalizationNodeType))
+					foreach (DirectoryReference FoundDirectory in DirectoryReference.EnumerateDirectories(PlatformSourceDirectory, "*", SearchOption.TopDirectoryOnly))
 					{
-						// Types should implement a static StaticGetLocalizationProviderId method
-						var Method = PotentialLocalizationNodeType.GetMethod("StaticGetLocalizationProviderId");
-						if (Method != null)
+						string SplitPlatformName = CommandUtils.GetLastDirectoryName(FoundDirectory.FullName);
+						NewSplitPlatformNames.Add(SplitPlatformName);
+					}
+				}
+			}
+			SplitPlatformNames = NewSplitPlatformNames;
+		}
+	};
+
+	public class ProjectStepInfo
+	{
+		public ProjectStepInfo(string InName, string InLocalizationConfigFile)
+		{
+			Name = InName;
+			LocalizationConfigFile = InLocalizationConfigFile;
+		}
+
+		/** The name of this localization step */
+		public string Name { get; private set; }
+
+		/** Absolute path to this steps localization config file */
+		public string LocalizationConfigFile { get; private set; }
+	};
+
+	public class ProjectInfo
+	{
+		public ProjectInfo(string InProjectName, IReadOnlyList<ProjectStepInfo> InLocalizationSteps, ProjectImportExportInfo InImportInfo, ProjectImportExportInfo InExportInfo)
+		{
+			ProjectName = InProjectName;
+			LocalizationSteps = InLocalizationSteps;
+			ImportInfo = InImportInfo;
+			ExportInfo = InExportInfo;
+		}
+
+		/** The name of this project */
+		public string ProjectName { get; private set; }
+
+		/** Path to this projects localization step data - ordered so that iterating them runs in the correct order */
+		public IReadOnlyList<ProjectStepInfo> LocalizationSteps { get; private set; }
+
+		/** Config data used by the PO file import process */
+		public ProjectImportExportInfo ImportInfo { get; private set; }
+
+		/** Config data used by the PO file export process */
+		public ProjectImportExportInfo ExportInfo { get; private set; }
+	};
+
+	public abstract class LocalizationProvider
+	{
+		public struct LocalizationProviderArgs
+		{
+			public string RootWorkingDirectory;
+			public string RootLocalizationTargetDirectory;
+			public string RemoteFilenamePrefix;
+			public BuildCommand Command;
+			public int PendingChangeList;
+		};
+
+		public LocalizationProvider(LocalizationProviderArgs InArgs)
+		{
+			RootWorkingDirectory = InArgs.RootWorkingDirectory;
+			RemoteFilenamePrefix = InArgs.RemoteFilenamePrefix;
+			Command = InArgs.Command;
+			PendingChangeList = InArgs.PendingChangeList;
+
+			LocalizationBranchName = Command.ParseParamValue("LocalizationBranch");
+			bUploadAllCultures = Command.ParseParam("UploadAllCultures");
+		}
+
+		public virtual string GetLocalizationProviderId()
+		{
+			throw new AutomationException("Unimplemented GetLocalizationProviderId.");
+		}
+
+		public virtual void DownloadProjectFromLocalizationProvider(string ProjectName, ProjectImportExportInfo ProjectImportInfo)
+		{
+			throw new AutomationException("Unimplemented DownloadProjectFromLocalizationProvider.");
+		}
+
+		public virtual void UploadProjectToLocalizationProvider(string ProjectName, ProjectImportExportInfo ProjectExportInfo)
+		{
+			throw new AutomationException("Unimplemented UploadProjectToLocalizationProvider.");
+		}
+
+		public static LocalizationProvider GetLocalizationProvider(string InLocalizationProviderId, LocalizationProvider.LocalizationProviderArgs InLocalizationProviderArgs)
+		{
+			if (String.IsNullOrEmpty(InLocalizationProviderId))
+			{
+				return null;
+			}
+
+			if (CachedLocalizationProviderTypes == null)
+			{
+				// Find all types that derive from LocalizationProvider in any of our DLLs
+				CachedLocalizationProviderTypes = new Dictionary<string, Type>();
+				var LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+				foreach (var Dll in LoadedAssemblies)
+				{
+					var AllTypes = Dll.GetTypes();
+					foreach (var PotentialLocalizationNodeType in AllTypes)
+					{
+						if (PotentialLocalizationNodeType != typeof(LocalizationProvider) && !PotentialLocalizationNodeType.IsAbstract && !PotentialLocalizationNodeType.IsInterface && typeof(LocalizationProvider).IsAssignableFrom(PotentialLocalizationNodeType))
 						{
-							try
+							// Types should implement a static StaticGetLocalizationProviderId method
+							var Method = PotentialLocalizationNodeType.GetMethod("StaticGetLocalizationProviderId");
+							if (Method != null)
 							{
-								var LocalizationProviderId = Method.Invoke(null, null) as string;
-								CachedLocalizationProviderTypes.Add(LocalizationProviderId, PotentialLocalizationNodeType);
+								try
+								{
+									var LocalizationProviderId = Method.Invoke(null, null) as string;
+									CachedLocalizationProviderTypes.Add(LocalizationProviderId, PotentialLocalizationNodeType);
+								}
+								catch
+								{
+									BuildCommand.LogWarning("Type '{0}' threw when calling its StaticGetLocalizationProviderId method.", PotentialLocalizationNodeType.FullName);
+								}
 							}
-							catch
+							else
 							{
-								BuildCommand.LogWarning("Type '{0}' threw when calling its StaticGetLocalizationProviderId method.", PotentialLocalizationNodeType.FullName);
+								BuildCommand.LogWarning("Type '{0}' derives from LocalizationProvider but is missing its StaticGetLocalizationProviderId method.", PotentialLocalizationNodeType.FullName);
 							}
-						}
-						else
-						{
-							BuildCommand.LogWarning("Type '{0}' derives from LocalizationProvider but is missing its StaticGetLocalizationProviderId method.", PotentialLocalizationNodeType.FullName);
 						}
 					}
 				}
 			}
-		}
 
-		Type LocalizationNodeType;
-		CachedLocalizationProviderTypes.TryGetValue(InLocalizationProviderId, out LocalizationNodeType);
-		if (LocalizationNodeType != null)
-		{
-			try
+			Type LocalizationNodeType;
+			CachedLocalizationProviderTypes.TryGetValue(InLocalizationProviderId, out LocalizationNodeType);
+			if (LocalizationNodeType != null)
 			{
-				return Activator.CreateInstance(LocalizationNodeType, new object[] { InLocalizationProviderArgs }) as LocalizationProvider;
+				try
+				{
+					return Activator.CreateInstance(LocalizationNodeType, new object[] { InLocalizationProviderArgs }) as LocalizationProvider;
+				}
+				catch (Exception e)
+				{
+					BuildCommand.LogWarning("Unable to create an instance of the type '{0}'. {1}", LocalizationNodeType.FullName, e.ToString());
+				}
 			}
-			catch (Exception e)
+			else
 			{
-				BuildCommand.LogWarning("Unable to create an instance of the type '{0}'. {1}", LocalizationNodeType.FullName, e.ToString());
+				BuildCommand.LogWarning("Could not find a localization provider for '{0}'", InLocalizationProviderId);
 			}
-		}
-		else
-		{
-			BuildCommand.LogWarning("Could not find a localization provider for '{0}'", InLocalizationProviderId);
+
+			return null;
 		}
 
-		return null;
-	}
+		protected string RootWorkingDirectory;
+		protected string LocalizationBranchName;
+		protected string RemoteFilenamePrefix;
+		protected bool bUploadAllCultures;
+		protected BuildCommand Command;
+		protected int PendingChangeList;
 
-	protected string RootWorkingDirectory;
-	protected string LocalizationBranchName;
-	protected string RemoteFilenamePrefix;
-	protected bool bUploadAllCultures;
-	protected BuildCommand Command;
-	protected int PendingChangeList;
-
-	private static Dictionary<string, Type> CachedLocalizationProviderTypes;
-};
-
+		private static Dictionary<string, Type> CachedLocalizationProviderTypes;
+	};
 }

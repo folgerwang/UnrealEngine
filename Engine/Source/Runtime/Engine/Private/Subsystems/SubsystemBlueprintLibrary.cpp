@@ -7,6 +7,11 @@
 #include "GameFramework/PlayerController.h"
 #include "Blueprint/UserWidget.h"
 
+/*static*/  UEngineSubsystem* USubsystemBlueprintLibrary::GetEngineSubsystem(TSubclassOf<UEngineSubsystem> Class)
+{
+	return GEngine->GetEngineSubsystemBase(Class);
+}
+
 /*static*/ UGameInstanceSubsystem* USubsystemBlueprintLibrary::GetGameInstanceSubsystem(UObject* ContextObject, TSubclassOf<UGameInstanceSubsystem> Class)
 {
 	if (const UWorld* World = ThisClass::GetWorldFrom(ContextObject))

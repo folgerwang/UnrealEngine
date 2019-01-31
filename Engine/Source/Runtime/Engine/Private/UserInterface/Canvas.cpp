@@ -1232,6 +1232,9 @@ UCanvas::UCanvas(const FObjectInitializer& ObjectInitializer)
 	CachedDisplayWidth = 0;
 	CachedDisplayHeight = 0;
 
+	SceneView = nullptr;
+	Canvas = nullptr;
+
 	// only call once on construction.  Expensive on some platforms (occulus).
 	// Init gets called every frame.	
 	UpdateSafeZoneData();

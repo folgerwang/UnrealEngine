@@ -29,10 +29,8 @@ public:
 
 private:
 
-	/** Delegate to get binary path from settings */
+	/** Delegates to get Git binary path from/to settings */
 	FString GetBinaryPathString() const;
-
-	/** Delegate to commit repository text to settings */
 	void OnBinaryPathPicked(const FString & PickedPath) const;
 
 	/** Delegate to get repository root, user name and email from provider */
@@ -48,6 +46,14 @@ private:
 
 	void OnCheckedCreateGitIgnore(ECheckBoxState NewCheckedState);
 	bool bAutoCreateGitIgnore;
+
+	/** Delegates to create a README.md file */
+	void OnCheckedCreateReadme(ECheckBoxState NewCheckedState);
+	bool GetAutoCreateReadme() const;
+	bool bAutoCreateReadme;
+	void OnReadmeContentCommited(const FText& InText, ETextCommit::Type InCommitType);
+	FText GetReadmeContent() const;
+	FText ReadmeContent;
 
 	void OnCheckedCreateGitAttributes(ECheckBoxState NewCheckedState);
 	bool bAutoCreateGitAttributes;

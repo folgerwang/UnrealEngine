@@ -493,8 +493,7 @@ TSharedPtr<SWindow> FTabManager::FPrivateApi::GetParentWindow() const
 	{
 		// The tab was dragged out of some context that is owned by a MajorTab.
 		// Whichever window possesses the MajorTab should be the parent of the newly created window.
-		FWidgetPath DummyPath;
-		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow( OwnerTab.ToSharedRef(), DummyPath );
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow( OwnerTab.ToSharedRef() );
 		return ParentWindow;
 	}
 	else

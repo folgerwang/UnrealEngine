@@ -530,6 +530,10 @@ class PAKFILE_API FPakFile : FNoncopyable
 	/** ID for the chunk this pakfile is part of. INDEX_NONE if this isn't a pak chunk (derived from filename) */
 	int32 ChunkID;
 
+	class IMappedFileHandle* MappedFileHandle;
+	FCriticalSection MappedFileHandleCriticalSection;
+
+
 	static inline int32 CDECL CompareFilenameHashes(const void* Left, const void* Right)
 	{
 		const uint32* LeftHash = (const uint32*)Left;
@@ -2242,6 +2246,7 @@ public:
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override;
 	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override;
 
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override;
 	/**
 	 * Converts a filename to a path inside pak file.
 	 *

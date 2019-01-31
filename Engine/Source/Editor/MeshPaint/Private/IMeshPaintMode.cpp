@@ -80,7 +80,7 @@ void IMeshPaintEdMode::Enter()
 	FEditorDelegates::PostSaveWorld.AddSP(this, &IMeshPaintEdMode::OnPostSaveWorld);
 
 	// Catch assets if they are about to be (re)imported
-	FEditorDelegates::OnAssetPostImport.AddSP(this, &IMeshPaintEdMode::OnPostImportAsset);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddSP(this, &IMeshPaintEdMode::OnPostImportAsset);
 	FReimportManager::Instance()->OnPostReimport().AddSP(this, &IMeshPaintEdMode::OnPostReimportAsset);
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -172,7 +172,7 @@ void IMeshPaintEdMode::Exit()
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().OnAssetRemoved().RemoveAll(this);
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 	FEditorDelegates::PreSaveWorld.RemoveAll(this);
 	FEditorDelegates::PostSaveWorld.RemoveAll(this);
 	GEditor->OnObjectsReplaced().RemoveAll(this);

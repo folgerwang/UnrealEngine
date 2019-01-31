@@ -172,8 +172,7 @@ FReply SRenameGameplayTagDialog::OnCancelClicked()
 
 void SRenameGameplayTagDialog::CloseContainingWindow()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath );
+	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared() );
 
 	if (CurrentWindow.IsValid())
 	{

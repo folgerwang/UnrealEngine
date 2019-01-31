@@ -25,15 +25,53 @@ UGatherTextCommandletBase::UGatherTextCommandletBase(const FObjectInitializer& O
 {
 }
 
-void UGatherTextCommandletBase::Initialize( const TSharedPtr< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo )
+void UGatherTextCommandletBase::Initialize( const TSharedRef< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo )
 {
 	GatherManifestHelper = InGatherManifestHelper;
 	SourceControlInfo = InSourceControlInfo;
+
+	// Cache the split platform info
+	SplitPlatforms.Reset();
+	if (InGatherManifestHelper->ShouldSplitPlatformData())
+	{
+		for (const FString& SplitPlatformName : InGatherManifestHelper->GetPlatformsToSplit())
+		{
+			SplitPlatforms.Add(*SplitPlatformName, FString::Printf(TEXT("/%s/"), *SplitPlatformName));
+		}
+		SplitPlatforms.KeySort(TLess<FName>());
+	}
 }
 
 void UGatherTextCommandletBase::CreateCustomEngine(const FString& Params)
 {
 	GEngine = GEditor = NULL;//Force a basic default engine. 
+}
+
+bool UGatherTextCommandletBase::IsSplitPlatformName(const FName InPlatformName) const
+{
+	return SplitPlatforms.Contains(InPlatformName);
+}
+
+bool UGatherTextCommandletBase::ShouldSplitPlatformForPath(const FString& InPath, FName* OutPlatformName) const
+{
+	const FName SplitPlatformName = GetSplitPlatformNameFromPath(InPath);
+	if (OutPlatformName)
+	{
+		*OutPlatformName = SplitPlatformName;
+	}
+	return !SplitPlatformName.IsNone();
+}
+
+FName UGatherTextCommandletBase::GetSplitPlatformNameFromPath(const FString& InPath) const
+{
+	for (const auto& SplitPlatformsPair : SplitPlatforms)
+	{
+		if (InPath.Contains(SplitPlatformsPair.Value))
+		{
+			return SplitPlatformsPair.Key;
+		}
+	}
+	return FName();
 }
 
 bool UGatherTextCommandletBase::GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename )

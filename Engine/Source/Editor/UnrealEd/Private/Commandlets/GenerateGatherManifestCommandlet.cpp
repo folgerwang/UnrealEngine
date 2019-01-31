@@ -74,7 +74,7 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 		FText OutError;
 		if (!GatherManifestHelper->AddDependency(ManifestDependency, &OutError))
 		{
-			UE_LOG(LogGenerateManifestCommandlet, Error, TEXT("The GenerateGatherManifest commandlet couldn't load the specified manifest dependency: '%'. %s"), *ManifestDependency, *OutError.ToString());
+			UE_LOG(LogGenerateManifestCommandlet, Error, TEXT("Failed to add a manifest dependency: %s"), *OutError.ToString());
 			return -1;
 		}
 	}
@@ -86,7 +86,7 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 	FText ManifestSaveError;
 	if (!GatherManifestHelper->SaveManifest(ManifestPath, &ManifestSaveError))
 	{
-		UE_LOG(LogGenerateManifestCommandlet, Error,TEXT("Failed to write manifest to %s. %s."), *ManifestPath, *ManifestSaveError.ToString());
+		UE_LOG(LogGenerateManifestCommandlet, Error, TEXT("%s"), *ManifestSaveError.ToString());
 		return -1;
 	}
 

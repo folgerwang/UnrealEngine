@@ -47,10 +47,14 @@ class UMaterialExpressionScalarParameter : public UMaterialExpressionParameter
 	bool SetParameterValue(FName InParameterName, float InValue);
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void ValidateParameterName(const bool bAllowDuplicateName) override;
+	virtual bool HasClassAndNameCollision(UMaterialExpression* OtherExpression) const override;
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) override;
 #endif
 
-	virtual bool IsUsedAsAtlasPosition() { return false; }
+	virtual bool IsUsedAsAtlasPosition() const { return false; }
 };
+
 
 
 

@@ -2,6 +2,7 @@
 
 #include "Internationalization/LocalizationResourceTextSource.h"
 #include "Internationalization/TextLocalizationResource.h"
+#include "HAL/PlatformProperties.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/CoreDelegates.h"
@@ -114,6 +115,20 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 		}
 	}
 
+	static const FString PlatformLocalizationFolderName = FPaths::GetPlatformLocalizationFolderName();
+	static const FString PlatformName = ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName());
+	auto LoadLocalizationResourcesForCulture = [](FTextLocalizationResource& InOutLocRes, const FString& InLocalizationPath, const FString& InCulture, const FString& InLocResFilename, const int32 InLocResPriority)
+	{
+		const FString PlatformAgnosticLocResFilename = InLocalizationPath / InCulture / InLocResFilename;
+		InOutLocRes.LoadFromFile(PlatformAgnosticLocResFilename, InLocResPriority);
+
+		const FString PlatformSpecificLocResFilename = InLocalizationPath / PlatformLocalizationFolderName / PlatformName / InCulture / InLocResFilename;
+		if (FPaths::FileExists(PlatformSpecificLocResFilename))
+		{
+			InOutLocRes.LoadFromFile(PlatformSpecificLocResFilename, InLocResPriority);
+		}
+	};
+
 	// Load the native texts first to ensure we always apply translations to a consistent base
 	if (PrioritizedNativePaths.Num() > 0)
 	{
@@ -132,7 +147,7 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 				// We skip loading the native text if we're transitioning to the native culture as there's no extra work that needs to be done
 				if (!InPrioritizedCultures.Contains(LocMetaResource.NativeCulture))
 				{
-					InOutNativeResource.LoadFromFile(LocalizationPath / LocMetaResource.NativeLocRes, BaseResourcePriority);
+					LoadLocalizationResourcesForCulture(InOutNativeResource, LocalizationPath, LocMetaResource.NativeCulture, FPaths::GetCleanFilename(LocMetaResource.NativeLocRes), BaseResourcePriority);
 				}
 			}
 		}
@@ -152,7 +167,7 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 				}
 
 				const FString LocResFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locres");
-				InOutLocalizedResource.LoadFromFile(LocalizationPath / NativeGameCulture / LocResFilename, BaseResourcePriority);
+				LoadLocalizationResourcesForCulture(InOutLocalizedResource, LocalizationPath, NativeGameCulture, LocResFilename, BaseResourcePriority);
 			}
 		}
 	}
@@ -171,7 +186,7 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 				}
 
 				const FString LocResFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locres");
-				InOutLocalizedResource.LoadFromFile(LocalizationPath / PrioritizedCultureName / LocResFilename, BaseResourcePriority + CultureIndex);
+				LoadLocalizationResourcesForCulture(InOutLocalizedResource, LocalizationPath, PrioritizedCultureName, LocResFilename, BaseResourcePriority + CultureIndex);
 			}
 		}
 	}

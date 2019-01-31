@@ -60,6 +60,8 @@ bool FGenericCrashContext::bIsInitialized = false;
 FPlatformMemoryStats FGenericCrashContext::CrashMemoryStats = FPlatformMemoryStats();
 int32 FGenericCrashContext::StaticCrashContextIndex = 0;
 
+const FGuid FGenericCrashContext::ExecutionGuid = FGuid::NewGuid();
+
 namespace NCachedCrashContextProperties
 {
 	static bool bIsInternalBuild;
@@ -275,6 +277,7 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 
 	BeginSection( *RuntimePropertiesTag );
 	AddCrashProperty( TEXT( "CrashVersion" ), (int32)ECrashDescVersions::VER_3_CrashContext );
+	AddCrashProperty( TEXT( "ExecutionGuid" ), *ExecutionGuid.ToString() );
 	AddCrashProperty( TEXT( "CrashGUID" ), (const TCHAR*)CrashGUID);
 	AddCrashProperty( TEXT( "ProcessId" ), FPlatformProcess::GetCurrentProcessId() );
 	AddCrashProperty( TEXT( "IsInternalBuild" ), NCachedCrashContextProperties::bIsInternalBuild );

@@ -1004,7 +1004,7 @@ FFeedbackContext*	Warn
 	// Unselect all actors.
 	GEditor->SelectNone(false, false);
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 	
 	//TODO verify if we really need this when instancing actor in a level from an import
 	//In that case we should change the variable name.
@@ -1040,7 +1040,7 @@ FFeedbackContext*	Warn
 		GEditor->IsImportingT3D = 0;
 		GIsImportingT3D = false;
 		Warn->EndSlowTask();
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 		return nullptr;
 	}
 
@@ -1084,7 +1084,7 @@ FFeedbackContext*	Warn
 		GEditor->IsImportingT3D = 0;
 		GIsImportingT3D = false;
 		Warn->EndSlowTask();
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 		return nullptr;
 	}
 
@@ -1116,7 +1116,7 @@ FFeedbackContext*	Warn
 			GEditor->IsImportingT3D = 0;
 			GIsImportingT3D = false;
 			Warn->EndSlowTask();
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 			return nullptr;
 		}
 	}
@@ -1236,7 +1236,7 @@ FFeedbackContext*	Warn
 	ReimportData = nullptr;
 
 	Warn->EndSlowTask();
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 
 	return ReturnObject;
 }

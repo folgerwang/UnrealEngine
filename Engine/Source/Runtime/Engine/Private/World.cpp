@@ -4368,7 +4368,7 @@ AWorldSettings* UWorld::GetWorldSettings( const bool bCheckStreamingPersistent, 
 				ULevel* Level = StreamingLevels[0]->GetLoadedLevel();
 				if (Level != nullptr)
 				{
-					WorldSettings = Level->GetWorldSettings();
+					WorldSettings = Level->GetWorldSettings(bChecked);
 				}
 			}
 		}

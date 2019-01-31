@@ -65,7 +65,7 @@ bool FEdModeActorPicker::MouseMove(FEditorViewportClient* ViewportClient, FViewp
 			if(ActorHit->Actor != NULL)
 			{
 				AActor* Actor = ActorHit->Actor;
-				if (Actor->IsChildActor())
+				while (Actor->IsChildActor())
 				{
 					Actor = Actor->GetParentActor();
 				}

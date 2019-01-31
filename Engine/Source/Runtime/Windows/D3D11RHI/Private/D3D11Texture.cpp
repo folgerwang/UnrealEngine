@@ -2087,19 +2087,26 @@ void FD3D11DynamicRHI::RHICopyTexture(FTextureRHIParamRef SourceTextureRHI, FTex
 		SrcBox.left = CopyInfo.SourcePosition.X;
 		SrcBox.top = CopyInfo.SourcePosition.Y;
 		SrcBox.front = CopyInfo.SourcePosition.Z;
-		SrcBox.right = CopyInfo.SourcePosition.X + CopyInfo.Size.X;
-		SrcBox.bottom = CopyInfo.SourcePosition.Y + CopyInfo.Size.Y;
-		SrcBox.back = CopyInfo.SourcePosition.Z + CopyInfo.Size.Z;
 
-		for (uint32 i = 0; i < CopyInfo.NumSlices; ++i)
+		for (uint32 SliceIndex = 0; SliceIndex < CopyInfo.NumSlices; ++SliceIndex)
 		{
-			uint32 SourceSliceIndex = CopyInfo.SourceSliceIndex + i;
-			uint32 DestSliceIndex = CopyInfo.DestSliceIndex + i;
+			uint32 SourceSliceIndex = CopyInfo.SourceSliceIndex + SliceIndex;
+			uint32 DestSliceIndex = CopyInfo.DestSliceIndex + SliceIndex;
 
-			const uint32 SourceSubresource = D3D11CalcSubresource(CopyInfo.SourceMipIndex, SourceSliceIndex, SourceTextureRHI->GetNumMips());
-			const uint32 DestSubresource = D3D11CalcSubresource(CopyInfo.DestMipIndex, DestSliceIndex, DestTextureRHI->GetNumMips());
+			for (uint32 MipIndex = 0; MipIndex < CopyInfo.NumMips; ++MipIndex)
+			{
+				uint32 SourceMipIndex = CopyInfo.SourceMipIndex + MipIndex;
+				uint32 DestMipIndex = CopyInfo.DestMipIndex + MipIndex;
 
-			Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture->GetResource(), DestSubresource, CopyInfo.DestPosition.X, CopyInfo.DestPosition.Y, CopyInfo.DestPosition.Z, SourceTexture->GetResource(), SourceSubresource, &SrcBox);
+				const uint32 SourceSubresource = D3D11CalcSubresource(SourceMipIndex, SourceSliceIndex, SourceTextureRHI->GetNumMips());
+				const uint32 DestSubresource = D3D11CalcSubresource(DestMipIndex, DestSliceIndex, DestTextureRHI->GetNumMips());
+
+				SrcBox.right = CopyInfo.SourcePosition.X + FMath::Max(CopyInfo.Size.X >> MipIndex, 1);
+				SrcBox.bottom = CopyInfo.SourcePosition.Y + FMath::Max(CopyInfo.Size.Y >> MipIndex, 1);
+				SrcBox.back = CopyInfo.SourcePosition.Z + FMath::Max(CopyInfo.Size.Z >> MipIndex, 1);
+
+				Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture->GetResource(), DestSubresource, CopyInfo.DestPosition.X, CopyInfo.DestPosition.Y, CopyInfo.DestPosition.Z, SourceTexture->GetResource(), SourceSubresource, &SrcBox);
+			}
 		}
 	}
 	else

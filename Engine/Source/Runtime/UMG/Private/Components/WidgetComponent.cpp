@@ -1178,38 +1178,9 @@ void UWidgetComponent::RemoveWidgetFromScreen()
 #endif // !UE_SERVER
 }
 
-class FWidgetComponentInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> UWidgetComponent::GetComponentInstanceData() const
 {
-public:
-	FWidgetComponentInstanceData( const UWidgetComponent* SourceComponent )
-		: FSceneComponentInstanceData(SourceComponent)
-		, WidgetClass ( SourceComponent->GetWidgetClass() )
-		, RenderTarget( SourceComponent->GetRenderTarget() )
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UWidgetComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		FSceneComponentInstanceData::AddReferencedObjects(Collector);
-
-		UClass* WidgetUClass = *WidgetClass;
-		Collector.AddReferencedObject(WidgetUClass);
-		Collector.AddReferencedObject(RenderTarget);
-	}
-
-public:
-	TSubclassOf<UUserWidget> WidgetClass;
-	UTextureRenderTarget2D* RenderTarget;
-};
-
-FActorComponentInstanceData* UWidgetComponent::GetComponentInstanceData() const
-{
-	return new FWidgetComponentInstanceData( this );
+	return MakeStructOnScope<FActorComponentInstanceData, FWidgetComponentInstanceData>(this);
 }
 
 void UWidgetComponent::ApplyComponentInstanceData(FWidgetComponentInstanceData* WidgetInstanceData)

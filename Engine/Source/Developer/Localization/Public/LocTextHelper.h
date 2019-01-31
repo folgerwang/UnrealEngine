@@ -7,6 +7,7 @@
 #include "Internationalization/InternationalizationManifest.h"
 #include "Internationalization/InternationalizationArchive.h"
 #include "Internationalization/LocKeyFuncs.h"
+#include "LocTextHelper.generated.h"
 
 class FLocMetadataObject;
 
@@ -31,6 +32,18 @@ enum class ELocTextExportSourceMethod : uint8
 	NativeText,
 };
 
+/** How should we split platform specific localization data? */
+UENUM()
+enum class ELocTextPlatformSplitMode : uint8
+{
+	/** Don't split platform specific localization data */
+	None,
+	/** Split platform specific localization data for restricted platforms only */
+	Restricted,
+	/** Split platform specific localization data for all platforms */
+	All,
+};
+
 /**
  * Interface for the loc file notify API.
  * This can be used to integrate with services like source control.
@@ -52,6 +65,18 @@ public:
 
 	/** Called after writing the given file to disk */
 	virtual void PostFileWrite(const FString& InFilename) = 0;
+};
+
+/**
+ * Utilities to get manage platforms to split.
+ */
+struct LOCALIZATION_API FLocTextPlatformSplitUtils
+{
+	/** True if the given split mode is actually splitting localization data */
+	static bool ShouldSplitPlatformData(const ELocTextPlatformSplitMode& InSplitMode);
+
+	/** Get the platforms names that should be split, based on the given split mode */
+	static const TArray<FString>& GetPlatformsToSplit(const ELocTextPlatformSplitMode& InSplitMode);
 };
 
 /**
@@ -220,8 +245,9 @@ public:
 	 * @note This kind of helper is only suitable for dealing with manifests, *not* archives.
 	 *
 	 * @param InLocFileNotifies		Interface for allowing source control integration (may be null).
+	 * @param InPlatformSplitMode	Should we split localization data per-platform?
 	 */
-	explicit FLocTextHelper(TSharedPtr<ILocFileNotifies> InLocFileNotifies);
+	explicit FLocTextHelper(TSharedPtr<ILocFileNotifies> InLocFileNotifies, const ELocTextPlatformSplitMode InPlatformSplitMode = ELocTextPlatformSplitMode::None);
 
 	/**
 	 * Construct a helper for the given target information.
@@ -233,8 +259,24 @@ public:
 	 * @param InNativeCulture		Culture code of the native culture (eg, en), or an empty string if the native culture is unknown.
 	 * @param InForeignCultures		Array of culture codes for the foreign cultures (the native culture will be removed from this array if present).
 	 * @param InLocFileNotifies		Interface for allowing source control integration (may be null).
+	 * @param InPlatformSplitMode	Should we split localization data per-platform?
 	 */
-	FLocTextHelper(FString InTargetPath, FString InManifestName, FString InArchiveName, FString InNativeCulture, TArray<FString> InForeignCultures, TSharedPtr<ILocFileNotifies> InLocFileNotifies);
+	FLocTextHelper(FString InTargetPath, FString InManifestName, FString InArchiveName, FString InNativeCulture, TArray<FString> InForeignCultures, TSharedPtr<ILocFileNotifies> InLocFileNotifies, const ELocTextPlatformSplitMode InPlatformSplitMode = ELocTextPlatformSplitMode::None);
+
+	/**
+	 * Are we splitting localization data per-platform?
+	 */
+	bool ShouldSplitPlatformData() const;
+
+	/**
+	 * How are we splitting localization data per-platform?
+	 */
+	ELocTextPlatformSplitMode GetPlatformSplitMode() const;
+
+	/**
+	 * Get the platforms names that should be split, based on the active split mode.
+	 */
+	const TArray<FString>& GetPlatformsToSplit() const;
 
 	/**
 	 * @return The name of the target we're working with.
@@ -865,6 +907,9 @@ private:
 	 * @return The entry, or null if it couldn't be found.
 	 */
 	TSharedPtr<FArchiveEntry> FindTranslationImpl(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const;
+
+	/** How are we splitting localization data per-platform? */
+	ELocTextPlatformSplitMode PlatformSplitMode;
 
 	/** The name of the target we're working with */
 	FString TargetName;

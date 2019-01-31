@@ -16,6 +16,8 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "UObject/DebugSerializationFlags.h"
 #include "Serialization/AsyncLoadingPrivate.h"
+#include "Async/MappedFileHandle.h"
+#include "HAL/PlatformFilemanager.h"
 
 /*-----------------------------------------------------------------------------
 	Constructors and operators
@@ -91,6 +93,42 @@ uint32 GetTypeHash( const FUntypedBulkData* BulkData )
 
 #endif
 
+
+bool FUntypedBulkData::FAllocatedPtr::MapFile(const TCHAR *InFilename, int64 Offset, int64 Size)
+{
+	check(!MappedHandle && !MappedRegion); // It doesn't make sense to do this twice, but if need be, not hard to do
+
+	MappedHandle = FPlatformFileManager::Get().GetPlatformFile().OpenMapped(InFilename);
+
+	if (!MappedHandle)
+	{
+		return false;
+	}
+	MappedRegion = MappedHandle->MapRegion(Offset, Size, true); //@todo we really don't want to hit the disk here to bring it into memory
+	if (!MappedRegion)
+	{
+		delete MappedHandle;
+		MappedHandle = nullptr;
+		return false;
+	}
+
+	check(Size == MappedRegion->GetMappedSize());
+	Ptr = (void*)(MappedRegion->GetMappedPtr()); //@todo mapped files should probably be const-correct
+	bAllocated = true;
+	return true;
+}
+
+void FUntypedBulkData::FAllocatedPtr::UnmapFile()
+{
+	if (MappedRegion || MappedHandle)
+	{
+		delete MappedRegion;
+		delete MappedHandle;
+		MappedRegion = nullptr;
+		MappedHandle = nullptr;
+		Ptr = nullptr; // make sure we don't try to free this pointer
+	}
+}
 
 /**
  * Constructor, initializing all member variables.
@@ -789,14 +827,7 @@ bool FUntypedBulkData::ShouldStreamBulkData()
 		GMinimumBulkDataSizeForAsyncLoading >= 0);
 }
 
-/**
-* Serialize function used to serialize this bulk data structure.
-*
-* @param Ar	Archive to serialize with
-* @param Owner	Object owning the bulk data
-* @param Idx	Index of bulk data item being serialized
-*/
-void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
+void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx, bool bAttemptFileMapping)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::Serialize"), STAT_UBD_Serialize, STATGROUP_Memory);
 
@@ -924,10 +955,30 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 					}
 					else
 					{
-						// Force non-lazy loading of inline bulk data to prevent PostLoad spikes.
-						BulkData.Reallocate(GetBulkDataSize(), BulkDataAlignment);
-						// if the payload is stored inline, just serialize it
-						SerializeBulkData(Ar, BulkData.Get());
+						bool bWasMapped = false;
+						if (bAttemptFileMapping)
+						{
+							if (GEventDrivenLoaderEnabled && (Filename.EndsWith(TEXT(".uasset")) || Filename.EndsWith(TEXT(".umap"))))
+							{
+								BulkDataOffsetInFile -= IFileManager::Get().FileSize(*Filename);
+								check(BulkDataOffsetInFile >= 0);
+								Filename = FPaths::GetBaseFilename(Filename, false) + TEXT(".uexp");
+							}
+							bWasMapped = BulkData.MapFile(*Filename, BulkDataOffsetInFile, GetBulkDataSize());
+						}
+						if (bWasMapped)
+						{
+							// we need to seek past the inline bulk data 
+							// @todo, we really don't want to do this with inline data
+							Ar.Seek(Ar.Tell() + GetBulkDataSize());
+						}
+						else
+						{
+							// Force non-lazy loading of inline bulk data to prevent PostLoad spikes.
+							BulkData.Reallocate(GetBulkDataSize(), BulkDataAlignment);
+							// if the payload is stored inline, just serialize it
+							SerializeBulkData(Ar, BulkData.Get());
+						}
 					}
 				}
 				else if (BulkDataFlags & BULKDATA_OptionalPayload)
@@ -1661,4 +1712,17 @@ void FFormatContainer::Serialize(FArchive& Ar, UObject* Owner, const TArray<FNam
 	}
 }
 
+void FFormatContainer::SerializeAttemptMappedLoad(FArchive& Ar, UObject* Owner)
+{
+	check(Ar.IsLoading());
+	int32 NumFormats = 0;
+	Ar << NumFormats;
+	for (int32 Index = 0; Index < NumFormats; Index++)
+	{
+		FName Name;
+		Ar << Name;
+		FByteBulkData& Bulk = GetFormat(Name);
+		Bulk.Serialize(Ar, Owner, -1, true);
+	}
+}
 

@@ -21,16 +21,22 @@ class FSlatePostProcessor;
 class ILayoutCache;
 class UDeviceProfile;
 
-struct FSlateRenderingOptions
+struct FSlateRenderingParams
 {
 	FMatrix ViewProjectionMatrix;
 	FVector2D ViewOffset;
+	float CurrentWorldTime;
+	float DeltaTimeSeconds;
+	float CurrentRealTime;
 	bool bAllowSwitchVerticalAxis;
 	bool bWireFrame;
 
-	FSlateRenderingOptions(const FMatrix& InViewProjectionMatrix)
+	FSlateRenderingParams(const FMatrix& InViewProjectionMatrix, float InCurrentWorldTime, float InDeltaTimeSeconds, float InCurrentRealTime)
 		: ViewProjectionMatrix(InViewProjectionMatrix)
 		, ViewOffset(0, 0)
+		, CurrentWorldTime(InCurrentWorldTime)
+		, DeltaTimeSeconds(InDeltaTimeSeconds)
+		, CurrentRealTime(InCurrentRealTime)
 		, bAllowSwitchVerticalAxis(true)
 		, bWireFrame(false)
 	{
@@ -47,7 +53,7 @@ public:
 
 	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
 
-	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const FSlateRenderingOptions& Options);
+	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const FSlateRenderingParams& Params);
 
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override { return ResourceManager; }
 	virtual bool IsVertexColorInLinearSpace() const override { return false; }

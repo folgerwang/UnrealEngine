@@ -52,7 +52,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 	FFeedbackContext*	Warn
 	)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, FileType);
 
 	int32		SpeakerIndex, i;
 
@@ -76,7 +76,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 		if (SpeakerIndex == SPEAKER_Count)
 		{
 			Warn->Logf(ELogVerbosity::Error, TEXT("Failed to find speaker location; valid extensions are _fl, _fr, _fc, _lf, _sl, _sr, _bl, _br."));
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 			return(nullptr);
 		}
 
@@ -215,7 +215,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 			}
 		}
 
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, Sound);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Sound);
 
 		return(Sound);
 	}
@@ -223,7 +223,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 	{
 		// Unrecognized.
 		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound extension '%s' in %s"), FileType, *Name.ToString());
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 	}
 
 	return(nullptr);

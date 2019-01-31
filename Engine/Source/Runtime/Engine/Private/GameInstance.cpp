@@ -555,12 +555,48 @@ bool UGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 	return Engine->HandleOpenCommand(Cmd, Ar, InWorld);
 }
 
+bool UGameInstance::HandleDisconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleDisconnectCommand(Cmd, Ar, InWorld);
+}
+
+bool UGameInstance::HandleReconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleReconnectCommand(Cmd, Ar, InWorld);
+}
+
+bool UGameInstance::HandleTravelCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleTravelCommand(Cmd, Ar, InWorld);
+}
+
 bool UGameInstance::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	// @todo a bunch of stuff in UEngine probably belongs here as well
 	if (FParse::Command(&Cmd, TEXT("OPEN")))
 	{
 		return HandleOpenCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("DISCONNECT")))
+	{
+		return HandleDisconnectCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("RECONNECT")))
+	{
+		return HandleReconnectCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("TRAVEL")))
+	{
+		return HandleTravelCommand(Cmd, Ar, InWorld);
 	}
 
 	return false;

@@ -3080,6 +3080,10 @@ namespace SceneOutliner
 				}
 			}
 		}
+		else if (CommitInfo == ETextCommit::OnCleared)
+		{
+			OnFilterTextChanged(InFilterText);
+		}
 	}
 
 	EVisibility SSceneOutliner::GetFilterStatusVisibility() const

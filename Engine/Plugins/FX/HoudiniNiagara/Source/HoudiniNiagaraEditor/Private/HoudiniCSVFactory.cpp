@@ -88,7 +88,7 @@ UHoudiniCSVFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName 
 	AssetImportData->Update(UFactory::GetCurrentFilename());
 
 	// Broadcast notification that the new asset has been imported.
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, NewHoudiniCSVObject);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewHoudiniCSVObject);
 
 	return NewHoudiniCSVObject;
 }

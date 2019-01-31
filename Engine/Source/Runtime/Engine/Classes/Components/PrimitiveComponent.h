@@ -1474,7 +1474,7 @@ public:
 	virtual bool IsEditorOnly() const override;
 	virtual bool ShouldCreatePhysicsState() const override;
 	virtual bool HasValidPhysicsState() const override;
-	virtual class FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	//~ End UActorComponent Interface
 
@@ -2299,24 +2299,31 @@ public:
  *  Component instance cached data base class for primitive components. 
  *  Stores a list of instance components attached to the 
  */
-class ENGINE_API FPrimitiveComponentInstanceData : public FSceneComponentInstanceData
+USTRUCT()
+struct ENGINE_API FPrimitiveComponentInstanceData : public FSceneComponentInstanceData
 {
+	GENERATED_BODY()
 public:
+	FPrimitiveComponentInstanceData() = default;
 	FPrimitiveComponentInstanceData(const UPrimitiveComponent* SourceComponent);
-	virtual ~FPrimitiveComponentInstanceData()
-	{}
+	virtual ~FPrimitiveComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override;
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
 	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
-	bool ContainsData() const;
-
 	const FTransform& GetComponentTransform() const { return ComponentTransform; }
 
 private:
+	UPROPERTY()
 	FTransform ComponentTransform;
+
+	UPROPERTY()
 	int32 VisibilityId;
+
+	UPROPERTY()
 	UPrimitiveComponent* LODParent;
 };
 

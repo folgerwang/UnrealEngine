@@ -917,7 +917,7 @@ public:
 	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
-	virtual class FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End ActorComponent Interface
 
 	// Call UpdateComponentToWorld if bComponentToWorldUpdated is false.
@@ -1387,19 +1387,24 @@ FORCEINLINE_DEBUGGABLE void USceneComponent::AddRelativeRotation(FRotator DeltaR
  *  Component instance cached data base class for scene components. 
  *  Stores a list of instance components attached to the 
  */
-class ENGINE_API FSceneComponentInstanceData : public FActorComponentInstanceData
+USTRUCT()
+struct ENGINE_API FSceneComponentInstanceData : public FActorComponentInstanceData
 {
-public:
+	GENERATED_BODY()
+
+	FSceneComponentInstanceData() = default;
 	FSceneComponentInstanceData(const USceneComponent* SourceComponent);
 			
-	virtual ~FSceneComponentInstanceData()
-	{}
+	virtual ~FSceneComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override;
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override;
 	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
-	TArray<TPair<USceneComponent*, FTransform>> AttachedInstanceComponents;
+	UPROPERTY() 
+	TMap<USceneComponent*, FTransform> AttachedInstanceComponents;
 };
 
 

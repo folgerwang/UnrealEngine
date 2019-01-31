@@ -186,12 +186,16 @@ public:
 	/** Get the current orientation of the scrollbox. */
 	EOrientation GetOrientation();
 
+	void SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel);
+
 	/** Sets the current orientation of the scrollbox and updates the layout */
 	void SetOrientation(EOrientation InOrientation);
 
 	void SetScrollBarVisibility(EVisibility InVisibility);
 
 	void SetScrollBarAlwaysVisible(bool InAlwaysVisible);
+	
+	void SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible);
 
 	void SetScrollBarThickness(FVector2D InThickness);
 

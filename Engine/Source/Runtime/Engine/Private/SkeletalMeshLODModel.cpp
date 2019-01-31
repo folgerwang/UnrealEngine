@@ -693,6 +693,23 @@ void FSkeletalMeshLODModel::Serialize(FArchive& Ar, UObject* Owner, int32 Idx)
 				{
 					FColorVertexBuffer DummyColorBuffer;
 					DummyColorBuffer.Serialize(Ar, false);
+					//Copy the data to the softVertices
+					int32 VertexColorCount = DummyColorBuffer.GetNumVertices();
+					if (NumVertices == VertexColorCount)
+					{
+						TArray<FColor> OutColors;
+						DummyColorBuffer.GetVertexColors(OutColors);
+						int32 DummyVertexColorIndex = 0;
+						for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
+						{
+							int32 SectionVertexCount = Sections[SectionIndex].GetNumVertices();
+							TArray<FSoftSkinVertex>& SoftVertices = Sections[SectionIndex].SoftVertices;
+							for (int32 SectionVertexIndex = 0; SectionVertexIndex < SectionVertexCount; ++SectionVertexIndex)
+							{
+								SoftVertices[SectionVertexIndex].Color = OutColors[DummyVertexColorIndex++];
+							}
+						}
+					}
 				}
 			}
 
@@ -839,7 +856,7 @@ int32 FSkeletalMeshLODModel::GetNumNonClothingVertices() const
 		// Stop when we hit clothing sections
 		if (Section.ClothingData.AssetGuid.IsValid())
 		{
-			break;
+			continue;
 		}
 
 		NumVerts += Section.SoftVertices.Num();
@@ -851,15 +868,10 @@ int32 FSkeletalMeshLODModel::GetNumNonClothingVertices() const
 void FSkeletalMeshLODModel::GetNonClothVertices(TArray<FSoftSkinVertex>& OutVertices) const
 {
 	// Get the number of sections to copy
-	int32 NumSections = NumNonClothingSections();
+	int32 NumSections = Sections.Num();
 
 	// Count number of verts
-	int32 NumVertsToCopy = 0;
-	for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
-	{
-		const FSkelMeshSection& Section = Sections[SectionIndex];
-		NumVertsToCopy += Section.SoftVertices.Num();
-	}
+	int32 NumVertsToCopy = GetNumNonClothingVertices();
 
 	OutVertices.Empty(NumVertsToCopy);
 	OutVertices.AddUninitialized(NumVertsToCopy);
@@ -870,6 +882,10 @@ void FSkeletalMeshLODModel::GetNonClothVertices(TArray<FSoftSkinVertex>& OutVert
 	for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
 	{
 		const FSkelMeshSection& Section = Sections[SectionIndex];
+		if (Section.HasClothingData())
+		{
+			continue;
+		}
 		FMemory::Memcpy(DestVertex, Section.SoftVertices.GetData(), Section.SoftVertices.Num() * sizeof(FSoftSkinVertex));
 		DestVertex += Section.SoftVertices.Num();
 	}

@@ -327,6 +327,11 @@ public:
 	 */
 	static const TArray<FString>& GetGameLocalizationPaths();
 
+	/**
+	 * Get the name of the platform-specific localization sub-folder
+	 */
+	static FString GetPlatformLocalizationFolderName();
+
 	/** 
 	 * Returns a list of restricted/internal folder names (without any slashes) which may be tested against full paths to determine if a path is restricted or not.
 	 */

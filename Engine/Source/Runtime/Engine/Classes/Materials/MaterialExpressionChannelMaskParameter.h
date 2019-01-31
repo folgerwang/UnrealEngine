@@ -41,5 +41,5 @@ class UMaterialExpressionChannelMaskParameter : public UMaterialExpressionVector
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Float4;}
 #endif
 
-	virtual bool IsUsedAsChannelMask() override {return true;}
+	virtual bool IsUsedAsChannelMask() const override {return true;}
 };

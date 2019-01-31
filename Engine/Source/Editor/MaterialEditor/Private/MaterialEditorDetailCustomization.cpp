@@ -492,7 +492,10 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 	check(ScalarParameterObjects.Num() == DefaultValueHandles.Num());
 	
 	Category.AddProperty("ParameterName");
-	
+
+	const FName MaterialExpressionCategory = TEXT("MaterialExpression");
+	IDetailCategoryBuilder& ExpressionCategory = DetailLayout.EditCategory(MaterialExpressionCategory);
+
 	// Get a handle to the property we are about to edit
 	GroupPropertyHandle = DetailLayout.GetProperty( "Group" );
 
@@ -506,39 +509,39 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 
 		PopulateGroups();	
 
-		Category.AddCustomRow(GroupPropertyHandle->GetPropertyDisplayName())
+		ExpressionCategory.AddCustomRow(GroupPropertyHandle->GetPropertyDisplayName())
 			.NameContent()
 			[
 				SNew(STextBlock)
 				.Text(GroupPropertyHandle->GetPropertyDisplayName())
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
-		.ValueContent()
+			.ValueContent()
 			[
 				SAssignNew(NewComboButton, SComboButton)
 				.ContentPadding(FMargin(2.0f, 2.0f))
-			.ButtonContent()
-			[
-				SAssignNew(NewEditBox, SEditableText)
-				.Text(this, &FMaterialExpressionParameterDetails::OnGetText)
-			.OnTextCommitted(this, &FMaterialExpressionParameterDetails::OnTextCommitted)
-			]
-		.MenuContent()
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-			.AutoHeight()
-			.MaxHeight(400.0f)
-			[
-				SAssignNew(NewListView, SListView<TSharedPtr<FString>>)
-				.ListItemsSource(&GroupsSource)
-			.OnGenerateRow(this, &FMaterialExpressionParameterDetails::MakeDetailsGroupViewWidget)
-			.OnSelectionChanged(this, &FMaterialExpressionParameterDetails::OnSelectionChanged)
-			]
-			]
+				.ButtonContent()
+				[
+					SAssignNew(NewEditBox, SEditableText)
+					.Text(this, &FMaterialExpressionParameterDetails::OnGetText)
+					.OnTextCommitted(this, &FMaterialExpressionParameterDetails::OnTextCommitted)
+				]
+				.MenuContent()
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.MaxHeight(400.0f)
+					[
+						SAssignNew(NewListView, SListView<TSharedPtr<FString>>)
+						.ListItemsSource(&GroupsSource)
+						.OnGenerateRow(this, &FMaterialExpressionParameterDetails::MakeDetailsGroupViewWidget)
+						.OnSelectionChanged(this, &FMaterialExpressionParameterDetails::OnSelectionChanged)
+					]
+				]
 			];
 
-		Category.AddProperty("SortPriority");
+		ExpressionCategory.AddProperty("SortPriority");
 	}
 
 	GroupComboButton = NewComboButton;

@@ -304,6 +304,7 @@ UEditorEngine* GEditor = nullptr;
 
 UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, EditorSubsystemCollection(this)
 {
 	if (!IsRunningCommandlet() && !IsRunningDedicatedServer())
 	{
@@ -717,6 +718,8 @@ void UEditorEngine::HandleSettingChanged( FName Name )
 
 void UEditorEngine::InitializeObjectReferences()
 {
+	EditorSubsystemCollection.Initialize();
+
 	Super::InitializeObjectReferences();
 
 	if ( PlayFromHerePlayerStartClass == NULL )
@@ -1136,7 +1139,7 @@ void UEditorEngine::RemoveLevelViewportClients(FLevelEditorViewportClient* Viewp
 void UEditorEngine::BroadcastObjectReimported(UObject* InObject)
 {
 	ObjectReimportedEvent.Broadcast(InObject);
-	FEditorDelegates::OnAssetReimport.Broadcast(InObject);
+	GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetReimport(InObject);
 }
 
 void UEditorEngine::FinishDestroy()

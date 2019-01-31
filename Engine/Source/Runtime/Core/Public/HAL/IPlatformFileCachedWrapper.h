@@ -433,6 +433,10 @@ public:
 	{
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		return LowerLevel->OpenMapped(Filename);
+	}
 	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags MinPriority) override
 	{
 		LowerLevel->SetAsyncMinimumPriority(MinPriority);

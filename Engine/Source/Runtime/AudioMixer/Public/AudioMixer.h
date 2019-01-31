@@ -19,7 +19,7 @@
 
 #ifndef AUDIO_MIXER_ENABLE_DEBUG_MODE
 // This define enables a bunch of more expensive debug checks and logging capabilities that are intended to be off most of the time even in debug builds of game/editor.
-#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST || UE_BUILD_DEVELOPMENT)
 #define AUDIO_MIXER_ENABLE_DEBUG_MODE 0
 #else
 #define AUDIO_MIXER_ENABLE_DEBUG_MODE 1

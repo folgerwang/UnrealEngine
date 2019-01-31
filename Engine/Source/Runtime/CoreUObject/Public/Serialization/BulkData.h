@@ -62,6 +62,9 @@ enum EBulkDataLockFlags
 	LOCK_READ_WRITE								= 2,
 };
 
+class IMappedFileHandle;
+class IMappedFileRegion;
+
 /*-----------------------------------------------------------------------------
 	Base version of untyped bulk data.
 -----------------------------------------------------------------------------*/
@@ -77,15 +80,21 @@ private:
 	{
 		FAllocatedPtr()
 			: Ptr       (nullptr)
+			, MappedHandle(nullptr)
+			, MappedRegion(nullptr)
 			, bAllocated(false)
 		{
 		}
 
 		FAllocatedPtr(FAllocatedPtr&& Other)
 			: Ptr       (Other.Ptr)
+			, MappedHandle(Other.MappedHandle)
+			, MappedRegion(Other.MappedRegion)
 			, bAllocated(Other.bAllocated)
 		{
-			Other.Ptr        = nullptr;
+			Other.Ptr = nullptr;
+			Other.MappedHandle = nullptr;
+			Other.MappedRegion = nullptr;
 			Other.bAllocated = false;
 		}
 
@@ -99,7 +108,7 @@ private:
 
 		~FAllocatedPtr()
 		{
-			FMemory::Free(Ptr);
+			Deallocate();
 		}
 
 		void* Get() const
@@ -114,6 +123,7 @@ private:
 
 		void Reallocate(int32 Count, int32 Alignment = DEFAULT_ALIGNMENT)
 		{
+			check(!MappedHandle && !MappedRegion); // not legal for mapped bulk data
 			if (Count)
 			{
 				Ptr = FMemory::Realloc(Ptr, Count, Alignment);
@@ -129,6 +139,11 @@ private:
 
 		void* ReleaseWithoutDeallocating()
 		{
+			if (MappedHandle || MappedRegion)
+			{
+				// Super scary, we returned a pointer to a mapped file but we have no guarantees that this outlives the pointer we let out into the engine
+				// @todo transfer ownership properly by making FAllocatedPtr a public thing that can be used by people to take ownership of the entire mapping. 
+			}
 			void* Result = Ptr;
 			Ptr = nullptr;
 			bAllocated = false;
@@ -137,16 +152,25 @@ private:
 
 		void Deallocate()
 		{
+			if (MappedHandle || MappedRegion)
+			{
+				UnmapFile();
+			}
 			FMemory::Free(Ptr);
 			Ptr = nullptr;
 			bAllocated = false;
 		}
+
+		COREUOBJECT_API bool MapFile(const TCHAR *Filename, int64 Offset, int64 Size);
+		COREUOBJECT_API void UnmapFile();
 
 	private:
 		FAllocatedPtr(const FAllocatedPtr&);
 		FAllocatedPtr& operator=(const FAllocatedPtr&);
 
 		void* Ptr;
+		IMappedFileHandle* MappedHandle;
+		IMappedFileRegion* MappedRegion;
 		bool  bAllocated;
 	};
 
@@ -395,8 +419,9 @@ public:
 	 * @param Ar	Archive to serialize with
 	 * @param Owner	Object owning the bulk data
 	 * @param Idx	Index of bulk data item being serialized
+	 * @param bAttemptFileMapping	If true, attempt to map this instead of loading it into malloc'ed memory
 	 */
-	void Serialize( FArchive& Ar, UObject* Owner, int32 Idx=INDEX_NONE );
+	void Serialize( FArchive& Ar, UObject* Owner, int32 Idx=INDEX_NONE, bool bAttemptFileMapping = false);
 
 	/**
 	 * Serialize just the bulk data portion to/ from the passed in memory.
@@ -662,5 +687,6 @@ public:
 		Formats.Empty();
 	}
 	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = nullptr, bool bSingleUse = true, uint32 InAlignment = DEFAULT_ALIGNMENT);
+	COREUOBJECT_API void SerializeAttemptMappedLoad(FArchive& Ar, UObject* Owner);
 };
 

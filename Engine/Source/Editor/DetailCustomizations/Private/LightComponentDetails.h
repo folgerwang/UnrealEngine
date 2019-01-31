@@ -27,8 +27,8 @@ private:
 	bool IsUseIESBrightnessEnabled() const;
 	bool IsIESBrightnessScaleEnabled() const;
 
-	void ResetIntensityToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component);
-	bool IsIntensityResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component) const;
+	void ResetIntensityToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TWeakObjectPtr<ULightComponent> Component);
+	bool IsIntensityResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, TWeakObjectPtr<ULightComponent> Component) const;
 
 private:
 	TSharedPtr<IPropertyHandle> IESBrightnessTextureProperty;

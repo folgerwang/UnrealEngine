@@ -53,7 +53,7 @@ bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback_Handle( const FStrin
 	}
 	else
 	{
-		Request = new FDirectoryWatchRequestMac(Flags);
+		Request = new FDirectoryWatchRequestMac();
 		NumRequests++;
 
 		// Begin reading directory changes
@@ -68,7 +68,7 @@ bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback_Handle( const FStrin
 		RequestMap.Add(Directory, Request);
 	}
 
-	OutHandle = Request->AddDelegate(InDelegate);
+	OutHandle = Request->AddDelegate(InDelegate, Flags);
 
 	return true;
 }

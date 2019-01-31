@@ -14,12 +14,14 @@
 #include "Styling/SlateTypes.h"
 #include "Styling/SlateWidgetStyleAsset.h"
 #include "Types/SlateStructs.h"
+#include "Widgets/Views/SListView.h"
+#include "Misc/TextFilter.h"
 
 class SEditableTextBox;
 class SMultiLineEditableTextBox;
 
-template <typename OptionType>
-class SComboBox;
+class SComboButton;
+class SSearchBox;
 
 /** Interface to allow STextPropertyEditableTextBox to be used to edit both properties and Blueprint pins */
 class IEditableTextProperty
@@ -32,7 +34,7 @@ public:
 		EditedSource,
 	};
 
-	virtual ~IEditableTextProperty() {}
+	virtual ~IEditableTextProperty() = default;
 
 	/** Are the text properties being edited marked as multi-line? */
 	virtual bool IsMultiLineText() const = 0;
@@ -108,15 +110,21 @@ private:
 	void GetTableIdAndKey(FName& OutTableId, FString& OutKey) const;
 	void SetTableIdAndKey(const FName InTableId, const FString& InKey);
 
-	TSharedRef<SWidget> MakeStringTableComboWidget(TSharedPtr<FAvailableStringTable> InItem);
+	void OnOptionsFilterTextChanged(const FText& InNewText);
+	void OnKeysFilterTextChanged(const FText& InNewText);
+
+	TSharedRef<SWidget> OnGetStringTableComboOptions();
+	TSharedRef<class ITableRow> OnGenerateStringTableComboOption(TSharedPtr<FAvailableStringTable> InItem, const TSharedRef<class STableViewBase>& OwnerTable);
+	TSharedRef<SWidget> OnGetStringTableKeyOptions();
+	TSharedRef<class ITableRow> OnGenerateStringTableKeyOption(TSharedPtr<FString> InItem, const TSharedRef<class STableViewBase>& OwnerTable);
+
 	void OnStringTableComboChanged(TSharedPtr<FAvailableStringTable> NewSelection, ESelectInfo::Type SelectInfo);
-	void OnStringTableComboOpening();
+	void UpdateStringTableComboOptions();
 	FText GetStringTableComboContent() const;
 	FText GetStringTableComboToolTip() const;
 
-	TSharedRef<SWidget> MakeKeyComboWidget(TSharedPtr<FString> InItem);
 	void OnKeyComboChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	void OnKeyComboOpening();
+	void UpdateStringTableKeyOptions();
 	FText GetKeyComboContent() const;
 	FText GetKeyComboToolTip() const;
 
@@ -125,10 +133,20 @@ private:
 
 	TSharedPtr<IEditableTextProperty> EditableTextProperty;
 
-	TSharedPtr<SComboBox<TSharedPtr<FAvailableStringTable>>> StringTableCombo;
-	TArray<TSharedPtr<FAvailableStringTable>> StringTableComboOptions;
+	using FOptionTextFilter = TTextFilter< TSharedPtr<FAvailableStringTable> >;
+	TSharedPtr<FOptionTextFilter> OptionTextFilter;
+	TSharedPtr<SSearchBox> OptionsSearchBox;
 
-	TSharedPtr<SComboBox<TSharedPtr<FString>>> KeyCombo;
+	using FKeyTextFilter = TTextFilter< TSharedPtr<FString> >;
+	TSharedPtr<FKeyTextFilter> KeyTextFilter;
+	TSharedPtr<SSearchBox> KeysSearchBox;
+
+	TSharedPtr<SComboButton> StringTableOptionsCombo;
+	TSharedPtr<SListView<TSharedPtr<FAvailableStringTable>>> StringTableOptionsList;
+	TSharedPtr<SComboButton> StringTableKeysCombo;
+	TSharedPtr<SListView<TSharedPtr<FString>>> StringTableKeysList;
+
+	TArray<TSharedPtr<FAvailableStringTable>> StringTableComboOptions;
 	TArray<TSharedPtr<FString>> KeyComboOptions;
 };
 

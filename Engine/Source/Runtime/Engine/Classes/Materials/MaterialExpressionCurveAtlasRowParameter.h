@@ -23,7 +23,7 @@ class UMaterialExpressionCurveAtlasRowParameter : public UMaterialExpressionScal
 	UPROPERTY()
 	FExpressionInput InputTime;
 
-	virtual bool IsUsedAsAtlasPosition() override { return true; }
+	virtual bool IsUsedAsAtlasPosition() const override { return true; }
 	virtual UTexture* GetReferencedTexture() override;
 	virtual bool CanReferenceTexture() const { return true; }
 

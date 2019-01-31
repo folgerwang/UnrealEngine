@@ -2130,7 +2130,7 @@ bool UAnimSequenceExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type,
 		}
 
 		Exporter->CreateDocument();
-		Exporter->ExportAnimSequence(AnimSequence, PreviewMesh, false);
+		Exporter->ExportAnimSequence(AnimSequence, PreviewMesh, Exporter->GetExportOptions()->bExportPreviewMesh);
 		Exporter->WriteToFile( *UExporter::CurrentFilename );
 		Exporter->SetExportOptionsOverride(nullptr);
 

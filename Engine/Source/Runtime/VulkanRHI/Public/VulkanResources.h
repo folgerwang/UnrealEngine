@@ -719,25 +719,25 @@ inline FVulkanTextureBase* GetVulkanTextureFromRHITexture(FRHITexture* Texture)
 	{
 		return NULL;
 	}
-	else if (Texture->GetTexture2D())
+	else if (FRHITexture2D* Tex2D = Texture->GetTexture2D())
 	{
-		return static_cast<FVulkanTexture2D*>(Texture);
+		return static_cast<FVulkanTexture2D*>(Tex2D);
 	}
-	else if (Texture->GetTextureReference())
+	else if (FRHITextureReference* TexRef = Texture->GetTextureReference())
 	{
-		return static_cast<FVulkanTextureReference*>(Texture);
+		return static_cast<FVulkanTextureReference*>(TexRef);
 	}
-	else if (Texture->GetTexture2DArray())
+	else if (FRHITexture2DArray* Tex2DArray = Texture->GetTexture2DArray())
 	{
-		return static_cast<FVulkanTexture2DArray*>(Texture);
+		return static_cast<FVulkanTexture2DArray*>(Tex2DArray);
 	}
-	else if (Texture->GetTexture3D())
+	else if (FRHITexture3D* Tex3D = Texture->GetTexture3D())
 	{
-		return static_cast<FVulkanTexture3D*>(Texture);
+		return static_cast<FVulkanTexture3D*>(Tex3D);
 	}
-	else if (Texture->GetTextureCube())
+	else if (FRHITextureCube* TexCube = Texture->GetTextureCube())
 	{
-		return static_cast<FVulkanTextureCube*>(Texture);
+		return static_cast<FVulkanTextureCube*>(TexCube);
 	}
 	else
 	{
@@ -769,6 +769,7 @@ public:
 
 protected:
 	VkQueryPool QueryPool;
+	VkEvent ResetEvent;
 	const uint32 MaxQueries;
 	const VkQueryType QueryType;
 	TArray<uint64> QueryOutput;

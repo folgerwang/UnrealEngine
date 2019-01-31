@@ -147,7 +147,63 @@ PyTypeObject PyScopedEditorTransactionType = InitializePyScopedEditorTransaction
 namespace PyEditor
 {
 
+static PyObject* GetEngineSubsystem(FPyScopedEditorTransaction* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_engine_subsystem", &PyObj))
+	{
+		return nullptr;
+	}
+	check(PyObj);
+
+	UClass* Class = nullptr;
+	if (!PyConversion::NativizeClass(PyObj, Class, UEngineSubsystem::StaticClass()))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("get_engine_subsystem"), *FString::Printf(TEXT("Parameter must be a 'Class' not '%s'"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return nullptr;
+	}
+
+	if (GEditor)
+	{
+		if (USubsystem* Subsystem = GEditor->GetEngineSubsystemBase(Class))
+		{
+			return PyConversion::Pythonize(Subsystem);
+		}
+	}
+
+	Py_RETURN_NONE;
+}
+
+static PyObject* GetEditorSubsystem(FPyScopedEditorTransaction* InSelf, PyObject* InArgs)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, "O:get_editor_subsystem", &PyObj))
+	{
+		return nullptr;
+	}
+	check(PyObj);
+
+	UClass* Class = nullptr;
+	if (!PyConversion::NativizeClass(PyObj, Class, UEditorSubsystem::StaticClass()))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, TEXT("get_editor_subsystem"), *FString::Printf(TEXT("Parameter must be a 'Class' not '%s'"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return nullptr;
+	}
+
+	if (GEditor)
+	{
+		if (USubsystem* Subsystem = GEditor->GetEditorSubsystemBase(Class))
+		{
+			return PyConversion::Pythonize(Subsystem);
+		}
+	}
+
+	Py_RETURN_NONE;
+}
+
 PyMethodDef PyEditorMethods[] = {
+	{ "get_engine_subsystem", PyCFunctionCast(&PyEditor::GetEngineSubsystem), METH_VARARGS, "unreal.get_engine_subsystem() -> subsystem -- returns the requested subsystem could be null" },
+	{ "get_editor_subsystem", PyCFunctionCast(&PyEditor::GetEditorSubsystem), METH_VARARGS, "unreal.get_editor_subsystem() -> subsystem -- returns the requested subsystem could be null" },
 	{ nullptr, nullptr, 0, nullptr }
 };
 

@@ -13,6 +13,7 @@ UScrollBar::UScrollBar(const FObjectInitializer& ObjectInitializer)
 	bIsVariable = false;
 
 	bAlwaysShowScrollbar = true;
+	bAlwaysShowScrollbarTrack = true;
 	Orientation = Orient_Vertical;
 	Thickness = FVector2D(12.0f, 12.0f);
 
@@ -32,6 +33,7 @@ TSharedRef<SWidget> UScrollBar::RebuildWidget()
 	MyScrollBar = SNew(SScrollBar)
 		.Style(&WidgetStyle)
 		.AlwaysShowScrollbar(bAlwaysShowScrollbar)
+		.AlwaysShowScrollbarTrack(bAlwaysShowScrollbarTrack)
 		.Orientation(Orientation)
 		.Thickness(Thickness);
 

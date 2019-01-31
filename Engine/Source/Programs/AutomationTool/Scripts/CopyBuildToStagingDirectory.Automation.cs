@@ -268,13 +268,25 @@ public partial class Project : CommandUtils
 
 	private static void StageLocalizationDataForTarget(DeploymentContext SC, List<string> CulturesToStage, DirectoryReference SourceDirectory)
 	{
+		var PlatformSourceDirectory = new DirectoryReference(CombinePaths(SourceDirectory.FullName, "Platforms", ConfigHierarchy.GetIniPlatformName(SC.StageTargetPlatform.IniPlatformType)));
+		if (!DirectoryReference.Exists(PlatformSourceDirectory))
+		{
+			PlatformSourceDirectory = null;
+		}
+
 		foreach (FileReference SourceFile in DirectoryReference.EnumerateFiles(SourceDirectory, "*.locmeta"))
 		{
 			SC.StageFile(StagedFileType.UFS, SourceFile);
 		}
+
 		foreach (string Culture in CulturesToStage)
 		{
 			StageLocalizationDataForCulture(SC, Culture, SourceDirectory);
+
+			if (PlatformSourceDirectory != null)
+			{
+				StageLocalizationDataForCulture(SC, Culture, PlatformSourceDirectory);
+			}
 		}
 	}
 

@@ -627,7 +627,7 @@ void FPrimitiveComponentInstanceData::ApplyToComponent(UActorComponent* Componen
 		PrimitiveComponent->VisibilityId = VisibilityId;
 	}
 
-	if (Component->IsRegistered() && ((VisibilityId != INDEX_NONE) || ContainsSavedProperties()))
+	if (Component->IsRegistered() && ((VisibilityId != INDEX_NONE) || SavedProperties.Num() > 0))
 	{
 		Component->MarkRenderStateDirty();
 	}
@@ -635,12 +635,12 @@ void FPrimitiveComponentInstanceData::ApplyToComponent(UActorComponent* Componen
 
 bool FPrimitiveComponentInstanceData::ContainsData() const
 {
-	return (ContainsSavedProperties() || AttachedInstanceComponents.Num() > 0 || LODParent || (VisibilityId != INDEX_NONE));
+	return (Super::ContainsData() || LODParent || (VisibilityId != INDEX_NONE));
 }
 
 void FPrimitiveComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	FSceneComponentInstanceData::AddReferencedObjects(Collector);
+	Super::AddReferencedObjects(Collector);
 
 	// if LOD Parent
 	if (LODParent)
@@ -663,17 +663,9 @@ void FPrimitiveComponentInstanceData::FindAndReplaceInstances(const TMap<UObject
 	}
 }
 
-FActorComponentInstanceData* UPrimitiveComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UPrimitiveComponent::GetComponentInstanceData() const
 {
-	FPrimitiveComponentInstanceData* InstanceData = new FPrimitiveComponentInstanceData(this);
-
-	if (!InstanceData->ContainsData())
-	{
-		delete InstanceData;
-		InstanceData = nullptr;
-	}
-
-	return InstanceData;
+	return MakeStructOnScope<FActorComponentInstanceData, FPrimitiveComponentInstanceData>(this);
 }
 
 void UPrimitiveComponent::OnAttachmentChanged()

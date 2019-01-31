@@ -91,6 +91,11 @@ static const bool IsAvailableOnWindows = false;
 static const bool IsAvailableOnMac = false;
 static const bool IsAvailableOnLinux = true;
 static const FString IOSTutorial = TEXT("/Engine/Tutorial/NotYetImplemented");
+#else
+static const bool IsAvailableOnWindows = false;
+static const bool IsAvailableOnMac = false;
+static const bool IsAvailableOnLinux = false;
+static const FString IOSTutorial = TEXT("/Engine/Tutorial/NotYetImplemented");
 #endif
 
 static const FPlatformInfo AllPlatformInfoArray[] = {

@@ -81,6 +81,8 @@ struct FTextureBuildSettings
 	uint32 MaxTextureResolution;
 	/** Format of the compressed texture, used to choose a compression DLL. */
 	FName TextureFormatName;
+	/** Whether the texture being built contains HDR source data */
+	bool bHDRSource;
 	/** Mipmap generation settings. */
 	uint8 MipGenSettings; // TextureMipGenSettings, opaque to avoid dependencies on engine headers.
 	/** Whether the texture being built is a cubemap. */
@@ -149,6 +151,7 @@ struct FTextureBuildSettings
 		, DiffuseConvolveMipLevel(0)
 		, SharpenMipKernelSize(2)
 		, MaxTextureResolution(TNumericLimits<uint32>::Max())
+		, bHDRSource(false)
 		, MipGenSettings(1 /*TMGS_SimpleAverage*/)
 		, bCubemap(false)
 		, bVolume(false)

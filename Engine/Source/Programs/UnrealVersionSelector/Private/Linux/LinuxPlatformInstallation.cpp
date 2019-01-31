@@ -150,8 +150,7 @@ public:
 						SNew(SHorizontalBox)
 
 						+SHorizontalBox::Slot()
-							.AutoWidth()
-							.MaxWidth(450.0f)
+							.FillWidth(1)
 							.HAlign(HAlign_Fill)
 							.VAlign(VAlign_Center)
 							.Padding(2.0f)
@@ -163,8 +162,7 @@ public:
 									.InitiallySelectedItem(SelectBuildInfo->SelectedEngineInstallationInfo)
 									[
 										SNew(STextBlock)
-											.MinDesiredWidth(425.0f)
-											.Text(FText::FromString(SelectBuildInfo->SelectedEngineInstallationInfo->Description))
+											.Text(this, &SSelectBuildDialog::GetSelectedEngineInstallDescription)
 									]
 							]
 
@@ -225,6 +223,11 @@ private:
 	{
 		return SNew(STextBlock)
 					.Text(FText::FromString(Item->Description));
+	}
+
+	FText GetSelectedEngineInstallDescription() const
+	{
+		return FText::FromString(SelectBuildInfo->SelectedEngineInstallationInfo->Description);
 	}
 
 	void OnSelectionChanged(TSharedPtr<FEngineInstallationInfo> Item, ESelectInfo::Type SelectInfo)

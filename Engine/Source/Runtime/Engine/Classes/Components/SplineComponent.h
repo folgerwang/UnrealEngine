@@ -272,7 +272,7 @@ public:
 	//~ End UObject Interface
 
 	//~ Begin UActorComponent Interface.
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface.
 
 #if !UE_BUILD_SHIPPING
@@ -295,7 +295,7 @@ public:
 	FInterpCurveVector& GetSplinePointsScale() { return SplineCurves.Scale; }
 	const FInterpCurveVector& GetSplinePointsScale() const { return SplineCurves.Scale; }
 
-	void ApplyComponentInstanceData(class FSplineInstanceData* ComponentInstanceData, const bool bPostUCS);
+	void ApplyComponentInstanceData(struct FSplineInstanceData* ComponentInstanceData, const bool bPostUCS);
 
 	/** Update the spline tangents and SplineReparamTable */
 	UFUNCTION(BlueprintCallable, Category = Spline)
@@ -721,6 +721,44 @@ private:
 		}
 	}
 };
+
+/** Used to store spline data during RerunConstructionScripts */
+USTRUCT()
+struct FSplineInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FSplineInstanceData()
+		: bSplineHasBeenEdited(false)
+	{}
+	explicit FSplineInstanceData(const USplineComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+		, bSplineHasBeenEdited(false)
+	{}
+	virtual ~FSplineInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return Super::ContainsData() || bSplineHasBeenEdited;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<USplineComponent>(Component)->ApplyComponentInstanceData(this, (CacheApplyPhase == ECacheApplyPhase::PostUserConstructionScript));
+	}
+
+	UPROPERTY()
+	bool bSplineHasBeenEdited;
+
+	UPROPERTY()
+	FSplineCurves SplineCurves;
+
+	UPROPERTY()
+	FSplineCurves SplineCurvesPreUCS;
+};
+
+
 
 ENGINE_API EInterpCurveMode ConvertSplinePointTypeToInterpCurveMode(ESplinePointType::Type SplinePointType);
 ENGINE_API ESplinePointType::Type ConvertInterpCurveModeToSplinePointType(EInterpCurveMode InterpCurveMode);

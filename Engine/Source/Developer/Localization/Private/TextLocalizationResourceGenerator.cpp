@@ -18,13 +18,23 @@ bool FTextLocalizationResourceGenerator::GenerateLocMeta(const FLocTextHelper& I
 	return true;
 }
 
-bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextKey& InLocResID, FTextLocalizationResource& OutLocRes, const int32 InPriority)
+bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextKey& InLocResID, FTextLocalizationResource& OutPlatformAgnosticLocRes, TMap<FName, TSharedRef<FTextLocalizationResource>>& OutPerPlatformLocRes, const int32 InPriority)
 {
 	const bool bIsNativeCulture = InCultureToGenerate == InLocTextHelper.GetNativeCulture();
 	FCulturePtr Culture = FInternationalization::Get().GetCulture(InCultureToGenerate);
 
+	// Always add the split platforms so that they generate an empty LocRes if there are no entries for that platform in the master manifest
+	for (const FString& SplitPlatformName : InLocTextHelper.GetPlatformsToSplit())
+	{
+		const FName SplitPlatformFName = *SplitPlatformName;
+		if (!OutPerPlatformLocRes.Contains(SplitPlatformFName))
+		{
+			OutPerPlatformLocRes.Add(SplitPlatformFName, MakeShared<FTextLocalizationResource>());
+		}
+	}
+
 	// Add each manifest entry to the LocRes file
-	InLocTextHelper.EnumerateSourceTexts([&InLocTextHelper, &InCultureToGenerate, &bSkipSourceCheck, &InLocResID, &OutLocRes, InPriority, bIsNativeCulture, Culture](TSharedRef<FManifestEntry> InManifestEntry) -> bool
+	InLocTextHelper.EnumerateSourceTexts([&InLocTextHelper, &InCultureToGenerate, &bSkipSourceCheck, &InLocResID, &OutPlatformAgnosticLocRes, &OutPerPlatformLocRes, InPriority, bIsNativeCulture, Culture](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 	{
 		// For each context, we may need to create a different or even multiple LocRes entries.
 		for (const FManifestContext& Context : InManifestEntry->Contexts)
@@ -54,8 +64,19 @@ bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& In
 					}
 				}
 
+				// Find the LocRes to update
+				FTextLocalizationResource* LocResToUpdate = &OutPlatformAgnosticLocRes;
+				if (!Context.PlatformName.IsNone())
+				{
+					if (TSharedRef<FTextLocalizationResource>* PerPlatformLocRes = OutPerPlatformLocRes.Find(Context.PlatformName))
+					{
+						LocResToUpdate = &PerPlatformLocRes->Get();
+					}
+				}
+				check(LocResToUpdate);
+
 				// Add this entry to the LocRes
-				OutLocRes.AddEntry(InManifestEntry->Namespace.GetString(), Context.Key.GetString(), InManifestEntry->Source.Text, TranslationText.Text, InPriority, InLocResID);
+				LocResToUpdate->AddEntry(InManifestEntry->Namespace.GetString(), Context.Key.GetString(), InManifestEntry->Source.Text, TranslationText.Text, InPriority, InLocResID);
 			}
 		}
 
@@ -166,6 +187,7 @@ bool FTextLocalizationResourceGenerator::GenerateLocResAndUpdateLiveEntriesFromC
 	}
 
 	FTextLocalizationResource TextLocalizationResource;
+	TMap<FName, TSharedRef<FTextLocalizationResource>> Unused_PerPlatformLocRes;
 	for (int32 CultureIndex = 0; CultureIndex < CulturesToGenerate.Num(); ++CultureIndex)
 	{
 		const FString& CultureName = CulturesToGenerate[CultureIndex];
@@ -173,7 +195,7 @@ bool FTextLocalizationResourceGenerator::GenerateLocResAndUpdateLiveEntriesFromC
 		const FString CulturePath = DestinationPath / CultureName;
 		const FString ResourceFilePath = FPaths::ConvertRelativePathToFull(CulturePath / ResourceName);
 
-		if (!GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, FTextKey(ResourceFilePath), TextLocalizationResource, CultureIndex))
+		if (!GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, FTextKey(ResourceFilePath), TextLocalizationResource, Unused_PerPlatformLocRes, CultureIndex))
 		{
 			UE_LOG(LogTextLocalizationResourceGenerator, Error, TEXT("Failed to generate localization resource for culture '%s'."), *CultureName);
 			return false;

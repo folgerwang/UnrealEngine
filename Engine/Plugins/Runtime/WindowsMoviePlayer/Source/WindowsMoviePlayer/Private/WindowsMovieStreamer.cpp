@@ -400,7 +400,7 @@ HRESULT FVideoPlayer::Invoke(IMFAsyncResult* AsyncResult)
 	bool bFinishedAndClose = false;
 	switch (EventType)
 	{
-	case MEAudioSessionDeviceRemoved:
+	case MESinkInvalidated:
 		// Need to stop playback now or will be stuck forever
 		bFinishedAndClose = true;
 		break;

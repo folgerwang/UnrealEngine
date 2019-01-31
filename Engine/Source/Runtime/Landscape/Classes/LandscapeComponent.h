@@ -645,7 +645,7 @@ public:
 	void UpdateMaterialInstances_Internal(FMaterialUpdateContext& Context);
 
 	/** Helper function for UpdateMaterialInstance to get Material without set parameters */
-	UMaterialInstanceConstant* GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile = false) const;
+	UMaterialInstanceConstant* GetCombinationMaterial(FMaterialUpdateContext* InMaterialUpdateContext, const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile = false) const;
 	/**
 	 * Generate mipmaps for height and tangent data.
 	 * @param HeightmapTextureMipData - array of pointers to the locked mip data.

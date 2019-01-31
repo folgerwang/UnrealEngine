@@ -96,7 +96,7 @@ UObject* UUSDSceneImportFactory::FactoryCreateFile(UClass* InClass, UObject* InP
 			}
 		}
 
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, ImportContext.World);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, ImportContext.World);
 
 		GEditor->BroadcastLevelActorListChanged();
 

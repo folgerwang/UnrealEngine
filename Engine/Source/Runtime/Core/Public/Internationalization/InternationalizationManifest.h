@@ -19,6 +19,7 @@ public:
 	FManifestContext()
 		: Key()
 		, SourceLocation()
+		, PlatformName()
 		, bIsOptional(false)
 	{
 	}
@@ -26,6 +27,7 @@ public:
 	explicit FManifestContext(const FLocKey& InKey)
 		: Key(InKey)
 		, SourceLocation()
+		, PlatformName()
 		, bIsOptional(false)
 	{
 	}
@@ -41,6 +43,7 @@ public:
 public:
 	FLocKey Key;
 	FString SourceLocation;
+	FName PlatformName;
 	bool bIsOptional;
 
 	TSharedPtr<FLocMetadataObject> InfoMetadataObj;
@@ -98,6 +101,7 @@ public:
 
 	const FManifestContext* FindContext(const FLocKey& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = nullptr) const;
 	const FManifestContext* FindContextByKey(const FLocKey& ContextKey) const;
+	void MergeContextPlatformInfo(const FManifestContext& InContext);
 
 	const FLocKey Namespace;
 	const FLocItem Source;

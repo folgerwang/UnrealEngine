@@ -357,7 +357,7 @@ bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextKe
 	return true;
 }
 
-bool FTextLocalizationResource::SaveToFile(const FString& FilePath)
+bool FTextLocalizationResource::SaveToFile(const FString& FilePath) const
 {
 	TUniquePtr<FArchive> Writer(IFileManager::Get().CreateFileWriter(*FilePath));
 	if (!Writer)
@@ -371,7 +371,7 @@ bool FTextLocalizationResource::SaveToFile(const FString& FilePath)
 	return bSaved;
 }
 
-bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextKey& LocResID)
+bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextKey& LocResID) const
 {
 	// Write the header
 	{
@@ -608,35 +608,21 @@ TArray<FString> TextLocalizationResourceUtil::GetLocalizedCultureNames(const TAr
 {
 	TArray<FString> CultureNames;
 
-	// Find all unique culture folders that exist in the given paths
+	// Find all unique culture folders that exist in the given paths, skipping the platforms sub-folder
+	const FString PlatformFolderName = FPaths::GetPlatformLocalizationFolderName();
 	for (const FString& LocalizationPath : InLocalizationPaths)
 	{
-		/* Visitor class used to enumerate directories of culture */
-		class FCultureEnumeratorVistor : public IPlatformFile::FDirectoryVisitor
+		IFileManager::Get().IterateDirectory(*LocalizationPath, [&CultureNames, &PlatformFolderName](const TCHAR* FilenameOrDirectory, bool bIsDirectory) -> bool
 		{
-		public:
-			FCultureEnumeratorVistor(TArray<FString>& OutCultureNames)
-				: CultureNamesRef(OutCultureNames)
+			if (bIsDirectory && FCString::Stricmp(FilenameOrDirectory, *PlatformFolderName) != 0)
 			{
+				// UE localization resource folders use "en-US" style while ICU uses "en_US"
+				const FString LocalizationFolder = FPaths::GetCleanFilename(FilenameOrDirectory);
+				const FString CanonicalName = FCulture::GetCanonicalName(LocalizationFolder);
+				CultureNames.AddUnique(CanonicalName);
 			}
-
-			virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
-			{
-				if (bIsDirectory)
-				{
-					// UE localization resource folders use "en-US" style while ICU uses "en_US"
-					const FString LocalizationFolder = FPaths::GetCleanFilename(FilenameOrDirectory);
-					const FString CanonicalName = FCulture::GetCanonicalName(LocalizationFolder);
-					CultureNamesRef.AddUnique(CanonicalName);
-				}
-				return true;
-			}
-
-			TArray<FString>& CultureNamesRef;
-		};
-
-		FCultureEnumeratorVistor CultureEnumeratorVistor(CultureNames);
-		IFileManager::Get().IterateDirectory(*LocalizationPath, CultureEnumeratorVistor);
+			return true;
+		});
 	}
 
 	// Remove any cultures that were explicitly disallowed

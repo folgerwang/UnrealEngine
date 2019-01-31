@@ -67,7 +67,7 @@ bool FDirectoryWatcherLinux::RegisterDirectoryChangedCallback_Handle(const FStri
 		RequestMap.Add(Directory, Request);
 	}
 
-	OutHandle = Request->AddDelegate(InDelegate);
+	OutHandle = Request->AddDelegate(InDelegate, Flags);
 
 	return true;
 }

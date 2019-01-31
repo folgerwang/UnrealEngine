@@ -517,39 +517,18 @@ bool USkyLightComponent::IsReadyForFinishDestroy()
 	return Super::IsReadyForFinishDestroy() && ReleaseResourcesFence.IsFenceComplete();
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FPrecomputedSkyLightInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> USkyLightComponent::GetComponentInstanceData() const
 {
-public:
-	FPrecomputedSkyLightInstanceData(const USkyLightComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<USkyLightComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	FGuid LightGuid;
-	// This has to be refcounted to keep it alive during the handoff without doing a deep copy
-	TRefCountPtr<FSkyTextureCubeResource> ProcessedSkyTexture;
-	FSHVectorRGB3 IrradianceEnvironmentMap;
-	float AverageBrightness;
-	// RHI_RAYTRACING #SkyLightIS @todo:
-};
-
-FActorComponentInstanceData* USkyLightComponent::GetComponentInstanceData() const
-{
-	FPrecomputedSkyLightInstanceData* InstanceData = new FPrecomputedSkyLightInstanceData(this);
-	InstanceData->LightGuid = LightGuid;
-	InstanceData->ProcessedSkyTexture = ProcessedSkyTexture;
+	TStructOnScope<FActorComponentInstanceData> InstanceData = MakeStructOnScope<FActorComponentInstanceData, FPrecomputedSkyLightInstanceData>(this);
+	FPrecomputedSkyLightInstanceData* SkyLightInstanceData = InstanceData.Cast<FPrecomputedSkyLightInstanceData>();
+	SkyLightInstanceData->LightGuid = LightGuid;
+	SkyLightInstanceData->ProcessedSkyTexture = ProcessedSkyTexture;
 
 	// Block until the rendering thread has completed its writes from a previous capture
 	IrradianceMapFence.Wait();
-	InstanceData->IrradianceEnvironmentMap = IrradianceEnvironmentMap;
-	InstanceData->AverageBrightness = AverageBrightness;
-
+	SkyLightInstanceData->IrradianceEnvironmentMap = IrradianceEnvironmentMap;
+	SkyLightInstanceData->AverageBrightness = AverageBrightness;
+	// RHI_RAYTRACING #SkyLightIS @todo:
 	return InstanceData;
 }
 

@@ -133,6 +133,9 @@ public:
 	static const FString EngineModeExDirty;
 	static const FString EngineModeExVanilla;
 
+	// A guid that identifies this particular execution. Allows multiple crash reports from the same run of the project to be tied together
+	static const FGuid ExecutionGuid;
+
 	/** Initializes crash context related platform specific data that can be impossible to obtain after a crash. */
 	static void Initialize();
 

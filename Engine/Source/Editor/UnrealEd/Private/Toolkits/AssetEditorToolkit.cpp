@@ -89,6 +89,7 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 
 		// Create the label and the link for the toolkit documentation.
 		TAttribute<FText> Label = TAttribute<FText>( this, &FAssetEditorToolkit::GetToolkitName );
+		TAttribute<FText> LabelSuffix = TAttribute<FText>(this, &FAssetEditorToolkit::GetTabSuffix);
 		TAttribute<FText> ToolTipText = TAttribute<FText>( this, &FAssetEditorToolkit::GetToolkitToolTipText );
 		FString DocLink = GetDocumentationLink();
 		if ( !DocLink.StartsWith( "Shared/" ) )
@@ -97,13 +98,14 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		}
 
 		// Create a new SlateToolkitHost
-		NewMajorTab = SNew(SDockTab) 
-			.ContentPadding(0.0f) 
+		NewMajorTab = SNew(SDockTab)
+			.ContentPadding(0.0f)
 			.TabRole(ETabRole::MajorTab)
 			.ToolTip(IDocumentation::Get()->CreateToolTip(ToolTipText, nullptr, DocLink, GetToolkitFName().ToString()))
-			.Icon( this, &FAssetEditorToolkit::GetDefaultTabIcon )
-			.TabColorScale( this, &FAssetEditorToolkit::GetDefaultTabColor )
-			.Label( Label );
+			.Icon(this, &FAssetEditorToolkit::GetDefaultTabIcon)
+			.TabColorScale(this, &FAssetEditorToolkit::GetDefaultTabColor)
+			.Label(Label)
+			.LabelSuffix(LabelSuffix);
 
 		{
 			static_assert(sizeof(EAssetEditorToolkitTabLocation) == sizeof(int32), "EAssetEditorToolkitTabLocation is the incorrect size");
@@ -319,6 +321,20 @@ FText FAssetEditorToolkit::GetToolkitName() const
 	return GetLabelForObject(EditingObject);
 }
 
+FText FAssetEditorToolkit::GetTabSuffix() const
+{
+	bool bDirtyState = false;
+	for (int32 x = 0; x < EditingObjects.Num(); ++x)
+	{
+		if (EditingObjects[x]->GetOutermost()->IsDirty())
+		{
+			bDirtyState = true;
+			break;
+		}
+	}
+	return bDirtyState ? LOCTEXT("TabSuffixAsterix", "*") : FText::GetEmpty();
+}
+
 FText FAssetEditorToolkit::GetToolkitToolTipText() const
 {
 	const UObject* EditingObject = GetEditingObject();
@@ -330,7 +346,6 @@ FText FAssetEditorToolkit::GetToolkitToolTipText() const
 
 FText FAssetEditorToolkit::GetLabelForObject(const UObject* InObject)
 {
-	const bool bDirtyState = InObject->GetOutermost()->IsDirty();
 	FString NameString;
 	if(const AActor* ObjectAsActor = Cast<AActor>(InObject))
 	{
@@ -341,10 +356,7 @@ FText FAssetEditorToolkit::GetLabelForObject(const UObject* InObject)
 		NameString = InObject->GetName();
 	}
 
-	FFormatNamedArguments Args;
-	Args.Add( TEXT("ObjectName"), FText::FromString( NameString ));
-	Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
-	return FText::Format( LOCTEXT("AssetEditorAppLabel", "{ObjectName}{DirtyState}"), Args );
+	return FText::FromString(NameString);
 }
 
 FText FAssetEditorToolkit::GetToolTipTextForObject(const UObject* InObject)

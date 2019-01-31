@@ -240,7 +240,7 @@ public:
 	TArray<FBodyInstance*> InstanceBodies;
 
 	//~ Begin UActorComponent Interface
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface
 
 	//~ Begin UPrimitiveComponent Interface
@@ -277,7 +277,7 @@ public:
 	//~ End UObject Interface
 
 	/** Applies the cached component instance data to a newly blueprint constructed component. */
-	virtual void ApplyComponentInstanceData(class FInstancedStaticMeshComponentInstanceData* ComponentInstanceData);
+	virtual void ApplyComponentInstanceData(struct FInstancedStaticMeshComponentInstanceData* ComponentInstanceData);
 
 	/** Check to see if an instance is selected. */
 	bool IsInstanceSelected(int32 InInstanceIndex) const;
@@ -370,4 +370,68 @@ struct HInstancedStaticMeshInstance : public HHitProxy
 	{
 		return EMouseCursor::CardinalCross;
 	}
+};
+
+/** Used to store lightmap data during RerunConstructionScripts */
+USTRUCT()
+struct FInstancedStaticMeshLightMapInstanceData
+{
+	GENERATED_BODY()
+
+	/** Transform of component */
+	UPROPERTY()
+	FTransform Transform;
+
+	/** guid from LODData */
+	UPROPERTY()
+	TArray<FGuid> MapBuildDataIds;
+};
+
+/** Helper class used to preserve lighting/selection state across blueprint reinstancing */
+USTRUCT()
+struct FInstancedStaticMeshComponentInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FInstancedStaticMeshComponentInstanceData() = default;
+	FInstancedStaticMeshComponentInstanceData(const UInstancedStaticMeshComponent* InComponent)
+		: FSceneComponentInstanceData(InComponent)
+		, StaticMesh(InComponent->GetStaticMesh())
+	{}
+	virtual ~FInstancedStaticMeshComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<UInstancedStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Super::AddReferencedObjects(Collector);
+		Collector.AddReferencedObject(StaticMesh);
+	}
+
+public:
+	/** Mesh being used by component */
+	UPROPERTY()
+	UStaticMesh* StaticMesh;
+
+	// Static lighting info
+	UPROPERTY()
+	FInstancedStaticMeshLightMapInstanceData CachedStaticLighting;
+	UPROPERTY()
+	TArray<FInstancedStaticMeshInstanceData> PerInstanceSMData;
+
+	/** The cached selected instances */
+	TBitArray<> SelectedInstances;
+
+	/* The cached random seed */
+	UPROPERTY()
+	int32 InstancingRandomSeed;
 };

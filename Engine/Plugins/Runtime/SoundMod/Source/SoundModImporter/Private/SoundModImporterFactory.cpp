@@ -77,7 +77,7 @@ UObject* USoundModImporterFactory::FactoryCreateBinary
 			}
 			default:
 			{
-				FEditorDelegates::OnAssetPostImport.Broadcast(this, NULL);
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NULL);
 				return NULL;
 			}
 		}
@@ -114,7 +114,7 @@ UObject* USoundModImporterFactory::FactoryCreateBinary
 	FMemory::Memcpy(LockedData, Buffer, BufferEnd - Buffer);
 	Sound->RawData.Unlock();
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Sound);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Sound);
 
 	for (int32 ComponentIndex = 0; ComponentIndex < ComponentsToRestart.Num(); ++ComponentIndex)
 	{

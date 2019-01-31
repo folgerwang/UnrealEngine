@@ -847,9 +847,10 @@ namespace Audio
 				if (ChannelType != ESubmixChannelFormat::Ambisonics)
 				{
 					check(Buffer);
+					const uint32 NumChannels = Buffer->NumChannels;
 					if (ComputeChannelMap(ChannelType, Buffer->NumChannels, ChannelMapInfo.ChannelMap))
 					{
-						MixerSourceVoice->SetChannelMap(ChannelType, ChannelMapInfo.ChannelMap, bIs3D, WaveInstance->bCenterChannelOnly);
+						MixerSourceVoice->SetChannelMap(ChannelType, NumChannels, ChannelMapInfo.ChannelMap, bIs3D, WaveInstance->bCenterChannelOnly);
 					}
 				}
 			}

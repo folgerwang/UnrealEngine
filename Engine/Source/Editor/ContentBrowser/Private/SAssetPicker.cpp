@@ -106,7 +106,7 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 			HorizontalBox->AddSlot()
 			.AutoWidth()
 			[
-				SNew( SComboButton )
+				SAssignNew(FilterComboButtonPtr, SComboButton)
 				.ComboButtonStyle( FEditorStyle::Get(), "GenericFilters.ComboButtonStyle" )
 				.ForegroundColor(FLinearColor::White)
 				.ToolTipText( LOCTEXT( "AddFilterToolTip", "Add an asset filter." ) )
@@ -296,6 +296,12 @@ EActiveTimerReturnType SAssetPicker::SetFocusPostConstruct( double InCurrentTime
 
 FReply SAssetPicker::HandleKeyDownFromSearchBox(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
+	// Hide the filter list
+	if (FilterComboButtonPtr.IsValid())
+	{
+		FilterComboButtonPtr->SetIsOpen(false);
+	}
+
 	// Up and down move thru the filtered list
 	int32 SelectionDelta = 0;
 

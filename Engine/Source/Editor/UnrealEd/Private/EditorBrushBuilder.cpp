@@ -254,10 +254,11 @@ void UEditorBrushBuilder::PostEditChangeProperty(struct FPropertyChangedEvent& P
 	{
 		// Rebuild brush on property change
 		ABrush* Brush = Cast<ABrush>(GetOuter());
-		if (Brush)
+		UWorld* BrushWorld = Brush ? Brush->GetWorld() : nullptr;
+		if (BrushWorld)
 		{
 			Brush->bInManipulation = PropertyChangedEvent.ChangeType == EPropertyChangeType::Interactive;
-			Build(Brush->GetWorld(), Brush);
+			Build(BrushWorld, Brush);
 		}
 	}
 }

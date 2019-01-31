@@ -154,10 +154,10 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 	//End UObject Interface
 
 	//~ Begin UActorComponent Interface.
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
 	//~ End UActorComponent Interface.
 
-	void ApplyComponentInstanceData(class FSplineMeshInstanceData* ComponentInstanceData);
+	void ApplyComponentInstanceData(struct FSplineMeshInstanceData* ComponentInstanceData);
 
 	//Begin USceneComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
@@ -348,6 +348,42 @@ public:
 
 private:
 	void UpdateRenderStateAndCollision_Internal(bool bConcurrent);
+};
+
+/** Used to store spline mesh data during RerunConstructionScripts */
+USTRUCT()
+struct FSplineMeshInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FSplineMeshInstanceData() = default;
+	explicit FSplineMeshInstanceData(const USplineMeshComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+	{}
+	virtual ~FSplineMeshInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<USplineMeshComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	UPROPERTY()
+	FVector StartPos;
+
+	UPROPERTY()
+	FVector EndPos;
+
+	UPROPERTY()
+	FVector StartTangent;
+
+	UPROPERTY()
+	FVector EndTangent;
 };
 
 const float& USplineMeshComponent::GetAxisValue(const FVector& InVector, ESplineMeshAxis::Type InAxis)

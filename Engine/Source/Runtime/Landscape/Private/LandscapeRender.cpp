@@ -604,7 +604,6 @@ void ULandscapeComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMater
 // FLandscapeComponentSceneProxy
 //
 TMap<uint32, FLandscapeSharedBuffers*>FLandscapeComponentSceneProxy::SharedBuffersMap;
-TMap<uint32, FLandscapeSharedAdjacencyIndexBuffer*>FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap;
 TMap<FLandscapeNeighborInfo::FLandscapeKey, TMap<FIntPoint, const FLandscapeNeighborInfo*> > FLandscapeNeighborInfo::SharedSceneProxyMap;
 
 const static FName NAME_LandscapeResourceNameForDebugging(TEXT("Landscape"));
@@ -686,19 +685,6 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	MaterialIndexToDisabledTessellationMaterial = InComponent->MaterialIndexToDisabledTessellationMaterial;
 	LODIndexToMaterialIndex = InComponent->LODIndexToMaterialIndex;
 	check(LODIndexToMaterialIndex.Num() == MaxLOD+1);
-
-	for (int32 i = 0; i < AvailableMaterials.Num(); ++i)
-	{
-		bool HasTessellationEnabled = false;
-
-		if (FeatureLevel >= ERHIFeatureLevel::SM4)
-		{
-			UMaterialInstance* LandscapeMI = Cast<UMaterialInstance>(AvailableMaterials[i]);
-			HasTessellationEnabled = LandscapeMI->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation;
-		}
-
-		MaterialHasTessellationEnabled.Add(HasTessellationEnabled);
-	}
 
 	if (!IsComponentLevelVisible())
 	{
@@ -808,9 +794,24 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 
 	MaterialRelevances.Reserve(AvailableMaterials.Num());
 
-	for (UMaterialInterface* Material : AvailableMaterials)
+	for (UMaterialInterface*& MaterialInterface : AvailableMaterials)
 	{
-		MaterialRelevances.Add(Material->GetRelevance(FeatureLevel));
+		if (MaterialInterface != nullptr)
+		{
+			MaterialRelevances.Add(MaterialInterface->GetRelevance(FeatureLevel));
+			bRequiresAdjacencyInformation |= MaterialSettingsRequireAdjacencyInformation_GameThread(MaterialInterface, XYOffsetmapTexture == nullptr ? &FLandscapeVertexFactory::StaticType : &FLandscapeXYOffsetVertexFactory::StaticType, InComponent->GetWorld()->FeatureLevel);
+
+			bool HasTessellationEnabled = false;
+
+			if (FeatureLevel >= ERHIFeatureLevel::SM4)
+			{
+				UMaterial* LandscapeMaterial = MaterialInterface->GetMaterial();
+
+				HasTessellationEnabled = LandscapeMaterial != nullptr && LandscapeMaterial->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation;
+			}
+
+			MaterialHasTessellationEnabled.Add(HasTessellationEnabled);
+		}
 	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_SHIPPING && WITH_EDITOR)
@@ -829,11 +830,6 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 		}
 	}
 #endif
-
-	for (UMaterialInterface*& MaterialInterface : AvailableMaterials)
-	{
-		bRequiresAdjacencyInformation |= MaterialSettingsRequireAdjacencyInformation_GameThread(MaterialInterface, XYOffsetmapTexture == nullptr ? &FLandscapeVertexFactory::StaticType : &FLandscapeXYOffsetVertexFactory::StaticType, InComponent->GetWorld()->FeatureLevel);
-	}
 
 	const int8 SubsectionSizeLog2 = FMath::CeilLogTwo(InComponent->SubsectionSizeQuads + 1);
 	SharedBuffersKey = (SubsectionSizeLog2 & 0xf) | ((NumSubsections & 0xf) << 4) |
@@ -909,9 +905,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 			}
 
 			SharedBuffers->AdjacencyIndexBuffers = new FLandscapeSharedAdjacencyIndexBuffer(SharedBuffers);
-			FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap.Add(SharedBuffersKey, SharedBuffers->AdjacencyIndexBuffers);
 		}
-		SharedBuffers->AdjacencyIndexBuffers->AddRef();
 
 		// Delayed Initialize for IndexBuffers
 		for (int32 i = 0; i < SharedBuffers->NumIndexBuffers; i++)
@@ -1612,14 +1606,14 @@ void FLandscapeComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInter
 
 	for (int32 i = 0; i < MaterialCount; ++i)
 	{
-		UMaterialInstance* MaterialInstance = Cast<UMaterialInstance>(AvailableMaterials[i]);
-
-		if (MaterialInstance == nullptr)
+		if (AvailableMaterials[i] == nullptr)
 		{
 			continue;
 		}
 
-		bool HasTessellationEnabled = (FeatureLevel >= ERHIFeatureLevel::SM4) ? MaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation : false;
+		UMaterialInstance* MaterialInstance = Cast<UMaterialInstance>(AvailableMaterials[i]);
+
+		bool HasTessellationEnabled = (FeatureLevel >= ERHIFeatureLevel::SM4) ? MaterialInstance != nullptr && MaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation && MaterialIndexToDisabledTessellationMaterial[i] != INDEX_NONE : false;
 
 		// Only add normal batch index (for each material)
 		MaterialIndexToStaticMeshBatchLOD[i] = CurrentLODIndex;
@@ -1627,7 +1621,7 @@ void FLandscapeComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInter
 		// Default Batch, tessellated if enabled
 		FMeshBatch NormalMeshBatch;
 
-		if (GetMeshElement(false, false, HasTessellationEnabled, CurrentLODIndex++, MaterialInstance, NormalMeshBatch, StaticBatchParamArray))
+		if (GetMeshElement(false, false, HasTessellationEnabled, CurrentLODIndex++, AvailableMaterials[i], NormalMeshBatch, StaticBatchParamArray))
 		{
 			PDI->DrawMesh(NormalMeshBatch, FLT_MAX);
 		}
@@ -2533,7 +2527,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					}
 				}
 
-				HasTessellationEnabled = MaterialHasTessellationEnabled[LODIndexToMaterialIndex[CurrentLODIndex]] && (LandscapeMIC != nullptr && !LandscapeMIC->bDisableTessellation);
+				HasTessellationEnabled = MaterialHasTessellationEnabled[LODIndexToMaterialIndex[CurrentLODIndex]] && (LandscapeMIC != nullptr && !LandscapeMIC->bDisableTessellation) && AvailableMaterials.Num() > 1;
 			}
 
 			bool DisableTessellation = false;
@@ -3265,15 +3259,7 @@ FLandscapeSharedBuffers::~FLandscapeSharedBuffers()
 	}
 #endif
 
-	if (AdjacencyIndexBuffers)
-	{
-		if (AdjacencyIndexBuffers->Release() == 0)
-		{
-			FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap.Remove(SharedBuffersKey);
-		}
-		AdjacencyIndexBuffers = nullptr;
-	}
-
+	delete AdjacencyIndexBuffers;
 	delete VertexFactory;
 
 	if (OccluderIndicesSP.IsValid())

@@ -136,7 +136,7 @@ class ENGINE_API UMaterialExpression : public UObject
 
 #if WITH_EDITORONLY_DATA
 	/** A description that level designers can add (shows in the material editor UI). */
-	UPROPERTY(EditAnywhere, Category=MaterialExpression, meta=(MultiLine=true))
+	UPROPERTY(EditAnywhere, Category=MaterialExpression, meta=(MultiLine=true, DisplayAfter = "SortPriority"))
 	FString Desc;
 
 	/** Set to true by RecursiveUpdateRealtimePreview() if the expression's preview needs to be updated in realtime in the material editor. */
@@ -410,6 +410,8 @@ class ENGINE_API UMaterialExpression : public UObject
 	* but are not UMaterialExpressionParameter due to class hierarchy. */
 	virtual bool HasAParameterName() const { return false; }
 	virtual void ValidateParameterName(const bool bAllowDuplicateName = true);
+	virtual bool HasClassAndNameCollision(UMaterialExpression* OtherExpression) const;
+	virtual void SetValueToMatchingExpression(UMaterialExpression* OtherExpression) {};
 
 	virtual FName GetParameterName() const { return NAME_None; }
 	virtual void SetParameterName(const FName& Name) {}

@@ -680,6 +680,7 @@ void UGameEngine::OnViewportResized(FViewport* Viewport, uint32 Unused)
 UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, ViewExtensions( new FSceneViewExtensions() )
+	, EngineSubsystemCollection(this)
 {
 	C_WorldBox = FColor(0, 0, 40, 255);
 	C_BrushWire = FColor(192, 0, 0, 255);

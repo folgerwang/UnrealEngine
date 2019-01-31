@@ -1392,6 +1392,23 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 	}
 }
 
+static bool DoAnyWindowDescendantsNeedPrepass(TSharedRef<SWindow> WindowToPrepass)
+{
+	for (const TSharedRef<SWindow>& ChildWindow : WindowToPrepass->GetChildWindows())
+	{
+		if (ChildWindow->IsVisible() && !ChildWindow->IsWindowMinimized())
+		{
+			return true;
+		}
+		else
+		{
+			return DoAnyWindowDescendantsNeedPrepass(ChildWindow);
+		}
+	}
+
+	return false;
+}
+
 static void PrepassWindowAndChildren( TSharedRef<SWindow> WindowToPrepass )
 {
 	if (UNLIKELY(!FApp::CanEverRender()))
@@ -1399,7 +1416,9 @@ static void PrepassWindowAndChildren( TSharedRef<SWindow> WindowToPrepass )
 		return;
 	}
 
-	if ( WindowToPrepass->IsVisible() && !WindowToPrepass->IsWindowMinimized() )
+	const bool bIsWindowVisible = WindowToPrepass->IsVisible() && !WindowToPrepass->IsWindowMinimized();
+
+	if (bIsWindowVisible || DoAnyWindowDescendantsNeedPrepass(WindowToPrepass))
 	{
 		FScopedSwitchWorldHack SwitchWorld(WindowToPrepass);
 		
@@ -1408,7 +1427,7 @@ static void PrepassWindowAndChildren( TSharedRef<SWindow> WindowToPrepass )
 			WindowToPrepass->SlatePrepass(FSlateApplication::Get().GetApplicationScale() * WindowToPrepass->GetNativeWindow()->GetDPIScaleFactor());
 		}
 
-		if ( WindowToPrepass->IsAutosized() )
+		if ( bIsWindowVisible && WindowToPrepass->IsAutosized() )
 		{
 			WindowToPrepass->Resize(WindowToPrepass->GetDesiredSizeDesktopPixels());
 		}
@@ -3086,8 +3105,18 @@ void FSlateApplication::GeneratePathToWidgetChecked( TSharedRef<const SWidget> I
 
 TSharedPtr<SWindow> FSlateApplication::FindWidgetWindow( TSharedRef<const SWidget> InWidget ) const
 {
-	FWidgetPath WidgetPath;
-	return FindWidgetWindow( InWidget, WidgetPath );
+	TSharedPtr<SWidget> TestWidget = ConstCastSharedRef<SWidget>(InWidget);
+	while (TestWidget.IsValid())
+	{
+		if (TestWidget->Advanced_IsWindow())
+		{
+			return StaticCastSharedPtr<SWindow>(TestWidget);
+		}
+
+		TestWidget = TestWidget->GetParentWidget();
+	};
+
+	return nullptr;
 }
 
 
@@ -6580,7 +6609,7 @@ bool FSlateApplication::OnTouchStarted( const TSharedPtr< FGenericWindow >& Plat
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// Only log when the touch starts, we don't want to spam the logs.
-		UE_LOG(LogSlate, Warning, TEXT("Maxium Touch Index Exceeded, %d, the maxium index allowed is %d"), TouchIndex, (((int32)ETouchIndex::CursorPointerIndex) - 1));
+		UE_LOG(LogSlate, Warning, TEXT("Maximum Touch Index Exceeded, %d, the maximum index allowed is %d"), TouchIndex, (((int32)ETouchIndex::CursorPointerIndex) - 1));
 #endif
 		return false;
 	}

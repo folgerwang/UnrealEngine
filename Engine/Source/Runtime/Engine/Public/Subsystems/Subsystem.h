@@ -12,8 +12,10 @@ class FSubsystemCollectionBase;
 /** Subsystems are auto instanced classes that share the lifetime of certain engine constructs
  * 
  *	Currently supported Subsystem lifetimes are:
+ *		Engine		 -> inherit UEngineSubsystem
+ *		Editor		 -> inherit UEditorSubsystem
  *		GameInstance -> inherit UGameInstanceSubsystem
- *		LocalPlayer  -> inherit ULocalPlayerSubsystem
+ *		LocalPlayer	 -> inherit ULocalPlayerSubsystem
  *
  *
  *	Normal Example:
@@ -63,4 +65,25 @@ public:
 	/** Implement this for deinitialization of instances of the system */
 	virtual void Deinitialize() {}
 
+private:
+	friend class FSubsystemCollectionBase;
+	FSubsystemCollectionBase* InternalOwningSubsystem;
+
+};
+
+
+/** Dynamic Subsystems auto populate/depopulate existing collections when modules are loaded and unloaded
+ *
+ * Only UEngineSubsystems and UEditorSubsystems allow for dynamic loading.
+ * 
+ * If instances of your subsystem aren't being created it maybe that the module they are in isn't being explicitly loaded,
+ * make sure there is a LoadModule("ModuleName") to load the module.
+ */
+UCLASS(Abstract)
+class ENGINE_API UDynamicSubsystem : public USubsystem
+{
+	GENERATED_BODY()
+
+public:
+	UDynamicSubsystem();
 };
