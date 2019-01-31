@@ -55,6 +55,11 @@ public:
 			return Result;
 		}
 
+		int Num() const
+		{
+			return Object->Values.Num();
+		}
+
 		FObject& Set(const FString& Key, const FArray& Arr)            { Object->SetField(Key, Arr.AsJsonValue());                      return *this; }
 		FObject& Set(const FString& Key, const FObject& Obj)           { Object->SetField(Key, Obj.AsJsonValue());                      return *this; }
 
@@ -99,6 +104,11 @@ public:
 			auto JsonWriter = TJsonWriterFactory<TCHAR, TPrintPolicy<TCHAR>>::Create(&Result);
 			FJsonSerializer::Serialize(Array, JsonWriter);
 			return Result;
+		}
+
+		int Num() const
+		{
+			return Array.Num();
 		}
 
 		FArray& Add(const FArray& Arr)            { Array.Emplace(Arr.AsJsonValue());                      return *this; }
