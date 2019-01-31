@@ -553,6 +553,27 @@ void FWidgetBlueprintCompilerContext::SanitizeBindings(UBlueprintGeneratedClass*
 	WidgetBP->PropertyBindings = AttributeBindings;
 }
 
+void FWidgetBlueprintCompilerContext::FixAbandonedWidgetTree(UWidgetBlueprint* WidgetBP)
+{
+	UWidgetTree* WidgetTree = WidgetBP->WidgetTree;
+
+	if (ensure(WidgetTree))
+	{
+		if (WidgetTree->GetName() != TEXT("WidgetTree"))
+		{
+			if (UWidgetTree* AbandonedWidgetTree = static_cast<UWidgetTree*>(FindObjectWithOuter(WidgetBP, UWidgetTree::StaticClass(), TEXT("WidgetTree"))))
+			{
+				AbandonedWidgetTree->ClearFlags(RF_DefaultSubObject);
+				AbandonedWidgetTree->SetFlags(RF_Transient);
+				AbandonedWidgetTree->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_DoNotDirty);
+			}
+
+			WidgetTree->Rename(TEXT("WidgetTree"), nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_DoNotDirty);
+			WidgetTree->SetFlags(RF_DefaultSubObject);
+		}
+	}
+}
+
 void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
@@ -566,6 +587,8 @@ void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 		{
 			UBlueprint::ForceLoadMembers(WidgetBP->WidgetTree);
 		}
+
+		FixAbandonedWidgetTree(WidgetBP);
 
 		BPGClass->bCookSlowConstructionWidgetTree = GetDefault<UUMGEditorProjectSettings>()->CompilerOption_CookSlowConstructionWidgetTree(WidgetBP);
 

@@ -80,6 +80,7 @@ protected:
 	void VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context);
 
 protected:
+	void FixAbandonedWidgetTree(UWidgetBlueprint* WidgetBP);
 
 	UWidgetBlueprintGeneratedClass* NewWidgetBlueprintClass;
 
