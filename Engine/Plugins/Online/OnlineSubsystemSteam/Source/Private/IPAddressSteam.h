@@ -163,7 +163,7 @@ public:
 		return !(FInternetAddrSteam::operator==(Other));
 	}
 
-	virtual uint32 GetTypeHash() override
+	virtual uint32 GetTypeHash() const override
 	{
 		return GetConstTypeHash();
 	}

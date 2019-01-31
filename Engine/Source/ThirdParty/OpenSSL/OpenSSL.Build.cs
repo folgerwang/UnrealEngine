@@ -12,6 +12,7 @@ public class OpenSSL : ModuleRules
 		string OpenSSL101sPath = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1_0_1s");
 		string OpenSSL102hPath = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1_0_2h");
 		string OpenSSL102Path = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1.0.2g");
+		string OpenSSL111Path = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1.1.1");
 
 		string PlatformSubdir = Target.Platform.ToString();
 		string ConfigFolder = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT) ? "Debug" : "Release";
@@ -36,14 +37,21 @@ public class OpenSSL : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 		{
-			string LibPath = Path.Combine(OpenSSL102Path, "lib", PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
-			string LibPostfixAndExt = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT) ? "d.lib" : ".lib";
-			PublicIncludePaths.Add(Path.Combine(OpenSSL102Path, "include", PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName()));
+			// Our OpenSSL 1.1.1 libraries are built with zlib compression support
+			PrivateDependencyModuleNames.Add("zlib");
+
+			string VSVersion = "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName();
+
+			// Add includes
+			PublicIncludePaths.Add(Path.Combine(OpenSSL111Path, "include", PlatformSubdir, VSVersion));
+
+			// Add Libs
+			string LibPath = Path.Combine(OpenSSL111Path, "lib", PlatformSubdir, VSVersion, ConfigFolder);
 			PublicLibraryPaths.Add(LibPath);
 
-
-			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libeay" + LibPostfixAndExt));
-			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "ssleay" + LibPostfixAndExt));
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libssl.lib"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libcrypto.lib"));
+			PublicAdditionalLibraries.Add("crypt32.lib");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{

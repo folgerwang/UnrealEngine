@@ -606,8 +606,6 @@ public:
 	Handler::Mode Mode;
 
 private:
-
-private:
 	/** Whether or not this PacketHandler handles connectionless (i.e. non-UNetConnection) data */
 	bool bConnectionlessHandler;
 

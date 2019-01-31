@@ -335,7 +335,7 @@ public:
 	 */
 	virtual uint32 GetScopeId() const;
 	
-	virtual uint32 GetTypeHash() override;
+	virtual uint32 GetTypeHash() const override;
 
 	friend class FSocketBSD;
 };

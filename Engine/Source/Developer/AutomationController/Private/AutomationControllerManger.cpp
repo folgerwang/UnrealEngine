@@ -673,6 +673,8 @@ void FAutomationControllerManager::ProcessResults()
 		FAutomatedTestPassResults SerializedPassResults = OurPassResults;
 
 		SerializedPassResults.ComparisonExported = ExportResults.Success;
+		SerializedPassResults.ComparisonExportDirectory = ExportResults.ExportPath;
+		SerializedPassResults.ReportCreatedOn = Timestamp;
 		if (DisplayReportOutputPath.IsEmpty())
 		{
 			SerializedPassResults.ComparisonExportDirectory = ExportResults.ExportPath;

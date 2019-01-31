@@ -338,7 +338,7 @@ void FOnlineAsyncTaskSteamCreateServer::Tick()
 		if (Session != nullptr && SteamGameServerPtr != nullptr)
 		{
 			bool bWantsDedicated = Session->SessionSettings.bIsDedicated;
-			UE_LOG_ONLINE(Verbose, TEXT("Starting Steam game server. Dedicated? %d Game Dir is: %s Product Name is: %s\nGame Desc is: %s"),
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("Starting Steam game server. Dedicated? %d Game Dir is: %s Product Name is: %s\nGame Desc is: %s"),
 				bWantsDedicated,
 				ANSI_TO_TCHAR((UE4_PROJECT_STEAMGAMEDIR)),
 				ANSI_TO_TCHAR((UE4_PROJECT_STEAMPRODUCTNAME)),

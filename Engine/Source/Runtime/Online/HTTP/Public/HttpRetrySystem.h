@@ -12,43 +12,25 @@
  */
 namespace FHttpRetrySystem
 {
-    typedef uint32 RetryLimitCountType;
-    typedef double RetryTimeoutRelativeSecondsType;
+	typedef uint32 RetryLimitCountType;
+	typedef double RetryTimeoutRelativeSecondsType;
 
-    inline RetryLimitCountType             RetryLimitCount(uint32 Value)             { return Value; }
-    inline RetryTimeoutRelativeSecondsType RetryTimeoutRelativeSeconds(double Value) { return Value; }
+	inline RetryLimitCountType             RetryLimitCount(uint32 Value)             { return Value; }
+	inline RetryTimeoutRelativeSecondsType RetryTimeoutRelativeSeconds(double Value) { return Value; }
 
-    template <typename  IntrinsicType>
-    IntrinsicType TZero();
+	template <typename  IntrinsicType>
+	IntrinsicType TZero();
 
-    template <> inline float                           TZero<float>()                           { return 0.0f; }
-    template <> inline RetryLimitCountType             TZero<RetryLimitCountType>()             { return RetryLimitCount(0); }
-    template <> inline RetryTimeoutRelativeSecondsType TZero<RetryTimeoutRelativeSecondsType>() { return RetryTimeoutRelativeSeconds(0.0); }
+	template <> inline float                           TZero<float>()                           { return 0.0f; }
+	template <> inline RetryLimitCountType             TZero<RetryLimitCountType>()             { return RetryLimitCount(0); }
+	template <> inline RetryTimeoutRelativeSecondsType TZero<RetryTimeoutRelativeSecondsType>() { return RetryTimeoutRelativeSeconds(0.0); }
 
-    /**
-     * TOptionalSetting merges a bool and an intrinsic value to remove the need
-     * for having special values to indicate if the option is valid
-     */
-    template <typename IntrinsicType>
-    struct TOptionalSetting
-    {
-        TOptionalSetting() : bUseValue(false), Value(TZero<IntrinsicType>())                          {}
-        explicit TOptionalSetting(IntrinsicType InValue) : bUseValue(true), Value(InValue)                     {}
-        TOptionalSetting(const TOptionalSetting& InValue) : bUseValue(InValue.bUseValue), Value(InValue.Value) {}
-
-        static TOptionalSetting Unused()                       { return TOptionalSetting(); }
-        static TOptionalSetting Create(IntrinsicType InValue)  { return TOptionalSetting(InValue); }
-
-        bool            bUseValue;
-        IntrinsicType   Value;
-    };
-
-    typedef TOptionalSetting<float>                           FRandomFailureRateSetting;
-    typedef TOptionalSetting<RetryLimitCountType>             FRetryLimitCountSetting;
-    typedef TOptionalSetting<RetryTimeoutRelativeSecondsType> FRetryTimeoutRelativeSecondsSetting;
+	typedef TOptional<float>                           FRandomFailureRateSetting;
+	typedef TOptional<RetryLimitCountType>             FRetryLimitCountSetting;
+	typedef TOptional<RetryTimeoutRelativeSecondsType> FRetryTimeoutRelativeSecondsSetting;
 	typedef TSet<int32> FRetryResponseCodes;
-    typedef TSet<FName> FRetryVerbs;
-	
+	typedef TSet<FName> FRetryVerbs;
+
 	struct FRetryDomains
 	{
 		FRetryDomains(TArray<FString>&& InDomains) 
@@ -114,8 +96,8 @@ namespace FHttpRetrySystem
 		HTTP_API FRequest(
 			class FManager& InManager,
 			const TSharedRef<IHttpRequest>& HttpRequest,
-			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
-			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
+			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting(),
+			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting(),
             const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes(),
             const FRetryVerbs& InRetryVerbs = FRetryVerbs(),
 			const FRetryDomainsPtr& InRetryDomains = FRetryDomainsPtr()
@@ -158,8 +140,8 @@ namespace FHttpRetrySystem
 		 * Create a new http request with retries
 		 */
 		HTTP_API TSharedRef<class FHttpRetrySystem::FRequest> CreateRequest(
-			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
-			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
+			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting(),
+			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting(),
 			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes(),
 			const FRetryVerbs& InRetryVerbs = FRetryVerbs(),
 			const FRetryDomainsPtr& InRetryDomains = FRetryDomainsPtr()
@@ -177,8 +159,8 @@ namespace FHttpRetrySystem
          * @return                true if there are no failures or retries
          */
         HTTP_API bool Update(uint32* FileCount = NULL, uint32* FailingCount = NULL, uint32* FailedCount = NULL, uint32* CompletedCount = NULL);
-		HTTP_API void SetRandomFailureRate(float Value) { RandomFailureRate = FRandomFailureRateSetting::Create(Value); }
-		HTTP_API void SetDefaultRetryLimit(uint32 Value) { RetryLimitCountDefault = FRetryLimitCountSetting::Create(Value); }
+		HTTP_API void SetRandomFailureRate(float Value) { RandomFailureRate = FRandomFailureRateSetting(Value); }
+		HTTP_API void SetDefaultRetryLimit(uint32 Value) { RetryLimitCountDefault = FRetryLimitCountSetting(Value); }
 		
 		// @return Block the current process until all requests are flushed, or timeout has elapsed
 		HTTP_API void BlockUntilFlushed(float TimeoutSec);

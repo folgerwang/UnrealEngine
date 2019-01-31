@@ -201,7 +201,7 @@ public:
 		return !(FInternetAddrOculus::operator==(Other));
 	}
 
-	virtual uint32 GetTypeHash() override
+	virtual uint32 GetTypeHash() const override
 	{
 		return ::GetTypeHash((uint64)GetID());
 	}

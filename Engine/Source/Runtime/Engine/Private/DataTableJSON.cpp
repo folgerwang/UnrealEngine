@@ -61,7 +61,7 @@ namespace
 		}
 	}
 
-#endif
+#endif	// WITH_EDITOR
 
 }
 

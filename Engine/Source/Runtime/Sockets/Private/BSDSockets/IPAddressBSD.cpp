@@ -538,7 +538,7 @@ SOCKLEN FInternetAddrBSD::GetStorageSize() const
 	return sizeof(sockaddr_storage);
 }
 
-uint32 FInternetAddrBSD::GetTypeHash()
+uint32 FInternetAddrBSD::GetTypeHash() const
 {
 	ESocketProtocolFamily CurrentFamily = GetProtocolFamily();
 

@@ -9,23 +9,28 @@ public class OnlineSubsystemUtils : ModuleRules
 		PublicDefinitions.Add("ONLINESUBSYSTEMUTILS_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PrivateIncludePaths.Add("OnlineSubsystemUtils/Private");
+		PrivateIncludePaths.Add("OnlineSubsystemUtils/Private");
 
 		PrivateDependencyModuleNames.AddRange(
-			new string[] { 
-				"Core", 
-				"CoreUObject",
-				"Engine", 
-				"EngineSettings",
-                "ImageCore",
+			new string[] {
+				"ImageCore",
 				"Sockets",
 				"Voice",
-                "PacketHandler",
+				"PacketHandler",
 				"Json",
-                "AudioMixer"
+				"AudioMixer"
 			}
 		);
 
-        PublicDependencyModuleNames.Add("OnlineSubsystem");
+		PublicDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Core",
+				"CoreUObject",
+				"Engine"
+			}
+		);
+
+		PublicDependencyModuleNames.Add("OnlineSubsystem");
 	}
 }

@@ -15,6 +15,13 @@ public class CryptoKeysOpenSSL : ModuleRules
 			}
 		);
 
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"OpenSSL"
+			}
+		);
+
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
 	}
 }

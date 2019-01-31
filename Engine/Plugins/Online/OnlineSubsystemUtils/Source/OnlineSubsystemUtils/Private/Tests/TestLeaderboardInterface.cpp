@@ -188,7 +188,7 @@ void FTestLeaderboardInterface::ReadLeaderboardsRank(int32 Rank, int32 Range)
 	LeaderboardReadRankCompleteDelegateHandle = Leaderboards->AddOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadRankCompleteDelegate);
 	if (!Leaderboards->ReadLeaderboardsAroundRank(Rank, Range, ReadObjectRef))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot run the leaderboards around rank test as it failed to start"));
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Cannot run the leaderboards around rank test as it failed to start"));
 		bOverallSuccess = false;
 		Leaderboards->ClearOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadRankCompleteDelegateHandle);
 		++TestPhase;
@@ -213,7 +213,7 @@ void FTestLeaderboardInterface::ReadLeaderboardsUser(const FUniqueNetId& InUserI
 	LeaderboardReadRankUserCompleteDelegateHandle = Leaderboards->AddOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadRankUserCompleteDelegate);
 	if (!ArbitraryId.IsValid() || !Leaderboards->ReadLeaderboardsAroundUser(ArbitraryId.ToSharedRef(), Range, ReadObjectRef))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot run the leaderboards around user test as it failed to start"));
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Cannot run the leaderboards around user test as it failed to start"));
 		bOverallSuccess = false;
 		Leaderboards->ClearOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadRankUserCompleteDelegateHandle);
 		++TestPhase;
@@ -235,7 +235,7 @@ bool FTestLeaderboardInterface::Tick( float DeltaTime )
 		LastTestPhase = TestPhase;
 		if (!bOverallSuccess)
 		{
-			UE_LOG_ONLINE(Log, TEXT("Testing failed in phase %d"), LastTestPhase);
+			UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("Testing failed in phase %d"), LastTestPhase);
 			TestPhase = 6;
 		}
 
@@ -261,7 +261,7 @@ bool FTestLeaderboardInterface::Tick( float DeltaTime )
 			if (FindRankUserId.IsEmpty())
 			{
 				++TestPhase;
-				UE_LOG_ONLINE(Log, TEXT("Test will be skipping arbitrary lookup as an id was not provided."));
+				UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("Test will be skipping arbitrary lookup as an id was not provided."));
 				return true;
 			}
 			else

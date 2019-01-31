@@ -144,7 +144,7 @@ public:
 	 *
 	 * @return	The value to use for the hash
 	 */
-	virtual uint32 GetTypeHash() = 0;
+	virtual uint32 GetTypeHash() const = 0;
 
 	/**
 	 * Is this a well formed internet address

@@ -135,7 +135,7 @@ public:
 	 */
 	virtual bool operator==(const FInternetAddr& Other) const override;
 
-	virtual uint32 GetTypeHash() override;
+	virtual uint32 GetTypeHash() const override;
 
 	/**
 	 * Is this a well formed internet address, the only criteria being non-zero

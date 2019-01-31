@@ -59,11 +59,15 @@
 	</AARImports>
 
 	<buildGradleAdditions>
-		<insert>
+		<if condition="bEnabled">
+			<true>
+				<insert>
 dependencies {
 	implementation('com.facebook.android:facebook-android-sdk:4.39.0')
 }
-		</insert>
+				</insert>
+			</true>
+		</if>
 	</buildGradleAdditions>
 	
 	<!-- optional updates applied to AndroidManifest.xml -->

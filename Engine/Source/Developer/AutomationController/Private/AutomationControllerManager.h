@@ -91,6 +91,9 @@ public:
 	}
 
 	UPROPERTY()
+	FDateTime ReportCreatedOn;
+
+	UPROPERTY()
 	int32 Succeeded;
 
 	UPROPERTY()

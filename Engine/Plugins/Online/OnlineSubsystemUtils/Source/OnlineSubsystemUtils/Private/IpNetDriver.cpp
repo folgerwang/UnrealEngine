@@ -471,9 +471,9 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 					bRecentlyDisconnectedClient = true;
 				}
 			}
-
 			check(Connection == nullptr || CastChecked<UIpConnection>(Connection)->RemoteAddr->CompareEndpoints(*FromAddr));
 		}
+
 
 		if( bOk == false )
 		{

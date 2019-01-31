@@ -354,6 +354,18 @@ void FSslCertificateManager::AddPEMFileToRootCertificateArray(const FString& Pat
 	}
 }
 
+namespace
+{
+	FString GetCertificateName(X509* const Certificate)
+	{
+		char StaticBuffer[2048];
+		// We do not have to free the return value of get_subject_name
+		X509_NAME_oneline(X509_get_subject_name(Certificate), StaticBuffer, sizeof(StaticBuffer));
+
+		return FString(ANSI_TO_TCHAR(StaticBuffer));
+	}
+}
+
 void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certificate)
 {
 	bool bValidateRootCertificates = true;
@@ -364,13 +376,13 @@ void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certific
 		ASN1_TIME* NotAfter = X509_get_notAfter(Certificate);
 		if (X509_cmp_current_time(NotAfter) < 0)
 		{
-			UE_LOG(LogSsl, Log, TEXT("Ignoring expired certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+			UE_LOG(LogSsl, Log, TEXT("Ignoring expired certificate: %s"), *GetCertificateName(Certificate));
 			X509_free(Certificate);
 			return;
 		}
 		if (X509_cmp_current_time(NotBefore) > 0)
 		{
-			UE_LOG(LogSsl, Log, TEXT("Ignoring not yet valid certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+			UE_LOG(LogSsl, Log, TEXT("Ignoring not yet valid certificate: %s"), *GetCertificateName(Certificate));
 			X509_free(Certificate);
 			return;
 		}
@@ -384,12 +396,12 @@ void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certific
 
 	if (bFound)
 	{
-		UE_LOG(LogSsl, VeryVerbose, TEXT("Ignoring duplicate certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+		UE_LOG(LogSsl, VeryVerbose, TEXT("Ignoring duplicate certificate: %s"), *GetCertificateName(Certificate));
 		X509_free(Certificate);
 	}
 	else
 	{
-		UE_LOG(LogSsl, Verbose, TEXT("Adding certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+		UE_LOG(LogSsl, Verbose, TEXT("Adding certificate: %s"), *GetCertificateName(Certificate));
 		RootCertificateArray.Add(Certificate);
 	}
 }

@@ -6,6 +6,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
+#include <openssl/rsa.h>
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 
@@ -77,23 +78,31 @@ namespace CryptoKeysOpenSSL
 		BN_set_word(E, RSA_F4);
 		RSA_generate_key_ex(RSAKey, 255, E, nullptr);
 
-		BIGNUM* P = RSAKey->p;
-		BIGNUM* Q = RSAKey->q;
+#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
+		const BIGNUM* P = RSAKey->p;
+		const BIGNUM* Q = RSAKey->q;
+#else
+		const BIGNUM* P = nullptr;
+		const BIGNUM* Q = nullptr;
+		// This does not increment the refcounts of P or Q
+		RSA_get0_factors(RSAKey, &P, &Q);
+#endif
 
-		const uint32 WordSize = sizeof(BN_ULONG);
+		uint32 NumBytes = BN_num_bytes(P);
 
-		uint32 NumBytes = WordSize * P->dmax;
 		NewP.Empty(NumBytes);
 		NewP.AddUninitialized(NumBytes);
-		FMemory::Memcpy(&NewP[0], P->d, NumBytes);
+		BN_bn2bin(P, NewP.GetData());
+		P = nullptr;
 
-		NumBytes = WordSize * Q->dmax;
+		NumBytes = BN_num_bytes(Q);
+
 		NewQ.Empty(NumBytes);
 		NewQ.AddUninitialized(NumBytes);
-		FMemory::Memcpy(&NewQ[0], Q->d, NumBytes);
+		BN_bn2bin(Q, NewP.GetData());
+		Q = nullptr;
 
-		BN_free(P);
-		BN_free(Q);
+		RSA_free(RSAKey);
 
 		NewP.AddZeroed(sizeof(TEncryptionInt) - NewP.Num());
 		NewQ.AddZeroed(sizeof(TEncryptionInt) - NewQ.Num());

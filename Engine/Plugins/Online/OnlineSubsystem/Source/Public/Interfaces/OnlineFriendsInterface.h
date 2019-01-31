@@ -106,6 +106,12 @@ DECLARE_MULTICAST_DELEGATE(FOnFriendsChange);
 typedef FOnFriendsChange::FDelegate FOnFriendsChangeDelegate;
 
 /**
+ * Delegate used in outgoing invite list change notifications
+ */
+DECLARE_MULTICAST_DELEGATE(FOnOutgoingInviteSent);
+typedef FOnOutgoingInviteSent::FDelegate FOnOutgoingInviteSentDelegate;
+
+/**
  * Delegate used when the friends read request has completed
  *
  * @param LocalUserNum the controller number of the associated user that made the request
@@ -243,6 +249,24 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnQueryBlockedPlayersComplete, const FUn
 typedef FOnQueryBlockedPlayersComplete::FDelegate FOnQueryBlockedPlayersCompleteDelegate;
 
 /**
+ * Delegate used when the query for friends settings has completed
+ *
+ * @param UserId the id of the user that made the request
+ * @param bWasSuccessful true if the async action completed without error, false if there was an error
+ * @param ErrorStr string representing the error condition
+ */
+DECLARE_DELEGATE_ThreeParams(FOnQueryFriendSettingsComplete, const FUniqueNetId&, bool, const FString&);
+
+/**
+* Delegate used when the query for friends settings has completed
+*
+* @param UserId the id of the user that made the request
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param ErrorStr string representing the error condition
+*/
+DECLARE_DELEGATE_ThreeParams(FOnSetFriendSettingsComplete, const FUniqueNetId&, bool, const FString&);
+
+/**
  * Delegate called when remote friend sends an invite
  *
  * @param UserId id of the local user that received the invite
@@ -314,6 +338,11 @@ public:
      * Delegate used in friends list change notifications
      */
 	DEFINE_ONLINE_PLAYER_DELEGATE(MAX_LOCAL_PLAYERS, OnFriendsChange);
+
+	/**
+	 * Delegate used in outgoing invite list change notifications
+	 */
+	DEFINE_ONLINE_PLAYER_DELEGATE(MAX_LOCAL_PLAYERS, OnOutgoingInviteSent);
 
 	/**
 	 * Delegate called when remote friend sends an invite
@@ -629,7 +658,37 @@ public:
 	 */
 	virtual void UpdateFriendSettings(const FUniqueNetId& LocalUserId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
 
+	/**
+	 * Queries the settings we have stored for a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param The source the settings relate to i.e. steam
+	 *
+	 * @return true if query was started
+	 */
+	virtual bool QueryFriendSettings(const FUniqueNetId& UserId, const FString& Source, const FOnQueryFriendSettingsComplete& Delegate = FOnQueryFriendSettingsComplete()) { check(false); return false; }
+
+	/**
+	 * Gets the cached information we have stored from a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param OutSettings [out] Map that receives the copied data
+	 *
+	 * @return true if blocked players list was found for the given user
+	 */
+	virtual bool GetFriendSettings(const FUniqueNetId& UserId, TMap<FString, TSharedRef<FOnlineFriendSettingsSourceData> >& OutSettings) { check(false); return false; }
+
+	/**
+	 * Set information we want to store for a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param The source the settings relate to i.e. steam
+	 * @param bNeverShowAgain A bool for if we should stop showing call outs for this source, (currently the only setting we store)
+	 *
+	 * @return true if query was started
+	 */
+	virtual bool SetFriendSettings(const FUniqueNetId& UserId, const FString& Source, bool bNeverShowAgain, const FOnSetFriendSettingsComplete& Delegate = FOnSetFriendSettingsComplete()) { check(false); return false; }
+
 };
 
 typedef TSharedPtr<IOnlineFriends, ESPMode::ThreadSafe> IOnlineFriendsPtr;
-

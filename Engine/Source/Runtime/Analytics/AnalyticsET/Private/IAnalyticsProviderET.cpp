@@ -340,8 +340,8 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 	uint32 RetryLimitCount = ConfigValues.AltAPIServersET.Num();
 
 	HttpRetryManager = MakeShared<FHttpRetrySystem::FManager>(
-		FHttpRetrySystem::FRetryLimitCountSetting::Create(RetryLimitCount),
-		FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting::Unused()
+		FHttpRetrySystem::FRetryLimitCountSetting(RetryLimitCount),
+		FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting()
 		);
 
 	// If we have retry domains defined, insert the default domain into the list
@@ -504,8 +504,8 @@ void FAnalyticsProviderET::EndSession()
 TSharedRef<IHttpRequest> FAnalyticsProviderET::CreateRequest()
 {
 	// TODO add config values for retries, for now, using default
-	TSharedRef<IHttpRequest> HttpRequest = HttpRetryManager->CreateRequest(FHttpRetrySystem::FRetryLimitCountSetting::Unused(),
-		FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting::Unused(),
+	TSharedRef<IHttpRequest> HttpRequest = HttpRetryManager->CreateRequest(FHttpRetrySystem::FRetryLimitCountSetting(),
+		FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting(),
 		FHttpRetrySystem::FRetryResponseCodes(),
 		FHttpRetrySystem::FRetryVerbs(),
 		RetryServers);

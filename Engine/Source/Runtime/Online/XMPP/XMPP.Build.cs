@@ -22,23 +22,23 @@ public class XMPP : ModuleRules
 				"Json"
 			}
 		);
-		
+
 		bool TargetPlatformSupportsJingle = false;
 		bool TargetPlatformSupportsStrophe = false;
-		
+
 		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			TargetPlatformSupportsJingle = true;
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Win32 ||
-			Target.Platform == UnrealTargetPlatform.Win64 ||
-			Target.Platform == UnrealTargetPlatform.PS4 ||
+		else if (Target.Platform == UnrealTargetPlatform.PS4 ||
 			Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			TargetPlatformSupportsJingle = true;
 			TargetPlatformSupportsStrophe = true;
 		}
-		else if (Target.Platform == UnrealTargetPlatform.XboxOne ||
+		else if (Target.Platform == UnrealTargetPlatform.Win32 ||
+			Target.Platform == UnrealTargetPlatform.Win64 ||
+			Target.Platform == UnrealTargetPlatform.XboxOne ||
 			Target.Platform == UnrealTargetPlatform.Android ||
 			Target.Platform == UnrealTargetPlatform.IOS ||
 			Target.Platform == UnrealTargetPlatform.Switch)
@@ -55,7 +55,7 @@ public class XMPP : ModuleRules
 		{
 			PrivateDefinitions.Add("WITH_XMPP_JINGLE=0");
 		}
-		
+
 		if (TargetPlatformSupportsStrophe)
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "libstrophe");

@@ -28,7 +28,7 @@ FHttpRetrySystem::FRequest::FRequest(
 	, RetryManager(InManager)
 {
     // if the InRetryTimeoutRelativeSecondsOverride override is being used the value cannot be negative
-    check(!(InRetryTimeoutRelativeSecondsOverride.bUseValue) || (InRetryTimeoutRelativeSecondsOverride.Value >= 0.0));
+    check(!(InRetryTimeoutRelativeSecondsOverride.IsSet()) || (InRetryTimeoutRelativeSecondsOverride.GetValue() >= 0.0));
 
 	if (RetryDomains.IsValid())
 	{
@@ -96,7 +96,7 @@ void FHttpRetrySystem::FRequest::HttpOnRequestProgress(FHttpRequestPtr InHttpReq
 }
 
 FHttpRetrySystem::FManager::FManager(const FRetryLimitCountSetting& InRetryLimitCountDefault, const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsDefault)
-    : RandomFailureRate(FRandomFailureRateSetting::Unused())
+    : RandomFailureRate(FRandomFailureRateSetting())
     , RetryLimitCountDefault(InRetryLimitCountDefault)
 	, RetryTimeoutRelativeSecondsDefault(InRetryTimeoutRelativeSecondsDefault)
 {}
@@ -170,15 +170,15 @@ bool FHttpRetrySystem::FManager::CanRetry(const FHttpRetryRequestEntry& HttpRetr
 
     bool bShouldTestCurrentRetryCount = false;
     double RetryLimitCount = 0;
-    if (HttpRetryRequestEntry.Request->RetryLimitCountOverride.bUseValue)
+    if (HttpRetryRequestEntry.Request->RetryLimitCountOverride.IsSet())
     {
         bShouldTestCurrentRetryCount = true;
-        RetryLimitCount = HttpRetryRequestEntry.Request->RetryLimitCountOverride.Value;
+        RetryLimitCount = HttpRetryRequestEntry.Request->RetryLimitCountOverride.GetValue();
     }
-    else if (RetryLimitCountDefault.bUseValue)
+    else if (RetryLimitCountDefault.IsSet())
     {
         bShouldTestCurrentRetryCount = true;
-        RetryLimitCount = RetryLimitCountDefault.Value;
+        RetryLimitCount = RetryLimitCountDefault.GetValue();
     }
 
     if (bShouldTestCurrentRetryCount)
@@ -198,15 +198,15 @@ bool FHttpRetrySystem::FManager::HasTimedOut(const FHttpRetryRequestEntry& HttpR
 
     bool bShouldTestRetryTimeout = false;
     double RetryTimeoutAbsoluteSeconds = HttpRetryRequestEntry.RequestStartTimeAbsoluteSeconds;
-    if (HttpRetryRequestEntry.Request->RetryTimeoutRelativeSecondsOverride.bUseValue)
+    if (HttpRetryRequestEntry.Request->RetryTimeoutRelativeSecondsOverride.IsSet())
     {
         bShouldTestRetryTimeout = true;
-        RetryTimeoutAbsoluteSeconds += HttpRetryRequestEntry.Request->RetryTimeoutRelativeSecondsOverride.Value;
+        RetryTimeoutAbsoluteSeconds += HttpRetryRequestEntry.Request->RetryTimeoutRelativeSecondsOverride.GetValue();
     }
-    else if (RetryTimeoutRelativeSecondsDefault.bUseValue)
+    else if (RetryTimeoutRelativeSecondsDefault.IsSet())
     {
         bShouldTestRetryTimeout = true;
-        RetryTimeoutAbsoluteSeconds += RetryTimeoutRelativeSecondsDefault.Value;
+        RetryTimeoutAbsoluteSeconds += RetryTimeoutRelativeSecondsDefault.GetValue();
     }
 
     if (bShouldTestRetryTimeout)
@@ -369,10 +369,10 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 					bool forceFail = false;
 
 					// Code to simulate request failure
-					if (RequestStatus == EHttpRequestStatus::Succeeded && RandomFailureRate.bUseValue)
+					if (RequestStatus == EHttpRequestStatus::Succeeded && RandomFailureRate.IsSet())
 					{
 						float random = temp.GetFraction();
-						if (random < RandomFailureRate.Value)
+						if (random < RandomFailureRate.GetValue())
 						{
 							forceFail = true;
 						}

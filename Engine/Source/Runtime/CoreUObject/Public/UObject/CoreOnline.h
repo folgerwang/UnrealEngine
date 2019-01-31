@@ -381,6 +381,7 @@ protected:
 	TSharedPtr<const FUniqueNetId> UniqueNetId;
 };
 
+
 template <typename ValueType>
 struct TUniqueNetIdMapKeyFuncs : public TDefaultMapKeyFuncs<TSharedRef<const FUniqueNetId>, ValueType, false>
 {

@@ -1501,3 +1501,24 @@ inline uint32 GetTypeHash(const FOnlinePartyTypeId Id)
 {
 	return Id.GetValue();
 }
+
+class FOnlineFriendSettingsSourceData
+{
+public:
+
+	virtual ~FOnlineFriendSettingsSourceData() {}
+
+	/** Constructors */
+	FOnlineFriendSettingsSourceData() :
+		bNeverShowAgain(false)
+	{
+	}
+
+	explicit FOnlineFriendSettingsSourceData(
+		bool bInNeverShowAgain)
+		: bNeverShowAgain(bInNeverShowAgain)
+	{
+	}
+
+	bool bNeverShowAgain;
+};

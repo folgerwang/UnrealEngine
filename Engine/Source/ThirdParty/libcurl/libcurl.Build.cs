@@ -26,24 +26,23 @@ public class libcurl : ModuleRules
 
 			PrivateDependencyModuleNames.Add("SSL");
 		}
-
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// toolchain will filter properly
-            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARMv7");
-            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARMv7");
-            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARM64");
-            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARM64");
-            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x86");
-            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x86");
-            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x64");
-            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x64");
+			PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARMv7");
+			PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARMv7");
+			PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARM64");
+			PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARM64");
+			PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x86");
+			PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x86");
+			PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x64");
+			PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x64");
 
 			PublicAdditionalLibraries.Add("curl");
 //			PublicAdditionalLibraries.Add("crypto");
 //			PublicAdditionalLibraries.Add("ssl");
 //			PublicAdditionalLibraries.Add("dl");
-        }
+		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PublicIncludePaths.Add(WinLibCurlPath + "include/" + Target.Platform.ToString() +  "/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
@@ -51,6 +50,13 @@ public class libcurl : ModuleRules
 
 			PublicAdditionalLibraries.Add("libcurl_a.lib");
 			PublicDefinitions.Add("CURL_STATICLIB=1");
+
+			// Our build requires OpenSSL and zlib, so ensure thye're linked in
+			AddEngineThirdPartyPrivateStaticDependencies(Target, new string[]
+			{
+				"OpenSSL",
+				"zlib"
+			});
 		}
 	}
 }

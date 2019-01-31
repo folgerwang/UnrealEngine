@@ -143,7 +143,7 @@ public:
 	}
 
 	/**
-	Friend declarations for Lex functions
+		Lex functions
 	*/
 	/**
 	Lex functions

@@ -45,7 +45,7 @@ public:
 	/** Gets the parent widget of a given widget, and potentially the child index. */
 	static class UPanelWidget* FindWidgetParent(UWidget* Widget, int32& OutChildIndex);
 
-	/** 
+	/**
 	 * Searches recursively through the children of the given ParentWidget to find a child widget of the given name.
 	 * If successful, also gets the index the child ultimately occupies within the starting ParentWidget (INDEX_NONE otherwise)
 	 */

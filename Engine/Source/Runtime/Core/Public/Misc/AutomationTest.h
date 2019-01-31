@@ -2031,7 +2031,7 @@ public:
 		: FAutomationTestBase(InName, bInComplexTask)
 		, DefaultTimeout(FTimespan::FromSeconds(30))
 		, bEnableSkipIfError(true)
-		, RootDefinitionScope(MakeShareable(new FSpecDefinitionScope()))
+		, RootDefinitionScope(MakeShareable(new FSpecDefinitionScope()))		
 	{
 		DefinitionScopeStack.Push(RootDefinitionScope.ToSharedRef());
 	}

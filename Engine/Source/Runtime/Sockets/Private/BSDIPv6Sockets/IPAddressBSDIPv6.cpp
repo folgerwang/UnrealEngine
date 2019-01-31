@@ -267,7 +267,7 @@ FString FInternetAddrBSDIPv6::ToString(bool bAppendPort) const
 	return Result;
 }
 
-uint32 FInternetAddrBSDIPv6::GetTypeHash()
+uint32 FInternetAddrBSDIPv6::GetTypeHash() const
 {
 	// @todo: Find a more efficient way to hash IPv6 addresses, if they are to be used with NetConnection's
 	//return Addr.sin_addr.s_addr + (Addr.sin_port * 23);

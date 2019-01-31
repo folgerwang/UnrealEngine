@@ -25,9 +25,15 @@ static int SslCertVerify(int PreverifyOk, X509_STORE_CTX* Context)
 {
 	if (PreverifyOk == 1)
 	{
-		SSL* Handle = static_cast<SSL*>(X509_STORE_CTX_get_app_data(Context));
+		SSL* Handle = static_cast<SSL*>(X509_STORE_CTX_get_ex_data(Context, SSL_get_ex_data_X509_STORE_CTX_idx()));
+		check(Handle);
+
 		SSL_CTX* SslContext = SSL_get_SSL_CTX(Handle);
+		check(SslContext);
+
 		FCurlHttpRequest* Request = static_cast<FCurlHttpRequest*>(SSL_CTX_get_app_data(SslContext));
+		check(Request);
+
 		const FString Domain = FPlatformHttp::GetUrlDomain(Request->GetURL());
 
 		if (!FSslModule::Get().GetCertificateManager().VerifySslCertificates(Context, Domain))

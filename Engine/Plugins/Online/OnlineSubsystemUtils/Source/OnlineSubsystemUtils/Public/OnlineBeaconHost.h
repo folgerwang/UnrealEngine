@@ -25,6 +25,7 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeaconHost : public AOnlineBeacon
 {
 	GENERATED_UCLASS_BODY()
 
+public:
 	/** Configured listen port for this beacon host */
 	UPROPERTY(Config)
 	int32 ListenPort;
