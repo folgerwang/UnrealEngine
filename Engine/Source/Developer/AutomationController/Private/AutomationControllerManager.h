@@ -81,7 +81,8 @@ struct FAutomatedTestPassResults
 
 public:
 	FAutomatedTestPassResults()
-		: Succeeded(0)
+		: ReportCreatedOn(0)
+		, Succeeded(0)
 		, SucceededWithWarnings(0)
 		, Failed(0)
 		, NotRun(0)
