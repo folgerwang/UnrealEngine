@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -75,10 +76,12 @@ namespace UnrealBuildTool
 		/// Write the receipt to disk.
 		/// </summary>
 		/// <param name="Location">Output filename</param>
-		public void Write(FileReference Location)
+		public void WriteIfModified(FileReference Location)
 		{
 			DirectoryReference BaseDir = Location.Directory;
-			using (JsonWriter Writer = new JsonWriter(Location.FullName))
+
+			MemoryStream MemoryStream = new MemoryStream();
+			using (JsonWriter Writer = new JsonWriter(new StreamWriter(MemoryStream)))
 			{
 				Writer.WriteObjectStart();
 
@@ -90,6 +93,12 @@ namespace UnrealBuildTool
 				Writer.WriteStringArrayField("OutputFiles", OutputFileStrings);
 
 				Writer.WriteObjectEnd();
+			}
+
+			byte[] Data = MemoryStream.ToArray();
+			if(!FileReference.Exists(Location) || !Utils.ByteArraysEqual(Data, FileReference.ReadAllBytes(Location)))
+			{
+				FileReference.WriteAllBytes(Location, Data);
 			}
 		}
 	}

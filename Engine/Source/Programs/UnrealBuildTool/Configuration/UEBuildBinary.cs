@@ -652,11 +652,6 @@ namespace UnrealBuildTool
 			CppCompileEnvironment BinaryCompileEnvironment = new CppCompileEnvironment(GlobalCompileEnvironment);
 			BinaryCompileEnvironment.bIsBuildingDLL = IsBuildingDll(Type);
 			BinaryCompileEnvironment.bIsBuildingLibrary = IsBuildingLibrary(Type);
-
-			// @todo: This should be in some Windows code somewhere...
-			// Set the original file name macro; used in Default.rc2 to set the binary metadata fields.
-			BinaryCompileEnvironment.Definitions.Add("ORIGINAL_FILE_NAME=\"" + OutputFilePaths[0].GetFileName() + "\"");
-
 			return BinaryCompileEnvironment;
 		}
 
