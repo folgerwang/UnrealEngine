@@ -8,7 +8,7 @@
 
 
 /** Whether render graph debugging is compiled. */
-#define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING)
+#define RENDER_GRAPH_DEBUGGING (!UE_BUILD_SHIPPING && !UE_BUILD_TEST)
 
 struct FRenderGraphPass;
 
