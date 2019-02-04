@@ -20,6 +20,12 @@ public class ShaderFormatD3D : ModuleRules
 			}
 			);
 
+		//DXC
+        if (Target.Platform == UnrealTargetPlatform.Win64)
+        {
+            RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/dxil.dll");
+            RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/dxcompiler.dll");
+        }
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
 	}
 }
