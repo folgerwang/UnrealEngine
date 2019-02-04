@@ -171,8 +171,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
 		bShouldActivate && !Definition->SizeWillChangeOften)
 	{
-		// Popup menus grab the mouse/keyboard which is undesired behaviour. Slate will give the window events.
-		WindowStyle |= SDL_WINDOW_BORDERLESS;
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
 		bIsPopupWindow = true;
 		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Popup Menu Window ***"));
 	}
@@ -183,7 +182,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
 		!bShouldActivate && !Definition->SizeWillChangeOften)
 	{
-		WindowStyle |= SDL_WINDOW_BORDERLESS;
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
 		bIsConsoleWindow = true;
 		bIsPopupWindow = true;
 		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Console Window ***"));
