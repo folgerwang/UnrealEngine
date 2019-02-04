@@ -1,5 +1,9 @@
 #!/bin/bash
+set -x -e
+
 # Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+# NOTE: this script needs to be built from Engine/Source/ThirdParty/HTML5/Build_All_HTML5_libs.sh
 
 
 # WARNING: connot build libs if absolute paths contains any space -- will revisit this in the future...
@@ -7,19 +11,11 @@
 #          see: https://gist.github.com/jamesstout/4546975#file-find_zombies-sh-L26-L46
 
 
-#set -x
-
-
 # ----------------------------------------
 # env
 
 cd ../../../../..
 export GW_DEPS_ROOT=$(pwd)
-
-cd ../HTML5/
-	# source in emscripten SDK paths and env vars
-	. ./Build_All_HTML5_libs.rc
-cd "$GW_DEPS_ROOT"
 
 
 # ----------------------------------------
@@ -44,9 +40,7 @@ build_via_cmake()
 	else
 		DBGFLAG=NDEBUG
 	fi
-#	EMFLAGS="-msse2 -s SIMD=1 -s USE_PTHREADS=1"
-#	EMFLAGS="-msse2 -s SIMD=0 -s USE_PTHREADS=1 -s WASM=1 -s BINARYEN=1" # WASM still does not play nice with SIMD
-	EMFLAGS="-s SIMD=0 -s USE_PTHREADS=1"
+	EMFLAGS="$UE_EMFLAGS"
 	# ----------------------------------------
 	if [ $OLEVEL == 0 ]; then
 		SUFFIX=
@@ -61,7 +55,7 @@ build_via_cmake()
 		-DPHYSX_ROOT_DIR="$GW_DEPS_ROOT"/PhysX_3.4 \
 		-DPXSHARED_ROOT_DIR="$GW_DEPS_ROOT"/PxShared \
 		-DNVTOOLSEXT_INCLUDE_DIRS="$GW_DEPS_ROOT"/PhysX_3.4/externals/nvToolsExt/include \
-		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON \
+		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=$UE_USE_BITECODE \
 		-DCMAKE_BUILD_TYPE=$type \
 		-DCMAKE_C_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
 		-DCMAKE_CXX_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
@@ -79,7 +73,7 @@ build_via_cmake()
 #		-DPXSHARED_ROOT_DIR="$GW_DEPS_ROOT"/PxShared \
 #		-DNVSIMD_INCLUDE_DIR="$GW_DEPS_ROOT"/PxShared/src/NvSimd \
 #		-DNVTOOLSEXT_INCLUDE_DIRS="$GW_DEPS_ROOT"/PhysX_3.4/externals/nvToolsExt/include \
-#		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON \
+#		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=$UE_USE_BITECODE \
 #		-DCMAKE_BUILD_TYPE=$type \
 #		-DCMAKE_C_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
 #		-DCMAKE_CXX_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
@@ -93,7 +87,7 @@ build_via_cmake()
 #	emcmake cmake -G "Unix Makefiles" \
 #		-DTARGET_BUILD_PLATFORM=HTML5 \
 #		-DPXSHARED_ROOT_DIR="$GW_DEPS_ROOT"/PxShared \
-#		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON \
+#		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=$UE_USE_BITECODE \
 #		-DCMAKE_BUILD_TYPE=$type \
 #		-DCMAKE_C_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
 #		-DCMAKE_CXX_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS" \
@@ -106,32 +100,37 @@ build_via_cmake()
 	if [ $OLEVEL == "z" ]; then
 		# for some reason: _Oz is not getting done here...
 		cd PhysX
-			find . -type f -name "*.bc" -print | while read i; do b=`basename $i .bc`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.bc; done
+			find . -type f -name "*.$UE_LIB_EXT" -print | while read i; do b=`basename $i .$UE_LIB_EXT`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.$UE_LIB_EXT; done
 #		cd ../APEX
-#			find . -type f -name "*.bc" -print | while read i; do b=`basename $i .bc`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.bc; done
+#			find . -type f -name "*.$UE_LIB_EXT" -print | while read i; do b=`basename $i .$UE_LIB_EXT`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.$UE_LIB_EXT; done
 #		cd ../NvCloth
-#			find . -type f -name "*.bc" -print | while read i; do b=`basename $i .bc`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.bc; done
+#			find . -type f -name "*.$UE_LIB_EXT" -print | while read i; do b=`basename $i .$UE_LIB_EXT`; cp $i "$GW_DEPS_ROOT"/Lib/HTML5/${b}_Oz.$UE_LIB_EXT; done
 		cd ..
 	else
 		cd PhysX
-			find . -type f -name "*.bc" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
+			find . -type f -name "*.$UE_LIB_EXT" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
 #		cd ../APEX
-#			find . -type f -name "*.bc" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
+#			find . -type f -name "*.$UE_LIB_EXT" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
 #		cd ../NvCloth
-#			find . -type f -name "*.bc" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
+#			find . -type f -name "*.$UE_LIB_EXT" -exec cp {} "$GW_DEPS_ROOT"/Lib/HTML5 \;
 		cd ..
 	fi
 	cd ..
 }
-chmod +w "$GW_DEPS_ROOT"/Lib/HTML5/*
+if [ ! -z "$(ls -A $GW_DEPS_ROOT/Lib/HTML5)" ]; then
+	chmod +w $GW_DEPS_ROOT/Lib/HTML5/*
+fi
 type=Debug;       OLEVEL=0;  build_via_cmake
 type=Release;     OLEVEL=2;  build_via_cmake
 type=Release;     OLEVEL=3;  build_via_cmake
 type=MinSizeRel;  OLEVEL=z;  build_via_cmake
-ls -l "$GW_DEPS_ROOT"/Lib/HTML5
+ls -l $GW_DEPS_ROOT/Lib/HTML5
 
 
 exit
+exit
+exit
+
 
 # NOT USED: LEFT HERE FOR REFERENCE
 # NOT USED: LEFT HERE FOR REFERENCE
@@ -160,7 +159,7 @@ build_all()
 		echo "Generating $MAKETARGET makefile..."
 		export CMAKE_MODULE_PATH="$GW_DEPS_ROOT/Externals/CMakeModules"
 		cmake -DCMAKE_TOOLCHAIN_FILE="Emscripten.cmake" -DTARGET_BUILD_PLATFORM="HTML5" \
-			-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON \
+			-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=$UE_USE_BITECODE \
 			-DCMAKE_BUILD_TYPE="Release" \
 			-DPHYSX_ROOT_DIR="$GW_DEPS_ROOT/PhysX_3.4" \
 			-DPXSHARED_ROOT_DIR="$GW_DEPS_ROOT/PxShared" \
@@ -231,7 +230,7 @@ build_apex
 # ----------------------------------------
 # install
 
-find APEX_1.4/lib/HTML5 -type f -name "*.bc" -exec cp "{}" Lib/HTML5/. \;
-#find PhysX_3.4/lib/HTML5 -type f -name "*.bc" -exec cp "{}" Lib/HTML5/. \;
-#find PxShared/lib/HTML5 -type f -name "*.bc" -exec cp "{}" Lib/HTML5/. \;
+find APEX_1.4/lib/HTML5 -type f -name "*.$UE_LIB_EXT" -exec cp "{}" Lib/HTML5/. \;
+#find PhysX_3.4/lib/HTML5 -type f -name "*.$UE_LIB_EXT" -exec cp "{}" Lib/HTML5/. \;
+#find PxShared/lib/HTML5 -type f -name "*.$UE_LIB_EXT" -exec cp "{}" Lib/HTML5/. \;
 
