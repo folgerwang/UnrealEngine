@@ -143,7 +143,7 @@ private:
 	/** Meta-data for this generated enum that is applied to the Python type */
 	FPyWrapperEnumMetaData PyMetaData;
 
-	friend struct FPythonGeneratedEnumUtil;
+	friend class FPythonGeneratedEnumBuilder;
 
 #endif	// WITH_PYTHON
 };

@@ -714,102 +714,135 @@ bool FPyWrapperEnumMetaData::IsEnumFinalized(FPyWrapperEnum* Instance)
 	return IsEnumFinalized(Py_TYPE(Instance));
 }
 
-struct FPythonGeneratedEnumUtil
+class FPythonGeneratedEnumBuilder
 {
-	static UPythonGeneratedEnum* CreateEnum(const FString& InEnumName, UObject* InEnumOuter)
+public:
+	FPythonGeneratedEnumBuilder(const FString& InEnumName, PyTypeObject* InPyType)
+		: EnumName(InEnumName)
+		, PyType(InPyType)
+		, NewEnum(nullptr)
 	{
-		UPythonGeneratedEnum* Enum = NewObject<UPythonGeneratedEnum>(InEnumOuter, *InEnumName, RF_Public | RF_Standalone);
-		Enum->SetMetaData(TEXT("BlueprintType"), TEXT("true"));
-		return Enum;
+		UObject* EnumOuter = GetPythonTypeContainer();
+
+		// Enum instances are re-used if they already exist
+		NewEnum = FindObject<UPythonGeneratedEnum>(EnumOuter, *EnumName);
+		if (!NewEnum)
+		{
+			NewEnum = NewObject<UPythonGeneratedEnum>(EnumOuter, *EnumName, RF_Public | RF_Standalone | RF_Transient);
+			NewEnum->SetMetaData(TEXT("BlueprintType"), TEXT("true"));
+		}
+		NewEnum->EnumValueDefs.Reset();
 	}
 
-	static void FinalizeEnum(UPythonGeneratedEnum* InEnum, PyTypeObject* InPyType)
+	~FPythonGeneratedEnumBuilder()
 	{
+		// If NewEnum is still set at this point, if means Finalize wasn't called and we should destroy the partially built enum
+		if (NewEnum)
+		{
+			NewEnum->ClearFlags(RF_Public | RF_Standalone);
+			NewEnum = nullptr;
+
+			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+		}
+	}
+
+	UPythonGeneratedEnum* Finalize(const TArray<FPyUValueDef*>& InPyValueDefs)
+	{
+		// Populate the enum with its values, and replace the definitions with real descriptors
+		if (!RegisterDescriptors(InPyValueDefs))
+		{
+			return nullptr;
+		}
+
+		// Let Python know that we've changed its type
+		PyType_Modified(PyType);
+
 		// Finalize the enum
-		InEnum->Bind();
+		NewEnum->Bind();
 
 		// Add the object meta-data to the type
-		InEnum->PyMetaData.Enum = InEnum;
-		InEnum->PyMetaData.bFinalized = true;
-		FPyWrapperEnumMetaData::SetMetaData(InPyType, &InEnum->PyMetaData);
+		NewEnum->PyMetaData.Enum = NewEnum;
+		NewEnum->PyMetaData.bFinalized = true;
+		FPyWrapperEnumMetaData::SetMetaData(PyType, &NewEnum->PyMetaData);
 
 		// Map the Unreal enum to the Python type
-		InEnum->PyType = FPyTypeObjectPtr::NewReference(InPyType);
-		FPyWrapperTypeRegistry::Get().RegisterWrappedEnumType(InEnum->GetFName(), InPyType);
+		NewEnum->PyType = FPyTypeObjectPtr::NewReference(PyType);
+		FPyWrapperTypeRegistry::Get().RegisterWrappedEnumType(NewEnum->GetFName(), PyType);
+
+		// Null the NewEnum pointer so the destructor doesn't kill it
+		UPythonGeneratedEnum* FinalizedEnum = NewEnum;
+		NewEnum = nullptr;
+		return FinalizedEnum;
 	}
 
-	static bool CreateValueFromDefinition(UPythonGeneratedEnum* InEnum, PyTypeObject* InPyType, const FString& InFieldName, FPyUValueDef* InPyValueDef)
+	bool CreateValueFromDefinition(const FString& InFieldName, FPyUValueDef* InPyValueDef)
 	{
 		int64 EnumValue = 0;
 		if (!PyConversion::Nativize(InPyValueDef->Value, EnumValue))
 		{
-			PyUtil::SetPythonError(PyExc_TypeError, InPyType, *FString::Printf(TEXT("Failed to convert enum value for '%s'"), *InFieldName));
+			PyUtil::SetPythonError(PyExc_TypeError, PyType, *FString::Printf(TEXT("Failed to convert enum value for '%s'"), *InFieldName));
 			return false;
 		}
 
 		// Build the definition data for the new enum value
-		UPythonGeneratedEnum::FEnumValueDef& EnumValueDef = *InEnum->EnumValueDefs.Add_GetRef(MakeShared<UPythonGeneratedEnum::FEnumValueDef>());
+		UPythonGeneratedEnum::FEnumValueDef& EnumValueDef = *NewEnum->EnumValueDefs.Add_GetRef(MakeShared<UPythonGeneratedEnum::FEnumValueDef>());
 		EnumValueDef.Value = EnumValue;
 		EnumValueDef.Name = InFieldName;
 
 		return true;
 	}
 
-	static bool RegisterDescriptors(UPythonGeneratedEnum* InEnum, PyTypeObject* InPyType, const TArray<FPyUValueDef*>& InPyValueDefs)
+private:
+	bool RegisterDescriptors(const TArray<FPyUValueDef*>& InPyValueDefs)
 	{
 		// Populate the enum with its values
-		check(InPyValueDefs.Num() == InEnum->EnumValueDefs.Num());
+		check(InPyValueDefs.Num() == NewEnum->EnumValueDefs.Num());
 		{
-			const FString EnumName = InEnum->GetName();
-
 			TArray<TPair<FName, int64>> ValueNames;
-			for (const TSharedPtr<UPythonGeneratedEnum::FEnumValueDef>& EnumValueDef : InEnum->EnumValueDefs)
+			for (const TSharedPtr<UPythonGeneratedEnum::FEnumValueDef>& EnumValueDef : NewEnum->EnumValueDefs)
 			{
 				const FString NamespacedValueName = FString::Printf(TEXT("%s::%s"), *EnumName, *EnumValueDef->Name);
 				ValueNames.Emplace(MakeTuple(FName(*NamespacedValueName), EnumValueDef->Value));
 			}
-			if (!InEnum->SetEnums(ValueNames, UEnum::ECppForm::Namespaced))
+			if (!NewEnum->SetEnums(ValueNames, UEnum::ECppForm::Namespaced))
 			{
-				PyUtil::SetPythonError(PyExc_Exception, InPyType, TEXT("Failed to set enum values"));
+				PyUtil::SetPythonError(PyExc_Exception, PyType, TEXT("Failed to set enum values"));
 				return false;
 			}
 
 			// Can't set the meta-data until SetEnums has been called
 			for (int32 EnumEntryIndex = 0; EnumEntryIndex < InPyValueDefs.Num(); ++EnumEntryIndex)
 			{
-				FPyUValueDef::ApplyMetaData(InPyValueDefs[EnumEntryIndex], [InEnum, EnumEntryIndex](const FString& InMetaDataKey, const FString& InMetaDataValue)
+				FPyUValueDef::ApplyMetaData(InPyValueDefs[EnumEntryIndex], [this, EnumEntryIndex](const FString& InMetaDataKey, const FString& InMetaDataValue)
 				{
-					InEnum->SetMetaData(*InMetaDataKey, *InMetaDataValue, EnumEntryIndex);
+					NewEnum->SetMetaData(*InMetaDataKey, *InMetaDataValue, EnumEntryIndex);
 				});
-				InEnum->EnumValueDefs[EnumEntryIndex]->DocString = PyGenUtil::GetEnumEntryTooltip(InEnum, EnumEntryIndex);
+				NewEnum->EnumValueDefs[EnumEntryIndex]->DocString = PyGenUtil::GetEnumEntryTooltip(NewEnum, EnumEntryIndex);
 			}
 		}
 
 		// Replace the definitions with real descriptors
-		for (const TSharedPtr<UPythonGeneratedEnum::FEnumValueDef>& EnumValueDef : InEnum->EnumValueDefs)
+		for (const TSharedPtr<UPythonGeneratedEnum::FEnumValueDef>& EnumValueDef : NewEnum->EnumValueDefs)
 		{
-			FPyWrapperEnum* PyEnumEntry = FPyWrapperEnum::AddEnumEntry(InPyType, EnumValueDef->Value, TCHAR_TO_UTF8(*EnumValueDef->Name), TCHAR_TO_UTF8(*EnumValueDef->DocString));
+			FPyWrapperEnum* PyEnumEntry = FPyWrapperEnum::AddEnumEntry(PyType, EnumValueDef->Value, TCHAR_TO_UTF8(*EnumValueDef->Name), TCHAR_TO_UTF8(*EnumValueDef->DocString));
 			if (PyEnumEntry)
 			{
-				InEnum->PyMetaData.EnumEntries.Add(PyEnumEntry);
+				NewEnum->PyMetaData.EnumEntries.Add(PyEnumEntry);
 			}
 		}
 
 		return true;
 	}
+
+	FString EnumName;
+	PyTypeObject* PyType;
+	UPythonGeneratedEnum* NewEnum;
 };
 
 UPythonGeneratedEnum* UPythonGeneratedEnum::GenerateEnum(PyTypeObject* InPyType)
 {
-	UObject* EnumOuter = GetPythonTypeContainer();
-	const FString EnumName = PyUtil::GetCleanTypename(InPyType);
-
-	UPythonGeneratedEnum* Enum = FindObject<UPythonGeneratedEnum>(EnumOuter, *EnumName);
-	if (!Enum)
-	{
-		Enum = FPythonGeneratedEnumUtil::CreateEnum(EnumName, EnumOuter);
-	}
-	Enum->EnumValueDefs.Reset();
+	// Builder used to generate the enum
+	FPythonGeneratedEnumBuilder PythonEnumBuilder(PyUtil::GetCleanTypename(InPyType), InPyType);
 
 	// Add the values to this enum
 	TArray<FPyUValueDef*> PyValueDefs;
@@ -826,7 +859,7 @@ UPythonGeneratedEnum* UPythonGeneratedEnum::GenerateEnum(PyTypeObject* InPyType)
 				FPyUValueDef* PyValueDef = (FPyUValueDef*)FieldValue;
 				PyValueDefs.Add(PyValueDef);
 
-				if (!FPythonGeneratedEnumUtil::CreateValueFromDefinition(Enum, InPyType, FieldName, PyValueDef))
+				if (!PythonEnumBuilder.CreateValueFromDefinition(FieldName, PyValueDef))
 				{
 					return nullptr;
 				}
@@ -848,19 +881,8 @@ UPythonGeneratedEnum* UPythonGeneratedEnum::GenerateEnum(PyTypeObject* InPyType)
 		}
 	}
 
-	// Populate the enum with its values, and replace the definitions with real descriptors
-	if (!FPythonGeneratedEnumUtil::RegisterDescriptors(Enum, InPyType, PyValueDefs))
-	{
-		return nullptr;
-	}
-
-	// Let Python know that we've changed its type
-	PyType_Modified(InPyType);
-
-	// Finalize the enum
-	FPythonGeneratedEnumUtil::FinalizeEnum(Enum, InPyType);
-
-	return Enum;
+	// Finalize the struct with its value meta-data
+	return PythonEnumBuilder.Finalize(PyValueDefs);
 }
 
 #endif	// WITH_PYTHON

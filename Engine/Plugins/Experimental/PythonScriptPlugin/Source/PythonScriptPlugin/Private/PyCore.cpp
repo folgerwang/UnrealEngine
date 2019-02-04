@@ -1644,9 +1644,9 @@ PyMethodDef PyCoreMethods[] = {
 
 void InitializeModule()
 {
-	GPythonPropertyContainer.Reset(NewObject<UStruct>(GetTransientPackage(), TEXT("PythonProperties")));
+	GPythonPropertyContainer.Reset(NewObject<UStruct>(GetTransientPackage(), TEXT("PythonProperties"), RF_Transient));
 
-	GPythonTypeContainer.Reset(NewObject<UPackage>(nullptr, TEXT("/Engine/PythonTypes"), RF_Public));
+	GPythonTypeContainer.Reset(NewObject<UPackage>(nullptr, TEXT("/Engine/PythonTypes"), RF_Public | RF_Transient));
 	GPythonTypeContainer->SetPackageFlags(PKG_ContainsScript);
 
 	PyGenUtil::FNativePythonModule NativePythonModule;

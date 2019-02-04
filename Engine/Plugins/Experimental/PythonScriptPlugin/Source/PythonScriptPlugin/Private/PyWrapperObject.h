@@ -221,7 +221,7 @@ private:
 	/** Meta-data for this generated class that is applied to the Python type */
 	FPyWrapperObjectMetaData PyMetaData;
 
-	friend struct FPythonGeneratedClassUtil;
+	friend class FPythonGeneratedClassBuilder;
 
 #endif	// WITH_PYTHON
 };

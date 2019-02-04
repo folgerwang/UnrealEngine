@@ -397,7 +397,7 @@ private:
 	/** Meta-data for this generated struct that is applied to the Python type */
 	FPyWrapperStructMetaData PyMetaData;
 
-	friend struct FPythonGeneratedStructUtil;
+	friend class FPythonGeneratedStructBuilder;
 
 #endif	// WITH_PYTHON
 };
