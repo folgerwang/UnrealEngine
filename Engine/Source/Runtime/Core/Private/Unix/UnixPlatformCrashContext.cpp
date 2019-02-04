@@ -28,6 +28,7 @@
 #include "HAL/ExceptionHandling.h"
 #include "Stats/Stats.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "BuildSettings.h"
 
 extern CORE_API bool GIsGPUCrashed;
 
@@ -417,6 +418,12 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 	// By default we wont upload unless the *.ini has set this to true
 	bool bSendUnattendedBugReports = false;
 	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
+
+	if (BuildSettings::IsLicenseeVersion() && !UE_EDITOR)
+	{
+		// do not send unattended reports in licensees' builds except for the editor, where it is governed by the above setting
+		bSendUnattendedBugReports = false;
+	}
 
 	bool bSkipCRC = bUnattended && !bSendUnattendedBugReports;
 

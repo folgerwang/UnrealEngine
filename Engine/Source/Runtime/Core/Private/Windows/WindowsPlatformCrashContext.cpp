@@ -26,7 +26,7 @@
 #include "Templates/UniquePtr.h"
 #include "Misc/OutputDeviceArchiveWrapper.h"
 #include "HAL/ThreadManager.h"
-
+#include "BuildSettings.h"
 #include <strsafe.h>
 #include <dbghelp.h>
 #include <Shlwapi.h>
@@ -313,6 +313,12 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 
 	bool bSendUnattendedBugReports = true;
 	GConfig->GetBool(TEXT("/Script/UnrealEd.CrashReportsPrivacySettings"), TEXT("bSendUnattendedBugReports"), bSendUnattendedBugReports, GEditorSettingsIni);
+
+	if (BuildSettings::IsLicenseeVersion() && !UE_EDITOR)
+	{
+		// do not send unattended reports in licensees' builds except for the editor, where it is governed by the above setting
+		bSendUnattendedBugReports = false;
+	}
 
 	if (bNoDialog && !bSendUnattendedBugReports)
 	{
