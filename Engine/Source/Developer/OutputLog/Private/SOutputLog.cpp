@@ -572,7 +572,7 @@ TSharedRef<SWidget> SConsoleInputBox::GetCommandExecutorMenuContent()
 					FIsActionChecked::CreateLambda([bIsActiveCmdExec] { return bIsActiveCmdExec; })
 					),
 				NAME_None,
-				EUserInterfaceActionType::RadioButton
+				EUserInterfaceActionType::Check
 			);
 		}
 	}
