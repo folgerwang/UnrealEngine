@@ -49,6 +49,9 @@ private:
 	void HandleClearSubject(const FLiveLinkClearSubject& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 	// End Message bus message handlers
 
+	// Threadsafe update of the last active time
+	FORCEINLINE void UpdateConnectionLastActive();
+
 	ILiveLinkClient* Client;
 
 	// Our identifier in LiveLink
@@ -70,4 +73,7 @@ private:
 
 	// Current Validity of Source
 	FThreadSafeBool bIsValid;
+
+	// Critical section to allow for threadsafe updating of the connection time
+	FCriticalSection ConnectionLastActiveSection;
 };
