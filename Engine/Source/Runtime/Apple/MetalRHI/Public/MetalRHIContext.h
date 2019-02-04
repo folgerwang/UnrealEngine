@@ -47,6 +47,8 @@ public:
 	/** Clears a UAV to the multi-component value provided. */
 	virtual void RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values) final override;
 	
+	virtual void RHICopyTexture(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FRHICopyTextureInfo& CopyInfo) final override;
+	
 	/**
 	 * Resolves from one texture to another.
 	 * @param SourceTexture - texture to resolve from, 0 is silenty ignored
