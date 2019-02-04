@@ -13,13 +13,11 @@ public class MikkTSpace : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PublicLibraryPaths.Add(MikkTSpacePath + "lib/Win64/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName()); 
-			PublicAdditionalLibraries.Add("MikkTSpace.lib");
+			PublicAdditionalLibraries.Add(MikkTSpacePath + "lib/Win64/VS2017/MikkTSpace.lib");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32)
 		{
-			PublicLibraryPaths.Add(MikkTSpacePath + "lib/Win32/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName()); 
-			PublicAdditionalLibraries.Add("MikkTSpace.lib");
+			PublicAdditionalLibraries.Add(MikkTSpacePath + "lib/Win32/VS2017/MikkTSpace.lib");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
