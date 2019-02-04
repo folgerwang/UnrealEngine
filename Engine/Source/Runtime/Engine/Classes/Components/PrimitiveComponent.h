@@ -47,30 +47,31 @@ enum ECanBeCharacterBase
 	ECB_MAX,
 };
 
+/** Determines if a primitive component contains custom collision for navigation/AI */
 UENUM()
 namespace EHasCustomNavigableGeometry
 {
 	enum Type
 	{
-		// Primitive doesn't have custom navigation geometry, if collision is enabled then its convex/trimesh collision will be used for generating the navmesh
+		/** Primitive doesn't have custom navigation geometry, if collision is enabled then its convex/trimesh collision will be used for generating the navmesh */
 		No,
 
-		// If primitive would normally affect navmesh, DoCustomNavigableGeometryExport() should be called to export this primitive's navigable geometry
+		/** If primitive would normally affect navmesh, DoCustomNavigableGeometryExport() should be called to export this primitive's navigable geometry */
 		Yes,
 
-		// DoCustomNavigableGeometryExport() should be called even if the mesh is non-collidable and wouldn't normally affect the navmesh
+		/** DoCustomNavigableGeometryExport() should be called even if the mesh is non-collidable and wouldn't normally affect the navmesh */
 		EvenIfNotCollidable,
 
-		// Don't export navigable geometry even if primitive is relevant for navigation (can still add modifiers)
+		/** Don't export navigable geometry even if primitive is relevant for navigation (can still add modifiers) */
 		DontExport,
 	};
 }
 
-/** Information about the sprite category */
+/** Information about the sprite category, used for visualization in the editor */
 USTRUCT()
 struct FSpriteCategoryInfo
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Sprite category that the component belongs to */
 	UPROPERTY()
@@ -171,8 +172,8 @@ UCLASS(abstract, HideCategories=(Mobility), ShowCategories=(PhysicsVolume))
 class ENGINE_API UPrimitiveComponent : public USceneComponent, public INavRelevantInterface
 {
 	GENERATED_BODY()
-public:
 
+public:
 	/**
 	 * Default UObject constructor.
 	 */
@@ -228,8 +229,6 @@ public:
 	TArray<int32> ExcludeForSpecificHLODLevels;
 #endif 
 
-public:
-
 	/**
 	 * When enabled this object will not be culled by distance. This is ignored if a child of a HLOD.
 	 */
@@ -263,10 +262,10 @@ public:
 	 * @see [Overlap Events](https://docs.unrealengine.com/latest/INT/Engine/Physics/Collision/index.html#overlapandgenerateoverlapevents)
 	 * @see UpdateOverlaps(), BeginComponentOverlap(), EndComponentOverlap()
 	 */
-
 	UFUNCTION(BlueprintGetter)
 	bool GetGenerateOverlapEvents() const;
 
+	/** Modifies value returned by GetGenerateOverlapEvents() */
 	UFUNCTION(BlueprintSetter)
 	void SetGenerateOverlapEvents(bool bInGenerateOverlapEvents);
 
@@ -306,7 +305,7 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
 	uint8 bAllowCullDistanceVolume:1;
 
-	/** true if the primitive has motion blur velocity meshes */
+	/** True if the primitive has motion blur velocity meshes */
 	UPROPERTY()
 	uint8 bHasMotionBlurVelocityMeshes:1;
 	
@@ -427,6 +426,7 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Shadow Two Sided"))
 	uint8 bCastShadowAsTwoSided:1;
 
+	/** @deprecated Replaced by LightmapType */
 	UPROPERTY()
 	uint8 bLightAsIfStatic_DEPRECATED:1;
 
@@ -583,7 +583,6 @@ public:
 	virtual void BeginPlay() override;
 
 protected:
-
 	/** Returns true if all descendant components that we can possibly overlap with use relative location and rotation. */
 	virtual bool AreAllCollideableDescendantsRelative(bool bAllowCachedValue = true) const;
 
@@ -615,6 +614,7 @@ public:
 	UPROPERTY(transient)
 	float LastRenderTime;
 
+	/** Same as LastRenderTimeOnScreen but only updated if the component is on screen. Used by the texture streamer. */
 	UPROPERTY(transient)
 	float LastRenderTimeOnScreen;
 
@@ -796,11 +796,6 @@ public:
 	 */
 	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* NewPendingOverlaps=nullptr, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=nullptr) override;
 
-#if WITH_EDITOR
-	/** Update the Bounds of the component.*/
-	virtual void UpdateBounds() override;
-#endif
-
 	/** Update current physics volume for this component, if bShouldUpdatePhysicsVolume is true. Overridden to use the overlaps to find the physics volume. */
 	virtual void UpdatePhysicsVolume( bool bTriggerNotifiers ) override;
 
@@ -820,12 +815,10 @@ public:
 	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* InWorld, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params = FComponentQueryParams::DefaultComponentQueryParams, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 
 protected:
-
-	// Override this method for custom behavior.
+	/** Override this method for custom behavior for ComponentOverlapMulti() */
 	virtual bool ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* InWorld, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 
 public:
-
 	// Internal physics engine data.
 	
 	/** Physics scene information for this component, holds a single rigid body with multiple shapes. */
@@ -990,14 +983,6 @@ public:
 	 * Determines whether or not the simulate physics setting can be edited interactively on this component
 	 */
 	virtual bool CanEditSimulatePhysics();
-
-	/**
-	* Sets the constraint mode of the component.
-	* @param ConstraintMode	The type of constraint to use.
-	*/
-	UE_DEPRECATED(4.8, "This function is deprecated. Please use SetConstraintMode instead.")
-	UFUNCTION(BlueprintCallable, meta = (DeprecatedFunction, DeprecationMessage = "Use SetConstraintMode instead", Keywords = "set locked axis constraint physics"), Category = Physics)
-	virtual void SetLockedAxis(EDOFMode::Type LockedAxis);
 
 	/**
 	 * Sets the constraint mode of the component.
@@ -1325,9 +1310,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
 	void PutRigidBodyToSleep(FName BoneName = NAME_None);
 
-	/** Changes the value of bNotifyRigidBodyCollision
-	 * @param bNewNotifyRigidBodyCollision - The value to assign to bNotifyRigidBodyCollision
-	 */
+	/** Changes the value of bNotifyRigidBodyCollision */
 	UFUNCTION(BlueprintCallable, Category="Physics")
 	virtual void SetNotifyRigidBodyCollision(bool bNewNotifyRigidBodyCollision);
 
@@ -1437,9 +1420,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Rendering")
 	void SetRenderInMainPass(bool bValue);
 
-public:
-	static int32 CurrentTag;
-
 	/**
 	 * Count of all component overlap events (begin or end) ever generated for any components.
 	 * Changes to this number within a scope can also be a simple way to know if any events were triggered.
@@ -1453,46 +1433,38 @@ public:
 	/** A fence to track when the primitive is detached from the scene in the rendering thread. */
 	FRenderCommandFence DetachFence;
 
-	// Scene data
 private:
 	/** LOD parent primitive to draw instead of this one (multiple UPrim's will point to the same LODParent ) */
 	UPROPERTY(duplicatetransient)
 	class UPrimitiveComponent* LODParentPrimitive;
 
 public:
+	/** Set LOD Parent component, normally associated with an ALODActor */
 	void SetLODParentPrimitive(UPrimitiveComponent* InLODParentPrimitive);
+
+	/** Gets the LOD Parent, which is used to compute visibility when hierarchical LOD is enabled */
 	UPrimitiveComponent* GetLODParentPrimitive() const;
 
 #if WITH_EDITOR
-	virtual const int32 GetNumUncachedStaticLightingInteractions() const override; // recursive function
 	/** This function is used to create hierarchical LOD for the level. You can decide to opt out if you don't want. */
 	virtual const bool ShouldGenerateAutoLOD(const int32 HierarchicalLevelIndex) const;
 #endif
-
-	//~ Begin UActorComponent Interface
-	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
-	virtual bool IsEditorOnly() const override;
-	virtual bool ShouldCreatePhysicsState() const override;
-	virtual bool HasValidPhysicsState() const override;
-	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
-	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
-	//~ End UActorComponent Interface
-
-	/** @return true if the owner is selected and this component is selectable */
+	/** Return true if the owner is selected and this component is selectable */
 	virtual bool ShouldRenderSelected() const;
 
 	/** Component is directly selected in the editor separate from its parent actor */
 	bool IsComponentIndividuallySelected() const;
 
-	/**  @return True if a primitive's parameters as well as its position is static during gameplay, and can thus use static lighting. */
+	/** Return True if a primitive's parameters as well as its position is static during gameplay, and can thus use static lighting. */
 	bool HasStaticLighting() const;
 
+	/** Returns true if the component is static and has the right static mesh setup to support lightmaps. */
 	virtual bool HasValidSettingsForStaticLighting(bool bOverlookInvalidComponents) const 
 	{
 		return HasStaticLighting();
 	}
 
-	/**  @return true if only unlit materials are used for rendering, false otherwise. */
+	/** Returns true if only unlit materials are used for rendering, false otherwise. */
 	virtual bool UsesOnlyUnlitMaterials() const;
 
 	/**
@@ -1523,7 +1495,6 @@ public:
 	 */
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const;
 
-
 #if WITH_EDITOR
 	/**
 	 * Requests the information about the component that the static lighting system needs.
@@ -1535,7 +1506,8 @@ public:
 
 	/** Add the used GUIDs from UMapBuildDataRegistry::MeshBuildData. Used to preserve hidden level data in lighting scenario. */
 	virtual void AddMapBuildDataGUIDs(TSet<FGuid>& InGUIDs) const {}
-#endif
+#endif // WITH_EDITOR
+
 	/**
 	 *	Requests whether the component will use texture, vertex or no lightmaps.
 	 *
@@ -1589,7 +1561,6 @@ public:
 	 */
 	virtual void GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel);
 
-
 	/** Tick function for physics ticking **/
 	UPROPERTY()
 	struct FPrimitiveComponentPostPhysicsTickFunction PostPhysicsComponentTick;
@@ -1609,8 +1580,6 @@ public:
 	/** Return the BodySetup to use for this PrimitiveComponent (single body case) */
 	virtual class UBodySetup* GetBodySetup() { return NULL; }
 
-
-
 	/** Move this component to match the physics rigid body pose. Note, a warning will be generated if you call this function on a component that is attached to something */
 	void SyncComponentToRBPhysics();
 	
@@ -1620,26 +1589,22 @@ public:
 	 */
 	virtual FMatrix GetRenderMatrix() const;
 
-	/** @return number of material elements in this primitive */
+	/** Return number of material elements in this primitive */
 	UFUNCTION(BlueprintPure, Category="Rendering|Material")
 	virtual int32 GetNumMaterials() const;
 	
-	/** Get a BodyInstance from this component. The supplied name is used in the SkeletalMeshComponent case. A name of NAME_None in the skeletal case gives the root body instance. */
-
-
 	/**
-	* returns BodyInstance of the component.
-	*
-	* @param BoneName				Used to get body associated with specific bone. NAME_None automatically gets the root most body
-	* @param bGetWelded				If the component has been welded to another component and bGetWelded is true we return the single welded BodyInstance that is used in the simulation
-	*
-	* @return		Returns the BodyInstance based on various states (does component have multiple bodies? Is the body welded to another body?)
-	*/
-
+	 * Returns BodyInstance of the component.
+	 *
+	 * @param BoneName		Used to get body associated with specific bone. NAME_None automatically gets the root most body
+	 * @param bGetWelded	If the component has been welded to another component and bGetWelded is true we return the single welded BodyInstance that is used in the simulation
+	 *
+	 * @return		Returns the BodyInstance based on various states (does component have multiple bodies? Is the body welded to another body?)
+	 */
 	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true) const;
 
 	/** 
-	 * returns The square of the distance to closest Body Instance surface. 
+	 * Returns The square of the distance to closest Body Instance surface. 
 	 *
 	 * @param Point				World 3D vector
 	 * @param OutSquaredDistance The squared distance to closest Body Instance surface. 0 if inside of the body
@@ -1650,14 +1615,14 @@ public:
 	virtual bool GetSquaredDistanceToCollision(const FVector& Point, float& OutSquaredDistance, FVector& OutClosestPointOnCollision) const;
 
 	/** 
-	* returns Distance to closest Body Instance surface. 
-	*
-	* @param Point				World 3D vector
-	* @param OutPointOnBody	Point on the surface of collision closest to Point
-	* 
-	* @return		Success if returns > 0.f, if returns 0.f, point is inside the geometry
-	*				If returns < 0.f, this primitive does not have collsion or if geometry is not supported
-	*/	
+	 * Returns Distance to closest Body Instance surface. 
+	 *
+	 * @param Point				World 3D vector
+	 * @param OutPointOnBody	Point on the surface of collision closest to Point
+	 * 
+	 * @return		Success if returns > 0.f, if returns 0.f, point is inside the geometry
+	 *				If returns < 0.f, this primitive does not have collsion or if geometry is not supported
+	 */	
 	float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const 
 	{
 		float DistanceSqr = -1.f;
@@ -1739,6 +1704,17 @@ public:
 
 	/** Whether the component has been welded to another simulating component */
 	bool IsWelded() const;
+	
+	/**
+	 * Called to get the Component To World Transform from the Root BodyInstance
+	 * This needs to be virtual since SkeletalMeshComponent Root has to undo its own transform
+	 * Without this, the root LocalToAtom is overridden by physics simulation, causing kinematic velocity to 
+	 * accelerate simulation
+	 *
+	 * @param : UseBI - root body instance
+	 * @return : New GetComponentTransform() to use
+	 */
+	virtual FTransform GetComponentTransformFromBodyInstance(FBodyInstance* UseBI);	
 
 #if WITH_EDITOR
 	/**
@@ -1773,12 +1749,6 @@ protected:
 	/** Give the static mesh component recreate render state context access to Create/DestroyRenderState_Concurrent(). */
 	friend class FStaticMeshComponentRecreateRenderStateContext;
 
-	//~ Begin USceneComponent Interface
-	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport = ETeleportType::None) override;
-
-	/** Event called when AttachParent changes, to allow the scene to update its attachment state. */
-	virtual void OnAttachmentChanged() override;
-
 	/** Whether the component type supports static lighting. */
 	virtual bool SupportsStaticLighting() const 
 	{
@@ -1786,18 +1756,12 @@ protected:
 	}
 
 public:
-	virtual bool IsSimulatingPhysics(FName BoneName = NAME_None) const override;
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Updates the renderer with the center of mass data */
 	virtual void SendRenderDebugPhysics(FPrimitiveSceneProxy* OverrideSceneProxy = nullptr);
 #endif
 
-	// End USceneComponentInterface
-
-
 	//~ Begin UActorComponent Interface
-protected:
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual void OnRegister()  override;
@@ -1806,20 +1770,13 @@ protected:
 	virtual void OnCreatePhysicsState() override;
 	virtual void OnDestroyPhysicsState() override;
 	virtual void OnActorEnableCollisionChanged() override;
-
-public:
-	/**
-	 * Called to get the Component To World Transform from the Root BodyInstance
-	 * This needs to be virtual since SkeletalMeshComponent Root has to undo its own transform
-	 * Without this, the root LocalToAtom is overridden by physics simulation, causing kinematic velocity to 
-	 * accelerate simulation
-	 *
-	 * @param : UseBI - root body instance
-	 * @return : New GetComponentTransform() to use
-	 */
-	virtual FTransform GetComponentTransformFromBodyInstance(FBodyInstance* UseBI);
-public:
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
+	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
+	virtual bool IsEditorOnly() const override;
+	virtual bool ShouldCreatePhysicsState() const override;
+	virtual bool HasValidPhysicsState() const override;
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif // WITH_EDITOR	
@@ -1838,40 +1795,25 @@ public:
 
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
-	virtual bool CanEditChange(const UProperty* InProperty) const override;
-	virtual void UpdateCollisionProfile();
-#endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
-
-#if WITH_EDITOR
-	/**
-	 * Called after importing property values for this object (paste, duplicate or .t3d import)
-	 * Allow the object to perform any cleanup for properties which shouldn't be duplicated or
-	 * are unsupported by the script serialization
-	 */
-	virtual void PostEditImport() override;
-#endif
-
 	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+	virtual void UpdateCollisionProfile();
+	virtual void PostEditImport() override;
+#endif // WITH_EDITOR
 	//~ End UObject Interface.
 
-	//Begin USceneComponent Interface
-
-protected:
-	virtual bool MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit = NULL, EMoveComponentFlags MoveFlags = MOVECOMP_NoFlags, ETeleportType Teleport = ETeleportType::None) override;
-	
-public:
-	virtual bool IsWorldGeometry() const override;
+	//~ Begin USceneComponent Interface
 
 	/** Returns the form of collision for this component */
 	UFUNCTION(BlueprintPure, Category="Collision")
@@ -1896,10 +1838,19 @@ public:
 	/** Gets the collision object type */
 	UFUNCTION(BlueprintPure, Category="Collision")
 	virtual ECollisionChannel GetCollisionObjectType() const override;
-
+	
+	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport = ETeleportType::None) override;
+	virtual void OnAttachmentChanged() override;
+	virtual bool IsSimulatingPhysics(FName BoneName = NAME_None) const override;
+	virtual bool MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit = NULL, EMoveComponentFlags MoveFlags = MOVECOMP_NoFlags, ETeleportType Teleport = ETeleportType::None) override;
+	virtual bool IsWorldGeometry() const override;
 	virtual const FCollisionResponseContainer& GetCollisionResponseToChannels() const override;
 	virtual FVector GetComponentVelocity() const override;
-	//End USceneComponent Interface
+#if WITH_EDITOR
+	virtual void UpdateBounds() override;
+	virtual const int32 GetNumUncachedStaticLightingInteractions() const override;
+#endif
+	//~ End USceneComponentInterface
 
 	/**
 	 * Dispatch notifications for the given HitResult.
@@ -1952,25 +1903,13 @@ public:
 	/** Gets the diffuse boost for the primitive component. */
 	virtual float GetDiffuseBoost(int32 ElementIndex) const		{ return 1.0f; };
 	
+	/** Disable dynamic shadow casting if the primitive only casts indirect shadows, since dynamic shadows are always shadowing direct lighting */
 	virtual bool GetShadowIndirectOnly() const { return false; }
 
 #if WITH_EDITOR
 	/** Returns mask that represents in which views this primitive is hidden */
 	virtual uint64 GetHiddenEditorViews() const;
 #endif// WITH_EDITOR
-
-	/**
-	 *	Set the angular velocity of all bodies in this component.
-	 *
-	 *	@param NewAngVel		New angular velocity to apply to physics, in degrees per second.
-	 *	@param bAddToCurrent	If true, NewAngVel is added to the existing angular velocity of all bodies.
-	 */
-	UE_DEPRECATED(4.8, "Use SetAllPhysicsAngularVelocityInDegrees instead.")
-	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (UnsafeDuringActorConstruction = "true", DeprecatedFunction, DeprecationMessage="Use SetAllPhysicsAngularVelocityInDegrees instead"))
-	virtual void SetAllPhysicsAngularVelocity(const FVector& NewAngVel, bool bAddToCurrent = false)
-	{
-		SetAllPhysicsAngularVelocityInDegrees(NewAngVel, bAddToCurrent);
-	}
 
 	/**
 	 *	Set the angular velocity of all bodies in this component.
@@ -2132,7 +2071,6 @@ public:
 	virtual void SetCollisionResponseToChannels(const FCollisionResponseContainer& NewReponses);
 	
 protected:
-
 	/** Called when the BodyInstance ResponseToChannels, CollisionEnabled or bNotifyRigidBodyCollision changes, in case subclasses want to use that information. */
 	virtual void OnComponentCollisionSettingsChanged();
 
@@ -2140,12 +2078,10 @@ protected:
 	void ClearComponentOverlaps(bool bDoNotifies, bool bSkipNotifySelf);
 
 private:
-	
 	/** Check if mobility is set to non-static. If BodyInstanceRequiresSimulation is non-null we check that it is simulated. Triggers a PIE warning if conditions fails */
 	void WarnInvalidPhysicsOperations_Internal(const FText& ActionText, const FBodyInstance* BodyInstanceRequiresSimulation, FName BoneName) const;
 
 public:
-
 	/**
 	 * Applies RigidBodyState only if it needs to be updated
 	 * NeedsUpdate flag will be removed from UpdatedState after all velocity corrections are finished
@@ -2238,12 +2174,10 @@ public:
 	bool ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FRotator Rot, const FCollisionQueryParams& Params);
 
 protected:
-
-	// Override this method for custom behavior.
+	/** Override this method for custom behavior for ComponentOverlapComponent() */
 	virtual bool ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Rot, const FCollisionQueryParams& Params);
 
-public:
-	
+public:	
 	/** 
 	 *  Test the collision of the supplied shape at the supplied location, and determine if it overlaps this component.
 	 *
@@ -2262,7 +2196,6 @@ public:
 	 * @param Rot				Rotation of collision shape
 	 * @return true if the computation succeeded - assumes that there is an overlap at the specified position/rotation
 	 */
-
 	virtual bool ComputePenetration(FMTDResult & OutMTD, const FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot);
 
 	/**
@@ -2279,8 +2212,10 @@ public:
 	virtual bool IsNavigationRelevant() const override;
 	//~ End INavRelevantInterface Interface
 
+	/** If true then DoCustomNavigableGeometryExport will be called to collect navigable geometry of this component. */
 	FORCEINLINE EHasCustomNavigableGeometry::Type HasCustomNavigableGeometry() const { return bHasCustomNavigableGeometry; }
 
+	/** Set value of HasCustomNavigableGeometry */
 	void SetCustomNavigableGeometry(const EHasCustomNavigableGeometry::Type InType);
 
 	/** Collects custom navigable geometry of component.

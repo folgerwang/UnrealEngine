@@ -83,28 +83,10 @@ AActor::AActor()
 	InitializeDefaults();
 }
 
-
 AActor::AActor(const FObjectInitializer& ObjectInitializer)
 {
 	// Forward to default constructor (we don't use ObjectInitializer for anything, this is for compatibility with inherited classes that call Super( ObjectInitializer )
 	InitializeDefaults();
-
-#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
-	// Increment actor class count
-	{
-		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
-		{
-			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
-
-			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
-			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
-			int32& CurrentCount = CSVActorClassNameToCountMap.FindOrAdd(NativeClassName);
-			CurrentCount++;
-			CSVActorTotalCount++;
-		}
-	}
-#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
-
 }
 
 void AActor::InitializeDefaults()
@@ -133,8 +115,7 @@ void AActor::InitializeDefaults()
 	bHiddenEdLevel = false;
 	bActorLabelEditable = true;
 	SpriteScale = 1.0f;
-	bEnableAutoLODGeneration = true;	
-	InputConsumeOption_DEPRECATED = ICO_ConsumeBoundKeys;
+	bEnableAutoLODGeneration = true;
 	bOptimizeBPComponentData = false;
 #endif // WITH_EDITORONLY_DATA
 	NetCullDistanceSquared = 225000000.0f;
@@ -155,6 +136,22 @@ void AActor::InitializeDefaults()
 	PivotOffset = FVector::ZeroVector;
 #endif
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+	// Increment actor class count
+	{
+		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
+
+			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
+			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
+			int32& CurrentCount = CSVActorClassNameToCountMap.FindOrAdd(NativeClassName);
+			CurrentCount++;
+			CSVActorTotalCount++;
+		}
+	}
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
 }
 
 void FActorTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -676,11 +673,6 @@ void AActor::PostLoad()
 	}
 
 #if WITH_EDITORONLY_DATA
-	if (GetLinkerUE4Version() < VER_UE4_CONSUME_INPUT_PER_BIND)
-	{
-		bBlockInput = (InputConsumeOption_DEPRECATED == ICO_ConsumeAll);
-	}
-
 	if (AActor* ParentActor = ParentComponentActor_DEPRECATED.Get())
 	{
 		TInlineComponentArray<UChildActorComponent*> ParentChildActorComponents(ParentActor);
@@ -1644,7 +1636,7 @@ bool AActor::HasNetOwner() const
 void AActor::K2_AttachRootComponentTo(USceneComponent* InParent, FName InSocketName, EAttachLocation::Type AttachLocationType /*= EAttachLocation::KeepRelativeOffset */, bool bWeldSimulatedBodies /*=true*/)
 {
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
-if (RootComponent && InParent)
+	if (RootComponent && InParent)
 	{
 		RootComponent->AttachTo(InParent, InSocketName, AttachLocationType, bWeldSimulatedBodies);
 	}

@@ -116,11 +116,6 @@ void UPrimitiveComponent::SetConstraintMode(EDOFMode::Type ConstraintMode)
 	RootBI->SetDOFLock(ConstraintMode);
 }
 
-void UPrimitiveComponent::SetLockedAxis(EDOFMode::Type LockedAxis)
-{
-	SetConstraintMode(LockedAxis);
-}
-
 void UPrimitiveComponent::AddImpulse(FVector Impulse, FName BoneName, bool bVelChange)
 {
 	if (FBodyInstance* BI = GetBodyInstance(BoneName))

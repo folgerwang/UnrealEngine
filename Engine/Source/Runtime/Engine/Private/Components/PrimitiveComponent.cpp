@@ -213,7 +213,6 @@ private:
 // PRIMITIVE COMPONENT
 ///////////////////////////////////////////////////////////////////////////////
 
-int32 UPrimitiveComponent::CurrentTag = 2147483647 / 4;
 uint32 UPrimitiveComponent::GlobalOverlapEventsCounter = 0;
 
 // 0 is reserved to mean invalid

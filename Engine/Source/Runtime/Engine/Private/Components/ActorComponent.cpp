@@ -501,6 +501,11 @@ bool UActorComponent::NeedsLoadForServer() const
 	return (!IsEditorOnly() && bNeedsLoadOuter && Super::NeedsLoadForServer());
 }
 
+bool UActorComponent::NeedsLoadForEditorGame() const
+{
+	return !IsEditorOnly() && Super::NeedsLoadForEditorGame();
+}
+
 int32 UActorComponent::GetFunctionCallspace( UFunction* Function, void* Parameters, FFrame* Stack )
 {
 	AActor* MyOwner = GetOwner();

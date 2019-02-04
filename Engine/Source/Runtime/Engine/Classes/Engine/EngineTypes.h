@@ -27,6 +27,7 @@ class USceneComponent;
  */
 enum { NumInlinedActorComponents = 24 };
 
+/** Enum describing how to constrain perspective view port FOV */
 UENUM()
 enum EAspectRatioAxisConstraint
 {
@@ -35,18 +36,6 @@ enum EAspectRatioAxisConstraint
 	AspectRatio_MajorAxisFOV UMETA(DisplayName="Maintain Major Axis FOV"),
 	AspectRatio_MAX,
 };
-
-
-/** The type of metric we want about the actor **/
-UENUM()
-enum EActorMetricsType
-{
-	METRICS_VERTS,
-	METRICS_TRIS,
-	METRICS_SECTIONS,
-	METRICS_MAX,
-};
-
 
 /** Return values for UEngine::Browse. */
 namespace EBrowseReturnVal
@@ -164,6 +153,7 @@ struct ENGINE_API FDetachmentTransformRules
 	bool bCallModify;
 };
 
+/** Deprecated rules for setting transform on attachment, new functions should use FAttachmentTransformRules isntead */
 UENUM()
 namespace EAttachLocation
 {
@@ -183,7 +173,6 @@ namespace EAttachLocation
 	};
 }
 
-
 /**
  * A priority for sorting scene elements by depth.
  * Elements with higher priority occlude elements with lower priority, disregarding distance.
@@ -198,7 +187,7 @@ enum ESceneDepthPriorityGroup
 	SDPG_MAX,
 };
 
-
+/** Quality of indirect lighting for Movable primitives. This has a large effect on Indirect Lighting Cache update time. */
 UENUM()
 enum EIndirectLightingCacheQuality
 {
@@ -210,6 +199,7 @@ enum EIndirectLightingCacheQuality
 	ILCQ_Volume
 };
 
+/** Type of lightmap that is used for primitive components */
 UENUM()
 enum class ELightmapType : uint8
 {
@@ -225,6 +215,7 @@ enum class ELightmapType : uint8
 	ForceVolumetric
 };
 
+/** Controls how occlusion from Distance Field Ambient Occlusion is combined with Screen Space Ambient Occlusion. */
 UENUM()
 enum EOcclusionCombineMode
 {
@@ -239,8 +230,11 @@ enum EOcclusionCombineMode
 	OCM_MAX,
 };
 
-/** Note: This is mirrored in Lightmass, be sure to update the blend mode structure and logic there if this changes. */
-// Note: Check UMaterialInstance::Serialize if changed!!
+/**
+ * The blending mode for materials
+ * @warning This is mirrored in Lightmass, be sure to update the blend mode structure and logic there if this changes. 
+ * @warning Check UMaterialInstance::Serialize if changed!!
+ */
 UENUM(BlueprintType)
 enum EBlendMode
 {
@@ -253,7 +247,7 @@ enum EBlendMode
 	BLEND_MAX,
 };
 
-
+/** Controls where the sampler for different texture lookups comes from */
 UENUM()
 enum ESamplerSourceMode
 {
@@ -265,7 +259,7 @@ enum ESamplerSourceMode
 	SSM_Clamp_WorldGroupSettings UMETA(DisplayName="Shared: Clamp")
 };
 
-
+/** Describes how to handle lighting of translucent objets */
 UENUM()
 enum ETranslucencyLightingMode
 {
@@ -349,6 +343,7 @@ namespace ETranslucentSortPolicy
 	};
 }
 
+/** Specifies which component of the scene rendering should be output to the final render target. */
 UENUM()
 enum ESceneCaptureSource 
 { 
@@ -362,6 +357,7 @@ enum ESceneCaptureSource
 	SCS_BaseColor UMETA(DisplayName="BaseColor in RGB (Deferred Renderer only)")
 };
 
+/** Specifies how scene captures are composited into render buffers */
 UENUM()
 enum ESceneCaptureCompositeMode
 { 
@@ -370,12 +366,14 @@ enum ESceneCaptureCompositeMode
 	SCCM_Composite UMETA(DisplayName="Composite")
 };
 
+/** Maximum number of custom lighting channels */
 #define NUM_LIGHTING_CHANNELS 3
 
+/** Specifies which lighting channels are relevant */
 USTRUCT(BlueprintType)
 struct FLightingChannels
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	FLightingChannels() :
 		bChannel0(true),
@@ -387,43 +385,51 @@ struct FLightingChannels
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
 	uint8 bChannel0:1;
 
+	/** First custom channel */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
 	uint8 bChannel1:1;
 
+	/** Second custom channel */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
 	uint8 bChannel2:1;
 };
 
+/** Converts lighting channels into a bitfield */
 inline uint8 GetLightingChannelMaskForStruct(FLightingChannels Value)
 {
 	// Note: this is packed into 3 bits of a stencil channel
 	return (uint8)((Value.bChannel0 ? 1 : 0) | (Value.bChannel1 << 1) | (Value.bChannel2 << 2));
 }
 
+/** Returns mask for only channel 0  */
 inline uint8 GetDefaultLightingChannelMask()
 {
 	return 1;
 }
 
-// Returns the index of the first lighting channel set, or -1 if no channels are set.
+/** Returns the index of the first lighting channel set, or -1 if no channels are set. */
 inline int32 GetFirstLightingChannelFromMask(uint8 Mask)
 {
 	return Mask ? FPlatformMath::CountTrailingZeros(Mask) : -1;
 }
 
-/*
-* Enumerates available GBufferFormats.
-*/
+/** 
+ * Enumerates available GBufferFormats. 
+ * @warning When this enum is updated please update CVarGBufferFormat comments 
+ */
 UENUM()
 namespace EGBufferFormat
 {
-	// When this enum is updated please update CVarGBufferFormat comments 
 	enum Type
 	{
-		Force8BitsPerChannel = 0 UMETA(DisplayName = "Force 8 Bits Per Channel", ToolTip = "Forces all GBuffers to 8 bits per channel. Intended as profiling for best performance."),
-		Default = 1 UMETA(ToolTip = "See GBuffer allocation function for layout details."),
-		HighPrecisionNormals = 3 UMETA(ToolTip = "Same as Default except normals are encoded at 16 bits per channel."),
-		Force16BitsPerChannel = 5 UMETA(DisplayName = "Force 16 Bits Per Channel", ToolTip = "Forces all GBuffers to 16 bits per channel. Intended as profiling for best quality."),
+		/** Forces all GBuffers to 8 bits per channel. Intended as profiling for best performance. */
+		Force8BitsPerChannel = 0 UMETA(DisplayName = "Force 8 Bits Per Channel"),
+		/** See GBuffer allocation function for layout details. */
+		Default = 1,
+		/** Same as Default except normals are encoded at 16 bits per channel. */
+		HighPrecisionNormals = 3,
+		/** Forces all GBuffers to 16 bits per channel. Intended as profiling for best quality. */
+		Force16BitsPerChannel = 5 UMETA(DisplayName = "Force 16 Bits Per Channel"),
 	};
 }
 
@@ -436,6 +442,7 @@ enum ETrailWidthMode
 	ETrailWidthMode_FromSecond UMETA(DisplayName = "From Second Socket"),
 };
 
+/** Specifies how particle collision is computed for GPU particles */
 UENUM()
 namespace EParticleCollisionMode
 {
@@ -446,9 +453,10 @@ namespace EParticleCollisionMode
 	};
 }
 
-
-// Note: Check UMaterialInstance::Serialize if changed!
-
+/** 
+ * Specifies the overal rendering/shading model for a material
+ * @warning Check UMaterialInstance::Serialize if changed!
+ */
 UENUM()
 enum EMaterialShadingModel
 {
@@ -465,7 +473,6 @@ enum EMaterialShadingModel
 	MSM_MAX,
 };
 
-
 /** This is used by the drawing passes to determine tessellation policy, so changes here need to be supported in native code. */
 UENUM()
 enum EMaterialTessellationMode
@@ -479,7 +486,7 @@ enum EMaterialTessellationMode
 	MTM_MAX,
 };
 
-
+/** Describes how textures are sampled for materials */
 UENUM(BlueprintType)
 enum EMaterialSamplerType
 {
@@ -494,7 +501,6 @@ enum EMaterialSamplerType
 	SAMPLERTYPE_External UMETA(DisplayName = "External"),
 	SAMPLERTYPE_MAX,
 };
-
 
 /**	Lighting build quality enumeration */
 UENUM()
@@ -538,7 +544,6 @@ enum EMovementMode
 
 	MOVE_MAX		UMETA(Hidden),
 };
-
 
 /** Smoothing approach used by network interpolation for Characters. */
 UENUM(BlueprintType)
@@ -648,23 +653,24 @@ enum ECollisionChannel
 
 DECLARE_DELEGATE_OneParam(FOnConstraintBroken, int32 /*ConstraintIndex*/);
 
-
 #define COLLISION_GIZMO ECC_EngineTraceChannel1
 
-
-/** @note, if you change this, change GetCollisionChannelFromOverlapFilter() to match */
+/** 
+ * Specifies what types of objects to return from an overlap physics query
+ * @warning If you change this, change GetCollisionChannelFromOverlapFilter() to match 
+ */
 UENUM(BlueprintType)
 enum EOverlapFilterOption
 {
-	// returns both overlaps with both dynamic and static components
+	/** Returns both overlaps with both dynamic and static components */
 	OverlapFilter_All UMETA(DisplayName="AllObjects"),
-	// returns only overlaps with dynamic actors (far fewer results in practice, much more efficient)
+	/** returns only overlaps with dynamic actors (far fewer results in practice, much more efficient) */
 	OverlapFilter_DynamicOnly UMETA(DisplayName="AllDynamicObjects"),
-	// returns only overlaps with static actors (fewer results, more efficient)
+	/** returns only overlaps with static actors (fewer results, more efficient) */
 	OverlapFilter_StaticOnly UMETA(DisplayName="AllStaticObjects"),
 };
 
-
+/** Specifies custom collision object types, overridable per game */
 UENUM(BlueprintType)
 enum EObjectTypeQuery
 {
@@ -704,7 +710,7 @@ enum EObjectTypeQuery
 	ObjectTypeQuery_MAX	UMETA(Hidden)
 };
 
-
+/** Specifies custom collision trace types, overridable per game */
 UENUM(BlueprintType)
 enum ETraceTypeQuery
 {
@@ -754,7 +760,7 @@ enum ECollisionResponse
 	ECR_MAX,
 };
 
-
+/** Interpolation method used by animation blending */
 UENUM()
 enum EFilterInterpolationType
 {
@@ -764,20 +770,7 @@ enum EFilterInterpolationType
 	BSIT_MAX
 };
 
-
-UENUM()
-enum EInputConsumeOptions
-{
-	/** This component consumes all input and no components lower in the stack are processed. */
-	ICO_ConsumeAll=0,
-	/** This component consumes all events for a keys it has bound (whether or not they are handled successfully).  Components lower in the stack will not receive events from these keys. */
-	ICO_ConsumeBoundKeys,
-	/** All input events will be available to components lower in the stack. */
-	ICO_ConsumeNone,
-	ICO_MAX
-};
-
-
+/** Specifies the goal/source of a UWorld object */
 namespace EWorldType
 {
 	enum Type
@@ -811,19 +804,22 @@ namespace EWorldType
 	const EWorldType::Type Preview = EWorldType::EditorPreview;
 }
 
-
+/** Describes what parts of level streaming should be forcibly handled immediately */
 enum class EFlushLevelStreamingType : uint8
 {
+	/** Do not flush state on change */
 	None,			
-	Full,			// Allow multiple load requests
-	Visibility,		// Flush visibility only, do not allow load requests, flushes async loading as well
+	/** Allow multiple load requests */
+	Full,			
+	/** Flush visibility only, do not allow load requests, flushes async loading as well */
+	Visibility,		
 };
 
-
+/** Describes response for a single collision response channel */
 USTRUCT()
 struct FResponseChannel
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** This should match DisplayName of ECollisionChannel 
 	 *	Meta data of custom channels can be used as well
@@ -831,6 +827,7 @@ struct FResponseChannel
 	 UPROPERTY(EditAnywhere, Category = FResponseChannel)
 	FName Channel;
 
+	/** Describes how the channel behaves */
 	UPROPERTY(EditAnywhere, Category = FResponseChannel)
 	TEnumAsByte<enum ECollisionResponse> Response;
 
@@ -854,7 +851,7 @@ struct FResponseChannel
 USTRUCT(BlueprintType)
 struct ENGINE_API FCollisionResponseContainer
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 #if !CPP      //noexport property
 
@@ -1050,7 +1047,8 @@ struct ENGINE_API FCollisionResponseContainer
 	/** Take two response containers and create a new container where each element is the 'min' of the two inputs (ie Ignore and Block results in Ignore) */
 	static FCollisionResponseContainer CreateMinContainer(const FCollisionResponseContainer& A, const FCollisionResponseContainer& B);
 
-	static const struct FCollisionResponseContainer & GetDefaultResponseContainer() { return DefaultResponseContainer; }
+	/** Returns the game-wide default collision response */
+	static const struct FCollisionResponseContainer& GetDefaultResponseContainer() { return DefaultResponseContainer; }
 
 private:
 
@@ -1059,7 +1057,6 @@ private:
 
 	friend class UCollisionProfile;
 };
-
 
 /** Enum for controlling the falloff of strength of a radial impulse as a function of distance from Origin. */
 UENUM()
@@ -1071,7 +1068,6 @@ enum ERadialImpulseFalloff
 	RIF_Linear,
 	RIF_MAX,
 };
-
 
 /** Presets of values used in considering when put this body to sleep. */
 UENUM()
@@ -1085,7 +1081,6 @@ enum class ESleepFamily : uint8
 	Custom,
 };
 
-
 /** Enum used to indicate what type of timeline signature a function matches. */
 UENUM()
 enum ETimelineSigType
@@ -1097,7 +1092,6 @@ enum ETimelineSigType
 	ETS_InvalidSignature,
 	ETS_MAX,
 };
-
 
 /** Enum used to describe what type of collision is enabled on a body. */
 UENUM(BlueprintType)
@@ -1132,7 +1126,7 @@ FORCEINLINE bool CollisionEnabledHasQuery(ECollisionEnabled::Type CollisionEnabl
 USTRUCT()
 struct FRigidBodyState
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	UPROPERTY()
 	FVector_NetQuantize100 Position;
@@ -1158,7 +1152,7 @@ struct FRigidBodyState
 	{ }
 };
 
-
+/** Describes extra state about a specific rigid body */
 namespace ERigidBodyFlags
 {
 	enum Type
@@ -1169,6 +1163,7 @@ namespace ERigidBodyFlags
 	};
 }
 
+/** Describes type of wake/sleep event sent to the physics system */
 enum class ESleepEvent : uint8
 {
 	SET_Wakeup,
@@ -1179,7 +1174,7 @@ enum class ESleepEvent : uint8
 USTRUCT()
 struct FRigidBodyErrorCorrection
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Value between 0 and 1 which indicates how much velocity
 		and ping based correction to use */
@@ -1260,24 +1255,27 @@ struct FRigidBodyErrorCorrection
 	{ }
 };
 
-
 /**
  * Information about one contact between a pair of rigid bodies.
  */
 USTRUCT()
 struct FRigidBodyContactInfo
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Position of contact, where two shapes intersect */
 	UPROPERTY()
 	FVector ContactPosition;
 
+	/** Normal of contact, points from second shape towards first shape */
 	UPROPERTY()
 	FVector ContactNormal;
 
+	/** How far the two shapes penetrated into each other */
 	UPROPERTY()
 	float ContactPenetration;
 
+	/** The physical material of the two shapes involved in a contact */
 	UPROPERTY()
 	class UPhysicalMaterial* PhysMaterial[2];
 
@@ -1317,17 +1315,17 @@ struct FRigidBodyContactInfo
 USTRUCT()
 struct FCollisionImpactData
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	/** all the contact points in the collision*/
+	/** All the contact points in the collision*/
 	UPROPERTY()
 	TArray<struct FRigidBodyContactInfo> ContactInfos;
 
-	/** the total impulse applied as the two objects push against each other*/
+	/** The total impulse applied as the two objects push against each other*/
 	UPROPERTY()
 	FVector TotalNormalImpulse;
 
-	/** the total counterimpulse applied of the two objects sliding against each other*/
+	/** The total counterimpulse applied of the two objects sliding against each other*/
 	UPROPERTY()
 	FVector TotalFrictionImpulse;
 
@@ -1340,12 +1338,11 @@ struct FCollisionImpactData
 	void SwapContactOrders();
 };
 
-
 /** Struct used to hold effects for destructible damage events */
 USTRUCT(BlueprintType)
 struct FFractureEffect
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Particle system effect to play at fracture location. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FractureEffect)
@@ -1361,16 +1358,17 @@ struct FFractureEffect
 	{ }
 };
 
-
 /**	Struct for handling positions relative to a base actor, which is potentially moving */
 USTRUCT(BlueprintType)
 struct ENGINE_API FBasedPosition
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Actor that is the base */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=BasedPosition)
 	class AActor* Base;
 
+	/** Position relative to the base actor */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=BasedPosition)
 	FVector Position;
 
@@ -1385,14 +1383,18 @@ struct ENGINE_API FBasedPosition
 
 	FBasedPosition();
 	explicit FBasedPosition( class AActor *InBase, const FVector& InPosition );
-	// Retrieve world location of this position
+
+	/** Retrieve world location of this position */
 	FVector operator*() const;
+
+	/** Updates base/position */
 	void Set( class AActor* InBase, const FVector& InPosition );
+
+	/** Clear base/position */
 	void Clear();
 
 	friend FArchive& operator<<( FArchive& Ar, FBasedPosition& T );
 };
-
 
 /** Struct for caching Quat<->Rotator conversions. */
 struct ENGINE_API FRotationConversionCache
@@ -1483,13 +1485,11 @@ private:
 	mutable FRotator	CachedRotator;	// FRotator matching CachedQuat such that CachedRotator.Quaternion() == CachedQuat.
 };
 
-
-
 /** A line of subtitle text and the time at which it should be displayed. */
 USTRUCT()
 struct FSubtitleCue
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** The text to appear in the subtitle. */
 	UPROPERTY(EditAnywhere, Category=SubtitleCue)
@@ -1504,12 +1504,11 @@ struct FSubtitleCue
 	{ }
 };
 
-
 /**	Per-light settings for Lightmass */
 USTRUCT()
 struct FLightmassLightSettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** 0 will be completely desaturated, 1 will be unchanged */
 	UPROPERTY(EditAnywhere, Category=Lightmass, meta=(UIMin = "0.0", UIMax = "4.0"))
@@ -1533,20 +1532,18 @@ struct FLightmassLightSettings
 	{ }
 };
 
-
 /**	Point/spot settings for Lightmass */
 USTRUCT()
 struct FLightmassPointLightSettings : public FLightmassLightSettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 };
-
 
 /**	Directional light settings for Lightmass */
 USTRUCT()
 struct FLightmassDirectionalLightSettings : public FLightmassLightSettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Angle that the directional light's emissive surface extends relative to a receiver, affects penumbra sizes. */
 	UPROPERTY(EditAnywhere, Category=Lightmass, meta=(UIMin = ".0001", UIMax = "5"))
@@ -1558,12 +1555,11 @@ struct FLightmassDirectionalLightSettings : public FLightmassLightSettings
 	}
 };
 
-
 /**	Per-object settings for Lightmass */
 USTRUCT()
 struct FLightmassPrimitiveSettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** If true, this object will be lit as if it receives light from both sides of its polygons. */
 	UPROPERTY(EditAnywhere, Category=Lightmass)
@@ -1643,12 +1639,11 @@ struct FLightmassPrimitiveSettings
 	friend FArchive& operator<<(FArchive& Ar, FLightmassPrimitiveSettings& Settings);
 };
 
-
 /**	Debug options for Lightmass */
 USTRUCT()
 struct FLightmassDebugOptions
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 *	If false, UnrealLightmass.exe is launched automatically (default)
@@ -1738,14 +1733,13 @@ struct FLightmassDebugOptions
 	ENGINE_API FLightmassDebugOptions();
 };
 
-
 /**
  *	Debug options for Swarm
  */
 USTRUCT()
 struct FSwarmDebugOptions
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 *	If true, Swarm will distribute jobs.
@@ -1776,7 +1770,7 @@ struct FSwarmDebugOptions
 	void Touch();
 };
 
-
+/** Method for padding a light map in memory */
 UENUM()
 enum ELightMapPaddingType
 {
@@ -1784,7 +1778,6 @@ enum ELightMapPaddingType
 	LMPT_PrePadding,
 	LMPT_NoPadding
 };
-
 
 /** Bit-field flags that affects storage (e.g. packing, streaming) and other info about a shadowmap. */
 UENUM()
@@ -1796,19 +1789,21 @@ enum EShadowMapFlags
 	SMF_Streamed		= 0x00000001
 };
 
-
-/** Reference to a specific material in a PrimitiveComponent. */
+/** Reference to a specific material in a PrimitiveComponent, used by Matinee */
 USTRUCT()
 struct FPrimitiveMaterialRef
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Material is on a primitive component */
 	UPROPERTY()
 	class UPrimitiveComponent* Primitive;
 
+	/** Material is on a decal component */
 	UPROPERTY()
 	class UDecalComponent* Decal;
 
+	/** Index into the material on the components data */
 	UPROPERTY()
 	int32 ElementIndex;
 
@@ -1831,14 +1826,13 @@ struct FPrimitiveMaterialRef
 	{ 	}
 };
 
-
 /**
  * Structure containing information about one hit of a trace, such as point of impact and surface normal at that point.
  */
 USTRUCT(BlueprintType, meta = (HasNativeBreak = "Engine.GameplayStatics.BreakHitResult", HasNativeMake = "Engine.GameplayStatics.MakeHitResult"))
 struct ENGINE_API FHitResult
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Indicates if this hit was a result of blocking collision. If false, there was no hit or it was an overlap/touch instead. */
 	UPROPERTY()
@@ -2112,7 +2106,7 @@ FORCEINLINE bool TeleportEnumToFlag(ETeleportType Teleport) { return ETeleportTy
 USTRUCT()
 struct ENGINE_API FOverlapResult
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Actor that the check hit. */
 	UPROPERTY()
@@ -2150,7 +2144,7 @@ template<> struct TIsPODType<FOverlapResult> { enum { Value = true }; };
 USTRUCT()
 struct ENGINE_API FMTDResult
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Normalized direction of the minimum translation required to fix penetration. */
 	UPROPERTY()
@@ -2166,12 +2160,11 @@ struct ENGINE_API FMTDResult
 	}
 };
 
-
 /** Struct used for passing information from Matinee to an Actor for blending animations during a sequence. */
 USTRUCT()
 struct FAnimSlotInfo
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Name of slot that we want to play the animtion in. */
 	UPROPERTY()
@@ -2182,12 +2175,11 @@ struct FAnimSlotInfo
 	TArray<float> ChannelWeights;
 };
 
-
 /** Used to indicate each slot name and how many channels they have. */
 USTRUCT()
 struct FAnimSlotDesc
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Name of the slot. */
 	UPROPERTY()
@@ -2197,11 +2189,9 @@ struct FAnimSlotDesc
 	UPROPERTY()
 	int32 NumChannels;
 
-
 	FAnimSlotDesc()
 		: NumChannels(0)
 	{ }
-
 };
 
 /** Enum for controlling buckets for update rate optimizations if we need to stagger
@@ -2224,7 +2214,7 @@ enum class EUpdateRateShiftBucket : uint8
 USTRUCT()
 struct FAnimUpdateRateParameters
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 public:
 	enum EOptimizeMode : uint8
@@ -2269,12 +2259,12 @@ public:
 	UPROPERTY()
 	int32 EvaluationRate;
 
-	UPROPERTY(Transient)
 	/** Track time we have lost via skipping */
+	UPROPERTY(Transient)
 	float TickedPoseOffestTime;
 
-	UPROPERTY(Transient)
 	/** Total time of the last series of skipped updates */
+	UPROPERTY(Transient)
 	float AdditionalTime;
 
 	/** The delta time of the last tick */
@@ -2311,9 +2301,11 @@ public:
 	UPROPERTY()
 	TMap<int32, int32> LODToFrameSkipMap;
 
+	/** Number of update frames that have been skipped in a row */
 	UPROPERTY()
 	int32 SkippedUpdateFrames;
 
+	/** Number of evaluate frames that have been skipped in a row */
 	UPROPERTY()
 	int32 SkippedEvalFrames;
 
@@ -2342,38 +2334,47 @@ public:
 		BaseVisibleDistanceFactorThesholds.Add(0.12f);
 	}
 
-	/** Set parameters and verify inputs for Trail Mode (original behaviour - skip frames, track skipped time and then catch up afterwards).
-	 * @param : UpdateShiftRate. Shift our update frames so that updates across all skinned components are staggered
+	/** 
+	 * Set parameters and verify inputs for Trail Mode (original behaviour - skip frames, track skipped time and then catch up afterwards).
+	 * @param : UpdateRateShift. Shift our update frames so that updates across all skinned components are staggered
 	 * @param : NewUpdateRate. How often animation will be updated/ticked. 1 = every frame, 2 = every 2 frames, etc.
 	 * @param : NewEvaluationRate. How often animation will be evaluated. 1 = every frame, 2 = every 2 frames, etc.
 	 * @param : bNewInterpSkippedFrames. When skipping a frame, should it be interpolated or frozen?
 	 */
 	void SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames);
 
+	/**
+	 * Set parameters and verify inputs for Lookahead mode, which handles Root Motion
+	 * @param : UpdateRateShift. Shift our update frames so that updates across all skinned components are staggered
+	 * @param : LookAheadAmount. Amount of time to look ahead and predict movement 
+	 */
 	void SetLookAheadMode(float DeltaTime, uint8 UpdateRateShift, float LookAheadAmount);
 
+	/** Amount to interpolate bone transforms */
 	float GetInterpolationAlpha() const;
 
+	/** Amount to interpoilate root motion */
 	float GetRootMotionInterp() const;
 
+	/** Return true if evaluation rate should be optimized at all */
 	bool DoEvaluationRateOptimizations() const
 	{
 		return OptimizeMode == LookAheadMode || EvaluationRate > 1;
 	}
 
-	/* Getter for bSkipUpdate */
+	/** Getter for bSkipUpdate */
 	bool ShouldSkipUpdate() const
 	{
 		return bSkipUpdate;
 	}
 
-	/* Getter for bSkipEvaluation */
+	/** Getter for bSkipEvaluation */
 	bool ShouldSkipEvaluation() const
 	{
 		return bSkipEvaluation;
 	}
 
-	/* Getter for bInterpolateSkippedFrames */
+	/** Getter for bInterpolateSkippedFrames */
 	bool ShouldInterpolateSkippedFrames() const
 	{
 		return bInterpolateSkippedFrames;
@@ -2385,6 +2386,7 @@ public:
 		return AdditionalTime;
 	}
 
+	/** Returns color to use for debug UI */
 	FColor GetUpdateRateDebugColor() const
 	{
 		if (OptimizeMode == TrailMode)
@@ -2408,14 +2410,11 @@ public:
 	}
 };
 
-
-/**
- * Point Of View type.
- */
+/** Point Of View structure used in Camera calculations */
 USTRUCT(BlueprintType)
 struct FPOV
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Location */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=POV)
@@ -2444,15 +2443,13 @@ struct FPOV
 	}
 };
 
-
-
 /**
  * Settings applied when building a mesh.
  */
 USTRUCT()
 struct FMeshBuildSettings
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** If true, degenerate triangles will be removed. */
 	UPROPERTY(EditAnywhere, Category=BuildSettings)
@@ -2579,15 +2576,13 @@ struct FMeshBuildSettings
 	}
 };
 
-
-
+/** Event used by AActor::TakeDamage and related functions */
 USTRUCT(BlueprintType)
 struct ENGINE_API FDamageEvent
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 public:
-
 	/** Default constructor (no initialization). */
 	FDamageEvent() { }
 
@@ -2615,13 +2610,13 @@ public:
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const;
 };
 
-
+/** Damage subclass that handles damage with a single impact location and source direction */
 USTRUCT()
 struct ENGINE_API FPointDamageEvent : public FDamageEvent
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	// skipping ImpulseMag for now
+	/** Actual damage done */
 	UPROPERTY()
 	float Damage;
 	
@@ -2629,6 +2624,7 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	UPROPERTY()
 	FVector_NetQuantizeNormal ShotDirection;
 	
+	/** Describes the trace/location that caused this damage */
 	UPROPERTY()
 	struct FHitResult HitInfo;
 
@@ -2647,29 +2643,31 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const override;
 };
 
-
+/** Parameters used to compute radial damage */
 USTRUCT(BlueprintType)
 struct ENGINE_API FRadialDamageParams
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Max damage done */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadialDamageParams)
 	float BaseDamage;
 
+	/** Damage will not fall below this if within range */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadialDamageParams)
 	float MinimumDamage;
 	
+	/** Within InnerRadius, do max damage */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadialDamageParams)
 	float InnerRadius;
 		
+	/** Outside OuterRadius, do no damage */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadialDamageParams)
 	float OuterRadius;
 		
+	/** Describes amount of exponential damage falloff */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadialDamageParams)
 	float DamageFalloff;
-
-// 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RadiusDamageParams)
-// 	float BaseImpulseMag;
 
 	FRadialDamageParams()
 		: BaseDamage(0.f), MinimumDamage(0.f), InnerRadius(0.f), OuterRadius(0.f), DamageFalloff(1.f)
@@ -2684,25 +2682,28 @@ struct ENGINE_API FRadialDamageParams
 		: BaseDamage(InBaseDamage), MinimumDamage(0.f), InnerRadius(0.f), OuterRadius(InRadius), DamageFalloff(1.f)
 	{}
 
+	/** Returns damage done at a certain distance */
 	float GetDamageScale(float DistanceFromEpicenter) const;
 
 	/** Return outermost radius of the damage area. Protects against malformed data. */
 	float GetMaxRadius() const { return FMath::Max( FMath::Max(InnerRadius, OuterRadius), 0.f ); }
 };
 
-
+/** Damage subclass that handles damage with a source location and falloff radius */
 USTRUCT()
 struct ENGINE_API FRadialDamageEvent : public FDamageEvent
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Static parameters describing damage falloff math */
 	UPROPERTY()
 	FRadialDamageParams Params;
 	
+	/** Location of origin point */
 	UPROPERTY()
 	FVector Origin;
 
-	// @fixme, will not replicate properly?  component pointer
+	/** Hit reslts of specific impacts */
 	UPROPERTY()
 	TArray<struct FHitResult> ComponentHits;
 
@@ -2720,7 +2721,7 @@ struct ENGINE_API FRadialDamageEvent : public FDamageEvent
 	{}
 };
 
-
+/** The network role of an actor on a local/remote network context */
 UENUM()
 enum ENetRole
 {
@@ -2735,7 +2736,7 @@ enum ENetRole
 	ROLE_MAX,
 };
 
-
+/** Describes if an actor can enter a low network bandwidth dormant mode */
 UENUM()
 enum ENetDormancy
 {
@@ -2753,7 +2754,7 @@ enum ENetDormancy
 	DORM_MAX UMETA(Hidden),
 };
 
-
+/** Specifies which player index will pass input to this actor/component */
 UENUM()
 namespace EAutoReceiveInput
 {
@@ -2771,7 +2772,7 @@ namespace EAutoReceiveInput
 	};
 }
 
-
+/** Specifies if an AI pawn will automatically be possed by an AI controller */
 UENUM()
 enum class EAutoPossessAI : uint8
 {
@@ -2785,7 +2786,7 @@ enum class EAutoPossessAI : uint8
 	PlacedInWorldOrSpawned,
 };
 
-
+/** Specifies why an actor is being deleted/removed from a level */
 UENUM(BlueprintType)
 namespace EEndPlayReason
 {
@@ -2802,12 +2803,11 @@ namespace EEndPlayReason
 		/** When the application is being exited. */
 		Quit,
 	};
-
 }
 
 DECLARE_DYNAMIC_DELEGATE(FTimerDynamicDelegate);
 
-// Unique handle that can be used to distinguish timers that have identical delegates.
+/** Unique handle that can be used to distinguish timers that have identical delegates. */
 USTRUCT(BlueprintType)
 struct FTimerHandle
 {
@@ -2821,11 +2821,13 @@ struct FTimerHandle
 	{
 	}
 
+	/** True if this handle was ever initialized by the timer manager */
 	bool IsValid() const
 	{
 		return Handle != 0;
 	}
 
+	/** Explicitly clear handle */
 	void Invalidate()
 	{
 		Handle = 0;
@@ -2881,6 +2883,7 @@ private:
 	}
 };
 
+/** Describes rules for network replicating a vector efficiently */
 UENUM()
 enum class EVectorQuantization : uint8
 {
@@ -2892,6 +2895,7 @@ enum class EVectorQuantization : uint8
 	RoundTwoDecimals
 };
 
+/** Describes rules for network replicating a vector efficiently */
 UENUM()
 enum class ERotatorQuantization : uint8
 {
@@ -2908,17 +2912,21 @@ enum class ERotatorQuantization : uint8
 USTRUCT()
 struct ENGINE_API FRepMovement
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Velocity of component in world space */
 	UPROPERTY(Transient)
 	FVector LinearVelocity;
 
+	/** Velocity of rotation for component */
 	UPROPERTY(Transient)
 	FVector AngularVelocity;
 	
+	/** Location in world space */
 	UPROPERTY(Transient)
 	FVector Location;
 
+	/** Current rotation */
 	UPROPERTY(Transient)
 	FRotator Rotation;
 
@@ -3069,6 +3077,7 @@ struct ENGINE_API FRepMovement
 		return !(*this == Other);
 	}
 
+	/** True if multiplayer rebasing is enabled, corresponds to p.EnableMultiplayerWorldOriginRebasing console variable */
 	static int32 EnableMultiplayerWorldOriginRebasing;
 
 	/** Rebase zero-origin position onto local world origin value. */
@@ -3091,27 +3100,33 @@ struct ENGINE_API FRepMovement
 };
 
 
-/** Handles attachment replication to clients. Movement replication will not happen while AttachParent is non-nullptr */
+/** Handles attachment replication to clients.  */
 USTRUCT()
 struct FRepAttachment
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
+	/** Actor we are attached to, movement replication will not happen while AttachParent is non-nullptr */
 	UPROPERTY()
 	class AActor* AttachParent;
 
+	/** Location offset from attach parent */
 	UPROPERTY()
 	FVector_NetQuantize100 LocationOffset;
 
+	/** Scale relative to attach parent */
 	UPROPERTY()
 	FVector_NetQuantize100 RelativeScale3D;
 
+	/** Rotation offset from attach parent */
 	UPROPERTY()
 	FRotator RotationOffset;
 
+	/** Specific socket we are attached to */
 	UPROPERTY()
 	FName AttachSocket;
 
+	/** Specific component we are attached to */
 	UPROPERTY()
 	class USceneComponent* AttachComponent;
 
@@ -3124,7 +3139,6 @@ struct FRepAttachment
 		, AttachComponent(nullptr)
 	{ }
 };
-
 
 /**
  * Controls behavior of WalkableSlopeOverride, determining how to affect walkability of surfaces for Characters.
@@ -3160,12 +3174,11 @@ enum EWalkableSlopeBehavior
 	WalkableSlope_Max		UMETA(Hidden),
 };
 
-
 /** Struct allowing control over "walkable" normals, by allowing a restriction or relaxation of what steepness is normally walkable. */
 USTRUCT(BlueprintType)
 struct FWalkableSlopeOverride
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 * Behavior of this surface (whether we affect the walkable slope).
@@ -3205,31 +3218,31 @@ public:
 	{
 	}
 
-	// Gets the slope override behavior.
+	/** Gets the slope override behavior. */
 	FORCEINLINE EWalkableSlopeBehavior GetWalkableSlopeBehavior() const
 	{
 		return WalkableSlopeBehavior;
 	}
 
-	// Gets the slope angle used for the override behavior.
+	/** Gets the slope angle used for the override behavior. */
 	FORCEINLINE float GetWalkableSlopeAngle() const
 	{
 		return WalkableSlopeAngle;
 	}
 
-	// Set the slope override behavior.
+	/** Set the slope override behavior. */
 	FORCEINLINE void SetWalkableSlopeBehavior(EWalkableSlopeBehavior NewSlopeBehavior)
 	{
 		WalkableSlopeBehavior = NewSlopeBehavior;
 	}
 
-	// Set the slope angle used for the override behavior.
+	/** Set the slope angle used for the override behavior. */
 	FORCEINLINE void SetWalkableSlopeAngle(float NewSlopeAngle)
 	{
 		WalkableSlopeAngle = FMath::Clamp(NewSlopeAngle, 0.f, 90.f);
 	}
 
-	// Given a walkable floor normal Z value, either relax or restrict the value if we override such behavior.
+	/** Given a walkable floor normal Z value, either relax or restrict the value if we override such behavior. */
 	float ModifyWalkableFloorZ(float InWalkableFloorZ) const
 	{
 		switch(WalkableSlopeBehavior)
@@ -3289,7 +3302,6 @@ struct TStructOpsTypeTraits<FRepMovement> : public TStructOpsTypeTraitsBase2<FRe
 	};
 };
 
-
 /** Structure to hold and pass around transient flags used during replication. */
 struct FReplicationFlags
 {
@@ -3321,20 +3333,18 @@ struct FReplicationFlags
 	}
 };
 
-
 static_assert(sizeof(FReplicationFlags) == 4, "FReplicationFlags has invalid size.");
 
 /** Struct used to specify the property name of the component to constrain */
 USTRUCT()
 struct FConstrainComponentPropName
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Name of property */
 	UPROPERTY(EditAnywhere, Category=Constraint)
 	FName	ComponentName;
 };
-
 
 /** 
  *	Struct that allows for different ways to reference a component. 
@@ -3343,7 +3353,7 @@ struct FConstrainComponentPropName
 USTRUCT()
 struct ENGINE_API FComponentReference
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Pointer to a different Actor that owns the Component.  */
 	UPROPERTY(EditInstanceOnly, Category=Component)
@@ -3360,8 +3370,7 @@ struct ENGINE_API FComponentReference
 	class USceneComponent* GetComponent(AActor* OwningActor) const;
 };
 
-
-/** Types of surfaces in the game. */
+/** Types of surfaces in the game, used by Physical Materials */
 UENUM(BlueprintType)
 enum EPhysicalSurface
 {
@@ -3431,7 +3440,6 @@ enum EPhysicalSurface
 	SurfaceType_Max UMETA(Hidden)
 };
 
-
 /** Describes how often this component is allowed to move. */
 UENUM(BlueprintType)
 namespace EComponentMobility
@@ -3464,7 +3472,7 @@ namespace EComponentMobility
 	};
 }
 
-
+/** Utility class for engine types */
 UCLASS(abstract, config=Engine)
 class ENGINE_API UEngineTypes : public UObject
 {
@@ -3484,7 +3492,6 @@ public:
 	static ETraceTypeQuery ConvertToTraceType(ECollisionChannel CollisionChannel);
 };
 
-
 /** Type of a socket on a scene component. */
 UENUM()
 namespace EComponentSocketType
@@ -3501,7 +3508,6 @@ namespace EComponentSocketType
 		Socket,
 	};
 }
-
 
 /** Info about a socket on a scene component */
 struct FComponentSocketDescription
@@ -3528,7 +3534,7 @@ struct FComponentSocketDescription
 /** Dynamic delegate to use by components that want to route the broken-event into blueprints */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FConstraintBrokenSignature, int32, ConstraintIndex);
 
-// ANGULAR DOF
+/** Specifies angular degrees of freedom */
 UENUM()
 enum EAngularConstraintMotion
 {
@@ -3542,7 +3548,7 @@ enum EAngularConstraintMotion
 	ACM_MAX,
 };
 
-/** Enum to indicate which frame we want. */
+/** Enum to indicate which context frame we use for physical constraints */
 UENUM()
 namespace EConstraintFrame
 {
@@ -3553,14 +3559,11 @@ namespace EConstraintFrame
 	};
 }
 
-
-/**
- * Structure for file paths that are displayed in the UI.
- */
+/** Structure for file paths that are displayed in the editor with a picker UI. */
 USTRUCT(BlueprintType)
 struct FFilePath
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 * The path to the file.
@@ -3569,14 +3572,11 @@ struct FFilePath
 	FString FilePath;
 };
 
-
-/**
- * Structure for directory paths that are displayed in the UI.
- */
+/** Structure for directory paths that are displayed in the editor with a picker UI. */
 USTRUCT(BlueprintType)
 struct FDirectoryPath
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 * The path to the directory.
@@ -3592,7 +3592,7 @@ struct FDirectoryPath
 USTRUCT(BlueprintType)
 struct FCollectionReference
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/**
 	 * Name of the collection
@@ -3602,14 +3602,13 @@ struct FCollectionReference
 };
 
 /**
-* This is used for redirecting old name to new name
-* We use manually parsing array, but that makes harder to modify from property setting
-* So adding this USTRUCT to support it properly
-*/
+ * This is used for redirecting an old name to new name, such as for collision profiles
+ * This is used for better UI in the editor
+ */
 USTRUCT()
 struct ENGINE_API FRedirector
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	UPROPERTY()
 	FName OldName;
@@ -3629,14 +3628,13 @@ struct ENGINE_API FRedirector
 	{ }
 };
 
-
 /** 
  * Structure for recording float values and displaying them as an Histogram through DrawDebugFloatHistory.
  */
 USTRUCT(BlueprintType)
 struct FDebugFloatHistory
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 private:
 	/** Samples */
@@ -3734,28 +3732,29 @@ public:
 	}
 };
 
-
-/** info for glow when using depth field rendering */
+/** Info for glow when using depth field rendering */
 USTRUCT(BlueprintType)
 struct FDepthFieldGlowInfo
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	/** whether to turn on the outline glow (depth field fonts only) */
+	/** Whether to turn on the outline glow (depth field fonts only) */
 	UPROPERTY(BlueprintReadWrite, Category="Glow")
 	uint32 bEnableGlow:1;
 
-	/** base color to use for the glow */
+	/** Base color to use for the glow */
 	UPROPERTY(BlueprintReadWrite, Category="Glow")
 	FLinearColor GlowColor;
 
-	/** if bEnableGlow, outline glow outer radius (0 to 1, 0.5 is edge of character silhouette)
+	/** 
+	 * If bEnableGlow, outline glow outer radius (0 to 1, 0.5 is edge of character silhouette)
 	 * glow influence will be 0 at GlowOuterRadius.X and 1 at GlowOuterRadius.Y
-	*/
+	 */
 	UPROPERTY(BlueprintReadWrite, Category="Glow")
 	FVector2D GlowOuterRadius;
 
-	/** if bEnableGlow, outline glow inner radius (0 to 1, 0.5 is edge of character silhouette)
+	/** 
+	 * If bEnableGlow, outline glow inner radius (0 to 1, 0.5 is edge of character silhouette)
 	 * glow influence will be 1 at GlowInnerRadius.X and 0 at GlowInnerRadius.Y
 	 */
 	UPROPERTY(BlueprintReadWrite, Category="Glow")
@@ -3792,22 +3791,21 @@ struct FDepthFieldGlowInfo
 	}	
 };
 
-
-/** information used in font rendering */
+/** Information used in font rendering */
 USTRUCT(BlueprintType)
 struct FFontRenderInfo
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	/** whether to clip text */
+	/** Whether to clip text */
 	UPROPERTY(BlueprintReadWrite, Category="FontInfo")
 	uint32 bClipText:1;
 
-	/** whether to turn on shadowing */
+	/** Whether to turn on shadowing */
 	UPROPERTY(BlueprintReadWrite, Category="FontInfo")
 	uint32 bEnableShadow:1;
 
-	/** depth field glow parameters (only usable if font was imported with a depth field) */
+	/** Depth field glow parameters (only usable if font was imported with a depth field) */
 	UPROPERTY(BlueprintReadWrite, Category="FontInfo")
 	struct FDepthFieldGlowInfo GlowInfo;
 
@@ -3816,12 +3814,11 @@ struct FFontRenderInfo
 	{}
 };
 
-
 /** Simple 2d triangle with UVs */
 USTRUCT(BlueprintType)
 struct FCanvasUVTri
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Position of first vertex */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CanvasUVTri)
@@ -3872,7 +3869,6 @@ struct FCanvasUVTri
 	{ }
 };
 
-
 template <> struct TIsZeroConstructType<FCanvasUVTri> { enum { Value = true }; };
 
 /** Defines available strategies for handling the case where an actor is spawned in such a way that it penetrates blocking collision. */
@@ -3894,8 +3890,11 @@ enum class ESpawnActorCollisionHandlingMethod : uint8
 /** Defines the context of a user activity. Activities triggered in Blueprints will by type Game. Those created in code might choose to set another type. */
 enum class EUserActivityContext : uint8
 {
+	/** Event triggered from gameplay, such as from blueprints */
 	Game,
+	/** Event triggered from the editor UI */
 	Editor,
+	/** Event triggered from some other source */
 	Other
 };
 
@@ -3905,7 +3904,7 @@ enum class EUserActivityContext : uint8
 USTRUCT(BlueprintType)
 struct FUserActivity
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Describes the user's activity */
 	UPROPERTY(BlueprintReadWrite, Category = "Activity")
@@ -3951,8 +3950,10 @@ enum class ELevelCollectionType : uint8
 	 * Will contain a world's persistent level and any streaming levels that contain dynamic or replicated gameplay actors.
 	 */
 	DynamicSourceLevels,
+
 	/** Gameplay relevant levels that have been duplicated from DynamicSourceLevels if requested by the game. */
 	DynamicDuplicatedLevels,
+
 	/**
 	 * These levels are shared between the source levels and the duplicated levels, and should contain
 	 * only static geometry and other visuals that are not replicated or affected by gameplay.
