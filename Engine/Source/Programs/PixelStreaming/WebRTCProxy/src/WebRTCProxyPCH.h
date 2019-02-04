@@ -23,6 +23,7 @@
 #pragma warning(push)
 #pragma warning(disable: 4582) // error C4582: 'webrtc::RTCError::string_message_': constructor is not implicitly called
 #pragma warning(disable: 4583) // error C4583 : 'rtc::Optional<std::string>::value_' : destructor is not implicitly called
+#pragma warning(disable : 4265) // warning C4265: 'webrtc::VideoCaptureExternal': class has virtual functions, but destructor is not virtual
 #endif
 //
 // WebRTC headers

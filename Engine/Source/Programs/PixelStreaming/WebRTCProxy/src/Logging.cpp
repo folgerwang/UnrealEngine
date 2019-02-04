@@ -27,9 +27,9 @@ const char* LogVerbosityToString(ELogVerbosity v)
 }
 
 FLogCategoryBase::FLogCategoryBase(const char* Name, ELogVerbosity Verbosity, ELogVerbosity CompileTimeVerbosity)
-    : Name(Name)
-    , Verbosity(Verbosity)
+    : Verbosity(Verbosity)
     , CompileTimeVerbosity(CompileTimeVerbosity)
+    , Name(Name)
 {
 }
 

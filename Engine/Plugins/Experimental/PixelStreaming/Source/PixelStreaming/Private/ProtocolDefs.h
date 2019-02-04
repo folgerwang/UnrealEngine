@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Misc/AssertionMacros.h"
 
 namespace PixelStreamingProtocol
 {

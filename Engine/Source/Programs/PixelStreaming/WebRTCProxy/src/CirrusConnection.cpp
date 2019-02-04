@@ -8,8 +8,8 @@ using PixelStreamingProtocol::EProxyToCirrusMsg;
 using FMsgSize = uint32_t;
 
 FCirrusConnection::FCirrusConnection(ICirrusConnectionObserver& Observer)
-    : Connection("Cirrus", *this)
-    , Observer(Observer)
+    : Observer(Observer)
+    , Connection("Cirrus", *this)
 {}
 
 void FCirrusConnection::Connect(const std::string& IP, uint16_t Port)
