@@ -917,6 +917,11 @@ namespace InternalEditorLevelLibrary
 			}
 		}
 
+		if (ActorsToTest.Num() == 0)
+		{
+			return false;
+		}
+
 		// All actors need to come from the same World
 		UWorld* CurrentWorld = ActorsToTest[0]->GetWorld();
 		if (CurrentWorld == nullptr)
