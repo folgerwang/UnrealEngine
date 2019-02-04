@@ -341,7 +341,6 @@ void FMeshDecalMeshProcessor::Process(
 		MeshDecalPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

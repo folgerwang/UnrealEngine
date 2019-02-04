@@ -41,7 +41,6 @@ public:
 		: FVertexFactory(InFeatureLevel)
 		, LastFrameSetup(MAX_uint32)
 		, LastViewFamily(nullptr)
-		, LastView(nullptr)
 		, LastFrameRealTime(-1.0f)
 		, ParticleFactoryType(Type)
 		, bInUse(false)
@@ -80,16 +79,15 @@ public:
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { check(HasValidFeatureLevel());  return FRenderResource::GetFeatureLevel(); }
 
-	bool CheckAndUpdateLastFrame(const FSceneViewFamily& ViewFamily, const FSceneView *View = nullptr) const
+	bool CheckAndUpdateLastFrame(const FSceneViewFamily& ViewFamily) const
 	{
-		if (LastFrameSetup != MAX_uint32 && (&ViewFamily == LastViewFamily) && (View == LastView) && ViewFamily.FrameNumber == LastFrameSetup && LastFrameRealTime == ViewFamily.CurrentRealTime)
+		if (LastFrameSetup != MAX_uint32 && (&ViewFamily == LastViewFamily) && ViewFamily.FrameNumber == LastFrameSetup && LastFrameRealTime == ViewFamily.CurrentRealTime)
 		{
 			return false;
 		}
 		LastFrameSetup = ViewFamily.FrameNumber;
 		LastFrameRealTime = ViewFamily.CurrentRealTime;
 		LastViewFamily = &ViewFamily;
-		LastView = View;
 		return true;
 	}
 
@@ -101,7 +99,6 @@ private:
 	/** Last state where we set this. We only need to setup these once per frame, so detemine same frame by number, time, and view family. */
 	mutable uint32 LastFrameSetup;
 	mutable const FSceneViewFamily *LastViewFamily;
-	mutable const FSceneView *LastView;
 	mutable float LastFrameRealTime;
 
 	/** The type of the vertex factory. */

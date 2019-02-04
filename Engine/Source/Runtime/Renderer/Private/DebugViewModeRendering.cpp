@@ -340,7 +340,6 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 		DebugViewModePassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

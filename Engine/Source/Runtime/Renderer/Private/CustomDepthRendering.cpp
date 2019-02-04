@@ -185,7 +185,6 @@ void FCustomDepthPassMeshProcessor::Process(
 		DepthPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		bPositionOnly ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 		ShaderElementData);

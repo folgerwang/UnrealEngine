@@ -980,9 +980,6 @@ void FBasePassMeshProcessor::Process(
 		SortKey = CalculateBasePassMeshStaticSortKey(EarlyZPassMode, BlendMode, BasePassShaders.VertexShader, BasePassShaders.PixelShader);
 	}
 
-	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : (Scene && Scene->bStaticDrawInstancedStereo);
-	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
-
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -993,7 +990,6 @@ void FBasePassMeshProcessor::Process(
 		BasePassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		InstanceFactor,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

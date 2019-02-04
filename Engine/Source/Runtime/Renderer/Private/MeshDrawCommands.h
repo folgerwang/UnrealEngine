@@ -59,6 +59,7 @@ public:
 		, MeshPassProcessor(nullptr)
 		, MobileBasePassCSMMeshPassProcessor(nullptr)
 		, DynamicMeshElements(nullptr)
+		, InstanceFactor(1)
 		, NumDynamicMeshElements(0)
 		, NumDynamicMeshCommandBuildRequestElements(0)
 		, PrimitiveIdBufferData(nullptr)
@@ -67,7 +68,6 @@ public:
 		, VisibleMeshDrawCommandsNum(0)
 		, NewPassVisibleMeshDrawCommandsNum(0)
 		, MaxInstances(1)
-		, MaxInstanceFactor(1)
 	{
 	}
 
@@ -87,6 +87,7 @@ public:
 	const TArray<FMeshPassMask, SceneRenderingAllocator>* DynamicMeshElementsPassRelevance;
 
 	// Commands.
+	int32 InstanceFactor;
 	int32 NumDynamicMeshElements;
 	int32 NumDynamicMeshCommandBuildRequestElements;
 	FMeshCommandOneFrameArray MeshDrawCommands;
@@ -112,9 +113,6 @@ public:
 	int32 VisibleMeshDrawCommandsNum;
 	int32 NewPassVisibleMeshDrawCommandsNum;
 	int32 MaxInstances;
-
-	// Assertion check
-	uint32 MaxInstanceFactor;
 };
 
 /**
@@ -183,4 +181,5 @@ extern void SortAndMergeDynamicPassMeshDrawCommands(
 	ERHIFeatureLevel::Type FeatureLevel,
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
-	FVertexBufferRHIParamRef& OutPrimitiveIdVertexBuffer);
+	FVertexBufferRHIParamRef& OutPrimitiveIdVertexBuffer,
+	uint32 InstanceFactor);

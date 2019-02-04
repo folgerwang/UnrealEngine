@@ -235,7 +235,6 @@ void FRayTracingMeshProcessor::Process(
 		RayTracingShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		FMeshDrawCommandSortKey::Default,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

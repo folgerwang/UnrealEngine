@@ -414,7 +414,6 @@ void FLandscapeGrassWeightMeshProcessor::Process(
 			PassShaders,
 			MeshFillMode,
 			MeshCullMode,
-			1,
 			SortKey,
 			EMeshPassFeatures::Default,
 			ShaderElementData);

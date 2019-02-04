@@ -1775,7 +1775,6 @@ void FShadowDepthPassMeshProcessor::Process(
 			ShadowDepthPassShaders,
 			MeshFillMode,
 			MeshCullMode,
-			1,
 			SortKey,
 			bUsePositionOnlyVS ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 			ShaderElementData);

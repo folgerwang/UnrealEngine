@@ -311,7 +311,7 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 	int32& MaxInstances,
 	int32& VisibleMeshDrawCommandsNum,
 	int32& NewPassVisibleMeshDrawCommandsNum,
-	uint32 MaxInstanceFactor = 1
+	uint32 InstanceFactor = 1
 	)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildMeshDrawCommandPrimitiveIdBuffer);
@@ -391,8 +391,6 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 			}
 
 			//@todo - refactor into instance step rate in the RHI
-			uint32 InstanceFactor = VisibleMeshDrawCommand.MeshDrawCommand->InstanceFactor;
-			InstanceFactor = ensure(InstanceFactor <= MaxInstanceFactor) ? InstanceFactor : MaxInstanceFactor;
 			for (uint32 InstanceFactorIndex = 0; InstanceFactorIndex < InstanceFactor; InstanceFactorIndex++, PrimitiveIdIndex++)
 			{
 				//@todo - refactor into memcpy
@@ -416,8 +414,6 @@ void BuildMeshDrawCommandPrimitiveIdBuffer(
 		for (int32 DrawCommandIndex = 0; DrawCommandIndex < NumDrawCommands; DrawCommandIndex++)
 		{
 			const FVisibleMeshDrawCommand& VisibleMeshDrawCommand = VisibleMeshDrawCommands[DrawCommandIndex];
-			uint32 InstanceFactor = VisibleMeshDrawCommand.MeshDrawCommand->InstanceFactor;
-			InstanceFactor = ensure(InstanceFactor <= MaxInstanceFactor) ? InstanceFactor : MaxInstanceFactor;
 			for (uint32 InstanceFactorIndex = 0; InstanceFactorIndex < InstanceFactor; InstanceFactorIndex++, PrimitiveIdIndex++)
 			{
 				checkSlow(PrimitiveIdIndex < MaxPrimitiveId);
@@ -781,7 +777,8 @@ public:
 					Context.TempVisibleMeshDrawCommands,
 					Context.MaxInstances,
 					Context.VisibleMeshDrawCommandsNum,
-					Context.NewPassVisibleMeshDrawCommandsNum
+					Context.NewPassVisibleMeshDrawCommandsNum,
+					Context.InstanceFactor
 				);
 			}
 		}
@@ -804,7 +801,8 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 	ERHIFeatureLevel::Type FeatureLevel,
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
 	FDynamicMeshDrawCommandStorage& MeshDrawCommandStorage,
-	FVertexBufferRHIParamRef& OutPrimitiveIdVertexBuffer)
+	FVertexBufferRHIParamRef& OutPrimitiveIdVertexBuffer,
+	uint32 InstanceFactor)
 {
 	const bool bUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 
@@ -815,7 +813,6 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 		int32 MaxInstances = 1;
 		int32 VisibleMeshDrawCommandsNum = 0;
 		int32 NewPassVisibleMeshDrawCommandsNum = 0;
-		uint32 MaxInstanceFactor = 1;
 
 		VisibleMeshDrawCommands.Sort(FCompareFMeshDrawCommands());
 
@@ -827,9 +824,7 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 				NewPassVisibleMeshDrawCommands.Empty(NumDrawCommands);
 			}
 
-			//@todo - make the instance factor a pass parameter instead of a draw command parameter
-			MaxInstanceFactor = VisibleMeshDrawCommands[0].MeshDrawCommand->InstanceFactor;
-			const int32 PrimitiveIdBufferDataSize = MaxInstanceFactor * NumDrawCommands * sizeof(int32);
+			const int32 PrimitiveIdBufferDataSize = InstanceFactor * NumDrawCommands * sizeof(int32);
 			OutPrimitiveIdVertexBuffer = GPrimitiveIdVertexBufferPool.Allocate(PrimitiveIdBufferDataSize);
 			void* PrimitiveIdBufferData = RHILockVertexBuffer(OutPrimitiveIdVertexBuffer, 0, PrimitiveIdBufferDataSize, RLM_WriteOnly);
 
@@ -843,7 +838,7 @@ void SortAndMergeDynamicPassMeshDrawCommands(
 				MaxInstances,
 				VisibleMeshDrawCommandsNum,
 				NewPassVisibleMeshDrawCommandsNum,
-				MaxInstanceFactor
+				InstanceFactor
 			);
 
 			RHIUnlockVertexBuffer(OutPrimitiveIdVertexBuffer);
@@ -893,6 +888,10 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.NumDynamicMeshElements = NumDynamicMeshElements;
 	TaskContext.NumDynamicMeshCommandBuildRequestElements = NumDynamicMeshCommandBuildRequestElements;
 
+	// Only apply instancing for ISR to main view passes
+	const bool bIsMainViewPass = (FPassProcessorManager::GetPassFlags(TaskContext.ShadingPath, TaskContext.PassType) & EMeshPassFlags::MainView) != EMeshPassFlags::None;
+	TaskContext.InstanceFactor = (bIsMainViewPass && View.IsInstancedStereoPass()) ? 2 : 1;
+
 	// Setup translucency sort key update pass based on view.
 	TaskContext.TranslucencyPass = ETranslucencyPass::TPT_MAX;
 	TaskContext.TranslucentSortPolicy = View.TranslucentSortPolicy;
@@ -900,9 +899,6 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 	TaskContext.ViewOrigin = View.ViewMatrices.GetViewOrigin();
 	TaskContext.ViewMatrix = View.ViewMatrices.GetViewMatrix();
 	TaskContext.PrimitiveBounds = &Scene->PrimitiveBounds;
-
-	const bool bIsInstancedStereo = View.IsInstancedStereoPass() && Scene->bStaticDrawInstancedStereo;
-	TaskContext.MaxInstanceFactor = bIsInstancedStereo ? 2 : 1;
 
 	switch (PassType)
 	{
@@ -926,7 +922,7 @@ void FParallelMeshDrawCommandPass::DispatchPassSetup(
 
 	// Preallocate resources on rendering thread based on MaxNumDraws.
 	bPrimitiveIdBufferDataOwnedByRHIThread = false;
-	TaskContext.PrimitiveIdBufferDataSize = TaskContext.MaxInstanceFactor * MaxNumDraws * sizeof(int32);
+	TaskContext.PrimitiveIdBufferDataSize = TaskContext.InstanceFactor * MaxNumDraws * sizeof(int32);
 	TaskContext.PrimitiveIdBufferData = FMemory::Malloc(TaskContext.PrimitiveIdBufferDataSize);
 	PrimitiveIdVertexBufferRHI = GPrimitiveIdVertexBufferPool.Allocate(TaskContext.PrimitiveIdBufferDataSize);
 	TaskContext.MeshDrawCommands.Reserve(MaxNumDraws);
@@ -998,6 +994,7 @@ class FDrawVisibleMeshCommandsAnyThreadTask : public FRenderTask
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer;
 	int32 BasePrimitiveIdsOffset;
 	bool bDynamicInstancing;
+	uint32 InstanceFactor;
 	int32 TaskIndex;
 	int32 TaskNum;
 
@@ -1009,6 +1006,7 @@ public:
 		FVertexBufferRHIParamRef InPrimitiveIdsBuffer,
 		int32 InBasePrimitiveIdsOffset,
 		bool bInDynamicInstancing,
+		uint32 InInstanceFactor,
 		int32 InTaskIndex,
 		int32 InTaskNum
 	)
@@ -1017,6 +1015,7 @@ public:
 		, PrimitiveIdsBuffer(InPrimitiveIdsBuffer)
 		, BasePrimitiveIdsOffset(InBasePrimitiveIdsOffset)
 		, bDynamicInstancing(bInDynamicInstancing)
+		, InstanceFactor(InInstanceFactor)
 		, TaskIndex(InTaskIndex)
 		, TaskNum(InTaskNum)
 	{}
@@ -1038,7 +1037,7 @@ public:
 		const int32 StartIndex = TaskIndex * NumDrawsPerTask;
 		const int32 NumDraws = FMath::Min(NumDrawsPerTask, DrawNum - StartIndex);
 
-		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, StartIndex, NumDraws, RHICmdList);
+		SubmitMeshDrawCommandsRange(VisibleMeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, bDynamicInstancing, StartIndex, NumDraws, InstanceFactor, RHICmdList);
 
 		RHICmdList.EndRenderPass();
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
@@ -1137,7 +1136,7 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 			FRHICommandList* CmdList = ParallelCommandListSet->NewParallelCommandList();
 
 			FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleMeshCommandsAnyThreadTask>::CreateTask(&Prereqs, RenderThread)
-				.ConstructAndDispatchWhenReady(*CmdList, TaskContext.MeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, TaskIndex, NumTasks);
+				.ConstructAndDispatchWhenReady(*CmdList, TaskContext.MeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, TaskContext.InstanceFactor, TaskIndex, NumTasks);
 			ParallelCommandListSet->AddParallelCommandList(CmdList, AnyThreadCompletionEvent, NumDraws);
 		}
 	}
@@ -1153,7 +1152,7 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 			RHIUnlockVertexBuffer(PrimitiveIdVertexBufferRHI);
 		}
 
-		SubmitMeshDrawCommandsRange(TaskContext.MeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, 0, TaskContext.MeshDrawCommands.Num(), RHICmdList);
+		SubmitMeshDrawCommandsRange(TaskContext.MeshDrawCommands, PrimitiveIdsBuffer, BasePrimitiveIdsOffset, TaskContext.bDynamicInstancing, 0, TaskContext.MeshDrawCommands.Num(), TaskContext.InstanceFactor, RHICmdList);
 	}
 }
 

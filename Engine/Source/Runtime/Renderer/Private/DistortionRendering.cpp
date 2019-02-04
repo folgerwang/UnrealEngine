@@ -768,7 +768,6 @@ void FDistortionMeshProcessor::Process(
 		DistortionPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

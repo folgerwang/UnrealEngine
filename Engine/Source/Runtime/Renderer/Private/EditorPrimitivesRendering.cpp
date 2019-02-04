@@ -99,7 +99,6 @@ void FEditorPrimitivesBasePassMeshProcessor::ProcessDeferredShadingPath(const FM
 		BasePassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
@@ -154,7 +153,6 @@ void FEditorPrimitivesBasePassMeshProcessor::ProcessMobileShadingPath(const FMes
 		BasePassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

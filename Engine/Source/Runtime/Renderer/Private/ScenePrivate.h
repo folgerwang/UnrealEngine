@@ -2500,9 +2500,6 @@ public:
 	/** Whether the ShaderPipelines were enabled when the static draw lists were built. */
 	int32 StaticDrawShaderPipelines;
 
-	/** Whether instanced stereoscopy was enabled when the static draw lists were built. */
-	bool bStaticDrawInstancedStereo;
-
 	/** True if a change to SkyLight / Lighting has occurred that requires static draw lists to be updated. */
 	bool bScenesPrimitivesNeedStaticMeshElementUpdate;
 

@@ -566,11 +566,11 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 
 			FMeshPassProcessorRenderState DrawRenderState(View, PassUniformBuffer);
 
+			SetupDepthPassState(DrawRenderState);
+
 			if (View.ShouldRenderView())
 			{
 				Scene->UniformBuffers.UpdateViewUniformBuffer(View);
-
-				SetupDepthPassState(DrawRenderState);
 
 				if (bParallel)
 				{
@@ -724,9 +724,6 @@ void FDepthPassMeshProcessor::Process(
 
 	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(DepthPassShaders.VertexShader, DepthPassShaders.PixelShader);
 
-	const bool bIsInstancedStereo = ViewIfDynamicMeshCommand ? ViewIfDynamicMeshCommand->IsInstancedStereoPass() : (Scene && Scene->bStaticDrawInstancedStereo);
-	const int32 InstanceFactor = bIsInstancedStereo ? 2 : 1;
-
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -737,7 +734,6 @@ void FDepthPassMeshProcessor::Process(
 		DepthPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		InstanceFactor,
 		SortKey,
 		bPositionOnly ? EMeshPassFeatures::PositionOnly : EMeshPassFeatures::Default,
 		ShaderElementData);

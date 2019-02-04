@@ -884,10 +884,6 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
 	StaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnAnyThread();
 
-	// Query instanced stereo and multi-view state
-	static const auto InstancedStereoCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
-	bStaticDrawInstancedStereo = RHISupportsInstancedStereo(GShaderPlatformForFeatureLevel[InFeatureLevel]) && GEngine->IsStereoscopic3D() && InstancedStereoCvar->GetValueOnAnyThread();
-
 	if (World->FXSystem)
 	{
 		FFXSystemInterface::Destroy(World->FXSystem);
@@ -2862,21 +2858,17 @@ void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 {
 	static auto* EarlyZPassCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPass"));
 	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
-	static auto* InstancedStereoCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
 
 	bool bMobileHDR = IsMobileHDR();
 	bool bMobileHDR32bpp = IsMobileHDR32bpp();
 	int32 DesiredStaticDrawListsEarlyZPassMode = EarlyZPassCvar->GetValueOnRenderThread();
 	int32 DesiredStaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnRenderThread();
-	bool bDesiredStaticDrawInstancedStereo = RHISupportsInstancedStereo(GShaderPlatformForFeatureLevel[FeatureLevel]) &&
-		GEngine->IsStereoscopic3D() && InstancedStereoCvar->GetValueOnAnyThread();
 
 	if (bScenesPrimitivesNeedStaticMeshElementUpdate
 		|| bStaticDrawListsMobileHDR != bMobileHDR
 		|| bStaticDrawListsMobileHDR32bpp != bMobileHDR32bpp
 		|| StaticDrawShaderPipelines != DesiredStaticDrawShaderPipelines
-		|| StaticDrawListsEarlyZPassMode != DesiredStaticDrawListsEarlyZPassMode
-		|| bStaticDrawInstancedStereo != bDesiredStaticDrawInstancedStereo)
+		|| StaticDrawListsEarlyZPassMode != DesiredStaticDrawListsEarlyZPassMode)
 	{
 		// Mark all primitives as needing an update
 		// Note: Only visible primitives will actually update their static mesh elements
@@ -2890,7 +2882,6 @@ void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 		bStaticDrawListsMobileHDR32bpp = bMobileHDR32bpp;
 		StaticDrawListsEarlyZPassMode = DesiredStaticDrawListsEarlyZPassMode;
 		StaticDrawShaderPipelines = DesiredStaticDrawShaderPipelines;
-		bStaticDrawInstancedStereo = bDesiredStaticDrawInstancedStereo;
 	}
 }
 

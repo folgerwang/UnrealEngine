@@ -220,7 +220,6 @@ void FLightmapDensityMeshProcessor::Process(
 		LightmapDensityPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);

@@ -351,7 +351,6 @@ public:
 	uint32 FirstIndex;
 	uint32 NumPrimitives;
 	uint32 NumInstances;
-	uint32 InstanceFactor;
 	uint32 BaseVertexIndex;
 	uint32 NumVertices;
 	FVertexBufferRHIParamRef IndirectArgsBuffer;
@@ -376,7 +375,6 @@ public:
 			&& FirstIndex == Rhs.FirstIndex
 			&& NumPrimitives == Rhs.NumPrimitives
 			&& NumInstances == Rhs.NumInstances
-			&& InstanceFactor == Rhs.InstanceFactor
 			&& BaseVertexIndex == Rhs.BaseVertexIndex
 			&& NumVertices == Rhs.NumVertices
 			&& IndirectArgsBuffer == Rhs.IndirectArgsBuffer;
@@ -398,7 +396,7 @@ public:
 	}
 
 	/** Called when the mesh draw command is complete. */
-	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, int32 BatchInstanceFactor, bool bDoSetupPsoStateForRasterization);
+	RENDERER_API void SetDrawParametersAndFinalize(const FMeshBatch& MeshBatch, int32 BatchElementIndex, bool bDoSetupPsoStateForRasterization);
 
 	void Finalize(bool bDoSetupPsoStateForRasterization)
 	{
@@ -415,7 +413,8 @@ public:
 	static void SubmitDraw(
 		const FMeshDrawCommand& RESTRICT MeshDrawCommand, 
 		FVertexBufferRHIParamRef ScenePrimitiveIdsBuffer, 
-		int32 PrimitiveIdOffset, 
+		int32 PrimitiveIdOffset,
+		uint32 InstanceFactor,
 		FRHICommandList& CommandList, 
 		class FMeshDrawCommandStateCache& RESTRICT StateCache);
 
@@ -503,7 +502,6 @@ public:
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
-		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
 		FMeshDrawCommand& MeshDrawCommand,
 		bool bDoSetupPsoStateForRasterization) = 0;
@@ -601,12 +599,11 @@ public:
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
-		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
 		FMeshDrawCommand& MeshDrawCommand,
 		bool bDoSetupPsoStateForRasterization) override final
 	{
-		MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, InstanceFactor, bDoSetupPsoStateForRasterization);
+		MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, bDoSetupPsoStateForRasterization);
 
 		FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 		//@todo MeshCommandPipeline - assign usable state ID for dynamic path draws
@@ -671,7 +668,6 @@ public:
 		int32 DrawPrimitiveId,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
-		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
 		FMeshDrawCommand& MeshDrawCommand,
 		bool bDoSetupPsoStateForRasterization) override final;
@@ -905,7 +901,6 @@ public:
 		PassShadersType PassShaders,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
-		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
 		EMeshPassFeatures MeshPassFeatures,
 		const ShaderElementDataType& ShaderElementData);
@@ -921,7 +916,6 @@ public:
 		PassShadersType PassShaders,
 		ERasterizerFillMode MeshFillMode,
 		ERasterizerCullMode MeshCullMode,
-		int32 InstanceFactor,
 		FMeshDrawCommandSortKey SortKey,
 		EMeshPassFeatures MeshPassFeatures,
 		const ShaderElementDataType& ShaderElementData);
@@ -990,6 +984,7 @@ extern void SubmitMeshDrawCommands(
 	FVertexBufferRHIParamRef PrimitiveIdsBuffer,
 	int32 BasePrimitiveIdsOffset,
 	bool bDynamicInstancing,
+	uint32 InstanceFactor,
 	FRHICommandList& RHICmdList);
 
 extern void SubmitMeshDrawCommandsRange(
@@ -999,12 +994,14 @@ extern void SubmitMeshDrawCommandsRange(
 	bool bDynamicInstancing,
 	int32 StartIndex,
 	int32 NumMeshDrawCommands,
+	uint32 InstanceFactor,
 	FRHICommandList& RHICmdList);
 
 RENDERER_API extern void DrawDynamicMeshPassPrivate(
 	const FSceneView& View,
 	FRHICommandList& RHICmdList,
 	FMeshCommandOneFrameArray& VisibleMeshDrawCommands,
-	FDynamicMeshDrawCommandStorage& DynamicMeshDrawCommandStorage);
+	FDynamicMeshDrawCommandStorage& DynamicMeshDrawCommandStorage,
+	uint32 InstanceFactor);
 
 RENDERER_API extern FMeshDrawCommandSortKey CalculateMeshStaticSortKey(const FMeshMaterialShader* VertexShader, const FMeshMaterialShader* PixelShader);

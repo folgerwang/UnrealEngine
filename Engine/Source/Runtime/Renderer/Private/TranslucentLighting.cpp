@@ -479,8 +479,6 @@ void FTranslucencyDepthPassMeshProcessor::Process(
 
 	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(PassShaders.VertexShader, PassShaders.PixelShader);
 
-	const uint32 InstanceFactor = 1;
-
 	BuildMeshDrawCommands(
 		MeshBatch,
 		BatchElementMask,
@@ -491,7 +489,6 @@ void FTranslucencyDepthPassMeshProcessor::Process(
 		PassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		InstanceFactor,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
@@ -624,8 +621,8 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 
 			FVertexBufferRHIParamRef PrimitiveIdVertexBuffer = nullptr;
 			ApplyViewOverridesToMeshDrawCommands(*ShadowDepthView, VisibleMeshDrawCommands);
-			SortAndMergeDynamicPassMeshDrawCommands(SceneRenderer->FeatureLevel, VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, PrimitiveIdVertexBuffer);
-			SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdVertexBuffer, 0, bDynamicInstancing, RHICmdList);
+			SortAndMergeDynamicPassMeshDrawCommands(SceneRenderer->FeatureLevel, VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, PrimitiveIdVertexBuffer, 1);
+			SubmitMeshDrawCommands(VisibleMeshDrawCommands, PrimitiveIdVertexBuffer, 0, bDynamicInstancing, 1, RHICmdList);
 		}
 	}
 }

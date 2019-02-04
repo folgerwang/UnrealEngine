@@ -666,7 +666,6 @@ void FHitProxyMeshProcessor::Process(
 		HitProxyPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
@@ -782,7 +781,6 @@ void FEditorSelectionMeshProcessor::Process(
 		HitProxyPassShaders,
 		MeshFillMode,
 		MeshCullMode,
-		1,
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
