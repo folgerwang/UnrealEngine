@@ -656,7 +656,7 @@ struct FRawCurveTracks
 	 **/
 	UPROPERTY()
 	TArray<FTransformCurve>	TransformCurves;
-#endif // #if WITH_EDITOR_DATA
+#endif // #if WITH_EDITORONLY_DATA
 
 	/**
 	 * Evaluate curve data at the time CurrentTime, and add to Instance. It only evaluates Float Curve for now
