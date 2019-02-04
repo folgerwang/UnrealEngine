@@ -1455,12 +1455,15 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
   # exit block 'parse arguments and setup'
   log_time('parse arguments and setup')
 
+  # as of: 1.38.24 -- when EMCC_DEBUG is used, this cripples the build times (5x longer)
+  epic_was_here=1
   if DEBUG:
     # we are about to start using temp dirs. serialize access to the temp dir
     # when using EMCC_DEBUG, since we don't want multiple processes would to
     # use it at once, they might collide if they happen to use the same
     # tempfile names
-    shared.Cache.acquire_cache_lock()
+    epic_was_here=1
+#    shared.Cache.acquire_cache_lock()
 
   try:
     with ToolchainProfiler.profile_block('bitcodeize inputs'):
@@ -2118,7 +2121,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
   finally:
     if DEBUG:
-      shared.Cache.release_cache_lock()
+      epic_was_here=0
+#      shared.Cache.release_cache_lock()
 
   if DEBUG:
     logger.debug('total time: %.2f seconds', (time.time() - start_time))
