@@ -492,13 +492,8 @@ void FGlobalDynamicVertexBuffer::Commit()
 	TotalAllocatedSinceLastCommit = 0;
 }
 
-FGlobalDynamicVertexBuffer& FGlobalDynamicVertexBuffer::Get()
-{
-	check(IsInRenderingThread());
-
-	static FGlobalDynamicVertexBuffer GlobalDynamicVertexBuffer;
-	return GlobalDynamicVertexBuffer;
-}
+FGlobalDynamicVertexBuffer InitViewDynamicVertexBuffer;
+FGlobalDynamicVertexBuffer InitShadowViewDynamicVertexBuffer;
 
 /*------------------------------------------------------------------------------
 	FGlobalDynamicIndexBuffer implementation.
@@ -691,14 +686,6 @@ void FGlobalDynamicIndexBuffer::Commit()
 		}
 		Pool->CurrentIndexBuffer = NULL;
 	}
-}
-
-FGlobalDynamicIndexBuffer& FGlobalDynamicIndexBuffer::Get()
-{
-	check(IsInRenderingThread());
-
-	static FGlobalDynamicIndexBuffer GlobalDynamicIndexBuffer;
-	return GlobalDynamicIndexBuffer;
 }
 
 /*=============================================================================

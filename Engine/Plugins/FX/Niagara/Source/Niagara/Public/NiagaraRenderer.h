@@ -19,7 +19,6 @@ NiagaraRenderer.h: Base class for Niagara render modules
 #include "RenderingThread.h"
 #include "SceneView.h"
 #include "NiagaraComponent.h"
-#include "NiagaraGlobalReadBuffer.h"
 
 class FNiagaraDataSet;
 
@@ -157,7 +156,7 @@ public:
 	
 	const FVector& GetBaseExtents() const {	return BaseExtents; }
 
-	void SortIndices(ENiagaraSortMode SortMode, int32 SortAttributeOffset, const FNiagaraDataBuffer& Buffer, const FMatrix& LocalToWorld, const FSceneView* View, FNiagaraGlobalReadBuffer::FAllocation& OutIndices)const;
+	void SortIndices(ENiagaraSortMode SortMode, int32 SortAttributeOffset, const FNiagaraDataBuffer& Buffer, const FMatrix& LocalToWorld, const FSceneView* View, FGlobalDynamicReadBuffer::FAllocation& OutIndices)const;
 
 	static FRWBuffer& GetDummyFloatBuffer(); 
 	static FRWBuffer& GetDummyIntBuffer();

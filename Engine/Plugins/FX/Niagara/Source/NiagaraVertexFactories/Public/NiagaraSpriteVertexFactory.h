@@ -12,7 +12,6 @@
 #include "NiagaraVertexFactory.h"
 #include "NiagaraDataSet.h"
 #include "SceneView.h"
-#include "NiagaraGlobalReadBuffer.h"
 
 class FMaterial;
 

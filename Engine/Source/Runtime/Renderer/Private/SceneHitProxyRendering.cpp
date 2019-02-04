@@ -249,12 +249,6 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 
 	const auto FeatureLevel = SceneRenderer->FeatureLevel;
 
-	GEngine->GetPreRenderDelegate().Broadcast();
-
-	// Dynamic vertex and index buffers need to be committed before rendering.
-	FGlobalDynamicVertexBuffer::Get().Commit();
-	FGlobalDynamicIndexBuffer::Get().Commit();
-
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[SceneRenderer->FeatureLevel]);
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -511,6 +505,14 @@ void FMobileSceneRenderer::RenderHitProxies(FRHICommandListImmediate& RHICmdList
 	{
 		// Find the visible primitives.
 		InitViews(RHICmdList);
+
+		GEngine->GetPreRenderDelegate().Broadcast();
+
+		// Global dynamic buffers need to be committed before rendering.
+		DynamicIndexBuffer.Commit();
+		DynamicVertexBuffer.Commit();
+		DynamicReadBuffer.Commit();
+
 		::DoRenderHitProxies(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
 	}
 
@@ -551,6 +553,13 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_AsyncUpdateViewCustomData_Wait);
 			FTaskGraphInterface::Get().WaitUntilTasksComplete(UpdateViewCustomDataEvents, ENamedThreads::GetRenderThread());
 		}
+
+		GEngine->GetPreRenderDelegate().Broadcast();
+
+		// Global dynamic buffers need to be committed before rendering.
+		DynamicIndexBufferForInitViews.Commit();
+		DynamicVertexBufferForInitViews.Commit();
+		DynamicReadBufferForInitViews.Commit();
 
 		::DoRenderHitProxies(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
 		ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();

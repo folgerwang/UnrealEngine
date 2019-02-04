@@ -1,10 +1,12 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
-NiagaraGlobalReadBuffer.h: Class for allocating transient rendering data.
+DynamicBufferAllocator.h: Classes for allocating transient rendering data.
 ==============================================================================*/
 
 #pragma once
+
+#include "RenderResource.h"
 
 struct FDynamicReadBufferPool;
 
@@ -28,12 +30,12 @@ struct FDynamicAllocReadBuffer : public FDynamicReadBuffer
 };
 
 /**
-* A system for dynamically allocating GPU memory for Niagara rendering. Note that this must derive from FRenderResource 
+* A system for dynamically allocating GPU memory for rendering. Note that this must derive from FRenderResource 
   so that we can safely free the shader resource views for OpenGL and other platforms. If we wait until the module is shutdown,
   the renderer RHI will have already been destroyed and we can execute code on invalid data. By making ourself a render resource, we
   clean up immediately before the renderer dies.
 */
-class FNiagaraGlobalReadBuffer : public FRenderResource
+class RENDERCORE_API FGlobalDynamicReadBuffer : public FRenderResource
 {
 public:
 	/**
@@ -63,8 +65,8 @@ public:
 		}
 	};
 
-	FNiagaraGlobalReadBuffer();
-	~FNiagaraGlobalReadBuffer();
+	FGlobalDynamicReadBuffer();
+	~FGlobalDynamicReadBuffer();
 	
 	FAllocation AllocateFloat(uint32 Num);
 	FAllocation AllocateInt32(uint32 Num);
@@ -80,8 +82,6 @@ public:
 	/** Returns true if log statements should be made because we exceeded GMaxVertexBytesAllocatedPerFrame */
 	bool IsRenderAlarmLoggingEnabled() const;
 
-	static FNiagaraGlobalReadBuffer& Get();
-
 protected:
 	virtual void InitRHI() override;
 	virtual void ReleaseRHI() override;
@@ -93,7 +93,5 @@ protected:
 
 	/** A total of all allocations made since the last commit. Used to alert about spikes in memory usage. */
 	size_t TotalAllocatedSinceLastCommit;
-
-	FDelegateHandle CommitCallbackHandle;
 };
 

@@ -303,7 +303,7 @@ void FMobileSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdLi
 		}
 	}
 
-	FSceneRenderer::InitDynamicShadows(RHICmdList);
+	FSceneRenderer::InitDynamicShadows(RHICmdList, DynamicIndexBuffer, DynamicVertexBuffer, DynamicReadBuffer);
 
 	PrepareViewVisibilityLists();
 

@@ -133,12 +133,14 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 	int32 NumInstances = DynamicDataMesh->RTParticleData.GetNumInstances();
 
 	int32 TotalFloatSize = DynamicDataMesh->RTParticleData.GetFloatBuffer().Num() / sizeof(float);
-	FNiagaraGlobalReadBuffer::FAllocation ParticleData;
+
+	FGlobalDynamicReadBuffer& DynamicReadBuffer = Collector.GetDynamicReadBuffer();
+	FGlobalDynamicReadBuffer::FAllocation ParticleData;
 	
 	//For cpu sims we allocate render buffers from the global pool. GPU sims own their own.
 	if (DynamicDataMesh->DataSet->GetSimTarget() == ENiagaraSimTarget::CPUSim)
 	{
-		ParticleData = FNiagaraGlobalReadBuffer::Get().AllocateFloat(TotalFloatSize);
+		ParticleData = DynamicReadBuffer.AllocateFloat(TotalFloatSize);
 		FMemory::Memcpy(ParticleData.Buffer, DynamicDataMesh->RTParticleData.GetFloatBuffer().GetData(), DynamicDataMesh->RTParticleData.GetFloatBuffer().Num());
 	}
 
@@ -240,7 +242,7 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 				}
 
 				//Sort particles if needed.
-				FNiagaraGlobalReadBuffer::FAllocation SortedIndices;
+				FGlobalDynamicReadBuffer::FAllocation SortedIndices;
 				CollectorResources.VertexFactory.SetSortedIndices(nullptr, 0xFFFFFFFF);
 				if (DynamicDataMesh->DataSet->GetSimTarget() == ENiagaraSimTarget::CPUSim)//TODO: Compute shader for sorting gpu sims and larger cpu sims.
 				{
@@ -252,7 +254,7 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 						int32 SortAttributeOffest = bCustomSortMode ? CustomSortingOffset : PositionOffset;
 						if (SortMode != ENiagaraSortMode::None && SortAttributeOffest != INDEX_NONE)
 						{
-							SortedIndices = FNiagaraGlobalReadBuffer::Get().AllocateInt32(NumInstances);
+							SortedIndices = DynamicReadBuffer.AllocateInt32(NumInstances);
 							SortIndices(SortMode, SortAttributeOffest, DynamicDataMesh->RTParticleData, SceneProxy->GetLocalToWorld(), View, SortedIndices);
 							CollectorResources.VertexFactory.SetSortedIndices(SortedIndices.ReadBuffer->SRV, SortedIndices.FirstIndex / sizeof(float));
 						}

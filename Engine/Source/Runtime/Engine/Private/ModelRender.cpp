@@ -350,7 +350,8 @@ public:
 
 						if (TotalIndices > 0)
 						{
-							FGlobalDynamicIndexBuffer::FAllocation IndexAllocation = FGlobalDynamicIndexBuffer::Get().Allocate<uint32>(TotalIndices);
+							FGlobalDynamicIndexBuffer& DynamicIndexBuffer = Collector.GetDynamicIndexBuffer();
+							FGlobalDynamicIndexBuffer::FAllocation IndexAllocation = DynamicIndexBuffer.Allocate<uint32>(TotalIndices);
 
 							if (IndexAllocation.IsValid())
 							{

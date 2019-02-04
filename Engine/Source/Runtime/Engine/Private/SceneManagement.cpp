@@ -207,6 +207,9 @@ static TAutoConsoleVariable<int32> CVarUseParallelGetDynamicMeshElementsTasks(
 
 FMeshElementCollector::FMeshElementCollector(ERHIFeatureLevel::Type InFeatureLevel) :
 	PrimitiveSceneProxy(NULL),
+	DynamicIndexBuffer(nullptr),
+	DynamicVertexBuffer(nullptr),
+	DynamicReadBuffer(nullptr),
 	FeatureLevel(InFeatureLevel),
 	bUseAsyncTasks(FApp::ShouldUseThreadingForPerformance() && CVarUseParallelGetDynamicMeshElementsTasks.GetValueOnAnyThread() > 0)
 {	

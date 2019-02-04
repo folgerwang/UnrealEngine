@@ -1628,6 +1628,8 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 		int32 InVertexCount, 
 		int32 InVertexSize, 
 		int32 InDynamicParameterVertexSize, 
+		FGlobalDynamicIndexBuffer& DynamicIndexBuffer,
+		FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
 		FGlobalDynamicVertexBuffer::FAllocation& DynamicVertexAllocation,
 		FGlobalDynamicIndexBuffer::FAllocation& DynamicIndexAllocation,
 		FGlobalDynamicVertexBuffer::FAllocation* DynamicParameterAllocation,

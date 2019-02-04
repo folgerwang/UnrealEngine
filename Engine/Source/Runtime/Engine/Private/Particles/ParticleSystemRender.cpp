@@ -499,6 +499,8 @@ void FDynamicSpriteEmitterDataBase::BuildViewFillData(
 	int32 InVertexCount, 
 	int32 InVertexSize, 
 	int32 InDynamicParameterVertexStride, 
+	FGlobalDynamicIndexBuffer& DynamicIndexBuffer,
+	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
 	FGlobalDynamicVertexBuffer::FAllocation& DynamicVertexAllocation,
 	FGlobalDynamicIndexBuffer::FAllocation& DynamicIndexAllocation,
 	FGlobalDynamicVertexBuffer::FAllocation* DynamicParameterAllocation,
@@ -509,9 +511,9 @@ void FDynamicSpriteEmitterDataBase::BuildViewFillData(
 	Data.View = InView;
 	check(Data.VertexSize == 0 || Data.VertexSize == InVertexSize);
 
-	DynamicVertexAllocation = FGlobalDynamicVertexBuffer::Get().Allocate( InVertexCount * InVertexSize );
+	DynamicVertexAllocation = DynamicVertexBuffer.Allocate( InVertexCount * InVertexSize );
 
-	if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
+	if (DynamicVertexBuffer.IsRenderAlarmLoggingEnabled())
 	{
 		UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), InVertexCount * InVertexSize, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
 	}
@@ -524,7 +526,7 @@ void FDynamicSpriteEmitterDataBase::BuildViewFillData(
 	GetIndexAllocInfo(NumIndices, IndexStride);
 	check(IndexStride > 0);
 
-	DynamicIndexAllocation = FGlobalDynamicIndexBuffer::Get().Allocate( NumIndices, IndexStride );
+	DynamicIndexAllocation = DynamicIndexBuffer.Allocate( NumIndices, IndexStride );
 	Data.IndexData = DynamicIndexAllocation.Buffer;
 	Data.IndexCount = NumIndices;
 
@@ -533,9 +535,9 @@ void FDynamicSpriteEmitterDataBase::BuildViewFillData(
 	if( bUsesDynamicParameter )
 	{
 		check( InDynamicParameterVertexStride > 0 );
-		*DynamicParameterAllocation = FGlobalDynamicVertexBuffer::Get().Allocate( InVertexCount * InDynamicParameterVertexStride );
+		*DynamicParameterAllocation = DynamicVertexBuffer.Allocate( InVertexCount * InDynamicParameterVertexStride );
 
-		if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
+		if (DynamicVertexBuffer.IsRenderAlarmLoggingEnabled())
 		{
 			UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), InVertexCount * InDynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
 		}
@@ -1077,21 +1079,22 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 					Proxy->UpdateWorldSpacePrimitiveUniformBuffer();
 				}
 
+				FGlobalDynamicVertexBuffer& DynamicVertexBuffer = Collector.GetDynamicVertexBuffer();
 				FGlobalDynamicVertexBuffer::FAllocation Allocation;
 				FGlobalDynamicVertexBuffer::FAllocation DynamicParameterAllocation;
 
 				// Allocate memory for render data.
-				Allocation = FGlobalDynamicVertexBuffer::Get().Allocate( InstanceFactor * ParticleCount * VertexSize * NumVerticesPerParticleInBuffer );
-				if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
+				Allocation = DynamicVertexBuffer.Allocate( InstanceFactor * ParticleCount * VertexSize * NumVerticesPerParticleInBuffer );
+				if (DynamicVertexBuffer.IsRenderAlarmLoggingEnabled())
 				{
 					UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), InstanceFactor * ParticleCount * VertexSize * NumVerticesPerParticleInBuffer, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
 				}
 
 				if (bUsesDynamicParameter)
 				{
-					DynamicParameterAllocation = FGlobalDynamicVertexBuffer::Get().Allocate( InstanceFactor * ParticleCount * DynamicParameterVertexSize * NumVerticesPerParticleInBuffer );
+					DynamicParameterAllocation = DynamicVertexBuffer.Allocate( InstanceFactor * ParticleCount * DynamicParameterVertexSize * NumVerticesPerParticleInBuffer );
 
-					if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
+					if (DynamicVertexBuffer.IsRenderAlarmLoggingEnabled())
 					{
 						UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), InstanceFactor * ParticleCount * DynamicParameterVertexSize * NumVerticesPerParticleInBuffer, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
 					}
@@ -1669,15 +1672,16 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 				if (bInstanced)
 				{
 					const uint32 InstanceFactor = View->IsInstancedStereoPass() ? 2 : 1;
-					FGlobalDynamicVertexBuffer::FAllocation Allocation = FGlobalDynamicVertexBuffer::Get().Allocate(InstanceFactor * ParticleCount * InstanceVertexStride);
+					FGlobalDynamicVertexBuffer& DynamicVertexBuffer = Collector.GetDynamicVertexBuffer();
+					FGlobalDynamicVertexBuffer::FAllocation Allocation = DynamicVertexBuffer.Allocate(InstanceFactor * ParticleCount * InstanceVertexStride);
 					FGlobalDynamicVertexBuffer::FAllocation DynamicParameterAllocation;
 					uint8* PrevTransformBuffer = nullptr;
 
 					if (bUsesDynamicParameter)
 					{
-						DynamicParameterAllocation = FGlobalDynamicVertexBuffer::Get().Allocate(InstanceFactor * ParticleCount * DynamicParameterVertexStride);
+						DynamicParameterAllocation = DynamicVertexBuffer.Allocate(InstanceFactor * ParticleCount * DynamicParameterVertexStride);
 
-						if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
+						if (DynamicVertexBuffer.IsRenderAlarmLoggingEnabled())
 						{
 							UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), InstanceFactor * ParticleCount * DynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString());
 						}
@@ -2767,7 +2771,9 @@ void FDynamicBeam2EmitterData::GetDynamicMeshElementsEmitter(const FParticleSyst
 	FGlobalDynamicVertexBuffer::FAllocation DynamicParameterAllocation;
 	FAsyncBufferFillData Data;
 
-	BuildViewFillData(Proxy, View, Source.VertexCount, sizeof(FParticleBeamTrailVertex), 0, DynamicVertexAllocation, DynamicIndexAllocation, &DynamicParameterAllocation, Data);
+	BuildViewFillData(Proxy, View, Source.VertexCount, sizeof(FParticleBeamTrailVertex), 0, 
+		Collector.GetDynamicIndexBuffer(), Collector.GetDynamicVertexBuffer(), 
+		DynamicVertexAllocation, DynamicIndexAllocation, &DynamicParameterAllocation, Data);
 	DoBufferFill(Data);
 		OutTriangleCount = Data.OutTriangleCount;
 
@@ -5543,7 +5549,10 @@ void FDynamicTrailsEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 	const int32 VertexStride = GetDynamicVertexStride(ViewFamily.GetFeatureLevel());
 	const int32 DynamicParameterVertexStride = bUsesDynamicParameter ? GetDynamicParameterVertexStride() : 0;
 
-	BuildViewFillData(Proxy, View, SourcePointer->VertexCount, VertexStride, DynamicParameterVertexStride, DynamicVertexAllocation, DynamicIndexAllocation, &DynamicParameterAllocation, Data);
+	DoBufferFill(Data);
+	BuildViewFillData(Proxy, View, SourcePointer->VertexCount, VertexStride, DynamicParameterVertexStride, 
+		Collector.GetDynamicIndexBuffer(), Collector.GetDynamicVertexBuffer(), 
+		DynamicVertexAllocation, DynamicIndexAllocation, &DynamicParameterAllocation, Data);
 	DoBufferFill(Data);
 		OutTriangleCount = Data.OutTriangleCount;
 

@@ -112,6 +112,12 @@ public:
 private:
 
 	static FGraphEventRef TranslucencyTimestampQuerySubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1];
+	static FGlobalDynamicIndexBuffer DynamicIndexBufferForInitViews;
+	static FGlobalDynamicIndexBuffer DynamicIndexBufferForInitShadows;
+	static FGlobalDynamicVertexBuffer DynamicVertexBufferForInitViews;
+	static FGlobalDynamicVertexBuffer DynamicVertexBufferForInitShadows;
+	static TGlobalResource<FGlobalDynamicReadBuffer> DynamicReadBufferForInitViews;
+	static TGlobalResource<FGlobalDynamicReadBuffer> DynamicReadBufferForInitShadows;
 
 	/** Creates a per object projected shadow for the given interaction. */
 	void CreatePerObjectProjectedShadow(

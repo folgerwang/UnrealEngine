@@ -667,11 +667,6 @@ public:
 	 */
 	void Commit();
 
-	/**
-	 * Obtain a reference to the global dynamic vertex buffer instance.
-	 */
-	static FGlobalDynamicVertexBuffer& Get();
-
 	/** Returns true if log statements should be made because we exceeded GMaxVertexBytesAllocatedPerFrame */
 	bool IsRenderAlarmLoggingEnabled() const;
 
@@ -747,11 +742,6 @@ public:
 	 *		remain valid only until the next call to Allocate!
 	 */
 	void Commit();
-
-	/**
-	 * Obtain a reference to the global dynamic index buffer instance.
-	 */
-	static FGlobalDynamicIndexBuffer& Get();
 
 private:
 	/** The pool of vertex buffers from which allocations are made. */

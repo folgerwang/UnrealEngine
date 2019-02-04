@@ -452,6 +452,12 @@ DECLARE_CYCLE_STAT(TEXT("RenderFinish"), STAT_CLM_RenderFinish, STATGROUP_Comman
 DECLARE_CYCLE_STAT(TEXT("AfterFrame"), STAT_CLM_AfterFrame, STATGROUP_CommandListMarkers);
 
 FGraphEventRef FDeferredShadingSceneRenderer::TranslucencyTimestampQuerySubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1];
+FGlobalDynamicIndexBuffer FDeferredShadingSceneRenderer::DynamicIndexBufferForInitViews;
+FGlobalDynamicIndexBuffer FDeferredShadingSceneRenderer::DynamicIndexBufferForInitShadows;
+FGlobalDynamicVertexBuffer FDeferredShadingSceneRenderer::DynamicVertexBufferForInitViews;
+FGlobalDynamicVertexBuffer FDeferredShadingSceneRenderer::DynamicVertexBufferForInitShadows;
+TGlobalResource<FGlobalDynamicReadBuffer> FDeferredShadingSceneRenderer::DynamicReadBufferForInitShadows;
+TGlobalResource<FGlobalDynamicReadBuffer> FDeferredShadingSceneRenderer::DynamicReadBufferForInitViews;
 
 /**
  * Returns true if the depth Prepass needs to run
@@ -609,7 +615,11 @@ bool FDeferredShadingSceneRenderer::GatherRayTracingWorldInstances(FRHICommandLi
 				&View.RayTracedDynamicMeshElements,
 				&View.SimpleElementCollector,
 				&DummyDynamicPrimitiveShaderData,
-				ViewFamily.GetFeatureLevel());
+				ViewFamily.GetFeatureLevel(),
+				&DynamicIndexBufferForInitViews,
+				&DynamicVertexBufferForInitViews,
+				&DynamicReadBufferForInitViews
+				);
 
 			View.RaytraycingDynamicMeshDrawCommandStorage.MeshDrawCommands.Reserve(Scene->Primitives.Num());
 			View.RaytraycingVisibleMeshDrawCommands.Reserve(Scene->Primitives.Num());
@@ -1158,14 +1168,12 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	const bool bIsOcclusionTesting = DoOcclusionQueries(FeatureLevel) && (!bIsWireframe || bIsViewFrozen || bHasViewParent);
 
 	// Dynamic vertex and index buffers need to be committed before rendering.
-	if (!bDoInitViewAftersPrepass)
+	GEngine->GetPreRenderDelegate().Broadcast();
 	{
-		GEngine->GetPreRenderDelegate().Broadcast();
-		{
-			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
-			FGlobalDynamicVertexBuffer::Get().Commit();
-			FGlobalDynamicIndexBuffer::Get().Commit();
-		}
+		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
+		DynamicIndexBufferForInitViews.Commit();
+		DynamicVertexBufferForInitViews.Commit();
+		DynamicReadBufferForInitViews.Commit();
 	}
 
 	// Only update the GPU particle simulation for the main view
@@ -1195,13 +1203,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 				InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, UpdateViewCustomDataEvents);
 				PrepareDistanceFieldScene(RHICmdList, false);
 
-				GEngine->GetPreRenderDelegate().Broadcast();
-
 				{
 					SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
-					FGlobalDynamicVertexBuffer::Get().Commit();
-					FGlobalDynamicIndexBuffer::Get().Commit();
+
+					DynamicVertexBufferForInitShadows.Commit();
+					DynamicIndexBufferForInitShadows.Commit();
+					DynamicReadBufferForInitShadows.Commit();
 				}
+
 				ServiceLocalQueue();
 			}
 		}

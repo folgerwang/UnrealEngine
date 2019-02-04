@@ -15,7 +15,6 @@ ParticleVertexFactory.h: Particle vertex factory definitions.
 #include "Components.h"
 #include "SceneManagement.h"
 #include "VertexFactory.h"
-#include "NiagaraGlobalReadBuffer.h"
 
 
 

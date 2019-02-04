@@ -663,7 +663,7 @@ struct FVisForPrimParams
 //since only one of the task threads will ever reference it.  However, any modifications to shared state like the ViewState must be buffered
 //to be recombined later.
 template<bool bSingleThreaded>
-static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
+static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params, FGlobalDynamicVertexBuffer* DynamicVertexBufferIfSingleThreaded)
 {	
 	int32 NumOccludedPrimitives = 0;
 	
@@ -1043,6 +1043,8 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 								if (bSingleThreaded)
 								{
+									checkSlow(DynamicVertexBufferIfSingleThreaded);
+
 									if (GRHIMaximumReccommendedOustandingOcclusionQueries < MAX_int32 && !bGroupedQuery)
 									{
 										QueriesToAdd->Emplace(FPrimitiveOcclusionHistoryKey(PrimitiveId, SubQuery), BoundOrigin, BoundExtent, PrimitiveOcclusionHistory->LastQuerySubmitFrame());
@@ -1051,8 +1053,8 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 									{
 										PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 											bGroupedQuery ?
-											View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent) :
-											View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent),
+											View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent, *DynamicVertexBufferIfSingleThreaded) :
+											View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent, *DynamicVertexBufferIfSingleThreaded),
 											NumBufferedFrames,
 											bGroupedQuery,
 											Params.bNeedsScanOnRead
@@ -1171,11 +1173,11 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		FetchVisibilityForPrimitives_Range<false>(Params);
+		FetchVisibilityForPrimitives_Range<false>(Params, nullptr);
 	}
 };
 
-static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, const bool bSubmitQueries, const bool bHZBOcclusion)
+static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, const bool bSubmitQueries, const bool bHZBOcclusion, FGlobalDynamicVertexBuffer& DynamicVertexBuffer)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FetchVisibilityForPrimitives);
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
@@ -1341,8 +1343,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 				{
 					RunQueriesIter->PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 						RunQueriesIter->bGroupedQuery ?
-						View.GroupedOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent) :
-						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
+						View.GroupedOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent, DynamicVertexBuffer) :
+						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent, DynamicVertexBuffer),
 						NumBufferedFrames,
 						RunQueriesIter->bGroupedQuery,
 						Params[i].bNeedsScanOnRead
@@ -1397,7 +1399,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 			&SubIsOccluded
 			);
 
-		FetchVisibilityForPrimitives_Range<true>(Params);
+		FetchVisibilityForPrimitives_Range<true>(Params, &DynamicVertexBuffer);
 
 		int32 IndQueries = PendingIndividualQueriesWhenOptimizing.Num();
 		if (IndQueries)
@@ -1427,7 +1429,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory = ViewPrimitiveOcclusionHistory.Find(RunQueriesIter->PrimitiveOcclusionHistoryKey);
 
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
-						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
+						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent, DynamicVertexBuffer),
 						NumBufferedFrames,
 						false,
 						Params.bNeedsScanOnRead
@@ -1455,7 +1457,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					FOcclusionBounds* RunQueriesIter = PendingIndividualQueriesWhenOptimizingSorter[Index];
 					FPrimitiveOcclusionHistory* PrimitiveOcclusionHistory = ViewPrimitiveOcclusionHistory.Find(RunQueriesIter->PrimitiveOcclusionHistoryKey);
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
-						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
+						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent, DynamicVertexBuffer),
 						NumBufferedFrames,
 						false,
 						Params.bNeedsScanOnRead
@@ -1483,7 +1485,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 /**
  * Cull occluded primitives in the view.
  */
-static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* Scene, FViewInfo& View)
+static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* Scene, FViewInfo& View, FGlobalDynamicVertexBuffer& DynamicVertexBuffer)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OcclusionCull);	
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_OcclusionReadback));
@@ -1563,7 +1565,7 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 								  (!FrameParity && View.StereoPass == eSSP_RIGHT_EYE);
 			}
 
-			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion);
+			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion, DynamicVertexBuffer);
 
 			if( bHZBOcclusion )
 			{
@@ -2608,6 +2610,9 @@ void FSceneRenderer::GatherDynamicMeshElements(
 	TArray<FViewInfo>& InViews, 
 	const FScene* InScene, 
 	const FSceneViewFamily& InViewFamily, 
+	FGlobalDynamicIndexBuffer& DynamicIndexBuffer,
+	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
+	FGlobalDynamicReadBuffer& DynamicReadBuffer,
 	const FPrimitiveViewMasks& HasDynamicMeshElementsMasks, 
 	const FPrimitiveViewMasks& HasDynamicEditorMeshElementsMasks, 
 	const FPrimitiveViewMasks& HasViewCustomDataMasks,
@@ -2629,7 +2634,10 @@ void FSceneRenderer::GatherDynamicMeshElements(
 				&InViews[ViewIndex].DynamicMeshElements,
 				&InViews[ViewIndex].SimpleElementCollector,
 				&InViews[ViewIndex].DynamicPrimitiveShaderData, 
-				InViewFamily.GetFeatureLevel());
+				InViewFamily.GetFeatureLevel(),
+				&DynamicIndexBuffer,
+				&DynamicVertexBuffer,
+				&DynamicReadBuffer);
 		}
 
 		const bool bIsInstancedStereo = (ViewCount > 0) ? (InViews[0].IsInstancedStereoPass() || InViews[0].bIsMobileMultiViewEnabled) : false;
@@ -2692,7 +2700,10 @@ void FSceneRenderer::GatherDynamicMeshElements(
 				&InViews[ViewIndex].DynamicEditorMeshElements, 
 				&InViews[ViewIndex].EditorSimpleElementCollector, 
 				&InViews[ViewIndex].DynamicPrimitiveShaderData, 
-				InViewFamily.GetFeatureLevel());
+				InViewFamily.GetFeatureLevel(),
+				&DynamicIndexBuffer,
+				&DynamicVertexBuffer,
+				&DynamicReadBuffer);
 		}
 
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < NumPrimitives; ++PrimitiveIndex)
@@ -3261,7 +3272,8 @@ void UpdateReflectionSceneData(FScene* Scene)
 	}
 }
 
-void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView)
+void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView, 
+	FGlobalDynamicIndexBuffer& DynamicIndexBuffer, FGlobalDynamicVertexBuffer& DynamicVertexBuffer, FGlobalDynamicReadBuffer& DynamicReadBuffer)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime);
 	SCOPED_NAMED_EVENT(FSceneRenderer_ComputeViewVisibility, FColor::Magenta);
@@ -3507,7 +3519,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		// Occlusion cull for all primitives in the view frustum, but not in wireframe.
 		if (!View.Family->EngineShowFlags.Wireframe)
 		{
-			int32 NumOccludedPrimitivesInView = OcclusionCull(RHICmdList, Scene, View);
+			int32 NumOccludedPrimitivesInView = OcclusionCull(RHICmdList, Scene, View, DynamicVertexBuffer);
 			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
 
@@ -3593,7 +3605,8 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 	}
 
 	// Gather FMeshBatches from scene proxies
-	GatherDynamicMeshElements(Views, Scene, ViewFamily, HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks, MeshCollector);
+	GatherDynamicMeshElements(Views, Scene, ViewFamily, DynamicIndexBuffer, DynamicVertexBuffer, DynamicReadBuffer,
+		HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, HasViewCustomDataMasks, MeshCollector);
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
@@ -3868,7 +3881,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	FViewVisibleCommandsPerView ViewCommandsPerView;
 	ViewCommandsPerView.SetNum(Views.Num());
 
-	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, ViewCommandsPerView);
+	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, ViewCommandsPerView, DynamicIndexBufferForInitViews, DynamicVertexBufferForInitViews, DynamicReadBufferForInitViews);
 
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
@@ -3991,7 +4004,7 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 		&& !ViewFamily.EngineShowFlags.HitProxies)
 	{
 		// Setup dynamic shadows.
-		InitDynamicShadows(RHICmdList);
+		InitDynamicShadows(RHICmdList, DynamicIndexBufferForInitShadows, DynamicVertexBufferForInitShadows, DynamicReadBufferForInitShadows);
 
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 	}
