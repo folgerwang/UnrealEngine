@@ -366,6 +366,8 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	{
 		GMetalCommandBufferHasStartEndTimeAPI = true;
 	}
+	
+	GRHISupportsCopyToTextureMultipleMips = true;
 		
 	if(
 	   #if PLATFORM_MAC
