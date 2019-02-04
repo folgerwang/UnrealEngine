@@ -62,6 +62,9 @@ class RHI_API FRHICommandList;
 /** The maximum number of mip-maps that a texture can contain. 	*/
 extern	RHI_API int32		GMaxTextureMipCount;
 
+/** Does the RHI implements CopyToTexture() with FRHICopyTextureInfo::NumMips > 1 */
+extern RHI_API bool GRHISupportsCopyToTextureMultipleMips;
+
 /** true if this platform has quad buffer stereo support. */
 extern RHI_API bool GSupportsQuadBufferStereo;
 

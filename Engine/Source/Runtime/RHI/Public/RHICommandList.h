@@ -2603,12 +2603,34 @@ public:
 	FORCEINLINE_DEBUGGABLE void CopyTexture(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FRHICopyTextureInfo& CopyInfo)
 	{
 		check(IsOutsideRenderPass());
-		if (Bypass())
+		if (GRHISupportsCopyToTextureMultipleMips)
 		{
-			GetContext().RHICopyTexture(SourceTextureRHI, DestTextureRHI, CopyInfo);
-			return;
+			if (Bypass())
+			{
+				GetContext().RHICopyTexture(SourceTextureRHI, DestTextureRHI, CopyInfo);
+				return;
+			}
+			ALLOC_COMMAND(FRHICommandCopyTexture)(SourceTextureRHI, DestTextureRHI, CopyInfo);
 		}
-		ALLOC_COMMAND(FRHICommandCopyTexture)(SourceTextureRHI, DestTextureRHI, CopyInfo);
+		else
+		{
+			FRHICopyTextureInfo PerMipInfo = CopyInfo;
+			PerMipInfo.NumMips = 1;
+			for (uint32 MipIndex = 0; MipIndex < CopyInfo.NumMips; MipIndex++)
+			{
+				if (Bypass())
+				{
+					GetContext().RHICopyTexture(SourceTextureRHI, DestTextureRHI, PerMipInfo);
+					return;
+				}
+				ALLOC_COMMAND(FRHICommandCopyTexture)(SourceTextureRHI, DestTextureRHI, PerMipInfo);
+
+				++PerMipInfo.SourceMipIndex;
+				++PerMipInfo.DestMipIndex;
+				PerMipInfo.Size.X = FMath::Max(1, PerMipInfo.Size.X / 2);
+				PerMipInfo.Size.Y = FMath::Max(1, PerMipInfo.Size.Y / 2);
+			}
+		}
 	}
 
 	FORCEINLINE_DEBUGGABLE void ClearTinyUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32(&Values)[4])
