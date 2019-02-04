@@ -396,6 +396,18 @@ public class HTML5Platform : Platform
 					LineStr = LineStr.Replace("%OFFSCREENCANVAS%", bMultithreading_UseOffscreenCanvas ? "true" : "false");
 				}
 
+				if (LineStr.Contains("%EMSDK_VERSION%"))
+				{
+					string escpath = HTML5SDKInfo.EMSCRIPTEN_ROOT.Replace("\\", "/");
+					LineStr = LineStr.Replace("%EMSDK_VERSION%", (ProjectConfiguration == "Shipping") ? HTML5SDKInfo.EmscriptenVersion() : escpath);
+				}
+
+				if (LineStr.Contains("%EMSDK_CONFIG%"))
+				{
+					string escpath = HTML5SDKInfo.DOT_EMSCRIPTEN.Replace("\\", "/");
+					LineStr = LineStr.Replace("%EMSDK_CONFIG%", (ProjectConfiguration == "Shipping") ? "" : escpath);
+				}
+
 				outputContents.AppendLine(LineStr);
 			}
 		}

@@ -54,6 +54,9 @@ const serveCompressedAssets = %SERVE_COMPRESSED%;
 // If true, serve out 'UE4Game.data.gz', if false, serve out 'UE4Game.data'.
 //const dataFileIsGzipCompressed = false;
 
+console.log("Emscripten version: %EMSDK_VERSION%");
+console.log("Emscripten configuration: %EMSDK_CONFIG%");
+
 
 
 

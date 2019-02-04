@@ -98,7 +98,6 @@ namespace UnrealBuildTool
 			string config = Environment.GetEnvironmentVariable("EM_CONFIG"); // This is either a string containing the config directly, or points to a file
 			if (config != null && File.Exists(config))
 			{
-				Log.TraceInformation( "NOTE [ReadEmscriptenConfigFile]: using EM_CONFIG=" + config );
 				config = File.ReadAllText(config);
 			}
 			return config;
