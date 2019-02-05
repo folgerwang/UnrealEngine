@@ -671,6 +671,7 @@ APlayerController* AGameModeBase::Login(UPlayer* NewPlayer, ENetRole InRemoteRol
 	ErrorMessage = InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	if (!ErrorMessage.IsEmpty())
 	{
+		NewPlayerController->Destroy();
 		return nullptr;
 	}
 
