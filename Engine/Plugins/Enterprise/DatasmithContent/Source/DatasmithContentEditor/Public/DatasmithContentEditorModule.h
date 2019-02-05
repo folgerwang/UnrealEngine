@@ -21,8 +21,9 @@ public:
 	virtual ~IDataPrepImporterInterface() = default;
 
 	virtual UDatasmithImportOptions* CreateOptions(UObject* Outer) = 0;
-	virtual bool Initialize(const FString& GUID, UWorld* ImportWorld, UWorld* FinalWorld, UPackage* ParentPackage, UDatasmithScene* DatasmithScene, UDatasmithImportOptions* Options) = 0;
+	virtual bool Initialize(const FString& GUID, UWorld* ImportWorld, UPackage* ParentPackage, UDatasmithScene* DatasmithScene, UDatasmithImportOptions* Options) = 0;
 	virtual bool BuildWorld(TArray<TWeakObjectPtr<UObject>>& OutAssets) = 0;
+	virtual bool SetFinalWorld(UWorld* FinalWorld) = 0;
 	virtual bool FinalizeAssets(const TArray<TWeakObjectPtr<UObject>>& Assets) = 0;
 };
 
