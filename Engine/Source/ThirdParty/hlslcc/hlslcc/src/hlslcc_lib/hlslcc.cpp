@@ -352,9 +352,19 @@ bool FHlslCrossCompilerContext::RunBackend(
 	//TIMER(gen_main);
 
 	//IRDump(ir);
-	if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+	if (Flags & HLSLCC_DisableBackendOptimizations)
 	{
-		return false;
+		if (!InShaderBackEnd->Validate(ir, ParseState))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		{
+			return false;
+		}
 	}
 
 	// Fix the case where a variable is used with an atomic and also w/o an atomic access
@@ -372,9 +382,19 @@ bool FHlslCrossCompilerContext::RunBackend(
 			return false;
 		}
 
-		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		if (Flags & HLSLCC_DisableBackendOptimizations)
 		{
-			return false;
+			if (!InShaderBackEnd->Validate(ir, ParseState))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+			{
+				return false;
+			}
 		}
 	}
 
@@ -408,9 +428,19 @@ bool FHlslCrossCompilerContext::RunBackend(
 			return false;
 		}
 
-		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		if (Flags & HLSLCC_DisableBackendOptimizations)
 		{
-			return false;
+			if (!InShaderBackEnd->Validate(ir, ParseState))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+			{
+				return false;
+			}
 		}
 	}
 
