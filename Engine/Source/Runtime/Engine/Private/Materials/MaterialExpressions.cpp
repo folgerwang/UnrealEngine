@@ -12539,11 +12539,11 @@ int32 UMaterialExpressionShadowReplace::Compile(class FMaterialCompiler* Compile
 {
 	if (!Default.GetTracedInput().Expression)
 	{
-		return Compiler->Errorf(TEXT("Missing ShadowReplace input Default"));
+		return Compiler->Errorf(TEXT("Missing input Default"));
 	}
 	else if (!Shadow.GetTracedInput().Expression)
 	{
-		return Compiler->Errorf(TEXT("Missing ShadowReplace input Shadow"));
+		return Compiler->Errorf(TEXT("Missing input Shadow"));
 	}
 	else
 	{
@@ -12555,7 +12555,12 @@ int32 UMaterialExpressionShadowReplace::Compile(class FMaterialCompiler* Compile
 
 void UMaterialExpressionShadowReplace::GetCaption(TArray<FString>& OutCaptions) const
 {
-	OutCaptions.Add(TEXT("ShadowReplace"));
+	OutCaptions.Add(TEXT("Shadow Pass Switch"));
+}
+
+void UMaterialExpressionShadowReplace::GetExpressionToolTip(TArray<FString>& OutToolTip)
+{
+	ConvertToMultilineToolTip(TEXT("Allows material to define specialized behavior when being rendered into ShadowMap."), 40, OutToolTip);
 }
 #endif // WITH_EDITOR
 
