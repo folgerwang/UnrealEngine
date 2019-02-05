@@ -70,12 +70,37 @@ void FTimecodeSynchronizerEditorLevelToolbar::FillToolbar(FToolBarBuilder& Toolb
 {
 	ToolbarBuilder.BeginSection("TimecodeSynchronizer");
 	{
+		auto TooltipLambda = [this]()
+		{
+			if (!CurrentTimecodeSynchronizer.IsValid())
+			{
+				return LOCTEXT("EmptyTimecodeSynchronizer_ToolTip", "Select a Timecode Synchronizer to edit it.");
+			}
+			return FText::Format(LOCTEXT("TimecodeSynchronizer_ToolTip", "Edit '{0}'")
+				, FText::FromName(CurrentTimecodeSynchronizer->GetFName()));
+		};
+
+		// Add a button to edit the current timecode synchronizer
+		ToolbarBuilder.AddToolBarButton(
+			FUIAction(
+				FExecuteAction::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::OpenCurrentTimecodeSynchronizer),
+				FCanExecuteAction::CreateLambda([this] { return CurrentTimecodeSynchronizer.IsValid(); }),
+				FIsActionChecked::CreateLambda([this] { return CurrentTimecodeSynchronizer.IsValid(); })
+			),
+			NAME_None,
+			LOCTEXT("TimecodeSynch_Label", "Timecode Synchronizer"),
+			MakeAttributeLambda(TooltipLambda),
+			FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), TEXT("Console"))
+		);
+
+		// Add a simple drop-down menu (no label, no icon for the drop-down button itself) that list the timecode synchronizer available
 		ToolbarBuilder.AddComboButton(
 			FUIAction(),
 			FOnGetContent::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::GenerateMenuContent),
-			LOCTEXT("TimecodeSynch_Label", "Timecode Synchronizer"),
-			LOCTEXT("TimecodeSynch_ToolTip", "List of imecode Synchronizer available to the user for editing or creation."),
-			FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), TEXT("Console"))
+			FText::GetEmpty(),
+			LOCTEXT("TimecodeSynchButton_ToolTip", "List of Timecode Synchronizer available to the user for editing or creation."),
+			FSlateIcon(),
+			true
 		);
 	}
 	ToolbarBuilder.EndSection();
@@ -86,7 +111,7 @@ TSharedRef<SWidget> FTimecodeSynchronizerEditorLevelToolbar::GenerateMenuContent
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, nullptr);
 
-	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("TimecodeSynchronizerSection", "Timecode Synchronizer"));
+	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("NewTimecodeSynchronizerSection", "New"));
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("CreateMenuLabel", "New Empty Timecode Synchronizer"),
@@ -96,20 +121,18 @@ TSharedRef<SWidget> FTimecodeSynchronizerEditorLevelToolbar::GenerateMenuContent
 				FExecuteAction::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::CreateNewTimecodeSynchronizer)
 			)
 		);
+	}
+	MenuBuilder.EndSection();
 
-		MenuBuilder.AddMenuSeparator();
-
+	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("TimecodeSynchronizerSection", "Timecode Synchronizer"));
+	{
 		const bool bIsTimecodeSynchronizerValid = CurrentTimecodeSynchronizer.IsValid();
 
 		MenuBuilder.AddSubMenu(
-			bIsTimecodeSynchronizerValid ? FText::Format(LOCTEXT("EditMenuLabel", "Open '{0}'"), FText::FromName(CurrentTimecodeSynchronizer->GetFName())) : LOCTEXT("SelectMenuLabel", "Select Profile"),
+			bIsTimecodeSynchronizerValid ? FText::FromName(CurrentTimecodeSynchronizer->GetFName()) : LOCTEXT("SelectMenuLabel", "Select a Timecode Synchronizer"),
 			LOCTEXT("SelectMenuTooltip", "Select the current timecode synchronizer for this editor."),
 			FNewMenuDelegate::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::AddObjectSubMenu),
-			FUIAction(
-				FExecuteAction::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::OpenCurrentTimecodeSynchronizer),
-				FCanExecuteAction(),
-				FIsActionChecked::CreateLambda([bIsTimecodeSynchronizerValid] { return bIsTimecodeSynchronizerValid; })
-			),
+			FUIAction(),
 			NAME_None,
 			EUserInterfaceActionType::RadioButton
 		);

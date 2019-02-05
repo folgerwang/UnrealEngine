@@ -90,7 +90,7 @@ public:
 	/**
 	 * Display the media profile icon in the editor toolbar.
 	 */
-	UPROPERTY(Config, EditAnywhere, Category = "MediaProfile")
+	UPROPERTY(Config, EditAnywhere, Category = "MediaProfile", meta=(ConfigRestartRequired=true))
 	bool bDisplayInToolbar;
 
 private:

@@ -25,7 +25,7 @@ public:
 
 public:
 	/** Display the timecode synchronizer icon in the editor toolbar. */
-	UPROPERTY(Config, EditAnywhere, Category="TimecodeSynchronizer")
+	UPROPERTY(Config, EditAnywhere, Category="TimecodeSynchronizer", meta=(ConfigRestartRequired=true))
 	bool bDisplayInToolbar;
 
 	UPROPERTY(config, EditAnywhere, Category="TimecodeSynchronizer")

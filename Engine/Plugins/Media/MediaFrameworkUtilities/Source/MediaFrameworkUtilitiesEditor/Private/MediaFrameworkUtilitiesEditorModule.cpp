@@ -42,6 +42,7 @@ public:
 	{
 		if (GEditor)
 		{
+			FMediaProfileCommands::Register();
 			FMediaFrameworkUtilitiesEditorStyle::Register();
 
 			GEditor->ActorFactories.Add(NewObject<UActorFactoryMediaBundle>());
@@ -73,7 +74,6 @@ public:
 				SMediaFrameworkVideoInput::RegisterNomadTabSpawner(MediaBrowserGroup);
 			}
 			FMediaProfileMenuEntry::Register();
-			FMediaProfileCommands::Register();
 		}
 	}
 
@@ -81,7 +81,6 @@ public:
 	{
 		if (!GIsRequestingExit && GEditor && UObjectInitialized())
 		{
-			FMediaProfileCommands::Unregister();
 			FMediaProfileMenuEntry::Unregister();
 			SMediaFrameworkVideoInput::UnregisterNomadTabSpawner();
 			SMediaFrameworkCapture::UnregisterNomadTabSpawner();
@@ -107,6 +106,7 @@ public:
 			GEditor->ActorFactories.RemoveAll([](const UActorFactory* ActorFactory) { return ActorFactory->IsA<UActorFactoryMediaBundle>(); });
 
 			FMediaFrameworkUtilitiesEditorStyle::Unregister();
+			FMediaProfileCommands::Unregister();
 		}
 	}
 
