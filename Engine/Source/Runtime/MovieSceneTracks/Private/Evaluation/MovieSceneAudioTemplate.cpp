@@ -331,8 +331,11 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 			AudioComponent.bIsUISound = false;
 		}
 
-		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + FMath::Max((float)Context.GetFrameRate().AsSeconds(AudioStartOffset), 0.f);
-		AudioComponent.Play(AudioTime);
+		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + (float)Context.GetFrameRate().AsSeconds(AudioStartOffset);
+		if (AudioTime > 0.f && AudioTime < AudioComponent.Sound->Duration)
+		{
+			AudioComponent.Play(AudioTime);
+		}
 
 		if (Context.GetStatus() == EMovieScenePlayerStatus::Scrubbing)
 		{
