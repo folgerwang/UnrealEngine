@@ -103,12 +103,6 @@ struct FCameraCutExecutionToken : IMovieSceneExecutionToken
 	/** Execute this token, operating on all objects referenced by 'Operand' */
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		if (!Player.CanUpdateCameraCut())
-		{
-			Player.UpdateCameraCut(nullptr, nullptr);
-			return;
-		}
-
 		MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_CameraCutTrack_TokenExecute)
 
 		FMovieSceneSequenceID SequenceID = Operand.SequenceID;

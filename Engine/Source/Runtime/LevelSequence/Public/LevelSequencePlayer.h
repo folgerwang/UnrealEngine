@@ -136,6 +136,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Game|Cinematic")
 	FOnLevelSequencePlayerCameraCutEvent OnCameraCut;
 
+	/** Get the active camera cut camera */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UCameraComponent* GetActiveCameraComponent() const { return CachedCameraComponent.Get(); }
+
 public:
 
 	/**

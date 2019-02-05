@@ -209,6 +209,11 @@ void ULevelSequencePlayer::UpdateCameraCut(UObject* CameraObject, UObject* Unloc
 
 	CachedCameraComponent = CameraComponent;
 
+	if (!CanUpdateCameraCut())
+	{
+		return;
+	}
+
 	if (CameraObject == ViewTarget)
 	{
 		if ( bJumpCut )
