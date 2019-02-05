@@ -46,10 +46,11 @@ private:
 	/** Handle a session client change */
 	void HandleSessionClientChanged(IConcertClientSession&, EConcertClientStatus ClientStatus, const FConcertSessionClientInfo& ClientInfo);
 
-	FString HandleSessionName() const;
+	/** Polls the local client info and detect if it changed in order to update its representation in real time.*/
+	EActiveTimerReturnType HandleLocalClientInfoChangePollingTimer(double InCurrentTime, float InDeltaTime);
 
 	/** Update the list of clients while keeping the alphabetical sorting */
-	void UpdateAvailableClients(TArray<TSharedPtr<FConcertSessionClientInfo>>&& InAvailableClients);
+	void UpdateSessionClientListView(const FConcertSessionClientInfo* Client = nullptr, EConcertClientStatus Status = EConcertClientStatus::Updated);
 
 	/** Set the selected client in the clients list view*/
 	void SetSelectedClient(const FGuid& InClientEndpointId, ESelectInfo::Type SelectInfo = ESelectInfo::Direct);
@@ -57,12 +58,6 @@ private:
 	/** Find a client with its endpoint id */
 	TSharedPtr<FConcertSessionClientInfo> FindAvailableClient(const FGuid& InClientEndpointId) const;
 	
-	/** Sync the clients with the clients from the current session */
-	void ReloadClients();
-
-	/** Refresh the clients list after a function call while preserving alphabetical order and current selection */
-	void RefreshListViewAfterFunction(TFunctionRef<void()> InFunction);
-
 	/** Handling for the status icon and text */
 	const FButtonStyle& GetConnectionIconStyle() const;
 	FSlateColor GetConnectionIconColor() const;
@@ -77,9 +72,6 @@ private:
 	FReply OnClickResumeSession();
 	FReply OnClickLeaveSession();
 
-	/** Handling for spawning the Active Session tabs. */
-	TSharedRef<SDockTab> HandleTabManagerSpawnTab(const class FSpawnTabArgs&, const FName TabIdentifier);
-
 private:
 	/** Holds a concert client session. */
 	TWeakPtr<IConcertClientSession> WeakSessionPtr;
@@ -91,7 +83,7 @@ private:
 	TArray<TSharedPtr<FConcertSessionClientInfo>> Clients;
 
 	/** Information about the machine's client. */
-	TOptional<FConcertSessionClientInfo> ClientInfo;
+	TSharedPtr<FConcertSessionClientInfo> ClientInfo;
 
 	/** Delegate handle for session clients state changes. */
 	FDelegateHandle SessionClientChangedHandle;
