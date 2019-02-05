@@ -27,6 +27,7 @@ FMovieSceneSkeletalAnimationParams::FMovieSceneSkeletalAnimationParams()
 	SlotName = DefaultSlotName;
 	Weight.SetDefault(1.f);
 	bSkipAnimNotifiers = false;
+	bForceCustomMode = false;
 }
 
 UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const FObjectInitializer& ObjectInitializer )

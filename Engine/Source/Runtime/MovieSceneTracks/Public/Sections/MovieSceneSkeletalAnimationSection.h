@@ -54,6 +54,10 @@ struct FMovieSceneSkeletalAnimationParams
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	bool bSkipAnimNotifiers;
 
+	/** If on animation sequence will always play when active even if the animation is controlled by a Blueprint or Anim Instance Class*/
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	bool bForceCustomMode;
+
 	UPROPERTY()
 	float StartOffset_DEPRECATED;
 
