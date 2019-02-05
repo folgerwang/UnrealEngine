@@ -140,16 +140,7 @@ bool FMediaIOCorePlayerBase::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe
 
 void FMediaIOCorePlayerBase::TickTimeManagement()
 {
-	bool bUseTimecode = false;
 	if (bUseTimeSynchronization)
-	{
-		if (const UTimecodeProvider* Provider = GEngine->GetTimecodeProvider())
-		{
-			bUseTimecode = (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized);
-		}
-	}
-
-	if (bUseTimecode)
 	{
 		FTimecode Timecode = FApp::GetTimecode();
 		FFrameRate FrameRate = FApp::GetTimecodeFrameRate();

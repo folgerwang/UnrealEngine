@@ -158,9 +158,13 @@ public:
 	{
 		BoundsType Result;
 
-		for (const auto& Range : Ranges)
+		if (Ranges.Num())
 		{
-			Result = BoundsType::MinLower(Result, Range.GetLowerBound());
+			Result = Ranges[0].GetLowerBound();
+			for (int32 i = 1; i < Ranges.Num(); i++)
+			{
+				Result = BoundsType::MinLower(Result, Ranges[i].GetLowerBound());
+			}
 		}
 
 		return Result;
@@ -189,9 +193,13 @@ public:
 	{
 		BoundsType Result;
 
-		for (const auto& Range : Ranges)
+		if (Ranges.Num())
 		{
-			Result = BoundsType::MaxUpper(Result, Range.GetUpperBound());
+			Result = Ranges[0].GetUpperBound();
+			for (int32 i = 1; i < Ranges.Num(); i++)
+			{
+				Result = BoundsType::MaxUpper(Result, Ranges[i].GetUpperBound());
+			}
 		}
 
 		return Result;

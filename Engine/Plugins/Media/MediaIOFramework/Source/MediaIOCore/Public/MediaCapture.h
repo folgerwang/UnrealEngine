@@ -6,12 +6,13 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 
+#include "HAL/CriticalSection.h"
 #include "MediaOutput.h"
 #include "Misc/Timecode.h"
 #include "PixelFormat.h"
 #include "RHI.h"
 #include "RHIResources.h"
-#include "HAL/CriticalSection.h"
+#include "Templates/Atomic.h"
 
 #include "MediaCapture.generated.h"
 
@@ -244,5 +245,5 @@ private:
 	FString MediaOutputName;
 
 	bool bResolvedTargetInitialized;
-	bool bWaitingForResolveCommandExecution;
+	TAtomic<int32> WaitingForResolveCommandExecutionCounter;
 };

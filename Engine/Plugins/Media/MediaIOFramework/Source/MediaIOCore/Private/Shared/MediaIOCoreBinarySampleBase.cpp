@@ -73,7 +73,6 @@ bool FMediaIOCoreBinarySampleBase::SetProperties(FTimespan InTime, const FFrameR
 void* FMediaIOCoreBinarySampleBase::RequestBuffer(uint32 InBufferSize)
 {
 	FreeSample();
-	Buffer.Reset(InBufferSize);
-	Buffer.SetNumUnsafeInternal(InBufferSize); // Reset the array without shrinking (Does not destruct items, does not de-allocate memory).
+	Buffer.SetNumUninitialized(InBufferSize); // Reset the array without shrinking (Does not destruct items, does not de-allocate memory).
 	return Buffer.GetData();
 }

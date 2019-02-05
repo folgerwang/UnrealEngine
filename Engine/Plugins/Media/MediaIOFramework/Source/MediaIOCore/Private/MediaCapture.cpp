@@ -94,7 +94,7 @@ UMediaCapture::UMediaCapture(const FObjectInitializer& ObjectInitializer)
 	, ConversionOperation(EMediaCaptureConversionOperation::NONE)
 	, MediaOutputName(TEXT("[undefined]"))
 	, bResolvedTargetInitialized(false)
-	, bWaitingForResolveCommandExecution(false)
+	, WaitingForResolveCommandExecutionCounter(0)
 {
 }
 
@@ -348,7 +348,7 @@ void UMediaCapture::StopCapture(bool bAllowPendingFrameToBeProcess)
 
 			FCoreDelegates::OnEndFrame.RemoveAll(this);
 
-			while (bWaitingForResolveCommandExecution || !bResolvedTargetInitialized)
+			while (WaitingForResolveCommandExecutionCounter != 0 || !bResolvedTargetInitialized)
 			{
 				FlushRenderingCommands();
 			}
@@ -378,7 +378,7 @@ void UMediaCapture::SetMediaOutput(UMediaOutput* InMediaOutput)
 
 bool UMediaCapture::HasFinishedProcessing() const
 {
-	return bWaitingForResolveCommandExecution == false
+	return WaitingForResolveCommandExecutionCounter == 0
 		|| MediaState == EMediaCaptureState::Error
 		|| MediaState == EMediaCaptureState::Stopped;
 }
@@ -481,32 +481,23 @@ void UMediaCapture::OnEndFrame_GameThread()
 		CapturingFrame->UserData = GetCaptureFrameUserData_GameThread();
 	}
 
-	bWaitingForResolveCommandExecution = true;
-
 	// RenderCommand to be executed on the RenderThread
-	auto RenderCommand = [this](FRHICommandListImmediate& RHICmdList, FCaptureFrame* InCapturingFrame, FCaptureFrame* InReadyFrame)
+	auto RenderCommand = [this](FRHICommandListImmediate& RHICmdList, FCaptureFrame* InCapturingFrame, FCaptureFrame* InReadyFrame, TWeakPtr<FSceneViewport> InViewport, FTextureRenderTargetResource* InTextureRenderTargetResource)
 	{
 		FTexture2DRHIRef SourceTexture;
 		{
-			FScopeLock Lock(&AccessingCapturingSource);
-
-			UTextureRenderTarget2D* InCapturingRenderTarget = CapturingRenderTarget;
-			TSharedPtr<FSceneViewport> InSceneViewportPtr = CapturingSceneViewport.Pin();
-
-			if (InSceneViewportPtr.IsValid())
+			TSharedPtr<FSceneViewport> SceneViewportPtr = InViewport.Pin();
+			if (SceneViewportPtr)
 			{
-				SourceTexture = InSceneViewportPtr->GetRenderTargetTexture();
-				if (!SourceTexture.IsValid() && InSceneViewportPtr->GetViewportRHI())
+				SourceTexture = SceneViewportPtr->GetRenderTargetTexture();
+				if (!SourceTexture.IsValid() && SceneViewportPtr->GetViewportRHI())
 				{
-					SourceTexture = RHICmdList.GetViewportBackBuffer(InSceneViewportPtr->GetViewportRHI());
+					SourceTexture = RHICmdList.GetViewportBackBuffer(SceneViewportPtr->GetViewportRHI());
 				}
 			}
-			else if (InCapturingRenderTarget)
+			else if (InTextureRenderTargetResource && InTextureRenderTargetResource->GetTextureRenderTarget2DResource())
 			{
-				if (InCapturingRenderTarget->GetRenderTargetResource() != nullptr && InCapturingRenderTarget->GetRenderTargetResource()->GetTextureRenderTarget2DResource() != nullptr)
-				{
-					SourceTexture = InCapturingRenderTarget->GetRenderTargetResource()->GetTextureRenderTarget2DResource()->GetTextureRHI();
-				}
+				SourceTexture = InTextureRenderTargetResource->GetTextureRenderTarget2DResource()->GetTextureRHI();
 			}
 		}
 
@@ -703,17 +694,29 @@ void UMediaCapture::OnEndFrame_GameThread()
 			RHICmdList.UnmapStagingSurface(InReadyFrame->ReadbackTexture);
 		}
 
-		bWaitingForResolveCommandExecution = false;
+		--WaitingForResolveCommandExecutionCounter;
 	};
 
+	FTextureRenderTargetResource* TextureRenderTargetResource = nullptr;
+	{
+		FScopeLock Lock(&AccessingCapturingSource);
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+		if(CapturingRenderTarget)
+		{
+			TextureRenderTargetResource = CapturingRenderTarget->GameThread_GetRenderTargetResource();
+		}
+	}
+
+	++WaitingForResolveCommandExecutionCounter;
+	ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
 		MediaOutputCaptureFrameCreateTexture,
 		FCaptureFrame*, InCapturingFrame, CapturingFrame,
 		FCaptureFrame*, InPreviousFrame, ReadyFrame,
+		TWeakPtr<FSceneViewport>, InViewport, CapturingSceneViewport,
+		FTextureRenderTargetResource*, InTextureRenderTargetResource, TextureRenderTargetResource,
 		decltype(RenderCommand), InRenderCommand, RenderCommand,
 		{
-			InRenderCommand(RHICmdList, InCapturingFrame, InPreviousFrame);
+			InRenderCommand(RHICmdList, InCapturingFrame, InPreviousFrame, InViewport, InTextureRenderTargetResource);
 		});
 }
 
