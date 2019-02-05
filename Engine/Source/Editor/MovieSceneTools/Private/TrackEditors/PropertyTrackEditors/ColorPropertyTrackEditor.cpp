@@ -38,6 +38,11 @@ void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProperty
 	}
 
 	const UStructProperty* StructProp = Cast<const UStructProperty>( Property );
+	if (!StructProp)
+	{
+		return;
+	}
+
 	FName StructName = StructProp->Struct->GetFName();
 	FName PropertyName = Property->GetFName();
 

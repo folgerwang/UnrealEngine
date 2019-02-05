@@ -24,7 +24,10 @@ TSharedRef<ISequencerTrackEditor> FVectorPropertyTrackEditor::CreateTrackEditor(
 void FVectorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
 	const UStructProperty* StructProp = Cast<const UStructProperty>( PropertyChangedParams.PropertyPath.GetLeafMostProperty().Property.Get() );
-
+	if (!StructProp)
+	{
+		return;
+	}
 	FName StructName = StructProp->Struct->GetFName();
 
 	bool bIsVector2D = StructName == NAME_Vector2D;
