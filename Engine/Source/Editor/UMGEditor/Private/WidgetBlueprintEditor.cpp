@@ -1393,10 +1393,9 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 		check(SourceBinding);
 
 		// Set binding names used for lookup
-		FName PredicateName = SourceBinding->WidgetName;
 		for (FWidgetAnimationBinding& Binding : WidgetAnimation->AnimationBindings)
 		{
-			if (Binding.WidgetName != PredicateName)
+			if (Binding.AnimationGuid != ObjectId)
 			{
 				continue;
 			}
