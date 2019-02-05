@@ -14,6 +14,23 @@
 
 #if WITH_EDITORONLY_DATA
 
+#if WITH_EDITOR
+bool UDatasmithSceneImportData::CanEditChange(const UProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+	{
+		return false;
+	}
+
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FDatasmithImportBaseOptions, bIncludeAnimation))
+	{
+		return BaseOptions.CanIncludeAnimation();
+	}
+
+	return true;
+}
+#endif //WITH_EDITOR
+
 UDatasmithStaticMeshImportData* UDatasmithStaticMeshImportData::GetImportDataForStaticMesh( UStaticMesh* StaticMesh, TOptional< DefaultOptionsPair > DefaultImportOptions )
 {
 	check( StaticMesh );

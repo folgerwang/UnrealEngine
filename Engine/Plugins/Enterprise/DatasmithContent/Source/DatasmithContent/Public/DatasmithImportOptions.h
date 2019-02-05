@@ -203,6 +203,8 @@ struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithStaticMeshImportOptions StaticMeshOptions;
+
+	bool CanIncludeAnimation() const { return bIncludeGeometry || bIncludeCamera || bIncludeLight; }
 };
 
 USTRUCT(BlueprintType)
@@ -326,4 +328,10 @@ public:
 	bool bUseSameOptions;
 
 	void UpdateNotDisplayedConfig( bool bIsAReimport );
+
+	//~ UObject interface
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif //WITH_EDITOR
+	//~ End UObject interface
 };

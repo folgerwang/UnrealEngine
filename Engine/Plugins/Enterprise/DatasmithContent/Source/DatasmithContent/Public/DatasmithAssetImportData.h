@@ -89,6 +89,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Options", meta = (ShowOnlyInnerProperties))
 	FDatasmithImportBaseOptions BaseOptions;
 
+	//~ UObject interface
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif //WITH_EDITOR
+	//~ End UObject interface
+
 #endif // WITH_EDITORONLY_DATA
 };
 

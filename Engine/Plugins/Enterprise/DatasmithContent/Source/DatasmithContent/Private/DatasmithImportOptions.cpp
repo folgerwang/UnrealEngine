@@ -109,6 +109,23 @@ void UDatasmithImportOptions::UpdateNotDisplayedConfig( bool bIsAReimport )
 	SearchPackagePolicy = EDatasmithImportSearchPackagePolicy::Current;
 }
 
+#if WITH_EDITOR
+bool UDatasmithImportOptions::CanEditChange(const UProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+	{
+		return false;
+	}
+
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FDatasmithImportBaseOptions, bIncludeAnimation))
+	{
+		return BaseOptions.CanIncludeAnimation();
+	}
+
+	return true;
+}
+#endif //WITH_EDITOR
+
 FDatasmithStaticMeshImportOptions::FDatasmithStaticMeshImportOptions()
 	: MinLightmapResolution( EDatasmithImportLightmapMin::LIGHTMAP_64 )
 	, MaxLightmapResolution( EDatasmithImportLightmapMax::LIGHTMAP_512 )
