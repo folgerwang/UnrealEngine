@@ -82,6 +82,15 @@ public:
 	static void SetStartFrameSeconds(UMovieSceneSection* Section, float StartTime);
 
 	/**
+	 * Set start frame bounded
+	 *
+	 * @param Section        The section to set whether the start frame is bounded or not
+	 * @param IsBounded The desired bounded state of the start frame
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
+	static void SetStartFrameBounded(UMovieSceneSection* Section, bool bIsBounded);
+
+	/**
 	 * Set end frame
 	 *
 	 * @param Section        The section within which to set the end frame
@@ -98,6 +107,15 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
 	static void SetEndFrameSeconds(UMovieSceneSection* Section, float EndTime);
+
+	/**
+     * Set end frame bounded
+	 *
+	 * @param Section        The section to set whether the end frame is bounded or not
+	 * @param IsBounded The desired bounded state of the end frame
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
+	static void SetEndFrameBounded(UMovieSceneSection* Section, bool bIsBounded);
 
 	/**
 	* Find all channels that belong to the specified UMovieSceneSection. Some sections have many channels (such as

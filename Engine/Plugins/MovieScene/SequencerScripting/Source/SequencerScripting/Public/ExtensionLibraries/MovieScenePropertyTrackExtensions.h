@@ -22,6 +22,16 @@ class UMovieScenePropertyTrackExtensions : public UBlueprintFunctionLibrary
 public:
 
 	/**
+	 * Set this track's property name and path
+	 *
+	 * @param Track        The track to use
+	 * @param InPropertyName The property name
+	 * @param InPropertyPath The property path
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Track", meta = (ScriptMethod))
+	static void SetPropertyNameAndPath(UMovieScenePropertyTrack* Track, const FName& InPropertyName, const FString& InPropertyPath);
+
+	/**
 	 * Get this track's property name
 	 *
 	 * @param Track        The track to use

@@ -3,6 +3,11 @@
 #include "ExtensionLibraries/MovieScenePropertyTrackExtensions.h"
 #include "Tracks/MovieScenePropertyTrack.h"
 
+void UMovieScenePropertyTrackExtensions::SetPropertyNameAndPath(UMovieScenePropertyTrack* Track, const FName& InPropertyName, const FString& InPropertyPath)
+{
+	Track->SetPropertyNameAndPath(InPropertyName, InPropertyPath);
+}
+
 FName UMovieScenePropertyTrackExtensions::GetPropertyName(UMovieScenePropertyTrack* Track)
 {
 	return Track->GetPropertyName();

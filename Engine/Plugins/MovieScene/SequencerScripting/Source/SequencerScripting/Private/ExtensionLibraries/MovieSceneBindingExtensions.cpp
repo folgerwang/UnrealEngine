@@ -216,3 +216,17 @@ FSequencerBindingProxy UMovieSceneBindingExtensions::GetParent(const FSequencerB
 	}
 	return FSequencerBindingProxy();
 }
+
+
+void UMovieSceneBindingExtensions::SetParent(const FSequencerBindingProxy& InBinding, const FSequencerBindingProxy& InParentBinding)
+{
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(InBinding.BindingID);
+		if (Possessable)
+		{
+			Possessable->SetParent(InParentBinding.BindingID);
+		}
+	}
+}

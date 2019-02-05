@@ -110,6 +110,28 @@ void UMovieSceneSectionExtensions::SetStartFrameSeconds(UMovieSceneSection* Sect
 	}
 }
 
+void UMovieSceneSectionExtensions::SetStartFrameBounded(UMovieSceneSection* Section, bool bIsBounded)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		if (bIsBounded)
+		{
+			int32 NewFrameNumber = 0;
+			if (!MovieScene->GetPlaybackRange().GetLowerBound().IsOpen())
+			{
+				NewFrameNumber = MovieScene->GetPlaybackRange().GetLowerBoundValue().Value;
+			}
+
+			Section->SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>(FFrameNumber(NewFrameNumber)));
+		}
+		else
+		{
+			Section->SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>());
+		}
+	}
+}
+
 void UMovieSceneSectionExtensions::SetEndFrame(UMovieSceneSection* Section, int32 EndFrame)
 {
 	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
@@ -127,6 +149,28 @@ void UMovieSceneSectionExtensions::SetEndFrameSeconds(UMovieSceneSection* Sectio
 	if (MovieScene)
 	{
 		Section->SetEndFrame((EndTime * MovieScene->GetTickResolution()).RoundToFrame());
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrameBounded(UMovieSceneSection* Section, bool bIsBounded)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		if (bIsBounded)
+		{
+			int32 NewFrameNumber = 0;
+			if (!MovieScene->GetPlaybackRange().GetUpperBound().IsOpen())
+			{
+				NewFrameNumber = MovieScene->GetPlaybackRange().GetUpperBoundValue().Value;
+			}
+
+			Section->SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>(FFrameNumber(NewFrameNumber)));
+		}
+		else
+		{
+			Section->SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>());
+		}
 	}
 }
 
