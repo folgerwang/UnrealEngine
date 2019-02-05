@@ -60,8 +60,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
 	static float GetEndFrameSeconds(UMovieSceneSection* Section);
 
-	UE_DEPRECATED(4.22, "Please use SetStartFrame and SetEndFrame instead.")
-	static void SetRange(UMovieSceneSection* Section, const FSequencerScriptingRange& Range);
+	/**
+	 * Set range
+	 *
+	 * @param Section        The section within which to set the range
+	 * @param StartFrame The desired start frame for this section
+	 * @param EndFrame The desired end frame for this section
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
+	static void SetRange(UMovieSceneSection* Section, int32 StartFrame, int32 EndFrame);
+
+	/**
+	 * Set range in seconds
+	 *
+	 * @param Section        The section within which to set the range
+	 * @param StartTime The desired start frame for this section
+	 * @param EndTime The desired end frame for this section
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
+	static void SetRangeSeconds(UMovieSceneSection* Section, float StartTime, float EndTime);
 
 	/**
 	 * Set start frame
