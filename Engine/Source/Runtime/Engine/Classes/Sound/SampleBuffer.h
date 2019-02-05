@@ -381,11 +381,25 @@ namespace Audio
 			// The lambda function to call when t he sound wave finishes loading
 			TFunction<void(const USoundWave* SoundWave, const Audio::FSampleBuffer& LoadedSampleBuffer)> OnLoaded;
 
-			// Whether the sound wave load/decode is in-flight
-			bool bIsLoading;
+			enum class LoadStatus : uint8
+			{
+				// No request to load has been issued (default)
+				None = 0,
 
-			// Whether or not the sound wave has already been loaded
-			bool bIsLoaded;
+				// The sound wave load/decode is in-flight
+				Loading,
+
+				// The sound wave has already been loaded
+				Loaded,
+			};
+
+			LoadStatus Status;
+
+			FLoadingSoundWaveInfo()
+				: SoundWave(nullptr)
+				, Status(LoadStatus::None)
+			{
+			}
 		};
 
 		// Reference to current loading sound wave

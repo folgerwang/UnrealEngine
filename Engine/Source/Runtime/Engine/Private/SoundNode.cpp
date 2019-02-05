@@ -179,7 +179,10 @@ bool USoundNode::HasDelayNode() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->HasDelayNode();
+			if (ChildNode->HasDelayNode())
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -192,7 +195,10 @@ bool USoundNode::HasConcatenatorNode() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->HasConcatenatorNode();
+			if (ChildNode->HasConcatenatorNode())
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -205,7 +211,10 @@ bool USoundNode::IsVirtualizeWhenSilent() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->IsVirtualizeWhenSilent();
+			if (ChildNode->IsVirtualizeWhenSilent())
+			{
+				return true;
+			}
 		}
 	}
 	return false;

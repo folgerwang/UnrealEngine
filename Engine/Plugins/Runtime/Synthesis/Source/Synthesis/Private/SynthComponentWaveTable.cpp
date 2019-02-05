@@ -10,7 +10,7 @@ USynthSamplePlayer::USynthSamplePlayer(const FObjectInitializer& ObjInitializer)
 	: Super(ObjInitializer)
 	, SoundWave(nullptr)
 	, SampleDurationSec(0.0f)
-	, SamplePlaybackProgressSec(0.0F)
+	, SamplePlaybackProgressSec(0.0f)
 	, bIsLoaded(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -134,7 +134,6 @@ void USynthSamplePlayer::LoadSoundWaveInternal()
 	}
 }
 
-
 void USynthSamplePlayer::SetSoundWave(USoundWave* InSoundWave)
 {
 	if (SoundWave != InSoundWave)
@@ -157,8 +156,10 @@ void USynthSamplePlayer::OnUnregister()
 	Super::OnUnregister();
 }
 
-void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
 	SoundWaveLoader.Update();
 
 	OnSamplePlaybackProgress.Broadcast(GetCurrentPlaybackProgressTime(), GetCurrentPlaybackProgressPercent());
@@ -168,10 +169,11 @@ int32 USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	if (SampleBuffer.GetData() && !SampleBufferReader.HasBuffer())
 	{
-		const int16* BufferData = SampleBuffer.GetData();
-		const int32 BufferNumSamples = SampleBuffer.GetNumSamples();
+		const int16* BufferData       = SampleBuffer.GetData();
+		const int32 BufferNumSamples  = SampleBuffer.GetNumSamples();
 		const int32 BufferNumChannels = SampleBuffer.GetNumChannels();
-		const int32 BufferSampleRate = SampleBuffer.GetSampleRate();
+		const int32 BufferSampleRate  = SampleBuffer.GetSampleRate();
+
 		SampleBufferReader.SetBuffer(BufferData, BufferNumSamples, BufferNumChannels, BufferSampleRate);
 		SampleDurationSec = BufferNumSamples / (BufferSampleRate * BufferNumChannels);
 	}

@@ -25,21 +25,24 @@ namespace Audio
 		}
 
 		FLoadingSoundWaveInfo LoadingSoundWaveInfo;
-		LoadingSoundWaveInfo.SoundWave = InSoundWave;
-		LoadingSoundWaveInfo.OnLoaded = MoveTemp(OnLoaded);
-		LoadingSoundWaveInfo.bIsLoading = true;
 
-		if (LoadingSoundWaveInfo.SoundWave->GetPrecacheState() != ESoundWavePrecacheState::Done)
+		const bool bRequestPrecache = InSoundWave->GetPrecacheState() != ESoundWavePrecacheState::Done ||
+			!InSoundWave->RawPCMData ||
+			InSoundWave->RawPCMDataSize == 0;
+		if (bRequestPrecache)
 		{
-			LoadingSoundWaveInfo.bIsLoaded = false;
+			LoadingSoundWaveInfo.Status = FLoadingSoundWaveInfo::LoadStatus::Loading;
 
 			// Kick off a decompression/precache of the sound wave
 			AudioDevice->Precache(InSoundWave, false, true, true);
 		}
 		else
 		{
-			LoadingSoundWaveInfo.bIsLoaded = true;
+			LoadingSoundWaveInfo.Status = FLoadingSoundWaveInfo::LoadStatus::Loaded;
 		}
+
+		LoadingSoundWaveInfo.SoundWave  = InSoundWave;
+		LoadingSoundWaveInfo.OnLoaded   = MoveTemp(OnLoaded);
 
 		LoadingSoundWaves.Add(LoadingSoundWaveInfo);
 	}
@@ -49,25 +52,20 @@ namespace Audio
 		for (int32 i = LoadingSoundWaves.Num() - 1; i >= 0; --i)
 		{
 			FLoadingSoundWaveInfo& LoadingSoundWaveInfo = LoadingSoundWaves[i];
-
-			if (LoadingSoundWaveInfo.bIsLoading || LoadingSoundWaveInfo.bIsLoaded)
+			if (USoundWave* SoundWave = LoadingSoundWaveInfo.SoundWave)
 			{
-				check(LoadingSoundWaveInfo.SoundWave);
-
-				if (LoadingSoundWaveInfo.bIsLoaded || LoadingSoundWaveInfo.SoundWave->GetPrecacheState() == ESoundWavePrecacheState::Done)
+				if (SoundWave->GetPrecacheState() == ESoundWavePrecacheState::Done)
 				{
-					LoadingSoundWaveInfo.bIsLoading = false;
-					LoadingSoundWaveInfo.bIsLoaded = true;
+					LoadingSoundWaveInfo.Status = FLoadingSoundWaveInfo::LoadStatus::Loaded;
+				}
 
-					USoundWave* SoundWave = LoadingSoundWaveInfo.SoundWave;
-
+				if (LoadingSoundWaveInfo.Status == FLoadingSoundWaveInfo::LoadStatus::Loaded)
+				{
 					const Audio::DefaultUSoundWaveSampleType* RawPCMData = reinterpret_cast<const Audio::DefaultUSoundWaveSampleType*>(SoundWave->RawPCMData);
 					const int32 NumSamples = SoundWave->RawPCMDataSize / sizeof(Audio::DefaultUSoundWaveSampleType);
 
 					TSampleBuffer<> SampleBuffer(RawPCMData, NumSamples, SoundWave->NumChannels, SoundWave->GetSampleRateForCurrentPlatform());
-
 					LoadingSoundWaveInfo.OnLoaded(SoundWave, SampleBuffer);
-
 					LoadingSoundWaves.RemoveAtSwap(i, 1, false);
 				}
 			}

@@ -132,7 +132,7 @@ void USynthComponent::OnAudioComponentEnvelopeValue(const UAudioComponent* InAud
 
 void USynthComponent::Activate(bool bReset)
 {
-	if (bReset || ShouldActivate() == true)
+	if (bReset || ShouldActivate())
 	{
 		Start();
 		if (bIsActive)
@@ -172,7 +172,7 @@ void USynthComponent::Initialize(int32 SampleRateOverride)
 		}
 	}
 
-	// Only allow initialization if we've gota  proper sample rate
+	// Only allow initialization if we have a proper sample rate
 	if (SampleRate != INDEX_NONE)
 	{
 #if SYNTH_GENERATOR_TEST_TONE
@@ -181,7 +181,7 @@ void USynthComponent::Initialize(int32 SampleRateOverride)
 		TestSineRight.Init(SampleRate, 220.0f, 0.5f);
 #else	
 		// Initialize the synth component
-		this->Init(SampleRate);
+		Init(SampleRate);
 
 		if (NumChannels < 0 || NumChannels > 2)
 		{
@@ -191,7 +191,7 @@ void USynthComponent::Initialize(int32 SampleRateOverride)
 		NumChannels = FMath::Clamp(NumChannels, 1, 2);
 #endif
 
-		if (nullptr == Synth)
+		if (!Synth)
 		{
 			Synth = NewObject<USynthSound>(this, TEXT("Synth"));
 		}
@@ -237,9 +237,9 @@ void USynthComponent::CreateAudioComponent()
 #if WITH_EDITORONLY_DATA
 		AudioComponent->bVisualizeComponent = false;
 #endif
-		if (AudioComponent->GetAttachParent() == nullptr && !AudioComponent->IsAttachedTo(this))
+		if (!AudioComponent->GetAttachParent() && !AudioComponent->IsAttachedTo(this))
 		{
-			if (GetOwner() == nullptr || GetOwner()->GetWorld() == nullptr)
+			if (!GetOwner() || !GetOwner()->GetWorld())
 			{
 				AudioComponent->SetupAttachment(this);
 			}
@@ -257,7 +257,6 @@ void USynthComponent::CreateAudioComponent()
 		AudioComponent->EnvelopeFollowerReleaseTime = EnvelopeFollowerReleaseTime;
 	}
 }
-
 
 void USynthComponent::OnRegister()
 {
@@ -348,12 +347,12 @@ void USynthComponent::PumpPendingMessages()
 		{
 			case ESynthEvent::Start:
 				bIsSynthPlaying = true;
-				this->OnStart();
+				OnStart();
 				break;
 
 			case ESynthEvent::Stop:
 				bIsSynthPlaying = false;
-				this->OnStop();
+				OnStop();
 				break;
 
 			default:
@@ -371,7 +370,7 @@ int32 USynthComponent::OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamp
 	// Only call into the synth if we're actually playing, otherwise, we'll write out zero's
 	if (bIsSynthPlaying)
 	{
-		return this->OnGenerateAudio(GeneratedPCMData, NumSamples);
+		return OnGenerateAudio(GeneratedPCMData, NumSamples);
 	}
 	return NumSamples;
 }
@@ -390,7 +389,7 @@ void USynthComponent::Start()
 	// If there is no Synth USoundBase, we can't start. This can happen if start is called in a cook, a server, or 
 	// if the audio engine is set to "noaudio".
 	// TODO: investigate if this should be handled elsewhere before this point
-	if (Synth == nullptr)
+	if (!Synth)
 	{
 		return;
 	}
