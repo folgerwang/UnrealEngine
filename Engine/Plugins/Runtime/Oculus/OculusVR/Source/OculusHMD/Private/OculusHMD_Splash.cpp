@@ -514,11 +514,7 @@ void FSplash::UnloadTexture(FSplashLayer& InSplashLayer)
 {
 	CheckInGameThread();
 
-	if (InSplashLayer.Desc.LoadingTexture && InSplashLayer.Desc.LoadingTexture->IsValidLowLevel())
-	{
-		InSplashLayer.Desc.LoadingTexture = nullptr;
-	}
-
+	InSplashLayer.Desc.LoadingTexture = nullptr;
 	InSplashLayer.Desc.LoadedTexture = nullptr;
 	InSplashLayer.Layer.Reset();
 }

@@ -383,50 +383,43 @@ namespace OculusHMD
 
 	void FOculusHMD::ResetOrientationAndPosition(float yaw)
 	{
-		CheckInGameThread();
-
-		if (NextFrameToRender)
-		{
-			const bool floorLevel = GetTrackingOrigin() == EHMDTrackingOrigin::Floor;
-			ovrpPoseStatef poseState;
-			ovrp_GetNodePoseState3(ovrpStep_Render, NextFrameToRender->FrameNumber, ovrpNode_Head, &poseState);
-			Settings->BaseOffset = ToFVector(poseState.Pose.Position);
-			if (floorLevel)
-				Settings->BaseOffset.Z = 0;
-
-			Settings->BaseOrientation = FRotator(0, FRotator(ToFQuat(poseState.Pose.Orientation)).Yaw - yaw, 0).Quaternion();
-		}
+		Recenter(RecenterOrientationAndPosition, yaw);
 	}
-
 
 	void FOculusHMD::ResetOrientation(float yaw)
 	{
-		CheckInGameThread();
-
-		if (NextFrameToRender)
-		{
-			ovrpPoseStatef poseState;
-			ovrp_GetNodePoseState3(ovrpStep_Render, NextFrameToRender->FrameNumber, ovrpNode_Head, &poseState);
-			Settings->BaseOrientation = FRotator(0, FRotator(ToFQuat(poseState.Pose.Orientation)).Yaw - yaw, 0).Quaternion();
-		}
+		Recenter(RecenterOrientation, yaw);
 	}
 
-
 	void FOculusHMD::ResetPosition()
+	{
+		Recenter(RecenterPosition, 0);
+	}
+
+	void FOculusHMD::Recenter(FRecenterTypes RecenterType, float Yaw)
 	{
 		CheckInGameThread();
 
 		if (NextFrameToRender)
 		{
-			const bool floorLevel = GetTrackingOrigin() == EHMDTrackingOrigin::Floor;
+			const bool floorLevel = GetTrackingOrigin() != EHMDTrackingOrigin::Eye;
 			ovrpPoseStatef poseState;
+			ovrp_Update3(ovrpStep_Render, NextFrameToRender->FrameNumber, 0.0);
 			ovrp_GetNodePoseState3(ovrpStep_Render, NextFrameToRender->FrameNumber, ovrpNode_Head, &poseState);
-			Settings->BaseOffset = ToFVector(poseState.Pose.Position);
-			if (floorLevel)
-				Settings->BaseOffset.Z = 0;
+
+			if (RecenterType & RecenterPosition)
+			{
+				Settings->BaseOffset = ToFVector(poseState.Pose.Position);
+				if (floorLevel)
+					Settings->BaseOffset.Z = 0;
+			}
+
+			if (RecenterType & RecenterOrientation)
+			{
+				Settings->BaseOrientation = FRotator(0, FRotator(ToFQuat(poseState.Pose.Orientation)).Yaw - Yaw, 0).Quaternion();
+			}
 		}
 	}
-
 
 	void FOculusHMD::SetBaseRotation(const FRotator& BaseRot)
 	{
