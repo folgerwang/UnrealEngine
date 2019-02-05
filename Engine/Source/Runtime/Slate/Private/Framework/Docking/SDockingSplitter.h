@@ -76,6 +76,9 @@ public:
 	/** Recursively searches through all children looking for child tabs */
 	virtual TArray< TSharedRef<SDockTab> > GetAllChildTabs() const override;
 
+	/** Should this node auto-size or be a percentage of its parent size */
+	virtual SSplitter::ESizeRule GetSizeRule() const override;
+
 	/** Gets the size coefficient of a given child dock node */
 	float GetSizeCoefficientForSlot(int32 Index) const;
 

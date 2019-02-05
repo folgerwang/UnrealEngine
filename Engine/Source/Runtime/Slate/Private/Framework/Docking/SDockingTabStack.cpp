@@ -942,10 +942,17 @@ bool SDockingTabStack::CanCloseAllButForegroundTab() const
 
 SSplitter::ESizeRule SDockingTabStack::GetSizeRule() const
 {
-	if (this->GetNumTabs() == 1 && this->GetTabs()[0]->ShouldAutosize() )
+	int32 NumTabs = this->GetNumTabs();
+	if (NumTabs > 0)
 	{
-		// If there is a single tab in this stack and it is
-		// sized to content, then the stack's cell should size to Content.
+		for (int32 Index = 0; Index < NumTabs; ++Index)
+		{
+			if (!this->GetTabs()[Index]->ShouldAutosize())
+			{
+				return SSplitter::FractionOfParent;
+			}
+		}
+		// If all tabs in this stack are sized to content, then the stack's cell should size to Content.
 		return SSplitter::SizeToContent;
 	}
 	else

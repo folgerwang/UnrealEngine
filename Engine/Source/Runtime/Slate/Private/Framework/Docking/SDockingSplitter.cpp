@@ -383,3 +383,23 @@ TSharedRef<SDockingNode> SDockingSplitter::FindTabStack(ETabStackToFind FindMe) 
 	}
 
 }
+
+SSplitter::ESizeRule SDockingSplitter::GetSizeRule() const
+{
+	if (Children.Num() > 0)
+	{
+		for (const TSharedRef<SDockingNode>& ChildNode : Children)
+		{
+			if (ChildNode->GetSizeRule() == SSplitter::FractionOfParent)
+			{
+				return SSplitter::FractionOfParent;
+			}
+		}
+		// If all nodes in this docking splitter are sized to content, then it should size to Content.
+		return SSplitter::SizeToContent;
+	}
+	else
+	{
+		return SSplitter::FractionOfParent;
+	}
+}
