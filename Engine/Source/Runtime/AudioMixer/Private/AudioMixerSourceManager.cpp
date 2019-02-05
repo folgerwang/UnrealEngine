@@ -2088,13 +2088,20 @@ namespace Audio
 				continue;
 			}
 
+			FSourceDownmixData& DownmixData = DownmixDataArray[SourceId];
+
+			if (DownmixData.PostEffectBuffers == nullptr)
+			{
+				continue;
+			}
+
 			if (SourceInfo.bIs3D)
 			{
-				ComputeDownmix3D(DownmixDataArray[SourceId]);
+				ComputeDownmix3D(DownmixData);
 			}
 			else
 			{
-				ComputeDownmix2D(DownmixDataArray[SourceId]);
+				ComputeDownmix2D(DownmixData);
 			}
 		}
 	}

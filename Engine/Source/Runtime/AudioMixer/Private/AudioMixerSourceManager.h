@@ -156,6 +156,9 @@ namespace Audio
 
 		FORCEINLINE void Reset(int32 InNumInChannels, int32 InNumOutChannels)
 		{
+			checkSlow(InNumInChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+			checkSlow(InNumOutChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+
 			CopySize = InNumInChannels * InNumOutChannels * sizeof(float);
 			FMemory::Memzero(ChannelDestinationGains, CopySize);
 		}
@@ -354,7 +357,8 @@ namespace Audio
 			uint32 NumDeviceChannels;
 
 			FSourceDownmixData(uint32 SourceNumChannels, uint32 NumDeviceOutputChannels, uint32 InNumFrames)
-				: DeviceSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, NumDeviceOutputChannels, InNumFrames))
+				: PostEffectBuffers(nullptr)
+				, DeviceSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, NumDeviceOutputChannels, InNumFrames))
 				, StereoSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 2, InNumFrames))
 				, QuadSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 4, InNumFrames))
 				, FiveOneSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 6, InNumFrames))
@@ -375,13 +379,14 @@ namespace Audio
 			void ResetData(const uint32 InNumInputChannels)
 			{
 				NumInputChannels = InNumInputChannels;
+				PostEffectBuffers = nullptr;
 
 				DeviceSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
-				StereoSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
-				QuadSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
-				FiveOneSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
-				SevenOneSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
-				AmbisonicsSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
+				StereoSubmixInfo.Reset(NumInputChannels, 2, NumFrames);
+				QuadSubmixInfo.Reset(NumInputChannels, 4, NumFrames);
+				FiveOneSubmixInfo.Reset(NumInputChannels, 6, NumFrames);
+				SevenOneSubmixInfo.Reset(NumInputChannels, 8, NumFrames);
+				AmbisonicsSubmixInfo.Reset(NumInputChannels, 4, NumFrames);
 			}
 		};
 

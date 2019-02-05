@@ -985,7 +985,7 @@ namespace Audio
 		const VectorRegister GainVector21 = VectorSet(Gains[4], Gains[5], Gains[0], Gains[1]);
 		const VectorRegister GainVector31 = VectorLoad(&Gains[2]);
 
-		const VectorRegister GainVector12 = VectorLoadAligned(Gains + 6);
+		const VectorRegister GainVector12 = VectorLoad(Gains + 6);
 		const VectorRegister GainVector22 = VectorSet(Gains[10], Gains[11], Gains[6], Gains[7]);
 		const VectorRegister GainVector32 = VectorLoadAligned(&Gains[8]);
 
@@ -1034,7 +1034,7 @@ namespace Audio
 	* |        | +        | +       | +       | +       | +        | +       | +       | +       | +        | +       | +        | +        |
 	* | Gain2  | g6       | g7      | g8      | g9      | g10      | g11     | g6      | g7      | g8       | g9      | g10      | g11      |
 	* |        | *        | *       | *       | *       | *        | *       | *       | *       | *        | *       | *        | *        |
-	* | Input2 | i1       | i1      | i1      | i1      | i1       | i1      | i1      | i3      | i3       | i3      | i3       | i3       |
+	* | Input2 | i1       | i1      | i1      | i1      | i1       | i1      | i3      | i3      | i3       | i3      | i3       | i3       |
 	* |        | =        | =       | =       | =       | =        | =       | =       | =       | =        | =       | =        | =        |
 	* | Output | o0       | o1      | o2      | o3      | o4       | o5      | o6      | o7      | o8       | o9      | o10      | o11      |
 	* +--------+----------+---------+---------+---------+----------+---------+---------+---------+----------+---------+----------+----------+
@@ -1066,8 +1066,8 @@ namespace Audio
 		const VectorRegister InitializedDelta31 = VectorMultiply(GainDeltasVector31, DeltaHalf31);
 		GainVector31 = VectorAdd(GainVector31, InitializedDelta31);
 
-		VectorRegister GainVector12 = VectorLoadAligned(StartGains + 6);
-		const VectorRegister DestinationVector12 = VectorLoadAligned(EndGains + 6);
+		VectorRegister GainVector12 = VectorLoad(StartGains + 6);
+		const VectorRegister DestinationVector12 = VectorLoad(EndGains + 6);
 		const VectorRegister GainDeltasVector12 = VectorDivide(VectorSubtract(DestinationVector12, GainVector12), NumFramesVector);
 
 		VectorRegister GainVector22 = VectorSet(StartGains[10], StartGains[11], StartGains[6], StartGains[7]);
