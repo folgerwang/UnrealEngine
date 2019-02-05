@@ -47,6 +47,12 @@ static const FName DoNotRecordTag("DoNotRecord");
 
 UTakeRecorderSource* UTakeRecorderActorSource::AddSourceForActor(AActor* InActor, UTakeRecorderSources* InSources)
 {
+	if (InSources == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Source is invalid."), ELogVerbosity::Error);
+		return nullptr;
+	}
+
 	UTakeRecorderActorSource* NewSource = InSources->AddSource<UTakeRecorderActorSource>();
 	NewSource->SetSourceActor(InActor);
 	return NewSource;

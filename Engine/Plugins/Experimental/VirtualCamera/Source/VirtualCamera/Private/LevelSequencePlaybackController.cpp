@@ -304,7 +304,7 @@ void ULevelSequencePlaybackController::StopLevelSequencePlay()
 bool ULevelSequencePlaybackController::SetActiveLevelSequence(ULevelSequence* InNewLevelSequence)
 {
 #if WITH_EDITOR
-	if(InNewLevelSequence)
+	if(InNewLevelSequence && !IsRunningGame())
 	{
 		const bool bDoFocusOnEditor = false;
 		FAssetEditorManager::Get().OpenEditorForAsset(InNewLevelSequence);

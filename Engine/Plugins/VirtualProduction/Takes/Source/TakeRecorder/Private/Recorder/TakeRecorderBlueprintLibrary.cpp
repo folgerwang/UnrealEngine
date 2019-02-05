@@ -16,11 +16,37 @@ namespace
 	static UTakeRecorderPanel* CurrentTakeRecorderPanel;
 }
 
+
+bool UTakeRecorderBlueprintLibrary::IsTakeRecorderEnabled()
+{
+#if WITH_EDITOR
+	return !IsRunningGame();
+#else
+	return false;
+#endif 
+}
+
 UTakeRecorder* UTakeRecorderBlueprintLibrary::StartRecording(ULevelSequence* LevelSequence, UTakeRecorderSources* Sources, UTakeMetaData* MetaData, const FTakeRecorderParameters& Parameters)
 {
 	if (IsRecording())
 	{
 		// @todo: script error?
+		return nullptr;
+	}
+
+	if (LevelSequence == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The LevelSequence is invalid."), ELogVerbosity::Error);
+		return nullptr;
+	}
+	if (Sources == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Sources is invalid."), ELogVerbosity::Error);
+		return nullptr;
+	}
+	if (MetaData == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The MetaData is invalid."), ELogVerbosity::Error);
 		return nullptr;
 	}
 
@@ -76,8 +102,15 @@ UTakeRecorderPanel* UTakeRecorderBlueprintLibrary::OpenTakeRecorderPanel()
 		return Existing;
 	}
 
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	LevelEditorModule.GetLevelEditorTabManager()->InvokeTab(ITakeRecorderModule::TakeRecorderTabName);
+	if (!IsRunningGame())
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		LevelEditorModule.GetLevelEditorTabManager()->InvokeTab(ITakeRecorderModule::TakeRecorderTabName);
+	}
+	else
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Take Recorder Panel will not open because the game is running."), ELogVerbosity::Log);
+	}
 
 	return GetTakeRecorderPanel();
 }
