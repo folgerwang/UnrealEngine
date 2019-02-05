@@ -176,6 +176,11 @@ namespace UnrealGameSync
 
 		bool SendTimingData(TelemetryTimingData Data, string Version, string IpAddress)
 		{
+			if(!DeploymentSettings.bSendTelemetry)
+			{
+				return true;
+			}
+
 			try
 			{
 				Stopwatch Timer = Stopwatch.StartNew();

@@ -24,5 +24,10 @@ namespace UnrealGameSync
 		/// The UnrealGameSync executable should be located at Release/UnrealGameSync.exe under this path, with any dependent DLLs.
 		/// </summary>
 		public static readonly string DefaultDepotPath = null;
+
+		/// <summary>
+		/// Whether to send telemetry data by default. Can be useful for finding users in need of a hardware upgrade, but can bloat the DB for large teams.
+		/// </summary>
+		public static bool bSendTelemetry = false;
 	}
 }

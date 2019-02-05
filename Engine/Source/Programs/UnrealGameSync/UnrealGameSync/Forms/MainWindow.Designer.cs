@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealGameSync
 {
@@ -20,7 +20,6 @@ namespace UnrealGameSync
 			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
 			this.TabPanel = new System.Windows.Forms.Panel();
-			this.DefaultControl = new UnrealGameSync.StatusPanel();
 			this.TabMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
 			this.TabMenu_OpenProject = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_RecentProjects = new System.Windows.Forms.ToolStripMenuItem();
@@ -32,9 +31,12 @@ namespace UnrealGameSync
 			this.TabMenu_TabNames_WorkspaceName = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_TabNames_WorkspaceRoot = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_TabNames_ProjectFile = new System.Windows.Forms.ToolStripMenuItem();
+			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
 			this.TabControl = new UnrealGameSync.TabControl();
+			this.DefaultControl = new UnrealGameSync.StatusPanel();
 			this.TabPanel.SuspendLayout();
 			this.TabMenu.SuspendLayout();
+			this.tableLayoutPanel1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// TabPanel
@@ -43,25 +45,11 @@ namespace UnrealGameSync
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.TabPanel.Controls.Add(this.DefaultControl);
-			this.TabPanel.Location = new System.Drawing.Point(16, 51);
+			this.TabPanel.Location = new System.Drawing.Point(16, 50);
 			this.TabPanel.Margin = new System.Windows.Forms.Padding(0);
 			this.TabPanel.Name = "TabPanel";
-			this.TabPanel.Size = new System.Drawing.Size(1339, 745);
+			this.TabPanel.Size = new System.Drawing.Size(1335, 746);
 			this.TabPanel.TabIndex = 3;
-			// 
-			// DefaultControl
-			// 
-			this.DefaultControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.DefaultControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
-			this.DefaultControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-			this.DefaultControl.Font = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.DefaultControl.Location = new System.Drawing.Point(0, 0);
-			this.DefaultControl.Margin = new System.Windows.Forms.Padding(0);
-			this.DefaultControl.Name = "DefaultControl";
-			this.DefaultControl.Size = new System.Drawing.Size(1339, 745);
-			this.DefaultControl.TabIndex = 0;
 			// 
 			// TabMenu
 			// 
@@ -146,23 +134,55 @@ namespace UnrealGameSync
 			this.TabMenu_TabNames_ProjectFile.Text = "Project File";
 			this.TabMenu_TabNames_ProjectFile.Click += new System.EventHandler(this.TabMenu_TabNames_ProjectFile_Click);
 			// 
+			// tableLayoutPanel1
+			// 
+			this.tableLayoutPanel1.ColumnCount = 1;
+			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.Controls.Add(this.TabControl, 0, 0);
+			this.tableLayoutPanel1.Controls.Add(this.TabPanel, 0, 2);
+			this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
+			this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+			this.tableLayoutPanel1.Padding = new System.Windows.Forms.Padding(16, 12, 16, 12);
+			this.tableLayoutPanel1.RowCount = 3;
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 6F));
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.Size = new System.Drawing.Size(1367, 808);
+			this.tableLayoutPanel1.TabIndex = 4;
+			// 
 			// TabControl
 			// 
-			this.TabControl.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+			this.TabControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.TabControl.Location = new System.Drawing.Point(16, 13);
+			this.TabControl.Location = new System.Drawing.Point(16, 12);
+			this.TabControl.Margin = new System.Windows.Forms.Padding(0);
 			this.TabControl.Name = "TabControl";
-			this.TabControl.Size = new System.Drawing.Size(1339, 31);
+			this.TabControl.Size = new System.Drawing.Size(1335, 32);
 			this.TabControl.TabIndex = 2;
 			this.TabControl.Text = "TabControl";
+			// 
+			// DefaultControl
+			// 
+			this.DefaultControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.DefaultControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
+			this.DefaultControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+			this.DefaultControl.Font = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.DefaultControl.Location = new System.Drawing.Point(0, 0);
+			this.DefaultControl.Margin = new System.Windows.Forms.Padding(0);
+			this.DefaultControl.Name = "DefaultControl";
+			this.DefaultControl.Size = new System.Drawing.Size(1335, 746);
+			this.DefaultControl.TabIndex = 0;
 			// 
 			// MainWindow
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.ClientSize = new System.Drawing.Size(1367, 808);
-			this.Controls.Add(this.TabPanel);
-			this.Controls.Add(this.TabControl);
+			this.Controls.Add(this.tableLayoutPanel1);
 			this.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MinimumSize = new System.Drawing.Size(800, 350);
@@ -175,6 +195,7 @@ namespace UnrealGameSync
 			this.Load += new System.EventHandler(this.MainWindow_Load);
 			this.TabPanel.ResumeLayout(false);
 			this.TabMenu.ResumeLayout(false);
+			this.tableLayoutPanel1.ResumeLayout(false);
 			this.ResumeLayout(false);
 
 		}
@@ -195,6 +216,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ToolStripSeparator TabMenu_Recent_Separator;
 		private System.Windows.Forms.ToolStripMenuItem TabMenu_RecentProjects_ClearList;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
 	}
 }
-

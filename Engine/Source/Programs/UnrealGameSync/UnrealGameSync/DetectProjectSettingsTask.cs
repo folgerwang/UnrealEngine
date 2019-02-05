@@ -113,7 +113,7 @@ namespace UnrealGameSync
 				{
 					if(!PerforceClient.ConvertToLocalPath(NewSelectedClientFileName, out NewSelectedFileName, Log))
 					{
-						ErrorMessage = String.Format("Couldn't get client path for {0}", NewSelectedFileName);
+						ErrorMessage = String.Format("Couldn't get client path for {0}", NewSelectedClientFileName);
 						return false;
 					}
 				}
@@ -303,7 +303,7 @@ namespace UnrealGameSync
 				else
 				{
 					List<string> ProjectLines;
-					if(PerforceClient.Print(NewSelectedClientFileName, out ProjectLines, Log))
+					if(!PerforceClient.Print(NewSelectedClientFileName, out ProjectLines, Log))
 					{
 						ErrorMessage = String.Format("Unable to get contents of {0}", NewSelectedClientFileName);
 						return false;
