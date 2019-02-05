@@ -22,7 +22,6 @@ void FOpenColorIOColorSpaceCustomization::CustomizeHeader(TSharedRef<IPropertyHa
 	if (ColorSpaceProperty->GetNumPerObjectValues() == 1 && ColorSpaceProperty->IsValidHandle())
 	{
 		UProperty* Property = ColorSpaceProperty->GetProperty();
-		TSharedPtr<IPropertyHandle> ParentArrayHandle = InPropertyHandle->GetParentHandle();
 		check(Property && Cast<UStructProperty>(Property) && Cast<UStructProperty>(Property)->Struct && Cast<UStructProperty>(Property)->Struct->IsChildOf(FOpenColorIOColorSpace::StaticStruct()));
 
 		TArray<void*> RawData;
@@ -37,6 +36,9 @@ void FOpenColorIOColorSpaceCustomization::CustomizeHeader(TSharedRef<IPropertyHa
 		// Get the ConfigurationFile to read color space from
 		{
 			static FName NAME_ConfigFile = TEXT("OCIOConfigFile");
+
+			//Verify if we're in an array before accessing the property directly. Need to go deeper for array properties.
+			TSharedPtr<IPropertyHandle> ParentArrayHandle = InPropertyHandle->GetParentHandle();
 			TSharedPtr<IPropertyHandleArray> ParentHandleAsArray = ParentArrayHandle->AsArray();
 			if (ParentHandleAsArray.IsValid())
 			{
@@ -45,6 +47,18 @@ void FOpenColorIOColorSpaceCustomization::CustomizeHeader(TSharedRef<IPropertyHa
 				{
 					const FString& ConfigFileVariableName = ParentArrayHandle->GetProperty()->GetMetaData(NAME_ConfigFile);
 					TSharedPtr<IPropertyHandle> ClassHandle = ParentArrayHandle->GetParentHandle()->GetParentHandle();
+					if (ClassHandle.IsValid() && !ConfigFileVariableName.IsEmpty())
+					{
+						ConfigurationFileProperty = ClassHandle->GetChildHandle(*ConfigFileVariableName);
+					}
+				}
+			}
+			else
+			{
+				if (ColorSpaceProperty->HasMetaData(NAME_ConfigFile))
+				{
+					const FString& ConfigFileVariableName = ColorSpaceProperty->GetMetaData(NAME_ConfigFile);
+					TSharedPtr<IPropertyHandle> ClassHandle = ColorSpaceProperty->GetParentHandle();
 					if (ClassHandle.IsValid() && !ConfigFileVariableName.IsEmpty())
 					{
 						ConfigurationFileProperty = ClassHandle->GetChildHandle(*ConfigFileVariableName);

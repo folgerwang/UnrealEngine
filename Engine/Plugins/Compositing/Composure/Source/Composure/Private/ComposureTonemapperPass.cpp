@@ -63,6 +63,10 @@ void UComposureTonemapperPass::TonemapToRenderTarget()
 
 	SceneCapture->ProfilingEventName = TEXT("ComposureTonemapperPass");
 
+	// OverrideBlendableSettings() will do nothing (see UMaterialInterface::OverrideBlendableSettings) 
+	// with these materials unless there is a ViewState from the capture component (see USceneCaptureComponent::GetViewState)
+	TGuardValue<bool> ViewStateGuard(SceneCapture->bAlwaysPersistRenderingState, true);
+
 	// Update the render target output.
 	SceneCapture->CaptureScene();
 }
