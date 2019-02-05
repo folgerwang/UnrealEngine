@@ -16,5 +16,7 @@ ADatasmithAreaLightActor::ADatasmithAreaLightActor()
 	, SourceRadius( 0.f )
 	, SourceLength( 0.f )
 	, AttenuationRadius( 1000.f )
+	, SpotlightInnerAngle(1.f)
+	, SpotlightOuterAngle(44.f)
 {
 }

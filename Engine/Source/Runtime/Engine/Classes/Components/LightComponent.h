@@ -277,6 +277,9 @@ public:
 	void SetShadowBias(float NewValue);
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetSpecularScale(float NewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
 	void SetForceCachedShadowsForMovablePrimitives(bool bNewValue);
 
 public:

@@ -74,6 +74,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta=(UIMin = "8.0", UIMax = "16384.0", SliderExponent = "5.0"))
 	float AttenuationRadius;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta = (UIMin = "1.0", UIMax = "80.0", SliderExponent = "1.0"))
+	float SpotlightInnerAngle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Light", meta = (UIMin = "0.0", UIMax = "80.0", SliderExponent = "1.0"))
+	float SpotlightOuterAngle;
+
 public:
 	ADatasmithAreaLightActor();
 };

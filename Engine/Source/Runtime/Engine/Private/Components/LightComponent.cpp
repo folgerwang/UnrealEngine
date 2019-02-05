@@ -981,6 +981,16 @@ void ULightComponent::SetShadowBias(float NewValue)
 	}
 }
 
+void ULightComponent::SetSpecularScale(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& SpecularScale != NewValue)
+	{
+		SpecularScale = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
 void ULightComponent::SetForceCachedShadowsForMovablePrimitives(bool bNewValue)
 {
 	if (AreDynamicDataChangesAllowed()
