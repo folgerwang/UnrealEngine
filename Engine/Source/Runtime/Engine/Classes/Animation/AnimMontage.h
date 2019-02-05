@@ -402,7 +402,8 @@ public:
 
 	/** Set the weight */
 	void SetWeight(float InValue) { Blend.SetAlpha(InValue); }
-
+	/** Set the Desired Weight */
+	void SetDesiredWeight(float InValue) { Blend.SetDesiredValue(InValue); }
 private:
 	/** Followers this Montage will synchronize */
 	TArray<struct FAnimMontageInstance*> MontageSyncFollowers;

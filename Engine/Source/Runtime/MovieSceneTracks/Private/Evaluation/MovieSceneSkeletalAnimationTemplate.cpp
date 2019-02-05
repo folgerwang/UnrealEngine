@@ -200,9 +200,9 @@ namespace MovieScene
 
 			OriginalStack.SavePreAnimatedState(Player, *SkeletalMeshComponent, GetAnimControlTypeID(), FPreAnimatedAnimationTokenProducer());
 
-			const UAnimInstance* ExistingAnimInstance = SkeletalMeshComponent->GetAnimInstance();
+			UAnimInstance* ExistingAnimInstance = SkeletalMeshComponent->GetAnimInstance();
 
-			const UAnimSequencerInstance* SequencerInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
+			UAnimSequencerInstance* SequencerInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
 
 			const bool bPreviewPlayback = ShouldUsePreviewPlayback(Player, *SkeletalMeshComponent);
 
@@ -221,6 +221,25 @@ namespace MovieScene
 										(DeltaTime == 0.0f && PlayerStatus != EMovieScenePlayerStatus::Stopped); 
 		
 			static const bool bLooping = false;
+			//Need to zero all weights first since we may be blending animation that are keeping state but are no longer active.
+			
+			if(SequencerInstance)
+			{
+				SequencerInstance->ResetNodes();
+			}
+			else if (ExistingAnimInstance)
+			{
+				for (const TPair<FObjectKey, FMontagePlayerPerSectionData >& Pair : MontageData)
+				{
+					int32 InstanceId = Pair.Value.MontageInstanceId;
+					FAnimMontageInstance* MontageInstanceToUpdate = ExistingAnimInstance->GetMontageInstanceForID(InstanceId);
+					if (MontageInstanceToUpdate)
+					{
+						MontageInstanceToUpdate->SetDesiredWeight(0.0f);
+						MontageInstanceToUpdate->SetWeight(0.0f);
+					}
+				}
+			}
 			for (const FMinimalAnimParameters& AnimParams : InFinalValue.AllAnimations)
 			{
 				Player.PreAnimatedState.SetCaptureEntity(AnimParams.EvaluationScope.Key, AnimParams.EvaluationScope.CompletionMode);
