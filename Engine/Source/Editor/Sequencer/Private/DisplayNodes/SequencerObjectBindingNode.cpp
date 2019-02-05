@@ -625,6 +625,8 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 
 	if (MovieScene != nullptr)
 	{
+		FScopedTransaction Transaction(LOCTEXT("SetTrackName", "Set Track Name"));
+
 		// Modify the movie scene so that it gets marked dirty and renames are saved consistently.
 		MovieScene->Modify();
 		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
