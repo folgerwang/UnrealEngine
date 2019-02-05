@@ -121,5 +121,10 @@ FMovieSceneTrackRowSegmentBlenderPtr UMovieSceneAudioTrack::GetRowSegmentBlender
 	return FBlender();
 }
 
+UMovieSceneSection* UMovieSceneAudioTrack::CreateNewSection()
+{
+	return NewObject<UMovieSceneAudioSection>(this, NAME_None, RF_Transactional);
+}
+
 
 #undef LOCTEXT_NAMESPACE
