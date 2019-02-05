@@ -3705,13 +3705,6 @@ void UParticleSystemComponent::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-void UParticleSystemComponent::NotifyObjectReferenceEliminated() const
-{
-	UE_LOG(LogParticles, Error, TEXT("Garbage collector eliminated reference from particle system!  Particle system objects should not be cleaned up via MarkPendingKill().\n           ParticleSystem=%s"),
-		*GetPathName());
-}
-
-
 void UParticleSystemComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);

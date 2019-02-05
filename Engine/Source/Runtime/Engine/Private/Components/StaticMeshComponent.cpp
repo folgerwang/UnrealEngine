@@ -347,12 +347,6 @@ void UStaticMeshComponent::PostInitProperties()
 	}
 }
 
-void UStaticMeshComponent::NotifyObjectReferenceEliminated() const
-{
-	UE_LOG(LogStaticMesh, Error, TEXT("Garbage collector eliminated reference from staticmeshcomponent!  Static Mesh objects should not be cleaned up via MarkPendingKill().\n           StaticMesh=%s"),
-		*GetPathName());
-}
-
 bool UStaticMeshComponent::AreNativePropertiesIdenticalTo( UObject* Other ) const
 {
 	bool bNativePropertiesAreIdentical = Super::AreNativePropertiesIdenticalTo( Other );

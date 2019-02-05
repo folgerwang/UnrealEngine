@@ -3255,12 +3255,6 @@ void UMaterialInstance::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-void UMaterialInstance::NotifyObjectReferenceEliminated() const
-{
-	UE_LOG(LogMaterial, Error, TEXT("Garbage collector eliminated reference from material instance!  Material instance referenced objects should not be cleaned up via MarkPendingKill().\n           MI=%s\n"), 
-		*GetPathName());
-}
-
 void UMaterialInstance::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
 	UMaterialInstance* This = CastChecked<UMaterialInstance>(InThis);

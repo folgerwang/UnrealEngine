@@ -489,7 +489,6 @@ public:
 	virtual ENGINE_API bool IsReadyForFinishDestroy() override;
 	virtual ENGINE_API void FinishDestroy() override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	ENGINE_API virtual void NotifyObjectReferenceEliminated() const override;
 #if WITH_EDITOR
 	virtual ENGINE_API void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 

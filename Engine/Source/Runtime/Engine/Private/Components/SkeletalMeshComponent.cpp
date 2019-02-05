@@ -335,12 +335,6 @@ void USkeletalMeshComponent::Serialize(FArchive& Ar)
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
-void USkeletalMeshComponent::NotifyObjectReferenceEliminated() const
-{
-	UE_LOG(LogSkeletalMesh, Error, TEXT("Garbage collector eliminated reference from skeletalmeshcomponent!  SkeletalMesh objects should not be cleaned up via MarkPendingKill().\n           SkeletalMesh=%s"),
-		*GetPathName());
-}
-
 void USkeletalMeshComponent::PostLoad()
 {
 	Super::PostLoad();

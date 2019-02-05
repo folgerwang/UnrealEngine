@@ -1297,7 +1297,6 @@ public:
 public:
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void NotifyObjectReferenceEliminated() const override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	DECLARE_MULTICAST_DELEGATE(FOnSkeletalMeshPropertyChangedMulticaster)
