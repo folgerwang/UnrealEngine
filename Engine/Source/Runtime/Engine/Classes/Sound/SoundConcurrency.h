@@ -221,11 +221,11 @@ public:
 	/** Returns a newly allocated active sound given the input active sound struct. Will return nullptr if the active sound concurrency evaluation doesn't allow for it. */
 	FActiveSound* CreateNewActiveSound(const FActiveSound& NewActiveSound);
 
-	/** Removes the active sound from concurrency tracking. */
-	void RemoveActiveSound(FActiveSound* ActiveSound);
+	/** Removes the active sound from concurrency tracking when active sound is stopped. */
+	void StopActiveSound(FActiveSound* ActiveSound);
 
 	/** Stops any active sounds due to max concurrency quietest sound resolution rule */
-	void StopQuietSoundsDueToMaxConcurrency();
+	void UpdateQuietSoundsToStop();
 
 private: // Methods
 	/** Evaluates whether or not the sound can play given the concurrency group's rules. Appends permissible

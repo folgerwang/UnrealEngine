@@ -599,9 +599,6 @@ private:
 	/** Whether or not the active sound is stopping. */
 	bool IsStopping() const { return bIsStopping; }
 
-	/** Ensures that the sound has finished stopping. Waits until the sound finishes stopping naturally. */
-	void EnsureStopped();
-
 	/** Called when an active sound has been stopped but needs to update it's stopping sounds. Returns true when stopping sources have finished stopping. */
 	bool UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped);
 
