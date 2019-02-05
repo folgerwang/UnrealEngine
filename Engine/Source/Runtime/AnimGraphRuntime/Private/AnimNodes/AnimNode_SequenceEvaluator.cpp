@@ -72,7 +72,8 @@ void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContex
  			}
 			
 			const float DeltaTime = Context.GetDeltaTime();
-			const float PlayRate = FMath::IsNearlyZero(DeltaTime) ? 0.f : (TimeJump / DeltaTime);
+			const float RateScale = Sequence->RateScale;
+			const float PlayRate = FMath::IsNearlyZero(DeltaTime) || FMath::IsNearlyZero(RateScale) ? 0.f : (TimeJump / (DeltaTime * RateScale));
 			CreateTickRecordForNode(Context, Sequence, bShouldLoop, PlayRate);
 		}
 		else
