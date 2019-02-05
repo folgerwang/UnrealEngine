@@ -146,7 +146,6 @@ namespace Audio
 
 			if (MixerSourceBuffer.GetNumBuffersQueued() > 0)
 			{
-				check(SourceInfo.CurrentPCMBuffer->AudioData.Num() > 0);
 				SourceInfo.CurrentPCMBuffer = MixerSourceBuffer.GetNextBuffer();
 				SourceInfo.CurrentAudioChunkNumFrames = SourceInfo.CurrentPCMBuffer->AudioData.Num() / SourceInfo.NumSourceChannels;
 
