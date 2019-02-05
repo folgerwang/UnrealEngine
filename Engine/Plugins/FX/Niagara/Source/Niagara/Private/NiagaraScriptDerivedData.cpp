@@ -32,8 +32,9 @@ FString FNiagaraScriptDerivedData::GetPluginSpecificCacheKeySuffix() const
 {
 	enum { UE_NIAGARA_COMPILATION_DERIVEDDATA_VER = 1 };
 
-	FString Ret = FString::Printf(TEXT("%i"),
-		(int32)UE_NIAGARA_COMPILATION_DERIVEDDATA_VER);
+	FString Ret = FString::Printf(TEXT("%i_%i"),
+		(int32)UE_NIAGARA_COMPILATION_DERIVEDDATA_VER, GNiagaraSkipVectorVMBackendOptimizations);
+
 	GeneratedVMId.AppendKeyString(Ret);
 
 	//UE_LOG(LogNiagara, Log, TEXT("Cache Key Gen Niagara VM Script DDC data for %s key %s"), *ScriptFullName, *Ret);

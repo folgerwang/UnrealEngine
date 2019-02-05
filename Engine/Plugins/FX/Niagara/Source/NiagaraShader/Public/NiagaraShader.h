@@ -163,3 +163,5 @@ class FNiagaraEmitterInstanceShader : public FNiagaraShader
 {
 
 };
+
+extern NIAGARASHADER_API int32 GNiagaraSkipVectorVMBackendOptimizations;
