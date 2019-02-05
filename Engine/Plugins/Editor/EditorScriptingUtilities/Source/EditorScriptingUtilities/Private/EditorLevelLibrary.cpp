@@ -310,7 +310,10 @@ bool UEditorLevelLibrary::DestroyActor(class AActor* ToDestroyActor)
 		GEditor->SelectNone(true, true, false);
 	}
 
-	GEditor->Layers->DisassociateActorFromLayers(ToDestroyActor);
+	if (GEditor->Layers)
+	{
+		GEditor->Layers->DisassociateActorFromLayers(ToDestroyActor);
+	}
 	return World->EditorDestroyActor(ToDestroyActor, true);
 }
 
