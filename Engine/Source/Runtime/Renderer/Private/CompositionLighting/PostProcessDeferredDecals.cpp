@@ -546,7 +546,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			FScene& Scene = *(FScene*)ViewFamily.Scene;
-			if (Scene.Decals.Num() > 0 || Context.View.MeshDecalPrimSet.NumPrims() > 0)
+			if (Scene.Decals.Num() > 0 || Context.View.MeshDecalBatches.Num() > 0)
 			{
 				bNeedsDBufferTargets = true;
 			}
@@ -642,7 +642,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 		if (CurrentStage == DRS_BeforeBasePass || CurrentStage == DRS_BeforeLighting || CurrentStage == DRS_Emissive)
 		{
-			if (Context.View.MeshDecalPrimSet.NumPrims() > 0)
+			if (Context.View.MeshDecalBatches.Num() > 0)
 			{
 				check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
 				RenderMeshDecals(Context, CurrentStage);
@@ -659,7 +659,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		FDecalRenderTargetManager RenderTargetManager(RHICmdList, Context.GetShaderPlatform(), CurrentStage);
 
 		//don't early return. Resolves must be run for fast clears to work.
-		if (Scene.Decals.Num() || Context.View.MeshDecalPrimSet.NumPrims() > 0)
+		if (Scene.Decals.Num() || Context.View.MeshDecalBatches.Num() > 0)
 		{
 			check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
 

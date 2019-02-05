@@ -586,8 +586,7 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 	FVector GridZParams,
 	float VolumetricFogDistance)
 {
-	if (View.VolumetricPrimSet.NumPrims() > 0
-		&& DoesPlatformSupportVolumetricFogVoxelization(View.GetShaderPlatform()))
+	if (View.VolumetricMeshBatches.Num() > 0 && DoesPlatformSupportVolumetricFogVoxelization(View.GetShaderPlatform()))
 	{
 		FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
 		PassParameters->RenderTargets[0] = FRenderTargetBinding(IntegrationData.VBufferA, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
@@ -628,44 +627,16 @@ void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
 					&View,
 					DynamicMeshPassContext);
 
-				for (int32 PrimIdx = 0; PrimIdx < View.VolumetricPrimSet.NumPrims(); PrimIdx++)
+				for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.VolumetricMeshBatches.Num(); ++MeshBatchIndex)
 				{
-					const FPrimitiveSceneProxy* PrimitiveSceneProxy = View.VolumetricPrimSet.GetPrim(PrimIdx);
+					const FMeshBatch* Mesh = View.VolumetricMeshBatches[MeshBatchIndex].Mesh;
+					const FPrimitiveSceneProxy* PrimitiveSceneProxy = View.VolumetricMeshBatches[MeshBatchIndex].Proxy;
 					const FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveSceneProxy->GetPrimitiveSceneInfo();
+					const FBoxSphereBounds Bounds = PrimitiveSceneProxy->GetBounds();
 
-					if (View.PrimitiveVisibilityMap[PrimitiveSceneInfo->GetIndex()])
+					if ((View.ViewMatrices.GetViewOrigin() - Bounds.Origin).SizeSquared() < (VolumetricFogDistance + Bounds.SphereRadius) * (VolumetricFogDistance + Bounds.SphereRadius))
 					{
-						const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveSceneInfo->GetIndex()];
-						FBoxSphereBounds Bounds = PrimitiveSceneProxy->GetBounds();
-
-						if ((View.ViewMatrices.GetViewOrigin() - Bounds.Origin).SizeSquared() < (VolumetricFogDistance + Bounds.SphereRadius) * (VolumetricFogDistance + Bounds.SphereRadius))
-						{
-							// Range in View.DynamicMeshElements[] corresponding to this PrimitiveSceneInfo
-							FInt32Range Range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
-
-							for (int32 MeshBatchIndex = Range.GetLowerBoundValue(); MeshBatchIndex < Range.GetUpperBoundValue(); MeshBatchIndex++)
-							{
-								const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-								checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
-
-								const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-								VoxelizeVolumePrimitive(PassMeshProcessor, RHICmdList, View, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, MeshBatch);
-							}
-						}
-
-						if (ViewRelevance.bStaticRelevance)
-						{
-							for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-							{
-								const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-								if (View.StaticMeshVisibilityMap[StaticMesh.Id])
-								{
-									VoxelizeVolumePrimitive(PassMeshProcessor, RHICmdList, View, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, StaticMesh);
-								}
-							}
-						}
+						VoxelizeVolumePrimitive(PassMeshProcessor, RHICmdList, View, VolumetricFogGridSize, GridZParams, PrimitiveSceneProxy, *Mesh);
 					}
 				}
 			});

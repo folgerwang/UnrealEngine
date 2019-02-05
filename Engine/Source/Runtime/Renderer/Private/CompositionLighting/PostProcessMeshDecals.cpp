@@ -222,7 +222,7 @@ FMeshDecalMeshProcessor::FMeshDecalMeshProcessor(const FScene* Scene,
 
 void FMeshDecalMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId)
 {
-	if (MeshBatch.bUseForMaterial)
+	if (MeshBatch.bUseForMaterial && MeshBatch.IsDecal(FeatureLevel))
 	{
 		const FMaterialRenderProxy* MaterialRenderProxy = MeshBatch.MaterialRenderProxy;
 		const FMaterial* Material = MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
@@ -371,50 +371,13 @@ void DrawDecalMeshCommands(FRenderingCompositePassContext& Context, EDecalRender
 			RenderTargetMode,
 			DynamicMeshPassContext);
 
-		const int32 PrimitiveNum = View.MeshDecalPrimSet.NumPrims();
-		for (int32 PrimitiveIndex = 0; PrimitiveIndex < PrimitiveNum; ++PrimitiveIndex)
+		for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.MeshDecalBatches.Num(); ++MeshBatchIndex)
 		{
-			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.MeshDecalPrimSet.Prims[PrimitiveIndex].PrimitiveSceneInfo;
+			const FMeshBatch* Mesh = View.MeshDecalBatches[MeshBatchIndex].Mesh;
+			const FPrimitiveSceneProxy* PrimitiveSceneProxy = View.MeshDecalBatches[MeshBatchIndex].Proxy;
+			const uint64 DefaultBatchElementMask = ~0ull;
 
-			const uint32 PrimitiveId = PrimitiveSceneInfo->GetIndex();
-			const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
-			if (ViewRelevance.bDrawRelevance)
-			{
-				const uint64 DefaultBatchElementMask = ~0ull;
-
-				// Render dynamic scene prim
-				{
-					// range in View.DynamicMeshElements[]
-					FInt32Range range = View.GetDynamicMeshElementRange(PrimitiveSceneInfo->GetIndex());
-
-					for (int32 MeshBatchIndex = range.GetLowerBoundValue(); MeshBatchIndex < range.GetUpperBoundValue(); MeshBatchIndex++)
-					{
-						const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-
-						checkSlow(MeshBatchAndRelevance.PrimitiveSceneProxy == PrimitiveSceneInfo->Proxy);
-
-						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-
-						PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, PrimitiveSceneInfo->Proxy);
-					}
-				}
-
-				// Render static scene prim
-				if (ViewRelevance.bStaticRelevance)
-				{
-					// Render static meshes from static scene prim
-					for (int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++)
-					{
-						const FStaticMeshBatch& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-						// Only render static mesh elements using decal materials
-						if (View.StaticMeshVisibilityMap[StaticMesh.Id] && StaticMesh.IsDecal(View.FeatureLevel))
-						{
-							PassMeshProcessor.AddMeshBatch(StaticMesh, DefaultBatchElementMask, PrimitiveSceneInfo->Proxy);
-						}
-					}
-				}
-			}
+			PassMeshProcessor.AddMeshBatch(*Mesh, DefaultBatchElementMask, PrimitiveSceneProxy);
 		}
 	});
 }
@@ -433,7 +396,7 @@ void RenderMeshDecals(FRenderingCompositePassContext& Context, EDecalRenderStage
 	SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::All, SceneTextureParameters);
 	Scene->UniformBuffers.MeshDecalPassUniformBuffer.UpdateUniformBufferImmediate(SceneTextureParameters);
 
-	if (View.MeshDecalPrimSet.NumPrims() > 0)
+	if (View.MeshDecalBatches.Num() > 0)
 	{
 		switch (CurrentDecalStage)
 		{
