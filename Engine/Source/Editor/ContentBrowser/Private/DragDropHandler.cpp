@@ -118,17 +118,16 @@ void DragDropHandler::HandleDropOnAssetFolder(const TSharedRef<SWidget>& ParentW
 	MenuBuilder.BeginSection("PathAssetMoveCopy", MoveCopyHeaderString);
 	{
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropCopy", "Copy Here"),
-			LOCTEXT("DragDropCopyTooltip", "Copy the dragged items to this folder, preserving the structure of any copied folders."),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]() { CopyActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
-			);
-
-		MenuBuilder.AddMenuEntry(
 			LOCTEXT("DragDropMove", "Move Here"),
 			LOCTEXT("DragDropMoveTooltip", "Move the dragged items to this folder, preserving the structure of any copied folders."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda([=]() { MoveActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
+		);
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("DragDropCopy", "Copy Here"),
+			LOCTEXT("DragDropCopyTooltip", "Copy the dragged items to this folder, preserving the structure of any copied folders."),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateLambda([=]() { CopyActionHandler.ExecuteIfBound(FinalAssetList, FinalAssetPaths, TargetPath); }))
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("DragDropAdvancedCopy", "Advanced Copy Here"),
