@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "GameplayTagContainer.h"
 #include "VPBookmarkContext.h"
 #include "VPViewportTickableActorBase.h"
 #include "VPBlueprintLibrary.generated.h"
@@ -31,6 +32,10 @@ public:
 	/** Jump to a virtual production bookmark */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Production")
 	static bool JumpToBookmarkInLevelEditor(const UVPBookmark* Bookmark);
+
+	/** The machine role(s) in a virtual production context. */
+	UFUNCTION(BlueprintCallable, Category = "Virtual Production")
+	static FGameplayTagContainer GetVirtualProductionRole();
 
 	/** Get the location of the 2D viewport camera */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Production")

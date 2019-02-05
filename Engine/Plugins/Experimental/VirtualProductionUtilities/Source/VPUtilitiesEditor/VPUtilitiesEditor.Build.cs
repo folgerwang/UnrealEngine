@@ -23,6 +23,7 @@ public class VPUtilitiesEditor : ModuleRules
 				"EditorStyle",
 				"Engine",
 				"LevelEditor",
+				"Settings",
 				"Slate",
 				"SlateCore",
 				"TimeManagement",

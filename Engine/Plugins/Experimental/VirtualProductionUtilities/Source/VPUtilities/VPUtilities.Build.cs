@@ -11,10 +11,11 @@ public class VPUtilities : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"CinematicCamera",
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"CinematicCamera",
+				"GameplayTags",
 				"VPBookmark",
 			}
 		);

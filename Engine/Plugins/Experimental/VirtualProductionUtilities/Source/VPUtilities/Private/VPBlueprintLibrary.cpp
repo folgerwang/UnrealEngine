@@ -4,6 +4,7 @@
 
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
+#include "VPSettings.h"
 #include "VPUtilitiesModule.h"
 
 #if WITH_EDITOR
@@ -93,6 +94,12 @@ bool UVPBlueprintLibrary::JumpToBookmarkInLevelEditor(const UVPBookmark* Bookmar
 	bResult = UVPBookmarkEditorBlueprintLibrary::JumpToBookmarkInLevelEditor(Bookmark);
 #endif
 	return bResult;
+}
+
+
+FGameplayTagContainer UVPBlueprintLibrary::GetVirtualProductionRole()
+{
+	return GetDefault<UVPSettings>()->GetRoles();
 }
 
 
