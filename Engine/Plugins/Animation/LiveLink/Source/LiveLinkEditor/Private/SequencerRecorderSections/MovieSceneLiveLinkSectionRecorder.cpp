@@ -216,6 +216,9 @@ void FMovieSceneLiveLinkSectionRecorder::CreateTracks(UMovieScene* InMovieScene,
 			Serializer.Close(); //just read header.
 		}
 		*/
+
+		LastRotationValues.Reset();
+
 	}
 }
 
@@ -323,7 +326,7 @@ void FMovieSceneLiveLinkSectionRecorder::Record(float CurrentTime)
 					int32 ChannelIndex = 0;
 					for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
 					{
-						TransformKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels, Times);
+						TransformKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels, Times, LastRotationValues);
 						ChannelIndex += 9;
 					}
 					for (FLiveLinkCurveKeys CurveKeys : LinkCurveKeysArray)

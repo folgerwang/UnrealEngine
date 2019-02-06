@@ -142,6 +142,7 @@ void UMovieSceneLiveLinkTrackRecorder::SetSectionStartTimecodeImpl(const FTimeco
 	{
 		MovieSceneSection->TimecodeSource = FMovieSceneTimecodeSource(InSectionStartTimecode);
 	}
+	LastRotationValues.Reset();
 }
 
 void UMovieSceneLiveLinkTrackRecorder::StopRecordingImpl()
@@ -267,7 +268,7 @@ void UMovieSceneLiveLinkTrackRecorder::RecordSampleImpl(const FQualifiedFrameTim
 				int32 ChannelIndex = 0;
 				for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
 				{
-					TransformKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels, Times);
+					TransformKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels, Times, LastRotationValues);
 					ChannelIndex += 9;
 				}
 				for (FLiveLinkCurveKeys CurveKeys : LinkCurveKeysArray)

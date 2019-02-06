@@ -54,8 +54,7 @@ struct FLiveLinkTransformKeys
 	TArray<FMovieSceneFloatValue> RotationX, RotationY, RotationZ;
 	TArray<FMovieSceneFloatValue> ScaleX, ScaleY, ScaleZ;
 
-	//needed for rewinding, when we set the values we keep track of the last value set to restart the re-winding from that.
-	TOptional<FVector> LastRotationValues;
+
 
 	void Add(const FTransform& InTransform)
 	{
@@ -138,7 +137,7 @@ struct FLiveLinkTransformKeys
 	//This function is the one that's called when recording live link incrementally. We move the values over from our saved 
 	//Location, Rotation and Scale buffers into the specified float channels and then reset our buffers, re-using it's memory 
 	//for the next iteration. We also fix any euler flips during this process, avoiding iterating over the data once again during Finalize.
-	void AppendToFloatChannelsAndReset(int32 StartIndex, TArray<FMovieSceneFloatChannel> &FloatChannels, const TArray<FFrameNumber> &Times)
+	void AppendToFloatChannelsAndReset(int32 StartIndex, TArray<FMovieSceneFloatChannel>& FloatChannels, const TArray<FFrameNumber>& Times, TOptional<FVector>& LastRotationValues)
 	{
 		if (Times.Num() > 0)
 		{
