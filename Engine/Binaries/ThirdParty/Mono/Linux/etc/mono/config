@@ -10,7 +10,7 @@
 	<dllmap dll="i:odbc32.dll" target="libiodbc.so" os="osx"/>
 	<dllmap dll="oci" target="libclntsh.so" os="!windows"/>
 	<dllmap dll="db2cli" target="libdb2_36.so" os="!windows"/>
-	<dllmap dll="MonoPosixHelper" target="$mono_libdir/libMonoPosixHelper.so" os="!windows" />
+	<dllmap dll="MonoPosixHelper" target="libMonoPosixHelper.so" os="!windows" />
 	<dllmap dll="System.Native" target="$mono_libdir/libmono-system-native.so" os="!windows" />
 	<dllmap dll="libmono-btls-shared" target="$mono_libdir/libmono-btls-shared.so" os="!windows" />
 	<dllmap dll="i:msvcrt" target="libc.so.6" os="!windows"/>
