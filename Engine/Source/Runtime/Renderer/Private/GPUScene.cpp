@@ -159,6 +159,10 @@ void UpdateGPUScene(FRHICommandList& RHICmdList, FScene& Scene)
 
 		if (GGPUSceneUploadEveryFrame || Scene.GPUScene.bUpdateAllPrimitives)
 		{
+			for (int32 Index : Scene.GPUScene.PrimitivesToUpdate)
+			{
+				Scene.GPUScene.PrimitivesMarkedToUpdate[Index] = false;
+			}
 			Scene.GPUScene.PrimitivesToUpdate.Reset();
 
 			for (int32 i = 0; i < Scene.Primitives.Num(); i++)
@@ -205,6 +209,8 @@ void UpdateGPUScene(FRHICommandList& RHICmdList, FScene& Scene)
 					FPrimitiveSceneShaderData PrimitiveSceneData(PrimitiveSceneProxy);
 					PrimitivesUploadBuilder.Add(Index, &PrimitiveSceneData.Data[0]);
 				}
+
+				Scene.GPUScene.PrimitivesMarkedToUpdate[Index] = false;
 			}
 
 			if (bResizedPrimitiveData)
@@ -348,7 +354,18 @@ void UploadDynamicPrimitiveShaderDataForView(FRHICommandList& RHICmdList, FScene
 void AddPrimitiveToUpdateGPU(FScene& Scene, int32 PrimitiveId)
 {
 	if (UseGPUScene(GMaxRHIShaderPlatform, Scene.GetFeatureLevel()))
-	{
-		Scene.GPUScene.PrimitivesToUpdate.Add(PrimitiveId);
+	{ 
+		if (PrimitiveId + 1 > Scene.GPUScene.PrimitivesMarkedToUpdate.Num())
+		{
+			const int32 NewSize = Align(PrimitiveId + 1, 64);
+			Scene.GPUScene.PrimitivesMarkedToUpdate.Add(0, NewSize - Scene.GPUScene.PrimitivesMarkedToUpdate.Num());
+		}
+
+		// Make sure we are no updating same primitive multiple times.
+		if (!Scene.GPUScene.PrimitivesMarkedToUpdate[PrimitiveId])
+		{
+			Scene.GPUScene.PrimitivesToUpdate.Add(PrimitiveId);
+			Scene.GPUScene.PrimitivesMarkedToUpdate[PrimitiveId] = true;
+		}
 	}
 }

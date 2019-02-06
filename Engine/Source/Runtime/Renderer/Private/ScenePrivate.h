@@ -1711,6 +1711,9 @@ public:
 	/** Indices of primitives that need to be updated in GPU Scene */
 	TArray<int32> PrimitivesToUpdate;
 
+	/** Bit array of all scene primitives. Set bit means that current primitive is in PrimitivesToUpdate array. */
+	TBitArray<> PrimitivesMarkedToUpdate;
+
 	/** GPU mirror of Primitives */
 	FRWBufferStructured PrimitiveBuffer;
 
