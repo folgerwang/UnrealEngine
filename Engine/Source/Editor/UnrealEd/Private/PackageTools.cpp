@@ -2,6 +2,7 @@
 
 
 #include "PackageTools.h"
+#include "BlueprintCompilationManager.h"
 #include "UObject/PackageReload.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
@@ -846,6 +847,28 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 
 		if (InPackageReloadPhase == EPackageReloadPhase::OnPackageFixup)
 		{
+			TMap<UClass*, UClass*> OldClassToNewClass;
+			for (const auto& RepointedObjectPair : InPackageReloadedEvent->GetRepointedObjects())
+			{
+				UObject* OldObject = RepointedObjectPair.Key;
+				UObject* NewObject = RepointedObjectPair.Value;
+
+				if(OldObject && NewObject)
+				{
+					UClass* OldObjectAsClass = Cast<UClass>(OldObject);
+					if(OldObjectAsClass)
+					{
+						UClass* NewObjectAsClass = Cast<UClass>(NewObject);
+						if(ensureMsgf(NewObjectAsClass, TEXT("Class object replaced with non-class object: %s %s"), *(OldObject->GetName()), *(NewObject->GetName())))
+						{
+							OldClassToNewClass.Add(OldObjectAsClass, NewObjectAsClass);
+						}
+					}
+				}
+			}
+
+			FBlueprintCompilationManager::ReparentHierarchies(OldClassToNewClass);
+
 			for (const auto& RepointedObjectPair : InPackageReloadedEvent->GetRepointedObjects())
 			{
 				UObject* OldObject = RepointedObjectPair.Key;

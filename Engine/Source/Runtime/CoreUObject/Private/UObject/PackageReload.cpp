@@ -566,6 +566,16 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			{
 				UObject* PotentialReferencer = *ObjIter;
 
+				// Mutating the old versions of classes can result in us replacing the SuperStruct pointer, which results
+				// in class layout change and subsequently crashes because instances will not match this new class layout:
+				if(UClass* AsClass = Cast<UClass>(PotentialReferencer))
+				{
+					if(AsClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+					{
+						continue;
+					}
+				}
+
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
 				PackageReloadInternal::FReplaceObjectReferencesArchive ReplaceRefsArchive(PotentialReferencer, OldObjectToNewData, ExistingPackages.Refs, NewPackages.Refs);

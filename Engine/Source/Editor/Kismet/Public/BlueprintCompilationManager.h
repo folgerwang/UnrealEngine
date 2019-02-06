@@ -74,6 +74,13 @@ struct KISMET_API FBlueprintCompilationManager
 	 * value from there
 	 */
 	static bool GetDefaultValue(const UClass* ForClass, const UProperty* Property, FString& OutDefaultValueAsString);
+
+	/**
+	 * Safely reparents all child classes of every Key in OldClassToNewClass to the class in 
+	 * the corresponding Value. Typically this means every child type will be reinstanced - although
+	 * reinstancing could be avoided when layouts match.
+	 */
+	static void ReparentHierarchies(const TMap<UClass*, UClass*>& OldClassToNewClass);
 private:
 	FBlueprintCompilationManager();
 };

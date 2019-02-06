@@ -95,6 +95,8 @@ struct FBlueprintCompilationManagerImpl : public FGCObject
 	bool HasBlueprintsToCompile() const;
 	bool IsGeneratedClassLayoutReady() const;
 	void GetDefaultValue(const UClass* ForClass, const UProperty* Property, FString& OutDefaultValueAsString) const;
+
+	static void ReparentHierarchies(const TMap<UClass*, UClass*>& OldClassToNewClass);
 	static void BuildDSOMap(UObject* OldObject, UObject* NewObject, TMap<UObject*, UObject*>& OutOldToNewDSO);
 	static void ReinstanceBatch(TArray<FReinstancingJob>& Reinstancers, TMap< UClass*, UClass* >& InOutOldToNewClassMap, FUObjectSerializeContext* InLoadContext);
 	static UClass* FastGenerateSkeletonClass(UBlueprint* BP, FKismetCompilerContext& CompilerContext, bool bIsSkeletonOnly);
@@ -1340,6 +1342,61 @@ void FBlueprintCompilationManagerImpl::GetDefaultValue(const UClass* ForClass, c
 	}
 }
 
+void FBlueprintCompilationManagerImpl::ReparentHierarchies(const TMap<UClass*, UClass*>& OldClassToNewClass)
+{
+	// something has decided to replace instances of a class. We need to update all the children of those types:
+	TSet<TPair<UClass*, UClass*>> ClassesToReparent;
+	for(const TPair<UClass*, UClass*>& OldToNewClass : OldClassToNewClass)
+	{
+		TArray<UClass*> DerivedClasses;
+		GetDerivedClasses(OldToNewClass.Key, DerivedClasses, false);
+
+		for(UClass* DerivedClass : DerivedClasses)
+		{
+			ClassesToReparent.Add(
+				TPair<UClass*, UClass*>(DerivedClass, OldToNewClass.Value)
+			);
+		}
+	}
+
+	// create reinstancers:
+	TArray<FReinstancingJob> Reinstancers;
+	for(const TPair<UClass*, UClass*> OldToNewParentClass : ClassesToReparent)
+	{
+		Reinstancers.Push( {
+			TSharedPtr<FBlueprintCompileReinstancer>(
+				new FBlueprintCompileReinstancer(
+					OldToNewParentClass.Key,
+					EBlueprintCompileReinstancerFlags::AutoInferSaveOnCompile | EBlueprintCompileReinstancerFlags::AvoidCDODuplication
+				)
+			),
+			TSharedPtr<FKismetCompilerContext>()
+		} );
+	}
+
+	// reparent blueprints, now that their cdo has been moved aside and the REINST_ type has been created for old instances:
+	TMap<UClass*, UClass*> OldClassToNewClassIncludingChildren = OldClassToNewClass;
+	for(const FReinstancingJob& ReinstancingJob : Reinstancers)
+	{
+		UClass* ClassToReinstance = ReinstancingJob.Reinstancer->ClassToReinstance;
+		ClassToReinstance->SetSuperStruct(OldClassToNewClass.FindChecked(ClassToReinstance->GetSuperClass()));
+		OldClassToNewClassIncludingChildren.Add(ReinstancingJob.Reinstancer->DuplicatedClass, ClassToReinstance);
+	}
+
+	// reparenting done, reinstance the hierarchy and update archetypes:
+	ReinstanceBatch(Reinstancers, OldClassToNewClassIncludingChildren, nullptr);
+
+	// reinstance instances - but only the classes we created
+	TMap<UClass*, UClass*> ClassesToReinstance;
+	for(const FReinstancingJob& ReinstancingJob : Reinstancers)
+	{
+		ClassesToReinstance.Add(ReinstancingJob.Reinstancer->DuplicatedClass, ReinstancingJob.Reinstancer->ClassToReinstance);
+	}
+	TGuardValue<bool> ReinstancingGuard(GIsReinstancing, true);
+	FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass( ClassesToReinstance, /* bArchetypesAreUpToDate */ true );
+}
+
+
 void FBlueprintCompilationManagerImpl::BuildDSOMap(UObject* OldObject, UObject* NewObject, TMap<UObject*, UObject*>& OutOldToNewDSO)
 {
 	// IsDefaultObject() unfortunately cannot be relied upon for archetypes, so we explicitly search for the flag:
@@ -2468,6 +2525,12 @@ bool FBlueprintCompilationManager::GetDefaultValue(const UClass* ForClass, const
 
 	BPCMImpl->GetDefaultValue(ForClass, Property, OutDefaultValueAsString);
 	return true;
+}
+
+
+void FBlueprintCompilationManager::ReparentHierarchies(const TMap<UClass*, UClass*>& OldClassToNewClass)
+{
+	FBlueprintCompilationManagerImpl::ReparentHierarchies(OldClassToNewClass);
 }
 
 #undef LOCTEXT_NAMESPACE
