@@ -1467,7 +1467,12 @@ void MeshPaintHelpers::ImportVertexColorsToStaticMeshComponent(UStaticMeshCompon
 		else
 		{
 			// Original mesh didn't have any colors, so just use a default color
-			MeshPaintHelpers::SetInstanceColorDataForLOD(StaticMeshComponent, ImportLOD, FColor::White, FColor::White);
+			InstanceMeshLODInfo.OverrideVertexColors->InitFromSingleColor(FColor::White, LODModel.GetNumVertices());
+		}
+		
+		if (ImportLOD > 0)
+		{
+			StaticMeshComponent->bCustomOverrideVertexColorPerLOD = true;
 		}
 
 		const int32 UVIndex = Options->UVIndex;
