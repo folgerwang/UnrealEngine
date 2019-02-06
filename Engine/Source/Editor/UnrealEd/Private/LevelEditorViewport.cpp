@@ -1201,12 +1201,7 @@ FDropQuery FLevelEditorViewportClient::CanDropObjectsAtCoordinates(int32 MouseX,
 	}
 
 	UObject* AssetObj = AssetData.GetAsset();
-	UClass* ClassObj = Cast<UClass>(AssetObj);
-	if (!ClassObj)
-	{
-		UBlueprint* BlueprintObj = Cast<UBlueprint>(AssetObj);
-		ClassObj = BlueprintObj ? BlueprintObj->ParentClass : nullptr;
-	}
+	UClass* ClassObj = Cast<UClass>( AssetObj );
 
 	if ( ClassObj )
 	{
