@@ -192,12 +192,12 @@ FCDODiffControl::FCDODiffControl(
 				bDiffers = true;
 				// if there are any nested differences associated with PropertyIdentifier, add those
 				// as well:
-				OrderedProperties.Push(&Difference);
+				OrderedProperties.AddUnique(&Difference);
 			}
 			else if (Difference.Identifier.IsSubPropertyMatch(PropertyIdentifier))
 			{
 				bDiffers = true;
-				OrderedProperties.Push(&Difference);
+				OrderedProperties.AddUnique(&Difference);
 			}
 		}
 		return bDiffers;
