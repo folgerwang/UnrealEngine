@@ -15,7 +15,7 @@ enum class EEditorScriptingFilterType : uint8
 	Exclude
 };
 
-UENUM()
+UENUM(BlueprintType)
 enum class EEditorScriptingStringMatchType : uint8
 {
 	Contains,
