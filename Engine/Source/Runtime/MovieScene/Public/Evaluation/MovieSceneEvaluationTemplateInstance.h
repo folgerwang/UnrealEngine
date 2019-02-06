@@ -157,10 +157,10 @@ private:
 	 *
 	 * @param OverrideRootSequence	Pointer to the sequence that is considered the root for this evaluation (that maps to InOverrideRootID)
 	 * @param OverrideRootID		The sequence ID of the currently considered root (normally MovieSceneSequenceID::Root unless Evaluate Sub-Sequences in Isolation is active)
-	 * @param Context				The evaluation context for this frame
+	 * @param InOutContext			The evaluation context for this frame, will be transformed to the correct space if InOverrideRootID is not Root
 	 * @return The evaluation group within the root template's evaluation field to evaluate, or nullptr if none could be found or compiled
 	 */
-	const FMovieSceneEvaluationGroup* SetupFrame(UMovieSceneSequence* OverrideRootSequence, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext Context);
+	const FMovieSceneEvaluationGroup* SetupFrame(UMovieSceneSequence* OverrideRootSequence, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext* InOutContext);
 
 	/**
 	 * Process entities that are newly evaluated, and those that are no longer being evaluated
