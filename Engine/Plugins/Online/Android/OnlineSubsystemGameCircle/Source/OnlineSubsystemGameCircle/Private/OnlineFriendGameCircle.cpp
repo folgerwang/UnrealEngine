@@ -2,6 +2,8 @@
 
 #include "OnlineFriendGameCircle.h"
 #include "Interfaces/OnlinePresenceInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Logging/LogMacros.h"
 #include "OnlineSubsystem.h"
 
 FOnlineFriendGameCircle::FOnlineFriendGameCircle(TSharedPtr<const FUniqueNetId> InUniqueId, const FString& InPlayerAlias, const FString& InAvatarURL)

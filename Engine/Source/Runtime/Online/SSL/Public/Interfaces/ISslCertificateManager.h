@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+
 struct ssl_ctx_st;
 typedef struct ssl_ctx_st SSL_CTX;
 

@@ -1,8 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#include "OculusAudioEffect.h"
+
 #if PLATFORM_WINDOWS
 
-#include "OculusAudioEffect.h"
 #include "OculusAudio.h"
 #include "OVR_Audio.h"
 #include "AudioDevice.h"

@@ -8,9 +8,11 @@
 #include "IOS/IOSAsyncTask.h"
 #include "ImageCore.h"
 
+THIRD_PARTY_INCLUDES_START
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <FBSDKShareKit/FBSDKShareKit.h>
 #import <FBSDKLoginKit/FBSDKLoginKit.h>
+THIRD_PARTY_INCLUDES_END
 
 FOnlineSharingFacebook::FOnlineSharingFacebook(FOnlineSubsystemFacebook* InSubsystem)
 	: FOnlineSharingFacebookCommon(InSubsystem)

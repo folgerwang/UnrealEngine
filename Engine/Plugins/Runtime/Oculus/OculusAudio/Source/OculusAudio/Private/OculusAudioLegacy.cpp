@@ -1,8 +1,9 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
+#include "OculusAudioLegacy.h"
+
 #if PLATFORM_WINDOWS
 
-#include "OculusAudioLegacy.h"
 #include "OculusAudioSourceSettings.h"
 
 OculusAudioLegacySpatialization::OculusAudioLegacySpatialization()

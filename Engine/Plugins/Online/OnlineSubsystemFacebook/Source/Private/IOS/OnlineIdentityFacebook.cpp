@@ -6,8 +6,11 @@
 #include "Interfaces/OnlineSharingInterface.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
 
+THIRD_PARTY_INCLUDES_START
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <FBSDKLoginKit/FBSDKLoginKit.h>
+THIRD_PARTY_INCLUDES_END
+
 #import "FacebookHelper.h"
 
 // Other UE4 includes
