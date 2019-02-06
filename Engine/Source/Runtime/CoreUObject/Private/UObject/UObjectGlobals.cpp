@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	UnObj.cpp: Unreal object global data and functions
+	UObjectGlobals.cpp: Unreal object global data and functions
 =============================================================================*/
 
 #include "UObject/UObjectGlobals.h"
@@ -270,18 +270,9 @@ int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<
 	return Result;
 }
 
-/**
- * Fast version of StaticFindObject that relies on the passed in FName being the object name
- * without any group/ package qualifiers.
- *
- * @param	ObjectClass		The to be found object's class
- * @param	ObjectPackage	The to be found object's outer
- * @param	ObjectName		The to be found object's class
- * @param	ExactClass		Whether to require an exact match with the passed in class
- * @param	AnyPackage		Whether to look in any package
- * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
- * @return	Returns a pointer to the found object or NULL if none could be found
- */
+//
+// Find an object, path must unqualified
+//
 UObject* StaticFindObjectFast(UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool ExactClass, bool AnyPackage, EObjectFlags ExclusiveFlags, EInternalObjectFlags ExclusiveInternalFlags)
 {
 	if (GIsSavingPackage || IsGarbageCollectingOnGameThread())
@@ -448,79 +439,12 @@ void GlobalSetProperty( const TCHAR* Value, UClass* Class, UProperty* Property, 
 	}
 }
 
-
-/**
- * Executes a delegate by calling the named function on the object bound to the delegate.  You should
- * always first verify that the delegate is safe to execute by calling IsBound() before calling this function.
- *
- * @param	Params		Parameter structure
- */
-//void FScriptDelegate::ProcessDelegate( void* Parameters ) const
-//{
-//	checkf( Object.IsValid() != false, TEXT( "ProcessDelegate() called with no object bound to delegate!" ) );
-//	checkf( FunctionName != NAME_None, TEXT( "ProcessDelegate() called with no function name set!" ) );
-//
-//	// Object was pending kill, so we cannot execute the delegate.  Note that it's important to assert
-//	// here and not simply continue execution, as memory may be left uninitialized if the delegate is
-//	// not able to execute, resulting in much harder-to-detect code errors.  Users should always make
-//	// sure IsBound() returns true before calling ProcessDelegate()!
-//	UObject* ObjectPtr = static_cast< UObject* >( Object.Get() );	// Down-cast
-//	checkSlow( !ObjectPtr->IsPendingKill() );
-//
-//	// Object *must* implement the specified function
-//	UFunction* Function = ObjectPtr->FindFunctionChecked( FunctionName );
-//
-//	// Execute the delegate!
-//	ObjectPtr->ProcessEvent(Function, Parameters);
-//}
-
-
-/**
- * Executes a multi-cast delegate by calling all functions on objects bound to the delegate.  Always
- * safe to call, even if when no objects are bound, or if objects have expired.
- *
- * @param	Params				Parameter structure
- */
-//void FMulticastScriptDelegate::ProcessMulticastDelegate(void* Parameters) const
-//{
-//	if( InvocationList.Num() > 0 )
-//	{
-//		// Create a copy of the invocation list, just in case the list is modified by one of the callbacks during the broadcast
-//		typedef TArray< FScriptDelegate, TInlineAllocator< 4 > > FInlineInvocationList;
-//		FInlineInvocationList InvocationListCopy = FInlineInvocationList(InvocationList);
-//	
-//		// Invoke each bound function
-//		for( FInlineInvocationList::TConstIterator FunctionIt( InvocationListCopy ); FunctionIt; ++FunctionIt )
-//		{
-//			if( FunctionIt->IsBound() )
-//			{
-//				// Invoke this delegate!
-//				FunctionIt->ProcessDelegate(Parameters);
-//			}
-//			else if ( FunctionIt->IsCompactable() )
-//			{
-//				// Function couldn't be executed, so remove it.  Note that because the original list could have been modified by one of the callbacks, we have to search for the function to remove here.
-//				RemoveInternal( *FunctionIt );
-//			}
-//		}
-//	}
-//}
-
-
 /*-----------------------------------------------------------------------------
 	UObject Tick.
 -----------------------------------------------------------------------------*/
 
-/**
- * Static UObject tick function, used to verify certain key assumptions and to tick the async loading code.
- *
- * @warning: The streaming stats rely on this function not doing any work besides calling ProcessAsyncLoading.
- * @todo: Move stats code into core?
- *
- * @param DeltaTime	Time in seconds since last call
- * @param bUseFullTimeLimit	If true, use the entire time limit even if blocked on I/O
- * @param AsyncLoadingTime Time in seconds to use for async loading limit
- */
+// @warning: The streaming stats rely on this function not doing any work besides calling ProcessAsyncLoading.
+// @todo: Move stats code into core?
 void StaticTick( float DeltaTime, bool bUseFullTimeLimit, float AsyncLoadingTime )
 {
 	check(!IsLoading());
@@ -607,13 +531,6 @@ void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage)
 	}
 }
 
-/**
- * Find an existing package by name
- * @param InOuter		The Outer object to search inside
- * @param PackageName	The name of the package to find
- *
- * @return The package if it exists
- */
 UPackage* FindPackage( UObject* InOuter, const TCHAR* PackageName )
 {
 	FString InName;
@@ -846,18 +763,6 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 	return true;
 }
 
-/**
- * Parse an object from a text representation
- *
- * @param Stream			String containing text to parse
- * @param Match				Tag to search for object representation within string
- * @param Class				The class of the object to be loaded.
- * @param DestRes			returned uobject pointer
- * @param InParent			Outer to search
- * @param bInvalidObject	[opt] Optional output.  If true, Tag was matched but the specified object wasn't found.
- *
- * @return true if the object parsed successfully
- */
 bool ParseObject( const TCHAR* Stream, const TCHAR* Match, UClass* Class, UObject*& DestRes, UObject* InParent, bool* bInvalidObject )
 {
 	TCHAR TempStr[1024];
@@ -892,20 +797,6 @@ bool ParseObject( const TCHAR* Stream, const TCHAR* Match, UClass* Class, UObjec
 	}
 }
 
-/**
- * Find or load an object by string name with optional outer and filename specifications.
- * These are optional because the InName can contain all of the necessary information.
- *
- * @param ObjectClass	The class (or a superclass) of the object to be loaded.
- * @param InOuter		An optional object to narrow where to find/load the object from
- * @param InName		String name of the object. If it's not fully qualified, InOuter and/or Filename will be needed
- * @param Filename		An optional file to load from (or find in the file's package object)
- * @param LoadFlags		Flags controlling how to handle loading from disk
- * @param Sandbox		A list of packages to restrict the search for the object
- * @param bAllowObjectReconciliation	Whether to allow the object to be found via FindObject in the case of seek free loading
- *
- * @return The object that was loaded or found. NULL for a failure.
- */
 UObject* StaticLoadObjectInternal(UClass* ObjectClass, UObject* InOuter, const TCHAR* InName, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox, bool bAllowObjectReconciliation, FUObjectSerializeContext* InSerializeContext)
 {
 	SCOPE_CYCLE_COUNTER(STAT_LoadObject);
@@ -1148,15 +1039,6 @@ public:
 
 #endif
 
-/**
-* Loads a package and all contained objects that match context flags.
-*
-* @param	InOuter		Package to load new package into (usually NULL or ULevel->GetOuter())
-* @param	Filename	Long package name to load.
-* @param	LoadFlags	Flags controlling loading behavior
-* @param	ImportLinker	Linker that requests this package through one of its imports
-* @return	Loaded package if successful, NULL otherwise
-*/
 UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride, FUObjectSerializeContext* InLoadContext)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
@@ -1886,17 +1768,6 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 	Object name functions.
 -----------------------------------------------------------------------------*/
 
-/**
- * Create a unique name by combining a base name and an arbitrary number string.
- * The object name returned is guaranteed not to exist.
- *
- * @param	Parent		the outer for the object that needs to be named
- * @param	Class		the class for the object
- * @param	BaseName	optional base name to use when generating the unique object name; if not specified, the class's name is used
- *
- * @return	name is the form BaseName_##, where ## is the number of objects of this
- *			type that have been created since the last time the class was garbage collected.
- */
 FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=NAME_None*/ )
 {
 	CSV_SCOPED_TIMING_STAT(UObject, MakeUniqueObjectName);
@@ -1977,18 +1848,6 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=N
 	return TestName;
 }
 
-/**
- * Given a display label string, generates an FName slug that is a valid FName for that label.
- * If the object's current name is already satisfactory, then that name will be returned.
- * For example, "[MyObject]: Object Label" becomes "MyObjectObjectLabel" FName slug.
- * 
- * Note: The generated name isn't guaranteed to be unique.
- *
- * @param DisplayLabel The label string to convert to an FName
- * @param CurrentObjectName The object's current name, or NAME_None if it has no name yet
- *
- * @return	The generated object name
- */
 FName MakeObjectNameFromDisplayLabel(const FString& DisplayLabel, const FName CurrentObjectName)
 {
 	FString GeneratedName = SlugStringForValidName(DisplayLabel);
@@ -2292,18 +2151,6 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 	return DupRootObject;
 }
 
-/**
- * Save a copy of this object into the transaction buffer if we are currently recording into
- * one (undo/redo). If bMarkDirty is true, will also mark the package as needing to be saved.
- *
- * @param	bMarkDirty	If true, marks the package dirty if we are currently recording into a
- *						transaction buffer
- * @param	Object		object to save.
-*
- * @return	true if a copy of the object was saved and the package potentially marked dirty; false
- *			if we are not recording into a transaction buffer, the package is a PIE/script package,
- *			or the object is not transactional (implies the package was not marked dirty)
- */
 bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 {
 	bool bSavedToTransactionBuffer = false;
@@ -2330,13 +2177,6 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 	return bSavedToTransactionBuffer;
 }
 
-/**
- * Causes the transaction system to emit a snapshot event for the given object if the following conditions are met:
- *  a) The object is currently transacting.
- *  b) The object has changed since it started transacting.
- *
- * @param	Object		object to snapshot.
- */
 void SnapshotTransactionBuffer(UObject* Object)
 {
 	// Script packages should not end up in the transaction buffer.
@@ -2351,15 +2191,6 @@ void SnapshotTransactionBuffer(UObject* Object)
 	}
 }
 
-/**
- * Check for StaticAllocateObject error; only for use with the editor, make or other commandlets.
- * 
- * @param	Class		the class of the object to create
- * @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
- * @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
- * @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
- * @return	true if NULL should be returned; there was a problem reported 
- */
 bool StaticAllocateObjectErrorTests( UClass* InClass, UObject* InOuter, FName InName, EObjectFlags InFlags)
 {
 	// Validation checks.
@@ -3731,16 +3562,6 @@ private:
 	FReferencerInformation *CurrentReferenceInfo;
 };
 
-/**
- * Returns whether an object is referenced, not counting the one
- * reference at Obj.
- *
- * @param	Obj			Object to check
- * @param	KeepFlags	Objects with these flags will be considered as being referenced. If RF_NoFlags, check all objects
- * @param	bCheckSubObjects	Treat subobjects as if they are the same as passed in object
- * @param	FoundReferences		If non-NULL fill in with list of objects that hold references
- * @return true if object is referenced, false otherwise
- */
 bool IsReferenced(UObject*& Obj, EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, bool bCheckSubObjects, FReferencerInformationList* FoundReferences)
 {
 	check(!Obj->IsUnreachable());
