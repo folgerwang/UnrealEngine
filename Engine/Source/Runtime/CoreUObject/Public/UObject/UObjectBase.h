@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	UObjectBase.h: Unreal UObject base class
+	UObjectBase.h: Base class for UObject, defines low level functionality
 =============================================================================*/
 
 #pragma once
@@ -14,6 +14,9 @@
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_UObjectsStatGroupTester"), STAT_UObjectsStatGroupTester, STATGROUP_UObjects, COREUOBJECT_API);
 
+/** 
+ * Low level implementation of UObject, should not be used directly in game code 
+ */
 class COREUOBJECT_API UObjectBase
 {
 	friend class UObjectBaseUtility;
@@ -36,12 +39,14 @@ protected:
 #endif
 	{
 	}
+
 	/**
 	 * Constructor used for bootstrapping
 	 * @param	InFlags			RF_Flags to assign
 	 */
 	UObjectBase( EObjectFlags InFlags );
 public:
+
 	/**
 	 * Constructor used by StaticAllocateObject
 	 * @param	InClass				non NULL, this gives the class of the new object, if known at this time
@@ -92,6 +97,7 @@ private:
 	 * @param InSetInternalFlags Internal object flags to be set on the object once it's been added to the array
 	 */
 	void AddObject(FName Name, EInternalObjectFlags InSetInternalFlags);
+
 public:
 	/**
 	 * Checks to see if the object appears to be valid
@@ -116,22 +122,30 @@ public:
 	{
 		return (uint32)InternalIndex;
 	}
+
+	/** Returns the UClass that defines the fields of this object */
 	FORCEINLINE UClass* GetClass() const
 	{
 		return ClassPrivate;
 	}
+	
+	/** Returns the UObject this object resides in */
 	FORCEINLINE UObject* GetOuter() const
 	{
 		return OuterPrivate;
 	}
+
+	/** Returns the logical name of this object */
 	FORCEINLINE FName GetFName() const
 	{
 		return NamePrivate;
 	}
 
 	/** 
-	 * Returns the stat ID of the object...
-	**/
+	 * Returns the stat ID of the object, used for profiling. This will create a stat ID if needed.
+	 *
+	 * @param bForDeferred If true, a stat ID will be created even if a group is disabled
+	 */
 	FORCEINLINE TStatId GetStatID(bool bForDeferredUse = false) const
 	{
 #if STATS
@@ -156,11 +170,8 @@ public:
 
 	
 private:
-
-	/** 
-	 * Creates this stat ID for the object...and handle a null this pointer
-	**/
 #if STATS || ENABLE_STATNAMEDEVENTS_UOBJECT
+	/** Creates a stat ID for this object */
 	void CreateStatID() const;
 #endif
 
@@ -174,6 +185,7 @@ protected:
 		checkfSlow((NewFlags & ~RF_AllFlags) == 0, TEXT("%s flagged as 0x%x but is trying to set flags to RF_AllFlags"), *GetFName().ToString(), (int)ObjectFlags);
 		ObjectFlags = NewFlags;
 	}
+
 public:
 	/**
 	 * Retrieve the object flags directly
@@ -248,8 +260,10 @@ private:
 #endif
 #endif // STATS || ENABLE_STATNAMEDEVENTS
 
-	// This is used by the reinstancer to re-class and re-archetype the current instances of a class before recompiling
+	
 	friend class FBlueprintCompileReinstancer;
+
+	/** This is used by the reinstancer to re-class and re-archetype the current instances of a class before recompiling */
 	void SetClass(UClass* NewClass);
 
 #if HACK_HEADER_GENERATOR
@@ -395,7 +409,10 @@ struct FCompiledInDeferEnum
  */
 COREUOBJECT_API class UEnum *GetStaticEnum(class UEnum *(*InRegister)(), UObject* EnumOuter, const TCHAR* EnumName);
 
+/** Called during HotReload to hook up an existing structure */
 COREUOBJECT_API class UScriptStruct* FindExistingStructIfHotReloadOrDynamic(UObject* Outer, const TCHAR* StructName, SIZE_T Size, uint32 Crc, bool bIsDynamic);
+
+/** Called during HotReload to hook up an existing enum */
 COREUOBJECT_API class UEnum* FindExistingEnumIfHotReloadOrDynamic(UObject* Outer, const TCHAR* EnumName, SIZE_T Size, uint32 Crc, bool bIsDynamic);
 
 /** Must be called after a module has been loaded that contains UObject classes */

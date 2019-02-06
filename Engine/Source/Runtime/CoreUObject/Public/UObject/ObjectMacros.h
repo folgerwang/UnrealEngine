@@ -1,7 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	ObjectBase.h: Unreal object base class.
+	ObjectMacros.h: Helper macros and defines for UObject system
 =============================================================================*/
 
 #pragma once
@@ -52,84 +52,78 @@ typedef	uint64 ScriptPointerType;
 	Core enumerations.
 -----------------------------------------------------------------------------*/
 
-//
-// Flags for loading objects.
-//
+/** Flags for loading objects, used by LoadObject() and related functions and passed as a uint32 */
 enum ELoadFlags
 {
-	LOAD_None						= 0x00000000,	// No flags.
-	LOAD_Async						= 0x00000001,	// Loads the package using async loading path/ reader
-	LOAD_NoWarn						= 0x00000002,	// Don't display warning if load fails.
-	LOAD_EditorOnly					= 0x00000004, // Load for editor-only purposes and by editor-only code
-	LOAD_ResolvingDeferredExports	= 0x00000008,	// Denotes that we should not defer export loading (as we're resolving them)
-	LOAD_Verify						= 0x00000010,	// Only verify existance; don't actually load.
-	LOAD_AllowDll					= 0x00000020,	// Allow plain DLLs.
+	LOAD_None						= 0x00000000,	///< No flags.
+	LOAD_Async						= 0x00000001,	///< Loads the package using async loading path/ reader
+	LOAD_NoWarn						= 0x00000002,	///< Don't display warning if load fails.
+	LOAD_EditorOnly					= 0x00000004,	///< Load for editor-only purposes and by editor-only code
+	LOAD_ResolvingDeferredExports	= 0x00000008,	///< Denotes that we should not defer export loading (as we're resolving them)
+	LOAD_Verify						= 0x00000010,	///< Only verify existance; don't actually load.
+	LOAD_AllowDll					= 0x00000020,	///< Allow plain DLLs.
 //	LOAD_Unused						= 0x00000040
-	LOAD_NoVerify					= 0x00000080,   // Don't verify imports yet.
-	LOAD_IsVerifying				= 0x00000100,		// Is verifying imports
+	LOAD_NoVerify					= 0x00000080,   ///< Don't verify imports yet.
+	LOAD_IsVerifying				= 0x00000100,	///< Is verifying imports
 //	LOAD_Unused						= 0x00000200,
 //	LOAD_Unused						= 0x00000400,
 //	LOAD_Unused						= 0x00000800,
-	LOAD_DisableDependencyPreloading = 0x00001000,	// Bypass dependency preloading system
-	LOAD_Quiet						= 0x00002000,   // No log warnings.
-	LOAD_FindIfFail					= 0x00004000,	// Tries FindObject if a linker cannot be obtained (e.g. package is currently being compiled)
-	LOAD_MemoryReader				= 0x00008000,	// Loads the file into memory and serializes from there.
-	LOAD_NoRedirects				= 0x00010000,	// Never follow redirects when loading objects; redirected loads will fail
-	LOAD_ForDiff					= 0x00020000,	// Loading for diffing.
-	LOAD_PackageForPIE				= 0x00080000,   // This package is being loaded for PIE, it must be flagged as such immediately
-	LOAD_DeferDependencyLoads       = 0x00100000,   // Do not load external (blueprint) dependencies (instead, track them for deferred loading)
-	LOAD_ForFileDiff				= 0x00200000,	// Load the package (not for diffing in the editor), instead verify at the two packages serialized output are the same, if they are not then debug break so that you can get the callstack and object information
-	LOAD_DisableCompileOnLoad		= 0x00400000,	// Prevent this load call from running compile on load for the loaded blueprint (intentionally not recursive, dependencies will still compile on load)
+	LOAD_DisableDependencyPreloading = 0x00001000,	///< Bypass dependency preloading system
+	LOAD_Quiet						= 0x00002000,   ///< No log warnings.
+	LOAD_FindIfFail					= 0x00004000,	///< Tries FindObject if a linker cannot be obtained (e.g. package is currently being compiled)
+	LOAD_MemoryReader				= 0x00008000,	///< Loads the file into memory and serializes from there.
+	LOAD_NoRedirects				= 0x00010000,	///< Never follow redirects when loading objects; redirected loads will fail
+	LOAD_ForDiff					= 0x00020000,	///< Loading for diffing in the editor
+	LOAD_PackageForPIE				= 0x00080000,   ///< This package is being loaded for PIE, it must be flagged as such immediately
+	LOAD_DeferDependencyLoads       = 0x00100000,   ///< Do not load external (blueprint) dependencies (instead, track them for deferred loading)
+	LOAD_ForFileDiff				= 0x00200000,	///< Load the package (not for diffing in the editor), instead verify at the two packages serialized output are the same, if they are not then debug break so that you can get the callstack and object information
+	LOAD_DisableCompileOnLoad		= 0x00400000,	///< Prevent this load call from running compile on load for the loaded blueprint (intentionally not recursive, dependencies will still compile on load)
 };
 
-//
-// Flags for saving packages
-//
+/** Flags for saving objects/packages, passed into UPackage::SavePackage() as a uint32 */
 enum ESaveFlags
 {
-	SAVE_None			= 0x00000000,	// No flags
-	SAVE_NoError		= 0x00000001,	// Don't generate errors on save
-	SAVE_FromAutosave	= 0x00000002,   // Used to indicate this save was initiated automatically
-	SAVE_KeepDirty		= 0x00000004,	// Do not clear the dirty flag when saving
-	SAVE_KeepGUID		= 0x00000008,	// Keep the same guid, used to save cooked packages
-	SAVE_Async			= 0x00000010,	// Save to a memory writer, then actually write to disk async
-	SAVE_Unversioned	= 0x00000020,	// Save all versions as zero. Upon load this is changed to the current version. This is only reasonable to use with full cooked builds for distribution.
-	SAVE_CutdownPackage	= 0x00000040,	// Saving cutdown packages in a temp location WITHOUT renaming the package.
-	SAVE_KeepEditorOnlyCookedPackages = 0x00000080,  // keep packages which are marked as editor only even though we are cooking
-	SAVE_Concurrent		= 0x00000100,	// We are save packages in multiple threads at once and should not call non-threadsafe functions or rely on globals. GIsSavingPackage should be set and PreSave/Postsave functions should be called before/after the entire concurrent save.
-	SAVE_DiffOnly       = 0x00000200, // Serializes the package to a special memory archive that performs a diff with an existing file on disk
-	SAVE_DiffCallstack  = 0x00000400, // Serializes the package to a special memory archive that compares all differences against a file on disk and dumps relevant callstacks
-	SAVE_ComputeHash    = 0x00000800, // Compute the MD5 hash of the cooked data
+	SAVE_None			= 0x00000000,	///< No flags
+	SAVE_NoError		= 0x00000001,	///< Don't generate errors on save
+	SAVE_FromAutosave	= 0x00000002,   ///< Used to indicate this save was initiated automatically
+	SAVE_KeepDirty		= 0x00000004,	///< Do not clear the dirty flag when saving
+	SAVE_KeepGUID		= 0x00000008,	///< Keep the same guid, used to save cooked packages
+	SAVE_Async			= 0x00000010,	///< Save to a memory writer, then actually write to disk async
+	SAVE_Unversioned	= 0x00000020,	///< Save all versions as zero. Upon load this is changed to the current version. This is only reasonable to use with full cooked builds for distribution.
+	SAVE_CutdownPackage	= 0x00000040,	///< Saving cutdown packages in a temp location WITHOUT renaming the package.
+	SAVE_KeepEditorOnlyCookedPackages = 0x00000080,  ///< Keep packages which are marked as editor only even though we are cooking
+	SAVE_Concurrent		= 0x00000100,	///< We are save packages in multiple threads at once and should not call non-threadsafe functions or rely on globals. GIsSavingPackage should be set and PreSave/Postsave functions should be called before/after the entire concurrent save.
+	SAVE_DiffOnly       = 0x00000200,	///< Serializes the package to a special memory archive that performs a diff with an existing file on disk
+	SAVE_DiffCallstack  = 0x00000400,	///< Serializes the package to a special memory archive that compares all differences against a file on disk and dumps relevant callstacks
+	SAVE_ComputeHash    = 0x00000800,	///< Compute the MD5 hash of the cooked data
 };
 
-//
-// Package flags.
-//
+/** Package flags, passed into UPackage::SetPackageFlags and related functions */
 enum EPackageFlags
 {
-	PKG_None						= 0x00000000,	// No flags
-	PKG_NewlyCreated				= 0x00000001,	// Newly created package, not saved yet. In editor only.
-	PKG_ClientOptional				= 0x00000002,	// Purely optional for clients.
-	PKG_ServerSideOnly				= 0x00000004,   // Only needed on the server side.
-	PKG_CompiledIn					= 0x00000010,   // This package is from "compiled in" classes.
-	PKG_ForDiffing					= 0x00000020,	// This package was loaded just for the purposes of diffing
-	PKG_EditorOnly					= 0x00000040, // This is editor-only package (for example: editor module script package)
-	PKG_Developer					= 0x00000080,	// Developer module
+	PKG_None						= 0x00000000,	///< No flags
+	PKG_NewlyCreated				= 0x00000001,	///< Newly created package, not saved yet. In editor only.
+	PKG_ClientOptional				= 0x00000002,	///< Purely optional for clients.
+	PKG_ServerSideOnly				= 0x00000004,   ///< Only needed on the server side.
+	PKG_CompiledIn					= 0x00000010,   ///< This package is from "compiled in" classes.
+	PKG_ForDiffing					= 0x00000020,	///< This package was loaded just for the purposes of diffing
+	PKG_EditorOnly					= 0x00000040,	///< This is editor-only package (for example: editor module script package)
+	PKG_Developer					= 0x00000080,	///< Developer module
 //	PKG_Unused						= 0x00000100,
 //	PKG_Unused						= 0x00000200,
 //	PKG_Unused						= 0x00000400,
 //	PKG_Unused						= 0x00000800,
 //	PKG_Unused						= 0x00001000,
 //	PKG_Unused						= 0x00002000,
-	PKG_ContainsMapData				= 0x00004000,   // Contains map data (UObjects only referenced by a single ULevel) but is stored in a different package
-	PKG_Need						= 0x00008000,	// Client needs to download this package.
-	PKG_Compiling					= 0x00010000,	// package is currently being compiled
-	PKG_ContainsMap					= 0x00020000,	// Set if the package contains a ULevel/ UWorld object
-	PKG_RequiresLocalizationGather		= 0x00040000,	// Set if the package contains any data to be gathered by localization
-	PKG_DisallowLazyLoading			= 0x00080000,	// Set if the archive serializing this package cannot use lazy loading
-	PKG_PlayInEditor				= 0x00100000,	// Set if the package was created for the purpose of PIE
-	PKG_ContainsScript				= 0x00200000,	// Package is allowed to contain UClass objects
-	PKG_DisallowExport				= 0x00400000,	// Editor should not export asset in this package
+	PKG_ContainsMapData				= 0x00004000,   ///< Contains map data (UObjects only referenced by a single ULevel) but is stored in a different package
+	PKG_Need						= 0x00008000,	///< Client needs to download this package.
+	PKG_Compiling					= 0x00010000,	///< package is currently being compiled
+	PKG_ContainsMap					= 0x00020000,	///< Set if the package contains a ULevel/ UWorld object
+	PKG_RequiresLocalizationGather	= 0x00040000,	///< Set if the package contains any data to be gathered by localization
+	PKG_DisallowLazyLoading			= 0x00080000,	///< Set if the archive serializing this package cannot use lazy loading
+	PKG_PlayInEditor				= 0x00100000,	///< Set if the package was created for the purpose of PIE
+	PKG_ContainsScript				= 0x00200000,	///< Package is allowed to contain UClass objects
+	PKG_DisallowExport				= 0x00400000,	///< Editor should not export asset in this package
 //	PKG_Unused						= 0x00800000,
 //	PKG_Unused						= 0x01000000,	
 //	PKG_Unused						= 0x02000000,	
@@ -137,17 +131,17 @@ enum EPackageFlags
 //	PKG_Unused						= 0x08000000,	
 //	PKG_Unused						= 0x10000000,	
 //	PKG_Unused						= 0x20000000,
-	PKG_ReloadingForCooker			= 0x40000000,   // this package is reloading in the cooker, try to avoid getting data we will never need. We won't save this package.
-	PKG_FilterEditorOnly			= 0x80000000,	// Package has editor-only data filtered
+	PKG_ReloadingForCooker			= 0x40000000,   ///< This package is reloading in the cooker, try to avoid getting data we will never need. We won't save this package.
+	PKG_FilterEditorOnly			= 0x80000000,	///< Package has editor-only data filtered out
 };
 
-#define PKG_InMemoryOnly	(EPackageFlags)(PKG_CompiledIn | PKG_NewlyCreated) // Flag mask that indicates if this package is a package that exists in memory only.
+/** Flag mask that indicates if this package is a package that exists in memory only. */
+#define PKG_InMemoryOnly	(EPackageFlags)(PKG_CompiledIn | PKG_NewlyCreated)
 
 ENUM_CLASS_FLAGS(EPackageFlags);
 
-//
 // Internal enums.
-//
+
 enum EStaticConstructor				{EC_StaticConstructor};
 enum EInternal						{EC_InternalUseOnlyConstructor};
 enum ECppProperty					{EC_CppProperty};
@@ -166,14 +160,12 @@ public:
 /** Empty API definition.  Used as a placeholder parameter when no DLL export/import API is needed for a UObject class */
 #define NO_API
 
-
 /**
  * Flags describing a class.
  */
 enum EClassFlags
 {
-	/** @name Base flags */
-	//@{
+	/** No Flags */
 	CLASS_None				  = 0x00000000u,
 	/** Class is abstract and can't be instantiated directly. */
 	CLASS_Abstract            = 0x00000001u,
@@ -247,27 +239,23 @@ enum EClassFlags
 	CLASS_ConfigDoNotCheckDefaults = 0x40000000u,
 	/** Class has been consigned to oblivion as part of a blueprint recompile, and a newer version currently exists. */
 	CLASS_NewerVersionExists  = 0x80000000u,
-
-	//@}
 };
 
 // Declare bitwise operators to allow EClassFlags to be combined but still retain type safety
 ENUM_CLASS_FLAGS(EClassFlags);
 
-/** @name Flags to inherit from base class */
-//@{
+/** Flags to inherit from base class */
 #define CLASS_Inherit ((EClassFlags)(CLASS_Transient | CLASS_DefaultConfig | CLASS_Config | CLASS_PerObjectConfig | CLASS_ConfigDoNotCheckDefaults | CLASS_NotPlaceable \
 						| CLASS_Const | CLASS_HasInstancedReference | CLASS_Deprecated | CLASS_DefaultToInstanced | CLASS_GlobalUserConfig))
 
-/** these flags will be cleared by the compiler when the class is parsed during script compilation */
+/** These flags will be cleared by the compiler when the class is parsed during script compilation */
 #define CLASS_RecompilerClear ((EClassFlags)(CLASS_Inherit | CLASS_Abstract | CLASS_NoExport | CLASS_Native | CLASS_Intrinsic | CLASS_TokenStreamAssembled))
 
-/** these flags will be cleared by the compiler when the class is parsed during script compilation */
+/** These flags will be cleared by the compiler when the class is parsed during script compilation */
 #define CLASS_ShouldNeverBeLoaded ((EClassFlags)(CLASS_Native | CLASS_Intrinsic | CLASS_TokenStreamAssembled))
 
-/** these flags will be inherited from the base class only for non-intrinsic classes */
+/** These flags will be inherited from the base class only for non-intrinsic classes */
 #define CLASS_ScriptInherit ((EClassFlags)(CLASS_Inherit | CLASS_EditInlineNew | CLASS_CollapseCategories))
-//@}
 
 /** This is used as a mask for the flags put into generated code for "compiled in" classes. */
 #define CLASS_SaveInCompiledInClasses ((EClassFlags)(\
@@ -361,97 +349,98 @@ enum EClassCastFlags : uint64
 ENUM_CLASS_FLAGS(EClassCastFlags)
 
 
-//
-// Flags associated with each property in a class, overriding the
-// property's default behavior.
-// NOTE: When adding one here, please update ParsePropertyFlags
-//
+/**
+ * Flags associated with each property in a class, overriding the
+ * property's default behavior.
+ * @warning When adding one here, please update ParsePropertyFlags()
+ */
 enum EPropertyFlags : uint64
 {
 	CPF_None = 0,
 
-	CPF_Edit							= 0x0000000000000001,	// Property is user-settable in the editor.
-	CPF_ConstParm						= 0x0000000000000002,	// This is a constant function parameter
-	CPF_BlueprintVisible				= 0x0000000000000004,	// This property can be read by blueprint code
-	CPF_ExportObject					= 0x0000000000000008,	// Object can be exported with actor.
-	CPF_BlueprintReadOnly				= 0x0000000000000010,	// This property cannot be modified by blueprint code
-	CPF_Net								= 0x0000000000000020,	// Property is relevant to network replication.
-	CPF_EditFixedSize					= 0x0000000000000040,	// Indicates that elements of an array can be modified, but its size cannot be changed.
-	CPF_Parm							= 0x0000000000000080,	// Function/When call parameter.
-	CPF_OutParm							= 0x0000000000000100,	// Value is copied out after function call.
-	CPF_ZeroConstructor					= 0x0000000000000200,	// memset is fine for construction
-	CPF_ReturnParm						= 0x0000000000000400,	// Return value.
-	CPF_DisableEditOnTemplate			= 0x0000000000000800,	// Disable editing of this property on an archetype/sub-blueprint
-	//CPF_      						= 0x0000000000001000,	// 
-	CPF_Transient   					= 0x0000000000002000,	// Property is transient: shouldn't be saved or loaded, except for Blueprint CDOs.
-	CPF_Config      					= 0x0000000000004000,	// Property should be loaded/saved as permanent profile.
-	//CPF_								= 0x0000000000008000,	// 
-	CPF_DisableEditOnInstance			= 0x0000000000010000,	// Disable editing on an instance of this class
-	CPF_EditConst   					= 0x0000000000020000,	// Property is uneditable in the editor.
-	CPF_GlobalConfig					= 0x0000000000040000,	// Load config from base class, not subclass.
-	CPF_InstancedReference				= 0x0000000000080000,	// Property is a component references.
-	//CPF_								= 0x0000000000100000,
-	CPF_DuplicateTransient				= 0x0000000000200000,	// Property should always be reset to the default value during any type of duplication (copy/paste, binary duplication, etc.)
-	CPF_SubobjectReference				= 0x0000000000400000,	// Property contains subobject references (TSubobjectPtr)
-	//CPF_    							= 0x0000000000800000,	// 
-	CPF_SaveGame						= 0x0000000001000000,	// Property should be serialized for save games
-	CPF_NoClear							= 0x0000000002000000,	// Hide clear (and browse) button.
-	//CPF_  							= 0x0000000004000000,	//
-	CPF_ReferenceParm					= 0x0000000008000000,	// Value is passed by reference; CPF_OutParam and CPF_Param should also be set.
-	CPF_BlueprintAssignable				= 0x0000000010000000,	// MC Delegates only.  Property should be exposed for assigning in blueprint code
-	CPF_Deprecated  					= 0x0000000020000000,	// Property is deprecated.  Read it from an archive, but don't save it.
-	CPF_IsPlainOldData					= 0x0000000040000000,	// If this is set, then the property can be memcopied instead of CopyCompleteValue / CopySingleValue
-	CPF_RepSkip							= 0x0000000080000000,	// Not replicated. For non replicated properties in replicated structs 
-	CPF_RepNotify						= 0x0000000100000000,	// Notify actors when a property is replicated
-	CPF_Interp							= 0x0000000200000000,	// interpolatable property for use with matinee
-	CPF_NonTransactional				= 0x0000000400000000,	// Property isn't transacted
-	CPF_EditorOnly						= 0x0000000800000000,	// Property should only be loaded in the editor
-	CPF_NoDestructor					= 0x0000001000000000,	// No destructor
-	//CPF_								= 0x0000002000000000,	//
-	CPF_AutoWeak						= 0x0000004000000000,	// Only used for weak pointers, means the export type is autoweak
-	CPF_ContainsInstancedReference		= 0x0000008000000000,	// Property contains component references.
-	CPF_AssetRegistrySearchable			= 0x0000010000000000,	// asset instances will add properties with this flag to the asset registry automatically
-	CPF_SimpleDisplay					= 0x0000020000000000,	// The property is visible by default in the editor details view
-	CPF_AdvancedDisplay					= 0x0000040000000000,	// The property is advanced and not visible by default in the editor details view
-	CPF_Protected						= 0x0000080000000000,	// property is protected from the perspective of script
-	CPF_BlueprintCallable				= 0x0000100000000000,	// MC Delegates only.  Property should be exposed for calling in blueprint code
-	CPF_BlueprintAuthorityOnly			= 0x0000200000000000,	// MC Delegates only.  This delegate accepts (only in blueprint) only events with BlueprintAuthorityOnly.
-	CPF_TextExportTransient				= 0x0000400000000000,	// Property shouldn't be exported to text format (e.g. copy/paste)
-	CPF_NonPIEDuplicateTransient		= 0x0000800000000000,	// Property should only be copied in PIE
-	CPF_ExposeOnSpawn					= 0x0001000000000000,	// Property is exposed on spawn
-	CPF_PersistentInstance				= 0x0002000000000000,	// A object referenced by the property is duplicated like a component. (Each actor should have an own instance.)
-	CPF_UObjectWrapper					= 0x0004000000000000,	// Property was parsed as a wrapper class like TSubclassOf<T>, FScriptInterface etc., rather than a USomething*
-	CPF_HasGetValueTypeHash				= 0x0008000000000000,	// This property can generate a meaningful hash value.
-	CPF_NativeAccessSpecifierPublic		= 0x0010000000000000,	// Public native access specifier
-	CPF_NativeAccessSpecifierProtected	= 0x0020000000000000,	// Protected native access specifier
-	CPF_NativeAccessSpecifierPrivate	= 0x0040000000000000,	// Private native access specifier
-	CPF_SkipSerialization				= 0x0080000000000000,	// Property shouldn't be serialized, can still be exported to text
+	CPF_Edit							= 0x0000000000000001,	///< Property is user-settable in the editor.
+	CPF_ConstParm						= 0x0000000000000002,	///< This is a constant function parameter
+	CPF_BlueprintVisible				= 0x0000000000000004,	///< This property can be read by blueprint code
+	CPF_ExportObject					= 0x0000000000000008,	///< Object can be exported with actor.
+	CPF_BlueprintReadOnly				= 0x0000000000000010,	///< This property cannot be modified by blueprint code
+	CPF_Net								= 0x0000000000000020,	///< Property is relevant to network replication.
+	CPF_EditFixedSize					= 0x0000000000000040,	///< Indicates that elements of an array can be modified, but its size cannot be changed.
+	CPF_Parm							= 0x0000000000000080,	///< Function/When call parameter.
+	CPF_OutParm							= 0x0000000000000100,	///< Value is copied out after function call.
+	CPF_ZeroConstructor					= 0x0000000000000200,	///< memset is fine for construction
+	CPF_ReturnParm						= 0x0000000000000400,	///< Return value.
+	CPF_DisableEditOnTemplate			= 0x0000000000000800,	///< Disable editing of this property on an archetype/sub-blueprint
+	//CPF_      						= 0x0000000000001000,	///< 
+	CPF_Transient   					= 0x0000000000002000,	///< Property is transient: shouldn't be saved or loaded, except for Blueprint CDOs.
+	CPF_Config      					= 0x0000000000004000,	///< Property should be loaded/saved as permanent profile.
+	//CPF_								= 0x0000000000008000,	///< 
+	CPF_DisableEditOnInstance			= 0x0000000000010000,	///< Disable editing on an instance of this class
+	CPF_EditConst   					= 0x0000000000020000,	///< Property is uneditable in the editor.
+	CPF_GlobalConfig					= 0x0000000000040000,	///< Load config from base class, not subclass.
+	CPF_InstancedReference				= 0x0000000000080000,	///< Property is a component references.
+	//CPF_								= 0x0000000000100000,	///<
+	CPF_DuplicateTransient				= 0x0000000000200000,	///< Property should always be reset to the default value during any type of duplication (copy/paste, binary duplication, etc.)
+	CPF_SubobjectReference				= 0x0000000000400000,	///< Property contains subobject references (TSubobjectPtr)
+	//CPF_    							= 0x0000000000800000,	///< 
+	CPF_SaveGame						= 0x0000000001000000,	///< Property should be serialized for save games
+	CPF_NoClear							= 0x0000000002000000,	///< Hide clear (and browse) button.
+	//CPF_  							= 0x0000000004000000,	///<
+	CPF_ReferenceParm					= 0x0000000008000000,	///< Value is passed by reference; CPF_OutParam and CPF_Param should also be set.
+	CPF_BlueprintAssignable				= 0x0000000010000000,	///< MC Delegates only.  Property should be exposed for assigning in blueprint code
+	CPF_Deprecated  					= 0x0000000020000000,	///< Property is deprecated.  Read it from an archive, but don't save it.
+	CPF_IsPlainOldData					= 0x0000000040000000,	///< If this is set, then the property can be memcopied instead of CopyCompleteValue / CopySingleValue
+	CPF_RepSkip							= 0x0000000080000000,	///< Not replicated. For non replicated properties in replicated structs 
+	CPF_RepNotify						= 0x0000000100000000,	///< Notify actors when a property is replicated
+	CPF_Interp							= 0x0000000200000000,	///< interpolatable property for use with matinee
+	CPF_NonTransactional				= 0x0000000400000000,	///< Property isn't transacted
+	CPF_EditorOnly						= 0x0000000800000000,	///< Property should only be loaded in the editor
+	CPF_NoDestructor					= 0x0000001000000000,	///< No destructor
+	//CPF_								= 0x0000002000000000,	///<
+	CPF_AutoWeak						= 0x0000004000000000,	///< Only used for weak pointers, means the export type is autoweak
+	CPF_ContainsInstancedReference		= 0x0000008000000000,	///< Property contains component references.
+	CPF_AssetRegistrySearchable			= 0x0000010000000000,	///< asset instances will add properties with this flag to the asset registry automatically
+	CPF_SimpleDisplay					= 0x0000020000000000,	///< The property is visible by default in the editor details view
+	CPF_AdvancedDisplay					= 0x0000040000000000,	///< The property is advanced and not visible by default in the editor details view
+	CPF_Protected						= 0x0000080000000000,	///< property is protected from the perspective of script
+	CPF_BlueprintCallable				= 0x0000100000000000,	///< MC Delegates only.  Property should be exposed for calling in blueprint code
+	CPF_BlueprintAuthorityOnly			= 0x0000200000000000,	///< MC Delegates only.  This delegate accepts (only in blueprint) only events with BlueprintAuthorityOnly.
+	CPF_TextExportTransient				= 0x0000400000000000,	///< Property shouldn't be exported to text format (e.g. copy/paste)
+	CPF_NonPIEDuplicateTransient		= 0x0000800000000000,	///< Property should only be copied in PIE
+	CPF_ExposeOnSpawn					= 0x0001000000000000,	///< Property is exposed on spawn
+	CPF_PersistentInstance				= 0x0002000000000000,	///< A object referenced by the property is duplicated like a component. (Each actor should have an own instance.)
+	CPF_UObjectWrapper					= 0x0004000000000000,	///< Property was parsed as a wrapper class like TSubclassOf<T>, FScriptInterface etc., rather than a USomething*
+	CPF_HasGetValueTypeHash				= 0x0008000000000000,	///< This property can generate a meaningful hash value.
+	CPF_NativeAccessSpecifierPublic		= 0x0010000000000000,	///< Public native access specifier
+	CPF_NativeAccessSpecifierProtected	= 0x0020000000000000,	///< Protected native access specifier
+	CPF_NativeAccessSpecifierPrivate	= 0x0040000000000000,	///< Private native access specifier
+	CPF_SkipSerialization				= 0x0080000000000000,	///< Property shouldn't be serialized, can still be exported to text
 };
 
-/** @name Combinations flags */
-//@{
+/** All Native Access Specifier flags */
 #define CPF_NativeAccessSpecifiers	(CPF_NativeAccessSpecifierPublic | CPF_NativeAccessSpecifierProtected | CPF_NativeAccessSpecifierPrivate)
 
+/** All parameter flags */
 #define CPF_ParmFlags				(CPF_Parm | CPF_OutParm | CPF_ReturnParm | CPF_ReferenceParm | CPF_ConstParm)
+
+/** Flags that are propagated to properties inside containers */
 #define CPF_PropagateToArrayInner	(CPF_ExportObject | CPF_PersistentInstance | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_Config | CPF_EditConst | CPF_Deprecated | CPF_EditorOnly | CPF_AutoWeak | CPF_UObjectWrapper )
 #define CPF_PropagateToMapValue		(CPF_ExportObject | CPF_PersistentInstance | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_Config | CPF_EditConst | CPF_Deprecated | CPF_EditorOnly | CPF_AutoWeak | CPF_UObjectWrapper | CPF_Edit )
 #define CPF_PropagateToMapKey		(CPF_ExportObject | CPF_PersistentInstance | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_Config | CPF_EditConst | CPF_Deprecated | CPF_EditorOnly | CPF_AutoWeak | CPF_UObjectWrapper | CPF_Edit )
 #define CPF_PropagateToSetElement	(CPF_ExportObject | CPF_PersistentInstance | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_Config | CPF_EditConst | CPF_Deprecated | CPF_EditorOnly | CPF_AutoWeak | CPF_UObjectWrapper | CPF_Edit )
 
-/** the flags that should never be set on interface properties */
+/** The flags that should never be set on interface properties */
 #define CPF_InterfaceClearMask		(CPF_ExportObject|CPF_InstancedReference|CPF_ContainsInstancedReference)
 
-/** all the properties that can be stripped for final release console builds */
+/** All the properties that can be stripped for final release console builds */
 #define CPF_DevelopmentAssets		(CPF_EditorOnly)
 
-/** all the properties that should never be loaded or saved */
+/** All the properties that should never be loaded or saved */
 #define CPF_ComputedFlags			(CPF_IsPlainOldData | CPF_NoDestructor | CPF_ZeroConstructor | CPF_HasGetValueTypeHash)
 
+/** Mask of all property flags */
 #define CPF_AllFlags				((EPropertyFlags)0xFFFFFFFFFFFFFFFF)
 
 ENUM_CLASS_FLAGS(EPropertyFlags)
-
-//@}
 
 /** 
  * Flags describing an object instance
@@ -460,20 +449,20 @@ enum EObjectFlags
 {
 	// Do not add new flags unless they truly belong here. There are alternatives.
 	// if you change any the bit of any of the RF_Load flags, then you will need legacy serialization
-	RF_NoFlags						= 0x00000000,	///< No flags, used to avoid a cast
+	RF_NoFlags					= 0x00000000,	///< No flags, used to avoid a cast
 
 	// This first group of flags mostly has to do with what kind of object it is. Other than transient, these are the persistent object flags.
 	// The garbage collector also tends to look at these.
 	RF_Public					=0x00000001,	///< Object is visible outside its package.
 	RF_Standalone				=0x00000002,	///< Keep object around for editing even if unreferenced.
-	RF_MarkAsNative					=0x00000004,	///< Object (UField) will be marked as native on construction (DO NOT USE THIS FLAG in HasAnyFlags() etc)
+	RF_MarkAsNative				=0x00000004,	///< Object (UField) will be marked as native on construction (DO NOT USE THIS FLAG in HasAnyFlags() etc)
 	RF_Transactional			=0x00000008,	///< Object is transactional.
 	RF_ClassDefaultObject		=0x00000010,	///< This object is its class's default object
 	RF_ArchetypeObject			=0x00000020,	///< This object is a template for another object - treat like a class default object
 	RF_Transient				=0x00000040,	///< Don't save object.
 
 	// This group of flags is primarily concerned with garbage collection.
-	RF_MarkAsRootSet					=0x00000080,	///< Object will be marked as root set on construction and not be garbage collected, even if unreferenced (DO NOT USE THIS FLAG in HasAnyFlags() etc)
+	RF_MarkAsRootSet			=0x00000080,	///< Object will be marked as root set on construction and not be garbage collected, even if unreferenced (DO NOT USE THIS FLAG in HasAnyFlags() etc)
 	RF_TagGarbageTemp			=0x00000100,	///< This is a temp user flag for various utilities that need to use the garbage collector. The garbage collector itself does not interpret it.
 
 	// The group of flags tracks the stages of the lifetime of a uobject
@@ -493,29 +482,30 @@ enum EObjectFlags
 	RF_TextExportTransient		=0x00100000,	///< Do not export object to text form (e.g. copy/paste). Generally used for sub-objects that can be regenerated from data in their parent object.
 	RF_LoadCompleted			=0x00200000,	///< Object has been completely serialized by linkerload at least once. DO NOT USE THIS FLAG, It should be replaced with RF_WasLoaded.
 	RF_InheritableComponentTemplate = 0x00400000, ///< Archetype of the object can be in its super class
-	RF_DuplicateTransient = 0x00800000, ///< Object should not be included in any type of duplication (copy/paste, binary duplication, etc.)
-	RF_StrongRefOnFrame			= 0x01000000,	///< References to this object from persistent function frame are handled as strong ones.
-	RF_NonPIEDuplicateTransient		= 0x02000000,  ///< Object should not be included for duplication unless it's being duplicated for a PIE session
-	RF_Dynamic = 0x04000000, // Field Only. Dynamic field - doesn't get constructed during static initialization, can be constructed multiple times
-	RF_WillBeLoaded = 0x08000000, // This object was constructed during load and will be loaded shortly
+	RF_DuplicateTransient		=0x00800000,	///< Object should not be included in any type of duplication (copy/paste, binary duplication, etc.)
+	RF_StrongRefOnFrame			=0x01000000,	///< References to this object from persistent function frame are handled as strong ones.
+	RF_NonPIEDuplicateTransient	=0x02000000,	///< Object should not be included for duplication unless it's being duplicated for a PIE session
+	RF_Dynamic					=0x04000000,	///< Field Only. Dynamic field - doesn't get constructed during static initialization, can be constructed multiple times
+	RF_WillBeLoaded				=0x08000000,	///< This object was constructed during load and will be loaded shortly
 };
 
-	// Special all and none masks
+/** Mask for all object flags */
 #define RF_AllFlags				(EObjectFlags)0x0fffffff	///< All flags, used mainly for error checking
 
-	// Predefined groups of the above
-#define RF_Load						((EObjectFlags)(RF_Public | RF_Standalone | RF_Transactional | RF_ClassDefaultObject | RF_ArchetypeObject | RF_DefaultSubObject | RF_TextExportTransient | RF_InheritableComponentTemplate | RF_DuplicateTransient | RF_NonPIEDuplicateTransient)) // Flags to load from Unrealfiles.
-#define RF_PropagateToSubObjects	((EObjectFlags)(RF_Public | RF_ArchetypeObject | RF_Transactional | RF_Transient))		// Sub-objects will inherit these flags from their SuperObject.
+/** Flags to load from unreal asset files */
+#define RF_Load						((EObjectFlags)(RF_Public | RF_Standalone | RF_Transactional | RF_ClassDefaultObject | RF_ArchetypeObject | RF_DefaultSubObject | RF_TextExportTransient | RF_InheritableComponentTemplate | RF_DuplicateTransient | RF_NonPIEDuplicateTransient)) 
+
+/** Sub-objects will inherit these flags from their SuperObject */
+#define RF_PropagateToSubObjects	((EObjectFlags)(RF_Public | RF_ArchetypeObject | RF_Transactional | RF_Transient))
 
 ENUM_CLASS_FLAGS(EObjectFlags);
-
-//@}
 
 /** Objects flags for internal use (GC, low level UObject code) */
 enum class EInternalObjectFlags : int32
 {
 	None = 0,
 	//~ All the other bits are reserved, DO NOT ADD NEW FLAGS HERE!
+
 	ReachableInCluster = 1 << 23, ///< External reference to object in cluster exists
 	ClusterRoot = 1 << 24, ///< Root of a cluster
 	Native = 1 << 25, ///< Native (UClass only). 
@@ -527,6 +517,7 @@ enum class EInternalObjectFlags : int32
 	//~ UnusedFlag = 1 << 31,
 
 	GarbageCollectionKeepFlags = Native | Async | AsyncLoading,
+
 	//~ Make sure this is up to date!
 	AllFlags = ReachableInCluster | ClusterRoot | Native | Async | AsyncLoading | Unreachable | PendingKill | RootSet
 };
@@ -536,7 +527,6 @@ ENUM_CLASS_FLAGS(EInternalObjectFlags);
 	Core types.
 ----------------------------------------------------------------------------*/
 
-// forward declarations
 class UObject;
 class UProperty;
 class FObjectInitializer; 
@@ -730,7 +720,7 @@ namespace UC
 		/// Marks this class as 'experimental' (a totally unsupported and undocumented prototype)
 		Experimental,
 
-		// Marks this class as an 'early access' preview (while not considered production-ready, it's a step beyond 'experimental' and is being provided as a preview of things to come)
+		/// Marks this class as an 'early access' preview (while not considered production-ready, it's a step beyond 'experimental' and is being provided as a preview of things to come)
 		EarlyAccessPreview,
 	};
 }
@@ -1411,7 +1401,7 @@ namespace UM
 #define DECLARE_FSTRUCTUREDARCHIVE_SERIALIZER( TClass, API ) virtual API void Serialize(FStructuredArchive::FRecord Record) override;
 
 /*-----------------------------------------------------------------------------
-Class declaration macros.
+	Class declaration macros.
 -----------------------------------------------------------------------------*/
 
 #define DECLARE_CLASS( TClass, TSuperClass, TStaticFlags, TStaticCastFlags, TPackage, TRequiredAPI  ) \
@@ -1659,22 +1649,25 @@ public: \
 		return PrivateStaticClass; \
 	}
 
-/*-----------------------------------------------------------------------------
-	ERenameFlags.
-
-	Options to the UObject::Rename function, bit flag
------------------------------------------------------------------------------*/
-
+/** Options to the UObject::Rename() function, bit flag */
 typedef uint32 ERenameFlags;
 
-#define REN_None				(0x0000)
-#define REN_ForceNoResetLoaders	(0x0001) // Rename won't call ResetLoaders - most likely you should never specify this option (unless you are renaming a UPackage possibly)
-#define REN_Test				(0x0002) // Just test to make sure that the rename is guaranteed to succeed if an non test rename immediately follows
-#define REN_DoNotDirty			(0x0004) // Indicates that the object (and new outer) should not be dirtied.
-#define REN_DontCreateRedirectors (0x0010) // Don't create an object redirector, even if the class is marked RF_Public
-#define REN_NonTransactional	(0x0020) // Don't call Modify() on the objects, so they won't be stored in the transaction buffer
-#define REN_ForceGlobalUnique	(0x0040) // Force unique names across all packages not just while the scope of the new outer
-#define REN_SkipGeneratedClasses (0x0080) // Prevent renaming of any child generated classes and CDO's in blueprints
+/** Default rename behavior */
+#define REN_None					(0x0000)
+/** Rename won't call ResetLoaders or flush async loading. You should pass this if you are renaming a deep subobject and do not need to reset loading for the outer package */
+#define REN_ForceNoResetLoaders		(0x0001) 
+/** Just test to make sure that the rename is guaranteed to succeed if an non test rename immediately follows */
+#define REN_Test					(0x0002) 
+/** Indicates that the object (and new outer) should not be dirtied */
+#define REN_DoNotDirty				(0x0004) 
+/** Don't create an object redirector, even if the class is marked RF_Public */
+#define REN_DontCreateRedirectors	(0x0010) 
+/** Don't call Modify() on the objects, so they won't be stored in the transaction buffer */
+#define REN_NonTransactional		(0x0020) 
+/** Force unique names across all packages not just within the scope of the new outer */
+#define REN_ForceGlobalUnique		(0x0040) 
+/** Prevent renaming of any child generated classes and CDO's in blueprints */
+#define REN_SkipGeneratedClasses	(0x0080) 
 
 /*-----------------------------------------------------------------------------
 	Misc.
@@ -1694,6 +1687,7 @@ namespace UE4
 	enum ELoadConfigPropagationFlags
 	{
 		LCPF_None					=	0x0,
+
 		/**
 		 * Indicates that the object should read ini values from each section up its class's hierarchy chain;
 		 * Useful when calling LoadConfig on an object after it has already been initialized against its archetype
@@ -1715,7 +1709,9 @@ namespace UE4
 		 */
 		LCPF_ReloadingConfigData	=	0x8,
 
-		// Combination flags
+		/** 
+		 * All flags that should be persisted to propagated recursive calls 
+		 */
 		LCPF_PersistentFlags		=	LCPF_ReloadingConfigData,
 	};
 }

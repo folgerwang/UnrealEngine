@@ -19,7 +19,9 @@
 	#endif
 #endif
 
-
+/**
+ * Provides utility functions for UObject, this class should not be used directly
+ */
 class COREUOBJECT_API UObjectBaseUtility : public UObjectBase
 {
 public:
@@ -30,20 +32,25 @@ public:
 	{
 	}
 
-	/***********************/
-	/******** Flags ********/
-	/***********************/
 
+	/*-------------------
+			Flags
+	-------------------*/
+
+	/** Modifies object flags for a specific object */
 	FORCEINLINE void SetFlags( EObjectFlags NewFlags )
 	{
 		checkSlow(!(NewFlags & (RF_MarkAsNative | RF_MarkAsRootSet))); // These flags can't be used outside of constructors / internal code
 		SetFlagsTo(GetFlags() | NewFlags);
 	}
+
+	/** Clears subset of flags for a specific object */
 	FORCEINLINE void ClearFlags( EObjectFlags NewFlags )
 	{
 		checkSlow(!(NewFlags & (RF_MarkAsNative | RF_MarkAsRootSet)) || NewFlags == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		SetFlagsTo(GetFlags() & ~NewFlags);
 	}
+
 	/**
 	 * Used to safely check whether any of the passed in flags are set. 
 	 *
@@ -55,6 +62,7 @@ public:
 		checkSlow(!(FlagsToCheck & (RF_MarkAsNative | RF_MarkAsRootSet)) || FlagsToCheck == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		return (GetFlags() & FlagsToCheck) != 0;
 	}
+
 	/**
 	 * Used to safely check whether all of the passed in flags are set. 
 	 *
@@ -66,6 +74,7 @@ public:
 		checkSlow(!(FlagsToCheck & (RF_MarkAsNative | RF_MarkAsRootSet)) || FlagsToCheck == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		return ((GetFlags() & FlagsToCheck) == FlagsToCheck);
 	}
+
 	/**
 	 * Returns object flags that are both in the mask and set on the object.
 	 *
@@ -77,9 +86,9 @@ public:
 		return EObjectFlags(GetFlags() & Mask);
 	}
 
-	/***********************/
-	/******** Marks *******  UObjectMarks.cpp */
-	/***********************/
+	/*----------------------------------------------------
+			Marks, implemented in UObjectMarks.cpp
+	----------------------------------------------------*/
 
 	/**
 	 * Adds marks to an object
@@ -152,25 +161,23 @@ public:
 	}
 
 	/**
-	* Unmarks this object as PendingKill.
-	*/
+	 * Unmarks this object as PendingKill.
+	 */
 	FORCEINLINE void ClearPendingKill()
 	{
 		GUObjectArray.IndexToObject(InternalIndex)->ClearPendingKill();
 	}
 
-	//
-	// Add an object to the root set. This prevents the object and all
-	// its descendants from being deleted during garbage collection.
-	//
+	/**
+	 * Add an object to the root set. This prevents the object and all
+	 * its descendants from being deleted during garbage collection.
+	 */
 	FORCEINLINE void AddToRoot()
 	{
 		GUObjectArray.IndexToObject(InternalIndex)->SetRootSet();
 	}
 
-	//
-	// Remove an object from the root set.
-	//
+	/** Remove an object from the root set. */
 	FORCEINLINE void RemoveFromRoot()
 	{
 		GUObjectArray.IndexToObject(InternalIndex)->ClearRootSet();
@@ -186,45 +193,39 @@ public:
 		return GUObjectArray.IndexToObject(InternalIndex)->IsRootSet();
 	}
 
-	/**
-	* Atomically clear the unreachable flag
-	*
-	* @return true if we are the thread that cleared RF_Unreachable
-	**/
+	 /**
+	 * Atomically clear the unreachable flag
+	 *
+	 * @return true if we are the thread that cleared RF_Unreachable
+	 */
 	FORCEINLINE bool ThisThreadAtomicallyClearedRFUnreachable()
 	{
 		return GUObjectArray.IndexToObject(InternalIndex)->ThisThreadAtomicallyClearedRFUnreachable();
 	}
 
-	/**
-	* Checks if the object is unreachable.
-	**/
+	/** Checks if the object is unreachable. */
 	FORCEINLINE bool IsUnreachable() const
 	{
 		return GUObjectArray.IndexToObject(InternalIndex)->IsUnreachable();
 	}
 
-	/**
-	* Checks if the object is pending kill or unreachable.
-	**/
+	/** Checks if the object is pending kill or unreachable. */
 	FORCEINLINE bool IsPendingKillOrUnreachable() const
 	{
 		return GUObjectArray.IndexToObject(InternalIndex)->HasAnyFlags(EInternalObjectFlags::PendingKill | EInternalObjectFlags::Unreachable);
 	}
 
-	/**
-	* Checks if the object is native.
-	**/
+	/** Checks if the object is native. */
 	FORCEINLINE bool IsNative() const
 	{
 		return GUObjectArray.IndexToObject(InternalIndex)->HasAnyFlags(EInternalObjectFlags::Native);
 	}
 
 	/**
-	* Clears passed in internal flags .
+	 * Clears passed in internal flags.
 	 *
-	* @param FlagsToClear	Object flags to clear.
-	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 * @param FlagsToClear	Object flags to clear.
+	 * @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
 	 */
 	FORCEINLINE void SetInternalFlags(EInternalObjectFlags FlagsToSet) const
 	{
@@ -232,10 +233,10 @@ public:
 	}
 
 	/**
-	* Gets internal flags.
+	 * Gets internal flags.
 	 *
-	* @param FlagsToClear	Object flags to clear.
-	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 * @param FlagsToClear	Object flags to clear.
+	 * @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
 	 */
 	FORCEINLINE EInternalObjectFlags GetInternalFlags() const
 	{
@@ -243,10 +244,10 @@ public:
 	}
 
 	/**
-	* Used to safely check whether any of the passed in internal flags are set.
+	 * Used to safely check whether any of the passed in internal flags are set.
 	 *
-	* @param FlagsToCheck	Object flags to check for.
-	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 * @param FlagsToCheck	Object flags to check for.
+	 * @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
 	 */
 	FORCEINLINE bool HasAnyInternalFlags(EInternalObjectFlags FlagsToCheck) const
 	{
@@ -254,10 +255,10 @@ public:
 	}
 
 	/**
-	* Clears passed in internal flags .
+	 * Clears passed in internal flags.
 	 *
-	* @param FlagsToClear	Object flags to clear.
-	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 * @param FlagsToClear	Object flags to clear.
+	 * @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
 	 */
 	FORCEINLINE void ClearInternalFlags(EInternalObjectFlags FlagsToClear) const
 	{
@@ -265,19 +266,20 @@ public:
 	}
 
 	/**
-	* Atomically clears passed in internal flags .
-	*
-	* @param FlagsToClear	Object flags to clear.
-	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
-	*/
+	 * Atomically clears passed in internal flags.
+	 *
+	 * @param FlagsToClear	Object flags to clear.
+	 * @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 */
 	FORCEINLINE bool AtomicallyClearInternalFlags(EInternalObjectFlags FlagsToClear) const
 	{
 		return GUObjectArray.IndexToObject(InternalIndex)->ThisThreadAtomicallyClearedFlag(FlagsToClear);
 	}
 
-	/***********************/
-	/******** Names ********/
-	/***********************/
+
+	/*-------------------
+			Names
+	-------------------*/
 
 	/**
 	 * Returns the fully qualified pathname for this object as well as the name of the class, in the format:
@@ -302,7 +304,6 @@ public:
 	FString GetPathName( const UObject* StopOuter=NULL ) const;
 
 public:
-
 	/**
 	* Called after load to determine if the object can be a cluster root
 	*
@@ -338,7 +339,6 @@ public:
 	void AddToCluster(UObjectBaseUtility* ClusterRootOrObjectFromCluster, bool bAddAsMutableObject = false);
 
 protected:
-
 	/** Helper function to create a cluster from UObject */
 	static void CreateClusterFromObject(UObjectBaseUtility* ClusterRootObject, UObjectBaseUtility* ReferencingObject);
 
@@ -365,19 +365,22 @@ public:
 	{
 		return GetFName().ToString();
 	}
-	// GetFullName optimization
+
+	/** Optimized version of GetName that overwries an existing string */
 	FORCEINLINE void GetName(FString &ResultString) const
 	{
 		GetFName().ToString(ResultString);
 	}
+	/** Optimized version of GetName that appends to an existing string */
 	FORCEINLINE void AppendName(FString& ResultString) const
 	{
 		GetFName().AppendString(ResultString);
 	}
 
-	/***********************/
-	/******** Outer ********/
-	/***********************/
+
+	/*-------------------
+			Outer
+	-------------------*/
 
 	/** 
 	 * Walks up the list of outers until it finds the highest one.
@@ -420,9 +423,7 @@ public:
 		return (T *)GetTypedOuter(T::StaticClass());
 	}
 
-	/**
-	 * @return	true if the specified object appears somewhere in this object's outer chain.
-	 */
+	/** Returns true if the specified object appears somewhere in this object's outer chain. */
 	bool IsIn( const UObject* SomeOuter ) const;
 
 	/**
@@ -441,13 +442,10 @@ public:
 	 */
 	bool RootPackageHasAnyFlags( uint32 CheckFlagMask ) const;
 
-	/***********************/
-	/******** Class ********/
-	/***********************/
 
-	/**
-	 * @return	true if this object is of the specified type.
-	 */
+	/*-------------------
+			Class
+	-------------------*/
 
 private:
 	template <typename ClassType>
@@ -457,6 +455,7 @@ private:
 	}
 
 public:
+	/** Returns true if this object is of the specified type. */
 	template <typename OtherClassType>
 	FORCEINLINE bool IsA( OtherClassType SomeBase ) const
 	{
@@ -477,9 +476,7 @@ public:
 		return IsChildOfWorkaround(ThisClass, SomeBaseClass);
 	}
 
-	/**
-	 * @return	true if this object is of the template type.
-	 */
+	/** Returns true if this object is of the template type. */
 	template<class T>
 	bool IsA() const
 	{
@@ -528,9 +525,9 @@ public:
 	bool IsDefaultSubobject() const;
 	
 
-	/***********************/
-	/******** Linker ****  UObjectLinker.cpp */
-	/***********************/
+	/*--------------------------------------------------
+			Linker, defined in UObjectLinker.cpp
+	--------------------------------------------------*/
 
 	/**
 	 * Returns the linker for this object.
@@ -538,6 +535,7 @@ public:
 	 * @return	a pointer to the linker for this object, or NULL if this object has no linker
 	 */
 	class FLinkerLoad* GetLinker() const;
+
 	/**
 	 * Returns this object's LinkerIndex.
 	 *
@@ -590,6 +588,7 @@ public:
 	}
 };
 
+/** Returns false if this pointer cannot be a valid pointer to a UObject */
 FORCEINLINE bool IsPossiblyAllocatedUObjectPointer(UObject* Ptr)
 {
 	auto CountByteValues = [](UPTRINT Val, UPTRINT ByteVal) -> int32
@@ -674,6 +673,8 @@ COREUOBJECT_API UClass* GetParentNativeClass(UClass* Class);
 #endif
 
 #if STATS
+
+/** Structure used to track time spent by a UObject */
 struct FScopeCycleCounterUObject : public FCycleCounter
 {
 #if USE_MALLOC_PROFILER
@@ -727,6 +728,7 @@ struct FScopeCycleCounterUObject : public FCycleCounter
 		}
 #endif
 	}
+
 	/**
 	 * Updates the stat with the time spent
 	 */
@@ -746,6 +748,7 @@ struct FScopeCycleCounterUObject : public FCycleCounter
 #endif
 };
 
+/** Declares a scope cycle counter for a specific object with a Name context */
 #define SCOPE_CYCLE_UOBJECT(Name, Object) \
 	FScopeCycleCounterUObject ObjCycleCount_##Name(Object);
 
@@ -764,6 +767,7 @@ struct FScopeCycleCounterUObject
 	}
 };
 
+/** Declares a scope cycle counter for a specific object with a Name context */
 #define SCOPE_CYCLE_UOBJECT(Name, Object) \
 	FScopeCycleCounterUObject ObjCycleCount_##Name(Object);
 #elif USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION && USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION
@@ -788,6 +792,8 @@ public:
 
 	COREUOBJECT_API void ReportHitch();
 };
+
+/** Declares a scope cycle counter for a specific object with a Name context */
 #define SCOPE_CYCLE_UOBJECT(Name, Object) \
 	FScopeCycleCounterUObject ObjCycleCount_##Name(Object);
 #else

@@ -2,6 +2,10 @@
 
 #pragma once
 
+/*=============================================================================
+	Object.h: Direct base class for all UE4 objects
+=============================================================================*/
+
 #include "CoreMinimal.h"
 #include "UObject/Script.h"
 #include "UObject/ObjectMacros.h"
@@ -20,51 +24,63 @@ struct FPropertyChangedChainEvent;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogObj, Log, All);
 
-
+/** Parameter enum for CastChecked() function, defines when it will check/assert */
 namespace ECastCheckedType
 {
 	enum Type
 	{
+		/** Null is okay, only assert on incorrect type */
 		NullAllowed,
+		/** Null is not allowed, assert on incorrect type or null */
 		NullChecked
 	};
 };
 
-//
-// The base class of all objects.
-//
+/** 
+ * The base class of all UE4 objects. The type of an object is defined by its UClass.
+ * This provides support functions for creating and using objects, and virtual functions that should be overridden in child classes.
+ * 
+ * @see https://docs.unrealengine.com/en-us/Programming/UnrealArchitecture/Objects
+ */
 class COREUOBJECT_API UObject : public UObjectBaseUtility
 {
-	// Declarations.
+	// Declarations, normally created by UnrealHeaderTool boilerplate code
 	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport|CLASS_Intrinsic|CLASS_MatchedSerializers,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UObject)
+	typedef UObject WithinClass;
 	static UObject* __VTableCtorCaller(FVTableHelper& Helper)
 	{
 		return new (EC_InternalUseOnlyConstructor, (UObject*)GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject | RF_TagGarbageTemp) UObject(Helper);
 	}
-
-	typedef UObject WithinClass;
-	static const TCHAR* StaticConfigName() {return TEXT("Engine");}
-
-	// Constructors and destructors.
-	UObject();
-	UObject(const FObjectInitializer& ObjectInitializer);
-	UObject( EStaticConstructor, EObjectFlags InFlags );
-	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
-	UObject(FVTableHelper& Helper);
-
+	static const TCHAR* StaticConfigName() 
+	{
+		return TEXT("Engine");
+	}
 	static void StaticRegisterNativesUObject() 
 	{
 	}
 
+	/** Default constructor */
+	UObject();
+
+	/** Deprecated constructor, ObjectInitializer is no longer needed but is supported for older classes. */
+	UObject(const FObjectInitializer& ObjectInitializer);
+
+	/** DO NOT USE. This constructor is for internal usage only for statically-created objects. */
+	UObject(EStaticConstructor, EObjectFlags InFlags);
+
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UObject(FVTableHelper& Helper);
+
+	/** Utility function for templates below */
 	UObject* CreateDefaultSubobject(FName SubobjectFName, UClass* ReturnType, UClass* ClassToCreateByDefault, bool bIsRequired, bool bAbstract, bool bIsTransient);
 
 	/**
-	* Create a component or subobject only to be used with the editor.
-	* @param	TReturnType					class of return type, all overrides must be of this type
-	* @param	SubobjectName				name of the new component
-	* @param	bTransient					true if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
-	*/
+	 * Create a component or subobject only to be used with the editor. They will be stripped out in packaged builds.
+	 * @param	TReturnType					Class of return type, all overrides must be of this type
+	 * @param	SubobjectName				Name of the new component
+	 * @param	bTransient					True if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
+	 */
 	template<class TReturnType>
 	TReturnType* CreateEditorOnlyDefaultSubobject(FName SubobjectName, bool bTransient = false)
 	{
@@ -73,11 +89,11 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	}
 
 	/**
-	* Create a component or subobject
-	* @param	TReturnType					class of return type, all overrides must be of this type
-	* @param	SubobjectName				name of the new component
-	* @param	bTransient					true if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
-	*/
+	 * Create a component or subobject.
+	 * @param	TReturnType					Class of return type, all overrides must be of this type
+	 * @param	SubobjectName				Name of the new component
+	 * @param	bTransient					True if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
+	 */
 	template<class TReturnType>
 	TReturnType* CreateDefaultSubobject(FName SubobjectName, bool bTransient = false)
 	{
@@ -86,12 +102,12 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	}
 	
 	/**
-	* Create a component or subobject
-	* @param TReturnType class of return type, all overrides must be of this type
-	* @param TClassToConstructByDefault class to construct by default
-	* @param SubobjectName name of the new component
-	* @param bTransient		true if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
-	*/
+	 * Create a component or subobject, allows creating a child class and returning the parent class.
+	 * @param	TReturnType					Class of return type, all overrides must be of this type
+	 * @param	TClassToConstructByDefault	Class of object to actually construct
+	 * @param	SubobjectName				Name of the new component
+	 * @param	bTransient					True if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
+	 */
 	template<class TReturnType, class TClassToConstructByDefault>
 	TReturnType* CreateDefaultSubobject(FName SubobjectName, bool bTransient = false)
 	{
@@ -99,12 +115,12 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	}
 	
 	/**
-	* Create optional component or subobject. Optional subobjects may not get created
-	* when a derived class specified DoNotCreateDefaultSubobject with the subobject's name.
-	* @param	TReturnType					class of return type, all overrides must be of this type
-	* @param	SubobjectName				name of the new component
-	* @param	bTransient					true if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
-	*/
+	 * Create an optional component or subobject. Optional subobjects may not get created.
+	 * when a derived class specified DoNotCreateDefaultSubobject with the subobject's name.
+	 * @param	TReturnType					Class of return type, all overrides must be of this type
+	 * @param	SubobjectName				Name of the new component
+	 * @param	bTransient					True if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
+	 */
 	template<class TReturnType>
 	TReturnType* CreateOptionalDefaultSubobject(FName SubobjectName, bool bTransient = false)
 	{
@@ -113,12 +129,11 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	}
 	
 	/**
-	* Create optional component or subobject. Optional subobjects may not get created
-	* when a derived class specified DoNotCreateDefaultSubobject with the subobject's name.
-	* @param	TReturnType					class of return type, all overrides must be of this type
-	* @param	SubobjectName				name of the new component
-	* @param	bTransient					true if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
-	*/
+	 * Create a subobject that has the Abstract class flag, child classes are expected to override this by calling CreateDEfaultObject with the same name and a non-abstract class.
+	 * @param	TReturnType					Class of return type, all overrides must be of this type
+	 * @param	SubobjectName				Name of the new component
+	 * @param	bTransient					True if the component is being assigned to a transient property. This does not make the component itself transient, but does stop it from inheriting parent defaults
+	 */
 	template<class TReturnType>
 	TReturnType* CreateAbstractDefaultSubobject(FName SubobjectName, bool bTransient = false)
 	{
@@ -127,30 +142,32 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	}
 
 	/**
-	* Gets all default subobjects associated with this object instance.
-	* @param	OutDefaultSubobjects	Array containing all default subobjects of this object.
-	*/
+	 * Gets all default subobjects associated with this object instance.
+	 * @param	OutDefaultSubobjects	Array containing all default subobjects of this object.
+	 */
 	void GetDefaultSubobjects(TArray<UObject*>& OutDefaultSubobjects);
 
 	/**
-	* Finds a subobject associated with this object instance by its name
-	* @param	OutDefaultSubobjects	Array containing all default subobjects of this object.
-	*/
+	 * Finds a subobject associated with this object instance by its name
+	 * @param	Name	Object name to look for
+	 */
 	UObject* GetDefaultSubobjectByName(FName ToFind);
 
-	//==========================================
-	// UObject interface.
-	//==========================================	
+	/*----------------------------------
+			UObject interface
+	----------------------------------*/
+
 protected:
     /** 
-     * This function actually does the work for the GetDetailInfo and is virtual.  
+     * This function actually does the work for the GetDetailedInfo() and is virtual.  
      * It should only be called from GetDetailedInfo as GetDetailedInfo is safe to call on NULL object pointers
-     **/
+     */
 	virtual FString GetDetailedInfoInternal() const { return TEXT("No_Detailed_Info_Specified"); }
+
 public:
 	/**
 	 * Called after the C++ constructor and after the properties have been initialized, including those loaded from config.
-	 * mainly this is to emulate some behavior of when the constructor was called after the properties were initialized.
+	 * This is called before any serialization or other setup has happened.
 	 */
 	virtual void PostInitProperties();
 
@@ -163,20 +180,20 @@ public:
 	}
 
 	/**
-	 * Called from within SavePackage on the passed in base/ root. The return value of this function will be passed to
-	 * PostSaveRoot. This is used to allow objects used as base to perform required actions before saving and cleanup
-	 * afterwards.
+	 * Called from within SavePackage on the passed in base/root object. The return value of this function will be passed to PostSaveRoot. 
+	 * This is used to allow objects used as a base to perform required actions before saving and cleanup afterwards.
 	 * @param Filename: Name of the file being saved to (includes path)
-	 *
+
 	 * @return	Whether PostSaveRoot needs to perform internal cleanup
 	 */
 	virtual bool PreSaveRoot(const TCHAR* Filename)
 	{
 		return false;
 	}
+
 	/**
-	 * Called from within SavePackage on the passed in base/ root. This function is being called after the package
-	 * has been saved and can perform cleanup.
+	 * Called from within SavePackage on the passed in base/root object. 
+	 * This function is called after the package has been saved and can perform cleanup.
 	 *
 	 * @param	bCleanupIsRequired	Whether PreSaveRoot dirtied state that needs to be cleaned up
 	 */
@@ -201,9 +218,7 @@ public:
 	 */
 	virtual bool Modify( bool bAlwaysMarkDirty=true );
 
-	/** 
-	 * Utility to allow overrides of Modify to avoid doing work if the base class is not going modify anyways.
-	 */
+	/** Utility to allow overrides of Modify to avoid doing work if this object cannot be safely modified */
 	bool CanModify() const;
 
 #if WITH_EDITOR
@@ -214,8 +229,8 @@ public:
 #endif
 
 	/** 
-	 * Do any object-specific cleanup required immediately after loading an object, 
-	 * and immediately after any undo/redo.
+	 * Do any object-specific cleanup required immediately after loading an object.
+	 * This is not called for newly-created objects, and by default will always execute on the game thread.
 	 */
 	virtual void PostLoad();
 
@@ -251,15 +266,18 @@ public:
 	/**
 	 * Called to finish destroying the object.  After UObject::FinishDestroy is called, the object's memory should no longer be accessed.
 	 *
-	 * note: because properties are destroyed here, Super::FinishDestroy() should always be called at the end of your child class's
-	 * FinishDestroy() method, rather than at the beginning.
+	 * @warning Because properties are destroyed here, Super::FinishDestroy() should always be called at the end of your child class's FinishDestroy() method, rather than at the beginning.
 	 */
 	virtual void FinishDestroy();
 
-	/** UObject serializer. */
+	/** 
+	 * Handles reading, writing, and reference collecting using FArchive.
+	 * This implementation handles all UProperty serialization, but can be overridden for native variables.
+	 */
 	virtual void Serialize(FArchive& Ar);
 	virtual void Serialize(FStructuredArchive::FRecord Record);
 
+	/** After a critical error, perform any mission-critical cleanup, such as restoring the video mode orreleasing hardware resources. */
 	virtual void ShutdownAfterError() {}
 
 	/** 
@@ -271,7 +289,7 @@ public:
 
 #if WITH_EDITOR
 	/** 
-	 * This is called when property is about to be modified by InterpPropertyTracks
+	 * This is called when a property is about to be modified externally
 	 *
 	 * @param PropertyThatWillChange	Property that will be changed
 	 */
@@ -353,7 +371,7 @@ private:
 public:
 #endif // WITH_EDITOR
 
-	// @todo document
+	/** Called at the end of Rename(), but only if the rename was actually carried out */
 	virtual void PostRename(UObject* OldOuter, const FName OldName) {}
 	
 	/**
@@ -361,7 +379,6 @@ public:
 	 * Note: NOT called on components on actor duplication (alt-drag or copy-paste).  Use PostEditImport as well to cover that case.
 	 */
 	virtual void PostDuplicate(bool bDuplicateForPIE) {}
-
 	virtual void PostDuplicate(EDuplicateMode::Type DuplicateMode) 
 	{
 		PostDuplicate(DuplicateMode == EDuplicateMode::PIE);
@@ -392,10 +409,10 @@ public:
 	virtual bool NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const;
 
 	/**
-	 * Called during saving to determine the load flags to save with the object.
+	 * Called during saving to include this object in client/servers running in editor builds, even if they wouldn't normally be.
 	 * If false, this object will still get loaded if NeedsLoadForServer/Client are true
 	 * 
-	 * @return	true if this object should always be loaded for editor game
+	 * @return	true if this object should always be loaded for games running in editor builds
 	 */
 	virtual bool NeedsLoadForEditorGame() const
 	{
@@ -455,25 +472,25 @@ public:
 	static bool CanCreateInCurrentContext(UObject* Template);
 
 	/**
-	* Exports the property values for the specified object as text to the output device. Required for Copy&Paste
-	* Most objects don't need this as unreal script can handle most cases.
-	*
-	* @param	Out				the output device to send the exported text to
-	* @param	Indent			number of spaces to prepend to each line of output
-	*
-	* see also: ImportCustomProperties()
-	*/
+	 * Exports the property values for the specified object as text to the output device.
+	 * Override this if you need custom support for copy/paste.
+	 *
+	 * @param	Out				The output device to send the exported text to
+	 * @param	Indent			Number of spaces to prepend to each line of output
+	 *
+	 * @see ImportCustomProperties()
+	 */
 	virtual void ExportCustomProperties(FOutputDevice& Out, uint32 Indent)	{}
 
 	/**
-	* Exports the property values for the specified object as text to the output device. Required for Copy&Paste
-	* Most objects don't need this as unreal script can handle most cases.
-	*
-	* @param	SourceText		the input data (zero terminated), must not be 0
-	* @param	Warn			for error reporting, must not be 0
-	*
-	* see also: ExportCustomProperties()
-	*/
+	 * Exports the property values for the specified object as text to the output device. Required for Copy&Paste
+	 * Override this if you need custom support for copy/paste.
+	 *
+	 * @param	SourceText		The input data (zero terminated), will never be null
+	 * @param	Warn			For error reporting, will never be null
+	 *
+	 * @see ExportCustomProperties()
+	 */
 	virtual void ImportCustomProperties(const TCHAR* SourceText, FFeedbackContext* Warn) {}
 
 	/**
@@ -488,16 +505,30 @@ public:
 	 */
 	virtual void PostReloadConfig( class UProperty* PropertyThatWasLoaded ) {}
 
-	/** Rename this object to a unique name.*/
-	virtual bool Rename( const TCHAR* NewName=NULL, UObject* NewOuter=NULL, ERenameFlags Flags=REN_None );
+	/** 
+	 * Rename this object to a unique name, or change its outer.
+	 * @warning Unless ForceNoResetLoaders is passed in, this will cause a flush of all level streaming.
+	 * 
+	 * @param	NewName		The new name of the object, if null then NewOuter should be set
+	 * @param	NewOuter	New Outer this object will be placed within, if null it will use the current outer
+	 * @param	Flags		Flags to specify what happens during the rename
+	 */
+	virtual bool Rename(const TCHAR* NewName=nullptr, UObject* NewOuter=nullptr, ERenameFlags Flags=REN_None);
 
-
-	/** @return a one line description of an object for viewing in the thumbnail view of the generic browser */
+	/** Return a one line description of an object for viewing in the thumbnail view of the generic browser */
 	virtual FString GetDesc() { return TEXT( "" ); }
 
 #if WITH_ENGINE
+	/** 
+	 * Returns what UWorld this object is contained within. 
+	 * By default this will follow its Outer chain, but it should be overridden if that will not work.
+	 */
 	virtual class UWorld* GetWorld() const;
+
+	/** Internal function used by UEngine::GetWorldFromContextObject() */
 	class UWorld* GetWorldChecked(bool& bSupported) const;
+
+	/** Checks to see if GetWorld() is implemented on a specific class */
 	bool ImplementsGetWorld() const;
 #endif
 
@@ -588,12 +619,7 @@ public:
 		return true;
 	}
 
-	/**
-	 * Gathers a list of asset registry searchable tags which are name/value pairs with some type information
-	 * This only needs to be implemented for asset objects
-	 *
-	 * @param	OutTags		A list of key-value pairs associated with this object and their types
-	 */
+	/** Struct used by GetAssetRegistryTags() to return tag info */
 	struct FAssetRegistryTag
 	{
 		/** Enum specifying the type of this tag */
@@ -626,9 +652,16 @@ public:
 			TD_Memory = 1<<3,
 		};
 		
+		/** Logical name of this tag */
 		FName Name;
+
+		/** Value string for this tag, may represent any data type */
 		FString Value;
+
+		/** Broad description of kind of data represented in Value */
 		ETagType Type;
+
+		/** Flags describing more detail for displaying in the UI */
 		uint32 DisplayFlags;
 
 		FAssetRegistryTag(FName InName, const FString& InValue, ETagType InType, uint32 InDisplayFlags = TD_None)
@@ -640,6 +673,13 @@ public:
 		/** Returns true if this FName is a special UStruct that should be exported even if not tagged, with the struct name as the tag name */
 		COREUOBJECT_API static bool IsUniqueAssetRegistryTagStruct(FName StructName, ETagType& TagType);
 	};
+
+	/**
+	 * Gathers a list of asset registry searchable tags which are name/value pairs with some type information
+	 * This only needs to be implemented for asset objects
+	 *
+	 * @param	OutTags		A list of key-value pairs associated with this object and their types
+	 */
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
 
 	/** Get the common tag name used for all asset source file import paths */
@@ -750,11 +790,9 @@ public:
 	virtual EDataValidationResult IsDataValid(TArray<FText>& ValidationErrors);
 #endif // WITH_EDITOR
 
-	/**
- 	 *******************************************************
-	 * Non virtual functions, not intended to be overridden
-	 *******************************************************
-	 */
+	/*----------------------------------------------------------
+		Non virtual functions, not intended to be overridden
+	----------------------------------------------------------*/
 
 	/**
 	 * Test the selection state of a UObject
@@ -822,6 +860,8 @@ public:
 	 * asynchronous cleanup process.
 	 */
 	bool ConditionalBeginDestroy();
+
+	/** Called when an object is actually destroyed, memory should never be accessed again */
 	bool ConditionalFinishDestroy();
 	
 	/** PostLoad if needed. */
@@ -835,6 +875,7 @@ public:
 	 *								subobjects and components for a subobject root.
 	 */
 	void ConditionalPostLoadSubobjects( struct FObjectInstancingGraph* OuterInstanceGraph=NULL );
+
 #if WITH_EDITOR
 	/**
 	 * Starts caching of platform specific data for the target platform
@@ -885,7 +926,10 @@ public:
 	 */
 	inline bool IsBasedOnArchetype( const UObject* const SomeObject ) const;
 
+	/** Returns a UFunction with the specified name, wrapper for UClass::FindFunctionByName() */
 	UFunction* FindFunction( FName InName ) const;
+	
+	/** Version of FindFunction() that will assert if the function was not found */
 	UFunction* FindFunctionChecked( FName InName ) const;
 
 	/**
@@ -914,9 +958,8 @@ public:
 	bool CheckDefaultSubobjects(bool bForceCheck = false) const;
 
 	/**
-	 * Save configuration.
-	 * @warning: Must be safe on class-default metaobjects.
-	 * !!may benefit from hierarchical propagation, deleting keys that match superclass...not sure what's best yet.
+	 * Save configuration out to ini files
+	 * @warning Must be safe to call on class-default object
 	 */
 	void SaveConfig( uint64 Flags=CPF_Config, const TCHAR* Filename=NULL, FConfigCacheIni* Config=GConfig );
 
@@ -948,7 +991,6 @@ private:
 	void EnsureNotRetrievingVTablePtr() const;
 
 public:
-	
 	/**
 	 * Get the default config filename for the specified UObject
 	 */
@@ -981,7 +1023,7 @@ public:
 
 	/**
 	 * Wrapper method for LoadConfig that is used when reloading the config data for objects at runtime which have already loaded their config data at least once.
-	 * Allows the objects the receive a callback that it's configuration data has been reloaded.
+	 * Allows the objects the receive a callback that its configuration data has been reloaded.
 	 *
 	 * @param	Class				the class to use for determining which section of the ini to retrieve text values from
 	 * @param	Filename			indicates the filename to load values from; if not specified, uses ConfigClass's ClassConfigName
@@ -1001,7 +1043,7 @@ public:
 	 */
 	void OutputReferencers( FOutputDevice& Ar, FReferencerInformationList* Referencers=NULL );
 	
-	// @todo document
+	/** Called by OutputReferencers() to get the internal list of referencers to write */
 	void RetrieveReferencers( TArray<FReferencerInformation>* OutInternalReferencers, TArray<FReferencerInformation>* OutExternalReferencers);
 
 	/**
@@ -1046,14 +1088,12 @@ public:
 	template<class T>
 	bool Implements() const;
 
-	//==========================================
-	// Kismet Virtual Machine
-	//==========================================
-	//@todo UE4 - do these really need to be virtual to support actors?
 
-	//
-	// Script processing functions.
-	//
+	/*-----------------------------
+			Virtual Machine
+	-----------------------------*/
+
+	/** Called by VM to execute a UFunction with a filled in UStruct of parameters */
 	virtual void ProcessEvent( UFunction* Function, void* Parms );
 
 	/**
@@ -1082,16 +1122,16 @@ public:
 		return false;
 	}
 
-	/** Command line. */
+	/** Handle calling a function by name when executed from the console or a command line */
 	bool CallFunctionByNameWithArguments( const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor, bool bForceCallWithNonExec = false );
 
-	// Call a function
+	/** Internal VM method for executing a function */
 	void CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function );
 
-	//
-	// Internal function call processing.
-	// @warning: might not write anything to Result if proper type isn't returned.
-	//
+	/**
+	 * Internal function call processing.
+	 * @warning: might not write anything to Result if proper type isn't returned.
+	 */
 	DECLARE_FUNCTION(ProcessInternal);
 
 	/**
@@ -1126,6 +1166,7 @@ public:
 	 */
 	void DestroyNonNativeProperties();
 
+	/** Called during subobject creation to mark this component as editor only, which causes it to get stripped in packaged builds */
 	virtual void MarkAsEditorOnlySubobject() { }
 
 	/**
@@ -1133,13 +1174,11 @@ public:
 	 */
 	void AbortInsideMemberFunction() const;
 
-	// UnrealScript intrinsics.
+	// UnrealScript intrinsics, do not call directly
 
 	// Undefined native handler
 	DECLARE_FUNCTION(execUndefined);
 
-	
-	// @todo document below declared functions
 	// Variables
 	DECLARE_FUNCTION(execLocalVariable);
 	DECLARE_FUNCTION(execInstanceVariable);
@@ -1151,7 +1190,6 @@ public:
 	DECLARE_FUNCTION(execBoolVariable);
 	DECLARE_FUNCTION(execClassDefaultVariable);
 	DECLARE_FUNCTION(execEndFunctionParms);
-
 
 	// Do Nothing 
 	DECLARE_FUNCTION(execNothing);
@@ -1229,7 +1267,6 @@ public:
 	DECLARE_FUNCTION(execStructCmpNe);
 	DECLARE_FUNCTION(execStructMember);
 
-	// @todo delegate: Delegate comparison is not supported for multi-cast delegates
 	DECLARE_FUNCTION(execEqualEqual_DelegateDelegate);
 	DECLARE_FUNCTION(execNotEqual_DelegateDelegate);
 	DECLARE_FUNCTION(execEqualEqual_DelegateFunction);
@@ -1247,7 +1284,6 @@ public:
 	DECLARE_FUNCTION(execObjectConst);
 	DECLARE_FUNCTION(execSoftObjectConst);
 
-	// @todo delegate: Multi-cast versions needed for script execution!		(Need Add, Remove, Clear/Empty)
 	DECLARE_FUNCTION(execInstanceDelegate);
 	DECLARE_FUNCTION(execNameConst);
 	DECLARE_FUNCTION(execByteConst);
@@ -1314,11 +1350,13 @@ public:
 
 	DECLARE_FUNCTION(execArrayGetByRef);
 
-	// -- K2 support functions
+	/** Wrapper struct to hold the entrypoint in the right memory address */
 	struct Object_eventExecuteUbergraph_Parms
 	{
 		int32 EntryPoint;
 	};
+
+	/** Execute the ubergraph from a specific entry point */
 	void ExecuteUbergraph(int32 EntryPoint)
 	{
 		Object_eventExecuteUbergraph_Parms Parms;
@@ -1327,7 +1365,6 @@ public:
 	}
 
 protected: 
-
 	/** Checks it's ok to perform subobjects check at this time. */
 	bool CanCheckDefaultSubObjects(bool bForceCheck, bool& bResult) const;
 
