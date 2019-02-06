@@ -88,6 +88,8 @@ void UUnifyNormalsCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMod
 		TSet<FPolygonID> SelectedPolygons;		// set of selected polygons
 		TSet<FPolygonID> FlippedPolygons;		// set of polygons that are flipped with respect to the selected polygons
 		TSet<FPolygonID> BoundaryPolygons;		// set of polygons that represent the boundary of the flipped polygons
+		TSet<FVertexID> BoundaryPolygonVertices;// set of vertices of the polygons at the boundary of the flipped polygons
+		TArray<FVertexID> Vertices;
 
 		// Check the neighbor polygons of the selected polygon to see if they are flipped with respect to it
 		// They are flipped if the edge shared by the polygons have the same edge direction (because they have opposite winding)
@@ -134,7 +136,10 @@ void UUnifyNormalsCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMod
 								}
 								else
 								{
-									BoundaryPolygons.Add(NeighborPolygonID);
+									// Add the vertices of the polygon at the boundary
+									Vertices.Reset();
+									MeshDescription->GetPolygonPerimeterVertices(NeighborPolygonID, Vertices);
+									BoundaryPolygonVertices.Append(Vertices);
 								}
 							}
 						}
@@ -150,11 +155,34 @@ void UUnifyNormalsCommand::Execute(IMeshEditorModeEditingContract& MeshEditorMod
 
 		if (FlippedPolygons.Num() > 0)
 		{
+			// Get the set of vertices of all flipped polygons
+			TSet<FVertexID> FlippedPolygonVertices;
+			for (const FPolygonID& PolygonID : FlippedPolygons)
+			{
+				Vertices.Reset();
+				MeshDescription->GetPolygonPerimeterVertices(PolygonID, Vertices);
+				FlippedPolygonVertices.Append(Vertices);
+			}
+
+			// Get the vertices that are at the boundary of flipped and unflipped polygons
+			BoundaryPolygonVertices = BoundaryPolygonVertices.Intersect(FlippedPolygonVertices);
+
+			// The boundary polygons are those that share the boundary vertices
+			TSet<FPolygonID> BoundaryPolygons;
+			for (const FVertexID& VertexID : BoundaryPolygonVertices)
+			{
+				TArray<FPolygonID> Polygons;
+				MeshDescription->GetVertexConnectedPolygons(VertexID, Polygons);
+				BoundaryPolygons.Append(Polygons);
+			}
+
 			EditableMesh->StartModification(EMeshModificationType::Final, EMeshTopologyChange::TopologyChange);
 
 			EditableMesh->FlipPolygons(FlippedPolygons.Array());
 
 			// The selected and boundary polygons are not modified, but need to have their normals/tangents recomputed
+			// Also, adding the flipped polygons will force their tangents to be recomputed instead of just being flipped
+			EditableMesh->PolygonsPendingNewTangentBasis.Append(FlippedPolygons);
 			EditableMesh->PolygonsPendingNewTangentBasis.Append(SelectedPolygons);
 			EditableMesh->PolygonsPendingNewTangentBasis.Append(BoundaryPolygons);
 

@@ -652,6 +652,7 @@ void UEditableMesh::StartModification( const EMeshModificationType MeshModificat
 		}
 
 		PolygonsPendingNewTangentBasis.Reset();
+		PolygonsPendingFlipTangentBasis.Reset();
 		PolygonsPendingTriangulation.Reset();
 		VerticesPendingMerging.Reset();
 
@@ -691,6 +692,13 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 			if( PolygonsPendingNewTangentBasis.Num() > 0 )
 			{
 				GenerateTangentsAndNormals();
+			}
+
+			// Exclude the polygons that have already regenerated their normal/tangent
+			PolygonsPendingFlipTangentBasis = PolygonsPendingFlipTangentBasis.Difference( PolygonsPendingNewTangentBasis );
+			if( PolygonsPendingFlipTangentBasis.Num() > 0 )
+			{
+				FlipTangentsAndNormals();
 			}
 
 			bAllowUndo = bIsUndoAllowed;
@@ -6175,6 +6183,44 @@ void UEditableMesh::GenerateTangentsAndNormals()
 	SetVertexInstancesAttributes( AttributesForVertexInstances );
 }
 
+void UEditableMesh::FlipTangentsAndNormals()
+{
+	const TVertexInstanceAttributesRef<FVector> VertexNormals = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<FVector>( MeshAttribute::VertexInstance::Normal );
+	const TVertexInstanceAttributesRef<FVector> VertexTangents = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<FVector>( MeshAttribute::VertexInstance::Tangent );
+	const TVertexInstanceAttributesRef<float> VertexBinormals = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<float>( MeshAttribute::VertexInstance::BinormalSign );
+
+	static TSet<FVertexInstanceID> VertexInstanceIDs;
+	VertexInstanceIDs.Reset();
+
+	for( const FPolygonID PolygonID : PolygonsPendingFlipTangentBasis )
+	{
+		VertexInstanceIDs.Append( GetMeshDescription()->GetPolygonPerimeterVertexInstances( PolygonID ) );
+	}
+
+	static TArray<FAttributesForVertexInstance> AttributesForVertexInstances;
+	AttributesForVertexInstances.Reset( VertexInstanceIDs.Num() );
+
+	for( const FVertexInstanceID VertexInstanceID : VertexInstanceIDs )
+	{
+		const FVertexID VertexID = GetMeshDescription()->GetVertexInstanceVertex( VertexInstanceID );
+
+		// Just reverse the sign of the normals/tangents; note that since binormals are the cross product of normal with tangent, they are left untouched
+		FVector Normal = VertexNormals[ VertexInstanceID ] * -1.0f;
+		FVector Tangent = VertexTangents[ VertexInstanceID ] * -1.0f;
+		float BinormalSign = VertexBinormals[ VertexInstanceID ];
+
+		FAttributesForVertexInstance& AttributesForVertexInstance = AttributesForVertexInstances.AddDefaulted_GetRef();
+
+		AttributesForVertexInstance.VertexInstanceID = VertexInstanceID;
+		AttributesForVertexInstance.VertexInstanceAttributes.Attributes.Reset( 3 );
+		AttributesForVertexInstance.VertexInstanceAttributes.Attributes.Emplace( MeshAttribute::VertexInstance::Normal, 0, FMeshElementAttributeValue( Normal ) );
+		AttributesForVertexInstance.VertexInstanceAttributes.Attributes.Emplace( MeshAttribute::VertexInstance::Tangent, 0, FMeshElementAttributeValue( Tangent ) );
+		AttributesForVertexInstance.VertexInstanceAttributes.Attributes.Emplace( MeshAttribute::VertexInstance::BinormalSign, 0, FMeshElementAttributeValue( BinormalSign ) );
+	}
+
+	SetVertexInstancesAttributes( AttributesForVertexInstances );
+}
+
 void UEditableMesh::SplitPolygonalMesh(const FPlane& InPlane, TArray<FPolygonID>& PolygonIDs1, TArray<FPolygonID>& PolygonIDs2, TArray<FEdgeID>& BoundaryEdges)
 {
 	TPolygonAttributesConstRef<FVector> PolygonCenters = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>(MeshAttribute::Polygon::Center);
@@ -6851,50 +6897,21 @@ void UEditableMesh::FlipPolygons( const TArray<FPolygonID>& PolygonIDs )
 {
 	EM_ENTER( TEXT( "FlipPolygons %s" ), *LogHelpers::ArrayToString( PolygonIDs ) );
 
-	static TArray<FPolygonToCreate> PolygonsToCreate;
-	PolygonsToCreate.Reset();
-	for( int32 PolygonNumber = 0; PolygonNumber < PolygonIDs.Num(); ++PolygonNumber )
+	FFlipPolygonsChangeInput RevertInput;
+	RevertInput.PolygonIDsToFlip = PolygonIDs;
+	AddUndo( MakeUnique<FFlipPolygonsChange>( MoveTemp( RevertInput ) ) );
+
+	for (const FPolygonID& PolygonID : PolygonIDs)
 	{
-		const FPolygonID OriginalPolygonID = PolygonIDs[ PolygonNumber ];
-		const FPolygonGroupID OriginalPolygonGroupID = GetGroupForPolygon( OriginalPolygonID );
-
-		FPolygonToCreate& PolygonToCreate = *new( PolygonsToCreate ) FPolygonToCreate();
-
-		PolygonToCreate.PolygonGroupID = OriginalPolygonGroupID;
-		
-		// Keep the original polygon ID.  No reason not to.
-		PolygonToCreate.OriginalPolygonID = OriginalPolygonID;
-
-		// Iterate backwards to add the vertices for the polygon, because we're flipping it over.
-		const TArray<FVertexInstanceID>& PerimeterVertexInstanceIDs = GetMeshDescription()->GetPolygonPerimeterVertexInstances( OriginalPolygonID );
-		const int32 PerimeterVertexCount = PerimeterVertexInstanceIDs.Num();
-
-		PolygonToCreate.PerimeterVertices.Reserve( PerimeterVertexCount );
-		for( int32 VertexNumber = PerimeterVertexCount - 1; VertexNumber >= 0; --VertexNumber )
-		{
-			PolygonToCreate.PerimeterVertices.Emplace();
-			FVertexAndAttributes& PerimeterVertex = PolygonToCreate.PerimeterVertices.Last();
-
-			// Just create a polygon from existing vertex instance IDs
-			PerimeterVertex.VertexInstanceID = PerimeterVertexInstanceIDs[ VertexNumber ];
-		}
+		GetMeshDescription()->ReversePolygonFacing(PolygonID);
 	}
 
-	// Delete all of the polygons
+	for( UEditableMeshAdapter* Adapter : Adapters )
 	{
-		const bool bDeleteOrphanedEdges = false;
-		const bool bDeleteOrphanedVertices = false;
-		const bool bDeleteOrphanedVertexInstances = false;
-		const bool bDeleteEmptyPolygonGroups = false;
-		DeletePolygons( PolygonIDs, bDeleteOrphanedEdges, bDeleteOrphanedVertices, bDeleteOrphanedVertexInstances, bDeleteEmptyPolygonGroups );
+		Adapter->OnRetriangulatePolygons( this, PolygonIDs );
 	}
 
-	// Create the new polygons.  They're just like the polygons we deleted, except with reversed winding.
-	{
-		static TArray<FPolygonID> NewPolygonIDs;
-		static TArray<FEdgeID> NewEdgeIDs;
-		CreatePolygons( PolygonsToCreate, NewPolygonIDs, NewEdgeIDs );
-	}
+	PolygonsPendingFlipTangentBasis.Append(PolygonIDs);
 
 	EM_EXIT( TEXT( "FlipPolygons returned" ) );
 }

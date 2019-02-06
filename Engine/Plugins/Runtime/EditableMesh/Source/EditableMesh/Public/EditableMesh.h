@@ -503,6 +503,9 @@ private:
 	/** Called during end modification to generate tangents and normals on the pending polygon list */
 	void GenerateTangentsAndNormals();
 
+	/** Called during end modification to flip tangents and normals on the pending polygon list */
+	void FlipTangentsAndNormals();
+
 	/** Called during end modification to retriangulate polygons in the pending polygon list */
 	void RetriangulatePolygons();
 
@@ -555,6 +558,9 @@ public:
 
 	/** List of polygons which need their tangent basis recalculating (and consequently their associated vertex instances) */
 	TSet<FPolygonID> PolygonsPendingNewTangentBasis;
+
+	/** List of polygons which need their tangent basis flipped (and consequently their associated vertex instances) */
+	TSet<FPolygonID> PolygonsPendingFlipTangentBasis;
 
 	/** List of polygons requiring retriangulation */
 	TSet<FPolygonID> PolygonsPendingTriangulation;
