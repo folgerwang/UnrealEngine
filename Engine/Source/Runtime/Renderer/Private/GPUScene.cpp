@@ -196,19 +196,13 @@ void UpdateGPUScene(FRHICommandList& RHICmdList, FScene& Scene)
 
 			for (int32 Index : Scene.GPUScene.PrimitivesToUpdate)
 			{
+				// PrimitivesToUpdate may contain a stale out of bounds index, as we don't remove update request on primitive removal from scene.
 				if (Index < Scene.PrimitiveSceneProxies.Num())
 				{
 					FPrimitiveSceneProxy* PrimitiveSceneProxy = Scene.PrimitiveSceneProxies[Index];
 					NumLightmapDataUploads += PrimitiveSceneProxy->GetPrimitiveSceneInfo()->GetNumLightmapDataEntries();
 
 					FPrimitiveSceneShaderData PrimitiveSceneData(PrimitiveSceneProxy);
-					PrimitivesUploadBuilder.Add(Index, &PrimitiveSceneData.Data[0]);
-				}
-				else
-				{
-					// Dirty index belongs to a primitive that is now out of bounds
-					// Upload identity data to the dirty index to expose any incorrect shader indexing, even though no primitive should be referencing it
-					FPrimitiveSceneShaderData PrimitiveSceneData;
 					PrimitivesUploadBuilder.Add(Index, &PrimitiveSceneData.Data[0]);
 				}
 			}
@@ -247,6 +241,7 @@ void UpdateGPUScene(FRHICommandList& RHICmdList, FScene& Scene)
 
 				for (int32 Index : Scene.GPUScene.PrimitivesToUpdate)
 				{
+					// PrimitivesToUpdate may contain a stale out of bounds index, as we don't remove update request on primitive removal from scene.
 					if (Index < Scene.PrimitiveSceneProxies.Num())
 					{
 						FPrimitiveSceneProxy* PrimitiveSceneProxy = Scene.PrimitiveSceneProxies[Index];
