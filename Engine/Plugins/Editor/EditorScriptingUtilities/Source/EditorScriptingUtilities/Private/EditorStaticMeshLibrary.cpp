@@ -687,6 +687,12 @@ bool UEditorStaticMeshLibrary::RemoveCollisions(UStaticMesh* StaticMesh)
 		return false;
 	}
 
+	if (StaticMesh->BodySetup == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Log, TEXT("RemoveCollisions: No collision set up. Nothing to do."));
+		return true;
+	}
+
 	// Close the mesh editor to prevent crashing. Reopen it after the mesh has been built.
 	FAssetEditorManager& AssetEditorManager = FAssetEditorManager::Get();
 	bool bStaticMeshIsEdited = false;
