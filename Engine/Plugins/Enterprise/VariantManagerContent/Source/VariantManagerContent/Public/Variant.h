@@ -50,6 +50,10 @@ public:
 
 private:
 
+	// The display name used to be a property. Use the non-deprecated, non-property version from now on
+	UPROPERTY()
+	FText DisplayText_DEPRECATED;
+
 	FText DisplayText;
 
 	UPROPERTY()

@@ -42,8 +42,6 @@ struct FCapturedPropSegment
 {
 	GENERATED_USTRUCT_BODY()
 
-	// These are properties so they get duplicated automatically when we duplicate bindings, variants, etc
-
 	UPROPERTY()
 	FString PropertyName;
 
@@ -143,6 +141,14 @@ protected:
 	void* ParentContainerAddress;
 	uint8* PropertyValuePtr;
 	UFunction* PropertySetter;
+
+	// Properties were previously stored like this. Use CapturedPropSegments from now on, which stores
+	// properties by name instead. It is much safer, as we can't guarantee these pointers will be valid
+	// if they point at other packages (will depend on package load order, etc).
+	UPROPERTY()
+	TArray<UProperty*> Properties_DEPRECATED;
+	UPROPERTY()
+	TArray<int32> PropertyIndices_DEPRECATED;
 
 	UPROPERTY()
 	TArray<FCapturedPropSegment> CapturedPropSegments;

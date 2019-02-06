@@ -157,6 +157,11 @@ FString ULevelVariantSets::GetUniqueVariantSetName(const FString& InPrefix)
 		UniqueNames.Add(VariantSet->GetDisplayText().ToString());
 	}
 
+	if (!UniqueNames.Contains(InPrefix))
+	{
+		return InPrefix;
+	}
+
 	FString VarSetName = FString(InPrefix);
 
 	// Remove potentially existing suffix numbers

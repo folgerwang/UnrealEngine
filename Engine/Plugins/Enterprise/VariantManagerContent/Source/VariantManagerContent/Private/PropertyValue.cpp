@@ -112,6 +112,52 @@ void UPropertyValue::Serialize(FArchive& Ar)
 	{
 		Ar << TempObjPtr;
 
+		// Before this version, properties were stored an array of UProperty*. Convert them to
+		// CapturedPropSegment and clear the deprecated arrays
+		if (CustomVersion < FVariantManagerObjectVersion::SerializePropertiesAsNames)
+		{
+			UE_LOG(LogVariantContent, Warning, TEXT("Captured property '%s' was created with an older Unreal Studio version (4.21 or less). A conversion to the new storage format is required and will be attempted. There may be some data loss."), *FullDisplayString);
+
+			int32 NumDeprecatedProps = Properties_DEPRECATED.Num();
+			if (NumDeprecatedProps > 0)
+			{
+				// Back then we didn't store the class directly, and just fetched it from the leaf-most property
+				// Try to do that again as it might help decode ValueBytes if those properties were string types
+				UProperty* LastProp = Properties_DEPRECATED[Properties_DEPRECATED.Num() -1];
+				if (LastProp && LastProp->IsValidLowLevel())
+				{
+					LeafPropertyClass = LastProp->GetClass();
+				}
+
+				CapturedPropSegments.Reserve(NumDeprecatedProps);
+				int32 Index = 0;
+				for (Index = 0; Index < NumDeprecatedProps; Index++)
+				{
+					UProperty* Prop = Properties_DEPRECATED[Index];
+					if (Prop == nullptr || !Prop->IsValidLowLevel() || !PropertyIndices_DEPRECATED.IsValidIndex(Index))
+					{
+						break;
+					}
+
+					FCapturedPropSegment* NewSeg = new(CapturedPropSegments) FCapturedPropSegment;
+					NewSeg->PropertyName = Prop->GetName();
+					NewSeg->PropertyIndex = PropertyIndices_DEPRECATED[Index];
+				}
+
+				// Conversion succeeded
+				if (Index == NumDeprecatedProps)
+				{
+					Properties_DEPRECATED.Reset();
+					PropertyIndices_DEPRECATED.Reset();
+				}
+				else
+				{
+					UE_LOG(LogVariantContent, Warning, TEXT("Failed to convert property '%s'! Captured data will be ignored and property will fail to resolve."), *FullDisplayString);
+					CapturedPropSegments.Reset();
+				}
+			}
+		}
+
 		if (CustomVersion >= FVariantManagerObjectVersion::CorrectSerializationOfFStringBytes)
 		{
 			Ar << TempName;
@@ -976,19 +1022,67 @@ bool UPropertyValue::ResolvePropertiesRecursive(UStruct* ContainerClass, void* C
 					// This lets us search for the component by name instead, ignoring our InnerArrayIndex
 					// This is intuitive because if a component is reordered in the details panel, we kind
 					// of expect our bindings to 'follow'.
-
-					for (int32 ComponentIndex = 0; ComponentIndex < ArrayHelper.Num(); ComponentIndex++)
+					if (!NextSeg.ComponentName.IsEmpty())
 					{
-						void* ObjPtrContainer = ArrayHelper.GetRawPtr(ComponentIndex);
-						UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
-
-						if (CurrentObject && CurrentObject->IsA(UActorComponent::StaticClass()) && CurrentObject->GetName() == NextSeg.ComponentName)
+						for (int32 ComponentIndex = 0; ComponentIndex < ArrayHelper.Num(); ComponentIndex++)
 						{
-							ParentContainerClass = CurrentObject->GetClass();
-							ParentContainerAddress =  CurrentObject;
+							void* ObjPtrContainer = ArrayHelper.GetRawPtr(ComponentIndex);
+							UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
 
-							// The next link in the chain is just this array's inner. Let's just skip it instead
-							return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2);
+							if (CurrentObject && CurrentObject->IsA(UActorComponent::StaticClass()) && CurrentObject->GetName() == NextSeg.ComponentName)
+							{
+								ParentContainerClass = CurrentObject->GetClass();
+								ParentContainerAddress =  CurrentObject;
+
+								// The next link in the chain is just this array's inner. Let's just skip it instead
+								return ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2);
+							}
+						}
+					}
+					// If we're a property recovered from 4.21, we won't have a component name, so we'll have to
+					// try finding our target component by index. We will first check InnerArrayIndex, and if that fails, we
+					// will check the other components until we either find something that resolves or we just fall
+					// out of this scope
+					else
+					{
+						// First check our actual inner array index
+						if (ArrayHelper.IsValidIndex(InnerArrayIndex))
+						{
+							void* ObjPtrContainer = ArrayHelper.GetRawPtr(InnerArrayIndex);
+							UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
+							if (CurrentObject && CurrentObject->IsA(UActorComponent::StaticClass()))
+							{
+								if (ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2))
+								{
+									ParentContainerClass = CurrentObject->GetClass();
+									ParentContainerAddress =  CurrentObject;
+									NextSeg.ComponentName = CurrentObject->GetName();
+									return true;
+								}
+							}
+						}
+
+						// Check every component for something that resolves. It's the best we can do
+						for (int32 ComponentIndex = 0; ComponentIndex < ArrayHelper.Num(); ComponentIndex++)
+						{
+							// Already checked that one
+							if (ComponentIndex == InnerArrayIndex)
+							{
+								continue;
+							}
+
+							void* ObjPtrContainer = ArrayHelper.GetRawPtr(ComponentIndex);
+							UObject* CurrentObject = InnerObjectProperty->GetObjectPropertyValue(ObjPtrContainer);
+							if (CurrentObject && CurrentObject->IsA(UActorComponent::StaticClass()))
+							{
+								if (ResolvePropertiesRecursive(CurrentObject->GetClass(), CurrentObject, SegmentIndex + 2))
+								{
+									ParentContainerClass = CurrentObject->GetClass();
+									ParentContainerAddress =  CurrentObject;
+									NextSeg.ComponentName = CurrentObject->GetName();
+									return true;
+								}
+							}
 						}
 					}
 				}

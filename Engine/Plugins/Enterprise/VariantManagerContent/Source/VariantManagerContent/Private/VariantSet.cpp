@@ -29,7 +29,19 @@ void UVariantSet::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FVariantManagerObjectVersion::GUID);
 	int32 CustomVersion = Ar.CustomVer(FVariantManagerObjectVersion::GUID);
 
-	if (CustomVersion >= FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	if (CustomVersion < FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	{
+		// Recover name from back when it was an UPROPERTY
+		if (Ar.IsLoading())
+		{
+			if (!DisplayText_DEPRECATED.IsEmpty())
+			{
+				DisplayText = DisplayText_DEPRECATED;
+				DisplayText_DEPRECATED = FText();
+			}
+		}
+	}
+	else
 	{
 		Ar << DisplayText;
 	}
@@ -63,6 +75,11 @@ FString UVariantSet::GetUniqueVariantName(const FString& InPrefix)
 	for (UVariant* Variant : Variants)
 	{
 		UniqueNames.Add(Variant->GetDisplayText().ToString());
+	}
+
+	if (!UniqueNames.Contains(InPrefix))
+	{
+		return InPrefix;
 	}
 
 	FString VarName = FString(InPrefix);

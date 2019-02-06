@@ -29,7 +29,19 @@ void UVariant::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FVariantManagerObjectVersion::GUID);
 	int32 CustomVersion = Ar.CustomVer(FVariantManagerObjectVersion::GUID);
 
-	if (CustomVersion >= FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	if (CustomVersion < FVariantManagerObjectVersion::CategoryFlagsAndManualDisplayText)
+	{
+		// Recover name from back when it was an UPROPERTY
+		if (Ar.IsLoading())
+		{
+			if (!DisplayText_DEPRECATED.IsEmpty())
+			{
+				DisplayText = DisplayText_DEPRECATED;
+				DisplayText_DEPRECATED = FText();
+			}
+		}
+	}
+	else
 	{
 		Ar << DisplayText;
 	}
