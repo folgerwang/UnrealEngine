@@ -270,4 +270,7 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 
 	UPROPERTY()
 	bool UseCustomTitleRow;
+
+	// Float to track last desired time of GetLastPointIDToSpawnAtTime()
+	mutable float LastDesiredTime;
 };
