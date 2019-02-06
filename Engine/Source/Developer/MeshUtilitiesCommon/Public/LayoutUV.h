@@ -63,9 +63,9 @@ private:
 	IMeshView& MeshView;
 	ELightmapUVVersion LayoutVersion;
 
-	TArray< FVector2D > TexCoords;
-	TArray< uint32 > SortedTris;
-	TArray< FMeshChart > Charts;
+	TArray< FVector2D > MeshTexCoords;
+	TArray< uint32 > MeshSortedTris;
+	TArray< FMeshChart > MeshCharts;
 	uint32 PackedTextureResolution;
 
 	struct FChartFinder;
