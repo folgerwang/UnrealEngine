@@ -33,7 +33,10 @@ bool UDatasmithSceneImportData::CanEditChange(const UProperty* InProperty) const
 
 UDatasmithStaticMeshImportData* UDatasmithStaticMeshImportData::GetImportDataForStaticMesh( UStaticMesh* StaticMesh, TOptional< DefaultOptionsPair > DefaultImportOptions )
 {
-	check( StaticMesh );
+	if( !StaticMesh )
+	{
+		return nullptr;
+	}
 
 	UDatasmithStaticMeshImportData* ImportData = nullptr;
 
