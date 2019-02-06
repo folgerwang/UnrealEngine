@@ -190,7 +190,15 @@ public:
 
 	/** True if pin can be edited */
 	bool IsEditingEnabled() const;
-
+	
+	/** 
+	  * Called when ed graph data is cleared, indicating this widget can no longer safely access GraphPinObj 
+	  * Typically an SGraphPin is destroyed before the ed graph data is actually deleted but because SWidget
+	  * is reference counted we have had problems in the past with the SGraphPin (or Node) living unexpectedly 
+	  * long. If such a situation occurs the code attempting to own the SWidget should be demoted to a WeakPtr,
+	  * but for added safety we track graph data invalidation here:
+	  */
+	void InvalidateGraphData() { bGraphDataInvalid = true; }
 protected:
 
 	/** If true the graph pin subclass is responsible for setting the IsEnabled delegates for the aspects it cares about. If false, the default value widget enabling is done by the base class */
@@ -269,25 +277,14 @@ protected:
 	/** Is this pin editable */
 	TAttribute<bool> IsEditable;
 
-	/** If we should draw the label on this pin */
-	bool bShowLabel;
-
-	/** If we should draw the label on this pin */
-	bool bOnlyShowDefaultValue;
-
-	/** true when we're moving links between pins. */
-	bool bIsMovingLinks;
-
 	/** Color modifier for use by the connection drawing policy */
 	FLinearColor PinColorModifier;
 
 	/** Cached offset from owning node to approximate position of culled pins */
 	FVector2D CachedNodeOffset;
 
+	/** Set of pins that are currently being hovered */
 	TSet< FEdGraphPinReference > HoverPinSet;
-
-	/** TRUE if the pin should use the Pin's color for the text */
-	bool bUsePinColorForText;
 
 	//@TODO: Want to cache these once for all SGraphPins, but still handle slate style updates
 	const FSlateBrush* CachedImg_ArrayPin_Connected;
@@ -304,4 +301,19 @@ protected:
 
 	const FSlateBrush* CachedImg_Pin_Background;
 	const FSlateBrush* CachedImg_Pin_BackgroundHovered;
+	
+	/** flag indicating that graph data has been deleted by the user */
+	bool bGraphDataInvalid;
+
+	/** If we should draw the label on this pin */
+	bool bShowLabel;
+
+	/** If we should draw the label on this pin */
+	bool bOnlyShowDefaultValue;
+
+	/** true when we're moving links between pins. */
+	bool bIsMovingLinks;
+
+	/** TRUE if the pin should use the Pin's color for the text */
+	bool bUsePinColorForText;
 };

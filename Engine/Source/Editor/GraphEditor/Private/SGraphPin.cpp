@@ -67,11 +67,13 @@ TSharedPtr<SGraphPin> FGraphPinHandle::FindInGraphPanel(const SGraphPanel& InPan
 
 SGraphPin::SGraphPin()
 	: GraphPinObj(nullptr)
+	, PinColorModifier(FLinearColor::White)
+	, CachedNodeOffset(FVector2D::ZeroVector)
+	, bGraphDataInvalid(false)
 	, bShowLabel(true)
 	, bOnlyShowDefaultValue(false)
 	, bIsMovingLinks(false)
-	, PinColorModifier(FLinearColor::White)
-	, CachedNodeOffset(FVector2D::ZeroVector)
+	, bUsePinColorForText(false)
 {
 	IsEditable = true;
 
@@ -552,7 +554,7 @@ FReply SGraphPin::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 
 void SGraphPin::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if (!bIsHovered)
+	if (!bIsHovered && ensure(!bGraphDataInvalid))
 	{
 		UEdGraphPin* MyPin = GetPinObj();
 		if (MyPin && !MyPin->IsPendingKill() && MyPin->GetOuter() && MyPin->GetOuter()->IsA(UEdGraphNode::StaticClass()))
@@ -1110,6 +1112,11 @@ void SGraphPin::SetOnlyShowDefaultValue(bool bNewOnlyShowDefaultValue)
 
 FText SGraphPin::GetTooltipText() const
 {
+	if(!ensure(!bGraphDataInvalid))
+	{
+		return FText();
+	}
+
 	FText HoverText = FText::GetEmpty();
 
 	UEdGraphNode* GraphNode = GraphPinObj && !GraphPinObj->IsPendingKill() ? GraphPinObj->GetOwningNodeUnchecked() : nullptr;

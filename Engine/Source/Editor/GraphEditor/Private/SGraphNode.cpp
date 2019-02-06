@@ -1555,3 +1555,15 @@ void SGraphNode::RefreshErrorInfo()
 {
 	SetupErrorReporting();
 }
+
+void SGraphNode::InvalidateGraphData()
+{
+	for (TSharedRef<SGraphPin>& Pin : InputPins)
+	{
+		Pin->InvalidateGraphData();
+	}
+	for (TSharedRef<SGraphPin>& Pin : OutputPins)
+	{
+		Pin->InvalidateGraphData();
+	}
+}

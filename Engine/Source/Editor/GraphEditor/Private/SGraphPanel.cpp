@@ -1015,6 +1015,12 @@ void SGraphPanel::RemoveAllNodes()
 {
 	NodeGuidMap.Empty();
 	CurrentHoveredPins.Empty();
+	
+	for (int32 Iter = 0; Iter != Children.Num(); ++Iter)
+	{
+		GetChild(Iter)->InvalidateGraphData();
+	}
+
 	SNodePanel::RemoveAllNodes();
 }
 
@@ -1397,6 +1403,7 @@ void SGraphPanel::RemoveNode(const UEdGraphNode* Node)
 		TSharedRef<SGraphNode> Child = GetChild(Iter);
 		if (Child->GetNodeObj() == Node)
 		{
+			Child->InvalidateGraphData();
 			Children.RemoveAt(Iter);
 			break;
 		}

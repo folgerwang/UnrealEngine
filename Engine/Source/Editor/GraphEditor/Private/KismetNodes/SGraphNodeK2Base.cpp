@@ -223,14 +223,16 @@ TSharedPtr<SToolTip> SGraphNodeK2Base::GetComplexTooltip()
 
 	struct LocalUtils
 	{
-		static EVisibility IsToolTipVisible(TSharedRef<SGraphNodeK2Base> const NodeWidget)
+		static EVisibility IsToolTipVisible(TWeakPtr<SGraphNodeK2Base> const NodeWidget)
 		{
-			return NodeWidget->GetNodeTooltip().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
+			TSharedPtr<SGraphNodeK2Base> NodeWidgetPinned = NodeWidget.Pin();
+			return NodeWidgetPinned && NodeWidgetPinned->GetNodeTooltip().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
 		}
 
-		static EVisibility IsToolTipHeadingVisible(TSharedRef<SGraphNodeK2Base> const NodeWidget)
+		static EVisibility IsToolTipHeadingVisible(TWeakPtr<SGraphNodeK2Base> const NodeWidget)
 		{
-			return NodeWidget->GetToolTipHeading().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
+			TSharedPtr<SGraphNodeK2Base> NodeWidgetPinned = NodeWidget.Pin();
+			return NodeWidgetPinned && NodeWidgetPinned->GetToolTipHeading().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
 		}
 
 		static bool IsInteractive()
@@ -239,11 +241,11 @@ TSharedPtr<SToolTip> SGraphNodeK2Base::GetComplexTooltip()
 			return ( ModifierKeys.IsAltDown() && ModifierKeys.IsControlDown() );
 		}
 	};
-	TSharedRef<SGraphNodeK2Base> ThisRef = SharedThis(this);
+	TWeakPtr<SGraphNodeK2Base> ThisWeak = SharedThis(this);
 
 	TSharedPtr< SVerticalBox > VerticalBoxWidget;
 	SAssignNew(NodeToolTip, SToolTip)
-		.Visibility_Static(&LocalUtils::IsToolTipVisible, ThisRef)
+		.Visibility_Static(&LocalUtils::IsToolTipVisible, ThisWeak)
 		.IsInteractive_Static(&LocalUtils::IsInteractive)
 
 		// Emulate text-only tool-tip styling that SToolTip uses when no custom content is supplied.  We want node tool-tips to 
@@ -256,7 +258,7 @@ TSharedPtr<SToolTip> SGraphNodeK2Base::GetComplexTooltip()
 		+SVerticalBox::Slot()
 		[
 			SNew(SVerticalBox)
-				.Visibility_Static(&LocalUtils::IsToolTipHeadingVisible, ThisRef)
+				.Visibility_Static(&LocalUtils::IsToolTipHeadingVisible, ThisWeak)
 			+SVerticalBox::Slot()
 				.AutoHeight()
 			[

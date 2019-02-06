@@ -234,7 +234,9 @@ public:
 
 	/** Called when GraphNode changes its error information, may be called when no change has actually occurred: */
 	void RefreshErrorInfo();
-
+	
+	/** Called when ed graph data is cleared, indicating this widget can no longer safely access GraphNode - forwards call to owned pins: */
+	void InvalidateGraphData();
 protected:
 	SGraphNode();
 
