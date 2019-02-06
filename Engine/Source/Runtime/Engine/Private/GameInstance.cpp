@@ -607,7 +607,7 @@ ULocalPlayer* UGameInstance::CreateInitialPlayer(FString& OutError)
 	return CreateLocalPlayer( 0, OutError, false );
 }
 
-ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor)
+ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnPlayerController)
 {
 	check(GetEngine()->LocalPlayerClass != NULL);
 
@@ -641,7 +641,7 @@ ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutE
 
 		NewPlayer = NewObject<ULocalPlayer>(GetEngine(), GetEngine()->LocalPlayerClass);
 		InsertIndex = AddLocalPlayer(NewPlayer, ControllerId);
-		if (bSpawnActor && InsertIndex != INDEX_NONE && GetWorld() != NULL)
+		if (bSpawnPlayerController && InsertIndex != INDEX_NONE && GetWorld() != NULL)
 		{
 			if (GetWorld()->GetNetMode() != NM_Client)
 			{
