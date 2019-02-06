@@ -368,7 +368,7 @@ public:
 	virtual void MigratePackages(const TArray<FName>& PackageNamesToMigrate) const = 0;
 
 	/* Copy packages and dependencies to another folder */
-	virtual void BeginAdvancedCopyPackages(const TArray<FName>& PackageNamesToCopy, const FString& TargetPath) const = 0;
+	virtual void BeginAdvancedCopyPackages(const TArray<FName>& InputNamesToCopy, const FString& TargetPath) const = 0;
 
 	/** Fix up references to the specified redirectors */
 	virtual void FixupReferencers(const TArray<UObjectRedirector*>& Objects) const = 0;

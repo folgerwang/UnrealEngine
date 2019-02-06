@@ -816,7 +816,11 @@ void UAssetToolsImpl::GetAllAdvancedCopySources(FName SelectedPackage, FAdvanced
 	if (!OutPackageNamesToCopy.Contains(SelectedPackage))
 	{
 		CurrentDependencies.Add(SelectedPackage);
-		if (CopyParams.bShouldCheckForDependencies)
+		TArray<FAssetData> DependencyAssetData;
+		AssetRegistry.GetAssetsByPackageName(SelectedPackage, DependencyAssetData);
+		// If we should check for dependencies OR we are currently checking a folder
+		// Folders should ALWAYS get checked for assets and subfolders
+		if (CopyParams.bShouldCheckForDependencies || DependencyAssetData.Num() == 0)
 		{
 			RecursiveGetDependenciesAdvanced(SelectedPackage, CopyParams, CurrentDependencies, DependencyMap);
 		}
@@ -2836,26 +2840,60 @@ void UAssetToolsImpl::RecursiveGetDependenciesAdvanced(const FName& PackageName,
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TArray<FName> Dependencies;
-	AssetRegistryModule.Get().GetDependencies(PackageName, Dependencies);
+	TArray<FAssetData> DependencyAssetData;
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	for (auto DependsIt = Dependencies.CreateConstIterator(); DependsIt; ++DependsIt)
+	AssetRegistry.GetAssetsByPackageName(PackageName, DependencyAssetData);
+	// We found an asset
+	if (DependencyAssetData.Num() > 0)
 	{
-		if (!AllDependencies.Contains(*DependsIt))
+		AssetRegistryModule.Get().GetDependencies(PackageName, Dependencies);
+		for (auto DependsIt = Dependencies.CreateConstIterator(); DependsIt; ++DependsIt)
 		{
-			TArray<FAssetData> DependencyAssetData;
-			if (AssetRegistry.GetAssetsByPackageName(*DependsIt, DependencyAssetData))
+			if (!AllDependencies.Contains(*DependsIt))
 			{
-				FARFilter ExclusionFilter = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>()->GetARFilter();
-				AssetRegistry.UseFilterToExcludeAssets(DependencyAssetData, ExclusionFilter);
-				if (DependencyAssetData.IsValidIndex(0))
+				if (AssetRegistry.GetAssetsByPackageName(*DependsIt, DependencyAssetData))
 				{
-					AllDependencies.Add(*DependsIt);
-					DependencyMap.Add(*DependsIt, PackageName);
-					RecursiveGetDependenciesAdvanced(*DependsIt, CopyParams, AllDependencies, DependencyMap);
+					FARFilter ExclusionFilter = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>()->GetARFilter();
+					AssetRegistry.UseFilterToExcludeAssets(DependencyAssetData, ExclusionFilter);
+					if (DependencyAssetData.IsValidIndex(0))
+					{
+						AllDependencies.Add(*DependsIt);
+						DependencyMap.Add(*DependsIt, PackageName);
+						RecursiveGetDependenciesAdvanced(*DependsIt, CopyParams, AllDependencies, DependencyMap);
+					}
+				}
+
+			}
+		}
+	}
+	else
+	{
+		DependencyAssetData.Empty();
+		// We found a folder containing assets
+		if (AssetRegistry.HasAssets(PackageName) && AssetRegistry.GetAssetsByPath(PackageName, DependencyAssetData))
+		{
+			FARFilter ExclusionFilter = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>()->GetARFilter();
+			AssetRegistry.UseFilterToExcludeAssets(DependencyAssetData, ExclusionFilter);
+			for(const FAssetData Asset : DependencyAssetData)
+			{
+				AllDependencies.Add(*Asset.GetPackage()->GetName());
+				// If we should check the assets we found for dependencies
+				if (CopyParams.bShouldCheckForDependencies)
+				{
+					RecursiveGetDependenciesAdvanced(FName(*Asset.GetPackage()->GetName()), CopyParams, AllDependencies, DependencyMap);
 				}
 			}
+		}
 		
+		// Always get subpaths
+		{
+			TArray<FString> SubPaths;
+			AssetRegistry.GetSubPaths(PackageName.ToString(), SubPaths, false);
+			for (const FString SubPath : SubPaths)
+			{
+				RecursiveGetDependenciesAdvanced(FName(*SubPath), CopyParams, AllDependencies, DependencyMap);
+			}
+
 		}
 	}
 }
@@ -2870,7 +2908,7 @@ void UAssetToolsImpl::OpenEditorForAssets(const TArray<UObject*>& Assets) const
 	FAssetEditorManager::Get().OpenEditorForAssets(Assets);
 }
 
-void UAssetToolsImpl::BeginAdvancedCopyPackages(const TArray<FName>& PackageNamesToCopy, const FString& TargetPath) const
+void UAssetToolsImpl::BeginAdvancedCopyPackages(const TArray<FName>& InputNamesToCopy, const FString& TargetPath) const
 {
 	// Packages must be saved for the migration to work
 	const bool bPromptUserToSave = true;
@@ -2884,34 +2922,35 @@ void UAssetToolsImpl::BeginAdvancedCopyPackages(const TArray<FName>& PackageName
 		{
 			// Open a dialog asking the user to wait while assets are being discovered
 			SDiscoveringAssetsDialog::OpenDiscoveringAssetsDialog(
-				SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateUObject(this, &UAssetToolsImpl::PerformAdvancedCopyPackages, PackageNamesToCopy, TargetPath)
+				SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateUObject(this, &UAssetToolsImpl::PerformAdvancedCopyPackages, InputNamesToCopy, TargetPath)
 			);
 		}
 		else
 		{
 			// Assets are already discovered, perform the migration now
-			PerformAdvancedCopyPackages(PackageNamesToCopy, TargetPath);
+			PerformAdvancedCopyPackages(InputNamesToCopy, TargetPath);
 		}
 	}
 }
 
-void UAssetToolsImpl::PerformAdvancedCopyPackages(TArray<FName> SelectedPackageNames, FString TargetPath) const
+void UAssetToolsImpl::PerformAdvancedCopyPackages(TArray<FName> SelectedAssetAndFolderNames, FString TargetPath) const
 {	
-	FAdvancedCopyParams CopyParams = FAdvancedCopyParams(SelectedPackageNames, TargetPath);
-	CopyParams.bShouldCheckForDependencies = SelectedPackageNames.Num() == 1;
+	TargetPath.RemoveFromEnd(TEXT("/"));
+	FAdvancedCopyParams CopyParams = FAdvancedCopyParams(SelectedAssetAndFolderNames, TargetPath);
+	CopyParams.bShouldCheckForDependencies = SelectedAssetAndFolderNames.Num() == 1;
 
-	for (auto PackageIt = SelectedPackageNames.CreateConstIterator(); PackageIt; ++PackageIt)
+	for (auto NameIt = SelectedAssetAndFolderNames.CreateConstIterator(); NameIt; ++NameIt)
 	{
 		UAdvancedCopyCustomization* CopyCustomization = nullptr;
 
 		const UAssetToolsSettings* Settings = GetDefault<UAssetToolsSettings>();
-		FName OriginalPackage = *PackageIt;
-		const FString& PackageNameString = OriginalPackage.ToString();
+		FName OriginalName = *NameIt;
+		const FString& OriginalNameString = OriginalName.ToString();
 		FString SrcFilename;
 		UObject* ExistingObject = nullptr;
-		if (FPackageName::DoesPackageExist(PackageNameString, nullptr, &SrcFilename))
+		if (FPackageName::DoesPackageExist(OriginalNameString, nullptr, &SrcFilename))
 		{
-			UPackage* Pkg = LoadPackage(nullptr, *PackageNameString, LOAD_None);
+			UPackage* Pkg = LoadPackage(nullptr, *OriginalNameString, LOAD_None);
 			if (Pkg)
 			{
 				FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(SrcFilename));
@@ -2935,6 +2974,7 @@ void UAssetToolsImpl::PerformAdvancedCopyPackages(TArray<FName> SelectedPackageN
 		}
 
 		// If not able to find class in settings, fall back to default customization
+		// by default, folders will use the default customization
 		if (CopyCustomization == nullptr)
 		{
 			CopyCustomization = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>();

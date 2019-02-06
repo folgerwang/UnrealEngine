@@ -4878,18 +4878,7 @@ void SAssetView::ExecuteDropMove(TArray<FAssetData> AssetList, TArray<FString> A
 
 void SAssetView::ExecuteDropAdvancedCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath)
 {
-	int32 NumItemsCopied = 0;
-	// Get a list of package names for input into Advanced Copy 
-	TArray<FName> PackageNames;
-	PackageNames.Reserve(AssetList.Num());
-
-	for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
-	{
-		PackageNames.Add(AssetList[AssetIdx].PackageName);
-	}
-
-	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-	AssetToolsModule.Get().BeginAdvancedCopyPackages(PackageNames, DestinationPath);
+	ContentBrowserUtils::BeginAdvancedCopyPackages(AssetList, AssetPaths, DestinationPath);
 }
 
 void SAssetView::SetUserSearching(bool bInSearching)

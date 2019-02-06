@@ -283,5 +283,7 @@ namespace ContentBrowserUtils
 
 	/** Gets the maximum path length for a cooked file. Changes behavior based on whether the editor experimental setting for long paths is enabled. */
 	int32 GetMaxCookPathLen();
+
+	void BeginAdvancedCopyPackages(TArray<FAssetData>& AssetList, TArray<FString>& AssetPaths, FString& DestinationPath);
 }
 

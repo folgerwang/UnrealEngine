@@ -2324,4 +2324,29 @@ int32 ContentBrowserUtils::GetMaxCookPathLen()
 	}
 }
 
+void ContentBrowserUtils::BeginAdvancedCopyPackages(TArray<FAssetData>& AssetList, TArray<FString>& AssetPaths, FString& DestinationPath)
+{
+	TMap<FString, TArray<UObject*> > SourcePathToLoadedAssets;
+	FString DestPathWithTrailingSlash = DestinationPath / "";
+	// Get a list of package names for input into Advanced Copy
+	TArray<FName> InputNames;
+	// Do not allow parent directories to be moved to themselves or children.
+	TArray<FString> SourcePathNames = AssetPaths;
+
+	for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
+	{
+		InputNames.Add(AssetList[AssetIdx].PackageName);
+	}
+
+	// Add any paths from selected folders
+	for (const FString AssetPath : AssetPaths)
+	{
+		InputNames.Add(FName(*AssetPath));
+
+	}
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	AssetToolsModule.Get().BeginAdvancedCopyPackages(InputNames, DestPathWithTrailingSlash);
+}
+
 #undef LOCTEXT_NAMESPACE
