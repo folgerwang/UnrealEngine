@@ -2503,11 +2503,11 @@ public:
 					}
 
 					FLayoutUVRawMeshView RawMeshView(RawMesh, SrcModel.BuildSettings.SrcLightmapIndex, SrcModel.BuildSettings.DstLightmapIndex);
-					FLayoutUV Packer(RawMeshView, SrcModel.BuildSettings.MinLightmapResolution);
+					FLayoutUV Packer(RawMeshView);
 					Packer.SetVersion(LightmapUVVersion);
 
 					Packer.FindCharts(OverlappingCorners);
-					bool bPackSuccess = Packer.FindBestPacking();
+					bool bPackSuccess = Packer.FindBestPacking(SrcModel.BuildSettings.MinLightmapResolution);
 					if (bPackSuccess)
 					{
 						Packer.CommitPackedUVs();
@@ -5665,10 +5665,10 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FSkeletalMeshLODMode
 
 	// Generate new UVs
 	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
-	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUV Packer(TempMeshView);
 	Packer.FindCharts(OverlappingCorners);
 
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(FMath::Clamp(TextureResolution / 4, 32, 512));
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
@@ -6166,10 +6166,10 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 
 	// Generate new UVs
 	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
-	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUV Packer(TempMeshView);
 	Packer.FindCharts(OverlappingCorners);
 
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(FMath::Clamp(TextureResolution / 4, 32, 512));
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();

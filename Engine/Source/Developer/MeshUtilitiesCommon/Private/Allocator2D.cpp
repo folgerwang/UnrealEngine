@@ -8,8 +8,6 @@ FAllocator2D::FAllocator2D( uint32 InWidth, uint32 InHeight )
 	, LastRowFail( -1 )
 {
 	Pitch = ( Width + 63 ) / 64;
-	// alloc +1 to avoid buffer overrun
-	Bits = (uint64*)FMemory::Malloc( (Pitch * Height + 1) * sizeof(uint64) );
 
 	Rows.Reserve( Height );
 
@@ -24,46 +22,11 @@ FAllocator2D::FAllocator2D( uint32 InWidth, uint32 InHeight )
 	Clear();
 }
 
-FAllocator2D::~FAllocator2D()
-{
-	FMemory::Free( Bits );
-}
-
-FAllocator2D::FAllocator2D( const FAllocator2D& Other )
-	: Width( Other.Width )
-	, Height( Other.Height )
-	, Pitch( Other.Pitch )
-	, Rows( Other.Rows )
-	, LastRowFail( -1 )
-{
-	Bits = (uint64*)FMemory::Malloc( (Pitch * Height + 1) * sizeof(uint64) );
-	FMemory::Memcpy( Bits, Other.Bits, (Pitch * Height + 1) * sizeof(uint64) );
-}
-
-FAllocator2D& FAllocator2D::operator=( const FAllocator2D& Other )
-{
-	if ( Width != Other.Width || Height != Other.Height || Pitch != Other.Pitch )
-	{
-		Width = Other.Width;
-		Height = Other.Height;
-		Pitch = Other.Pitch;
-
-		FMemory::Free( Bits );
-		Bits = (uint64*)FMemory::Malloc( (Pitch * Height + 1) * sizeof(uint64) );
-	}
-
-	FMemory::Memcpy( Bits, Other.Bits, (Pitch * Height + 1) * sizeof(uint64) );
-
-	Rows = Other.Rows;
-
-	return *this;
-}
-
 void FAllocator2D::Clear()
 {
 	InitSegments();
-
-	FMemory::Memzero( Bits, (Pitch * Height + 1) * sizeof(uint64) );
+	Bits.Reset();
+	Bits.SetNumZeroed(Pitch * Height + 1); // alloc +1 to avoid buffer overrun
 }
 
 bool FAllocator2D::Find( FRect& Rect )
@@ -98,7 +61,7 @@ bool FAllocator2D::FindBitByBit( FRect& Rect, const FAllocator2D& Other )
 			}
 		}
 	}
-	
+
 	return false;
 }
 
@@ -126,7 +89,7 @@ bool FAllocator2D::FindWithSegments( FRect& Rect, FRect BestRect, const FAllocat
 			}
 		}
 	}
-	
+
 	return false;
 }
 
@@ -292,7 +255,7 @@ void FAllocator2D::FlipX( FRect Rect, ELightmapUVVersion LayoutVersion )
 		for ( uint32 LowX = 0; LowX < ( MaxX + 1 ) / 2; ++LowX )
 		{
 			uint32 HighX = MaxX - LowX;
-		
+
 			const uint64 BitLow = GetBit( LowX, Y );
 			const uint64 BitHigh = GetBit( HighX, Y );
 
@@ -408,7 +371,7 @@ void FAllocator2D::CreateUsedSegments()
 				{
 					FirstUsedX = x;
 				}
-					
+
 				if ( k == Pitch - 1 )
 				{
 					AddUsedSegment( CurrentRow, FirstUsedX, x + 64 - FirstUsedX );
@@ -437,7 +400,7 @@ void FAllocator2D::CreateUsedSegments()
 						{
 							FirstUsedX = SubX;
 						}
-							
+
 						if ( SubX == Width - 1 )
 						{
 							AddUsedSegment( CurrentRow, FirstUsedX, SubX + 1 - FirstUsedX );
@@ -509,7 +472,7 @@ void FAllocator2D::MergeSegments( FRect Rect, const FAllocator2D& Other )
 					{
 						ThisRow.FreeSegments.Add( FirstSegment );
 					}
-					
+
 					if ( SecondSegment.Length > 0 )
 					{
 						ThisRow.FreeSegments.Add( SecondSegment );

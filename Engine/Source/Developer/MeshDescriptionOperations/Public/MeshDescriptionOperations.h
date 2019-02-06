@@ -72,8 +72,25 @@ public:
 
 	/** Find all overlapping vertex using the threshold in the mesh description. */
 	static void FindOverlappingCorners(FOverlappingCorners& OverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold);
+	
+	/** Find all charts in the mesh description. */
+	static int32 GetUVChartCount(FMeshDescription& MeshDescription, int32 SrcLightmapIndex, ELightmapUVVersion LightmapUVVersion, const FOverlappingCorners& OverlappingCorners);
 
-	static void CreateLightMapUVLayout(FMeshDescription& MeshDescription,
+	/**
+	 * Find and pack UV charts for lightmap.
+	 * The packing algorithm uses a rasterization method, hence the resolution parameter.
+	 *
+	 * If the given minimum resolution is not enough to handle all the charts, generation will fail.
+	 *
+	 * @param MeshDescription        Edited mesh
+	 * @param SrcLightmapIndex       index of the source UV channel
+	 * @param DstLightmapIndex       index of the destination UV channel
+	 * @param MinLightmapResolution  Minimum resolution used for the packing
+	 * @param LightmapUVVersion      Algorithm version
+	 * @param OverlappingCorners     Overlapping corners of the given mesh
+	 * @return                       UV layout correctly generated
+	 */
+	static bool CreateLightMapUVLayout(FMeshDescription& MeshDescription,
 		int32 SrcLightmapIndex,
 		int32 DstLightmapIndex,
 		int32 MinLightmapResolution,

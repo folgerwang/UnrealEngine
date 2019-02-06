@@ -37,11 +37,7 @@ public:
 	};
 
 public:
-				FAllocator2D( uint32 Width, uint32 Height );
-				FAllocator2D( const FAllocator2D& Other );
-				~FAllocator2D();
-	
-	FAllocator2D& operator=( const FAllocator2D& Other );
+	FAllocator2D( uint32 Width, uint32 Height );
 
 	// Must clear before using
 	void		Clear();
@@ -73,7 +69,7 @@ protected:
 	void		AddUsedSegment( FRow& Row, uint32 StartPos, uint32 Length );
 
 private:
-	uint64*		Bits;
+	TArray< uint64 > Bits;
 
 	uint32		Width;
 	uint32		Height;
@@ -81,20 +77,6 @@ private:
 
 	TArray< FRow > Rows;
 	int32		LastRowFail;
-};
-
-struct FAllocator2DShader
-{
-	FAllocator2D*	Allocator2D;
-
-	FAllocator2DShader( FAllocator2D* InAllocator2D )
-	: Allocator2D( InAllocator2D )
-	{}
-
-	FORCEINLINE void Process( uint32 x, uint32 y )
-	{
-		Allocator2D->SetBit( x, y );
-	}
 };
 
 // Returns non-zero if set

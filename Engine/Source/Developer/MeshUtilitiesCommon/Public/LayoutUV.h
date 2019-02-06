@@ -53,44 +53,21 @@ public:
 		virtual void        SetOutputTexcoord(uint32 Index, const FVector2D& Value) = 0;
 	};
 
-				FLayoutUV( IMeshView& InMeshView, uint32 InTextureResolution );
-
-	int32		FindCharts( const FOverlappingCorners& OverlappingCorners );
-	bool		FindBestPacking();
-	void		CommitPackedUVs();
-
-	void		SetVersion( ELightmapUVVersion Version ) { LayoutVersion = Version; }
+	FLayoutUV( IMeshView& InMeshView );
+	void SetVersion( ELightmapUVVersion Version ) { LayoutVersion = Version; }
+	int32 FindCharts( const FOverlappingCorners& OverlappingCorners );
+	bool FindBestPacking( uint32 InTextureResolution );
+	void CommitPackedUVs();
 
 private:
-	bool		PositionsMatch( uint32 a, uint32 b ) const;
-	bool		NormalsMatch( uint32 a, uint32 b ) const;
-	bool		UVsMatch( uint32 a, uint32 b ) const;
-	bool		VertsMatch( uint32 a, uint32 b ) const;
-	float		TriangleUVArea( uint32 Tri ) const;
-	void		DisconnectChart( FMeshChart& Chart, uint32 Side );
+	IMeshView& MeshView;
+	ELightmapUVVersion LayoutVersion;
 
-	void		ScaleCharts( float UVScale );
-	bool		PackCharts();
-	void		OrientChart( FMeshChart& Chart, int32 Orientation );
-	void		RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 RectH );
+	TArray< FVector2D > TexCoords;
+	TArray< uint32 > SortedTris;
+	TArray< FMeshChart > Charts;
+	uint32 PackedTextureResolution;
 
-	float		GetUVEqualityThreshold() const;
-
-	IMeshView&	MeshView;
-	uint32		TextureResolution;
-	
-	TArray< FVector2D >		TexCoords;
-	TArray< uint32 >		SortedTris;
-	TArray< FMeshChart >	Charts;
-	float					TotalUVArea;
-	float					MaxChartSize;
-
-	FAllocator2D		LayoutRaster;
-	FAllocator2D		ChartRaster;
-	FAllocator2D		BestChartRaster;
-	FAllocator2DShader	ChartShader;
-
-	ELightmapUVVersion	LayoutVersion;
-
-	int32				NextMeshChartId;
+	struct FChartFinder;
+	struct FChartPacker;
 };

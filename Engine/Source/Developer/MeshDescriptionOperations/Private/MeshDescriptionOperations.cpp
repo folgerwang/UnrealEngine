@@ -1412,7 +1412,16 @@ struct FLayoutUVMeshDescriptionView final : FLayoutUV::IMeshView
 	}
 };
 
-void FMeshDescriptionOperations::CreateLightMapUVLayout(FMeshDescription& MeshDescription,
+int32 FMeshDescriptionOperations::GetUVChartCount(FMeshDescription& MeshDescription, int32 SrcLightmapIndex, ELightmapUVVersion LightmapUVVersion, const FOverlappingCorners& OverlappingCorners)
+{
+	uint32 UnusedDstIndex = -1;
+	FLayoutUVMeshDescriptionView MeshDescriptionView(MeshDescription, SrcLightmapIndex, UnusedDstIndex);
+	FLayoutUV Packer(MeshDescriptionView);
+	Packer.SetVersion(LightmapUVVersion);
+	return Packer.FindCharts(OverlappingCorners);
+}
+
+bool FMeshDescriptionOperations::CreateLightMapUVLayout(FMeshDescription& MeshDescription,
 	int32 SrcLightmapIndex,
 	int32 DstLightmapIndex,
 	int32 MinLightmapResolution,
@@ -1420,15 +1429,16 @@ void FMeshDescriptionOperations::CreateLightMapUVLayout(FMeshDescription& MeshDe
 	const FOverlappingCorners& OverlappingCorners)
 {
 	FLayoutUVMeshDescriptionView MeshDescriptionView(MeshDescription, SrcLightmapIndex, DstLightmapIndex);
-	FLayoutUV Packer(MeshDescriptionView, MinLightmapResolution);
+	FLayoutUV Packer(MeshDescriptionView);
 	Packer.SetVersion(LightmapUVVersion);
 
 	Packer.FindCharts(OverlappingCorners);
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(MinLightmapResolution);
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
 	}
+	return bPackSuccess;
 }
 
 bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords)
@@ -1544,10 +1554,10 @@ bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescr
 
 	// Generate new UVs
 	FLayoutUVMeshDescriptionView DuplicateMeshDescriptionView(DuplicateMeshDescription, 0, 1);
-	FLayoutUV Packer(DuplicateMeshDescriptionView, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUV Packer(DuplicateMeshDescriptionView);
 	Packer.FindCharts(OverlappingCorners);
 
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(FMath::Clamp(TextureResolution / 4, 32, 512));
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
