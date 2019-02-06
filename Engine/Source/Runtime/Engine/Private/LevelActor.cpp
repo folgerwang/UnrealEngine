@@ -557,16 +557,16 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 		return true;
 	}
 
+	// Never destroy the world settings actor. This used to be enforced by bNoDelete and is actually needed for 
+	// seamless travel and network games.
+	if (GetWorldSettings() == ThisActor)
+	{
+		return false;
+	}
+
 	// In-game deletion rules.
 	if( IsGameWorld() )
 	{
-		// Never destroy the world settings actor. This used to be enforced by bNoDelete and is actually needed for 
-		// seamless travel and network games.
-		if (GetWorldSettings() == ThisActor)
-		{
-			return false;
-		}
-
 		// Note, for Standalone games, Actors should have Authority == ROLE_Authority.
 		// In that sense, they'll be treated as Network Actors here.
 		const bool bIsNetworkedActor = ThisActor->Role != ROLE_None;
