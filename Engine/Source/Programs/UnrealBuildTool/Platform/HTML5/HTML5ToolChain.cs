@@ -644,6 +644,9 @@ namespace UnrealBuildTool
 			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 			Actions.Add(LinkAction);
 
+			Log.TraceInformation("NOTE: about to link for HTML5 -- this takes at least 7 minutes (and up to 20 minutes on older machines) to complete.");
+			Log.TraceInformation("      we are workig with the Emscripten makers to speed this up.");
+
 			return OutputFile;
 		}
 
