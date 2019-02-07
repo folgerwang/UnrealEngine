@@ -1209,7 +1209,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		{
 			FUObjectSerializeContext* InOutLoadContext = LoadContext;
 			Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride, &InOutLoadContext);
-			if (InOutLoadContext != LoadContext)
+			if (InOutLoadContext != LoadContext && InOutLoadContext)
 			{
 				// The linker already existed and was associated with another context
 				LoadContext->DecrementBeginLoadCount();
@@ -1752,6 +1752,11 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 
 	if (LoadContext->GetBeginLoadCount() == 0)
 	{
+		if (!GEventDrivenLoaderEnabled)
+		{
+			LoadContext->DetachFromLinkers();
+		}
+
 		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 		if (ThreadContext.SerializeContext == LoadContext)
 		{

@@ -5,6 +5,8 @@
 =============================================================================*/
 
 #include "UObject/UObjectThreadContext.h"
+#include "UObject/Object.h"
+#include "UObject/LinkerLoad.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectThreadContext);
 
@@ -35,6 +37,7 @@ FUObjectSerializeContext::FUObjectSerializeContext()
 FUObjectSerializeContext::~FUObjectSerializeContext()
 {
 	checkf(!HasLoadedObjects(), TEXT("FUObjectSerializeContext is being destroyed but it still has pending loaded objects in its ObjectsLoaded list."));
+	check(AttachedLinkers.Num() == 0);
 }
 
 int32 FUObjectSerializeContext::IncrementBeginLoadCount()
@@ -54,4 +57,36 @@ void FUObjectSerializeContext::AddUniqueLoadedObjects(const TArray<UObject*>& In
 		ObjectsLoaded.AddUnique(NewLoadedObject);
 	}
 	
+}
+
+bool FUObjectSerializeContext::PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject)
+{
+	const int32 ObjLoadedIdx = ObjectsLoaded.Find(OldObject);
+	if (ObjLoadedIdx != INDEX_NONE)
+	{
+		ObjectsLoaded[ObjLoadedIdx] = NewObject;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+void FUObjectSerializeContext::AttachLinker(FLinkerLoad* InLinker)
+{
+	check(!GEventDrivenLoaderEnabled);
+	AttachedLinkers.Add(InLinker);
+}
+
+void FUObjectSerializeContext::DetachFromLinkers()
+{
+	check(!GEventDrivenLoaderEnabled);
+	check(ObjectsLoaded.Num() == 0);
+	TArray<FLinkerLoad*> LinkersToDetach = AttachedLinkers.Array();
+	for (FLinkerLoad* Linker : LinkersToDetach)
+	{
+		check(Linker->GetSerializeContext() == this);
+		Linker->SetSerializeContext(nullptr);
+	}
+	check(AttachedLinkers.Num() == 0);
 }

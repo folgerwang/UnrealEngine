@@ -5959,10 +5959,17 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 		if (Linker)
 		{
 			// Swap the load context to the currently associated with the existing linker
-			check(Linker->GetSerializeContext());
-			LoadContext->DecrementBeginLoadCount();
-			LoadContext = Linker->GetSerializeContext();
-			LoadContext->IncrementBeginLoadCount();
+			if (Linker->GetSerializeContext())
+			{
+				LoadContext->DecrementBeginLoadCount();
+				LoadContext = Linker->GetSerializeContext();
+				LoadContext->IncrementBeginLoadCount();
+			}
+			else
+			{
+				check(!GEventDrivenLoaderEnabled);
+				Linker->SetSerializeContext(LoadContext);
+			}
 
 			if (GEventDrivenLoaderEnabled)
 			{
@@ -6949,9 +6956,14 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 		Linker->FlushCache();
 	}
 
+	if (GEventDrivenLoaderEnabled)
 	{
 		const bool bInternalCallbacks = true;
 		CallCompletionCallbacks(bInternalCallbacks, LoadingResult);
+	}
+	else
+	{
+		LoadContext->DetachFromLinkers();
 	}
 
 	return EAsyncPackageState::Complete;

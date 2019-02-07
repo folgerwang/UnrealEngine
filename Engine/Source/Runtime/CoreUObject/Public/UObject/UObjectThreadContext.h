@@ -12,6 +12,7 @@
 
 class FObjectInitializer;
 struct FUObjectSerializeContext;
+class FLinkerLoad;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogUObjectThreadContext, Log, All);
 
@@ -107,7 +108,9 @@ private:
 	/** Objects that might need preloading. */
 	TArray<UObject*> ObjectsLoaded;
 	/** List of linkers that we want to close the loaders for (to free file handles) - needs to be delayed until EndLoad is called with GObjBeginLoadCount of 0 */
-	TArray<class FLinkerLoad*> DelayedLinkerClosePackages;
+	TArray<FLinkerLoad*> DelayedLinkerClosePackages;
+	/** List of linkers associated with this context */
+	TSet<FLinkerLoad*> AttachedLinkers;
 
 public:
 
@@ -133,8 +136,10 @@ public:
 	/** Adds a new loaded object */
 	void AddLoadedObject(UObject* InObject)
 	{
+		check(AttachedLinkers.Num() || GEventDrivenLoaderEnabled);
 		ObjectsLoaded.Add(InObject);
 	}
+
 	void AddUniqueLoadedObjects(const TArray<UObject*>& InObjects);
 
 	/** Checks if object loading has started */
@@ -178,19 +183,7 @@ public:
 		return !!ObjectsLoaded.Num();
 	}
 
-	bool PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject)
-	{
-		const int32 ObjLoadedIdx = ObjectsLoaded.Find(OldObject);
-		if (ObjLoadedIdx != INDEX_NONE)
-		{
-			ObjectsLoaded[ObjLoadedIdx] = NewObject;
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
+	bool PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject);
 
 	/** This is only meant to be used by FAsyncPackage for performance reasons. The ObjectsLoaded array should not be manipulated directly! */
 	TArray<UObject*>& PRIVATE_GetObjectsLoadedInternalUseOnly()
@@ -228,6 +221,18 @@ public:
 	{
 		OutDelayedLinkerClosePackages = MoveTemp(DelayedLinkerClosePackages);
 	}
+
+	/** Attaches a linker to this context */
+	void AttachLinker(FLinkerLoad* InLinker);
+	
+	/** Detaches a linker from this context */
+	void DetachLinker(FLinkerLoad* InLinker)
+	{
+		AttachedLinkers.Remove(InLinker);
+	}
+
+	/** Detaches all linkers from this context */
+	void DetachFromLinkers();
 
 	//~ TRefCountPtr interface
 	int32 AddRef()

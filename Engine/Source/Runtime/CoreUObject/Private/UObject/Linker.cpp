@@ -726,7 +726,7 @@ FLinkerLoad* GetPackageLinker
 	else if (InExistingContext)
 	{
 		if ((Result->GetSerializeContext() && Result->GetSerializeContext()->HasStartedLoading() && InExistingContext->GetBeginLoadCount() == 1) ||
-			  IsInAsyncLoadingThread())
+			  (IsInAsyncLoadingThread() && Result->GetSerializeContext()))
 		{
 			// Use the context associated with the linker because it has already started loading objects (or we're in ALT where each package needs its own context)
 			*InOutLoadContext = Result->GetSerializeContext();
@@ -737,7 +737,6 @@ FLinkerLoad* GetPackageLinker
 			{
 				// Make sure the objects already loaded with the context associated with the existing linker
 				// are copied to the context provided for this function call to make sure they all get loaded ASAP
-				check(!IsInAsyncLoadingThread());
 				InExistingContext->AddUniqueLoadedObjects(Result->GetSerializeContext()->PRIVATE_GetObjectsLoadedInternalUseOnly());
 			}
 			// Replace the linker context with the one passed into this function
