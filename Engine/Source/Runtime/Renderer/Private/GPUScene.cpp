@@ -361,7 +361,7 @@ void AddPrimitiveToUpdateGPU(FScene& Scene, int32 PrimitiveId)
 			Scene.GPUScene.PrimitivesMarkedToUpdate.Add(0, NewSize - Scene.GPUScene.PrimitivesMarkedToUpdate.Num());
 		}
 
-		// Make sure we are no updating same primitive multiple times.
+		// Make sure we aren't updating same primitive multiple times.
 		if (!Scene.GPUScene.PrimitivesMarkedToUpdate[PrimitiveId])
 		{
 			Scene.GPUScene.PrimitivesToUpdate.Add(PrimitiveId);

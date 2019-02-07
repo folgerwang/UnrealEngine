@@ -3509,7 +3509,7 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	}
 
 	// Skip primitive uniform buffer if we will be using local vertex factory which gets it's data from GPUScene.
-	bVFRequiresPrimitiveUniformBuffer = !(bRenderStatic && UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel));
+	bVFRequiresPrimitiveUniformBuffer = !((bIsCPUSkinned || bRenderStatic) && UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel));
 }
 
 
