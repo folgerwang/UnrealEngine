@@ -103,8 +103,6 @@ private:
 	void HandleReimportAllMesh(int32 SourceFileIndex = INDEX_NONE);
 	void HandleReimportAllMeshWithNewFile(int32 SourceFileIndex = INDEX_NONE);
 
-	void HandleUpdateRefPose();
-
 	/** Callback for toggling UV drawing in the viewport */
 	void ToggleMeshSectionSelection();
 
