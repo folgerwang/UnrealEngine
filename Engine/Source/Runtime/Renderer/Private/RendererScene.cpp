@@ -2206,11 +2206,10 @@ void FScene::UpdateLightTransform(ULightComponent* Light)
 		FUpdateLightTransformParameters Parameters;
 		Parameters.LightToWorld = Light->GetComponentTransform().ToMatrixNoScale();
 		Parameters.Position = Light->GetLightPosition();
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			UpdateLightTransform,
-			FScene*,Scene,this,
-			FLightSceneInfo*,LightSceneInfo,Light->SceneProxy->GetLightSceneInfo(),
-			FUpdateLightTransformParameters,Parameters,Parameters,
+		FScene* Scene = this;
+		FLightSceneInfo* LightSceneInfo = Light->SceneProxy->GetLightSceneInfo();
+		ENQUEUE_RENDER_COMMAND(UpdateLightTransform)(
+			[Scene, LightSceneInfo, Parameters](FRHICommandListImmediate& RHICmdList)
 			{
 				FScopeCycleCounter Context(LightSceneInfo->Proxy->GetStatId());
 				Scene->UpdateLightTransform_RenderThread(LightSceneInfo, Parameters);
@@ -2244,11 +2243,10 @@ void FScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 			 NewParameters.NewColor *= FLinearColor::MakeFromColorTemperature(Light->Temperature);
 		}
 	
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			UpdateLightColorAndBrightness,
-			FLightSceneInfo*,LightSceneInfo,Light->SceneProxy->GetLightSceneInfo(),
-			FScene*,Scene,this,
-			FUpdateLightColorParameters,Parameters,NewParameters,
+		FScene* Scene = this;
+		FLightSceneInfo* LightSceneInfo = Light->SceneProxy->GetLightSceneInfo();
+		ENQUEUE_RENDER_COMMAND(UpdateLightColorAndBrightness)(
+			[LightSceneInfo, Scene, NewParameters](FRHICommandListImmediate& RHICmdList)
 			{
 				if( LightSceneInfo && LightSceneInfo->bVisible )
 				{
@@ -2258,16 +2256,16 @@ void FScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 					Scene->bScenesPrimitivesNeedStaticMeshElementUpdate =
 						Scene->bScenesPrimitivesNeedStaticMeshElementUpdate ||
 						( Scene->GetShadingPath() == EShadingPath::Mobile 
-						&& Parameters.NewColor.IsAlmostBlack() != LightSceneInfo->Proxy->GetColor().IsAlmostBlack() );
+						&& NewParameters.NewColor.IsAlmostBlack() != LightSceneInfo->Proxy->GetColor().IsAlmostBlack() );
 
-					LightSceneInfo->Proxy->SetColor(Parameters.NewColor);
-					LightSceneInfo->Proxy->IndirectLightingScale = Parameters.NewIndirectLightingScale;
-					LightSceneInfo->Proxy->VolumetricScatteringIntensity = Parameters.NewVolumetricScatteringIntensity;
+					LightSceneInfo->Proxy->SetColor(NewParameters.NewColor);
+					LightSceneInfo->Proxy->IndirectLightingScale = NewParameters.NewIndirectLightingScale;
+					LightSceneInfo->Proxy->VolumetricScatteringIntensity = NewParameters.NewVolumetricScatteringIntensity;
 
 					// Also update the LightSceneInfoCompact
 					if( LightSceneInfo->Id != INDEX_NONE )
 					{
-						Scene->Lights[ LightSceneInfo->Id ].Color = Parameters.NewColor;
+						Scene->Lights[ LightSceneInfo->Id ].Color = NewParameters.NewColor;
 					}
 				}
 			});
@@ -2589,11 +2587,9 @@ void FScene::AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* 
 {
 	if (StaticMesh != NULL && StaticMesh->SpeedTreeWind.IsValid() && StaticMesh->RenderData.IsValid())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FAddSpeedTreeWindCommand,
-			FScene*,Scene,this,
-			const UStaticMesh*,StaticMesh,StaticMesh,
-			FVertexFactory*,VertexFactory,VertexFactory,
+		FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(FAddSpeedTreeWindCommand)(
+			[Scene, StaticMesh, VertexFactory](FRHICommandListImmediate& RHICmdList)
 			{
 				Scene->SpeedTreeVertexFactoryMap.Add(VertexFactory, StaticMesh);
 
@@ -2761,11 +2757,9 @@ void FScene::GetRelevantLights( UPrimitiveComponent* Primitive, TArray<const ULi
 	if( Primitive && RelevantLights )
 	{
 		// Add interacting lights to the array.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FGetRelevantLightsCommand,
-			const FScene*,Scene,this,
-			UPrimitiveComponent*,Primitive,Primitive,
-			TArray<const ULightComponent*>*,RelevantLights,RelevantLights,
+		const FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(FGetRelevantLightsCommand)(
+			[Scene, Primitive, RelevantLights](FRHICommandListImmediate& RHICmdList)
 			{
 				Scene->GetRelevantLights_RenderThread( Primitive, RelevantLights );
 			});

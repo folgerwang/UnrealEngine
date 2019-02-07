@@ -126,14 +126,14 @@ void UTextureRenderTarget2D::ResizeTarget(uint32 InSizeX, uint32 InSizeY)
 
 		if (Resource)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				ResizeRenderTarget,
-				FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
-				int32, NewSizeX, SizeX,
-				int32, NewSizeY, SizeY,
+			FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+			int32 NewSizeX = SizeX;
+			int32 NewSizeY = SizeY;
+			ENQUEUE_RENDER_COMMAND(ResizeRenderTarget)(
+				[InResource, NewSizeX, NewSizeY](FRHICommandListImmediate& RHICmdList)
 				{
-					Resource->Resize(NewSizeX, NewSizeY);
-					Resource->UpdateDeferredResource(RHICmdList, true);
+					InResource->Resize(NewSizeX, NewSizeY);
+					InResource->UpdateDeferredResource(RHICmdList, true);
 				}
 			);
 
@@ -150,12 +150,11 @@ void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=t
 {
 	if (Resource)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateResourceImmediate,
-			FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
-			bool, bClearRenderTarget, bClearRenderTarget,
+		FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+		ENQUEUE_RENDER_COMMAND(UpdateResourceImmediate)(
+			[InResource, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
 			{
-				Resource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
+				InResource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
 			}
 		);
 	}

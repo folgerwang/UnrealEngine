@@ -397,14 +397,12 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 
 	FSceneView DummyView(ViewInitOptions);
 	FlushRenderingCommands();
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-	  RendererGPUBenchmarkCommand,
-	  FSceneView, DummyView, DummyView,
-	  float, WorkScale, WorkScale,
-	  FSynthBenchmarkResults&, InOut, InOut,
-	{
-		RendererGPUBenchmark(RHICmdList, InOut, DummyView, WorkScale);
-	});
+	FSynthBenchmarkResults* InOutPtr = &InOut;
+	ENQUEUE_RENDER_COMMAND(RendererGPUBenchmarkCommand)(
+		[DummyView, WorkScale, InOutPtr](FRHICommandListImmediate& RHICmdList)
+		{
+			RendererGPUBenchmark(RHICmdList, *InOutPtr, DummyView, WorkScale);
+		});
 	FlushRenderingCommands();
 }
 

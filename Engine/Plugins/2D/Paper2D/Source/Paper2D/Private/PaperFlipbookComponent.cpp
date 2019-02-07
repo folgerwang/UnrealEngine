@@ -357,13 +357,12 @@ void UPaperFlipbookComponent::SendRenderDynamicData_Concurrent()
 		DrawCall.BuildFromSprite(SpriteToSend);
 		DrawCall.Color = SpriteColor.ToFColor(/*bSRGB=*/ false);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FSendPaperRenderComponentDynamicData,
-				FPaperRenderSceneProxy*,InSceneProxy,(FPaperRenderSceneProxy*)SceneProxy,
-				FSpriteDrawCallRecord,InSpriteToSend,DrawCall,
-				UBodySetup*,InBodySetup,CachedBodySetup,
+		FPaperRenderSceneProxy* InSceneProxy = (FPaperRenderSceneProxy*)SceneProxy;
+		UBodySetup* InBodySetup = CachedBodySetup;
+		ENQUEUE_RENDER_COMMAND(FSendPaperRenderComponentDynamicData)(
+			[InSceneProxy, DrawCall, InBodySetup](FRHICommandListImmediate& RHICmdList)
 			{
-				InSceneProxy->SetDrawCall_RenderThread(InSpriteToSend);
+				InSceneProxy->SetDrawCall_RenderThread(DrawCall);
 				InSceneProxy->SetBodySetup_RenderThread(InBodySetup);
 			});
 	}

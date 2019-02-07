@@ -323,27 +323,20 @@ void FMaterialInstanceResource::GameThread_SetParent(UMaterialInterface* ParentM
 	}
 }
 
-ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER_DECLARE_TEMPLATE(
-	SetMIParameterValue, ParameterType,
-	FMaterialInstanceResource*, Resource, Resource,
-	FMaterialParameterInfo, ParameterInfo, Parameter.ParameterInfo,
-	typename ParameterType::ValueType, Value, ParameterType::GetValue(Parameter),
-	{
-		Resource->RenderThread_UpdateParameter(ParameterInfo, Value);
-	});
-
 /**
 * Updates a parameter on the material instance from the game thread.
 */
 template <typename ParameterType>
 void GameThread_UpdateMIParameter(const UMaterialInstance* Instance, const ParameterType& Parameter)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER_CREATE_TEMPLATE(
-		SetMIParameterValue, ParameterType,
-		FMaterialInstanceResource*, Instance->Resource,
-		FMaterialParameterInfo, Parameter.ParameterInfo,
-		typename ParameterType::ValueType, ParameterType::GetValue(Parameter)
-		);
+	FMaterialInstanceResource* Resource = Instance->Resource;
+	const FMaterialParameterInfo& ParameterInfo = Parameter.ParameterInfo;
+	typename ParameterType::ValueType Value = ParameterType::GetValue(Parameter);
+	ENQUEUE_RENDER_COMMAND(SetMIParameterValue)(
+		[Resource, ParameterInfo, Value](FRHICommandListImmediate& RHICmdList)
+		{
+			Resource->RenderThread_UpdateParameter(ParameterInfo, Value);
+		});
 }
 
 bool UMaterialInstance::UpdateParameters()

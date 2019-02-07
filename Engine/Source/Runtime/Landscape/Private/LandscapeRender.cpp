@@ -4267,21 +4267,19 @@ void ALandscapeProxy::ChangeTessellationComponentScreenSize(float InTessellation
 			RenderProxies[Idx] = (FLandscapeComponentSceneProxy*)(LandscapeComponents[Idx]->SceneProxy);
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			LandscapeChangeTessellationComponentScreenSizeCommand,
-			FLandscapeComponentSceneProxy**, RenderProxies, RenderProxies,
-			int32, ComponentCount, ComponentCount,
-			float, InTessellationComponentScreenSize, TessellationComponentScreenSize,
+		float TessellationComponentScreenSizeLocal = TessellationComponentScreenSize;
+		ENQUEUE_RENDER_COMMAND(LandscapeChangeTessellationComponentScreenSizeCommand)(
+			[RenderProxies, ComponentCount, TessellationComponentScreenSizeLocal](FRHICommandListImmediate& RHICmdList)
 			{
 				for (int32 Idx = 0; Idx < ComponentCount; ++Idx)
 				{
 					if (RenderProxies[Idx] != nullptr)
 					{
-						RenderProxies[Idx]->ChangeTessellationComponentScreenSize_RenderThread(InTessellationComponentScreenSize);
+						RenderProxies[Idx]->ChangeTessellationComponentScreenSize_RenderThread(TessellationComponentScreenSizeLocal);
 					}
 				}
 
-		delete[] RenderProxies;
+				delete[] RenderProxies;
 			}
 		);
 	}
@@ -4300,21 +4298,19 @@ void ALandscapeProxy::ChangeComponentScreenSizeToUseSubSections(float InComponen
 			RenderProxies[Idx] = (FLandscapeComponentSceneProxy*)(LandscapeComponents[Idx]->SceneProxy);
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			LandscapeChangeComponentScreenSizeToUseSubSectionsCommand,
-			FLandscapeComponentSceneProxy**, RenderProxies, RenderProxies,
-			int32, ComponentCount, ComponentCount,
-			float, InComponentScreenSizeToUseSubSections, ComponentScreenSizeToUseSubSections,
+		float ComponentScreenSizeToUseSubSectionsLocal = ComponentScreenSizeToUseSubSections;
+		ENQUEUE_RENDER_COMMAND(LandscapeChangeComponentScreenSizeToUseSubSectionsCommand)(
+			[RenderProxies, ComponentCount, ComponentScreenSizeToUseSubSectionsLocal](FRHICommandListImmediate& RHICmdList)
 			{
 				for (int32 Idx = 0; Idx < ComponentCount; ++Idx)
 				{
 					if (RenderProxies[Idx] != nullptr)
 					{
-						RenderProxies[Idx]->ChangeComponentScreenSizeToUseSubSections_RenderThread(InComponentScreenSizeToUseSubSections);
+						RenderProxies[Idx]->ChangeComponentScreenSizeToUseSubSections_RenderThread(ComponentScreenSizeToUseSubSectionsLocal);
 					}
 				}
 
-		delete[] RenderProxies;
+				delete[] RenderProxies;
 			}
 		);
 	}
@@ -4333,11 +4329,8 @@ void ALandscapeProxy::ChangeUseTessellationComponentScreenSizeFalloff(bool InUse
 			RenderProxies[Idx] = (FLandscapeComponentSceneProxy*)(LandscapeComponents[Idx]->SceneProxy);
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			LandscapeChangeUseTessellationComponentScreenSizeFalloffCommand,
-			FLandscapeComponentSceneProxy**, RenderProxies, RenderProxies,
-			int32, ComponentCount, ComponentCount,
-			bool, InUseTessellationComponentScreenSizeFalloff, UseTessellationComponentScreenSizeFalloff,
+		ENQUEUE_RENDER_COMMAND(LandscapeChangeUseTessellationComponentScreenSizeFalloffCommand)(
+			[RenderProxies, ComponentCount, InUseTessellationComponentScreenSizeFalloff](FRHICommandListImmediate& RHICmdList)
 			{
 				for (int32 Idx = 0; Idx < ComponentCount; ++Idx)
 				{
@@ -4347,7 +4340,7 @@ void ALandscapeProxy::ChangeUseTessellationComponentScreenSizeFalloff(bool InUse
 					}
 				}
 
-		delete[] RenderProxies;
+				delete[] RenderProxies;
 			}
 		);
 	}
@@ -4366,21 +4359,19 @@ void ALandscapeProxy::ChangeTessellationComponentScreenSizeFalloff(float InTesse
 			RenderProxies[Idx] = (FLandscapeComponentSceneProxy*)(LandscapeComponents[Idx]->SceneProxy);
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			LandscapeChangeTessellationComponentScreenSizeFalloffCommand,
-			FLandscapeComponentSceneProxy**, RenderProxies, RenderProxies,
-			int32, ComponentCount, ComponentCount,
-			float, InTessellationComponentScreenSizeFalloff, TessellationComponentScreenSizeFalloff,
+		float TessellationComponentScreenSizeFalloffLocal = TessellationComponentScreenSizeFalloff;
+		ENQUEUE_RENDER_COMMAND(LandscapeChangeTessellationComponentScreenSizeFalloffCommand)(
+			[RenderProxies, ComponentCount, TessellationComponentScreenSizeFalloffLocal](FRHICommandListImmediate& RHICmdList)
 			{
 				for (int32 Idx = 0; Idx < ComponentCount; ++Idx)
 				{
 					if (RenderProxies[Idx] != nullptr)
 					{
-						RenderProxies[Idx]->ChangeTessellationComponentScreenSizeFalloff_RenderThread(InTessellationComponentScreenSizeFalloff);
+						RenderProxies[Idx]->ChangeTessellationComponentScreenSizeFalloff_RenderThread(TessellationComponentScreenSizeFalloffLocal);
 					}
 				}
 
-		delete[] RenderProxies;
+				delete[] RenderProxies;
 			}
 		);
 	}

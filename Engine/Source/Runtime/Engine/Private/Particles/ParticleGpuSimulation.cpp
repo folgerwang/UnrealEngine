@@ -2832,11 +2832,10 @@ void FParticleSimulationGPU::InitResources(const TArray<uint32>& Tiles, FGPUSpri
 
 	if (InGPUSpriteResources)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FInitParticleSimulationGPUCommand,
-			FParticleSimulationGPU*, Simulation, this,
-			TArray<uint32>, Tiles, Tiles,
-			TRefCountPtr<FGPUSpriteResources>, InGPUSpriteResources, InGPUSpriteResources, // TRefCountPtr to take reference for lifetime of this render command
+		TRefCountPtr<FGPUSpriteResources> InGPUSpriteResourcesRef = InGPUSpriteResources;
+		FParticleSimulationGPU* Simulation = this;
+		ENQUEUE_RENDER_COMMAND(FInitParticleSimulationGPUCommand)(
+			[Simulation, Tiles, InGPUSpriteResourcesRef](FRHICommandListImmediate& RHICmdList)
 			{
 				// Release vertex buffers.
 				Simulation->VertexBuffer.ReleaseResource();
@@ -2847,8 +2846,8 @@ void FParticleSimulationGPU::InitResources(const TArray<uint32>& Tiles, FGPUSpri
 				Simulation->TileVertexBuffer.Init(Tiles);
 
 				// Store simulation resources for this emitter.
-				Simulation->GPUSpriteResources = InGPUSpriteResources;
-				Simulation->EmitterSimulationResources = &InGPUSpriteResources->EmitterSimulationResources;
+				Simulation->GPUSpriteResources = InGPUSpriteResourcesRef;
+				Simulation->EmitterSimulationResources = &InGPUSpriteResourcesRef->EmitterSimulationResources;
 
 				// If a visualization vertex factory has been created, initialize it.
 				if (Simulation->VectorFieldVisualizationVertexFactory)

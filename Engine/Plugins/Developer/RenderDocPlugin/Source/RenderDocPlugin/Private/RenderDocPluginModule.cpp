@@ -216,11 +216,9 @@ void FRenderDocPluginModule::BeginCapture()
 	HWND WindowHandle = GetActiveWindow();
 
 	typedef FRenderDocPluginLoader::RENDERDOC_API_CONTEXT RENDERDOC_API_CONTEXT;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		StartRenderDocCapture,
-		HWND, WindowHandle, WindowHandle,
-		RENDERDOC_API_CONTEXT*, RenderDocAPI, RenderDocAPI,
-		FRenderDocPluginModule*, Plugin, this,
+	FRenderDocPluginModule* Plugin = this;
+	ENQUEUE_RENDER_COMMAND(StartRenderDocCapture)(
+		[Plugin, WindowHandle, RenderDocAPI](FRHICommandListImmediate& RHICmdList)
 		{
 			FRenderDocFrameCapturer::BeginCapture(WindowHandle, RenderDocAPI, Plugin);
 		});
@@ -252,11 +250,9 @@ void FRenderDocPluginModule::EndCapture()
 	HWND WindowHandle = GetActiveWindow();
 
 	typedef FRenderDocPluginLoader::RENDERDOC_API_CONTEXT RENDERDOC_API_CONTEXT;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		EndRenderDocCapture,
-		HWND, WindowHandle, WindowHandle,
-		RENDERDOC_API_CONTEXT*, RenderDocAPI, RenderDocAPI,
-		FRenderDocPluginModule*, Plugin, this,
+	FRenderDocPluginModule* Plugin = this;
+	ENQUEUE_RENDER_COMMAND(EndRenderDocCapture)(
+		[WindowHandle, RenderDocAPI, Plugin](FRHICommandListImmediate& RHICmdList)
 		{
 			FRenderDocFrameCapturer::EndCapture(WindowHandle, RenderDocAPI, Plugin);
 		});

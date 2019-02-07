@@ -123,25 +123,25 @@ void FDebugCanvasDrawer::BeginRenderingCanvas( const FIntRect& CanvasRect )
 	if( CanvasRect.Size().X > 0 && CanvasRect.Size().Y > 0 )
 	{
 		bCanvasRenderedLastFrame = true;
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER
-		(
-			BeginRenderingDebugCanvas,
-			FDebugCanvasDrawer*, CanvasDrawer, this, 
-			FCanvasPtr, CanvasToRender, GameThreadCanvas,
-			FIntRect, CanvasRect, CanvasRect,
+		FDebugCanvasDrawer* CanvasDrawer = this;
+		FCanvasPtr CanvasToRender = GameThreadCanvas;
+		ENQUEUE_RENDER_COMMAND(BeginRenderingDebugCanvas)(
+			[CanvasDrawer, CanvasToRender, CanvasRect = CanvasRect](FRHICommandListImmediate& RHICmdList)
 			{
+				FCanvasPtr LocalCanvasToRender = CanvasToRender;
+			
 				// Delete the old rendering thread canvas
-				if( CanvasDrawer->GetRenderThreadCanvas().IsValid() && CanvasToRender.IsValid() )
+				if( CanvasDrawer->GetRenderThreadCanvas().IsValid() && LocalCanvasToRender.IsValid() )
 				{
 					CanvasDrawer->DeleteRenderThreadCanvas();
 				}
 
-				if(!CanvasToRender.IsValid())
+				if (!LocalCanvasToRender.IsValid())
 				{
-					CanvasToRender = CanvasDrawer->GetRenderThreadCanvas();
+					LocalCanvasToRender = CanvasDrawer->GetRenderThreadCanvas();
 				}
 
-				CanvasDrawer->SetRenderThreadCanvas( CanvasRect, CanvasToRender );
+				CanvasDrawer->SetRenderThreadCanvas( CanvasRect, LocalCanvasToRender);
 			}
 		);
 		

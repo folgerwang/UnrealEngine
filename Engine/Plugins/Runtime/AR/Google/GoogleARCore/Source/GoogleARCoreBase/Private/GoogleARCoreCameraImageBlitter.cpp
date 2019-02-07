@@ -76,14 +76,12 @@ void FGoogleARCoreDeviceCameraBlitter::LateInit(FIntPoint ImageSize)
 			// We have to get the OpenGL texture ID on the render
 			// thread, after the native resource has been
 			// initialized.
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				InitCameraBlitter,
-				FTexture2DResource *, resource, ((FTexture2DResource *)resource),
-				uint32 *, TextureId, TextureId,
-				FIntPoint, CameraSize, CameraSize,
+			FTexture2DResource* Resource = ((FTexture2DResource *)resource);
+			ENQUEUE_RENDER_COMMAND(InitCameraBlitter)(
+				[Resource, TextureId, CameraSize](FRHICommandListImmediate& RHICmdList)
 				{
-					resource->InitRHI();
-					*TextureId = *reinterpret_cast<uint32*>(resource->GetTexture2DRHI()->GetNativeResource());
+					Resource->InitRHI();
+					*TextureId = *reinterpret_cast<uint32*>(Resource->GetTexture2DRHI()->GetNativeResource());
 				});
 		}
 	}

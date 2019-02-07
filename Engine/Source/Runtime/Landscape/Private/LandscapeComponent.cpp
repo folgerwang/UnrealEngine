@@ -48,11 +48,9 @@ void ULandscapeComponent::UpdateEditToolRenderData()
 		const bool bGetDebugMaterials = true;
 		GetUsedMaterials(UsedMaterialsForVerification, bGetDebugMaterials);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			UpdateEditToolRenderData,
-			FLandscapeEditToolRenderData, LandscapeEditToolRenderData, EditToolRenderData,
-			FLandscapeComponentSceneProxy*, LandscapeSceneProxy, LandscapeSceneProxy,
-			TArray<UMaterialInterface*>, UsedMaterialsForVerification, UsedMaterialsForVerification,
+		FLandscapeEditToolRenderData LandscapeEditToolRenderData = EditToolRenderData;
+		ENQUEUE_RENDER_COMMAND(UpdateEditToolRenderData)(
+			[LandscapeEditToolRenderData, LandscapeSceneProxy, UsedMaterialsForVerification](FRHICommandListImmediate& RHICmdList)
 			{
 				LandscapeSceneProxy->EditToolRenderData = LandscapeEditToolRenderData;				
 				LandscapeSceneProxy->SetUsedMaterialForVerification(UsedMaterialsForVerification);

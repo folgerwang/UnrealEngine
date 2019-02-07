@@ -119,13 +119,11 @@ void UPaperSpriteComponent::SendRenderDynamicData_Concurrent()
 		DrawCall.Color = SpriteColor.ToFColor(/*bSRGB=*/ false);
 		const int32 SplitIndex = (SourceSprite != nullptr) ? SourceSprite->AlternateMaterialSplitIndex : INDEX_NONE;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FSendPaperSpriteComponentDynamicData,
-				FPaperSpriteSceneProxy*,InSceneProxy,(FPaperSpriteSceneProxy*)SceneProxy,
-				FSpriteDrawCallRecord,InSpriteToSend,DrawCall,
-				int32,InSplitIndex,SplitIndex,
+		FPaperSpriteSceneProxy* InSceneProxy = (FPaperSpriteSceneProxy*)SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FSendPaperSpriteComponentDynamicData)(
+			[InSceneProxy, DrawCall, SplitIndex](FRHICommandListImmediate& RHICmdList)
 			{
-				InSceneProxy->SetSprite_RenderThread(InSpriteToSend, InSplitIndex);
+				InSceneProxy->SetSprite_RenderThread(DrawCall, SplitIndex);
 			});
 	}
 }
@@ -378,13 +376,11 @@ void UPaperSpriteComponent::CheckForErrors()
 #if WITH_EDITOR
 void UPaperSpriteComponent::SetTransientTextureOverride(const UTexture* TextureToModifyOverrideFor, UTexture* OverrideTexture)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		FSendPaperSpriteComponentDynamicData,
-		FPaperSpriteSceneProxy*, InSceneProxy, (FPaperSpriteSceneProxy*)SceneProxy,
-		const UTexture*, InTextureToModifyOverrideFor, TextureToModifyOverrideFor,
-		UTexture*, InOverrideTexture, OverrideTexture,
+	FPaperSpriteSceneProxy* InSceneProxy = (FPaperSpriteSceneProxy*)SceneProxy;
+	ENQUEUE_RENDER_COMMAND(FSendPaperSpriteComponentDynamicData)(
+		[InSceneProxy, TextureToModifyOverrideFor, OverrideTexture](FRHICommandListImmediate& RHICmdList)
 		{
-			InSceneProxy->SetTransientTextureOverride_RenderThread(InTextureToModifyOverrideFor, InOverrideTexture);
+			InSceneProxy->SetTransientTextureOverride_RenderThread(TextureToModifyOverrideFor, OverrideTexture);
 		});
 }
 #endif

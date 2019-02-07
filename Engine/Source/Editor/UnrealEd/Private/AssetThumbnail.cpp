@@ -1169,13 +1169,12 @@ FSlateTexture2DRHIRef* FAssetThumbnailPool::AccessTexture( const FAssetData& Ass
 			{
 				ThumbnailInfo = FreeThumbnails.Pop();
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER( SlateUpdateThumbSizeCommand,
-					FSlateTextureRenderTarget2DResource*, ThumbnailRenderTarget, ThumbnailInfo->ThumbnailRenderTarget,
-					uint32, Width, Width,
-					uint32, Height, Height,
-				{
-					ThumbnailRenderTarget->SetSize(Width, Height);
-				});
+				FSlateTextureRenderTarget2DResource* ThumbnailRenderTarget = ThumbnailInfo->ThumbnailRenderTarget;
+				ENQUEUE_RENDER_COMMAND(SlateUpdateThumbSizeCommand)(
+					[ThumbnailRenderTarget, Width, Height](FRHICommandListImmediate& RHICmdList)
+					{
+						ThumbnailRenderTarget->SetSize(Width, Height);
+					});
 			}
 			else
 			{

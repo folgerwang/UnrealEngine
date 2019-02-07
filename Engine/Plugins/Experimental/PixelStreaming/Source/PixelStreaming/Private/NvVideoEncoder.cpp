@@ -495,18 +495,17 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::EncoderCheckLoop()
 		// When resolution changes, render thread is stopped and later restarted from game thread.
 		// We can't enqueue render commands when render thread is stopped, so pause until render thread is restarted.
 		while (bWaitForRenderThreadToResume) {}
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			NvEncProcessFrame,
-			FNvVideoEncoderImpl*, this_, this,
-			FFrame*, Frame, &Frame,
-			int32, CurrImplCounter, CurrImplCounter,
+		FNvVideoEncoderImpl* This = this;
+		FFrame* InFrame = &Frame;
+		ENQUEUE_RENDER_COMMAND(NvEncProcessFrame)(
+			[This, InFrame, CurrImplCounter](FRHICommandListImmediate& RHICmdList)
 			{
 				if (CurrImplCounter != ImplCounter.GetValue()) // Check if the "this" we captured is still valid
 				{
 					return;
 				}
 	
-				this_->ProcessFrame(*Frame);
+				This->ProcessFrame(*InFrame);
 			}
 		);
 

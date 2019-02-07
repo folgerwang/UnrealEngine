@@ -2166,13 +2166,11 @@ void USkinnedMeshComponent::ShowMaterialSection(int32 MaterialID, bool bShow, in
 		if ( MeshObject )
 		{
 			// need to send render thread for updated hidden section
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FUpdateHiddenSectionCommand, 
-				FSkeletalMeshObject*, MeshObject, MeshObject, 
-				TArray<bool>, HiddenMaterials, HiddenMaterials, 
-				int32, LODIndex, LODIndex,
+			FSkeletalMeshObject* InMeshObject = MeshObject;
+			ENQUEUE_RENDER_COMMAND(FUpdateHiddenSectionCommand)(
+				[InMeshObject, HiddenMaterials, LODIndex](FRHICommandListImmediate& RHICmdList)
 			{
-				MeshObject->SetHiddenMaterials(LODIndex,HiddenMaterials);
+				InMeshObject->SetHiddenMaterials(LODIndex, HiddenMaterials);
 			});
 		}
 	}
@@ -2197,13 +2195,11 @@ void USkinnedMeshComponent::ShowAllMaterialSections(int32 LODIndex)
 			if (MeshObject)
 			{
 				// need to send render thread for updated hidden section
-				ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-					FUpdateHiddenSectionCommand,
-					FSkeletalMeshObject*, MeshObject, MeshObject,
-					TArray<bool>, HiddenMaterials, HiddenMaterials,
-					int32, LODIndex, LODIndex,
+				FSkeletalMeshObject* InMeshObject = MeshObject;
+				ENQUEUE_RENDER_COMMAND(FUpdateHiddenSectionCommand)(
+					[InMeshObject, HiddenMaterials, LODIndex](FRHICommandListImmediate& RHICmdList)
 					{
-						MeshObject->SetHiddenMaterials(LODIndex,HiddenMaterials);
+						InMeshObject->SetHiddenMaterials(LODIndex, HiddenMaterials);
 					});
 			}
 		}

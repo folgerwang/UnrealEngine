@@ -406,14 +406,12 @@ void FPrimitiveSceneProxy::SetSelection_GameThread(const bool bInParentSelected,
 	check(IsInGameThread());
 
 	// Enqueue a message to the rendering thread containing the interaction to add.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		SetNewSelection,
-		FPrimitiveSceneProxy*,PrimitiveSceneProxy,this,
-		const bool,bNewParentSelection,bInParentSelected,
-		const bool,bNewIndividuallySelected,bInIndividuallySelected,
-	{
-		PrimitiveSceneProxy->SetSelection_RenderThread(bNewParentSelection,bNewIndividuallySelected);
-	});
+	FPrimitiveSceneProxy* PrimitiveSceneProxy = this;
+	ENQUEUE_RENDER_COMMAND(SetNewSelection)(
+		[PrimitiveSceneProxy, bInParentSelected, bInIndividuallySelected](FRHICommandListImmediate& RHICmdList)
+		{
+			PrimitiveSceneProxy->SetSelection_RenderThread(bInParentSelected, bInIndividuallySelected);
+		});
 }
 
 /**
