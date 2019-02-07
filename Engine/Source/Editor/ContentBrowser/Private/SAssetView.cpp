@@ -727,6 +727,13 @@ void SAssetView::OnCreateNewFolder(const FString& FolderName, const FString& Fol
 	// we should only be creating one deferred folder per tick
 	check(!DeferredFolderToCreate.IsValid());
 
+	// Folder creation requires focus to give object a name, otherwise object will not be created
+	TSharedPtr<SWindow> OwnerWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	if (OwnerWindow.IsValid() && !OwnerWindow->HasAnyUserFocusOrFocusedDescendants())
+	{
+		FSlateApplication::Get().SetUserFocus(FSlateApplication::Get().GetUserIndexForKeyboard(), AsShared(), EFocusCause::SetDirectly);
+	}
+
 	// Make sure we are showing the location of the new folder (we may have created it in a folder)
 	OnPathSelected.Execute(FolderPath);
 

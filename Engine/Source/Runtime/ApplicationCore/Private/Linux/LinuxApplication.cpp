@@ -134,8 +134,8 @@ void FLinuxApplication::InitializeWindow(	const TSharedRef< FGenericWindow >& In
 	Window->Initialize( this, InDefinition, ParentWindow, bShowImmediately );
 	Windows.Add(Window);
 
-	// Add the windows that should revert activation when closed
-	if (Window->IsFocusWhenFirstShown() || Window->IsPopupMenuWindow())
+	// Add the windows into the focus stack.
+	if (Window->IsFocusWhenFirstShown())
 	{
 		RevertFocusStack.Add(Window);
 	}
