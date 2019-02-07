@@ -893,6 +893,7 @@ struct MESHDESCRIPTION_API FMeshDescriptionBulkData
 {
 public:
 	FMeshDescriptionBulkData()
+		: bBulkDataUpdated( false )
 	{
 		BulkData.SetBulkDataFlags( BULKDATA_SerializeCompressed | BULKDATA_SerializeCompressedBitWindow );
 	}
@@ -926,6 +927,9 @@ private:
 
 	/** Take a copy of the bulk data versioning so it can be propagated to the bulk data reader when deserializing MeshDescription */
 	FCustomVersionContainer CustomVersions;
+
+	/** Whether the bulk data has been written via SaveMeshDescription */
+	bool bBulkDataUpdated;
 };
 
 

@@ -1226,9 +1226,33 @@ void FMeshDescription::ReverseAllPolygonFacing()
 
 void FMeshDescriptionBulkData::Serialize( FArchive& Ar, UObject* Owner )
 {
-	if( Ar.IsLoading() )
+	Ar.UsingCustomVersion( FEditorObjectVersion::GUID );
+
+	if( Ar.IsTransacting() )
 	{
-		CustomVersions = Ar.GetCustomVersions();
+		// If transacting, keep these members alive the other side of an undo, otherwise their values will get lost
+		CustomVersions.Serialize( Ar );
+		Ar << bBulkDataUpdated;
+	}
+	else
+	{
+		if( Ar.IsLoading() )
+		{
+			// If loading, take a copy of the package custom version container, so it can be applied when unpacking
+			// MeshDescription from the bulk data.
+			CustomVersions = Ar.GetCustomVersions();
+		}
+		else if( Ar.IsSaving() )
+		{
+			// If the bulk data hasn't been updated since this was loaded, there's a possibility that it has old versioning.
+			// Explicitly load and resave the FMeshDescription so that its version is in sync with the FMeshDescriptionBulkData.
+			if( !bBulkDataUpdated )
+			{
+				FMeshDescription MeshDescription;
+				LoadMeshDescription( MeshDescription );
+				SaveMeshDescription( MeshDescription );
+			}
+		}
 	}
 
 	BulkData.Serialize( Ar, Owner );
@@ -1256,6 +1280,10 @@ void FMeshDescriptionBulkData::SaveMeshDescription( FMeshDescription& MeshDescri
 	}
 
 	FPlatformMisc::CreateGuid( Guid );
+
+	// Mark the MeshDescriptionBulkData as having been updated.
+	// This means we know that its version is up-to-date.
+	bBulkDataUpdated = true;
 }
 
 
