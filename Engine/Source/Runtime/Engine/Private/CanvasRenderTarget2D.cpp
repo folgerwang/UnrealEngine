@@ -67,25 +67,29 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 	const UWorld* WorldPtr = World.Get();
 	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
+	// NOTE: This texture may be null when this is invoked through blueprint from a cmdlet or server.
 	FTextureRenderTarget2DResource* TextureRenderTarget = (FTextureRenderTarget2DResource*) GameThread_GetRenderTargetResource();
 
 	FCanvas RenderCanvas(TextureRenderTarget, nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 	Canvas->Init(GetSurfaceWidth(), GetSurfaceHeight(), nullptr, &RenderCanvas);
 
-	// Enqueue the rendering command to set up the rendering canvas.
-	bool bClearRenderTarget = bShouldClearRenderTargetOnReceiveUpdate;
-	ENQUEUE_RENDER_COMMAND(CanvasRenderTargetMakeCurrentCommand)(
-		[TextureRenderTarget, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
+	if (TextureRenderTarget)
 	{
-		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TextureRenderTarget->GetRenderTargetTexture());
-
-		if (bClearRenderTarget)
+		// Enqueue the rendering command to set up the rendering canvas.
+		bool bClearRenderTarget = bShouldClearRenderTargetOnReceiveUpdate;
+		ENQUEUE_RENDER_COMMAND(CanvasRenderTargetMakeCurrentCommand)(
+			[TextureRenderTarget, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
 		{
-			FRHIRenderPassInfo RPInfo(TextureRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
-			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearUCanvas"));
-			RHICmdList.EndRenderPass();
-		}
-	});
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TextureRenderTarget->GetRenderTargetTexture());
+
+			if (bClearRenderTarget)
+			{
+				FRHIRenderPassInfo RPInfo(TextureRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearUCanvas"));
+				RHICmdList.EndRenderPass();
+			}
+		});
+	}
 
 	if (!IsPendingKill() && OnCanvasRenderTargetUpdate.IsBound())
 	{
@@ -96,7 +100,11 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 
 	// Clean up and flush the rendering canvas.
 	Canvas->Canvas = nullptr;
-	RenderCanvas.Flush_GameThread();
+
+	if (TextureRenderTarget)
+	{
+		RenderCanvas.Flush_GameThread();
+	}
 
 	UpdateResourceImmediate(false);
 }

@@ -265,14 +265,14 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyCons
 
 void FCanvas::Construct()
 {
-	check(RenderTarget);
-
 	bStereoRendering = false;
 	bScaledToRenderTarget = false;
 	bAllowsToSwitchVerticalAxis = true;
 
+	const FIntPoint RenderTargetSizeXY = RenderTarget ? RenderTarget->GetSizeXY() : FIntPoint(1, 1);
+
 	new(TransformStack) FTransformEntry( 
-		FMatrix( FScaleMatrix(GetDPIScale()) * CalcBaseTransform2D(RenderTarget->GetSizeXY().X,RenderTarget->GetSizeXY().Y) ) 
+		FMatrix( FScaleMatrix(GetDPIScale()) * CalcBaseTransform2D(RenderTargetSizeXY.X, RenderTargetSizeXY.Y) )
 		);
 
 	// init alpha to 1
@@ -751,7 +751,7 @@ void FCanvas::Flush_GameThread(bool bForce)
 	}
 
 	// current render target set for the canvas
-	check(RenderTarget);	 	
+	check(RenderTarget);
 
 	// no need to set the render target if we aren't going to draw anything to it!
 	if (SortedElements.Num() == 0)
