@@ -24,7 +24,8 @@
 		{
 			"Name" : "AudioCaptureEditor",
 			"Type" : "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "PostEngineInit",
+ 			"WhitelistPlatforms" : [ "Win64" ]
 		}
 	]
 }
