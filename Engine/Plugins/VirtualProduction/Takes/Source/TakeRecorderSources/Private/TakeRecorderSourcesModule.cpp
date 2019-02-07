@@ -33,6 +33,7 @@
 #include "SceneOutlinerPublicTypes.h"
 
 #include "TakeRecorderMicrophoneAudioSource.h"
+#include "TakeRecorderWorldSource.h"
 #include "TrackRecorders/MovieSceneAnimationTrackRecorderSettings.h"
 
 #define LOCTEXT_NAMESPACE "TakeRecorderSources"
@@ -308,6 +309,7 @@ public:
 
 		TakeRecorderModule.RegisterSettingsObject(GetMutableDefault<UTakeRecorderMicrophoneAudioSourceSettings>());
 		TakeRecorderModule.RegisterSettingsObject(GetMutableDefault<UMovieSceneAnimationTrackRecorderEditorSettings>());
+		TakeRecorderModule.RegisterSettingsObject(GetMutableDefault<UTakeRecorderWorldSourceSettings>());
 	}
 
 	virtual void ShutdownModule() override

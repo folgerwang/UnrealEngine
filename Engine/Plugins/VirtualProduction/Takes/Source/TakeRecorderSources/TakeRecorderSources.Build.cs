@@ -13,7 +13,8 @@ public class TakeRecorderSources : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"LevelSequence",
-				"MovieScene",
+                "LevelSequenceEditor",
+                "MovieScene",
 				"MovieSceneTracks",
                 "SceneOutliner",
 				"SequenceRecorder", // For ISequenceAudioRecorder

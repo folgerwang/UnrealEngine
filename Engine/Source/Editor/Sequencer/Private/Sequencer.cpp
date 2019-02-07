@@ -4823,7 +4823,7 @@ void FSequencer::SaveCurrentMovieSceneAs()
 }
 
 
-TArray<FGuid> FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors)
+TArray<FGuid> FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors, bool bSelectActors)
 {
 	TArray<FGuid> PossessableGuids;
 
@@ -4889,22 +4889,25 @@ TArray<FGuid> FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InAct
 			}
 		}
 
-		// Clear our editor selection so we can make the selection our added actors.
-		// This has to be done after we know if the actor is going to be added to a
-		// folder, otherwise it causes the folder we wanted to pick to be deselected.
-		USelection* SelectedActors = GEditor->GetSelectedActors();
-		SelectedActors->BeginBatchSelectOperation();
-		SelectedActors->Modify();
-		GEditor->SelectNone(false, true);
-		for (TWeakObjectPtr<AActor> WeakActor : InActors)
+		if (bSelectActors)
 		{
-			if (AActor* Actor = WeakActor.Get())
+			// Clear our editor selection so we can make the selection our added actors.
+			// This has to be done after we know if the actor is going to be added to a
+			// folder, otherwise it causes the folder we wanted to pick to be deselected.
+			USelection* SelectedActors = GEditor->GetSelectedActors();
+			SelectedActors->BeginBatchSelectOperation();
+			SelectedActors->Modify();
+			GEditor->SelectNone(false, true);
+			for (TWeakObjectPtr<AActor> WeakActor : InActors)
 			{
-				GEditor->SelectActor(Actor, true, false);
+				if (AActor* Actor = WeakActor.Get())
+				{
+					GEditor->SelectActor(Actor, true, false);
+				}
 			}
+			SelectedActors->EndBatchSelectOperation();
+			GEditor->NoteSelectionChange();
 		}
-		SelectedActors->EndBatchSelectOperation();
-		GEditor->NoteSelectionChange();
 
 		// Add the possessables as children of the first selected folder
 		if (SelectedParentFolders.Num() > 0)
@@ -4916,12 +4919,15 @@ TArray<FGuid> FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InAct
 		}
 
 		// Now add them all to the selection set to be selected after a tree rebuild.
-		for(const FGuid& Possessable : PossessableGuids)
+		if (bSelectActors)
 		{
-			FString PossessablePath = NewNodePath += Possessable.ToString();
-			
-			// Object Bindings use their FGuid as their unique key.
-			SequencerWidget->AddAdditionalPathToSelectionSet(PossessablePath);
+			for (const FGuid& Possessable : PossessableGuids)
+			{
+				FString PossessablePath = NewNodePath += Possessable.ToString();
+
+				// Object Bindings use their FGuid as their unique key.
+				SequencerWidget->AddAdditionalPathToSelectionSet(PossessablePath);
+			}
 		}
 
 		RefreshTree();

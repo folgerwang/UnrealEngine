@@ -155,8 +155,8 @@ FTakeRecorderStyle::FTakeRecorderStyle()
 	Set("ClassIcon.TakeRecorderPlayerSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderPlayerSource_16x.png")), Icon16x16));
 	Set("ClassThumbnail.TakeRecorderPlayerSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderPlayerSource_64x.png")), Icon64x64));
 
-	Set("ClassIcon.TakeRecorderWorldSettingsSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderWorldSettingsSource_16x.png")), Icon16x16));
-	Set("ClassThumbnail.TakeRecorderWorldSettingsSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderWorldSettingsSource_64x.png")), Icon64x64));
+	Set("ClassIcon.TakeRecorderWorldSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderWorldSource_16x.png")), Icon16x16));
+	Set("ClassThumbnail.TakeRecorderWorldSource", new FSlateImageBrush(RootToContentDir(TEXT("TakeRecorderWorldSource_64x.png")), Icon64x64));
 
 	Set("TakeRecorder.TabIcon", new FSlateImageBrush(RootToContentDir(TEXT("TabIcon_16x.png")), Icon16x16));
 
