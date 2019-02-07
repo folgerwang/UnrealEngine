@@ -35,7 +35,6 @@ public:
 
 	friend class FWebSocket;
 	uint32 ServerPort;
-	bool IsAlive;
 };
 
 

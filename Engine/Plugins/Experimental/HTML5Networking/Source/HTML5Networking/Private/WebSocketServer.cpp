@@ -78,13 +78,10 @@ bool FWebSocketServer::Init(uint32 Port, FWebsocketClientConnectedCallBack CallB
 		ServerPort = 0;
 		delete Protocols;
 		Protocols = NULL;
-		IsAlive = false;
 		return false; // couldn't create a server.
 	}
 
 	ConnectedCallBack = CallBack;
-	IsAlive = true;
-
 #endif
 	return true;
 }
@@ -92,11 +89,8 @@ bool FWebSocketServer::Init(uint32 Port, FWebsocketClientConnectedCallBack CallB
 bool FWebSocketServer::Tick()
 {
 #if USE_LIBWEBSOCKET
-	if (IsAlive)
-	{
-		lws_service(Context, 0);
-		lws_callback_on_writable_all_protocol(Context, &Protocols[0]);
-	}
+	lws_service(Context, 0);
+	lws_callback_on_writable_all_protocol(Context, &Protocols[0]);
 #endif
 	return true;
 }
@@ -115,8 +109,6 @@ FWebSocketServer::~FWebSocketServer()
 
 	 delete Protocols;
 	 Protocols = NULL;
-
-	 IsAlive = false;
 #endif
 }
 
@@ -143,7 +135,7 @@ static int unreal_networking_server
 	struct lws_context *Context = lws_get_context(Wsi);
 	PerSessionDataServer* BufferInfo = (PerSessionDataServer*)User;
 	FWebSocketServer* Server = (FWebSocketServer*)lws_context_user(Context);
-	if (!Server->IsAlive)
+	if (!Context)
 	{
 		return 0;
 	}
@@ -180,9 +172,6 @@ static int unreal_networking_server
 		case LWS_CALLBACK_PROTOCOL_DESTROY:
 		case LWS_CALLBACK_CLOSED:
 		case LWS_CALLBACK_CLOSED_HTTP:
-			{
-				Server->IsAlive = false;
-			}
 			break;
 	}
 
