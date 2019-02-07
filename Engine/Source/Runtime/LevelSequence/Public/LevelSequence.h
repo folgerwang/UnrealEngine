@@ -152,8 +152,9 @@ public:
 			Found = NewObject<UObject>(this, InClass);
 			MetaDataObjects.Add(Found);
 		}
-#endif
 		return Found;
+#endif
+		return nullptr;
 	}
 
 	/**
