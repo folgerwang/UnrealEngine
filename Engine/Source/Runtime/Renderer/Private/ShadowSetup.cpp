@@ -2997,6 +2997,8 @@ struct FGatherShadowPrimitivesPacket
 
 	void AnyThreadTask()
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_GatherShadowPrimitivesPacket);
+
 		if (Node)
 		{
 			// Check all the primitives in this octree node.
