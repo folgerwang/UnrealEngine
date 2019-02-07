@@ -24,7 +24,9 @@ class UMovieSceneCinematicShotTrack
 public:
 
 	UMovieSceneCinematicShotTrack(const FObjectInitializer& ObjectInitializer);
-	
+
+	MOVIESCENETRACKS_API void SortSections();
+
 	// UMovieSceneSubTrack interface
 
 	MOVIESCENETRACKS_API virtual UMovieSceneSubSection* AddSequence(UMovieSceneSequence* Sequence, FFrameNumber StartTime, int32 Duration) { return AddSequenceOnRow(Sequence, StartTime, Duration, INDEX_NONE); }

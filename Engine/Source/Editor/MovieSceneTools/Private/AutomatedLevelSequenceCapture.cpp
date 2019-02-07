@@ -309,6 +309,8 @@ bool UAutomatedLevelSequenceCapture::InitializeShots()
 	// Compute handle frames in tick resolution space since that is what the section ranges are defined in
 	FFrameNumber HandleFramesResolutionSpace = ConvertFrameTime(Settings.HandleFrames, Settings.FrameRate, MovieScene->GetTickResolution()).FloorToFrame();
 
+	CinematicShotTrack->SortSections();
+
 	for (int32 SectionIndex = 0; SectionIndex < CinematicShotTrack->GetAllSections().Num(); ++SectionIndex)
 	{
 		UMovieSceneCinematicShotSection* ShotSection = Cast<UMovieSceneCinematicShotSection>(CinematicShotTrack->GetAllSections()[SectionIndex]);

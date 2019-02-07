@@ -164,4 +164,9 @@ FText UMovieSceneCinematicShotTrack::GetDefaultDisplayName() const
 }
 #endif
 
+void UMovieSceneCinematicShotTrack::SortSections()
+{
+	MovieSceneHelpers::SortConsecutiveSections(Sections);
+}
+
 #undef LOCTEXT_NAMESPACE
