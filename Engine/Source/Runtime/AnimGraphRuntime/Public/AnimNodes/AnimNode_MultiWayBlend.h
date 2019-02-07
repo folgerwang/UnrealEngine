@@ -52,7 +52,7 @@ public:
 
 	int32 AddPose()
 	{
-		Poses.AddZeroed();
+		Poses.AddDefaulted();
 		DesiredAlphas.AddZeroed();
 
 		return Poses.Num();
