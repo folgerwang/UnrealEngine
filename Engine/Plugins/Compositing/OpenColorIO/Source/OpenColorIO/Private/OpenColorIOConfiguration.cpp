@@ -187,10 +187,21 @@ void UOpenColorIOConfiguration::LoadConfigurationFile()
 		{
 			LoadedConfig.reset();
 
-			OCIO_NAMESPACE::ConstConfigRcPtr NewConfig = OCIO_NAMESPACE::Config::CreateFromFile(StringCast<ANSICHAR>(*ConfigurationFile.FilePath).Get());
+			FString FullPath;
+			if (!FPaths::IsRelative(ConfigurationFile.FilePath))
+			{
+				FullPath = ConfigurationFile.FilePath;
+			}
+			else
+			{
+				const FString AbsoluteGameDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+				FullPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(AbsoluteGameDir, ConfigurationFile.FilePath));
+			}
+
+			OCIO_NAMESPACE::ConstConfigRcPtr NewConfig = OCIO_NAMESPACE::Config::CreateFromFile(StringCast<ANSICHAR>(*FullPath).Get());
 			if (NewConfig)
 			{
-				UE_LOG(LogOpenColorIO, Verbose, TEXT("Loaded OCIO configuration file %s"), *ConfigurationFile.FilePath);
+				UE_LOG(LogOpenColorIO, Verbose, TEXT("Loaded OCIO configuration file %s"), *FullPath);
 				LoadedConfig = NewConfig;
 			}
 			else
