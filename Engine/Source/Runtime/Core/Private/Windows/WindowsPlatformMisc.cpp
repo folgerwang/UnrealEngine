@@ -659,7 +659,7 @@ void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 		0xc3							// ret
 	};
 	DWORD PrevProtection;
-	if (VirtualProtect(SetCtrlCProc, sizeof(Patch), PAGE_READWRITE, &PrevProtection))
+	if (VirtualProtect(SetCtrlCProc, sizeof(Patch), PAGE_EXECUTE_READWRITE, &PrevProtection))
 	{
 		memcpy(SetCtrlCProc, Patch, sizeof(Patch));
 		VirtualProtect(SetCtrlCProc, sizeof(Patch), PrevProtection, &PrevProtection);
