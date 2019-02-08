@@ -540,6 +540,26 @@ namespace UnrealBuildTool
 					Format = ProjectFileFormat.KDevelop;
 					return true;
 				}
+				else if (PreferredAccessor == "visualstudiosourcecodeaccessor")
+				{
+					Format = ProjectFileFormat.VisualStudio;
+					return true;
+				}
+				else if (PreferredAccessor == "visualstudio2015")
+				{
+					Format = ProjectFileFormat.VisualStudio2015;
+					return true;
+				}
+				else if (PreferredAccessor == "visualstudio2017")
+				{
+					Format = ProjectFileFormat.VisualStudio2017;
+					return true;
+				}
+				else if (PreferredAccessor == "visualstudio2019")
+				{
+					Format = ProjectFileFormat.VisualStudio2019;
+					return true;
+				}
 			}
 
 			Format = ProjectFileFormat.VisualStudio;
