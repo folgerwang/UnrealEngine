@@ -2190,6 +2190,7 @@ void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture
 	{
 		VkImageSubresourceRange& Range = Barrier.GetSubresource(SourceBarrierIndex);
 		Range.baseMipLevel = CopyInfo.SourceMipIndex;
+		Range.levelCount = CopyInfo.NumMips;
 		Range.baseArrayLayer = CopyInfo.SourceSliceIndex;
 		Range.layerCount = CopyInfo.NumSlices;
 		Barrier.SetTransition(SourceBarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout), EImageLayoutBarrier::TransferSource);
@@ -2197,6 +2198,7 @@ void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture
 	{
 		VkImageSubresourceRange& Range = Barrier.GetSubresource(DestBarrierIndex);
 		Range.baseMipLevel = CopyInfo.DestMipIndex;
+		Range.levelCount = CopyInfo.NumMips;
 		Range.baseArrayLayer = CopyInfo.DestSliceIndex;
 		Range.layerCount = CopyInfo.NumSlices;
 		Barrier.SetTransition(DestBarrierIndex, EImageLayoutBarrier::Undefined, EImageLayoutBarrier::TransferDest);
@@ -2218,10 +2220,18 @@ void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture
 	Region.dstSubresource.baseArrayLayer = CopyInfo.DestSliceIndex;
 	Region.dstSubresource.layerCount = CopyInfo.NumSlices;
 	Region.dstSubresource.mipLevel = CopyInfo.DestMipIndex;
-	VulkanRHI::vkCmdCopyImage(CmdBuffer,
-		SrcSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		DstSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &Region);
+
+	for (uint32 Index = 0; Index < CopyInfo.NumMips; ++Index)
+	{
+		VulkanRHI::vkCmdCopyImage(CmdBuffer,
+			SrcSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			DstSurface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &Region);
+		Region.extent.width = FMath::Max(1u, Region.extent.width / 2);
+		Region.extent.height = FMath::Max(1u, Region.extent.height / 2);
+		++Region.srcSubresource.mipLevel;
+		++Region.dstSubresource.mipLevel;
+	}
 
 	Barrier.ResetStages();
 	Barrier.SetTransition(SourceBarrierIndex, EImageLayoutBarrier::TransferSource, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout));
