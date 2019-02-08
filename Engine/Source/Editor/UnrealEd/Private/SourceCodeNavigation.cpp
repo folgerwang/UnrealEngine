@@ -1726,7 +1726,7 @@ void FSourceCodeNavigation::RefreshCompilerAvailability()
 	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
 	SourceCodeAccessModule.GetAccessor().RefreshAvailability();
 
-	bCachedIsCompilerAvailable = SourceCodeAccessModule.GetAccessor().CanAccessSourceCode();
+	bCachedIsCompilerAvailable = SourceCodeAccessModule.CanCompileSourceCode();
 }
 
 bool FSourceCodeNavigation::OpenSourceFile( const FString& AbsoluteSourcePath, int32 LineNumber, int32 ColumnNumber )

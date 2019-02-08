@@ -69,6 +69,28 @@ bool FSourceCodeAccessModule::CanAccessSourceCode() const
 	return CurrentSourceCodeAccessor->CanAccessSourceCode();
 }
 
+bool FSourceCodeAccessModule::CanCompileSourceCode() const
+{
+#if PLATFORM_WINDOWS
+	// Need to have Visual Studio installed to compile on Windows, regardless of chosen IDE
+	return IsSourceCodeAccessorAvailable("VisualStudio2017") || IsSourceCodeAccessorAvailable("VisualStudio2019");
+#else
+	// Default behavior
+	return CanAccessSourceCode();
+#endif
+}
+
+bool FSourceCodeAccessModule::IsSourceCodeAccessorAvailable(FName Name) const
+{
+	for (ISourceCodeAccessor* Accessor : IModularFeatures::Get().GetModularFeatureImplementations<ISourceCodeAccessor>(SourceCodeAccessorFeatureName))
+	{
+		if (Accessor->GetFName() == Name)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 ISourceCodeAccessor& FSourceCodeAccessModule::GetAccessor() const
 {

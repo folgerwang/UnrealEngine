@@ -361,9 +361,9 @@ void FIntroTutorials::OnNewProjectDialogOpened()
 void FIntroTutorials::HandleCompilerNotFound()
 {
 #if PLATFORM_WINDOWS
-	LaunchTutorialByName( TEXT( "Engine/Tutorial/Installation/InstallingVisualStudioTutorial.InstallingVisualStudioTutorial" ) );
+	LaunchTutorialByName( TEXT( "/Engine/Tutorial/Installation/InstallingVisualStudioTutorial.InstallingVisualStudioTutorial" ) );
 #elif PLATFORM_MAC
-	LaunchTutorialByName( TEXT( "Engine/Tutorial/Installation/InstallingXCodeTutorial.InstallingXCodeTutorial" ) );
+	LaunchTutorialByName( TEXT( "/Engine/Tutorial/Installation/InstallingXCodeTutorial.InstallingXCodeTutorial" ) );
 #else
 	STUBBED("FIntroTutorials::HandleCompilerNotFound");
 #endif

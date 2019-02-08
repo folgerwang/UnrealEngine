@@ -34,6 +34,12 @@ public:
 	 */
 	virtual bool CanAccessSourceCode() const = 0;
 
+	/** 
+	 * Checks if a compiler is available
+	 * @return true if source code can be compiled.
+	 */
+	virtual bool CanCompileSourceCode() const = 0;
+
 	/**
 	 * Get the accessor to allow us to view source code
 	 * @return the accessor.
