@@ -57,10 +57,11 @@ const FName NotBlueprintTypeMetaDataKey = TEXT("NotBlueprintType");
 const FName BlueprintSpawnableComponentMetaDataKey = TEXT("BlueprintSpawnableComponent");
 const FName BlueprintGetterMetaDataKey = TEXT("BlueprintGetter");
 const FName BlueprintSetterMetaDataKey = TEXT("BlueprintSetter");
+const FName BlueprintInternalUseOnlyMetaDataKey = TEXT("BlueprintInternalUseOnly");
+const FName CustomThunkMetaDataKey = TEXT("CustomThunk");
 const FName DeprecatedPropertyMetaDataKey = TEXT("DeprecatedProperty");
 const FName DeprecatedFunctionMetaDataKey = TEXT("DeprecatedFunction");
 const FName DeprecationMessageMetaDataKey = TEXT("DeprecationMessage");
-const FName CustomStructureParamMetaDataKey = TEXT("CustomStructureParam");
 const FName HasNativeMakeMetaDataKey = TEXT("HasNativeMake");
 const FName HasNativeBreakMetaDataKey = TEXT("HasNativeBreak");
 const FName NativeBreakFuncMetaDataKey = TEXT("NativeBreakFunc");
@@ -1198,7 +1199,8 @@ bool IsScriptExposedFunction(const UFunction* InFunc)
 		&& InFunc->HasAnyFunctionFlags(FUNC_BlueprintCallable | FUNC_BlueprintEvent)
 		&& !InFunc->HasMetaData(BlueprintGetterMetaDataKey)
 		&& !InFunc->HasMetaData(BlueprintSetterMetaDataKey)
-		&& !InFunc->HasMetaData(CustomStructureParamMetaDataKey)
+		&& !InFunc->HasMetaData(BlueprintInternalUseOnlyMetaDataKey)
+		&& !InFunc->HasMetaData(CustomThunkMetaDataKey)
 		&& !InFunc->HasMetaData(NativeBreakFuncMetaDataKey)
 		&& !InFunc->HasMetaData(NativeMakeFuncMetaDataKey);
 }

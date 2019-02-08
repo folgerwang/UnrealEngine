@@ -46,7 +46,8 @@ namespace PyGenUtil
 	extern const FName BlueprintSpawnableComponentMetaDataKey;
 	extern const FName BlueprintGetterMetaDataKey;
 	extern const FName BlueprintSetterMetaDataKey;
-	extern const FName CustomStructureParamMetaDataKey;
+	extern const FName BlueprintInternalUseOnlyMetaDataKey;
+	extern const FName CustomThunkMetaDataKey;
 	extern const FName HasNativeMakeMetaDataKey;
 	extern const FName HasNativeBreakMetaDataKey;
 	extern const FName NativeBreakFuncMetaDataKey;
