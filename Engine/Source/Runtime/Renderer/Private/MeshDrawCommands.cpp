@@ -1068,7 +1068,7 @@ struct FRHICommandUpdatePrimitiveIdBuffer : public FRHICommand<FRHICommandUpdate
 	{
 		// Upload vertex buffer data.
 		void* RESTRICT Data = (void* RESTRICT)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, VertexBufferDataSize, RLM_WriteOnly);
-		FMemory::BigBlockMemcpy(Data, VertexBufferData, VertexBufferDataSize);
+		FMemory::Memcpy(Data, VertexBufferData, VertexBufferDataSize);
 		GDynamicRHI->RHIUnlockVertexBuffer(VertexBuffer);
 
 		FMemory::Free(VertexBufferData);
@@ -1147,7 +1147,7 @@ void FParallelMeshDrawCommandPass::DispatchDraw(FParallelCommandListSet* Paralle
 		{
 			// Can immediately upload vertex buffer data, as there is no parallel draw task.
 			void* RESTRICT Data = RHILockVertexBuffer(PrimitiveIdVertexBufferRHI, 0, TaskContext.PrimitiveIdBufferDataSize, RLM_WriteOnly);
-			FMemory::BigBlockMemcpy(Data, TaskContext.PrimitiveIdBufferData, TaskContext.PrimitiveIdBufferDataSize);
+			FMemory::Memcpy(Data, TaskContext.PrimitiveIdBufferData, TaskContext.PrimitiveIdBufferDataSize);
 			RHIUnlockVertexBuffer(PrimitiveIdVertexBufferRHI);
 		}
 
