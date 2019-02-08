@@ -609,6 +609,26 @@ void FHierarchyRoot::UpdateSelection()
 
 TOptional<EItemDropZone> FHierarchyRoot::HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone)
 {
+	TSharedPtr<FWidgetTemplateDragDropOp> TemplateDragDropOp = DragDropEvent.GetOperationAs<FWidgetTemplateDragDropOp>();
+	if (TemplateDragDropOp.IsValid())
+	{
+		UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
+		if(Blueprint)
+		{
+			UWidget* Widget = TemplateDragDropOp->Template->Create(Blueprint->WidgetTree);
+	
+			if (Widget)
+			{
+				if (!Blueprint->IsWidgetFreeFromCircularReferences(Cast<UUserWidget>(Widget)))
+				{
+					TemplateDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+					TemplateDragDropOp->CurrentHoverText = LOCTEXT("CircularReference", "This would cause a circular reference.");
+					return TOptional<EItemDropZone>();
+				}
+			}
+		}
+	}
+
 	bool bIsDrop = false;
 	return ProcessHierarchyDragDrop(DragDropEvent, DropZone, bIsDrop, BlueprintEditor.Pin(), FWidgetReference());
 }
@@ -736,6 +756,18 @@ TOptional<EItemDropZone> FNamedSlotModel::HandleCanAcceptDrop(const FDragDropEve
 				TemplateDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
 				TemplateDragDropOp->CurrentHoverText = LOCTEXT("NamedSlotAlreadyFull", "Named Slot already has a child.");
 				return TOptional<EItemDropZone>();
+			}
+
+			UWidget* Widget = TemplateDragDropOp->Template->Create(Blueprint->WidgetTree);
+
+			if (Widget)
+			{
+				if (!Blueprint->IsWidgetFreeFromCircularReferences(Cast<UUserWidget>(Widget)))
+				{
+					TemplateDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+					TemplateDragDropOp->CurrentHoverText = LOCTEXT("CircularReference", "This would cause a circular reference.");
+					return TOptional<EItemDropZone>();
+				}
 			}
 
 			TemplateDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK"));
@@ -954,6 +986,25 @@ FSlateFontInfo FHierarchyWidget::GetFont() const
 
 TOptional<EItemDropZone> FHierarchyWidget::HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone)
 {
+	TSharedPtr<FWidgetTemplateDragDropOp> TemplateDragDropOp = DragDropEvent.GetOperationAs<FWidgetTemplateDragDropOp>();
+	if (TemplateDragDropOp.IsValid())
+	{
+		UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
+		if(Blueprint)
+		{
+			UWidget* Widget = TemplateDragDropOp->Template->Create(Blueprint->WidgetTree);
+
+			if (Widget)
+			{
+				if (!Blueprint->IsWidgetFreeFromCircularReferences(Cast<UUserWidget>(Widget)))
+				{
+					TemplateDragDropOp->CurrentIconBrush = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+					TemplateDragDropOp->CurrentHoverText = LOCTEXT("CircularReference", "This would cause a circular reference.");
+					return TOptional<EItemDropZone>();
+				}
+			}
+		}
+	}
 	bool bIsDrop = false;
 	return ProcessHierarchyDragDrop(DragDropEvent, DropZone, bIsDrop, BlueprintEditor.Pin(), Item);
 }
