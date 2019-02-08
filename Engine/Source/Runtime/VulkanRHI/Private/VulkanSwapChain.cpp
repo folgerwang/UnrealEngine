@@ -555,6 +555,7 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 	++NumAcquireCalls;
 	*OutSemaphore = ImageAcquiredSemaphore[SemaphoreIndex];
 
+#if VULKAN_HAS_DEBUGGING_ENABLED
 	if (Result == VK_ERROR_VALIDATION_FAILED_EXT)
 	{
 		extern TAutoConsoleVariable<int32> GValidationCvar;
@@ -564,6 +565,7 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 		}
 	}
 	else
+#endif
 	{
 		checkf(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, TEXT("vkAcquireNextImageKHR failed Result = %d"), int32(Result));
 	}
