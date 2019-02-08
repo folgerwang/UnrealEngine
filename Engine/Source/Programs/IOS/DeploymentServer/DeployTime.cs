@@ -353,9 +353,10 @@ namespace DeploymentServer
         {
             PerformActionOnAllDevices(2 * StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
             {
-                string DeviceName = Device.DeviceName;
+				string ProductType = Device.ProductType;
+				string DeviceName = Device.DeviceName;
                 string UDID = Device.DeviceId;
-				ReportIF.Log(String.Format("FOUND: ID: {0} NAME: {1}", UDID, DeviceName));
+				ReportIF.Log(String.Format("FOUND: TYPE: {0} ID: {1} NAME: {2}", ProductType, UDID, DeviceName));
 
                 return true;
             });
