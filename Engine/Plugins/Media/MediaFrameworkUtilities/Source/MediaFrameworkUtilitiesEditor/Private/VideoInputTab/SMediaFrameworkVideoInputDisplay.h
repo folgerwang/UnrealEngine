@@ -59,7 +59,6 @@ protected:
 	friend UMediaFrameworkVideoInputDisplayCallback;
 
 private:
-	const FSlateBrush* CreateDisplayBrush(UMediaTexture* InTexture);
 	TSharedRef<SWidget> ConstructVideoDisplay();
 	TSharedRef<SWidget> ConstructVideoStateDisplay(const FString& SourceName);
 

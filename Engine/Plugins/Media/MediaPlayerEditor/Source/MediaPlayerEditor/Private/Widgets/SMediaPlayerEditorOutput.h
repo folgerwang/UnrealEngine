@@ -7,13 +7,9 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 
-class UMaterial;
-class UMaterialExpressionTextureSample;
 class UMediaPlayer;
 class UMediaSoundComponent;
 class UMediaTexture;
-
-struct FSlateBrush;
 
 enum class EMediaEvent;
 
@@ -60,12 +56,6 @@ private:
 
 private:
 
-	/** The material that wraps the video texture for display in an SImage. */
-	UMaterial* Material;
-
-	/** The Slate brush that renders the material. */
-	TSharedPtr<FSlateBrush> MaterialBrush;
-
 	/** The media player whose video texture is shown in this widget. */
 	TWeakObjectPtr<UMediaPlayer> MediaPlayer;
 
@@ -74,7 +64,4 @@ private:
 
 	/** The sound component to play the media player's audio output. */
 	UMediaSoundComponent* SoundComponent;
-
-	/** The video texture sampler in the wrapper material. */
-	UMaterialExpressionTextureSample* TextureSampler;
 };

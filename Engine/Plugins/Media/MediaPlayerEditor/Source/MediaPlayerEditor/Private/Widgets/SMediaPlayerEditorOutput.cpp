@@ -13,14 +13,14 @@
 #include "MediaTexture.h"
 #include "Styling/SlateBrush.h"
 #include "Widgets/Images/SImage.h"
+#include "Widgets/SMediaImage.h"
 
 
 /* SMediaPlayerEditorOutput structors
  *****************************************************************************/
 
 SMediaPlayerEditorOutput::SMediaPlayerEditorOutput()
-	: Material(nullptr)
-	, MediaPlayer(nullptr)
+	: MediaPlayer(nullptr)
 	, MediaTexture(nullptr)
 	, SoundComponent(nullptr)
 { }
@@ -32,12 +32,6 @@ SMediaPlayerEditorOutput::~SMediaPlayerEditorOutput()
 	{
 		MediaPlayer->OnMediaEvent().RemoveAll(this);
 		MediaPlayer.Reset();
-	}
-
-	if (Material != nullptr)
-	{
-		Material->RemoveFromRoot();
-		Material = nullptr;
 	}
 
 	if (MediaTexture != nullptr)
@@ -88,44 +82,18 @@ void SMediaPlayerEditorOutput::Construct(const FArguments& InArgs, UMediaPlayer&
 		MediaTexture->AddToRoot();
 	}
 
-	// create wrapper material
-	Material = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
-
-	if (Material != nullptr)
-	{
-		TextureSampler = NewObject<UMaterialExpressionTextureSample>(Material);
-		{
-			TextureSampler->Texture = MediaTexture;
-			TextureSampler->AutoSetSampleType();
-		}
-
-		FExpressionOutput& Output = TextureSampler->GetOutputs()[0];
-		FExpressionInput& Input = Material->EmissiveColor;
-		{
-			Input.Expression = TextureSampler;
-			Input.Mask = Output.Mask;
-			Input.MaskR = Output.MaskR;
-			Input.MaskG = Output.MaskG;
-			Input.MaskB = Output.MaskB;
-			Input.MaskA = Output.MaskA;
-		}
-
-		Material->Expressions.Add(TextureSampler);
-		Material->MaterialDomain = EMaterialDomain::MD_UI;
-		Material->PostEditChange();
-		Material->AddToRoot();
-	}
-
-	// create Slate brush
-	MaterialBrush = MakeShareable(new FSlateBrush());
-	{
-		MaterialBrush->SetResourceObject(Material);
-	}
+	TSharedRef<SMediaImage> MediaImage = SNew(SMediaImage, MediaTexture)
+		.BrushImageSize_Lambda([&]()
+			{
+				if (MediaTexture)
+					return FVector2D(MediaTexture->GetSurfaceWidth(), MediaTexture->GetSurfaceHeight());
+				else
+					return FVector2D::ZeroVector;
+			});
 
 	ChildSlot
 	[
-		SNew(SImage)
-			.Image(MaterialBrush.Get())
+		MediaImage
 	];
 
 	MediaPlayer->OnMediaEvent().AddRaw(this, &SMediaPlayerEditorOutput::HandleMediaPlayerMediaEvent);
@@ -137,16 +105,6 @@ void SMediaPlayerEditorOutput::Construct(const FArguments& InArgs, UMediaPlayer&
 
 void SMediaPlayerEditorOutput::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	if (MediaTexture != nullptr)
-	{
-		MaterialBrush->ImageSize.X = MediaTexture->GetSurfaceWidth();
-		MaterialBrush->ImageSize.Y = MediaTexture->GetSurfaceHeight();
-	}
-	else
-	{
-		MaterialBrush->ImageSize = FVector2D::ZeroVector;
-	}
-
 	if (SoundComponent != nullptr)
 	{
 		SoundComponent->UpdatePlayer();

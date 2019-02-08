@@ -5,16 +5,12 @@
 #include "Styling/ISlateStyle.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
-#include "UObject/GCObject.h"
-
+#include "UObject/StrongObjectPtr.h"
 
 class SEditableTextBox;
 struct FSlateBrush;
 struct FTimecodeSynchronizerActiveTimecodedInputSource;
-class UMaterial;
 class UTimecodeSynchronizer;
-class UTexture;
-class UMaterialExpressionTextureSample;
 
 class STimecodeSynchronizerSourceViewport
 	: public SCompoundWidget
@@ -39,7 +35,7 @@ public:
 	 * @param InAttachedSource The Source to display.
 	 * @param InTexture The source texture to render if any
 	 */
-	void Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronization, int32 InAttachedSourceIndex, bool InTimecodedSource, UTexture* InTexture);
+	void Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronization, int32 InAttachedSourceIndex, bool InTimecodedSource, TSharedRef<SWidget> InVisualWidget);
 
 private:
 
@@ -59,48 +55,16 @@ private:
 	const FTimecodeSynchronizerActiveTimecodedInputSource* GetAttachedSource() const;
 
 private:
-	class FInternalReferenceCollector : public FGCObject
-	{
-	public:
-		FInternalReferenceCollector(STimecodeSynchronizerSourceViewport* InObject)
-			: Object(InObject)
-		{
-		}
-
-		//~ FGCObject interface
-		virtual void AddReferencedObjects(FReferenceCollector& InCollector) override
-		{
-			InCollector.AddReferencedObject(Object->TimecodeSynchronization);
-			InCollector.AddReferencedObject(Object->Material);
-			InCollector.AddReferencedObject(Object->TextureSampler);
-		}
-
-	private:
-		STimecodeSynchronizerSourceViewport* Object;
-	};
-	friend FInternalReferenceCollector;
-
-	/** Collector to keep the UObject alive. */
-	FInternalReferenceCollector Collector;
 
 	/** Media Source name text box. */
 	TSharedPtr<SEditableTextBox> SourceTextBox;
 
 	/** Current TimecodeSynchronization being used. */
-	UTimecodeSynchronizer* TimecodeSynchronization;
+	TStrongObjectPtr<UTimecodeSynchronizer> TimecodeSynchronization;
 
 	/** Attached Input source index in either TimecodeSynchronization.GetSynchronizedSources() or GetNonSynchronizedSources(). */
 	int32 AttachedSourceIndex;
 
 	/** Whether or not this source is used for synchronization. */
 	bool bIsSynchronizedSource;
-	
-	/** The material that wraps the video texture for display in an SImage. */
-	UMaterial* Material;
-
-	/** The Slate brush that renders the material. */
-	TSharedPtr<FSlateBrush> MaterialBrush;
-
-	/** The video texture sampler in the wrapper material. */
-	UMaterialExpressionTextureSample* TextureSampler;
 };

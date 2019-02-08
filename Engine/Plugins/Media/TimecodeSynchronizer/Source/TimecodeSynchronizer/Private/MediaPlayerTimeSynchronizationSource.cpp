@@ -10,6 +10,10 @@
 #include "MediaTexture.h"
 #include "TimeSynchronizableMediaSource.h"
 
+#if WITH_EDITOR
+#include "Widgets/SMediaImage.h"
+#endif
+
 
 #if WITH_EDITOR
 void UMediaPlayerTimeSynchronizationSource::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -236,3 +240,16 @@ FString UMediaPlayerTimeSynchronizationSource::GetDisplayName() const
 	return MediaTexture && MediaTexture->GetMediaPlayer() ? *MediaTexture->GetMediaPlayer()->GetName() : FString();
 }
 
+#if WITH_EDITOR
+TSharedRef<SWidget> UMediaPlayerTimeSynchronizationSource::GetVisualWidget() const
+{
+	if (MediaTexture)
+	{
+		return SNew(SMediaImage, MediaTexture);
+	}
+	else
+	{
+		return SNullWidget::NullWidget;
+	}
+}
+#endif

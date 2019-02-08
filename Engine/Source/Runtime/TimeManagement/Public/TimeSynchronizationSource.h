@@ -10,7 +10,13 @@
 #include "Misc/FrameTime.h"
 #include "Misc/Timecode.h"
 
+#include "Templates/SharedPointer.h"
+
 #include "TimeSynchronizationSource.generated.h"
+
+#if WITH_EDITOR
+class SWidget;
+#endif
 
 struct FTimeSynchronizationOpenData
 {
@@ -63,6 +69,11 @@ public:
 	int32 FrameOffset;
 
 public:
+
+#if WITH_EDITOR
+	/** Get Visual Widget of this source to display in UI */
+	virtual TSharedRef<SWidget> GetVisualWidget() const;
+#endif
 
 	/**
 	 * Get the time of the newest available sample (relative to this source's frame rate).

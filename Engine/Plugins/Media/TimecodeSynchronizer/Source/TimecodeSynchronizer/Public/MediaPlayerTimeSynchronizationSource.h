@@ -44,6 +44,9 @@ public:
 	virtual void Start(const FTimeSynchronizationStartData& InStartData) override;
 	virtual void Close() override;
 	virtual FString GetDisplayName() const override;
+#if WITH_EDITOR
+	virtual TSharedRef<SWidget> GetVisualWidget() const override;
+#endif
 	//~ End UTimeSynchronizationSource Interface
 
 private:

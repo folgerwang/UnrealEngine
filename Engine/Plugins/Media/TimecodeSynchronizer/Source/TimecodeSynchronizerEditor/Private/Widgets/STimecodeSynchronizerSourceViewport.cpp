@@ -6,13 +6,11 @@
 #include "EditorStyleSet.h"
 #include "Engine/Texture.h"
 #include "Materials/Material.h"
-#include "Materials/MaterialExpressionTextureSample.h"
 #include "Misc/App.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Images/SImage.h"
-#include "Widgets/Layout/SScaleBox.h"
 #include "Widgets/Text/STextBlock.h"
 
 
@@ -24,63 +22,20 @@
 *****************************************************************************/
 
 STimecodeSynchronizerSourceViewport::STimecodeSynchronizerSourceViewport()
-	: Collector(this)
-	, SourceTextBox(nullptr)
+	: SourceTextBox(nullptr)
 	, TimecodeSynchronization(nullptr)
 	, AttachedSourceIndex(INDEX_NONE)
 	, bIsSynchronizedSource(false)
-	, Material(nullptr)
-	, MaterialBrush(nullptr)
-	, TextureSampler(nullptr)
 { }
 
 /* STimecodeSynchronizerSourceViewport interface
 *****************************************************************************/
 
-void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronizer, int32 InAttachedSourceIndex, bool bInIsSynchronizedSource, UTexture* InTexture)
+void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronizer, int32 InAttachedSourceIndex, bool bInIsSynchronizedSource, TSharedRef<SWidget> InVisualWidget)
 {
-	TimecodeSynchronization = InTimecodeSynchronizer;
+	TimecodeSynchronization.Reset(InTimecodeSynchronizer);
 	AttachedSourceIndex = InAttachedSourceIndex;
 	bIsSynchronizedSource = bInIsSynchronizedSource;
-	
-	//If no texture is attached, a default static texture will be used (for non live viewable sources)
-	MaterialBrush = nullptr;
-	if (InTexture != nullptr)
-	{
-		// create wrapper material
-		Material = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Transient);
-
-		if (Material != nullptr)
-		{
-			TextureSampler = NewObject<UMaterialExpressionTextureSample>(Material);
-			{
-				TextureSampler->Texture = InTexture;
-				TextureSampler->AutoSetSampleType();
-			}
-
-			FExpressionOutput& Output = TextureSampler->GetOutputs()[0];
-			FExpressionInput& Input = Material->EmissiveColor;
-			{
-				Input.Expression = TextureSampler;
-				Input.Mask = Output.Mask;
-				Input.MaskR = Output.MaskR;
-				Input.MaskG = Output.MaskG;
-				Input.MaskB = Output.MaskB;
-				Input.MaskA = Output.MaskA;
-			}
-
-			Material->Expressions.Add(TextureSampler);
-			Material->MaterialDomain = EMaterialDomain::MD_UI;
-			Material->PostEditChange();
-		}
-		
-		// create Slate brush
-		MaterialBrush = MakeShareable(new FSlateBrush());
-		{
-			MaterialBrush->SetResourceObject(Material);
-		}
-	}
-
 
 	ChildSlot
 	[
@@ -119,13 +74,7 @@ void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UT
 				SNew(SOverlay)
 				+ SOverlay::Slot()
 				[
-					// Live view of the Source
-					SNew(SScaleBox)
-					.Stretch_Lambda([]() -> EStretch::Type { return EStretch::Fill;	})
-					[
-						SNew(SImage)
-						.Image(MaterialBrush.IsValid() ? MaterialBrush.Get() : FEditorStyle::GetBrush("WhiteTexture"))
-					]
+					InVisualWidget
 				]
 
 				+ SOverlay::Slot()

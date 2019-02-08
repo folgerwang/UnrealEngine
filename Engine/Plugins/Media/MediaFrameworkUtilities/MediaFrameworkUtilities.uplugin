@@ -45,6 +45,10 @@
 		{
 			"Name" : "OpenCVLensDistortion",
 			"Enabled" : true
+		},
+		{
+			"Name": "MediaPlayerEditor",
+			"Enabled": true
 		}
 	]
 }

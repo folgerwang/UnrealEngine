@@ -28,10 +28,11 @@ namespace UnrealBuildTool.Rules
 
 			if (Target.bBuildEditor == true)
 			{
-				PrivateDependencyModuleNames.AddRange(
+                PrivateDependencyModuleNames.AddRange(
 					new string[]
 					{
-						"Slate",
+                        "MediaPlayerEditor",
+                        "Slate",
 						"SlateCore",
 						"Settings",
 						"UnrealEd"

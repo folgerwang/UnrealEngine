@@ -3,17 +3,15 @@
 #include "Widgets/STimecodeSynchronizerSourceViewer.h"
 
 
-
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "MediaPlayer.h"
 #include "MediaPlayerTimeSynchronizationSource.h"
 #include "MediaTexture.h"
 #include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBorder.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
-#include "Widgets/Layout/SBorder.h"
-#include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/STimecodeSynchronizerSourceViewport.h"
 
 
@@ -60,6 +58,18 @@ void STimecodeSynchronizerSourceViewer::Construct(const FArguments& InArgs, UTim
 	PopulateActiveSources();
 }
 
+TSharedRef<SWidget> STimecodeSynchronizerSourceViewer::GetVisualWidget(const FTimecodeSynchronizerActiveTimecodedInputSource& InSource)
+{
+	if (const UTimeSynchronizationSource* SyncSource = InSource.GetInputSource())
+	{
+		return SyncSource->GetVisualWidget();
+	}
+	else
+	{
+		return SNullWidget::NullWidget;
+	}
+}
+
 void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 {
 	ViewportVerticalBox->ClearChildren();
@@ -74,24 +84,19 @@ void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 				for (int32 Index = 0; Index < TimecodedSources.Num(); ++Index)
 				{
 					const FTimecodeSynchronizerActiveTimecodedInputSource& Source = TimecodedSources[Index];
-					if (const UTimeSynchronizationSource* SyncSource = Source.GetInputSource())
-					{
-						const UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(SyncSource);
-						const UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
 
-						//Add a Viewport Widget for each active Source
-						Owner->AddSlot()
-							.Padding(1.0f, 1.0f, 1.0f, 1.0f)
+					//Add a Viewport Widget for each active Source
+					Owner->AddSlot()
+						.Padding(1.0f, 1.0f, 1.0f, 1.0f)
+						[
+							SNew(SBorder)
+							.BorderImage(FCoreStyle::Get().GetBrush("GreenBrush"))
+							.Padding(0.0f)
 							[
-								SNew(SBorder)
-								.BorderImage(FCoreStyle::Get().GetBrush("GreenBrush"))
-								.Padding(0.0f)
-								[
-									//Source area
-									SNew(STimecodeSynchronizerSourceViewport, Synchronizer, Index, bSynchronizedSources, const_cast<UMediaTexture*>(TextureArg))
-								]
-							];
-					}
+								//Source area
+								SNew(STimecodeSynchronizerSourceViewport, Synchronizer, Index, bSynchronizedSources, GetVisualWidget(TimecodedSources[Index]))
+							]
+						];
 				}
 			}
 		};
@@ -103,7 +108,7 @@ void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 
 void STimecodeSynchronizerSourceViewer::HandleSynchronizationEvent(ETimecodeSynchronizationEvent Event)
 {
-	if (Event == ETimecodeSynchronizationEvent::SynchronizationStarted)
+	if (Event == ETimecodeSynchronizationEvent::SynchronizationSucceeded || Event == ETimecodeSynchronizationEvent::SynchronizationStopped)
 	{
 		PopulateActiveSources();
 	}

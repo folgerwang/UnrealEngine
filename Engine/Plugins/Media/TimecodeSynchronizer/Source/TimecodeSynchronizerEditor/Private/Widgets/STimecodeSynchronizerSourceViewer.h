@@ -51,7 +51,7 @@ private:
 
 	void PopulateActiveSources();
 	void HandleSynchronizationEvent(ETimecodeSynchronizationEvent Event);
-
+	static TSharedRef<SWidget> GetVisualWidget(const FTimecodeSynchronizerActiveTimecodedInputSource& InSource);
 
 private:
 
