@@ -12,7 +12,7 @@ namespace AlgoImpl
 	template <typename RangeType>
 	struct TRangePointerType
 	{
-		using Type = decltype(&*begin(DeclVal<RangeType&>()));
+		using Type = decltype(&*DeclVal<RangeType&>().begin());
 	};
 
 	template <typename T, unsigned int N>

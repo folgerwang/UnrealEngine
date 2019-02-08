@@ -666,15 +666,15 @@ public:
 	typedef typename ElementArrayType::RangedForIteratorType RangedForIteratorType;
 	typedef typename ElementArrayType::RangedForConstIteratorType RangedForConstIteratorType;
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend RangedForIteratorType		begin(TSortedMap& MapBase)		{ return begin(MapBase.Pairs); }
-	FORCEINLINE friend RangedForConstIteratorType	begin(const TSortedMap& MapBase){ return begin(MapBase.Pairs); }
-	FORCEINLINE friend RangedForIteratorType		end(TSortedMap& MapBase)		{ return end(MapBase.Pairs); }
-	FORCEINLINE friend RangedForConstIteratorType	end(const TSortedMap& MapBase)	{ return end(MapBase.Pairs); }
+	FORCEINLINE RangedForIteratorType		begin()	      { return Pairs.begin(); }
+	FORCEINLINE RangedForConstIteratorType	begin() const { return Pairs.begin(); }
+	FORCEINLINE RangedForIteratorType		end()         { return Pairs.end(); }
+	FORCEINLINE RangedForConstIteratorType	end() const   { return Pairs.end(); }
 };
 
 

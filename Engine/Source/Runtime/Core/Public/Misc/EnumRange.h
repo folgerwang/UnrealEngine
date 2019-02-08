@@ -159,15 +159,15 @@ namespace NEnumRangePrivate
 	template <typename EnumType>
 	struct TEnumRange_Impl<EnumType, 0>
 	{
-		friend TEnumContiguousIterator<EnumType> begin(const TEnumRange_Impl&) { return TEnumContiguousIterator<EnumType>(TEnumRangeTraits<EnumType>::Begin); }
-		friend TEnumContiguousIterator<EnumType> end  (const TEnumRange_Impl&) { return TEnumContiguousIterator<EnumType>(TEnumRangeTraits<EnumType>::End  ); }
+		TEnumContiguousIterator<EnumType> begin() const { return TEnumContiguousIterator<EnumType>(TEnumRangeTraits<EnumType>::Begin); }
+		TEnumContiguousIterator<EnumType> end()   const { return TEnumContiguousIterator<EnumType>(TEnumRangeTraits<EnumType>::End  ); }
 	};
 
 	template <typename EnumType>
 	struct TEnumRange_Impl<EnumType, 1>
 	{
-		friend TEnumValueArrayIterator<EnumType> begin(const TEnumRange_Impl&) { return TEnumValueArrayIterator<EnumType>(TEnumRangeTraits<EnumType>::template GetPointer<void>(false)); }
-		friend TEnumValueArrayIterator<EnumType> end  (const TEnumRange_Impl&) { return TEnumValueArrayIterator<EnumType>(TEnumRangeTraits<EnumType>::template GetPointer<void>(true )); }
+		TEnumValueArrayIterator<EnumType> begin() const { return TEnumValueArrayIterator<EnumType>(TEnumRangeTraits<EnumType>::template GetPointer<void>(false)); }
+		TEnumValueArrayIterator<EnumType> end  () const { return TEnumValueArrayIterator<EnumType>(TEnumRangeTraits<EnumType>::template GetPointer<void>(true )); }
 	};
 }
 

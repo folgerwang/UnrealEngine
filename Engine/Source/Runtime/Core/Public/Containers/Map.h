@@ -784,15 +784,15 @@ public:
 		return TConstKeyIterator(*this, InKey);
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend TRangedForIterator      begin(      TMapBase& MapBase) { return TRangedForIterator     (begin(MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForConstIterator begin(const TMapBase& MapBase) { return TRangedForConstIterator(begin(MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForIterator      end  (      TMapBase& MapBase) { return TRangedForIterator     (end  (MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForConstIterator end  (const TMapBase& MapBase) { return TRangedForConstIterator(end  (MapBase.Pairs)); }
+	FORCEINLINE TRangedForIterator      begin()       { return TRangedForIterator     (Pairs.begin()); }
+	FORCEINLINE TRangedForConstIterator begin() const { return TRangedForConstIterator(Pairs.begin()); }
+	FORCEINLINE TRangedForIterator      end  ()       { return TRangedForIterator     (Pairs.end());   }
+	FORCEINLINE TRangedForConstIterator end  () const { return TRangedForConstIterator(Pairs.end());   }
 };
 
 

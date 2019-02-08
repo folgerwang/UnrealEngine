@@ -716,17 +716,20 @@ private:
 		return Ar;
 	}
 
+public:
 	/** Range for iterator access - DO NOT USE DIRECTLY */
-	friend FAssetDataTagMap::RangedForConstIteratorType begin(const FAssetDataTagMapSharedView& View)
+	FAssetDataTagMap::RangedForConstIteratorType begin() const
 	{
-		return begin(View.GetMap());
+		return GetMap().begin();
 	}
 
 	/** Range for iterator access - DO NOT USE DIRECTLY */
-	friend FAssetDataTagMap::RangedForConstIteratorType end(const FAssetDataTagMapSharedView& View)
+	FAssetDataTagMap::RangedForConstIteratorType end() const
 	{
-		return end(View.GetMap());
+		return GetMap().end();
 	}
+
+private:
 
 	/** Pointer to map being wrapped, it is created on demand */
 	TSharedPtr<FAssetDataTagMap> Map;

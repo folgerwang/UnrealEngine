@@ -280,37 +280,38 @@ private:
 	typedef UE4ChunkedArray_Private::TChunkedArrayIterator<      FChunk,       ElementType, NumElementsPerChunk> FIterType;
 	typedef UE4ChunkedArray_Private::TChunkedArrayIterator<const FChunk, const ElementType, NumElementsPerChunk> FConstIterType;
 
-	friend FIterType begin(TChunkedArray& Array)
+public:
+	FIterType begin()
 	{
-		int32 Num = Array.NumElements;
-		FChunk** ChunkPtr = Array.Chunks.GetData();
-		FChunk** LastChunkPtr = Array.Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
+		int32 Num = NumElements;
+		FChunk** ChunkPtr = Chunks.GetData();
+		FChunk** LastChunkPtr = Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
 		return FIterType(ChunkPtr, LastChunkPtr, ChunkPtr ? (*ChunkPtr)->Elements : nullptr);
 	}
 
-	friend FConstIterType begin(const TChunkedArray& Array)
+	FConstIterType begin() const
 	{
-		int32 Num = Array.NumElements;
-		const FChunk** ChunkPtr = Array.Chunks.GetData();
-		const FChunk** LastChunkPtr = Array.Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
+		int32 Num = NumElements;
+		const FChunk** ChunkPtr = Chunks.GetData();
+		const FChunk** LastChunkPtr = Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
 		return FConstIterType(ChunkPtr, LastChunkPtr, ChunkPtr ? (*ChunkPtr)->Elements : nullptr);
 	}
 
-	friend FIterType end(TChunkedArray& Array)
+	FIterType end()
 	{
-		int32 Num = Array.NumElements;
+		int32 Num = NumElements;
 		bool bBeyondLastChunk = Num && (Num % NumElementsPerChunk) == 0;
-		FChunk** ChunkPtr = Array.Chunks.GetData() + (Num / NumElementsPerChunk) + (bBeyondLastChunk ? -1 : 0); // do not read off the end of the chunk array!
-		FChunk** LastChunkPtr = Array.Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
+		FChunk** ChunkPtr = Chunks.GetData() + (Num / NumElementsPerChunk) + (bBeyondLastChunk ? -1 : 0); // do not read off the end of the chunk array!
+		FChunk** LastChunkPtr = Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
 		return FIterType(ChunkPtr, LastChunkPtr, ChunkPtr ? (*ChunkPtr)->Elements + (bBeyondLastChunk ? NumElementsPerChunk : (Num % NumElementsPerChunk))  : nullptr);
 	}
 
-	friend FConstIterType end(const TChunkedArray& Array)
+	FConstIterType end() const
 	{
-		int32 Num = Array.NumElements;
+		int32 Num = NumElements;
 		bool bBeyondLastChunk = Num && Num % NumElementsPerChunk == 0;
-		const FChunk** ChunkPtr = Array.Chunks.GetData() + (Num / NumElementsPerChunk) + (bBeyondLastChunk ? -1 : 0); // do not read off the end of the chunk array!
-		const FChunk** LastChunkPtr = Array.Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
+		const FChunk** ChunkPtr = Chunks.GetData() + (Num / NumElementsPerChunk) + (bBeyondLastChunk ? -1 : 0); // do not read off the end of the chunk array!
+		const FChunk** LastChunkPtr = Chunks.GetData() + (Num ? Num - 1 : 0) / NumElementsPerChunk;
 		return FConstIterType(ChunkPtr, LastChunkPtr, ChunkPtr ? (*ChunkPtr)->Elements + (bBeyondLastChunk ? NumElementsPerChunk : (Num % NumElementsPerChunk)) : nullptr);
 	}
 };

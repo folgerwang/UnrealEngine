@@ -508,13 +508,13 @@ public:
 		return FindByPredicate(Pred) != nullptr;
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend ElementType* begin(const TArrayView& Array) { return Array.GetData(); }
-	FORCEINLINE friend ElementType* end  (const TArrayView& Array) { return Array.GetData() + Array.Num(); }
+	FORCEINLINE ElementType* begin() const { return GetData(); }
+	FORCEINLINE ElementType* end  () const { return GetData() + Num(); }
 
 public:
 	/**

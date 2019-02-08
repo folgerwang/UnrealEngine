@@ -236,17 +236,19 @@ public:
 			return TConstIterator( typename TSparseArray<ElementType>::TConstIterator( Array ) );
 		}
 
+	public:
+
+		FORCEINLINE TConstIterator begin() const
+		{
+			return TConstIterator( Array.begin() );
+		}
+
+		FORCEINLINE TConstIterator end() const
+		{
+			return TConstIterator( Array.end() );
+		}
+
 	private:
-
-		friend FORCEINLINE TConstIterator begin( const TElementIDs& ArrayIDs )
-		{
-			return TConstIterator( begin( ArrayIDs.Array ) );
-		}
-
-		friend FORCEINLINE TConstIterator end( const TElementIDs& ArrayIDs )
-		{
-			return TConstIterator( end( ArrayIDs.Array ) );
-		}
 
 		const TSparseArray<ElementType>& Array;
 	};
