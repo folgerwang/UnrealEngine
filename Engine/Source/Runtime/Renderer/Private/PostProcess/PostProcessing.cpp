@@ -1585,7 +1585,6 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 
 			if(SeparateTranslucency.IsValid() && !bSepTransWasApplied)
 			{
-				checkf(!FPostProcessing::HasAlphaChannelSupport(), TEXT("Separate translucency was supposed to be disabled automatically."));
 				const bool bIsComputePass = ShouldDoComputePostProcessing(Context.View);
 				// separate translucency is done here or in AddPostProcessDepthOfFieldBokeh()
 				FRenderingCompositePass* NodeRecombined = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBokehDOFRecombine(bIsComputePass));
