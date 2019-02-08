@@ -1133,6 +1133,9 @@ namespace UM
 		/// [PropertyMetadata] Used by FFilePath properties. Indicates the path filter to display in the file picker.
 		FilePathFilter,
 
+		/// [PropertyMetadata] Used by FFilePath properties. Indicates that the FilePicker dialog will output a path relative to the game directory when setting the property. An absolute path will be used when outside the game directory.
+		RelativeToGameDir,
+
 		/// [PropertyMetadata] Deprecated.
 		FixedIncrement,
 

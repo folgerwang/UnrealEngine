@@ -44,4 +44,7 @@ private:
 	/** Pointer to the string that will be seet when changing the path */
 	TSharedPtr<IPropertyHandle> PathStringProperty;
 	bool bLongPackageName;
+	
+	/** Whether the output file path tries to be relative to the project directory */
+	bool bRelativeToGameDir;
 };

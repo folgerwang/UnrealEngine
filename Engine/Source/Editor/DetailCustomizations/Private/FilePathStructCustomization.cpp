@@ -34,6 +34,7 @@ void FFilePathStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> 
 
 
 	bLongPackageName = StructPropertyHandle->HasMetaData(TEXT("LongPackageName"));
+	bRelativeToGameDir = StructPropertyHandle->HasMetaData(TEXT("RelativeToGameDir"));
 
 	if (MetaData.IsEmpty())
 	{
@@ -92,7 +93,20 @@ void FFilePathStructCustomization::HandleFilePathPickerPathPicked( const FString
 		}
 		FinalPath = LongPackageName;
 	}
-
+	else if (bRelativeToGameDir)
+	{
+		//If the path is part of the project directory, make it relative to it or keep the absolute path.
+		const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(PickedPath);
+		const FString AbsoluteProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+		if (AbsolutePickedPath.StartsWith(AbsoluteProjectDir))
+		{
+			FinalPath = AbsolutePickedPath.RightChop(AbsoluteProjectDir.Len());
+		}
+		else
+		{
+			FinalPath = AbsolutePickedPath;
+		}
+	}
 
 	PathStringProperty->SetValue(FinalPath);
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_OPEN, FPaths::GetPath(PickedPath));
