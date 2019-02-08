@@ -30,7 +30,7 @@
 	[
 		{
 			"Name": "ImgMedia",
-			"WhitelistTargets": "Editor",
+			"WhitelistTargets": [ "Editor" ],
 			"Enabled": true
 		}
 	]
