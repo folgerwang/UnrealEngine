@@ -56,7 +56,7 @@ FString UAnalyticsPrivacySettings::GetAdditionalInfoUrl() const
 
 FText UAnalyticsPrivacySettings::GetAdditionalInfoUrlLabel() const
 {
-	return LOCTEXT("HyperlinkLabel", "Epic Games Privacy Notice");
+	return LOCTEXT("HyperlinkLabel", "Epic Games Privacy Policy");
 };
 
 #if WITH_EDITOR
