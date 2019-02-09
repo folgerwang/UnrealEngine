@@ -7,7 +7,7 @@
     <ProjectGuid>{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>DotNETUtilities</RootNamespace>
+    <RootNamespace>Tools.DotNETCommon</RootNamespace>
     <AssemblyName>DotNETUtilities</AssemblyName>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -55,6 +55,7 @@
     <Compile Include="..\MetaData.cs">
       <Link>Properties\MetaData.cs</Link>
     </Compile>
+    <Compile Include="ArrayUtils.cs" />
     <Compile Include="AssemblyUtils.cs" />
     <Compile Include="BinaryFormatterUtils.cs" />
     <Compile Include="BinaryReaderExtensions.cs" />

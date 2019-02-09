@@ -43,5 +43,22 @@ namespace Tools.DotNETCommon
 				Formatter.Serialize(Stream, Object);
 			}
 		}
+
+		/// <summary>
+		/// Saves a file to disk using the binary formatter, without updating the timestamp if it hasn't changed
+		/// </summary>
+		/// <param name="Location">File to write to</param>
+		/// <param name="Object">Object to serialize</param>
+		public static void SaveIfDifferent(FileReference Location, object Object)
+		{
+			byte[] Contents;
+			using(MemoryStream Stream = new MemoryStream())
+			{
+				BinaryFormatter Formatter = new BinaryFormatter();
+				Formatter.Serialize(Stream, Object);
+				Contents = Stream.ToArray();
+			}
+			FileReference.WriteAllBytesIfDifferent(Location, Contents);
+		}
 	}
 }

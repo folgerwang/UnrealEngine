@@ -464,6 +464,24 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Writes the data to the given file, if it's different from what's there already
+		/// </summary>
+		/// <param name="Location">Location of the file</param>
+		/// <param name="Contents">Contents of the file</param>
+		public static void WriteAllBytesIfDifferent(FileReference Location, byte[] Contents)
+		{
+			if(FileReference.Exists(Location))
+			{
+				byte[] CurrentContents = FileReference.ReadAllBytes(Location);
+				if(ArrayUtils.ByteArraysEqual(Contents, CurrentContents))
+				{
+					return;
+				}
+			}
+			WriteAllBytes(Location, Contents);
+		}
+
+		/// <summary>
 		/// Writes the contents of a file
 		/// </summary>
 		/// <param name="Location">Location of the file</param>
