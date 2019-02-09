@@ -222,7 +222,7 @@ namespace UnrealBuildTool
 				case VCProjectFileFormat.VisualStudio2017:
                     return "v141";
 				case VCProjectFileFormat.VisualStudio2019:
-					return "v141"; // Correct as of VS2019 Preview 1
+					return "v142"; // Correct as of VS2019 Preview 2
 
             }
 			return string.Empty;
