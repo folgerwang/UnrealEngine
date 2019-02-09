@@ -1454,7 +1454,7 @@ protected:
 		print_type_full(sig->return_type);
 		ralloc_asprintf_append(buffer, " %s(", sig->function_name());
 		
-        bInsertSideTable = false;
+        bInsertSideTable = Backend.bIsTessellationVSHS;
         if (sig->is_main && Backend.bBoundsChecks)
 		{
             foreach_iter(exec_list_iterator, iter, sig->parameters)
@@ -1492,7 +1492,7 @@ protected:
             
             ir_variable* indexBuffer = new(ParseState)ir_variable(glsl_type::uint_type, "indexBuffer", ir_var_in);
             indexBuffer->semantic = "";
-            Buffers.Textures.Add(indexBuffer);
+            Buffers.Buffers.Add(indexBuffer);
             
             int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
             check(IndexBufferIndex >= 0 && IndexBufferIndex < 30);
@@ -1504,7 +1504,7 @@ protected:
 				"uint2 threadgroup_position_in_grid [[threadgroup_position_in_grid]],\n"
 				"constant uint *patchCount [[ buffer(%d) ]],\n"
 				"#define METAL_INDEX_BUFFER_ID %d\n"
-				"typedBuffer1_read(uint, indexBuffer, METAL_INDEX_BUFFER_ID)",
+				"const device typed_buffer<uint>* indexBuffer [[ buffer(METAL_INDEX_BUFFER_ID) ]]",
                 patchIndex, IndexBufferIndex
 			);
 			bPrintComma = true;
@@ -1645,8 +1645,8 @@ protected:
 						ir_variable* indexBuffer = ParseState->symbols->get_variable("indexBuffer");
 						int32 IndexBufferIndex = Buffers.GetIndex(indexBuffer);
 						ralloc_asprintf_append(buffer, "#define GET_VERTEX_ID() \\\n");
-						ralloc_asprintf_append(buffer, "	(is_null_texture(indexBuffer)) ? thread_position_in_grid.x : \\\n");
-						ralloc_asprintf_append(buffer, "	buffer::load<uint, METAL_INDEX_BUFFER_ID>(indexBuffer, thread_position_in_grid.x + patchCount[1])\n");
+						ralloc_asprintf_append(buffer, "	(BufferSizes[(METAL_INDEX_BUFFER_ID*2)+1] == 0) ? thread_position_in_grid.x : \\\n");
+						ralloc_asprintf_append(buffer, "	buffer::load<uint, METAL_INDEX_BUFFER_ID>(indexBuffer, thread_position_in_grid.x, BufferSizes)\n");
 						ralloc_asprintf_append(buffer, "/* optionally vertex_id = GET_VERTEX_ID() + grid_origin.x */\n");
 					}
 
