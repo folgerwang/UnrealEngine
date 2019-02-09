@@ -95,11 +95,7 @@ namespace UnrealBuildTool
 				Writer.WriteObjectEnd();
 			}
 
-			byte[] Data = MemoryStream.ToArray();
-			if(!FileReference.Exists(Location) || !Utils.ByteArraysEqual(Data, FileReference.ReadAllBytes(Location)))
-			{
-				FileReference.WriteAllBytes(Location, Data);
-			}
+			FileReference.WriteAllBytesIfDifferent(Location, MemoryStream.ToArray());
 		}
 	}
 }
