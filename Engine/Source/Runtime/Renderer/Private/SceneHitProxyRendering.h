@@ -67,9 +67,9 @@ private:
 	int32 GetStencilValue(const FSceneView* View, const FPrimitiveSceneProxy* PrimitiveSceneProxy);
 
 	/** This map is needed to ensure that individually selected proxies rendered more than once a frame (if they have multiple sections) share a common outline */
-	static TMap<const FPrimitiveSceneProxy*, int32> ProxyToStencilIndex;
+	TMap<const FPrimitiveSceneProxy*, int32> ProxyToStencilIndex;
 	/** This map is needed to ensure that proxies rendered more than once a frame (if they have multiple sections) share a common outline */
-	static TMap<FName, int32> ActorNameToStencilIndex;
+	TMap<FName, int32> ActorNameToStencilIndex;
 };
 
 #endif

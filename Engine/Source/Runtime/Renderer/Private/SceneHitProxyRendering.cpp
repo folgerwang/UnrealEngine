@@ -827,17 +827,11 @@ int32 FEditorSelectionMeshProcessor::GetStencilValue(const FSceneView* View, con
 	return StencilValue;
 }
 
-TMap<const FPrimitiveSceneProxy*, int32> FEditorSelectionMeshProcessor::ProxyToStencilIndex;
-TMap<FName, int32> FEditorSelectionMeshProcessor::ActorNameToStencilIndex;
-
 FEditorSelectionMeshProcessor::FEditorSelectionMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 	: FMeshPassProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
 {
 	checkf(InViewIfDynamicMeshCommand, TEXT("Editor selection mesh process required dynamic mesh command mode."));
 
-	// Reset common outline maps per every view render.
-	ProxyToStencilIndex.Reset();
-	ActorNameToStencilIndex.Reset();
 	ActorNameToStencilIndex.Add(NAME_BSP, 1);
 
 	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
