@@ -48,6 +48,7 @@ private:
 	UPROPERTY()
 	TArray< TWeakObjectPtr<ACompositingElement> > CompElements;
 
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
