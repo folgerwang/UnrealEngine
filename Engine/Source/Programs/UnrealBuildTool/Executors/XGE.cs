@@ -507,8 +507,9 @@ namespace UnrealBuildTool
 				XGEProcess.WaitForExit();
 				return XGEProcess.ExitCode == 0;
 			}
-			catch (Exception)
+			catch (Exception Ex)
 			{
+				Log.WriteException(Ex, null);
 				return false;
 			}
 		}
