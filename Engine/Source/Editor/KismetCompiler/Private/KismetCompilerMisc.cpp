@@ -1073,6 +1073,9 @@ UProperty* FKismetCompilerUtilities::CreatePrimitiveProperty(UObject* PropertySc
 /** Creates a property named PropertyName of type PropertyType in the Scope or returns NULL if the type is unknown, but does *not* link that property in */
 UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, EPropertyFlags PropertyFlags, const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
 {
+	// When creating properties that depend on other properties (e.g. UDelegateProperty/UMulticastDelegateProperty::SignatureFunction)
+	// you may need to update fixup logic in the compilation manager.
+		
 	const EObjectFlags ObjectFlags = RF_Public;
 
 	FName ValidatedPropertyName = PropertyName;
