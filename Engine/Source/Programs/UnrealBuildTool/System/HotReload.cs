@@ -643,7 +643,7 @@ namespace UnrealBuildTool
 					{
 						foreach (KeyValuePair<string, string> Manifest in FileNameToVersionManifest.Value.ModuleNameToFileName)
 						{
-							FileReference OriginalFile = FileReference.Combine(FileNameToVersionManifest.Key.Directory, Manifest.Key);
+							FileReference OriginalFile = FileReference.Combine(FileNameToVersionManifest.Key.Directory, Manifest.Value);
 
 							FileReference HotReloadFile;
 							if(OriginalFileToHotReloadFile.TryGetValue(OriginalFile, out HotReloadFile))
@@ -656,8 +656,12 @@ namespace UnrealBuildTool
 
 					// Write the hot-reload metadata file and update the argument list
 					FileReference HotReloadTargetInfoFile = FileReference.Combine(TargetInfoFile.Directory, "Metadata-HotReload.dat");
-					BinaryFormatterUtils.Save(HotReloadTargetInfoFile, TargetInfo);
-					Arguments = Arguments.Substring(0, FileNameIdx) + HotReloadTargetInfoFile + Arguments.Substring(FileNameEndIdx);
+					BinaryFormatterUtils.SaveIfDifferent(HotReloadTargetInfoFile, TargetInfo);
+
+					Action.PrerequisiteItems.RemoveAll(x => x.Location == TargetInfoFile);
+					Action.PrerequisiteItems.Add(FileItem.GetItemByFileReference(HotReloadTargetInfoFile));
+
+					Action.CommandArguments = Arguments.Substring(0, FileNameIdx) + HotReloadTargetInfoFile + Arguments.Substring(FileNameEndIdx);
 				}
 			}
 		}
