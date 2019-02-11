@@ -58,6 +58,8 @@ namespace Tools.DotNETCommon
 				Formatter.Serialize(Stream, Object);
 				Contents = Stream.ToArray();
 			}
+
+			DirectoryReference.CreateDirectory(Location.Directory);
 			FileReference.WriteAllBytesIfDifferent(Location, Contents);
 		}
 	}
