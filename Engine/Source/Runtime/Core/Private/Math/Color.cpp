@@ -353,7 +353,7 @@ FLinearColor FLinearColor::LerpUsingHSV( const FLinearColor& From, const FLinear
 FLinearColor FLinearColor::MakeRandomColor()
 {
 	const uint8 Hue = (uint8)(FMath::FRand()*255.f);
-	return FLinearColor::MakeFromHSV8(Hue, 0, 255);
+	return FLinearColor::MakeFromHSV8(Hue, 255, 255);
 }
 
 FColor FColor::MakeRandomColor()
