@@ -119,7 +119,9 @@ public class Blast : ModuleRules
         {
             foreach (string Lib in BlastLibraries)
             {
-                PublicAdditionalLibraries.Add(String.Format("{0}{1}{2}", Lib, LibConfiguration, LibSuffix));
+                string LibName = String.Format("{0}{1}{2}", Lib, LibConfiguration, LibSuffix);
+                PublicAdditionalLibraries.Add(LibName);
+                RuntimeDependencies.Add(LibName);
             }
         }
     }
