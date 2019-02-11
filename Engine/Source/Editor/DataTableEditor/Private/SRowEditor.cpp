@@ -346,11 +346,22 @@ void SRowEditor::OnRowRenamed(const FText& Text, ETextCommit::Type CommitType)
 			return;
 		}
 		const FName NewName = DataTableUtils::MakeValidName(Text.ToString());
+		if (NewName == NAME_None)
+		{
+			// popup an error dialog here
+			const FText Message = FText::Format(LOCTEXT("InvalidRowName", "'{0}' is not a valid row name"), Text);
+			FMessageDialog::Open(EAppMsgType::Ok, Message);
+
+			return;
+		}
 		for (auto Name : CachedRowNames)
 		{
 			if (Name.IsValid() && (*Name == NewName))
 			{
-				 //the name already exists
+				//the name already exists
+				// popup an error dialog here
+				const FText Message = FText::Format(LOCTEXT("DuplicateRowName", "'{0}' is already used as a row name in this table"), Text);
+				FMessageDialog::Open(EAppMsgType::Ok, Message);
 				return;
 			}
 		}
