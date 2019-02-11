@@ -97,7 +97,7 @@ struct FShadowMapAllocation
 	{
 		if (InstanceIndex >= 0 && Registry)
 		{
-			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildData(MapBuildDataId);
+			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildDataDuringBuild(MapBuildDataId);
 			check(MeshBuildData);
 
 			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);

@@ -492,6 +492,11 @@ FMeshMapBuildData* UMapBuildDataRegistry::GetMeshBuildData(FGuid MeshId)
 	return FoundData;
 }
 
+FMeshMapBuildData* UMapBuildDataRegistry::GetMeshBuildDataDuringBuild(FGuid MeshId)
+{
+	return MeshBuildData.Find(MeshId);
+}
+
 FPrecomputedLightVolumeData& UMapBuildDataRegistry::AllocateLevelPrecomputedLightVolumeBuildData(const FGuid& LevelId)
 {
 	check(LevelId.IsValid());
