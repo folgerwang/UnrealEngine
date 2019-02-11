@@ -1799,6 +1799,12 @@ void UEditableGameplayTagQueryExpression_AllTagsMatch::EmitTokens(TArray<uint8>&
 void UEditableGameplayTagQueryExpression_NoTagsMatch::EmitTokens(TArray<uint8>& TokenStream, TArray<FGameplayTag>& TagDictionary, FString* DebugString) const
 {
 	TokenStream.Add(EGameplayTagQueryExprType::NoTagsMatch);
+
+	if (DebugString)
+	{
+		DebugString->Append(TEXT(" NONE("));
+	}
+
 	EmitTagTokens(Tags, TokenStream, TagDictionary, DebugString);
 
 	if (DebugString)
