@@ -30,8 +30,9 @@ public class AssetTools : ModuleRules
 				"PropertyEditor",
 				"Kismet",
 				"Landscape",
-                "Foliage"
-			}
+                "Foliage",
+                "Projects",
+            }
 		);
 
 		PrivateIncludePathModuleNames.AddRange(
