@@ -130,7 +130,7 @@ class FTextureFormatAndroid : public ITextureFormat
 {
 	virtual bool AllowParallelBuild() const override
 	{
-		return true;
+		return !PLATFORM_MAC; // On Mac Qualcomm's TextureConverter library is not thead-safe
 	}
 
 	virtual uint16 GetVersion(
