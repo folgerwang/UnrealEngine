@@ -7,7 +7,7 @@
 	"CreatedByURL" : "http://magicleap.com",
 	"Description" : "Support for the Magic Leap Head Mounted Display.",
 	"Category" : "Augmented Reality",
-	"EnabledByDefault" : true,
+	"EnabledByDefault" : false,
 	"DocsURL" : "",
 	"MarketplaceURL" : "",
 	"SupportURL" : "",
