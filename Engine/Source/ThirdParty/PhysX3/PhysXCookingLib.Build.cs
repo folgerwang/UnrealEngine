@@ -117,11 +117,13 @@ public class PhysXCookingLib : ModuleRules
         {
             PhysXLibDir = Path.Combine(PhysXLibDir, "IOS/");
             PublicAdditionalLibraries.Add("PhysX3Cooking" + LibrarySuffix);
+            PublicLibraryPaths.Add(PhysXLibDir);
         }
         else if (Target.Platform == UnrealTargetPlatform.TVOS)
         {
             PhysXLibDir = Path.Combine(PhysXLibDir, "TVOS/");
             PublicAdditionalLibraries.Add("PhysX3Cooking" + LibrarySuffix);
+            PublicLibraryPaths.Add(PhysXLibDir);
         }
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
