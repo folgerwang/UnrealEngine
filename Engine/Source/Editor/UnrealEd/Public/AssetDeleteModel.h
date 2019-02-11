@@ -82,7 +82,7 @@ private:
  * that must be performed against the GC for UObjects, and looking up references for assets through
  * the asset registry.
  */
-class FAssetDeleteModel
+class UNREALED_API FAssetDeleteModel
 {
 public:
 	/** States used to manage the async deletion process. */
