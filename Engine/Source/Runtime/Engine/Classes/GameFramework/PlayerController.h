@@ -1699,7 +1699,7 @@ public:
 	/** Gives the PlayerController an opportunity to cleanup any changes it applied to the game viewport, primarily for the touch interface */
 	virtual void CleanupGameViewport();
 
-	/** @Returns true if input should be frozen (whether UnFreeze timer is active) */
+	/** Returns true if input should be frozen (whether UnFreeze timer is active) */
 	virtual void AcknowledgePossession(class APawn* P);
 
 	/** Clean up when a Pawn's player is leaving a game. Base implementation destroys the pawn. */
@@ -1720,7 +1720,7 @@ public:
 	 */
 	virtual void ViewAPlayer(int32 dir);
 
-	/** @return true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
+	/** Returns true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	virtual bool CanRestartPlayer();
 
@@ -1787,12 +1787,12 @@ public:
 	 */
 	virtual bool DefaultCanUnpause();
 
-	/** @return true if game is currently paused. */
+	/** Returns true if game is currently paused. */
 	bool IsPaused() const;
 
 	bool InputEnabled() const { return bInputEnabled; }
 
-	/** @return true if we fully tick when paused (and if our tick function is enabled when paused).	 */
+	/** Returns true if we fully tick when paused (and if our tick function is enabled when paused).	 */
 	bool ShouldPerformFullTickWhenPaused() const;
 
 	/** returns whether the client has completely loaded the server's current world (valid on server only) */
@@ -1897,7 +1897,7 @@ public:
 	 */
 	virtual void InitInputSystem();
 
-	/** @returns true if input should be frozen (whether UnFreeze timer is active) */
+	/** Returns true if input should be frozen (whether UnFreeze timer is active) */
 	virtual bool IsFrozen();
 
 	/**

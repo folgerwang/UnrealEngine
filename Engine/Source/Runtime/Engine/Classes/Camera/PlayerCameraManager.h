@@ -522,10 +522,10 @@ public:
 
 	friend struct FTViewTarget;
 public:
-	/** @return the current ViewTarget. */
+	/** Returns the current ViewTarget. */
 	AActor* GetViewTarget() const;
 
-	/** @return the ViewTarget if it is an APawn, or nullptr otherwise */
+	/** Returns the ViewTarget if it is an APawn, or nullptr otherwise */
 	class APawn* GetViewTargetPawn() const;
 
 	//~ Begin AActor Interface
@@ -619,7 +619,7 @@ public:
 	 */
 	virtual void InitializeFor(class APlayerController* PC);
 	
-	/** @return Returns the camera's current full FOV angle, in degrees. */
+	/** Returns the camera's current full FOV angle, in degrees. */
 	UFUNCTION(BlueprintCallable, Category = "Camera")
 	virtual float GetFOVAngle() const;
 	
@@ -632,10 +632,10 @@ public:
 	/** Unlocks the FOV. */
 	virtual void UnlockFOV();
 
-	/** @return Returns true if this camera is using an orthographic perspective. */
+	/** Returns true if this camera is using an orthographic perspective. */
 	virtual bool IsOrthographic() const;
 
-	/** @return Returns the current orthographic width for the camera. */
+	/** Returns the current orthographic width for the camera. */
 	virtual float GetOrthoWidth() const;
 
 	/** 
@@ -657,11 +657,11 @@ public:
 	 */
 	void GetCameraViewPoint(FVector& OutCamLoc, FRotator& OutCamRot) const;
 	
-	/** @return Returns camera's current rotation. */
+	/** Returns camera's current rotation. */
 	UFUNCTION(BlueprintCallable, Category = "Camera", meta=(Keywords="View Direction"))
 	FRotator GetCameraRotation() const;
 
-	/** @return Returns camera's current location. */
+	/** Returns camera's current location. */
 	UFUNCTION(BlueprintCallable, Category = "Camera", meta=(Keywords="View Position"))
 	FVector GetCameraLocation() const;
 	
@@ -735,7 +735,7 @@ public:
 	// Camera Lens Effects
 	//
 	
-	/** @return Returns first instance of a lens effect of the given class. */
+	/** Returns first instance of a lens effect of the given class. */
 	virtual class AEmitterCameraLensEffectBase* FindCameraLensEffect(TSubclassOf<class AEmitterCameraLensEffectBase> LensEffectEmitterClass);
 	
 	/** 
@@ -856,7 +856,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Camera Animation")
 	virtual void StopAllCameraAnims(bool bImmediate = false);
 
-	/** @return Returns first existing instance of the specified camera anim, or NULL if none exists. */
+	/** Returns first existing instance of the specified camera anim, or NULL if none exists. */
 	class UCameraAnimInst* FindInstanceOfCameraAnim(class UCameraAnim const* Anim) const;
 
 protected:
@@ -864,7 +864,7 @@ protected:
 	void InitTempCameraActor(class ACameraActor* CamActor, class UCameraAnimInst const* AnimInstToInitFor) const;
 	void ApplyAnimToCamera(class ACameraActor const* AnimatedCamActor, class UCameraAnimInst const* AnimInst, FMinimalViewInfo& InOutPOV);
 
-	/** @return Returns an available CameraAnimInst, or NULL if no more are available. */
+	/** Returns an available CameraAnimInst, or NULL if no more are available. */
 	class UCameraAnimInst* AllocCameraAnimInst();
 
 	/** 
@@ -917,6 +917,6 @@ private:
 	FVector GetActorLocation() const { return Super::GetActorLocation(); }
 
 public:
-	/** @return Returns TransformComponent subobject */
+	/** Returns TransformComponent subobject */
 	class USceneComponent* GetTransformComponent() const { return TransformComponent; }
 };

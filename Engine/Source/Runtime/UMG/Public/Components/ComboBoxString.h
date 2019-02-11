@@ -133,7 +133,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	int32 GetSelectedIndex() const;
 
-	/** @return The number of options */
+	/** Returns the number of options */
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	int32 GetOptionCount() const;
 

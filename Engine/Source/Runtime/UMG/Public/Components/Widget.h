@@ -386,7 +386,7 @@ public:
 
 #if WITH_EDITOR
 
-	/** @return is this widget locked */
+	/** Is this widget locked in the designer UI */
 	bool IsLockedInDesigner() const
 	{
 		return bLockedInDesigner;
@@ -453,7 +453,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ResetCursor();
 
-	/** @return true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
+	/** Returns true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsVisible() const;
 
@@ -485,7 +485,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ForceVolatile(bool bForce);
 
-	/** @return true if the widget is currently being hovered by a pointer device */
+	/** Returns true if the widget is currently being hovered by a pointer device */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	virtual bool IsHovered() const;
 
@@ -517,19 +517,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetKeyboardFocus();
 
-	/** @return true if this widget is focused by a specific user. */
+	/** Returns true if this widget is focused by a specific user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasUserFocus(APlayerController* PlayerController) const;
 
-	/** @return true if this widget is focused by any user. */
+	/** Returns true if this widget is focused by any user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasAnyUserFocus() const;
 
-	/** @return true if any descendant widget is focused by any user. */
+	/** Returns true if any descendant widget is focused by any user. */
 	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="HasAnyUserFocusedDescendants"))
 	bool HasFocusedDescendants() const;
 
-	/** @return true if any descendant widget is focused by a specific user. */
+	/** Returns true if any descendant widget is focused by a specific user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasUserFocusedDescendants(APlayerController* PlayerController) const;
 	
@@ -715,7 +715,7 @@ public:
 		return ( DesignerFlags&FlagToCheck ) != 0;
 	}
 
-	/** @return The friendly name of the widget to display in the editor */
+	/** Returns the friendly name of the widget to display in the editor */
 	const FString& GetDisplayLabel() const
 	{
 		return DisplayLabel;
@@ -724,7 +724,7 @@ public:
 	/** Sets the friendly name of the widget to display in the editor */
 	void SetDisplayLabel(const FString& DisplayLabel);
 
-	/** @return the category name of the widget */
+	/** Returns the category name of the widget */
 	const FString& GetCategoryName() const;
 
 	/** Sets the category name of the widget */

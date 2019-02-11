@@ -132,37 +132,37 @@ public:
 	 */
 	TTuple<FVector, FVector2D> GetCylinderHitLocation(FVector WorldHitLocation, FVector WorldHitDirection) const;
 
-	/** @return Gets the last local location that was hit */
+	/** Gets the last local location that was hit */
 	FVector2D GetLastLocalHitLocation() const
 	{
 		return LastLocalHitLocation;
 	}
 	
-	/** @return The class of the user widget displayed by this component */
+	/** Returns the class of the user widget displayed by this component */
 	TSubclassOf<UUserWidget> GetWidgetClass() const { return WidgetClass; }
 
-	/** @return The user widget object displayed by this component */
+	/** Returns the user widget object displayed by this component */
 	UFUNCTION(BlueprintCallable, Category=UserInterface, meta=(UnsafeDuringActorConstruction=true))
 	UUserWidget* GetUserWidgetObject() const;
 
-	/** @return Returns the Slate widget that was assigned to this component, if any */
+	/** Returns the Slate widget that was assigned to this component, if any */
 	const TSharedPtr<SWidget>& GetSlateWidget() const;
 
-	/** @return List of widgets with their geometry and the cursor position transformed into this Widget component's space. */
+	/** Returns the list of widgets with their geometry and the cursor position transformed into this Widget component's space. */
 	TArray<FWidgetAndPointer> GetHitWidgetPath(FVector WorldHitLocation, bool bIgnoreEnabledStatus, float CursorRadius = 0.0f);
 
-	/** @return List of widgets with their geometry and the cursor position transformed into this Widget space. The widget space is expressed as a Vector2D. */
+	/** Returns the list of widgets with their geometry and the cursor position transformed into this Widget space. The widget space is expressed as a Vector2D. */
 	TArray<FWidgetAndPointer> GetHitWidgetPath(FVector2D WidgetSpaceHitCoordinate, bool bIgnoreEnabledStatus, float CursorRadius = 0.0f);
 
-	/** @return The render target to which the user widget is rendered */
+	/** Returns the render target to which the user widget is rendered */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	UTextureRenderTarget2D* GetRenderTarget() const;
 
-	/** @return The dynamic material instance used to render the user widget */
+	/** Returns the dynamic material instance used to render the user widget */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	UMaterialInstanceDynamic* GetMaterialInstance() const;
 
-	/** @return The window containing the user widget content */
+	/** Returns the window containing the user widget content */
 	TSharedPtr<SWindow> GetSlateWindow() const;
 
 	/**  
@@ -201,11 +201,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	ULocalPlayer* GetOwnerPlayer() const;
 
-	/** @return The "specified" draw size of the quad in the world */
+	/** Returns the "specified" draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	FVector2D GetDrawSize() const;
 
-	/** @return The "actual" draw size of the quad in the world */
+	/** Returns the "actual" draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	FVector2D GetCurrentDrawSize() const;
 
@@ -259,7 +259,7 @@ public:
 	/** Sets how much opacity from the UI widget's texture alpha is used when rendering to the viewport (0.0-1.0) */
 	void SetOpacityFromTexture( const float NewOpacityFromTexture );
 
-	/** @return The pivot point where the UI is rendered about the origin. */
+	/** Returns the pivot point where the UI is rendered about the origin. */
 	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	FVector2D GetPivot() const { return Pivot; }
 
@@ -366,7 +366,7 @@ protected:
 	/** Draws the current widget to the render target if possible. */
 	virtual void DrawWidgetToRenderTarget(float DeltaTime);
 
-	/** @return the width of the widget component taking GeometryMode into account. */
+	/** Returns the width of the widget component taking GeometryMode into account. */
 	float ComputeComponentWidth() const;
 
 	void UpdateMaterialInstance();

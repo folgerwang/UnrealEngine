@@ -1139,31 +1139,31 @@ public:
 		return Data.Num() ? Data.Num() - 1 : 0;
 	}
 
-	/** @return the left most given number of characters */
+	/** Returns the left most given number of characters */
 	FORCEINLINE FString Left( int32 Count ) const
 	{
 		return FString( FMath::Clamp(Count,0,Len()), **this );
 	}
 
-	/** @return the left most characters from the string chopping the given number of characters from the end */
+	/** Returns the left most characters from the string chopping the given number of characters from the end */
 	FORCEINLINE FString LeftChop( int32 Count ) const
 	{
 		return FString( FMath::Clamp(Len()-Count,0,Len()), **this );
 	}
 
-	/** @return the string to the right of the specified location, counting back from the right (end of the word). */
+	/** Returns the string to the right of the specified location, counting back from the right (end of the word). */
 	FORCEINLINE FString Right( int32 Count ) const
 	{
 		return FString( **this + Len()-FMath::Clamp(Count,0,Len()) );
 	}
 
-	/** @return the string to the right of the specified location, counting forward from the left (from the beginning of the word). */
+	/** Returns the string to the right of the specified location, counting forward from the left (from the beginning of the word). */
 	FORCEINLINE FString RightChop( int32 Count ) const
 	{
 		return FString( **this + Len()-FMath::Clamp(Len()-Count,0,Len()) );
 	}
 
-	/** @return the substring from Start position for Count characters. */
+	/** Returns the substring from Start position for Count characters. */
 	FORCEINLINE FString Mid( int32 Start, int32 Count=MAX_int32 ) const
 	{
 		check(Count >= 0);
@@ -1342,7 +1342,7 @@ public:
 		return true;
 	}
 
-	/** @return a new string with the characters of this converted to uppercase */
+	/** Returns a new string with the characters of this converted to uppercase */
 	FString ToUpper() const &;
 
 	/**
@@ -1354,7 +1354,7 @@ public:
 	/** Converts all characters in this string to uppercase */
 	void ToUpperInline();
 
-	/** @return a new string with the characters of this converted to lowercase */
+	/** Returns a new string with the characters of this converted to lowercase */
 	FString ToLower() const &;
 
 	/**
@@ -1372,7 +1372,7 @@ public:
 	/** Pad the right of this string for ChCount characters */
 	FString RightPad( int32 ChCount ) const;
 	
-	/** @return true if the string only contains numeric characters */
+	/** Returns true if the string only contains numeric characters */
 	bool IsNumeric() const;
 	
 	/** Removes spaces from the string.  I.E. "Spaces Are Cool" --> "SpacesAreCool". */
@@ -1427,7 +1427,7 @@ public:
 	 */
 	static FString Format(const TCHAR* InFormatString, const TArray<FStringFormatArg>& InOrderedArguments);
 
-	// @return string with Ch character
+	/** Returns a string containing only the Ch character */
 	static FString Chr( TCHAR Ch );
 
 	/**
@@ -1946,7 +1946,7 @@ inline int32 StringToBytes( const FString& String, uint8* OutBytes, int32 MaxBuf
 	return NumBytes;
 }
 
-/** @return Char value of Nibble */
+/** Returns Char value of Nibble */
 inline TCHAR NibbleToTChar(uint8 Num)
 {
 	if (Num > 9)

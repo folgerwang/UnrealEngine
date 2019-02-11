@@ -43,11 +43,11 @@ public:
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D LocalToAbsolute(const FGeometry& Geometry, FVector2D LocalCoordinate);
 
-	/** @return the size of the geometry in local space. */
+	/** Returns the size of the geometry in local space. */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetLocalSize(const FGeometry& Geometry);
 
-	/** @return the size of the geometry in absolute space. */
+	/** Returns the size of the geometry in absolute space. */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetAbsoluteSize(const FGeometry& Geometry);
 
@@ -67,7 +67,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "User Interface|Geometry")
 	static FVector2D TransformVectorLocalToAbsolute(const FGeometry& Geometry, FVector2D LocalVector);
 
-	/** @return Whether brushes A and B are identical. */
+	/** Returns whether brushes A and B are identical. */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SlateBrush)", CompactNodeTitle = "=="), Category = "SlateBrush")
 	static bool EqualEqual_SlateBrush(const FSlateBrush& A, const FSlateBrush& B);
 

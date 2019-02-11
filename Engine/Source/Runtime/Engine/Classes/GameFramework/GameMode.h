@@ -87,14 +87,14 @@ protected:
 	/** Called when the state transitions to WaitingToStart */
 	virtual void HandleMatchIsWaitingToStart();
 
-	/** @return True if ready to Start Match. Games should override this */
+	/** Returns true if ready to Start Match. Games should override this */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool ReadyToStartMatch();
 
 	/** Called when the state transitions to InProgress */
 	virtual void HandleMatchHasStarted();
 
-	/** @return true if ready to End Match. Games should override this */
+	/** Returns true if ready to End Match. Games should override this */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool ReadyToEndMatch();
 

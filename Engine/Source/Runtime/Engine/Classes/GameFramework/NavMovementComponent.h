@@ -79,13 +79,13 @@ public:
 	void UpdateNavAgent(const AActor& InOwner);
 	void UpdateNavAgent(const UCapsuleComponent& CapsuleComponent);
 
-	/** @returns location of controlled actor - meaning center of collision bounding box */
+	/** Returnss location of controlled actor - meaning center of collision bounding box */
 	FORCEINLINE FVector GetActorLocation() const { return UpdatedComponent ? UpdatedComponent->GetComponentLocation() : FVector(FLT_MAX); }
-	/** @returns location of controlled actor's "feet" meaning center of bottom of collision bounding box */
+	/** Returnss location of controlled actor's "feet" meaning center of bottom of collision bounding box */
 	FORCEINLINE FVector GetActorFeetLocation() const { return UpdatedComponent ? (UpdatedComponent->GetComponentLocation() - FVector(0,0,UpdatedComponent->Bounds.BoxExtent.Z)) : FNavigationSystem::InvalidLocation; }
-	/** @returns based location of controlled actor */
+	/** Returnss based location of controlled actor */
 	virtual FBasedPosition GetActorFeetLocationBased() const;
-	/** @returns navigation location of controlled actor */
+	/** Returnss navigation location of controlled actor */
 	FORCEINLINE FVector GetActorNavLocation() const { INavAgentInterface* MyOwner = Cast<INavAgentInterface>(GetOwner()); return MyOwner ? MyOwner->GetNavAgentLocation() : FNavigationSystem::InvalidLocation; }
 
 	/** path following: request new velocity */
@@ -98,7 +98,7 @@ public:
 	 *  (e.g. performing scripted move and can't stop) */
 	virtual bool CanStopPathFollowing() const;
 
-	/** @returns braking distance for acceleration driven path following */
+	/** Returnss braking distance for acceleration driven path following */
 	virtual float GetPathFollowingBrakingDistance(float MaxSpeed) const;
 
 	void SetPathFollowingAgent(IPathFollowingAgentInterface* InPathFollowingAgent) { PathFollowingComp = Cast<UObject>(InPathFollowingAgent); }
@@ -113,56 +113,56 @@ public:
 
 	FORCEINLINE bool UseAccelerationForPathFollowing() const { return bUseAccelerationForPaths; }
 
-	/** @returns the NavAgentProps(const) */
+	/** Returnss the NavAgentProps(const) */
 	FORCEINLINE const FNavAgentProperties& GetNavAgentPropertiesRef() const { return NavAgentProps; }
-	/** @returns the NavAgentProps */
+	/** Returnss the NavAgentProps */
 	FORCEINLINE FNavAgentProperties& GetNavAgentPropertiesRef() { return NavAgentProps; }
 
 	/** Resets runtime movement state to character's movement capabilities */
 	void ResetMoveState() { MovementState = NavAgentProps; }
 
-	/** @return true if path following can start */
+	/** Returns true if path following can start */
 	virtual bool CanStartPathFollowing() const { return true; }
 
-	/** @return true if component can crouch */
+	/** Returns true if component can crouch */
 	FORCEINLINE bool CanEverCrouch() const { return NavAgentProps.bCanCrouch; }
 
-	/** @return true if component can jump */
+	/** Returns true if component can jump */
 	FORCEINLINE bool CanEverJump() const { return NavAgentProps.bCanJump; }
 
-	/** @return true if component can move along the ground (walk, drive, etc) */
+	/** Returns true if component can move along the ground (walk, drive, etc) */
 	FORCEINLINE bool CanEverMoveOnGround() const { return NavAgentProps.bCanWalk; }
 
-	/** @return true if component can swim */
+	/** Returns true if component can swim */
 	FORCEINLINE bool CanEverSwim() const { return NavAgentProps.bCanSwim; }
 
-	/** @return true if component can fly */
+	/** Returns true if component can fly */
 	FORCEINLINE bool CanEverFly() const { return NavAgentProps.bCanFly; }
 
-	/** @return true if component is allowed to jump */
+	/** Returns true if component is allowed to jump */
 	FORCEINLINE bool IsJumpAllowed() const { return CanEverJump() && MovementState.bCanJump; }
 
-	/** @param bAllowed true if component is allowed to jump */
+	/** Sets rather this component is allowed to jump */
 	FORCEINLINE void SetJumpAllowed(bool bAllowed) { MovementState.bCanJump = bAllowed; }
 
 
-	/** @return true if currently crouching */ 
+	/** Returns true if currently crouching */ 
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsCrouching() const;
 
-	/** @return true if currently falling (not flying, in a non-fluid volume, and not on the ground) */ 
+	/** Returns true if currently falling (not flying, in a non-fluid volume, and not on the ground) */ 
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsFalling() const;
 
-	/** @return true if currently moving on the ground (e.g. walking or driving) */ 
+	/** Returns true if currently moving on the ground (e.g. walking or driving) */ 
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsMovingOnGround() const;
 	
-	/** @return true if currently swimming (moving through a fluid volume) */
+	/** Returns true if currently swimming (moving through a fluid volume) */
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsSwimming() const;
 
-	/** @return true if currently flying (moving through a non-fluid volume without resting on the ground) */
+	/** Returns true if currently flying (moving through a non-fluid volume without resting on the ground) */
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsFlying() const;
 };

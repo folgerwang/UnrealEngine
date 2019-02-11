@@ -117,7 +117,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsChecked() const;
 
-	/** @return the full current checked state. */
+	/** Returns the full current checked state. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	ECheckBoxState GetCheckedState() const;
 

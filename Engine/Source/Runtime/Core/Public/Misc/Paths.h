@@ -267,39 +267,25 @@ public:
 	UE_DEPRECATED(4.18, "FPaths::GameLogDir() has been superseded by FPaths::ProjectLogDir().")
 	static FORCEINLINE FString GameLogDir() { return ProjectLogDir(); }
 
-	/**
-	 * @return The directory for automation save files
-	 */
+	/** Returns the directory for automation save files */
 	static FString AutomationDir();
 
-	/**
-	 * @return The directory for automation save files that are meant to be deleted every run
-	 */
+	/** Returns the directory for automation save files that are meant to be deleted every run */
 	static FString AutomationTransientDir();
 
-	/**
-	* @return The directory for automation log files.
-	*/
+	/** Returns the directory for automation log files */
 	static FString AutomationLogDir();
 
-	/**
-	 * @return The directory for local files used in cloud emulation or support
-	 */
+	/** Returns the directory for local files used in cloud emulation or support */
 	static FString CloudDir();
 
-		/**
-	 * @return The directory that contains subfolders for developer-specific content
-	 */
+	/** Returns the directory that contains subfolders for developer-specific content */
 	static FString GameDevelopersDir();
 
-	/**
-	 * @return The directory that contains developer-specific content for the current user
-	 */
+	/** Returns The directory that contains developer-specific content for the current user */
 	static FString GameUserDeveloperDir();
 
-	/**
-	 * @return The directory for temp files used for diffing
-	 */
+	/** Returns the directory for temp files used for diffing */
 	static FString DiffDir();
 
 	/** 
@@ -350,19 +336,13 @@ public:
 	 */
 	static FString GameAgnosticSavedDir();
 
-	/**
-	 * @return The directory where engine source code files are kept
-	 */
+	/** Returns the directory where engine source code files are kept */
 	static FString EngineSourceDir();
 
-	/**
-	 * @return The directory where game source code files are kept
-	 */
+	/** Returns the directory where game source code files are kept */
 	static FString GameSourceDir();
 
-	/**
-	 * @return The directory where feature packs are kept
-	 */
+	/** Returns the directory where feature packs are kept */
 	static FString FeaturePackDir();
 
 	/**
@@ -416,16 +396,16 @@ public:
 	/** Sets the extension of the given filename (like ChangeExtension, but also applies the extension if the file doesn't have one) */
 	static FString SetExtension(const FString& InPath, const FString& InNewExtension);
 
-	/** @return true if this file was found, false otherwise */
+	/** Returns true if this file was found, false otherwise */
 	static bool FileExists(const FString& InPath);
 
-	/** @return true if this directory was found, false otherwise */
+	/** Returns true if this directory was found, false otherwise */
 	static bool DirectoryExists(const FString& InPath);
 
-	/** @return true if this path represents a drive */
+	/** Returns true if this path represents a root drive or volume */
 	static bool IsDrive(const FString& InPath);
 
-	/** @return true if this path is relative */
+	/** Returns true if this path is relative to another path */
 	static bool IsRelative(const FString& InPath);
 
 	/** Convert all / and \ to TEXT("/") */
@@ -477,10 +457,11 @@ public:
 	static void MakePlatformFilename(FString& InPath);
 
 	/** 
-	 * Assuming both paths (or filenames) are relative to the base dir, find the relative path to the InPath.
+	 * Assuming both paths (or filenames) are relative to the same base dir, modifies InPath to be relative to InRelativeTo
 	 *
-	 * @Param InPath Path to make this path relative to.
-	 * @return Path relative to InPath.
+	 * @param InPath Path to change to be relative to InRelativeTo
+	 * @param InRelativeTo Path to use as the new relative base
+	 * @returns true if InPath was changed to be relative
 	 */
 	static bool MakePathRelativeTo( FString& InPath, const TCHAR* InRelativeTo );
 
@@ -539,17 +520,12 @@ public:
 
 	/**
 	* Returns a string containing all invalid characters as dictated by the operating system
-	* 
-	* @return FString
 	*/
 	static const FString& GetInvalidFileSystemChars();
 
 	/**
 	*	Returns a string that is safe to use as a filename because all items in
 	*	GetInvalidFileSystemChars() are removed
-	* 
-	* @param  InPath
-	* @return FString
 	*/
 	static FString MakeValidFileName(const FString& InString, const TCHAR InReplacementChar=0);
 

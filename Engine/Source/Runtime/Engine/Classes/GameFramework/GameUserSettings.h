@@ -278,15 +278,15 @@ public:
 	/** Loads the resolution settings before is object is available */
 	static void PreloadResolutionSettings();
 
-	/** @return The default resolution when no resolution is set */
+	/** Returns the default resolution when no resolution is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static FIntPoint GetDefaultResolution();
 
-	/** @return The default window position when no position is set */
+	/** Returns the default window position when no position is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static FIntPoint GetDefaultWindowPosition();
 
-	/** @return The default window mode when no mode is set */
+	/** Returns the default window mode when no mode is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static EWindowMode::Type GetDefaultWindowMode();
 

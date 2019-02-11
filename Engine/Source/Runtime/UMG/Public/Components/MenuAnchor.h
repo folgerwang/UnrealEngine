@@ -76,23 +76,23 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	void Close();
 
-	/** @return true if the popup is open; false otherwise. */
+	/** Returns true if the popup is open; false otherwise. */
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	bool IsOpen() const;
 
 	/**
-	 * @return true if we should open the menu due to a click. Sometimes we should not, if
+	 * Returns true if we should open the menu due to a click. Sometimes we should not, if
 	 * the same MouseDownEvent that just closed the menu is about to re-open it because it 
 	 * happens to land on the button.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	bool ShouldOpenDueToClick() const;
 
-	/** @return The current menu position */
+	/** Returns the current menu position */
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	FVector2D GetMenuPosition() const;
 
-	/** @return Whether this menu has open submenus */
+	/** Returns whether this menu has open submenus */
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	bool HasOpenSubMenus() const;
 

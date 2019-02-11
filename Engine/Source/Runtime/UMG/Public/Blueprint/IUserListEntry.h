@@ -19,15 +19,15 @@ class UMG_API INativeUserListEntry : public IInterface
 	GENERATED_IINTERFACE_BODY()
 
 public:
-	/** @return True if the item represented by this entry is currently selected. */
+	/** Returns true if the item represented by this entry is currently selected. */
 	UFUNCTION(BlueprintCallable, Category = UserListEntry)
 	virtual bool IsListItemSelected() const = 0;
 
-	/** @return True if the item represented by this entry is currently expanded and showing its children. Tree view entries only. */
+	/** Returns true if the item represented by this entry is currently expanded and showing its children. Tree view entries only. */
 	UFUNCTION(BlueprintCallable, Category = UserListEntry)
 	virtual bool IsListItemExpanded() const = 0;
 
-	/** @return The list view that contains this entry. */
+	/** Returns the list view that contains this entry. */
 	UFUNCTION(BlueprintCallable, Category = UserListEntry)
 	virtual UListViewBase* GetOwningListView() const = 0;
 

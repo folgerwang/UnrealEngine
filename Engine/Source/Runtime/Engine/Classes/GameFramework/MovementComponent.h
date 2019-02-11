@@ -200,27 +200,25 @@ public:
 
 	//~ End ActorComponent Interface
 
-	/** @return gravity that affects this component */
+	/** Returns gravity that affects this component */
 	UFUNCTION(BlueprintCallable, Category="Components|Movement")
 	virtual float GetGravityZ() const;
 
-	/** @return Maximum speed of component in current movement mode. */
+	/** Returns maximum speed of component in current movement mode. */
 	UFUNCTION(BlueprintCallable, Category="Components|Movement")
 	virtual float GetMaxSpeed() const;
 
-	/** @return a scalar applied to the maximum velocity that the component can currently move. */
 	UE_DEPRECATED(4.3, "GetMaxSpeedModifier() is deprecated, apply your own modifiers to GetMaxSpeed() if desired.")
 	virtual float GetMaxSpeedModifier() const;
 	
-	/** @return a scalar applied to the maximum velocity that the component can currently move. */
+	/** Returns a scalar applied to the maximum velocity that the component can currently move. */
 	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(DeprecatedFunction, DisplayName="GetMaxSpeedModifier", ScriptName="GetMaxSpeedModifier", DeprecationMessage="GetMaxSpeedModifier() is deprecated, apply your own modifiers to GetMaxSpeed() if desired."))
 	virtual float K2_GetMaxSpeedModifier() const;
 
-	/** @return the result of GetMaxSpeed() * GetMaxSpeedModifier(). */
 	UE_DEPRECATED(4.3, "GetModifiedMaxSpeed() is deprecated, use GetMaxSpeed() instead.")
 	virtual float GetModifiedMaxSpeed() const;
 
-	/** @return the result of GetMaxSpeed() * GetMaxSpeedModifier(). */
+	/** Returns the result of GetMaxSpeed() * GetMaxSpeedModifier(). */
 	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(DisplayName="GetModifiedMaxSpeed", ScriptName="GetModifiedMaxSpeed", DeprecationMessage="GetModifiedMaxSpeed() is deprecated, apply your own modifiers to GetMaxSpeed() if desired."))
 	virtual float K2_GetModifiedMaxSpeed() const;
 
@@ -243,7 +241,7 @@ public:
 	 */
 	virtual bool ShouldSkipUpdate(float DeltaTime) const;
 
-	/** @return PhysicsVolume this MovementComponent is using, or the world's default physics volume if none. **/
+	/** Returns the PhysicsVolume this MovementComponent is using, or the world's default physics volume if none. **/
 	UFUNCTION(BlueprintCallable, Category="Components|Movement")
 	virtual APhysicsVolume* GetPhysicsVolume() const;
 
@@ -255,7 +253,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Movement")
 	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent);
 
-	/** return true if it's in PhysicsVolume with water flag **/
+	/** Returns true if it's in PhysicsVolume with water flag **/
 	virtual bool IsInWater() const;
 
 	/** Update tick registration state, determined by bAutoUpdateTickRegistration. Called by SetUpdatedComponent. */
@@ -425,7 +423,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|Movement|Planar")
 	virtual void SetPlaneConstraintEnabled(bool bEnabled);
 
-	/** @return The normal of the plane that constrains movement, enforced if the plane constraint is enabled. */
+	/** Returns the normal of the plane that constrains movement, enforced if the plane constraint is enabled. */
 	UFUNCTION(BlueprintCallable, Category="Components|Movement|Planar")
 	const FVector& GetPlaneConstraintNormal() const;
 

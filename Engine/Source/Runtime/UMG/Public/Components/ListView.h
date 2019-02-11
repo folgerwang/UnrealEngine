@@ -89,7 +89,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = ListView)
 	void SetSelectionMode(TEnumAsByte<ESelectionMode::Type> SelectionMode);
 
-	/** @return True if a refresh is pending and the list will be rebuilt on the next tick */
+	/** Returns true if a refresh is pending and the list will be rebuilt on the next tick */
 	UFUNCTION(BlueprintCallable, Category = ListView)
 	bool IsRefreshPending() const;
 

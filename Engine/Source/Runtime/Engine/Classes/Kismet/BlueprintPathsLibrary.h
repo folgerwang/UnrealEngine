@@ -283,45 +283,31 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString ProjectLogDir();
 
-	/**
-	* @return The directory for automation save files
-	*/
+	/** Returns the directory for automation save files */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString AutomationDir();
 
-	/**
-	* @return The directory for automation save files that are meant to be deleted every run
-	*/
+	/** Returns the directory for automation save files that are meant to be deleted every run */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString AutomationTransientDir();
 
-	/**
-	* @return The directory for automation log files.
-	*/
+	/** Returns the directory for automation log files */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString AutomationLogDir();
 
-	/**
-	* @return The directory for local files used in cloud emulation or support
-	*/
+	/** Returns the directory for local files used in cloud emulation or support */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString CloudDir();
 
-	/**
-	* @return The directory that contains subfolders for developer-specific content
-	*/
+	/** Returns the directory that contains subfolders for developer-specific content */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString GameDevelopersDir();
 
-	/**
-	* @return The directory that contains developer-specific content for the current user
-	*/
+	/** Returns the directory that contains developer-specific content for the current user */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString GameUserDeveloperDir();
 
-	/**
-	* @return The directory for temp files used for diffing
-	*/
+	/** Returns the directory for temp files used for diffing */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString DiffDir();
 
@@ -376,21 +362,15 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString GameAgnosticSavedDir();
 
-	/**
-	* @return The directory where engine source code files are kept
-	*/
+	/** Returns the directory where engine source code files are kept */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString EngineSourceDir();
 
-	/**
-	* @return The directory where game source code files are kept
-	*/
+	/** Returns the directory where game source code files are kept */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString GameSourceDir();
 
-	/**
-	* @return The directory where feature packs are kept
-	*/
+	/** Returns the directory where feature packs are kept */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString FeaturePackDir();
 
@@ -448,19 +428,19 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString SetExtension(const FString& InPath, const FString& InNewExtension);
 
-	/** @return true if this file was found, false otherwise */
+	/** Returns true if this file was found, false otherwise */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static bool FileExists(const FString& InPath);
 
-	/** @return true if this directory was found, false otherwise */
+	/** Returns true if this directory was found, false otherwise */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static bool DirectoryExists(const FString& InPath);
 
-	/** @return true if this path represents a drive */
+	/** Returns true if this path represents a root drive or volume  */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static bool IsDrive(const FString& InPath);
 
-	/** @return true if this path is relative */
+	/** Returns true if this path is relative to another path */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static bool IsRelative(const FString& InPath);
 
@@ -519,12 +499,15 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static void MakePlatformFilename(const FString& InPath, FString& OutPath);
 
+
 	/**
-	* Assuming both paths (or filenames) are relative to the base dir, find the relative path to the InPath.
-	*
-	* @Param InPath Path to make this path relative to.
-	* @return Path relative to InPath.
-	*/
+	 * Assuming both paths (or filenames) are relative to the same base dir, converts InPath to be relative to InRelativeTo
+	 *
+	 * @param InPath Path to change to be relative to InRelativeTo
+	 * @param InRelativeTo Path to use as the new relative base
+	 * @param InPath New path relative to InRelativeTo
+	 * @returns true if OutPath was changed to be relative
+	 */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static bool MakePathRelativeTo(const FString& InPath, const FString& InRelativeTo, FString& OutPath);
 
@@ -561,11 +544,7 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString CreateTempFilename(const FString& Path, const FString& Prefix = TEXT(""), const FString& Extension = TEXT(".tmp"));
 
-	/**
-	* Returns a string containing all invalid characters as dictated by the operating system
-	*
-	* @return FString
-	*/
+	/** Returns a string containing all invalid characters as dictated by the operating system */
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString GetInvalidFileSystemChars();
 
@@ -577,7 +556,6 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	*
 	* @param  InString
 	* @param  InReplacementChar
-	* @return FString
 	*/
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static FString MakeValidFileName(const FString& InString, const FString& InReplacementChar = TEXT(""));
@@ -587,9 +565,8 @@ class ENGINE_API UBlueprintPathsLibrary : public UBlueprintFunctionLibrary
 	* Note that this is a different set of restrictions to those imposed by FPackageName
 	*
 	* @param InPath - path to validate
-	* @param OutReason - optional parameter to fill with the failure reason
-	* @return bDidSucceed - Whether the path could be validated
-	* @return OutReason - If the Paths was invalid then this will contain the failure reason
+	* @param OutReason - If validation fails, this is filled with the failure reason
+	* @param bDidSucceed - Whether the path could be validated
 	*/
 	UFUNCTION(BlueprintPure, Category = "Utilities|Paths")
 	static void ValidatePath(const FString& InPath, bool& bDidSucceed, FText& OutReason);

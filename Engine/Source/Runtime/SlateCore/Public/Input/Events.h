@@ -210,8 +210,6 @@ public:
 
 	/**
 	 * Returns true if left shift key was down when this event occurred
-	 *
-	 * @return True if left shift is pressed.
 	 */
 	bool IsLeftShiftDown() const
 	{
@@ -220,8 +218,6 @@ public:
 
 	/**
 	 * Returns true if right shift key was down when this event occurred
-	 *
-	 * @return True if right shift is pressed.
 	 */
 	bool IsRightShiftDown() const
 	{
@@ -230,8 +226,6 @@ public:
 
 	/**
 	 * Returns true if either control key was down when this event occurred
-	 *
-	 * @return  True if control is pressed
 	 */
 	bool IsControlDown() const
 	{
@@ -240,8 +234,6 @@ public:
 
 	/**
 	 * Returns true if left control key was down when this event occurred
-	 *
-	 * @return  True if left control is pressed
 	 */
 	bool IsLeftControlDown() const
 	{
@@ -250,8 +242,6 @@ public:
 
 	/**
 	 * Returns true if right control key was down when this event occurred
-	 *
-	 * @return  True if right control is pressed
 	 */
 	bool IsRightControlDown() const
 	{
@@ -260,8 +250,6 @@ public:
 
 	/**
 	 * Returns true if either alt key was down when this event occurred
-	 *
-	 * @return  True if alt is pressed
 	 */
 	bool IsAltDown() const
 	{
@@ -270,8 +258,6 @@ public:
 
 	/**
 	 * Returns true if left alt key was down when this event occurred
-	 *
-	 * @return  True if left alt is pressed
 	 */
 	bool IsLeftAltDown() const
 	{
@@ -280,8 +266,6 @@ public:
 
 	/**
 	 * Returns true if right alt key was down when this event occurred
-	 *
-	 * @return  True if right alt is pressed
 	 */
 	bool IsRightAltDown() const
 	{
@@ -290,8 +274,6 @@ public:
 
 	/**
 	 * Returns true if either command key was down when this event occurred
-	 *
-	 * @return  True if command is pressed
 	 */
 	bool IsCommandDown() const
 	{
@@ -300,8 +282,6 @@ public:
 
 	/**
 	 * Returns true if left command key was down when this event occurred
-	 *
-	 * @return  True if left command is pressed
 	 */
 	bool IsLeftCommandDown() const
 	{
@@ -310,8 +290,6 @@ public:
 
 	/**
 	 * Returns true if right command key was down when this event occurred
-	 *
-	 * @return  True if right command is pressed
 	 */
 	bool IsRightCommandDown() const
 	{
@@ -320,8 +298,6 @@ public:
 
 	/**
 	 * Returns true if caps lock was on when this event occurred
-	 * 
-	 * @return True if caps lock is on
 	 */
 	bool AreCapsLocked() const
 	{
@@ -329,7 +305,7 @@ public:
 	}
 
 	/**
-	 * @return the complete set of modifier keys
+	 * Returns the complete set of modifier keys
 	 */
 	const FModifierKeysState& GetModifierKeys() const
 	{
@@ -338,8 +314,6 @@ public:
 
 	/**
 	* Returns the index of the user that generated this event.
-	*
-	* @return The index of the user that caused the event
 	*/
 	uint32 GetUserIndex() const
 	{
@@ -800,13 +774,13 @@ public:
 	
 public:
 
-	/** @return The position of the cursor in screen space */
+	/** Returns The position of the cursor in screen space */
 	const FVector2D& GetScreenSpacePosition() const { return ScreenSpacePosition; }
 
-	/** @return The position of the cursor in screen space last time we handled an input event */
+	/** Returns the position of the cursor in screen space last time we handled an input event */
 	const FVector2D& GetLastScreenSpacePosition() const { return LastScreenSpacePosition; }
 
-	/** @return the distance the mouse traveled since the last event was handled. */
+	/** Returns the distance the mouse traveled since the last event was handled. */
 	FVector2D GetCursorDelta() const { return CursorDelta; }
 
 	/** Mouse buttons that are currently pressed */
@@ -818,37 +792,37 @@ public:
 	/** How much did the mouse wheel turn since the last mouse event */
 	float GetWheelDelta() const { return WheelOrGestureDelta.Y; }
 
-	/** @return The index of the user that caused the event */
+	/** Returns the index of the user that caused the event */
 	int32 GetUserIndex() const { return UserIndex; }
 
-	/** @return The unique identifier of the pointer (e.g., finger index) */
+	/** Returns the unique identifier of the pointer (e.g., finger index) */
 	uint32 GetPointerIndex() const { return PointerIndex; }
 
-	/** @return The index of the touch pad that generated this event (for platforms with multiple touch pads per user) */
+	/** Returns the index of the touch pad that generated this event (for platforms with multiple touch pads per user) */
 	uint32 GetTouchpadIndex() const { return TouchpadIndex; }
 
-	/** @return the force of a touch (1.0f is mapped to an general touch force, < 1 is "light", > 1 is "heavy", and 10 is the max force possible) */
+	/** Returns the force of a touch (1.0f is mapped to an general touch force, < 1 is "light", > 1 is "heavy", and 10 is the max force possible) */
 	float GetTouchForce() const { return Force; }
 
-	/** @return Is this event a result from a touch (as opposed to a mouse) */
+	/** Is this event a result from a touch (as opposed to a mouse) */
 	bool IsTouchEvent() const { return bIsTouchEvent; }
 
-	/** @return Is this event a special force-change touch event */
+	/** Is this event a special force-change touch event */
 	bool IsTouchForceChangedEvent() const { return bIsTouchForceChanged; }
 
-	/** @return Is this event a special first-move touch event */
+	/** Is this event a special first-move touch event */
 	bool IsTouchFirstMoveEvent() const { return bIsTouchFirstMove; }
 
-	/** @return The type of touch gesture */
+	/** Returns the type of touch gesture */
 	EGestureEvent GetGestureType() const { return GestureType; }
 
-	/** @return The change in gesture value since the last gesture event of the same type. */
+	/** Returns the change in gesture value since the last gesture event of the same type. */
 	const FVector2D& GetGestureDelta() const { return WheelOrGestureDelta; }
 
-	/** @return Is the gesture delta inverted */
+	/** Is the gesture delta inverted */
 	bool IsDirectionInvertedFromDevice() const { return bIsDirectionInvertedFromDevice; }
 
-	/** @return the full set of pressed buttons */
+	/** Returns the full set of pressed buttons */
 	const TSet<FKey>& GetPressedButtons() const { return PressedButtons; }
 
 	/** We override the assignment operator to allow generated code to compile with the const ref member. */
@@ -955,19 +929,19 @@ public:
 
 public:
 
-	/** @return The index of the user that caused the event */
+	/** Returns the index of the user that caused the event */
 	uint32 GetUserIndex() const { return UserIndex; }
 
-	/** @return Current tilt of the device/controller */
+	/** Returns the current tilt of the device/controller */
 	const FVector& GetTilt() const { return Tilt; }
 
-	/** @return Rotation speed */
+	/** Returns otation speed */
 	const FVector& GetRotationRate() const { return RotationRate; }
 
-	/** @return Gravity vector (pointing down into the ground) */
+	/** Returns the gravity vector (pointing down into the ground) */
 	const FVector& GetGravity() const { return Gravity; }
 
-	/** @return 3D acceleration of the device */
+	/** Returns the 3D acceleration of the device */
 	const FVector& GetAcceleration() const { return Acceleration; }
 
 private:
@@ -1022,10 +996,10 @@ public:
 
 public:
 
-	/** @return the type of navigation request (Left, Right, Up, Down) */
+	/** Returns the type of navigation request (Left, Right, Up, Down) */
 	EUINavigation GetNavigationType() const { return NavigationType; }
 
-	/** @return the genesis of the navigation request (Keyboard, Controller, User) */
+	/** Returns the genesis of the navigation request (Keyboard, Controller, User) */
 	ENavigationGenesis GetNavigationGenesis() const { return NavigationGenesis; }
 
 private:

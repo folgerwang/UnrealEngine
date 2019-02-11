@@ -43,7 +43,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	int32 GetChildIndex(const UWidget* Content) const;
 
-	/** @return true if panel contains this widget */
+	/** Returns true if panel contains this widget */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	bool HasChild(UWidget* Content) const;
 
@@ -99,7 +99,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	bool RemoveChild(UWidget* Content);
 
-	/** @return true if there are any child widgets in the panel */
+	/** Returns true if there are any child widgets in the panel */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	bool HasAnyChildren() const;
 
@@ -110,13 +110,13 @@ public:
 	/** The slots in the widget holding the child widgets of this panel. */
 	const TArray<UPanelSlot*>& GetSlots() const;
 
-	/** @returns true if the panel supports more than one child. */
+	/** Returns true if the panel supports more than one child. */
 	bool CanHaveMultipleChildren() const
 	{
 		return bCanHaveMultipleChildren;
 	}
 
-	/** @returns true if the panel can accept another child widget. */
+	/** Returns true if the panel can accept another child widget. */
 	bool CanAddMoreChildren() const
 	{
 		return CanHaveMultipleChildren() || GetChildrenCount() == 0;

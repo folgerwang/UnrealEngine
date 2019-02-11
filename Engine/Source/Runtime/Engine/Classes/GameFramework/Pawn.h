@@ -189,7 +189,7 @@ public:
 	/** Return true if yaw is within AllowedYawError of desired yaw */
 	virtual bool ReachedDesiredRotation();
 
-	/** @return The half-height of the default Pawn, scaled by the component scale. By default returns the half-height of the RootComponent, regardless of whether it is registered or collidable. */
+	/** Returns The half-height of the default Pawn, scaled by the component scale. By default returns the half-height of the RootComponent, regardless of whether it is registered or collidable. */
 	virtual float GetDefaultHalfHeight() const;
 
 	/** See if this actor is currently being controlled */
@@ -282,7 +282,7 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
-	/** @return vector direction of gravity */
+	/** Returns vector direction of gravity */
 	FVector GetGravityDirection();
 
 	/** Make sure pawn properties are back to default. */
@@ -296,7 +296,7 @@ public:
 
 	/** 
 	 * Called when this Pawn is possessed. Only called on the server (or in standalone).
-	 *@param C The controller possessing this pawn
+	 * @param NewController The controller possessing this pawn
 	 */
 	virtual void PossessedBy(AController* NewController);
 
@@ -308,15 +308,15 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName= "Unpossessed"))
 	void ReceiveUnpossessed(AController* OldController);
 
-	/** @return true if controlled by a local (not network) Controller.	 */
+	/** Returns true if controlled by a local (not network) Controller.	 */
 	UFUNCTION(BlueprintPure, Category=Pawn)
 	virtual bool IsLocallyControlled() const;
   
-	/** @return true if controlled by a human player (possessed by a PlayerController).	 */
+	/** Returns true if controlled by a human player (possessed by a PlayerController).	 */
 	UFUNCTION(BlueprintPure, Category=Pawn)
 	virtual bool IsPlayerControlled() const;
 
-	/** @return true if controlled by a bot.	 */
+	/** Returns true if controlled by a bot.	 */
 	UFUNCTION(BlueprintPure, Category = Pawn)
 	virtual bool IsBotControlled() const;
 
@@ -326,7 +326,7 @@ public:
 	 */
 	virtual FRotator GetViewRotation() const;
 
-	/** @return	Pawn's eye location */
+	/** Returns	Pawn's eye location */
 	virtual FVector GetPawnViewLocation() const;
 
 	/**
@@ -337,7 +337,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Pawn)
 	virtual FRotator GetBaseAimRotation() const;
 
-	/** @return true if player is viewing this Pawn in FreeCam */
+	/** Returns true if player is viewing this Pawn in FreeCam */
 	virtual bool InFreeCam() const;
 
 	/** Tell client that the Pawn is begin restarted. Calls Restart(). */

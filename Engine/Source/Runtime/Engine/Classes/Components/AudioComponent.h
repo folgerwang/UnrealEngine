@@ -381,7 +381,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
 	void SetPaused(bool bPause);
 
-	/** @return true if this component is currently playing a SoundCue. */
+	/** Returns true if this component is currently playing a SoundCue. */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
 	virtual bool IsPlaying() const;
 
