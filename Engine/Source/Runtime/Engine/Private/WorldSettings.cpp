@@ -65,7 +65,9 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	static FConstructorStatics ConstructorStatics;
 
 	bEnableWorldBoundsChecks = true;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	bEnableNavigationSystem = true;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	NavigationSystemConfig = nullptr;
 	bEnableAISystem = true;
 	bEnableWorldComposition = false;
@@ -449,6 +451,8 @@ void AWorldSettings::PostLoad()
 
 #endif// WITH_EDITOR
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	// temporarily using deprecated bEnableNavigationSystem for backwards compatibility
 	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
 	{
 		ULevel* Level = GetLevel();
@@ -462,6 +466,7 @@ void AWorldSettings::PostLoad()
 			bEnableNavigationSystem = false;
 		}
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 bool AWorldSettings::IsNavigationSystemEnabled() const

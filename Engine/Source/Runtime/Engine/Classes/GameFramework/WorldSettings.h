@@ -438,7 +438,8 @@ protected:
 	 *	navigation functionality won't be accessible).
 	 *	This flag is now deprecated. Use NavigationSystemConfig property to 
 	 *	determine navigation system's properties or existence */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay, meta=(DisplayName = "DEPRECATED_bEnableNavigationSystem"))
+	UE_DEPRECATED(4.22, "This member will be removed. Please use NavigationSystemConfig instead.")
+	UPROPERTY(BlueprintReadOnly, config, Category = World, meta=(DisplayName = "DEPRECATED_bEnableNavigationSystem"))
 	uint8 bEnableNavigationSystem:1;
 
 public:
