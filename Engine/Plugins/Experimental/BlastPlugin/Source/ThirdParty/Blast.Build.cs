@@ -104,11 +104,13 @@ public class Blast : ModuleRules
             });
 
         string LibSuffix = null;
+        string DllSuffix = null;
 
         // Libraries for windows platform
         if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             LibSuffix = "_x64.lib";
+            DllSuffix = "_x64.dll";
 
             string BlastLibDirFullPath = BlastDir + "/Lib/Win64/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName();
             PublicLibraryPaths.Add(BlastLibDirFullPath);
@@ -121,6 +123,7 @@ public class Blast : ModuleRules
             {
                 string LibName = String.Format("{0}{1}{2}", Lib, LibConfiguration, LibSuffix);
                 PublicAdditionalLibraries.Add(LibName);
+                string DllName = String.Format("{0}{1}{2}", Lib, LibConfiguration, DllSuffix);
                 RuntimeDependencies.Add(LibName);
             }
         }
