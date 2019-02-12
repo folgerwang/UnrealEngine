@@ -123,8 +123,8 @@ public class Blast : ModuleRules
             {
                 string LibName = String.Format("{0}{1}{2}", Lib, LibConfiguration, LibSuffix);
                 PublicAdditionalLibraries.Add(LibName);
-                string DllName = String.Format("{0}{1}{2}", Lib, LibConfiguration, DllSuffix);
-                RuntimeDependencies.Add(DllName);
+                //string DllName = String.Format("{0}{1}{2}", Lib, LibConfiguration, DllSuffix);
+                //RuntimeDependencies.Add(DllName);
             }
         }
     }
