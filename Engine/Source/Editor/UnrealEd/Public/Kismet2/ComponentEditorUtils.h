@@ -21,11 +21,11 @@ public:
 	static bool IsValidVariableNameString(const UActorComponent* InComponent, const FString& InString);
 
 	/** 
-	 * Test whether or not the given string is already the name string of a component on the the actor
+	 * Test whether or not the given string is already the name string of a component on the the owner
 	 * Optionally excludes an existing component from the check (ex. a component currently being renamed)
 	 * @return True if the InString is an available name for a component of ComponentOwner
 	 */
-	static bool IsComponentNameAvailable(const FString& InString, AActor* ComponentOwner, const UActorComponent* ComponentToIgnore = nullptr);
+	static bool IsComponentNameAvailable(const FString& InString, UObject* ComponentOwner, const UActorComponent* ComponentToIgnore = nullptr);
 		
 	/** Generate a valid variable name string for the given component instance */
 	static FString GenerateValidVariableName(TSubclassOf<UActorComponent> InComponentClass, AActor* ComponentOwner);
