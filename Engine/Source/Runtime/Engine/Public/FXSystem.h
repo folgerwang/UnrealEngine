@@ -110,6 +110,9 @@ inline bool RHISupportsGPUParticles()
 		&& GRHISupportsInstancing;
 }
 
+class FFXSystemInterface;
+DECLARE_DELEGATE_RetVal_TwoParams(FFXSystemInterface*, FCreateCustomFXSystemDelegate, ERHIFeatureLevel::Type, EShaderPlatform);
+
 /*-----------------------------------------------------------------------------
 	The interface to the FX system runtime.
 -----------------------------------------------------------------------------*/
@@ -130,6 +133,21 @@ public:
 	 * Destroy an effects system instance.
 	 */
 	ENGINE_API static void Destroy(FFXSystemInterface* FXSystem);
+
+	/**
+	 * Register a custom FX system implementation.
+	 */
+	ENGINE_API static void RegisterCustomFXSystem(const FName& InterfaceName, const FCreateCustomFXSystemDelegate& InCreateDelegate);
+
+	/**
+	 * Unregister a custom FX system implementation.
+	 */
+	ENGINE_API static void UnregisterCustomFXSystem(const FName& InterfaceName);
+
+	/**
+	 * Return the interface bound to the given name.
+	 */
+	virtual FFXSystemInterface* GetInterface(const FName& InName) { return nullptr; };
 
 	/**
 	 * Tick the effects system.
@@ -176,13 +194,6 @@ public:
 	virtual void UpdateVectorField(UVectorFieldComponent* VectorFieldComponent) = 0;
 
 	/**
-	 * Creates an emitter instance for simulating sprite particles on the GPU.
-	 * @param EmitterInfo - Information required for runtime simulation.
-	 * @returns a particle emitter instance for simulating and drawing GPU sprites.
-	 */
-	virtual FParticleEmitterInstance* CreateGPUSpriteEmitterInstance(FGPUSpriteEmitterInfo& EmitterInfo) = 0;
-
-	/**
 	 * Notification from the renderer that it is about to perform visibility
 	 * checks on FX belonging to this system.
 	 */
@@ -213,7 +224,11 @@ public:
 protected:
 
 	/** By making the destructor protected, an instance must be destroyed via FFXSystemInterface::Destroy. */
-	virtual ~FFXSystemInterface();
+	ENGINE_API virtual ~FFXSystemInterface();
+
+private:
+
+	static TMap<FName, FCreateCustomFXSystemDelegate> CreateCustomFXDelegates;
 };
 
 /*-----------------------------------------------------------------------------

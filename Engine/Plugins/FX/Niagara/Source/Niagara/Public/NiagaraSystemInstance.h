@@ -16,6 +16,7 @@ class FNiagaraWorldManager;
 class UNiagaraComponent;
 class FNiagaraSystemInstance;
 class FNiagaraSystemSimulation;
+class NiagaraEmitterInstanceBatcher;
 
 class NIAGARA_API FNiagaraSystemInstance 
 {
@@ -201,6 +202,8 @@ public:
 
 	bool GetPerInstanceDataAndOffsets(void*& OutData, uint32& OutDataSize, TMap<TWeakObjectPtr<UNiagaraDataInterface>, int32>*& OutOffsets);
 
+	NiagaraEmitterInstanceBatcher* GetBatcher() const { return Batcher; }
+
 private:
 
 	/** Builds the emitter simulations. */
@@ -319,4 +322,6 @@ private:
 	ENiagaraExecutionState ActualExecutionState;
 
 	bool bDataInterfacesInitialized;
+
+	NiagaraEmitterInstanceBatcher* Batcher = nullptr;
 };

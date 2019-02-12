@@ -503,14 +503,6 @@ public:
 };
 DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
 
-
-class FComputeDispatcher
-{
-public:
-	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
-};
-
-
 class ICustomVisibilityQuery: public IRefCountedObject
 {
 public:
@@ -761,10 +753,6 @@ public:
 	virtual void RenderOverlayExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
 	virtual FPreSceneRenderValues PreSceneRenderExtension() = 0;
 	virtual bool HasPostOpaqueExtentions() const = 0;
-
-	virtual void RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 
 	/** Delegate that is called upon resolving scene color. */
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnResolvedSceneColor, FRHICommandListImmediate& /*RHICmdList*/, class FSceneRenderTargets& /*SceneContext*/);

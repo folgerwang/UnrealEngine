@@ -21,8 +21,14 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("Readback latency (frames)"), STAT_NiagaraReadba
 DECLARE_GPU_STAT_NAMED(NiagaraGPUSimulation, TEXT("Niagara GPU Simulation"));
 DECLARE_GPU_STAT_NAMED(NiagaraIndexBufferClear, TEXT("Niagara index buffer clear"));
 
-NiagaraEmitterInstanceBatcher* NiagaraEmitterInstanceBatcher::BatcherSingleton = nullptr;
 uint32 FNiagaraComputeExecutionContext::TickCounter = 0;
+
+const FName NiagaraEmitterInstanceBatcher::Name(TEXT("NiagaraEmitterInstanceBatcher"));
+
+FFXSystemInterface* NiagaraEmitterInstanceBatcher::GetInterface(const FName& InName)
+{
+	return InName == Name ? this : nullptr;
+}
 
 void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *ExecContext)
 {
@@ -32,15 +38,15 @@ void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *ExecC
 	uint32 QueueIndex = CurQueueIndex;
 	ENQUEUE_RENDER_COMMAND(QueueNiagaraDispatch)(
 		[Queue, QueueIndex, ExecContext](FRHICommandListImmediate& RHICmdList)
-		{
-			const uint32 QueueIndexMask = (1 << QueueIndex);
-			//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
-			if (!(ExecContext->PendingExecutionQueueMask & QueueIndexMask))
 			{
-				Queue[QueueIndex].Add(ExecContext);
-				ExecContext->PendingExecutionQueueMask |= QueueIndexMask;
-			}
-		});
+				const uint32 QueueIndexMask = (1 << QueueIndex);
+				//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
+				if (!(ExecContext->PendingExecutionQueueMask & QueueIndexMask))
+				{
+					Queue[QueueIndex].Add(ExecContext);
+					ExecContext->PendingExecutionQueueMask |= QueueIndexMask;
+				}
+			});
 }
 
 void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *ExecContext)

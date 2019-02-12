@@ -19,6 +19,7 @@
 #include "Misc/CoreDelegates.h"
 #include "NiagaraShaderModule.h"
 #include "UObject/CoreRedirects.h"
+#include "NiagaraEmitterInstanceBatcher.h"
 
 IMPLEMENT_MODULE(INiagaraModule, Niagara);
 
@@ -259,10 +260,16 @@ void INiagaraModule::StartupModule()
 		return FNiagaraTypeRegistry::GetDefaultDataInterfaceByName(DIClassName);
 	}));
 
+	FFXSystemInterface::RegisterCustomFXSystem(NiagaraEmitterInstanceBatcher::Name, FCreateCustomFXSystemDelegate::CreateLambda([](ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InShaderPlatform) -> FFXSystemInterface*
+	{
+		return new NiagaraEmitterInstanceBatcher;
+	}));
 }
 
 void INiagaraModule::ShutdownRenderingResources()
 {
+	FFXSystemInterface::UnregisterCustomFXSystem(NiagaraEmitterInstanceBatcher::Name);
+
 	FNiagaraViewDataMgr::Shutdown();
 }
 

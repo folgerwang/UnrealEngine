@@ -135,6 +135,9 @@ public:
 	/** Destructor. */
 	virtual ~FFXSystem();
 
+	static const FName Name;
+	virtual FFXSystemInterface* GetInterface(const FName& InName) override;
+
 	// Begin FFXSystemInterface.
 	virtual void Tick(float DeltaSeconds) override;
 #if WITH_EDITOR
@@ -145,7 +148,7 @@ public:
 	virtual void AddVectorField(UVectorFieldComponent* VectorFieldComponent) override;
 	virtual void RemoveVectorField(UVectorFieldComponent* VectorFieldComponent) override;
 	virtual void UpdateVectorField(UVectorFieldComponent* VectorFieldComponent) override;
-	virtual FParticleEmitterInstance* CreateGPUSpriteEmitterInstance(FGPUSpriteEmitterInfo& EmitterInfo) override;
+	FParticleEmitterInstance* CreateGPUSpriteEmitterInstance(FGPUSpriteEmitterInfo& EmitterInfo);
 	virtual void PreInitViews() override;
 	virtual bool UsesGlobalDistanceField() const override;
 	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) override;

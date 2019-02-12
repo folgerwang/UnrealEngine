@@ -12,6 +12,7 @@
 #include "NiagaraRenderer.h"
 #include "GameFramework/PlayerController.h"
 #include "Templates/AlignmentTemplates.h"
+#include "NiagaraEmitterInstanceBatcher.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("System Activate [GT]"), STAT_NiagaraSystemActivate, STATGROUP_Niagara);
@@ -54,6 +55,19 @@ FNiagaraSystemInstance::FNiagaraSystemInstance(UNiagaraComponent* InComponent)
 	, bDataInterfacesInitialized(false)
 {
 	SystemBounds.Init();
+
+	if (Component)
+	{
+		UWorld* World = Component->GetWorld();
+		if (World && World->Scene)
+		{
+			FFXSystemInterface*  FXSystemInterface = World->Scene->GetFXSystem();
+			if (FXSystemInterface)
+			{
+				Batcher = static_cast<NiagaraEmitterInstanceBatcher*>(FXSystemInterface->GetInterface(NiagaraEmitterInstanceBatcher::Name));
+			}
+		}
+	}
 }
 
 void FNiagaraSystemInstance::Init(bool bInForceSolo)

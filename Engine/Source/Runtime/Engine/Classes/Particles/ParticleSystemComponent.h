@@ -696,7 +696,7 @@ private:
 	FVector SavedAutoAttachRelativeScale3D;
 
 public:
-	class FFXSystemInterface* FXSystem;
+	class FFXSystem* FXSystem;
 
 	// Called when the particle system is done
 	UPROPERTY(BlueprintAssignable)

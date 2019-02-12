@@ -3358,24 +3358,6 @@ void FRendererModule::DrawRectangle(
 	::DrawRectangle( RHICmdList, X, Y, SizeX, SizeY, U, V, SizeU, SizeV, TargetSize, TextureSize, VertexShader, Flags );
 }
 
-void FRendererModule::RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher)
-{
-	PostOpaqueDispatchers.AddUnique(Dispatcher);
-}
-
-void FRendererModule::UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher)
-{
-	PostOpaqueDispatchers.Remove(Dispatcher);
-}
-
-void FRendererModule::DispatchPostOpaqueCompute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
-{
-	for (FComputeDispatcher *Dispatcher : PostOpaqueDispatchers)
-	{
-		Dispatcher->Execute(RHICmdList, ViewUniformBuffer);
-	}
-}
-
 void FRendererModule::RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& InPostOpaqueRenderDelegate)
 {
 	this->PostOpaqueRenderDelegate = InPostOpaqueRenderDelegate;

@@ -20,7 +20,7 @@ class NiagaraRenderer;
 struct FNiagaraEmitterHandle;
 class UNiagaraParameterCollection;
 class UNiagaraParameterCollectionInstance;
-
+class NiagaraEmitterInstanceBatcher;
 /**
 * A Niagara particle simulation.
 */
@@ -212,4 +212,6 @@ private:
 
 	/** A parameter store which contains the data interfaces parameters which were defined by the scripts. */
 	FNiagaraParameterStore ScriptDefinedDataInterfaceParameters;
+
+	NiagaraEmitterInstanceBatcher* Batcher = nullptr;
 };
