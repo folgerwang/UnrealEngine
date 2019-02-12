@@ -406,11 +406,18 @@ bool rcBuildCompactHeightfield(rcContext* ctx, const int walkableHeight, const i
 {
 	rcAssert(ctx);
 	
+// @UE4 BEGIN: early-out when no walkable spans 
+	const int spanCount = rcGetHeightFieldSpanCount(ctx, hf);
+	if (spanCount == 0)
+	{
+		// no spans to speak of, bail out.
+		return false;
+	}
+// @UE4 END
 	ctx->startTimer(RC_TIMER_BUILD_COMPACTHEIGHTFIELD);
 	
 	const int w = hf.width;
 	const int h = hf.height;
-	const int spanCount = rcGetHeightFieldSpanCount(ctx, hf);
 
 	// Fill in header.
 	chf.width = w;

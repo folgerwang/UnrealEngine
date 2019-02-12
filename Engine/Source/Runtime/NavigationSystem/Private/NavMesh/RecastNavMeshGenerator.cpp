@@ -2441,7 +2441,16 @@ bool FRecastTileGenerator::GenerateCompressedLayers(FNavMeshBuildContext& BuildC
 		}
 		if (!rcBuildCompactHeightfield(&BuildContext, TileConfig.walkableHeight, TileConfig.walkableClimb, *RasterContext.SolidHF, *RasterContext.CompactHF))
 		{
-			BuildContext.log(RC_LOG_ERROR, "GenerateCompressedLayers: Could not build compact data.");
+			const int SpanCount = rcGetHeightFieldSpanCount(&BuildContext, *RasterContext.SolidHF);
+			if (SpanCount > 0)
+			{
+				BuildContext.log(RC_LOG_ERROR, "GenerateCompressedLayers: Could not build compact data.");
+			}
+			// else there's just no spans to walk on (no spans at all or too small/sparse)
+			else
+			{
+				BuildContext.log(RC_LOG_WARNING, "GenerateCompressedLayers: no walkable spans - aborting");
+			}
 			return false;
 		}
 	}
