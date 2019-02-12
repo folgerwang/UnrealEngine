@@ -1088,7 +1088,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			}
 		}
 
-		Result = FindObjectFast<UPackage>(nullptr, PackageFName);
+		Result = (InOuter ? InOuter : FindObjectFast<UPackage>(nullptr, PackageFName));
 		return Result;
 	}
 
