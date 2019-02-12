@@ -15887,7 +15887,7 @@ int32 UEngine::RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas,
 	for (FConstControllerIterator Iterator = World->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AController* Controller = Iterator->Get();
-		if (!Cast<APlayerController>(Controller))
+		if (Controller && !Cast<APlayerController>(Controller))
 		{
 			++NumAI;
 			if (Controller->GetPawn() != NULL && World->GetTimeSeconds() - Controller->GetPawn()->GetLastRenderTime() < 0.08f)
