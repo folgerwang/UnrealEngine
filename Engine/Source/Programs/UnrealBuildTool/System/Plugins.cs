@@ -374,7 +374,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Determine if a plugin is enabled for a given project
 		/// </summary>
-		/// <param name="Project">The project to check</param>
+		/// <param name="Project">The project to check. May be null.</param>
 		/// <param name="Plugin">Information about the plugin</param>
 		/// <param name="Platform">The target platform</param>
 		/// <param name="TargetConfiguration">The target configuration</param>
@@ -382,7 +382,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the plugin should be enabled for this project</returns>
 		public static bool IsPluginEnabledForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform, UnrealTargetConfiguration TargetConfiguration, TargetType Target)
 		{
-			bool bEnabled = Plugin.EnabledByDefault;
+			bool bEnabled = Plugin.EnabledByDefault && Plugin.Descriptor.SupportsTargetPlatform(Platform);
 			if (Project != null && Project.Plugins != null)
 			{
 				foreach (PluginReferenceDescriptor PluginReference in Project.Plugins)
