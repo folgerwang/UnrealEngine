@@ -46,6 +46,8 @@
 	#include "Editor/UnrealEdEngine.h"
 	#include "Editor/TransBuffer.h"
 	#include "LevelEditor.h"
+	#include "FileHelpers.h"
+	#include "GameMapsSettings.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "ConcertClientWorkspace"
@@ -309,12 +311,6 @@ void FConcertClientWorkspace::UnbindSession()
 
 		// Gather file with live transactions that also need to be reloaded, overlaps from the sandbox are filtered directly in ReloadPackages
 		PackagesPendingHotReload.Append(TransactionManager->GetLedger().GetPackagesNamesWithLiveTransactions());
-
-		if (!GIsRequestingExit)
-		{
-			HotReloadPendingPackages();
-			PurgePendingPackages();
-		}
 #endif
 
 		// Destroy Transaction Manager
@@ -398,6 +394,33 @@ void FConcertClientWorkspace::UnbindSession()
 		{
 			FCoreUObjectDelegates::OnObjectTransacted.Remove(ObjectTransactedHandle);
 			ObjectTransactedHandle.Reset();
+		}
+
+		if (!GIsRequestingExit)
+		{
+			// Hot reload after unregistering from most delegates to prevent events triggered by hot-reloading (such as asset deleted) to be recorded as transaction.
+			HotReloadPendingPackages();
+
+			// Get the current world edited.
+			if (UWorld* World = GEditor->GetEditorWorldContext().World())
+			{
+				// If the current world package is scheduled to be purged (it doesn't exist outside the session).
+				if (PackagesPendingPurge.Contains(World->GetOutermost()->GetFName()))
+				{
+					// Replace the current world because it doesn't exist outside the session (it cannot be saved anymore, even with 'Save Current As').
+					FString StartupMapPackage = GetDefault<UGameMapsSettings>()->EditorStartupMap.GetLongPackageName();
+					if (FPackageName::DoesPackageExist(StartupMapPackage))
+					{
+						UEditorLoadingAndSavingUtils::NewMapFromTemplate(StartupMapPackage, /*bSaveExistingMap*/ false);
+					}
+					else
+					{
+						UEditorLoadingAndSavingUtils::NewBlankMap(/*bSaveExistingMap*/ false);
+					}
+				}
+
+				PurgePendingPackages();
+			}
 		}
 #endif
 

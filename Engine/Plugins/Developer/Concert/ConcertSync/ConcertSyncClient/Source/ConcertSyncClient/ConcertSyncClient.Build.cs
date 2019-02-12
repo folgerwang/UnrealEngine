@@ -55,6 +55,7 @@ namespace UnrealBuildTool.Rules
 				PrivateDependencyModuleNames.AddRange(
 					new string[] {
 						"EditorStyle",
+						"EngineSettings",
 						"Sequencer",
 						"UnrealEd",
 						"ViewportInteraction",
