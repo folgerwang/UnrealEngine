@@ -114,7 +114,7 @@ public:
 
 protected:
 	UPROPERTY(config, EditAnywhere, BlueprintReadOnly, Category = Navigation)
-	TSubclassOf<UCrowdManagerBase> CrowdManagerClass;
+	TSoftClassPtr<UCrowdManagerBase> CrowdManagerClass;
 
 	/** Should navigation system spawn default Navigation Data when there's none and there are navigation bounds present? */
 	UPROPERTY(config, EditAnywhere, Category=NavigationSystem)

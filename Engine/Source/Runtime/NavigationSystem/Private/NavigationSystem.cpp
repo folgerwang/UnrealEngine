@@ -906,9 +906,13 @@ void UNavigationSystemV1::RegisterNavigationDataInstances()
 
 void UNavigationSystemV1::CreateCrowdManager()
 {
-	if (CrowdManagerClass)
+	UClass* CrowdManagerClassInstance = CrowdManagerClass.Get();
+	if (CrowdManagerClassInstance)
 	{
-		SetCrowdManager(NewObject<UCrowdManagerBase>(this, CrowdManagerClass));
+		UCrowdManagerBase* ManagerInstance = NewObject<UCrowdManagerBase>(this, CrowdManagerClassInstance);
+		// creating an instance when we have a valid class should never fail
+		check(ManagerInstance);
+		SetCrowdManager(ManagerInstance);
 	}
 }
 
