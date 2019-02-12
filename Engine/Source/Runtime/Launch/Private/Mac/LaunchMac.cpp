@@ -49,7 +49,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 		GError->Flush();
 		GError->HandleError();
 	}
-	LaunchStaticShutdownAfterError();
+
 	return Context.GenerateCrashInfoAndLaunchReporter();
 }
 
