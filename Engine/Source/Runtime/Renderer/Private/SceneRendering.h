@@ -1586,6 +1586,9 @@ protected:
 	/** Computes how many queries will be issued this frame */
 	int32 ComputeNumOcclusionQueriesToBatch() const;
 
+	/** Whether platform requires separate translucent render pass */
+	bool RequiresTranslucencyPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View) const;
+
 	/** Renders decals. */
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
@@ -1600,6 +1603,9 @@ protected:
 
 	/** Copy scene color from the mobile multi-view render target array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
+
+	/** On chip pre-tonemap before scene color MSAA resolve (iOS only) */
+	void PreTonemapMSAA(FRHICommandListImmediate& RHICmdList);
 
 	/** Whether GPU particle collisions simulation is allowed. */
 	bool IsGPUParticleCollisionEnabled(const FViewInfo& View);

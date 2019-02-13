@@ -129,28 +129,6 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 				continue;
 			}
 
-			if (bRenderToSceneColor)
-			{
-				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-				// Use begin rendering scene color with FExclusiveDepthStencil::DepthRead_StencilRead to avoid starting a new render pass on vulkan.
-				// #todo-renderpasses we'll need to clean this up once we verify VK won't trash the stencil buffer if we make it DontStore
-				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
-			}
-			else
-			{
-				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-				FTextureRHIParamRef SceneColor = GetMultiViewSceneColor(SceneContext);
-				const FTextureRHIParamRef SceneDepth = (View.bIsMobileMultiViewEnabled) ? SceneContext.MobileMultiViewSceneDepthZ->GetRenderTargetItem().TargetableTexture : static_cast<FTextureRHIRef>(SceneContext.GetSceneDepthTexture());
-
-				// #todo-renderpasses we'll need to clean this up once we verify VK won't trash the stencil buffer if we make it DontStore
-				FRHIRenderPassInfo RPInfo(SceneColor, ERenderTargetActions::Load_Store);
-				RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
-				RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneDepth;
-				RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
-
-				RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderMobileTranslucency"));
-			}
-
 			// Mobile multi-view is not side by side stereo
 			const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
 			RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
@@ -165,17 +143,6 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 		
 				const EMeshPass::Type MeshPass = TranslucencyPassToMeshPass(TranslucencyPass);
 				View.ParallelMeshDrawCommandPasses[MeshPass].DispatchDraw(nullptr, RHICmdList);
-			}
-
-			// #todo-renderpasses clean this up. Ending the renderpass is correct here but do we want to look nicer and call FinishRenderingSceneColor, etc?
-			if (bRenderToSceneColor)
-			{
-				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-				SceneContext.FinishRenderingSceneColor(RHICmdList);
-			}
-			else
-			{
-				RHICmdList.EndRenderPass();
 			}
 		}
 	}

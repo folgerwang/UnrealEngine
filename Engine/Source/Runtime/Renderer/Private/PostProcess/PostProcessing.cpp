@@ -2273,7 +2273,7 @@ static bool IsGaussianActive(FPostprocessContext& Context)
 	return true;
 }
 
-void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, bool bUsedFramebufferFetch)
+void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View)
 {
 	check(IsInRenderingThread());
 
@@ -2320,9 +2320,9 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* S
 		const FIntPoint FinalTargetSize = View.Family->RenderTarget->GetSizeXY();
 		FIntRect FinalOutputViewRect = View.ViewRect;
 		FIntPoint PrePostSourceViewportSize = View.ViewRect.Size();
-		// ES2 preview uses a subsection of the scene RT, bUsedFramebufferFetch == true deals with this case.  
+		// ES2 preview uses a subsection of the scene RT
 		FIntPoint SceneColorSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
-		bool bViewRectSource = bUsedFramebufferFetch || SceneColorSize != PrePostSourceViewportSize;
+		bool bViewRectSource = SceneColorSize != PrePostSourceViewportSize;
 		bool bMobileHDR32bpp = IsMobileHDR32bpp();
 
 		// temporary solution for SP_METAL using HW sRGB flag during read vs all other mob platforms using
@@ -2382,13 +2382,11 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FScene* S
 			// Optional fixed pass processes
 			if (bUsePost && (bUseSun | bUseDof | bUseBloom | bUseVignette))
 			{
-						
-				// Skip this pass if the pass was done prior before resolve.
-				if ((!bUsedFramebufferFetch) && (bUseSun || bUseDof))
+				if (bUseSun || bUseDof)
 				{
-					// Convert depth to {circle of confusion, sun shaft intensity} before resolve.
+					// Convert depth to {circle of confusion, sun shaft intensity}
 				//	FRenderingCompositePass* PostProcessSunMask = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessSunMaskES2(PrePostSourceViewportSize, false));
-					FRenderingCompositePass* PostProcessSunMask = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessSunMaskES2(SceneColorSize, false));
+					FRenderingCompositePass* PostProcessSunMask = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessSunMaskES2(SceneColorSize));
 					PostProcessSunMask->SetInput(ePId_Input0, Context.FinalOutput);
 					Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessSunMask);
 					//@todo Ronin sunmask pass isnt clipping to image only.

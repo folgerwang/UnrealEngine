@@ -874,7 +874,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomUpES2::ComputeOutputDesc(EPassOut
 // SUN MASK
 //
 
-template <uint32 UseFetchSunDof, bool bUseDepthTexture> // 0=none, 1=dof, 2=sun, 3=sun&dof, {4,5,6,7}=ES2_USE_FETCH, 8=MSAA-pre-resolve
+template <uint32 UseSunDof, bool bUseDepthTexture> // 0=none, 1=dof, 2=sun, 3=sun&dof
 class FPostProcessSunMaskPS_ES2 : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessSunMaskPS_ES2, Global);
@@ -889,13 +889,9 @@ class FPostProcessSunMaskPS_ES2 : public FGlobalShader
 		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ES2_USE_DEPTHTEXTURE"), bUseDepthTexture ? (uint32)1 : (uint32)0);
 		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_MSAA"), (UseFetchSunDof & 8) ? (uint32)1 : (uint32)0);
+		OutEnvironment.SetDefine(TEXT("ES2_USE_SUN"), (UseSunDof & 2) ? (uint32)1 : (uint32)0);
 		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_FETCH"), (UseFetchSunDof & 4) ? (uint32)1 : (uint32)0);
-		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_SUN"), (UseFetchSunDof & 2) ? (uint32)1 : (uint32)0);
-		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_DOF"), (UseFetchSunDof & 1) ? (uint32)1 : (uint32)0);
+		OutEnvironment.SetDefine(TEXT("ES2_USE_DOF"), (UseSunDof & 1) ? (uint32)1 : (uint32)0);
 	}
 
 	FPostProcessSunMaskPS_ES2() {}
@@ -945,9 +941,7 @@ public:
 	typedef FPostProcessSunMaskPS_ES2<A,false> FPostProcessSunMaskPS_ES2_##A; \
 	IMPLEMENT_SHADER_TYPE(template<>,FPostProcessSunMaskPS_ES2_##A,TEXT("/Engine/Private/PostProcessMobile.usf"),TEXT("SunMaskPS_ES2"), SF_Pixel);
 
-SUNMASK_PS_ES2(0)  SUNMASK_PS_ES2(1)  SUNMASK_PS_ES2(2)  SUNMASK_PS_ES2(3)  SUNMASK_PS_ES2(4)
-SUNMASK_PS_ES2(5)  SUNMASK_PS_ES2(6)  SUNMASK_PS_ES2(7)  SUNMASK_PS_ES2(8)
-
+SUNMASK_PS_ES2(0)  SUNMASK_PS_ES2(1)  SUNMASK_PS_ES2(2)  SUNMASK_PS_ES2(3)
 #undef SUNMASK_PS_ES2
 
 
@@ -988,7 +982,7 @@ public:
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessSunMaskVS_ES2,TEXT("/Engine/Private/PostProcessMobile.usf"),TEXT("SunMaskVS_ES2"),SF_Vertex);
 
-template <uint32 UseFetchSunDof, bool bUseDepthTexture>
+template <uint32 UseSunDof, bool bUseDepthTexture>
 static void SunMask_SetShader(const FRenderingCompositePassContext& Context)
 {
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -998,7 +992,7 @@ static void SunMask_SetShader(const FRenderingCompositePassContext& Context)
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
 	TShaderMapRef<FPostProcessSunMaskVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessSunMaskPS_ES2<UseFetchSunDof, bUseDepthTexture> > PixelShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessSunMaskPS_ES2<UseSunDof, bUseDepthTexture> > PixelShader(Context.GetShaderMap());
 
 	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
@@ -1017,28 +1011,14 @@ void FRCPassPostProcessSunMaskES2::SetShader(const FRenderingCompositePassContex
 	const FViewInfo& View = Context.View;
 	uint32 UseSun = Context.View.bLightShaftUse ? 1 : 0;
 	uint32 UseDof = (GetMobileDepthOfFieldScale(Context.View) > 0.0f) ? 1 : 0;
-	uint32 UseFetch = GSupportsShaderFramebufferFetch ? 1 : 0;
-	uint32 UseFetchSunDof = (UseFetch << 2) + (UseSun << 1) + UseDof;
+	uint32 UseSunDof = (UseSun << 1) + UseDof;
 
-	static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-	const EShaderPlatform ShaderPlatform = Context.GetShaderPlatform();
-
-	if ((GSupportsShaderFramebufferFetch && (IsMetalMobilePlatform(ShaderPlatform) || IsVulkanMobilePlatform(ShaderPlatform))) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
-	{
-		UseFetchSunDof = 8;
-	}
-
-	switch(UseFetchSunDof)
+	switch(UseSunDof)
 	{
 		case 0: SunMask_SetShader<0, bUseDepthTexture>(Context); break;
 		case 1: SunMask_SetShader<1, bUseDepthTexture>(Context); break;
 		case 2: SunMask_SetShader<2, bUseDepthTexture>(Context); break;
 		case 3: SunMask_SetShader<3, bUseDepthTexture>(Context); break;
-		case 4: SunMask_SetShader<4, bUseDepthTexture>(Context); break;
-		case 5: SunMask_SetShader<5, bUseDepthTexture>(Context); break;
-		case 6: SunMask_SetShader<6, bUseDepthTexture>(Context); break;
-		case 7: SunMask_SetShader<7, bUseDepthTexture>(Context); break;
-		case 8: SunMask_SetShader<8, bUseDepthTexture>(Context); break;
 	}
 }
 
@@ -1064,36 +1044,6 @@ void FRCPassPostProcessSunMaskES2::Process(FRenderingCompositePassContext& Conte
 	const FViewInfo& View = Context.View;
 
 	TShaderMapRef<FPostProcessSunMaskVS_ES2> VertexShader(Context.GetShaderMap());
-	if(bOnChip)
-	{
-		// #todo-renderpasses how does this match up with renderpasses?
-		SrcSize = DstSize;
-		//SrcRect = DstRect;
-		SrcRect = View.ViewRect;
-
-		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-		if (InputDesc != NULL && InputDesc->Format == PF_FloatR11G11B10)
-		{
-			SetShader<true>(Context);
-		}
-		else
-		{
-			SetShader<false>(Context);
-		}
-
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			DstX, DstY,
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			DstSize,
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
-	}
-	else
 	{
 		SrcSize = InputDesc->Extent; //-V595
 		//	uint32 ScaleFactor = View.ViewRect.Width() / SrcSize.X;

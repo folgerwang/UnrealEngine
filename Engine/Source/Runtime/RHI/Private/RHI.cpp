@@ -985,12 +985,14 @@ void FRHIRenderPassInfo::Validate() const
 
 		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite())
 		{
-			ensure(DepthStore == ERenderTargetStoreAction::EStore);
+			// this check is incorrect for mobile, depth/stencil is intermediate and we don't want to store it to main memory
+			//ensure(DepthStore == ERenderTargetStoreAction::EStore);
 		}
 
 		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite())
 		{
-			ensure(StencilStore == ERenderTargetStoreAction::EStore);
+			// this check is incorrect for mobile, depth/stencil is intermediate and we don't want to store it to main memory
+			//ensure(StencilStore == ERenderTargetStoreAction::EStore);
 		}
 	}
 	else

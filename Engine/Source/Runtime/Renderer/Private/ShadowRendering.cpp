@@ -1303,8 +1303,6 @@ bool FDeferredShadingSceneRenderer::InjectReflectiveShadowMaps(FRHICommandListIm
 
 bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading, bool bMobileModulatedProjections)
 {
-	check(RHICmdList.IsOutsideRenderPass());
-
 	FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -1358,10 +1356,12 @@ bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdLis
 		// Render normal shadows
 		if (bMobileModulatedProjections)
 		{
-			SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+			// part of scene color rendering pass
+			check(RHICmdList.IsInsideRenderPass());
 		}
 		else
 		{
+			check(RHICmdList.IsOutsideRenderPass());
 			// Normal deferred shadows render to the shadow mask
 			FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
 			RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
@@ -1414,7 +1414,8 @@ bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdLis
 
 		if (bMobileModulatedProjections)
 		{
-			SceneContext.FinishRenderingSceneColor(RHICmdList);
+			// part of scene color rendering pass
+			check(RHICmdList.IsInsideRenderPass());
 		}
 		else
 		{

@@ -91,7 +91,6 @@ half3 HDRDecode(half4 encodedhdr)
 
 //
 // Convert depth in alpha into combined circle of confusion and sun intensity.
-// Or pre-tonemap before hardware box-filtered resolve.
 //
 
 void SunMaskVS_ES2(
@@ -110,47 +109,51 @@ void SunMaskPS_ES2(
 	out half4 OutColor : SV_Target0
 	)
 {
-	#if ((COMPILER_GLSL_ES2||COMPILER_GLSL_ES3_1)  && ES2_USE_FETCH) || (METAL_PROFILE && !MAC)
-		OutColor = FramebufferFetchES2();
+	OutColor = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVPos.xy);
+
+	#if ES2_USE_DEPTHTEXTURE
+		half InDepth = CalcSceneDepth(InUVPos.xy);
 	#else
-		OutColor = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVPos.xy);
+		half InDepth = OutColor.a;
+	#endif
+	
+	#if ES2_USE_SUN
+		half2 DepthMaskScaleBias = SunConstDepthMaskScaleBias();
+		half FarAmount = saturate(InDepth * DepthMaskScaleBias.x + DepthMaskScaleBias.y);
+		half3 SunAmount = OutColor.rgb * SunColorApertureDiv2.rgb;
+	
+		half2 Pos = InUVPos.zw * 0.5 + 0.5;
+		half EdgeMask = 1.0f - Pos.x * (1.0f - Pos.x) * Pos.y * (1.0f - Pos.y) * 8.0f;
+		EdgeMask = EdgeMask * EdgeMask;
+	
+		FarAmount *= 1.0-EdgeMask;
+	
+		OutColor.a = min(min(SunAmount.r, SunAmount.g), SunAmount.b) * FarAmount;
+	#else
+		OutColor.a = 0.0;
 	#endif
 
-	#if ES2_USE_MSAA
-		// On-chip pre-tonemap before MSAA resolve.
-		OutColor.rgb *= rcp(OutColor.r*0.299 + OutColor.g*0.587 + OutColor.b*0.114 + 1.0);
-	#else
-
-		#if ES2_USE_DEPTHTEXTURE
-			half InDepth = CalcSceneDepth(InUVPos.xy);
-		#else
-			half InDepth = OutColor.a;
-		#endif
-	
-		#if ES2_USE_SUN
-			half2 DepthMaskScaleBias = SunConstDepthMaskScaleBias();
-			half FarAmount = saturate(InDepth * DepthMaskScaleBias.x + DepthMaskScaleBias.y);
-			half3 SunAmount = OutColor.rgb * SunColorApertureDiv2.rgb;
-	
-			half2 Pos = InUVPos.zw * 0.5 + 0.5;
-			half EdgeMask = 1.0f - Pos.x * (1.0f - Pos.x) * Pos.y * (1.0f - Pos.y) * 8.0f;
-			EdgeMask = EdgeMask * EdgeMask;
-	
-			FarAmount *= 1.0-EdgeMask;
-	
-			OutColor.a = min(min(SunAmount.r, SunAmount.g), SunAmount.b) * FarAmount;
-		#else
-			OutColor.a = 0.0;
-		#endif
-		#if ES2_USE_DOF
-//			OutColor.a += Coc(InDepth);
-			OutColor.a += Coc2(InDepth);
-		#endif
-#endif
+	#if ES2_USE_DOF
+//		OutColor.a += Coc(InDepth);
+		OutColor.a += Coc2(InDepth);
+	#endif
 }
 
+//
+// Pre-tonemap before hardware box-filtered resolve.
+//
 
-
+void PreTonemapMSAA_ES2(
+	float4 InUVPos : TEXCOORD0,
+	out half4 OutColor : SV_Target0
+	)
+{
+#if (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1) || (METAL_PROFILE && !MAC)
+	// On-chip pre-tonemap before MSAA resolve.
+	OutColor = FramebufferFetchES2();
+	OutColor.rgb *= rcp(OutColor.r*0.299 + OutColor.g*0.587 + OutColor.b*0.114 + 1.0);
+#endif
+}
 
 // 
 // Bloom Setup - Mask Bloom and Downsample 1/16 Area

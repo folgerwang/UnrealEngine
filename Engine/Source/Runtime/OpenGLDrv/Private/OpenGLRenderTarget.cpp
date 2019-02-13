@@ -1177,4 +1177,19 @@ void FOpenGLDynamicRHI::RHIEndRenderPass()
 		extern void EndOcclusionQueryBatch();
 		EndOcclusionQueryBatch();
 	}
+
+	IRHICommandContext::RHIEndRenderPass();
+
+	// Drop depth and stencil to avoid export
+	if (RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget)
+	{
+		ERenderTargetActions DepthActions = GetDepthActions(RenderPassInfo.DepthStencilRenderTarget.Action);
+		ERenderTargetActions StencilActions = GetDepthActions(RenderPassInfo.DepthStencilRenderTarget.Action);
+		bool bDiscardDepth = GetStoreAction(DepthActions) == ERenderTargetStoreAction::ENoAction;
+		bool bDiscardStencil = GetStoreAction(StencilActions) == ERenderTargetStoreAction::ENoAction;
+		if (bDiscardDepth || bDiscardStencil)
+		{
+			RHIDiscardRenderTargets(bDiscardDepth, bDiscardStencil, 0);
+		}
+	}
 }

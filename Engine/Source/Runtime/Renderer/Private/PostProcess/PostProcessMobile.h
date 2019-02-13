@@ -106,13 +106,12 @@ private:
 class FRCPassPostProcessSunMaskES2 : public TRenderingCompositePassBase<1, 1>
 {
 public:
-	FRCPassPostProcessSunMaskES2(FIntPoint InPrePostSourceViewportSize, bool bInOnChip) : PrePostSourceViewportSize(InPrePostSourceViewportSize), bOnChip(bInOnChip) { }
+	FRCPassPostProcessSunMaskES2(FIntPoint InPrePostSourceViewportSize) : PrePostSourceViewportSize(InPrePostSourceViewportSize) { }
 	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 	virtual void Release() override { delete this; }
 private:
 	FIntPoint PrePostSourceViewportSize;
-	bool bOnChip;
 	template <bool bUseDepthTexture>
 	void SetShader(const FRenderingCompositePassContext& Context);
 };
