@@ -186,7 +186,7 @@ void FHTML5InputInterface::SendControllerEvents()
 //	/// XXX TODO Restore this, emscripten_get_num_gamepads() currently has a moderately high performance impact, so disabled for local testing
 //	static bool GamepadSupported = false;
 //#else
-	static bool GamepadSupported = emscripten_sample_gamepad_data() == EMSCRIPTEN_RESULT_SUCCESS;
+	static bool GamepadSupported = true;
 //#endif
 
 	const double CurrentTime = FPlatformTime::Seconds();

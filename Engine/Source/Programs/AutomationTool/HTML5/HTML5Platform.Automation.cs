@@ -149,13 +149,13 @@ public class HTML5Platform : Platform
 				File.Copy(      SrcUE4GameBasename + ".js.mem", UE4GameBasename + ".js.mem", true);
 				File.SetAttributes(UE4GameBasename + ".js.mem", FileAttributes.Normal);
 
-				File.Copy(      SrcUE4GameBasename + ".worker.js", UE4GameBasename + ".worker.js", true);
-				File.SetAttributes(UE4GameBasename + ".worker.js", FileAttributes.Normal);
+				File.Copy(Path.Combine(Path.GetDirectoryName(_ProjectFullpath), "pthread-main.js"), Path.Combine(PackagePath, "pthread-main.js"), true);
+				File.SetAttributes(Path.Combine(PackagePath, "pthread-main.js"), FileAttributes.Normal);
 			}
 			else
 			{
-				// nuke possibly old deployed .worker.js, which is not needed for singlethreaded build.
-				File.Delete(UE4GameBasename + ".worker.js");
+				// nuke possibly old deployed pthread-main.js, which is not needed for singlethreaded build.
+				File.Delete(Path.Combine(PackagePath, "pthread-main.js"));
 			}
 		}
 		// else, c++ projects will compile "to" PackagePath
@@ -249,7 +249,7 @@ public class HTML5Platform : Platform
 			if (enableMultithreading)
 			{
 				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js.mem", UE4GameBasename + ".js.memgz")));			// mem init file
-				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".worker.js", UE4GameBasename + ".worker.jsgz")));		// pthread file
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(PackagePath + "/pthread-main.js", PackagePath + "/pthread-main.jsgz")));	// pthread file
 			}
 			Task.WaitAll(CompressionTasks.ToArray());
 		}
@@ -262,7 +262,7 @@ public class HTML5Platform : Platform
 			File.Delete(UE4GameBasename + ".jsgz");
 			File.Delete(UE4GameBasename + ".js.symbolsgz");
 			File.Delete(UE4GameBasename + ".js.memgz");
-			File.Delete(UE4GameBasename + ".worker.jsgz");
+			File.Delete(PackagePath + "/pthread-main.jsgz");
 			File.Delete(PackagePath + "/Utility.jsgz");
 			File.Delete(ProjectBasename + ".datagz");
 			File.Delete(ProjectBasename + ".data.jsgz");
@@ -516,7 +516,7 @@ public class HTML5Platform : Platform
 		if (enableMultithreading)
 		{
 			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.mem");		// memory init file
-			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".worker.js");
+			SC.ArchiveFiles(PackagePath, "pthread-main.js");
 		}
 
 		// Archive HTML5 Server and a Readme.
@@ -541,7 +541,7 @@ public class HTML5Platform : Platform
 			if (enableMultithreading)
 			{
 				SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.memgz");
-				SC.ArchiveFiles(PackagePath, UE4GameBasename + ".worker.jsgz");
+				SC.ArchiveFiles(PackagePath, "pthread-main.jsgz");
 			}
 		}
 		else
@@ -550,7 +550,7 @@ public class HTML5Platform : Platform
 			File.Delete(UE4GameBasename + ".wasmgz");
 			File.Delete(UE4GameBasename + ".jsgz");
 			File.Delete(UE4GameBasename + ".js.symbolsgz");
-			File.Delete(UE4GameBasename + ".worker.jsgz");
+			File.Delete("pthread-main.jsgz");
 			File.Delete("Utility.jsgz");
 			File.Delete(ProjectBasename + ".datagz");
 			File.Delete(ProjectBasename + ".data.jsgz");
