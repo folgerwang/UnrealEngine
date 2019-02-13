@@ -60,7 +60,14 @@ namespace AutomationTool
 			bool DoCompile = false;
 			if (GlobalCommandLine.Compile)
 			{
-				DoCompile = true;
+				if(CommandUtils.IsEngineInstalled())
+				{
+					CommandUtils.LogWarning("Ignoring -Compile argument because engine is installed.");
+				}
+				else
+				{
+					DoCompile = true;
+				}
 			}
 
 			// Compile only if not disallowed.
