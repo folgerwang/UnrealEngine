@@ -416,7 +416,11 @@ bool UOpenColorIOColorTransform::UpdateShaderInfo(FString& OutShaderCodeHash, FS
 
 	return false;
 #else
-	UE_LOG(LogOpenColorIO, Error, TEXT("Can't update shader, OCIO library isn't present."));
+	//Avoid triggering errors when building maps on build machine.
+	if (!GIsBuildMachine)
+	{
+		UE_LOG(LogOpenColorIO, Error, TEXT("Can't update shader, OCIO library isn't present."));
+	}
 	return false;
 #endif //WITH_OCIO
 #else
