@@ -5,8 +5,9 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Framework/Docking/TabManager.h"
 #include "IBlutilityModule.h"
+#include "EditorUtilityWidget.h"
 #include "EditorUtilityBlueprint.h"
-
+#include "GlobalEditorUtilityBase.h"
 
 #include "AssetToolsModule.h"
 #include "PropertyEditorModule.h"
@@ -30,7 +31,8 @@
 #include "LevelEditor.h"
 #include "Editor.h"
 #include "UnrealEdMisc.h"
-
+#include "EditorSupportDelegates.h"
+#include "UObject/PurgingReferenceCollector.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -91,6 +93,8 @@ public:
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 		LevelEditorModule.OnTabManagerChanged().AddRaw(this, &FBlutilityModule::ReinitializeUIs);
 		LevelEditorModule.OnMapChanged().AddRaw(this, &FBlutilityModule::OnMapChanged);
+
+		FEditorSupportDelegates::PrepareToCleanseEditorObject.AddRaw(this, &FBlutilityModule::OnPrepareToCleanseEditorObject);
 	}
 
 	void ReinitializeUIs()
@@ -184,6 +188,8 @@ public:
 			PropertyModule.UnregisterCustomClassLayout("GlobalEditorUtilityBase");
 			PropertyModule.NotifyCustomizationModuleChanged();
 		}
+
+		FEditorSupportDelegates::PrepareToCleanseEditorObject.RemoveAll(this);
 	}
 
 	virtual bool IsBlutility( const UBlueprint* Blueprint ) const override
@@ -241,6 +247,41 @@ protected:
 		if (EditorUtilityContext)
 		{
 			Collector.AddReferencedObject(EditorUtilityContext);
+		}
+	}
+
+	void OnPrepareToCleanseEditorObject(UObject* InObject)
+	{
+		// Gather the list of live Editor Utility instances to purge references from
+		TArray<UObject*> EditorUtilityInstances;
+		ForEachObjectOfClass(UEditorUtilityWidget::StaticClass(), [&EditorUtilityInstances](UObject* InEditorUtilityInstance)
+		{
+			EditorUtilityInstances.Add(InEditorUtilityInstance);
+		});
+		ForEachObjectOfClass(UGlobalEditorUtilityBase::StaticClass(), [&EditorUtilityInstances](UObject* InEditorUtilityInstance)
+		{
+			EditorUtilityInstances.Add(InEditorUtilityInstance);
+		});
+
+		if (EditorUtilityInstances.Num() > 0)
+		{
+			// Build up the complete list of objects to purge
+			FPurgingReferenceCollector PurgingReferenceCollector;
+			PurgingReferenceCollector.AddObjectToPurge(InObject);
+			ForEachObjectWithOuter(InObject, [&PurgingReferenceCollector](UObject* InInnerObject)
+			{
+				PurgingReferenceCollector.AddObjectToPurge(InInnerObject);
+			}, true);
+
+			// Run the purge for each Editor Utility instance
+			FReferenceCollectorArchive& PurgingReferenceCollectorArchive = PurgingReferenceCollector.GetVerySlowReferenceCollectorArchive();
+			for (UObject* EditorUtilityInstance : EditorUtilityInstances)
+			{
+				PurgingReferenceCollectorArchive.SetSerializingObject(EditorUtilityInstance);
+				EditorUtilityInstance->Serialize(PurgingReferenceCollectorArchive);
+				EditorUtilityInstance->CallAddReferencedObjects(PurgingReferenceCollector);
+				PurgingReferenceCollectorArchive.SetSerializingObject(nullptr);
+			}
 		}
 	}
 
