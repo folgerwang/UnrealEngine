@@ -679,11 +679,12 @@ public:
 	 * @param InView - Current View
  	 * @param InViewLODScale - View LOD scale
   	 * @param InCustomDataMemStack - MemStack to allocate the custom data
-   	 * @param InIsStaticRelevant - Tell us if it was called in a static of dynamic relevancy context
+	 * @param InIsStaticRelevant - Tell us if it was called in a static of dynamic relevancy context
+	 * @param InIsShadowOnly - Tell us if we are creating in the shadow context
    	 * @param InVisiblePrimitiveLODMask - Calculated LODMask for visibile primitive in static relevancy
    	 * @param InMeshScreenSizeSquared - Computed mesh batch screen size, passed to prevent recalculation
 	 */
-	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant = false, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) { return nullptr; }
+	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant, bool InIsShadowOnly, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) { return nullptr; }
 	
 	/**
 	 * Called during post visibility and shadow setup, just before the frame is rendered. It can be used to update custom data that had a dependency between them.

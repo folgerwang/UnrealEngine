@@ -1954,7 +1954,7 @@ int8 FLandscapeComponentSceneProxy::GetLODFromScreenSize(float InScreenSizeSquar
 	return INDEX_NONE;
 }
 
-void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant, const FLODMask* InVisiblePrimitiveLODMask, float InMeshScreenSizeSquared)
+void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant, bool InIsShadowOnly, const FLODMask* InVisiblePrimitiveLODMask, float InMeshScreenSizeSquared)
 {
 	SCOPE_CYCLE_COUNTER(STAT_LandscapeInitViewCustomData);
 
@@ -1993,6 +1993,8 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 			}
 		}
 	}
+
+	LODData->IsShadowOnly = InIsShadowOnly;
 
 	// Mobile use a different way of calculating the Bias
 	if (GetScene().GetFeatureLevel() >= ERHIFeatureLevel::SM4)
@@ -2138,9 +2140,14 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 
 	if (CustomData != nullptr)
 	{
-		ComputeNeighborCustomDataLOD = false;
 		const FViewCustomDataLOD* LODData = (const FViewCustomDataLOD*)CustomData;
-		NeighborLOD = FMath::Max(LODData->SubSections[DesiredSubSectionIndex].fBatchElementCurrentLOD, InBatchElementCurrentLOD);
+		// Don't use the custom data for neighbor calculation when it is marked shadow only (ie it is not visible in the view)
+		// See UE-69785 for more information
+		if (!LODData->IsShadowOnly)
+		{
+			ComputeNeighborCustomDataLOD = false;
+			NeighborLOD = FMath::Max(LODData->SubSections[DesiredSubSectionIndex].fBatchElementCurrentLOD, InBatchElementCurrentLOD);
+		}
 	}
 
 	if (ComputeNeighborCustomDataLOD)

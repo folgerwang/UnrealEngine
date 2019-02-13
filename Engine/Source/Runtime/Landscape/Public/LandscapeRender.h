@@ -501,6 +501,7 @@ public:
 		FViewCustomDataLOD()
 			: StaticMeshBatchLOD(INDEX_NONE)
 			, UseCombinedMeshBatch(true)
+			, IsShadowOnly(false)
 			, ComponentScreenSize(0.0f)
 			, ShaderCurrentLOD(ForceInitToZero)
 			, LodBias(ForceInitToZero)
@@ -509,6 +510,7 @@ public:
 
 		int8 StaticMeshBatchLOD;
 		bool UseCombinedMeshBatch;
+		bool IsShadowOnly;
 		float ComponentScreenSize;
 		TStaticArray<FViewCustomDataSubSectionLOD, MAX_SUBSECTION_COUNT> SubSections; // We always have at least 1 subsections
 
@@ -677,7 +679,7 @@ public:
 	virtual void OnTransformChanged() override;
 	virtual void CreateRenderThreadResources() override;
 	virtual void OnLevelAddedToWorld() override;
-	virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant = false, const FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) override;
+	virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant, bool InIsShadowOnly, const FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) override;
 	virtual void PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData) const override;
 	virtual bool IsUsingCustomLODRules() const override;
 	virtual FLODMask GetCustomLOD(const FSceneView& View, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenSizeSquared) const override;
