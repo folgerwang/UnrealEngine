@@ -71,6 +71,8 @@ FNiagaraWorldManager* FNiagaraWorldManager::Get(UWorld* World)
 
 void FNiagaraWorldManager::AddReferencedObjects(FReferenceCollector& Collector)
 {
+	// World doesn't need to be added to the reference list. It will be handle via OnWorldInit & OnWorldCleanup & OnPreWorldFinishDestroy in INiagaraModule
+
 	Collector.AddReferencedObjects(ParameterCollections);
 }
 
