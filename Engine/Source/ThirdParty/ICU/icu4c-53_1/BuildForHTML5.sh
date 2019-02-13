@@ -1,5 +1,7 @@
 #!/bin/bash
-set -x -e
+set -x
+# set -x -e # ICU has a number of warnings that will fail when -e is set
+
 
 # Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
