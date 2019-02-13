@@ -285,7 +285,7 @@ private:
 	/**
 	 * Fill up ResponseToChannels for ProfileList data from config
 	 */
-	void FillProfileData(TArray<FCollisionResponseTemplate>& ProfileList, const UEnum* CollisionChannelEnum, const FString& KeyName, TArray<FCustomProfile>& EditProfileList);
+	void FillProfileData(TArray<FCollisionResponseTemplate>& ProfileList, const UEnum* CollisionChannelEnum, TArray<FCustomProfile>& EditProfileList);
 
 	/**
 	 * Load Custom Responses to the Template. Returns true if all are found and customized. False otherwise
