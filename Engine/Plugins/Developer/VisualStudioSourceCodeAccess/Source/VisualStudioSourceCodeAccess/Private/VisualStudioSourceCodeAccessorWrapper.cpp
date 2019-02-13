@@ -76,5 +76,5 @@ bool FVisualStudioSourceCodeAccessorWrapper::SaveAllOpenDocuments() const
 
 void FVisualStudioSourceCodeAccessorWrapper::Tick(const float DeltaTime)
 {
-	// Inner will get this call separately
+	Inner->Tick(DeltaTime);
 }
