@@ -302,9 +302,14 @@ void UKismetSystemLibrary::ExecuteConsoleCommand(UObject* WorldContextObject, co
 {
 	// First, try routing through the primary player
 	APlayerController* TargetPC = Player ? Player : UGameplayStatics::GetPlayerController(WorldContextObject, 0);
-	if( TargetPC )
+	if (TargetPC)
 	{
 		TargetPC->ConsoleCommand(Command, true);
+	}
+	else if (GEngine)
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+		GEngine->Exec(World, *Command);
 	}
 }
 
