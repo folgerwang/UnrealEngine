@@ -64,12 +64,14 @@ namespace UnrealBuildTool
 		{
 			base.GetReferencedDirectories(Directories);
 
-			if(SourceDirectories == null)
+			if(!Rules.bUsePrecompiled)
 			{
-				throw new BuildException("GetReferencedDirectories() should not be called before building.");
+				if(SourceDirectories == null)
+				{
+					throw new BuildException("GetReferencedDirectories() should not be called before building.");
+				}
+				Directories.UnionWith(SourceDirectories);
 			}
-
-			Directories.UnionWith(SourceDirectories);
 		}
 
 		/// <summary>
