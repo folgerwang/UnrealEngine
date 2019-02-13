@@ -787,7 +787,17 @@ thread_local const TCHAR* GAssertErrorMessage = nullptr;
 void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
 	GAssertErrorMessage = ErrorMessage;
-	FPlatformMisc::RaiseException(1);
+
+	// Store NumStackFramesToIgnore in signal data	
+	sigval UserData;
+	UserData.sival_int = NumStackFramesToIgnore + 2; // +2 for this function and sigqueue()
+	sigqueue(getpid(),  SIGSEGV, UserData);
+	
+	// Make sure we never return
+	for (;;)
+	{
+		FPlatformProcess::Sleep(60.0f);
+	}
 }
 
 static FCriticalSection EnsureLock;

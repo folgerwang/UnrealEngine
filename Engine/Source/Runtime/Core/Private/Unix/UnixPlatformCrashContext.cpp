@@ -101,6 +101,12 @@ void FUnixCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInfo, void* 
 	Context = reinterpret_cast< ucontext_t* >( InContext );
 
 	FCString::Strcat(SignalDescription, ARRAY_COUNT( SignalDescription ) - 1, *DescribeSignal(Signal, Info, Context));
+
+	// Retrieve NumStackFramesToIgnore from signal data
+	if (Info && Info->si_value.sival_int != 0)
+	{
+		SetNumMinidumpFramesToIgnore(Info->si_value.sival_int);
+	}
 }
 
 void FUnixCrashContext::InitFromEnsureHandler(const TCHAR* EnsureMessage, const void* CrashAddress)
@@ -292,7 +298,7 @@ void FUnixCrashContext::CaptureStackTrace()
 		ANSICHAR* StackTrace = (ANSICHAR*) FMemory::Malloc( StackTraceSize );
 		StackTrace[0] = 0;
 
-		int32 IgnoreCount = 0;
+		int32 IgnoreCount = NumMinidumpFramesToIgnore;
 		CapturePortableCallStack(IgnoreCount, this);
 
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)

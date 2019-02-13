@@ -54,7 +54,13 @@ void FUnixErrorOutputDevice::Serialize(const TCHAR* Msg, ELogVerbosity::Type Ver
 #if PLATFORM_EXCEPTIONS_DISABLED
 		UE_DEBUG_BREAK();
 #endif
-		ReportAssert(Msg, 0);
+		// Generate the portable callstack. For asserts, we ignore the following frames:
+		//     FDebug::AssertFailed()
+		//   [ FOutputDevice::Logf() ] - force-inlined; ignored
+		//     FOutputDevice::LogfImpl()
+		//     FWindowsErrorOutputDevice::Serialize()
+		const int32 NumStackFramesToIgnore = 3;
+		ReportAssert(Msg, NumStackFramesToIgnore);
 	}
 	else
 	{
