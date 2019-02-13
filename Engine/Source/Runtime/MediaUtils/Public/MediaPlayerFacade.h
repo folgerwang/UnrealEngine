@@ -473,6 +473,13 @@ public:
 	bool IsPreparing() const;
 
 	/**
+	 * Whether media is currently closed.
+	 *
+	 * @return true if media is closed, false otherwise.
+	 */
+	bool IsClosed() const;
+
+	/**
 	 * Whether media is ready for playback.
 	 *
 	 * A player is ready for playback if it has a media source opened that

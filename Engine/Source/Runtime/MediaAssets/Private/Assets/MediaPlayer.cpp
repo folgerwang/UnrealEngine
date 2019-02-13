@@ -14,6 +14,7 @@
 #include "LatentActions.h"
 #include "MediaPlayerFacade.h"
 #include "MediaPlayerOptions.h"
+#include "MediaHelpers.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
@@ -363,6 +364,11 @@ bool UMediaPlayer::IsPreparing() const
 	return PlayerFacade->IsPreparing();
 }
 
+
+bool UMediaPlayer::IsClosed() const
+{
+	return PlayerFacade->IsClosed();
+}
 
 bool UMediaPlayer::IsReady() const
 {
@@ -922,6 +928,10 @@ public:
 	float TimeRemaining;
 	bool& OutSuccess;
 	bool bSawError;
+	bool bSawMediaOpened;
+	bool bSawMediaOpenFailed;
+	bool bSawSeekCompleted;
+	FMediaPlayerOptions Options;
 	FString URL;
 
 	FLatentOpenMediaSourceAction(const FLatentActionInfo& LatentInfo, UMediaPlayer* InMediaPlayer, UMediaSource* InMediaSource, const FMediaPlayerOptions& InOptions, bool& InSuccess)
@@ -932,55 +942,151 @@ public:
 		, TimeRemaining(10.0)
 		, OutSuccess(InSuccess)
 		, bSawError(false)
+		, bSawMediaOpened(false)
+		, bSawMediaOpenFailed(false)
+		, bSawSeekCompleted(false)
+		, Options(InOptions)
 	{
 		if (InMediaSource)
 		{
 			URL = InMediaSource->GetUrl();
-		}
 
-		if (!InMediaPlayer->OpenSourceWithOptions(InMediaSource, InOptions))
+			InMediaPlayer->OnMediaEvent().AddRaw(this, &FLatentOpenMediaSourceAction::HandleMediaPlayerEvent);
+			if (!InMediaPlayer->OpenSourceWithOptions(InMediaSource, InOptions))
+			{
+				UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Failed initial open: %s"), *URL);
+				bSawError = true;
+			}
+		}
+		else
 		{
-			UE_LOG(LogMediaAssets, Verbose, TEXT("Latent Media: After initial open started"));
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Failed initial open because no media source given"));
 			bSawError = true;
 		}
 	}
 
+	virtual ~FLatentOpenMediaSourceAction()
+	{
+		UnregisterMediaEvent();
+	}
+
+	void UnregisterMediaEvent()
+	{
+		if (MediaPlayer.IsValid())
+		{
+			MediaPlayer->OnMediaEvent().RemoveAll(this);
+		}
+	}
+
+	void HandleMediaPlayerEvent(EMediaEvent Event)
+	{
+		UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Saw event: %s"), *MediaUtils::EventToString(Event));
+
+		switch (Event)
+		{
+		case EMediaEvent::MediaOpened:
+			bSawMediaOpened = true;
+			break;
+		case EMediaEvent::MediaOpenFailed:
+			bSawMediaOpenFailed = true;
+			break;
+		case EMediaEvent::SeekCompleted:
+			bSawSeekCompleted = true;
+			break;
+		}
+	}
+
+	void FailedOperation(FLatentResponse& Response)
+	{
+		OutSuccess = false;
+		Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+	}
+
 	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
-		if (bSawError || !MediaPlayer.IsValid() || MediaPlayer.IsStale() || MediaPlayer->HasError())
+		if (bSawMediaOpenFailed)
 		{
-			UE_LOG(LogMediaAssets, Warning, TEXT("Latent Media: Deleted or Error"));
-			OutSuccess = false;
-			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Saw media open failed event. %s"), *URL);
+			FailedOperation(Response);
 			return;
 		}
 
-		if (MediaPlayer->IsReady())
+		if (!MediaPlayer.IsValid() || MediaPlayer.IsStale())
 		{
-			UE_LOG(LogMediaAssets, Verbose, TEXT("Latent Media: IsReady"));
-			OutSuccess = true;
-			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player object was deleted. %s"), *URL);
+			FailedOperation(Response);
 			return;
 		}
-		else if (!MediaPlayer->IsPreparing())
+
+		if (bSawError || MediaPlayer->HasError())
 		{
-			UE_LOG(LogMediaAssets, Verbose, TEXT("Latent Media: Invalid State"));
-			OutSuccess = false;
-			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player is in Error state. %s"), *URL);
+			FailedOperation(Response);
 			return;
+		}
+
+		if (MediaPlayer->IsClosed())
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player is closed. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+
+		if (MediaPlayer->IsPreparing())
+		{
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Is preparing ..."));
+		}
+		else if (MediaPlayer->IsReady())
+		{
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: IsReady() ... %s"), *URL);
+
+			if (bSawMediaOpened)
+			{
+				if (!Options.SeekTime.IsZero())
+				{
+					if (bSawSeekCompleted)
+					{
+						UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Triggering output pin after seek completed. Success: %d, %s"), OutSuccess, *URL);
+						OutSuccess = true;
+						Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+						return;
+					}
+					else
+					{
+						if (Options.SeekTime < FTimespan::FromSeconds(0) || Options.SeekTime > MediaPlayer->GetDuration())
+						{
+							UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player seeking to time out of bounds. Seek: %s, Duration: %s, URL: %s"), 
+								*Options.SeekTime.ToString(), *MediaPlayer->GetDuration().ToString(), *URL);
+							FailedOperation(Response);
+							return;
+						}
+						UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for seek completed event ..."));
+					}
+				}
+				else
+				{
+					UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Triggering output pin after opened event. Success: %d, %s"), OutSuccess, *URL);
+					OutSuccess = true;
+					Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+					return;
+				}
+			}
+			else
+			{
+				UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for opened event ..."));
+			}
 		}
 		else
 		{
-			UE_LOG(LogMediaAssets, Verbose, TEXT("Latent Media: Waiting for open ..."));
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for IsReady() ..."));
 		}
 
 		// Timed out
 		TimeRemaining -= Response.ElapsedTime();
 		if (TimeRemaining <= 0.0f)
 		{
-			UE_LOG(LogMediaAssets, Verbose, TEXT("Latent Media: Timed out."));
-			OutSuccess = false;
-			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Timed out. %s"), *URL);
+			FailedOperation(Response);
 			return;
 		}
 	}

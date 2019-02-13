@@ -412,6 +412,10 @@ bool FMediaPlayerFacade::IsPreparing() const
 	return Player.IsValid() && (Player->GetControls().GetState() == EMediaState::Preparing);
 }
 
+bool FMediaPlayerFacade::IsClosed() const
+{
+	return Player.IsValid() && (Player->GetControls().GetState() == EMediaState::Closed);
+}
 
 bool FMediaPlayerFacade::IsReady() const
 {
