@@ -325,6 +325,7 @@ uint32 FWindowsPlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint
 	uint32 Depth = 0;
 	if (Context)
 	{
+		InitStackWalking();
 		CaptureStackTraceHelper(BackTrace, MaxDepth, (FWindowsThreadContextWrapper*)Context, &Depth);
 	}
 	else
