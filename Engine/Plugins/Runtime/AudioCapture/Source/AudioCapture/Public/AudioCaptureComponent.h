@@ -52,5 +52,5 @@ private:
 	int32 FramesSinceStarting;
 	int32 ReadSampleIndex;
 	FThreadSafeBool bIsDestroying;
-	FThreadSafeBool bIsReadyForForFinishDestroy;
+	FThreadSafeBool bIsNotReadyForForFinishDestroy;
 };
