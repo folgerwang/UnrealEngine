@@ -141,12 +141,6 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 	return 
 		//@todo-rco: Fix when iOS OpenGL supports MSAA
 		Platform != SP_OPENGL_ES2_IOS
-		// @todo marksatt Metal on macOS 10.12 and earlier (or Intel on any macOS < 10.13.2) don't reliably support our MSAA usage & custom resolve.
-#if PLATFORM_MAC
-		&& IsMetalPlatform(Platform) && (FPlatformMisc::MacOSXVersionCompare(10, 13, 0) >= 0) && (!IsRHIDeviceIntel() || FPlatformMisc::MacOSXVersionCompare(10, 13, 2) >= 0)
-#endif
-		// @todo marksatt iOS Desktop Forward needs more work internally
-		&& Platform != SP_METAL_MRT
 		// @todo optimise MSAA for XboxOne, currently uses significant eRAM.
 		&& Platform != SP_XBOXONE_D3D12;
 }

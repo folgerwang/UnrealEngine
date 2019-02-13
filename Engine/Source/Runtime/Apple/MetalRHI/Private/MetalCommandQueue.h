@@ -171,7 +171,7 @@ public:
 	* @returns True if RHISupportsSeparateMSAAAndResolveTextures will be true.  
 	* Currently Mac only.
 	*/
-	static inline bool SupportsSeparateMSAAAndResolveTarget() { return PLATFORM_MAC != 0; }
+	static inline bool SupportsSeparateMSAAAndResolveTarget() { return (PLATFORM_MAC != 0 || GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5); }
 
 #pragma mark - Public Debug Support -
 
