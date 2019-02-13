@@ -90,7 +90,7 @@ class FVisualizeTexturePS : public FGlobalShader
 		SHADER_PARAMETER_SAMPLER(SamplerState, VisualizeTextureCubeSampler)
 		SHADER_PARAMETER_RDG_TEXTURE(TextureCubeArray, VisualizeTextureCubeArray)
 		SHADER_PARAMETER_SAMPLER(SamplerState, VisualizeTextureCubeArraySampler)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D<uint4>, VisualizeDepthStencilTexture)
+		SHADER_PARAMETER_SRV(Texture2D<uint4>, VisualizeDepthStencilTexture)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2DMS<float4>, VisualizeTexture2DMS)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D<uint>, VisualizeUINT8Texture2D)
 
@@ -194,33 +194,6 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 		LocalVisualizeTextureInputMapping = 1;
 	}
 
-#if 0 // TODO(RDG): requires changes in FRDGTextureSRVDesc
-	bool bIsDefault = StencilSRVSrc == GBlackTexture->TextureRHI;
-	bool bDepthStencil = SrcDesc.Is2DTexture() && SrcDesc.Format == PF_DepthStencil;
-
-	//clear if this is a new different Stencil buffer, or it's not a stencil buffer and we haven't switched to the default yet.
-	bool bNeedsClear = bDepthStencil && (StencilSRVSrc != RenderTargetItem.TargetableTexture);
-	bNeedsClear |= !bDepthStencil && !bIsDefault;
-	if (bNeedsClear)
-	{
-		StencilSRVSrc = nullptr;
-		StencilSRV.SafeRelease();
-	}
-
-	//always set something into the StencilSRV slot for platforms that require a full resource binding, even if
-	//dynamic branching will cause them not to be used.	
-	if (bDepthStencil && !StencilSRVSrc)
-	{
-		StencilSRVSrc = RenderTargetItem.TargetableTexture;
-		StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)RenderTargetItem.TargetableTexture, 0, 1, PF_X24_G8);
-	}
-	else if (!StencilSRVSrc)
-	{
-		StencilSRVSrc = GBlackTexture->TextureRHI;
-		StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)GBlackTexture->TextureRHI, 0, 1, PF_B8G8R8A8);
-	}
-#endif
-
 	// distinguish between standard depth and shadow depth to produce more reasonable default value mapping in the pixel shader.
 	const bool bDepthTexture = (SrcDesc.TargetableFlags & TexCreate_DepthStencilTargetable) != 0;
 	const bool bShadowDepth = (SrcDesc.Format == PF_ShadowDepth);
@@ -273,10 +246,66 @@ void FVisualizeTexture::CreateContentCapturePass(FRDGBuilder& GraphBuilder, cons
 
 	TShaderMapRef<FVisualizeTexturePS> PixelShader(ShaderMap, PermutationVector);
 
-	FPixelShaderUtils::AddFullscreenPass(
-		GraphBuilder, ShaderMap,
+	GraphBuilder.AddPass(
 		RDG_EVENT_NAME("VisualizeTextureCapture(%s)", SrcTexture->Name),
-		*PixelShader, PassParameters);
+		PassParameters,
+		ERenderGraphPassFlags::None,
+		[this, PassParameters, ShaderMap, PixelShader, RTExtent](FRHICommandList& RHICmdList)
+	{
+		FVisualizeTexturePS::FParameters ShaderParameter = *PassParameters;
+
+		// TODO(RDG): technically could use FPixelShaderUtils::AddPass(), but there is lot of work to support creating arbitrary number of SRV for a FRDGTexture,
+		// so the VisualizeDepthStencilTexture has to be hacked in the lambda...
+		{
+			// Some RHI might be unhappy with RHICreateShaderResourceView() inside renderpass.
+			check(RHICmdList.IsInsideRenderPass());
+			RHICmdList.EndRenderPass();
+			check(RHICmdList.IsOutsideRenderPass());
+
+			const FRDGTextureDesc& SrcDesc = PassParameters->VisualizeTexture2D->Desc;
+			FSceneRenderTargetItem& RenderTargetItem = PassParameters->VisualizeTexture2D->GetPooledRenderTarget()->GetRenderTargetItem();
+
+			bool bIsDefault = this->StencilSRVSrc == GBlackTexture->TextureRHI;
+			bool bDepthStencil = SrcDesc.Is2DTexture() && SrcDesc.Format == PF_DepthStencil;
+
+			//clear if this is a new different Stencil buffer, or it's not a stencil buffer and we haven't switched to the default yet.
+			bool bNeedsClear = bDepthStencil && (this->StencilSRVSrc != RenderTargetItem.TargetableTexture);
+			bNeedsClear |= !bDepthStencil && !bIsDefault;
+			if (bNeedsClear)
+			{
+				this->StencilSRVSrc = nullptr;
+				this->StencilSRV.SafeRelease();
+			}
+
+			//always set something into the StencilSRV slot for platforms that require a full resource binding, even if
+			//dynamic branching will cause them not to be used.	
+			if (bDepthStencil && !GVisualizeTexture.StencilSRVSrc)
+			{
+				this->StencilSRVSrc = RenderTargetItem.TargetableTexture;
+				this->StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)RenderTargetItem.TargetableTexture, 0, 1, PF_X24_G8);
+			}
+			else if (!GVisualizeTexture.StencilSRVSrc)
+			{
+				this->StencilSRVSrc = GBlackTexture->TextureRHI;
+				this->StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)GBlackTexture->TextureRHI, 0, 1, PF_B8G8R8A8);
+			}
+
+			ShaderParameter.VisualizeDepthStencilTexture = this->StencilSRV;
+
+			// Rebind the render targets.
+			FRHIRenderPassInfo RPInfo;
+			RPInfo.ColorRenderTargets[0].RenderTarget = PassParameters->RenderTargets[0].GetTexture()->GetPooledRenderTarget()->GetRenderTargetItem().TargetableTexture;
+			RPInfo.ColorRenderTargets[0].ResolveTarget = nullptr;
+			RPInfo.ColorRenderTargets[0].ArraySlice = -1;
+			RPInfo.ColorRenderTargets[0].MipIndex = 0;
+			RPInfo.ColorRenderTargets[0].Action = MakeRenderTargetActions(ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore);
+
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeTextureCapture"));
+			check(RHICmdList.IsInsideRenderPass());
+		}
+
+		FPixelShaderUtils::DrawFullscreenPixelShader(RHICmdList, ShaderMap, *PixelShader, ShaderParameter, FIntRect(0, 0, RTExtent.X, RTExtent.Y));
+	});
 
 	// Save the copied texture and descriptor about original informations.
 	{

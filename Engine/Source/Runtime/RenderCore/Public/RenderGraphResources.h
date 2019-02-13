@@ -122,6 +122,13 @@ public:
 	/** Descriptor of the graph tracked texture. */
 	const FPooledRenderTargetDesc Desc;
 
+	/** Returns the allocated pooled render target. */
+	inline IPooledRenderTarget* GetPooledRenderTarget() const
+	{
+		check(PooledRenderTarget);
+		return PooledRenderTarget;
+	}
+
 private:
 	/** This is not a TRefCountPtr<> because FRDGTexture is allocated on the FMemStack
 	 * FGraphBuilder::AllocatedTextures is actually keeping the reference.
