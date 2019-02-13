@@ -678,7 +678,7 @@ void SMediaFrameworkCaptureCurrentViewportWidget::OnPrePIEEnded()
 void SMediaFrameworkCaptureCurrentViewportWidget::ShutdownViewport()
 {
 	TSharedPtr<FSceneViewport> EditorSceneViewportPin = EditorSceneViewport.Pin();
-	if (EditorSceneViewportPin.IsValid())
+	if (EditorSceneViewportPin.IsValid() && EditorSceneViewportPin->GetViewportWidget().IsValid())
 	{
 		EditorSceneViewportPin->SetFixedViewportSize(0, 0);
 	}
