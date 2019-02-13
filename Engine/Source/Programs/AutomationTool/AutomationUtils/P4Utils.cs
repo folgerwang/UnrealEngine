@@ -2189,7 +2189,7 @@ namespace AutomationTool
                     return;
                 }
 				string CmdOutput;
-				if (!LogP4Output(out CmdOutput, String.Format("submit -c {0}", CL)))
+				if (!LogP4Output(out CmdOutput, String.Format("submit -c {0} -f submitunchanged", CL)))
 				{
 					if (!Force)
 					{
