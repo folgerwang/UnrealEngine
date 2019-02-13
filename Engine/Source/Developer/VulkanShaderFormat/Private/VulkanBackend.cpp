@@ -137,6 +137,18 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureIns
 			{
 				return "textureCubeArray";
 			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2darray"))
+			{
+				return "texture2DArray";
+			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2dms"))
+			{
+				return "texture2DArray";
+			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2dmsarray"))
+			{
+				return "texture2DMSArray";
+			}
 
 			return Type->HlslName;
 		}
