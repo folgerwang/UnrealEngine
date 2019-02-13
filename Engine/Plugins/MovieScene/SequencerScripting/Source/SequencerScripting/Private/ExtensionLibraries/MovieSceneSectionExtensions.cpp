@@ -15,6 +15,7 @@
 #include "KeysAndChannels/MovieSceneScriptingString.h"
 #include "KeysAndChannels/MovieSceneScriptingEvent.h"
 #include "KeysAndChannels/MovieSceneScriptingActorReference.h"
+#include "Sections/MovieSceneSubSection.h"
 
 
 FSequencerScriptingRange UMovieSceneSectionExtensions::GetRange(UMovieSceneSection* Section)
@@ -272,4 +273,52 @@ TArray<UMovieSceneScriptingChannel*> UMovieSceneSectionExtensions::FindChannelsB
 
 
 	return Channels;
+}
+
+
+bool GetSubSectionChain(UMovieSceneSubSection* InSubSection, UMovieSceneSequence* ParentSequence, TArray<UMovieSceneSubSection*>& SubSectionChain)
+{
+	UMovieScene* ParentMovieScene = ParentSequence->GetMovieScene();
+	for (UMovieSceneTrack* MasterTrack : ParentMovieScene->GetMasterTracks())
+	{
+		for (UMovieSceneSection* Section : MasterTrack->GetAllSections())
+		{
+			if (Section == InSubSection)
+			{
+				SubSectionChain.Add(InSubSection);
+				return true;
+			}
+			if (Section->IsA(UMovieSceneSubSection::StaticClass()))
+			{
+				UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+				if (GetSubSectionChain(InSubSection, SubSection->GetSequence(), SubSectionChain))
+				{
+					SubSectionChain.Add(SubSection);
+				}
+			}
+		}
+	}
+	return false;
+}
+
+
+int32 UMovieSceneSectionExtensions::GetParentSequenceFrame(UMovieSceneSubSection* InSubSection, int32 InFrame, UMovieSceneSequence* ParentSequence)
+{
+	TArray<UMovieSceneSubSection*> SubSectionChain;
+	GetSubSectionChain(InSubSection, ParentSequence, SubSectionChain);
+		
+	FFrameRate LocalDisplayRate = InSubSection->GetSequence()->GetMovieScene()->GetDisplayRate();
+	FFrameRate LocalTickResolution = InSubSection->GetSequence()->GetMovieScene()->GetTickResolution();
+	FFrameTime LocalFrameTime = ConvertFrameTime(InFrame, LocalDisplayRate, LocalTickResolution);
+		
+	for (int32 SectionIndex = 0; SectionIndex < SubSectionChain.Num(); ++SectionIndex)
+	{
+		LocalFrameTime = LocalFrameTime * SubSectionChain[SectionIndex]->OuterToInnerTransform().Inverse();
+	}
+
+	FFrameRate ParentDisplayRate = ParentSequence->GetMovieScene()->GetDisplayRate();
+	FFrameRate ParentTickResolution = ParentSequence->GetMovieScene()->GetTickResolution();
+
+	LocalFrameTime = ConvertFrameTime(LocalFrameTime, ParentTickResolution, ParentDisplayRate);
+	return LocalFrameTime.GetFrame().Value;
 }

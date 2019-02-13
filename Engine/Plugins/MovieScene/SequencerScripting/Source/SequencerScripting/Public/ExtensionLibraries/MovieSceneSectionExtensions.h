@@ -156,4 +156,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Section, meta = (ScriptMethod))
 	static TArray<UMovieSceneScriptingChannel*> FindChannelsByType(UMovieSceneSection* Section, TSubclassOf<UMovieSceneScriptingChannel> ChannelType);
 
+	/**
+	 * Get the frame in the space of its parent sequence
+	 *
+	 * @param Section        The section that the InFrame is local to
+	 * @param InFrame The desired local frame
+	 * @param ParentSequence The parent sequence to traverse from
+	 * @return The frame at the parent sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Section", meta = (ScriptMethod))
+	static int32 GetParentSequenceFrame(UMovieSceneSubSection* Section, int32 InFrame, UMovieSceneSequence* ParentSequence);
 };
