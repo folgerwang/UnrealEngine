@@ -3114,6 +3114,11 @@ void UHierarchicalInstancedStaticMeshComponent::PartialNavigationUpdate(int32 In
 	}
 }
 
+FBox UHierarchicalInstancedStaticMeshComponent::GetNavigationBounds() const
+{
+	return CalcBounds(GetComponentTransform()).GetBox();
+}
+
 void UHierarchicalInstancedStaticMeshComponent::FlushAccumulatedNavigationUpdates()
 {
 	if (AccumulatedNavigationDirtyArea.IsValid)

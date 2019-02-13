@@ -266,6 +266,7 @@ protected:
 
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const override;
 	virtual void PartialNavigationUpdate(int32 InstanceIdx) override;
+	virtual FBox GetNavigationBounds() const override;
 	void FlushAccumulatedNavigationUpdates();
 	mutable FBox AccumulatedNavigationDirtyArea;
 
