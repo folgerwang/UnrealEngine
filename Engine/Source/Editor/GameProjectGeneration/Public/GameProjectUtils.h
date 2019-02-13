@@ -322,6 +322,9 @@ private:
 	/** Creates ini files for a new project. On failure, OutFailReason will be populated. */
 	static bool GenerateConfigFiles(const FProjectInformation& InProjectInfo, TArray<FString>& OutCreatedFiles, FText& OutFailReason);
 
+	/* Creates new ini files for a specific project. This is used for turning on the AudioMixer by default on specific platforms in GenerateConfigFiles. */
+	static bool GeneratePlatformConfigFiles(const FProjectInformation& InProjectInfo, const FString& InPlatformName, FText& OutFailReason);
+
 	/** Creates the basic source code for a new project. On failure, OutFailReason will be populated. */
 	static bool GenerateBasicSourceCode(const FString& NewProjectSourcePath, const FString& NewProjectName, const FString& NewProjectRoot, TArray<FString>& OutGeneratedStartupModuleNames, TArray<FString>& OutCreatedFiles, FText& OutFailReason);
 
@@ -509,5 +512,11 @@ private:
 
 	static TWeakPtr<SNotificationItem> UpdateGameProjectNotification;
 	static TWeakPtr<SNotificationItem> WarningProjectNameNotification;
-	static FString DefaultFeaturePackExtension;	
+	static FString DefaultFeaturePackExtension;
+
+	// Whether we should use AudioMixer for all platforms:
+	static bool bUseAudioMixerForAllPlatforms;
+	
+	// List of platforms we want to explicitly enable the new audio engine for when generating a new project.
+	static TArray<FString> AudioMixerEnabledPlatforms;
 };

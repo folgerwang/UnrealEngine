@@ -88,6 +88,16 @@ TWeakPtr<SNotificationItem> GameProjectUtils::WarningProjectNameNotification = N
 
 FString GameProjectUtils::DefaultFeaturePackExtension(TEXT(".upack"));	
 
+bool GameProjectUtils::bUseAudioMixerForAllPlatforms = true;
+
+TArray<FString> GameProjectUtils::AudioMixerEnabledPlatforms(
+{
+	// If bUseAudioMixerForAllPlatforms is set to false,
+	// This can be used to only flag specific platforms to use the new audio engine on new projects.
+	// For example, for windows:
+	//TEXT("Windows")
+});
+
 FText FNewClassInfo::GetClassName() const
 {
 	switch(ClassType)
@@ -1814,6 +1824,13 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 		FileContents += GetHardwareConfigString(InProjectInfo);
 		FileContents += LINE_TERMINATOR;
 		
+		if(bUseAudioMixerForAllPlatforms)
+		{
+			FileContents += TEXT("[Audio]") LINE_TERMINATOR;
+			FileContents += TEXT("UseAudioMixer=True") LINE_TERMINATOR;
+			FileContents += LINE_TERMINATOR;
+		}
+		
 		if (InProjectInfo.bCopyStarterContent)
 		{
 			FString SpecificEditorStartupMap;
@@ -1886,7 +1903,40 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 		}
 	}
 
+	// inis for any audiomixer-enabled platforms:
+	{
+		for (const FString& PlatformName : AudioMixerEnabledPlatforms)
+		{
+			if (!GeneratePlatformConfigFiles(InProjectInfo, PlatformName, OutFailReason))
+			{
+				return false;
+			}
+		}
+	}
+
 	return true;
+}
+
+bool GameProjectUtils::GeneratePlatformConfigFiles(const FProjectInformation& InProjectInfo, const FString& InPlatformName, FText& OutFailReason)
+{
+	const FString NewProjectFolder = FPaths::GetPath(InProjectInfo.ProjectFilename);
+
+	FString ProjectConfigPath = NewProjectFolder / TEXT("Config");
+
+	const FString PlatformEngineIniFilename = ProjectConfigPath / InPlatformName / InPlatformName + TEXT("Engine.ini");
+	FString FileContents;
+
+	FileContents += TEXT("[Audio]") LINE_TERMINATOR;
+	FileContents += TEXT("UseAudioMixer=True");
+
+	if (WriteOutputFile(PlatformEngineIniFilename, FileContents, OutFailReason))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool GameProjectUtils::GenerateBasicSourceCode(TArray<FString>& OutCreatedFiles, FText& OutFailReason)
