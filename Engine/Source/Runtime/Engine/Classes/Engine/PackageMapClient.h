@@ -86,9 +86,19 @@ public:
 			}
 			else
 			{
-				Ar << C.ExportName;
+				if (Ar.IsLoading() && Ar.EngineNetVer() < HISTORY_NETEXPORT_SERIALIZE_FIX)
+				{
+					Ar << C.ExportName;
+				}
+				else
+				{
+					UPackageMap::StaticSerializeName(Ar, C.ExportName);
+				}
 
-				C.Name = C.ExportName.ToString();
+				if (Ar.IsLoading())
+				{
+					C.Name = C.ExportName.ToString();
+				}
 			}
 		}
 
