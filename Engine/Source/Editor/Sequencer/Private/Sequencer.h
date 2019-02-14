@@ -169,7 +169,7 @@ public:
 	void SetPlaybackRangeEnd()
 	{
 		TRange<FFrameNumber> PlayRange = GetPlaybackRange();
-		SetPlaybackRange(TRange<FFrameNumber>(PlayRange.GetLowerBound(), TRangeBound<FFrameNumber>::Inclusive(GetLocalTime().Time.FrameNumber)));
+		SetPlaybackRange(TRange<FFrameNumber>(PlayRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(GetLocalTime().Time.FrameNumber)));
 	}
 
 	/**
