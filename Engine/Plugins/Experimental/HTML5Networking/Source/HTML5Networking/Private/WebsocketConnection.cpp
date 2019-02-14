@@ -145,9 +145,12 @@ void UWebSocketConnection::Tick()
 void UWebSocketConnection::FinishDestroy()
 {
 	Super::FinishDestroy();
-	delete WebSocket; 
-	WebSocket = NULL;
-
+	if (WebSocket)
+	{
+		WebSocket->Context = NULL; // UE-68340
+		delete WebSocket; 
+		WebSocket = NULL;
+	}
 }
 
 void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)

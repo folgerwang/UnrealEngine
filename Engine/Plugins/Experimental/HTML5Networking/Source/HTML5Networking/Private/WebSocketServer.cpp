@@ -135,10 +135,6 @@ static int unreal_networking_server
 	struct lws_context *Context = lws_get_context(Wsi);
 	PerSessionDataServer* BufferInfo = (PerSessionDataServer*)User;
 	FWebSocketServer* Server = (FWebSocketServer*)lws_context_user(Context);
-	if (!Context)
-	{
-		return 0;
-	}
 
 	switch (Reason)
 	{
@@ -158,10 +154,11 @@ static int unreal_networking_server
 			break;
 
 		case LWS_CALLBACK_SERVER_WRITEABLE:
+			if (BufferInfo->Socket->Context == Context) // UE-68340 -- bandaid until this file is removed in favor of using LwsWebSocketsManager.cpp & LwsWebSocket.cpp
 			{
 				BufferInfo->Socket->OnRawWebSocketWritable(Wsi);
-				lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 0);
 			}
+			lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 0);
 			break;
 		case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
 			{
