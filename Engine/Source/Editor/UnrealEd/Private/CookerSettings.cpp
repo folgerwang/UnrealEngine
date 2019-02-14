@@ -75,5 +75,9 @@ void UCookerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 				UpdateSinglePropertyInConfigFile(OldProperty, GetDefaultConfigFilename());
 			}
 		}
+		else
+		{
+			ExportValuesToConsoleVariables(PropertyChangedEvent.Property);
+		}
 	}
 }
