@@ -2231,14 +2231,15 @@ FFoliageMeshInfo* AInstancedFoliageActor::AddMesh(UStaticMesh* InMesh, UFoliageT
 	if (DefaultSettings)
 	{
 		// TODO: Can't we just use this directly?
-		Settings = DuplicateObject<UFoliageType_InstancedStaticMesh>(DefaultSettings, this);
+		FObjectDuplicationParameters DuplicationParameters(const_cast<UFoliageType_InstancedStaticMesh*>(DefaultSettings), this);
+		DuplicationParameters.ApplyFlags = RF_Transactional;
+		Settings = CastChecked<UFoliageType_InstancedStaticMesh>(StaticDuplicateObjectEx(DuplicationParameters));
 	}
 	else
 #endif
 	{
-		Settings = NewObject<UFoliageType_InstancedStaticMesh>(this);
+		Settings = NewObject<UFoliageType_InstancedStaticMesh>(this, NAME_None, RF_Transactional);
 	}
-	Settings->SetFlags(RF_Transactional);
 	Settings->Mesh = InMesh;
 
 	FFoliageMeshInfo* MeshInfo = AddMesh(Settings);

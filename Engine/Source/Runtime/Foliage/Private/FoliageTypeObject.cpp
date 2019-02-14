@@ -19,7 +19,7 @@ void FFoliageTypeObject::RefreshInstance()
 		if (FoliageTypeAsBP->ParentClass->IsChildOf<UFoliageType_InstancedStaticMesh>())
 		{
 			bIsAsset = false;
-			TypeInstance = NewObject<UFoliageType_InstancedStaticMesh>(GetTransientPackage(), *FoliageTypeAsBP->GeneratedClass);
+			TypeInstance = NewObject<UFoliageType_InstancedStaticMesh>(GetTransientPackage(), *FoliageTypeAsBP->GeneratedClass, NAME_None, RF_Transactional);
 		}
 	}
 }
