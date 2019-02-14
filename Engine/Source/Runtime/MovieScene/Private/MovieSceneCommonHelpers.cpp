@@ -13,6 +13,7 @@
 #include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
 #include "Sound/SoundNodeWavePlayer.h"
+#include "MovieSceneTrack.h"
 
 UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
@@ -29,7 +30,6 @@ UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSce
 
 	return nullptr;
 }
-
 
 UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
@@ -256,6 +256,50 @@ float MovieSceneHelpers::GetSoundDuration(USoundBase* Sound)
 
 	const float Duration = (SoundWave ? SoundWave->GetDuration() : 0.f);
 	return Duration == INDEFINITELY_LOOPING_DURATION ? SoundWave->Duration : Duration;
+}
+
+
+float MovieSceneHelpers::CalculateWeightForBlending(UMovieSceneSection* SectionToKey, FFrameNumber Time)
+{
+	float Weight = 1.0f;
+	UMovieSceneTrack* Track = SectionToKey->GetTypedOuter<UMovieSceneTrack>();
+	FOptionalMovieSceneBlendType BlendType = SectionToKey->GetBlendType();
+	if (Track && BlendType.IsValid() && (BlendType.Get() == EMovieSceneBlendType::Additive || BlendType.Get() == EMovieSceneBlendType::Absolute))
+	{
+		//if additive weight is just the inverse of any weight on it
+		if (BlendType.Get() == EMovieSceneBlendType::Additive)
+		{
+			float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+			Weight = !FMath::IsNearlyZero(TotalWeightValue) ? 1.0f / TotalWeightValue : 0.0f;
+		}
+		else
+		{
+
+			const TArray<UMovieSceneSection*>& Sections = Track->GetAllSections();
+			TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections;
+			for (UMovieSceneSection* Section : Sections)
+			{
+				if (Section->GetRange().Contains(Time))
+				{
+					OverlappingSections.Add(Section);
+				}
+			}
+			//if absolute need to calculate weight based upon other sections weights (+ implicit absolute weights)
+			int TotalNumOfAbsoluteSections = 1;
+			for (UMovieSceneSection* Section : OverlappingSections)
+			{
+				FOptionalMovieSceneBlendType NewBlendType = Section->GetBlendType();
+
+				if (Section != SectionToKey && NewBlendType.IsValid() && NewBlendType.Get() == EMovieSceneBlendType::Absolute)
+				{
+					++TotalNumOfAbsoluteSections;
+				}
+			}
+			float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+			Weight = !FMath::IsNearlyZero(TotalWeightValue) ? float(TotalNumOfAbsoluteSections) / TotalWeightValue : 0.0f;
+		}
+	}
+	return Weight;
 }
 
 FTrackInstancePropertyBindings::FTrackInstancePropertyBindings( FName InPropertyName, const FString& InPropertyPath, const FName& InFunctionName, const FName& InNotifyFunctionName )

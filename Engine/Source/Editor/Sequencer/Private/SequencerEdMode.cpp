@@ -472,7 +472,7 @@ void FSequencerEdMode::GetLocationAtTime(FMovieSceneEvaluationTrack* Track, UObj
 	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, Sequencer->GetFocusedTickResolution()));
 	Track->Interrogate(Context, InterrogationData, Object);
 
-	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformTrack::GetInterrogationKey()))
+	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformSection::GetInterrogationKey()))
 	{
 		KeyPos = Transform.GetTranslation();
 		KeyRot = Transform.GetRotation().Rotator();

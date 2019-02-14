@@ -311,6 +311,12 @@ private:
 	UPROPERTY(EditAnywhere, DisplayName = "Use Quaternion Interpolation", Category = "Rotation")
 	bool bUseQuaternionInterpolation;
 
+public:
+	/**
+	 * Access the interrogation key for transform data - any interrgation data stored with this key is guaranteed to be of type 'FTransform'
+	 */
+	MOVIESCENETRACKS_API static FMovieSceneInterrogationKey GetInterrogationKey();
+
 #if WITH_EDITORONLY_DATA
 
 public:

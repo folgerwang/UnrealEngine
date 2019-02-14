@@ -10,6 +10,7 @@
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 #include "Slate/WidgetTransform.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 #include "MovieScene2DTransformTemplate.generated.h"
 
 class UMovieScene2DTransformSection;
@@ -30,6 +31,8 @@ private:
 	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
 
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+
+	virtual void Interrogate(const FMovieSceneContext& Context, FMovieSceneInterrogationData& Container, UObject* BindingOverride) const override;
 
 	/** Translation curves */
 	UPROPERTY()
@@ -53,6 +56,13 @@ private:
 
 	UPROPERTY()
 	FMovieScene2DTransformMask Mask;
+};
+
+template<>
+inline void TPropertyActuator<FWidgetTransform>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FWidgetTransform>::ParamType InValue, const TBlendableTokenStack<FWidgetTransform>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FWidgetTransform Value = InValue;
+	InterrogationData.Add(Value, UMovieScene2DTransformSection::GetWidgetTransformInterrogationKey());
 };
 
 /** Access the unique runtime type identifier for a widget transform. */

@@ -118,6 +118,14 @@ public:
 	 * Sort predicate that sorts overlapping sections by row primarily, then by overlap priority
 	 */
 	static bool SortOverlappingSections(const UMovieSceneSection* A, const UMovieSceneSection* B);
+
+	/*
+	* Get weight needed to modify the global difference in order to correctly key this section due to it possibly being blended by other sections.
+	* @param Section The Section who's weight we are calculating.
+	* @param  Time we are at.
+	* @return Returns the weight that needs to be applied to the global difference to correctly key this section.
+	*/
+	static float CalculateWeightForBlending(UMovieSceneSection* SectionToKey, FFrameNumber Time);
 };
 
 /**

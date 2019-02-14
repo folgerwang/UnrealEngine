@@ -8,6 +8,10 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "GameFramework/Actor.h"
 #include "EulerTransform.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 #if WITH_EDITOR
 
@@ -89,6 +93,17 @@ struct F3DTransformChannelEditorData
 		ExternalValues[6].OnGetExternalValue = ExtractScaleX;
 		ExternalValues[7].OnGetExternalValue = ExtractScaleY;
 		ExternalValues[8].OnGetExternalValue = ExtractScaleZ;
+
+		ExternalValues[0].OnGetCurrentValueAndWeight = GetTranslationXValueAndWeight;
+		ExternalValues[1].OnGetCurrentValueAndWeight = GetTranslationYValueAndWeight;
+		ExternalValues[2].OnGetCurrentValueAndWeight = GetTranslationZValueAndWeight;
+		ExternalValues[3].OnGetCurrentValueAndWeight = GetRotationXValueAndWeight;
+		ExternalValues[4].OnGetCurrentValueAndWeight = GetRotationYValueAndWeight;
+		ExternalValues[5].OnGetCurrentValueAndWeight = GetRotationZValueAndWeight;
+		ExternalValues[6].OnGetCurrentValueAndWeight = GetScaleXValueAndWeight;
+		ExternalValues[7].OnGetCurrentValueAndWeight = GetScaleYValueAndWeight;
+		ExternalValues[8].OnGetCurrentValueAndWeight = GetScaleZValueAndWeight;
+
 	}
 
 	static TOptional<FVector> GetTranslation(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
@@ -187,6 +202,62 @@ struct F3DTransformChannelEditorData
 		return TOptional<FVector>();
 	}
 
+	static void GetValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, int32 Index, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		UMovieSceneTrack* Track = SectionToKey->GetTypedOuter<UMovieSceneTrack>();
+		FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+		FMovieSceneInterrogationData InterrogationData;
+		RootTemplate.CopyActuators(InterrogationData.GetAccumulator());
+
+		FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, TickResolution));
+		EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+		FVector CurrentPos; FRotator CurrentRot;
+		FVector CurrentScale;
+		for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformSection::GetInterrogationKey()))
+		{
+			CurrentPos = Transform.GetTranslation();
+			CurrentRot = Transform.Rotator();
+			CurrentScale = Transform.GetScale3D();
+			break;
+		}
+
+		switch (Index)
+		{
+		case 0:
+			OutValue = CurrentPos.X;
+			break;
+		case 1:
+			OutValue = CurrentPos.Y;
+			break;
+		case 2:
+			OutValue = CurrentPos.Z;
+			break;
+		case 3:
+			OutValue = CurrentRot.Roll;
+			break;
+		case 4:
+			OutValue = CurrentRot.Pitch;
+			break;
+		case 5:
+			OutValue = CurrentRot.Yaw;
+			break;
+		case 6:
+			OutValue = CurrentScale.X;
+			break;
+		case 7:
+			OutValue = CurrentScale.Y;
+			break;
+		case 8:
+			OutValue = CurrentScale.Z;
+			break;
+
+		}
+		OutWeight = MovieSceneHelpers::CalculateWeightForBlending(SectionToKey, KeyTime);
+	}
+
+
 	static TOptional<float> ExtractTranslationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
@@ -234,6 +305,53 @@ struct F3DTransformChannelEditorData
 		TOptional<FVector> Scale = GetScale(InObject, Bindings);
 		return Scale.IsSet() ? Scale->Z : TOptional<float>();
 	}
+
+	static void GetTranslationXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 0, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetTranslationYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey,  FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 1, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetTranslationZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 2, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 3, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 4, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 5, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 6, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 7, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 8, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+
 
 	FMovieSceneChannelMetaData      MetaData[10];
 	TMovieSceneExternalValue<float> ExternalValues[10];
@@ -596,4 +714,9 @@ void UMovieScene3DTransformSection::SetBlendType(EMovieSceneBlendType InBlendTyp
 		}
 
 	}
+}
+FMovieSceneInterrogationKey UMovieScene3DTransformSection::GetInterrogationKey()
+{
+	static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
 }

@@ -168,30 +168,9 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber T
 		}
 		//we need to calculate weight also possibly
 		FOptionalMovieSceneBlendType BlendType = SectionToKey->GetBlendType();
-		if (bCalculateWeight && BlendType.IsValid() && (BlendType.Get() == EMovieSceneBlendType::Additive || BlendType.Get() == EMovieSceneBlendType::Absolute))
+		if (bCalculateWeight)
 		{
-			//if additive weight is just the inverse of any weight on it
-			if (BlendType.Get() == EMovieSceneBlendType::Additive)
-			{
-				float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
-				Weight = !FMath::IsNearlyZero(TotalWeightValue) ? 1.0f / TotalWeightValue : 0.0f;
-			}
-			else
-			{
-				//if absolute need to calculate weight based upon other sections weights (+ implicit absolute weights)
-				int TotalNumOfAbsoluteSections = 1;
-				for (UMovieSceneSection* Section : OverlappingSections)
-				{
-					FOptionalMovieSceneBlendType NewBlendType = Section->GetBlendType();
-
-					if (Section != SectionToKey  && NewBlendType.IsValid() && NewBlendType.Get() == EMovieSceneBlendType::Absolute)
-					{
-						++TotalNumOfAbsoluteSections;
-					}
-				}
-				float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
-				Weight = !FMath::IsNearlyZero(TotalWeightValue) ? float(TotalNumOfAbsoluteSections) / TotalWeightValue : 0.0f;
-			}
+			Weight = MovieSceneHelpers::CalculateWeightForBlending(SectionToKey, Time);
 		}
 		return SectionToKey;
 	}

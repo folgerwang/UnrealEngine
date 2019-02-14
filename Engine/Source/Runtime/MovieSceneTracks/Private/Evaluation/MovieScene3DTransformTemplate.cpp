@@ -92,7 +92,7 @@ struct FComponentTransformActuator : TMovieSceneBlendingActuator<F3DTransformTra
 
 	virtual void Actuate(FMovieSceneInterrogationData& InterrogationData, const F3DTransformTrackToken& InValue, const TBlendableTokenStack<F3DTransformTrackToken>& OriginalStack, const FMovieSceneContext& Context) const override
 	{
-		InterrogationData.Add(FTransform(InValue.Rotation.Quaternion(), InValue.Translation, InValue.Scale), UMovieScene3DTransformTrack::GetInterrogationKey());
+		InterrogationData.Add(FTransform(InValue.Rotation.Quaternion(), InValue.Translation, InValue.Scale), UMovieScene3DTransformSection::GetInterrogationKey());
 	}
 };
 

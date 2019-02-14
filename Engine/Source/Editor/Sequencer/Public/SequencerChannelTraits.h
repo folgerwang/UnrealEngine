@@ -183,6 +183,7 @@ namespace Sequencer
 	 * Add or update a key for this channel's current value
 	 *
 	 * @param InChannel          The channel to create a key for
+	 * @param InSectionToKey     The Section to key
 	 * @param InTime             The time at which to add a key
 	 * @param InSequencer        The currently active sequencer
 	 * @param InObjectBindingID  The object binding ID that this section's track is bound to
@@ -192,6 +193,7 @@ namespace Sequencer
 	template<typename ChannelType>
 	FKeyHandle AddOrUpdateKey(
 		ChannelType*                    InChannel,
+		UMovieSceneSection*             InSectionToKey,
 		FFrameNumber                    InTime,
 		ISequencer&                     InSequencer,
 		const FGuid&                    InObjectBindingID,
@@ -206,6 +208,7 @@ namespace Sequencer
 	 * Add or update a key for this channel's current value, using an external value if possible
 	 *
 	 * @param InChannel          The channel to create a key for
+	 * @param InSectionToKey     The Section to key
 	 * @param InExternalValue    The external value definition
 	 * @param InTime             The time at which to add a key
 	 * @param InSequencer        The currently active sequencer
@@ -216,6 +219,7 @@ namespace Sequencer
 	template<typename ChannelType, typename ValueType>
 	FKeyHandle AddOrUpdateKey(
 		ChannelType*                               InChannel,
+		UMovieSceneSection*             SectionToKey,
 		const TMovieSceneExternalValue<ValueType>& InExternalValue,
 		FFrameNumber                               InTime,
 		ISequencer&                                InSequencer,

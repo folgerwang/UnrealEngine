@@ -34,8 +34,8 @@ class ISectionLayoutBuilder;
 template<typename> class  TArrayView;
 
 /** Overrides for adding or updating a key for non-standard channels */
-FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, const TMovieSceneExternalValue<float>& EditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings);
-FKeyHandle AddOrUpdateKey(FMovieSceneActorReferenceData* Channel, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings);
+FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, UMovieSceneSection* SectionToKey,  const TMovieSceneExternalValue<float>& EditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings);
+FKeyHandle AddOrUpdateKey(FMovieSceneActorReferenceData* Channel, UMovieSceneSection* SectionToKey, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings);
 
 /** Key editor overrides */
 bool CanCreateKeyEditor(const FMovieSceneBoolChannel*       Channel);

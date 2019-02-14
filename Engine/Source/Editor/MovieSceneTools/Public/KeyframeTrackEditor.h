@@ -35,30 +35,6 @@ struct IImpl
 
 };
 
-template<typename ChannelType, typename ValueType>
-struct TSetDefaultImpl : IImpl
-{
-	int32 ChannelIndex;
-	ValueType ValueToSet;
-
-	TSetDefaultImpl(int32 InChannelIndex, const ValueType& InValue)
-		: ChannelIndex(InChannelIndex), ValueToSet(InValue)
-	{}
-
-	virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
-	{
-		ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-		if (Channel && Channel->GetData().GetTimes().Num() == 0)
-		{
-			if (Section->TryModify())
-			{
-				using namespace MovieScene;
-				SetChannelDefault(Channel, ValueToSet);
-			}
-		}
-	}
-};
-
 //If this implementation changes need to change the specializations below.
 template<typename ChannelType, typename ValueType>
 struct TAddKeyImpl : IImpl
@@ -286,14 +262,8 @@ struct FMovieSceneChannelValueSetter
 	static FMovieSceneChannelValueSetter Create(int32 ChannelIndex, ValueType InNewValue, bool bAddKey)
 	{
 		FMovieSceneChannelValueSetter NewValue;
-		if (bAddKey)
-		{
-			NewValue.Impl = TAddKeyImpl<ChannelType, typename TDecay<ValueType>::Type>(ChannelIndex, Forward<ValueType>(InNewValue));
-		}
-		else
-		{
-			NewValue.Impl = TSetDefaultImpl<ChannelType, typename TDecay<ValueType>::Type>(ChannelIndex, Forward<ValueType>(InNewValue));
-		}
+		NewValue.Impl = TAddKeyImpl<ChannelType, typename TDecay<ValueType>::Type>(ChannelIndex, Forward<ValueType>(InNewValue));
+		
 		return MoveTemp(NewValue);
 	}
 

@@ -9,6 +9,7 @@
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 #include "Layout/Margin.h"
+#include "Animation/MovieSceneMarginSection.h"
 #include "MovieSceneMarginTemplate.generated.h"
 
 class UMovieSceneMarginSection;
@@ -33,6 +34,7 @@ private:
 
 	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+	virtual void Interrogate(const FMovieSceneContext& Context, FMovieSceneInterrogationData& Container, UObject* BindingOverride) const override;
 
 	UPROPERTY()
 	FMovieSceneFloatChannel TopCurve;
@@ -48,6 +50,13 @@ private:
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;
+};
+
+template<>
+inline void TPropertyActuator<FMargin>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FMargin>::ParamType InValue, const TBlendableTokenStack<FMargin>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FMargin Value = InValue;
+	InterrogationData.Add(Value, UMovieSceneMarginSection::GetMarginInterrogationKey());
 };
 
 /** Access the unique runtime type identifier for a margin. */

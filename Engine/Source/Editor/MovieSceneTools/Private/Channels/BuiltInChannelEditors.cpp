@@ -22,32 +22,47 @@
 #define LOCTEXT_NAMESPACE "BuiltInChannelEditors"
 
 
-FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, const TMovieSceneExternalValue<float>& ExternalValue, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings)
+FKeyHandle AddOrUpdateKey(FMovieSceneFloatChannel* Channel, UMovieSceneSection* SectionToKey, const TMovieSceneExternalValue<float>& ExternalValue, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings)
 {
 	TOptional<float> Value;
-
-	// Add a key for the current value of the valid first object we can find
-	if (ExternalValue.OnGetExternalValue && InObjectBindingID.IsValid())
+	float CurrentValue = 0.0f, CurrentWeight = 1.0f;
+	if ((ExternalValue.OnGetExternalValue && InObjectBindingID.IsValid()))
 	{
 		for (TWeakObjectPtr<> WeakObject : Sequencer.FindBoundObjects(InObjectBindingID, Sequencer.GetFocusedTemplateID()))
 		{
 			if (UObject* Object = WeakObject.Get())
 			{
 				Value = ExternalValue.OnGetExternalValue(*Object, PropertyBindings);
+				if (Value.IsSet() && ExternalValue.OnGetCurrentValueAndWeight && SectionToKey)
+				{
+					CurrentValue = Value.Get(0.0f);
+					ExternalValue.OnGetCurrentValueAndWeight(Object, SectionToKey, InTime, Sequencer.GetFocusedTickResolution(), Sequencer.GetEvaluationTemplate(),CurrentValue,CurrentWeight);
+				}
 				break;
 			}
 		}
 	}
 
 	float NewValue = Channel->GetDefault().Get(0.f);
-	Channel->Evaluate(InTime, NewValue);
-	
+	bool bWasEvaluated = Channel->Evaluate(InTime, NewValue);
+	if (Value.IsSet()) //need to get the diff between Value(Global) and CurrentValue and apply that to the local
+	{
+		if (bWasEvaluated)
+		{
+			float CurrentGlobalValue = Value.GetValue();
+			NewValue = (Value.Get(0.0f) - CurrentValue) * CurrentWeight + NewValue;
+		}
+		else //Nothing set (key or default) on channel so use external value
+		{
+			NewValue = Value.Get(0.0f);
+		}
+	}
 
 	using namespace MovieScene;
 	return AddKeyToChannel(Channel, InTime, NewValue, Sequencer.GetKeyInterpolation());
 }
 
-FKeyHandle AddOrUpdateKey(FMovieSceneActorReferenceData* Channel, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings)
+FKeyHandle AddOrUpdateKey(FMovieSceneActorReferenceData* Channel, UMovieSceneSection* SectionToKey, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& InObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings)
 {
 	AActor* CurrentActor = nullptr;
 

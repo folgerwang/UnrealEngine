@@ -33,12 +33,6 @@ UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()
 	return NewObject<UMovieScene3DTransformSection>(this, NAME_None, RF_Transactional);
 }
 
-FMovieSceneInterrogationKey UMovieScene3DTransformTrack::GetInterrogationKey()
-{
-	static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
-	return TypeID;
-}
-
 
 #if WITH_EDITOR
 

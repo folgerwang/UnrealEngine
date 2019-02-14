@@ -180,6 +180,7 @@ struct TSequencerChannelInterfaceBase<ChannelType, false> : TSequencerChannelInt
 	 * Add (or update) a key to the specified channel using it's current value at that time, or some external value specified by the extended editor data
 	 *
 	 * @param Channel               The channel to add a key to
+	 * @param SectionToKey          The Section to Key
 	 * @param ExtendedEditorData    A pointer to the extended editor data for this channel of type TMovieSceneChannelTraits<>::ExtendedEditorDataType
 	 * @param InTime                The time at which to add a key
 	 * @param InSequencer           The currently active sequencer
@@ -187,10 +188,10 @@ struct TSequencerChannelInterfaceBase<ChannelType, false> : TSequencerChannelInt
 	 * @param PropertyBindings      (Optional) Property bindings where this channel exists on a property track
 	 * @return A handle to the new or updated key
 	 */
-	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* InChannel, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const override
+	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* InChannel, UMovieSceneSection* SectionToKey, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const override
 	{
 		using namespace Sequencer;
-		return AddOrUpdateKey(static_cast<ChannelType*>(InChannel), InTime, Sequencer, ObjectBindingID, PropertyBindings);
+		return AddOrUpdateKey(static_cast<ChannelType*>(InChannel), SectionToKey, InTime, Sequencer, ObjectBindingID, PropertyBindings);
 	}
 };
 
@@ -206,6 +207,7 @@ struct TSequencerChannelInterfaceBase<ChannelType, true> : TSequencerChannelInte
 	 * Add (or update) a key to the specified channel using it's current value at that time, or some external value specified by the extended editor data
 	 *
 	 * @param Channel               The channel to add a key to
+	 * @param SectionToKey          The Section to Key
 	 * @param ExtendedEditorData    A pointer to the extended editor data for this channel of type TMovieSceneChannelTraits<>::ExtendedEditorDataType
 	 * @param InTime                The time at which to add a key
 	 * @param InSequencer           The currently active sequencer
@@ -213,7 +215,7 @@ struct TSequencerChannelInterfaceBase<ChannelType, true> : TSequencerChannelInte
 	 * @param PropertyBindings      (Optional) Property bindings where this channel exists on a property track
 	 * @return A handle to the new or updated key
 	 */
-	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* InChannel, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const override
+	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* InChannel, UMovieSceneSection* SectionToKey, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& Sequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const override
 	{
 		using namespace Sequencer;
 
@@ -221,7 +223,7 @@ struct TSequencerChannelInterfaceBase<ChannelType, true> : TSequencerChannelInte
 		check(ExtendedEditorData);
 
 		const auto* TypedEditorData = static_cast<const ExtendedEditorDataType*>(ExtendedEditorData);
-		return AddOrUpdateKey(static_cast<ChannelType*>(InChannel), *TypedEditorData, InTime, Sequencer, ObjectBindingID, PropertyBindings);
+		return AddOrUpdateKey(static_cast<ChannelType*>(InChannel), SectionToKey, *TypedEditorData, InTime, Sequencer, ObjectBindingID, PropertyBindings);
 	}
 };
 

@@ -51,6 +51,7 @@ struct ISequencerChannelInterface
 	 * Add (or update) a key to the specified channel using it's current value at that time, or some external value specified by the extended editor data
 	 *
 	 * @param Channel               The channel to add a key to
+	 * @param SectionToKey          The SectionToKey
 	 * @param ExtendedEditorData    A pointer to the extended editor data for this channel of type TMovieSceneChannelTraits<>::ExtendedEditorDataType
 	 * @param InTime                The time at which to add a key
 	 * @param InSequencer           The currently active sequencer
@@ -58,7 +59,7 @@ struct ISequencerChannelInterface
 	 * @param PropertyBindings      (Optional) Property bindings where this channel exists on a property track
 	 * @return A handle to the new or updated key
 	 */
-	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* Channel, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& InSequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const = 0;
+	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* Channel, UMovieSceneSection* SectionToKey, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& InSequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const = 0;
 
 	/**
 	 * Copy all the keys specified in KeyMask to the specified clipboard

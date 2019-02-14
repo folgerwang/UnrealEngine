@@ -1939,14 +1939,5 @@ FMovieSceneEvaluationTrack* MovieSceneToolHelpers::GetEvaluationTrack(ISequencer
 			return EvalTrack;
 		}
 	}
-	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately);
-	Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
-	if (Template)
-	{
-		if (FMovieSceneEvaluationTrack* EvalTrack = Template->FindTrack(TrackSignature))
-		{
-			return EvalTrack;
-		}
-	}
 	return nullptr;
 }

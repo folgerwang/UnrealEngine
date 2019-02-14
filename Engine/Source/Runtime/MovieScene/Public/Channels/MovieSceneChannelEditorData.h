@@ -8,6 +8,7 @@
 #include "Math/Color.h"
 #include "Templates/Function.h"
 #include "MovieSceneCommonHelpers.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 #if WITH_EDITOR
 
@@ -95,6 +96,9 @@ struct TMovieSceneExternalValue
 
 	/** Function to invoke to get the current value of the property of an object */
 	TFunction<TOptional<T>(UObject&, FTrackInstancePropertyBindings*)> OnGetExternalValue;
+
+	/** Optional Function To Get Current Value and Weight, needed for setting keys on blended sections */
+	TFunction<void (UObject*, UMovieSceneSection*,  FFrameNumber, FFrameRate, FMovieSceneRootEvaluationTemplateInstance&, T&, float&) > OnGetCurrentValueAndWeight;
 };
 
 

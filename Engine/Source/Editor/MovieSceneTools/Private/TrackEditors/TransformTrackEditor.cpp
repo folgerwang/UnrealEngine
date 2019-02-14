@@ -852,7 +852,7 @@ bool F3DTransformTrackEditor::ModifyGeneratedKeysByCurrentAndWeight(UObject *Obj
 			
 	FVector CurrentPos; FRotator CurrentRot;
 	FVector CurrentScale;
-	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformTrack::GetInterrogationKey()))
+	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformSection::GetInterrogationKey()))
 	{
 		CurrentPos = Transform.GetTranslation();
 		CurrentRot = Transform.Rotator();

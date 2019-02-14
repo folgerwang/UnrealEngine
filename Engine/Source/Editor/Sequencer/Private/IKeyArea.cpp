@@ -69,7 +69,7 @@ FKeyHandle IKeyArea::AddOrUpdateKey(FFrameNumber Time, const FGuid& ObjectBindin
 	if (EditorInterface && Channel)
 	{
 		FTrackInstancePropertyBindings* BindingsPtr = PropertyBindings.IsSet() ? &PropertyBindings.GetValue() : nullptr;
-		return EditorInterface->AddOrUpdateKey_Raw(Channel, RawExtendedData, Time, InSequencer, ObjectBindingID, BindingsPtr);
+		return EditorInterface->AddOrUpdateKey_Raw(Channel, WeakOwningSection.Get(), RawExtendedData, Time, InSequencer, ObjectBindingID, BindingsPtr);
 	}
 
 	return FKeyHandle();
