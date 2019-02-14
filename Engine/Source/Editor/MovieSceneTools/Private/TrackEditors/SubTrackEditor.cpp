@@ -204,12 +204,31 @@ public:
 
 			int32 NumTracks = MovieScene->GetPossessableCount() + MovieScene->GetSpawnableCount() + MovieScene->GetMasterTracks().Num();
 
+			FVector2D TopLeft = InPainter.SectionGeometry.AbsoluteToLocal(InPainter.SectionClippingRect.GetTopLeft()) + FVector2D(1.f, -1.f);
+
+			FSlateFontInfo FontInfo = FEditorStyle::GetFontStyle("NormalFont");
+
+			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
+
+			auto GetFontHeight = [&]
+			{
+				return FontCache->GetMaxCharacterHeight(FontInfo, 1.f) + FontCache->GetBaseline(FontInfo, 1.f);
+			};
+			while (GetFontHeight() > InPainter.SectionGeometry.Size.Y && FontInfo.Size > 11)
+			{
+				FontInfo.Size = FMath::Max(FMath::FloorToInt(FontInfo.Size - 6.f), 11);
+			}
+
 			FSlateDrawElement::MakeText(
 				InPainter.DrawElements,
 				++LayerId,
-				InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
+				InPainter.SectionGeometry.MakeChild(
+					FVector2D(InPainter.SectionGeometry.Size.X, GetFontHeight()),
+					FSlateLayoutTransform(TopLeft + FVector2D(0.f, GetFontHeight()) + FVector2D(11.f, GetFontHeight()*2.f))
+				).ToPaintGeometry(),
+				//InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
 				FText::Format(LOCTEXT("NumTracksFormat", "{0} track(s)"), FText::AsNumber(NumTracks)),
-				FEditorStyle::GetFontStyle("NormalFont"),
+				FontInfo,
 				DrawEffects,
 				FColor(200, 200, 200)
 			);
